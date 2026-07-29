@@ -123,14 +123,14 @@ class LBFGS(Optimizer):
         self.coord_diffs = list()
         self.grad_diffs = list()
 
-    # Subclass restart keys required for a bit-exact resume.  The C7 uphill-
+    # Subclass restart keys required for a bit-exact resume. The uphill-
     # rejection adaptive state (_trial_max_step, rejected_uphill_steps,
     # rejections_at_floor) is mutated every cycle by the reject/relax logic in
     # :meth:`optimize`; omitting it silently reset a resumed run to the
     # __init__ defaults and diverged the trajectory across a rejection
     # boundary.  Those three keys are new, so they are *restored tolerantly*
     # (see :meth:`_set_opt_restart_info`) and are kept out of the transactional
-    # required set below so pre-C8 checkpoints still load.
+    # required set below so older checkpoints still load.
     required_opt_restart_keys = (
         "coord_diffs",
         "grad_diffs",
@@ -146,7 +146,7 @@ class LBFGS(Optimizer):
             "double_damp": self.double_damp,
             "gamma_mult": self.gamma_mult,
             "keep_last": self.keep_last,
-            # C7 uphill-rejection adaptive state.
+            # Uphill-rejection adaptive state.
             "_trial_max_step": self._trial_max_step,
             "rejected_uphill_steps": self.rejected_uphill_steps,
             "rejections_at_floor": self.rejections_at_floor,
@@ -163,7 +163,7 @@ class LBFGS(Optimizer):
         self.grad_diffs = [np.array(gd) for gd in opt_restart_info["grad_diffs"]]
         for attr in ("double_damp", "gamma_mult", "keep_last"):
             setattr(self, attr, opt_restart_info[attr])
-        # Backward-tolerant: checkpoints written before the C7 adaptive state
+        # Backward-tolerant: checkpoints written before the adaptive state
         # was serialized keep the __init__ defaults already assigned above.
         if "_trial_max_step" in opt_restart_info:
             self._trial_max_step = float(opt_restart_info["_trial_max_step"])

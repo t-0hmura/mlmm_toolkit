@@ -1,18 +1,12 @@
 """Activation contract for the multi-structure ``all`` pre-alignment step.
 
-Regression guard for C4b / M27. The ``all`` pre-alignment block (global
-coordinate continuity across path-opt segments, ``mlmm/workflows/all.py``
-"Global pre-alignment for coordinate continuity across segments") builds its
+The ``all`` pre-alignment block for global coordinate continuity across
+path-opt segments builds its
 shared ML/MM calculator through the unified request-local template
 (``_stage_calc_kwargs``).
 
-Before C4b the block hand-built its calc kwargs WITHOUT ``model_pdb``, so
-``mlmm(**kw)`` reached ``MLMMCore.__init__`` where
-``shutil.copy(model_pdb, ...)`` received ``None`` and raised ``TypeError``.
-The surrounding ``except Exception`` then silently skipped pre-alignment, so
-the step had been dead since v0.3.0. C4b routes the pre-align site through
-``_stage_calc_kwargs`` like every other calculator site, which always threads
-``model_pdb`` -- activating the step.
+The block uses ``_stage_calc_kwargs`` like every other calculator site, which
+always threads ``model_pdb`` into ``MLMMCore``.
 
 These tests pin the fixed contract at the calculator-kwargs boundary (a fast,
 GPU-free CI guard). End-to-end runtime activation is validated separately by a

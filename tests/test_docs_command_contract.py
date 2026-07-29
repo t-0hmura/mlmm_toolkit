@@ -1,4 +1,4 @@
-"""Contracts for the local docs-command / live-CLI checker (M64, P04).
+"""Contracts for the local docs-command and live-CLI checker.
 
 Positive controls exercise the real repository; negative controls inject a
 single fault (an invented option, an unavailable lazy command, or a legacy
@@ -25,7 +25,7 @@ def _root_cli():
 
 
 # --------------------------------------------------------------------------- #
-# M64 — retain every command for static validation
+# Retain every command for static validation
 # --------------------------------------------------------------------------- #
 def test_real_docs_commands_pass_option_validation() -> None:
     commands = dc.extract_docs_commands()
@@ -82,7 +82,7 @@ def test_unavailable_lazy_command_fails_rather_than_disappears() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# P04 — live-derived canonical boolean style
+# Live-derived canonical boolean style
 # --------------------------------------------------------------------------- #
 def test_live_bool_options_nonempty_and_real_surface_clean() -> None:
     live = dc.resolve_live_bool_options(_root_cli())

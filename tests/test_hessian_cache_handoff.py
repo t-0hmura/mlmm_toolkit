@@ -81,7 +81,7 @@ def test_discard_prevents_missing_endpoint_from_reusing_previous_seed() -> None:
 
 
 # ---------------------------------------------------------------------------
-# M15 — defensive in-process ownership
+# — defensive in-process ownership
 # ---------------------------------------------------------------------------
 def test_load_returns_independent_tensor_snapshots() -> None:
     hessian_cache.store(
@@ -121,7 +121,7 @@ def test_load_snapshot_isolates_numpy_meta_and_active_dofs() -> None:
 
 
 # ---------------------------------------------------------------------------
-# M70 — complete reuse identity
+# — complete reuse identity
 # ---------------------------------------------------------------------------
 def _identity(
     *,
@@ -571,7 +571,7 @@ def test_custom_calculator_content_change_rejects_same_path_cache(
 
 
 def test_mlmm_potential_identity_rejects_parm7_link_embed_region_changes(tmp_path) -> None:
-    """M70/M54: the mlmm potential identity rejects a topology-content change,
+    """The mlmm potential identity rejects a topology-content change,
     a link-method change, an embedding change, and a region-map change."""
 
     parm7 = tmp_path / "system.parm7"

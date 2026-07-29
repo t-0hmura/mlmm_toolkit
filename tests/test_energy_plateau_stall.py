@@ -1,4 +1,4 @@
-"""M14/P14 falsifiers: an energy-only plateau is an additive 'stalled' outcome,
+"""An energy-only plateau is an additive 'stalled' outcome,
 never convergence, and it stops further retry work.
 
 These bind to the production optimizer/renderer code paths (no reimplemented
@@ -130,7 +130,7 @@ def test_energy_plateau_truth_table(tmp_path, force, step, expect_converged):
         assert opt.stop_requested is True
         assert opt.termination_status == "stalled"
         assert "energy plateau" in opt.stop_reason
-        # ConvInfo force/step fields stay truthful (a plateau never flips them).
+        # A plateau does not alter the ConvInfo force/step fields.
         assert bool(conv_info.max_force_converged) == bool(np.max(np.abs(force)) < 1e-3)
 
 
@@ -289,7 +289,7 @@ def test_emit_terminal_status_stalled_and_converged_are_distinct(capsys):
 
 def test_hessian_dimer_stops_after_child_stall(tmp_path, monkeypatch):
     """A stalled child LBFGS makes the runner stalled and stops the segment
-    loop before any further segment or Hessian update (M14/P14)."""
+    loop before any further segment or Hessian update."""
     runner = HessianDimer.__new__(HessianDimer)
     runner.max_total_cycles = 100
     runner._cycles_spent = 0
@@ -331,7 +331,7 @@ def test_hessian_dimer_stops_after_child_stall(tmp_path, monkeypatch):
     assert _tsopt_terminal_status(runner, saddle_verified=True) == "stalled"
 
 
-# ---- C7 microiteration terminal outcome (opt + tsopt share the helper) --------
+# ---- Microiteration terminal outcome (opt + tsopt share the helper) ----------
 
 def _real_terminal_optimizer(tmp_path, **state):
     """A real pysisyphus optimizer forced into a chosen terminal state.
@@ -348,7 +348,7 @@ def _real_terminal_optimizer(tmp_path, **state):
 
 
 def test_microiter_surfaces_latest_micro_stall_on_max_cycles(tmp_path):
-    """Item C7-3: a macro that merely ran out of cycles while the latest micro
+    """A macro that merely ran out of cycles while the latest micro
     (MM) relaxation stalled is surfaced as ``stalled`` with the micro reason,
     not a reasonless ``not_converged``."""
     from mlmm.core.utils import finalize_microiter_macro_convergence
@@ -368,7 +368,7 @@ def test_microiter_surfaces_latest_micro_stall_on_max_cycles(tmp_path):
 
 
 def test_microiter_demotes_converged_macro_on_latest_micro_stall(tmp_path):
-    """Item C7-3 (existing demotion preserved): a would-be macro convergence with
+    """A would-be macro convergence with
     a stalled latest micro relaxation is demoted to ``stalled``."""
     from mlmm.core.utils import finalize_microiter_macro_convergence
 
@@ -421,7 +421,7 @@ def test_microiter_keeps_macro_own_stop_reason_over_micro(tmp_path):
 
 
 def test_opt_result_converged_sourced_from_microiter_result():
-    """Item C7-1: on the microiteration path the opt result.json convergence flag
+    """On the microiteration path the opt result.json convergence flag
     is sourced from ``microiter_result['converged']`` (there is no standalone
     optimizer in scope), so a converged microiter run is no longer mislabeled
     ``not_converged``. Feeding this non-stalled ``True`` into run_opt's inline

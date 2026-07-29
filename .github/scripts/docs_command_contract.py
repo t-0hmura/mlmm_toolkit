@@ -1,12 +1,6 @@
 #!/usr/bin/env python3
 """Local authored-command / live-CLI contract for mlmm docs and examples.
 
-This is a field-isomorphic copy of pdb2reaction's docs-command checker shape.
-mlmm keeps its own independent implementation on purpose: the two products are
-independent (no cross-repo import) and only the small data shape and the
-falsifier design are shared. Product-specific constants (``TOOL_NAME``, the
-root CLI import, example paths) stay local to this module.
-
 The module retains *every* authored command for static validation and
 classifies execution eligibility separately. A quoted token that parses as a
 Python list/tuple literal is DATA (e.g. ``-s "[(12,45,2.20)]"``), not synopsis

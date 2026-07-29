@@ -102,7 +102,9 @@ output option を上書きできません。短縮 option の連結形と
 
 ## クライアント設定
 
-すべての MCP クライアントは同じ `mcpServers` スキーマを取ります。以下のスニペットを、クライアントの MCP 設定ファイル（macOS では Claude Desktop の `~/Library/Application Support/Claude/claude_desktop_config.json`、Cursor の `~/.cursor/mcp.json` など）に貼り付けてください:
+クライアントごとに設定スキーマは異なります。次のスニペットはトップレベルの
+`mcpServers` オブジェクトを受け付けるクライアント用です。設定ファイルと
+スキーマは各クライアントの MCP ドキュメントで確認してください。
 
 ```json
 {
@@ -116,6 +118,20 @@ output option を上書きできません。短縮 option の連結形と
 ```
 
 明示的な環境変数オーバーライド（PATH / AMBERHOME / CUDA_VISIBLE_DEVICES）を含む完全な例については、[`examples/mcp_client_config.json`](../../examples/mcp_client_config.json) を参照してください。
+
+VS Code は `.vscode/mcp.json` でトップレベルの `servers` オブジェクトを使います
+（[VS Code MCP 設定リファレンス](https://code.visualstudio.com/docs/agents/reference/mcp-configuration)）。
+
+```json
+{
+  "servers": {
+    "mlmm": {
+      "command": "mlmm-mcp",
+      "args": []
+    }
+  }
+}
+```
 
 ## サンドボックス / 安全性に関する注意
 

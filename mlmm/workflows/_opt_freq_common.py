@@ -3,9 +3,8 @@
 Both ``mlmm.workflows.opt`` and ``mlmm.workflows.freq`` need the same base
 geometry / calculator keyword templates and the same 1-based -> 0-based
 layer / freeze normalization.  Hosting them in this lower module — instead of
-``freq`` importing them from ``opt`` — is what removes the historical
-``freq <-> opt`` import cycle (M39): both workflows import from here, and
-``freq`` no longer imports ``opt``'s top-level surface.
+``freq`` importing them from ``opt`` — keeps both workflows independent of
+each other's top-level surfaces.
 
 This module imports only ``mlmm.core.defaults`` (foundation data) and ``click``.
 """

@@ -10,22 +10,21 @@ before assigning partial Hessians to ``geometry.cart_hessian``.
 
 Ownership and reuse semantics
 -----------------------------
-* **M15 — defensive ownership.**  ``store()`` copies every mutable payload in,
+* **Defensive ownership.** ``store()`` copies supported array and container
+  payloads in,
   and every read (``load`` / ``load_matching``) returns a *fresh* defensive
   snapshot.  A consumer may mass-weight, project, or otherwise mutate what it
   receives without corrupting the raw Cartesian artifact retained in the cache.
-* **M70 — complete reuse identity.**  A cached Hessian is only a valid
-  substitute for a fresh evaluation when the *entire* evaluation context — run,
-  system, evaluator, potential composition, active space, constraints, and
-  artifact representation — is identical (coordinates within the established
-  bohr round-trip tolerance).  ``build_identity()`` captures that context as a
+* **Reuse identity.** A cached Hessian is only reused when the captured run,
+  system, evaluator, potential, active-space, constraint, and artifact fields
+  match (coordinates use the established bohr round-trip tolerance).
+  ``build_identity()`` records those fields as a
   private ``hessian-cache-identity/v1`` token and ``load_matching()`` is the
   single reuse chokepoint that requires an exact match.  A legacy
   coordinate-only entry (no identity) is never reused through
   ``load_matching``.
 
-This is an implementation detail of mlmm_toolkit v0.3.3; it is not
-``pescape.api.v1`` and it does not import pdb2reaction.
+This is an implementation detail of mlmm_toolkit v0.3.3.
 """
 
 import hashlib
@@ -41,7 +40,7 @@ from mlmm.core.result_commit import MLMM_RUN_ID_ENV as RUN_ID_ENV
 
 _cache: Dict[str, Any] = {}
 
-# Private token schema.  Future-friendly field names, but a frozen-minor detail.
+# Internal cache-token schema.
 IDENTITY_SCHEMA = "hessian-cache-identity/v1"
 
 # Role -> artifact method/source contract.  Producers stamp this; consumers
@@ -207,7 +206,7 @@ def _potential_identity(calc_cfg: Mapping) -> Dict[str, Any]:
     invalid substitute: MM backend, link method, embedding, CMAP, the QM-region
     charge/spin, the region/layer definition, and the *content* of the topology
     / region files (so replacing a parm7's bytes at the same path rejects
-    reuse — the M54 topology-content contract, hashed here without importing
+    reuse. The topology-content identity is hashed here without importing
     hessian_ff).
     """
 
@@ -252,7 +251,7 @@ def _potential_identity(calc_cfg: Mapping) -> Dict[str, Any]:
     if effective_mm_mode == "finite_difference":
         potential["mm_fd_delta"] = float(calc_cfg.get("mm_fd_delta", 1.0e-3))
     # Topology / region source files — identity is the content digest so a
-    # same-path byte replacement rejects reuse (M54 topology content identity).
+    # same-path byte replacement rejects reuse (topology content identity).
     for key in ("real_parm7", "model_pdb", "input_pdb"):
         path = calc_cfg.get(key)
         if path:
@@ -297,7 +296,7 @@ def _potential_identity(calc_cfg: Mapping) -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Identity construction and comparison (M70)
+# Identity construction and comparison
 # ---------------------------------------------------------------------------
 def build_identity(
     *,
@@ -603,7 +602,7 @@ def store(
 
 
 def _snapshot(entry: Mapping) -> Dict[str, Any]:
-    """Return a defensive copy of a cache entry (M15)."""
+    """Return a defensive copy of a cache entry."""
 
     snap: Dict[str, Any] = {
         "hessian": _clone_value(entry.get("hessian")),

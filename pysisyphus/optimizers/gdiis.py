@@ -21,7 +21,7 @@ from scipy.optimize import minimize
 from pysisyphus.helpers import array2string
 import torch
 
-# M5 (refinement_plan §M1+M5): one-place torch-vs-numpy dispatch for the
+# Dispatch between torch and NumPy for the
 # subset of GDIIS sites where both backends share `xp.linalg.norm` / `xp.sum`
 # semantics. Sites with torch-specific slicing / einsum / `from_numpy` keep
 # their inline isinstance branches.
@@ -117,7 +117,7 @@ def gdiis(err_vecs, coords, forces, ref_step, max_vecs=5, test_direction=True):
             log("Torch LinAlgError when solving GDIIS matrix.")
             break
         # Scale coeffs so that their sum equals 1
-        # M5: xp.linalg.norm / xp.sum share name + semantics across torch+np.
+        # xp.linalg.norm / xp.sum share name + semantics across torch+np.
         xp = get_xp(err_vecs)
         coeffs_norm = xp.linalg.norm(coeffs)
         valid_coeffs_norm = coeffs_norm <= 1e8
@@ -142,7 +142,7 @@ def gdiis(err_vecs, coords, forces, ref_step, max_vecs=5, test_direction=True):
         # Calculate GDIIS step for comparison to the reference step
         diis_coords = from_coeffs(coords, coeffs)
         diis_step = diis_coords - coords[-1]
-        # M5: xp.linalg.norm shared name + semantics.
+        # xp.linalg.norm shared name + semantics.
         xp = get_xp(err_vecs)
         valid_length = xp.linalg.norm(diis_step) <= (10 * xp.linalg.norm(ref_step))
         log(f"\tGDIIS step has valid length: {valid_length}")

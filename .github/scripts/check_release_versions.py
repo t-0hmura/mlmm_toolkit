@@ -14,11 +14,6 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 NOTEBOOK = REPO_ROOT / "examples" / "mlmm_colab.ipynb"
 NOTEBOOK_REF = "mlmm_toolkit_version"
-# The notebook's debug-install branch pins the same release a second time, via
-# setuptools-scm. Gate it too, or it goes stale silently at the next release.
-_NOTEBOOK_PRETEND_RE = re.compile(
-    r"SETUPTOOLS_SCM_PRETEND_VERSION[\"']\]\s*=\s*[\"']v?([^\"']+)[\"']"
-)
 LANDING_PAGES = (REPO_ROOT / "docs" / "index.md", REPO_ROOT / "docs" / "ja" / "index.md")
 LANDING_SUBSTITUTION = "{{ release }}"
 _LANDING_HEADER_MARKERS = ("Version:", "バージョン:")
@@ -56,19 +51,6 @@ def _notebook_version() -> str:
         if match is not None:
             return match.group(1)
     raise ValueError(f"{NOTEBOOK.name} has no {NOTEBOOK_REF} assignment")
-
-
-def _notebook_pretend_version() -> str:
-    notebook = json.loads(NOTEBOOK.read_text(encoding="utf-8"))
-    for cell in notebook.get("cells", []):
-        if cell.get("cell_type") != "code":
-            continue
-        match = _NOTEBOOK_PRETEND_RE.search(str(cell.get("source", "")))
-        if match is not None:
-            return match.group(1)
-    raise ValueError(
-        f"{NOTEBOOK.name} has no SETUPTOOLS_SCM_PRETEND_VERSION assignment"
-    )
 
 
 def _cff_license() -> str:
@@ -145,7 +127,6 @@ def main() -> int:
         "CITATION.cff": _cff_version(),
         "docs/conf.py": _docs_release(),
         NOTEBOOK.name: _notebook_version(),
-        f"{NOTEBOOK.name} (setuptools-scm)": _notebook_pretend_version(),
     }
     expected = str(args.expected_version or values["CITATION.cff"]).removeprefix("v")
 

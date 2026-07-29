@@ -89,7 +89,7 @@ manifest, so stale files in a reused output tree are excluded.
 | `n_cpus` | int | `<int>` |
 | `ram_gb` | float | `<ram in GB>` |
 
-An optimizer may also report `"status": "stalled"`: the energy stopped decreasing over the configured window (an energy plateau) while the configured force/step convergence criteria remained unmet. A stall is a distinct, non-converged outcome — it is never reported as `converged` — and it stops further flatten/retry work rather than repeating a non-progressing optimization. When present, a `stop_reason` string records the energy range, window, and the failed criteria. A stall may be retried (e.g. from a perturbed geometry or with tighter step control); it is not an alias for `max_cycles` exhaustion or a generic failure. In microiteration, a stalled macro step or a stalled latest micro (MM) relaxation is reported truthfully and never masquerades as macro convergence.
+An optimizer may also report `"status": "stalled"`: the energy stopped decreasing over the configured window (an energy plateau) while the configured force/step convergence criteria remained unmet. A stall is a distinct, non-converged outcome — it is never reported as `converged` — and it stops further flatten/retry work rather than repeating a non-progressing optimization. When present, a `stop_reason` string records the energy range, window, and the failed criteria. A stall may be retried (e.g. from a perturbed geometry or with tighter step control); it is not an alias for `max_cycles` exhaustion or a generic failure. In microiteration, a stalled macro step or latest micro (MM) relaxation remains a stalled result and cannot satisfy macro convergence.
 
 ## Subcommand schemas
 

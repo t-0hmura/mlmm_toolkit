@@ -84,8 +84,8 @@ def normalize_tr_projection_mode(mode: str | None) -> str:
             "projects the active fragment's own rigid modes, which is not a null space of "
             "the frozen system and can hide a real imaginary mode on frozen-boundary "
             "systems. Use the default 'constrained' treatment; do not use 'legacy-active' "
-            "for pass/HOSP transition-state certification. To reproduce pre-fix results "
-            "bitwise, install the pinned pre-fix release instead.",
+            "for pass/HOSP transition-state certification. To reproduce older results "
+            "bitwise, install the corresponding pinned release.",
             DeprecationWarning,
             stacklevel=2,
         )

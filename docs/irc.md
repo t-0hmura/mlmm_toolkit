@@ -94,7 +94,7 @@ Inspect or match the endpoint structures before naming them R/P.
 
 ## CLI options
 
-The full flag list is in the generated [command reference](reference/commands/index.md); the table below covers the options that need explanation. Do not hand-duplicate the exhaustive list.
+The full flag list is in the generated [command reference](reference/commands/index.md); the table below covers the options that need explanation.
 
 | Option | Description | Default |
 | --- | --- | --- |

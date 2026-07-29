@@ -1,4 +1,4 @@
-"""P05: the two retained thermochemistry policies are explicit and serialized.
+"""The two retained thermochemistry policies are explicit and serialized.
 
 Both entry points keep their historical numerical behaviour:
 
@@ -132,7 +132,7 @@ def test_geometry_policy_reproduces_invert15_cutoff25_call():
     _assert_thermo_equal(via_policy, pre_change)
 
 
-# ---- behavioural falsifier: -10 retained by workflow, inverted by geometry --
+# ---- -10 retained by workflow, inverted by geometry ------------------------
 
 
 def test_minus10_retained_by_workflow_inverted_by_geometry():

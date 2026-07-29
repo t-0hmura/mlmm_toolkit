@@ -1,4 +1,4 @@
-"""M38: one advanced-help implementation per product.
+"""One advanced-help implementation for the product.
 
 ``all`` and the lazily-loaded subcommands must share the single advanced-help
 callback + visibility loop in ``mlmm.cli.help_pages`` — not carry near-identical
@@ -41,7 +41,7 @@ def _help_advanced_option(command):
 
 
 def test_all_uses_the_shared_advanced_help_callback():
-    """Falsifier 4: `all` routes through help_pages, not its own callback."""
+    """`all` routes through help_pages, not its own callback."""
     from mlmm.cli.help_pages import _show_advanced_subcommand_help
     from mlmm.workflows import all as all_mod
 
@@ -52,7 +52,7 @@ def test_all_uses_the_shared_advanced_help_callback():
 
 
 def test_all_help_progressive_disclosure_and_repeat_idempotent(runner, cli_group):
-    """Falsifiers 1 & 2: primary-only default; advanced reveals each option once;
+    """Primary-only default; advanced reveals each option once;
     repeated basic/advanced/basic calls leave basic output + hidden states intact."""
     r1 = runner.invoke(cli_group, ["all", "--help"])
     ra = runner.invoke(cli_group, ["all", "--help-advanced"])
@@ -72,7 +72,7 @@ def test_all_help_progressive_disclosure_and_repeat_idempotent(runner, cli_group
 
 
 def test_shared_callback_direct_invocation_is_safe_for_all_and_subcommand():
-    """Falsifier 3: the callback no-ops under resilient parsing / value False for
+    """The callback no-ops under resilient parsing / value False for
     both the `all` command and a lazily-loaded subcommand."""
     import click
 
@@ -127,7 +127,7 @@ def _functions_with_hide_loop(root: Path):
 
 
 def test_single_advanced_help_ownership_across_the_product():
-    """Falsifier 4: exactly one advanced-help callback + one visibility loop."""
+    """Exactly one advanced-help callback and one visibility loop."""
     import mlmm
 
     root = Path(mlmm.__file__).parent

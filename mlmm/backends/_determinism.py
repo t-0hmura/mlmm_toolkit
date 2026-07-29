@@ -18,8 +18,7 @@ Design notes:
   non-deterministic kernels live).
 - **Cost.** Buys bit-identical GPU output across runs, at a throughput penalty
   (deterministic scatter/reduce kernels are slower) and the fragility of a
-  runtime monkey-patch. Default OFF: default GPU runs carry ~1e-7 A
-  scatter/atomic drift that is chemically negligible.
+  runtime monkey-patch. Default OFF.
 """
 from __future__ import annotations
 

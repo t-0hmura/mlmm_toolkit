@@ -1,7 +1,7 @@
 """Smoke + unit tests for the ``--calc-file`` custom ML-region backend.
 
 Exercises loading an arbitrary ASE Calculator from a user Python file and using
-it as the ML-region engine of the ML/MM ONIOM coupling (the R1 reviewer point:
+it as the ML-region engine of the ML/MM ONIOM coupling (for example:
 couple GFN-xTB / DFTB+ / any ASE engine). Uses a dependency-free, element-
 agnostic toy harmonic calculator so the test needs no MLIP weights or GPU.
 """

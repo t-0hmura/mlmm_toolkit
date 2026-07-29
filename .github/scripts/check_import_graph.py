@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Enforce MLMM's product import-graph invariants (M56).
+"""Enforce MLMM's product import-graph invariants.
 
 This is the checker the architecture docs point to for the dependency direction
 — unlike ``check_engineering_markers.py`` (chemistry / DOMAIN_PURE / MLIP scope),

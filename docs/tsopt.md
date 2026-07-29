@@ -61,7 +61,9 @@ mlmm tsopt -i ts_guess.pdb --parm enzyme.parm7 -l 'LIG:Q' -b uma \
     --precision fp64 --coord-type dlc -o result_ts
 ```
 
-`--coord-type` selects the optimization coordinate system (`cart` | `redund` | `dlc` | `tric`; default `cart`). `dlc` (delocalized internal coordinates) is slower but converges more robustly on torsion-rich systems and is more likely to reach a clean first-order saddle.
+`--coord-type` selects the optimization coordinate system (`cart` | `redund` |
+`dlc` | `tric`; default `cart`). Coordinate-system cost and convergence are
+system-dependent; compare alternatives on the same seed.
 
 ```{warning}
 `--coord-type dlc` needs a **Hessian-based** optimizer. On [`opt`](opt.md) with the default L-BFGS (`--opt-mode grad`) the CLI warns and falls back to `cart`; use it on `tsopt` (RFO / RS-I-RFO) or `opt --opt-mode hess`. `path-opt` / `path-search` accept only `cart` and `dlc`. `DLC + link atom` and `DLC + 3-layer frozen MM` are numerically unverified, so `cart` remains the default, and is the setting used to produce the published results.
@@ -173,7 +175,7 @@ out_dir/   (default: ./result_tsopt/)
 
 ## CLI options
 
-The full flag list is in the generated [command reference](reference/commands/index.md); the table below covers the options that need explanation — do not hand-duplicate the exhaustive list.
+The full flag list is in the generated [command reference](reference/commands/index.md); the table below covers the options that need explanation.
 
 | Option | Description | Default |
 | --- | --- | --- |

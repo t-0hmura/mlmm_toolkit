@@ -169,7 +169,6 @@ def echo_resolved_device() -> None:
     Best-effort: silently no-ops on torch-import or CUDA-probe failure
     (the echo is informational only; a missing torch is a separate
     error path that fires elsewhere when the calculator is built).
-    Replaces a try/except block that was duplicated across 9 workflow files.
     """
     # Skip in child mode: the parent `mlmm all` already printed this once;
     # reprinting at every stage entry adds 4-8 identical lines per run.
@@ -200,7 +199,7 @@ def optimizer_terminal_status(optimizer: Any) -> str:
     """Map a pysisyphus optimizer (or a product-local runner) terminal state to
     the public status vocabulary.
 
-    Returns ``"stalled"`` for the additive M14/P14 energy-plateau outcome,
+    Returns ``"stalled"`` for an energy-plateau outcome,
     ``"converged"`` for a genuine stationary point, and ``"not_converged"``
     otherwise.  ``stalled`` takes precedence so a plateau is never reported as
     converged; legacy callers that only read ``is_converged`` still see
@@ -223,8 +222,8 @@ def finalize_microiter_macro_convergence(
 ) -> bool:
     """Fold a stalled latest micro (MM) relaxation into the macro terminal state.
 
-    M14/P14: a stalled final micro (MM) relaxation is a real energy plateau, so
-    it must never read as clean macro convergence.  Surface it as an
+    A stalled final micro (MM) relaxation is a real energy plateau, so it must
+    never read as clean macro convergence. Surface it as an
     energy-plateau stall on ``macro_optimizer`` (carrying its reason) whether the
     macro would otherwise converge (a demotion) OR merely ran out of macro
     cycles -- otherwise a stalled final MM relaxation on a non-converged macro is
@@ -274,7 +273,7 @@ def emit_optimizer_terminal_status(
 ) -> None:
     """Emit a consistent optimizer terminal status at detail verbosity.
 
-    ``stalled`` renders the additive M14/P14 energy-plateau outcome and takes
+    ``stalled`` renders the energy-plateau outcome and takes
     precedence over the convergence/max-cycle branches so a stalled run is
     never printed as ``Converged!``.
     """
@@ -2124,8 +2123,7 @@ def apply_yaml_overrides(
                 ],
             )
 
-        This mirrors the previous ``deep_update(..., yaml_cfg.get(...))`` pattern
-        while centralizing the shared logic.
+        Candidate paths are checked in order and the first mapping is applied.
     """
     for target, paths in overrides:
         for path in paths:
@@ -2767,11 +2765,9 @@ def apply_ref_pdb_override(
     return prepared_input.source_path
 
 
-# Charge/spin preparation moved to ``mlmm.workflows.charge_prep`` (M39): it
-# consumes ``extract.compute_charge_summary``, a workflow-level service, so it
-# cannot live in ``core`` without recreating the ``core.utils <-> extract``
-# import cycle.  Workflow subcommands import ``resolve_charge_spin_or_raise``
-# from ``mlmm.workflows.charge_prep``.
+# Charge/spin preparation consumes the workflow-level charge-summary service.
+# Workflow subcommands import it from ``mlmm.workflows.charge_prep`` to keep
+# ``core`` independent of ``extract``.
 
 
 def read_bfactors_from_pdb(pdb_path: Path) -> List[float]:
@@ -3042,8 +3038,7 @@ def resolve_ml_layer_assignment(
 ) -> Tuple[Path, Optional[Dict[str, List[int]]]]:
     """Resolve the ML-region model PDB path + layer_info dict.
 
-    Shared by `scan`, `scan2d`, and `scan3d` (formerly a verbatim
-    ~30-LOC block in each cli() body). Mutates ``calc_cfg`` in place
+    Shared by `scan`, `scan2d`, and `scan3d`. Mutates ``calc_cfg`` in place
     to set ``use_bfactor_layers``, ``hess_cutoff``, ``movable_cutoff``,
     and ``model_pdb``. Raises ``click.ClickException`` on user-input
     failure so each caller can map to the same exit-code semantics.
@@ -3367,7 +3362,7 @@ def write_result_json(
 
     When ``also_write_summary_json`` is True (default) the same payload
     is mirrored to ``summary.json`` alongside the legacy ``result.json``
-    so downstream agents can converge on a single filename across every
+    so downstream consumers can use a single filename across every
     subcommand (the ``all`` and ``path-search`` runners already write
     ``summary.json``; the per-stage subcommands continue to write
     ``result.json`` for backward compatibility).
@@ -3476,10 +3471,10 @@ def validate_charge_spin(elements, charge, multiplicity, source: Optional[str] =
         )
 
 
-# Compatibility re-export (M40): the bounded-peak Hessian symmetrizer was lowered
-# into the bundled-engine layer (``pysisyphus.normal_modes``) so the pure
-# normal-mode kernel there stays free of any upward ``mlmm``/``pdb2reaction``
-# import. It is re-exported here so existing callers of
+# Compatibility re-export: the bounded-peak Hessian symmetrizer lives in the
+# bundled-engine layer (``pysisyphus.normal_modes``) so the pure
+# normal-mode kernel there stays free of any upward ``mlmm`` import. It is
+# re-exported here so existing callers of
 # ``mlmm.core.utils.symmetrize_inplace`` (backends/mlmm_calc, workflows/tsopt,
 # tests) keep resolving to the SAME function object.
 from pysisyphus.normal_modes import symmetrize_inplace  # noqa: F401,E402
@@ -3488,10 +3483,9 @@ from pysisyphus.normal_modes import symmetrize_inplace  # noqa: F401,E402
 # ---------------------------------------------------------------------------
 # XYZTrajectoryWriter — per-frame streaming XYZ writer (tail-able)
 # ---------------------------------------------------------------------------
-# Replaces the `List[str]` accumulator → "".join() dump anti-pattern in scan.py
-# bidirectional path (~238 MB heap for cm_oniom_baker). Mirrors the vendored
-# `pysisyphus.optimizers.Optimizer.out_trj_handle` open / write+flush / close
-# convention so `tail -f scan_trj.xyz` continues to work for live monitoring.
+# Uses the same open / write+flush / close convention as
+# `pysisyphus.optimizers.Optimizer.out_trj_handle`, so live monitoring with
+# `tail -f scan_trj.xyz` remains available.
 
 
 class XYZTrajectoryWriter:

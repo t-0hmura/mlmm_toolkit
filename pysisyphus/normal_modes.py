@@ -2,9 +2,9 @@
 
 """Pure normal-mode kernel: mass weighting, rigid projection, diagonalization.
 
-This is a *lower* bundled-engine module: a sibling of ``pysisyphus.tr_projection``
-that sits BELOW the product workflows. It must import neither ``pdb2reaction`` nor
-``mlmm`` so that bundled-engine code (e.g.
+This is a lower bundled-engine module, alongside
+``pysisyphus.tr_projection``. It does not import the product layer, so
+bundled-engine code (e.g.
 ``pysisyphus.tsoptimizers.TSHessianOptimizer``) can consume the mass/mode kernel
 without an upward product dependency.
 
@@ -172,7 +172,8 @@ def _mass_weighted_hessian(H_t: torch.Tensor,
         return H_t
 
 
-# DO NOT INLINE: PHVA / MLIP active-block chemistry math derivation lives in this docstring; splitting orphans the explanation. Do NOT split: chemistry math + docstring must stay co-located.
+# Keep the PHVA/MLIP active-block derivation in the function docstring beside
+# the numerical implementation.
 def _frequencies_cm_and_modes(H_t: torch.Tensor,
                               atomic_numbers: List[int],
                               coords_bohr: np.ndarray,

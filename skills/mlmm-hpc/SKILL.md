@@ -118,7 +118,7 @@ on a single mid-range GPU. Adjust generously.
 |---|---|---|
 | `extract` | < 1 min | Pure Python, CPU |
 | `path-opt`/`path-search` (GSM) | 5–30 min | Scales with `--max-nodes` |
-| `path-opt`/`path-search` (DMF) | 10–60 min | Slower than GSM but more robust |
+| `path-opt`/`path-search` (DMF) | Pilot required | Cost and convergence relative to GSM are system-dependent |
 | `tsopt` (RS-I-RFO) | 5–60 min | Hessian rebuilds dominate |
 | `tsopt` (Dimer) | 1–10 min | Hessian-free; cheaper |
 | `irc` | 5–30 min | Forward + backward; default 125 cycles each |

@@ -99,7 +99,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   instead of requiring a confirmed `-q`; a ticked charge box is now an explicit
   override.
 - Install the DFT extra by default in the Colab notebook and verify plot export
-  by rendering a PNG. A first run now takes about 12 minutes and needs a GPU
+  by rendering a PNG. A first run takes several minutes and needs a GPU
   runtime.
 - Label thermochemistry as `E + G_corr = G`, force uphill rejection off for
   transition-state optimization, and keep its toggle limited to minimum and
@@ -122,7 +122,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   active-fragment projection could hide a real imaginary mode, so `n_imag`, ZPE
   and ΔG‡ move on frozen-boundary systems. The superseded `--tr-projection
   legacy-active` treatment is deprecated: it now warns and must not be used for
-  pass/HOSP transition-state certification; install the pinned pre-fix release to
+  pass/HOSP transition-state certification; install the preceding pinned release to
   reproduce old results bitwise.
 - Require `n_imag = 1` for TS success, preserve rejected optimizer state, and
   report resolved backend/model/precision and the highest common rate-limiting method.
@@ -312,12 +312,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 ### Changed
 - **`--precision` now defaults per backend instead of globally to fp32: ORB runs fp64
   when no precision is given (MACE already did), UMA keeps fp32.** ORB's fp32 is the
-  reduced `float32-high` (TF32) matmul mode, whose force noise inflates
-  finite-difference Hessians into spurious imaginary modes. Pass `--precision fp32`
-  explicitly to restore the previous behaviour for screening runs.
-- **Behavior change (default): the default UMA model is now `uma-s-1p2`** (was `uma-s-1p1`), pairing
-  with pdb2reaction v0.4.4. At the same small-model cost it is more robust on the benchmark (fewer
-  optimization/frequency errors and a few more clean saddles). Other models (`uma-s-1p1`,
+  reduced `float32-high` (TF32) matmul mode. Pass `--precision fp32`
+  explicitly to select the reduced-precision screening configuration.
+- **Behavior change (default): the default UMA model is now `uma-s-1p2`** (was
+  `uma-s-1p1`). Other models (`uma-s-1p1`,
   `uma-m-1p1`, MACE-OMOL, Orb-v3-omol) remain selectable via `-b` / `--backend-model` / config.
 - **Centralized the default UMA model** in a single constant `DEFAULT_UMA_MODEL`
   (`mlmm/core/defaults.py`); the `uma-s-1p1` defaults previously hardcoded across backends and
@@ -658,11 +656,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   `mlmm pysis` (removed, see below); `mlmm sp` was added. Other Python
   imports change as tabulated above.
 - `--trust-band` / `--hessian-window` / `--weighted-trust` CLI flags
-  (and their `add_*_option` factories). The trust-radius / multistep
-  Hessian-update knobs they exposed showed no benefit on small TS
-  benchmarks and actively slowed convergence (rho-band trust update
-  −33 %, hessian_window > 1 −47 % cycles on a 20-atom TS), with no
-  evidence of speed-up on production-scale systems. The vendored
+  (and their `add_*_option` factories). The vendored
   pysisyphus `HessianOptimizer` kwargs are left dormant; no
   behaviour change since defaults were always legacy.
 

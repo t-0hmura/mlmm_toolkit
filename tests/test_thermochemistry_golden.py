@@ -1,4 +1,4 @@
-"""M62: independent golden thermochemistry vectors.
+"""Independent golden thermochemistry vectors.
 
 The reference values below are HARD-CODED physical constants of the ideal-gas
 RRHO/QRRHO model. They are NOT produced by the ``thermoanalysis`` helpers at
@@ -274,13 +274,13 @@ def test_qrrho_damps_low_frequency_entropy_below_rrho():
     assert float(tr_q.G) > float(tr_r.G)
 
 
-# ---- M16: zero-point-energy scale factor is applied exactly once ----
+# ---- zero-point-energy scale factor is applied exactly once ----
 ZPE_SCALE_FIXTURE = FIXTURES["nonlinear_H2O"]
 
 
 @pytest.mark.parametrize("f", [1.0, 0.5, 0.9])
 def test_zpe_scale_factor_is_linear_single_scaling(f):
-    """ZPE == f*raw and U/H/G shift by exactly (f-1)*raw (M16, non-squared).
+    """ZPE == f*raw and U/H/G shift by exactly (f-1)*raw (non-squared).
 
     The f == 1.0 production result is the raw baseline; the relation asserted is
     the golden (it is not derived from a production partition/energy helper).
@@ -317,7 +317,7 @@ def test_zpe_scale_factor_is_linear_single_scaling(f):
         )
 
 
-# ---- imaginary-inversion / positive-frequency-floor policy (M62 pt.4) ----
+# ---- imaginary-inversion / positive-frequency-floor policy (pt.4) ----
 IMAG_FIXTURE = dict(
     coords=[[0.0, 0.0, 0.0], [0.757, 0.586, 0.0], [-0.757, 0.586, 0.0]],
     masses=[15.999, 1.008, 1.008],

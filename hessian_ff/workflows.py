@@ -45,12 +45,12 @@ class _RuntimeEntry:
     system: AmberSystem
     ff: ForceFieldTorch
     coords_buffer: Optional[torch.Tensor] = None
-    # M54: content identity (path/sha256/size/schema) of the parsed prmtop, so
-    # M70 can include the same digest in mlmm's Hessian-cache identity.
+    # content identity (path/sha256/size/schema) of the parsed prmtop, so
+    # can include the same digest in mlmm's Hessian-cache identity.
     topology_identity: Optional[Dict[str, Any]] = None
 
 
-# M54: keyed by (resolved path, topology content SHA-256, device, dtype, fast).
+# keyed by (resolved path, topology content SHA-256, device, dtype, fast).
 _RUNTIME_CACHE: Dict[tuple[str, str, str, str, bool], _RuntimeEntry] = {}
 
 
@@ -158,7 +158,7 @@ def _load_runtime(
 ) -> tuple[AmberSystem, torch.Tensor, ForceFieldTorch]:
     dtype = _dtype_from_double(double)
     dev = str(torch.device(device))
-    # M54: key the runtime on the topology CONTENT digest, not the pathname
+    # key the runtime on the topology CONTENT digest, not the pathname
     # alone, so replacing a parm7's bytes at the same path never reuses the old
     # parsed system/force field (including a same-size / same-mtime replacement).
     topo = topology_identity(prmtop)
@@ -602,7 +602,7 @@ def torch_force_batch(
 # Public API: torch_hessian
 # ---------------------------------------------------------------------------
 def _normalize_active_atoms(natom: int, active_atoms: Sequence[int]) -> list[int]:
-    # M54: one shared ordered validator (reject bool / float / negative /
+    # one shared ordered validator (reject bool / float / negative /
     # >= natom / duplicate / empty), replacing the former silent duplicate-drop.
     return validate_active_atoms(natom, active_atoms)
 

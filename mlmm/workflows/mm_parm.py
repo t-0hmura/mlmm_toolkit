@@ -79,7 +79,8 @@ LEAPRC_LINES_OLD = [
 # ===================== Utilities =====================
 
 
-# DO NOT INLINE: HPC submission often `qsub /.../envs/mlmm/bin/mlmm all ...` without conda activate; bare shutil.which("tleap") fails because conda env bin not on $PATH. The sys.executable + sys.prefix dual fallback recovers automatically.
+# Scheduler jobs may invoke the environment's mlmm executable without
+# activating the environment, so search beside sys.executable and sys.prefix.
 def which(cmd: str) -> Optional[str]:
     """Return the path if *cmd* is available; otherwise None.
 
@@ -187,7 +188,8 @@ def ambertools_available() -> bool:
     return not missing_ambertools_commands()
 
 
-# DO NOT INLINE: tleap/antechamber emit large stdout; subprocess.run(capture_output=True) buffers everything (memory) and only shows at exit (debugging pain). Line-by-line Popen gives real-time progress + bounded memory.
+# Stream tleap/antechamber output line by line for bounded memory use and live
+# progress.
 def run(cmd: List[str], cwd: Optional[Path] = None, logfile: Optional[Path] = None) -> int:
     """Run a subprocess, capture stdout+stderr into a log file, and return the return code."""
     if not cmd:

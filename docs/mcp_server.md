@@ -113,10 +113,9 @@ and run with microiteration on by default; pass `microiter=False` to disable it.
 
 ## Client configuration
 
-Every MCP client takes the same `mcpServers` schema. Drop the snippet below
-into your client's MCP config file (Claude Desktop's
-`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS,
-Cursor's `~/.cursor/mcp.json`, etc.):
+Client configuration schemas differ. The snippet below applies to clients that
+accept a top-level `mcpServers` object; check the client's own MCP
+documentation before choosing the config file and schema.
 
 ```json
 {
@@ -132,6 +131,20 @@ Cursor's `~/.cursor/mcp.json`, etc.):
 See [`examples/mcp_client_config.json`](../examples/mcp_client_config.json)
 for a full example with explicit env-var overrides (PATH / AMBERHOME /
 CUDA_VISIBLE_DEVICES).
+
+VS Code instead uses a top-level `servers` object in `.vscode/mcp.json`
+([VS Code MCP configuration reference](https://code.visualstudio.com/docs/agents/reference/mcp-configuration)):
+
+```json
+{
+  "servers": {
+    "mlmm": {
+      "command": "mlmm-mcp",
+      "args": []
+    }
+  }
+}
+```
 
 ## Sandbox / safety notes
 

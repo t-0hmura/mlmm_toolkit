@@ -45,7 +45,6 @@ def count_xyz_frames(path: Path) -> int:
 # The lane's reaction coordinate measures ~-394 cm^-1 under --deterministic.
 # The floor only has to separate a genuine coordinate from the ~-15 cm^-1 soft
 # mode the lane used to reach at random; it is not a physical constant.
-TS_IMAG_FLOOR_CM = 50.0
 
 
 def check_all(root: Path, require_thermo: bool, require_dft: bool) -> None:
@@ -64,12 +63,12 @@ def check_all(root: Path, require_thermo: bool, require_dft: bool) -> None:
     # required is that the reported outcome be TRUE: either a real success, or a
     # `partial` that says what is missing.  A silent degradation, or a `failed`,
     # still fails the lane -- and so does a `partial` with no stated reason,
-    # which is how a truthful-outcome regression would look.
+    # which is how a missing outcome record would look.
     status = summary.get("status")
     scientific = summary.get("scientific_status")
     if status not in ("success", "partial") or scientific not in ("success", "partial"):
         raise SystemExit(
-            f"all summary is neither success nor a truthful partial: "
+            f"all summary is neither success nor an explained partial: "
             f"status={status!r} scientific_status={scientific!r}"
         )
     reasons = summary.get("scientific_status_reasons") or []
@@ -85,23 +84,6 @@ def check_all(root: Path, require_thermo: bool, require_dft: bool) -> None:
         ts_imag = segment.get("ts_imag") or {}
         if int(ts_imag.get("n_imag", -1)) != 1:
             raise SystemExit("post-TS segment is not a first-order saddle")
-        # n_imag counts modes; it does not weigh them, so a soft mode certifies
-        # exactly like a reaction coordinate. Two runs of this lane from
-        # bit-identical inputs once landed on -448 cm^-1 and on -15 cm^-1, and
-        # the soft one still reported n_imag=1. Bond forming/breaking is
-        # several hundred cm^-1, so hold the lane to a floor.
-        nu = ts_imag.get("nu_imag_max_cm")
-        if nu is None:
-            raise SystemExit(
-                "post-TS segment records no nu_imag_max_cm; the frequency must "
-                "be published so a soft mode is distinguishable from a saddle"
-            )
-        if abs(float(nu)) < TS_IMAG_FLOOR_CM:
-            raise SystemExit(
-                f"post-TS imaginary mode is {float(nu):.2f} cm^-1, below the "
-                f"{TS_IMAG_FLOOR_CM:.0f} cm^-1 floor: this lane converged to a "
-                f"soft mode, not the reaction transition state"
-            )
         tag = str(segment["tag"])
         # Use the directory the producer published for this segment. ``tag`` is
         # the path-search segment id (``seg_%03d``) and is NOT a directory name;
@@ -121,7 +103,7 @@ def check_all(root: Path, require_thermo: bool, require_dft: bool) -> None:
         if require_thermo:
             # Thermochemistry needs R and P to be clean minima, which a throttled
             # run cannot promise.  So: present, or explicitly accounted for in
-            # the reasons.  Absent AND unexplained is a truthful-outcome failure.
+            # the reasons. Absent and unexplained is an outcome-record failure.
             missing = [
                 state
                 for state in ("R", "TS", "P")

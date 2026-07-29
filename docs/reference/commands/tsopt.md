@@ -185,17 +185,13 @@ Options:
                                   Calculator instance). CLI overrides config
                                   YAML; otherwise defaults to get_calculator.
   --deterministic / --no-deterministic
-                                  Strict bit-reproducible GPU runs
-                                  (deterministic algorithms + index_reduce_
-                                  shim). Slower; raises if unsupported. Default
-                                  off.
+                                  Enable strict deterministic GPU algorithms and
+                                  the index_reduce_ shim. Slower; raises if
+                                  unsupported. Default off.
   --coord-type [cart|redund|dlc|tric]
                                   Optimization coordinate system
-                                  (cart|redund|dlc|tric). cart is the robust
-                                  default used in published numbers; dlc speeds
-                                  up torsion-rich opts. mlmm-specific caveats:
-                                  DLC + link atom and DLC + 3-layer frozen MM
-                                  are numerically unverified.
+                                  (cart|redund|dlc|tric). cart is the default;
+                                  command-specific choices are listed here.
   --print-every INTEGER RANGE     Print optimizer status every N cycles (debug
                                   knob).  [x>=1]
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity

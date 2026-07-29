@@ -1,11 +1,7 @@
 """A soft leading imaginary mode must warn without changing the saddle status.
 
-Saddle certification counts imaginary modes and does not weigh them, so a
-few-cm^-1 soft mode certifies exactly like a real reaction coordinate. Two
-runs of the same input from bit-identical starting geometries were observed to
-diverge and land on a real saddle (~-450 cm^-1) and on a soft-mode structure
-(~-15 cm^-1) respectively, with the soft one still reported as n_imag=1. The
-warning is diagnostic only: the terminal status must stay exactly as it was.
+Saddle certification counts imaginary modes without a magnitude cutoff. The
+soft-mode warning is diagnostic only and does not alter terminal status.
 """
 
 import pytest
@@ -21,14 +17,13 @@ def test_soft_leading_mode_warns(capsys) -> None:
     assert str(int(TS_IMAG_SOFT_WARN_CM)) in out
 
 
-def test_real_reaction_coordinate_is_silent(capsys) -> None:
+def test_large_magnitude_mode_is_silent(capsys) -> None:
     _warn_if_leading_imaginary_mode_is_soft([-447.78])
     assert capsys.readouterr().out == ""
 
 
 def test_leading_mode_is_the_most_negative_one(capsys) -> None:
-    # n_imag=2 with a real coordinate plus a soft companion: the certifying
-    # mode is the stiff one, so this must stay silent.
+    # The warning evaluates the most negative mode, not a soft companion.
     _warn_if_leading_imaginary_mode_is_soft([-447.78, -5.72])
     assert capsys.readouterr().out == ""
 
@@ -45,12 +40,10 @@ def test_threshold_boundary_is_not_warned(capsys) -> None:
 
 
 def test_ts_imag_record_carries_the_frequency() -> None:
-    """summary.json/summary.log must distinguish a soft mode from a real one.
+    """summary.json/summary.log retain the leading imaginary frequency.
 
-    `mlmm/io/summary.py` has always been able to print `nu_imag (max)` and to
-    warn when the magnitude is small, but the producer wrote a bare
-    `{"n_imag": n}`, so the field rendered as `-` and the warning never fired.
-    A -15 cm^-1 run and a -450 cm^-1 run were indistinguishable downstream.
+    The record includes the leading frequency so downstream summaries can
+    display its magnitude.
     """
     from mlmm.workflows.all import _ts_imag_record
 
@@ -59,8 +52,8 @@ def test_ts_imag_record_carries_the_frequency() -> None:
     assert soft["nu_imag_max_cm"] == pytest.approx(-15.72)
     assert soft["min_abs_imag_cm"] == pytest.approx(15.72)
 
-    real = _ts_imag_record(1, [-447.78])
-    assert real["nu_imag_max_cm"] == pytest.approx(-447.78)
+    large = _ts_imag_record(1, [-447.78])
+    assert large["nu_imag_max_cm"] == pytest.approx(-447.78)
 
     # The certifying mode is the most negative one, not the softest companion.
     two = _ts_imag_record(2, [-447.78, -5.72])
@@ -72,7 +65,7 @@ def test_ts_imag_record_carries_the_frequency() -> None:
 
 
 def test_summary_renders_the_frequency_and_its_warning() -> None:
-    """The dormant summary warning must actually fire once the data flows."""
+    """The summary warning fires when the recorded mode is soft."""
     from mlmm.io.summary import _format_ts_imag_info
     from mlmm.workflows.all import _ts_imag_record
 
@@ -80,20 +73,18 @@ def test_summary_renders_the_frequency_and_its_warning() -> None:
     assert "-15.7 cm^-1" in soft
     assert "WARNING" in soft
 
-    real = "\n".join(_format_ts_imag_info(_ts_imag_record(1, [-447.78])))
-    assert "-447.8 cm^-1" in real
-    assert "WARNING" not in real
+    large = "\n".join(_format_ts_imag_info(_ts_imag_record(1, [-447.78])))
+    assert "-447.8 cm^-1" in large
+    assert "WARNING" not in large
 
 
 def test_thermo_branch_does_not_clobber_the_tsopt_frequency() -> None:
-    """`--thermo` must not erase the frequency the tsopt branch published.
+    """`--thermo` preserves the frequency published by the TS stage.
 
     `all` writes `ts_imag` twice: once from the tsopt result (which carries
     `imaginary_frequencies_cm`) and again from the thermo payload (which carries
-    only `num_imag_freq` — thermoanalysis.yaml has no frequency list). The second
-    write overwrote the first, so every `--thermo` run published a bare
-    `{"n_imag": n}` and the smoke floor rejected it even though the run had found
-    a -444 cm^-1 saddle.
+    only `num_imag_freq`—thermoanalysis.yaml has no frequency list). The latter
+    therefore retains the earlier list.
     """
     from mlmm.workflows.all import _ts_imag_record
 

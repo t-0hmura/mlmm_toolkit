@@ -1,6 +1,6 @@
 """MCP (Model Context Protocol) server for mlmm_toolkit.
 
-Exposes every `mlmm <subcmd>` CLI as an MCP tool, callable by LLM agents
+Exposes every `mlmm <subcmd>` CLI as an MCP tool, callable by MCP clients
 (Claude Desktop, Cursor, Codeium, custom MCP clients) via JSON-RPC over
 stdio.
 

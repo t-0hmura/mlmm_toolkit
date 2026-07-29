@@ -1506,9 +1506,9 @@ def cli(
                     f = out_dir_path / f"hei{ext}"
                     if f.exists():
                         result_data_dmf["files"][f"hei_{ext[1:]}"] = f.name
-                # Additive truthful outcomes (M09/C6): the DMF path is a required
+                # The DMF path is a required
                 # leaf usable only when the IPOPT solve explicitly converged. The
-                # scientific_status path routes convergence through the ONE
+                # scientific_status path routes convergence through the
                 # canonical criterion (IPOPT status 0 or 1), matching path_search,
                 # so the additive axis is consistent across both DMF producers.
                 # The legacy convergence-aware ``status``/``converged`` fields
@@ -1683,7 +1683,7 @@ def cli(
                 f = out_dir_path / f"hei{ext}"
                 if f.exists():
                     result_data_gsm["files"][f"hei_{ext[1:]}"] = f.name
-            # Additive truthful outcomes (M09/C6): the GSM path is a required leaf
+            # The GSM path is a required leaf
             # usable only when the StringOptimizer explicitly converged. The legacy
             # convergence-aware ``status``/``converged`` fields are left untouched.
             from mlmm.workflows._outcomes import (

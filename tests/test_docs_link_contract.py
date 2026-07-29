@@ -1,4 +1,4 @@
-"""Contract for the expanded public-Markdown link checker (M66).
+"""Contract for the public Markdown link checker.
 
 Positive: the real repository passes and the explicit roots include README, a
 skills page, and docs pages. Negative: an independent broken link in each of a

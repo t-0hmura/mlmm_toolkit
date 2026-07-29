@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Audit fenced ``bash`` blocks in skills/**/*.md.
+"""Validate fenced ``bash`` blocks in skills/**/*.md.
 
 For every line that starts with ``mlmm <subcommand>``, parse out flag
 tokens (``--foo`` and ``-f``), verify each one against Click introspection,

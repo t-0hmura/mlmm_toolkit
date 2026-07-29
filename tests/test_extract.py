@@ -92,8 +92,7 @@ def test_parse_ligand_charge_option_rejects_invalid_mapping():
     import click
     from mlmm.workflows.extract import _parse_ligand_charge_option
 
-    # click.BadParameter so the CLI shows a clean one-line error
-    # (UX audit Cluster E).
+    # Invalid selectors use click.BadParameter for a clean command-line error.
     with pytest.raises(click.BadParameter, match="Invalid --ligand-charge token"):
         _parse_ligand_charge_option("GPP")
 

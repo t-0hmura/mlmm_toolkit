@@ -1,4 +1,4 @@
-"""M56: the enforceable AST import-graph gate.
+"""the enforceable AST import-graph gate.
 
 Proves the real repo is clean (no mlmm cycles, no bundled-fork -> product edge,
 no core/domain -> workflows edge) AND that the gate actually fires on a known-bad
@@ -42,7 +42,7 @@ def test_real_repo_is_clean():
 
 
 def test_no_bundled_fork_imports_the_product():
-    """Explicit falsifier: no file under pysisyphus/** (or other forks) imports mlmm."""
+    """Ensure no file under pysisyphus/** (or other forks) imports mlmm."""
     mod2path, edges = GATE.build_graph(
         [(GATE.PRODUCT, str(REPO_ROOT / GATE.PRODUCT))]
         + [(f, str(REPO_ROOT / f)) for f in GATE.BUNDLED_FORKS]

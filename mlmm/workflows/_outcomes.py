@@ -1,17 +1,13 @@
-"""Product-local truthful scientific-outcome vocabulary for mlmm_toolkit (C6).
-
-This module is intentionally duplicated (not shared) with ``pdb2reaction``: the
-two products keep independent release and runtime boundaries, so each carries
-its own small copy of this contract rather than importing across the boundary.
+"""Product-local scientific-outcome vocabulary for mlmm_toolkit.
 
 The vocabulary separates three orthogonal questions that the single legacy
 ``status`` field used to conflate:
 
-* did a command / stage actually run?        -> ``executed``
+* did a command or stage actually run?       -> ``executed``
 * did the underlying engine converge?        -> ``converged`` (tri-state)
 * may a scientific consumer use the result?  -> ``usable``
 
-Fail-closed invariant (the whole point of C6): no artifact existence and no
+Fail-closed invariant: no artifact existence and no
 finite fallback promotes a *required* nonconverged or missing scientific leaf to
 success.  ``converged`` is tri-state: ``True`` means the engine reported
 convergence, ``False`` means it explicitly did not, and ``None`` means the
@@ -20,7 +16,7 @@ Artifacts remain reportable even when the leaf that produced them is unusable.
 
 These types are additive.  They never replace or rename the legacy public
 ``status``/``schema_version`` fields; they are serialized alongside them so a
-forward-compatible consumer (PEScape) can read truthful outcomes while legacy
+forward-compatible consumers can read explicit outcomes while legacy
 consumers that read only ``status`` are unaffected.
 """
 
@@ -242,7 +238,7 @@ def optimizer_converged_bit(optimizer: Any, attr: str = "is_converged") -> Optio
     Returns ``True``/``False`` only when the optimizer exposes an *explicit*
     boolean ``is_converged``; anything else (a missing attribute, a non-boolean
     value such as ``1``) collapses to ``None`` (unknown).  A "normal return" is
-    not convergence (M50): the caller must read this bit rather than assume a
+    not convergence: the caller must read this bit rather than assume a
     non-raising ``run()`` converged.
     """
 
@@ -251,7 +247,7 @@ def optimizer_converged_bit(optimizer: Any, attr: str = "is_converged") -> Optio
 
 
 def combine_step_convergence(convs: Iterable[Optional[bool]]) -> Optional[bool]:
-    """Fold per-step convergence so an early failure is never hidden (M09).
+    """Fold per-step convergence so an early failure is never hidden.
 
     Any explicit ``False`` -> ``False`` (a middle step failed, even if the final
     step converged); otherwise any ``None`` -> ``None`` (unknown, fail-closed);
@@ -267,7 +263,7 @@ def combine_step_convergence(convs: Iterable[Optional[bool]]) -> Optional[bool]:
 
 
 def irc_hessian_cache_eligible(obj: Any, converged_attr: str) -> bool:
-    """The producer gate for caching an IRC endpoint Hessian (M42).
+    """Return whether an IRC endpoint Hessian is eligible for caching.
 
     A direction's endpoint Hessian may be cached only when that direction
     *explicitly* converged: ``getattr(obj, converged_attr, None) is True``.  A
@@ -281,7 +277,7 @@ def irc_hessian_cache_eligible(obj: Any, converged_attr: str) -> bool:
 def irc_direction_leaves(
     directions: Iterable[Tuple[str, bool, Any, Any, Sequence[str]]],
 ) -> Tuple[List[LeafOutcome], List[str]]:
-    """Build one :class:`LeafOutcome` per IRC direction plus the expected IDs (M42).
+    """Build one :class:`LeafOutcome` per IRC direction plus the expected IDs.
 
     ``directions`` yields ``(name, requested, converged, n_frames, artifacts)``.
     A requested direction is a required leaf that is usable only when it
@@ -332,7 +328,7 @@ def ipopt_status_to_converged(status: Any) -> Tuple[Optional[bool], str]:
     Solved_To_Acceptable_Level; both count as converged.  Any other integer
     (max-iter, infeasible, ...) is *not* convergence.  A missing/unreadable
     status returns ``(None, "convergence_unknown")`` so DMF artifact existence
-    never promotes a nonconverged solve (M09).
+    never promotes a nonconverged solve.
     """
 
     if status is None:
@@ -399,7 +395,7 @@ def aggregate_workflow_truth(
 ) -> AggregateTruth:
     """The single aggregate truth mapper for a multi-leaf workflow.
 
-    Rules (matching the C6 blueprint):
+    Rules:
 
     * every expected *required* leaf usable and no expected ID missing -> success
     * at least one usable required leaf or usable diagnostic artifact, plus any
@@ -466,7 +462,7 @@ def attach_outcomes(
     write_reasons_key: str = "scientific_status_reasons",
     write_status_reasons: bool = True,
 ) -> dict:
-    """Add the additive C6 outcome fields to a result/summary dict in place.
+    """Add the outcome fields to a result/summary dict in place.
 
     This never touches the legacy ``status`` / ``schema_version`` keys.  It adds
     ``execution_status``, ``scientific_status``, expected/observed ID lists, and

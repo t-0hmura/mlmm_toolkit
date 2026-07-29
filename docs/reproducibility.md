@@ -9,7 +9,7 @@ chemically meaningful threshold. Results are *scientifically* reproducible; they
 are not *bit*-identical.
 
 If you need bit-identical output (e.g. golden-file regression tests, exact
-re-runs for an audit), use the `--deterministic` flag.
+re-runs for a comparison), use the `--deterministic` flag.
 
 ## `--deterministic`
 

@@ -1,21 +1,16 @@
-"""Pin the DEFAULT rigid-mode treatment — the release's highest-blast-radius knob.
+"""Pin the default rigid-mode treatment.
 
 ``tr_projection`` decides whether frozen-atom freq / IRC / Dimer-seed / TS
-validation project rigid modes out of the active block.  Flipping it moves
-n_imag, frequencies, ZPE and dG-dagger on the SAME input with the SAME flags, so
-it is the single setting in this package most able to change a published number.
-
-Before this file, 1076 tests passed with the default set either way: the suite
-tested the projector's mathematics thoroughly and never tested which projector a
-user gets by default.  These tests fail if the default moves without someone
-deciding to move it.
+validation project rigid modes out of the active block. The selected treatment
+can change frequencies, imaginary-mode counts, and derived thermochemistry, so
+the product and bundled engine must share one explicit default.
 
 The default is ``constrained``: it projects only an actual null space of the
 constrained problem.  ``legacy-active`` -- projecting the ACTIVE FRAGMENT's own
 TR out of a Hessian whose frozen block makes those directions non-null -- is a
 Rayleigh-Ritz compression biased toward a SMALLER n_imag, so it can hide a real
 imaginary mode.  It is retained only as a named opt-in for reproducing output
-made before the fix, and must never become the default again.
+made with the earlier treatment.
 """
 
 from __future__ import annotations

@@ -30,7 +30,8 @@ from pysisyphus.optimizers.exceptions import OptimizationError
 from pysisyphus.helpers import array2string
 import torch
 
-# M4 (refinement_plan §M1+M4): one-place torch-vs-numpy dispatch. Only used at
+# Dispatch between torch and NumPy at sites where both APIs share the
+# same name and semantics. It is used only at
 # sites where the torch and numpy APIs share both the name and the semantics
 # (`xp.linalg.eigh`, `xp.isfinite`, `xp.nan_to_num`, ...). Sites that use
 # torch-specific ops (`index_select`, `matmul`, `.clone()`) keep their inline
@@ -200,7 +201,7 @@ class HessianOptimizer(Optimizer):
         # Constrain initial trust radius if trust_max > trust_radius
         self.trust_radius = min(trust_radius, trust_max)
         self.log(f"Initial trust radius: {self.trust_radius:.6f}")
-        # Sella backport (opt-in): rho-band trust update parameters.
+        # Optional rho-band trust-update parameters.
         # If trust_band=True, set_new_trust_radius uses gentler sigma_inc/sigma_dec
         # multipliers (1.15 / 0.65) inside an rho-band gate (1/rho_inc < rho < rho_inc
         # = "no update"; rho outside [1/rho_dec, rho_dec] = "shrink"). Default OFF
@@ -387,7 +388,7 @@ class HessianOptimizer(Optimizer):
             # L289-302 already clamps inds to [0, n-1], so the deleted silent
             # fallback (`except: return hessian`) is unreachable in practice
             # and previously masked shape-mismatch bugs downstream.
-            # C14 (H10): bounded row-chunk extraction avoids the full
+            # Bounded row-chunk extraction avoids the full
             # (len(inds), n) row temporary of the chained index_select.
             idx = torch.as_tensor(inds, device=hessian.device, dtype=torch.int64)
             return active_square(hessian, idx)
@@ -649,7 +650,7 @@ class HessianOptimizer(Optimizer):
         # the branch whose purpose is to shrink it.
         min_radius = min(float(min_radius), self.trust_radius)
         if self.trust_band:
-            # Sella backport (opt-in): rho-band trust update (sella/optimize/optimize.py:280-289).
+            # Optional rho-band trust update.
             # `coeff` here is ΔE_actual / ΔE_predicted -- same definition as Sella's `rho`.
             # rho outside [1/rho_dec, rho_dec]      -> shrink with sigma_dec (default 0.65)
             # rho inside [1/rho_inc, rho_inc] band  -> grow with sigma_inc  (default 1.15)
@@ -809,7 +810,7 @@ class HessianOptimizer(Optimizer):
                 and self.hessian_update == "bofill"
                 and not bofill_cpu_offload_enabled()
             ):
-                # C14: copy-on-write rank-two Bofill. Clone the accepted Hessian
+                # Copy-on-write rank-two Bofill: clone the accepted Hessian
                 # once and apply the low-rank update into the clone with addmm_.
                 # This preserves the replacement/rollback invariant (the trial
                 # snapshot keeps the old H reference, which is never mutated)
@@ -831,7 +832,7 @@ class HessianOptimizer(Optimizer):
     def solve_rfo(self, rfo_mat, kind="min", prev_eigvec=None):
         # When using the restricted step variant of RFO the RFO matrix
         # may not be symmetric. Thats why we can't use eigh here.
-        # M4: torch/numpy dispatch via _array.get_xp — both backends share
+        # torch/numpy dispatch via _array.get_xp — both backends share
         # isfinite / nan_to_num / allclose / linalg.{eigh,eig} / argsort by
         # name, so xp.foo(...) is equivalent to the prior if-is_torch branch.
         xp = get_xp(rfo_mat)
@@ -999,7 +1000,7 @@ class HessianOptimizer(Optimizer):
         return step_np, mu_cur, 1.0, eigvec_np
 
     def filter_small_eigvals(self, eigvals, eigvecs, mask=False):
-        # M4: xp.abs handles both backends (torch.abs / np.abs share name + semantics).
+        # xp.abs handles both backends (torch.abs / np.abs share name + semantics).
         small_inds = get_xp(eigvals).abs(eigvals) < self.small_eigval_thresh
         eigvals = eigvals[~small_inds]
         eigvecs = eigvecs[:, ~small_inds]
@@ -1135,7 +1136,7 @@ class HessianOptimizer(Optimizer):
         else:
             gradient = self.active_from_full(gradient_full)
 
-        # M4: xp.linalg.eigh handles both backends.
+        # xp.linalg.eigh handles both backends.
         eigvals, eigvecs = get_xp(H).linalg.eigh(H)
         # Neglect small eigenvalues
         eigvals, eigvecs = self.filter_small_eigvals(eigvals, eigvecs)
@@ -1163,7 +1164,7 @@ class HessianOptimizer(Optimizer):
         # Derivative of the squared step w.r.t. alpha
         numer = gradient**2
         denom = (eigvals - rfo_eigval * cur_alpha) ** 3
-        # M4: xp.sum / xp.isfinite / xp.abs all share name + semantics across torch+np.
+        # xp.sum / xp.isfinite / xp.abs all share name + semantics across torch+np.
         xp = get_xp(gradient)
         quot = xp.sum(numer / denom)
         self.log(f"quot={quot:.6f}")

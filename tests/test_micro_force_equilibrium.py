@@ -3,9 +3,8 @@
 The micro stage exists to settle the MM subsystem before the macro step reads
 curvature. It inherits the TS threshold, so under the shipped default `baker`
 it can plateau with its forces already under 3e-4/2e-4 while the step criteria
-are still unmet. M46 then refused to take any macro step, and a default
-`mlmm all --tsopt` reported `stalled` after ZERO macro cycles -- the TS search
-never ran. Accept force equilibrium; keep every other stall fatal.
+are still unmet. A force-converged micro stage is accepted as equilibrium;
+every other stall remains fatal.
 """
 
 import pytest

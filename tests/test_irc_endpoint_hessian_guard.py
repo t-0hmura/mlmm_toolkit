@@ -1,8 +1,8 @@
-"""M55: the opt-in IRC endpoint guard must decide on an EXACT Hessian at the
+"""The opt-in IRC endpoint guard must decide on an exact Hessian at the
 exact current coordinates, not on the integrator's quasi-Newton ``mw_hessian``.
 
-The guard is exercised at the method level with a stub geometry — the same
-"direct current-source probe" shape the audit used — because a full EulerPC run
+The guard is exercised at the method level with a stub geometry through a
+direct current-source probe because a full EulerPC run
 needs a real MLIP calculator.  ``IRC.__new__`` bypasses ``__init__`` so the
 predicate/helper methods can be driven in isolation.
 """

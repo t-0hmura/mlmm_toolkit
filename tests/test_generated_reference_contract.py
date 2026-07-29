@@ -1,4 +1,4 @@
-"""Contract for the curated starter-snapshot reference page (M71, P02).
+"""Contract for the curated starter-snapshot reference page.
 
 Positive: the generated page is a curated, non-exhaustive snapshot that links
 the full YAML reference, the JA navigation labels it a starter snapshot, and the

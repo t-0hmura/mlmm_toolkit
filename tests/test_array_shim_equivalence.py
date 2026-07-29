@@ -1,11 +1,11 @@
 """Bit-equivalence regression test for the pysisyphus `_array` shim migration.
 
-Each test snapshots a representative numpy↔torch dispatch that the M3-M6
+Each test snapshots a representative NumPy↔torch dispatch that the shared
 shim migrations touch (`_outer`, `_dot`, `_eigh`, `as_numpy`, `to_xp`). All
 asserts are bit-exact for the numpy path and torch fp64 path; torch fp32
 allows 1e-6 tolerance to absorb GPU kernel non-bit reproducibility.
 
-If any assertion fires after a M-migration, the shim is no longer
+If any assertion fires after a migration, the shim is no longer
 behaviour-preserving and the migration must be reverted at the site.
 """
 from __future__ import annotations
@@ -119,7 +119,7 @@ def test_to_xp_numpy_path():
 # ---------- hessian_updates.bfgs_update parity ----------
 
 def _bfgs_update_inline_numpy(H, dx, dg):
-    """Numpy-path expansion of the pre-M2 helper (local _outer/_dot inlined)."""
+    """Numpy-path expansion of the pre-helper (local _outer/_dot inlined)."""
     Hdx = H @ dx
     first_term = np.outer(dg, dg) / np.dot(dg, dx)
     second_term = np.outer(Hdx, Hdx) / np.dot(dx, Hdx)

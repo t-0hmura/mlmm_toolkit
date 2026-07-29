@@ -29,19 +29,17 @@ from pysisyphus._array import active_square
 from pysisyphus.helpers import geom_loader
 from pysisyphus.tr_projection import active_tr_basis, project_hessian_inplace
 
-# Compatibility re-exports (M40): the pure normal-mode kernel now lives in the
+# Compatibility re-exports: the pure normal-mode kernel lives in the
 # lower bundled-engine module ``pysisyphus.normal_modes`` (a sibling of
-# ``pysisyphus.tr_projection``), which imports neither ``mlmm`` nor
-# ``pdb2reaction``. It is re-exported here so existing callers of
+# ``pysisyphus.tr_projection``), which does not import ``mlmm``. It is
+# re-exported here so existing callers of
 # ``mlmm.workflows.freq`` (opt/tsopt/tests) keep working unchanged and resolve to
-# the SAME function objects as the lower implementation.
+# the same function objects as the lower implementation.
 #
 # CHEMISTRY-RULE:6 PHVA + MLIP active-block: mass-weighted Hessian only;
-# TR projection is applied separately downstream. The kernel lowered to
-# ``pysisyphus.normal_modes`` (M40), but the rule stays this workflow's
-# responsibility, so the marker stays at the consuming site -- the same
-# convention p2r uses for CHEMISTRY-RULE:7 (marker in ``workflows/tsopt.py``,
-# kernel in ``pysisyphus/optimizers/hessian_updates.py``).
+# TR projection is applied separately downstream. The kernel lives in
+# ``pysisyphus.normal_modes``, but the rule stays this workflow's
+# responsibility, so the marker is placed at the consuming site.
 from pysisyphus.normal_modes import (  # noqa: F401
     _safe_masses_amu,
     _mw_projected_hessian,
@@ -52,9 +50,8 @@ from pysisyphus.normal_modes import (  # noqa: F401
 
 from mlmm.backends.mlmm_calc import mlmm
 from mlmm.core.defaults import FREQ_KW, THERMO_KW
-# M39: import the shared layer/keyword helpers from the neutral
-# ``_opt_freq_common`` module (and ``_parse_freeze_atoms`` from its canonical
-# home in core.utils) so ``freq`` no longer imports ``opt``.
+# Import shared layer/keyword helpers from the neutral ``_opt_freq_common``
+# module and ``_parse_freeze_atoms`` from its canonical home in core.utils.
 from mlmm.workflows._opt_freq_common import (
     CALC_KW as OPT_CALC_KW,
     GEOM_KW as OPT_GEOM_KW,
@@ -975,8 +972,8 @@ def cli(
     calc_cfg = deepcopy(CALC_KW)
     freq_cfg = dict(FREQ_KW)
     thermo_cfg = dict(THERMO_KW)
-    # DO NOT INLINE: (freq): detect-layer has different defaults across subcommands (freq/irc default True). Guard prevents YAML accidentally suppressing CLI-level default.
-    # Keep command-level default for detect-layer unless YAML/explicit CLI overrides it.
+    # Keep the command-level detect-layer default unless YAML or an explicit
+    # CLI option overrides it.
     calc_cfg["use_bfactor_layers"] = bool(detect_layer)
 
     apply_yaml_overrides(
@@ -1339,7 +1336,7 @@ def cli(
             load_matching as _hess_load_matching,
             identity_from_context as _hess_identity,
         )
-        # M70: reuse a cached TS Hessian only on a full evaluation-identity
+        # reuse a cached TS Hessian only on a full evaluation-identity
         # match (run/system/evaluator/active space/potential).  The all
         # workflow may round-trip the TS through a three-decimal PDB, so the
         # coordinate field keeps the wider bohr tolerance.
@@ -1562,7 +1559,7 @@ def cli(
             symmetry_number = int(thermo_cfg["symmetry_number"])
             p_pa = p_atm * 101325.0  # Pa
 
-            # P05: the standalone-freq policy is library-default QRRHO with NO
+            # The standalone-freq policy is library-default QRRHO with no
             # imaginary inversion and NO positive-frequency floor. Pass every value
             # explicitly and serialize the effective policy below; this reproduces
             # the historical bare thermochemistry(qc, T, pressure=p) numbers.

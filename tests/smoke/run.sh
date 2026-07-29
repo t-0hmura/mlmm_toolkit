@@ -130,19 +130,9 @@ mlmm path-search -i r_complex_layered.pdb p_complex_layered.pdb --parm p_complex
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q -1 -m 1 --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test18 > test18.out 2>&1
 
 # test19: required positive MEP -> TSopt -> IRC -> thermo -> DFT handoff.
-# flatten is intrinsic to this reaction: --no-flatten leaves a genuine extra imaginary
-# mode (n_imag=3 at r=4.0, 4 at r=6.0), so the lane must run --flatten to reach a clean
-# first-order saddle. Uses r=4.0 (46-atom ML region) so flatten converges in ~7 iterations
-# (~21 min) instead of the 11-34 it takes at r=6.0 (up to ~2 h); the smaller region also
-# halves the finite-difference Hessian cost. --tsopt-max-cycles 2000 gives the flatten loop
-# its full flatten_max_iter design budget, and it breaks as soon as n_imag<=1 (product
-# default max-cycles is 10000, so no shipped path is constrained by this).
-# --deterministic is required here, not a nicety: the default ~1e-7 A atomic scatter
-# accumulates over the GSM cycles and this reaction sits on a watershed between the real
-# saddle (nu ~ -450 cm^-1) and a soft-mode structure (nu ~ -15 cm^-1). Two runs from
-# bit-identical inputs diverged at cycle 65 and landed in different basins, and the soft
-# one still certified as n_imag=1. assert_release_result.py's TS_IMAG_FLOOR_CM catches that
-# basin if it is ever reached; --deterministic stops the lane picking between them at random.
+# The lane uses flattening to obtain a first-order saddle and deterministic
+# execution to keep the release comparison reproducible. Saddle certification
+# requires exactly one imaginary mode; its magnitude is not a pass/fail gate.
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 4.0 --ligand-charge 'PRE:0' -q -1 -m 1 --deterministic --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --tsopt --thermo --dft --flatten --irc-never-stop --tsopt-max-cycles 2000 --dft-func-basis 'hf/sto-3g' --dft-grid-level 0 --dft-conv-tol 1e-5 --dft-max-cycle 40 --dft-engine cpu --out-dir test19 > test19.out 2>&1
 python assert_release_result.py all test19 --require-thermo --require-dft >> test19.out 2>&1
 
@@ -236,18 +226,18 @@ if mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mod
 fi
 grep -Fq "Electronic embedding is unavailable in v0.3.3" test38.out
 
-# --- Polish-train new CLI flags (A1 + W3 + B4 wires; all opt-in, defaults preserve Table 1 numerics) ---
+# --- Opt-in TS and IRC methods ---
 
-# test39: tsopt --opt-mode trim (A1 Helgaker trust-region image-min; non-microiter)
+# test39: tsopt --opt-mode trim (Helgaker trust-region image-min; non-microiter)
 mlmm tsopt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode trim --no-microiter --max-cycles 5 --thresh gau_loose --out-dir test39 > test39.out 2>&1
 
-# test40: tsopt --opt-mode rsprfo (A1 Banerjee P-RFO; non-microiter)
+# test40: tsopt --opt-mode rsprfo (Banerjee P-RFO; non-microiter)
 mlmm tsopt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode rsprfo --no-microiter --max-cycles 5 --thresh gau_loose --out-dir test40 > test40.out 2>&1
 
-# test42: irc --irc-pos-def (Sella backport 1: PSD-Hessian convergence guard)
+# test42: irc --irc-pos-def (PSD-Hessian convergence guard)
 mlmm irc -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --max-cycles 3 --irc-pos-def --out-dir test42 > test42.out 2>&1
 
-# test43: opt --print-every 3 (W3a debug throttle, no behavior change)
+# test43: opt --print-every 3 (diagnostic output throttle)
 mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode hess --max-cycles 5 --thresh gau_loose --print-every 3 --out-dir test43 > test43.out 2>&1
 
 # --- Determinism gate ---
@@ -394,7 +384,7 @@ mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --link-atom-
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --backend orb --out-dir test51 > test51.out 2>&1
 python assert_release_result.py provenance test51 --expected-backend orb --expected-model orb_v3_conservative_omol --expected-precision fp64 >> test51.out 2>&1
 
-# ---- Coverage-gap regression (subcommand-specific code paths; coverage audit 2026-06-05) ----
+# ---- Subcommand-specific regression coverage ----
 # test52: opt --mm-only (MM-only minimization; skips the MLIP component entirely)
 mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --mm-only --opt-mode grad --max-cycles 3 --thresh gau_loose --out-dir test52_opt_mmonly > test52_opt_mmonly.out 2>&1
 

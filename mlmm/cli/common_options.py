@@ -1,18 +1,4 @@
-"""Shared Click option decorators across mlmm subcommands.
-
-Factories that collapse the identical
-`--detect-layer / --no-detect-layer` and
-`--model-indices-one-based / --model-indices-zero-based` pairs shared by the
-ten subcommands that define an ML region
-(`dft / freq / irc / opt / path_opt / path_search / scan / scan2d / scan3d /
-tsopt`) into a single call site. Flag names, defaults, and help text are
-byte-for-byte the same as the per-subcommand inline definitions they replaced;
-only the order in `--help` shifts to the factory's call site.
-
-`--model-pdb` and `--model-indices` are sibling options that vary their help
-text per subcommand (ten variants), so they remain inline. If a future change
-unifies that text deliberately, those can also be factored out.
-"""
+"""Shared Click option decorators for mlmm subcommands."""
 
 from __future__ import annotations
 
@@ -66,11 +52,7 @@ def add_coord_type_option(
     """Attach `--coord-type` to a Click command.
 
     Selects the optimization coordinate system passed through to pysisyphus'
-    Geometry constructor. ``cart`` (default) preserves the historical
-    Cartesian behavior used for the published paper data; ``dlc``
-    (delocalised internal coordinates) often converges faster on torsion-
-    rich systems but is brittle for bond-making, ML/MM link-atom paths and
-    multi-fragment systems. ``redund`` and ``tric`` are accepted for
+    Geometry constructor. ``cart`` is the default. ``redund`` and ``tric`` are accepted for
     single-structure optimizers (opt / tsopt / scan / freq) but NOT for
     Chain-of-States engines — ``path-opt`` and ``path-search`` pass
     ``choices=("cart", "dlc")`` here because pysisyphus' ChainOfStates only
@@ -97,9 +79,7 @@ def add_coord_type_option(
             show_default=False,
             help=(
                 f"Optimization coordinate system ({options_str}). cart is the "
-                f"robust default used in published numbers; dlc speeds up "
-                f"torsion-rich opts. mlmm-specific caveats: DLC + link atom "
-                f"and DLC + 3-layer frozen MM are numerically unverified."
+                f"default; command-specific choices are listed here."
             ),
         )(func)
     return decorator
@@ -118,14 +98,7 @@ def add_precision_option() -> Callable[[Callable], Callable]:
     - ``aimnet2`` -> fp32 no-op; fp64 rejected (model inputs are cast to
       float32 upstream, so fp64 cannot be honoured)
 
-    Unset resolves per backend: UMA fp32 (its upstream fairchem baseline),
-    ORB and MACE fp64. ORB's fp32 is the reduced TF32 matmul mode and MACE
-    ships fp64 upstream, so a fp32 finite-difference Hessian from either
-    carries enough force noise to invent imaginary modes.
-
-    fp64 base precision can have non-trivial TSopt/Hessian impact for
-    OMol-trained UMA; for ORB/MACE the higher precision similarly costs
-    throughput and can stabilise gradients/Hessians.
+    Unset resolves per backend: UMA fp32, ORB and MACE fp64.
 
     Wire targets: every subcommand that constructs a backend calculator —
     currently ``sp``, ``opt``, ``tsopt``, ``freq``, ``irc``,
@@ -281,9 +254,8 @@ def add_deterministic_option() -> Callable[[Callable], Callable]:
     propagates to all backends and to the in-process child stages of ``all``
     without per-stage forwarding. Slower than the default, and raises (rather
     than silently degrading) if the torch build cannot honour strict mode.
-    Default off; default runs carry ~1e-7 A scatter/atomic non-determinism that
-    is chemically negligible. The env var ``MLMM_STRICT_DETERMINISTIC=1`` is the
-    equivalent entry point for CI / the direct Python API.
+    Default off. The env var ``MLMM_STRICT_DETERMINISTIC=1`` is the equivalent
+    entry point for CI and the direct Python API.
     """
     def decorator(func: Callable) -> Callable:
         return click.option(
@@ -294,8 +266,8 @@ def add_deterministic_option() -> Callable[[Callable], Callable]:
             expose_value=False,
             callback=_deterministic_callback,
             help=(
-                "Strict bit-reproducible GPU runs (deterministic algorithms + "
-                "index_reduce_ shim). Slower; raises if unsupported. Default off."
+                "Enable strict deterministic GPU algorithms and the index_reduce_ "
+                "shim. Slower; raises if unsupported. Default off."
             ),
         )(func)
     return decorator
@@ -387,7 +359,7 @@ def add_ml_charge_spin_options() -> Callable[[Callable], Callable]:
 def add_ml_layer_detection_options() -> Callable[[Callable], Callable]:
     """Attach `--detect-layer` and `--model-indices-one-based` to a Click command.
 
-    Both options have identical signature (default/help text) across all 10
+    Both options have identical signatures (default/help text) across all 11
     mlmm subcmds that use them, so the factory takes no parameters.
     """
     options = [

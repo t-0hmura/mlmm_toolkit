@@ -529,7 +529,7 @@ def build_analytical_hessian(
     - CMAP: closed-form (manual second-order chain rule + bicubic patch derivatives)
     - Nonbonded + 1-4 (including NB_INDEX<0 HB 12-10): closed-form
     """
-    # M54: validate the ordered active list before any native probing or
+    # validate the ordered active list before any native probing or
     # Hessian allocation, using the same typed error vocabulary as the public
     # workflows.torch_hessian path.  Preserves the caller's valid order exactly.
     active_list = validate_active_atoms(int(system.natom), active_atoms)

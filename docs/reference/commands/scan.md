@@ -155,10 +155,9 @@ Options:
                                   Calculator instance). CLI overrides config
                                   YAML; otherwise defaults to get_calculator.
   --deterministic / --no-deterministic
-                                  Strict bit-reproducible GPU runs
-                                  (deterministic algorithms + index_reduce_
-                                  shim). Slower; raises if unsupported. Default
-                                  off.
+                                  Enable strict deterministic GPU algorithms and
+                                  the index_reduce_ shim. Slower; raises if
+                                  unsupported. Default off.
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
                                   electron-parity check (logs that it was
                                   skipped). For an intentional open-shell or

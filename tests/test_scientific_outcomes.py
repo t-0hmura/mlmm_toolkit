@@ -1,16 +1,15 @@
-"""C6 — truthful scientific outcomes (mlmm_toolkit).
+"""Scientific outcome contracts for mlmm_toolkit.
 
-Every test in this file asserts the load-bearing C6 invariant: no artifact
+Every test in this file asserts the load-bearing invariant: no artifact
 existence and no finite fallback may promote a required nonconverged / missing
 scientific leaf to success, while a genuinely converged leaf's public output is
 unchanged aside from the additive outcome fields.
 
-The falsifiers are grouped by the false-promotion path each one closes; every one
-of them would have reported SUCCESS (or a wrong minimum / a cached Hessian / a
-Gibbs diagram / a fabricated 0.0-substituted thermochemistry) under the pre-C6
-fallback and now correctly reports nonconverged / missing / excluded.
+The tests are grouped by false-promotion path. Each case must report
+nonconverged, missing, or excluded instead of success, a wrong minimum, a
+cached Hessian, a Gibbs diagram, or fabricated zero-valued thermochemistry.
 
-Each production-path falsifier binds to the production helper it exercises
+Each production-path test binds to the production helper it exercises
 (imported from ``mlmm.workflows._outcomes`` / the workflow modules); the gate
 logic is never re-implemented inside the test.
 """
@@ -37,7 +36,7 @@ from mlmm.workflows._outcomes import (
 
 
 # ---------------------------------------------------------------------------
-# 1. Pure outcome types + serializer compatibility (P07)
+# 1. Pure outcome types and serializer compatibility
 # ---------------------------------------------------------------------------
 
 
@@ -132,7 +131,7 @@ def test_serializer_roundtrip_and_additive_only(tmp_path: Path) -> None:
     assert r["status"] == "completed"
     assert r["schema_version"] == RESULT_JSON_SCHEMA_VERSION
     assert r["min_energy_hartree"] == -1.5
-    # Additive outcome fields present and truthful.
+    # Additive outcome fields contain the observed values.
     assert r["scientific_status"] == "success"
     assert r["execution_status"] == "completed"
     assert r["expected_item_ids"] == ["stage_1"]
@@ -150,7 +149,7 @@ def test_dataclasses_are_json_safe() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 2. FALSIFIER — scan non-convergence (M50 + M48)
+# 2. Scan non-convergence
 #    A failed point with the numerically lowest energy would have become the
 #    reported minimum / baseline under the old raw-min; it must be excluded.
 # ---------------------------------------------------------------------------
@@ -190,7 +189,7 @@ def test_scan_failed_low_energy_point_excluded_from_minimum() -> None:
 
 
 def test_scan_normal_return_is_not_convergence() -> None:
-    # M50: an optimizer that returns normally but reports is_converged=False (a
+    # an optimizer that returns normally but reports is_converged=False (a
     # cycle-limit stop) must not be recorded as converged. seed_eligible_mask
     # reads the recorded bit; only an explicit True survives.
     normal_return_but_not_converged = {
@@ -237,7 +236,7 @@ def test_scan_stage_leaf_partial_when_middle_step_fails() -> None:
     assert any("stage_2" in r for r in truth.status_reasons)
 
 
-def test_m50_producer_records_nonconvergence_from_optimizer() -> None:
+def test_producer_records_nonconvergence_from_optimizer() -> None:
     # scan2d/scan3d record `bias_converged = optimizer_converged_bit(opt)`; scan
     # records the same bit per step.
     from mlmm.workflows._outcomes import optimizer_converged_bit
@@ -271,7 +270,7 @@ def test_eligible_points_helper() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 3. FALSIFIER — path expected-segment miss / endpoint HEI (M29)
+# 3. Path expected-segment miss / endpoint HEI
 #    An endpoint-HEI raw diagram (segments=[]) would have been promoted to
 #    success because a diagram exists; it must be partial.
 # ---------------------------------------------------------------------------
@@ -378,9 +377,9 @@ def test_path_single_reactive_segment_is_success() -> None:
 
 
 def test_path_nonconverged_reactive_segment_is_not_success() -> None:
-    # M29: a reactive segment whose StringOptimizer hit its cycle limit
+    # a reactive segment whose StringOptimizer hit its cycle limit
     # (is_converged=False) writes its trajectory but must NOT count toward
-    # completeness. The pre-C6 producer had no converged field and would have
+    # completeness. The earlier producer had no converged field and would have
     # reported success; the real threading now reads the field.
     from mlmm.workflows.path_search import SegmentReport, _path_leaves_and_expected
 
@@ -411,7 +410,7 @@ def test_path_bridge_only_is_not_success() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 4. FALSIFIER — IRC directional non-convergence (M42)
+# 4. IRC directional non-convergence
 #    A nonconverged direction (whose trajectory + Hessian still exist) must not
 #    be promoted; only the converged direction is usable.
 # ---------------------------------------------------------------------------
@@ -485,7 +484,7 @@ def test_irc_hessian_cache_gate_condition() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 5. FALSIFIER — FREQ/DFT name/number fallback (M28, mlmm-specific)
+# 5. FREQ/DFT name/number fallback
 #    A nonzero freq exit must not be treated as success just because a
 #    thermoanalysis.yaml with finite fields exists on disk, and a missing thermal
 #    correction must never be replaced by a finite 0.0 / MLIP electronic energy.
@@ -603,7 +602,7 @@ def test_all_freq_forwards_symmetry_number_only_when_overridden(
         assert captured[captured.index("--symmetry-number") + 1] == "3"
 
 
-def test_m28_thermo_gibbs_finite_gate() -> None:
+def test_thermo_gibbs_finite_gate() -> None:
     # Binds to the production finite-gates the all.py Gibbs/DFT//MLIP/MM consumers
     # use in place of the old 0.0 / MLIP substitution: a missing/nonfinite field
     # returns None (so the diagram/dict is skipped, never substituted).
@@ -614,7 +613,7 @@ def test_m28_thermo_gibbs_finite_gate() -> None:
     assert _thermo_correction_ha({"thermal_correction_free_energy_ha": 0.05}) == pytest.approx(0.05)
     # A failed freq (empty {}) or a missing field returns None -> NOT substituted.
     assert _thermo_gibbs_ha({}) is None
-    assert _thermo_correction_ha({}) is None  # would have become 0.0 pre-C6
+    assert _thermo_correction_ha({}) is None
     assert _thermo_gibbs_ha({"sum_EE_and_thermal_free_energy_ha": float("nan")}) is None
     # A nonzero freq exit returns {} from _run_freq_for_state, so the whole
     # requested R/TS/P set is incomplete and the Gibbs diagram is skipped.
@@ -624,7 +623,7 @@ def test_m28_thermo_gibbs_finite_gate() -> None:
     assert None in gibbs  # R failed -> the diagram must NOT be built
 
 
-def test_m28_dft_energy_gates_on_dft_failed() -> None:
+def test_dft_energy_gates_on_dft_failed() -> None:
     # Binds to the production helper the all.py DFT / DFT//MLIP/MM consumers use in
     # place of the old `dR.get("energy",{}).get("hartree", eR)` / np.nan MLIP
     # fallback: a finite energy.hartree is NOT trusted when the DFT child failed
@@ -635,7 +634,7 @@ def test_m28_dft_energy_gates_on_dft_failed() -> None:
     # A DFT payload with a finite energy but _dft_failed=True -> None (excluded).
     failed = {"energy": {"hartree": -543.21}, "_dft_failed": True}
     assert _dft_succeeded(failed) is False
-    assert _dft_energy_ha(failed) is None            # would have been -543.21 pre-C6
+    assert _dft_energy_ha(failed) is None
 
     # A genuinely converged DFT payload returns its hartree value unchanged.
     ok = {"energy": {"hartree": -543.21}, "_dft_failed": False}
@@ -710,7 +709,7 @@ def test_legacy_converged_output_is_byte_compatible(tmp_path: Path) -> None:
         "files": {"surface_csv": "surface.csv"},
     }
 
-    # Post-C6, the additive outcome fields are appended; every legacy key must be
+    # Outcome fields are appended; every legacy key must be
     # bit-identical.
     points = [
         make_scan_point(f"p{i}", executed=True, converged=True, energy=-1.0, artifact_written=True)
@@ -728,7 +727,7 @@ def test_legacy_converged_output_is_byte_compatible(tmp_path: Path) -> None:
 
     for key, value in legacy.items():
         assert r[key] == value, f"legacy key {key} changed"
-    # Only additive keys are new; scientific_status reports the truthful success.
+    # Only additive keys are new; scientific_status reports success.
     assert r["scientific_status"] == "success"
     assert "scientific_status_reasons" not in r  # no reasons on a clean success
     new_keys = set(r) - set(legacy)
@@ -737,7 +736,7 @@ def test_legacy_converged_output_is_byte_compatible(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# 7. FALSIFIER — DMF (path-opt) non-convergence via IPOPT status (M09)
+# 7. DMF (path-opt) non-convergence via IPOPT status
 #    Binds ipopt_status_to_converged + the DMF LeafOutcome. A nonconverged solve
 #    (status 2) retains its trajectory but is unusable; a converged solve
 #    (status 0/1) is a usable success.
@@ -782,7 +781,7 @@ def test_dmf_converged_leaf_is_success() -> None:
 
 def test_dmf_result_legacy_contract_preserved_and_additive_leaf_added() -> None:
     # mlmm's DMF legacy contract is ALREADY convergence-aware
-    # (status="converged"/"not_converged", converged=bool); the C6 change is
+    # (status="converged"/"not_converged", converged=bool); the added field is
     # purely additive and MUST NOT flip those legacy fields. The additive
     # scientific_status leaf is fed by the SAME real IPOPT convergence bit.
     from mlmm.workflows import path_opt
@@ -793,7 +792,7 @@ def test_dmf_result_legacy_contract_preserved_and_additive_leaf_added() -> None:
         converged=True, ipopt_status=0, reason="ok",
     )
     data = _build_dmf_result_data(conv_res, {"model_charge": 0, "model_mult": 1})
-    # Legacy fields unchanged by C6 (still derived from the real convergence bit).
+    # Legacy fields remain derived from the real convergence bit.
     assert data["status"] == "converged"
     assert data["converged"] is True
 
@@ -812,7 +811,7 @@ def test_dmf_result_legacy_contract_preserved_and_additive_leaf_added() -> None:
     assert "ipopt_status_to_converged(dmf_res.ipopt_status)" in src
     assert '"dmf_mep"' in src
 
-    # Semantic falsifier for the C6 consistency fix: IPOPT status 1
+    # IPOPT status 1
     # (Solved_To_Acceptable_Level) is the case where the two axes DELIBERATELY
     # diverge. The legacy contract keeps status==0-only (converged=False), but
     # the additive scientific leaf routes through the canonical 0-or-1 criterion
@@ -838,7 +837,7 @@ def test_dmf_result_legacy_contract_preserved_and_additive_leaf_added() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 8. FALSIFIER — the ALL-pipeline aggregate consumes truthful leaves (M42 + M29)
+# 8. The ALL-pipeline aggregate consumes leaf outcomes
 #    A never_stop / max-cycle IRC (trajectory present, direction nonconverged)
 #    must not yield scientific_status=success in the all-pipeline aggregate,
 #    while the legacy `status` string is unchanged.

@@ -1,4 +1,4 @@
-"""Contract for release metadata: landing substitution + license (M67, P03).
+"""Contract for release metadata, landing substitution, and licensing.
 
 Positive: the real repository's landing headers render ``v{{ release }}`` and the
 CFF/pyproject SPDX license identities agree on ``GPL-3.0-only``. Negative: a

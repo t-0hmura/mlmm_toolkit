@@ -317,7 +317,7 @@ class IRC:
             idx = self._act_dofs
             if isinstance(H_full, torch.Tensor):
                 idx_t = torch.as_tensor(idx, dtype=torch.long, device=H_full.device)
-                # C14 (H10): bounded row-chunk active square extraction.
+                # Use bounded row-chunk active-square extraction.
                 H_act = active_square(H_full, idx_t)
             else:
                 H_act = H_full[np.ix_(np.asarray(idx, dtype=int), np.asarray(idx, dtype=int))]
@@ -329,7 +329,7 @@ class IRC:
         return self._mw_hessian_active(H_act)
 
     def _exact_endpoint_is_pos_def(self) -> bool:
-        """M55: decide endpoint minimality on an EXACT Hessian at the CURRENT coords.
+        """Decide endpoint minimality on an exact Hessian at the current coordinates.
 
         The integrator's ``mw_hessian`` is a BFGS/Bofill quasi-Newton matrix
         that can be positive definite on a shoulder where the exact geometry

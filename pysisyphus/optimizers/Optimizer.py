@@ -390,7 +390,7 @@ class Optimizer(metaclass=abc.ABCMeta):
         self.is_converged = False
         self.stop_requested = False
         self.stop_reason = ""
-        # Additive M14/P14 terminal outcome: an energy-only plateau (the energy
+        # Additive terminal outcome: an energy-only plateau (the energy
         # stopped decreasing while the configured force/step convergence
         # criteria are NOT met) is a *stalled* stop, never convergence.
         self.is_stalled = False
@@ -520,7 +520,7 @@ class Optimizer(metaclass=abc.ABCMeta):
         self.stop_reason = str(reason)
 
     def request_stall(self, reason):
-        """Request an additive 'stalled' stop (M14/P14).
+        """Request an additive 'stalled' stop.
 
         A stall is an energy-only plateau: the energy has stopped decreasing
         over the configured window while the configured force/step convergence
@@ -645,7 +645,7 @@ class Optimizer(metaclass=abc.ABCMeta):
         is equal to or below the required thresholds, or a multiple
         thereof. The latter may be used in initiating the climbing image.
 
-        ``allow_stall`` gates the M14/P14 energy-plateau stall side effect.
+        ``allow_stall`` gates the energy-plateau stall side effect.
         The run-loop's final check passes ``True``; internal provisional
         probes (RFOptimizer's ref_step probe, TSHessianOptimizer's exact-saddle
         wrapper) pass ``False`` so a plateau does not stall a mid-cycle guess.
@@ -787,7 +787,7 @@ class Optimizer(metaclass=abc.ABCMeta):
             # Baker already has its own explicit force/energy-or-step rule.
             overachieved = False
         # Real (physical) terminal convergence, computed WITHOUT the energy
-        # plateau.  An energy-only plateau is NOT convergence (M14/P14); it is
+        # plateau.  An energy-only plateau is NOT convergence ; it is
         # an additive 'stalled' outcome handled separately below.
         real_terminal = any(
             (
@@ -1280,7 +1280,7 @@ class Optimizer(metaclass=abc.ABCMeta):
                 self.table.print("Operator indicated convergence!")
                 break
 
-            # M52: capture a resumable checkpoint only at the post-step
+            # capture a resumable checkpoint only at the post-step
             # boundary — after the actual transformed step and any
             # reparametrization are known — so a resumed optimizer continues the
             # same trajectory instead of re-applying an uncommitted step.
@@ -1290,7 +1290,7 @@ class Optimizer(metaclass=abc.ABCMeta):
                 and (self.cur_cycle % self.dump_restart) == 0
             ):
                 # Declining to write a checkpoint must not kill the optimization.
-                # M52 is right that a restart file this class cannot reload is
+                # is right that a restart file this class cannot reload is
                 # worthless, but ``dump_restart`` is a documented opt-in
                 # (docs/yaml-reference.md, docs/opt.md) and at the RC the same run
                 # completed.  Warn once, stop dumping, keep optimizing.
@@ -1395,7 +1395,7 @@ class Optimizer(metaclass=abc.ABCMeta):
         self.geometry.set_restart_info(restart_info["geom_info"])
 
     def dump_restart_info(self):
-        # M52: write a safe-primitive, atomic, post-step checkpoint.  An
+        # write a safe-primitive, atomic, post-step checkpoint.  An
         # optimizer class whose complete resumable state is not declared fails
         # loud (CheckpointUnsupportedError) rather than writing a partial or
         # self-unreloadable restart file.

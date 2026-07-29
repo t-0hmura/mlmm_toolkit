@@ -34,8 +34,8 @@ Options:
                                   'SAM:1,GPP:-3') used to derive ML region
                                   charge when -q is omitted (requires PDB input
                                   or --ref-pdb).
-  -m, --multiplicity INTEGER      Spin multiplicity (2S+1) for the ML region.
-                                  [default: 1]
+  -m, --multiplicity INTEGER      Spin multiplicity (2S+1) for the ML region;
+                                  defaults to YAML or 1.
   --freeze-atoms TEXT             Comma-separated 1-based indices to freeze
                                   (e.g., '1,3,5').
   --func-basis TEXT               Exchange-correlation functional and basis set
@@ -88,6 +88,10 @@ Options:
                                   parm7.
   --out-json / --no-out-json      Write machine-readable result.json to out_dir.
                                   [default: no-out-json]
+  --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
+                                  electron-parity check (logs that it was
+                                  skipped). For an intentional open-shell or
+                                  covalently-cut ML region.
   --detect-layer / --no-detect-layer
                                   Detect ML/MM layers from input PDB B-factors
                                   (ML=0, MovableMM=10, FrozenMM=20). If

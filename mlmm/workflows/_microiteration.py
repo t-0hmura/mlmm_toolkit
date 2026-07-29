@@ -1,13 +1,11 @@
-"""Product-local immutable microiteration partition + outcome vocabulary (C9).
+"""Immutable microiteration partition and outcome vocabulary.
 
 This private helper is shared by ``mlmm.workflows.opt`` and
 ``mlmm.workflows.tsopt`` so both drivers resolve *one* immutable macro/micro
-partition and serialize *one* truthful optimizer outcome.  It is intentionally
-product-local (an MLMM-private minor helper), not a PEScape public
-``MicroiterationPartition``/``ActiveDofMap``; p2r has no ML/MM layer partition
-and does not import it.
+partition and serialize *one* optimizer outcome. It is intentionally
+product-local.
 
-Three invariants this module enforces (the point of C9):
+Three invariants this module enforces:
 
 * **Immutable partition.** The user's original freeze mask is preserved in BOTH
   the macro and the micro phase (it is unioned into each phase freeze and never
@@ -18,16 +16,14 @@ Three invariants this module enforces (the point of C9):
   swallowed empty set that a caller mistakes for a valid empty-ML region.  A
   valid empty-ML region is a *documented* fallback to the ordinary optimizer,
   not an unchanged geometry returned as a completed result.
-* **Truthful macro/micro outcome.** Aggregate convergence requires an explicitly
+* **Macro/micro outcome.** Aggregate convergence requires an explicitly
   converged macro state *and* an explicitly converged latest required micro
   relaxation.  A micro plateau/stall/max-cycle exhaustion (or a missing
   convergence signal) fails closed and never reads as macro convergence.
 
 The :class:`OptimizerOutcome` field names (``status``/``executed``/
 ``converged``/``cycles``/``max_cycles``/``stalled``/``stop_reason``) are kept
-field-isomorphic with the C6/C7 vocabulary so a later PEScape migration can map
-the frozen minor vectors into its public conformance without exposing these
-private classes as a prematurely frozen API.
+field-isomorphic with the ordinary optimizer outcome vocabulary.
 """
 
 from __future__ import annotations
@@ -208,13 +204,11 @@ def resolve_partition_from_core(
     n_atoms: int,
     original_freeze: Iterable[Any],
 ) -> MicroiterationPartition:
-    """Resolve the partition strictly from the *already constructed* core (M44).
+    """Resolve the partition strictly from the *already constructed* core.
 
-    Unlike the historical ``_collect_layer_atom_sets`` (which built a second
-    calculator and swallowed every exception into four empty sets), this reads
-    the layer indices off the accepted core and lets any failure surface as a
-    :class:`PartitionError`.  A swallowed construction error can no longer
-    masquerade as a valid empty-ML region.
+    Layer indices are read from the accepted core. Any resolution failure
+    surfaces as :class:`PartitionError` and cannot masquerade as a valid
+    empty-ML region.
     """
 
     if core is None:
@@ -270,7 +264,7 @@ def micro_reached_force_equilibrium(optimizer: Any) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# One field-isomorphic optimizer outcome (C7) + nested micro outcome (C9)
+# One field-isomorphic optimizer outcome and nested micro outcome
 # ---------------------------------------------------------------------------
 
 
@@ -278,7 +272,7 @@ def micro_reached_force_equilibrium(optimizer: Any) -> bool:
 class OptimizerOutcome:
     """One optimizer's terminal state, field-isomorphic across every path.
 
-    ``status`` uses the C7 vocabulary (``converged`` / ``not_converged`` /
+    ``status`` uses the public vocabulary (``converged`` / ``not_converged`` /
     ``stalled``); ``converged`` is the fail-closed tri-state bit
     (``True``/``False``/``None``).  ``cycles`` counts *executed* optimizer
     cycles (``cur_cycle + 1``), never the configured budget.
@@ -338,7 +332,7 @@ class OptimizerOutcome:
     def vacuous_success(cls, *, reason: str = "no_micro_active_dofs") -> "OptimizerOutcome":
         """A zero-cycle vacuous micro success (no movable MM coordinate to relax).
 
-        Per the C9 blueprint a validated partition that leaves no micro-active
+        A validated partition that leaves no micro-active
         DOF is *not* an error: it is a zero-cycle converged micro leaf.  No LBFGS
         is constructed with every atom frozen.
         """
@@ -367,7 +361,7 @@ class OptimizerOutcome:
 
 @dataclass(frozen=True)
 class MicroiterationOutcome:
-    """The single terminal outcome of a macro/micro microiteration run (C9).
+    """The single terminal outcome of a macro/micro microiteration run.
 
     ``aggregate`` is the one outcome a consumer reads; ``macro`` and the ordered
     ``micro_attempts`` retain both leaf truths so a failed micro is never
@@ -410,7 +404,7 @@ def build_aggregate(
     *,
     max_cycles: Optional[int] = None,
 ) -> OptimizerOutcome:
-    """Fold macro + micro leaves into one fail-closed aggregate outcome (M46).
+    """Fold macro + micro leaves into one fail-closed aggregate outcome.
 
     Aggregate is ``converged`` only when the macro is explicitly converged AND
     the latest *required* micro relaxation is explicitly converged.  A macro or
@@ -479,12 +473,12 @@ def build_aggregate(
 
 
 # ---------------------------------------------------------------------------
-# IRC / Hessian device policy (M43)
+# IRC/Hessian device policy
 # ---------------------------------------------------------------------------
 
 
 def resolve_hessian_device(requested: str, cuda_available: bool) -> Tuple[str, str]:
-    """Calibrated GPU-first device policy for the IRC integration Hessian (M43).
+    """Return the device policy for the IRC integration Hessian.
 
     * ``auto``  -> GPU-first: ``cuda`` when available, else ``cpu`` (logged).
     * ``cuda``  -> stays ``cuda``; raises :class:`ValueError` when CUDA is

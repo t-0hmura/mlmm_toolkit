@@ -103,7 +103,7 @@ Filename tags `i###_j###_k###` are integer hundredths of an angstrom (d1×100, d
 | `--out-json/--no-out-json` | Write machine-readable `result.json` to `out_dir`. | `False` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 
-The full flag list is in the generated [command reference](reference/commands/index.md); do not hand-duplicate it here.
+The full flag list is in the generated [command reference](reference/commands/index.md).
 
 ## Scan-list syntax
 

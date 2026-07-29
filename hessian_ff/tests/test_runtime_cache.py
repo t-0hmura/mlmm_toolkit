@@ -1,4 +1,4 @@
-"""M54: the runtime cache is keyed by topology CONTENT, not the pathname alone.
+"""The runtime cache is keyed by topology content, not the pathname alone.
 
 Replacing a parm7's bytes at the same path (even same-size / same-mtime) must
 build a new parsed runtime; byte-identical content may reuse the old one.  The

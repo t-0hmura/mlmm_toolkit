@@ -35,7 +35,7 @@ def _system(n: int = 9, seed: int = 3):
 
 
 def test_bofill_update_active_mutates_the_hessian_in_place():
-    """The pre-fix `.add_()` form left H bit-identical; that must never pass again."""
+    """Ensure indexed write-back changes the accepted Hessian."""
     H, delta, g_old, g_new = _system()
     H0 = H.clone()
 

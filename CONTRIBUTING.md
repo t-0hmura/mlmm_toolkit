@@ -53,11 +53,14 @@ mlmm freq -i opt.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0 \
     --dump-hess /scratch/hess.npz
 ```
 
-Use `--dump` when reproducing a HEAVY-tier regression or attaching artefacts to a bug report. Use `-v 3` when diagnosing an import-time or stage-bridge issue (e.g. AmberTools preflight failure, parm7 mismatch); the additional log volume is acceptable for short runs.
+Use `--dump` when reproducing a resource-intensive regression or attaching artefacts to a bug report. Use `-v 3` when diagnosing an import-time or stage-bridge issue (e.g. AmberTools preflight failure, parm7 mismatch); the additional log volume is acceptable for short runs.
 
 ### 1.5 Downstream parser freeze rule
 
-The contents of `summary.log` and `summary.json` are **frozen byte-for-byte**. Even cosmetic edits ("Step 1" → "step 1", added trailing periods, reflowed JSON keys) break downstream regex parsers. If a log line genuinely needs to change, treat it as an intentional behaviour change and name the reason in the commit body so downstream maintainers can update their parsers.
+Treat `summary.json` as a versioned public schema and `summary.log` as
+human-readable output. Document intentional schema changes, add a migration
+test for structural breaks, and preserve machine-readable keys unless the
+schema version changes.
 
 ---
 
@@ -79,7 +82,8 @@ See [`docs/architecture.md`](docs/architecture.md) for the full 6-layer dir tree
 
 ## 3. Recipes
 
-Five "add-a-X" recipes cover ~90 % of contributor changes. Each names the exact files you touch (with the correct layer dir) and the gate that catches mistakes.
+The following "add-a-X" recipes name the files to touch and the checks that
+cover common contributor changes.
 
 ### 3.1 Add a subcommand
 
@@ -93,7 +97,9 @@ Five "add-a-X" recipes cover ~90 % of contributor changes. Each names the exact 
 | 4 | Declare booleans as canonical Click toggle pairs (`--flag/--no-flag`). Runtime parameter introspection discovers ordinary decorators automatically; add a manual pre-import hint in `mlmm/cli/app.py` only when a lazy/parser-wrapper path requires it. | `mlmm/cli/default_group.py`, `mlmm/cli/app.py` |
 | 5 | Add a docs page `docs/myaction.md` (and `docs/ja/myaction.md` if you maintain the JP set); add a unit test in `tests/test_myaction.py` | new files |
 
-**Gate that catches mistakes**: the unit-test suite (step 3) will fail if the subcommand cannot be discovered or instantiated; the engineering-marker check (step 4) will fail if a new backend SDK leaks outside `backends/`.
+**Gates that catch mistakes**: gate stage 1 exercises the unit test; stage 3
+checks registry/help drift; stage 4 covers the command when it belongs to the
+canonical smoke surface.
 
 **Note on absolute paths**: `_LAZY_SUBCOMMANDS` entries MUST use **absolute** module paths (`mlmm.workflows.myaction`). Relative dotted strings (`".myaction"`) silently break subcommand discovery if `default_group.py` ever moves; see `docs/architecture.md` §5.5.
 
@@ -101,17 +107,16 @@ Five "add-a-X" recipes cover ~90 % of contributor changes. Each names the exact 
 
 **Goal**: introduce a new MLIP backend `XYZModel` consumable as `--backend xyz`.
 
-This recipe applies **after the per-backend split lands** (when the `mlmm/backends/{base,uma,orb,mace,aimnet2}.py` split is complete). Until then, the backend dispatch lives inline in `mlmm/backends/mlmm_calc.py` and adding a backend requires editing that file directly (search for the `ML Backend Abstraction` banner and the `HAS_*` flags).
-
 | step | action | file |
 |---|---|---|
-| 1 | Create `mlmm/backends/xyz.py` with `XYZCalculator(MLIPCalculator)` (pysisyphus path) and `XYZASECalculator(...)` (ASE path) | new file (future) |
-| 2 | Conform to `MLIPCalculatorProtocol` (`backends/base.py`) — implement `compute_energy_forces`, `compute_hessian` | `mlmm/backends/base.py` (future) |
-| 3 | Register in `BACKEND_REGISTRY` dict with `module / pysis_cls / ase_cls` keys, and add the accepted-kwargs set to `_BACKEND_ACCEPTED_KEYS` and `_ASE_ACCEPTED_KEYS` | `mlmm/backends/__init__.py` (future) |
-| 4 | Add `xyz` to `resolve_backend` fallback order if it should participate in `--backend auto` | `mlmm/backends/__init__.py` (future) |
+| 1 | Add the backend adapter and availability check to the existing ML backend abstraction | `mlmm/backends/mlmm_calc.py` |
+| 2 | Add backend-specific model, precision, and accepted-option defaults | `mlmm/core/defaults.py` |
+| 3 | Route the backend through calculator construction and provenance | `mlmm/backends/mlmm_calc.py`, `mlmm/core/utils.py` |
+| 4 | Add the backend token to Click choices and generated help | `mlmm/cli/common_options.py`, relevant workflows |
 | 5 | Document model identifiers, install command, accepted kwargs in `docs/backends.md`; add a smoke entry in `tests/smoke/run.sh` | `docs/backends.md`, `tests/smoke/run.sh` |
 
-**Gate that catches mistakes**: the smoke run (step 5) will exercise the new backend end-to-end and the engineering-marker check (step 4) will confirm the new backend's external SDK import stays inside `backends/`. Backend side-effect imports (`import orb_models`, etc.) must be retained at the new file's top so the registry can probe availability.
+**Gates that catch mistakes**: add focused factory/provenance tests at gate
+stage 1, then exercise the backend end to end at gate stage 4.
 
 ### 3.3 Add an output format
 
@@ -121,11 +126,13 @@ This recipe applies **after the per-backend split lands** (when the `mlmm/backen
 |---|---|---|
 | 1 | Add a writer function in `mlmm/io/summary.py` that consumes the same in-memory summary dict | `mlmm/io/summary.py` (L4b) |
 | 2 | Default emit path / on-or-off flag lives in `mlmm/core/defaults.py` | `mlmm/core/defaults.py` (L5) |
-| 3 | Wire into `@add_common_dump_options` factory if the user can opt out (the factory is **future**, expected to land in a later release; until then, attach a per-subcommand `@click.option("--dump-<artefact>",...)` directly to the L2 stage runner) | `mlmm/cli/decorators.py` (future) |
+| 3 | Attach a per-subcommand `@click.option("--dump-<artefact>",...)` to the L2 stage runner when users can opt out | the stage runner |
 | 4 | Advertise the new artefact in the output-layout documentation and the `summary.json` schema so downstream consumers can discover it | `docs/output-layout.md`, `mlmm/io/summary.py` |
 | 5 | Add docs in `docs/json-output.md` + a unit test for round-trip serialisation | `docs/json-output.md`, new test |
 
-**Gate that catches mistakes**: the smoke run (step 5) will exercise the new artefact end-to-end; any change to a downstream-parser-visible log line is governed by §1.5 (Downstream parser freeze rule).
+**Gates that catch mistakes**: the unit test in step 5 checks the writer; add
+gate-stage-4 smoke coverage when the artefact belongs to the canonical smoke
+surface. Machine-readable changes are governed by §1.5.
 
 ### 3.4 Add a workflow stage
 
@@ -135,7 +142,7 @@ This recipe applies **after the per-backend split lands** (when the `mlmm/backen
 |---|---|---|
 | 1 | Implement the stage as a standalone subcommand first (Recipe 3.1) | `mlmm/workflows/validate.py` |
 | 2 | Add an internal entry to the `all` pipeline orchestrator, preserving the VRAM `del` + `gc.collect()` pattern between stages | `mlmm/workflows/all.py` |
-| 3 | Add a `_StageContext` field if the stage needs persistent context (future, `core/types.py`) | `mlmm/core/types.py` (future) |
+| 3 | Pass the stage result explicitly to the aggregate producer and any later consumer | `mlmm/workflows/all.py` |
 | 4 | Update `mlmm/io/summary.py` to record the new stage's entry in `summary.json` | `mlmm/io/summary.py` |
 | 5 | Update `tests/smoke/run.sh` to include the new stage in the representative run | `tests/smoke/run.sh` |
 
@@ -147,13 +154,13 @@ This recipe applies **after the per-backend split lands** (when the `mlmm/backen
 
 | step | action | file |
 |---|---|---|
-| 1 | Pick the right tier: pure-Python logic → `tests/test_<feature>.py`; multi-stage smoke → `tests/smoke/`; chemistry-rule regression → `tests/domain_golden/` (future) | as appropriate |
+| 1 | Pick the right tier: pure-Python or chemistry-rule logic → `tests/test_<feature>.py`; multi-stage smoke → `tests/smoke/` | as appropriate |
 | 2 | Use `pytest` style: one assertion per logical thing; name the test for the symptom (`test_irc_initial_displacement_does_not_oom`) | new test |
 | 3 | If the test consumes a fixture, prefer the `tests/data/` directory; do **not** add large binary fixtures (> 100 KB) — use generators | `tests/data/`, `tests/conftest.py` |
 | 4 | Run `pytest tests/test_<feature>.py -q -x` until green, then `pytest tests/ -q` to confirm no cross-test breakage | local |
 | 5 | If the test depends on a new public Click command or symbol, land Recipe 3.1 / 3.3 first so the golden gate stays green | sequencing |
 
-**Gate that catches mistakes**: `pytest` itself (step 3 of the gate cycle); CI will block merge.
+**Gate that catches mistakes**: `pytest` is gate stage 1; CI blocks a failing merge.
 
 ---
 
@@ -195,7 +202,7 @@ Entries in `mlmm/cli/app.py:_LAZY_SUBCOMMANDS` MUST use absolute module paths (`
 
 ### 4.6 Chemistry default choices
 
-Default basis set (def2-TZVPD), default functional (ωB97M-V), default convergence thresholds, default ECP handling, default solvent models, default ONIOM region shell radii — **none** of these are open for change without a `[CHEMISTRY-RULE]` commit and explicit lab decision. Grep `mlmm/core/defaults.py` (`func_basis`) to see the current values; if you think a change is justified, open an issue first.
+Default basis set (def2-TZVPD), default functional (ωB97M-V), default convergence thresholds, default ECP handling, default solvent models, default ONIOM region shell radii — **none** of these are open for change without a `[CHEMISTRY-RULE]` commit, a documented numerical comparison, and maintainer approval. Grep `mlmm/core/defaults.py` (`func_basis`) to see the current values; if you think a change is justified, open an issue first.
 
 ### 4.7 Downstream-parser-visible log lines
 
@@ -205,12 +212,12 @@ Any `summary.log` or `summary.json` line that downstream parsers consume is **fr
 
 ## 5. Commit prefix conventions
 
-The prefix tells the reviewer what to expect and which gate cycle stage will be exercised.
+The prefix identifies the expected scope and the gate cycle stage to exercise.
 
 | prefix | meaning | typical pattern |
 |---|---|---|
-| `[CHEMISTRY FREEZE]` | Explicit "no chemistry change" marker on a polish-only edit; reviewer must verify | `[CHEMISTRY FREEZE] docstring polish on IRC.py — no logic change` |
-| `[CHEMISTRY-RULE]` | Modifies an actual chemistry-correctness rule — requires lab sign-off + HEAVY benchmark | `[CHEMISTRY-RULE:1] mlmm_calc.py adjust subtractive ONIOM energy after embed-charge revision` |
+| `[CHEMISTRY FREEZE]` | Explicit "no chemistry change" marker on a polish-only edit; maintainers verify the scope | `[CHEMISTRY FREEZE] docstring polish on IRC.py — no logic change` |
+| `[CHEMISTRY-RULE]` | Modifies a chemistry-correctness rule; requires maintainer approval and a documented scheduled numerical benchmark | `[CHEMISTRY-RULE:1] mlmm_calc.py adjust subtractive ONIOM energy after embed-charge revision` |
 | `[DOMAIN_PURE]` | Adjusts the `# DOMAIN_PURE` marker or the import-deny gate | `[DOMAIN_PURE] add mlmm_calc.py to deny-gate scope` |
 
 ---

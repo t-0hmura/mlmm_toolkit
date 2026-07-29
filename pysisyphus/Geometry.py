@@ -302,7 +302,7 @@ class Geometry:
         freeze_atoms = np.array(freeze_atoms, dtype=int)
         self._freeze_atoms = freeze_atoms
 
-        # M51: a changed freeze mask must never reuse a memoized active
+        # a changed freeze mask must never reuse a memoized active
         # atom/DOF basis derived from the previous mask.  Invalidate both
         # memoized views before any internal-coordinate rebuild so that an
         # exception during the rebuild cannot leave a physically changed
@@ -1514,7 +1514,7 @@ class Geometry:
         }
 
         qcd = QCData(thermo_dict, point_group=point_group)
-        # P05: the bundled-geometry policy inverts small imaginaries (>= -15 cm^-1)
+        # The bundled-geometry policy inverts small imaginaries (>= -15 cm^-1)
         # and floors positive frequencies below 25 cm^-1. Pass every value
         # explicitly and record the effective policy on the Geometry result; this
         # reproduces the historical invert_imags=-15 / cutoff=25 numbers exactly.

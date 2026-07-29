@@ -313,7 +313,9 @@ All 9 rules apply to `mlmm`:
 | 8 | 3-layer 5-pass partial Hessian assembly | `mlmm/backends/mlmm_calc.py` |
 | 9 | parm7 atom indexing (1-based / serial gap handling) | `mlmm/io/pdb_indexing.py` |
 
-Editing any of these requires a `[CHEMISTRY-RULE:N]` commit prefix and a HEAVY-tier numerical-golden gate pass (see `CONTRIBUTING.md` §1.1).
+Editing any of these requires a `[CHEMISTRY-RULE:N]` commit prefix, maintainer
+approval, and a documented scheduled numerical benchmark (see
+`CONTRIBUTING.md` §1.1).
 
 **Recommended learning order (4 chemistry clusters)**:
 

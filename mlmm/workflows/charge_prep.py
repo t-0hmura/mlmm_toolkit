@@ -4,8 +4,8 @@ These helpers derive the selected ML model's net charge from ``--ligand-charge``
 (via ``extract``'s charge-summary engine) and resolve the final charge/spin for
 a run.  They sit ABOVE ``core`` precisely because they consume a workflow-level
 service (``mlmm.workflows.extract.compute_charge_summary``); keeping them out of
-``mlmm.core.utils`` is what breaks the historical ``core.utils <-> extract``
-import cycle (M39).  ``core`` must never import a workflow, so this preparation
+``mlmm.core.utils`` keeps the ``core.utils <-> extract`` dependency acyclic.
+``core`` must never import a workflow, so this preparation
 step lives here and workflow subcommands import it from this module.
 """
 

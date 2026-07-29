@@ -114,7 +114,7 @@ OPT_FLATTEN_UNCONVERGED_GUARD = 25
 
 
 # Default settings + shared layer helpers now live in the neutral
-# ``_opt_freq_common`` module (M39) so ``freq`` no longer imports ``opt``.
+# ``_opt_freq_common`` module so ``freq`` does not import ``opt``.
 # Re-exported here for opt's own use and for the many workflows that import
 # GEOM_KW / CALC_KW / _normalize_geom_freeze / _convert_yaml_layer_atoms_1to0
 # from ``mlmm.workflows.opt``.
@@ -380,7 +380,7 @@ def _maybe_convert_outputs_to_pdb(
 
 
 
-# DO NOT INLINE: called in flatten-loop tight succession; per-call empty_cache
+# Called in flatten-loop tight succession; per-call empty_cache
 # prevents unbounded VRAM growth across iterations. The cache-clear is the
 # load-bearing part of this helper. Lives in mlmm.core.calc_eval so the
 # tsopt module can reuse the same implementation without re-duplicating it.
@@ -513,7 +513,7 @@ def _seed_rfo_initial_hessian(
         identity_from_context as _hess_identity,
     )
 
-    # M70: reuse an IRC endpoint Hessian only on a full evaluation-identity
+    # reuse an IRC endpoint Hessian only on a full evaluation-identity
     # match (run/system/evaluator/active space/potential).
     cached = _hess_load_matching(
         "irc_endpoint",
@@ -602,12 +602,12 @@ def _run_microiter_opt(
 
     The macro/micro phase masks and the user's original freeze mask come from the
     single immutable :class:`MicroiterationPartition` resolved by the caller from
-    the accepted calculator core (M44/M45): the original freeze is preserved in
+    the accepted calculator core: the original freeze is preserved in
     both phases and restored exactly on every exit path.  A micro relaxation that
     does not explicitly converge fails closed and never reads as macro
-    convergence (M46).
+    convergence.
     """
-    # M44: a valid empty-ML partition is a documented caller-side fallback to a
+    # a valid empty-ML partition is a documented caller-side fallback to a
     # real standard optimization; reaching this driver with no macro-active atoms
     # is a contract violation, raised loudly (never an unchanged-geometry return).
     if not partition.has_macro_active:
@@ -616,7 +616,7 @@ def _run_microiter_opt(
             "atoms; the caller must dispatch a standard optimization instead."
         )
 
-    # M45: consume the single immutable partition. The user's original freeze
+    # consume the single immutable partition. The user's original freeze
     # mask is preserved in BOTH phase masks and restored exactly in ``finally``.
     ml_indices = list(partition.ml_atoms)
     movable_mm = list(partition.movable_mm_atoms)
@@ -646,7 +646,7 @@ def _run_microiter_opt(
     base_calc = mlmm(**calc_cfg)
     mm_calc = mlmm_mm_only(base_calc.core, freeze_atoms=micro_freeze)
 
-    # Ordered record of every micro (MM) relaxation's truthful outcome (M46/M47).
+    # Ordered record of every micro (MM) relaxation outcome.
     micro_attempts: List[OptimizerOutcome] = []
     micro_cycles_total = 0
 
@@ -655,7 +655,7 @@ def _run_microiter_opt(
 
         Returns the LBFGS optimizer (for its explicit convergence bit) and the
         number of executed micro cycles.  A normal Python return is not, by
-        itself, evidence of convergence (M46): the caller reads
+        itself, evidence of convergence: the caller reads
         ``micro_opt.is_converged`` via :class:`OptimizerOutcome`.
         """
 
@@ -750,7 +750,7 @@ def _run_microiter_opt(
         macro_calc_cfg["hess_mm_atoms"] = sorted(link_mm_parents)  # ML + link MM parents in Hessian
         macro_calc = mlmm(**macro_calc_cfg)
 
-        # M70: reuse an IRC endpoint Hessian only on a full evaluation-identity
+        # reuse an IRC endpoint Hessian only on a full evaluation-identity
         # match (run/system/evaluator/active space/potential).
         cached = _hess_load_matching(
             "irc_endpoint",
@@ -812,7 +812,7 @@ def _run_microiter_opt(
         # Create persistent RFOptimizer once (LayerOpt pattern).
         # This preserves the BFGS Hessian update chain across macro iterations.
         # NOTE: geometry already has macro_calc set (line above); do NOT call
-        # set_calculator() again as it clears the pre-computed cart_hessian.
+        # set_calculator again as it clears the pre-computed cart_hessian.
         geometry.freeze_atoms = macro_freeze
 
         rfo_args = dict(rfo_cfg)
@@ -851,7 +851,7 @@ def _run_microiter_opt(
             macro_converged, conv_info = macro_optimizer.check_convergence()
             total_macro_steps += 1
 
-            # A real macro energy-plateau stall (M14/P14) stops the loop BEFORE the
+            # A real macro energy-plateau stall  stops the loop BEFORE the
             # step is applied or a micro relaxation is launched; it is never
             # convergence.
             if macro_optimizer.stop_requested:
@@ -907,7 +907,7 @@ def _run_microiter_opt(
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
             else:
-                # M45 falsifier #5: a validated partition with macro-active atoms but
+                # A validated partition with macro-active atoms but
                 # ZERO micro-active MM atoms (e.g. the entire MM region is
                 # user-frozen) has no movable MM coordinate to relax. Append the
                 # zero-cycle vacuous micro success instead of building an LBFGS with
@@ -915,7 +915,7 @@ def _run_microiter_opt(
                 _micro_out = OptimizerOutcome.vacuous_success()
                 micro_steps = 0
             micro_attempts.append(_micro_out)
-            # M14/P14: remember whether THIS micro (MM) relaxation stalled on an
+            # remember whether THIS micro (MM) relaxation stalled on an
             # energy plateau. Coordinate copying alone is not evidence of
             # convergence, so a stalled/non-converged latest micro relaxation must
             # not later read as clean macro convergence.
@@ -925,7 +925,7 @@ def _run_microiter_opt(
             if dump:
                 _append_xyz_trajectory(optim_all_path, out_dir_path / "optimization_trj.xyz")
 
-            # M46: a required micro relaxation that did not explicitly converge stops
+            # a required micro relaxation that did not explicitly converge stops
             # the macro/micro alternation; the aggregate cannot be converged and no
             # further macro step is taken (a normal LBFGS return on max-cycle
             # exhaustion is not convergence).
@@ -955,7 +955,7 @@ def _run_microiter_opt(
                 print()  # blank line closes the table (print() shares the table's stdout path)
                 emit(f"[microiter] Reached max macro iterations ({max_cycles}).", detail=True)
 
-        # M14/P14 terminal outcome. A stalled latest micro (MM) relaxation must not
+        # terminal outcome. A stalled latest micro (MM) relaxation must not
         # masquerade as clean macro convergence, and it must not be lost as a
         # reasonless not_converged when the macro merely ran out of cycles: surface
         # it as a stall (with its reason) in either case.
@@ -965,8 +965,8 @@ def _run_microiter_opt(
             latest_micro_stalled=latest_micro_stalled,
             latest_micro_stop_reason=latest_micro_stop_reason,
         )
-        # M46/M47: serialize ONE truthful outcome. The macro state (after the M14/P14
-        # stall demotion above) and the ordered micro attempts are folded fail-closed
+        # Fold the macro state after stall demotion and the ordered micro
+        # attempts into one fail-closed outcome.
         # into a single aggregate: converged only when the macro is converged AND the
         # latest required micro relaxation is converged.
         macro_outcome = OptimizerOutcome.from_optimizer(macro_optimizer, max_cycles=max_cycles)
@@ -997,7 +997,7 @@ def _run_microiter_opt(
 
         return outcome
     finally:
-        # M45: restore the EXACT original freeze mask + base calculator on
+        # restore the EXACT original freeze mask + base calculator on
         # every exit path (success, micro non-convergence, macro stall, and
         # raised exception), so no user freeze constraint leaks past the
         # microiteration driver.
@@ -1828,7 +1828,7 @@ def cli(
             [(microiter_cfg, (("microiter",),))],
         )
 
-        # Serialize state through one set of names (no dir()-based discovery).
+        # Serialize state through one set of names (no dir-based discovery).
         optimizer = None
         microiter_result = None
         microiter_partition = None
@@ -1841,7 +1841,7 @@ def cli(
             click.echo("[microiter] --microiter is not compatible with --dist-freeze. Falling back to standard RFO.")
 
         if use_microiter:
-            # M44: resolve the ONE immutable partition strictly from the accepted
+            # resolve the ONE immutable partition strictly from the accepted
             # calculator core BEFORE dispatch. A construction/partition failure
             # raises PartitionError (loud, ordinary error envelope); a VALID
             # empty-ML partition is a documented fallback to a REAL standard RFO
@@ -1930,7 +1930,7 @@ def cli(
 
         rigid_projection_info: Dict[str, Any] = {}
 
-        # M14/P14: track a real energy-plateau stall from whichever optimizer
+        # track a real energy-plateau stall from whichever optimizer
         # ran (standard, microiteration macro/latest-micro, or a flatten retry
         # below). A stall stops further flatten/retry work and is reported as a
         # distinct, non-converged outcome (never converged).
@@ -1946,7 +1946,7 @@ def cli(
 
         # Flatten loop (all imaginary modes).  A stalled optimization is
         # precisely when this is wanted: it rebuilds the Hessian and displaces
-        # along the remaining imaginary modes to leave the plateau.  M14/P14's
+        # along the remaining imaginary modes to leave the plateau.  's
         # no-retry rule belongs inside the loop (a flatten *retry* that stalls
         # again stops there and sets ``_opt_stalled``), not in front of it.
         if flatten:
@@ -2055,7 +2055,7 @@ def cli(
                     stop_reason=getattr(opt_restart, "stop_reason", None) or None,
                 )
 
-                # Stop retrying a stalled optimization (M14/P14): a flatten
+                # Stop retrying a stalled optimization : a flatten
                 # retry that stalled is not making progress, so re-running it
                 # would only repeat the stall.
                 _opt_stalled = bool(getattr(opt_restart, "is_stalled", False))
@@ -2127,16 +2127,12 @@ def cli(
                 terminal_microiter_result,
                 terminal_optimizer,
             )
-            # M47: n_opt_cycles is the EXECUTED macro cycle count, never the
+            # n_opt_cycles is the EXECUTED macro cycle count, never the
             # configured budget. On the microiteration path there is no standalone
             # optimizer in scope, so the executed macro cycles come from the
-            # driver's outcome (previously this substituted max_cycles, which was
-            # always wrong for a converged run).
-            #
-            # C9 truthfulness correction (mirrors the microiter n_opt_cycles fix):
-            # the ordinary path previously serialized the raw ZERO-based
-            # ``optimizer.cur_cycle`` here, while the console log and tsopt both
-            # report ``cur_cycle + 1`` (executed cycles). A 1-cycle converged opt
+            # driver's outcome. Preserve the actual microiteration cycle count.
+            # The ordinary path reports ``cur_cycle + 1`` (executed cycles). A
+            # one-cycle converged optimization
             # therefore reported n_opt_cycles=0 in JSON but "Total cycles: 1" in the
             # log. Use ``optimizer_cycle_count`` so JSON == log == tsopt.
             if terminal_use_microiter and terminal_microiter_result is not None:
@@ -2146,7 +2142,7 @@ def cli(
             else:
                 _opt_cycles = None
             final_energy_hartree = unbiased_energy_hartree(geometry, base_calc)
-            # M14/P14: an energy-plateau stall is a distinct, additive outcome
+            # an energy-plateau stall is a distinct, additive outcome
             # that is never reported as converged.  ``converged`` / ``not_converged``
             # remain byte-compatible; only ``stalled`` is new.
             result_data = {
@@ -2168,10 +2164,10 @@ def cli(
             }
             # Additive stop_reason, present only for a non-converged stop
             # (stalled/stopped) so a genuinely converged run's JSON stays
-            # byte-compatible (M14/P14).
+            # byte-compatible.
             if _opt_stop_reason:
                 result_data["stop_reason"] = _opt_stop_reason
-            # M47: additive microiteration serialization. Executed macro cycles
+            # additive microiteration serialization. Executed macro cycles
             # already populate n_opt_cycles; n_micro_cycles and the microiteration
             # object carry the separate micro totals + macro/micro leaf outcomes.
             # These are additive: a converged run's legacy keys are unchanged.

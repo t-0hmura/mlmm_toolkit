@@ -1,4 +1,4 @@
-"""Invocation-level ownership falsifiers for ``mlmm all`` (production path)."""
+"""Invocation-level ownership tests for ``mlmm all``."""
 
 from __future__ import annotations
 
@@ -160,7 +160,7 @@ def test_current_run_segment_diagram_declared_and_included(tmp_path: Path) -> No
     assert "seg_01" in key_files
     assert "energy_diagram_MLIP.png" in key_files["seg_01"]["files"]
 
-    # Falsifier: an undeclared sibling diagram is still excluded.
+    # An undeclared sibling diagram is still excluded.
     undeclared = out_dir / "segments" / "seg_01" / "energy_diagram_DFT.png"
     undeclared.write_bytes(b"\x89PNG undeclared diagram")
     key_files_after = all_workflow._current_key_output_files(manifest, out_dir)

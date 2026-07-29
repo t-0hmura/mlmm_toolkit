@@ -1,4 +1,4 @@
-"""C14 numerical-parity falsifiers for the measured GPU kernels.
+"""Numerical parity tests for the measured GPU kernels.
 
 Each adopted candidate is pinned to its baseline to ordinary fp64 rounding and,
 where the change touches ownership, to the trial-rejection / accepted-state

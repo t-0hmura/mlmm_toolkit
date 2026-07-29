@@ -264,11 +264,8 @@ Options:
                                   layers. Default: enabled when present in
                                   parm7.
   --coord-type [cart|dlc]         Optimization coordinate system (cart|dlc).
-                                  cart is the robust default used in published
-                                  numbers; dlc speeds up torsion-rich opts.
-                                  mlmm-specific caveats: DLC + link atom and DLC
-                                  + 3-layer frozen MM are numerically
-                                  unverified.
+                                  cart is the default; command-specific choices
+                                  are listed here.
   --precision [fp32|fp64]         MLIP backend precision: fp32 or fp64. Unset
                                   defaults per backend (uma: fp32; orb, mace:
                                   fp64). Routed to backend-specific kwargs (UMA
@@ -295,10 +292,9 @@ Options:
                                   Calculator instance). CLI overrides config
                                   YAML; otherwise defaults to get_calculator.
   --deterministic / --no-deterministic
-                                  Strict bit-reproducible GPU runs
-                                  (deterministic algorithms + index_reduce_
-                                  shim). Slower; raises if unsupported. Default
-                                  off.
+                                  Enable strict deterministic GPU algorithms and
+                                  the index_reduce_ shim. Slower; raises if
+                                  unsupported. Default off.
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
                                   electron-parity check (logs that it was
                                   skipped). For an intentional open-shell or

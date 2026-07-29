@@ -750,7 +750,7 @@ def cli(
             echo_resolved_device()
 
             # The reference/anchor structure is usable-by-default when no preopt
-            # is requested; when preopt runs, its truthful convergence bit (M50)
+            # is requested; when preopt runs, its reported convergence bit
             # replaces the default so a nonconverged preopt never seeds the grid.
             _preopt_conv: Optional[bool] = True
             if preopt:
@@ -832,7 +832,7 @@ def cli(
                 # Also store a snapshot of this structure as the first candidate
                 # starting point for subsequent biased scans — ONLY when it
                 # explicitly converged; a nonconverged preopt must never seed a
-                # later grid point (M48).
+                # later grid point.
                 if _preopt_conv is True:
                     grid_states.append(
                         {
@@ -908,7 +908,7 @@ def cli(
                 # Record the relaxed (d1-biased) structure as another candidate
                 # starting point for subsequent grid points — ONLY when it
                 # explicitly converged, so a nonconverged relaxation never seeds a
-                # later grid point (M48).
+                # later grid point.
                 d1_cur_outer = distance_A_from_coords(np.asarray(geom_outer.coords3d), i1, j1)
                 d2_cur_outer = distance_A_from_coords(np.asarray(geom_outer.coords3d), i2, j2)
                 if _outer_conv is True and math.isfinite(d1_cur_outer) and math.isfinite(d2_cur_outer):
@@ -945,7 +945,7 @@ def cli(
                         out_dir=tmp_opt_dir,
                         prefix=f"d1_{d1_tag}_d2_{d2_tag}",
                     )
-                    # M50: a normal (non-raising) run() is NOT convergence — read
+                    # a normal (non-raising) run is NOT convergence — read
                     # the optimizer's explicit tri-state bit rather than assume True.
                     converged: Optional[bool] = None
                     try:
@@ -965,7 +965,7 @@ def cli(
 
                     # Record this grid point as a new candidate starting structure
                     # for subsequent scans — ONLY when it explicitly converged; a
-                    # nonconverged/failed point must never seed a later target (M48).
+                    # nonconverged/failed point must never seed a later target.
                     d1_cur = distance_A_from_coords(np.asarray(geom_inner.coords3d), i1, j1)
                     d2_cur = distance_A_from_coords(np.asarray(geom_inner.coords3d), i2, j2)
                     if converged is True and math.isfinite(d1_cur) and math.isfinite(d2_cur):
@@ -1048,7 +1048,7 @@ def cli(
                 click.echo("No grid records produced; aborting.", err=True)
                 sys.exit(1)
 
-            # Seed / reference-minimum eligibility (M48): only points whose
+            # Seed/reference-minimum eligibility: only points whose
             # optimizer explicitly converged with a finite unbiased energy may
             # define the baseline or the reported minimum. Failed/nonconverged
             # rows are retained in surface.csv for diagnostics but excluded here.
@@ -1081,7 +1081,7 @@ def cli(
 
             surface_csv = final_dir / "surface.csv"
             # Keep internal-only eligibility columns out of the public CSV so a
-            # genuinely converged run's surface.csv schema is unchanged (M48/P07).
+            # genuinely converged run's surface.csv schema is unchanged.
             _csv_drop = [c for c in ("seed_eligible", "artifact_written") if c in df.columns]
             df.drop(columns=_csv_drop).to_csv(surface_csv, index=False)
             click.echo(f"[write] Wrote '{surface_csv}'.")

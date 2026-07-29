@@ -56,7 +56,7 @@ def _hide_advanced_options(
     ``_show_advanced_subcommand_help`` can temporarily un-hide exactly that set.
     Idempotent: a second call is a no-op once the marker is present.  This is the
     single advanced-help visibility implementation shared by ``all`` and the
-    lazily-loaded subcommands (M38).
+    lazily loaded subcommands.
     """
     if hasattr(command, "_advanced_hidden_options"):
         return command

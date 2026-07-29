@@ -28,8 +28,7 @@ from pysisyphus.optimizers.closures import bfgs_multiply
 
 import torch
 
-# M2 (refinement_plan.md): the local _outer / _dot helpers have moved to
-# pysisyphus._array as part of the M1 torch-vs-numpy shim. Re-export them
+# The local _outer/_dot helpers live in pysisyphus._array. Re-export them
 # under the same names here so external code that imported them from this
 # module (older _research scripts) keeps working unchanged.
 from pysisyphus._array import _outer, _dot  # noqa: F401  (re-export)
@@ -191,7 +190,7 @@ def mod_flowchart_update(H, dx, dg):
 def bofill_cpu_offload_enabled() -> bool:
     """Calibrated CPU-offload fallback switch for the torch Bofill update.
 
-    Default is the GPU-resident rank-two path (C14). Setting
+    Default is the GPU-resident rank-two path. Setting
     ``PYSIS_BOFILL_CPU_OFFLOAD=1`` restores the legacy CPU round-trip as an
     explicit, logged fallback (e.g. when a calibrated resolver decides the
     on-device path will not fit). An explicit CUDA Hessian is never silently
@@ -272,7 +271,7 @@ def bofill_update(H, dx, dg):
     """Bofill's combination of SR1 and PSB updates.
 
     For torch.Tensor input the update is computed GPU-resident as an
-    algebraically-equivalent symmetric rank-two construction (C14):
+    algebraically equivalent symmetric rank-two construction:
     ``dH = U @ C @ U.T`` with ``U = [z/||z||, dx/||dx||]``. This removes the
     two full-Hessian host transfers and the simultaneous dense SR1/PSB
     temporaries of the legacy CPU-offload path while keeping every tensor on

@@ -1,4 +1,4 @@
-"""Contract for the advertised example shell scripts (M65).
+"""Contract for the advertised example shell scripts.
 
 Positive: the three README-advertised scripts exist, pass ``bash -n``, and their
 47 invocations validate against the live CLI. Negative: a syntactically broken

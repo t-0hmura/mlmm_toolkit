@@ -194,7 +194,7 @@ def _finalize_surface_and_plot(
             )
             sys.exit(1)
 
-        # Seed / reference-minimum eligibility (M48): when the fresh-scan
+        # Seed/reference-minimum eligibility: when the fresh-scan
         # convergence column is present, only points whose optimizer explicitly
         # converged with a finite energy may set the baseline. A legacy CSV
         # without a convergence column keeps its raw baseline (eligibility policy
@@ -243,7 +243,7 @@ def _finalize_surface_and_plot(
         df["d2_label"] = d2_label_csv
         df["d3_label"] = d3_label_csv
         # Keep internal-only eligibility columns out of the public CSV so a
-        # genuinely converged run's surface.csv schema is unchanged (M48/P07).
+        # genuinely converged run's surface.csv schema is unchanged.
         _csv_drop3 = [c for c in ("seed_eligible", "artifact_written") if c in df.columns]
         df.drop(columns=_csv_drop3).to_csv(surface_csv, index=False)
         click.echo(f"[write] Wrote '{surface_csv}'.")
@@ -1012,7 +1012,7 @@ def cli(
             echo_resolved_device()
 
             # The reference/anchor structure is usable-by-default when no preopt
-            # is requested; when preopt runs, its truthful convergence bit (M50)
+            # is requested; when preopt runs, its reported convergence bit
             # replaces the default.
             _preopt_conv: Optional[bool] = True
             if preopt:
@@ -1252,7 +1252,7 @@ def cli(
                             out_dir=tmp_opt_dir,
                             prefix=f"d1_{d1_tag}_d2_{d2_tag}_d3_{d3_tag}",
                         )
-                        # M50: a normal (non-raising) run() is NOT convergence —
+                        # a normal (non-raising) run is NOT convergence —
                         # read the optimizer's explicit tri-state bit.
                         converged: Optional[bool] = None
                         try:
@@ -1273,7 +1273,7 @@ def cli(
 
                         # Cache final geometry for nearest-neighbor reuse ONLY when
                         # it explicitly converged; a nonconverged/failed inner point
-                        # must never seed a later grid point (M48).
+                        # must never seed a later grid point.
                         if converged is True:
                             d3_store[k_idx] = _snapshot_geometry(geom_inner)
 
@@ -1368,7 +1368,7 @@ def cli(
                     if csv_path is None
                     else []
                 )
-                # M48: the reported minimum comes ONLY from seed-eligible points
+                # the reported minimum comes ONLY from seed-eligible points
                 # (converged + finite); a failed point with a numerically lower
                 # energy must never become min_energy_hartree.
                 _seed_ok_json = seed_eligible_mask(grid_records)
@@ -1398,7 +1398,7 @@ def cli(
                         "scan3d_density_html": "scan3d_density.html",
                     },
                 }
-                # Additive truthful outcomes: every attempted point + aggregate
+                # Additive outcome fields: every attempted point and aggregate
                 # scientific_status. Legacy ``status`` stays "completed".
                 _point_outcomes3 = [
                     make_scan_point(

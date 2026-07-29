@@ -540,8 +540,8 @@ def cli(
         geom_cfg: Dict[str, Any] = dict(GEOM_KW_DEFAULT)
         calc_cfg: Dict[str, Any] = dict(CALC_KW_DEFAULT)
         irc_cfg: Dict[str, Any] = dict(IRC_KW_DEFAULT)
-        # DO NOT INLINE: (irc): detect-layer has different defaults across subcommands (freq/irc default True). Guard prevents YAML accidentally suppressing CLI-level default.
-        # Keep command-level default for detect-layer unless YAML/explicit CLI overrides it.
+        # Keep the command-level detect-layer default unless YAML or an explicit
+        # CLI option overrides it.
         calc_cfg["use_bfactor_layers"] = bool(detect_layer)
 
         apply_yaml_overrides(
@@ -831,7 +831,7 @@ def cli(
             store as _hess_store,
             identity_from_context as _hess_identity,
         )
-        # M43: calibrated GPU-first IRC Hessian/integration device policy.
+        # calibrated GPU-first IRC Hessian/integration device policy.
         # ``auto`` keeps the resolved backend device (GPU-first when a CUDA
         # device is present), so the integration Hessian and large tensors stay
         # GPU-resident by default. An explicit ``cuda`` request stays on CUDA or
@@ -928,7 +928,7 @@ def cli(
             _hessian_pes_verified = True
             _hessian_file_schema = None
             _hessian_file_sha256 = None
-            # M70: reuse the tsopt TS Hessian only on a full evaluation-identity
+            # reuse the tsopt TS Hessian only on a full evaluation-identity
             # match; the all workflow may round-trip the TS through a
             # three-decimal PDB, so the coordinate field keeps the wider bohr
             # tolerance.  The layer-specific active-DOF basis check below is an
@@ -980,7 +980,7 @@ def cli(
                     refresh_geom_meta=True,
                 )
 
-        # M43: preserve the declared ordered active basis (ML + MovableMM).
+        # preserve the declared ordered active basis (ML + MovableMM).
         # A promised ML+MovableMM IRC active space must NOT be silently cropped
         # to ML + link-parent DOFs: that drops every MovableMM coordinate from
         # the physical IRC path, so the bundled integrator writes zero
@@ -1079,11 +1079,11 @@ def cli(
                 ),
             )
 
-        # M42/C6: cache an endpoint Hessian ONLY for a requested direction that
+        # cache an endpoint Hessian ONLY for a requested direction that
         # explicitly CONVERGED. A nonconverged (max-cycle) direction may still
         # carry a Bofill-updated Hessian, but promoting it would let a
         # nonconverged endpoint seed a downstream RFO as if it were a real
-        # minimum. The keys were discarded before eulerpc.run(); keep them
+        # minimum. The keys were discarded before eulerpc.run; keep them
         # discarded when the direction did not converge so no stale/never-
         # converged Hessian is reused.
         from mlmm.workflows._outcomes import (
@@ -1223,7 +1223,7 @@ def cli(
                 _directional_endpoint_energy_fields(_all_e, _ts_e)
             )
 
-            # M42/C6: one truthful LeafOutcome per requested IRC direction. A
+            # one LeafOutcome per requested IRC direction. A
             # requested direction is usable only when it explicitly converged; a
             # disabled direction is optional (not a failure). Legacy ``status``
             # stays "completed" (the IRC process ran).
@@ -1293,10 +1293,8 @@ def cli(
         render_cli_exception(e, label="IRC", out_dir=out_dir, command="irc", time_start=time_start)
     finally:
         prepared_input.cleanup()
-        # DO NOT INLINE: bare `= None` leaves the name bound; PyTorch hooks captured inside eulerpc closures could resurrect the model. Two-step pattern (=None then del) is mandatory; pure `= None` is insufficient for ONIOM stack.
-        # Release GPU memory (model + Hessian) so subsequent stages don't OOM.
-        # `= None` decref's the heavy refs; `del` then removes names from
-        # the local frame so torch.nn.Module hooks / closures cannot retain.
+        # Drop local references before collecting cycles held by calculator and
+        # torch module objects.
         calc = eulerpc = geometry = None
         del calc, eulerpc, geometry
         gc.collect()  # break cyclic refs inside torch.nn.Module

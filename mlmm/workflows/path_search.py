@@ -427,7 +427,7 @@ class GSMResult:
     images: List[Any]
     energies: List[float]
     hei_idx: int
-    # M29/C6: truthful convergence of the string/DMF optimizer that produced this
+    # reported convergence of the string/DMF optimizer that produced this
     # MEP. ``None`` means no readable convergence signal (fail-closed: never
     # promoted to a usable segment by artifact existence alone).
     is_converged: Optional[bool] = None
@@ -442,7 +442,7 @@ class SegmentReport:
     summary: str  # summarize_changes string (empty for bridges)
     kind: str = "seg"          # "seg" or "bridge"
     seg_index: int = 0         # 1-based index along final MEP (assigned later)
-    # M29/C6: the segment's optimizer convergence, threaded from GSMResult. A
+    # the segment's optimizer convergence, threaded from GSMResult. A
     # reactive segment whose optimizer did not explicitly converge is unusable
     # and cannot make the path aggregate a scientific success.
     converged: Optional[bool] = None
@@ -482,7 +482,7 @@ def _run_gsm_between(
     )
 
     optimizer.run()
-    # M29/C6: a normal (non-raising) run() is NOT convergence — capture the
+    # a normal (non-raising) run is NOT convergence — capture the
     # StringOptimizer's explicit bit so a max-cycle segment cannot be promoted.
     _gsm_converged = optimizer_converged_bit(optimizer)
 
@@ -669,7 +669,7 @@ def _run_dmf_between(
         except Exception:
             logger.debug("Failed to set ipopt max_iter option", exc_info=True)
 
-    # M29/C6: IPOPT status 0/1 = converged; any other (max-iter, infeasible) is
+    # IPOPT status 0/1 = converged; any other (max-iter, infeasible) is
     # not. A missing status fails closed to unknown so DMF artifact existence
     # never promotes a nonconverged solve.
     from mlmm.workflows._outcomes import ipopt_status_to_converged
@@ -788,7 +788,7 @@ def _optimize_single(
 
     ``converged`` is the optimizer's fail-closed tri-state convergence bit
     (:func:`optimizer_converged_bit`): a non-raising ``run()`` is NOT convergence
-    (M50/C6), so the caller must gate on this bit rather than assume a completed
+    so the caller must gate on this bit rather than assume a completed
     optimization converged (e.g. so a nonconverged kink-segment single-structure
     opt cannot silently become a usable reactive leaf).
     """
@@ -1047,7 +1047,7 @@ def _path_leaves_and_expected(
     raw_artifacts: Sequence[str] = (),
     engine_converged: Optional[bool] = True,
 ):
-    """Build path :class:`LeafOutcome` list + expected reactive-segment IDs (M29).
+    """Build path :class:`LeafOutcome` list and expected reactive-segment IDs.
 
     Reactive segments (``kind != "bridge"``) are required leaves; bridges are
     optional connectors.  When there is no reactive segment at all — the
@@ -1063,7 +1063,7 @@ def _path_leaves_and_expected(
     reactive = [s for s in segments if getattr(s, "kind", "seg") != "bridge"]
     for s in segments:
         is_reactive = getattr(s, "kind", "seg") != "bridge"
-        # M29: a reactive segment is usable only when its optimizer explicitly
+        # a reactive segment is usable only when its optimizer explicitly
         # converged. A nonconverged (max-cycle) StringOptimizer segment retains
         # its trajectory artifact but must not count toward completeness.
         _seg_conv = getattr(s, "converged", None)
@@ -1279,7 +1279,7 @@ def _build_multistep_path(
         step_imgs = [left_end] + opt_inters + [right_end]
         step_E = [float(img.energy) for img in step_imgs]
         _kink_hei = int(np.argmax(step_E[1:-1])) + 1 if len(step_E) > 2 else int(np.argmax(step_E))
-        # M29/C6: a kink segment is assembled from single-structure optimizations
+        # a kink segment is assembled from single-structure optimizations
         # (not a StringOptimizer). It is usable only when EVERY endpoint/inter
         # optimization explicitly converged; fold their convergence rather than
         # hardcode True, so a nonconverged single-structure opt cannot silently
@@ -2431,7 +2431,7 @@ def cli(
                     "barrier_kcal": float(s.barrier_kcal),
                     "delta_kcal": float(s.delta_kcal),
                     "bond_changes": (s.summary if (s.kind != "bridge") else ""),
-                    # M29/C6: the segment's truthful optimizer convergence, so the
+                    # the segment's reported optimizer convergence, so the
                     # all-pipeline aggregate can gate on it (a nonconverged segment
                     # keeps its trajectory but cannot make the path a success).
                     "converged": s.converged,

@@ -82,14 +82,13 @@ MLMM_CALC_KW: Dict[str, Any] = {
     "backend": "uma",
     "uma_model": DEFAULT_UMA_MODEL,
     "uma_task_name": "omol",
-    "uma_precision": "fp32",  # "fp32" (established baseline) | "fp64" (full-precision base inference; non-trivial TSopt/Hessian impact)
+    "uma_precision": "fp32",  # "fp32" (default) | "fp64" (full-precision base inference)
     "workers": 1,             # MLIP predictor workers; >1 uses ParallelMLIPPredictUnit (UMA only). Combining it with an explicit Analytical Hessian is an error.
     "workers_per_node": 1,    # Workers per node when the parallel predictor is used (workers>1).
     "orb_model": "orb_v3_conservative_omol",
-    # float64, not ORB's pretrained "float32-high" default: that mode is TF32 matmul,
-    # whose force noise inflates finite-difference Hessians into spurious imaginary
-    # modes. Pass --precision fp32 to opt back in. Legacy "float32" still accepted
-    # via _OrbBackend._PRECISION_ALIASES.
+    # float64 is the product default. Pass --precision fp32 to opt into ORB's
+    # reduced-precision mode. Legacy "float32" remains accepted through
+    # _OrbBackend._PRECISION_ALIASES.
     "orb_precision": "float64",
     "mace_model": "MACE-OMOL-0",
     "mace_dtype": "float64",
@@ -409,10 +408,9 @@ TSOPT_MODE_ALIASES = (
     (("rsprfo",), "rsprfo"),
 )
 
-# Saddle certification counts imaginary modes; it does not weigh them, so a
-# soft mode certifies exactly like a reaction coordinate. A bond-forming or
-# bond-breaking coordinate is normally several hundred cm^-1, so warn (only —
-# the status is unchanged) when the leading imaginary mode is softer than this.
+# Saddle certification counts imaginary modes; it does not assess their
+# character. Warn, without changing status, when the leading imaginary mode is
+# very soft so the mode shape and IRC connectivity receive explicit review.
 TS_IMAG_SOFT_WARN_CM = 50.0
 
 

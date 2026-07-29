@@ -1,4 +1,4 @@
-"""M54: ordered active-atom validation + parsed-topology content identity.
+"""Ordered active-atom validation and parsed-topology content identity.
 
 Two small, pure pieces shared by hessian_ff's public entry points:
 
@@ -13,8 +13,7 @@ Two small, pure pieces shared by hessian_ff's public entry points:
   authoritative; a same-path byte replacement produces a different digest, so a
   runtime keyed on it never reuses a stale parsed system.
 
-This is a private mlmm_toolkit v0.3.3 implementation detail; it is not part of
-any public PEScape contract and it imports nothing from pdb2reaction.
+This is an internal implementation module with no product-layer dependencies.
 """
 
 from __future__ import annotations

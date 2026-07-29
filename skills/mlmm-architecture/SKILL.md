@@ -70,7 +70,7 @@ Dependency direction: the *design intent* is one-way `L1 → L2 → {L3, L4} →
 ## Hidden constraints to remember
 
 1. **`mlmm/cli/app.py:_LAZY_SUBCOMMANDS`** entries MUST use absolute module paths (`"mlmm.workflows.all"`, never `".all"`). Relative dotted paths silently break the resolver if `default_group.py` moves.
-2. **VRAM hygiene**: `# DO NOT INLINE` markers around `del calc; gc.collect(); torch.cuda.empty_cache()` between stages are load-bearing — removing them OOMs the next stage on full-protein ONIOM systems.
+2. **VRAM hygiene**: the explicit `del calc; gc.collect(); torch.cuda.empty_cache()` sequence between stages releases retained calculators before the next full-protein ONIOM stage.
 3. **`pyproject.toml [tool.setuptools.packages.find].include`** and `dependencies` arrays are treated as 0-diff for this release line. Adding a vendor / internal dir or pinning a new runtime dep breaks behavior-level guarantees and is out of scope.
 4. **Bundled-fork edits** use each directory README's live table. Routine polish is annotation-only; logic requires a demonstrated defect or approved numerical feature, focused regression tests, and the relevant HEAVY/GPU validation.
 

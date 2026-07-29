@@ -53,13 +53,13 @@ A clean first-order saddle = **exactly one** dominant imaginary mode along the r
 | Still no clean saddle | Revise endpoints/scan coordinates and verify that the single imaginary mode moves the reacting atoms. |
 
 - `--flatten`/`--no-flatten` (`tsopt.py` cli `default=None`): runs the extra-imaginary-mode flattening loop (`grad`: dimer loop; `hess`: post-RS-I-RFO step, triggered when `n_imag > 1`). `--flatten` uses `flatten_max_iter=50`; `--no-flatten` forces `flatten_max_iter=0`. Available on `tsopt`/`all`. Try `fp64` and/or `dlc` first, then add `--flatten` for a residual small mode — they are complementary.
-- Example: a mutant CM TS came out as the dominant Claisen mode −223 cm⁻¹ plus a residual −12.5 cm⁻¹; `--flatten` drives it to a clean single-imaginary saddle.
-
 - `--coord-type` = `click.Choice(['cart','redund','dlc','tric'])`, case-insensitive; `'dlc'` is present verbatim (`common_options.py` `add_coord_type_option`). Effective default `'cart'` (`defaults.py` `GEOM_KW_DEFAULT['coord_type']='cart'`).
-- `dlc` = delocalized internal coordinates: slower but more robust convergence on torsion-rich systems.
+- `dlc` = delocalized internal coordinates. Its cost and convergence behavior
+  are system-dependent; compare against `cart` on the same seed.
 - `dlc` requires a **Hessian-based optimizer**: in `opt.py`, `--coord-type dlc` with L-BFGS (`--opt-mode grad`) is forced back to `cart` with a warning. Use it on `tsopt` (RFO/RS-I-RFO) or `opt --opt-mode hess`.
 - `path-opt`/`path-search` have no `--coord-type` flag; they take the coordinate system from `--config` YAML (`geom.coord_type`), and pysisyphus ChainOfStates supports only `cart`/`dlc` there.
-- mlmm caveat (help text): `DLC + link atom` and `DLC + 3-layer frozen MM` are numerically unverified — `cart` is the published-numbers default.
+- `cart` is the default. Independently validate a change of coordinate system
+  with frequency analysis and IRC connectivity.
 
 `--ref-mode` is an advanced path-direction input, not a routine standalone
 remedy. `mlmm all` derives and supplies the normalized 3N Cartesian tangent

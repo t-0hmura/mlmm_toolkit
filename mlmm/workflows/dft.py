@@ -354,7 +354,7 @@ def _finalize_dft_result(
     payload: Dict[str, Any],
     elapsed_seconds: float,
 ) -> None:
-    """Commit a truthful payload before signalling SCF nonconvergence."""
+    """Commit the result payload before signalling SCF nonconvergence."""
 
     if out_json:
         from mlmm.core.utils import write_result_json
@@ -1051,10 +1051,8 @@ def cli(
             layer_info,
             echo_fn=click.echo,
         )
-        # NOTE: time_start was previously re-assigned here, but it is now bound
-        # before the try-block (see comment near `prepared_input = None`).
-        # Re-baseline so the wall-clock figure still excludes YAML resolution
-        # and ML-region preparation overhead, matching pre-fix behavior.
+        # Re-baseline so the wall-clock figure excludes YAML resolution
+        # and ML-region preparation overhead.
         time_start = time.perf_counter()
 
         workspace = _prepare_ml_region_workspace(

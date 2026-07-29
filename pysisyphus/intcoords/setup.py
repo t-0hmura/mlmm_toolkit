@@ -737,7 +737,7 @@ def setup_redundant(
         translation_inds = [list(fragment) for fragment in fragments]
         # Exclude rotational coordinates for atomic species (1 atom)
         rotation_inds = [list(fragment) for fragment in fragments if len(fragment) > 1]
-    # Without TRIC we have to somehow connect all fragments.
+    # Without TRIC, explicit interfragment coordinates connect the fragments.
     else:
         # interfrag_bonds, aux_interfrag_bonds = connect_fragments_kmeans(
         interfrag_bonds, aux_interfrag_bonds = connect_fragments_ahlrichs(

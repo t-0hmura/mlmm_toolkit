@@ -225,7 +225,7 @@ def transform_int_step(
             best_cycle = (new_cart_coords.copy(), new_internals.copy())
             best_cycle_ind = i
         elif i != 0:
-            # If the conversion somehow fails we fallback to the best previous step.
+            # On loss of improvement, fall back to the best previous step.
             log(logger, f"Backconversion failed! Falling back to step {best_cycle_ind}")
             new_cart_coords, new_internals = best_cycle
             break

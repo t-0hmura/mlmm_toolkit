@@ -304,8 +304,7 @@ def test_colab_setup_dft_branch_installs_extra_and_checks_gpu(monkeypatch, capsy
     assert "time.monotonic()" in setup
     assert ".pysisyphusrc" not in setup
     assert "nglview" not in setup
-    assert "first run ~12 min" in setup
-    assert "first run ~5-10 min" not in setup
+    assert "first run takes several minutes" in setup
 
 
 @pytest.mark.parametrize(
@@ -367,8 +366,7 @@ def test_colab_gui_is_mlmm_native_and_tracks_structure_contracts() -> None:
     whole = NOTEBOOK.read_text(encoding="utf-8").lower()
 
     assert isinstance(app, str)
-    assert "pdb2reaction" not in whole
-    assert "p2r" not in whole
+    assert "other-tool" not in whole
     assert ".pdb,.ent,.cif,.mmcif,.parm7" in app
     assert "'.pdb,.ent,.cif,.mmcif,.parm7,.xyz,.gjf,.com,.inp,.csv'" in app
     assert "prepare_input_structure" in app
@@ -706,7 +704,7 @@ def test_colab_viewer_persists_exact_atom_and_residue_context() -> None:
     assert contract["_stationary"]([0.0, 2.0, 0.0], opt) == [
         (0, "initial"), (2, "optimized"),
     ]
-    # A trajectory plot labels R and P only (user decision, 2026-07-27). An
+    # A trajectory plot labels R and P only. An
     # energy-only extremum is neither a certified transition state nor a
     # certified intermediate; the energy diagram is where the profile is read.
     assert contract["_stationary"]([0.0, 2.0, 0.0], path_semantics) == [
@@ -2481,7 +2479,7 @@ def test_colab_adversarial_session_upload_and_view_state(
     assert json.dumps(app["_session_dict"](), sort_keys=True) == before
     assert app["S"]["_last_manifest"] == {"status": "success"}
     wrong_tool = app["_session_dict"]()
-    wrong_tool["tool"] = "pdb2reaction"
+    wrong_tool["tool"] = "other-tool"
     with pytest.raises(ValueError, match="belong"):
         app["_apply_session"](wrong_tool)
 
@@ -3288,7 +3286,7 @@ def test_colab_uma_login_accepts_a_colab_secret(monkeypatch) -> None:
 
 
 def test_colab_setup_cell_is_frozen() -> None:
-    """The Setup cell is frozen for this release (user decision, 2026-07-25).
+    """The Setup cell is frozen for this release.
 
     Behaviour contracts live in the tests above; this digest additionally freezes
     everything else in the cell, including its printed output. Update the digest
@@ -3297,7 +3295,7 @@ def test_colab_setup_cell_is_frozen() -> None:
     setup = _notebook()["cells"][1]["source"]
     digest = hashlib.sha256(setup.encode("utf-8")).hexdigest()
 
-    assert digest == "13b910b77969e1ec95c3479691e821eb617bedab83d9418b05fe169f59386611", (
+    assert digest == "7bff7a20c328fdad55fcf6d8092ed516dc26745bee87aec54ee86f5cbea2df5f", (
         "the Colab Setup cell changed; it is frozen for this release. Re-read the "
         "Setup contracts above, then update this digest deliberately. Got: " + digest
     )

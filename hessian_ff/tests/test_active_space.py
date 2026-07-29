@@ -1,4 +1,4 @@
-"""M54: ordered active-atom validation shared by both public entry points.
+"""Ordered active-atom validation shared by both public entry points.
 
 An invalid active list must fail with one typed ``ValueError`` — the same error
 vocabulary from the direct ``build_analytical_hessian`` path and the public

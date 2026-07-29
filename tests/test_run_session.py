@@ -1,4 +1,4 @@
-"""Focused ownership falsifiers for the composite-workflow run session."""
+"""Focused ownership tests for the composite-workflow run session."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""M26: one immutable MLMM residue catalog.
+"""one immutable MLMM residue catalog.
 
 Charge inference (``mlmm.workflows.extract``) and element inference
 (``mlmm.domain.add_elem_info``) must read the SAME canonical residue tables
@@ -46,7 +46,7 @@ _D_AMINO_REPS = {"DAL": 0, "DAR": +1, "DAS": -1}
 
 
 def test_extract_and_element_inference_share_the_same_canonical_tables():
-    """Falsifier 1: both inference paths expose identical key/charge pairs."""
+    """Both inference paths expose identical key/charge pairs."""
     import mlmm.core.residue_data as rd
     import mlmm.workflows.extract as extract
     import mlmm.domain.add_elem_info as add_elem
@@ -74,7 +74,7 @@ def test_extract_and_element_inference_share_the_same_canonical_tables():
 
 
 def test_canonical_tables_are_read_only():
-    """Falsifier 3: direct mutation of the canonical catalog is a typed error."""
+    """Direct mutation of the canonical catalog is a typed error."""
     import mlmm.core.residue_data as rd
 
     with pytest.raises(TypeError):
@@ -86,7 +86,7 @@ def test_canonical_tables_are_read_only():
 
 
 def test_two_modified_residue_requests_leave_canonical_identical(tmp_path: Path):
-    """Falsifier 2: modified-residue requests never corrupt the canonical table.
+    """Modified-residue requests never corrupt the canonical table.
 
     Runs the REAL ``extract_api`` code path twice with ``--modified-residue`` and
     asserts the canonical mapping is byte/value-identical to a fresh snapshot and

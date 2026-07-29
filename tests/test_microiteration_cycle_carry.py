@@ -1,4 +1,4 @@
-"""C9 falsifiers for the three verified microiteration review findings.
+"""Microiteration cycle-count and vacuous-partition contracts.
 
 1. HIGH  — a selected converging restart re-anchors the additive
    ``microiteration`` block on the run that produced the final geometry, so it
@@ -85,7 +85,7 @@ def test_restart_carry_ordinary_path_carries_nothing():
 
 
 def test_selected_converged_restart_overrides_initial_notconverged_leaf():
-    """The falsifier the fix binds: an initial microiter that did NOT converge,
+    """An initial microiteration that did not converge,
     then a converging restart, must serialize the SELECTED (converged) run's
     aggregate status -- never the superseded initial not_converged leaf."""
     from mlmm.workflows.tsopt import _restart_microiteration_carry

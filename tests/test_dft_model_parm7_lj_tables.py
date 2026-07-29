@@ -87,8 +87,7 @@ def test_sliced_model_parm7_needs_lj_normalization(tmp_path):
 def test_normalization_is_a_noop_for_a_full_atom_type_selection(tmp_path):
     """The smoke's ML region spans every atom type, which is why it never caught this.
 
-    Pinning the near-miss keeps a future reviewer from concluding the smoke lane covers
-    the defect.
+    This near-miss makes the smoke lane's coverage boundary explicit.
     """
     top = parmed.load_file(str(FIXTURE))
     full_ntypes = top.parm_data["POINTERS"][1]

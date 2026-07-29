@@ -1,6 +1,6 @@
 """Dormant xTB embedding implementation retained for compatibility tests.
 
-The historical implementation computes:
+The retained implementation computes:
 
     dE = E_xTB(QM + MM_charges) - E_xTB(QM_only)
     dF_Q = F_Q(embed) - F_Q(no-embed)
@@ -133,7 +133,8 @@ def _build_xtb_cmd(xtb_cmd, xyz_filename, charge, multiplicity, xtb_acc, mode):
 
 def _run_xtb(run_dir, xyz_filename, charge, multiplicity, xtb_cmd, xtb_acc, mode, ncores):
     cmd = _build_xtb_cmd(xtb_cmd, xyz_filename, charge, multiplicity, xtb_acc, mode)
-    # DO NOT INLINE: xTB ignores --threads flag for some operations; OMP_NUM_THREADS via env is the only reliable thread-control mechanism. The install-hint XTBError below is also user-facing rescue (keep verbatim).
+    # Set OMP_NUM_THREADS because xTB's --threads flag does not cover every
+    # operation.
     env = os.environ.copy()
     env["OMP_NUM_THREADS"] = str(_resolve_ncores(ncores))
 

@@ -520,7 +520,7 @@ def test_energy_plateau_with_exact_saddle_but_failed_force_stalls(
 ) -> None:
     # Required curvature is present (a verified first-order saddle at these
     # exact coordinates) and the energy is flat over the window, but the
-    # configured current force/step criteria fail: this is an M14/P14 stall,
+    # configured current force/step criteria fail: this is a stall,
     # never a converged saddle.
     geom, opt = _ts_optimizer(
         tmp_path, 0.0, energy_plateau=True, energy_plateau_window=3

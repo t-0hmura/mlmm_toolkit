@@ -2,9 +2,9 @@ name: Pytest
 
 on:
   pull_request:
-    branches: [main, refactor/polish-train]
+    branches: [main]
   push:
-    branches: [main, refactor/polish-train, "polish/**"]
+    branches: [main]
 
 jobs:
   pytest:

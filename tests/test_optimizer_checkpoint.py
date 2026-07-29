@@ -1,4 +1,4 @@
-"""M52: safe-primitive, atomic, explicitly-bounded optimizer checkpoints.
+"""safe-primitive, atomic, explicitly-bounded optimizer checkpoints.
 
 Supported classes (LBFGS, non-TS RF/Hessian optimizers) round-trip through a
 YAML-safe envelope and resume the same trajectory; unsupported classes
@@ -250,12 +250,9 @@ def test_unsupported_target_rejected_on_load(tmp_path) -> None:
 
 
 def test_supported_rfo_round_trips_adapted_trust_radius(tmp_path) -> None:
-    """Falsifier #5: an RF/Hessian optimizer whose per-cycle ``trust_radius``
+    """An RF/Hessian optimizer whose per-cycle ``trust_radius``
     was adapted away from its default round-trips that exact radius, and the
     resumed run reproduces the uninterrupted trajectory.
-
-    Pre-fix ``trust_radius`` was not serialized, so a resumed optimizer silently
-    reset to ``min(trust_radius, trust_max)`` and diverged.
     """
     geom_full, opt_full = _rfo_trust(tmp_path / "full", [9.9, 9.9, 9.9], max_cycles=200)
     opt_full.run()
@@ -287,13 +284,12 @@ def test_supported_rfo_round_trips_adapted_trust_radius(tmp_path) -> None:
 
 
 def test_supported_lbfgs_round_trips_uphill_rejection_state(tmp_path) -> None:
-    """Falsifier #4: an LBFGS interrupted at an uphill-rejection boundary
-    preserves the C7 adaptive state (``_trial_max_step`` and the rejection
+    """An LBFGS interrupted at an uphill-rejection boundary
+    preserves the adaptive state (``_trial_max_step`` and the rejection
     counters), so the resumed run continues the uninterrupted trajectory.
 
     ``beta > 1`` overshoots the quadratic minimum, firing the uphill-rejection
-    safeguard.  Pre-fix these three fields were not serialized and a resumed
-    optimizer silently reset them to the ``__init__`` defaults.
+    safeguard.
     """
     geom_full, opt_full = _lbfgs(
         tmp_path / "lf", [0.3, 0.0, 0.0],
@@ -325,7 +321,7 @@ def test_supported_lbfgs_round_trips_uphill_rejection_state(tmp_path) -> None:
     assert opt_b.rejections_at_floor == 0
 
     checkpoint.load_and_apply(opt_b, ck)
-    # The C7 uphill-rejection adaptive state round-trips exactly.
+    # The uphill-rejection adaptive state round-trips exactly.
     assert opt_b._trial_max_step == pytest.approx(opt_a._trial_max_step)
     assert opt_b.rejected_uphill_steps == opt_a.rejected_uphill_steps
     assert opt_b.rejections_at_floor == opt_a.rejections_at_floor
@@ -341,9 +337,8 @@ def test_missing_subclass_key_rejected_before_any_base_mutation(tmp_path) -> Non
     coord_diffs for LBFGS) is rejected with the TYPED validation error and
     leaves the optimizer's base history untouched.
 
-    Pre-fix ``validate_payload`` checked only the base keys, so such a payload
-    passed validation and ``set_restart_info`` overwrote coords/energies/
-    forces/steps *before* ``_set_opt_restart_info`` raised a bare ``KeyError``.
+    Validation must complete before ``set_restart_info`` can overwrite
+    coordinates, energies, forces, or steps.
     """
     _, opt_a = _rfo(tmp_path / "a", [0.5, 0.0, 0.0], max_cycles=2)
     opt_a.run()
@@ -405,7 +400,7 @@ def test_backward_tolerant_load_of_pre_adaptive_checkpoint(tmp_path) -> None:
     # Absent key -> the __init__ trust radius is retained.
     assert opt_b.trust_radius == pytest.approx(init_trust)
 
-    # LBFGS: drop the newly added C7 keys.
+    # LBFGS: drop the adaptive-state keys.
     _, opt_la = _lbfgs(tmp_path / "la", [0.5, 0.0, 0.0], max_cycles=3)
     opt_la.run()
     lck = tmp_path / "lbfgs.yaml"
@@ -424,9 +419,9 @@ def test_backward_tolerant_load_of_pre_adaptive_checkpoint(tmp_path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# C8 M52: complete HessianOptimizer/RFO adaptive state + base cart_coords.
+# Complete HessianOptimizer/RFO adaptive state and base cart_coords.
 #
-# Most tests below are resume-EQUIVALENCE falsifiers: they fail on the pre-fix
+# Most tests below verify resume equivalence against uninterrupted execution.
 # engine (the attribute is not serialized, so a resumed optimizer silently
 # reverts to its __init__ default) and passes once the attribute round-trips.
 # RFOptimizer defines no restart override, so exercising it here also covers
@@ -489,7 +484,7 @@ def _rfo_aniso(out_dir, start, **kwargs):
 
 
 def test_hessian_rejection_counters_round_trip_and_are_backward_tolerant(tmp_path) -> None:
-    """Falsifier #1 (backbone): the uphill-rejection counters
+    """The uphill-rejection counters
     ``rejections_at_floor`` / ``rejected_uphill_steps`` / the terminal
     ``uphill_rejection_stalled`` flag round-trip through the checkpoint, and a
     checkpoint written before they existed still loads (defaults retained).
@@ -542,16 +537,13 @@ def test_hessian_rejection_counters_round_trip_and_are_backward_tolerant(tmp_pat
 
 
 def test_supported_rfo_resume_terminates_at_uphill_rejection_floor_boundary(tmp_path) -> None:
-    """Falsifier #1 (semantic bind): ``rejections_at_floor`` gates
+    """``rejections_at_floor`` gates
     ``request_stop`` (HessianOptimizer.reject_current_uphill_step:
     ``rejections_at_floor >= max_rejections_at_floor`` -> stop).  A run
     interrupted one rejection short of that boundary, while pinned at the
     emergency trust floor, must terminate on the *next* at-floor rejection after
     resume -- exactly as the uninterrupted run would.
 
-    Pre-fix ``rejections_at_floor`` reset to 0 on resume, so the resumed run
-    would have needed ``max_rejections_at_floor`` further rejections and
-    over-run the budget.
     """
     geom_a, opt_a = _rfo(
         tmp_path / "a", [0.5, 0.3, 0.1], max_cycles=4,
@@ -583,13 +575,11 @@ def test_supported_rfo_resume_terminates_at_uphill_rejection_floor_boundary(tmp_
 
 
 def test_supported_rfo_round_trips_multistep_hessian_buffer(tmp_path) -> None:
-    """Falsifier #2: with ``hessian_update_window >= 2`` the sliding (dx, dg)
+    """With ``hessian_update_window >= 2`` the sliding (dx, dg)
     buffer ``_sy_buffer_S`` / ``_sy_buffer_Y`` feeds the next multi-step
     TS-BFGS Hessian update.  It round-trips through the checkpoint, and the
     resumed run reproduces the uninterrupted trajectory.
 
-    Pre-fix the buffer was not serialized, so a resumed optimizer rebuilt an
-    empty buffer and formed a different next Hessian update (and trajectory).
     """
     geom_full, opt_full = _rfo_aniso(
         tmp_path / "full", [9.9, 9.9, 9.9], max_cycles=30, hessian_update_window=2,
@@ -623,7 +613,7 @@ def test_supported_rfo_round_trips_multistep_hessian_buffer(tmp_path) -> None:
     opt_b.run()
     # Resume-equivalence.  The resume geometry (index k) is bit-identical, and
     # the first step *fed by the restored buffer* (index k+1) matches the
-    # uninterrupted run to FP precision -- pre-fix, an empty buffer forms a
+    # uninterrupted run to floating-point precision; an empty buffer forms a
     # rank-1 instead of rank-2 TS-BFGS update here and this step diverges.
     k = len(opt_a.coords)  # first index (re)computed after resume
     assert len(opt_b.coords) == len(opt_full.coords)
@@ -638,13 +628,11 @@ def test_supported_rfo_round_trips_multistep_hessian_buffer(tmp_path) -> None:
 
 
 def test_supported_rfo_round_trips_prev_eigvec_min_with_overlaps(tmp_path) -> None:
-    """Falsifier #3: with ``rfo_overlaps=True`` the previous minimum-mode
+    """With ``rfo_overlaps=True`` the previous minimum-mode
     eigenvector ``_prev_eigvec_min`` selects the RFO root by overlap.  It
     round-trips through the checkpoint (``None`` -> the stored vector), and the
     resumed run continues to the same minimum.
 
-    Pre-fix ``_prev_eigvec_min`` was not serialized, so a resumed optimizer
-    reset it to ``None`` and fell back to naive smallest-eigenvalue selection.
     """
     geom_a, opt_a = _rfo_aniso(
         tmp_path / "a", [9.9, 9.9, 9.9], max_cycles=4, rfo_overlaps=True,
@@ -683,13 +671,11 @@ def test_supported_rfo_round_trips_prev_eigvec_min_with_overlaps(tmp_path) -> No
 
 
 def test_supported_rfo_resume_restores_cart_coords_for_uphill_rejection(tmp_path) -> None:
-    """Falsifier #4: the base ``cart_coords`` history round-trips, so an uphill
+    """The base ``cart_coords`` history round-trips, so an uphill
     rejection *after* resume can restore the previous geometry.
 
-    ``reject_current_trial`` restores ``cart_coords[-2]`` and refuses with a
-    ``len(self.cart_coords) < 2`` guard.  Pre-fix a resumed optimizer left
-    ``cart_coords`` empty, so the first rejection after resume hit that guard
-    and raised instead of restoring the previous geometry.
+    ``reject_current_trial`` restores ``cart_coords[-2]`` and requires at least
+    two history entries.
     """
     geom_a, opt_a = _rfo(tmp_path / "a", [0.5, 0.3, 0.1], max_cycles=3)
     opt_a.run()
@@ -740,9 +726,8 @@ def test_base_get_restart_info_is_backward_tolerant_without_cart_coords(tmp_path
 
 def test_supported_lbfgs_round_trips_mu_reg(tmp_path) -> None:
     # Regularized-L-BFGS adaptive state: mu_reg is adapted per cycle and feeds
-    # get_lbfgs_step, so it must round-trip through the checkpoint or a resumed
-    # regularized run diverges. Pre-fix (mu_reg not serialized) opt_b.mu_reg
-    # would stay at the __init__ default and this assertion fails.
+    # get_lbfgs_step, so it must round-trip through the checkpoint for a resumed
+    # regularized run to preserve its trajectory.
     _, opt_a = _lbfgs(tmp_path / "mra", [0.5, 0.0, 0.0], max_cycles=3, mu_reg=0.1)
     opt_a.mu_reg = 0.037
     opt_a.tot_adapt_mu_cycles = 4

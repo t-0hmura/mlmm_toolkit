@@ -5,7 +5,7 @@ with hessian_ff (MM).
 Example:
     calc = mlmm(input_pdb="input.pdb", real_parm7="real.parm7", model_pdb="model.pdb", charge=0)
 
-For detailed documentation, see: docs/mlmm_calc.md
+For backend configuration, see: docs/backends.md
 """
 # DOMAIN_PURE
 
@@ -105,9 +105,8 @@ except ImportError:
 
 # Strict deterministic mode is opt-in via the `--deterministic` CLI flag or
 # `MLMM_STRICT_DETERMINISTIC=1` and lives in `mlmm.backends._determinism`
-# (the backend factory and CLI option callback drive it). The supported
-# reproducibility route is `--precision fp64`, which keeps residual CUDA
-# non-determinism below any chemically meaningful threshold.
+# (the backend factory and CLI option callback drive it). `--precision fp64`
+# reduces numerical drift but does not replace strict deterministic mode.
 
 
 # Optional fairchem import (UMA backend)
@@ -135,7 +134,7 @@ try:
 except Exception:
     _UMAInferenceSettings = None
 
-# DO NOT INLINE: (orb_models): side-effect import: registers ORB backend with ASE/torch. Removing breaks the calculator at runtime even though no symbol is used.
+# Importing orb_models registers the ORB backend with ASE/torch.
 # Optional ORB backend
 try:
     import orb_models  # noqa: F401
@@ -143,7 +142,7 @@ try:
 except ImportError:
     HAS_ORB = False
 
-# DO NOT INLINE: (mace): side-effect import: registers MACE backend with ASE/torch.
+# Importing mace registers the MACE backend with ASE/torch.
 # Optional MACE backend
 try:
     import mace  # noqa: F401
@@ -151,7 +150,7 @@ try:
 except ImportError:
     HAS_MACE = False
 
-# DO NOT INLINE: (aimnet): side-effect import: registers AIMNet2 backend with ASE/torch.
+# Importing aimnet registers the AIMNet2 backend with ASE/torch.
 # Optional AIMNet2 backend
 try:
     import aimnet  # noqa: F401
@@ -309,17 +308,10 @@ class _MLBackend(abc.ABC):
         active_atoms = [i for i in range(n_atoms) if i not in frozen_set]
         active_dof_idx = [3 * i + j for i in active_atoms for j in range(3)]
 
-        # C14 (mirror p2r H05): on the native in-process torch-model path, read
-        # forces directly as a device tensor (``forces_tensor``) and assemble each
-        # column on-device, skipping the ``.detach().cpu().numpy()`` round-trip
-        # (and the per-displacement scalar energy ``.item()`` sync) that ``eval``
-        # performs. ``forces_tensor`` returns the same values ``eval`` converts to
-        # NumPy. Both paths cast each displacement force to the Hessian dtype/device
-        # before the central difference, mirroring p2r's assembler; in every
-        # shipped configuration (fp64 Hessian, H_double forced True under fp64
-        # precision) this is bit-identical to the NumPy round-trip and to the
-        # pre-C14 result. Backends without ``forces_tensor`` (ASE calculators, MM)
-        # and the parallel predictor keep the NumPy path.
+        # On the native in-process torch-model path, assemble columns directly
+        # from device force tensors. ASE/MM calculators and the parallel
+        # predictor use the NumPy path. Both paths cast displacement forces to
+        # the requested Hessian dtype and device before central differencing.
         native_tensor = callable(getattr(self, "forces_tensor", None)) and not getattr(
             self, "parallel_predict", False
         )
@@ -432,8 +424,7 @@ class _UMABackend(_MLBackend):
                 num_workers_per_node=self.workers_per_node,
             )
         else:
-            # Serial in-process predictor (default). Left byte-identical to the
-            # pre-workers path so the workers=1 default is unchanged.
+            # Serial in-process predictor used when workers=1.
             _uma_kwargs = {"device": device_str}
             if _uma_inference_settings is not None:
                 _uma_kwargs["inference_settings"] = _uma_inference_settings
@@ -473,27 +464,19 @@ class _UMABackend(_MLBackend):
     def _predict(self, atoms: Atoms, need_grad: bool) -> Tuple[Any, Any]:
         """Run the in-process/parallel predictor and return ``(res, batch)``.
 
-        Shared by :meth:`eval` (reads energy+forces to NumPy) and
-        :meth:`forces_tensor` (keeps the device force tensor). This is a pure
-        extraction of the batch-construction and predict body eval() carried
-        inline; the executed statements (and their order) are unchanged, so the
-        serial ``workers=1`` path is behaviourally identical.
+        Shared by :meth:`eval` (reads energy and forces to NumPy) and
+        :meth:`forces_tensor` (keeps the force tensor on its device).
         """
-        # fairchem/OMol wants atoms.info["spin"] = spin MULTIPLICITY (2S+1), i.e. singlet=1,
-        # doublet=2, triplet=3 (verified empirically: O2 ground state minimizes at spin=3, and
-        # spin=0 is fairchem's NULL token, NOT a singlet). `model_mult` is already the
-        # multiplicity, so pass it directly. (Was `model_mult - 1` = unpaired-electron count,
-        # which sent singlets to the null token and shifted every open-shell state by one.)
+        # fairchem/OMol interprets atoms.info["spin"] as multiplicity (2S+1);
+        # zero is its unspecified token. `model_mult` is already a multiplicity.
         atoms.info.update({"charge": self.model_charge, "spin": self.model_mult})
         # When the inference path uses fp64, hand AtomicData the matching
         # target dtype so it does not down-cast positions to fp32 only to be
         # re-upcasted (and emit the fairchem `Upcasting atomic coordinates`
         # WARNING on every call). fp32 path keeps fairchem's default.
         target_dtype = torch.float64 if self.precision == "fp64" else torch.float32
-        # r_data_keys=["spin", "charge"] is REQUIRED: fairchem's AtomicData.from_ase only
-        # reads charge/spin from atoms.info when the key is listed here, else it HARDCODES
-        # both to 0 (older fairchem read atoms.info unconditionally; a version bump gated it).
-        # Without this the UMA backend silently ran at charge=0/spin=0(null) regardless of input.
+        # AtomicData.from_ase reads charge/spin from atoms.info only when the
+        # corresponding keys are listed in r_data_keys.
         data = self._AtomicData.from_ase(
             atoms,
             max_neigh=self._uma_max_neigh,
@@ -534,7 +517,7 @@ class _UMABackend(_MLBackend):
         return float(res["energy"].squeeze().detach().item())
 
     def forces_tensor(self, atoms: Atoms) -> torch.Tensor:
-        """Device-native forces (eV/Å) for the FD Hessian assembler (C14, mirror p2r H05).
+        """Return device-native forces (eV/Å) for the FD Hessian assembler.
 
         Returns the force tensor on the model's execution device, skipping the
         ``.detach().cpu().numpy()`` round-trip and the scalar energy ``.item()``
@@ -543,8 +526,7 @@ class _UMABackend(_MLBackend):
         ``parallel_predict`` false); the parallel predictor has no in-process
         device tensor to hand back, so callers must gate on those flags and fall
         back to :meth:`eval`. The returned values are the same tensor ``eval``
-        converts to NumPy, so the assembled central-difference Hessian is
-        bit-identical to the NumPy round-trip path.
+        converts to NumPy.
         """
         res, _ = self._predict(atoms, need_grad=False)
         return res["forces"].detach()
@@ -563,7 +545,8 @@ class _UMABackend(_MLBackend):
                 batch.pos = flat_pos.view(-1, 3)
                 return self.predictor.predict(batch)["energy"].squeeze()
 
-            # DO NOT INLINE: analytical Hessian via autograd needs O(N²) tensors; on 100+ atom ML regions a CUDA OOM ends the whole pipeline. The catch + actionable hint converts a stack trace into an actionable next-step. Keep error text verbatim (user-facing).
+            # Analytical autograd Hessians allocate O(N²) tensors. Convert a
+            # CUDA allocation failure into an actionable user-facing error.
             try:
                 H_flat = torch.autograd.functional.hessian(energy_fn, pos.view(-1), vectorize=False)
             except torch.cuda.OutOfMemoryError as _oom:
@@ -614,13 +597,8 @@ class _ASEMLBackend(_MLBackend):
         atoms_copy.calc = self._ase_calc
         # Propagate charge/spin to ASE Atoms info for backends that use them.
         # AIMNet2 reads 'charge' + 'mult'; ORB/MACE (OMol) read 'charge' + 'spin'.
-        # OMol-trained models (ORB/MACE OMOL, like fairchem UMA) expect the "spin" key
-        # to be the spin MULTIPLICITY (2S+1): singlet=1, doublet=2, triplet=3, and spin=0 is
-        # a NULL/unspecified token, NOT a singlet. Verified empirically for orb_v3_conservative_omol
-        # (O2 energy minimizes at spin=3; N2 at spin=1; spin=0 is +1.8 eV off the singlet).
-        # Was `model_mult - 1` (unpaired-electron count), which sent every default singlet to the
-        # null token and shifted open-shell states by one. AIMNet2 uses the separate "mult" key
-        # (already the multiplicity), so it is unaffected by the "spin" value.
+        # OMol-trained ORB/MACE models interpret "spin" as multiplicity (2S+1);
+        # zero is an unspecified token. AIMNet2 uses its separate "mult" key.
         atoms_copy.info["charge"] = self._model_charge
         atoms_copy.info["mult"] = self._model_mult
         atoms_copy.info["spin"] = int(self._model_mult)
@@ -853,8 +831,7 @@ class _MACEBackend(_ASEMLBackend):
         elif model_lower.startswith("anicc") or model_lower.startswith("mace-anicc"):
             self._ase_calc = mace_anicc(device=device_str, default_dtype=mace_dtype)
         elif model_lower.startswith("omol") or model_lower.startswith("mace-omol"):
-            # MACE-OMOL loads via the dedicated mace_omol factory. Routing it
-            # through mace_off (as before) fails: mace_off treats any non-preset,
+            # MACE-OMOL loads via the dedicated mace_omol factory. mace_off treats any non-preset,
             # non-URL string as a LOCAL file path, so the default "MACE-OMOL-0"
             # raises FileNotFoundError. mace_omol maps "extra_large"/None to the
             # published OMOL-0 checkpoint.
@@ -1127,7 +1104,7 @@ def _create_ml_backend(
 class _EmbedChargeCorrection:
     """Dormant xTB embedding implementation retained for compatibility tests.
 
-    The historical implementation evaluated:
+    The retained implementation evaluates:
 
         dE = E_xTB(ML + MM_charges) - E_xTB(ML_only)
         dF = F_xTB(ML + MM_charges) - F_xTB(ML_only)
@@ -1487,7 +1464,7 @@ class hessianffCalculator(Calculator):
         )
         h_sub = h_local.detach().cpu().numpy().astype(np.float64, copy=False) * KCALMOL2EV
         h_sub = np.asarray(h_sub, dtype=dtype)
-        # C-NEED: numpy boundary unavoidable; free the GPU tensor after copy.
+        # Release the GPU tensor after the required NumPy conversion.
         del h_local
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
@@ -1576,9 +1553,7 @@ class OpenMMCalculator(Calculator):
         if device == "auto":
             device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        # Expose resolved device so MLMMCore.compute can gate ML/MM parallel execution
-        # via getattr(self.calc_real_low, "device", None). Without this, use_parallel
-        # always evaluated to False on the OpenMM path (mlmm_calc.py:1810).
+        # Expose the resolved device for MLMMCore.compute's ML/MM parallel gate.
         self.device = device
 
         # Platform selection
@@ -2027,8 +2002,7 @@ class MLMMCore:
         if ml_device == "auto":
             ml_device = "cuda" if torch.cuda.is_available() else "cpu"
         if ml_device not in ("cuda", "cpu"):
-            # Anything else silently became CPU below, so a typo'd ml_device ran the whole job
-            # on the wrong device without a word.
+            # Reject unknown devices to prevent unintended CPU execution.
             raise ValueError(
                 "ml_device must be 'auto', 'cuda' or 'cpu' (choose the GPU with ml_cuda_idx), "
                 f"got {ml_device!r}"
@@ -2052,12 +2026,7 @@ class MLMMCore:
         else:
             self.backend_name = "uma"
 
-        # Preflight charge/spin parity check BEFORE loading the heavy ML model.
-        # The original validate_charge_spin call lived in _prep_3_layer_atoms,
-        # which only fires after compute() — i.e. after _create_ml_backend has
-        # already downloaded weights / allocated GPU memory. Hoist it here so
-        # bad (--charge, --multiplicity) combinations fail in O(ms) instead of
-        # after a multi-second ML model init.
+        # Validate charge/spin parity before loading the ML model.
         # selection_indices is parmed 0-based (a.idx in _mk_model_parm7); index
         # real_top.atoms directly without subtracting 1.
         from mlmm.core.utils import validate_charge_spin as _vcs
@@ -2436,11 +2405,8 @@ class MLMMCore:
             vec = atoms_real[mm_i].position - atoms_real[ml_i].position
             R = np.linalg.norm(vec)
             if R < 1e-6:
-                # Silent `continue` here used to leave the link-H slot in
-                # `atoms_model_LH` at its template position (typically (0,0,0)),
-                # which corrupts every downstream energy / force / Hessian for
-                # that frame. A degenerate ML/MM bond is a geometry bug in the
-                # caller's topology — fail loudly instead.
+                # A degenerate ML/MM parent bond cannot define a link-H
+                # position and indicates an invalid input geometry.
                 raise ValueError(
                     f"Degenerate link distance |r(MM={mm_idx}) - r(ML={ml_idx})| "
                     f"= {R:.3e} A < 1e-6 A. Check the input geometry: the link "
@@ -3064,7 +3030,6 @@ class MLMMCore:
                             mm_active,
                         )
 
-                    # DO NOT INLINE: Morokuma/Dapprich scaled link atoms have d²L/dQ²=0 because the link position is linear in (QM1, MM); computing this correction would be costly no-op AND introduce floating-point noise. Cite Morokuma & Dapprich (1996).
                     # B-matrix constraint correction: only needed for fixed-distance
                     # link atoms. For scaled (g-factor) link atoms, d²L/dQ² = 0
                     # (position is linear in QM1 and MM), so no correction needed.
@@ -3243,8 +3208,7 @@ class MLMMCore:
                 # triangles; peak temp <= chunk^2 instead of full N×N clone).
                 # H_flat is a view of H's storage — symmetrize_inplace mutates
                 # in place, so the 4D H view automatically reflects the result
-                # (no rebind needed). Replaces the prior `H_flat = (H_flat +
-                # H_flat.t()).mul_(0.5)` which had full 2× peak.
+                # without rebinding.
                 from mlmm.core.utils import symmetrize_inplace
                 H_flat = H.view(3 * n_hess_active, 3 * n_hess_active)
                 symmetrize_inplace(H_flat)
@@ -3258,10 +3222,8 @@ class MLMMCore:
                 H_full = torch.zeros((n_real, 3, n_real, 3), dtype=self.H_dtype, device=self.ml_device)
                 active_idx = torch.as_tensor(self.hess_active_atoms, dtype=torch.long, device=self.ml_device)
                 if active_idx.numel() > 0:
-                    # Scatter-assign accepts a strided source (verified bit-
-                    # identical via CUDA test); dropping `.contiguous()` saves
-                    # one full `H` worth of peak (= the permuted copy that
-                    # would otherwise live alongside H + H_full during write).
+                    # Scatter-assign accepts a strided source, avoiding the
+                    # additional full-size copy created by `.contiguous()`.
                     H_full[active_idx[:, None], :, active_idx[None, :], :] = H.permute(0, 2, 1, 3)
                 results["hessian"] = H_full.detach()
                 timing["hess_asm_full_expand_s"] = time.perf_counter() - t_asm
@@ -3549,7 +3511,7 @@ class mlmm(PySiCalc):
                 out["hessian"] = H.to(target_dtype).detach().requires_grad_(False)
             else:
                 out["hessian"] = H.detach().cpu().numpy()
-                # C-NEED: numpy boundary; release GPU storage after copy.
+                # Release GPU storage after the required NumPy conversion.
                 del H
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()

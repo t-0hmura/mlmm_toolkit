@@ -1,13 +1,13 @@
-"""C9 production-bound falsifiers for the shared microiteration contract.
+"""Production-bound tests for the shared microiteration contract.
 
 These exercise the real ``mlmm.workflows._microiteration`` helpers that opt and
 tsopt both consume:
 
-* M44/M45 — one immutable partition that preserves the user freeze mask in BOTH
+* one immutable partition that preserves the user freeze mask in both
   phases and fails LOUDLY (never a swallowed empty set);
-* M46 — a fail-closed macro/micro aggregate where a micro plateau/stall/max-cycle
+* a fail-closed macro/micro aggregate where a micro plateau/stall/max-cycle
   (or a missing convergence signal) never reads as macro convergence;
-* M47 — one field-isomorphic optimizer outcome across ordinary/micro/restart/
+* one field-isomorphic optimizer outcome across ordinary/micro/restart/
   multistart/flatten, with executed (never configured) cycle counts.
 """
 
@@ -51,7 +51,7 @@ class _FakeCore:
 
 
 # --------------------------------------------------------------------------
-# M45 — immutable partition preserves the user freeze mask in BOTH phases
+# — immutable partition preserves the user freeze mask in BOTH phases
 # --------------------------------------------------------------------------
 
 
@@ -130,7 +130,7 @@ def test_partition_flags_reflect_active_sets():
 
 
 # --------------------------------------------------------------------------
-# M44 — loud partition failure (never a swallowed empty set)
+# — loud partition failure (never a swallowed empty set)
 # --------------------------------------------------------------------------
 
 
@@ -167,7 +167,7 @@ def test_resolve_from_core_empty_ml_is_valid_fallback_not_error():
 
 
 # --------------------------------------------------------------------------
-# M46 — fail-closed macro/micro aggregate
+# — fail-closed macro/micro aggregate
 # --------------------------------------------------------------------------
 
 
@@ -232,7 +232,7 @@ def test_aggregate_vacuous_no_micro_follows_macro():
 
 
 # --------------------------------------------------------------------------
-# M47 — one field-isomorphic outcome, executed cycle counts
+# — one field-isomorphic outcome, executed cycle counts
 # --------------------------------------------------------------------------
 
 

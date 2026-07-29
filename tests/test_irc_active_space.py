@@ -1,4 +1,4 @@
-"""C9 M43 falsifiers: the IRC active basis preserves ML + MovableMM and is never
+"""The IRC active basis preserves ML + MovableMM and is never
 silently cropped to ML + link-parent DOFs, and the IRC Hessian device policy is
 GPU-first with an explicit CUDA request that never silently falls back to CPU.
 
@@ -68,14 +68,14 @@ def test_full_zeros_movable_mm_under_the_old_ml_macro_crop():
 
 
 def test_irc_source_has_no_ml_macro_crop_path():
-    # Grep negative control (M43 falsifier 6): the ML-macro crop is gone.
+    # The ML-macro crop must remain absent.
     text = IRC_SRC.read_text(encoding="utf-8")
     for banned in ("_macro_atoms", "_try_reduce", "ML macro sub-block"):
         assert banned not in text, banned
 
 
 # --------------------------------------------------------------------------
-# M43 device policy — GPU-first; explicit CUDA never silent-CPU
+# Device policy — GPU-first; explicit CUDA never silently selects CPU
 # --------------------------------------------------------------------------
 
 

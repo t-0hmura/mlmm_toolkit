@@ -1,4 +1,4 @@
-"""M51: a changed freeze mask must invalidate the memoized active atom/DOF maps.
+"""A changed freeze mask must invalidate the memoized active atom/DOF maps.
 
 The active-atom / active-DOF views are memoized on first access.  Before this
 fix, assigning a new ``freeze_atoms`` mask left both memoized arrays stale, so a

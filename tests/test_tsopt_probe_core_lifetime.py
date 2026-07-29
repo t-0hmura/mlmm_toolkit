@@ -1,12 +1,11 @@
-"""M58 falsifiers: the TSOPT probe core must not survive into the IRC phase.
+"""The TSOPT probe core must not survive into the IRC phase.
 
 ``_run_tsopt_on_hei`` builds one ML/MM core purely to put an energy on the
 returned TS geometry.  ``_irc_and_match`` then builds the segment's own leased
 core and adopts that geometry with ``if g_ts.calculator is None:
 lease.attach(g_ts)``.  If the probe core is still attached, that guard is False,
 the lease never owns the geometry, and two heavy cores stay resident across the
-TSOPT->IRC handoff -- the exact defect M58 exists to prevent, and an OOM on a
-small GPU.
+TSOPT->IRC handoff and can exhaust memory on a small GPU.
 
 The release idiom is load-bearing and easy to "tidy" into a bug:
 ``Geometry.set_calculator`` defaults to ``clear=True`` and would drop the energy

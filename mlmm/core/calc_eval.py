@@ -23,7 +23,8 @@ def calc_energy(
         Pysisyphus ``Geometry`` instance carrying ``atoms`` and Cartesian
         ``cart_coords``.
     calc_kwargs:
-        Keyword arguments for constructing a fresh :class:`mlmm.backends.mlmm`
+        Keyword arguments for constructing a fresh
+        :class:`mlmm.backends.mlmm_calc.mlmm`
         when ``calc`` is ``None``. ``out_hess_torch`` is forced to ``False``
         so the temporary calculator does not allocate Hessian tensors for
         an energy-only call.

@@ -378,7 +378,7 @@ def _build_rsirfo_kwargs(
     macro_thresh: Optional[str] = None,
     mode: str = "rsirfo",
 ) -> Dict[str, Any]:
-    # DO NOT INLINE: RSIRFOptimizer rejects RFOptimizer-only DIIS knobs
+    # RSIRFOptimizer rejects RFOptimizer-only DIIS knobs
     # (gediis/gdiis/gdiis_thresh/gediis_thresh/gdiis_test_direction/adapt_step_func);
     # if a user-supplied YAML inherits those from a generic opt block they must be
     # stripped before construction. Centralised here so both macro/micro orchestrators
@@ -1208,7 +1208,8 @@ def _resolve_validated_hessian_analysis_atoms(
     return sorted(requested)
 
 
-# DO NOT INLINE: 3N×3N Hessian for 100-atom ML region is ~700 MB fp64; constructing temp d⊗d^T doubles peak VRAM. Upper-triangle in-place path keeps memory proportional to input.
+# The upper-triangle in-place path avoids allocating a second full-size d⊗d^T
+# temporary for the Cartesian Hessian.
 # CHEMISTRY-RULE:7 Bofill update advanced-indexing on active Cartesian Hessian block.
 def _bofill_update_active(H_act: torch.Tensor,
                           delta_act: np.ndarray,
@@ -1267,7 +1268,7 @@ def _bofill_update_active(H_act: torch.Tensor,
         diag_inc = (alpha * xi[idx] * xi[idx]
                     + beta * d[idx] * d[idx]
                     + 2.0 * gamma * d[idx] * xi[idx])
-        # CHEMISTRY-RULE:7 write back by ASSIGNMENT, never `.add_()`. `H_act[idx, idx]` with a
+        # CHEMISTRY-RULE:7 write back by ASSIGNMENT, never `.add_`. `H_act[idx, idx]` with a
         # tensor index is advanced indexing, which returns a COPY, so an in-place add on it is
         # silently discarded and the Hessian never updates.
         H_act[idx, idx] = H_act[idx, idx] + diag_inc
@@ -1290,12 +1291,8 @@ def _bofill_update_active(H_act: torch.Tensor,
 def _warn_if_leading_imaginary_mode_is_soft(ims: Any) -> None:
     """Warn when the imaginary mode that certifies the saddle is very soft.
 
-    Certification counts imaginary modes (``n_imag == 1``); it does not weigh
-    them, so a few-cm^-1 soft mode certifies exactly like a real reaction
-    coordinate. Bond forming/breaking is normally several hundred cm^-1, so a
-    saddle whose leading mode is tens of cm^-1 is far more likely a soft or
-    spurious mode. This only warns — the status and the counting rule are
-    unchanged.
+    Certification counts imaginary modes (``n_imag == 1``); it does not assess
+    their character. This only warns—the status and counting rule are unchanged.
     """
     if ims is None or len(ims) == 0:
         return
@@ -1304,18 +1301,16 @@ def _warn_if_leading_imaginary_mode_is_soft(ims: Any) -> None:
         return
     emit(
         f"[tsopt] WARNING: the leading imaginary mode is {leading:.2f} cm^-1, "
-        f"below {TS_IMAG_SOFT_WARN_CM:.0f} cm^-1. A bond forming/breaking "
-        f"reaction coordinate is normally several hundred cm^-1; visualize the "
-        f"mode and confirm IRC connectivity before treating this as a "
-        f"transition state.",
+        f"below {TS_IMAG_SOFT_WARN_CM:.0f} cm^-1. Visualize the mode and "
+        f"confirm IRC connectivity before treating this as a transition state.",
         narrative=True,
     )
 
 
 def _tsopt_terminal_status(optimizer: Any, *, saddle_verified: bool) -> str:
-    """Compose a TS optimizer's public status (M14/P14).
+    """Compose a TS optimizer's public status.
 
-    Precedence, per the C7 contract: a stall wins (an energy-plateau outcome is
+    Precedence: a stall wins (an energy-plateau outcome is
     never a converged saddle); otherwise a genuine first-order saddle
     (``is_converged`` and ``saddle_verified``) is ``converged``; anything else
     is ``not_converged``.  n_imag / stop_reason are recorded separately so a
@@ -1469,7 +1464,7 @@ class HessianDimer:
         # RS-I-RFO branch instead of a neutral "completed" literal.
         self.is_converged = False
 
-        # Additive M14/P14 stall state propagated from a child LBFGS whose
+        # Additive stall state propagated from a child LBFGS whose
         # energy plateaued (energy stopped decreasing while its force/step
         # criteria stayed unmet).  A stall stops all later segments/loops and
         # is never reported as a converged TS.
@@ -1631,7 +1626,7 @@ class HessianDimer:
         # to the requested segment step count.
         steps = min(max(int(opt.cur_cycle) + 1, 1), int(n_steps))
         converged = opt.is_converged
-        # Propagate an energy-plateau stall from the child LBFGS (M14/P14). A
+        # Propagate an energy-plateau stall from the child LBFGS . A
         # stalled child is not converged; the caller stops all later segments.
         if getattr(opt, "is_stalled", False):
             self.is_stalled = True
@@ -1854,7 +1849,7 @@ class HessianDimer:
             steps, ok = self._dimer_segment(threshold, steps_this)
             self._cycles_spent += steps
             steps_in_this_call += steps
-            # A stalled child stops all further segments in this loop (M14/P14).
+            # A stalled child stops all further segments in this loop.
             if self.is_stalled:
                 break
             if ok:
@@ -2038,7 +2033,7 @@ class HessianDimer:
         self.is_converged = bool(conv_loose and thresholds_match)
 
         zero_step_normal = False
-        # A stalled loose loop stops all further optimization work (M14/P14):
+        # A stalled loose loop stops all further optimization work :
         # skip the Hessian/mode update and the normal + flatten loops so a
         # stalled TS search is never retried.
         if self.is_stalled:
@@ -2078,7 +2073,7 @@ class HessianDimer:
         else:
             click.echo("[tsopt] Reached --max-cycles budget after loose loop; skipping normal dimer loop.")
 
-        # A stalled optimization never enters the flatten/retry loop (M14/P14).
+        # A stalled optimization never enters the flatten/retry loop.
         if self.flatten_max_iter > 0 and self.is_stalled:
             click.echo("[tsopt] Optimization stalled (energy plateau); skipping the flatten loop.")
         elif self.flatten_max_iter > 0 and (self.max_total_cycles - self._cycles_spent) > 0:
@@ -2180,7 +2175,7 @@ class HessianDimer:
                 self.is_converged = conv_flat
 
                 # A stall inside the flatten loop stops the remaining iterations
-                # (M14/P14): do not keep retrying a stalled optimization.
+                # : do not keep retrying a stalled optimization.
                 if self.is_stalled:
                     break
 
@@ -2226,7 +2221,7 @@ class HessianDimer:
         # Honest convergence signal: if the dimer optimization exhausted its cycle
         # budget without the optimizer reporting convergence, surface it loudly so
         # the result.json status="not_converged" is not silently buried. A stall
-        # is a distinct energy-plateau outcome (M14/P14).
+        # is a distinct energy-plateau outcome.
         if self.is_stalled:
             click.echo(
                 "[tsopt] WARNING: TS optimization stalled (energy plateau): "
@@ -2328,7 +2323,8 @@ class HessianDimer:
 
 
 
-# DO NOT INLINE: macro/micro algorithm mirrors Gaussian 16 ONIOM(QM:MM) optimizer; chemistry is paper-citable, code must not deviate. If splitting, preserve macro/micro docstring + algorithm comment.
+# Macro/micro alternation follows the Gaussian 16 ONIOM(QM:MM) algorithm
+# described in the function docstring.
 # CHEMISTRY-RULE:3 Macro/micro alternation (Gaussian 16 microiteration、ML+linkparent co-macro)。
 def _run_microiter_tsopt(
     geometry,
@@ -2374,7 +2370,7 @@ def _run_microiter_tsopt(
       update on CPU + MM-only micro on CPU. No GPU residency growth across
       macro cycles.
     """
-    # M44/M45: resolve the ONE immutable partition from a single accepted core
+    # Resolve the immutable partition from a single accepted core
     # (loud on failure, never a swallowed empty set), consuming the exact
     # geometry freeze mask as the immutable original freeze. The user's freeze is
     # preserved in BOTH phase masks and restored exactly in ``finally``.
@@ -2426,12 +2422,12 @@ def _run_microiter_tsopt(
     macro_calc_cfg["hess_mm_atoms"] = sorted(link_mm_parents)  # ML + link MM parents in Hessian
     macro_calc = mlmm(**macro_calc_cfg)
     mm_calc = mlmm_mm_only(macro_calc.core, freeze_atoms=micro_freeze)
-    # Full-constraint calculator restored on the normal exit path (M45). Built
+    # Full-constraint calculator restored on the normal exit path . Built
     # lazily just before returning so it does not add a second live core to the
     # macro/micro loop's VRAM footprint (mm_calc reuses macro_calc.core).
     base_calc = None
 
-    # Ordered record of every micro (MM) relaxation's truthful outcome (M46/M47).
+    # Ordered record of every micro (MM) relaxation outcome.
     micro_attempts: List[OptimizerOutcome] = []
     micro_cycles_total = 0
 
@@ -2440,7 +2436,7 @@ def _run_microiter_tsopt(
 
         Returns the LBFGS optimizer (for its explicit convergence bit) and the
         number of executed micro cycles.  A normal Python return is not evidence
-        of convergence (M46).
+        of convergence.
         """
 
         macro_coord_type = getattr(geometry, "coord_type", "cart")
@@ -2493,7 +2489,7 @@ def _run_microiter_tsopt(
             micro_attempts.append(_init_micro_out)
             latest_micro_stalled = _init_micro_out.stalled
             latest_micro_stop_reason = _init_micro_out.stop_reason or ""
-            # M46 keeps the macro step off unless the micro relaxation settled.
+            # keeps the macro step off unless the micro relaxation settled.
             # A plateau whose forces already meet the configured thresholds IS
             # MM equilibrium, though: refusing it costs the whole TS search
             # (zero macro steps) over step criteria the macro does not need.
@@ -2535,7 +2531,7 @@ def _run_microiter_tsopt(
         )
         hess_device = _torch_device(calc_cfg.get("ml_device", "auto"))
 
-        # M70: reuse a cached TS Hessian only on a full evaluation-identity match.
+        # reuse a cached TS Hessian only on a full evaluation-identity match.
         cached_ts = _hess_load_matching(
             "ts",
             _hess_identity(geometry, calc_cfg, role="ts"),
@@ -2594,10 +2590,10 @@ def _run_microiter_tsopt(
         # Create the persistent macro TS optimizer once (LayerOpt pattern).
         # This preserves the BFGS Hessian update chain across macro iterations.
         # The macro optimizer is the resolved --opt-mode (RS-I-RFO / RS-P-RFO / TRIM);
-        # all three are TSHessianOptimizer subclasses sharing the optimize()/prepare_opt()
+        # all three are TSHessianOptimizer subclasses sharing the optimize/prepare_opt
         # + Bofill-update contract the macro loop drives.
         # NOTE: geometry already has macro_calc set (line above); do NOT call
-        # set_calculator() again as it clears the pre-computed cart_hessian.
+        # set_calculator again as it clears the pre-computed cart_hessian.
         geometry.freeze_atoms = macro_freeze
 
         rsirfo_args = _build_rsirfo_kwargs(
@@ -2640,7 +2636,7 @@ def _run_microiter_tsopt(
             total_macro_steps += 1
 
             if macro_optimizer.stop_requested:
-                # A real macro energy-plateau stall (M14/P14) is a distinct outcome
+                # A real macro energy-plateau stall  is a distinct outcome
                 # from a generic stop; it is never convergence.
                 if macro_optimizer.is_stalled:
                     click.echo(
@@ -2699,7 +2695,7 @@ def _run_microiter_tsopt(
                 del micro_opt
                 _clear_cuda_cache()
             else:
-                # M45 falsifier #5: a validated partition with macro-active atoms but
+                # A validated partition with macro-active atoms but
                 # ZERO micro-active MM atoms (e.g. the entire MM region is
                 # user-frozen) has no movable MM coordinate to relax. Append the
                 # zero-cycle vacuous micro success instead of building an LBFGS with
@@ -2708,7 +2704,7 @@ def _run_microiter_tsopt(
                 micro_steps = 0
                 _micro_equilibrium = False
             micro_attempts.append(_micro_out)
-            # M14/P14: remember whether THIS micro (MM) relaxation stalled on an
+            # remember whether THIS micro (MM) relaxation stalled on an
             # energy plateau. Coordinate copying alone is not evidence of
             # convergence, so a stalled/non-converged latest micro relaxation must
             # not later read as clean macro convergence.
@@ -2718,7 +2714,7 @@ def _run_microiter_tsopt(
             if dump:
                 _append_xyz_trajectory(optim_all_path, out_dir_path / "optimization_trj.xyz")
 
-            # M46: a required micro relaxation that did not explicitly converge stops
+            # a required micro relaxation that did not explicitly converge stops
             # the macro/micro alternation; the aggregate cannot be converged and no
             # further macro step is taken (a normal LBFGS return on max-cycle
             # exhaustion is not convergence).
@@ -2748,18 +2744,18 @@ def _run_microiter_tsopt(
                 print()  # blank line closes the table (print() shares the table's stdout path)
                 emit(f"[microiter] Reached max macro iterations ({max_cycles}).", detail=True)
 
-        # M14/P14: a stalled latest micro (MM) relaxation must not masquerade as
+        # a stalled latest micro (MM) relaxation must not masquerade as
         # clean macro convergence, and it must not be lost as a reasonless
         # not_converged when the macro merely ran out of cycles: surface it as a
-        # stall (with its reason) in either case so the returned optimizer is truthful.
+        # stall (with its reason) in either case so the returned state is explicit.
         finalize_microiter_macro_convergence(
             macro_optimizer,
             macro_converged=macro_converged,
             latest_micro_stalled=latest_micro_stalled,
             latest_micro_stop_reason=latest_micro_stop_reason,
         )
-        # M46/M47: fold the macro state (after the M14/P14 stall demotion) and the
-        # ordered micro attempts into ONE fail-closed aggregate outcome.
+        # Fold the macro state after stall demotion and the ordered micro
+        # attempts into one fail-closed aggregate outcome.
         macro_outcome = OptimizerOutcome.from_optimizer(macro_optimizer, max_cycles=max_cycles)
         aggregate = build_aggregate(macro_outcome, micro_attempts, max_cycles=max_cycles)
         micro_outcome = MicroiterationOutcome(
@@ -2789,7 +2785,7 @@ def _run_microiter_tsopt(
         base_calc = mlmm(**calc_cfg)
         return outcome
     finally:
-        # M45: restore the EXACT original freeze mask on every exit path
+        # restore the EXACT original freeze mask on every exit path
         # (success, micro non-convergence, macro stall, and raised exception);
         # restore the full-constraint calculator whenever one was built.
         geometry.freeze_atoms = list(original_freeze)
@@ -3416,7 +3412,7 @@ def cli(
 
     # Microiteration drives one macro TS step per cycle and works with any of the
     # Hessian TS optimizers (RS-I-RFO / RS-P-RFO / TRIM), which share the
-    # optimize()/prepare_opt()/Bofill-update contract. Only grad/dimer modes lack it.
+    # optimize/prepare_opt/Bofill-update contract. Only grad/dimer modes lack it.
     use_microiter = bool(microiter) and use_heavy
     if bool(microiter) and not use_heavy:
         click.echo("[microiter] --microiter needs a Hessian TS optimizer (hess/rsirfo/rsprfo/trim); ignoring for grad/dimer.")
@@ -3650,7 +3646,7 @@ def cli(
             echo_resolved_device()
             _heavy_optimizer_converged = False
             _heavy_safeguards: Dict[str, Any] = {}
-            # M47: additive microiteration serialization (populated on the
+            # additive microiteration serialization (populated on the
             # microiteration path only). Carries the macro/micro leaf outcomes and
             # the separate executed micro-cycle total.
             _heavy_microiteration_obj: Optional[Dict[str, Any]] = None
@@ -3973,7 +3969,7 @@ def cli(
                         "cycles": initial_run_cycles,
                         # The additive microiteration block that describes the
                         # initial run (the baseline geometry), carried so a
-                        # baseline selection re-anchors it truthfully.
+                        # baseline selection re-anchors it to the selected mode.
                         "microiteration_obj": _heavy_microiteration_obj,
                         "micro_cycles": _heavy_micro_cycles,
                     }
@@ -4392,7 +4388,7 @@ def cli(
                     "not_converged.",
                     err=True,
                 )
-            # M14/P14: a stall (energy-plateau outcome of the selected optimizer)
+            # a stall (energy-plateau outcome of the selected optimizer)
             # wins over every convergence/saddle-order verdict — it is never a
             # converged saddle. n_imag / stop_reason are recorded separately so
             # a stall does not hide saddle-order evidence.
@@ -4601,7 +4597,7 @@ def cli(
                     and hasattr(runner, 'is_converged')
                     and runner.is_converged
                 )
-                # M14/P14: a dimer runner stall (energy-plateau child) wins over
+                # a dimer runner stall (energy-plateau child) wins over
                 # every convergence/saddle-order verdict — even under
                 # --skip-final-freq — and is never a converged saddle.
                 _light_stalled = bool(
@@ -4669,7 +4665,7 @@ def cli(
             }
             if use_heavy:
                 result_data["safeguards"] = _heavy_safeguards
-                # M47: additive microiteration serialization (present only when the
+                # additive microiteration serialization (present only when the
                 # microiteration path ran). Legacy keys are unchanged.
                 if _heavy_microiteration_obj is not None:
                     if _heavy_micro_cycles is not None:
@@ -4677,7 +4673,7 @@ def cli(
                     result_data["microiteration"] = _heavy_microiteration_obj
             # Additive stop_reason, present only for a non-converged stop
             # (stalled/stopped) so a converged TS run's JSON stays
-            # byte-compatible (M14/P14).
+            # byte-compatible.
             if use_heavy:
                 _tsopt_stop_reason = (
                     getattr(last_optimizer, "stop_reason", "") or ""
