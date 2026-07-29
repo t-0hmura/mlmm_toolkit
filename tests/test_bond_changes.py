@@ -84,6 +84,28 @@ def _as_int_pairs(pairs):
 
 
 class TestCompareStructures:
+    @pytest.mark.parametrize("bond_factor", [0.0, -1.0, np.nan, np.inf])
+    def test_rejects_invalid_bond_factor(self, bond_factor):
+        from mlmm.domain.bond_changes import compare_structures
+
+        geom = _line_geom([[0.0, 0.0, 0.0]])
+        with pytest.raises(ValueError, match="bond_factor"):
+            compare_structures(
+                geom,
+                geom,
+                device="cpu",
+                bond_factor=bond_factor,
+            )
+
+    @pytest.mark.parametrize("nonfinite", [np.nan, np.inf, -np.inf])
+    def test_rejects_nonfinite_coordinates(self, nonfinite):
+        from mlmm.domain.bond_changes import compare_structures
+
+        finite = _line_geom([[0.0, 0.0, 0.0]])
+        invalid = _line_geom([[nonfinite, 0.0, 0.0]])
+        with pytest.raises(ValueError, match="coordinates must be finite"):
+            compare_structures(finite, invalid, device="cpu")
+
     def test_chunk_boundary_formed_and_broken(self):
         """Row-chunked detection must be correct across the 1024-row block
         boundary: one bond forms in the first block, one breaks in the second

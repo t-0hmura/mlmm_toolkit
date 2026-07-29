@@ -146,6 +146,9 @@ def compare_structures(
 
     if geom1.atoms != geom2.atoms:
         raise ValueError("Atom types and ordering must be identical.")
+    bond_factor = float(bond_factor)
+    if not np.isfinite(bond_factor) or bond_factor <= 0:
+        raise ValueError("bond_factor must be a finite number greater than zero.")
     N = len(geom1.atoms)
 
     elems, cov_np = _element_arrays(geom1.atoms)
@@ -154,6 +157,8 @@ def compare_structures(
     dtype = torch.float64
     R1 = torch.as_tensor(geom1.coords3d, dtype=dtype, device=dev)
     R2 = torch.as_tensor(geom2.coords3d, dtype=dtype, device=dev)
+    if not bool(torch.isfinite(R1).all()) or not bool(torch.isfinite(R2).all()):
+        raise ValueError("Structure coordinates must be finite.")
     cov = torch.as_tensor(cov_np, dtype=dtype, device=dev)
 
     # Row-chunked covalent bond-change detection. A dense formulation needs ~10
@@ -257,4 +262,3 @@ def summarize_changes(geom, result: BondChangeResult, one_based: bool = True) ->
     pairs_to_lines("Bond broken", result.broken_covalent)
 
     return "\n".join(lines)
-
