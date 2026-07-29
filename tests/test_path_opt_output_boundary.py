@@ -6,6 +6,7 @@ from pathlib import Path
 
 import click
 import pytest
+from click.testing import CliRunner
 
 
 def test_prepare_path_output_dir_invalidates_prior_envelopes(
@@ -26,6 +27,61 @@ def test_prepare_path_output_dir_invalidates_prior_envelopes(
     assert not (out_dir / "result.json").exists()
     assert not (out_dir / "summary.json").exists()
     assert unrelated.read_text(encoding="utf-8") == "keep\n"
+
+
+@pytest.mark.parametrize("name", ["result.json", "model_from_bfactor.pdb"])
+def test_path_output_collision_preserves_reserved_input(
+    tmp_path: Path,
+    name: str,
+) -> None:
+    from mlmm.workflows.path_opt import _reject_path_output_collisions
+
+    out_dir = tmp_path / "path"
+    out_dir.mkdir()
+    source = out_dir / name
+    source.write_text("input\n", encoding="utf-8")
+
+    with pytest.raises(click.UsageError, match="collides"):
+        _reject_path_output_collisions(out_dir, (source,))
+
+    assert source.read_text(encoding="utf-8") == "input\n"
+
+
+def test_path_cli_preserves_config_before_early_validation(
+    tmp_path: Path,
+) -> None:
+    from mlmm.workflows import path_opt as path_module
+
+    repo = Path(__file__).resolve().parents[1]
+    smoke = repo / "tests" / "smoke"
+    out_dir = tmp_path / "path"
+    out_dir.mkdir()
+    config = out_dir / "result.json"
+    original = b"stopt:\n  max_cycles: 0\n"
+    config.write_bytes(original)
+
+    result = CliRunner().invoke(
+        path_module.cli,
+        [
+            "-i",
+            str(smoke / "r_complex_layered.pdb"),
+            str(smoke / "p_complex_layered.pdb"),
+            "--parm",
+            str(smoke / "p_complex.parm7"),
+            "-q",
+            "-1",
+            "-m",
+            "1",
+            "--config",
+            str(config),
+            "--out-dir",
+            str(out_dir),
+        ],
+    )
+
+    assert result.exit_code == 2, result.output
+    assert "collides with a reserved path-opt output" in result.output
+    assert config.read_bytes() == original
 
 
 def test_endpoint_identity_rejects_reordered_same_element_atoms(

@@ -941,6 +941,22 @@ def cli(
                     hess_cutoff=hess_cutoff,
                     movable_cutoff=movable_cutoff,
                     calc_cfg=calc_cfg,
+                    protected_inputs=(
+                        input_path,
+                        source_path,
+                        geom_input_path,
+                        real_parm7,
+                        model_pdb,
+                        ref_pdb,
+                        spec_path,
+                        config_yaml,
+                        override_yaml,
+                        (
+                            Path(calc_cfg["calc_file"])
+                            if calc_cfg.get("calc_file")
+                            else None
+                        ),
+                    ),
                 )
             except click.ClickException as e:
                 click.echo(f"ERROR: {e.message}", err=True)

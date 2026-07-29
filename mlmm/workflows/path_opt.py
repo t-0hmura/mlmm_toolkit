@@ -457,6 +457,7 @@ def _reject_path_output_collisions(
         "final_geometries.pdb",
         "hei.xyz",
         "hei.pdb",
+        "model_from_bfactor.pdb",
     )
     fixed = {
         (Path(out_dir) / name).resolve(strict=False) for name in fixed_names
@@ -1038,6 +1039,17 @@ def cli(
     prepared_inputs: List[PreparedInputStructure] = []
     time_start = time.perf_counter()
     out_dir_path = Path(out_dir).resolve()
+    _reject_path_output_collisions(
+        out_dir_path,
+        (
+            *requested_input_paths,
+            *ref_pdb_paths,
+            real_parm7,
+            model_pdb,
+            config_yaml,
+            Path(calc_file) if calc_file else None,
+        ),
+    )
     try:
         if len(input_paths) != 2:
             click.echo("ERROR: Provide exactly two endpoint structures (-i reactant product).", err=True)
@@ -1241,6 +1253,38 @@ def cli(
             calc_cfg["use_bfactor_layers"] = False
 
         layer_source_pdb = input_paths[0]
+        path_protected_inputs = (
+            *requested_input_paths,
+            *(prep.source_path for prep in prepared_inputs),
+            *ref_list,
+            real_parm7,
+            (
+                Path(calc_cfg["input_pdb"])
+                if calc_cfg.get("input_pdb")
+                else None
+            ),
+            (
+                Path(calc_cfg["real_parm7"])
+                if calc_cfg.get("real_parm7")
+                else None
+            ),
+            model_pdb,
+            (
+                Path(calc_cfg["model_pdb"])
+                if calc_cfg.get("model_pdb")
+                else None
+            ),
+            config_yaml,
+            (
+                Path(calc_cfg["calc_file"])
+                if calc_cfg.get("calc_file")
+                else None
+            ),
+        )
+        _reject_path_output_collisions(
+            out_dir_path,
+            path_protected_inputs,
+        )
         if detect_layer_enabled and layer_source_pdb.suffix.lower() != ".pdb":
             click.echo("ERROR: --detect-layer requires a PDB input.", err=True)
             sys.exit(1)
@@ -1366,6 +1410,7 @@ def cli(
                 hess_cutoff=calc_cfg.get("hess_cutoff"),
                 movable_cutoff=calc_cfg.get("movable_cutoff"),
                 calc_cfg=calc_cfg,
+                protected_inputs=path_protected_inputs,
                 echo_fn=click.echo,
             )
         except click.ClickException as exc:
@@ -1410,27 +1455,6 @@ def cli(
             )
         )
 
-        _reject_path_output_collisions(
-            out_dir_path,
-            (
-                *requested_input_paths,
-                *(prep.source_path for prep in prepared_inputs),
-                *ref_list,
-                real_parm7,
-                model_pdb,
-                (
-                    Path(calc_cfg["model_pdb"])
-                    if calc_cfg.get("model_pdb")
-                    else None
-                ),
-                config_yaml,
-                (
-                    Path(calc_cfg["calc_file"])
-                    if calc_cfg.get("calc_file")
-                    else None
-                ),
-            ),
-        )
         out_dir_path = _prepare_path_output_dir(out_dir_path)
 
         source_paths = [prep.source_path for prep in prepared_inputs]

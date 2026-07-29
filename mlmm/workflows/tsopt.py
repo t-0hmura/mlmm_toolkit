@@ -2916,16 +2916,11 @@ class _TSOPTOutputCollisionError(click.UsageError):
     """A TSOPT output/input collision."""
 
 
-def _prepare_tsopt_output_dir(
-    path: Path,
-    *,
-    protected_inputs: Sequence[Optional[Path]] = (),
-) -> Path:
-    """Invalidate command-owned TS artifacts before a real generation."""
+def _tsopt_owned_output_paths(path: Path) -> List[Path]:
+    """Return command-owned TS artifacts for one output directory."""
 
     resolved = Path(path).resolve()
-    resolved.mkdir(parents=True, exist_ok=True)
-    owned = [
+    return [
         *(
             resolved / name
             for name in (
@@ -2947,13 +2942,42 @@ def _prepare_tsopt_output_dir(
             and candidate.suffix.lower() in {".xyz", ".pdb"}
         ),
     ]
-    reserved = {candidate.resolve() for candidate in owned}
+
+
+def _reject_tsopt_output_collisions(
+    path: Path,
+    *,
+    protected_inputs: Sequence[Optional[Path]] = (),
+) -> None:
+    """Reject inputs that occupy deterministic TSOPT output paths."""
+
+    resolved = Path(path).resolve()
+    reserved = {
+        *(candidate.resolve() for candidate in _tsopt_owned_output_paths(resolved)),
+        (resolved / "model_from_bfactor.pdb").resolve(),
+    }
     for protected in protected_inputs:
         if protected is not None and Path(protected).resolve() in reserved:
             raise _TSOPTOutputCollisionError(
                 f"Input {protected} collides with a reserved TSOPT output path "
                 f"under {resolved}."
             )
+
+
+def _prepare_tsopt_output_dir(
+    path: Path,
+    *,
+    protected_inputs: Sequence[Optional[Path]] = (),
+) -> Path:
+    """Invalidate command-owned TS artifacts before a real generation."""
+
+    resolved = Path(path).resolve()
+    resolved.mkdir(parents=True, exist_ok=True)
+    _reject_tsopt_output_collisions(
+        resolved,
+        protected_inputs=protected_inputs,
+    )
+    owned = _tsopt_owned_output_paths(resolved)
     for candidate in owned:
         candidate.unlink(missing_ok=True)
     return resolved
@@ -3657,6 +3681,42 @@ def cli(
         prepared_input.cleanup()
         return
 
+    tsopt_protected_inputs = (
+        input_path,
+        prepared_input.original_path,
+        prepared_input.source_path,
+        geom_input_path,
+        ref_pdb,
+        real_parm7,
+        (
+            Path(calc_cfg["input_pdb"])
+            if calc_cfg.get("input_pdb")
+            else None
+        ),
+        (
+            Path(calc_cfg["real_parm7"])
+            if calc_cfg.get("real_parm7")
+            else None
+        ),
+        Path(model_pdb_cfg) if model_pdb_cfg is not None else None,
+        config_yaml,
+        override_yaml,
+        (
+            Path(calc_cfg["calc_file"])
+            if calc_cfg.get("calc_file")
+            else None
+        ),
+        reference_mode_path,
+    )
+    try:
+        _reject_tsopt_output_collisions(
+            out_dir_path,
+            protected_inputs=tsopt_protected_inputs,
+        )
+    except _TSOPTOutputCollisionError:
+        prepared_input.cleanup()
+        raise
+
     try:
         model_pdb_path, layer_info = resolve_ml_layer_assignment(
             source_path=layer_source_pdb,
@@ -3667,6 +3727,7 @@ def cli(
             hess_cutoff=calc_cfg.get("hess_cutoff"),
             movable_cutoff=calc_cfg.get("movable_cutoff"),
             calc_cfg=calc_cfg,
+            protected_inputs=tsopt_protected_inputs,
             echo_fn=click.echo,
         )
     except click.ClickException as exc:
@@ -3725,23 +3786,7 @@ def cli(
     try:
         out_dir_path = _prepare_tsopt_output_dir(
             out_dir_path,
-            protected_inputs=(
-                input_path,
-                prepared_input.original_path,
-                prepared_input.source_path,
-                geom_input_path,
-                ref_pdb,
-                real_parm7,
-                Path(model_pdb_cfg) if model_pdb_cfg is not None else None,
-                config_yaml,
-                override_yaml,
-                (
-                    Path(calc_cfg["calc_file"])
-                    if calc_cfg.get("calc_file")
-                    else None
-                ),
-                reference_mode_path,
-            ),
+            protected_inputs=tsopt_protected_inputs,
         )
         if use_heavy:
             # Heavy mode: RS-I-RFO with full Hessian
@@ -4850,11 +4895,11 @@ def cli(
             )
 
     except ZeroStepLength as e:
-        _write_error_json(Path(out_dir).resolve(), "tsopt", e, "ZeroStepLength", time_start)
+        _write_error_json(out_dir_path, "tsopt", e, "ZeroStepLength", time_start)
         click.echo("ERROR: Proposed step length dropped below the minimum allowed (ZeroStepLength).", err=True)
         sys.exit(2)
     except OptimizationError as e:
-        _write_error_json(Path(out_dir).resolve(), "tsopt", e, "OptimizationError", time_start)
+        _write_error_json(out_dir_path, "tsopt", e, "OptimizationError", time_start)
         click.echo(f"ERROR: Optimization failed — {e}", err=True)
         sys.exit(3)
     except KeyboardInterrupt:
@@ -4863,7 +4908,7 @@ def cli(
     except _TSOPTOutputCollisionError:
         raise
     except Exception as e:
-        render_cli_exception(e, label="TS optimization", out_dir=out_dir, command="tsopt", time_start=time_start)
+        render_cli_exception(e, label="TS optimization", out_dir=out_dir_path, command="tsopt", time_start=time_start)
     finally:
         prepared_input.cleanup()
         # Release GPU memory (model + Hessian) so subsequent stages don't OOM.

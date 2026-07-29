@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import click
+import pytest
+
 from mlmm.core.utils import (
     apply_layer_freeze_constraints,
     read_bfactors_from_pdb,
@@ -36,6 +39,7 @@ def test_explicit_model_wins_over_valid_bfactor_membership(tmp_path: Path) -> No
         hess_cutoff=None,
         movable_cutoff=None,
         calc_cfg=cfg,
+        protected_inputs=(),
     )
 
     assert resolved == model
@@ -65,6 +69,7 @@ def test_indices_win_when_model_is_absent(tmp_path: Path) -> None:
         hess_cutoff=None,
         movable_cutoff=None,
         calc_cfg=cfg,
+        protected_inputs=(),
     )
 
     assert len(read_bfactors_from_pdb(resolved)) == 1
@@ -86,8 +91,69 @@ def test_bfactor_is_used_only_without_explicit_membership(tmp_path: Path) -> Non
         hess_cutoff=None,
         movable_cutoff=None,
         calc_cfg=cfg,
+        protected_inputs=(),
     )
 
     assert layer_info is not None
     assert layer_info["ml_indices"] == [0]
     assert len(read_bfactors_from_pdb(resolved)) == 1
+
+
+def test_bfactor_model_generation_preserves_protected_target(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "full.pdb"
+    source.write_text(
+        _line(1, "C1", 0.0) + _line(2, "C2", 10.0) + "END\n",
+        encoding="utf-8",
+    )
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    protected = out_dir / "model_from_bfactor.pdb"
+    original = b"protected input"
+    protected.write_bytes(original)
+
+    with pytest.raises(click.ClickException, match="collides"):
+        resolve_ml_layer_assignment(
+            source_path=source,
+            out_dir_path=out_dir,
+            model_pdb=None,
+            model_indices=None,
+            detect_layer=True,
+            hess_cutoff=None,
+            movable_cutoff=None,
+            calc_cfg={},
+            protected_inputs=(protected,),
+        )
+
+    assert protected.read_bytes() == original
+
+
+def test_bfactor_model_generation_replaces_unprotected_prior_output(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "full.pdb"
+    source.write_text(
+        _line(1, "C1", 0.0) + _line(2, "C2", 10.0) + "END\n",
+        encoding="utf-8",
+    )
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    prior = out_dir / "model_from_bfactor.pdb"
+    prior.write_text("stale generated output\n", encoding="utf-8")
+
+    resolved, layer_info = resolve_ml_layer_assignment(
+        source_path=source,
+        out_dir_path=out_dir,
+        model_pdb=None,
+        model_indices=None,
+        detect_layer=True,
+        hess_cutoff=None,
+        movable_cutoff=None,
+        calc_cfg={},
+        protected_inputs=(),
+    )
+
+    assert resolved == prior
+    assert layer_info is not None
+    assert "C1" in prior.read_text(encoding="utf-8")

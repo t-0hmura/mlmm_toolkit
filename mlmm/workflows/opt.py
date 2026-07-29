@@ -1689,6 +1689,22 @@ def cli(
                 hess_cutoff=calc_cfg.get("hess_cutoff"),
                 movable_cutoff=calc_cfg.get("movable_cutoff"),
                 calc_cfg=calc_cfg,
+                protected_inputs=(
+                    input_path,
+                    prepared_input.original_path,
+                    prepared_input.source_path,
+                    geom_input_path,
+                    ref_pdb,
+                    real_parm7,
+                    Path(model_pdb_cfg) if model_pdb_cfg else None,
+                    config_yaml,
+                    override_yaml,
+                    (
+                        Path(calc_cfg["calc_file"])
+                        if calc_cfg.get("calc_file")
+                        else None
+                    ),
+                ),
                 echo_fn=click.echo,
             )
         except click.ClickException as exc:

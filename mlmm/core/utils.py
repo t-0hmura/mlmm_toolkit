@@ -3139,6 +3139,7 @@ def resolve_ml_layer_assignment(
     hess_cutoff: Optional[float],
     movable_cutoff: Optional[float],
     calc_cfg: Dict[str, Any],
+    protected_inputs: Sequence[Optional[Path]],
     echo_fn=None,
 ) -> Tuple[Path, Optional[Dict[str, List[int]]]]:
     """Resolve the ML-region model PDB path + layer_info dict.
@@ -3260,6 +3261,24 @@ def resolve_ml_layer_assignment(
             calc_cfg["use_bfactor_layers"] = False
     elif detect_layer_eff:
         try:
+            generated_model = (
+                Path(out_dir_path) / "model_from_bfactor.pdb"
+            ).resolve()
+            calc_inputs = (
+                calc_cfg.get("input_pdb"),
+                calc_cfg.get("real_parm7"),
+                calc_cfg.get("model_pdb"),
+                calc_cfg.get("calc_file"),
+            )
+            for protected in (source_path, *protected_inputs, *calc_inputs):
+                if (
+                    protected is not None
+                    and Path(protected).expanduser().resolve() == generated_model
+                ):
+                    raise _click.ClickException(
+                        f"Input {protected} collides with generated ML-region "
+                        f"model path {generated_model}."
+                    )
             model_pdb_path, layer_info = build_model_pdb_from_bfactors(layer_source_pdb, out_dir_path)
             calc_cfg["use_bfactor_layers"] = True
             echo(

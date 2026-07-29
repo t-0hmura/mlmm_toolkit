@@ -15,10 +15,12 @@ explicitly and serialized so a payload always states the effective policy.
 from __future__ import annotations
 
 import warnings
+from pathlib import Path
 
 import click
 import numpy as np
 import pytest
+from click.testing import CliRunner
 
 from pysisyphus.constants import BOHR2ANG
 from thermoanalysis.QCData import QCData
@@ -266,3 +268,59 @@ def test_freq_config_cannot_be_deleted_as_reserved_output(tmp_path):
     with pytest.raises(click.UsageError, match="collides with a reserved"):
         _prepare_thermo_output_paths(tmp_path, protected_inputs=(config,))
     assert config.exists()
+
+
+def test_freq_cli_cleans_prepared_input_and_preserves_reserved_config(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from mlmm.workflows import freq as freq_module
+
+    repo = Path(__file__).resolve().parents[1]
+    smoke = repo / "tests" / "smoke"
+    out_dir = tmp_path / "freq"
+    out_dir.mkdir()
+    config = out_dir / "result.json"
+    original = b"{}\n"
+    config.write_bytes(original)
+    cleanup_calls = []
+    real_prepare = freq_module.prepare_input_structure
+
+    def tracked_prepare(path):
+        prepared = real_prepare(path)
+        real_cleanup = prepared.cleanup
+
+        def tracked_cleanup():
+            cleanup_calls.append(path)
+            real_cleanup()
+
+        prepared.cleanup = tracked_cleanup
+        return prepared
+
+    def fail_renderer(*args, **kwargs):
+        pytest.fail("collision reached the generic error renderer")
+
+    monkeypatch.setattr(freq_module, "prepare_input_structure", tracked_prepare)
+    monkeypatch.setattr(freq_module, "render_cli_exception", fail_renderer)
+    result = CliRunner().invoke(
+        freq_module.cli,
+        [
+            "-i",
+            str(smoke / "r_complex_layered.pdb"),
+            "--parm",
+            str(smoke / "p_complex.parm7"),
+            "-q",
+            "-1",
+            "-m",
+            "1",
+            "--config",
+            str(config),
+            "--out-dir",
+            str(out_dir),
+        ],
+    )
+
+    assert result.exit_code == 2, result.output
+    assert "collides with a reserved frequency output path" in result.output
+    assert cleanup_calls
+    assert config.read_bytes() == original

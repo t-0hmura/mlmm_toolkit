@@ -1262,25 +1262,40 @@ def cli(
     # A real invocation owns this exact output generation.  Invalidate both
     # published and staged thermochemistry before layer preparation, calculator,
     # or Hessian work can fail, including under --no-dump.
-    _thermo_yaml, _thermo_yaml_tmp = _prepare_frequency_output_paths(
-        out_dir_path,
-        protected_inputs=(
-            input_path,
-            prepared_input.original_path,
-            source_path,
-            geom_input_path,
-            ref_pdb,
-            real_parm7,
-            Path(model_pdb_cfg) if model_pdb_cfg is not None else None,
-            config_yaml,
-            override_yaml,
-            (
-                Path(calc_cfg["calc_file"])
-                if calc_cfg.get("calc_file")
-                else None
-            ),
+    frequency_protected_inputs = (
+        input_path,
+        prepared_input.original_path,
+        source_path,
+        geom_input_path,
+        ref_pdb,
+        real_parm7,
+        (
+            Path(calc_cfg["input_pdb"])
+            if calc_cfg.get("input_pdb")
+            else None
+        ),
+        (
+            Path(calc_cfg["real_parm7"])
+            if calc_cfg.get("real_parm7")
+            else None
+        ),
+        Path(model_pdb_cfg) if model_pdb_cfg is not None else None,
+        config_yaml,
+        override_yaml,
+        (
+            Path(calc_cfg["calc_file"])
+            if calc_cfg.get("calc_file")
+            else None
         ),
     )
+    try:
+        _thermo_yaml, _thermo_yaml_tmp = _prepare_frequency_output_paths(
+            out_dir_path,
+            protected_inputs=frequency_protected_inputs,
+        )
+    except _FrequencyOutputCollisionError:
+        prepared_input.cleanup()
+        raise
 
     if detect_layer_enabled and layer_source_pdb.suffix.lower() != ".pdb":
         click.echo("ERROR: --detect-layer requires a PDB input (or --ref-pdb).", err=True)
@@ -1297,6 +1312,7 @@ def cli(
             hess_cutoff=calc_cfg.get("hess_cutoff"),
             movable_cutoff=calc_cfg.get("movable_cutoff"),
             calc_cfg=calc_cfg,
+            protected_inputs=frequency_protected_inputs,
             echo_fn=click.echo,
         )
     except click.ClickException as exc:
@@ -1789,8 +1805,6 @@ def cli(
     except KeyboardInterrupt:
         click.echo("\nInterrupted by user.", err=True)
         sys.exit(130)
-    except _FrequencyOutputCollisionError:
-        raise
     except Exception as e:
         render_cli_exception(e, label="frequency analysis", out_dir=out_dir, command="freq", time_start=time_start)
     finally:

@@ -3,9 +3,12 @@ output handling around it."""
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 import torch
+from click.testing import CliRunner
 
 from mlmm.core.defaults import IRC_KW
 from pysisyphus.irc.IRC import IRC
@@ -117,6 +120,47 @@ def test_irc_generation_refuses_to_delete_a_reserved_input(tmp_path) -> None:
         _prepare_irc_output_dir(tmp_path, protected_inputs=(source,))
 
     assert source.read_text(encoding="utf-8") == "input\n"
+
+
+def test_irc_cli_preserves_read_hessian_at_reserved_output(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from mlmm.workflows import irc as irc_module
+
+    repo = Path(__file__).resolve().parents[1]
+    smoke = repo / "tests" / "smoke"
+    out_dir = tmp_path / "irc"
+    out_dir.mkdir()
+    read_hess = out_dir / "result.json"
+    original = b"existing Hessian input"
+    read_hess.write_bytes(original)
+
+    def fail_renderer(*args, **kwargs):
+        pytest.fail("collision reached the generic error renderer")
+
+    monkeypatch.setattr(irc_module, "render_cli_exception", fail_renderer)
+    result = CliRunner().invoke(
+        irc_module.cli,
+        [
+            "-i",
+            str(smoke / "p_complex_layered.pdb"),
+            "--parm",
+            str(smoke / "p_complex.parm7"),
+            "-q",
+            "-1",
+            "-m",
+            "1",
+            "--read-hess",
+            str(read_hess),
+            "--out-dir",
+            str(out_dir),
+        ],
+    )
+
+    assert result.exit_code == 2, result.output
+    assert "collides with a reserved IRC output path" in result.output
+    assert read_hess.read_bytes() == original
 
 
 @pytest.mark.parametrize(

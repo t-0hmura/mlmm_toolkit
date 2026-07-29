@@ -2066,6 +2066,7 @@ def cli(
                         hess_cutoff=hess_cutoff_effective,
                         movable_cutoff=movable_cutoff_effective,
                         calc_cfg=validation_cfg,
+                        protected_inputs=(),
                         echo_fn=click.echo,
                     )
             except click.ClickException as exc:
@@ -2126,6 +2127,19 @@ def cli(
                 hess_cutoff=hess_cutoff_effective,
                 movable_cutoff=movable_cutoff_effective,
                 calc_cfg=calc_cfg,
+                protected_inputs=(
+                    *p_list,
+                    *(prepared.source_path for prepared in prepared_inputs),
+                    *ref_list,
+                    real_parm7,
+                    config_yaml,
+                    override_yaml,
+                    (
+                        Path(calc_cfg["calc_file"])
+                        if calc_cfg.get("calc_file")
+                        else None
+                    ),
+                ),
                 echo_fn=click.echo,
             )
         except click.ClickException as exc:

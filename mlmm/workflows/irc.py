@@ -743,25 +743,32 @@ def cli(
             click.echo("[dry-run] Validation complete. IRC execution was skipped.")
             return
 
+        irc_protected_inputs = (
+            input_path,
+            prepared_input.source_path,
+            geom_input_path,
+            prepared_input.original_path,
+            ref_pdb,
+            (
+                Path(calc_cfg["input_pdb"])
+                if calc_cfg.get("input_pdb")
+                else None
+            ),
+            config_yaml,
+            override_yaml,
+            Path(calc_cfg["real_parm7"]) if calc_cfg.get("real_parm7") else None,
+            Path(model_pdb_cfg) if model_pdb_cfg else None,
+            (
+                Path(calc_cfg["calc_file"])
+                if calc_cfg.get("calc_file")
+                else None
+            ),
+            read_hess,
+        )
         out_dir_path = _prepare_irc_output_dir(
             out_dir_path,
             prefix=str(irc_cfg.get("prefix") or ""),
-            protected_inputs=(
-                input_path,
-                prepared_input.source_path,
-                geom_input_path,
-                prepared_input.original_path,
-                ref_pdb,
-                config_yaml,
-                override_yaml,
-                Path(calc_cfg["real_parm7"]) if calc_cfg.get("real_parm7") else None,
-                Path(model_pdb_cfg) if model_pdb_cfg else None,
-                (
-                    Path(calc_cfg["calc_file"])
-                    if calc_cfg.get("calc_file")
-                    else None
-                ),
-            ),
+            protected_inputs=irc_protected_inputs,
         )
 
         if detect_layer_enabled and layer_source_pdb.suffix.lower() != ".pdb":
@@ -777,6 +784,7 @@ def cli(
                 hess_cutoff=calc_cfg.get("hess_cutoff"),
                 movable_cutoff=calc_cfg.get("movable_cutoff"),
                 calc_cfg=calc_cfg,
+                protected_inputs=irc_protected_inputs,
                 echo_fn=click.echo,
             )
         except click.ClickException as exc:

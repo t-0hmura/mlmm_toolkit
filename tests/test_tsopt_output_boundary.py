@@ -4,6 +4,7 @@ from pathlib import Path
 
 import click
 import pytest
+from click.testing import CliRunner
 
 from mlmm.workflows.tsopt import (
     _heavy_mode_label,
@@ -64,3 +65,37 @@ def test_prepare_tsopt_output_rejects_input_collision(tmp_path: Path) -> None:
         _prepare_tsopt_output_dir(tmp_path, protected_inputs=(source,))
 
     assert source.read_text(encoding="utf-8") == "input"
+
+
+def test_tsopt_cli_preserves_layer_source_at_generated_model_path(
+    tmp_path: Path,
+) -> None:
+    from mlmm.workflows import tsopt as tsopt_module
+
+    repo = Path(__file__).resolve().parents[1]
+    smoke = repo / "tests" / "smoke"
+    out_dir = tmp_path / "tsopt"
+    out_dir.mkdir()
+    source = out_dir / "model_from_bfactor.pdb"
+    original = (smoke / "p_complex_layered.pdb").read_bytes()
+    source.write_bytes(original)
+
+    result = CliRunner().invoke(
+        tsopt_module.cli,
+        [
+            "-i",
+            str(source),
+            "--parm",
+            str(smoke / "p_complex.parm7"),
+            "-q",
+            "-1",
+            "-m",
+            "1",
+            "--out-dir",
+            str(out_dir),
+        ],
+    )
+
+    assert result.exit_code == 2, result.output
+    assert "collides with a reserved TSOPT output path" in result.output
+    assert source.read_bytes() == original

@@ -1007,6 +1007,7 @@ def cli(
                     hess_cutoff=validation_cfg.get("hess_cutoff"),
                     movable_cutoff=validation_cfg.get("movable_cutoff"),
                     calc_cfg=validation_cfg,
+                    protected_inputs=(),
                     echo_fn=click.echo,
                 )
                 validation_workspace = _prepare_ml_region_workspace(
@@ -1083,6 +1084,21 @@ def cli(
             hess_cutoff=calc_kw.get("hess_cutoff"),
             movable_cutoff=calc_kw.get("movable_cutoff"),
             calc_cfg=calc_kw,
+            protected_inputs=(
+                input_path,
+                prepared_input.geom_path,
+                source_pdb,
+                ref_pdb,
+                real_parm7,
+                Path(model_pdb_cfg) if model_pdb_cfg else None,
+                config_yaml,
+                override_yaml,
+                (
+                    Path(calc_kw["calc_file"])
+                    if calc_kw.get("calc_file")
+                    else None
+                ),
+            ),
             echo_fn=click.echo,
         )
 

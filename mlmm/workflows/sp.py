@@ -16,7 +16,7 @@ import logging
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Sequence
 
 import click
 import numpy as np
@@ -66,6 +66,7 @@ def _resolve_sp_ml_region(
     calc_cfg: Dict[str, Any],
     model_indices_str: Optional[str],
     model_indices_one_based: bool,
+    protected_inputs: Sequence[Optional[Path]],
 ) -> Dict[str, Any]:
     """Resolve one explicit/layered SP ML region and return its provenance."""
 
@@ -110,6 +111,7 @@ def _resolve_sp_ml_region(
         hess_cutoff=calc_cfg.get("hess_cutoff"),
         movable_cutoff=calc_cfg.get("movable_cutoff"),
         calc_cfg=calc_cfg,
+        protected_inputs=protected_inputs,
         echo_fn=click.echo,
     )
     if source in {"model_pdb", "model_indices"}:
@@ -487,6 +489,7 @@ def cli(
                 calc_cfg=validation_cfg,
                 model_indices_str=model_indices_str,
                 model_indices_one_based=model_indices_one_based,
+                protected_inputs=(),
             )
 
         if dry_run:
@@ -516,6 +519,20 @@ def cli(
             calc_cfg=calc_cfg,
             model_indices_str=model_indices_str,
             model_indices_one_based=model_indices_one_based,
+            protected_inputs=(
+                input_path,
+                prepared.original_path,
+                prepared.source_path,
+                prepared.geom_path,
+                ref_pdb,
+                real_parm7,
+                config_yaml,
+                (
+                    Path(calc_cfg["calc_file"])
+                    if calc_cfg.get("calc_file")
+                    else None
+                ),
+            ),
         )
 
         # Rename CLI-style keys to mlmm constructor kwargs to avoid duplicate-
