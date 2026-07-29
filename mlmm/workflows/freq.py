@@ -395,10 +395,6 @@ def _align_three_layer_hessian_targets(
 
     Returns True when a default policy was applied.
     """
-    if not bool(calc_cfg.get("use_bfactor_layers", True)):
-        return False
-    if calc_cfg.get("movable_cutoff") is not None:
-        return False
     if calc_cfg.get("hess_cutoff") is not None:
         return False
 
@@ -407,6 +403,18 @@ def _align_three_layer_hessian_targets(
         for key in ("hess_mm_atoms", "movable_mm_atoms", "frozen_mm_atoms")
     )
     if explicit_layer_lists:
+        return False
+
+    movable_cutoff = calc_cfg.get("movable_cutoff")
+    if movable_cutoff is not None:
+        calc_cfg["hess_cutoff"] = float(movable_cutoff)
+        if echo_fn is not None:
+            echo_fn(
+                "[layer] Using all atoms within movable_cutoff as Hessian targets."
+            )
+        return True
+
+    if not bool(calc_cfg.get("use_bfactor_layers", True)):
         return False
 
     calc_cfg["hess_cutoff"] = float("inf")
@@ -452,6 +460,27 @@ def _resolve_active_atom_indices(
     if not active_indices:
         return None, layer_sets
     return active_indices, layer_sets
+
+
+def _validate_hessian_basis_coverage(
+    active_indices: set[int],
+    layer_sets: Dict[str, set[int]],
+    frozen_indices: set[int],
+) -> None:
+    """Reject an analysis basis wider than the configured Hessian target."""
+
+    requested = set(active_indices) - set(frozen_indices)
+    coverage = set(layer_sets["ml"]) | set(layer_sets["hess_mm"])
+    missing = sorted(requested - coverage)
+    if missing:
+        preview = ", ".join(str(index + 1) for index in missing[:12])
+        suffix = " …" if len(missing) > 12 else ""
+        raise click.ClickException(
+            "The requested frequency-analysis basis is wider than the configured "
+            "Hessian target before evaluation; missing 1-based atom indices: "
+            f"{preview}{suffix}. Increase hess_cutoff or choose a narrower "
+            "--active-dof-mode."
+        )
 
 
 def _write_mode_trj_and_pdb(geom,
@@ -1093,6 +1122,35 @@ def cli(
     thermo_cfg["pressure_atm"] = _validated_thermo_condition(
         thermo_cfg.get("pressure_atm"), name="pressure_atm"
     )
+    active_dof_mode_value = normalize_choice(
+        str(freq_cfg.get("active_dof_mode", active_dof_mode)),
+        param="--active-dof-mode",
+        alias_groups=(
+            (("all",), "all"),
+            (("ml-only",), "ml-only"),
+            (("partial",), "partial"),
+            (("unfrozen",), "unfrozen"),
+        ),
+        allowed_hint="all|ml-only|partial|unfrozen",
+    )
+    freq_cfg["active_dof_mode"] = active_dof_mode_value
+    for cutoff_key in ("hess_cutoff", "movable_cutoff"):
+        cutoff_value = calc_cfg.get(cutoff_key)
+        if cutoff_value is None:
+            continue
+        try:
+            cutoff_float = float(cutoff_value)
+        except (TypeError, ValueError) as exc:
+            raise click.BadParameter(
+                f"{cutoff_key} must be a finite non-negative distance.",
+                param_hint=f"--{cutoff_key.replace('_', '-')}",
+            ) from exc
+        if not np.isfinite(cutoff_float) or cutoff_float < 0.0:
+            raise click.BadParameter(
+                f"{cutoff_key} must be a finite non-negative distance.",
+                param_hint=f"--{cutoff_key.replace('_', '-')}",
+            )
+        calc_cfg[cutoff_key] = cutoff_float
     from pysisyphus.tr_projection import normalize_tr_projection_mode
     geom_cfg["tr_projection"] = normalize_tr_projection_mode(
         geom_cfg.get("tr_projection")
@@ -1260,6 +1318,7 @@ def cli(
         layer_info,
         echo_fn=click.echo,
     )
+    _align_three_layer_hessian_targets(calc_cfg, echo_fn=click.echo)
 
     for key in ("input_pdb", "real_parm7", "model_pdb", "mm_fd_dir"):
         val = calc_cfg.get(key)
@@ -1303,7 +1362,6 @@ def cli(
 
     n_atoms = len(geometry.atoms)
     all_indices = set(range(n_atoms))
-    _align_three_layer_hessian_targets(calc_cfg, echo_fn=click.echo)  # side effect: hess_cutoff=inf when unset
 
     # Determine active atoms based on mode
     active_dof_mode_lower = str(freq_cfg.get("active_dof_mode", active_dof_mode)).lower()
@@ -1330,6 +1388,11 @@ def cli(
     # Also include any explicitly frozen atoms from config
     explicit_freeze = set(calc_cfg.get("freeze_atoms") or [])
     freeze_list = sorted(set(freeze_for_freq) | explicit_freeze)
+    _validate_hessian_basis_coverage(
+        set(active_indices),
+        layer_sets,
+        set(freeze_list),
+    )
 
     try:
         from mlmm.io.hessian_cache import (

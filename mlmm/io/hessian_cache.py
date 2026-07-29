@@ -233,16 +233,14 @@ def _potential_identity(calc_cfg: Mapping) -> Dict[str, Any]:
             continue
         if isinstance(val, str) and val.strip().lower() in ("", "none"):
             continue
-        # ``freq`` resolves an unset cutoff to +inf while aligning the
-        # three-layer Hessian region.  Both forms mean all movable MM atoms,
-        # so keep their cross-process PES identities identical.
-        if (
-            key == "hess_cutoff"
-            and isinstance(val, (float, np.floating))
-            and bool(np.isposinf(val))
-        ):
-            continue
         potential[key] = _canon(val)
+    backend = str(calc_cfg.get("backend") or "").strip().lower()
+    if backend == "uma" and calc_cfg.get("uma_task_name") is not None:
+        potential["uma_task_name"] = str(calc_cfg["uma_task_name"])
+    model, _precision = _effective_model_precision(calc_cfg)
+    model_digest = _file_digest(model)
+    if model_digest is not None:
+        potential["model_sha256"] = model_digest
     effective_mm_mode = normalize_mm_hessian_mode(
         calc_cfg.get("mm_hessian_mode"),
         mm_fd=bool(calc_cfg.get("mm_fd", True)),

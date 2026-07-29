@@ -317,8 +317,8 @@ def test_mm_hessian_mode_aliases_share_one_cache_identity() -> None:
     )
 
 
-def test_persistent_identity_canonicalizes_unbounded_hessian_cutoff() -> None:
-    """The freq runtime's +inf sentinel is the default all-movable region."""
+def test_persistent_identity_distinguishes_explicit_unbounded_hessian_cutoff() -> None:
+    """Unset and explicit +inf select different B-factor Hessian regions."""
 
     class _Geom:
         atomic_numbers = np.array([1, 8])
@@ -343,9 +343,54 @@ def test_persistent_identity_canonicalizes_unbounded_hessian_cutoff() -> None:
         _Geom(), {**base, "hess_cutoff": 6.0}
     )
 
-    assert runtime == default
+    assert runtime != default
+    assert np.isposinf(runtime["evaluator"]["potential"]["hess_cutoff"])
     assert finite != default
     assert finite["evaluator"]["potential"]["hess_cutoff"] == 6.0
+
+
+def test_persistent_identity_includes_uma_task_name() -> None:
+    class _Geom:
+        atomic_numbers = np.array([1])
+        cart_coords = np.zeros(3)
+        freeze_atoms = np.array([], dtype=int)
+
+    base = {
+        "backend": "uma",
+        "uma_model": "uma-s-1p2",
+        "uma_precision": "fp32",
+        "uma_task_name": "omol",
+    }
+    first = hessian_cache.identity_from_context(_Geom(), base, role="ts")
+    second = hessian_cache.identity_from_context(
+        _Geom(), {**base, "uma_task_name": "oc20"}, role="ts"
+    )
+
+    assert first["evaluator"]["potential"] != second["evaluator"]["potential"]
+    assert first["evaluator"]["potential"]["uma_task_name"] == "omol"
+
+
+def test_persistent_identity_hashes_file_backed_model(tmp_path) -> None:
+    class _Geom:
+        atomic_numbers = np.array([1])
+        cart_coords = np.zeros(3)
+        freeze_atoms = np.array([], dtype=int)
+
+    model = tmp_path / "model.pt"
+    model.write_bytes(b"first")
+    cfg = {
+        "backend": "mace",
+        "mace_model": str(model),
+        "mace_dtype": "float64",
+    }
+    first = hessian_cache.identity_from_context(_Geom(), cfg, role="ts")
+    model.write_bytes(b"second")
+    second = hessian_cache.identity_from_context(_Geom(), cfg, role="ts")
+
+    assert (
+        first["evaluator"]["potential"]["model_sha256"]
+        != second["evaluator"]["potential"]["model_sha256"]
+    )
 
 
 def test_persistent_identity_uses_region_file_content_not_location(tmp_path) -> None:
