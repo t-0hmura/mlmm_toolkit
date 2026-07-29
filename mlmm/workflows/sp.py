@@ -44,7 +44,6 @@ from mlmm.cli.common_options import (
     add_precision_option, add_backend_model_option, add_calc_file_option,
     add_workers_options,
     add_deterministic_option, add_allow_charge_mult_mismatch_option,
-    add_print_every_option,
 )
 from mlmm.cli.decorators import (
     load_merged_yaml_cfg,
@@ -288,7 +287,6 @@ def _resolve_sp_ml_region(
 @add_calc_file_option()
 @add_deterministic_option()
 @add_allow_charge_mult_mismatch_option()
-@add_print_every_option()
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -325,7 +323,6 @@ def cli(
     backend_model: Optional[str],
     calc_file: Optional[str],
     calc_factory: Optional[str],
-    print_every: Optional[int],
 ) -> None:
     """Compute a single-point ML/MM ONIOM energy + forces (and optionally Hessian)."""
     set_convert_file_enabled(convert_files)
@@ -402,16 +399,6 @@ def cli(
             if _is_param_explicit("precision") and precision is not None
             else None,
         )
-        # --print-every is an optimizer-progress knob and `sp` runs no optimizer. It must not go
-        # into calc_cfg: that dict is splatted into ``mlmm(**calc_cfg)`` below and pysisyphus'
-        # Calculator.__init__ takes no **kwargs, so an unknown key aborts the run with a bare
-        # TypeError. The option stays accepted (shared decorator), but say so rather than
-        # dropping an explicit request silently.
-        if _is_param_explicit("print_every") and print_every is not None:
-            click.echo(
-                "[sp] NOTE: --print-every has no effect on sp (no optimizer runs); ignoring it.",
-                err=True,
-            )
 
         # SP-specific CLI overrides
         if _is_param_explicit("out_dir"):

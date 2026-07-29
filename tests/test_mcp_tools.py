@@ -161,6 +161,13 @@ def test_search_paths_always_passes_two_ordered_endpoints(
     ]
 
 
+def test_single_point_tool_has_no_optimizer_progress_option(registry) -> None:
+    tools, _calls = registry
+
+    signature = inspect.signature(tools["run_single_point_oniom"])
+    assert "print_every" not in signature.parameters
+
+
 @pytest.mark.parametrize(
     ("tool_name", "args", "kwargs"),
     [

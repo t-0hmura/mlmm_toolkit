@@ -76,6 +76,16 @@ def test_scan3d_rejects_non_pdb_xyz_input(tmp_path: Path) -> None:
     assert "--input must be a PDB, mmCIF, or XYZ file" in result.output
 
 
+def test_multidimensional_scans_keep_cartesian_geometry() -> None:
+    """Shared YAML must not restore internal coordinates on ML/MM scans."""
+    from mlmm.workflows import scan2d, scan3d
+
+    for module in (scan2d, scan3d):
+        source = Path(module.__file__).read_text(encoding="utf-8")
+        assert 'coord_type = "cart"' in source
+        assert "coord_type = geom_cfg.get" not in source
+
+
 def test_oniom_export_g16_smoke(tmp_path: Path) -> None:
     out_file = tmp_path / "model.gjf"
 
@@ -390,23 +400,26 @@ def test_oniom_export_orca_mm_failure_prints_manual_command(
     assert "orca_mm -convff -AMBER" in result.output
 
 
-def test_scan_forces_cartesian_even_with_coord_type_dlc(tmp_path, monkeypatch) -> None:
+def test_scan_forces_cartesian_over_yaml_coord_type(tmp_path, monkeypatch) -> None:
     """Staged scans run restrained L-BFGS with no microiteration, so DLC over the
     ML/MM system is meaningless (it crashes poly_line_search with a
-    Cartesian/internal dimension mismatch). Scan must force Cartesian even when
-    ``--coord-type dlc`` is requested, mirroring path-opt / path-search."""
+    Cartesian/internal dimension mismatch). Scan must force Cartesian after
+    loading shared geometry YAML, mirroring path-opt / path-search."""
     repo = Path(__file__).resolve().parents[1]
     pdb = repo / "examples" / "toy_system" / "r_complex_layered.pdb"
     parm = repo / "examples" / "toy_system" / "p_complex.parm7"
     if not (pdb.exists() and parm.exists()):
         pytest.skip("toy_system example inputs not present")
 
+    config = tmp_path / "config.yaml"
+    config.write_text("geom:\n  coord_type: dlc\n", encoding="utf-8")
+
     # `scan` gathers --scan-lists from sys.argv (to support multiple lists), so
     # the real argv must be set for the invocation, not just the CliRunner args.
     argv = [
         "mlmm", "scan", "-i", str(pdb), "--parm", str(parm), "-q", "-1", "-m", "1",
         "--scan-lists", "[('PRE 8 C1','PRE 8 C3',2.0)]",
-        "--coord-type", "dlc", "--dry-run", "-v", "3",
+        "--config", str(config), "--dry-run", "-v", "3",
         "--out-dir", str(tmp_path / "scan_out"),
     ]
     monkeypatch.setattr(sys, "argv", argv)

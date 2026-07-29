@@ -412,18 +412,6 @@ def _snapshot_geometry(g) -> Any:
 )
 @add_ml_layer_detection_options()
 @add_ml_charge_spin_options()
-@click.option(
-    "--coord-type",
-    "cli_coord_type",
-    type=click.Choice(["cart", "redund", "dlc", "tric"], case_sensitive=False),
-    default=None,
-    show_default=False,
-    help=(
-        "Compatibility input for composite workflows. ML/MM restrained scan "
-        "relaxation always uses Cartesian coordinates; non-cart values are "
-        "accepted with a notice and resolved to cart."
-    ),
-)
 @add_print_every_option()
 @add_precision_option()
 @add_workers_options()
@@ -470,7 +458,6 @@ def cli(
     mm_backend: Optional[str],
     use_cmap: Optional[bool],
     out_json: bool,
-    cli_coord_type: Optional[str],
     print_every: Optional[int],
     precision: Optional[str],
     workers: Optional[int],
@@ -581,12 +568,6 @@ def cli(
             # over the ML/MM system is meaningless (it crashes poly_line_search
             # with a Cartesian/internal dimension mismatch); force Cartesian,
             # matching path-opt / path-search.
-            if cli_coord_type is not None and str(cli_coord_type).lower() != "cart":
-                click.echo(
-                    f"[scan] NOTE: --coord-type={cli_coord_type} is accepted for "
-                    "workflow compatibility, but restrained scan relaxation uses cart.",
-                    err=True,
-                )
             geom_cfg["coord_type"] = "cart"
 
             try:
