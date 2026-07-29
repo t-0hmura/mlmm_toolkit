@@ -129,21 +129,6 @@ mlmm path-search -i r_complex_layered.pdb p_complex_layered.pdb --parm p_complex
 # test18: all (no tsopt/thermo/dft)
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q -1 -m 1 --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test18 > test18.out 2>&1
 
-# test19: required positive MEP -> TSopt -> IRC -> thermo -> DFT handoff.
-# The lane uses flattening to obtain a first-order saddle and deterministic
-# execution to keep the release comparison reproducible. Saddle certification
-# requires exactly one imaginary mode; its magnitude is not a pass/fail gate.
-mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 4.0 --ligand-charge 'PRE:0' -q -1 -m 1 --deterministic --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --tsopt --thermo --dft --flatten --irc-never-stop --tsopt-max-cycles 2000 --dft-func-basis 'hf/sto-3g' --dft-grid-level 0 --dft-conv-tol 1e-5 --dft-max-cycle 40 --dft-engine cpu --out-dir test19 > test19.out 2>&1
-python assert_release_result.py all test19 --require-thermo --require-dft >> test19.out 2>&1
-
-# test20: all (manual --parm + --model-pdb override, reuse test19 outputs)
-mapfile -t test19_parms < <(find test19/mm_parm -maxdepth 1 -type f -name '*.parm7' -print)
-if [[ "${#test19_parms[@]}" -ne 1 ]]; then
-  echo "[smoke] FAIL test20: expected exactly one reusable test19 parm7, found ${#test19_parms[@]}" >&2
-  exit 1
-fi
-mlmm all -i r_complex.pdb p_complex.pdb --parm "${test19_parms[0]}" --model-pdb test19/ml_region.pdb --no-detect-layer -q -1 -m 1 --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test20 > test20.out 2>&1
-
 # test21: tsopt (radius-hessian 0.0)
 mlmm tsopt -i p_complex.pdb --parm p_complex.parm7 --model-pdb pocket_r.pdb --no-detect-layer -q -1 -m 1 --opt-mode grad --max-cycles 5 --radius-hessian 0.0 --active-dof-mode ml-only --thresh gau_loose --out-dir test21 > test21.out 2>&1
 
@@ -592,5 +577,40 @@ python assert_flatten_branch.py test74_flatten.out test74_flatten/result.json >>
 # default strict environment. MACE/AIMNet2 use this same required wrapper in
 # their dependency-isolated cluster environments.
 bash run_backend_hessian.sh uma orb > backend_hessian.out 2>&1
+
+# test19: required positive MEP -> TSopt -> IRC -> thermo -> DFT handoff.
+# The long lane runs last with its dependent manual-topology reuse check.
+mlmm all \
+    -i r_complex.pdb p_complex.pdb \
+    -c PRE \
+    -r 4.0 \
+    --ligand-charge 'PRE:0' \
+    -q -1 \
+    -m 1 \
+    --deterministic \
+    --no-refine-path \
+    --thresh gau \
+    --thresh-post baker \
+    --tsopt \
+    --thermo \
+    --dft \
+    --flatten \
+    --irc-never-stop \
+    --dft-func-basis 'hf/sto-3g' \
+    --dft-grid-level 0 \
+    --dft-conv-tol 1e-5 \
+    --dft-max-cycle 40 \
+    --dft-engine cpu \
+    --out-dir test19 \
+    > test19.out 2>&1
+python assert_release_result.py all test19 --require-thermo --require-dft >> test19.out 2>&1
+
+# test20: all (manual --parm + --model-pdb override, reuse test19 outputs)
+mapfile -t test19_parms < <(find test19/mm_parm -maxdepth 1 -type f -name '*.parm7' -print)
+if [[ "${#test19_parms[@]}" -ne 1 ]]; then
+  echo "[smoke] FAIL test20: expected exactly one reusable test19 parm7, found ${#test19_parms[@]}" >&2
+  exit 1
+fi
+mlmm all -i r_complex.pdb p_complex.pdb --parm "${test19_parms[0]}" --model-pdb test19/ml_region.pdb --no-detect-layer -q -1 -m 1 --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test20 > test20.out 2>&1
 
 echo "[smoke] PASS: required GPU, ML/MM, Hessian-handoff, and structure-I/O lane completed with zero skips."

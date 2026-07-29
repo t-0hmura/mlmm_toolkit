@@ -71,3 +71,27 @@ def test_manual_all_smoke_disables_layer_detection() -> None:
     )
     assert "--model-pdb test19/ml_region.pdb" in command
     assert "--no-detect-layer" in command
+
+
+def test_required_positive_lane_uses_release_settings_and_runs_last() -> None:
+    command = next(
+        command.text
+        for command in _literal_smoke_commands(SMOKE_SCRIPT)
+        if "--out-dir test19" in command.text
+    )
+    assert "--deterministic" in command
+    assert "--no-refine-path" in command
+    assert "--thresh gau" in command
+    assert "--thresh-post baker" in command
+    assert "--tsopt" in command
+    assert "--thermo" in command
+    assert "--dft" in command
+    assert "--flatten" in command
+    assert "--irc-never-stop" in command
+    assert "--max-cycles" not in command
+    assert "--tsopt-max-cycles" not in command
+
+    script = SMOKE_SCRIPT.read_text(encoding="utf-8")
+    assert script.index("--out-dir test74_flatten") < script.index("--out-dir test19")
+    assert script.index("backend_hessian.out") < script.index("--out-dir test19")
+    assert script.index("--out-dir test19") < script.index("--out-dir test20")
