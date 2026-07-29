@@ -49,22 +49,12 @@ and the 30+ QM calculator backends are not part of this fork. Any external
 caller that imported `from pysisyphus import run` must use mlmm's own
 subcommand layer (`mlmm/cli/app.py`).
 
-## release scope
+## Change policy
 
-During routine polish, **only annotation edits are allowed** on this directory:
-
-- docstring additions / improvements
-- type hints
-- section banners (`# ===... ===`)
-- per-file module docstring
-
-**Forbidden** during polish:
-
-- any change to numerical behaviour, control flow, or public signatures of the divergent files above
-- any new external dependency
-- any rename of public symbols (would break `mlmm/tsopt.py`, `irc.py`, `path_opt.py`, `mlmm_calc.py` callers)
-
-Logic edits require a demonstrated defect or approved numerical feature, focused regression tests, and the relevant HEAVY/GPU validation. The v0.3.3 optimizer and frozen-boundary changes follow that policy.
+Logic edits require a demonstrated defect or approved numerical feature,
+focused regression tests, and the relevant HEAVY/GPU validation. Preserve the
+public symbols and signatures used by the workflow and backend modules listed
+in the divergent-file table.
 
 ## Upstream compatibility
 

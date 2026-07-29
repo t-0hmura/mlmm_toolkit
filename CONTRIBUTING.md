@@ -21,9 +21,9 @@ This document is for **contributors and maintainers**. For end-user usage, see [
 
 ### 1.2 Before any patch
 
-1. Read [`docs/architecture.md`](docs/architecture.md) §5 "Hidden constraints" once per session — VRAM `del` invariant, chemistry rules, repo-internal fork policy, `pyproject.toml` 0-diff arrays, `_LAZY_SUBCOMMANDS` absolute-path rule.
+1. Read [`docs/architecture.md`](docs/architecture.md) §5 "Hidden constraints" before changing the VRAM-release sequence, chemistry rules, bundled forks, package discovery, dependencies, or `_LAZY_SUBCOMMANDS`.
 2. Grep [`mlmm/core/defaults.py`](mlmm/core/defaults.py) for any default value you are about to touch — that file is the single source of truth.
-3. Before editing `pysisyphus/`, `thermoanalysis/`, or `hessian_ff/`, read that directory's `README.md`. Routine polish is annotation-only; a logic change requires a demonstrated defect or approved numerical feature, focused regression tests, and the relevant HEAVY/GPU validation.
+3. Before editing `pysisyphus/`, `thermoanalysis/`, or `hessian_ff/`, read that directory's `README.md`. A logic change requires a demonstrated defect or approved numerical feature, focused regression tests, and the relevant HEAVY/GPU validation.
 4. Identify which layer your change belongs to (`cli/`, `workflows/`, `domain/`, `backends/`, `io/`, `core/`). Stay inside one layer per commit when possible; the dependency direction is `L1 → L2 → {L3, L4} → L5` and must not be inverted.
 
 ### 1.3 Dev setup (lint / type-check tooling)
@@ -186,15 +186,17 @@ The IRC / TSopt / Freq stages explicitly `del calc`, `del geom`, `del hess` betw
 ### 4.3 Divergent files in bundled forks
 
 The per-directory README tables are the live inventory of divergent files.
-Routine polish is annotation-only. A logic change is allowed only for a
-demonstrated defect or approved numerical feature, with focused regression
-tests and the relevant HEAVY/GPU validation.
+A logic change requires a demonstrated defect or approved numerical feature,
+with focused regression tests and the relevant HEAVY/GPU validation.
 
 Do not `pip install pysisyphus` or `pip install thermoanalysis` from PyPI alongside this package — silent runtime breakage. `hessian_ff/` has no upstream package; only the bundled copy works.
 
-### 4.4 `pyproject.toml` arrays are 0-diff
+### 4.4 Package discovery and runtime dependencies
 
-`pyproject.toml [tool.setuptools.packages.find].include` and `dependencies` arrays must not change in this release line. Adding a `vendor/` or `internal/` container directory, or pinning a new runtime dependency, breaks the install contract and is forbidden by the release scope. Reflow / comment edits to `pyproject.toml` are fine; **array contents** are frozen. (The `mlmm*` glob already auto-discovers any new layer subpackage — no `include`-array edit is needed when adding a file inside an existing layer dir.)
+`pyproject.toml [tool.setuptools.packages.find].include` uses the `mlmm*` glob,
+so files added under an existing layer need no discovery change. Check wheel
+contents when introducing a new top-level package layout, and declare every
+imported runtime package in `dependencies`.
 
 ### 4.5 `_LAZY_SUBCOMMANDS` absolute-path rule
 

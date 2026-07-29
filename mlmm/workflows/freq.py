@@ -103,7 +103,7 @@ def _calc_full_hessian_torch(
 
     ``calculator`` may supply an already-resolved evaluator, including a
     restraint wrapper. When omitted, a temporary ML/MM calculator is built
-    from ``calc_kwargs`` as before.
+    from ``calc_kwargs``.
     """
 
     kw = dict(calc_kwargs or {})

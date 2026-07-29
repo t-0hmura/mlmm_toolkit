@@ -2,8 +2,7 @@
 
 UMA (**U**niversal **M**odel for **A**toms, Meta FAIR) is the default
 backend for `mlmm-toolkit`. It covers the broadest element / chemistry
-range of the four backends and is the reference for the published
-benchmark numbers.
+range of the four bundled backends.
 
 ## Install
 

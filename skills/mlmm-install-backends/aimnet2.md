@@ -61,7 +61,7 @@ AIMNet2 honors the keys below. (Note: `_AIMNet2Backend.__init__` takes only `aim
 |---|---|
 | Substrate is small organics (≤ 100 atoms, no metals) | Active site contains Zn, Mg, Mn, Fe, etc. |
 | You want a cheap CPU baseline run | High accuracy on TS curvature is important |
-| Pre-screening many transition states | Reproducing published `wB97M-V` benchmark numbers |
+| Pre-screening many transition states | Reproducing results generated with a different backend |
 
 ## Known gotchas
 

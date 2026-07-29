@@ -18,22 +18,11 @@ The rest of the package (`thermo.py`, `config.py`, `constants.py`) is close to u
 |------|------------|------|
 | `QCData.py` | branding + IO signature differences | freq stage consumer contract, partial-Hessian path |
 
-## release scope
+## Change policy
 
-During this release, **only annotation edits are allowed** on this directory:
-
-- docstring additions / improvements
-- type hints
-- section banners (`# ===... ===`)
-- per-file module docstring
-
-**Forbidden** during polish:
-
-- any change to numerical behaviour, control flow, or function signatures of `QCData.py`
-- any new external dependency
-- any rename of public symbols (would break `mlmm/workflows/freq.py` callers)
-
-Logic edits to `QCData.py` would only be justified to track an upstream improvement; they must be explicitly requested via a `[CHEMISTRY-RULE]` commit and verified against the existing thermochemistry golden tests.
+Logic edits to `QCData.py` require a demonstrated I/O or numerical need and
+verification against the thermochemistry golden tests. Preserve the public
+symbols and I/O signatures consumed by `mlmm/workflows/freq.py`.
 
 ## Upstream compatibility
 

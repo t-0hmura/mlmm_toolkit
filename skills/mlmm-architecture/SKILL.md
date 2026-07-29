@@ -35,12 +35,11 @@ mlmm/                              ← the package body, one folder per layer
 
 pysisyphus/        ← bundled fork of the optimizer / TS / IRC engine.
                      Slimmed to the subset mlmm actually uses; see its
-                     own README for the live divergent-file table. Routine
-                     polish is annotation-only; defect/feature logic is gated.
+                     own README for the live divergent-file table. Logic
+                     changes require focused numerical validation.
 
 thermoanalysis/    ← bundled fork for ΔG / ZPE / partition functions.
-                     QCData.py is the only consumer; same touch restriction
-                     as pysisyphus.
+                     QCData.py is the only consumer; preserve its I/O contract.
 
 hessian_ff/        ← analytical Hessian on the MM force field (AMBER
                      ff14SB-style harmonic + LJ + Coulomb). NO upstream
@@ -71,8 +70,8 @@ Dependency direction: the *design intent* is one-way `L1 → L2 → {L3, L4} →
 
 1. **`mlmm/cli/app.py:_LAZY_SUBCOMMANDS`** entries MUST use absolute module paths (`"mlmm.workflows.all"`, never `".all"`). Relative dotted paths silently break the resolver if `default_group.py` moves.
 2. **VRAM hygiene**: the explicit `del calc; gc.collect(); torch.cuda.empty_cache()` sequence between stages releases retained calculators before the next full-protein ONIOM stage.
-3. **`pyproject.toml [tool.setuptools.packages.find].include`** and `dependencies` arrays are treated as 0-diff for this release line. Adding a vendor / internal dir or pinning a new runtime dep breaks behavior-level guarantees and is out of scope.
-4. **Bundled-fork edits** use each directory README's live table. Routine polish is annotation-only; logic requires a demonstrated defect or approved numerical feature, focused regression tests, and the relevant HEAVY/GPU validation.
+3. **Package discovery and dependencies**: `pyproject.toml` uses the `mlmm*` include glob. Check wheel contents for a new top-level package layout and declare every imported runtime package in `dependencies`.
+4. **Bundled-fork edits** use each directory README's live table. Logic requires a demonstrated defect or approved numerical feature, focused regression tests, and the relevant HEAVY/GPU validation.
 
 ## See also
 - Full architecture (~400 lines): [`docs/architecture.md`](../../docs/architecture.md)

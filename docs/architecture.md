@@ -10,7 +10,7 @@ The result is a full reaction path produced by the stage pipeline `extract → m
 
 The package is laid out as **6 physical layer directories** (`cli/`, `workflows/`, `domain/`, `backends/`, `io/`, `core/`). The role and dependency direction of each are summarized in the §2.1 layer table below.
 
-External code imports directly from the layer directory (`from mlmm.backends.mlmm_calc import MLMMCore`, `from mlmm.core.utils import …`, `import mlmm.io.trj2fig`, etc.); the previous flat-top shim layer has been retired in this release. §2.4 details the two import surfaces this leaves.
+External code imports directly from the layer directory (`from mlmm.backends.mlmm_calc import MLMMCore`, `from mlmm.core.utils import …`, `import mlmm.io.trj2fig`, etc.). §2.4 details the two supported import surfaces.
 
 Three bundled forks (`pysisyphus/`, `thermoanalysis/`, `hessian_ff/`) live at the repo top as repo-internal modules. They are deliberately **not** the upstream PyPI distributions (and `hessian_ff/` has no upstream at all — bundling is mandatory). See §6.
 
@@ -35,17 +35,17 @@ Three bundled forks (`pysisyphus/`, `thermoanalysis/`, `hessian_ff/`) live at th
 - `.github/scripts/check_import_graph.py` (AST import-graph gate) enforces the parts that are true today: (a) the `mlmm` package has **no import cycle** (no strongly connected component among its modules); (b) `core` and `domain` **never import `workflows`**; (c) no bundled fork (`pysisyphus` / `hessian_ff` / `thermoanalysis`) imports `mlmm`.
 - `.github/scripts/check_engineering_markers.py` covers a *different* concern — chemistry-rule / `DOMAIN_PURE` marker completeness and the MLIP-runtime import scope. It does **not** parse the layer import edges, so it does not enforce the direction.
 
-Current allowed back-edges (measured, cycle-free, retired in the major rewrite): a few `core.utils` helpers reach *down* into `domain.add_elem_info` and `io.structure_formats`, and `core.calc_eval` into `backends.mlmm_calc`. `core.utils` no longer imports any `workflows` module; the historical `core.utils ↔ workflows.extract` and `workflows.freq ↔ workflows.opt` cycles were removed by relocating the shared charge/spin preparation (`workflows/charge_prep.py`) and layer helpers (`workflows/_opt_freq_common.py`). Bundled forks sit outside the layer graph and may be imported from any layer through their absolute package path (`from pysisyphus.X import Y`, `from hessian_ff.analytical_hessian import …`).
+The current cycle-free back-edges are limited to a few `core.utils` helpers importing `domain.add_elem_info` and `io.structure_formats`, plus `core.calc_eval` importing `backends.mlmm_calc`. `core.utils` does not import `workflows`. Shared charge/spin preparation and layer helpers live in `workflows/charge_prep.py` and `workflows/_opt_freq_common.py`. Bundled forks sit outside the layer graph and may be imported from any layer through their absolute package path (`from pysisyphus.X import Y`, `from hessian_ff.analytical_hessian import …`).
 
 ### 2.2 ASCII map of the package tree
 
 ```
 mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
-├── pyproject.toml packages.find = ["mlmm*",...] (glob, frozen)
+├── pyproject.toml packages.find = ["mlmm*",...] (package-discovery glob)
 ├── README.md / CONTRIBUTING.md / CHANGELOG.md
 ├── docs/
 │ ├── architecture.md ← this file
-│ └──... (Sphinx site, unchanged)
+│ └──... (Sphinx documentation site)
 ├── mlmm/ ← package body, 6-layer physical dir
 │ ├── __init__.py PEP 562 lazy: _LAZY_IMPORTS + __getattr__
 │ ├── __main__.py `from mlmm.cli.app import cli`
@@ -110,9 +110,9 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │   └── _tools.py
 │
 ├── tests/ smoke / unit
-├── .github/ workflows/ + scripts/ (docs-quality lint helpers; CI-only)
+├── .github/ workflows/ + scripts/ (CI, release, engineering, and docs checks)
 └── (repo-top sibling, layer-external bundled forks)
- pysisyphus/ repo-internal fork (slimmed; CLI driver + QM backends + wavefunction + dead optimizers / IRC / NEB variants removed)
+ pysisyphus/ repo-internal optimizer, TS, IRC, COS, and calculator fork
  thermoanalysis/ repo-internal fork
  hessian_ff/ repo-internal native Hessian/MM support, NO upstream PyPI, mandatory bundling
 ```
@@ -163,14 +163,12 @@ mlmm myaction ─────────────────► mlmm/cli/ap
  └─► getattr(module, "cli") → Click command
 ```
 
-Two import surfaces (the flat-top shim layer was retired in this
-release; downstream code that used `from mlmm.<oldmod>` must migrate
-to the layered path):
+Two import surfaces are supported:
 
 1. **Layered import path**: external code imports directly from the layer directory (see the §2.1 layer table; e.g. `from mlmm.backends.mlmm_calc import MLMMCore`).
 2. **Root symbol attribute** (`from mlmm import MLMMCore`) — handled by `mlmm/__init__.py:_LAZY_IMPORTS` + PEP 562 `__getattr__`. The five re-exported symbols (`MLMMCore`, `MLMMASECalculator`, `mlmm`, `mlmm_ase`, `mlmm_mm_only`) all resolve to `mlmm.backends.mlmm_calc` and are loaded on first access, so `import mlmm` stays cheap (only `__version__` is eager). There is **no** root module-attribute surface — submodules are reached by their full path (`import mlmm.io.trj2fig`), not as attributes of the top-level package.
 
-The CLI subcommand resolver (`cli/app.py:_LAZY_SUBCOMMANDS`) uses **absolute** module paths (e.g. `"mlmm.workflows.all"`) so that moving `default_group.py` into `cli/` does not silently break subcommand discovery (the registry no longer depends on `__package__`).
+The CLI subcommand resolver (`cli/app.py:_LAZY_SUBCOMMANDS`) uses **absolute** module paths (e.g. `"mlmm.workflows.all"`) so subcommand discovery is independent of the resolver module's `__package__`.
 
 ---
 
@@ -343,13 +341,13 @@ The bundled `pysisyphus/`, `thermoanalysis/`, and `hessian_ff/` packages are **f
 - `thermoanalysis/QCData.py` — branding / I/O diff vs upstream
 - `hessian_ff/analytical_hessian.py` — sole entry consumed by `backends/mlmm_calc.py`; **no upstream alternative exists**
 
-### 5.4 `pyproject.toml` arrays are 0-diff
+### 5.4 Package discovery and runtime dependencies
 
-`[tool.setuptools.packages.find].include` and `dependencies` are treated as **0-diff arrays** during this release. The `include` glob (`mlmm*`) already auto-discovers any new layer subpackage; adding a `vendor/` or `internal/` container directory, or pinning a new runtime dependency, breaks the install contract and is forbidden by the release scope. Reflow / comment edits are fine; **array contents** are frozen.
+`[tool.setuptools.packages.find].include` uses the `mlmm*` glob to discover layer subpackages. A new top-level package layout must therefore be checked against wheel contents, and every imported runtime package must be declared in `dependencies`.
 
 ### 5.5 `_LAZY_SUBCOMMANDS` registry must use absolute paths
 
-`mlmm/cli/app.py:_LAZY_SUBCOMMANDS` resolves every subcommand through an **absolute** module path. Switching any entry back to a relative dotted import (`".all"` etc.) silently breaks subcommand discovery whenever `default_group.py` moves, because the resolver's `__package__` then drifts away from the package root. See internal design notes.
+`mlmm/cli/app.py:_LAZY_SUBCOMMANDS` resolves every subcommand through an **absolute** module path. A relative dotted import (`".all"` etc.) would make resolution depend on the resolver module's `__package__` instead of the package root.
 
 ---
 
@@ -359,9 +357,9 @@ The bundled `pysisyphus/`, `thermoanalysis/`, and `hessian_ff/` packages are **f
 
 | dir | upstream PyPI? | purpose | scope of edits allowed |
 |---|---|---|---|
-| `pysisyphus/` | NO — fork, do not `pip install pysisyphus` alongside | optimizer, TS, IRC, COS, calculators | routine polish is annotation-only; logic needs a demonstrated defect or approved feature, focused regression tests, and relevant HEAVY/GPU validation |
-| `thermoanalysis/` | NO — fork (branding diff) | ΔG, ZPE, partition functions, `QCData` | same conditional gate; see its README |
-| `hessian_ff/` | **NO — PyPI 404, bundling mandatory** | analytical Hessian on MM force field | same conditional gate; see its README |
+| `pysisyphus/` | NO — fork, do not `pip install pysisyphus` alongside | optimizer, TS, IRC, COS, calculators | preserve the listed divergences; validate numerical changes with focused and HEAVY/GPU tests |
+| `thermoanalysis/` | NO — fork (branding diff) | ΔG, ZPE, partition functions, `QCData` | preserve the `QCData` consumer contract; see its README |
+| `hessian_ff/` | **NO — PyPI 404, bundling mandatory** | analytical Hessian on MM force field | preserve its derivative and public API contracts; see its README |
 
 Each dir carries its own `README.md` listing the divergent files and the touch-restriction boundary. From the layer model these forks live **outside** the L1..L5 graph: any layer may import them via the absolute package path (`from pysisyphus.X import Y`, `from hessian_ff.analytical_hessian import …`) without breaking the `L1 → L2 → {L3, L4} → L5` direction.
 

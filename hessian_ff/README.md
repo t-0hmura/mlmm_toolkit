@@ -25,25 +25,16 @@ There is no upstream `hessian_ff` package on PyPI or any public registry. The mo
 | `constants.py` | unit conversion constants |
 | `terms/` | per-term analytical derivative code (one file per term type); `terms/cmap.py` includes OpenMM-derived MIT-licensed material |
 | `native/` | **required** C-accelerated kernels for `build_analytical_hessian` (JIT-compiled on first use at runtime via `torch.utils.cpp_extension`; needs GCC ≥ 9 + ninja); `native/bonded_ext.cpp` includes OpenMM-derived MIT-licensed material |
-| `workflows.py` | dead code — production never reaches this, but `__all__` declared = retention policy says do not delete during polish |
+| `workflows.py` | compatibility API declared through `__all__`; not imported by the production path |
 | `tests/` | unit tests for individual force-field terms |
 
-## release scope
+## Change policy
 
-During this release, **only annotation edits are allowed** on this directory:
-
-- docstring additions / improvements
-- type hints
-- section banners (`# ===... ===`)
-- per-file module docstring
-
-**Forbidden** during polish:
-
-- any change to numerical behaviour, control flow, or function signatures of `analytical_hessian.py`
-- any change to the per-term derivative code in `terms/`
-- any change to the parmed atom-indexing helpers in `prmtop_parmed.py` (chemistry-rule #9 lives here)
-- any new external dependency
-- any deletion of `workflows.py` (declared `__all__` symbols mean future external use is possible)
+Numerical or control-flow changes require a demonstrated defect or feature
+need, focused derivative/parity tests, and the relevant CPU/GPU validation.
+Preserve the `analytical_hessian.py` public contract and the atom-index mapping
+used by `prmtop_parmed.py`. `workflows.py` exposes compatibility symbols through
+`__all__` even though the production path does not import it.
 
 Logic edits must be explicitly requested via a `[CHEMISTRY-RULE:2]` or `[CHEMISTRY-RULE:8]` or `[CHEMISTRY-RULE:9]` commit and go through HEAVY benchmark verification before merge.
 

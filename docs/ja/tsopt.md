@@ -64,7 +64,7 @@ mlmm tsopt -i ts_guess.pdb --parm enzyme.parm7 -l 'LIG:Q' -b uma \
 `--coord-type` は最適化の座標系（`cart` | `redund` | `dlc` | `tric`、デフォルト `cart`）を選びます。`dlc`（非局在化内部座標）は低速ですが、ねじれの多い系やクリーンな一次サドルへの収束でより堅牢です。
 
 ```{warning}
-`--coord-type dlc` は**Hessianベース**のオプティマイザが必要です。デフォルトの L-BFGS（`--opt-mode grad`）の [`opt`](opt.md) では警告を出して `cart` に戻ります。`tsopt`（RFO / RS-I-RFO）または `opt --opt-mode hess` で使ってください。`path-opt` / `path-search` は `cart` と `dlc` のみ受け付けます。`DLC + リンク原子` と `DLC + 3 層凍結 MM` は数値的に未検証なため、論文掲載値の背後では `cart` がデフォルトのままです。
+`--coord-type dlc` は**Hessianベース**のオプティマイザが必要です。デフォルトの L-BFGS（`--opt-mode grad`）の [`opt`](opt.md) では警告を出して `cart` に戻ります。`tsopt`（RFO / RS-I-RFO）または `opt --opt-mode hess` で使ってください。`path-opt` / `path-search` は `cart` と `dlc` のみ受け付けます。`DLC + リンク原子` と `DLC + 3 層凍結 MM` は数値的に未検証なため、`cart` がデフォルトです。
 ```
 
 同じ症状からの切り分けについては [典型エラー別レシピ — レシピ 4](recipes-common-errors.md#レシピ-4-収束後処理で止まる) を参照してください。

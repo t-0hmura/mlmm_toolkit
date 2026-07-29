@@ -8,7 +8,7 @@
 
 結果として、ステージパイプライン `extract → MM-param → ONIOM model → MEP → tsopt → IRC → freq → dft` による完全な反応経路が生成されます。ここで MEP は最小エネルギー経路、IRC は内在反応座標です。
 
-このパッケージは **6 つの物理レイヤーディレクトリ** (`cli/`、`workflows/`、`domain/`、`backends/`、`io/`、`core/`) として構成されており、それぞれの役割と依存方向は後述の §2.1 レイヤー表にまとめています。外部コードはレイヤーディレクトリから直接インポートします (`from mlmm.backends.mlmm_calc import MLMMCore`、`from mlmm.core.utils import …`、`import mlmm.io.trj2fig` など)。従来のフラットトップ shim レイヤーは本リリースで廃止されました。
+このパッケージは **6 つの物理レイヤーディレクトリ** (`cli/`、`workflows/`、`domain/`、`backends/`、`io/`、`core/`) として構成されており、それぞれの役割と依存方向は後述の §2.1 レイヤー表にまとめています。外部コードはレイヤーディレクトリから直接インポートします (`from mlmm.backends.mlmm_calc import MLMMCore`、`from mlmm.core.utils import …`、`import mlmm.io.trj2fig` など)。サポートされる 2 つのインポート方法は §2.4 に示します。
 
 3 つの内蔵フォーク (`pysisyphus/`、`thermoanalysis/`、`hessian_ff/`) はリポジトリ内モジュールとしてトップ階層に置かれています。これらは意図的に上流の PyPI 配布物を使用しておらず、`hessian_ff/` には上流配布物自体がないため同梱が必須です。§6 を参照してください。
 
@@ -33,17 +33,17 @@
 - `.github/scripts/check_import_graph.py` (AST インポートグラフゲート) が、現時点で真である部分を強制します: (a) `mlmm` パッケージに **インポート循環がないこと** (モジュール間の強連結成分が存在しないこと)、(b) `core` と `domain` は **`workflows` を決してインポートしないこと**、(c) 内蔵フォーク (`pysisyphus` / `hessian_ff` / `thermoanalysis`) が `mlmm` をインポートしないこと。
 - `.github/scripts/check_engineering_markers.py` は *別の* 関心事 — 化学ルール / `DOMAIN_PURE` マーカーの網羅性と MLIP ランタイムのインポートスコープ — を扱います。レイヤーのインポートエッジは解析しないため、方向自体は強制しません。
 
-現在許容されている back-edge (実測・循環なし・メジャー改修で解消予定): 一部の `core.utils` ヘルパーが `domain.add_elem_info` と `io.structure_formats` へ、`core.calc_eval` が `backends.mlmm_calc` へと *下方向* に依存します。`core.utils` はもはやいかなる `workflows` モジュールもインポートしません。歴史的な `core.utils ↔ workflows.extract` および `workflows.freq ↔ workflows.opt` の循環は、共有していた charge/spin 準備 (`workflows/charge_prep.py`) とレイヤーヘルパー (`workflows/_opt_freq_common.py`) を移設することで解消しました。内蔵フォークはレイヤーグラフの外側に位置し、絶対パッケージパス (`from pysisyphus.X import Y`、`from hessian_ff.analytical_hessian import …`) を通じて任意のレイヤーからインポートできます。
+現在の循環しない back-edge は、一部の `core.utils` ヘルパーから `domain.add_elem_info` と `io.structure_formats` への依存、および `core.calc_eval` から `backends.mlmm_calc` への依存に限られます。`core.utils` は `workflows` をインポートしません。共有の charge/spin 準備とレイヤーヘルパーは `workflows/charge_prep.py` と `workflows/_opt_freq_common.py` にあります。内蔵フォークはレイヤーグラフの外側に位置し、絶対パッケージパス (`from pysisyphus.X import Y`、`from hessian_ff.analytical_hessian import …`) を通じて任意のレイヤーからインポートできます。
 
 ### 2.2 パッケージツリーの ASCII マップ
 
 ```
 mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
-├── pyproject.toml packages.find = ["mlmm*",...] (glob, frozen)
+├── pyproject.toml packages.find = ["mlmm*",...] (パッケージ検出 glob)
 ├── README.md / CONTRIBUTING.md / CHANGELOG.md
 ├── docs/
 │ ├── architecture.md ← this file
-│ └──... (Sphinx site, unchanged)
+│ └──... (Sphinx ドキュメントサイト)
 ├── mlmm/ ← package body, 6-layer physical dir
 │ ├── __init__.py PEP 562 lazy: _LAZY_IMPORTS + __getattr__
 │ ├── __main__.py `from mlmm.cli.app import cli`
@@ -108,7 +108,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │   └── _tools.py
 │
 ├── tests/ smoke / unit
-├── .github/ workflows/ + scripts/ (docs-quality lint helpers; CI-only)
+├── .github/ workflows/ + scripts/ (CI、リリース、設計、文書チェック)
 └── (repo-top sibling, layer-external bundled forks)
  pysisyphus/ リポジトリ内フォーク（軽量化済み）
  thermoanalysis/ リポジトリ内フォーク
@@ -156,14 +156,12 @@ mlmm myaction ─────────────────► mlmm/cli/ap
  └─► getattr(module, "cli") → Click command
 ```
 
-2 つのインポートサーフェス (フラットトップ shim レイヤーは本リリースで
-廃止されました。`from mlmm.<oldmod>` を使っていた下流コードはレイヤー化
-パスへ移行する必要があります):
+2 つのインポートサーフェスをサポートします:
 
 1. **レイヤー化インポートパス**: 外部コードはレイヤーディレクトリから直接インポートします (`from mlmm.backends.mlmm_calc import MLMMCore`、`from mlmm.core.utils import …`、`import mlmm.io.trj2fig` など)。
 2. **ルートシンボル属性** (`from mlmm import MLMMCore`) — `mlmm/__init__.py:_LAZY_IMPORTS` + PEP 562 `__getattr__` によって処理されます。再エクスポートされる 5 つのシンボル (`MLMMCore`、`MLMMASECalculator`、`mlmm`、`mlmm_ase`、`mlmm_mm_only`) はすべて `mlmm.backends.mlmm_calc` に解決され、初回アクセス時にロードされるため、`import mlmm` は安価なまま保たれます (eager なのは `__version__` のみ)。ルートのモジュール属性サーフェスは **存在しません** — サブモジュールはトップレベルパッケージの属性としてではなく、フルパス (`import mlmm.io.trj2fig`) で到達します。
 
-CLI サブコマンドリゾルバ (`cli/app.py:_LAZY_SUBCOMMANDS`) は **絶対** モジュールパス (例: `"mlmm.workflows.all"`) を使用するため、`default_group.py` を `cli/` へ移動してもサブコマンド発見が静かに壊れることはありません (レジストリはもはや `__package__` に依存しません)。
+CLI サブコマンドリゾルバ (`cli/app.py:_LAZY_SUBCOMMANDS`) は **絶対** モジュールパス (例: `"mlmm.workflows.all"`) を使用するため、サブコマンド発見はリゾルバモジュールの `__package__` に依存しません。
 
 ---
 
@@ -333,13 +331,13 @@ IRC / TSopt / Freq ステージは、CUDA メモリを解放するためにス�
 - `thermoanalysis/QCData.py` — upstream とのブランディング / I/O 差分
 - `hessian_ff/analytical_hessian.py` — `backends/mlmm_calc.py` が消費する唯一のエントリ。**upstream の代替は存在しません**
 
-### 5.4 `pyproject.toml` の配列は 0-diff
+### 5.4 パッケージ検出とランタイム依存
 
-`[tool.setuptools.packages.find].include` と `dependencies` は本リリース中、**0-diff 配列** として扱われます。`include` の glob (`mlmm*`) は新しいレイヤーサブパッケージをすでに自動発見します。`vendor/` や `internal/` のコンテナディレクトリを追加したり、新しいランタイム依存をピン留めしたりすると、インストール契約が壊れ、リリーススコープによって禁止されます。リフロー / コメント編集は問題ありません。**配列の内容** は凍結されています。
+`[tool.setuptools.packages.find].include` は `mlmm*` glob でレイヤーサブパッケージを検出します。新しいトップレベルのパッケージ構成は wheel の内容で確認し、インポートするランタイムパッケージはすべて `dependencies` に宣言します。
 
 ### 5.5 `_LAZY_SUBCOMMANDS` レジストリは絶対パスを使用すること
 
-`mlmm/cli/app.py:_LAZY_SUBCOMMANDS` は、すべてのサブコマンドを **絶対** モジュールパスで解決します。いずれかのエントリを相対ドット付きインポート (`".all"` など) に戻すと、`default_group.py` が移動した際にサブコマンド発見が静かに壊れます。リゾルバの `__package__` がパッケージルートからドリフトするためです。内部設計ノートを参照してください。
+`mlmm/cli/app.py:_LAZY_SUBCOMMANDS` は、すべてのサブコマンドを **絶対** モジュールパスで解決します。相対ドット付きインポート (`".all"` など) は、パッケージルートではなくリゾルバモジュールの `__package__` に解決を依存させます。
 
 ---
 
@@ -349,11 +347,11 @@ IRC / TSopt / Freq ステージは、CUDA メモリを解放するためにス�
 
 | dir | upstream PyPI? | purpose | scope of edits allowed |
 |---|---|---|---|
-| `pysisyphus/` | NO — フォーク、`pip install pysisyphus` を併存させない | オプティマイザ、TS、IRC、COS、calculators | 通常のpolishはannotationのみ。logic変更には実証された不具合または承認済みfeature、focused regression test、関連HEAVY/GPU検証が必要 |
-| `thermoanalysis/` | NO — フォーク (ブランディング差分) | ΔG, ZPE, 分配関数, `QCData` | 同じ条件付きgate。README参照 |
-| `hessian_ff/` | **NO — PyPI 404、バンドル必須** | MM 力場上の解析的 Hessian | 同じ条件付きgate。README参照 |
+| `pysisyphus/` | NO — フォーク、`pip install pysisyphus` を併存させない | オプティマイザ、TS、IRC、COS、calculators | 記載された差分を維持し、数値変更は focused test と HEAVY/GPU test で検証 |
+| `thermoanalysis/` | NO — フォーク (ブランディング差分) | ΔG, ZPE, 分配関数, `QCData` | `QCData` の利用側契約を維持。README参照 |
+| `hessian_ff/` | **NO — PyPI 404、バンドル必須** | MM 力場上の解析的 Hessian | 導関数と公開 API の契約を維持。README参照 |
 
-各ディレクトリは、分岐ファイルと触るべきでない境界 (touch-restriction boundary) を列挙する独自の `README.md` を持ちます。レイヤーモデルから見ると、これらのフォークは L1..L5 グラフの **外側** に位置します。任意のレイヤーが絶対パッケージパス (`from pysisyphus.X import Y`、`from hessian_ff.analytical_hessian import …`) を通じてこれらをインポートでき、`L1 → L2 → {L3, L4} → L5` の方向を壊しません。
+各ディレクトリの `README.md` は、上流との差分と利用側の契約を列挙します。レイヤーモデルから見ると、これらのフォークは L1..L5 グラフの **外側** に位置します。任意のレイヤーが絶対パッケージパス (`from pysisyphus.X import Y`、`from hessian_ff.analytical_hessian import …`) を通じてこれらをインポートでき、`L1 → L2 → {L3, L4} → L5` の方向を壊しません。
 
 
 ---
