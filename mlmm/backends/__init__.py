@@ -126,7 +126,16 @@ def apply_calc_file_to_calc_cfg(
     # A user ASE Calculator has no MLIP model variant: drop the inherited
     # per-backend model defaults so run headers don't mislabel it (e.g. as
     # 'uma-s-1p2'). The MLMMCore signature keeps its own defaults for the keys.
-    for _k in ("uma_model", "orb_model", "mace_model", "aimnet2_model", "model"):
+    for _k in (
+        "uma_model",
+        "orb_model",
+        "mace_model",
+        "aimnet2_model",
+        "model",
+        "uma_precision",
+        "orb_precision",
+        "mace_dtype",
+    ):
         calc_cfg.pop(_k, None)
 
 
@@ -181,6 +190,11 @@ def apply_precision_to_calc_cfg(calc_cfg: Dict[str, Any], precision: Optional[st
             f"--precision must be 'fp32' or 'fp64', got {precision if precision is not None else raw!r}"
         )
     backend = str(calc_cfg.get("backend") or "uma").strip().lower()
+    if backend == "custom":
+        raise ValueError(
+            "--precision is not supported with --calc-file because an "
+            "arbitrary ASE Calculator has no common precision control."
+        )
     mapping = _PRECISION_DISPATCH[val]
     if backend not in mapping:
         # AIMNet2 (or any future backend with no precision knob) cannot honour

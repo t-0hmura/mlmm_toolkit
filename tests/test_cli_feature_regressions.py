@@ -7,6 +7,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from click.testing import CliRunner
@@ -31,6 +32,65 @@ def test_root_invocation_resets_charge_multiplicity_override() -> None:
     assert result.exit_code == 0, result.output
     with pytest.raises(ValueError, match="electron count inconsistent"):
         validate_charge_spin(["H"], 0, 1)
+
+
+@pytest.mark.parametrize(
+    ("argv", "expected"),
+    [
+        (["mlmm", "bond-summary", "--json"], True),
+        (["mlmm", "bond-summary", "--json=true"], True),
+        (["mlmm", "bond-summary", "--json", "yes"], True),
+        (["mlmm", "bond-summary", "--json=false"], False),
+        (["mlmm", "bond-summary", "--json", "--no-json"], False),
+        (["mlmm", "sp", "--json=true"], False),
+    ],
+)
+def test_json_stdout_detection_covers_legacy_boolean_forms(
+    argv: list[str],
+    expected: bool,
+) -> None:
+    from mlmm.cli.app import _requests_stdout_json
+
+    assert _requests_stdout_json(argv) is expected
+
+
+def test_start_header_uses_registered_subcommand_name(monkeypatch) -> None:
+    from mlmm.cli import app
+    from mlmm.core.utils import set_verbose_level
+
+    emitted: list[str] = []
+    monkeypatch.setattr(app, "emit", lambda value, **_kwargs: emitted.append(value))
+    monkeypatch.setattr(sys, "argv", ["mlmm", "sp", "-i", "input.pdb"])
+    set_verbose_level(2)
+    context = SimpleNamespace(
+        invoked_subcommand=None,
+        command=SimpleNamespace(name="cli"),
+    )
+
+    app._emit_start_header(context, subcommand_name="sp")
+
+    assert "[mode] sp" in emitted
+    assert "[mode] cli" not in emitted
+
+
+def test_start_header_is_silent_for_legacy_json_true(monkeypatch) -> None:
+    from mlmm.cli import app
+
+    emitted: list[str] = []
+    monkeypatch.setattr(app, "emit", lambda value, **_kwargs: emitted.append(value))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["mlmm", "bond-summary", "--json=true", "r.pdb", "p.pdb"],
+    )
+    context = SimpleNamespace(
+        invoked_subcommand=None,
+        command=SimpleNamespace(name="cli"),
+    )
+
+    app._emit_start_header(context, subcommand_name="bond-summary")
+
+    assert emitted == []
 
 
 def test_freeze_links_removed_from_help_outputs() -> None:

@@ -23,6 +23,7 @@ Design notes:
 from __future__ import annotations
 
 import os
+import random
 
 _DONE = False
 _ORIG_INDEX_REDUCE = None
@@ -114,6 +115,9 @@ def setup_deterministic() -> None:
         )
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+    random.seed(0)
+    import numpy as np
+    np.random.seed(0)
     torch.manual_seed(0)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(0)

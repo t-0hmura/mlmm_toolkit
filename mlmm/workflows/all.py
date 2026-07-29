@@ -630,10 +630,10 @@ def _inject_coord_type_into_args_yaml(
         # argument 'precision'". apply_precision_to_calc_cfg also pops any stray
         # raw ``precision`` key, keeping calc_cfg Calculator-clean.
         from mlmm.backends import apply_precision_to_calc_cfg, apply_backend_model_to_calc_cfg, apply_calc_file_to_calc_cfg, apply_workers_to_calc_cfg
-        apply_precision_to_calc_cfg(calc_cfg, precision)
         apply_workers_to_calc_cfg(calc_cfg, workers, workers_per_node)
         apply_backend_model_to_calc_cfg(calc_cfg, backend_model)
         apply_calc_file_to_calc_cfg(calc_cfg, calc_file, calc_factory)
+        apply_precision_to_calc_cfg(calc_cfg, precision)
         cfg["calc"] = calc_cfg
 
     with tempfile.NamedTemporaryFile(

@@ -26,6 +26,7 @@ mlmm all -i r_complex.pdb p_complex.pdb -c PRE -q -1 --deterministic
 | `orb` | エネルギー **および** 力がビット単位で同一 |
 | `mace` | エネルギー **および** 力がビット単位で同一 |
 | `aimnet2` | **未対応 — 拒否されます**（後述） |
+| `custom`（`--calc-file`） | **未対応 — 拒否されます**。指定された計算器は mlmm-toolkit の制御外です |
 
 MM の low-level 層（解析的な `hessian_ff` 力場）は CPU 上で決定論的です。`--deterministic` が対処する非決定論性は、GPU 上の ML 領域推論によるものです。
 

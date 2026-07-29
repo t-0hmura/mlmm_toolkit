@@ -355,7 +355,7 @@ def cli(
             config_layer_cfg,
             [
                 (geom_cfg, (("geom",),)),
-                (calc_cfg, (("calc",),)),
+                (calc_cfg, (("calc",), ("mlmm",))),
                 (sp_cfg, (("sp",),)),
             ],
         )
@@ -386,9 +386,7 @@ def cli(
             calc_cfg["mm_backend"] = str(mm_backend).lower()
         if use_cmap is not None:
             calc_cfg["use_cmap"] = bool(use_cmap)
-        if _is_param_explicit("precision") and precision is not None:
-            from mlmm.backends import apply_precision_to_calc_cfg
-            apply_precision_to_calc_cfg(calc_cfg, str(precision))
+        from mlmm.backends import apply_precision_to_calc_cfg
         # Always run so a YAML-set workers>1 also gets the analytical-Hessian guard.
         from mlmm.backends import apply_workers_to_calc_cfg
         apply_workers_to_calc_cfg(calc_cfg, workers, workers_per_node)
@@ -398,6 +396,12 @@ def cli(
         # --calc-file overrides --backend with a user ASE Calculator (custom backend).
         from mlmm.backends import apply_calc_file_to_calc_cfg
         apply_calc_file_to_calc_cfg(calc_cfg, calc_file, calc_factory)
+        apply_precision_to_calc_cfg(
+            calc_cfg,
+            str(precision)
+            if _is_param_explicit("precision") and precision is not None
+            else None,
+        )
         # --print-every is an optimizer-progress knob and `sp` runs no optimizer. It must not go
         # into calc_cfg: that dict is splatted into ``mlmm(**calc_cfg)`` below and pysisyphus'
         # Calculator.__init__ takes no **kwargs, so an unknown key aborts the run with a bare

@@ -14,7 +14,7 @@ from mlmm.cli.help_pages import (
     _configure_subcommand_help_visibility,
     _ensure_help_advanced_option,
 )
-from mlmm.cli.bool_compat import normalize_bool_argv
+from mlmm.cli.bool_compat import _parse_bool_literal, normalize_bool_argv
 from mlmm.cli.default_group import DefaultGroup
 from mlmm import __version__
 
@@ -67,14 +67,32 @@ def _has_help_or_version_request(argv: list[str]) -> bool:
 def _requests_stdout_json(argv: list[str]) -> bool:
     """Return whether the selected command promises JSON-only stdout."""
     args = argv[1:]
-    return (
-        "bond-summary" in args
-        and "--json" in args
-        and "--no-json" not in args
-    )
+    if "bond-summary" not in args:
+        return False
+
+    enabled = False
+    i = 0
+    while i < len(args):
+        name, separator, value = args[i].partition("=")
+        name = name.lower()
+        if name == "--no-json":
+            enabled = False
+        elif name == "--json":
+            parsed = _parse_bool_literal(value) if separator else None
+            if parsed is None and not separator and i + 1 < len(args):
+                parsed = _parse_bool_literal(args[i + 1])
+                if parsed is not None:
+                    i += 1
+            enabled = True if parsed is None else parsed
+        i += 1
+    return enabled
 
 
-def _emit_start_header(ctx: click.Context) -> None:
+def _emit_start_header(
+    ctx: click.Context,
+    *,
+    subcommand_name: str | None = None,
+) -> None:
     from mlmm.core.utils import is_child_mode, verbose_level
 
     if (
@@ -90,7 +108,8 @@ def _emit_start_header(ctx: click.Context) -> None:
         emit(f"mlmm-toolkit ver. {__version__}\n", narrative=True)
 
     subcommand = (
-        getattr(ctx, "invoked_subcommand", None)
+        subcommand_name
+        or getattr(ctx, "invoked_subcommand", None)
         or (ctx.command.name if ctx.command is not None else None)
         or "all"
     )
@@ -838,7 +857,13 @@ _DEFAULT_GROUP_KWARGS = {
 }
 
 
-def _verbose_callback(ctx: click.Context, param: click.Parameter, value: int) -> int:
+def _verbose_callback(
+    ctx: click.Context,
+    param: click.Parameter,
+    value: int,
+    *,
+    subcommand_name: str | None = None,
+) -> int:
     # `-v/--verbose LEVEL` (0-3) is the single, unified verbosity control:
     #   0 silent · 1 milestones · 2 (default) +cycle tables/timing/VRAM/paths
     #   · 3 everything (config dumps, per-file paths, DEBUG logging).
@@ -851,7 +876,7 @@ def _verbose_callback(ctx: click.Context, param: click.Parameter, value: int) ->
     if value >= 3:
         from mlmm.core.logging import setup_logging
         setup_logging(value)
-    _emit_start_header(ctx)
+    _emit_start_header(ctx, subcommand_name=subcommand_name)
     return value
 
 
@@ -901,6 +926,18 @@ def _ensure_verbose_option(
     ):
         return command
 
+    def verbose_callback(
+        ctx: click.Context,
+        param: click.Parameter,
+        value: int,
+    ) -> int:
+        return _verbose_callback(
+            ctx,
+            param,
+            value,
+            subcommand_name=cmd_name,
+        )
+
     option = click.Option(
         ["-v", "--verbose"],
         type=click.IntRange(0, 3),
@@ -908,7 +945,7 @@ def _ensure_verbose_option(
         metavar="LEVEL",
         is_eager=True,
         expose_value=False,
-        callback=_verbose_callback,
+        callback=verbose_callback,
         help=_verbose_help(cmd_name),
     )
     command.params.insert(0, option)

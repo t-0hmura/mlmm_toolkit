@@ -42,6 +42,7 @@ mlmm all -i r_complex.pdb p_complex.pdb -c PRE -q -1 --deterministic
 | `orb` | bit-identical energy **and** forces |
 | `mace` | bit-identical energy **and** forces |
 | `aimnet2` | **not supported — rejected** (see below) |
+| `custom` (`--calc-file`) | **not supported — rejected** because the supplied calculator is outside mlmm-toolkit's control |
 
 The MM low-level layer (analytical `hessian_ff` force field) is deterministic
 on CPU; the non-determinism that `--deterministic` addresses is the GPU ML-region

@@ -112,7 +112,7 @@ calc:
 ```
 
 **注記:**
-- セクション名は `calc:` が正式名で、`mlmm:` は互換用の別名として受け付けます（`opt`、`tsopt`、`freq`、`irc`、`dft`、`path-opt`、`path-search`、`scan`、`scan2d`、`scan3d` で認識）。両方が存在する場合は `calc:` が優先されます。
+- セクション名は `calc:` が正式名で、`mlmm:` は互換用の別名として受け付けます（`opt`、`sp`、`tsopt`、`freq`、`irc`、`dft`、`path-opt`、`path-search`、`scan`、`scan2d`、`scan3d` で認識）。両方が存在する場合は `calc:` が優先されます。
 - `backend`: ML バックエンドを選択します。`uma`（デフォルト）、`orb`、`mace`、`aimnet2` から選択可能です。UMA 以外のバックエンドを使用するには、対応するオプション依存パッケージのインストールが必要です（例: `pip install "mlmm-toolkit[orb]"`）。
 - バックエンド固有のモデルキーは、対応するバックエンドが選択されている場合にのみ有効です:
   - `uma_model`、`uma_task_name` — UMA バックエンドのみ

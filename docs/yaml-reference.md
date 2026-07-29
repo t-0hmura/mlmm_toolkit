@@ -138,7 +138,7 @@ calc:
 ```
 
 **Notes:**
-- The section name `calc:` is the canonical form; `mlmm:` is accepted as a legacy alias (recognized by `opt`, `tsopt`, `freq`, `irc`, `dft`, `path-opt`, `path-search`, `scan`, `scan2d`, `scan3d`). When both are present, `calc:` takes precedence.
+- The section name `calc:` is the canonical form; `mlmm:` is accepted as a legacy alias (recognized by `opt`, `sp`, `tsopt`, `freq`, `irc`, `dft`, `path-opt`, `path-search`, `scan`, `scan2d`, `scan3d`). When both are present, `calc:` takes precedence.
 - `backend` selects the MLIP backend: `uma` (default), `orb`, `mace`, or `aimnet2`. Alternative backends require optional dependencies (`pip install "mlmm-toolkit[orb]"`, etc.)
 - Backend-specific model keys are only relevant when the corresponding backend is selected:
   - `uma_model`, `uma_task_name` — UMA backend only

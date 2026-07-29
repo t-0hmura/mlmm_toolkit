@@ -563,9 +563,6 @@ def cli(
             if backend is not None:
                 calc_cfg["backend"] = str(backend).lower()
             from mlmm.backends import apply_precision_to_calc_cfg
-            # Unconditional: also dispatches a --config YAML calc.precision
-            # (the helper no-ops when neither the CLI arg nor the YAML names one).
-            apply_precision_to_calc_cfg(calc_cfg, precision)
             # Always run so a YAML-set workers>1 also gets the analytical-Hessian guard.
             from mlmm.backends import apply_workers_to_calc_cfg
             apply_workers_to_calc_cfg(calc_cfg, workers, workers_per_node)
@@ -575,6 +572,9 @@ def cli(
             # --calc-file overrides --backend with a user ASE Calculator (custom backend).
             from mlmm.backends import apply_calc_file_to_calc_cfg
             apply_calc_file_to_calc_cfg(calc_cfg, calc_file, calc_factory)
+            # Unconditional: also dispatches a --config YAML calc.precision
+            # after the final backend has been selected.
+            apply_precision_to_calc_cfg(calc_cfg, precision)
             if _is_param_explicit("embedcharge"):
                 calc_cfg["embedcharge"] = bool(embedcharge)
             if _is_param_explicit("embedcharge_cutoff"):

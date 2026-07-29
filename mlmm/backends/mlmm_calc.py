@@ -1045,6 +1045,12 @@ def _create_ml_backend(
             "conv_sv_2d_sp_bwd) outside torch.use_deterministic_algorithms "
             "control (~1e-9 residual across runs; the energy is reproducible)."
         )
+    if backend == "custom" and is_deterministic_active():
+        raise ValueError(
+            "--deterministic is not supported with --calc-file because an "
+            "arbitrary ASE Calculator may use RNGs, external processes, or "
+            "kernels outside mlmm-toolkit's control."
+        )
     if backend == "uma":
         return _UMABackend(
             uma_model=uma_model,

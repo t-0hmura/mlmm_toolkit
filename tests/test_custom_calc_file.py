@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import textwrap
 from pathlib import Path
+import sys
 
 import numpy as np
 import pytest
@@ -52,6 +53,18 @@ def test_load_ase_calculator(tmp_path: Path) -> None:
     ase_calc = load_ase_calculator(str(calc_file))
     assert hasattr(ase_calc, "get_potential_energy")
     assert hasattr(ase_calc, "get_forces")
+
+
+def test_loaded_calculator_module_is_released(tmp_path: Path) -> None:
+    from mlmm.backends.custom import load_ase_calculator
+
+    before = {name for name in sys.modules if name.startswith("mlmm_calc_file_")}
+    calc_file = _write(tmp_path / "toy.py", TOY_CALC)
+
+    load_ase_calculator(str(calc_file))
+
+    after = {name for name in sys.modules if name.startswith("mlmm_calc_file_")}
+    assert after == before
 
 
 def test_calculator_class_export_is_instantiated(tmp_path: Path) -> None:
@@ -110,6 +123,34 @@ def test_apply_calc_file_switches_backend() -> None:
     cfg2 = {"backend": "uma"}
     apply_calc_file_to_calc_cfg(cfg2, None, None)
     assert cfg2["backend"] == "uma"
+
+
+@pytest.mark.parametrize("initial_backend", ["uma", "aimnet2"])
+def test_custom_backend_rejects_unified_precision_consistently(
+    initial_backend: str,
+) -> None:
+    from mlmm.backends import apply_precision_to_calc_cfg
+
+    cfg = {"backend": initial_backend}
+    apply_calc_file_to_calc_cfg(cfg, "/path/to/toy.py", "get_calculator")
+
+    with pytest.raises(ValueError, match="not supported with --calc-file"):
+        apply_precision_to_calc_cfg(cfg, "fp32")
+
+
+def test_custom_backend_rejects_strict_determinism(monkeypatch) -> None:
+    from mlmm.backends import _determinism
+    from mlmm.backends.mlmm_calc import _create_ml_backend
+
+    monkeypatch.setattr(_determinism, "is_deterministic_requested", lambda: False)
+    monkeypatch.setattr(_determinism, "is_deterministic_active", lambda: True)
+
+    with pytest.raises(ValueError, match="not supported with --calc-file"):
+        _create_ml_backend(
+            "custom",
+            calc_file="/path/to/toy.py",
+            ml_device=torch.device("cpu"),
+        )
 
 
 def test_custom_calculator_provenance_uses_loader_default_factory() -> None:
@@ -187,3 +228,41 @@ def test_sp_yaml_custom_factory_is_not_overwritten_by_cli_default(
     assert result.exit_code == 0, result.output
     assert "backend: custom" in result.output
     assert "calc_factory: build" in result.output
+
+
+def test_sp_accepts_legacy_mlmm_yaml_section(tmp_path: Path) -> None:
+    from click.testing import CliRunner
+
+    from mlmm.cli import cli as root_cli
+
+    input_pdb = _write(
+        tmp_path / "carbon.pdb",
+        "HETATM    1  C1  MOL A   1       0.000   0.000   0.000  1.00  0.00           C\nEND\n",
+    )
+    parm = _write(tmp_path / "empty.parm7", "placeholder\n")
+    config = _write(
+        tmp_path / "config.yaml",
+        "mlmm:\n  use_cmap: false\n",
+    )
+
+    result = CliRunner().invoke(
+        root_cli,
+        [
+            "sp",
+            "-i",
+            str(input_pdb),
+            "--parm",
+            str(parm),
+            "-q",
+            "0",
+            "-m",
+            "1",
+            "--config",
+            str(config),
+            "--show-config",
+        ],
+        catch_exceptions=False,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "use_cmap: false" in result.output
