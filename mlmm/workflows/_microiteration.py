@@ -347,6 +347,21 @@ class OptimizerOutcome:
             stop_reason=None,
         )
 
+    def accept_force_equilibrium(self) -> "OptimizerOutcome":
+        """Record a stalled relaxation accepted by its configured force criteria."""
+
+        if not self.executed:
+            raise ValueError("Force equilibrium requires an executed optimizer.")
+        return OptimizerOutcome(
+            status="converged",
+            executed=True,
+            converged=True,
+            cycles=self.cycles,
+            max_cycles=self.max_cycles,
+            stalled=False,
+            stop_reason=None,
+        )
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "status": self.status,

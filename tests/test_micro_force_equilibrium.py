@@ -7,9 +7,10 @@ are still unmet. A force-converged micro stage is accepted as equilibrium;
 every other stall remains fatal.
 """
 
-import pytest
-
-from mlmm.workflows._microiteration import micro_reached_force_equilibrium
+from mlmm.workflows._microiteration import (
+    OptimizerOutcome,
+    micro_reached_force_equilibrium,
+)
 
 
 class _Opt:
@@ -65,6 +66,30 @@ def test_introduces_no_new_tolerance() -> None:
     assert "max_force_thresh" in src and "rms_force_thresh" in src
     # No numeric literal tolerance of its own.
     assert "e-" not in src.replace("1e-", "")
+
+
+def test_accepted_force_equilibrium_is_serialized_as_converged() -> None:
+    stalled = OptimizerOutcome(
+        status="stalled",
+        executed=True,
+        converged=False,
+        cycles=4,
+        max_cycles=20,
+        stalled=True,
+        stop_reason="energy plateau",
+    )
+
+    accepted = stalled.accept_force_equilibrium()
+
+    assert accepted.to_dict() == {
+        "status": "converged",
+        "executed": True,
+        "converged": True,
+        "cycles": 4,
+        "max_cycles": 20,
+        "stalled": False,
+        "stop_reason": None,
+    }
 
 
 def test_flatten_outcome_is_published_not_only_on_stderr() -> None:

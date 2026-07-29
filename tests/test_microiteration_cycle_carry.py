@@ -348,6 +348,57 @@ def test_opt_initial_hessian_is_resolved_after_initial_mm_relaxation(
     ]
 
 
+def test_opt_initial_micro_failure_skips_hessian_and_macro(
+    tmp_path, monkeypatch
+) -> None:
+    import mlmm.workflows.opt as opt_mod
+    import mlmm.workflows.freq as freq_mod
+
+    class _NonconvergedMicro:
+        cur_cycle = 0
+        is_converged = False
+        is_stalled = False
+        stop_reason = "maximum cycles reached"
+
+        def __init__(self, _geom, **_kwargs):
+            pass
+
+        def run(self):
+            return None
+
+    _install_common_fakes(monkeypatch, opt_mod, _NonconvergedMicro)
+    monkeypatch.setattr(
+        freq_mod,
+        "_calc_full_hessian_torch",
+        lambda *a, **k: (_ for _ in ()).throw(
+            AssertionError("Hessian must not run after initial micro failure")
+        ),
+    )
+    monkeypatch.setattr(
+        opt_mod,
+        "RFOptimizer",
+        lambda *a, **k: (_ for _ in ()).throw(
+            AssertionError("macro optimizer must not be constructed")
+        ),
+    )
+
+    outcome = opt_mod._run_microiter_opt(
+        _FakeGeom(n_atoms=2),
+        calc_cfg={},
+        rfo_cfg={},
+        lbfgs_cfg={},
+        opt_cfg={"max_cycles": 1},
+        microiter_cfg={"micro_max_cycles": 1},
+        out_dir_path=tmp_path,
+        partition=_micro_active_partition(),
+        dump=False,
+    )
+
+    assert outcome["cycles"] == 0
+    assert outcome["optimizer"] is None
+    assert outcome["outcome"].macro.executed is False
+
+
 def test_tsopt_zero_micro_active_uses_vacuous_micro_not_all_frozen_lbfgs(tmp_path, monkeypatch):
     import mlmm.workflows.tsopt as tsopt_mod
     from mlmm.core.defaults import RSIRFO_KW
@@ -418,8 +469,8 @@ def test_tsopt_dump_keeps_initial_micro_trajectory_when_macro_never_runs(
     monkeypatch.setattr(
         tsopt_mod,
         "_calc_full_hessian_torch",
-        lambda *a, **k: __import__("torch").zeros(
-            (3, 3), dtype=__import__("torch").float64
+        lambda *a, **k: (_ for _ in ()).throw(
+            AssertionError("Hessian must not run after initial micro failure")
         ),
     )
     monkeypatch.setattr(
@@ -427,7 +478,13 @@ def test_tsopt_dump_keeps_initial_micro_trajectory_when_macro_never_runs(
         "resolve_partition_from_core",
         lambda *a, **k: _micro_active_partition(),
     )
-    monkeypatch.setitem(tsopt_mod.TSOPT_CLASS_MAP, "rsirfo", _FakeMacroOptimizer)
+    monkeypatch.setitem(
+        tsopt_mod.TSOPT_CLASS_MAP,
+        "rsirfo",
+        lambda *a, **k: (_ for _ in ()).throw(
+            AssertionError("macro optimizer must not be constructed")
+        ),
+    )
 
     outcome = tsopt_mod._run_microiter_tsopt(
         _FakeGeom(n_atoms=2),
@@ -444,6 +501,8 @@ def test_tsopt_dump_keeps_initial_micro_trajectory_when_macro_never_runs(
     )
 
     assert outcome["cycles"] == 0
+    assert outcome["optimizer"] is None
+    assert outcome["outcome"].macro.executed is False
     assert (tmp_path / "optimization_all_trj.xyz").read_text(
         encoding="utf-8"
     ) == (tmp_path / "optimization_trj.xyz").read_text(encoding="utf-8")

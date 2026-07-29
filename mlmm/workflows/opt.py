@@ -706,20 +706,21 @@ def _run_microiter_opt(
             _init_micro_out = OptimizerOutcome.from_optimizer(
                 _init_micro_opt, max_cycles=micro_max_cycles
             )
-            micro_attempts.append(_init_micro_out)
-            latest_micro_stalled = _init_micro_out.stalled
-            latest_micro_stop_reason = _init_micro_out.stop_reason or ""
             _init_micro_equilibrium = (
                 _init_micro_out.converged is not True
                 and _init_micro_out.stalled
                 and micro_reached_force_equilibrium(_init_micro_opt)
             )
             if _init_micro_equilibrium:
+                _init_micro_out = _init_micro_out.accept_force_equilibrium()
                 click.echo(
                     "[microiter] Initial MM equilibration plateaued with its "
                     "force criteria met; accepting it as MM equilibrium.",
                     err=True,
                 )
+            micro_attempts.append(_init_micro_out)
+            latest_micro_stalled = _init_micro_out.stalled
+            latest_micro_stop_reason = _init_micro_out.stop_reason or ""
             if _init_micro_out.converged is not True and not _init_micro_equilibrium:
                 run_macro = False
                 click.echo(
@@ -730,6 +731,33 @@ def _run_microiter_opt(
             del _init_micro_opt
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
+
+        if not run_macro:
+            macro_outcome = OptimizerOutcome.not_executed(
+                max_cycles=max_cycles,
+                reason=_init_micro_out.stop_reason or "initial_micro_not_converged",
+            )
+            aggregate = build_aggregate(
+                macro_outcome, micro_attempts, max_cycles=max_cycles
+            )
+            micro_outcome = MicroiterationOutcome(
+                aggregate=aggregate,
+                macro=macro_outcome,
+                micro_attempts=tuple(micro_attempts),
+                macro_cycles=0,
+                micro_cycles=micro_cycles_total,
+                partition=partition,
+            )
+            return {
+                "converged": False,
+                "cycles": 0,
+                "stop_requested": False,
+                "stop_reason": aggregate.stop_reason,
+                "is_stalled": bool(aggregate.stalled),
+                "optimizer": None,
+                "micro_cycles": micro_cycles_total,
+                "outcome": micro_outcome,
+            }
 
         # Seed initial Hessian for RFO (with macro freeze)
         # Try IRC endpoint cache first; fall back to full Hessian calculation.
@@ -903,6 +931,18 @@ def _run_microiter_opt(
                 micro_opt, micro_steps = _relax_micro()
                 micro_cycles_total += micro_steps
                 _micro_out = OptimizerOutcome.from_optimizer(micro_opt, max_cycles=micro_max_cycles)
+                _micro_equilibrium = (
+                    _micro_out.converged is not True
+                    and _micro_out.stalled
+                    and micro_reached_force_equilibrium(micro_opt)
+                )
+                if _micro_equilibrium:
+                    _micro_out = _micro_out.accept_force_equilibrium()
+                    click.echo(
+                        "[microiter] MM relaxation plateaued with its force "
+                        "criteria met; accepting it as MM equilibrium.",
+                        err=True,
+                    )
                 del micro_opt
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
@@ -1836,8 +1876,10 @@ def cli(
 
         use_microiter = bool(microiter) and use_rfo and not dist_freeze
         if bool(microiter) and not use_rfo:
+            microiter_fallback_reason = "requires_hessian_mode"
             click.echo("[microiter] --microiter is only effective with --opt-mode hess (RFO). Ignoring.")
         if bool(microiter) and use_rfo and dist_freeze:
+            microiter_fallback_reason = "distance_restraints"
             click.echo("[microiter] --microiter is not compatible with --dist-freeze. Falling back to standard RFO.")
 
         if use_microiter:
@@ -2178,6 +2220,12 @@ def cli(
                         terminal_microiter_result.get("micro_cycles", 0)
                     )
                     result_data["microiteration"] = _mi_outcome.to_result_object()
+            elif bool(microiter) and microiter_fallback_reason:
+                result_data["microiteration"] = {
+                    "requested": True,
+                    "used": False,
+                    "fallback_reason": microiter_fallback_reason,
+                }
             if rigid_projection_info:
                 result_data["rigid_projection"] = dict(rigid_projection_info)
             # Final force convergence values

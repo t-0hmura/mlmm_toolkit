@@ -2486,9 +2486,6 @@ def _run_microiter_tsopt(
             _init_micro_out = OptimizerOutcome.from_optimizer(
                 _init_micro_opt, max_cycles=micro_max_cycles
             )
-            micro_attempts.append(_init_micro_out)
-            latest_micro_stalled = _init_micro_out.stalled
-            latest_micro_stop_reason = _init_micro_out.stop_reason or ""
             # keeps the macro step off unless the micro relaxation settled.
             # A plateau whose forces already meet the configured thresholds IS
             # MM equilibrium, though: refusing it costs the whole TS search
@@ -2499,11 +2496,15 @@ def _run_microiter_tsopt(
                 and micro_reached_force_equilibrium(_init_micro_opt)
             )
             if _init_micro_equilibrium:
+                _init_micro_out = _init_micro_out.accept_force_equilibrium()
                 click.echo(
                     "[microiter] Initial MM equilibration plateaued with its "
                     "force criteria met; accepting it as MM equilibrium.",
                     err=True,
                 )
+            micro_attempts.append(_init_micro_out)
+            latest_micro_stalled = _init_micro_out.stalled
+            latest_micro_stop_reason = _init_micro_out.stop_reason or ""
             if _init_micro_out.converged is not True and not _init_micro_equilibrium:
                 run_macro = False
                 if dump:
@@ -2521,6 +2522,34 @@ def _run_microiter_tsopt(
             _clear_cuda_cache()
             geometry.freeze_atoms = macro_freeze
             geometry.set_calculator(macro_calc)
+
+        if not run_macro:
+            macro_outcome = OptimizerOutcome.not_executed(
+                max_cycles=max_cycles,
+                reason=_init_micro_out.stop_reason or "initial_micro_not_converged",
+            )
+            aggregate = build_aggregate(
+                macro_outcome, micro_attempts, max_cycles=max_cycles
+            )
+            micro_outcome = MicroiterationOutcome(
+                aggregate=aggregate,
+                macro=macro_outcome,
+                micro_attempts=tuple(micro_attempts),
+                macro_cycles=0,
+                micro_cycles=micro_cycles_total,
+                partition=partition,
+            )
+            return {
+                "converged": False,
+                "cycles": 0,
+                "stop_requested": False,
+                "stop_reason": aggregate.stop_reason,
+                "is_stalled": bool(aggregate.stalled),
+                "safeguards": {},
+                "optimizer": None,
+                "micro_cycles": micro_cycles_total,
+                "outcome": micro_outcome,
+            }
 
         # Seed initial Hessian for RS-I-RFO (with macro freeze)
         # Try TS Hessian cache first; fall back to full Hessian calculation.
@@ -2692,6 +2721,13 @@ def _run_microiter_tsopt(
                     and _micro_out.stalled
                     and micro_reached_force_equilibrium(micro_opt)
                 )
+                if _micro_equilibrium:
+                    _micro_out = _micro_out.accept_force_equilibrium()
+                    click.echo(
+                        "[microiter] MM relaxation plateaued with its force "
+                        "criteria met; accepting it as MM equilibrium.",
+                        err=True,
+                    )
                 del micro_opt
                 _clear_cuda_cache()
             else:
