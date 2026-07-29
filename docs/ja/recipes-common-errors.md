@@ -20,7 +20,7 @@
 | `hessian_ff` の import/ビルドエラー | ネイティブ拡張（`hessian_ff/native`）を再ビルド | [hessian_ff ビルド](troubleshooting.md#hessian_ff-ビルドの問題) |
 | DMF モードの import エラー（`ase` / `cyipopt` / `pydmf`） | `ase`、`cyipopt`、`pydmf>=1.2` をアクティブ環境にインストール | [DMF モード](troubleshooting.md#dmf-モードが動かないcyipopt-がない) |
 | **GPU / CUDA** | | |
-| CUDA OOM (`torch.cuda.OutOfMemoryError`) | ML 領域を縮小し、`FiniteDifference` Hessian または大容量 GPU を使用 | [CUDA OOM](troubleshooting.md#ja-cuda-oom) |
+| CUDA OOM (`torch.cuda.OutOfMemoryError`) | ML 領域を縮小し、`FiniteDifference` Hessian または大容量 GPU を使用 | [CUDA OOM](troubleshooting.md#cuda-メモリ不足oom) |
 | CUDA/GPU ランタイム不整合 | `torch.cuda.is_available()` と CUDA ビルドの組み合わせを確認 | [CUDA / PyTorch](troubleshooting.md#cuda--pytorch-の不整合) |
 | **収束** | | |
 | TSOPT/IRC が収束しない | ステップ長を縮小（RFO/RS-I-RFO では trust_radius、L-BFGS では max_step）、サイクル数を増やし、まず TS の品質を検証 | [計算 / 収束](troubleshooting.md#計算--収束の問題) |

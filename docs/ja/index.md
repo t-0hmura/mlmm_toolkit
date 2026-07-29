@@ -190,7 +190,7 @@ glossary
 ## システム要件
 
 installation と backend ごとの互換性は
-[Getting Started](getting-started.md#installation) を参照してください。
+[Getting Started](getting-started.md#インストール) を参照してください。
 GPU/driver は選択 backend の要件を満たす必要があります。VRAM、RAM、
 walltime は対象系の代表的な pilot と scheduler log から設定してください。
 `mm-parm` には AmberTools が必要です。
