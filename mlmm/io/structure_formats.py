@@ -47,6 +47,7 @@ class AtomSiteRecord:
     icode: str
     occupancy: float
     bfactor: float
+    segid: str = ""
     occupancy_known: bool = True
     formal_charge: str = "."
     label_atom_id: str = ""
@@ -59,8 +60,8 @@ class AtomSiteRecord:
     z: float = 0.0
 
     @property
-    def residue_key(self) -> tuple[str, str, str, str, str]:
-        return (self.chain_id, self.resseq, self.icode, self.resname, self.group_pdb)
+    def residue_key(self) -> tuple[str, str, str, str]:
+        return (self.chain_id, self.resseq, self.icode, self.segid)
 
     def with_coordinates(self, xyz: Sequence[float]) -> "AtomSiteRecord":
         return replace(self, x=float(xyz[0]), y=float(xyz[1]), z=float(xyz[2]))
@@ -183,8 +184,8 @@ def _coherent_altloc_records(
 ) -> tuple[list[AtomSiteRecord], int]:
     """Choose one labelled conformer per residue and retain shared atoms."""
 
-    grouped: dict[tuple[str, str, str, str, str], list[AtomSiteRecord]] = {}
-    order: list[tuple[str, str, str, str, str]] = []
+    grouped: dict[tuple[str, str, str, str], list[AtomSiteRecord]] = {}
+    order: list[tuple[str, str, str, str]] = []
     for record in records:
         key = record.residue_key
         if key not in grouped:
@@ -491,6 +492,7 @@ def read_pdb_atom_sites(
             )
             occupancy = 1.0 if occupancy_value is None else occupancy_value
             bfactor = _float_or(line[60 + coord_offset : 66 + coord_offset].strip(), 0.0)
+            segid = line[72 + coord_offset : 76 + coord_offset].strip()
             element = line[76 + coord_offset : 78 + coord_offset].strip().title()
             formal_charge = _formal_charge_from_pdb(
                 line[78 + coord_offset : 80 + coord_offset]
@@ -520,6 +522,7 @@ def read_pdb_atom_sites(
                     icode=icode,
                     occupancy=occupancy,
                     bfactor=bfactor,
+                    segid=segid,
                     occupancy_known=occupancy_value is not None,
                     formal_charge=formal_charge,
                     label_atom_id=atom_name,
@@ -598,12 +601,12 @@ def _internal_atom_names(records: Sequence[AtomSiteRecord]) -> list[str]:
         (record.atom_name.strip() or record.element.strip() or "X")[:4]
         for record in records
     ]
-    reserved: dict[tuple[str, str, str, str, str], set[str]] = {}
+    reserved: dict[tuple[str, str, str, str], set[str]] = {}
     for record, candidate in zip(records, candidates):
         reserved.setdefault(record.residue_key, set()).add(candidate)
 
-    used: dict[tuple[str, str, str, str, str], set[str]] = {}
-    counters: dict[tuple[str, str, str, str, str], int] = {}
+    used: dict[tuple[str, str, str, str], set[str]] = {}
+    counters: dict[tuple[str, str, str, str], int] = {}
     names: list[str] = []
     for record, candidate in zip(records, candidates):
         key = record.residue_key
@@ -641,7 +644,7 @@ def write_internal_pdb(records: Sequence[AtomSiteRecord], path: Path | str) -> N
             f"Structure has {len(residue_order)} residues; internal PDB bridge supports "
             f"at most {_MAX_RESIDUES:,}."
         )
-    residue_map: dict[tuple[str, str, str, str, str], tuple[str, int]] = {}
+    residue_map: dict[tuple[str, str, str, str], tuple[str, int]] = {}
     for index, key in enumerate(residue_order):
         residue_map[key] = (_CHAIN_IDS[index // 9999], index % 9999 + 1)
 
