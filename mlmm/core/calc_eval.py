@@ -1,13 +1,8 @@
-"""Shared MLMMCore evaluation helpers used by multiple workflow modules.
-
-`_calc_energy` was duplicated verbatim across ``workflows/opt.py`` and
-``workflows/tsopt.py``; co-locating the implementation here avoids drift
-between the two copies (and clears the way for future stages that need
-an energy snapshot during post-processing).
-"""
+"""Shared calculator evaluation helpers."""
 
 from __future__ import annotations
 
+import math
 from typing import Any, Dict, Optional
 
 import torch
@@ -42,11 +37,16 @@ def calc_energy(
         kw = dict(calc_kwargs or {})
         kw["out_hess_torch"] = False
         calc = mlmm(**kw)
-    result = calc.get_energy(geom.atoms, geom.cart_coords)
-    energy = float(result.get("energy", 0.0))
-    del result
-    if owns_calc:
-        del calc
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
+    try:
+        result = calc.get_energy(geom.atoms, geom.cart_coords)
+        if "energy" not in result:
+            raise KeyError("Calculator result is missing 'energy'.")
+        energy = float(result["energy"])
+        if not math.isfinite(energy):
+            raise ValueError("Calculator energy must be finite.")
+    finally:
+        if owns_calc:
+            del calc
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
     return energy

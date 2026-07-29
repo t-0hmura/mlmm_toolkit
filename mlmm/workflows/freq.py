@@ -153,7 +153,11 @@ def _calc_full_hessian_torch(
     if not isinstance(H, torch.Tensor):
         H = torch.as_tensor(H)
     H = H.to(device=device)
-    energy = float(result.get("energy", 0.0))
+    if "energy" not in result:
+        raise KeyError("Hessian result is missing 'energy'.")
+    energy = float(result["energy"])
+    if not np.isfinite(energy):
+        raise ValueError("Hessian energy must be finite for thermochemistry.")
 
     del result
     if owns_calc:
