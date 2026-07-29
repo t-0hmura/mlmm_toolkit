@@ -54,6 +54,19 @@ def test_load_ase_calculator(tmp_path: Path) -> None:
     assert hasattr(ase_calc, "get_forces")
 
 
+def test_calculator_class_export_is_instantiated(tmp_path: Path) -> None:
+    from ase.calculators.calculator import Calculator
+
+    from mlmm.backends.custom import load_ase_calculator
+
+    calc_file = _write(
+        tmp_path / "class_calc.py",
+        "from ase.calculators.emt import EMT\nget_calculator = EMT\n",
+    )
+
+    assert isinstance(load_ase_calculator(str(calc_file)), Calculator)
+
+
 def test_load_ase_calculator_errors(tmp_path: Path) -> None:
     from mlmm.backends.custom import load_ase_calculator
 

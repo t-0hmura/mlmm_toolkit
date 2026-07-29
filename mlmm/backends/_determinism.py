@@ -79,7 +79,6 @@ def setup_deterministic() -> None:
             f"torch ({torch.__version__}); the determinism shim needs updating."
         )
     if _ORIG_INDEX_REDUCE is None:
-        _ORIG_INDEX_REDUCE = orig
         # One-time equivalence self-check (catch a silent scatter_reduce vs
         # index_reduce_ mean-semantics drift across torch versions). CPU-only;
         # the native op works on CPU even when its CUDA kernel is missing.
@@ -101,6 +100,7 @@ def setup_deterministic() -> None:
                         "--deterministic: scatter_reduce detour diverges from native "
                         "index_reduce_(mean); the shim is unsafe on this torch build."
                     )
+        _ORIG_INDEX_REDUCE = orig
         torch.Tensor.index_reduce_ = _index_reduce_mean_deterministic
 
     os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")

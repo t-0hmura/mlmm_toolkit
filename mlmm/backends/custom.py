@@ -37,6 +37,8 @@ _MODULE_COUNTER = 0
 
 def _is_ase_calculator(obj: Any) -> bool:
     """Duck-typed check for an ASE-compatible Calculator."""
+    if inspect.isclass(obj):
+        return False
     try:
         from ase.calculators.calculator import Calculator as _ASECalc
     except ImportError:
