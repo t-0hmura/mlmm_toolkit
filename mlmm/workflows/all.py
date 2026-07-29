@@ -97,7 +97,11 @@ from mlmm.core.utils import (
     verbose_level,
     xyz_blocks_first_last,
 )
-from mlmm.core.result_commit import commit_json_exact, with_current_run_id
+from mlmm.core.result_commit import (
+    commit_exact_bytes,
+    commit_json_exact,
+    with_current_run_id,
+)
 from mlmm.workflows._run_session import (
     CalculatorLease,
     InvocationManifest,
@@ -5188,6 +5192,13 @@ def cli(
             "mlip_backend": mlip_backend_resolved,
             "mlip_model": mlip_model_resolved,
             "mlip_precision": mlip_precision_resolved,
+            "status": summary.get("status"),
+            "status_reasons": summary.get("status_reasons", []),
+            "execution_status": summary.get("execution_status"),
+            "scientific_status": summary.get("scientific_status"),
+            "scientific_status_reasons": summary.get(
+                "scientific_status_reasons", []
+            ),
             "command": command_str,
             "charge": q_int,
             "spin": spin,
@@ -5226,6 +5237,17 @@ def cli(
                     "dmf_correlated": dmf_correlated_effective,
                 },
             )
+            for key in (
+                "status",
+                "status_reasons",
+                "execution_status",
+                "scientific_status",
+                "scientific_status_reasons",
+            ):
+                summary_payload[key] = summary.get(
+                    key,
+                    [] if key.endswith("_reasons") else None,
+                )
             summary["post_segments"] = _json_safe([segment_log])
             # key_output_files is rebuilt from the current-run manifest inside
             # _enrich_summary (producer-declared claims only); no filesystem
@@ -5242,7 +5264,10 @@ def cli(
 
         try:
             write_summary_log(tsroot / "summary.log", summary_payload)
-            shutil.copy2(tsroot / "summary.log", out_dir / "summary.log")
+            commit_exact_bytes(
+                out_dir / "summary.log",
+                (tsroot / "summary.log").read_bytes(),
+            )
         except Exception as e:
             _echo(f"[write] WARNING: failed to write summary.log: {e}", err=True)
 

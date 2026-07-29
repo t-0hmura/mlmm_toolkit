@@ -1162,12 +1162,19 @@ def _enrich_path_summary_contract(
 
 
 def _summary_log_provenance(summary: Dict[str, Any]) -> Dict[str, Any]:
-    """Copy calculator provenance from the already-enriched run summary."""
+    """Copy provenance and outcome truth from the enriched run summary."""
 
     return {
         "mlip_backend": summary.get("mlip_backend"),
         "mlip_model": summary.get("mlip_model"),
         "mlip_precision": summary.get("mlip_precision"),
+        "status": summary.get("status"),
+        "status_reasons": summary.get("status_reasons", []),
+        "execution_status": summary.get("execution_status"),
+        "scientific_status": summary.get("scientific_status"),
+        "scientific_status_reasons": summary.get(
+            "scientific_status_reasons", []
+        ),
     }
 
 

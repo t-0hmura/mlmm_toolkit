@@ -8,7 +8,6 @@ without changing observable behavior.
 
 from __future__ import annotations
 
-import math
 import shutil
 from pathlib import Path
 from typing import Any, Callable, Collection, Dict, Mapping, Optional, Sequence, Tuple
@@ -32,6 +31,8 @@ def copy_path_outputs_to_root(
     so callers that want that behavior pass an `_echo`-equivalent.
     """
     try:
+        from mlmm.core.result_commit import commit_exact_bytes
+
         # MEP deliverables: MOVE to root (no _work/ duplicate). The summary
         # payload reads these from path_dir before this runs, so the move is
         # safe; summary.{json,log} stay COPY because they are re-written under
@@ -53,7 +54,7 @@ def copy_path_outputs_to_root(
         for name in ("summary.json", "summary.log"):
             src = path_dir / name
             if src.exists():
-                shutil.copy2(src, out_dir / name)
+                commit_exact_bytes(out_dir / name, src.read_bytes())
     except (OSError, shutil.Error) as exc:
         if warn_fn is not None:
             warn_fn(f"[all] WARNING: Failed to copy path_search outputs: {exc}")
@@ -205,6 +206,13 @@ def build_pipeline_summary_payload(
         "mlip_backend": mlip_backend,
         "mlip_model": mlip_model,
         "mlip_precision": mlip_precision,
+        "status": summary.get("status"),
+        "status_reasons": summary.get("status_reasons", []),
+        "execution_status": summary.get("execution_status"),
+        "scientific_status": summary.get("scientific_status"),
+        "scientific_status_reasons": summary.get(
+            "scientific_status_reasons", []
+        ),
         "command": command_str,
         "charge": q_int,
         "spin": spin,

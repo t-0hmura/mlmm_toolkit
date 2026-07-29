@@ -675,8 +675,28 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
     lines.append(f"Code version       : {version_txt}")
     mlip_backend = payload.get("mlip_backend") or "-"
     mlip_model = payload.get("mlip_model") or "-"
+    mlip_precision = payload.get("mlip_precision") or "-"
     lines.append(f"MLIP backend        : {mlip_backend}")
     lines.append(f"MLIP model          : {mlip_model}")
+    lines.append(f"MLIP precision      : {mlip_precision}")
+    execution_status = payload.get("execution_status")
+    scientific_status = payload.get("scientific_status") or payload.get("status")
+    if execution_status is not None:
+        lines.append(f"Execution status    : {execution_status}")
+    if scientific_status is not None:
+        lines.append(f"Scientific status   : {scientific_status}")
+    status_reasons = (
+        payload.get("scientific_status_reasons")
+        or payload.get("status_reasons")
+        or []
+    )
+    if scientific_status not in (None, "success"):
+        lines.append(
+            "RESULT WARNING      : Energies and barriers below are diagnostic; "
+            "this run is not a complete validated result."
+        )
+    for reason in status_reasons:
+        lines.append(f"Status reason       : {reason}")
     lines.append(f"Total charge (ML)  : {charge if charge is not None else '-'}")
     lines.append(f"Multiplicity (2S+1): {spin if spin is not None else '-'}")
 
@@ -1112,5 +1132,6 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
     lines.append("")
     lines.extend(format_method_citations(payload))
 
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    from mlmm.core.result_commit import commit_exact_bytes
+
+    commit_exact_bytes(dest, ("\n".join(lines) + "\n").encode("utf-8"))

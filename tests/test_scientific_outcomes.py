@@ -338,7 +338,11 @@ def test_path_summary_log_reuses_enriched_calculator_provenance(tmp_path: Path) 
         "pipeline_mode": "path-search",
         **_summary_log_provenance(summary),
     }
-    assert payload == {"pipeline_mode": "path-search", **summary}
+    assert payload["pipeline_mode"] == "path-search"
+    assert {
+        key: payload[key]
+        for key in ("mlip_backend", "mlip_model", "mlip_precision")
+    } == summary
 
     destination = tmp_path / "summary.log"
     write_summary_log(destination, payload)

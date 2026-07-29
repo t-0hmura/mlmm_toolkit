@@ -68,6 +68,56 @@ def test_write_summary_log_renders_segment_section(tmp_path: Path):
     assert "Broken: C1-O1" in text
 
 
+def test_write_summary_log_marks_non_successful_results_and_precision(
+    tmp_path: Path,
+) -> None:
+    from mlmm.io.summary import write_summary_log
+
+    dest = tmp_path / "summary.log"
+    write_summary_log(
+        dest,
+        {
+            "root_out_dir": str(tmp_path),
+            "path_module_dir": "path_search",
+            "pipeline_mode": "path-search",
+            "segments": [{"index": 1, "barrier_kcal": 12.3}],
+            "energy_diagrams": [],
+            "mlip_precision": "fp64",
+            "execution_status": "completed",
+            "scientific_status": "partial",
+            "scientific_status_reasons": ["segment 1 did not converge"],
+        },
+    )
+
+    text = dest.read_text(encoding="utf-8")
+    assert "MLIP precision      : fp64" in text
+    assert "Execution status    : completed" in text
+    assert "Scientific status   : partial" in text
+    assert "RESULT WARNING" in text
+    assert "Status reason       : segment 1 did not converge" in text
+    assert text.index("RESULT WARNING") < text.index("ΔE‡")
+
+
+def test_write_summary_log_publish_failure_preserves_previous_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from mlmm.core import result_commit
+    from mlmm.core.result_commit import ResultCommitError
+    from mlmm.io.summary import write_summary_log
+
+    dest = tmp_path / "summary.log"
+    dest.write_bytes(b"previous complete summary\n")
+
+    def fail_replace(_staged, _destination):
+        raise OSError("injected")
+
+    monkeypatch.setattr(result_commit, "_replace_exact", fail_replace)
+    with pytest.raises(ResultCommitError, match="publish"):
+        write_summary_log(dest, {})
+
+    assert dest.read_bytes() == b"previous complete summary\n"
+
+
 def test_write_summary_log_ts_only_separates_model_dft_from_composite_gibbs(
     tmp_path: Path,
 ):
