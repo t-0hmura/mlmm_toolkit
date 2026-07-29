@@ -33,15 +33,30 @@ def _normalize_geom_freeze(value: Any) -> List[int]:
     if isinstance(value, str):
         tokens = [tok.strip() for tok in value.split(",") if tok.strip()]
         try:
-            return sorted({int(tok) - 1 for tok in tokens})
+            items = [int(tok) for tok in tokens]
         except ValueError as exc:
             raise click.BadParameter(
                 "geom.freeze_atoms must contain integers (string form)."
             ) from exc
-    try:
-        return sorted({int(idx) - 1 for idx in value})
-    except TypeError as exc:
-        raise click.BadParameter("geom.freeze_atoms must be iterable of integers.") from exc
+    else:
+        if (
+            isinstance(value, (bytes, Mapping))
+            or not isinstance(value, Iterable)
+        ):
+            raise click.BadParameter(
+                "geom.freeze_atoms must be iterable of integers."
+            )
+        items = list(value)
+    if any(
+        isinstance(item, bool)
+        or not isinstance(item, Integral)
+        or int(item) < 1
+        for item in items
+    ):
+        raise click.BadParameter(
+            "geom.freeze_atoms must contain only integers >= 1."
+        )
+    return sorted({int(item) - 1 for item in items})
 
 
 def _convert_yaml_layer_atoms_1to0(calc_cfg: dict) -> None:

@@ -151,9 +151,15 @@ class HarmonicFixAtoms(Calculator):
             raise ValueError(
                 f"ref_positions must have shape ({idx.size}, 3), got {ref_pos.shape}"
             )
+        try:
+            k_fix = float(k_fix)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("k_fix must be a finite positive number.") from exc
+        if not np.isfinite(k_fix) or k_fix <= 0.0:
+            raise ValueError("k_fix must be a finite positive number.")
         self.indices = idx
         self.ref_positions = ref_pos
-        self.k_fix = float(k_fix)
+        self.k_fix = k_fix
 
     def calculate(self, atoms, properties, system_changes):
         super().calculate(atoms, properties, system_changes)

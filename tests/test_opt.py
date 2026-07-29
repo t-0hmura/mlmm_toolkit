@@ -62,6 +62,9 @@ def test_normalize_geom_freeze(opt_module):
 
     with pytest.raises(Exception, match="must contain integers"):
         opt_module._normalize_geom_freeze("1,a")
+    for invalid in ([0], [-1], [2.5], [True]):
+        with pytest.raises(Exception, match="integers >= 1"):
+            opt_module._normalize_geom_freeze(invalid)
 
 
 def test_parse_dist_freeze_valid_and_index_conversion(opt_module):

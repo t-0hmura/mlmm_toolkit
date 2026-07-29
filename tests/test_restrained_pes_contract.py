@@ -15,9 +15,20 @@ from mlmm.workflows.opt import (
     _seed_rfo_initial_hessian,
 )
 from mlmm.workflows.restraints import (
+    HarmonicFixAtoms,
     HarmonicBiasCalculator,
     harmonic_pair_energy_forces_hessian,
 )
+
+
+@pytest.mark.parametrize("k_fix", [0.0, -1.0, np.nan, np.inf])
+def test_harmonic_fix_atoms_rejects_invalid_force_constant(k_fix) -> None:
+    with pytest.raises(ValueError, match="finite positive"):
+        HarmonicFixAtoms(
+            indices=[0],
+            ref_positions=np.zeros((1, 3)),
+            k_fix=k_fix,
+        )
 
 
 def _pair_system():
