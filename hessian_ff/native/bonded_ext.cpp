@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <utility>
 #include <vector>
 
 #ifdef _OPENMP
@@ -266,12 +267,94 @@ std::vector<torch::Tensor> bonded_energy_force_cpu(
   auto coff = cmap_offset.contiguous();
   auto ccoef = cmap_coeff.contiguous();
 
-  TORCH_CHECK(bi.scalar_type() == torch::kInt64, "bond_i must be int64");
-  TORCH_CHECK(ai.scalar_type() == torch::kInt64, "angle_i must be int64");
-  TORCH_CHECK(di.scalar_type() == torch::kInt64, "dihed_i must be int64");
-  TORCH_CHECK(ct.scalar_type() == torch::kInt64, "cmap_type must be int64");
-  TORCH_CHECK(csize.scalar_type() == torch::kInt64, "cmap_size must be int64");
-  TORCH_CHECK(coff.scalar_type() == torch::kInt64, "cmap_offset must be int64");
+  TORCH_CHECK(
+      c.scalar_type() == torch::kFloat32 ||
+          c.scalar_type() == torch::kFloat64,
+      "coords must be float32 or float64");
+  const auto check_index = [&](const torch::Tensor& value, const char* name) {
+    TORCH_CHECK(value.device().is_cpu(), name, " must be on CPU");
+    TORCH_CHECK(value.scalar_type() == torch::kInt64, name, " must be int64");
+    TORCH_CHECK(value.dim() == 1, name, " must be one-dimensional");
+  };
+  const auto check_parameter = [&](const torch::Tensor& value, const char* name) {
+    TORCH_CHECK(value.device().is_cpu(), name, " must be on CPU");
+    TORCH_CHECK(
+        value.scalar_type() == c.scalar_type(),
+        name,
+        " dtype must match coords");
+    TORCH_CHECK(value.dim() == 1, name, " must be one-dimensional");
+  };
+  const auto check_atom_range = [&](const torch::Tensor& value, const char* name) {
+    if (value.numel() == 0) {
+      return;
+    }
+    TORCH_CHECK(value.min().item<int64_t>() >= 0, name, " contains a negative index");
+    TORCH_CHECK(
+        value.max().item<int64_t>() < c.size(0),
+        name,
+        " contains an index outside coords");
+  };
+
+  for (const auto& item : std::vector<std::pair<torch::Tensor, const char*>>{
+           {bi, "bond_i"}, {bj, "bond_j"},
+           {ai, "angle_i"}, {aj, "angle_j"}, {ak, "angle_k"},
+           {di, "dihed_i"}, {dj, "dihed_j"}, {dk, "dihed_k"}, {dl, "dihed_l"},
+           {ct, "cmap_type"}, {ci, "cmap_i"}, {cj, "cmap_j"},
+           {ck, "cmap_k"}, {cl, "cmap_l"}, {cm, "cmap_m"},
+           {csize, "cmap_size"}, {coff, "cmap_offset"}}) {
+    check_index(item.first, item.second);
+  }
+  for (const auto& item : std::vector<std::pair<torch::Tensor, const char*>>{
+           {bk, "bond_k"}, {br0, "bond_r0"},
+           {ak0, "angle_k0"}, {at0, "angle_t0"},
+           {df, "dihed_force"}, {dp, "dihed_period"}, {dph, "dihed_phase"},
+           {cdelta, "cmap_delta"}}) {
+    check_parameter(item.first, item.second);
+  }
+  TORCH_CHECK(ccoef.device().is_cpu(), "cmap_coeff must be on CPU");
+  TORCH_CHECK(
+      ccoef.scalar_type() == c.scalar_type(),
+      "cmap_coeff dtype must match coords");
+  TORCH_CHECK(
+      ccoef.dim() == 2 && ccoef.size(1) == 16,
+      "cmap_coeff must have shape [N,16]");
+
+  TORCH_CHECK(
+      bi.numel() == bj.numel() && bi.numel() == bk.numel() &&
+          bi.numel() == br0.numel(),
+      "bond arrays must have equal lengths");
+  TORCH_CHECK(
+      ai.numel() == aj.numel() && ai.numel() == ak.numel() &&
+          ai.numel() == ak0.numel() && ai.numel() == at0.numel(),
+      "angle arrays must have equal lengths");
+  TORCH_CHECK(
+      di.numel() == dj.numel() && di.numel() == dk.numel() &&
+          di.numel() == dl.numel() && di.numel() == df.numel() &&
+          di.numel() == dp.numel() && di.numel() == dph.numel(),
+      "dihedral arrays must have equal lengths");
+  TORCH_CHECK(
+      ct.numel() == ci.numel() && ct.numel() == cj.numel() &&
+          ct.numel() == ck.numel() && ct.numel() == cl.numel() &&
+          ct.numel() == cm.numel(),
+      "CMAP term arrays must have equal lengths");
+  TORCH_CHECK(
+      csize.numel() == cdelta.numel() && csize.numel() == coff.numel(),
+      "CMAP map arrays must have equal lengths");
+
+  for (const auto& item : std::vector<std::pair<torch::Tensor, const char*>>{
+           {bi, "bond_i"}, {bj, "bond_j"},
+           {ai, "angle_i"}, {aj, "angle_j"}, {ak, "angle_k"},
+           {di, "dihed_i"}, {dj, "dihed_j"}, {dk, "dihed_k"}, {dl, "dihed_l"},
+           {ci, "cmap_i"}, {cj, "cmap_j"}, {ck, "cmap_k"},
+           {cl, "cmap_l"}, {cm, "cmap_m"}}) {
+    check_atom_range(item.first, item.second);
+  }
+  if (ct.numel() > 0) {
+    TORCH_CHECK(ct.min().item<int64_t>() >= 0, "cmap_type contains a negative index");
+    TORCH_CHECK(
+        ct.max().item<int64_t>() < csize.numel(),
+        "cmap_type references a missing map");
+  }
 
   auto force = torch::zeros_like(c);
   auto e_bond = torch::zeros({}, c.options());
@@ -399,10 +482,10 @@ std::vector<torch::Tensor> bonded_energy_force_cpu(
 
         const double r20 = std::max(dot3(d0x, d0y, d0z, d0x, d0y, d0z), 1.0e-24);
         const double r21 = std::max(dot3(d1x, d1y, d1z, d1x, d1y, d1z), 1.0e-24);
-        const double rp = std::max(std::sqrt(dot3(px, py, pz, px, py, pz)), 1.0e-12);
+        const double cross_norm = std::sqrt(dot3(px, py, pz, px, py, pz));
+        const double rp = std::max(cross_norm, 1.0e-12);
         const double dot = dot3(d0x, d0y, d0z, d1x, d1y, d1z);
-        const double cos_theta = clamp(dot / std::sqrt(r20 * r21), -1.0, 1.0);
-        const double theta = std::acos(cos_theta);
+        const double theta = std::atan2(cross_norm, dot);
 
         const double dtheta = theta - theta0;
         ea_local += ktheta * dtheta * dtheta;

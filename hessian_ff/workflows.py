@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 import time
 from pathlib import Path
 from typing import Any, Dict, Optional, Sequence, Union
@@ -478,6 +479,8 @@ def _prepare_batch_ff(
         xb = torch.stack(frames, dim=0)
     if xb.ndim != 3:
         raise ValueError(f"coords_batch must have shape [B,N,3], got {tuple(xb.shape)}")
+    if int(xb.shape[0]) == 0:
+        raise ValueError("coords_batch is empty")
     if int(xb.shape[1]) != int(system.natom) or int(xb.shape[2]) != 3:
         raise ValueError(
             f"coords_batch shape mismatch: expected [B,{system.natom},3], got {tuple(xb.shape)}"
@@ -503,7 +506,7 @@ def torch_energy_batch(
     with_grad: bool = False,
     double: bool = True,
     force_calc_mode: str = "Analytical",
-    batch_mode: str = "vmap",
+    batch_mode: str = "loop",
     microbatch_size: Optional[int] = None,
     num_threads: Optional[int] = None,
 ) -> Dict[str, Any]:
@@ -554,7 +557,7 @@ def torch_force_batch(
     device: Union[str, torch.device] = "cpu",
     double: bool = True,
     force_calc_mode: str = "Analytical",
-    batch_mode: str = "vmap",
+    batch_mode: str = "loop",
     microbatch_size: Optional[int] = None,
     save_force: Optional[PathLike] = None,
     num_threads: Optional[int] = None,
@@ -633,6 +636,13 @@ def torch_hessian(
     mode = _HESSIAN_MODE_MAP.get(str(hessian_calc_mode).strip().lower())
     if mode is None:
         raise ValueError(f"Unknown hessian_calc_mode: {hessian_calc_mode!r}")
+    if mode == "fd":
+        try:
+            delta_value = float(hessian_delta)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("hessian_delta must be a finite positive number") from exc
+        if not math.isfinite(delta_value) or delta_value <= 0.0:
+            raise ValueError("hessian_delta must be a finite positive number")
 
     force_mode = str(force_calc_mode).strip().lower()
     need_diff_nonbonded = dev.type == "cpu" and (mode == "autograd" or force_mode == "autograd")
@@ -703,7 +713,7 @@ def torch_hessian(
         h2 = h4.reshape(ndof, ndof).detach().cpu()
 
     else:  # mode == "fd"
-        delta = float(hessian_delta)
+        delta = delta_value
         fd_batch_cols = max(1, int(fd_column_batch))
         t0 = time.perf_counter()
         if mpi_size > 1:

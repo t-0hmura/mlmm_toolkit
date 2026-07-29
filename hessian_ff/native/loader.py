@@ -460,8 +460,6 @@ def _load_or_build_extension(
 
     if cache_key in _EXT_CACHE and not force_rebuild:
         return _EXT_CACHE[cache_key]
-    if cache_key in _EXT_ERROR and not force_rebuild:
-        return None
 
     build_dirs = _build_dirs(here, build_subdir, fingerprint)
     prebuilt_error: Optional[Exception] = None
@@ -492,6 +490,9 @@ def _load_or_build_extension(
                 return loaded
             except Exception as exc:
                 prebuilt_error = exc
+
+    if cache_key in _EXT_ERROR and not force_rebuild:
+        return None
 
     if force_rebuild:
         _EXT_CACHE.pop(cache_key, None)

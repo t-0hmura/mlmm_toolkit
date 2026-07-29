@@ -321,6 +321,53 @@ def test_error_cache_is_scoped_to_fingerprint(tmp_path, monkeypatch):
     assert len(calls) == 1
 
 
+def test_error_cache_does_not_hide_new_verified_prebuild(tmp_path, monkeypatch):
+    monkeypatch.setenv("TORCH_EXTENSIONS_DIR", str(tmp_path / "torch"))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "xdg"))
+    state = {"fingerprint": "4" * 64}
+    source_files = ["nonbonded_ext.cpp"]
+    _mock_identity(monkeypatch, state, source_files)
+    loader._EXT_ERROR[("test", state["fingerprint"])] = "initial failure"
+
+    here = Path(loader.__file__).resolve().parent
+    identity, fingerprint = loader._native_build_identity(here, source_files)
+    module_name = loader._module_name("test_native_ext", fingerprint)
+    build_dir = loader._build_dirs(
+        here, ".build_test_native", fingerprint
+    )[0]
+    build_dir.mkdir(parents=True)
+    binary = build_dir / f"{module_name}.so"
+    binary.write_bytes(b"verified prebuild")
+    loader._write_identity_sidecar(
+        identity=identity,
+        fingerprint=fingerprint,
+        module_name=module_name,
+        binary_path=binary,
+    )
+
+    class FakeExtensionLoader:
+        def create_module(self, spec):
+            return None
+
+        def exec_module(self, module):
+            module.__file__ = str(binary)
+
+    monkeypatch.setattr(
+        loader.importlib.util,
+        "spec_from_file_location",
+        lambda name, location: ModuleSpec(
+            name,
+            FakeExtensionLoader(),
+            origin=location,
+        ),
+    )
+
+    loaded = _build_test_extension(key="test")
+
+    assert loaded is not None
+    assert ("test", fingerprint) not in loader._EXT_ERROR
+
+
 def test_force_rebuild_bypasses_memory_and_prebuilt_cache(tmp_path, monkeypatch):
     torch_root = tmp_path / "torch"
     monkeypatch.setenv("TORCH_EXTENSIONS_DIR", str(torch_root))

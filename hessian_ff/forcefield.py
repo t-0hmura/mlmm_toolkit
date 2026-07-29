@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import Dict, Optional, Union
 
 import torch
@@ -83,6 +84,15 @@ class ForceFieldTorch(nn.Module):
             pair14_inv_scnb=system.pair14_inv_scnb,
             cpu_fast_kernel=nonbonded_cpu_fast,
         )
+
+    def _apply(self, fn, recurse: bool = True):
+        """Move module buffers and the canonical system to the same target."""
+        result = super()._apply(fn, recurse=recurse)
+        self.system = self.system.to(
+            device=self.nonbonded.charge.device,
+            dtype=self.nonbonded.charge.dtype,
+        )
+        return result
 
     def _validate_coords(self, coords: torch.Tensor) -> None:
         validate_coords(
@@ -225,7 +235,7 @@ class ForceFieldTorch(nn.Module):
     def forward_batch(
         self,
         coords_batch: torch.Tensor,
-        batch_mode: str = "vmap",
+        batch_mode: str = "loop",
         microbatch_size: Optional[int] = None,
     ) -> Dict[str, torch.Tensor]:
         """Compute energy terms for batched coordinates [B,N,3]."""
@@ -287,7 +297,7 @@ class ForceFieldTorch(nn.Module):
         self,
         coords_batch: torch.Tensor,
         force_calc_mode: str = "Analytical",
-        batch_mode: str = "vmap",
+        batch_mode: str = "loop",
         microbatch_size: Optional[int] = None,
     ) -> tuple[Dict[str, torch.Tensor], torch.Tensor]:
         """Compute energy and force for batched coordinates [B,N,3]."""

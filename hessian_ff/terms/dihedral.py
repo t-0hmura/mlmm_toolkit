@@ -18,18 +18,9 @@ def _dihedral_angle_from_vectors(
     cross12 = torch.cross(v1, v2, dim=-1)
     cross23 = torch.cross(v2, v3, dim=-1)
 
-    n12 = torch.linalg.norm(cross12, dim=-1).clamp_min(1.0e-12)
-    n23 = torch.linalg.norm(cross23, dim=-1).clamp_min(1.0e-12)
-    cos_phi = torch.sum(cross12 * cross23, dim=-1) / (n12 * n23)
-    cos_phi = torch.clamp(cos_phi, -1.0, 1.0)
-    phi = torch.acos(cos_phi)
-
-    sign = torch.where(
-        torch.sum(v1 * cross23, dim=-1) < 0.0,
-        -torch.ones_like(phi),
-        torch.ones_like(phi),
-    )
-    phi = phi * sign
+    x = torch.sum(cross12 * cross23, dim=-1)
+    y = torch.linalg.norm(v2, dim=-1) * torch.sum(v1 * cross23, dim=-1)
+    phi = torch.atan2(y, x)
     return phi, cross12, cross23
 
 

@@ -381,11 +381,10 @@ def load_system(
 
     scee = raw.get("SCEE_SCALE_FACTOR", [])
     scnb = raw.get("SCNB_SCALE_FACTOR", [])
-    if not scee or not scnb:
-        # Defaults: AMBER typically uses 1.2 and 2.0 (i.e. scale 1/1.2 and 1/2.0)
-        # but in prmtop these should exist. If absent, fall back to "no scaling".
-        scee = [1.0] * len(dih_force_list)
-        scnb = [1.0] * len(dih_force_list)
+    if not scee:
+        scee = [1.2] * len(dih_force_list)
+    if not scnb:
+        scnb = [2.0] * len(dih_force_list)
 
     d_inc = raw.get("DIHEDRALS_INC_HYDROGEN", [])
     d_wo = raw.get("DIHEDRALS_WITHOUT_HYDROGEN", [])
@@ -521,20 +520,25 @@ def _read_amber_inpcrd(path: Path, natom: Optional[int] = None) -> List[List[flo
     # Collect floats from remaining lines.
     # Amber ASCII inpcrd/rst7 commonly uses fixed-width (typically 6E12.7 per line).
     # Parsing as fixed-width is robust even if there are spaces.
+    need = 3 * nat
     floats: List[float] = []
     for ln in raw_lines[2:]:
         for i in range(0, len(ln), 12):
+            if len(floats) >= need:
+                break
             field = ln[i : i + 12].strip()
             if not field:
                 continue
             try:
                 floats.append(float(field))
-            except ValueError:
-                continue
-    need = 3 * nat
+            except ValueError as exc:
+                raise ValueError(
+                    f"Invalid coordinate field {field!r} in {path}."
+                ) from exc
+        if len(floats) >= need:
+            break
     if len(floats) < need:
         raise ValueError(f"Not enough coordinate floats in {path}: got {len(floats)}, need {need}")
-    floats = floats[:need]
     return [[floats[3 * i], floats[3 * i + 1], floats[3 * i + 2]] for i in range(nat)]
 
 

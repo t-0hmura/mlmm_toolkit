@@ -21,7 +21,7 @@ class NonbondedEnergies:
 
 
 class NonbondedTerm(nn.Module):
-    """No-PBC AMBER nonbonded term (native C++ backend only)."""
+    """No-PBC AMBER nonbonded term."""
 
     def __init__(
         self,
@@ -146,6 +146,64 @@ class NonbondedTerm(nn.Module):
 
         return coul, a12, b6, b10
 
+    @staticmethod
+    def _torch_pair_energies(
+        coords: torch.Tensor,
+        pair_i: torch.Tensor,
+        pair_j: torch.Tensor,
+        coul_coeff: torch.Tensor,
+        a12_coeff: torch.Tensor,
+        b6_coeff: torch.Tensor,
+        b10_coeff: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        if pair_i.numel() == 0:
+            zero = coords.new_zeros(())
+            return zero, zero
+        displacement = coords.index_select(0, pair_j) - coords.index_select(
+            0, pair_i
+        )
+        distance_sq = torch.sum(displacement * displacement, dim=-1).clamp_min(
+            1.0e-24
+        )
+        inv_r = torch.rsqrt(distance_sq)
+        inv_r2 = inv_r * inv_r
+        inv_r6 = inv_r2 * inv_r2 * inv_r2
+        inv_r10 = inv_r6 * inv_r2 * inv_r2
+        inv_r12 = inv_r6 * inv_r6
+        coulomb = torch.sum(coul_coeff * inv_r)
+        vdw = torch.sum(
+            a12_coeff * inv_r12
+            - b6_coeff * inv_r6
+            - b10_coeff * inv_r10
+        )
+        return coulomb, vdw
+
+    def _torch_energies(self, coords: torch.Tensor) -> NonbondedEnergies:
+        coulomb, lj = self._torch_pair_energies(
+            coords,
+            self.pair_i,
+            self.pair_j,
+            self.pair_coul_coeff,
+            self.pair_a12_coeff,
+            self.pair_b6_coeff,
+            self.pair_b10_coeff,
+        )
+        coulomb14, lj14 = self._torch_pair_energies(
+            coords,
+            self.pair14_i,
+            self.pair14_j,
+            self.pair14_coul_coeff,
+            self.pair14_a12_coeff,
+            self.pair14_b6_coeff,
+            self.pair14_b10_coeff,
+        )
+        return NonbondedEnergies(
+            coulomb=coulomb,
+            lj=lj,
+            coulomb14=coulomb14,
+            lj14=lj14,
+        )
+
     def _native_energy_force(
         self,
         coords: torch.Tensor,
@@ -202,6 +260,15 @@ class NonbondedTerm(nn.Module):
         )
 
     def forward(self, coords: torch.Tensor) -> NonbondedEnergies:
+        validate_coords(
+            coords,
+            self.natom,
+            self.charge.dtype,
+            self.charge.device,
+            label="coords (nonbonded)",
+        )
+        if coords.requires_grad:
+            return self._torch_energies(coords)
         return self._native_energy_force(coords)[0]
 
     def energy_force(self, coords: torch.Tensor) -> tuple[NonbondedEnergies, torch.Tensor]:

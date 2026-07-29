@@ -31,7 +31,10 @@ class AngleTerm(nn.Module):
         u = coords[self.i] - coords[self.j]
         v = coords[self.k] - coords[self.j]
         dot = torch.sum(u * v, dim=-1)
-        cross = torch.linalg.norm(torch.cross(u, v, dim=-1), dim=-1)
+        cross_vec = torch.cross(u, v, dim=-1)
+        cross = torch.sqrt(
+            torch.sum(cross_vec * cross_vec, dim=-1) + 1.0e-24
+        )
         theta = torch.atan2(cross, dot)
         return torch.sum(self.k_theta * (theta - self.theta0) ** 2)
 
@@ -48,7 +51,7 @@ class AngleTerm(nn.Module):
 
         r20 = torch.sum(d0 * d0, dim=-1).clamp_min(1.0e-24)
         r21 = torch.sum(d1 * d1, dim=-1).clamp_min(1.0e-24)
-        cross_norm = torch.linalg.norm(p, dim=-1)
+        cross_norm = torch.sqrt(torch.sum(p * p, dim=-1) + 1.0e-24)
         rp = cross_norm.clamp_min(1.0e-12)
         dot = torch.sum(d0 * d1, dim=-1)
         theta = torch.atan2(cross_norm, dot)

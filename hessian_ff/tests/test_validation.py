@@ -38,3 +38,37 @@ def test_forcefield_explicit_dtype_validation_batch() -> None:
     coords_batch = coords.unsqueeze(0).repeat(2, 1, 1)
     with pytest.raises(ValueError, match="coords_batch dtype mismatch"):
         ff.energy_force_batch(coords_batch, force_calc_mode="Analytical")
+
+
+def test_forcefield_to_keeps_system_and_buffers_synchronized() -> None:
+    system, ff = _load_ff_and_coords()
+
+    moved = ff.to(dtype=torch.float32)
+
+    assert moved is ff
+    assert ff.system.charge.dtype == torch.float32
+    assert ff.nonbonded.charge.dtype == torch.float32
+    assert ff.bond.k.dtype == torch.float32
+    assert ff.system.charge.device == ff.nonbonded.charge.device
+
+
+def test_default_batch_mode_avoids_vmap_native_kernels(monkeypatch) -> None:
+    system, ff = _load_ff_and_coords()
+    coords = load_coords(
+        _COORDS, natom=system.natom, device="cpu", dtype=torch.float64
+    )
+    coords_batch = coords.unsqueeze(0).repeat(2, 1, 1)
+    monkeypatch.setattr(
+        torch,
+        "vmap",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("default batch mode must not use vmap")
+        ),
+    )
+
+    energies = ff.forward_batch(coords_batch)
+    force_energies, forces = ff.energy_force_batch(coords_batch)
+
+    assert energies["E_total"].shape == (2,)
+    assert force_energies["E_total"].shape == (2,)
+    assert forces.shape == coords_batch.shape
