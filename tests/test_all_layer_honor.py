@@ -70,12 +70,14 @@ def test_summarize_unlayered_pdb(tmp_path: Path) -> None:
 
 
 @_need_py311
-def test_honor_input_bfactors_path_exists(tmp_path: Path) -> None:
-    """Smoke test: the `mlmm all` define-layer block contains the
-    `honor_input_bfactors` branch added by the v0.2.9 fix."""
+def test_honor_input_bfactors_with_or_without_explicit_model(tmp_path: Path) -> None:
+    """Extraction-free layer detection must not depend on --model-pdb."""
     from mlmm.workflows import all as _all
 
     src = Path(_all.__file__).read_text()
-    # The fix introduces this exact identifier and message.
-    assert "honor_input_bfactors" in src
+    assert "honor_input_bfactors = bool(skip_extract and detect_layer)" in src
+    assert (
+        "honor_input_bfactors = bool(skip_extract and detect_layer "
+        "and model_pdb_override is None)"
+    ) not in src
     assert "honoring input PDB" in src

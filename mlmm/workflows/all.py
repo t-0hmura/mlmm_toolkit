@@ -3423,7 +3423,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     default=True,
     show_default=True,
     help="Detect ML/MM layers from input PDB B-factors (ML=0, MovableMM=10, FrozenMM=20) in downstream tools. "
-         "If disabled, downstream tools require --model-pdb or --model-indices.",
+         "If disabled, mlmm all requires --model-pdb.",
 )
 # ===== Post-processing toggles =====
 @click.option("--tsopt/--no-tsopt", "do_tsopt", default=False, show_default=True,
@@ -4540,14 +4540,12 @@ def cli(
     layered_dir = out_dir / "layered"  # deliverable (B-factor-layered PDBs for inspection / reuse)
     ensure_dir(layered_dir)
     layered_inputs: List[Path] = []
-    # If extraction was skipped AND --detect-layer is True AND --model-pdb was
-    # not provided, the user is responsible for B-factor layer encoding in the
-    # input PDB (typical workflow: pre-run `mlmm define-layer --radius-freeze
-    # X` and feed the resulting layered.pdb to `mlmm all`). Recomputing layers
-    # here would silently override radius-freeze with the default and (when
-    # extract was skipped) collapse the ML region to the full system, since
-    # ml_region_pdb is then the full PDB itself. Honor the input B-factors.
-    honor_input_bfactors = bool(skip_extract and detect_layer and model_pdb_override is None)
+    # With extraction skipped, --detect-layer always reads the input layers.
+    # An explicit --model-pdb owns ML membership while the input B-factors
+    # retain their movable/frozen MM assignments. Recomputing either case here
+    # would replace the user's layer boundary with define-layer's default
+    # radius.
+    honor_input_bfactors = bool(skip_extract and detect_layer)
     if honor_input_bfactors:
         _echo_detail(
             "[all] Extraction skipped and --detect-layer is on; honoring input PDB "
