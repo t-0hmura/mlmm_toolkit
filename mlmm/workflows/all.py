@@ -70,7 +70,10 @@ from mlmm.io.structure_formats import (
     coordinate_template_for,
     register_output_template_and_write_cif,
 )
-from mlmm.workflows.align_freeze import align_and_refine_sequence_inplace
+from mlmm.workflows.align_freeze import (
+    align_and_refine_sequence_inplace,
+    alignment_failed_pair_indices,
+)
 from mlmm.core.defaults import (
     GEOM_KW_DEFAULT,
     MLMM_CALC_KW,
@@ -5454,10 +5457,16 @@ def cli(
                     use_bfactor_layers=True,
                 )
                 _align_calc = _mlmm_calc(**_calc_kw)
-                align_and_refine_sequence_inplace(
+                alignment_results = align_and_refine_sequence_inplace(
                     _geoms, shared_calc=_align_calc,
                     out_dir=_align_dir / "refine", verbose=True,
                 )
+                failed_pairs = alignment_failed_pair_indices(alignment_results)
+                if failed_pairs:
+                    raise click.ClickException(
+                        "Input alignment did not converge for pair(s): "
+                        + ", ".join(str(index) for index in failed_pairs)
+                    )
                 del _align_calc
                 _new_pockets: List[Path] = []
                 for _i, (_g, _orig) in enumerate(zip(_geoms, pockets_for_path)):

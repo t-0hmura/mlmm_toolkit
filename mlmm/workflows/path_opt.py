@@ -68,7 +68,10 @@ from mlmm.core.utils import (
 )
 from mlmm.cli.common_options import add_ml_layer_detection_options, add_precision_option, add_workers_options, add_backend_model_option, add_calc_file_option, add_deterministic_option, add_allow_charge_mult_mismatch_option
 from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, _write_error_json, render_cli_exception
-from mlmm.workflows.align_freeze import align_and_refine_sequence_inplace
+from mlmm.workflows.align_freeze import (
+    align_and_refine_sequence_inplace,
+    alignment_failed_pair_indices,
+)
 from mlmm.core.defaults import (
     BFACTOR_FROZEN,
     BFACTOR_ML,
@@ -1446,13 +1449,19 @@ def cli(
         align_thresh = str(stopt_cfg.get("thresh", "gau"))
         try:
             emit("\n====== Aligning all inputs to the first structure (freeze-guided scan + relaxation) ======\n", narrative=True)
-            _ = align_and_refine_sequence_inplace(
+            alignment_results = align_and_refine_sequence_inplace(
                 geoms,
                 thresh=align_thresh,
                 shared_calc=shared_calc,
                 out_dir=out_dir_path / "align_refine",
                 verbose=True,
             )
+            failed_pairs = alignment_failed_pair_indices(alignment_results)
+            if failed_pairs:
+                raise click.ClickException(
+                    "Input alignment did not converge for pair(s): "
+                    + ", ".join(str(index) for index in failed_pairs)
+                )
             click.echo("[align] Completed input alignment.")
         except Exception as e:
             raise click.ClickException(f"Input alignment failed: {e}") from e

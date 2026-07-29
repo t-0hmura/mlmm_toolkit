@@ -430,22 +430,31 @@ def scan_freeze_atoms_toward_target_inplace(
                 Q_new = Q.copy()
                 Q_new[idx] = P[idx]
                 _set_all_coords_disabling_freeze(g_mob, Q_new)
+                max_remaining_A = 0.0
+                final_relax_converged = False
                 try:
                     # Finishing relaxation
                     g_mob.freeze_atoms = np.array(idx, int)
-                    LBFGS(
+                    final_optimizer = LBFGS(
                         g_mob,
                         out_dir=str(out_dir),
                         max_cycles=int(final_cycles),
                         print_every=100,
                         thresh=thresh,
                         dump=False,
-                    ).run()
+                    )
+                    final_optimizer.run()
+                    final_relax_converged = (
+                        getattr(final_optimizer, "is_converged", None) is True
+                    )
                 except (ZeroStepLength, OptimizationError) as e:
                     if verbose:
-                        click.echo(f"[scan] WARNING: Exception occurred in final relaxation: {e} (continue...)", err=True)
+                        click.echo(
+                            f"[scan] Final relaxation did not converge: {e}",
+                            err=True,
+                        )
                 g_mob.freeze_atoms = np.array([], int)
-                converged = True
+                converged = final_relax_converged
                 n_steps_done = istep
                 break
 
@@ -583,10 +592,22 @@ def align_and_refine_sequence_inplace(
     return results
 
 
+def alignment_failed_pair_indices(results: Sequence[Dict[str, Any]]) -> List[int]:
+    """Return pair indices whose freeze-guided refinement did not converge."""
+
+    failed: List[int] = []
+    for index, result in enumerate(results):
+        scan = result.get("scan") if isinstance(result, dict) else None
+        if not isinstance(scan, dict) or scan.get("converged") is not True:
+            failed.append(index)
+    return failed
+
+
 __all__ = [
     "align_second_to_first_kabsch_inplace",
     "scan_freeze_atoms_toward_target_inplace",
     "align_and_refine_pair_inplace",
     "align_and_refine_sequence_inplace",
+    "alignment_failed_pair_indices",
     "kabsch_R_t",
 ]

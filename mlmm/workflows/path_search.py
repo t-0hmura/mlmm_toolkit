@@ -87,7 +87,10 @@ from mlmm.cli.preflight import validate_existing_files
 from mlmm.io.trj2fig import run_trj2fig  # auto-generate an energy plot when a _trj.xyz is produced
 from mlmm.io.summary import emit_method_citations, method_references, write_summary_log
 from mlmm.domain.bond_changes import compare_structures, summarize_changes
-from mlmm.workflows.align_freeze import align_and_refine_sequence_inplace
+from mlmm.workflows.align_freeze import (
+    align_and_refine_sequence_inplace,
+    alignment_failed_pair_indices,
+)
 
 
 # Geometry (input handling) — reuse opt.py defaults
@@ -2254,13 +2257,19 @@ def cli(
         if align:
             try:
                 emit("\n====== Aligning all inputs to the first structure (freeze-guided scan + relaxation) ======\n", narrative=True)
-                _ = align_and_refine_sequence_inplace(
+                alignment_results = align_and_refine_sequence_inplace(
                     geoms,
                     thresh=align_thresh,
                     shared_calc=shared_calc,
                     out_dir=out_dir_path / "align_refine",
                     verbose=True,
                 )
+                failed_pairs = alignment_failed_pair_indices(alignment_results)
+                if failed_pairs:
+                    raise click.ClickException(
+                        "Input alignment did not converge for pair(s): "
+                        + ", ".join(str(index) for index in failed_pairs)
+                    )
                 click.echo("[align] Completed input alignment.")
             except Exception as e:
                 raise click.ClickException(f"Input alignment failed: {e}") from e
