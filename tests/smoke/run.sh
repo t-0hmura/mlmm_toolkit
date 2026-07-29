@@ -136,13 +136,13 @@ mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 4.0 --ligand-charge 'PRE:0' -q -1 -m 1 --deterministic --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --tsopt --thermo --dft --flatten --irc-never-stop --tsopt-max-cycles 2000 --dft-func-basis 'hf/sto-3g' --dft-grid-level 0 --dft-conv-tol 1e-5 --dft-max-cycle 40 --dft-engine cpu --out-dir test19 > test19.out 2>&1
 python assert_release_result.py all test19 --require-thermo --require-dft >> test19.out 2>&1
 
-# test20: all (--parm + --model-pdb override, reuse test19 outputs)
+# test20: all (manual --parm + --model-pdb override, reuse test19 outputs)
 mapfile -t test19_parms < <(find test19/mm_parm -maxdepth 1 -type f -name '*.parm7' -print)
 if [[ "${#test19_parms[@]}" -ne 1 ]]; then
   echo "[smoke] FAIL test20: expected exactly one reusable test19 parm7, found ${#test19_parms[@]}" >&2
   exit 1
 fi
-mlmm all -i r_complex.pdb p_complex.pdb --parm "${test19_parms[0]}" --model-pdb test19/ml_region.pdb -q -1 -m 1 --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test20 > test20.out 2>&1
+mlmm all -i r_complex.pdb p_complex.pdb --parm "${test19_parms[0]}" --model-pdb test19/ml_region.pdb --no-detect-layer -q -1 -m 1 --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test20 > test20.out 2>&1
 
 # test21: tsopt (radius-hessian 0.0)
 mlmm tsopt -i p_complex.pdb --parm p_complex.parm7 --model-pdb pocket_r.pdb --no-detect-layer -q -1 -m 1 --opt-mode grad --max-cycles 5 --radius-hessian 0.0 --active-dof-mode ml-only --thresh gau_loose --out-dir test21 > test21.out 2>&1

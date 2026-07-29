@@ -61,3 +61,13 @@ def test_smoke_contract_rejects_an_invented_option(tmp_path: Path) -> None:
     )
     assert len(errors) == 1
     assert "unknown option '--invented-option' for path-search" in errors[0]
+
+
+def test_manual_all_smoke_disables_layer_detection() -> None:
+    command = next(
+        command.text
+        for command in _literal_smoke_commands(SMOKE_SCRIPT)
+        if "--parm \"${test19_parms[0]}\"" in command.text
+    )
+    assert "--model-pdb test19/ml_region.pdb" in command
+    assert "--no-detect-layer" in command
