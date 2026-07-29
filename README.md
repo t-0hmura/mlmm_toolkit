@@ -13,7 +13,7 @@ Test a reaction mechanism in a single command:
 mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo
 ```
 
-The bundled examples include a full-system [BezA endpoint/scan mechanism](examples/beza/README.md), a methyltransferase walk-through, and a 122-atom ML/MM fixture; see [`examples/`](https://github.com/t-0hmura/mlmm_toolkit/tree/main/examples). Each stage is also exposed as an [individual subcommand](#cli-subcommands).
+The source repository includes a full-system [BezA endpoint/scan mechanism](examples/beza/README.md), a methyltransferase walk-through, and a 122-atom ML/MM fixture; see [`examples/`](https://github.com/t-0hmura/mlmm_toolkit/tree/main/examples). Each stage is also exposed as an [individual subcommand](#cli-subcommands).
 
 > **Prerequisites:** input PDB/mmCIF structures must already contain hydrogens; multiple reaction states must share the same atoms in the same order (only coordinates differ). `mlmm all` runs `mm-parm` automatically. Match `-l RES:CHARGE` to the H count actually present (e.g. SAM with 23 H = `SAM:1` cation, 22 H = `SAM:0` neutral) — full input-prep checklist in [docs/getting-started.md](docs/getting-started.md).
 

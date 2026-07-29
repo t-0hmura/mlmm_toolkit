@@ -190,6 +190,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   trusted PyPI publication.
 
 ### Fixed
+- Accept equivalent leading-digit PDB and trailing-digit Amber hydrogen names
+  while preserving strict atom-order checks for non-hydrogen atoms.
 - Route `dft` through `MLMMCore` for topology preparation, MM calculators, and
   subtractive recombination. DFT now replaces only the high-level model energy
   and requests no forces; there is no separate model-parm7 builder or MM path.

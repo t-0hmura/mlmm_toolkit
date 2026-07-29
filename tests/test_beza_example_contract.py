@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import shlex
+import sys
 from pathlib import Path
 
 from mlmm.core.utils import load_pdb_atom_metadata
@@ -7,6 +9,13 @@ from mlmm.workflows.all import _parse_scan_lists_literals
 
 
 BEZA = Path(__file__).parents[1] / "examples" / "beza"
+SCRIPTS = Path(__file__).parents[1] / ".github" / "scripts"
+if str(SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS))
+
+import docs_command_contract as dc  # noqa: E402
+
+
 STATES = ("1.R.pdb", "2.IM.pdb", "3.P.pdb")
 IDENTITY_FIELDS = (
     "is_hetatm",
@@ -17,12 +26,6 @@ IDENTITY_FIELDS = (
     "name",
     "altloc",
     "element",
-)
-SCAN_STAGES = (
-    '[("CS1 SAM 320","C7 GPP 321",1.50),'
-    '("CS1 SAM 320","SD SAM 320",3.30)]',
-    '[("C7 GPP 321","H11 GPP 321",2.90),'
-    '("OE2 GLU 186","H11 GPP 321",1.00)]',
 )
 
 
@@ -53,13 +56,34 @@ def test_beza_states_share_one_ordered_topology() -> None:
 def test_beza_states_have_distinct_coordinates() -> None:
     coordinates = [_coordinates(BEZA / name) for name in STATES]
     assert coordinates[0] != coordinates[1]
+    assert coordinates[0] != coordinates[2]
     assert coordinates[1] != coordinates[2]
 
 
-def test_beza_scan_selectors_resolve_against_reactant() -> None:
+def test_beza_runner_preserves_endpoint_and_scan_contract() -> None:
+    commands = dc.extract_shell_commands([BEZA / "run.sh"])
+    assert len(commands) == 2
+    endpoint, scan = (shlex.split(command.text) for command in commands)
+
+    assert endpoint[endpoint.index("-i") + 1 : endpoint.index("-c")] == [
+        "$script_dir/1.R.pdb",
+        "$script_dir/3.P.pdb",
+    ]
+    assert scan[scan.index("-i") + 1 : scan.index("-c")] == [
+        "$script_dir/1.R.pdb",
+    ]
+    for tokens, out_dir in ((endpoint, "result_mep"), (scan, "result_scan")):
+        assert tokens[tokens.index("-c") + 1] == "SAM,GPP,MG"
+        assert tokens[tokens.index("-l") + 1] == "SAM:1,GPP:-3"
+        assert "--tsopt" in tokens
+        assert "--thermo" in tokens
+        assert tokens[tokens.index("--out-dir") + 1] == out_dir
+
+    scan_index = scan.index("--scan-lists")
+    scan_stages = scan[scan_index + 1 : scan_index + 3]
     metadata = load_pdb_atom_metadata(BEZA / "1.R.pdb")
     stages = _parse_scan_lists_literals(
-        SCAN_STAGES,
+        scan_stages,
         atom_meta=metadata,
         one_based=True,
     )

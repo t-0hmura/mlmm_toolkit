@@ -20,8 +20,8 @@ bash examples/beza/run.sh /path/to/mlmm_beza_output
 ```
 
 The script uses `mlmm all`, which builds the Amber topology and ML/MM layers
-from the input structures. AmberTools and a backend-compatible GPU environment
-are required. This is a full enzyme example intended for scheduled GPU
-execution, not a short local smoke test. `2.IM.pdb` is included as the known
-intermediate for inspection or an explicitly guided multi-structure run; the
-default endpoint workflow searches from `1.R.pdb` to `3.P.pdb`.
+from the input structures. AmberTools is required; a backend-compatible GPU
+environment and scheduled execution are strongly recommended for this
+full-system example. `2.IM.pdb` is included as the known intermediate for
+inspection or an explicitly guided multi-structure run; the default endpoint
+workflow searches from `1.R.pdb` to `3.P.pdb`.
