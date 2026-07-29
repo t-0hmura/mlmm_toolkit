@@ -47,7 +47,7 @@ dependencies = [
     # torch_geometric / torch_scatter are intentionally NOT listed: mlmm never
     # imports them and current fairchem-core does not require them. torch_scatter
     # ships only as an sdist whose setup.py imports torch, which fails under PEP
-    # 517 build isolation and breaks a clean `pip install` (verified 2026-06-29).
+    # 517 build isolation and breaks a clean `pip install`.
     "numpy>=2.0,<2.5",
     "biopython>=1.80,<2.0",
     "ase>=3.26.0",

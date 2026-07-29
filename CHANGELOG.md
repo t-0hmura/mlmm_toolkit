@@ -133,11 +133,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   `verify_saddle`), and add saddle recovery. These are default-on optimizer
   behavior changes: an optimization can now stop at a different geometry, or
   report a different terminal status, than it did in the released version. The
-  `reject_uphill` safeguard is on by default. Its net effect has now been
-  measured: it rescues real post-IRC endpoint divergences (an endpoint
-  re-optimization that would otherwise settle at a spurious uphill minimum) with
-  no regression on already-converged endpoints, so it is kept on as a confirmed
-  net-positive safeguard. Toggle it with `opt`/`all
+  `reject_uphill` safeguard is on by default and retains the previous
+  lower-energy geometry when an RFO/L-BFGS trial is rejected. Toggle it with `opt`/`all
   --reject-uphill/--no-reject-uphill` (post-IRC endpoint re-optimization only on
   `all`).
 - Double the default segment path resolution (`max_nodes_segment` 10 → 20), which
@@ -356,28 +353,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   validators.
 - **`--backend-model` supplied via a `--config` YAML is now honoured** on every
   subcommand (same guard as above; only `all` was correct).
-- **Smoke `--deterministic` gate (test44) rebuilt the MM parm in each run, exposing non-deterministic antechamber
-  AM1-BCC charges.** The gate runs the ONIOM pipeline twice with `--deterministic` and asserts bit-identical
-  geometry/MEP output. Each run regenerated the MM `parm7` via antechamber; for this substrate the sqm AM1 SCF is
-  poorly convergent (tightening `scfconv` makes it fail outright), so its early-stop point — and thus the AM1-BCC
-  ligand charges — vary run-to-run (observed: 24/122 charges differ, up to 0.3 e). Different charges → different MM
-  electrostatics → different ONIOM forces → the endpoint pre-opt diverges (~0.14 Å) → the bit-gate flaked ~1/6–1/3
-  of runs. The ML forward and the MM force *given a fixed parm* are both bit-deterministic (verified). The MM parm
-  (charges) is a non-deterministic **input**, not part of the compute `--deterministic` controls; the gate now builds
-  the parm once and reuses it in the second run via `--parm`, so it tests compute reproducibility (verified 0 drift
-  across many pairs where the regenerate-each-run version drifted). **User-facing note:** end-to-end bit-identical
-  reproducibility of a `--deterministic` run requires pinning the MM topology — pass a fixed `--parm` — because
-  antechamber AM1-BCC charges are not reproducible for hard-to-converge ligands. Not a model (`uma-s-1p1` vs
-  `uma-s-1p2`) or GPU issue.
+- **The deterministic-compute comparison now reuses one MM topology.** Topology
+  generation is outside `--deterministic`; pass a fixed `--parm` when comparing
+  exact artifacts.
 - **Run summary recorded the default UMA model and `mlip_backend: "unknown"`, ignoring `--backend-model` / `-b`.**
   The `all` workflow's summary payload never populated `uma_model`, so `summary.py` fell back to the default
   `MLMM_CALC_KW` model (now `uma-s-1p2`): a run launched with e.g. `--backend-model uma-s-1p1` recorded
   `UMA model: uma-s-1p2` in `summary.log` and `"uma_model": null` / `"mlip_backend": "unknown"` in `summary.json`.
-  The **actual computation always honored `--backend-model`** (verified: `uma-s-1p1` vs `uma-s-1p2` produce
-  different deterministic results), so this was a provenance/display bug only — no effect on energies, geometries,
-  or classifications. Now the summary records the resolved model (`--backend-model` or `DEFAULT_UMA_MODEL`) and the
-  resolved backend (`-b` or the `uma` default). Mirrors pdb2reaction's 0.4.5 fix (`Fix run summary recording
-  default UMA model, not --backend-model`).
+  The computation honored `--backend-model`; the summary now records the
+  resolved model (`--backend-model` or `DEFAULT_UMA_MODEL`) and backend (`-b`
+  or the `uma` default).
 
 ## [0.3.1] — 2026-07-05
 
@@ -422,9 +407,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   float32 upstream) and `--deterministic` (its forces come from a custom CUDA
   kernel outside torch's deterministic-algorithms control), with clear errors
   instead of running misleadingly.
-- The `all`-pipeline determinism check in the smoke suite is now an
-  informational monitor (reports drift, does not gate); bit-exactness is an
-  opt-in via `--deterministic`, not a default guarantee.
+- The `all`-pipeline determinism comparison uses a fixed smoke stack and input;
+  exact repeatability for other stacks requires separate verification.
 - `--help` of `mlmm` now groups subcommands under semantic sections
   ("Pipelines" / "Pipeline stages" / "Inputs & topology" / "Analysis")
   in a configurable, deterministic order; subcommands not listed in any
@@ -525,12 +509,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   model variant was settable only through `--config` YAML.
 - `--deterministic` flag on every compute subcommand (`opt`, `tsopt`,
   `freq`, `irc`, `scan`, `scan2d`, `scan3d`, `path-opt`, `path-search`,
-  `all`, `sp`) for bit-reproducible GPU runs (deterministic algorithms +
-  an `index_reduce_` shim). Process-global, slower, and fails loud if the
-  build cannot honour it; `MLMM_STRICT_DETERMINISTIC=1` is the env-var
-  equivalent. Verified bit-identical energy and forces on uma / orb / mace.
-- `docs/reproducibility.md` documenting the determinism / precision model
-  and the per-backend reproducibility guarantees.
+  `all`, `sp`) requests deterministic algorithms and an `index_reduce_` shim.
+  `MLMM_STRICT_DETERMINISTIC=1` is the environment-variable equivalent;
+  backend/model/SDK and target-stack repeatability must be verified.
+- `docs/reproducibility.md` documents backend support and verification guidance.
 - `tests/test_help_grouping.py` locks the four-bucket `--help` section
   rendering + order.
 - `MLMMCore.compute` / `mlmm` Calculator class / MLMMCore.__init__
@@ -672,9 +654,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   and switched the README overview image to an absolute URL so it renders on PyPI.
 - Documented the default MM backend's 4-point-water (OPC/TIP4P) limitation and the
   3-point (OPC3/TIP3P) / `--mm-backend openmm` workarounds in `mm-parm.md`.
-- Removed stray internal authoring notes from in-source comments and
-  docs; technical rationale preserved verbatim, no runtime change.
-
 ## [0.2.9] — unreleased
 
 Consolidated changes since v0.2.4, pending the `v0.2.9` tag. Highlights: end-to-end
@@ -850,7 +829,7 @@ This release replaces the previous pysisyphus-wrapper architecture with a unifie
 - **pysisyphus bundled**: No longer installed from a separate git repository; a modified fork is included in the package.
 - **fairchem-core from PyPI**: No longer installed from a custom git fork.
 - **numpy constraint relaxed**: `numpy<2.0` → `numpy>=1.24` (NumPy 2.x compatible).
-- **Configuration**: Inline kwargs replaced by a centralized `defaults.py` as the single source of truth for all default values.
+- **Configuration**: Shared runtime defaults were centralized in `defaults.py`; command-local CLI defaults remain with their Click options.
 
 ### Added — CLI & Workflow
 

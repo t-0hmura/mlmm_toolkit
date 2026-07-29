@@ -13,8 +13,9 @@ Options:
                                   paths, DEBUG logging).  [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
-  -i, --input FILE...             Two endpoint structures (reactant/product);
-                                  both must be full-enzyme PDBs.  [required]
+  -i, --input FILE...             Two endpoint structures in PDB/mmCIF, or XYZ
+                                  with a corresponding --ref-pdb for each
+                                  endpoint.  [required]
   -q, --charge INTEGER            ML region charge. Required unless --ligand-
                                   charge is provided.
   -l, --ligand-charge TEXT        Total charge for unknown ligand residues or a
@@ -144,9 +145,9 @@ Options:
                                   Calculator instance). CLI overrides config
                                   YAML; otherwise defaults to get_calculator.
   --deterministic / --no-deterministic
-                                  Enable strict deterministic GPU algorithms and
-                                  the index_reduce_ shim. Slower; raises if
-                                  unsupported. Default off.
+                                  Request deterministic algorithms for
+                                  controlled operations; verify exact
+                                  reproducibility on the complete target stack.
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
                                   electron-parity check (logs that it was
                                   skipped). For an intentional open-shell or

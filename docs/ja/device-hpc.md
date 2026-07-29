@@ -58,7 +58,7 @@ calc:
 `freq` コマンドは `--hess-device` で Hessian の組み立て・対角化のデバイスを制御できます：
 
 ```bash
-# デフォルト: ml_device と同じ（通常 CUDA）
+# デフォルト: 解決済みの ML デバイス
 mlmm freq -i input.pdb --parm real.parm7 -q -1
 
 # CPU で Hessian 組み立て（大きな系で VRAM を節約）
@@ -66,15 +66,15 @@ mlmm freq -i input.pdb --parm real.parm7 -q -1 --hess-device cpu
 ```
 
 `--hess-device cpu` を使用する場面：
-- 活性領域が大きい場合（非凍結原子 > 約 500）
+- 選択したバックエンド/Hessian モードに対して活性領域が大きすぎる場合
 - 振動数計算で CUDA out-of-memory エラーが発生する場合
-- VRAM が限られている場合（< 16 GB）
+- 選択した計算に対して対象 GPU のメモリが不足する場合
 
 ### VRAM 節約のヒント
 
 1. **ML 領域を小さくする:** `mlmm extract` で小さい `--radius` を使用、または `mlmm define-layer` で `--radius-freeze` を絞る。
-2. **hessian_ff（デフォルト）を使用:** hessian_ff は CPU のみなので、VRAM はすべて UMA に使用可能。
-3. **大きな系では OpenMM CUDA を避ける:** ML と MM の両方が CUDA を使うと VRAM 圧力が倍増する。
+2. **hessian_ff（デフォルト）を使用:** hessian_ff は CPU で実行されるため、GPU 上の追加 MM 割り当てを避けられます。
+3. **MM デバイスを明示的に選ぶ:** ML と MM の両方で CUDA を使う場合は代表的な小規模実行でメモリ使用量を測り、必要に応じて `mm_device: cpu` を使用します。
 4. **VRAM を監視:** `print_vram` はデフォルトで true（Hessian 計算中に VRAM 使用量（ピーク）を表示）。抑制するには YAML で `print_vram: False` を設定。
 
 ---
@@ -87,14 +87,13 @@ mlmm freq -i input.pdb --parm real.parm7 -q -1 --hess-device cpu
 | backend | デフォルト | 理由 |
 |---|---|---|
 | UMA | fp32 | 上流 fairchem の baseline。 |
-| ORB | fp64 | ORB fp32 は縮約 `float32-high`（TF32）matmul を使い、force noise が有限差分 Hessian に偽の虚振動を作る場合がある。 |
+| ORB | fp64 | backend default。 |
 | MACE | fp64 | 上流の `default_dtype="float64"` と一致。 |
 | AIMNet2 | fp32 | 精度切替を持たず、明示的 fp64 は拒否。 |
 
-ORB/MACE で `--precision fp32` を明示するのは、Hessian の noise より
-screening throughput を優先する場合に限ります。UMA fp64 は数値的に敏感な
-TS/Hessian を安定化する場合がありますが、consumer GPU では遅くなります。
-どの精度でも freq と IRC による独立検証が必要です。
+対応する両精度について、対象 backend/model/system で energy、force、
+frequency、runtime、memory を比較してください。どの精度でも freq と IRC
+による独立検証が必要です。
 
 ```bash
 # データセンター H200 — フル精度のベース推論
@@ -107,7 +106,7 @@ mlmm scan -i r.pdb --parm enzyme.parm7 -q 0 -b orb --precision fp32 --scan-lists
 `--precision` はすべての計算系サブコマンド（`sp`、`opt`、`tsopt`、`freq`、`irc`、`scan` / `scan2d` / `scan3d`、`path-opt`、`path-search`、`all`）で受け付けられ、バックエンドごとにルーティングされます（UMA precision、ORB precision、MACE `default_dtype`）。
 
 ```{note}
-`-b aimnet2` では `fp32` は no-op、`fp64` は*拒否*されます — モデル入力が上流で float32 にキャストされるためです。fp64 が必要なら `uma`、`orb`、`mace` を使ってください。`--precision fp64` は GPU のリダクション順序ドリフトを*低減*しますが、実行をビット単位で同一には**しません**。ビット単位の厳密性は `--deterministic` のみが与えます — [再現性](reproducibility.md) を参照。
+`-b aimnet2` では model 入力が上流で float32 に cast されるため、`fp32` は no-op、`fp64` は拒否されます。UMA、Orb、MACE は fp64 を受理します。`--deterministic` は決定論的 algorithm を要求しますが、end-to-end のビット単位同一性を単独では保証しません。対象 backend/model/SDK と stack で検証してください — [再現性](reproducibility.md) を参照。
 ```
 
 ---
@@ -190,9 +189,9 @@ mlmm opt \
 
 ### 重要なポイント
 
-- **GPU 1 基:** mlmm-toolkit はジョブあたり GPU 1 基を使用。PBS なら `gpus=1`、Slurm なら `--gres=gpu:1` を指定。
-- **CPU スレッド:** MM バックエンド用に十分な CPU を確保（`mm_threads` デフォルト 16）。PBS なら `ppn=32`、Slurm なら `--cpus-per-task=32` を推奨。
-- **メモリ:** 酵素活性部位モデルには通常 120 GB で十分。非常に大きな系では増量。
+- **ML 用 GPU:** ML inference は GPU 1 基を使用します。OpenMM MM backend を別 CUDA device に置く場合だけ追加 GPU を検討します。
+- **CPU thread:** MM backend の `mm_threads` と対象系の pilot に合わせて要求します。
+- **メモリ:** 代表的な pilot と scheduler の peak-memory log から RAM を設定。
 - **CUDA ランタイム:** 公式 PyTorch wheel には CUDA のユーザー空間ライブラリが含まれるため、通常は互換性のある NVIDIA ドライバーだけで十分です。必要な拡張をソースビルドする場合だけ CUDA toolkit module を読み込みます。
 - **C++ コンパイラ:** デフォルトの `hessian_ff` MM バックエンドは初回利用時に C++ カーネルを JIT ビルドします。CUDA とは独立に、各計算ノードで GCC 9 以上と Ninja が必要です。システムの `g++` がない、または古い場合はコンパイラモジュールを読み込みます。
 

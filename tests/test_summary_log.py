@@ -137,15 +137,21 @@ def test_write_summary_log_ts_only_separates_model_dft_from_composite_gibbs(
                 "index": 1,
                 "tag": "seg_01",
                 "kind": "tsopt",
-                "barrier_kcal": 8.0,
-                "delta_kcal": -1.0,
+                "barrier_from_endpoint_1_kcal": 8.0,
+                "barrier_from_endpoint_2_kcal": 9.0,
             }],
             "post_segments": [{
                 "index": 1,
                 "tag": "seg_01",
                 "kind": "tsopt",
-                "dft": {"barrier_kcal": 7.8, "delta_kcal": -1.2},
-                "gibbs_dft_mlip": {"barrier_kcal": 9.1, "delta_kcal": -0.4},
+                "dft": {
+                    "barrier_from_endpoint_1_kcal": 7.8,
+                    "barrier_from_endpoint_2_kcal": 8.2,
+                },
+                "gibbs_dft_mlip": {
+                    "barrier_from_endpoint_1_kcal": 9.1,
+                    "barrier_from_endpoint_2_kcal": 9.5,
+                },
             }],
             "energy_diagrams": [],
         },
@@ -154,10 +160,12 @@ def test_write_summary_log_ts_only_separates_model_dft_from_composite_gibbs(
     text = dest.read_text(encoding="utf-8")
     assert "Number of IRC frames : 5" in text
     assert "Number of segments   : 1" in text
-    assert "refined TS - assigned endpoint" in text
+    assert "chemically unassigned endpoint" in text
     assert "MEP ΔE" not in text
-    assert "model-region DFT ΔE‡" in text
-    assert "DFT//MLIP/MM ΔG‡" in text
+    assert "model-region DFT ΔE‡ E1->TS" in text
+    assert "model-region DFT ΔE‡ E2->TS" in text
+    assert "DFT//MLIP/MM ΔG‡ E1->TS" in text
+    assert "DFT//MLIP/MM ΔG‡ E2->TS" in text
     assert "DFT//MLIP/MM ΔE" not in text
 
 

@@ -18,7 +18,7 @@ Each row points to the full per-subcommand md in this skill directory.
 | `extract.md` | `extract` | Cuts an active-site cluster from a PDB around the substrate residues.<br>Handles residue selection, per-residue charge mapping (`-l`), link-H, and B-factor layer assignment in one pass. |
 | `mm-parm.md` | `mm-parm` | Generate Amber `parm7` + `rst7` from a PDB via tleap (and antechamber for non-standard ligands).<br>Required for any subcommand that needs MM gradients. |
 | `define-layer.md` | `define-layer` | Assign / refine ML / movable-MM / frozen layers via the PDB B-factor field.<br>Standalone or post-`extract` adjustment without rebuilding parm7. |
-| `oniom-export.md` | `oniom-export` | Export the layered system as a Gaussian g16 ONIOM input (or ORCA).<br>Useful for round-tripping or hand-comparing to a third-party DFT/MM run. |
+| `oniom-export.md` | `oniom-export` | Export the layered system as a Gaussian g16 ONIOM input (or ORCA).<br>Useful for input-deck exchange or hand-comparing setup with a third-party DFT/MM run. |
 | `oniom-import.md` | `oniom-import` | Reverse direction: read a g16 / ORCA ONIOM input and reconstruct an `mlmm-toolkit` PDB.<br>Use when adopting an existing Gaussian ONIOM workflow. |
 | `path-search.md` | `path-search` | Recursive MEP search (GSM or DMF) across N endpoints with bond-change segmentation.<br>Splits multi-step paths into one-TS-per-segment automatically. |
 | `path-opt.md` | `path-opt` | MEP optimization for a **single** segment between two endpoints.<br>Building block of `path-search`; also useful for refining one segment without re-running the whole search. |
@@ -127,7 +127,7 @@ mlmm bond-summary -i reactant.pdb product.pdb
 | Forgetting `-b` falls back to the default (`uma`) | Spell `-b uma` / `-b orb` / `-b mace` / `-b aimnet2` explicitly for production runs. |
 | `--config` YAML ignored | YAML is read **after** built-in defaults but **before** explicit CLI flags. Anything also given on CLI overrides YAML. |
 | `--help-advanced` flags differ between versions | They are subject to change; if a flag isn't in `--help`, check `--help-advanced` and version-pin if the workflow is shared. |
-| OOM on the Hessian step | If `hessian_calc_mode='Analytical'` was enabled, switch back to the default `'FiniteDifference'` (FD is bounded by a single energy/force evaluation; autograd retains $O(N \cdot D)$ activations across $3N$ backward passes). Also try `return_partial_hessian=True` or downgrade backend (UMA-m → UMA-s). |
+| OOM on the Hessian step | Reduce the active Hessian region and compare `Analytical` with `FiniteDifference` on the target backend/system; also keep `return_partial_hessian=True` where applicable. |
 | `workers > 1` with `Analytical` | This is an intentional hard error. Use one UMA worker for an analytical Hessian, or request `FiniteDifference` before enabling the parallel predictor. |
 
 ## Defaults

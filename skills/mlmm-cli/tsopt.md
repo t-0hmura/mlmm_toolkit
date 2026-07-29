@@ -173,7 +173,8 @@ shape.
   nonconvergence, inspect the TS seed, followed mode, optimizer diagnostics,
   and backend/model behavior.
 - Backend/model choice changes the curvature surface. Validate every candidate
-  by exactly one meaningful imaginary mode and the intended IRC connectivity.
+  by exactly one imaginary mode, its displacement, and the intended IRC
+  connectivity.
 
 ## See also
 

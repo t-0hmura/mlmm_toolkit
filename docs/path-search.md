@@ -72,7 +72,7 @@ out_dir/ (default: ./result_path_search/)
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `-i, --input PATH...` | Two or more full-enzyme PDBs in reaction order. Repeat `-i` or pass multiple paths after one flag. | Required |
+| `-i, --input PATH...` | Two or more PDB/mmCIF structures, or XYZ files with corresponding `--ref-pdb` entries, in reaction order. Repeat `-i` or pass multiple paths after one flag. | Required |
 | `--parm PATH` | Amber parm7 topology for the full enzyme complex. | Required |
 | `--model-pdb PATH` | PDB defining the ML (high-level) region atoms for ML/MM. Optional when `--detect-layer` or `--model-indices` is used. | _None_ |
 | `--model-indices TEXT` | Comma-separated atom indices for the ML region (ranges allowed like `1-5`). Used when `--model-pdb` is omitted. | _None_ |

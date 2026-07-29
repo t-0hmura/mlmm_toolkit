@@ -69,8 +69,9 @@ Options:
                                   How the ML backend builds the Hessian
                                   (Analytical or FiniteDifference); overrides
                                   calc.hessian_calc_mode from YAML. Default:
-                                  'FiniteDifference'. Use 'Analytical' when VRAM
-                                  is sufficient.
+                                  'FiniteDifference'. Runtime and memory depend
+                                  on the backend and system; compare both modes
+                                  on a representative pilot.
   --max-cycles INTEGER            Maximum total optimization cycles.  [default:
                                   10000]
   --dump / --no-dump              Write concatenated trajectory
@@ -190,9 +191,9 @@ Options:
                                   Calculator instance). CLI overrides config
                                   YAML; otherwise defaults to get_calculator.
   --deterministic / --no-deterministic
-                                  Enable strict deterministic GPU algorithms and
-                                  the index_reduce_ shim. Slower; raises if
-                                  unsupported. Default off.
+                                  Request deterministic algorithms for
+                                  controlled operations; verify exact
+                                  reproducibility on the complete target stack.
   --coord-type [cart|redund|dlc|tric]
                                   Optimization coordinate system
                                   (cart|redund|dlc|tric). cart is the default;

@@ -13,8 +13,8 @@ Options:
                                   [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
-  -i, --input FILE                Full enzyme structure (PDB or XYZ). If XYZ,
-                                  use --ref-pdb for topology.  [required]
+  -i, --input FILE                Full enzyme structure (PDB/mmCIF, or XYZ with
+                                  --ref-pdb topology).  [required]
   --ref-pdb FILE                  Reference PDB topology when input is XYZ. XYZ
                                   coordinates are used (higher precision) while
                                   PDB provides atom ordering and residue

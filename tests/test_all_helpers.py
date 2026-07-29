@@ -759,6 +759,23 @@ def test_build_energy_level_dict_zero_referenced_kcal() -> None:
     assert d["structures"] == {"R": "r.pdb", "TS": "ts.pdb", "P": "p.pdb"}
 
 
+def test_build_energy_level_dict_keeps_unassigned_endpoints_directional() -> None:
+    d = build_energy_level_dict(
+        labels=["E1", "TS", "E2"],
+        energies_au=[-100.0, -99.5, -100.2],
+        ref_energy=-100.0,
+        au_to_kcal=627.5095,
+        diagram_path="/tmp/diag.png",
+        structures={"E1": "e1.pdb", "TS": "ts.pdb", "E2": "e2.pdb"},
+    )
+    assert "barrier_kcal" not in d
+    assert "delta_kcal" not in d
+    assert d["barrier_from_endpoint_1_kcal"] == d["energies_kcal"][1]
+    assert d["barrier_from_endpoint_2_kcal"] == (
+        d["energies_kcal"][1] - d["energies_kcal"][2]
+    )
+
+
 def test_build_energy_level_dict_does_not_mutate_inputs() -> None:
     labels = ["R", "TS", "P"]
     energies = [-1.0, -0.5, -1.1]

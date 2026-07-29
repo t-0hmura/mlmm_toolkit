@@ -1,6 +1,6 @@
 # `scan2d`
 
-Perform a two-distance (d1, d2) grid scan with harmonic restraints and ML/MM relaxations on a layered enzyme PDB. Use it to map a 2D potential energy surface across two reactive distances (e.g., bond-forming and bond-breaking) to locate saddle points and bifurcation features that a 1D scan would miss. `mlmm scan2d` constructs linear grids for two bond distances using `--max-step-size`, relaxes each grid point with the appropriate restraints active, and records unbiased ML/MM energies for visualization. Pass `-s/--scan-lists` a YAML/JSON spec file (recommended) or an inline Python literal; both forms accept exactly two scan axes. The 3D `scan2d_landscape.html` includes a bottom contour projection.
+Perform a two-distance (d1, d2) grid scan with harmonic restraints and ML/MM relaxations on a layered enzyme structure. Input may be PDB/mmCIF, or XYZ with `--ref-pdb`. Use it to map a 2D potential energy surface across two reactive distances (e.g., bond-forming and bond-breaking) to locate saddle points and bifurcation features that a 1D scan would miss. `mlmm scan2d` constructs linear grids for two bond distances using `--max-step-size`, relaxes each grid point with the appropriate restraints active, and records unbiased ML/MM energies for visualization. Pass `-s/--scan-lists` a YAML/JSON spec file (recommended) or an inline Python literal; both forms accept exactly two scan axes. The 3D `scan2d_landscape.html` includes a bottom contour projection.
 
 ## Examples
 
@@ -52,7 +52,7 @@ Add `--print-parsed` to validate the parsed scan spec and exit without running t
 
 ## Workflow
 
-1. **Input & preoptimization** -- Load the enzyme PDB, resolve charge/spin, build the ML/MM calculator (MLIP backend + hessian_ff; backend selected via `-b/--backend`, default `uma`), and optionally run an unbiased pre-optimization when `--preopt`. v0.3.3 uses mechanical embedding and rejects electronic-embedding requests before calculator construction.
+1. **Input & preoptimization** -- Load PDB/mmCIF, or XYZ with `--ref-pdb`; resolve charge/spin, build the ML/MM calculator (MLIP backend + hessian_ff; backend selected via `-b/--backend`, default `uma`), and optionally run an unbiased pre-optimization when `--preopt`. v0.3.3 uses mechanical embedding and rejects electronic-embedding requests before calculator construction.
 2. **Grid construction** -- Parse targets from `-s/--scan-lists` (YAML/JSON spec file or inline literal) into two quadruples, normalize indices (1-based by default or PDB atom selectors like `"TYR,285,CA"`). Build linear grids with `ceil(|high - low| / h) + 1` points where `h = --max-step-size`.
 3. **Outer loop (d1)** -- For each d1 value, relax the system with **only the d1 restraint** active.
 4. **Inner loop (d2)** -- For each d2 value at the current d1, relax with **both restraints** active starting from the nearest previously converged structure.
@@ -82,7 +82,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `-i, --input PATH` | Input enzyme complex PDB (required). | Required |
+| `-i, --input PATH` | Input PDB/mmCIF, or XYZ with `--ref-pdb`. | Required |
 | `--parm PATH` | Amber parm7 topology for the enzyme (required). | Required |
 | `--model-pdb PATH` | PDB defining the ML region. Optional when `--detect-layer` is enabled. | _None_ |
 | `--model-indices TEXT` | Comma-separated atom indices for the ML region (ranges allowed). | _None_ |

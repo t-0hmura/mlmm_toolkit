@@ -56,7 +56,7 @@ def test_path_workflow_max_nodes_defaults_to_twenty(command: str) -> None:
 
 
 @pytest.mark.parametrize("mep_mode", ["gsm", "dmf"])
-def test_path_opt_rejects_zero_cycles_before_touching_output(
+def test_path_opt_rejects_zero_cycles_with_error_result(
     tmp_path: Path,
     mep_mode: str,
 ) -> None:
@@ -94,7 +94,10 @@ def test_path_opt_rejects_zero_cycles_before_touching_output(
 
     assert result.exit_code != 0
     assert "--max-cycles must be at least 1" in result.output
-    assert stale_result.read_text(encoding="utf-8") == '{"status": "complete"}\n'
+    error_result = json.loads(stale_result.read_text(encoding="utf-8"))
+    assert error_result["status"] == "error"
+    assert error_result["error"] == "--max-cycles must be at least 1."
+    assert error_result["error_type"] == "BadParameter"
 
 
 @pytest.mark.parametrize(

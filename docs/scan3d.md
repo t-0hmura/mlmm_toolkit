@@ -1,6 +1,6 @@
 # `scan3d`
 
-Perform a three-dimensional (d1, d2, d3) grid scan with harmonic restraints and ML/MM relaxations on a layered enzyme PDB, mapping a 3D PES across three coupled distances. `mlmm scan3d` nests loops over d1, d2, and d3, relaxing each point with the ML/MM calculator (`mlmm.backends.mlmm_calc.mlmm`) under the appropriate restraints. ML membership comes from `--model-pdb`, `--model-indices`, or B-factor layers via `--detect-layer`; Amber parameters are read from `--parm`. The MLIP backend is selected via `-b/--backend` (default: `uma`), and the optimizer is PySisyphus L-BFGS. Use `-s/--scan-lists` with a YAML/JSON spec file (recommended) or an inline Python literal. A precomputed surface can be loaded via `--csv` for re-plotting without re-running the scan.
+Perform a three-dimensional (d1, d2, d3) grid scan with harmonic restraints and ML/MM relaxations on a layered enzyme structure, mapping a 3D PES across three coupled distances. Input may be PDB/mmCIF, or XYZ with `--ref-pdb`. `mlmm scan3d` nests loops over d1, d2, and d3, relaxing each point with the ML/MM calculator (`mlmm.backends.mlmm_calc.mlmm`) under the appropriate restraints. ML membership comes from `--model-pdb`, `--model-indices`, or B-factor layers via `--detect-layer`; Amber parameters are read from `--parm`. The MLIP backend is selected via `-b/--backend` (default: `uma`), and the optimizer is PySisyphus L-BFGS. Use `-s/--scan-lists` with a YAML/JSON spec file (recommended) or an inline Python literal. A precomputed surface can be loaded via `--csv` for re-plotting without re-running the scan.
 
 ## Examples
 
@@ -36,7 +36,7 @@ mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 1. Load the structure through `geom_loader`, resolve charge/spin from CLI, and
     optionally run an unbiased preoptimization when `--preopt`.
 2. Parse targets from `-s/--scan-lists` (YAML/JSON spec file or inline literal; default 1-based indices unless
-    `--zero-based` is passed) into three quadruples. For PDB inputs, each atom
+    `--zero-based` is passed) into three quadruples. When PDB metadata are available, each atom
     entry can be an integer index or a selector string like `"TYR,285,CA"`;
     delimiters may be spaces, commas, slashes, backticks, or backslashes.
 3. Outer loop over `d1[i]`: relax with only the d1 restraint active, starting
@@ -76,7 +76,7 @@ Filename tags `i###_j###_k###` are integer hundredths of an angstrom (d1×100, d
 ## CLI options
 | Option | Description | Default |
 | --- | --- | --- |
-| `-i, --input PATH` | Full enzyme PDB (no link atoms). | Required unless `--csv` |
+| `-i, --input PATH` | Full-system PDB/mmCIF, or XYZ with `--ref-pdb` (no link atoms). | Required unless `--csv` |
 | `--parm PATH` | Amber parm7 topology for the full enzyme. | Required unless `--csv` |
 | `--model-pdb PATH` | PDB defining the ML region. | _None_ |
 | `--model-indices TEXT` | Explicit ML-region atom indices (alternative to `--model-pdb`). | _None_ |
@@ -99,7 +99,7 @@ Filename tags `i###_j###_k###` are integer hundredths of an angstrom (d1×100, d
 | `-o, --out-dir TEXT` | Output directory root for grids and plots. | `./result_scan3d/` |
 | `--thresh TEXT` | Convergence preset override (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | `baker` |
 | `--config FILE` | Base YAML configuration file (applied first). | _None_ |
-| `--ref-pdb FILE` | Reference PDB topology for non-PDB inputs. | _None_ |
+| `--ref-pdb FILE` | Reference PDB topology for XYZ input. | _None_ |
 | `--preopt/--no-preopt` | Run an unbiased optimization before scanning. | `False` |
 | `--baseline {min,first}` | Shift kcal/mol energies so the global min or `(i,j,k)=(0,0,0)` is zero. | `min` |
 | `--zmin FLOAT` | Manual lower limit for the isosurface color bands (kcal/mol). | Autoscaled |

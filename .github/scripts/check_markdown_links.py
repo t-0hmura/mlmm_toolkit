@@ -16,8 +16,7 @@ EXTERNAL_PREFIXES = ("http://", "https://", "mailto:", "tel:")
 def public_markdown_paths() -> list[Path]:
     """Every public Markdown page whose local links must resolve.
 
-    Explicit roots replace the previous implicit ``docs/`` rglob so that
-    README, CONTRIBUTING, skills, and example pages are protected too.
+    The public roots include README, CONTRIBUTING, docs, skills, and examples.
     """
     paths: list[Path] = []
     for name in ("README.md", "CONTRIBUTING.md"):

@@ -111,32 +111,19 @@ mlmm all -i 1.R.pdb 3.P.pdb \
 
 ## Walltime budgeting
 
-Rough empirical estimates for systems of ~200–700 atoms with UMA-s-1.2
-on a single mid-range GPU. Adjust generously.
-
-| Stage | Per-segment time | Notes |
-|---|---|---|
-| `extract` | < 1 min | Pure Python, CPU |
-| `path-opt`/`path-search` (GSM) | 5–30 min | Scales with `--max-nodes` |
-| `path-opt`/`path-search` (DMF) | Pilot required | Cost and convergence relative to GSM are system-dependent |
-| `tsopt` (RS-I-RFO) | 5–60 min | Hessian rebuilds dominate |
-| `tsopt` (Dimer) | 1–10 min | Hessian-free; cheaper |
-| `irc` | 5–30 min | Forward + backward; default 125 cycles each |
-| `freq` | 5–30 min | Hessian once + diagonalization |
-| `dft` (ωB97M-V/def2-tzvpd = default, GPU) | ~1–10 h | Heavy; a lighter non-default def2-svp basis is ~30 min – 6 h |
-| `dft` (CPU) | 10× GPU time | Use only for small clusters |
-
-For an `all` run with 2 segments + DFT: budget **6–24 h walltime**.
-For pure MLIP `all` (no DFT): **2–6 h** is usually enough.
+Pilot one representative segment on the target backend and node before
+requesting production walltime. Path cost scales with `--max-nodes` and
+optimizer cycles; TS/frequency cost depends on Hessian mode and active degrees
+of freedom; DFT cost depends strongly on elements, basis, functional, grid, and
+engine. Add margin for retries and first-use compilation.
 
 ## CPU vs GPU choice
 
 | Workload | CPU | GPU |
 |---|---|---|
-| MLIP inference (any backend) | Possible but ~50–200× slower | **Required for production** |
-| `mlmm dft` with ωB97M-V on > 200 atoms | Slow (10–100 h) | Recommended |
-| `mlmm dft` with cheap functional / small molecule | Fine | Marginal speedup |
-| Analytical MLIP Hessian | Possible but slow | Usually faster; memory demand is backend/model dependent |
+| MLIP inference | Supported; benchmark the selected backend | Backend/model support varies; benchmark the target system |
+| `mlmm dft` | Supported | Supported with a compatible GPU4PySCF stack |
+| Analytical MLIP Hessian | Supported by selected backends | Runtime and memory are backend/model/system dependent; compare with finite difference on a pilot |
 
 Check `mlmm-install-backends/dft.md` for `--engine gpu` / `cpu`
 specifics, including the aarch64 caveat (CPU PySCF only).

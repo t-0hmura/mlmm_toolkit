@@ -81,7 +81,7 @@ _PIPELINE_MODE: bool = False
 # Child-invocation state: True when this process is dispatching one of its
 # subcommands through `_run_cli_main` (in-proc), so the child's group-callback
 # banner / `[calc] Resolved device:` echo can be skipped to avoid repeating
-# the same line 4-8x per pipeline run.
+# the same line for each in-process child stage.
 _CHILD_MODE: bool = False
 
 

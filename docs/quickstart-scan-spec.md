@@ -36,7 +36,7 @@ To validate the spec without running (GPU-free), add `--print-parsed`. This prin
 
 - `result_scan/stage_01/result.pdb`
 - `result_scan/stage_02/result.pdb`
-- `scan_trj.xyz` and `scan.pdb` (always written)
+- `scan_trj.xyz` (always written); `scan.pdb` when conversion and a reference topology are available
 
 ## Inline literal input (without YAML file)
 

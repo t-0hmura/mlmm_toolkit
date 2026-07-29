@@ -75,8 +75,8 @@
 | **MACE** | MACE (Message-passing Atomic Cluster Expansion) | 等変メッセージパッシングに基づく MLIP バックエンド。`--backend mace` で選択。専用の conda 環境で `pip uninstall fairchem-core`（UMA の pin が `e3nn` で衝突するため）を実行してから `pip install mace-torch` でインストールします。 |
 | **AIMNet2** | Atoms In Molecules Network 2 | ニューラルネットワークベースの MLIP バックエンド。`--backend aimnet2` で選択。`pip install "mlmm-toolkit[aimnet]"` で追加インストール。 |
 | **xTB** | Extended Tight-Binding | 半経験的量子化学手法。custom calculator では利用可能だが、v0.3.3 の廃止済み電子埋め込み経路では使用不可。 |
-| **解析 Hessian** | Analytical Hessian | バックエンドの微分可能またはネイティブ Hessian 経路で二階微分を計算。一般に高速だが VRAM を多く消費。UMA、ORB、MACE、AIMNet2 で利用可能。 |
-| **有限差分** | Finite Difference | 変位させた構造の力から二階微分を近似。一般に低速だがメモリ効率が良く、全 MLIP バックエンドで利用可能。 |
+| **解析 Hessian** | Analytical Hessian | backend の微分可能または native Hessian 経路で二階微分を計算。runtime と memory は backend と系に依存。UMA、ORB、MACE、AIMNet2 で利用可能。 |
+| **有限差分** | Finite Difference | 変位させた構造の力から二階微分を近似。runtime と memory は backend と系に依存し、全 MLIP backend で利用可能。 |
 
 ---
 

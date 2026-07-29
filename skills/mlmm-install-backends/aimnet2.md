@@ -1,15 +1,14 @@
 # AIMNet2 backend (aimnet2.md)
 
-AIMNet2 (IsayevLab) is a lightweight MLIP for **small organic
-molecules**. It is the cheapest backend in `mlmm` but has
-narrow element coverage; check whether your substrate is supported
-before committing to it.
+AIMNet2 is available through the `aimnet` package. Check the installed
+checkpoint/model card for its element, charge, multiplicity, and system-size
+domain, then validate energies, forces, structures, and frequencies on the
+target system.
 
 ## Element coverage
 
-AIMNet2 supports H, B, C, N, O, F, Si, P, S, Cl, As, Se, Br, I.
-**No first-row transition metals**, no Mg/Ca/Mn/Fe/Co/Ni/Cu/Zn —
-metalloenzymes need UMA or MACE.
+Element support is checkpoint-specific. Do not infer support from the package
+name or another model generation; inspect the installed checkpoint contract.
 
 ## Install
 
@@ -59,22 +58,21 @@ AIMNet2 honors the keys below. (Note: `_AIMNet2Backend.__init__` takes only `aim
 
 | Use it when | Don't use it when |
 |---|---|
-| Substrate is small organics (≤ 100 atoms, no metals) | Active site contains Zn, Mg, Mn, Fe, etc. |
-| You want a cheap CPU baseline run | High accuracy on TS curvature is important |
-| Pre-screening many transition states | Reproducing results generated with a different backend |
+| The installed checkpoint covers the target elements, charge, and multiplicity | The checkpoint contract excludes any target state |
+| Target-system validation meets the required error tolerance | Energies, forces, or frequencies fail the target-system comparison |
 
 ## Known gotchas
 
 | Symptom | Cause / fix |
 |---|---|
-| `KeyError` on element during atom-type lookup | Unsupported element; switch to UMA or MACE. |
+| `KeyError` on element during atom-type lookup | The installed checkpoint does not support the element; select a checkpoint/backend that does. |
 | `RuntimeError: charge mismatch` | AIMNet2 charge is a per-atom-network output; supply `-q TOTAL` matching the cluster. |
-| Convergence failures on radicals | AIMNet2 is trained on closed-shell systems. Use `-m 1` only. |
+| Unexpected behavior for a charge or multiplicity | Confirm that state is within the installed checkpoint's documented domain and compare against a reference method. |
 
 ## See also
 
 - `env-cuda.md` — torch / CUDA prereq.
 - `core.md` — `mlmm-toolkit` install.
-- `uma.md` — recommended for anything containing metals.
+- `uma.md` — UMA backend setup.
 - `mlmm-structure-io/charge-multiplicity.md` — figuring out
   `-q` and `-m` for an unfamiliar substrate.

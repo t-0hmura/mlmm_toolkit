@@ -589,7 +589,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     "input_path",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=True,
-    help="Full enzyme structure (PDB or XYZ). If XYZ, use --ref-pdb for topology.",
+    help="Full enzyme structure (PDB/mmCIF, or XYZ with --ref-pdb topology).",
 )
 @click.option(
     "--ref-pdb",
@@ -1084,7 +1084,7 @@ def cli(
         )
         click.echo(f"[write] Wrote '{without_link_path}'.")
         click.echo(f"[write] Wrote '{with_link_path}'.")
-        if Path(input_path).suffix.lower() == ".pdb":
+        if convert_files and Path(input_path).suffix.lower() == ".pdb":
             without_link_pdb, with_link_pdb = write_ml_region_pdb_pair(
                 workspace,
                 out_dir_path,

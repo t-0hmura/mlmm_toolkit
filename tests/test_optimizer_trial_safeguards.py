@@ -367,7 +367,7 @@ def test_emergency_stop_accepts_converged_retained_rfo_geometry(
     class _EmergencyStopRF(RFOptimizer):
         def optimize(self):
             step = super().optimize()
-            if self.cur_cycle >= 1:
+            if self.cur_cycle >= 0:
                 self.uphill_rejection_stalled = True
                 self.request_stop(
                     "repeated uphill RFO trials at the emergency trust floor"

@@ -16,10 +16,11 @@ Options:
                                   paths, DEBUG logging).  [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
-  -i, --input FILE                Two or more full PDB/mmCIF structures in
+  -i, --input FILE                Two or more full PDB/mmCIF structures, or XYZ
+                                  files with matching --ref-pdb entries, in
                                   reaction order (reactant [intermediates ...]
-                                  product), or one full structure with --scan-
-                                  lists or --tsopt. A single '-i' may be
+                                  product); one full structure is allowed with
+                                  --scan-lists or --tsopt. A single '-i' may be
                                   followed by multiple space-separated files
                                   (for example, '-i A.pdb B.pdb C.pdb').
                                   [required]
@@ -48,11 +49,11 @@ Options:
                                   boundary bonds.  [default: no-add-linkh]
   --selected-resn TEXT            Force-include residues (comma/space separated;
                                   chain/insertion codes allowed).  [default: ""]
-  --modified-residue TEXT         Comma-separated residue names (with optional
-                                  charge) to treat as amino acids for backbone
-                                  truncation and charge assignment. Examples:
-                                  'HD1,HD2,HD3' or 'HD1:0,SEP:-2'.  [default:
-                                  ""]
+  --modified-residue TEXT         Comma-separated modified-residue names with
+                                  integer charges for backbone truncation and
+                                  charge assignment. A known catalog residue may
+                                  omit its charge. Example: 'HD1:0,SEP'.
+                                  [default: ""]
   -l, --ligand-charge TEXT        Either a total charge (number) to distribute
                                   across unknown residues or a mapping like
                                   'GPP:-3,MMT:-1'.
@@ -146,10 +147,10 @@ Options:
   --preopt / --no-preopt          Run initial single-structure optimizations of
                                   the pocket inputs.  [default: preopt]
   --hessian-calc-mode [analytical|finitedifference]
-                                  Common MLIP Hessian calculation mode forwarded
-                                  to tsopt and freq. Default:
-                                  'FiniteDifference'. Use 'Analytical' when VRAM
-                                  is sufficient.
+                                  Common MLIP Hessian mode forwarded to tsopt
+                                  and freq. Default: 'FiniteDifference'. Runtime
+                                  and memory depend on the backend and system;
+                                  compare both modes on a representative pilot.
   --detect-layer / --no-detect-layer
                                   Detect ML/MM layers from input PDB B-factors
                                   (ML=0, MovableMM=10, FrozenMM=20) in
@@ -291,9 +292,9 @@ Options:
                                   Calculator instance). CLI overrides config
                                   YAML; otherwise defaults to get_calculator.
   --deterministic / --no-deterministic
-                                  Enable strict deterministic GPU algorithms and
-                                  the index_reduce_ shim. Slower; raises if
-                                  unsupported. Default off.
+                                  Request deterministic algorithms for
+                                  controlled operations; verify exact
+                                  reproducibility on the complete target stack.
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
                                   electron-parity check (logs that it was
                                   skipped). For an intentional open-shell or

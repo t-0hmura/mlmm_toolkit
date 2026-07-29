@@ -739,7 +739,8 @@ def _run_dmf_mep(
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     nargs=2,
     required=True,
-    help="Two endpoint structures (reactant/product); both must be full-enzyme PDBs.",
+    help=("Two endpoint structures in PDB/mmCIF, or XYZ with a corresponding "
+          "--ref-pdb for each endpoint."),
 )
 @click.option(
     "-q",

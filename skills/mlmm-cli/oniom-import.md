@@ -8,7 +8,7 @@ reverse of `oniom-export.md`.
 
 Use it to:
 
-- Validate a third-party ONIOM input by round-tripping through the toolkit.
+- Parse and validate a supported third-party ONIOM input deck.
 - Adapt an existing Gaussian ONIOM workflow into an `mlmm` pipeline.
 - Migrate from a hand-built `oniom(...)` calculation to MLIP-driven ONIOM.
 

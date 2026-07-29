@@ -46,8 +46,8 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 out_dir/ (default: ./result_dft/)
 ├── ml_region_without_linkH.xyz # Exact ML selection before generated link-H
 ├── ml_region_with_linkH.xyz    # PySCF input snapshot after generated link-H
-├── ml_region_without_linkH.pdb # PDB input only; topology-bearing companion
-├── ml_region_with_linkH.pdb    # PDB input only; generated link-H as HL/LKH
+├── ml_region_without_linkH.pdb # PDB input with --convert-files; topology-bearing companion
+├── ml_region_with_linkH.pdb    # PDB input with --convert-files; generated link-H as HL/LKH
 ├── result.yaml                 # DFT + ML(dft)/MM energy summary, charges, spin densities
 ├── result.json                 # only when --out-json is passed
 └── (stdout)                    # Pretty-printed configuration blocks and energies
@@ -66,7 +66,7 @@ out_dir/ (default: ./result_dft/)
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `-i, --input PATH` | Full enzyme structure (PDB or XYZ). If XYZ, use `--ref-pdb` for topology. | Required |
+| `-i, --input PATH` | Full enzyme structure (PDB/mmCIF, or XYZ with `--ref-pdb` topology). | Required |
 | `--ref-pdb FILE` | Reference PDB topology when input is XYZ. | _None_ |
 | `--parm PATH` | Amber parm7 topology for the full system. | Required |
 | `--model-pdb PATH` | PDB defining the ML region (atom IDs must match the enzyme PDB). Optional when `--detect-layer` is enabled. | _None_ |
@@ -126,8 +126,13 @@ Full schema (every key and default): [YAML Reference](yaml-reference.md).
 ## Notes
 
 - A matching def2 effective core potential is auto-attached whenever the basis name begins with `def2` (no element-presence check).
-- **Blackwell-architecture GPUs** (RTX 50xx): GPU4PySCF may fail with out-of-memory errors even for small systems (~100 atoms). Use `--engine cpu` or an external DFT program (ORCA, Gaussian) for production calculations on these GPUs.
-- **Out-of-memory with def2-TZVPD**: The default basis set `def2-tzvpd` is large and may cause OOM for systems with >150 atoms on 16–24 GB GPUs. Use `--func-basis 'wb97m-v/def2-svp'` as a practical alternative; barrier height errors between def2-SVP and def2-TZVPD are typically 1–3 kcal/mol.
+- **Blackwell-architecture GPUs** (RTX 50xx): verify that the installed
+  GPU4PySCF/CuPy stack supports the device. If the GPU path fails, use
+  `--engine cpu` or an external DFT program.
+- **Out-of-memory with def2-TZVPD**: memory depends on atom types, basis,
+  functional, grid, and software stack. Pilot the target system and, if
+  necessary, choose a smaller basis only after validating its effect on the
+  quantities of interest.
 - Compiled GPU4PySCF wheels may not support non-x86 systems; build from source in that case (see https://github.com/pyscf/gpu4pyscf).
 
 ## See Also

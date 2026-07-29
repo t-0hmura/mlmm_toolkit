@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import sys
 from pathlib import Path
 
@@ -23,6 +24,16 @@ _FIXTURE_DIR = (
 def _fixture(name: str) -> Path:
     path = _FIXTURE_DIR / name
     assert path.exists(), f"missing fixture: {path}"
+    return path
+
+
+@pytest.fixture
+def nocmap_parm(tmp_path: Path) -> Path:
+    pmd = pytest.importorskip("parmed")
+    parm = pmd.load_file(str(_fixture("complex.parm7")))
+    parm.cmaps[:] = []
+    path = tmp_path / "complex_nocmap.parm7"
+    parm.save(str(path), overwrite=True)
     return path
 
 
@@ -85,7 +96,45 @@ def test_multidimensional_scans_honor_configured_geometry_coordinates() -> None:
         assert expected in source
 
 
-def test_oniom_export_g16_smoke(tmp_path: Path) -> None:
+def test_workflows_guard_optional_companion_conversion() -> None:
+    from mlmm.workflows import dft, scan, scan2d, scan3d
+
+    conversion_calls = {
+        dft: {"write_ml_region_pdb_pair"},
+        scan: {"convert_xyz_to_pdb"},
+        scan2d: {"convert_and_annotate_xyz_to_pdb"},
+        scan3d: {"convert_and_annotate_xyz_to_pdb"},
+    }
+    for module, converter_names in conversion_calls.items():
+        tree = ast.parse(Path(module.__file__).read_text(encoding="utf-8"))
+        parents = {
+            child: parent
+            for parent in ast.walk(tree)
+            for child in ast.iter_child_nodes(parent)
+        }
+        calls = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id in converter_names
+        ]
+        assert calls
+        for call in calls:
+            ancestor = parents.get(call)
+            guarded = False
+            while ancestor is not None:
+                if isinstance(ancestor, ast.If) and any(
+                    isinstance(node, ast.Name) and node.id == "convert_files"
+                    for node in ast.walk(ancestor.test)
+                ):
+                    guarded = True
+                    break
+                ancestor = parents.get(ancestor)
+            assert guarded, f"unguarded companion conversion in {module.__name__}:{call.lineno}"
+
+
+def test_oniom_export_g16_smoke(tmp_path: Path, nocmap_parm: Path) -> None:
     out_file = tmp_path / "model.gjf"
 
     runner = CliRunner()
@@ -94,7 +143,7 @@ def test_oniom_export_g16_smoke(tmp_path: Path) -> None:
         [
             "oniom-export",
             "--parm",
-            str(_fixture("complex.parm7")),
+            str(nocmap_parm),
             "-i",
             str(_fixture("complex.pdb")),
             "--model-pdb",
@@ -122,7 +171,7 @@ def test_oniom_export_g16_smoke(tmp_path: Path) -> None:
     assert "MLMM_REF_PDB_ORDER_V1_SHA256=" in text
 
 
-def test_oniom_export_orca_smoke(tmp_path: Path) -> None:
+def test_oniom_export_orca_smoke(tmp_path: Path, nocmap_parm: Path) -> None:
     out_file = tmp_path / "model.inp"
 
     runner = CliRunner()
@@ -131,7 +180,7 @@ def test_oniom_export_orca_smoke(tmp_path: Path) -> None:
         [
             "oniom-export",
             "--parm",
-            str(_fixture("complex.parm7")),
+            str(nocmap_parm),
             "-i",
             str(_fixture("complex.pdb")),
             "--model-pdb",
@@ -160,7 +209,10 @@ def test_oniom_export_orca_smoke(tmp_path: Path) -> None:
     assert "# MLMM_REF_PDB_ORDER_V1_SHA256=" in text
 
 
-def test_oniom_export_mode_inferred_from_output_suffix_g16(tmp_path: Path) -> None:
+def test_oniom_export_mode_inferred_from_output_suffix_g16(
+    tmp_path: Path,
+    nocmap_parm: Path,
+) -> None:
     out_file = tmp_path / "infer_mode.com"
 
     runner = CliRunner()
@@ -169,7 +221,7 @@ def test_oniom_export_mode_inferred_from_output_suffix_g16(tmp_path: Path) -> No
         [
             "oniom-export",
             "--parm",
-            str(_fixture("complex.parm7")),
+            str(nocmap_parm),
             "-i",
             str(_fixture("complex.pdb")),
             "--model-pdb",
@@ -192,7 +244,10 @@ def test_oniom_export_mode_inferred_from_output_suffix_g16(tmp_path: Path) -> No
     assert "ONIOM" in text
 
 
-def test_oniom_export_mode_inferred_from_output_suffix_orca(tmp_path: Path) -> None:
+def test_oniom_export_mode_inferred_from_output_suffix_orca(
+    tmp_path: Path,
+    nocmap_parm: Path,
+) -> None:
     out_file = tmp_path / "infer_mode.inp"
 
     runner = CliRunner()
@@ -201,7 +256,7 @@ def test_oniom_export_mode_inferred_from_output_suffix_orca(tmp_path: Path) -> N
         [
             "oniom-export",
             "--parm",
-            str(_fixture("complex.parm7")),
+            str(nocmap_parm),
             "-i",
             str(_fixture("complex.pdb")),
             "--model-pdb",
@@ -225,7 +280,10 @@ def test_oniom_export_mode_inferred_from_output_suffix_orca(tmp_path: Path) -> N
     assert "QMMM" in text
 
 
-def test_oniom_export_mode_takes_precedence_over_output_suffix(tmp_path: Path) -> None:
+def test_oniom_export_mode_takes_precedence_over_output_suffix(
+    tmp_path: Path,
+    nocmap_parm: Path,
+) -> None:
     out_file = tmp_path / "forced_g16.inp"
 
     runner = CliRunner()
@@ -234,7 +292,7 @@ def test_oniom_export_mode_takes_precedence_over_output_suffix(tmp_path: Path) -
         [
             "oniom-export",
             "--parm",
-            str(_fixture("complex.parm7")),
+            str(nocmap_parm),
             "-i",
             str(_fixture("complex.pdb")),
             "--model-pdb",
@@ -314,6 +372,7 @@ def test_legacy_oniom_subcommands_removed() -> None:
 
 def test_oniom_export_default_convert_fallback_without_orca_mm(
     tmp_path: Path,
+    nocmap_parm: Path,
     monkeypatch,
 ) -> None:
     from mlmm.workflows import oniom_export
@@ -327,7 +386,7 @@ def test_oniom_export_default_convert_fallback_without_orca_mm(
         [
             "oniom-export",
             "--parm",
-            str(_fixture("complex.parm7")),
+            str(nocmap_parm),
             "-i",
             str(_fixture("complex.pdb")),
             "--model-pdb",
@@ -355,6 +414,7 @@ def test_oniom_export_default_convert_fallback_without_orca_mm(
 
 def test_oniom_export_orca_mm_failure_prints_manual_command(
     tmp_path: Path,
+    nocmap_parm: Path,
     monkeypatch,
 ) -> None:
     from mlmm.workflows import oniom_export
@@ -373,7 +433,7 @@ def test_oniom_export_orca_mm_failure_prints_manual_command(
         [
             "oniom-export",
             "--parm",
-            str(_fixture("complex.parm7")),
+            str(nocmap_parm),
             "-i",
             str(_fixture("complex.pdb")),
             "--model-pdb",

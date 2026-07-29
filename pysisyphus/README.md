@@ -12,7 +12,7 @@ The upstream `pysisyphus` does not natively handle the constraints of full-prote
 - **Macro / micro alternation** in the optimiser, where the ML region and the Movable MM region take alternating steps (chemistry-rule #3)
 - **GPU-resident rank-two Bofill updates**, applied in place where ownership permits, with explicit `PYSIS_BOFILL_CPU_OFFLOAD=1` fallback
 - **VRAM-aware stage handoff** — explicit `del` between IRC / tsopt / freq stages to free CUDA memory before the next stage loads its model
-- **Initial-displacement memory hygiene** in IRC for full-protein systems (~10,000 atoms, 16 GB+ Hessians on the un-contracted ML-macro)
+- **Initial-displacement memory hygiene** in IRC for full-system Hessian workflows
 - **Atomic optimizer rollback, exact first-order-saddle validation, and frozen-boundary PHVA** for robust ML/MM paths
 
 The bundled fork keeps these divergences explicit in the table below so future upstream improvements remain reviewable.

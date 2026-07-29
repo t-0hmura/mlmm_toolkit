@@ -261,21 +261,10 @@ mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode h
 
 # --- Determinism gate ---
 
-# test44: `all` pipeline determinism GATE (`--deterministic`, ONIOM end-to-end).
-# Runs the full pipeline twice with identical inputs / args + `--deterministic`
-# and REQUIRES the two runs to be bit-identical. Default (non-deterministic) GPU
-# runs carry ~ULP scatter/atomic non-determinism and are not asserted here;
-# `--deterministic` enables torch deterministic algorithms and MUST be
-# bit-reproducible, so any drift is a real regression and fails the smoke.
-#
-# The MM parm (antechamber AM1-BCC ligand charges) is a NON-deterministic INPUT,
-# not part of the compute this gate exercises: sqm's AM1 SCF for this ligand is
-# poorly convergent, so its early-stop point — and thus the charges — vary
-# run-to-run. Regenerating it in both runs would make the gate test antechamber,
-# not `--deterministic` compute reproducibility. So build the parm once (run a)
-# and REUSE it via `--parm` in run b, giving both runs identical MM charges;
-# `--deterministic` then yields bit-identical geometry/MEP output. (For full
-# end-to-end reproducibility across separate invocations, pass a fixed `--parm`.)
+# test44: fixed-stack `all --deterministic` artifact comparison.
+# On this smoke input, software stack, and reused MM topology, exact artifact
+# drift is a regression for the tested stack. Topology generation is outside
+# the flag's scope, so run b reuses run a's parm7.
 det_args="-i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --deterministic"
 mlmm all $det_args --out-dir test44_a > test44_a.out 2>&1
 mapfile -t test44_parms < <(find test44_a/mm_parm -maxdepth 1 -type f -name '*.parm7' -print)
@@ -331,21 +320,17 @@ mlmm sp -i r_complex_layered.pdb --real-parm7 p_complex.parm7 -q -1 -m 1 --out-d
 mlmm sp -i r_complex_layered.pdb --real-parm7 p_complex.parm7 -q -1 -m 1 --hess --out-dir test48 > test48.out 2>&1
 
 # --- Full-pipeline release-gate runs ---
-# test49 is the untrottled one: the canonical `all` flow with default
-# convergence thresholds and production-realistic optimizer cycle budgets, so it
-# takes substantially longer (~30-90 min for ONIOM) than the throttled tests
-# above and is the "does the pipeline actually finish on a real input" gate.
-# test50 stays capped, for the reason spelled out at its own comment below.
+# test49 exercises the unthrottled default `all` flow without a cycle cap.
+# test50 is capped to cover the DLC path without requiring downstream
+# convergence.
 
 # test49: full `all` cart — default thresh, no max-cycles cap.
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --out-dir test49 > test49.out 2>&1
 
 # test50: `all` dlc — verifies the DLC code-path lights up end-to-end.
-# Capped at max-cycles 5 + thresh gau_loose + --no-tsopt/thermo/dft because
-# DLC GSM on this 122-atom complex needs hundreds of cycles to converge with
-# default `gau` thresh (3h+ on consumer GPU) and the post-stages (TS / IRC /
-# DFT) depend on a converged HEI from the MEP — silently broken structure
-# handoff otherwise. test49 (cart) keeps the no-cap default-behaviour check.
+# Capped at max-cycles 5 + thresh gau_loose + --no-tsopt/thermo/dft so this
+# lane exercises DLC setup and trajectory handling without requiring a
+# converged HEI. test49 keeps the no-cap default-behaviour check.
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --coord-type dlc --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test50 > test50.out 2>&1
 
 # --- Per-stage internal-coordinate code-path verification ---
@@ -388,7 +373,7 @@ mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --coord-type
 # test50m: opt --precision fp64 (UMA backend, alternate precision)
 mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --precision fp64 --max-cycles 3 --thresh gau_loose --out-dir test50m_opt_fp64 > test50m_opt_fp64.out 2>&1
 
-# test50n: opt --precision fp32 (explicit fp32 dispatch; default is fp32, this pins the explicit path alongside test50m fp64)
+# test50n: opt --precision fp32 (explicit UMA fp32 dispatch alongside test50m fp64)
 mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --precision fp32 --max-cycles 3 --thresh gau_loose --out-dir test50n_opt_fp32 > test50n_opt_fp32.out 2>&1
 
 # test50p: opt --mm-backend openmm (alternate MM backend; analytical Hessian path → FD)

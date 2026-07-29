@@ -3079,8 +3079,9 @@ def _prepare_tsopt_output_dir(
     type=click.Choice(["Analytical", "FiniteDifference"], case_sensitive=False),
     default=None,
     help="How the ML backend builds the Hessian (Analytical or FiniteDifference); "
-         "overrides calc.hessian_calc_mode from YAML. "
-         "Default: 'FiniteDifference'. Use 'Analytical' when VRAM is sufficient.",
+         "overrides calc.hessian_calc_mode from YAML. Default: 'FiniteDifference'. "
+         "Runtime and memory depend on the backend and system; compare both "
+         "modes on a representative pilot.",
 )
 @click.option("--max-cycles", type=int, default=10000, show_default=True, help="Maximum total optimization cycles.")
 @click.option(

@@ -173,3 +173,34 @@ def test_enriched_rate_limit_uses_refined_barrier(tmp_path) -> None:
         ref["method"] == "Limited-memory BFGS (L-BFGS)"
         for ref in summary["references"]
     )
+
+
+def test_ts_only_summary_does_not_assign_reaction_direction(tmp_path) -> None:
+    summary = {
+        "out_dir": str(tmp_path),
+        "segments": [{
+            "index": 1,
+            "kind": "tsopt",
+            "barrier_from_endpoint_1_kcal": 8.0,
+            "barrier_from_endpoint_2_kcal": 9.0,
+        }],
+        "energy_diagrams": [{
+            "name": "energy_diagram_MLIP_all",
+            "labels": ["E1", "TS", "E2"],
+            "energies_kcal": [0.0, 8.0, -1.0],
+        }],
+    }
+    _enrich_summary(
+        summary,
+        version="",
+        pipeline_mode="tsopt-only",
+        mlip_backend="orb",
+        charge=0,
+        spin=1,
+        out_dir=tmp_path,
+        config={"tsopt": False},
+    )
+
+    assert "rate_limiting_step" not in summary
+    assert "overall_reaction_energy_kcal" not in summary
+    assert "overall_reaction_energy_method" not in summary

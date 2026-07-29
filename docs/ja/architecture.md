@@ -4,9 +4,13 @@
 
 `mlmm-toolkit` は、完全なタンパク質環境に対して **ML/MM (ONIOM) 酵素反応経路解析** を実行する Python 製 CLI です。ここでの ML/MM とは、小さな反応コアを機械学習原子間ポテンシャル (ML) で、周囲のタンパク質を分子力学 (MM) 力場で扱い、両者を subtractive ONIOM (Our own N-layered Integrated molecular Orbital and molecular Mechanics) エネルギースキームで結合したハイブリッドモデルを指します。
 
-入力は PDB と基質名です。これらから、本ツールは parm7 トポロジーを自動生成し、ONIOM 領域分割 (ML / Movable-MM / Frozen) を B-factor チャネルにエンコードします。続いて、マクロ/マイクロ交互スキームによる全系の Hessian ベース TS (遷移状態) 探索を実行します。
+`all` workflow は構造と領域入力から parm7 topology を生成し、ONIOM
+領域（ML / Movable-MM / Frozen）を B-factor channel に encode できます。
+複数入力では path を探索し、単一入力では `--scan-lists` または
+`--tsopt` が必要です。
 
-結果として、ステージパイプライン `extract → MM-param → ONIOM model → MEP → tsopt → IRC → freq → dft` による完全な反応経路が生成されます。ここで MEP は最小エネルギー経路、IRC は内在反応座標です。
+mode と flag に応じて `extract`、`mm-parm`、MEP 探索、TS 最適化、IRC、
+振動解析、DFT 一点計算を構成します。TS、熱化学、DFT は任意 stage です。
 
 このパッケージは **6 つの物理レイヤーディレクトリ** (`cli/`、`workflows/`、`domain/`、`backends/`、`io/`、`core/`) として構成されており、それぞれの役割と依存方向は後述の §2.1 レイヤー表にまとめています。外部コードはレイヤーディレクトリから直接インポートします (`from mlmm.backends.mlmm_calc import MLMMCore`、`from mlmm.core.utils import …`、`import mlmm.io.trj2fig` など)。サポートされる 2 つのインポート方法は §2.4 に示します。
 
@@ -273,11 +277,11 @@ CLI サブコマンドリゾルバ (`cli/app.py:_LAZY_SUBCOMMANDS`) は **絶対
 
 ---
 
-## 5. 隠れた制約 (いかなるパッチの前にもこれを読むこと)
+## 5. 科学的な不変条件
 
 ### 5.1 9 つの化学ルール (grep レシピ)
 
-正しさにクリティカルな 9 つのルールが `backends/`、`workflows/`、`core/defaults.py` にまたがって存在します。これらは smoke テストでは検出 **されません** — ここでの静かなドリフトは反応経路の精度を壊します。インラインの `# CHEMISTRY-RULE:N` マーカーと `# DOMAIN_PURE` モジュール docstring マーカーがこれらのルールを識別し、`.github/scripts/check_engineering_markers.py` が CI でマーカーの完全性を強制します。
+正しさに関わる 9 つのルールが `backends/`、`workflows/`、`core/defaults.py` にまたがって存在します。インラインの `# CHEMISTRY-RULE:N` マーカーと `# DOMAIN_PURE` モジュール docstring マーカーが実装箇所を示し、`.github/scripts/check_engineering_markers.py` がマーカーの完全性を検査します。
 
 編集前にすべての化学ルールを見つけるには:
 
@@ -303,7 +307,7 @@ grep -rn '# DOMAIN_PURE' mlmm/
 | 8 | 3-layer 5-pass partial Hessian アセンブリ | `mlmm/backends/mlmm_calc.py` |
 | 9 | parm7 アトムインデックス (1-based / serial gap handling) | `mlmm/io/pdb_indexing.py` |
 
-これらのいずれかを編集する場合は、`[CHEMISTRY-RULE:N]` コミットプレフィックスと HEAVY 階層の数値ゴールデンゲートの通過が必要です (`CONTRIBUTING.md` §1.1 を参照)。
+これらの実装を変更する場合は、focused regression test と関連する scheduled numerical test を実行してください（`CONTRIBUTING.md` §1.1）。
 
 **推奨される学習順序 (4 つの化学クラスタ)**:
 
@@ -347,7 +351,7 @@ IRC / TSopt / Freq ステージは、CUDA メモリを解放するためにス�
 
 | dir | upstream PyPI? | purpose | scope of edits allowed |
 |---|---|---|---|
-| `pysisyphus/` | NO — フォーク、`pip install pysisyphus` を併存させない | オプティマイザ、TS、IRC、COS、calculators | 記載された差分を維持し、数値変更は focused test と HEAVY/GPU test で検証 |
+| `pysisyphus/` | NO — フォーク、`pip install pysisyphus` を併存させない | オプティマイザ、TS、IRC、COS、calculators | 記載された差分を維持し、数値変更は focused test と scheduled numerical test で検証 |
 | `thermoanalysis/` | NO — フォーク (ブランディング差分) | ΔG, ZPE, 分配関数, `QCData` | `QCData` の利用側契約を維持。README参照 |
 | `hessian_ff/` | **NO — PyPI 404、バンドル必須** | MM 力場上の解析的 Hessian | 導関数と公開 API の契約を維持。README参照 |
 

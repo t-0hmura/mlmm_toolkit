@@ -136,5 +136,5 @@ VS Code は `.vscode/mcp.json` でトップレベルの `servers` オブジェ�
 ## サンドボックス / 安全性に関する注意
 
 - MCP サーバーは外部 tool 用の PATH、conda 環境、CUDA セットアップ、AmberTools のパスを継承します。各ツールは server interpreter から import 済み `mlmm` module をサブプロセスとして起動するため、長時間実行されるツール（opt / tsopt / irc / scan）はプロセス外で実行されます。各呼び出しで `timeout_seconds` を設定して上限を設けてください。
-- 出力ファイルは `out_dir` kwarg の配下に配置されます（デフォルトは一意の `tempfile.mkdtemp("mlmm_mcp_<subcmd>_…")`）。
-- サーバーは `~/.bashrc` / ログイン環境を変更したり、ソフトウェアをインストールしたり、`out_dir` の外に書き込んだりしません。必要な入力（PDB、parm7、ML 重み）はあらかじめディスク上に存在している必要があります。
+- 計算コマンドのステージ出力は `out_dir` 配下に配置され、デフォルトでは一意の一時ディレクトリを使います。準備・変換 tool は明示的な出力 path を受け取り、外部 program、model cache、一時ファイル library はステージ外へ書き込む場合があります。
+- MCP server は filesystem sandbox ではありません。必要な入力（PDB、parm7、ML 重み）はあらかじめディスク上に用意し、filesystem の封じ込めが必要なら client 側の path 制限または OS/container isolation を使用してください。

@@ -1057,10 +1057,8 @@ def _create_ml_backend(
         setup_deterministic()
     if backend == "aimnet2" and is_deterministic_active():
         raise ValueError(
-            "AIMNet2 forces are not bit-reproducible under strict determinism: "
-            "they are produced by a custom CUDA kernel (torch.ops.aimnet, "
-            "conv_sv_2d_sp_bwd) outside torch.use_deterministic_algorithms "
-            "control (~1e-9 residual across runs; the energy is reproducible)."
+            "AIMNet2's custom CUDA force kernel is outside "
+            "torch.use_deterministic_algorithms control."
         )
     if backend == "custom" and is_deterministic_active():
         raise ValueError(

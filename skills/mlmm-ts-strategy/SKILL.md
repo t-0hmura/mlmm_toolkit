@@ -3,8 +3,8 @@ name: mlmm-ts-strategy
 description: >-
   Decision guidance for ML/MM enzyme reaction-barrier campaigns: backend-specific
   precision, TS-candidate routes, exact first-order-saddle recovery, IRC early-stop
-  handling, scan direction/staging, and controlled mutant comparisons with an
-  identical atom/layer selection. Use for barrier, imaginary-frequency,
+  handling, scan direction/staging, and controlled mutant comparisons with
+  chemically corresponding regions. Use for barrier, imaginary-frequency,
   wrong-saddle, precision, MEP-vs-restraint, IRC connectivity, scan-direction, or
   mutant-comparison questions. Skip installation, pure structure-format editing,
   and MCP transport.
@@ -20,15 +20,17 @@ ONIOM campaign. Every flag below is verified against `mlmm/cli/common_options.py
 
 | Backend | Unset default | Guidance |
 |---|---|---|
-| UMA | fp32 | Try explicit fp64 for a numerically sensitive TS/Hessian; validate cost on the target GPU. |
-| ORB | fp64 | Keep fp64 for TS/frequency work. Explicit fp32 is `float32-high`/TF32 and is screening-only. |
-| MACE | fp64 | Keep the upstream float64 default for TS/frequency work. |
+| UMA | fp32 | Compare supported precisions on the target system when precision matters. |
+| ORB | fp64 | Compare supported precisions on the target system when precision matters. |
+| MACE | fp64 | Compare supported precisions on the target system when precision matters. |
 | AIMNet2 | fp32 | No precision switch; explicit fp64 is rejected. |
 
 - `--precision` is case-insensitive and unset resolves through the selected backend.
 - Backend routing: `uma`→`uma_precision`; `orb`→`orb_precision` (`float32-high`|`float64`); `mace`→`mace_dtype`; `aimnet2`→fp32 is a no-op and **fp64 is rejected** (inputs cast to float32 upstream).
 - Accepted on `sp`, `opt`, `tsopt`, `freq`, `irc`, `scan`/`scan2d`/`scan3d`, `path-opt`, `path-search`, `all`.
-- fp64 *reduces* GPU reduction-order drift but does **not** make a run bit-identical — only `--deterministic` does (see `reproducibility.md`).
+- fp64 changes numerical precision. `--deterministic` requests deterministic
+  algorithms, but exact repeatability still requires verification of the
+  installed backend/model/SDK and target stack (see `reproducibility.md`).
 
 ## 2. Two routes to a TS candidate
 
@@ -43,11 +45,13 @@ ONIOM campaign. Every flag below is verified against `mlmm/cli/common_options.py
 
 ## 3. Wrong imaginary-frequency count at TS-opt
 
-A clean first-order saddle = **exactly one** dominant imaginary mode along the reaction coordinate.
+A certified first-order saddle has **exactly one** imaginary mode; inspect its
+displacement and IRC connectivity. Two or more fail certification regardless
+of magnitude.
 
 | Symptom | Action |
 |---|---|
-| Extra imaginary modes | Keep ORB/MACE at fp64; consider UMA fp64, `--coord-type dlc`, and `--flatten`. Independently rerun `freq` and inspect the reaction mode. |
+| Extra imaginary modes | Inspect all mode displacements, the MEP guess, optimizer stop reason, and backend-specific numerical behavior; then retry an appropriate coordinate/flattening/precision setting and independently rerun `freq`. |
 | Collapsed to `n_imag = 0` | Treat as failed, not as a TS. Improve the MEP/initial guess; `--flatten` only removes surplus modes and cannot create a missing reaction direction. |
 | Poor MEP/HEI | In `all`, try opt-in `--refine-path` before TS optimization. It can split a poor path into several stages and increase cost, so it is off by default. |
 | Still no clean saddle | Revise endpoints/scan coordinates and verify that the single imaginary mode moves the reacting atoms. |
@@ -86,7 +90,6 @@ If the scan/path **starts from P**, the raw reported barrier is the **reverse** 
 | Reverse barrier (raw P-start number) | `E(TS) − E(product)` |
 
 - This is a *read-time interpretation*, **not a CLI flag**. Always confirm which endpoint is R vs P (read `segments/seg_NN/{reactant,product}.pdb` from the IRC, not the scan direction).
-- Concrete case (CM): the scan begins at P, so the campaign's "barrier" is reverse; the forward barrier = `E(TS) − E(R)`.
 
 ## 6. Staged vs concerted scan
 
@@ -108,35 +111,23 @@ mlmm scan -i r.pdb --parm e.parm7 -l 'LIG:Q' \
 ```
 
 - `path-search` does multistep auto-segmentation, so a **concerted** scan needs no mechanism breakdown.
-- A **staged** scan needs the mechanism defined up front, **but when the mechanism is known, staged gives cleaner per-step control and is generally preferred.**
+- A **staged** scan needs the mechanism defined up front and exposes each prescribed coordinate change as a separate stage.
 - A 4-tuple expands into 2 stages (bidirectional scan).
 
 ## 7. Controlled mutant-vs-WT (or mechanism-vs-mechanism) comparison
 
-**Rule: every compared model MUST use the SAME atom set — identical atom count and residues — or it is not a controlled experiment.** A different atom set changes the energy reference and invalidates the ΔE‡ comparison; a geometrically re-derived ML/movable/frozen partition on the mutant also produces spurious soft modes (`tsopt.n_imaginary ≥ 2`, both tiny → IRC aborts).
+Form each barrier within one chemical system (`TS - R` or `TS - P`) before
+comparing mutant and wild type. Absolute energies of systems with different
+compositions are not directly subtracted.
 
-mlmm recipe (transplant the WT ML/MM layer encoding onto the mutant; run with `--detect-layer`):
-
-| step | action |
-|---|---|
-| 1 | Build the mutant structure; keep the same residue set as WT (only the mutated residue's identity differs). |
-| 2 | Transplant WT's B-factor layer encoding onto the mutant by `(resid, atom-name)`: **ML=0.0, MovableMM=10.0, FrozenMM=20.0** (`common_options.py` `add_ml_layer_detection_options`). |
-| 3 | Run with `--detect-layer` (default on) so the SAME layer assignment is reused. |
-
-```bash
-mlmm all -i mutant_layered.pdb -l 'LIG:Q' \
-    --tsopt --thermo [--dft --dft-func-basis '...'] \
-    -o result_mutant
-```
-
-| flag | do | why |
-|---|---|---|
-| `--detect-layer` | KEEP (default `True`) | reads transplanted B-factors → ML/movable/frozen byte-identical to WT |
-| `-c/--center`, `-r/--radius` | **OMIT** | geometric extraction would re-derive a *different* pocket on the mutant (`all.py`: omitting `-c` skips extraction, uses the full structure as-is) |
-| `-l/--ligand-charge` | KEEP | a non-standard ligand's charge isn't in the standard-AA table; `-l 'RES:Q'` auto-derives the total. Prefer over hardcoded `-q`. |
-| `--movable-cutoff` | do NOT pass | it **disables** `--detect-layer` (`scan.py`) |
-
-- Same principle applies to comparing two mechanisms on the same enzyme: identical atom set across both, only the reaction coordinate differs.
+- Keep the backend/method, force field, convergence criteria, thermochemistry
+  settings, and temperature matched.
+- Use chemically corresponding ML and movable regions. A mutation may change
+  the atom count; assign every new/deleted atom rather than requiring
+  byte-identical layers.
+- Determine charge and multiplicity independently for each model.
+- Certify each TS independently with exactly one imaginary mode, inspect its
+  displacement, and verify both IRC endpoint identities.
 
 ## See also
 

@@ -1,6 +1,6 @@
 # `sp`
 
-`mlmm sp` evaluates the ML/MM ONIOM energy + atomic forces (optionally the full ONIOM Hessian) at a single geometry. Use it for fast inspection of a layered structure before running an optimization, for comparing backends directly on the same ONIOM partition, or for generating reference Hessians outside the optimizer loop.
+`mlmm sp` evaluates the ML/MM ONIOM energy + atomic forces (optionally the active-coordinate ONIOM Hessian) at a single geometry. Use it for fast inspection of a layered structure before running an optimization, for comparing backends directly on the same ONIOM partition, or for generating reference Hessians outside the optimizer loop.
 
 ## Examples
 
@@ -11,10 +11,10 @@ Energy + forces on a layered PDB (B-factor encodes ML / movable-MM / frozen):
 mlmm sp -i layered.pdb --parm real.parm7 -q 0 -m 1
 ```
 
-Also compute the full ONIOM Hessian (analytical when `--backend uma`):
+Also compute the active-coordinate ONIOM Hessian:
 
 ```bash
-# also compute the full ONIOM Hessian (FiniteDifference by default; pass --hessian-calc-mode Analytical for the backend's native Hessian)
+# finite differences are used by default; select Analytical only for a backend that supports it
 mlmm sp -i layered.pdb --parm real.parm7 -q 0 -m 1 --hess
 ```
 
@@ -25,7 +25,7 @@ mlmm sp -i layered.pdb --parm real.parm7 -q 0 -m 1 --hess
 | file | contents | written |
 |---|---|---|
 | `forces.npy` | `(N, 3)` array of ONIOM forces in atomic units (Hartree / Bohr) | always |
-| `hessian.npy` | `(3N, 3N)` mass-unweighted ONIOM Hessian (Hartree / Bohr²) | only with `--hess` |
+| `hessian.npy` | Mass-unweighted ONIOM Hessian for the calculator's active coordinates (Hartree / Bohr²); inspect the saved array shape | only with `--hess` |
 | `result.json` / `summary.json` | ONIOM energy (a.u.), backend, charge/spin, paths to npy outputs, elapsed time | only with `--out-json` |
 
 `sp` does not write a `summary.log`.
@@ -40,7 +40,7 @@ mlmm sp -i INPUT --parm PARM7 -q CHARGE [options]
 
 | Input | Required | Notes |
 |---|---|---|
-| `-i, --input FILE` | yes | layered PDB, or XYZ coordinates accompanied by `--ref-pdb` |
+| `-i, --input FILE` | yes | layered PDB/mmCIF, or XYZ coordinates accompanied by `--ref-pdb` |
 | `--ref-pdb FILE` | for XYZ | atom-order-identical full-system PDB/mmCIF supplying topology and layer metadata |
 | `--parm FILE` | yes | Amber `parm7` topology of the full enzyme (`--real-parm7` retained as alias) |
 | `-q, --charge INT` | yes (unless `-l` is given) | ML region total charge |

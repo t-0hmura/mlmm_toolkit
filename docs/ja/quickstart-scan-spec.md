@@ -32,7 +32,7 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 - `result_scan/stage_01/result.pdb`
 - `result_scan/stage_02/result.pdb`
-- `scan_trj.xyz` / `scan.pdb`（常に出力）
+- `scan_trj.xyz`（常に出力）。`scan.pdb` は変換と参照トポロジーを利用できる場合
 
 ## 補足
 

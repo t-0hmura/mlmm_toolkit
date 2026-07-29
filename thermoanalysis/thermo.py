@@ -782,6 +782,12 @@ def thermochemistry(
     invert_imags: float = 0.0,
     cutoff: float = 0.0,
 ) -> ThermoResults:
+    """Calculate thermochemistry from projected or full normal-mode frequencies.
+
+    A full 3N vector is assumed to place the five (linear) or six (nonlinear)
+    rigid modes among the smallest absolute wavenumbers. If rigid and
+    vibrational modes overlap, pass the compact projected vibrational vector.
+    """
     assert kind in "qrrho rrho".split()
     assert invert_imags <= 0.0
     assert cutoff >= 0.0
@@ -835,11 +841,8 @@ def thermochemistry(
         is_linear=qc.is_linear,
     )
 
-    # Zero point energy. `zpe_scale_factor` is applied exactly once: the raw ZPE
-    # is scaled to the reported value, and the same single scaling is applied to
-    # the ZPE term inside U_vib below. (Previously the raw ZPE was scaled twice
-    # -- `zpe = f * (f * raw)` -- so a non-unity scale factor entered U/H/G and
-    # the reported ZPE as f**2 instead of f; f == 1.0 was unaffected.)
+    # Apply zpe_scale_factor exactly once to both the reported ZPE and the ZPE
+    # term in U_vib.
     raw_zpe = zero_point_energy(vib_frequencies)
     zpe = zpe_scale_factor * raw_zpe
 

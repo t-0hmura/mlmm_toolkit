@@ -1,8 +1,8 @@
 # Orb backend (orb.md)
 
-Orb-v3 (Orbital Materials) is a fast MLIP useful for **screening** large
-candidate sets where you can tolerate slightly lower TS-region accuracy
-than UMA / MACE.
+The Orb backend provides an energy-conservative MLIP option through
+`orb-models`. Validate energies, forces, optimized structures, and
+frequencies on the target system before selecting it for a workflow.
 
 ## Install
 
@@ -37,12 +37,10 @@ mlmm all -i 1.R.pdb 3.P.pdb \
     -b orb
 ```
 
-Default model: `orb_v3_conservative_omol`. The `_conservative_` part
-distinguishes this checkpoint (forces = ∇E, energy-conservative) from
-the Orb paper's headline non-conservative variant (Neumann et al. 2024,
-arXiv:2410.22570). The `_omol` suffix indicates training on the OMol25
-dataset (Levine et al. 2025); element coverage matches OMol25's 83
-elements (Eastman et al. 2026 benchmark, arXiv:2601.16331).
+Default model: `orb_v3_conservative_omol`. Check the installed
+`orb-models` model card for checkpoint provenance, supported elements, and
+runtime requirements; dataset coverage alone does not establish checkpoint
+capability.
 
 Inspect the default kwarg dict:
 
@@ -69,23 +67,23 @@ the Hessian/calc keys below apply to every backend; defaults in
 
 | Strength | Weakness |
 |---|---|
-| 5–10× faster per call than UMA-s on > 200-atom systems | TS curvature less accurate than UMA / MACE; many TS searches end up with multiple imaginary modes |
-| Trained on broad organic chemistry | Not the right tool for fine-grained `wB97M-V` benchmarking |
-| Easy install, no auth gate | Smaller user community than UMA |
+| Conservative energy/force model with a reduced-precision option | Backend-specific TS and frequency behavior must be validated for the target system |
+| Backend-specific precision selection | Backend-specific TS and frequency behavior must be validated for the target system |
+| Easy installation through the extra | Check checkpoint element and state coverage before use |
 
-In practice: use Orb-v3 to **filter** down a list of candidates, then
-re-run survivors with UMA or MACE for the final TS / IRC.
+Compare candidate geometries and frequencies against the backend selected for
+production before mixing backends across a workflow.
 
 ## Known gotchas
 
 | Symptom | Cause / fix |
 |---|---|
-| Extra small imaginary modes with explicit fp32 | Re-run at the fp64 default and independently recompute frequencies/IRC. |
-| TS converges with > 1 imaginary mode | Common with Orb on aromatic or metalloenzyme systems. Re-run that step with UMA/MACE. |
+| Extra imaginary modes | Inspect the modes and compare supported precisions on the target system before independently recomputing frequencies/IRC. |
+| TS has more than one imaginary mode | The result is not a certified first-order saddle; tighten/restart and inspect all mode displacements. |
 
 ## See also
 
 - `env-cuda.md` — torch / CUDA prerequisites.
-- `uma.md` — recommended primary backend for production runs.
-- `mace.md` — alternative high-accuracy backend (separate env).
+- `uma.md` — UMA backend setup.
+- `mace.md` — MACE backend setup (separate env).
 - `mlmm-cli/tsopt.md` — diagnosing TS convergence problems.

@@ -189,9 +189,10 @@ AMINO_ACIDS: Dict[str, int] = dict(_CANONICAL_AMINO_ACIDS)
     "--modified-residue",
     type=str, default="",
     help=(
-        "Comma-separated residue names (with optional charge) to treat as amino acids "
+        "Comma-separated residue names with charges to treat as amino acids "
         "for backbone truncation and charge assignment. "
-        "Examples: 'HD1,HD2,HD3' (charge defaults to 0) or 'HD1:0,SEP:-2'."
+        "A known catalog residue may omit its charge. "
+        "Example: 'HD1:0,SEP'."
     ),
 )
 @click.option(
@@ -1904,7 +1905,12 @@ def _extract_body(args, api):
                 name, charge_str = token.split(':', 1)
                 AMINO_ACIDS[name.strip().upper()] = int(float(charge_str.strip()))
             else:
-                AMINO_ACIDS[token.upper()] = 0
+                name = token.upper()
+                if name not in AMINO_ACIDS:
+                    raise ValueError(
+                        f"Modified residue {name!r} is not in the residue catalog; "
+                        f"specify its integer charge as {name}:charge."
+                    )
         _echo_info("[extract] Modified residues added to amino acid list: %s", _mod_res)
 
     if args.radius == 0.0:
@@ -2128,8 +2134,9 @@ def extract_api(complex_pdb: List[str],
     selected_resn : str
         Additional residues to force‑include (comma/space separated).
     modified_residue : str
-        Comma‑separated residue names (with optional charge) to treat as amino acids
-        for backbone truncation and charge assignment. E.g. 'HD1,HD2' or 'HD1:0,SEP:-2'.
+        Comma-separated residue names with integer charges to treat as amino
+        acids for backbone truncation and charge assignment. A known catalog
+        residue may omit its charge. E.g. ``'HD1:0,SEP'``.
     ligand_charge : float | str | dict[str,float] | None
         Either a total charge (float/str) for unknown residues (prefer unknown substrate),
         or a mapping like {'GPP': -3, 'SAM': -1}. In mapping mode, other unknown residues remain 0.

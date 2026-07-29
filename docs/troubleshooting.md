@@ -24,7 +24,7 @@ Before a long run, verify:
 | `[multi] Atom count mismatch` / `[multi] Atom order mismatch` | Inputs prepared by different tools / settings. | Regenerate **all** structures with the same protonation tool + settings. For MD ensembles, extract frames from the same trajectory + topology. As a fallback, switch to the staged-scan workflow (one PDB + `--scan-lists`). |
 | Pocket too small / catalytic residues missing | Default radius too small for the system. | Increase `--radius` (e.g. 2.6 → 3.5 Å); force-include residues with `--selected-resn 'A:123,B:456'`; or hand-craft an ML-region PDB in PyMOL and pass via `--model-pdb`. |
 | Unreliable energies / barriers shifting with model size | Extracted pocket too small. | Increase `-r` (e.g. `mlmm extract -i complex.pdb -c 'SUB' -o pocket.pdb -r 4.0`). |
-| Non-standard residues not truncated correctly (SEP / TPO / MLY / D-amino acids) | Backbone truncation + link-H placement only apply to known three-letter codes. | `--modified-residue "SEP,TPO,MLY"` (also accepted on `mlmm all`). If insufficient (unusual backbone topology), build the pocket manually and pass `--parm` + `--model-pdb` to downstream subcommands directly. |
+| An unregistered modified residue is not truncated correctly | Backbone truncation + link-H placement require a residue catalog entry. | Register the residue and its integer charge, for example `--modified-residue "HD1:0"` (also accepted on `mlmm all`). Catalog residues such as SEP, TPO, and MLY retain their catalog charges when named without `:charge`. If the backbone topology is unusual, build the pocket manually and pass `--parm` + `--model-pdb` to downstream subcommands directly. |
 
 ---
 
@@ -119,15 +119,23 @@ ML/MM systems are larger than pure MLIP, so VRAM pressure is higher. Try in orde
 
 1. **Verify Frozen** — `define-layer` should put distal atoms at B=20.0. If the Frozen region is too small, the Movable-MM region (and its Hessian) inflates. Decrease `--radius-freeze` to expand Frozen.
 2. **Shrink ML region** — smaller `--radius` in `extract`, or hand-craft a smaller `--model-pdb`.
-3. **`--hessian-calc-mode FiniteDifference`** — slower but lower peak VRAM.
+3. **Compare Hessian modes** — finite difference often lowers ML autograd memory, but both modes form a dense active-space Hessian; benchmark runtime and peak memory on the target system.
 4. **Pre-define layers** with `define-layer` and `use_bfactor_layers: true` in YAML.
-5. **Bigger GPU** — 24 GB+ for 500+ ML atoms; 48 GB+ for 1000+.
+5. **Bigger GPU** — pilot the same model, Hessian mode, and active region on the target device.
 
 ### TS optimization does not converge / multiple imaginary modes remain
 
-Try `--opt-mode grad` (Dimer) ↔ `--opt-mode hess` (RS-I-RFO); `--flatten` to flatten extra imaginary modes; `--max-cycles 20000`; tighter `--thresh baker` / `gau_tight`; expand Hessian-target atoms via `hess_cutoff`.
+Inspect the optimizer stop reason and mode displacements, then consider switching
+`--opt-mode grad` (Dimer) ↔ `--opt-mode hess` (RS-I-RFO), enabling
+`--flatten` for surplus imaginary modes, increasing `--max-cycles` within the
+available compute budget, tightening `--thresh`, or expanding Hessian-target
+atoms via `hess_cutoff`.
 
-In particular, a **near-zero** extra imaginary mode (a few cm⁻¹) at the default `baker` threshold is usually a convergence artifact, not a real second reaction coordinate. `baker` is cost-effective for the bulk; when `n_imag >= 2` appears, re-run with a tighter `--thresh` (`gau_tight` or tighter) — the soft mode typically resolves to `n_imag = 1`. Only if a robust (well below the noise floor) second imaginary mode survives tightening is it a genuine higher-order saddle.
+Any result with `n_imag >= 2` is not a certified first-order saddle, regardless
+of the magnitude of the additional imaginary mode. Re-run with a tighter
+`--thresh` (`gau_tight` or tighter) and inspect the associated displacement.
+Certification requires the recomputed result itself to have exactly one
+imaginary mode.
 
 (optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor)=
 ### Optimizer "stalls" with flat energy + forces just above threshold (MLIP force noise floor)
@@ -156,9 +164,10 @@ Raise `--max-nodes` (e.g. 15–20) for complex reactions; enable `--preopt`; try
 ## Performance / stability tips
 
 - **OOM** — shrink ML region, shrink Hessian-target MM, lower `--max-nodes`, or use `--opt-mode grad`.
-- **Analytical ML Hessian** is fastest when VRAM allows (24 GB+ recommended for 300+ ML atoms); else `FiniteDifference`.
+- **Analytical ML Hessian** can reduce evaluations but has backend- and
+  system-dependent memory use; compare it with `FiniteDifference` on a pilot.
 - **MM Hessian** — default `mm_fd: true` (finite-difference) trades speed for memory; `mm_fd: false` is faster on small systems but heavier on memory. Cap MM atom count with `hess_cutoff`.
-- **Large systems (2000+ atoms)** — make sure the Frozen layer is generous (`define-layer` with appropriate cutoffs) to keep the movable DOF count down.
+- **Large systems** — use `define-layer` cutoffs to keep the movable degree-of-freedom count appropriate for the target calculation.
 - **Multi-GPU** — ML on one device (`ml_cuda_idx: 0`), MM on another (`mm_device: cuda`, `mm_cuda_idx: 1`).
 - **ML/MM parallelism** — ML (GPU) and MM (CPU) run in parallel by default; tune CPU threads with `mm_threads`.
 

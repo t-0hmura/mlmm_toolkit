@@ -9,7 +9,7 @@ this one actually parses the static import edges.  It asserts:
    modules (no import cycle).
 2. No bundled fork (``pysisyphus`` / ``hessian_ff`` / ``thermoanalysis``) imports
    ``mlmm`` — the forks stay leaves that the product imports, never the reverse
-   (this also rejects the C10 reverse edge into product workflows).
+   (this also rejects reverse edges into product workflows).
 3. No forbidden layer edge: ``mlmm.core.* -> mlmm.workflows.*`` and
    ``mlmm.domain.* -> mlmm.workflows.*`` (``core`` / ``domain`` never import the
    application layer).

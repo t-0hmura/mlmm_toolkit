@@ -14,8 +14,8 @@ Options:
                                   paths, DEBUG logging).  [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
-  -i, --input FILE                Full-enzyme PDB used by the ML/MM calculator
-                                  and as reference for conversions.  [required]
+  -i, --input FILE                Full-system PDB/mmCIF, or XYZ with --ref-pdb,
+                                  used by the ML/MM calculator.  [required]
   --parm FILE                     Amber parm7 topology covering the entire
                                   enzyme complex.  [required]
   --model-pdb FILE                ML-only, link-H-free PDB subset; atom
@@ -61,9 +61,10 @@ Options:
   --relax-max-cycles INTEGER      Compatibility alias of --max-cycles (overrides
                                   it when provided).
   --dump / --no-dump              Write per-step optimizer trajectory files.
-                                  scan_trj.xyz and scan.pdb are always written
-                                  per-stage and as a combined file in out-dir,
-                                  regardless of this flag.  [default: no-dump]
+                                  scan_trj.xyz is always written per-stage and
+                                  as a combined file in out-dir; scan.pdb
+                                  companions are written when --convert-files is
+                                  enabled.  [default: no-dump]
   -o, --out-dir TEXT              Base output directory.  [default:
                                   ./result_scan/]
   --thresh [gau_loose|gau|gau_tight|gau_vtight|baker|never]
@@ -160,9 +161,9 @@ Options:
                                   Calculator instance). CLI overrides config
                                   YAML; otherwise defaults to get_calculator.
   --deterministic / --no-deterministic
-                                  Enable strict deterministic GPU algorithms and
-                                  the index_reduce_ shim. Slower; raises if
-                                  unsupported. Default off.
+                                  Request deterministic algorithms for
+                                  controlled operations; verify exact
+                                  reproducibility on the complete target stack.
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
                                   electron-parity check (logs that it was
                                   skipped). For an intentional open-shell or

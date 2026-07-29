@@ -183,8 +183,9 @@ mlmm irc -i seg_NN/tsopt/final_geometry.xyz --ref-pdb enzyme_layered.pdb --parm 
 **GATE** in order: tsopt `result.json` `status` is exactly `converged`
 (`not_converged` means zero/multiple modes or optimizer failure; `unverified` means
 the final frequency check was skipped) → freq `result.json` `n_imaginary == 1` (exactly one imaginary frequency)
-whose mode moves the reacting atoms (0 or >1 → fix via fp64 / `--coord-type dlc` /
-`--flatten`, see `mlmm-ts-strategy/SKILL.md` §3, before trusting the barrier) → irc
+whose mode moves the reacting atoms (for 0 or >1, inspect the geometry, modes,
+MEP guess, optimizer stop reason, and backend-specific numerical behavior before retrying;
+see `mlmm-ts-strategy/SKILL.md` §3) → irc
 `result.json` `status == "completed"` and forward/backward endpoints connect the **intended**
 R and P (bond changes match this step). A TS that fails any gate is not this elementary step.
 
@@ -277,23 +278,23 @@ Per-segment keys in the post-processing list (`summary.json["post_segments"][i]`
 | `structures` | Map: `reactant`, `ts`, `product` → file paths |
 | `irc_plot` / `irc_traj` | IRC-related artifact paths |
 | `ts_imag` | `{n_imag}` |
-| `mlip` | `{energies_au, energies_kcal, barrier_kcal, delta_kcal, ...}` for the selected backend |
-| `gibbs_mlip` | `{energies, barrier_kcal, delta_kcal, ...}` (when `--thermo` is on) |
+| `mlip` | R/TS/P runs contain `{energies_au, energies_kcal, barrier_kcal, delta_kcal, ...}`; TS-only E1/TS/E2 runs instead contain one barrier from each endpoint |
+| `gibbs_mlip` | Gibbs analogue of `mlip` (when `--thermo` is on) |
 | `thermo_symmetry` | Per-state `R` / `TS` / `P` map of `{symmetry_number, symmetry_number_source}` copied from successful frequency children. Missing states are omitted. |
-| `dft` | `{labels, energies_au, energies_kcal, diagram, structures, barrier_kcal, delta_kcal}` (when `--dft` is on) |
+| `dft` | Model-region DFT state energies; R/P fields are present only when chemical orientation is established (when `--dft` is on) |
 | `gibbs_dft_mlip` | DFT//MLIP/MM Gibbs profile (when both `--dft` and `--thermo` are on) |
 | `mep_barrier_kcal` / `mep_delta_kcal` | Plain-MEP energies (no Gibbs / DFT correction) |
 
-## R/TS/P canonical paths
+## Oriented R/TS/P paths
 
-Two locations get written for each elementary step:
+For a segment oriented against MEP endpoints, two locations are written:
 
 ```
 result_all/
 └── segments/seg_NN/                        # CANONICAL — post-L-BFGS optimized
-    ├── reactant.{xyz,pdb}                  # IRC backward endpoint, then L-BFGS-optimized
+    ├── reactant.{xyz,pdb}                  # MEP-matched IRC endpoint, then optimized
     ├── ts.{xyz,pdb}                        # tsopt'd transition state
-    ├── product.{xyz,pdb}                   # IRC forward endpoint, then L-BFGS-optimized
+    ├── product.{xyz,pdb}                   # MEP-matched IRC endpoint, then optimized
     └── structures/
         ├── reactant.{xyz,pdb}              # same as above (canonical) — nested copy
         ├── reactant_irc.{xyz,pdb}          # raw IRC backward end (pre-L-BFGS)
@@ -308,6 +309,11 @@ IRC vs. L-BFGS divergence.
 
 `bond_changes` are computed from `reactant.xyz` / `product.xyz`
 (post-L-BFGS), not from the raw IRC endpoints.
+
+TS-only mode has no MEP/reference orientation. It writes the same number of
+structures as `e1`, `ts`, and `e2`; endpoint energy and IRC direction do not
+assign chemical R/P identity. Its summary reports the TS barrier from each
+endpoint and omits R/P reaction energies.
 
 ## Programmatic key extraction
 

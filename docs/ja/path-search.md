@@ -88,7 +88,7 @@ out_dir/ (デフォルト:./result_path_search/)
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
-| `-i, --input PATH...` | 反応順の 2 つ以上の完全酵素 PDB。`-i` を繰り返すか、1 つのフラグの後に複数パスを渡す。 | 必須 |
+| `-i, --input PATH...` | 反応順の 2 つ以上の PDB/mmCIF 構造、または対応する `--ref-pdb` を伴う XYZ。`-i` を繰り返すか、1 つのフラグの後に複数パスを渡す。 | 必須 |
 | `--parm PATH` | 完全酵素複合体の Amber parm7 トポロジー。 | 必須 |
 | `--model-pdb PATH` | ML/MM の ML（高レベル）領域原子を定義する PDB。`--detect-layer` または `--model-indices` 利用時は省略可。 | _None_ |
 | `--model-indices TEXT` | ML 領域のカンマ区切り原子インデックス（範囲指定可、例: `1-5`）。`--model-pdb` 省略時に使用。 | _None_ |

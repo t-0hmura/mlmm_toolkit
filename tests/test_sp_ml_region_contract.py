@@ -17,7 +17,7 @@ def _write_pdb(path: Path, bfactors) -> Path:
     lines = []
     for serial, bfactor in enumerate(bfactors, start=1):
         lines.append(
-            f"ATOM  {serial:5d}  H   MOL A   1    "
+            f"ATOM  {serial:5d}  H   MOL A{serial:4d}    "
             f"{float(serial - 1):8.3f}{0.0:8.3f}{0.0:8.3f}"
             f"{1.0:6.2f}{float(bfactor):6.2f}          H \n"
         )

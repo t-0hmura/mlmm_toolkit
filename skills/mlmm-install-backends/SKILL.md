@@ -37,30 +37,18 @@ This skill directory contains ten files; read them in this order:
    driver / scheduler / CUDA / conda before doing anything.
 2. **CUDA + torch** — `env-cuda.md` decides which torch wheel to pull.
 3. **`mlmm-toolkit` core** — `core.md`.
-4. **At least one MLIP backend** — start with UMA (`uma.md`); add others
-   only as you need them.
+4. **At least one MLIP backend** — choose from the supported backends below
+   after checking the model domain and target-system pilot.
 5. **DFT (optional)** — `dft.md`. Skip if you only need MLIP energies.
 6. **xTB** — `xtb.md`. Read only when an old command contains `--embedcharge` or xTB is requested through a custom calculator.
 
-## Decision tree: which backend?
+## Choose a backend
 
-```
-Need TS + IRC validation on a known organic + 1st-row metal cluster?
-    └── start with UMA-s-1.2 / `uma-s-1p2` (uma.md)
-        └── if accuracy is borderline, also install MACE-OMOL-0 (mace.md, separate env)
-
-Need a fast screen across many candidates?
-    └── Orb-v3 (orb.md)
-
-Working on small organic molecules, no metals?
-    └── AIMNet2 (aimnet2.md) — limited element coverage, but light
-
-Need DFT//MLIP/MM single-point energies?
-    └── add dft.md regardless of MLIP choice
-
-Need a non-MLIP engine for the ML region (GFN-xTB / DFTB+ / ORCA / any ASE calc)?
-    └── --calc-file my_calc.py (custom backend, see below)
-```
+Check each candidate model's model card for supported elements, charge,
+multiplicity, and training domain. Then compare energies, forces, frequencies,
+runtime, and memory on a representative system. Add the DFT dependencies from
+`dft.md` when DFT//MLIP/MM single-point energies are needed. For a non-MLIP
+engine, use the custom ASE calculator interface below.
 
 ## Custom backend — any ASE Calculator (`--calc-file`)
 
@@ -175,7 +163,7 @@ go back to `env-cuda.md`.
 | `gpu4pyscf` import fails on aarch64 | `gpu4pyscf-cuda12x` is x86_64 only | `dft.md` — fall back to CPU PySCF |
 | `huggingface_hub.errors.GatedRepoError` on UMA load | UMA model is gated, not authenticated | `uma.md` — `huggingface-cli login` |
 | `OSError: libcusolver.so.11 not found` | torch's bundled CUDA libs missing or shadowed | `env-cuda.md` — `LD_LIBRARY_PATH` order |
-| `RuntimeError: CUDA out of memory` during freq | Analytical Hessian too memory-heavy | set `hessian_calc_mode: FiniteDifference` (or keep `return_partial_hessian: True`, the default) to cut Hessian memory |
+| `RuntimeError: CUDA out of memory` during freq | Active Hessian exceeds available memory | Reduce the active region, keep `return_partial_hessian: True`, and compare Analytical with FiniteDifference on a pilot |
 
 ## See also
 `pyproject.toml` lists the canonical extras and version pins. To inspect

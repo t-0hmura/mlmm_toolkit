@@ -267,6 +267,7 @@ def test_opt_zero_micro_active_uses_vacuous_micro_not_all_frozen_lbfgs(tmp_path,
 
     outcome = opt_mod._run_microiter_opt(
         geom,
+        _FakeCalc(),
         calc_cfg={},
         rfo_cfg={},
         lbfgs_cfg={},
@@ -331,6 +332,7 @@ def test_opt_initial_hessian_is_resolved_after_initial_mm_relaxation(
     partition = _micro_active_partition()
     opt_mod._run_microiter_opt(
         _FakeGeom(n_atoms=2),
+        _FakeCalc(),
         calc_cfg={},
         rfo_cfg={},
         lbfgs_cfg={},
@@ -384,6 +386,7 @@ def test_opt_initial_micro_failure_skips_hessian_and_macro(
 
     outcome = opt_mod._run_microiter_opt(
         _FakeGeom(n_atoms=2),
+        _FakeCalc(),
         calc_cfg={},
         rfo_cfg={},
         lbfgs_cfg={},

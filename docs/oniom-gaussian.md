@@ -18,19 +18,19 @@ mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.pdb --model-pdb ml_regi
 ```bash
 # Basic export with explicit method
 mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
- -o system.com --method "wB97XD/def2-TZVPD"
+ -o system.com -q 0 -m 1 --method "wB97XD/def2-TZVPD"
 ```
 
 ```bash
 # Disable element-sequence validation when atom order is already trusted
 mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.xyz --model-pdb ml_region.pdb \
- -o system.gjf --no-element-check
+ -o system.gjf -q 0 -m 1 --no-element-check
 ```
 
 ```bash
 # Set compute resources and the movable-atom cutoff
 mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
- -o system.com --nproc 16 --mem 32GB --near 5.0
+ -o system.com -q 0 -m 1 --nproc 16 --mem 32GB --near 5.0
 ```
 
 ## Workflow

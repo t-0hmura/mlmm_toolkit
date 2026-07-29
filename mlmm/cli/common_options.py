@@ -248,14 +248,11 @@ def _deterministic_callback(ctx, param, value):
 def add_deterministic_option() -> Callable[[Callable], Callable]:
     """Attach ``--deterministic/--no-deterministic`` to a Click command.
 
-    Bit-reproducible mode: turns on ``torch.use_deterministic_algorithms`` plus
-    an ``index_reduce_`` shim so repeated GPU runs are bit-identical. It is a
-    process-global side effect applied via an eager, value-less callback, so it
-    propagates to all backends and to the in-process child stages of ``all``
-    without per-stage forwarding. Slower than the default, and raises (rather
-    than silently degrading) if the torch build cannot honour strict mode.
-    Default off. The env var ``MLMM_STRICT_DETERMINISTIC=1`` is the equivalent
-    entry point for CI and the direct Python API.
+    Requests deterministic algorithms for controlled operations by enabling
+    ``torch.use_deterministic_algorithms`` and an ``index_reduce_`` shim. Exact
+    reproducibility must be validated on the complete target stack. The setting
+    is process-global and propagates to in-process ``all`` stages. Default off;
+    ``MLMM_STRICT_DETERMINISTIC=1`` is the direct-API equivalent.
     """
     def decorator(func: Callable) -> Callable:
         return click.option(
@@ -266,8 +263,8 @@ def add_deterministic_option() -> Callable[[Callable], Callable]:
             expose_value=False,
             callback=_deterministic_callback,
             help=(
-                "Enable strict deterministic GPU algorithms and the index_reduce_ "
-                "shim. Slower; raises if unsupported. Default off."
+                "Request deterministic algorithms for controlled operations; "
+                "verify exact reproducibility on the complete target stack."
             ),
         )(func)
     return decorator

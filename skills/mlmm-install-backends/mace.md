@@ -91,5 +91,5 @@ MACE accepts (the `_MACEBackend.__init__` parameters in `backends/mlmm_calc.py`;
 
 - `env-cuda.md` — torch + CUDA prereq.
 - `core.md` — `mlmm-toolkit` install (do this **inside** `<your_mace_mlmm_env>`).
-- `uma.md` — primary backend; keep it in a separate env.
+- `uma.md` — alternate backend; keep it in a separate env.
 - `mlmm-cli/tsopt.md` — TS solver choice (Dimer vs RS-I-RFO) interacts with backend.

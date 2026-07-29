@@ -176,7 +176,6 @@ class ChainOfStates:
     def coords(self):
         """Return a flat 1d array containing the coordinates of all images."""
         all_coords = [image.coords for image in self.images]
-        # Note: why does this getter set self._coords? ... I wrote this line 6 years ago.
         self._coords = np.concatenate(all_coords)
         return self._coords
 

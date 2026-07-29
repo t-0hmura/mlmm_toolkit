@@ -117,9 +117,8 @@ class ConvInfo:
 
 class Optimizer(metaclass=abc.ABCMeta):
     # Class-level dedupe set so the "Convergence thresholds:" block prints
-    # once per (thresh, overachieve) key per Python process instead of at
-    # every optimizer instantiation; ONIOM / IRC / path-opt pipelines
-    # otherwise reprint the identical 5-line block 10-20 times per run.
+    # once per (thresh, overachieve) key per Python process rather than at
+    # every optimizer instantiation in an ONIOM / IRC / path-opt pipeline.
     _printed_thresh_keys: set = set()
 
     # Subclass-specific restart_info keys that ``_set_opt_restart_info`` reads

@@ -171,9 +171,10 @@ mlmm opt -i ml_region.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 -b orb      
 mlmm opt -i ml_region.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 -b mace        # MACE
 ```
 
-## DFT refinement via Gaussian / ORCA (hand-off)
+## Export to Gaussian / ORCA
 
-`mlmm-toolkit` provides a round-trip hand-off — Gaussian or ORCA must be licensed and on `PATH` separately:
+`mlmm-toolkit` can export Gaussian or ORCA input. Gaussian or ORCA must be
+installed and licensed separately:
 
 ```bash
 # 1. ML/MM TS refinement
@@ -186,13 +187,13 @@ mlmm oniom-export --mode g16 --parm real.parm7 -i result_tsopt/final_geometry.pd
 # 3. Run externally (ORCA via --mode orca also supported)
 g16 < ts_refine.com > ts_refine.log
 
-# 4. Pull DFT-refined geometry back in
-mlmm oniom-import -i ts_refine.com --ref-pdb ml_region.pdb -o ts_dft
-
-# 5. Continue freq / IRC on the refined geometry
-mlmm freq -i ts_dft_layered.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0 -m 1
-mlmm irc  -i ts_dft_layered.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0 -m 1
 ```
+
+`oniom-import` reads Gaussian/ORCA **input decks**; it does not extract an
+optimized geometry from a Gaussian/ORCA output file. To continue in
+`mlmm-toolkit`, export the external program's final geometry while preserving
+the topology atom order, then use that geometry with the original parm7 and ML
+region definition.
 
 Full flag references: [oniom-export](oniom-export.md), [oniom-import](oniom-import.md), [oniom-gaussian](oniom-gaussian.md), [oniom-orca](oniom-orca.md).
 
@@ -212,7 +213,7 @@ Full flag references: [oniom-export](oniom-export.md), [oniom-import](oniom-impo
 | `--dmf-backend gpu\|cpu` | DMF implementation; use `cpu` after a GPU out-of-memory error. |
 | `-b, --backend uma\|orb\|mace\|aimnet2` | MLIP backend (default `uma`). |
 | `--embedcharge/--no-embedcharge` | Electronic embedding is unavailable in v0.3.3; keep the mechanical default. |
-| `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian mode. All bundled MLIP backends support `Analytical`; use it when VRAM allows. It is incompatible with `--workers > 1`. |
+| `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian mode. Runtime and memory depend on the backend and system; compare both modes on a representative pilot. `Analytical` is incompatible with `--workers > 1`. |
 
 `mlmm all --mep-mode dmf` applies Direct Max Flux to both the default
 single-pass `path-opt` route and recursive `path-search` selected by

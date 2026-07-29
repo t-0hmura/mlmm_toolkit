@@ -120,3 +120,38 @@ def test_two_modified_residue_requests_leave_canonical_identical(tmp_path: Path)
         assert dict(extract.AMINO_ACIDS) == fresh_working
         assert "ZZ9" not in extract.AMINO_ACIDS
         assert "ZZ8" not in extract.AMINO_ACIDS
+
+
+def test_known_modified_residue_without_charge_keeps_catalog_charge(
+    tmp_path: Path,
+):
+    import mlmm.workflows.extract as extract
+    from mlmm.workflows.extract import extract_api
+
+    inp = _write_pdb(tmp_path / "input.pdb")
+    extract_api(
+        complex_pdb=[str(inp)],
+        center="GPP",
+        output=[str(tmp_path / "pocket.pdb")],
+        radius=2.6,
+        radius_het2het=0.0,
+        modified_residue="SEP",
+        verbose=False,
+    )
+    assert extract.AMINO_ACIDS["SEP"] == -2
+
+
+def test_unknown_modified_residue_requires_explicit_charge(tmp_path: Path):
+    from mlmm.workflows.extract import extract_api
+
+    inp = _write_pdb(tmp_path / "input.pdb")
+    with pytest.raises(ValueError, match="specify its integer charge"):
+        extract_api(
+            complex_pdb=[str(inp)],
+            center="GPP",
+            output=[str(tmp_path / "pocket.pdb")],
+            radius=2.6,
+            radius_het2het=0.0,
+            modified_residue="ZZ9",
+            verbose=False,
+        )

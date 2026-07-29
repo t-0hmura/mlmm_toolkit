@@ -92,15 +92,20 @@ def build_energy_level_dict(
         ``{label: pdb_path}`` mapping for downstream consumers.
     """
     kcal = [(e - ref_energy) * au_to_kcal for e in energies_au]
-    return {
+    payload = {
         "labels": list(labels),
         "energies_au": list(energies_au),
         "energies_kcal": kcal,
         "diagram": diagram_path,
         "structures": dict(structures),
-        "barrier_kcal": kcal[1] if len(kcal) > 1 else 0.0,
-        "delta_kcal": kcal[-1] if kcal else 0.0,
     }
+    if list(labels) == ["R", "TS", "P"]:
+        payload["barrier_kcal"] = kcal[1]
+        payload["delta_kcal"] = kcal[-1]
+    elif list(labels) == ["E1", "TS", "E2"]:
+        payload["barrier_from_endpoint_1_kcal"] = kcal[1] - kcal[0]
+        payload["barrier_from_endpoint_2_kcal"] = kcal[1] - kcal[2]
+    return payload
 
 
 def promote_diag_for_root(
@@ -326,10 +331,10 @@ def build_freq_overrides(
 def build_thermo_symmetry_provenance(
     thermo_payloads: Mapping[str, Mapping[str, Any]],
 ) -> Dict[str, Dict[str, Any]]:
-    """Copy complete, child-reported R/TS/P symmetry provenance."""
+    """Copy complete, child-reported state symmetry provenance."""
 
     provenance: Dict[str, Dict[str, Any]] = {}
-    for label in ("R", "TS", "P"):
+    for label in thermo_payloads:
         payload = thermo_payloads.get(label)
         if not isinstance(payload, Mapping):
             continue

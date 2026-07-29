@@ -33,7 +33,7 @@ mlmm extract -i complex.pdb -c <substrate-spec> [-l 'RES:Q,...'] \
 | `--exclude-backbone / --no-exclude-backbone` | flag | `--no-exclude-backbone` | Delete main-chain atoms from non-substrate amino acids |
 | `--add-linkh / --no-add-linkh` | flag | `--no-add-linkh` | Add carbon-only link-H at 1.09 Å along cut-bond directions |
 | `--selected-resn` | str | none | Comma/space-separated residue IDs to force-include |
-| `--modified-residue` | str | none | Residue names (+ optional charge) to treat as amino acids, e.g. `'HD1:0,SEP:-2'` |
+| `--modified-residue` | str | none | Unregistered residue names with integer charges, e.g. `'HD1:0'`; known catalog residues may omit the charge, e.g. `'SEP'` |
 | `--out-json / --no-out-json` | flag | `--no-out-json` | Write `result.json` next to the output PDB |
 | `--help-advanced` | flag | — | Reveal advanced flags |
 

@@ -126,10 +126,8 @@ def add_scan_common_options(
 ) -> Callable[[Callable], Callable]:
     """Attach the 9–12 shared scan CLI options to a Click command.
 
-    Used by `mlmm scan2d` and `mlmm scan3d`. Each common option keeps its
-    exact pre-wire surface (flag form, default value, type, help text) so
-    that the only diff downstream of this refactor is the relative position
-    in `--help` (= golden migrate, not a behavior change).
+    Used by `mlmm scan2d` and `mlmm scan3d`. Each common option has the same
+    flag form, default, type, and help text in both commands.
     """
     options = [
         click.option(

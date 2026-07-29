@@ -1,6 +1,6 @@
 # `scan`
 
-`mlmm scan` drives a reaction coordinate on a layered enzyme PDB to generate a coarse reaction trajectory from a single starting structure, providing intermediate/product candidates for downstream MEP refinement. It performs a staged, bond-length-driven scan with the ML/MM calculator (`mlmm.backends.mlmm_calc.mlmm`), driving one or more interatomic distances toward target values under harmonic restraints. At each step the temporary targets are updated, restraint wells are applied, and the structure is relaxed with L-BFGS. The ML/MM calculator couples an MLIP backend (selected via `-b/--backend`; default: UMA) and mlmm-toolkit's MM force field. Use `-s/--scan-lists` to define targets as a YAML/JSON spec file (recommended) or as inline Python literals.
+`mlmm scan` drives a reaction coordinate from a single layered enzyme structure to generate a coarse reaction trajectory, providing intermediate/product candidates for downstream MEP refinement. Input may be PDB/mmCIF, or XYZ with `--ref-pdb`. It performs a staged, bond-length-driven scan with the ML/MM calculator (`mlmm.backends.mlmm_calc.mlmm`), driving one or more interatomic distances toward target values under harmonic restraints. At each step the temporary targets are updated, restraint wells are applied, and the structure is relaxed with L-BFGS. The ML/MM calculator couples an MLIP backend (selected via `-b/--backend`; default: UMA) and mlmm-toolkit's MM force field. Use `-s/--scan-lists` to define targets as a YAML/JSON spec file (recommended) or as inline Python literals.
 
 ## Examples
 
@@ -44,7 +44,7 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 2. Optionally run an unbiased preoptimization (`--preopt`) before any
     biasing so the starting point is relaxed.
 3. Parse stage targets from `-s/--scan-lists` (YAML/JSON spec file or inline literal), then normalize the
-    `(i, j)` indices (1-based by default). When the input is a PDB, each entry
+    `(i, j)` indices (1-based by default). When PDB metadata are available, each entry
     may be either an integer index or an atom selector string like `'TYR,285,CA'`;
     selector fields can be separated by spaces, commas, slashes, backticks, or
     backslashes and may be in any order.
@@ -65,20 +65,20 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## Outputs
 
-Each stage writes its final geometry and biased-step trajectory under `stage_XX/`, with a combined trajectory at the root. Check the per-stage `result.pdb` (or `result.xyz`) and the always-generated `scan_trj.xyz` / `scan.pdb` first.
+Each stage writes its final geometry and biased-step trajectory under `stage_XX/`, with a combined trajectory at the root. Check the per-stage `result.xyz` and the always-generated `scan_trj.xyz` first; PDB companions are written when `--convert-files` is enabled and a PDB template is available.
 
 ```
 out_dir/ (default: ./result_scan/)
 ├─ scan_trj.xyz              # Combined trajectory across all stages (always written)
-├─ scan.pdb                  # Combined PDB companion (PDB inputs only; always written)
+├─ scan.pdb                  # With --convert-files and a PDB template
 ├─ preopt/                   # Present when --preopt is True
 │  ├─ result.xyz
-│  └─ result.pdb             # Only for PDB inputs
+│  └─ result.pdb             # With --convert-files and a PDB template
 └─ stage_XX/                 # One folder per stage (k = 01..K)
    ├─ result.xyz             # Final (possibly endopt) geometry
-   ├─ result.pdb             # If input was PDB
+   ├─ result.pdb             # With --convert-files and a PDB template
    ├─ scan_trj.xyz           # Per-stage biased step frames (always written)
-   └─ scan.pdb               # PDB version of scan_trj.xyz (PDB inputs only; always written)
+   └─ scan.pdb               # With --convert-files and a PDB template
 ```
 
 ## CLI options
@@ -87,7 +87,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `-i, --input PATH` | Input PDB (or XYZ with `--ref-pdb` for topology). | Required |
+| `-i, --input PATH` | Input PDB/mmCIF, or XYZ with `--ref-pdb` for topology. | Required |
 | `--parm PATH` | Amber prmtop for the full REAL system. | Required |
 | `--model-pdb PATH` | PDB defining the ML region (atom IDs). Optional when `--detect-layer` is enabled or `--model-indices` is provided. | _None_ |
 | `--model-indices TEXT` | Comma-separated ML-region atom indices (ranges allowed). | _None_ |
@@ -109,7 +109,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--relax-max-cycles INT` | Compatibility alias of `--max-cycles` (overrides it when provided). | _None_ |
 | `--preopt/--no-preopt` | Run an unbiased optimization before scanning. | `False` |
 | `--endopt/--no-endopt` | Run an unbiased optimization after each stage. | `False` |
-| `--dump/--no-dump` | Dump per-step optimizer trajectory files. Note: `scan_trj.xyz`/`scan.pdb` are always written regardless of this flag. | `False` |
+| `--dump/--no-dump` | Dump per-step optimizer trajectory files. `scan_trj.xyz` is always written; PDB/CIF companions require `--convert-files` and a reference topology. | `False` |
 | `-o, --out-dir TEXT` | Output directory root. | `./result_scan/` |
 | `--thresh TEXT` | Convergence preset (`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`). | _None_ (inherits `gau`) |
 | `--config FILE` | Base YAML configuration file (applied first). | _None_ |
@@ -139,7 +139,7 @@ stages:
 
 - `stages` is required.
 - Each stage is a list of `(i, j, target_A)` triples.
-- Indices may be integers or PDB selectors (for PDB input), same as inline literals.
+- Indices may be integers or PDB selectors when PDB metadata are available, same as inline literals.
 
 **Inline literal format**
 
@@ -217,7 +217,7 @@ mlmm scan -i r.pdb --parm enzyme.parm7 -l 'LIG:Q' \
        '[(7,9,0.95)]' -o result_staged
 ```
 
-A concerted scan needs no mechanism breakdown — [`path-search`](path-search.md) performs the multistep auto-segmentation for you. A staged scan needs the mechanism defined up front, **but when the mechanism is known, staged scans give cleaner per-step control and are generally preferred.** (A four-tuple expands into two stages for a bidirectional scan.)
+A concerted scan needs no mechanism breakdown — [`path-search`](path-search.md) performs the multistep auto-segmentation for you. A staged scan needs the mechanism defined up front and exposes each prescribed coordinate change as a separate stage. (A four-tuple expands into two stages for a bidirectional scan.)
 
 **Bidirectional scan (4-tuple)**
 

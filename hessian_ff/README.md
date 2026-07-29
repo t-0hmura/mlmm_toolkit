@@ -19,7 +19,7 @@ There is no upstream `hessian_ff` package on PyPI or any public registry. The mo
 |------|------|
 | `analytical_hessian.py` | **The single entry point** — `build_analytical_hessian(system, coords, active_atoms=...)` returns `(H, info)`: the dense MM Hessian for the active subset plus an info dict |
 | `forcefield.py` | force-field term definitions (bond / angle / proper / improper / LJ / Coulomb) |
-| `prmtop_parmed.py` | parmed-based parm7 reader (the atom-indexing helpers of chemistry-rule #9 live in `loaders.py`) |
+| `prmtop_parmed.py` | parmed-based parm7 reader; chemistry-rule #9 atom-index normalization lives in `mlmm/io/pdb_indexing.py` |
 | `loaders.py` | force-field parameter loading |
 | `system.py` | atom / topology data classes |
 | `constants.py` | unit conversion constants |
@@ -36,7 +36,7 @@ Preserve the `analytical_hessian.py` public contract and the atom-index mapping
 used by `prmtop_parmed.py`. `workflows.py` exposes compatibility symbols through
 `__all__` even though the production path does not import it.
 
-Logic edits must be explicitly requested via a `[CHEMISTRY-RULE:2]` or `[CHEMISTRY-RULE:8]` or `[CHEMISTRY-RULE:9]` commit and go through HEAVY benchmark verification before merge.
+Validate logic changes with the relevant unit tests and scheduled numerical benchmark.
 
 ## `mlmm_calc.py` is the sole entry point
 
@@ -51,6 +51,6 @@ If you are adding a new MM term, edit `forcefield.py` + add a new per-term file 
 
 ## See also
 
-- [`../docs/architecture.md`](../docs/architecture.md) §5.3, §6 — repo-internal fork policy + chemistry-rule #2, #8, #9 file:line
+- [`../docs/architecture.md`](../docs/architecture.md) §5.1, §6 — chemistry-rule locations and repo-internal fork policy
 - [`../CONTRIBUTING.md`](../CONTRIBUTING.md) §4.3 — bundled-fork edit policy
 - [`../THIRD_PARTY_NOTICES.txt`](../THIRD_PARTY_NOTICES.txt) — third-party attributions, including the exact OpenMM-derived files and license

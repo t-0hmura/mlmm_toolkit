@@ -113,7 +113,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--exclude-backbone / --no-exclude-backbone` | Remove backbone atoms on non-substrate amino acids (PRO / HYP safeguards). | `False` |
 | `--add-linkh / --no-add-linkh` | Add carbon-only link hydrogens at 1.09 Å along severed bonds (distance-based). Not needed for an mlmm `--model-pdb` (the ML/MM calculator caps the boundary from the `--parm` topology); use for standalone pocket models only. | `False` |
 | `--selected-resn TEXT` | Force-include residues (IDs with optional chains / insertion codes). | `""` |
-| `--modified-residue TEXT` | Comma-separated residue names (with optional charge) to treat as amino acids for backbone truncation and charge assignment (e.g. `HD1,HD2,HD3` or `HD1:0,SEP:-2`). Useful for modified amino acids with non-standard names. | `""` |
+| `--modified-residue TEXT` | Comma-separated modified-residue names and integer charges for backbone truncation and charge assignment (e.g. `HD1:0,HD2:-1`). A known catalog residue may omit its charge (e.g. `SEP`). | `""` |
 | `-l, --ligand-charge TEXT` | Total charge or per-resname mapping (e.g. `GPP:-3,SAM:1`). | _None_ |
 
 ### Input syntax
@@ -125,7 +125,10 @@ Substrate specification (`-c/--center`):
 - **Residue names**: comma-separated, case-insensitive. If multiple residues share a name, **all** matches are included and a warning is logged.
 
 ```{tip}
-If the extracted pocket is too small, calculated energies and barriers may be unreliable — increasing the extraction radius (e.g. `-r 4.0` or higher) improves accuracy by including more of the protein environment.
+Test the extraction radius as a model-size convergence parameter. A larger
+region includes more environment but does not guarantee monotonic improvement;
+compare the target energies, forces, and barriers across chemically sensible
+region definitions.
 ```
 
 ## Notes
@@ -142,7 +145,12 @@ Consider preparing the pocket model manually.
 ```
 
 ```{tip}
-Register these names with `--modified-residue` (e.g. `--modified-residue HD1,HE1,CM1,AP1`); append `:charge` to set an integer charge, e.g. `--modified-residue HD1:0,SEP:-2` (charge defaults to `0`). `extract` then treats them as amino acids and applies backbone truncation, link-hydrogen capping, and charge assignment automatically, and the warning above is suppressed.
+Register each unlisted name with its integer charge, for example
+`--modified-residue HD1:0,HE1:0,CM1:0,AP1:0`. A residue already in the
+catalog may omit `:charge` and keeps its catalog charge (for example, `SEP`
+remains −2). `extract` then treats the names as amino acids and applies
+backbone truncation, link-hydrogen capping, and charge assignment
+automatically, and the warning above is suppressed.
 ```
 
 ```{important}

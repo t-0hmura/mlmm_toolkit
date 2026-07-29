@@ -1,15 +1,10 @@
 """Tiny array-namespace shim for the bundled pysisyphus fork.
 
 The bundled pysisyphus carries a deliberate torch-vs-numpy dispatch in the
-hot Hessian path (so the same code runs both as a numpy CPU optimiser and
-as a torch GPU optimiser inside our MLIP workflow). The historical pattern
-was an inline `if isinstance(x, torch.Tensor): ... else: ...` repeated at
-every site (~130 hits across `optimizers/`, `tsoptimizers/`, `irc/`).
-
-This shim provides one place to ask "what backend is this array on?" and
-matched primitive ops that route through the right module without changing
-results. Adding more helpers here is preferred over adding more inline
-`isinstance` checks.
+hot Hessian path so the same code runs both as a numpy CPU optimiser and as a
+torch GPU optimiser. This shim centralizes array-backend selection and matched
+primitive operations so optimizer and IRC paths do not duplicate inline
+``isinstance`` branches.
 
 Behaviour-preserving by construction: torch path and numpy path each call
 the same operation (`torch.outer` / `np.outer` etc.) that the inline branch

@@ -89,8 +89,8 @@ result_dft/
 ├── summary.json                # mirror of result.json (only when --out-json)
 ├── ml_region_without_linkH.xyz # exact ML selection before generated link-H
 ├── ml_region_with_linkH.xyz    # ML region + generated link-H (PySCF input snapshot)
-├── ml_region_without_linkH.pdb # PDB input only; topology-bearing companion
-└── ml_region_with_linkH.pdb    # PDB input only; generated link-H as HL/LKH
+├── ml_region_without_linkH.pdb # PDB input with --convert-files; topology-bearing companion
+└── ml_region_with_linkH.pdb    # PDB input with --convert-files; generated link-H as HL/LKH
 ```
 
 `result.json` keys (when `--out-json`):
@@ -114,8 +114,8 @@ spin densities. Useful for debugging convergence problems.
 
 | `--engine` | When | Cost |
 |---|---|---|
-| `gpu` | x86_64 + CUDA + > 100 atoms | ~1–10 h on RTX-class GPU per single point |
-| `cpu` | aarch64, no GPU, or < 100 atoms | ~10–100× slower than GPU |
+| `gpu` | x86_64 + a supported CUDA/GPU4PySCF stack | Pilot the target system |
+| `cpu` | aarch64, no supported GPU stack, or explicit CPU execution | Pilot the target system |
 
 aarch64 (`uname -m`) **requires `--engine cpu` explicitly**:
 `gpu4pyscf-cuda12x` ships x86_64 wheels only, so `--engine gpu` (the

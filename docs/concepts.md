@@ -231,7 +231,8 @@ There are two ways to define the ML region:
 - **Automatic extraction** (`-c/--center` + `--exclude-backbone`): `extract` / `all`
   truncate the backbone at the Cα–Cβ boundary and **derive** the model charge
   from the residues, `--modified-residue`,
-  and `-l/--ligand-charge`. Use `--modified-residue NAME[:charge]` (`:charge` optional, default 0) for non-standard
+  and `-l/--ligand-charge`. Use `--modified-residue NAME:charge` for an unregistered
+  modified residue; a known catalog residue may omit `:charge` and retains its catalog value. For non-standard
   amino acids and `-l NAME:charge` for ligands; an explicit `-q` is then unnecessary.
 - **Manual** (`--model-pdb` + `--parm`): you supply the ML-atom selection yourself and
   set the model charge explicitly with `-q`. This is the safer choice when you have

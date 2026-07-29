@@ -205,7 +205,7 @@ def _resolve_calculator_template(
 ) -> _ResolvedCalculatorTemplate:
     """Materialize the effective calculator mapping exactly once.
 
-    ``args_yaml`` is already the canonical C1 output and includes translated
+    ``args_yaml`` is already the canonical merged output and includes translated
     precision, worker, model, and custom-calculator CLI values.  The remaining
     ``all``-level calculator flags are overlaid once with Click's explicitness
     semantics; child/post-stage evaluators only derive state identity from the
@@ -1377,7 +1377,12 @@ def _pipeline_aggregate_truth(
                     reason = "irc_endpoint_connectivity_unvalidated"
             eo = post.get("endpoint_opt")
             if isinstance(eo, dict):
-                for _k in ("reactant_converged", "product_converged"):
+                for _k in (
+                    "reactant_converged",
+                    "product_converged",
+                    "endpoint_1_converged",
+                    "endpoint_2_converged",
+                ):
                     if _k in eo:
                         _v = eo.get(_k)
                         converged = _and3(converged, _v if isinstance(_v, bool) else None)
@@ -1596,7 +1601,7 @@ def _enrich_summary(
     best_method = None
     method_key = None
     rls = None
-    if reactive:
+    if reactive and not ts_only:
         # ``rate_limiting_step`` is a legacy schema key for the highest
         # independently referenced local barrier, not a kinetic RLS assignment.
         def _has_finite_barrier(block: Any) -> bool:
@@ -1663,26 +1668,29 @@ def _enrich_summary(
     }
     ranks = {"MEP": 0, "MLIP": 1, "MLIP_Gibbs": 2, "DFT": 3, "DFT//MLIP/MM_Gibbs": 4}
     max_rank = ranks.get(best_method or "MEP", 0)
-    for diagram_name, method in (
-        ("energy_diagram_G_DFT_plus_MLIP_all", "DFT//MLIP/MM_Gibbs"),
-        ("energy_diagram_DFT_all", "DFT"),
-        ("energy_diagram_G_MLIP_all", "MLIP_Gibbs"),
-        ("energy_diagram_MLIP_all", "MLIP"),
-        ("energy_diagram_MEP", "MEP"),
-        ("MEP", "MEP"),
-    ):
-        if ranks[method] > max_rank:
-            continue
-        energies = (diagrams_by_name.get(diagram_name) or {}).get("energies_kcal", [])
-        if len(energies) >= 2:
-            try:
-                first, last = float(energies[0]), float(energies[-1])
-            except (TypeError, ValueError):
+    if not ts_only:
+        for diagram_name, method in (
+            ("energy_diagram_G_DFT_plus_MLIP_all", "DFT//MLIP/MM_Gibbs"),
+            ("energy_diagram_DFT_all", "DFT"),
+            ("energy_diagram_G_MLIP_all", "MLIP_Gibbs"),
+            ("energy_diagram_MLIP_all", "MLIP"),
+            ("energy_diagram_MEP", "MEP"),
+            ("MEP", "MEP"),
+        ):
+            if ranks[method] > max_rank:
                 continue
-            if np.isfinite(first) and np.isfinite(last):
-                overall_rxn_e = round(last - first, 2)
-                overall_rxn_method = method
-                break
+            energies = (diagrams_by_name.get(diagram_name) or {}).get(
+                "energies_kcal", []
+            )
+            if len(energies) >= 2:
+                try:
+                    first, last = float(energies[0]), float(energies[-1])
+                except (TypeError, ValueError):
+                    continue
+                if np.isfinite(first) and np.isfinite(last):
+                    overall_rxn_e = round(last - first, 2)
+                    overall_rxn_method = method
+                    break
 
     summary["mlmm_toolkit_version"] = __version__
     summary["schema_version"] = RESULT_JSON_SCHEMA_VERSION
@@ -1941,7 +1949,7 @@ def _copy_structures_to_seg_dir(
     state_structs, out_dir, seg_idx, input_suffix,
     prepared_input=None, ref_pdb_path=None, manifest=None,
 ):
-    """Copy R/TS/P structures to out_dir/segments/seg_XX/ in the input format."""
+    """Copy named state structures to out_dir/segments/seg_XX/."""
     seg_dir = out_dir / SEGMENTS_DIRNAME / f"seg_{seg_idx:02d}"
     seg_dir.mkdir(parents=True, exist_ok=True)
     name_map = {"R": "reactant", "TS": "ts", "P": "product"}
@@ -2195,17 +2203,13 @@ def _irc_and_match(seg_idx: int,
     forward/backward orientation is preserved as (left, right) without remapping;
     the caller can post-hoc swap if needed.
 
-    GPU memory handling: caller-supplied `g_ts` pins TS-stage allocator pages.
-    The fix-C `gc.collect()` + `torch.cuda.empty_cache()` at function entry frees
-    the previous stage's residency so IRC's `initial_displacement eigh` (large
-    contiguous ~9 GiB block) succeeds.
+    GPU memory handling: caller-supplied TS geometry can retain TS-stage
+    allocator pages. Collection and cache release at function entry make that
+    memory available before IRC initialization.
     """
-    # Fix C: free GPU memory carried over from the preceding TS-opt stage
-    # before IRC. IRC's initial_displacement eigh needs a large contiguous
-    # block; ~9 GiB of TS-stage allocator residency otherwise leaves too little
-    # free even after the Fix-A ML-macro Hessian reduction. The per-stage
-    # _run_cli_main finally also does this, but orchestrator locals (g_ts, etc.)
-    # still pin memory here at the TS->IRC boundary.
+    # Free GPU memory carried over from the preceding TS-opt stage before IRC.
+    # The per-stage runner also clears its calculator, but orchestrator locals
+    # can retain tensors at the TS-to-IRC boundary.
     gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
@@ -3270,10 +3274,11 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     "-i", "--input", "input_paths",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     multiple=True, required=True,
-    help=("Two or more full PDB/mmCIF structures in reaction order "
-          "(reactant [intermediates ...] product), or one full structure with "
-          "--scan-lists or --tsopt. A single '-i' may be followed by multiple "
-          "space-separated files (for example, '-i A.pdb B.pdb C.pdb').")
+    help=("Two or more full PDB/mmCIF structures, or XYZ files with matching "
+          "--ref-pdb entries, in reaction order (reactant [intermediates ...] "
+          "product); one full structure is allowed with --scan-lists or "
+          "--tsopt. A single '-i' may be followed by multiple space-separated "
+          "files (for example, '-i A.pdb B.pdb C.pdb').")
 )
 @click.option(
     "-c", "--center", "center_spec",
@@ -3306,9 +3311,9 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @click.option("--selected-resn", type=str, default="", show_default=True,
               help="Force-include residues (comma/space separated; chain/insertion codes allowed).")
 @click.option("--modified-residue", type=str, default="", show_default=True,
-              help=("Comma-separated residue names (with optional charge) to treat as amino acids "
-                    "for backbone truncation and charge assignment. "
-                    "Examples: 'HD1,HD2,HD3' or 'HD1:0,SEP:-2'."))
+              help=("Comma-separated modified-residue names with integer charges "
+                    "for backbone truncation and charge assignment. A known "
+                    "catalog residue may omit its charge. Example: 'HD1:0,SEP'."))
 @click.option("-l", "--ligand-charge", type=str, default=None,
               help=("Either a total charge (number) to distribute across unknown residues "
                     "or a mapping like 'GPP:-3,MMT:-1'."))
@@ -3462,7 +3467,9 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @click.option("--hessian-calc-mode",
               type=click.Choice(["Analytical", "FiniteDifference"], case_sensitive=False),
               default=None,
-              help="Common MLIP Hessian calculation mode forwarded to tsopt and freq. Default: 'FiniteDifference'. Use 'Analytical' when VRAM is sufficient.")
+              help=("Common MLIP Hessian mode forwarded to tsopt and freq. "
+                    "Default: 'FiniteDifference'. Runtime and memory depend on "
+                    "the backend and system; compare both modes on a representative pilot."))
 @click.option(
     "--detect-layer/--no-detect-layer",
     "detect_layer",
@@ -4453,8 +4460,8 @@ def cli(
     # ML region definition: use --model-pdb if provided, otherwise generate from pocket.
     # When extraction was skipped + detect-layer, the "pocket" is the whole input, so
     # write only the B≈0 ML atoms — otherwise ml_region.pdb is the full system and a
-    # downstream stage that can't read B-factors collapses ML to the entire input
-    # (sum_Z=45875 electron-count error at freq/dft).
+    # downstream stage that cannot read B-factors would treat the full input as
+    # the ML region and produce an invalid electron count.
     if model_pdb_override is not None:
         model_pdb_source = model_pdb_override.resolve()
         # Safeguard (a): when detect-layer is active, an override --model-pdb should be an
@@ -4741,28 +4748,25 @@ def cli(
             except Exception:
                 logger.debug("Failed to append IRC trajectory path", exc_info=True)
 
-        # Ensure MLIP energies
+        # Ensure MLIP energies. With no path/reference orientation, the raw IRC
+        # endpoints remain chemically unassigned.
         eL = float(gL.energy)
         eT = float(gT.energy)
         eR = float(gR.energy)
-
-        # In this mode ONLY: assign Reactant/Product so that higher-energy end is the Reactant
-        if eL >= eR:
-            g_react, e_react = gL, eL
-            g_prod,  e_prod  = gR, eR
-        else:
-            g_react, e_react = gR, eR
-            g_prod,  e_prod  = gL, eL
+        g_react, e_react = gL, eL
+        g_prod, e_prod = gR, eR
 
         endpoint_assignment = {
-            "policy": "higher_energy_endpoint_as_reactant",
+            "policy": "unassigned_irc_endpoints",
             "chemical_direction_known": False,
-            "left_role": "reactant" if eL >= eR else "product",
-            "right_role": "product" if eL >= eR else "reactant",
+            "left_role": "endpoint_1",
+            "right_role": "endpoint_2",
             "left_energy_hartree": float(eL),
             "right_energy_hartree": float(eR),
-            "tie_rule": (
-                "on equal energy (eL == eR) the left endpoint is the reactant"
+            "connectivity_validated": (
+                (irc_res.get("endpoint_assignment") or {}).get(
+                    "connectivity_validated"
+                )
             ),
         }
 
@@ -4770,22 +4774,23 @@ def cli(
         struct_dir = tsroot / "structures"
         ensure_dir(struct_dir)
         pocket_ref = ref_pdb_for_topology if ref_pdb_for_topology is not None else first_pocket
-        xR_irc, pR_irc = _save_single_geom_for_tools(g_react, pocket_ref, struct_dir, "reactant_irc")
+        xR_irc, pR_irc = _save_single_geom_for_tools(g_react, pocket_ref, struct_dir, "endpoint_1_irc")
         xT, pT         = _save_single_geom_for_tools(gT,       pocket_ref, struct_dir, "ts")
-        xP_irc, pP_irc = _save_single_geom_for_tools(g_prod,   pocket_ref, struct_dir, "product_irc")
+        xP_irc, pP_irc = _save_single_geom_for_tools(g_prod,   pocket_ref, struct_dir, "endpoint_2_irc")
 
         endpoint_opt_dir = tsroot / "endpoint_opt"
         ensure_dir(endpoint_opt_dir)
 
-        # Map IRC left/right Hessians → R/P endpoint (left=forward, right=backward)
+        # The first/last IRC Hessians follow endpoint 1/2 without assigning
+        # chemical R/P identity.
         from mlmm.io.hessian_cache import (
             clear as _clear_hess_cache,
             discard as _hess_discard,
             load as _hess_load,
             store as _hess_store,
         )
-        _react_hk = "irc_left" if eL >= eR else "irc_right"
-        _prod_hk  = "irc_right" if eL >= eR else "irc_left"
+        _react_hk = "irc_left"
+        _prod_hk = "irc_right"
 
         _hess_discard("irc_endpoint")
         _c = _hess_load(_react_hk)
@@ -4796,7 +4801,7 @@ def cli(
         try:
             g_react, _, _react_opt_conv = _run_opt_for_state(
                 pR_irc, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
-                endpoint_opt_dir / "R", args_yaml, endpoint_opt_mode_default,
+                endpoint_opt_dir / "E1", args_yaml, endpoint_opt_mode_default,
                 resolved_calc_template=resolved_calc_template,
                 convert_files=post_convert_files_forward,
                 backend=backend,
@@ -4812,7 +4817,7 @@ def cli(
             )
         except Exception as e:
             _echo(
-                f"[post] WARNING: Reactant endpoint optimization failed in TSOPT-only mode: {e}",
+                f"[post] WARNING: Endpoint 1 optimization failed in TSOPT-only mode: {e}",
                 err=True,
             )
             _react_opt_conv = None
@@ -4825,7 +4830,7 @@ def cli(
         try:
             g_prod, _, _prod_opt_conv = _run_opt_for_state(
                 pP_irc, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
-                endpoint_opt_dir / "P", args_yaml, endpoint_opt_mode_default,
+                endpoint_opt_dir / "E2", args_yaml, endpoint_opt_mode_default,
                 resolved_calc_template=resolved_calc_template,
                 convert_files=post_convert_files_forward,
                 backend=backend,
@@ -4841,23 +4846,39 @@ def cli(
             )
         except Exception as e:
             _echo(
-                f"[post] WARNING: Product endpoint optimization failed in TSOPT-only mode: {e}",
+                f"[post] WARNING: Endpoint 2 optimization failed in TSOPT-only mode: {e}",
                 err=True,
             )
             _prod_opt_conv = None
         shutil.rmtree(endpoint_opt_dir, ignore_errors=True)
         _echo_detail("[endpoint-opt] Clean endpoint-opt working dir.")
 
-        xR, pR = _save_single_geom_for_tools(g_react, pocket_ref, struct_dir, "reactant")
-        xP, pP = _save_single_geom_for_tools(g_prod,   pocket_ref, struct_dir, "product")
+        xR, pR = _save_single_geom_for_tools(g_react, pocket_ref, struct_dir, "endpoint_1")
+        xP, pP = _save_single_geom_for_tools(g_prod,   pocket_ref, struct_dir, "endpoint_2")
         e_react = float(g_react.energy)
         e_prod = float(g_prod.energy)
+        _tsopt_result = dict(getattr(gT, "_tsopt_result", {}) or {})
 
-        # ML/MM energy diagram (R, TS, P)
+        bond_cfg = dict(_path_search.BOND_KW)
+        try:
+            changed, bond_summary = _path_search._has_bond_change(
+                g_react, g_prod, bond_cfg
+            )
+            if not changed:
+                bond_summary = "(no covalent changes detected)"
+        except Exception as exc:
+            _echo(
+                f"[all] WARNING: bond-change detection failed ({exc}); "
+                "bond changes are unavailable.",
+                err=True,
+            )
+            bond_summary = "(bond-change analysis unavailable)"
+
+        # ML/MM energy diagram for chemically unassigned IRC endpoints.
         mlip_prefix = tsroot / "energy_diagram_MLIP"
         mlip_diag = _write_public_segment_diagram(
             mlip_prefix,
-            labels=["R", "TS", "P"],
+            labels=["E1", "TS", "E2"],
             energies_eh=[e_react, eT, e_prod],
             title_note="(MLIP, TSOPT/IRC)",
         )
@@ -4886,7 +4907,7 @@ def cli(
         dft_root = _resolve_override_dir(tsroot / "dft", dft_out_dir)
 
         if do_thermo:
-            _echo_detail("[thermo] Single TSOPT: freq on TS/R/P")
+            _echo_detail("[thermo] Single TSOPT: freq on E1/TS/E2")
             tT = _run_freq_for_state(pT, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      freq_root / "TS", args_yaml, overrides=freq_overrides,
                                      backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
@@ -4894,16 +4915,16 @@ def cli(
                                      link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xT)
             _clear_hess_cache()  # TS Hessian consumed; R/P need exact computation
             tR = _run_freq_for_state(pR, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
-                                     freq_root / "R", args_yaml, overrides=freq_overrides,
+                                     freq_root / "E1", args_yaml, overrides=freq_overrides,
                                      backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
                                      embedcharge_explicit=embedcharge_explicit,
                                      link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xR)
             tP = _run_freq_for_state(pP, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
-                                     freq_root / "P", args_yaml, overrides=freq_overrides,
+                                     freq_root / "E2", args_yaml, overrides=freq_overrides,
                                      backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
                                      embedcharge_explicit=embedcharge_explicit,
                                      link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xP)
-            thermo_payloads = {"R": tR, "TS": tT, "P": tP}
+            thermo_payloads = {"E1": tR, "TS": tT, "E2": tP}
             GR = _thermo_gibbs_ha(tR)
             GT = _thermo_gibbs_ha(tT)
             GP = _thermo_gibbs_ha(tP)
@@ -4915,7 +4936,7 @@ def cli(
                 try:
                     g_mlip_diag = _write_public_segment_diagram(
                         tsroot / "energy_diagram_G_MLIP",
-                        labels=["R", "TS", "P"],
+                        labels=["E1", "TS", "E2"],
                         energies_eh=[GR, GT, GP],
                         title_note="(Gibbs, MLIP)",
                         ylabel="ΔG (kcal/mol)",
@@ -4924,7 +4945,7 @@ def cli(
                     _echo(f"[thermo] WARNING: failed to build Gibbs diagram: {e}", err=True)
             else:
                 _echo(
-                    "[thermo] WARNING: one or more R/TS/P FREQ free energies are "
+                    "[thermo] WARNING: one or more E1/TS/E2 FREQ free energies are "
                     "unavailable; MLIP Gibbs diagram skipped (no MLIP-energy "
                     "substitution).",
                     err=True,
@@ -4951,9 +4972,9 @@ def cli(
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
-            _echo_detail("[dft] Single TSOPT: DFT on R/TS/P")
+            _echo_detail("[dft] Single TSOPT: DFT on E1/TS/E2")
             dR = _run_dft_for_state(pR, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
-                                     dft_root / "R", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides,
+                                     dft_root / "E1", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides,
                                      backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
                                      embedcharge_explicit=embedcharge_explicit,
                                      link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xR)
@@ -4963,7 +4984,7 @@ def cli(
                                      embedcharge_explicit=embedcharge_explicit,
                                      link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xT)
             dP = _run_dft_for_state(pP, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
-                                     dft_root / "P", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides,
+                                     dft_root / "E2", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides,
                                      backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
                                      embedcharge_explicit=embedcharge_explicit,
                                      link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xP)
@@ -4975,13 +4996,13 @@ def cli(
                 e is not None and np.isfinite(e) for e in (eR_dft, eT_dft, eP_dft)
             )
             if not _dft_all_ok:
-                _failed_states = [s for s, e in zip(["R", "TS", "P"], [eR_dft, eT_dft, eP_dft]) if e is None]
+                _failed_states = [s for s, e in zip(["E1", "TS", "E2"], [eR_dft, eT_dft, eP_dft]) if e is None]
                 _echo(f"[dft] WARNING: DFT failed for state(s): {', '.join(_failed_states)}. Skipping DFT diagrams.", err=True)
             if _dft_all_ok:
                 try:
                     dft_diag = _write_public_segment_diagram(
                         tsroot / "energy_diagram_DFT",
-                        labels=["R", "TS", "P"],
+                        labels=["E1", "TS", "E2"],
                         energies_eh=[eR_dft, eT_dft, eP_dft],
                         title_note=f"({dft_method_fallback})",
                     )
@@ -4994,9 +5015,9 @@ def cli(
             eR_dft_mlmm = _dft_total_mlmm_energy_ha(dR)
             eT_dft_mlmm = _dft_total_mlmm_energy_ha(dT)
             eP_dft_mlmm = _dft_total_mlmm_energy_ha(dP)
-            dG_R = _thermo_correction_ha(thermo_payloads.get("R"))
+            dG_R = _thermo_correction_ha(thermo_payloads.get("E1"))
             dG_T = _thermo_correction_ha(thermo_payloads.get("TS"))
-            dG_P = _thermo_correction_ha(thermo_payloads.get("P"))
+            dG_P = _thermo_correction_ha(thermo_payloads.get("E2"))
             if do_thermo and all(
                 value is not None
                 for value in (
@@ -5014,7 +5035,7 @@ def cli(
                     GP_dftMLIP = eP_dft_mlmm + dG_P
                     g_dft_mlip_diag = _write_public_segment_diagram(
                         tsroot / "energy_diagram_G_DFT_plus_MLIP",
-                        labels=["R", "TS", "P"],
+                        labels=["E1", "TS", "E2"],
                         energies_eh=[GR_dftMLIP, GT_dftMLIP, GP_dftMLIP],
                         title_note="(Gibbs, DFT//MLIP/MM)",
                         ylabel="ΔG (kcal/mol)",
@@ -5030,25 +5051,8 @@ def cli(
                 )
 
         # Summary.yaml / summary.log for TSOPT-only mode
-        bond_cfg = dict(_path_search.BOND_KW)
-        bond_summary = ""
-        try:
-            changed, bond_summary = _path_search._has_bond_change(g_react, g_prod, bond_cfg)
-            if not changed:
-                bond_summary = "(no covalent changes detected)"
-        except Exception as exc:
-            # Without this the same string is published for "checked, nothing changed" and
-            # "the check itself failed", so summary.json/summary.log assert no reaction
-            # occurred for a run whose bond analysis never ran.
-            _echo(
-                f"[all] WARNING: bond-change detection failed ({exc}); reporting "
-                "'(no covalent changes detected)' without having compared the endpoints.",
-                err=True,
-            )
-            bond_summary = "(no covalent changes detected)"
-
-        barrier = (eT - e_react) * AU2KCALPERMOL
-        delta = (e_prod - e_react) * AU2KCALPERMOL
+        barrier_e1 = (eT - e_react) * AU2KCALPERMOL
+        barrier_e2 = (eT - e_prod) * AU2KCALPERMOL
 
         from mlmm.workflows._all_helpers import promote_diag_for_root
         energy_diagrams: List[Dict[str, Any]] = []
@@ -5085,8 +5089,8 @@ def cli(
                     "index": 1,
                     "tag": "seg_01",
                     "kind": "tsopt",
-                    "barrier_kcal": float(barrier),
-                    "delta_kcal": float(delta),
+                    "barrier_from_endpoint_1_kcal": float(barrier_e1),
+                    "barrier_from_endpoint_2_kcal": float(barrier_e2),
                     "bond_changes": bond_summary,
                     "endpoint_assignment": endpoint_assignment,
                 }
@@ -5130,9 +5134,9 @@ def cli(
         except Exception as e:
             _echo(f"[write] WARNING: failed to write summary.json: {e}", err=True)
 
-        # Copy R/TS/P structures to out_dir/seg_01/
+        # Copy E1/TS/E2 structures to out_dir/seg_01/.
         try:
-            _state_structs = {"R": pR, "TS": pT, "P": pP}
+            _state_structs = {"E1": pR, "TS": pT, "E2": pP}
             _input_suffix = (
                 _original_input_paths[0].suffix.lower()
                 if _original_input_paths
@@ -5142,9 +5146,9 @@ def cli(
                 _state_structs, out_dir, 1, _input_suffix,
                 manifest=manifest,
             )
-            _echo(f"[all] Wrote R/TS/P for segment 01 → {_seg_out}", narrative=True)
+            _echo(f"[all] Wrote E1/TS/E2 for segment 01 → {_seg_out}", narrative=True)
         except Exception as e:
-            _echo(f"[all] WARNING: Failed to copy R/TS/P structures: {e}", err=True)
+            _echo(f"[all] WARNING: Failed to copy E1/TS/E2 structures: {e}", err=True)
 
         segment_log: Dict[str, Any] = {
             "index": 1,
@@ -5163,26 +5167,19 @@ def cli(
         _irc_outcome_seg = irc_res.get("irc_outcome")
         if isinstance(_irc_outcome_seg, dict):
             segment_log["irc"] = _irc_outcome_seg
-        segment_log["endpoint_assignment"] = irc_res.get(
-            "endpoint_assignment"
-        )
         # record endpoint-opt convergence so a nonconverged endpoint
         # (whose geometry is still used for the diagram) does not silently
         # promote its segment to a usable success.
         segment_log["endpoint_opt"] = {
-            "reactant_converged": _react_opt_conv,
-            "product_converged": _prod_opt_conv,
+            "endpoint_1_converged": _react_opt_conv,
+            "endpoint_2_converged": _prod_opt_conv,
         }
         if do_tsopt:
-            tsopt_n_imag = (getattr(gT, "_tsopt_result", {}) or {}).get(
-                "n_imaginary_modes"
-            )
+            tsopt_n_imag = _tsopt_result.get("n_imaginary_modes")
             if tsopt_n_imag is not None:
                 segment_log["ts_imag"] = _ts_imag_record(
                     tsopt_n_imag,
-                    (getattr(gT, "_tsopt_result", {}) or {}).get(
-                        "imaginary_frequencies_cm"
-                    ),
+                    _tsopt_result.get("imaginary_frequencies_cm"),
                 )
         if do_thermo:
             n_imag = None
@@ -5212,9 +5209,9 @@ def cli(
         _thermo_symmetry = build_thermo_symmetry_provenance(thermo_payloads)
         if _thermo_symmetry:
             segment_log["thermo_symmetry"] = _thermo_symmetry
-        _structs = {"R": pR, "TS": pT, "P": pP}
+        _structs = {"E1": pR, "TS": pT, "E2": pP}
         segment_log["mlip"] = build_energy_level_dict(
-            labels=["R", "TS", "P"],
+            labels=["E1", "TS", "E2"],
             energies_au=[e_react, eT, e_prod],
             ref_energy=e_react,
             au_to_kcal=AU2KCALPERMOL,
@@ -5223,7 +5220,7 @@ def cli(
         )
         if GR is not None and GT is not None and GP is not None:
             segment_log["gibbs_mlip"] = build_energy_level_dict(
-                labels=["R", "TS", "P"],
+                labels=["E1", "TS", "E2"],
                 energies_au=[GR, GT, GP],
                 ref_energy=GR,
                 au_to_kcal=AU2KCALPERMOL,
@@ -5232,7 +5229,7 @@ def cli(
             )
         if eR_dft is not None and eT_dft is not None and eP_dft is not None:
             segment_log["dft"] = build_energy_level_dict(
-                labels=["R", "TS", "P"],
+                labels=["E1", "TS", "E2"],
                 energies_au=[eR_dft, eT_dft, eP_dft],
                 ref_energy=eR_dft,
                 au_to_kcal=AU2KCALPERMOL,
@@ -5241,7 +5238,7 @@ def cli(
             )
         if GR_dftMLIP is not None and GT_dftMLIP is not None and GP_dftMLIP is not None:
             segment_log["gibbs_dft_mlip"] = build_energy_level_dict(
-                labels=["R", "TS", "P"],
+                labels=["E1", "TS", "E2"],
                 energies_au=[GR_dftMLIP, GT_dftMLIP, GP_dftMLIP],
                 ref_energy=GR_dftMLIP,
                 au_to_kcal=AU2KCALPERMOL,
@@ -5495,8 +5492,8 @@ def cli(
 
         # Input series to path_search: [preopt result (if available), scan stage results ...]
         # When scan ran with --preopt, its optimized reactant geometry lives in
-        # scan/preopt/result.xyz (full precision) or result.pdb.  Using this
-        # avoids a redundant ~2000-cycle re-optimization inside path_search.
+        # scan/preopt/result.xyz (full precision) or result.pdb. Using this
+        # avoids repeating endpoint preoptimization inside path_search.
         preopt_xyz = scan_dir / "preopt" / "result.xyz"
         preopt_pdb = scan_dir / "preopt" / "result.pdb"
         if preopt_xyz.exists():

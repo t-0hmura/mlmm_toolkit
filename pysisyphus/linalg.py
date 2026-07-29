@@ -134,7 +134,7 @@ def eigvec_grad(w, v, ind, mat_grad):
 
 
 def cross3(a, b):
-    """10x as fast as np.cross for two 1d arrays of size 3."""
+    """Return the cross product of two length-3 vectors."""
     return np.array(
         (
             a[1] * b[2] - a[2] * b[1],
@@ -145,7 +145,7 @@ def cross3(a, b):
 
 
 def norm3(a):
-    """5x as fas as np.linalg.norm for a 1d array of size 3."""
+    """Return the Euclidean norm of a length-3 vector."""
     return sqrt(a[0] * a[0] + a[1] * a[1] + a[2] * a[2])
 
 

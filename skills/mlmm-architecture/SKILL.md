@@ -28,8 +28,8 @@ mlmm/                              ← the package body, one folder per layer
 ├── io/         # L4b — summary writer, energy diagram, trajectory plot,
 │               #       Hessian cache, analytical-Hessian glue, PDB altloc
 │               #       fix. (harmonic restraints live in workflows/restraints.py, L2)
-└── core/       # L5 — `defaults.py` (single source of truth for every CLI
-                #       default), `utils.py` (PDB / XYZ / plot helpers),
+└── core/       # L5 — `defaults.py` (shared runtime defaults),
+                #       `utils.py` (PDB / XYZ / plot helpers),
                 #       `logging.py`, `calc_eval.py`,
                 #       `residue_data.py`.
 
@@ -53,7 +53,7 @@ Dependency direction: the *design intent* is one-way `L1 → L2 → {L3, L4} →
 
 | concern | open this |
 |---|---|
-| Default for any CLI flag | `mlmm/core/defaults.py` (single source of truth — grep here before any other file) |
+| Default for a CLI flag | inspect its Click definition and any shared runtime value in `mlmm/core/defaults.py` |
 | Subcommand body / orchestration | `mlmm/workflows/<subcmd>.py` |
 | New MLIP backend | extend `mlmm/backends/mlmm_calc.py` inline (per-backend split is a future refinement) |
 | `--help` / option decorator | `mlmm/cli/common_options.py` (shared) or the subcommand file (inline) |
@@ -62,19 +62,19 @@ Dependency direction: the *design intent* is one-way `L1 → L2 → {L3, L4} →
 | ONIOM input deck (Gaussian / ORCA) | `mlmm/workflows/oniom_{export,import}.py` |
 | MM analytical Hessian | `hessian_ff/analytical_hessian.py` (consumed by `mlmm_calc.py`) |
 | Output schema (summary.json, trajectory, energy diagram) | `mlmm/io/` |
-| Chemistry rule (subtractive ONIOM, link-atom Hessian, 5-pass partial Hessian, parm7 indexing) | search `# CHEMISTRY-RULE:` markers (lab-sign-off required to edit) |
-| TS / IRC / optimizer internals | `pysisyphus/` (read its live divergence table and validation gate first) |
+| Chemistry rule (subtractive ONIOM, link-atom Hessian, 5-pass partial Hessian, parm7 indexing) | search `# CHEMISTRY-RULE:` markers and run the relevant numerical tests |
+| TS / IRC / optimizer internals | `pysisyphus/` (read its live divergence table and validation requirements first) |
 | MCP server / agent integration | `mlmm/mcp/` — see [`mlmm-mcp`](../mlmm-mcp/SKILL.md) |
 
-## Hidden constraints to remember
+## Scientific invariants
 
 1. **`mlmm/cli/app.py:_LAZY_SUBCOMMANDS`** entries MUST use absolute module paths (`"mlmm.workflows.all"`, never `".all"`). Relative dotted paths silently break the resolver if `default_group.py` moves.
 2. **VRAM hygiene**: the explicit `del calc; gc.collect(); torch.cuda.empty_cache()` sequence between stages releases retained calculators before the next full-protein ONIOM stage.
 3. **Package discovery and dependencies**: `pyproject.toml` uses the `mlmm*` include glob. Check wheel contents for a new top-level package layout and declare every imported runtime package in `dependencies`.
-4. **Bundled-fork edits** use each directory README's live table. Logic requires a demonstrated defect or approved numerical feature, focused regression tests, and the relevant HEAVY/GPU validation.
+4. **Bundled-fork edits** use each directory README's live table. Validate logic changes with focused regression tests and the relevant scheduled numerical tests.
 
 ## See also
 - Full architecture (~400 lines): [`docs/architecture.md`](../../docs/architecture.md)
-- Contributor recipe + per-step gate cycle: [`CONTRIBUTING.md`](../../CONTRIBUTING.md)
+- Contributor recipes and required validation: [`CONTRIBUTING.md`](../../CONTRIBUTING.md)
 - Engineering-marker coverage check (chemistry / `DOMAIN_PURE` / MLIP scope): [`.github/scripts/check_engineering_markers.py`](../../.github/scripts/check_engineering_markers.py)
 - Import-graph gate (no cycles / no fork→product / no core·domain→workflows): [`.github/scripts/check_import_graph.py`](../../.github/scripts/check_import_graph.py)

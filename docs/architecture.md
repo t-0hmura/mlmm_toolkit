@@ -4,9 +4,14 @@
 
 `mlmm-toolkit` is a Python CLI that performs **ML/MM (ONIOM) enzymatic reaction-path analysis** on a complete protein environment. ML/MM here means a hybrid model in which a small reaction core is treated by a machine-learning interatomic potential (ML) and the surrounding protein by a molecular-mechanics (MM) force field, combined through the subtractive ONIOM (Our own N-layered Integrated molecular Orbital and molecular Mechanics) energy scheme.
 
-The input is a PDB plus a substrate name. From these the tool automatically generates the parm7 topology and encodes the ONIOM region split (ML / Movable-MM / Frozen) into B-factor channels. It then runs a full-system Hessian-based transition-state (TS) search via a macro/micro alternation scheme.
+The `all` workflow can generate a parm7 topology and encode the ONIOM region
+split (ML / Movable-MM / Frozen) from structure and region inputs. Multi-input
+runs search a path; single-input runs require either `--scan-lists` or
+`--tsopt`.
 
-The result is a full reaction path produced by the stage pipeline `extract → mm-parm → ONIOM model → MEP → tsopt → IRC → freq → dft`, where MEP is the minimum-energy path and IRC the intrinsic reaction coordinate.
+Depending on its mode and flags, `all` composes stages from `extract`,
+`mm-parm`, MEP search, TS optimization, IRC, frequency analysis, and
+single-point DFT. TS, thermochemistry, and DFT stages are optional.
 
 The package is laid out as **6 physical layer directories** (`cli/`, `workflows/`, `domain/`, `backends/`, `io/`, `core/`). The role and dependency direction of each are summarized in the §2.1 layer table below.
 
@@ -172,7 +177,7 @@ The CLI subcommand resolver (`cli/app.py:_LAZY_SUBCOMMANDS`) uses **absolute** m
 
 ---
 
-## 3. Fresh-eyes 5-step navigation (≈ 40 min total)
+## 3. Five-step navigation
 
 For a contributor opening the repo for the first time, follow this path top-to-bottom; each step closes one concern.
 
@@ -281,11 +286,14 @@ See each dir's `README.md` for the touch-restriction boundary.
 
 ---
 
-## 5. Hidden constraints (read this before any patch)
+## 5. Scientific invariants
 
 ### 5.1 Nine chemistry rules (grep recipe)
 
-Nine correctness-critical rules are spread across `backends/`, `workflows/`, and `core/defaults.py`. They are **not** detected by smoke tests — silent drift here breaks reaction-path accuracy. Inline `# CHEMISTRY-RULE:N` markers and `# DOMAIN_PURE` module-docstring markers identify the rules; `.github/scripts/check_engineering_markers.py` enforces marker completeness in CI.
+Nine correctness-critical rules are spread across `backends/`, `workflows`,
+and `core/defaults.py`. Inline `# CHEMISTRY-RULE:N` markers and
+`# DOMAIN_PURE` module-docstring markers identify their implementation sites;
+`.github/scripts/check_engineering_markers.py` checks marker completeness.
 
 To find every chemistry rule before editing:
 
@@ -311,9 +319,8 @@ All 9 rules apply to `mlmm`:
 | 8 | 3-layer 5-pass partial Hessian assembly | `mlmm/backends/mlmm_calc.py` |
 | 9 | parm7 atom indexing (1-based / serial gap handling) | `mlmm/io/pdb_indexing.py` |
 
-Editing any of these requires a `[CHEMISTRY-RULE:N]` commit prefix, maintainer
-approval, and a documented scheduled numerical benchmark (see
-`CONTRIBUTING.md` §1.1).
+Changes to these paths require focused regression tests and the relevant
+scheduled numerical validation (see `CONTRIBUTING.md` §1.1).
 
 **Recommended learning order (4 chemistry clusters)**:
 
@@ -357,7 +364,7 @@ The bundled `pysisyphus/`, `thermoanalysis/`, and `hessian_ff/` packages are **f
 
 | dir | upstream PyPI? | purpose | scope of edits allowed |
 |---|---|---|---|
-| `pysisyphus/` | NO — fork, do not `pip install pysisyphus` alongside | optimizer, TS, IRC, COS, calculators | preserve the listed divergences; validate numerical changes with focused and HEAVY/GPU tests |
+| `pysisyphus/` | NO — fork, do not `pip install pysisyphus` alongside | optimizer, TS, IRC, COS, calculators | preserve the listed divergences; validate numerical changes with focused and scheduled numerical tests |
 | `thermoanalysis/` | NO — fork (branding diff) | ΔG, ZPE, partition functions, `QCData` | preserve the `QCData` consumer contract; see its README |
 | `hessian_ff/` | **NO — PyPI 404, bundling mandatory** | analytical Hessian on MM force field | preserve its derivative and public API contracts; see its README |
 

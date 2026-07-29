@@ -495,7 +495,8 @@ def _finalize_surface_and_plot(
     "input_path",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=False,
-    help="Input structure file (.pdb/.xyz). Required unless --csv is provided.",
+    help=("Input PDB/mmCIF, or XYZ with --ref-pdb. Required unless --csv is "
+          "provided."),
 )
 @click.option(
     "--parm",
@@ -1145,13 +1146,14 @@ def cli(
                         handle.write(xyz_pre)
                     preopt_artifact_written = True
 
-                    convert_and_annotate_xyz_to_pdb(
-                        preopt_xyz_path,
-                        ref_pdb_resolve,
-                        preopt_xyz_path.with_suffix(".pdb"),
-                        model_pdb_path,
-                        freeze_atoms_final,
-                    )
+                    if convert_files:
+                        convert_and_annotate_xyz_to_pdb(
+                            preopt_xyz_path,
+                            ref_pdb_resolve,
+                            preopt_xyz_path.with_suffix(".pdb"),
+                            model_pdb_path,
+                            freeze_atoms_final,
+                        )
                 except Exception as exc:
                     click.echo(
                         f"[write] WARNING: failed to write or convert {preopt_xyz_path.name}: {exc}",
@@ -1364,13 +1366,14 @@ def cli(
                                 handle.write(xyz)
                             _artifact_written = True
 
-                            convert_and_annotate_xyz_to_pdb(
-                                xyz_path,
-                                ref_pdb_resolve,
-                                xyz_path.with_suffix(".pdb"),
-                                model_pdb_path,
-                                freeze_atoms_final,
-                            )
+                            if convert_files:
+                                convert_and_annotate_xyz_to_pdb(
+                                    xyz_path,
+                                    ref_pdb_resolve,
+                                    xyz_path.with_suffix(".pdb"),
+                                    model_pdb_path,
+                                    freeze_atoms_final,
+                                )
                         except Exception as exc:
                             click.echo(
                                 f"[write] WARNING: failed to write or convert {xyz_path.name}: {exc}",
@@ -1418,13 +1421,14 @@ def cli(
                                 handle.write("".join(trj_blocks))
                             click.echo(f"[write] Wrote '{trj_path}'.")
 
-                            convert_and_annotate_xyz_to_pdb(
-                                trj_path,
-                                ref_pdb_resolve,
-                                trj_path.with_suffix(".pdb"),
-                                model_pdb_path,
-                                freeze_atoms_final,
-                            )
+                            if convert_files:
+                                convert_and_annotate_xyz_to_pdb(
+                                    trj_path,
+                                    ref_pdb_resolve,
+                                    trj_path.with_suffix(".pdb"),
+                                    model_pdb_path,
+                                    freeze_atoms_final,
+                                )
                         except Exception as exc:
                             click.echo(
                                 f"[write] WARNING: failed to write or convert '{trj_path}': {exc}",

@@ -27,7 +27,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 - `result_tsopt/final_geometry.pdb` — optimized TS structure
 - `result_tsopt/vib/` — animation files for the imaginary-frequency normal mode (`imag_*_trj.xyz`, `.pdb`)
-- Terminal output: **n=1** with a sufficiently large |ν| (≥ 100 cm⁻¹) indicates a good TS candidate
+- Terminal output: **n=1** is required for first-order-saddle certification; inspect the mode displacement and IRC connectivity
 
 ## 2. (Optional) Separate frequency analysis
 
@@ -40,7 +40,8 @@ mlmm freq -i ./result_tsopt/final_geometry.pdb --parm real.parm7 --model-pdb ml_
 
 ## Tips
 
-- Use `--hessian-calc-mode Analytical` when VRAM is sufficient.
+- Compare `Analytical` and `FiniteDifference` runtime and memory on a
+  representative target-system pilot.
 - To use a different MLIP backend, add `-b orb` (or `mace`, `aimnet2`). Default is `uma`.
 - Keep mechanical embedding (`--no-embedcharge`); electronic embedding is unavailable in v0.3.3.
 - Check full options with `mlmm tsopt --help-advanced` and `mlmm freq --help-advanced`.

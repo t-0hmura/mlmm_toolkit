@@ -9,7 +9,8 @@
 
 `mlmm freq` は ML/MM calculator（`mlmm.backends.mlmm_calc.mlmm`）による振動解析を実行し、PHVA により凍結原子を扱えます。基準振動アニメーションを `_trj.xyz` と `.pdb`（酵素の原子順序にマップバック）としてエクスポートし、オプションの `thermoanalysis` パッケージがインストールされている場合は Gaussian スタイルの熱化学サマリーを出力します。
 
-虚振動数は負の値で表示されます。VRAM に余裕がある場合は `--hessian-calc-mode Analytical` で Hessian 評価を高速化できます。
+虚振動数は負の値で表示されます。runtime と memory は backend と系に
+依存するため、代表的な pilot で `Analytical` と `FiniteDifference` を比較してください。
 
 ## 実行例
 
@@ -181,7 +182,7 @@ mlmm:
  uma_model: uma-s-1p2              # uma-s-1p2 | uma-m-1p1
  uma_task_name: omol                # UMA タスク名 (backend=uma 時)
  ml_device: auto                   # ML デバイス選択
- hessian_calc_mode: FiniteDifference   # Hessianモード (FiniteDifference デフォルト; VRAM に余裕がある場合 Analytical)
+ hessian_calc_mode: FiniteDifference   # 代表的な pilot で両 mode を比較
  out_hess_torch: true              # torch 形式Hessianを要求
  mm_fd: true                       # MM 有限差分トグル
  return_partial_hessian: true      # 部分Hessianを許可（PHVA デフォルト）

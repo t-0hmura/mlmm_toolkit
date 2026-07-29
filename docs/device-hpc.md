@@ -48,7 +48,7 @@ calc:
 The `freq` command supports `--hess-device` to control where Hessian assembly and diagonalization run:
 
 ```bash
-# Default: same device as ml_device (typically CUDA)
+# Default: the resolved ML device
 mlmm freq -i input.pdb --parm real.parm7 -q -1
 
 # Force CPU for Hessian assembly (saves VRAM for large systems)
@@ -56,15 +56,15 @@ mlmm freq -i input.pdb --parm real.parm7 -q -1 --hess-device cpu
 ```
 
 Use `--hess-device cpu` when:
-- The active region is large (> ~500 unfrozen atoms)
+- The active region is too large for the selected backend/Hessian mode on the target device
 - You encounter CUDA out-of-memory errors during frequency calculations
-- VRAM is limited (< 16 GB)
+- The target GPU does not have enough memory for the selected calculation
 
 ### General VRAM tips
 
 1. **Reduce the ML region size:** Use `mlmm extract` with a smaller `--radius` or `mlmm define-layer` with a tighter `--radius-freeze`.
-2. **Use hessian_ff (default):** The hessian_ff backend is CPU-only, leaving all VRAM for MLIP inference.
-3. **Avoid OpenMM CUDA for large systems:** If both ML and MM use CUDA, VRAM pressure doubles.
+2. **Use hessian_ff (default):** The hessian_ff backend runs on CPU, avoiding an additional MM allocation on the GPU.
+3. **Select the MM device deliberately:** When both ML and MM use CUDA, measure memory use on a representative pilot and use `mm_device: cpu` if needed.
 4. **Monitor VRAM:** `print_vram` defaults to `True` (VRAM usage is printed during Hessian computation); set `print_vram: False` in YAML to suppress it.
 
 ---
@@ -77,27 +77,26 @@ the effective default is backend-specific:
 | Backend | Default | Reason |
 |---|---|---|
 | UMA | fp32 | Upstream fairchem baseline. |
-| ORB | fp64 | ORB fp32 uses reduced `float32-high` (TF32) matrix multiplication; force noise can create spurious finite-difference Hessian modes. |
+| ORB | fp64 | Backend default. |
 | MACE | fp64 | Matches MACE's upstream `default_dtype="float64"`. |
 | AIMNet2 | fp32 | No precision switch; explicit fp64 is rejected. |
 
-Use explicit `--precision fp32` on ORB/MACE only when screening throughput is
-worth the noisier Hessian. UMA fp64 can stabilize a numerically sensitive TS or
-Hessian but may be much slower on consumer GPUs. Precision does not replace an
-independent frequency and IRC check.
+Validate energies, forces, frequencies, runtime, and memory for both supported
+precisions on the target backend, model, and system. Precision does not replace
+an independent frequency and IRC check.
 
 ```bash
-# Datacenter H200 — full-precision base inference
+# Explicit fp64 UMA calculation
 mlmm tsopt -i ts.pdb --parm enzyme.parm7 -q 0 -m 1 -b uma --precision fp64 -o result_ts
 
-# Explicit reduced-precision ORB screening
+# Explicit fp32 ORB calculation
 mlmm scan -i r.pdb --parm enzyme.parm7 -q 0 -b orb --precision fp32 --scan-lists '[(1,5,1.4)]' -o result_scan
 ```
 
 `--precision` is accepted on every compute subcommand (`sp`, `opt`, `tsopt`, `freq`, `irc`, `scan` / `scan2d` / `scan3d`, `path-opt`, `path-search`, `all`) and is routed per backend (UMA precision, ORB precision, MACE `default_dtype`).
 
 ```{note}
-For `-b aimnet2`, `fp32` is a no-op and `fp64` is *rejected* — its model inputs are cast to float32 upstream. Use `uma`, `orb`, or `mace` when you need fp64. `--precision fp64` *reduces* GPU reduction-order drift but does **not** make a run bit-identical; only `--deterministic` gives bit-exactness — see [Reproducibility](reproducibility.md).
+For `-b aimnet2`, `fp32` is a no-op and `fp64` is *rejected* because model inputs are cast to float32 upstream. UMA, Orb, and MACE accept fp64. `--deterministic` requests deterministic algorithms but does not by itself guarantee end-to-end bit identity; verify the target backend/model/SDK and stack — see [Reproducibility](reproducibility.md).
 ```
 
 ---
@@ -182,7 +181,7 @@ mlmm opt \
 
 - **Single GPU for ML:** ML inference runs on one GPU. Request `gpus=1` (PBS) or `--gres=gpu:1` (Slurm); request a second GPU only if you place the OpenMM MM backend on a separate CUDA device (`mm_device: cuda`, `mm_cuda_idx: 1`).
 - **CPU threads:** Request enough CPUs for the MM backend (`mm_threads`, default 16). Set `ppn=32` (PBS) or `--cpus-per-task=32` (Slurm) for a safety margin.
-- **Memory:** 120 GB is typically sufficient for enzyme active-site models. Increase for very large systems.
+- **Memory:** size RAM from a representative pilot and scheduler peak-memory logs.
 - **CUDA runtime:** Official PyTorch wheels carry CUDA user-space libraries; a compatible NVIDIA driver is normally sufficient. Load a site CUDA toolkit only for an extension that needs it.
 - **C++ compiler:** The default `hessian_ff` MM backend JIT-compiles C++ kernels on first use, independently of CUDA. Every compute node needs GCC ≥ 9 and Ninja; load a compiler module when the system `g++` is absent or too old.
 
@@ -206,7 +205,9 @@ mlmm opt -i input.pdb --parm real.parm7 -q -1 --config config.yaml
 ## Limitations
 
 - **No ML multi-GPU parallelism:** ML inference runs on a single GPU. The OpenMM MM backend may use a separate CUDA device (`mm_device: cuda`, `mm_cuda_idx`); the default hessian_ff MM backend is CPU-only.
-- **No distributed computing:** All calculations run within a single process on a single node.
+- **No distributed computing:** workflows run on one node. Configurations with
+  `workers > 1` may spawn local worker processes but do not distribute across
+  nodes.
 - **hessian_ff is CPU-only:** the default MM backend runs on CPU; `mm_device` must be `cpu`/`auto` — `mm_device: cuda` raises a `ValueError` rather than silently falling back.
 
 ---

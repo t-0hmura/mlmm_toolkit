@@ -13,8 +13,8 @@ Options:
                                   [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
-  -i, --input FILE                Layered PDB (or XYZ) defining the ML/MM/Frozen
-                                  system.  [required]
+  -i, --input FILE                Layered PDB/mmCIF, or XYZ with --ref-pdb,
+                                  defining the ML/MM/Frozen system.  [required]
   --ref-pdb FILE                  Full-system PDB/mmCIF topology required when
                                   --input is XYZ.
   --parm, --real-parm7 FILE       Amber parm7 of the full enzyme (canonical flag
@@ -43,8 +43,9 @@ Options:
                                   'SAM:1,GPP:-3'.
   -m, --multiplicity INTEGER      ML region spin multiplicity (2S+1).
   -o, --out-dir TEXT              Output directory.  [default: ./result_sp/]
-  --hess / --no-hess              Also compute the full ONIOM Hessian and save
-                                  to hessian.npy.  [default: no-hess]
+  --hess / --no-hess              Also compute the active-coordinate ONIOM
+                                  Hessian and save to hessian.npy.  [default:
+                                  no-hess]
   --hessian-calc-mode [analytical|finitedifference]
                                   Hessian backend when --hess is set. Analytical
                                   is supported by UMA, ORB, MACE, and AIMNet2;
@@ -52,9 +53,10 @@ Options:
                                   Analytical cannot be combined with --workers >
                                   1.
   --convert-files / --no-convert-files
-                                  Auto-convert output XYZ-like files into
-                                  matching PDB beside them.  [default: convert-
-                                  files]
+                                  Accepted for cross-command compatibility. The
+                                  sp command writes array results and has no
+                                  structure trajectory to convert.  [default:
+                                  convert-files]
   --config FILE                   YAML config file with sections (calc:, geom:,
                                   …).
   --show-config / --no-show-config
@@ -118,9 +120,9 @@ Options:
                                   Calculator instance). CLI overrides config
                                   YAML; otherwise defaults to get_calculator.
   --deterministic / --no-deterministic
-                                  Enable strict deterministic GPU algorithms and
-                                  the index_reduce_ shim. Slower; raises if
-                                  unsupported. Default off.
+                                  Request deterministic algorithms for
+                                  controlled operations; verify exact
+                                  reproducibility on the complete target stack.
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
                                   electron-parity check (logs that it was
                                   skipped). For an intentional open-shell or

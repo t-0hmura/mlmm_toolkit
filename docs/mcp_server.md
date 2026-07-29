@@ -153,8 +153,10 @@ VS Code instead uses a top-level `servers` object in `.vscode/mcp.json`
   imported `mlmm` module with the server interpreter as a subprocess,
   so long-running tools (opt / tsopt / irc / scan) run out-of-process — set
   `timeout_seconds` on each call to bound them.
-- Output files land under the `out_dir` kwarg (defaults to a unique
-  `tempfile.mkdtemp("mlmm_mcp_<subcmd>_…")`).
-- The server does not modify `~/.bashrc` / login env, install software,
-  or write outside `out_dir`. Required inputs (PDBs, parm7, ML weights)
-  must already exist on disk.
+- Calculation commands place their stage output under `out_dir`, which
+  defaults to a unique temporary directory. Preparation and conversion tools
+  accept explicit output paths, and external programs, model caches, or
+  temporary-file libraries may write outside a stage directory.
+- The MCP server is not a filesystem sandbox. Required inputs (PDBs, parm7,
+  ML weights) must already exist on disk; use client-side path restrictions or
+  OS/container isolation when filesystem containment is required.

@@ -203,7 +203,8 @@ def _snapshot_geometry(g) -> Any:
     "input_path",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=True,
-    help="Full-enzyme PDB used by the ML/MM calculator and as reference for conversions.",
+    help=("Full-system PDB/mmCIF, or XYZ with --ref-pdb, used by the ML/MM "
+          "calculator."),
 )
 @click.option(
     "--parm",
@@ -309,7 +310,8 @@ def _snapshot_geometry(g) -> Any:
     default=False,
     show_default=True,
     help="Write per-step optimizer trajectory files. "
-         "scan_trj.xyz and scan.pdb are always written per-stage and as a combined file in out-dir, regardless of this flag.",
+         "scan_trj.xyz is always written per-stage and as a combined file in out-dir; "
+         "scan.pdb companions are written when --convert-files is enabled.",
 )
 @click.option("-o", "--out-dir", type=str, default=OUT_DIR_SCAN, show_default=True,
               help="Base output directory.")
@@ -848,7 +850,7 @@ def cli(
                 Path(path).expanduser().resolve()
                 for path in (
                     input_path,
-                    prepared.source_path,
+                    source_path,
                     geom_input_path,
                     real_parm7,
                     model_pdb_effective,
@@ -943,11 +945,12 @@ def cli(
                     with open(pre_xyz, "w") as f:
                         f.write(_coords3d_to_xyz_string(geom))
                     click.echo(f"[write] Wrote '{pre_xyz}'.")
-                    try:
-                        convert_xyz_to_pdb(pre_xyz, source_path.resolve(), pre_dir / "result.pdb")
-                        click.echo(f"[convert] Wrote '{pre_dir / 'result.pdb'}'.")
-                    except Exception as e:
-                        click.echo(f"[convert] WARNING: Failed to convert preopt result to PDB: {e}", err=True)
+                    if convert_files:
+                        try:
+                            convert_xyz_to_pdb(pre_xyz, source_path.resolve(), pre_dir / "result.pdb")
+                            click.echo(f"[convert] Wrote '{pre_dir / 'result.pdb'}'.")
+                        except Exception as e:
+                            click.echo(f"[convert] WARNING: Failed to convert preopt result to PDB: {e}", err=True)
                 else:
                     preopt_converged = False
                     geom = _snapshot_geometry(preopt_input)
@@ -1067,11 +1070,12 @@ def cli(
                         f.write(_coords3d_to_xyz_string(geom, energy=final_energy_h))
                     click.echo(f"[write] Wrote '{final_xyz}'.")
                     srec["final_energy_hartree"] = final_energy_h
-                    try:
-                        convert_xyz_to_pdb(final_xyz, source_path.resolve(), stage_dir / "result.pdb")
-                        click.echo(f"[convert] Wrote '{stage_dir / 'result.pdb'}'.")
-                    except Exception as e:
-                        click.echo(f"[convert] WARNING: Failed to convert stage result to PDB: {e}", err=True)
+                    if convert_files:
+                        try:
+                            convert_xyz_to_pdb(final_xyz, source_path.resolve(), stage_dir / "result.pdb")
+                            click.echo(f"[convert] Wrote '{stage_dir / 'result.pdb'}'.")
+                        except Exception as e:
+                            click.echo(f"[convert] WARNING: Failed to convert stage result to PDB: {e}", err=True)
                     continue
 
                 for s in range(1, Nsteps + 1):
@@ -1154,11 +1158,12 @@ def cli(
                         _bidir_pass1_trj = []
                     else:
                         all_trj_blocks.extend(trj_blocks)
-                    try:
-                        convert_xyz_to_pdb(stage_trj_path, source_path.resolve(), stage_dir / "scan.pdb")
-                        click.echo(f"[convert] Wrote '{stage_dir / 'scan.pdb'}'.")
-                    except Exception as e:
-                        click.echo(f"[convert] WARNING: Failed to convert stage trajectory to PDB: {e}", err=True)
+                    if convert_files:
+                        try:
+                            convert_xyz_to_pdb(stage_trj_path, source_path.resolve(), stage_dir / "scan.pdb")
+                            click.echo(f"[convert] Wrote '{stage_dir / 'scan.pdb'}'.")
+                        except Exception as e:
+                            click.echo(f"[convert] WARNING: Failed to convert stage trajectory to PDB: {e}", err=True)
 
                 final_xyz = stage_dir / "result.xyz"
                 final_energy_h = unbiased_energy_hartree(geom, base_calc)
@@ -1166,11 +1171,12 @@ def cli(
                     f.write(_coords3d_to_xyz_string(geom, energy=final_energy_h))
                 click.echo(f"[write] Wrote '{final_xyz}'.")
                 srec["final_energy_hartree"] = final_energy_h
-                try:
-                    convert_xyz_to_pdb(final_xyz, source_path.resolve(), stage_dir / "result.pdb")
-                    click.echo(f"[convert] Wrote '{stage_dir / 'result.pdb'}'.")
-                except Exception as e:
-                    click.echo(f"[convert] WARNING: Failed to convert stage result to PDB: {e}", err=True)
+                if convert_files:
+                    try:
+                        convert_xyz_to_pdb(final_xyz, source_path.resolve(), stage_dir / "result.pdb")
+                        click.echo(f"[convert] Wrote '{stage_dir / 'result.pdb'}'.")
+                    except Exception as e:
+                        click.echo(f"[convert] WARNING: Failed to convert stage result to PDB: {e}", err=True)
 
             # The normalized topology may be a temporary PDB for mmCIF or
             # oversized-PDB inputs. Convert while its preparation context is
@@ -1180,18 +1186,19 @@ def cli(
                 with open(combined_trj, "w") as f:
                     f.write("".join(all_trj_blocks))
                 click.echo(f"[write] Wrote '{combined_trj}'.")
-                try:
-                    convert_xyz_to_pdb(
-                        combined_trj,
-                        source_path.resolve(),
-                        out_dir_path / "scan.pdb",
-                    )
-                    click.echo(f"[convert] Wrote '{out_dir_path / 'scan.pdb'}'.")
-                except Exception as e:
-                    click.echo(
-                        f"[convert] WARNING: Failed to convert combined trajectory to PDB: {e}",
-                        err=True,
-                    )
+                if convert_files:
+                    try:
+                        convert_xyz_to_pdb(
+                            combined_trj,
+                            source_path.resolve(),
+                            out_dir_path / "scan.pdb",
+                        )
+                        click.echo(f"[convert] Wrote '{out_dir_path / 'scan.pdb'}'.")
+                    except Exception as e:
+                        click.echo(
+                            f"[convert] WARNING: Failed to convert combined trajectory to PDB: {e}",
+                            err=True,
+                        )
 
         def _echo_human_summary(_stages: List[Dict[str, Any]], _max_step_size: float) -> None:
             """

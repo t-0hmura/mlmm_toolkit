@@ -152,7 +152,7 @@ ja/glossary
 | [`dft`](dft.md) · [`sp`](sp.md) | Single-point DFT / single-point ML/MM ONIOM |
 | [`bond-summary`](bond-summary.md) | Bond-change report between consecutive structures |
 | [`trj2fig`](trj2fig.md) · [`energy-diagram`](energy-diagram.md) | Energy plot / R→TS→P diagram |
-| [`oniom-export`](oniom-export.md) · [`oniom-import`](oniom-import.md) | Gaussian / ORCA QM/MM round-trip |
+| [`oniom-export`](oniom-export.md) · [`oniom-import`](oniom-import.md) | Gaussian / ORCA QM/MM input-deck exchange |
 
 ## Citation
 

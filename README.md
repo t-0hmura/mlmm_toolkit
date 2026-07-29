@@ -4,7 +4,7 @@
 
 <img src="https://raw.githubusercontent.com/t-0hmura/mlmm_toolkit/main/docs/mlmm_toolkit_overview.png" alt="Overview of ML/MM toolkit" width="90%">
 
-`mlmm-toolkit` is an open-source CLI for **ML/MM ONIOM** analyses of enzymatic reactions. It replaces the QM region of conventional QM/MM with a machine-learning interatomic potential (MLIP, default: UMA) while keeping the surrounding protein under an analytical Amber force field (`hessian_ff`), and chains **ML-region selection → MM topology/layer preparation → MEP search → TS optimization → IRC → thermochemical correction → DFT single-point** in one command. A link-atom boundary handles amino-acid residues straddling the ML/MM cut, and a microiteration scheme makes TS optimization and Hessian-based methods tractable on ~10,000-atom systems.
+`mlmm-toolkit` is an open-source CLI for **ML/MM ONIOM** analyses of enzymatic reactions. It replaces the QM region of conventional QM/MM with a machine-learning interatomic potential (MLIP, default: UMA) while keeping the surrounding protein under an analytical Amber force field (`hessian_ff`), and chains **ML-region selection → MM topology/layer preparation → MEP search → TS optimization → IRC → thermochemical correction → DFT single-point** in one command. A link-atom boundary handles amino-acid residues straddling the ML/MM cut, and a microiteration scheme separates ML and MM relaxation in large systems.
 
 Test a reaction mechanism in a single command:
 
@@ -43,10 +43,10 @@ An interactive Colab notebook is available.
 | Component | Requirement |
 |---|---|
 | OS / Python | Linux recommended; native Windows unsupported (AmberTools/`tleap` unavailable). Python >= 3.11. |
-| GPU / CUDA / VRAM | NVIDIA GPU, CUDA >= 12.6 (12.8+ recommended; required for RTX 50-series). 8 GB+ VRAM recommended. |
-| RAM / Disk | 32 GB+ RAM recommended; 20 GB free disk for the conda env, AmberTools, UMA cache, and artifacts. |
+| GPU / CUDA / VRAM | A backend-compatible NVIDIA GPU/driver for GPU execution; size VRAM from a representative target-system pilot. |
+| RAM / Disk | Size RAM and disk for the selected backend, model cache, topology tools, and expected artifacts. |
 
-Required external tools: **AmberTools** (`tleap`). **pdbfixer** is optional — only `mm-parm --add-h` needs it — `conda install -c conda-forge ambertools pdbfixer -y` installs both. CPU-only execution works for setup commands but is 10–100× slower for any ML/MM dynamics or Hessian step. Full requirement and tuning details: [docs/getting-started.md#installation](docs/getting-started.md#installation).
+Required external tools: **AmberTools** (`tleap`). **pdbfixer** is optional — only `mm-parm --add-h` needs it — `conda install -c conda-forge ambertools pdbfixer -y` installs both. CPU-only ML/MM execution is supported but can be substantially slower than GPU execution; benchmark the selected backend and system. Full requirement and tuning details: [docs/getting-started.md#installation](docs/getting-started.md#installation).
 
 ## Installation
 
@@ -72,7 +72,7 @@ hf auth login                               # interactive
 | Extra | Adds |
 |---|---|
 | `[orb]` / `[aimnet]` | Orb / AIMNet2 MLIP backend — *not* HF-gated |
-| `[dft]` | PySCF + GPU4PySCF single-point DFT (`--dft` / `mlmm dft`) — practical to ~500 ML-region atoms |
+| `[dft]` | PySCF + GPU4PySCF single-point DFT (`--dft` / `mlmm dft`); cost and memory depend on the system and method |
 | `[mcp]` | Model Context Protocol server (`mlmm-mcp`) for agent clients |
 | `[pdbfixer]` | PDBFixer extra (alternative to the conda install above) |
 | `[openmm]` | OpenMM low-level backend, including virtual-site water models |
@@ -123,13 +123,13 @@ mlmm all -i R.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
 mlmm tsopt -i TS_candidate_layered.pdb --parm complex.parm7 -q 1 --opt-mode grad
 ```
 
-For Gaussian-ONIOM / ORCA-QM/MM round-trips use [`oniom-export`](docs/oniom-export.md) / [`oniom-import`](docs/oniom-import.md). Per-stage walkthrough (`mm-parm` → `extract` → `define-layer` → `opt` → `path-search` → `tsopt` → `freq` → `irc` → `dft`): [docs/getting-started.md](docs/getting-started.md) and [docs/quickstart-all.md](docs/quickstart-all.md). Working scripts (methyltransferase + toy_system): [examples/](https://github.com/t-0hmura/mlmm_toolkit/tree/main/examples).
+For Gaussian-ONIOM / ORCA-QM/MM input-deck export and import use [`oniom-export`](docs/oniom-export.md) / [`oniom-import`](docs/oniom-import.md). Per-stage walkthrough (`mm-parm` → `extract` → `define-layer` → `opt` → `path-search` → `tsopt` → `freq` → `irc` → `dft`): [docs/getting-started.md](docs/getting-started.md) and [docs/quickstart-all.md](docs/quickstart-all.md). Working scripts (methyltransferase + toy_system): [examples/](https://github.com/t-0hmura/mlmm_toolkit/tree/main/examples).
 
 ## Output
 
 A run writes its deliverables to `--out-dir` (default `./result_all/`):
 
-- `segments/seg_NN/{reactant,ts,product}.pdb` — the canonical R / TS / P structures to cite
+- `segments/seg_NN/{reactant,ts,product}.pdb` for MEP-oriented segments; TS-only mode writes chemically unassigned `{e1,ts,e2}.pdb`
 - `mep.pdb` / `mep_trj.xyz` — the merged reaction path; `energy_diagram_MEP.png` — barrier diagram
 - `summary.log` (human-readable) / `summary.json` (machine-readable)
 - Reusable inputs for follow-up runs: `ml_region.pdb` (`--model-pdb`), `mm_parm/*.parm7` (`--parm`), `layered/` (B-factor-annotated full-system PDBs)
@@ -155,7 +155,7 @@ Pipeline scratch lives under `_work/` (safe to delete). Full layout and filename
 | `dft` / `sp` | Single-point DFT / single-point ML/MM ONIOM | [dft](docs/dft.md) · [sp](docs/sp.md) |
 | `bond-summary` | Compare structures, report bond changes | [bond-summary](docs/bond-summary.md) |
 | `trj2fig` / `energy-diagram` | Energy plot / R→TS→P diagram | [trj2fig](docs/trj2fig.md) · [energy-diagram](docs/energy-diagram.md) |
-| `oniom-export` / `oniom-import` | Gaussian ONIOM / ORCA QM/MM round-trip | [oniom-export](docs/oniom-export.md) · [oniom-import](docs/oniom-import.md) |
+| `oniom-export` / `oniom-import` | Gaussian ONIOM / ORCA QM/MM input-deck exchange | [oniom-export](docs/oniom-export.md) · [oniom-import](docs/oniom-import.md) |
 
 3-layer system (ML / Movable-MM / Frozen-MM, B-factor encoded), link-atom treatment, units (eV·Å in core / Ha·Bohr in pysisyphus CLI): [docs/concepts.md](docs/concepts.md). Python API (`MLMMCore`, `MLMMASECalculator`, pysisyphus `mlmm` calculator): [docs/python-api.md](docs/python-api.md).
 

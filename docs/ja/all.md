@@ -15,9 +15,9 @@ mlmm define-layer -i system.pdb --model-pdb model.pdb -o system_layered.pdb
 
 `all` は渡す入力に応じて 3 つのモードのいずれかで動作します:
 
-- **マルチ構造アンサンブル** -- 反応順に 2 つ以上の完全 PDB を提供し、複数構造にまたがる GSM（デフォルト）または DMF の MEP 探索を実行する。
-- **単一構造 + 段階的スキャン** -- 1 つの PDB と `--scan-lists` を提供する。各リテラルがスキャンステージとなり、緩和済みの端点が MEP の端点となる。
-- **TSOPT のみ** -- 1 つの PDB を提供し `--tsopt` を設定（`--scan-lists` なし）して、MEP 探索なしで TS 最適化を直接実行する。
+- **マルチ構造アンサンブル** -- 反応順に 2 つ以上の完全構造を提供し、複数構造にまたがる GSM（デフォルト）または DMF の MEP 探索を実行する。
+- **単一構造 + 段階的スキャン** -- 1 つの完全構造と `--scan-lists` を提供する。各リテラルがスキャンステージとなり、緩和済みの端点が MEP の端点となる。
+- **TSOPT のみ** -- 1 つの完全構造を提供し `--tsopt` を設定（`--scan-lists` なし）して、MEP 探索なしで TS 最適化を直接実行する。
 
 ```{important}
 `--tsopt` は **TS 候補**を生成します。`all` は検証のために IRC と freq を自動実行しますが、機構解釈の前に必ず結果（虚振動数モード + 端点の結合性）を確認してください。
@@ -105,11 +105,11 @@ ML領域PDB pairは別の成果物であり、PDB入力では常に出力され�
    - `--thermo`: (R, TS, P) で ML/MM 熱化学を計算し、Gibbs ダイアグラムを追加します。
    - `--dft`: (R, TS, P) のモデル領域で DFT 一点計算を実行し、モデル DFT 電子エネルギーダイアグラムを追加します。`--thermo` と組み合わせると、subtractive DFT//MLIP/MM 全エネルギーに ML/MM 熱補正を加えた DFT//MLIP/MM Gibbs ダイアグラムも生成されます。
    - `--tr-projection` は TS 最適化、IRC、振動解析、flatten PHVA に転送されます。デフォルトの `constrained` は凍結 anchor を動かさない全系剛体運動だけを除去し、実用的な ML/MM 境界では有効 rank は通常 0 です。
-   - VRAM に余裕がある場合は `--hessian-calc-mode` を `Analytical` に設定することを強く推奨します（デフォルトの FiniteDifference より優先）。
+   - `--hessian-calc-mode` は、対応するバックエンドで解析 Hessian または有限差分 Hessian を選択します。速度とメモリはバックエンドと系に依存するため、対象系の小規模試行で比較してください。
 
 6. **TSOPT のみモード**（単一入力、`--tsopt`、`--scan-lists` なし）
-   - ステップ (4)-(5) をスキップし、レイヤード全系 PDB で `tsopt` を実行し、EulerPC IRC と両端の極小化を行い、R-TS-P の ML/MM エネルギーダイアグラムを構築し、任意で Gibbs、DFT、DFT//MLIP/MM ダイアグラムを追加します。
-   - このモードでのみ、**より高いエネルギー**の IRC 端点が反応物 (R) として採用されます。
+   - MEP 探索をスキップし、レイヤード全系 PDB で `tsopt`、EulerPC IRC、両端の極小化を実行し、任意で熱化学、DFT、DFT//MLIP/MM ダイアグラムを追加します。
+   - 経路や参照構造による向きがないため、IRC 両端は化学的に未割当の `E1` と `E2` として出力します。サマリーは各端点から TS への障壁を報告し、R/P 反応エネルギーは報告しません。構造を確認してから化学的役割を割り当ててください。
 
 ## 出力
 
@@ -137,12 +137,14 @@ ML領域PDB pairは別の成果物であり、PDB入力では常に出力され�
  layered/                              # レイヤード全系 PDB（B 因子アノテーション付き、再利用可能な入力）
  segments/                             # 反応セグメント別の成果物
   seg_NN/                              # 2 桁インデックス (1 始まり)、例: seg_01, seg_02
-   reactant.{pdb,cif} · ts.{pdb,cif} · product.{pdb,cif} # CIF は bridge 入力時
+   reactant.{pdb,cif} · ts.{pdb,cif} · product.{pdb,cif} # MEP 実行の R/TS/P
+   e1.{pdb,cif} · ts.{pdb,cif} · e2.{pdb,cif}            # TSOPT のみの未割当端点
    ts/...                              # TS 最適化 + EulerPC IRC（--tsopt）
    irc/...
    freq/...                            # --thermo の場合
    dft/...                             # --dft の場合
-   structures/{reactant,ts,product}.pdb  # 入れ子コピー + 生 IRC 端点
+   structures/{reactant,ts,product}.pdb  # MEP 実行の入れ子コピー
+   structures/{endpoint_1,ts,endpoint_2}.pdb # TSOPT のみの入れ子コピー
    energy_diagram_{MLIP,G_MLIP,DFT,G_DFT_plus_MLIP}.png
  _work/                               # パイプライン作業領域（削除可）
   pockets/                             # 入力ごとのポケット PDB（複数構造は統合）
@@ -151,7 +153,7 @@ ML領域PDB pairは別の成果物であり、PDB入力では常に出力され�
    summary.{json,log} · seg_NN_mep/    # セグメント別の生 MEP 軌跡（マージ済み成果物はルートへ移動）
 ```
 
-**TSOPT のみモード**（単一入力 + `--tsopt`、`--scan-lists` なし）では MEP ステージが無く、最適化済み R/TS/P と `ts/`・`irc/`・`freq/`・`dft/` は `segments/seg_01/` 配下に生成され、`_work/path_opt/` は存在しません。
+**TSOPT のみモード**（単一入力 + `--tsopt`、`--scan-lists` なし）では MEP ステージが無く、化学的方向を割り当てない最適化済み E1/TS/E2 と `ts/`・`irc/`・`freq/`・`dft/` は `segments/seg_01/` 配下に生成され、`_work/path_opt/` は存在しません。
 
 `-v 2` ではコンソールに抽出、MM 準備、スキャンステージ、MEP の進捗、ステージごとの所要時間が要約されます。{ref}`ja-verbosity-levels` を参照してください。
 
@@ -181,7 +183,7 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
-| `-i, --input PATH...` | 反応順の 2 つ以上の完全構造。PDB は直接、XYZ は `--ref-pdb` と併用（`--scan-lists`（段階的スキャン）または `--tsopt`（TSOPT のみ）の場合のみ単一入力可）。 | 必須 |
+| `-i, --input PATH...` | 反応順の 2 つ以上の完全構造。PDB/mmCIF は直接、XYZ は `--ref-pdb` と併用（`--scan-lists`（段階的スキャン）または `--tsopt`（TSOPT のみ）の場合のみ単一入力可）。 | 必須 |
 | `-c, --center TEXT` | 基質指定（PDB パス、残基 ID（`308,309`）、または残基名（`SAM,GPP`））。省略時は抽出をスキップし完全構造をそのまま使用。 | _None_ |
 | `-l, --ligand-charge TEXT` | 非標準残基の総電荷または残基別マッピング（例: `GPP:-3,MMT:-1`）。 | _None_ |
 | `-q, --charge INT` | ML 領域/model system の正味電荷を強制指定（最優先の上書き）。 | _None_ |
@@ -319,7 +321,7 @@ calc:
  backend: uma                    # ML バックエンド (uma/orb/mace/aimnet2)
  embedcharge: false              # 互換性用。true は拒否される
  uma_model: uma-s-1p2            # uma-s-1p2 | uma-m-1p1
- hessian_calc_mode: Analytical     # VRAM に余裕がある場合に推奨
+  hessian_calc_mode: Analytical     # 代表的な pilot で FiniteDifference と比較
 gs:
  max_nodes: 20
  climb: true
@@ -336,7 +338,7 @@ dft:
 
 入力形式は抽出の有無に依存します:
 
-- PDB 入力はそのまま使用できます。
+- PDB/mmCIF 入力はそのまま使用できます。
 - XYZ 入力には `--ref-pdb` が必要です。座標は XYZ、抽出および後続 stage
   の残基・鎖・B 因子メタデータは参照 PDB から取得します。
 - マルチ構造実行には 2 つ以上の構造が必要。

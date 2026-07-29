@@ -189,17 +189,11 @@ glossary
 
 ## システム要件
 
-### ハードウェア
-- **OS**: Linux（Ubuntu 20.04+、CentOS 8+ で動作確認）
-- **GPU**: CUDA 12.x 互換
-- **VRAM**: 最小 8 GB（1000 原子以上には 16 GB 以上推奨）
-- **RAM**: 16 GB 以上推奨
-
-### ソフトウェア
-- Python 3.11 以上
-- CUDA サポート付き PyTorch
-- CUDA 12.x ツールキット
-- AmberTools（`mm-parm` サブコマンドに必要）
+installation と backend ごとの互換性は
+[Getting Started](getting-started.md#installation) を参照してください。
+GPU/driver は選択 backend の要件を満たす必要があります。VRAM、RAM、
+walltime は対象系の代表的な pilot と scheduler log から設定してください。
+`mm-parm` には AmberTools が必要です。
 
 ---
 

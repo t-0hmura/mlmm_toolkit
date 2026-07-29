@@ -74,13 +74,13 @@ result_ts_only/
 ├── summary.log
 └── segments/
     └── seg_01/
-        ├── reactant.pdb   canonical R (from the IRC backward endpoint)
-        ├── ts.pdb         canonical TS
-        ├── product.pdb    canonical P (from the IRC forward endpoint)
+        ├── e1.pdb         chemically unassigned IRC endpoint 1
+        ├── ts.pdb         optimized TS
+        ├── e2.pdb         chemically unassigned IRC endpoint 2
         ├── ts/            final_geometry.{xyz,pdb} (result.json only with --out-json)
         ├── irc/           forward_irc_trj.xyz, backward_irc_trj.xyz, finished_irc_trj.xyz
         ├── freq/          frequencies_cm-1.txt, thermoanalysis.yaml
-        ├── structures/    nested copies + raw IRC endpoints ({reactant_irc,ts,product_irc}.{xyz,pdb})
+        ├── structures/    nested copies + raw IRC endpoints ({endpoint_1_irc,ts,endpoint_2_irc}.{xyz,pdb})
         └── (dft/)
 ```
 
@@ -89,8 +89,9 @@ result_ts_only/
 ```python
 import json
 d = json.load(open("result_ts_only/summary.json"))
-seg = d["segments"][0]                  # keys: index, tag, kind, barrier_kcal, delta_kcal, bond_changes
-print(seg["barrier_kcal"], seg["delta_kcal"])
+seg = d["segments"][0]
+print(seg["barrier_from_endpoint_1_kcal"])
+print(seg["barrier_from_endpoint_2_kcal"])
 print(seg["bond_changes"])             # what bonds broke / formed along the IRC
 
 # n_imaginary and IRC endpoint energies are NOT on the summary segment;
@@ -103,10 +104,9 @@ irc = json.load(open("result_ts_only/segments/seg_01/irc/result.json"))
 print(irc["energy_first_hartree"], irc["energy_ts_hartree"], irc["energy_last_hartree"])
 ```
 
-The child IRC result reports directional first/last endpoints only. In
-TS-only mode the parent `all` workflow separately assigns canonical
-`reactant` / `product` names using its documented endpoint rule; inspect the
-structures before attaching chemical identity.
+The child IRC result reports directional first/last endpoints only. TS-only
+mode preserves them as `E1`/`E2`; inspect the structures before attaching
+chemical R/P identity.
 
 If `n_imaginary_modes != 1`, the geometry is **not a true first-order
 saddle**; see "Distinctive failure modes" below.
@@ -117,7 +117,7 @@ saddle**; see "Distinctive failure modes" below.
 |---|---|---|
 | `tsopt.status == "not_converged"` | Initial Hessian misleading or step size too large | `mlmm tsopt -i ts.xyz --opt-mode rsirfo --max-cycles 200` standalone, then re-run downstream stages |
 | `tsopt.n_imaginary_modes == 0` | Geometry collapsed to a minimum during refinement | TS guess was not a real saddle; re-do `path-search` instead |
-| `tsopt.n_imaginary_modes >= 2` | Higher-order saddle or unresolved constrained-mode artifact; first-order certification failed | Inspect both modes, tighten convergence/frozen-boundary setup, then flatten or reoptimize from a better TS seed. Accept only exactly one meaningful imaginary mode with IRC connectivity to the intended endpoints. |
+| `tsopt.n_imaginary_modes >= 2` | Higher-order saddle or unresolved constrained mode; first-order certification failed | Inspect the modes, tighten convergence/frozen-boundary setup, then flatten or reoptimize from a better TS seed. Certification requires exactly one imaginary mode plus the intended displacement and IRC connectivity. |
 | `irc.bond_changes == {}` (no bonds change) | TS connects two essentially identical wells (numerical ringing) | Verify the imaginary mode visualization in `freq/`; this is sometimes a non-physical TS |
 
 ## When *not* to use TS-only mode
@@ -134,9 +134,8 @@ saddle**; see "Distinctive failure modes" below.
   a single PDB triggers a validation error.
 - For an XYZ TS candidate, supply `--ref-pdb` for topology and B-factor
   layers, plus `-q` and `-m` because XYZ has no charge or spin metadata.
-- The IRC step here is the **canonical validation** that the TS
-  connects the expected R and P. Always read `segments/seg_01/{reactant,product}.pdb`
-  to confirm the IRC ended up where you thought.
+- Inspect `segments/seg_01/{e1,e2}.pdb` to determine which chemical states the
+  IRC reached. IRC direction and endpoint energy do not assign R/P identity.
 
 ## See also
 
@@ -168,22 +167,16 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 
 ## Mutant-vs-WT barrier comparison (preserve the WT ML region)
 
-To compare a point-mutant TS barrier against WT, the mutant's **ML region must be the same residues as
-WT** (only the mutated residue differs) — otherwise a geometric `-c/-r` re-selects a *different* ML /
-movable / frozen set on the mutated geometry, and the mismatched frozen region produces spurious soft
-modes (`tsopt.n_imaginary_modes >= 2`, both tiny, IRC then aborts).
+Compare barriers formed within each system, then compare those barriers. Do
+not subtract mutant and WT absolute energies when their compositions differ.
 
-Recipe (no `--parm`; the `all` pipeline rebuilds the mutant parm via mm-parm):
-
-| step | action |
-|---|---|
-| 1. mutate | On the WT TS PDB, truncate the sidechain + rename the residue (e.g. ARG→ALA). Keep the layer B-factors of the retained atoms. |
-| 2. complete | Run once (or let mm-parm/tleap) so the missing H is re-added; the **input atom count must equal the rebuilt parm7** (a hand-truncated PDB is short one H → `Atom-count mismatch` at tsopt). Use the tleap-completed full PDB as the new input. |
-| 3. transplant layers | Copy WT's B-factors (0/10/20) onto the completed mutant by `(resid, atom-name)`; the new H inherits its residue's modal layer. Mutant ML = WT ML − deleted sidechain atoms (+ added H). |
-| 4. run | `mlmm all -i mutant_layered.pdb -l 'LIG:Q' --tsopt --thermo [--dft ...] -o result` |
-
-Flags for step 4: **OMIT `-c` / `-r`** (geometric selection) — `--detect-layer` (default on) reads the
-transplanted B-factor layers, so the ML/movable/frozen layers are byte-identical to WT. **KEEP `-l`** (or
-`-q`): a non-standard ligand's charge can't be derived from the standard-AA table. The WT-matched frozen
-region also cures the `n_imaginary >= 2` soft-mode failure above. (A first-class `mutate` subcommand that
-automates steps 1–3 is on the backlog.)
+1. Build and parameterize each complete structure independently.
+2. Define chemically corresponding ML and movable regions. Transfer layer
+   labels only for atoms with an unambiguous correspondence, and assign every
+   added or deleted atom explicitly.
+3. Determine charge and multiplicity independently for each system.
+4. Use matched backend/method, force field, convergence, and thermochemistry
+   settings.
+5. Validate each TS with exactly one imaginary mode and inspect the
+   displacement. Inspect both IRC endpoints before assigning chemical R/P
+   labels.

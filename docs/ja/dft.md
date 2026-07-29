@@ -41,8 +41,8 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 out_dir/ (デフォルト: ./result_dft/)
 ├── ml_region_without_linkH.xyz # リンク水素生成前の正確な ML 選択
 ├── ml_region_with_linkH.xyz    # リンク水素生成後の PySCF 入力 snapshot
-├── ml_region_without_linkH.pdb # PDB 入力時のみ。topology 付き companion
-├── ml_region_with_linkH.pdb    # PDB 入力時のみ。生成リンク水素は HL/LKH
+├── ml_region_without_linkH.pdb # PDB 入力かつ --convert-files 時。topology 付き companion
+├── ml_region_with_linkH.pdb    # PDB 入力かつ --convert-files 時。生成リンク水素は HL/LKH
 ├── result.yaml                 # DFT + ML(dft)/MM エネルギーサマリー、電荷、スピン密度
 ├── result.json                 # --out-json 指定時のみ
 └── (stdout)                    # 整形された設定ブロックとエネルギーの出力
@@ -65,7 +65,7 @@ out_dir/ (デフォルト: ./result_dft/)
 | `--embedcharge/--no-embedcharge` | v0.3.3 では使用不可。旧電子埋め込みコマンドを明示的に拒否するためにのみ保持。 | `False` |
 | `--embedcharge-cutoff FLOAT` | 廃止した電子埋め込み経路とともに使用不可。 | — |
 | `--cmap/--no-cmap` | REAL と MODEL の両 MM 層で CMAP を保持します。 | `--cmap` |
-| `-i, --input PATH` | 酵素全体の構造ファイル（PDB または XYZ）。XYZ の場合は `--ref-pdb` でトポロジーを指定。 | 必須 |
+| `-i, --input PATH` | 酵素全体の構造ファイル（PDB/mmCIF、または `--ref-pdb` でトポロジーを指定した XYZ）。 | 必須 |
 | `--parm PATH` | 全系の Amber parm7 トポロジー。 | 必須 |
 | `--model-pdb PATH` | ML 領域を定義する PDB（原子 ID が酵素 PDB と一致必須）。`--detect-layer` 有効時はオプション。 | _None_ |
 | `--model-indices TEXT` | ML 領域のカンマ区切り原子インデックス（範囲指定可、例: `1-5`）。`--model-pdb` 省略時に使用。 | _None_ |
@@ -127,8 +127,13 @@ dft:
 ## 注記
 
 - 基底関数名が `def2` で始まる場合、対応する def2 有効内殻ポテンシャル（ECP）が自動的に付加されます（元素の有無はチェックしません）。
-- **Blackwell アーキテクチャ GPU**（RTX 50xx）: GPU4PySCF は小規模な系（~100原子）でもメモリ不足エラーが発生する場合があります。これらの GPU では `--engine cpu` または外部 DFT プログラム（ORCA, Gaussian）を使用してください。
-- **def2-TZVPD でメモリ不足になる場合**: デフォルトの基底関数 `def2-tzvpd` は大きく、16–24 GB GPU で 150 原子以上の系では OOM が発生する場合があります。`--func-basis 'wb97m-v/def2-svp'` を使用してください。def2-SVP と def2-TZVPD の障壁高さの差は通常 1–3 kcal/mol です。
+- **Blackwell アーキテクチャ GPU**（RTX 50xx）: インストールした
+  GPU4PySCF/CuPy が対象デバイスをサポートすることを確認してください。
+  GPU 経路が失敗する場合は `--engine cpu` または外部 DFT
+  プログラムを使用してください。
+- **def2-TZVPD でメモリ不足になる場合**: 必要メモリは元素、基底関数、
+  汎関数、グリッド、ソフトウェア構成に依存します。対象系で試行し、
+  必要なら目的の物理量への影響を検証した上で小さい基底関数を選択してください。
 - GPU4PySCF のコンパイル済みホイールは非 x86 環境では動作しない場合があります。ソースからビルドしてください（参照: https://github.com/pyscf/gpu4pyscf）。
 
 ## 関連項目

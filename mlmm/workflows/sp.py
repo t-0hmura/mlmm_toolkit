@@ -150,7 +150,7 @@ def _resolve_sp_ml_region(
     "-i", "--input", "input_path",
     type=click.Path(exists=True, dir_okay=False, path_type=Path),
     required=True,
-    help="Layered PDB (or XYZ) defining the ML/MM/Frozen system.",
+    help="Layered PDB/mmCIF, or XYZ with --ref-pdb, defining the ML/MM/Frozen system.",
 )
 @click.option(
     "--ref-pdb",
@@ -218,7 +218,7 @@ def _resolve_sp_ml_region(
 )
 @click.option(
     "--hess/--no-hess", "do_hess", default=False, show_default=True,
-    help="Also compute the full ONIOM Hessian and save to hessian.npy.",
+    help="Also compute the active-coordinate ONIOM Hessian and save to hessian.npy.",
 )
 @click.option(
     "--hessian-calc-mode", "hessian_calc_mode",
@@ -233,7 +233,10 @@ def _resolve_sp_ml_region(
 @click.option(
     "--convert-files/--no-convert-files", "convert_files",
     default=True, show_default=True,
-    help="Auto-convert output XYZ-like files into matching PDB beside them.",
+    help=(
+        "Accepted for cross-command compatibility. The sp command writes "
+        "array results and has no structure trajectory to convert."
+    ),
 )
 @click.option(
     "--config", "config_yaml",
@@ -546,7 +549,7 @@ def cli(
             mode = sp_cfg.get("hessian_calc_mode") or calc_cfg.get(
                 "hessian_calc_mode", "FiniteDifference"
             )
-            click.echo(f"[sp] computing full ONIOM Hessian (mode={mode}) ...")
+            click.echo(f"[sp] computing active-coordinate ONIOM Hessian (mode={mode}) ...")
             t0 = time.perf_counter()
             # geom.hessian may be a CUDA torch.Tensor (UMA analytical path);
             # detach + cpu first so np.asarray doesn't trip the "can't convert

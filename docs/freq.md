@@ -9,7 +9,9 @@ Compute ML/MM vibrational frequencies and thermochemistry (zero-point energy (ZP
 
 The command runs vibrational analysis with the ML/MM calculator, honoring frozen atoms via PHVA. It exports normal-mode animations as `_trj.xyz` and `.pdb` (mapped back onto the enzyme ordering), and prints a Gaussian-style thermochemistry summary when the optional `thermoanalysis` package is installed.
 
-Imaginary frequencies appear as negative values. When VRAM permits, `--hessian-calc-mode Analytical` speeds up Hessian evaluation.
+Imaginary frequencies appear as negative values. Runtime and memory depend on
+the backend and system; compare `Analytical` and `FiniteDifference` on a
+representative pilot.
 
 ## Examples
 
@@ -179,7 +181,7 @@ mlmm:
  uma_model: uma-s-1p2              # uma-s-1p2 | uma-m-1p1
  uma_task_name: omol                # UMA task name (UMA backend only)
  ml_device: auto                   # ML backend device selection
- hessian_calc_mode: FiniteDifference   # Hessian mode (FiniteDifference default; Analytical for higher VRAM jobs)
+ hessian_calc_mode: FiniteDifference   # Compare both modes on a representative pilot
  out_hess_torch: true              # request torch-form Hessian
  mm_fd: true                       # MM finite-difference toggle
  return_partial_hessian: true      # allow partial Hessians (PHVA default)

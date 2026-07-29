@@ -52,11 +52,10 @@ Options:
   --selected-resn TEXT            Comma/space-separated residue IDs/names to
                                   force-include; chain-qualified A:SAM is
                                   supported.
-  --modified-residue TEXT         Comma-separated residue names (with optional
-                                  charge) to treat as amino acids for backbone
-                                  truncation and charge assignment. Examples:
-                                  'HD1,HD2,HD3' (charge defaults to 0) or
-                                  'HD1:0,SEP:-2'.
+  --modified-residue TEXT         Comma-separated residue names with charges to
+                                  treat as amino acids for backbone truncation
+                                  and charge assignment. A known catalog residue
+                                  may omit its charge. Example: 'HD1:0,SEP'.
   -l, --ligand-charge TEXT        Total charge number or per-resname mapping
                                   like 'GPP:-3,SAM:1'.
   --out-json / --no-out-json      Write machine-readable result.json next to the

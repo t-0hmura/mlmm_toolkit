@@ -1,23 +1,21 @@
 # Reproducibility and determinism
 
-MLIP inference on a GPU is **not bit-reproducible by default**: parallel
-reductions (atomic adds, scatter operations) accumulate in a
-hardware-scheduling-dependent order, so two runs with identical inputs differ
-at the floating-point ULP level. For `mlmm` the practical size of this drift is
-**~1e-7 Å in coordinates** and below 1e-7 a.u. in energies — far below any
-chemically meaningful threshold. Results are *scientifically* reproducible; they
-are not *bit*-identical.
+MLIP inference on a GPU is not guaranteed to be bit-reproducible by default:
+parallel reductions can accumulate in a hardware- and software-dependent
+order. Assess numerical sensitivity on the target backend, model, hardware,
+and software stack.
 
-If you need bit-identical output (e.g. golden-file regression tests, exact
-re-runs for a comparison), use the `--deterministic` flag.
+When exact comparison is required, use `--deterministic` to request
+deterministic algorithms, then verify the produced artifacts on the complete
+target stack.
 
 ## `--deterministic`
 
 `--deterministic` is accepted by every compute subcommand
 (`opt`, `tsopt`, `freq`, `irc`, `scan`, `scan2d`, `scan3d`, `path-opt`,
 `path-search`, `all`, `sp`). It turns on `torch.use_deterministic_algorithms`
-and an `index_reduce_` shim so that the GPU run (the ML-region high-level
-inference of the ONIOM calculation) is bit-reproducible.
+and an `index_reduce_` shim for operations controlled by mlmm-toolkit. PyTorch
+raises if a selected operation lacks a deterministic implementation.
 
 ```bash
 mlmm opt -i complex.pdb --parm enzyme.parm7 -q 0 --deterministic
@@ -26,42 +24,42 @@ mlmm all -i r_complex.pdb p_complex.pdb -c PRE -q -1 --deterministic
 
 - It is **process-global**: setting it on `all` propagates to every internal
   stage; you do not pass it per stage.
-- It is **slower**: deterministic scatter/reduce kernels have lower throughput
-  than the default ones. Use it only when you need exact reproducibility.
-- It **fails loudly**: if the current PyTorch build cannot provide a
-  deterministic kernel for an operation in your run, the command raises rather
-  than silently producing non-reproducible output.
+- It can change performance because deterministic and default kernels may use
+  different implementations.
+- For PyTorch operations under its control, an unavailable deterministic
+  implementation raises instead of silently using a known nondeterministic
+  implementation. Backend SDK and custom operations still require separate
+  verification.
 - The environment variable `MLMM_STRICT_DETERMINISTIC=1` is the equivalent
   entry point for CI or the direct Python API.
 
-### Verified behavior by backend
+### Backend support
 
 | ML backend | `--deterministic` |
 |---|---|
-| `uma` | bit-identical energy **and** forces |
-| `orb` | bit-identical energy **and** forces |
-| `mace` | bit-identical energy **and** forces |
+| `uma` | deterministic mode accepted; verify the installed model/SDK on the target system |
+| `orb` | deterministic mode accepted; verify the installed model/SDK on the target system |
+| `mace` | deterministic mode accepted; verify the installed model/SDK on the target system |
 | `aimnet2` | **not supported — rejected** (see below) |
 | `custom` (`--calc-file`) | **not supported — rejected** because the supplied calculator is outside mlmm-toolkit's control |
 
-The MM low-level layer (analytical `hessian_ff` force field) is deterministic
-on CPU; the non-determinism that `--deterministic` addresses is the GPU ML-region
-inference.
+The MM low-level layer runs on CPU. Exact end-to-end comparison still requires
+fixed inputs (including the topology), software versions, hardware, and backend
+configuration.
 
 ## Precision and reproducibility
 
-Running in `--precision fp64` *reduces* the default drift but does **not** make a
-GPU run bit-identical — the reduction-order non-determinism is independent of
-precision. Only `--deterministic` gives bit-exactness.
+Running in `--precision fp64` changes numerical precision but does not by itself
+guarantee bit-identical GPU execution. `--deterministic` requests deterministic
+algorithms; confirm exact reproducibility for the complete target stack.
 
 `--precision fp64` and the (internal, always-on) fp64 Hessian (`H_double`) are
 independent knobs; passing `--precision fp64` additionally forces the Hessian to
 fp64 so the optimizer linear algebra cannot silently run in a lower precision
 than the model.
 
-For *which* precision to choose by GPU class — `fp64` on HPC datacenter GPUs
-(H100 / H200 / A100) for deterministic-grade low-noise results, `fp32` (default)
-on consumer cards where `fp64` is markedly slower — see
+Precision defaults are backend-specific (UMA fp32; ORB and MACE fp64). For
+selection guidance and performance tradeoffs, see
 [Device & HPC Setup → Backend precision defaults](device-hpc.md#backend-precision-defaults).
 
 ## AIMNet2 limitations
@@ -71,8 +69,9 @@ AIMNet2 does not support these features:
 - **`--precision fp64`** — AIMNet2's model inputs are cast to float32 upstream,
   so an "fp64" run would not actually be fp64.
 - **`--deterministic`** — AIMNet2 computes forces through a custom CUDA kernel
-  that lies outside `torch.use_deterministic_algorithms` control, so its forces
-  are not bit-reproducible (energy is). PyTorch's deterministic mode neither
+  that lies outside `torch.use_deterministic_algorithms` control, so the flag
+  cannot enforce exact force repeatability. PyTorch's deterministic mode neither
   detects nor controls the custom op, so the limitation is reported explicitly.
 
-For bit-reproducible runs use `uma`, `orb`, or `mace`.
+UMA, Orb, and MACE accept the flag; verify exact repeatability for the installed
+backend/model/SDK and target stack.

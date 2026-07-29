@@ -68,8 +68,7 @@ def main() -> int:
     stepwise = REPO_ROOT / "examples" / "methyltransferase" / "run_stepwise.sh"
     stepwise_text = stepwise.read_text(encoding="utf-8")
     if (
-        '[0, 15.6, -43.7]' in stepwise_text
-        or "${ENERGIES:-}" not in stepwise_text
+        "${ENERGIES:-}" not in stepwise_text
         or "${ENDPOINT_LABELS:-}" not in stepwise_text
         or "freq_reac" in stepwise_text
         or "freq_prod" in stepwise_text

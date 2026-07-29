@@ -147,7 +147,7 @@ calc:
   - `aimnet2_model` — AIMNet2 backend only
 - `embedcharge` must remain `false` in v0.3.3. `embedcharge: true`, `--embedcharge`, or an explicit CLI `--embedcharge-cutoff` is rejected before calculation because the retired path double-counted ML--MM electrostatics and used an inconsistent uncapped boundary model.
 - YAML `embedcharge_cutoff` and the other `embedcharge_*`/`xtb_*` keys remain readable only as inert configuration-compatibility values; they do not activate a supported calculation path.
-- `hessian_calc_mode: Analytical` requests the backend's analytical Hessian and is recommended when sufficient VRAM is available. UMA, ORB, MACE, and AIMNet2 implement this path; an incompatible installed backend version raises an error instead of silently changing methods. `workers > 1` cannot be combined with an analytical Hessian and also raises an error.
+- `hessian_calc_mode: Analytical` requests the backend's analytical Hessian. UMA, ORB, MACE, and AIMNet2 implement this path; an incompatible installed backend version raises an error instead of silently changing methods. Runtime and memory depend on the backend and system, so compare both modes on a representative pilot. `workers > 1` cannot be combined with an analytical Hessian and raises an error.
 - `mm_fd: true` uses a finite-difference MM Hessian; `false` uses the
   analytical `hessian_ff` Hessian. `mm_hessian_mode` is the explicit
   `finite_difference`/`analytical` spelling; when it is `null`, `mm_fd`
@@ -664,7 +664,7 @@ calc:
  embedcharge: false            # Compatibility tombstone; true is rejected
  uma_model: uma-s-1p2          # uma-s-1p2 | uma-s-1p1 | uma-m-1p1
  ml_device: auto
- hessian_calc_mode: Analytical   # Recommended when VRAM permits
+ hessian_calc_mode: Analytical   # Compare with FiniteDifference on a pilot
  mm_device: cpu
  mm_fd: true
  use_bfactor_layers: true # Read layers from PDB B-factors

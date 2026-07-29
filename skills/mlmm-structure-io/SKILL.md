@@ -15,7 +15,7 @@ and is preferred for different stages:
 | **PDB** | atom name, residue, chain, occupancy, **B-factor (layer label)**, element | Initial input; B-factor encodes ML / movable-MM / frozen layer |
 | **mmCIF** | PDB metadata without one-character/four-digit identifier limits | Multi-character chains, residue IDs ≥10,000, oversized PDB round-trip |
 | **XYZ** | element + Cartesian coordinates only | Trajectories, post-IRC outputs, single-stage exchange between subcommands |
-| **GJF** | element + coords + charge / spin / route line | Round-tripping with Gaussian; `mlmm oniom-{export,import}` |
+| **GJF** | element + coords + charge / spin / route line | Gaussian input-deck exchange with `mlmm oniom-{export,import}` |
 | **parm7 / rst7** | Amber topology + coordinate pair | MM region force-field parameters; output of `mlmm mm-parm` |
 
 PDB / mmCIF / XYZ / GJF use Å for coordinates and conventional element symbols.
@@ -125,9 +125,11 @@ Full byte-by-byte / per-keyword detail in the per-format mds.
 
 ## Charge / multiplicity defaults
 
-- `-m 1` (singlet, closed shell) is the default for almost every
-  organic / biological / metal-coordination cluster.
-- Use `-m 2` for radicals, `-m 3+` for unusual high-spin metals.
+- The CLI default is `-m 1`; this is an input default, not a scientific
+  assignment.
+- Determine multiplicity from composition, oxidation states, experimental
+  context, or explicit state comparisons. Metal-containing systems and
+  radicals require particular care.
 - `-q` is the **ML region** charge. `-l 'RES:Q'` derives it from
   per-residue charges + `mlmm`'s internal amino-acid table.
 - For XYZ inputs (no header), `-q` and `-m` must be on the CLI.

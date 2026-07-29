@@ -62,7 +62,7 @@ Available models (select with the `--backend-model` CLI flag, or via
 |---|---|---|---|
 | `uma-s-1p2` (default) | UMA-s-1.2 | `facebook/UMA` | Current small-model default |
 | `uma-s-1p1` | UMA-s-1.1 | `facebook/UMA` | Previous small model; explicit opt-in |
-| `uma-m-1p1` | UMA-m-1.1 | `facebook/UMA` | Larger, slightly more accurate, ~3× slower |
+| `uma-m-1p1` | UMA-m-1.1 | `facebook/UMA` | Larger model; benchmark accuracy and cost on the target system |
 
 `p` is the dot replacement used by fairchem-core's config parser
 (`1p1` ↔ `1.1`).
@@ -100,8 +100,8 @@ list. `mlmm-toolkit` runs single-GPU on the ML side.
 | Symptom | Cause / fix |
 |---|---|
 | `e3nn` install conflict | UMA's `fairchem-core` pin clashes with `mace-torch`. Use a separate env for MACE (see `mace.md`). |
-| `uma-m-1p1` runs out of VRAM during freq | Switch `hessian_calc_mode` to `'FiniteDifference'`, or use `uma-s-1p2`. |
-| First call is slow (10–30 s) | One-time model download + JIT compile. The cache lives at `~/.cache/huggingface/hub/`. |
+| Frequency calculation runs out of VRAM | Compare Hessian modes and compatible model sizes on a representative pilot, or move Hessian assembly to CPU. |
+| First call is slower than later calls | One-time model download + JIT compile. The cache lives at `~/.cache/huggingface/hub/`. |
 | `GatedRepoError` / `401 Unauthorized` | HuggingFace token missing or lacks access to the gated UMA repo — re-run `huggingface-cli login`. |
 
 ## See also

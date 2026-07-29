@@ -23,8 +23,8 @@ TR_PROJECTION_MODES = ("constrained", "legacy-active")
 # those are not null modes (K_BB*t_B = -K_BC*t_C != 0), so it is a Rayleigh-Ritz
 # compression onto a different, more constrained model -- structurally biased
 # toward a SMALLER n_imag, i.e. it can hide a real imaginary mode but never
-# create one.  It is retained ONLY as a named opt-in, for reproducing output
-# produced before the fix.  Do not make it the default again.
+# create one. It is retained only as a named opt-in for reproducing legacy
+# output and must not become the default.
 DEFAULT_TR_PROJECTION = "constrained"
 
 

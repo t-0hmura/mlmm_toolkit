@@ -1,6 +1,6 @@
 # `oniom-orca`
 
-Export an ML/MM system to ORCA QM/MM (`.inp`) using an Amber parm7 topology. This is the ORCA-specific detail page for `oniom-export` (`mlmm oniom-export --mode orca`). It reads topology information from an Amber parm7 file, maps a model-region PDB to the QM atoms, resolves ORCAFF parameters, and writes a single ORCA QM/MM input file ready for an ORCA 6.0 run.
+Export an ML/MM system to ORCA QM/MM (`.inp`) using an Amber parm7 topology. This is the ORCA-specific detail page for `oniom-export` (`mlmm oniom-export --mode orca`). It reads topology information from an Amber parm7 file, maps a model-region PDB to the QM atoms, resolves ORCAFF parameters, and writes an ORCA QM/MM input. The input is runnable only when the referenced ORCAFF parameter file exists.
 
 The input `parm7` must be CMAP-free. ORCA's MM engine does not apply CMAP
 terms, so export fails before writing when the topology contains them.
@@ -25,7 +25,7 @@ Use an explicit ORCAFF path and disable auto-conversion:
 
 ```bash
 mlmm oniom-export --mode orca --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
- -o system.inp --orcaff ./ORCAFF.prms --no-convert-orcaff
+ -o system.inp -q 0 -m 1 --orcaff ./ORCAFF.prms --no-convert-orcaff
 ```
 
 ## Workflow
@@ -41,7 +41,9 @@ ORCA mode (`mlmm oniom-export --mode orca`) reads topology information from `--p
 ## Outputs
 
 - `system.inp`
-- `ORCAFF.prms` (either reused, provided, or auto-generated)
+- `ORCAFF.prms` when provided, reused, or successfully generated. If
+  conversion is unavailable, the command reports the missing parameter file;
+  the `.inp` is incomplete until that file is supplied.
 
 ## CLI options
 

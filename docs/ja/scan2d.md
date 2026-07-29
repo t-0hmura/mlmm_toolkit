@@ -52,7 +52,7 @@ mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## 処理の流れ
 
-1. **入力と事前最適化** -- 酵素 PDB を読み込み、電荷/スピンを解決し、ML/MM calculator（MLIP バックエンド + hessian_ff）を構築し、`--preopt` の場合は任意でバイアスなし事前最適化を実行。`-b/--backend` で ML バックエンドを選択します（デフォルト: `uma`）。v0.3.3 は機械的埋め込みを使用し、電子埋め込みの要求は calculator 構築前に拒否します。
+1. **入力と事前最適化** -- PDB/mmCIF、または `--ref-pdb` を伴う XYZ を読み込み、電荷/スピンを解決し、ML/MM calculator（MLIP バックエンド + hessian_ff）を構築し、`--preopt` の場合は任意でバイアスなし事前最適化を実行。`-b/--backend` で ML バックエンドを選択します（デフォルト: `uma`）。v0.3.3 は機械的埋め込みを使用し、電子埋め込みの要求は calculator 構築前に拒否します。
 2. **グリッド構築** -- `-s/--scan-lists`（YAML/JSON スペックファイルまたはインラインリテラル）からターゲットを 2 つの 4 要素タプルに解析し、インデックスを正規化（デフォルト 1 始まりまたは `"TYR,285,CA"` のような PDB 原子セレクター）。`ceil(|high - low| / h) + 1` 点の線形グリッドを構築（`h = --max-step-size`）。
 3. **外側ループ（d1）** -- 各 d1 値について、**d1 拘束のみ**で系を緩和。
 4. **内側ループ（d2）** -- 現在の d1 での各 d2 値について、最も近い収束済み構造から開始し**両方の拘束**で緩和。
@@ -70,7 +70,7 @@ out_dir/ (デフォルト:./result_scan2d/)
 ├── scan2d_landscape.html # 3D サーフェス可視化（Plotly）
 ├── grid/
 │ ├── point_i###_j###.xyz # 各 (i, j) ペアの緩和ジオメトリ
-│ ├── point_i###_j###.pdb # 対応する PDB（入力が PDB の場合）
+│ ├── point_i###_j###.pdb # --convert-files と PDB テンプレートがある場合
 │ ├── preopt_i###_j###.xyz # 基準/事前最適化構造（基準距離が有限なら常に出力）
 │ └── inner_path_d1_###_trj.xyz # d1 スライスごとの内側 d2 軌跡（--dump 時）
 └── (stdout) # 進捗とエネルギーサマリー
@@ -82,7 +82,7 @@ out_dir/ (デフォルト:./result_scan2d/)
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
-| `-i, --input PATH` | 入力酵素複合体 PDB（必須）。 | 必須 |
+| `-i, --input PATH` | 入力 PDB/mmCIF、または `--ref-pdb` を伴う XYZ。 | 必須 |
 | `--parm PATH` | 酵素の Amber parm7 トポロジー（必須）。 | 必須 |
 | `--model-pdb PATH` | ML 領域を定義する PDB。`--detect-layer` 有効時はオプション。 | _None_ |
 | `--model-indices TEXT` | ML 領域のカンマ区切り原子インデックス（範囲指定可）。 | _None_ |

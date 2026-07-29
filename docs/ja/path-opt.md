@@ -1,6 +1,6 @@
 # `path-opt`
 
-`mlmm path-opt` は、PySisyphus `GrowingString`（デフォルト）または DMF（`--mep-mode dmf`）を用いて、**ちょうど 2 つ**の層付き酵素構造間の最小エネルギー経路（MEP）を最適化します。最適化には ML/MM calculator を使い、リンク原子なしで完全な酵素複合体を保持します。ML 領域は `--model-pdb` で定義し、Amber トポロジーは `--parm` から取得し、両端点は全系座標を含む PDB として与えます。経路軌跡を書き出し、最高エネルギーイメージ（HEI）を TS 候補としてエクスポートします。2 つの層付き端点が明確で中間体が無いと予想されるときに使います。再帰的な分割も、結合変化に基づく分解も行わない、`path-search` のシンプル版です。**2 つ以上**の構造から開始し、反応領域のみを自動精密化するワークフローには、代わりに [path-search](path-search.md) を使用してください。
+`mlmm path-opt` は、PySisyphus `GrowingString`（デフォルト）または DMF（`--mep-mode dmf`）を用いて、**ちょうど 2 つ**の層付き酵素構造間の最小エネルギー経路（MEP）を最適化します。最適化には ML/MM calculator を使い、リンク原子なしで完全な酵素複合体を保持します。ML 領域は `--model-pdb` で定義し、Amber トポロジーは `--parm` から取得します。両端点には全系座標を含む PDB/mmCIF、または対応する `--ref-pdb` を伴う XYZ を使用できます。経路軌跡を書き出し、最高エネルギーイメージ（HEI）を TS 候補としてエクスポートします。2 つの層付き端点が明確で中間体が無いと予想されるときに使います。再帰的な分割も、結合変化に基づく分解も行わない、`path-search` のシンプル版です。**2 つ以上**の構造から開始し、反応領域のみを自動精密化するワークフローには、代わりに [path-search](path-search.md) を使用してください。
 
 ## 実行例
 
@@ -33,12 +33,12 @@ mlmm path-opt -i REACTANT.pdb PRODUCT.pdb --parm real.parm7 --model-pdb model.pd
 `mlmm path-opt --help` は主要オプションを、`mlmm path-opt --help-advanced` は全オプション一覧を表示します。
 
 ## 処理の流れ
-1. **端点の読み込み** -- 両方の PDB 構造を読み込み、CLI またはデフォルトから電荷/スピンを解決します。`--parm`、`--model-pdb`、電荷/スピンで ML/MM calculatorを構築します。
+1. **端点の読み込み** -- PDB/mmCIF 構造、または対応する `--ref-pdb` を伴う XYZ 座標を読み込み、CLI またはデフォルトから電荷/スピンを解決します。`--parm`、`--model-pdb`、電荷/スピンで ML/MM calculatorを構築します。
 2. **任意の事前最適化** -- `--preopt` の場合、各端点はアライメントとストリング成長の前に L-BFGS（同じ ML/MM calculatorを使用）で事前最適化されます。L-BFGS サイクル数は `--preopt-max-cycles`（デフォルト: 10000）で制御されます。
 3. **事前アライメント** -- 事前最適化後、最初の構造以降のすべての端点が最初の構造に Kabsch アライメントされます。`freeze_atoms` が定義されている場合、それらの原子のみが RMSD フィットに参加し、結果の変換がすべての原子に適用されます。
 4. **経路最適化** -- `--mep-mode gsm` は PySisyphus `GrowingString`（端点込み `(max_nodes + 2)` イメージ）を使用し、`--mep-mode dmf` は Direct Max Flux を使用します。
 5. **クライミングイメージ（GSM のみ）** -- `--climb` の場合、ストリングが完全に成長した後にクライミングイメージ精密化が適用され、最高エネルギーイメージ（HEI）が報告されます。
-6. **出力** -- 最終経路軌跡と HEI が XYZ および PDB ファイルとして書き出されます。入力が PDB の場合に PDB 変換が実行されます。
+6. **出力** -- 最終経路軌跡と HEI が XYZ ファイルとして書き出されます。変換が有効で参照トポロジーを利用できる場合は PDB/CIF companion も生成されます。
 
 ## 出力
 
@@ -65,7 +65,7 @@ out_dir/ (デフォルト:./result_path_opt/)
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
-| `-i, --input PATH PATH` | 反応物と生成物の PDB 構造（全系座標）。 | 必須 |
+| `-i, --input PATH PATH` | 反応物と生成物の PDB/mmCIF 構造、または対応する `--ref-pdb` を伴う XYZ 座標。 | 必須 |
 | `--parm PATH` | 完全 REAL 系の Amber prmtop。 | 必須 |
 | `--model-pdb PATH` | ML 領域を定義する PDB（原子 ID）。`--detect-layer` または `--model-indices` 利用時は省略可。 | _None_ |
 | `--model-indices TEXT` | ML 領域のカンマ区切り原子インデックス（範囲指定可、例: `1-5`）。`--model-pdb` 省略時に使用。 | _None_ |

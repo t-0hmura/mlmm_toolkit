@@ -39,7 +39,7 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 1. `geom_loader` で構造を読み込み、CLI またはデフォルトから電荷/スピンを解決します。ML/MM calculatorに `--parm`、`--model-pdb`、`-q/--charge`、任意で `-m/--multiplicity` を提供します。
 2. 任意でバイアスなし事前最適化（`--preopt`）を実行し、開始点を緩和します。
-3. `-s/--scan-lists`（YAML/JSON スペックファイルまたはインラインリテラル）からステージターゲットを解析し、`(i, j)` インデックスを正規化します（デフォルトは 1 始まり）。入力が PDB の場合、各エントリは整数インデックスまたは `'TYR,285,CA'` のような原子セレクター文字列のいずれかで指定可能です。セレクターフィールドはスペース、カンマ、スラッシュ、バッククォート、バックスラッシュで区切ることができ、順序は任意です。
+3. `-s/--scan-lists`（YAML/JSON スペックファイルまたはインラインリテラル）からステージターゲットを解析し、`(i, j)` インデックスを正規化します（デフォルトは 1 始まり）。PDB メタデータを利用できる場合、各エントリは整数インデックスまたは `'TYR,285,CA'` のような原子セレクター文字列のいずれかで指定可能です。セレクターフィールドはスペース、カンマ、スラッシュ、バッククォート、バックスラッシュで区切ることができ、順序は任意です。
 4. 結合ごとの変位を計算してステップに分割します:
  - スキャンタプル `[(i, j, target_A)]` に対し、`delta = target - current_distance_A` を計算。
  - `--max-step-size = h` の場合、ステージは `N = ceil(max(|delta|) / h)` 回のバイアス付き緩和を実行。
@@ -50,20 +50,20 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## 出力
 
-各ステージは最終ジオメトリとバイアスステップ軌跡を `stage_XX/` 配下に書き出し、ルートに連結軌跡を生成します。最初に確認するファイルはステージ別の `result.pdb`（または `result.xyz`）と、常に生成される `scan_trj.xyz` / `scan.pdb` です。
+各ステージは最終ジオメトリとバイアスステップ軌跡を `stage_XX/` 配下に書き出し、ルートに連結軌跡を生成します。最初に確認するファイルはステージ別の `result.xyz` と、常に生成される `scan_trj.xyz` です。PDB companion は `--convert-files` が有効で PDB テンプレートを利用できる場合に生成されます。
 
 ```
 out_dir/ (デフォルト:./result_scan/)
 ├─ scan_trj.xyz              # 全ステージ連結軌跡（常に書き出し）
-├─ scan.pdb                  # 対応する連結 PDB（PDB 入力のみ、常に書き出し）
+├─ scan.pdb                  # --convert-files と PDB テンプレートがある場合
 ├─ preopt/                   # --preopt が True の場合
 │  ├─ result.xyz
-│  └─ result.pdb             # PDB 入力のみ
+│  └─ result.pdb             # --convert-files と PDB テンプレートがある場合
 └─ stage_XX/                 # ステージごとに 1 フォルダ（k = 01..K）
    ├─ result.xyz             # 最終（endopt 済みの可能性あり）ジオメトリ
-   ├─ result.pdb             # 入力が PDB の場合
+   ├─ result.pdb             # --convert-files と PDB テンプレートがある場合
    ├─ scan_trj.xyz           # ステージ別バイアスステップフレーム（常に書き出し）
-   └─ scan.pdb               # scan_trj.xyz の PDB 版（PDB 入力のみ、常に書き出し）
+   └─ scan.pdb               # --convert-files と PDB テンプレートがある場合
 ```
 
 ## CLI オプション
@@ -72,7 +72,7 @@ out_dir/ (デフォルト:./result_scan/)
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
-| `-i, --input PATH` | 入力 PDB（またはトポロジー用に `--ref-pdb` 付きの XYZ）。 | 必須 |
+| `-i, --input PATH` | 入力 PDB/mmCIF、またはトポロジー用に `--ref-pdb` を伴う XYZ。 | 必須 |
 | `--parm PATH` | 完全 REAL 系の Amber prmtop。 | 必須 |
 | `--model-pdb PATH` | ML 領域を定義する PDB（原子 ID）。`--detect-layer` 有効時または `--model-indices` 指定時は省略可能。 | _None_ |
 | `--model-indices TEXT` | ML 領域原子インデックス（カンマ区切り、範囲指定可）。 | _None_ |
@@ -94,7 +94,7 @@ out_dir/ (デフォルト:./result_scan/)
 | `--relax-max-cycles INT` | `--max-cycles` の互換エイリアス（指定時は上書き）。 | _None_ |
 | `--preopt/--no-preopt` | スキャン前にバイアスなし最適化を実行。 | `False` |
 | `--endopt/--no-endopt` | 各ステージ後にバイアスなし最適化を実行。 | `False` |
-| `--dump/--no-dump` | ステップごとのオプティマイザ軌跡ファイルをダンプ。注: `scan_trj.xyz`/`scan.pdb` はこのフラグに関係なく常に書き出されます。 | `False` |
+| `--dump/--no-dump` | ステップごとのオプティマイザ軌跡ファイルをダンプ。`scan_trj.xyz` は常に書き出され、PDB/CIF companion には `--convert-files` と参照トポロジーが必要です。 | `False` |
 | `-o, --out-dir TEXT` | 出力ディレクトリルート。 | `./result_scan/` |
 | `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | _None_（`gau` を継承） |
 | `--config FILE` | ベース YAML 設定ファイル（最初に適用）。 | _None_ |
@@ -124,7 +124,7 @@ stages:
 
 - `stages` は必須です。
 - 各ステージは `(i, j, target_A)` の 3 要素タプルのリストです。
-- インデックスは整数または PDB セレクター（PDB 入力時）が使用可能で、インラインリテラルと同じです。
+- インデックスは整数、または PDB メタデータを利用できる場合は PDB セレクターが使用可能で、インラインリテラルと同じです。
 
 **インラインリテラルフォーマット**
 
@@ -202,7 +202,7 @@ mlmm scan -i r.pdb --parm enzyme.parm7 -l 'LIG:Q' \
        '[(7,9,0.95)]' -o result_staged
 ```
 
-協奏的スキャンは機構の分解を必要としません — [`path-search`](path-search.md) が多段の自動セグメント化を行ってくれます。段階的スキャンは事前に機構の定義が必要ですが、**機構が分かっている場合は段階的スキャンの方がステップごとの制御が明快で、一般に推奨されます。**（4-tuple は双方向スキャン用に 2 ステージへ展開されます。）
+協奏的スキャンは機構の分解を必要としません — [`path-search`](path-search.md) が多段の自動セグメント化を行います。段階的スキャンは事前に機構の定義が必要で、指定した各座標変化を別々のステージとして扱います。（4-tuple は双方向スキャン用に 2 ステージへ展開されます。）
 
 **双方向スキャン（4-tuple）**
 

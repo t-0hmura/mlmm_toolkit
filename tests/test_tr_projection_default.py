@@ -62,7 +62,7 @@ def test_engine_fallbacks_agree_with_the_single_source_of_truth() -> None:
 
 
 def test_legacy_remains_available_as_an_explicit_opt_in() -> None:
-    """Output produced before the fix must stay reproducible on request."""
+    """Legacy projection output remains reproducible through explicit opt-in."""
     assert "legacy-active" in TR_PROJECTION_MODES
     assert normalize_tr_projection_mode("legacy-active") == "legacy-active"
     assert normalize_tr_projection_mode("LEGACY-ACTIVE") == "legacy-active"

@@ -59,9 +59,9 @@ OMol で訓練された UMA をデフォルトの fp32 から fp64 に切り替�
 無視できない影響を与える場合があります。次のように有効化します:
 
 ```bash
-mlmm tsopt -i ts.pdb --parm real.parm7 -q 0 -m 1 --precision fp64...
-mlmm freq -i opt.pdb --parm real.parm7 -q 0 -m 1 --precision fp64...
-mlmm irc -i ts.pdb --parm real.parm7 -q 0 -m 1 --precision fp64...
+mlmm tsopt -i ts.pdb --parm real.parm7 -q 0 -m 1 --precision fp64
+mlmm freq -i opt.pdb --parm real.parm7 -q 0 -m 1 --precision fp64
+mlmm irc -i ts.pdb --parm real.parm7 -q 0 -m 1 --precision fp64
 ```
 
 統一された `--precision` フラグは、`mlmm/backends/__init__.py` の `apply_precision_to_calc_cfg`
@@ -73,11 +73,13 @@ mlmm irc -i ts.pdb --parm real.parm7 -q 0 -m 1 --precision fp64...
 | backend | デフォルト | 理由 |
 |---------|------|------|
 | `uma` | fp32 | 上流 fairchem のベースライン。 |
-| `orb` | fp64 | ORB の fp32 は縮約された `float32-high`（TF32）matmul であり、その力のノイズが有限差分 Hessian に偽の虚振動を生じさせる。 |
+| `orb` | fp64 | backend default。 |
 | `mace` | fp64 | MACE は上流で `default_dtype="float64"` をデフォルトとする。 |
 | `aimnet2` | fp32 | 精度の切り替えを持たない。 |
 
-`--precision fp32` はスループットのために ORB / MACE の精度を明示的に落とします（スクリーニング用途以外では非推奨）。使用する場合は、Hessian のノイズが増えるため、虚振動の本数を確認してください。
+対応する両精度について、対象 backend/model/system で energy、force、
+frequency、runtime、memory を比較してください。精度の選択にかかわらず
+frequency と IRC による独立検証が必要です。
 
 統一された `--backend-model NAME` フラグも同様に、選択中の `--backend` のモデル変種を
 上書きし、`apply_backend_model_to_calc_cfg` によってバックエンドのモデル kwarg
@@ -170,14 +172,12 @@ def get_calculator(charge=0, spin=1, device="auto", **kwargs):
 
 ## VRAM 不変条件（ML/MM 固有）
 
-ML/MM ONIOM ジョブでは、ML バックエンドが PySCF（DFT 補正）、
-parmed（parm7）、MM 力場配列と同一デバイス上に共存します。`mlmm/backends/mlmm_calc.py` 内の
-方向ごとの FD-Hessian ループは、この合計メモリ使用量に収まるよう設計されています。GPU smoke ゲート全体
-（`tests/smoke/run.sh`）の再実行とピーク VRAM の監視を行わない限り、**方向ごとのループを
-バッチ化テンソルにリファクタリングしないでください**。さもないと全タンパク質 ML/MM の `all` ジョブが OOM します。ステージランナーは
-ステージ間で `del calc` を行い、`all` ワークフローはステージ境界で `gc.collect()` を実行します。
-これは public contract の一部であり、ワークフローのリファクタリング時に
-削除してはなりません。
+ML/MM stage では、選択した ML backend と Hessian intermediate が GPU
+memory を使用します。topology 処理と解析 MM force field は CPU 側で、
+standalone DFT は別 stage です。`mlmm/backends/mlmm_calc.py` の方向ごとの
+FD-Hessian loop は同時 displacement 評価数を制限します。この loop を変更する
+場合は GPU smoke suite を再実行し、peak VRAM を確認してください。stage 間では
+calculator を解放します。
 
 ## ONIOM 結合と生の MLIP
 

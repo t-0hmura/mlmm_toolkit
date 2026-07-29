@@ -66,9 +66,9 @@ Switching OMol-trained UMA from the default fp32 to fp64 can have a non-trivial
 impact on TSopt and Hessian evaluation. Enable via:
 
 ```bash
-mlmm tsopt -i ts.pdb --parm real.parm7 -q 0 -m 1 --precision fp64...
-mlmm freq -i opt.pdb --parm real.parm7 -q 0 -m 1 --precision fp64...
-mlmm irc -i ts.pdb --parm real.parm7 -q 0 -m 1 --precision fp64...
+mlmm tsopt -i ts.pdb --parm real.parm7 -q 0 -m 1 --precision fp64
+mlmm freq -i opt.pdb --parm real.parm7 -q 0 -m 1 --precision fp64
+mlmm irc -i ts.pdb --parm real.parm7 -q 0 -m 1 --precision fp64
 ```
 
 The unified `--precision` flag is routed to each backend's native kwarg
@@ -80,13 +80,13 @@ When `--precision` is not given, each backend takes its own default:
 | backend | default | why |
 |---------|---------|-----|
 | `uma` | fp32 | The upstream fairchem baseline. |
-| `orb` | fp64 | ORB's fp32 is the reduced `float32-high` (TF32) matmul mode, whose force noise inflates finite-difference Hessians into spurious imaginary modes. |
+| `orb` | fp64 | Backend default. |
 | `mace` | fp64 | MACE ships `default_dtype="float64"` upstream. |
 | `aimnet2` | fp32 | No precision knob. |
 
-`--precision fp32` explicitly lowers ORB / MACE precision for throughput. This is not
-recommended outside screening. If you do use it, expect noisier Hessians and check the
-imaginary-mode count.
+Compare energies, forces, frequencies, runtime, and memory for both supported
+precisions on the target backend/model/system. Precision does not replace
+frequency and IRC validation.
 
 The unified `--backend-model NAME` flag likewise overrides the model variant
 for the selected `--backend`, routed to the backend's model kwarg
@@ -181,15 +181,13 @@ To add a new backend `XYZModel` exposed as `--backend xyz`:
 
 ## VRAM invariant (ML/MM-specific)
 
-In an ML/MM ONIOM job the ML backend co-resides with PySCF (DFT correction),
-parmed (parm7), and the MM force-field arrays on the same device. The per-direction
-FD-Hessian loop in `mlmm/backends/mlmm_calc.py` is sized to fit this combined
-footprint. **Do not refactor the per-direction loop into a batched tensor**
-without re-running the full GPU smoke gate (`tests/smoke/run.sh`) and watching
-peak VRAM — full-protein ML/MM `all` jobs OOM otherwise. The stage runners then `del calc`
-between stages and the `all` workflow runs `gc.collect()` at stage boundaries;
-this is part of the public contract and must not be removed when refactoring the
-workflow.
+During an ML/MM stage, GPU memory is used by the selected ML backend and its
+Hessian intermediates; topology handling and the analytical MM force field are
+CPU-side. Standalone DFT is a separate pipeline stage. The per-direction
+FD-Hessian loop in `mlmm/backends/mlmm_calc.py` limits the number of
+simultaneous displacement evaluations. Re-run the GPU smoke suite and inspect
+peak VRAM before changing it to a batched implementation. Stage runners release
+calculators between stages so later stages do not retain earlier model state.
 
 ## ONIOM coupling vs raw MLIP
 
@@ -204,4 +202,4 @@ calculator that returns ML-region energy / force / Hessian in the correct units.
 
 - [Python API](python-api.md) — `MLMMCore` / `MLMMASECalculator` / `mlmm` (pysisyphus Calculator) public surface.
 - [Architecture](architecture.md) — 6-layer directory map + dependency direction.
-- [CONTRIBUTING](https://github.com/t-0hmura/mlmm_toolkit/blob/main/CONTRIBUTING.md) — Recipe 3.2 "Add an MLIP backend" with full gate cycle references.
+- [CONTRIBUTING](https://github.com/t-0hmura/mlmm_toolkit/blob/main/CONTRIBUTING.md) — Recipe 3.2 "Add an MLIP backend" and required validation.

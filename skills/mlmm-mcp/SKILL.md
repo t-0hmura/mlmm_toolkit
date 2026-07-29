@@ -115,8 +115,11 @@ so an MCP client can pattern-match on the hierarchy instead of substring-matchin
 ## Sandbox / safety notes
 
 - The MCP server inherits the calling environment's PATH, conda env, CUDA setup, and AmberTools path. Long-running tools (opt / tsopt / irc / scan) launch the `mlmm` CLI as a subprocess — set `timeout_seconds` on each call.
-- Output files land under the `out_dir` kwarg (defaults to a unique `tempfile.mkdtemp("mlmm_mcp_<subcmd>_…")`).
-- The server does not modify `~/.bashrc` / login env, install software, or write outside `out_dir`. Required inputs (PDBs, parm7, ML weights) must already exist on disk.
+- Calculator workflow stages use `out_dir`, which defaults to a unique
+  temporary directory. Preparation/conversion tools accept explicit output
+  paths, and external programs or caches may write elsewhere.
+- The server is not a filesystem sandbox. Use client path restrictions or
+  OS/container isolation when containment is required.
 
 ## See also
 - Full MCP server doc: [`docs/mcp_server.md`](../../docs/mcp_server.md)

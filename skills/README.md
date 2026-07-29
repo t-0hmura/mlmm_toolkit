@@ -43,7 +43,6 @@ pattern.
 - `mlmm-env-detect`: fallback for detecting scheduler / GPU /
   CUDA / conda env when the environment is unknown.
 
-The skills are **self-contained**: copying this `skills/` directory
-into another project as `.claude/skills/` (or merging it into
-`~/.claude/skills/`) gives an agent everything it needs to work with
-`mlmm-toolkit` without consulting the main documentation.
+The skills accompany the main documentation. Copying this directory exposes
+the workflows to a compatible agent interface; linked project documentation
+remains the source of truth.

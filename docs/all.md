@@ -15,9 +15,9 @@ mlmm define-layer -i system.pdb --model-pdb model.pdb -o system_layered.pdb
 
 `all` runs in one of three modes, chosen by what you pass:
 
-- **Multi-structure ensemble** — give ≥ 2 full PDBs in reaction order to drive a GSM (default) or DMF MEP search across the supplied structures.
-- **Single-structure staged scan** — give one PDB plus `--scan-lists`; each literal is a scan stage and the relaxed endpoints become the MEP endpoints.
-- **TSOPT-only** — give a single PDB and set `--tsopt` (no `--scan-lists`) to run TS optimization directly, with no MEP search.
+- **Multi-structure ensemble** — give at least two full structures in reaction order to drive a GSM (default) or DMF MEP search across the supplied structures.
+- **Single-structure staged scan** — give one full structure plus `--scan-lists`; each literal is a scan stage and the relaxed endpoints become the MEP endpoints.
+- **TSOPT-only** — give a single full structure and set `--tsopt` (no `--scan-lists`) to run TS optimization directly, with no MEP search.
 
 Inputs may also be `.cif` / `.mmcif`; computation uses a temporary internal
 PDB and public CIF companions restore the original identifiers.
@@ -103,10 +103,10 @@ artifact and is always written for PDB input.
    - `--thermo` computes ML/MM thermochemistry on (R, TS, P) and adds a Gibbs diagram.
    - `--dft` runs model-region DFT single-points on (R, TS, P) and adds a model-DFT electronic diagram. With `--thermo`, the subtractive DFT//MLIP/MM total plus the ML/MM thermal correction produces the DFT//MLIP/MM Gibbs diagram.
    - `--tr-projection` is forwarded to TS optimization, IRC, frequency analysis, and flatten PHVA. The default `constrained` treatment removes only full-system rigid motions that leave frozen anchors fixed; realistic ML/MM boundaries normally have effective rank 0.
-   - When VRAM allows, set `--hessian-calc-mode Analytical` (strongly recommended over the FiniteDifference default).
+   - `--hessian-calc-mode` selects analytical or finite-difference Hessians where supported. Compare both on a target-system pilot because speed and memory depend on the backend and system.
 6. **TSOPT-only mode** (single input, `--tsopt`, no `--scan-lists`)
-   - Skips steps 4–5 and runs `tsopt` on the layered full-system PDB, performs EulerPC IRC, minimizes both ends, builds ML/MM energy diagrams for R-TS-P, and optionally adds Gibbs, DFT, and DFT//MLIP/MM diagrams.
-   - In this mode only, the IRC endpoint with **higher energy** is adopted as the reactant (R).
+   - Skips the MEP search and runs `tsopt` on the layered full-system PDB, performs EulerPC IRC, minimizes both ends, and optionally adds thermochemistry, DFT, and DFT//MLIP/MM diagrams.
+   - With no path/reference orientation, the IRC ends are emitted as chemically unassigned `E1` and `E2`. The summary reports the barrier from each endpoint to TS and does not emit R/P reaction energies. Inspect the structures before assigning chemical identities.
 
 ## Outputs
 
@@ -134,11 +134,13 @@ The tree has three zones: **deliverables at the root**, **per-segment deliverabl
   layered/                       # Layered full-system PDBs (B-factor annotated; reusable inputs)
   segments/                      # per-reactive-segment deliverables
     seg_NN/                      # 1-based 2-digit index, e.g. seg_01, seg_02
-      reactant.pdb · ts.pdb · product.pdb   # canonical R/TS/P
-      reactant.cif · ts.cif · product.cif   # bridged-input companions with original IDs
+      reactant.pdb · ts.pdb · product.pdb   # canonical R/TS/P for MEP runs
+      e1.pdb · ts.pdb · e2.pdb              # unassigned endpoints for TSOPT-only
+      *.cif                                 # bridged-input companions with original IDs
       ts/, irc/                  # TS optimization + EulerPC IRC (--tsopt)
       freq/ (--thermo), dft/ (--dft)
-      structures/{reactant,ts,product}.pdb  # nested copy + raw IRC endpoints
+      structures/{reactant,ts,product}.pdb  # MEP run nested copy
+      structures/{endpoint_1,ts,endpoint_2}.pdb # TSOPT-only nested copy
       energy_diagram_{MLIP,G_MLIP,DFT,G_DFT_plus_MLIP}.png
   _work/                         # pipeline scratch (safe to delete)
     pockets/                     # Per-input pocket PDBs (multi-structure union)
@@ -147,7 +149,7 @@ The tree has three zones: **deliverables at the root**, **per-segment deliverabl
       summary.{json,log} · seg_NN_mep/    # raw per-segment MEP trajectories (merged products are moved to the root)
 ```
 
-In **TSOPT-only mode** (single input + `--tsopt`, no `--scan-lists`) there is no MEP stage: the optimized R/TS/P plus `ts/`, `irc/`, `freq/`, and `dft/` land under `segments/seg_01/`, and `_work/path_opt/` is absent.
+In **TSOPT-only mode** (single input + `--tsopt`, no `--scan-lists`) there is no MEP stage: the optimized E1/TS/E2 structures plus `ts/`, `irc/`, `freq/`, and `dft/` land under `segments/seg_01/`, and `_work/path_opt/` is absent.
 
 At `-v 2` the console summarises extraction, MM preparation, scan stages, MEP progress, and per-stage timing; see {ref}`verbosity-levels`.
 
@@ -178,7 +180,7 @@ Defaults shown are used when the option is not specified. The full flag list is 
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `-i, --input PATH...` | Two or more full structures in reaction order: PDB directly, or XYZ with `--ref-pdb` (single input allowed with `--scan-lists` or `--tsopt`). | Required |
+| `-i, --input PATH...` | Two or more full structures in reaction order: PDB/mmCIF directly, or XYZ with `--ref-pdb` (single input allowed with `--scan-lists` or `--tsopt`). | Required |
 | `-c, --center TEXT` | Substrate specification (PDB path, residue IDs, or residue names). Omit to skip extraction. | _None_ |
 | `-l, --ligand-charge TEXT` | Total charge or residue-specific mapping (e.g. `GPP:-3,MMT:-1`). | _None_ |
 | `-q, --charge INT` | Override the net charge of the ML region/model atoms (highest priority). | _None_ |
@@ -202,7 +204,7 @@ Defaults shown are used when the option is not specified. The full flag list is 
 | `--exclude-backbone / --no-exclude-backbone` | Remove backbone atoms on non-substrate amino acids. | `False` |
 | `--add-linkh / --no-add-linkh` | Add link hydrogens for severed bonds. | `False` |
 | `--selected-resn TEXT` | Residues to force include. | `""` |
-| `--modified-residue TEXT` | Comma-separated residue names (with optional charge) to treat as amino acids for backbone truncation and charge assignment (e.g. `HD1,HD2,HD3` or `HD1:0,SEP:-2`). | `""` |
+| `--modified-residue TEXT` | Comma-separated modified-residue names and integer charges for backbone truncation and charge assignment (e.g. `HD1:0,HD2:-1`). A known catalog residue may omit its charge (e.g. `SEP`). | `""` |
 
 ### MM preparation
 
@@ -308,7 +310,7 @@ calc:
   backend: uma                      # uma | orb | mace | aimnet2
   embedcharge: false                # Compatibility tombstone; true is rejected
   uma_model: uma-s-1p2              # uma-s-1p2 | uma-m-1p1
-  hessian_calc_mode: Analytical     # recommended when VRAM permits
+  hessian_calc_mode: Analytical     # compare with FiniteDifference on a pilot
 gs:
   max_nodes: 20
   climb: true
@@ -326,7 +328,7 @@ handoff used for saddle recovery.
 
 Input format depends on extraction:
 
-- PDB inputs are accepted directly.
+- PDB and mmCIF inputs are accepted directly.
 - XYZ inputs require `--ref-pdb`; XYZ supplies coordinates and the reference
   supplies residue, chain, and B-factor metadata for extraction and later stages.
 - Multi-structure runs require ≥ 2 structures.

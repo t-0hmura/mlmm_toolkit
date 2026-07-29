@@ -8,22 +8,24 @@ This document is for **contributors and maintainers**. For end-user usage, see [
 
 ## 1. Before you start
 
-`mlmm-toolkit` follows a **per-step gate cycle** that every change must pass before merge. Internalising this cycle prevents accidentally breaking the behaviour-level guarantees this release line carries.
+Run the validation relevant to the files and numerical paths changed.
 
-### 1.1 Gate cycle
+### 1.1 Required validation
 
 | stage | what runs | how to invoke locally | failure means |
 |---|---|---|---|
-| 1. Unit tests | `pytest tests/ -q` | `pytest tests/ -q` | logic regression; **never delete or skip the failing test** — root-cause it |
+| 1. Unit tests | `pytest tests/ -q` | `pytest tests/ -q` | logic regression |
 | 2. Engineering markers | `# CHEMISTRY-RULE:N` coverage, `# DOMAIN_PURE` coverage, external-library import scope | `python .github/scripts/check_engineering_markers.py` | a required marker is missing, or an MLIP SDK is imported outside `backends/` |
 | 3. Help registry drift | CLI `--help` and `--help-advanced` compliance with registry | `python .github/scripts/check_help_registry.py` | CLI option mismatch — re-run after CLI changes |
-| 4. Smoke | `tests/smoke/run.sh` exercises the canonical ONIOM CLI surface (`mm-parm` → `define-layer` → `extract` → `path-search` → `tsopt` → `irc` → `freq` → `all`) on a representative system | copy `tests/smoke/` to scratch, then invoke `bash run.sh` from a site-specific scheduler wrapper | functional regression — root-cause before merge |
+| 4. Smoke | `tests/smoke/run.sh` exercises the canonical ONIOM CLI surface (`mm-parm` → `define-layer` → `extract` → `path-search` → `tsopt` → `irc` → `freq` → `all`) on a representative system | copy `tests/smoke/` to scratch, then invoke `bash run.sh` from a site-specific scheduler wrapper | functional regression |
 
-### 1.2 Before any patch
+### 1.2 Change preparation
 
-1. Read [`docs/architecture.md`](docs/architecture.md) §5 "Hidden constraints" before changing the VRAM-release sequence, chemistry rules, bundled forks, package discovery, dependencies, or `_LAZY_SUBCOMMANDS`.
-2. Grep [`mlmm/core/defaults.py`](mlmm/core/defaults.py) for any default value you are about to touch — that file is the single source of truth.
-3. Before editing `pysisyphus/`, `thermoanalysis/`, or `hessian_ff/`, read that directory's `README.md`. A logic change requires a demonstrated defect or approved numerical feature, focused regression tests, and the relevant HEAVY/GPU validation.
+1. Read [`docs/architecture.md`](docs/architecture.md) §5 "Scientific invariants" before changing the VRAM-release sequence, chemistry rules, bundled forks, package discovery, dependencies, or `_LAZY_SUBCOMMANDS`.
+2. Check [`mlmm/core/defaults.py`](mlmm/core/defaults.py) for shared runtime
+   defaults and the relevant Click option definition for command-local CLI
+   defaults.
+3. Before editing `pysisyphus/`, `thermoanalysis/`, or `hessian_ff/`, read that directory's `README.md`. Validate logic changes with focused regression tests and the relevant scheduled numerical tests.
 4. Identify which layer your change belongs to (`cli/`, `workflows/`, `domain/`, `backends/`, `io/`, `core/`). Stay inside one layer per commit when possible; the dependency direction is `L1 → L2 → {L3, L4} → L5` and must not be inverted.
 
 ### 1.3 Dev setup (lint / type-check tooling)
@@ -75,7 +77,7 @@ See [`docs/architecture.md`](docs/architecture.md) for the full 6-layer dir tree
 - `mlmm/io/` — L4b Infra (summary, trajectory, diagram, PDB fix, Hessian cache, analytical-Hessian glue).
 - `mlmm/core/` — L5 Foundation (defaults, utils, future errors / types / logging).
 - `pysisyphus/`, `thermoanalysis/`, `hessian_ff/` — bundled forks at the repo top; **not** upstream PyPI (and `hessian_ff/` has no upstream — bundling is mandatory).
-- `tests/` — golden gates that the per-step cycle checks.
+- `tests/` — unit and regression tests.
 - `tests/smoke/` — short representative job covering the canonical ONIOM CLI surface.
 
 ---
@@ -92,13 +94,13 @@ cover common contributor changes.
 | step | action | file |
 |---|---|---|
 | 1 | Add a Python module `mlmm/workflows/myaction.py` with a top-level `@click.command(...)` named `cli` | new file in L2 |
-| 2 | Register defaults (every default value) in `mlmm/core/defaults.py` under a new `MYACTION_DEFAULTS` dict | `mlmm/core/defaults.py` (L5) |
+| 2 | Register shared runtime defaults in `mlmm/core/defaults.py`; keep command-local Click defaults with the option definition | `mlmm/core/defaults.py` (L5), command module or `mlmm/cli/common_options.py` |
 | 3 | Wire the command into the lazy registry — add `"myaction": ("mlmm.workflows.myaction", "cli", "<short description>")` to `_LAZY_SUBCOMMANDS` | `mlmm/cli/app.py` (L1) |
 | 4 | Declare booleans as canonical Click toggle pairs (`--flag/--no-flag`). Runtime parameter introspection discovers ordinary decorators automatically; add a manual pre-import hint in `mlmm/cli/app.py` only when a lazy/parser-wrapper path requires it. | `mlmm/cli/default_group.py`, `mlmm/cli/app.py` |
 | 5 | Add a docs page `docs/myaction.md` (and `docs/ja/myaction.md` if you maintain the JP set); add a unit test in `tests/test_myaction.py` | new files |
 
-**Gates that catch mistakes**: gate stage 1 exercises the unit test; stage 3
-checks registry/help drift; stage 4 covers the command when it belongs to the
+**Validation**: the unit test exercises the behavior, the reference check
+detects registry/help drift, and the smoke suite covers commands on the
 canonical smoke surface.
 
 **Note on absolute paths**: `_LAZY_SUBCOMMANDS` entries MUST use **absolute** module paths (`mlmm.workflows.myaction`). Relative dotted strings (`".myaction"`) silently break subcommand discovery if `default_group.py` ever moves; see `docs/architecture.md` §5.5.
@@ -115,8 +117,8 @@ canonical smoke surface.
 | 4 | Add the backend token to Click choices and generated help | `mlmm/cli/common_options.py`, relevant workflows |
 | 5 | Document model identifiers, install command, accepted kwargs in `docs/backends.md`; add a smoke entry in `tests/smoke/run.sh` | `docs/backends.md`, `tests/smoke/run.sh` |
 
-**Gates that catch mistakes**: add focused factory/provenance tests at gate
-stage 1, then exercise the backend end to end at gate stage 4.
+**Validation**: add focused factory/provenance tests, then exercise the backend
+end to end in the smoke suite.
 
 ### 3.3 Add an output format
 
@@ -130,9 +132,9 @@ stage 1, then exercise the backend end to end at gate stage 4.
 | 4 | Advertise the new artefact in the output-layout documentation and the `summary.json` schema so downstream consumers can discover it | `docs/output-layout.md`, `mlmm/io/summary.py` |
 | 5 | Add docs in `docs/json-output.md` + a unit test for round-trip serialisation | `docs/json-output.md`, new test |
 
-**Gates that catch mistakes**: the unit test in step 5 checks the writer; add
-gate-stage-4 smoke coverage when the artefact belongs to the canonical smoke
-surface. Machine-readable changes are governed by §1.5.
+**Validation**: the unit test in step 5 checks the writer; add smoke coverage
+when the artefact belongs to the canonical smoke surface. Machine-readable
+changes are governed by §1.5.
 
 ### 3.4 Add a workflow stage
 
@@ -146,7 +148,7 @@ surface. Machine-readable changes are governed by §1.5.
 | 4 | Update `mlmm/io/summary.py` to record the new stage's entry in `summary.json` | `mlmm/io/summary.py` |
 | 5 | Update `tests/smoke/run.sh` to include the new stage in the representative run | `tests/smoke/run.sh` |
 
-**Gate that catches mistakes**: the smoke run (step 5) — a new stage in `all` is a behaviour change and should be exercised end-to-end before merge.
+**Validation**: the smoke run in step 5 exercises a new `all` stage end to end before merge.
 
 ### 3.5 Add a test
 
@@ -158,13 +160,13 @@ surface. Machine-readable changes are governed by §1.5.
 | 2 | Use `pytest` style: one assertion per logical thing; name the test for the symptom (`test_irc_initial_displacement_does_not_oom`) | new test |
 | 3 | If the test consumes a fixture, prefer the `tests/data/` directory; do **not** add large binary fixtures (> 100 KB) — use generators | `tests/data/`, `tests/conftest.py` |
 | 4 | Run `pytest tests/test_<feature>.py -q -x` until green, then `pytest tests/ -q` to confirm no cross-test breakage | local |
-| 5 | If the test depends on a new public Click command or symbol, land Recipe 3.1 / 3.3 first so the golden gate stays green | sequencing |
+| 5 | If the test depends on a new public Click command or symbol, land Recipe 3.1 / 3.3 first so the suite remains green | sequencing |
 
-**Gate that catches mistakes**: `pytest` is gate stage 1; CI blocks a failing merge.
+**Validation**: run `pytest`; CI blocks a failing merge.
 
 ---
 
-## 4. Do not touch list
+## 4. Scientific and compatibility constraints
 
 These are **hard constraints** enforced by the release process. Violating them either breaks correctness (chemistry rules), behaviour-level guarantees (`pyproject.toml` arrays, downstream-parser log lines), or upstream-fork compatibility.
 
@@ -172,7 +174,7 @@ These are **hard constraints** enforced by the release process. Violating them e
 
 The reaction-path correctness rules listed in [`docs/architecture.md`](docs/architecture.md) §5.1 must not be reordered, simplified, or factored out. They are marked with `# CHEMISTRY-RULE:N` inline comments and `# DOMAIN_PURE` module-docstring markers. The CI gate `.github/scripts/check_engineering_markers.py` enforces marker completeness and confines MLIP-only SDK imports (`fairchem`, `orb_models`, `mace`, `aimnet`) to the `backends/` layer. For **mlmm specifically** all 9 rules apply: #1 (subtractive ONIOM energy), #2 (link-atom Hessian B-matrix), #8 (3-layer 5-pass partial Hessian) in `backends/mlmm_calc.py`; #9 (parm7 atom indexing) in `io/pdb_indexing.py`; #3 (macro/micro alternation), #7 (`bofill_update` advanced-indexing) in `workflows/tsopt.py`; #6 (PHVA + MLIP active block) in `workflows/freq.py`; #4 (gpu4pyscf `rks_lowmem`), #5 (def2 auto-ECP) in `workflows/dft.py`.
 
-Use the grep recipe before any patch:
+To locate the markers:
 
 ```bash
 grep -rnE '# CHEMISTRY-RULE:[0-9]+' mlmm/
@@ -186,8 +188,8 @@ The IRC / TSopt / Freq stages explicitly `del calc`, `del geom`, `del hess` betw
 ### 4.3 Divergent files in bundled forks
 
 The per-directory README tables are the live inventory of divergent files.
-A logic change requires a demonstrated defect or approved numerical feature,
-with focused regression tests and the relevant HEAVY/GPU validation.
+A logic change requires focused regression tests and the relevant scheduled
+numerical tests.
 
 Do not `pip install pysisyphus` or `pip install thermoanalysis` from PyPI alongside this package — silent runtime breakage. `hessian_ff/` has no upstream package; only the bundled copy works.
 
@@ -204,7 +206,11 @@ Entries in `mlmm/cli/app.py:_LAZY_SUBCOMMANDS` MUST use absolute module paths (`
 
 ### 4.6 Chemistry default choices
 
-Default basis set (def2-TZVPD), default functional (ωB97M-V), default convergence thresholds, default ECP handling, default solvent models, default ONIOM region shell radii — **none** of these are open for change without a `[CHEMISTRY-RULE]` commit, a documented numerical comparison, and maintainer approval. Grep `mlmm/core/defaults.py` (`func_basis`) to see the current values; if you think a change is justified, open an issue first.
+Changes to the default basis set (def2-TZVPD), functional (ωB97M-V),
+convergence thresholds, ECP handling, solvent models, or ONIOM region shell
+radii require a documented numerical comparison and maintainer review. Inspect
+`mlmm/core/defaults.py` and the command-local Click option before proposing a
+change.
 
 ### 4.7 Downstream-parser-visible log lines
 
@@ -212,19 +218,7 @@ Any `summary.log` or `summary.json` line that downstream parsers consume is **fr
 
 ---
 
-## 5. Commit prefix conventions
-
-The prefix identifies the expected scope and the gate cycle stage to exercise.
-
-| prefix | meaning | typical pattern |
-|---|---|---|
-| `[CHEMISTRY FREEZE]` | Explicit "no chemistry change" marker on a polish-only edit; maintainers verify the scope | `[CHEMISTRY FREEZE] docstring polish on IRC.py — no logic change` |
-| `[CHEMISTRY-RULE]` | Modifies a chemistry-correctness rule; requires maintainer approval and a documented scheduled numerical benchmark | `[CHEMISTRY-RULE:1] mlmm_calc.py adjust subtractive ONIOM energy after embed-charge revision` |
-| `[DOMAIN_PURE]` | Adjusts the `# DOMAIN_PURE` marker or the import-deny gate | `[DOMAIN_PURE] add mlmm_calc.py to deny-gate scope` |
-
----
-
-## 6. Where to ask
+## 5. Where to ask
 
 | forum | best for |
 |---|---|

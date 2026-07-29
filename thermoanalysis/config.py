@@ -7,7 +7,7 @@ p_DEFAULT = 101325  # Pascal
 
 @dataclass(frozen=True)
 class ThermoPolicy:
-    """Immutable thermochemistry frequency-treatment policy (P05).
+    """Immutable thermochemistry frequency-treatment policy.
 
     Makes the two retained, deliberately different entry-point behaviours
     explicit instead of relying on scattered library defaults. Every value is
@@ -16,11 +16,10 @@ class ThermoPolicy:
     and onto the Geometry result so a payload always states which frequency
     treatment produced it.
 
-    The field names are the stable, serialized public keys and are
-    field-isomorphic between pdb2reaction and mlmm_toolkit;
+    The field names are stable, serialized public keys.
     :meth:`thermochemistry_kwargs` maps them onto the ``thermochemistry``
-    parameter names. Neither policy is a universal scientific default -- each is
-    tied to its entry point.
+    parameter names. Each policy is tied to its entry point rather than serving
+    as a universal scientific default.
 
     Fields
     ------

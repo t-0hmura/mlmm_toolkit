@@ -27,7 +27,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 - `result_tsopt/final_geometry.pdb` — 最適化済み TS 構造
 - `result_tsopt/vib/` — 虚振動モード（変位ベクトル）のアニメーションファイル（`imag_*_trj.xyz`, `.pdb`）
-- ターミナル出力: **n=1** かつ十分な大きさの虚振動数（|ν| >= 100 cm⁻¹）であれば良好な TS 候補です。虚振動数が複数残る場合は `--flatten` の適用を検討してください
+- ターミナル出力: 一次鞍点の認定には虚振動が **n=1** であることが必要です。モード変位と IRC 接続性も確認してください。虚振動が複数残る場合は `--flatten` の適用を検討してください
 
 ## 2.（任意）個別の振動解析
 
@@ -40,7 +40,7 @@ mlmm freq -i ./result_tsopt/final_geometry.pdb --parm real.parm7 --model-pdb ml_
 
 ## 補足
 
-- VRAM に余裕がある場合は `--hessian-calc-mode Analytical` を推奨します（デフォルトは `FiniteDifference`）。
+- 代表的な対象系の pilot で `Analytical` と `FiniteDifference` の runtime と memory を比較してください。
 - 別の MLIP バックエンドを使用するには `-b orb`（または `mace`、`aimnet2`）を追加します。デフォルトは `uma` です。
 - 機械的埋め込み（`--no-embedcharge`）を使用します。電子埋め込みは v0.3.3 では使用できません。
 - 全オプションは `mlmm tsopt --help-advanced` と `mlmm freq --help-advanced` を参照してください。

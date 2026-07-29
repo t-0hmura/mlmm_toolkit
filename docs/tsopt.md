@@ -40,7 +40,9 @@ There is no `opt --restraint` flag. Plain [`opt`](opt.md) is an *un-restrained* 
 
 ## Wrong number of imaginary frequencies
 
-A clean first-order saddle has **exactly one** dominant imaginary mode along the reaction coordinate. Two common failures are a spurious second small imaginary mode, or no dominant reaction mode at all.
+A certified first-order saddle has **exactly one** imaginary mode. Inspect its
+displacement and use IRC to establish the connected chemical states. Two or
+more imaginary modes fail certification regardless of their magnitudes.
 
 | Symptom | Fix |
 | --- | --- |
@@ -82,30 +84,20 @@ have constructed a matching vector in exactly the same atom order.
 ## Controlled mutant-vs-WT (or mechanism-vs-mechanism) comparison
 
 ```{important}
-For a mutant-versus-wild-type (or mechanism-versus-mechanism) barrier comparison, **all compared models must use the same atom set — identical atom count and residues.** Otherwise the energy reference differs and the comparison is not a controlled experiment. A geometrically re-derived ML/movable/frozen partition on the mutant also produces spurious soft modes (`tsopt.n_imaginary ≥ 2`, both tiny → the IRC aborts).
+Compare activation energies or free energies formed within each system
+(`TS - R` or `TS - P`), then compare those barriers. Do not subtract absolute
+energies between mutant and wild-type systems with different compositions.
 ```
 
-In mlmm, preserve the wild-type ML/MM layering by **transplanting the WT B-factor layer encoding onto the mutated structure** and running with `--detect-layer`:
-
-| Step | Action |
-| --- | --- |
-| 1 | Build the mutant; keep the same residue set as WT (only the mutated residue's identity differs). |
-| 2 | Copy WT's per-atom B-factor layer codes onto the mutant by `(resid, atom-name)`: **ML = 0.0, MovableMM = 10.0, FrozenMM = 20.0**. |
-| 3 | Run with `--detect-layer` (default on) so the *same* layer assignment is reused. |
-
-```bash
-mlmm all -i mutant_layered.pdb -l 'LIG:Q' \
-    --tsopt --thermo -o result_mutant
-```
-
-| Flag | Action | Why |
-| --- | --- | --- |
-| `--detect-layer` | keep (default `True`) | reads the transplanted B-factors so the ML / movable / frozen layers are byte-identical to WT |
-| `-c/--center`, `-r/--radius` | **omit** | geometric extraction would re-derive a *different* pocket on the mutant; omitting `-c` skips extraction and uses the structure as-is |
-| `-l/--ligand-charge` | keep | a non-standard ligand's charge is not in the standard amino-acid table; `-l 'RES:Q'` auto-derives the total charge (preferred over a hardcoded `-q`) |
-| `--movable-cutoff` | do not pass | it disables `--detect-layer` |
-
-The same-atom-set principle applies equally when comparing two mechanisms on the same enzyme: keep an identical atom set across both models and vary only the reaction coordinate.
+Use the same electronic-structure/ML backend, MM force field, convergence
+criteria, thermochemistry settings, and temperature. Define chemically
+corresponding ML and movable regions, while allowing the atom count to change
+where the mutation changes composition. A transferred WT layer assignment can
+seed atoms that correspond unambiguously, but assign and inspect every new or
+deleted atom. Determine charge and multiplicity independently for each model.
+Validate each stationary point independently: a certified TS has exactly one
+imaginary mode, its displacement follows the intended coordinate, and IRC
+endpoints have the expected chemical identities.
 
 ## Examples
 

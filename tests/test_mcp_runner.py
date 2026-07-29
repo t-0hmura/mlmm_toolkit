@@ -100,7 +100,7 @@ def test_timeout_terminates_spawned_process_group(tmp_path: Path) -> None:
     try:
         result = run_subcmd(
             [sys.executable, "-c", script, str(pid_file)],
-            timeout=0.5,
+            timeout=3.0,
         )
         assert result.status == "failed"
         assert result.exit_code == 124

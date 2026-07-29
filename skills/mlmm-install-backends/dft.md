@@ -39,8 +39,8 @@ python -c "import cupy; print('cupy        :', cupy.__version__)"
 
 | `--engine` | When to pick | Approximate cost |
 |---|---|---|
-| `gpu` (default) | x86_64 + CUDA, > 100 atoms, ωB97M-V or hybrid functional. **Raises `ClickException` if GPU unavailable** — does **not** auto-fallback to CPU | 1–10 h on consumer GPU per single point |
-| `cpu` | aarch64, no GPU, small molecule, or when you want to force CPU | 10–100× slower than GPU |
+| `gpu` (default) | x86_64 + a supported CUDA/GPU4PySCF stack. **Raises `ClickException` if GPU unavailable** — does **not** auto-fallback to CPU | Pilot the target system |
+| `cpu` | aarch64, no supported GPU stack, or when you want to force CPU | Pilot the target system |
 
 ## CLI usage
 
@@ -77,18 +77,13 @@ python -c "import mlmm.core.defaults as d; print(d.GEOM_KW_DEFAULT, d.MLMM_CALC_
 | `cupy.cuda.runtime.CUDARuntimeError: invalid device ordinal` | Torch and cupy disagree on CUDA visibility | `unset CUDA_VISIBLE_DEVICES` and let GPU4PySCF use device 0 |
 | `RuntimeError: CUDA out of memory` mid-SCF | Functional / basis too heavy for VRAM | Lower `grid_level`, switch to `def2-svp`, or use `--engine cpu` |
 | `gpu4pyscf` import succeeds but SCF stalls at start | cuTENSOR not installed | `pip install cutensor-cu12` (optional accelerator; no longer pulled by the `[dft]` extra) |
-| aarch64: `--engine gpu` requested but no `gpu4pyscf` | Architecture not supported | Raises `ClickException`; rerun with `--engine cpu` (or set `dft.engine: cpu` in YAML); expect 10× slower |
+| aarch64: `--engine gpu` requested but no `gpu4pyscf` | Architecture not supported | Raises `ClickException`; rerun with `--engine cpu` (or set `dft.engine: cpu` in YAML) |
 
-## Rough memory estimates
+## Resource sizing
 
-| Atoms | def2-SVP / wB97M-V | def2-TZVPD / wB97M-V |
-|---|---|---|
-| < 200 | < 8 GB VRAM | < 16 GB |
-| 200–500 | 8–24 GB | 24–48 GB |
-| 500–800 | 24–48 GB | use multi-GPU or CPU; check VRAM |
-| > 800 | CPU only or smaller basis | not feasible on consumer GPU |
-
-These are empirical — actual usage depends on grid_level and basis.
+Runtime and memory depend on elements, basis, functional, integration grid,
+engine, and software stack. Run a representative pilot and size the production
+job from measured peak memory and scheduler logs.
 
 ## See also
 

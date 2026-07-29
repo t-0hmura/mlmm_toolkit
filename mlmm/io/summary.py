@@ -433,6 +433,12 @@ def _emit_energy_block(
     lines.append(f"    -- {title} --")
     lines.append("       State   Abs [Eh]          Rel [kcal/mol]")
     lines.extend(_format_energy_rows(labels, energies_au, energies_kcal))
+    for endpoint in (1, 2):
+        value = payload.get(f"barrier_from_endpoint_{endpoint}_kcal")
+        if value is not None:
+            lines.append(
+                f"       Barrier E{endpoint}->TS: {float(value):.4f} kcal/mol"
+            )
 
     diagram = payload.get("diagram") or payload.get("image")
     if diagram:
@@ -440,7 +446,7 @@ def _emit_energy_block(
     structs: Dict[str, Any] = payload.get("structures", {})
     if structs:
         lines.append("       Structures:")
-        for key in ("R", "TS", "P"):
+        for key in labels:
             if key in structs:
                 lines.append(f"         {key}: {_shorten_path(structs.get(key), root_out)}")
 
@@ -786,13 +792,26 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
             lines.append(f"  - Segment {idx:02d} [{kind}]  tag={tag}")
             barrier = seg.get("barrier_kcal")
             delta_e = seg.get("delta_kcal")
-            b_txt = f"{barrier:7.2f}" if barrier is not None else "   n/a"
-            d_txt = f"{delta_e:7.2f}" if delta_e is not None else "   n/a"
-            source = "refined TS - assigned endpoint" if kind == "tsopt" else "MEP"
-            lines.append(
-                f"      {delta}E{dagger} = {b_txt} kcal/mol,  "
-                f"{delta}E = {d_txt} kcal/mol  [{source}]"
-            )
+            if kind == "tsopt" and (
+                seg.get("barrier_from_endpoint_1_kcal") is not None
+                or seg.get("barrier_from_endpoint_2_kcal") is not None
+            ):
+                for endpoint in (1, 2):
+                    value = seg.get(f"barrier_from_endpoint_{endpoint}_kcal")
+                    value_text = (
+                        f"{float(value):7.2f}" if value is not None else "   n/a"
+                    )
+                    lines.append(
+                        f"      {delta}E{dagger}(E{endpoint}->TS) = "
+                        f"{value_text} kcal/mol  [chemically unassigned endpoint]"
+                    )
+            else:
+                b_txt = f"{barrier:7.2f}" if barrier is not None else "   n/a"
+                d_txt = f"{delta_e:7.2f}" if delta_e is not None else "   n/a"
+                lines.append(
+                    f"      {delta}E{dagger} = {b_txt} kcal/mol,  "
+                    f"{delta}E = {d_txt} kcal/mol  [MEP]"
+                )
             lines.append("      Bond changes:")
             lines.extend(_format_bond_changes(str(seg.get("bond_changes", ""))))
     else:
@@ -814,6 +833,10 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
             entry[f"{prefix}_barrier"] = seg.get("barrier_kcal")
         if seg.get("delta_kcal") is not None:
             entry[f"{prefix}_delta"] = seg.get("delta_kcal")
+        for endpoint in (1, 2):
+            value = seg.get(f"barrier_from_endpoint_{endpoint}_kcal")
+            if value is not None:
+                entry[f"{prefix}_barrier_e{endpoint}"] = value
     lines.append("")
     lines.append("[3] Per-segment post-processing (TSOPT / Thermo / DFT)")
     if post_segments:
@@ -865,24 +888,48 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
                     entry["mlip_barrier"] = mlip_payload.get("barrier_kcal")
                 if mlip_payload.get("delta_kcal") is not None:
                     entry["mlip_delta"] = mlip_payload.get("delta_kcal")
+                for endpoint in (1, 2):
+                    value = mlip_payload.get(
+                        f"barrier_from_endpoint_{endpoint}_kcal"
+                    )
+                    if value is not None:
+                        entry[f"mlip_barrier_e{endpoint}"] = value
             if seg.get("gibbs_mlip"):
                 g_payload = seg.get("gibbs_mlip") or {}
                 if g_payload.get("barrier_kcal") is not None:
                     entry["gibbs_mlip_barrier"] = g_payload.get("barrier_kcal")
                 if g_payload.get("delta_kcal") is not None:
                     entry["gibbs_mlip_delta"] = g_payload.get("delta_kcal")
+                for endpoint in (1, 2):
+                    value = g_payload.get(
+                        f"barrier_from_endpoint_{endpoint}_kcal"
+                    )
+                    if value is not None:
+                        entry[f"gibbs_mlip_barrier_e{endpoint}"] = value
             if seg.get("dft"):
                 dft_payload = seg.get("dft") or {}
                 if dft_payload.get("barrier_kcal") is not None:
                     entry["dft_barrier"] = dft_payload.get("barrier_kcal")
                 if dft_payload.get("delta_kcal") is not None:
                     entry["dft_delta"] = dft_payload.get("delta_kcal")
+                for endpoint in (1, 2):
+                    value = dft_payload.get(
+                        f"barrier_from_endpoint_{endpoint}_kcal"
+                    )
+                    if value is not None:
+                        entry[f"dft_barrier_e{endpoint}"] = value
             if seg.get("gibbs_dft_mlip"):
                 gd_payload = seg.get("gibbs_dft_mlip") or {}
                 if gd_payload.get("barrier_kcal") is not None:
                     entry["gibbs_dft_mlip_barrier"] = gd_payload.get("barrier_kcal")
                 if gd_payload.get("delta_kcal") is not None:
                     entry["gibbs_dft_mlip_delta"] = gd_payload.get("delta_kcal")
+                for endpoint in (1, 2):
+                    value = gd_payload.get(
+                        f"barrier_from_endpoint_{endpoint}_kcal"
+                    )
+                    if value is not None:
+                        entry[f"gibbs_dft_mlip_barrier_e{endpoint}"] = value
     else:
         lines.append("  (no post-processing results)")
 
@@ -901,7 +948,14 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
         ]
         if ts_only:
             table_rows = [
-                row for row in table_rows if not row[1].startswith("mep_")
+                (f"MLIP {delta}E{dagger} E1->TS [kcal/mol]", "mlip_barrier_e1"),
+                (f"MLIP {delta}E{dagger} E2->TS [kcal/mol]", "mlip_barrier_e2"),
+                (f"MLIP {delta}G{dagger} E1->TS [kcal/mol]", "gibbs_mlip_barrier_e1"),
+                (f"MLIP {delta}G{dagger} E2->TS [kcal/mol]", "gibbs_mlip_barrier_e2"),
+                (f"model-region DFT {delta}E{dagger} E1->TS [kcal/mol]", "dft_barrier_e1"),
+                (f"model-region DFT {delta}E{dagger} E2->TS [kcal/mol]", "dft_barrier_e2"),
+                (f"DFT//MLIP/MM {delta}G{dagger} E1->TS [kcal/mol]", "gibbs_dft_mlip_barrier_e1"),
+                (f"DFT//MLIP/MM {delta}G{dagger} E2->TS [kcal/mol]", "gibbs_dft_mlip_barrier_e2"),
             ]
         sorted_entries = [segment_entries[k] for k in sorted(segment_entries.keys())]
         headers = [f"{int(e.get('index', 0)):d}({e.get('tag', '-')})" for e in sorted_entries]
@@ -988,9 +1042,10 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
     # Annotations follow the systematized `all` layout: user-facing deliverables
     # live at the output root (and under segments/seg_NN/), while all pipeline
     # scratch is confined to _work/ (safe to rm -rf).
+    state_triplet = "E1-TS-E2" if ts_only else "R-TS-P"
     default_notes = {
         # Root deliverables — directories
-        SEGMENTS_DIRNAME: "Per-segment deliverables (R/TS/P, IRC, freq, DFT)",
+        SEGMENTS_DIRNAME: f"Per-segment deliverables ({state_triplet}, IRC, freq, DFT)",
         "mm_parm": "AMBER MM topology (parm7/rst7) — reuse via --parm",
         "layered": "B-factor-layered PDBs (ML/MM region markup) for inspection/reuse",
         WORK_DIRNAME: "Pipeline working files (scratch; safe to rm -rf)",
@@ -1004,10 +1059,10 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
         "mep_trj.xyz": "Full MEP as XYZ trajectory",
         "mep_plot.png": "ML/MM MEP energy plot",
         "energy_diagram_MEP.png": "Compressed MEP diagram",
-        "energy_diagram_MLIP_all.png": "ML/MM R-TS-P energies (all segments)",
-        "energy_diagram_G_MLIP_all.png": "MLIP Gibbs R-TS-P (all segments)",
-        "energy_diagram_DFT_all.png": "DFT R-TS-P (all segments)",
-        "energy_diagram_G_DFT_plus_MLIP_all.png": "DFT//MLIP/MM Gibbs R-TS-P (all segments)",
+        "energy_diagram_MLIP_all.png": f"ML/MM {state_triplet} energies (all segments)",
+        "energy_diagram_G_MLIP_all.png": f"MLIP Gibbs {state_triplet} (all segments)",
+        "energy_diagram_DFT_all.png": f"DFT {state_triplet} (all segments)",
+        "energy_diagram_G_DFT_plus_MLIP_all.png": f"DFT//MLIP/MM Gibbs {state_triplet} (all segments)",
         "irc_plot_all.png": "Aggregated IRC plot",
         # _work/ scratch subdirectories
         f"{WORK_DIRNAME}/pockets": "Extracted pocket PDBs",
@@ -1034,7 +1089,7 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
         seg_parent = root_out_path / SEGMENTS_DIRNAME
         if seg_parent.exists():
             _seg_subdir_notes = {
-                "structures": "R/TS/P structures and IRC endpoints",
+                "structures": "State structures and IRC endpoints",
                 "irc": "IRC trajectories (forward/backward/finished)",
                 "ts": "TS optimization output",
                 "ts/vib": "TS vibrational analysis",
@@ -1042,10 +1097,14 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
                 "freq/R": "Reactant freq/thermo",
                 "freq/TS": "TS freq/thermo",
                 "freq/P": "Product freq/thermo",
+                "freq/E1": "Endpoint 1 freq/thermo",
+                "freq/E2": "Endpoint 2 freq/thermo",
                 "dft": "Single-point DFT refinement",
                 "dft/R": "Reactant DFT single point",
                 "dft/TS": "TS DFT single point",
                 "dft/P": "Product DFT single point",
+                "dft/E1": "Endpoint 1 DFT single point",
+                "dft/E2": "Endpoint 2 DFT single point",
             }
             for seg_child in sorted(seg_parent.iterdir()):
                 if not (seg_child.is_dir() and _re.match(r"seg_\d+$", seg_child.name)):
@@ -1089,7 +1148,7 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
                                 f"Post-processing: TSOPT, IRC, freq for {child.name}",
                             )
                             _subdir_notes = {
-                                "structures": "Optimized R/TS/P structures (IRC endpoints)",
+                                "structures": "Optimized state structures (IRC endpoints)",
                                 "irc": "IRC trajectories and plots",
                                 "ts": "TS optimization output",
                                 "ts/vib": "TS vibrational analysis",
@@ -1097,6 +1156,8 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
                                 "freq/R": "Reactant freq/thermo",
                                 "freq/TS": "TS freq/thermo",
                                 "freq/P": "Product freq/thermo",
+                                "freq/E1": "Endpoint 1 freq/thermo",
+                                "freq/E2": "Endpoint 2 freq/thermo",
                             }
                             for subdir_name, desc in _subdir_notes.items():
                                 sub = child / subdir_name

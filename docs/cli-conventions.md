@@ -53,13 +53,15 @@ A semantic failure is a failure at any level: a `Traceback` that appears only at
 
 ## ML/MM required options
 
-Per-stage subcommands (everything except `all`, `extract`, `mm-parm`, `define-layer`) always need:
+ML/MM calculation stages (`opt`, `sp`, `tsopt`, `freq`, `irc`, `dft`, scans,
+and path workflows) need the full-system Amber topology:
 
 ```bash
 --parm real.parm7              # Amber parm7 topology of the full (real) system
 ```
 
 `mlmm all` generates the topology automatically when `--parm` is omitted.
+Utilities and structure/topology preparation commands do not require it.
 Per-stage ML membership resolves in this order:
 
 1. `--model-pdb` when supplied.

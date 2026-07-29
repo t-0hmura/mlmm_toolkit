@@ -1,6 +1,6 @@
 # `scan3d`
 
-調和拘束と ML/MM 緩和による 3 距離（d1, d2, d3）のグリッドスキャンを実行し、3 つの結合距離を変数とする 3D PES をマッピングします。`mlmm scan3d` は d1、d2、d3 のネストループを実行し、ML/MM calculator（`mlmm.backends.mlmm_calc.mlmm`）を使用して適切な拘束で各点を緩和します。ML 領域は `--model-pdb`、`--model-indices`、または `--detect-layer` による B-factor layer から解決し、Amber パラメータは `--parm` から読み取ります。MLIP バックエンドは `-b/--backend` で選択し（デフォルト: `uma`）、オプティマイザは PySisyphus L-BFGS です。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルを使用します。`--csv` で事前計算した surface を読み込めば、スキャンを再実行せずに再描画のみ行えます。
+調和拘束と ML/MM 緩和による 3 距離（d1, d2, d3）のグリッドスキャンを実行し、3 つの結合距離を変数とする 3D PES をマッピングします。入力には PDB/mmCIF、または `--ref-pdb` を伴う XYZ を使用できます。`mlmm scan3d` は d1、d2、d3 のネストループを実行し、ML/MM calculator（`mlmm.backends.mlmm_calc.mlmm`）を使用して適切な拘束で各点を緩和します。ML 領域は `--model-pdb`、`--model-indices`、または `--detect-layer` による B-factor layer から解決し、Amber パラメータは `--parm` から読み取ります。MLIP バックエンドは `-b/--backend` で選択し（デフォルト: `uma`）、オプティマイザは PySisyphus L-BFGS です。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルを使用します。`--csv` で事前計算した surface を読み込めば、スキャンを再実行せずに再描画のみ行えます。
 
 ## 実行例
 
@@ -34,7 +34,7 @@ mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## 処理の流れ
 1. `geom_loader` で構造を読み込み、CLI から電荷/スピンを解決し、`--preopt` の場合は任意でバイアスなし事前最適化を実行。
-2. `-s/--scan-lists`（YAML/JSON スペックファイルまたはインラインリテラル）からターゲットを解析して 3 つの 4 要素タプルにします（デフォルト 1 始まりインデックス、`--zero-based` 指定時は 0 始まり）。PDB 入力の場合、各原子エントリは整数インデックスまたは `"TYR,285,CA"` のようなセレクター文字列が使用可能。区切り文字はスペース、カンマ、スラッシュ、バッククォート、バックスラッシュ。
+2. `-s/--scan-lists`（YAML/JSON スペックファイルまたはインラインリテラル）からターゲットを解析して 3 つの 4 要素タプルにします（デフォルト 1 始まりインデックス、`--zero-based` 指定時は 0 始まり）。PDB メタデータを利用できる場合、各原子エントリは整数インデックスまたは `"TYR,285,CA"` のようなセレクター文字列が使用可能。区切り文字はスペース、カンマ、スラッシュ、バッククォート、バックスラッシュ。
 3. 外側ループ `d1[i]`: d1 拘束のみで緩和。d1 値が最も近い以前のスキャン済みジオメトリから開始。
 4. 中間ループ `d2[j]`: d1 と d2 の拘束で緩和。最も近い (d1, d2) ジオメトリから開始。
 5. 内側ループ `d3[k]`: 3 つの拘束すべてで緩和。バイアスなしエネルギーを測定（評価時にバイアス除去）し、拘束ジオメトリと収束フラグを書き出し。
@@ -65,7 +65,7 @@ out_dir/ (デフォルト:./result_scan3d/)
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
-| `-i, --input PATH` | 完全酵素 PDB（リンク原子なし）。 | `--csv` 指定時を除き必須 |
+| `-i, --input PATH` | 全系 PDB/mmCIF、または `--ref-pdb` を伴う XYZ（リンク原子なし）。 | `--csv` 指定時を除き必須 |
 | `--parm PATH` | 完全酵素の Amber parm7 トポロジー。 | `--csv` 指定時を除き必須 |
 | `--model-pdb PATH` | ML 領域を定義する PDB。 | _None_ |
 | `--model-indices TEXT` | 明示的な ML 領域原子インデックス（`--model-pdb` の代替）。 | _None_ |
@@ -88,7 +88,7 @@ out_dir/ (デフォルト:./result_scan3d/)
 | `-o, --out-dir TEXT` | グリッドとプロットの出力ディレクトリルート。 | `./result_scan3d/` |
 | `--thresh TEXT` | 収束プリセット上書き（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | `baker` |
 | `--config FILE` | ベース YAML 設定ファイル（最初に適用）。 | _None_ |
-| `--ref-pdb FILE` | 非 PDB 入力用の参照 PDB トポロジー。 | _None_ |
+| `--ref-pdb FILE` | XYZ 入力用の参照 PDB トポロジー。 | _None_ |
 | `--preopt/--no-preopt` | スキャン前にバイアスなし最適化を実行。 | `False` |
 | `--baseline {min,first}` | kcal/mol エネルギーをグローバル最小値または `(i,j,k)=(0,0,0)` がゼロになるようシフト。 | `min` |
 | `--zmin FLOAT` | アイソサーフェスカラーバンドの手動下限（kcal/mol）。 | 自動スケール |

@@ -619,7 +619,7 @@ calc:
  embedcharge: false            # 互換性用。true は拒否される
  uma_model: uma-s-1p2          # uma-s-1p2 | uma-m-1p1
  ml_device: auto
- hessian_calc_mode: Analytical   # VRAM に余裕がある場合に推奨
+ hessian_calc_mode: Analytical   # 代表的な pilot で FiniteDifference と比較
  mm_device: cpu
  mm_fd: true
  use_bfactor_layers: true # 入力 PDB の B-factor から層を読み取り

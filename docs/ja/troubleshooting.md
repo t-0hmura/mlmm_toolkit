@@ -95,13 +95,13 @@ Please run `mlmm add-elem-info -i...` to populate element columns before running
 
 ### 非標準残基が正しく切断されない
 
-抽出されたポケットに非標準の3文字コードを持つ修飾アミノ酸残基（リン酸化セリン、メチル化リシンなど）が含まれている場合、デフォルトでは主鎖切断やリンク水素付加が適用されません。`--modified-residue` で登録してください:
+抽出されたポケットにカタログ未登録の修飾アミノ酸残基が含まれる場合は、整数電荷を付けて `--modified-residue` に登録してください:
 
 ```bash
-mlmm extract -i complex.pdb -c PRE --modified-residue "SEP,TPO,MLY" -o pocket.pdb
+mlmm extract -i complex.pdb -c PRE --modified-residue "HD1:0" -o pocket.pdb
 ```
 
-同じフラグは `all` コマンドでも使用可能で、抽出ステージに転送されます。
+同じフラグは `all` コマンドでも使用可能で、抽出ステージに転送されます。SEP、TPO、MLY などカタログ登録済みの残基は、電荷を省略して指定してもカタログ電荷を保持します。
 
 `--modified-residue` で対応できない場合は、リンク水素を含むポケットモデルを手動で構築し、`--parm` と `--model-pdb` を使って下流コマンドに直接渡してください。
 
@@ -424,9 +424,10 @@ ML/MM 系は MLIP 単体の計算よりも一般的に大きいため、VRAM の
 対処の例（優先度順）:
 - **Frozen 層を確認**: `define-layer` で Frozen 原子（B=20.0）が正しく割り当てられているか確認する。Frozen 領域が小さすぎると、Movable-MM 領域（ひいては Hessian）が不必要に大きくなる。`--radius-freeze` を小さくして Frozen 領域を拡大する。
 - **ML 領域サイズを縮小**: `extract` の `--radius` を小さくするか、`--model-pdb` で手動定義した小さい ML 領域 PDB を指定する。
-- **有限差分 ML Hessian を使用**: `--hessian-calc-mode FiniteDifference`（VRAM 消費が少ないが低速）。
+- **Hessian モードを比較**: 有限差分は ML autograd メモリを抑える場合がありますが、どちらも密な active-space Hessian を形成します。対象系で実行時間とピークメモリを比較してください。
 - **`define-layer` で事前に層を定義** し、`use_bfactor_layers: true` で読み取る。
-- **GPU メモリが大きいカードに変更**: 500 原子以上の ML 領域には 24 GB 以上推奨、1000 原子以上には 48 GB 以上推奨。
+- **GPU メモリが大きいカードに変更**: 同じモデル、Hessian モード、
+  active region を対象デバイスで試行し、必要メモリを確認してください。
 
 ---
 
@@ -439,10 +440,10 @@ ML/MM 系は MLIP 単体の計算よりも一般的に大きいため、VRAM の
 対処の例:
 - オプティマイザモードを切り替える: `--opt-mode grad` (Dimer) または `--opt-mode hess` (RS-I-RFO)
 - 余分な虚モードのフラット化を有効にする: `--flatten`
-- 最大サイクル数を増やす: `--max-cycles 20000`
+- 停止理由と計算予算を確認したうえで `--max-cycles` を増やす
 - より厳しい収束閾値を使う: `--thresh baker` または `--thresh gau_tight`
 
-特に、デフォルト `baker` で現れる**近ゼロ**の余剰虚モード（数 cm⁻¹）は、多くが第2の反応座標ではなく収束アーティファクトです。`baker` は大量計算にコスパが良いデフォルトですが、`n_imag >= 2` が出たら厳しい `--thresh`（`gau_tight` 以上）で再実行してください — 通常は `n_imag = 1` に解消します。締めても（ノイズ床より十分下の）robust な第2虚モードが残る場合のみ、真の高次鞍点です。
+`n_imag >= 2` の結果は、余分なモードの大きさにかかわらず一次鞍点として未認定です。より厳しい `--thresh`（`gau_tight` など）で再計算し、各モードの変位を確認してください。認定には再計算結果自体が虚振動ちょうど1本であり、その変位と IRC 接続性が意図した反応に対応する必要があります。
 - `hess_cutoff` を調整して、Hessian 計算に含む原子の範囲を広げる
 
 ---
@@ -514,11 +515,13 @@ ML/MM 系は MLIP 単体の計算よりも一般的に大きいため、VRAM の
 ## パフォーマンス / 安定性のヒント
 
 - **VRAM 不足**: ML 領域サイズを縮小、Hessian 対象 MM 領域を縮小、ノード数を削減（`--max-nodes`）、または軽量なオプティマイザ設定（`--opt-mode grad`）を使用。
-- **解析 Hessian が遅いまたは OOM**: `--hessian-calc-mode FiniteDifference` を使用。`Analytical` は十分な VRAM がある場合のみ推奨（ML 原子 300 以上には 24 GB 以上推奨）
+- **解析 Hessian が遅いまたは OOM**: `--hessian-calc-mode FiniteDifference`
+  と比較してください。`Analytical` の必要メモリは backend、model、
+  active region に依存するため、対象系で確認してください。
 - **MM Hessian**: `mm_fd: true`（デフォルト）は MM Hessian に有限差分を使用。解析 MM Hessian（`mm_fd: false`）は小規模系では高速だがメモリ消費が増える場合がある
 - **MM Hessian 計算が遅い**: `hess_cutoff` を設定して Hessian-MM 原子数を制限する
-- **大規模系（2000 原子以上）**: `define-layer` で `--radius-freeze` を小さくして Frozen 層（B=20）を拡大し、可動自由度数を削減する
-- **マルチ GPU**: ML を 1 つの GPU（`ml_cuda_idx: 0`）、MM を別の GPU（`mm_device: cuda`, `mm_cuda_idx: 1`）に配置可能
+- **大規模系**: `define-layer` の `--radius-freeze` を調整して可動自由度数を制御し、対象系の pilot で科学的妥当性と資源使用量を確認する
+- **GPU 配置**: 現行の topology と解析 MM 経路は CPU 側です。ML/DFT backend の対応範囲内で device を選び、対象系で検証してください
 - **ML と MM の並列実行**: デフォルトで ML（GPU）と MM（CPU）は並列実行されます。`mm_threads` で CPU スレッド数を調整可能
 
 ---

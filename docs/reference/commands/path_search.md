@@ -13,11 +13,12 @@ Options:
                                   paths, DEBUG logging).  [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
-  -i, --input FILE                Two or more structures in reaction order.
-                                  Either repeat '-i' (e.g., '-i A -i B -i C') or
-                                  use a single '-i' followed by multiple space-
-                                  separated paths (e.g., '-i A B C').
-                                  [required]
+  -i, --input FILE                Two or more PDB/mmCIF structures, or XYZ files
+                                  with corresponding --ref-pdb entries, in
+                                  reaction order. Either repeat '-i' (e.g., '-i
+                                  A -i B -i C') or use a single '-i' followed by
+                                  multiple space-separated paths (e.g., '-i A B
+                                  C').  [required]
   --parm FILE                     Amber parm7 topology covering the full enzyme
                                   complex.  [required]
   --model-pdb FILE                ML-only, link-H-free PDB subset; atom
@@ -153,9 +154,9 @@ Options:
                                   Calculator instance). CLI overrides config
                                   YAML; otherwise defaults to get_calculator.
   --deterministic / --no-deterministic
-                                  Enable strict deterministic GPU algorithms and
-                                  the index_reduce_ shim. Slower; raises if
-                                  unsupported. Default off.
+                                  Request deterministic algorithms for
+                                  controlled operations; verify exact
+                                  reproducibility on the complete target stack.
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
                                   electron-parity check (logs that it was
                                   skipped). For an intentional open-shell or

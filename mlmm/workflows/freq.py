@@ -726,8 +726,9 @@ def _prepare_frequency_output_paths(
     type=click.Choice(["Analytical", "FiniteDifference"], case_sensitive=False),
     default=None,
     help="How the ML backend builds the Hessian (Analytical or FiniteDifference); "
-         "overrides calc.hessian_calc_mode from YAML. "
-         "Default: 'FiniteDifference'. Use 'Analytical' when VRAM is sufficient.",
+         "overrides calc.hessian_calc_mode from YAML. Default: 'FiniteDifference'. "
+         "Runtime and memory depend on the backend and system; compare both "
+         "modes on a representative pilot.",
 )
 @click.option("--max-write", type=int, default=FREQ_KW["max_write"], show_default=True,
               help="Maximum number of modes to export.")

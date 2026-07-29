@@ -16,9 +16,9 @@ Design notes:
   mode rejects an op with no deterministic kernel, raise — never silently
   degrade to ``warn_only`` (that would claim determinism while leaving
   non-deterministic kernels live).
-- **Cost.** Buys bit-identical GPU output across runs, at a throughput penalty
-  (deterministic scatter/reduce kernels are slower) and the fragility of a
-  runtime monkey-patch. Default OFF.
+- **Scope.** Requests deterministic algorithms for controlled operations;
+  exact reproducibility must be validated on the complete target stack.
+  Default OFF.
 """
 from __future__ import annotations
 

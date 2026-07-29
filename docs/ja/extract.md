@@ -140,7 +140,7 @@ Consider preparing the pocket model manually.
 ```
 
 ```{tip}
-これらの残基名を `--modified-residue` で登録すると（例: `--modified-residue HD1,HE1,CM1,AP1`）、`extract` はそれらをアミノ酸として扱い、主鎖切断、リンク水素のキャッピング、電荷割り当てを自動的に適用し、上記の警告も抑制されます。`:charge` を付けると整数電荷を設定できます（例: `--modified-residue HD1:0,SEP:-2`、電荷のデフォルトは `0`）。
+カタログ未登録の残基名は整数電荷を付けて登録します（例: `--modified-residue HD1:0,HE1:0,CM1:0,AP1:0`）。登録済みの残基は `:charge` を省略でき、その場合はカタログ電荷を保持します（例: `SEP` は −2）。`extract` はそれらをアミノ酸として扱い、主鎖切断、リンク水素のキャッピング、電荷割り当てを自動的に適用し、上記の警告も抑制します。
 ```
 
 ```{important}

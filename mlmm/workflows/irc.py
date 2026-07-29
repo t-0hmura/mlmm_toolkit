@@ -316,7 +316,10 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     "--hessian-calc-mode",
     type=click.Choice(["Analytical", "FiniteDifference"], case_sensitive=False),
     default=None,
-    help="How the ML backend builds the Hessian (Analytical or FiniteDifference); overrides calc.hessian_calc_mode from YAML. Default: 'FiniteDifference'. Use 'Analytical' when VRAM is sufficient.",
+    help=("How the ML backend builds the Hessian (Analytical or "
+          "FiniteDifference); overrides calc.hessian_calc_mode from YAML. "
+          "Default: 'FiniteDifference'. Runtime and memory depend on the "
+          "backend and system; compare both modes on a representative pilot."),
 )
 @click.option(
     "--config",

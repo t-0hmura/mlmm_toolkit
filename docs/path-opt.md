@@ -33,7 +33,7 @@ mlmm path-opt -i REACTANT.pdb PRODUCT.pdb --parm real.parm7 --model-pdb model.pd
 `mlmm path-opt --help` shows core options; `mlmm path-opt --help-advanced` shows the full option list.
 
 ## Workflow
-1. **Load endpoints** -- Read both PDB structures and resolve charge/spin from CLI or defaults.
+1. **Load endpoints** -- Read PDB/mmCIF structures, or XYZ coordinates with matching `--ref-pdb` topology, and resolve charge/spin.
     Set up the ML/MM calculator with `--parm`, `--model-pdb`, and charge/spin.
 2. **Pre-alignment** -- All endpoints after the first are Kabsch-aligned to the first
     structure. If `freeze_atoms` is defined, only those atoms participate in the RMSD
@@ -43,8 +43,9 @@ mlmm path-opt -i REACTANT.pdb PRODUCT.pdb --parm real.parm7 --model-pdb model.pd
     The number of L-BFGS cycles is controlled by `--preopt-max-cycles` (default: 10000).
 4. **Path optimization** -- `--mep-mode gsm` uses pysisyphus `GrowingString` with `(max_nodes + 2)` images including endpoints; `--mep-mode dmf` uses Direct Max Flux.
 5. **Climbing image (GSM only)** -- With `--climb`, a climbing-image refinement is applied after string growth, and the highest-energy image (HEI) is reported.
-6. **Output** -- Final path trajectory and HEI are written as XYZ and PDB files.
-    PDB conversion is performed when the inputs are PDBs.
+6. **Output** -- Final path trajectory and HEI are written as XYZ files.
+    PDB/CIF companions are written when conversion is enabled and a reference
+    topology is available.
 
 ## Outputs
 
@@ -65,7 +66,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `-i, --input PATH PATH` | Reactant and product PDB structures (full-system coordinates). | Required |
+| `-i, --input PATH PATH` | Reactant and product PDB/mmCIF structures, or XYZ coordinates with corresponding `--ref-pdb` entries. | Required |
 | `--parm PATH` | Amber prmtop for the full REAL system. | Required |
 | `--model-pdb PATH` | PDB defining the ML region (atom IDs). Optional when `--detect-layer` or `--model-indices` is used. | _None_ |
 | `--model-indices TEXT` | Comma-separated atom indices for the ML region (ranges allowed like `1-5`). Used when `--model-pdb` is omitted. | _None_ |

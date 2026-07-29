@@ -13,8 +13,8 @@ Options:
                                   paths, DEBUG logging).  [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
-  -i, --input FILE                Input structure file (.pdb/.xyz). Required
-                                  unless --csv is provided.
+  -i, --input FILE                Input PDB/mmCIF, or XYZ with --ref-pdb.
+                                  Required unless --csv is provided.
   --parm FILE                     Amber parm7 topology for the enzyme. Required
                                   unless --csv is provided.
   --model-pdb FILE                ML-only, link-H-free PDB subset; atom
@@ -147,9 +147,9 @@ Options:
                                   Calculator instance). CLI overrides config
                                   YAML; otherwise defaults to get_calculator.
   --deterministic / --no-deterministic
-                                  Enable strict deterministic GPU algorithms and
-                                  the index_reduce_ shim. Slower; raises if
-                                  unsupported. Default off.
+                                  Request deterministic algorithms for
+                                  controlled operations; verify exact
+                                  reproducibility on the complete target stack.
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
                                   electron-parity check (logs that it was
                                   skipped). For an intentional open-shell or

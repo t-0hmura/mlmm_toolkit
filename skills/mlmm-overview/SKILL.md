@@ -135,7 +135,7 @@ See `mlmm-cli/SKILL.md` for per-subcommand specifics.
 | `mlmm/workflows/extract.py` | Active-site extraction with layer assignment |
 | `mlmm/workflows/define_layer.py` | B-factor → layer mapping helpers |
 | `mlmm/workflows/mm_parm.py` | AmberTools tleap driver (parm7 / rst7) |
-| `mlmm/workflows/oniom_export.py` / `oniom_import.py` | Gaussian g16 / ORCA ONIOM round-trip |
+| `mlmm/workflows/oniom_export.py` / `oniom_import.py` | Gaussian g16 / ORCA ONIOM input-deck exchange |
 | `mlmm/workflows/all.py` | End-to-end pipeline |
 | bundled `hessian_ff/` | Analytical-Hessian MM force field |
 | bundled `pysisyphus/` | GPU-tensor pysisyphus fork |

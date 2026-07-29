@@ -1467,7 +1467,8 @@ def _build_multistep_path(
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     multiple=True,   # allow: -i A -i B -i C   or   -i A B C
     required=True,
-    help=("Two or more structures in reaction order. "
+    help=("Two or more PDB/mmCIF structures, or XYZ files with corresponding "
+          "--ref-pdb entries, in reaction order. "
           "Either repeat '-i' (e.g., '-i A -i B -i C') or use a single '-i' "
           "followed by multiple space-separated paths (e.g., '-i A B C').")
 )
