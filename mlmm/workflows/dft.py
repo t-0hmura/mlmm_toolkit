@@ -639,9 +639,9 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     "--multiplicity",
     "spin",
     type=int,
-    default=1,
-    show_default=True,
-    help="Spin multiplicity (2S+1) for the ML region.",
+    default=None,
+    show_default=False,
+    help="Spin multiplicity (2S+1) for the ML region; defaults to YAML or 1.",
 )
 @click.option(
     "--freeze-atoms",
@@ -778,7 +778,7 @@ def cli(
     detect_layer: bool,
     charge: Optional[int],
     ligand_charge: Optional[str],
-    spin: int,
+    spin: Optional[int],
     freeze_atoms_text: Optional[str],
     func_basis: str,
     max_cycle: int,
@@ -917,6 +917,17 @@ def cli(
         )
         calc_kw["model_mult"] = int(spin)
         calc_kw["model_charge"] = int(charge)
+        engine_name = (
+            str(engine).strip().lower()
+            if _is_param_explicit("engine")
+            else str(dft_kw.get("engine", "gpu")).strip().lower()
+        )
+        if engine_name not in {"cpu", "gpu"}:
+            raise click.BadParameter(
+                "dft.engine must be either 'cpu' or 'gpu', "
+                f"got {engine_name!r}."
+            )
+        dft_kw["engine"] = engine_name
 
         dft_block = {
             "charge": int(charge),
@@ -927,6 +938,7 @@ def cli(
             "max_cycle": dft_kw["max_cycle"],
             "grid_level": dft_kw["grid_level"],
             "out_dir": str(Path(dft_kw["out_dir"]).resolve()),
+            "engine": engine_name,
             "lowmem": bool(dft_kw.get("lowmem", True)),
         }
         from mlmm.core.embedcharge_policy import reject_retired_embedcharge_cli
@@ -1105,7 +1117,7 @@ def cli(
         using_gpu = False
         using_lowmem = False
         engine_label = "pyscf(cpu)"
-        _engine = str(engine).lower() if _is_param_explicit("engine") else str(dft_kw.get("engine", "gpu")).lower()
+        _engine = engine_name
         lowmem_requested = bool(dft_kw.get("lowmem", True))
         if _engine != "cpu":
             try:

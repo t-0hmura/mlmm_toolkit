@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import click
 from click.testing import CliRunner
 
 
@@ -34,6 +35,52 @@ def test_prepare_dft_output_dir_invalidates_prior_public_results(
     assert resolved == out_dir.resolve()
     assert all(not path.exists() for path in stale)
     assert unrelated.read_text(encoding="utf-8") == "keep\n"
+
+
+def test_dft_multiplicity_default_does_not_mask_yaml() -> None:
+    from mlmm.workflows.dft import cli
+
+    parameter = next(param for param in cli.params if param.name == "spin")
+    assert isinstance(parameter, click.Option)
+    assert parameter.default is None
+
+
+def test_dft_rejects_unknown_yaml_engine_before_layer_setup(
+    tmp_path: Path,
+) -> None:
+    from mlmm.cli import cli as root_cli
+
+    structure = tmp_path / "system.pdb"
+    structure.write_text(
+        "HETATM    1  C1  LIG A   1       0.000   0.000   0.000  1.00 10.00           C\n"
+        "END\n",
+        encoding="utf-8",
+    )
+    parm = tmp_path / "system.parm7"
+    parm.write_text("not needed before engine validation\n", encoding="utf-8")
+    config = tmp_path / "config.yaml"
+    config.write_text("dft:\n  engine: quantum-potato\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        root_cli,
+        [
+            "dft",
+            "-i",
+            str(structure),
+            "--parm",
+            str(parm),
+            "--model-pdb",
+            str(structure),
+            "-q",
+            "0",
+            "--config",
+            str(config),
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "dft.engine must be either 'cpu' or 'gpu'" in result.output
 
 
 def test_dft_error_json_uses_yaml_effective_output_dir(
