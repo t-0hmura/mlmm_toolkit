@@ -1720,6 +1720,11 @@ def validate_parmed_atom_order(
     topology_label: str = "parm7 topology",
 ) -> None:
     """Validate count and available atom identity before positional assignment."""
+
+    def amber_name(name: str) -> str:
+        """Normalize the PDB/Amber placement of a leading hydrogen digit."""
+        return name[1:] + name[0] if name[:1].isdigit() else name
+
     n_input = int(len(input_structure.atoms))
     n_top = int(len(real_topology.atoms))
     if n_input != n_top:
@@ -1755,9 +1760,6 @@ def validate_parmed_atom_order(
         top_resname = str(getattr(top_residue, "name", "") or "").strip()
         input_residx = getattr(input_residue, "idx", None)
         top_residx = getattr(top_residue, "idx", None)
-        name_mismatch = bool(
-            input_name and top_name and input_name != top_name
-        )
         residue_mismatch = bool(
             input_resname
             and top_resname
@@ -1768,6 +1770,15 @@ def validate_parmed_atom_order(
             and top_residx is not None
             and int(input_residx) != int(top_residx)
         )
+        names_match = bool(
+            input_name == top_name
+            or (
+                input_z == 1
+                and top_z == 1
+                and amber_name(input_name) == amber_name(top_name)
+            )
+        )
+        name_mismatch = bool(input_name and top_name and not names_match)
         if name_mismatch or residue_mismatch or ordinal_mismatch:
             raise ValueError(
                 "Atom-order mismatch between input structure and parm7 at "

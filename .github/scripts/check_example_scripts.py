@@ -26,7 +26,8 @@ from docs_command_contract import (  # noqa: E402
 )
 
 # Floor guarding against a silently-empty extraction. The current advertised
-# scripts contribute 47 invocations (toy_system 32, run_all 1, run_stepwise 14).
+# scripts contribute 49 invocations (toy_system 32, methyltransferase 15,
+# BezA 2).
 MIN_INVOCATIONS = 40
 
 

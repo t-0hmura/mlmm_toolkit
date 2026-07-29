@@ -1,7 +1,7 @@
 """Contract for the advertised example shell scripts.
 
-Positive: the three README-advertised scripts exist, pass ``bash -n``, and their
-47 invocations validate against the live CLI. Negative: a syntactically broken
+Positive: the four README-advertised scripts exist, pass ``bash -n``, and their
+49 invocations validate against the live CLI. Negative: a syntactically broken
 script fails ``bash -n``, and a script carrying an invented option fails live
 option validation.
 """
@@ -29,10 +29,10 @@ def test_example_scripts_checker_passes_on_real_repo(monkeypatch) -> None:
 
 def test_advertised_scripts_exist_and_yield_expected_invocations() -> None:
     scripts = dc.public_shell_examples()
-    assert [s.exists() for s in scripts] == [True, True, True]
+    assert [s.exists() for s in scripts] == [True, True, True, True]
     commands = dc.extract_shell_commands(scripts)
-    # toy_system 32 + run_all 1 + run_stepwise 14 = 47.
-    assert len(commands) == 47
+    # toy_system 32 + methyltransferase 15 + BezA 2 = 49.
+    assert len(commands) == 49
 
 
 def test_broken_shell_syntax_fails_bash_n(tmp_path: Path) -> None:

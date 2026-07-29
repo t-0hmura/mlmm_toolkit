@@ -47,6 +47,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   `--allow-unverified-ref-order`, which cannot bypass a known mismatch.
 
 ### Added
+- Add a runnable full-system BezA example with reactant, intermediate, and
+  product structures plus endpoint-MEP and staged-scan workflows.
 - Report citations for the methods actually used at the end of `summary.log`
   and final stdout, and expose the same `{method, citation, doi}` records as
   `summary.json.references`.

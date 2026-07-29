@@ -1468,6 +1468,15 @@ def test_parm_topology_order_validator_rejects_count_and_element_mismatch() -> N
             structure(6, 6, names=["C1", "C2"]),
             structure(6, 6, names=["C2", "C1"]),
         )
+    validate_parmed_atom_order(
+        structure(1, 1, names=["1HH1", "2HH1"]),
+        structure(1, 1, names=["HH11", "HH12"]),
+    )
+    with pytest.raises(ValueError, match="Atom-order mismatch.*atom 1"):
+        validate_parmed_atom_order(
+            structure(6, names=["1C"]),
+            structure(6, names=["C1"]),
+        )
     validate_parmed_atom_order(structure(6, 0), structure(6, 1))
 
 

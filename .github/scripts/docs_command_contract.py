@@ -91,6 +91,7 @@ def public_shell_examples() -> list[Path]:
         "examples/toy_system/run.sh",
         "examples/methyltransferase/run_all.sh",
         "examples/methyltransferase/run_stepwise.sh",
+        "examples/beza/run.sh",
     )
     return [REPO_ROOT / rel for rel in rels]
 
