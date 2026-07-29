@@ -643,7 +643,7 @@ def antechamber_parametrize(resname: str, res_charge: int, res_mult: int, workdi
     mol2 = workdir / f"{resname}.mol2"
     frcmod = workdir / f"{resname}.frcmod"
 
-    # Electron-count preflight (C-003): catch an odd-electron ligand BEFORE
+    # Catch an odd-electron ligand before
     # antechamber/sqm, which otherwise fails opaquely with the sub-log gone.
     # Most often this is a mis-specified ligand charge or protonation state
     # (e.g. SAM: 22 H = neutral / 23 H = +1).

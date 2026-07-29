@@ -1,16 +1,9 @@
 """Microiteration cycle-count and vacuous-partition contracts.
 
-1. HIGH  — a selected converging restart re-anchors the additive
-   ``microiteration`` block on the run that produced the final geometry, so it
-   never keeps a superseded initial (not_converged) leaf.  Bound at the load
-   -bearing carry helper ``tsopt._restart_microiteration_carry`` that
-   ``_run_path_restart`` uses to hand the selection its outcome object.
-2. MED   — the ordinary (non-microiter) opt path serializes the EXECUTED cycle
-   count (``cur_cycle + 1``, via ``optimizer_cycle_count``) so JSON == console
-   log == tsopt, not the raw zero-based ``cur_cycle``.
-3. MED   — a validated partition with macro-active atoms but ZERO micro-active
-   MM atoms appends a zero-cycle vacuous micro success instead of constructing
-   an LBFGS with every atom frozen each macro cycle (both drivers).
+The selected restart owns the serialized microiteration outcome, ordinary
+optimization reports executed rather than zero-based cycle counts, and a
+partition with no micro-active MM atoms records a zero-cycle micro success
+without constructing an all-frozen optimizer.
 """
 
 from __future__ import annotations
@@ -34,7 +27,7 @@ from mlmm.workflows._microiteration import (
 
 
 # ---------------------------------------------------------------------------
-# Finding 1 — restart selection re-anchors the microiteration block
+# Restart selection re-anchors the microiteration block
 # ---------------------------------------------------------------------------
 
 
@@ -103,7 +96,7 @@ def test_selected_converged_restart_overrides_initial_notconverged_leaf():
 
 
 # ---------------------------------------------------------------------------
-# Finding 2 — ordinary-opt n_opt_cycles is the executed count (cur_cycle + 1)
+# Ordinary-opt n_opt_cycles is the executed count (cur_cycle + 1)
 # ---------------------------------------------------------------------------
 
 
@@ -124,7 +117,7 @@ def test_ordinary_opt_cycle_count_is_executed_not_zero_based():
 
 
 # ---------------------------------------------------------------------------
-# Finding 3 — zero-micro-active partition uses the vacuous micro, not an
+# A zero-micro-active partition uses the vacuous micro, not an
 # all-frozen LBFGS (bound end-to-end in BOTH drivers)
 # ---------------------------------------------------------------------------
 

@@ -31,7 +31,7 @@ class ThermoPolicy:
     frequency_scale
         Multiplicative harmonic-frequency scale factor.
     zpe_scale
-        Zero-point-energy scale factor (applied exactly once; see M16).
+        Zero-point-energy scale factor, applied exactly once.
     invert_imag_from_cm
         Imaginary frequencies in ``[invert_imag_from_cm, 0]`` cm^-1 are inverted
         to real. ``0.0`` disables inversion (must be <= 0).

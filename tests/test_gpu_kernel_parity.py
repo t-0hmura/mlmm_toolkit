@@ -1,9 +1,9 @@
 """Numerical parity tests for the measured GPU kernels.
 
-Each adopted candidate is pinned to its baseline to ordinary fp64 rounding and,
-where the change touches ownership, to the trial-rejection / accepted-state
-rollback invariant. Tests run on CPU tensors by default; CUDA variants are added
-when a device is present. No MLIP model is needed.
+Kernel results are pinned to their fp64 baselines and, where state ownership is
+involved, to the trial-rejection and accepted-state rollback invariant. Tests
+run on CPU tensors by default; CUDA variants are added when a device is present.
+No MLIP model is needed.
 """
 from __future__ import annotations
 
@@ -78,7 +78,7 @@ def test_rfo_accelerated_step_preserves_reference_device(dev, dt):
 
 
 # ---------------------------------------------------------------------------
-# Candidate 1 — rank-two Bofill parity
+# Rank-two Bofill parity
 # ---------------------------------------------------------------------------
 @pytest.mark.parametrize("dev", DEVICES)
 @pytest.mark.parametrize("dt", DTYPES)
@@ -176,8 +176,8 @@ def test_bofill_numpy_degenerate_secants_are_finite(dt):
 
 
 def test_bofill_kernel_has_no_advanced_index_addto():
-    # H01 negative source test: the low-rank kernel must not use triu_indices or
-    # advanced-index .add_() (the no-op MLMM pattern) or a CPU round-trip default.
+    # The low-rank kernel must not use triu_indices or advanced-index .add_(),
+    # which would silently discard the write, or a CPU round-trip default.
     src = inspect.getsource(bofill_rank2_factors) + inspect.getsource(bofill_update)
     assert "triu_indices" not in src
     assert ".add_(" not in src
@@ -187,7 +187,7 @@ def test_bofill_kernel_has_no_advanced_index_addto():
 
 
 # ---------------------------------------------------------------------------
-# Candidate 2 — copy-on-write ownership / trial-rejection rollback
+# Copy-on-write ownership and trial-rejection rollback
 # ---------------------------------------------------------------------------
 @pytest.mark.parametrize("dev", DEVICES)
 @pytest.mark.parametrize("dt", DTYPES)
@@ -227,7 +227,7 @@ def test_cow_rollback_restores_prior_state():
 
 
 # ---------------------------------------------------------------------------
-# Candidate 3 — vector mass scaling parity
+# Vector mass-scaling parity
 # ---------------------------------------------------------------------------
 @pytest.mark.parametrize("dev", DEVICES)
 @pytest.mark.parametrize("dt", DTYPES)
@@ -274,7 +274,7 @@ def test_irc_mw_hessian_active_vector_path():
 
 
 # ---------------------------------------------------------------------------
-# Candidate 4 — bounded row-chunk active square extraction parity
+# Bounded row-chunk active-square extraction parity
 # ---------------------------------------------------------------------------
 @pytest.mark.parametrize("dev", DEVICES)
 @pytest.mark.parametrize("dt", [torch.float64, torch.float32])
@@ -311,7 +311,7 @@ def test_active_square_numpy_matches_ix():
 
 
 # ---------------------------------------------------------------------------
-# Candidate 5 — device-native FD force provider parity (synthetic provider)
+# Device-native finite-difference force-provider parity
 # ---------------------------------------------------------------------------
 @pytest.mark.parametrize("dt", DTYPES)
 def test_device_fd_force_path_matches_numpy_roundtrip(dt):

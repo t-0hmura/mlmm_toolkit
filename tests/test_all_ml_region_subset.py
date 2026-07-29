@@ -1,8 +1,8 @@
-"""Regression tests for the ML-region B-factor subset + charge/spin diagnostics (v0.3.3).
+"""Regression tests for the ML-region B-factor subset and charge/spin diagnostics.
 
 Covers:
   * ``_write_bfactor_ml_subset`` writes ONLY the B≈0 ML atoms and returns ``None`` when
-    the input carries no B≈0 atoms (primary-fix behaviour this candidate must preserve).
+    the input carries no B≈0 atoms.
   * ``validate_charge_spin`` error message carries ``counted_atoms=`` always and
     ``source=`` only when a source label is passed.
   * The all.py skip_extract+detect_layer path picks ``_write_bfactor_ml_subset``, and the
