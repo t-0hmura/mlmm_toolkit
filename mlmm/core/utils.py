@@ -3024,6 +3024,62 @@ def build_model_pdb_from_bfactors(
     return tmp_path, layer_info
 
 
+def _resolve_model_indices_for_layer_filter(
+    input_pdb_path: Path,
+    model_pdb_path: Path,
+) -> List[int]:
+    """Map an explicit model PDB to zero-based input ordinals for layer filtering."""
+    full_atoms = load_pdb_atom_metadata(input_pdb_path)
+    model_atoms = load_pdb_atom_metadata(model_pdb_path)
+    if not model_atoms:
+        raise ValueError(f"No atoms found in model PDB: {model_pdb_path}")
+
+    identity_fields = ("chain", "resname", "resseq", "icode", "name")
+    by_identity: Dict[Tuple[Any, ...], List[int]] = {}
+    for index, atom in enumerate(full_atoms):
+        key = tuple(atom.get(field) for field in identity_fields)
+        by_identity.setdefault(key, []).append(index)
+
+    resolved: List[int] = []
+    seen: set[Tuple[Any, ...]] = set()
+    for atom in model_atoms:
+        key = tuple(atom.get(field) for field in identity_fields)
+        label = (
+            f"{atom.get('chain') or '-'}:{atom.get('resname')}:"
+            f"{atom.get('resseq')}{atom.get('icode') or ''}:"
+            f"{atom.get('name')}"
+        )
+        if key in seen:
+            raise ValueError(f"model_pdb contains duplicate atom identity {label}.")
+        seen.add(key)
+        matches = by_identity.get(key, [])
+        if len(matches) != 1:
+            if not matches:
+                raise ValueError(
+                    f"model_pdb atom {label} is absent from the input PDB."
+                )
+            raise ValueError(
+                f"model_pdb atom {label} matches {len(matches)} input atoms; "
+                "retain unique chain and insertion-code identifiers."
+            )
+        full_index = matches[0]
+        full_element = str(full_atoms[full_index].get("element") or "").upper()
+        model_element = str(atom.get("element") or "").upper()
+        if full_element != model_element:
+            raise ValueError(
+                f"model_pdb atom {label} has element {model_element}, but the "
+                f"matching input atom has element {full_element}."
+            )
+        resolved.append(full_index)
+
+    if any(right <= left for left, right in zip(resolved, resolved[1:])):
+        raise ValueError(
+            "model_pdb atom order differs from the input PDB; preserve full-system "
+            "file order when creating the ML-region PDB."
+        )
+    return resolved
+
+
 def resolve_ml_layer_assignment(
     *,
     source_path: Path,
@@ -3105,16 +3161,12 @@ def resolve_ml_layer_assignment(
                 if model_indices:
                     explicit_ml_indices = {int(index) for index in model_indices}
                 else:
-                    from mlmm.io.pdb_indexing import resolve_mlmm_atoms
-
-                    resolved_atoms = resolve_mlmm_atoms(
-                        layer_source_pdb,
-                        model_pdb_path,
-                        manual_links=[],
+                    explicit_ml_indices = set(
+                        _resolve_model_indices_for_layer_filter(
+                            layer_source_pdb,
+                            model_pdb_path,
+                        )
                     )
-                    explicit_ml_indices = {
-                        int(index) - 1 for index in resolved_atoms.model_indices
-                    }
 
                 # The explicit region owns ML membership. B-factors only assign
                 # the remaining atoms to MM sublayers, so an explicit ML atom
