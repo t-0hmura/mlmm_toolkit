@@ -347,6 +347,67 @@ def test_hessian_file_rejects_nonfinite_pes_identity(tmp_path, value) -> None:
         )
 
 
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_hessian_file_rejects_nonfinite_energy_on_save(tmp_path, value) -> None:
+    with pytest.raises(ValueError, match="energy_ha must be a finite scalar"):
+        save_hessian_file(
+            tmp_path / "nonfinite-energy.npz",
+            hessian=np.eye(3),
+            energy_ha=value,
+            cart_coords_bohr=np.zeros(3),
+            atomic_numbers=np.array([1]),
+            **SAVE_STATE,
+        )
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_hessian_file_rejects_nonfinite_energy_on_load(tmp_path, value) -> None:
+    path = tmp_path / "nonfinite-energy.npz"
+    np.savez_compressed(
+        path,
+        schema_version=np.int64(3),
+        hessian=np.eye(3),
+        energy_ha=value,
+        cart_coords_bohr=np.zeros(3),
+        atomic_numbers=np.array([1]),
+        model_charge=np.int64(0),
+        model_mult=np.int64(1),
+        potential_identity_json=np.str_(
+            '{"evaluator":{"model":"uma-s-1p1","potential":{"mm_backend":'
+            '"hessian_ff"},"precision":"float64","backend":"uma"},'
+            '"schema":"hessian-cache-identity/v1","system":{"atoms":[6,1,8]}}'
+        ),
+    )
+
+    with pytest.raises(ValueError, match="energy_ha must be a finite scalar"):
+        load_hessian_file(
+            path,
+            cart_coords_bohr=np.zeros(3),
+            atomic_numbers=np.array([1]),
+            **LOAD_STATE,
+        )
+
+
+def test_hessian_file_rejects_fractional_schema_version(tmp_path) -> None:
+    path = tmp_path / "fractional-schema.npz"
+    np.savez_compressed(
+        path,
+        schema_version=np.float64(3.5),
+        hessian=np.eye(3),
+        energy_ha=0.0,
+        cart_coords_bohr=np.zeros(3),
+        atomic_numbers=np.array([1]),
+    )
+
+    with pytest.raises(ValueError, match="schema_version must be a scalar integer"):
+        load_hessian_file(
+            path,
+            cart_coords_bohr=np.zeros(3),
+            atomic_numbers=np.array([1]),
+            **LOAD_STATE,
+        )
+
+
 def test_hessian_file_rejects_pes_identity_mismatch(tmp_path) -> None:
     path = tmp_path / "pes.npz"
     save_hessian_file(

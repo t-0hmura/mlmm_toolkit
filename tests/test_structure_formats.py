@@ -535,6 +535,44 @@ def test_decimal_overflow_pdb_fields_are_normalized(tmp_path: Path) -> None:
     assert np.allclose([records[0].x, records[0].y, records[0].z], [1.25, 2.5, 3.75])
 
 
+@pytest.mark.parametrize("coordinate", ["nan", "inf", "-inf"])
+def test_pdb_reader_rejects_nonfinite_coordinates(
+    tmp_path: Path, coordinate: str
+) -> None:
+    from mlmm.io.structure_formats import read_pdb_atom_sites
+
+    source = tmp_path / "nonfinite.pdb"
+    source.write_text(
+        "ATOM      1  C   MOL A   1    "
+        f"{coordinate:>8}{0.0:8.3f}{0.0:8.3f}"
+        f"{1.0:6.2f}{0.0:6.2f}           C\nEND\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Non-finite coordinates"):
+        read_pdb_atom_sites(source)
+
+
+@pytest.mark.parametrize("bfactor", [1000.0, -100.0, np.nan, np.inf])
+def test_internal_pdb_rejects_bfactor_field_overflow(
+    tmp_path: Path, bfactor: float
+) -> None:
+    from dataclasses import replace
+
+    from mlmm.io.structure_formats import (
+        read_mmcif_atom_sites,
+        write_internal_pdb,
+    )
+
+    source = tmp_path / "source.cif"
+    _write_minimal_cif(source)
+    records = read_mmcif_atom_sites(source)
+    records[0] = replace(records[0], bfactor=bfactor)
+
+    with pytest.raises(ValueError, match="six-column PDB range"):
+        write_internal_pdb(records, tmp_path / "internal.pdb")
+
+
 def test_duplicate_atom_names_without_altloc_are_preserved(tmp_path: Path) -> None:
     from mlmm.io.structure_formats import (
         pdb_requires_normalization,

@@ -65,6 +65,13 @@ def hessian_calc(
         Cartesian Hessian of shape ``(3N, 3N)`` where
         ``N == len(atoms)`` (fixed-atom rows/cols are zero).
     """
+    try:
+        delta = float(delta)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("delta must be a finite positive number.") from exc
+    if not np.isfinite(delta) or delta <= 0.0:
+        raise ValueError("delta must be a finite positive number.")
+
     fixed = {
         i for c in atoms.constraints if isinstance(c, FixAtoms)
         for i in c.get_indices()
@@ -76,14 +83,16 @@ def hessian_calc(
     # Short-circuit: all atoms frozen → return zeros
     if m == 0:
         N = len(atoms)
-        return np.zeros((3 * N, 3 * N))
+        return np.zeros((3 * N, 3 * N), dtype=dtype)
 
     H_sub = np.empty((n_dof, n_dof), dtype=dtype)
     row = 0
 
     log_cm = nullcontext(None)
     if info_path is not None:
-        os.makedirs(os.path.dirname(info_path), exist_ok=True)
+        info_dir = os.path.dirname(os.fspath(info_path))
+        if info_dir:
+            os.makedirs(info_dir, exist_ok=True)
         log_cm = open(info_path, "w", encoding="utf-8")
 
     with log_cm as log:
@@ -138,5 +147,4 @@ def hessian_calc(
                 3 * j_local : 3 * j_local + 3,
             ]
     return H
-
 

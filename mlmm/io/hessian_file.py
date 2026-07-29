@@ -43,6 +43,20 @@ def _validated_state_integer(value: Any, *, name: str, minimum: Optional[int] = 
     return result
 
 
+def _validated_finite_scalar(value: Any, *, name: str) -> float:
+    """Return a finite scalar floating-point value."""
+    array = np.asarray(value)
+    if array.ndim != 0:
+        raise ValueError(f"{name} must be a finite scalar.")
+    try:
+        result = float(array.item())
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{name} must be a finite scalar.") from exc
+    if not np.isfinite(result):
+        raise ValueError(f"{name} must be a finite scalar.")
+    return result
+
+
 def save_hessian_file(
     path: Path | str,
     *,
@@ -65,13 +79,14 @@ def save_hessian_file(
         raise ValueError("Coordinate and atomic-number sizes are inconsistent.")
     if not np.isfinite(hess).all() or not np.isfinite(coords).all():
         raise ValueError("Hessian file data must be finite.")
+    saved_energy = _validated_finite_scalar(energy_ha, name="energy_ha")
     saved_charge = _validated_state_integer(model_charge, name="model_charge")
     saved_mult = _validated_state_integer(model_mult, name="model_mult", minimum=1)
 
     payload: dict[str, Any] = {
         "schema_version": np.int64(SCHEMA_VERSION),
         "hessian": hess,
-        "energy_ha": np.float64(energy_ha),
+        "energy_ha": np.float64(saved_energy),
         "cart_coords_bohr": coords,
         "atomic_numbers": numbers,
         "model_charge": np.int64(saved_charge),
@@ -136,7 +151,9 @@ def load_hessian_file(
                 "Hessian file lacks geometry identity metadata "
                 f"({', '.join(missing)}); regenerate it with `mlmm freq --dump-hess`."
             )
-        version = int(np.asarray(data["schema_version"]).item())
+        version = _validated_state_integer(
+            data["schema_version"], name="schema_version", minimum=1
+        )
         if version not in {
             LEGACY_IDENTIFIED_SCHEMA_VERSION,
             ELECTRONIC_STATE_SCHEMA_VERSION,
@@ -279,9 +296,10 @@ def load_hessian_file(
                     "ML/MM layer selection; regenerate it with the same layer/Hessian settings."
                 )
 
+        energy_ha = _validated_finite_scalar(data["energy_ha"], name="energy_ha")
         return {
             "hessian": hess.copy(),
-            "energy_ha": float(np.asarray(data["energy_ha"]).item()),
+            "energy_ha": energy_ha,
             "partial_metadata": partial,
             "schema_version": version,
             "model_charge": saved_charge,

@@ -487,6 +487,10 @@ def read_pdb_atom_sites(
                 raise ValueError(
                     f"Cannot parse coordinates at {path}:{line_number}."
                 ) from exc
+            if not np.all(np.isfinite((x, y, z))):
+                raise ValueError(
+                    f"Non-finite coordinates at {path}:{line_number}."
+                )
             occupancy_value = parsed_occupancy(
                 line[54 + coord_offset : 60 + coord_offset].strip()
             )
@@ -667,10 +671,22 @@ def write_internal_pdb(records: Sequence[AtomSiteRecord], path: Path | str) -> N
                 "Coordinates exceed the fixed-column PDB range required by the internal bridge. "
                 "Translate the structure closer to the origin before running mlmm."
             )
+        occupancy_field = f"{record.occupancy:.2f}"
+        bfactor_field = f"{record.bfactor:.2f}"
+        if (
+            not np.isfinite(record.occupancy)
+            or not np.isfinite(record.bfactor)
+            or len(occupancy_field) > 6
+            or len(bfactor_field) > 6
+        ):
+            raise ValueError(
+                "Occupancy or B-factor exceeds the finite six-column PDB range "
+                "required by the internal bridge."
+            )
         lines.append(
             f"{record_name}{serial:5d} {atom_field}{' ':1}{resname:>3} {chain:1}{resseq:4d}{' ':1}   "
             f"{record.x:8.3f}{record.y:8.3f}{record.z:8.3f}"
-            f"{record.occupancy:6.2f}{record.bfactor:6.2f}          "
+            f"{occupancy_field:>6}{bfactor_field:>6}          "
             f"{record.element:>2s}{_formal_charge_to_pdb(record.formal_charge)}\n"
         )
     lines.append("END\n")

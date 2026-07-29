@@ -65,7 +65,7 @@ def extract_embedded_order_digest(path: Path | str) -> str | None:
     if MARKER_NAME not in text:
         return None
     matches = _MARKER_RE.findall(text)
-    if len(matches) != 1:
+    if text.count(MARKER_NAME) != 1 or len(matches) != 1:
         detail = "malformed" if not matches else "duplicated or conflicting"
         raise ValueError(f"ONIOM reference-order marker is {detail}.")
     return matches[0]

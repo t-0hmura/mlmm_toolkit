@@ -11,6 +11,7 @@ from click.testing import CliRunner
 
 from mlmm.cli import cli as root_cli
 from mlmm.io.oniom_identity import (
+    extract_embedded_order_digest,
     format_order_marker,
     pdb_order_digest,
 )
@@ -345,6 +346,21 @@ def test_oniom_import_cli_verifies_embedded_reference_identity(
     assert result.exit_code == 0, result.output
     assert "ref_order=identity-verified" in result.output
     assert (tmp_path / "restored_layered.pdb").is_file()
+
+
+def test_embedded_reference_identity_rejects_valid_and_malformed_markers(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "job.gjf"
+    digest = "a" * 64
+    source.write_text(
+        f"{format_order_marker(digest)}\n"
+        "MLMM_REF_PDB_ORDER_V1_SHA256=malformed\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="duplicated or conflicting"):
+        extract_embedded_order_digest(source)
 
 
 def test_oniom_import_public_pair_rolls_back_on_primary_failure(
