@@ -172,7 +172,7 @@ A dictionary mapping residue names to their nominal integer charges. Membership 
 - Positive (+1): `ARG`, `LYS`
 - Negative (−1): `ASP`, `GLU`
 
-**Canonical extras:** `SEC` (selenocysteine, 0), `PYL` (pyrrolysine, +1).
+**Canonical extras:** `SEC` (selenocysteine, 0), `PYL` (pyrrolysine, 0).
 
 **Protonation / tautomer variants** (Amber / CHARMM): `HIP` (+1, fully protonated His), `HID` (0, Nδ-protonated His), `HIE` (0, Nε-protonated His), `ASH` (0, neutral Asp), `GLH` (0, neutral Glu), `LYN` (0, neutral Lys), `ARN` (0, neutral Arg), `TYM` (−1, deprotonated Tyr phenolate).
 
@@ -180,7 +180,7 @@ A dictionary mapping residue names to their nominal integer charges. Membership 
 
 **Cysteine variants:** `CYX` (0, disulfide), `CSO` (0, sulfenic acid), `CSD` (−1, sulfinic acid), `CSX` (0, generic), `OCS` (−1, cysteic acid), `CYM` (−1, deprotonated Cys).
 
-**Lysine variants / carboxylation:** `MLY` (+1), `LLP` (+1), `DLY` (+1), `KCX` (−1, Nz-carboxylic acid).
+**Lysine variants / carboxylation:** `MLY` (+1), `LLP` (0), `DLY` (+1), `KCX` (−1, Nz-carboxylic acid).
 
 **D-amino acids** (19): `DAL`, `DAR`, `DSG`, `DAS`, `DCY`, `DGN`, `DGL`, `DHI`, `DIL`, `DLE`, `DLY`, `MED`, `DPN`, `DPR`, `DSN`, `DTH`, `DTR`, `DTY`, `DVA`.
 

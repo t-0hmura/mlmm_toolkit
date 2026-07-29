@@ -43,6 +43,7 @@ def _write_pdb(path: Path) -> Path:
 _TERMINAL_REPS = {"CGLU": -2, "NLYS": +2, "CTER": -1, "NTER": +1}
 _ION_REPS = {"NA": +1, "ZN": +2, "FE": +3, "CL": -1}
 _D_AMINO_REPS = {"DAL": 0, "DAR": +1, "DAS": -1}
+_MODIFIED_REPS = {"PYL": 0, "LLP": 0}
 
 
 def test_extract_and_element_inference_share_the_same_canonical_tables():
@@ -59,7 +60,7 @@ def test_extract_and_element_inference_share_the_same_canonical_tables():
     assert set(add_elem.PROTEIN_RES) == set(canonical.keys())
 
     # Representative charge pairs agree across the exposed table.
-    for rn, q in {**_TERMINAL_REPS, **_D_AMINO_REPS}.items():
+    for rn, q in {**_TERMINAL_REPS, **_D_AMINO_REPS, **_MODIFIED_REPS}.items():
         assert canonical[rn] == q
         assert extract.AMINO_ACIDS[rn] == q
     for rn, q in _ION_REPS.items():

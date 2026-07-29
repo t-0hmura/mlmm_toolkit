@@ -173,7 +173,7 @@ Consider preparing the pocket model manually.
 - 負電荷 (-1): `ASP`, `GLU`
 
 **カノニカル追加:**
-- `SEC`（セレノシステイン, 0）、`PYL`（ピロリシン, +1）
+- `SEC`（セレノシステイン, 0）、`PYL`（ピロリシン, 0）
 
 **プロトン化/互変異性体バリアント**（Amber/CHARMM 形式）:
 - `HIP`（+1, 完全プロトン化 His）、`HID`（0, Nd プロトン化 His）、`HIE`（0, Ne プロトン化 His）
@@ -190,7 +190,7 @@ Consider preparing the pocket model manually.
 - `OCS` (-1, システイン酸), `CYM` (-1, 脱プロトン化 Cys)
 
 **リシンバリアント / カルボキシル化:**
-- `MLY` (+1), `LLP` (+1), `KCX` (-1, Nz カルボキシル酸), `DLY` (+1)
+- `MLY` (+1), `LLP` (0), `KCX` (-1, Nz カルボキシル酸), `DLY` (+1)
 
 **D-アミノ酸** (19 残基):
 - `DAL`, `DAR`, `DSG`, `DAS`, `DCY`, `DGN`, `DGL`, `DHI`, `DIL`, `DLE`, `DLY`, `MED`, `DPN`, `DPR`, `DSN`, `DTH`, `DTR`, `DTY`, `DVA`

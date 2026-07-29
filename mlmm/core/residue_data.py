@@ -32,7 +32,7 @@ _AMINO_ACIDS: Dict[str, int] = {
 
     # --- Canonical extras ---
     "SEC":  0,   # selenocysteine
-    "PYL": +1,   # pyrrolysine
+    "PYL":  0,   # pyrrolysine
 
     # --- Protonation / tautomers (Amber/CHARMM style) ---
     "HIP": +1,   # fully protonated His
@@ -63,7 +63,7 @@ _AMINO_ACIDS: Dict[str, int] = {
     "CYM": -1,   # deprotonated Cys
 
     # --- Lys variants / carboxylation ---
-    "MLY": +1, "LLP": +1,
+    "MLY": +1, "LLP":  0,
     "KCX": -1,   # Lysine Nz-Carboxylic Acid
 
     # --- D isomers (19 residues) ---
