@@ -183,7 +183,7 @@ def test_colab_notebook_has_valid_code_cells_and_gpu_metadata() -> None:
     assert len(notebook["cells"]) == 3
     assert "[GitHub](https://github.com/t-0hmura/mlmm_toolkit)" in introduction
     assert "ML/MM reaction paths on the full solvated protein" in introduction
-    assert "**1 Input → 2 Viewer → 3 Options → 4 Results**" in introduction
+    assert "**1 Input → 2 Setup → 3 Options → 4 Results**" in introduction
     assert (
         "[ChemRxiv](https://chemrxiv.org/doi/full/"
         "10.26434/chemrxiv-2025-jft1k)"
@@ -444,7 +444,7 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "trajectory_box.layout.display = 'none'" in app
     # Colab renders ipywidgets' Tab and Accordion as empty blocks. The tab
     # buttons keep all panes mounted, preserving upload queues and WebGL state.
-    assert "_TAB_PAGES = [('1 Input', input_box), ('2 Viewer', viewer_box)," in app
+    assert "_TAB_PAGES = [('1 Input', input_box), ('2 Setup', viewer_box)," in app
     assert "('3 Options', options_box), ('4 Results', results_box)]" in app
     assert "_tab_body = W.VBox([page for _label, page in _TAB_PAGES])" in app
     assert "_tab_body.children = [_TAB_PAGES[i][1]]" not in app
@@ -469,7 +469,8 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "_rx_info_button" not in app
     assert "rxinfo-popover" not in app
     assert "📥 needs" not in app
-    assert "run_log_fold = _collapsible('Run log', logbox)" in app
+    assert "w_show_run_log = W.Checkbox(value=True, description='Show run log'" in app
+    assert "cmdline_box = W.VBox([command_editor, command_footer, logbox])" in app
     assert "command_editor = W.VBox([" in app
     assert "W.HTML('<b>Command line</b>')" in app
     assert "command_editor = _collapsible('Command line'" not in app
@@ -486,7 +487,10 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "@media (min-width: 821px) and (max-height: 900px)" in app
     assert ".rxapp-main { flex:0 0 auto !important; min-height:0; overflow:visible; }" in app
     assert ".rxpages { flex:0 0 auto !important; min-height:0; overflow:visible; }" in app
-    assert "row-gap:5px !important;\n  flex:0 0 auto !important; }" in app
+    assert (
+        ".rxtabs { width:100%; margin:5px 0 8px !important; "
+        "column-gap:6px !important; row-gap:5px !important; }"
+    ) in app
     assert ".rxpage > * { flex:0 0 auto !important; }" not in app
     assert "height:auto; max-height:none; min-height:0; overflow:visible;" in app
     assert "overflow:visible; overscroll-behavior:contain;" in app
@@ -495,15 +499,14 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert ".rxpath-panel svg, .rxpath-panel img, .rxpath-panel canvas {" in app
     assert "traj_out = W.HTML(layout={'width': '100%', 'min_width': '0'})" in app
     assert "plot_out = W.HTML(layout={'width': '100%', 'min_width': '0'})" in app
-    assert ".rxresults-actions { flex:0 0 auto !important; min-height:38px; }" in app
+    assert ".rxresults-actions { flex:0 0 auto !important; min-height:38px; }" not in app
     assert "results_actions.add_class('rxresults-actions')" in app
     assert "'flex': '1 1 440px'" not in app
     assert ".rxcommand-dock {" in app
-    assert "b_validate = W.Button(description='Validate', button_style=''" in app
-    assert "b_validate.add_class('rxvalidate')" in app
-    assert "b_run = W.Button(description='Run', button_style='primary'" in app
-    assert "b_run.add_class('rxexecute')" in app
-    assert "button_style='danger'" not in app
+    assert "b_validate = W.Button(description='Validate', button_style='info'" in app
+    assert "b_validate.add_class('rxvalidate')" not in app
+    assert "b_run = W.Button(description='Run', button_style='danger'" in app
+    assert "b_run.add_class('rxexecute')" not in app
     assert "_btn.description = ('▾ ' if _st['open'] else '▸ ') + title" in app
     assert "    if real_run: _open_run_log()\n    _set_running(True)\n    try:" in app
     assert "rootbox = W.VBox([header, app, cmdline_box])" in app
@@ -554,7 +557,7 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "if _UPLOAD_MODE == 'anywidget': upl.on_msg(_on_drop_upload)" in app
     assert "description='Move earlier'" in app and "description='Move later'" in app
     assert "tooltip='Move earlier'" in app and "tooltip='Move later'" in app
-    assert "command_footer = W.HBox(" in app
+    assert "command_footer = W.VBox([command_actions, w_show_run_log]" in app
     assert "cmdline_box.add_class('rxcommand-dock')" in app
     assert "for _label, _page in _TAB_PAGES:" in app
     assert "_page.add_class('rxpage')" in app
@@ -951,7 +954,7 @@ def test_colab_app_executes_atomic_view_and_result_transitions(
             yield from _descendants(child)
     clear_pair = next(
         widget for widget in _descendants(app["scan_panel"])
-        if getattr(widget, "description", "") == "Clear pair"
+        if getattr(widget, "description", "") == "Clear current pair"
     )
     assert clear_pair.disabled
     before_scan = json.dumps(app["S"]["scan_atoms"], sort_keys=True)
@@ -987,7 +990,8 @@ def test_colab_app_executes_atomic_view_and_result_transitions(
     assert app["_RUN_STATE"]["validation_log"] == "validation transcript"
     app["_stream"] = lambda argv: (2, "invalid options")
     app["_do_validate"](None)
-    assert app["run_log_fold"].children[1].layout.display == ""
+    assert app["w_show_run_log"].value is True
+    assert app["logbox"].layout.display == ""
 
     # One path-position change drives both the Mol* structure and the energy
     # cursor/status from the same slider value.
@@ -1253,7 +1257,11 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     assert app["key_opts_box"].children[1].layout.display == "none"
     assert app["command_editor"].children[1] is app["cmd_box"]
     assert app["command_editor"].layout.display != "none"
-    assert app["run_log_fold"].children[1].layout.display == "none"
+    assert app["w_show_run_log"].value is True
+    assert app["logbox"].layout.display == ""
+    app["w_show_run_log"].value = False
+    assert app["logbox"].layout.display == "none"
+    app["w_show_run_log"].value = True
     assert app["_input_box_children"][1] is app["_drop"]
     assert app["_input_box_children"][2] is app["input_msg"]
     assert app["_input_box_children"][-1] is app["example_msg"]
@@ -1274,12 +1282,12 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     derived_command = app["build_cmd"]()
     assert "-q" not in derived_command
     assert derived_command[derived_command.index("-l") + 1] == "LIG:0,MG:2"
-    # With no ligand-charge source at all the ML/MM stage still refuses to run.
+    # Without -l, the visible system charge is emitted directly.
     app["center_widget"].value = ()
     app["charge_rows"]["LIG"]["use"].value = False
     app["charge_rows"]["MG"]["use"].value = False
-    with pytest.raises(ValueError, match="verify the ML-region charge"):
-        app["build_cmd"]()
+    direct_charge_command = app["build_cmd"]()
+    assert direct_charge_command[direct_charge_command.index("-q") + 1] == "0"
     app["charge_rows"]["MG"]["use"].value = True
     app["charge_rows"]["LIG"]["use"].value = True
     app["center_widget"].value = ("MG",)
@@ -1380,7 +1388,7 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     assert verbose_row.children[0].value is None
     assert "verbose" not in app["S"]["advanced_overrides"]["all"]
 
-    app["cb_advsub"].value = True
+    app["dd_subcmd"].options = app["_sub_options"](app["SUBS"])
     app["dd_subcmd"].value = "add-elem-info"
     app["S"]["advanced_overrides"]["add-elem-info"] = {}
     safe_add_elem = app["build_cmd"]()
@@ -1508,7 +1516,7 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     assert app["adv_dftfb"]._rx_flag_row.layout.display == "none"
     app["dd_subcmd"].value = "freq"
     assert app["key_opts_box"].layout.display == ""
-    app["cb_advsub"].value = True
+    app["dd_subcmd"].options = app["_sub_options"](app["SUBS"])
     app["dd_subcmd"].value = "extract"
     assert app["key_opts_box"].layout.display == ""
     assert app["adv_radius"]._rx_flag_row.layout.display == ""
@@ -1692,18 +1700,16 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
         for value in calls
     )
 
-    # Charge semantics and controls follow the selected ML/MM workflow.
+    # The Setup page keeps one explicit system-charge contract across workflows.
     app["dd_subcmd"].value = "all"
-    assert app["w_q"].description == "ML charge (-q)"
-    assert ("the CLI derives the ML-region charge automatically from the "
-            "model atoms") in app["charge_info"].value
+    assert app["w_q"].description == "system charge (-q)"
+    assert "derives the computed-region" in app["charge_info"].value
+    assert "overwrite system charge" in app["charge_info"].value
     app["dd_subcmd"].value = "sp"
-    assert app["w_q"].description == "ML charge (-q)"
-    assert "ML-region charge" in app["charge_info"].value
-    app["cb_advsub"].value = True
+    assert app["w_q"].description == "system charge (-q)"
+    app["dd_subcmd"].options = app["_sub_options"](app["SUBS"])
     app["dd_subcmd"].value = "oniom-export"
-    assert app["w_q"].description == "QM charge (-q)"
-    assert "QM region" in app["charge_info"].value
+    assert app["w_q"].description == "system charge (-q)"
 
     # mm-parm exposes its owned ligand-charge editor and gates AmberTools.
     app["S"]["inputs"] = [str(primary)]
@@ -1760,7 +1766,7 @@ def test_colab_exercises_every_workflow_and_advanced_flag_widget(
 ) -> None:
     """Operate every workflow selector and every editable live Click option."""
     app, _ = _execute_app(monkeypatch, tmp_path)
-    app["cb_advsub"].value = True
+    app["dd_subcmd"].options = app["_sub_options"](app["SUBS"])
     option_values = {
         item[1] if isinstance(item, tuple) else item
         for item in app["dd_subcmd"].options
@@ -1854,7 +1860,6 @@ def test_colab_operates_every_workflow_through_validate_run_and_results(
     app["DFT_READY"] = True
     if "dft" not in app["SUBS"]:
         app["SUBS"].append("dft")
-    app["cb_advsub"].value = True
     app["dd_subcmd"].options = app["_sub_options"](app["SUBS"])
     app["_ambertools_available"] = lambda: True
 
@@ -2070,7 +2075,7 @@ def test_colab_operates_scientific_selectors_and_remaining_buttons(
     assert not app["w_out"].disabled
     assert not app["upl"].disabled
 
-    app["cb_advsub"].value = True
+    app["dd_subcmd"].options = app["_sub_options"](app["SUBS"])
     app["dd_subcmd"].value = "energy-diagram"
     for control in (
         app["pick_action"], app["last_pick_info"], app["viewer_more"],
@@ -2102,37 +2107,21 @@ def test_colab_operates_scientific_selectors_and_remaining_buttons(
     scan_pair(0, 1)
     target = _widget_with_description(app["scan_panel"], "3  Target Å")
     target.value = 1.8
-    stage_fold = next(
-        widget for widget in _widget_descendants(app["scan_panel"])
-        if "rxfold" in getattr(widget, "_dom_classes", ())
-    )
-    stage_fold._rx_button.click()
-    _widget_with_description(stage_fold, "Add sequential stage").click()
+    _widget_with_description(app["scan_panel"], "Add sequential stage").click()
     assert len(app["S"]["scan_stages"]) == 1
-    stage_fold = next(
-        widget for widget in _widget_descendants(app["scan_panel"])
-        if "rxfold" in getattr(widget, "_dom_classes", ())
-    )
-    _widget_with_description(stage_fold, "Add to current stage").click()
+    scan_pair(0, 1)
+    _widget_with_description(app["scan_panel"], "Add to current stage").click()
     assert len(app["S"]["scan_stages"][0]) == 1
     assert "already in the current stage" in app["S"]["_last_pick_message"]
     scan_pair(1, 0)
-    stage_fold = next(
-        widget for widget in _widget_descendants(app["scan_panel"])
-        if "rxfold" in getattr(widget, "_dom_classes", ())
-    )
-    _widget_with_description(stage_fold, "Add to current stage").click()
+    _widget_with_description(app["scan_panel"], "Add to current stage").click()
     assert len(app["S"]["scan_stages"][0]) == 1
     scan_pair(0, 2)
-    stage_fold = next(
-        widget for widget in _widget_descendants(app["scan_panel"])
-        if "rxfold" in getattr(widget, "_dom_classes", ())
-    )
-    _widget_with_description(stage_fold, "Add to current stage").click()
+    _widget_with_description(app["scan_panel"], "Add to current stage").click()
     assert len(app["S"]["scan_stages"][0]) == 2
-    _widget_with_description(stage_fold, "Clear stages").click()
+    _widget_with_description(app["scan_panel"], "× stage").click()
     assert app["S"]["scan_stages"] == []
-    _widget_with_description(app["scan_panel"], "Clear pair").click()
+    _widget_with_description(app["scan_panel"], "Clear current pair").click()
     assert app["S"]["scan_atoms"] == [None, None]
 
     for subcommand, pairs in (
@@ -2148,9 +2137,9 @@ def test_colab_operates_scientific_selectors_and_remaining_buttons(
             high.value = 2.0 + pair_index * 0.1
             _widget_with_description(app["scan_panel"], "4  Add axis").click()
         assert len(app["S"]["scan_axes"]) == len(pairs)
-        _widget_with_description(app["scan_panel"], "Remove last").click()
+        _widget_with_description(app["scan_panel"], "×").click()
         assert len(app["S"]["scan_axes"]) == len(pairs) - 1
-        _widget_with_description(app["scan_panel"], "Clear axes").click()
+        app["b_clear_scan"].click()
         assert app["S"]["scan_axes"] == []
 
     app["dd_subcmd"].value = "opt"
@@ -2183,9 +2172,9 @@ def test_colab_operates_scientific_selectors_and_remaining_buttons(
     app["S"]["center_ids"] = ["A:LIG:1"]
     app["S"]["freeze_atoms"] = [2]
     app["b_clear"].click()
-    assert app["S"]["center_ids"] == [] and app["S"]["freeze_atoms"] == []
+    assert app["S"]["center_ids"] == []
+    assert app["S"]["freeze_atoms"] == [2]
 
-    app["cb_advsub"].value = True
     app["dd_subcmd"].value = "all"
     app["adv_search"].value = "cycles"
     assert "total" in app["adv_count"].value
@@ -2737,9 +2726,10 @@ def test_colab_gui_preserves_full_system_and_tracks_current_run_only() -> None:
     assert "submit(event.dataTransfer ? event.dataTransfer.files : []);" in app
     assert "_tab_body.children = [_TAB_PAGES[i][1]]" not in app
     assert "layout=W.Layout(width='560px')" not in app
-    assert "ML-region charge (-q)" in app and "charge verified" in app
-    assert ("No ligand-charge source is available; "
-            "verify the ML-region charge (-q) in Options.") in app
+    assert "system charge (-q)" in app and "overwrite system charge" in app
+    assert ("No <code>-l</code> charge source is active, so <code>-q</code> "
+            "is used directly.") in app
+    assert "No ligand-charge source is available" not in app
     assert ".xyz + reference PDB + .parm7" in app
     assert "utility .gjf / .com / .inp / .csv" in app
     assert app.count("effective = _normalized_scope_argv(a)") == 2
@@ -3063,7 +3053,7 @@ def test_colab_release_state_and_linked_results_regressions(
     )
     assert "A: <code>OLD 1 A</code>" in scan_panel_text
     assert "B: <code>OLD 1 B</code>" in scan_panel_text
-    assert "Loaded example · Clear pair to redefine." in scan_panel_text
+    assert "Loaded example · Clear current pair to redefine." in scan_panel_text
     assert "OLD 1 A — OLD 1 B → 1.4 Å" in app["summary_html"].value
     assert "[(&#x27;OLD 1 A&#x27;" not in app["summary_html"].value
     app["pick_action"].value = "scanA"
@@ -3295,7 +3285,7 @@ def test_colab_setup_cell_is_frozen() -> None:
     setup = _notebook()["cells"][1]["source"]
     digest = hashlib.sha256(setup.encode("utf-8")).hexdigest()
 
-    assert digest == "b83bdf724d3e6b73f66239932087c8c515548ae48e46e0431a24191c5b17dbc1", (
+    assert digest == "03b223fafea4a2410154d0096e5a8ff58b041b61befc57a1d213c1e63a9d4530", (
         "the Colab Setup cell changed; it is frozen for this release. Re-read the "
         "Setup contracts above, then update this digest deliberately. Got: " + digest
     )
