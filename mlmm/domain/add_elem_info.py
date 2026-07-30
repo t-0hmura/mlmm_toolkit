@@ -46,6 +46,17 @@ NUCLEIC_RES = {
     "A","U","G","C","I",
 }
 
+
+def _format_elapsed(start_time: float) -> str:
+    elapsed = max(0.0, time.perf_counter() - start_time)
+    hours, rem = divmod(elapsed, 3600)
+    minutes, seconds = divmod(rem, 60)
+    return (
+        "[time] Elapsed Time for Add Element Info: "
+        f"{int(hours):02d}:{int(minutes):02d}:{seconds:06.3f}"
+    )
+
+
 # Helper: normalize strings to element symbols
 _re_letters = re.compile(r"[A-Za-z]+")
 
@@ -395,10 +406,9 @@ def cli(in_pdb: Path, out_pdb: Optional[Path], inplace: bool, overwrite: bool) -
         click.echo(f"[ERR] Failed: {e}", err=True)
         sys.exit(2)
     from mlmm.core.output import emit
-    from mlmm.core.utils import format_elapsed
 
     emit(
-        format_elapsed("[time] Elapsed Time for Add Element Info", time_start),
+        _format_elapsed(time_start),
         narrative=True,
     )
 
