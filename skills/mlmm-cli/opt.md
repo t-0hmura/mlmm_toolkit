@@ -43,7 +43,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `-i, --input` | path | required | `.pdb` / `.xyz` (XYZ requires `--ref-pdb`) |
 | `-q` / `-l` / `-m` | — | — | Charge / spin (common conventions) |
 | `--opt-mode` | str | `grad` | `grad` (L-BFGS) or `hess` (RFO); aliases `lbfgs` / `rfo` and the mlmm-only `light` / `heavy` shortcuts (light = L-BFGS, heavy = RFO with full Hessian) are accepted |
-| `--reject-uphill / --no-reject-uphill` | toggle | on | In Hessian/RFO mode, reject an energy-raising trial, restore the lower-energy geometry, and shrink the trust radius. At the emergency floor, run one final convergence check on the retained geometry. Ignored in L-BFGS mode. |
+| `--reject-uphill / --no-reject-uphill` | toggle | off | Opt in to rejecting an energy-raising Hessian/RFO trial above `1e-3` Hartree, restoring the lower-energy geometry and shrinking the trust radius. At the emergency floor, run one final convergence check on the retained geometry. Ignored in L-BFGS mode. |
 | `--mm-only` / `--no-mm-only` | flag | `False` | Skip the MLIP component and minimize on the MM force field only. Layers honored as usual; only `--opt-mode grad` supported (microiter auto-off). Useful as a cheap MM pre-relaxation before ML/MM ONIOM opt. |
 | `--tr-projection` | str | `constrained` | Frozen-boundary TR treatment used only by `--flatten` PHVA. `legacy-active` is deprecated comparison-only behavior; never use it for pass/HOSP transition-state certification. |
 | `--max-cycles` | int | (live default) | Stop after N cycles; check `OPT_BASE_KW` |

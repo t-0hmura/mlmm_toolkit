@@ -197,8 +197,8 @@ An optimizer may also report `"status": "stalled"`: the energy stopped decreasin
 | `endpoint_energy_orientation` | string | `"finished_first_to_finished_last"` |
 | `energy_reactant_hartree` / `energy_product_hartree` | float | Compatibility aliases for first/last; do not infer R/P identity from the names |
 | `forward_converged` / `backward_converged` | bool\|null | Directional convergence flags |
-| `never_stop` | bool | Whether opt-in energy-rise/plateau bypass mode was enabled |
-| `never_stop_energy_bypasses` | int | Number of energy-rise/plateau stops actually bypassed |
+| `never_stop` | bool | Whether opt-in physical endpoint-stop bypass mode was enabled |
+| `never_stop_energy_bypasses` | int | Number of energy-rise or one-step energy-change stops actually bypassed |
 | `rigid_projection` | object | Frozen-boundary TR provenance for the initial/updated Hessian |
 | `rigid_projection.electronic_state_verified` | bool | For a file-seeded Hessian, whether model charge and multiplicity were identity-verified |
 | `bond_changes` | object | Directed first→last `{formed: [...], broken: [...]}`; omitted if comparison was unavailable |

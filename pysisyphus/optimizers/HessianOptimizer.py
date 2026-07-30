@@ -109,7 +109,7 @@ class HessianOptimizer(Optimizer):
         weighted_trust_wo: float = 0.5,
         weighted_trust_wx: float = 1.0,
         reject_uphill: bool = False,
-        uphill_tolerance: float = 1e-8,
+        uphill_tolerance: float = 1e-3,
         rejection_trust_floor: float = 1e-7,
         max_rejections_at_floor: int = 3,
         **kwargs,

@@ -1,6 +1,7 @@
 """Tests for defaults.py configuration constants."""
 
 from copy import deepcopy
+from inspect import signature
 
 from mlmm.core.defaults import (
     GEOM_KW_DEFAULT,
@@ -43,6 +44,21 @@ def test_mlmm_calc_defaults():
 def test_opt_defaults():
     assert "thresh" in OPT_BASE_KW
     assert "max_cycles" in OPT_BASE_KW
+
+
+def test_minimizer_trial_rejection_defaults():
+    assert LBFGS_KW["reject_uphill"] is False
+    assert RFO_KW["reject_uphill"] is False
+    assert LBFGS_KW["uphill_tolerance"] == 1e-3
+    assert RFO_KW["uphill_tolerance"] == 1e-3
+
+    from pysisyphus.optimizers.LBFGS import LBFGS
+    from pysisyphus.optimizers.RFOptimizer import RFOptimizer
+
+    assert signature(LBFGS).parameters["reject_uphill"].default is False
+    assert signature(RFOptimizer).parameters["reject_uphill"].default is False
+    assert signature(LBFGS).parameters["uphill_tolerance"].default == 1e-3
+    assert signature(RFOptimizer).parameters["uphill_tolerance"].default == 1e-3
 
 
 def test_lbfgs_inherits_opt():

@@ -93,7 +93,7 @@ out_dir/ (デフォルト: ./result_opt/)
 | `--opt-mode [grad\|hess\|light\|heavy\|lbfgs\|rfo]` | オプティマイザモード: `grad`/`lbfgs`（L-BFGS）または `hess`/`rfo`（RFO）。エイリアス `light`/`heavy` も使用可。 | `grad` |
 | `--microiter/--no-microiter` | マイクロイテレーション: ML 1 ステップ（RFO）+ MM 緩和（L-BFGS）を交互に実行。`hess` モードでのみ有効。 | `True` |
 | `--flatten/--no-flatten` | 最適化後の虚振動数モードフラット化ループの有効化/無効化。 | `False` |
-| `--reject-uphill/--no-reject-uphill` | `hess` モードで RFO の上り坂試行ステップを拒否（低エネルギー形状へロールバックし trust radius を縮小）。`grad`/`lbfgs` モードでは無効。emergency trust floor 到達時は、非収束停止を報告する前に保持構造を通常の収束条件で最終確認。 | `True` |
+| `--reject-uphill/--no-reject-uphill` | `hess` モードで RFO の上り坂試行ステップ拒否を明示的に有効化（許容値 `1e-3` Hartree、低エネルギー形状へロールバックして trust radius を縮小）。`grad`/`lbfgs` モードでは無効。emergency trust floor 到達時は、非収束停止を報告する前に保持構造を通常の収束条件で最終確認。 | `False` |
 | `--dump/--no-dump` | 軌跡ダンプ（`optimization_trj.xyz`、`optimization_all_trj.xyz`）を出力。 | `False` |
 | `--convert-files/--no-convert-files` | PDB 入力時の XYZ/TRJ から対応する PDB 生成の有効化/無効化。 | `True` |
 | `-o, --out-dir TEXT` | 出力ディレクトリ。 | `./result_opt/` |
@@ -162,7 +162,7 @@ out_dir/ (デフォルト: ./result_opt/)
 - 共通制御: `max_cycles`（デフォルト 10000）、`print_every`（100）、`min_step_norm`（1e-8）、`assert_min_step` True。
 - 収束トグル: `rms_force`、`rms_force_only`、`max_force_only`、`force_only`。
 - その他: `converge_to_geom_rms_thresh`、`overachieve_factor`、`check_eigval_structure`。
-- エネルギープラトー・フォールバック（デフォルト有効）: `energy_plateau`（bool、デフォルト True）、`energy_plateau_thresh`（1e-4 au、約 0.06 kcal/mol）、`energy_plateau_window`（50 ステップ）。直近ウィンドウのエネルギー範囲が閾値を下回ったら収束と判定します。MLIP の力ノイズフロアが勾配ベースの `thresh` プリセットを上回る場合のセーフティネットです。Chain-of-states オプティマイザでは自動的にスキップされます。
+- エネルギープラトー・フォールバック（デフォルト有効）: `energy_plateau`（bool、デフォルト True）、`energy_plateau_thresh`（1e-4 au、約 0.06 kcal/mol）、`energy_plateau_window`（50 ステップ）。直近ウィンドウのエネルギー範囲が閾値を下回ったら`stalled`（未収束）として停止します。MLIP の力ノイズフロアが勾配ベースの `thresh` プリセットを上回る場合のセーフティネットです。Chain-of-states オプティマイザでは自動的にスキップされます。
 - ラインサーチ: `line_search`（bool、デフォルト True）。
 - 管理項目: `dump`、`dump_restart`、`prefix`、`out_dir`（デフォルト `./result_opt/`）。
 
@@ -211,7 +211,7 @@ opt:
  converge_to_geom_rms_thresh: 0.05  # 参照への収束時の geom RMS 閾値
  overachieve_factor: 0.0        # 閾値を厳しくする係数
  check_eigval_structure: false  # Hessian固有値構造の検証
- energy_plateau: true           # フォールバック: エネルギー停滞で収束判定（COS では自動スキップ）
+ energy_plateau: true           # フォールバック: エネルギー停滞時にstalled（未収束）で停止（COSでは自動スキップ）
  energy_plateau_thresh: 1.0e-04 # プラトー許容幅 au（約 0.06 kcal/mol）
  energy_plateau_window: 50      # プラトー判定に用いる直近ステップ数
  line_search: true              # ラインサーチを有効化
@@ -232,7 +232,7 @@ lbfgs:
  converge_to_geom_rms_thresh: 0.05  # ジオメトリ収束時の RMS 閾値
  overachieve_factor: 0.0        # 閾値を厳しくする
  check_eigval_structure: false  # Hessian固有値構造の検証
- energy_plateau: true           # フォールバック: エネルギー停滞で収束判定
+ energy_plateau: true           # フォールバック: エネルギー停滞時にstalled（未収束）で停止
  energy_plateau_thresh: 1.0e-04 # プラトー許容幅 au（約 0.06 kcal/mol）
  energy_plateau_window: 50      # プラトー判定に用いる直近ステップ数
  line_search: true              # ラインサーチを有効化
@@ -261,7 +261,7 @@ rfo:
  converge_to_geom_rms_thresh: 0.05  # ジオメトリ収束時の RMS 閾値
  overachieve_factor: 0.0        # 閾値を厳しくする
  check_eigval_structure: false  # Hessian固有値構造の検証
- energy_plateau: true           # フォールバック: エネルギー停滞で収束判定
+ energy_plateau: true           # フォールバック: エネルギー停滞時にstalled（未収束）で停止
  energy_plateau_thresh: 1.0e-04 # プラトー許容幅 au（約 0.06 kcal/mol）
  energy_plateau_window: 50      # プラトー判定に用いる直近ステップ数
  line_search: true              # ラインサーチを有効化

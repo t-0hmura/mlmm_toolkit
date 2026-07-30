@@ -9,7 +9,7 @@ from click.testing import CliRunner
 import pytest
 
 from mlmm.core.defaults import MLMM_CALC_KW
-from mlmm.core.utils import read_bfactors_from_pdb
+from mlmm.core.utils import has_valid_layer_bfactors, read_bfactors_from_pdb
 from mlmm.workflows import sp
 
 
@@ -31,6 +31,24 @@ def _calc_cfg(**updates):
     config = dict(MLMM_CALC_KW)
     config.update(updates)
     return config
+
+
+@pytest.mark.parametrize("raw_bfactor", ["      ", "broken"])
+def test_missing_or_malformed_bfactor_is_not_an_ml_marker(
+    tmp_path: Path, raw_bfactor: str
+) -> None:
+    source = tmp_path / "malformed_bfactor.pdb"
+    line = (
+        f"ATOM  {1:5d}  H   MOL A{1:4d}    "
+        f"{0.0:8.3f}{0.0:8.3f}{0.0:8.3f}{1.0:6.2f}"
+        f"{raw_bfactor:>6}          H \nEND\n"
+    )
+    source.write_text(line, encoding="utf-8")
+
+    bfactors = read_bfactors_from_pdb(source)
+
+    assert len(bfactors) == 1
+    assert not has_valid_layer_bfactors(bfactors)
 
 
 def test_mixed_out_of_range_indices_fail_without_full_system_fallback(

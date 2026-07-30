@@ -65,6 +65,52 @@ def test_public_batch_workflow_rejects_empty_tensor(monkeypatch) -> None:
         )
 
 
+def test_loader_rejects_virtual_sites_before_force_field_build(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        loaders,
+        "read_prmtop_with_parmed",
+        lambda _path: {
+            "CHARGE": [-0.8, -0.2],
+            "ATOM_NAME": ["O", "EPW"],
+            "AMBER_ATOM_TYPE": ["OW", "EP"],
+            "ATOMIC_NUMBER": [8, 0],
+            "MASS": [15.999, 0.0],
+        },
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="does not support dependent Amber virtual sites",
+    ):
+        loaders.load_system("virtual-site.parm7")
+
+
+def test_virtual_site_error_message_is_bounded(monkeypatch) -> None:
+    count = 100
+    monkeypatch.setattr(
+        loaders,
+        "read_prmtop_with_parmed",
+        lambda _path: {
+            "CHARGE": [0.0] * count,
+            "ATOM_NAME": [f"EP{i}" for i in range(count)],
+            "AMBER_ATOM_TYPE": ["EP"] * count,
+            "ATOMIC_NUMBER": [0] * count,
+            "MASS": [0.0] * count,
+        },
+    )
+
+    with pytest.raises(ValueError) as caught:
+        loaders.load_system("many-virtual-sites.parm7")
+
+    message = str(caught.value)
+    assert "100 sites" in message
+    assert "1, 2, 3" in message
+    assert ", ..." in message
+    assert len(message) < 300
+
+
 @pytest.mark.skipif(
     not _PRMTOP.exists(),
     reason="benchmark/data/small topology is not available",

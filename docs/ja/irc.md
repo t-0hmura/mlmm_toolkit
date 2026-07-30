@@ -27,16 +27,17 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ```
 
 IRC がほぼ直ちに停止する場合は、まず `--step-size` を小さくします（例:
-0.10 から 0.05 Bohr）。検証済みの小さな shoulder でエネルギー上昇/plateau
-停止だけが残る場合は、`--never-stop` を明示的に指定できます:
+0.10 から 0.05 Bohr）。すべての物理的端点判定を無視して追跡する場合は、
+`--never-stop` を明示的に指定できます:
 
 ```bash
 mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0 \
  --step-size 0.05 --never-stop --max-cycles 250 -o result_irc_continue
 ```
 
-このモードでも integrator 収束、非有限値、サイクル上限では停止します。
-両方向の軌跡と終点接続を確認してから採用してください。
+このモードでも数値／integration失敗、外部中断、サイクル上限では停止します。
+力の閾値に達しても方向の収束とは記録しません。両方向の軌跡と終点接続を
+確認してから採用してください。
 
 両ブランチを保持してステップ上限を引き上げ:
 
@@ -127,7 +128,7 @@ standalone IRC はstitched pathの`first` / `last`端点と、その方向のbon
 | `--root INT` | 初期変位の虚振動数モードインデックス。`irc.root` を上書き。 | `0` |
 | `--forward/--no-forward` | 正方向 IRC を実行。`irc.forward` を上書き。 | `True` |
 | `--backward/--no-backward` | 逆方向 IRC を実行。`irc.backward` を上書き。 | `True` |
-| `--never-stop/--no-never-stop` | エネルギー上昇/plateau 停止だけを無視。収束、非有限値、最大サイクルでは停止。 | `False` |
+| `--never-stop/--no-never-stop` | RMS-gradient、hard-gradient、energy上昇、1 stepのenergy変化量停止（`abs(E_n-E_{n-1}) <= energy_thresh`、デフォルト`1e-6` Hartree）を無視して最大サイクルまで追跡。数値／integration失敗や外部中断では停止。 | `False` |
 | `-o, --out-dir PATH` | 出力ディレクトリ。`irc.out_dir` を上書き。 | `./result_irc/` |
 | `--ref-pdb FILE` | `--input`がXYZの場合に使用する参照PDB/mmCIF topology（XYZ座標を保持）。 | _None_ |
 | `--convert-files/--no-convert-files` | 参照topologyがある場合のXYZ/TRJ→PDB/CIF companionを切り替え。 | `True` |
@@ -194,7 +195,8 @@ irc:
  max_cycles: 125                   # IRC に沿った最大ステップ数
  forward: true                     # 正方向に伝播
  backward: true                    # 逆方向に伝播
- never_stop: false                 # energy-rise/plateau 停止のみ無視
+ never_stop: false                 # 物理的端点判定を無視してmax_cyclesまで追跡
+ energy_increase_thresh: 0.001     # 通常modeの1 step energy上昇許容値（Hartree）
  root: 0                           # 基準振動ルートインデックス
  hessian_init: calc                # Hessian初期化ソース
  displ: energy                     # 変位構築方法
@@ -220,7 +222,7 @@ irc:
 ## 注記
 
 - デフォルトでは両方のブランチを実行します。片方向のみが必要な場合は `--no-forward` または `--no-backward` で一方を無効化します。
-- 早期停止時はまず `--step-size` を小さくし、`--never-stop` は経路を確認した上で opt-in してください。
+- 早期停止時はまず `--step-size` を小さくし、cycle上限まで追跡する意図がある場合だけ`--never-stop`を指定してください。
 - 全原子凍結では IRC 方向が無いため、明示的なエラーになります。
 - `--out-json` 時は `result.json.rigid_projection` に treatment、有効 rank、
   初期 Hessian source、Hessian shape を記録します。

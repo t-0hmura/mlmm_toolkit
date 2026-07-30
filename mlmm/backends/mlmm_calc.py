@@ -822,9 +822,20 @@ class _MACEBackend(_ASEMLBackend):
 
         device_str = "cuda" if ml_device.type == "cuda" else "cpu"
         model_lower = mace_model.lower()
+        off23_aliases = {
+            "mace-off23_small": "small",
+            "mace-off23_medium": "medium",
+            "mace-off23_large": "large",
+        }
 
         # Resolve model name to the appropriate factory
-        if model_lower.startswith("mp:") or model_lower.startswith("mace-mp"):
+        if model_lower in off23_aliases:
+            self._ase_calc = mace_off(
+                model=off23_aliases[model_lower],
+                device=device_str,
+                default_dtype=mace_dtype,
+            )
+        elif model_lower.startswith("mp:") or model_lower.startswith("mace-mp"):
             model_name = mace_model.split(":", 1)[-1] if ":" in mace_model else mace_model
             self._ase_calc = mace_mp(
                 model=model_name, device=device_str, default_dtype=mace_dtype

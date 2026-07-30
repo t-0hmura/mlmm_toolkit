@@ -297,6 +297,7 @@ def test_lbfgs_rejects_uphill_trial_through_shared_rollback(tmp_path) -> None:
         geom,
         max_step=0.1,
         line_search=False,
+        reject_uphill=True,
         out_dir=tmp_path,
     )
     assert opt.reject_uphill is True
@@ -348,8 +349,7 @@ def test_baker_uses_energy_or_max_step_after_max_force(
         overachieve_factor=0.0,
         out_dir=tmp_path,
     )
-    opt.cur_cycle = 2
-    opt.last_cycle = 0
+    opt.cur_cycle = opt.last_cycle
     opt.forces = [np.array([1.0e-5, 0.0, 0.0])]
     opt.energies = [0.0, energy_change]
     opt.steps = [np.array([max_step, 0.0, 0.0])]
@@ -634,6 +634,47 @@ def test_exact_verifier_retains_curvature_but_rejects_higher_order_status(
     assert opt._last_exact_n_imaginary == 2
     assert opt._last_exact_saddle_verified is False
     assert opt._best_exact_saddle is None
+
+
+def test_exact_noncart_verifier_rejects_positive_selected_root(
+    tmp_path, monkeypatch
+) -> None:
+    _, opt = _ts_optimizer(tmp_path, 0.0)
+    opt.roots = [1]
+    opt.forces = [np.zeros(3)]
+    opt.cur_H = np.diag([-2.0, 1.0, 3.0])
+    monkeypatch.setattr(opt, "_mw_frequencies_and_modes", lambda: None)
+
+    has_negative, _, _ = opt._verify_exact_vibrational_structure(
+        np.array([-2.0, 1.0, 3.0]), np.eye(3)
+    )
+
+    assert has_negative is False
+    assert opt._last_exact_n_imaginary == 1
+    assert opt._last_exact_saddle_verified is False
+
+
+@pytest.mark.parametrize(
+    "device",
+    ["cpu"] + (["cuda"] if torch.cuda.is_available() else []),
+)
+def test_hessian_reference_accepts_torch_eigenvectors(
+    tmp_path, monkeypatch, device
+) -> None:
+    _, opt = _ts_optimizer(tmp_path, 0.0)
+    opt.hessian_ref = np.diag([-3.0, 1.0, 2.0])
+
+    def seed_torch_hessian(self, *_args, **_kwargs):
+        self.H = torch.diag(
+            torch.tensor([-2.0, 1.0, 3.0], device=device)
+        )
+
+    monkeypatch.setattr(HessianOptimizer, "prepare_opt", seed_torch_hessian)
+
+    opt.prepare_opt()
+
+    assert opt.roots.tolist() == [0]
+    assert isinstance(opt.ts_modes, torch.Tensor)
 
 
 def test_exact_higher_order_saddle_keeps_path_correlated_negative_mode(

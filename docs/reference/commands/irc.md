@@ -48,10 +48,11 @@ Options:
                                   from YAML.
   --backward / --no-backward      Run the backward IRC; overrides irc.backward
                                   from YAML.
-  --never-stop / --no-never-stop  Ignore energy-rise and energy-plateau stop
-                                  conditions so a small shoulder can be crossed.
-                                  Integrator convergence, invalid values, and
-                                  max-cycles still stop the run; default off.
+  --never-stop / --no-never-stop  Ignore RMS-gradient, hard-gradient, energy-
+                                  rise, and energy-change stops and trace until
+                                  max-cycles. Numerical/integration failures and
+                                  external interruption still stop the run;
+                                  default off.
   -o, --out-dir TEXT              Output directory; overrides irc.out_dir from
                                   YAML.  [default: ./result_irc/]
   --hessian-calc-mode [analytical|finitedifference]
@@ -148,8 +149,8 @@ Options:
   --backend-model TEXT            Model variant for the selected --backend (e.g.
                                   uma-s-1p2 / uma-m-1p1 for uma,
                                   orb_v3_conservative_omol for orb, MACE-OMOL-0
-                                  / MACE-OFF23_small for mace). Default: the
-                                  backend's built-in model.
+                                  / off:small for mace). Default: the backend's
+                                  built-in model.
   --calc-file FILE                Python file exposing get_calculator(...) -> an
                                   ASE Calculator used as the ML-region backend
                                   (overrides --backend). Couples GFN-xTB / DFTB+

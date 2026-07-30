@@ -74,11 +74,10 @@ matched reaction mode is available.
 ## 4. IRC stops too early
 
 First reduce the step length, for example `mlmm irc ... --step-size 0.05`.
-This is the preferred response to an early plateau/energy-rise stop. If a small
-shoulder must be crossed, opt in to `--never-stop` (or
-`all --irc-never-stop`). It ignores energy-rise and plateau stop conditions;
-integrator convergence, invalid values, and `--max-cycles` still stop the run.
-Always inspect both branches and bond connectivity. The mode is off by default.
+Use `--never-stop` (or `all --irc-never-stop`) when the intended operation is
+unconditional tracing to the cycle cap. It ignores gradient and energy endpoint
+criteria; numerical/integration failures still stop the run. Always inspect
+both branches and bond connectivity. The mode is off by default.
 
 ## 5. Reading the barrier when the scan started from Product
 

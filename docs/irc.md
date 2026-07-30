@@ -29,17 +29,18 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ```
 
 If an IRC stops almost immediately, first reduce `--step-size` (for example,
-from 0.10 to 0.05 Bohr). If a verified small shoulder still triggers only the
-energy-rise/plateau stop, opt in to `--never-stop`:
+from 0.10 to 0.05 Bohr). To ignore every physical endpoint criterion and trace
+unconditionally, opt in to `--never-stop`:
 
 ```bash
 mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0 \
  --step-size 0.05 --never-stop --max-cycles 250 -o result_irc_continue
 ```
 
-This is not an unlimited loop: integrator convergence, invalid numerical
-values, and the cycle cap still stop the run. Inspect both trajectories and
-endpoint connectivity before accepting it.
+This is not an unlimited loop: numerical/integration failures, external
+interruption, and the cycle cap still stop the run. A force threshold reached
+in this mode is not reported as directional convergence. Inspect both
+trajectories and endpoint connectivity before accepting them.
 
 Command form:
 
@@ -114,7 +115,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--root INT` | Imaginary mode index for the initial displacement; overrides `irc.root`. | `0` |
 | `--forward/--no-forward` | Run the forward IRC; overrides `irc.forward`. | `True` |
 | `--backward/--no-backward` | Run the backward IRC; overrides `irc.backward`. | `True` |
-| `--never-stop/--no-never-stop` | Ignore energy-rise and plateau stops only. Convergence, invalid values, and `--max-cycles` remain active. | `False` |
+| `--never-stop/--no-never-stop` | Ignore RMS-gradient, hard-gradient, energy-rise, and one-step energy-change stops (`abs(E_n-E_{n-1}) <= energy_thresh`, default `1e-6` Hartree) and trace to `--max-cycles`. Numerical/integration failures and external interruption still stop propagation. | `False` |
 | `-o, --out-dir PATH` | Output directory; overrides `irc.out_dir`. | `./result_irc/` |
 | `--ref-pdb FILE` | Reference PDB or mmCIF topology to use when `--input` is XYZ (keeps XYZ coordinates). | _None_ |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB/CIF companions when a reference topology is available. | `True` |
@@ -170,7 +171,8 @@ irc:
  max_cycles: 125                   # maximum steps along IRC (CLI: --max-cycles)
  forward: true                     # propagate forward branch (CLI: --forward)
  backward: true                    # propagate backward branch (CLI: --backward)
- never_stop: false                 # ignore energy-rise/plateau stops only
+ never_stop: false                 # ignore physical endpoint criteria through max_cycles
+ energy_increase_thresh: 0.001     # ordinary-mode one-step rise tolerance (Hartree)
 ```
 
 Full schema (every `irc` key and default): [YAML Reference](yaml-reference.md#irc-section).
@@ -178,7 +180,7 @@ Full schema (every `irc` key and default): [YAML Reference](yaml-reference.md#ir
 ## Notes
 
 - Both branches run by default; disable one with `--no-forward` or `--no-backward` when you only need a single direction.
-- For early stopping, reduce `--step-size` before enabling `--never-stop`; use the latter only after inspecting the surface.
+- For early stopping, reduce `--step-size` before enabling `--never-stop`; use the latter only when tracing to the cycle cap is intended.
 - An all-frozen selection has no IRC direction and raises an explicit error.
 - With `--out-json`, `result.json.rigid_projection` records the selected
   treatment, effective rank, initial-Hessian source, and Hessian shape.

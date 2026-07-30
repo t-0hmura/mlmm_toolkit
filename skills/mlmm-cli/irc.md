@@ -47,7 +47,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `-q` / `-l` / `-m` | — | — | Charge / spin (common conventions) |
 | `--max-cycles` | int | 125 | Max IRC steps per branch (forward + backward) |
 | `--step-size` | float | 0.10 (Bohr) | Step in Bohr; maps to `IRC_KW['step_length']` |
-| `--never-stop / --no-never-stop` | bool | off | Ignore energy-rise/plateau stops only; convergence, invalid values, and max cycles remain active |
+| `--never-stop / --no-never-stop` | bool | off | Ignore gradient and energy endpoint criteria and trace to max cycles; propagation failures still stop |
 | `--tr-projection` | str | `constrained` | Frozen-boundary TR treatment. `legacy-active` is deprecated comparison-only behavior; never use it for pass/HOSP transition-state certification. |
 | `--read-hess` | path | — | Identified NPZ from `freq --dump-hess`; geometry, atom order, active-DOF basis, and schema-2 charge/multiplicity must match |
 | `--allow-unverified-hess-state` | bool | off | Permit a schema-1 Hessian whose charge/multiplicity cannot be verified. Requires `--read-hess` and independent state checking; schema-2 mismatches remain fatal. |
@@ -74,8 +74,8 @@ mlmm irc -i ts.xyz --parm real.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 \
 ```
 
 If a branch stops immediately, reduce `--step-size` first. Use
-`--never-stop` only for a verified small shoulder; it does not disable
-integrator convergence, invalid-value checks, or the maximum-cycle guard.
+`--never-stop` when tracing to the maximum-cycle guard is intended. Numerical
+or integration failure can still stop the branch.
 
 ## Output
 

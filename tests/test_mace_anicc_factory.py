@@ -54,3 +54,36 @@ def test_mace_anicc_uses_supported_factory_signature(
                 "default_dtype": "float32",
             },
         }
+
+
+@pytest.mark.parametrize("size", ["small", "medium", "large"])
+def test_mace_off23_display_alias_maps_to_upstream_size(
+    monkeypatch, size
+) -> None:
+    captured = {}
+    calculators = ModuleType("mace.calculators")
+    calculators.mace_anicc = lambda **_kwargs: object()
+    calculators.mace_mp = lambda **_kwargs: object()
+    calculators.mace_omol = lambda **_kwargs: object()
+    calculators.mace_off = (
+        lambda **kwargs: captured.update(kwargs) or object()
+    )
+    calculators.MACECalculator = object
+    mace_package = ModuleType("mace")
+    mace_package.__path__ = []
+
+    monkeypatch.setattr(mlmm_calc, "HAS_MACE", True)
+    monkeypatch.setitem(sys.modules, "mace", mace_package)
+    monkeypatch.setitem(sys.modules, "mace.calculators", calculators)
+
+    mlmm_calc._MACEBackend(
+        mace_model=f"MACE-OFF23_{size}",
+        mace_dtype="float64",
+        ml_device=torch.device("cpu"),
+    )
+
+    assert captured == {
+        "model": size,
+        "device": "cpu",
+        "default_dtype": "float64",
+    }

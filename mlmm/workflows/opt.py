@@ -1221,11 +1221,12 @@ def _run_microiter_opt(
 @click.option(
     "--reject-uphill/--no-reject-uphill",
     "reject_uphill",
-    default=True,
+    default=False,
     show_default=True,
     help=(
-        "Reject uphill RFO trials in hess mode and final-check the retained "
-        "geometry at the emergency floor. Ignored in grad/lbfgs mode."
+        "Opt in to rejecting uphill RFO trials in hess mode (tolerance: "
+        "1e-3 Hartree) and final-check the retained geometry at the emergency "
+        "floor. Ignored in grad/lbfgs mode."
     ),
 )
 @click.option(

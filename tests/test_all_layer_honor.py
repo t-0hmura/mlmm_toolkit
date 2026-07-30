@@ -50,6 +50,32 @@ def test_summarize_existing_bfactor_layers(tmp_path: Path) -> None:
 
 
 @_need_py311
+def test_summarize_uses_inclusive_canonical_tolerance(tmp_path: Path) -> None:
+    pdb = tmp_path / "layered_boundaries.pdb"
+    pdb.write_text(
+        textwrap.dedent(
+            """\
+            ATOM      1  N   ALA A   1      11.000  10.000  10.000  1.00  1.00           N
+            ATOM      2  C   ALA A   2      13.000  10.000  10.000  1.00 11.00           C
+            ATOM      3  O   ALA A   3      14.000  10.000  10.000  1.00 21.00           O
+            ATOM      4  H   ALA A   4      15.000  10.000  10.000  1.00 21.01           H
+            END
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    from mlmm.workflows.all import _summarize_existing_bfactor_layers
+
+    assert _summarize_existing_bfactor_layers(pdb) == {
+        "ml": 1,
+        "movable": 1,
+        "frozen": 1,
+        "other": 1,
+    }
+
+
+@_need_py311
 def test_summarize_unlayered_pdb(tmp_path: Path) -> None:
     """An un-layered PDB (single B-factor value) lands all atoms in
     'other', flagging that the user did not pre-encode layers."""

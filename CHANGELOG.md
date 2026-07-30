@@ -4,6 +4,31 @@ All notable changes to **mlmm-toolkit** will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Changed
+- Make uphill trial rejection opt-in for L-BFGS and RFO minimization, and raise
+  its default energy tolerance from `1e-8` to `1e-3` Hartree so explicitly
+  enabled rejection does not classify normal full-system fp32 energy noise as
+  an uphill step.
+- Make IRC `never_stop` bypass gradient and energy endpoint conditions and
+  trace to the cycle cap; ordinary IRC now tolerates one-step energy rises up
+  to `1e-3` Hartree.
+
+### Fixed
+- Reject dependent Amber virtual sites before allocating the `hessian_ff`
+  backend, bound the reported atom-number list, and direct users to OpenMM or
+  a 3-point-water topology.
+- Apply the canonical inclusive B-factor tolerance consistently when reading
+  ML, movable-MM, and frozen-MM layers; leave missing or malformed B-factors
+  unassigned instead of treating them as ML atoms.
+- Resolve the legacy `MACE-OFF23_small`, `_medium`, and `_large` aliases
+  to the corresponding upstream MACE-OFF model sizes.
+- Preserve selected-root saddle validation in non-Cartesian coordinates and
+  convert torch eigenvectors explicitly for reference-mode overlap checks.
+- Accept the Baker force-plus-energy-or-step criterion on every evaluable
+  cycle, including the first retained geometry.
+
 ## [0.3.3] — 2026-07-27
 
 > Upgrade warning: unchanged inputs can produce different geometries, energies/barriers,

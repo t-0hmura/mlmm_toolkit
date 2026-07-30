@@ -242,6 +242,10 @@ lbfgs:
  double_damp: true # Double damping safeguard
  mu_reg: null # Regularization strength
  max_mu_reg_adaptions: 10 # Cap on mu adaptations
+ reject_uphill: false # Opt in to rejecting energy rises above the tolerance
+ uphill_tolerance: 0.001 # Energy-rise tolerance (Hartree)
+ rejection_step_floor: 1.0e-07 # Smallest retry step
+ max_rejections_at_floor: 3 # Stop after repeated rejection at the floor
 ```
 
 ---
@@ -258,6 +262,10 @@ rfo:
  trust_min: 0.0001 # Minimum trust radius
  trust_max: 0.10 # Maximum trust radius (tuned for ML/MM stability)
  max_energy_incr: null # Allowed energy increase per step
+ reject_uphill: false # Opt in to rejecting energy rises above the tolerance
+ uphill_tolerance: 0.001 # Energy-rise tolerance (Hartree)
+ rejection_trust_floor: 1.0e-07 # Smallest retry trust radius
+ max_rejections_at_floor: 3 # Stop after repeated rejection at the floor
  hessian_update: bfgs # Hessian update scheme: bfgs, bofill, etc.
  hessian_init: calc # Hessian initialization: calc, unit, etc.
  hessian_recalc: 500 # Rebuild Hessian every N steps
@@ -492,6 +500,7 @@ IRC integration settings.
 ```yaml
 irc:
  step_length: 0.1 # Integration step length
+ never_stop: false # Ignore physical endpoint criteria and trace to max_cycles
  max_cycles: 125 # Maximum steps along IRC
  forward: true # Propagate in forward direction
  backward: true # Propagate in backward direction
@@ -505,6 +514,7 @@ irc:
  rms_grad_thresh: 0.001 # RMS gradient convergence threshold
  hard_rms_grad_thresh: null # Hard RMS gradient stop
  energy_thresh: 0.000001 # Energy change threshold
+ energy_increase_thresh: 0.001 # Ordinary-mode one-step rise tolerance
  imag_below: 0.0 # Imaginary frequency cutoff
  force_inflection: true # Enforce inflection detection
  check_bonds: false # Check bonds during propagation

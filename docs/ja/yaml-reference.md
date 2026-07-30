@@ -222,6 +222,10 @@ lbfgs:
  double_damp: true # 二重ダンピング安全装置
  mu_reg: null # 正則化強度
  max_mu_reg_adaptions: 10 # mu 適応の上限
+ reject_uphill: false # 許容値を超えるenergy上昇の拒否を明示的に有効化
+ uphill_tolerance: 0.001 # energy上昇許容値（Hartree）
+ rejection_step_floor: 1.0e-07 # retry stepの下限
+ max_rejections_at_floor: 3 # 下限での連続拒否後に停止
 ```
 
 ---
@@ -237,6 +241,10 @@ rfo:
  trust_min: 0.0001 # 最小信頼半径
  trust_max: 0.10 # 最大信頼半径（ML/MM 安定性のため調整）
  max_energy_incr: null # ステップあたりの許容エネルギー増加
+ reject_uphill: false # 許容値を超えるenergy上昇の拒否を明示的に有効化
+ uphill_tolerance: 0.001 # energy上昇許容値（Hartree）
+ rejection_trust_floor: 1.0e-07 # retry trust radiusの下限
+ max_rejections_at_floor: 3 # 下限での連続拒否後に停止
  hessian_update: bfgs # Hessian更新スキーム: bfgs, bofill 等
  hessian_init: calc # Hessian初期化: calc, unit 等
  hessian_recalc: 500 # N ステップごとにHessianを再構築
@@ -468,6 +476,7 @@ IRC 積分設定。
 ```yaml
 irc:
  step_length: 0.1 # 積分ステップ長
+ never_stop: false # 物理的端点判定を無視してmax_cyclesまで追跡
  max_cycles: 125 # IRC の最大ステップ数
  forward: true # 順方向に伝搬
  backward: true # 逆方向に伝搬
@@ -481,6 +490,7 @@ irc:
  rms_grad_thresh: 0.001 # RMS 勾配の収束閾値
  hard_rms_grad_thresh: null # ハード RMS 勾配停止閾値
  energy_thresh: 0.000001 # エネルギー変化閾値
+ energy_increase_thresh: 0.001 # 通常modeの1 step energy上昇許容値
  imag_below: 0.0 # 虚振動数カットオフ
  force_inflection: true # 変曲点検出の強制
  check_bonds: false # 伝搬中の結合チェック

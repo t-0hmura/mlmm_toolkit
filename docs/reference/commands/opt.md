@@ -84,10 +84,11 @@ Options:
   --flatten / --no-flatten        Enable/disable imaginary-mode flatten loop
                                   after optimization.  [default: no-flatten]
   --reject-uphill / --no-reject-uphill
-                                  Reject uphill RFO trials in hess mode and
-                                  final-check the retained geometry at the
-                                  emergency floor. Ignored in grad/lbfgs mode.
-                                  [default: reject-uphill]
+                                  Opt in to rejecting uphill RFO trials in hess
+                                  mode (tolerance: 1e-3 Hartree) and final-check
+                                  the retained geometry at the emergency floor.
+                                  Ignored in grad/lbfgs mode.  [default: no-
+                                  reject-uphill]
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
   --show-config / --no-show-config
@@ -171,8 +172,8 @@ Options:
   --backend-model TEXT            Model variant for the selected --backend (e.g.
                                   uma-s-1p2 / uma-m-1p1 for uma,
                                   orb_v3_conservative_omol for orb, MACE-OMOL-0
-                                  / MACE-OFF23_small for mace). Default: the
-                                  backend's built-in model.
+                                  / off:small for mace). Default: the backend's
+                                  built-in model.
   --calc-file FILE                Python file exposing get_calculator(...) -> an
                                   ASE Calculator used as the ML-region backend
                                   (overrides --backend). Couples GFN-xTB / DFTB+

@@ -88,6 +88,7 @@ from mlmm.core.utils import (
     build_energy_diagram,
     close_matplotlib_figures,
     convert_xyz_to_pdb,
+    classify_bfactor_layer,
     ensure_dir,
     format_elapsed,
     prepare_input_structure,
@@ -702,7 +703,7 @@ def _write_bfactor_ml_subset(src_pdb: Path, dest: Path) -> Optional[Path]:
                     bf = float(ln[60:66])
                 except ValueError:
                     continue
-                if abs(bf) < 0.5:
+                if classify_bfactor_layer(bf) == "ml":
                     ml_lines.append(ln)
         if not ml_lines:
             _echo(
@@ -746,12 +747,9 @@ def _summarize_existing_bfactor_layers(pdb_path: Path) -> Dict[str, int]:
                 except ValueError:
                     counts["other"] += 1
                     continue
-                if abs(bf) < 0.5:
-                    counts["ml"] += 1
-                elif abs(bf - 10.0) < 0.5:
-                    counts["movable"] += 1
-                elif abs(bf - 20.0) < 0.5:
-                    counts["frozen"] += 1
+                layer = classify_bfactor_layer(bf)
+                if layer in counts and layer != "other":
+                    counts[layer] += 1
                 else:
                     counts["other"] += 1
     except FileNotFoundError:
@@ -1081,7 +1079,10 @@ def _derive_ml_charge_from_layered_pdb(
         ml_ids = {
             r.get_full_id()
             for r in st.get_residues()
-            if any(abs(a.get_bfactor()) < 0.5 for a in r.get_atoms())
+            if any(
+                classify_bfactor_layer(a.get_bfactor()) == "ml"
+                for a in r.get_atoms()
+            )
         }
         if not ml_ids:
             return None
@@ -3497,12 +3498,13 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @click.option(
     "--reject-uphill/--no-reject-uphill",
     "reject_uphill",
-    default=True,
+    default=False,
     show_default=True,
     help=(
-        "Reject uphill RFO trials during post-IRC endpoint re-optimization only "
-        "and final-check the retained endpoint at the emergency floor. Does not "
-        "affect TS optimization or path search."
+        "Opt in to rejecting uphill RFO trials during post-IRC endpoint "
+        "re-optimization only (tolerance: 1e-3 Hartree) and final-check the "
+        "retained endpoint at the emergency floor. Does not affect TS "
+        "optimization or path search."
     ),
 )
 @click.option(
@@ -3520,8 +3522,9 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     default=None,
     help=(
         "Forward IRC never-stop mode to every post-TS IRC. It ignores "
-        "energy-rise/plateau stops but retains physical/integrator stops; "
-        "default follows irc.never_stop (off)."
+        "gradient and energy endpoint criteria and traces to the cycle cap; "
+        "numerical/integration failures still stop. Default follows "
+        "irc.never_stop (off)."
     ),
 )
 @click.option(
@@ -3802,7 +3805,7 @@ def cli(
     _is_param_explicit = make_is_param_explicit(ctx)
     # Post-IRC endpoint re-optimization uphill-rejection toggle, forwarded to the
     # opt child. ``None`` unless the flag was explicitly passed, so the default
-    # path keeps the opt child's own RFO_KW reject_uphill (unchanged behavior).
+    # path inherits the opt child's default-off RFO_KW setting.
     _reject_uphill_eff = (
         bool(reject_uphill) if _is_param_explicit("reject_uphill") else None
     )

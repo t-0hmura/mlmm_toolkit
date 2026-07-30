@@ -294,6 +294,7 @@ def test_supported_lbfgs_round_trips_uphill_rejection_state(tmp_path) -> None:
     geom_full, opt_full = _lbfgs(
         tmp_path / "lf", [0.3, 0.0, 0.0],
         beta=2.0, max_step=2.0, double_damp=False, max_cycles=60,
+        reject_uphill=True,
     )
     opt_full.run()
     assert opt_full.is_converged
@@ -301,6 +302,7 @@ def test_supported_lbfgs_round_trips_uphill_rejection_state(tmp_path) -> None:
     geom_a, opt_a = _lbfgs(
         tmp_path / "la", [0.3, 0.0, 0.0],
         beta=2.0, max_step=2.0, double_damp=False, max_cycles=3,
+        reject_uphill=True,
     )
     opt_a.run()
     # The scenario actually triggers a rejection and drives the adaptive state
@@ -314,6 +316,7 @@ def test_supported_lbfgs_round_trips_uphill_rejection_state(tmp_path) -> None:
     geom_b, opt_b = _lbfgs(
         tmp_path / "lb", [0.0, 0.0, 0.0],
         beta=2.0, max_step=2.0, double_damp=False, max_cycles=60,
+        reject_uphill=True,
     )
     # Fresh optimizer carries only the __init__ defaults.
     assert opt_b._trial_max_step == pytest.approx(2.0)

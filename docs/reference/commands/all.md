@@ -173,19 +173,21 @@ Options:
                                   RSIRFO); --no-flatten forces
                                   flatten_max_iter=0.  [default: no-flatten]
   --reject-uphill / --no-reject-uphill
-                                  Reject uphill RFO trials during post-IRC
-                                  endpoint re-optimization only and final-check
-                                  the retained endpoint at the emergency floor.
-                                  Does not affect TS optimization or path
-                                  search.  [default: reject-uphill]
+                                  Opt in to rejecting uphill RFO trials during
+                                  post-IRC endpoint re-optimization only
+                                  (tolerance: 1e-3 Hartree) and final-check the
+                                  retained endpoint at the emergency floor. Does
+                                  not affect TS optimization or path search.
+                                  [default: no-reject-uphill]
   --irc-step-size FLOAT           Override IRC --step-size (Bohr). If an IRC
                                   stops after only a few frames, retry with a
                                   smaller value such as 0.05.
   --irc-never-stop / --no-irc-never-stop
                                   Forward IRC never-stop mode to every post-TS
-                                  IRC. It ignores energy-rise/plateau stops but
-                                  retains physical/integrator stops; default
-                                  follows irc.never_stop (off).
+                                  IRC. It ignores gradient and energy endpoint
+                                  criteria and traces to the cycle cap;
+                                  numerical/integration failures still stop.
+                                  Default follows irc.never_stop (off).
   --skip-final-freq / --no-skip-final-freq
                                   Skip post-convergence frequency analysis in
                                   tsopt. Useful for large unfrozen systems.
@@ -282,8 +284,8 @@ Options:
   --backend-model TEXT            Model variant for the selected --backend (e.g.
                                   uma-s-1p2 / uma-m-1p1 for uma,
                                   orb_v3_conservative_omol for orb, MACE-OMOL-0
-                                  / MACE-OFF23_small for mace). Default: the
-                                  backend's built-in model.
+                                  / off:small for mace). Default: the backend's
+                                  built-in model.
   --calc-file FILE                Python file exposing get_calculator(...) -> an
                                   ASE Calculator used as the ML-region backend
                                   (overrides --backend). Couples GFN-xTB / DFTB+

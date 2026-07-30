@@ -47,6 +47,7 @@ class IRC:
         rms_grad_thresh=1e-3,
         hard_rms_grad_thresh=None,
         energy_thresh=1e-6,
+        energy_increase_thresh=1e-3,
         imag_below=0.0,
         force_inflection=True,
         check_bonds=False,
@@ -96,15 +97,17 @@ class IRC:
         energy_thresh : float, default=1e-6,
             Signal convergence when the energy difference between two points
             is equal to or less than 'energy_thresh'.
+        energy_increase_thresh : float, default=1e-3,
+            Stop when one IRC step raises the energy by more than this amount.
         imag_below : float, default=0.0
             Require the wavenumber of the imaginary mode to be below the
             given threshold. If given, it should be a negative number.
         force_inflection : bool, optional
             Don't indicate convergence before passing an inflection point.
         never_stop : bool, optional
-            Ignore energy-increase and energy-change stopping conditions so a
-            short uphill/flat section does not terminate the path. Gradient
-            convergence, integrator convergence, and max_cycles still apply.
+            Ignore RMS-gradient, hard-gradient, energy-increase, and
+            energy-change stopping conditions. Numerical/integration failures,
+            external interruption, and max_cycles still stop the path.
         check_bonds : bool, optional, default=True
             Report whether bonds are formed/broken along the IRC, w.r.t the TS.
         out_dir : str, optional
@@ -147,6 +150,14 @@ class IRC:
         self.rms_grad_thresh = float(rms_grad_thresh)
         self.hard_rms_grad_thresh = hard_rms_grad_thresh
         self.energy_thresh = float(energy_thresh)
+        self.energy_increase_thresh = float(energy_increase_thresh)
+        if (
+            not np.isfinite(self.energy_increase_thresh)
+            or self.energy_increase_thresh < 0.0
+        ):
+            raise ValueError(
+                "energy_increase_thresh must be finite and non-negative."
+            )
         # Sella backport (opt-in): require eigh(mw_hessian)[0] > 0 in addition
         # to rms(grad) <= thresh. Blocks "shoulder" false convergence where
         # the gradient is small but the Hessian still has a negative mode
@@ -211,6 +222,26 @@ class IRC:
         if self.energy_converged:
             return "Energy converged!"
         return ""
+
+    def _energy_increase_exceeds_tolerance(self, last_energy, this_energy):
+        return (
+            this_energy - last_energy > self.energy_increase_thresh
+        )
+
+    def _gradient_converged(self, rms_grad):
+        return (
+            not self.never_stop
+            and self.past_inflection
+            and rms_grad <= self.rms_grad_thresh
+        )
+
+    def _hard_gradient_stop(self, rms_grad):
+        return (
+            not self.never_stop
+            and self.hard_rms_grad_thresh is not None
+            and not self.past_inflection
+            and rms_grad <= self.hard_rms_grad_thresh
+        )
 
     def get_path_for_fn(self, fn):
         return self.out_dir / f"{self.prefix}{fn}"
@@ -438,6 +469,8 @@ class IRC:
         self.energy_increased = False
         self.energy_converged = False
         self.past_inflection = not self.force_inflection
+        self._never_stop_gradient_notice_shown = False
+        self._never_stop_hard_gradient_notice_shown = False
 
         self.irc_energies = list()
         # Not mass-weighted
@@ -823,9 +856,11 @@ class IRC:
             this_energy = self.irc_energies[-1]
 
             break_msg = ""
-            self.energy_increased = this_energy > last_energy
+            self.energy_increased = self._energy_increase_exceeds_tolerance(
+                last_energy, this_energy
+            )
             self.energy_converged = abs(last_energy - this_energy) <= self.energy_thresh
-            if self.past_inflection and (rms_grad <= self.rms_grad_thresh):
+            if self._gradient_converged(rms_grad):
                 if self.require_pos_def_hessian and not self._exact_endpoint_is_pos_def():
                     # Gradient small but Hessian still has negative mode — we're on
                     # a shoulder, not at the true minimum. Skip convergence this cycle
@@ -837,16 +872,39 @@ class IRC:
                     self.converged = True
             elif self.integration_stop_requested:
                 break_msg = self.integration_stop_reason
-            elif (
-                self.hard_rms_grad_thresh
-                and (not self.past_inflection)
-                and (rms_grad <= self.hard_rms_grad_thresh)
-            ):
+            elif self._hard_gradient_stop(rms_grad):
                 break_msg = "rms(grad) below hard threshold."
             else:
                 break_msg = self._energy_stop_message()
 
             if self.never_stop and not break_msg:
+                gradient_converged = (
+                    self.past_inflection
+                    and rms_grad <= self.rms_grad_thresh
+                )
+                hard_gradient_stop = (
+                    self.hard_rms_grad_thresh is not None
+                    and not self.past_inflection
+                    and rms_grad <= self.hard_rms_grad_thresh
+                )
+                if (
+                    gradient_converged
+                    and not self._never_stop_gradient_notice_shown
+                ):
+                    self._never_stop_gradient_notice_shown = True
+                    self.table.print(
+                        "RMS gradient threshold reached; continuing because "
+                        "never_stop=True."
+                    )
+                if (
+                    hard_gradient_stop
+                    and not self._never_stop_hard_gradient_notice_shown
+                ):
+                    self._never_stop_hard_gradient_notice_shown = True
+                    self.table.print(
+                        "Hard RMS gradient threshold reached; continuing "
+                        "because never_stop=True."
+                    )
                 if self.energy_increased:
                     self.never_stop_energy_increase_bypasses += 1
                     self.table.print(
@@ -943,6 +1001,12 @@ class IRC:
         self.dump_ends(".", prefix, getattr(self, mw_coords_name))
 
     def report_conv_thresholds(self):
+        if self.never_stop:
+            print(
+                "Physical endpoint stop thresholds are disabled because "
+                "never_stop=True.\n"
+            )
+            return
         threshs = [
             f"\t     rms(|gradient|) <= {self.rms_grad_thresh:.6f} E_h a_0⁻¹",
             f"\t             Δenergy <= {self.energy_thresh:.6f} E_h",

@@ -310,9 +310,9 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     "never_stop",
     default=None,
     help=(
-        "Ignore energy-rise and energy-plateau stop conditions so a small "
-        "shoulder can be crossed. Integrator convergence, invalid values, and "
-        "max-cycles still stop the run; default off."
+        "Ignore RMS-gradient, hard-gradient, energy-rise, and energy-change "
+        "stops and trace until max-cycles. Numerical/integration failures and "
+        "external interruption still stop the run; default off."
     ),
 )
 @click.option("-o", "--out-dir", type=str, default=IRC_KW["out_dir"], show_default=True, help="Output directory; overrides irc.out_dir from YAML.")

@@ -1,5 +1,4 @@
-"""Regression tests for the opt-in IRC energy-stop bypass and the IRC workflow
-output handling around it."""
+"""Regression tests for IRC physical-stop bypass and its workflow output."""
 
 from __future__ import annotations
 
@@ -11,6 +10,7 @@ import torch
 from click.testing import CliRunner
 
 from mlmm.core.defaults import IRC_KW
+from pysisyphus.Geometry import Geometry
 from pysisyphus.irc.IRC import IRC
 
 
@@ -26,9 +26,10 @@ def _irc_stop_probe(*, never_stop: bool, increased: bool, converged: bool) -> IR
 
 def test_never_stop_is_opt_in() -> None:
     assert IRC_KW["never_stop"] is False
+    assert IRC_KW["energy_increase_thresh"] == pytest.approx(1.0e-3)
 
 
-def test_default_irc_stops_on_energy_increase_or_plateau() -> None:
+def test_default_irc_stops_on_energy_increase_or_one_step_energy_change() -> None:
     assert _irc_stop_probe(
         never_stop=False, increased=True, converged=False
     )._energy_stop_message() == "Energy increased!"
@@ -41,6 +42,62 @@ def test_never_stop_ignores_energy_only_stops() -> None:
     assert _irc_stop_probe(
         never_stop=True, increased=True, converged=False
     )._energy_stop_message() == ""
+
+
+def test_never_stop_ignores_gradient_stops_without_claiming_convergence() -> None:
+    irc = _irc_stop_probe(
+        never_stop=True, increased=False, converged=False
+    )
+    irc.past_inflection = True
+    irc.rms_grad_thresh = 1.0e-3
+    irc.hard_rms_grad_thresh = 2.0e-3
+    irc.converged = False
+
+    assert not irc._gradient_converged(0.0)
+    irc.past_inflection = False
+    assert not irc._hard_gradient_stop(0.0)
+    assert irc.converged is False
+
+
+def test_never_stop_reports_physical_thresholds_as_disabled(capsys) -> None:
+    irc = _irc_stop_probe(
+        never_stop=True, increased=False, converged=False
+    )
+
+    irc.report_conv_thresholds()
+
+    output = capsys.readouterr().out
+    assert "stop thresholds are disabled" in output
+    assert "rms(|gradient|) <=" not in output
+
+
+@pytest.mark.parametrize("threshold", [-1.0, np.nan, np.inf])
+def test_energy_increase_threshold_must_be_finite_and_nonnegative(
+    tmp_path, threshold
+) -> None:
+    geometry = Geometry(
+        ("H",), np.zeros(3), coord_type="cart"
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="must be finite and non-negative",
+    ):
+        IRC(
+            geometry,
+            out_dir=tmp_path,
+            energy_increase_thresh=threshold,
+        )
+
+
+def test_default_irc_energy_increase_uses_noise_tolerance() -> None:
+    irc = _irc_stop_probe(
+        never_stop=False, increased=False, converged=False
+    )
+    irc.energy_increase_thresh = IRC_KW["energy_increase_thresh"]
+
+    assert not irc._energy_increase_exceeds_tolerance(-100.0, -99.9995)
+    assert irc._energy_increase_exceeds_tolerance(-100.0, -99.998)
     assert _irc_stop_probe(
         never_stop=True, increased=False, converged=True
     )._energy_stop_message() == ""

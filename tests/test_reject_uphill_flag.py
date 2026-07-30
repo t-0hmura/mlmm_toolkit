@@ -4,8 +4,8 @@ mlmm's `all` runs post-IRC endpoint re-optimization by invoking the `opt` child
 CLI, so the toggle is threaded into `_run_opt_for_state` and forwarded to that
 child as `--reject-uphill` / `--no-reject-uphill`. These tests pin:
 
-1. the shipped default is unchanged (``RFO_KW["reject_uphill"] is True``);
-2. both `opt` and `all` expose the toggle with default on;
+1. the shipped default is off (``RFO_KW["reject_uphill"] is False``);
+2. both `opt` and `all` expose the toggle with default off;
 3. the default path (flag not passed -> ``reject_uphill=None``) forwards NO token
    to the opt child (byte-identical behavior), while an explicit toggle forwards
    the matching canonical flag through the real ``_run_opt_for_state`` code path;
@@ -29,8 +29,9 @@ from mlmm.workflows.tsopt import (
 )
 
 
-def test_shipped_default_is_reject_uphill_on() -> None:
-    assert RFO_KW["reject_uphill"] is True
+def test_shipped_default_is_reject_uphill_off() -> None:
+    assert RFO_KW["reject_uphill"] is False
+    assert RFO_KW["uphill_tolerance"] == 1e-3
 
 
 def test_ts_rfo_forces_reject_uphill_off(tmp_path: Path) -> None:
@@ -50,7 +51,7 @@ def test_ts_dimer_forces_reject_uphill_off() -> None:
 
 
 @pytest.mark.parametrize("command", ["opt", "all"])
-def test_toggle_is_exposed_with_default_on(command: str) -> None:
+def test_toggle_is_exposed_with_default_off(command: str) -> None:
     ctx = click.Context(root_cli)
     cmd = root_cli.get_command(ctx, command)
     assert cmd is not None
@@ -62,7 +63,7 @@ def test_toggle_is_exposed_with_default_on(command: str) -> None:
     assert param.opts == ["--reject-uphill"]
     assert param.secondary_opts == ["--no-reject-uphill"]
     assert param.is_bool_flag is True
-    assert param.default is True
+    assert param.default is False
 
 
 class _StopBeforeChild(Exception):
@@ -134,8 +135,8 @@ def test_all_gate_resolves_endpoint_reject_uphill(tmp_path: Path, extra, expecte
 
     Parse `all` the way the CLI does and reproduce the exact resolution line
     ``_reject_uphill_eff = bool(reject_uphill) if _is_param_explicit(...) else None``.
-    If the explicit-gate silently missed ``--no-reject-uphill``, the off-arm
-    would forward nothing and run with reject_uphill still ON (on-vs-on A/B).
+    The default arm forwards no override and therefore inherits the opt
+    child's shared default-off RFO configuration.
     """
     from mlmm.workflows.all import cli as all_cli
     from mlmm.cli.decorators import make_is_param_explicit

@@ -271,10 +271,10 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) → `--opt-mode` (on
 | `--thermo / --no-thermo` | Run vibrational analysis (`freq`) on R/TS/P for MEP runs or E1/TS/E2 for TS-only runs. | `False` |
 | `--dft / --no-dft` | Run single-point DFT on R/TS/P for MEP runs or E1/TS/E2 for TS-only runs. | `False` |
 | `--flatten / --no-flatten` | Surplus-imaginary-mode flattening in `tsopt`. | `False` |
-| `--reject-uphill / --no-reject-uphill` | Reject energy-raising RFO steps during post-IRC **endpoint re-optimization only** (forwarded to the opt child); TS optimization forces rejection off, and path search is unaffected. At the emergency floor, the retained endpoint receives a final normal convergence check. | `True` |
+| `--reject-uphill / --no-reject-uphill` | Opt in to rejecting energy-raising RFO steps during post-IRC **endpoint re-optimization only**, using a `1e-3` Hartree tolerance (forwarded to the opt child); TS optimization forces rejection off, and path search is unaffected. At the emergency floor, the retained endpoint receives a final normal convergence check. | `False` |
 | `--tr-projection [constrained\|legacy-active]` | Forward the frozen-boundary TR treatment to `tsopt`, `irc`, `freq`, and flatten PHVA. `legacy-active` is deprecated comparison-only behavior and must not be used for pass/HOSP transition-state certification. | `constrained` |
 | `--irc-step-size FLOAT` | Override the EulerPC maximum step (Bohr) for every post-TS IRC. If a branch stops after only a few frames, retry with a smaller value such as `0.05`. | IRC default `0.10` |
-| `--irc-never-stop / --no-irc-never-stop` | Forward opt-in IRC continuation across energy-rise/plateau stops. Integrator convergence, invalid values, and the cycle cap still stop each branch. | `False` |
+| `--irc-never-stop / --no-irc-never-stop` | Ignore IRC gradient and energy endpoint criteria and trace each branch to the cycle cap. Numerical/integration failures and external interruption still stop propagation. | `False` |
 | `--tsopt-max-cycles INT` | Override `tsopt --max-cycles`. | _Default_ |
 | `--tsopt-out-dir PATH` | Custom tsopt subdirectory. | _None_ |
 | `--freq-out-dir PATH` | Base directory override for freq outputs. | _None_ |

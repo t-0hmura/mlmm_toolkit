@@ -177,8 +177,8 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | `endpoint_energy_orientation` | string | `"finished_first_to_finished_last"` |
 | `energy_reactant_hartree` / `energy_product_hartree` | float | 最初/最後の端点を表す互換エイリアス。キー名から反応物/生成物の同一性を推定しない |
 | `forward_converged` / `backward_converged` | bool\|null | 各方向の収束フラグ |
-| `never_stop` | bool | 任意指定のエネルギー上昇・平坦化回避モードを有効にしたか |
-| `never_stop_energy_bypasses` | int | 実際に回避したエネルギー上昇・平坦化停止イベントの数 |
+| `never_stop` | bool | 任意指定の物理的端点停止回避モードを有効にしたか |
+| `never_stop_energy_bypasses` | int | 実際に回避したenergy上昇・1 step energy変化量停止event数 |
 | `rigid_projection` | object | 初期/更新 Hessian の凍結境界 TR provenance |
 | `rigid_projection.electronic_state_verified` | bool | ファイルから初期化した Hessian の model charge・多重度を identity 検証できたか |
 | `bond_changes` | object | 最初→最後の方向の `{formed: [...], broken: [...]}`。比較できない場合は省略 |

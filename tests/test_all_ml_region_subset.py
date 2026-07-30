@@ -88,12 +88,34 @@ def test_write_bfactor_ml_subset_keeps_only_b0_atoms(tmp_path: Path):
 
     kept = [ln for ln in Path(out).read_text().splitlines()
             if ln.startswith(("ATOM", "HETATM"))]
-    # Exactly the 3 B≈0 atoms, in order, with their elements preserved.
+    # Exactly the 3 canonical ML-layer atoms, in order, with elements preserved.
     assert len(kept) == 3
     assert [ln[76:78].strip() for ln in kept] == ["N", "C", "C"]
     # No MovableMM(10) / FrozenMM(20) atom leaked through.
     for ln in kept:
-        assert abs(float(ln[60:66])) < 0.5
+        assert abs(float(ln[60:66])) <= 1.0
+
+
+def test_write_bfactor_ml_subset_uses_canonical_inclusive_tolerance(tmp_path: Path):
+    src = tmp_path / "layered_boundary.pdb"
+    src.write_text(
+        _atom(1, "N", "ALA", 1, 0.0, 0.0, 0.0, 1.00, "N")
+        + _atom(2, "CA", "ALA", 1, 1.0, 0.0, 0.0, 1.01, "C")
+        + "END\n",
+        encoding="utf-8",
+    )
+    dest = tmp_path / "ml_region.pdb"
+
+    out = _write_bfactor_ml_subset(src, dest)
+
+    assert out is not None
+    kept = [
+        line
+        for line in dest.read_text(encoding="utf-8").splitlines()
+        if line.startswith(("ATOM", "HETATM"))
+    ]
+    assert len(kept) == 1
+    assert float(kept[0][60:66]) == pytest.approx(1.0)
 
 
 def test_write_bfactor_ml_subset_returns_none_without_ml_atoms(tmp_path: Path):

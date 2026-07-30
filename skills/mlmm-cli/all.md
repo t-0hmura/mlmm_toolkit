@@ -68,8 +68,8 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
 | `--tr-projection` | str | `constrained` | Forward frozen-boundary TR treatment to TSopt, IRC, freq, and flatten PHVA. `legacy-active` is deprecated comparison-only behavior and must not be used for pass/HOSP transition-state certification. |
 | `--irc-step-size` | float | IRC default `0.10` | Forward a smaller EulerPC maximum step; try `0.05` when an IRC branch stops after only a few frames |
-| `--irc-never-stop / --no-irc-never-stop` | flag | off | Ignore only IRC energy-rise/plateau stops; convergence, invalid-value, and cycle-cap stops remain |
-| `--reject-uphill / --no-reject-uphill` | toggle | on | Applies only to Hessian/RFO post-IRC endpoint re-optimization. At the emergency floor, the retained endpoint receives a final convergence check. It never affects TS optimization or path search. |
+| `--irc-never-stop / --no-irc-never-stop` | flag | off | Ignore IRC gradient and energy endpoint criteria and trace to the cycle cap; propagation failures still stop |
+| `--reject-uphill / --no-reject-uphill` | toggle | off | Opt in to rejection above `1e-3` Hartree during Hessian/RFO post-IRC endpoint re-optimization only. At the emergency floor, the retained endpoint receives a final convergence check. It never affects TS optimization or path search. |
 | `-o, --out-dir` | path | `./result_all/` | Top-level output directory |
 | `--config` | path | none | YAML config applied before CLI flags |
 | `--show-config` | flag | off | Print resolved config and continue execution |

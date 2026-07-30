@@ -2834,14 +2834,44 @@ def read_bfactors_from_pdb(pdb_path: Path) -> List[float]:
                 try:
                     bfac = float(line[60:66].strip())
                 except (ValueError, IndexError):
-                    bfac = 0.0
+                    # Preserve atom order without treating a missing value as
+                    # the canonical ML-layer marker (0.0).
+                    bfac = float("nan")
                 bfactors.append(bfac)
     return bfactors
 
 
+def classify_bfactor_layer(
+    bfactor: float,
+    tolerance: Optional[float] = None,
+) -> Optional[str]:
+    """Return the canonical layer name for one PDB B-factor."""
+    from mlmm.core.defaults import (
+        BFACTOR_FROZEN,
+        BFACTOR_HESS_MM,
+        BFACTOR_ML,
+        BFACTOR_MOVABLE_MM,
+        BFACTOR_TOLERANCE,
+    )
+
+    tol = BFACTOR_TOLERANCE if tolerance is None else float(tolerance)
+    if abs(bfactor - BFACTOR_ML) <= tol:
+        return "ml"
+    if abs(bfactor - BFACTOR_FROZEN) <= tol:
+        return "frozen"
+    if abs(bfactor - BFACTOR_MOVABLE_MM) <= tol:
+        return "movable"
+    if (
+        BFACTOR_HESS_MM != BFACTOR_MOVABLE_MM
+        and abs(bfactor - BFACTOR_HESS_MM) <= tol
+    ):
+        return "hess_mm"
+    return None
+
+
 def parse_layer_indices_from_bfactors(
     bfactors: List[float],
-    tolerance: float = 1.0,
+    tolerance: Optional[float] = None,
 ) -> Dict[str, List[int]]:
     """
     Parse B-factor values into layer indices for 3-layer ML/MM system.
@@ -2868,8 +2898,6 @@ def parse_layer_indices_from_bfactors(
         - "frozen_indices": Frozen atoms
         - "unassigned_indices": Atoms with B-factors not matching any layer
     """
-    from mlmm.core.defaults import BFACTOR_ML, BFACTOR_HESS_MM, BFACTOR_MOVABLE_MM, BFACTOR_FROZEN
-
     ml_indices: List[int] = []
     hess_mm_indices: List[int] = []
     movable_mm_indices: List[int] = []
@@ -2877,16 +2905,14 @@ def parse_layer_indices_from_bfactors(
     unassigned_indices: List[int] = []
 
     for i, bfac in enumerate(bfactors):
-        if abs(bfac - BFACTOR_ML) <= tolerance:
+        layer = classify_bfactor_layer(bfac, tolerance)
+        if layer == "ml":
             ml_indices.append(i)
-        elif abs(bfac - BFACTOR_FROZEN) <= tolerance:
+        elif layer == "frozen":
             frozen_indices.append(i)
-        elif abs(bfac - BFACTOR_MOVABLE_MM) <= tolerance:
+        elif layer == "movable":
             movable_mm_indices.append(i)
-        elif (
-            BFACTOR_HESS_MM != BFACTOR_MOVABLE_MM
-            and abs(bfac - BFACTOR_HESS_MM) <= tolerance
-        ):
+        elif layer == "hess_mm":
             hess_mm_indices.append(i)
         else:
             unassigned_indices.append(i)
@@ -2900,26 +2926,24 @@ def parse_layer_indices_from_bfactors(
     }
 
 
-def has_valid_layer_bfactors(bfactors: List[float], tolerance: float = 1.0) -> bool:
+def has_valid_layer_bfactors(
+    bfactors: List[float],
+    tolerance: Optional[float] = None,
+) -> bool:
     """
     Check if PDB B-factors contain valid 3-layer encoding.
 
     Returns True if at least one atom has ML B-factor and the B-factors are
     predominantly in the expected range (0, 10, 20).
     """
-    from mlmm.core.defaults import BFACTOR_ML, BFACTOR_HESS_MM, BFACTOR_MOVABLE_MM, BFACTOR_FROZEN
-
-    valid_bfactors = {BFACTOR_ML, BFACTOR_MOVABLE_MM, BFACTOR_FROZEN, BFACTOR_HESS_MM}
     has_ml = False
     valid_count = 0
 
     for bfac in bfactors:
-        for valid in valid_bfactors:
-            if abs(bfac - valid) <= tolerance:
-                valid_count += 1
-                if abs(bfac - BFACTOR_ML) <= tolerance:
-                    has_ml = True
-                break
+        layer = classify_bfactor_layer(bfac, tolerance)
+        if layer is not None:
+            valid_count += 1
+            has_ml = has_ml or layer == "ml"
 
     # Consider valid if:
     # 1. Has at least one ML atom

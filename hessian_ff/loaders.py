@@ -29,6 +29,37 @@ def _infer_ntypes(nonbonded_parm_index: Sequence[int]) -> int:
     return rt
 
 
+def _unsupported_virtual_site_indices(
+    raw: Dict[str, List[Union[int, float, str]]]
+) -> List[int]:
+    """Return atom indices that require unsupported virtual-site semantics."""
+    natom = len(raw.get("CHARGE", []))
+    names = raw.get("ATOM_NAME", [])
+    atom_types = raw.get("AMBER_ATOM_TYPE", [])
+    atomic_numbers = raw.get("ATOMIC_NUMBER", [])
+    masses = raw.get("MASS", [])
+    indices: List[int] = []
+    for index in range(natom):
+        name = str(names[index]).strip().upper() if index < len(names) else ""
+        atom_type = (
+            str(atom_types[index]).strip().upper()
+            if index < len(atom_types)
+            else ""
+        )
+        atomic_number = (
+            int(atomic_numbers[index]) if index < len(atomic_numbers) else None
+        )
+        mass = float(masses[index]) if index < len(masses) else None
+        if (
+            atomic_number == 0
+            or (mass is not None and mass <= 0.0)
+            or name.startswith(("EP", "LP"))
+            or atom_type.startswith(("EP", "LP"))
+        ):
+            indices.append(index)
+    return indices
+
+
 def _build_excluded_pair_keys(
     natom: int, num_excluded: Sequence[int], excluded_list: Sequence[int]
 ) -> torch.Tensor:
@@ -291,6 +322,20 @@ def load_system(
     # ---- required sections ----
     charge = raw["CHARGE"]
     natom = len(charge)
+    virtual_sites = _unsupported_virtual_site_indices(raw)
+    if virtual_sites:
+        preview_limit = 10
+        atom_numbers = ", ".join(
+            str(index + 1) for index in virtual_sites[:preview_limit]
+        )
+        if len(virtual_sites) > preview_limit:
+            atom_numbers += ", ..."
+        raise ValueError(
+            "hessian_ff does not support dependent Amber virtual sites "
+            f"({len(virtual_sites)} sites; atom numbers: {atom_numbers}). "
+            "Use mm_backend='openmm' or a "
+            "3-point water topology."
+        )
     atom_type_index = raw["ATOM_TYPE_INDEX"]
 
     nbpi = raw["NONBONDED_PARM_INDEX"]

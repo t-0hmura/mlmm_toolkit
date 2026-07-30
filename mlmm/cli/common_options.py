@@ -185,7 +185,7 @@ def add_backend_model_option() -> Callable[[Callable], Callable]:
             help=(
                 "Model variant for the selected --backend (e.g. "
                 "uma-s-1p2 / uma-m-1p1 for uma, orb_v3_conservative_omol for orb, "
-                "MACE-OMOL-0 / MACE-OFF23_small for mace). "
+                "MACE-OMOL-0 / off:small for mace). "
                 "Default: the backend's built-in model."
             ),
         )(func)
