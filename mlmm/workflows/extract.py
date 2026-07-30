@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import io as _io
 import os
+import time
 from pathlib import Path
 import re
 from typing import Dict, List, Set, Tuple, Iterable, Any, Optional, Sequence
@@ -224,9 +225,11 @@ def cli(
     ligand_charge: Optional[str],
     out_json: bool,
 ) -> None:
+    time_start = time.perf_counter()
     from mlmm.core.utils import (
         collect_option_values,
         current_cli_args,
+        format_elapsed,
         reject_option_like_extra_args,
     )
 
@@ -291,6 +294,10 @@ def cli(
             "input_files": [str(p) for p in input_list],
         }
         write_result_json(out_dir, result_data, command="extract")
+    emit(
+        format_elapsed("[time] Elapsed Time for Extract", time_start),
+        narrative=True,
+    )
 
 
 def load_structure(path: str, name: str) -> PDB.Structure.Structure:
@@ -790,7 +797,9 @@ def augment_proline_prev_neighbor(structure, selected_ids: Set[Tuple]):
 def augment_backbone_contact_neighbors(structure,
                                        selected_ids: Set[Tuple],
                                        backbone_contact_ids: Set[Tuple],
-                                       substrate_ids: Set[Tuple]) -> Tuple[Set[Tuple], Set[Tuple]]:
+                                       substrate_ids: Set[Tuple],
+                                       *,
+                                       report: bool = True) -> Tuple[Set[Tuple], Set[Tuple]]:
     """
     If a non-substrate residue had **any backbone atom** within selection radii,
     include its immediate N- and C-side amino-acid neighbors **only if peptide-bond adjacent**.
@@ -853,7 +862,7 @@ def augment_backbone_contact_neighbors(structure,
             keep_ccap_ids.add(fid)
             termini_kept_c += 1
 
-    if added or termini_kept_n or termini_kept_c:
+    if report and (added or termini_kept_n or termini_kept_c):
         _echo_info("[extract] Backbone-contact context (TER-aware): added %d neighbors; kept N-cap on %d, C-cap on %d residues.",
                      added, termini_kept_n, termini_kept_c)
     return keep_ncap_ids, keep_ccap_ids
@@ -1669,7 +1678,9 @@ def extract_multi(args: argparse.Namespace, api=False) -> Dict[str, Any]:
             bb_ids = _keys_to_fids(st, union_bb_contact_keys & _fids_to_keys(st, sel_ids))
             sub_ids = {r.get_full_id() for r in subs}
             # single call performs neighbor augmentation and returns cap-preservation flags
-            kn_fids, kc_fids = augment_backbone_contact_neighbors(st, sel_ids, bb_ids, sub_ids)
+            kn_fids, kc_fids = augment_backbone_contact_neighbors(
+                st, sel_ids, bb_ids, sub_ids, report=False
+            )
             after_keys = _fids_to_keys(st, sel_ids)
             added_neighbor_union |= (after_keys - union_sel_keys)
             keep_ncap_union |= _fids_to_keys(st, kn_fids)

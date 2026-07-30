@@ -2509,10 +2509,10 @@ def _run_microiter_tsopt(
             )
             if _init_micro_equilibrium:
                 _init_micro_out = _init_micro_out.accept_force_equilibrium()
-                click.echo(
+                emit(
                     "[microiter] Initial MM equilibration plateaued with its "
                     "force criteria met; accepting it as MM equilibrium.",
-                    err=True,
+                    narrative=True,
                 )
             micro_attempts.append(_init_micro_out)
             latest_micro_stalled = _init_micro_out.stalled
@@ -2525,10 +2525,10 @@ def _run_microiter_tsopt(
                         out_dir_path / "optimization_trj.xyz",
                         reset=True,
                     )
-                click.echo(
+                emit(
                     "[microiter] Initial MM equilibration did not converge "
                     f"(status={_init_micro_out.status}); no macro step is taken.",
-                    err=True,
+                    narrative=True,
                 )
             del _init_micro_opt
             _clear_cuda_cache()
@@ -2702,6 +2702,8 @@ def _run_microiter_tsopt(
                 # Print final converged row (no micro steps)
                 energy_diff = macro_optimizer.energies[-1] - macro_optimizer.energies[-2] if len(macro_optimizer.energies) >= 2 else float("nan")
                 marks = [False, *conv_info.get_convergence()[:-1], False, False]
+                if not np.all(np.isfinite(np.asarray(energy_diff))):
+                    marks[1] = False
                 cycle_time = time.time() - t_start
                 micro_table.print_row(
                     (macro_iter, energy_diff, macro_optimizer.max_forces[-1], macro_optimizer.rms_forces[-1],
@@ -2735,10 +2737,10 @@ def _run_microiter_tsopt(
                 )
                 if _micro_equilibrium:
                     _micro_out = _micro_out.accept_force_equilibrium()
-                    click.echo(
+                    emit(
                         "[microiter] MM relaxation plateaued with its force "
                         "criteria met; accepting it as MM equilibrium.",
-                        err=True,
+                        narrative=True,
                     )
                 del micro_opt
                 _clear_cuda_cache()
@@ -2767,10 +2769,10 @@ def _run_microiter_tsopt(
             # further macro step is taken (a normal LBFGS return on max-cycle
             # exhaustion is not convergence).
             if _micro_out.converged is not True and not _micro_equilibrium:
-                click.echo(
+                emit(
                     "[microiter] Latest MM relaxation did not converge "
                     f"(status={_micro_out.status}); stopping the macro/micro loop.",
-                    err=True,
+                    narrative=True,
                 )
                 print()
                 break
@@ -2779,6 +2781,8 @@ def _run_microiter_tsopt(
             cycle_time = time.time() - t_start
             energy_diff = macro_optimizer.energies[-1] - macro_optimizer.energies[-2] if len(macro_optimizer.energies) >= 2 else float("nan")
             marks = [False, *conv_info.get_convergence()[:-1], False, False]
+            if not np.all(np.isfinite(np.asarray(energy_diff))):
+                marks[1] = False
             if (macro_iter > 1) and (macro_iter % 10 == 0):
                 micro_table.print_sep()
             micro_table.print_row(
@@ -3680,6 +3684,10 @@ def cli(
         )
         click.echo("[dry-run] Validation complete. TS optimization execution was skipped.")
         prepared_input.cleanup()
+        emit(
+            format_elapsed("[time] Elapsed Time for TS Opt", time_start),
+            narrative=True,
+        )
         return
 
     tsopt_protected_inputs = (
@@ -4753,9 +4761,6 @@ def cli(
         else:
             final_xyz = out_dir_path / "final_geometry.xyz"
 
-        # summary.md and key_* outputs are disabled.
-        emit(format_elapsed("[time] Elapsed Time for TS Opt", time_start), narrative=True)
-
         if out_json:
             from mlmm.core.utils import calculator_provenance, write_result_json
             _tsopt_imag_freqs: list = []
@@ -4894,6 +4899,12 @@ def cli(
                 command="tsopt",
                 elapsed_seconds=time.perf_counter() - time_start,
             )
+
+        # summary.md and key_* outputs are disabled.
+        emit(
+            format_elapsed("[time] Elapsed Time for TS Opt", time_start),
+            narrative=True,
+        )
 
     except ZeroStepLength as e:
         _write_error_json(out_dir_path, "tsopt", e, "ZeroStepLength", time_start)

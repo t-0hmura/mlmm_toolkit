@@ -178,3 +178,45 @@ def test_cli_rejects_invalid_indices_before_calculator_construction(
     assert result.exit_code != 0
     assert "outside the input atom bounds" in result.output
     assert constructed == []
+
+
+def test_cli_hessian_mode_override_precedes_worker_validation(
+    tmp_path: Path,
+) -> None:
+    source = _write_pdb(tmp_path / "source.pdb", [50.0, 50.0])
+    parm = tmp_path / "real.parm7"
+    parm.write_text("placeholder\n", encoding="utf-8")
+    config = tmp_path / "config.yaml"
+    config.write_text(
+        "calc:\n"
+        "  workers: 2\n"
+        "  hessian_calc_mode: Analytical\n"
+        "sp:\n"
+        "  hess: true\n",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        sp.cli,
+        [
+            "-i",
+            str(source),
+            "--parm",
+            str(parm),
+            "-q",
+            "0",
+            "-m",
+            "1",
+            "--config",
+            str(config),
+            "--hessian-calc-mode",
+            "FiniteDifference",
+            "--show-config",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "hessian_calc_mode: FiniteDifference" in result.output
+    assert result.output.rstrip().splitlines()[-1].startswith(
+        "[time] Elapsed Time for SP:"
+    )

@@ -2115,6 +2115,10 @@ def cli(
 
             click.echo(pretty_block("dry_run_plan", dry_payload))
             click.echo("[dry-run] Validation complete. Path search execution was skipped.")
+            emit(
+                format_elapsed("[time] Elapsed Time for Path Search", time_start),
+                narrative=True,
+            )
             return
 
         try:
@@ -2690,7 +2694,10 @@ def cli(
 
         if summary_payload_for_citations and not is_child_mode():
             emit_method_citations(summary_payload_for_citations)
-        emit(format_elapsed("[time] Elapsed for Path Search", time_start), narrative=True)
+        emit(
+            format_elapsed("[time] Elapsed Time for Path Search", time_start),
+            narrative=True,
+        )
 
     except ZeroStepLength as e:
         _write_error_json(Path(out_dir).resolve(), "path-search", e, "ZeroStepLength", time_start)

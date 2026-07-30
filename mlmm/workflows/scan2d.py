@@ -709,6 +709,10 @@ def cli(
                 )
                 # --print-parsed = "just show the parsed spec": exit before
                 # the general dry-run plan and before any GPU calculation.
+                emit(
+                    format_elapsed("[time] Elapsed Time for 2D Scan", time_start),
+                    narrative=True,
+                )
                 sys.exit(0)
             if dry_run:
                 emit(
@@ -730,6 +734,10 @@ def cli(
                     force=True,
                 )
                 click.echo("[dry-run] Validation complete. Scan execution was skipped.")
+                emit(
+                    format_elapsed("[time] Elapsed Time for 2D Scan", time_start),
+                    narrative=True,
+                )
                 return
             click.echo(
                 pretty_block(
@@ -1469,8 +1477,6 @@ def cli(
             fig3d.write_html(str(html3d))
             click.echo(f"[plot] Wrote '{html3d}'.")
 
-            emit(format_elapsed("[time] Elapsed Time for 2D Scan", time_start), narrative=True)
-
             if out_json:
                 from mlmm.core.utils import write_result_json
 
@@ -1503,6 +1509,11 @@ def cli(
                     command="scan2d",
                     elapsed_seconds=time.perf_counter() - time_start,
                 )
+
+            emit(
+                format_elapsed("[time] Elapsed Time for 2D Scan", time_start),
+                narrative=True,
+            )
 
     except KeyboardInterrupt:
         click.echo("\nInterrupted by user.", err=True)

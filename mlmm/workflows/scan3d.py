@@ -474,7 +474,6 @@ def _finalize_surface_and_plot(
     click.echo(f"[plot] Wrote '{html3d}'.")
 
     emit("\n====== 3D Scan finished ======\n", narrative=True)
-    emit(format_elapsed("[time] Elapsed Time for 3D Scan", time_start), narrative=True)
     min_energy_hartree = (
         float(df.loc[usable_mask, "energy_hartree"].min())
         if "energy_hartree" in df.columns
@@ -788,6 +787,10 @@ def cli(
                     command="scan3d",
                     elapsed_seconds=time.perf_counter() - time_start,
                 )
+            emit(
+                format_elapsed("[time] Elapsed Time for 3D Scan", time_start),
+                narrative=True,
+            )
         except KeyboardInterrupt:
             click.echo("\nInterrupted by user.", err=True)
             sys.exit(130)
@@ -1044,6 +1047,10 @@ def cli(
                 )
                 # --print-parsed = "just show the parsed spec": exit before
                 # any GPU calculation.
+                emit(
+                    format_elapsed("[time] Elapsed Time for 3D Scan", time_start),
+                    narrative=True,
+                )
                 sys.exit(0)
             if dry_run:
                 click.echo(
@@ -1065,6 +1072,10 @@ def cli(
                     )
                 )
                 click.echo("[dry-run] Validation complete. Scan execution was skipped.")
+                emit(
+                    format_elapsed("[time] Elapsed Time for 3D Scan", time_start),
+                    narrative=True,
+                )
                 return
             click.echo(
                 pretty_block(
@@ -1564,6 +1575,10 @@ def cli(
                     command="scan3d",
                     elapsed_seconds=time.perf_counter() - time_start,
                 )
+            emit(
+                format_elapsed("[time] Elapsed Time for 3D Scan", time_start),
+                narrative=True,
+            )
 
     except KeyboardInterrupt:
         click.echo("\nInterrupted by user.", err=True)

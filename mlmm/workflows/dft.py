@@ -1052,6 +1052,10 @@ def cli(
                 click.echo(
                     "[dry-run] Validation complete. DFT execution was skipped."
                 )
+                emit(
+                    format_elapsed("[time] Elapsed Time for DFT", time_start),
+                    narrative=True,
+                )
                 return
 
         # `prepared_input` and `charge/spin` already resolved above
@@ -1111,10 +1115,6 @@ def cli(
             layer_info,
             echo_fn=click.echo,
         )
-        # Re-baseline so the wall-clock figure excludes YAML resolution
-        # and ML-region preparation overhead.
-        time_start = time.perf_counter()
-
         workspace = _prepare_ml_region_workspace(
             input_pdb=Path(calc_kw["input_pdb"]),
             coordinate_path=prepared_input.geom_path,
@@ -1384,8 +1384,6 @@ def cli(
         if not converged:
             click.echo("WARNING: SCF did not converge.", err=True)
 
-        emit(format_elapsed("[time] Elapsed Time for DFT", time_start), narrative=True)
-
         result_data = _build_dft_result_payload(
             converged=converged,
             energy_hartree=e_h,
@@ -1407,6 +1405,10 @@ def cli(
             out_dir=out_dir_path,
             payload=result_data,
             elapsed_seconds=time.perf_counter() - time_start,
+        )
+        emit(
+            format_elapsed("[time] Elapsed Time for DFT", time_start),
+            narrative=True,
         )
 
     except KeyboardInterrupt:

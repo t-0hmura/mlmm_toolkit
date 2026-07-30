@@ -432,6 +432,81 @@ def _ts_optimizer(tmp_path, x, **kwargs):
     return geom, opt
 
 
+def test_exact_saddle_output_follows_the_cycle_row(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    _, opt = _ts_optimizer(tmp_path, 0.0, energy_plateau=False)
+
+    def _refresh(_gradient):
+        print("[hessian] Completed FiniteDifference Hessian: 1.00 s")
+        return (
+            np.zeros(3),
+            np.eye(3),
+            np.array([-1.0, 1.0, 2.0]),
+            np.eye(3),
+        )
+
+    def _verify(_eigvals, _eigvecs):
+        print("Exact PHVA saddle validation: n_imag=1, lowest=-500.00 cm^-1.")
+        return True, np.array([1.0, 0.0, 0.0]), True
+
+    monkeypatch.setattr(opt, "_refresh_exact_saddle_model", _refresh)
+    monkeypatch.setattr(opt, "_verify_exact_vibrational_structure", _verify)
+
+    opt._refresh_and_verify_exact_saddle_model(np.zeros(3))
+    opt._print_or_defer_cycle_message(
+        "Exact saddle validation found no physical imaginary mode."
+    )
+    assert capsys.readouterr().out == ""
+    assert opt.has_deferred_cycle_output()
+
+    opt.cur_cycle = 7
+    opt.energies = [0.0, 0.0]
+    opt.max_forces = [2.0e-4]
+    opt.rms_forces = [1.0e-4]
+    opt.max_steps = [3.0e-4]
+    opt.rms_steps = [2.0e-4]
+    opt.cycle_times = [1.25]
+
+    class _ConvInfo:
+        @staticmethod
+        def get_convergence():
+            return True, True, True, True, True, True
+
+    opt.print_opt_progress(_ConvInfo())
+
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0].split()[0] == "7"
+    assert lines[1].startswith("[hessian] Completed")
+    assert lines[2].lstrip().startswith("Exact PHVA saddle validation:")
+    assert lines[3].lstrip().startswith("Exact saddle validation found")
+    assert not opt.has_deferred_cycle_output()
+
+
+def test_undefined_initial_energy_change_has_no_convergence_mark(
+    tmp_path, capsys
+) -> None:
+    _, opt = _ts_optimizer(tmp_path, 0.0, energy_plateau=False)
+    opt.cur_cycle = 0
+    opt.energies = [0.0]
+    opt.max_forces = [2.0e-4]
+    opt.rms_forces = [1.0e-4]
+    opt.max_steps = [3.0e-4]
+    opt.rms_steps = [2.0e-4]
+    opt.cycle_times = [0.0]
+
+    class _ConvInfo:
+        @staticmethod
+        def get_convergence():
+            return True, True, True, True, True, True
+
+    opt.print_opt_progress(_ConvInfo())
+
+    row = capsys.readouterr().out.splitlines()[0]
+    assert "nan" in row.lower()
+    assert "nan*" not in row.lower()
+
+
 def test_ts_mode_loss_rejects_trial_and_restores_hessian(tmp_path) -> None:
     geom, opt = _ts_optimizer(tmp_path, 0.4)
     opt.prepare_opt()

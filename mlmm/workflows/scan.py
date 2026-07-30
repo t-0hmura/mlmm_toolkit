@@ -817,6 +817,10 @@ def cli(
                 # --print-parsed means "just show the parsed spec": exit
                 # before any GPU calculation. (Also gives scan a GPU-free
                 # spec-validation path.)
+                emit(
+                    format_elapsed("[time] Elapsed Time for Scan", time_start),
+                    narrative=True,
+                )
                 sys.exit(0)
 
             if dry_run:
@@ -848,6 +852,10 @@ def cli(
                     )
                 )
                 click.echo("[dry-run] Validation complete. Scan execution was skipped.")
+                emit(
+                    format_elapsed("[time] Elapsed Time for Scan", time_start),
+                    narrative=True,
+                )
                 return
 
             if pdb_atom_meta:
@@ -1272,7 +1280,6 @@ def cli(
         _echo_human_summary(stages_summary, float(max_step_size))
 
         emit("\n====== Scan finished ======\n", narrative=True)
-        emit(format_elapsed("[time] Elapsed Time for Scan", time_start), narrative=True)
 
         if out_json:
             from mlmm.core.utils import calculator_provenance, write_result_json
@@ -1379,6 +1386,11 @@ def cli(
                 command="scan",
                 elapsed_seconds=time.perf_counter() - time_start,
             )
+
+        emit(
+            format_elapsed("[time] Elapsed Time for Scan", time_start),
+            narrative=True,
+        )
 
     except KeyboardInterrupt:
         click.echo("\nInterrupted by user.", err=True)

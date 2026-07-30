@@ -1398,6 +1398,10 @@ def cli(
                 )
             )
             click.echo("[dry-run] Validation complete. Path optimization execution was skipped.")
+            emit(
+                format_elapsed("[time] Elapsed Time for Path Opt", time_start),
+                narrative=True,
+            )
             return
 
         try:
@@ -1581,8 +1585,6 @@ def cli(
                     time_start,
                 )
                 sys.exit(3)
-            emit(format_elapsed("[time] Elapsed Time for Path Opt (DMF)", time_start), narrative=True)
-
             if out_json:
                 from mlmm.core.utils import write_result_json
 
@@ -1624,6 +1626,10 @@ def cli(
                     elapsed_seconds=time.perf_counter() - time_start,
                 )
 
+            emit(
+                format_elapsed("[time] Elapsed Time for Path Opt", time_start),
+                narrative=True,
+            )
             return
 
         for g in geoms:
@@ -1730,9 +1736,6 @@ def cli(
             click.echo(f"[HEI] ERROR: Failed to dump HEI: {e}", err=True)
             sys.exit(5)
 
-        # summary.md and key_* outputs are disabled.
-        emit(format_elapsed("[time] Elapsed Time for Path Opt", time_start), narrative=True)
-
         if out_json:
             from mlmm.core.utils import calculator_provenance, write_result_json
             from pysisyphus.constants import AU2KCALPERMOL as _AU2KCAL
@@ -1793,6 +1796,12 @@ def cli(
                 command="path-opt",
                 elapsed_seconds=time.perf_counter() - time_start,
             )
+
+        # summary.md and key_* outputs are disabled.
+        emit(
+            format_elapsed("[time] Elapsed Time for Path Opt", time_start),
+            narrative=True,
+        )
 
     except OptimizationError as e:
         _write_error_json(

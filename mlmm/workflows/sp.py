@@ -408,9 +408,7 @@ def cli(
         if use_cmap is not None:
             calc_cfg["use_cmap"] = bool(use_cmap)
         from mlmm.backends import apply_precision_to_calc_cfg
-        # Always run so a YAML-set workers>1 also gets the analytical-Hessian guard.
         from mlmm.backends import apply_workers_to_calc_cfg
-        apply_workers_to_calc_cfg(calc_cfg, workers, workers_per_node)
         if _is_param_explicit("backend_model") and backend_model is not None:
             from mlmm.backends import apply_backend_model_to_calc_cfg
             apply_backend_model_to_calc_cfg(calc_cfg, backend_model)
@@ -445,7 +443,11 @@ def cli(
             # ``geom.hessian`` reads the mode from the calculator, not from
             # the reporting-only SP config.
             calc_cfg["hessian_calc_mode"] = str(sp_cfg["hessian_calc_mode"])
-        apply_workers_to_calc_cfg(calc_cfg, None, None)
+        # Validate only after all YAML and CLI overrides have been resolved.
+        try:
+            apply_workers_to_calc_cfg(calc_cfg, workers, workers_per_node)
+        except ValueError as exc:
+            raise click.ClickException(str(exc)) from exc
 
         # Charge/spin resolution
         resolved_charge, resolved_spin = resolve_charge_spin_or_raise(
@@ -476,6 +478,7 @@ def cli(
             ).rstrip())
             # Help text already says "Print effective merged config and exit."
             # Honor that contract by returning before any SCF/Hessian work.
+            click.echo(format_elapsed("[time] Elapsed Time for SP", time_start))
             return
 
         # Validate the ML-region contract without creating the requested output
@@ -494,6 +497,7 @@ def cli(
 
         if dry_run:
             click.echo(f"[sp] dry-run: would compute ONIOM SP on {input_path} -> {out_dir_path}")
+            click.echo(format_elapsed("[time] Elapsed Time for SP", time_start))
             return
 
         out_dir_path.mkdir(parents=True, exist_ok=True)
@@ -580,7 +584,7 @@ def cli(
             np.save(hessian_path, H_np)
             click.echo(f"[sp] Hessian {H_np.shape} written to {hessian_path}  ({elapsed_h:.2f} s)")
 
-        elapsed_total = format_elapsed("[sp] Elapsed Time", time_start)
+        elapsed_total = format_elapsed("[time] Elapsed Time for SP", time_start)
         summary = {
             "stage": "sp",
             "status": "ok",
@@ -605,7 +609,7 @@ def cli(
                 elapsed_seconds=time.perf_counter() - time_start,
             )
 
-        click.echo(f"[sp] {elapsed_total}.")
+        click.echo(format_elapsed("[time] Elapsed Time for SP", time_start))
 
     except Exception as exc:
         render_cli_exception(

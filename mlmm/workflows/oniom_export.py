@@ -13,6 +13,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -2108,6 +2109,7 @@ def cli(
     link_atom_method: str,
 ) -> None:
     """Export Gaussian/ORCA ONIOM input via a unified entrypoint."""
+    time_start = time.perf_counter()
     try:
         resolved_mode = _resolve_oniom_mode(mode, output)
 
@@ -2126,25 +2128,31 @@ def cli(
                 element_check=element_check,
                 link_atom_method=link_atom_method,
             )
-            return
-
-        export_orca(
-            parm7_path=parm7,
-            model_pdb=model_pdb,
-            output_path=output,
-            method=method or _ORCA_DEFAULT_METHOD,
-            qm_charge=charge,
-            qm_mult=multiplicity,
-            total_charge=total_charge,
-            total_mult=total_mult,
-            nproc=nproc,
-            near_cutoff=near,
-            input_path=input_coords,
-            element_check=element_check,
-            orcaff_path=orcaff,
-            convert_orcaff=convert_orcaff,
-            link_atom_method=link_atom_method,
-        )
+        else:
+            export_orca(
+                parm7_path=parm7,
+                model_pdb=model_pdb,
+                output_path=output,
+                method=method or _ORCA_DEFAULT_METHOD,
+                qm_charge=charge,
+                qm_mult=multiplicity,
+                total_charge=total_charge,
+                total_mult=total_mult,
+                nproc=nproc,
+                near_cutoff=near,
+                input_path=input_coords,
+                element_check=element_check,
+                orcaff_path=orcaff,
+                convert_orcaff=convert_orcaff,
+                link_atom_method=link_atom_method,
+            )
     except Exception as e:
         click.echo(f"ERROR: {e}", err=True)
         raise SystemExit(1)
+    from mlmm.core.output import emit
+    from mlmm.core.utils import format_elapsed
+
+    emit(
+        format_elapsed("[time] Elapsed Time for ONIOM Export", time_start),
+        narrative=True,
+    )

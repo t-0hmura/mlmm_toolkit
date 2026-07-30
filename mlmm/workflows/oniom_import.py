@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import re
 import tempfile
+import time
 from pathlib import Path
 from typing import List, Optional, Sequence, Set, Tuple
 
@@ -483,6 +484,7 @@ def cli(
     ref_pdb: Optional[Path],
     allow_unverified_ref_order: bool,
 ) -> None:
+    time_start = time.perf_counter()
     if allow_unverified_ref_order and ref_pdb is None:
         raise click.UsageError("--allow-unverified-ref-order requires --ref-pdb.")
     mode_resolved = _resolve_mode(mode, input_path)
@@ -559,3 +561,10 @@ def cli(
     )
     click.echo(f"[oniom-import] wrote: {xyz_path}")
     click.echo(f"[oniom-import] wrote: {pdb_path}")
+    from mlmm.core.output import emit
+    from mlmm.core.utils import format_elapsed
+
+    emit(
+        format_elapsed("[time] Elapsed Time for ONIOM Import", time_start),
+        narrative=True,
+    )

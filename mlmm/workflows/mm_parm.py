@@ -16,6 +16,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
@@ -1214,6 +1215,7 @@ def cli(
     ff_set: str,
 ) -> None:
     """Click entry point that mirrors the documented CLI."""
+    time_start = time.perf_counter()
     args = Args(
         pdb=pdb,
         out_prefix=out_prefix if out_prefix is not None else Path(pdb).stem,
@@ -1228,3 +1230,10 @@ def cli(
         out_prefix_given=(out_prefix is not None),
     )
     run_pipeline(args)
+    from mlmm.core.output import emit
+    from mlmm.core.utils import format_elapsed
+
+    emit(
+        format_elapsed("[time] Elapsed Time for MM Parameters", time_start),
+        narrative=True,
+    )

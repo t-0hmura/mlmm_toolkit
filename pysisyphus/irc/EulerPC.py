@@ -363,7 +363,11 @@ class EulerPC(IRC):
                             f"{k} ({points} points); keeping the last "
                             "non-oscillating point for this IRC step."
                         )
-                        print(f"WARNING: {msg}")
+                        if not getattr(
+                            self, "_oscillation_warning_shown", False
+                        ):
+                            print(f"WARNING: {msg}")
+                            self._oscillation_warning_shown = True
                         self.log(f"\t{msg}")
                         return prev_coords
             if not reached_target:

@@ -712,20 +712,20 @@ def _run_microiter_opt(
             )
             if _init_micro_equilibrium:
                 _init_micro_out = _init_micro_out.accept_force_equilibrium()
-                click.echo(
+                emit(
                     "[microiter] Initial MM equilibration plateaued with its "
                     "force criteria met; accepting it as MM equilibrium.",
-                    err=True,
+                    narrative=True,
                 )
             micro_attempts.append(_init_micro_out)
             latest_micro_stalled = _init_micro_out.stalled
             latest_micro_stop_reason = _init_micro_out.stop_reason or ""
             if _init_micro_out.converged is not True and not _init_micro_equilibrium:
                 run_macro = False
-                click.echo(
+                emit(
                     "[microiter] Initial MM equilibration did not converge "
                     f"(status={_init_micro_out.status}); no macro step is taken.",
-                    err=True,
+                    narrative=True,
                 )
             del _init_micro_opt
             if torch.cuda.is_available():
@@ -909,6 +909,8 @@ def _run_microiter_opt(
                 # Print final converged row (no micro steps)
                 energy_diff = macro_optimizer.energies[-1] - macro_optimizer.energies[-2] if len(macro_optimizer.energies) >= 2 else float("nan")
                 marks = [False, *conv_info.get_convergence()[:-1], False, False]
+                if not np.all(np.isfinite(np.asarray(energy_diff))):
+                    marks[1] = False
                 cycle_time = time.time() - t_start
                 micro_table.print_row(
                     (macro_iter, energy_diff, macro_optimizer.max_forces[-1], macro_optimizer.rms_forces[-1],
@@ -952,10 +954,10 @@ def _run_microiter_opt(
                 )
                 if _micro_equilibrium:
                     _micro_out = _micro_out.accept_force_equilibrium()
-                    click.echo(
+                    emit(
                         "[microiter] MM relaxation plateaued with its force "
                         "criteria met; accepting it as MM equilibrium.",
-                        err=True,
+                        narrative=True,
                     )
                 del micro_opt
                 if torch.cuda.is_available():
@@ -984,10 +986,10 @@ def _run_microiter_opt(
             # further macro step is taken (a normal LBFGS return on max-cycle
             # exhaustion is not convergence).
             if _micro_out.converged is not True:
-                click.echo(
+                emit(
                     "[microiter] Latest MM relaxation did not converge "
                     f"(status={_micro_out.status}); stopping the macro/micro loop.",
-                    err=True,
+                    narrative=True,
                 )
                 print()
                 break
@@ -996,6 +998,8 @@ def _run_microiter_opt(
             cycle_time = time.time() - t_start
             energy_diff = macro_optimizer.energies[-1] - macro_optimizer.energies[-2] if len(macro_optimizer.energies) >= 2 else float("nan")
             marks = [False, *conv_info.get_convergence()[:-1], False, False]
+            if not np.all(np.isfinite(np.asarray(energy_diff))):
+                marks[1] = False
             if (macro_iter > 1) and (macro_iter % 10 == 0):
                 micro_table.print_sep()
             micro_table.print_row(
@@ -1678,6 +1682,10 @@ def cli(
                 )
             )
             click.echo("[dry-run] Validation complete. Optimization execution was skipped.")
+            emit(
+                format_elapsed("[time] Elapsed Time for Opt", time_start),
+                narrative=True,
+            )
             return
 
         try:
@@ -2171,8 +2179,6 @@ def cli(
             frozen_layer_indices=frozen_layer_indices,
         )
 
-        emit(format_elapsed("[time] Elapsed Time for Opt", time_start), narrative=True)
-
         if out_json:
             from mlmm.core.utils import calculator_provenance, write_result_json
             _opt_converged = _opt_terminal_converged(
@@ -2290,6 +2296,11 @@ def cli(
                 command="opt",
                 elapsed_seconds=time.perf_counter() - time_start,
             )
+
+        emit(
+            format_elapsed("[time] Elapsed Time for Opt", time_start),
+            narrative=True,
+        )
 
     except ZeroStepLength as e:
         _write_error_json(Path(out_dir).resolve(), "opt", e, "ZeroStepLength", time_start)

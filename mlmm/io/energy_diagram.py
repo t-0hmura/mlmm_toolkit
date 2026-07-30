@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import ast
 import sys
+import time
 from pathlib import Path
 from typing import List, Optional, Sequence
 
@@ -264,6 +265,7 @@ def cli(
     label_y: str,
     out_json: bool,
 ) -> None:
+    time_start = time.perf_counter()
     from mlmm.core.utils import current_cli_args, reject_option_like_extra_args
 
     argv = current_cli_args(ctx)
@@ -311,3 +313,10 @@ def cli(
             "files": {out_img.name: str(out_img)},
         }
         write_result_json(out_img.parent, result_data, command="energy-diagram")
+    from mlmm.core.output import emit
+    from mlmm.core.utils import format_elapsed
+
+    emit(
+        format_elapsed("[time] Elapsed Time for Energy Diagram", time_start),
+        narrative=True,
+    )

@@ -1,4 +1,6 @@
+from contextlib import redirect_stdout
 from dataclasses import replace
+from io import StringIO
 from typing import List, Optional
 
 import h5py
@@ -301,6 +303,7 @@ class TSHessianOptimizer(HessianOptimizer):
         self._initial_reference_root_overlap = None
         self._initial_reference_root_eigenvalue = None
         self._best_exact_saddle = None
+        self._deferred_cycle_output = []
 
         self.ts_modes = list()
         self.max_micro_cycles = max_micro_cycles
@@ -1048,7 +1051,7 @@ class TSHessianOptimizer(HessianOptimizer):
         ):
             return False
         self.geometry.cart_coords = best.copy()
-        self.table.print(
+        self._print_or_defer_cycle_message(
             "Restored the best exact first-order saddle candidate from cycle "
             f"{self._best_exact_saddle['cycle']} after guarded TS failure "
             "(run remains non-converged)."
@@ -1188,6 +1191,43 @@ class TSHessianOptimizer(HessianOptimizer):
         self.exact_saddle_checks += 1
         return self._hessian_system(np.asarray(gradient_full))
 
+    def _refresh_and_verify_exact_saddle_model(self, gradient_full):
+        """Run exact validation while retaining its output for the cycle row."""
+        output = StringIO()
+        try:
+            with redirect_stdout(output):
+                exact_model = self._refresh_exact_saddle_model(gradient_full)
+                verification = self._verify_exact_vibrational_structure(
+                    exact_model[2], exact_model[3]
+                )
+        except Exception:
+            captured = output.getvalue()
+            if captured:
+                print(captured, end="" if captured.endswith("\n") else "\n")
+            raise
+        captured = output.getvalue()
+        if captured:
+            self._deferred_cycle_output.append(captured)
+        return exact_model, verification
+
+    def has_deferred_cycle_output(self):
+        return bool(self._deferred_cycle_output)
+
+    def _print_or_defer_cycle_message(self, *args, **kwargs):
+        if not self.has_deferred_cycle_output():
+            self.table.print(*args, **kwargs)
+            return
+        output = StringIO()
+        with redirect_stdout(output):
+            self.table.print(*args, **kwargs)
+        self._deferred_cycle_output.append(output.getvalue())
+
+    def print_opt_progress(self, conv_info):
+        super().print_opt_progress(conv_info)
+        for output in self._deferred_cycle_output:
+            print(output, end="" if output.endswith("\n") else "\n")
+        self._deferred_cycle_output.clear()
+
     def housekeeping(self):
         recovery_active_at_entry = self._saddle_recovery_active
         can_reject_trial = (
@@ -1240,11 +1280,11 @@ class TSHessianOptimizer(HessianOptimizer):
             del H, eigvals, eigvecs
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-            gradient, H, eigvals, eigvecs = self._refresh_exact_saddle_model(
+            (
+                (gradient, H, eigvals, eigvecs),
+                (has_negative, physical_mode, physical_checked),
+            ) = self._refresh_and_verify_exact_saddle_model(
                 -np.asarray(self.forces[-1])
-            )
-            has_negative, physical_mode, physical_checked = (
-                self._verify_exact_vibrational_structure(eigvals, eigvecs)
             )
             exact_checked = True
             resetted = True
@@ -1254,7 +1294,7 @@ class TSHessianOptimizer(HessianOptimizer):
                 self._saddle_recovery_sign = None
                 self._physical_ts_mode = None
                 self.saddle_recovery_cycles = 0
-                self.table.print(
+                self._print_or_defer_cycle_message(
                     "Exact saddle validation found no physical imaginary mode; "
                     "continuing with saddle-recovery steps instead of accepting "
                     "a local minimum."
@@ -1320,15 +1360,11 @@ class TSHessianOptimizer(HessianOptimizer):
                     del H, eigvals, eigvecs
                     if torch.cuda.is_available():
                         torch.cuda.empty_cache()
-                    gradient, H, eigvals, eigvecs = (
-                        self._refresh_exact_saddle_model(
-                            -np.asarray(self.forces[-1])
-                        )
-                    )
-                    has_negative, physical_mode, physical_checked = (
-                        self._verify_exact_vibrational_structure(
-                            eigvals, eigvecs
-                        )
+                    (
+                        (gradient, H, eigvals, eigvecs),
+                        (has_negative, physical_mode, physical_checked),
+                    ) = self._refresh_and_verify_exact_saddle_model(
+                        -np.asarray(self.forces[-1])
                     )
                     exact_checked = True
                     resetted = True
@@ -1341,7 +1377,7 @@ class TSHessianOptimizer(HessianOptimizer):
                         self.saddle_recovery_cycles = 0
                         if physical_checked:
                             self._physical_ts_mode = physical_mode
-                        self.table.print(
+                        self._print_or_defer_cycle_message(
                             "Exact recovery checkpoint found negative "
                             "curvature; resuming TS optimization."
                         )
@@ -1373,7 +1409,7 @@ class TSHessianOptimizer(HessianOptimizer):
                             ):
                                 updated_mode = -updated_mode
                         self._saddle_recovery_mode = updated_mode
-                    self.table.print(
+                    self._print_or_defer_cycle_message(
                         "Exact recovery checkpoint still has no requested "
                         "negative mode; continuing bounded recovery "
                         f"({self.saddle_recovery_cycles}/"

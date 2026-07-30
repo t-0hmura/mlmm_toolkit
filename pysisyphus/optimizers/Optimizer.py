@@ -878,6 +878,8 @@ class Optimizer(metaclass=abc.ABCMeta):
 
         # desired_eigval_structure is also returned, but currently not reported.
         marks = [False, *conv_info.get_convergence()[:-1], False]
+        if not np.all(np.isfinite(np.asarray(energy_diff))):
+            marks[1] = False
         try:
             cycle_time = self.cycle_times[-1]
         except IndexError:
@@ -901,6 +903,10 @@ class Optimizer(metaclass=abc.ABCMeta):
                 self.table.print(add_info)
         except AttributeError:
             pass
+
+    def has_deferred_cycle_output(self):
+        """Whether a subclass has output that belongs after the cycle row."""
+        return False
 
     def fit_rigid(self, *, vectors=None, vector_lists=None, hessian=None):
         return fit_rigid(
@@ -1167,6 +1173,7 @@ class Optimizer(metaclass=abc.ABCMeta):
                 (self.cur_cycle % self.print_every) == 0
                 or self.is_converged
                 or self.stop_requested
+                or self.has_deferred_cycle_output()
             ):
                 self.print_opt_progress(conv_info)
             if self.is_converged:

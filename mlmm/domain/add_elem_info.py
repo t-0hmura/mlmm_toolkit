@@ -16,6 +16,7 @@ import collections
 import os
 import re
 import sys
+import time
 from pathlib import Path
 from typing import Optional, Set
 
@@ -379,6 +380,7 @@ def cli(in_pdb: Path, out_pdb: Optional[Path], inplace: bool, overwrite: bool) -
     """
     Click wrapper to run via the `mlmm add-elem-info` subcommand.
     """
+    time_start = time.perf_counter()
     try:
         assign_elements(
             str(in_pdb),
@@ -392,6 +394,13 @@ def cli(in_pdb: Path, out_pdb: Optional[Path], inplace: bool, overwrite: bool) -
     except Exception as e:
         click.echo(f"[ERR] Failed: {e}", err=True)
         sys.exit(2)
+    from mlmm.core.output import emit
+    from mlmm.core.utils import format_elapsed
+
+    emit(
+        format_elapsed("[time] Elapsed Time for Add Element Info", time_start),
+        narrative=True,
+    )
 
 if __name__ == "__main__":
     main()

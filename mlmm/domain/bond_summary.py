@@ -11,6 +11,7 @@ covalent bonds formed and broken. Supports XYZ, PDB, and GJF formats.
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 from typing import List
 
@@ -97,6 +98,7 @@ def cli(inputs: tuple, extra_inputs: tuple, device: str, bond_factor: float, one
       mlmm bond-summary A.xyz B.xyz C.xyz
       mlmm bond-summary -i A.xyz B.xyz C.xyz
     """
+    time_start = time.perf_counter()
     files: List[str] = list(inputs) + list(extra_inputs)
     if len(files) < 2:
         raise click.BadParameter(
@@ -193,3 +195,10 @@ def cli(inputs: tuple, extra_inputs: tuple, device: str, bond_factor: float, one
         # Surface the failure via the process exit code (the JSON envelope above
         # already carries status=partial/failed for machine consumers).
         raise SystemExit(1)
+    if not out_json:
+        from mlmm.core.utils import format_elapsed
+
+        emit(
+            format_elapsed("[time] Elapsed Time for Bond Summary", time_start),
+            narrative=True,
+        )

@@ -10,6 +10,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import sys
+import time
 
 import click
 from mlmm.core.output import emit
@@ -636,6 +637,7 @@ def cli(
     one_based: bool,
 ) -> None:
     """Define 3-layer ML/MM system based on distance from ML region."""
+    time_start = time.perf_counter()
 
     # Validate input
     if model_pdb is None and model_indices_str is None:
@@ -727,6 +729,12 @@ def cli(
     except Exception as e:
         click.echo(f"ERROR: Unexpected error: {e}", err=True)
         sys.exit(1)
+    from mlmm.core.utils import format_elapsed
+
+    emit(
+        format_elapsed("[time] Elapsed Time for Define Layer", time_start),
+        narrative=True,
+    )
 
 
 if __name__ == "__main__":

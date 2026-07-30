@@ -34,6 +34,7 @@ Usage
 """
 
 import shutil
+import time
 from pathlib import Path
 from typing import Dict, Iterable, Iterator, List, Optional, Set, Tuple
 
@@ -468,7 +469,15 @@ def cli(
     overwrite: bool,
     force: bool,
 ) -> None:
+    time_start = time.perf_counter()
     _run_fix_altloc(input_path, out, recursive, inplace, overwrite, force)
+    from mlmm.core.output import emit
+    from mlmm.core.utils import format_elapsed
+
+    emit(
+        format_elapsed("[time] Elapsed Time for Fix AltLoc", time_start),
+        narrative=True,
+    )
 
 
 if __name__ == "__main__":

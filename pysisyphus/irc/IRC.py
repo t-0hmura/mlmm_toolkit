@@ -471,6 +471,8 @@ class IRC:
         self.past_inflection = not self.force_inflection
         self._never_stop_gradient_notice_shown = False
         self._never_stop_hard_gradient_notice_shown = False
+        self._never_stop_energy_increase_notice_shown = False
+        self._never_stop_energy_convergence_notice_shown = False
 
         self.irc_energies = list()
         # Not mass-weighted
@@ -907,14 +909,18 @@ class IRC:
                     )
                 if self.energy_increased:
                     self.never_stop_energy_increase_bypasses += 1
-                    self.table.print(
-                        "Energy increased; continuing because never_stop=True."
-                    )
+                    if not self._never_stop_energy_increase_notice_shown:
+                        self._never_stop_energy_increase_notice_shown = True
+                        self.table.print(
+                            "Energy increased; continuing because never_stop=True."
+                        )
                 elif self.energy_converged:
                     self.never_stop_energy_convergence_bypasses += 1
-                    self.table.print(
-                        "Energy change converged; continuing because never_stop=True."
-                    )
+                    if not self._never_stop_energy_convergence_notice_shown:
+                        self._never_stop_energy_convergence_notice_shown = True
+                        self.table.print(
+                            "Energy change converged; continuing because never_stop=True."
+                        )
 
             if break_msg:
                 self.table.print(break_msg)

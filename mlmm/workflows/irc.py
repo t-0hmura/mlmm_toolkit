@@ -741,6 +741,10 @@ def cli(
                 )
             )
             click.echo("[dry-run] Validation complete. IRC execution was skipped.")
+            emit(
+                format_elapsed("[time] Elapsed Time for IRC", time_start),
+                narrative=True,
+            )
             return
 
         irc_protected_inputs = (
@@ -1196,9 +1200,6 @@ def cli(
                         logger.debug("Failed to convert %s to PDB", endpoint_xyz.name, exc_info=True)
                         click.echo(f"[convert] WARNING: Failed to convert '{tag}.xyz' to PDB: {e}", err=True)
 
-        # summary.md and key_* outputs are disabled.
-        emit(format_elapsed("[time] Elapsed Time for IRC", time_start), narrative=True)
-
         if out_json:
             from mlmm.core.utils import calculator_provenance, write_result_json
             _all_e = eulerpc.all_energies
@@ -1304,6 +1305,12 @@ def cli(
                 command="irc",
                 elapsed_seconds=time.perf_counter() - time_start,
             )
+
+        # summary.md and key_* outputs are disabled.
+        emit(
+            format_elapsed("[time] Elapsed Time for IRC", time_start),
+            narrative=True,
+        )
 
     except KeyboardInterrupt:
         click.echo("\nInterrupted by user.", err=True)
