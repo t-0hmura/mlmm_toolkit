@@ -95,8 +95,13 @@ class LBFGS(Optimizer):
         # the physical energy.  Their callers leave this safeguard disabled.
         self.reject_uphill = bool(reject_uphill) and not self.is_cos
         self.uphill_tolerance = float(uphill_tolerance)
-        if self.uphill_tolerance < 0.0:
-            raise ValueError("uphill_tolerance must be non-negative")
+        if (
+            not np.isfinite(self.uphill_tolerance)
+            or self.uphill_tolerance < 0.0
+        ):
+            raise ValueError(
+                "uphill_tolerance must be finite and non-negative"
+            )
         self.rejection_step_floor = float(rejection_step_floor)
         if self.rejection_step_floor <= 0.0:
             raise ValueError("rejection_step_floor must be positive")

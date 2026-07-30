@@ -186,8 +186,13 @@ class HessianOptimizer(Optimizer):
         self.max_energy_incr = max_energy_incr
         self.reject_uphill = bool(reject_uphill)
         self.uphill_tolerance = float(uphill_tolerance)
-        if self.uphill_tolerance < 0.0:
-            raise ValueError("uphill_tolerance must be non-negative")
+        if (
+            not np.isfinite(self.uphill_tolerance)
+            or self.uphill_tolerance < 0.0
+        ):
+            raise ValueError(
+                "uphill_tolerance must be finite and non-negative"
+            )
         self.rejection_trust_floor = float(rejection_trust_floor)
         if self.rejection_trust_floor <= 0.0:
             raise ValueError("rejection_trust_floor must be positive")

@@ -179,6 +179,24 @@ class _QuadraticCalculator(Calculator):
         return self._results(coords)
 
 
+@pytest.mark.parametrize("optimizer_cls", [LBFGS, RFOptimizer])
+@pytest.mark.parametrize("tolerance", [-1.0, np.nan, np.inf])
+def test_uphill_tolerance_must_be_finite_and_nonnegative(
+    tmp_path, optimizer_cls, tolerance
+) -> None:
+    geom = Geometry(["H"], np.zeros(3), coord_type="cart")
+    geom.set_calculator(_QuadraticCalculator(tmp_path))
+    kwargs = {"out_dir": tmp_path, "uphill_tolerance": tolerance}
+    if optimizer_cls is RFOptimizer:
+        kwargs.update(hessian_init="calc", hessian_recalc=1)
+
+    with pytest.raises(
+        ValueError,
+        match="must be finite and non-negative",
+    ):
+        optimizer_cls(geom, **kwargs)
+
+
 class _DoubleWellCalculator(Calculator):
     """One saddle coordinate plus two stiff minimizing coordinates."""
 
