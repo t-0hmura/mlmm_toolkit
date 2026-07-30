@@ -130,10 +130,10 @@ mlmm path-search -i r_complex_layered.pdb p_complex_layered.pdb --parm p_complex
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q -1 -m 1 --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test18 > test18.out 2>&1
 
 # test19: tsopt (radius-hessian 0.0)
-mlmm tsopt -i p_complex.pdb --parm p_complex.parm7 --model-pdb pocket_r.pdb --no-detect-layer -q -1 -m 1 --opt-mode grad --max-cycles 5 --radius-hessian 0.0 --active-dof-mode ml-only --thresh gau_loose --out-dir test19 > test19.out 2>&1
+mlmm tsopt -i p_complex.pdb --parm p_complex.parm7 --model-pdb pocket_r.pdb -q -1 -m 1 --opt-mode grad --max-cycles 5 --radius-hessian 0.0 --active-dof-mode ml-only --thresh gau_loose --out-dir test19 > test19.out 2>&1
 
 # test20: tsopt (radius-hessian 3.6)
-mlmm tsopt -i p_complex.pdb --parm p_complex.parm7 --model-pdb pocket_r.pdb --no-detect-layer -q -1 -m 1 --opt-mode grad --max-cycles 5 --radius-hessian 3.6 --active-dof-mode ml-only --thresh gau_loose --out-dir test20 > test20.out 2>&1
+mlmm tsopt -i p_complex.pdb --parm p_complex.parm7 --model-pdb pocket_r.pdb -q -1 -m 1 --opt-mode grad --max-cycles 5 --radius-hessian 3.6 --active-dof-mode ml-only --thresh gau_loose --out-dir test20 > test20.out 2>&1
 python - <<'PY'
 import re
 from pathlib import Path
