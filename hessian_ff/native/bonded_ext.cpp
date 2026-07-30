@@ -8,6 +8,12 @@
 
 #ifdef _OPENMP
 #include <omp.h>
+#define HESSIAN_FF_OMP_PARALLEL \
+  _Pragma("omp parallel num_threads(nthreads)")
+#define HESSIAN_FF_OMP_FOR_STATIC _Pragma("omp for schedule(static)")
+#else
+#define HESSIAN_FF_OMP_PARALLEL
+#define HESSIAN_FF_OMP_FOR_STATIC
 #endif
 
 // References:
@@ -415,9 +421,7 @@ std::vector<torch::Tensor> bonded_energy_force_cpu(
     std::vector<double> ec_tls(static_cast<size_t>(nthreads), 0.0);
 
     // Bond
-#ifdef _OPENMP
-#pragma omp parallel num_threads(nthreads)
-#endif
+    HESSIAN_FF_OMP_PARALLEL
     {
       int tid = 0;
 #ifdef _OPENMP
@@ -425,9 +429,7 @@ std::vector<torch::Tensor> bonded_energy_force_cpu(
 #endif
       scalar_t* fl = force_tls.data() + static_cast<size_t>(tid) * static_cast<size_t>(stride);
       double eb_local = 0.0;
-#ifdef _OPENMP
-#pragma omp for schedule(static)
-#endif
+      HESSIAN_FF_OMP_FOR_STATIC
       for (int64_t p = 0; p < nbond; ++p) {
         const int64_t i = bi_ptr[p];
         const int64_t j = bj_ptr[p];
@@ -450,9 +452,7 @@ std::vector<torch::Tensor> bonded_energy_force_cpu(
     }
 
     // Angle
-#ifdef _OPENMP
-#pragma omp parallel num_threads(nthreads)
-#endif
+    HESSIAN_FF_OMP_PARALLEL
     {
       int tid = 0;
 #ifdef _OPENMP
@@ -460,9 +460,7 @@ std::vector<torch::Tensor> bonded_energy_force_cpu(
 #endif
       scalar_t* fl = force_tls.data() + static_cast<size_t>(tid) * static_cast<size_t>(stride);
       double ea_local = 0.0;
-#ifdef _OPENMP
-#pragma omp for schedule(static)
-#endif
+      HESSIAN_FF_OMP_FOR_STATIC
       for (int64_t p = 0; p < nangle; ++p) {
         const int64_t i = ai_ptr[p];
         const int64_t j = aj_ptr[p];
@@ -517,9 +515,7 @@ std::vector<torch::Tensor> bonded_energy_force_cpu(
     }
 
     // Dihedral
-#ifdef _OPENMP
-#pragma omp parallel num_threads(nthreads)
-#endif
+    HESSIAN_FF_OMP_PARALLEL
     {
       int tid = 0;
 #ifdef _OPENMP
@@ -527,9 +523,7 @@ std::vector<torch::Tensor> bonded_energy_force_cpu(
 #endif
       scalar_t* fl = force_tls.data() + static_cast<size_t>(tid) * static_cast<size_t>(stride);
       double ed_local = 0.0;
-#ifdef _OPENMP
-#pragma omp for schedule(static)
-#endif
+      HESSIAN_FF_OMP_FOR_STATIC
       for (int64_t p = 0; p < ndihed; ++p) {
         const int64_t i = di_ptr[p];
         const int64_t j = dj_ptr[p];
@@ -550,9 +544,7 @@ std::vector<torch::Tensor> bonded_energy_force_cpu(
     }
 
     // CMAP
-#ifdef _OPENMP
-#pragma omp parallel num_threads(nthreads)
-#endif
+    HESSIAN_FF_OMP_PARALLEL
     {
       int tid = 0;
 #ifdef _OPENMP
@@ -560,9 +552,7 @@ std::vector<torch::Tensor> bonded_energy_force_cpu(
 #endif
       scalar_t* fl = force_tls.data() + static_cast<size_t>(tid) * static_cast<size_t>(stride);
       double ec_local = 0.0;
-#ifdef _OPENMP
-#pragma omp for schedule(static)
-#endif
+      HESSIAN_FF_OMP_FOR_STATIC
       for (int64_t p = 0; p < ncmap; ++p) {
         const int64_t tmap = ct_ptr[p];
         const int64_t i = ci_ptr[p];
