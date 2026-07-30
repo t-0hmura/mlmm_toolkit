@@ -45,6 +45,7 @@ def _optimizer(tmp_path):
         trust_max=0.1,
         line_search=False,
         gdiis=False,
+        reject_uphill=True,
         out_dir=tmp_path,
     )
     opt.H = np.eye(3)
