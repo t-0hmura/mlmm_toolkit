@@ -1607,6 +1607,7 @@ class HessianDimer:
             "write_orientations": False,  # runner override to reduce IO
             "seed": 0,                    # runner override for determinism
             "mem": self.mem,              # accepted by Calculator base through **kwargs
+            "out_dir": str(self.out_dir),
         })
         dimer = Dimer(**dimer_kwargs)
 

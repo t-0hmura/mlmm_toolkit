@@ -370,6 +370,7 @@ def test_hessian_dimer_passes_geometry_constraints_to_dimer(tmp_path, monkeypatc
     assert steps == 1
     assert converged is True
     assert captured["frozen_atoms"] == [0]
+    assert captured["out_dir"] == str(tmp_path)
     assert callable(captured["rigid_basis_getter"])
     assert basis.shape == (COORDS.size, 3)
     np.testing.assert_array_equal(basis[:3], 0.0)
