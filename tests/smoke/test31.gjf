@@ -1,4 +1,4 @@
-%chk=test33.chk
+%chk=test31.chk
 %mem=16GB
 %nprocshared=8
 #p oniom(wB97XD/def2-TZVPD:amber=softonly)

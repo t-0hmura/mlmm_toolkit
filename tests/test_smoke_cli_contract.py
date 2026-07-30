@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -67,9 +68,9 @@ def test_manual_all_smoke_disables_layer_detection() -> None:
     command = next(
         command.text
         for command in _literal_smoke_commands(SMOKE_SCRIPT)
-        if "--parm \"${test19_parms[0]}\"" in command.text
+        if "--parm \"${test73_parms[0]}\"" in command.text
     )
-    assert "--model-pdb test19/ml_region.pdb" in command
+    assert "--model-pdb test73/ml_region.pdb" in command
     assert "--no-detect-layer" in command
 
 
@@ -77,7 +78,7 @@ def test_required_positive_lane_uses_release_settings_and_runs_last() -> None:
     command = next(
         command.text
         for command in _literal_smoke_commands(SMOKE_SCRIPT)
-        if "--out-dir test19" in command.text
+        if "--out-dir test73" in command.text
     )
     assert "--deterministic" in command
     assert "--no-refine-path" in command
@@ -92,6 +93,15 @@ def test_required_positive_lane_uses_release_settings_and_runs_last() -> None:
     assert "--tsopt-max-cycles" not in command
 
     script = SMOKE_SCRIPT.read_text(encoding="utf-8")
-    assert script.index("--out-dir test74_flatten") < script.index("--out-dir test19")
-    assert script.index("backend_hessian.out") < script.index("--out-dir test19")
-    assert script.index("--out-dir test19") < script.index("--out-dir test20")
+    assert script.index("--out-dir test71_flatten") < script.index("--out-dir test73")
+    assert script.index("test72_backend_hessian.out") < script.index("--out-dir test73")
+    assert script.index("--out-dir test73") < script.index("--out-dir test74")
+
+
+def test_smoke_numbers_follow_execution_order() -> None:
+    headers = [
+        int(match.group(1))
+        for line in SMOKE_SCRIPT.read_text(encoding="utf-8").splitlines()
+        if (match := re.match(r"# test(\d+):", line))
+    ]
+    assert headers == list(range(1, 75))
