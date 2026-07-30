@@ -611,6 +611,6 @@ if [[ "${#test73_parms[@]}" -ne 1 ]]; then
   echo "[smoke] FAIL test74: expected exactly one reusable test73 parm7, found ${#test73_parms[@]}" >&2
   exit 1
 fi
-mlmm all -i r_complex.pdb p_complex.pdb --parm "${test73_parms[0]}" --model-pdb test73/ml_region.pdb --no-detect-layer -q -1 -m 1 --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test74 > test74.out 2>&1
+mlmm all -i test73/layered/001_r_complex_layered.pdb test73/layered/002_p_complex_layered.pdb --parm "${test73_parms[0]}" --model-pdb test73/ml_region.pdb -q -1 -m 1 --no-refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test74 > test74.out 2>&1
 
 echo "[smoke] PASS: required GPU, ML/MM, Hessian-handoff, and structure-I/O lane completed with zero skips."
