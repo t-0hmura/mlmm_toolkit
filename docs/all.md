@@ -218,6 +218,12 @@ Defaults shown are used when the option is not specified. The full flag list is 
 
 ### MEP search
 
+```{note}
+Do not set `--max-cycles` on `mlmm all`; let each stage use its own default.
+Set `--max-cycles` only when running a single-stage subcommand directly, such
+as `opt`, `tsopt`, or `path-opt`.
+```
+
 | Option | Description | Default |
 | --- | --- | --- |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |

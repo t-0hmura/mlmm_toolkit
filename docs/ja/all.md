@@ -221,6 +221,12 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 
 ### MEP 探索オプション
 
+```{note}
+`mlmm all` では `--max-cycles` を指定せず、各ステージ固有のデフォルトを
+使用してください。`--max-cycles` は `opt`、`tsopt`、`path-opt` などの
+単発サブコマンドを直接実行するときだけ指定します。
+```
+
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |

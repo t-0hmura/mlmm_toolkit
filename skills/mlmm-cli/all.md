@@ -44,6 +44,10 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 
 ## Key flags (cross-mode)
 
+> **Note:** Do not pass `--max-cycles` to `mlmm all`; let each stage use its
+> own default. Set it only when running a single-stage subcommand directly,
+> such as `opt`, `tsopt`, or `path-opt`.
+
 | Flag | Type | Default | Description |
 |---|---|---|---|
 | `-i, --input` | path(s) | required | One or more reaction-ordered structures, or a TS-candidate alone |
