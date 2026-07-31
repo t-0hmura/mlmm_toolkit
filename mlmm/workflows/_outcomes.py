@@ -38,22 +38,11 @@ def _finite(value: Any) -> bool:
         return False
 
 
-def _is_true(value: Any) -> bool:
-    """Explicit-True test that is robust to numpy booleans.
+def _normalize_bool(value: Any) -> Optional[bool]:
+    """Return a Python boolean for explicit Python/NumPy boolean scalars."""
 
-    Convergence is fail-closed: only a value that is *explicitly* boolean-True
-    (Python ``True`` or ``numpy.bool_(True)``) counts as converged.  ``None``
-    (unknown), ``False``, and non-boolean truthy values (e.g. the integer 1 or a
-    "true" string) are all rejected, so a missing or ambiguous signal never
-    promotes a leaf.
-    """
-
-    if value is True:
-        return True
-    if value is False or value is None or isinstance(value, (int, float, str)):
-        # bool is a subclass of int but ``value is True/False`` already handled
-        # the genuine booleans above; a bare 1/1.0/"true" must not pass.
-        return False
+    if value is True or value is False:
+        return value
     # NumPy 2 exposes ``np.bool_`` as ``numpy.bool`` while older releases use
     # ``numpy.bool_``. Accept only those scalar types, not arbitrary truthy
     # objects.
@@ -65,8 +54,19 @@ def _is_true(value: Any) -> bool:
         try:
             return bool(value)
         except (TypeError, ValueError):
-            return False
-    return False
+            return None
+    return None
+
+
+def _is_true(value: Any) -> bool:
+    """Explicit-True test that is robust to NumPy booleans.
+
+    Convergence is fail-closed: Python and NumPy boolean ``True`` count as
+    converged. Missing or non-boolean truthy values such as ``1`` and
+    ``"true"`` do not.
+    """
+
+    return _normalize_bool(value) is True
 
 
 @dataclass(frozen=True)
@@ -174,11 +174,13 @@ def make_leaf(
     left as ``None`` (a missing/unknown signal) is *not* usable.
     """
 
-    usable = _is_true(executed) and _is_true(converged) and bool(energy_valid)
+    executed = _normalize_bool(executed)
+    converged = _normalize_bool(converged)
+    usable = executed is True and converged is True and bool(energy_valid)
     if not reason:
         if executed is False:
             reason = "not_executed"
-        elif not _is_true(converged):
+        elif converged is not True:
             reason = "not_converged" if converged is False else "convergence_unknown"
         elif not energy_valid:
             reason = "energy_invalid"
@@ -208,6 +210,8 @@ def make_scan_point(
 ) -> ScanPointOutcome:
     """Construct a :class:`ScanPointOutcome` with fail-closed seed eligibility."""
 
+    executed = _normalize_bool(executed)
+    converged = _normalize_bool(converged)
     if energy_valid is None:
         energy_valid = _finite(energy)
     seed_eligible = _is_true(converged) and bool(energy_valid) and bool(artifact_written)
@@ -248,19 +252,7 @@ def optimizer_converged_bit(optimizer: Any, attr: str = "is_converged") -> Optio
     ``run()`` converged.
     """
 
-    value = getattr(optimizer, attr, None)
-    if value is True or value is False:
-        return value
-    value_type = type(value)
-    if (
-        value_type.__module__ == "numpy"
-        and value_type.__name__ in {"bool", "bool_"}
-    ):
-        try:
-            return bool(value)
-        except (TypeError, ValueError):
-            return None
-    return None
+    return _normalize_bool(getattr(optimizer, attr, None))
 
 
 def combine_step_convergence(convs: Iterable[Optional[bool]]) -> Optional[bool]:
@@ -271,7 +263,7 @@ def combine_step_convergence(convs: Iterable[Optional[bool]]) -> Optional[bool]:
     all ``True`` -> ``True``; no steps at all -> ``None``.
     """
 
-    convs = list(convs)
+    convs = [_normalize_bool(conv) for conv in convs]
     if any(c is False for c in convs):
         return False
     if any(c is None for c in convs):
@@ -288,7 +280,7 @@ def irc_hessian_cache_eligible(obj: Any, converged_attr: str) -> bool:
     fails closed so no stale/never-converged Hessian seeds a downstream RFO.
     """
 
-    return getattr(obj, converged_attr, None) is True
+    return _normalize_bool(getattr(obj, converged_attr, None)) is True
 
 
 def irc_direction_leaves(
@@ -330,7 +322,7 @@ def irc_direction_leaves(
                 name,
                 required=True,
                 executed=True,
-                converged=converged if isinstance(converged, bool) else None,
+                converged=_normalize_bool(converged),
                 energy_valid=_n > 0,
                 artifacts=list(artifacts),
             )
@@ -430,10 +422,10 @@ def aggregate_workflow_truth(
     observed = tuple(dict.fromkeys(leaf.item_id for leaf in leaves))
     required = [leaf for leaf in leaves if leaf.required]
     usable_required = [leaf for leaf in required if leaf.usable]
-    observed_ids = {leaf.item_id for leaf in leaves}
+    observed_required_ids = {leaf.item_id for leaf in required}
 
-    missing = [item for item in expected if item not in observed_ids]
-    exec_failed = any(leaf.executed is False for leaf in required)
+    missing = [item for item in expected if item not in observed_required_ids]
+    exec_failed = any(_normalize_bool(leaf.executed) is False for leaf in required)
 
     reasons: List[str] = []
     for leaf in required:

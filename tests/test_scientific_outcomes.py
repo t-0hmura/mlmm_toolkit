@@ -28,6 +28,7 @@ from mlmm.workflows._outcomes import (
     ScanPointOutcome,
     aggregate_workflow_truth,
     attach_outcomes,
+    combine_step_convergence,
     eligible_points,
     make_leaf,
     make_scan_point,
@@ -134,12 +135,42 @@ def test_aggregate_distinguishes_unusable_from_missing() -> None:
     assert "missing:seg_1" not in truth.status_reasons
 
 
+def test_optional_leaf_does_not_satisfy_expected_required_id() -> None:
+    required = make_leaf("p", "seg_0", executed=True, converged=True)
+    optional = make_leaf(
+        "p", "seg_1", required=False, executed=False, converged=None
+    )
+    truth = aggregate_workflow_truth(
+        [required, optional], ["seg_0", "seg_1"]
+    )
+
+    assert truth.scientific_status == "partial"
+    assert truth.observed_item_ids == ("seg_0", "seg_1")
+    assert "missing:seg_1" in truth.status_reasons
+
+
 def test_optimizer_converged_bit_normalizes_numpy_boolean() -> None:
     class Optimizer:
         is_converged = np.bool_(False)
 
     assert optimizer_converged_bit(Optimizer()) is False
     assert make_leaf("p", "seg_1", executed=True, converged=np.bool_(True)).usable
+    not_run = make_leaf(
+        "p", "seg_1", executed=np.bool_(False), converged=np.bool_(True)
+    )
+    assert not_run.executed is False
+    assert not_run.converged is True
+    assert not_run.reason == "not_executed"
+    assert aggregate_workflow_truth(
+        [not_run], ["seg_1"]
+    ).execution_status == "failed"
+    not_converged = make_scan_point(
+        "p", executed=np.bool_(True), converged=np.bool_(False)
+    )
+    assert not_converged.executed is True
+    assert not_converged.converged is False
+    assert not_converged.reason == "not_converged"
+    assert combine_step_convergence([np.bool_(True), np.bool_(False)]) is False
 
 
 def test_serializer_roundtrip_and_additive_only(tmp_path: Path) -> None:
