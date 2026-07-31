@@ -54,9 +54,14 @@ def _is_true(value: Any) -> bool:
         # bool is a subclass of int but ``value is True/False`` already handled
         # the genuine booleans above; a bare 1/1.0/"true" must not pass.
         return False
-    # numpy.bool_ (and similar) scalar: accept only when it is a boolean scalar
-    # whose truth value is True.
-    if type(value).__name__ == "bool_":
+    # NumPy 2 exposes ``np.bool_`` as ``numpy.bool`` while older releases use
+    # ``numpy.bool_``. Accept only those scalar types, not arbitrary truthy
+    # objects.
+    value_type = type(value)
+    if (
+        value_type.__module__ == "numpy"
+        and value_type.__name__ in {"bool", "bool_"}
+    ):
         try:
             return bool(value)
         except (TypeError, ValueError):
@@ -236,14 +241,26 @@ def optimizer_converged_bit(optimizer: Any, attr: str = "is_converged") -> Optio
     """Read a pysisyphus optimizer's convergence as a fail-closed tri-state bit.
 
     Returns ``True``/``False`` only when the optimizer exposes an *explicit*
-    boolean ``is_converged``; anything else (a missing attribute, a non-boolean
-    value such as ``1``) collapses to ``None`` (unknown).  A "normal return" is
-    not convergence: the caller must read this bit rather than assume a
-    non-raising ``run()`` converged.
+    boolean ``is_converged``. NumPy boolean scalars are normalized to Python
+    booleans; anything else (a missing attribute, a non-boolean value such as
+    ``1``) collapses to ``None`` (unknown). A "normal return" is not
+    convergence: the caller must read this bit rather than assume a non-raising
+    ``run()`` converged.
     """
 
     value = getattr(optimizer, attr, None)
-    return value if isinstance(value, bool) else None
+    if value is True or value is False:
+        return value
+    value_type = type(value)
+    if (
+        value_type.__module__ == "numpy"
+        and value_type.__name__ in {"bool", "bool_"}
+    ):
+        try:
+            return bool(value)
+        except (TypeError, ValueError):
+            return None
+    return None
 
 
 def combine_step_convergence(convs: Iterable[Optional[bool]]) -> Optional[bool]:
@@ -413,9 +430,9 @@ def aggregate_workflow_truth(
     observed = tuple(dict.fromkeys(leaf.item_id for leaf in leaves))
     required = [leaf for leaf in leaves if leaf.required]
     usable_required = [leaf for leaf in required if leaf.usable]
-    usable_required_ids = {leaf.item_id for leaf in usable_required}
+    observed_ids = {leaf.item_id for leaf in leaves}
 
-    missing = [item for item in expected if item not in usable_required_ids]
+    missing = [item for item in expected if item not in observed_ids]
     exec_failed = any(leaf.executed is False for leaf in required)
 
     reasons: List[str] = []

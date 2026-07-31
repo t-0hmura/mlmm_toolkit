@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from mlmm.workflows._outcomes import (
@@ -30,6 +31,7 @@ from mlmm.workflows._outcomes import (
     eligible_points,
     make_leaf,
     make_scan_point,
+    optimizer_converged_bit,
     scan_scientific_status,
     seed_eligible_mask,
 )
@@ -114,6 +116,30 @@ def test_aggregate_success_partial_failed() -> None:
         [make_leaf("p", "seg_1", required=True, executed=False, converged=None)], ["seg_1"]
     )
     assert (t3.scientific_status, t3.execution_status) == ("failed", "failed")
+
+
+def test_aggregate_distinguishes_unusable_from_missing() -> None:
+    leaf = make_leaf(
+        "p",
+        "seg_1",
+        executed=True,
+        converged=False,
+        artifacts=("mep.pdb",),
+    )
+    truth = aggregate_workflow_truth([leaf], ["seg_1"])
+
+    assert truth.scientific_status == "partial"
+    assert truth.observed_item_ids == ("seg_1",)
+    assert "p:seg_1:not_converged" in truth.status_reasons
+    assert "missing:seg_1" not in truth.status_reasons
+
+
+def test_optimizer_converged_bit_normalizes_numpy_boolean() -> None:
+    class Optimizer:
+        is_converged = np.bool_(False)
+
+    assert optimizer_converged_bit(Optimizer()) is False
+    assert make_leaf("p", "seg_1", executed=True, converged=np.bool_(True)).usable
 
 
 def test_serializer_roundtrip_and_additive_only(tmp_path: Path) -> None:

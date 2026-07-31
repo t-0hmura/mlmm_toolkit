@@ -1746,10 +1746,7 @@ def cli(
             _gsm_eN = float(_gsm_energies[-1])
             _barrier = (_gsm_hei_E - _gsm_e0) * _AU2KCAL
             _delta = (_gsm_eN - _gsm_e0) * _AU2KCAL
-            _converged = getattr(optimizer, 'is_converged', None) if 'optimizer' in dir() else None
             result_data_gsm: Dict[str, Any] = {
-                "status": "converged" if _converged else ("not_converged" if _converged is False else "completed"),
-                "converged": _converged,
                 "mep_mode": "gsm",
                 **calculator_provenance(calc_cfg),
                 "charge": calc_cfg.get("model_charge"),
@@ -1778,12 +1775,20 @@ def cli(
                 aggregate_workflow_truth as _agg_truth,
                 attach_outcomes as _attach,
                 make_leaf as _mk_leaf,
+                optimizer_converged_bit as _optimizer_converged_bit,
             )
+            _converged = _optimizer_converged_bit(optimizer)
+            result_data_gsm["status"] = (
+                "converged"
+                if _converged is True
+                else ("not_converged" if _converged is False else "completed")
+            )
+            result_data_gsm["converged"] = _converged
             _gsm_leaf = _mk_leaf(
                 "path-opt",
                 "gsm_mep",
                 executed=True,
-                converged=_converged if isinstance(_converged, bool) else None,
+                converged=_converged,
                 artifacts=["final_geometries_trj.xyz"],
             )
             _attach(
