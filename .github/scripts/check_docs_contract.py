@@ -52,7 +52,7 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
         "`rigid_projection.electronic_state_verified`",
         "`references`",
         "{method, citation, doi}",
-        "must not be used for\npass/HOSP transition-state certification",
+        "The treatment is always\n`constrained`",
     ),
     Path("docs/ja/json-output.md"): (
         "`mlip_precision`",
@@ -63,7 +63,7 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
         "`rigid_projection.electronic_state_verified`",
         "`references`",
         "{method, citation, doi}",
-        "pass/HOSP 遷移状態認定には使用できません",
+        "処理は常に `constrained`",
     ),
     Path("skills/mlmm-cli/sp.md"): (
         "`mlip_backend`",
