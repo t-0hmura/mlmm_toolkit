@@ -73,6 +73,7 @@ def test_required_positive_lane_uses_release_settings_and_runs_last() -> None:
     assert "--deterministic" in command
     assert "--no-refine-path" in command
     assert "--thresh gau" in command
+    assert "--thresh-gsm gau" in command
     assert "--thresh-post baker" in command
     assert "--tsopt" in command
     assert "--thermo" in command

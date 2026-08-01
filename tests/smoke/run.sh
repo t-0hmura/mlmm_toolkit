@@ -579,6 +579,8 @@ python assert_flatten_branch.py test71_flatten.out test71_flatten/result.json >>
 bash run_backend_hessian.sh uma orb > test72_backend_hessian.out 2>&1
 
 # test73: required positive MEP -> TSopt -> IRC -> thermo -> DFT handoff.
+# Endpoint and GSM thresholds are pinned independently so this positive lane
+# retains the same tight MEP that produced its validated first-order saddle.
 # The long lane runs last with its dependent manual-topology reuse check.
 mlmm all \
     -i r_complex.pdb p_complex.pdb \
@@ -590,6 +592,7 @@ mlmm all \
     --deterministic \
     --no-refine-path \
     --thresh gau \
+    --thresh-gsm gau \
     --thresh-post baker \
     --tsopt \
     --thermo \
