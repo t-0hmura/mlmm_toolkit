@@ -131,7 +131,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 1. **Input handling** — load the enzyme PDB, Amber topology, and ML-region definition. Resolve charge / spin. Frozen atoms from CLI and YAML are merged.
 2. **ML/MM calculator setup** — build the ML/MM calculator (MLIP backend + `hessian_ff`). `-b/--backend` selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). `--hessian-calc-mode` controls whether the ML backend evaluates Hessians analytically or by finite difference. v0.3.3 uses mechanical embedding and rejects electronic-embedding requests before construction.
-3. **Light mode (Hessian-Guided Dimer)** — the Dimer stage periodically refreshes the dimer direction by evaluating an exact Hessian in the active subspace. Its TR treatment follows `--tr-projection`: the default removes only full-system rigid motions compatible with the frozen anchors. Every stored, rotated, and trial orientation has frozen Cartesian components set to zero, and every off-center force evaluation retains the central image's frozen coordinates exactly. The mechanics:
+3. **Light mode (Hessian-Guided Dimer)** — the Dimer stage periodically refreshes the dimer direction by evaluating an exact Hessian in the active subspace. Its fixed constrained treatment removes only full-system rigid motions compatible with the frozen anchors. Every stored, rotated, and trial orientation has frozen Cartesian components set to zero, and every off-center force evaluation retains the central image's frozen coordinates exactly. The mechanics:
    - During the loose/final Dimer loops, the internal
      `mm_hessian_mode: none` policy intentionally uses high-level curvature
      guidance only. Outside those loops, `mm_fd: false` selects the analytical
@@ -184,7 +184,6 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1) for the ML region. | `1` |
 | **Active-region freezing** | | |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
-| `--tr-projection [constrained\|legacy-active]` | TR treatment for Cartesian PHVA, Dimer refresh, flattening, and final saddle validation. `legacy-active` is deprecated comparison-only behavior and must not be used for pass/HOSP transition-state certification. | `constrained` |
 | `--radius-hessian` / `--hess-cutoff FLOAT` | Distance cutoff (Å) from the ML region for MM atoms to include in Hessian calculation. Unset includes every required movable MM atom. `0.0` requests an ML-only Hessian and must be paired with `--active-dof-mode ml-only` for final frequency validation. | _None_ |
 | `--movable-cutoff FLOAT` | Distance cutoff (Å) for movable MM atoms. | _None_ |
 | **TS search & optimizer mode** | | |
@@ -227,7 +226,7 @@ Settings are applied with `defaults < config < explicit CLI`. Shared sections re
 geom:
   coord_type: cart
   freeze_atoms: []
-  tr_projection: constrained      # legacy-active is deprecated and comparison-only
+  tr_projection: constrained      # fixed internal PHVA treatment
 calc:
   charge: 0
   spin: 1
@@ -267,12 +266,9 @@ The Dimer rebuilds this basis whenever its central image changes and applies it
 to orientations and rotation forces; it does not subtract active-fragment
 translations that are finite-curvature motions against the frozen boundary.
 
-`--tr-projection` is unrelated to `--ref-mode`: the former controls
-frozen-boundary rigid-mode projection, while the latter supplies an advanced 3N
-MEP tangent for saddle recovery. `legacy-active` is deprecated comparison-only
-behavior and must not be used for pass/HOSP transition-state certification. It
-uses the current common kernel and numerical rank handling; bitwise identity is
-not guaranteed for rank-degenerate cases. With `--out-json`,
+The fixed constrained rigid-mode treatment is unrelated to `--ref-mode`, which
+supplies an advanced 3N MEP tangent for saddle recovery. A stale
+non-constrained `geom.tr_projection` value fails explicitly. With `--out-json`,
 `result.json.rigid_projection` records the treatment, effective rank, Hessian
 source, and Hessian shape.
 

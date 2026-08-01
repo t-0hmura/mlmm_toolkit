@@ -59,7 +59,7 @@ mlmm irc -i TS_STRUCTURE --parm PARM7 --model-pdb ML_REGION [options]
 
 1. **入力準備** -- TS 構造、Amber トポロジー（`--parm`）、ML 領域定義（`--model-pdb` / `--model-indices`）を読み込み、電荷とスピンを確定します。直接PDB/mmCIF入力または`--ref-pdb`がcompanion出力用topologyを提供します。
 2. **ML/MM calculatorの構築** -- `--parm` と `--model-pdb` から ML/MM calculatorを構築します。`-b/--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--hessian-calc-mode` は MLIP Hessian 評価を制御します。v0.3.3 は機械的埋め込みを使用し、電子埋め込みの要求は calculator 構築前に拒否します。
-3. **凍結境界の TR 処理** -- `--tr-projection constrained` は、凍結 anchor をすべて動かさない全系剛体運動だけを除去します。一般的な有効 rank は anchor が 0/1/2/非共線の 3 個以上のとき 6/3/1/0 で、実用的な ML/MM 境界では通常 0 です。`legacy-active` は非推奨の比較専用処理で、pass/HOSP 遷移状態認定には使用できません。
+3. **凍結境界の TR 処理** -- 固定の constrained 処理は、凍結 anchor をすべて動かさない全系剛体運動だけを除去します。一般的な有効 rank は anchor が 0/1/2/非共線の 3 個以上のとき 6/3/1/0 で、実用的な ML/MM 境界では通常 0 です。
 4. **IRC 積分** -- EulerPC 積分器が両方向に沿って IRC を伝播します（`--no-forward` または `--no-backward` でブランチを無効化可能）。ステップサイズとサイクル数で積分長を制御します。
 5. **出力と変換** -- 軌跡はXYZで書き出されます。PDB/mmCIF topologyが利用可能で`--convert-files`が有効ならPDB companionを生成し、bridge入力では元ID付きCIF companionも生成します。
 
@@ -119,7 +119,6 @@ standalone IRC はstitched pathの`first` / `last`端点と、その方向のbon
 | `--model-indices-one-based/--model-indices-zero-based` | `--model-indices` を 1 始まり/0 始まりとして解釈。 | `True`（1 始まり） |
 | `--detect-layer/--no-detect-layer` | 入力 PDB の B 因子（`B=0/10/20`）から ML/MM レイヤーを検出。 | `True` |
 | `--freeze-atoms TEXT` | 1 始まりの凍結原子インデックスをカンマ区切りで指定。 | _None_ |
-| `--tr-projection [constrained\|legacy-active]` | 凍結/部分 Hessian の剛体モード処理。`legacy-active` は非推奨の比較専用で、pass/HOSP 遷移状態認定には使用不可。 | `constrained` |
 | `-q, --charge INT` | ML 領域/model system の正味電荷。YAML の `calc.model_charge` を上書き。 | _None_（`-l` 未指定時は必須） |
 | `-l, --ligand-charge TEXT` | 未知リガンド残基の合計電荷または残基別マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に ML 領域の正味電荷を導出。 | _None_ |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。`calc.spin` を上書き。 | `1` |
@@ -160,7 +159,6 @@ NPZ の geometry、原子順序、active basis、model charge、多重度は現�
 |------------|----------|
 | `--charge` | `calc.charge` |
 | `--multiplicity` | `calc.spin` |
-| `--tr-projection` | `geom.tr_projection` |
 | `--step-size` | `irc.step_length` |
 | `--max-cycles` | `irc.max_cycles` |
 | `--root` | `irc.root` |
@@ -176,7 +174,7 @@ NPZ の geometry、原子順序、active basis、model charge、多重度は現�
 geom:
  coord_type: cart                  # irc では cart に強制（YAML 値は無視）
  freeze_atoms: []                  # 1 始まり凍結原子（CLI/リンク検出とマージ）
- tr_projection: constrained        # legacy-active は非推奨・比較専用
+ tr_projection: constrained        # 固定の内部 PHVA 処理
 calc:
  model_charge: 0                   # ML 領域/model system の正味電荷
  spin: 1                           # スピン多重度 2S+1
@@ -226,9 +224,7 @@ irc:
 - 全原子凍結では IRC 方向が無いため、明示的なエラーになります。
 - `--out-json` 時は `result.json.rigid_projection` に treatment、有効 rank、
   初期 Hessian source、Hessian shape を記録します。
-- `legacy-active` は非推奨の比較専用処理で、pass/HOSP 遷移状態認定には
-  使用できません。現行の共通射影 kernel で rank 退化構造も処理しますが、
-  bitwise 一致は保証しません。
+- `geom.tr_projection` の古い非constrained値は明示的に拒否されます。
 
 ## 関連項目
 

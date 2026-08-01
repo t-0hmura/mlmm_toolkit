@@ -50,6 +50,9 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--mep-mode` | str | `gsm` | `gsm` (Growing String) or `dmf` (Direct Max Flux) |
 | `--refine-mode` | str | mode-dep | `peak` (HEI±1) or `minima` (nearest local minima) |
 | `--max-nodes` | int | 20 | Max internal nodes per segment string |
+| `--thresh` | str | `gau` | Single-structure optimization convergence preset |
+| `--thresh-gsm` | str | `gau_loose` | GSM string-optimizer convergence preset |
+| `--thresh-dmf` | str/float | `tight` | DMF IPOPT dual-infeasibility tolerance: `tight`, `middle`, `loose`, or a positive float |
 | `-q, --charge` / `-l` / `-m` | — | — | Charge / multiplicity (see common conventions) |
 | `-b, --backend` | str | `uma` | MLIP backend |
 | `-o, --out-dir` | path | `./result_path_search/` | Output directory |

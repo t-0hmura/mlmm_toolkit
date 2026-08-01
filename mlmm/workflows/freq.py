@@ -697,17 +697,6 @@ def _prepare_frequency_output_paths(
     help="Comma-separated 1-based atom indices to freeze (e.g., '1,3,5').",
 )
 @click.option(
-    "--tr-projection",
-    type=click.Choice(["constrained", "legacy-active"], case_sensitive=False),
-    default=None,
-    help=(
-        "Rigid-mode treatment for PHVA. 'constrained' removes only full-system "
-        "rigid motions compatible with frozen anchors (default); 'legacy-active' "
-        "is deprecated comparison-only behavior and must not be used for "
-        "pass/HOSP transition-state certification."
-    ),
-)
-@click.option(
     "--hess-cutoff",
     "hess_cutoff",
     type=float,
@@ -902,7 +891,6 @@ def cli(
     ligand_charge: Optional[str],
     spin: Optional[int],
     freeze_atoms_text: Optional[str],
-    tr_projection: Optional[str],
     hess_cutoff: Optional[float],
     movable_cutoff: Optional[float],
     hessian_calc_mode: Optional[str],
@@ -1075,8 +1063,6 @@ def cli(
         freq_cfg["out_dir"] = out_dir
     if _is_param_explicit("active_dof_mode"):
         freq_cfg["active_dof_mode"] = str(active_dof_mode)
-    if _is_param_explicit("tr_projection") and tr_projection is not None:
-        geom_cfg["tr_projection"] = str(tr_projection).lower()
     if _is_param_explicit("temperature"):
         thermo_cfg["temperature"] = float(temperature)
     if _is_param_explicit("pressure_atm"):

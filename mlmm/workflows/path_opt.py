@@ -13,10 +13,11 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Set, Tuple
 
 import gc
 import logging
+import math
 import sys
 import traceback
 import textwrap
@@ -326,6 +327,52 @@ class DMFMepResult:
     converged: bool
     ipopt_status: Optional[int]
     reason: str
+
+
+DMF_TOL_PRESETS = ("tight", "middle", "loose")
+
+
+def resolve_dmf_solve_tol(
+    dmf_cfg: Mapping[str, Any], prefix: str = "[path-opt]"
+) -> Any:
+    """Resolve the ``tol`` argument of the DMF solve from the DMF configuration.
+
+    ``dmf.tol`` accepts the pydmf presets ``tight`` / ``middle`` / ``loose``
+    (IPOPT ``dual_inf_tol`` 0.04 / 0.10 / 0.20) or a positive float.  When it is
+    unset, an explicitly pinned ``dmf.ipopt_options.dual_inf_tol`` is honoured by
+    returning ``None``: pydmf's ``solve`` applies its own ``tol`` after the
+    caller's IPOPT options, so a preset passed here would silently replace that
+    value.  With neither set, the historical ``tight`` default applies.
+    """
+    raw = dmf_cfg.get("tol")
+    if raw is None:
+        pinned = (dmf_cfg.get("ipopt_options") or {}).get("dual_inf_tol")
+        return None if pinned is not None else "tight"
+    if isinstance(raw, str):
+        text = raw.strip().lower()
+        if text in DMF_TOL_PRESETS:
+            return text
+    if isinstance(raw, bool):
+        raise click.ClickException(
+            f"{prefix} Invalid DMF tolerance '{raw}': expected "
+            f"{'|'.join(DMF_TOL_PRESETS)} or a positive float (IPOPT "
+            "dual_inf_tol)."
+        )
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        raise click.ClickException(
+            f"{prefix} Invalid DMF tolerance '{raw}': expected "
+            f"{'|'.join(DMF_TOL_PRESETS)} or a positive float (IPOPT "
+            "dual_inf_tol). Gaussian convergence presets apply to --thresh / "
+            "--thresh-gsm, not to the DMF optimizer."
+        ) from None
+    if not math.isfinite(value) or value <= 0.0:
+        raise click.ClickException(
+            f"{prefix} Invalid DMF tolerance '{raw}': the IPOPT "
+            "dual_inf_tol must be a finite positive number."
+        )
+    return value
 
 
 def _dmf_solver_outcome(solve_result: Any) -> Tuple[bool, Optional[int], str]:
@@ -642,7 +689,7 @@ def _run_dmf_mep(
                 mxflx.add_ipopt_options({"max_iter": max_iter})
         except Exception:
             logger.debug("Failed to set ipopt max_iter option", exc_info=True)
-    solve_result = mxflx.solve(tol="tight")
+    solve_result = mxflx.solve(tol=resolve_dmf_solve_tol(dmf_cfg))
     converged, ipopt_status, reason = _dmf_solver_outcome(solve_result)
     emit("\n====== DMF: optimization finished ======\n", narrative=True)
 
@@ -828,7 +875,32 @@ def _run_dmf_mep(
     "--thresh",
     type=click.Choice(THRESH_CHOICES, case_sensitive=False),
     default=None,
-    help="Convergence preset for the string optimizer.",
+    help=(
+        "Convergence preset for endpoint preoptimization only. "
+        "The MEP itself keeps --thresh-gsm / --thresh-dmf."
+    ),
+)
+@click.option(
+    "--thresh-gsm",
+    type=click.Choice(THRESH_CHOICES, case_sensitive=False),
+    default=None,
+    show_default=False,
+    help=(
+        "Convergence preset for the GSM string optimizer "
+        "(gau_loose|gau|gau_tight|gau_vtight|baker|never). "
+        "Defaults to 'gau_loose' when not provided."
+    ),
+)
+@click.option(
+    "--thresh-dmf",
+    type=str,
+    default=None,
+    show_default=False,
+    help=(
+        "IPOPT dual-infeasibility tolerance for the DMF path optimizer: "
+        "tight (0.04) | middle (0.10) | loose (0.20) or a positive float. "
+        "This is not a Gaussian preset. Defaults to 'tight' when not provided."
+    ),
 )
 @click.option(
     "--config",
@@ -995,6 +1067,8 @@ def cli(
     dump: bool,
     out_dir: str,
     thresh: Optional[str],
+    thresh_gsm: Optional[str],
+    thresh_dmf: Optional[str],
     config_yaml: Optional[Path],
     show_config: bool,
     dry_run: bool,
@@ -1155,8 +1229,11 @@ def cli(
             stopt_cfg["out_dir"] = out_dir
             lbfgs_cfg["out_dir"] = out_dir
         if _is_param_explicit("thresh") and thresh is not None:
-            stopt_cfg["thresh"] = str(thresh)
             lbfgs_cfg["thresh"] = str(thresh)
+        if _is_param_explicit("thresh_gsm") and thresh_gsm is not None:
+            stopt_cfg["thresh"] = str(thresh_gsm)
+        if _is_param_explicit("thresh_dmf") and thresh_dmf is not None:
+            dmf_cfg["tol"] = str(thresh_dmf)
         if _is_param_explicit("detect_layer"):
             calc_cfg["use_bfactor_layers"] = bool(detect_layer)
         if _is_param_explicit("hess_cutoff") and hess_cutoff is not None:
@@ -1207,6 +1284,11 @@ def cli(
         # Revalidate the fully resolved calculator mapping before dry-run can
         # report success (the constructor repeats this for normal execution).
         apply_workers_to_calc_cfg(calc_cfg, None, None)
+
+        # A dormant YAML DMF section does not affect GSM. An explicit CLI
+        # tolerance is still validated as user input, regardless of MEP mode.
+        if mep_mode_kind == "dmf" or _is_param_explicit("thresh_dmf"):
+            resolve_dmf_solve_tol(dmf_cfg)
 
         try:
             geom_freeze = _normalize_geom_freeze(geom_cfg.get("freeze_atoms"))

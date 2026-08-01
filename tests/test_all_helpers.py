@@ -50,6 +50,8 @@ def _path_child_kwargs(*, include_opt_mode: bool) -> dict:
         "pre_opt": False,
         "convert_files": False,
         "thresh": "gau_tight",
+        "thresh_gsm": "gau",
+        "thresh_dmf": "loose",
     }
 
 
@@ -62,6 +64,8 @@ _PATH_COMMON_CASES = (
     ("pre_opt", ["--no-preopt"]),
     ("convert_files", ["--no-convert-files"]),
     ("thresh", ["--thresh", "gau_tight"]),
+    ("thresh_gsm", ["--thresh-gsm", "gau"]),
+    ("thresh_dmf", ["--thresh-dmf", "loose"]),
 )
 
 
@@ -426,17 +430,6 @@ def test_post_threshold_default_is_forwarded_only_without_yaml_value() -> None:
         thresh_post="baker",
         yaml_cfg={},
     ) == "baker"
-
-
-def test_all_tr_projection_is_injected_into_child_config() -> None:
-    from mlmm.workflows.all import _inject_coord_type_into_args_yaml
-
-    path = _inject_coord_type_into_args_yaml(
-        None, None, tr_projection="legacy-active"
-    )
-    assert path is not None
-    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
-    assert payload["geom"]["tr_projection"] == "legacy-active"
 
 
 def test_all_effective_yaml_canonicalizes_alias_only_calculator(tmp_path: Path) -> None:

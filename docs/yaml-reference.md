@@ -36,21 +36,19 @@ Geometry loading and coordinate handling.
 geom:
  coord_type: cart # Coordinate type: "cart" (Cartesian) or "dlc" (delocalized internals)
  freeze_atoms: [] # 1-based frozen-atom indices
- tr_projection: constrained # constrained (default) | legacy-active
+ tr_projection: constrained # fixed internal Cartesian PHVA treatment
 ```
 
 **Notes:**
 - Frozen atoms have zeroed forces; their Hessian columns are also zeroed
-- `tr_projection: constrained` removes only full-system rigid motions that
+- The fixed `tr_projection: constrained` treatment removes only full-system rigid motions that
   leave all frozen anchors fixed. Its generic effective rank is 6/3/1/0 for
   zero/one/two/at least three non-collinear anchors; realistic ML/MM boundaries
   therefore usually have rank 0. An all-frozen selection is an explicit error.
-- `legacy-active` is deprecated, comparison-only, and must not be used for
-  pass/HOSP transition-state certification. It uses the current common
-  projection kernel and numerical rank handling; bitwise identity is not
-  guaranteed for rank-degenerate geometries.
-- `tr_projection` controls frozen-boundary PHVA used by `freq`, `irc`, `tsopt`,
-  and `opt --flatten`. It is unrelated to the `tsopt --ref-mode` MEP tangent.
+- A stale non-constrained value fails explicitly.
+- `tr_projection` is an internal frozen-boundary PHVA field used by `freq`,
+  `irc`, `tsopt`, and `opt --flatten`; it is not a user-selectable treatment.
+  It is unrelated to the `tsopt --ref-mode` MEP tangent.
 - For `irc`, `geom.coord_type` is forced to `cart` after YAML/CLI merging
 
 ---
@@ -319,6 +317,7 @@ Direct Max Flux settings for MEP optimization.
 ```yaml
 dmf:
  max_cycles: 300 # Maximum DMF/IPOPT iterations (overridden by --max-cycles)
+ tol: tight # IPOPT dual_inf_tol: tight (0.04) | middle (0.10) | loose (0.20) or a positive float (overridden by --thresh-dmf)
  correlated: true # Correlated DMF propagation
  sequential: true # Sequential DMF execution
  fbenm_only_endpoints: false # Run FB-ENM beyond endpoints
@@ -345,6 +344,8 @@ dmf:
    update_teval: false # Update transition evaluation
  k_fix: 300.0 # Harmonic constant for restraints
 ```
+
+`dmf.tol` is the tolerance the DMF solve applies last, so it takes precedence over an `ipopt_options.dual_inf_tol` set in the same file. Set only `ipopt_options.dual_inf_tol` (and leave `dmf.tol` unset) to pin the raw IPOPT option instead. Gaussian presets such as `gau_tight` are rejected here; they belong to `--thresh` and `--thresh-gsm`.
 
 ---
 
@@ -374,7 +375,7 @@ optimization (not individual node optimization).
 ```yaml
 stopt:
  type: string           # Optimizer type label (used by StringOptimizer)
- thresh: gau_loose      # Convergence preset for string optimization
+ thresh: gau_loose      # Convergence preset for string optimization (overridden by --thresh-gsm)
  stop_in_when_full: 300 # Early stop threshold when string is full
  align: false           # Alignment toggle
  scale_step: global     # Step scaling mode

@@ -54,7 +54,7 @@ mlmm irc -i TS_STRUCTURE --parm PARM7 --model-pdb ML_REGION [options]
 
 1. **Input preparation** -- Load the TS structure, Amber topology (`--parm`), and ML-region definition (`--model-pdb` / `--model-indices`); resolve charge and spin. Direct PDB/mmCIF input or `--ref-pdb` supplies the topology used for companion output.
 2. **ML/MM calculator setup** -- Build the ML/MM calculator from `--parm` and `--model-pdb`. The `-b/--backend` option selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). The `--hessian-calc-mode` controls ML backend Hessian evaluation. v0.3.3 uses mechanical embedding; electronic-embedding requests are rejected before calculator construction.
-3. **Frozen-boundary TR treatment** -- `--tr-projection constrained` removes only full-system rigid motions that leave all frozen anchors fixed. Its generic effective rank is 6/3/1/0 for zero/one/two/at least three non-collinear anchors; realistic ML/MM boundaries normally have rank 0. `legacy-active` is deprecated comparison-only behavior and must not be used for pass/HOSP transition-state certification.
+3. **Frozen-boundary TR treatment** -- The fixed constrained treatment removes only full-system rigid motions that leave all frozen anchors fixed. Its generic effective rank is 6/3/1/0 for zero/one/two/at least three non-collinear anchors; realistic ML/MM boundaries normally have rank 0.
 4. **IRC integration** -- The EulerPC integrator propagates along the IRC in both directions (unless `--no-forward` or `--no-backward` disables a branch). Step size and cycle count control integration length.
 5. **Output & conversion** -- Trajectories are written as XYZ. PDB companions are generated when a PDB/mmCIF reference topology is available and `--convert-files` is enabled. Bridge inputs additionally produce CIF companions with original identifiers.
 
@@ -106,7 +106,6 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--model-indices-one-based/--model-indices-zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
 | `--detect-layer/--no-detect-layer` | Detect ML/MM layers from input PDB B-factors (`B=0/10/20`). | `True` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based frozen-atom indices. | _None_ |
-| `--tr-projection [constrained\|legacy-active]` | Rigid-mode treatment for the frozen/partial Hessian. `legacy-active` is deprecated comparison-only behavior and must not be used for pass/HOSP transition-state certification. | `constrained` |
 | `-q, --charge INT` | Net charge of the ML region/model system; overrides `calc.model_charge` from YAML. | _None_ (required unless `-l` is given) |
 | `-l, --ligand-charge TEXT` | Total charge for unknown ligand residues or a per-resname mapping (e.g., `GPP:-3,SAM:1`). Derives the ML-region net charge when `-q` is omitted. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1); overrides `calc.spin`. | `1` |
@@ -152,7 +151,7 @@ Shared sections reuse [YAML Reference](yaml-reference.md) for geometry/calculato
 geom:
  coord_type: cart                  # forced to cart for irc (YAML value ignored)
  freeze_atoms: []                  # 1-based frozen atoms merged with CLI/link detection
- tr_projection: constrained        # legacy-active is deprecated and comparison-only
+ tr_projection: constrained        # fixed internal PHVA treatment
 calc:
  model_charge: 0                   # ML-region/model-system net charge
  spin: 1                           # spin multiplicity 2S+1
@@ -184,10 +183,7 @@ Full schema (every `irc` key and default): [YAML Reference](yaml-reference.md#ir
 - An all-frozen selection has no IRC direction and raises an explicit error.
 - With `--out-json`, `result.json.rigid_projection` records the selected
   treatment, effective rank, initial-Hessian source, and Hessian shape.
-- `legacy-active` is deprecated comparison-only behavior and must not be used
-  for pass/HOSP transition-state certification. It uses the current common
-  projection kernel; bitwise identity is not guaranteed for rank-degenerate
-  geometries.
+- A stale non-constrained `geom.tr_projection` value fails explicitly.
 
 ## See Also
 

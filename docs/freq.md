@@ -58,7 +58,7 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ### Frozen-boundary TR projection
 
-`--tr-projection constrained` is the physical default for PHVA. It starts from
+The fixed constrained treatment is used for PHVA. It starts from
 the full system's rigid translations and rotations, then retains only
 components that do not move any frozen anchor. The generic effective ranks are:
 
@@ -73,11 +73,7 @@ Realistic ML/MM boundaries normally have several non-collinear anchors, so the
 effective rank is usually zero and no active-space direction is removed. An
 all-frozen selection has no active DOF and raises an explicit error.
 
-`--tr-projection legacy-active` is a deprecated isolated-active comparison treatment: it
-treats the active block as an isolated molecule while using the current common
-projection kernel and numerical rank handling. Linear, collinear, coincident,
-and other rank-degenerate cases follow that current kernel; bitwise identity is
-not guaranteed.
+A stale non-constrained `geom.tr_projection` value fails explicitly.
 
 With `--out-json`, `result.json.rigid_projection` records the treatment,
 effective rank, Hessian source, and Hessian shape. `--dump` records the same
@@ -125,7 +121,6 @@ out_dir/ (default: ./result_freq/)
 | `--hess-device CHOICE` | Device for Hessian assembly/diagonalization: `auto`, `cuda`, `cpu`. Use `cpu` to avoid VRAM issues with large systems. | `auto` |
 | **Active-region freezing & Hessian** | | |
 | `--freeze-atoms TEXT` | 1-based comma-separated frozen atom indices. | _None_ |
-| `--tr-projection [constrained\|legacy-active]` | Rigid-mode treatment for PHVA. `legacy-active` is comparison-only and must not be used for pass/HOSP transition-state certification. | `constrained` |
 | `--active-dof-mode CHOICE` | Active DOF selection: `all`, `ml-only`, `partial`, `unfrozen`. | `partial` |
 | `--hess-cutoff FLOAT` | Cutoff distance for Hessian-target MM atoms. | _None_ |
 | `--movable-cutoff FLOAT` | Cutoff distance for movable-MM layer. | _None_ |
@@ -169,7 +164,7 @@ An additional `thermo` section is supported for thermochemistry controls.
 geom:
  coord_type: cart                  # coordinate type: cartesian vs dlc internals
  freeze_atoms: []                  # 1-based frozen atoms merged with CLI/link detection
- tr_projection: constrained        # legacy-active is deprecated and comparison-only
+ tr_projection: constrained        # fixed internal PHVA treatment
 calc:
  charge: 0                         # net charge (CLI override)
  spin: 1                           # spin multiplicity 2S+1

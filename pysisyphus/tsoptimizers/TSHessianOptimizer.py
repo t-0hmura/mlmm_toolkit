@@ -24,20 +24,6 @@ class TSHessianOptimizer(HessianOptimizer):
 
     valid_updates = ("bofill", "ts_bfgs", "ts_bfgs_org", "ts_bfgs_rev")
 
-    def _projection_allows_saddle_certification(self) -> bool:
-        """Reject comparison-only active-fragment projection with frozen atoms."""
-        from pysisyphus.tr_projection import (
-            DEFAULT_TR_PROJECTION,
-            allows_saddle_certification,
-        )
-
-        return allows_saddle_certification(
-            getattr(self.geometry, "tr_projection", DEFAULT_TR_PROJECTION),
-            np.asarray(
-                getattr(self.geometry, "freeze_atoms", ()), dtype=int
-            ).reshape(-1),
-        )
-
     def __init__(
         self,
         geometry: Geometry,
@@ -819,18 +805,7 @@ class TSHessianOptimizer(HessianOptimizer):
                 if target_is_negative is None
                 else target_is_negative
             )
-            projection_certifiable = (
-                self._projection_allows_saddle_certification()
-            )
-            exact_order = (
-                negative_count == len(self.roots)
-                and has_saddle_modes
-                and projection_certifiable
-            )
-            if not projection_certifiable:
-                self.request_stop(
-                    "legacy-active projection is comparison-only for frozen systems"
-                )
+            exact_order = negative_count == len(self.roots) and has_saddle_modes
             self._last_exact_n_imaginary = negative_count
             self._last_exact_cart_coords = self.geometry.cart_coords.copy()
             self._last_exact_saddle_verified = exact_order
@@ -932,16 +907,7 @@ class TSHessianOptimizer(HessianOptimizer):
             has_saddle_modes = n_imaginary >= len(self.roots)
         else:
             has_saddle_modes = target_is_negative
-        projection_certifiable = self._projection_allows_saddle_certification()
-        exact_order = (
-            n_imaginary == len(self.roots)
-            and has_saddle_modes
-            and projection_certifiable
-        )
-        if not projection_certifiable:
-            self.request_stop(
-                "legacy-active projection is comparison-only for frozen systems"
-            )
+        exact_order = n_imaginary == len(self.roots) and has_saddle_modes
         # Several unrelated negative modes do not make a higher-order saddle
         # for the requested reaction if the path-correlated mode itself has
         # become positive. Recover that target first; flattening at this point

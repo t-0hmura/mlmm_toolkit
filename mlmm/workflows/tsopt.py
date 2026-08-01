@@ -34,7 +34,6 @@ from pysisyphus._array import active_square
 from pysisyphus.calculators.Dimer import Dimer  # Dimer calculator (orientation-projected forces)
 from pysisyphus.tr_projection import (
     active_tr_basis,
-    allows_saddle_certification,
     compact_project_hessian,
     full_cartesian_tr_basis,
     normalize_tr_projection_mode,
@@ -1327,7 +1326,6 @@ def _heavy_ts_terminal_status(
     optimizer_converged: bool,
     n_imag: Optional[int],
     stalled: bool,
-    projection_certifiable: bool,
 ) -> str:
     """Compose the heavy TS status at the final public certification gate."""
 
@@ -1335,7 +1333,7 @@ def _heavy_ts_terminal_status(
         return "stalled"
     if n_imag is None:
         return "unverified"
-    if optimizer_converged and n_imag == 1 and projection_certifiable:
+    if optimizer_converged and n_imag == 1:
         return "converged"
     return "not_converged"
 
@@ -1349,22 +1347,13 @@ def _finalize_dimer_saddle_status(
 
     threshold = abs(float(neg_freq_thresh_cm))
     neg_idx = np.where(np.asarray(freqs_cm) < -threshold)[0]
-    certifiable = allows_saddle_certification(
-        getattr(runner, "tr_projection", "constrained"),
-        getattr(runner, "freeze_atoms", ()),
-    )
     runner.n_imaginary_modes = len(neg_idx)
     runner.imaginary_frequencies_cm = [
         float(freqs_cm[i]) for i in neg_idx
     ]
-    runner.saddle_order_verified = bool(certifiable and len(neg_idx) == 1)
+    runner.saddle_order_verified = len(neg_idx) == 1
     if not runner.saddle_order_verified:
         runner.is_converged = False
-    if not certifiable:
-        runner.stop_reason = (
-            "legacy-active projection is comparison-only for frozen systems"
-        )
-        click.echo(f"[tsopt] WARNING: {runner.stop_reason}.", err=True)
     return neg_idx
 
 
@@ -3074,18 +3063,6 @@ def _prepare_tsopt_output_dir(
     help="Comma-separated 1-based indices to freeze (e.g., '1,3,5').",
 )
 @click.option(
-    "--tr-projection",
-    type=click.Choice(["constrained", "legacy-active"], case_sensitive=False),
-    default=GEOM_KW["tr_projection"],
-    show_default=True,
-    help=(
-        "Rigid translation/rotation treatment for Cartesian PHVA. "
-        "'constrained' removes only full-system rigid motions compatible with "
-        "the frozen atoms; 'legacy-active' is deprecated comparison-only "
-        "behavior and must not be used for pass/HOSP transition-state certification."
-    ),
-)
-@click.option(
     "--radius-hessian",
     "--hess-cutoff",
     "hess_cutoff",
@@ -3298,7 +3275,6 @@ def cli(
     ligand_charge: Optional[str],
     spin: Optional[int],
     freeze_atoms_text: Optional[str],
-    tr_projection: str,
     hess_cutoff: Optional[float],
     movable_cutoff: Optional[float],
     hessian_calc_mode: Optional[str],
@@ -3454,8 +3430,6 @@ def cli(
         rsirfo_cfg["thresh"] = str(thresh)
     if _is_param_explicit("cli_coord_type") and cli_coord_type is not None:
         geom_cfg["coord_type"] = str(cli_coord_type).lower()
-    if _is_param_explicit("tr_projection"):
-        geom_cfg["tr_projection"] = str(tr_projection).lower()
     # Handle --flatten/--no-flatten CLI toggle
     if flatten is not None:
         if flatten:
@@ -4565,25 +4539,6 @@ def cli(
                         "saddle and is marked not_converged.",
                         err=True,
                     )
-            _heavy_projection_certifiable = allows_saddle_certification(
-                geom_cfg.get("tr_projection", "constrained"),
-                freeze_atoms_final,
-            )
-            if not _heavy_projection_certifiable:
-                _heavy_optimizer_converged = False
-                if "last_optimizer" in dir() and not (
-                    getattr(last_optimizer, "stop_reason", "") or ""
-                ):
-                    last_optimizer.stop_reason = (
-                        "legacy-active projection is comparison-only for "
-                        "frozen systems"
-                    )
-                click.echo(
-                    "[tsopt] WARNING: legacy-active projection is "
-                    "comparison-only for frozen systems; the result is marked "
-                    "not_converged.",
-                    err=True,
-                )
             # a stall (energy-plateau outcome of the selected optimizer)
             # wins over every convergence/saddle-order verdict — it is never a
             # converged saddle. n_imag / stop_reason are recorded separately so
@@ -4596,7 +4551,6 @@ def cli(
                 optimizer_converged=_heavy_optimizer_converged,
                 n_imag=_heavy_n_imag,
                 stalled=_heavy_stalled,
-                projection_certifiable=_heavy_projection_certifiable,
             )
             if rigid_projection_info:
                 click.echo(pretty_block("rigid_projection", rigid_projection_info))

@@ -54,7 +54,7 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ### 凍結境界の TR 射影
 
-PHVA の物理的なデフォルトは `--tr-projection constrained` です。
+PHVA は固定の constrained 処理を使用します。
 全系の剛体並進/回転から、凍結 anchor を動かさない成分だけを残します。
 一般的な有効 rank は次のとおりです。
 
@@ -69,9 +69,7 @@ PHVA の物理的なデフォルトは `--tr-projection constrained` です。
 有効 rank は通常 0 で、アクティブ部分空間の方向は除去されません。
 全原子を凍結するとアクティブ自由度が無いため、明示的なエラーになります。
 
-`--tr-projection legacy-active` は非推奨の比較専用処理で、pass/HOSP 遷移状態認定には
-使用できません。アクティブブロックを孤立分子として扱い、現行の共通射影 kernel と
-数値 rank 判定を使用します。
+`geom.tr_projection` の古い非constrained値は明示的に拒否されます。
 直線、共線、同一座標など rank が退化する構造も現行 kernel で処理され、
 bitwise 一致は保証しません。
 
@@ -129,7 +127,6 @@ out_dir/ (デフォルト: ./result_freq/)
 | `--hess-device CHOICE` | Hessian 組み立て/対角化のデバイス: `auto`、`cuda`、`cpu`。大規模系で VRAM 不足を回避するには `cpu` を使用。 | `auto` |
 | **アクティブ領域の凍結と Hessian** | | |
 | `--freeze-atoms TEXT` | 1 始まりカンマ区切りの凍結原子インデックス。 | _None_ |
-| `--tr-projection [constrained\|legacy-active]` | PHVA の剛体モード処理。`legacy-active` は非推奨の比較専用で、pass/HOSP 遷移状態認定には使用不可。 | `constrained` |
 | `--active-dof-mode CHOICE` | アクティブ自由度選択: `all`、`ml-only`、`partial`、`unfrozen`。 | `partial` |
 | `--hess-cutoff FLOAT` | Hessian 対象 MM 原子のカットオフ距離。 | _None_ |
 | `--movable-cutoff FLOAT` | Movable-MM 層のカットオフ距離。 | _None_ |
@@ -170,7 +167,7 @@ out_dir/ (デフォルト: ./result_freq/)
 geom:
  coord_type: cart                  # 座標タイプ: デカルト vs dlc 内部座標
  freeze_atoms: []                  # 1 始まり凍結原子（CLI/リンク検出とマージ）
- tr_projection: constrained        # legacy-active は非推奨・比較専用
+ tr_projection: constrained        # 固定の内部 PHVA 処理
 calc:
  charge: 0                         # 総電荷（CLI 上書き）
  spin: 1                           # スピン多重度 2S+1

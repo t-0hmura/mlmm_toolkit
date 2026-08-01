@@ -100,6 +100,83 @@ def test_path_opt_rejects_zero_cycles_with_error_result(
     assert error_result["error_type"] == "BadParameter"
 
 
+@pytest.mark.parametrize("command", ["path-opt", "path-search"])
+def test_gsm_ignores_a_dormant_dmf_tolerance(
+    tmp_path: Path,
+    command: str,
+) -> None:
+    smoke = Path(__file__).resolve().parent / "smoke"
+    config = tmp_path / "dormant-dmf.yaml"
+    config.write_text("dmf:\n  tol: nan\n", encoding="utf-8")
+    result = CliRunner().invoke(
+        root_cli,
+        [
+            command,
+            "-i",
+            str(smoke / "r_complex_layered.pdb"),
+            str(smoke / "p_complex_layered.pdb"),
+            "--parm",
+            str(smoke / "p_complex.parm7"),
+            "--model-pdb",
+            str(smoke / "pocket_r.pdb"),
+            "--no-detect-layer",
+            "-q",
+            "-1",
+            "-m",
+            "1",
+            "--mep-mode",
+            "gsm",
+            "--max-cycles",
+            "1",
+            "--no-preopt",
+            "--config",
+            str(config),
+            "--dry-run",
+            "--out-dir",
+            str(tmp_path / command),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+
+
+@pytest.mark.parametrize("command", ["path-opt", "path-search"])
+def test_gsm_rejects_an_explicit_invalid_dmf_tolerance(
+    tmp_path: Path,
+    command: str,
+) -> None:
+    smoke = Path(__file__).resolve().parent / "smoke"
+    result = CliRunner().invoke(
+        root_cli,
+        [
+            command,
+            "-i",
+            str(smoke / "r_complex_layered.pdb"),
+            str(smoke / "p_complex_layered.pdb"),
+            "--parm",
+            str(smoke / "p_complex.parm7"),
+            "--model-pdb",
+            str(smoke / "pocket_r.pdb"),
+            "--no-detect-layer",
+            "-q",
+            "-1",
+            "-m",
+            "1",
+            "--mep-mode",
+            "gsm",
+            "--thresh-dmf",
+            "nan",
+            "--max-cycles",
+            "1",
+            "--no-preopt",
+            "--dry-run",
+            "--out-dir",
+            str(tmp_path / command),
+        ],
+    )
+    assert result.exit_code != 0
+    assert "finite positive" in result.output
+
+
 @pytest.mark.parametrize(
     ("argv", "expected"),
     [
@@ -984,11 +1061,11 @@ def test_coord_type_dlc_falls_back_to_cart_under_lbfgs() -> None:
 
 
 @pytest.mark.parametrize(
-    ("extra", "expected"),
-    [([], "legacy-active"), (["--tr-projection", "constrained"], "constrained")],
+    ("configured", "should_run"),
+    [("constrained", True), ("legacy-active", False)],
 )
-def test_opt_tr_projection_cli_overrides_yaml(
-    tmp_path: Path, extra: list[str], expected: str,
+def test_opt_rejects_the_removed_projection_mode_from_yaml(
+    tmp_path: Path, configured: str, should_run: bool,
 ) -> None:
     repo = Path(__file__).resolve().parents[1]
     in_pdb = repo / "examples" / "toy_system" / "p_complex_layered.pdb"
@@ -997,7 +1074,7 @@ def test_opt_tr_projection_cli_overrides_yaml(
         pytest.skip("toy_system example inputs not present")
     config = tmp_path / "projection.yaml"
     config.write_text(
-        "geom:\n  tr_projection: legacy-active\n",
+        f"geom:\n  tr_projection: {configured}\n",
         encoding="utf-8",
     )
     result = CliRunner().invoke(
@@ -1005,12 +1082,16 @@ def test_opt_tr_projection_cli_overrides_yaml(
         [
             "opt", "-i", str(in_pdb), "--parm", str(parm), "-q", "0",
             "--detect-layer", "--config", str(config), "--dry-run", "-v", "3",
-            *extra,
         ],
     )
 
-    assert result.exit_code == 0, result.output
-    assert f"tr_projection: {expected}" in result.output
+    if should_run:
+        assert result.exit_code == 0, result.output
+        assert "tr_projection: constrained" in result.output
+    else:
+        assert result.exit_code != 0
+        message = result.output + str(result.exception or "")
+        assert "Unknown TR projection mode" in message
 
 
 def test_verbose_is_a_per_subcommand_option() -> None:

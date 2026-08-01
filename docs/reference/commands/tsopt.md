@@ -45,14 +45,6 @@ Options:
   -m, --multiplicity INTEGER      Spin multiplicity (2S+1) for the ML region.
   --freeze-atoms TEXT             Comma-separated 1-based indices to freeze
                                   (e.g., '1,3,5').
-  --tr-projection [constrained|legacy-active]
-                                  Rigid translation/rotation treatment for
-                                  Cartesian PHVA. 'constrained' removes only
-                                  full-system rigid motions compatible with the
-                                  frozen atoms; 'legacy-active' is deprecated
-                                  comparison-only behavior and must not be used
-                                  for pass/HOSP transition-state certification.
-                                  [default: constrained]
   --radius-hessian, --hess-cutoff FLOAT
                                   Distance cutoff (Å) from ML region for MM
                                   atoms to include in Hessian calculation.

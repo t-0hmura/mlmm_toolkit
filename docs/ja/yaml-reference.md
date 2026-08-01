@@ -35,20 +35,19 @@
 geom:
  coord_type: cart # 座標タイプ: "cart" (デカルト) または "dlc" (非局在化内部座標)
  freeze_atoms: [] # 1 始まりの凍結原子インデックス
- tr_projection: constrained # constrained（デフォルト）| legacy-active
+ tr_projection: constrained # 固定の内部 Cartesian PHVA 処理
 ```
 
 **注記:**
 - Frozen 層の原子は力がゼロに設定され、Hessian の対応する列もゼロになります。
-- `tr_projection: constrained` は、凍結 anchor をすべて動かさない
+- 固定の `tr_projection: constrained` 処理は、凍結 anchor をすべて動かさない
   全系剛体運動だけを除去します。一般的な有効 rank は anchor が
   0/1/2/非共線の 3 個以上のとき 6/3/1/0 で、実用的な ML/MM 境界では
   通常 0 です。全原子凍結は明示的なエラーになります。
-- `legacy-active` は非推奨の比較専用で、pass/HOSP 遷移状態認定には使用できません。
-  現行の共通射影 kernel と数値 rank 判定を使うため、rank 退化構造での
-  bitwise 一致は保証しません。
-- `tr_projection` は `freq`、`irc`、`tsopt`、`opt --flatten` の凍結境界 PHVA を
-  制御します。`tsopt --ref-mode` の MEP 接線とは無関係です。
+- 古い非constrained値は明示的に拒否されます。
+- `tr_projection` は `freq`、`irc`、`tsopt`、`opt --flatten` が使う内部の
+  凍結境界 PHVA fieldであり、user-selectableな処理ではありません。
+  `tsopt --ref-mode` の MEP 接線とは無関係です。
 - `irc` では `geom.coord_type` が YAML/CLI マージ後に `cart` へ強制されます。
 
 ---
@@ -298,6 +297,7 @@ Direct Max Flux（DMF）による MEP 最適化。
 ```yaml
 dmf:
  max_cycles: 300 # DMF/IPOPT の最大反復数（--max-cycles で上書き）
+ tol: tight # IPOPT dual_inf_tol: tight(0.04) | middle(0.10) | loose(0.20) または正の float（--thresh-dmf で上書き）
  correlated: true # 相関 DMF 伝搬
  sequential: true # 逐次 DMF 実行
  fbenm_only_endpoints: false # 端点を超えて FB-ENM を実行
@@ -324,6 +324,8 @@ dmf:
  update_teval: false # 遷移評価の更新
  k_fix: 300.0 # 拘束の調和定数
 ```
+
+`dmf.tol` は DMF ソルブが最後に適用する許容値なので、同じファイル内の `ipopt_options.dual_inf_tol` より優先されます。生の IPOPT オプションを固定したい場合は `dmf.tol` を書かず `ipopt_options.dual_inf_tol` のみを指定してください。`gau_tight` などの Gaussian プリセットはここでは拒否され、`--thresh` / `--thresh-gsm` の担当です。
 
 ---
 
@@ -442,7 +444,7 @@ rsirfo:
 ```yaml
 stopt:
  type: string           # 最適化タイプラベル（StringOptimizer用）
- thresh: gau_loose      # ストリング最適化の収束プリセット
+ thresh: gau_loose      # ストリング最適化の収束プリセット（--thresh-gsm で上書き）
  stop_in_when_full: 300 # ストリングが満杯時の早期停止閾値
  align: false           # アライメントトグル
  scale_step: global     # ステップスケーリングモード

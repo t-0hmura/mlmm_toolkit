@@ -45,6 +45,7 @@ from mlmm.workflows.path_opt import (
     DMF_KW as _PATH_DMF_KW,
     _select_hei_index,
     _shared_frozen_reference,
+    resolve_dmf_solve_tol,
 )
 from mlmm.workflows.opt import (
     GEOM_KW as _OPT_GEOM_KW,
@@ -680,7 +681,9 @@ def _run_dmf_between(
     # not. A missing status fails closed to unknown so DMF artifact existence
     # never promotes a nonconverged solve.
     from mlmm.workflows._outcomes import ipopt_status_to_converged
-    _dmf_solve_ret = mxflx.solve(tol="tight")
+    _dmf_solve_ret = mxflx.solve(
+        tol=resolve_dmf_solve_tol(dmf_cfg_local, prefix="[path-search]")
+    )
     _dmf_info = (
         _dmf_solve_ret[1]
         if isinstance(_dmf_solve_ret, (tuple, list)) and len(_dmf_solve_ret) >= 2
@@ -1615,7 +1618,32 @@ def _build_multistep_path(
     "--thresh",
     type=click.Choice(THRESH_CHOICES, case_sensitive=False),
     default=None,
-    help="Convergence preset for GSM/StringOptimizer and single L-BFGS runs.",
+    help=(
+        "Convergence preset for single L-BFGS runs only. "
+        "The MEP itself keeps --thresh-gsm / --thresh-dmf."
+    ),
+)
+@click.option(
+    "--thresh-gsm",
+    type=click.Choice(THRESH_CHOICES, case_sensitive=False),
+    default=None,
+    show_default=False,
+    help=(
+        "Convergence preset for the GSM string optimizer "
+        "(gau_loose|gau|gau_tight|gau_vtight|baker|never). "
+        "Defaults to 'gau_loose' when not provided."
+    ),
+)
+@click.option(
+    "--thresh-dmf",
+    type=str,
+    default=None,
+    show_default=False,
+    help=(
+        "IPOPT dual-infeasibility tolerance for the DMF path optimizer: "
+        "tight (0.04) | middle (0.10) | loose (0.20) or a positive float. "
+        "This is not a Gaussian preset. Defaults to 'tight' when not provided."
+    ),
 )
 @click.option(
     "--config",
@@ -1751,6 +1779,8 @@ def cli(
     opt_mode: str,
     out_dir: str,
     thresh: Optional[str],
+    thresh_gsm: Optional[str],
+    thresh_dmf: Optional[str],
     config_yaml: Optional[Path],
     show_config: bool,
     dry_run: bool,
@@ -1974,8 +2004,11 @@ def cli(
             stopt_cfg["out_dir"] = out_dir
             lbfgs_cfg["out_dir"] = out_dir
         if _is_param_explicit("thresh") and thresh is not None:
-            stopt_cfg["thresh"] = str(thresh)
             lbfgs_cfg["thresh"] = str(thresh)
+        if _is_param_explicit("thresh_gsm") and thresh_gsm is not None:
+            stopt_cfg["thresh"] = str(thresh_gsm)
+        if _is_param_explicit("thresh_dmf") and thresh_dmf is not None:
+            dmf_cfg["tol"] = str(thresh_dmf)
         if _is_param_explicit("hess_cutoff") and hess_cutoff is not None:
             calc_cfg["hess_cutoff"] = float(hess_cutoff)
         if _is_param_explicit("movable_cutoff") and movable_cutoff is not None:
@@ -2001,6 +2034,11 @@ def cli(
         # Revalidate the fully resolved calculator mapping before dry-run can
         # report success (the constructor repeats this for normal execution).
         apply_workers_to_calc_cfg(calc_cfg, None, None)
+
+        # A dormant YAML DMF section does not affect GSM. An explicit CLI
+        # tolerance is still validated as user input, regardless of MEP mode.
+        if mep_mode_kind == "dmf" or _is_param_explicit("thresh_dmf"):
+            resolve_dmf_solve_tol(dmf_cfg, prefix="[path-search]")
 
         refine_mode_kind = search_cfg.get("refine_mode")
         if refine_mode_kind is None:

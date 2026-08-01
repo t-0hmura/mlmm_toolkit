@@ -207,9 +207,8 @@ An optimizer may also report `"status": "stalled"`: the energy stopped decreasin
 
 **`rigid_projection` provenance:** the object records the selected treatment
 (`treatment`), `effective_rank`, active/frozen atom counts and indices, and the
-Hessian source/shape used by that workflow. `constrained` is the default;
-`legacy-active` is deprecated, comparison-only, and must not be used for
-pass/HOSP transition-state certification. A `freq --dump`
+Hessian source/shape used by that workflow. The treatment is always
+`constrained`; a stale non-constrained configuration fails explicitly. A `freq --dump`
 run writes the same object to `thermoanalysis.yaml`. Field names for the final
 two values follow the producing workflow (`hessian_source` / `hessian_shape`,
 or `source` / `raw_hessian_shape`).

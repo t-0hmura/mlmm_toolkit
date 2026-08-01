@@ -27,13 +27,6 @@ Options:
                                   pdb is omitted.
   --freeze-atoms TEXT             Comma-separated 1-based atom indices to freeze
                                   (e.g., '1,3,5').
-  --tr-projection [constrained|legacy-active]
-                                  Rigid-mode treatment for PHVA. 'constrained'
-                                  removes only full-system rigid motions
-                                  compatible with frozen anchors (default);
-                                  'legacy-active' is deprecated comparison-only
-                                  behavior and must not be used for pass/HOSP
-                                  transition-state certification.
   --hess-cutoff FLOAT             Distance cutoff (Å) from ML region for MM
                                   atoms to include in Hessian calculation.
                                   Applied to movable MM atoms and can be

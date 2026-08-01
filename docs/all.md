@@ -102,7 +102,7 @@ artifact and is always written for PDB input.
    - `--tsopt` runs TS optimization on each HEI, follows with EulerPC IRC, and emits segment energy diagrams.
    - `--thermo` computes ML/MM thermochemistry on (R, TS, P) and adds a Gibbs diagram.
    - `--dft` runs model-region DFT single-points on (R, TS, P) and adds a model-DFT electronic diagram. With `--thermo`, the subtractive DFT//MLIP/MM total plus the ML/MM thermal correction produces the DFT//MLIP/MM Gibbs diagram.
-   - `--tr-projection` is forwarded to TS optimization, IRC, frequency analysis, and flatten PHVA. The default `constrained` treatment removes only full-system rigid motions that leave frozen anchors fixed; realistic ML/MM boundaries normally have effective rank 0.
+   - TS optimization, IRC, frequency analysis, and flatten PHVA use the fixed constrained treatment, which removes only full-system rigid motions that leave frozen anchors fixed; realistic ML/MM boundaries normally have effective rank 0.
    - `--hessian-calc-mode` selects analytical or finite-difference Hessians where supported. Compare both on a target-system pilot because speed and memory depend on the backend and system.
 6. **TSOPT-only mode** (single input, `--tsopt`, no `--scan-lists`)
    - Skips the MEP search and runs `tsopt` on the layered full-system PDB, performs EulerPC IRC, minimizes both ends, and optionally adds thermochemistry, DFT, and DFT//MLIP/MM diagrams.
@@ -234,7 +234,9 @@ as `opt`, `tsopt`, or `path-opt`.
 | `--climb / --no-climb` | Enable climbing-image TS refinement where supported by the selected optimizer. | `True` |
 | `--opt-mode [grad\|hess]` | Optimizer preset for scan / path-search and single optimizations (`grad` → L-BFGS / Dimer, `hess` → RFO / RSIRFO). | `grad` |
 | `--opt-mode-post [grad\|hess]` | Optimizer preset override for TSOPT / post-IRC endpoint optimizations (`grad` → Dimer / L-BFGS, `hess` → RS-I-RFO / RFO). | `hess` |
-| `--thresh TEXT` | Convergence preset (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). Effective default: `gau_loose` for path-opt, `gau` for scan. | _None_ |
+| `--thresh TEXT` | Convergence preset for single-structure optimizations and scan relaxations (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). Effective default: `gau` for scan. | _None_ |
+| `--thresh-gsm TEXT` | Convergence preset for the GSM string optimizer of the MEP stage (same presets as `--thresh`). Effective default: `gau_loose`. | _None_ |
+| `--thresh-dmf TEXT` | IPOPT dual-infeasibility tolerance of the DMF MEP stage: `tight` (0.04), `middle` (0.10), `loose` (0.20), or a positive float. Not a Gaussian preset. Effective default: `tight`. | _None_ |
 | `--thresh-post TEXT` | Convergence preset for post-IRC endpoint optimizations. | `baker` |
 | `--preopt / --no-preopt` | Pre-optimize endpoints before segmentation. | `True` |
 | `--refine-path / --no-refine-path` | `--no-refine-path` (default) → single-pass `path-opt`; `--refine-path` → recursive `path-search`. Both modes support Stage 5 (TSOPT / thermo / DFT). | `False` |
@@ -272,7 +274,6 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) → `--opt-mode` (on
 | `--dft / --no-dft` | Run single-point DFT on R/TS/P for MEP runs or E1/TS/E2 for TS-only runs. | `False` |
 | `--flatten / --no-flatten` | Surplus-imaginary-mode flattening in `tsopt`. | `False` |
 | `--reject-uphill / --no-reject-uphill` | Opt in to rejecting energy-raising RFO steps during post-IRC **endpoint re-optimization only**, using a `1e-3` Hartree tolerance (forwarded to the opt child); TS optimization forces rejection off, and path search is unaffected. At the emergency floor, the retained endpoint receives a final normal convergence check. | `False` |
-| `--tr-projection [constrained\|legacy-active]` | Forward the frozen-boundary TR treatment to `tsopt`, `irc`, `freq`, and flatten PHVA. `legacy-active` is deprecated comparison-only behavior and must not be used for pass/HOSP transition-state certification. | `constrained` |
 | `--irc-step-size FLOAT` | Override the EulerPC maximum step (Bohr) for every post-TS IRC. If a branch stops after only a few frames, retry with a smaller value such as `0.05`. | IRC default `0.10` |
 | `--irc-never-stop / --no-irc-never-stop` | Ignore IRC gradient and energy endpoint criteria and trace each branch to the cycle cap. Numerical/integration failures and external interruption still stop propagation. | `False` |
 | `--tsopt-max-cycles INT` | Override `tsopt --max-cycles`. | _Default_ |
@@ -307,7 +308,7 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) → `--opt-mode` (on
 ```yaml
 # Minimal example
 geom:
-  tr_projection: constrained        # legacy-active is deprecated and comparison-only
+  tr_projection: constrained        # fixed internal PHVA treatment
 calc:
   charge: 0
   spin: 1
@@ -326,9 +327,9 @@ dft:
 
 Full schema: [YAML Reference](yaml-reference.md).
 
-`--tr-projection` is unrelated to `tsopt --ref-mode`: the former controls
-frozen-boundary rigid modes, while the latter is an internal MEP-tangent
-handoff used for saddle recovery.
+The fixed constrained rigid-mode treatment is unrelated to `tsopt --ref-mode`,
+which is an internal MEP-tangent handoff used for saddle recovery. A stale
+non-constrained `geom.tr_projection` value fails explicitly.
 
 ## Notes
 

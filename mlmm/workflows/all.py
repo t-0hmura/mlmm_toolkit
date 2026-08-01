@@ -583,7 +583,6 @@ def _build_effective_args_yaml(
 def _inject_coord_type_into_args_yaml(
     args_yaml: Optional[Path],
     coord_type: Optional[str],
-    tr_projection: Optional[str] = None,
     backend: Optional[str] = None,
     precision: Optional[str] = None,
     workers: Optional[int] = None,
@@ -611,7 +610,6 @@ def _inject_coord_type_into_args_yaml(
     )
     if (
         coord_type is None
-        and tr_projection is None
         and backend is None
         and precision is None
         and workers is None
@@ -621,15 +619,13 @@ def _inject_coord_type_into_args_yaml(
         and not has_generic_calc_alias
     ):
         return args_yaml
-    if coord_type is not None or tr_projection is not None:
+    if coord_type is not None:
         geom_cfg = cfg.get("geom")
         if not isinstance(geom_cfg, dict):
             geom_cfg = {}
         geom_cfg = dict(geom_cfg)
         if coord_type is not None:
             geom_cfg["coord_type"] = coord_type
-        if tr_projection is not None:
-            geom_cfg["tr_projection"] = tr_projection
         cfg["geom"] = geom_cfg
     if (
         backend is not None
@@ -3389,17 +3385,6 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 # ===== Path search knobs (subset of path_search.cli) =====
 @click.option("-m", "--multiplicity", "spin", type=int, default=1, show_default=True, help="Multiplicity (2S+1).")
 @click.option(
-    "--tr-projection",
-    type=click.Choice(["constrained", "legacy-active"], case_sensitive=False),
-    default=GEOM_KW_DEFAULT["tr_projection"],
-    show_default=True,
-    help=(
-        "Rigid translation/rotation treatment forwarded to TSopt, IRC, freq, "
-        "and flatten PHVA. The default respects frozen anchors; 'legacy-active' "
-        "is deprecated and must not be used for pass/HOSP transition-state certification."
-    ),
-)
-@click.option(
     "--mep-mode",
     type=click.Choice(["gsm", "dmf"], case_sensitive=False),
     default="gsm",
@@ -3460,8 +3445,32 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     default=None,
     show_default=False,
     help=(
-        "Convergence preset (gau_loose|gau|gau_tight|gau_vtight|baker|never). "
-        "Defaults to 'gau_loose' for path-opt, 'gau' for scan."
+        "Convergence preset for single-structure optimizations and scan "
+        "relaxations (gau_loose|gau|gau_tight|gau_vtight|baker|never). "
+        "Defaults to 'gau' for scan. The MEP stage keeps its own "
+        "--thresh-gsm / --thresh-dmf."
+    ),
+)
+@click.option(
+    "--thresh-gsm",
+    type=click.Choice(THRESH_CHOICES, case_sensitive=False),
+    default=None,
+    show_default=False,
+    help=(
+        "Convergence preset for the GSM string optimizer of the MEP stage "
+        "(gau_loose|gau|gau_tight|gau_vtight|baker|never). "
+        "Defaults to 'gau_loose' when not provided."
+    ),
+)
+@click.option(
+    "--thresh-dmf",
+    type=str,
+    default=None,
+    show_default=False,
+    help=(
+        "IPOPT dual-infeasibility tolerance for the DMF MEP stage: "
+        "tight (0.04) | middle (0.10) | loose (0.20) or a positive float. "
+        "This is not a Gaussian preset. Defaults to 'tight' when not provided."
     ),
 )
 @click.option(
@@ -3703,7 +3712,6 @@ def cli(
     mm_keep_temp: bool,
     mm_ligand_mult: Optional[str],
     spin: int,
-    tr_projection: str,
     mep_mode: str,
     dmf_backend: str,
     max_nodes: int,
@@ -3714,6 +3722,8 @@ def cli(
     dump: bool,
     refine_path: bool,
     thresh: Optional[str],
+    thresh_gsm: Optional[str],
+    thresh_dmf: Optional[str],
     thresh_post: str,
     config_yaml: Optional[Path],
     show_config: bool,
@@ -3884,15 +3894,9 @@ def cli(
         if _is_param_explicit("cli_coord_type") and cli_coord_type is not None
         else None
     )
-    _injected_tr_projection = (
-        str(tr_projection).lower()
-        if _is_param_explicit("tr_projection")
-        else None
-    )
     if (
         args_yaml is not None
         or _injected_coord is not None
-        or _injected_tr_projection is not None
         or precision is not None
         or workers is not None
         or workers_per_node is not None
@@ -3900,7 +3904,7 @@ def cli(
         or calc_file is not None
     ):
         args_yaml = _inject_coord_type_into_args_yaml(
-            args_yaml, _injected_coord, tr_projection=_injected_tr_projection,
+            args_yaml, _injected_coord,
             backend=backend,
             precision=precision, workers=workers, workers_per_node=workers_per_node, backend_model=backend_model,
             calc_file=(str(Path(calc_file).resolve()) if calc_file else None), calc_factory=calc_factory,
@@ -4034,6 +4038,11 @@ def cli(
     }
     opt_mode_norm = _mode_alias.get(str(opt_mode).strip().lower(), "grad")
     mep_mode_kind = str(mep_mode).strip().lower()
+    effective_dmf_cfg = fresh_dmf_config(_dmf_yaml_cfg)
+    if _is_param_explicit("thresh_dmf") and thresh_dmf is not None:
+        effective_dmf_cfg["tol"] = str(thresh_dmf)
+    if mep_mode_kind == "dmf" or _is_param_explicit("thresh_dmf"):
+        _path_opt.resolve_dmf_solve_tol(effective_dmf_cfg, prefix="[all]")
     path_search_opt_mode = opt_mode_norm
     opt_mode_post_norm = (
         None
@@ -4170,6 +4179,8 @@ def cli(
                 "dump": bool(dump),
                 "refine_path": bool(refine_path),
                 "thresh": thresh,
+                "thresh_gsm": thresh_gsm,
+                "thresh_dmf": thresh_dmf,
                 "thresh_post": thresh_post,
                 "flatten": bool(flatten),
                 "pre_opt": bool(pre_opt),
@@ -5623,6 +5634,8 @@ def cli(
                 pre_opt=pre_opt,
                 convert_files=convert_files,
                 thresh=thresh,
+                thresh_gsm=thresh_gsm,
+                thresh_dmf=thresh_dmf,
             )
         )
         ps_args.extend(["--out-dir", str(path_dir)])
@@ -5717,6 +5730,8 @@ def cli(
                     pre_opt=pre_opt,
                     convert_files=convert_files,
                     thresh=thresh,
+                    thresh_gsm=thresh_gsm,
+                    thresh_dmf=thresh_dmf,
                 )
             )
             po_args.extend(["--out-dir", str(seg_out)])

@@ -216,7 +216,7 @@ class Geometry:
             Comment string.
         name : str, optional
             Verbose name of the geometry, e.g. methanal or water. Used for printing
-        tr_projection : {"constrained", "legacy-active"}
+        tr_projection : {"constrained"}
             Rigid-body treatment used when a partial Hessian is diagonalized.
         """
         self.atoms = tuple([atom.capitalize() for atom in atoms])

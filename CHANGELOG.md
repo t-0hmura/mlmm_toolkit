@@ -6,6 +6,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Breaking changes
+- Remove the public `--tr-projection` option and the `legacy-active` treatment.
+  Frozen-boundary PHVA now always uses the constrained treatment; stale YAML
+  values fail explicitly.
+- Restrict `path-opt` / `path-search` / `all` `--thresh` to single-structure
+  optimizations. It no longer sets the GSM string-optimizer preset, which now
+  has its own `--thresh-gsm`. A command that relied on `--thresh` to tighten or
+  loosen the string optimizer must pass `--thresh-gsm` as well.
+
+### Added
+- `--thresh-gsm` and `--thresh-dmf` on `all`, `path-opt`, and `path-search`, so
+  the MEP stage keeps its own convergence controls: `--thresh-gsm` sets the GSM
+  string-optimizer preset (`stopt.thresh`) and `--thresh-dmf` sets the DMF
+  IPOPT dual-infeasibility tolerance (`dmf.tol`; `tight` | `middle` | `loose`
+  or a positive float). `all` forwards both to its MEP children, and a Gaussian
+  preset passed to `--thresh-dmf` is rejected with a pointer to `--thresh-gsm`.
+
 ### Changed
 - Make uphill trial rejection opt-in for L-BFGS and RFO minimization, and raise
   its default energy tolerance from `1e-8` to `1e-3` Hartree so explicitly
@@ -16,6 +33,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   to `1e-3` Hartree.
 
 ### Fixed
+- Honour a `dmf.ipopt_options.dual_inf_tol` pinned in YAML; the DMF solve
+  previously replaced it with a hardcoded `tight` preset.
 - Reject dependent Amber virtual sites before allocating the `hessian_ff`
   backend, bound the reported atom-number list, and direct users to OpenMM or
   a 3-point-water topology.

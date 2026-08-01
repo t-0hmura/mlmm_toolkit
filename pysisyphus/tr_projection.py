@@ -9,7 +9,7 @@ import numpy as np
 import torch
 
 
-TR_PROJECTION_MODES = ("constrained", "legacy-active")
+TR_PROJECTION_MODES = ("constrained",)
 
 # Single source of truth for the default rigid-mode treatment.
 #
@@ -18,23 +18,11 @@ TR_PROJECTION_MODES = ("constrained", "legacy-active")
 # atoms fixed, and skips the projection entirely when that rank is 0 -- which it
 # is for every real frozen active-site cluster.
 #
-# ``legacy-active`` is the superseded treatment: it projects the ACTIVE
-# FRAGMENT's own translations/rotations out of the Hessian.  With frozen atoms
-# those are not null modes (K_BB*t_B = -K_BC*t_C != 0), so it is a Rayleigh-Ritz
-# compression onto a different, more constrained model -- structurally biased
-# toward a SMALLER n_imag, i.e. it can hide a real imaginary mode but never
-# create one. It is retained only as a named opt-in for reproducing legacy
-# output and must not become the default.
+# The superseded ``legacy-active`` treatment projected the active fragment's
+# own translations and rotations out of the Hessian. With frozen atoms those
+# are not null modes, so the treatment compressed a different model and could
+# hide an imaginary mode. The mode is no longer accepted.
 DEFAULT_TR_PROJECTION = "constrained"
-
-
-def allows_saddle_certification(
-    mode: str | None,
-    frozen_atoms: Sequence[int],
-) -> bool:
-    """Return whether this projection can certify a frozen-system saddle."""
-    value = DEFAULT_TR_PROJECTION if mode is None else str(mode).strip().lower()
-    return value != "legacy-active" or len(tuple(frozen_atoms)) == 0
 
 
 @dataclass(frozen=True)
@@ -50,14 +38,9 @@ class TRProjectionInfo:
     frozen_atoms: tuple[int, ...]
 
     def as_dict(self) -> dict[str, object]:
-        algorithm = (
-            "constrained-rigid-null-v1"
-            if self.treatment == "constrained"
-            else "legacy-active-fragment-v1"
-        )
         return {
             "treatment": self.treatment,
-            "algorithm": algorithm,
+            "algorithm": "constrained-rigid-null-v1",
             "effective_rank": self.effective_rank,
             "full_rigid_rank": self.full_rigid_rank,
             "frozen_constraint_rank": self.frozen_constraint_rank,
@@ -76,19 +59,6 @@ def normalize_tr_projection_mode(mode: str | None) -> str:
     if value not in TR_PROJECTION_MODES:
         choices = ", ".join(TR_PROJECTION_MODES)
         raise ValueError(f"Unknown TR projection mode {mode!r}; choose one of: {choices}.")
-    if value == "legacy-active":
-        import warnings
-
-        warnings.warn(
-            "tr_projection='legacy-active' is deprecated and scheduled for removal: it "
-            "projects the active fragment's own rigid modes, which is not a null space of "
-            "the frozen system and can hide a real imaginary mode on frozen-boundary "
-            "systems. Use the default 'constrained' treatment; do not use 'legacy-active' "
-            "for pass/HOSP transition-state certification. To reproduce older results "
-            "bitwise, install the corresponding pinned release.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
     return value
 
 
@@ -145,9 +115,7 @@ def active_tr_basis(
 
     ``constrained`` retains only full-system rigid motions that leave every
     inactive atom fixed.  With zero, one, two, or at least three non-collinear
-    frozen anchors this has the generic ranks 6, 3, 1, and 0.  ``legacy-active``
-    is an isolated-active comparison treatment: it removes the active
-    fragment's own translations and rotations using this common kernel.
+    frozen anchors this has the generic ranks 6, 3, 1, and 0.
     """
 
     mode = normalize_tr_projection_mode(mode)
@@ -181,16 +149,6 @@ def active_tr_basis(
             mode, 0, full_rank, full_rank, float(rtol), active_tuple, frozen_tuple
         )
         return coords.new_zeros((0, 0)), info
-
-    if mode == "legacy-active":
-        q_active, rank = _orthonormal_columns(
-            _rigid_basis(coords.index_select(0, active), masses.index_select(0, active)),
-            rtol=rtol,
-        )
-        info = TRProjectionInfo(
-            mode, rank, full_rank, 0, float(rtol), active_tuple, frozen_tuple
-        )
-        return q_active, info
 
     atom_mask = torch.zeros(n_atoms, dtype=torch.bool, device=coords.device)
     atom_mask[active] = True

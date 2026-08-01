@@ -84,7 +84,6 @@ out_dir/ (デフォルト: ./result_opt/)
 | `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。PDB 入力または `--ref-pdb` が必要。 | _None_ |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス。 | _None_ |
-| `--tr-projection [constrained\|legacy-active]` | `--flatten` PHVA で使う TR 処理。`legacy-active` は非推奨の比較専用で、pass/HOSP 遷移状態認定には使用不可。 | `constrained` |
 | `--radius-freeze FLOAT` | ML 領域からの可動 MM 原子の距離カットオフ (Å)。これを超える原子は凍結。指定時は `--detect-layer` が無効化。エイリアス: `--movable-cutoff`。 | _None_ |
 | `--dist-freeze TEXT` | 調和拘束用の Python リテラル `(i, j, target_A)` タプル。 | _None_ |
 | `--one-based / --zero-based` | `--dist-freeze` のインデックス規約。 | 1 始まり |
@@ -123,12 +122,11 @@ out_dir/ (デフォルト: ./result_opt/)
 
 ### 凍結境界の TR 射影
 
-`opt` で `--tr-projection` が影響するのは、`--flatten` が PHVA を実行するときだけです。
-デフォルトの `constrained` は凍結 anchor を動かさない全系剛体運動だけを除去します。
+固定の constrained 処理が `opt` に影響するのは、`--flatten` が PHVA を実行するときだけです。
+これは凍結 anchor を動かさない全系剛体運動だけを除去します。
 一般的な有効 rank は anchor が 0/1/2/非共線の 3 個以上のとき 6/3/1/0 で、
 実用的な ML/MM 境界では通常 0 です。全原子凍結は明示的なエラーになります。
-`legacy-active` は非推奨の比較専用処理で、pass/HOSP 遷移状態認定には使用できません。
-現行の共通 kernel で rank 退化構造も処理しますが、bitwise 一致は保証しません。
+`geom.tr_projection` の古い非constrained値は明示的に拒否されます。
 `--out-json` 時、flatten 実行は treatment、有効 rank、Hessian source、Hessian shape を
 `result.json.rigid_projection` に記録します。
 
@@ -140,7 +138,7 @@ out_dir/ (デフォルト: ./result_opt/)
 
 - `coord_type`（デフォルト `"cart"`）: デカルト座標 vs `"dlc"` 非局在化内部座標。
 - `freeze_atoms`（`[]`）: 最適化中に凍結する 1 始まりインデックス。
-- `tr_projection`（`"constrained"`）: `--flatten` PHVA の凍結境界 TR 処理。
+- `tr_projection`（`"constrained"`）: 固定の内部 `--flatten` PHVA 処理。
 
 ### `calc` / `mlmm`
 
@@ -183,7 +181,7 @@ RFOptimizer 固有の拡張: 信頼領域サイジング（`trust_radius`、`tru
 geom:
  coord_type: cart               # 座標タイプ: デカルト vs dlc 内部座標
  freeze_atoms: []               # 1 始まり凍結原子（CLI/リンク検出とマージ）
- tr_projection: constrained     # legacy-active は非推奨・比較専用
+ tr_projection: constrained     # 固定の内部 PHVA 処理
 calc:                           # calc 計算機キーは単一セクションにまとめる
  model_charge: 0                # 総電荷（キーは charge ではなく model_charge。CLI 上書き）
  model_mult: 1                  # スピン多重度 2S+1（キーは spin ではなく model_mult）

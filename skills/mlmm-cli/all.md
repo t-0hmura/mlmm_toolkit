@@ -57,6 +57,9 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `-m, --multiplicity` | int | 1 | Spin multiplicity (2S+1) |
 | `-r, --radius` | float | 2.6 | Pocket radius (Å) when `-c` triggers extraction |
 | `--scan-lists` | repeated | none | Staged distance scans (mode 2 — `all-scan-list.md`) |
+| `--thresh` | str | `gau` | Convergence preset for single-structure optimization and scan relaxation |
+| `--thresh-gsm` | str | `gau_loose` | Convergence preset for the GSM string optimizer |
+| `--thresh-dmf` | str/float | `tight` | DMF IPOPT dual-infeasibility tolerance: `tight`, `middle`, `loose`, or a positive float |
 | `--tsopt / --no-tsopt` | flag | off | Run TS optimization after MEP, or enter TS-only mode when exactly one input is supplied without `--scan-lists` |
 | `--thermo / --no-thermo` | flag | off | Run freq + thermochemistry |
 | `--freq-symmetry-number` | int ≥ 1 | child YAML/default (normally 1) | Use one external rotational symmetry number for every frequency job: R/TS/P for MEP runs or E1/TS/E2 for TS-only runs. Point-group symmetry is not inferred. |
@@ -66,7 +69,6 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `-b, --backend` | str | `uma` | MLIP backend |
 | `--precision` | str | backend-specific | Unset uses UMA/AIMNet2 fp32 and ORB/MACE fp64 |
 | `--workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
-| `--tr-projection` | str | `constrained` | Forward frozen-boundary TR treatment to TSopt, IRC, freq, and flatten PHVA. `legacy-active` is deprecated comparison-only behavior and must not be used for pass/HOSP transition-state certification. |
 | `--irc-step-size` | float | IRC default `0.10` | Forward a smaller EulerPC maximum step; try `0.05` when an IRC branch stops after only a few frames |
 | `--irc-never-stop / --no-irc-never-stop` | flag | off | Ignore IRC gradient and energy endpoint criteria and trace to the cycle cap; propagation failures still stop |
 | `--reject-uphill / --no-reject-uphill` | toggle | off | Opt in to rejection above `1e-3` Hartree during Hessian/RFO post-IRC endpoint re-optimization only. At the emergency floor, the retained endpoint receives a final convergence check. It never affects TS optimization or path search. |
@@ -152,16 +154,14 @@ and `bond_changes` — the segment record has no `structures` / `tsopt` / `irc` 
 path-opt), because `all` passes `--out-json` to those children itself. `freq` and
 `dft` are not given it — rerun those standalone with `--out-json` if you need one.
 
-`--tr-projection constrained` removes only full-system rigid motions that leave
+The fixed constrained treatment removes only full-system rigid motions that leave
 frozen anchors fixed. Its generic rank is 6/3/1/0 for 0/1/2/3+
 non-collinear anchors; realistic ML/MM boundaries normally rank 0, and
-all-frozen input is an error. `legacy-active` is an isolated-active comparison
-treatment using the current common kernel; bitwise identity is not guaranteed
-for rank-degenerate cases. It is deprecated and must not be used for pass/HOSP
-transition-state certification. When
+all-frozen input is an error. A stale non-constrained YAML value fails
+explicitly. When
 stage `result.json`/`thermoanalysis.yaml` artifacts are written, their
 `rigid_projection` block records treatment, rank, Hessian source, and shape.
-This flag is unrelated to the internal `tsopt --ref-mode` MEP tangent.
+This treatment is unrelated to the internal `tsopt --ref-mode` MEP tangent.
 
 ## Resume / restart
 

@@ -40,30 +40,20 @@ def test_constrained_rigid_null_rank(frozen, expected_rank):
         )
 
 
-def test_legacy_active_uses_isolated_fragment_projection():
+def test_constrained_keeps_only_the_frozen_compatible_rigid_rank():
     active = [2, 3, 4]
     constrained, constrained_info = active_tr_basis(
         COORDS, MASSES, active, mode="constrained"
     )
-    legacy, legacy_info = active_tr_basis(
-        COORDS, MASSES, active, mode="legacy-active"
-    )
-
     assert constrained_info.effective_rank == 1
-    assert legacy_info.effective_rank == 6
-    assert constrained.shape[1] < legacy.shape[1]
+    assert constrained.shape[1] == 1
 
 
-def test_no_freeze_modes_have_the_same_projector():
+def test_without_frozen_atoms_the_projector_is_the_full_rigid_space():
     active = list(range(len(COORDS)))
-    constrained, _ = active_tr_basis(COORDS, MASSES, active, mode="constrained")
-    legacy, _ = active_tr_basis(COORDS, MASSES, active, mode="legacy-active")
-    torch.testing.assert_close(
-        constrained @ constrained.T,
-        legacy @ legacy.T,
-        atol=1.0e-12,
-        rtol=1.0e-12,
-    )
+    constrained, info = active_tr_basis(COORDS, MASSES, active, mode="constrained")
+    assert info.effective_rank == 6
+    assert constrained.shape[1] == 6
 
 
 def test_linear_system_has_five_full_rigid_modes():
@@ -138,17 +128,7 @@ def test_constrained_rank_zero_does_not_drop_active_modes():
         freeze_idx=[0, 1, 2],
         tr_projection="constrained",
     )
-    legacy, _ = _frequencies_cm_and_modes(
-        active_hessian.clone(),
-        atomic_numbers,
-        COORDS.numpy(),
-        torch.device("cpu"),
-        freeze_idx=[0, 1, 2],
-        tr_projection="legacy-active",
-    )
-
     assert len(constrained) == 6
-    assert len(legacy) < len(constrained)
 
 
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float64])
@@ -195,7 +175,7 @@ def test_projection_is_correct_for_asymmetric_hessian():
 
 
 @pytest.mark.parametrize("frozen", [[0], [0, 1], [0, 1, 2]])
-@pytest.mark.parametrize("mode", ["constrained", "legacy-active"])
+@pytest.mark.parametrize("mode", ["constrained"])
 @pytest.mark.parametrize("container", ["numpy", "torch"])
 def test_geometry_partial_normal_modes_use_input_representation(
     frozen, mode, container
@@ -269,7 +249,7 @@ def test_geometry_full_projector_has_numpy_torch_parity_without_mutation():
 
 
 @pytest.mark.parametrize("frozen", [[0], [0, 1], [0, 1, 2]])
-@pytest.mark.parametrize("mode", ["constrained", "legacy-active"])
+@pytest.mark.parametrize("mode", ["constrained"])
 @pytest.mark.parametrize("container", ["numpy", "torch"])
 def test_geometry_full_and_active_hessians_have_identical_phva_spectra(
     frozen, mode, container

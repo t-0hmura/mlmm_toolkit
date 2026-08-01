@@ -48,7 +48,6 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--max-cycles` | int | 125 | Max IRC steps per branch (forward + backward) |
 | `--step-size` | float | 0.10 (Bohr) | Step in Bohr; maps to `IRC_KW['step_length']` |
 | `--never-stop / --no-never-stop` | bool | off | Ignore gradient and energy endpoint criteria and trace to max cycles; propagation failures still stop |
-| `--tr-projection` | str | `constrained` | Frozen-boundary TR treatment. `legacy-active` is deprecated comparison-only behavior; never use it for pass/HOSP transition-state certification. |
 | `--read-hess` | path | — | Identified NPZ from `freq --dump-hess`; geometry, atom order, active-DOF basis, and schema-2 charge/multiplicity must match |
 | `--allow-unverified-hess-state` | bool | off | Permit a schema-1 Hessian whose charge/multiplicity cannot be verified. Requires `--read-hess` and independent state checking; schema-2 mismatches remain fatal. |
 | `--workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
@@ -129,10 +128,7 @@ The default `constrained` treatment removes only full-system rigid motions
 that leave frozen anchors fixed. Generic ranks are 6/3/1/0 for
 zero/one/two/at least three non-collinear anchors, and realistic ML/MM
 boundaries normally have rank 0. All-frozen input is an explicit error.
-`legacy-active` is an isolated-active comparison treatment using the current
-common kernel; bitwise identity is not guaranteed for rank-degenerate cases.
-It is deprecated and must not be used for pass/HOSP transition-state
-certification. `result.json` records the
+A stale non-constrained YAML value fails explicitly. `result.json` records the
 treatment, effective rank, initial-Hessian source, and Hessian shape.
 
 ## Forward / backward endpoints

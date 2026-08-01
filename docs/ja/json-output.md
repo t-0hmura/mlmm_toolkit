@@ -187,8 +187,8 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 
 **`rigid_projection` provenance:** 選択した処理は `treatment`、有効 rank は
 `effective_rank` として、アクティブ/凍結原子数・インデックス、および各 workflow が
-使った Hessian source/shape とともに記録します。デフォルトは `constrained`。
-`legacy-active` は非推奨の比較専用で、pass/HOSP 遷移状態認定には使用できません。`freq --dump` は同じ object を
+使った Hessian source/shape とともに記録します。処理は常に `constrained` で、
+古い非constrained設定は明示的に拒否されます。`freq --dump` は同じ object を
 `thermoanalysis.yaml` にも書き出します。最後の 2 値のキー名は生成 workflow により
 `hessian_source` / `hessian_shape` または `source` / `raw_hessian_shape` です。
 

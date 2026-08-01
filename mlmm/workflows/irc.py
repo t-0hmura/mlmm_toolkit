@@ -440,17 +440,6 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     help="Comma-separated 1-based atom indices to freeze (e.g., '1,3,5').",
 )
 @click.option(
-    "--tr-projection",
-    type=click.Choice(["constrained", "legacy-active"], case_sensitive=False),
-    default=None,
-    help=(
-        "Rigid-mode treatment for a frozen/partial Hessian. 'constrained' "
-        "removes only full-system rigid motions compatible with the anchors "
-        "(default); 'legacy-active' is deprecated comparison-only behavior and "
-        "must not be used for pass/HOSP transition-state certification."
-    ),
-)
-@click.option(
     "--out-json/--no-out-json",
     "out_json",
     default=False,
@@ -475,7 +464,6 @@ def cli(
     model_indices_one_based: bool,
     detect_layer: bool,
     freeze_atoms_text: Optional[str],
-    tr_projection: Optional[str],
     charge: Optional[int],
     ligand_charge: Optional[str],
     spin: Optional[int],
@@ -624,8 +612,6 @@ def cli(
             irc_cfg["never_stop"] = bool(never_stop)
         if _is_param_explicit("out_dir"):
             irc_cfg["out_dir"] = str(out_dir)
-        if _is_param_explicit("tr_projection") and tr_projection is not None:
-            geom_cfg["tr_projection"] = str(tr_projection).lower()
         # CLI knobs → irc_cfg. require_pos_def_hessian = PSD-Hessian convergence guard.
         if _is_param_explicit("irc_pos_def") and irc_pos_def is not None:
             irc_cfg["require_pos_def_hessian"] = bool(irc_pos_def)

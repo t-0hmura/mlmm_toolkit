@@ -414,6 +414,8 @@ def build_path_child_argv(
     pre_opt: bool,
     convert_files: bool,
     thresh: Optional[str],
+    thresh_gsm: Optional[str] = None,
+    thresh_dmf: Optional[str] = None,
 ) -> list[str]:
     """Build parent-controlled argv shared by path-search and path-opt children.
 
@@ -439,6 +441,8 @@ def build_path_child_argv(
             ("pre_opt", "--preopt", pre_opt, True),
             ("convert_files", "--convert-files", convert_files, True),
             ("thresh", "--thresh", thresh, False),
+            ("thresh_gsm", "--thresh-gsm", thresh_gsm, False),
+            ("thresh_dmf", "--thresh-dmf", thresh_dmf, False),
         ]
     )
     return ["--mep-mode", str(mep_mode).lower(), *build_explicit_child_argv(

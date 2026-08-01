@@ -112,14 +112,6 @@ Options:
                                   state]
   --freeze-atoms TEXT             Comma-separated 1-based atom indices to freeze
                                   (e.g., '1,3,5').
-  --tr-projection [constrained|legacy-active]
-                                  Rigid-mode treatment for a frozen/partial
-                                  Hessian. 'constrained' removes only full-
-                                  system rigid motions compatible with the
-                                  anchors (default); 'legacy-active' is
-                                  deprecated comparison-only behavior and must
-                                  not be used for pass/HOSP transition-state
-                                  certification.
   --out-json / --no-out-json      Write machine-readable result.json to out_dir.
                                   [default: no-out-json]
   --detect-layer / --no-detect-layer

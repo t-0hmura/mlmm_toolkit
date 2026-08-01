@@ -138,7 +138,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 1. **入力処理** — 酵素 PDB、Amber トポロジー、ML 領域定義を読み込みます。電荷/スピンを解決します。CLI と YAML の凍結原子がマージされます。
 2. **ML/MM calculatorの構築** — ML/MM calculator（MLIP バックエンド + hessian_ff）を構築します。`-b/--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--hessian-calc-mode` は MLIP が Hessian を解析的に評価するか有限差分で評価するかを制御します。v0.3.3 は機械的埋め込みを使用し、電子埋め込みの要求は構築前に拒否します。
 3. **Light モード（Dimer）:**
-   - Hessian Dimer ステージはアクティブ部分空間の部分 Hessian を評価して Dimer 方向を定期的に更新します。TR 処理は `--tr-projection` に従い、デフォルトでは凍結 anchor と両立する全系剛体運動だけを除去します。保存・回転・試行する全方向で凍結Cartesian成分をゼロに保ち、中心外のforce評価でも凍結座標を中心imageと厳密に一致させます。
+   - Hessian Dimer ステージはアクティブ部分空間の部分 Hessian を評価して Dimer 方向を定期的に更新します。固定の constrained 処理は凍結 anchor と両立する全系剛体運動だけを除去します。保存・回転・試行する全方向で凍結Cartesian成分をゼロに保ち、中心外のforce評価でも凍結座標を中心imageと厳密に一致させます。
    - 平坦化ループが有効な場合（`--flatten`）、保存されたアクティブ Hessian は変位と勾配差分を使用した Bofill 更新により更新されます。各ループで虚振動数モードを推定し、1 回平坦化し、Dimer 方向を更新し、Dimer + L-BFGS マイクロセグメントを実行します。
 4. **Heavy モード（RS-I-RFO）:**
    - RS-I-RFO オプティマイザを、`rsirfo` YAML セクションで定義されたオプションの Hessian 参照ファイルとマイクロサイクル制御とともに実行します。
@@ -190,7 +190,6 @@ out_dir/ (デフォルト: ./result_tsopt/)
 | `-m, --multiplicity INT` | ML 領域のスピン多重度 (2S+1)。 | _None_（デフォルト 1） |
 | **アクティブ領域の凍結** | | |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス（YAML `geom.freeze_atoms` とマージ）。 | _None_ |
-| `--tr-projection [constrained\|legacy-active]` | Cartesian PHVA、Dimer 更新、flatten、最終鞍点検証の TR 処理。`legacy-active` は非推奨の比較専用で、pass/HOSP 遷移状態認定には使用不可。 | `constrained` |
 | `--hess-cutoff FLOAT` | ML 領域からの Hessian-MM 原子の距離カットオフ (Å)。未指定時は最終解析に必要な可動 MM 原子をすべて含めます。`0.0` で ML のみを評価する場合は、最終周波数解析も `--active-dof-mode ml-only` にします。エイリアス: `--radius-hessian`。 | _None_ |
 | `--movable-cutoff FLOAT` | 可動 MM 原子の距離カットオフ (Å)。 | _None_ |
 | **TS 探索とオプティマイザモード** | | |
@@ -235,7 +234,7 @@ out_dir/ (デフォルト: ./result_tsopt/)
 geom:
  coord_type: cart                  # 座標タイプ: デカルト vs dlc 内部座標
  freeze_atoms: []                  # 1 始まり凍結原子（CLI/リンク検出とマージ）
- tr_projection: constrained        # legacy-active は非推奨・比較専用
+ tr_projection: constrained        # 固定の内部 PHVA 処理
 calc:
  charge: 0                         # 総電荷（CLI 上書き）
  spin: 1                           # スピン多重度 2S+1
@@ -346,10 +345,9 @@ TS 収束が遅い場合や最適化中に TS モードが失われる場合は�
 Dimer は中心imageが変わるたびにこの基底を再構築して方向と回転forceに適用し、
 凍結境界に対する有限曲率運動であるactive fragmentの並進は差し引きません。
 
-`--tr-projection` と `--ref-mode` は別の機能です。前者は凍結境界の剛体モード射影を制御し、
-後者は鞍点回復用の高度な 3N MEP 接線を与えます。`legacy-active` は非推奨の比較専用処理で、
-pass/HOSP 遷移状態認定には使用できません。現行の共通 kernel と数値 rank 判定で rank 退化構造も
-処理しますが、bitwise 一致は保証しません。`--out-json` 時は
+固定の constrained 剛体モード処理と `--ref-mode` は別の機能です。後者は鞍点回復用の
+高度な 3N MEP 接線を与えます。`geom.tr_projection` の古い非constrained値は明示的に拒否されます。
+`--out-json` 時は
 `result.json.rigid_projection` に treatment、有効 rank、Hessian source、Hessian shape を記録します。
 
 ```{note}

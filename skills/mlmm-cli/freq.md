@@ -48,7 +48,6 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--pressure` | float | 1.0 | atm, for thermochemistry |
 | `--symmetry-number` | int ≥ 1 | 1 | External rotational symmetry number. Point-group symmetry is not inferred. |
 | `--hessian-calc-mode` | str | `FiniteDifference` | `Analytical` / `FiniteDifference`; check `FREQ_KW` / `MLMM_CALC_KW` |
-| `--tr-projection` | str | `constrained` | Frozen-boundary TR treatment. `legacy-active` is deprecated comparison-only behavior; never use it for pass/HOSP transition-state certification. |
 | `--precision` | str | backend-specific | UMA/AIMNet2 fp32; ORB/MACE fp64; AIMNet2 rejects fp64 |
 | `--workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
 | `-b, --backend` | str | `uma` | MLIP backend |
@@ -140,10 +139,8 @@ use `--config` YAML and set `freeze_atoms`.
 The default `constrained` TR treatment removes only full-system rigid motions
 that leave every frozen anchor fixed. Generic effective ranks are 6/3/1/0 for
 zero/one/two/at least three non-collinear anchors; realistic ML/MM boundaries
-normally have rank 0. All-frozen input is an explicit error. `legacy-active`
-is an isolated-active comparison treatment using the current common kernel;
-bitwise identity is not guaranteed for rank-degenerate cases. It is deprecated
-and must not be used for pass/HOSP transition-state certification. `result.json` and dumped
+normally have rank 0. All-frozen input is an explicit error. A stale
+non-constrained YAML value fails explicitly. `result.json` and dumped
 `thermoanalysis.yaml` record the treatment, effective rank, Hessian source,
 and Hessian shape under `rigid_projection`.
 

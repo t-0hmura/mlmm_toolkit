@@ -80,7 +80,6 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives net charge when `-q` is omitted. Requires PDB input or `--ref-pdb`. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze. | _None_ |
-| `--tr-projection [constrained\|legacy-active]` | TR treatment used only by `--flatten` PHVA. `legacy-active` is deprecated comparison-only behavior and must not be used for pass/HOSP transition-state certification. | `constrained` |
 | `--radius-freeze FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. Atoms beyond this are frozen. Providing this disables `--detect-layer`. Alias: `--movable-cutoff`. | _None_ |
 | `--radius-partial-hessian, --hess-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms included in Hessian calculation. Combinable with `--detect-layer`. | _None_ |
 | `--mm-backend [hessian_ff\|openmm]` | MM backend. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |
@@ -121,14 +120,12 @@ Forces in Hartree/bohr, steps in bohr.
 
 ### Frozen-boundary TR projection
 
-`--tr-projection` affects `opt` only when `--flatten` performs PHVA. The
-default `constrained` treatment removes only full-system rigid motions that do
+The fixed constrained treatment affects `opt` only when `--flatten` performs
+PHVA. It removes only full-system rigid motions that do
 not move frozen anchors; its generic effective rank is 6/3/1/0 for
 zero/one/two/at least three non-collinear anchors. Realistic ML/MM boundaries
 normally have rank 0, and an all-frozen selection raises an explicit error.
-`legacy-active` is deprecated comparison-only behavior and must not be used for
-pass/HOSP transition-state certification. It uses the current common kernel;
-bitwise identity is not guaranteed for rank-degenerate cases. With
+A stale non-constrained `geom.tr_projection` value fails explicitly. With
 `--out-json`, flatten runs record treatment, effective rank, Hessian source, and
 Hessian shape under `result.json.rigid_projection`.
 
@@ -140,7 +137,7 @@ Settings are applied with **defaults < config < explicit CLI**. The accepted sec
 geom:
  coord_type: cart               # cartesian vs dlc internals (dlc needs --opt-mode hess; grad/L-BFGS falls back to cart)
  freeze_atoms: []               # 1-based frozen atoms
- tr_projection: constrained     # legacy-active is deprecated and comparison-only
+ tr_projection: constrained     # fixed internal PHVA treatment
 calc:
  charge: 0                      # net charge
  spin: 1                        # spin multiplicity 2S+1

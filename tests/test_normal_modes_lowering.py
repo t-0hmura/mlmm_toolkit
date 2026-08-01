@@ -126,7 +126,7 @@ def _random_spd(n: int, seed: int) -> torch.Tensor:
     return raw.T @ raw + 0.2 * torch.eye(n, dtype=torch.float64)
 
 
-@pytest.mark.parametrize("tr_projection", ["constrained", "legacy-active"])
+@pytest.mark.parametrize("tr_projection", ["constrained"])
 def test_full_and_partial_phva_identical_through_both_surfaces(tr_projection):
     """Controlled full/partial PHVA vectors are identical via freq and normal_modes.
 

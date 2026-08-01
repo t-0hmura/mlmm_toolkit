@@ -73,8 +73,19 @@ Options:
   -o, --out-dir TEXT              Output directory.  [default:
                                   ./result_path_search/]
   --thresh [gau_loose|gau|gau_tight|gau_vtight|baker|never]
-                                  Convergence preset for GSM/StringOptimizer and
-                                  single L-BFGS runs.
+                                  Convergence preset for single L-BFGS runs
+                                  only. The MEP itself keeps --thresh-gsm /
+                                  --thresh-dmf.
+  --thresh-gsm [gau_loose|gau|gau_tight|gau_vtight|baker|never]
+                                  Convergence preset for the GSM string
+                                  optimizer (gau_loose|gau|gau_tight|gau_vtight|
+                                  baker|never). Defaults to 'gau_loose' when not
+                                  provided.
+  --thresh-dmf TEXT               IPOPT dual-infeasibility tolerance for the DMF
+                                  path optimizer: tight (0.04) | middle (0.10) |
+                                  loose (0.20) or a positive float. This is not
+                                  a Gaussian preset. Defaults to 'tight' when
+                                  not provided.
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
   --show-config / --no-show-config

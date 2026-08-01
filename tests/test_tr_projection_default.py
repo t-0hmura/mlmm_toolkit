@@ -5,12 +5,11 @@ validation project rigid modes out of the active block. The selected treatment
 can change frequencies, imaginary-mode counts, and derived thermochemistry, so
 the product and bundled engine must share one explicit default.
 
-The default is ``constrained``: it projects only an actual null space of the
-constrained problem.  ``legacy-active`` -- projecting the ACTIVE FRAGMENT's own
-TR out of a Hessian whose frozen block makes those directions non-null -- is a
-Rayleigh-Ritz compression biased toward a SMALLER n_imag, so it can hide a real
-imaginary mode.  It is retained only as a named opt-in for reproducing output
-made with the earlier treatment.
+The only treatment is ``constrained``: it projects only an actual null space of
+the constrained problem. The superseded ``legacy-active`` treatment -- projecting
+the active fragment's own TR out of a Hessian whose frozen block makes those
+directions non-null -- was a Rayleigh-Ritz compression biased toward a smaller
+n_imag, so it could hide a real imaginary mode. It has been removed.
 """
 
 from __future__ import annotations
@@ -61,11 +60,11 @@ def test_engine_fallbacks_agree_with_the_single_source_of_truth() -> None:
         )
 
 
-def test_legacy_remains_available_as_an_explicit_opt_in() -> None:
-    """Legacy projection output remains reproducible through explicit opt-in."""
-    assert "legacy-active" in TR_PROJECTION_MODES
-    assert normalize_tr_projection_mode("legacy-active") == "legacy-active"
-    assert normalize_tr_projection_mode("LEGACY-ACTIVE") == "legacy-active"
+def test_the_removed_legacy_mode_is_no_longer_selectable() -> None:
+    """A stale config naming the removed treatment fails instead of running it."""
+    assert TR_PROJECTION_MODES == ("constrained",)
+    with pytest.raises(ValueError, match="Unknown TR projection mode"):
+        normalize_tr_projection_mode("legacy-active")
 
 
 def test_unknown_mode_is_rejected_loudly() -> None:

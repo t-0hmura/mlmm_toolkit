@@ -38,6 +38,25 @@ An interactive Colab notebook is available.
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb)
 
+Before a release, exercise the notebook in a real hosted Colab runtime; the
+headless contract suite does not replace this GUI check:
+
+1. Choose a GPU runtime, run **Installation**, then **Launch GUI**. Test both
+   the pinned release path and, before publication, the documented `debug`
+   source-ZIP path.
+2. Upload `examples/beza/1.R.pdb` and `examples/beza/3.P.pdb` (or the smaller
+   `examples/toy_system` R/P pair plus its `parm7`). Confirm input order,
+   R/P switching in Mol*, layer detection or the explicit topology/model
+   pairing, and make/clear an atom selection.
+3. Select `all`, `path-opt`, and `path-search`; confirm `max-nodes=20`, rebuild
+   and validate the command, and verify that validation writes neither a heavy
+   Hessian nor a scientific result directory. Confirm the resolved topology
+   keeps one consistent CMAP policy for the whole ML/MM run.
+4. Run a deliberately capped command in a fresh output directory. Confirm the
+   live log/Cancel state, current-run Results and ZIP download, trajectory and
+   energy-frame linkage when present, and session save/load. Reusing an output
+   directory must require the notebook's explicit confirmation path.
+
 ## System requirements
 
 | Component | Requirement |

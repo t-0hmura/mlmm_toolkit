@@ -45,7 +45,6 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--opt-mode` | str | `grad` | `grad` (L-BFGS) or `hess` (RFO); aliases `lbfgs` / `rfo` and the mlmm-only `light` / `heavy` shortcuts (light = L-BFGS, heavy = RFO with full Hessian) are accepted |
 | `--reject-uphill / --no-reject-uphill` | toggle | off | Opt in to rejecting an energy-raising Hessian/RFO trial above `1e-3` Hartree, restoring the lower-energy geometry and shrinking the trust radius. At the emergency floor, run one final convergence check on the retained geometry. Ignored in L-BFGS mode. |
 | `--mm-only` / `--no-mm-only` | flag | `False` | Skip the MLIP component and minimize on the MM force field only. Layers honored as usual; only `--opt-mode grad` supported (microiter auto-off). Useful as a cheap MM pre-relaxation before ML/MM ONIOM opt. |
-| `--tr-projection` | str | `constrained` | Frozen-boundary TR treatment used only by `--flatten` PHVA. `legacy-active` is deprecated comparison-only behavior; never use it for pass/HOSP transition-state certification. |
 | `--max-cycles` | int | (live default) | Stop after N cycles; check `OPT_BASE_KW` |
 | `-b, --backend` | str | `uma` | MLIP backend |
 | `-o, --out-dir` | path | `./result_opt/` | Output directory |
@@ -103,13 +102,11 @@ effective rank, Hessian source, and Hessian shape.
 ## Caveats
 
 - Not a TS optimizer — for TS use `tsopt.md`.
-- `--tr-projection` has no effect unless `--flatten` performs PHVA. The default
-  `constrained` treatment has generic rank 6/3/1/0 for 0/1/2/3+
+- The fixed constrained treatment has no effect unless `--flatten` performs
+  PHVA. It has generic rank 6/3/1/0 for 0/1/2/3+
   non-collinear frozen anchors; realistic boundaries normally rank 0 and
-  all-frozen input is an error. `legacy-active` is an isolated-active
-  comparison using the current common kernel; bitwise identity is not
-  guaranteed for rank-degenerate cases. It is deprecated and must not be used
-  for pass/HOSP transition-state certification.
+  all-frozen input is an error. A stale non-constrained YAML value fails
+  explicitly.
 - L-BFGS occasionally walks past a saddle on shallow surfaces; if the
   resulting geometry has imaginary frequencies (run `freq` to check),
   re-run with `--opt-mode rfo`.

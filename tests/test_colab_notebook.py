@@ -11,6 +11,7 @@ import hashlib
 import html
 import json
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -181,12 +182,14 @@ def test_colab_notebook_has_valid_code_cells_and_gpu_metadata() -> None:
     assert notebook["nbformat"] == 4
     assert notebook["metadata"]["accelerator"] == "GPU"
     assert len(notebook["cells"]) == 3
-    assert "[GitHub](https://github.com/t-0hmura/mlmm_toolkit)" in introduction
-    assert "ML/MM reaction paths on the full solvated protein" in introduction
-    assert "**1 Input → 2 Setup → 3 Options → 4 Results**" in introduction
     assert (
-        "[ChemRxiv](https://chemrxiv.org/doi/full/"
-        "10.26434/chemrxiv-2025-jft1k)"
+        "[t-0hmura/mlmm_toolkit](https://github.com/t-0hmura/mlmm_toolkit)"
+    ) in introduction
+    assert "ML/MM ONIOM reaction paths on full solvated proteins" in introduction
+    assert "**① Input → ② Setup → ③ Options → ④ Results**" in introduction
+    assert (
+        "[DOI: 10.26434/chemrxiv-2025-jft1k]"
+        "(https://doi.org/10.26434/chemrxiv-2025-jft1k)"
     ) in introduction
     for cell in notebook["cells"]:
         if cell["cell_type"] == "code":
@@ -197,20 +200,20 @@ def test_colab_setup_is_pinned_to_matching_release_and_one_backend() -> None:
     setup = _notebook()["cells"][1]["source"]
 
     assert 'mlmm_toolkit_version = "v0.3.3"' in setup
-    # The release notebook installs the pinned wheel from PyPI, the same way a
-    # normal user does, so the version guard below compares the version actually
-    # resolved by pip against the requested tag.
-    assert "pip('mlmm-toolkit==' + mlmm_toolkit_version.lstrip('v'))" in setup
+    # The release path installs the pinned wheel; a version token containing
+    # `debug` installs the matching uploaded source snapshot instead.
+    assert "_debug_install = 'debug' in str(mlmm_toolkit_version).lower()" in setup
+    assert "pip('mlmm-toolkit==' + _requested_version)" in setup
     # The [dft] extra goes through the same quiet `pip` helper as every other
     # install; the streaming `pip_logged` variant was removed.
-    assert "pip('mlmm-toolkit[dft]==' + mlmm_toolkit_version.lstrip('v'))" in setup
+    assert "pip('mlmm-toolkit[dft]==' + _requested_version)" in setup
     assert "pip_logged" not in setup
     assert "install_dft is ticked" in setup
     # Gated UMA sign-in is the last step, so no install phase waits on a prompt.
     assert "Hugging Face sign-in runs at the end of Setup" in setup
     assert setup.index("notebook_login()") > setup.index("_phase_done('version verified')")
     assert "git clone" not in setup
-    assert "installed_version != mlmm_toolkit_version[1:]" in setup
+    assert "installed_version != _requested_version" in setup
     assert "anywidget==0.11.0" in setup
     assert "version('mlmm-toolkit')" in setup
     assert "Restart the Colab runtime first" in setup
@@ -218,10 +221,21 @@ def test_colab_setup_is_pinned_to_matching_release_and_one_backend() -> None:
     assert "HF_TOKEN" in setup
     assert 'install_dft = True  #@param {type:"boolean"}' in setup
     assert "INSTALL_DFT = install_dft" in setup
-    assert "installs conda-forge dependencies and the selected backend" in setup
+    assert "installs conda-forge dependencies and the selected backend" in setup.lower()
     assert "Only the **selected backend** is installed" not in setup
     assert "DFT_SETUP_READY = True" in setup
     assert "_dft_packages = {'pyscf': 'pyscf', 'gpu4pyscf': 'gpu4pyscf-cuda12x'}" in setup
+    assert re.search(r"DEBUG_SOURCE_ID = '[0-9a-f]{64}'", setup)
+    assert "pip('-e', './' + REPO_DIR + ('[dft]' if install_dft else ''))" in setup
+    for rejection in (
+        "has no source-snapshot marker",
+        "does not match this notebook",
+        "contains a file outside its source directory",
+        "contains an unsafe path",
+        "contains an unsupported symbolic link",
+        "did not extract the expected source snapshot",
+    ):
+        assert rejection in setup
 
 
 def test_colab_setup_dft_branch_installs_extra_and_checks_gpu(monkeypatch, capsys) -> None:
@@ -444,8 +458,8 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "trajectory_box.layout.display = 'none'" in app
     # Colab renders ipywidgets' Tab and Accordion as empty blocks. The tab
     # buttons keep all panes mounted, preserving upload queues and WebGL state.
-    assert "_TAB_PAGES = [('1 Input', input_box), ('2 Setup', viewer_box)," in app
-    assert "('3 Options', options_box), ('4 Results', results_box)]" in app
+    assert "_TAB_PAGES = [('① Input', input_box), ('② Setup', viewer_box)," in app
+    assert "('③ Options', options_box), ('④ Results', results_box)]" in app
     assert "_tab_body = W.VBox([page for _label, page in _TAB_PAGES])" in app
     assert "_tab_body.children = [_TAB_PAGES[i][1]]" not in app
     assert "_pane.layout.display = '' if _j == i else 'none'" in app
@@ -483,7 +497,7 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "grid-template-columns:minmax(230px,270px) minmax(140px,1fr) 246px" in app
     assert "grid-template-columns:minmax(0,2fr) minmax(260px,1fr);" in app
     assert "height:auto; min-height:0; overflow-x:clip; overflow-y:visible;" in app
-    assert ".rxviewer-page { min-height:800px !important; }" in app
+    assert ".rxviewer-page { min-height:800px !important; row-gap:8px !important; }" in app
     assert "@media (min-width: 821px) and (max-height: 900px)" in app
     assert ".rxapp-main { flex:0 0 auto !important; min-height:0; overflow:visible; }" in app
     assert ".rxpages { flex:0 0 auto !important; min-height:0; overflow:visible; }" in app
@@ -495,7 +509,6 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "height:auto; max-height:none; min-height:0; overflow:visible;" in app
     assert "overflow:visible; overscroll-behavior:contain;" in app
     assert "width:100% !important; min-width:0; max-width:none;" in app
-    assert "max-width:clamp(600px,calc(250dvh - 1320px),1000px);" in app
     assert ".rxpath-panel svg, .rxpath-panel img, .rxpath-panel canvas {" in app
     assert "traj_out = W.HTML(layout={'width': '100%', 'min_width': '0'})" in app
     assert "plot_out = W.HTML(layout={'width': '100%', 'min_width': '0'})" in app
@@ -508,7 +521,12 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "b_run = W.Button(description='Run', button_style='danger'" in app
     assert "b_run.add_class('rxexecute')" not in app
     assert "_btn.description = ('▾ ' if _st['open'] else '▸ ') + title" in app
-    assert "    if real_run: _open_run_log()\n    _set_running(True)\n    try:" in app
+    assert (
+        "    if real_run: _open_run_log()\n"
+        "    _RUN_EXECUTION['argv'] = list(a)\n"
+        "    _set_running(True)\n"
+        "    try:"
+    ) in app
     assert "rootbox = W.VBox([header, app, cmdline_box])" in app
     assert "rootbox = W.VBox([header, app, W.HTML('<hr" not in app
     assert 'role="tooltip"' not in app
@@ -617,7 +635,7 @@ def test_colab_viewer_persists_exact_atom_and_residue_context() -> None:
     assert "style_pick" not in app
     assert "('Measure (dist/angle/dihedral)'," not in app
     assert "measure_panel" not in app
-    assert "freeze_acc = _collapsible('Freezing', freeze_panel)" in app
+    assert "freeze_acc = freeze_panel" in app
     assert "_PICK_HINT.get(pick_action.value, 'Choose a click action.')" in app
     assert "_PICK_HINT[pick_action.value]" not in app
     assert "pick_action.value = 'scanB'" in app
@@ -954,7 +972,7 @@ def test_colab_app_executes_atomic_view_and_result_transitions(
             yield from _descendants(child)
     clear_pair = next(
         widget for widget in _descendants(app["scan_panel"])
-        if getattr(widget, "description", "") == "Clear current pair"
+        if getattr(widget, "tooltip", "") == "Clear only the atom pair currently being prepared."
     )
     assert clear_pair.disabled
     before_scan = json.dumps(app["S"]["scan_atoms"], sort_keys=True)
@@ -1373,7 +1391,7 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
         assert set(coverage) == {param.name for param in options}
         assert set(coverage.values()) <= {"owned", "generated", "blocked", "rendered"}
         all_statuses.update(coverage)
-    assert all_statuses["tr_projection"] == "blocked"
+    assert "tr_projection" not in all_statuses
     assert all_statuses["verbose"] == "rendered"
     assert all_statuses["embedcharge"] == "blocked"
     assert all_statuses["embedcharge_cutoff"] == "blocked"
@@ -1586,7 +1604,7 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
         assert flag not in off_argv
     app["all_mode"].value = "tsonly"
     assert app["adv_refine"].layout.display == "none"
-    assert app["w_ts"].value and app["w_ts"].disabled
+    assert app["w_ts"].value and not app["w_ts"].disabled
     app["w_charge_ok"].value = True
     command = app["build_cmd"]()
     for flag in ("--refine-path", "--mep-mode", "--thresh", "--max-cycles"):
@@ -1603,9 +1621,12 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     app["all_mode"].value = "mep"
     assert not app["w_ts"].value and not app["w_ts"].disabled
     app["w_th"].value = True
-    assert app["w_ts"].value and app["w_ts"].disabled
+    assert app["w_ts"].value and not app["w_ts"].disabled
     app["w_ts"].value = False
-    assert app["w_ts"].value and app["w_ts"].disabled
+    assert not app["w_ts"].value and not app["w_ts"].disabled
+    assert not app["w_th"].value
+    app["w_th"].value = True
+    assert app["w_ts"].value and not app["w_ts"].disabled
     thermo_argv = app["_advanced_argv"]("all")
     for flag in (
         "--irc-step-size", "--opt-mode-post", "--thresh-post",
@@ -2047,6 +2068,49 @@ def test_colab_results_keep_missing_energies_unknown(
     assert "stale energy view" not in app["plot_out"].value
 
 
+def test_colab_defers_active_browser_input_deletion(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    app, _rendered = _execute_app(monkeypatch, tmp_path)
+    source = _notebook()["cells"][2]["source"]
+    for start, end in (("def _do_run_sync", "async def _do_run_async"),
+                       ("async def _do_run_async", "def _do_run(")):
+        run_path = source[source.index(start):source.index(end)]
+        assert "_RUN_EXECUTION['argv'] = list(a)\n    _set_running(True)" in run_path
+    sync_start = source.index("def _do_run_sync")
+    sync_prefix = source[sync_start:source.index("    try:\n", sync_start)]
+    assert "_RUN_EXECUTION['argv']" not in sync_prefix
+
+    detached = tmp_path / "detached.pdb"
+    detached.write_text("END\n", encoding="utf-8")
+    app["_remember_uploaded_paths"]([str(detached)])
+    app["S"]["inputs"] = [str(detached)]
+    app["_RUN_EXECUTION"]["argv"] = [
+        app["CLI"], "opt", "-i", str(detached), "--out-dir", "result",
+    ]
+    app["_set_running"](True)
+    app["S"]["inputs"] = []
+    app["_delete_owned_uploads"]([str(detached)])
+    assert detached.exists()
+    assert str(detached) in app["_RUN_EXECUTION"]["deferred_deletes"]
+    app["_set_running"](False)
+    assert not detached.exists()
+
+    reattached = tmp_path / "reattached.pdb"
+    reattached.write_text("END\n", encoding="utf-8")
+    app["_remember_uploaded_paths"]([str(reattached)])
+    app["_RUN_EXECUTION"]["argv"] = [app["CLI"], "opt", "-i", str(reattached)]
+    app["_set_running"](True)
+    app["_delete_owned_uploads"]([str(reattached)])
+    app["S"]["inputs"] = [str(reattached)]
+    app["_set_running"](False)
+    assert reattached.exists()
+    assert str(reattached) in app["S"]["_uploaded_paths"]
+    app["S"]["inputs"] = []
+    app["_delete_owned_uploads"]([str(reattached)])
+    assert not reattached.exists()
+
+
 def test_colab_operates_scientific_selectors_and_remaining_buttons(
     tmp_path: Path, monkeypatch,
 ) -> None:
@@ -2066,14 +2130,26 @@ def test_colab_operates_scientific_selectors_and_remaining_buttons(
     parm.write_text("parm", encoding="utf-8")
     app["load_pdb"]([str(first), str(second)], parm=str(parm))
 
+    launch_disabled_before = {
+        name: app[name].disabled for name in ("b_validate", "b_run")
+    }
     app["_set_running"](True)
-    assert app["dd_subcmd"].disabled
-    assert app["w_out"].disabled
-    assert app["upl"].disabled
-    app["_set_running"](False)
+    assert app["b_validate"].disabled
+    assert app["b_run"].disabled
     assert not app["dd_subcmd"].disabled
     assert not app["w_out"].disabled
     assert not app["upl"].disabled
+    assert app["_view_is_editable"]()
+    assert app["_on_colab_upload"]("input", [])["failed"] == []
+    assert not _widget_with_description(app["input_file_rows"], "Remove file").disabled
+    app["_set_running"](False)
+    assert {
+        name: app[name].disabled for name in ("b_validate", "b_run")
+    } == launch_disabled_before
+    assert not app["dd_subcmd"].disabled
+    assert not app["w_out"].disabled
+    assert not app["upl"].disabled
+    assert not _widget_with_description(app["input_file_rows"], "Remove file").disabled
 
     app["dd_subcmd"].options = app["_sub_options"](app["SUBS"])
     app["dd_subcmd"].value = "energy-diagram"
@@ -2096,16 +2172,16 @@ def test_colab_operates_scientific_selectors_and_remaining_buttons(
         app["on_click"](str(index), live_marked=True)
 
     def scan_pair(first_index: int, second_index: int) -> None:
-        _widget_with_description(app["scan_panel"], "1  Pick atom A").click()
+        _widget_with_description(app["scan_panel"], "① Pick atom A").click()
         assert app["pick_action"].value == "scanA"
         pick(first_index)
-        _widget_with_description(app["scan_panel"], "2  Pick atom B").click()
+        _widget_with_description(app["scan_panel"], "② Pick atom B").click()
         assert app["pick_action"].value == "scanB"
         pick(second_index)
 
     app["dd_subcmd"].value = "scan"
     scan_pair(0, 1)
-    target = _widget_with_description(app["scan_panel"], "3  Target Å")
+    target = _widget_with_description(app["scan_panel"], "③ Set target Å")
     target.value = 1.8
     _widget_with_description(app["scan_panel"], "Add sequential stage").click()
     assert len(app["S"]["scan_stages"]) == 1
@@ -2119,9 +2195,15 @@ def test_colab_operates_scientific_selectors_and_remaining_buttons(
     scan_pair(0, 2)
     _widget_with_description(app["scan_panel"], "Add to current stage").click()
     assert len(app["S"]["scan_stages"][0]) == 2
-    _widget_with_description(app["scan_panel"], "× stage").click()
+    next(
+        widget for widget in _widget_descendants(app["scan_panel"])
+        if getattr(widget, "tooltip", "") == "Remove stage"
+    ).click()
     assert app["S"]["scan_stages"] == []
-    _widget_with_description(app["scan_panel"], "Clear current pair").click()
+    next(
+        widget for widget in _widget_descendants(app["scan_panel"])
+        if getattr(widget, "tooltip", "") == "Clear only the atom pair currently being prepared."
+    ).click()
     assert app["S"]["scan_atoms"] == [None, None]
 
     for subcommand, pairs in (
@@ -2131,7 +2213,7 @@ def test_colab_operates_scientific_selectors_and_remaining_buttons(
         app["dd_subcmd"].value = subcommand
         for pair_index, (left, right) in enumerate(pairs):
             scan_pair(left, right)
-            low = _widget_with_description(app["scan_panel"], "3  Low Å")
+            low = _widget_with_description(app["scan_panel"], "③ Set low Å")
             high = _widget_with_description(app["scan_panel"], "High Å")
             low.value = 1.0 + pair_index * 0.1
             high.value = 2.0 + pair_index * 0.1
@@ -2154,7 +2236,7 @@ def test_colab_operates_scientific_selectors_and_remaining_buttons(
     app["pick_action"].value = "freezeatom"
     pick(2)
     assert app["S"]["freeze_atoms"] == [3]
-    _widget_with_description(app["freeze_panel"], "clear atoms").click()
+    _widget_with_description(app["freeze_panel"], "Clear").click()
     assert app["S"]["freeze_atoms"] == []
 
     app["pick_action"].value = "center"
@@ -2521,11 +2603,10 @@ def test_colab_adversarial_session_upload_and_view_state(
     dependent["thermo"] = True
     dependent["advanced"]["dft"] = False
     assert app["_apply_session"](dependent) == []
-    assert app["w_ts"].value is True and app["w_ts"].disabled is True
-    assert app["_session_dict"]()["tsopt"] is True
-    app["w_th"].value = False
     assert app["w_ts"].value is True and app["w_ts"].disabled is False
+    assert app["_session_dict"]()["tsopt"] is True
     app["w_ts"].value = False
+    assert app["w_th"].value is False
 
     app["all_mode"].value = "mep"
     app["w_ts"].value = False
@@ -2635,9 +2716,8 @@ def test_colab_gui_routes_scientific_options_and_round_trips_sessions() -> None:
     assert "'adv_thresh':  {'all', 'opt', 'tsopt', 'scan', 'scan2d', 'scan3d', 'path-opt', 'path-search'}," in app
     assert "'adv_maxcyc':  {'all', 'opt', 'tsopt', 'irc', 'scan', 'path-opt', 'path-search'}," in app
     assert "if 'freeze' in SPEC.get(sub, {}).get('panels', ()) and S['freeze_atoms']:" in app
-    # `--tr-projection legacy-active` is deprecated (it warns and must not be used
-    # for pass/HOSP transition-state certification), and --embedcharge is retired
-    # and fails closed. Neither may be offered in the GUI.
+    # The public TR-projection option and legacy treatment are removed;
+    # --embedcharge is also retired and fails closed. None may be offered.
     assert "legacy-active" not in app
     assert "--tr-projection" not in app
     assert "--embedcharge" not in app
@@ -2732,7 +2812,7 @@ def test_colab_gui_preserves_full_system_and_tracks_current_run_only() -> None:
     assert "No ligand-charge source is available" not in app
     assert ".xyz + reference PDB + .parm7" in app
     assert "utility .gjf / .com / .inp / .csv" in app
-    assert app.count("effective = _normalized_scope_argv(a)") == 2
+    assert app.count("effective = _normalized_scope_argv(a)") == 4
     assert "dry_argv = _force_dry_run(list(a))" in app
     assert "if not _validate_command(a): return" in app
     assert "real_run = not _flag_enabled(effective, '--dry-run', '--no-dry-run')" in app
@@ -2772,8 +2852,8 @@ def test_colab_output_scope_executes_cli_grammar_and_utility_defaults(
         output_param = output_params[0]
         assert scope_for(["mlmm", subcommand])["root"] == str(output_param.default)
     assert scope_for(["mlmm", "opt", "-oattached"])["root"] == "attached"
-    assert scope_for(["mlmm", "opt", "--OUT-DIR", "Upper"])["root"] == "Upper"
-    assert scope_for(["mlmm", "opt", "--OUT-DIR=UpperEq"])["root"] == "UpperEq"
+    assert scope_for(["mlmm", "opt", "--out-dir", "Upper"])["root"] == "Upper"
+    assert scope_for(["mlmm", "opt", "--out-dir=UpperEq"])["root"] == "UpperEq"
     assert scope_for(["mlmm", "-i", "input.pdb"])["root"] == "result_all"
 
     for info_argv in (
@@ -2837,12 +2917,6 @@ def test_colab_output_scope_executes_cli_grammar_and_utility_defaults(
     ])
     assert legacy_negative_false["targets"] == [str((tmp_path / "energy.png").resolve())]
     assert str((tmp_path / "result.json").resolve()) in legacy_negative_false["exact_targets"]
-    uppercase_inline_false = scope_for([
-        "mlmm", "energy-diagram", "-i", "0", "-i", "1",
-        "--OUT-JSON=False",
-    ])
-    assert not any(Path(path).name == "result.json" for path in uppercase_inline_false["exact_targets"])
-
     normalize = contract["_normalized_scope_argv"]
     enabled = contract["_flag_enabled"]
     assert not enabled(normalize([
@@ -3051,9 +3125,9 @@ def test_colab_release_state_and_linked_results_regressions(
         str(getattr(widget, "value", ""))
         for widget in _widget_descendants(app["scan_panel"])
     )
-    assert "A: <code>OLD 1 A</code>" in scan_panel_text
-    assert "B: <code>OLD 1 B</code>" in scan_panel_text
-    assert "Loaded example · Clear current pair to redefine." in scan_panel_text
+    assert "<b>A</b>: <code>OLD 1 A</code>" in scan_panel_text
+    assert "<b>B</b>: <code>OLD 1 B</code>" in scan_panel_text
+    assert "Loaded example · Clear to redefine." in scan_panel_text
     assert "OLD 1 A — OLD 1 B → 1.4 Å" in app["summary_html"].value
     assert "[(&#x27;OLD 1 A&#x27;" not in app["summary_html"].value
     app["pick_action"].value = "scanA"
@@ -3285,7 +3359,7 @@ def test_colab_setup_cell_is_frozen() -> None:
     setup = _notebook()["cells"][1]["source"]
     digest = hashlib.sha256(setup.encode("utf-8")).hexdigest()
 
-    assert digest == "03b223fafea4a2410154d0096e5a8ff58b041b61befc57a1d213c1e63a9d4530", (
+    assert digest == "6d6de7bee7119f6a05f9185e17e7b15fb960562dec53641b1ea0d7f91b6fa3f8", (
         "the Colab Setup cell changed; it is frozen for this release. Re-read the "
         "Setup contracts above, then update this digest deliberately. Got: " + digest
     )

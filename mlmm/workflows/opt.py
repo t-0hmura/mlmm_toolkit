@@ -1124,18 +1124,6 @@ def _run_microiter_opt(
     help="Comma-separated 1-based atom indices to freeze (e.g., '1,3,5').",
 )
 @click.option(
-    "--tr-projection",
-    type=click.Choice(["constrained", "legacy-active"], case_sensitive=False),
-    default=GEOM_KW["tr_projection"],
-    show_default=True,
-    help=(
-        "Rigid translation/rotation treatment used by --flatten PHVA. "
-        "'constrained' respects frozen anchors; 'legacy-active' treats the "
-        "active fragment as isolated, is deprecated, and must not be used for "
-        "pass/HOSP transition-state certification."
-    ),
-)
-@click.option(
     "--radius-partial-hessian",
     "--hess-cutoff",
     "radius_partial_hessian",
@@ -1348,7 +1336,6 @@ def cli(
     ligand_charge: Optional[str],
     spin: Optional[int],
     freeze_atoms_text: Optional[str],
-    tr_projection: str,
     radius_partial_hessian: Optional[float],
     radius_freeze: Optional[float],
     dist_freeze_raw: Sequence[str],
@@ -1495,8 +1482,6 @@ def cli(
             opt_cfg["print_every"] = int(print_every)
         if _is_param_explicit("cli_coord_type") and cli_coord_type is not None:
             geom_cfg["coord_type"] = str(cli_coord_type).lower()
-        if _is_param_explicit("tr_projection"):
-            geom_cfg["tr_projection"] = str(tr_projection).lower()
         if _is_param_explicit("reject_uphill"):
             rfo_cfg["reject_uphill"] = bool(reject_uphill)
 
