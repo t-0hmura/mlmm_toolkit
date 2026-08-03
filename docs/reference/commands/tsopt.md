@@ -17,8 +17,8 @@ Options:
                                   higher coordinate precision. If XYZ, use
                                   --ref-pdb to specify PDB topology for atom
                                   ordering and output conversion.  [required]
-  --ref-mode FILE                 Advanced path-mode hint for Hessian TS
-                                  recovery (.npy or whitespace Cartesian 3N
+  --ref-mode FILE                 Advanced path-mode hint for Hessian TS root
+                                  selection (.npy or whitespace Cartesian 3N
                                   text). 'mlmm all' supplies this from its MEP;
                                   ordinary standalone tsopt runs normally omit
                                   it.

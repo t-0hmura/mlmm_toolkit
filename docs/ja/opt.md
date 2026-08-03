@@ -92,7 +92,7 @@ out_dir/ (デフォルト: ./result_opt/)
 | `--opt-mode [grad\|hess\|light\|heavy\|lbfgs\|rfo]` | オプティマイザモード: `grad`/`lbfgs`（L-BFGS）または `hess`/`rfo`（RFO）。エイリアス `light`/`heavy` も使用可。 | `grad` |
 | `--microiter/--no-microiter` | マイクロイテレーション: ML 1 ステップ（RFO）+ MM 緩和（L-BFGS）を交互に実行。`hess` モードでのみ有効。 | `True` |
 | `--flatten/--no-flatten` | 最適化後の虚振動数モードフラット化ループの有効化/無効化。 | `False` |
-| `--reject-uphill/--no-reject-uphill` | `hess` モードで RFO の上り坂試行ステップ拒否を明示的に有効化（許容値 `1e-3` Hartree、低エネルギー形状へロールバックして trust radius を縮小）。`grad`/`lbfgs` モードでは無効。emergency trust floor 到達時は、非収束停止を報告する前に保持構造を通常の収束条件で最終確認。 | `False` |
+| `--reject-uphill/--no-reject-uphill` | `hess` モードで RFO の上り坂試行ステップ拒否を明示的に有効化（許容値 `1e-4` Hartree、低エネルギー形状へロールバックして trust radius を縮小）。`grad`/`lbfgs` モードでは無効。emergency trust floor 到達時は、非収束停止を報告する前に保持構造を通常の収束条件で最終確認。 | `False` |
 | `--dump/--no-dump` | 軌跡ダンプ（`optimization_trj.xyz`、`optimization_all_trj.xyz`）を出力。 | `False` |
 | `--convert-files/--no-convert-files` | PDB 入力時の XYZ/TRJ から対応する PDB 生成の有効化/無効化。 | `True` |
 | `-o, --out-dir TEXT` | 出力ディレクトリ。 | `./result_opt/` |

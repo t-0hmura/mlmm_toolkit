@@ -87,6 +87,37 @@ def test_solver_status_zero_is_the_only_converged_outcome() -> None:
     )
 
 
+def test_dmf_interpolation_cache_is_released_without_emptying_mid_phase() -> None:
+    calls = []
+
+    class Stage:
+        def release_device_cache(self, *, empty_cache):
+            calls.append(empty_cache)
+
+    path_opt._release_dmf_interpolation_cache(Stage())
+    path_opt._release_dmf_interpolation_cache(object())  # pydmf 1.2 fallback
+
+    assert calls == [False]
+
+
+def test_torch_dmf_runtime_options_disable_unused_history_and_preserve_precision() -> None:
+    assert path_opt._torch_dmf_runtime_kwargs(
+        "cpu", {"keep_history": True}, {}, {}
+    ) == {}
+    assert path_opt._torch_dmf_runtime_kwargs(
+        "gpu",
+        {"device": "cpu", "dtype": "float64"},
+        {"device": "cuda", "dtype": "float32"},
+        {"dtype": "float64"},
+    ) == {"keep_history": False, "device": "cuda", "dtype": "float64"}
+    assert path_opt._torch_dmf_runtime_kwargs(
+        "gpu", {"keep_history": True}, {}, {}
+    ) == {"keep_history": True}
+    assert path_opt._torch_dmf_runtime_kwargs(
+        "gpu", {"keep_history": True}, {}, {}, supports_keep_history=False
+    ) == {}
+
+
 def test_nonconverged_result_payload_does_not_become_completed() -> None:
     result = path_opt.DMFMepResult(
         images=(object(), object(), object()),

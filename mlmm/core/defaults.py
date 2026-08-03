@@ -180,7 +180,7 @@ LBFGS_KW: Dict[str, Any] = {
     "mu_reg": None,
     "max_mu_reg_adaptions": 10,
     "reject_uphill": False,
-    "uphill_tolerance": 1e-3,
+    "uphill_tolerance": 1e-4,
     "rejection_step_floor": 1e-7,
     "max_rejections_at_floor": 3,
 }
@@ -194,7 +194,7 @@ RFO_KW: Dict[str, Any] = {
     "trust_max": 0.10,
     "max_energy_incr": None,
     "reject_uphill": False,
-    "uphill_tolerance": 1e-3,
+    "uphill_tolerance": 1e-4,
     "rejection_trust_floor": 1e-7,
     "max_rejections_at_floor": 3,
     "hessian_update": "bfgs",
@@ -359,7 +359,7 @@ IRC_KW: Dict[str, Any] = {
     "rms_grad_thresh": 1.0e-3,
     "hard_rms_grad_thresh": None,
     "energy_thresh": 1.0e-6,
-    "energy_increase_thresh": 1.0e-3,
+    "energy_increase_thresh": 0.0,
     "imag_below": 0.0,
     "force_inflection": True,
     "check_bonds": False,
@@ -475,7 +475,7 @@ _RFO_ONLY_KEYS = {
 RSIRFO_KW: Dict[str, Any] = {
     **{k: v for k, v in RFO_KW.items() if k not in _RFO_ONLY_KEYS},
     "thresh": "baker",
-    "check_eigval_structure": True,
+    "check_eigval_structure": False,
     "trust_radius": 0.10,
     "trust_max": 0.10,
     "max_energy_incr": None,
@@ -485,14 +485,16 @@ RSIRFO_KW: Dict[str, Any] = {
     "small_eigval_thresh": 1e-8,
     "assert_neg_eigval": False,
     "track_mode_by_overlap": False,
-    "reject_mode_loss": True,
+    # Keep the default on the standard restricted-step/root-following path.
+    # Exact PHVA below remains the terminal saddle-order authority.
+    "reject_mode_loss": False,
     "mode_loss_trust_floor": 1e-5,
     "max_mode_loss_rejections": 5,
     "verify_saddle": True,
     "saddle_imaginary_threshold_cm": 5.0,
     "saddle_recovery_step": 0.01,
     "saddle_recovery_check_interval": 50,
-    "saddle_recovery_max_cycles": 200,
+    "saddle_recovery_max_cycles": 0,
     "out_dir": OUT_DIR_TSOPT,
 }
 

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 import gc
+import inspect
 import logging
 import sys
 import textwrap
@@ -44,6 +45,8 @@ from mlmm.workflows.path_opt import (
     STOPT_KW as _PATH_STOPT_KW,
     DMF_KW as _PATH_DMF_KW,
     _select_hei_index,
+    _release_dmf_interpolation_cache,
+    _torch_dmf_runtime_kwargs,
     _shared_frozen_reference,
     resolve_dmf_solve_tol,
 )
@@ -621,6 +624,16 @@ def _run_dmf_between(
     if "print_level" not in ipopt_opts and not is_verbose():
         ipopt_opts["print_level"] = 0
     update_teval = bool(dmf_opts.pop("update_teval", False))
+    supports_keep_history = (
+        dmf_backend == "gpu"
+        and "keep_history" in inspect.signature(DirectMaxFlux.__init__).parameters
+    )
+    torch_dmf_kwargs = _torch_dmf_runtime_kwargs(
+        dmf_backend, dmf_opts, fbenm_opts, cfbenm_opts,
+        supports_keep_history=supports_keep_history,
+    )
+    if supports_keep_history:
+        dmf_opts.setdefault("keep_history", False)
     k_fix = float(dmf_cfg_local.get("k_fix", 300.0))
 
     mxflx_fbenm = interpolate_fbenm(
@@ -637,6 +650,15 @@ def _run_dmf_between(
     )
     coefs = mxflx_fbenm.coefs.copy()
 
+    # The interpolation calculators are finished.  Keep their shared device
+    # constants across all interpolation callbacks, then release and delete the
+    # whole phase before constructing the accurate ML/MM DirectMaxFlux object.
+    _release_dmf_interpolation_cache(mxflx_fbenm)
+    del mxflx_fbenm
+    gc.collect()
+    if dmf_backend == "gpu" and torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
     mxflx = DirectMaxFlux(
         ref_images,
         coefs=coefs,
@@ -648,6 +670,7 @@ def _run_dmf_between(
         eps_vel=float(dmf_opts.get("eps_vel", 0.01)),
         eps_rot=float(dmf_opts.get("eps_rot", 0.01)),
         beta=float(dmf_opts.get("beta", 10.0)),
+        **torch_dmf_kwargs,
     )
 
     for image in mxflx.images:
@@ -737,6 +760,13 @@ def _run_dmf_between(
             imgs.append(g)
         finally:
             tmp_xyz.unlink(missing_ok=True)
+
+    for image in mxflx.images:
+        image.calc = None
+    del ase_calc, mxflx
+    gc.collect()
+    if dmf_backend == "gpu" and torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
     return GSMResult(images=imgs, energies=energies, hei_idx=hei_idx, is_converged=_dmf_converged)
 

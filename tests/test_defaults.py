@@ -49,16 +49,23 @@ def test_opt_defaults():
 def test_minimizer_trial_rejection_defaults():
     assert LBFGS_KW["reject_uphill"] is False
     assert RFO_KW["reject_uphill"] is False
-    assert LBFGS_KW["uphill_tolerance"] == 1e-3
-    assert RFO_KW["uphill_tolerance"] == 1e-3
+    assert LBFGS_KW["uphill_tolerance"] == 1e-4
+    assert RFO_KW["uphill_tolerance"] == 1e-4
 
     from pysisyphus.optimizers.LBFGS import LBFGS
     from pysisyphus.optimizers.RFOptimizer import RFOptimizer
 
     assert signature(LBFGS).parameters["reject_uphill"].default is False
     assert signature(RFOptimizer).parameters["reject_uphill"].default is False
-    assert signature(LBFGS).parameters["uphill_tolerance"].default == 1e-3
-    assert signature(RFOptimizer).parameters["uphill_tolerance"].default == 1e-3
+    assert signature(LBFGS).parameters["uphill_tolerance"].default == 1e-4
+    assert signature(RFOptimizer).parameters["uphill_tolerance"].default == 1e-4
+
+
+def test_ts_search_uses_terminal_exact_validation_without_automatic_recovery():
+    assert RSIRFO_KW["check_eigval_structure"] is False
+    assert RSIRFO_KW["reject_mode_loss"] is False
+    assert RSIRFO_KW["verify_saddle"] is True
+    assert RSIRFO_KW["saddle_recovery_max_cycles"] == 0
 
 
 def test_lbfgs_inherits_opt():

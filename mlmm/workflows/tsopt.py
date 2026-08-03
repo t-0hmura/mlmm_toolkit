@@ -2995,7 +2995,7 @@ def _prepare_tsopt_output_dir(
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     default=None,
     help=(
-        "Advanced path-mode hint for Hessian TS recovery (.npy or whitespace "
+        "Advanced path-mode hint for Hessian TS root selection (.npy or whitespace "
         "Cartesian 3N text). 'mlmm all' supplies this from its MEP; ordinary "
         "standalone tsopt runs normally omit it."
     ),
@@ -4104,7 +4104,8 @@ def cli(
                     None,
                 )
                 if (
-                    not _heavy_optimizer_converged
+                    int(rsirfo_args.get("saddle_recovery_max_cycles", 0)) > 0
+                    and not _heavy_optimizer_converged
                     and reference_mode is not None
                     and (n_imag <= 1 or target_mode_is_negative is False)
                 ):

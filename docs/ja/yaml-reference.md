@@ -492,7 +492,7 @@ irc:
  rms_grad_thresh: 0.001 # RMS 勾配の収束閾値
  hard_rms_grad_thresh: null # ハード RMS 勾配停止閾値
  energy_thresh: 0.000001 # エネルギー変化閾値
- energy_increase_thresh: 0.001 # 通常modeの1 step energy上昇許容値
+ energy_increase_thresh: 0.0   # 通常modeでは1 stepでもenergyが上昇すれば停止
  imag_below: 0.0 # 虚振動数カットオフ
  force_inflection: true # 変曲点検出の強制
  check_bonds: false # 伝搬中の結合チェック

@@ -273,10 +273,11 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
 | `--tsopt/--no-tsopt` | 反応セグメントごとに TS 最適化 + EulerPC IRC を実行。 | `False` |
+| `--use-mep-tangent/--no-use-mep-tangent` | HEIのMEP接線をHessian TSのroot選択とoverlap追跡へ渡す。比較ベンチマークでは無効化。 | `True` |
 | `--thermo/--no-thermo` | MEP 実行では R/TS/P、TS-only 実行では E1/TS/E2 で振動解析 (`freq`) を実行。 | `False` |
 | `--dft/--no-dft` | MEP 実行では R/TS/P、TS-only 実行では E1/TS/E2 で DFT 一点計算を実行。 | `False` |
 | `--flatten/--no-flatten` | `tsopt` での余分な虚振動数モードフラットニングを有効化。 | `False` |
-| `--reject-uphill/--no-reject-uphill` | IRC 後の**エンドポイント再最適化のみ**で RFO の上り坂ステップ拒否を明示的に有効化（許容値 `1e-3` Hartree、opt 子へ転送。低エネルギー形状へロールバックして trust radius を縮小）。TS 最適化では拒否を常に無効化し、経路探索には影響しない。emergency floor 到達時は、保持したエンドポイントを通常の収束条件で最終確認。 | `False` |
+| `--reject-uphill/--no-reject-uphill` | IRC 後の**エンドポイント再最適化のみ**で RFO の上り坂ステップ拒否を明示的に有効化（許容値 `1e-4` Hartree、opt 子へ転送。低エネルギー形状へロールバックして trust radius を縮小）。TS 最適化では拒否を常に無効化し、経路探索には影響しない。emergency floor 到達時は、保持したエンドポイントを通常の収束条件で最終確認。 | `False` |
 | `--irc-step-size FLOAT` | TS 後の各 IRC に EulerPC 最大ステップ（Bohr）を転送。数フレームで停止する場合は `0.05` など小さい値で再試行。 | IRC デフォルト `0.10` |
 | `--irc-never-stop/--no-irc-never-stop` | IRCのgradient・energy端点判定を無視して各branchを最大cycleまで追跡。数値／integration失敗や外部中断では停止。 | `False` |
 | `--tsopt-max-cycles INT` | `tsopt --max-cycles` の上書き。 | _デフォルト_ |

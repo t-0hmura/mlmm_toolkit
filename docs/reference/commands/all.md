@@ -165,6 +165,11 @@ Options:
                                   segment (or TSOPT-only mode for single-
                                   structure), and build energy diagrams.
                                   [default: no-tsopt]
+  --use-mep-tangent / --no-use-mep-tangent
+                                  Use the MEP tangent at the highest-energy
+                                  image to select and track the Hessian TS mode.
+                                  Disable for benchmark comparisons.  [default:
+                                  use-mep-tangent]
   --thermo / --no-thermo          Run freq on (R,TS,P) per reactive segment (or
                                   TSOPT-only mode) and build Gibbs free-energy
                                   diagram (MLIP).  [default: no-thermo]
@@ -180,7 +185,7 @@ Options:
   --reject-uphill / --no-reject-uphill
                                   Opt in to rejecting uphill RFO trials during
                                   post-IRC endpoint re-optimization only
-                                  (tolerance: 1e-3 Hartree) and final-check the
+                                  (tolerance: 1e-4 Hartree) and final-check the
                                   retained endpoint at the emergency floor. Does
                                   not affect TS optimization or path search.
                                   [default: no-reject-uphill]

@@ -26,7 +26,7 @@ def _irc_stop_probe(*, never_stop: bool, increased: bool, converged: bool) -> IR
 
 def test_never_stop_is_opt_in() -> None:
     assert IRC_KW["never_stop"] is False
-    assert IRC_KW["energy_increase_thresh"] == pytest.approx(1.0e-3)
+    assert IRC_KW["energy_increase_thresh"] == pytest.approx(0.0)
 
 
 def test_default_irc_stops_on_energy_increase_or_one_step_energy_change() -> None:
@@ -90,14 +90,14 @@ def test_energy_increase_threshold_must_be_finite_and_nonnegative(
         )
 
 
-def test_default_irc_energy_increase_uses_noise_tolerance() -> None:
+def test_default_irc_stops_on_any_energy_increase() -> None:
     irc = _irc_stop_probe(
         never_stop=False, increased=False, converged=False
     )
     irc.energy_increase_thresh = IRC_KW["energy_increase_thresh"]
 
-    assert not irc._energy_increase_exceeds_tolerance(-100.0, -99.9995)
-    assert irc._energy_increase_exceeds_tolerance(-100.0, -99.998)
+    assert not irc._energy_increase_exceeds_tolerance(-100.0, -100.0)
+    assert irc._energy_increase_exceeds_tolerance(-100.0, -99.999999)
     assert _irc_stop_probe(
         never_stop=True, increased=False, converged=True
     )._energy_stop_message() == ""

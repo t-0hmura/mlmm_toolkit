@@ -61,6 +61,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--thresh-gsm` | str | `gau_loose` | Convergence preset for the GSM string optimizer |
 | `--thresh-dmf` | str/float | `tight` | DMF IPOPT dual-infeasibility tolerance: `tight`, `middle`, `loose`, or a positive float |
 | `--tsopt / --no-tsopt` | flag | off | Run TS optimization after MEP, or enter TS-only mode when exactly one input is supplied without `--scan-lists` |
+| `--use-mep-tangent / --no-use-mep-tangent` | toggle | on | Pass the HEI MEP tangent to Hessian TS root selection and overlap tracking; disable for benchmark comparisons |
 | `--thermo / --no-thermo` | flag | off | Run freq + thermochemistry |
 | `--freq-symmetry-number` | int ≥ 1 | child YAML/default (normally 1) | Use one external rotational symmetry number for every frequency job: R/TS/P for MEP runs or E1/TS/E2 for TS-only runs. Point-group symmetry is not inferred. |
 | `--dft / --no-dft` | flag | off | Run DFT single points on R/TS/P for MEP runs or E1/TS/E2 for TS-only runs |
@@ -71,7 +72,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
 | `--irc-step-size` | float | IRC default `0.10` | Forward a smaller EulerPC maximum step; try `0.05` when an IRC branch stops after only a few frames |
 | `--irc-never-stop / --no-irc-never-stop` | flag | off | Ignore IRC gradient and energy endpoint criteria and trace to the cycle cap; propagation failures still stop |
-| `--reject-uphill / --no-reject-uphill` | toggle | off | Opt in to rejection above `1e-3` Hartree during Hessian/RFO post-IRC endpoint re-optimization only. At the emergency floor, the retained endpoint receives a final convergence check. It never affects TS optimization or path search. |
+| `--reject-uphill / --no-reject-uphill` | toggle | off | Opt in to rejection above `1e-4` Hartree during Hessian/RFO post-IRC endpoint re-optimization only. At the emergency floor, the retained endpoint receives a final convergence check. It never affects TS optimization or path search. |
 | `-o, --out-dir` | path | `./result_all/` | Top-level output directory |
 | `--config` | path | none | YAML config applied before CLI flags |
 | `--show-config` | flag | off | Print resolved config and continue execution |

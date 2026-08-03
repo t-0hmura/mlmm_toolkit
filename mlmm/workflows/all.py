@@ -3509,6 +3509,15 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 # ===== Post-processing toggles =====
 @click.option("--tsopt/--no-tsopt", "do_tsopt", default=False, show_default=True,
               help="TS optimization + EulerPC IRC per reactive segment (or TSOPT-only mode for single-structure), and build energy diagrams.")
+@click.option(
+    "--use-mep-tangent/--no-use-mep-tangent",
+    default=True,
+    show_default=True,
+    help=(
+        "Use the MEP tangent at the highest-energy image to select and track "
+        "the Hessian TS mode. Disable for benchmark comparisons."
+    ),
+)
 @click.option("--thermo/--no-thermo", "do_thermo", default=False, show_default=True,
               help="Run freq on (R,TS,P) per reactive segment (or TSOPT-only mode) and build Gibbs free-energy diagram (MLIP).")
 @click.option("--dft/--no-dft", "do_dft", default=False, show_default=True,
@@ -3529,7 +3538,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     show_default=True,
     help=(
         "Opt in to rejecting uphill RFO trials during post-IRC endpoint "
-        "re-optimization only (tolerance: 1e-3 Hartree) and final-check the "
+        "re-optimization only (tolerance: 1e-4 Hartree) and final-check the "
         "retained endpoint at the emergency floor. Does not affect TS "
         "optimization or path search."
     ),
@@ -3732,6 +3741,7 @@ def cli(
     hessian_calc_mode: Optional[str],
     detect_layer: bool,
     do_tsopt: bool,
+    use_mep_tangent: bool,
     do_thermo: bool,
     do_dft: bool,
     scan_lists_raw: Sequence[str],
@@ -4186,6 +4196,7 @@ def cli(
                 "pre_opt": bool(pre_opt),
                 "detect_layer": bool(detect_layer),
                 "tsopt": bool(do_tsopt),
+                "use_mep_tangent": bool(use_mep_tangent),
                 "thermo": bool(do_thermo),
                 "dft": bool(do_dft),
             },
@@ -6171,10 +6182,14 @@ def cli(
         if do_tsopt:
             segment_tsopt_overrides = dict(tsopt_overrides)
             reference_mode_path = seg_root / f"hei_mode_seg_{seg_idx:02d}.txt"
-            reference_mode_path = _ensure_hei_path_tangent(
-                seg_root / f"mep_seg_{seg_idx:02d}_trj.xyz",
-                hei_pocket_pdb,
-                reference_mode_path,
+            reference_mode_path = (
+                _ensure_hei_path_tangent(
+                    seg_root / f"mep_seg_{seg_idx:02d}_trj.xyz",
+                    hei_pocket_pdb,
+                    reference_mode_path,
+                )
+                if use_mep_tangent
+                else None
             )
             if reference_mode_path is not None:
                 segment_tsopt_overrides["reference_mode"] = reference_mode_path

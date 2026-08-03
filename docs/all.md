@@ -270,10 +270,11 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) → `--opt-mode` (on
 | Option | Description | Default |
 | --- | --- | --- |
 | `--tsopt / --no-tsopt` | Run TS optimization + EulerPC IRC per reactive segment. | `False` |
+| `--use-mep-tangent / --no-use-mep-tangent` | Pass the HEI MEP tangent to Hessian TS root selection and overlap tracking; disable for benchmark comparisons. | `True` |
 | `--thermo / --no-thermo` | Run vibrational analysis (`freq`) on R/TS/P for MEP runs or E1/TS/E2 for TS-only runs. | `False` |
 | `--dft / --no-dft` | Run single-point DFT on R/TS/P for MEP runs or E1/TS/E2 for TS-only runs. | `False` |
 | `--flatten / --no-flatten` | Surplus-imaginary-mode flattening in `tsopt`. | `False` |
-| `--reject-uphill / --no-reject-uphill` | Opt in to rejecting energy-raising RFO steps during post-IRC **endpoint re-optimization only**, using a `1e-3` Hartree tolerance (forwarded to the opt child); TS optimization forces rejection off, and path search is unaffected. At the emergency floor, the retained endpoint receives a final normal convergence check. | `False` |
+| `--reject-uphill / --no-reject-uphill` | Opt in to rejecting energy-raising RFO steps during post-IRC **endpoint re-optimization only**, using a `1e-4` Hartree tolerance (forwarded to the opt child); TS optimization forces rejection off, and path search is unaffected. At the emergency floor, the retained endpoint receives a final normal convergence check. | `False` |
 | `--irc-step-size FLOAT` | Override the EulerPC maximum step (Bohr) for every post-TS IRC. If a branch stops after only a few frames, retry with a smaller value such as `0.05`. | IRC default `0.10` |
 | `--irc-never-stop / --no-irc-never-stop` | Ignore IRC gradient and energy endpoint criteria and trace each branch to the cycle cap. Numerical/integration failures and external interruption still stop propagation. | `False` |
 | `--tsopt-max-cycles INT` | Override `tsopt --max-cycles`. | _Default_ |
@@ -328,7 +329,8 @@ dft:
 Full schema: [YAML Reference](yaml-reference.md).
 
 The fixed constrained rigid-mode treatment is unrelated to `tsopt --ref-mode`,
-which is an internal MEP-tangent handoff used for saddle recovery. A stale
+which is an internal MEP-tangent handoff for TS root selection and overlap
+tracking. A stale
 non-constrained `geom.tr_projection` value fails explicitly.
 
 ## Notes

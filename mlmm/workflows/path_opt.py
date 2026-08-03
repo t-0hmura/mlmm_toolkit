@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Set, Tuple
 
 import gc
+import inspect
 import logging
 import math
 import sys
@@ -529,6 +530,37 @@ def _reject_path_output_collisions(
 
 # DMF (Direct Max Flux) MEP optimization
 
+def _release_dmf_interpolation_cache(mxflx_fbenm: Any) -> None:
+    """Release an optional PyDMF device cache at the interpolation boundary."""
+    release_cache = getattr(mxflx_fbenm, "release_device_cache", None)
+    if callable(release_cache):
+        release_cache(empty_cache=False)
+
+
+def _torch_dmf_runtime_kwargs(
+    dmf_backend: str,
+    dmf_options: Mapping[str, Any],
+    fbenm_options: Mapping[str, Any],
+    cfbenm_options: Mapping[str, Any],
+    *,
+    supports_keep_history: bool = True,
+) -> Dict[str, Any]:
+    """Resolve Torch-only path settings shared by both DMF stages."""
+    if dmf_backend != "gpu":
+        return {}
+
+    resolved: Dict[str, Any] = {}
+    if supports_keep_history:
+        resolved["keep_history"] = bool(dmf_options.get("keep_history", False))
+    for name in ("device", "dtype"):
+        value = dmf_options.get(name)
+        value = fbenm_options.get(name, value)
+        value = cfbenm_options.get(name, value)
+        if value is not None:
+            resolved[name] = value
+    return resolved
+
+
 def _is_cuda_oom(exc: BaseException) -> bool:
     """True if `exc` looks like a CUDA out-of-memory (torch.cuda.OutOfMemoryError or a
     RuntimeError carrying 'out of memory'), so the DMF gpu backend can advise --dmf-backend cpu."""
@@ -600,6 +632,16 @@ def _run_dmf_mep(
     cfbenm_opts: Dict[str, Any] = dict(dmf_cfg.get("cfbenm_options", {}))
     dmf_opts: Dict[str, Any] = dict(dmf_cfg.get("dmf_options", {}))
     update_teval = bool(dmf_opts.pop("update_teval", False))
+    supports_keep_history = (
+        dmf_backend == "gpu"
+        and "keep_history" in inspect.signature(DirectMaxFlux.__init__).parameters
+    )
+    torch_dmf_kwargs = _torch_dmf_runtime_kwargs(
+        dmf_backend, dmf_opts, fbenm_opts, cfbenm_opts,
+        supports_keep_history=supports_keep_history,
+    )
+    if supports_keep_history:
+        dmf_opts.setdefault("keep_history", False)
     k_fix = float(dmf_cfg.get("k_fix", DMF_KW["k_fix"]))
 
     # Default-mode IPOPT options: print_level=0 silences the per-iteration
@@ -642,6 +684,16 @@ def _run_dmf_mep(
 
     coefs = mxflx_fbenm.coefs.copy()
 
+    # FB-ENM interpolation and the accurate ML/MM solve are separate GPU
+    # phases.  Drop the interpolation cache here, after its final use, so one
+    # constant upload serves all interpolation callbacks but no stale cache is
+    # carried into the accurate stage.
+    _release_dmf_interpolation_cache(mxflx_fbenm)
+    del mxflx_fbenm
+    gc.collect()
+    if dmf_backend == "gpu" and torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
     # Create DirectMaxFlux object
     emit("\n====== DMF: Direct Max Flux optimization ======\n", narrative=True)
     mxflx = DirectMaxFlux(
@@ -657,6 +709,7 @@ def _run_dmf_mep(
         eps_vel=float(dmf_opts.get("eps_vel", DMF_KW["dmf_options"]["eps_vel"])),
         eps_rot=float(dmf_opts.get("eps_rot", DMF_KW["dmf_options"]["eps_rot"])),
         beta=float(dmf_opts.get("beta", DMF_KW["dmf_options"]["beta"])),
+        **torch_dmf_kwargs,
     )
 
     # Assign calculators to images
@@ -776,7 +829,10 @@ def _run_dmf_mep(
     # references while the caller retains the single heavy ``shared_calc`` core.
     for image in images:
         image.calc = None
-    del ase_calc, mxflx_fbenm, mxflx
+    del ase_calc, mxflx
+    gc.collect()
+    if dmf_backend == "gpu" and torch.cuda.is_available():
+        torch.cuda.empty_cache()
     return result
 
 

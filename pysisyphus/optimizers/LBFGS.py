@@ -25,7 +25,7 @@ class LBFGS(Optimizer):
         max_mu_reg_adaptions: int = 10,
         control_step: bool = True,
         reject_uphill: bool = False,
-        uphill_tolerance: float = 1e-3,
+        uphill_tolerance: float = 1e-4,
         rejection_step_floor: float = 1e-7,
         max_rejections_at_floor: int = 3,
         **kwargs,

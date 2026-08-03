@@ -2,7 +2,7 @@
 name: mlmm-ts-strategy
 description: >-
   Decision guidance for ML/MM enzyme reaction-barrier campaigns: backend-specific
-  precision, TS-candidate routes, exact first-order-saddle recovery, IRC early-stop
+  precision, TS-candidate routes, exact first-order-saddle validation, IRC early-stop
   handling, scan direction/staging, and controlled mutant comparisons with
   chemically corresponding regions. Use for barrier, imaginary-frequency,
   wrong-saddle, precision, MEP-vs-restraint, IRC connectivity, scan-direction, or
@@ -67,9 +67,11 @@ of magnitude.
 
 `--ref-mode` is an advanced path-direction input, not a routine standalone
 remedy. `mlmm all` derives and supplies the normalized 3N Cartesian tangent
-from its MEP so saddle recovery can reject a nearby minimum. Ordinary
-standalone `tsopt` should omit it unless an externally derived, atom-order-
-matched reaction mode is available.
+from its MEP by default for initial-root selection and overlap tracking. Use
+`all --no-use-mep-tangent` for a benchmark without the handoff. The default
+search does not launch automatic saddle recovery or displaced multistarts.
+Ordinary standalone `tsopt` should omit it unless an externally derived,
+atom-order-matched reaction mode is available.
 
 ## 4. IRC stops too early
 

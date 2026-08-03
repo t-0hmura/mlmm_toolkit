@@ -508,7 +508,7 @@ def test_undefined_initial_energy_change_has_no_convergence_mark(
 
 
 def test_ts_mode_loss_rejects_trial_and_restores_hessian(tmp_path) -> None:
-    geom, opt = _ts_optimizer(tmp_path, 0.4)
+    geom, opt = _ts_optimizer(tmp_path, 0.4, reject_mode_loss=True)
     opt.prepare_opt()
     accepted = geom.coords.copy()
     accepted_cart = geom.cart_coords.copy()
@@ -602,6 +602,7 @@ def test_current_coordinate_exact_saddle_can_authorize_convergence(tmp_path) -> 
     opt._last_exact_saddle_verified = True
     opt._last_exact_cart_coords = geom.cart_coords.copy()
 
+    assert opt._near_terminal_without_eigval_check() is True
     converged, conv_info = opt.check_convergence()
 
     assert converged is True
@@ -661,7 +662,7 @@ def test_energy_plateau_provisional_check_does_not_stall_ts_optimizer(
     assert opt.is_stalled is False
 
 
-def test_exact_current_saddle_ignores_stale_raw_root_and_outgoing_step(
+def test_exact_current_saddle_still_requires_baker_energy_or_step(
     tmp_path
 ) -> None:
     geom, opt = _ts_optimizer(tmp_path, 0.0, energy_plateau=False)
@@ -679,6 +680,25 @@ def test_exact_current_saddle_ignores_stale_raw_root_and_outgoing_step(
 
     assert not bool(conv_info.max_step_converged)
     assert conv_info.desired_eigval_structure is False
+    assert converged is False
+
+
+def test_ts_baker_keeps_rms_force_diagnostic_only(tmp_path) -> None:
+    geom, opt = _ts_optimizer(tmp_path, 0.0, energy_plateau=False)
+    opt.cur_cycle = 3
+    opt.last_cycle = 0
+    opt.forces = [np.full(3, 2.5e-4), np.full(3, 2.5e-4)]
+    opt.energies = [0.0, 0.0]
+    opt.steps = [np.zeros(3)]
+    opt._last_exact_n_imaginary = 1
+    opt._last_exact_saddle_verified = True
+    opt._last_exact_cart_coords = geom.cart_coords.copy()
+
+    assert opt._near_terminal_without_eigval_check() is True
+    converged, conv_info = opt.check_convergence()
+
+    assert bool(conv_info.max_force_converged)
+    assert not bool(conv_info.rms_force_converged)
     assert converged is True
 
 
@@ -813,7 +833,7 @@ def test_exact_higher_order_saddle_keeps_path_correlated_negative_mode(
     )
 
 
-def test_unrelated_single_imaginary_mode_cannot_replace_path_mode(
+def test_reference_mismatch_is_diagnostic_for_exact_first_order_saddle(
     tmp_path, monkeypatch
 ) -> None:
     _, opt = _ts_optimizer(
@@ -838,9 +858,9 @@ def test_unrelated_single_imaginary_mode_cannot_replace_path_mode(
         np.array([-2.0, 1.0, 3.0]), np.eye(3)
     )
 
-    assert has_saddle is False
+    assert has_saddle is True
     assert opt._last_exact_n_imaginary == 1
-    assert opt._last_exact_saddle_verified is False
+    assert opt._last_exact_saddle_verified is True
     assert opt._last_exact_target_mode_index == 1
     assert opt._last_exact_target_mode_overlap == pytest.approx(1.0)
     assert opt._last_exact_target_mode_is_negative is False
@@ -911,7 +931,7 @@ def test_recovery_uses_transported_mode_after_target_was_negative(
     np.testing.assert_allclose(recovery_mode, [1.0, 0.0, 0.0])
 
 
-def test_unrelated_higher_order_modes_do_not_preempt_path_recovery(
+def test_higher_order_saddle_is_rejected_independent_of_reference_mode(
     tmp_path, monkeypatch
 ) -> None:
     _, opt = _ts_optimizer(
@@ -937,11 +957,12 @@ def test_unrelated_higher_order_modes_do_not_preempt_path_recovery(
         np.array([-2.0, -1.0, 3.0]), np.eye(3)
     )
 
-    assert has_saddle is False
+    assert has_saddle is True
     assert opt._last_exact_n_imaginary == 2
+    assert opt._last_exact_saddle_verified is False
     assert opt._last_exact_target_mode_is_negative is False
-    assert opt.higher_order_saddle_checks == 0
-    assert opt.stop_requested is False
+    assert opt.higher_order_saddle_checks == 1
+    assert opt.stop_requested is True
     np.testing.assert_allclose(recovery_mode, [0.0, 0.0, 1.0])
 
 
@@ -1044,7 +1065,8 @@ def test_exact_identity_keeps_full_path_until_first_physical_crossing(
         np.array([-2.0, 1.0, 3.0]), np.eye(3)
     )
 
-    assert has_saddle is False
+    assert has_saddle is True
+    assert opt._last_exact_saddle_verified is True
     assert opt._last_exact_target_mode_index == 1
     assert opt._last_exact_target_mode_is_negative is False
     np.testing.assert_allclose(recovery_mode, [0.0, 1.0, 0.0])
@@ -1211,7 +1233,7 @@ def test_cartesian_reference_is_transformed_to_internal_hessian_space(
     np.testing.assert_allclose(mapped, expected)
 
 
-def test_internal_exact_check_rejects_unrelated_negative_mode(
+def test_internal_exact_check_treats_reference_mismatch_as_diagnostic(
     tmp_path, monkeypatch
 ) -> None:
     _, opt = _ts_optimizer(
@@ -1228,10 +1250,10 @@ def test_internal_exact_check_rejects_unrelated_negative_mode(
         )
     )
 
-    assert has_saddle is False
+    assert has_saddle is True
     assert physical_checked is True
     assert opt._last_exact_n_imaginary == 1
-    assert opt._last_exact_saddle_verified is False
+    assert opt._last_exact_saddle_verified is True
     assert opt._last_exact_target_mode_index == 1
     np.testing.assert_allclose(recovery_mode, [0.0, 1.0, 0.0])
 
@@ -1497,6 +1519,7 @@ def test_exact_hessian_recovery_displaces_back_along_incoming_mode(tmp_path) -> 
         1.0,
         hessian_recalc=None,
         energy_plateau_window=5,
+        saddle_recovery_max_cycles=200,
     )
     # Simulate a stale quasi-Newton model that still claims negative curvature
     # at the true local minimum.  The exact Hessian must override it.
@@ -1523,7 +1546,9 @@ def test_exact_hessian_recovery_displaces_back_along_incoming_mode(tmp_path) -> 
 
 
 def test_initial_near_stationary_minimum_gets_finite_recovery_step(tmp_path) -> None:
-    geom, opt = _ts_optimizer(tmp_path, 1.0, hessian_recalc=None)
+    geom, opt = _ts_optimizer(
+        tmp_path, 1.0, hessian_recalc=None, saddle_recovery_max_cycles=200
+    )
     opt.prepare_opt()
     opt.coords = [geom.coords.copy()]
     opt.cart_coords = [geom.cart_coords.copy()]
@@ -1688,14 +1713,9 @@ def test_exact_phva_ignores_negative_translation_and_uses_vibration(tmp_path) ->
     assert opt.ts_mode_eigvals[0] < 0.0
     # PHVA removes that translation and correctly identifies n_imag=0.
     assert opt._last_exact_n_imaginary == 0
-    assert opt._saddle_recovery_active is True
-
-    translation_x = np.array([1.0, 0.0, 0.0, 1.0, 0.0, 0.0])
-    translation_x /= np.linalg.norm(translation_x)
-    bond_stretch = np.array([-1.0, 0.0, 0.0, 1.0, 0.0, 0.0])
-    bond_stretch /= np.linalg.norm(bond_stretch)
-    assert abs(float(step @ translation_x)) < 1e-12
-    assert abs(float(step @ bond_stretch)) == opt.saddle_recovery_step
+    assert opt._saddle_recovery_active is False
+    assert opt.stop_requested is True
+    assert opt.stop_reason == "exact PHVA found no physical imaginary mode"
 
 
 @pytest.mark.parametrize(
@@ -1722,6 +1742,7 @@ def test_recovery_tracks_physical_mode_past_more_negative_tr_artifact(
         trust_min=1e-5,
         trust_max=0.05,
         max_cycles=40,
+        saddle_recovery_max_cycles=200,
         thresh="baker",
         check_eigval_structure=True,
         out_dir=tmp_path,

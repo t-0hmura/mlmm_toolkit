@@ -171,7 +171,7 @@ irc:
  forward: true                     # propagate forward branch (CLI: --forward)
  backward: true                    # propagate backward branch (CLI: --backward)
  never_stop: false                 # ignore physical endpoint criteria through max_cycles
- energy_increase_thresh: 0.001     # ordinary-mode one-step rise tolerance (Hartree)
+ energy_increase_thresh: 0.0       # stop on any ordinary-mode one-step rise
 ```
 
 Full schema (every `irc` key and default): [YAML Reference](yaml-reference.md#irc-section).

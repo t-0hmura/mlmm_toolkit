@@ -76,10 +76,14 @@ See [Common Error Recipes — Recipe 4](recipes-common-errors.md#recipe-4-conver
 ### Advanced MEP reference mode
 
 `--ref-mode` reads a non-zero Cartesian 3N vector (`.npy` or whitespace text)
-that identifies the MEP tangent during saddle recovery. It is an internal,
+that identifies the MEP tangent for initial-root selection and overlap
+tracking. It is an internal,
 advanced input for the end-to-end workflow: `mlmm all` derives and passes it
-from the MEP. Ordinary standalone `mlmm tsopt` users should omit it unless they
-have constructed a matching vector in exactly the same atom order.
+from the MEP by default; pass `all --no-use-mep-tangent` for a controlled
+benchmark without the handoff. Ordinary standalone `mlmm tsopt` users should
+omit it unless they have constructed a matching vector in exactly the same atom
+order. Exact PHVA remains the terminal saddle-order test; no automatic
+recovery or displaced multistart is launched by the default search.
 
 ## Controlled mutant-vs-WT (or mechanism-vs-mechanism) comparison
 
@@ -267,7 +271,7 @@ to orientations and rotation forces; it does not subtract active-fragment
 translations that are finite-curvature motions against the frozen boundary.
 
 The fixed constrained rigid-mode treatment is unrelated to `--ref-mode`, which
-supplies an advanced 3N MEP tangent for saddle recovery. A stale
+supplies an advanced 3N MEP tangent for TS root selection and overlap tracking. A stale
 non-constrained `geom.tr_projection` value fails explicitly. With `--out-json`,
 `result.json.rigid_projection` records the treatment, effective rank, Hessian
 source, and Hessian shape.

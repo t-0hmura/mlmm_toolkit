@@ -515,7 +515,7 @@ irc:
  rms_grad_thresh: 0.001 # RMS gradient convergence threshold
  hard_rms_grad_thresh: null # Hard RMS gradient stop
  energy_thresh: 0.000001 # Energy change threshold
- energy_increase_thresh: 0.001 # Ordinary-mode one-step rise tolerance
+ energy_increase_thresh: 0.0   # Stop on any one-step rise in ordinary mode
  imag_below: 0.0 # Imaginary frequency cutoff
  force_inflection: true # Enforce inflection detection
  check_bonds: false # Check bonds during propagation

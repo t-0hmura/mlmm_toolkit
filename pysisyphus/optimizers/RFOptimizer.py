@@ -27,7 +27,7 @@ class RFOptimizer(HessianOptimizer):
         max_micro_cycles: int = 25,
         adapt_step_func: bool = False,
         reject_uphill: bool = False,
-        uphill_tolerance: float = 1e-3,
+        uphill_tolerance: float = 1e-4,
         rejection_trust_floor: float = 1e-7,
         max_rejections_at_floor: int = 3,
         **kwargs,

@@ -4,7 +4,11 @@ All notable changes to **mlmm-toolkit** will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [0.3.3] — 2026-07-27
+
+> Upgrade warning: unchanged inputs can produce different geometries, energies/barriers,
+> vibrational classifications, thermochemistry, and scientific/terminal status. Consumers of
+> `result.json`/`summary.json` must review the Breaking changes and Machine-readable output sections.
 
 ### Breaking changes
 - Remove the public `--tr-projection` option and the `legacy-active` treatment.
@@ -14,47 +18,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   optimizations. It no longer sets the GSM string-optimizer preset, which now
   has its own `--thresh-gsm`. A command that relied on `--thresh` to tighten or
   loosen the string optimizer must pass `--thresh-gsm` as well.
-
-### Added
-- `--thresh-gsm` and `--thresh-dmf` on `all`, `path-opt`, and `path-search`, so
-  the MEP stage keeps its own convergence controls: `--thresh-gsm` sets the GSM
-  string-optimizer preset (`stopt.thresh`) and `--thresh-dmf` sets the DMF
-  IPOPT dual-infeasibility tolerance (`dmf.tol`; `tight` | `middle` | `loose`
-  or a positive float). `all` forwards both to its MEP children, and a Gaussian
-  preset passed to `--thresh-dmf` is rejected with a pointer to `--thresh-gsm`.
-
-### Changed
-- Make uphill trial rejection opt-in for L-BFGS and RFO minimization, and raise
-  its default energy tolerance from `1e-8` to `1e-3` Hartree so explicitly
-  enabled rejection does not classify normal full-system fp32 energy noise as
-  an uphill step.
-- Make IRC `never_stop` bypass gradient and energy endpoint conditions and
-  trace to the cycle cap; ordinary IRC now tolerates one-step energy rises up
-  to `1e-3` Hartree.
-
-### Fixed
-- Honour a `dmf.ipopt_options.dual_inf_tol` pinned in YAML; the DMF solve
-  previously replaced it with a hardcoded `tight` preset.
-- Reject dependent Amber virtual sites before allocating the `hessian_ff`
-  backend, bound the reported atom-number list, and direct users to OpenMM or
-  a 3-point-water topology.
-- Apply the canonical inclusive B-factor tolerance consistently when reading
-  ML, movable-MM, and frozen-MM layers; leave missing or malformed B-factors
-  unassigned instead of treating them as ML atoms.
-- Resolve the legacy `MACE-OFF23_small`, `_medium`, and `_large` aliases
-  to the corresponding upstream MACE-OFF model sizes.
-- Preserve selected-root saddle validation in non-Cartesian coordinates and
-  convert torch eigenvectors explicitly for reference-mode overlap checks.
-- Accept the Baker force-plus-energy-or-step criterion on every evaluable
-  cycle, including the first retained geometry.
-
-## [0.3.3] — 2026-07-27
-
-> Upgrade warning: unchanged inputs can produce different geometries, energies/barriers,
-> vibrational classifications, thermochemistry, and scientific/terminal status. Consumers of
-> `result.json`/`summary.json` must review the Breaking changes and Machine-readable output sections.
-
-### Breaking changes
 - **CMAP now defaults to the force-field-faithful policy in both MM layers.**
   Parm7 CMAP terms are preserved in both REAL and MODEL calculations, so complete
   model-internal terms cancel in `E_real_low + E_high - E_model_low` while boundary
@@ -91,6 +54,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   `--allow-unverified-ref-order`, which cannot bypass a known mismatch.
 
 ### Added
+- Add `--thresh-gsm` and `--thresh-dmf` to `all`, `path-opt`, and
+  `path-search`. The former selects the GSM string-optimizer preset; the latter
+  selects the DMF IPOPT dual-infeasibility tolerance (`tight`, `middle`,
+  `loose`, or a positive float).
+- Add `all --use-mep-tangent/--no-use-mep-tangent`. The MEP tangent guides the
+  initial TS root by default and can be disabled for benchmark comparisons.
 - Add a runnable full-system BezA example with reactant, intermediate, and
   product structures plus endpoint-MEP and staged-scan workflows.
 - Report citations for the methods actually used at the end of `summary.log`
@@ -128,9 +97,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   and derives searchable per-option controls and click-to-open help from the selected
   live CLI. Key and advanced controls remain collapsed until needed, while the
   generated command line stays visible.
-- Add `opt`/`all --reject-uphill/--no-reject-uphill` (default on) to opt out of the
-  RFO uphill-rejection safeguard; on `all` it is forwarded to the post-IRC endpoint
-  re-optimization child only.
+- Add `opt`/`all --reject-uphill/--no-reject-uphill` (default off). On `all`,
+  it is forwarded to the post-IRC endpoint re-optimization child only.
 - Add `all --irc-step-size` so the end-to-end workflow can forward a smaller
   EulerPC step to every post-TS IRC branch.
 - Add `freq --symmetry-number` and `all --freq-symmetry-number` for an explicit
@@ -141,6 +109,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   calculator-free, and rescoring is a pure MLIP calculation rather than ONIOM.
 
 ### Changed
+- Make uphill-trial rejection opt-in for L-BFGS and RFO minimization. When
+  explicitly enabled, its energy tolerance is `1e-4` Hartree. TS optimization
+  always leaves the rejection disabled.
+- Restore ordinary IRC's strict energy-rise stop: any positive one-step rise
+  stops that direction. `--irc-never-stop` bypasses this and the other physical
+  endpoint criteria until the cycle cap.
 - Derive the ML-region charge in the Colab notebook from `--ligand-charge`
   instead of requiring a confirmed `-q`; a ticked charge box is now an explicit
   override.
@@ -166,23 +140,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Project only rigid modes that are an actual null space of the frozen system for
   PHVA, IRC, Dimer, and TS validation, and record the effective mode. The former
   active-fragment projection could hide a real imaginary mode, so `n_imag`, ZPE
-  and ΔG‡ move on frozen-boundary systems. The superseded `--tr-projection
-  legacy-active` treatment is deprecated: it now warns and must not be used for
-  pass/HOSP transition-state certification; install the preceding pinned release to
-  reproduce old results bitwise.
+  and ΔG‡ move on frozen-boundary systems. The superseded public
+  `--tr-projection` option and `legacy-active` treatment are removed.
 - Require `n_imag = 1` for TS success, preserve rejected optimizer state, and
   report resolved backend/model/precision and the highest common rate-limiting method.
-- Reject energy-increasing trial steps by default in the RFO/L-BFGS minimizers
-  (`reject_uphill`), reject TS trial steps that lose the saddle mode
-  (`reject_mode_loss`), require an eigenvalue-structure check and an explicit
-  saddle verification before a TS optimization may stop (`check_eigval_structure`,
-  `verify_saddle`), and add saddle recovery. These are default-on optimizer
-  behavior changes: an optimization can now stop at a different geometry, or
-  report a different terminal status, than it did in the released version. The
-  `reject_uphill` safeguard is on by default and retains the previous
-  lower-energy geometry when an RFO/L-BFGS trial is rejected. Toggle it with `opt`/`all
-  --reject-uphill/--no-reject-uphill` (post-IRC endpoint re-optimization only on
-  `all`).
+- Keep the default Hessian TS search on standard restricted-step root
+  following. Trial mode-loss rejection, intermediate eigenvalue-structure
+  gating, automatic saddle recovery, and automatic displaced multistarts are
+  disabled by default. Exact PHVA remains the terminal authority and requires
+  `n_imag = 1`; explicit `--flatten` remains available for extra modes.
 - Double the default segment path resolution (`max_nodes_segment` 10 → 20), which
   changes the MEP, its highest-energy image, and therefore the reported barrier.
 - Unify the residue/ion/water catalog so charge inference recognizes the same
@@ -234,6 +200,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   trusted PyPI publication.
 
 ### Fixed
+- Honor `dmf.ipopt_options.dual_inf_tol` when it is set in YAML instead of
+  replacing it with a fixed preset.
+- Reject dependent Amber virtual sites before allocating the `hessian_ff`
+  backend, and direct users to OpenMM or a three-point-water topology.
+- Apply the inclusive B-factor tolerance consistently when reading ML,
+  movable-MM, and frozen-MM layers; leave missing or malformed B-factors
+  unassigned.
+- Resolve the legacy `MACE-OFF23_small`, `_medium`, and `_large` aliases to the
+  corresponding upstream MACE-OFF model sizes.
+- Preserve selected-root diagnostics in non-Cartesian coordinates and convert
+  torch eigenvectors explicitly for reference-mode overlap checks.
+- Apply the Baker maximum-force plus energy-change-or-maximum-step criterion on
+  every evaluable cycle, including the first retained geometry.
 - Accept equivalent leading-digit PDB and trailing-digit Amber hydrogen names
   while preserving strict atom-order checks for non-hydrogen atoms.
 - Route `dft` through `MLMMCore` for topology preparation, MM calculators, and

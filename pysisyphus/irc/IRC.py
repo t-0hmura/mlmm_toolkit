@@ -47,7 +47,7 @@ class IRC:
         rms_grad_thresh=1e-3,
         hard_rms_grad_thresh=None,
         energy_thresh=1e-6,
-        energy_increase_thresh=1e-3,
+        energy_increase_thresh=0.0,
         imag_below=0.0,
         force_inflection=True,
         check_bonds=False,

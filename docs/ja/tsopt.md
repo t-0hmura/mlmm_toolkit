@@ -73,9 +73,12 @@ mlmm tsopt -i ts_guess.pdb --parm enzyme.parm7 -l 'LIG:Q' -b uma \
 
 `--ref-mode` は MEP tangent を指定する非ゼロ Cartesian 3N vector
 （`.npy` または空白区切り text）を読み込みます。これは一気通貫 workflow
-向けの内部的な高度オプションで、`mlmm all` が MEP から生成して自動的に
-渡します。通常の単独 `mlmm tsopt` では省略してください。同じ原子順の
-vector を明示的に構築済みの場合だけ指定します。
+向けの内部的な高度オプションで、`mlmm all` が MEP から生成してデフォルトで
+渡します。比較ベンチマークでは`all --no-use-mep-tangent`で無効化できます。
+通常の単独 `mlmm tsopt` では省略し、同じ原子順のvectorを明示的に構築済みの
+場合だけ指定します。接線は初期root選択とoverlap追跡に使い、デフォルト探索は
+自動saddle recoveryや自動変位multistartを実行しません。終端のexact PHVAが
+鞍点次数を判定します。
 
 ## 対照を揃えた変異体 vs 野生型（あるいは機構 vs 機構）の比較
 
@@ -345,8 +348,8 @@ TS 収束が遅い場合や最適化中に TS モードが失われる場合は�
 Dimer は中心imageが変わるたびにこの基底を再構築して方向と回転forceに適用し、
 凍結境界に対する有限曲率運動であるactive fragmentの並進は差し引きません。
 
-固定の constrained 剛体モード処理と `--ref-mode` は別の機能です。後者は鞍点回復用の
-高度な 3N MEP 接線を与えます。`geom.tr_projection` の古い非constrained値は明示的に拒否されます。
+固定の constrained 剛体モード処理と `--ref-mode` は別の機能です。後者はTS root選択と
+overlap追跡に使う高度な 3N MEP 接線を与えます。`geom.tr_projection` の古い非constrained値は明示的に拒否されます。
 `--out-json` 時は
 `result.json.rigid_projection` に treatment、有効 rank、Hessian source、Hessian shape を記録します。
 

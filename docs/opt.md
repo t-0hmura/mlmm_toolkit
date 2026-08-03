@@ -93,7 +93,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--opt-mode [grad\|hess\|light\|heavy\|lbfgs\|rfo]` | Optimizer mode: `grad` (L-BFGS) or `hess` (RFO). Aliases `light`/`heavy` and `lbfgs`/`rfo` accepted. | `grad` |
 | `--microiter/--no-microiter` | Microiteration: alternate ML 1-step (RFO) + MM relaxation (L-BFGS). Only effective in `hess` mode (no-op in `--opt-mode grad`). | `True` |
 | `--flatten/--no-flatten` | Enable/disable the post-optimization imaginary-mode flatten loop. | `False` |
-| `--reject-uphill/--no-reject-uphill` | Opt in to rejecting energy-raising RFO trial steps in `hess` mode with a `1e-3` Hartree tolerance (roll back to the lower-energy geometry and shrink the trust radius); ignored in `grad`/`lbfgs` mode. At the emergency trust floor, the retained geometry receives a final normal convergence check before a non-converged stop is reported. | `False` |
+| `--reject-uphill/--no-reject-uphill` | Opt in to rejecting energy-raising RFO trial steps in `hess` mode with a `1e-4` Hartree tolerance (roll back to the lower-energy geometry and shrink the trust radius); ignored in `grad`/`lbfgs` mode. At the emergency trust floor, the retained geometry receives a final normal convergence check before a non-converged stop is reported. | `False` |
 | `--dump/--no-dump` | Emit trajectory dumps (`optimization_trj.xyz`, `optimization_all_trj.xyz`). | `False` |
 | `--convert-files/--no-convert-files` | Enable or disable XYZ/TRJ to PDB companions for PDB inputs. | `True` |
 | `-o, --out-dir TEXT` | Output directory for all files. | `./result_opt/` |

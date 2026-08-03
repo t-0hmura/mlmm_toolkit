@@ -78,7 +78,7 @@ Options:
                                   after optimization.  [default: no-flatten]
   --reject-uphill / --no-reject-uphill
                                   Opt in to rejecting uphill RFO trials in hess
-                                  mode (tolerance: 1e-3 Hartree) and final-check
+                                  mode (tolerance: 1e-4 Hartree) and final-check
                                   the retained geometry at the emergency floor.
                                   Ignored in grad/lbfgs mode.  [default: no-
                                   reject-uphill]

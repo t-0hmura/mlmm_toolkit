@@ -194,7 +194,7 @@ irc:
  forward: true                     # 正方向に伝播
  backward: true                    # 逆方向に伝播
  never_stop: false                 # 物理的端点判定を無視してmax_cyclesまで追跡
- energy_increase_thresh: 0.001     # 通常modeの1 step energy上昇許容値（Hartree）
+ energy_increase_thresh: 0.0       # 通常modeでは1 stepでもenergyが上昇すれば停止
  root: 0                           # 基準振動ルートインデックス
  hessian_init: calc                # Hessian初期化ソース
  displ: energy                     # 変位構築方法

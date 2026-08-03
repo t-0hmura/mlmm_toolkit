@@ -1,5 +1,4 @@
 from contextlib import redirect_stdout
-from dataclasses import replace
 from io import StringIO
 from typing import List, Optional
 
@@ -45,14 +44,14 @@ class TSHessianOptimizer(HessianOptimizer):
         max_line_search: bool = False,
         assert_neg_eigval: bool = False,
         track_mode_by_overlap: bool = False,
-        reject_mode_loss: bool = True,
+        reject_mode_loss: bool = False,
         mode_loss_trust_floor: float = 1e-5,
         max_mode_loss_rejections: int = 5,
         verify_saddle: bool = True,
         saddle_imaginary_threshold_cm: float = 5.0,
         saddle_recovery_step: float = 0.01,
         saddle_recovery_check_interval: int = 50,
-        saddle_recovery_max_cycles: int = 200,
+        saddle_recovery_max_cycles: int = 0,
         max_higher_order_checks: int = 3,
         **kwargs,
     ) -> None:
@@ -76,10 +75,8 @@ class TSHessianOptimizer(HessianOptimizer):
             Filename pointing to a pysisyphus HDF5 Hessian.
         reference_mode
             Cartesian reaction direction (full 3N or active-DOF vector).  The
-            initial Hessian root is selected by overlap with this direction,
-            and it is retained as the preferred recovery direction if exact
-            saddle validation later finds n_imag=0.  Path workflows should
-            normally provide the tangent through the HEI.
+            initial Hessian root is selected and tracked by overlap with this
+            direction. Path workflows can provide the tangent through the HEI.
         rx_modes : iterable of (iterable of (typed_prim, phase_factor))
             Select initial root(s) by overlap with a modes constructed from the given
             typed primitives with respective phase factors.
@@ -133,7 +130,8 @@ class TSHessianOptimizer(HessianOptimizer):
         saddle_recovery_check_interval
             Recovery steps between exact physical-Hessian curvature checks.
         saddle_recovery_max_cycles
-            Maximum bounded recovery steps allowed to regain negative curvature.
+            Maximum bounded recovery steps allowed to regain negative curvature;
+            zero disables automatic recovery.
         max_higher_order_checks
             Consecutive terminal exact checks allowed at a saddle order above
             the requested order before stopping for an explicit flatten
@@ -256,8 +254,8 @@ class TSHessianOptimizer(HessianOptimizer):
                 "saddle_recovery_check_interval must be at least 1"
             )
         self.saddle_recovery_max_cycles = int(saddle_recovery_max_cycles)
-        if self.saddle_recovery_max_cycles < 1:
-            raise ValueError("saddle_recovery_max_cycles must be at least 1")
+        if self.saddle_recovery_max_cycles < 0:
+            raise ValueError("saddle_recovery_max_cycles must be non-negative")
         self.max_higher_order_checks = int(max_higher_order_checks)
         if self.max_higher_order_checks < 1:
             raise ValueError("max_higher_order_checks must be at least 1")
@@ -753,8 +751,7 @@ class TSHessianOptimizer(HessianOptimizer):
         if frequency_data is None:
             # Internal/custom coordinate spaces cannot use the Cartesian PHVA
             # helper, but a supplied path tangent can still be transformed to
-            # this Hessian space. Match it against the complete spectrum so an
-            # unrelated negative root cannot stand in for a positive path mode.
+            # this Hessian space for root-selection diagnostics.
             neg = eigvals < -self.small_eigval_thresh
             if isinstance(neg, torch.Tensor):
                 negative_count = int(neg.sum().item())
@@ -800,11 +797,11 @@ class TSHessianOptimizer(HessianOptimizer):
                 self._last_exact_target_mode_is_negative = target_is_negative
                 self._last_exact_target_mode_reanchored = reanchor
 
-            has_saddle_modes = (
-                self._selected_ts_modes_are_negative(eigvals)
-                if target_is_negative is None
-                else target_is_negative
-            )
+            # The reference mode guides root selection and remains diagnostic;
+            # it is not an additional terminal gate. A first-order saddle is
+            # certified by exact curvature, while reaction identity is tested
+            # by the downstream IRC.
+            has_saddle_modes = negative_count >= len(self.roots)
             exact_order = negative_count == len(self.roots) and has_saddle_modes
             self._last_exact_n_imaginary = negative_count
             self._last_exact_cart_coords = self.geometry.cart_coords.copy()
@@ -849,11 +846,9 @@ class TSHessianOptimizer(HessianOptimizer):
         physical_mode = None
         target_is_negative = None
         if self.reference_mode is not None:
-            # Do not select only among negative modes. If the intended path
-            # mode has become positive while an unrelated mode remains
-            # negative, an n_imag=1 count alone is the wrong reaction saddle.
-            # Match the reference against the complete physical spectrum and
-            # require that same matched mode to carry negative curvature.
+            # Match the reference against the complete physical spectrum. The
+            # match guides root following and recovery, but exact saddle order
+            # remains independent of this diagnostic identity assignment.
             reanchor = n_imaginary > len(self.roots)
             reference = self._exact_identity_reference_for_eigenspace(
                 eigvecs,
@@ -885,8 +880,7 @@ class TSHessianOptimizer(HessianOptimizer):
                 if target_overlap <= 1.0e-12:
                     # A custom/partial mode conversion may not span the
                     # supplied path vector. Preserve the explicit direction
-                    # for recovery, but never let an unrelated negative root
-                    # authorize convergence.
+                    # for optional recovery.
                     physical_mode = self._path_recovery_mode_for_eigenspace(
                         eigvecs
                     )
@@ -903,15 +897,13 @@ class TSHessianOptimizer(HessianOptimizer):
                     self._last_exact_target_mode_index = target_index
                     self._last_exact_target_mode_is_negative = target_is_negative
 
-        if target_is_negative is None:
-            has_saddle_modes = n_imaginary >= len(self.roots)
-        else:
-            has_saddle_modes = target_is_negative
+        # The reference tangent guides root following but does not redefine a
+        # first-order saddle. Exact PHVA supplies the order; IRC supplies the
+        # endpoint-connectivity test.
+        has_saddle_modes = n_imaginary >= len(self.roots)
         exact_order = n_imaginary == len(self.roots) and has_saddle_modes
-        # Several unrelated negative modes do not make a higher-order saddle
-        # for the requested reaction if the path-correlated mode itself has
-        # become positive. Recover that target first; flattening at this point
-        # would preserve an arbitrary wrong negative mode.
+        # Higher-order saddles are rejected by their exact order regardless of
+        # which mode has the strongest overlap with the reference tangent.
         if n_imaginary > len(self.roots) and has_saddle_modes:
             self.higher_order_saddle_checks += 1
             if self.higher_order_saddle_checks >= self.max_higher_order_checks:
@@ -1098,20 +1090,24 @@ class TSHessianOptimizer(HessianOptimizer):
         if not self.forces:
             return False
         forces = self._active_convergence_vector(self.forces[-1])
-        force_ok = True
-        if "max_force_thresh" in self.convergence:
-            force_ok &= np.abs(forces).max() <= self.max_force_thresh
-        if "rms_force_thresh" in self.convergence:
-            force_ok &= np.sqrt(np.mean(forces**2)) <= self.rms_force_thresh
+        if self.thresh == "baker":
+            force_ok = np.abs(forces).max() <= 3.0e-4
+        else:
+            force_ok = True
+            if "max_force_thresh" in self.convergence:
+                force_ok &= np.abs(forces).max() <= self.max_force_thresh
+            if "rms_force_thresh" in self.convergence:
+                force_ok &= (
+                    np.sqrt(np.mean(forces**2)) <= self.rms_force_thresh
+                )
 
         plateau = False
         if self.energy_plateau and len(self.energies) >= self.energy_plateau_window:
             window = self.energies[-self.energy_plateau_window :]
             plateau = float(np.max(window) - np.min(window)) < self.energy_plateau_thresh
-        # Exact PHVA is the authority for saddle order and the gradient is the
-        # stationarity criterion.  A quasi-Newton model may still propose a
-        # large next step along a pseudo-zero mode even at a valid stationary
-        # saddle, so revalidate whenever the current forces are terminal.
+        # Run exact PHVA once the force is terminal, before a zero proposed
+        # step could abort the cycle. Acceptance still uses the complete
+        # configured convergence rule in check_convergence().
         return bool(force_ok or plateau)
 
     def _restore_hessian_trial_state(self, snapshot):
@@ -1255,16 +1251,25 @@ class TSHessianOptimizer(HessianOptimizer):
             exact_checked = True
             resetted = True
             if not has_negative:
-                self._saddle_recovery_active = True
-                self._saddle_recovery_mode = physical_mode
-                self._saddle_recovery_sign = None
-                self._physical_ts_mode = None
-                self.saddle_recovery_cycles = 0
-                self._print_or_defer_cycle_message(
-                    "Exact saddle validation found no physical imaginary mode; "
-                    "continuing with saddle-recovery steps instead of accepting "
-                    "a local minimum."
-                )
+                if self.saddle_recovery_max_cycles == 0:
+                    self.request_stop(
+                        "exact PHVA found no physical imaginary mode"
+                    )
+                    self._print_or_defer_cycle_message(
+                        "Exact saddle validation found no physical imaginary "
+                        "mode; stopping without accepting a local minimum."
+                    )
+                else:
+                    self._saddle_recovery_active = True
+                    self._saddle_recovery_mode = physical_mode
+                    self._saddle_recovery_sign = None
+                    self._physical_ts_mode = None
+                    self.saddle_recovery_cycles = 0
+                    self._print_or_defer_cycle_message(
+                        "Exact saddle validation found no physical imaginary mode; "
+                        "continuing with saddle-recovery steps instead of accepting "
+                        "a local minimum."
+                    )
             elif physical_checked:
                 self._saddle_recovery_mode = None
                 self._physical_ts_mode = physical_mode
@@ -1401,9 +1406,10 @@ class TSHessianOptimizer(HessianOptimizer):
         # configured current force/step criteria fail.
         kwargs = dict(kwargs)
         outer_allow_stall = kwargs.pop("allow_stall", True)
-        converged, conv_info = super().check_convergence(
+        baker_converged, conv_info = super().check_convergence(
             *args, allow_stall=False, **kwargs
         )
+        converged = baker_converged
         if self._saddle_recovery_active or self.stop_requested:
             # A wrong/missing physical mode arms bounded saddle recovery, and a
             # pre-existing bounded stop already owns the outcome; neither is an
@@ -1411,24 +1417,12 @@ class TSHessianOptimizer(HessianOptimizer):
             return False, conv_info
         if self.verify_saddle:
             # A plateau or a raw/quasi-Newton root is insufficient.  Exact
-            # PHVA at these exact coordinates plus converged current forces is
-            # the physical definition of a stationary saddle.  The proposed
-            # outgoing quasi-Newton step is not allowed to drive an already
-            # verified saddle into a neighboring basin merely because a
-            # pseudo-zero model mode makes that proposal large.
+            # PHVA at these exact coordinates is an additional terminal
+            # requirement; the shared Baker force-and-energy-or-step criterion
+            # remains unchanged, with RMS values diagnostic only.
             exact_current_saddle = self._exact_saddle_matches_current_geometry()
-            physical_criteria = all(
-                (
-                    conv_info.max_force_converged,
-                    conv_info.rms_force_converged,
-                )
-            )
-            converged = bool(exact_current_saddle and physical_criteria)
-            if converged:
-                # Exact curvature plus current force/step criteria makes a
-                # repeated zero-displacement cycle unnecessary.
-                conv_info = replace(conv_info, energy_converged=True)
-            elif outer_allow_stall and exact_current_saddle:
+            converged = bool(exact_current_saddle and baker_converged)
+            if not converged and outer_allow_stall and exact_current_saddle:
                 # Required curvature is present (a verified first-order saddle
                 # at these exact coordinates) but the energy is flat while the
                 # configured current force/step criteria fail: this is a
