@@ -749,7 +749,7 @@ def test_exact_verifier_retains_curvature_but_rejects_higher_order_status(
     assert opt._best_exact_saddle is None
 
 
-def test_exact_noncart_verifier_rejects_positive_selected_root(
+def test_exact_noncart_verifier_uses_first_order_saddle_not_selected_root(
     tmp_path, monkeypatch
 ) -> None:
     _, opt = _ts_optimizer(tmp_path, 0.0)
@@ -762,9 +762,9 @@ def test_exact_noncart_verifier_rejects_positive_selected_root(
         np.array([-2.0, 1.0, 3.0]), np.eye(3)
     )
 
-    assert has_negative is False
+    assert has_negative is True
     assert opt._last_exact_n_imaginary == 1
-    assert opt._last_exact_saddle_verified is False
+    assert opt._last_exact_saddle_verified is True
 
 
 @pytest.mark.parametrize(
