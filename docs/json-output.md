@@ -171,8 +171,10 @@ An optimizer may also report `"status": "stalled"`: the energy stopped decreasin
 |-------|------|------|
 | `temperature_K` | float | K |
 | `pressure_atm` | float | atm |
+| `point_group` | string | Automatically detected molecular point group |
+| `point_group_source` | string | `"auto"` or conservative `"auto-fallback"` |
 | `symmetry_number` | int | External rotational symmetry number |
-| `symmetry_number_source` | string | `"default"`, `"config"`, `"override"`, or `"cli"` |
+| `symmetry_number_source` | string | `"auto"`, `"auto-fallback"`, `"config"`, or `"override"` |
 | `electronic_energy_ha` | float | Hartree — the `E` of the reported `E + G_corr = G` |
 | `zpe_ha` | float | Hartree |
 | `thermal_correction_energy_ha` | float | Hartree |
@@ -351,7 +353,7 @@ The `all` command additionally includes:
 | `rate_limiting_step` | object | Legacy key for the highest independently referenced local segment barrier. It is not a microkinetic rate-limiting-step assignment. |
 | `overall_reaction_energy_kcal` | float | Overall reaction energy |
 | `post_segments` | list | Per-segment TS/IRC/freq/DFT results |
-| `post_segments[].thermo_symmetry` | object | Child-reported rotational symmetry provenance by state: R/TS/P for MEP runs and E1/TS/E2 for TS-only runs. States with both a valid `symmetry_number` and `symmetry_number_source` are included; missing states are omitted, and the field is absent only when no state has valid provenance. |
+| `post_segments[].thermo_symmetry` | object | Child-reported point-group and rotational-symmetry provenance by state: R/TS/P for MEP runs and E1/TS/E2 for TS-only runs. States with valid symmetry-number provenance are included; missing states are omitted, and the field is absent only when no state has valid provenance. |
 | `key_output_files` | object | Current-run output index: root filename → description; each `seg_NN` entry is `{description, files}` with paths relative to that segment directory. |
 | `current_output_paths` | string[] | Sorted paths relative to `--out-dir`, limited to artifacts claimed by the current invocation. |
 

@@ -3,7 +3,7 @@
 This page is a **curated, non-exhaustive** starter snapshot for `mlmm all`. It shows a common subset of keys whose values are pinned to (and equal) their runtime owners; it is **not** the full configuration schema. For every configurable section and option, see the [YAML Reference](../yaml-reference.md).
 
 - Source template: `.github/scripts/generate_reference.py::_ALL_TEMPLATE`
-- Template digest: `75df8f4168be`
+- Template digest: `6f50777d1d85`
 
 ## Included Sections
 
@@ -56,7 +56,7 @@ freq:
 thermo:
   temperature: 298.15
   pressure_atm: 1.0
-  symmetry_number: 1
+  symmetry_number: null
 
 dft:
   func_basis: wb97m-v/def2-tzvpd
@@ -91,7 +91,7 @@ Each scalar is pinned to (and equals) the runtime owner shown.
 | `freq.sort` | `str` | `'value'` | `FREQ_KW["sort"]` |
 | `thermo.temperature` | `float` | `298.15` | `THERMO_KW["temperature"]` |
 | `thermo.pressure_atm` | `float` | `1.0` | `THERMO_KW["pressure_atm"]` |
-| `thermo.symmetry_number` | `int` | `1` | `THERMO_KW["symmetry_number"]` |
+| `thermo.symmetry_number` | `NoneType` | `None` | `THERMO_KW["symmetry_number"]` |
 | `dft.func_basis` | `str` | `'wb97m-v/def2-tzvpd'` | `DFT_KW["func_basis"]` |
 | `dft.max_cycle` | `int` | `100` | `DFT_KW["max_cycle"]` |
 | `dft.conv_tol` | `float` | `1e-09` | `DFT_KW["conv_tol"]` |

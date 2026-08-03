@@ -626,12 +626,9 @@ def test_freq_no_dump_does_not_consume_stale_thermo(tmp_path: Path, monkeypatch)
     ) == {}
 
 
-@pytest.mark.parametrize("overrides, expected_count", [({}, 0), ({"symmetry_number": 3}, 1)])
-def test_all_freq_forwards_symmetry_number_only_when_overridden(
+def test_all_freq_leaves_symmetry_detection_to_each_child(
     tmp_path: Path,
     monkeypatch,
-    overrides: dict,
-    expected_count: int,
 ) -> None:
     from mlmm.workflows import all as all_workflow
 
@@ -655,12 +652,10 @@ def test_all_freq_forwards_symmetry_number_only_when_overridden(
         False,
         tmp_path / "freq",
         None,
-        overrides=overrides,
+        overrides={},
     )
 
-    assert captured.count("--symmetry-number") == expected_count
-    if expected_count:
-        assert captured[captured.index("--symmetry-number") + 1] == "3"
+    assert "--symmetry-number" not in captured
 
 
 def test_thermo_gibbs_finite_gate() -> None:

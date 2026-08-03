@@ -48,7 +48,7 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 2. **PHVA と TR（並進/回転、translation/rotation）射影** — 凍結原子がある場合、固有解析はアクティブ部分空間内で行われます。デフォルトの constrained 射影は、凍結 anchor をすべて動かさない全系剛体運動のみを除去し、アクティブ断片を孤立分子として扱いません。3N x 3N とアクティブブロックの両方の Hessian を受け付け、振動数は cm^-1 で報告します（負の値 = 虚振動数）。
 3. **アクティブ自由度モード** — `--active-dof-mode` は振動解析に含まれる原子を制御します: `all`（全原子）、`ml-only`（ML 層、B=0）、`partial`（ML + MovableMM、デフォルト）、`unfrozen`（非凍結層、通常 B=0/10）。
 4. **モードエクスポート** — `--max-write` はアニメーション化するモード数を制限します。モードは値（または `--sort abs` で絶対値）でソートされます。エクスポートされた各モードは `_trj.xyz`（XYZ ライク軌跡）と `.pdb` ファイル（酵素の原子順序にマップバックされた PDB アニメーション）を書き出します。正弦波アニメーション振幅（`--amplitude-ang`）とフレーム数（`--n-frames`）は YAML のデフォルト値と同じです。
-5. **熱化学** — `thermoanalysis` がインストールされている場合、PHVA 振動数を使用した QRRHO ライクなサマリー（E、ZPE、E/H/G 補正、熱容量、エントロピー）が出力されます。構造の Gibbs free energy は Hartree 単位で `E + G_corr = G`（電子エネルギー + Gibbs free-energy 補正 = Gibbs free energy）と明示します。CLI の圧力（atm）は内部で Pa に変換されます。回転対称数のデフォルトは 1 です。分子の外部回転対称数は `--symmetry-number`（または YAML の `thermo.symmetry_number`）で明示してください。point group の自動推定は行いません。`--dump` の場合、`thermoanalysis.yaml` スナップショットも書き出されます。**振動数処理ポリシー**: `freq` は **standalone-freq ポリシー**（QRRHO、rotor cutoff 100 cm⁻¹、周波数・ZPE スケール 1、虚振動数の反転**なし**、正振動数のフロア**なし**）を適用します。これは一部の bundled-engine 経路が使う内部の `Geometry.get_thermoanalysis` ポリシー（小さな虚振動数を −15 cm⁻¹ から反転し、25 cm⁻¹ 未満の正振動数をフロアする）とは意図的に異なります。いずれも普遍的な科学的デフォルトではなく、各エントリポイントに固有です。有効なポリシー（`kind`、`rotor_cutoff_cm`、`frequency_scale`、`zpe_scale`、`invert_imag_from_cm`、`positive_frequency_floor_cm`）は `thermoanalysis.yaml` と `result.json` の `thermo_policy` にシリアライズされます。
+5. **熱化学** — `thermoanalysis` がインストールされている場合、PHVA 振動数を使用した QRRHO ライクなサマリー（E、ZPE、E/H/G 補正、熱容量、エントロピー）が出力されます。構造の Gibbs free energy は Hartree 単位で `E + G_corr = G`（電子エネルギー + Gibbs free-energy 補正 = Gibbs free energy）と明示します。CLI の圧力（atm）は内部で Pa に変換されます。解析対象構造ごとに分子点群と外部回転対称数を自動判定し、`1/σ` 補正を常に適用します。必要な場合に限り、YAML の `thermo.symmetry_number` で判定値を上書きできます。`--dump` の場合、`thermoanalysis.yaml` スナップショットも書き出されます。**振動数処理ポリシー**: `freq` は **standalone-freq ポリシー**（QRRHO、rotor cutoff 100 cm⁻¹、周波数・ZPE スケール 1、虚振動数の反転**なし**、正振動数のフロア**なし**）を適用します。これは一部の bundled-engine 経路が使う内部の `Geometry.get_thermoanalysis` ポリシー（小さな虚振動数を −15 cm⁻¹ から反転し、25 cm⁻¹ 未満の正振動数をフロアする）とは意図的に異なります。いずれも普遍的な科学的デフォルトではなく、各エントリポイントに固有です。有効なポリシー（`kind`、`rotor_cutoff_cm`、`frequency_scale`、`zpe_scale`、`invert_imag_from_cm`、`positive_frequency_floor_cm`）は `thermoanalysis.yaml` と `result.json` の `thermo_policy` にシリアライズされます。
 6. **デバイス選択** — `ml_device="auto"` は CUDA が利用可能な場合は CUDA を使用し、それ以外は CPU を使用します。内部の TR 射影/モード組み立ては転送を抑えるため同じデバイスで実行されます。
 7. **終了動作** — キーボード割り込みはコード 130 で終了します。その他の失敗はトレースバックを出力してコード 1 で終了します。
 
@@ -141,7 +141,6 @@ out_dir/ (デフォルト: ./result_freq/)
 | **熱化学** | | |
 | `--temperature FLOAT` | 熱化学温度 (K)。 | `298.15` |
 | `--pressure FLOAT` | 熱化学圧力 (atm)。 | `1.0` |
-| `--symmetry-number INT` | 分子分配関数に使用する外部回転対称数。 | `1` |
 | `--dump/--no-dump` | `thermoanalysis.yaml` を書き出し。 | `False` |
 | **出力と設定** | | |
 | `-o, --out-dir TEXT` | 出力ディレクトリ。 | `./result_freq/` |
@@ -191,7 +190,7 @@ freq:
 thermo:
  temperature: 298.15               # 熱化学温度 (K)
  pressure_atm: 1.0                 # 熱化学圧力 (atm)
- symmetry_number: 1                # 外部回転対称数
+ symmetry_number: null             # 自動判定。正整数で上書き
  dump: false                       # true の場合 thermoanalysis.yaml を書き出し
 ```
 

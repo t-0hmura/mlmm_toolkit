@@ -198,7 +198,6 @@ def _freq_override_kwargs() -> dict:
         "freq_sort": None,
         "freq_temperature": None,
         "freq_pressure": None,
-        "freq_symmetry_number": None,
         "dump_override_requested": False,
         "dump": False,
         "require_thermo_artifact": False,
@@ -268,7 +267,6 @@ def test_tsopt_override_builder_covers_each_forwarded_field(
         ({"freq_sort": "ABS"}, {"sort": "abs"}),
         ({"freq_temperature": 310.0}, {"temperature": 310.0}),
         ({"freq_pressure": 0.9}, {"pressure": 0.9}),
-        ({"freq_symmetry_number": 3}, {"symmetry_number": 3}),
         ({"dump_override_requested": True}, {"dump": False}),
         ({"require_thermo_artifact": True}, {"dump": True}),
         (
@@ -298,17 +296,33 @@ def test_freq_override_builder_covers_each_forwarded_field(
 def test_thermo_symmetry_provenance_copies_every_complete_valid_state() -> None:
     payload = build_thermo_symmetry_provenance(
         {
-            "R": {"symmetry_number": 2, "symmetry_number_source": "config"},
-            "TS": {"symmetry_number": 3, "symmetry_number_source": "cli"},
+            "R": {
+                "point_group": "C2",
+                "point_group_source": "auto",
+                "symmetry_number": 2,
+                "symmetry_number_source": "auto",
+            },
+            "TS": {"symmetry_number": 3, "symmetry_number_source": "config"},
             "P": {"symmetry_number": 1},
             "other": {"symmetry_number": 9, "symmetry_number_source": "test"},
         }
     )
 
     assert payload == {
-        "R": {"symmetry_number": 2, "symmetry_number_source": "config"},
-        "TS": {"symmetry_number": 3, "symmetry_number_source": "cli"},
-        "other": {"symmetry_number": 9, "symmetry_number_source": "test"},
+        "R": {
+            "point_group": "C2",
+            "point_group_source": "auto",
+            "symmetry_number": 2,
+            "symmetry_number_source": "auto",
+        },
+        "TS": {
+            "symmetry_number": 3,
+            "symmetry_number_source": "config",
+        },
+        "other": {
+            "symmetry_number": 9,
+            "symmetry_number_source": "test",
+        },
     }
 
 
@@ -318,7 +332,7 @@ def test_thermo_symmetry_provenance_rejects_invalid_values(invalid) -> None:
         {
             "R": {
                 "symmetry_number": invalid,
-                "symmetry_number_source": "default",
+                "symmetry_number_source": "auto",
             }
         }
     ) == {}

@@ -58,8 +58,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   `path-search`. The former selects the GSM string-optimizer preset; the latter
   selects the DMF IPOPT dual-infeasibility tolerance (`tight`, `middle`,
   `loose`, or a positive float).
-- Add `all --use-mep-tangent/--no-use-mep-tangent`. The MEP tangent guides the
-  initial TS root by default and can be disabled for benchmark comparisons.
+- Add `all --tsopt-from-mep-tan/--no-tsopt-from-mep-tan`. The MEP tangent guides the
+  initial TS root by default; when disabled, TSOPT selects from the initial-structure
+  Hessian modes.
 - Add a runnable full-system BezA example with reactant, intermediate, and
   product structures plus endpoint-MEP and staged-scan workflows.
 - Report citations for the methods actually used at the end of `summary.log`
@@ -101,9 +102,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   it is forwarded to the post-IRC endpoint re-optimization child only.
 - Add `all --irc-step-size` so the end-to-end workflow can forward a smaller
   EulerPC step to every post-TS IRC branch.
-- Add `freq --symmetry-number` and `all --freq-symmetry-number` for an explicit
-  external rotational symmetry number. Point-group symmetry is not inferred;
-  the standalone/default child value is 1.
+- Detect the molecular point group and external rotational symmetry number for
+  every `freq` structure and include the rotational `1/sigma` correction
+  automatically. `thermo.symmetry_number` remains an advanced YAML override.
 - Add selectable UMA/ORB/MACE/AIMNet2 frame rescoring to `trj2fig`, with model,
   precision, and machine-readable provenance controls. Comment-energy mode remains
   calculator-free, and rescoring is a pure MLIP calculation rather than ONIOM.

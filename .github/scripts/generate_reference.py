@@ -62,7 +62,7 @@ freq:
 thermo:
   temperature: 298.15
   pressure_atm: 1.0
-  symmetry_number: 1
+  symmetry_number: null
 
 dft:
   func_basis: wb97m-v/def2-tzvpd

@@ -27,9 +27,29 @@ def _replace_xyz_comments(path, comments) -> None:
 
 
 def test_mep_tangent_handoff_is_default_on_and_can_be_disabled() -> None:
-    option = next(param for param in cli.params if param.name == "use_mep_tangent")
+    option = next(param for param in cli.params if param.name == "tsopt_from_mep_tan")
     assert option.default is True
-    assert "--no-use-mep-tangent" in option.opts + option.secondary_opts
+    assert "--no-tsopt-from-mep-tan" in option.opts + option.secondary_opts
+    assert all(param.name != "use_mep_tangent" for param in cli.params)
+    assert all(param.name != "freq_symmetry_number" for param in cli.params)
+
+
+def test_disabled_mep_tangent_does_not_build_a_reference_mode(
+    tmp_path, monkeypatch
+) -> None:
+    from mlmm.workflows import all as all_workflow
+
+    monkeypatch.setattr(
+        all_workflow,
+        "_ensure_hei_path_tangent",
+        lambda *args: pytest.fail("disabled tangent builder was called"),
+    )
+    assert all_workflow._select_hei_reference_mode(
+        False,
+        tmp_path / "mep.xyz",
+        tmp_path / "hei.xyz",
+        tmp_path / "mode.txt",
+    ) is None
 
 
 def test_hei_path_tangent_uses_neighbors_of_matching_image(tmp_path) -> None:

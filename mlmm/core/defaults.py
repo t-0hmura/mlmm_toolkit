@@ -399,7 +399,7 @@ FREQ_KW: Dict[str, Any] = {
 THERMO_KW: Dict[str, Any] = {
     "temperature": 298.15,
     "pressure_atm": 1.0,
-    "symmetry_number": 1,
+    "symmetry_number": None,
     "dump": False,
 }
 

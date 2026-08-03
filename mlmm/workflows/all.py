@@ -2667,6 +2667,18 @@ def _ensure_hei_path_tangent(
         return None
 
 
+def _select_hei_reference_mode(
+    enabled: bool,
+    mep_trj: Optional[Path],
+    hei_path: Path,
+    mode_path: Path,
+) -> Optional[Path]:
+    """Return an HEI tangent only when MEP-tangent initialization is enabled."""
+    if not enabled or mep_trj is None:
+        return None
+    return _ensure_hei_path_tangent(mep_trj, hei_path, mode_path)
+
+
 def _write_segment_energy_diagram(
     prefix: Path,
     labels: List[str],
@@ -2838,7 +2850,6 @@ def _run_freq_for_state(pdb_path: Path,
         args.extend(["--sort", str(overrides.get("sort"))])
     _append_cli_arg(args, "--temperature", overrides.get("temperature"))
     _append_cli_arg(args, "--pressure", overrides.get("pressure"))
-    _append_cli_arg(args, "--symmetry-number", overrides.get("symmetry_number"))
     _append_toggle_arg(args, "--dump", dump_use)
     _append_toggle_arg(args, "--convert-files", overrides.get("convert_files"))
 
@@ -3510,12 +3521,13 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @click.option("--tsopt/--no-tsopt", "do_tsopt", default=False, show_default=True,
               help="TS optimization + EulerPC IRC per reactive segment (or TSOPT-only mode for single-structure), and build energy diagrams.")
 @click.option(
-    "--use-mep-tangent/--no-use-mep-tangent",
+    "--tsopt-from-mep-tan/--no-tsopt-from-mep-tan",
     default=True,
     show_default=True,
     help=(
-        "Use the MEP tangent at the highest-energy image to select and track "
-        "the Hessian TS mode. Disable for benchmark comparisons."
+        "Initialize TS root selection from the MEP tangent at the "
+        "highest-energy image. When disabled, TSOPT selects its initial mode "
+        "from the initial-structure Hessian."
     ),
 )
 @click.option("--thermo/--no-thermo", "do_thermo", default=False, show_default=True,
@@ -3586,16 +3598,6 @@ def _configure_all_help_visibility(command: click.Command) -> None:
               help="Override freq thermochemistry temperature (K).")
 @click.option("--freq-pressure", type=float, default=None,
               help="Override freq thermochemistry pressure (atm).")
-@click.option(
-    "--freq-symmetry-number",
-    type=click.IntRange(min=1),
-    default=None,
-    help=(
-        "Use one rotational symmetry number for every frequency job "
-        "(R/TS/P for MEP runs; E1/TS/E2 for TS-only runs). When omitted, "
-        "each child follows its YAML/default setting."
-    ),
-)
 @click.option("--dft-out-dir", type=click.Path(path_type=Path, file_okay=False), default=None,
               help="Override dft output base directory (relative paths resolved against the default).")
 @click.option("--dft-func-basis", type=str, default=None,
@@ -3741,7 +3743,7 @@ def cli(
     hessian_calc_mode: Optional[str],
     detect_layer: bool,
     do_tsopt: bool,
-    use_mep_tangent: bool,
+    tsopt_from_mep_tan: bool,
     do_thermo: bool,
     do_dft: bool,
     scan_lists_raw: Sequence[str],
@@ -3774,7 +3776,6 @@ def cli(
     freq_sort: Optional[str],
     freq_temperature: Optional[float],
     freq_pressure: Optional[float],
-    freq_symmetry_number: Optional[int],
     dft_out_dir: Optional[Path],
     dft_func_basis: Optional[str],
     dft_max_cycle: Optional[int],
@@ -4141,7 +4142,6 @@ def cli(
         freq_sort=freq_sort,
         freq_temperature=freq_temperature,
         freq_pressure=freq_pressure,
-        freq_symmetry_number=freq_symmetry_number,
         dump_override_requested=dump_override_requested,
         dump=dump,
         require_thermo_artifact=do_thermo,
@@ -4196,7 +4196,7 @@ def cli(
                 "pre_opt": bool(pre_opt),
                 "detect_layer": bool(detect_layer),
                 "tsopt": bool(do_tsopt),
-                "use_mep_tangent": bool(use_mep_tangent),
+                "tsopt_from_mep_tan": bool(tsopt_from_mep_tan),
                 "thermo": bool(do_thermo),
                 "dft": bool(do_dft),
             },
@@ -6182,14 +6182,11 @@ def cli(
         if do_tsopt:
             segment_tsopt_overrides = dict(tsopt_overrides)
             reference_mode_path = seg_root / f"hei_mode_seg_{seg_idx:02d}.txt"
-            reference_mode_path = (
-                _ensure_hei_path_tangent(
-                    seg_root / f"mep_seg_{seg_idx:02d}_trj.xyz",
-                    hei_pocket_pdb,
-                    reference_mode_path,
-                )
-                if use_mep_tangent
-                else None
+            reference_mode_path = _select_hei_reference_mode(
+                tsopt_from_mep_tan,
+                seg_root / f"mep_seg_{seg_idx:02d}_trj.xyz",
+                hei_pocket_pdb,
+                reference_mode_path,
             )
             if reference_mode_path is not None:
                 segment_tsopt_overrides["reference_mode"] = reference_mode_path

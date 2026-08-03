@@ -79,8 +79,9 @@ See [Common Error Recipes — Recipe 4](recipes-common-errors.md#recipe-4-conver
 that identifies the MEP tangent for initial-root selection and overlap
 tracking. It is an internal,
 advanced input for the end-to-end workflow: `mlmm all` derives and passes it
-from the MEP by default; pass `all --no-use-mep-tangent` for a controlled
-benchmark without the handoff. Ordinary standalone `mlmm tsopt` users should
+from the MEP by default. With `all --no-tsopt-from-mep-tan`, TSOPT computes the
+initial-structure Hessian and selects the initial root from its vibrational
+modes. Ordinary standalone `mlmm tsopt` users should
 omit it unless they have constructed a matching vector in exactly the same atom
 order. Exact PHVA remains the terminal saddle-order test; no automatic
 recovery or displaced multistart is launched by the default search.

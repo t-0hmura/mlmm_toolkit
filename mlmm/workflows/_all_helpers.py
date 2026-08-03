@@ -288,7 +288,6 @@ def build_freq_overrides(
     freq_sort: Optional[str],
     freq_temperature: Optional[float],
     freq_pressure: Optional[float],
-    freq_symmetry_number: Optional[int],
     dump_override_requested: bool,
     dump: bool,
     require_thermo_artifact: bool,
@@ -313,8 +312,6 @@ def build_freq_overrides(
         overrides["temperature"] = float(freq_temperature)
     if freq_pressure is not None:
         overrides["pressure"] = float(freq_pressure)
-    if freq_symmetry_number is not None:
-        overrides["symmetry_number"] = int(freq_symmetry_number)
     if require_thermo_artifact:
         # ``all --thermo`` consumes this child artifact as its stage hand-off.
         # It is required independently of the parent's optional dump policy.
@@ -347,10 +344,23 @@ def build_thermo_symmetry_provenance(
             and isinstance(source, str)
             and source.strip()
         ):
-            provenance[label] = {
+            state_provenance = {
                 "symmetry_number": value,
                 "symmetry_number_source": source,
             }
+            point_group = payload.get("point_group")
+            point_group_source = payload.get("point_group_source")
+            if (
+                isinstance(point_group, str)
+                and point_group.strip()
+                and isinstance(point_group_source, str)
+                and point_group_source.strip()
+            ):
+                state_provenance.update(
+                    point_group=point_group,
+                    point_group_source=point_group_source,
+                )
+            provenance[label] = state_provenance
     return provenance
 
 

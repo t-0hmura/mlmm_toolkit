@@ -67,8 +67,9 @@ of magnitude.
 
 `--ref-mode` is an advanced path-direction input, not a routine standalone
 remedy. `mlmm all` derives and supplies the normalized 3N Cartesian tangent
-from its MEP by default for initial-root selection and overlap tracking. Use
-`all --no-use-mep-tangent` for a benchmark without the handoff. The default
+from its MEP by default for initial-root selection and overlap tracking. With
+`all --no-tsopt-from-mep-tan`, TSOPT computes the initial-structure Hessian
+and selects its initial root from the resulting vibrational modes. The default
 search does not launch automatic saddle recovery or displaced multistarts.
 Ordinary standalone `tsopt` should omit it unless an externally derived,
 atom-order-matched reaction mode is available.

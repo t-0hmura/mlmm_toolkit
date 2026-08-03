@@ -576,7 +576,7 @@ Thermochemistry settings.
 thermo:
  temperature: 298.15 # Thermochemistry temperature (K)
  pressure_atm: 1.0 # Thermochemistry pressure (atm)
- symmetry_number: 1 # External rotational symmetry number (integer >= 1)
+ symmetry_number: null # Auto-detect; a positive integer is an advanced override
  dump: false # Write thermoanalysis.yaml
 ```
 
@@ -713,7 +713,7 @@ freq:
 thermo:
  temperature: 298.15
  pressure_atm: 1.0
- symmetry_number: 1
+ symmetry_number: null
 
 dft:
  func_basis: wb97m-v/def2-tzvpd

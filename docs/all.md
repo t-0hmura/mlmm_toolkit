@@ -270,7 +270,7 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) → `--opt-mode` (on
 | Option | Description | Default |
 | --- | --- | --- |
 | `--tsopt / --no-tsopt` | Run TS optimization + EulerPC IRC per reactive segment. | `False` |
-| `--use-mep-tangent / --no-use-mep-tangent` | Pass the HEI MEP tangent to Hessian TS root selection and overlap tracking; disable for benchmark comparisons. | `True` |
+| `--tsopt-from-mep-tan / --no-tsopt-from-mep-tan` | Select the initial TS root from the HEI MEP tangent; when off, select it from the initial-structure Hessian modes. | `True` |
 | `--thermo / --no-thermo` | Run vibrational analysis (`freq`) on R/TS/P for MEP runs or E1/TS/E2 for TS-only runs. | `False` |
 | `--dft / --no-dft` | Run single-point DFT on R/TS/P for MEP runs or E1/TS/E2 for TS-only runs. | `False` |
 | `--flatten / --no-flatten` | Surplus-imaginary-mode flattening in `tsopt`. | `False` |
@@ -286,7 +286,6 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) → `--opt-mode` (on
 | `--freq-sort TEXT` | Mode sorting behavior. | _Default_ |
 | `--freq-temperature FLOAT` | Thermochemistry temperature (K). | _Default_ |
 | `--freq-pressure FLOAT` | Thermochemistry pressure (atm). | _Default_ |
-| `--freq-symmetry-number INT` | One rotational symmetry number for every frequency job (R/TS/P for MEP runs; E1/TS/E2 for TS-only runs); omission preserves each child YAML/default. | _None_ |
 | `--dft-out-dir PATH` | Base directory override for DFT outputs. | _None_ |
 | `--dft-func-basis TEXT` | Functional / basis pair. | _Default_ |
 | `--dft-max-cycle INT` | Maximum SCF iterations. | _Default_ |

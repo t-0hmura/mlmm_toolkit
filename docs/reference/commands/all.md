@@ -165,11 +165,12 @@ Options:
                                   segment (or TSOPT-only mode for single-
                                   structure), and build energy diagrams.
                                   [default: no-tsopt]
-  --use-mep-tangent / --no-use-mep-tangent
-                                  Use the MEP tangent at the highest-energy
-                                  image to select and track the Hessian TS mode.
-                                  Disable for benchmark comparisons.  [default:
-                                  use-mep-tangent]
+  --tsopt-from-mep-tan / --no-tsopt-from-mep-tan
+                                  Initialize TS root selection from the MEP
+                                  tangent at the highest-energy image. When
+                                  disabled, TSOPT selects its initial mode from
+                                  the initial-structure Hessian.  [default:
+                                  tsopt-from-mep-tan]
   --thermo / --no-thermo          Run freq on (R,TS,P) per reactive segment (or
                                   TSOPT-only mode) and build Gibbs free-energy
                                   diagram (MLIP).  [default: no-thermo]
@@ -212,11 +213,6 @@ Options:
   --freq-sort [value|abs]         Override freq mode sorting.
   --freq-temperature FLOAT        Override freq thermochemistry temperature (K).
   --freq-pressure FLOAT           Override freq thermochemistry pressure (atm).
-  --freq-symmetry-number INTEGER RANGE
-                                  Use one rotational symmetry number for every
-                                  frequency job (R/TS/P for MEP runs; E1/TS/E2
-                                  for TS-only runs). When omitted, each child
-                                  follows its YAML/default setting.  [x>=1]
   --dft-out-dir DIRECTORY         Override dft output base directory (relative
                                   paths resolved against the default).
   --dft-func-basis TEXT           Override dft --func-basis value.

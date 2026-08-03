@@ -61,9 +61,8 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--thresh-gsm` | str | `gau_loose` | Convergence preset for the GSM string optimizer |
 | `--thresh-dmf` | str/float | `tight` | DMF IPOPT dual-infeasibility tolerance: `tight`, `middle`, `loose`, or a positive float |
 | `--tsopt / --no-tsopt` | flag | off | Run TS optimization after MEP, or enter TS-only mode when exactly one input is supplied without `--scan-lists` |
-| `--use-mep-tangent / --no-use-mep-tangent` | toggle | on | Pass the HEI MEP tangent to Hessian TS root selection and overlap tracking; disable for benchmark comparisons |
+| `--tsopt-from-mep-tan / --no-tsopt-from-mep-tan` | toggle | on | Select the initial TS root from the HEI MEP tangent; off selects from the initial-structure Hessian modes |
 | `--thermo / --no-thermo` | flag | off | Run freq + thermochemistry |
-| `--freq-symmetry-number` | int ≥ 1 | child YAML/default (normally 1) | Use one external rotational symmetry number for every frequency job: R/TS/P for MEP runs or E1/TS/E2 for TS-only runs. Point-group symmetry is not inferred. |
 | `--dft / --no-dft` | flag | off | Run DFT single points on R/TS/P for MEP runs or E1/TS/E2 for TS-only runs |
 | `--dump / --no-dump` | toggle | off | Control optional optimizer trajectories/restarts. With `--thermo`, the required child `thermoanalysis.yaml` handoff is retained even under `--no-dump`. |
 | `--dft-func-basis` | str | `wb97m-v/def2-tzvpd` | DFT functional/basis (when `--dft` is enabled) |

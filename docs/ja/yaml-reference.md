@@ -537,7 +537,7 @@ freq:
 thermo:
  temperature: 298.15 # 熱化学温度 (K)
  pressure_atm: 1.0 # 熱化学圧力 (atm)
- symmetry_number: 1 # 外部回転対称数（1 以上の整数）
+ symmetry_number: null # 自動判定。正整数は高度な上書き指定
  dump: false # thermoanalysis.yaml の書き出し
 ```
 
@@ -669,7 +669,7 @@ freq:
 thermo:
  temperature: 298.15
  pressure_atm: 1.0
- symmetry_number: 1
+ symmetry_number: null
 
 dft:
  func_basis: wb97m-v/def2-tzvpd

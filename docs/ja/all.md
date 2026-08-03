@@ -273,7 +273,7 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
 | `--tsopt/--no-tsopt` | 反応セグメントごとに TS 最適化 + EulerPC IRC を実行。 | `False` |
-| `--use-mep-tangent/--no-use-mep-tangent` | HEIのMEP接線をHessian TSのroot選択とoverlap追跡へ渡す。比較ベンチマークでは無効化。 | `True` |
+| `--tsopt-from-mep-tan/--no-tsopt-from-mep-tan` | HEI の MEP 接線から初期 TS root を選ぶ。OFF では初期構造の Hessian 振動モードから選ぶ。 | `True` |
 | `--thermo/--no-thermo` | MEP 実行では R/TS/P、TS-only 実行では E1/TS/E2 で振動解析 (`freq`) を実行。 | `False` |
 | `--dft/--no-dft` | MEP 実行では R/TS/P、TS-only 実行では E1/TS/E2 で DFT 一点計算を実行。 | `False` |
 | `--flatten/--no-flatten` | `tsopt` での余分な虚振動数モードフラットニングを有効化。 | `False` |
@@ -289,7 +289,6 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 | `--freq-sort TEXT` | モードソート方法。 | _デフォルト_ |
 | `--freq-temperature FLOAT` | 熱化学温度 (K)。 | _デフォルト_ |
 | `--freq-pressure FLOAT` | 熱化学圧力 (atm)。 | _デフォルト_ |
-| `--freq-symmetry-number INT` | MEP 実行の R/TS/P または TS-only 実行の E1/TS/E2 の全 freq 計算に共通の回転対称数。省略時は各子計算の YAML/デフォルトに従う。 | _None_ |
 | `--dft-out-dir PATH` | DFT 出力ディレクトリの上書き。 | _None_ |
 | `--dft-func-basis TEXT` | 汎関数/基底関数ペア。 | _デフォルト_ |
 | `--dft-max-cycle INT` | 最大 SCF 反復数。 | _デフォルト_ |

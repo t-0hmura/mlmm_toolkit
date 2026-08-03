@@ -49,7 +49,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--opt-mode` | str | `hess` | `grad`/`dimer` (Hessian-Guided Dimer) or `hess`/`rsirfo` (RS-I-RFO); also `trim` (TRIM/Helgaker) and `rsprfo` (RS-P-RFO/Banerjee); the mlmm-only `light` / `heavy` shortcuts are also accepted (light = Dimer, heavy = full-Hessian RS-I-RFO) |
 | `--max-cycles` | int | 10000 | Optimization step cap |
 | `--hessian-calc-mode` | str | `FiniteDifference` | `Analytical` or `FiniteDifference`; check `RSIRFO_KW` / `DIMER_KW` |
-| `--ref-mode` | path | none | Advanced Cartesian 3N MEP tangent for initial-root selection and overlap tracking. `all` supplies it by default; `all --no-use-mep-tangent` disables the handoff. Ordinary standalone runs omit it. |
+| `--ref-mode` | path | none | Advanced Cartesian 3N MEP tangent for initial-root selection and overlap tracking. `all` supplies it by default; with `all --no-tsopt-from-mep-tan`, TSOPT selects from the initial-structure Hessian modes. Ordinary standalone runs omit it. |
 | `--precision` | str | backend-specific | UMA/AIMNet2 fp32; ORB/MACE fp64; AIMNet2 rejects fp64 |
 | `--workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
 | `--allow-charge-mult-mismatch` | flag | off | Warn and skip ML-region charge/multiplicity electron-parity validation for an intentional mismatch |

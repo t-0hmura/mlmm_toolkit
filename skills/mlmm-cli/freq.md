@@ -13,7 +13,7 @@ Partial-Hessian variant (PHVA) activates automatically when
 ```bash
 mlmm freq -i geom.{pdb,xyz} --parm real.parm7 \
     [-q 0 -m 1] [-l 'RES:Q,...'] \
-    [--temperature 298.15] [--pressure 1.0] [--symmetry-number 1] \
+    [--temperature 298.15] [--pressure 1.0] \
     [-b uma|orb|mace|aimnet2] [-o ./result_freq/]
 ```
 
@@ -46,7 +46,6 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `-q` / `-l` / `-m` | — | — | Charge / spin (common conventions) |
 | `--temperature` | float | 298.15 | K, for thermochemistry |
 | `--pressure` | float | 1.0 | atm, for thermochemistry |
-| `--symmetry-number` | int ≥ 1 | 1 | External rotational symmetry number. Point-group symmetry is not inferred. |
 | `--hessian-calc-mode` | str | `FiniteDifference` | `Analytical` / `FiniteDifference`; check `FREQ_KW` / `MLMM_CALC_KW` |
 | `--precision` | str | backend-specific | UMA/AIMNet2 fp32; ORB/MACE fp64; AIMNet2 rejects fp64 |
 | `--workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
@@ -123,8 +122,9 @@ Default thermochemistry uses the QRRHO (Grimme) treatment with a
 The QRRHO/rotor cutoff (100 cm⁻¹) is fixed by the vendored
 thermoanalysis default and is not user-tunable via `THERMO_KW`.
 `mlmm.core.defaults.THERMO_KW` exposes `temperature`, `pressure_atm`,
-`symmetry_number`, and `dump`. Supply the external rotational symmetry number
-when it is not 1; the workflow does not infer a point group.
+the optional advanced `symmetry_number` override, and `dump`. The normal
+workflow detects point group and external rotational symmetry from each
+structure and always includes the `1/sigma` correction.
 
 ## Partial-Hessian Vibrational Analysis (PHVA)
 

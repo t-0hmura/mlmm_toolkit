@@ -74,7 +74,8 @@ mlmm tsopt -i ts_guess.pdb --parm enzyme.parm7 -l 'LIG:Q' -b uma \
 `--ref-mode` は MEP tangent を指定する非ゼロ Cartesian 3N vector
 （`.npy` または空白区切り text）を読み込みます。これは一気通貫 workflow
 向けの内部的な高度オプションで、`mlmm all` が MEP から生成してデフォルトで
-渡します。比較ベンチマークでは`all --no-use-mep-tangent`で無効化できます。
+渡します。`all --no-tsopt-from-mep-tan` では TSOPT が初期構造の Hessian を計算し、
+その振動モードから初期 root を選びます。
 通常の単独 `mlmm tsopt` では省略し、同じ原子順のvectorを明示的に構築済みの
 場合だけ指定します。接線は初期root選択とoverlap追跡に使い、デフォルト探索は
 自動saddle recoveryや自動変位multistartを実行しません。終端のexact PHVAが
