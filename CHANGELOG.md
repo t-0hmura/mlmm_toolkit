@@ -11,6 +11,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 > `result.json`/`summary.json` must review the Breaking changes and Machine-readable output sections.
 
 ### Breaking changes
+- Make B-factor layer detection automatic and remove the public
+  `--no-detect-layer` CLI form and MCP `detect_layer` parameter. Explicit
+  `--model-pdb` / `--model-indices` membership remains supported.
 - Remove the public `--tr-projection` option and the `legacy-active` treatment.
   Frozen-boundary PHVA now always uses the constrained treatment; stale YAML
   values fail explicitly.
@@ -201,6 +204,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   trusted PyPI publication.
 
 ### Fixed
+- Reject single-class B-factor metadata such as an all-zero PDB as an ML/MM
+  layer partition instead of silently treating the full system as ML.
+- Preserve valid B-factor movable/frozen MM layers when `sp` uses an explicit
+  `--model-pdb` or `--model-indices`; invalid layer metadata no longer remains enabled.
 - Honor `dmf.ipopt_options.dual_inf_tol` when it is set in YAML instead of
   replacing it with a fixed preset.
 - Reject dependent Amber virtual sites before allocating the `hessian_ff`

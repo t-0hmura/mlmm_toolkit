@@ -1427,44 +1427,6 @@ def cli(
             click.echo("ERROR: --detect-layer requires a PDB input.", err=True)
             sys.exit(1)
 
-        # Preflight: with --detect-layer, a PDB that carries no B-factor
-        # layering (every atom B≈ML) makes the WHOLE system the ML region,
-        # which silently OOMs the MLIP on large inputs. Warn with the remedy
-        # before any GPU work instead of dying later with a CUDA OOM.
-        if (
-            detect_layer_enabled
-            and model_pdb_cfg is None
-            and not model_indices
-            and layer_source_pdb.suffix.lower() == ".pdb"
-        ):
-            try:
-                _n_atoms = 0
-                _n_nonml = 0
-                with open(layer_source_pdb, encoding="utf-8", errors="ignore") as _fh:
-                    for _ln in _fh:
-                        if _ln.startswith(("ATOM", "HETATM")):
-                            _n_atoms += 1
-                            try:
-                                _b = float(_ln[60:66])
-                            except ValueError:
-                                continue
-                            if abs(_b - BFACTOR_ML) > 1.0:
-                                _n_nonml += 1
-                if _n_atoms > 0 and _n_nonml == 0:
-                    click.echo(
-                        f"[layer] WARNING: --detect-layer is on but "
-                        f"'{layer_source_pdb.name}' has no B-factor layering "
-                        f"(all {_n_atoms} atoms are ML, B≈{BFACTOR_ML:.0f}). The "
-                        f"ENTIRE system will be treated as the ML region, which "
-                        f"typically exhausts GPU memory. Provide a layered PDB "
-                        f"(B={BFACTOR_ML:.0f}/{BFACTOR_MOVABLE_MM:.0f}/"
-                        f"{BFACTOR_FROZEN:.0f} via `mlmm define-layer`), or "
-                        f"`--model-pdb`/`--model-indices`, or `--movable-cutoff`.",
-                        err=True,
-                    )
-            except OSError:
-                pass
-
         from mlmm.core.embedcharge_policy import reject_retired_embedcharge_cli
 
         reject_retired_embedcharge_cli(
@@ -1505,7 +1467,7 @@ def cli(
             elif detect_layer_enabled:
                 model_region_source = "bfactor"
             else:
-                click.echo("ERROR: Provide --model-pdb or --model-indices when --no-detect-layer.", err=True)
+                click.echo("ERROR: Provide --model-pdb or --model-indices when B-factor layer detection is disabled in the configuration.", err=True)
                 sys.exit(1)
             if (
                 not detect_layer_enabled

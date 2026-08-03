@@ -70,7 +70,7 @@ out_dir/ (デフォルト: ./result_dft/)
 | `--model-pdb PATH` | ML 領域を定義する PDB（原子 ID が酵素 PDB と一致必須）。`--detect-layer` 有効時はオプション。 | _None_ |
 | `--model-indices TEXT` | ML 領域のカンマ区切り原子インデックス（範囲指定可、例: `1-5`）。`--model-pdb` 省略時に使用。 | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` を 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
-| `--detect-layer / --no-detect-layer` | 入力 PDB の B 因子（B=0/10/20）から ML/MM レイヤーを検出。 | `True` |
+| `--detect-layer` | 入力 PDB の B 因子（B=0/10/20）から ML/MM レイヤーを自動検出。 | 有効 |
 | `-q, --charge INT` | ML 領域の電荷。`-l/--ligand-charge` 指定時は不要（PDB 入力または `--ref-pdb` 付き XYZ）。 | `-l` 指定時を除き必須 |
 | `-l, --ligand-charge TEXT` | 全体電荷、または残基名ごとのマッピング（例: `SAM:1,GPP:-3`）。`-q` 省略時に ML 領域の電荷を導出するために使用（PDB 入力または `--ref-pdb` が必要）。 | _None_ |
 | `-m, --multiplicity INT` | ML 領域のスピン多重度 (2S+1)。 | `1` |

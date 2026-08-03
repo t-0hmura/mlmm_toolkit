@@ -1636,7 +1636,7 @@ def cli(
             elif detect_layer_enabled:
                 model_region_source = "bfactor"
             else:
-                click.echo("ERROR: Provide --model-pdb or --model-indices when --no-detect-layer.", err=True)
+                click.echo("ERROR: Provide --model-pdb or --model-indices when B-factor layer detection is disabled in the configuration.", err=True)
                 prepared_input.cleanup()
                 sys.exit(1)
             if (

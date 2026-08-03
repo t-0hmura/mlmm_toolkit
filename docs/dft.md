@@ -72,7 +72,7 @@ out_dir/ (default: ./result_dft/)
 | `--model-pdb PATH` | PDB defining the ML region (atom IDs must match the enzyme PDB). Optional when `--detect-layer` is enabled. | _None_ |
 | `--model-indices TEXT` | Comma-separated atom indices for the ML region (ranges allowed, e.g. `1-5`). Used when `--model-pdb` is omitted. | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
-| `--detect-layer / --no-detect-layer` | Detect ML/MM layers from input PDB B-factors (B=0/10/20). | `True` |
+| `--detect-layer` | Automatically detect ML/MM layers from input PDB B-factors (B=0/10/20). | Enabled |
 | `-q, --charge INT` | Charge of the ML region. Required unless `-l/--ligand-charge` is given (PDB input or XYZ with `--ref-pdb`). | Required unless `-l/--ligand-charge` is provided |
 | `-l, --ligand-charge TEXT` | Total charge or per-resname mapping (e.g. `SAM:1,GPP:-3`) used to derive the ML-region charge when `-q` is omitted (requires PDB input or `--ref-pdb`). | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1) for the ML region. | `1` |

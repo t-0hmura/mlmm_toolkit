@@ -77,7 +77,7 @@ Encoding: ML = 0.0, Movable-MM = 10.0, Frozen = 20.0 (tolerance ±1.0). Common s
 
 - **Wrong layer assignments / ML region too small or too large** — verify `--model-pdb` selects the intended atoms; adjust `--radius-freeze` (default 8.0 Å) for the Movable / Frozen boundary; control Hessian-target MM separately via `hess_cutoff` / `hess_mm_atoms`. Inspect the layered PDB visually (color by B-factor).
 - **B-factors not recognized** (calculator treats all atoms as one layer) — re-run `define-layer`; do not hand-edit B-factors to arbitrary values.
-- **`--detect-layer` produces unexpected splits or fails without `--model-pdb`** — supply a PDB input (or XYZ + `--ref-pdb`); re-run `define-layer` explicitly; for distance-based control, set `hess_cutoff` / `movable_cutoff` and use `--no-detect-layer` (supplying `--movable-cutoff` already disables `--detect-layer`).
+- **Automatic layer detection produces unexpected splits or fails without `--model-pdb`** — supply a PDB input (or XYZ + `--ref-pdb`); re-run `define-layer` explicitly. For distance-based control, set `hess_cutoff` / `movable_cutoff`; supplying `--movable-cutoff` automatically takes precedence over B-factor layers.
 
 ---
 

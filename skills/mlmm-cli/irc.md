@@ -29,7 +29,7 @@ selection. Most subcommands accept:
 |---|---|
 | `--parm FILE` | Amber `parm7` topology of the whole enzyme — required unless provided in YAML as `calc.real_parm7` |
 | `--model-pdb FILE` | Explicit ML-region PDB; takes precedence over B-factor ML membership |
-| `--detect-layer / --no-detect-layer` | Without explicit ML membership, read all layers from PDB B-factors; with explicit membership, retain valid movable/frozen MM B-factor layers. Default on. |
+| `--detect-layer` | Automatically read B-factor layers; explicit ML membership retains valid movable/frozen MM layers. Enabled by default. |
 | `--model-indices` | Explicit ML atom indices used when `--model-pdb` is omitted; takes precedence over B-factor ML membership |
 | `--ref-pdb FILE` | Full-enzyme PDB/mmCIF used as topology reference for XYZ inputs |
 | `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |

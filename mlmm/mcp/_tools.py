@@ -463,7 +463,6 @@ def register_all(mcp) -> None:
         ref_pdb: Optional[str] = None,
         model_pdb: Optional[str] = None,
         model_indices: Optional[str] = None,
-        detect_layer: Optional[bool] = None,
         freeze_atoms: Optional[str] = None,
         hess_cutoff: Optional[float] = None,
         movable_cutoff: Optional[float] = None,
@@ -486,8 +485,8 @@ def register_all(mcp) -> None:
 
         `input_pdb` may be a layered PDB/mmCIF, or an XYZ accompanied by the
         atom-order-identical `ref_pdb`. Either
-        `--model-pdb` / `--model-indices` or `--detect-layer` must resolve the
-        ML region. Set `do_hess=True` to also compute and save the full ONIOM
+        Explicit model membership or automatic B-factor layer detection resolves
+        the ML region. Set `do_hess=True` to also compute and save the full ONIOM
         Hessian to `hessian.npy`.
         """
         od = _resolve_out_dir(out_dir, "sp")
@@ -504,8 +503,6 @@ def register_all(mcp) -> None:
             argv.extend(["--model-pdb", model_pdb])
         if model_indices:
             argv.extend(["--model-indices", model_indices])
-        if detect_layer is not None:
-            argv.append("--detect-layer" if detect_layer else "--no-detect-layer")
         if freeze_atoms:
             argv.extend(["--freeze-atoms", freeze_atoms])
         if hess_cutoff is not None:

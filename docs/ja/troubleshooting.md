@@ -343,7 +343,7 @@ To rebuild hessian_ff native extensions in this environment:
 対処の例:
 - 入力が PDB（または `--ref-pdb` 付き XYZ）であることを確認する
 - `define-layer` で B-factor を明示的に再付与し、生成された PDB を使う
-- 距離ベース制御を使う場合は `hess_cutoff` / `movable_cutoff` を指定し、必要なら `--no-detect-layer` に切り替える
+- 距離ベース制御を使う場合は `hess_cutoff` / `movable_cutoff` を指定する（`--movable-cutoff` は B-factor layer より自動的に優先されます）
 - `--movable-cutoff` を与えると `--detect-layer` が無効化される点に注意する
 
 ---

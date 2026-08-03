@@ -107,14 +107,12 @@ Options:
                                   min]
   --zmin FLOAT                    Lower bound of the color scale (kcal/mol).
   --zmax FLOAT                    Upper bound of the color scale (kcal/mol).
-  --detect-layer / --no-detect-layer
-                                  Without --model-pdb/--model-indices, detect
-                                  ML/MM layers from input PDB B-factors (ML=0,
-                                  MovableMM=10, FrozenMM=20). With explicit ML
-                                  membership, retain valid movable/frozen MM
-                                  B-factor layers. If disabled, explicit
-                                  membership is required.  [default: detect-
-                                  layer]
+  --detect-layer                  Automatically detect ML/MM layers from input
+                                  PDB B-factors (ML=0, MovableMM=10,
+                                  FrozenMM=20) when explicit ML membership is
+                                  absent. With explicit membership, retain valid
+                                  movable/frozen MM B-factor layers.  [default:
+                                  True]
   --model-indices-one-based / --model-indices-zero-based
                                   Interpret --model-indices as 1-based (default)
                                   or 0-based.  [default: model-indices-one-

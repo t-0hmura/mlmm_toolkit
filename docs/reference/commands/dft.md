@@ -94,14 +94,12 @@ Options:
                                   electron-parity check (logs that it was
                                   skipped). For an intentional open-shell or
                                   covalently-cut ML region.
-  --detect-layer / --no-detect-layer
-                                  Without --model-pdb/--model-indices, detect
-                                  ML/MM layers from input PDB B-factors (ML=0,
-                                  MovableMM=10, FrozenMM=20). With explicit ML
-                                  membership, retain valid movable/frozen MM
-                                  B-factor layers. If disabled, explicit
-                                  membership is required.  [default: detect-
-                                  layer]
+  --detect-layer                  Automatically detect ML/MM layers from input
+                                  PDB B-factors (ML=0, MovableMM=10,
+                                  FrozenMM=20) when explicit ML membership is
+                                  absent. With explicit membership, retain valid
+                                  movable/frozen MM B-factor layers.  [default:
+                                  True]
   --model-indices-one-based / --model-indices-zero-based
                                   Interpret --model-indices as 1-based (default)
                                   or 0-based.  [default: model-indices-one-

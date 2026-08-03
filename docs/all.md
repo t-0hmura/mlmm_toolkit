@@ -248,7 +248,7 @@ as `opt`, `tsopt`, or `path-opt`.
 | `--embedcharge-cutoff FLOAT` | Unavailable with the retired electronic-embedding path. | — |
 | `--cmap / --no-cmap` | Preserve CMAP in both REAL and MODEL MM layers. | `--cmap` |
 | `--hessian-calc-mode CHOICE` | ML/MM Hessian mode (`Analytical` or `FiniteDifference`). | `FiniteDifference` |
-| `--detect-layer / --no-detect-layer` | Read B-factor layers (B = 0 / 10 / 20). With explicit `--model-pdb`, retain only the MM sublayers; otherwise B-factors also define ML membership. If disabled, `mlmm all` requires `--model-pdb`. | `True` |
+| `--detect-layer` | Automatically read B-factor layers (B = 0 / 10 / 20). With explicit `--model-pdb`, retain only the MM sublayers; otherwise B-factors also define ML membership. | Enabled |
 
 TSOPT optimizer selection order: `--opt-mode-post` (if set) → `--opt-mode` (only when explicitly provided) → TSOPT default (`hess` → RS-I-RFO).
 

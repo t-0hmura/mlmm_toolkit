@@ -94,32 +94,23 @@ def _resolve_sp_ml_region(
     layer_detection_requested = bool(calc_cfg.get("use_bfactor_layers", True))
     if configured_model is not None:
         source = "model_pdb"
-        detect_layer = False
     elif model_indices is not None:
         source = "model_indices"
-        detect_layer = False
     else:
         source = "bfactor"
-        detect_layer = bool(calc_cfg.get("use_bfactor_layers", True))
 
     model_pdb_path, layer_info = resolve_ml_layer_assignment(
         source_path=source_path,
         out_dir_path=out_dir_path,
         model_pdb=configured_model,
         model_indices=model_indices,
-        detect_layer=detect_layer,
+        detect_layer=layer_detection_requested,
         hess_cutoff=calc_cfg.get("hess_cutoff"),
         movable_cutoff=calc_cfg.get("movable_cutoff"),
         calc_cfg=calc_cfg,
         protected_inputs=protected_inputs,
         echo_fn=click.echo,
     )
-    if source in {"model_pdb", "model_indices"}:
-        # Explicit ML membership and B-factor movable/frozen layers are
-        # independent in SP.  The shared resolver disables layer reading while
-        # choosing an explicit model, so restore the already-resolved SP policy.
-        calc_cfg["use_bfactor_layers"] = layer_detection_requested
-
     if source == "model_indices":
         region_count = len(model_indices or [])
     elif source == "bfactor" and layer_info is not None:

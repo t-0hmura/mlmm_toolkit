@@ -2933,10 +2933,11 @@ def has_valid_layer_bfactors(
     """
     Check if PDB B-factors contain valid 3-layer encoding.
 
-    Returns True if at least one atom has ML B-factor and the B-factors are
-    predominantly in the expected range (0, 10, 20).
+    Returns True if the encoding contains both ML and MM atoms and the
+    B-factors are predominantly in the expected range (0, 10, 20).
     """
     has_ml = False
+    has_mm = False
     valid_count = 0
 
     for bfac in bfactors:
@@ -2944,11 +2945,14 @@ def has_valid_layer_bfactors(
         if layer is not None:
             valid_count += 1
             has_ml = has_ml or layer == "ml"
+            has_mm = has_mm or layer in {"hess_mm", "movable", "frozen"}
 
     # Consider valid if:
     # 1. Has at least one ML atom
-    # 2. At least 80% of atoms have valid B-factors
-    return has_ml and (valid_count / max(len(bfactors), 1) >= 0.8)
+    # 2. Has at least one MM atom; an all-zero PDB is ordinary PDB metadata,
+    #    not a meaningful ML/MM partition
+    # 3. At least 80% of atoms have valid B-factors
+    return has_ml and has_mm and (valid_count / max(len(bfactors), 1) >= 0.8)
 
 
 def parse_indices_string(indices_str: str, one_based: bool = True) -> List[int]:
@@ -3085,7 +3089,7 @@ def build_model_pdb_from_bfactors(
     if not has_valid_layer_bfactors(bfactors, tolerance=tol):
         raise ValueError(
             "Invalid or missing layer B-factors (expected ~0/10/20). "
-            "Provide --no-detect-layer with --model-pdb/--model-indices."
+            "Provide --model-pdb or --model-indices for an explicit ML region."
         )
     layer_info = parse_layer_indices_from_bfactors(bfactors, tolerance=tol)
     ml_indices = layer_info.get("ml_indices") or []
@@ -3192,7 +3196,7 @@ def resolve_ml_layer_assignment(
     # hess_cutoff alone can be combined with --detect-layer.
     if movable_cutoff is not None:
         if detect_layer_eff:
-            echo("[layer] --movable-cutoff provided; disabling --detect-layer.", err=True)
+            echo("[layer] --movable-cutoff provided; using distance-based layers.", err=True)
         detect_layer_eff = False
 
     layer_source_pdb = source_path
@@ -3319,7 +3323,8 @@ def resolve_ml_layer_assignment(
     if not explicit_region and not detect_layer_eff:
         if model_pdb is None and not model_indices:
             raise _click.ClickException(
-                "Provide --model-pdb or --model-indices when --no-detect-layer."
+                "Provide --model-pdb or --model-indices when B-factor layer "
+                "detection is disabled in the configuration."
             )
         if model_pdb is not None:
             model_pdb_path = Path(model_pdb)

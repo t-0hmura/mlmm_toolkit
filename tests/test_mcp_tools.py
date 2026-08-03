@@ -151,6 +151,7 @@ def test_single_point_tool_forwards_print_every(registry, tmp_path: Path) -> Non
     tools, calls = registry
     signature = inspect.signature(tools["run_single_point_oniom"])
     assert "print_every" in signature.parameters
+    assert "detect_layer" not in signature.parameters
 
     asyncio.run(
         tools["run_single_point_oniom"](

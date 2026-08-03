@@ -831,15 +831,6 @@ def cli(
                 sys.exit(1)
             geom_input_path = prepared_input.geom_path
             source_path = prepared_input.source_path
-            charge, spin = resolve_charge_spin_or_raise(
-                prepared_input, charge, spin,
-                ligand_charge=ligand_charge, prefix="[scan3d]",
-                model_pdb=model_pdb,
-                model_indices_spec=model_indices_str,
-                detect_layer=detect_layer,
-                yaml_cfg=yaml_cfg,
-            )
-
             try:
                 freeze_atoms_list = _parse_freeze_atoms(freeze_atoms_cli)
             except click.BadParameter as exc:
@@ -874,6 +865,19 @@ def cli(
                     (calc_cfg, (("calc",), ("mlmm",))),
                     (bias_cfg, (("bias",),)),
                 ],
+            )
+            detect_layer_effective = (
+                bool(detect_layer)
+                if _is_param_explicit("detect_layer")
+                else bool(calc_cfg.get("use_bfactor_layers", True))
+            )
+            charge, spin = resolve_charge_spin_or_raise(
+                prepared_input, charge, spin,
+                ligand_charge=ligand_charge, prefix="[scan3d]",
+                model_pdb=model_pdb,
+                model_indices_spec=model_indices_str,
+                detect_layer=detect_layer_effective,
+                yaml_cfg=yaml_cfg,
             )
 
             try:
@@ -946,7 +950,7 @@ def cli(
                     out_dir_path=out_dir_path,
                     model_pdb=model_pdb,
                     model_indices=model_indices,
-                    detect_layer=detect_layer,
+                    detect_layer=detect_layer_effective,
                     hess_cutoff=hess_cutoff,
                     movable_cutoff=movable_cutoff,
                     calc_cfg=calc_cfg,
@@ -1066,9 +1070,11 @@ def cli(
                             "d3_0based": (i3, j3, low3, high3),
                             "charge": int(charge),
                             "spin": int(spin),
+                            "detect_layer": bool(detect_layer_effective),
                             "backend": calc_cfg.get("backend", "uma"),
                             "embedcharge": bool(calc_cfg.get("embedcharge", False)),
                         },
+                        force=True,
                     )
                 )
                 click.echo("[dry-run] Validation complete. Scan execution was skipped.")

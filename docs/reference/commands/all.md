@@ -156,11 +156,10 @@ Options:
                                   and freq. Default: 'FiniteDifference'. Runtime
                                   and memory depend on the backend and system;
                                   compare both modes on a representative pilot.
-  --detect-layer / --no-detect-layer
-                                  Detect ML/MM layers from input PDB B-factors
-                                  (ML=0, MovableMM=10, FrozenMM=20) in
-                                  downstream tools. If disabled, mlmm all
-                                  requires --model-pdb.  [default: detect-layer]
+  --detect-layer                  Automatically detect ML/MM layers from input
+                                  PDB B-factors (ML=0, MovableMM=10,
+                                  FrozenMM=20) in downstream tools.  [default:
+                                  True]
   --tsopt / --no-tsopt            TS optimization + EulerPC IRC per reactive
                                   segment (or TSOPT-only mode for single-
                                   structure), and build energy diagrams.

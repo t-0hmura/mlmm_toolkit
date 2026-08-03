@@ -4,7 +4,7 @@ Conventions shared across all `mlmm` commands.
 
 ## Boolean options
 
-Every boolean CLI flag accepts **all four forms**:
+Every on/off CLI toggle accepts **all four forms**:
 
 | Form | Example |
 |---|---|
@@ -20,6 +20,9 @@ Every boolean CLI flag accepts **all four forms**:
 ```
 
 All four forms route through a single root-CLI `bool_compat` synthesizer; the toggle form (`--tsopt` / `--no-tsopt`) is canonical, and the value form (`--tsopt True`) is accepted as a legacy alias for backward compatibility. `tests/test_bool_compat_cli.py` walks every registered bool option against every form on every release, so a missing entry is caught by CI.
+
+`--detect-layer` is different: layer detection is automatic and enabled by
+default, so it is a positive-only marker rather than an on/off toggle.
 
 Common toggles: `--tsopt` / `--thermo` / `--dft` (post-processing stages) · `--dump` (write trajectory files) · `--preopt` / `--endopt` (pre/post optimization) · `--climb` (climbing-image MEP).
 
@@ -69,10 +72,10 @@ Per-stage ML membership resolves in this order:
 3. Input PDB B-factor ML atoms under the default `--detect-layer`, when no
    explicit membership is supplied.
 
-With explicit ML membership and `--detect-layer` still enabled, valid input
+With explicit ML membership, automatic detection still uses valid input
 B-factors continue to define the movable/frozen MM layers; they do not replace
-the explicit ML atom set. `--no-detect-layer` requires `--model-pdb` or
-`--model-indices`.
+the explicit ML atom set. A B-factor partition must contain at least one ML atom
+and one MM atom; an all-zero PDB is not treated as a layer assignment.
 
 ```bash
 mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1

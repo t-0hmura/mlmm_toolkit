@@ -114,7 +114,6 @@ def test_dft_output_guard_receives_every_effective_input(
             str(parm),
             "--model-pdb",
             str(ref),
-            "--no-detect-layer",
             "-q",
             "0",
             "-m",

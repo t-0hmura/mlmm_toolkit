@@ -167,7 +167,6 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
             "--climb",
             "--cmap",
             "--convert-files",
-            "--detect-layer",
             "--dft",
             "--dry-run",
             "--dump",
@@ -201,7 +200,6 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
         {
             "--cmap",
             "--convert-files",
-            "--detect-layer",
             "--dry-run",
             "--embedcharge",
             "--lowmem",
@@ -235,7 +233,6 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
         {
             "--cmap",
             "--convert-files",
-            "--detect-layer",
             "--dry-run",
             "--dump",
             "--embedcharge",
@@ -249,7 +246,6 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
             "--backward",
             "--cmap",
             "--convert-files",
-            "--detect-layer",
             "--dry-run",
             "--embedcharge",
             "--forward",
@@ -275,7 +271,6 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
         {
             "--cmap",
             "--convert-files",
-            "--detect-layer",
             "--dry-run",
             "--dump",
             "--embedcharge",
@@ -293,7 +288,6 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
             "--climb",
             "--cmap",
             "--convert-files",
-            "--detect-layer",
             "--dry-run",
             "--dump",
             "--embedcharge",
@@ -310,7 +304,6 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
             "--climb",
             "--cmap",
             "--convert-files",
-            "--detect-layer",
             "--dry-run",
             "--dump",
             "--embedcharge",
@@ -323,7 +316,6 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
         {
             "--cmap",
             "--convert-files",
-            "--detect-layer",
             "--dry-run",
             "--dump",
             "--embedcharge",
@@ -339,7 +331,6 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
         {
             "--cmap",
             "--convert-files",
-            "--detect-layer",
             "--dump",
             "--embedcharge",
             "--model-indices-one-based",
@@ -353,7 +344,6 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
         {
             "--cmap",
             "--convert-files",
-            "--detect-layer",
             "--dump",
             "--embedcharge",
             "--model-indices-one-based",
@@ -372,7 +362,6 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
         {
             "--cmap",
             "--convert-files",
-            "--detect-layer",
             "--dry-run",
             "--dump",
             "--embedcharge",

@@ -699,7 +699,7 @@ def cli(
             elif detect_layer_enabled:
                 model_region_source = "bfactor"
             else:
-                raise click.BadParameter("Provide --model-pdb or --model-indices when --no-detect-layer.")
+                raise click.BadParameter("Provide --model-pdb or --model-indices when B-factor layer detection is disabled in the configuration.")
             if detect_layer_enabled and layer_source_pdb.suffix.lower() != ".pdb":
                 raise click.BadParameter("--detect-layer requires a PDB input (or --ref-pdb).")
             if (

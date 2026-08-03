@@ -251,7 +251,7 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 | `--precision [fp32\|fp64]` | バックエンド精度。省略時は UMA/AIMNet2 fp32、ORB/MACE fp64。AIMNet2 は fp64 を拒否。 | バックエンド依存 |
 | `--workers INT` | UMA predictor worker 数。2 以上は `fairchem-core[extras]` が必要で、解析 Hessian と併用不可。 | `1` |
 | `--workers-per-node INT` | UMA 並列 predictor のノード当たり worker 数。 | _None_ |
-| `--detect-layer/--no-detect-layer` | B 因子レイヤー（B=0/10/20）を読み取ります。`--model-pdb` を明示した場合は MM 側のレイヤーだけを保持し、明示しない場合は B 因子が ML 原子集合も定義します。無効時は `mlmm all` に `--model-pdb` が必要です。 | `True` |
+| `--detect-layer` | B 因子レイヤー（B=0/10/20）を自動的に読み取ります。`--model-pdb` を明示した場合は MM 側のレイヤーだけを保持し、明示しない場合は B 因子が ML 原子集合も定義します。 | 有効 |
 
 TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-mode`（明示指定時のみ）-> TSOPT デフォルト（`hess` → RS-I-RFO）。
 

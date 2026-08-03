@@ -222,7 +222,10 @@ class DefaultGroup(click.Group):
                             bool_toggle_negative_aliases.setdefault(
                                 positive_name, negative_name
                             )
-                    else:
+                    elif param.default is not True:
+                        # A positive-only, default-on flag is an explicit marker,
+                        # not a toggle. Do not synthesize a --no-* spelling that
+                        # the command deliberately does not expose.
                         bool_single_flag_options.update(positive_long_names)
                     continue
 

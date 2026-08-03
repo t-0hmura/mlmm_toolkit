@@ -142,7 +142,7 @@ selection. Most subcommands accept:
 |---|---|
 | `--parm FILE` | Amber `parm7` topology of the whole enzyme — optional; when omitted, `mm_parm` generates a parm7 from the input PDB |
 | `--model-pdb FILE` | Explicit ML-region PDB; takes precedence over extraction- or B-factor-derived ML membership |
-| `--detect-layer / --no-detect-layer` | Read valid input B-factor MM sublayers; without explicit or extraction-derived ML membership, B-factors also define ML membership. Default on. |
+| `--detect-layer` | Automatically read valid B-factor MM sublayers; without explicit or extraction-derived ML membership, B-factors also define ML membership. Enabled by default. |
 | `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |
 | `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
 | `--embedcharge / --no-embedcharge` | Unavailable in v0.3.3; use `--no-embedcharge` |

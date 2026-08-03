@@ -59,9 +59,10 @@ this order:
 2. `--model-indices '1-50,75,100-110'` when no model PDB is supplied
 3. input PDB B-factor ML atoms under the default `--detect-layer`
 
-With explicit ML membership, `--detect-layer` still reads valid
+With explicit ML membership, automatic detection still reads valid
 movable/frozen MM B-factor layers without replacing the explicit ML atoms.
-`--no-detect-layer` requires one of the two explicit forms.
+A B-factor partition must contain both ML and MM atoms; all-zero B-factors are
+not treated as a layer assignment.
 
 When `-i` is XYZ, also pass a PDB/mmCIF to `--ref-pdb` so atom ordering and residue
 context are recoverable.

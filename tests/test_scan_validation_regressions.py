@@ -195,7 +195,6 @@ def test_grid_scan_collision_does_not_overwrite_config_input(
             str(parm),
             "--model-pdb",
             str(structure),
-            "--no-detect-layer",
             "-q",
             "0",
             "-m",
@@ -213,6 +212,62 @@ def test_grid_scan_collision_does_not_overwrite_config_input(
     assert "reserved grid-scan output" in result.output
     assert config.read_text(encoding="utf-8") == original
     assert custom.read_text(encoding="utf-8") == "calculator = None\n"
+
+
+@pytest.mark.parametrize(
+    ("command", "scan_lists"),
+    [
+        ("scan", "[(1,2,1.2)]"),
+        ("scan2d", "[(1,2,1.0,1.2),(3,4,1.0,1.2)]"),
+        (
+            "scan3d",
+            "[(1,2,1.0,1.2),(2,3,1.0,1.2),(3,4,1.0,1.2)]",
+        ),
+    ],
+)
+def test_scan_dry_run_honors_configured_layer_detection(
+    tmp_path: Path,
+    command: str,
+    scan_lists: str,
+) -> None:
+    from mlmm.cli import cli as root_cli
+
+    structure = tmp_path / "system.pdb"
+    _write_scan_structure(structure)
+    parm = tmp_path / "system.parm7"
+    parm.write_text("not reached\n", encoding="utf-8")
+    config = tmp_path / "config.yaml"
+    config.write_text(
+        "calc:\n  use_bfactor_layers: false\n",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        root_cli,
+        [
+            command,
+            "-i",
+            str(structure),
+            "--parm",
+            str(parm),
+            "--model-pdb",
+            str(structure),
+            "-q",
+            "0",
+            "-m",
+            "1",
+            "--scan-lists",
+            scan_lists,
+            "--config",
+            str(config),
+            "--out-dir",
+            str(tmp_path / "out"),
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "detect_layer: false" in result.output
 
 
 def test_scan_collision_does_not_delete_spec_input(tmp_path: Path) -> None:
@@ -238,7 +293,6 @@ def test_scan_collision_does_not_delete_spec_input(tmp_path: Path) -> None:
             str(parm),
             "--model-pdb",
             str(structure),
-            "--no-detect-layer",
             "-q",
             "0",
             "-m",

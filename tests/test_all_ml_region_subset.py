@@ -1,8 +1,8 @@
 """Regression tests for the ML-region B-factor subset and charge/spin diagnostics.
 
 Covers:
-  * ``_write_bfactor_ml_subset`` writes ONLY the B≈0 ML atoms and returns ``None`` when
-    the input carries no B≈0 atoms.
+  * ``_write_bfactor_ml_subset`` writes ONLY the B≈0 ML atoms and rejects
+    single-class B-factor metadata.
   * ``validate_charge_spin`` error message carries ``counted_atoms=`` always and
     ``source=`` only when a source label is passed.
   * The all.py skip_extract+detect_layer path picks ``_write_bfactor_ml_subset``, and the
@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import click
 import pytest
 
 from mlmm.core.utils import validate_charge_spin
@@ -101,6 +102,9 @@ def test_write_bfactor_ml_subset_uses_canonical_inclusive_tolerance(tmp_path: Pa
     src.write_text(
         _atom(1, "N", "ALA", 1, 0.0, 0.0, 0.0, 1.00, "N")
         + _atom(2, "CA", "ALA", 1, 1.0, 0.0, 0.0, 1.01, "C")
+        + _atom(3, "C", "ALA", 1, 2.0, 0.0, 0.0, 10.00, "C")
+        + _atom(4, "O", "ALA", 1, 3.0, 0.0, 0.0, 10.00, "O")
+        + _atom(5, "CB", "ALA", 1, 4.0, 0.0, 0.0, 10.00, "C")
         + "END\n",
         encoding="utf-8",
     )
@@ -118,14 +122,24 @@ def test_write_bfactor_ml_subset_uses_canonical_inclusive_tolerance(tmp_path: Pa
     assert float(kept[0][60:66]) == pytest.approx(1.0)
 
 
-def test_write_bfactor_ml_subset_returns_none_without_ml_atoms(tmp_path: Path):
+def test_write_bfactor_ml_subset_rejects_single_class_metadata(tmp_path: Path):
     src = tmp_path / "mm_only.pdb"
     src.write_text(_mm_only_pdb_text(), encoding="utf-8")
     dest = tmp_path / "ml_region.pdb"
 
-    assert _write_bfactor_ml_subset(src, dest) is None
-    # Caller must be able to fall back: no partial/empty file is relied upon.
+    with pytest.raises(click.ClickException, match="valid ML/MM B-factor partition"):
+        _write_bfactor_ml_subset(src, dest)
     assert not dest.exists()
+
+    all_zero = tmp_path / "all_zero.pdb"
+    all_zero.write_text(
+        _atom(1, "N", "ALA", 1, 0.0, 0.0, 0.0, 0.00, "N")
+        + _atom(2, "CA", "ALA", 1, 1.0, 0.0, 0.0, 0.00, "C")
+        + "END\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(click.ClickException, match="valid ML/MM B-factor partition"):
+        _write_bfactor_ml_subset(all_zero, dest)
 
 
 def test_ml_region_definition_removes_extractor_link_h(tmp_path: Path):

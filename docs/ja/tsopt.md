@@ -188,7 +188,7 @@ out_dir/ (デフォルト: ./result_tsopt/)
 | `--model-pdb PATH` | ML 領域原子を含む PDB。`--detect-layer` 有効時はオプション。 | _None_ |
 | `--model-indices TEXT` | ML 領域のカンマ区切り原子インデックス（範囲指定可）。 | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` を 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
-| `--detect-layer / --no-detect-layer` | 入力 PDB の B 因子から ML/MM レイヤーを検出。 | `True` |
+| `--detect-layer` | 入力 PDB の B 因子から ML/MM レイヤーを自動検出。 | 有効 |
 | `-q, --charge INT` | ML 領域の総電荷。 | _None_（`-l` 未指定時は必須） |
 | `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。PDB 入力または `--ref-pdb` が必要。 | _None_ |
 | `-m, --multiplicity INT` | ML 領域のスピン多重度 (2S+1)。 | _None_（デフォルト 1） |

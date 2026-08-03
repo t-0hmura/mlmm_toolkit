@@ -8,7 +8,7 @@
 
 ```bash
 mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- --no-detect-layer -q 0 -m 1 --max-cycles 50 --out-dir ./result_irc
+ -q 0 -m 1 --max-cycles 50 --out-dir ./result_irc
 ```
 
 正方向のみ実行:
@@ -22,7 +22,7 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ```bash
 mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- --no-detect-layer -q 0 -m 1 --step-size 0.05 \
+ -q 0 -m 1 --step-size 0.05 \
  --hessian-calc-mode Analytical --out-dir ./result_irc_analytical
 ```
 
@@ -43,7 +43,7 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0 \
 
 ```bash
 mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- --no-detect-layer -q 0 -m 1 --max-cycles 150 \
+ -q 0 -m 1 --max-cycles 150 \
  --out-dir ./result_irc_long
 ```
 
@@ -114,10 +114,10 @@ standalone IRC はstitched pathの`first` / `last`端点と、その方向のbon
 | `--read-hess PATH` | `mlmm freq --dump-hess`のidentified `.npz`を読み込む。geometry、原子順序、layer選択、active-DOF basisが一致する必要があり、cache／新規計算より優先。 | _None_ |
 | `-i, --input PATH` | 構造ファイル（`.pdb`/`.xyz`/`_trj.xyz`/...）。`geom_loader` で読み取り可能な任意の形式。 | 必須 |
 | `--parm PATH` | 全酵素/MM 領域の Amber トポロジー。YAML の `calc.real_parm7` が無い場合は必須。 | _None_ |
-| `--model-pdb PATH` | ML 領域を定義する PDB。`--no-detect-layer` かつ `--model-indices` 未指定時は必須。 | _None_ |
+| `--model-pdb PATH` | ML 領域を定義する PDB。有効な B-factor layer または `--model-indices` で定義する場合は省略可能。 | _None_ |
 | `--model-indices TEXT` | ML 領域原子インデックス（カンマ区切り、範囲指定可: `1-10,15`）。`--model-pdb` 省略時に使用。 | _None_ |
 | `--model-indices-one-based/--model-indices-zero-based` | `--model-indices` を 1 始まり/0 始まりとして解釈。 | `True`（1 始まり） |
-| `--detect-layer/--no-detect-layer` | 入力 PDB の B 因子（`B=0/10/20`）から ML/MM レイヤーを検出。 | `True` |
+| `--detect-layer` | 入力 PDB の B 因子（`B=0/10/20`）から ML/MM レイヤーを自動検出。 | 有効 |
 | `--freeze-atoms TEXT` | 1 始まりの凍結原子インデックスをカンマ区切りで指定。 | _None_ |
 | `-q, --charge INT` | ML 領域/model system の正味電荷。YAML の `calc.model_charge` を上書き。 | _None_（`-l` 未指定時は必須） |
 | `-l, --ligand-charge TEXT` | 未知リガンド残基の合計電荷または残基別マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に ML 領域の正味電荷を導出。 | _None_ |

@@ -7,7 +7,7 @@ Runs EulerPC-based IRC (Intrinsic Reaction Coordinate) integration from a transi
 ```bash
 # Minimal run from a TS PDB
 mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- --no-detect-layer -q 0 -m 1 --max-cycles 50 --out-dir ./result_irc
+ -q 0 -m 1 --max-cycles 50 --out-dir ./result_irc
 ```
 
 Forward branch only:
@@ -23,7 +23,7 @@ Smaller step size with analytical Hessians:
 ```bash
 # Smaller step size for a shallow surface
 mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- --no-detect-layer -q 0 -m 1 --step-size 0.05 \
+ -q 0 -m 1 --step-size 0.05 \
  --hessian-calc-mode Analytical --out-dir ./result_irc_analytical
 # keep both branches and raise the step limit with --max-cycles 150
 ```
@@ -101,10 +101,10 @@ The full flag list is in the generated [command reference](reference/commands/in
 | --- | --- | --- |
 | `-i, --input PATH` | Structure file (`.pdb`/`.xyz`/`_trj.xyz`/...). | Required |
 | `--parm PATH` | Amber topology for the full enzyme/MM region. Required unless `calc.real_parm7` is set in YAML. | _None_ |
-| `--model-pdb PATH` | PDB defining the ML region. Required when `--no-detect-layer` and no `--model-indices` are given. | _None_ |
+| `--model-pdb PATH` | PDB defining the ML region. Optional when valid B-factor layers or `--model-indices` define it. | _None_ |
 | `--model-indices TEXT` | Comma-separated ML-region atom indices (ranges allowed, e.g. `1-10,15`). Used when `--model-pdb` is omitted. | _None_ |
 | `--model-indices-one-based/--model-indices-zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
-| `--detect-layer/--no-detect-layer` | Detect ML/MM layers from input PDB B-factors (`B=0/10/20`). | `True` |
+| `--detect-layer` | Automatically detect ML/MM layers from input PDB B-factors (`B=0/10/20`). | Enabled |
 | `--freeze-atoms TEXT` | Comma-separated 1-based frozen-atom indices. | _None_ |
 | `-q, --charge INT` | Net charge of the ML region/model system; overrides `calc.model_charge` from YAML. | _None_ (required unless `-l` is given) |
 | `-l, --ligand-charge TEXT` | Total charge for unknown ligand residues or a per-resname mapping (e.g., `GPP:-3,SAM:1`). Derives the ML-region net charge when `-q` is omitted. | _None_ |

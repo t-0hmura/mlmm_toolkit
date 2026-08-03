@@ -55,6 +55,17 @@ def test_path_workflow_max_nodes_defaults_to_twenty(command: str) -> None:
     )
 
 
+def test_layer_detection_is_default_on_without_a_disable_flag() -> None:
+    runner = CliRunner()
+
+    enabled = runner.invoke(root_cli, ["sp", "--detect-layer", "--help"])
+    assert enabled.exit_code == 0, enabled.output
+
+    disabled = runner.invoke(root_cli, ["sp", "--no-detect-layer"])
+    assert disabled.exit_code == 2, disabled.output
+    assert "No such option: --no-detect-layer" in disabled.output
+
+
 @pytest.mark.parametrize("mep_mode", ["gsm", "dmf"])
 def test_path_opt_rejects_zero_cycles_with_error_result(
     tmp_path: Path,
@@ -77,7 +88,6 @@ def test_path_opt_rejects_zero_cycles_with_error_result(
             str(smoke / "p_complex.parm7"),
             "--model-pdb",
             str(smoke / "pocket_r.pdb"),
-            "--no-detect-layer",
             "-q",
             "-1",
             "-m",
@@ -119,7 +129,6 @@ def test_gsm_ignores_a_dormant_dmf_tolerance(
             str(smoke / "p_complex.parm7"),
             "--model-pdb",
             str(smoke / "pocket_r.pdb"),
-            "--no-detect-layer",
             "-q",
             "-1",
             "-m",
@@ -156,7 +165,6 @@ def test_gsm_rejects_an_explicit_invalid_dmf_tolerance(
             str(smoke / "p_complex.parm7"),
             "--model-pdb",
             str(smoke / "pocket_r.pdb"),
-            "--no-detect-layer",
             "-q",
             "-1",
             "-m",

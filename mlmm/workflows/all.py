@@ -91,6 +91,7 @@ from mlmm.core.utils import (
     classify_bfactor_layer,
     ensure_dir,
     format_elapsed,
+    has_valid_layer_bfactors,
     prepare_input_structure,
     PreparedInputStructure,
     load_yaml_dict,
@@ -707,9 +708,18 @@ def _write_bfactor_ml_subset(src_pdb: Path, dest: Path) -> Optional[Path]:
     FULL input (skip_extract copies the whole system), so any downstream stage whose
     detect-layer can't read B-factors (e.g. an XYZ geometry) falls back to --model-pdb
     and treats the ENTIRE system as the ML/QM region (sum_Z huge → electron-count
-    error). Returns ``None`` if the input has no B≈0 atoms (caller falls back).
+    error). Invalid or single-class B-factor metadata is rejected rather than
+    falling back to the full system as the ML region.
     """
     try:
+        bfactors = read_bfactors_from_pdb(src_pdb)
+        if not has_valid_layer_bfactors(bfactors):
+            raise click.ClickException(
+                f"[all] {src_pdb} does not contain a valid ML/MM B-factor "
+                "partition (both ML and MM atoms are required). Provide "
+                "--model-pdb or --model-indices, or assign layers with "
+                "mlmm define-layer."
+            )
         ml_lines: List[str] = []
         for ln in open(src_pdb, "r", encoding="utf-8", errors="ignore"):
             if ln.startswith(("ATOM", "HETATM")):
@@ -720,28 +730,20 @@ def _write_bfactor_ml_subset(src_pdb: Path, dest: Path) -> Optional[Path]:
                 if classify_bfactor_layer(bf) == "ml":
                     ml_lines.append(ln)
         if not ml_lines:
-            _echo(
-                f"[all] NOTE: {src_pdb} carries no B-factor ML layer (no B≈0 atoms); "
-                f"the ML region falls back to the full input.",
-                err=True,
+            raise click.ClickException(
+                f"[all] {src_pdb} carries no B-factor ML layer (no B≈0 atoms)."
             )
-            return None
         dest.parent.mkdir(parents=True, exist_ok=True)
         with open(dest, "w", encoding="utf-8") as fh:
             fh.writelines(ml_lines)
             fh.write("END\n")
         return dest.resolve()
+    except click.ClickException:
+        raise
     except Exception as exc:
-        # Never let a read/write failure look like "no ML atoms": the caller falls back to the
-        # FULL input as the ML region, which is exactly the electron-count defect this helper
-        # exists to prevent. Say so instead of returning a silent None.
-        _echo(
-            f"[all] WARNING: could not build the B≈0 ML-region subset from {src_pdb} ({exc}); "
-            f"falling back to the FULL input as the ML region — downstream ML-region checks "
-            f"will count the entire system.",
-            err=True,
-        )
-        return None
+        raise click.ClickException(
+            f"[all] Could not build the B≈0 ML-region subset from {src_pdb}: {exc}"
+        ) from exc
 
 
 def _summarize_existing_bfactor_layers(pdb_path: Path) -> Dict[str, int]:
@@ -2241,7 +2243,8 @@ def _irc_and_match(seg_idx: int,
         "-m", str(int(spin)),
         "--out-dir", str(irc_dir),
     ]
-    irc_args.append("--detect-layer" if detect_layer else "--no-detect-layer")
+    if detect_layer:
+        irc_args.append("--detect-layer")
     if irc_step_size is not None:
         irc_args.extend(["--step-size", str(float(irc_step_size))])
     if irc_never_stop is not None:
@@ -2489,7 +2492,8 @@ def _run_tsopt_on_hei(hei_pdb: Path,
             "-m", str(int(spin)),
             "--out-dir", str(ts_dir),
         ])
-        ts_args.append("--detect-layer" if detect_layer else "--no-detect-layer")
+        if detect_layer:
+            ts_args.append("--detect-layer")
 
         if opt_mode is not None:
             ts_args.extend(["--opt-mode", str(opt_mode)])
@@ -2841,7 +2845,8 @@ def _run_freq_for_state(pdb_path: Path,
         "-m", str(int(spin)),
         "--out-dir", str(fdir),
     ])
-    args.append("--detect-layer" if detect_layer else "--no-detect-layer")
+    if detect_layer:
+        args.append("--detect-layer")
 
     _append_cli_arg(args, "--max-write", overrides.get("max_write"))
     _append_cli_arg(args, "--amplitude-ang", overrides.get("amplitude_ang"))
@@ -2996,7 +3001,8 @@ def _run_opt_for_state(
             # convergence bit can gate the segment (never inferred from files).
             "--out-json",
         ])
-        args.append("--detect-layer" if detect_layer else "--no-detect-layer")
+        if detect_layer:
+            args.append("--detect-layer")
         _append_toggle_arg(args, "--convert-files", convert_files)
         _append_cli_arg(args, "--thresh", thresh)
         _append_toggle_arg(args, "--reject-uphill", reject_uphill)
@@ -3184,7 +3190,8 @@ def _run_dft_for_state(pdb_path: Path,
         "--out-dir", str(ddir),
     ])
     _append_cli_arg(args, "--func-basis", func_basis_use)
-    args.append("--detect-layer" if detect_layer else "--no-detect-layer")
+    if detect_layer:
+        args.append("--detect-layer")
 
     _append_cli_arg(args, "--max-cycle", overrides.get("max_cycle"))
     _append_cli_arg(args, "--conv-tol", overrides.get("conv_tol"))
@@ -3510,12 +3517,13 @@ def _configure_all_help_visibility(command: click.Command) -> None:
                     "Default: 'FiniteDifference'. Runtime and memory depend on "
                     "the backend and system; compare both modes on a representative pilot."))
 @click.option(
-    "--detect-layer/--no-detect-layer",
+    "--detect-layer",
     "detect_layer",
+    is_flag=True,
     default=True,
     show_default=True,
-    help="Detect ML/MM layers from input PDB B-factors (ML=0, MovableMM=10, FrozenMM=20) in downstream tools. "
-         "If disabled, mlmm all requires --model-pdb.",
+    help="Automatically detect ML/MM layers from input PDB B-factors "
+         "(ML=0, MovableMM=10, FrozenMM=20) in downstream tools.",
 )
 # ===== Post-processing toggles =====
 @click.option("--tsopt/--no-tsopt", "do_tsopt", default=False, show_default=True,
@@ -3942,6 +3950,10 @@ def cli(
         mm_backend=mm_backend,
         use_cmap=use_cmap,
     )
+    if not _is_param_explicit("detect_layer"):
+        detect_layer = bool(
+            resolved_calc_template.materialize().get("use_bfactor_layers", True)
+        )
     reject_retired_embedcharge_cli(
         resolved_calc_template.materialize(),
         cutoff_requested=_is_param_explicit("embedcharge_cutoff"),
@@ -4243,13 +4255,14 @@ def cli(
             and detect_layer
             and model_pdb_override is None
         ):
-            counts = _summarize_existing_bfactor_layers(
+            bfactors = read_bfactors_from_pdb(
                 _prepared_all_inputs[0].source_path
             )
-            if counts.get("movable", 0) == 0 and counts.get("frozen", 0) == 0:
+            if not has_valid_layer_bfactors(bfactors):
                 raise click.ClickException(
-                    "[all] --detect-layer requires 0/10/20 B-factor layers when "
-                    "extraction is skipped and --model-pdb is absent."
+                    "[all] Automatic layer detection requires a valid 0/10/20 "
+                    "B-factor partition with both ML and MM atoms when extraction "
+                    "is skipped and --model-pdb is absent."
                 )
         _echo(
             "[all] Dry-run validation passed: structure normalization, layer "
@@ -4368,16 +4381,17 @@ def cli(
     extract_inputs = tuple(inputs_for_extract)
     skip_extract = center_spec is None or str(center_spec).strip() == ""
 
-    # OOM hazard guard: skip_extract + --no-detect-layer + no --model-pdb collapses the
+    # OOM hazard guard for programmatic/config-driven layer-detection disablement.
     # ML region to the entire input PDB, causing downstream ML/MM ONIOM to scale ML over
     # all atoms (OOM on enzyme-sized systems). Hard-fail with an actionable message
     # rather than silently running the doomed configuration.
     if skip_extract and (not detect_layer) and model_pdb_override is None:
         raise click.ClickException(
-            "[all] Skipping extraction (no -c/--center) with --no-detect-layer requires "
+            "[all] Skipping extraction (no -c/--center) with B-factor layer detection "
+            "disabled requires "
             "--model-pdb. Otherwise the ML region collapses to the entire input PDB and "
             "downstream ML/MM ONIOM will treat every atom as ML (OOM hazard on enzyme-sized "
-            "systems). Provide --model-pdb <ml_region.pdb>, or enable --detect-layer to use "
+            "systems). Provide --model-pdb <ml_region.pdb>, or enable B-factor layer detection to use "
             "B-factor layer information from the input PDB."
         )
 
@@ -5468,7 +5482,8 @@ def cli(
             "--endopt" if scan_endopt_use else "--no-endopt",
             "--opt-mode", str(scan_opt_mode_use),
         ]
-        scan_args.append("--detect-layer" if detect_layer else "--no-detect-layer")
+        if detect_layer:
+            scan_args.append("--detect-layer")
 
         if dump_override_requested:
             scan_args.append("--dump" if dump else "--no-dump")
@@ -5624,10 +5639,9 @@ def cli(
         ps_args.extend(["-q", str(q_int)])
         ps_args.extend(["-m", str(int(spin))])
         ps_args.extend(["--parm", str(real_parm7_path)])
-        # Layered PDBs have B-factors → --detect-layer is True by default in
-        # the option declaration. Honor the user's explicit `--no-detect-layer`
-        # by forwarding the chosen toggle instead of hardcoding `--detect-layer`.
-        ps_args.append("--detect-layer" if detect_layer else "--no-detect-layer")
+        # Layered PDBs use automatic B-factor detection by default.
+        if detect_layer:
+            ps_args.append("--detect-layer")
 
         # User-tunable parent defaults stay absent so child YAML remains the
         # effective middle layer. Pipeline-owned output paths are always set.
@@ -5723,10 +5737,9 @@ def cli(
                     "--ref-pdb", str(refs_for_path[pair_pos]),
                     "--ref-pdb", str(refs_for_path[pair_pos + 1]),
                 ])
-            # Forward the chosen --detect-layer/--no-detect-layer toggle
-            # (default True). Hardcoded "--detect-layer" silently overrode
-            # user's `--no-detect-layer` request.
-            po_args.append("--detect-layer" if detect_layer else "--no-detect-layer")
+            # Forward explicit automatic layer detection.
+            if detect_layer:
+                po_args.append("--detect-layer")
             po_args.extend(
                 _build_path_child_argv(
                     explicit_params,

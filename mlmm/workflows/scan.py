@@ -540,15 +540,6 @@ def cli(
                 sys.exit(1)
             geom_input_path = prepared_input.geom_path
             source_path = prepared_input.source_path
-            charge, spin = resolve_charge_spin_or_raise(
-                prepared_input, charge, spin,
-                ligand_charge=ligand_charge, prefix="[scan]",
-                model_pdb=model_pdb,
-                model_indices_spec=model_indices_str,
-                detect_layer=detect_layer,
-                yaml_cfg=yaml_cfg,
-            )
-
             try:
                 freeze_atoms_list = _parse_freeze_atoms(freeze_atoms_cli)
             except click.BadParameter as e:
@@ -580,6 +571,19 @@ def cli(
                     (bias_cfg, (("bias",),)),
                     (bond_cfg, (("bond",),)),
                 ],
+            )
+            detect_layer_effective = (
+                bool(detect_layer)
+                if _is_param_explicit("detect_layer")
+                else bool(calc_cfg.get("use_bfactor_layers", True))
+            )
+            charge, spin = resolve_charge_spin_or_raise(
+                prepared_input, charge, spin,
+                ligand_charge=ligand_charge, prefix="[scan]",
+                model_pdb=model_pdb,
+                model_indices_spec=model_indices_str,
+                detect_layer=detect_layer_effective,
+                yaml_cfg=yaml_cfg,
             )
 
             # Staged scans run restrained L-BFGS with no microiteration, so DLC
@@ -681,7 +685,7 @@ def cli(
                     out_dir_path=out_dir_path,
                     model_pdb=model_pdb,
                     model_indices=model_indices,
-                    detect_layer=detect_layer,
+                    detect_layer=detect_layer_effective,
                     hess_cutoff=hess_cutoff,
                     movable_cutoff=movable_cutoff,
                     calc_cfg=calc_cfg,
@@ -836,7 +840,7 @@ def cli(
                         {
                             "input_geometry": str(geom_input_path),
                             "output_dir": str(out_dir_path),
-                            "detect_layer": bool(detect_layer),
+                            "detect_layer": bool(detect_layer_effective),
                             "model_region_source": model_region_source,
                             "num_stages": len(stages),
                             "stages_0based": stages,

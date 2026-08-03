@@ -51,6 +51,12 @@ def test_missing_or_malformed_bfactor_is_not_an_ml_marker(
     assert not has_valid_layer_bfactors(bfactors)
 
 
+def test_single_class_bfactors_are_not_a_layer_partition() -> None:
+    assert not has_valid_layer_bfactors([0.0, 0.0, 0.0])
+    assert not has_valid_layer_bfactors([10.0, 10.0, 10.0])
+    assert has_valid_layer_bfactors([0.0, 10.0, 20.0])
+
+
 def test_mixed_out_of_range_indices_fail_without_full_system_fallback(
     tmp_path: Path,
 ) -> None:
@@ -101,7 +107,7 @@ def test_explicit_all_atom_indices_are_allowed_and_recorded(tmp_path: Path) -> N
     assert provenance["full_system_ml"] is True
     assert provenance["ml_region_indices"] == [0, 1, 2]
     assert Path(provenance["ml_region_model_pdb"]).exists()
-    assert config["use_bfactor_layers"] is True
+    assert config["use_bfactor_layers"] is False
 
 
 def test_explicit_model_pdb_has_precedence_and_path_provenance(tmp_path: Path) -> None:
@@ -126,6 +132,24 @@ def test_explicit_model_pdb_has_precedence_and_path_provenance(tmp_path: Path) -
         "ml_region_indices": None,
     }
     assert config["model_pdb"] == str(model)
+    assert config["use_bfactor_layers"] is False
+
+
+def test_explicit_model_keeps_valid_mm_bfactor_layers(tmp_path: Path) -> None:
+    source = _write_pdb(tmp_path / "source.pdb", [0.0, 10.0, 20.0])
+    model = _write_pdb(tmp_path / "model.pdb", [0.0])
+    config = _calc_cfg(model_pdb=str(model), use_bfactor_layers=True)
+
+    provenance = sp._resolve_sp_ml_region(
+        source_path=source,
+        out_dir_path=tmp_path / "out",
+        calc_cfg=config,
+        model_indices_str=None,
+        model_indices_one_based=True,
+        protected_inputs=(),
+    )
+
+    assert provenance["ml_region_source"] == "model_pdb"
     assert config["use_bfactor_layers"] is True
 
 
@@ -167,7 +191,6 @@ def test_cli_rejects_invalid_indices_before_calculator_construction(
             str(parm),
             "-q",
             "0",
-            "--no-detect-layer",
             "--model-indices",
             "1,3",
             "--out-dir",
