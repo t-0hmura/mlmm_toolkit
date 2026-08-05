@@ -6,7 +6,6 @@ Example:
 For detailed documentation, see: docs/define_layer.md
 """
 
-from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import sys
@@ -115,6 +114,66 @@ def _get_ml_indices_from_model_pdb(
     icode, atom_name) for that entry (single-chain model_pdb describing a
     multi-chain input).
     """
+    def _identity(record):
+        if isinstance(record, dict):
+            return (
+                str(record["chain_id"]),
+                str(record["res_seq"]),
+                str(record["icode"]),
+                str(record["res_name"]),
+                str(record["atom_name"]),
+            )
+        return (
+            str(record.chain_id),
+            str(record.resseq),
+            str(record.icode),
+            str(record.resname),
+            str(record.atom_name),
+        )
+
+    def _match_occurrences(input_records, model_records, *, allow_no_match=False):
+        input_keys = [_identity(record) for record in input_records]
+        model_keys = [_identity(record) for record in model_records]
+
+        def _candidates(key, used):
+            if key[0]:
+                return [
+                    index
+                    for index, candidate in enumerate(input_keys)
+                    if index not in used and candidate == key
+                ]
+            return [
+                index
+                for index, candidate in enumerate(input_keys)
+                if index not in used and candidate[1:] == key[1:]
+            ]
+
+        if allow_no_match and not any(
+            _candidates(key, set()) for key in model_keys
+        ):
+            return None
+
+        used = set()
+        matched = []
+        for key in model_keys:
+            candidates = _candidates(key, used)
+            if not candidates:
+                raise ValueError(
+                    "Model PDB atom identity is absent from the full input: "
+                    f"{key!r}."
+                )
+            if not key[0]:
+                candidate_chains = {input_keys[index][0] for index in candidates}
+                if len(candidate_chains) > 1:
+                    raise ValueError(
+                        "Blank-chain model PDB atom identity is ambiguous in the "
+                        f"full input: {key[1:]!r}."
+                    )
+            chosen = candidates[0]
+            used.add(chosen)
+            matched.append(chosen)
+        return sorted(matched)
+
     # Prefer retained author identifiers when either side came through the
     # mmCIF/large-PDB bridge. Internal one-character chain IDs and 4-column
     # residue numbers are implementation details and may differ for a subset.
@@ -125,23 +184,6 @@ def _get_ml_indices_from_model_pdb(
     )
     model_template = coordinate_template_for(model_pdb_path)
     if input_template is not None or model_template is not None:
-        def _identity(record):
-            if isinstance(record, dict):
-                return (
-                    str(record["chain_id"]),
-                    str(record["res_seq"]),
-                    str(record["icode"]),
-                    str(record["res_name"]),
-                    str(record["atom_name"]),
-                )
-            return (
-                str(record.chain_id),
-                str(record.resseq),
-                str(record.icode),
-                str(record.resname),
-                str(record.atom_name),
-            )
-
         input_records = (
             input_template.records
             if input_template is not None
@@ -152,38 +194,10 @@ def _get_ml_indices_from_model_pdb(
             if model_template is not None
             else _parse_pdb_atoms(model_pdb_path)
         )
-        input_chain_counts = Counter(_identity(record) for record in input_records)
-        input_blank_counts = Counter(
-            _identity(record)[1:] for record in input_records
+        matched = _match_occurrences(
+            input_records, model_records, allow_no_match=True
         )
-        unmatched = []
-        for record in model_records:
-            key = _identity(record)
-            available = input_chain_counts if key[0] else input_blank_counts
-            lookup = key if key[0] else key[1:]
-            if available[lookup] <= 0:
-                unmatched.append(key)
-            else:
-                available[lookup] -= 1
-        model_chain_keys = set()
-        model_blank_keys = set()
-        for record in model_records:
-            key = _identity(record)
-            if key[0]:
-                model_chain_keys.add(key)
-            else:
-                model_blank_keys.add(key[1:])
-        matched = []
-        for index, record in enumerate(input_records):
-            key = _identity(record)
-            if key in model_chain_keys or key[1:] in model_blank_keys:
-                matched.append(index)
-        if matched:
-            if unmatched:
-                raise ValueError(
-                    "Model PDB atom identity is absent from the full input: "
-                    f"{unmatched[0]!r}."
-                )
+        if matched is not None:
             return matched
         # An extracted model PDB can deliberately use the internal identifiers
         # of a normalized full structure.  If author-identifier matching found
@@ -192,74 +206,7 @@ def _get_ml_indices_from_model_pdb(
     # Parse model PDB
     model_atoms = _parse_pdb_atoms(model_pdb_path)
 
-    # Create sets of ML atom identifiers (chain-aware + chain-blank fallback)
-    ml_ids_chain = set()
-    ml_ids_blank = set()
-    for atom in model_atoms:
-        chain = atom["chain_id"]
-        key = (chain, atom["res_seq"], atom["icode"], atom["res_name"], atom["atom_name"])
-        if chain:
-            ml_ids_chain.add(key)
-        else:
-            ml_ids_blank.add(
-                (atom["res_seq"], atom["icode"], atom["res_name"], atom["atom_name"])
-            )
-
-    input_chain_counts = Counter(
-        (
-            atom["chain_id"],
-            atom["res_seq"],
-            atom["icode"],
-            atom["res_name"],
-            atom["atom_name"],
-        )
-        for atom in input_atoms
-    )
-    input_blank_counts = Counter(
-        (
-            atom["res_seq"],
-            atom["icode"],
-            atom["res_name"],
-            atom["atom_name"],
-        )
-        for atom in input_atoms
-    )
-    unmatched = []
-    for atom in model_atoms:
-        chain = atom["chain_id"]
-        key = (
-            chain,
-            atom["res_seq"],
-            atom["icode"],
-            atom["res_name"],
-            atom["atom_name"],
-        )
-        available = input_chain_counts if chain else input_blank_counts
-        lookup = key if chain else key[1:]
-        if available[lookup] <= 0:
-            unmatched.append(key)
-        else:
-            available[lookup] -= 1
-    if unmatched:
-        raise ValueError(
-            "Model PDB atom identity is absent from the full input: "
-            f"{unmatched[0]!r}."
-        )
-
-    # Find matching atoms in input
-    ml_indices = []
-    for atom in input_atoms:
-        key_chain = (
-            atom["chain_id"], atom["res_seq"], atom["icode"],
-            atom["res_name"], atom["atom_name"],
-        )
-        key_blank = (
-            atom["res_seq"], atom["icode"], atom["res_name"], atom["atom_name"],
-        )
-        if key_chain in ml_ids_chain or key_blank in ml_ids_blank:
-            ml_indices.append(atom["idx"])
-
-    return sorted(ml_indices)
+    return _match_occurrences(input_atoms, model_atoms)
 
 
 def _parse_indices_string(
@@ -420,13 +367,22 @@ def write_layered_pdb(
 
     lines_out = []
     atom_idx = 0
+    saw_model = False
 
     with open(input_pdb_path, "r") as f:
         for line in f:
             if line.startswith("MODEL"):
+                if saw_model:
+                    break
+                saw_model = True
                 atom_idx = 0
                 lines_out.append(line)
                 continue
+
+            if saw_model and line.startswith("ENDMDL"):
+                lines_out.append(line)
+                lines_out.append("END\n")
+                break
 
             if line.startswith(("ATOM  ", "HETATM")):
                 # Determine B-factor for this atom
@@ -487,6 +443,19 @@ def _define_layers_pdb(
         Layer indices dictionary
     """
     # Parse input PDB
+    model_count = sum(
+        1
+        for line in input_pdb.read_text(
+            encoding="utf-8", errors="replace"
+        ).splitlines()
+        if line.startswith("MODEL")
+    )
+    if model_count > 1:
+        click.echo(
+            f"[define-layer] WARNING: Input '{input_pdb}' contains "
+            f"{model_count} MODELs; using first model and ignoring the rest.",
+            err=True,
+        )
     atoms = _parse_pdb_atoms(input_pdb)
     if not atoms:
         raise ValueError(f"No atoms found in {input_pdb}")

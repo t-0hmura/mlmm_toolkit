@@ -121,7 +121,7 @@ standalone IRC はstitched pathの`first` / `last`端点と、その方向のbon
 | `--freeze-atoms TEXT` | 1 始まりの凍結原子インデックスをカンマ区切りで指定。 | _None_ |
 | `-q, --charge INT` | ML 領域/model system の正味電荷。YAML の `calc.model_charge` を上書き。 | _None_（`-l` 未指定時は必須） |
 | `-l, --ligand-charge TEXT` | 未知リガンド残基の合計電荷または残基別マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に ML 領域の正味電荷を導出。 | _None_ |
-| `-m, --multiplicity INT` | スピン多重度 (2S+1)。`calc.spin` を上書き。 | `1` |
+| `-m, --multiplicity INT` | スピン多重度 (2S+1)。`calc.model_mult` を上書き。 | `1` |
 | `--max-cycles INT` | IRC ステップの最大数。`irc.max_cycles` を上書き。 | `125` |
 | `--step-size FLOAT` | ステップ長（Bohr、非質量加重デカルト座標）。`irc.step_length` を上書き。 | `0.10` |
 | `--root INT` | 初期変位の虚振動数モードインデックス。`irc.root` を上書き。 | `0` |
@@ -150,15 +150,15 @@ NPZ の geometry、原子順序、active basis、model charge、多重度は現�
 
 ## YAML 設定
 
-マージ順 **デフォルト < config < 明示CLI < override** でマッピングを提供します。
-共有セクションはジオメトリ/計算機キーについて [YAML リファレンス](yaml-reference.md) を再利用します。`irc` では YAML/CLI マージ後に `geom.coord_type` が `cart` に強制されます。`calc.return_partial_hessian` は明示的な YAML 指定が無い場合に `true` がデフォルト適用されます（active-DOF 処理を伴う partial Hessian）。
+マージ順 **デフォルト < config < 明示 CLI** でマッピングを提供します。
+共有セクションはジオメトリ/計算機キーについて [YAML リファレンス](yaml-reference.md) を再利用します。`irc` では YAML/CLI マージ後に `geom.coord_type` が `cart` に強制されます。`calc.return_partial_hessian` は明示的な YAML 指定が無い場合に `true` がデフォルト適用され（active-DOF 処理を伴う partial Hessian）、明示的な `false` は full Hessian を要求します。
 
 ### CLI から YAML へのマッピング
 
 | CLI オプション | YAML キー |
 |------------|----------|
-| `--charge` | `calc.charge` |
-| `--multiplicity` | `calc.spin` |
+| `--charge` | `calc.model_charge` |
+| `--multiplicity` | `calc.model_mult` |
 | `--step-size` | `irc.step_length` |
 | `--max-cycles` | `irc.max_cycles` |
 | `--root` | `irc.root` |
@@ -177,8 +177,7 @@ geom:
  tr_projection: constrained        # 固定の内部 PHVA 処理
 calc:
  model_charge: 0                   # ML 領域/model system の正味電荷
- spin: 1                           # スピン多重度 2S+1
-mlmm:
+ model_mult: 1                     # スピン多重度 2S+1
  real_parm7: real.parm7            # Amber parm7 トポロジー
  model_pdb: ml_region.pdb          # ML 領域定義
  backend: uma                      # ML バックエンド (uma/orb/mace/aimnet2)
@@ -187,7 +186,7 @@ mlmm:
  uma_task_name: omol                # UMA タスク名 (backend=uma 時)
  ml_device: auto                   # ML デバイス選択
  hessian_calc_mode: Analytical         # Hessianモード選択
- return_partial_hessian: true      # irc では true に強制（partial Hessian、active-DOF 処理）
+ return_partial_hessian: true      # 省略時の既定。false なら full Hessian を要求
 irc:
  step_length: 0.1                  # 積分ステップ長
  max_cycles: 125                   # IRC に沿った最大ステップ数

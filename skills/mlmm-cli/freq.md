@@ -133,8 +133,8 @@ set), `freq` automatically computes the **partial Hessian**: only the
 mobile-atom block is built and diagonalized; frozen atoms are projected
 out. This is much cheaper for large clusters.
 
-Frozen atoms are written by `extract` for link-H parents. To override,
-use `--config` YAML and set `freeze_atoms`.
+Frozen atoms are assigned by `define-layer` or explicitly through
+`geom.freeze_atoms`; `extract` only writes the capped pocket structure.
 
 The default `constrained` TR treatment removes only full-system rigid motions
 that leave every frozen anchor fixed. Generic effective ranks are 6/3/1/0 for

@@ -13,7 +13,7 @@ from pysisyphus.intcoords.PrimTypes import normalize_prim_input, normalize_prim_
 from pysisyphus.optimizers import poly_fit
 from pysisyphus.optimizers.guess_hessians import ts_hessian, HessInit
 from pysisyphus.optimizers.HessianOptimizer import HessianOptimizer, HessUpdate
-from pysisyphus.optimizers.Optimizer import get_data_model, get_h5_group
+from pysisyphus.optimizers.Optimizer import get_data_model
 
 from pysisyphus.helpers import array2string
 import torch
@@ -122,8 +122,10 @@ class TSHessianOptimizer(HessianOptimizer):
             the saddle with a mass-weighted, translation/rotation-projected
             vibrational analysis.
         saddle_imaginary_threshold_cm
-            Minimum absolute imaginary frequency required by exact saddle
-            verification, in cm^-1.
+            Minimum absolute imaginary frequency, in cm^-1, that the
+            near-flat-minimum recovery treats as a usable uphill direction.
+            Saddle order itself is certified from every negative root of the
+            exact spectrum and does not use this threshold.
         saddle_recovery_step
             Minimum uphill displacement used to escape a near-flat local minimum
             exposed by exact-Hessian validation.
@@ -314,15 +316,11 @@ class TSHessianOptimizer(HessianOptimizer):
     def prepare_opt(self, *args, **kwargs):
         if self.augment_bonds:
             self.geometry = augment_bonds(self.geometry, root=self.root)
-            # Update data model and HD5 shapes, as the number of coordinates
-            # may have changed.
+            # Update the data model, as the number of coordinates may have changed.
             if self.dump:
                 self.data_model = get_data_model(
                     self.geometry, self.is_cos, self.max_cycles
                 )
-                # self.h5_group = get_h5_group(
-                #     self.h5_fn, self.h5_group_name, self.data_model
-                # )
 
         # Calculate/set initial hessian
         super().prepare_opt(*args, **kwargs)
@@ -834,7 +832,10 @@ class TSHessianOptimizer(HessianOptimizer):
 
         freqs_cm, modes = frequency_data
         self._last_exact_frequencies_cm = freqs_cm.copy()
-        neg_mask = freqs_cm < -self.saddle_imaginary_threshold_cm
+        # Saddle order is the Morse index: every negative root of the exact
+        # compact PHVA spectrum counts. saddle_imaginary_threshold_cm stays with
+        # the recovery owner and must not weight certification by magnitude.
+        neg_mask = freqs_cm < 0.0
         n_imaginary = int(np.count_nonzero(neg_mask))
         self._last_exact_n_imaginary = n_imaginary
         self._last_exact_cart_coords = self.geometry.cart_coords.copy()

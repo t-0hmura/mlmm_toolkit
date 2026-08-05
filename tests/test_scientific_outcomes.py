@@ -1217,4 +1217,13 @@ def test_all_path_opt_child_emits_machine_result() -> None:
     assert "_read_path_opt_segment_converged(seg_out)" in branch
     assert "seg_idx = pair_pos + 1" in branch
     assert 'seg_tag = f"seg_{seg_idx:02d}"' in branch
+    assert '"index": seg_idx' in branch
     assert "enumerate(path_opt_segments, start=1)" in source
+
+
+def test_all_mep_completion_banner_does_not_prejudge_status() -> None:
+    from mlmm.workflows import all as all_workflow
+
+    source = Path(all_workflow.__file__).read_text(encoding="utf-8")
+    assert "Core MEP pipeline finished ======" in source
+    assert "Core MEP pipeline finished successfully" not in source

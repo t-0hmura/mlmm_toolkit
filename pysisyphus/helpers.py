@@ -399,7 +399,11 @@ def get_coords_diffs(coords, align=False, normalize=True):
         cds.append(diff)
     cds = np.cumsum(cds)
     if normalize:
-        cds /= cds.max()
+        max_cd = cds.max()
+        # A fully collapsed path has a zero cumulative length. Dividing by it
+        # would return NaNs, which pass the optimizer's too-similar-image stop.
+        if np.isfinite(max_cd) and (max_cd > 0.0):
+            cds /= max_cd
     return cds
 
 

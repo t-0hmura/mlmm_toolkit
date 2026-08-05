@@ -9,6 +9,7 @@ from pathlib import Path
 
 import mlmm.workflows.freq as freq_mod
 import mlmm.workflows.mm_parm as mm_parm_mod
+import mlmm.workflows.tsopt as tsopt_mod
 
 
 def _src(mod) -> str:
@@ -28,6 +29,13 @@ def test_mode_pdb_fallback_is_reported() -> None:
     # and residues are not the input's.
     src = _src(freq_mod)
     assert "mode PDB fell back to plain ASE output" in src
+    assert "mode PDB fell back to plain ASE output" in _src(tsopt_mod)
+
+
+def test_unknown_path_mode_diagnostic_is_not_reported_as_lost() -> None:
+    src = _src(tsopt_mod)
+    marker = src.index("Path-correlated mode was lost")
+    assert "is False" in src[marker - 400 : marker]
 
 
 def test_unused_ligand_charge_entries_are_reported() -> None:

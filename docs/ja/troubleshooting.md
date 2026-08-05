@@ -111,7 +111,7 @@ mlmm extract -i complex.pdb -c PRE --modified-residue "HD1:0" -o pocket.pdb
 
 ### 電荷解決の問題
 
-計算系サブコマンドでは `-q/--charge` と `-m/--multiplicity` を明示する必要があります。
+計算系サブコマンドの電荷は、明示的 `-q`、calculator 設定、対応する ligand/extraction 導出の順で解決し、未解決の場合だけ `-q` が必要です。多重度は 1 がデフォルトで、`-m` で上書きできます。
 `all` では電荷は `-q/--charge` 上書き -> 抽出サマリー -> （抽出スキップ時）`--ligand-charge` フォールバック の順で解決されます。
 
 対処:
@@ -505,7 +505,7 @@ ML/MM 系は MLIP 単体の計算よりも一般的に大きいため、VRAM の
 - 結合変化が正しく検出されない
 
 対処の例:
-- `--max-nodes` を増やす（複雑な反応には 15 や 20 など）
+- `--max-nodes` を解決済みの値より増やす（デフォルト 20 なら 30 など）
 - 端点の事前最適化を有効にする: `--preopt`
 - 別の MEP 手法を試す: `--mep-mode dmf`（GSM が失敗した場合）またはその逆
 - YAML で結合検出パラメータを調整（`bond.bond_factor`、`bond.delta_fraction`）

@@ -156,10 +156,10 @@ To add a new backend `XYZModel` exposed as `--backend xyz`:
 1. **Create backend adapter** in `mlmm/backends/mlmm_calc.py` (or a new file
  like `mlmm/backends/xyz.py` if it grows large): implement `_XYZBackend(_MLBackend)`
  inheriting from `_MLBackend` (the ABC) and a parallel `_XYZASEBackend` if an
- ASE path is needed. Both must accept the common kwargs `charge / spin / device /
- freeze_atoms / hessian_calc_mode / return_partial_hessian / hessian_double /
- print_timing / model` and any backend-specific kwargs (`precision`,
- `default_dtype`, etc.).
+ ASE path is needed. The factory passes the common adapter arguments
+ `model_charge`, `model_mult`, and `ml_device`, plus model- and backend-specific
+ arguments such as `uma_model`/`uma_precision` or `mace_model`/`mace_dtype`.
+ Hessian assembly precision is owned by `MLMMCore`, not by the backend adapter.
 2. **Conform to `_MLBackend`**: implement the abstract methods
  `eval(atoms, need_grad=True) -> (E_eV, F_eV, opaque)` (energy in eV, forces in
  eV/Å, plus a backend-specific opaque object), `hessian_analytical(opaque, n_atoms,

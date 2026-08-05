@@ -1,6 +1,6 @@
 from collections import namedtuple
 import logging
-from math import sqrt
+from math import isfinite, sqrt
 from pprint import pprint
 
 import numpy as np
@@ -162,7 +162,15 @@ def quartic_fit(e0, e1, g0, g1, maximize=False):
     a3_pre = 2 * e0 - 2 * e1 + 2 * g0
 
     def get_poly(a3, a2, a1, a0):
+        # A vanishing or non-finite quadratic coefficient leaves the quartic
+        # coefficient undefined. This happens, e.g., for equal endpoint energies
+        # with vanishing projected gradients. The caller then falls back to the
+        # cubic fit or to no interpolation at all.
+        if (a2 == 0.0) or not (isfinite(a2) and isfinite(a3)):
+            return None
         a4 = 3 / 8 * a3 ** 2 / a2
+        if not isfinite(a4):
+            return None
         return np.poly1d((a4, a3, a2, a1, a0))
 
     a2 = a2_pre - sqrt_term / 2
@@ -172,6 +180,9 @@ def quartic_fit(e0, e1, g0, g1, maximize=False):
     a2 = a2_pre + sqrt_term / 2
     a3 = a3_pre - sqrt_term
     poly1 = get_poly(a3, a2, a1, a0)
+
+    if (poly0 is None) or (poly1 is None):
+        return None
 
     get_func = get_maximum if maximize else get_minimum
     mr0, mv0 = get_func(poly0)

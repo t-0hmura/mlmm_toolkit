@@ -17,7 +17,6 @@ import gc
 import logging
 import os
 from pathlib import Path
-import shutil
 import stat as stat_module
 import time
 from typing import Any, Callable, Iterable, Mapping, Sequence
@@ -152,16 +151,6 @@ class InvocationManifest:
     expected: dict[str, tuple[Path, ...]] = field(default_factory=dict)
     baseline: dict[str, dict[str, ArtifactStamp]] = field(default_factory=dict)
     produced: dict[str, tuple[Path, ArtifactStamp]] = field(default_factory=dict)
-
-    @staticmethod
-    def snapshot(paths: Iterable[Path]) -> dict[str, ArtifactStamp]:
-        """Capture a reusable pre-dispatch baseline for dynamic candidates."""
-
-        captured: dict[str, ArtifactStamp] = {}
-        for path in paths:
-            normalized = _lexical_absolute(path)
-            captured[str(normalized)] = ArtifactStamp.capture(normalized)
-        return captured
 
     def declare(
         self,
@@ -328,18 +317,6 @@ class InvocationResources:
         self.add(restore)
         target[name] = owned_value
         return owned_value
-
-    def own_path(self, path: Path) -> Path:
-        owned = Path(path)
-
-        def cleanup() -> None:
-            if owned.is_dir() and not owned.is_symlink():
-                shutil.rmtree(owned, ignore_errors=True)
-            else:
-                owned.unlink(missing_ok=True)
-
-        self.add(cleanup)
-        return owned
 
     def own_cleanup(self, owner: Any) -> Any:
         cleanup = getattr(owner, "cleanup", None)
@@ -614,47 +591,3 @@ def claim_public_output(
         path,
     )
     return manifest.claim_optional(key)
-
-
-def declare_path_deliverables(
-    manifest: InvocationManifest,
-    path_dir: Path,
-    *,
-    snapshot: Mapping[str, ArtifactStamp] | None = None,
-) -> None:
-    """Declare fixed path-stage products that may be promoted to root."""
-
-    candidates: dict[str, list[Path]] = {
-        "diagram": [
-            path_dir / "energy_diagram_MEP.png",
-            path_dir / "energy_diagram_mep.png",
-        ],
-    }
-    for name in (
-        "mep.pdb",
-        "mep.cif",
-        "mep_w_ref.pdb",
-        "mep_w_ref.cif",
-        "mep_trj.xyz",
-        "mep.xyz",
-        "mep_w_ref_trj.xyz",
-        "mep_w_ref.xyz",
-    ):
-        candidates[name] = [path_dir / name]
-    for name, paths in candidates.items():
-        key = f"path.deliverable.{name}"
-        if key not in manifest.expected:
-            manifest.declare(key, paths, snapshot=snapshot)
-
-
-def claim_path_deliverables(manifest: InvocationManifest) -> dict[str, Path]:
-    """Return only current path-stage products, keyed by public filename role."""
-
-    claimed: dict[str, Path] = {}
-    for key in list(manifest.expected):
-        if not key.startswith("path.deliverable."):
-            continue
-        path = manifest.claim_optional(key)
-        if path is not None:
-            claimed[key.removeprefix("path.deliverable.")] = path
-    return claimed

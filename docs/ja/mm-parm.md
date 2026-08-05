@@ -38,7 +38,7 @@ mlmm mm-parm -i input.pdb --out-prefix complex \
 
 - `<prefix>.parm7` -- Amber prmtop トポロジー
 - `<prefix>.rst7` -- Amber ASCII inpcrd 座標
-- `<prefix>.pdb` -- 元素記号列を補完した LEaP savepdb 出力（`--out-prefix` 指定時または `--add-h` 指定時のみ。両方省略時は parm7/rst7 のみ）
+- `<prefix>.pdb` -- 元素記号列を補完した LEaP savepdb 出力。`--add-h` を使い prefix を省略した場合は `<input_stem>_parm.pdb`、それ以外は `--out-prefix` 指定時に出力（両方省略時は parm7/rst7 のみ）。
 
 再利用可能なファイルを手作業で準備する場合は、入力とは異なる接頭辞を指定し、
 出力 PDB を抽出とレイヤー割り当ての両方に使います。この PDB は生成された

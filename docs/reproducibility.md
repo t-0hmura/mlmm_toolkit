@@ -43,7 +43,8 @@ mlmm all -i r_complex.pdb p_complex.pdb -c PRE -q -1 --deterministic
 | `aimnet2` | **not supported — rejected** (see below) |
 | `custom` (`--calc-file`) | **not supported — rejected** because the supplied calculator is outside mlmm-toolkit's control |
 
-The MM low-level layer runs on CPU. Exact end-to-end comparison still requires
+The default `hessian_ff` MM low-level layer runs on CPU; OpenMM can instead use
+its selected device, including CUDA. Exact end-to-end comparison still requires
 fixed inputs (including the topology), software versions, hardware, and backend
 configuration.
 
@@ -53,8 +54,9 @@ Running in `--precision fp64` changes numerical precision but does not by itself
 guarantee bit-identical GPU execution. `--deterministic` requests deterministic
 algorithms; confirm exact reproducibility for the complete target stack.
 
-`--precision fp64` and the (internal, always-on) fp64 Hessian (`H_double`) are
-independent knobs; passing `--precision fp64` additionally forces the Hessian to
+`--precision fp64` and Hessian storage precision (`H_double`, default `true`) are
+independent knobs; supported fp32 configurations can set `H_double: false`, while
+passing `--precision fp64` forces the Hessian to
 fp64 so the optimizer linear algebra cannot silently run in a lower precision
 than the model.
 

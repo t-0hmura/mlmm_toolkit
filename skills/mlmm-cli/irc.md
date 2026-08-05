@@ -34,7 +34,7 @@ selection. Most subcommands accept:
 | `--ref-pdb FILE` | Full-enzyme PDB/mmCIF used as topology reference for XYZ inputs |
 | `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
 | `--embedcharge / --no-embedcharge` | Unavailable in v0.3.3; use `--no-embedcharge` |
-| `-q, --charge` | Net charge; overrides `calc.charge` from YAML |
+| `-q, --charge` | Net charge; overrides `calc.model_charge` from YAML |
 | `-l, --ligand-charge` | Per-residue charge mapping for ML region |
 
 Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.

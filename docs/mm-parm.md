@@ -38,7 +38,7 @@ mlmm mm-parm -i input.pdb --out-prefix complex \
 
 - `<prefix>.parm7` -- Amber prmtop topology
 - `<prefix>.rst7` -- Amber ASCII inpcrd coordinates
-- `<prefix>.pdb` -- LEaP savepdb output with element columns filled (written only when `--out-prefix` is given or `--add-h` is set; otherwise only parm7/rst7 are produced)
+- `<prefix>.pdb` -- LEaP savepdb output with element columns filled. With `--add-h` and no explicit prefix, the name is `<input_stem>_parm.pdb`; otherwise it is written only when `--out-prefix` is given (without either condition, only parm7/rst7 are produced).
 
 For reusable manual preparation, choose a prefix different from the input path,
 then use the exported PDB for both extraction and layer assignment. Its atom

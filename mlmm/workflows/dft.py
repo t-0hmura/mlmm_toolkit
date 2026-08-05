@@ -747,7 +747,10 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
     default=None,
     show_default=False,
-    help="Backend label recorded in output metadata; the ML region in dft is computed with DFT (PySCF), so this does not select a calculator.",
+    help=(
+        "Compatibility no-op. The high-level region is always computed with "
+        "DFT; a supplied value emits a diagnostic and is ignored."
+    ),
 )
 @click.option(
     "--embedcharge/--no-embedcharge",
@@ -888,7 +891,11 @@ def cli(
 
         # CLI explicit overrides (after config YAML)
         if backend is not None:
-            calc_kw["backend"] = str(backend).lower()
+            click.echo(
+                "[dft] NOTE: --backend is retained for compatibility and is "
+                "ignored; the high-level energy backend is DFT.",
+                err=True,
+            )
         if _is_param_explicit("embedcharge"):
             calc_kw["embedcharge"] = bool(embedcharge)
         if _is_param_explicit("embedcharge_cutoff"):
@@ -1042,7 +1049,7 @@ def cli(
                                 0 if not model_indices else len(model_indices)
                             ),
                             "output_dir": str(Path(dft_kw["out_dir"]).resolve()),
-                            "backend": calc_kw.get("backend", "uma"),
+                            "backend": "dft",
                             "embedcharge": bool(
                                 calc_kw.get("embedcharge", False)
                             ),
@@ -1159,7 +1166,7 @@ def cli(
         if is_verbose():
             mol.verbose = max(mol.verbose, 4)
         # CHEMISTRY-RULE:5 def2 family auto-ECP injection.
-        # def2 family includes Stuttgart ECPs for heavy elements (Z>=21);
+        # def2 is all-electron through Kr and uses def2-ECP from Rb onward;
         # must set mol.ecp explicitly or PySCF uses all-electron treatment.
         _ecp = dft_kw.get("ecp", None)
         if _ecp is None and basis.lower().startswith("def2"):
@@ -1237,32 +1244,8 @@ def cli(
         if xc.lower().endswith("-v") or "vv10" in xc.lower():
             mf.nlc = "vv10"
 
-        # --- Electrostatic embedding (--embedcharge) ---
+        # Retained compatibility fields; active embedding is rejected above.
         n_mm_charges = 0
-        if calc_kw.get("embedcharge", False):
-            import parmed as pmd
-            from pyscf import qmmm as pyscf_qmmm
-
-            real_top = pmd.load_file(str(workspace.real_parm7))
-            ml_set = set(workspace.selection_indices)
-            mm_indices = [i for i in range(len(workspace.atoms_real)) if i not in ml_set]
-
-            _cutoff = calc_kw.get("embedcharge_cutoff", None)
-            if mm_indices and _cutoff is not None:
-                from scipy.spatial.distance import cdist
-                _ml_ref = workspace.atoms_real.get_positions()[sorted(ml_set)]
-                _mm_all = workspace.atoms_real.get_positions()[mm_indices]
-                _dists = cdist(_mm_all, _ml_ref).min(axis=1)
-                mm_indices = [mm_indices[j] for j in range(len(mm_indices)) if _dists[j] <= _cutoff]
-
-            if mm_indices:
-                mm_coords = workspace.atoms_real.get_positions()[mm_indices]
-                mm_charges = np.array([real_top.atoms[i].charge for i in mm_indices])
-                mf = pyscf_qmmm.mm_charge(mf, mm_coords, mm_charges, unit="Angstrom")
-                n_mm_charges = len(mm_indices)
-                click.echo(f"[embedcharge] {n_mm_charges} MM point charges embedded into QM Hamiltonian.")
-            else:
-                click.echo("[embedcharge] No MM atoms found; skipping embedding.")
 
         tic_scf = time.time()
         e_tot = mf.kernel()
@@ -1272,6 +1255,8 @@ def cli(
         if e_tot is None:
             e_tot = float(getattr(mf, "e_tot", np.nan))
         e_h = float(e_tot)
+        if not np.isfinite(e_h):
+            raise RuntimeError(f"DFT SCF returned a non-finite energy: {e_h!r}")
         e_kcal = _hartree_to_kcalmol(e_h)
 
         if using_lowmem:

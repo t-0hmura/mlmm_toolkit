@@ -127,7 +127,10 @@ F_QM += (1−g) · F_link    (scaled)
 F_MM += g · F_link
 ```
 
-The same transformation applies to the Hessian: `H_redistributed = Jᵀ H_link J`.
+For the linear scaled placement, the Hessian transformation is
+`H_redistributed = Jᵀ H_link J`. Fixed placement has a coordinate-dependent
+Jacobian and therefore also includes the force-weighted second-derivative term
+described in [ML/MM Calculator](mlmm-calc.md).
 
 ---
 
@@ -228,12 +231,13 @@ ML region definition is controlled by:
 
 There are two ways to define the ML region:
 
-- **Automatic extraction** (`-c/--center` + `--exclude-backbone`): `extract` / `all`
+- **Automatic extraction** (`-c/--center`): `extract` / `all`
   truncate the backbone at the Cα–Cβ boundary and **derive** the model charge
   from the residues, `--modified-residue`,
   and `-l/--ligand-charge`. Use `--modified-residue NAME:charge` for an unregistered
-  modified residue; a known catalog residue may omit `:charge` and retains its catalog value. For non-standard
-  amino acids and `-l NAME:charge` for ligands; an explicit `-q` is then unnecessary.
+  nonstandard amino acid; a known catalog residue may omit `:charge` and retains its
+  catalog value. Use `-l NAME:charge` for ligands. An explicit `-q` is then unnecessary.
+  `--exclude-backbone` is an independent, default-off truncation option.
 - **Manual** (`--model-pdb` + `--parm`): you supply the ML-atom selection yourself and
   set the model charge explicitly with `-q`. This is the safer choice when you have
   hand-edited atoms (custom truncation, protonation / charge changes) that automatic

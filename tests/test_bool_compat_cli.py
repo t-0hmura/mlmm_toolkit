@@ -6,6 +6,7 @@ import click
 from click.testing import CliRunner
 
 from mlmm.cli import cli as root_cli
+from mlmm.cli.bool_compat import normalize_bool_argv
 
 
 def _is_unavailable_command(cmd: click.Command | None) -> bool:
@@ -86,10 +87,9 @@ def test_single_flag_negative_form_value_style() -> None:
         - `--no-FLAG True`  -> (omitted)  (turn off; matches the default)
     Emitting the literal `--no-FLAG` would crash Click ("no such option").
     """
-    runner = CliRunner()
     ctx = click.Context(root_cli)
 
-    tested = 0
+    discovered = 0
     for command_name in root_cli.list_commands(ctx):
         command = root_cli.get_command(ctx, command_name)
         if _is_unavailable_command(command):
@@ -101,18 +101,19 @@ def test_single_flag_negative_form_value_style() -> None:
             if not opt.startswith("--"):
                 continue
             no_opt = f"--no-{opt[2:]}"
-            for literal in ("True", "False"):
-                result = runner.invoke(
-                    root_cli, [command_name, no_opt, literal, "--help"]
+            discovered += 1
+            for literal, expected in (
+                ("True", [command_name]),
+                ("False", [command_name, opt]),
+            ):
+                normalized, legacy_used = normalize_bool_argv(
+                    [command_name, no_opt, literal],
+                    {command_name: _value},
+                    {command_name: _toggle},
+                    {command_name: _aliases},
+                    {command_name: single_opts},
                 )
-                assert result.exit_code == 0, (
-                    f"{command_name} should accept '{no_opt} {literal}'. "
-                    f"Output:\n{result.output}"
-                )
-                tested += 1
+                assert normalized == expected
+                assert legacy_used is True
 
-    # `single_opts` is resolved per command (registry + Click-discovered
-    # single-flag bools), so its size is not fixed;
-    # don't require non-zero coverage so the test stays useful when the
-    # registry shrinks.
-    assert tested >= 0
+    assert discovered > 0

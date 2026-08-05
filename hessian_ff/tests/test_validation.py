@@ -72,3 +72,20 @@ def test_default_batch_mode_avoids_vmap_native_kernels(monkeypatch) -> None:
     assert energies["E_total"].shape == (2,)
     assert force_energies["E_total"].shape == (2,)
     assert forces.shape == coords_batch.shape
+
+
+def test_unknown_batch_mode_is_rejected_with_a_deterministic_message() -> None:
+    system, ff = _load_ff_and_coords()
+    coords = load_coords(
+        _COORDS, natom=system.natom, device="cpu", dtype=torch.float64
+    )
+    coords_batch = coords.unsqueeze(0)
+
+    for call in (ff.forward_batch, ff.energy_force_batch):
+        with pytest.raises(ValueError) as excinfo:
+            call(coords_batch, batch_mode="loops")
+        message = str(excinfo.value)
+        # The accepted modes are listed in a fixed order, so the public
+        # diagnostic is identical between runs.
+        assert "('loop', 'vmap', 'vectorized')" in message
+        assert "'loops'" in message

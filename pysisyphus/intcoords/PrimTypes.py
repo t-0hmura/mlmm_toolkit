@@ -208,6 +208,17 @@ PrimMap = {
 }
 
 
+def normalize_prim_indices(prim_type, indices):
+    """Cast the arguments of one primitive to their expected types.
+
+    All primitives take integer atom indices; DISTANCE_FUNCTION additionally
+    takes a floating point coefficient as its last argument.
+    """
+    if prim_type == PT.DISTANCE_FUNCTION and len(indices) == 5:
+        return [int(index) for index in indices[:4]] + [float(indices[4])]
+    return list(map(int, indices))
+
+
 def normalize_prim_input(prim_inp):
     """Normalize input for define_prims and constrain_prims
 
@@ -233,31 +244,36 @@ def normalize_prim_input(prim_inp):
         return []
 
     prim_type, *indices = prim_inp
-    indices = list(map(int, indices))
 
     # Nothing to do
     if isinstance(prim_type, PrimTypes):
-        return [prim_inp]
+        return [tuple([prim_type] + normalize_prim_indices(prim_type, indices))]
 
     # First check if we got something like an integer
     try:
-        return [tuple([PrimTypes(int(prim_type))] + indices)]
+        prim_type_ = PrimTypes(int(prim_type))
+        return [tuple([prim_type_] + normalize_prim_indices(prim_type_, indices))]
     # Raised when prim_type is, e.g., "BOND"
     except ValueError:
+        pass
+
+    # Check if we got a shortcut, e.g, X/Y/Z/XYZ/ATOM etc. Shortcuts are resolved
+    # before plain type names, as TRANSLATION and ROTATION expand to the three
+    # component coordinates that are actually available as primitives.
+    try:
+        prim_types_ = PrimTypeShortcuts[str(prim_type).upper()]
+        return [
+            tuple([prim_type_] + normalize_prim_indices(prim_type_, indices))
+            for prim_type_ in prim_types_
+        ]
+    except KeyError:
         pass
 
     # Check if we got a PrimType name
     try:
         prim_type_ = getattr(PrimTypes, str(prim_type).upper())
-        return [tuple([prim_type_] + indices)]
-    except AttributeError:
-        pass
-
-    # Check if we got a shortcut, e.g, X/Y/Z/XYZ/ATOM etc.
-    try:
-        prim_types_ = PrimTypeShortcuts[str(prim_type).upper()]
-        return [tuple([prim_type_] + indices) for prim_type_ in prim_types_]
-    except KeyError as error:
+        return [tuple([prim_type_] + normalize_prim_indices(prim_type_, indices))]
+    except AttributeError as error:
         print(f"Could not normalize 'prim_inp'={prim_inp}!")
         raise error
 

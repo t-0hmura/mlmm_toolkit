@@ -442,6 +442,23 @@ def distance_tag(value_A: float, *, digits: int = 2, pad: int = 3) -> str:
     return f"{int(round(value_A * scale)):0{pad}d}"
 
 
+def unique_tag_digits(values, *, digits: int = 2) -> int:
+    """Smallest tag precision that keeps every value in *values* distinct.
+
+    A fine grid can map two neighbouring targets onto the same two-decimal tag,
+    after which the later point overwrites the earlier artifact while both rows
+    report success. Start at the ordinary precision and increase only as far as
+    the current grid requires.
+    """
+    values = [float(v) for v in values]
+    candidate = int(digits)
+    while True:
+        tags = {distance_tag(v, digits=candidate, pad=1) for v in values}
+        if len(tags) == len(set(values)):
+            return candidate
+        candidate += 1
+
+
 def values_from_bounds(low: float, high: float, h: float) -> "np.ndarray":
     """Return evenly spaced values from low→high with step cap h (inclusive)."""
     if h <= 0.0:
@@ -2168,7 +2185,7 @@ def load_yaml_dict(path: Optional[Path]) -> Dict[str, Any]:
 
     try:
         with open(path, "r") as f:
-            data = yaml.safe_load(f) or {}
+            data = yaml.safe_load(f)
     except yaml.YAMLError as e:
         # Surface a malformed --config/--override YAML as a clean Click
         # error (one line, exit 2) instead of a raw parser traceback. This
@@ -2176,6 +2193,8 @@ def load_yaml_dict(path: Optional[Path]) -> Dict[str, Any]:
         # own exception wrapper, so the conversion must happen here.
         raise click.BadParameter(f"invalid YAML in '{path}': {e}")
 
+    if data is None:
+        return {}
     if not isinstance(data, dict):
         # ValueError (not click.BadParameter): public API contract /
         # test_load_yaml_dict_rejects_non_mapping_root.

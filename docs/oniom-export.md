@@ -32,7 +32,7 @@ mlmm oniom-export --parm real.parm7 -i pocket.pdb --model-pdb ml.pdb \
 
 1. **Topology + coordinates** — read the `parm7` and the `-i` coordinate file (atom order must match the topology; `--element-check` validates the element sequence). PDB/ENT input also contributes a fixed-field atom-identity digest to the exported title/comment.
 2. **QM region** — `--model-pdb` defines the QM (ML-region) atoms; `--near` sets the movable/active MM cutoff (Å).
-3. **Link atoms** — placed at each severed QM/MM bond. `--link-atom-method scaled` (default) uses the Morokuma/Dapprich g-factor (matches the `MLMMCore` runtime); `fixed` uses fixed 1.09/1.01 Å bond lengths.
+3. **QM/MM boundary** — Gaussian uses `--link-atom-method scaled` (the default Morokuma/Dapprich g-factor) or `fixed` (1.09/1.01 Å) to place link H atoms. ORCA uses `QMAtoms`/`ORCAFF` for capping; exported link coordinates are diagnostic comments only.
 4. **Write** — emit the target-format input file at `-o`. ORCA mode additionally resolves `ORCAFF.prms`. With `--convert-orcaff`, conversion is attempted through `orca_mm -convff -AMBER`; if conversion is disabled or unavailable, the `.inp` is still written and reports the parameter file that must be supplied before ORCA is run.
 
 ## Outputs
@@ -61,7 +61,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--orcaff PATH` | Path to `ORCAFF.prms` (ORCA mode). If omitted, a derived path is referenced and automatic creation is attempted conditionally. | _None_ |
 | `--convert-orcaff / --no-convert-orcaff` | Auto-convert a missing `ORCAFF.prms` via `orca_mm -convff -AMBER` (ORCA mode). | `True` |
 | `--element-check / --no-element-check` | Validate the `--input` element sequence against the parm7 topology. | `True` |
-| `--link-atom-method [scaled\|fixed]` | Link-H placement: `scaled` (g-factor, matches runtime) or `fixed` (1.09/1.01 Å). | `scaled` |
+| `--link-atom-method [scaled\|fixed]` | Gaussian link-H placement; ORCA records the corresponding coordinates only as diagnostics and creates caps from `QMAtoms`/`ORCAFF`. | `scaled` |
 
 `mlmm oniom-export --help` shows core options; `mlmm oniom-export --help-advanced` shows the full list.
 

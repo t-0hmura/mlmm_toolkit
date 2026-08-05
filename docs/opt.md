@@ -1,5 +1,7 @@
 # `opt`
 
+The structure input may be PDB/mmCIF directly, or XYZ with `--ref-pdb`.
+
 Optimizes a single layered enzyme PDB (or XYZ + `--ref-pdb`) to a local minimum using the ML/MM calculator (MLIP region + movable MM shell + frozen outer environment). Use it to relax a full-system layered structure. `--opt-mode grad` (default) runs L-BFGS, `--opt-mode hess` runs RFOptimizer (RFO), `--flatten` flattens imaginary modes after optimization, and `--mm-only` minimizes the full system on the MM force field only, skipping the MLIP component (grad/L-BFGS only; microiteration auto-disabled). Microiteration (`--microiter`, default on) relaxes the movable-MM shell in `hess` mode.
 
 ## Examples
@@ -16,7 +18,7 @@ Minimal L-BFGS optimization (grad mode, default):
 
 ```bash
 # Minimal L-BFGS optimization (grad mode, default)
-mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm opt -i system_layered.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --out-dir ./result_opt
 ```
 
@@ -24,7 +26,7 @@ Tighten convergence and keep an optimization trajectory:
 
 ```bash
 # Tighten convergence and keep an optimization trajectory
-mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm opt -i system_layered.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --thresh gau_tight --dump --out-dir ./result_opt_tight
 # add one harmonic distance restraint: --dist-freeze "[(12,45,2.20)]" --bias-k 20.0
 ```
@@ -33,7 +35,7 @@ Switch to heavy mode (RFO):
 
 ```bash
 # Switch to heavy mode (RFO)
-mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm opt -i system_layered.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --opt-mode hess --out-dir ./result_opt_rfo
 # use the ORB backend instead of the default: --backend orb
 ```
@@ -69,7 +71,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `-i, --input PATH` | Input structure accepted by `geom_loader` (`.pdb`, `.xyz`, `_trj.xyz`). | Required |
+| `-i, --input PATH` | Input structure accepted by `geom_loader` (`.pdb`, `.cif`, `.mmcif`, `.xyz`, `_trj.xyz`). | Required |
 | `--ref-pdb PATH` | Reference PDB topology when input is XYZ. | _None_ |
 | `--parm PATH` | Amber parm7 topology for the full enzyme. | Required |
 | `--model-pdb PATH` | PDB defining the ML region atoms. Optional when `--detect-layer` is enabled. | _None_ |
@@ -139,9 +141,8 @@ geom:
  freeze_atoms: []               # 1-based frozen atoms
  tr_projection: constrained     # fixed internal PHVA treatment
 calc:
- charge: 0                      # net charge
- spin: 1                        # spin multiplicity 2S+1
-mlmm:
+ model_charge: 0                # net charge
+ model_mult: 1                  # spin multiplicity 2S+1
  real_parm7: real.parm7         # Amber parm7 topology
  model_pdb: ml_region.pdb       # ML region definition
  backend: uma                   # uma | orb | mace | aimnet2

@@ -32,6 +32,19 @@ def test_load_yaml_dict_rejects_non_mapping_root(tmp_path: Path):
         load_yaml_dict(p)
 
 
+@pytest.mark.parametrize("content", ["false\n", "0\n", "[]\n", "''\n"])
+def test_load_yaml_dict_rejects_falsy_non_mapping_root(
+    tmp_path: Path, content: str
+) -> None:
+    from mlmm.core.utils import load_yaml_dict
+
+    p = tmp_path / "falsy_root.yaml"
+    p.write_text(content, encoding="utf-8")
+
+    with pytest.raises(ValueError, match="YAML root must be a mapping"):
+        load_yaml_dict(p)
+
+
 def test_load_yaml_dict_rejects_malformed_yaml(tmp_path: Path):
     from mlmm.core.utils import load_yaml_dict
 

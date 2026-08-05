@@ -42,11 +42,6 @@ def count_xyz_frames(path: Path) -> int:
     return frames
 
 
-# The lane's reaction coordinate measures ~-394 cm^-1 under --deterministic.
-# The floor only has to separate a genuine coordinate from the ~-15 cm^-1 soft
-# mode the lane used to reach at random; it is not a physical constant.
-
-
 def check_all(root: Path, require_thermo: bool, require_dft: bool) -> None:
     summary = json.loads((root / "summary.json").read_text(encoding="utf-8"))
     require_finite(summary)
@@ -57,13 +52,12 @@ def check_all(root: Path, require_thermo: bool, require_dft: bool) -> None:
     if execution != "completed":
         raise SystemExit(f"all pipeline did not complete: execution_status={execution!r}")
 
-    # The scientific outcome is throttled here on purpose (`--max-cycles 5`,
-    # `--thresh gau_loose`), so demanding `success` would demand that the MLIP
-    # find publication-grade minima on a deliberately cheap run.  What IS
-    # required is that the reported outcome be TRUE: either a real success, or a
-    # `partial` that says what is missing.  A silent degradation, or a `failed`,
-    # still fails the lane -- and so does a `partial` with no stated reason,
-    # which is how a missing outcome record would look.
+    # The test73 lane runs with strict convergence criteria (`gau` optimizer
+    # and `baker` TS verification) and requires the reported outcome to be TRUE:
+    # either a real `success`, or a `partial` that clearly states what is missing.
+    # A silent degradation, a `failed`, or a `partial` with no stated reason will
+    # fail the lane -- this ensures the reported results accurately reflect the
+    # actual computed state.
     status = summary.get("status")
     scientific = summary.get("scientific_status")
     if status not in ("success", "partial") or scientific not in ("success", "partial"):

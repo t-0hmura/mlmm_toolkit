@@ -9,7 +9,7 @@ Command form:
 ```bash
 mlmm scan -i INPUT.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q CHARGE [-m MULT] \
- [-s scan.yaml | -s "[(I,J,TARGET_ANG)]"] [options]
+ (-s scan.yaml | -s "[(I,J,TARGET_ANG)]") [options]
 ```
 
 Spec-file scan (add `--print-parsed` to validate the parsed scan spec and exit without running the GPU calculation):
@@ -250,7 +250,7 @@ This is a *read-time* interpretation, not a CLI flag. Always confirm which endpo
 
 ## YAML configuration
 
-The scan reads the shared `geom` (`coord_type`, `freeze_atoms`), `calc` / `mlmm` (ML/MM calculator setup), and `opt` / `lbfgs` (optimizer) sections, plus `bias` (`k`, harmonic strength in eV/Å²) and a `bond` section for MLIP-based bond-change detection.
+The scan reads the shared `geom` (`coord_type`, `freeze_atoms`), `calc` / `mlmm` (ML/MM calculator setup), and `opt` / `lbfgs` (optimizer) sections, plus `bias` (`k`, harmonic strength in eV/Å²) and a `bond` section for MLIP-based bond-change detection. After merging, restrained scan optimization normalizes `geom.coord_type` to `cart`; DLC is not effective for this workflow.
 
 Full schema (every key and default): [YAML Reference](yaml-reference.md).
 

@@ -47,7 +47,8 @@ mlmm oniom-import -i model.inp --ref-pdb complex_layered.pdb -o model_imported
 - `<out_prefix>.xyz` が生成され、原子数が元 ONIOM 入力と一致する。
 - `<out_prefix>_layered.pdb` が生成され、B-factor が `0/10/20` で層を表す。
 - ログに mode、原子数、QM/Movable/Frozen の件数と
-  `ref_order=identity-verified` / `element-verified` / `unverified-opt-in` が表示される。
+  `--ref-pdb` 指定時は `ref_order=identity-verified` / `element-verified` / `unverified-opt-in` が表示されます。reference を使わない場合は
+  `ref_order` を出力できません。
 
 ## CLI オプション
 

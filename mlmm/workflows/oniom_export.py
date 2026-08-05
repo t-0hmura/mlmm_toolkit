@@ -26,6 +26,14 @@ from mlmm.domain.add_elem_info import guess_element as _guess_element
 
 logger = logging.getLogger(__name__)
 
+
+def _paths_physically_alias(left: Path, right: Path) -> bool:
+    lhs = Path(left).expanduser().resolve(strict=False)
+    rhs = Path(right).expanduser().resolve(strict=False)
+    if lhs == rhs:
+        return True
+    return lhs.exists() and rhs.exists() and lhs.samefile(rhs)
+
 try:
     import parmed as pmd
 except ImportError:
@@ -488,17 +496,18 @@ def _get_total_charge(parm) -> int:
     Notes
     -----
     - `atom.charge` is the most reliable source (units of electron charge).
-    - Amber prmtop stores CHARGE values scaled by ~18.2223. If we ever fall back
-      to parm_data["CHARGE"], we divide by 18.2223.
+    - An Amber prmtop file stores CHARGE values scaled by ~18.2223, but ParmEd
+      already removes that factor while reading, so the parm_data["CHARGE"]
+      fallback is used as-is.
     """
     q: float
     try:
         q = float(sum(float(getattr(a, "charge", 0.0)) for a in parm.atoms))
     except Exception:
-        # Fallback: try prmtop raw charges (often scaled)
+        # Fallback: try prmtop raw charges (already in electron charge)
         try:
             q_raw = float(np.sum(parm.parm_data["CHARGE"]))
-            q = q_raw / 18.2223
+            q = q_raw
         except Exception:
             q = 0.0
 
@@ -846,7 +855,9 @@ def _atom_xyz(parm, atom_idx: int) -> np.ndarray:
         return np.asarray(parm.coordinates[int(atom_idx)], dtype=float)
 
 
-def _find_qmmm_boundary_pairs(parm, qm_indices: Set[int]) -> List[Tuple[int, int]]:
+def _find_qmmm_boundary_pairs(
+    parm, qm_indices: Set[int], *, collapse_mm_parents: bool = True
+) -> List[Tuple[int, int]]:
     """
     Detect covalent QM/MM boundary bonds from topology bonds.
 
@@ -856,6 +867,7 @@ def _find_qmmm_boundary_pairs(parm, qm_indices: Set[int]) -> List[Tuple[int, int
         A list of (qm_idx, mm_idx) index pairs (0-based).
     """
     per_mm_candidates: Dict[int, List[int]] = {}
+    raw_pairs: List[Tuple[int, int]] = []
 
     for bond in getattr(parm, "bonds", []):
         i = int(bond.atom1.idx)
@@ -865,7 +877,11 @@ def _find_qmmm_boundary_pairs(parm, qm_indices: Set[int]) -> List[Tuple[int, int
         if i_qm == j_qm:
             continue
         qm_idx, mm_idx = (i, j) if i_qm else (j, i)
+        raw_pairs.append((qm_idx, mm_idx))
         per_mm_candidates.setdefault(mm_idx, []).append(qm_idx)
+
+    if not collapse_mm_parents:
+        return sorted(set(raw_pairs), key=lambda pair: (pair[1], pair[0]))
 
     pairs: List[Tuple[int, int]] = []
     for mm_idx, cands_raw in sorted(per_mm_candidates.items()):
@@ -951,7 +967,11 @@ def _build_link_atom_specs(
     specs: Dict[int, Dict[str, Any]] = {}
     warned_elems: Set[str] = set()
 
-    boundaries = list(_find_qmmm_boundary_pairs(parm, qm_indices))
+    boundaries = list(
+        _find_qmmm_boundary_pairs(
+            parm, qm_indices, collapse_mm_parents=not strict
+        )
+    )
     if strict:
         mm_parents = [int(mm_idx) for _, mm_idx in boundaries]
         duplicates = sorted(
@@ -1726,6 +1746,7 @@ def export_orca(
         convert_orcaff: If True, try to run `orca_mm -convff -AMBER` when ORCAFF.prms is missing.
     """
     _check_parmed()
+    parm7_path = Path(parm7_path).expanduser().resolve()
 
     parm = pmd.load_file(str(parm7_path))
     if list(getattr(parm, "cmaps", []) or []):
@@ -1855,6 +1876,15 @@ def export_orca(
         # `orca_mm`; emit a manual command when automatic conversion is
         # unavailable.
         if not orcaff_path.exists() and convert_orcaff:
+            before_candidates = {
+                candidate.resolve(): (
+                    candidate.stat().st_dev,
+                    candidate.stat().st_ino,
+                    candidate.stat().st_size,
+                    candidate.stat().st_mtime_ns,
+                )
+                for candidate in out_dir.glob("*.ORCAFF.prms")
+            }
             orca_mm = shutil.which("orca_mm")
             if orca_mm is None:
                 click.echo(
@@ -1882,7 +1912,18 @@ def export_orca(
 
                 # Try to locate the generated file (orca_mm typically writes <stem>.ORCAFF.prms)
                 if not orcaff_path.exists():
-                    candidates = sorted(out_dir.glob("*.ORCAFF.prms"), key=lambda p: p.stat().st_mtime, reverse=True)
+                    candidates = []
+                    for candidate in out_dir.glob("*.ORCAFF.prms"):
+                        stat = candidate.stat()
+                        identity = (
+                            stat.st_dev,
+                            stat.st_ino,
+                            stat.st_size,
+                            stat.st_mtime_ns,
+                        )
+                        if before_candidates.get(candidate.resolve()) != identity:
+                            candidates.append(candidate)
+                    candidates.sort(key=lambda p: p.stat().st_mtime_ns, reverse=True)
                     if candidates:
                         orcaff_path = candidates[0]
 
@@ -2112,6 +2153,14 @@ def cli(
     time_start = time.perf_counter()
     try:
         resolved_mode = _resolve_oniom_mode(mode, output)
+        selected_inputs = [parm7, model_pdb, input_coords]
+        if resolved_mode == "orca":
+            selected_inputs.append(orcaff)
+        for source in selected_inputs:
+            if source is not None and _paths_physically_alias(output, source):
+                raise click.UsageError(
+                    f"Output {output} physically aliases consumed input {source}."
+                )
 
         if resolved_mode == "g16":
             export_gaussian(

@@ -217,12 +217,12 @@ def register_all(mcp) -> None:
     async def optimize_geometry(
         input_pdb: str,
         parm7: str,
-        charge: int,
-        multiplicity: int,
         *,
+        charge: Optional[int] = None,
+        multiplicity: Optional[int] = None,
         ligand_charge: Optional[str] = None,
         opt_mode: str = "grad",
-        max_cycles: int = 10000,
+        max_cycles: Optional[int] = None,
         thresh: Optional[str] = None,
         coord_type: Optional[str] = None,
         microiter: Optional[bool] = None,
@@ -247,11 +247,16 @@ def register_all(mcp) -> None:
         the CLI default; pass `"hess"` for RFO Hessian-based optimization.
         """
         od = _resolve_out_dir(out_dir, "opt")
-        argv: list[str] = ["mlmm", "opt", "-i", input_pdb,
-                           "--parm", parm7, "-q", str(charge), "-m", str(multiplicity)]
+        argv: list[str] = ["mlmm", "opt", "-i", input_pdb, "--parm", parm7]
+        if charge is not None:
+            argv.extend(["-q", str(charge)])
+        if multiplicity is not None:
+            argv.extend(["-m", str(multiplicity)])
         if ligand_charge:
             argv.extend(["-l", ligand_charge])
-        argv.extend(["--opt-mode", opt_mode, "--max-cycles", str(max_cycles)])
+        argv.extend(["--opt-mode", opt_mode])
+        if max_cycles is not None:
+            argv.extend(["--max-cycles", str(max_cycles)])
         if thresh:
             argv.extend(["--thresh", thresh])
         if coord_type:
@@ -281,12 +286,12 @@ def register_all(mcp) -> None:
     async def find_transition_state(
         input_pdb: str,
         parm7: str,
-        charge: int,
-        multiplicity: int,
         *,
+        charge: Optional[int] = None,
+        multiplicity: Optional[int] = None,
         ligand_charge: Optional[str] = None,
         opt_mode: str = "hess",
-        max_cycles: int = 10000,
+        max_cycles: Optional[int] = None,
         thresh: Optional[str] = None,
         coord_type: Optional[str] = None,
         microiter: Optional[bool] = None,
@@ -313,11 +318,16 @@ def register_all(mcp) -> None:
           microiteration; pass microiter=False to disable it.
         """
         od = _resolve_out_dir(out_dir, "tsopt")
-        argv: list[str] = ["mlmm", "tsopt", "-i", input_pdb,
-                           "--parm", parm7, "-q", str(charge), "-m", str(multiplicity)]
+        argv: list[str] = ["mlmm", "tsopt", "-i", input_pdb, "--parm", parm7]
+        if charge is not None:
+            argv.extend(["-q", str(charge)])
+        if multiplicity is not None:
+            argv.extend(["-m", str(multiplicity)])
         if ligand_charge:
             argv.extend(["-l", ligand_charge])
-        argv.extend(["--opt-mode", opt_mode, "--max-cycles", str(max_cycles)])
+        argv.extend(["--opt-mode", opt_mode])
+        if max_cycles is not None:
+            argv.extend(["--max-cycles", str(max_cycles)])
         if thresh:
             argv.extend(["--thresh", thresh])
         if coord_type:
@@ -351,9 +361,9 @@ def register_all(mcp) -> None:
     async def run_irc(
         input_pdb: str,
         parm7: str,
-        charge: int,
-        multiplicity: int,
         *,
+        charge: Optional[int] = None,
+        multiplicity: Optional[int] = None,
         ligand_charge: Optional[str] = None,
         max_cycles: Optional[int] = None,
         step_size: Optional[float] = None,
@@ -375,8 +385,11 @@ def register_all(mcp) -> None:
     ) -> dict[str, Any]:
         """ONIOM IRC integration from a TS geometry (CLI: `mlmm irc`)."""
         od = _resolve_out_dir(out_dir, "irc")
-        argv: list[str] = ["mlmm", "irc", "-i", input_pdb,
-                           "--parm", parm7, "-q", str(charge), "-m", str(multiplicity)]
+        argv: list[str] = ["mlmm", "irc", "-i", input_pdb, "--parm", parm7]
+        if charge is not None:
+            argv.extend(["-q", str(charge)])
+        if multiplicity is not None:
+            argv.extend(["-m", str(multiplicity)])
         if ligand_charge:
             argv.extend(["-l", ligand_charge])
         if max_cycles is not None:
@@ -412,9 +425,9 @@ def register_all(mcp) -> None:
     async def compute_frequencies(
         input_pdb: str,
         parm7: str,
-        charge: int,
-        multiplicity: int,
         *,
+        charge: Optional[int] = None,
+        multiplicity: Optional[int] = None,
         ligand_charge: Optional[str] = None,
         temperature: Optional[float] = None,
         backend: Optional[str] = None,
@@ -429,8 +442,11 @@ def register_all(mcp) -> None:
     ) -> dict[str, Any]:
         """ONIOM vibrational analysis + thermochemistry (CLI: `mlmm freq`)."""
         od = _resolve_out_dir(out_dir, "freq")
-        argv: list[str] = ["mlmm", "freq", "-i", input_pdb,
-                           "--parm", parm7, "-q", str(charge), "-m", str(multiplicity)]
+        argv: list[str] = ["mlmm", "freq", "-i", input_pdb, "--parm", parm7]
+        if charge is not None:
+            argv.extend(["-q", str(charge)])
+        if multiplicity is not None:
+            argv.extend(["-m", str(multiplicity)])
         if ligand_charge:
             argv.extend(["-l", ligand_charge])
         if temperature is not None:
@@ -537,10 +553,10 @@ def register_all(mcp) -> None:
     async def scan_1d(
         input_pdb: str,
         parm7: str,
-        charge: int,
-        multiplicity: int,
         scan_lists: str,
         *,
+        charge: Optional[int] = None,
+        multiplicity: Optional[int] = None,
         ligand_charge: Optional[str] = None,
         max_step_size: Optional[float] = None,
         relax_max_cycles: Optional[int] = None,
@@ -560,8 +576,11 @@ def register_all(mcp) -> None:
         """1D ONIOM scan with harmonic restraints (CLI: `mlmm scan`)."""
         od = _resolve_out_dir(out_dir, "scan")
         argv: list[str] = ["mlmm", "scan", "-i", input_pdb,
-                           "--parm", parm7, "-q", str(charge), "-m", str(multiplicity),
-                           "--scan-lists", scan_lists]
+                           "--parm", parm7, "--scan-lists", scan_lists]
+        if charge is not None:
+            argv.extend(["-q", str(charge)])
+        if multiplicity is not None:
+            argv.extend(["-m", str(multiplicity)])
         if ligand_charge:
             argv.extend(["-l", ligand_charge])
         if max_step_size is not None:
@@ -591,10 +610,10 @@ def register_all(mcp) -> None:
     async def scan_2d(
         input_pdb: str,
         parm7: str,
-        charge: int,
-        multiplicity: int,
         scan_lists: str,
         *,
+        charge: Optional[int] = None,
+        multiplicity: Optional[int] = None,
         ligand_charge: Optional[str] = None,
         max_step_size: Optional[float] = None,
         relax_max_cycles: Optional[int] = None,
@@ -611,8 +630,11 @@ def register_all(mcp) -> None:
         """2D ONIOM scan (CLI: `mlmm scan2d`)."""
         od = _resolve_out_dir(out_dir, "scan2d")
         argv: list[str] = ["mlmm", "scan2d", "-i", input_pdb,
-                           "--parm", parm7, "-q", str(charge), "-m", str(multiplicity),
-                           "--scan-lists", scan_lists]
+                           "--parm", parm7, "--scan-lists", scan_lists]
+        if charge is not None:
+            argv.extend(["-q", str(charge)])
+        if multiplicity is not None:
+            argv.extend(["-m", str(multiplicity)])
         if ligand_charge:
             argv.extend(["-l", ligand_charge])
         if max_step_size is not None:
@@ -640,10 +662,10 @@ def register_all(mcp) -> None:
     async def scan_3d(
         input_pdb: str,
         parm7: str,
-        charge: int,
-        multiplicity: int,
         scan_lists: str,
         *,
+        charge: Optional[int] = None,
+        multiplicity: Optional[int] = None,
         ligand_charge: Optional[str] = None,
         max_step_size: Optional[float] = None,
         relax_max_cycles: Optional[int] = None,
@@ -660,8 +682,11 @@ def register_all(mcp) -> None:
         """3D ONIOM scan (CLI: `mlmm scan3d`)."""
         od = _resolve_out_dir(out_dir, "scan3d")
         argv: list[str] = ["mlmm", "scan3d", "-i", input_pdb,
-                           "--parm", parm7, "-q", str(charge), "-m", str(multiplicity),
-                           "--scan-lists", scan_lists]
+                           "--parm", parm7, "--scan-lists", scan_lists]
+        if charge is not None:
+            argv.extend(["-q", str(charge)])
+        if multiplicity is not None:
+            argv.extend(["-m", str(multiplicity)])
         if ligand_charge:
             argv.extend(["-l", ligand_charge])
         if max_step_size is not None:
@@ -690,9 +715,9 @@ def register_all(mcp) -> None:
         reactant_pdb: str,
         product_pdb: str,
         parm7: str,
-        charge: int,
-        multiplicity: int,
         *,
+        charge: Optional[int] = None,
+        multiplicity: Optional[int] = None,
         ligand_charge: Optional[str] = None,
         max_nodes: Optional[int] = None,
         max_cycles: Optional[int] = None,
@@ -709,7 +734,11 @@ def register_all(mcp) -> None:
         """ONIOM MEP optimization (CLI: `mlmm path-opt`)."""
         od = _resolve_out_dir(out_dir, "path_opt")
         argv: list[str] = ["mlmm", "path-opt", "-i", reactant_pdb, product_pdb,
-                           "--parm", parm7, "-q", str(charge), "-m", str(multiplicity)]
+                           "--parm", parm7]
+        if charge is not None:
+            argv.extend(["-q", str(charge)])
+        if multiplicity is not None:
+            argv.extend(["-m", str(multiplicity)])
         if ligand_charge:
             argv.extend(["-l", ligand_charge])
         if max_nodes is not None:
@@ -737,10 +766,10 @@ def register_all(mcp) -> None:
     async def search_paths(
         input_pdb: str,
         parm7: str,
-        charge: int,
-        multiplicity: int,
         *,
         product_pdb: str,
+        charge: Optional[int] = None,
+        multiplicity: Optional[int] = None,
         intermediate_pdbs: Optional[list[str]] = None,
         ligand_charge: Optional[str] = None,
         max_nodes: Optional[int] = None,
@@ -764,7 +793,11 @@ def register_all(mcp) -> None:
         od = _resolve_out_dir(out_dir, "path_search")
         endpoint_paths = [input_pdb, *(intermediate_pdbs or []), product_pdb]
         argv: list[str] = ["mlmm", "path-search", "-i", *endpoint_paths,
-                           "--parm", parm7, "-q", str(charge), "-m", str(multiplicity)]
+                           "--parm", parm7]
+        if charge is not None:
+            argv.extend(["-q", str(charge)])
+        if multiplicity is not None:
+            argv.extend(["-m", str(multiplicity)])
         if ligand_charge:
             argv.extend(["-l", ligand_charge])
         if max_nodes is not None:
@@ -864,9 +897,9 @@ def register_all(mcp) -> None:
     async def run_single_point_dft(
         input_pdb: str,
         parm7: str,
-        charge: int,
-        multiplicity: int,
         *,
+        charge: Optional[int] = None,
+        multiplicity: Optional[int] = None,
         ligand_charge: Optional[str] = None,
         func_basis: Optional[str] = None,
         link_atom_method: Optional[str] = None,
@@ -882,8 +915,11 @@ def register_all(mcp) -> None:
         e.g. ``"wb97m-v/def2-tzvpd"``).
         """
         od = _resolve_out_dir(out_dir, "dft")
-        argv: list[str] = ["mlmm", "dft", "-i", input_pdb,
-                           "--parm", parm7, "-q", str(charge), "-m", str(multiplicity)]
+        argv: list[str] = ["mlmm", "dft", "-i", input_pdb, "--parm", parm7]
+        if charge is not None:
+            argv.extend(["-q", str(charge)])
+        if multiplicity is not None:
+            argv.extend(["-m", str(multiplicity)])
         if ligand_charge:
             argv.extend(["-l", ligand_charge])
         if func_basis:

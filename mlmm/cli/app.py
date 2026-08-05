@@ -76,7 +76,12 @@ def _requests_stdout_json(argv: list[str]) -> bool:
         name, separator, value = args[i].partition("=")
         name = name.lower()
         if name == "--no-json":
-            enabled = False
+            parsed = _parse_bool_literal(value) if separator else None
+            if parsed is None and not separator and i + 1 < len(args):
+                parsed = _parse_bool_literal(args[i + 1])
+                if parsed is not None:
+                    i += 1
+            enabled = False if parsed is None else not parsed
         elif name == "--json":
             parsed = _parse_bool_literal(value) if separator else None
             if parsed is None and not separator and i + 1 < len(args):

@@ -286,10 +286,10 @@ def _potential_identity(calc_cfg: Mapping) -> Dict[str, Any]:
     # so a region or link-boundary change at matching coordinates rejects reuse.
     for atoms_key in ("movable_mm_atoms", "frozen_mm_atoms"):
         atoms_val = calc_cfg.get(atoms_key)
-        if atoms_val:
+        if atoms_val is not None:
             potential[atoms_key] = sorted(_int_list(atoms_val))
     link = calc_cfg.get("link_mlmm")
-    if link:
+    if link is not None:
         canon_link = _canon(link)
         if isinstance(canon_link, list):
             try:

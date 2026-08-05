@@ -17,6 +17,7 @@ import gc
 import logging
 import math
 import re
+import shutil
 import sys
 import textwrap
 
@@ -610,7 +611,8 @@ def cli(
             freeze_atoms_final = list(geom_cfg.get("freeze_atoms") or [])
             calc_cfg["freeze_atoms"] = freeze_atoms_final
 
-            opt_cfg["out_dir"] = out_dir
+            if _is_param_explicit("out_dir"):
+                opt_cfg["out_dir"] = out_dir
             # Per-step optimizer dumps are off for a scan unless the user asks: an
             # unconditional False made `--dump` a silent no-op on this command.
             if _is_param_explicit("dump"):
@@ -629,7 +631,7 @@ def cli(
             if bias_k is not None:
                 bias_cfg["k"] = float(bias_k)
 
-            out_dir_path = Path(out_dir).resolve()
+            out_dir_path = Path(opt_cfg["out_dir"]).resolve()
             cli_scan_values = collect_option_values(
                 _argv, ("-s", "--scan-lists")
             )

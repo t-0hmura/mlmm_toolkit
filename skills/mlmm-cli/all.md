@@ -44,9 +44,8 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 
 ## Key flags (cross-mode)
 
-> **Note:** Do not pass `--max-cycles` to `mlmm all`; let each stage use its
-> own default. Set it only when running a single-stage subcommand directly,
-> such as `opt`, `tsopt`, or `path-opt`.
+> **Note:** `--max-cycles` controls only the MEP child; it is not a shared
+> all-stage budget. Other stages retain their dedicated options or defaults.
 
 | Flag | Type | Default | Description |
 |---|---|---|---|
@@ -127,7 +126,7 @@ result_all/
 
 `segments/seg_NN/` is the primary place to look for canonical structures:
 R/TS/P/IM for MEP runs or E1/TS/E2 for TS-only runs. Per-stage working
-files live in its `tsopt/`, `irc/`, `freq/`, `dft/` subdirectories. See
+files live in its `ts/`, `irc/`, `freq/`, `dft/` subdirectories. See
 `mlmm-workflows-output/SKILL.md` for canonical path conventions and the
 bond-change interpretation.
 
@@ -184,10 +183,10 @@ analysis scripts keep working.
 - If `summary.json` shows `"status": "failed"` for any segment, look
   at the corresponding `summary.log` block; per-stage errors are also
   duplicated into `segments/seg_NN/<stage>/result.json`.
-- The `segments/seg_NN/` deliverable directory is **only populated on success**
-  for that segment. Failed segments leave `_work/path_opt/seg_NN_mep/`
-  scratch (`_work/path_search/...` under `--refine-path`) but not the
-  `segments/seg_NN/` copy.
+- `segments/seg_NN/` may contain current-run partial artifacts after a
+  later-stage failure; trust leaf outcomes and current-output claims, not
+  directory existence. Failed segments can also leave engine scratch under
+  `_work/path_opt/` (`_work/path_search/` with `--refine-path`).
 
 ## See also
 

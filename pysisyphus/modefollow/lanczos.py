@@ -20,6 +20,11 @@ def lanczos(coords, grad_getter, dx=5e-3, dl=1e-2, guess=None, max_cycles=25,
     if r_prev is None:
         r_prev = np.random.rand(coords.size)
     beta_prev = np.linalg.norm(r_prev)
+    if (beta_prev == 0.0) or not np.isfinite(beta_prev):
+        raise ValueError(
+            "Lanczos requires an initial guess with a finite, nonzero norm, "
+            f"but got {beta_prev}!"
+        )
     q_prev = np.zeros_like(r_prev)
 
     alphas = list()
@@ -69,6 +74,15 @@ def lanczos(coords, grad_getter, dx=5e-3, dl=1e-2, guess=None, max_cycles=25,
         w, v = np.linalg.eigh(T)
         w_min = w[0]
         log(f"Cycle {i: >3d}: w_min={w_min: .6f}")
+
+        # Exact breakdown of the Lanczos recursion: the residual vanished, so the
+        # Krylov space is already invariant and the current Ritz pair is its
+        # solution. Continuing would normalize by beta == 0 in the next cycle.
+        breakdown_thresh = 1e-12 * max(np.linalg.norm(u), 1.0)
+        if beta <= breakdown_thresh:
+            log("Lanczos residual broke down. Returning the current Ritz pair.")
+            w_mins.append(w_min)
+            break
 
         # Check eigenvalue convergence
         if (i > 0) and (abs((w_min - w_mins[-1])/w_mins[-1]) < dl):

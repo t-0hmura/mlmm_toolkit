@@ -77,7 +77,7 @@ either install it or run CPU-only.
 ### 5. PBS scheduler details (when `SCHED=pbs`)
 
 ```bash
-qstat -Q                          # available queues + max walltime
+qstat -Qf                         # full queue attributes, including resources_max.walltime
 pbsnodes -a 2>/dev/null | grep -E "^[a-z0-9]|^ *(np|properties|gpus)" | head
 qstat -u "$USER"                  # your running / queued jobs
 ```
@@ -151,7 +151,7 @@ placeholder used by other `mlmm-*` skills.
 
   echo
   echo "=== PBS queues (if PBS) ==="
-  command -v qstat >/dev/null && qstat -Q 2>/dev/null
+  command -v qstat >/dev/null && qstat -Qf 2>/dev/null
 
   echo
   echo "=== SLURM partitions (if SLURM) ==="

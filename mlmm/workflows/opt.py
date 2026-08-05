@@ -98,6 +98,59 @@ from mlmm.workflows._microiteration import (
 )
 
 EV2AU = 1.0 / AU2EV                 # eV → Hartree
+
+
+class _OptOutputCollisionError(click.UsageError):
+    """An OPT-owned destination aliases a consumed input."""
+
+
+def _paths_physically_alias(path_a: Path, path_b: Path) -> bool:
+    """Return whether two paths identify the same filesystem object."""
+
+    try:
+        if path_a.exists() and path_b.exists() and path_a.samefile(path_b):
+            return True
+    except OSError:
+        pass
+    return path_a.expanduser().resolve() == path_b.expanduser().resolve()
+
+
+def _reject_opt_output_collisions(
+    out_dir: Path,
+    protected_inputs: Sequence[Optional[Path]],
+) -> None:
+    """Reject fixed OPT outputs that would overwrite a consumed input."""
+
+    destinations = (
+        out_dir / "final_geometry.xyz",
+        out_dir / "final_geometry.pdb",
+    )
+    for destination in destinations:
+        for protected in protected_inputs:
+            if protected is None:
+                continue
+            if _paths_physically_alias(destination, Path(protected)):
+                raise _OptOutputCollisionError(
+                    f"Output '{destination}' aliases consumed input '{protected}'."
+                )
+
+
+def _invalidate_opt_optional_outputs(out_dir: Path) -> None:
+    """Remove optional artifacts owned by an earlier OPT generation."""
+
+    for name in (
+        "final_geometry.pdb",
+        "final_geometry.gjf",
+        "optimization_all_trj.xyz",
+        "optimization_trj.xyz",
+        "optimization_all.pdb",
+        "optimization.pdb",
+        "result.json",
+        "summary.json",
+    ):
+        candidate = out_dir / name
+        if candidate.is_file() or candidate.is_symlink():
+            candidate.unlink()
 H_EVAA_2_AU = EV2AU / (ANG2BOHR * ANG2BOHR)  # (eV/Å^2) → (Hartree/Bohr^2)
 
 # Flatten-loop constants (sourced from defaults.py)
@@ -1078,7 +1131,7 @@ def _run_microiter_opt(
     "input_path",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=True,
-    help="Input structure file (PDB, XYZ). XYZ provides higher coordinate precision. "
+    help="Input structure file (PDB/mmCIF, or XYZ). XYZ provides higher coordinate precision. "
          "If XYZ, use --ref-pdb to specify PDB topology for atom ordering and output conversion.",
 )
 @click.option(
@@ -1372,6 +1425,7 @@ def cli(
 ) -> None:
     set_convert_file_enabled(convert_files)
     time_start = time.perf_counter()
+    error_out_dir = Path(out_dir).resolve()
     prepared_input = None
 
     _is_param_explicit = make_is_param_explicit(ctx)
@@ -1393,8 +1447,9 @@ def cli(
     elif suffix == ".xyz":
         # XYZ input: require --ref-pdb for topology
         if ref_pdb is None:
-            click.echo("ERROR: XYZ/TRJ input requires --ref-pdb to specify PDB topology.", err=True)
-            sys.exit(1)
+            raise click.UsageError(
+                "XYZ/TRJ input requires --ref-pdb to specify PDB topology."
+            )
         prepared_input = prepare_input_structure(input_path)
         apply_ref_pdb_override(prepared_input, ref_pdb)
         click.echo(f"[input] Using XYZ coordinates from {input_path.name}, PDB topology from {ref_pdb.name}")
@@ -1539,6 +1594,7 @@ def cli(
                 (rfo_cfg, (("rfo",), ("opt", "rfo"))),
             ],
         )
+        model_pdb_cfg = calc_cfg.get("model_pdb")
         # Revalidate after the highest-precedence YAML layer so dry-run and
         # real execution share the constructor's strict method vocabulary.
         apply_workers_to_calc_cfg(calc_cfg, None, None)
@@ -1583,11 +1639,26 @@ def cli(
         calc_cfg["freeze_atoms"] = freeze_atoms_final
 
         out_dir_path = Path(opt_cfg["out_dir"]).resolve()
+        error_out_dir = out_dir_path
+        _reject_opt_output_collisions(
+            out_dir_path,
+            (
+                input_path,
+                prepared_input.original_path,
+                prepared_input.source_path,
+                geom_input_path,
+                ref_pdb,
+                real_parm7,
+                Path(model_pdb_cfg) if model_pdb_cfg else None,
+                config_yaml,
+                override_yaml,
+                Path(calc_cfg["calc_file"]) if calc_cfg.get("calc_file") else None,
+            ),
+        )
 
         # radius_freeze implies full distance-based layer assignment.
         # radius_partial_hessian alone can be combined with --detect-layer.
         detect_layer_enabled = bool(calc_cfg.get("use_bfactor_layers", True))
-        model_pdb_cfg = calc_cfg.get("model_pdb")
         if radius_freeze is not None:
             if detect_layer_enabled:
                 click.echo("[layer] --radius-freeze provided; disabling --detect-layer.", err=True)
@@ -1672,6 +1743,8 @@ def cli(
                 narrative=True,
             )
             return
+
+        _invalidate_opt_optional_outputs(out_dir_path)
 
         try:
             model_pdb_path, layer_info = resolve_ml_layer_assignment(
@@ -2298,8 +2371,10 @@ def cli(
     except KeyboardInterrupt:
         click.echo("\nInterrupted by user.", err=True)
         sys.exit(130)
+    except _OptOutputCollisionError:
+        raise
     except Exception as e:
-        render_cli_exception(e, label="optimization", out_dir=out_dir, command="opt", time_start=time_start)
+        render_cli_exception(e, label="optimization", out_dir=error_out_dir, command="opt", time_start=time_start)
     finally:
         if prepared_input is not None:
             prepared_input.cleanup()

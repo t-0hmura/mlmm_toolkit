@@ -287,10 +287,12 @@ def add_allow_charge_mult_mismatch_option() -> Callable[[Callable], Callable]:
     """Attach ``--allow-charge-mult-mismatch`` to a Click command.
 
     Skips the ML-region charge/multiplicity electron-parity check (``validate_charge_spin``)
-    and logs that it was skipped. For users who know their (charge, multiplicity) is intentional
-    despite a parity warning -- e.g. a genuinely open-shell ML region, or a covalently-modified
-    residue whose ML/MM cut leaves an unpaired electron. Process-global via an eager, value-less
-    callback, so it propagates to every backend and child stage without per-stage forwarding.
+    and logs that it was skipped. Every valid integer-electron spin state obeys the parity
+    relation, so an open-shell ML region needs a matching multiplicity rather than this flag.
+    It exists for genuinely intentional nonstandard inputs, such as a covalently-modified
+    residue whose ML/MM cut leaves an unpaired electron. Process-global via an eager,
+    value-less callback, so it propagates to every backend and child stage without
+    per-stage forwarding.
     """
     def decorator(func: Callable) -> Callable:
         return click.option(
@@ -302,7 +304,8 @@ def add_allow_charge_mult_mismatch_option() -> Callable[[Callable], Callable]:
             callback=_allow_charge_mult_mismatch_callback,
             help=(
                 "Skip the ML-region charge/multiplicity electron-parity check (logs that it was "
-                "skipped). For an intentional open-shell or covalently-cut ML region."
+                "skipped). An open-shell ML region needs a matching multiplicity; use this only "
+                "for an intentional nonstandard input such as a covalently-cut region."
             ),
         )(func)
     return decorator

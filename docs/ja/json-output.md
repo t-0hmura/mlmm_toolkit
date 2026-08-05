@@ -45,7 +45,7 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
-| `mlip_backend` | string \| null | backend識別子（`uma`, `orb`, `mace`, `aimnet2`, `custom`）。plot-only commandがcalculatorを評価していない場合はnull |
+| `mlip_backend` | string \| null | backend識別子（`uma`, `orb`, `mace`, `aimnet2`, `dft`, `custom`）。DFT leaf は `dft`、plot-only commandがcalculatorを評価していない場合はnull |
 | `mlip_model` | string \| null | 正確なmodel/checkpoint。`--calc-file`では`filename:factory` |
 | `mlip_precision` | string \| null | 実効精度（`fp32` / `fp64`）。custom calculatorではnull |
 | `mm_backend` | string \| null | MM energy/Hessian backend（`hessian_ff` / `openmm`）。plot-onlyではnull |
@@ -143,6 +143,7 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | `opt_mode` | string | `"grad"`, `"hess"`, `"light"`, `"heavy"`, `"dimer"`, `"rsirfo"`, `"trim"`, `"rsprfo"` のいずれか（`light`/`dimer` は `grad` (PHG-Dimer)、`heavy`/`rsirfo` は `hess` (RS-I-RFO)、`trim` は TRIM、`rsprfo` は RS-P-RFO の別名） |
 | `n_atoms` | int | 全原子数 |
 | `n_opt_cycles` | int | 最適化サイクル数 |
+| `charge` / `spin` | int / int | model 領域の電荷/多重度 |
 | `rigid_projection` | object | Dimer/flatten/最終鞍点解析の凍結境界 TR provenance |
 | `reference_mode_file` | string\|null | `--ref-mode`で渡した高度なpath由来mode |
 | `safeguards` | object | heavy modeのtrial拒否/recovery、exact saddle、target-mode診断 |
@@ -158,7 +159,9 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | `frequencies_cm` | float[] | 全振動数 (cm$^{-1}$) |
 | `imaginary_frequencies_cm` | float[] | 負の振動数のみ |
 | `thermochemistry` | object\|null | 熱化学データ |
+| `charge` / `spin` | int / int | model 領域の電荷/多重度 |
 | `n_atoms` | int | 原子数 |
+| `n_freeze_atoms` | int | 凍結原子数 |
 | `rigid_projection` | object | 振動解析と熱化学で使った凍結境界 TR provenance |
 | `files` | object | 出力map。`--dump-hess`時は`hessian_npz`を含む |
 
@@ -170,6 +173,7 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
+| `status` | string | `"completed"` |
 | `n_frames_forward` / `n_frames_backward` / `n_frames_total` | int | IRC フレーム数 |
 | `energy_first_hartree` | float | 連結経路の最初の端点。単独 IRC は反応物/生成物の化学的な同一性を割り当てない |
 | `energy_ts_hartree` | float | TS エネルギー |
@@ -203,9 +207,11 @@ scan は `stages[]` 配列にステージごとのデータと `n_stages` を含
 | `converged` | bool | 収束判定 |
 | `mep_mode` | string | `"dmf"` / `"gsm"` |
 | `image_energies_hartree` | float[] | 全イメージエネルギー |
+| `n_images` | int | イメージ数 |
 | `hei_index` | int | 最高エネルギーイメージの index |
 | `barrier_kcal` | float | 前方障壁 (kcal/mol) |
 | `delta_kcal` | float | 反応エネルギー (kcal/mol) |
+| `files` | object | 軌跡と HEI のファイル map |
 
 ### `dft`
 
@@ -217,11 +223,13 @@ scan は `stages[]` 配列にステージごとのデータと `n_stages` を含
 | `xc_functional` | string | 汎関数 |
 | `basis_set` | string | 基底関数 |
 | `used_gpu` | bool | GPU 使用? |
+| `n_atoms` | int | QM 領域の原子数 |
 | `grid_level` | int | YAML/CLI 解決後の DFT grid level |
 | `conv_tol` | float | YAML/CLI 解決後の SCF 収束閾値 |
 | `max_cycle` | int | YAML/CLI 解決後の SCF 最大反復数 |
 | `engine` | string | 実際に使用した runtime engine label |
 | `charges` / `spin_densities` | object | `{mulliken, lowdin, iao}` 原子電荷/スピン密度 |
+| `files` | object | `{"result_yaml": "result.yaml"}` |
 
 ### `trj2fig`
 

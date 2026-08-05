@@ -29,6 +29,10 @@ from pysisyphus.constants import AU2EV
 from mlmm.backends.mlmm_calc import mlmm
 from mlmm.core.defaults import GEOM_KW_DEFAULT, MLMM_CALC_KW, OUT_DIR_SP
 from mlmm.workflows.charge_prep import resolve_charge_spin_or_raise
+from mlmm.workflows._opt_freq_common import (
+    _convert_yaml_layer_atoms_1to0,
+    _normalize_geom_freeze,
+)
 from mlmm.core.utils import (
     apply_yaml_overrides,
     apply_ref_pdb_override,
@@ -57,6 +61,29 @@ from mlmm.cli.decorators import (
 logger = logging.getLogger(__name__)
 
 EV2AU = 1.0 / AU2EV
+
+
+class _SPOutputCollisionError(click.UsageError):
+    """An SP output/input collision that bypasses envelope writing."""
+
+
+def _reject_sp_output_collisions(
+    out_dir: Path, protected_inputs: Sequence[Optional[Path]]
+) -> None:
+    destinations = [out_dir / name for name in ("result.json", "summary.json")]
+    for protected in protected_inputs:
+        if protected is None:
+            continue
+        source = Path(protected).expanduser().resolve()
+        for destination in destinations:
+            target = destination.resolve(strict=False)
+            aliases = source == target
+            if not aliases and source.exists() and destination.exists():
+                aliases = source.samefile(destination)
+            if aliases:
+                raise _SPOutputCollisionError(
+                    f"Input {protected} physically aliases reserved SP output {destination}."
+                )
 
 
 def _resolve_sp_ml_region(
@@ -400,9 +427,8 @@ def cli(
             calc_cfg["use_cmap"] = bool(use_cmap)
         from mlmm.backends import apply_precision_to_calc_cfg
         from mlmm.backends import apply_workers_to_calc_cfg
-        if _is_param_explicit("backend_model") and backend_model is not None:
-            from mlmm.backends import apply_backend_model_to_calc_cfg
-            apply_backend_model_to_calc_cfg(calc_cfg, backend_model)
+        from mlmm.backends import apply_backend_model_to_calc_cfg
+        apply_backend_model_to_calc_cfg(calc_cfg, backend_model)
         # --calc-file overrides --backend with a user ASE Calculator (custom backend).
         from mlmm.backends import apply_calc_file_to_calc_cfg
         apply_calc_file_to_calc_cfg(calc_cfg, calc_file, calc_factory)
@@ -454,6 +480,22 @@ def cli(
         calc_cfg["spin"] = int(resolved_spin)
 
         out_dir_path = Path(sp_cfg["out_dir"]).resolve()
+        geom_cfg["freeze_atoms"] = _normalize_geom_freeze(
+            geom_cfg.get("freeze_atoms")
+        )
+        _convert_yaml_layer_atoms_1to0(calc_cfg)
+        protected_inputs = (
+            input_path,
+            prepared.original_path,
+            prepared.source_path,
+            prepared.geom_path,
+            ref_pdb,
+            real_parm7,
+            model_pdb,
+            config_yaml,
+            Path(calc_cfg["calc_file"]) if calc_cfg.get("calc_file") else None,
+        )
+        _reject_sp_output_collisions(out_dir_path, protected_inputs)
 
         from mlmm.core.embedcharge_policy import reject_retired_embedcharge_cli
 
@@ -492,6 +534,11 @@ def cli(
             return
 
         out_dir_path.mkdir(parents=True, exist_ok=True)
+        if not sp_cfg["hess"]:
+            (out_dir_path / "hessian.npy").unlink(missing_ok=True)
+        if not out_json:
+            for name in ("result.json", "summary.json"):
+                (out_dir_path / name).unlink(missing_ok=True)
 
         # Apply optional CLI freeze_atoms extension
         if freeze_atoms_cli is not None:
@@ -514,20 +561,7 @@ def cli(
             calc_cfg=calc_cfg,
             model_indices_str=model_indices_str,
             model_indices_one_based=model_indices_one_based,
-            protected_inputs=(
-                input_path,
-                prepared.original_path,
-                prepared.source_path,
-                prepared.geom_path,
-                ref_pdb,
-                real_parm7,
-                config_yaml,
-                (
-                    Path(calc_cfg["calc_file"])
-                    if calc_cfg.get("calc_file")
-                    else None
-                ),
-            ),
+            protected_inputs=protected_inputs,
         )
 
         # Rename CLI-style keys to mlmm constructor kwargs to avoid duplicate-
@@ -602,6 +636,8 @@ def cli(
 
         click.echo(format_elapsed("[time] Elapsed Time for SP", time_start))
 
+    except _SPOutputCollisionError:
+        raise
     except Exception as exc:
         render_cli_exception(
             exc, label="single-point",

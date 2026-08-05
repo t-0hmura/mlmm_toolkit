@@ -18,6 +18,9 @@ pytestmark = pytest.mark.skipif(
 @pytest.fixture(scope="module")
 def opt_module():
     """Import mlmm.workflows.opt with mlmm_calc stubbed out."""
+    workflows_package = importlib.import_module("mlmm.workflows")
+    missing = object()
+    previous_parent_opt = getattr(workflows_package, "opt", missing)
     previous_calc = sys.modules.get("mlmm.backends.mlmm_calc")
     previous_opt = sys.modules.get("mlmm.workflows.opt")
     stub = types.ModuleType("mlmm.backends.mlmm_calc")
@@ -41,6 +44,11 @@ def opt_module():
             sys.modules.pop("mlmm.workflows.opt", None)
         else:
             sys.modules["mlmm.workflows.opt"] = previous_opt
+        if previous_parent_opt is missing:
+            if hasattr(workflows_package, "opt"):
+                delattr(workflows_package, "opt")
+        else:
+            setattr(workflows_package, "opt", previous_parent_opt)
 
 
 def test_parse_freeze_atoms_valid(opt_module):

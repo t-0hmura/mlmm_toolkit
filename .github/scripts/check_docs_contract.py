@@ -40,6 +40,8 @@ STALE_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
      "Hessian peak memory depends on backend, system, precision, and hardware"),
     (re.compile(r"No torch / no MLIP dependency", re.I),
      "domain may use numeric torch/numpy but not MLIP runtime dependencies"),
+    (re.compile(r"\bcalc\.(?:charge|spin)\b"),
+     "calculator electronic-state keys are model_charge/model_mult"),
 )
 
 REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
@@ -207,7 +209,7 @@ def _iter_markdown() -> list[Path]:
 
 def main() -> int:
     sys.path.insert(0, str(REPO_ROOT))
-    from mlmm.core.defaults import DEFAULT_UMA_MODEL, MLMM_CALC_KW
+    from mlmm.core.defaults import DEFAULT_UMA_MODEL, LBFGS_KW, MLMM_CALC_KW, RFO_KW
 
     from docs_command_contract import (
         bool_style_sources,
@@ -223,6 +225,16 @@ def main() -> int:
     for key, value in expected.items():
         if MLMM_CALC_KW.get(key) != value:
             errors.append(f"source default changed: {key}={MLMM_CALC_KW.get(key)!r}, expected {value!r}")
+
+    uphill_defaults = {LBFGS_KW["uphill_tolerance"], RFO_KW["uphill_tolerance"]}
+    if len(uphill_defaults) != 1:
+        errors.append(f"source defaults disagree: uphill_tolerance={uphill_defaults!r}")
+    uphill_default = next(iter(uphill_defaults))
+    for rel in (Path("docs/yaml-reference.md"), Path("docs/ja/yaml-reference.md")):
+        text = (REPO_ROOT / rel).read_text(encoding="utf-8")
+        expected_literal = f"uphill_tolerance: {uphill_default:.4f}"
+        if text.count(expected_literal) != 2:
+            errors.append(f"{rel}: uphill_tolerance examples must match {uphill_default}")
 
     # Live-derived canonical bool-style check over the full authored surface
     # (README, CONTRIBUTING, docs, skills, examples, smoke scripts). Only names

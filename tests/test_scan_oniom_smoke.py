@@ -423,17 +423,24 @@ def test_oniom_export_orca_mm_failure_prints_manual_command(
         returncode = 1
         stdout = "simulated orca_mm failure"
 
-    monkeypatch.setattr(oniom_export.shutil, "which", lambda _name: "/usr/bin/orca_mm")
-    monkeypatch.setattr(oniom_export.subprocess, "run", lambda *args, **kwargs: _FailedProc())
+    calls = []
 
-    out_file = tmp_path / "model.inp"
+    def _run(cmd, **kwargs):
+        calls.append((cmd, kwargs))
+        return _FailedProc()
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(oniom_export.shutil, "which", lambda _name: "/usr/bin/orca_mm")
+    monkeypatch.setattr(oniom_export.subprocess, "run", _run)
+
+    out_file = tmp_path / "distinct-output" / "model.inp"
     runner = CliRunner()
     result = runner.invoke(
         root_cli,
         [
             "oniom-export",
             "--parm",
-            str(nocmap_parm),
+            nocmap_parm.name,
             "-i",
             str(_fixture("complex.pdb")),
             "--model-pdb",
@@ -457,6 +464,8 @@ def test_oniom_export_orca_mm_failure_prints_manual_command(
     assert "orca_mm failed" in result.output
     assert "Run manually: cd " in result.output
     assert "orca_mm -convff -AMBER" in result.output
+    assert calls[0][0][-1] == str(nocmap_parm.resolve())
+    assert Path(calls[0][1]["cwd"]) == out_file.parent.resolve()
 
 
 def test_scan_forces_cartesian_even_with_coord_type_dlc(tmp_path, monkeypatch) -> None:

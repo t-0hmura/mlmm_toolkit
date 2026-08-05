@@ -42,6 +42,8 @@ mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 プロット専用 CSV には `d1_A`、`d2_A`、`d3_A` と
 `energy_hartree` または `energy_kcal` が必要です。新規出力は
+`baseline=first` の場合は grid index 列 `i`、`j`、`k` も必要です。
+新規出力は
 `bias_converged`、`artifact_written`、`is_preopt` も記録し、事前最適化行、
 明示的な非収束行、構造ファイル未作成行、非有限値を除外します。provenance が
 不完全な旧形式は警告付きで読み込みます。補間には座標重複がなく、全 3 軸を
@@ -173,22 +175,20 @@ geom:
  coord_type: cart
  freeze_atoms: []
 calc:
- charge: 0
- spin: 1
-mlmm:
+ model_charge: 0
+ model_mult: 1
  real_parm7: real.parm7
  model_pdb: ml_region.pdb
 opt:
  thresh: baker
  max_cycles: 10000
- dump: false
- out_dir: ./result_scan3d/
 lbfgs:
  max_step: 0.3
- out_dir: ./result_scan3d/
 bias:
  k: 300.0
 ```
+
+軌跡保存と出力先は CLI が所有する `--dump` と `--out-dir` を使います。
 
 ## 関連項目
 

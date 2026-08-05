@@ -46,9 +46,9 @@ class RFOptimizer(HessianOptimizer):
         gdiis
             Whether to enable GDIIS.
         gdiis_thresh
-            Threshold for rms(forces) to enable GDIIS.
+            Threshold for rms(step) to enable GDIIS.
         gediis_thresh
-            Threshold for rms(step) to enable GEDIIS.
+            Threshold for rms(forces) to enable GEDIIS.
         gdiis_test_direction
             Whether to the overlap of the RFO step and the GDIIS step.
         max_micro_cycles

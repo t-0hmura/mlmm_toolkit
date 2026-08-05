@@ -56,8 +56,8 @@ out_dir/ (default: ./result_dft/)
 - `result.yaml` expands to:
   - `energy`: Hartree/kcal/mol values, convergence flag, wall time, backend info (`engine`: `gpu4pyscf(rks_lowmem)` / `gpu4pyscf` / `pyscf(cpu)`; `used_gpu`; `used_lowmem`).
   - `mlmm_energy`: REAL-low / MODEL-low MM evaluations and the recombined `E_total = E_REAL_low + E_ML(DFT) - E_MODEL_low` in Hartree and kcal/mol.
-  - `charges`: Mulliken, meta-Lowdin, and IAO atomic charges (`null` when a method fails).
-  - `spin_densities`: Mulliken, meta-Lowdin, and IAO spin densities (UKS-only for spins).
+  - `charges [index, element, mulliken, lowdin, iao]`: Mulliken, meta-Lowdin, and IAO atomic charges (`null` when a method fails).
+  - `spin_densities [index, element, mulliken, lowdin, iao]`: Mulliken, meta-Lowdin, and IAO spin densities (UKS-only for spins).
 - It also summarizes charge, multiplicity, functional, basis, convergence knobs, and resolved output directory.
 
 ## CLI options
@@ -109,7 +109,6 @@ geom:
 calc:
  model_charge: 0                   # ML region charge
  model_mult: 1                     # spin multiplicity 2S+1
-mlmm:
  real_parm7: real.parm7            # Amber parm7 topology
  model_pdb: ml_region.pdb          # ML-region definition
 dft:

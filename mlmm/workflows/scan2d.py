@@ -81,6 +81,7 @@ from mlmm.core.utils import (
     ensure_dir,
     distance_A_from_coords,
     distance_tag,
+    unique_tag_digits,
     values_from_bounds,
     unbiased_energy_hartree,
     snapshot_geometry,
@@ -556,7 +557,8 @@ def cli(
             freeze_atoms_final = list(geom_cfg.get("freeze_atoms") or [])
             calc_cfg["freeze_atoms"] = freeze_atoms_final
 
-            opt_cfg["out_dir"] = out_dir
+            if _is_param_explicit("out_dir"):
+                opt_cfg["out_dir"] = out_dir
             opt_cfg["dump"] = False
             if bias_k is not None:
                 bias_cfg["k"] = float(bias_k)
@@ -687,6 +689,13 @@ def cli(
                     option_name="--scan-lists",
                 )
             (i1, j1, low1, high1), (i2, j2, low2, high2) = parsed
+            frozen_set = set(map(int, freeze_atoms_final))
+            for axis, (atom_i, atom_j, _low, _high) in enumerate(parsed, start=1):
+                if int(atom_i) in frozen_set and int(atom_j) in frozen_set:
+                    raise click.BadParameter(
+                        "A scan restraint cannot connect two frozen atoms: "
+                        f"axis d{axis}, atoms {int(atom_i) + 1} and {int(atom_j) + 1}."
+                    )
             d1_label_csv = axis_label_csv("d1", i1, j1, scan_one_based, pdb_atom_meta, raw_pairs[0])
             d2_label_csv = axis_label_csv("d2", i2, j2, scan_one_based, pdb_atom_meta, raw_pairs[1])
             d1_label_html = axis_label_html(d1_label_csv)
@@ -956,6 +965,17 @@ def cli(
             d1_values = values_from_bounds(low1, high1, float(max_step_size))
             d2_values = values_from_bounds(low2, high2, float(max_step_size))
 
+            # One tag precision per axis, so a fine grid cannot map two targets
+            # onto the same point tag and truncate the earlier artifact.
+            d1_digits = unique_tag_digits(d1_values)
+            d2_digits = unique_tag_digits(d2_values)
+
+            def _d1_tag(value: float) -> str:
+                return distance_tag(value, digits=d1_digits, pad=d1_digits + 1)
+
+            def _d2_tag(value: float) -> str:
+                return distance_tag(value, digits=d2_digits, pad=d2_digits + 1)
+
             if math.isfinite(d1_ref):
                 d1_values = np.array(
                     sorted(d1_values, key=lambda v: abs(v - d1_ref)),
@@ -975,7 +995,7 @@ def cli(
             max_step_bohr = float(max_step_size) * ANG2BOHR
 
             for i_idx, d1_target in enumerate(d1_values):
-                d1_tag = distance_tag(d1_target)
+                d1_tag = _d1_tag(d1_target)
                 click.echo(f"\n--- d1 step {i_idx + 1}/{N1} : target = {d1_target:.3f} Å ---")
 
                 # Choose the closest previously visited structure (in d1) as the
@@ -1026,7 +1046,7 @@ def cli(
                 trj_blocks = [] if dump else None
 
                 for j_idx, d2_target in enumerate(d2_values):
-                    d2_tag = distance_tag(d2_target)
+                    d2_tag = _d2_tag(d2_target)
 
                     # For each (d1, d2) grid point, choose as initial structure the
                     # previously visited geometry whose scanned distances are closest

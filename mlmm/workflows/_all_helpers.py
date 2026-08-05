@@ -314,7 +314,7 @@ def build_freq_overrides(
         overrides["pressure"] = float(freq_pressure)
     if require_thermo_artifact:
         # ``all --thermo`` consumes this child artifact as its stage hand-off.
-        # It is required independently of the parent's optional dump policy.
+        # Dump is forced to True to ensure the artifact is produced.
         overrides["dump"] = True
     elif dump_override_requested:
         overrides["dump"] = bool(dump)

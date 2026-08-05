@@ -16,7 +16,14 @@ def test_prepare_path_output_dir_invalidates_prior_envelopes(
 
     out_dir = tmp_path / "path"
     out_dir.mkdir()
-    for name in ("result.json", "summary.json"):
+    owned = (
+        "result.json",
+        "summary.json",
+        "final_geometries.pdb",
+        "hei.pdb",
+        "hei.gjf",
+    )
+    for name in owned:
         (out_dir / name).write_text('{"status": "error"}\n', encoding="utf-8")
     unrelated = out_dir / "notes.txt"
     unrelated.write_text("keep\n", encoding="utf-8")
@@ -24,8 +31,7 @@ def test_prepare_path_output_dir_invalidates_prior_envelopes(
     resolved = _prepare_path_output_dir(out_dir)
 
     assert resolved == out_dir.resolve()
-    assert not (out_dir / "result.json").exists()
-    assert not (out_dir / "summary.json").exists()
+    assert all(not (out_dir / name).exists() for name in owned)
     assert unrelated.read_text(encoding="utf-8") == "keep\n"
 
 
@@ -82,6 +88,41 @@ def test_path_cli_preserves_config_before_early_validation(
     assert result.exit_code == 2, result.output
     assert "collides with a reserved path-opt output" in result.output
     assert config.read_bytes() == original
+
+
+def test_yaml_redirect_ignores_unused_click_default_collision(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mlmm.workflows import path_opt as path_module
+
+    repo = Path(__file__).resolve().parents[1]
+    smoke = repo / "tests" / "smoke"
+    monkeypatch.chdir(tmp_path)
+    default_out = tmp_path / "result_path_opt"
+    default_out.mkdir()
+    occupied = default_out / "result.json"
+    occupied.write_text("input\n", encoding="utf-8")
+    effective_out = tmp_path / "effective"
+    config = tmp_path / "redirect.yaml"
+    config.write_text(
+        f"stopt:\n  out_dir: {effective_out}\n  max_cycles: 0\n",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        path_module.cli,
+        [
+            "-i", str(smoke / "r_complex_layered.pdb"),
+            str(smoke / "p_complex_layered.pdb"),
+            "--parm", str(smoke / "p_complex.parm7"),
+            "-q", "-1", "-m", "1",
+            "--config", str(config),
+        ],
+    )
+
+    assert "collides with a reserved path-opt output" not in result.output
+    assert occupied.read_text(encoding="utf-8") == "input\n"
 
 
 def test_endpoint_identity_rejects_reordered_same_element_atoms(

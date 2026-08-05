@@ -230,6 +230,21 @@ def assign_elements(
     overwrite: bool = False,
     inplace: bool = False,
 ) -> None:
+    out_path = (
+        out_pdb
+        if out_pdb
+        else (in_pdb if inplace else _default_out_pdb_path(in_pdb))
+    )
+    input_path = Path(in_pdb).expanduser().resolve()
+    output_path = Path(out_path).expanduser().resolve()
+    aliases_input = input_path == output_path
+    if not aliases_input and input_path.exists() and output_path.exists():
+        aliases_input = os.path.samefile(input_path, output_path)
+    if aliases_input and not inplace:
+        raise ValueError(
+            "Output physically aliases the input; use --inplace to replace it."
+        )
+
     total = 0
     assigned_new = 0
     overwritten = 0
@@ -284,11 +299,6 @@ def assign_elements(
             assigned_new += 1
         rewritten.append(_replace_element_field(line, symbol))
 
-    out_path = (
-        out_pdb
-        if out_pdb
-        else (in_pdb if inplace else _default_out_pdb_path(in_pdb))
-    )
     with open(out_path, "w", encoding="utf-8", errors="surrogateescape", newline="") as handle:
         handle.writelines(rewritten)
 

@@ -10,6 +10,7 @@ For detailed documentation, see: docs/trj2fig.md
 from __future__ import annotations
 
 import csv
+import os
 import time
 from pathlib import Path
 from typing import List, Optional, Sequence, Tuple
@@ -53,6 +54,9 @@ def recompute_energies(
     from mlmm.backends.mlmm_calc import _create_ml_backend
     from mlmm.core.utils import validate_charge_spin
 
+    # Parse once with the strict shared reader before backend construction so
+    # every frame has one atom identity/order.
+    read_xyz_trajectory(traj_path)
     frames_obj = read(traj_path, index=":", format="xyz")
     frames = [frames_obj] if isinstance(frames_obj, Atoms) else list(frames_obj)
     if not frames:
@@ -309,6 +313,18 @@ def run_trj2fig(
     if not traj.is_file():
         raise FileNotFoundError(traj)
 
+    out_paths = [Path(o).expanduser().resolve() for o in outs]
+    candidates = [traj, *out_paths]
+    for index, left in enumerate(candidates):
+        for right in candidates[index + 1 :]:
+            same = left == right
+            if not same and left.exists() and right.exists():
+                same = os.path.samefile(left, right)
+            if same:
+                raise ValueError(
+                    f"Input/output paths must not physically alias: {left} and {right}."
+                )
+
     recomputed = charge is not None or multiplicity is not None
     if not recomputed:
         parsed = read_xyz_trajectory(traj, require_energies=True)
@@ -345,7 +361,6 @@ def run_trj2fig(
     need_plot = any(Path(o).suffix.lower() != ".csv" for o in outs)
     fig = build_figure(values, ylabel, reverse_x) if need_plot else None
 
-    out_paths = [Path(o).expanduser().resolve() for o in outs]
     save_outputs(out_paths, fig, energies, values, unit, is_delta)
 
     return {

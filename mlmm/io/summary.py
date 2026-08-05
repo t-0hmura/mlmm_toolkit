@@ -158,8 +158,7 @@ def _method_citation_record_keys(payload: Dict[str, Any]) -> List[str]:
     thermo_used = bool(payload.get("thermo_executed")) or any(
         isinstance(segment, dict)
         and (
-            "ts_imag" in segment
-            or "thermo_symmetry" in segment
+            "thermo_symmetry" in segment
             or "gibbs_mlip" in segment
             or "gibbs_dft_mlip" in segment
         )
@@ -464,6 +463,8 @@ def _tree_annotate(annotations: Dict[str, str], rel: str) -> str:
 
 
 def _tree_leaf_files(dir_path: Path) -> Optional[List[str]]:
+    if dir_path.is_symlink():
+        return None
     try:
         inner_children = sorted(dir_path.iterdir(), key=lambda p: p.name.lower())
     except Exception:
@@ -497,7 +498,8 @@ def _walk_directory_tree(
     for idx, child in enumerate(children):
         connector = "\u2514\u2500" if idx == len(children) - 1 else "\u251c\u2500"
         rel = _tree_rel_path(root, child)
-        if child.is_dir():
+        is_recursive_dir = child.is_dir() and not child.is_symlink()
+        if is_recursive_dir:
             leaf_names = _tree_leaf_files(child) if depth < max_depth else None
             if leaf_names is not None:
                 lines.append(f"{prefix}{connector} {child.name}/{_tree_annotate(annotations, rel)}")
@@ -519,13 +521,13 @@ def _walk_directory_tree(
                     return True
                 continue
 
-        name = child.name + ("/" if child.is_dir() else "")
+        name = child.name + ("@" if child.is_symlink() else ("/" if is_recursive_dir else ""))
         lines.append(f"{prefix}{connector} {name}{_tree_annotate(annotations, rel)}")
         entries_seen_ref[0] += 1
         if entries_seen_ref[0] >= max_entries:
             lines.append(f"{prefix}   ... (truncated after {max_entries} entries)")
             return True
-        if child.is_dir() and depth < max_depth:
+        if is_recursive_dir and depth < max_depth:
             next_prefix = prefix + ("   " if idx == len(children) - 1 else "\u2502  ")
             if _walk_directory_tree(
                 child,

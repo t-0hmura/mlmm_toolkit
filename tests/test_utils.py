@@ -84,6 +84,13 @@ def test_distance_tag():
     assert distance_tag(1.234, digits=3, pad=4) == "1234"  # 1.234 × 1000
 
 
+def test_unique_tag_digits_uses_as_much_precision_as_the_grid_requires():
+    from mlmm.core.utils import unique_tag_digits
+
+    assert unique_tag_digits([1.00, 1.01, 1.02]) == 2
+    assert unique_tag_digits([1.0000001, 1.0000002]) == 7
+
+
 def test_values_from_bounds():
     """Test values_from_bounds grid generation."""
     from mlmm.core.utils import values_from_bounds

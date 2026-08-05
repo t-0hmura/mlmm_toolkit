@@ -87,7 +87,7 @@ result_opt/
 └── optimization_all_trj.xyz    # full per-step trajectory (when --dump)
 ```
 
-`result.json` keys: `status` (converged / not_converged), `n_opt_cycles`,
+`result.json` keys: `status` (converged / stalled / not_converged), `n_opt_cycles`,
 `energy_hartree`, `final_max_force`, `files.final_geometry_xyz`.
 When `--flatten` runs, `rigid_projection` also records the selected treatment,
 effective rank, Hessian source, and Hessian shape.

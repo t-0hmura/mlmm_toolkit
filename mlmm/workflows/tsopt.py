@@ -600,6 +600,8 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
                               atomic_numbers: List[int],
                               coords_bohr: np.ndarray,
                               device: torch.device,
+                              # 'tol' is retained for signature compatibility and ignored;
+                              # the rigid space is removed exactly instead of by magnitude.
                               tol: float = 1e-6,
                               freeze_idx: Optional[List[int]] = None,
                               tr_projection: str = "constrained",
@@ -617,14 +619,16 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
         masses_au_t = torch.as_tensor(masses_amu * AMU2AU, dtype=H_t.dtype, device=device)
         coords_bohr_t = torch.as_tensor(coords_bohr.reshape(-1, 3), dtype=H_t.dtype, device=device)
 
-        # in-place mass-weight + (active-subspace) TR projection
-        Hmw = _mw_projected_hessian_inplace(
+        # in-place mass-weight + (active-subspace) TR projection, reduced to the
+        # orthogonal complement of the rigid basis so every physical root survives
+        Hmw, lift = _mw_projected_hessian_inplace(
             H_t,
             coords_bohr_t,
             masses_au_t,
             freeze_idx=freeze_idx,
             tr_projection=tr_projection,
             projection_info=projection_info,
+            compact=True,
         )
 
         # Bounded-peak symmetrization (helper writes both triangles).
@@ -632,9 +636,9 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
         symmetrize_inplace(Hmw)
         omega2, Vsub = torch.linalg.eigh(Hmw, UPLO="U")
 
-        sel = torch.abs(omega2) > tol
-        omega2 = omega2[sel]
-        Vsub = Vsub[:, sel]  # (3N_act or 3N, nsel)
+        if lift is not None:
+            Vsub = lift.T @ Vsub  # (3N_act or 3N, nmode)
+        del lift
 
         # embed modes to full 3N
         if freeze_idx:
@@ -651,7 +655,7 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
         # convert to cm^-1
         freqs_cm = _omega2_to_freqs_cm(omega2)
 
-        del omega2, Vsub, sel, masses_amu, masses_au_t, coords_bohr_t, Hmw
+        del omega2, Vsub, masses_amu, masses_au_t, coords_bohr_t, Hmw
         _clear_cuda_cache(H_t)
         return freqs_cm, modes
 
@@ -688,8 +692,12 @@ def _write_mode_trj_and_pdb(geom,
         try:
             convert_xyz_to_pdb(out_trj, ref_pdb, out_pdb)
             return
-        except Exception:
-            pass  # fall through to ASE fallback
+        except Exception as exc:
+            click.echo(
+                "[convert] WARNING: mode PDB fell back to plain ASE output "
+                f"without the reference topology: {exc}",
+                err=True,
+            )
 
     # Fallback: MODEL/ENDMDL via ASE (no topology)
     atoms0 = Atoms(geom.atoms, positions=ref_ang, pbc=False)
@@ -836,6 +844,7 @@ def _frequencies_from_Hact(H_act: torch.Tensor,
                            coords_bohr: np.ndarray,
                            active_idx: List[int],
                            device: torch.device,
+                           # Retained for signature compatibility and ignored.
                            tol: float = 1e-6,
                            tr_projection: str = "constrained",
                            projection_info: Optional[dict] = None) -> np.ndarray:
@@ -849,23 +858,21 @@ def _frequencies_from_Hact(H_act: torch.Tensor,
             dtype=H_act.dtype,
             device=device,
         )
-        Hmw = H_act.clone()
-        _mw_tr_project_active_inplace(
-            Hmw,
+        Hmw, _lift = _mw_tr_project_active_inplace(
+            H_act.clone(),
             coords_full,
             masses_full_au,
             active_idx,
             tr_projection=tr_projection,
             projection_info=projection_info,
+            compact=True,
         )
         # Bounded-peak symmetrization (helper writes both triangles).
         from mlmm.core.utils import symmetrize_inplace
         symmetrize_inplace(Hmw)
         omega2 = torch.linalg.eigvalsh(Hmw, UPLO="U")
-        sel = torch.abs(omega2) > tol
-        omega2 = omega2[sel]
         freqs_cm = _omega2_to_freqs_cm(omega2)
-        del coords_full, masses_full_au, Hmw, omega2, sel
+        del coords_full, masses_full_au, Hmw, omega2, _lift
         _clear_cuda_cache(H_act)
         return freqs_cm
 
@@ -875,6 +882,7 @@ def _modes_from_Hact_embedded(H_act: torch.Tensor,
                               coords_bohr: np.ndarray,
                               active_idx: List[int],
                               device: torch.device,
+                              # Retained for signature compatibility and ignored.
                               tol: float = 1e-6,
                               tr_projection: str = "constrained",
                               projection_info: Optional[dict] = None) -> Tuple[np.ndarray, torch.Tensor]:
@@ -891,22 +899,23 @@ def _modes_from_Hact_embedded(H_act: torch.Tensor,
             dtype=H_act.dtype,
             device=device,
         )
-        Hmw = H_act.clone()
-        _mw_tr_project_active_inplace(
-            Hmw,
+        Hmw, lift = _mw_tr_project_active_inplace(
+            H_act.clone(),
             coords_full,
             masses_full_au,
             active_idx,
             tr_projection=tr_projection,
             projection_info=projection_info,
+            compact=True,
         )
         # Bounded-peak symmetrization (helper writes both triangles).
         from mlmm.core.utils import symmetrize_inplace
         symmetrize_inplace(Hmw)
         omega2, Vsub = torch.linalg.eigh(Hmw, UPLO="U")
-        sel = torch.abs(omega2) > tol
-        omega2 = omega2[sel]
-        Vsub = Vsub[:, sel]  # (3N_act, nsel)
+        if lift is not None:
+            # Lift the reduced eigenvectors back to the active DOF space.
+            Vsub = lift.T @ Vsub  # (3N_act, nmode)
+        del lift
 
         # Embed to full 3N (mass-weighted eigenvectors)
         modes_full = torch.zeros((Vsub.shape[1], 3 * N), dtype=Hmw.dtype, device=device)
@@ -1343,10 +1352,14 @@ def _finalize_dimer_saddle_status(
     freqs_cm: np.ndarray,
     neg_freq_thresh_cm: float,
 ) -> np.ndarray:
-    """Record the final exact-Hessian verdict on a dimer runner."""
+    """Record the final exact-Hessian verdict on a dimer runner.
 
-    threshold = abs(float(neg_freq_thresh_cm))
-    neg_idx = np.where(np.asarray(freqs_cm) < -threshold)[0]
+    Saddle order is certified by counting every negative root of the exact
+    compact PHVA spectrum. ``neg_freq_thresh_cm`` stays a recovery/reporting
+    threshold and must not weight certification by mode magnitude.
+    """
+
+    neg_idx = np.where(np.asarray(freqs_cm) < 0.0)[0]
     runner.n_imaginary_modes = len(neg_idx)
     runner.imaginary_frequencies_cm = [
         float(freqs_cm[i]) for i in neg_idx
@@ -1355,6 +1368,30 @@ def _finalize_dimer_saddle_status(
     if not runner.saddle_order_verified:
         runner.is_converged = False
     return neg_idx
+
+
+def _dimer_mode_export_message(
+    n_written: int,
+    n_imag: int,
+    threshold_cm: float,
+    min_frequency_cm: float,
+) -> tuple[str, bool]:
+    """Return the final mode-export message and whether it is diagnostic."""
+
+    if n_written:
+        return f"[tsopt] Wrote {n_written} final imaginary mode(s).", False
+    if n_imag == 0:
+        return (
+            "[tsopt] No imaginary mode found at the end "
+            f"(nu_min = {min_frequency_cm:.2f} cm^-1).",
+            True,
+        )
+    return (
+        f"[tsopt] Exact n_imag={n_imag}; no mode exceeded the "
+        f"{abs(float(threshold_cm)):.1f} cm^-1 export threshold "
+        f"(nu_min = {min_frequency_cm:.2f} cm^-1).",
+        True,
+    )
 
 
 class HessianDimer:
@@ -1366,8 +1403,8 @@ class HessianDimer:
       - Pass-through kwargs: `dimer_kwargs` and `lbfgs_kwargs` to tune internals.
       - Hard cap on total LBFGS steps across segments: `max_total_cycles`.
       - PHVA (active DOF subspace) + TR projection for mode picking,
-        respecting ``freeze_atoms``, with in-place operations. When ``root == 0`` the
-        implementation prefers LOBPCG.
+        respecting ``freeze_atoms``, with in-place operations. Root 0
+        unconditionally uses LOBPCG with the existing dense fallback.
       - The flatten loop uses a *Bofill*-updated active Hessian block, so the
         expensive exact Hessian is evaluated only once before the flatten loop and
         once at the end for the final frequency analysis.
@@ -1381,16 +1418,15 @@ class HessianDimer:
                  thresh_loose: str = "gau_loose",
                  thresh: str = "baker",
                  update_interval_hessian: int = 500,
-                 # neg_freq_thresh_cm: a mode counts as imaginary iff freqs_cm < -5.0. It is
-                 # SUBORDINATE to the ~5.14 cm⁻¹ tol floor in _frequencies_cm_and_modes
-                 # (|ω²| > 1e-6 au drops near-zero modes first), so survivors already exceed
-                 # ~5.14 cm⁻¹ and 5.0 never fires independently. Do NOT raise it above ~5.14
-                 # expecting a looser cutoff — that would discard genuine soft modes.
+                 # neg_freq_thresh_cm selects which imaginary modes are reported, exported
+                 # and flattened. Final saddle-order certification does NOT use it: it
+                 # counts every negative root of the exact compact PHVA spectrum. Raising
+                 # this value only hides soft modes from recovery and reporting.
                  neg_freq_thresh_cm: float = 5.0,
                  flatten_amp_ang: float = 0.10,
                  flatten_max_iter: int = 50,
                  mem: int = 100000,
-                 use_lobpcg: bool = True,  # kept for backward compat (not used when root!=0)
+                 use_lobpcg: bool = True,  # compatibility no-op; root 0 always uses LOBPCG
                  calc_kwargs: Optional[dict] = None,
                  device: str = "auto",
                  dump: bool = False,
@@ -1415,6 +1451,10 @@ class HessianDimer:
                  skip_final_freq: bool = False,
                  ) -> None:
 
+        update_interval_hessian = int(update_interval_hessian)
+        if update_interval_hessian < 1:
+            raise ValueError("update_interval_hessian must be at least 1")
+
         self.fn = fn
         self.source_path = Path(source_path) if source_path is not None else None
         self.out_dir = Path(out_dir)
@@ -1424,12 +1464,14 @@ class HessianDimer:
 
         self.thresh_loose = thresh_loose
         self.thresh = thresh
-        self.update_interval_hessian = int(update_interval_hessian)
+        self.update_interval_hessian = update_interval_hessian
         self.neg_freq_thresh_cm = float(neg_freq_thresh_cm)
         self.flatten_amp_ang = float(flatten_amp_ang)
         self.flatten_max_iter = int(flatten_max_iter)
         self.mem = int(mem)
-        self.use_lobpcg = bool(use_lobpcg)  # used only when root==0 shortcut
+        # Retain the public attribute for compatibility; mode selection ignores
+        # it and preserves the established root-0 LOBPCG-with-eigh-fallback path.
+        self.use_lobpcg = bool(use_lobpcg)
         self.root = int(root)
         self.dimer_kwargs = dict(dimer_kwargs or {})
         self.lbfgs_kwargs = dict(lbfgs_kwargs or {})
@@ -2308,13 +2350,14 @@ class HessianDimer:
         _finalize_dimer_saddle_status(
             self, freqs_cm, self.neg_freq_thresh_cm
         )
-        if n_written == 0:
-            click.echo(
-                "[tsopt] No imaginary mode found at the end (nu_min = %.2f cm^-1)." % (float(freqs_cm.min()),),
-                err=True,
-            )
-        else:
-            click.echo(f"[tsopt] Wrote {n_written} final imaginary mode(s).")
+        _n_imag = int(self.n_imaginary_modes or 0)
+        mode_message, mode_message_is_diagnostic = _dimer_mode_export_message(
+            n_written,
+            _n_imag,
+            self.neg_freq_thresh_cm,
+            float(freqs_cm.min()),
+        )
+        click.echo(mode_message, err=mode_message_is_diagnostic)
         del modes, freqs_cm
 
         _clear_cuda_cache()
@@ -2914,6 +2957,11 @@ def _tsopt_owned_output_paths(path: Path) -> List[Path]:
     """Return command-owned TS artifacts for one output directory."""
 
     resolved = Path(path).resolve()
+    vib_dir = resolved / "vib"
+    if vib_dir.is_symlink() or (vib_dir.exists() and not vib_dir.is_dir()):
+        raise _TSOPTOutputCollisionError(
+            f"TSOPT vib output must be a real directory: {vib_dir}."
+        )
     return [
         *(
             resolved / name
@@ -2931,9 +2979,9 @@ def _tsopt_owned_output_paths(path: Path) -> List[Path]:
         ),
         *(
             candidate
-            for candidate in (resolved / "vib").glob("*")
+            for pattern in ("imag_*.pdb", "imag_*_trj.xyz")
+            for candidate in vib_dir.glob(pattern)
             if candidate.is_file()
-            and candidate.suffix.lower() in {".xyz", ".pdb"}
         ),
     ]
 
@@ -2986,7 +3034,7 @@ def _prepare_tsopt_output_dir(
     "input_path",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=True,
-    help="Starting geometry (PDB or XYZ). XYZ provides higher coordinate precision. "
+    help="Starting geometry (PDB/mmCIF or XYZ). XYZ provides higher coordinate precision. "
          "If XYZ, use --ref-pdb to specify PDB topology for atom ordering and output conversion.",
 )
 @click.option(
@@ -3493,6 +3541,58 @@ def cli(
             (rsirfo_cfg, (("rsirfo",),)),
         ],
     )
+    # Shared ``opt.energy_plateau*`` settings are part of the TSOPT contract.
+    # Route only explicitly configured values, while a setting in the effective
+    # optimizer-specific section keeps precedence at the same or an earlier
+    # YAML layer.
+    plateau_keys = (
+        "energy_plateau",
+        "energy_plateau_thresh",
+        "energy_plateau_window",
+    )
+    simple_lbfgs = dict(simple_cfg.get("lbfgs", {}))
+    for key in plateau_keys:
+        config_shared = yaml_section_has_key(
+            config_layer_cfg, (("opt",),), key
+        )
+        override_shared = yaml_section_has_key(
+            override_layer_cfg, (("opt",),), key
+        )
+        config_rsirfo = yaml_section_has_key(
+            config_layer_cfg, (("rsirfo",),), key
+        )
+        override_rsirfo = yaml_section_has_key(
+            override_layer_cfg, (("rsirfo",),), key
+        )
+        config_dimer = yaml_section_has_key(
+            config_layer_cfg, (("hessian_dimer", "lbfgs"),), key
+        )
+        override_dimer = yaml_section_has_key(
+            override_layer_cfg, (("hessian_dimer", "lbfgs"),), key
+        )
+        if override_shared or config_shared:
+            lbfgs_cfg[key] = opt_cfg[key]
+        if (
+            (override_shared and not override_rsirfo)
+            or (
+                not override_shared
+                and not override_rsirfo
+                and config_shared
+                and not config_rsirfo
+            )
+        ):
+            rsirfo_cfg[key] = opt_cfg[key]
+        if (
+            (override_shared and not override_dimer)
+            or (
+                not override_shared
+                and not override_dimer
+                and config_shared
+                and not config_dimer
+            )
+        ):
+            simple_lbfgs[key] = opt_cfg[key]
+    simple_cfg["lbfgs"] = simple_lbfgs
     # A TS search follows a saddle-search direction, so physical energy is not
     # required to decrease. Keep this invariant after every YAML merge.
     opt_cfg["reject_uphill"] = False
@@ -3773,9 +3873,6 @@ def cli(
         )
         if use_heavy:
             # Heavy mode: RS-I-RFO with full Hessian
-            rsirfo_label = f"{heavy_mode_label} heavy mode"
-            if use_microiter:
-                rsirfo_label += " + Microiteration"
             optim_all_path = out_dir_path / "optimization_all_trj.xyz"
             if bool(opt_cfg["dump"]) and optim_all_path.exists():
                 optim_all_path.unlink()
@@ -3848,12 +3945,6 @@ def cli(
                 final_xyz = out_dir_path / "final_geometry.xyz"
                 final_xyz.write_text(geometry.as_xyz(), encoding="utf-8")
 
-                # For post-analysis, get hess_active_atoms from a fresh calc
-                _temp_calc = mlmm(**calc_cfg)
-                _temp_core = _temp_calc.core if hasattr(_temp_calc, "core") else _temp_calc
-                hess_active_atoms = list(getattr(_temp_core, "hess_active_atoms", []))
-                del _temp_calc, _temp_core
-                _clear_cuda_cache()
                 initial_run_cycles = int(microiter_outcome["cycles"])
                 _heavy_cycle_ledger.debit(initial_run_cycles)
             else:
@@ -3880,7 +3971,11 @@ def cli(
                 _heavy_safeguards = _optimizer_safeguard_payload(optimizer)
                 emit_optimizer_terminal_status(
                     "tsopt",
-                    converged=getattr(optimizer, "is_converged", None),
+                    converged=(
+                        None
+                        if skip_final_freq
+                        else getattr(optimizer, "is_converged", None)
+                    ),
                     cycles=optimizer_cycle_count(optimizer),
                     max_cycles=int(opt_cfg.get("max_cycles", 0)) or None,
                     stalled=getattr(optimizer, "is_stalled", False),
@@ -4056,7 +4151,11 @@ def cli(
                 restart_optimizer.run()
                 emit_optimizer_terminal_status(
                     "tsopt",
-                    converged=getattr(restart_optimizer, "is_converged", None),
+                    converged=(
+                        None
+                        if skip_final_freq
+                        else getattr(restart_optimizer, "is_converged", None)
+                    ),
                     cycles=optimizer_cycle_count(restart_optimizer),
                     max_cycles=remaining_cycles,
                     stalled=getattr(restart_optimizer, "is_stalled", False),
@@ -4490,7 +4589,7 @@ def cli(
                                 "_last_exact_target_mode_is_negative",
                                 None,
                             )
-                            is not True
+                            is False
                         ):
                             click.echo(
                                 "[flatten] Path-correlated mode was lost; stopping "
@@ -4530,7 +4629,10 @@ def cli(
             _heavy_n_imag: Optional[int] = None
             _heavy_energy = None
             if freqs_cm is not None:
-                _heavy_imag_freqs = [float(f) for f in freqs_cm if f < -abs(neg_freq_thresh_cm)]
+                # Saddle order is certified from every negative root of the exact
+                # compact PHVA spectrum; neg_freq_thresh_cm remains a
+                # recovery/diagnostic threshold only.
+                _heavy_imag_freqs = [float(f) for f in freqs_cm if f < 0.0]
                 _heavy_n_imag = len(_heavy_imag_freqs)
                 if _heavy_n_imag != 1:
                     _heavy_optimizer_converged = False
@@ -4631,7 +4733,11 @@ def cli(
             _flatten_skip_reason = runner.flatten_skip_reason
             emit_optimizer_terminal_status(
                 "tsopt",
-                converged=getattr(runner, "is_converged", None),
+                converged=(
+                    None
+                    if skip_final_freq
+                    else getattr(runner, "is_converged", None)
+                ),
                 cycles=getattr(runner, "_cycles_spent", None),
                 max_cycles=int(opt_cfg.get("max_cycles", 0)) or None,
                 stalled=getattr(runner, "is_stalled", False),
@@ -4847,7 +4953,10 @@ def cli(
             _vib_dir = out_dir_path / "vib"
             if _vib_dir.exists():
                 result_data["files"]["imaginary_mode_files"] = sorted([
-                    f"vib/{f.name}" for f in _vib_dir.iterdir() if f.suffix in ('.xyz', '.pdb')
+                    f"vib/{f.name}"
+                    for pattern in ("imag_*.pdb", "imag_*_trj.xyz")
+                    for f in _vib_dir.glob(pattern)
+                    if f.is_file()
                 ])
             write_result_json(
                 out_dir_path, result_data,

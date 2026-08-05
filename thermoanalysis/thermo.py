@@ -57,7 +57,7 @@ def chai_head_gordon_weights(
     """Chai-Head-Gordon damping function.
 
     Used for interpolating between harmonic oscillator and hindered rotor
-    approximations. See eq. (8) in [2], or Eq. (10) in [7].
+    approximations. See eq. (8) in [2].
 
     Parameters
     ----------
@@ -202,8 +202,8 @@ def sackur_tetrode(molecular_mass: float, temperature: float, pressure: float) -
     S_trans
         Translational entropy in Hartree / (particle * K).
     """
-    # Just using 1e5 instead of a "true" atmosphere of 1.01325e5 seems to
-    # agree better with the results Gaussian and ORCA produce.
+    # The caller owns the pressure; the library default is one standard
+    # atmosphere (101325 Pa).
     q_trans = (
         (2 * np.pi * molecular_mass * AMU2KG * KB * temperature / PLANCK**2) ** (3 / 2)
         * KB
@@ -511,7 +511,7 @@ def qrrho_vibrational_part_func(
         Wavenumber cutoff in cm⁻¹. Vibrations below this threshold will mostly
         be treated as hindered rotors.
     alpha
-        Exponent alpha in the damping function (Eq. (8) in [2], or Eq. (10) in [7])
+        Exponent alpha in the damping function (Eq. (8) in [2])
 
     Returns
     -------
@@ -618,7 +618,7 @@ def harmonic_vibrational_entropies(
 
     See [1] and [2] for reference. Eq. (3) in the Grimme paper
     is lacking a T in the denominator of the first term. It is given as
-    h*w/(k(e^(hw/kt) -1)) but it must be h*w(kT(e^(hw/kT)-1)) instead.
+    h*w/(k(e^(hw/kt) -1)) but it must be h*w/(kT(e^(hw/kT)-1)) instead.
     Here the calculation is done as presented in [1].
 
     Parameters
@@ -633,13 +633,6 @@ def harmonic_vibrational_entropies(
     S_vib : array-like
         Array containing vibrational entropies in Hartree / (particle * K).
     """
-
-    # Correct formula from the Grimme paper [3].
-    # hnu = PLANCK * frequencies
-    # hnu_kt = hnu / (KB * temperature)
-    # S_vib = KB * (hnu / (KB*(np.exp(hnu_kt) - 1)*temperature)
-    # - np.log(1 - np.exp(-hnu_kt))
-    # ).sum()
 
     # As given in [1].
     vib_temps = frequencies * PLANCK / KB

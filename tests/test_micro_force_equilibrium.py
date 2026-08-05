@@ -65,7 +65,7 @@ def test_introduces_no_new_tolerance() -> None:
     src = inspect.getsource(micro_reached_force_equilibrium)
     assert "max_force_thresh" in src and "rms_force_thresh" in src
     # No numeric literal tolerance of its own.
-    assert "e-" not in src.replace("1e-", "")
+    assert "e-" not in src
 
 
 def test_accepted_force_equilibrium_is_serialized_as_converged() -> None:

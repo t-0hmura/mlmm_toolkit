@@ -35,8 +35,8 @@ Options:
                                   to derive the ML-region charge when -q is
                                   omitted (requires PDB/mmCIF input or --ref-
                                   pdb).
-  -m, --multiplicity INTEGER      Spin multiplicity (2S+1); overrides calc.spin
-                                  from YAML.
+  -m, --multiplicity INTEGER      Spin multiplicity (2S+1); overrides
+                                  calc.model_mult from YAML.
   --max-cycles INTEGER            Maximum number of IRC steps; overrides
                                   irc.max_cycles from YAML.
   --step-size FLOAT               Step length in Bohr (unweighted Cartesian
@@ -155,8 +155,10 @@ Options:
                                   reproducibility on the complete target stack.
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
                                   electron-parity check (logs that it was
-                                  skipped). For an intentional open-shell or
-                                  covalently-cut ML region.
+                                  skipped). An open-shell ML region needs a
+                                  matching multiplicity; use this only for an
+                                  intentional nonstandard input such as a
+                                  covalently-cut region.
   --irc-pos-def / --no-irc-pos-def
                                   Require pos-def Hessian at IRC convergence
                                   (blocks shoulder false-convergence).

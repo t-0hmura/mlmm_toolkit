@@ -219,9 +219,9 @@ Defaults shown are used when the option is not specified. The full flag list is 
 ### MEP search
 
 ```{note}
-Do not set `--max-cycles` on `mlmm all`; let each stage use its own default.
-Set `--max-cycles` only when running a single-stage subcommand directly, such
-as `opt`, `tsopt`, or `path-opt`.
+`--max-cycles` is not a shared all-stage budget. When passed explicitly, it
+controls only the MEP child; scan, TS optimization, IRC, and other stages keep
+their dedicated options or defaults.
 ```
 
 | Option | Description | Default |
@@ -230,7 +230,7 @@ as `opt`, `tsopt`, or `path-opt`.
 | `--mep-mode [gsm\|dmf]` | MEP optimizer forwarded to both `path-opt` and recursive `path-search`. | `gsm` |
 | `--dmf-backend [gpu\|cpu]` | DMF implementation. The parent forwards this only when explicitly set, so a child YAML `dmf.backend` remains effective otherwise. | `gpu` |
 | `--max-nodes INT` | Internal nodes per GSM/DMF segment. | `20` |
-| `--max-cycles INT` | Maximum MEP optimization cycles. | `300` |
+| `--max-cycles INT` | Maximum cycles for the selected MEP child only. | `300` |
 | `--climb / --no-climb` | Enable climbing-image TS refinement where supported by the selected optimizer. | `True` |
 | `--opt-mode [grad\|hess]` | Optimizer preset for scan / path-search and single optimizations (`grad` → L-BFGS / Dimer, `hess` → RFO / RSIRFO). | `grad` |
 | `--opt-mode-post [grad\|hess]` | Optimizer preset override for TSOPT / post-IRC endpoint optimizations (`grad` → Dimer / L-BFGS, `hess` → RS-I-RFO / RFO). | `hess` |
@@ -310,10 +310,8 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) → `--opt-mode` (on
 geom:
   tr_projection: constrained        # fixed internal PHVA treatment
 calc:
-  charge: 0
-  spin: 1
-  real_parm7: real.parm7
-  model_pdb: ml_region.pdb
+  model_charge: 0
+  model_mult: 1
   backend: uma                      # uma | orb | mace | aimnet2
   embedcharge: false                # Compatibility tombstone; true is rejected
   uma_model: uma-s-1p2              # uma-s-1p2 | uma-m-1p1

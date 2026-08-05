@@ -319,6 +319,23 @@ def load_system(
 
     raw = read_prmtop_with_parmed(prmtop_path)
 
+    ccoef = raw.get("LENNARD_JONES_CCOEF", [])
+    if any(float(value) != 0.0 for value in ccoef):
+        raise ValueError(
+            "hessian_ff does not support Amber 12-6-4 Lennard-Jones terms. "
+            "Use mm_backend='openmm'."
+        )
+    chamber_flags = (
+        "CHARMM_UREY_BRADLEY_COUNT",
+        "CHARMM_NUM_IMPROPERS",
+        "CHARMM_NUM_IMPR_TYPES",
+    )
+    if any(flag in raw for flag in chamber_flags):
+        raise ValueError(
+            "hessian_ff does not support CHAMBER topology terms. "
+            "Use mm_backend='openmm'."
+        )
+
     # ---- required sections ----
     charge = raw["CHARGE"]
     natom = len(charge)

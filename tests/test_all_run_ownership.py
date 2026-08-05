@@ -109,6 +109,40 @@ def test_all_binds_run_id_and_restores_process_state(
         all_workflow._echo_state._started = prior_started
 
 
+def test_all_closes_generated_effective_yaml_with_invocation(
+    tmp_path: Path, monkeypatch
+) -> None:
+    inputs = [tmp_path / "left.pdb", tmp_path / "right.pdb"]
+    for path in inputs:
+        path.write_text(_MIN_PDB, encoding="utf-8")
+    generated = tmp_path / "generated-effective.yaml"
+
+    monkeypatch.setattr(
+        all_workflow, "prepare_input_structure", lambda p: _FakePrepared(p)
+    )
+    monkeypatch.setattr(all_workflow.shutil, "which", lambda _cmd: "/usr/bin/true")
+
+    def _build(*args, **kwargs):
+        generated.write_text("{}\n", encoding="utf-8")
+        return generated, {}
+
+    monkeypatch.setattr(all_workflow, "_build_effective_args_yaml", _build)
+
+    result = CliRunner().invoke(
+        all_workflow.cli,
+        [
+            "-i", str(inputs[0]), "-i", str(inputs[1]),
+            "-c", "protein",
+            "-q", "0",
+            "--out-dir", str(tmp_path / "out"),
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert not generated.exists()
+
+
 def test_key_outputs_exclude_stale_and_undeclared(tmp_path: Path) -> None:
     root = tmp_path / "out"
     current_segment = root / "segments" / "seg_01" / "ts.pdb"

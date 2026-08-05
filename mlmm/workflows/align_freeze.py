@@ -27,7 +27,7 @@ that moves the frozen atoms toward the reference in small steps while relaxing t
 All updates are applied in place on the mobile geometry.
 
 The module now targets **ML/MM-only** workflows: a shared ML/MM calculator instance (created via
-`mlmm.mlmm_calc.mlmm`) must already be attached to the geometries or supplied through the
+`mlmm.backends.mlmm_calc.mlmm`) must already be attached to the geometries or supplied through the
 `shared_calc` keyword.
 
 Provided functionality (concise):

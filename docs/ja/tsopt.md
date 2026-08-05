@@ -2,7 +2,9 @@
 
 `mlmm tsopt` はレイヤー分けした酵素 PDB の遷移状態*候補*を一次サドル点まで精密化します。単独の TS（遷移状態）推測構造でも、[`path-search`](path-search.md) が抽出する最高エネルギー像（HEI）でも実行できます。
 
-オプティマイザは 2 種類あり、`--opt-mode` で選択します。
+オプティマイザは 2 系統です。gradient 系は Hessian-Guided Dimer
+（`grad`/`dimer`）、Hessian 系は RS-I-RFO（`hess`/`rsirfo`、デフォルト）、
+RS-P-RFO（`rsprfo`）、TRIM（`trim`）を提供します。
 
 - **RS-I-RFO**（`--opt-mode hess`）はデフォルトで、Hessian 計算のコストを許容できる場合の保守的な選択肢です。マイクロイテレーション（`--microiter`、デフォルト有効）が ML 1 ステップ RS-I-RFO と MM L-BFGS 緩和を交互に実行します。
 - **Hessian-Guided Dimer**（`--opt-mode grad`）はより軽量な代替で、低コストな探索や複数の TS 推測構造からの素早い反復に向きます。`--ml-only-hessian-dimer` を付けると ML 領域のみの Hessian を Dimer 方向決定に使用できます（高速）。
@@ -40,7 +42,7 @@ mlmm scan -i r.pdb --parm enzyme.parm7 -l 'LIG:Q' \
 
 ## 虚振動数の数が正しくないとき
 
-クリーンな一次サドルは反応座標に沿った**支配的な虚モードを正確に 1 つ**だけ持ちます。よくある失敗は、余計な 2 つ目の小さな虚モードが出る、あるいは支配的な反応モードがまったく出ないことです。
+クリーンな一次サドルは**虚モードを正確に 1 つ**だけ持ちます。その変位が反応座標に対応することも確認します。よくある失敗は、余計な 2 つ目の小さな虚モードが出る、あるいは反応モードがまったく出ないことです。
 
 | 症状 | 対処 |
 | --- | --- |
@@ -206,7 +208,7 @@ out_dir/ (デフォルト: ./result_tsopt/)
 | **収束と平坦化** | | |
 | `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | _None_ |
 | `--flatten/--no-flatten` | 余分な虚振動数モード平坦化ループの有効化/無効化。`--flatten` はデフォルト反復回数（50）を使用、`--no-flatten` は 0 に強制。light と heavy の両モードに適用。 | _None_（CLI デフォルトは無効 = `flatten_max_iter` 0; `--flatten` または YAML/config で初めて有効化され、その場合 50 回） |
-| `--partial-hessian-flatten / --full-hessian-flatten` | 平坦化ループでの虚振動数モード検出に部分 Hessian（ML のみ）を使用。 | `True`（部分） |
+| `--partial-hessian-flatten / --full-hessian-flatten` | 平坦化ループでの虚振動数モード検出に active-coordinate Hessian block または full Hessian を使用。 | `True`（active block） |
 | `--active-dof-mode CHOICE` | 最終振動解析のアクティブ自由度: `all`、`ml-only`、`partial`、`unfrozen`。 | `partial` |
 | `--skip-final-freq/--no-skip-final-freq` | 収束後の振動解析と虚振動数モード平坦化をスキップ。大規模非凍結系で Hessian 対角化が高コストな場合に有用。TS の鞍点次数は未検証のままになる。 | `False` |
 | **バックエンドと計算** | | |
@@ -214,7 +216,7 @@ out_dir/ (デフォルト: ./result_tsopt/)
 | `--precision [fp32\|fp64]` | MLIP バックエンド精度。省略時は UMA/AIMNet2 fp32、ORB/MACE fp64。AIMNet2 は fp64 を拒否。 | バックエンド依存 |
 | `--workers INT` | UMA predictor worker 数。2 以上は `fairchem-core[extras]` が必要で、`Analytical` と併用不可。 | `1` |
 | `--workers-per-node INT` | UMA 並列 predictor のノード当たり worker 数。 | _None_ |
-| `--allow-charge-mult-mismatch` | 警告を出した上で ML 領域の電荷・多重度の電子パリティ検証を省略。意図した不一致の場合のみ使用。 | off |
+| `--allow-charge-mult-mismatch` | 警告を出した上で ML 領域の電荷・多重度の電子パリティ検証を省略。開殻の ML 領域には整合する多重度を指定してください。共有結合を切断した領域など、意図的な非標準入力の場合のみ使用。 | off |
 | `--embedcharge/--no-embedcharge` | v0.3.3 では使用不可。旧コマンドを明示的に拒否するためにのみ残されています。 | `False` |
 | `--embedcharge-cutoff FLOAT` | 廃止した電子埋め込み経路とともに使用不可。 | — |
 | `--cmap/--no-cmap` | REAL と MODEL の両 MM 層で CMAP を保持します。 | `--cmap` |
@@ -231,7 +233,7 @@ out_dir/ (デフォルト: ./result_tsopt/)
 
 ## YAML 設定
 
-設定は **デフォルト < config < 明示CLI < override** の順で適用されます。
+設定は **デフォルト < config < 明示 CLI** の順で適用されます。
 共有セクションは [YAML リファレンス](yaml-reference.md) を再利用します。ワークフローに合致している場合は以下のブロック全体をそのまま保持し、変更が必要な値のみ調整してください。
 
 ```yaml
@@ -240,9 +242,8 @@ geom:
  freeze_atoms: []                  # 1 始まり凍結原子（CLI/リンク検出とマージ）
  tr_projection: constrained        # 固定の内部 PHVA 処理
 calc:
- charge: 0                         # 総電荷（CLI 上書き）
- spin: 1                           # スピン多重度 2S+1
-mlmm:
+ model_charge: 0                   # 総電荷（CLI 上書き）
+ model_mult: 1                     # スピン多重度 2S+1
  real_parm7: real.parm7            # Amber parm7 トポロジー
  model_pdb: ml_region.pdb          # ML 領域定義
  backend: uma                      # ML バックエンド (uma/orb/mace/aimnet2)

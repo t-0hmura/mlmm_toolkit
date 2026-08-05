@@ -773,7 +773,7 @@ def torch_hessian(
         out["num_threads"] = int(used_threads)
     if mode == "fd":
         out["hessian_delta_A"] = float(hessian_delta)
-        out["fd_column_batch"] = int(fd_column_batch)
+        out["fd_column_batch"] = int(fd_batch_cols)
         out["force_evals"] = int(n_force_eval) if n_force_eval is not None else None
     elif mode == "analytical":
         out["hessian_delta_A"] = float(hessian_delta)

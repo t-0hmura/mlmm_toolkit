@@ -134,7 +134,6 @@ from mlmm.workflows.mm_parm import (
     run_pipeline as _mm_run,
 )
 
-AtomKey = Tuple[str, str, str, str, str, str]
 
 
 _CALC_CONFIG_ONLY_KEYS = frozenset(
@@ -945,38 +944,6 @@ def _ts_imag_record(n_imag, imag_freqs_cm=None) -> dict:
     return record
 
 
-def _parse_atom_key_from_line(line: str) -> Optional[AtomKey]:
-    """Extract a structural identity key from a PDB ATOM/HETATM record."""
-    if not (line.startswith("ATOM") or line.startswith("HETATM")):
-        return None
-    atomname = line[12:16].strip()
-    altloc = (line[16] if len(line) > 16 else " ").strip()
-    resname = line[17:20].strip()
-    chain = (line[21] if len(line) > 21 else " ").strip()
-    resseq = line[22:26].strip()
-    icode = (line[26] if len(line) > 26 else " ").strip()
-    return (chain, resname, resseq, icode, atomname, altloc)
-
-
-def _key_variants(key: AtomKey) -> List[AtomKey]:
-    """Return key variants with progressively relaxed identity fields (deduplicated)."""
-    chain, resn, resseq, icode, atom, alt = key
-    raw_variants = [
-        (chain, resn, resseq, icode, atom, alt),
-        (chain, resn, resseq, icode, atom, ""),
-        (chain, resn, resseq, "", atom, alt),
-        (chain, resn, resseq, "", atom, ""),
-    ]
-    seen: set[AtomKey] = set()
-    variants: List[AtomKey] = []
-    for variant in raw_variants:
-        if variant in seen:
-            continue
-        seen.add(variant)
-        variants.append(variant)
-    return variants
-
-
 def _parse_scan_lists_literals(
     scan_lists_raw: Sequence[str],
     atom_meta: Optional[Sequence[Dict[str, Any]]] = None,
@@ -1092,6 +1059,17 @@ def _derive_ml_charge_from_layered_pdb(
 
         parser = PDB.PDBParser(QUIET=True)
         st = parser.get_structure("complex", str(pdb_path))
+        for residue in st.get_residues():
+            selected = [
+                classify_bfactor_layer(atom.get_bfactor()) == "ml"
+                for atom in residue.get_atoms()
+            ]
+            if any(selected) and not all(selected):
+                raise click.ClickException(
+                    "[all] B-factor ML selection splits residue "
+                    f"{residue.get_resname()} {residue.id[1]}; provide "
+                    "-q/--charge for this atom-level model selection."
+                )
         ml_ids = {
             r.get_full_id()
             for r in st.get_residues()
@@ -1116,6 +1094,8 @@ def _derive_ml_charge_from_layered_pdb(
             f"Total: {q_total:+g}"
         )
         return _round_charge_with_note(q_total)
+    except click.ClickException:
+        raise
     except Exception as e:
         click.echo(
             f"[all] NOTE: cap-aware ML-region charge derivation failed: {e}",
@@ -1283,6 +1263,7 @@ def _pipeline_aggregate_truth(
     config: Optional[dict],
     legacy_status: str,
     legacy_reasons: Optional[Sequence[str]] = None,
+    mep_trajectory: Optional[Path] = None,
 ):
     """Compose the ``all``-pipeline aggregate from per-segment leaves.
 
@@ -1341,6 +1322,8 @@ def _pipeline_aggregate_truth(
         post = post_by_idx.get(idx)
         reason = ""
         artifacts: List[str] = []
+        if mep_trajectory is not None:
+            artifacts.append(str(mep_trajectory))
         # The segment's own reported convergence, threaded from path_search's
         # SegmentReport. A missing field is None (fail-closed), never a silent
         # True.
@@ -1480,6 +1463,7 @@ def _apply_pipeline_truth(
     config: Optional[dict],
     legacy_status: str,
     legacy_reasons: Optional[Sequence[str]] = None,
+    mep_trajectory: Optional[Path] = None,
 ) -> None:
     """Write the outcome axes onto ``summary`` in place.
 
@@ -1494,6 +1478,7 @@ def _apply_pipeline_truth(
         config=config,
         legacy_status=legacy_status,
         legacy_reasons=legacy_reasons,
+        mep_trajectory=mep_trajectory,
     )
     summary["execution_status"] = truth.execution_status
     summary["scientific_status"] = truth.scientific_status
@@ -1589,6 +1574,8 @@ def _enrich_summary(
     out_dir: Optional[Path] = None,
     mlip_model: Optional[str] = None,
     manifest: Optional[InvocationManifest] = None,
+    calculator_config: Optional[Dict[str, Any]] = None,
+    mep_trajectory: Optional[Path] = None,
 ) -> dict:
     """Add machine-readable metadata to summary dict for AI agent consumption.
 
@@ -1730,7 +1717,12 @@ def _enrich_summary(
         config=config,
         legacy_status=status,
         legacy_reasons=status_reasons,
+        mep_trajectory=mep_trajectory,
     )
+    if calculator_config is not None:
+        from mlmm.core.utils import calculator_provenance
+
+        summary.update(calculator_provenance(calculator_config))
     summary["mlip_backend"] = mlip_backend
     summary["mlip_precision"] = mlip_precision
     # Record the resolved MLIP model used by the high-level ML/MM calculator.
@@ -2721,14 +2713,15 @@ def _write_segment_energy_diagram(
         "energies_kcal": energies_kcal,
         "ylabel": ylabel,
         "energies_au": list(energies_eh),
-        "image": str(png),
     }
+    if png.is_file():
+        payload["image"] = str(png)
     if title_note:
         payload["title"] = title_note
     return payload
 
 
-def _build_global_segment_labels(n_segments: int) -> List[str]:
+def _build_global_segment_labels(segment_ids: Sequence[int]) -> List[str]:
     """
     Build R/TS/P labels for an aggregated multi-segment MEP diagram.
 
@@ -2736,20 +2729,23 @@ def _build_global_segment_labels(n_segments: int) -> List[str]:
       - n = 1: ["R", "TS1", "P"]
       - n >= 2: R, TS1, IM1_1, IM1_2, TS2, IM2_1, IM2_2, ..., TSN, P
     """
-    if n_segments <= 0:
+    ids = [int(value) for value in segment_ids]
+    if not ids:
         return []
-    if n_segments == 1:
-        return ["R", "TS1", "P"]
+    if len(ids) == 1:
+        return ["R", f"TS{ids[0]}", "P"]
 
     labels: List[str] = []
-    for seg_idx in range(1, n_segments + 1):
-        if seg_idx == 1:
-            labels.extend(["R", "TS1", "IM1_1"])
-        elif seg_idx == n_segments:
-            labels.extend([f"IM{seg_idx - 1}_2", f"TS{seg_idx}", "P"])
+    for position, seg_idx in enumerate(ids):
+        if position == 0:
+            labels.extend(["R", f"TS{seg_idx}", f"IM{seg_idx}_1"])
+        elif position == len(ids) - 1:
+            previous = ids[position - 1]
+            labels.extend([f"IM{previous}_2", f"TS{seg_idx}", "P"])
         else:
+            previous = ids[position - 1]
             labels.extend(
-                [f"IM{seg_idx - 1}_2", f"TS{seg_idx}", f"IM{seg_idx}_1"]
+                [f"IM{previous}_2", f"TS{seg_idx}", f"IM{seg_idx}_1"]
             )
     return labels
 
@@ -3054,6 +3050,17 @@ def _run_opt_for_state(
         calc = _mlmm_calc(**_opt_calc_kwargs)
         g_opt.set_calculator(calc)
         _ = float(g_opt.energy)
+        g_opt.calculator = None
+        close_calc = getattr(calc, "close", None)
+        if callable(close_calc):
+            try:
+                close_calc()
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.debug("Endpoint probe calculator close failed: %s", exc)
+        del calc
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         return g_opt, final_geom_path, endpoint_converged
     finally:
@@ -3202,7 +3209,7 @@ def _run_dft_for_state(pdb_path: Path,
     from mlmm.workflows._all_helpers import append_backend_forwarding_args
     append_backend_forwarding_args(
         args,
-        backend=backend,
+        backend=None,
         embedcharge=embedcharge,
         embedcharge_cutoff=embedcharge_cutoff,
         embedcharge_explicit=embedcharge_explicit,
@@ -3226,10 +3233,10 @@ def _run_dft_for_state(pdb_path: Path,
     proc = _sp.run(cmd, capture_output=True, text=True)
     if proc.stdout:
         _echo(proc.stdout.rstrip())
+    if proc.stderr:
+        _echo(proc.stderr.rstrip(), err=True)
     if proc.returncode != 0:
         _echo(f"[dft] WARNING: dft exited with code {proc.returncode}", err=True)
-        if proc.stderr:
-            _echo(proc.stderr.rstrip(), err=True)
     y = out_dir / "result.yaml"
     if y.exists():
         try:
@@ -3397,7 +3404,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @click.option("--auto-mm-disulfide/--auto-mm-no-disulfide", "mm_auto_disulfide",
               default=True, show_default=True,
               help="Forwarded to mm_parm: detect disulfides from SG-SG geometry across "
-                   "CYS/CYM/CYX and bond them (renaming a bonded CYS to CYX). With "
+                   "CYS/CYX and bond them (renaming a bonded CYS to CYX). With "
                    "--auto-mm-no-disulfide only residues already named CYX are bonded "
                    "and CYS is left untouched.")
 # ===== Path search knobs (subset of path_search.cli) =====
@@ -3886,6 +3893,8 @@ def cli(
         override_yaml=None,
         tmp_prefix="mlmm_all_merged_",
     )
+    if args_yaml is not None and args_yaml not in {config_yaml, override_yaml}:
+        session.resources.add(lambda p=args_yaml: p.unlink(missing_ok=True))
     yaml_model_charge, yaml_model_spin = configured_model_charge_spin(
         merged_yaml_cfg
     )
@@ -3922,12 +3931,15 @@ def cli(
         or backend_model is not None
         or calc_file is not None
     ):
+        prior_args_yaml = args_yaml
         args_yaml = _inject_coord_type_into_args_yaml(
             args_yaml, _injected_coord,
             backend=backend,
             precision=precision, workers=workers, workers_per_node=workers_per_node, backend_model=backend_model,
             calc_file=(str(Path(calc_file).resolve()) if calc_file else None), calc_factory=calc_factory,
         )
+        if args_yaml is not None and args_yaml != prior_args_yaml:
+            session.resources.add(lambda p=args_yaml: p.unlink(missing_ok=True))
     (
         mlip_backend_resolved,
         mlip_model_resolved,
@@ -4425,13 +4437,13 @@ def cli(
             resolved_charge = _derive_charge_from_ligand_charge_when_extract_skipped(
                 model_pdb_override, ligand_charge
             )
-        elif detect_layer:
+        elif detect_layer and charge_override is None:
             _layer_counts = _summarize_existing_bfactor_layers(extract_inputs[0])
             if _layer_counts.get("movable", 0) > 0 or _layer_counts.get("frozen", 0) > 0:
                 resolved_charge = _derive_ml_charge_from_layered_pdb(
                     extract_inputs[0], ligand_charge
                 )
-        if resolved_charge is None:
+        if resolved_charge is None and charge_override is None:
             resolved_charge = _derive_charge_from_ligand_charge_when_extract_skipped(
                 extract_inputs[0], ligand_charge
             )
@@ -5161,6 +5173,7 @@ def cli(
             pipeline_mode="tsopt-only",
             out_dir=out_dir,
             manifest=manifest,
+            calculator_config=resolved_calc_template.materialize(),
             mlip_backend=mlip_backend_resolved,
             mlip_model=mlip_model_resolved,
             mlip_precision=mlip_precision_resolved,
@@ -5356,6 +5369,7 @@ def cli(
                 pipeline_mode="tsopt-only",
                 out_dir=out_dir,
                 manifest=manifest,
+                calculator_config=resolved_calc_template.materialize(),
                 mlip_backend=mlip_backend_resolved,
                 mlip_model=mlip_model_resolved,
                 mlip_precision=mlip_precision_resolved,
@@ -5532,7 +5546,10 @@ def cli(
         # Collect stage results — prefer XYZ (full precision), keep PDB as ref for topology
         stage_results: List[Path] = []
         stage_refs: List[Path] = []
-        for st in sorted(scan_dir.glob("stage_*")):
+        for st in sorted(
+            scan_dir.glob("stage_*"),
+            key=lambda path: int(path.name.removeprefix("stage_")),
+        ):
             if not st.is_dir():
                 continue
             xyz = st / "result.xyz"
@@ -5853,6 +5870,7 @@ def cli(
 
             path_opt_segments.append(
                 {
+                    "index": seg_idx,
                     "tag": seg_tag,
                     "energies": energies_seg,
                     "traj": seg_trj,
@@ -5883,11 +5901,13 @@ def cli(
         # PDB conversion of concatenated trajectory
         try:
             if pockets_for_path[0].suffix.lower() == ".pdb":
-                mep_pdb_path = path_dir / "mep.pdb"
-                _path_search._maybe_convert_to_pdb(
-                    final_trj, ref_pdb_path=pockets_for_path[0], out_path=mep_pdb_path
+                mep_pdb_dest = path_dir / "mep.pdb"
+                mep_pdb_path = _path_search._maybe_convert_to_pdb(
+                    final_trj,
+                    ref_pdb_path=pockets_for_path[0],
+                    out_path=mep_pdb_dest,
                 )
-                if mep_pdb_path.exists():
+                if mep_pdb_path is not None:
                     shutil.copy2(mep_pdb_path, out_dir / mep_pdb_path.name)
                     _echo_detail(f"[all] Copied concatenated MEP PDB → {out_dir / mep_pdb_path.name}")
         except Exception as e:
@@ -5899,16 +5919,15 @@ def cli(
         # --- Energy diagram ---
         energy_diagrams_po: List[Dict[str, Any]] = []
         try:
-            labels = _build_global_segment_labels(len(path_opt_segments))
+            labels = _build_global_segment_labels(
+                [int(info["index"]) for info in path_opt_segments]
+            )
             energies_chain: List[float] = []
-            for si, seg_info in enumerate(path_opt_segments):
+            for seg_info in path_opt_segments:
                 Es = [float(x) for x in seg_info.get("energies", [])]
                 if not Es:
                     continue
-                if si == 0:
-                    energies_chain.append(Es[0])
-                energies_chain.append(max(Es))
-                energies_chain.append(Es[-1])
+                energies_chain.extend((Es[0], max(Es), Es[-1]))
             if labels and energies_chain and len(labels) == len(energies_chain):
                 title_note = (
                     f"({mep_mode_label}; all segments)"
@@ -5956,7 +5975,7 @@ def cli(
                     f"[all] WARNING: Failed to detect bond changes for segment {seg_idx:02d}: {e}",
                     err=True,
                 )
-                bond_summary = "(no covalent changes detected)"
+                bond_summary = "(bond-change analysis unavailable)"
 
             segments_summary.append(
                 {
@@ -5984,6 +6003,8 @@ def cli(
             pipeline_mode="path-search" if refine_path else "path-opt",
             out_dir=out_dir,
             manifest=manifest,
+            calculator_config=resolved_calc_template.materialize(),
+            mep_trajectory=final_trj,
             mlip_backend=mlip_backend_resolved,
             mlip_model=mlip_model_resolved,
             mlip_precision=mlip_precision_resolved,
@@ -6040,7 +6061,7 @@ def cli(
     _echo_detail(f"[all] Raw per-segment MEP-engine files stay under: {path_dir}")
     _echo_detail("  - mep_seg_XX_trj.xyz       (per-segment trajectories)")
     _echo_detail("  - hei_seg_XX.xyz/.pdb      (HEI per segment)")
-    _echo_section("====== [all] Core MEP pipeline finished successfully ======")
+    _echo_section("====== [all] Core MEP pipeline finished ======")
 
     summary_json_path = path_dir / "summary.json"
     summary_loaded = {}
@@ -6184,6 +6205,14 @@ def cli(
         seg_root = path_dir  # MEP-engine scratch root (hei_seg_/mep_seg_ live here, under _work/)
         seg_dir = out_dir / SEGMENTS_DIRNAME / f"seg_{seg_idx:02d}"  # per-segment deliverables
         ensure_dir(seg_dir)
+        multi_segment_post = len(reactive) > 1
+        freq_out_dir_segment = freq_out_dir
+        dft_out_dir_segment = dft_out_dir
+        if multi_segment_post:
+            if freq_out_dir is not None and freq_out_dir.is_absolute():
+                freq_out_dir_segment = freq_out_dir / f"seg_{seg_idx:02d}"
+            if dft_out_dir is not None and dft_out_dir.is_absolute():
+                dft_out_dir_segment = dft_out_dir / f"seg_{seg_idx:02d}"
 
         # HEI pocket file prepared by path_search (only for bond-change segments)
         hei_pocket_pdb = seg_root / f"hei_seg_{seg_idx:02d}.pdb"
@@ -6194,6 +6223,15 @@ def cli(
         # 4.1 TS optimization (optional; still needed to drive IRC & diagrams)
         if do_tsopt:
             segment_tsopt_overrides = dict(tsopt_overrides)
+            tsopt_base = segment_tsopt_overrides.get("out_dir")
+            if (
+                multi_segment_post
+                and tsopt_base is not None
+                and Path(tsopt_base).is_absolute()
+            ):
+                segment_tsopt_overrides["out_dir"] = (
+                    Path(tsopt_base) / f"seg_{seg_idx:02d}"
+                )
             reference_mode_path = seg_root / f"hei_mode_seg_{seg_idx:02d}.txt"
             reference_mode_path = _select_hei_reference_mode(
                 tsopt_from_mep_tan,
@@ -6224,22 +6262,6 @@ def cli(
                 use_cmap=use_cmap,
                 ref_pdb=layered_inputs[0] if layered_inputs else None,
             )
-        else:
-            # If TSOPT is off, use the MEP highest-energy image as TS geometry.
-            ts_pdb = hei_pocket_pdb
-            g_ts = geom_loader(ts_pdb, coord_type="cart")
-            _hei_calc_kwargs = _stage_calc_kwargs(
-                resolved_calc_template,
-                input_pdb=ts_pdb,
-                real_parm7=real_parm7_path,
-                model_pdb=ml_region_pdb,
-                charge=q_int,
-                spin=spin,
-                use_bfactor_layers=detect_layer,
-            )
-            calc = _mlmm_calc(**_hei_calc_kwargs)
-            g_ts.set_calculator(calc); _ = float(g_ts.energy)
-
         # 4.2 EulerPC IRC & mapping to (left,right)
         irc_plot_path = None
         irc_trj_path = None
@@ -6407,8 +6429,12 @@ def cli(
         # 4.4 Thermochemistry (ML/MM frequencies) and Gibbs diagram
         thermo_payloads: Dict[str, Dict[str, Any]] = {}
         GR = GT = GP = None
-        freq_seg_root = _resolve_override_dir(seg_dir / "freq", freq_out_dir)
-        dft_seg_root = _resolve_override_dir(seg_dir / "dft", dft_out_dir)
+        freq_seg_root = _resolve_override_dir(
+            seg_dir / "freq", freq_out_dir_segment
+        )
+        dft_seg_root = _resolve_override_dir(
+            seg_dir / "dft", dft_out_dir_segment
+        )
 
         if do_thermo:
             _echo_detail(f"[thermo] Segment {seg_idx:02d}: freq on TS/R/P")
@@ -6775,7 +6801,9 @@ def cli(
         ):
             continue
         all_energies = [e for triple in seg_energies for e in triple]
-        all_labels = _build_global_segment_labels(len(seg_energies))
+        all_labels = _build_global_segment_labels(
+            [int(segment["index"]) for segment in reactive]
+        )
         if not (all_labels and len(all_labels) == len(all_energies)):
             continue
         extra_kwargs = {"ylabel": ylabel} if ylabel is not None else {}
@@ -6804,6 +6832,8 @@ def cli(
             pipeline_mode="path-search" if refine_path else "path-opt",
             out_dir=out_dir,
             manifest=manifest,
+            calculator_config=resolved_calc_template.materialize(),
+            mep_trajectory=final_trj,
             mlip_backend=mlip_backend_resolved,
             mlip_model=mlip_model_resolved,
             mlip_precision=mlip_precision_resolved,

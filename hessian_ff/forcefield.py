@@ -246,6 +246,12 @@ class ForceFieldTorch(nn.Module):
             return {k: z for k in self.ENERGY_KEYS}
 
         mode = str(batch_mode).strip().lower()
+        # Fixed order, so the public diagnostic does not vary between runs.
+        valid_modes = ("loop", "vmap", "vectorized")
+        if mode not in valid_modes:
+            raise ValueError(
+                f"batch_mode must be one of {valid_modes}, got '{batch_mode}'"
+            )
         use_vmap = mode in {"vmap", "vectorized"}
         packed_chunks: list[tuple[torch.Tensor, ...]] = []
         for sl in self._microbatch_slices(bsz, microbatch_size):
@@ -308,6 +314,12 @@ class ForceFieldTorch(nn.Module):
             return {k: z for k in self.ENERGY_KEYS}, coords_batch.new_zeros(coords_batch.shape)
 
         mode = str(batch_mode).strip().lower()
+        # Fixed order, so the public diagnostic does not vary between runs.
+        valid_modes = ("loop", "vmap", "vectorized")
+        if mode not in valid_modes:
+            raise ValueError(
+                f"batch_mode must be one of {valid_modes}, got '{batch_mode}'"
+            )
         force_mode = str(force_calc_mode).strip()
         use_vmap = mode in {"vmap", "vectorized"} and force_mode.lower() == "analytical"
 

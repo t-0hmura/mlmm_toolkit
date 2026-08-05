@@ -176,7 +176,7 @@ Pipeline scratch lives under `_work/` (safe to delete). Full layout and filename
 | `trj2fig` / `energy-diagram` | Energy plot / R→TS→P diagram | [trj2fig](docs/trj2fig.md) · [energy-diagram](docs/energy-diagram.md) |
 | `oniom-export` / `oniom-import` | Gaussian ONIOM / ORCA QM/MM input-deck exchange | [oniom-export](docs/oniom-export.md) · [oniom-import](docs/oniom-import.md) |
 
-3-layer system (ML / Movable-MM / Frozen-MM, B-factor encoded), link-atom treatment, units (eV·Å in core / Ha·Bohr in pysisyphus CLI): [docs/concepts.md](docs/concepts.md). Python API (`MLMMCore`, `MLMMASECalculator`, pysisyphus `mlmm` calculator): [docs/python-api.md](docs/python-api.md).
+3-layer system (ML / Movable-MM / Frozen-MM, B-factor encoded), link-atom treatment, and units (energy: eV or Hartree; coordinates: Å or Bohr; forces: eV/Å or Hartree/Bohr): [docs/concepts.md](docs/concepts.md). Python API (`MLMMCore`, `MLMMASECalculator`, pysisyphus `mlmm` calculator): [docs/python-api.md](docs/python-api.md).
 
 ## Getting Help
 

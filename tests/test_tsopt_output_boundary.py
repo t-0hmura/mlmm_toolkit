@@ -43,18 +43,21 @@ def test_prepare_tsopt_output_removes_only_command_owned_artifacts(
     stale = [
         tmp_path / "final_geometry.xyz",
         tmp_path / "result.json",
-        vib / "imaginary_mode_1.xyz",
-        vib / "imaginary_mode_1.pdb",
+        vib / "imag_1_trj.xyz",
+        vib / "imag_1.pdb",
     ]
     for path in stale:
         path.write_text("stale", encoding="utf-8")
     retained = tmp_path / "notes.txt"
     retained.write_text("keep", encoding="utf-8")
+    unrelated_vib = vib / "user_mode.xyz"
+    unrelated_vib.write_text("keep", encoding="utf-8")
 
     _prepare_tsopt_output_dir(tmp_path)
 
     assert not any(path.exists() for path in stale)
     assert retained.read_text(encoding="utf-8") == "keep"
+    assert unrelated_vib.read_text(encoding="utf-8") == "keep"
 
 
 def test_prepare_tsopt_output_rejects_input_collision(tmp_path: Path) -> None:

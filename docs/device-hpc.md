@@ -43,26 +43,27 @@ calc:
 
 ## VRAM Management
 
-### Hessian device (`--hess-device`)
+### Post-evaluation Hessian device (`--hess-device`)
 
-The `freq` command supports `--hess-device` to control where Hessian assembly and diagonalization run:
+The `freq` command supports `--hess-device` to control where the evaluated Hessian is placed and diagonalized. It does not change the device used by the calculator while evaluating the Hessian:
 
 ```bash
 # Default: the resolved ML device
 mlmm freq -i input.pdb --parm real.parm7 -q -1
 
-# Force CPU for Hessian assembly (saves VRAM for large systems)
+# Move the evaluated Hessian to CPU for diagonalization
 mlmm freq -i input.pdb --parm real.parm7 -q -1 --hess-device cpu
 ```
 
 Use `--hess-device cpu` when:
-- The active region is too large for the selected backend/Hessian mode on the target device
-- You encounter CUDA out-of-memory errors during frequency calculations
-- The target GPU does not have enough memory for the selected calculation
+- CPU diagonalization is preferable for the evaluated Hessian
+- Retaining and diagonalizing the evaluated Hessian on GPU would add avoidable VRAM pressure
+
+This option cannot prevent an out-of-memory failure that occurs inside the backend while the Hessian is being evaluated. Reduce the active region or select a lower-memory Hessian/backend configuration for that case.
 
 ### General VRAM tips
 
-1. **Reduce the ML region size:** Use `mlmm extract` with a smaller `--radius` or `mlmm define-layer` with a tighter `--radius-freeze`.
+1. **Reduce the ML region size:** Use `mlmm extract` with a smaller `--radius`. Independently, tighten `define-layer --radius-freeze` to shrink the movable-MM shell and expand the frozen environment.
 2. **Use hessian_ff (default):** The hessian_ff backend runs on CPU, avoiding an additional MM allocation on the GPU.
 3. **Select the MM device deliberately:** When both ML and MM use CUDA, measure memory use on a representative pilot and use `mm_device: cpu` if needed.
 4. **Monitor VRAM:** `print_vram` defaults to `True` (VRAM usage is printed during Hessian computation); set `print_vram: False` in YAML to suppress it.

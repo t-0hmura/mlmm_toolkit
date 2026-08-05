@@ -5,6 +5,8 @@ from pysisyphus.intcoords.Torsion import Torsion
 
 class DummyImproper(Torsion):
     def __init__(self, indices, *args, fix_inner=True, **kwargs):
+        # 'fix_inner' is retained for backward compatibility and is ignored; see
+        # DummyImproper._calculate.
         self.fix_inner = fix_inner
         kwargs["calc_kwargs"] = ("fix_inner",)
         super().__init__(indices, *args, **kwargs)
@@ -59,12 +61,9 @@ class DummyImproper(Torsion):
             # Remove entries that belong to the dummy atom.
             grad = grad[:-3]  # .reshape[](-1, 3)[[0, 1, 3]]
 
-            # Zero out contributions of the inner two atoms in the torsion.
-            # So basically only the atom at the first index moves.
-            #
-            # This usually degrades optimization convergence.
-            # if fix_inner:
-            # grad.reshape(-1, 3)[indices_ext[1:3]] = 0.0
+            # 'fix_inner' is ignored here; both values take this same gradient
+            # path. Zeroing out the contributions of the inner two atoms degrades
+            # optimization convergence.
             return val, grad.flatten()
         else:
             return results

@@ -51,7 +51,8 @@ mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
     isosurface plot (`scan3d_density.html`) honoring `--zmin/--zmax`.
 
 Plot-only CSV input requires `d1_A`, `d2_A`, `d3_A`, and either
-`energy_hartree` or `energy_kcal`. Fresh output also records
+`energy_hartree` or `energy_kcal`. With `--baseline first`, it also requires
+the grid-index columns `i`, `j`, and `k`. Fresh output records
 `bias_converged`, `artifact_written`, and `is_preopt`; rows that are
 preoptimization references, explicitly unconverged, missing their geometry
 artifact, or non-finite are excluded. Legacy files without complete
@@ -88,7 +89,7 @@ Filename tags `i###_j###_k###` are integer hundredths of an angstrom (d1×100, d
 | `--freeze-atoms TEXT` | 1-based comma-separated frozen atom indices. | _None_ |
 | `--hess-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. Can be combined with `--detect-layer`. | _None_ |
 | `--movable-cutoff FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. Providing this disables `--detect-layer`. | _None_ |
-| `-s, --scan-lists TEXT` | Scan targets: a YAML/JSON spec file path (auto-detected, with `pairs` containing 3 quadruples) or an inline Python literal with three quadruples `(i,j,low,high)`. `i`/`j` can be integer indices or PDB atom selectors. | Required |
+| `-s, --scan-lists TEXT` | Scan targets: a YAML/JSON spec file path (auto-detected, with `pairs` containing 3 quadruples) or an inline Python literal with three quadruples `(i,j,low,high)`. `i`/`j` can be integer indices or PDB atom selectors. | Required unless `--csv` is used |
 | `--csv FILE` | Load precomputed `surface.csv` and generate plot without running a scan. | _None_ |
 | `--one-based / --zero-based` | Interpret `(i, j)` indices as 1- or 0-based. | `True` (1-based) |
 | `--print-parsed/--no-print-parsed` | Print parsed pair tuples after `-s/--scan-lists` resolution. | `False` |
@@ -184,22 +185,20 @@ geom:
  coord_type: cart
  freeze_atoms: []
 calc:
- charge: 0
- spin: 1
-mlmm:
+ model_charge: 0
+ model_mult: 1
  real_parm7: real.parm7
  model_pdb: ml_region.pdb
 opt:
  thresh: baker
  max_cycles: 10000
- dump: false
- out_dir: ./result_scan3d/
 lbfgs:
  max_step: 0.3
- out_dir: ./result_scan3d/
 bias:
  k: 300.0
 ```
+
+Use the CLI-owned `--dump` and `--out-dir` options for trajectory and output placement.
 
 ## See Also
 

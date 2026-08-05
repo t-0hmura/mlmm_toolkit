@@ -176,7 +176,6 @@ class QCData:
         is_linear : bool
             Wether the molecule is linear.
         """
-        # return self.point_group in ("cinf", "dinfh")
         return self._linear
 
     @property
@@ -267,6 +266,8 @@ class QCData:
         -------
         aligned : bool
             Wether the principal axes are aligned or not.
+        eigenvectors : np.array, shape (3, 3)
+            Eigenvectors of the inertia tensor, as columns.
         """
         w, v = np.linalg.eigh(self.inertia_tensor())
         return np.allclose(v, np.eye(3)), v

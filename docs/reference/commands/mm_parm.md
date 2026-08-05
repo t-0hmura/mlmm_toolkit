@@ -4,7 +4,7 @@
 Usage: mlmm mm-parm [OPTIONS]
 
   Generate Amber parm7/rst7 (and a LEaP-exported PDB) from a PDB using
-  AmberTools only.
+  AmberTools; --add-h also requires PDBFixer.
 
 Options:
   -v, --verbose LEVEL             Console verbosity 0-3 (default 2). 0=silent;
@@ -33,9 +33,9 @@ Options:
                                   between them.  [default: add-ter]
   --auto-disulfide / --no-auto-disulfide
                                   Detect disulfides from SG-SG geometry (<= 2.5
-                                  A) across CYS/CYM/CYX and bond them, renaming
-                                  a bonded CYS to CYX so tleap drops its HG.
-                                  With --no-auto-disulfide only residues already
+                                  A) across CYS/CYX and bond them, renaming a
+                                  bonded CYS to CYX so tleap drops its HG. With
+                                  --no-auto-disulfide only residues already
                                   named CYX are bonded and CYS is left
                                   untouched.  [default: auto-disulfide]
   --add-h / --no-add-h            Add hydrogens using PDBFixer at the specified

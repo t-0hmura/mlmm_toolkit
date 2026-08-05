@@ -227,14 +227,14 @@ def gediis(coords, energies, forces, hessian=None, max_vecs=3):
             )
 
     else:
+        # Quadratic form f^T H^-1 f for every error vector.
         if isinstance(hessian, torch.Tensor):
             hessian_inv = torch.linalg.pinv(hessian, rcond=1e-6)
-            gHig = torch.einsum("ki,ji,ki->k", f, hessian_inv, f).cpu().numpy()
+            gHig = torch.einsum("ki,ij,kj->k", f, hessian_inv, f).cpu().numpy()
         else:
             hessian_inv = np.linalg.pinv(hessian, rcond=1e-6)
             # It doesn't matter if we use forces or gradients, as the signs will cancel.
-            # gHig = 0.5 * np.einsum("ki,ji,ki->k", f, hessian_inv, f)
-            gHig = np.einsum("ki,ji,ki->k", f, hessian_inv, f)
+            gHig = np.einsum("ki,ij,kj->k", f, hessian_inv, f)
 
         def fun(xs):
             """Eq. (5) from [4]."""

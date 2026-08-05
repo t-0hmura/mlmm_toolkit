@@ -386,6 +386,44 @@ def test_dft_override_builder_covers_each_forwarded_field(
     assert build_dft_overrides(**kwargs) == expected
 
 
+def test_all_dft_child_relays_success_stderr_without_forwarding_mlip_backend(
+    tmp_path: Path, monkeypatch
+) -> None:
+    import subprocess
+    from types import SimpleNamespace
+    from mlmm.workflows import all as all_workflow
+
+    commands = []
+    emitted = []
+
+    def _run(cmd, **kwargs):
+        commands.append(cmd)
+        return SimpleNamespace(returncode=0, stdout="", stderr="fallback warning")
+
+    monkeypatch.setattr(subprocess, "run", _run)
+    monkeypatch.setattr(
+        all_workflow,
+        "_echo",
+        lambda message, err=False: emitted.append((message, err)),
+    )
+
+    all_workflow._run_dft_for_state(
+        tmp_path / "state.pdb",
+        0,
+        1,
+        tmp_path / "system.parm7",
+        tmp_path / "model.pdb",
+        False,
+        tmp_path / "dft",
+        None,
+        backend="uma",
+    )
+
+    assert "--backend" not in commands[0]
+    assert emitted.count(("fallback warning", True)) == 1
+    assert not any("exited with code" in message for message, _ in emitted)
+
+
 def test_yaml_post_values_are_not_reemitted_as_default_cli_tokens() -> None:
     yaml_cfg = {
         "opt": {"thresh": "gau_tight"},

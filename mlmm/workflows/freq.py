@@ -676,7 +676,7 @@ def _prepare_frequency_output_paths(
     "input_path",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=True,
-    help="Enzyme complex PDB used by both geom_loader and the ML/MM calculator.",
+    help="Enzyme complex PDB/mmCIF, or XYZ with --ref-pdb, used by geom_loader and the ML/MM calculator.",
 )
 @click.option(
     "--parm",
@@ -812,8 +812,8 @@ def _prepare_frequency_output_paths(
     type=click.Choice(["auto", "cuda", "cpu"], case_sensitive=False),
     default="auto",
     show_default=True,
-    help="Device for Hessian assembly and diagonalization (auto/cuda/cpu). "
-         "Use 'cpu' to avoid VRAM issues with large unfrozen systems. "
+    help="Device for post-evaluation Hessian placement and diagonalization (auto/cuda/cpu). "
+         "Use 'cpu' to move the evaluated Hessian off GPU before diagonalization. "
          "ML model inference always uses ml_device (typically GPU).",
 )
 @click.option(
@@ -934,6 +934,7 @@ def cli(
 ) -> None:
     set_convert_file_enabled(convert_files)
     time_start = time.perf_counter()
+    error_out_dir = Path(out_dir).resolve()
     _is_param_explicit = make_is_param_explicit(ctx)
 
     config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
@@ -1134,6 +1135,25 @@ def cli(
         allowed_hint="all|ml-only|partial|unfrozen",
     )
     freq_cfg["active_dof_mode"] = active_dof_mode_value
+    sort_value = str(freq_cfg.get("sort", FREQ_KW["sort"])).strip().lower()
+    if sort_value not in {"value", "abs"}:
+        raise click.BadParameter(
+            "freq.sort must be one of: value, abs.", param_hint="--sort"
+        )
+    freq_cfg["sort"] = sort_value
+    for key, minimum in (("max_write", 0), ("n_frames", 1)):
+        value = freq_cfg.get(key)
+        if isinstance(value, bool) or not isinstance(value, (int, np.integer)):
+            raise click.BadParameter(
+                f"freq.{key} must be an integer >= {minimum}.",
+                param_hint=f"--{key.replace('_', '-')}",
+            )
+        if int(value) < minimum:
+            raise click.BadParameter(
+                f"freq.{key} must be an integer >= {minimum}.",
+                param_hint=f"--{key.replace('_', '-')}",
+            )
+        freq_cfg[key] = int(value)
     for cutoff_key in ("hess_cutoff", "movable_cutoff"):
         cutoff_value = calc_cfg.get(cutoff_key)
         if cutoff_value is None:
@@ -1177,6 +1197,7 @@ def cli(
     calc_cfg["freeze_atoms"] = freeze_atoms_final
 
     out_dir_path = Path(freq_cfg.get("out_dir", FREQ_KW["out_dir"])).resolve()
+    error_out_dir = out_dir_path
     layer_source_pdb = source_path
     detect_layer_enabled = bool(calc_cfg.get("use_bfactor_layers", True))
     model_pdb_cfg = calc_cfg.get("model_pdb")
@@ -1355,14 +1376,13 @@ def cli(
     geometry = geom_loader(geom_input_path, coord_type=coord_type, **coord_kwargs)
 
     masses_amu = np.array([atomic_masses[z] for z in geometry.atomic_numbers])
-    # Resolve Hessian assembly/diagonalization device separately from ML inference device.
-    # --hess-device=cpu allows large Hessians to be assembled on CPU while ML model stays on GPU.
+    # Resolve post-evaluation Hessian placement/diagonalization separately from ML inference.
     if hess_device.lower() == "auto":
         device = _torch_device(calc_cfg.get("ml_device", "auto"))
     else:
         device = _torch_device(hess_device.lower())
     if device.type == "cpu":
-        click.echo("[device] Hessian assembly and diagonalization will run on CPU.")
+        click.echo("[device] Hessian placement and diagonalization will run on CPU after evaluation.")
     masses_au_t = torch.as_tensor(masses_amu * AMU2AU, dtype=torch.float32, device=device)
 
     n_atoms = len(geometry.atoms)
@@ -1373,7 +1393,9 @@ def cli(
     active_indices, layer_sets = _resolve_active_atom_indices(calc_cfg, n_atoms, active_dof_mode_lower)
     ml_indices = layer_sets["ml"]
     movable_mm_indices = layer_sets["movable_mm"]
-    partial_mm_indices = movable_mm_indices  # hess_cutoff is microiter-only; freq/tsopt active DOF stays full-movable
+    # hess_cutoff selects Hessian-target MM atoms, but the freq/tsopt active DOF
+    # space stays full-movable; only the microiteration path narrows the movable set.
+    partial_mm_indices = movable_mm_indices
 
     if active_dof_mode_lower == "all" or active_indices is None:
         active_indices = all_indices
@@ -1835,7 +1857,7 @@ def cli(
         click.echo("\nInterrupted by user.", err=True)
         sys.exit(130)
     except Exception as e:
-        render_cli_exception(e, label="frequency analysis", out_dir=out_dir, command="freq", time_start=time_start)
+        render_cli_exception(e, label="frequency analysis", out_dir=error_out_dir, command="freq", time_start=time_start)
     finally:
         prepared_input.cleanup()
         # Release GPU memory so subsequent pipeline stages don't OOM.

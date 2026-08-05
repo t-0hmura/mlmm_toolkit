@@ -205,7 +205,8 @@ def test_legacy_coordinate_only_entry_is_never_reused_by_load_matching() -> None
     assert hessian_cache.load("ts") is not None
 
 
-def test_missing_run_id_never_reuses() -> None:
+def test_missing_run_id_never_reuses(monkeypatch) -> None:
+    monkeypatch.delenv("MLMM_RUN_ID", raising=False)
     hessian_cache.store("ts", np.eye(6), identity=_identity(run=None))
     assert hessian_cache.load_matching("ts", _identity(run=None)) is None
     assert hessian_cache.load_matching("ts", _identity(run="run-A")) is None
@@ -469,7 +470,9 @@ def test_reconcile_active_hessian_rejects_wrong_or_ambiguous_basis() -> None:
     ) is None
 
 
-def test_identity_from_context_rejects_backend_specific_model_and_precision() -> None:
+def test_identity_from_context_rejects_backend_specific_model_and_precision(
+    monkeypatch,
+) -> None:
     """The cache identity resolves the ML model + precision from the
     BACKEND-PREFIXED keys (uma_model / uma_precision, ...), so changing the ML
     model or fp32-vs-fp64 precision rejects reuse; a genuinely matching context
@@ -481,10 +484,8 @@ def test_identity_from_context_rejects_backend_specific_model_and_precision() ->
         cart_coords = np.arange(9, dtype=float)
         freeze_atoms = np.array([], dtype=int)
 
-    import os
-
-    os.environ["MLMM_RUN_ID"] = "run-MP"
-    try:
+    with monkeypatch.context() as scoped:
+        scoped.setenv("MLMM_RUN_ID", "run-MP")
         base_cfg = {
             "backend": "uma",
             "uma_model": "uma-s-1p2",
@@ -531,11 +532,9 @@ def test_identity_from_context_rejects_backend_specific_model_and_precision() ->
         # The resolved identity actually carries the effective model/precision.
         assert ident["evaluator"]["model"] == "uma-s-1p2"
         assert ident["evaluator"]["precision"] == "fp32"
-    finally:
-        os.environ.pop("MLMM_RUN_ID", None)
 
 
-def test_identity_from_context_custom_backend_uses_calc_file_as_model() -> None:
+def test_identity_from_context_custom_backend_uses_calc_file_as_model(monkeypatch) -> None:
     """A custom ASE calculator has no MLIP model variant; its
     calc_file / calc_factory reference stands in as the model identity, so two
     different custom calculators reject reuse."""
@@ -545,10 +544,8 @@ def test_identity_from_context_custom_backend_uses_calc_file_as_model() -> None:
         cart_coords = np.zeros(9, dtype=float)
         freeze_atoms = np.array([], dtype=int)
 
-    import os
-
-    os.environ["MLMM_RUN_ID"] = "run-C"
-    try:
+    with monkeypatch.context() as scoped:
+        scoped.setenv("MLMM_RUN_ID", "run-C")
         cfg = {
             "backend": "custom",
             "calc_file": "/tmp/my_calc.py",
@@ -578,8 +575,6 @@ def test_identity_from_context_custom_backend_uses_calc_file_as_model() -> None:
                 _Geom(), dict(cfg, calc_factory="build"), role="ts"
             ),
         ) is None
-    finally:
-        os.environ.pop("MLMM_RUN_ID", None)
 
 
 def test_custom_calculator_content_change_rejects_same_path_cache(
@@ -618,7 +613,10 @@ def test_custom_calculator_content_change_rejects_same_path_cache(
     assert hessian_cache.load_matching("ts", changed) is None
 
 
-def test_mlmm_potential_identity_rejects_parm7_link_embed_region_changes(tmp_path) -> None:
+def test_mlmm_potential_identity_rejects_parm7_link_embed_region_changes(
+    tmp_path,
+    monkeypatch,
+) -> None:
     """The mlmm potential identity rejects a topology-content change,
     a link-method change, an embedding change, and a region-map change."""
 
@@ -643,11 +641,8 @@ def test_mlmm_potential_identity_rejects_parm7_link_embed_region_changes(tmp_pat
         "freeze_atoms": [],
     }
 
-    monkeyrun = "run-P"
-    import os
-
-    os.environ["MLMM_RUN_ID"] = monkeyrun
-    try:
+    with monkeypatch.context() as scoped:
+        scoped.setenv("MLMM_RUN_ID", "run-P")
         ident = hessian_cache.identity_from_context(_Geom(), base_cfg, role="ts")
         hessian_cache.store("ts", np.eye(9), identity=ident)
 
@@ -686,11 +681,11 @@ def test_mlmm_potential_identity_rejects_parm7_link_embed_region_changes(tmp_pat
                 _Geom(), dict(base_cfg, hess_mm_atoms=[3, 4]), role="ts"
             ),
         ) is None
-    finally:
-        os.environ.pop("MLMM_RUN_ID", None)
 
 
-def test_mlmm_potential_identity_rejects_explicit_region_and_link_changes() -> None:
+def test_mlmm_potential_identity_rejects_explicit_region_and_link_changes(
+    monkeypatch,
+) -> None:
     """The explicit region partition (movable_mm_atoms / frozen_mm_atoms) and
     the link-atom map (link_mlmm) are NOT folded into the captured freeze set,
     so a change to any of them at matching coordinates + run must reject reuse.
@@ -701,10 +696,8 @@ def test_mlmm_potential_identity_rejects_explicit_region_and_link_changes() -> N
         cart_coords = np.zeros(18, dtype=float)
         freeze_atoms = np.array([], dtype=int)
 
-    import os
-
-    os.environ["MLMM_RUN_ID"] = "run-RL"
-    try:
+    with monkeypatch.context() as scoped:
+        scoped.setenv("MLMM_RUN_ID", "run-RL")
         base_cfg = {
             "backend": "uma",
             "uma_model": "uma-s-1p2",
@@ -755,5 +748,3 @@ def test_mlmm_potential_identity_rejects_explicit_region_and_link_changes() -> N
                 _Geom(), dict(base_cfg, movable_mm_atoms=[4, 3]), role="ts"
             ),
         ) is not None
-    finally:
-        os.environ.pop("MLMM_RUN_ID", None)

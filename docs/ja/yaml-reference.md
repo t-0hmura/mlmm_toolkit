@@ -92,6 +92,8 @@ calc:
  mm_device: cpu # MM デバイス (hessian_ff は CPU のみ、OpenMM は CUDA/CPU 対応)
  mm_cuda_idx: 0 # MM CUDA インデックス (OpenMM のみ)
  mm_threads: 16 # MM 計算のスレッド数
+ workers: 1 # ローカル ML worker process 数（対応 backend のみ）
+ workers_per_node: null # node あたりの worker 上限（任意）
  mm_fd: true # MM Hessianに有限差分を使用
  mm_hessian_mode: null # 明示指定は finite_difference/analytical。null は mm_fd に従う
  mm_fd_dir: null # MM Hessianログの出力ディレクトリ
@@ -131,7 +133,7 @@ calc:
   `finite_difference`/`analytical` の明示形で、`null` の場合は互換用の
   `mm_fd` に従います。
 - `use_cmap: true`（デフォルト）は parm7 に含まれる CMAP を REAL と MODEL の両 MM 層で保持します。明示的な改変力場計算だけ `false` を指定してください。この場合は両層から CMAP を除去します。
-- `real_parm7` と `model_pdb` は ML/MM 計算に必須です。
+- standalone ML/MM 計算には `real_parm7` が必須です。ML 領域は `model_pdb`、明示的な model index、または有効な B-factor layer から指定できます。
 - `irc` は YAML の設定にかかわらず `geom.coord_type = cart` を強制します。
 
 ---
@@ -142,11 +144,8 @@ L-BFGS/RFO で共通の最適化設定。
 
 ```yaml
 opt:
- type: string # StringOptimizer 専用: optimizer type label
  thresh: gau # 収束プリセット: gau_loose, gau, gau_tight, gau_vtight, baker, never
- stop_in_when_full: 300 # StringOptimizer 専用: string 完了時の早期停止閾値
  align: false # StringOptimizer 専用: alignment の有効/無効
- scale_step: global # StringOptimizer 専用: step scaling モード
  max_cycles: 10000 # 最大反復回数
  print_every: 100 # ログ出力間隔
  min_step_norm: 1.0e-08 # 最小ステップノルム
@@ -222,7 +221,7 @@ lbfgs:
  mu_reg: null # 正則化強度
  max_mu_reg_adaptions: 10 # mu 適応の上限
  reject_uphill: false # 許容値を超えるenergy上昇の拒否を明示的に有効化
- uphill_tolerance: 0.001 # energy上昇許容値（Hartree）
+ uphill_tolerance: 0.0001 # energy上昇許容値（Hartree）
  rejection_step_floor: 1.0e-07 # retry stepの下限
  max_rejections_at_floor: 3 # 下限での連続拒否後に停止
 ```
@@ -241,7 +240,7 @@ rfo:
  trust_max: 0.10 # 最大信頼半径（ML/MM 安定性のため調整）
  max_energy_incr: null # ステップあたりの許容エネルギー増加
  reject_uphill: false # 許容値を超えるenergy上昇の拒否を明示的に有効化
- uphill_tolerance: 0.001 # energy上昇許容値（Hartree）
+ uphill_tolerance: 0.0001 # energy上昇許容値（Hartree）
  rejection_trust_floor: 1.0e-07 # retry trust radiusの下限
  max_rejections_at_floor: 3 # 下限での連続拒否後に停止
  hessian_update: bfgs # Hessian更新スキーム: bfgs, bofill 等
@@ -396,7 +395,7 @@ hessian_dimer:
 ```
 
 **注記:**
-- `flatten_max_iter` は虚振動数モードフラットニングの最大反復回数を制御します。デフォルト値は 50 です。
+- 通常の TSOPT 省略時は flattening が無効で実効反復数は 0 です。有効化した場合の上限を `flatten_max_iter` が制御し、そのデフォルトは 50 です。
 - CLI フラグ `--flatten` / `--no-flatten`（`tsopt` および `all`）はこの設定と連動します。`--flatten` はデフォルトの `flatten_max_iter`（50）でフラットニングループを有効化し、`--no-flatten` は `flatten_max_iter` を 0 に強制してループを無効化します。`--flatten` と同時に YAML で `flatten_max_iter` を明示指定した場合は、YAML の値が優先されます。
 
 ---
@@ -540,6 +539,22 @@ thermo:
  symmetry_number: null # 自動判定。正整数は高度な上書き指定
  dump: false # thermoanalysis.yaml の書き出し
 ```
+
+---
+
+### `sp` (section)
+
+single-point 設定。`mlmm sp` だけが読み込みます。
+
+```yaml
+sp:
+ hess: false # active-coordinate ONIOM Hessian block も計算
+ hessian_calc_mode: FiniteDifference # "FiniteDifference" | "Analytical"
+ out_dir: ./result_sp/
+```
+
+対応する CLI の `--hess`、`--hessian-calc-mode`、`-o/--out-dir` を
+明示した場合は CLI が上書きします。
 
 ---
 

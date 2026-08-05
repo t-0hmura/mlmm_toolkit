@@ -205,8 +205,14 @@ def read_xyz_trajectory(
             break
         frame_number = len(frames) + 1
         header = lines[cursor].strip()
+        # Treat first line as atom count only if it contains exactly one integer token
+        header_parts = header.split()
+        if len(header_parts) != 1:
+            raise ValueError(
+                f"Malformed XYZ header in frame {frame_number} of {source}: {header!r}"
+            )
         try:
-            atom_count = int(header)
+            atom_count = int(header_parts[0])
         except ValueError as exc:
             raise ValueError(
                 f"Malformed XYZ header in frame {frame_number} of {source}: {header!r}"

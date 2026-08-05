@@ -1,5 +1,7 @@
 # `scan`
 
+MM backend は選択可能で、デフォルトは `hessian_ff`、代替は OpenMM です。
+
 ML/MM calculatorを用い、調和拘束による結合距離スキャンで階層化された酵素 PDB の反応座標を駆動します。単一の出発構造から 1 つ以上の原子間距離を目標値まで駆動して反応軌跡の粗い候補を生成し、下流の MEP 精密化用の中間体/生成物候補を得たいときに使用します。`mlmm scan` は ML/MM calculator（`mlmm.backends.mlmm_calc.mlmm`）による調和拘束付きの段階的な結合距離駆動スキャンを実行します。各ステップで一時的なターゲットを更新し、調和拘束ポテンシャルを適用して L-BFGS で構造を緩和します。ML/MM calculatorは MLIP バックエンド（デフォルト: UMA、`-b/--backend` で選択）と hessian_ff を結合します。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルとしてターゲット距離を定義します。
 
 ## 実行例
@@ -9,7 +11,7 @@ ML/MM calculatorを用い、調和拘束による結合距離スキャンで階�
 ```bash
 mlmm scan -i INPUT.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q CHARGE [-m MULT] \
- [-s scan.yaml | -s "[(I,J,TARGET_ANG)]"] [options]
+ (-s scan.yaml | -s "[(I,J,TARGET_ANG)]") [options]
 ```
 
 スペックファイルによるスキャン（`--print-parsed` を追加すると、解釈したスキャンスペックを検証し GPU 計算を実行せずに終了します）:
@@ -237,7 +239,7 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 スキャンは共有の `geom`（`coord_type`、`freeze_atoms`）、`calc` / `mlmm`（ML/MM calculator設定）、`opt` / `lbfgs`（オプティマイザ）の各セクションに加え、`bias`（`k`、調和強度（eV/Å²））と MLIP ベースの結合変化検出用 `bond` セクションを読み込みます。
 
-- `coord_type`: 座標タイプ（デカルト vs dlc 内部座標）。
+- `coord_type`: 共有キーですが、拘束付き scan はマージ後に `cart` へ正規化するため DLC は有効になりません。
 - `freeze_atoms`: CLI `--freeze-atoms` とマージされる 1 始まり凍結原子。
 
 ### セクション `calc` / `mlmm`

@@ -207,7 +207,7 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 | `--exclude-backbone/--no-exclude-backbone` | 非基質アミノ酸の主鎖原子を除去。 | `False` |
 | `--add-linkh/--no-add-linkh` | 切断結合にリンク水素を付加。 | `False` |
 | `--selected-resn TEXT` | 強制包含する残基。 | `""` |
-| `--modified-residue TEXT` | 修飾アミノ酸残基名をカンマ区切りで指定（任意で電荷付き）。主鎖切断と電荷計算にアミノ酸として扱う。例: `HD1,HD2,HD3` または `HD1:0,SEP:-2`。 | `""` |
+| `--modified-residue TEXT` | 修飾アミノ酸残基名をカンマ区切りで指定。未知残基は整数電荷が必須（例: `HD1:0,HD2:-1`）。catalog 登録済み残基は bare name（例: `SEP`）も可。 | `""` |
 
 ### MM 準備オプション
 
@@ -321,14 +321,12 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 geom:
  tr_projection: constrained      # 固定の内部 PHVA 処理
 calc:
- charge: 0
- spin: 1
- real_parm7: real.parm7
- model_pdb: ml_region.pdb
+ model_charge: 0
+ model_mult: 1
  backend: uma                    # ML バックエンド (uma/orb/mace/aimnet2)
  embedcharge: false              # 互換性用。true は拒否される
  uma_model: uma-s-1p2            # uma-s-1p2 | uma-m-1p1
-  hessian_calc_mode: Analytical     # 代表的な pilot で FiniteDifference と比較
+ hessian_calc_mode: Analytical     # 代表的な pilot で FiniteDifference と比較
 gs:
  max_nodes: 20
  climb: true

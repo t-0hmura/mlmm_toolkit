@@ -43,7 +43,7 @@ mlmm fix-altloc -i ./structures --inplace --recursive
 
 1. Check if the input file contains any non-blank altLoc characters (column 17).
  - If no altLoc is found and `--force` is not set, skip the file (left unchanged).
-2. Group labeled ATOM/HETATM records by residue (residue name, chain ID,
+2. Group labeled ATOM/HETATM records by site (chain ID,
    residue sequence, insertion code, and segID).
 3. Select one non-blank label per residue using the highest mean parsed
    occupancy (columns 55–60). A label with no parsed occupancy ranks below any

@@ -193,6 +193,8 @@ def test_gsm_rejects_an_explicit_invalid_dmf_tolerance(
         (["mlmm", "bond-summary", "--json", "yes"], True),
         (["mlmm", "bond-summary", "--json=false"], False),
         (["mlmm", "bond-summary", "--json", "--no-json"], False),
+        (["mlmm", "bond-summary", "--no-json", "False"], True),
+        (["mlmm", "bond-summary", "--no-json=True"], False),
         (["mlmm", "sp", "--json=true"], False),
     ],
 )

@@ -31,13 +31,13 @@ mlmm oniom-export --parm real.parm7 -i pocket.pdb --model-pdb ml.pdb \
 
 1. **トポロジー + 座標** -- `parm7` と `-i` 座標ファイルを読み込みます（原子順序はトポロジーと一致が必須。`--element-check` が元素配列を検証）。PDB/ENT 入力では固定フィールドの原子 identity digest も title/comment に埋め込みます。
 2. **QM 領域** -- `--model-pdb` で QM（ML 領域）原子を定義し、`--near` で可動/活性 MM のカットオフ（Å）を設定します。
-3. **リンク原子** -- 切断された QM/MM 結合ごとに配置されます。`--link-atom-method scaled`（デフォルト）は Morokuma/Dapprich の g-factor（`MLMMCore` ランタイムと一致）、`fixed` は固定 1.09/1.01 Å を使用します。
+3. **QM/MM 境界** -- Gaussian は `--link-atom-method scaled`（デフォルトの Morokuma/Dapprich g-factor）または `fixed`（1.09/1.01 Å）で link H を配置します。ORCA は `QMAtoms`/`ORCAFF` から cap を生成し、出力中の link 座標は診断コメントです。
 4. **書き出し** -- `-o` に対象形式の入力ファイルを出力します。ORCA モードでは `ORCAFF.prms` のパスも特定します。`--convert-orcaff` が有効なら `orca_mm -convff -AMBER` による変換を試みます。変換が無効または利用不能でも `.inp` は書き出され、ORCA 実行前に用意すべきパラメータパスを報告します。
 
 ## 出力
 
 - `<output>.{gjf,com}`（g16）または `<output>.inp`（ORCA） -- QM/MM 入力ファイル
-- ORCA モードでは `<parm7_stem>.ORCAFF.prms` を参照します。既存ファイルを再利用し、自動変換が有効かつ利用可能な場合だけ生成します
+- ORCA モードでは `<parm7_stem>.ORCAFF.prms` を参照します。既存ファイルを再利用し、自動変換が有効かつ利用可能な場合だけ生成します。生成された `.inp` を実行する前に、この参照先が実在することを確認してください
 
 ## CLI オプション
 
@@ -60,7 +60,7 @@ mlmm oniom-export --parm real.parm7 -i pocket.pdb --model-pdb ml.pdb \
 | `--orcaff PATH` | `ORCAFF.prms` のパス（ORCA モード）。未指定時は派生パスを参照し、条件を満たす場合に自動生成を試行 | _None_ |
 | `--convert-orcaff / --no-convert-orcaff` | `ORCAFF.prms` 欠損時に `orca_mm -convff -AMBER` で自動変換（ORCA モード） | `True` |
 | `--element-check / --no-element-check` | `--input` の元素配列を parm7 トポロジーと照合 | `True` |
-| `--link-atom-method [scaled\|fixed]` | リンク H 配置: `scaled`（g-factor、ランタイム一致）または `fixed`（1.09/1.01 Å） | `scaled` |
+| `--link-atom-method [scaled\|fixed]` | Gaussian の link H 配置。ORCA では対応座標を診断コメントとして記録し、cap は `QMAtoms`/`ORCAFF` から生成 | `scaled` |
 
 `mlmm oniom-export --help` はコアオプション、`mlmm oniom-export --help-advanced` は全オプションを表示します。
 

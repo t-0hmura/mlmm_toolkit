@@ -2,7 +2,9 @@
 
 `mlmm tsopt` refines a transition-state candidate on a layered enzyme PDB into a first-order saddle point. Run it on a standalone transition-state (TS) guess, or on the highest-energy image (HEI) extracted by [`path-search`](path-search.md).
 
-Two optimizers are available, and you pick between them with `--opt-mode`:
+Two optimizer families are available. The gradient family provides Hessian-Guided
+Dimer (`grad`/`dimer`), while the Hessian family provides RS-I-RFO (`hess`/`rsirfo`,
+the default), RS-P-RFO (`rsprfo`), and TRIM (`trim`):
 
 - **Restricted-Step Image-function Rational Function Optimization (RS-I-RFO)** (`--opt-mode hess`) is the default and the conservative choice when you can afford the Hessian work. It runs with microiteration (`--microiter`, default on) that alternates a machine-learning (ML) 1-step RS-I-RFO move with a molecular-mechanics (MM) L-BFGS relaxation.
 - **Hessian-Guided Dimer** (`--opt-mode grad`) is the lighter alternative, suited to a lower-cost search or quick iteration from several TS guesses. Add `--ml-only-hessian-dimer` to use only the ML-region Hessian for dimer orientation (faster).
@@ -145,7 +147,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
    - Each loop estimates imaginary modes, flattens once, refreshes the dimer direction, and runs a Dimer + L-BFGS micro-segment.
 4. **Heavy mode (RS-I-RFO)** — runs the RS-I-RFO optimizer with optional Hessian reference files and micro-cycle controls defined in the `rsirfo` YAML section. The flatten behavior:
    - With `--flatten`, when more than one imaginary mode remains after convergence the workflow flattens extra modes and reruns RS-I-RFO until only one imaginary mode remains or the flatten-iteration cap is reached.
-   - Each flatten iteration recomputes a fresh ML/MM Hessian (partial ML-only by default, or full per `--full-hessian-flatten`) for imaginary-mode detection. There is no Bofill update in this path.
+   - Each flatten iteration recomputes a fresh ML/MM Hessian (active-coordinate block by default, or full per `--full-hessian-flatten`) for imaginary-mode detection. There is no Bofill update in this path.
 5. **Mode export + conversion** — the converged imaginary mode is always written to `vib/imag_*_trj.xyz` and mirrored to `.pdb` when the input was PDB and conversion is enabled. The optimization trajectory and final geometry are also converted to PDB via the input template when `--dump`.
 
 ## Outputs
@@ -201,7 +203,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | **Convergence & flatten** | | |
 | `--thresh TEXT` | Convergence preset (`gau_loose` / `gau` / `gau_tight` / `gau_vtight` / `baker` / `never`). | _None_ |
 | `--flatten / --no-flatten` | Extra-imaginary-mode flattening loop. `--flatten` uses the default iteration count (50); `--no-flatten` forces it to 0. Applies to both `--opt-mode grad` (Dimer) and `--opt-mode hess` (RS-I-RFO). | _None_ → disabled by default (0 iterations); `--flatten` enables it (50), and YAML/config can also enable it |
-| `--partial-hessian-flatten` / `--full-hessian-flatten` | Use partial Hessian (ML only) for imaginary-mode detection in the flatten loop. | `True` (partial) |
+| `--partial-hessian-flatten` / `--full-hessian-flatten` | Use the active-coordinate Hessian block or the full Hessian for imaginary-mode detection in the flatten loop. | `True` (active block) |
 | `--active-dof-mode CHOICE` | Active DOF for final frequency analysis: `all`, `ml-only`, `partial`, `unfrozen`. | `partial` |
 | `--skip-final-freq / --no-skip-final-freq` | Skip post-convergence frequency analysis and imaginary-mode flattening. Useful for large unfrozen systems where Hessian diagonalization is expensive. TS saddle-point order will NOT be verified. | `False` |
 | **Backend & compute** | | |
@@ -209,7 +211,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--precision [fp32\|fp64]` | MLIP backend precision; unset uses UMA/AIMNet2 fp32 and ORB/MACE fp64. AIMNet2 rejects fp64. | backend-specific |
 | `--workers INT` | UMA predictor workers. Values greater than 1 require `fairchem-core[extras]` and cannot be combined with `Analytical`. | `1` |
 | `--workers-per-node INT` | Workers per node for the parallel UMA predictor. | _None_ |
-| `--allow-charge-mult-mismatch` | Skip ML-region charge/multiplicity electron-parity validation after emitting a warning. Use only when the mismatch is intentional. | off |
+| `--allow-charge-mult-mismatch` | Skip ML-region charge/multiplicity electron-parity validation after emitting a warning. An open-shell ML region needs a matching multiplicity; use this only for an intentional nonstandard input. | off |
 | `--embedcharge / --no-embedcharge` | Unavailable in v0.3.3; use mechanical embedding (`--no-embedcharge`). | `False` |
 | `--embedcharge-cutoff FLOAT` | Unavailable with the retired electronic-embedding path. | — |
 | `--cmap / --no-cmap` | Preserve CMAP in both REAL and MODEL MM layers. | `--cmap` |
@@ -233,9 +235,8 @@ geom:
   freeze_atoms: []
   tr_projection: constrained      # fixed internal PHVA treatment
 calc:
-  charge: 0
-  spin: 1
-mlmm:
+  model_charge: 0
+  model_mult: 1
   real_parm7: real.parm7
   model_pdb: ml_region.pdb
   backend: uma                  # uma | orb | mace | aimnet2

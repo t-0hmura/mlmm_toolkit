@@ -86,7 +86,9 @@ def test_missing_gaussian_link_cap_is_fatal(
     ]
     parm = SimpleNamespace(atoms=atoms)
     monkeypatch.setattr(
-        oniom_export, "_find_qmmm_boundary_pairs", lambda *_: [(0, 1)],
+        oniom_export,
+        "_find_qmmm_boundary_pairs",
+        lambda *_, **_kwargs: [(0, 1)],
     )
     monkeypatch.setattr(
         oniom_export, "_estimate_link_h_position_scaled", lambda *_a, **_k: None,

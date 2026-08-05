@@ -32,8 +32,8 @@ mlmm define-layer -i full_system.pdb \
 | `--one-based / --zero-based` | flag | `--one-based` | Interpret `--model-indices` (1- vs 0-based) |
 | `-o, --output` | path | `<input>_layered.pdb` | Output PDB with B-factor layer encoding |
 
-`--model-pdb` and `--model-indices` are alternatives; supply exactly
-one. `--model-indices` takes precedence over `--model-pdb` if both are given.
+Supply at least one of `--model-pdb` and `--model-indices`. When both are
+given, `--model-indices` takes precedence.
 
 The model PDB must be an unchanged atom subset of the full input/topology:
 preserve original order and identifiers, do not include explicit link H, and

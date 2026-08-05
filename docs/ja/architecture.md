@@ -121,7 +121,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 
 ### 2.3 レイヤーごとの責務詳細
 
-**L1 `cli/`**。このレイヤーだけが Click コマンドを構築し argv をパースします。`app.py` はルートの `Click.Group` と `_LAZY_SUBCOMMANDS` レジストリを保持します — すべてのエントリが **絶対モジュールパス** (`mlmm.workflows.all`、`mlmm.io.trj2fig`、…) を使用するため、リゾルバは `default_group.py` 自体の置き場所に依存しません。`mlmm` 固有の `preflight.py` (AmberTools / conda env / GPU preflight) がここにあるのは、CLI 起動時、いかなる L2 ワークフローが呼び出されるよりも前に実行されるためです。
+**L1 `cli/`**。このレイヤーはルートディスパッチと共通の argv 解析を担当し、各リーフの Click コマンドは登録先の `workflows/`、`domain/`、`io/` モジュールで定義されます。`app.py` はルートの `Click.Group` と `_LAZY_SUBCOMMANDS` レジストリを保持します — すべてのエントリが **絶対モジュールパス** (`mlmm.workflows.all`、`mlmm.io.trj2fig`、…) を使用するため、リゾルバは `default_group.py` 自体の置き場所に依存しません。`mlmm` 固有の `preflight.py` (AmberTools / conda env / GPU preflight) がここにあるのは、CLI 起動時、いかなる L2 ワークフローが呼び出されるよりも前に実行されるためです。
 
 **L2 `workflows/`** にはコマンドモジュールと共有ワークフローヘルパーがあります。`cli/app.py:_LAZY_SUBCOMMANDS` に登録されたモジュールが `cli` という `@click.command()` を所有します。`_all_helpers.py`、`_opt_freq_common.py`、`_run_session.py`、`scan_common.py`、`restraints.py` などは独立したコマンドを持たない共有ヘルパーです。大きなステージランナーは現在も単一モジュールです。
 
@@ -194,7 +194,7 @@ CLI サブコマンドリゾルバ (`cli/app.py:_LAZY_SUBCOMMANDS`) は **絶対
 | Click ルートグループ + サブコマンドディスパッチ | `mlmm/cli/app.py` |
 | サブコマンドリゾルバ (遅延インポート) | `mlmm/cli/default_group.py` |
 | `python -m mlmm` shim | `mlmm/__main__.py` |
-| 共有オプションデコレータファクトリ | `mlmm/cli/decorators.py` |
+| 共有オプションデコレータファクトリ | `mlmm/cli/common_options.py` |
 | `--help-advanced` pager | `mlmm/cli/help_pages.py` |
 | Bool フラグ互換 (`--flag` / `--no-flag` + 値スタイル) | `mlmm/cli/bool_compat.py` |
 | AmberTools / conda env / GPU preflight | `mlmm/cli/preflight.py` |

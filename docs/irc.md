@@ -108,7 +108,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--freeze-atoms TEXT` | Comma-separated 1-based frozen-atom indices. | _None_ |
 | `-q, --charge INT` | Net charge of the ML region/model system; overrides `calc.model_charge` from YAML. | _None_ (required unless `-l` is given) |
 | `-l, --ligand-charge TEXT` | Total charge for unknown ligand residues or a per-resname mapping (e.g., `GPP:-3,SAM:1`). Derives the ML-region net charge when `-q` is omitted. | _None_ |
-| `-m, --multiplicity INT` | Spin multiplicity (2S+1); overrides `calc.spin`. | `1` |
+| `-m, --multiplicity INT` | Spin multiplicity (2S+1); overrides `calc.model_mult`. | `1` |
 | `--max-cycles INT` | Max number of IRC steps; overrides `irc.max_cycles`. | `125` |
 | `--step-size FLOAT` | Step length in Bohr (unweighted Cartesian); overrides `irc.step_length`. | `0.10` |
 | `--root INT` | Imaginary mode index for the initial displacement; overrides `irc.root`. | `0` |
@@ -145,7 +145,7 @@ the file handoff was verified.
 ## YAML configuration
 
 Provide mappings with merge order **defaults < config < explicit CLI**.
-Shared sections reuse [YAML Reference](yaml-reference.md) for geometry/calculator keys. For `irc`, `geom.coord_type` is forced to `cart` after YAML/CLI merging. `calc.return_partial_hessian` is forced to `true` (partial Hessian with active-DOF processing).
+Shared sections reuse [YAML Reference](yaml-reference.md) for geometry/calculator keys. For `irc`, `geom.coord_type` is forced to `cart` after YAML/CLI merging. When `calc.return_partial_hessian` is absent, IRC defaults it to `true` for active-block processing; an explicit YAML `false` requests the full Hessian.
 
 ```yaml
 geom:
@@ -154,8 +154,7 @@ geom:
  tr_projection: constrained        # fixed internal PHVA treatment
 calc:
  model_charge: 0                   # ML-region/model-system net charge
- spin: 1                           # spin multiplicity 2S+1
-mlmm:
+ model_mult: 1                     # spin multiplicity 2S+1
  real_parm7: real.parm7            # Amber parm7 topology
  model_pdb: ml_region.pdb          # ML-region definition
  backend: uma                      # MLIP backend: uma | orb | mace | aimnet2
@@ -164,7 +163,7 @@ mlmm:
  uma_task_name: omol                # UMA task name (UMA backend only)
  ml_device: auto                   # ML backend device selection
  hessian_calc_mode: Analytical        # override; default is FiniteDifference
- return_partial_hessian: true      # forced true for irc (partial Hessian with active-DOF processing)
+ return_partial_hessian: true      # absent-key default; set false to request the full Hessian
 irc:
  step_length: 0.1                  # integration step length (CLI: --step-size)
  max_cycles: 125                   # maximum steps along IRC (CLI: --max-cycles)

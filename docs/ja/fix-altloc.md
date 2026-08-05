@@ -48,7 +48,7 @@ mlmm fix-altloc -i 1abc.pdb -o 1abc_fixed.pdb --force
 
 1. 入力ファイルに非空白の altLoc 文字（列 17）が含まれているかチェック。
  - altLoc が見つからず `--force` が設定されていない場合、ファイルをスキップ。
-2. ラベル付き ATOM/HETATM レコードを残基（残基名、chain ID、残基番号、
+2. ラベル付き ATOM/HETATM レコードを site（chain ID、残基番号、
    insertion code、segID）ごとにまとめる。
 3. 各残基で、解析可能なoccupancy（列55–60）の平均が最大のラベルを選ぶ。
    occupancyを1件も解析できないラベルは、解析可能な平均を持つラベルより下位になる。

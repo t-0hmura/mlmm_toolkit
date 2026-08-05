@@ -35,12 +35,12 @@ mlmm path-opt -i REACTANT.pdb PRODUCT.pdb --parm real.parm7 --model-pdb model.pd
 ## Workflow
 1. **Load endpoints** -- Read PDB/mmCIF structures, or XYZ coordinates with matching `--ref-pdb` topology, and resolve charge/spin.
     Set up the ML/MM calculator with `--parm`, `--model-pdb`, and charge/spin.
-2. **Pre-alignment** -- All endpoints after the first are Kabsch-aligned to the first
-    structure. If `freeze_atoms` is defined, only those atoms participate in the RMSD
-    fit; the resulting transform is applied to all atoms.
-3. **Optional pre-optimization** -- With `--preopt`, each endpoint is pre-optimized
+2. **Optional pre-optimization** -- With `--preopt`, each endpoint is pre-optimized
     by L-BFGS (using the same ML/MM calculator) before alignment and string growth.
     The number of L-BFGS cycles is controlled by `--preopt-max-cycles` (default: 10000).
+3. **Alignment and freeze-guided refinement** -- Endpoints after the first are rigidly
+    aligned to the first. With `freeze_atoms`, the shared owner then performs its
+    freeze-guided scan and L-BFGS relaxation toward the reference before string growth.
 4. **Path optimization** -- `--mep-mode gsm` uses pysisyphus `GrowingString` with `(max_nodes + 2)` images including endpoints; `--mep-mode dmf` uses Direct Max Flux.
 5. **Climbing image (GSM only)** -- With `--climb`, a climbing-image refinement is applied after string growth, and the highest-energy image (HEI) is reported.
 6. **Output** -- Final path trajectory and HEI are written as XYZ files.

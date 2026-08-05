@@ -28,13 +28,13 @@ mlmm all -i r_complex.pdb p_complex.pdb -c PRE -q -1 --deterministic
 | `aimnet2` | **未対応 — 拒否されます**（後述） |
 | `custom`（`--calc-file`） | **未対応 — 拒否されます**。指定された計算器は mlmm-toolkit の制御外です |
 
-MM low-level 層は CPU 上で実行されます。end-to-end の厳密な比較には、topology を含む入力、software version、hardware、backend 設定を固定してください。
+デフォルトの `hessian_ff` MM low-level 層は CPU 上で実行されます。OpenMM は CUDA を含む選択 device を使用できます。end-to-end の厳密な比較には、topology を含む入力、software version、hardware、backend 設定を固定してください。
 
 ## 精度と再現性
 
 `--precision fp64` は数値精度を変更しますが、GPU 実行のビット単位同一性を保証しません。`--deterministic` は決定論的 algorithm を要求しますが、完全な対象 stack で厳密な再現性を確認してください。
 
-`--precision fp64` と（内部的に常時有効な）fp64 Hessian（`H_double`）は独立した設定項目です。`--precision fp64` を渡すと、Hessian も追加で fp64 に強制され、オプティマイザの線形代数がモデルより低い精度で警告なく実行されることがないようにします。
+`--precision fp64` と Hessian 保存精度（`H_double`、デフォルト `true`）は独立した設定項目です。対応する fp32 設定では `H_double: false` を選べますが、`--precision fp64` を渡すと Hessian も fp64 に強制され、オプティマイザの線形代数がモデルより低い精度で警告なく実行されることがないようにします。
 
 精度の選択は対象 backend/model と系で検証してください。backend ごとの default は [デバイス設定 & HPC セットアップ](device-hpc.md) を参照してください。
 

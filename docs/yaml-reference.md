@@ -7,6 +7,7 @@
 |---------|-------------|---------|
 | [`geom`](#geom) | Geometry and coordinate settings | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |
 | [`calc`](#calc) | ML/MM calculator settings (alias: `mlmm:`) | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |
+| [`sp`](#sp-section) | Single-point output settings | sp |
 | [`opt`](#opt) | Shared optimizer settings | opt, scan, scan2d, scan3d, tsopt, path-opt, path-search |
 | [`lbfgs`](#lbfgs) | L-BFGS optimizer settings | opt, scan, scan2d, scan3d, path-opt, path-search |
 | [`rfo`](#rfo) | RFO optimizer settings | opt |
@@ -110,6 +111,8 @@ calc:
  mm_device: cpu # Device for MM calculation: "cuda" or "cpu" (hessian_ff is CPU-only)
  mm_cuda_idx: 0 # CUDA device index for MM calculation (OpenMM only)
  mm_threads: 16 # Number of threads for MM calculation
+ workers: 1 # Local ML worker processes (supported backends only)
+ workers_per_node: null # Optional per-node worker cap
  mm_fd: true # Use finite-difference for MM Hessian
  mm_hessian_mode: null # Explicit finite_difference/analytical mode; null maps mm_fd
  mm_fd_dir: null # Directory for MM finite-difference scratch files
@@ -151,8 +154,8 @@ calc:
   `finite_difference`/`analytical` spelling; when it is `null`, `mm_fd`
   supplies the backward-compatible selection.
 - `use_cmap: true` (default) preserves CMAP in both REAL and MODEL MM layers when the parm7 contains it. Set `false` only for an explicit modified-force-field calculation; the opt-out removes CMAP from both layers.
-- `real_parm7` and `model_pdb` are required for ML/MM calculations
-- `model_charge` and `model_mult` override `-q` and `-m` for the ML region specifically
+- `real_parm7` is required for standalone ML/MM calculations. ML membership can come from `model_pdb`, explicit model indices, or valid B-factor layers.
+- Explicit `-q` and `-m` override `model_charge` and `model_mult` from YAML for the ML region; YAML fills omitted values.
 - `opt`, `tsopt`, `irc`, and `freq` use partial Hessian by default when `calc.return_partial_hessian` is not explicitly set in YAML.
 - To force full Hessian output in those commands, set `calc.return_partial_hessian: false` explicitly.
 - `irc` forces `geom.coord_type = cart` regardless of YAML.
@@ -163,11 +166,8 @@ Shared optimizer controls used by both L-BFGS and RFO.
 
 ```yaml
 opt:
- type: string # StringOptimizer-only (path-opt/path-search): optimizer type label
  thresh: gau # Convergence preset: gau_loose, gau, gau_tight, gau_vtight, baker, never
- stop_in_when_full: 300 # StringOptimizer-only: early stop threshold when string is full
  align: false # StringOptimizer-only: alignment toggle
- scale_step: global # StringOptimizer-only: step scaling mode
  max_cycles: 10000 # Maximum optimizer iterations
  print_every: 100 # Logging stride
  min_step_norm: 1.0e-08 # Minimum step norm for acceptance
@@ -241,7 +241,7 @@ lbfgs:
  mu_reg: null # Regularization strength
  max_mu_reg_adaptions: 10 # Cap on mu adaptations
  reject_uphill: false # Opt in to rejecting energy rises above the tolerance
- uphill_tolerance: 0.001 # Energy-rise tolerance (Hartree)
+ uphill_tolerance: 0.0001 # Energy-rise tolerance (Hartree)
  rejection_step_floor: 1.0e-07 # Smallest retry step
  max_rejections_at_floor: 3 # Stop after repeated rejection at the floor
 ```
@@ -261,7 +261,7 @@ rfo:
  trust_max: 0.10 # Maximum trust radius (tuned for ML/MM stability)
  max_energy_incr: null # Allowed energy increase per step
  reject_uphill: false # Opt in to rejecting energy rises above the tolerance
- uphill_tolerance: 0.001 # Energy-rise tolerance (Hartree)
+ uphill_tolerance: 0.0001 # Energy-rise tolerance (Hartree)
  rejection_trust_floor: 1.0e-07 # Smallest retry trust radius
  max_rejections_at_floor: 3 # Stop after repeated rejection at the floor
  hessian_update: bfgs # Hessian update scheme: bfgs, bofill, etc.
@@ -450,7 +450,7 @@ hessian_dimer:
 ```
 
 **Notes:**
-- `flatten_max_iter` controls the maximum number of imaginary-mode flattening iterations. The default value is 50.
+- Ordinary TSOPT omission leaves flattening off with an effective iteration count of 0. When flattening is enabled, `flatten_max_iter` controls its cap and defaults to 50.
 - The CLI flags `--flatten` / `--no-flatten` (in `tsopt` and `all`) interact with this setting: `--flatten` enables the flattening loop with the default `flatten_max_iter` (50); `--no-flatten` forces `flatten_max_iter` to 0, effectively disabling the loop. An explicit YAML value for `flatten_max_iter` takes precedence when provided alongside `--flatten`.
 
 ---
@@ -558,7 +558,7 @@ Single-point settings. Read only by `mlmm sp`.
 
 ```yaml
 sp:
- hess: false # Also compute the full ONIOM Hessian
+ hess: false # Also compute the active-coordinate ONIOM Hessian block
  hessian_calc_mode: FiniteDifference # "FiniteDifference" | "Analytical"
  out_dir: ./result_sp/ # Output directory
 ```

@@ -90,6 +90,17 @@ def _derive_charge_from_ligand_charge(
     residues = list(complex_struct.get_residues())
     all_residue_ids = {res.get_full_id() for res in residues}
     if select_bfactor_layer:
+        for res in residues:
+            selected = [
+                abs(atom.get_bfactor()) <= BFACTOR_TOLERANCE
+                for atom in res.get_atoms()
+            ]
+            if any(selected) and not all(selected):
+                raise click.ClickException(
+                    f"{prefix} B-factor ML selection splits residue "
+                    f"{res.get_resname()} {res.id[1]}; provide -q/--charge "
+                    "for this atom-level model selection."
+                )
         # Use the same predicate the layer parser uses (BFACTOR_TOLERANCE), so the derived
         # ML-region charge covers exactly the residues that were layered as ML. A hard-coded
         # 0.5 window dropped residues whose ML atoms sit inside the documented +-1.0 tolerance,
@@ -137,22 +148,17 @@ def configured_model_charge_spin(
     """Read canonical/legacy YAML electronic state without package defaults."""
 
     calc_yaml: Mapping[str, object] = {}
-    legacy_yaml: Mapping[str, object] = {}
     if isinstance(yaml_cfg, Mapping):
-        raw_calc = yaml_cfg.get("calc")
-        raw_legacy = yaml_cfg.get("mlmm")
+        from mlmm.cli.decorators import canonicalize_calculator_section
+
+        normalized = canonicalize_calculator_section(dict(yaml_cfg))
+        raw_calc = normalized.get("calc")
         if isinstance(raw_calc, Mapping):
             calc_yaml = raw_calc
-        if isinstance(raw_legacy, Mapping):
-            legacy_yaml = raw_legacy
 
     def _configured_int(key: str) -> Optional[int]:
-        if calc_yaml.get(key) is not None:
-            raw = calc_yaml[key]
-            section = "calc"
-        else:
-            raw = legacy_yaml.get(key)
-            section = "mlmm"
+        raw = calc_yaml.get(key)
+        section = "calc"
         if raw is None:
             return None
         if isinstance(raw, bool) or not isinstance(raw, Integral):
@@ -178,19 +184,16 @@ def _configured_model_pdb(
 
     if not isinstance(yaml_cfg, Mapping):
         return None
-    calc_yaml = yaml_cfg.get("calc")
-    legacy_yaml = yaml_cfg.get("mlmm")
+    from mlmm.cli.decorators import canonicalize_calculator_section
+
+    normalized = canonicalize_calculator_section(dict(yaml_cfg))
+    calc_yaml = normalized.get("calc")
     canonical = (
         calc_yaml.get("model_pdb")
         if isinstance(calc_yaml, Mapping)
         else None
     )
-    legacy = (
-        legacy_yaml.get("model_pdb")
-        if isinstance(legacy_yaml, Mapping)
-        else None
-    )
-    raw = canonical if canonical not in (None, "") else legacy
+    raw = canonical
     return None if raw in (None, "") else Path(str(raw))
 
 

@@ -65,8 +65,8 @@ def test_summary_tool_rejects_every_managed_output_spelling_before_spawn(
             tools["optimize_geometry"](
                 "input.pdb",
                 "input.parm7",
-                0,
-                1,
+                charge=0,
+                multiplicity=1,
                 out_dir=str(tmp_path / "out"),
                 extra_args=extra_args,
             )
@@ -109,8 +109,8 @@ def test_tool_argv_preserves_boolean_toggle_syntax(registry, tmp_path: Path) -> 
         tools["optimize_geometry"](
             "input.pdb",
             "input.parm7",
-            -1,
-            2,
+            charge=-1,
+            multiplicity=2,
             microiter=False,
             embedcharge=False,
             out_dir=str(tmp_path / "out"),
@@ -199,9 +199,9 @@ def test_search_paths_always_passes_two_ordered_endpoints(
         tools["search_paths"](
             "R.pdb",
             "full.parm7",
-            -1,
-            1,
             product_pdb="P.pdb",
+            charge=-1,
+            multiplicity=1,
             intermediate_pdbs=["IM1.pdb", "IM2.pdb"],
             out_dir=str(tmp_path / "path-search"),
         )
@@ -217,18 +217,61 @@ def test_search_paths_always_passes_two_ordered_endpoints(
 @pytest.mark.parametrize(
     ("tool_name", "args", "kwargs"),
     [
-        ("compute_frequencies", ("in.pdb", "in.parm7", 0, 1), {}),
-        ("scan_1d", ("in.pdb", "in.parm7", 0, 1, "1,2,1.5"), {}),
-        ("scan_2d", ("in.pdb", "in.parm7", 0, 1, "1,2,1.5;2,3,2.0"), {}),
-        ("scan_3d", ("in.pdb", "in.parm7", 0, 1, "1,2,1.5;2,3,2.0;3,4,2.5"), {}),
-        ("optimize_path", ("R.pdb", "P.pdb", "in.parm7", 0, 1), {}),
+        ("optimize_geometry", ("in.pdb", "in.parm7"), {}),
+        ("find_transition_state", ("in.pdb", "in.parm7"), {}),
+        ("run_irc", ("in.pdb", "in.parm7"), {}),
+        ("compute_frequencies", ("in.pdb", "in.parm7"), {}),
+        ("scan_1d", ("in.pdb", "in.parm7", "1,2,1.5"), {}),
+        ("scan_2d", ("in.pdb", "in.parm7", "1,2,1.5;2,3,2.0"), {}),
+        ("scan_3d", ("in.pdb", "in.parm7", "1,2,1.5;2,3,2.0;3,4,2.5"), {}),
+        ("optimize_path", ("R.pdb", "P.pdb", "in.parm7"), {}),
+        ("search_paths", ("R.pdb", "in.parm7"), {"product_pdb": "P.pdb"}),
+        ("run_single_point_dft", ("in.pdb", "in.parm7"), {}),
+    ],
+)
+def test_direct_stage_tools_allow_cli_charge_spin_resolution(
+    registry,
+    tmp_path: Path,
+    tool_name: str,
+    args: tuple,
+    kwargs: dict,
+) -> None:
+    tools, calls = registry
+    signature = inspect.signature(tools[tool_name])
+    assert signature.parameters["charge"].default is None
+    assert signature.parameters["multiplicity"].default is None
+
+    asyncio.run(
+        tools[tool_name](
+            *args,
+            **kwargs,
+            out_dir=str(tmp_path / tool_name),
+        )
+    )
+    argv, _ = calls[-1]
+    assert "-q" not in argv
+    assert "-m" not in argv
+
+
+@pytest.mark.parametrize(
+    ("tool_name", "args", "kwargs"),
+    [
+        ("compute_frequencies", ("in.pdb", "in.parm7"), {"charge": 0, "multiplicity": 1}),
+        ("scan_1d", ("in.pdb", "in.parm7", "1,2,1.5"), {"charge": 0, "multiplicity": 1}),
+        ("scan_2d", ("in.pdb", "in.parm7", "1,2,1.5;2,3,2.0"), {"charge": 0, "multiplicity": 1}),
+        (
+            "scan_3d",
+            ("in.pdb", "in.parm7", "1,2,1.5;2,3,2.0;3,4,2.5"),
+            {"charge": 0, "multiplicity": 1},
+        ),
+        ("optimize_path", ("R.pdb", "P.pdb", "in.parm7"), {"charge": 0, "multiplicity": 1}),
         (
             "search_paths",
-            ("R.pdb", "in.parm7", 0, 1),
-            {"product_pdb": "P.pdb"},
+            ("R.pdb", "in.parm7"),
+            {"product_pdb": "P.pdb", "charge": 0, "multiplicity": 1},
         ),
         ("run_full_pipeline", ("R.pdb",), {}),
-        ("run_single_point_dft", ("in.pdb", "in.parm7", 0, 1), {}),
+        ("run_single_point_dft", ("in.pdb", "in.parm7"), {"charge": 0, "multiplicity": 1}),
     ],
 )
 def test_stage_tools_forward_typed_mm_controls(

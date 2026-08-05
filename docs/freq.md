@@ -118,7 +118,7 @@ out_dir/ (default: ./result_freq/)
 | `--cmap/--no-cmap` | Preserve CMAP in both REAL and MODEL MM layers. | `--cmap` |
 | `--embedcharge/--no-embedcharge` | Unavailable in v0.3.3; the option is retained only to reject older commands explicitly. | `False` |
 | `--embedcharge-cutoff FLOAT` | Unavailable with the retired electronic-embedding path. | — |
-| `--hess-device CHOICE` | Device for Hessian assembly/diagonalization: `auto`, `cuda`, `cpu`. Use `cpu` to avoid VRAM issues with large systems. | `auto` |
+| `--hess-device CHOICE` | Device for post-evaluation Hessian placement and diagonalization: `auto`, `cuda`, `cpu`. It does not move Hessian evaluation/assembly; `cpu` moves the evaluated matrix before diagonalization. | `auto` |
 | **Active-region freezing & Hessian** | | |
 | `--freeze-atoms TEXT` | 1-based comma-separated frozen atom indices. | _None_ |
 | `--active-dof-mode CHOICE` | Active DOF selection: `all`, `ml-only`, `partial`, `unfrozen`. | `partial` |
@@ -165,9 +165,8 @@ geom:
  freeze_atoms: []                  # 1-based frozen atoms merged with CLI/link detection
  tr_projection: constrained        # fixed internal PHVA treatment
 calc:
- charge: 0                         # net charge (CLI override)
- spin: 1                           # spin multiplicity 2S+1
-mlmm:
+ model_charge: 0                   # net charge (CLI override)
+ model_mult: 1                     # spin multiplicity 2S+1
  real_parm7: real.parm7            # Amber parm7 topology
  model_pdb: ml_region.pdb          # ML-region definition
  backend: uma                      # MLIP backend: uma | orb | mace | aimnet2

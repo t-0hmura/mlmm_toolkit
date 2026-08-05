@@ -51,16 +51,24 @@ def bfgs_update(H, dx, dg):
 
 def damped_bfgs_update(H, dx, dg):
     """See [5]"""
-    dxdg = dx.dot(dg)
-    dxHdx = dx.dot(H).dot(dx)
+    if isinstance(H, torch.Tensor):
+        dx = torch.as_tensor(dx, dtype=H.dtype, device=H.device)
+        dg = torch.as_tensor(dg, dtype=H.dtype, device=H.device)
+
+    Hdx = H @ dx
+    dxdg = _dot(dx, dg)
+    dxHdx = _dot(dx, Hdx)
     theta = 1
     if dxdg < 0.2 * dxHdx:
         theta = 0.8 * dxHdx / (dxHdx - dxdg)
-    r = theta * dg + (1 - theta) * H.dot(dx)
+    r = theta * dg + (1 - theta) * Hdx
 
-    first_term = np.outer(r, r) / r.dot(dx)
-    second_term = H.dot(np.outer(dx, dx)).dot(H) / dxHdx
-    return first_term - second_term, "damped BFGS"
+    first_term = _outer(r, r) / _dot(r, dx)
+    second_term = H @ _outer(dx, dx) @ H / dxHdx
+    update = first_term - second_term
+    if isinstance(H, torch.Tensor):
+        return update.to(dtype=H.dtype, device=H.device), "damped BFGS"
+    return update, "damped BFGS"
 
 
 def double_damp(
@@ -161,9 +169,16 @@ def psb_update(z, dx):
 
 def flowchart_update(H, dx, dg):
     # See [1], Sec. 2, equations 1 to 3
-    z = dg - H.dot(dx)
-    sr1_quot = z.dot(dx) / (np.linalg.norm(z) * np.linalg.norm(dx))
-    bfgs_quot = dg.dot(dx) / (np.linalg.norm(dg) * np.linalg.norm(dx))
+    if isinstance(H, torch.Tensor):
+        dx = torch.as_tensor(dx, dtype=H.dtype, device=H.device)
+        dg = torch.as_tensor(dg, dtype=H.dtype, device=H.device)
+
+    def norm(vec):
+        return _dot(vec, vec) ** 0.5
+
+    z = dg - H @ dx
+    sr1_quot = _dot(z, dx) / (norm(z) * norm(dx))
+    bfgs_quot = _dot(dg, dx) / (norm(dg) * norm(dx))
     if sr1_quot < -0.1:
         update, key = sr1_update(z, dx)
     elif bfgs_quot > 0.1:
@@ -414,10 +429,10 @@ def ts_bfgs_update_revised(H, dx, dg):
 # back in, because each single-step Bofill discards information from the
 # previous step.
 #
-# These are pure-math helpers — they do NOT change any existing call site.
-# The HessianOptimizer dispatch in `update_hessian()` still uses the single-
-# step path by default; wiring a "multistep" code path (with buffer
-# management for S, Y over the last `window` cycles) is a follow-up.
+# The default `hessian_update_window == 1` keeps the single-step path in
+# `HessianOptimizer.update_hessian()`. With `hessian_update_window >= 2` that
+# dispatch stacks the sliding (dx, dg) buffer and calls
+# `multistep_ts_bfgs_update` instead; the buffer is part of the checkpoint.
 # ---------------------------------------------------------------------------
 
 

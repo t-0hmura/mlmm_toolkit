@@ -31,7 +31,11 @@ Before a long run, verify:
 (charge--spin)=
 ## Charge / spin
 
-Per-stage calc subcommands require explicit `-q/--charge` (ML-region net charge) and `-m/--multiplicity`. In `mlmm all`, charge is resolved in order: `-q` override → extraction summary → `--ligand-charge` fallback (when extraction is skipped).
+Per-stage calc subcommands resolve charge from an explicit `-q` override,
+configured calculator state, or supported ligand/extraction derivation; provide
+`-q` when it otherwise remains unresolved. Multiplicity defaults to 1 and can
+be overridden with `-m`. In `mlmm all`, charge is resolved in order: `-q`
+override → extraction summary → `--ligand-charge` fallback (when extraction is skipped).
 
 ```bash
 mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1
@@ -157,7 +161,7 @@ Reduce `--step-size 0.05` (default 0.10); raise `--max-cycles 200`; verify the T
 
 ### MEP search (GSM / DMF) fails or misses bonds
 
-Raise `--max-nodes` (e.g. 15–20) for complex reactions; enable `--preopt`; try the alternate method (`--mep-mode dmf` ↔ `gsm`); tune bond-detection in YAML (`bond.bond_factor`, `bond.delta_fraction`).
+Increase `--max-nodes` above its resolved value for complex reactions (for example, from the default 20 to 30); enable `--preopt`; try the alternate method (`--mep-mode dmf` ↔ `gsm`); tune bond-detection in YAML (`bond.bond_factor`, `bond.delta_fraction`).
 
 ---
 
@@ -168,7 +172,7 @@ Raise `--max-nodes` (e.g. 15–20) for complex reactions; enable `--preopt`; try
   system-dependent memory use; compare it with `FiniteDifference` on a pilot.
 - **MM Hessian** — default `mm_fd: true` (finite-difference) trades speed for memory; `mm_fd: false` is faster on small systems but heavier on memory. Cap MM atom count with `hess_cutoff`.
 - **Large systems** — use `define-layer` cutoffs to keep the movable degree-of-freedom count appropriate for the target calculation.
-- **Multi-GPU** — ML on one device (`ml_cuda_idx: 0`), MM on another (`mm_device: cuda`, `mm_cuda_idx: 1`).
+- **Multi-GPU** — ML can use one device (`ml_cuda_idx: 0`). The default `hessian_ff` MM backend remains on CPU; to put MM on another GPU, select `mm_backend: openmm` together with `mm_device: cuda` and `mm_cuda_idx: 1`.
 - **ML/MM parallelism** — ML (GPU) and MM (CPU) run in parallel by default; tune CPU threads with `mm_threads`.
 
 ## Backend-specific

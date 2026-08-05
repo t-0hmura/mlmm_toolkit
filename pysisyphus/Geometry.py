@@ -108,7 +108,9 @@ def get_trans_rot_vectors(cart_coords, masses, rot_thresh=1e-6):
     com = 1 / total_mass * np.sum(coords3d * masses[:, None], axis=0)
     coords3d_centered = coords3d - com[None, :]
 
-    I = inertia_tensor(coords3d, masses)
+    # The inertia tensor must be formed about the center of mass, otherwise the
+    # rigid-rotation vectors and the resulting rank depend on the origin.
+    I = inertia_tensor(coords3d_centered, masses)
     _, Iv = np.linalg.eigh(I)
     Iv = Iv.T
 
@@ -954,6 +956,8 @@ class Geometry:
         -------
         aligned : bool
             Wether the principal axes are aligned or not.
+        eigenvectors : np.array, shape (3, 3)
+            Eigenvectors of the inertia tensor, as columns.
         """
         w, v = np.linalg.eigh(self.inertia_tensor)
         return np.allclose(v, np.eye(3)), v
@@ -1488,7 +1492,9 @@ class Geometry:
 
     def get_imag_frequencies(self, hessian=None, thresh=1e-6):
         vibfreqs, eigvals, *_ = self.get_normal_modes(hessian)
-        return vibfreqs[eigvals < thresh]
+        # Only genuinely negative eigenvalues correspond to imaginary frequencies;
+        # 'thresh' is the magnitude below which a root counts as numerical noise.
+        return vibfreqs[eigvals < -abs(thresh)]
 
     def get_thermoanalysis(
         self, energy=None, cart_hessian=None, T=T_DEFAULT, p=p_DEFAULT, point_group="c1"

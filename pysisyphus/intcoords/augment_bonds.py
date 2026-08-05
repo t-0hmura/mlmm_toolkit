@@ -2,7 +2,6 @@ import logging
 
 import numpy as np
 
-from pysisyphus.Geometry import Geometry
 from pysisyphus.helpers_pure import log
 from pysisyphus.intcoords.setup import get_bond_sets
 from pysisyphus.intcoords import RedundantCoords
@@ -30,10 +29,18 @@ def augment_bonds(geom, root=0, proj=False):
         aux_bond_pt = PrimTypes.AUX_BOND
         missing_aux_bonds = [(aux_bond_pt, *mbond) for mbond in missing_bonds]
         print("\t@Missing bonds:", missing_bonds)
-        new_geom = Geometry(geom.atoms, geom.cart_coords,
-                            coord_type=geom.coord_type,
-                            coord_kwargs={"define_prims": missing_aux_bonds,},
-        )
+        # Copy the geometry, so frozen atoms, typed constraints, isotopes and the
+        # remaining coordinate options are retained. Only the missing auxiliary
+        # bonds are appended to the coordinate definition, while 'typed_prims'
+        # stays with the copy path that reproduces the current coordinates.
+        coord_kwargs = dict(getattr(geom, "coord_kwargs", None) or {})
+        coord_kwargs.pop("typed_prims", None)
+        define_prims = list(coord_kwargs.pop("define_prims", None) or [])
+        define_prims += [
+            aux_bond for aux_bond in missing_aux_bonds if aux_bond not in define_prims
+        ]
+        coord_kwargs["define_prims"] = define_prims
+        new_geom = geom.copy(coord_kwargs=coord_kwargs)
         new_geom.set_calculator(geom.calculator)
         new_geom.energy = energy
         new_geom.cart_hessian = hessian

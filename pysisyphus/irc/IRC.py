@@ -79,7 +79,11 @@ class IRC:
         root : int, default=0
             Use n-th root for initial displacement from TS.
         hessian_init : str, default=None
-            Path to Hessian HDF5 file, e.g., from a previous TS calculation.
+            Initial Hessian: one of the model/backend keys accepted by
+            ``get_guess_hessian`` ('calc', 'unit', 'fischer', 'lindh', 'simple',
+            'swart', 'xtb', 'xtb1', 'xtbff'), or a path to a stored Cartesian
+            Hessian (HDF5 ``.h5``, CFOUR ``FCMFINAL`` or plain text), e.g. from a
+            previous TS calculation. Defaults to 'calc', or 'unit' downhill.
         displ: str, one of ("energy", "length")
             Controlls initial displacement from the TS. 'energy' assumes a
             quadratic model, from which a step length for a given energy
@@ -97,7 +101,7 @@ class IRC:
         energy_thresh : float, default=1e-6,
             Signal convergence when the energy difference between two points
             is equal to or less than 'energy_thresh'.
-        energy_increase_thresh : float, default=1e-3,
+        energy_increase_thresh : float, default=0.0,
             Stop when one IRC step raises the energy by more than this amount.
         imag_below : float, default=0.0
             Require the wavenumber of the imaginary mode to be below the
@@ -108,7 +112,7 @@ class IRC:
             Ignore RMS-gradient, hard-gradient, energy-increase, and
             energy-change stopping conditions. Numerical/integration failures,
             external interruption, and max_cycles still stop the path.
-        check_bonds : bool, optional, default=True
+        check_bonds : bool, optional, default=False
             Report whether bonds are formed/broken along the IRC, w.r.t the TS.
         out_dir : str, optional
             Dump everything into 'out_dir' directory instead of the CWD.
@@ -819,6 +823,16 @@ class IRC:
             self.irc_mw_gradients.append(self.mw_gradient)
 
             rms_grad = self.active_rms_gradient()
+            # A non-finite sampled energy or active gradient is a numerical
+            # failure, not a physical stop, so it terminates this direction with
+            # integration-failure priority and is not bypassed by never_stop.
+            if not (
+                np.isfinite(self.irc_energies[-1]) and np.isfinite(rms_grad)
+            ):
+                self.integration_stop_requested = True
+                self.integration_stop_reason = (
+                    "Non-finite energy or active gradient at the sampled geometry."
+                )
             if (
                 self.dump_every is not None
                 and (self.cur_cycle + 1) % self.dump_every == 0
@@ -862,7 +876,16 @@ class IRC:
                 last_energy, this_energy
             )
             self.energy_converged = abs(last_energy - this_energy) <= self.energy_thresh
-            if self._gradient_converged(rms_grad):
+            # Terminal priority: a numerical/integration failure ends the
+            # direction unconditionally, then an ordinary-mode energy rise, and
+            # only afterwards the physical gradient criteria. A small
+            # post-inflection gradient in the same macrostep that raised the
+            # energy is not a converged endpoint.
+            if self.integration_stop_requested:
+                break_msg = self.integration_stop_reason
+            elif not self.never_stop and self.energy_increased:
+                break_msg = "Energy increased!"
+            elif self._gradient_converged(rms_grad):
                 if self.require_pos_def_hessian and not self._exact_endpoint_is_pos_def():
                     # Gradient small but Hessian still has negative mode — we're on
                     # a shoulder, not at the true minimum. Skip convergence this cycle
@@ -872,8 +895,6 @@ class IRC:
                 else:
                     break_msg = "rms(grad) converged!"
                     self.converged = True
-            elif self.integration_stop_requested:
-                break_msg = self.integration_stop_reason
             elif self._hard_gradient_stop(rms_grad):
                 break_msg = "rms(grad) below hard threshold."
             else:
@@ -1051,7 +1072,16 @@ class IRC:
             f"\t rms(grad)={ts_grad_rms:.6f}"
         )
 
-        self.init_hessian = self.geometry.hessian
+        # 'calc' is the documented default for a normal IRC and reproduces the
+        # exact geometry Hessian; any other accepted value is resolved through the
+        # shared guess-Hessian owner before the active space is extracted.
+        if self.hessian_init == "calc":
+            self.init_hessian = self.geometry.hessian
+        else:
+            self.init_hessian, hessian_str = get_guess_hessian(
+                self.geometry, self.hessian_init
+            )
+            self.log(f"Using {hessian_str} Hessian to start the IRC.")
         has_partial = getattr(self.geometry, "within_partial_hessian", None) is not None
         act_n_dof = (
             int(self.geometry.within_partial_hessian.get("active_n_dof", 0))

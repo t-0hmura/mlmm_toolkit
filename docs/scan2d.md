@@ -1,5 +1,7 @@
 # `scan2d`
 
+The calculator uses the selected MM backend: `hessian_ff` by default, or OpenMM.
+
 Perform a two-distance (d1, d2) grid scan with harmonic restraints and ML/MM relaxations on a layered enzyme structure. Input may be PDB/mmCIF, or XYZ with `--ref-pdb`. Use it to map a 2D potential energy surface across two reactive distances (e.g., bond-forming and bond-breaking) to locate saddle points and bifurcation features that a 1D scan would miss. `mlmm scan2d` constructs linear grids for two bond distances using `--max-step-size`, relaxes each grid point with the appropriate restraints active, and records unbiased ML/MM energies for visualization. Pass `-s/--scan-lists` a YAML/JSON spec file (recommended) or an inline Python literal; both forms accept exactly two scan axes. The 3D `scan2d_landscape.html` includes a bottom contour projection.
 
 ## Examples
@@ -9,7 +11,7 @@ Command form:
 ```bash
 mlmm scan2d -i INPUT.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q CHARGE [-m MULT] \
- [-s scan2d.yaml | -s "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2)]"] \
+ (-s scan2d.yaml | -s "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2)]") \
  [--one-based|--zero-based] [--max-step-size FLOAT] [--bias-k FLOAT] \
  [--freeze-atoms "1,3,5"] [--relax-max-cycles INT] [--thresh PRESET] \
  [--dump/--no-dump] [--out-dir DIR] \
@@ -57,11 +59,11 @@ Add `--print-parsed` to validate the parsed scan spec and exit without running t
 3. **Outer loop (d1)** -- For each d1 value, relax the system with **only the d1 restraint** active.
 4. **Inner loop (d2)** -- For each d2 value at the current d1, relax with **both restraints** active starting from the nearest previously converged structure.
 5. **Energy evaluation** -- At each (i, j) pair, evaluate the ML/MM energy without bias and record to `surface.csv`.
-6. **Visualization** -- Write `scan2d_map.png` (2D contour) and `scan2d_landscape.html` (3D surface). Use `--zmin/--zmax` to clamp the color scale. Baselines: `--baseline min` zeroes the minimum energy; `--baseline first` zeroes the (i=0, j=0) grid point.
+6. **Visualization** -- With at least three unique, non-collinear finite and converged points, write `scan2d_map.png` (2D contour) and `scan2d_landscape.html` (3D surface). Otherwise retain `surface.csv` and exit with the support diagnostic. Use `--zmin/--zmax` to clamp the color scale. Baselines: `--baseline min` zeroes the minimum energy; `--baseline first` zeroes the (i=0, j=0) grid point.
 
 ## Outputs
 
-Check `surface.csv` (the PES grid), `scan2d_map.png` (2D contour), and `scan2d_landscape.html` (3D landscape) first; per-point geometries land under `grid/` (the `i###` / `j###` filename tags are integer hundredths of an ångström, not step indices).
+Check `surface.csv` first. `scan2d_map.png` and `scan2d_landscape.html` are present only when at least three unique, non-collinear finite and converged points support interpolation. Per-point geometries land under `grid/` (the `i###` / `j###` filename tags are integer hundredths of an ångström, not step indices).
 
 ```
 out_dir/ (default: ./result_scan2d/)
@@ -186,22 +188,20 @@ geom:
  coord_type: cart
  freeze_atoms: []
 calc:
- charge: 0
- spin: 1
-mlmm:
+ model_charge: 0
+ model_mult: 1
  real_parm7: real.parm7
  model_pdb: ml_region.pdb
 opt:
  thresh: baker
  max_cycles: 10000
- dump: false
- out_dir: ./result_scan2d/
 lbfgs:
  max_step: 0.3
- out_dir: ./result_scan2d/
 bias:
  k: 300.0
 ```
+
+Use the CLI-owned `--dump` and `--out-dir` options for trajectory and output placement.
 
 Full schema (every key and default): [YAML Reference](yaml-reference.md).
 

@@ -112,7 +112,9 @@ F_QM += (1−g) · F_link    (scaled の場合)
 F_MM += g · F_link
 ```
 
-Hessian にも同様の変換が適用されます: `H_再分配 = Jᵀ H_link J`。
+線形な scaled 配置では Hessian は `H_再分配 = Jᵀ H_link J` です。
+fixed 配置は座標依存 Jacobian を持つため、[ML/MM Calculator](mlmm-calc.md)
+に示す force-weighted second-derivative term も含みます。
 
 ---
 
@@ -214,10 +216,11 @@ ML 領域定義は主に以下で制御します。
 
 ML 領域の指定には 2 通りあります。
 
-- **自動切り出し**（`-c/--center` + `--exclude-backbone`）: `extract` / `all` が Cα–Cβ
+- **自動切り出し**（`-c/--center`）: `extract` / `all` が、必要に応じて
+  default-off の `--exclude-backbone` を使って Cα–Cβ
   境界で主鎖を切断し、残基・`--modified-residue`・
-  `-l/--ligand-charge` から model 電荷を**導出**します。非標準アミノ酸は
-  カタログ未登録の修飾残基は `--modified-residue NAME:charge`、リガンドは
+  `-l/--ligand-charge` から model 電荷を**導出**します。
+  カタログ未登録の非標準アミノ酸は `--modified-residue NAME:charge`、リガンドは
   `-l NAME:charge` で与え、`-q` は不要です。登録済みの残基は電荷を省略しても
   カタログ値を保持します。
 - **手動**（`--model-pdb` + `--parm`）: ML 原子の選択を自分で与え、model 電荷は `-q` で明示
@@ -337,7 +340,7 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt
 - ブール値オプションは `--flag` / `--no-flag` と `--flag True/False`（`yes/no`, `1/0` 含む）の両方を受理します。新規スクリプトでは toggle 形式を推奨します。
 - 複数 PDB を与える場合、各ファイルは **同じ原子が同じ順序** で並んでいることが重要です（座標だけが異なる）。
 - 酵素の反応機構解析では、水素を含んだ入力 PDB を用意することを強く推奨します。
-- ML/MM 計算には parm7 トポロジーが必須です。`all` ワークフローでは自動生成されますが、個別サブコマンドでは `--parm`（全系トポロジー）と `--model-pdb`（ML 領域定義 PDB）を明示的に指定する必要があります。
+- ML/MM 計算には parm7 トポロジーが必須です。`all` ワークフローでは自動生成されますが、個別サブコマンドでは `--parm`（全系トポロジー）と、`--model-pdb`、`--model-indices`、または有効な B-factor layer のいずれかによる ML 領域指定が必要です。
 ```
 
 ---

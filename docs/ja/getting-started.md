@@ -38,12 +38,12 @@ E_total = E_REAL_low + E_MODEL_high - E_MODEL_low
 
 ここで REAL は全系、MODEL は ML 領域、"high" は MLIP バックエンド、"low" は hessian_ff です。
 
-一連の処理は CLI から呼び出せるように統一されており、手作業を最小化して **多段階の酵素反応メカニズム** を組み立てられるように設計されています。同じワークフローは小分子系にも適用可能です。ポケット抽出をスキップ（`--center/-c` と `--ligand-charge` を省略）すれば、`.xyz` 入力も使用できます。
+一連の処理は CLI から呼び出せるように統一されており、手作業を最小化して **多段階の酵素反応メカニズム** を組み立てられるように設計されています。同じワークフローは小分子系にも適用可能です。`.xyz` 入力を個別計算で使う場合は、対応する全系トポロジーを `--parm`、構造テンプレートを `--ref-pdb`、ML 領域を `--model-pdb`、`--model-indices`、または有効な B-factor layer で指定します。
 
 ```{important}
 - 入力 PDB ファイルには**水素原子**が含まれている必要があります。
 - 複数の PDB を提供する場合、**同じ原子が同じ順序**で含まれている必要があります（座標のみ異なる可能性があります）。そうでない場合はエラーが発生します。
-- ML/MM 計算には **`--parm`**（全系の Amber トポロジー）と **`--model-pdb`**（ML 領域を定義する PDB）が必要です。`all` ワークフローではこれらが自動生成されます。
+- 個別の ML/MM 計算には **`--parm`**（全系の Amber トポロジー）と、`--model-pdb`、`--model-indices`、または有効な B-factor layer のいずれかによる ML 領域指定が必要です。`all` ワークフローではトポロジーと ML 領域を自動生成できます。
 ```
 
 ```{tip}
@@ -61,7 +61,7 @@ E_total = E_REAL_low + E_MODEL_high - E_MODEL_low
 | 慣習 | 例 | 備考 |
 |-----|-----|------|
 | **残基セレクタ** | `'SAM,GPP'`, `'A:123,B:456'` | 複数値はシェル展開防止のためクォート |
-| **電荷マッピング** | `-l 'SAM:1,GPP:-3'` | コロン（`:`）またはイコール（`=`）で名前と電荷を区切り、カンマでエントリを区切る |
+| **電荷マッピング** | `-l 'SAM:1,GPP:-3'` | `all` / `extract` などではコロン（`:`）で名前と電荷を区切る。`mm-parm` は互換用に `=` も受理 |
 | **原子セレクタ** | `'TYR,285,CA'` または `'TYR 285 CA'` | 区切り文字: 空白、カンマ、スラッシュ、バッククォート、バックスラッシュ |
 
 詳細は [CLI 規約](cli-conventions.md) を参照してください。
@@ -77,7 +77,7 @@ PDB に水素原子がない場合は、mlmm を実行する前に次のいず�
 | **reduce** (Richardson Lab) | `reduce input.pdb > output.pdb` | 高速、結晶構造に広く使用 |
 | **pdb2pqr** | `pdb2pqr --ff=AMBER input.pdb output.pqr` | 水素を追加し部分電荷を割り当て |
 | **Open Babel** | `obabel input.pdb -O output.pdb -h` | 汎用ケモインフォマティクスツールキット |
-| **mm-parm --add-h** | `mlmm mm-parm -i input.pdb --add-h` | PDBFixer による水素付加 |
+| **mm-parm --add-h** | `mlmm mm-parm -i input.pdb --add-h` | PDBFixer が必要（`pip install "mlmm-toolkit[pdbfixer]"` または `conda install -c conda-forge pdbfixer`） |
 
 複数の PDB 入力で同一の原子順序を確保するには、すべての構造に同じ水素付与ツールを一貫した設定で適用してください。
 
@@ -105,14 +105,15 @@ mlmm-toolkit は以下のコンポーネントを使用します:
 
 ### クイックスタート
 
-以下は多くの CUDA 12.9 クラスターで動作する最小限のセットアップ例です。この例はデフォルトの GSM MEP モード（DMF なし）を想定しています。DMF を使用する場合は、先に conda で cyipopt をインストールしてください。
+以下は多くの CUDA 12.9 クラスターで動作する最小限のセットアップ例です。この例はトポロジーを自動生成するデフォルトの `all` ルートと GSM MEP モード（DMF なし）を想定しています。先に AmberTools をインストールしてください。DMF を使用する場合は `cyipopt` と `pydmf>=1.2` も必要です。
 
 ```bash
-# 1) CUDA 対応の PyTorch ビルドをインストール
+# 1) AmberTools と CUDA 対応の PyTorch ビルドをインストール
 # 2) mlmm-toolkit をインストール
 # 3) hessian_ff の C++ 拡張をビルド
 # 4) Plotly 図表エクスポート用のヘッドレス Chrome をインストール
 
+conda install -c conda-forge ambertools -y
 pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu129
 pip install mlmm-toolkit
 
@@ -150,14 +151,15 @@ huggingface-cli login
 
 これはマシン/環境ごとに 1 回だけ行う必要があります。
 
-- MEP 探索で Direct Max Flux (DMF) 法を使用する場合は、mlmm のインストール前に conda 環境を作成して cyipopt をインストールしてください。
+- MEP 探索で Direct Max Flux (DMF) 法を使用する場合は、mlmm のインストール前に conda 環境を作成して `cyipopt` と `pydmf>=1.2` をインストールしてください。
   ```bash
   # 専用の conda 環境を作成してアクティブ化
   conda create -n mlmm python=3.11 -y
   conda activate mlmm
 
-  # cyipopt をインストール（MEP 探索の DMF 法に必要）
+  # cyipopt と pydmf をインストール（MEP 探索の DMF 法に必要）
   conda install -c conda-forge cyipopt -y
+  pip install 'pydmf>=1.2'
   ```
 
 - 公式 PyTorch wheel には CUDA のユーザー空間ライブラリが含まれます。通常は互換性のある NVIDIA ドライバーと割り当て済み GPU だけで動作し、ローカル CUDA toolkit や CUDA モジュールは不要です。C/CUDA 拡張をソースからビルドする場合だけ、サイトが指定する toolkit/compiler モジュールをビルド時と実行時の両方で使用してください。
@@ -185,10 +187,11 @@ huggingface-cli login
     conda install -c conda-forge ambertools -y
     ```
 
-4. **cyipopt をインストール（オプション: DMF 法に必要）**
+4. **cyipopt と pydmf をインストール（オプション: DMF 法に必要）**
 
     ```bash
     conda install -c conda-forge cyipopt -y
+    pip install 'pydmf>=1.2'
     ```
 
 5. **適切な CUDA ビルドの PyTorch をインストール**
@@ -346,8 +349,8 @@ mlmm -i R.pdb I1.pdb I2.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --out-dir ./res
 - 反応順序で 2 つ以上の**完全系**を受け取る
 - 各構造の ML 領域を抽出・定義
 - Amber parm7/rst7 トポロジーを生成し、3 層 ML/MM 分割を付与
-- デフォルトで単一パス `path-opt` による **MEP 探索**を実行（隣接ペアごとに GSM、出力は `path_opt/` 以下）
-- `--refine-path` を指定すると、再帰的 `path-search`（自動精密化）に切り替え（出力は `path_search/` 以下）
+- デフォルトで単一パス `path-opt` による **MEP 探索**を実行（隣接ペアごとに GSM、出力は `_work/path_opt/` 以下）
+- `--refine-path` を指定すると、再帰的 `path-search`（自動精密化）に切り替え（出力は `_work/path_search/` 以下）
 - PDB テンプレートが利用可能な場合、ML 領域 MEP を**完全系**にマージ
 - オプションで各セグメントに対して TS 最適化、振動解析、DFT 一点計算を実行
 
@@ -435,7 +438,7 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft -
 | `-m, --multiplicity INT` | スピン多重度（例: 一重項は `1`） |
 | `-s, --scan-lists TEXT...` | 単一入力実行時の段階的距離スキャン（YAML/JSON ファイルまたはインラインリテラル） |
 | `--parm PATH` | 全系の Amber parm7 トポロジー（`all` では自動生成） |
-| `--model-pdb PATH` | ML 領域を定義する PDB ファイル（`all` では自動生成） |
+| `--model-pdb PATH` | ML 領域を定義する PDB ファイル。個別計算では `--model-indices` または有効な B-factor layer も選択可能（`all` では自動生成可） |
 | `--tsopt/--no-tsopt` | TS 最適化と IRC を有効化 |
 | `--thermo/--no-thermo` | 振動解析と熱化学を実行 |
 | `--dft/--no-dft` | DFT 一点計算を実行 |
@@ -532,7 +535,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1
 | `-c` | 抽出中心（基質）指定 |
 | `-l, --ligand-charge` | 基質電荷指定（例: `'SAM:1,GPP:-3'`） |
 | `--parm` | Amber parm7（個別サブコマンドで必要） |
-| `--model-pdb` | ML 領域定義 PDB（個別サブコマンドで必要） |
+| `--model-pdb` | ML 領域定義 PDB（個別サブコマンドでは `--model-indices` または有効な B-factor layer も選択可能） |
 | `-b, --backend` | MLIP バックエンド選択（`uma`, `orb`, `mace`, `aimnet2`） |
 | `--embedcharge/--no-embedcharge` | 電子埋め込みは v0.3.3 では使用不可 |
 | `--tsopt` | TS 最適化 + IRC |

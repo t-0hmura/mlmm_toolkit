@@ -1,9 +1,9 @@
-"""Bit-equivalence regression test for the pysisyphus `_array` shim migration.
+"""Equivalence regression tests for the pysisyphus `_array` shim migration.
 
 Each test snapshots a representative NumPy↔torch dispatch that the shared
 shim migrations touch (`_outer`, `_dot`, `_eigh`, `as_numpy`, `to_xp`). All
-asserts are bit-exact for the numpy path and torch fp64 path; torch fp32
-allows 1e-6 tolerance to absorb GPU kernel non-bit reproducibility.
+direct shim checks are bit-exact for the NumPy and torch fp64 paths. The BFGS
+cross-library comparison uses an explicit fp64 absolute tolerance.
 
 If any assertion fires after a migration, the shim is no longer
 behaviour-preserving and the migration must be reverted at the site.
@@ -150,7 +150,7 @@ def test_bfgs_update_torch_matches_numpy_close():
     out_np, _ = bfgs_update(H_np, dx_np, dg_np)
     out_t, _ = bfgs_update(H_t, dx_t, dg_t)
     # torch fp64 vs numpy: small floating-point reorder is allowed (1e-12).
-    np.testing.assert_allclose(out_np, out_t.cpu().numpy(), atol=1e-12)
+    np.testing.assert_allclose(out_np, out_t.cpu().numpy(), atol=1e-12, rtol=0.0)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 # `define-layer`
 
-`mlmm define-layer` partitions an enzyme system into three layers around the ML region and writes the assignments as PDB B-factors. The ML region can be specified via a model PDB or explicit atom indices; when both are given, the explicit indices take precedence. Use it to define the three-layer ML/MM system for a full-system PDB before single-structure optimization or end-to-end runs.
+`mlmm define-layer` partitions a PDB/mmCIF enzyme system into three layers around the ML region and writes the assignments as PDB B-factors, with a CIF companion for bridged input. The ML region can be specified via a model PDB/mmCIF or explicit atom indices; when both are given, the explicit indices take precedence. Use it to define the three-layer ML/MM system before single-structure optimization or end-to-end runs.
 
 The three layers and their B-factor encodings:
 
@@ -56,8 +56,8 @@ mlmm define-layer -i system.pdb --model-pdb ml_region.pdb \
 ## CLI options
 | Option | Description | Default |
 | --- | --- | --- |
-| `-i, --input PATH` | Input PDB file containing the full system. | Required |
-| `--model-pdb PATH` | PDB file defining atoms in the ML region. | _None_ |
+| `-i, --input PATH` | Input PDB or mmCIF file containing the full system. | Required |
+| `--model-pdb PATH` | PDB or mmCIF file defining atoms in the ML region. | _None_ |
 | `--model-indices TEXT` | Comma-separated atom indices for the ML region (e.g. `"1,2,3,4"` or `"1-10,15,20-25"`); 1-based by default, use `--zero-based` for 0-based. Takes precedence over `--model-pdb`. | _None_ |
 | `--radius-partial-hessian FLOAT` | Deprecated in 3-layer mode (ignored). | `0.0` |
 | `--radius-freeze FLOAT` | Distance cutoff (Å) from ML region for Movable-MM. Atoms beyond this are Frozen. | `8.0` |

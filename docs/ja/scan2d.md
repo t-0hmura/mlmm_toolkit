@@ -1,5 +1,7 @@
 # `scan2d`
 
+calculator は選択した MM backend（デフォルト `hessian_ff`、または OpenMM）を使います。
+
 調和拘束と ML/MM 緩和による 2 距離（d1, d2）グリッドスキャンを実行します。2 つの反応距離（例: 結合形成 + 結合切断）に対する 2D ポテンシャル面をマッピングし、1D スキャンでは見落とすサドル点や分岐構造を特定したいときに使用します。`mlmm scan2d` は `--max-step-size` を使用して 2 つの結合距離の線形グリッドを構築し、適切な拘束を適用して各グリッド点を緩和し、バイアスなしの ML/MM エネルギーを可視化用に記録します。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルを使用します。どちらの形式も正確に 2 つのスキャン軸を受け付けます。3D の `scan2d_landscape.html` には底面に投影した等高線が含まれます。
 
 ## 実行例
@@ -9,7 +11,7 @@
 ```bash
 mlmm scan2d -i INPUT.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q CHARGE [-m MULT] \
- [-s scan2d.yaml | -s "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2)]"] \
+ (-s scan2d.yaml | -s "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2)]") \
  [--one-based|--zero-based] [--max-step-size FLOAT] [--bias-k FLOAT] \
  [--freeze-atoms "1,3,5"] [--relax-max-cycles INT] [--thresh PRESET] \
  [--dump/--no-dump] [--out-dir DIR] \
@@ -61,7 +63,7 @@ mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## 出力
 
-まず `surface.csv`（PES グリッド）、`scan2d_map.png`（2D コンター）、`scan2d_landscape.html`（3D ランドスケープ）を確認してください。グリッド点ごとのジオメトリは `grid/` 配下に出力されます（ファイル名タグ `i###` / `j###` は Å の 100 分の 1 の整数で、ステップ番号ではありません）。
+まず `surface.csv`（PES グリッド）を確認してください。`scan2d_map.png`（2D コンター）と `scan2d_landscape.html`（3D ランドスケープ）は、有限かつ収束した一意な非共線点が 3 点以上ある場合だけ生成されます。条件を満たさない場合は `surface.csv` を保持して診断付きで終了します。グリッド点ごとのジオメトリは `grid/` 配下に出力されます（ファイル名タグ `i###` / `j###` は Å の 100 分の 1 の整数で、ステップ番号ではありません）。
 
 ```
 out_dir/ (デフォルト:./result_scan2d/)
@@ -186,22 +188,20 @@ geom:
  coord_type: cart
  freeze_atoms: []
 calc:
- charge: 0
- spin: 1
-mlmm:
+ model_charge: 0
+ model_mult: 1
  real_parm7: real.parm7
  model_pdb: ml_region.pdb
 opt:
  thresh: baker
  max_cycles: 10000
- dump: false
- out_dir: ./result_scan2d/
 lbfgs:
  max_step: 0.3
- out_dir: ./result_scan2d/
 bias:
  k: 300.0
 ```
+
+軌跡保存と出力先は CLI が所有する `--dump` と `--out-dir` を使います。
 
 全スキーマ（すべてのキーとデフォルト）: [YAML リファレンス](yaml-reference.md)。
 

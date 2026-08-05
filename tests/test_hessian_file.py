@@ -13,16 +13,36 @@ from mlmm.io.hessian_file import load_hessian_file, save_hessian_file
 from mlmm.workflows.freq import _record_hessian_result_path
 
 
-PES_IDENTITY = {
-    "schema": "hessian-cache-identity/v1",
-    "system": {"atoms": [6, 1, 8]},
-    "evaluator": {
-        "backend": "uma",
-        "model": "uma-s-1p1",
-        "precision": "float64",
-        "potential": {"mm_backend": "hessian_ff"},
-    },
-}
+def _pes_identity(atomic_numbers) -> dict:
+    return {
+        "schema": "hessian-cache-identity/v1",
+        "system": {"atoms": [int(number) for number in atomic_numbers]},
+        "evaluator": {
+            "backend": "uma",
+            "model": "uma-s-1p1",
+            "precision": "float64",
+            "potential": {"mm_backend": "hessian_ff"},
+        },
+    }
+
+
+def _save_state(atomic_numbers) -> dict:
+    return {
+        "model_charge": 0,
+        "model_mult": 1,
+        "potential_identity": _pes_identity(atomic_numbers),
+    }
+
+
+def _load_state(atomic_numbers) -> dict:
+    return {
+        "expected_model_charge": 0,
+        "expected_model_mult": 1,
+        "expected_potential_identity": _pes_identity(atomic_numbers),
+    }
+
+
+PES_IDENTITY = _pes_identity([6, 1, 8])
 SAVE_STATE = {
     "model_charge": 0,
     "model_mult": 1,
@@ -46,7 +66,7 @@ def test_partial_hessian_round_trip_preserves_identity_and_active_dofs(tmp_path)
         energy_ha=-1.25,
         cart_coords_bohr=coords,
         atomic_numbers=numbers,
-        **SAVE_STATE,
+        **_save_state(numbers),
         partial_metadata={
             "active_dofs": active,
             "active_n_dof": 6,
@@ -59,7 +79,7 @@ def test_partial_hessian_round_trip_preserves_identity_and_active_dofs(tmp_path)
         cart_coords_bohr=coords + 1.0e-5,
         atomic_numbers=numbers,
         expected_active_dofs=active,
-        **LOAD_STATE,
+        **_load_state(numbers),
     )
 
     np.testing.assert_allclose(loaded["hessian"], np.eye(6))
@@ -149,7 +169,7 @@ def test_hessian_file_rejects_different_current_active_basis(tmp_path) -> None:
         energy_ha=0.0,
         cart_coords_bohr=coords,
         atomic_numbers=numbers,
-        **SAVE_STATE,
+        **_save_state(numbers),
         partial_metadata={
             "active_dofs": [0, 1, 2, 6, 7, 8],
             "active_n_dof": 6,
@@ -178,7 +198,7 @@ def test_hessian_save_uses_exact_requested_path(tmp_path, name: str) -> None:
         energy_ha=-2.5,
         cart_coords_bohr=coords,
         atomic_numbers=numbers,
-        **SAVE_STATE,
+        **_save_state(numbers),
     )
 
     assert returned == requested
@@ -188,7 +208,7 @@ def test_hessian_save_uses_exact_requested_path(tmp_path, name: str) -> None:
         requested,
         cart_coords_bohr=coords,
         atomic_numbers=numbers,
-        **LOAD_STATE,
+        **_load_state(numbers),
     )
     np.testing.assert_allclose(loaded["hessian"], np.eye(6))
     assert loaded["energy_ha"] == pytest.approx(-2.5)
@@ -273,7 +293,7 @@ def test_schema_one_requires_explicit_unverified_state_opt_in(tmp_path) -> None:
         atomic_numbers=np.array([1]),
         allow_unverified_state=True,
         allow_unverified_pes=True,
-        **LOAD_STATE,
+        **_load_state(np.array([1])),
     )
     assert loaded["schema_version"] == 1
     assert loaded["model_charge"] is None

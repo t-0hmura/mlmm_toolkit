@@ -3,7 +3,7 @@
 ## Purpose
 
 Single-point DFT energy on an arbitrary geometry, via PySCF (CPU) or
-GPU4PySCF (CUDA, x86_64). Use as a post-MLIP refinement on R / TS / P
+GPU4PySCF (CUDA, x86_64). Use as a post-MLIP single-point energy evaluation on R / TS / P
 geometries from `irc` / `tsopt`, or as a standalone DFT driver on any
 input.
 

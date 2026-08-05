@@ -37,22 +37,6 @@ calc:
   mace_dtype: float64       # MACE dtype, e.g. float32 / float64 (when backend=mace)
   aimnet2_model: aimnet2    # AIMNet2 model name (when backend=aimnet2)
 
-extract:
-  radius: 2.6
-  radius_het2het: 0.0
-
-path_search:
-  max_nodes: 20
-  max_cycles: 300
-
-scan:
-  max_step_size: 0.2
-  bias_k: 300.0
-  relax_max_cycles: 10000
-
-tsopt:
-  max_cycles: 10000
-
 freq:
   max_write: 10
   amplitude_ang: 0.8
@@ -77,10 +61,6 @@ dft:
 # hand-authored docs/yaml-reference.md.
 _CURATED_SECTIONS: tuple[str, ...] = (
     "calc",
-    "extract",
-    "path_search",
-    "scan",
-    "tsopt",
     "freq",
     "thermo",
     "dft",
@@ -99,14 +79,6 @@ _STARTER_OWNERS: dict[str, tuple[str, str, str]] = {
     "calc.mace_model": ("defaults", "MLMM_CALC_KW", "mace_model"),
     "calc.mace_dtype": ("defaults", "MLMM_CALC_KW", "mace_dtype"),
     "calc.aimnet2_model": ("defaults", "MLMM_CALC_KW", "aimnet2_model"),
-    "extract.radius": ("click", "all", "--radius"),
-    "extract.radius_het2het": ("click", "all", "--radius-het2het"),
-    "path_search.max_nodes": ("defaults", "GS_KW", "max_nodes"),
-    "path_search.max_cycles": ("defaults", "STOPT_KW", "max_cycles"),
-    "scan.max_step_size": ("click", "scan", "--max-step-size"),
-    "scan.bias_k": ("defaults", "BIAS_KW", "k"),
-    "scan.relax_max_cycles": ("defaults", "OPT_BASE_KW", "max_cycles"),
-    "tsopt.max_cycles": ("defaults", "OPT_BASE_KW", "max_cycles"),
     "freq.max_write": ("defaults", "FREQ_KW", "max_write"),
     "freq.amplitude_ang": ("defaults", "FREQ_KW", "amplitude_ang"),
     "freq.n_frames": ("defaults", "FREQ_KW", "n_frames"),
@@ -349,12 +321,18 @@ stages:
   - - [1, 2, 1.65]
   - - [2, 3, 2.30]
 
-# scan2d / scan3d
+# scan2d
 one_based: false
 pairs:
   - [1, 2, 1.40, 2.20]
   - [2, 3, 1.20, 2.00]
-  - [3, 4, 1.00, 1.80]  # required only for scan3d
+
+# scan3d
+one_based: false
+pairs:
+  - [1, 2, 1.40, 2.20]
+  - [2, 3, 1.20, 2.00]
+  - [3, 4, 1.00, 1.80]
 ```"""
 
     return (

@@ -21,5 +21,5 @@ forces = results["forces"]
 hessian = results["hessian"]
 
 print(f"Energy:        {energy:.6f} eV")
-print(f"Max |force|:   {forces.max():.6f} eV/Ang")
+print(f"Max |force|:   {abs(forces).max():.6f} eV/Ang")
 print(f"Hessian shape: {hessian.shape}")

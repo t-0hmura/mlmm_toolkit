@@ -43,7 +43,7 @@ MLIP/ML/MM calculator stages additionally record:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `mlip_backend` | string \| null | Backend identifier (`uma`, `orb`, `mace`, `aimnet2`, or `custom`); null when a plot-only command did not evaluate a calculator |
+| `mlip_backend` | string \| null | Backend identifier (`uma`, `orb`, `mace`, `aimnet2`, `dft`, or `custom`); DFT leaves emit `dft`, and plot-only commands that did not evaluate a calculator emit null |
 | `mlip_model` | string \| null | Exact model/checkpoint; `filename:factory` for `--calc-file` |
 | `mlip_precision` | string \| null | Effective public precision (`fp32` or `fp64`); null for custom calculators |
 | `mm_backend` | string \| null | MM Hessian/energy backend (`hessian_ff` or `openmm`); null when a plot-only command did not evaluate a calculator |

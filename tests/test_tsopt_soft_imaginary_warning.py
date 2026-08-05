@@ -108,3 +108,25 @@ def test_thermo_fallback_is_wired_in_the_product() -> None:
     src = inspect.getsource(all_mod)
     assert src.count('_prior_freqs = (segment_log.get("ts_imag") or {}).get(') == 2
     assert src.count("or _prior_freqs,") == 2
+
+
+def test_unexported_soft_mode_is_not_reported_as_no_imaginary_mode() -> None:
+    """An exact soft imaginary root must not be announced as absent.
+
+    Certification counts every negative root while the export applies the
+    magnitude threshold, so a run with ``n_imag > 0`` and no exported mode
+    reports the export threshold instead of contradicting its own count.
+    """
+    from mlmm.workflows.tsopt import _dimer_mode_export_message
+
+    # A -3.2 cm^-1 root is certified but is below the 5 cm^-1 export threshold.
+    message, is_diagnostic = _dimer_mode_export_message(0, 1, 5.0, -3.2)
+    assert is_diagnostic is True
+    assert "Exact n_imag=1" in message
+    assert "5.0 cm^-1 export threshold" in message
+    assert "No imaginary mode found" not in message
+
+    # A genuinely positive spectrum still reports the absent imaginary mode.
+    message, is_diagnostic = _dimer_mode_export_message(0, 0, 5.0, 18.0)
+    assert is_diagnostic is True
+    assert "No imaginary mode found" in message

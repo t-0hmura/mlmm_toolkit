@@ -123,8 +123,10 @@ Options:
                                   reproducibility on the complete target stack.
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
                                   electron-parity check (logs that it was
-                                  skipped). For an intentional open-shell or
-                                  covalently-cut ML region.
+                                  skipped). An open-shell ML region needs a
+                                  matching multiplicity; use this only for an
+                                  intentional nonstandard input such as a
+                                  covalently-cut region.
   --print-every INTEGER RANGE     Print optimizer status every N cycles (debug
                                   knob).  [x>=1]
   -h, --help                      Show this message and exit.

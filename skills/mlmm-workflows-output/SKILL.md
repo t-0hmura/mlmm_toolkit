@@ -15,7 +15,8 @@ through the toolkit.
 
 > **mlmm-specific notes**:
 >
-> - Every ML/MM-evaluating subcommand requires an Amber `--parm` plus
+> - Standalone ML/MM-evaluating subcommands require an Amber `--parm`; `all`
+>   can generate it through `mm-parm` when omitted. Calculations also need
 >   a layer-encoded PDB (`--detect-layer` from B-factor 0.0/10.0/20.0,
 >   or explicit `--model-pdb`/`--model-indices`).
 > - `--model-pdb` and `--model-indices` select real ML atoms only. Runtime
@@ -26,8 +27,9 @@ through the toolkit.
 > - **Microiteration** alternates ML-region geometry steps with MM
 >   relaxation (controlled by `MICROITER_KW` defaults; toggled via
 >   `--microiter / --no-microiter` and `--opt-mode hess` driving the
->   outer RFO step). The MM block uses analytical-Hessian `hessian_ff`,
->   so it scales with CPU cores, not GPU.
+>   outer RFO step). The MM backend defaults to CPU `hessian_ff`; Hessian
+>   evaluation uses finite differences by default and is selected independently
+>   with `mm_fd`/`mm_hessian_mode`. OpenMM is the alternative backend.
 > - The `mlmm dft` step (when `--dft` is set in `all`) computes a
 >   single-point DFT energy on the **ML region only**, not the whole
 >   enzyme. The MM contribution is taken from the parm7 force field.
@@ -112,7 +114,7 @@ mlmm freq  -i result_tsopt/final_geometry.xyz --parm real.parm7 --ref-pdb enzyme
 mlmm irc   -i result_tsopt/final_geometry.xyz --parm real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_irc
 ```
 
-Or use `mlmm all` with a single `-i` (collapses to TS-only
+Or use `mlmm all` with a single `-i` plus `--tsopt` (collapses to TS-only
 mode automatically; see `mlmm-cli/all-ts-only.md`).
 
 ### 6. DFT//MLIP/MM single-point energies
@@ -120,13 +122,13 @@ mode automatically; see `mlmm-cli/all-ts-only.md`).
 After any of the above, evaluate R / TS / P with DFT single points:
 
 ```bash
-mlmm dft -i seg_01/reactant.pdb --parm real.parm7 \
+mlmm dft -i result_irc/backward_last.pdb --parm real.parm7 \
     -l 'SAM:1,GPP:-3' \
     --func-basis 'wb97m-v/def2-tzvpd' \
     --engine gpu \
     -o dft_R
-mlmm dft -i seg_01/ts.pdb --parm real.parm7 -l '...' --func-basis '...' -o dft_TS
-mlmm dft -i seg_01/product.pdb --parm real.parm7 -l '...' --func-basis '...' -o dft_P
+mlmm dft -i result_tsopt/final_geometry.pdb --parm real.parm7 -l '...' --func-basis '...' -o dft_TS
+mlmm dft -i result_irc/forward_last.pdb --parm real.parm7 -l '...' --func-basis '...' -o dft_P
 ```
 
 Composite the energies with `energy-diagram` (see below).
@@ -186,8 +188,10 @@ the final frequency check was skipped) → freq `result.json` `n_imaginary == 1`
 whose mode moves the reacting atoms (for 0 or >1, inspect the geometry, modes,
 MEP guess, optimizer stop reason, and backend-specific numerical behavior before retrying;
 see `mlmm-ts-strategy/SKILL.md` §3) → irc
-`result.json` `status == "completed"` and forward/backward endpoints connect the **intended**
-R and P (bond changes match this step). A TS that fails any gate is not this elementary step.
+`result.json` `scientific_status == "success"` and every requested direction
+has a usable outcome before endpoint chemistry is interpreted; the chemically
+oriented endpoints must connect the **intended** R and P. A TS that fails any
+gate is not this elementary step.
 
 **Stage 3 — thermochemistry** (optional, = `all --thermo`): run `mlmm freq` on R / TS / P
 for the Gibbs/QRRHO profile (`post_segments[i].gibbs_mlip`).
@@ -195,7 +199,7 @@ for the Gibbs/QRRHO profile (`post_segments[i].gibbs_mlip`).
 **Stage 4 — DFT//MLIP/MM** (optional, = `all --dft`):
 
 ```bash
-mlmm dft -i seg_NN/reactant.pdb --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' --func-basis 'wb97m-v/def2-tzvpd' --out-json -o seg_NN/dft/R   # repeat for ts, product
+mlmm dft -i segments/seg_NN/reactant.pdb --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' --func-basis 'wb97m-v/def2-tzvpd' --out-json -o segments/seg_NN/dft/R   # repeat for ts, product
 ```
 
 **GATE**: each `dft/<state>/result.json` shows `"converged": true`.
@@ -223,7 +227,7 @@ Top-level keys:
 |---|---|
 | `command` | Full recorded invocation string for this `all` run |
 | `mlmm_toolkit_version` | Toolkit version that produced this aggregate output |
-| `status` | `"success"` (all stages OK), `"partial"` (segments produced but diagrams missing), or `"failed"` |
+| `status` | `"success"` (all requested science usable), `"partial"` (some requested TS/IRC/thermo/DFT output is missing or unusable but partial scientific output remains), or `"failed"`; use reasons and leaf outcomes when consuming partial runs |
 | `execution_status` / `scientific_status` | Whether required leaves executed / whether the science is usable; gate consumption on `scientific_status` |
 | `scientific_status_reasons` | Reasons for missing or unusable leaves; omitted on clean success |
 | `expected_item_ids` / `observed_item_ids` | Expected vs observed leaf IDs; compare before accepting the aggregate |
@@ -245,7 +249,7 @@ Top-level keys:
 | `mlip_backend` | Which backend produced the energies |
 | `mlip_model` | Exact model/checkpoint identifier; `filename:factory` for custom calculators |
 | `mlip_precision` | Effective `fp32` / `fp64`; null for custom calculators |
-| `energy_diagrams` | Paths to PNG / HTML diagrams |
+| `energy_diagrams` | List of diagram objects with names, labels, energy arrays, and an `image` path |
 
 Shape-safe artifact iteration:
 
@@ -300,10 +304,10 @@ result_all/
     ├── product.{xyz,pdb}                   # MEP-matched IRC endpoint, then optimized
     └── structures/
         ├── reactant.{xyz,pdb}              # same as above (canonical) — nested copy
-        ├── reactant_irc.{xyz,pdb}          # raw IRC backward end (pre-L-BFGS)
+        ├── reactant_irc.{xyz,pdb}          # raw IRC endpoint chemically oriented as R
         ├── ts.{xyz,pdb}                    # same as above
         ├── product.{xyz,pdb}              # same as above (canonical)
-        └── product_irc.{xyz,pdb}           # raw IRC forward end (pre-L-BFGS)
+        └── product_irc.{xyz,pdb}           # raw IRC endpoint chemically oriented as P
 ```
 
 **Rule of thumb**: read from `segments/seg_NN/` for downstream stages. Use
@@ -381,15 +385,16 @@ When `summary.json["status"] != "success"`, look at:
 1. `summary.log` — human-readable, prints the failure point first.
 2. `segments/seg_NN/<stage>/result.json` — per-stage status (which step
    crashed).
-3. `segments/seg_NN/<stage>/<stage>.log` — stack trace if any.
+3. Captured terminal or scheduler stderr — traceback/diagnostics not represented in the JSON envelope.
 
 Even on failed runs, partial outputs are kept:
 
 - `path_opt/seg_NN/` (`path_search/seg_NN/` under `--refine-path`) exists
   for any segment that completed the MEP stage (even if downstream stages
   failed).
-- `segments/seg_NN/` is **only populated** for fully-successful
-  segments.
+- `segments/seg_NN/` can contain current-run partial artifacts even when a
+  later stage fails. Trust leaf outcomes and the current-output manifest, not
+  directory existence.
 
 ## Energy diagrams
 

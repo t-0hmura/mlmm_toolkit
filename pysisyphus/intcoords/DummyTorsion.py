@@ -25,8 +25,10 @@ class DummyTorsion(Torsion):
         P = coords3d[P_]
         # Bond, pointing away from O to M
         u = coords3d[O_] - P
-        # Direction of u along x axis (left/right)
-        sign = np.sign(u[0])
+        # Direction of u along x axis (left/right). A vanishing x component must
+        # still pick a side, because a zero sign would place the dummy atom onto
+        # the central atom and make the torsion undefined.
+        sign = 1.0 if u[0] >= 0.0 else -1.0
         # Polar coordinates
         x = r * np.cos(theta)
         y = r * np.sin(theta)

@@ -16,10 +16,18 @@ from pysisyphus.intcoords.Cartesian import CartesianX, CartesianY
 from pysisyphus.intcoords.LinearDisplacement import LinearDisplacement
 from pysisyphus.intcoords.RedundantCoords import RedundantCoords
 from pysisyphus.intcoords.Torsion import Torsion
-from pysisyphus.intcoords.exceptions import NeedNewInternalsException
+import pysisyphus.intcoords.augment_bonds as augment_bonds_module
+from pysisyphus.intcoords.DummyTorsion import DummyTorsion
+from pysisyphus.intcoords.PrimTypes import PrimTypes
+from pysisyphus.intcoords.exceptions import (
+    NeedNewInternalsException,
+    PrimitiveNotDefinedException,
+)
+from pysisyphus.intcoords.setup_fast import find_bonds, find_bonds_for_geom
 from pysisyphus.intcoords.update import transform_int_step, update_internals
 from pysisyphus.io.qcschema import geom_from_qcschema
-from pysisyphus.Geometry import Geometry
+from pysisyphus.Geometry import Geometry, get_trans_rot_vectors
+import pysisyphus.normal_modes as nm
 from pysisyphus.irc.EulerPC import EulerPC
 from pysisyphus.irc.DWI import DWI
 from pysisyphus.irc.IRC import IRC
@@ -35,7 +43,14 @@ from pysisyphus.optimizers.RFOptimizer import RFOptimizer
 from pysisyphus.optimizers.StringOptimizer import StringOptimizer
 from pysisyphus.optimizers.closures import bfgs_multiply
 import pysisyphus.optimizers.gdiis as gdiis_module
-from pysisyphus.optimizers.hessian_updates import bofill_update
+from pysisyphus.optimizers.hessian_updates import (
+    bofill_update,
+    damped_bfgs_update,
+    flowchart_update,
+)
+from pysisyphus.optimizers.HessianOptimizer import dummy_hessian_update
+from pysisyphus.optimizers.poly_fit import quartic_fit
+from pysisyphus.modefollow.lanczos import lanczos
 from pysisyphus.tsoptimizers.RSPRFOptimizer import RSPRFOptimizer
 from thermoanalysis.constants import AMU2KG, C, KB, PLANCK, R
 from thermoanalysis.thermo import (
@@ -878,3 +893,443 @@ def test_ts_bfgs_updates_preserve_tensor_device_and_numpy_values(
     assert actual.device.type == device
     assert actual.dtype == torch.float64
     np.testing.assert_allclose(actual.detach().cpu().numpy(), expected)
+
+
+def test_find_bonds_reports_empty_bonds_as_index_pairs() -> None:
+    bonds = find_bonds(["Ne"], np.zeros((1, 3)))
+
+    assert bonds.shape == (0, 2)
+    assert np.issubdtype(bonds.dtype, np.integer)
+    # The default PDB serialization sorts along axis 1.
+    assert np.sort(bonds, axis=1).shape == (0, 2)
+
+
+def test_find_bonds_for_geom_forwards_the_requested_bond_factor() -> None:
+    geom = Geometry(["C", "C"], np.array([0.0, 0.0, 0.0, 0.0, 0.0, 5.4]))
+
+    assert find_bonds_for_geom(geom).shape == (0, 2)
+    assert find_bonds_for_geom(geom, bond_factor=2.0).shape == (1, 2)
+
+
+def test_defined_primitives_use_original_indices_with_leading_frozen_atoms() -> None:
+    atoms = ["C"] * 8
+    coords3d = np.zeros((8, 3))
+    coords3d[:, 0] = np.arange(8) * 2.9
+
+    red = RedundantCoords(
+        atoms,
+        coords3d,
+        freeze_atoms=[0, 1],
+        freeze_atoms_exclude=True,
+        define_prims=[(PrimTypes.BOND, 2, 5)],
+    )
+
+    assert (PrimTypes.BOND, 2, 5) in red.typed_prims
+    # Original indices must not be mapped a second time onto mobile atoms.
+    assert (PrimTypes.BOND, 4, 7) not in red.typed_prims
+
+
+def test_defined_primitives_on_excluded_frozen_atoms_are_rejected() -> None:
+    atoms = ["C"] * 8
+    coords3d = np.zeros((8, 3))
+    coords3d[:, 0] = np.arange(8) * 2.9
+
+    with pytest.raises(PrimitiveNotDefinedException):
+        RedundantCoords(
+            atoms,
+            coords3d,
+            freeze_atoms=[0, 1],
+            freeze_atoms_exclude=True,
+            define_prims=[(PrimTypes.BOND, 0, 5)],
+        )
+
+
+def test_dummy_torsion_gradient_is_finite_without_a_global_x_component() -> None:
+    # The inner bond lies in the yz-plane, so a zero sign would collapse the
+    # synthetic point onto the central atom.
+    coords3d = np.array([
+        [1.0, 0.4, -0.3],
+        [0.0, 0.0, 0.0],
+        [0.0, 2.1, 0.0],
+    ])
+    value, gradient = DummyTorsion._calculate(coords3d, [0, 1, 2], gradient=True)
+
+    assert np.isfinite(value)
+    assert np.isfinite(gradient).all()
+
+
+def test_augment_bonds_preserves_frozen_atoms_and_isotopes(monkeypatch) -> None:
+    atoms = ["C", "C", "H", "H"]
+    coords3d = np.array([
+        [0.0, 0.0, 0.0],
+        [2.8, 0.0, 0.0],
+        [-2.0, 0.0, 0.0],
+        [4.8, 0.0, 0.0],
+    ])
+    geom = Geometry(
+        atoms,
+        coords3d.flatten(),
+        coord_type="redund",
+        freeze_atoms=[0],
+        isotopes=((2, 2.0),),
+    )
+    geom.cart_hessian = np.zeros((12, 12))
+
+    monkeypatch.setattr(
+        augment_bonds_module, "find_missing_strong_bonds", lambda *a, **kw: [(0, 3)]
+    )
+    new_geom = augment_bonds_module.augment_bonds(geom)
+
+    assert new_geom is not geom
+    np.testing.assert_array_equal(new_geom.freeze_atoms, geom.freeze_atoms)
+    assert new_geom.isotopes == geom.isotopes
+    assert (PrimTypes.AUX_BOND, 0, 3) in new_geom.internal.typed_prims
+
+
+def test_augment_bonds_keeps_the_remaining_coordinate_options(monkeypatch) -> None:
+    atoms = ["C", "C", "H", "H"]
+    coords3d = np.array([
+        [0.0, 0.0, 0.0],
+        [2.8, 0.0, 0.0],
+        [-2.0, 0.0, 0.0],
+        [4.8, 0.0, 0.0],
+    ])
+    geom = Geometry(
+        atoms,
+        coords3d.flatten(),
+        coord_type="redund",
+        coord_kwargs={
+            "define_prims": [(PrimTypes.BOND, 1, 2)],
+            "bonds_only": False,
+        },
+    )
+    geom.cart_hessian = np.zeros((12, 12))
+
+    monkeypatch.setattr(
+        augment_bonds_module, "find_missing_strong_bonds", lambda *a, **kw: [(0, 3)]
+    )
+    new_geom = augment_bonds_module.augment_bonds(geom)
+
+    assert new_geom.coord_kwargs["bonds_only"] is False
+    assert new_geom.coord_kwargs["define_prims"] == [
+        (PrimTypes.BOND, 1, 2),
+        (PrimTypes.AUX_BOND, 0, 3),
+    ]
+
+
+def test_damped_bfgs_and_flowchart_updates_preserve_the_hessian_backend() -> None:
+    dx = np.array([0.1, -0.2, 0.05])
+    dg = np.array([0.4, 0.1, -0.3])
+    H_np = np.array([
+        [1.0, 0.2, 0.0],
+        [0.2, 0.9, 0.1],
+        [0.0, 0.1, 1.3],
+    ])
+    H_torch = torch.tensor(H_np, dtype=torch.float64)
+
+    for update in (damped_bfgs_update, flowchart_update):
+        expected, expected_key = update(H_np, dx, dg)
+        actual, actual_key = update(H_torch, dx, dg)
+
+        assert actual_key == expected_key
+        assert isinstance(actual, torch.Tensor)
+        assert actual.dtype == H_torch.dtype
+        assert actual.device == H_torch.device
+        np.testing.assert_allclose(actual.cpu().numpy(), expected, atol=1e-12)
+
+    zeros, key = dummy_hessian_update(H_torch, dx, dg)
+    assert key == "no"
+    assert isinstance(zeros, torch.Tensor)
+    assert zeros.dtype == H_torch.dtype
+    assert bool((zeros == 0.0).all())
+
+
+def test_gediis_weights_use_the_quadratic_form_of_the_inverse_hessian() -> None:
+    coords = np.array([[0.0, 0.0], [0.2, 0.0], [0.1, 0.3]])
+    energies = np.array([0.3, 0.1, 0.2])
+    forces = np.array([[0.2, 0.1], [0.05, -0.1], [-0.1, 0.15]])
+    # Strongly off-diagonal, so a row-summed contraction differs from f^T H^-1 f.
+    hessian = np.array([[1.0, 0.8], [0.8, 1.2]])
+    hessian_inv = np.linalg.pinv(hessian, rcond=1e-6)
+
+    R = coords[::-1]
+    f = forces[::-1]
+    Rifi = np.einsum("ik,ik->i", R, f)
+    Rjfi = np.einsum("jk,ik->ji", R, f)
+    quadratic_form = np.einsum("ki,ij,kj->k", f, hessian_inv, f)
+    row_summed = np.einsum("ki,ji,ki->k", f, hessian_inv, f)
+    assert quadratic_form[0] != pytest.approx(row_summed[0])
+
+    captured = {}
+    original = gdiis_module.minimize
+
+    def spy(fun, *args, **kwargs):
+        captured["value"] = fun(np.array([1.0, 0.0, 0.0]))
+        return original(fun, *args, **kwargs)
+
+    gdiis_module.minimize = spy
+    try:
+        gdiis_module.gediis(coords, energies, forces, hessian=hessian)
+    finally:
+        gdiis_module.minimize = original
+
+    # Eq. (5) of the reference at the first vertex.
+    expected = 0.5 * quadratic_form[0] - Rjfi[0, 0] + Rifi[0]
+    assert captured["value"] == pytest.approx(expected)
+
+
+def test_quartic_fit_returns_none_for_a_degenerate_quadratic_coefficient() -> None:
+    # Equal endpoint energies with vanishing projected gradients.
+    assert quartic_fit(-1.0, -1.0, 0.0, 0.0) is None
+    # A well conditioned fit still interpolates.
+    assert quartic_fit(0.371, 0.301, 0.377, -0.222) is not None
+
+
+def test_lanczos_stops_at_an_exact_residual_breakdown() -> None:
+    # Quadratic PES, so the gradient difference is exactly H @ dx.
+    hessian = np.diag([-0.5, 1.0, 2.0])
+
+    def grad_getter(coords):
+        return hessian @ coords
+
+    w_min, mode = lanczos(
+        np.zeros(3),
+        grad_getter,
+        guess=np.array([1.0, 0.0, 0.0]),
+        max_cycles=10,
+    )
+
+    assert w_min == pytest.approx(-0.5, abs=1e-6)
+    assert np.isfinite(mode).all()
+
+    with pytest.raises(ValueError):
+        lanczos(np.zeros(3), grad_getter, guess=np.zeros(3))
+
+
+def test_normal_modes_retain_every_low_complement_root() -> None:
+    # Rank-zero constrained PHVA: the whole active block is the complement, so
+    # every root, including deliberately tiny ones, must survive.
+    atomic_numbers = [6, 1, 1, 1]
+    coords_bohr = np.array([
+        [0.0, 0.0, 0.0],
+        [2.0, 0.0, 0.0],
+        [0.0, 2.0, 0.0],
+        [0.0, 0.0, 2.0],
+    ])
+    # One active atom, so the constrained rigid space has rank zero.
+    active_hessian = torch.diag(torch.tensor([3.0e-9, -4.0e-9, 0.5], dtype=torch.float64))
+
+    freqs, modes = nm._frequencies_cm_and_modes(
+        active_hessian.clone(),
+        atomic_numbers,
+        coords_bohr,
+        torch.device("cpu"),
+        freeze_idx=[1, 2, 3],
+    )
+
+    assert len(freqs) == 3
+    assert modes.shape == (3, 12)
+    assert (freqs < 0.0).sum() == 1
+    # The tiny roots are far below the historical 5.14 cm^-1 magnitude floor.
+    assert abs(freqs[freqs < 0.0][0]) < 1.0
+
+
+def test_imaginary_frequencies_exclude_small_positive_eigenvalues() -> None:
+    geom = Geometry(["H", "H"], np.array([0.0, 0.0, 0.0, 0.0, 0.0, 1.4]))
+
+    def fake_normal_modes(hessian=None):
+        return np.array([3.0, -7.0]), np.array([1.0e-9, -2.0e-6]), None
+
+    geom.get_normal_modes = fake_normal_modes
+    imag = geom.get_imag_frequencies()
+
+    np.testing.assert_allclose(imag, [-7.0])
+
+
+def test_trans_rot_vectors_are_translation_invariant_for_a_linear_molecule() -> None:
+    coords = np.array([0.0, 0.0, -1.4, 0.0, 0.0, 0.0, 0.0, 0.0, 1.4])
+    masses = np.array([12.0, 12.0, 12.0])
+
+    here = get_trans_rot_vectors(coords, masses)
+    shifted = get_trans_rot_vectors(coords + np.tile([7.0, -3.0, 5.0], 3), masses)
+
+    # A linear molecule keeps rigid rank five under any translation.
+    assert here.shape[0] == 5
+    assert shifted.shape[0] == here.shape[0]
+
+
+def test_exact_phva_order_counts_every_negative_root() -> None:
+    # A genuine second-order saddle whose weaker imaginary mode is far below the
+    # 5 cm^-1 export/recovery threshold.
+    freqs_cm = np.array([-450.0, -3.2, 12.0])
+    modes = torch.eye(3, dtype=torch.float64)
+
+    # RSPRFOptimizer is the concrete TSHessianOptimizer used by the product.
+    opt = RSPRFOptimizer.__new__(RSPRFOptimizer)
+    opt._mw_frequencies_and_modes = lambda: (freqs_cm, modes)
+    opt._recovery_mode_from_mw = lambda _modes, index: np.eye(3)[index]
+    opt.geometry = SimpleNamespace(cart_coords=np.zeros(3))
+    opt.reference_mode = None
+    opt.roots = [0]
+    opt.saddle_imaginary_threshold_cm = 5.0
+    opt.higher_order_saddle_checks = 0
+    opt.max_higher_order_checks = 99
+    opt.cur_cycle = 7
+    opt.table = SimpleNamespace(print=lambda *_a, **_kw: None)
+    opt.request_stop = lambda *_a: None
+    opt._last_exact_target_mode_reanchored = False
+
+    has_saddle_modes, physical_mode, verified = opt._verify_exact_vibrational_structure(
+        None, None
+    )
+
+    # Order is the Morse index, so the -3.2 cm^-1 root still counts.
+    assert opt._last_exact_n_imaginary == 2
+    assert opt._last_exact_saddle_verified is False
+    assert opt._last_exact_saddle_cycle is None
+    assert has_saddle_modes is True
+    assert verified is True
+    assert physical_mode is not None
+
+
+def test_bonded_fragment_jacobian_embeds_the_bond_second_derivative() -> None:
+    from pysisyphus.intcoords.derivatives import d2q_b
+
+    coords3d = np.array([
+        [4.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0],
+        [0.0, 2.0, 0.0],
+    ])
+    fragment = BondedFragment([0, 1], bond_indices=[1, 2])
+
+    expected_block = d2q_b(*coords3d[1], *coords3d[2]).reshape(6, 6)
+    np.testing.assert_allclose(
+        fragment.jacobian(coords3d).reshape(6, 6), expected_block
+    )
+
+    internal = RedundantCoords.__new__(RedundantCoords)
+    internal.coords3d = coords3d
+    internal.primitives = [fragment]
+    K = internal.get_K_matrix([1.0])
+
+    expected = np.zeros((9, 9))
+    endpoint_coords = [3, 4, 5, 6, 7, 8]
+    expected[np.ix_(endpoint_coords, endpoint_coords)] = expected_block
+    np.testing.assert_allclose(K, expected)
+
+
+def test_collapsed_path_returns_zero_coord_diffs_instead_of_nans() -> None:
+    from pysisyphus.helpers import get_coords_diffs
+
+    collapsed = get_coords_diffs(np.zeros((4, 6)))
+    np.testing.assert_array_equal(collapsed, np.zeros(4))
+    assert np.isfinite(collapsed).all()
+
+    # A nondegenerate path is still normalized to one.
+    spread = get_coords_diffs(np.array([[0.0], [1.0], [3.0]]))
+    np.testing.assert_allclose(spread, [0.0, 1.0 / 3.0, 1.0])
+
+
+def test_parallel_cos_restores_pal_on_the_images_it_evaluated() -> None:
+    class _Calc:
+        def __init__(self, pal):
+            self.pal = pal
+
+    images = [
+        SimpleNamespace(calculator=_Calc(pal)) for pal in (8, 6, 4, 2)
+    ]
+
+    class _Client:
+        @staticmethod
+        def scheduler_info():
+            return {"workers": {"w0": {}, "w1": {}}}
+
+        @staticmethod
+        def map(_func, items):
+            return list(items)
+
+        @staticmethod
+        def gather(futures):
+            return list(futures)
+
+    cos = ChainOfStates.__new__(ChainOfStates)
+    cos.images = images
+    cos.log = lambda *_a, **_kw: None
+    cos.get_dask_client = lambda: _Client()
+
+    # Cached endpoints: only the two moving images are evaluated, so restoring
+    # by position would leave image 3 with a reduced pal.
+    image_indices = [1, 3]
+    cos.concurrent_force_calcs([images[1], images[3]], image_indices)
+
+    assert [image.calculator.pal for image in images] == [8, 6, 4, 2]
+
+
+def test_euler_corrector_keeps_the_last_advancing_point_on_immediate_reversal(
+    capsys,
+) -> None:
+    """An immediate DWI reversal must not return the zero-advance start point."""
+
+    class FlippingDWI:
+        """Gradient sign flips on every call, so the second step reverses."""
+
+        def __init__(self):
+            self.calls = 0
+
+        def interpolate(self, coords, gradient=True):
+            self.calls += 1
+            sign = 1.0 if self.calls % 2 else -1.0
+            return 0.0, np.array([sign])
+
+    irc = EulerPC.__new__(EulerPC)
+    irc._m_sqrt = np.array([1.0])
+    irc._act_dofs = np.array([0])
+    irc.log = lambda *_: None
+    start = np.zeros(1)
+
+    corrected = irc.corrector_step(start, 0.1, FlippingDWI())
+
+    assert np.all(np.isfinite(corrected))
+    # The last finite advancing microstep, not the original point.
+    assert float(np.linalg.norm(corrected - start)) > 0.0
+    assert "oscillated" in capsys.readouterr().out
+
+
+def test_irc_integration_failure_outranks_a_small_gradient() -> None:
+    irc = IRC.__new__(IRC)
+    irc.never_stop = False
+    irc.past_inflection = True
+    irc.rms_grad_thresh = 1.0
+    irc.hard_rms_grad_thresh = None
+    irc.energy_increase_thresh = 0.0
+    irc.energy_thresh = 1.0e-6
+    irc.require_pos_def_hessian = False
+
+    # Integration failure in the same macrostep as a converged gradient.
+    irc.integration_stop_requested = True
+    irc.integration_stop_reason = "Predictor integration exhausted."
+    irc.converged = False
+    irc.energy_increased = False
+    irc.energy_converged = False
+    assert irc._gradient_converged(0.0) is True
+    # The numerical failure has unconditional priority, so this direction is
+    # never published as converged.
+    assert irc.integration_stop_requested and not irc.converged
+
+
+def test_irc_ordinary_energy_rise_outranks_physical_convergence() -> None:
+    irc = IRC.__new__(IRC)
+    irc.never_stop = False
+    irc.past_inflection = True
+    irc.rms_grad_thresh = 1.0
+    irc.energy_increase_thresh = 1.0e-6
+
+    # An ordinary-mode energy rise is reported instead of convergence.
+    assert irc._energy_increase_exceeds_tolerance(-10.0, -9.0) is True
+    irc.energy_increased = True
+    irc.energy_converged = False
+    assert irc._energy_stop_message() == "Energy increased!"
+
+    # never_stop still bypasses the physical energy stop only.
+    irc.never_stop = True
+    assert irc._energy_stop_message() == ""

@@ -97,6 +97,49 @@ from mlmm.workflows.align_freeze import (
 # Geometry (input handling) — reuse opt.py defaults
 GEOM_KW: Dict[str, Any] = deepcopy(_OPT_GEOM_KW)
 
+
+class _PathSearchOutputCollisionError(click.UsageError):
+    """A path-search destination aliases a consumed input."""
+
+
+def _paths_physically_alias(path_a: Path, path_b: Path) -> bool:
+    """Return whether two paths identify the same filesystem object."""
+
+    try:
+        if path_a.exists() and path_b.exists() and path_a.samefile(path_b):
+            return True
+    except OSError:
+        pass
+    return path_a.expanduser().resolve() == path_b.expanduser().resolve()
+
+
+def _reject_path_search_output_collisions(
+    out_dir: Path,
+    protected_inputs: Sequence[Optional[Path]],
+) -> None:
+    """Reject fixed path-search outputs that would replace an input."""
+
+    destinations = tuple(
+        out_dir / name
+        for name in (
+            "mep_trj.xyz",
+            "mep.pdb",
+            "mep.cif",
+            "mep_plot.png",
+            "energy_diagram_MEP.png",
+            "summary.json",
+            "summary.log",
+        )
+    )
+    for destination in destinations:
+        for protected in protected_inputs:
+            if protected is None:
+                continue
+            if _paths_physically_alias(destination, Path(protected)):
+                raise _PathSearchOutputCollisionError(
+                    f"Output '{destination}' aliases consumed input '{protected}'."
+                )
+
 # ML/MM calculator settings — reuse opt.py defaults
 CALC_KW: Dict[str, Any] = deepcopy(_OPT_CALC_KW)
 
@@ -969,16 +1012,17 @@ def _stitch_paths(
 
         adj_changed, adj_summary = False, ""
         if segment_builder is not None and bond_cfg is not None:
+            # A failed classification is not evidence of an unchanged interface:
+            # reporting it as unchanged drops a required reactive segment while
+            # the remaining leaves still report success. Propagate the original
+            # failure through the workflow error envelope instead.
             try:
                 adj_changed, adj_summary = _has_bond_change(tail, head, bond_cfg)
             except Exception as _bond_exc:
-                click.echo(
-                    "[path-search] WARNING: the interface bond-change check failed "
-                    f"({_bond_exc}); treating the interface as unchanged, so a reaction step "
-                    "may be missing from the path.",
-                    err=True,
-                )
-                adj_changed, adj_summary = False, ""
+                raise RuntimeError(
+                    "[path-search] the interface bond-change check failed "
+                    f"({_bond_exc}); the stitched interface cannot be classified."
+                ) from _bond_exc
 
         if adj_changed and segment_builder is not None:
             emit(f"[{tag}] Covalent changes detected at interface — inserting a new recursive segment.", narrative=True)
@@ -1881,6 +1925,7 @@ def cli(
     )
 
     time_start = time.perf_counter()  # start timing
+    error_out_dir = Path(out_dir).resolve()
     command_str = "mlmm " + " ".join(argv_all)
     try:
         if len(input_paths) < 2:
@@ -2080,6 +2125,7 @@ def cli(
         search_cfg["refine_mode"] = refine_mode_kind
 
         out_dir_path = Path(stopt_cfg.get("out_dir", out_dir)).resolve()
+        error_out_dir = out_dir_path
         detect_layer_effective = bool(calc_cfg.get("use_bfactor_layers", detect_layer_effective))
 
         model_pdb_effective: Optional[Path] = None
@@ -2089,6 +2135,22 @@ def cli(
             model_pdb_cfg = calc_cfg.get("model_pdb")
             if isinstance(model_pdb_cfg, (str, Path)) and str(model_pdb_cfg).strip():
                 model_pdb_effective = Path(model_pdb_cfg)
+
+        _reject_path_search_output_collisions(
+            out_dir_path,
+            (
+                *p_list,
+                *(prepared.original_path for prepared in prepared_inputs),
+                *(prepared.source_path for prepared in prepared_inputs),
+                *(prepared.geom_path for prepared in prepared_inputs),
+                *ref_list,
+                real_parm7,
+                model_pdb_effective,
+                config_yaml,
+                override_yaml,
+                Path(calc_cfg["calc_file"]) if calc_cfg.get("calc_file") else None,
+            ),
+        )
 
         hess_cutoff_effective = calc_cfg.get("hess_cutoff")
         movable_cutoff_effective = calc_cfg.get("movable_cutoff")
@@ -2238,6 +2300,7 @@ def cli(
 
         stopt_cfg["stop_in_when_full"] = int(stopt_cfg.get("max_cycles", STOPT_KW["max_cycles"]))
         out_dir_path = Path(stopt_cfg.get("out_dir", out_dir)).resolve()
+        error_out_dir = out_dir_path
         echo_geom = format_freeze_atoms_for_echo(geom_cfg, key="freeze_atoms")
         echo_calc = format_freeze_atoms_for_echo(filter_calc_for_echo(calc_cfg), key="freeze_atoms")
         echo_gs   = strip_inherited_keys(gs_cfg, GS_KW, mode="same")
@@ -2291,6 +2354,13 @@ def cli(
             )
 
         validate_endpoint_atom_identities(prepared_inputs)
+        for name in (
+            "mep.pdb",
+            "mep.cif",
+            "mep_plot.png",
+            "energy_diagram_MEP.png",
+        ):
+            (out_dir_path / name).unlink(missing_ok=True)
         out_dir_path.mkdir(parents=True, exist_ok=True)
 
         geoms = _load_structures(
@@ -2522,19 +2592,27 @@ def cli(
             ],
         }
 
+        overall_bond_diagnostic: Optional[str] = None
         try:
             overall_changed, overall_summary = _has_bond_change(combined_all.images[0], combined_all.images[-1], bond_cfg)
-        except Exception:
+        except Exception as exc:
             logger.debug(
-                "path_search: overall bond-change diff failed; reporting no covalent changes",
+                "path_search: overall bond-change diff failed",
                 exc_info=True,
             )
             overall_changed, overall_summary = False, ""
+            overall_bond_diagnostic = str(exc)
 
         emit("\n====== MEP Summary started ======\n", narrative=True)
 
         emit("\n[overall] Covalent-bond changes between first and last image:", narrative=True)
-        if overall_changed and overall_summary.strip():
+        if overall_bond_diagnostic is not None:
+            click.echo(
+                "  WARNING: bond-change analysis unavailable: "
+                f"{overall_bond_diagnostic}",
+                err=True,
+            )
+        elif overall_changed and overall_summary.strip():
             click.echo(textwrap.indent(overall_summary.strip(), prefix="  "))
         else:
             click.echo("  (no covalent changes detected)")
@@ -2760,6 +2838,13 @@ def cli(
 
         from mlmm.core.utils import is_child_mode
 
+        if not is_child_mode() and summary.get("status") != "success":
+            reasons = summary.get("status_reasons") or []
+            detail = f" ({'; '.join(map(str, reasons))})" if reasons else ""
+            emit(
+                f"[path-search] Status: {summary.get('status')}{detail}",
+                narrative=True,
+            )
         if summary_payload_for_citations and not is_child_mode():
             emit_method_citations(summary_payload_for_citations)
         emit(
@@ -2778,8 +2863,10 @@ def cli(
     except KeyboardInterrupt:
         click.echo("\nInterrupted by user.", err=True)
         sys.exit(130)
+    except _PathSearchOutputCollisionError:
+        raise
     except Exception as e:
-        render_cli_exception(e, label="path search", out_dir=out_dir, command="path-search", time_start=time_start)
+        render_cli_exception(e, label="path search", out_dir=error_out_dir, command="path-search", time_start=time_start)
     finally:
         for prepared in prepared_inputs:
             prepared.cleanup()

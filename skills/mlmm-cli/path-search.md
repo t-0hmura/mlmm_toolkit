@@ -122,7 +122,7 @@ produced only by `mlmm all`, not by standalone `path-search`.
 - Increasing `--max-nodes` trades cost for path resolution but does not repair
   chemically inconsistent endpoints. Benchmark convergence on the actual
   system and inspect the trajectory and bond changes.
-- Output **does not** include refined TSs; those are `segments/seg_NN/tsopt/`
+- Output **does not** include refined TSs; `all` writes those under `segments/seg_NN/ts/`
   in the `all` pipeline.
 
 ## See also

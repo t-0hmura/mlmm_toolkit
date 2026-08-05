@@ -48,7 +48,8 @@ mlmm oniom-import -i model.inp --ref-pdb complex_layered.pdb -o model_imported
 - `<out_prefix>.xyz` exists and atom count matches the source ONIOM input.
 - `<out_prefix>_layered.pdb` exists and B-factor values encode layers (`0/10/20`).
 - Log lines report parsed mode, atom count, QM/movable/frozen counts, and
-  `ref_order=identity-verified`, `element-verified`, or `unverified-opt-in`.
+  With `--ref-pdb`, the log records `ref_order=identity-verified`, `element-verified`, or `unverified-opt-in`; without a reference, no
+  `ref_order` field is available.
 
 ## CLI options
 

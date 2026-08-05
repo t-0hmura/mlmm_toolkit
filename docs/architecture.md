@@ -124,7 +124,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 
 ### 2.3 Per-layer responsibility detail
 
-**L1 `cli/`**. Only this layer constructs Click commands and parses argv. `app.py` holds the root `Click.Group` plus the `_LAZY_SUBCOMMANDS` registry — every entry uses an **absolute module path** (`mlmm.workflows.all`, `mlmm.io.trj2fig`, …) so the resolver is independent of where `default_group.py` itself lives. The `mlmm`-specific `preflight.py` (AmberTools / conda env / GPU preflight) lives here because it runs during CLI startup before any L2 workflow is invoked.
+**L1 `cli/`**. This layer owns root dispatch and shared argv parsing; leaf Click commands are defined in the registered `workflows/`, `domain/`, and `io/` modules. `app.py` holds the root `Click.Group` plus the `_LAZY_SUBCOMMANDS` registry — every entry uses an **absolute module path** (`mlmm.workflows.all`, `mlmm.io.trj2fig`, …) so the resolver is independent of where `default_group.py` itself lives. The `mlmm`-specific `preflight.py` (AmberTools / conda env / GPU preflight) lives here because it runs during CLI startup before any L2 workflow is invoked.
 
 **L2 `workflows/`** contains command modules plus shared workflow helpers. Modules registered in `cli/app.py:_LAZY_SUBCOMMANDS` own a `@click.command()` named `cli`; helper modules such as `_all_helpers.py`, `_opt_freq_common.py`, `_run_session.py`, `scan_common.py`, and `restraints.py` have no independent command. Large stage runners remain single modules in the current layout.
 

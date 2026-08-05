@@ -1,6 +1,6 @@
 # `path-search`
 
-`mlmm path-search` は GSM を使用して 2 つ以上の構造にわたる連続した最小エネルギー経路（MEP）を構築します。共有結合変化が検出された領域のみを選択的に精密化し、精密化済みのサブパスを 1 つの軌跡に統合します。R + （任意の中間体）+ P からなる多段機構を駆動する用途に向いており、再帰分割が素過程を自動検出します。ただし、複雑な多段階反応の検出は困難な場合があり、入力中間体・MEP エンジン設定・収束閾値の調整など手動での試行錯誤が必要になることがあります。
+`mlmm path-search` は選択した MEP engine（デフォルト GSM、または DMF）を使用して 2 つ以上の構造にわたる連続した最小エネルギー経路（MEP）を構築します。共有結合変化が検出された領域のみを選択的に精密化し、精密化済みのサブパスを 1 つの軌跡に統合します。R + （任意の中間体）+ P からなる多段機構を駆動する用途に向いており、再帰分割が素過程を自動検出します。ただし、複雑な多段階反応の検出は困難な場合があり、入力中間体・MEP エンジン設定・収束閾値の調整など手動での試行錯誤が必要になることがあります。
 
 ## 実行例
 
@@ -53,10 +53,10 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb \
 2. **HEI 周辺の局所緩和** -- `--refine-mode`（`peak`: HEI+/-1、`minima`: 最近傍局所極小）で種点を選び、単一構造オプティマイザ（`opt-mode`）で精密化して近傍の極小（`End1`、`End2`）を得る。
 3. **ねじれ vs 精密化の判定**:
  - `End1` と `End2` の間に共有結合変化が検出されない場合、その領域を*ねじれ*として扱い、`search.kink_max_nodes` 個の線形ノードを挿入して各ノードを個別に最適化。
- - それ以外の場合、`End1` と `End2` の間で**精密化セグメント（GSM）**を起動して障壁を明確化。
+ - それ以外の場合、`End1` と `End2` の間で**選択した MEP engine による精密化セグメント**を起動して障壁を明確化。
 4. **選択的再帰** -- `(A->End1)` と `(End2->B)` の結合変化を `bond` 閾値で比較。共有結合の更新を含むサブ区間のみに再帰。再帰深度は `search.max_depth` で制限。
 5. **統合とブリッジ** -- 精密化済みのサブパスを連結し、RMSD <= `search.stitch_rmsd_thresh` の重複端点を削除。2 つの統合部分の間の RMSD ギャップが `search.bridge_rmsd_thresh` を超える場合、選択中の `--mep-mode` でブリッジ MEP セグメントを挿入。インターフェース自体に結合変化がある場合、ブリッジの代わりに新たな再帰セグメントを生成。
-6. **任意のアライメント** -- 事前最適化後、`--align` で全入力を最初の入力に剛体アラインし、凍結原子を再マッチ。セグメントをプロット/分析用にアノテーション。
+6. **任意のアライメント/精密化** -- 事前最適化後、`--align` で全入力を最初の入力に剛体アライン。凍結アンカーがある場合は reference への freeze-guided scan と L-BFGS 緩和も行い、凍結原子を再マッチ。セグメントをプロット/分析用にアノテーション。
 
 結合変化検出は `bond` YAML セクションの閾値を使用する `bond_changes.compare_structures` に依存します。
 
@@ -104,11 +104,11 @@ out_dir/ (デフォルト:./result_path_search/)
 | `--hess-cutoff FLOAT` | ML 領域からの Hessian-MM 原子の距離カットオフ (Å)。可動 MM 原子に適用。 | _None_ |
 | `--movable-cutoff FLOAT` | ML 領域からの可動 MM 原子の距離カットオフ (Å)。これを超える MM 原子は凍結。指定時は `--detect-layer` が無効化。 | _None_ |
 | `--max-nodes INT` | GSM／DMF セグメントごとの可動内部画像数（総画像数は `max_nodes + 2`）。 | `20` |
-| `--max-cycles INT` | GSM マクロサイクルの最大数。 | `300` |
+| `--max-cycles INT` | 選択した MEP engine の最適化サイクル上限。 | `300` |
 | `--climb/--no-climb` | セグメント GSM の TS 精密化を有効化。 | `True` |
 | `--opt-mode [grad]` | 単一構造オプティマイザプリセット（現状 `grad` = L-BFGS のみ。`hess` は未配線）。 | `grad` |
 | `--preopt/--no-preopt` | セグメンテーション前に端点を L-BFGS で事前最適化。 | `True` |
-| `--align / --no-align` | 事前最適化後に全入力を最初の入力へ剛体アライメントし、凍結原子を再マッチ。 | 有効 |
+| `--align / --no-align` | 事前最適化後に入力をアラインし、凍結アンカーがあれば freeze-guided scan/緩和後に凍結原子を再マッチ。 | 有効 |
 | `--thresh TEXT` | 単一構造 L-BFGS のみの収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | _None_（実質: `gau`） |
 | `--thresh-gsm TEXT` | GSM ストリング最適化の収束プリセット（`stopt.thresh`; `--thresh` と同じプリセット群）。 | _None_（実質: `gau_loose`） |
 | `--thresh-dmf TEXT` | DMF 最適化の IPOPT dual-infeasibility 許容値（`dmf.tol`）。`tight`(0.04)、`middle`(0.10)、`loose`(0.20) または正の float。Gaussian プリセットは拒否。 | _None_（実質: `tight`） |

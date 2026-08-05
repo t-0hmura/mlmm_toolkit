@@ -428,7 +428,15 @@ class _UMABackend(_MLBackend):
             _uma_kwargs = {"device": device_str}
             if _uma_inference_settings is not None:
                 _uma_kwargs["inference_settings"] = _uma_inference_settings
-            self.predictor = pretrained_mlip.get_predict_unit(uma_model, **_uma_kwargs)
+            device_context = (
+                torch.cuda.device(ml_device)
+                if ml_device.type == "cuda"
+                else nullcontext()
+            )
+            with device_context:
+                self.predictor = pretrained_mlip.get_predict_unit(
+                    uma_model, **_uma_kwargs
+                )
 
         self.uma_task_name = uma_task_name
         self.model_charge = model_charge
@@ -660,7 +668,7 @@ class _OrbBackend(_ASEMLBackend):
             )
         from orb_models.forcefield import pretrained
 
-        device_str = "cuda" if ml_device.type == "cuda" else "cpu"
+        device_str = str(ml_device)
         precision = _normalize_orb_precision(orb_precision)
         loaded = getattr(pretrained, orb_model)(
             device=device_str, precision=precision
@@ -820,7 +828,7 @@ class _MACEBackend(_ASEMLBackend):
             mace_omol,
         )
 
-        device_str = "cuda" if ml_device.type == "cuda" else "cpu"
+        device_str = str(ml_device)
         model_lower = mace_model.lower()
         off23_aliases = {
             "mace-off23_small": "small",
@@ -945,7 +953,7 @@ class _AIMNet2Backend(_ASEMLBackend):
             )
         from aimnet.calculators import AIMNet2Calculator
 
-        device_str = "cuda" if ml_device.type == "cuda" else "cpu"
+        device_str = str(ml_device)
         self._ase_calc = AIMNet2Calculator(model=aimnet2_model, device=device_str)
         self._device = ml_device
         self._model_charge = model_charge
@@ -1583,7 +1591,11 @@ class OpenMMCalculator(Calculator):
 
         # Auto-detect device
         if device == "auto":
-            device = "cuda" if torch.cuda.is_available() else "cpu"
+            registered = {
+                Platform.getPlatform(index).getName().upper()
+                for index in range(Platform.getNumPlatforms())
+            }
+            device = "cuda" if "CUDA" in registered else "cpu"
 
         # Expose the resolved device for MLMMCore.compute's ML/MM parallel gate.
         self.device = device
@@ -1646,9 +1658,9 @@ class OpenMMCalculator(Calculator):
             forces = state.getForces(asNumpy=True).value_in_unit(
                 eV / unit.angstrom / unit.item
             )
-            # Zero forces on virtual sites so the optimizer never moves them
-            # (their position is set by computeVirtualSites() from the parents;
-            # the MM force on real atoms is already correct).
+            # Zero external virtual-site forces so the optimizer never moves
+            # coordinates overwritten by computeVirtualSites(). OpenMM has
+            # already redistributed their force to the parent atoms.
             if self._vsite_idx:
                 forces[self._vsite_idx] = 0.0
             self.results["forces"] = forces
@@ -1691,7 +1703,13 @@ class OpenMMCalculator(Calculator):
 
         if return_partial_hessian:
             fixed = _fixed_indices_from_constraints(atoms)
-            active_atoms = np.asarray([i for i in range(len(atoms)) if i not in fixed])
+            excluded = fixed | set(self._vsite_idx)
+            active_atoms = np.asarray(
+                [i for i in range(len(atoms)) if i not in excluded],
+                dtype=np.int64,
+            )
+            if active_atoms.size == 0:
+                return np.zeros((0, 0), dtype=dtype), active_atoms
             # Extract active sub-Hessian to match hessian_ff convention
             idx3 = np.concatenate([3 * active_atoms + d for d in range(3)])
             idx3.sort()

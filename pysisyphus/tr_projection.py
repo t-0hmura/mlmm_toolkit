@@ -164,6 +164,7 @@ def active_tr_basis(
         frozen_rank = 0
         q_active, rank = _orthonormal_columns(q_active_rows, rtol=rtol)
     else:
+        frozen_rank = 0
         q_frozen_rows = full_q[frozen_dofs]
         if full_rank == 0:
             coefficient_null = full_q.new_zeros((0, 0))

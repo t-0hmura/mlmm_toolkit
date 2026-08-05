@@ -14,7 +14,7 @@ Run the validation relevant to the files and numerical paths changed.
 
 | stage | what runs | how to invoke locally | failure means |
 |---|---|---|---|
-| 1. Unit tests | `pytest tests/ -q` | `pytest tests/ -q` | logic regression |
+| 1. Unit tests | all configured pytest roots | `pytest -q` | logic regression |
 | 2. Engineering markers | `# CHEMISTRY-RULE:N` coverage, `# DOMAIN_PURE` coverage, external-library import scope | `python .github/scripts/check_engineering_markers.py` | a required marker is missing, or an MLIP SDK is imported outside `backends/` |
 | 3. Help registry drift | CLI `--help` and `--help-advanced` compliance with registry | `python .github/scripts/check_help_registry.py` | CLI option mismatch — re-run after CLI changes |
 | 4. Smoke | `tests/smoke/run.sh` exercises the canonical ONIOM CLI surface (`mm-parm` → `define-layer` → `extract` → `path-search` → `tsopt` → `irc` → `freq` → `all`) on a representative system | copy `tests/smoke/` to scratch, then invoke `bash run.sh` from a site-specific scheduler wrapper | functional regression |
@@ -39,7 +39,7 @@ pip install -e ".[dev]" ruff pyright
 ```
 
 (or install ruff + pyright from your package manager of choice; pin via
-`pip install ruff==0.6.* pyright==1.1.*` if you want determinism with CI.)
+`pip install ruff==0.6.* pyright==1.1.*` for reproducible optional local checks.)
 
 ### 1.4 Diagnostic dump examples
 
@@ -159,7 +159,7 @@ changes are governed by §1.5.
 | 1 | Pick the right tier: pure-Python or chemistry-rule logic → `tests/test_<feature>.py`; multi-stage smoke → `tests/smoke/` | as appropriate |
 | 2 | Use `pytest` style: one assertion per logical thing; name the test for the symptom (`test_irc_initial_displacement_does_not_oom`) | new test |
 | 3 | If the test consumes a fixture, prefer the `tests/data/` directory; do **not** add large binary fixtures (> 100 KB) — use generators | `tests/data/`, `tests/conftest.py` |
-| 4 | Run `pytest tests/test_<feature>.py -q -x` until green, then `pytest tests/ -q` to confirm no cross-test breakage | local |
+| 4 | Run `pytest tests/test_<feature>.py -q -x` until green, then `pytest -q` to confirm no cross-test breakage across all configured roots | local |
 | 5 | If the test depends on a new public Click command or symbol, land Recipe 3.1 / 3.3 first so the suite remains green | sequencing |
 
 **Validation**: run `pytest`; CI blocks a failing merge.

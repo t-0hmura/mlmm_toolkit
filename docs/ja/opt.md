@@ -1,5 +1,7 @@
 # `opt`
 
+構造入力は PDB/mmCIF、または `--ref-pdb` を伴う XYZ を使用できます。
+
 `mlmm opt` は、ML/MM calculator（MLIP 領域 + 可動 MM 殻 + 凍結外殻）を用いて、層分割された全系の酵素 PDB（または XYZ + `--ref-pdb`）を局所極小に最適化します。層付き全系構造を緩和したいときに使います。`--opt-mode grad`（デフォルト）は L-BFGS、`--opt-mode hess` は RFOptimizer（RFO）を実行し、`--flatten` は最適化後に虚振動数モードをフラット化、`--mm-only` は MLIP を使わず全系を MM 力場のみで最適化します（grad/L-BFGS のみ、マイクロイテレーションは自動無効）。マイクロイテレーション（`--microiter`、デフォルト有効）は `hess` モードで可動 MM 殻を緩和します。
 
 ## 実行例
@@ -15,14 +17,14 @@ mlmm opt -i INPUT --parm PARM7 --model-pdb ML_REGION -q CHARGE [options]
 最小構成の L-BFGS 最適化（grad モード、デフォルト）:
 
 ```bash
-mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm opt -i system_layered.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --out-dir ./result_opt
 ```
 
 収束を厳しくして軌跡を保存する:
 
 ```bash
-mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm opt -i system_layered.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --thresh gau_tight --dump --out-dir ./result_opt_tight
 # 調和距離拘束を1つ追加する: --dist-freeze "[(12,45,2.20)]" --bias-k 20.0
 ```
@@ -30,7 +32,7 @@ mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 heavy モード（RFO）に切り替える:
 
 ```bash
-mlmm opt -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm opt -i system_layered.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 --opt-mode hess --out-dir ./result_opt_rfo
 # デフォルトの代わりに ORB バックエンドを使う: --backend orb
 ```
@@ -73,7 +75,7 @@ out_dir/ (デフォルト: ./result_opt/)
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
-| `-i, --input PATH` | `geom_loader` が受け付ける入力構造（`.pdb`、`.xyz`、`_trj.xyz`）。XYZ 入力時は `--ref-pdb` を併用。 | 必須 |
+| `-i, --input PATH` | `geom_loader` が受け付ける入力構造（`.pdb`、`.cif`、`.mmcif`、`.xyz`、`_trj.xyz`）。XYZ 入力時は `--ref-pdb` を併用。 | 必須 |
 | `--ref-pdb PATH` | 入力が XYZ の場合の参照 PDB トポロジー。 | _None_ |
 | `--parm PATH` | 全酵素の Amber parm7 トポロジー。 | 必須 |
 | `--model-pdb PATH` | ML 領域原子を定義する PDB。`--detect-layer` 有効時は省略可。 | _None_ |
@@ -132,7 +134,7 @@ out_dir/ (デフォルト: ./result_opt/)
 
 ## YAML 設定
 
-設定は **デフォルト < config < 明示CLI < override** の順で適用されます。受け付けるセクション:
+設定は **デフォルト < config < 明示 CLI** の順で適用されます。受け付けるセクション:
 
 ### `geom`
 
@@ -142,9 +144,9 @@ out_dir/ (デフォルト: ./result_opt/)
 
 ### `calc` / `mlmm`
 
-- `input_pdb`、`real_parm7`、`model_pdb`: 必須ファイルパス（文字列）。
+- 入力構造と `real_parm7` は CLI で指定します。ML 領域は `model_pdb`、明示的な model index、または有効な B-factor layer から指定できます。
 - `model_charge`（`-q/--charge`、必須）と `model_mult`（`-m/--multiplicity`、デフォルト 1）。
-- `link_mlmm`: ML/MM リンクペアを固定する `(ML_atom_id, MM_atom_id)` 文字列のオプションリスト（リンク原子は作成されません）。
+- `link_mlmm`: ML/MM 境界ペアを明示する `(ML_atom_id, MM_atom_id)` リスト。各ペアから link H を 1 個生成し、配置は `link_atom_method` が制御します。
 - バックエンド選択: `backend`（デフォルト `"uma"`、選択肢: `uma`/`orb`/`mace`/`aimnet2`）。`embedcharge` は互換性用で、`true` は拒否されます。
 - UMA 制御: `uma_model`（デフォルト `"uma-s-1p2"`）、`uma_task_name`（デフォルト `"omol"`）。
 - 共通制御（全バックエンド）: `hessian_calc_mode`（`"Analytical"` または `"FiniteDifference"`）、`out_hess_torch`（bool）、`H_double`（bool）。

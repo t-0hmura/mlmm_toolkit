@@ -111,6 +111,26 @@ def test_virtual_site_error_message_is_bounded(monkeypatch) -> None:
     assert len(message) < 300
 
 
+@pytest.mark.parametrize(
+    ("unsupported", "match"),
+    [
+        ({"LENNARD_JONES_CCOEF": [0.0, 1.0]}, "12-6-4"),
+        ({"CHARMM_UREY_BRADLEY_COUNT": [1]}, "CHAMBER"),
+    ],
+)
+def test_loader_rejects_unsupported_topology_terms(
+    monkeypatch, unsupported, match
+) -> None:
+    monkeypatch.setattr(
+        loaders,
+        "read_prmtop_with_parmed",
+        lambda _path: dict(unsupported),
+    )
+
+    with pytest.raises(ValueError, match=match):
+        loaders.load_system("unsupported.parm7")
+
+
 @pytest.mark.skipif(
     not _PRMTOP.exists(),
     reason="benchmark/data/small topology is not available",

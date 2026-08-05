@@ -50,7 +50,7 @@ class ChainOfStates:
         self.climb_lanczos = climb_lanczos
         self.climb_fixed = climb_fixed
         self.energy_min_mix = energy_min_mix
-        # Must not be lower than climb_rms
+        # Must not be higher than climb_rms
         self.climb_lanczos_rms = min(self.climb_rms, climb_lanczos_rms)
         self.scheduler = scheduler
         self.progress = progress
@@ -244,8 +244,9 @@ class ChainOfStates:
         client = self.get_dask_client()
         self.log(client)
 
-        # save original pals to restore them later
-        orig_pal = images_to_calculate[0].calculator.pal
+        # Save every original value: calculators need not share one ``pal``.
+        orig_pals = [image.calculator.pal for image in images_to_calculate]
+        orig_pal = orig_pals[0]
 
         # divide pal of each image by the number of workers available or available images
         # number of workers available
@@ -269,14 +270,17 @@ class ChainOfStates:
             for i in range(n_batches * n_workers, n_images):
                 images_to_calculate[i].calculator.pal = new_pal
 
-        # map images to workers
-        image_futures = client.map(self.par_image_calc, images_to_calculate)
-        # set images to the results of the calculations
-        self.set_images(image_indices, client.gather(image_futures))
-
-        # Restore original pals
-        for i in range(0, n_images):
-            self.images[i].calculator.pal = orig_pal
+        try:
+            # map images to workers
+            image_futures = client.map(self.par_image_calc, images_to_calculate)
+            # set images to the results of the calculations
+            self.set_images(image_indices, client.gather(image_futures))
+        finally:
+            # Restore original pals on the images that were actually evaluated.
+            # Cached endpoints can make image_indices differ from range(n_images),
+            # so restoring by position leaves a moving image with a reduced pal.
+            for index, original_pal in zip(image_indices, orig_pals):
+                self.images[index].calculator.pal = original_pal
 
     def calculate_forces(self):
         # Determine the number of images for which we have to do calculations.

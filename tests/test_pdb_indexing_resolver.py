@@ -85,6 +85,29 @@ def test_manual_pairs_preserve_requested_pairing_and_order(tmp_path: Path) -> No
     assert resolved.link_pairs == ((3, 4), (1, 2))
 
 
+def test_manual_pairs_allow_shared_endpoint_but_reject_exact_repeat(
+    tmp_path: Path,
+) -> None:
+    full = tmp_path / "full.pdb"
+    model = tmp_path / "model.pdb"
+    lines = [
+        _atom_line(1, "C1", "LIG", "A", 1, 0.0),
+        _atom_line(2, "CA", "ALA", "A", 2, 1.4),
+        _atom_line(3, "CB", "ALA", "A", 2, 2.8),
+    ]
+    _write(full, lines)
+    _write(model, [lines[0]])
+
+    shared = [
+        ("A:LIG:1:C1", "A:ALA:2:CA"),
+        ("A:LIG:1:C1", "A:ALA:2:CB"),
+    ]
+    assert resolve_mlmm_atoms(full, model, shared).link_pairs == ((1, 2), (1, 3))
+
+    with pytest.raises(ValueError, match="repeats boundary pair"):
+        resolve_mlmm_atoms(full, model, [shared[0], shared[0]])
+
+
 def test_manual_pairs_reject_ambiguous_and_wrong_side_selectors(
     tmp_path: Path,
 ) -> None:
@@ -184,6 +207,26 @@ def test_automatic_links_follow_parm7_bonds_not_distance(tmp_path: Path) -> None
     )
 
     assert resolved.link_pairs == ((1, 3),)
+
+
+def test_automatic_links_allow_shared_endpoint(tmp_path: Path) -> None:
+    full = tmp_path / "full.pdb"
+    model = tmp_path / "model.pdb"
+    lines = [
+        _atom_line(1, "C1", "LIG", "A", 1, 0.0),
+        _atom_line(2, "CA", "ALA", "A", 2, 1.4),
+        _atom_line(3, "CB", "ALA", "A", 2, 2.8),
+    ]
+    _write(full, lines)
+    _write(model, [lines[0]])
+
+    resolved = resolve_mlmm_atoms(
+        full,
+        model,
+        topology=_topology(3, [(1, 2), (1, 3)]),
+    )
+
+    assert resolved.link_pairs == ((1, 2), (1, 3))
 
 
 def test_automatic_links_require_parm7_topology(tmp_path: Path) -> None:

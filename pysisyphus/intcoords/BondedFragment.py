@@ -1,6 +1,7 @@
 import numpy as np
 
 from pysisyphus.intcoords.Primitive import Primitive
+from pysisyphus.intcoords.derivatives import d2q_b
 from pysisyphus.linalg import norm3
 
 
@@ -31,3 +32,17 @@ class BondedFragment(Primitive):
             row = row.flatten()
             return value, row
         return value
+
+    @staticmethod
+    def _jacobian(coords3d, indices, bond_indices=None):
+        """Second derivative of the interfragment bond distance.
+
+        The value is the plain bond distance between the two ``bond_indices``
+        atoms, so its second derivative is the complete two-atom bond block.
+        ``RedundantCoords.get_K_matrix`` embeds this block using these endpoint
+        indices rather than the full fragment membership.
+        """
+        from_frag, to_ = bond_indices
+        return d2q_b(
+            *coords3d[from_frag], *coords3d[to_]
+        )

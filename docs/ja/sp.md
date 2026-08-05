@@ -1,6 +1,6 @@
 # `sp`
 
-`mlmm sp` は、単一構造における ML/MM ONIOM エネルギーと原子に働く力（任意で ONIOM Hessian 全体）を評価します。次のような用途に使います。
+`mlmm sp` は、単一構造における ML/MM ONIOM エネルギーと原子に働く力（任意で active-coordinate Hessian block）を評価します。次のような用途に使います。
 
 - 最適化を実行する前に層構造を高速に確認する
 - 同一の ONIOM 分割上でバックエンドどうしを直接比較する
@@ -14,7 +14,7 @@
 mlmm sp -i layered.pdb --parm real.parm7 -q 0 -m 1
 ```
 
-ONIOM Hessian 全体も計算する（デフォルトは FiniteDifference。バックエンドのネイティブ Hessian を使うには `--hessian-calc-mode Analytical` を指定）:
+active-coordinate Hessian block も計算する（デフォルトは FiniteDifference。バックエンドのネイティブ Hessian を使うには `--hessian-calc-mode Analytical` を指定）:
 
 ```bash
 mlmm sp -i layered.pdb --parm real.parm7 -q 0 -m 1 --hess
@@ -27,7 +27,7 @@ mlmm sp -i layered.pdb --parm real.parm7 -q 0 -m 1 --hess
 | ファイル | 内容 | 出力 |
 |---|---|---|
 | `forces.npy` | 原子単位（Hartree / Bohr）の ONIOM 力の `(N, 3)` 配列 | 常時 |
-| `hessian.npy` | 質量で重み付けしていない `(3N, 3N)` ONIOM Hessian（Hartree / Bohr²） | `--hess` 指定時のみ |
+| `hessian.npy` | 質量で重み付けしていない active-coordinate ONIOM Hessian block（Hartree / Bohr²） | `--hess` 指定時のみ |
 | `result.json` / `summary.json` | ONIOM エネルギー（a.u.）、バックエンド、電荷/スピン、npy 出力へのパス、経過時間 | `--out-json` 指定時のみ |
 
 `sp` は `summary.log` を書き込みません。

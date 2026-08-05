@@ -114,7 +114,7 @@ Every ML/MM-evaluating subcommand (`opt`, `tsopt`, `path-search`,
 | flag | purpose |
 |---|---|
 | `-i, --input` | Full-enzyme PDB (or XYZ + `--ref-pdb`) |
-| `--parm FILE` | Amber `parm7` topology of the whole enzyme — **required** |
+| `--parm FILE` | Amber `parm7` topology of the whole enzyme — required for standalone compute commands; `all` can generate it through `mm-parm` when omitted |
 | `--model-pdb FILE` | Explicit ML-region PDB; highest-priority ML membership source |
 | `--detect-layer` | Automatically read B-factor layers; with explicit membership, retain valid movable/frozen MM layers. Enabled by default |
 | `--model-indices` | Explicit ML atom indices used when `--model-pdb` is omitted; higher priority than B-factor ML membership |

@@ -15,7 +15,7 @@ Each row points to the full per-subcommand md in this skill directory.
 | `all-endpoint-mep.md` | `all` (mode 1) | Drives the pipeline from N reaction-ordered structures (R, optionally IM₁ … IMₙ, P).<br>Path search runs GSM/DMF between adjacent endpoints; recursion handles multi-step mechanisms. |
 | `all-scan-list.md` | `all` (mode 2) | Drives the pipeline from a single reactant + a list of staged distance scans.<br>The scan list seeds the MEP; recursion handles intermediate states like in mode 1. |
 | `all-ts-only.md` | `all` (mode 3) | Skips path search and starts from a TS candidate; runs `tsopt → irc → freq → dft`.<br>Use when you already have a transition-state guess (from a different code or a prior run). |
-| `extract.md` | `extract` | Cuts an active-site cluster from a PDB around the substrate residues.<br>Handles residue selection, per-residue charge mapping (`-l`), link-H, and B-factor layer assignment in one pass. |
+| `extract.md` | `extract` | Selects and writes an active-site/model pocket around the substrate residues.<br>`define-layer` separately assigns B-factor layers and frozen atoms. |
 | `mm-parm.md` | `mm-parm` | Generate Amber `parm7` + `rst7` from a PDB via tleap (and antechamber for non-standard ligands).<br>Required for any subcommand that needs MM gradients. |
 | `define-layer.md` | `define-layer` | Assign / refine ML / movable-MM / frozen layers via the PDB B-factor field.<br>Standalone or post-`extract` adjustment without rebuilding parm7. |
 | `oniom-export.md` | `oniom-export` | Export the layered system as a Gaussian g16 ONIOM input (or ORCA).<br>Useful for input-deck exchange or hand-comparing setup with a third-party DFT/MM run. |
@@ -67,7 +67,7 @@ These flags appear on most subcommands (canonical list:
 | `--workers` | UMA predictor workers; `>1` is incompatible with an analytical Hessian |
 | `-o, --out-dir` | Output directory, subcommand-specific default |
 | `--config` | YAML configuration file applied before CLI flags |
-| `--show-config` | Print resolved merged config, then continue execution |
+| `--show-config` | Print resolved merged config, then continue execution (`sp` prints and exits before evaluation) |
 | `--dry-run` | Validate options and print the run plan without executing |
 | `--help-advanced` | Reveal hidden / advanced flags |
 | `--ref-pdb` | Reference PDB used to derive residue context for XYZ inputs |

@@ -147,10 +147,10 @@ def get_calculator(charge=0, spin=1, device="auto", **kwargs):
 1. **バックエンドアダプタを作成** — `mlmm/backends/mlmm_calc.py`（あるいは大きくなる場合は
  `mlmm/backends/xyz.py` のような新規ファイル）に、`_MLBackend`（ABC）を継承する
  `_XYZBackend(_MLBackend)` を実装します。ASE 経路が必要な場合は並行して `_XYZASEBackend` も実装します。
- どちらも共通 kwargs（`charge / spin / device /
- freeze_atoms / hessian_calc_mode / return_partial_hessian / hessian_double /
- print_timing / model`）と、バックエンド固有の kwargs（`precision`、
- `default_dtype` など）を受け取る必要があります。
+ factory は共通 adapter 引数 `model_charge`、`model_mult`、`ml_device` と、
+`uma_model`/`uma_precision` や `mace_model`/`mace_dtype` のような model/backend
+固有引数を渡します。Hessian assembly precision は backend adapter ではなく
+`MLMMCore` が所有します。
 2. **`_MLBackend` に準拠** — 抽象メソッド
  `eval(atoms, need_grad=True) -> (E_eV, F_eV, opaque)`（エネルギーは eV、力は
  eV/Å、加えてバックエンド固有の opaque オブジェクト）、`hessian_analytical(opaque, n_atoms,

@@ -69,9 +69,9 @@ Options:
                                   template is available.  [default: convert-
                                   files]
   -b, --backend [uma|orb|mace|aimnet2]
-                                  Backend label recorded in output metadata; the
-                                  ML region in dft is computed with DFT (PySCF),
-                                  so this does not select a calculator.
+                                  Compatibility no-op; DFT output records
+                                  mlip_backend=dft and this option does not
+                                  select or label a calculator.
   --embedcharge / --no-embedcharge
                                   Unavailable in v0.3.3; retained so older
                                   commands fail with an actionable diagnostic.
@@ -92,8 +92,10 @@ Options:
                                   [default: no-out-json]
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
                                   electron-parity check (logs that it was
-                                  skipped). For an intentional open-shell or
-                                  covalently-cut ML region.
+                                  skipped). An open-shell ML region needs a
+                                  matching multiplicity; use this only for an
+                                  intentional nonstandard input such as a
+                                  covalently-cut region.
   --detect-layer                  Automatically detect ML/MM layers from input
                                   PDB B-factors (ML=0, MovableMM=10,
                                   FrozenMM=20) when explicit ML membership is

@@ -127,8 +127,11 @@ def load_merged_yaml_cfg(
     use the individual layers for staged ``apply_yaml_overrides`` and the
     merged dict for ``show_config`` display without re-reading the files.
     """
-    config_dict = load_yaml_dict(config_yaml)
-    override_dict = load_yaml_dict(override_yaml)
+    try:
+        config_dict = load_yaml_dict(config_yaml)
+        override_dict = load_yaml_dict(override_yaml)
+    except ValueError as exc:
+        raise click.BadParameter(str(exc), param_hint="--config/--override") from exc
     merged: Dict[str, Any] = {}
     deep_update(merged, config_dict)
     deep_update(merged, override_dict)

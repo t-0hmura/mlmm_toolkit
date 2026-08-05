@@ -26,7 +26,8 @@ Options:
                                   (ranges allowed like 1-5). Used when --model-
                                   pdb is omitted.
   -q, --charge INTEGER            ML-region total charge. Required unless
-                                  --ligand-charge is provided.
+                                  --ligand-charge or plot-only --csv is
+                                  provided.
   -l, --ligand-charge TEXT        Total charge for unknown ligand residues or a
                                   per-resname mapping (e.g., GPP:-3,SAM:1), used
                                   to derive the ML-region charge when -q is
@@ -150,7 +151,9 @@ Options:
                                   reproducibility on the complete target stack.
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
                                   electron-parity check (logs that it was
-                                  skipped). For an intentional open-shell or
-                                  covalently-cut ML region.
+                                  skipped). An open-shell ML region needs a
+                                  matching multiplicity; use this only for an
+                                  intentional nonstandard input such as a
+                                  covalently-cut region.
   -h, --help                      Show this message and exit.
 ```

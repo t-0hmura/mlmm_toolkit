@@ -13,9 +13,9 @@ Options:
                                   paths, DEBUG logging).  [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
-  -i, --input FILE                Starting geometry (PDB or XYZ). XYZ provides
-                                  higher coordinate precision. If XYZ, use
-                                  --ref-pdb to specify PDB topology for atom
+  -i, --input FILE                Starting geometry (PDB/mmCIF or XYZ). XYZ
+                                  provides higher coordinate precision. If XYZ,
+                                  use --ref-pdb to specify PDB topology for atom
                                   ordering and output conversion.  [required]
   --ref-mode FILE                 Advanced path-mode hint for Hessian TS root
                                   selection (.npy or whitespace Cartesian 3N
@@ -192,7 +192,9 @@ Options:
                                   knob).  [x>=1]
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
                                   electron-parity check (logs that it was
-                                  skipped). For an intentional open-shell or
-                                  covalently-cut ML region.
+                                  skipped). An open-shell ML region needs a
+                                  matching multiplicity; use this only for an
+                                  intentional nonstandard input such as a
+                                  covalently-cut region.
   -h, --help                      Show this message and exit.
 ```

@@ -148,7 +148,9 @@ class RedundantCoords:
         # Use supplied typed_prims
         else:
             self.typed_prims = list(
-                dict.fromkeys([*typed_prims, *self.define_prims])
+                dict.fromkeys(
+                    [*typed_prims, *self.define_prims, *self.constrain_prims]
+                )
             )
 
         if self.bonds_only:
@@ -219,8 +221,6 @@ class RedundantCoords:
                 append_to = self._outofplane_inds
             elif pt in DummyCoords:
                 append_to = self._dummycoord_inds
-            elif pt in Cartesians:
-                append_to = self._cartesian_inds
             else:
                 raise Exception("Unhandled PrimType!")
             append_to.append(i)
@@ -495,8 +495,11 @@ class RedundantCoords:
             # As for now we build up the K matrix as flat array. To add the dg
             # entries at the appropriate places in K_flat we have to calculate
             # the corresponding flat indices of dg in K_flat.
+            primitive_indices = getattr(
+                primitive, "bond_indices", primitive.indices
+            )
             cart_inds = list(
-                it.chain(*[range(3 * i, 3 * i + 3) for i in primitive.indices])
+                it.chain(*[range(3 * i, 3 * i + 3) for i in primitive_indices])
             )
             flat_inds = [
                 row * size_ + col for row, col in it.product(cart_inds, cart_inds)
@@ -576,10 +579,9 @@ class RedundantCoords:
             logger=self.logger,
         )
 
-        self.typed_prims = coord_info.typed_prims
-        for cp in self.constrain_prims:
-            if cp not in self.typed_prims:
-                self.typed_prims.append(cp)
+        self.typed_prims = list(
+            dict.fromkeys([*coord_info.typed_prims, *self.constrain_prims])
+        )
 
         self.fragments = coord_info.fragments
 

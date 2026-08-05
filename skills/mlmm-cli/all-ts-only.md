@@ -31,6 +31,7 @@ mlmm all --parm enzyme.parm7 -i ts_candidate.pdb \
 `mlmm all` falls into TS-only mode when:
 
 - exactly **one** `-i` input is given,
+- `--tsopt` is enabled,
 - **no** `--scan-lists` is provided.
 
 The orchestrator skips path-search automatically and starts the
@@ -50,7 +51,7 @@ mlmm freq  -i result_tsopt/final_geometry.xyz --parm enzyme.parm7 --ref-pdb enzy
 ## Pipeline collapses to
 
 ```
-ts_candidate.{xyz,pdb,gjf}
+ts_candidate.{xyz,pdb,cif,mmcif}
        │
        ▼
    [tsopt]            (Dimer or RS-I-RFO; default RS-I-RFO)
@@ -95,9 +96,8 @@ print(seg["barrier_from_endpoint_2_kcal"])
 print(seg["bond_changes"])             # what bonds broke / formed along the IRC
 
 # n_imaginary and IRC endpoint energies are NOT on the summary segment;
-# they live in the per-stage result.json files, written only when the stage
-# ran with --out-json (rerun the stage standalone with --out-json, or read
-# summary.json / summary.log):
+# they live in the per-stage result.json files, which all writes
+# unconditionally for the TS and IRC children:
 ts = json.load(open("result_ts_only/segments/seg_01/ts/result.json"))
 print(ts["n_imaginary_modes"])         # should be 1
 irc = json.load(open("result_ts_only/segments/seg_01/irc/result.json"))

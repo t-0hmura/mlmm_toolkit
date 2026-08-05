@@ -7,9 +7,8 @@
 - **read** by `mlmm oniom-import` (reconstructs an XYZ + a layer-encoded PDB from a Gaussian/ORCA ONIOM file).
 
 The geometry pipeline does **not** read gjf. `opt` / `tsopt` / `freq` / `irc` /
-`scan` / `path-opt` / `path-search` take **PDB / XYZ** via `-i` (other suffixes
-are rejected with `Unsupported input format: … Use .pdb or .xyz`), and `dft`
-takes a **PDB** (`-i`, with `--ref-pdb` for an XYZ). To feed a Gaussian file into
+`scan` / `path-opt` / `path-search` take **PDB / mmCIF / XYZ** via `-i` (XYZ
+uses `--ref-pdb`), and `dft` accepts the same adopted structure surface. To feed a Gaussian file into
 the pipeline, convert it first with `mlmm oniom-import`.
 
 ## Structure

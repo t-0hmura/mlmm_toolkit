@@ -1,6 +1,6 @@
 # `path-search`
 
-`mlmm path-search` builds a continuous minimum-energy path (MEP) across two or more structures using GSM. It selectively refines only those regions where covalent bond changes are detected, then stitches the resolved subpaths into a single trajectory. Use it to drive a multistep mechanism from R + (optional intermediates) + P, where the recursive segmentation auto-detects elementary steps. Complex multistep mechanisms may require manual trial-and-error—adjusting input intermediates, MEP-engine settings, or convergence thresholds—to obtain a satisfactory pathway.
+`mlmm path-search` builds a continuous minimum-energy path (MEP) across two or more structures using the selected MEP engine (GSM by default, or DMF). It selectively refines only those regions where covalent bond changes are detected, then stitches the resolved subpaths into a single trajectory. Use it to drive a multistep mechanism from R + (optional intermediates) + P, where the recursive segmentation auto-detects elementary steps. Complex multistep mechanisms may require manual trial-and-error—adjusting input intermediates, MEP-engine settings, or convergence thresholds—to obtain a satisfactory pathway.
 
 ## Examples
 
@@ -44,10 +44,10 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb \
 2. **Local relaxation around HEI** -- Seed refinement from `--refine-mode` (`peak`: HEI+/-1, `minima`: nearest local minima), then optimize with the chosen single-structure optimizer (`--opt-mode`) to recover nearby minima (`End1`, `End2`).
 3. **Decide between kink vs. refinement**:
  - If no covalent bond change is detected between `End1` and `End2`, treat the region as a *kink*: insert `search.kink_max_nodes` linear nodes and optimize each individually.
- - Otherwise, launch a **refinement segment (GSM)** between `End1` and `End2` to sharpen the barrier.
+ - Otherwise, launch a **refinement segment with the selected MEP engine** between `End1` and `End2` to sharpen the barrier.
 4. **Selective recursion** -- Compare bond changes for `(A->End1)` and `(End2->B)` using the `bond` thresholds. Recurse only on sub-intervals that still contain covalent bond changes. Recursion depth is capped by `search.max_depth`.
 5. **Stitching & bridging** -- Concatenate resolved subpaths, dropping duplicate endpoints when RMSD <= `search.stitch_rmsd_thresh`. If the RMSD gap between two stitched pieces exceeds `search.bridge_rmsd_thresh`, insert a bridge MEP segment using the selected `--mep-mode`. When the interface itself shows a bond change, a new recursive segment replaces the bridge.
-6. **Optional alignment** -- When enabled, `--align` rigidly aligns all inputs to the first input (after optional pre-opt) and re-matches the freeze-atom selection. Segments are annotated for plotting/analysis.
+6. **Optional alignment/refinement** -- After optional preoptimization, `--align` rigidly aligns inputs to the first input. With frozen anchors, the shared owner also performs a freeze-guided scan and L-BFGS relaxation toward the reference, then re-matches the freeze-atom selection. Segments are annotated for plotting/analysis.
 
 Bond-change detection relies on `bond_changes.compare_structures` with thresholds surfaced under the `bond` YAML section.
 
@@ -88,11 +88,11 @@ out_dir/ (default: ./result_path_search/)
 | `--hess-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. Applied to movable MM atoms. | _None_ |
 | `--movable-cutoff FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. MM atoms beyond this are frozen. Providing `--movable-cutoff` disables `--detect-layer`. | _None_ |
 | `--max-nodes INT` | Movable internal images per GSM or DMF segment (`max_nodes + 2` total images). | `20` |
-| `--max-cycles INT` | Max GSM macro-cycles. | `300` |
+| `--max-cycles INT` | Optimization-cycle budget for the selected MEP engine. | `300` |
 | `--climb/--no-climb` | Enable TS refinement for segment GSM. | `True` |
 | `--opt-mode [grad]` | Single-structure optimizer preset (currently `grad` = L-BFGS only; `hess` not yet wired). | `grad` |
 | `--preopt/--no-preopt` | Pre-optimize endpoints with L-BFGS before segmentation. | `True` |
-| `--align/--no-align` | After pre-optimization, rigidly align all inputs to the first input and re-match freeze atoms. | `True` |
+| `--align/--no-align` | After preoptimization, align inputs and, with frozen anchors, run freeze-guided scan/relaxation before re-matching freeze atoms. | `True` |
 | `--thresh TEXT` | Convergence preset for single-structure L-BFGS runs only (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | _None_ (effective: `gau`) |
 | `--thresh-gsm TEXT` | Convergence preset for the GSM string optimizer (`stopt.thresh`; same presets as `--thresh`). | _None_ (effective: `gau_loose`) |
 | `--thresh-dmf TEXT` | IPOPT dual-infeasibility tolerance of the DMF optimizer (`dmf.tol`): `tight` (0.04), `middle` (0.10), `loose` (0.20), or a positive float. Gaussian presets are rejected. | _None_ (effective: `tight`) |

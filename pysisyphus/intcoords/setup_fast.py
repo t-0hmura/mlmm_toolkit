@@ -49,12 +49,18 @@ def find_bonds(
         keep = np.logical_and(dists_ <= ref_dists, min_dist <= dists_)
         for to_ in bonds[keep]:
             bonds_.append(frozenset((i, to_)))
-    bonds = np.array([tuple((from_, to_)) for from_, to_ in set(bonds_)])
+    # Always report bonds as an integer array of shape (-1, 2), so that structures
+    # without any bond still yield a usable, correctly shaped (0, 2) array.
+    bonds = np.array(
+        [tuple((from_, to_)) for from_, to_ in set(bonds_)], dtype=int
+    ).reshape(-1, 2)
     return bonds
 
 
 def find_bonds_for_geom(geom, bond_factor=BOND_FACTOR):
-    return find_bonds(geom.atoms, geom.coords3d, geom.covalent_radii)
+    return find_bonds(
+        geom.atoms, geom.coords3d, geom.covalent_radii, bond_factor=bond_factor
+    )
 
 
 def get_bond_vec_getter(

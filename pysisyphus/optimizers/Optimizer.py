@@ -23,7 +23,6 @@ from pysisyphus.helpers import (
 from pysisyphus.helpers_pure import highlight_text
 from pysisyphus.intcoords.exceptions import RebuiltInternalsException
 from pysisyphus.intcoords.helpers import interfragment_distance
-from pysisyphus.io.hdf5 import get_h5_group, resize_h5_group
 from pysisyphus.optimizers.exceptions import ZeroStepLength
 from pysisyphus.TablePrinter import TablePrinter
 
@@ -254,9 +253,11 @@ class Optimizer(metaclass=abc.ABCMeta):
             String poiting to a directory where optimization progress is
             dumped.
         h5_fn
-            Basename of the HDF5 file used for dumping.
+            Retained for signature compatibility. No HDF5 file is written;
+            progress is dumped as trajectories and restart information.
         h5_group_name
-            Groupname used for dumping of this optimization.
+            Retained for signature compatibility, and used only to keep the
+            per-optimization label unique.
         """
         assert thresh in CONV_THRESHS.keys()
 
@@ -338,8 +339,8 @@ class Optimizer(metaclass=abc.ABCMeta):
             moving_image_num = len(self.geometry.moving_indices)
             print(f"Path with {moving_image_num} moving images.")
 
-        # Don't use prefix for this fn, as different optimizations
-        # can be distinguished according to their group in the HDF5 file.
+        # Compatibility attributes; see the constructor documentation. No prefix,
+        # so different optimizations keep distinguishable labels.
         self.h5_fn = self.get_path_for_fn(h5_fn, with_prefix=False)
         self.h5_group_name = h5_group_name
 
@@ -362,15 +363,6 @@ class Optimizer(metaclass=abc.ABCMeta):
         if self.dump:
             out_trj_fn = self.get_path_for_fn("optimization_trj.xyz")
             self.out_trj_handle = open(out_trj_fn, "w")
-            # Call with reset=True to delete remnants of previous calculations, unless
-            # the optimizer was restarted. Given a previous optimization with, e.g. 30
-            # cycles and a second restarted optimization with 20 cycles the last 10 cycles
-            # of the previous optimization would still be present.
-            reset = restart_info is None
-            # h5_group = get_h5_group(
-            #     self.h5_fn, self.h5_group_name, self.data_model, reset=reset
-            # )
-            # h5_group.file.close()
         if self.prefix:
             self.log(f"Created optimizer with prefix {self.prefix}")
 
@@ -950,53 +942,6 @@ class Optimizer(metaclass=abc.ABCMeta):
             as_xyz = image.as_xyz(comment)
             self.write_to_out_dir(image_fn, as_xyz + "\n", "a")
 
-    def write_results(self):
-        # Save results from the Optimizer to HDF5 file if requested
-        # h5_group = get_h5_group(self.h5_fn, self.h5_group_name)
-
-        # Some attributes never change and are only set in the first cycle
-        # if self.cur_cycle == 0:
-        #     h5_group.attrs["is_cos"] = self.is_cos
-        #     try:
-        #         atoms = self.geometry.images[0].atoms
-        #         coord_size = self.geometry.images[0].coords.size
-        #     except AttributeError:
-        #         atoms = self.geometry.atoms
-        #         coord_size = self.geometry.coords.size
-        #     h5_group.attrs["atoms"] = np.bytes_(atoms)
-        #     h5_group.attrs["coord_type"] = self.geometry.coord_type
-        #     h5_group.attrs["coord_size"] = coord_size
-        #     h5_group.attrs["overachieve_factor"] = self.overachieve_factor
-        #     for key in (
-        #         "max_force_thresh",
-        #         "rms_force_thresh",
-        #         "max_step_thresh",
-        #         "rms_step_thresh",
-        #     ):
-        #         try:
-        #             h5_group.attrs[key] = self.convergence[key]
-        #         # Step threshold may not be present
-        #         except KeyError:
-        #             pass
-
-        # Update changing attributes
-        # h5_group.attrs["cur_cycle"] = self.cur_cycle
-        # h5_group.attrs["is_converged"] = self.is_converged
-
-        # for key, shape in self.data_model.items():
-        #     value = getattr(self, key)
-        #     # Don't try to set empty values, e.g. 'tangents' are only present
-        #     # for COS methods. 'modified_forces' are only present for NCOptimizer.
-        #     if not value:
-        #         continue
-        #     if len(shape) > 1:
-        #         h5_group[key][self.cur_cycle, : len(value[-1])] = value[-1]
-        #     else:
-        #         h5_group[key][self.cur_cycle] = value[-1]
-
-        # h5_group.file.close()
-        pass
-
     def write_cycle_to_file(self):
         as_xyz_str = self.geometry.as_xyz()
 
@@ -1015,8 +960,6 @@ class Optimizer(metaclass=abc.ABCMeta):
             # Append to _trj.xyz file
             self.out_trj_handle.write(as_xyz_str + "\n")
             self.out_trj_handle.flush()
-        # Dump to HDF5
-        # self.write_results()
 
     def final_summary(self):
         # If the optimization was stopped _forces may not be set, so
@@ -1222,13 +1165,6 @@ class Optimizer(metaclass=abc.ABCMeta):
                         self.geometry, self.is_cos, self.max_cycles
                     )
                     self.h5_group_name += "_rebuilt"
-                    # h5_group = get_h5_group(
-                    #     self.h5_fn,
-                    #     self.h5_group_name,
-                    #     self.data_model,
-                    #     reset=True,
-                    # )
-                    # h5_group.file.close()
 
             # Coordinates may be updated here.
             if (self.reparam_when == "after") and hasattr(
@@ -1374,12 +1310,6 @@ class Optimizer(metaclass=abc.ABCMeta):
         must_resize = self.last_cycle >= self.max_cycles
         if must_resize:
             self.max_cycles += restart_info["max_cycles"]
-            # Resize HDF5
-            if self.dump:
-                # h5_group = get_h5_group(self.h5_fn, self.h5_group_name)
-                # resize_h5_group(h5_group, self.max_cycles)
-                # h5_group.file.close()
-                pass
 
         self.coords = [np.array(coords) for coords in restart_info["coords"]]
         self.energies = restart_info["energies"]

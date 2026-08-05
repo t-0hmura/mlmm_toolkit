@@ -104,7 +104,7 @@ result_tsopt/
 ```python
 import json
 d = json.load(open("result_tsopt/result.json"))
-print(d["status"])                      # "converged" / "not_converged" / "unverified"
+print(d["status"])                      # "converged" / "stalled" / "not_converged" / "unverified"
 print(d["energy_hartree"])
 print(d["n_imaginary_modes"])           # should be 1 for a real TS
 print(d["imaginary_frequencies_cm"])    # list of cm⁻¹

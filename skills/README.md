@@ -17,8 +17,8 @@ pattern.
 - `mlmm-cli`: index of the 22 subcommands plus per-subcommand
   mds (each with synopsis, key flags, examples, output, caveats).
 - `mlmm-ts-strategy`: cross-cutting decision know-how for a
-  reaction-barrier campaign — precision by GPU class (`--precision`
-  fp32/fp64), the two TS-candidate routes (`path-search` MEP vs
+  reaction-barrier campaign — backend/model-specific precision guidance
+  (`--precision` fp32/fp64) plus GPU capacity/performance planning, the two TS-candidate routes (`path-search` MEP vs
   distance-restrained `scan`), fixing a wrong imaginary-frequency count
   (`--precision fp64` / `--coord-type dlc`), reading a barrier when the
   scan started from the Product side, staged vs concerted `--scan-lists`,

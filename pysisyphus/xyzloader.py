@@ -71,9 +71,17 @@ def split_xyz_str(xyz_str):
      X 2.0 4.0 0.0
 
     """
-    float_ = r"([\+\d\-\.]+)"
     header_re = re.compile(r"(\d+)")
-    coord_re = re.compile(fr"[a-zA-Z]+\s+{float_}\s+{float_}\s+{float_}")
+
+    def valid_atom_line(line):
+        fields = line.split()
+        if len(fields) != 4 or re.fullmatch(r"[a-zA-Z]+", fields[0]) is None:
+            return False
+        try:
+            tuple(float(value) for value in fields[1:])
+        except ValueError:
+            return False
+        return True
 
     lines = [l.strip() for l in xyz_str.strip().split("\n")]
 
@@ -88,7 +96,7 @@ def split_xyz_str(xyz_str):
         )  # lgtm [py/hash-unhashable-value]
         check_lines = lines[slice_]
         assert len(check_lines) == expect_lines
-        assert all([coord_re.match(line.strip()) for line in check_lines])
+        assert all(valid_atom_line(line) for line in check_lines)
 
         valid_xyz_strs.append(str(expect_lines) + "\n\n" + "\n".join(check_lines))
 

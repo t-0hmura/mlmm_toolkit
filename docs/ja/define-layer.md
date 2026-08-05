@@ -1,5 +1,8 @@
 # `define-layer`
 
+入力と model selection には PDB/mmCIF を使用でき、bridge 入力では CIF
+companion も保持します。
+
 `mlmm define-layer` は、酵素系を ML 領域の周囲に 3 つのレイヤーに分割し、割り当てを PDB の B 因子として書き出します。ML 領域はモデル PDB または明示的な原子インデックスで指定できます。両方を与えた場合は明示的なインデックスが優先されます。単一構造最適化や一気通貫実行の前に、全系 PDB に対して 3 層 ML/MM システムを定義するために使用します。
 
 3 つのレイヤーと B 因子エンコーディング:
@@ -58,8 +61,8 @@ mlmm define-layer -i system.pdb --model-pdb ml_region.pdb \
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
-| `-i, --input PATH` | 全系を含む入力 PDB ファイル。 | 必須 |
-| `--model-pdb PATH` | ML 領域の原子を定義する PDB ファイル。 | _None_ |
+| `-i, --input PATH` | 全系を含む入力 PDB/mmCIF ファイル。 | 必須 |
+| `--model-pdb PATH` | ML 領域の原子を定義する PDB/mmCIF ファイル。 | _None_ |
 | `--model-indices TEXT` | ML 領域のカンマ区切り原子インデックス（例: `"1,2,3,4"` または `"1-10,15,20-25"`）。`--model-pdb` より優先。 | _None_ |
 | `--radius-partial-hessian FLOAT` | 3 層モードでは非推奨（無視されます）。 | `0.0` |
 | `--radius-freeze FLOAT` | ML 領域からの Movable-MM の距離カットオフ (Å)。これを超える原子は Frozen。 | `8.0` |

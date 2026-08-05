@@ -16,6 +16,7 @@ from pysisyphus.config import BEND_MIN_DEG, DIHED_MAX_DEG
 from pysisyphus.helpers_pure import log, sort_by_central, merge_sets
 from pysisyphus.elem_data import VDW_RADII, COVALENT_RADII as CR
 from pysisyphus.intcoords import Stretch, Bend, LinearBend, Torsion
+from pysisyphus.intcoords.exceptions import PrimitiveNotDefinedException
 from pysisyphus.intcoords.setup_fast import find_bonds as find_bonds_fast
 from pysisyphus.intcoords.PrimTypes import PrimTypes, PrimMap, Rotations
 from pysisyphus.intcoords.valid import bend_valid, dihedral_valid
@@ -201,19 +202,10 @@ def connect_fragments_kmeans(
         but just add a fixed value to the MID. Scaling a possibly big MID would
         probably include too many coordinates.
         """
-        # if aux_no_hh:
-        # is_hh = np.array(
-        # [(atoms[k] == "h") and (atoms[k] == atoms[l]) for k, l in inds]
-        # )
-        # else:
-        # is_hh = np.zeros(len(inds))
-
         aux_mask = np.logical_or(
             distances <= aux_below_thresh,
             distances <= (min_dist + aux_add_dist),
         )
-        # aux_mask = distances <= 1.1 * min_dist
-        # aux_mask = np.logical_and(aux_mask, ~is_hh)
         # Don't include interfragment bond
         aux_mask[min_ind] = False
         aux_inds = inds[aux_mask]
@@ -836,6 +828,11 @@ def setup_redundant(
         PrimTypes.PROPER_DIHEDRAL: "proper_dihedrals",
         PrimTypes.IMPROPER_DIHEDRAL: "improper_dihedrals",
     }
+    # 'define_prims' are supplied in original atom indices, while the detected
+    # primitives are collected in the compact sub-indices that remain after frozen
+    # atoms were excluded. Convert the explicit definitions once here, so that
+    # 'make_tp' below maps every entry of these lists from the same index space.
+    sub_map = {org_ind: sub_ind for sub_ind, org_ind in freeze_map.items()}
     unmapped_typed_prims = list()
     for type_, *indices in define_prims:
         try:
@@ -857,7 +854,15 @@ def setup_redundant(
                 """
                 unmapped_typed_prims.append((type_, *indices))
                 continue
-        locals()[key].append(tuple(indices))
+        try:
+            sub_indices = [sub_map[ind] for ind in indices]
+        except KeyError:
+            raise PrimitiveNotDefinedException(
+                (type_, *indices),
+                f"Primitive {(type_, *indices)} in 'define_prims' contains atoms "
+                "that were excluded from the internal coordinate setup!",
+            )
+        locals()[key].append(tuple(sub_indices))
 
     def make_tp(prim_type, *indices):
         """Map possibly modified indices to their original indices.
@@ -905,7 +910,6 @@ def setup_redundant(
         ]
         + [make_tp(pt.CARTESIAN_X, cind) for cind in cartesian_inds]
         + [make_tp(pt.CARTESIAN_Y, cind) for cind in cartesian_inds]
-        + [make_tp(pt.CARTESIAN_Z, cind) for cind in cartesian_inds]
         + [make_tp(pt.CARTESIAN_Z, cind) for cind in cartesian_inds]
     )
 

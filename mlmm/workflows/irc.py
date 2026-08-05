@@ -286,7 +286,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     type=int,
     default=None,
     show_default=False,
-    help="Spin multiplicity (2S+1); overrides calc.spin from YAML.",
+    help="Spin multiplicity (2S+1); overrides calc.model_mult from YAML.",
 )
 @click.option(
     "--max-cycles", type=int, default=None, help="Maximum number of IRC steps; overrides irc.max_cycles from YAML."

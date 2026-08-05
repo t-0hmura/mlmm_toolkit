@@ -15,6 +15,7 @@ import pytest
 from pysisyphus.Geometry import Geometry
 from pysisyphus.calculators.Calculator import Calculator
 from pysisyphus.optimizers.LBFGS import LBFGS
+from pysisyphus.optimizers.Optimizer import CONV_THRESHS
 from pysisyphus.optimizers.RFOptimizer import RFOptimizer
 
 import mlmm.workflows.tsopt as tsopt_mod
@@ -97,6 +98,7 @@ def _seed(opt, *, force, step, energies):
 
 _HIGH = np.full(3, 1.0)
 _LOW = np.full(3, 1.0e-8)
+_BETWEEN_GAU_AND_OLD = np.full(3, 7.0e-4)
 _FLAT = [1.0, 1.0, 1.0]  # range 0 over window 3 -> a plateau
 
 
@@ -108,6 +110,7 @@ _FLAT = [1.0, 1.0, 1.0]  # range 0 over window 3 -> a plateau
         (_HIGH, _HIGH, False),   # high force, high step   -> stalled
         (_HIGH, _LOW, False),    # high force, low step    -> stalled
         (_LOW, _HIGH, False),    # low force, high step    -> stalled
+        (_BETWEEN_GAU_AND_OLD, _LOW, False),
         (_LOW, _LOW, True),      # all below thresh        -> converged (wins)
     ],
 )
@@ -131,7 +134,10 @@ def test_energy_plateau_truth_table(tmp_path, force, step, expect_converged):
         assert opt.termination_status == "stalled"
         assert "energy plateau" in opt.stop_reason
         # A plateau does not alter the ConvInfo force/step fields.
-        assert bool(conv_info.max_force_converged) == bool(np.max(np.abs(force)) < 1e-3)
+        max_force_thresh = CONV_THRESHS["gau"][0]
+        assert bool(conv_info.max_force_converged) == bool(
+            np.max(np.abs(force)) <= max_force_thresh
+        )
 
 
 def test_energy_range_just_above_threshold_neither_converges_nor_stalls(tmp_path):
@@ -286,6 +292,22 @@ def test_emit_terminal_status_stalled_and_converged_are_distinct(capsys):
 
 
 # ---- HessianDimer wrapper: a stalled child stops all further work -------------
+
+@pytest.mark.parametrize("cadence", [0, -1])
+def test_hessian_dimer_rejects_nonpositive_cadence_before_output_mutation(
+    tmp_path, cadence
+):
+    out_dir = tmp_path / "not-created"
+
+    with pytest.raises(ValueError, match="must be at least 1"):
+        HessianDimer(
+            fn=tmp_path / "missing.pdb",
+            out_dir=out_dir,
+            update_interval_hessian=cadence,
+        )
+
+    assert not out_dir.exists()
+
 
 def test_hessian_dimer_stops_after_child_stall(tmp_path, monkeypatch):
     """A stalled child LBFGS makes the runner stalled and stops the segment

@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import click
 import pytest
 
 from mlmm.core.utils import PreparedInputStructure
@@ -45,6 +46,26 @@ def test_layer_charge_derivation_includes_physical_terminal_cap(tmp_path):
     )
 
     assert (charge, spin) == (1, 1)
+
+
+def test_layer_charge_derivation_rejects_residue_split(tmp_path):
+    pdb = tmp_path / "split.pdb"
+    pdb.write_text(
+        _atom_line(1, "N", "ALA", "A", 1, 0, 0, 0, "N", 0)
+        + _atom_line(2, "CA", "ALA", "A", 1, 1, 0, 0, "C", 10)
+        + "END\n",
+        encoding="utf-8",
+    )
+    prepared = PreparedInputStructure(source_path=pdb, geom_path=pdb)
+
+    with pytest.raises(click.ClickException, match="splits residue.*-q/--charge"):
+        resolve_charge_spin_or_raise(
+            prepared,
+            charge=None,
+            spin=1,
+            ligand_charge="ALA:0",
+            detect_layer=True,
+        )
 
 
 def test_model_indices_require_explicit_charge_for_exact_selection():
@@ -106,21 +127,22 @@ def test_yaml_charge_spin_precedence(yaml_cfg, expected):
     ) == expected
 
 
-def test_null_canonical_charge_spin_falls_back_to_legacy_yaml():
+def test_canonical_calculator_section_shadows_legacy_per_key_fallback():
     prepared = PreparedInputStructure(
         source_path=Path("dummy.pdb"),
         geom_path=Path("dummy.pdb"),
     )
 
-    assert resolve_charge_spin_or_raise(
-        prepared,
-        charge=None,
-        spin=None,
-        yaml_cfg={
-            "calc": {"model_charge": None, "model_mult": None},
-            "mlmm": {"model_charge": -1, "model_mult": 2},
-        },
-    ) == (-1, 2)
+    with pytest.raises(click.ClickException, match="charge is unresolved"):
+        resolve_charge_spin_or_raise(
+            prepared,
+            charge=None,
+            spin=None,
+            yaml_cfg={
+                "calc": {"model_charge": None, "model_mult": None},
+                "mlmm": {"model_charge": -1, "model_mult": 2},
+            },
+        )
 
 
 @pytest.mark.parametrize("invalid", [True, False, 1.5, "1"])

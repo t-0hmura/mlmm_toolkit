@@ -185,8 +185,9 @@ def _build_qc(fix):
 def _run(fix, **kw):
     qc = _build_qc(fix)
     with warnings.catch_warnings():
-        # QCData.rot_temperatures divides by the ~zero inertia eigenvalue of the linear
-        # atom/linear cases; the result is unused there (is_atom/is_linear guard).
+        # QCData.rot_temperatures divides by the ~zero inertia eigenvalue of a
+        # linear molecule; the result is unused there (is_linear guard). The atom
+        # case returns NaNs before that division.
         warnings.simplefilter("ignore", RuntimeWarning)
         return thermochemistry(qc, T_K, pressure=P_PA, **kw)
 

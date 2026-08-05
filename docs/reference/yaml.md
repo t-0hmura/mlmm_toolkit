@@ -3,17 +3,13 @@
 This page is a **curated, non-exhaustive** starter snapshot for `mlmm all`. It shows a common subset of keys whose values are pinned to (and equal) their runtime owners; it is **not** the full configuration schema. For every configurable section and option, see the [YAML Reference](../yaml-reference.md).
 
 - Source template: `.github/scripts/generate_reference.py::_ALL_TEMPLATE`
-- Template digest: `6f50777d1d85`
+- Template digest: `e777ecfc5686`
 
 ## Included Sections
 
 | Section |
 |---|
 | `calc` |
-| `extract` |
-| `path_search` |
-| `scan` |
-| `tsopt` |
 | `freq` |
 | `thermo` |
 | `dft` |
@@ -30,22 +26,6 @@ calc:
   mace_model: MACE-OMOL-0   # MACE model path or name (when backend=mace)
   mace_dtype: float64       # MACE dtype, e.g. float32 / float64 (when backend=mace)
   aimnet2_model: aimnet2    # AIMNet2 model name (when backend=aimnet2)
-
-extract:
-  radius: 2.6
-  radius_het2het: 0.0
-
-path_search:
-  max_nodes: 20
-  max_cycles: 300
-
-scan:
-  max_step_size: 0.2
-  bias_k: 300.0
-  relax_max_cycles: 10000
-
-tsopt:
-  max_cycles: 10000
 
 freq:
   max_write: 10
@@ -77,14 +57,6 @@ Each scalar is pinned to (and equals) the runtime owner shown.
 | `calc.mace_model` | `str` | `'MACE-OMOL-0'` | `MLMM_CALC_KW["mace_model"]` |
 | `calc.mace_dtype` | `str` | `'float64'` | `MLMM_CALC_KW["mace_dtype"]` |
 | `calc.aimnet2_model` | `str` | `'aimnet2'` | `MLMM_CALC_KW["aimnet2_model"]` |
-| `extract.radius` | `float` | `2.6` | `mlmm all --radius` default |
-| `extract.radius_het2het` | `float` | `0.0` | `mlmm all --radius-het2het` default |
-| `path_search.max_nodes` | `int` | `20` | `GS_KW["max_nodes"]` |
-| `path_search.max_cycles` | `int` | `300` | `STOPT_KW["max_cycles"]` |
-| `scan.max_step_size` | `float` | `0.2` | `mlmm scan --max-step-size` default |
-| `scan.bias_k` | `float` | `300.0` | `BIAS_KW["k"]` |
-| `scan.relax_max_cycles` | `int` | `10000` | `OPT_BASE_KW["max_cycles"]` |
-| `tsopt.max_cycles` | `int` | `10000` | `OPT_BASE_KW["max_cycles"]` |
 | `freq.max_write` | `int` | `10` | `FREQ_KW["max_write"]` |
 | `freq.amplitude_ang` | `float` | `0.8` | `FREQ_KW["amplitude_ang"]` |
 | `freq.n_frames` | `int` | `20` | `FREQ_KW["n_frames"]` |
@@ -108,10 +80,16 @@ stages:
   - - [1, 2, 1.65]
   - - [2, 3, 2.30]
 
-# scan2d / scan3d
+# scan2d
 one_based: false
 pairs:
   - [1, 2, 1.40, 2.20]
   - [2, 3, 1.20, 2.00]
-  - [3, 4, 1.00, 1.80]  # required only for scan3d
+
+# scan3d
+one_based: false
+pairs:
+  - [1, 2, 1.40, 2.20]
+  - [2, 3, 1.20, 2.00]
+  - [3, 4, 1.00, 1.80]
 ```

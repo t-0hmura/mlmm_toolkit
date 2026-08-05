@@ -500,6 +500,24 @@ def cli(
     else:
         prefix = Path(out_prefix)
     prefix = prefix.resolve()
+
+    xyz_path = prefix.with_suffix(".xyz")
+    pdb_path = prefix.parent / f"{prefix.name}_layered.pdb"
+    for destination in (xyz_path, pdb_path):
+        for source in (input_path, ref_pdb):
+            if source is None:
+                continue
+            source_resolved = Path(source).expanduser().resolve(strict=False)
+            target = destination.resolve(strict=False)
+            aliases = source_resolved == target
+            if not aliases and source_resolved.exists() and destination.exists():
+                aliases = source_resolved.samefile(destination)
+            if aliases:
+                raise click.UsageError(
+                    f"Output {destination} physically aliases consumed input {source}."
+                )
+    if xyz_path == pdb_path:
+        raise click.UsageError("ONIOM import outputs must be distinct.")
     prefix.parent.mkdir(parents=True, exist_ok=True)
 
     if mode_resolved == "g16":
@@ -510,9 +528,6 @@ def cli(
     n_atoms = int(coords.shape[0])
     if n_atoms <= 0:
         raise click.ClickException("No atoms parsed from ONIOM input.")
-
-    xyz_path = prefix.with_suffix(".xyz")
-    pdb_path = prefix.parent / f"{prefix.name}_layered.pdb"
 
     with tempfile.TemporaryDirectory(prefix="mlmm-oniom-import-") as staging_dir:
         staging_root = Path(staging_dir)

@@ -42,7 +42,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `-i, --input` | path | required | Layered `.pdb`, or `.xyz` with `--ref-pdb` |
 | `--ref-pdb` | path | required for XYZ | Atom-order-identical full-system PDB/mmCIF topology and layer metadata |
 | `-q` / `-l` / `-m` | — | — | Charge / spin (common conventions) |
-| `--hess` / `--no-hess` | flag | `no-hess` | Also compute the full ONIOM Hessian and save to `hessian.npy` |
+| `--hess` / `--no-hess` | flag | `no-hess` | Also compute the active-coordinate ONIOM Hessian block and save it to `hessian.npy` |
 | `--hessian-calc-mode` | str | (auto) | `Analytical` (UMA/ORB/MACE/AIMNet2) or `FiniteDifference`; used only with `--hess` |
 | `--mm-backend` | str | `hessian_ff` | MM backend: `hessian_ff` or `openmm` |
 | `-b, --backend` | str | `uma` | MLIP backend |
@@ -65,7 +65,7 @@ mlmm sp -i structure.xyz --ref-pdb structure.pdb --parm real.parm7 \
 mlmm sp -i my.pdb --parm real.parm7 -l 'SAM:1' -b uma -o result_sp
 ```
 
-### Energy + full Hessian
+### Energy + active-coordinate Hessian
 
 ```bash
 mlmm sp -i my.pdb --parm real.parm7 -q -1 -m 1 --hess -o result_sp_hess
@@ -78,7 +78,7 @@ result_sp/
 ├── result.json      # when --out-json
 ├── summary.json     # mirrored payload, written alongside result.json
 ├── forces.npy       # ML/MM forces (a.u./bohr), shape (N, 3)
-└── hessian.npy      # full ONIOM Hessian (a.u.) — only when --hess
+└── hessian.npy      # active-coordinate ONIOM Hessian block (a.u.) — only with --hess
 ```
 
 `result.json` reports `stage`, `status`, `mlip_backend`, `mlip_model`,

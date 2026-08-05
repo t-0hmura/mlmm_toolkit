@@ -1024,6 +1024,73 @@ def test_multimodel_pdb_is_written_as_multimodel_cif(tmp_path: Path) -> None:
     assert data["_atom_site.B_iso_or_equiv"] == ["10.00", "20.00"]
 
 
+def test_define_layer_model_pdb_matches_one_unused_occurrence(tmp_path: Path) -> None:
+    from mlmm.workflows.define_layer import (
+        _get_ml_indices_from_model_pdb,
+        _parse_pdb_atoms,
+    )
+
+    atom = (
+        "HETATM    1  C1  SAM A   1       1.000   2.000   3.000"
+        "  1.00 10.00           C\n"
+    )
+    full = tmp_path / "full.pdb"
+    model = tmp_path / "model.pdb"
+    full.write_text(atom + atom.replace(" 1.000", " 4.000", 1) + "END\n")
+    model.write_text(atom + "END\n")
+
+    assert _get_ml_indices_from_model_pdb(
+        _parse_pdb_atoms(full), model, full
+    ) == [0]
+
+
+def test_define_layer_blank_chain_rejects_cross_chain_ambiguity(tmp_path: Path) -> None:
+    from mlmm.workflows.define_layer import (
+        _get_ml_indices_from_model_pdb,
+        _parse_pdb_atoms,
+    )
+
+    atom_a = (
+        "HETATM    1  C1  SAM A   1       1.000   2.000   3.000"
+        "  1.00 10.00           C\n"
+    )
+    atom_b = atom_a.replace("SAM A", "SAM B").replace("    1", "    2", 1)
+    full = tmp_path / "full.pdb"
+    model = tmp_path / "model.pdb"
+    full.write_text(atom_a + atom_b + "END\n")
+    model.write_text(atom_a.replace("SAM A", "SAM  ") + "END\n")
+
+    with pytest.raises(ValueError, match="Blank-chain.*ambiguous"):
+        _get_ml_indices_from_model_pdb(_parse_pdb_atoms(full), model, full)
+
+
+def test_define_layer_multimodel_warns_and_writes_only_first_model(
+    tmp_path: Path, capsys
+) -> None:
+    from mlmm.workflows.define_layer import _define_layers_pdb
+
+    source = tmp_path / "trajectory.pdb"
+    source.write_text(
+        "MODEL        1\n"
+        "HETATM    1  C1  SAM A   1       1.000   2.000   3.000  1.00 10.00           C\n"
+        "ENDMDL\n"
+        "MODEL        2\n"
+        "HETATM    1  C1  SAM A   1       4.000   5.000   6.000  1.00 20.00           C\n"
+        "ENDMDL\nEND\n",
+        encoding="utf-8",
+    )
+    output = tmp_path / "layered.pdb"
+
+    _define_layers_pdb(source, output, model_indices=[0])
+
+    captured = capsys.readouterr()
+    text = output.read_text(encoding="utf-8")
+    assert "using first model and ignoring the rest" in captured.err
+    assert text.count("MODEL") == 1
+    assert "   1.000" in text
+    assert "   4.000" not in text
+
+
 def test_cif_altloc_selection_is_coherent_per_residue(tmp_path: Path) -> None:
     from mlmm.io.structure_formats import read_mmcif_atom_sites
 

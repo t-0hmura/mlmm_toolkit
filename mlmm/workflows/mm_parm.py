@@ -191,8 +191,7 @@ def ambertools_available() -> bool:
     return not missing_ambertools_commands()
 
 
-# Stream tleap/antechamber output line by line for bounded memory use and live
-# progress.
+# Capture tleap/antechamber output and write the combined log after completion.
 def run(cmd: List[str], cwd: Optional[Path] = None, logfile: Optional[Path] = None) -> int:
     """Run a subprocess, capture stdout+stderr into a log file, and return the return code."""
     if not cmd:
@@ -872,7 +871,7 @@ def ambertools_route(
             continue
 
         # Amino-acid residues must be handled by the selected Amber protein force field.
-        if rn in AMINO_ACIDS:
+        if rn_key in AMINO_ACIDS:
             raise RuntimeError(
                 f"Nonstandard amino acid residue '{rn}' is not supported by mm_parm. "
                 "This workflow does not auto-parameterize amino-acid residues. Options: "
@@ -1116,7 +1115,7 @@ def run_pipeline(args: Args) -> None:
 
 @click.command(
     context_settings={"help_option_names": ["-h", "--help"]},
-    help="Generate Amber parm7/rst7 (and a LEaP-exported PDB) from a PDB using AmberTools only.",
+    help="Generate Amber parm7/rst7 (and a LEaP-exported PDB) from a PDB using AmberTools; --add-h also requires PDBFixer.",
 )
 @click.option(
     "-i",
@@ -1176,7 +1175,7 @@ def run_pipeline(args: Args) -> None:
     default=True,
     show_default=True,
     help=(
-        "Detect disulfides from SG-SG geometry (<= 2.5 A) across CYS/CYM/CYX and bond "
+        "Detect disulfides from SG-SG geometry (<= 2.5 A) across CYS/CYX and bond "
         "them, renaming a bonded CYS to CYX so tleap drops its HG. With "
         "--no-auto-disulfide only residues already named CYX are bonded and CYS is "
         "left untouched."

@@ -56,7 +56,7 @@ Full table: [CLI Conventions](cli-conventions.md).
 - **Hydrogens present.** `mlmm` does not auto-protonate. Add with AmberTools `reduce`, OpenMM `Modeller.addHydrogens`, `pdb2pqr --ff=AMBER`, Open Babel `obabel -h`, or `mlmm mm-parm --add-h` (PDBFixer wrapper). Apply the same tool to every input to keep atom order consistent.
 - **Match `-l RES:CHARGE` to the H count actually in the file** (e.g. SAM with 23 H = `SAM:1` cation, 22 H = `SAM:0` neutral). Mismatch breaks `antechamber` with an odd-electron sqm failure — do not re-protonate "to look canonical".
 - **R/P atom order must match.** In PyMOL, tick *Original atom order* on export.
-- **Multi-chain enzymes need `TER` records** between chains so `tleap` segments them correctly.
+- **Chain boundaries need `TER` records** when automatic insertion is disabled; the default `mm-parm --add-ter` preprocessing inserts chain and disconnected-peptide separators.
 - **Per-stage subcmds**: `-q/--charge` is the **ML-region (ONIOM model-system) net charge**, not the full-system charge. Passing the whole-enzyme charge silently builds a wrong ML region.
 
 ---

@@ -220,8 +220,7 @@ def _resolve_manual_links(
     metadata = _selector_metadata(full_atoms)
     model_set = set(model_indices)
     pairs: list[tuple[int, int]] = []
-    used_ml: set[int] = set()
-    used_mm: set[int] = set()
+    seen_pairs: set[tuple[int, int]] = set()
     for pair_number, raw_pair in enumerate(manual_links, start=1):
         if len(raw_pair) != 2:
             raise ValueError(
@@ -241,14 +240,13 @@ def _resolve_manual_links(
                 f"link_mlmm pair {pair_number}: MM selector '{mm_spec}' is inside "
                 "model_pdb."
             )
-        if ml_idx in used_ml or mm_idx in used_mm:
+        pair = (ml_idx, mm_idx)
+        if pair in seen_pairs:
             raise ValueError(
-                "link_mlmm reuses an ML or MM endpoint; each boundary atom must "
-                "appear in exactly one manual pair."
+                f"link_mlmm repeats boundary pair {pair}."
             )
-        used_ml.add(ml_idx)
-        used_mm.add(mm_idx)
-        pairs.append((ml_idx, mm_idx))
+        seen_pairs.add(pair)
+        pairs.append(pair)
     return tuple(pairs)
 
 
@@ -296,19 +294,12 @@ def _detect_link_pairs_from_topology(
                 f"({elem_pair[1]}). Move the ML boundary to a supported C-C, "
                 "C-N, or N-C bond."
             )
-        pairs.add((ml_idx, mm_idx))
+        pair = (ml_idx, mm_idx)
+        if pair in pairs:
+            raise ValueError(f"The parm7 topology repeats boundary bond {pair}.")
+        pairs.add(pair)
 
     ordered_pairs = sorted(pairs)
-    ml_endpoints = [ml for ml, _ in ordered_pairs]
-    mm_endpoints = [mm for _, mm in ordered_pairs]
-    if len(set(ml_endpoints)) != len(ml_endpoints) or len(
-        set(mm_endpoints)
-    ) != len(mm_endpoints):
-        raise ValueError(
-            "The parm7 topology places one boundary atom in multiple ML/MM bonds. "
-            "Move the ML-region boundary so each endpoint belongs to one cut bond, "
-            "or specify link_mlmm manually."
-        )
     return tuple(ordered_pairs)
 
 

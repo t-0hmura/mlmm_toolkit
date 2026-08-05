@@ -7,7 +7,7 @@ ML/MM calculatorの GPU/CPU デバイス設定と、HPC クラスタでのジョ
 ### 要点
 - **ML バックエンド (UMA):** デフォルトで CUDA を使用（`ml_device: auto` → CUDA が利用可能なら CUDA）。
 - **MM バックエンド (hessian_ff):** CPU のみ。OpenMM バックエンドは CUDA を使用可能。
-- **Hessian 組み立て:** `--hess-device cpu` で CPU にオフロードし、VRAM を節約可能。
+- **Hessian 後処理:** `--hess-device cpu` で、計算済み Hessian の配置と対角化を CPU へ移せます。
 - **マルチ GPU:** ML 推論は単一 GPU（モデル並列は非対応）。OpenMM MM バックエンドは別の CUDA デバイス（`mm_device: cuda`, `mm_cuda_idx: 1`）に配置可能。
 
 ---
@@ -53,26 +53,27 @@ calc:
 
 ## VRAM 管理
 
-### Hessian デバイス（`--hess-device`）
+### 計算後の Hessian デバイス（`--hess-device`）
 
-`freq` コマンドは `--hess-device` で Hessian の組み立て・対角化のデバイスを制御できます：
+`freq` コマンドは `--hess-device` で、計算済み Hessian の配置と対角化のデバイスを制御できます。calculator が Hessian を計算するデバイスは変更しません：
 
 ```bash
 # デフォルト: 解決済みの ML デバイス
 mlmm freq -i input.pdb --parm real.parm7 -q -1
 
-# CPU で Hessian 組み立て（大きな系で VRAM を節約）
+# 計算済み Hessian を CPU へ移して対角化
 mlmm freq -i input.pdb --parm real.parm7 -q -1 --hess-device cpu
 ```
 
 `--hess-device cpu` を使用する場面：
-- 選択したバックエンド/Hessian モードに対して活性領域が大きすぎる場合
-- 振動数計算で CUDA out-of-memory エラーが発生する場合
-- 選択した計算に対して対象 GPU のメモリが不足する場合
+- 計算済み Hessian を CPU で対角化したい場合
+- 計算済み Hessian の保持と対角化による追加 VRAM 使用を避けたい場合
+
+backend 内部の Hessian 計算中に発生する out-of-memory は、このオプションでは回避できません。その場合は活性領域を小さくするか、より省メモリな Hessian/backend 設定を選択してください。
 
 ### VRAM 節約のヒント
 
-1. **ML 領域を小さくする:** `mlmm extract` で小さい `--radius` を使用、または `mlmm define-layer` で `--radius-freeze` を絞る。
+1. **ML 領域を小さくする:** `mlmm extract` で小さい `--radius` を使用します。独立に、`define-layer --radius-freeze` を絞ると movable-MM shell が小さくなり frozen 環境が広がります。
 2. **hessian_ff（デフォルト）を使用:** hessian_ff は CPU で実行されるため、GPU 上の追加 MM 割り当てを避けられます。
 3. **MM デバイスを明示的に選ぶ:** ML と MM の両方で CUDA を使う場合は代表的な小規模実行でメモリ使用量を測り、必要に応じて `mm_device: cpu` を使用します。
 4. **VRAM を監視:** `print_vram` はデフォルトで true（Hessian 計算中に VRAM 使用量（ピーク）を表示）。抑制するには YAML で `print_vram: False` を設定。
@@ -215,7 +216,7 @@ mlmm opt -i input.pdb --parm real.parm7 -q -1 --config config.yaml
 ## 制限事項
 
 - **ML モデル並列は非対応:** ML 推論は単一 GPU で動作する。OpenMM MM バックエンドは別の CUDA デバイス（`mm_device: cuda`, `mm_cuda_idx`）を使用可能だが、デフォルトの hessian_ff MM バックエンドは CPU のみ。
-- **分散計算非対応:** すべての計算は単一ノードの単一プロセス内で実行。
+- **単一ノード実行:** 通常は単一プロセスで、対応する UMA 設定では `workers > 1` によりローカル worker process を生成できます。複数ノード分散は行いません。
 - **hessian_ff は CPU のみ:** デフォルトの MM バックエンドでは `mm_device` は `cpu`/`auto` のみ可。`mm_device: cuda` を指定すると ValueError を送出（暗黙の CPU フォールバックはしない）。
 
 ---

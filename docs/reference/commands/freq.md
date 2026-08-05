@@ -13,8 +13,9 @@ Options:
                                   [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
-  -i, --input FILE                Enzyme complex PDB used by both geom_loader
-                                  and the ML/MM calculator.  [required]
+  -i, --input FILE                Enzyme complex PDB/mmCIF, or XYZ with --ref-
+                                  pdb, used by geom_loader and the ML/MM
+                                  calculator.  [required]
   --parm FILE                     Amber parm7 topology for the full enzyme
                                   complex.  [required]
   --model-pdb FILE                ML-only, link-H-free PDB subset; atom
@@ -75,11 +76,12 @@ Options:
                                   Convert XYZ/TRJ outputs into PDB companions
                                   based on the input format.  [default: convert-
                                   files]
-  --hess-device [auto|cuda|cpu]   Device for Hessian assembly and
-                                  diagonalization (auto/cuda/cpu). Use 'cpu' to
-                                  avoid VRAM issues with large unfrozen systems.
-                                  ML model inference always uses ml_device
-                                  (typically GPU).  [default: auto]
+  --hess-device [auto|cuda|cpu]   Device for post-evaluation Hessian placement
+                                  and diagonalization (auto/cuda/cpu). Use 'cpu'
+                                  to move the evaluated Hessian off GPU before
+                                  diagonalization. ML model inference always
+                                  uses ml_device (typically GPU).  [default:
+                                  auto]
   -b, --backend [uma|orb|mace|aimnet2]
                                   ML backend for the ONIOM high-level region
                                   (default: uma).
@@ -156,7 +158,9 @@ Options:
                                   reproducibility on the complete target stack.
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
                                   electron-parity check (logs that it was
-                                  skipped). For an intentional open-shell or
-                                  covalently-cut ML region.
+                                  skipped). An open-shell ML region needs a
+                                  matching multiplicity; use this only for an
+                                  intentional nonstandard input such as a
+                                  covalently-cut region.
   -h, --help                      Show this message and exit.
 ```

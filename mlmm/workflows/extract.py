@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import io as _io
+import math
 import os
 import time
 from pathlib import Path
@@ -245,6 +246,31 @@ def cli(
     input_list = collect_option_values(_argv, ("-i", "--input")) or list(complex_pdb)
     _outs = collect_option_values(_argv, ("-o", "--output"))
     output_list: Optional[List[str]] = _outs if _outs else (list(output_pdb) if output_pdb else None)
+    if len(input_list) == 1 and output_list is not None and len(output_list) != 1:
+        raise click.UsageError("A single input requires exactly one output path.")
+
+    effective_outputs = output_list
+    if effective_outputs is None:
+        effective_outputs = (
+            [f"pocket_{Path(path).stem}.pdb" for path in input_list]
+            if len(input_list) > 1
+            else ["pocket.pdb"]
+        )
+    protected = [Path(path) for path in input_list]
+    center_path = Path(substrate_pdb)
+    if center_path.suffix.lower() in ({".pdb"} | set(CIF_SUFFIXES)):
+        protected.append(center_path)
+    resolved_outputs = [Path(path).expanduser().resolve() for path in effective_outputs]
+    for source in protected:
+        source_resolved = source.expanduser().resolve()
+        for destination in resolved_outputs:
+            aliases = source_resolved == destination
+            if not aliases and source_resolved.exists() and destination.exists():
+                aliases = os.path.samefile(source_resolved, destination)
+            if aliases:
+                raise click.UsageError(
+                    f"Input {source} physically aliases extract output {destination}."
+                )
 
     ns = argparse.Namespace(
         complex_pdb=input_list,
@@ -1914,7 +1940,12 @@ def _extract_body(args, api):
                 continue
             if ':' in token:
                 name, charge_str = token.split(':', 1)
-                AMINO_ACIDS[name.strip().upper()] = int(float(charge_str.strip()))
+                charge_value = float(charge_str.strip())
+                if not math.isfinite(charge_value) or not charge_value.is_integer():
+                    raise ValueError(
+                        f"Modified residue {name.strip()!r} charge must be a finite integer."
+                    )
+                AMINO_ACIDS[name.strip().upper()] = int(charge_value)
             else:
                 name = token.upper()
                 if name not in AMINO_ACIDS:

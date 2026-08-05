@@ -91,7 +91,7 @@ class Calculator:
             after a calculation.
         out_dir : str
             Path that is prepended to generated filenames.
-        force_hess_kwargs : bool, default False
+        force_num_hess : bool, default False
             Force numerical Hessians.
         num_hess_kwargs : dict
             Keyword arguments for finite difference Hessian calculation.

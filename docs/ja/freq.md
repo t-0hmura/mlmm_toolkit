@@ -124,7 +124,7 @@ out_dir/ (デフォルト: ./result_freq/)
 | `--embedcharge/--no-embedcharge` | v0.3.3 では使用不可。旧コマンドを明示的に拒否するためにのみ残されています。 | `False` |
 | `--embedcharge-cutoff FLOAT` | 廃止した電子埋め込み経路とともに使用不可。 | — |
 | `--cmap/--no-cmap` | REAL と MODEL の両 MM 層で CMAP を保持します。 | `--cmap` |
-| `--hess-device CHOICE` | Hessian 組み立て/対角化のデバイス: `auto`、`cuda`、`cpu`。大規模系で VRAM 不足を回避するには `cpu` を使用。 | `auto` |
+| `--hess-device CHOICE` | 評価後 Hessian の配置/対角化 device: `auto`、`cuda`、`cpu`。Hessian 評価/assembly 自体は移動せず、`cpu` は評価済み行列を対角化前に移動。 | `auto` |
 | **アクティブ領域の凍結と Hessian** | | |
 | `--freeze-atoms TEXT` | 1 始まりカンマ区切りの凍結原子インデックス。 | _None_ |
 | `--active-dof-mode CHOICE` | アクティブ自由度選択: `all`、`ml-only`、`partial`、`unfrozen`。 | `partial` |
@@ -158,7 +158,7 @@ out_dir/ (デフォルト: ./result_freq/)
 解析 Hessian を明示した状態で `workers > 1` を指定するとエラーになります。
 解析曲率には worker 1、UMA 並列 predictor には `FiniteDifference` を使用してください。
 
-マージ順 **デフォルト < config < 明示CLI < override** でマッピングを提供します。
+マージ順 **デフォルト < config < 明示 CLI** でマッピングを提供します。
 共有セクションは [YAML リファレンス](yaml-reference.md) を再利用します。
 熱化学制御用の追加 `thermo` セクションがサポートされます。
 
@@ -168,9 +168,8 @@ geom:
  freeze_atoms: []                  # 1 始まり凍結原子（CLI/リンク検出とマージ）
  tr_projection: constrained        # 固定の内部 PHVA 処理
 calc:
- charge: 0                         # 総電荷（CLI 上書き）
- spin: 1                           # スピン多重度 2S+1
-mlmm:
+ model_charge: 0                   # 総電荷（CLI 上書き）
+ model_mult: 1                     # スピン多重度 2S+1
  real_parm7: real.parm7            # Amber parm7 トポロジー
  model_pdb: ml_region.pdb          # ML 領域定義
  backend: uma                      # ML バックエンド (uma/orb/mace/aimnet2)

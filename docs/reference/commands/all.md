@@ -82,11 +82,11 @@ Options:
                                   defaults to 1 for all ligands.
   --auto-mm-disulfide / --auto-mm-no-disulfide
                                   Forwarded to mm_parm: detect disulfides from
-                                  SG-SG geometry across CYS/CYM/CYX and bond
-                                  them (renaming a bonded CYS to CYX). With
-                                  --auto-mm-no-disulfide only residues already
-                                  named CYX are bonded and CYS is left
-                                  untouched.  [default: auto-mm-disulfide]
+                                  SG-SG geometry across CYS/CYX and bond them
+                                  (renaming a bonded CYS to CYX). With --auto-
+                                  mm-no-disulfide only residues already named
+                                  CYX are bonded and CYS is left untouched.
+                                  [default: auto-mm-disulfide]
   -m, --multiplicity INTEGER      Multiplicity (2S+1).  [default: 1]
   --mep-mode [gsm|dmf]            MEP optimizer: Growing String Method (gsm) or
                                   Direct Max Flux (dmf).  [default: gsm]
@@ -305,7 +305,9 @@ Options:
                                   reproducibility on the complete target stack.
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
                                   electron-parity check (logs that it was
-                                  skipped). For an intentional open-shell or
-                                  covalently-cut ML region.
+                                  skipped). An open-shell ML region needs a
+                                  matching multiplicity; use this only for an
+                                  intentional nonstandard input such as a
+                                  covalently-cut region.
   -h, --help                      Show this message and exit.
 ```

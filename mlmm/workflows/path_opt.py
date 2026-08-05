@@ -482,7 +482,13 @@ def _prepare_path_output_dir(path: Path) -> Path:
 
     resolved = Path(path).resolve()
     resolved.mkdir(parents=True, exist_ok=True)
-    for name in ("result.json", "summary.json"):
+    for name in (
+        "result.json",
+        "summary.json",
+        "final_geometries.pdb",
+        "hei.pdb",
+        "hei.gjf",
+    ):
         (resolved / name).unlink(missing_ok=True)
     return resolved
 
@@ -558,6 +564,17 @@ def _torch_dmf_runtime_kwargs(
         value = cfbenm_options.get(name, value)
         if value is not None:
             resolved[name] = value
+    if "device" not in resolved:
+        # The public 'gpu' backend means CUDA. Without an expert device dmf.torch
+        # would resolve its own default and silently run on the CPU, so require
+        # CUDA here and let the user retry with --dmf-backend cpu.
+        if not torch.cuda.is_available():
+            raise RuntimeError(
+                "--dmf-backend gpu requires a visible CUDA device. Retry with "
+                "`--dmf-backend cpu`, or set an explicit expert device in "
+                "'dmf.dmf_options.device'."
+            )
+        resolved["device"] = "cuda"
     return resolved
 
 
@@ -729,19 +746,17 @@ def _run_dmf_mep(
         else:
             image.calc = ase_calc
 
-    mxflx.add_ipopt_options({"output_file": str(out_dir_path / "dmf_ipopt.out")})
-    # Same default-mode IPOPT quiet as the FB-ENM interpolation above:
-    # the banner + MUMPS license header would otherwise reprint per solve.
-    if not is_verbose() and "print_level" not in ipopt_opts:
-        mxflx.add_ipopt_options({"print_level": 0})
+    accurate_ipopt_opts = dict(ipopt_opts)
+    accurate_ipopt_opts["output_file"] = str(out_dir_path / "dmf_ipopt.out")
     max_cycles = dmf_cfg.get("max_cycles") if isinstance(dmf_cfg, dict) else None
     if max_cycles is not None:
         try:
             max_iter = int(max_cycles)
             if max_iter > 0:
-                mxflx.add_ipopt_options({"max_iter": max_iter})
+                accurate_ipopt_opts["max_iter"] = max_iter
         except Exception:
             logger.debug("Failed to set ipopt max_iter option", exc_info=True)
+    mxflx.add_ipopt_options(accurate_ipopt_opts)
     solve_result = mxflx.solve(tol=resolve_dmf_solve_tol(dmf_cfg))
     converged, ipopt_status, reason = _dmf_solver_outcome(solve_result)
     emit("\n====== DMF: optimization finished ======\n", narrative=True)
@@ -1169,17 +1184,6 @@ def cli(
     prepared_inputs: List[PreparedInputStructure] = []
     time_start = time.perf_counter()
     out_dir_path = Path(out_dir).resolve()
-    _reject_path_output_collisions(
-        out_dir_path,
-        (
-            *requested_input_paths,
-            *ref_pdb_paths,
-            real_parm7,
-            model_pdb,
-            config_yaml,
-            Path(calc_file) if calc_file else None,
-        ),
-    )
     try:
         if len(input_paths) != 2:
             click.echo("ERROR: Provide exactly two endpoint structures (-i reactant product).", err=True)
@@ -1196,12 +1200,10 @@ def cli(
                 pass
             elif suffix == ".xyz":
                 if i >= len(ref_list):
-                    click.echo(
-                        f"ERROR: XYZ input '{src.name}' requires a corresponding --ref-pdb "
-                        "for topology/B-factor info.",
-                        err=True,
+                    raise click.UsageError(
+                        f"XYZ input '{src.name}' requires a corresponding --ref-pdb "
+                        "for topology/B-factor info."
                     )
-                    sys.exit(1)
                 apply_ref_pdb_override(prepared, Path(ref_list[i]))
             else:
                 click.echo(
@@ -1590,6 +1592,8 @@ def cli(
 
         # optional endpoint pre-optimization
         if preopt:
+            preopt_completed = 0
+            preopt_errors: List[str] = []
             try:
                 emit("\n====== Pre-optimizing endpoints (LBFGS) ======\n", narrative=True)
                 pre_dir_base = out_dir_path / "preopt"
@@ -1619,11 +1623,17 @@ def cli(
                         except Exception:
                             logger.debug("Failed to set freeze_atoms on new geometry", exc_info=True)
                         geoms[i] = g_new
+                        preopt_completed += 1
                     except Exception as e:
+                        preopt_errors.append(f"endpoint #{i}: {e}")
                         click.echo(f"[preopt] WARNING: Failed to reload optimized endpoint #{i}: {e}", err=True)
-                click.echo("[preopt] Completed endpoint pre-optimization.")
             except Exception as e:
-                click.echo(f"[preopt] WARNING: Pre-optimization skipped due to error: {e}", err=True)
+                preopt_errors.append(str(e))
+                click.echo(f"[preopt] WARNING: Endpoint pre-optimization stopped: {e}", err=True)
+            click.echo(
+                f"[preopt] Pre-optimized {preopt_completed}/{len(geoms)} endpoints"
+                + (f" ({len(preopt_errors)} error(s))." if preopt_errors else ".")
+            )
 
         # By default, apply external Kabsch alignment (if freeze_atoms exist, use only them)
         align_thresh = str(stopt_cfg.get("thresh", "gau"))
@@ -1864,7 +1874,7 @@ def cli(
                     "hei_xyz": "hei.xyz",
                 },
             }
-            for ext in (".pdb", ".gjf"):
+            for ext in (".pdb",):
                 f = out_dir_path / f"hei{ext}"
                 if f.exists():
                     result_data_gsm["files"][f"hei_{ext[1:]}"] = f.name

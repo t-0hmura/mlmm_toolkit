@@ -83,12 +83,12 @@ glossary
 | 単一構造スキャン（`-s`） | `mlmm scan` | [クイックスタート: scan](quickstart-scan-spec.md) |
 | TS 検証（`tsopt` + 振動解析） | `mlmm tsopt` | [クイックスタート: tsopt](quickstart-tsopt-freq.md) |
 | PDB から反応経路探索を一通り実行 | `mlmm all` | [all.md](all.md) |
-| 現在の設定を確認 | `mlmm opt --show-config` | [YAML リファレンス](yaml-reference.md) |
+| 現在の設定を確認 | `mlmm opt -i layered.pdb --parm system.parm7 -q 0 --show-config --dry-run` | [YAML リファレンス](yaml-reference.md) |
 | タンパク質-リガンド複合体から ML 領域を抽出 | `mlmm extract` | [extract.md](extract.md) |
 | MM トポロジー（parm7/rst7）を構築 | `mlmm mm-parm` | [mm-parm.md](mm-parm.md) |
 | ML/MM 3層領域を定義 | `mlmm define-layer` | [define-layer.md](define-layer.md) |
 | 単一構造を最適化 | `mlmm opt` | [opt.md](opt.md) |
-| MEP 探索で遷移状態候補を発見 | `mlmm path-search` | [path-search.md](path-search.md) |
+| MEP 探索で遷移状態候補を発見 | `mlmm path-opt`（再帰精密化は `path-search`） | [path-opt.md](path-opt.md) |
 | 遷移状態候補を最適化 | `mlmm tsopt` | [tsopt.md](tsopt.md) |
 | 遷移状態から IRC を実行 | `mlmm irc` | [irc.md](irc.md) |
 | エネルギープロファイルを可視化 | `mlmm trj2fig` | [trj2fig.md](trj2fig.md) |
@@ -213,7 +213,7 @@ mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
 ### 単一構造スキャンモード
 ```bash
 mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 -s scan.yaml --print-parsed
+ -q 0 -s scan.yaml
 ```
 
 ### TS 最適化のみ

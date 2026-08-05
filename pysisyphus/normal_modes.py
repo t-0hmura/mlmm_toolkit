@@ -23,7 +23,11 @@ from ase.data import atomic_masses
 
 from pysisyphus.constants import BOHR2ANG, AMU2AU, AU2EV
 from pysisyphus._array import active_square
-from pysisyphus.tr_projection import active_tr_basis, project_hessian_inplace
+from pysisyphus.tr_projection import (
+    active_tr_basis,
+    compact_project_hessian,
+    project_hessian_inplace,
+)
 
 
 def symmetrize_inplace(H, chunk: int = 512):
@@ -103,13 +107,20 @@ def _mw_projected_hessian(H_t: torch.Tensor,
                           coords_bohr_t: torch.Tensor,
                           masses_au_t: torch.Tensor,
                           tr_projection: str = "constrained",
-                          projection_info: Optional[dict] = None) -> torch.Tensor:
+                          projection_info: Optional[dict] = None,
+                          compact: bool = False):
     """
     Project out translations/rotations in mass-weighted space:
     Hmw = M^{-1/2} H M^{-1/2};  P = I - QQ^T;  Hmw_proj = P Hmw P
 
     To save memory, update **H_t in-place** (no clone) and return it.
     The output is explicitly symmetrized after TR projection.
+
+    With ``compact=True``, return ``(H_compact, lift)`` for the true orthogonal
+    complement of the rigid basis instead. The reduced matrix carries exactly
+    one root per remaining degree of freedom, so no root has to be discarded by
+    magnitude afterwards, and ``lift`` maps reduced eigenvectors back to the
+    mass-weighted Cartesian space.
     """
     if H_t.dtype != torch.float64:
         H_t = H_t.to(dtype=torch.float64)
@@ -132,7 +143,11 @@ def _mw_projected_hessian(H_t: torch.Tensor,
             list(range(int(coords_bohr_t.shape[0]))),
             mode=tr_projection,
         )
-        project_hessian_inplace(H_t, Q)
+        if compact:
+            H_t, lift = compact_project_hessian(H_t, Q)
+        else:
+            project_hessian_inplace(H_t, Q)
+            lift = None
         if projection_info is not None:
             projection_info.clear()
             projection_info.update(info.as_dict())
@@ -147,7 +162,7 @@ def _mw_projected_hessian(H_t: torch.Tensor,
 
         if torch.cuda.is_available() and device.type == "cuda":
             torch.cuda.empty_cache()
-        return H_t
+        return (H_t, lift) if compact else H_t
 
 
 # CHEMISTRY-RULE:6 PHVA + MLIP active-block: mass-weighted Hessian only;
@@ -178,11 +193,10 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
                               atomic_numbers: List[int],
                               coords_bohr: np.ndarray,
                               device: torch.device,
-                              # tol is a mass-weighted eigenvalue (ω², au) floor for numerical-noise
-                              # removal: 1e-6 au(ω²) ≈ 5.14 cm⁻¹, so near-zero modes (FD/analytical
-                              # Hessian noise, translation/rotation residue) are dropped before the
-                              # imaginary count and thermochemistry. NOT a physical soft-mode cutoff;
-                              # tsopt counts imaginary at neg_freq_thresh_cm=5.0 (≈ the same floor).
+                              # tol is retained for signature compatibility and is ignored: the
+                              # rigid space is removed exactly, by diagonalizing its orthogonal
+                              # complement, so there are no artificial zero roots to filter and no
+                              # magnitude floor is applied to the physical spectrum.
                               tol: float = 1e-6,
                               freeze_idx: Optional[List[int]] = None,
                               tr_projection: str = "constrained",
@@ -255,7 +269,11 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
                 masses_act = masses_au_t[active_idx]
                 # in-place mass-weight (active masses)
                 Hmw_act = _mass_weighted_hessian(H_t, masses_act)
-                project_hessian_inplace(Hmw_act, Q)
+                # Diagonalize the orthogonal complement of the rigid basis, so
+                # exactly the constrained rigid rank is removed and every genuine
+                # low-magnitude root survives for the imaginary count and for
+                # thermochemistry.
+                Hmw_act, lift = compact_project_hessian(Hmw_act, Q)
 
                 # Bounded-peak symmetrization (helper writes both triangles).
                 symmetrize_inplace(Hmw_act)
@@ -267,9 +285,10 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
 
-                sel = torch.abs(omega2) > tol
-                omega2 = omega2[sel]
-                Vsub = Vsub[:, sel]  # (3N_act, nsel)
+                if lift is not None:
+                    # Lift the reduced eigenvectors back to the active DOF space.
+                    Vsub = lift.T @ Vsub  # (3N_act, nmode)
+                    del lift
 
                 # Embed to full 3N (mass-weighted eigenvectors)
                 modes = torch.zeros((Vsub.shape[1], 3 * N), dtype=Vsub.dtype, device=Vsub.device)
@@ -299,7 +318,8 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
                 H_t = H_act
                 del H_act
 
-                project_hessian_inplace(H_t, Q)
+                # Same compact complement treatment as in the active-block case.
+                H_t, lift = compact_project_hessian(H_t, Q)
 
                 # Bounded-peak symmetrization (helper writes both triangles).
                 symmetrize_inplace(H_t)
@@ -310,21 +330,22 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
 
-                sel = torch.abs(omega2) > tol
-                omega2 = omega2[sel]
-                Vsub = Vsub[:, sel]  # (3N_act, nsel)
+                if lift is not None:
+                    Vsub = lift.T @ Vsub  # (3N_act, nmode)
+                    del lift
 
                 modes = torch.zeros((Vsub.shape[1], 3 * N), dtype=Vsub.dtype, device=Vsub.device)
-                modes[:, mask_dof] = Vsub.T  # (nsel, 3N_act) → place into active DOF
+                modes[:, mask_dof] = Vsub.T  # (nmode, 3N_act) → place into active DOF
                 del Vsub, mask_dof, Q
 
         else:
-            H_t = _mw_projected_hessian(
+            H_t, lift = _mw_projected_hessian(
                 H_t,
                 coords_bohr_t,
                 masses_au_t,
                 tr_projection=tr_projection,
                 projection_info=projection_info,
+                compact=True,
             )
             omega2, V = torch.linalg.eigh(H_t)
 
@@ -333,9 +354,10 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
-            sel = torch.abs(omega2) > tol
-            omega2 = omega2[sel]
-            modes = V[:, sel].T
+            if lift is not None:
+                V = lift.T @ V
+                del lift
+            modes = V.T
             del V
 
         # Convert to frequencies (cm^-1)
@@ -344,7 +366,7 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
         hnu = torch.where(omega2 < 0, -hnu, hnu)
         freqs_cm = (hnu / units.invcm).detach().cpu().numpy()
 
-        del omega2, hnu, sel
+        del omega2, hnu
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         return freqs_cm, modes
