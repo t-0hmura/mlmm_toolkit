@@ -193,6 +193,7 @@ def test_method_citations_follow_resolved_methods_and_match_stdout(
             {
                 "endpoint_opt": {"reactant_converged": True},
                 "ts_imag": {"n_imag": 1},
+                "thermo_symmetry": {"R": {"symmetry_number": 1}},
             }
         ],
         "segments": [],
@@ -233,7 +234,9 @@ def test_method_citations_use_actual_path_and_post_stages() -> None:
     }
     mixed = {
         **path_only,
-        "post_segments": [{"endpoint_opt": {}}],
+        "post_segments": [
+            {"endpoint_opt": {}, "ts_imag": {"n_imag": 1}}
+        ],
     }
 
     path_text = "\n".join(format_method_citations(path_only))
@@ -246,6 +249,7 @@ def test_method_citations_use_actual_path_and_post_stages() -> None:
     assert "Limited-memory BFGS (L-BFGS)" in mixed_text
     assert "RFO / P-RFO" in mixed_text
     assert "RS-I-RFO" in mixed_text
+    assert "quasi-RRHO thermochemistry" not in mixed_text
 
 
 def test_dmf_and_split_ts_endpoint_references_follow_effective_settings() -> None:
