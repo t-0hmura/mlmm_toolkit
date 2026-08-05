@@ -100,7 +100,10 @@ def test_dmf_interpolation_cache_is_released_without_emptying_mid_phase() -> Non
     assert calls == [False]
 
 
-def test_torch_dmf_runtime_options_disable_unused_history_and_preserve_precision() -> None:
+def test_torch_dmf_runtime_options_disable_unused_history_and_preserve_precision(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(path_opt.torch.cuda, "is_available", lambda: True)
     assert path_opt._torch_dmf_runtime_kwargs(
         "cpu", {"keep_history": True}, {}, {}
     ) == {}
@@ -112,10 +115,21 @@ def test_torch_dmf_runtime_options_disable_unused_history_and_preserve_precision
     ) == {"keep_history": False, "device": "cuda", "dtype": "float64"}
     assert path_opt._torch_dmf_runtime_kwargs(
         "gpu", {"keep_history": True}, {}, {}
-    ) == {"keep_history": True}
+    ) == {"keep_history": True, "device": "cuda"}
     assert path_opt._torch_dmf_runtime_kwargs(
         "gpu", {"keep_history": True}, {}, {}, supports_keep_history=False
-    ) == {}
+    ) == {"device": "cuda"}
+
+
+def test_torch_dmf_gpu_requires_a_visible_or_explicit_device(monkeypatch) -> None:
+    monkeypatch.setattr(path_opt.torch.cuda, "is_available", lambda: False)
+
+    with pytest.raises(RuntimeError, match="requires a visible CUDA device"):
+        path_opt._torch_dmf_runtime_kwargs("gpu", {}, {}, {})
+
+    assert path_opt._torch_dmf_runtime_kwargs(
+        "gpu", {"device": "cpu"}, {}, {}
+    ) == {"keep_history": False, "device": "cpu"}
 
 
 def test_nonconverged_result_payload_does_not_become_completed() -> None:

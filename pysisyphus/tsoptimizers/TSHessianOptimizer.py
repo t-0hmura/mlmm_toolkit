@@ -1407,22 +1407,31 @@ class TSHessianOptimizer(HessianOptimizer):
         # configured current force/step criteria fail.
         kwargs = dict(kwargs)
         outer_allow_stall = kwargs.pop("allow_stall", True)
-        baker_converged, conv_info = super().check_convergence(
+        base_converged, conv_info = super().check_convergence(
             *args, allow_stall=False, **kwargs
         )
-        converged = baker_converged
+        converged = base_converged
         if self._saddle_recovery_active or self.stop_requested:
             # A wrong/missing physical mode arms bounded saddle recovery, and a
             # pre-existing bounded stop already owns the outcome; neither is an
             # energy-plateau stall.
             return False, conv_info
         if self.verify_saddle:
-            # A plateau or a raw/quasi-Newton root is insufficient.  Exact
-            # PHVA at these exact coordinates is an additional terminal
-            # requirement; the shared Baker force-and-energy-or-step criterion
-            # remains unchanged, with RMS values diagnostic only.
+            # A plateau or a raw/quasi-Newton root is insufficient. Exact PHVA
+            # at these coordinates is an additional terminal requirement. For
+            # non-Baker presets, a verified saddle whose configured force
+            # thresholds are met is stationary; an outgoing quasi-Newton step
+            # is not a property of the current geometry. The Baker preset keeps
+            # its explicit max(force) AND (energy change OR max(step)) rule.
             exact_current_saddle = self._exact_saddle_matches_current_geometry()
-            converged = bool(exact_current_saddle and baker_converged)
+            if self.thresh == "baker":
+                terminal_criteria = base_converged
+            else:
+                terminal_criteria = bool(
+                    conv_info.max_force_converged
+                    and conv_info.rms_force_converged
+                )
+            converged = bool(exact_current_saddle and terminal_criteria)
             if not converged and outer_allow_stall and exact_current_saddle:
                 # Required curvature is present (a verified first-order saddle
                 # at these exact coordinates) but the energy is flat while the

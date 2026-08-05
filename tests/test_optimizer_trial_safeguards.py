@@ -609,6 +609,29 @@ def test_current_coordinate_exact_saddle_can_authorize_convergence(tmp_path) -> 
     assert conv_info.energy_converged is True
 
 
+def test_exact_non_baker_saddle_ignores_outgoing_step(tmp_path) -> None:
+    geom, opt = _ts_optimizer(
+        tmp_path, 0.0, thresh="gau_loose", energy_plateau=False
+    )
+    opt.cur_cycle = 3
+    opt.last_cycle = 0
+    opt.forces = [np.full(3, 9.0e-4)]
+    opt.energies = [0.0, 1.0e-3]
+    opt.steps = [np.full(3, 4.0e-2)]
+    opt.ts_mode_eigvals = np.array([-4.0])
+    opt._last_exact_n_imaginary = 1
+    opt._last_exact_saddle_verified = True
+    opt._last_exact_cart_coords = geom.cart_coords.copy()
+
+    converged, conv_info = opt.check_convergence()
+
+    assert bool(conv_info.max_force_converged)
+    assert bool(conv_info.rms_force_converged)
+    assert not bool(conv_info.max_step_converged)
+    assert not bool(conv_info.rms_step_converged)
+    assert converged is True
+
+
 def test_energy_plateau_with_exact_saddle_but_failed_force_stalls(
     tmp_path,
 ) -> None:
