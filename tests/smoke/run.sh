@@ -474,6 +474,10 @@ mlmm freq -i p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --freeze-at
 test -s test64_freq/hessian.npz || { echo "[smoke] FAIL test64: dumped Hessian missing" >> test64_freq.out; exit 1; }
 mlmm irc -i p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --freeze-atoms 1,2,3 --read-hess test64_freq/hessian.npz --never-stop --config never_stop_config.yaml --max-cycles 2 --out-json --out-dir test65_irc_handoff > test65_irc_handoff.out 2>&1
 python assert_release_result.py irc-handoff test65_irc_handoff --hessian-file test64_freq/hessian.npz >> test65_irc_handoff.out 2>&1
+if grep -Fq '[irc] IRC stopped after only a few frames' test65_irc_handoff.out; then
+  echo '[smoke] FAIL test65: cycle-cap completion was reported as early IRC termination' >> test65_irc_handoff.out
+  exit 1
+fi
 
 # A same-size Hessian from a different geometry must be rejected before IRC.
 python - <<'PY'
