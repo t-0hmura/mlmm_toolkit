@@ -69,9 +69,18 @@ PY
 mlmm() { python -m mlmm "$@"; }
 python assert_tr_cuda_parity.py
 
-# Clean only artifacts authored by this harness. The digit-qualified glob must
-# not be widened to `test*`, which would also match the repository's tests/.
-rm -rf -- test[0-9]* pocket_r.pdb r_complex_layered.pdb r_complex_layered.cif r_complex_elem.pdb r_complex_fixalt.pdb
+# Clean only artifacts authored by this harness. The positive-lane input PDBs
+# share the test73 prefix and are static fixtures, not run output.
+for artifact in test[0-9]*; do
+  case "$artifact" in
+    test73_r_complex.pdb|test73_p_complex.pdb) ;;
+    *) rm -rf -- "$artifact" ;;
+  esac
+done
+rm -rf -- pocket_r.pdb r_complex_layered.pdb r_complex_layered.cif r_complex_elem.pdb r_complex_fixalt.pdb
+for fixture in test73_r_complex.pdb test73_p_complex.pdb; do
+  test -s "$fixture" || { echo "[smoke] BLOCKED: required fixture missing after cleanup: $fixture" >&2; exit 1; }
+done
 
 MLMM_COMPLEX_FREEZE_ATOMS="1,32"
 
