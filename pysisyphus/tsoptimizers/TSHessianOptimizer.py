@@ -1424,7 +1424,7 @@ class TSHessianOptimizer(HessianOptimizer):
             # is not a property of the current geometry. The Baker preset keeps
             # its explicit max(force) AND (energy change OR max(step)) rule.
             exact_current_saddle = self._exact_saddle_matches_current_geometry()
-            if self.thresh == "baker":
+            if self.thresh in ("baker", "never"):
                 terminal_criteria = base_converged
             else:
                 terminal_criteria = bool(

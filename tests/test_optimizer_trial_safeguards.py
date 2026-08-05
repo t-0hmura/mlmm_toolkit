@@ -632,6 +632,25 @@ def test_exact_non_baker_saddle_ignores_outgoing_step(tmp_path) -> None:
     assert converged is True
 
 
+def test_exact_saddle_does_not_override_never_threshold(tmp_path) -> None:
+    geom, opt = _ts_optimizer(
+        tmp_path, 0.0, thresh="never", energy_plateau=False
+    )
+    opt.cur_cycle = 3
+    opt.last_cycle = 0
+    opt.forces = [np.zeros(3)]
+    opt.energies = [0.0, 0.0]
+    opt.steps = [np.zeros(3)]
+    opt.ts_mode_eigvals = np.array([-4.0])
+    opt._last_exact_n_imaginary = 1
+    opt._last_exact_saddle_verified = True
+    opt._last_exact_cart_coords = geom.cart_coords.copy()
+
+    converged, _ = opt.check_convergence()
+
+    assert converged is False
+
+
 def test_energy_plateau_with_exact_saddle_but_failed_force_stalls(
     tmp_path,
 ) -> None:
