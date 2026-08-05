@@ -69,9 +69,9 @@ Options:
                                   template is available.  [default: convert-
                                   files]
   -b, --backend [uma|orb|mace|aimnet2]
-                                  Compatibility no-op; DFT output records
-                                  mlip_backend=dft and this option does not
-                                  select or label a calculator.
+                                  Compatibility no-op. The high-level region is
+                                  always computed with DFT; a supplied value
+                                  emits a diagnostic and is ignored.
   --embedcharge / --no-embedcharge
                                   Unavailable in v0.3.3; retained so older
                                   commands fail with an actionable diagnostic.
