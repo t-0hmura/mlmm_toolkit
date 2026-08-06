@@ -153,8 +153,11 @@ pysisyphus は複数のプリセット閾値を提供します（単位: 力は 
 | `gau_tight` | 1.5×10⁻⁵ | 1.0×10⁻⁵ | 6.0×10⁻⁵ | 4.0×10⁻⁵ |
 | `baker` | 3.0×10⁻⁴ | 2.0×10⁻⁴ | 3.0×10⁻⁴ | 2.0×10⁻⁴ |
 
-`baker` は `max(force) <= 3e-4` かつ（`|dE| < 1e-6` または
-`max(step) <= 3e-4`）を使い、RMS 値は診断用です。
+`baker` は4列すべてに加えて前サイクルとの `|dE| < 1e-6` hartree を要求します。
+文献の Baker 基準（Bakken and Helgaker, *J. Chem. Phys.* **117**, 9160 (2002)：
+`max(force) <= 3e-4` かつ（`|dE| < 1e-6` または `max(step) <= 3e-4`））より
+厳しい設定で、文献形は RMS force が残る構造も収束と判定しうるためです。
+step 長がゼロなら構造が動かないので、エネルギー基準は構造的に満たされます。
 他のプリセットでは、`overachieve_factor` は収束のショートカットです。
 `max(force)` と `rms(force)` の両方が `threshold / overachieve_factor`
 を下回ると、ステップサイズ基準が未達でも収束と判定します。Baker 分岐はこの

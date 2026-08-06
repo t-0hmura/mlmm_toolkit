@@ -1421,8 +1421,9 @@ class TSHessianOptimizer(HessianOptimizer):
             # at these coordinates is an additional terminal requirement. For
             # non-Baker presets, a verified saddle whose configured force
             # thresholds are met is stationary; an outgoing quasi-Newton step
-            # is not a property of the current geometry. The Baker preset keeps
-            # its explicit max(force) AND (energy change OR max(step)) rule.
+            # is not a property of the current geometry. The `baker` preset
+            # keeps its own stricter rule (max/rms force, max/rms step and the
+            # energy change must all hold).
             exact_current_saddle = self._exact_saddle_matches_current_geometry()
             if self.thresh in ("baker", "never"):
                 terminal_criteria = base_converged

@@ -118,7 +118,7 @@ Forces in Hartree/bohr, steps in bohr.
 | `gau` | Standard Gaussian-like tightness for routine work | 4.5e-4 | 3.0e-4 | 1.8e-3 | 1.2e-3 |
 | `gau_tight` | Tighter; better structures / freq / TS refinement | 1.5e-5 | 1.0e-5 | 6.0e-5 | 4.0e-5 |
 | `gau_vtight` | Very tight; benchmarking/high-precision final structures | 2.0e-6 | 1.0e-6 | 6.0e-6 | 4.0e-6 |
-| `baker` | `max(force) <= 3e-4` **and** (`\|dE\| < 1e-6` **or** `max(step) <= 3e-4`); RMS values are diagnostic | 3.0e-4 | 2.0e-4 | 3.0e-4 | 2.0e-4 |
+| `baker` | Stricter than the published rule: the four columns **and** `\|dE\| < 1e-6` must all hold | 3.0e-4 | 2.0e-4 | 3.0e-4 | 2.0e-4 |
 
 ### Frozen-boundary TR projection
 

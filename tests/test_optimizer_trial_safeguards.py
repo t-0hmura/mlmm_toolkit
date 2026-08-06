@@ -12,6 +12,7 @@ from pysisyphus.intcoords.exceptions import RebuiltInternalsException
 from pysisyphus.optimizers.LBFGS import LBFGS
 from pysisyphus.optimizers.HessianOptimizer import HessianOptimizer
 from pysisyphus.optimizers.RFOptimizer import RFOptimizer
+from pysisyphus.optimizers.exceptions import ZeroStepLength
 from pysisyphus.tsoptimizers.RSIRFOptimizer import RSIRFOptimizer
 from pysisyphus.tsoptimizers.RSPRFOptimizer import RSPRFOptimizer
 from pysisyphus.tsoptimizers.TRIM import TRIM
@@ -350,15 +351,31 @@ def test_lbfgs_rejects_uphill_trial_through_shared_rollback(tmp_path) -> None:
 @pytest.mark.parametrize(
     ("energy_change", "max_step", "expected"),
     [
-        (0.0, 3.56e-4, True),
-        (2.0e-6, 2.00e-4, True),
-        (2.0e-6, 3.00e-4, True),
+        # All five criteria hold.
+        (0.0, 2.00e-4, True),
+        # max(|step|) exactly at its threshold.
+        (0.0, 3.00e-4, True),
+        # Energy change holds but the step is too large.  The published rule of
+        # Bakken & Helgaker, J. Chem. Phys. 117, 9160 (2002),
+        # doi:10.1063/1.1515483 would accept this via its energy limb; this
+        # project's tightened preset does not.
+        (0.0, 3.56e-4, False),
+        # The step holds but the energy change does not.  The published rule
+        # would accept this via its step limb; this preset does not.
+        (2.0e-6, 2.00e-4, False),
+        # Neither the energy change nor the step holds.
         (2.0e-6, 3.56e-4, False),
     ],
 )
-def test_baker_uses_energy_or_max_step_after_max_force(
+def test_baker_requires_all_thresholds_and_energy_change(
     tmp_path, energy_change, max_step, expected
 ) -> None:
+    """The `baker` preset requires max/rms force, max/rms step AND |Δ(energy)|.
+
+    This is a deliberate tightening of the published criterion (max gradient AND
+    (energy change OR step component)), because the looser form accepts
+    geometries whose remaining RMS force still displaces the structure.
+    """
     geom = Geometry(["H"], np.zeros(3), coord_type="cart")
     geom.set_calculator(_QuadraticCalculator(tmp_path))
     opt = LBFGS(
@@ -379,20 +396,33 @@ def test_baker_uses_energy_or_max_step_after_max_force(
     assert bool(conv_info.energy_converged) is (energy_change < 1.0e-6)
 
 
-def test_emergency_stop_accepts_converged_retained_rfo_geometry(
-    tmp_path, capsys
+@pytest.mark.parametrize(
+    ("stop_cycle", "x", "expect_converged"),
+    [
+        # Two energies exist, so |Δ(energy)| is measurable and the retained
+        # geometry satisfies every `baker` criterion: convergence wins over the
+        # emergency stop.
+        (1, 4.0e-4, True),
+        # A stop on the very first cycle leaves a single energy while the step
+        # is not zero, so the energy criterion is unobservable.  The lower-energy
+        # geometry is still retained, but it must NOT be called converged.
+        (0, 1.0e-4, False),
+    ],
+)
+def test_emergency_stop_reports_retained_rfo_geometry_truthfully(
+    tmp_path, capsys, stop_cycle, x, expect_converged
 ) -> None:
     class _EmergencyStopRF(RFOptimizer):
         def optimize(self):
             step = super().optimize()
-            if self.cur_cycle >= 0:
+            if self.cur_cycle >= stop_cycle:
                 self.uphill_rejection_stalled = True
                 self.request_stop(
                     "repeated uphill RFO trials at the emergency trust floor"
                 )
             return step
 
-    geom = Geometry(["H"], np.array([1.0e-4, 0.0, 0.0]), coord_type="cart")
+    geom = Geometry(["H"], np.array([x, 0.0, 0.0]), coord_type="cart")
     geom.set_calculator(_QuadraticCalculator(tmp_path))
     opt = _EmergencyStopRF(
         geom,
@@ -406,12 +436,48 @@ def test_emergency_stop_accepts_converged_retained_rfo_geometry(
     opt.run()
 
     stdout = capsys.readouterr().out
-    assert opt.is_converged, stdout
-    assert not opt.stopped
-    assert opt.termination_status == "converged"
-    assert "Converged!" in stdout
-    assert "retained lower-energy geometry satisfies" in stdout
-    assert "without claiming convergence" not in stdout
+    if expect_converged:
+        assert opt.is_converged, stdout
+        assert not opt.stopped
+        assert opt.termination_status == "converged"
+        assert "Converged!" in stdout
+        assert "retained lower-energy geometry satisfies" in stdout
+        assert "without claiming convergence" not in stdout
+    else:
+        assert not opt.is_converged, stdout
+        assert opt.stopped
+        assert opt.termination_status != "converged"
+        assert "Converged!" not in stdout
+        assert "without claiming convergence" in stdout
+
+
+def test_zero_step_still_raises_when_a_force_threshold_is_unmet(tmp_path) -> None:
+    """A zero-length step only settles the `baker` energy criterion.
+
+    While any force threshold is unmet the run must still abort through
+    `assert_min_step` instead of certifying a non-stationary geometry.
+    """
+
+    class _ZeroStepRF(RFOptimizer):
+        def optimize(self):
+            super().optimize()
+            return np.zeros_like(self.geometry.coords)
+
+    geom = Geometry(["H"], np.array([2.0e-2, 0.0, 0.0]), coord_type="cart")
+    geom.set_calculator(_QuadraticCalculator(tmp_path))
+    opt = _ZeroStepRF(
+        geom,
+        hessian_init="calc",
+        thresh="baker",
+        max_cycles=3,
+        out_dir=tmp_path,
+    )
+
+    with pytest.raises(ZeroStepLength):
+        opt.run()
+
+    assert not opt.is_converged
+    assert opt.max_forces[-1] > 3.0e-4
 
 
 def _ts_optimizer(tmp_path, x, **kwargs):
@@ -704,7 +770,7 @@ def test_energy_plateau_provisional_check_does_not_stall_ts_optimizer(
     assert opt.is_stalled is False
 
 
-def test_exact_current_saddle_still_requires_baker_energy_or_step(
+def test_exact_current_saddle_still_requires_all_baker_thresholds(
     tmp_path
 ) -> None:
     geom, opt = _ts_optimizer(tmp_path, 0.0, energy_plateau=False)
@@ -725,7 +791,12 @@ def test_exact_current_saddle_still_requires_baker_energy_or_step(
     assert converged is False
 
 
-def test_ts_baker_keeps_rms_force_diagnostic_only(tmp_path) -> None:
+def test_ts_baker_requires_rms_force_not_only_max_force(tmp_path) -> None:
+    """rms(force) is a mandatory `baker` criterion, not a diagnostic.
+
+    The exact PHVA trigger stays max-force-based (so the Hessian is still
+    evaluated near the saddle), but acceptance needs every threshold.
+    """
     geom, opt = _ts_optimizer(tmp_path, 0.0, energy_plateau=False)
     opt.cur_cycle = 3
     opt.last_cycle = 0
@@ -741,7 +812,7 @@ def test_ts_baker_keeps_rms_force_diagnostic_only(tmp_path) -> None:
 
     assert bool(conv_info.max_force_converged)
     assert not bool(conv_info.rms_force_converged)
-    assert converged is True
+    assert converged is False
 
 
 def test_exact_higher_order_saddle_cannot_authorize_first_order_convergence(

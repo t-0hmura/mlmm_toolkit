@@ -169,8 +169,12 @@ pysisyphus provides several preset thresholds (units: Hartree/Bohr for forces, B
 | `gau_tight` | 1.5×10⁻⁵ | 1.0×10⁻⁵ | 6.0×10⁻⁵ | 4.0×10⁻⁵ |
 | `baker` | 3.0×10⁻⁴ | 2.0×10⁻⁴ | 3.0×10⁻⁴ | 2.0×10⁻⁴ |
 
-`baker` uses `max(force) <= 3e-4` and (`|dE| < 1e-6` or
-`max(step) <= 3e-4`); its RMS values are diagnostic only.
+`baker` requires all four columns **and** `|dE| < 1e-6` hartree against the
+previous cycle. It is therefore stricter than the published Baker criterion
+(Bakken and Helgaker, *J. Chem. Phys.* **117**, 9160 (2002)), which needs only
+`max(force) <= 3e-4` and (`|dE| < 1e-6` or `max(step) <= 3e-4`); that looser form
+accepts geometries whose remaining RMS force still displaces the structure. A
+zero-length step satisfies the energy criterion by construction.
 For the other presets, `overachieve_factor` is a convergence shortcut: when
 `max(force)` and `rms(force)` are both below `threshold / overachieve_factor`,
 convergence is declared even if the step-size criteria have not yet been met.

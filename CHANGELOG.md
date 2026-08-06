@@ -128,9 +128,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Label thermochemistry as `E + G_corr = G`, force uphill rejection off for
   transition-state optimization, and keep its toggle limited to minimum and
   post-IRC endpoint optimization.
-- Apply Baker convergence as maximum force plus energy-change-or-maximum-step,
-  with RMS values diagnostic only, including the final check of a retained
-  lower-energy geometry at the uphill-rejection trust floor.
+- Apply the `baker` preset as a deliberately tightened variant of the published
+  criterion (Bakken and Helgaker, J. Chem. Phys. 117, 9160 (2002)): maximum
+  force, RMS force, maximum step, RMS step and the energy change must all hold,
+  including the final check of a retained lower-energy geometry at the
+  uphill-rejection trust floor. A zero-length step settles the energy criterion,
+  because the geometry cannot move.
+- Stop forcing one reparametrization pass per growing-string cycle. An image
+  already inside the parametrization tolerance is no longer displaced, and
+  coincident parameter densities are rejected instead of divided.
 - Pin backend setup recipes to the official PyTorch 2.8 wheel matrix, install
   dedicated-environment MACE only after removing `fairchem-core`, and make HPC
   templates fail fast unless the `hessian_ff` JIT compiler prerequisites are
@@ -219,8 +225,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   corresponding upstream MACE-OFF model sizes.
 - Preserve selected-root diagnostics in non-Cartesian coordinates and convert
   torch eigenvectors explicitly for reference-mode overlap checks.
-- Apply the Baker maximum-force plus energy-change-or-maximum-step criterion on
-  every evaluable cycle, including the first retained geometry.
+- Apply the tightened `baker` criterion on every evaluable cycle, including the
+  first retained geometry.
+- Convert Cartesian coordinates from Bohr to Angstrom before the
+  thermochemistry hand-off; the moments of inertia, rotational entropy and
+  absolute Gibbs energies were computed from Bohr values in an Angstrom contract.
+- Require every internal-coordinate component to satisfy the back-transformation
+  tolerance before the iteration is accepted; a single converged component used
+  to end it.
+- Apply the thermochemistry policy's `zpe_scale` (passed on as
+  `zpe_scale_factor`) exactly once to the reported zero-point energy and to the
+  vibrational internal energy. Values other than the default `1.0` were scaled
+  twice.
+- Collect invalid primitive indices from the actual dihedral and bend index
+  lists instead of assuming contiguous ranges, keeping both sets.
+- Correct the diagnostic QRRHO free-rotor partition function (frequency instead
+  of wavenumber, plus the missing factor of pi); reported QRRHO entropy and Gibbs
+  energy come from the Grimme interpolation and are unchanged.
+- Evaluate the vibrational heat capacity through a series expansion for small
+  exponents and `expm1` elsewhere, removing the cancellation error near zero.
 - Accept equivalent leading-digit PDB and trailing-digit Amber hydrogen names
   while preserving strict atom-order checks for non-hydrogen atoms.
 - Route `dft` through `MLMMCore` for topology preparation, MM calculators, and

@@ -457,14 +457,7 @@ class Optimizer(metaclass=abc.ABCMeta):
             max_thresh = None
         threshs = (rms_thresh, max_thresh)
 
-        if self.thresh == "baker":
-            use_threshs = (
-                f"\tmax(|force|) <= 0.000300 {fu}",
-                "\tand either:",
-                "\t   |Δ(energy)| < 0.000001 E_h",
-                f"\t   max(|step|) <= 0.000300 {su}",
-            )
-        elif self.rms_force_only:
+        if self.rms_force_only:
             use_threshs = (threshs[1],)
         elif self.max_force_only:
             use_threshs = (threshs[0],)
@@ -477,6 +470,10 @@ class Optimizer(metaclass=abc.ABCMeta):
                 f"\t max(|step|) <= {self.max_step_thresh:.6f} {su}",
                 f"\t   rms(step) <= {self.rms_step_thresh:.6f} {su}",
             )
+        if self.thresh == "baker":
+            # The preset requires the energy change in addition to the four
+            # force/step thresholds printed above.
+            use_threshs = use_threshs + ("\t   Δ(energy) <= 0.000001 E_h",)
         # Print the threshold block once per process for the same key (=
         # `thresh` setting). Subsequent optimizer instances using the
         # identical thresholds skip the 5-line repeat that otherwise fills
@@ -763,18 +760,26 @@ class Optimizer(metaclass=abc.ABCMeta):
                 if cur_energy.shape == prev_energy.shape:
                     energy_converged = np.all(np.abs(cur_energy - prev_energy) < 1e-6)
 
-            # Baker's original criterion is max(force) AND
-            # (energy change OR max(step)); RMS values are diagnostic only.
-            # Bakken & Helgaker, J. Chem. Phys. 117, 9160 (2002),
-            # doi:10.1063/1.1515483.
+            # A zero-length step cannot move the geometry, so the energy cannot
+            # change either: |Δ(energy)| is zero by construction and needs no
+            # further cycle to be observed.  Every force and step threshold
+            # below still has to hold on its own.
+            if not energy_converged and max_step <= self.min_step_norm:
+                energy_converged = True
+
+            # This preset is a deliberately TIGHTENED variant of the published
+            # criterion: max(force), rms(force), max(step), rms(step) and
+            # |Δ(energy)| must all hold.  The original rule of Bakken & Helgaker,
+            # J. Chem. Phys. 117, 9160 (2002), doi:10.1063/1.1515483 requires
+            # only max(force) AND (|Δ(energy)| OR max(step)).  That looser form
+            # accepts geometries whose remaining RMS force still displaces the
+            # structure, which on MLIP surfaces terminates on higher-order
+            # saddle points; the deviation is documented in the convergence
+            # reference and the CHANGELOG.
             convergence["energy_converged"] = bool(energy_converged)
             conv_info = ConvInfo(self.cur_cycle, **convergence)
-            converged = (
-                desired_eigval_structure
-                and (max_force <= 3e-4)
-                and (energy_converged or (max_step <= 3e-4))
-            )
-            # Baker already has its own explicit force/energy-or-step rule.
+            converged = desired_eigval_structure and all(convergence.values())
+            # Keep it strict: don't bypass the energy criterion via overachievement.
             overachieved = False
         # Real (physical) terminal convergence, computed WITHOUT the energy
         # plateau.  An energy-only plateau is NOT convergence ; it is
