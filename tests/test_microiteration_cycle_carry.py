@@ -899,3 +899,19 @@ def test_microiter_macro_default_path_is_unchanged(tmp_path, monkeypatch):
         }
     )
     assert kwargs == expected
+
+
+def test_micro_bound_is_a_backstop_not_a_schedule():
+    """The MM relaxation is held to the macro preset, so the cycle bound must
+    not be what ends it. Measured on the release-smoke ML/MM TS lane under
+    `baker`: 791 relaxations, median 56 cycles, three transients at
+    16815/13167/10624. A 10000 bound turned those three into `not_converged`,
+    and the fail-closed handling aborted the search after 45 of 791 macro steps.
+    """
+    from mlmm.core.defaults import MICROITER_KW
+
+    # Aligned with the macro step: a looser micro would let the macro report a
+    # stationary point while the environment still carries force and drift.
+    assert MICROITER_KW["micro_thresh"] is None
+    # Headroom over the measured worst case (16815).
+    assert MICROITER_KW["micro_max_cycles"] >= 50000

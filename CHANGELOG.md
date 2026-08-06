@@ -223,6 +223,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   trusted PyPI publication.
 
 ### Fixed
+- Raise `microiter.micro_max_cycles` from 10000 to 100000 so the MM relaxation
+  is bounded by its convergence criterion rather than by the cycle cap. The
+  micro step is held to the same preset as the macro step, and under `baker`
+  the few transient relaxations that follow a large rearrangement need more
+  than 10000 L-BFGS cycles: measured on the release-smoke ML/MM TS lane, 791
+  relaxations with a median of 56 cycles and three transients at 16815 / 13167
+  / 10624. At the old cap those three reported `not_converged`, whose
+  fail-closed handling aborted the TS search after 45 of 791 macro steps and
+  left four imaginary modes; with the new bound every relaxation converges and
+  the search reaches a certified first-order saddle. No convergence threshold
+  changed, and the 788 relaxations that already converged are unaffected.
 - Apply the whole shared `opt` block to the macro step of an `opt --microiter`
   run. It previously forwarded only `thresh`, `max_cycles`, `dump` and
   `out_dir`, so YAML convergence controls (`rms_force`, `rms_force_only`,

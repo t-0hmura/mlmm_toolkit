@@ -385,8 +385,20 @@ IRC_KW: Dict[str, Any] = {
 # Microiteration defaults (opt heavy / tsopt heavy)
 
 MICROITER_KW: Dict[str, Any] = {
+    # The MM relaxation is held to the SAME preset as the macro step: the macro
+    # step's convergence is read from forces that depend on where the MM
+    # environment sits, so a micro converged more loosely than the macro would
+    # declare a stationary point while the shell still carries force and drift.
     "micro_thresh": None,           # Convergence threshold for MM relaxation (None → same as macro thresh)
-    "micro_max_cycles": 10000,      # Max LBFGS cycles per micro iteration
+    # A backstop, NOT a schedule. The micro exits on convergence, so this bound
+    # only ever matters for the few transient relaxations that follow a large
+    # rearrangement. Measured on the release-smoke ML/MM TS lane under the
+    # `baker` macro preset: 791 relaxations, median 56 cycles, and exactly three
+    # transients above 10000 (16815 / 13167 / 10624). At 10000 those three
+    # reported `not_converged`, whose fail-closed handling aborted the macro
+    # search after 45 of 791 steps; with this bound every relaxation converges
+    # and the search reaches a certified saddle (n_imag=1).
+    "micro_max_cycles": 100000,     # Max LBFGS cycles per micro iteration
 }
 
 

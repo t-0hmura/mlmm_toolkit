@@ -232,7 +232,9 @@ The plateau check is automatically skipped for chain-of-states (COS) optimizers
 `--microiter` run: a flat MM energy with forces still above threshold is a
 stalled micro relaxation, not MM equilibrium, and stopping there would end the
 macro/micro alternation with the environment unrelaxed. `microiter.micro_max_cycles`
-bounds the micro step instead.
+bounds the micro step instead -- as a backstop, not a schedule: the micro exits
+on convergence, and on the release-smoke ML/MM TS lane the median relaxation
+needs 56 cycles while three transients out of 791 need 10^4.
 
 ---
 
@@ -603,7 +605,7 @@ ML Hessian evaluations needed.
 ```yaml
 microiter:
  micro_thresh: null       # Convergence preset for MM relaxation (L-BFGS); null → same as macro thresh
- micro_max_cycles: 10000  # Maximum L-BFGS iterations per micro-iteration
+ micro_max_cycles: 100000 # Backstop on L-BFGS iterations per micro-iteration (not a schedule)
 ```
 
 **Notes:**
