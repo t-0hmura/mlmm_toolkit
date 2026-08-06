@@ -47,7 +47,11 @@ def _notebook_version() -> str:
     for cell in notebook.get("cells", []):
         if cell.get("cell_type") != "code":
             continue
-        match = pattern.search(str(cell.get("source", "")))
+        source = cell.get("source", "")
+        if isinstance(source, list):
+            # nbformat also allows a list of lines; Colab exports that form.
+            source = "".join(source)
+        match = pattern.search(source)
         if match is not None:
             return match.group(1)
     raise ValueError(f"{NOTEBOOK.name} has no {NOTEBOOK_REF} assignment")

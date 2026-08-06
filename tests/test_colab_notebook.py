@@ -41,7 +41,15 @@ def _execute_app(monkeypatch, tmp_path: Path) -> tuple[dict, list]:
 
 
 def _notebook() -> dict:
-    return json.loads(NOTEBOOK.read_text(encoding="utf-8"))
+    notebook = json.loads(NOTEBOOK.read_text(encoding="utf-8"))
+    # nbformat stores `source` either as one string or as a list of lines, and
+    # Colab exports the list form.  Normalize here so every contract below can
+    # treat a cell's source as plain text.
+    for cell in notebook["cells"]:
+        source = cell.get("source")
+        if isinstance(source, list):
+            cell["source"] = "".join(source)
+    return notebook
 
 
 def _root_normalized_subcommand_argv(app: dict, subcommand: str, argv: list[str]) -> list[str]:
@@ -203,25 +211,30 @@ def test_colab_setup_is_pinned_to_matching_release_and_one_backend() -> None:
     # The release path installs the pinned wheel; a version token containing
     # `debug` installs the matching uploaded source snapshot instead.
     assert "_debug_install = 'debug' in str(mlmm_toolkit_version).lower()" in setup
-    assert "pip('mlmm-toolkit==' + _requested_version)" in setup
+    # One pinned install covers both cases: the `[dft]` extra is selected inside
+    # the same expression, so the requested version cannot differ between the
+    # plain and DFT paths.
+    assert (
+        "pip('mlmm-toolkit%s==%s' % ('[dft]' if install_dft else '', _requested_version))"
+        in setup
+    )
     # The [dft] extra goes through the same quiet `pip` helper as every other
     # install; the streaming `pip_logged` variant was removed.
-    assert "pip('mlmm-toolkit[dft]==' + _requested_version)" in setup
     assert "pip_logged" not in setup
     assert "install_dft is ticked" in setup
     # Gated UMA sign-in is the last step, so no install phase waits on a prompt.
-    assert "Hugging Face sign-in runs at the end of Setup" in setup
+    assert "Hugging Face sign-in runs at the end of Installation" in setup
     assert setup.index("notebook_login()") > setup.index("_phase_done('version verified')")
     assert "git clone" not in setup
     assert "installed_version != _requested_version" in setup
     assert "anywidget==0.11.0" in setup
     assert "version('mlmm-toolkit')" in setup
     assert "Restart the Colab runtime first" in setup
-    assert "mace-torch>=0.3.8" in setup
+    assert "mace-torch==0.3.16" in setup
     assert "HF_TOKEN" in setup
     assert 'install_dft = True  #@param {type:"boolean"}' in setup
     assert "INSTALL_DFT = install_dft" in setup
-    assert "installs conda-forge dependencies and the selected backend" in setup.lower()
+    assert "installs ambertools/openmm dependencies, mlmm-toolkit, the selected mlip backend" in setup.lower()
     assert "Only the **selected backend** is installed" not in setup
     assert "DFT_SETUP_READY = True" in setup
     assert "_dft_packages = {'pyscf': 'pyscf', 'gpu4pyscf': 'gpu4pyscf-cuda12x'}" in setup
@@ -229,7 +242,7 @@ def test_colab_setup_is_pinned_to_matching_release_and_one_backend() -> None:
     assert "pip('-e', './' + REPO_DIR + ('[dft]' if install_dft else ''))" in setup
     for rejection in (
         "has no source-snapshot marker",
-        "does not match this notebook",
+        "Notebook and ZIP are from different debug builds",
         "contains a file outside its source directory",
         "contains an unsafe path",
         "contains an unsupported symbolic link",
@@ -241,8 +254,10 @@ def test_colab_setup_is_pinned_to_matching_release_and_one_backend() -> None:
 def test_colab_setup_dft_branch_installs_extra_and_checks_gpu(monkeypatch, capsys) -> None:
     import importlib.metadata
 
+    # `install_dft` already defaults to True; the backend is pinned explicitly so
+    # this contract stays about the DFT extra rather than the current default.
     setup = _notebook()["cells"][1]["source"].replace(
-        "install_dft = False", "install_dft = True", 1,
+        'backend = "orb"', 'backend = "mace"', 1,
     )
     calls: list[list[str]] = []
 
@@ -296,8 +311,10 @@ def test_colab_setup_dft_branch_installs_extra_and_checks_gpu(monkeypatch, capsy
     exec(compile(setup, str(NOTEBOOK), "exec"), namespace)
 
     installs = [argv for argv in calls if "install" in argv]
-    assert any("mlmm-toolkit==0.3.3" in argv for argv in installs)
+    # One pinned install carries the extra, so the DFT branch differs from the
+    # plain branch only by the `[dft]` marker on the same requested version.
     assert any("mlmm-toolkit[dft]==0.3.3" in argv for argv in installs)
+    assert not any("mlmm-toolkit==0.3.3" in argv for argv in installs)
     assert popen_calls == []          # no streamed pip log, only the announcement
     logged = capsys.readouterr().out
     assert "install_dft is ticked" in logged
@@ -335,7 +352,7 @@ def test_colab_setup_operates_orb_and_uma_branches(
     import importlib.metadata
 
     setup = _notebook()["cells"][1]["source"].replace(
-        'backend = "mace"', f'backend = "{backend}"', 1,
+        'backend = "orb"', f'backend = "{backend}"', 1,
     ).replace("install_dft = True", "install_dft = False", 1)
     calls: list[list[str]] = []
     logins: list[tuple] = []
@@ -483,7 +500,7 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "_rx_info_button" not in app
     assert "rxinfo-popover" not in app
     assert "📥 needs" not in app
-    assert "w_show_run_log = W.Checkbox(value=True, description='Show run log'" in app
+    assert "w_show_run_log = W.Checkbox(value=True, description='Show log'" in app
     assert "cmdline_box = W.VBox([command_editor, command_footer, logbox])" in app
     assert "command_editor = W.VBox([" in app
     assert "W.HTML('<b>Command line</b>')" in app
@@ -527,7 +544,7 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
         "    _set_running(True)\n"
         "    try:"
     ) in app
-    assert "rootbox = W.VBox([header, app, cmdline_box])" in app
+    assert "rootbox = W.VBox([header, plotly_preload_out, app, cmdline_box])" in app
     assert "rootbox = W.VBox([header, app, W.HTML('<hr" not in app
     assert 'role="tooltip"' not in app
     assert "rxworkspace" in app
@@ -540,7 +557,7 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "def _ingest_saved_files(" in app
     assert "input_file_rows" in app and "description='Remove file'" in app
     assert "class _DropUpload(anywidget.AnyWidget):" in app
-    assert "upl = _DropUpload(accept=_acc, formats=_drop_formats)" in app
+    assert "upl = _DropUpload(accept=_acc, formats=_drop_formats, formats_detail=_drop_formats_detail)" in app
     assert "upl = W.FileUpload(accept=_acc, multiple=True, description='Upload files'" in app
     assert "_drop = W.VBox(_drop_children," in app
     assert "align_items='center', justify_content='center'" in app
@@ -612,7 +629,7 @@ def test_colab_viewer_persists_exact_atom_and_residue_context() -> None:
         "last_pick_info", "Generated file preview", "Download current run (.zip)",
         "results_box.add_class('rxresults')", "overflow-x:auto",
         "colab_run.log", "energy unavailable", "Command was cancelled",
-        "Command failed", "_frame_link = W.jslink", "linked structure + energy",
+        "Command failed", "_frame_link = W.jslink", "frame_slider = W.IntSlider(", "channel='trajectory'",
         "host.on('plotly_click'", "Plotly.restyle", "artifact_fold._rx_set_open",
         "message.type!=='rx-set-frame'", "update.to(model).update",
         "channel='trajectory', generation=generation",
@@ -729,7 +746,7 @@ def test_colab_viewer_persists_exact_atom_and_residue_context() -> None:
     # energy-only extremum is neither a certified transition state nor a
     # certified intermediate; the energy diagram is where the profile is read.
     assert contract["_stationary"]([0.0, 2.0, 0.0], path_semantics) == [
-        (0, "R"), (2, "P"),
+        (0, "R"), (1, "TS candidate"), (2, "P"),
     ]
     assert contract["_stationary"]([2.0, 0.0, 2.0], path_semantics) == [
         (0, "R"), (2, "P"),
@@ -1711,8 +1728,8 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     )
     context_html = app["_result_context_html"](str(tmp_path))
     assert "IRC endpoint mismatch" not in context_html
-    assert "<b>5 files</b>" in context_html
-    assert context_html.count("<code>") == 3
+    assert "<b>all</b>" in context_html
+    assert context_html.count("<code>") == len(extra_artifacts) + 1
     calls.clear()
     app["_structure_preview"](str(primary))
     assert any(
@@ -2329,8 +2346,10 @@ def test_colab_operates_scientific_selectors_and_remaining_buttons(
     )
     app["res_btn"].disabled = False
     app["res_btn"].click()
-    assert len(app["traj_choice"].options) == 2
-    app["traj_choice"].value = str(trajectory_b)
+    # The selector offers the primary result trajectory; per-file semantic
+    # titles are used elsewhere, not to build extra selector entries.
+    assert [label for label, _ in app["traj_choice"].options] == ["Primary result"]
+    app["traj_choice"].value = app["traj_choice"].options[0][1]
     app["frame_next"].click()
     assert app["frame_slider"].value == 1
     app["frame_prev"].click()
@@ -2769,7 +2788,7 @@ def test_colab_gui_preserves_full_system_and_tracks_current_run_only() -> None:
     assert "options=['(default)', 'gsm', 'dmf']" not in app
     assert "OUT_JSON_SUBS" in app and "if sub in OUT_JSON_SUBS: cmd += ['--out-json']" in app
     assert "class _DropUpload(anywidget.AnyWidget):" in app
-    assert "upl = _DropUpload(accept=_acc, formats=_drop_formats)" in app
+    assert "upl = _DropUpload(accept=_acc, formats=_drop_formats, formats_detail=_drop_formats_detail)" in app
     assert "mlmm_gui.on_drop" not in app
     assert "def _ingest_saved_files(" in app
     assert "_reset_file_upload(upl)" in app
@@ -3081,7 +3100,7 @@ def test_colab_release_state_and_linked_results_regressions(
 ) -> None:
     app, rendered = _execute_app(monkeypatch, tmp_path)
 
-    assert "never" in app["adv_thresh"].options
+    assert "never" in [value for _, value in app["adv_thresh"].options]
     assert app["adv_dftfb"].placeholder == "wb97m-v/def2-tzvpd"
     app["S"]["mode"] = "xyz"
     assert app["_aspec"]({
@@ -3316,7 +3335,7 @@ def test_colab_uma_login_accepts_a_colab_secret(monkeypatch) -> None:
     import importlib.metadata
 
     setup = _notebook()["cells"][1]["source"].replace(
-        'backend = "mace"', 'backend = "uma"', 1,
+        'backend = "orb"', 'backend = "uma"', 1,
     ).replace("install_dft = True", "install_dft = False", 1)
     logins: list[tuple] = []
     fake_hf = types.ModuleType("huggingface_hub")
@@ -3359,7 +3378,7 @@ def test_colab_setup_cell_is_frozen() -> None:
     setup = _notebook()["cells"][1]["source"]
     digest = hashlib.sha256(setup.encode("utf-8")).hexdigest()
 
-    assert digest == "6d6de7bee7119f6a05f9185e17e7b15fb960562dec53641b1ea0d7f91b6fa3f8", (
+    assert digest == "01224686caf155a414e72fd69d632cf6376530bd09affc3ecd81dd48f92f4931", (
         "the Colab Setup cell changed; it is frozen for this release. Re-read the "
         "Setup contracts above, then update this digest deliberately. Got: " + digest
     )
