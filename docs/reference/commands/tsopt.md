@@ -196,5 +196,16 @@ Options:
                                   matching multiplicity; use this only for an
                                   intentional nonstandard input such as a
                                   covalently-cut region.
+  --stop-plateau / --no-stop-plateau
+                                  Stop when the energy stops changing while the
+                                  convergence criteria are still unmet, and
+                                  report the run as stalled. It never signals
+                                  convergence; --max-cycles remains the real
+                                  bound. The MM micro iterations are never
+                                  stopped this way.  [default: no-stop-plateau]
+  --stop-plateau-thresh FLOAT     Energy range (hartree) below which --stop-
+                                  plateau treats the window as flat.
+  --stop-plateau-window INTEGER   Number of consecutive cycles --stop-plateau
+                                  inspects.
   -h, --help                      Show this message and exit.
 ```

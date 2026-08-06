@@ -26,8 +26,8 @@ For full details, keep [Troubleshooting](troubleshooting.md) open in parallel.
 | TSOPT/IRC does not converge | Reduce step length (trust_radius for RFO/RS-I-RFO, max_step for L-BFGS) | [Convergence](troubleshooting.md#calculation--convergence) |
 | TSOPT/IRC does not converge | Increase cycles | [Convergence](troubleshooting.md#calculation--convergence) |
 | TSOPT/IRC does not converge | Validate TS quality first | [Convergence](troubleshooting.md#calculation--convergence) |
-| Optimizer stalls at flat energy (MLIP noise floor) | Rely on the default `energy_plateau` fallback | [Plateau fallback](troubleshooting.md#optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor) |
-| Optimizer stalls at flat energy (MLIP noise floor) | Tune `energy_plateau_thresh` / `energy_plateau_window` if the trigger fires too early or too late | [Plateau fallback](troubleshooting.md#optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor) |
+| Optimizer stalls at flat energy (MLIP noise floor) | Let `--max-cycles` bound the run, or opt in to `--stop-plateau` | [Plateau fallback](troubleshooting.md#optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor) |
+| Optimizer stalls at flat energy (MLIP noise floor) | Tune `--stop-plateau-thresh` / `--stop-plateau-window` if the trigger fires too early or too late | [Plateau fallback](troubleshooting.md#optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor) |
 | **Plotting** | | |
 | Plot export failures | Install Chrome runtime for Plotly export | [Plot export](troubleshooting.md#plot-export-fails-chrome-missing) |
 

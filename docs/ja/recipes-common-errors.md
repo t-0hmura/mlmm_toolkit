@@ -24,7 +24,7 @@
 | CUDA/GPU ランタイム不整合 | `torch.cuda.is_available()` と CUDA ビルドの組み合わせを確認 | [CUDA / PyTorch](troubleshooting.md#cuda--pytorch-の不整合) |
 | **収束** | | |
 | TSOPT/IRC が収束しない | ステップ長を縮小（RFO/RS-I-RFO では trust_radius、L-BFGS では max_step）、サイクル数を増やし、まず TS の品質を検証 | [計算 / 収束](troubleshooting.md#計算--収束の問題) |
-| エネルギーが平坦なのに最適化が停滞（MLIP のノイズフロア） | デフォルトの `energy_plateau` フォールバックに任せる。判定が早すぎ/遅すぎる場合のみ `energy_plateau_thresh` / `energy_plateau_window` を調整 | [プラトー・フォールバック](troubleshooting.md#最適化が停滞するがエネルギーはもう変わっていないmlip-の力ノイズフロア) |
+| エネルギーが平坦なのに最適化が停滞（MLIP のノイズフロア） | `--max-cycles` に任せるか、`--stop-plateau` で早期停止を opt-in する。判定が早すぎ/遅すぎる場合は `--stop-plateau-thresh` / `--stop-plateau-window` を調整 | [プラトー・フォールバック](troubleshooting.md#最適化が停滞するがエネルギーはもう変わっていないmlip-の力ノイズフロア) |
 | **プロット** | | |
 | プロット出力の失敗 | Plotly エクスポート用の Chrome ランタイムをインストール | [プロット出力](troubleshooting.md#図のエクスポートが失敗するchrome-がない) |
 
@@ -84,7 +84,7 @@
 
 - TS 候補に支配的な虚振動数モードが 1 つ存在するか。
 - ステップ長（trust_radius / max_step）を縮小し、サイクル上限を増やす。RFO/RS-I-RFO の `trust_max` デフォルトは 0.10 bohr です。
-- エネルギーが既に平坦化していないか確認します。直近 50 サイクル程度で `|dE| < 1e-4` au（原子単位）かつ力も平坦なら、原因は最適化のバグではなく機械学習原子間ポテンシャル（MLIP）の力ノイズフロアです。この場合はデフォルトの `energy_plateau` フォールバックが`stalled`（未収束）として停止します（[トラブルシューティング](troubleshooting.md#最適化が停滞するがエネルギーはもう変わっていないmlip-の力ノイズフロア) を参照）。
+- エネルギーが既に平坦化していないか確認します。直近 50 サイクル程度で `|dE| < 1e-4` au（原子単位）かつ力も平坦なら、原因は最適化のバグではなく機械学習原子間ポテンシャル（MLIP）の力ノイズフロアです。この場合は `--stop-plateau` を指定すると`stalled`（未収束）として停止できます（[トラブルシューティング](troubleshooting.md#最適化が停滞するがエネルギーはもう変わっていないmlip-の力ノイズフロア) を参照）。
 
 **典型的な修正手順:**
 

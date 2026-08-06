@@ -2499,6 +2499,13 @@ def _run_tsopt_on_hei(hei_pdb: Path,
         _append_toggle_arg(ts_args, "--convert-files", overrides.get("convert_files"))
         _append_cli_arg(ts_args, "--thresh", overrides.get("thresh"))
         _append_toggle_arg(ts_args, "--flatten", overrides.get("flatten"))
+        _append_toggle_arg(ts_args, "--stop-plateau", overrides.get("stop_plateau"))
+        _append_cli_arg(
+            ts_args, "--stop-plateau-thresh", overrides.get("stop_plateau_thresh")
+        )
+        _append_cli_arg(
+            ts_args, "--stop-plateau-window", overrides.get("stop_plateau_window")
+        )
 
         hess_mode = overrides.get("hessian_calc_mode")
         if hess_mode:
@@ -2952,6 +2959,9 @@ def _run_opt_for_state(
     use_cmap: Optional[bool] = None,
     thresh: Optional[str] = None,
     reject_uphill: Optional[bool] = None,
+    stop_plateau: Optional[bool] = None,
+    stop_plateau_thresh: Optional[float] = None,
+    stop_plateau_window: Optional[int] = None,
     xyz_path: Optional[Path] = None,
 ) -> Tuple[Any, Path, Optional[bool]]:
     """
@@ -3002,6 +3012,9 @@ def _run_opt_for_state(
         _append_toggle_arg(args, "--convert-files", convert_files)
         _append_cli_arg(args, "--thresh", thresh)
         _append_toggle_arg(args, "--reject-uphill", reject_uphill)
+        _append_toggle_arg(args, "--stop-plateau", stop_plateau)
+        _append_cli_arg(args, "--stop-plateau-thresh", stop_plateau_thresh)
+        _append_cli_arg(args, "--stop-plateau-window", stop_plateau_window)
 
         if args_yaml is not None:
             args.extend(["--config", str(args_yaml)])
@@ -3571,6 +3584,32 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     ),
 )
 @click.option(
+    "--stop-plateau/--no-stop-plateau",
+    "stop_plateau",
+    default=False,
+    show_default=True,
+    help=(
+        "Stop when the energy stops changing while the convergence criteria are "
+        "still unmet, and report the run as stalled. It never signals "
+        "convergence; --max-cycles remains the real bound. The MM micro "
+        "iterations are never stopped this way."
+    ),
+)
+@click.option(
+    "--stop-plateau-thresh",
+    "stop_plateau_thresh",
+    type=float,
+    default=None,
+    help="Energy range (hartree) below which --stop-plateau treats the window as flat.",
+)
+@click.option(
+    "--stop-plateau-window",
+    "stop_plateau_window",
+    type=int,
+    default=None,
+    help="Number of consecutive cycles --stop-plateau inspects.",
+)
+@click.option(
     "--irc-step-size",
     type=float,
     default=None,
@@ -3780,6 +3819,9 @@ def cli(
     tsopt_max_cycles: Optional[int],
     flatten: bool,
     reject_uphill: bool,
+    stop_plateau: bool,
+    stop_plateau_thresh: Optional[float],
+    stop_plateau_window: Optional[int],
     irc_step_size: Optional[float],
     irc_never_stop: Optional[bool],
     skip_final_freq: bool,
@@ -3862,6 +3904,13 @@ def cli(
     # path inherits the opt child's default-off RFO_KW setting.
     _reject_uphill_eff = (
         bool(reject_uphill) if _is_param_explicit("reject_uphill") else None
+    )
+    # Energy-plateau stop, forwarded to the opt and tsopt children. ``None``
+    # unless the flag was explicitly passed, so the default path inherits the
+    # children's default-off OPT_BASE_KW setting. The stop reports `stalled`,
+    # never `converged`, and never applies to the MM micro iterations.
+    _stop_plateau_eff = (
+        bool(stop_plateau) if _is_param_explicit("stop_plateau") else None
     )
     explicit_params = frozenset(
         parameter.name
@@ -4148,6 +4197,9 @@ def cli(
         flatten=flatten,
         skip_final_freq=skip_final_freq,
         skip_final_freq_explicit=("skip_final_freq" in explicit_params),
+        stop_plateau=_stop_plateau_eff,
+        stop_plateau_thresh=stop_plateau_thresh,
+        stop_plateau_window=stop_plateau_window,
     )
     from mlmm.workflows.freq import _validated_thermo_condition
 
@@ -4883,6 +4935,9 @@ def cli(
                 use_cmap=use_cmap,
                 thresh=post_thresh_forward,
                 reject_uphill=_reject_uphill_eff,
+                stop_plateau=_stop_plateau_eff,
+                stop_plateau_thresh=stop_plateau_thresh,
+                stop_plateau_window=stop_plateau_window,
                 xyz_path=xR_irc,
             )
         except Exception as e:
@@ -4912,6 +4967,9 @@ def cli(
                 use_cmap=use_cmap,
                 thresh=post_thresh_forward,
                 reject_uphill=_reject_uphill_eff,
+                stop_plateau=_stop_plateau_eff,
+                stop_plateau_thresh=stop_plateau_thresh,
+                stop_plateau_window=stop_plateau_window,
                 xyz_path=xP_irc,
             )
         except Exception as e:
@@ -6343,6 +6401,9 @@ def cli(
                 use_cmap=use_cmap,
                 thresh=post_thresh_forward,
                 reject_uphill=_reject_uphill_eff,
+                stop_plateau=_stop_plateau_eff,
+                stop_plateau_thresh=stop_plateau_thresh,
+                stop_plateau_window=stop_plateau_window,
                 xyz_path=xL_irc,
             )
         except Exception as e:
@@ -6372,6 +6433,9 @@ def cli(
                 use_cmap=use_cmap,
                 thresh=post_thresh_forward,
                 reject_uphill=_reject_uphill_eff,
+                stop_plateau=_stop_plateau_eff,
+                stop_plateau_thresh=stop_plateau_thresh,
+                stop_plateau_window=stop_plateau_window,
                 xyz_path=xR_irc,
             )
         except Exception as e:

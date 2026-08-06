@@ -358,7 +358,7 @@ overlap追跡に使う高度な 3N MEP 接線を与えます。`geom.tr_projecti
 ```{note}
 `rsirfo.trust_max` のデフォルトは 0.10 bohr です。TS 近傍での ML/MM 安定性が改善します。
 
-共有 `opt` ブロックには **エネルギープラトー・フォールバック**（`energy_plateau: true`、`energy_plateau_thresh: 1.0e-4` au を `energy_plateau_window: 50` ステップにわたって適用、いずれもデフォルト）も備わっています。MLIP の力ノイズフロアが勾配ベースの `thresh` プリセットに到達できない場合、残りのサイクルを費やす代わりにプラトーで探索を停止し、`status: "stalled"` を報告します（`converged` とは区別される非収束の結果で、決して `converged` にはなりません）。終端の厳密 Hessian は実行されるため鞍点診断は報告されますが、flatten/retry ループは実行されません（stalled な root は検証済みの TS モードではないため）。詳細は [yaml-reference](yaml-reference.md#opt) を参照してください。
+共有 `opt` ブロックには **エネルギープラトー停止**（デフォルト無効、`--stop-plateau` で有効化。`energy_plateau_thresh: 1.0e-4` au を `energy_plateau_window: 50` ステップにわたって適用）も備わっています。MLIP の力ノイズフロアが勾配ベースの `thresh` プリセットに到達できない場合、残りのサイクルを費やす代わりにプラトーで探索を停止し、`status: "stalled"` を報告します（`converged` とは区別される非収束の結果で、決して `converged` にはなりません）。終端の厳密 Hessian は実行されるため鞍点診断は報告されますが、flatten/retry ループは実行されません（stalled な root は検証済みの TS モードではないため）。デフォルトで無効なのは、平坦なエネルギーで停止した TS 探索が余分な虚振動を残したままになりやすいためです。MM micro 反復には適用されません。詳細は [yaml-reference](yaml-reference.md#opt) を参照してください。
 ```
 
 ## 関連項目

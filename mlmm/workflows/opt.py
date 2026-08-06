@@ -730,6 +730,9 @@ def _run_microiter_opt(
         micro_lbfgs_args["thresh"] = micro_thresh
         micro_lbfgs_args["out_dir"] = str(out_dir_path)
         micro_lbfgs_args["dump"] = dump
+        # The MM equilibration never uses the plateau stop; see the twin in
+        # `tsopt.py`. `micro_max_cycles` is the real bound.
+        micro_lbfgs_args["energy_plateau"] = False
 
         _micro_opt = LBFGS(micro_geom, **micro_lbfgs_args)
         with contextlib.redirect_stdout(io.StringIO()):
@@ -903,6 +906,16 @@ def _run_microiter_opt(
         rfo_args["out_dir"] = str(out_dir_path)
         rfo_args["dump"] = False  # trajectory dumping handled externally
         rfo_args["thresh"] = thresh
+        # The macro step is the run's optimizer, so the shared `opt` plateau
+        # settings (--stop-plateau and its two values) apply to it exactly as
+        # they do to an ordinary RFO run. The micro step below never takes them.
+        for _plateau_key in (
+            "energy_plateau",
+            "energy_plateau_thresh",
+            "energy_plateau_window",
+        ):
+            if _plateau_key in opt_cfg:
+                rfo_args[_plateau_key] = opt_cfg[_plateau_key]
 
         macro_optimizer = RFOptimizer(geometry, **rfo_args)
         macro_optimizer.prepare_opt()  # initialize Hessian from geometry.cart_hessian
@@ -1376,8 +1389,37 @@ def _run_microiter_opt(
 @add_deterministic_option()
 @add_allow_charge_mult_mismatch_option()
 @click.pass_context
+@click.option(
+    "--stop-plateau/--no-stop-plateau",
+    "stop_plateau",
+    default=False,
+    show_default=True,
+    help=(
+        "Stop when the energy stops changing while the convergence criteria are "
+        "still unmet, and report the run as stalled. It never signals "
+        "convergence; --max-cycles remains the real bound. The MM micro "
+        "iterations are never stopped this way."
+    ),
+)
+@click.option(
+    "--stop-plateau-thresh",
+    "stop_plateau_thresh",
+    type=float,
+    default=None,
+    help="Energy range (hartree) below which --stop-plateau treats the window as flat.",
+)
+@click.option(
+    "--stop-plateau-window",
+    "stop_plateau_window",
+    type=int,
+    default=None,
+    help="Number of consecutive cycles --stop-plateau inspects.",
+)
 def cli(
     ctx: click.Context,
+    stop_plateau: bool,
+    stop_plateau_thresh: Optional[float],
+    stop_plateau_window: Optional[int],
     input_path: Path,
     ref_pdb: Optional[Path],
     real_parm7: Path,
@@ -1533,6 +1575,14 @@ def cli(
             opt_cfg["out_dir"] = out_dir
         if _is_param_explicit("thresh") and thresh is not None:
             opt_cfg["thresh"] = str(thresh)
+        # --stop-plateau* rides the shared `opt` block, which the macro LBFGS/RFO
+        # inherit. The MM micro relaxation never takes it (see _run_macro_micro).
+        if _is_param_explicit("stop_plateau"):
+            opt_cfg["energy_plateau"] = bool(stop_plateau)
+        if stop_plateau_thresh is not None:
+            opt_cfg["energy_plateau_thresh"] = float(stop_plateau_thresh)
+        if stop_plateau_window is not None:
+            opt_cfg["energy_plateau_window"] = int(stop_plateau_window)
         if _is_param_explicit("print_every") and print_every is not None:
             opt_cfg["print_every"] = int(print_every)
         if _is_param_explicit("cli_coord_type") and cli_coord_type is not None:

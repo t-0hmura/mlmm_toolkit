@@ -157,7 +157,7 @@ opt:
  converge_to_geom_rms_thresh: 0.05 # 参照ジオメトリへの収束 RMS 閾値
  overachieve_factor: 0.0 # 閾値の引き締め係数
  check_eigval_structure: false # Hessian固有値構造の検証
- energy_plateau: true # フォールバック: エネルギーが停滞したら stalled として停止 (収束扱いにはしない)
+ energy_plateau: false # opt-in（--stop-plateau）: エネルギーが停滞したら stalled として停止 (収束扱いにはしない)
  energy_plateau_thresh: 1.0e-4 # エネルギー変動許容幅 au（約 0.06 kcal/mol）
  energy_plateau_window: 50 # プラトー判定に用いる直近ステップ数
  line_search: true # ラインサーチを有効化
@@ -184,25 +184,28 @@ opt:
 `max(|step|) <= 3e-4`）で収束します。RMS force と RMS step の列は診断値であり、
 追加の終了条件ではありません。
 
-**エネルギープラトー・フォールバック:**
+**エネルギープラトー停止（opt-in、デフォルト無効）:**
 
-`energy_plateau: true`（デフォルト）の場合、直近 `energy_plateau_window` ステップ
+`energy_plateau` のデフォルトは `false` です。`opt` / `tsopt` / `all` の
+`--stop-plateau` で有効化し、`--stop-plateau-thresh` / `--stop-plateau-window` が
+上記の 2 つの値を設定します。有効時、直近 `energy_plateau_window` ステップ
 （デフォルト 50）のエネルギー範囲 `max(E) - min(E)` が `energy_plateau_thresh`
 （デフォルト `1.0e-4` au、約 0.06 kcal/mol）を下回ると、オプティマイザを `status: "stalled"` で停止します（`converged` とは
 区別される非収束の結果で、決して `converged` にはなりません）。
 
-これは ML/MM 最適化特有のセーフティネットです。MLIP の力には数値精度に起因する
+これは ML/MM 最適化で cycle を節約するための機構です。MLIP の力には数値精度に起因する
 ノイズフロアがあり、これが `gau`/`baker` などの勾配ベース収束閾値を
-上回ると、ジオメトリが実質的に停止していても力が閾値を下回らず、
-最適化が延々と回り続けることがあります。エネルギー自体が MLIP の
-数値精度内で平坦化した段階では、追加ステップを回しても残差力は
-ノイズフロア以下にならないため、プラトー判定によってクリーンに
-終了させます。
+上回ると、ジオメトリが実質的に停止していても力が閾値を下回らないことがあります。
+エネルギー自体が MLIP の数値精度内で平坦化した段階では、追加ステップを回しても
+残差力はノイズフロア以下にならない場合があります。ただしエネルギーの平坦化は
+停留点の証拠ではないため、この停止は明示的に指定したときだけ働き、
+実行の実質的な上限は常に `max_cycles` です。
 
-フォールバックを無効化するには `energy_plateau: false` を設定します
-（この場合は `thresh` プリセットのみで収束判定されます）。
 Chain-of-states（COS）最適化（GS/DMF ストリング最適化等）では、
-プラトー判定は自動的にスキップされます。
+プラトー判定は自動的にスキップされます。`--microiter` の **MM micro 反復** でも
+常にスキップされます（力が閾値を超えたまま MM エネルギーが平坦なのは MM 平衡ではなく
+停滞した micro 緩和であり、そこで止めると周辺環境が緩和されないまま macro/micro
+交互計算が終了してしまうためです）。micro 側の上限は `microiter.micro_max_cycles` です。
 
 ---
 

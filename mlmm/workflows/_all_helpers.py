@@ -247,6 +247,9 @@ def build_tsopt_overrides(
     flatten: Optional[bool],
     skip_final_freq: bool,
     skip_final_freq_explicit: bool,
+    stop_plateau: Optional[bool] = None,
+    stop_plateau_thresh: Optional[float] = None,
+    stop_plateau_window: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Assemble the `tsopt_overrides` dict consumed by the post-MEP TSOPT call.
 
@@ -277,6 +280,12 @@ def build_tsopt_overrides(
         overrides["flatten"] = bool(flatten)
     if skip_final_freq_explicit:
         overrides["skip_final_freq"] = bool(skip_final_freq)
+    if stop_plateau is not None:
+        overrides["stop_plateau"] = bool(stop_plateau)
+    if stop_plateau_thresh is not None:
+        overrides["stop_plateau_thresh"] = float(stop_plateau_thresh)
+    if stop_plateau_window is not None:
+        overrides["stop_plateau_window"] = int(stop_plateau_window)
     return overrides
 
 

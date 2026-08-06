@@ -158,7 +158,10 @@ OPT_BASE_KW: Dict[str, Any] = {
     "converge_to_geom_rms_thresh": 0.05,
     "overachieve_factor": 0.0,
     "check_eigval_structure": False,
-    "energy_plateau": True,
+    # Opt-in: an energy plateau is a wasted-cycle heuristic, not physics.
+    # It never signals convergence; when enabled it reports `stalled`.
+    # `max_cycles` remains the real bound. CLI: --stop-plateau.
+    "energy_plateau": False,
     "energy_plateau_thresh": 1e-4,
     "energy_plateau_window": 50,
     "line_search": True,

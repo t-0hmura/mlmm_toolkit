@@ -465,20 +465,20 @@ ML/MM 系は MLIP 単体の計算よりも一般的に大きいため、VRAM の
   下回らず、最適化が終わりません。
 
 対処:
-- 自動対処されます。共有 `opt` ブロックでは
-  `energy_plateau: true` がデフォルトで有効です。直近 50 ステップの
+- 実行の上限は常に `--max-cycles` です。エネルギーが平坦化した時点で早く
+  止めたい場合は、`--stop-plateau` で opt-in してください。直近 50 ステップの
   エネルギー範囲が `1.0e-4` au（約 0.06 kcal/mol）を下回ると、
   オプティマイザは `stalled`（収束とは決して再ラベルされない）としてクリーンに終了します。
 - 動きが明らかに残っている系で早すぎるプラトー判定が発生する場合は、
   YAML で閾値を厳格化してください:
   ```yaml
   opt:
+   energy_plateau: true            # --stop-plateau と同じ（opt-in）
    energy_plateau_thresh: 1.0e-05  # プラトー許容幅を厳格化 (au)
    energy_plateau_window: 100      # より長い平坦区間を要求
   ```
-- ベンチマーク等でフォールバックを完全に無効化したい場合は
-  `opt.energy_plateau: false` を設定してください（`thresh` プリセットのみ
-  で収束判定されます）。
+- ベンチマーク等では既定どおり無効のままにしてください（`thresh` プリセットのみ
+  で収束判定され、`max_cycles` が上限になります）。
 - プラトー判定は chain-of-states（COS）オプティマイザ（GS/DMF
   ストリング最適化）では自動的にスキップされるため、`path-opt` /
   `path-search` には影響しません。

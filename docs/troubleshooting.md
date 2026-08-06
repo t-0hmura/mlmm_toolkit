@@ -144,16 +144,16 @@ imaginary mode.
 (optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor)=
 ### Optimizer "stalls" with flat energy + forces just above threshold (MLIP force noise floor)
 
-MLIPs have finite numerical precision. For large ML/MM systems the noise floor can exceed the `gau` / `baker` gradient thresholds, so forces never drop further even though the geometry is stationary. **This is handled automatically** via `energy_plateau: true` (stops cleanly as a `stalled` outcome — never relabeled as converged — when the 50-step energy range falls below 1.0e-4 au ≈ 0.06 kcal/mol). To tighten or disable:
+MLIPs have finite numerical precision. For large ML/MM systems the noise floor can exceed the `gau` / `baker` gradient thresholds, so forces never drop further even though the geometry is stationary. `--max-cycles` bounds every run. To stop earlier once the energy has flattened, opt in with `--stop-plateau` (stops cleanly as a `stalled` outcome — never relabeled as converged — when the 50-step energy range falls below 1.0e-4 au ≈ 0.06 kcal/mol). To tune it:
 
 ```yaml
 opt:
+  energy_plateau: true              # opt in (same as --stop-plateau)
   energy_plateau_thresh: 1.0e-05   # stricter (au)
   energy_plateau_window: 100        # require a longer flat stretch
-  # energy_plateau: false           # disable entirely (e.g. for benchmarking)
 ```
 
-The plateau check is skipped automatically for chain-of-states optimizers (GS / DMF), so `path-opt` / `path-search` are unaffected.
+The plateau check is skipped automatically for chain-of-states optimizers (GS / DMF), so `path-opt` / `path-search` are unaffected, and for the MM micro iterations of a `--microiter` run (see [yaml-reference](yaml-reference.md#opt)).
 
 ### IRC does not terminate properly
 

@@ -55,8 +55,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   atom-order digest. `oniom-import --ref-pdb` rejects malformed or mismatched
   markers; markerless files with repeated elements require
   `--allow-unverified-ref-order`, which cannot bypass a known mismatch.
+- **The energy-plateau stop is now opt-in and off by default**
+  (`opt.energy_plateau: false`), and it never applies to the MM micro
+  iterations of a `--microiter` run. A flat energy is not evidence of a
+  stationary point, so a run that stopped there reported `stalled` while
+  leaving the geometry unconverged; in the micro step a flat MM energy with
+  forces still above threshold ended the macro/micro alternation with the
+  environment unrelaxed, which left extra imaginary modes in the TS search.
+  `--max-cycles` (macro) and `microiter.micro_max_cycles` (micro) remain the
+  real bounds. Turn the macro stop back on with `--stop-plateau` (see Added);
+  YAML `opt.energy_plateau: true` also still enables it.
 
 ### Added
+- Add `--stop-plateau/--no-stop-plateau`, `--stop-plateau-thresh`, and
+  `--stop-plateau-window` to `opt`, `tsopt`, and `all`, exposing the
+  energy-plateau stop and its two tuning values on the command line.
 - Add `--thresh-gsm` and `--thresh-dmf` to `all`, `path-opt`, and
   `path-search`. The former selects the GSM string-optimizer preset; the latter
   selects the DMF IPOPT dual-infeasibility tolerance (`tight`, `middle`,

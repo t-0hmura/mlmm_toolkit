@@ -2502,6 +2502,11 @@ def _run_microiter_tsopt(
         micro_lbfgs_args["thresh"] = micro_thresh
         micro_lbfgs_args["out_dir"] = str(out_dir_path)
         micro_lbfgs_args["dump"] = dump
+        # The MM equilibration never uses the plateau stop. A flat energy while
+        # its forces are still above threshold is a stalled optimizer, not MM
+        # equilibrium, and stopping there ends the whole macro/micro alternation
+        # with the environment unrelaxed. `micro_max_cycles` is the real bound.
+        micro_lbfgs_args["energy_plateau"] = False
 
         _micro_opt = LBFGS(micro_geom, **micro_lbfgs_args)
         with contextlib.redirect_stdout(io.StringIO()):
@@ -3309,8 +3314,37 @@ def _prepare_tsopt_output_dir(
 @add_print_every_option()
 @add_allow_charge_mult_mismatch_option()
 @click.pass_context
+@click.option(
+    "--stop-plateau/--no-stop-plateau",
+    "stop_plateau",
+    default=False,
+    show_default=True,
+    help=(
+        "Stop when the energy stops changing while the convergence criteria are "
+        "still unmet, and report the run as stalled. It never signals "
+        "convergence; --max-cycles remains the real bound. The MM micro "
+        "iterations are never stopped this way."
+    ),
+)
+@click.option(
+    "--stop-plateau-thresh",
+    "stop_plateau_thresh",
+    type=float,
+    default=None,
+    help="Energy range (hartree) below which --stop-plateau treats the window as flat.",
+)
+@click.option(
+    "--stop-plateau-window",
+    "stop_plateau_window",
+    type=int,
+    default=None,
+    help="Number of consecutive cycles --stop-plateau inspects.",
+)
 def cli(
     ctx: click.Context,
+    stop_plateau: bool,
+    stop_plateau_thresh: Optional[float],
+    stop_plateau_window: Optional[int],
     input_path: Path,
     reference_mode_path: Optional[Path],
     ref_pdb: Optional[Path],
@@ -3476,6 +3510,24 @@ def cli(
         opt_cfg["thresh"] = str(thresh)
         simple_cfg["thresh"] = str(thresh)
         rsirfo_cfg["thresh"] = str(thresh)
+    # --stop-plateau* reaches every optimizer this command drives, exactly like
+    # a shared ``opt:`` YAML setting: the plateau routing below only forwards
+    # keys a YAML layer actually carries, so the CLI writes each target itself.
+    _cli_plateau: Dict[str, Any] = {}
+    if _is_param_explicit("stop_plateau"):
+        _cli_plateau["energy_plateau"] = bool(stop_plateau)
+    if stop_plateau_thresh is not None:
+        _cli_plateau["energy_plateau_thresh"] = float(stop_plateau_thresh)
+    if stop_plateau_window is not None:
+        _cli_plateau["energy_plateau_window"] = int(stop_plateau_window)
+    if _cli_plateau:
+        _cli_dimer_lbfgs = dict(simple_cfg.get("lbfgs", {}))
+        for _plateau_key, _plateau_val in _cli_plateau.items():
+            opt_cfg[_plateau_key] = _plateau_val
+            lbfgs_cfg[_plateau_key] = _plateau_val
+            rsirfo_cfg[_plateau_key] = _plateau_val
+            _cli_dimer_lbfgs[_plateau_key] = _plateau_val
+        simple_cfg["lbfgs"] = _cli_dimer_lbfgs
     if _is_param_explicit("cli_coord_type") and cli_coord_type is not None:
         geom_cfg["coord_type"] = str(cli_coord_type).lower()
     # Handle --flatten/--no-flatten CLI toggle

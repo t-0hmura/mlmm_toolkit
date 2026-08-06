@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import Any, Dict, List
 
 import numpy as np
 import pytest
@@ -674,3 +675,137 @@ def test_tsopt_exception_restores_entry_calculator_and_freeze_mask(
 
     assert geometry.freeze_atoms == list(partition.original_freeze)
     assert geometry._calc is entry_calculator
+
+
+# ---------------------------------------------------------------------------
+# The MM micro relaxation never inherits the energy-plateau stop
+# ---------------------------------------------------------------------------
+
+
+class _CapturingMicro:
+    """Records the kwargs the driver hands to the micro LBFGS."""
+
+    captured: List[Dict[str, Any]] = []
+
+    cur_cycle = 0
+    is_converged = True
+    is_stalled = False
+    stop_reason = None
+
+    def __init__(self, _geom, **kwargs):
+        type(self).captured.append(dict(kwargs))
+
+    def run(self):
+        return None
+
+
+_PLATEAU_ON = {
+    "energy_plateau": True,
+    "energy_plateau_thresh": 1.0e-4,
+    "energy_plateau_window": 50,
+}
+
+
+def test_opt_micro_never_inherits_the_energy_plateau_stop(tmp_path, monkeypatch):
+    """A flat MM energy above the force threshold is a stalled micro, not MM
+    equilibrium: stopping there ends the macro/micro alternation with the
+    environment unrelaxed. `micro_max_cycles` is the only micro bound, so the
+    driver must strip the plateau stop even when every incoming config sets it.
+    """
+    import mlmm.workflows.opt as opt_mod
+
+    _CapturingMicro.captured = []
+    _install_common_fakes(monkeypatch, opt_mod, _CapturingMicro)
+    monkeypatch.setattr(opt_mod, "RFOptimizer", _FakeMacroOptimizer)
+
+    opt_mod._run_microiter_opt(
+        _FakeGeom(n_atoms=2),
+        _FakeCalc(),
+        calc_cfg={},
+        rfo_cfg={},
+        lbfgs_cfg=dict(_PLATEAU_ON),
+        opt_cfg={"max_cycles": 1, **_PLATEAU_ON},
+        microiter_cfg={"micro_max_cycles": 1},
+        out_dir_path=tmp_path,
+        partition=_micro_active_partition(),
+        dump=False,
+    )
+
+    assert _CapturingMicro.captured, "the micro LBFGS was never constructed"
+    for kwargs in _CapturingMicro.captured:
+        assert kwargs["energy_plateau"] is False
+
+
+def test_tsopt_micro_never_inherits_the_energy_plateau_stop(tmp_path, monkeypatch):
+    """Same contract on the TS driver: a plateau stop in the micro ended the
+    whole macro search early and left extra imaginary modes behind.
+    """
+    import torch
+    import mlmm.workflows.tsopt as tsopt_mod
+    from mlmm.core.defaults import RSIRFO_KW
+
+    _CapturingMicro.captured = []
+    _install_common_fakes(monkeypatch, tsopt_mod, _CapturingMicro)
+    monkeypatch.setattr(
+        tsopt_mod,
+        "_calc_full_hessian_torch",
+        lambda *a, **k: torch.zeros((3, 3), dtype=torch.float64),
+    )
+    monkeypatch.setattr(
+        tsopt_mod,
+        "resolve_partition_from_core",
+        lambda *a, **k: _micro_active_partition(),
+    )
+    monkeypatch.setitem(tsopt_mod.TSOPT_CLASS_MAP, "rsirfo", _FakeMacroOptimizer)
+
+    tsopt_mod._run_microiter_tsopt(
+        _FakeGeom(n_atoms=2),
+        {},
+        {**RSIRFO_KW, **_PLATEAU_ON},
+        dict(_PLATEAU_ON),
+        {"max_cycles": 1, "dump": False, **_PLATEAU_ON},
+        {"micro_max_cycles": 1},
+        tmp_path,
+        dump=False,
+        thresh=None,
+        mode="rsirfo",
+        reference_mode=None,
+    )
+
+    assert _CapturingMicro.captured, "the micro LBFGS was never constructed"
+    for kwargs in _CapturingMicro.captured:
+        assert kwargs["energy_plateau"] is False
+
+
+def test_opt_micro_macro_takes_the_shared_plateau_setting(tmp_path, monkeypatch):
+    """The macro step IS the run's optimizer, so an opted-in plateau stop must
+    reach it even though the micro step is exempt."""
+    import mlmm.workflows.opt as opt_mod
+
+    captured: List[Dict[str, Any]] = []
+
+    class _CapturingMacro(_FakeMacroOptimizer):
+        def __init__(self, geom, **kwargs):
+            captured.append(dict(kwargs))
+            super().__init__(geom, **kwargs)
+
+    _CapturingMicro.captured = []
+    _install_common_fakes(monkeypatch, opt_mod, _CapturingMicro)
+    monkeypatch.setattr(opt_mod, "RFOptimizer", _CapturingMacro)
+
+    opt_mod._run_microiter_opt(
+        _FakeGeom(n_atoms=2),
+        _FakeCalc(),
+        calc_cfg={},
+        rfo_cfg={},
+        lbfgs_cfg={},
+        opt_cfg={"max_cycles": 1, **_PLATEAU_ON},
+        microiter_cfg={"micro_max_cycles": 1},
+        out_dir_path=tmp_path,
+        partition=_micro_active_partition(),
+        dump=False,
+    )
+
+    assert captured, "the macro RFO was never constructed"
+    assert captured[0]["energy_plateau"] is True
+    assert captured[0]["energy_plateau_window"] == 50

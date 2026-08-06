@@ -179,7 +179,7 @@ opt:
  converge_to_geom_rms_thresh: 0.05 # RMS threshold when converging to reference geometry
  overachieve_factor: 0.0 # Factor to tighten thresholds
  check_eigval_structure: false # Validate Hessian eigenstructure
- energy_plateau: true # Fallback: stop the optimizer as stalled (status: "stalled", never converged) when the energy plateaus
+ energy_plateau: false # Opt-in (--stop-plateau): stop the optimizer as stalled (status: "stalled", never converged) when the energy plateaus
  energy_plateau_thresh: 1.0e-4 # Energy range tolerance in au (~0.06 kcal/mol)
  energy_plateau_window: 50 # Number of trailing steps used for plateau detection
  line_search: true # Enable line search
@@ -206,22 +206,28 @@ opt:
 `max(|step|) <= 3e-4`). Its RMS force and RMS step columns are diagnostics,
 not additional terminal gates.
 
-**Energy plateau fallback:**
+**Energy plateau stop (opt-in, default off):**
 
-When `energy_plateau: true` (default), a plateau stops the optimizer with
+`energy_plateau` is `false` by default; `--stop-plateau` on `opt` / `tsopt` /
+`all` turns it on, and `--stop-plateau-thresh` / `--stop-plateau-window` set the
+two values above. When it is on, a plateau stops the optimizer with
 `status: "stalled"` (a distinct non-converged outcome, never `converged`) if the
 energy range `max(E) - min(E)` over the last `energy_plateau_window` steps (default
 50) falls below `energy_plateau_thresh` (default `1.0e-4` au, ~0.06 kcal/mol).
 
-This is a safety net for ML/MM optimizations where the MLIP force noise floor
-can exceed the standard gradient-based convergence thresholds, causing the
-optimizer to wander indefinitely. Once the energy itself has plateaued within
-the MLIP's numerical precision, further cycles cannot reduce the residual force
-below the noise floor, so the plateau trigger stops the run cleanly.
+It saves cycles in ML/MM optimizations where the MLIP force noise floor can
+exceed the standard gradient-based convergence thresholds. Once the energy has
+plateaued within the MLIP's numerical precision, further cycles may not reduce
+the residual force below the noise floor. A flat energy is not evidence of a
+stationary point, though, so the stop is off unless you ask for it and
+`max_cycles` is always the real bound on a run.
 
-Set `energy_plateau: false` to disable the fallback (the optimizer will then
-rely solely on the `thresh` preset). The plateau check is automatically skipped
-for chain-of-states (COS) optimizers (e.g., GS, DMF string optimizers).
+The plateau check is automatically skipped for chain-of-states (COS) optimizers
+(e.g., GS, DMF string optimizers) and for the **MM micro iterations** of a
+`--microiter` run: a flat MM energy with forces still above threshold is a
+stalled micro relaxation, not MM equilibrium, and stopping there would end the
+macro/micro alternation with the environment unrelaxed. `microiter.micro_max_cycles`
+bounds the micro step instead.
 
 ---
 
