@@ -583,7 +583,7 @@ python assert_orca_roundtrip.py test70_three_layer.pdb test70_orca_import_layere
 # test71: force a known higher-order candidate through the actual flatten
 # branch. The checker requires n_imag>1 before flattening, an executed RS-I-RFO
 # flatten iteration, and no increase in saddle order.
-mlmm tsopt -i p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode hess --no-microiter --flatten --config flatten_branch_config.yaml --max-cycles 50 --thresh gau_loose --out-json --out-dir test71_flatten > test71_flatten.out 2>&1
+mlmm tsopt -i p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode hess --no-microiter --flatten --config flatten_branch_config.yaml --thresh gau_loose --out-json --out-dir test71_flatten > test71_flatten.out 2>&1
 python assert_flatten_branch.py test71_flatten.out test71_flatten/result.json >> test71_flatten.out 2>&1
 
 # test72: numerical analytical-vs-FD agreement for every backend installed in the
