@@ -223,6 +223,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   trusted PyPI publication.
 
 ### Fixed
+- Apply the whole shared `opt` block to the macro step of an `opt --microiter`
+  run. It previously forwarded only `thresh`, `max_cycles`, `dump` and
+  `out_dir`, so YAML convergence controls (`rms_force`, `rms_force_only`,
+  `max_force_only`, `force_only`, `overachieve_factor`, `min_step_norm`,
+  `assert_min_step`, `converge_to_geom_rms_thresh`, `check_eigval_structure`)
+  and `line_search` / `print_every` were silently ignored in the default `hess`
+  path while `--no-microiter` honored them. The macro step now uses the same
+  merge rule as an ordinary run, so only values you actually changed are passed
+  and a default configuration reaches the optimizer unchanged.
 - Reject single-class B-factor metadata such as an all-zero PDB as an ML/MM
   layer partition instead of silently treating the full system as ML.
 - Preserve valid B-factor movable/frozen MM layers when `sp` uses an explicit

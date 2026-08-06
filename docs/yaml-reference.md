@@ -162,7 +162,12 @@ calc:
 
 ### `opt`
 
-Shared optimizer controls used by both L-BFGS and RFO.
+Shared optimizer controls used by both L-BFGS and RFO. Every key here reaches
+the `opt` command's optimizer, with or without `--microiter` (the macro step of a
+microiteration run is that optimizer). The `tsopt` optimizers are configured from
+[`rsirfo`](#rsirfo) / [`hessian_dimer`](#hessian_dimer) instead, and read only
+`thresh`, `max_cycles`, `print_every`, `dump`, `out_dir` and the
+`energy_plateau*` trio from this block.
 
 ```yaml
 opt:

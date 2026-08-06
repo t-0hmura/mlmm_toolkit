@@ -140,7 +140,12 @@ calc:
 
 ### `opt`
 
-L-BFGS/RFO で共通の最適化設定。
+L-BFGS/RFO で共通の最適化設定。ここに書いた全キーが `opt` コマンドの optimizer に
+届きます（`--microiter` の有無に関わらず。microiteration の macro step がその
+optimizer です）。一方 `tsopt` の optimizer は [`rsirfo`](#rsirfo) /
+[`hessian_dimer`](#hessian_dimer) から設定され、このブロックからは `thresh`、
+`max_cycles`、`print_every`、`dump`、`out_dir`、および `energy_plateau*` の3キーのみ
+読み取ります。
 
 ```yaml
 opt:

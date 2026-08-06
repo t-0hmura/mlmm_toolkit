@@ -799,7 +799,7 @@ def test_opt_micro_macro_takes_the_shared_plateau_setting(tmp_path, monkeypatch)
         calc_cfg={},
         rfo_cfg={},
         lbfgs_cfg={},
-        opt_cfg={"max_cycles": 1, **_PLATEAU_ON},
+        opt_cfg={"max_cycles": 1, **_PLATEAU_ON, "energy_plateau_window": 11},
         microiter_cfg={"micro_max_cycles": 1},
         out_dir_path=tmp_path,
         partition=_micro_active_partition(),
@@ -808,4 +808,94 @@ def test_opt_micro_macro_takes_the_shared_plateau_setting(tmp_path, monkeypatch)
 
     assert captured, "the macro RFO was never constructed"
     assert captured[0]["energy_plateau"] is True
-    assert captured[0]["energy_plateau_window"] == 50
+    assert captured[0]["energy_plateau_window"] == 11
+
+
+_SHARED_OPT_PROBE = {
+    "print_every": 7,
+    "min_step_norm": 1.0e-7,
+    "assert_min_step": False,
+    "rms_force": 1.23e-4,
+    "rms_force_only": True,
+    "max_force_only": True,
+    "force_only": True,
+    "converge_to_geom_rms_thresh": 0.11,
+    "overachieve_factor": 2.0,
+    "check_eigval_structure": True,
+    "line_search": False,
+    "energy_plateau": True,
+    "energy_plateau_thresh": 9.0e-4,
+    "energy_plateau_window": 11,
+}
+
+
+class _CapturingMacro(_FakeMacroOptimizer):
+    captured: List[Dict[str, Any]] = []
+
+    def __init__(self, geom, **kwargs):
+        type(self).captured.append(dict(kwargs))
+        super().__init__(geom, **kwargs)
+
+
+def _run_microiter_macro(tmp_path, monkeypatch, opt_cfg):
+    import mlmm.workflows.opt as opt_mod
+
+    _CapturingMacro.captured = []
+    _CapturingMicro.captured = []
+    _install_common_fakes(monkeypatch, opt_mod, _CapturingMicro)
+    monkeypatch.setattr(opt_mod, "RFOptimizer", _CapturingMacro)
+
+    opt_mod._run_microiter_opt(
+        _FakeGeom(n_atoms=2),
+        _FakeCalc(),
+        calc_cfg={},
+        rfo_cfg=dict(opt_mod.RFO_KW),
+        lbfgs_cfg={},
+        opt_cfg=opt_cfg,
+        microiter_cfg={"micro_max_cycles": 1},
+        out_dir_path=tmp_path,
+        partition=_micro_active_partition(),
+        dump=False,
+    )
+    assert _CapturingMacro.captured, "the macro RFO was never constructed"
+    return _CapturingMacro.captured[0]
+
+
+def test_microiter_macro_honours_the_whole_shared_opt_block(tmp_path, monkeypatch):
+    """`--microiter` is a way to run the same optimization, not a different
+    contract: every shared `opt` setting an ordinary run honours must reach the
+    macro step too. Forwarding a hand-picked subset let YAML convergence
+    criteria (rms_force_only, overachieve_factor, ...) go silently ignored.
+    """
+    from mlmm.core.defaults import OPT_BASE_KW
+
+    kwargs = _run_microiter_macro(
+        tmp_path,
+        monkeypatch,
+        {**OPT_BASE_KW, "max_cycles": 1, **_SHARED_OPT_PROBE},
+    )
+
+    ignored = sorted(k for k, v in _SHARED_OPT_PROBE.items() if kwargs.get(k) != v)
+    assert ignored == [], f"shared opt keys not forwarded to the macro step: {ignored}"
+
+
+def test_microiter_macro_default_path_is_unchanged(tmp_path, monkeypatch):
+    """The merge passes only values the user actually changed, so an untouched
+    configuration reaches the macro step exactly as `rfo.*` declares it."""
+    import mlmm.workflows.opt as opt_mod
+    from mlmm.core.defaults import OPT_BASE_KW
+
+    kwargs = _run_microiter_macro(
+        tmp_path, monkeypatch, {**OPT_BASE_KW, "max_cycles": 1}
+    )
+
+    expected = dict(opt_mod.RFO_KW)
+    expected.update(
+        {
+            "max_cycles": 1,
+            "out_dir": kwargs["out_dir"],
+            "dump": False,
+            "thresh": OPT_BASE_KW["thresh"],
+        }
+    )
+    assert kwargs == expected

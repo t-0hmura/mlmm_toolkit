@@ -901,21 +901,21 @@ def _run_microiter_opt(
         # set_calculator again as it clears the pre-computed cart_hessian.
         geometry.freeze_atoms = macro_freeze
 
-        rfo_args = dict(rfo_cfg)
+        # The macro step IS this run's optimizer, so it honours the shared `opt`
+        # block exactly as an ordinary (non-microiter) RFO run does -- same merge
+        # rule, so the two paths cannot drift apart key by key. Only values the
+        # user actually changed are passed, which keeps optimizer-specific
+        # `rfo.*` settings authoritative for untouched defaults. The micro step
+        # below deliberately takes none of this: it has its own `microiter.*`
+        # threshold and cycle bound.
+        rfo_args = {
+            **rfo_cfg,
+            **strip_inherited_keys(dict(opt_cfg), OPT_BASE_KW, mode="same"),
+        }
         rfo_args["max_cycles"] = max_cycles
         rfo_args["out_dir"] = str(out_dir_path)
         rfo_args["dump"] = False  # trajectory dumping handled externally
         rfo_args["thresh"] = thresh
-        # The macro step is the run's optimizer, so the shared `opt` plateau
-        # settings (--stop-plateau and its two values) apply to it exactly as
-        # they do to an ordinary RFO run. The micro step below never takes them.
-        for _plateau_key in (
-            "energy_plateau",
-            "energy_plateau_thresh",
-            "energy_plateau_window",
-        ):
-            if _plateau_key in opt_cfg:
-                rfo_args[_plateau_key] = opt_cfg[_plateau_key]
 
         macro_optimizer = RFOptimizer(geometry, **rfo_args)
         macro_optimizer.prepare_opt()  # initialize Hessian from geometry.cart_hessian
