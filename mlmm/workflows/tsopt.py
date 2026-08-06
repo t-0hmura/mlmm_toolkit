@@ -104,6 +104,7 @@ from mlmm.workflows._microiteration import (
     build_aggregate,
     micro_reached_force_equilibrium,
     resolve_partition_from_core,
+    describe_micro_stop,
 )
 from mlmm.cli.common_options import (
     add_ml_layer_detection_options,
@@ -375,6 +376,9 @@ def _build_rsirfo_kwargs(
     out_dir: Path,
     macro_thresh: Optional[str] = None,
     mode: str = "rsirfo",
+    opt_cfg: Optional[Dict[str, Any]] = None,
+    dump: bool = False,
+    reference_mode: Optional[Any] = None,
 ) -> Dict[str, Any]:
     # RSIRFOptimizer rejects RFOptimizer-only DIIS knobs
     # (gediis/gdiis/gdiis_thresh/gediis_thresh/gdiis_test_direction/adapt_step_func);
@@ -382,11 +386,19 @@ def _build_rsirfo_kwargs(
     # stripped before construction. Centralised here so both macro/micro orchestrators
     # get identical DIIS-quirk handling.
     args = dict(rsirfo_cfg)
+    # The shared `opt` block is shared: a setting the user changed there reaches
+    # the TS optimizer, exactly as it reaches an ordinary optimizer. Only changed
+    # values are passed, so `rsirfo.*` stays authoritative for untouched keys and
+    # a default configuration is byte-identical to the pre-merge construction.
+    if opt_cfg:
+        args.update(strip_inherited_keys(dict(opt_cfg), OPT_BASE_KW, mode="same"))
     args["max_cycles"] = max_cycles
     args["out_dir"] = str(out_dir)
-    args["dump"] = False
+    args["dump"] = bool(dump)
     if macro_thresh is not None:
         args["thresh"] = str(macro_thresh)
+    if reference_mode is not None:
+        args["reference_mode"] = reference_mode
     for _diis_kw in ("gediis", "gdiis", "gdiis_thresh", "gediis_thresh", "gdiis_test_direction", "adapt_step_func"):
         args.pop(_diis_kw, None)
     # TRIM / RS-P-RFO are pure-numpy single-pass TS optimizers and do not support the
@@ -2680,9 +2692,9 @@ def _run_microiter_tsopt(
             out_dir=out_dir_path,
             macro_thresh=macro_thresh,
             mode=mode,
+            opt_cfg=opt_cfg,
+            reference_mode=reference_mode,
         )
-        if reference_mode is not None:
-            rsirfo_args["reference_mode"] = reference_mode
 
         macro_optimizer = TSOPT_CLASS_MAP[mode](geometry, **rsirfo_args)
         macro_optimizer.prepare_opt()  # initialize Hessian from geometry.cart_hessian
@@ -2808,7 +2820,8 @@ def _run_microiter_tsopt(
             if _micro_out.converged is not True and not _micro_equilibrium:
                 emit(
                     "[microiter] Latest MM relaxation did not converge "
-                    f"(status={_micro_out.status}); stopping the macro/micro loop.",
+                    f"({describe_micro_stop(_micro_out, micro_opt)}); "
+                    "stopping the macro/micro loop.",
                     narrative=True,
                 )
                 print()
@@ -3491,6 +3504,10 @@ def cli(
             (geom_cfg, (("geom",),)),
             (calc_cfg, (("calc",), ("mlmm",))),
             (opt_cfg, (("opt",),)),
+            # The microiteration MM relaxation is an L-BFGS run, so it reads the
+            # same `lbfgs` section `opt` does. Without this mapping its memory
+            # and step controls were reachable from neither YAML nor CLI.
+            (lbfgs_cfg, (("lbfgs",), ("opt", "lbfgs"))),
             (simple_cfg, (("hessian_dimer",),)),
             (rsirfo_cfg, (("rsirfo",),)),
         ],
@@ -3589,6 +3606,7 @@ def cli(
             (geom_cfg, (("geom",),)),
             (calc_cfg, (("calc",), ("mlmm",))),
             (opt_cfg, (("opt",),)),
+            (lbfgs_cfg, (("lbfgs",), ("opt", "lbfgs"))),
             (simple_cfg, (("hessian_dimer",),)),
             (rsirfo_cfg, (("rsirfo",),)),
         ],
@@ -3949,26 +3967,18 @@ def cli(
             _heavy_micro_cycles: Optional[int] = None
             user_max_cycles = int(opt_cfg["max_cycles"])
             _heavy_cycle_ledger = _OptimizationCycleLedger(user_max_cycles)
-            rsirfo_args = _force_ts_reject_uphill_off(rsirfo_cfg)
-            rsirfo_args["out_dir"] = str(out_dir_path)
-            rsirfo_args["max_cycles"] = user_max_cycles
-            rsirfo_args["dump"] = bool(opt_cfg["dump"])
-            if thresh is not None:
-                rsirfo_args["thresh"] = str(thresh)
-            if reference_mode is not None:
-                rsirfo_args["reference_mode"] = reference_mode
-            for _diis_kw in (
-                "gediis",
-                "gdiis",
-                "gdiis_thresh",
-                "gediis_thresh",
-                "gdiis_test_direction",
-                "adapt_step_func",
-            ):
-                rsirfo_args.pop(_diis_kw, None)
-            if mode_resolved != "rsirfo":
-                rsirfo_args["min_line_search"] = False
-                rsirfo_args["max_line_search"] = False
+            # Same construction as the microiteration macro step, so the two
+            # paths cannot drift apart key by key.
+            rsirfo_args = _build_rsirfo_kwargs(
+                rsirfo_cfg,
+                max_cycles=user_max_cycles,
+                out_dir=out_dir_path,
+                macro_thresh=thresh,
+                mode=mode_resolved,
+                opt_cfg=opt_cfg,
+                dump=bool(opt_cfg["dump"]),
+                reference_mode=reference_mode,
+            )
 
             if use_microiter:
                 # --- Microiteration path ---

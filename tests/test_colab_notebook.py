@@ -2747,7 +2747,7 @@ def test_colab_gui_routes_scientific_options_and_round_trips_sessions() -> None:
     assert "key_opts_box = _collapsible('Key options', key_opts_content)" in app
     assert "cmd += ['--flatten']" in app
     assert "cmd += ['--max-cycles', str(int(mc))]" in app
-    assert "b_extract = W.Button(description='Prepare ML region & use it'" in app
+    assert "b_extract = W.Button(description='Extract ML region & use it'" in app
     assert "prep_radius = W.FloatText(" in app
     # The wheel ships no examples, so Load example resolves them from the git
     # tag matching the installed release (a source checkout is used when present).
@@ -3382,3 +3382,19 @@ def test_colab_setup_cell_is_frozen() -> None:
         "the Colab Setup cell changed; it is frozen for this release. Re-read the "
         "Setup contracts above, then update this digest deliberately. Got: " + digest
     )
+
+
+def test_extract_panel_explains_itself_when_a_workflow_extracts_internally() -> None:
+    """`all` extracts internally and `extract` IS the extraction command, so the
+    preparation panel is hidden for both. Hiding it with no explanation reads as
+    a missing feature, so a one-line hint takes its place and names the route."""
+    app = _notebook()["cells"][2]["source"]
+
+    assert "extract_hint = W.HTML()" in app
+    assert "extract_panel, extract_hint])" in app
+    # Shown exactly when a full system is loaded but the workflow self-extracts.
+    assert "_hint_on = _center_active and not _prep_active" in app
+    assert "_extract_hint.layout.display = '' if _hint_on else 'none'" in app
+    assert "select the <code>extract</code> workflow" in app
+    # The button says what it does.
+    assert "description='Extract ML region & use it'" in app

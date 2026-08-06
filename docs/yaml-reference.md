@@ -9,7 +9,7 @@
 | [`calc`](#calc) | ML/MM calculator settings (alias: `mlmm:`) | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |
 | [`sp`](#sp-section) | Single-point output settings | sp |
 | [`opt`](#opt) | Shared optimizer settings | opt, scan, scan2d, scan3d, tsopt, path-opt, path-search |
-| [`lbfgs`](#lbfgs) | L-BFGS optimizer settings | opt, scan, scan2d, scan3d, path-opt, path-search |
+| [`lbfgs`](#lbfgs) | L-BFGS optimizer settings | opt, scan, scan2d, scan3d, tsopt (microiteration MM relaxation), path-opt, path-search |
 | [`rfo`](#rfo) | RFO optimizer settings | opt |
 | [`gs`](#gs) | Growing String Method settings | path-opt, path-search |
 | [`dmf`](#dmf) | Direct Max Flux settings | path-opt, path-search |
@@ -164,10 +164,10 @@ calc:
 
 Shared optimizer controls used by both L-BFGS and RFO. Every key here reaches
 the `opt` command's optimizer, with or without `--microiter` (the macro step of a
-microiteration run is that optimizer). The `tsopt` optimizers are configured from
-[`rsirfo`](#rsirfo) / [`hessian_dimer`](#hessian_dimer) instead, and read only
-`thresh`, `max_cycles`, `print_every`, `dump`, `out_dir` and the
-`energy_plateau*` trio from this block.
+microiteration run is that optimizer), and to the `tsopt` macro optimizer, which
+takes [`rsirfo`](#rsirfo) / [`hessian_dimer`](#hessian_dimer) on top. Only values
+you actually changed here are forwarded, so an optimizer-specific section stays
+authoritative for the keys you left alone.
 
 ```yaml
 opt:

@@ -7,7 +7,7 @@
 | [`geom`](#geom) | ジオメトリと座標設定 | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |
 | [`calc`](#calc) | ML/MM calculatorの設定（別名: `mlmm:`） | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |
 | [`opt`](#opt) | 最適化の共通設定 | opt, scan, scan2d, scan3d, tsopt, path-opt, path-search |
-| [`lbfgs`](#lbfgs) | L-BFGSの設定 | opt, scan, scan2d, scan3d, path-opt, path-search |
+| [`lbfgs`](#lbfgs) | L-BFGSの設定 | opt, scan, scan2d, scan3d, tsopt（マイクロイテレーションの MM 緩和）, path-opt, path-search |
 | [`rfo`](#rfo) | RFOの設定 | opt |
 | [`gs`](#gs) | GSM（Growing String Method）設定 | path-opt, path-search |
 | [`dmf`](#dmf) | DMF（Direct Max Flux）設定 | path-opt, path-search |
@@ -142,10 +142,10 @@ calc:
 
 L-BFGS/RFO で共通の最適化設定。ここに書いた全キーが `opt` コマンドの optimizer に
 届きます（`--microiter` の有無に関わらず。microiteration の macro step がその
-optimizer です）。一方 `tsopt` の optimizer は [`rsirfo`](#rsirfo) /
-[`hessian_dimer`](#hessian_dimer) から設定され、このブロックからは `thresh`、
-`max_cycles`、`print_every`、`dump`、`out_dir`、および `energy_plateau*` の3キーのみ
-読み取ります。
+optimizer です）。`tsopt` の macro optimizer にも届き、その上に
+[`rsirfo`](#rsirfo) / [`hessian_dimer`](#hessian_dimer) が重なります。
+転送されるのは**実際に変更した値だけ**なので、触っていないキーについては
+optimizer 固有セクションが優先されます。
 
 ```yaml
 opt:

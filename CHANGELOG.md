@@ -126,6 +126,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   calculator-free, and rescoring is a pure MLIP calculation rather than ONIOM.
 
 ### Changed
+- Rename the Colab preparation button to "Extract ML region & use it", and put a
+  one-line hint where the panel used to vanish: `all` extracts internally and
+  `extract` is itself the extraction command, so the panel is hidden for both
+  and the hint names the route to a standalone `--model-pdb`.
 - Make uphill-trial rejection opt-in for L-BFGS and RFO minimization. When
   explicitly enabled, its energy tolerance is `1e-4` Hartree. TS optimization
   always leaves the rejection disabled.
@@ -223,6 +227,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   trusted PyPI publication.
 
 ### Fixed
+- Apply the shared `opt` block to the `tsopt` macro optimizer. `rms_force`,
+  `rms_force_only`, `max_force_only`, `force_only`, `overachieve_factor`,
+  `min_step_norm`, `assert_min_step`, `converge_to_geom_rms_thresh`,
+  `check_eigval_structure` and `line_search` were read from `opt` and then
+  dropped, so a YAML convergence control was silently ignored by TS
+  optimization while `opt` honored it. Both the microiteration and ordinary
+  paths now build their macro kwargs through the same helper, and only values
+  you changed are forwarded, so `rsirfo.*` stays authoritative for untouched
+  keys and a default configuration is byte-identical to before.
+- Read the `lbfgs` section in `tsopt`, so the microiteration MM relaxation's
+  L-BFGS controls (`keep_last`, `max_step`, `line_search`, ...) are reachable
+  from YAML. They were settable from neither YAML nor CLI.
+- Report why a micro relaxation stopped. The micro runs with its stdout
+  redirected, so the log said only `status=not_converged`; it now names the
+  executed cycles against the bound, the last max force and step, and — when
+  the bound is what ended it — `microiter.micro_max_cycles` as the setting to
+  raise.
 - Raise `microiter.micro_max_cycles` from 10000 to 100000 so the MM relaxation
   is bounded by its convergence criterion rather than by the cycle cap. The
   micro step is held to the same preset as the macro step, and under `baker`

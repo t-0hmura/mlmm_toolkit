@@ -413,6 +413,37 @@ class MicroiterationOutcome:
         return obj
 
 
+def describe_micro_stop(outcome: Any, optimizer: Any = None) -> str:
+    """One-line, actionable reason a micro relaxation ended without converging.
+
+    The micro runs with its stdout redirected, so its own convergence table
+    never reaches the log. Without this the caller could only report
+    ``status=not_converged``, which does not distinguish "ran out of cycles"
+    from "stalled" -- and the cycle bound is the one the user can raise.
+    """
+    parts: List[str] = [f"status={getattr(outcome, 'status', None)}"]
+    cycles = getattr(outcome, "cycles", None)
+    bound = getattr(outcome, "max_cycles", None)
+    if cycles is not None:
+        parts.append(f"{cycles}/{bound} cycles" if bound else f"{cycles} cycles")
+    if getattr(outcome, "stalled", False):
+        parts.append("stalled")
+    reason = getattr(outcome, "stop_reason", None)
+    if reason:
+        parts.append(str(reason))
+    for label, attr in (("max|F|", "max_forces"), ("max|step|", "max_steps")):
+        series = getattr(optimizer, attr, None) if optimizer is not None else None
+        if series:
+            try:
+                parts.append(f"{label}={float(series[-1]):.3e}")
+            except (TypeError, ValueError):
+                pass
+    if cycles is not None and bound and int(cycles) >= int(bound):
+        parts.append("reached microiter.micro_max_cycles -- raise it to let the "
+                     "criterion, not the bound, end the relaxation")
+    return ", ".join(parts)
+
+
 def build_aggregate(
     macro: OptimizerOutcome,
     micro_attempts: Sequence[OptimizerOutcome],
@@ -531,5 +562,6 @@ __all__ = [
     "OptimizerOutcome",
     "MicroiterationOutcome",
     "build_aggregate",
+    "describe_micro_stop",
     "resolve_hessian_device",
 ]

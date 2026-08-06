@@ -95,6 +95,7 @@ from mlmm.workflows._microiteration import (
     build_aggregate,
     resolve_partition_from_core,
     micro_reached_force_equilibrium,
+    describe_micro_stop,
 )
 
 EV2AU = 1.0 / AU2EV                 # eV → Hartree
@@ -1054,7 +1055,8 @@ def _run_microiter_opt(
             if _micro_out.converged is not True:
                 emit(
                     "[microiter] Latest MM relaxation did not converge "
-                    f"(status={_micro_out.status}); stopping the macro/micro loop.",
+                    f"({describe_micro_stop(_micro_out, micro_opt)}); "
+                    "stopping the macro/micro loop.",
                     narrative=True,
                 )
                 print()

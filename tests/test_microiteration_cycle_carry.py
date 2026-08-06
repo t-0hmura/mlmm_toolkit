@@ -915,3 +915,77 @@ def test_micro_bound_is_a_backstop_not_a_schedule():
     assert MICROITER_KW["micro_thresh"] is None
     # Headroom over the measured worst case (16815).
     assert MICROITER_KW["micro_max_cycles"] >= 50000
+
+
+def test_ts_macro_honours_the_shared_opt_block(tmp_path):
+    """The shared `opt` block is shared: a setting the user changed there reaches
+    the TS optimizer too. Only changed values are passed, so an untouched
+    configuration is byte-identical to the pre-merge construction."""
+    from mlmm.core.defaults import OPT_BASE_KW, RSIRFO_KW
+    from mlmm.workflows.tsopt import _build_rsirfo_kwargs
+
+    probe = {
+        "rms_force": 1.23e-4,
+        "rms_force_only": True,
+        "max_force_only": True,
+        "force_only": True,
+        "overachieve_factor": 2.0,
+        "min_step_norm": 1.0e-7,
+        "assert_min_step": False,
+        "converge_to_geom_rms_thresh": 0.11,
+        "check_eigval_structure": True,
+        "line_search": False,
+    }
+    kwargs = _build_rsirfo_kwargs(
+        dict(RSIRFO_KW), max_cycles=7, out_dir=tmp_path,
+        opt_cfg={**OPT_BASE_KW, **probe},
+    )
+    ignored = sorted(k for k, v in probe.items() if kwargs.get(k) != v)
+    assert ignored == [], f"shared opt keys not forwarded to the TS macro: {ignored}"
+
+    # Default-identity control: an untouched `opt` block changes nothing.
+    with_opt = _build_rsirfo_kwargs(
+        dict(RSIRFO_KW), max_cycles=7, out_dir=tmp_path, opt_cfg=dict(OPT_BASE_KW)
+    )
+    without = _build_rsirfo_kwargs(dict(RSIRFO_KW), max_cycles=7, out_dir=tmp_path)
+    assert with_opt == without
+
+
+def test_ts_micro_lbfgs_is_reachable_from_the_lbfgs_yaml_section():
+    """The microiteration MM relaxation is an L-BFGS run, so its memory and step
+    controls must be reachable from the same `lbfgs` section `opt` uses. Without
+    the mapping they were settable from neither YAML nor CLI."""
+    import inspect
+    import mlmm.workflows.tsopt as tsopt_mod
+
+    src = inspect.getsource(tsopt_mod)
+    mapping = '(lbfgs_cfg, (("lbfgs",), ("opt", "lbfgs")))'
+    # Both YAML layers (--config and --override) must carry it.
+    assert src.count(mapping) == 2, src.count(mapping)
+
+
+def test_micro_stop_description_names_the_bound_the_user_can_raise():
+    """The micro runs with its stdout redirected, so `status=not_converged` was
+    all the caller could report. The description must distinguish running out of
+    cycles from stalling, and name the setting that bounds it."""
+    from mlmm.workflows._microiteration import OptimizerOutcome, describe_micro_stop
+
+    class _Opt:
+        max_forces = [4.2e-4]
+        max_steps = [1.1e-3]
+
+    capped = OptimizerOutcome(
+        status="not_converged", executed=True, converged=False,
+        cycles=10000, max_cycles=10000,
+    )
+    text = describe_micro_stop(capped, _Opt())
+    assert "10000/10000 cycles" in text
+    assert "micro_max_cycles" in text
+    assert "max|F|=4.200e-04" in text and "max|step|=1.100e-03" in text
+
+    short = OptimizerOutcome(
+        status="not_converged", executed=True, converged=False,
+        cycles=12, max_cycles=10000,
+    )
+    assert "micro_max_cycles" not in describe_micro_stop(short)
+    assert "12/10000 cycles" in describe_micro_stop(short)
