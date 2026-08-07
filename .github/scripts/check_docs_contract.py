@@ -121,8 +121,8 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
     ),
     Path("skills/mlmm-cli/opt.md"): (
         "final convergence check on the retained geometry",
-        "convergence is `max(|force|) <= 3e-4`",
-        "RMS values are diagnostic",
+        "convergence requires ALL of `max(|force|) <= 3e-4`",
+        "deliberately tightened variant of the published",
     ),
     Path("docs/freq.md"): ("E + G_corr = G",),
     Path("docs/ja/freq.md"): ("E + G_corr = G",),

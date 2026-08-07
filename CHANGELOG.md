@@ -126,6 +126,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   calculator-free, and rescoring is a pure MLIP calculation rather than ONIOM.
 
 ### Changed
+- Keep one execution path in the Colab GUI. An unreachable async twin of the
+  whole run path (`_start_async_task`, `_do_validate_async`, `_do_run_guarded`,
+  `_do_run_async`, `_stream_async`, `_stop_async_process`,
+  `_validate_command_async`, `_async_task_done`) was never called, so a reader
+  had two implementations to reason about and only one ever ran. Removed with
+  three unreferenced one-liners; the notebook cell is 264 lines shorter.
+- Correct the `baker` description in the `opt` skill page: convergence requires
+  all four force/step thresholds AND the energy change, not the published
+  force-and-either form. The contract gate pinned the stale sentence.
 - Rename the Colab preparation button to "Extract ML region & use it", and put a
   one-line hint where the panel used to vanish: `all` extracts internally and
   `extract` is itself the extraction command, so the panel is hidden for both

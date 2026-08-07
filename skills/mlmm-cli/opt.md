@@ -50,8 +50,12 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `-o, --out-dir` | path | `./result_opt/` | Output directory |
 | `--config` / `--show-config` / `--dry-run` / `--help-advanced` | — | — | Standard |
 
-With `--thresh baker`, convergence is `max(|force|) <= 3e-4` and
-(`|delta E| < 1e-6` or `max(|step|) <= 3e-4`); RMS values are diagnostic.
+With `--thresh baker`, convergence requires ALL of `max(|force|) <= 3e-4`,
+`rms(force) <= 2e-4`, `max(|step|) <= 3e-4`, `rms(step) <= 2e-4` and
+`|delta E| < 1e-6`. This is a deliberately tightened variant of the published
+criterion (Bakken and Helgaker, J. Chem. Phys. 117, 9160 (2002)), which requires
+only `max(|force|)` and (`|delta E|` or `max(|step|)`); the looser form accepts
+geometries whose remaining RMS force still displaces the structure.
 
 ## Examples
 

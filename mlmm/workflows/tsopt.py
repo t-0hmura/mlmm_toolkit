@@ -3527,9 +3527,10 @@ def cli(
         opt_cfg["thresh"] = str(thresh)
         simple_cfg["thresh"] = str(thresh)
         rsirfo_cfg["thresh"] = str(thresh)
-    # --stop-plateau* reaches every optimizer this command drives, exactly like
-    # a shared ``opt:`` YAML setting: the plateau routing below only forwards
-    # keys a YAML layer actually carries, so the CLI writes each target itself.
+    # --stop-plateau* rides the shared `opt` block, which the RS-I-RFO/RS-P-RFO
+    # macro now reads. The dimer's inner L-BFGS takes `hessian_dimer.lbfgs`
+    # alone and inherits nothing from `opt`, so it is written here too. The MM
+    # micro relaxation is deliberately left out: it never takes the plateau stop.
     _cli_plateau: Dict[str, Any] = {}
     if _is_param_explicit("stop_plateau"):
         _cli_plateau["energy_plateau"] = bool(stop_plateau)
@@ -3541,8 +3542,6 @@ def cli(
         _cli_dimer_lbfgs = dict(simple_cfg.get("lbfgs", {}))
         for _plateau_key, _plateau_val in _cli_plateau.items():
             opt_cfg[_plateau_key] = _plateau_val
-            lbfgs_cfg[_plateau_key] = _plateau_val
-            rsirfo_cfg[_plateau_key] = _plateau_val
             _cli_dimer_lbfgs[_plateau_key] = _plateau_val
         simple_cfg["lbfgs"] = _cli_dimer_lbfgs
     if _is_param_explicit("cli_coord_type") and cli_coord_type is not None:
