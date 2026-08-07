@@ -23,7 +23,7 @@ Options:
                                   to derive the ML-region charge when -q is
                                   omitted (requires PDB input or --ref-pdb).
   -m, --multiplicity INTEGER      Spin multiplicity (2S+1). Defaults to 1 when
-                                  omitted.
+                                  omitted.  [default: (1)]
   --mep-mode [gsm|dmf]            MEP optimizer: Growing String Method (gsm) or
                                   Direct Max Flux (dmf).  [default: gsm]
   --dmf-backend [cpu|gpu]         DMF compute backend (--mep-mode dmf only): gpu
@@ -51,17 +51,17 @@ Options:
   --thresh [gau_loose|gau|gau_tight|gau_vtight|baker|never]
                                   Convergence preset for endpoint
                                   preoptimization only. The MEP itself keeps
-                                  --thresh-gsm / --thresh-dmf.
+                                  --thresh-gsm / --thresh-dmf.  [default: (gau)]
   --thresh-gsm [gau_loose|gau|gau_tight|gau_vtight|baker|never]
                                   Convergence preset for the GSM string
                                   optimizer (gau_loose|gau|gau_tight|gau_vtight|
                                   baker|never). Defaults to 'gau_loose' when not
-                                  provided.
+                                  provided.  [default: (gau_loose)]
   --thresh-dmf TEXT               IPOPT dual-infeasibility tolerance for the DMF
                                   path optimizer: tight (0.04) | middle (0.10) |
                                   loose (0.20) or a positive float. This is not
                                   a Gaussian preset. Defaults to 'tight' when
-                                  not provided.
+                                  not provided.  [default: (tight)]
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
   --show-config / --no-show-config
@@ -85,35 +85,38 @@ Options:
   --hess-cutoff FLOAT             Distance cutoff (Å) from ML region for MM
                                   atoms to include in Hessian calculation.
                                   Applied to movable MM atoms and can be
-                                  combined with --detect-layer.
+                                  combined with --detect-layer.  [default: (all
+                                  movable MM atoms)]
   --movable-cutoff FLOAT          Distance cutoff (Å) from ML region for movable
                                   MM atoms. MM atoms beyond this are frozen.
                                   Providing --movable-cutoff disables --detect-
-                                  layer.
+                                  layer.  [default: (use freeze_atoms)]
   --convert-files / --no-convert-files
                                   Convert XYZ/TRJ outputs into PDB companions
                                   based on the input format.  [default: convert-
                                   files]
   -b, --backend [uma|orb|mace|aimnet2]
                                   ML backend for the ONIOM high-level region
-                                  (default: uma).
+                                  (default: uma).  [default: (uma)]
   --embedcharge / --no-embedcharge
                                   Unavailable in v0.3.3; retained so older
                                   commands fail with an actionable diagnostic.
                                   [default: no-embedcharge]
   --embedcharge-cutoff FLOAT      Unavailable in v0.3.3 together with the
-                                  retired electronic-embedding path.
+                                  retired electronic-embedding path.  [default:
+                                  (12.0)]
   --link-atom-method [scaled|fixed]
                                   Link-atom position mode: scaled (g-factor,
                                   default) or fixed (legacy 1.09/1.01 Å).
+                                  [default: (scaled)]
   --mm-backend [hessian_ff|openmm]
                                   MM backend (default: hessian_ff). MM Hessians
                                   use finite differences by default; set
                                   calc.mm_fd: false for the hessian_ff
-                                  analytical path.
+                                  analytical path.  [default: (hessian_ff)]
   --cmap / --no-cmap              Preserve CMAP terms in both real and model MM
                                   layers. Default: enabled when present in
-                                  parm7.
+                                  parm7.  [default: (cmap)]
   --out-json / --no-out-json      Write machine-readable result.json to out_dir.
                                   [default: no-out-json]
   --ref-pdb FILE                  Full-size template PDBs in the same order as
@@ -138,9 +141,10 @@ Options:
   --workers INTEGER               MLIP predictor workers (UMA). >1 uses a
                                   parallel predictor (fairchem-core[extras]);
                                   combining it with an analytical Hessian is an
-                                  error. Default 1.
+                                  error. Default 1.  [default: (1)]
   --workers-per-node INTEGER      Workers per node when the parallel MLIP
-                                  predictor is used (--workers > 1).
+                                  predictor is used (--workers > 1).  [default:
+                                  (1)]
   --backend-model TEXT            Model variant for the selected --backend (e.g.
                                   uma-s-1p2 / uma-m-1p1 for uma,
                                   orb_v3_conservative_omol for orb, MACE-OMOL-0
@@ -158,6 +162,7 @@ Options:
                                   Request deterministic algorithms for
                                   controlled operations; verify exact
                                   reproducibility on the complete target stack.
+                                  [default: no-deterministic]
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
                                   electron-parity check (logs that it was
                                   skipped). An open-shell ML region needs a

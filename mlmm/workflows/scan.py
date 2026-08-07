@@ -245,7 +245,7 @@ def _snapshot_geometry(g) -> Any:
     "hess_cutoff",
     type=float,
     default=None,
-    show_default=False,
+    show_default="all movable MM atoms",
     help="Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. "
          "Applied to movable MM atoms and can be combined with --detect-layer.",
 )
@@ -254,7 +254,7 @@ def _snapshot_geometry(g) -> Any:
     "movable_cutoff",
     type=float,
     default=None,
-    show_default=False,
+    show_default="use freeze_atoms",
     help="Distance cutoff (Å) from ML region for movable MM atoms. MM atoms beyond this are frozen. "
          "Providing --movable-cutoff disables --detect-layer.",
 )
@@ -278,7 +278,7 @@ def _snapshot_geometry(g) -> Any:
 )
 @click.option("--max-step-size", type=float, default=0.20, show_default=True,
               help="Maximum change in any scanned bond length per step [Å].")
-@click.option("--bias-k", type=float, default=None, show_default=False,
+@click.option("--bias-k", type=float, default=None, show_default="300.0",
               help=(
                   "Harmonic well strength k [eV/Å^2]. "
                   "Defaults to YAML bias.k (BIAS_KW['k']=300 in defaults.py) when omitted; "
@@ -321,6 +321,7 @@ def _snapshot_geometry(g) -> Any:
     "--thresh",
     type=click.Choice(THRESH_CHOICES, case_sensitive=False),
     default=None,
+    show_default="gau",
     help="Convergence preset for relaxations.",
 )
 @click.option(
@@ -368,7 +369,7 @@ def _snapshot_geometry(g) -> Any:
     "-b", "--backend",
     type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
     default=None,
-    show_default=False,
+    show_default="uma",
     help="ML backend for the ONIOM high-level region (default: uma).",
 )
 @click.option(
@@ -383,7 +384,7 @@ def _snapshot_geometry(g) -> Any:
     "embedcharge_cutoff",
     type=float,
     default=None,
-    show_default=False,
+    show_default="12.0",
     help="Unavailable in v0.3.3 together with the retired electronic-embedding path.",
 )
 @click.option(
@@ -391,7 +392,7 @@ def _snapshot_geometry(g) -> Any:
     "link_atom_method",
     type=click.Choice(["scaled", "fixed"], case_sensitive=False),
     default=None,
-    show_default=False,
+    show_default="scaled",
     help="Link-atom position mode: scaled (g-factor, default) or fixed (legacy 1.09/1.01 Å).",
 )
 @click.option(
@@ -399,14 +400,14 @@ def _snapshot_geometry(g) -> Any:
     "mm_backend",
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
-    show_default=False,
+    show_default="hessian_ff",
     help="MM backend (default: hessian_ff). MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
 )
 @click.option(
     "--cmap/--no-cmap",
     "use_cmap",
     default=None,
-    show_default=False,
+    show_default="cmap",
     help="Preserve CMAP terms in both real and model MM layers. Default: enabled when present in parm7.",
 )
 @click.option(

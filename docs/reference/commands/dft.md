@@ -37,7 +37,7 @@ Options:
                                   charge when -q is omitted (requires PDB input
                                   or --ref-pdb).
   -m, --multiplicity INTEGER      Spin multiplicity (2S+1) for the ML region;
-                                  defaults to YAML or 1.
+                                  defaults to YAML or 1.  [default: (1)]
   --freeze-atoms TEXT             Comma-separated 1-based indices to freeze
                                   (e.g., '1,3,5').
   --func-basis TEXT               Exchange-correlation functional and basis set
@@ -71,23 +71,27 @@ Options:
   -b, --backend [uma|orb|mace|aimnet2]
                                   Compatibility no-op. The high-level region is
                                   always computed with DFT; a supplied value
-                                  emits a diagnostic and is ignored.
+                                  emits a diagnostic and is ignored.  [default:
+                                  (uma)]
   --embedcharge / --no-embedcharge
                                   Unavailable in v0.3.3; retained so older
                                   commands fail with an actionable diagnostic.
                                   [default: no-embedcharge]
   --embedcharge-cutoff FLOAT      Unavailable in v0.3.3 together with the
-                                  retired electronic-embedding path.
+                                  retired electronic-embedding path.  [default:
+                                  (12.0)]
   --link-atom-method [scaled|fixed]
                                   Link-atom placement: 'scaled' (g-factor,
                                   Gaussian ONIOM standard, default) or 'fixed'
                                   (legacy 1.09 Å for C, 1.01 Å for N).
+                                  [default: (scaled)]
   --mm-backend [hessian_ff|openmm]
                                   MM backend for the low-level ONIOM evaluation:
-                                  'hessian_ff' (default) or 'openmm'.
+                                  'hessian_ff' (default) or 'openmm'.  [default:
+                                  (hessian_ff)]
   --cmap / --no-cmap              Preserve CMAP terms in both real and model MM
                                   layers. Default: enabled when present in
-                                  parm7.
+                                  parm7.  [default: (cmap)]
   --out-json / --no-out-json      Write machine-readable result.json to out_dir.
                                   [default: no-out-json]
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity

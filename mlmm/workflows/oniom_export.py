@@ -2054,12 +2054,14 @@ end
     "--mode",
     type=click.Choice(["g16", "orca"], case_sensitive=False),
     default=None,
+    show_default="inferred from the input suffix",
     help="Export mode. If omitted, inferred from -o suffix: .gjf/.com -> g16, .inp -> orca.",
 )
 @click.option(
     "--method",
     type=str,
     default=None,
+    show_default="depends on --mode",
     help="QM method and basis set. Defaults depend on mode.",
 )
 @click.option(

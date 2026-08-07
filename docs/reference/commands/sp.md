@@ -34,14 +34,17 @@ Options:
                                   Distance cutoff (Å) from ML region for MM
                                   atoms to include in Hessian calculation.
                                   Applied to movable MM atoms; combinable with
-                                  --detect-layer.
+                                  --detect-layer.  [default: (all movable MM
+                                  atoms)]
   --radius-freeze, --movable-cutoff FLOAT
                                   Distance cutoff (Å) from ML region for movable
                                   MM atoms. MM atoms beyond this are frozen.
+                                  [default: (use freeze_atoms)]
   -q, --charge INTEGER            ML region total charge.
   -l, --ligand-charge TEXT        Per-ligand charge mapping, e.g.
                                   'SAM:1,GPP:-3'.
-  -m, --multiplicity INTEGER      ML region spin multiplicity (2S+1).
+  -m, --multiplicity INTEGER      ML region spin multiplicity (2S+1).  [default:
+                                  (1)]
   -o, --out-dir TEXT              Output directory.  [default: ./result_sp/]
   --hess / --no-hess              Also compute the active-coordinate ONIOM
                                   Hessian and save to hessian.npy.  [default:
@@ -51,7 +54,7 @@ Options:
                                   is supported by UMA, ORB, MACE, and AIMNet2;
                                   custom calculators use FiniteDifference.
                                   Analytical cannot be combined with --workers >
-                                  1.
+                                  1.  [default: (FiniteDifference)]
   --convert-files / --no-convert-files
                                   Accepted for cross-command compatibility. The
                                   sp command writes array results and has no
@@ -61,27 +64,30 @@ Options:
                                   …).
   --show-config / --no-show-config
                                   Print effective merged config and exit.
+                                  [default: no-show-config]
   --dry-run / --no-dry-run        Validate options and print the plan without
-                                  running.
+                                  running.  [default: no-dry-run]
   --out-json / --no-out-json      Write machine-readable result.json to out_dir.
                                   [default: no-out-json]
   -b, --backend [uma|orb|mace|aimnet2]
                                   ML backend for the ONIOM high-level region
-                                  (default: uma).
+                                  (default: uma).  [default: (uma)]
   --embedcharge / --no-embedcharge
                                   Unavailable in v0.3.3; retained so older
                                   commands fail with an actionable diagnostic.
                                   [default: no-embedcharge]
   --embedcharge-cutoff FLOAT      Unavailable in v0.3.3 together with the
-                                  retired electronic-embedding path.
+                                  retired electronic-embedding path.  [default:
+                                  (12.0)]
   --link-atom-method [scaled|fixed]
                                   Link-atom positioning: scaled (g-factor) or
-                                  fixed (1.09/1.01 Å).
+                                  fixed (1.09/1.01 Å).  [default: (scaled)]
   --mm-backend [hessian_ff|openmm]
-                                  MM backend (default: hessian_ff).
+                                  MM backend (default: hessian_ff).  [default:
+                                  (hessian_ff)]
   --cmap / --no-cmap              Preserve CMAP terms in both real and model MM
                                   layers. Default: enabled when present in
-                                  parm7.
+                                  parm7.  [default: (cmap)]
   --detect-layer                  Automatically detect ML/MM layers from input
                                   PDB B-factors (ML=0, MovableMM=10,
                                   FrozenMM=20) when explicit ML membership is
@@ -101,9 +107,10 @@ Options:
   --workers INTEGER               MLIP predictor workers (UMA). >1 uses a
                                   parallel predictor (fairchem-core[extras]);
                                   combining it with an analytical Hessian is an
-                                  error. Default 1.
+                                  error. Default 1.  [default: (1)]
   --workers-per-node INTEGER      Workers per node when the parallel MLIP
-                                  predictor is used (--workers > 1).
+                                  predictor is used (--workers > 1).  [default:
+                                  (1)]
   --backend-model TEXT            Model variant for the selected --backend (e.g.
                                   uma-s-1p2 / uma-m-1p1 for uma,
                                   orb_v3_conservative_omol for orb, MACE-OMOL-0
@@ -121,6 +128,7 @@ Options:
                                   Request deterministic algorithms for
                                   controlled operations; verify exact
                                   reproducibility on the complete target stack.
+                                  [default: no-deterministic]
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
                                   electron-parity check (logs that it was
                                   skipped). An open-shell ML region needs a
@@ -128,6 +136,6 @@ Options:
                                   intentional nonstandard input such as a
                                   covalently-cut region.
   --print-every INTEGER RANGE     Print optimizer status every N cycles (debug
-                                  knob).  [x>=1]
+                                  knob).  [default: (100); x>=1]
   -h, --help                      Show this message and exit.
 ```

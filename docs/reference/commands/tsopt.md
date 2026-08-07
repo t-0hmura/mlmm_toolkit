@@ -43,6 +43,7 @@ Options:
                                   to derive the ML-region charge when -q is
                                   omitted (requires PDB input or --ref-pdb).
   -m, --multiplicity INTEGER      Spin multiplicity (2S+1) for the ML region.
+                                  [default: (1)]
   --freeze-atoms TEXT             Comma-separated 1-based indices to freeze
                                   (e.g., '1,3,5').
   --radius-hessian, --hess-cutoff FLOAT
@@ -52,18 +53,19 @@ Options:
                                   every required movable MM atom; 0.0 requests
                                   an ML-only Hessian and should be paired with
                                   --active-dof-mode ml-only for final frequency
-                                  validation.
+                                  validation.  [default: (all movable MM atoms)]
   --movable-cutoff FLOAT          Distance cutoff (Å) from ML region for movable
                                   MM atoms. MM atoms beyond this are frozen.
                                   Providing --movable-cutoff disables --detect-
-                                  layer.
+                                  layer.  [default: (use freeze_atoms)]
   --hessian-calc-mode [analytical|finitedifference]
                                   How the ML backend builds the Hessian
                                   (Analytical or FiniteDifference); overrides
                                   calc.hessian_calc_mode from YAML. Default:
                                   'FiniteDifference'. Runtime and memory depend
                                   on the backend and system; compare both modes
-                                  on a representative pilot.
+                                  on a representative pilot.  [default:
+                                  (FiniteDifference)]
   --max-cycles INTEGER            Maximum total optimization cycles.  [default:
                                   10000]
   --dump / --no-dump              Write concatenated trajectory
@@ -71,7 +73,7 @@ Options:
                                   dump]
   -o, --out-dir TEXT              Output directory.  [default: ./result_tsopt/]
   --thresh [gau_loose|gau|gau_tight|gau_vtight|baker|never]
-                                  Convergence preset.
+                                  Convergence preset.  [default: (baker)]
   --opt-mode [grad|hess|light|heavy|dimer|rsirfo|trim|rsprfo]
                                   grad/dimer/light → Hessian Guided Dimer;
                                   hess/rsirfo/heavy → RS-I-RFO; trim → TRIM
@@ -119,24 +121,26 @@ Options:
                                   files]
   -b, --backend [uma|orb|mace|aimnet2]
                                   ML backend for the ONIOM high-level region
-                                  (default: uma).
+                                  (default: uma).  [default: (uma)]
   --embedcharge / --no-embedcharge
                                   Unavailable in v0.3.3; retained so older
                                   commands fail with an actionable diagnostic.
                                   [default: no-embedcharge]
   --embedcharge-cutoff FLOAT      Unavailable in v0.3.3 together with the
-                                  retired electronic-embedding path.
+                                  retired electronic-embedding path.  [default:
+                                  (12.0)]
   --link-atom-method [scaled|fixed]
                                   Link-atom position mode: scaled (g-factor,
                                   default) or fixed (legacy 1.09/1.01 Å).
+                                  [default: (scaled)]
   --mm-backend [hessian_ff|openmm]
                                   MM backend (default: hessian_ff). MM Hessians
                                   use finite differences by default; set
                                   calc.mm_fd: false for the hessian_ff
-                                  analytical path.
+                                  analytical path.  [default: (hessian_ff)]
   --cmap / --no-cmap              Preserve CMAP terms in both real and model MM
                                   layers. Default: enabled when present in
-                                  parm7.
+                                  parm7.  [default: (cmap)]
   --skip-final-freq / --no-skip-final-freq
                                   Skip the post-convergence frequency analysis
                                   and imaginary-mode flattening. Useful for
@@ -164,9 +168,10 @@ Options:
   --workers INTEGER               MLIP predictor workers (UMA). >1 uses a
                                   parallel predictor (fairchem-core[extras]);
                                   combining it with an analytical Hessian is an
-                                  error. Default 1.
+                                  error. Default 1.  [default: (1)]
   --workers-per-node INTEGER      Workers per node when the parallel MLIP
-                                  predictor is used (--workers > 1).
+                                  predictor is used (--workers > 1).  [default:
+                                  (1)]
   --backend-model TEXT            Model variant for the selected --backend (e.g.
                                   uma-s-1p2 / uma-m-1p1 for uma,
                                   orb_v3_conservative_omol for orb, MACE-OMOL-0
@@ -184,12 +189,13 @@ Options:
                                   Request deterministic algorithms for
                                   controlled operations; verify exact
                                   reproducibility on the complete target stack.
+                                  [default: no-deterministic]
   --coord-type [cart|redund|dlc|tric]
                                   Optimization coordinate system
                                   (cart|redund|dlc|tric). cart is the default;
                                   command-specific choices are listed here.
   --print-every INTEGER RANGE     Print optimizer status every N cycles (debug
-                                  knob).  [x>=1]
+                                  knob).  [default: (100); x>=1]
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
                                   electron-parity check (logs that it was
                                   skipped). An open-shell ML region needs a

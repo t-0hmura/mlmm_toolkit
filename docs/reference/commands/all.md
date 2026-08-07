@@ -30,6 +30,7 @@ Options:
                                   'A:123A'), or a residue-name list like
                                   'GPP,MMT'. When omitted, extraction is skipped
                                   and full structures are used directly.
+                                  [default: (the dft command's own default)]
   -o, --out-dir DIRECTORY         Top-level output directory for the pipeline.
                                   [default: result_all]
   -r, --radius FLOAT              Inclusion cutoff (Å) around substrate atoms.
@@ -79,7 +80,7 @@ Options:
                                   (for debugging).
   --auto-mm-ligand-mult TEXT      Spin multiplicity mapping forwarded to mm_parm
                                   (e.g., 'GPP:2,SAM:1'). If omitted, mm_parm
-                                  defaults to 1 for all ligands.
+                                  defaults to 1 for all ligands.  [default: (1)]
   --auto-mm-disulfide / --auto-mm-no-disulfide
                                   Forwarded to mm_parm: detect disulfides from
                                   SG-SG geometry across CYS/CYX and bond them
@@ -126,16 +127,18 @@ Options:
                                   gau|gau_tight|gau_vtight|baker|never).
                                   Defaults to 'gau' for scan. The MEP stage
                                   keeps its own --thresh-gsm / --thresh-dmf.
+                                  [default: (gau)]
   --thresh-gsm [gau_loose|gau|gau_tight|gau_vtight|baker|never]
                                   Convergence preset for the GSM string
                                   optimizer of the MEP stage (gau_loose|gau|gau_
                                   tight|gau_vtight|baker|never). Defaults to
-                                  'gau_loose' when not provided.
+                                  'gau_loose' when not provided.  [default:
+                                  (gau_loose)]
   --thresh-dmf TEXT               IPOPT dual-infeasibility tolerance for the DMF
                                   MEP stage: tight (0.04) | middle (0.10) |
                                   loose (0.20) or a positive float. This is not
                                   a Gaussian preset. Defaults to 'tight' when
-                                  not provided.
+                                  not provided.  [default: (tight)]
   --thresh-post [gau_loose|gau|gau_tight|gau_vtight|baker|never]
                                   Convergence preset for post-IRC endpoint
                                   optimizations (gau_loose|gau|gau_tight|gau_vti
@@ -156,6 +159,7 @@ Options:
                                   and freq. Default: 'FiniteDifference'. Runtime
                                   and memory depend on the backend and system;
                                   compare both modes on a representative pilot.
+                                  [default: (FiniteDifference)]
   --detect-layer                  Automatically detect ML/MM layers from input
                                   PDB B-factors (ML=0, MovableMM=10,
                                   FrozenMM=20) in downstream tools.  [default:
@@ -225,7 +229,8 @@ Options:
   --freq-pressure FLOAT           Override freq thermochemistry pressure (atm).
   --dft-out-dir DIRECTORY         Override dft output base directory (relative
                                   paths resolved against the default).
-  --dft-func-basis TEXT           Override dft --func-basis value.
+  --dft-func-basis TEXT           Override dft --func-basis value.  [default:
+                                  (the dft command's own default)]
   --dft-max-cycle INTEGER         Override dft --max-cycle value.
   --dft-conv-tol FLOAT            Override dft --conv-tol value.
   --dft-grid-level INTEGER        Override dft --grid-level value.
@@ -264,24 +269,26 @@ Options:
                                   freq, path_search) as --ref-pdb.
   -b, --backend [uma|orb|mace|aimnet2]
                                   ML backend for the ONIOM high-level region
-                                  (default: uma).
+                                  (default: uma).  [default: (uma)]
   --embedcharge / --no-embedcharge
                                   Unavailable in v0.3.3; retained so older
                                   commands fail with an actionable diagnostic.
                                   [default: no-embedcharge]
   --embedcharge-cutoff FLOAT      Unavailable in v0.3.3 together with the
-                                  retired electronic-embedding path.
+                                  retired electronic-embedding path.  [default:
+                                  (12.0)]
   --link-atom-method [scaled|fixed]
                                   Link-atom position mode: scaled (g-factor,
                                   default) or fixed (legacy 1.09/1.01 Å).
+                                  [default: (scaled)]
   --mm-backend [hessian_ff|openmm]
                                   MM backend (default: hessian_ff). MM Hessians
                                   use finite differences by default; set
                                   calc.mm_fd: false for the hessian_ff
-                                  analytical path.
+                                  analytical path.  [default: (hessian_ff)]
   --cmap / --no-cmap              Preserve CMAP terms in both real and model MM
                                   layers. Default: enabled when present in
-                                  parm7.
+                                  parm7.  [default: (cmap)]
   --coord-type [cart|dlc]         Optimization coordinate system (cart|dlc).
                                   cart is the default; command-specific choices
                                   are listed here.
@@ -294,9 +301,10 @@ Options:
   --workers INTEGER               MLIP predictor workers (UMA). >1 uses a
                                   parallel predictor (fairchem-core[extras]);
                                   combining it with an analytical Hessian is an
-                                  error. Default 1.
+                                  error. Default 1.  [default: (1)]
   --workers-per-node INTEGER      Workers per node when the parallel MLIP
-                                  predictor is used (--workers > 1).
+                                  predictor is used (--workers > 1).  [default:
+                                  (1)]
   --backend-model TEXT            Model variant for the selected --backend (e.g.
                                   uma-s-1p2 / uma-m-1p1 for uma,
                                   orb_v3_conservative_omol for orb, MACE-OMOL-0
@@ -314,6 +322,7 @@ Options:
                                   Request deterministic algorithms for
                                   controlled operations; verify exact
                                   reproducibility on the complete target stack.
+                                  [default: no-deterministic]
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
                                   electron-parity check (logs that it was
                                   skipped). An open-shell ML region needs a

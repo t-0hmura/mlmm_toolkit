@@ -36,23 +36,24 @@ Options:
                                   omitted (requires PDB/mmCIF input or --ref-
                                   pdb).
   -m, --multiplicity INTEGER      Spin multiplicity (2S+1); overrides
-                                  calc.model_mult from YAML.
+                                  calc.model_mult from YAML.  [default: (1)]
   --max-cycles INTEGER            Maximum number of IRC steps; overrides
-                                  irc.max_cycles from YAML.
+                                  irc.max_cycles from YAML.  [default: (125)]
   --step-size FLOAT               Step length in Bohr (unweighted Cartesian
                                   coordinates). Default: 0.10 Bohr. Overrides
-                                  irc.step_length from YAML.
+                                  irc.step_length from YAML.  [default: (0.10)]
   --root INTEGER                  Imaginary mode index used for the initial
                                   displacement; overrides irc.root from YAML.
+                                  [default: (0)]
   --forward / --no-forward        Run the forward IRC; overrides irc.forward
-                                  from YAML.
+                                  from YAML.  [default: (forward)]
   --backward / --no-backward      Run the backward IRC; overrides irc.backward
-                                  from YAML.
+                                  from YAML.  [default: (backward)]
   --never-stop / --no-never-stop  Ignore RMS-gradient, hard-gradient, energy-
                                   rise, and energy-change stops and trace until
                                   max-cycles. Numerical/integration failures and
                                   external interruption still stop the run;
-                                  default off.
+                                  default off.  [default: (no-never-stop)]
   -o, --out-dir TEXT              Output directory; overrides irc.out_dir from
                                   YAML.  [default: ./result_irc/]
   --hessian-calc-mode [analytical|finitedifference]
@@ -61,7 +62,8 @@ Options:
                                   calc.hessian_calc_mode from YAML. Default:
                                   'FiniteDifference'. Runtime and memory depend
                                   on the backend and system; compare both modes
-                                  on a representative pilot.
+                                  on a representative pilot.  [default:
+                                  (FiniteDifference)]
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
   --show-config / --no-show-config
@@ -77,24 +79,26 @@ Options:
                                   files]
   -b, --backend [uma|orb|mace|aimnet2]
                                   ML backend for the ONIOM high-level region
-                                  (default: uma).
+                                  (default: uma).  [default: (uma)]
   --embedcharge / --no-embedcharge
                                   Unavailable in v0.3.3; retained so older
                                   commands fail with an actionable diagnostic.
                                   [default: no-embedcharge]
   --embedcharge-cutoff FLOAT      Unavailable in v0.3.3 together with the
-                                  retired electronic-embedding path.
+                                  retired electronic-embedding path.  [default:
+                                  (12.0)]
   --link-atom-method [scaled|fixed]
                                   Link-atom position mode: scaled (g-factor,
                                   default) or fixed (legacy 1.09/1.01 Å).
+                                  [default: (scaled)]
   --mm-backend [hessian_ff|openmm]
                                   MM backend (default: hessian_ff). MM Hessians
                                   use finite differences by default; set
                                   calc.mm_fd: false for the hessian_ff
-                                  analytical path.
+                                  analytical path.  [default: (hessian_ff)]
   --cmap / --no-cmap              Preserve CMAP terms in both real and model MM
                                   layers. Default: enabled when present in
-                                  parm7.
+                                  parm7.  [default: (cmap)]
   --hess-device [auto|cuda|cpu]   Device for initial Hessian storage and IRC
                                   operations (auto/cuda/cpu). Use 'cpu' for
                                   large unfrozen systems to avoid VRAM limits.
@@ -133,9 +137,10 @@ Options:
   --workers INTEGER               MLIP predictor workers (UMA). >1 uses a
                                   parallel predictor (fairchem-core[extras]);
                                   combining it with an analytical Hessian is an
-                                  error. Default 1.
+                                  error. Default 1.  [default: (1)]
   --workers-per-node INTEGER      Workers per node when the parallel MLIP
-                                  predictor is used (--workers > 1).
+                                  predictor is used (--workers > 1).  [default:
+                                  (1)]
   --backend-model TEXT            Model variant for the selected --backend (e.g.
                                   uma-s-1p2 / uma-m-1p1 for uma,
                                   orb_v3_conservative_omol for orb, MACE-OMOL-0
@@ -153,6 +158,7 @@ Options:
                                   Request deterministic algorithms for
                                   controlled operations; verify exact
                                   reproducibility on the complete target stack.
+                                  [default: no-deterministic]
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
                                   electron-parity check (logs that it was
                                   skipped). An open-shell ML region needs a

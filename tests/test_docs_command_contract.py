@@ -106,3 +106,54 @@ def test_comment_line_bool_prose_is_not_flagged(tmp_path: Path) -> None:
     doc = tmp_path / "CONTRIBUTING.md"
     doc.write_text("# --dump on freq: write thermoanalysis.yaml\n", encoding="utf-8")
     assert dc.validate_bool_style([doc], live) == []
+
+def test_every_option_with_an_effective_default_shows_it() -> None:
+    """A flag whose real default lives in a config block used to render as unset
+    in --help, in the generated reference and in the Colab option list, which
+    derives its controls from the live CLI. Click shows a default when
+    `show_default` is a non-empty string, or when it is truthy and the declared
+    default is not None; the string form keeps the declared default at None so
+    `cli_param_overridden` still tells an explicit value from an omission.
+
+    Only genuinely value-less options may stay silent: required or optional
+    inputs, and knobs hidden from help entirely.
+    """
+    import click
+
+    from mlmm.cli import cli as root_cli
+
+    # Matched on the user-facing flag, not the dest name: an input, an output
+    # path or a YAML file has no value to report.
+    ALLOWED_SILENT_OPTS = {
+        "-i", "--input", "-o", "--out", "--output", "--out-dir", "--ref-pdb",
+        "--ref-full-pdb", "--config", "--override", "--calc-file",
+        "--calc-factory", "-c", "--center", "-q", "--charge", "-l",
+        "--ligand-charge", "--freeze-atoms", "--dist-freeze", "--model-pdb",
+        "--model-indices", "-s", "--scan-lists", "--label-x", "--selected-resn",
+        "--modified-residue", "--ref-mode", "--hessian-ref", "--csv",
+        "--parm", "--real-parm7",
+    }
+
+    ctx = click.Context(root_cli)
+    missing = []
+    for name in sorted(root_cli.list_commands(ctx)):
+        cmd = root_cli.get_command(ctx, name)
+        if cmd is None:
+            continue
+        for param in cmd.params:
+            if not isinstance(param, click.Option) or param.expose_value is False:
+                continue
+            if param.hidden or param.required:
+                continue
+            if ALLOWED_SILENT_OPTS.intersection(param.opts):
+                continue
+            sd = param.show_default
+            shown = bool(sd) if isinstance(sd, str) else (
+                bool(sd) and param.default is not None
+            )
+            if not shown:
+                missing.append(f"{name} {'/'.join(param.opts)}")
+    assert missing == [], (
+        "these options render no default; give them show_default=<value> "
+        "(a string keeps the declared default None): " + ", ".join(missing)
+    )

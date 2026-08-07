@@ -209,13 +209,13 @@ def _resolve_sp_ml_region(
 )
 @click.option(
     "--radius-partial-hessian", "--hess-cutoff", "hess_cutoff",
-    type=float, default=None, show_default=False,
+    type=float, default=None, show_default="all movable MM atoms",
     help="Distance cutoff (Å) from ML region for MM atoms to include in Hessian "
          "calculation. Applied to movable MM atoms; combinable with --detect-layer.",
 )
 @click.option(
     "--radius-freeze", "--movable-cutoff", "movable_cutoff",
-    type=float, default=None, show_default=False,
+    type=float, default=None, show_default="use freeze_atoms",
     help="Distance cutoff (Å) from ML region for movable MM atoms. "
          "MM atoms beyond this are frozen.",
 )
@@ -230,6 +230,7 @@ def _resolve_sp_ml_region(
 )
 @click.option(
     "-m", "--multiplicity", "spin", type=int, default=None,
+    show_default="1",
     help="ML region spin multiplicity (2S+1).",
 )
 @click.option(
@@ -243,7 +244,7 @@ def _resolve_sp_ml_region(
 @click.option(
     "--hessian-calc-mode", "hessian_calc_mode",
     type=click.Choice(["Analytical", "FiniteDifference"], case_sensitive=False),
-    default=None, show_default=False,
+    default=None, show_default="FiniteDifference",
     help=(
         "Hessian backend when --hess is set. Analytical is supported by UMA, "
         "ORB, MACE, and AIMNet2; custom calculators use FiniteDifference. "
@@ -265,11 +266,11 @@ def _resolve_sp_ml_region(
 )
 @click.option(
     "--show-config/--no-show-config", "show_config",
-    default=False, help="Print effective merged config and exit.",
+    default=False, show_default=True, help="Print effective merged config and exit.",
 )
 @click.option(
     "--dry-run/--no-dry-run", "dry_run",
-    default=False, help="Validate options and print the plan without running.",
+    default=False, show_default=True, help="Validate options and print the plan without running.",
 )
 @click.option(
     "--out-json/--no-out-json", "out_json",
@@ -279,7 +280,7 @@ def _resolve_sp_ml_region(
 @click.option(
     "-b", "--backend",
     type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
-    default=None, show_default=False, help="ML backend for the ONIOM high-level region (default: uma).",
+    default=None, show_default="uma", help="ML backend for the ONIOM high-level region (default: uma).",
 )
 @click.option(
     "--embedcharge/--no-embedcharge", "embedcharge",
@@ -288,24 +289,24 @@ def _resolve_sp_ml_region(
 )
 @click.option(
     "--embedcharge-cutoff", "embedcharge_cutoff",
-    type=float, default=None, show_default=False,
+    type=float, default=None, show_default="12.0",
     help="Unavailable in v0.3.3 together with the retired electronic-embedding path.",
 )
 @click.option(
     "--link-atom-method", "link_atom_method",
     type=click.Choice(["scaled", "fixed"], case_sensitive=False),
-    default=None, show_default=False,
+    default=None, show_default="scaled",
     help="Link-atom positioning: scaled (g-factor) or fixed (1.09/1.01 Å).",
 )
 @click.option(
     "--mm-backend", "mm_backend",
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
-    default=None, show_default=False,
+    default=None, show_default="hessian_ff",
     help="MM backend (default: hessian_ff).",
 )
 @click.option(
     "--cmap/--no-cmap", "use_cmap",
-    default=None, show_default=False,
+    default=None, show_default="cmap",
     help="Preserve CMAP terms in both real and model MM layers. Default: enabled when present in parm7.",
 )
 @click.option(

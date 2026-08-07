@@ -716,7 +716,7 @@ def _prepare_frequency_output_paths(
     "hess_cutoff",
     type=float,
     default=None,
-    show_default=False,
+    show_default="all movable MM atoms",
     help="Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. "
          "Applied to movable MM atoms and can be combined with --detect-layer.",
 )
@@ -725,14 +725,14 @@ def _prepare_frequency_output_paths(
     "movable_cutoff",
     type=float,
     default=None,
-    show_default=False,
+    show_default="use freeze_atoms",
     help="Distance cutoff (Å) from ML region for movable MM atoms. MM atoms beyond this are frozen. "
          "Providing --movable-cutoff disables --detect-layer.",
 )
 @click.option(
     "--hessian-calc-mode",
     type=click.Choice(["Analytical", "FiniteDifference"], case_sensitive=False),
-    default=None,
+    default=None, show_default="FiniteDifference",
     help="How the ML backend builds the Hessian (Analytical or FiniteDifference); "
          "overrides calc.hessian_calc_mode from YAML. Default: 'FiniteDifference'. "
          "Runtime and memory depend on the backend and system; compare both "
@@ -820,7 +820,7 @@ def _prepare_frequency_output_paths(
     "-b", "--backend",
     type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
     default=None,
-    show_default=False,
+    show_default="uma",
     help="ML backend for the ONIOM high-level region (default: uma).",
 )
 @click.option(
@@ -835,7 +835,7 @@ def _prepare_frequency_output_paths(
     "embedcharge_cutoff",
     type=float,
     default=None,
-    show_default=False,
+    show_default="12.0",
     help="Unavailable in v0.3.3 together with the retired electronic-embedding path.",
 )
 @click.option(
@@ -843,7 +843,7 @@ def _prepare_frequency_output_paths(
     "link_atom_method",
     type=click.Choice(["scaled", "fixed"], case_sensitive=False),
     default=None,
-    show_default=False,
+    show_default="scaled",
     help="Link-atom position mode: scaled (g-factor, default) or fixed (legacy 1.09/1.01 Å).",
 )
 @click.option(
@@ -851,14 +851,14 @@ def _prepare_frequency_output_paths(
     "mm_backend",
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
-    show_default=False,
+    show_default="hessian_ff",
     help="MM backend (default: hessian_ff). MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
 )
 @click.option(
     "--cmap/--no-cmap",
     "use_cmap",
     default=None,
-    show_default=False,
+    show_default="cmap",
     help="Preserve CMAP terms in both real and model MM layers. Default: enabled when present in parm7.",
 )
 @click.option(

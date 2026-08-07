@@ -670,7 +670,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     "spin",
     type=int,
     default=None,
-    show_default=False,
+    show_default="1",
     help="Spin multiplicity (2S+1) for the ML region; defaults to YAML or 1.",
 )
 @click.option(
@@ -746,7 +746,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     "-b", "--backend",
     type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
     default=None,
-    show_default=False,
+    show_default="uma",
     help=(
         "Compatibility no-op. The high-level region is always computed with "
         "DFT; a supplied value emits a diagnostic and is ignored."
@@ -764,7 +764,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     "embedcharge_cutoff",
     type=float,
     default=None,
-    show_default=False,
+    show_default="12.0",
     help="Unavailable in v0.3.3 together with the retired electronic-embedding path.",
 )
 @click.option(
@@ -772,7 +772,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     "link_atom_method",
     type=click.Choice(["scaled", "fixed"], case_sensitive=False),
     default=None,
-    show_default=False,
+    show_default="scaled",
     help="Link-atom placement: 'scaled' (g-factor, Gaussian ONIOM standard, default) or "
          "'fixed' (legacy 1.09 Å for C, 1.01 Å for N).",
 )
@@ -781,14 +781,14 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     "mm_backend",
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
-    show_default=False,
+    show_default="hessian_ff",
     help="MM backend for the low-level ONIOM evaluation: 'hessian_ff' (default) or 'openmm'.",
 )
 @click.option(
     "--cmap/--no-cmap",
     "use_cmap",
     default=None,
-    show_default=False,
+    show_default="cmap",
     help="Preserve CMAP terms in both real and model MM layers. Default: enabled when present in parm7.",
 )
 @click.option(

@@ -17,7 +17,8 @@ Options:
   -i, --input FILE                Input ONIOM file (.gjf/.com for g16, .inp for
                                   ORCA).  [required]
   --mode [g16|orca]               Input mode. If omitted, inferred from input
-                                  suffix.
+                                  suffix.  [default: (inferred from the input
+                                  suffix)]
   -o, --out-prefix PATH           Output prefix. Defaults to input stem in the
                                   current working directory.
   --ref-pdb FILE                  Reference PDB to preserve atom naming/residue

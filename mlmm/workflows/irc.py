@@ -285,30 +285,33 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     "spin",
     type=int,
     default=None,
-    show_default=False,
+    show_default="1",
     help="Spin multiplicity (2S+1); overrides calc.model_mult from YAML.",
 )
 @click.option(
-    "--max-cycles", type=int, default=None, help="Maximum number of IRC steps; overrides irc.max_cycles from YAML."
+    "--max-cycles", type=int, default=None, show_default="125", help="Maximum number of IRC steps; overrides irc.max_cycles from YAML."
 )
-@click.option("--step-size", type=float, default=None, help="Step length in Bohr (unweighted Cartesian coordinates). Default: 0.10 Bohr. Overrides irc.step_length from YAML.")
-@click.option("--root", type=int, default=None, help="Imaginary mode index used for the initial displacement; overrides irc.root from YAML.")
+@click.option("--step-size", type=float, default=None, show_default="0.10", help="Step length in Bohr (unweighted Cartesian coordinates). Default: 0.10 Bohr. Overrides irc.step_length from YAML.")
+@click.option("--root", type=int, default=None, show_default="0", help="Imaginary mode index used for the initial displacement; overrides irc.root from YAML.")
 @click.option(
     "--forward/--no-forward",
     "forward",
     default=None,
+    show_default="forward",
     help="Run the forward IRC; overrides irc.forward from YAML.",
 )
 @click.option(
     "--backward/--no-backward",
     "backward",
     default=None,
+    show_default="backward",
     help="Run the backward IRC; overrides irc.backward from YAML.",
 )
 @click.option(
     "--never-stop/--no-never-stop",
     "never_stop",
     default=None,
+    show_default="no-never-stop",
     help=(
         "Ignore RMS-gradient, hard-gradient, energy-rise, and energy-change "
         "stops and trace until max-cycles. Numerical/integration failures and "
@@ -319,7 +322,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
 @click.option(
     "--hessian-calc-mode",
     type=click.Choice(["Analytical", "FiniteDifference"], case_sensitive=False),
-    default=None,
+    default=None, show_default="FiniteDifference",
     help=("How the ML backend builds the Hessian (Analytical or "
           "FiniteDifference); overrides calc.hessian_calc_mode from YAML. "
           "Default: 'FiniteDifference'. Runtime and memory depend on the "
@@ -363,7 +366,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     "-b", "--backend",
     type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
     default=None,
-    show_default=False,
+    show_default="uma",
     help="ML backend for the ONIOM high-level region (default: uma).",
 )
 @click.option(
@@ -378,7 +381,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     "embedcharge_cutoff",
     type=float,
     default=None,
-    show_default=False,
+    show_default="12.0",
     help="Unavailable in v0.3.3 together with the retired electronic-embedding path.",
 )
 @click.option(
@@ -386,7 +389,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     "link_atom_method",
     type=click.Choice(["scaled", "fixed"], case_sensitive=False),
     default=None,
-    show_default=False,
+    show_default="scaled",
     help="Link-atom position mode: scaled (g-factor, default) or fixed (legacy 1.09/1.01 Å).",
 )
 @click.option(
@@ -394,14 +397,14 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     "mm_backend",
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
-    show_default=False,
+    show_default="hessian_ff",
     help="MM backend (default: hessian_ff). MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
 )
 @click.option(
     "--cmap/--no-cmap",
     "use_cmap",
     default=None,
-    show_default=False,
+    show_default="cmap",
     help="Preserve CMAP terms in both real and model MM layers. Default: enabled when present in parm7.",
 )
 @click.option(

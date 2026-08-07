@@ -585,7 +585,7 @@ def _effective_output_pdb(output_path: Path) -> Path:
     "-o", "--output",
     "output_pdb",
     type=click.Path(path_type=Path, dir_okay=False),
-    default=None,
+    default=None, show_default="<input>_layered.pdb",
     help="Output PDB file with B-factors set to layer values. "
          "Defaults to '<input>_layered.pdb'.",
 )

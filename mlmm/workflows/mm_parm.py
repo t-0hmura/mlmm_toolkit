@@ -1147,6 +1147,7 @@ def run_pipeline(args: Args) -> None:
 @click.option(
     "--ligand-mult",
     default=None,
+    show_default="1",
     help=(
         'Comma-separated mapping of residue=multiplicity or residue:multiplicity '
         '(e.g., "HEM=1,NO:2")'
@@ -1192,13 +1193,13 @@ def run_pipeline(args: Args) -> None:
     "--ph",
     "ph",
     type=float,
-    default=7.0,
+    default=7.0, show_default=True,
     help="pH used by PDBFixer when adding hydrogens (--add-h). Default: 7.0",
 )
 @click.option(
     "--ff-set",
     type=click.Choice(["ff19SB", "ff14SB"]),
-    default="ff19SB",
+    default="ff19SB", show_default=True,
     help="Force-field set for proteins/backbone typing and water/ion parameters (default: ff19SB).",
 )
 def cli(

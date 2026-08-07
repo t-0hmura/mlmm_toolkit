@@ -27,6 +27,7 @@ Options:
                                   frozen.  [default: 8.0]
   -o, --output FILE               Output PDB file with B-factors set to layer
                                   values. Defaults to '<input>_layered.pdb'.
+                                  [default: (<input>_layered.pdb)]
   --one-based / --zero-based      Interpret --model-indices as 1-based (default)
                                   or 0-based.  [default: one-based]
   -h, --help                      Show this message and exit.

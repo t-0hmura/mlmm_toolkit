@@ -3336,6 +3336,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @click.option(
     "-c", "--center", "center_spec",
     type=str, required=False, default=None,
+    show_default="the dft command's own default",
     help=("Substrate specification for the extractor: "
           "a PDB path, a residue-ID list like '123,124' or 'A:123,B:456' "
           "(insertion codes OK: '123A' / 'A:123A'), "
@@ -3410,7 +3411,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     "--auto-mm-ligand-mult",
     "mm_ligand_mult",
     type=str,
-    default=None,
+    default=None, show_default="1",
     help=("Spin multiplicity mapping forwarded to mm_parm (e.g., 'GPP:2,SAM:1'). "
           "If omitted, mm_parm defaults to 1 for all ligands.")
 )
@@ -3481,7 +3482,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     "--thresh",
     type=click.Choice(THRESH_CHOICES, case_sensitive=False),
     default=None,
-    show_default=False,
+    show_default="gau",
     help=(
         "Convergence preset for single-structure optimizations and scan "
         "relaxations (gau_loose|gau|gau_tight|gau_vtight|baker|never). "
@@ -3493,7 +3494,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     "--thresh-gsm",
     type=click.Choice(THRESH_CHOICES, case_sensitive=False),
     default=None,
-    show_default=False,
+    show_default="gau_loose",
     help=(
         "Convergence preset for the GSM string optimizer of the MEP stage "
         "(gau_loose|gau|gau_tight|gau_vtight|baker|never). "
@@ -3504,7 +3505,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     "--thresh-dmf",
     type=str,
     default=None,
-    show_default=False,
+    show_default="tight",
     help=(
         "IPOPT dual-infeasibility tolerance for the DMF MEP stage: "
         "tight (0.04) | middle (0.10) | loose (0.20) or a positive float. "
@@ -3532,7 +3533,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
               help="Run initial single-structure optimizations of the pocket inputs.")
 @click.option("--hessian-calc-mode",
               type=click.Choice(["Analytical", "FiniteDifference"], case_sensitive=False),
-              default=None,
+              default=None, show_default="FiniteDifference",
               help=("Common MLIP Hessian mode forwarded to tsopt and freq. "
                     "Default: 'FiniteDifference'. Runtime and memory depend on "
                     "the backend and system; compare both modes on a representative pilot."))
@@ -3655,6 +3656,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @click.option("--dft-out-dir", type=click.Path(path_type=Path, file_okay=False), default=None,
               help="Override dft output base directory (relative paths resolved against the default).")
 @click.option("--dft-func-basis", type=str, default=None,
+              show_default="the dft command's own default",
               help="Override dft --func-basis value.")
 @click.option("--dft-max-cycle", type=int, default=None,
               help="Override dft --max-cycle value.")
@@ -3706,7 +3708,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     "-b", "--backend",
     type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
     default=None,
-    show_default=False,
+    show_default="uma",
     help="ML backend for the ONIOM high-level region (default: uma).",
 )
 @click.option(
@@ -3721,7 +3723,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     "embedcharge_cutoff",
     type=float,
     default=None,
-    show_default=False,
+    show_default="12.0",
     help="Unavailable in v0.3.3 together with the retired electronic-embedding path.",
 )
 @click.option(
@@ -3729,7 +3731,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     "link_atom_method",
     type=click.Choice(["scaled", "fixed"], case_sensitive=False),
     default=None,
-    show_default=False,
+    show_default="scaled",
     help="Link-atom position mode: scaled (g-factor, default) or fixed (legacy 1.09/1.01 Å).",
 )
 @click.option(
@@ -3737,14 +3739,14 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     "mm_backend",
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
-    show_default=False,
+    show_default="hessian_ff",
     help="MM backend (default: hessian_ff). MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
 )
 @click.option(
     "--cmap/--no-cmap",
     "use_cmap",
     default=None,
-    show_default=False,
+    show_default="cmap",
     help="Preserve CMAP terms in both real and model MM layers. Default: enabled when present in parm7.",
 )
 @add_coord_type_option(choices=("cart", "dlc"))

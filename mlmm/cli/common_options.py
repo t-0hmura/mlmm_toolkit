@@ -21,7 +21,7 @@ def add_print_every_option() -> Callable[[Callable], Callable]:
             "print_every",
             type=click.IntRange(min=1),
             default=None,
-            show_default=False,
+            show_default="100",
             help="Print optimizer status every N cycles (debug knob).",
         )(func)
     return decorator
@@ -140,7 +140,7 @@ def add_workers_options() -> Callable[[Callable], Callable]:
             "workers_per_node",
             type=int,
             default=None,
-            show_default=False,
+            show_default="1",
             help="Workers per node when the parallel MLIP predictor is used (--workers > 1).",
         )(func)
         func = click.option(
@@ -148,7 +148,7 @@ def add_workers_options() -> Callable[[Callable], Callable]:
             "workers",
             type=int,
             default=None,
-            show_default=False,
+            show_default="1",
             help=(
                 "MLIP predictor workers (UMA). >1 uses a parallel predictor "
                 "(fairchem-core[extras]); combining it with an analytical Hessian "
@@ -258,7 +258,7 @@ def add_deterministic_option() -> Callable[[Callable], Callable]:
         return click.option(
             "--deterministic/--no-deterministic",
             default=False,
-            show_default=False,
+            show_default=True,
             is_eager=True,
             expose_value=False,
             callback=_deterministic_callback,
@@ -298,7 +298,7 @@ def add_allow_charge_mult_mismatch_option() -> Callable[[Callable], Callable]:
         return click.option(
             "--allow-charge-mult-mismatch",
             is_flag=True,
-            default=False,
+            default=False, show_default=True,
             is_eager=True,
             expose_value=False,
             callback=_allow_charge_mult_mismatch_callback,
@@ -343,7 +343,7 @@ def add_ml_charge_spin_options() -> Callable[[Callable], Callable]:
             "spin",
             type=click.IntRange(min=1),
             default=None,
-            show_default=False,
+            show_default="1",
             help="Spin multiplicity (2S+1) for the ML region. Defaults to 1 when omitted.",
         ),
     ]

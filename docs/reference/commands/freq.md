@@ -31,18 +31,20 @@ Options:
   --hess-cutoff FLOAT             Distance cutoff (Å) from ML region for MM
                                   atoms to include in Hessian calculation.
                                   Applied to movable MM atoms and can be
-                                  combined with --detect-layer.
+                                  combined with --detect-layer.  [default: (all
+                                  movable MM atoms)]
   --movable-cutoff FLOAT          Distance cutoff (Å) from ML region for movable
                                   MM atoms. MM atoms beyond this are frozen.
                                   Providing --movable-cutoff disables --detect-
-                                  layer.
+                                  layer.  [default: (use freeze_atoms)]
   --hessian-calc-mode [analytical|finitedifference]
                                   How the ML backend builds the Hessian
                                   (Analytical or FiniteDifference); overrides
                                   calc.hessian_calc_mode from YAML. Default:
                                   'FiniteDifference'. Runtime and memory depend
                                   on the backend and system; compare both modes
-                                  on a representative pilot.
+                                  on a representative pilot.  [default:
+                                  (FiniteDifference)]
   --max-write INTEGER             Maximum number of modes to export.  [default:
                                   10]
   --amplitude-ang FLOAT           Mode animation amplitude (Å).  [default: 0.8]
@@ -84,24 +86,26 @@ Options:
                                   auto]
   -b, --backend [uma|orb|mace|aimnet2]
                                   ML backend for the ONIOM high-level region
-                                  (default: uma).
+                                  (default: uma).  [default: (uma)]
   --embedcharge / --no-embedcharge
                                   Unavailable in v0.3.3; retained so older
                                   commands fail with an actionable diagnostic.
                                   [default: no-embedcharge]
   --embedcharge-cutoff FLOAT      Unavailable in v0.3.3 together with the
-                                  retired electronic-embedding path.
+                                  retired electronic-embedding path.  [default:
+                                  (12.0)]
   --link-atom-method [scaled|fixed]
                                   Link-atom position mode: scaled (g-factor,
                                   default) or fixed (legacy 1.09/1.01 Å).
+                                  [default: (scaled)]
   --mm-backend [hessian_ff|openmm]
                                   MM backend (default: hessian_ff). MM Hessians
                                   use finite differences by default; set
                                   calc.mm_fd: false for the hessian_ff
-                                  analytical path.
+                                  analytical path.  [default: (hessian_ff)]
   --cmap / --no-cmap              Preserve CMAP terms in both real and model MM
                                   layers. Default: enabled when present in
-                                  parm7.
+                                  parm7.  [default: (cmap)]
   --dump-hess FILE                Save the computed Hessian and geometry/active-
                                   basis identity to a compressed .npz file for a
                                   matching 'mlmm irc --read-hess' run. The file
@@ -126,7 +130,8 @@ Options:
                                   omitted (requires PDB input or --ref-pdb).
   -m, --multiplicity INTEGER RANGE
                                   Spin multiplicity (2S+1) for the ML region.
-                                  Defaults to 1 when omitted.  [x>=1]
+                                  Defaults to 1 when omitted.  [default: (1);
+                                  x>=1]
   --precision [fp32|fp64]         MLIP backend precision: fp32 or fp64. Unset
                                   defaults per backend (uma: fp32; orb, mace:
                                   fp64). Routed to backend-specific kwargs (UMA
@@ -136,9 +141,10 @@ Options:
   --workers INTEGER               MLIP predictor workers (UMA). >1 uses a
                                   parallel predictor (fairchem-core[extras]);
                                   combining it with an analytical Hessian is an
-                                  error. Default 1.
+                                  error. Default 1.  [default: (1)]
   --workers-per-node INTEGER      Workers per node when the parallel MLIP
-                                  predictor is used (--workers > 1).
+                                  predictor is used (--workers > 1).  [default:
+                                  (1)]
   --backend-model TEXT            Model variant for the selected --backend (e.g.
                                   uma-s-1p2 / uma-m-1p1 for uma,
                                   orb_v3_conservative_omol for orb, MACE-OMOL-0
@@ -156,6 +162,7 @@ Options:
                                   Request deterministic algorithms for
                                   controlled operations; verify exact
                                   reproducibility on the complete target stack.
+                                  [default: no-deterministic]
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
                                   electron-parity check (logs that it was
                                   skipped). An open-shell ML region needs a

@@ -410,13 +410,13 @@ def run_trj2fig(
 @click.option(
     "--unit",
     type=click.Choice(["kcal", "hartree"]),
-    default="kcal",
+    default="kcal", show_default=True,
     help="Energy unit.",
 )
 @click.option(
     "-r",
     "--reference",
-    default="init",
+    default="init", show_default=True,
     help='Reference: "init" (initial frame; last frame if --reverse-x), "None" (absolute E), or an integer index.',
 )
 @click.option(
@@ -431,6 +431,7 @@ def run_trj2fig(
     "--multiplicity",
     type=int,
     default=None,
+    show_default="1",
     help="Spin multiplicity (2S+1). Recompute energies when supplied.",
 )
 @click.option(

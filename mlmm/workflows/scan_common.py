@@ -215,7 +215,7 @@ def add_scan_common_options(
             "--bias-k",
             type=float,
             default=bias_k_default,
-            show_default=False,
+            show_default="300.0",
             help=(
                 "Harmonic well strength k [eV/Å^2]. "
                 "Defaults to YAML bias.k (BIAS_KW['k']=300 in defaults.py) when omitted; "

@@ -25,8 +25,9 @@ Options:
                                   ORCA when --mode is omitted).  [required]
   --mode [g16|orca]               Export mode. If omitted, inferred from -o
                                   suffix: .gjf/.com -> g16, .inp -> orca.
+                                  [default: (inferred from the input suffix)]
   --method TEXT                   QM method and basis set. Defaults depend on
-                                  mode.
+                                  mode.  [default: (depends on --mode)]
   -q, --charge INTEGER            Charge of QM region.  [required]
   -m, --multiplicity INTEGER      Multiplicity of QM region.  [default: 1]
   --near FLOAT                    Distance cutoff for movable/active atoms (Å).

@@ -454,6 +454,7 @@ def _write_layered_pdb_with_ref(
     "--mode",
     type=click.Choice(["g16", "orca"], case_sensitive=False),
     default=None,
+    show_default="inferred from the input suffix",
     help="Input mode. If omitted, inferred from input suffix.",
 )
 @click.option(

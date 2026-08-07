@@ -18,14 +18,14 @@ Options:
                                   extra filenames after options
                                   (.png/.jpg/.jpeg/.html/.svg/.pdf/.csv). If
                                   nothing is given, defaults to energy.png.
-  --unit [kcal|hartree]           Energy unit.
+  --unit [kcal|hartree]           Energy unit.  [default: kcal]
   -r, --reference TEXT            Reference: "init" (initial frame; last frame
                                   if --reverse-x), "None" (absolute E), or an
-                                  integer index.
+                                  integer index.  [default: init]
   -q, --charge INTEGER            Total charge. Recompute energies when
                                   supplied.
   -m, --multiplicity INTEGER      Spin multiplicity (2S+1). Recompute energies
-                                  when supplied.
+                                  when supplied.  [default: (1)]
   --reverse-x / --no-reverse-x    Reverse the x-axis (last frame on the left).
                                   [default: no-reverse-x]
   -b, --backend [uma|orb|mace|aimnet2]

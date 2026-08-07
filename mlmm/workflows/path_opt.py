@@ -882,7 +882,7 @@ def _run_dmf_mep(
     "spin",
     type=int,
     default=None,
-    show_default=False,
+    show_default="1",
     help="Spin multiplicity (2S+1). Defaults to 1 when omitted.",
 )
 @click.option(
@@ -946,6 +946,7 @@ def _run_dmf_mep(
     "--thresh",
     type=click.Choice(THRESH_CHOICES, case_sensitive=False),
     default=None,
+    show_default="gau",
     help=(
         "Convergence preset for endpoint preoptimization only. "
         "The MEP itself keeps --thresh-gsm / --thresh-dmf."
@@ -955,7 +956,7 @@ def _run_dmf_mep(
     "--thresh-gsm",
     type=click.Choice(THRESH_CHOICES, case_sensitive=False),
     default=None,
-    show_default=False,
+    show_default="gau_loose",
     help=(
         "Convergence preset for the GSM string optimizer "
         "(gau_loose|gau|gau_tight|gau_vtight|baker|never). "
@@ -966,7 +967,7 @@ def _run_dmf_mep(
     "--thresh-dmf",
     type=str,
     default=None,
-    show_default=False,
+    show_default="tight",
     help=(
         "IPOPT dual-infeasibility tolerance for the DMF path optimizer: "
         "tight (0.04) | middle (0.10) | loose (0.20) or a positive float. "
@@ -1030,7 +1031,7 @@ def _run_dmf_mep(
     "hess_cutoff",
     type=float,
     default=None,
-    show_default=False,
+    show_default="all movable MM atoms",
     help="Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. "
          "Applied to movable MM atoms and can be combined with --detect-layer.",
 )
@@ -1039,7 +1040,7 @@ def _run_dmf_mep(
     "movable_cutoff",
     type=float,
     default=None,
-    show_default=False,
+    show_default="use freeze_atoms",
     help="Distance cutoff (Å) from ML region for movable MM atoms. MM atoms beyond this are frozen. "
          "Providing --movable-cutoff disables --detect-layer.",
 )
@@ -1054,7 +1055,7 @@ def _run_dmf_mep(
     "-b", "--backend",
     type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
     default=None,
-    show_default=False,
+    show_default="uma",
     help="ML backend for the ONIOM high-level region (default: uma).",
 )
 @click.option(
@@ -1069,7 +1070,7 @@ def _run_dmf_mep(
     "embedcharge_cutoff",
     type=float,
     default=None,
-    show_default=False,
+    show_default="12.0",
     help="Unavailable in v0.3.3 together with the retired electronic-embedding path.",
 )
 @click.option(
@@ -1077,7 +1078,7 @@ def _run_dmf_mep(
     "link_atom_method",
     type=click.Choice(["scaled", "fixed"], case_sensitive=False),
     default=None,
-    show_default=False,
+    show_default="scaled",
     help="Link-atom position mode: scaled (g-factor, default) or fixed (legacy 1.09/1.01 Å).",
 )
 @click.option(
@@ -1085,14 +1086,14 @@ def _run_dmf_mep(
     "mm_backend",
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
-    show_default=False,
+    show_default="hessian_ff",
     help="MM backend (default: hessian_ff). MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
 )
 @click.option(
     "--cmap/--no-cmap",
     "use_cmap",
     default=None,
-    show_default=False,
+    show_default="cmap",
     help="Preserve CMAP terms in both real and model MM layers. Default: enabled when present in parm7.",
 )
 @click.option(

@@ -24,7 +24,7 @@ Options:
                                   "GPP:-3,MMT:-1")
   --ligand-mult TEXT              Comma-separated mapping of
                                   residue=multiplicity or residue:multiplicity
-                                  (e.g., "HEM=1,NO:2")
+                                  (e.g., "HEM=1,NO:2")  [default: (1)]
   --keep-temp / --no-keep-temp    Keep temporary working directory (in current
                                   dir) for debugging.  [default: no-keep-temp]
   --add-ter / --no-add-ter        Insert TER before/after target residues and
@@ -41,8 +41,9 @@ Options:
   --add-h / --no-add-h            Add hydrogens using PDBFixer at the specified
                                   --ph.  [default: no-add-h]
   --ph FLOAT                      pH used by PDBFixer when adding hydrogens
-                                  (--add-h). Default: 7.0
+                                  (--add-h). Default: 7.0  [default: 7.0]
   --ff-set [ff19SB|ff14SB]        Force-field set for proteins/backbone typing
                                   and water/ion parameters (default: ff19SB).
+                                  [default: ff19SB]
   -h, --help                      Show this message and exit.
 ```
