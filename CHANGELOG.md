@@ -126,6 +126,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   calculator-free, and rescoring is a pure MLIP calculation rather than ONIOM.
 
 ### Changed
+- Rename `--calc-factory` to `--calc-file-func-name`: the old spelling never
+  said which file it names, and the option only means anything together with
+  `--calc-file`. `--calc-factory` stays accepted, so published commands keep
+  working.
+- Head the stdout citation block `====== Citations & References ======` like
+  every other console section. `summary.log` keeps its numbered
+  `[6] Methods and citations`; the two shared one renderer, so the log file's
+  section index was leaking into the console. The citations themselves remain
+  one source.
 - Keep one execution path in the Colab GUI. An unreachable async twin of the
   whole run path (`_start_async_task`, `_do_validate_async`, `_do_run_guarded`,
   `_do_run_async`, `_stream_async`, `_stop_async_process`,

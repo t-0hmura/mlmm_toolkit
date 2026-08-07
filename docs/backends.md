@@ -139,7 +139,7 @@ Notes:
   `multiplicity`), and `device` when its signature accepts them, or
   unconditionally if it declares `**kwargs`, so engines that need the total
   charge (e.g. xTB) can be configured. Use a different factory name with
-  `--calc-factory NAME`; a module-level Calculator instance is also accepted.
+  `--calc-file-func-name NAME`; a module-level Calculator instance is also accepted.
 - The custom calculator drives the **ML region only**; the MM side keeps its
   usual `hessian_ff` / OpenMM backend and the ONIOM coupling is unchanged.
   Hessians use the finite-difference path, so `freq` and `tsopt --opt-mode hess`

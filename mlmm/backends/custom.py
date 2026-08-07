@@ -121,7 +121,7 @@ def load_ase_calculator(
             raise ValueError(
                 f"--calc-file {path} has no attribute '{calc_factory}'. "
                 f"Define `def {calc_factory}(charge=0, spin=1, **kwargs)` returning "
-                f"an ASE Calculator (or use --calc-factory NAME). "
+                f"an ASE Calculator (or use --calc-file-func-name NAME). "
                 f"Found top-level names: {', '.join(exported) or '(none)'}."
             )
         attr = getattr(module, calc_factory)

@@ -206,10 +206,17 @@ def _method_citation_record_keys(payload: Dict[str, Any]) -> List[str]:
     return list(dict.fromkeys(keys))
 
 
-def format_method_citations(payload: Dict[str, Any]) -> List[str]:
-    """Return the citation block shared by summary.log and stdout."""
+def format_method_citations(
+    payload: Dict[str, Any], *, header: str = "[6] Methods and citations"
+) -> List[str]:
+    """Return the citation block, headed for its destination.
 
-    lines = ["[6] Methods and citations", "  Please cite the software and methods used:"]
+    ``summary.log`` numbers its sections, so the default header is section 6.
+    Standard output heads its blocks with ``====== ... ======`` instead; passing
+    the numbered form there leaked a log-file section index into the console.
+    """
+
+    lines = [header, "  Please cite the software and methods used:"]
     for reference in method_references(payload):
         lines.append(f"  - {reference['method']}: {reference['citation']}")
     return lines
@@ -233,9 +240,17 @@ def method_references(payload: Dict[str, Any]) -> List[Dict[str, str]]:
 
 
 def emit_method_citations(payload: Dict[str, Any]) -> None:
-    """Print the same citation block written to summary.log."""
+    """Echo the citation block on stdout, headed like every other section.
 
-    print("\n".join(format_method_citations(payload)))
+    Deliberately a bare ``print``: the citation block is a required release
+    surface, and the console emitter is gated on a verbosity level that defaults
+    to 0 (silent) outside the CLI entry point, which would drop it. Only the
+    header differs from the ``summary.log`` copy.
+    """
+
+    print("\n".join(format_method_citations(
+        payload, header="====== Citations & References ======"
+    )))
 
 
 REQUIRED_SUMMARY_PAYLOAD_KEYS: tuple[str, ...] = (

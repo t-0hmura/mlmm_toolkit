@@ -829,7 +829,9 @@ def ambertools_route(
         cyx_pdb = tmpdir / "fixed_cyx.pdb"
         n_cyx = rename_disulfide_cys_to_cyx(fixed_pdb, cyx_pdb, ss_pairs)
         if n_cyx:
-            print(f"[mm-parm] Renamed {n_cyx} disulfide CYS -> CYX before tleap.")
+            from mlmm.core.output import emit as _emit
+            _emit(f"[mm-parm] Renamed {n_cyx} disulfide CYS -> CYX before tleap.",
+                  narrative=True)
         fixed_pdb = cyx_pdb
 
     # Pass 1 (no extra params) -> will write complex.parm7/.inpcrd/.pdb

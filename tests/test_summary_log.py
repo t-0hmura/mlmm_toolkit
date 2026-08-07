@@ -211,7 +211,11 @@ def test_method_citations_follow_resolved_methods_and_match_stdout(
     block = "\n".join(lines)
     assert block in text
     assert text.rstrip().endswith(block)
-    assert stdout == block + "\n"
+    # Same citations, destination-appropriate header: the log keeps its section
+    # index, stdout heads the block like every other console section.
+    assert stdout.splitlines()[0] == "====== Citations & References ======"
+    assert stdout.splitlines()[1:] == lines[1:]
+    assert lines[0] == "[6] Methods and citations"
     assert "mlmm-toolkit:" in block
     assert "Growing String Method (GSM)" in block
     assert "RFO / P-RFO" in block
@@ -296,7 +300,10 @@ def test_final_stdout_places_citations_immediately_before_elapsed(capsys) -> Non
 
     lines = [line for line in capsys.readouterr().out.splitlines() if line]
     assert lines[-1].startswith("[time] Elapsed Time for Whole Pipeline")
-    assert "[6] Methods and citations" in lines[:-1]
+    # stdout heads its blocks like every other section; the numbered form
+    # belongs to summary.log alone.
+    assert "====== Citations & References ======" in lines[:-1]
+    assert not any(line.startswith("[6] ") for line in lines)
 
 
 def test_final_stdout_explains_non_success_scientific_status(
@@ -324,3 +331,22 @@ def test_final_stdout_explains_non_success_scientific_status(
     assert output.rstrip().splitlines()[-1].startswith(
         "[time] Elapsed Time for Whole Pipeline"
     )
+
+
+def test_citation_block_headers_match_their_destination() -> None:
+    """`summary.log` numbers its sections, stdout uses `====== ... ======`. The
+    two shared one renderer, so the log's section index leaked to the console.
+    """
+    from mlmm.io.summary import format_method_citations
+
+    payload = {"pipeline_mode": "all", "ts_opt_mode": "rsirfo"}
+
+    log_block = format_method_citations(payload)
+    assert log_block[0] == "[6] Methods and citations"
+
+    stdout_block = format_method_citations(
+        payload, header="====== Citations & References ======"
+    )
+    assert stdout_block[0] == "====== Citations & References ======"
+    # Only the header differs; the citations themselves are one source.
+    assert log_block[1:] == stdout_block[1:]

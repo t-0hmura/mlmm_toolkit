@@ -2934,7 +2934,8 @@ class MLMMCore:
                 mask = dists <= self.embedcharge_cutoff
                 mm_atom_indices = [mm_atom_indices[j] for j in range(n_before) if mask[j]]
                 if self.print_timing and not getattr(self, '_embedcharge_logged', False):
-                    print(f"[embedcharge] {len(mm_atom_indices)}/{n_before} MM atoms within {self.embedcharge_cutoff:.1f} Å cutoff.")
+                    emit(f"[embedcharge] {len(mm_atom_indices)}/{n_before} MM atoms within {self.embedcharge_cutoff:.1f} Å cutoff.",
+                         narrative=True)
                     self._embedcharge_logged = True
             if mm_atom_indices:
                 mm_coords = atoms_real.get_positions()[mm_atom_indices]

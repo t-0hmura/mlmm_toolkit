@@ -193,19 +193,23 @@ def add_backend_model_option() -> Callable[[Callable], Callable]:
 
 
 def add_calc_file_option() -> Callable[[Callable], Callable]:
-    """Attach ``--calc-file PATH`` (+ ``--calc-factory NAME``) to a Click command.
+    """Attach ``--calc-file PATH`` (+ ``--calc-file-func-name NAME``) to a Click command.
 
     When set, mlmm drives the ML region with an arbitrary ASE Calculator loaded
     from the user Python file (overriding ``--backend``). The CLI body routes the
     value via ``mlmm.backends.apply_calc_file_to_calc_cfg``, which switches the
     backend to ``custom``. The file must expose a factory
     ``get_calculator(charge, spin, device, **kwargs) -> ase Calculator`` (rename
-    via ``--calc-factory``). Lets users couple GFN-xTB (tblite), DFTB+, ORCA, or
+    via ``--calc-file-func-name``). Lets users couple GFN-xTB (tblite), DFTB+, ORCA, or
     any ASE-compatible engine for the ML region without modifying mlmm. Same wire
     targets as ``add_precision_option``.
     """
     def decorator(func: Callable) -> Callable:
         func = click.option(
+            # `--calc-factory` said nothing about which file it names.
+            # The new spelling is primary; the old one stays accepted so
+            # published commands keep working.
+            "--calc-file-func-name",
             "--calc-factory",
             "calc_factory",
             type=str,
@@ -225,7 +229,7 @@ def add_calc_file_option() -> Callable[[Callable], Callable]:
             help=(
                 "Python file exposing get_calculator(...) -> an ASE Calculator "
                 "used as the ML-region backend (overrides --backend). Couples "
-                "GFN-xTB / DFTB+ / any ASE engine. See --calc-factory."
+                "GFN-xTB / DFTB+ / any ASE engine. See --calc-file-func-name."
             ),
         )(func)
         return func

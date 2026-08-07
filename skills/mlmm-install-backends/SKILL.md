@@ -71,7 +71,7 @@ mlmm sp -i complex.pdb --parm system.parm7 --calc-file my_calc.py -q 0 -m 1
 - Works on every subcommand (`sp` / `opt` / `tsopt` / `freq` / `irc` /
   `scan` / `scan2d` / `scan3d` / `path-opt` / `path-search`) **and the `all` pipeline**
   (propagated via the args-YAML `calc` section). Rename the factory with
-  `--calc-factory NAME`. Hessians use the finite-difference path. Full guide:
+  `--calc-file-func-name NAME`. Hessians use the finite-difference path. Full guide:
   `docs/backends.md` (Custom backend section).
 
 ## Why two envs for MACE

@@ -129,7 +129,7 @@ def get_calculator(charge=0, spin=1, device="auto", **kwargs):
 - ファクトリには、シグネチャが受け取る場合（または `**kwargs` を宣言している場合）に
   `charge`・`spin`（多重度。`mult` / `multiplicity` でも渡されます）・`device` が
   渡されるため、全電荷が必要なエンジン（xTB など）も設定できます。ファクトリ名を
-  変える場合は `--calc-factory NAME`、モジュール直下の Calculator インスタンスも
+  変える場合は `--calc-file-func-name NAME`、モジュール直下の Calculator インスタンスも
   受け付けます。
 - カスタム calculator が駆動するのは **ML 領域のみ**で、MM 側は通常どおり
   `hessian_ff` / OpenMM バックエンドを使い、ONIOM カップリングも変わりません。

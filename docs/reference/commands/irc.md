@@ -149,8 +149,9 @@ Options:
   --calc-file FILE                Python file exposing get_calculator(...) -> an
                                   ASE Calculator used as the ML-region backend
                                   (overrides --backend). Couples GFN-xTB / DFTB+
-                                  / any ASE engine. See --calc-factory.
-  --calc-factory TEXT             Name of the callable in --calc-file that
+                                  / any ASE engine. See --calc-file-func-name.
+  --calc-file-func-name, --calc-factory TEXT
+                                  Name of the callable in --calc-file that
                                   returns an ASE Calculator (or a module-level
                                   Calculator instance). CLI overrides config
                                   YAML; otherwise defaults to get_calculator.
