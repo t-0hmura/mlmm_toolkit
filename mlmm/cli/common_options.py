@@ -40,7 +40,7 @@ def add_irc_pos_def_option() -> Callable[[Callable], Callable]:
             "--irc-pos-def/--no-irc-pos-def",
             "irc_pos_def",
             default=None,
-            show_default=False,
+            show_default="no-irc-pos-def (rms-only criterion)",
             help="Require pos-def Hessian at IRC convergence (blocks shoulder false-convergence).",
         )(func)
     return decorator
@@ -76,7 +76,7 @@ def add_coord_type_option(
             "cli_coord_type",
             type=click.Choice(list(choices), case_sensitive=False),
             default=None,
-            show_default=False,
+            show_default="cart",
             help=(
                 f"Optimization coordinate system ({options_str}). cart is the "
                 f"default; command-specific choices are listed here."
@@ -111,7 +111,7 @@ def add_precision_option() -> Callable[[Callable], Callable]:
             "precision",
             type=click.Choice(["fp32", "fp64"], case_sensitive=False),
             default=None,
-            show_default=False,
+            show_default="per backend: uma fp32; orb, mace fp64",
             help=(
                 "MLIP backend precision: fp32 or fp64. Unset defaults per "
                 "backend (uma: fp32; orb, mace: fp64). Routed to "
@@ -181,7 +181,7 @@ def add_backend_model_option() -> Callable[[Callable], Callable]:
             "backend_model",
             type=str,
             default=None,
-            show_default=False,
+            show_default="the selected backend's own model",
             help=(
                 "Model variant for the selected --backend (e.g. "
                 "uma-s-1p2 / uma-m-1p1 for uma, orb_v3_conservative_omol for orb, "
@@ -206,15 +206,11 @@ def add_calc_file_option() -> Callable[[Callable], Callable]:
     """
     def decorator(func: Callable) -> Callable:
         func = click.option(
-            # `--calc-factory` said nothing about which file it names.
-            # The new spelling is primary; the old one stays accepted so
-            # published commands keep working.
             "--calc-file-func-name",
-            "--calc-factory",
             "calc_factory",
             type=str,
             default=None,
-            show_default=False,
+            show_default="get_calculator",
             help=(
                 "Name of the callable in --calc-file that returns an ASE "
                 "Calculator (or a module-level Calculator instance). "

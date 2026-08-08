@@ -108,6 +108,7 @@ Options:
                                   active-DOF basis, charge, and multiplicity
                                   must match; the file takes priority over
                                   hessian_cache and fresh computation.
+                                  [default: (None)]
   --allow-unverified-hess-state / --no-allow-unverified-hess-state
                                   Allow a schema-1 Hessian file whose charge and
                                   multiplicity cannot be verified. Use only
@@ -133,7 +134,8 @@ Options:
                                   fp64). Routed to backend-specific kwargs (UMA
                                   precision / ORB precision / MACE
                                   default_dtype). aimnet2: fp32 no-op; fp64
-                                  rejected.
+                                  rejected.  [default: (per backend: uma fp32;
+                                  orb, mace fp64)]
   --workers INTEGER               MLIP predictor workers (UMA). >1 uses a
                                   parallel predictor (fairchem-core[extras]);
                                   combining it with an analytical Hessian is an
@@ -145,16 +147,17 @@ Options:
                                   uma-s-1p2 / uma-m-1p1 for uma,
                                   orb_v3_conservative_omol for orb, MACE-OMOL-0
                                   / off:small for mace). Default: the backend's
-                                  built-in model.
+                                  built-in model.  [default: (the selected
+                                  backend's own model)]
   --calc-file FILE                Python file exposing get_calculator(...) -> an
                                   ASE Calculator used as the ML-region backend
                                   (overrides --backend). Couples GFN-xTB / DFTB+
                                   / any ASE engine. See --calc-file-func-name.
-  --calc-file-func-name, --calc-factory TEXT
-                                  Name of the callable in --calc-file that
+  --calc-file-func-name TEXT      Name of the callable in --calc-file that
                                   returns an ASE Calculator (or a module-level
                                   Calculator instance). CLI overrides config
                                   YAML; otherwise defaults to get_calculator.
+                                  [default: (get_calculator)]
   --deterministic / --no-deterministic
                                   Request deterministic algorithms for
                                   controlled operations; verify exact
@@ -169,5 +172,7 @@ Options:
   --irc-pos-def / --no-irc-pos-def
                                   Require pos-def Hessian at IRC convergence
                                   (blocks shoulder false-convergence).
+                                  [default: (no-irc-pos-def (rms-only
+                                  criterion))]
   -h, --help                      Show this message and exit.
 ```

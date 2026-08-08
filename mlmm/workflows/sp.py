@@ -311,7 +311,7 @@ def _resolve_sp_ml_region(
 )
 @click.option(
     "--use-cmap/--no-use-cmap", "use_cmap_legacy",
-    default=None, show_default=False, hidden=True,
+    default=None, show_default="inherits --cmap", hidden=True,
     help="Legacy alias for --cmap/--no-cmap. Prefer --cmap.",
 )
 @add_ml_layer_detection_options()

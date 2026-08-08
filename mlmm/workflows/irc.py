@@ -421,7 +421,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     "read_hess",
     type=click.Path(exists=True, dir_okay=False),
     default=None,
-    show_default=False,
+    show_default="None",
     help="Read an identified initial Hessian from 'mlmm freq --dump-hess'. "
          "Geometry, atom order, active-DOF basis, charge, and multiplicity must "
          "match; the file takes priority over hessian_cache and fresh computation.",

@@ -2104,18 +2104,21 @@ end
     "--total-charge",
     type=int,
     default=None,
+    show_default="the topology total charge",
     help="Total charge of full QM+MM system for ORCA Charge_Total (orca mode).",
 )
 @click.option(
     "--total-mult",
     type=int,
     default=None,
+    show_default="the QM-region multiplicity",
     help="Total multiplicity of full QM+MM system for ORCA Mult_Total (orca mode).",
 )
 @click.option(
     "--orcaff",
     type=click.Path(exists=True, path_type=Path),
     default=None,
+    show_default="<parm7 stem>.ORCAFF.prms in the output directory",
     help="Path to ORCAFF.prms (orca mode). If omitted, uses/creates <parm7_stem>.ORCAFF.prms in output directory.",
 )
 @click.option(

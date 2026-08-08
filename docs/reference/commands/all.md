@@ -181,7 +181,8 @@ Options:
                                   DFT energy diagram. With --thermo, also
                                   generate a DFT//MLIP/MM Gibbs diagram.
                                   [default: no-dft]
-  --tsopt-max-cycles INTEGER      Override tsopt --max-cycles value.
+  --tsopt-max-cycles INTEGER      Override tsopt --max-cycles value.  [default:
+                                  (10000)]
   --flatten / --no-flatten        Enable the extra-imaginary-mode flattening
                                   loop in tsopt (grad: dimer loop, hess: post-
                                   RSIRFO); --no-flatten forces
@@ -201,40 +202,54 @@ Options:
                                   bound. The MM micro iterations are never
                                   stopped this way.  [default: no-stop-plateau]
   --stop-plateau-thresh FLOAT     Energy range (hartree) below which --stop-
-                                  plateau treats the window as flat.
+                                  plateau treats the window as flat.  [default:
+                                  (1e-4)]
   --stop-plateau-window INTEGER   Number of consecutive cycles --stop-plateau
-                                  inspects.
+                                  inspects.  [default: (50)]
   --irc-step-size FLOAT           Override IRC --step-size (Bohr). If an IRC
                                   stops after only a few frames, retry with a
-                                  smaller value such as 0.05.
+                                  smaller value such as 0.05.  [default: (0.10)]
   --irc-never-stop / --no-irc-never-stop
                                   Forward IRC never-stop mode to every post-TS
                                   IRC. It ignores gradient and energy endpoint
                                   criteria and traces to the cycle cap;
                                   numerical/integration failures still stop.
                                   Default follows irc.never_stop (off).
+                                  [default: (no-irc-never-stop)]
   --skip-final-freq / --no-skip-final-freq
                                   Skip post-convergence frequency analysis in
                                   tsopt. Useful for large unfrozen systems.
                                   [default: no-skip-final-freq]
   --tsopt-out-dir DIRECTORY       Override tsopt output subdirectory (relative
                                   paths are resolved against the default).
+                                  [default: (<segment>/ts)]
   --freq-out-dir DIRECTORY        Override freq output base directory (relative
                                   paths resolved against the default).
-  --freq-max-write INTEGER        Override freq --max-write value.
-  --freq-amplitude-ang FLOAT      Override freq --amplitude-ang (Å).
-  --freq-n-frames INTEGER         Override freq --n-frames value.
-  --freq-sort [value|abs]         Override freq mode sorting.
+                                  [default: (<tsopt dir>/freq)]
+  --freq-max-write INTEGER        Override freq --max-write value.  [default:
+                                  (10)]
+  --freq-amplitude-ang FLOAT      Override freq --amplitude-ang (Å).  [default:
+                                  (0.8)]
+  --freq-n-frames INTEGER         Override freq --n-frames value.  [default:
+                                  (20)]
+  --freq-sort [value|abs]         Override freq mode sorting.  [default:
+                                  (value)]
   --freq-temperature FLOAT        Override freq thermochemistry temperature (K).
+                                  [default: (298.15)]
   --freq-pressure FLOAT           Override freq thermochemistry pressure (atm).
+                                  [default: (1.0)]
   --dft-out-dir DIRECTORY         Override dft output base directory (relative
                                   paths resolved against the default).
+                                  [default: (<tsopt dir>/dft)]
   --dft-func-basis TEXT           Override dft --func-basis value.  [default:
                                   (the dft command's own default)]
-  --dft-max-cycle INTEGER         Override dft --max-cycle value.
-  --dft-conv-tol FLOAT            Override dft --conv-tol value.
-  --dft-grid-level INTEGER        Override dft --grid-level value.
-  --dft-engine [gpu|cpu]          Override dft --engine value.
+  --dft-max-cycle INTEGER         Override dft --max-cycle value.  [default:
+                                  (100)]
+  --dft-conv-tol FLOAT            Override dft --conv-tol value.  [default:
+                                  (1e-09)]
+  --dft-grid-level INTEGER        Override dft --grid-level value.  [default:
+                                  (3)]
+  --dft-engine [gpu|cpu]          Override dft --engine value.  [default: (gpu)]
   -s, --scan-lists TEXT           Scan targets: inline Python literal or a
                                   YAML/JSON spec file path. Multiple inline
                                   literals define sequential stages, e.g.
@@ -245,19 +260,25 @@ Options:
                                   mapped to the pocket after extraction.
   --scan-out-dir DIRECTORY        Override the scan output directory (default:
                                   <out-dir>/scan/). Relative paths are resolved
-                                  against the default parent.
+                                  against the default parent.  [default: (<out-
+                                  dir>/_work/scan)]
   --scan-one-based / --scan-zero-based
                                   Override scan indexing interpretation (one-
-                                  based or zero-based).
-  --scan-max-step-size FLOAT      Override scan --max-step-size (Å).
+                                  based or zero-based).  [default: (True (one-
+                                  based))]
+  --scan-max-step-size FLOAT      Override scan --max-step-size (Å).  [default:
+                                  (0.2)]
   --scan-bias-k FLOAT             Override scan harmonic bias strength k
-                                  (eV/Å^2).
+                                  (eV/Å^2).  [default: (300.0)]
   --scan-relax-max-cycles INTEGER
                                   Override scan relaxation max cycles per step.
+                                  [default: (10000)]
   --scan-preopt / --no-scan-preopt
-                                  Override scan --preopt flag.
+                                  Override scan --preopt flag.  [default:
+                                  (inherits --preopt)]
   --scan-endopt / --no-scan-endopt
-                                  Override scan --endopt flag.
+                                  Override scan --endopt flag.  [default:
+                                  (inherits --endopt)]
   --convert-files / --no-convert-files
                                   Convert XYZ/TRJ outputs to PDB format using
                                   reference topology; forwarded to all
@@ -291,13 +312,14 @@ Options:
                                   parm7.  [default: (cmap)]
   --coord-type [cart|dlc]         Optimization coordinate system (cart|dlc).
                                   cart is the default; command-specific choices
-                                  are listed here.
+                                  are listed here.  [default: (cart)]
   --precision [fp32|fp64]         MLIP backend precision: fp32 or fp64. Unset
                                   defaults per backend (uma: fp32; orb, mace:
                                   fp64). Routed to backend-specific kwargs (UMA
                                   precision / ORB precision / MACE
                                   default_dtype). aimnet2: fp32 no-op; fp64
-                                  rejected.
+                                  rejected.  [default: (per backend: uma fp32;
+                                  orb, mace fp64)]
   --workers INTEGER               MLIP predictor workers (UMA). >1 uses a
                                   parallel predictor (fairchem-core[extras]);
                                   combining it with an analytical Hessian is an
@@ -309,16 +331,17 @@ Options:
                                   uma-s-1p2 / uma-m-1p1 for uma,
                                   orb_v3_conservative_omol for orb, MACE-OMOL-0
                                   / off:small for mace). Default: the backend's
-                                  built-in model.
+                                  built-in model.  [default: (the selected
+                                  backend's own model)]
   --calc-file FILE                Python file exposing get_calculator(...) -> an
                                   ASE Calculator used as the ML-region backend
                                   (overrides --backend). Couples GFN-xTB / DFTB+
                                   / any ASE engine. See --calc-file-func-name.
-  --calc-file-func-name, --calc-factory TEXT
-                                  Name of the callable in --calc-file that
+  --calc-file-func-name TEXT      Name of the callable in --calc-file that
                                   returns an ASE Calculator (or a module-level
                                   Calculator instance). CLI overrides config
                                   YAML; otherwise defaults to get_calculator.
+                                  [default: (get_calculator)]
   --deterministic / --no-deterministic
                                   Request deterministic algorithms for
                                   controlled operations; verify exact

@@ -452,12 +452,14 @@ def run_trj2fig(
 @click.option(
     "--backend-model",
     default=None,
+    show_default="the selected backend's own model",
     help="Model variant for the selected backend; defaults to its built-in model.",
 )
 @click.option(
     "--precision",
     type=click.Choice(["fp32", "fp64"], case_sensitive=False),
     default=None,
+    show_default="per backend: uma fp32; orb, mace fp64",
     help="Backend-neutral precision used when energies are recomputed.",
 )
 @click.option(

@@ -866,7 +866,7 @@ def _prepare_frequency_output_paths(
     "dump_hess",
     type=click.Path(dir_okay=False),
     default=None,
-    show_default=False,
+    show_default="None",
     help="Save the computed Hessian and geometry/active-basis identity to a "
          "compressed .npz file for a matching 'mlmm irc --read-hess' run. "
          "The file also identifies model charge and multiplicity.",

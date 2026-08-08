@@ -126,10 +126,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   calculator-free, and rescoring is a pure MLIP calculation rather than ONIOM.
 
 ### Changed
-- Rename `--calc-factory` to `--calc-file-func-name`: the old spelling never
-  said which file it names, and the option only means anything together with
-  `--calc-file`. `--calc-factory` stays accepted, so published commands keep
-  working.
+- Report every option's effective default. Options whose real default lives in
+  a config block are declared `None` so an explicit value stays distinguishable
+  from an omission; each now carries that default as a display string, so
+  `--help`, `--help-advanced`, the generated reference and the Colab Options
+  pane stop reading as unset. The Colab controls -- dropdowns included -- label
+  it `default: <value>`, or `default: None` when there genuinely is none.
+- Drop the notice that replaced the preparation panel for workflows that
+  extract internally; the panel is simply hidden.
+- Name the custom-calculator entry point `--calc-file-func-name`. It names a
+  callable inside `--calc-file`, which the previous spelling `--calc-factory`
+  left unsaid. `--calc-factory` is removed rather than aliased.
 - Head the stdout citation block `====== Citations & References ======` like
   every other console section. `summary.log` keeps its numbered
   `[6] Methods and citations`; the two shared one renderer, so the log file's

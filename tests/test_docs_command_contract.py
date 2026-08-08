@@ -116,7 +116,8 @@ def test_every_option_with_an_effective_default_shows_it() -> None:
     `cli_param_overridden` still tells an explicit value from an omission.
 
     Only genuinely value-less options may stay silent: required or optional
-    inputs, and knobs hidden from help entirely.
+    inputs. Hidden options are checked too -- `--help-advanced` renders them,
+    so a hidden knob with a real default must report it there.
     """
     import click
 
@@ -127,7 +128,7 @@ def test_every_option_with_an_effective_default_shows_it() -> None:
     ALLOWED_SILENT_OPTS = {
         "-i", "--input", "-o", "--out", "--output", "--out-dir", "--ref-pdb",
         "--ref-full-pdb", "--config", "--override", "--calc-file",
-        "--calc-factory", "-c", "--center", "-q", "--charge", "-l",
+        "-c", "--center", "-q", "--charge", "-l",
         "--ligand-charge", "--freeze-atoms", "--dist-freeze", "--model-pdb",
         "--model-indices", "-s", "--scan-lists", "--label-x", "--selected-resn",
         "--modified-residue", "--ref-mode", "--hessian-ref", "--csv",
@@ -143,7 +144,7 @@ def test_every_option_with_an_effective_default_shows_it() -> None:
         for param in cmd.params:
             if not isinstance(param, click.Option) or param.expose_value is False:
                 continue
-            if param.hidden or param.required:
+            if param.required:
                 continue
             if ALLOWED_SILENT_OPTS.intersection(param.opts):
                 continue

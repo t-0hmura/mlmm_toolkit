@@ -288,7 +288,7 @@ def _snapshot_geometry(g) -> Any:
     "--opt-mode",
     type=click.Choice(["grad", "hess", "lbfgs", "rfo", "light", "heavy"], case_sensitive=False),
     default=None,
-    show_default=False,
+    show_default="lbfgs",
     help="Compatibility option for mlmm all forwarding. "
          "Scan relaxations always use L-BFGS; values other than grad/lbfgs/light emit a warning.",
 )
@@ -303,7 +303,7 @@ def _snapshot_geometry(g) -> Any:
     "--relax-max-cycles",
     type=int,
     default=None,
-    show_default=False,
+    show_default="inherits --max-cycles (10000)",
     help="Compatibility alias of --max-cycles (overrides it when provided).",
 )
 @click.option(
@@ -424,7 +424,7 @@ def _snapshot_geometry(g) -> Any:
     "cli_coord_type",
     type=click.Choice(["cart", "redund", "dlc", "tric"], case_sensitive=False),
     default=None,
-    show_default=False,
+    show_default="cart",
     help=(
         "Compatibility input for composite workflows. ML/MM restrained scan "
         "relaxation always uses Cartesian coordinates; non-cart values are "

@@ -281,14 +281,14 @@ def add_scan_common_options(
                     "--zmin",
                     type=float,
                     default=None,
-                    show_default=False,
+                    show_default="the surface minimum",
                     help="Lower bound of the color scale (kcal/mol).",
                 ),
                 click.option(
                     "--zmax",
                     type=float,
                     default=None,
-                    show_default=False,
+                    show_default="the surface maximum",
                     help="Upper bound of the color scale (kcal/mol).",
                 ),
             ]

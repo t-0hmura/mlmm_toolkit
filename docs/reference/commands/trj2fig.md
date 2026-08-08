@@ -32,9 +32,11 @@ Options:
                                   MLIP backend used when energies are
                                   recomputed.  [default: uma]
   --backend-model TEXT            Model variant for the selected backend;
-                                  defaults to its built-in model.
+                                  defaults to its built-in model.  [default:
+                                  (the selected backend's own model)]
   --precision [fp32|fp64]         Backend-neutral precision used when energies
-                                  are recomputed.
+                                  are recomputed.  [default: (per backend: uma
+                                  fp32; orb, mace fp64)]
   --out-json / --no-out-json      Write machine-readable result.json next to the
                                   first output.  [default: no-out-json]
   -h, --help                      Show this message and exit.

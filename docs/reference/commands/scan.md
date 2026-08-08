@@ -57,10 +57,12 @@ Options:
                                   Compatibility option for mlmm all forwarding.
                                   Scan relaxations always use L-BFGS; values
                                   other than grad/lbfgs/light emit a warning.
+                                  [default: (lbfgs)]
   --max-cycles INTEGER            Maximum L-BFGS cycles per biased step and per
                                   (pre|end)opt stage.  [default: 10000]
   --relax-max-cycles INTEGER      Compatibility alias of --max-cycles (overrides
-                                  it when provided).
+                                  it when provided).  [default: (inherits --max-
+                                  cycles (10000))]
   --dump / --no-dump              Write per-step optimizer trajectory files.
                                   scan_trj.xyz is always written per-stage and
                                   as a combined file in out-dir; scan.pdb
@@ -136,6 +138,7 @@ Options:
                                   ML/MM restrained scan relaxation always uses
                                   Cartesian coordinates; non-cart values are
                                   accepted with a notice and resolved to cart.
+                                  [default: (cart)]
   --print-every INTEGER RANGE     Print optimizer status every N cycles (debug
                                   knob).  [default: (100); x>=1]
   --precision [fp32|fp64]         MLIP backend precision: fp32 or fp64. Unset
@@ -143,7 +146,8 @@ Options:
                                   fp64). Routed to backend-specific kwargs (UMA
                                   precision / ORB precision / MACE
                                   default_dtype). aimnet2: fp32 no-op; fp64
-                                  rejected.
+                                  rejected.  [default: (per backend: uma fp32;
+                                  orb, mace fp64)]
   --workers INTEGER               MLIP predictor workers (UMA). >1 uses a
                                   parallel predictor (fairchem-core[extras]);
                                   combining it with an analytical Hessian is an
@@ -155,16 +159,17 @@ Options:
                                   uma-s-1p2 / uma-m-1p1 for uma,
                                   orb_v3_conservative_omol for orb, MACE-OMOL-0
                                   / off:small for mace). Default: the backend's
-                                  built-in model.
+                                  built-in model.  [default: (the selected
+                                  backend's own model)]
   --calc-file FILE                Python file exposing get_calculator(...) -> an
                                   ASE Calculator used as the ML-region backend
                                   (overrides --backend). Couples GFN-xTB / DFTB+
                                   / any ASE engine. See --calc-file-func-name.
-  --calc-file-func-name, --calc-factory TEXT
-                                  Name of the callable in --calc-file that
+  --calc-file-func-name TEXT      Name of the callable in --calc-file that
                                   returns an ASE Calculator (or a module-level
                                   Calculator instance). CLI overrides config
                                   YAML; otherwise defaults to get_calculator.
+                                  [default: (get_calculator)]
   --deterministic / --no-deterministic
                                   Request deterministic algorithms for
                                   controlled operations; verify exact

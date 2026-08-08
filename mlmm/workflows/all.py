@@ -3564,6 +3564,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @click.option("--dft/--no-dft", "do_dft", default=False, show_default=True,
               help="Run DFT single-point on (R,TS,P) and build a DFT energy diagram. With --thermo, also generate a DFT//MLIP/MM Gibbs diagram.")
 @click.option("--tsopt-max-cycles", type=int, default=None,
+              show_default="10000",
               help="Override tsopt --max-cycles value.")
 @click.option(
     "--flatten/--no-flatten",
@@ -3601,6 +3602,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     "stop_plateau_thresh",
     type=float,
     default=None,
+    show_default="1e-4",
     help="Energy range (hartree) below which --stop-plateau treats the window as flat.",
 )
 @click.option(
@@ -3608,12 +3610,14 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     "stop_plateau_window",
     type=int,
     default=None,
+    show_default="50",
     help="Number of consecutive cycles --stop-plateau inspects.",
 )
 @click.option(
     "--irc-step-size",
     type=float,
     default=None,
+    show_default="0.10",
     help=(
         "Override IRC --step-size (Bohr). If an IRC stops after only a few "
         "frames, retry with a smaller value such as 0.05."
@@ -3623,6 +3627,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     "--irc-never-stop/--no-irc-never-stop",
     "irc_never_stop",
     default=None,
+    show_default="no-irc-never-stop",
     help=(
         "Forward IRC never-stop mode to every post-TS IRC. It ignores "
         "gradient and energy endpoint criteria and traces to the cycle cap; "
@@ -3638,33 +3643,46 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     help="Skip post-convergence frequency analysis in tsopt. Useful for large unfrozen systems.",
 )
 @click.option("--tsopt-out-dir", type=click.Path(path_type=Path, file_okay=False), default=None,
+              show_default="<segment>/ts",
               help="Override tsopt output subdirectory (relative paths are resolved against the default).")
 @click.option("--freq-out-dir", type=click.Path(path_type=Path, file_okay=False), default=None,
+              show_default="<tsopt dir>/freq",
               help="Override freq output base directory (relative paths resolved against the default).")
 @click.option("--freq-max-write", type=int, default=None,
+              show_default="10",
               help="Override freq --max-write value.")
 @click.option("--freq-amplitude-ang", type=float, default=None,
+              show_default="0.8",
               help="Override freq --amplitude-ang (Å).")
 @click.option("--freq-n-frames", type=int, default=None,
+              show_default="20",
               help="Override freq --n-frames value.")
 @click.option("--freq-sort", type=click.Choice(["value", "abs"], case_sensitive=False), default=None,
+              show_default="value",
               help="Override freq mode sorting.")
 @click.option("--freq-temperature", type=float, default=None,
+              show_default="298.15",
               help="Override freq thermochemistry temperature (K).")
 @click.option("--freq-pressure", type=float, default=None,
+              show_default="1.0",
               help="Override freq thermochemistry pressure (atm).")
 @click.option("--dft-out-dir", type=click.Path(path_type=Path, file_okay=False), default=None,
+              show_default="<tsopt dir>/dft",
               help="Override dft output base directory (relative paths resolved against the default).")
 @click.option("--dft-func-basis", type=str, default=None,
               show_default="the dft command's own default",
               help="Override dft --func-basis value.")
 @click.option("--dft-max-cycle", type=int, default=None,
+              show_default="100",
               help="Override dft --max-cycle value.")
 @click.option("--dft-conv-tol", type=float, default=None,
+              show_default="1e-09",
               help="Override dft --conv-tol value.")
 @click.option("--dft-grid-level", type=int, default=None,
+              show_default="3",
               help="Override dft --grid-level value.")
 @click.option("--dft-engine", type=click.Choice(["gpu", "cpu"]), default=None,
+              show_default="gpu",
               help="Override dft --engine value.")
 # ===== Staged scan specification for single-structure route =====
 @click.option(
@@ -3678,18 +3696,25 @@ def _configure_all_help_visibility(command: click.Command) -> None:
          'they are auto-mapped to the pocket after extraction.',
 )
 @click.option("--scan-out-dir", type=click.Path(path_type=Path, file_okay=False), default=None,
+              show_default="<out-dir>/_work/scan",
               help="Override the scan output directory (default: <out-dir>/scan/). Relative paths are resolved against the default parent.")
 @click.option("--scan-one-based/--scan-zero-based", default=None,
+              show_default="True (one-based)",
               help="Override scan indexing interpretation (one-based or zero-based).")
 @click.option("--scan-max-step-size", type=float, default=None,
+              show_default="0.2",
               help="Override scan --max-step-size (Å).")
 @click.option("--scan-bias-k", type=float, default=None,
+              show_default="300.0",
               help="Override scan harmonic bias strength k (eV/Å^2).")
 @click.option("--scan-relax-max-cycles", type=int, default=None,
+              show_default="10000",
               help="Override scan relaxation max cycles per step.")
 @click.option("--scan-preopt/--no-scan-preopt", "scan_preopt_override", default=None,
+              show_default="inherits --preopt",
               help="Override scan --preopt flag.")
 @click.option("--scan-endopt/--no-scan-endopt", "scan_endopt_override", default=None,
+              show_default="inherits --endopt",
               help="Override scan --endopt flag.")
 @click.option("--convert-files/--no-convert-files", "convert_files", default=True, show_default=True,
               help="Convert XYZ/TRJ outputs to PDB format using reference topology; forwarded to all subcommands.")

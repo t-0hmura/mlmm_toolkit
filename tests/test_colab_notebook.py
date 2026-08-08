@@ -3383,20 +3383,39 @@ def test_colab_setup_cell_is_frozen() -> None:
     )
 
 
-def test_extract_panel_explains_itself_when_a_workflow_extracts_internally() -> None:
+def test_extract_panel_is_shown_only_for_workflows_that_need_it() -> None:
     """`all` extracts internally and `extract` IS the extraction command, so the
-    preparation panel is hidden for both. Hiding it with no explanation reads as
-    a missing feature, so a one-line hint takes its place and names the route."""
+    preparation panel is hidden for both, with no extra notice in its place."""
     app = _notebook()["cells"][2]["source"]
 
-    assert "extract_hint = W.HTML()" in app
-    assert "extract_panel, extract_hint])" in app
-    # Shown exactly when a full system is loaded but the workflow self-extracts.
-    assert "_hint_on = _center_active and not _prep_active" in app
-    assert "_extract_hint.layout.display = '' if _hint_on else 'none'" in app
-    assert "select the <code>extract</code> workflow" in app
+    assert "extract_panel])" in app
+    assert "extract_hint" not in app
+    assert "_extract_panel.layout.display = '' if _prep_active else 'none'" in app
     # The button says what it does.
     assert "description='Extract ML region & use it'" in app
+
+
+def test_option_controls_report_their_effective_default() -> None:
+    """Every Options control names the default it falls back to, in one format.
+
+    Dropdowns included: a bare "(default)" entry told the user nothing about
+    what omitting the flag actually does. The label reads `show_default` first,
+    because an option whose real default lives in a config block is declared
+    `default=None` so an explicit value stays distinguishable from an omission.
+    """
+    app = _notebook()["cells"][2]["source"]
+
+    assert "return 'default: %s' % value" in app
+    assert "shown = getattr(param, 'show_default', None)" in app
+    assert "if isinstance(shown, str) and shown: value = shown" in app
+    assert "elif default is None: value = 'None'" in app
+    # Hand-built dropdowns carry the same format as the generated ones.
+    for label in ("('default: gsm', '(default)')", "('default: gpu', '(default)')",
+                  "('default: gau', '(default)')", "('default: baker', '(default)')",
+                  "('default: per backend', 'auto')", "('default: 2', None)"):
+        assert label in app, label
+    # One format only.
+    assert "CLI default \u00b7" not in app
 
 
 def test_the_gui_keeps_one_run_path() -> None:

@@ -35,12 +35,15 @@ Options:
   --nproc INTEGER                 Number of processors.  [default: 8]
   --mem TEXT                      Memory allocation (g16 mode).  [default: 16GB]
   --total-charge INTEGER          Total charge of full QM+MM system for ORCA
-                                  Charge_Total (orca mode).
+                                  Charge_Total (orca mode).  [default: (the
+                                  topology total charge)]
   --total-mult INTEGER            Total multiplicity of full QM+MM system for
-                                  ORCA Mult_Total (orca mode).
+                                  ORCA Mult_Total (orca mode).  [default: (the
+                                  QM-region multiplicity)]
   --orcaff PATH                   Path to ORCAFF.prms (orca mode). If omitted,
                                   uses/creates <parm7_stem>.ORCAFF.prms in
-                                  output directory.
+                                  output directory.  [default: (<parm7
+                                  stem>.ORCAFF.prms in the output directory)]
   --convert-orcaff / --no-convert-orcaff
                                   If ORCAFF.prms is missing, try `orca_mm
                                   -convff -AMBER` automatically (orca mode).

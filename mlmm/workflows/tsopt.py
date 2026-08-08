@@ -3208,7 +3208,7 @@ def _prepare_tsopt_output_dir(
     "--flatten/--no-flatten",
     "flatten",
     default=None,
-    show_default=False,
+    show_default="no-flatten",
     help="Enable/disable extra imaginary-mode flattening loop. "
          "--flatten uses the default flatten_max_iter (50); --no-flatten forces it to 0. "
          "When not provided, the loop is disabled unless YAML/config enables it.",
@@ -3345,6 +3345,7 @@ def _prepare_tsopt_output_dir(
     "stop_plateau_thresh",
     type=float,
     default=None,
+    show_default="1e-4",
     help="Energy range (hartree) below which --stop-plateau treats the window as flat.",
 )
 @click.option(
@@ -3352,6 +3353,7 @@ def _prepare_tsopt_output_dir(
     "stop_plateau_window",
     type=int,
     default=None,
+    show_default="50",
     help="Number of consecutive cycles --stop-plateau inspects.",
 )
 def cli(
