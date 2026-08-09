@@ -479,7 +479,7 @@ rsirfo:
  print_every: 100 # Logging stride
  min_step_norm: 1.0e-08 # Minimum accepted step norm
  assert_min_step: true # Assert when steps stagnate
- roots: [0] # Target root indices (pysisyphus default; not set by mlmm)
+ roots: [0] # One target root; empty or multi-root lists are rejected
  hessian_ref: null # Reference Hessian
  rx_modes: null # Reaction-mode definitions
  prim_coord: null # Primary coordinates to monitor
@@ -489,8 +489,8 @@ rsirfo:
  hessian_recalc_reset: true # Reset recalc counter after exact Hessian
  max_micro_cycles: 50 # Micro-iterations per macro cycle
  augment_bonds: false # Augment reaction path based on bond analysis
- min_line_search: false # Line search along imaginary mode (pysisyphus default)
- max_line_search: false # Line search in minimized subspace (pysisyphus default)
+ min_line_search: false # RS-P-RFO only: interpolate in the minimization subspace
+ max_line_search: false # RS-P-RFO only: interpolate in the maximization subspace
  assert_neg_eigval: false # Require negative eigenvalue at convergence
  track_mode_by_overlap: false # mlmm-specific: track the target mode by overlap
  trust_radius: 0.10 # Trust region radius
@@ -501,6 +501,9 @@ rsirfo:
  small_eigval_thresh: 1.0e-08 # Eigenvalue threshold for stability
  out_dir: ./result_tsopt/ # Output directory
 ```
+
+`min_line_search` and `max_line_search` are consumed only by
+`--opt-mode rsprfo`; explicit YAML values are honored.
 
 ---
 

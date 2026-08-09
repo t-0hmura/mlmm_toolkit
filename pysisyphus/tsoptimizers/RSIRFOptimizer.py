@@ -75,6 +75,7 @@ class RSIRFOptimizer(TSHessianOptimizer):
             grad_star = P.dot(gradient)
         step = self.get_rs_step(eigvals_, eigvecs_, grad_star, name="RS-I-RFO")
 
+        self.validate_terminal_saddle_for_step(step)
         step = self.apply_saddle_recovery_step(step)
         self.predicted_energy_changes.append(self.rfo_model(gradient, self.cur_H, step))
 

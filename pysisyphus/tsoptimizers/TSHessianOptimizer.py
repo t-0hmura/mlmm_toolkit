@@ -13,7 +13,7 @@ from pysisyphus.intcoords.PrimTypes import normalize_prim_input, normalize_prim_
 from pysisyphus.optimizers import poly_fit
 from pysisyphus.optimizers.guess_hessians import ts_hessian, HessInit
 from pysisyphus.optimizers.HessianOptimizer import HessianOptimizer, HessUpdate
-from pysisyphus.optimizers.Optimizer import get_data_model
+from pysisyphus.optimizers.Optimizer import ConvInfo, get_data_model
 
 from pysisyphus.helpers import array2string
 import torch
@@ -264,6 +264,7 @@ class TSHessianOptimizer(HessianOptimizer):
         self.negative_mode_seen = False
         self.rejected_mode_loss_steps = 0
         self.mode_loss_rejections_at_floor = 0
+        self.convergence_criteria_met = False
         self.exact_saddle_checks = 0
         self.saddle_recovery_cycles = 0
         self.saddle_recovery_steps = 0
@@ -1017,6 +1018,16 @@ class TSHessianOptimizer(HessianOptimizer):
         )
         return True
 
+    def _exact_phva_matches_current_geometry(self):
+        """Whether exact PHVA evaluated the geometry that is current now."""
+        if self._last_exact_cart_coords is None:
+            return False
+        current = np.asarray(self.geometry.cart_coords)
+        verified = np.asarray(self._last_exact_cart_coords)
+        return current.shape == verified.shape and np.allclose(
+            current, verified, rtol=0.0, atol=1e-12
+        )
+
     def _exact_saddle_matches_current_geometry(self):
         """Whether exact PHVA verified the geometry that is current now.
 
@@ -1025,15 +1036,9 @@ class TSHessianOptimizer(HessianOptimizer):
         coordinate identity explicit so a stale ``n_imag=1`` result can never
         authorize convergence at a different (possibly minimum) geometry.
         """
-        if (
-            self._last_exact_cart_coords is None
-            or not self._last_exact_saddle_verified
-        ):
-            return False
-        current = np.asarray(self.geometry.cart_coords)
-        verified = np.asarray(self._last_exact_cart_coords)
-        return current.shape == verified.shape and np.allclose(
-            current, verified, rtol=0.0, atol=1e-12
+        return bool(
+            self._last_exact_saddle_verified
+            and self._exact_phva_matches_current_geometry()
         )
 
     def _recovery_mode_has_negative_curvature(self, H, mode=None):
@@ -1085,31 +1090,6 @@ class TSHessianOptimizer(HessianOptimizer):
                     return frequency_cm < -self.saddle_imaginary_threshold_cm
 
         return curvature < -self.small_eigval_thresh
-
-    def _near_terminal_without_eigval_check(self):
-        """Whether force/energy or plateau criteria are nearly terminal."""
-        if not self.forces:
-            return False
-        forces = self._active_convergence_vector(self.forces[-1])
-        if self.thresh == "baker":
-            force_ok = np.abs(forces).max() <= 3.0e-4
-        else:
-            force_ok = True
-            if "max_force_thresh" in self.convergence:
-                force_ok &= np.abs(forces).max() <= self.max_force_thresh
-            if "rms_force_thresh" in self.convergence:
-                force_ok &= (
-                    np.sqrt(np.mean(forces**2)) <= self.rms_force_thresh
-                )
-
-        plateau = False
-        if self.energy_plateau and len(self.energies) >= self.energy_plateau_window:
-            window = self.energies[-self.energy_plateau_window :]
-            plateau = float(np.max(window) - np.min(window)) < self.energy_plateau_thresh
-        # Run exact PHVA once the force is terminal, before a zero proposed
-        # step could abort the cycle. Acceptance still uses the complete
-        # configured convergence rule in check_convergence().
-        return bool(force_ok or plateau)
 
     def _restore_hessian_trial_state(self, snapshot):
         self.H = snapshot["H"]
@@ -1229,52 +1209,7 @@ class TSHessianOptimizer(HessianOptimizer):
                 H, self._physical_ts_mode
             )
 
-        # Validate an apparent terminal point with the exact Hessian before it
-        # can be reported as a transition state.
         exact_checked = False
-        if (
-            self.verify_saddle
-            and self._near_terminal_without_eigval_check()
-            and not self._saddle_recovery_active
-        ):
-            snapshot = None
-            self.H = None
-            self.cur_H = None
-            del H, eigvals, eigvecs
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-            (
-                (gradient, H, eigvals, eigvecs),
-                (has_negative, physical_mode, physical_checked),
-            ) = self._refresh_and_verify_exact_saddle_model(
-                -np.asarray(self.forces[-1])
-            )
-            exact_checked = True
-            resetted = True
-            if not has_negative:
-                if self.saddle_recovery_max_cycles == 0:
-                    self.request_stop(
-                        "exact PHVA found no physical imaginary mode"
-                    )
-                    self._print_or_defer_cycle_message(
-                        "Exact saddle validation found no physical imaginary "
-                        "mode; stopping without accepting a local minimum."
-                    )
-                else:
-                    self._saddle_recovery_active = True
-                    self._saddle_recovery_mode = physical_mode
-                    self._saddle_recovery_sign = None
-                    self._physical_ts_mode = None
-                    self.saddle_recovery_cycles = 0
-                    self._print_or_defer_cycle_message(
-                        "Exact saddle validation found no physical imaginary mode; "
-                        "continuing with saddle-recovery steps instead of accepting "
-                        "a local minimum."
-                    )
-            elif physical_checked:
-                self._saddle_recovery_mode = None
-                self._physical_ts_mode = physical_mode
-
         if has_negative:
             # For a path-guided run that started in a convex region, a
             # quasi-Newton eigenvalue can flicker negative before the physical
@@ -1399,6 +1334,122 @@ class TSHessianOptimizer(HessianOptimizer):
 
         return energy, gradient, H, eigvals, eigvecs, resetted
 
+    @staticmethod
+    def _all_configured_criteria_met(conv_info):
+        """Whether every configured convergence criterion passed."""
+        return all(
+            (
+                conv_info.energy_converged,
+                conv_info.max_force_converged,
+                conv_info.rms_force_converged,
+                conv_info.max_step_converged,
+                conv_info.rms_step_converged,
+            )
+        )
+
+    def _all_configured_values_met(self, step):
+        """Evaluate configured convergence criteria for an actual proposed step."""
+        if not self.forces or self.thresh == "never":
+            return False
+        if len(self.modified_forces) == len(self.forces):
+            forces = self.modified_forces[-1]
+        else:
+            forces = self.forces[-1]
+        forces = self._active_convergence_vector(forces)
+        step = self._active_convergence_vector(step)
+        values = {
+            "max_force_thresh": np.abs(forces).max(),
+            "rms_force_thresh": np.sqrt(np.mean(np.square(forces))),
+            "max_step_thresh": np.abs(step).max(),
+            "rms_step_thresh": np.sqrt(np.mean(np.square(step))),
+        }
+        criteria_met = all(
+            values[key] <= getattr(self, key)
+            for key in self.convergence
+        )
+        if self.thresh == "baker":
+            energy_ok = False
+            if len(self.energies) >= 2:
+                current = np.asarray(self.energies[-1])
+                previous = np.asarray(self.energies[-2])
+                energy_ok = bool(
+                    current.shape == previous.shape
+                    and np.all(np.abs(current - previous) < 1e-6)
+                )
+            if values["max_step_thresh"] <= self.min_step_norm:
+                energy_ok = True
+            criteria_met = criteria_met and energy_ok
+        return bool(criteria_met)
+
+    def validate_terminal_saddle_for_step(self, step):
+        """Run exact PHVA after the actual step satisfies convergence criteria."""
+        criteria_met = self._all_configured_values_met(step)
+        if criteria_met:
+            self.convergence_criteria_met = True
+        if (
+            self.verify_saddle
+            and not self._saddle_recovery_active
+            and not self.stop_requested
+            and not self._exact_phva_matches_current_geometry()
+            and criteria_met
+        ):
+            self._validate_terminal_exact_saddle()
+            higher_order = (
+                self._last_exact_n_imaginary is not None
+                and self._last_exact_n_imaginary > len(self.roots)
+            )
+            active_step = self._active_convergence_vector(step)
+            if (
+                higher_order
+                and not self.stop_requested
+                and np.abs(active_step).max() <= self.min_step_norm
+            ):
+                self.request_stop(
+                    "exact higher-order saddle at zero step requires a "
+                    "flatten restart"
+                )
+
+    def _validate_terminal_exact_saddle(self):
+        """Run exact curvature validation after convergence."""
+        self.H = None
+        self.cur_H = None
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        (
+            (_, _, eigvals, eigvecs),
+            (has_negative, physical_mode, physical_checked),
+        ) = self._refresh_and_verify_exact_saddle_model(
+            -np.asarray(self.forces[-1])
+        )
+        self.update_ts_mode(eigvals, eigvecs)
+
+        if has_negative:
+            self.negative_mode_seen = True
+            self.mode_loss_rejections_at_floor = 0
+            self._saddle_recovery_active = False
+            self._saddle_recovery_mode = None
+            self._saddle_recovery_sign = None
+            self.saddle_recovery_cycles = 0
+            if physical_checked:
+                self._physical_ts_mode = physical_mode
+        elif self.saddle_recovery_max_cycles == 0:
+            self.request_stop("exact PHVA found no physical imaginary mode")
+            self._print_or_defer_cycle_message(
+                "Exact saddle validation found no physical imaginary mode; "
+                "stopping without accepting a local minimum."
+            )
+        else:
+            self._saddle_recovery_active = True
+            self._saddle_recovery_mode = physical_mode
+            self._saddle_recovery_sign = None
+            self._physical_ts_mode = None
+            self.saddle_recovery_cycles = 0
+            self._print_or_defer_cycle_message(
+                "Exact saddle validation found no physical imaginary mode; "
+                "continuing with saddle-recovery steps instead of accepting "
+                "a local minimum."
+            )
+
     def check_convergence(self, *args, **kwargs):
         # The TS optimizer owns saddle-recovery vs. energy-plateau precedence,
         # so it always suppresses the base plateau stall (allow_stall=False),
@@ -1417,21 +1468,22 @@ class TSHessianOptimizer(HessianOptimizer):
             # energy-plateau stall.
             return False, conv_info
         if self.verify_saddle:
-            # A plateau or a raw/quasi-Newton root is insufficient. Exact PHVA
-            # at these coordinates is an additional terminal requirement. For
-            # non-Baker presets, a verified saddle whose configured force
-            # thresholds are met is stationary; an outgoing quasi-Newton step
-            # is not a property of the current geometry. The `baker` preset
-            # keeps its own stricter rule (max/rms force, max/rms step and the
-            # energy change must all hold).
+            # Exact PHVA is the final curvature test and cannot replace the
+            # iterative Hessian before every convergence criterion passes.
+            terminal_criteria = bool(
+                self.thresh != "never"
+                and self._all_configured_criteria_met(conv_info)
+            )
             exact_current_saddle = self._exact_saddle_matches_current_geometry()
-            if self.thresh in ("baker", "never"):
-                terminal_criteria = base_converged
-            else:
-                terminal_criteria = bool(
-                    conv_info.max_force_converged
-                    and conv_info.rms_force_converged
-                )
+            conv_info = ConvInfo(
+                conv_info.cur_cycle,
+                conv_info.energy_converged,
+                conv_info.max_force_converged,
+                conv_info.rms_force_converged,
+                conv_info.max_step_converged,
+                conv_info.rms_step_converged,
+                exact_current_saddle,
+            )
             converged = bool(exact_current_saddle and terminal_criteria)
             if not converged and outer_allow_stall and exact_current_saddle:
                 # Required curvature is present (a verified first-order saddle
@@ -1594,45 +1646,6 @@ class TSHessianOptimizer(HessianOptimizer):
                 )
                 return
 
-        # --- DEBUG: dump all negative eigvals + overlaps with prev TS mode ---
-        # all_freqs = self._all_mw_freqs_cm()
-        # if isinstance(eigvals, torch.Tensor):
-        #     evs_np = eigvals.cpu().numpy()
-        # else:
-        #     evs_np = np.asarray(eigvals)
-        # n_show = min(int(neg_num) + 2, len(evs_np))
-        # neg_evs_str = ", ".join(f"{float(evs_np[i]):+.3e}" for i in range(n_show))
-        # neg_cm_str = ", ".join(f"{all_freqs[i]:+.1f}" for i in range(min(n_show, len(all_freqs))))
-        # print(f"[ts-mode] cycle neg_count={neg_num}")
-        # print(f"[ts-mode]   eigvals (au)  [0:{n_show}] = [{neg_evs_str}]")
-        # print(f"[ts-mode]   freqs   (cm⁻¹)[0:{n_show}] = [{neg_cm_str}]")
-        #
-        # # Overlaps with previous TS mode (if exists) for all candidates
-        # if self.ts_modes is not None:
-        #     try:
-        #         prev_mode = self.ts_modes[0]
-        #         if isinstance(eigvecs, torch.Tensor):
-        #             if isinstance(prev_mode, torch.Tensor):
-        #                 pm = prev_mode
-        #                 if pm.shape[0] != eigvecs.shape[0]:
-        #                     pm = torch.from_numpy(self.active_from_full(pm.cpu().numpy())).to(eigvecs.device, eigvecs.dtype)
-        #             else:
-        #                 pm_arr = prev_mode if prev_mode.shape[0] == eigvecs.shape[0] else self.active_from_full(prev_mode)
-        #                 pm = torch.from_numpy(np.asarray(pm_arr, dtype=float)).to(eigvecs.device, eigvecs.dtype)
-        #             ovlps_all = torch.abs(eigvecs.T @ pm).cpu().numpy()
-        #         else:
-        #             pm = prev_mode if prev_mode.shape[0] == eigvecs.shape[0] else self.active_from_full(prev_mode)
-        #             ovlps_all = np.abs(eigvecs.T @ pm)
-        #         n_ovlp = min(n_show, len(ovlps_all))
-        #         ovlp_str = ", ".join(f"{float(ovlps_all[i]):.3f}" for i in range(n_ovlp))
-        #         print(f"[ts-mode]   overlap w/ prev[0:{n_ovlp}] = [{ovlp_str}]")
-        #         best = int(np.argmax(ovlps_all))
-        #         print(f"[ts-mode]   best overlap at root={best} ({ovlps_all[best]:.4f}), "
-        #               f"freq={all_freqs[best] if best < len(all_freqs) else 0:+.1f} cm⁻¹")
-        #     except Exception as _e:
-        #         print(f"[ts-mode]   overlap calc failed: {_e}")
-        # --- END DEBUG ---
-
         if not self.track_mode_by_overlap:
             # Fixed-root mode follows the roots requested by the caller.  Root
             # zero is only the constructor default; replacing every configured
@@ -1650,8 +1663,6 @@ class TSHessianOptimizer(HessianOptimizer):
             self.roots = roots
             self.ts_modes = eigvecs[:, self.roots].T
             self.ts_mode_eigvals = eigvals[self.roots]
-            # _cm1 = self._lowest_mw_freq_cm()
-            # print(f"[ts-mode] SELECTED root=0  eigval={float(eigvals[0]):+.6e}  {_cm1:+.1f} cm⁻¹")
             return
 
         # --- Overlap-based mode tracking (track_mode_by_overlap=True) ---
@@ -1704,15 +1715,6 @@ class TSHessianOptimizer(HessianOptimizer):
         self.roots = max_ovlp_inds
         self.ts_modes = ovlp_eigvecs.T[self.roots]
         self.ts_mode_eigvals = eigvals[self.roots]
-        # for i, ev in enumerate(self.ts_mode_eigvals):
-        #     selected_root = int(self.roots[i])
-        #     selected_freq = all_freqs[selected_root] if selected_root < len(all_freqs) else 0.0
-        #     print(
-        #         f"[ts-mode] SELECTED root={selected_root:3d}  eigval={float(ev):+.6e}  "
-        #         f"freq={selected_freq:+.1f} cm⁻¹  "
-        #         f"overlap={float(ovlps[i, int(max_ovlp_inds[i])]):.4f}"
-        #     )
-
     def _lowest_mw_freq_cm(self):
         """Compute the lowest frequency (cm⁻¹) from current Hessian using
         the same _frequencies_cm_and_modes as the freq command."""

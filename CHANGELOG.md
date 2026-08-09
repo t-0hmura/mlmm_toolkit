@@ -252,6 +252,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   trusted PyPI publication.
 
 ### Fixed
+- Run exact PHVA only after every configured Hessian-TS convergence criterion
+  passes for the proposed step. A run that never reaches this gate skips final
+  PHVA and mode export, reports both imaginary-mode fields as `null`, and
+  remains `stalled` or `not_converged`.
+- Keep RS-P-RFO line searches off by default while honoring explicit YAML
+  values. RS-I-RFO and TRIM discard these unused kwargs, and Hessian TS searches
+  require exactly one root.
 - Apply the shared `opt` block to the `tsopt` macro optimizer. `rms_force`,
   `rms_force_only`, `max_force_only`, `force_only`, `overachieve_factor`,
   `min_step_norm`, `assert_min_step`, `converge_to_geom_rms_thresh`,

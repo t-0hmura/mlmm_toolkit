@@ -622,18 +622,86 @@ def test_energy_plateau_cannot_bypass_ts_curvature_requirement(tmp_path) -> None
     assert conv_info.desired_eigval_structure is False
 
 
-def test_verified_phva_mode_rechecks_when_force_and_energy_are_terminal(tmp_path) -> None:
-    _, opt = _ts_optimizer(tmp_path, 0.0, energy_plateau=False)
-    opt._physical_ts_mode = np.array([1.0, 0.0, 0.0])
-    opt._last_exact_n_imaginary = 1
+def test_exact_phva_runs_only_after_all_baker_criteria(
+    tmp_path, monkeypatch
+) -> None:
+    geom, opt = _ts_optimizer(tmp_path, 0.0, energy_plateau=False)
     opt.forces = [np.zeros(3)]
     opt.energies = [0.0, 0.0]
-    opt.steps = [np.array([0.01, 0.0, 0.0])]
+    calls = 0
 
-    # The outgoing step used by check_convergence() does not exist yet in
-    # housekeeping().  A nonterminal incoming step must not suppress the exact
-    # check once the current force and energy are terminal.
-    assert opt._near_terminal_without_eigval_check() is True
+    def exact_check(gradient):
+        nonlocal calls
+        calls += 1
+        opt._last_exact_n_imaginary = 1
+        opt._last_exact_saddle_verified = True
+        opt._last_exact_cart_coords = geom.cart_coords.copy()
+        return (
+            (gradient, np.eye(3), np.array([-1.0, 1.0, 2.0]), np.eye(3)),
+            (True, np.array([1.0, 0.0, 0.0]), True),
+        )
+
+    monkeypatch.setattr(opt, "_refresh_and_verify_exact_saddle_model", exact_check)
+
+    nonterminal_step = np.array([0.01, 0.0, 0.0])
+    opt.validate_terminal_saddle_for_step(nonterminal_step)
+    converged, conv_info = opt.check_convergence(nonterminal_step)
+    assert not bool(conv_info.max_step_converged)
+    assert converged is False
+    assert calls == 0
+    assert opt.convergence_criteria_met is False
+
+    terminal_step = np.array([1.0e-4, 0.0, 0.0])
+    opt.validate_terminal_saddle_for_step(terminal_step)
+    converged, conv_info = opt.check_convergence(terminal_step)
+    assert conv_info.is_converged()
+    assert converged is True
+    assert calls == 1
+    assert opt.convergence_criteria_met is True
+
+
+def test_gau_loose_force_only_cannot_trigger_exact_phva(
+    tmp_path, monkeypatch
+) -> None:
+    _, opt = _ts_optimizer(tmp_path, 0.0, thresh="gau_loose", energy_plateau=False)
+    opt.forces = [np.full(3, 9.0e-4)]
+    opt.energies = [0.0, 1.0e-3]
+
+    def unexpected_exact_check(_gradient):
+        raise AssertionError("exact PHVA ran before step convergence")
+
+    monkeypatch.setattr(
+        opt, "_refresh_and_verify_exact_saddle_model", unexpected_exact_check
+    )
+
+    nonterminal_step = np.full(3, 4.0e-2)
+    opt.validate_terminal_saddle_for_step(nonterminal_step)
+    converged, conv_info = opt.check_convergence(nonterminal_step)
+
+    assert bool(conv_info.max_force_converged)
+    assert bool(conv_info.rms_force_converged)
+    assert not bool(conv_info.max_step_converged)
+    assert not bool(conv_info.rms_step_converged)
+    assert converged is False
+    assert opt.convergence_criteria_met is False
+
+
+def test_convergence_gate_is_recorded_when_exact_verification_is_disabled(
+    tmp_path,
+) -> None:
+    _, opt = _ts_optimizer(
+        tmp_path,
+        0.0,
+        energy_plateau=False,
+        verify_saddle=False,
+    )
+    opt.forces = [np.zeros(3)]
+    opt.energies = [0.0, 0.0]
+
+    opt.validate_terminal_saddle_for_step(np.array([1.0e-4, 0.0, 0.0]))
+
+    assert opt.convergence_criteria_met is True
+    assert opt.exact_saddle_checks == 0
 
 
 def test_stale_exact_saddle_cannot_authorize_rolled_back_minimum(tmp_path) -> None:
@@ -668,14 +736,13 @@ def test_current_coordinate_exact_saddle_can_authorize_convergence(tmp_path) -> 
     opt._last_exact_saddle_verified = True
     opt._last_exact_cart_coords = geom.cart_coords.copy()
 
-    assert opt._near_terminal_without_eigval_check() is True
     converged, conv_info = opt.check_convergence()
 
     assert converged is True
     assert conv_info.energy_converged is True
 
 
-def test_exact_non_baker_saddle_ignores_outgoing_step(tmp_path) -> None:
+def test_exact_non_baker_saddle_requires_configured_step_thresholds(tmp_path) -> None:
     geom, opt = _ts_optimizer(
         tmp_path, 0.0, thresh="gau_loose", energy_plateau=False
     )
@@ -695,7 +762,7 @@ def test_exact_non_baker_saddle_ignores_outgoing_step(tmp_path) -> None:
     assert bool(conv_info.rms_force_converged)
     assert not bool(conv_info.max_step_converged)
     assert not bool(conv_info.rms_step_converged)
-    assert converged is True
+    assert converged is False
 
 
 def test_exact_saddle_does_not_override_never_threshold(tmp_path) -> None:
@@ -787,16 +854,12 @@ def test_exact_current_saddle_still_requires_all_baker_thresholds(
     converged, conv_info = opt.check_convergence()
 
     assert not bool(conv_info.max_step_converged)
-    assert conv_info.desired_eigval_structure is False
+    assert conv_info.desired_eigval_structure is True
     assert converged is False
 
 
 def test_ts_baker_requires_rms_force_not_only_max_force(tmp_path) -> None:
-    """rms(force) is a mandatory `baker` criterion, not a diagnostic.
-
-    The exact PHVA trigger stays max-force-based (so the Hessian is still
-    evaluated near the saddle), but acceptance needs every threshold.
-    """
+    """rms(force) is a mandatory `baker` criterion, not a diagnostic."""
     geom, opt = _ts_optimizer(tmp_path, 0.0, energy_plateau=False)
     opt.cur_cycle = 3
     opt.last_cycle = 0
@@ -807,7 +870,6 @@ def test_ts_baker_requires_rms_force_not_only_max_force(tmp_path) -> None:
     opt._last_exact_saddle_verified = True
     opt._last_exact_cart_coords = geom.cart_coords.copy()
 
-    assert opt._near_terminal_without_eigval_check() is True
     converged, conv_info = opt.check_convergence()
 
     assert bool(conv_info.max_force_converged)
@@ -833,6 +895,36 @@ def test_exact_higher_order_saddle_cannot_authorize_first_order_convergence(
 
     assert converged is False
     assert not opt._exact_saddle_matches_current_geometry()
+
+
+def test_zero_step_higher_order_saddle_requests_clean_flatten_stop(
+    tmp_path, monkeypatch
+) -> None:
+    geom, opt = _ts_optimizer(tmp_path, 0.0, energy_plateau=False)
+
+    def exact_higher_order(gradient):
+        hessian = np.diag([-4.0, -2.0, 10.0])
+        opt.H = hessian
+        opt.cur_H = hessian
+        opt._last_exact_n_imaginary = 2
+        opt._last_exact_saddle_verified = False
+        opt._last_exact_cart_coords = geom.cart_coords.copy()
+        return (
+            (gradient, hessian, np.diag(hessian), np.eye(3)),
+            (True, np.array([1.0, 0.0, 0.0]), True),
+        )
+
+    monkeypatch.setattr(
+        opt, "_refresh_and_verify_exact_saddle_model", exact_higher_order
+    )
+
+    opt.run()
+
+    assert opt.is_converged is False
+    assert opt.stopped is True
+    assert opt.stop_reason == (
+        "exact higher-order saddle at zero step requires a flatten restart"
+    )
 
 
 def test_exact_verifier_retains_curvature_but_rejects_higher_order_status(

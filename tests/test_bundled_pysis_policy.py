@@ -20,6 +20,7 @@ from pysisyphus.tr_projection import (
 from mlmm.workflows.irc import IRC_KW_DEFAULT
 from mlmm.workflows.tsopt import (
     _finalize_dimer_saddle_status,
+    _hessian_postprocessing_is_ready,
     _heavy_ts_terminal_status,
 )
 
@@ -45,6 +46,16 @@ def test_missing_optional_config_is_silent(tmp_path: Path) -> None:
     assert proc.returncode == 0, proc.stderr
     assert "Couldn't find configuration file" not in proc.stdout
     assert "Couldn't find configuration file" not in proc.stderr
+
+
+def test_hessian_postprocessing_requires_convergence_gate() -> None:
+    assert not _hessian_postprocessing_is_ready(SimpleNamespace())
+    assert not _hessian_postprocessing_is_ready(
+        SimpleNamespace(is_converged=True, convergence_criteria_met=False)
+    )
+    assert _hessian_postprocessing_is_ready(
+        SimpleNamespace(convergence_criteria_met=True)
+    )
 
 
 def test_missing_explicit_config_does_not_report_false_success(

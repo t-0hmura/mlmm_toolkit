@@ -1,14 +1,4 @@
-"""F1 regression: the microiter macro loop must build for every Hessian TS optimizer.
-
-Microiteration was historically RS-I-RFO-only. It now also drives RS-P-RFO and TRIM
-macro steps. These tests pin the two invariants that make that safe without running a
-full MLIP optimization:
-
-  * ``TSOPT_CLASS_MAP`` exposes all three Hessian TS optimizers, and
-  * ``_build_rsirfo_kwargs(mode=...)`` disables the RS-I-RFO-only torch line search for
-    TRIM / RS-P-RFO (which reject it) while leaving it intact for RS-I-RFO, and each
-    resulting kwarg set constructs its optimizer.
-"""
+"""Hessian TS optimizer construction in the microiteration path."""
 
 from __future__ import annotations
 
@@ -53,12 +43,60 @@ def test_microiter_macro_optimizer_builds(tsopt_mod, mode, tmp_path):
         mode=mode,
     )
     if mode == "rsirfo":
-        # For RS-I-RFO the builder leaves min_line_search alone.
-        assert kw.get("min_line_search") is not False
+        assert "min_line_search" not in kw
+        assert "max_line_search" not in kw
+    elif mode == "rsprfo":
+        assert kw["min_line_search"] is False
+        assert kw["max_line_search"] is False
     else:
-        # For TRIM / RS-P-RFO the macro kwargs pin the line search off.
-        assert kw.get("min_line_search") is False
-        assert kw.get("max_line_search") is False
+        assert "min_line_search" not in kw
+        assert "max_line_search" not in kw
 
     opt = tsopt_mod.TSOPT_CLASS_MAP[mode](_tiny_geom(), **kw)
     assert type(opt).__name__ in ("RSIRFOptimizer", "RSPRFOptimizer", "TRIM")
+
+
+def test_rsprfo_honors_explicit_line_search_values(tsopt_mod, tmp_path):
+    kw = tsopt_mod._build_rsirfo_kwargs(
+        {"min_line_search": True, "max_line_search": True},
+        max_cycles=1,
+        out_dir=tmp_path,
+        mode="rsprfo",
+    )
+
+    assert kw["min_line_search"] is True
+    assert kw["max_line_search"] is True
+
+
+@pytest.mark.parametrize("mode", ["rsirfo", "trim"])
+def test_unused_line_search_values_are_removed(tsopt_mod, mode, tmp_path):
+    kw = tsopt_mod._build_rsirfo_kwargs(
+        {"min_line_search": True, "max_line_search": True},
+        max_cycles=1,
+        out_dir=tmp_path,
+        mode=mode,
+    )
+
+    assert "min_line_search" not in kw
+    assert "max_line_search" not in kw
+
+
+def test_hessian_ts_kwargs_require_one_root(tsopt_mod, tmp_path):
+    with pytest.raises(tsopt_mod.click.BadParameter, match="exactly one root"):
+        tsopt_mod._build_rsirfo_kwargs(
+            {"roots": [0, 1]},
+            max_cycles=1,
+            out_dir=tmp_path,
+            mode="rsprfo",
+        )
+
+
+def test_ts_kwargs_drop_ordinary_rfo_overlap_tracking(tsopt_mod, tmp_path):
+    kw = tsopt_mod._build_rsirfo_kwargs(
+        {"rfo_overlaps": True},
+        max_cycles=1,
+        out_dir=tmp_path,
+        mode="rsprfo",
+    )
+
+    assert "rfo_overlaps" not in kw

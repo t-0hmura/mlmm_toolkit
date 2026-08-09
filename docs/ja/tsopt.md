@@ -157,6 +157,9 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 optimizer が収束し、かつ最終 Hessian の虚モードが正確に 1 つの場合だけです。
 0 または複数なら `not_converged`、`--skip-final-freq` で鞍点次数を検証しない
 場合は `unverified` です。
+Hessian 系 optimizer が全収束基準へ一度も到達しない場合は PHVA と mode 出力を
+行わず、虚振動関連の2フィールドを `null`、status を `stalled` または
+`not_converged` とします。
 
 最適化が成功すると 3 種類の成果物が `result_tsopt/` に出力されます。
 

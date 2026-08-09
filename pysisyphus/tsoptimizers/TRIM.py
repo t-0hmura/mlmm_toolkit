@@ -98,6 +98,7 @@ class TRIM(TSHessianOptimizer):
         step_norm = np.linalg.norm(step)
         self.log(f"norm(step)={step_norm:.6f}")
 
+        self.validate_terminal_saddle_for_step(step)
         step = self.apply_saddle_recovery_step(step)
         self.predicted_energy_changes.append(
             self.quadratic_model(gradient, as_numpy(self.cur_H), step)

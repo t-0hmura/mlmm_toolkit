@@ -156,6 +156,9 @@ With final frequency validation enabled, `result.json` reports `status:
 "converged"` only when the optimizer converged and the final Hessian has exactly
 one imaginary mode. It reports `not_converged` for zero or multiple modes, and
 `unverified` when `--skip-final-freq` suppresses saddle-order validation.
+If a Hessian-family optimizer never reaches every convergence criterion, PHVA
+and mode export are skipped, both imaginary-mode fields are `null`, and the
+status is `stalled` or `not_converged`.
 
 Three artifacts are written to `result_tsopt/`: `final_geometry.pdb` (and `.xyz`) — the optimized first-order saddle point (3-layer B-factor encoding preserved for PDB); `vib/imag_*_trj.xyz` — animation of every detected imaginary mode (expect exactly one for a valid TS); and `vib/imag_*.pdb` — PDB companions of the imaginary modes (PDB inputs only).
 

@@ -419,7 +419,7 @@ rsirfo:
  print_every: 100 # ログ出力間隔
  min_step_norm: 1.0e-08 # 最小ステップノルム
  assert_min_step: true # ステップ停滞時にアサート
- roots: [0] # ターゲットルートインデックス（pysisyphus デフォルト; mlmm では未設定）
+ roots: [0] # 追跡するrootは1個のみ（空list・複数rootは拒否）
  hessian_ref: null # 参照Hessian
  rx_modes: null # 反応モード定義
  prim_coord: null # 監視する主座標
@@ -430,8 +430,8 @@ rsirfo:
  hessian_recalc: 500 # Hessian再構築間隔
  max_micro_cycles: 50 # マクロサイクルあたりのマイクロイテレーション数
  augment_bonds: false # 結合解析に基づく反応経路の拡張
- min_line_search: false # 虚モードに沿ったラインサーチ（pysisyphus デフォルト）
- max_line_search: false # 最小化部分空間でのラインサーチ（pysisyphus デフォルト）
+ min_line_search: false # RS-P-RFO のみ: 最小化部分空間で補間
+ max_line_search: false # RS-P-RFO のみ: 最大化部分空間で補間
  assert_neg_eigval: false # 収束時に負の固有値を要求
  track_mode_by_overlap: false # mlmm 固有: オーバーラップでターゲットモードを追跡
  trust_radius: 0.10 # 信頼領域半径
@@ -441,6 +441,9 @@ rsirfo:
  small_eigval_thresh: 1.0e-08 # 安定性のための固有値閾値
  out_dir: ./result_tsopt/ # 出力ディレクトリ
 ```
+
+`min_line_search` と `max_line_search` を使用するのは
+`--opt-mode rsprfo` だけで、YAML の明示値を反映します。
 
 ---
 

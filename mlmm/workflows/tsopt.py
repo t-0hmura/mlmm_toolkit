@@ -243,6 +243,12 @@ def _optimizer_safeguard_payload(optimizer) -> Dict[str, Any]:
     }
 
 
+def _hessian_postprocessing_is_ready(optimizer: Any) -> bool:
+    """Return whether convergence has authorized exact-Hessian work."""
+
+    return bool(getattr(optimizer, "convergence_criteria_met", False))
+
+
 def _mirrored_flatten_start(
     saddle_coords: np.ndarray,
     primary_start: np.ndarray,
@@ -399,14 +405,35 @@ def _build_rsirfo_kwargs(
         args["thresh"] = str(macro_thresh)
     if reference_mode is not None:
         args["reference_mode"] = reference_mode
+
+    roots = args.get("roots")
+    root_single = args.pop("root", None)
+    if root_single is not None:
+        roots = [int(root_single)]
+    if roots is None:
+        roots = [0]
+    try:
+        normalized_roots = [int(root) for root in roots]
+    except TypeError as exc:
+        raise click.BadParameter(
+            "rsirfo.roots must be a list containing exactly one root index."
+        ) from exc
+    if len(normalized_roots) != 1:
+        raise click.BadParameter(
+            "rsirfo.roots must contain exactly one root index for a "
+            "first-order transition-state search."
+        )
+    args["roots"] = normalized_roots
+    args.pop("rfo_overlaps", None)
+
     for _diis_kw in ("gediis", "gdiis", "gdiis_thresh", "gediis_thresh", "gdiis_test_direction", "adapt_step_func"):
         args.pop(_diis_kw, None)
-    # TRIM / RS-P-RFO are pure-numpy single-pass TS optimizers and do not support the
-    # torch-backed line search used by RS-I-RFO; disable it so the shared macro kwargs
-    # construct cleanly for every Hessian --opt-mode (mirrors the non-microiter path).
-    if mode != "rsirfo":
-        args["min_line_search"] = False
-        args["max_line_search"] = False
+    if mode == "rsprfo":
+        args.setdefault("min_line_search", False)
+        args.setdefault("max_line_search", False)
+    else:
+        args.pop("min_line_search", None)
+        args.pop("max_line_search", None)
     return _force_ts_reject_uphill_off(args)
 
 
@@ -4056,10 +4083,18 @@ def cli(
                 del calc_core
                 del base_calc
                 _clear_cuda_cache()
-            _do_final_freq = not skip_final_freq
+            hessian_postprocessing_ready = _hessian_postprocessing_is_ready(
+                last_optimizer
+            )
+            _do_final_freq = not skip_final_freq and hessian_postprocessing_ready
             if skip_final_freq:
                 click.echo("[tsopt] --skip-final-freq: skipping post-convergence frequency analysis and flatten loop.")
                 click.echo("[tsopt] WARNING: TS saddle-point order is NOT verified.")
+            elif not hessian_postprocessing_ready:
+                click.echo(
+                    "[tsopt] Convergence criteria were not met; PHVA was not run.",
+                    err=True,
+                )
             mlmm_kwargs_for_heavy = _post_analysis_hessian_config(
                 calc_cfg,
                 partial=partial_hessian_flatten_effective,
@@ -4685,11 +4720,15 @@ def cli(
                 else:
                     click.echo(f"[DONE] Wrote {n_written} final imaginary mode(s).")
                     click.echo(f"[DONE] Mode files → {vib_dir}")
-            else:
+            elif _do_final_freq:
                 click.echo("[INFO] Skipped final imaginary-mode export due to frequency-analysis fallback.")
 
             # Capture freq/energy data for result.json BEFORE deleting
-            _heavy_imag_freqs: list = []
+            _heavy_imag_freqs: Optional[list] = (
+                None
+                if not skip_final_freq and not hessian_postprocessing_ready
+                else []
+            )
             _heavy_n_imag: Optional[int] = None
             _heavy_energy = None
             if freqs_cm is not None:
@@ -4714,11 +4753,16 @@ def cli(
                 'last_optimizer' in dir()
                 and getattr(last_optimizer, "is_stalled", False)
             )
-            _heavy_status = _heavy_ts_terminal_status(
-                optimizer_converged=_heavy_optimizer_converged,
-                n_imag=_heavy_n_imag,
-                stalled=_heavy_stalled,
-            )
+            if not skip_final_freq and not hessian_postprocessing_ready:
+                _heavy_status = (
+                    "stalled" if _heavy_stalled else "not_converged"
+                )
+            else:
+                _heavy_status = _heavy_ts_terminal_status(
+                    optimizer_converged=_heavy_optimizer_converged,
+                    n_imag=_heavy_n_imag,
+                    stalled=_heavy_stalled,
+                )
             if rigid_projection_info:
                 click.echo(pretty_block("rigid_projection", rigid_projection_info))
             # Restart branches share the Hessian cache. Evaluate the selected
@@ -4888,7 +4932,7 @@ def cli(
 
         if out_json:
             from mlmm.core.utils import calculator_provenance, write_result_json
-            _tsopt_imag_freqs: list = []
+            _tsopt_imag_freqs: Optional[list] = []
             _tsopt_n_imag: Optional[int] = None
             _tsopt_energy = None
             _tsopt_status = "unverified"

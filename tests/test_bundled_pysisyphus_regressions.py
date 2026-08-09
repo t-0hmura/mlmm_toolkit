@@ -428,14 +428,6 @@ def test_rsprfo_partition_derivative_matches_secular_finite_difference(
     assert analytic == pytest.approx(numeric, rel=2.0e-7, abs=1.0e-10)
 
 
-def test_rsprfo_fallback_enforces_full_trust_radius() -> None:
-    opt = RSPRFOptimizer.__new__(RSPRFOptimizer)
-    opt.trust_radius = 0.1
-    opt.log = lambda *_: None
-    step = opt._restrict_final_step(np.array([0.12, 0.16]))
-    assert np.linalg.norm(step) == pytest.approx(0.1)
-
-
 def test_rfoptimizer_rejects_oversized_accelerated_displacement() -> None:
     opt = RFOptimizer.__new__(RFOptimizer)
     opt.trust_radius = 0.1

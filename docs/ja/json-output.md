@@ -138,8 +138,8 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 |-----------|------|------|
 | `status` | string | optimizer 収束かつ `n_imaginary_modes == 1` の場合だけ `"converged"`。それ以外は `"not_converged"`、`--skip-final-freq` 時は `"unverified"`。エネルギープラトーによる `"stalled"`（上記参照）はこれらすべてに優先し、`converged` として報告されることはありません（dimer (grad) モードも `stalled` を返します）。 |
 | `energy_hartree` | float | TS エネルギー (Hartree) |
-| `n_imaginary_modes` | int | 虚振動数 |
-| `imaginary_frequencies_cm` | float[] | 虚振動数 (cm$^{-1}$, 負の値) |
+| `n_imaginary_modes` | int\|null | 虚振動数。収束に到達せず PHVA を実行しなかった場合は `null` |
+| `imaginary_frequencies_cm` | float[]\|null | 虚振動数 (cm$^{-1}$, 負の値)。Hessian 系で収束に到達せず PHVA を実行しなかった場合は `null` |
 | `opt_mode` | string | `"grad"`, `"hess"`, `"light"`, `"heavy"`, `"dimer"`, `"rsirfo"`, `"trim"`, `"rsprfo"` のいずれか（`light`/`dimer` は `grad` (PHG-Dimer)、`heavy`/`rsirfo` は `hess` (RS-I-RFO)、`trim` は TRIM、`rsprfo` は RS-P-RFO の別名） |
 | `n_atoms` | int | 全原子数 |
 | `n_opt_cycles` | int | 最適化サイクル数 |
@@ -148,6 +148,9 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | `reference_mode_file` | string\|null | `--ref-mode`で渡した高度なpath由来mode |
 | `safeguards` | object | heavy modeのtrial拒否/recovery、exact saddle、target-mode診断 |
 | `files` | object | 最終構造 + vib モードファイル |
+
+明示的な `--skip-final-freq` は未検証を
+`n_imaginary_modes: null`、`imaginary_frequencies_cm: []` で表します。
 
 ### `freq`
 
