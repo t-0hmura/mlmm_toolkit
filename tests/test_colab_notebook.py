@@ -961,17 +961,29 @@ def test_colab_local_runtime_uses_standard_widgets(monkeypatch, tmp_path: Path) 
     assert app["_RUN_LOG_INCREMENTAL"] is False
 
 
+def test_colab_clear_files_clears_example_status_contract() -> None:
+    app_source = _notebook()["cells"][2]["source"]
+    queue_source = app_source.split("def _queue_change(", 1)[1]
+    clear_branch = queue_source.split("    if clear:\n", 1)[1].split(
+        "    elif path in paths:\n", 1,
+    )[0]
+    assert "example_status = globals().get('example_msg')" in clear_branch
+    assert "if example_status is not None: example_status.value = ''" in clear_branch
+
+
 def test_colab_app_executes_atomic_view_and_result_transitions(
     tmp_path: Path, monkeypatch,
 ) -> None:
     app, calls = _execute_app(monkeypatch, tmp_path)
     drop_generation = app["_DROP_STATE"]["generation"]
+    app["example_msg"].value = "⭐ Toy system ready"
     assert app["_claim_drop_batch"]("batch-a", drop_generation) == (True, "")
     assert app["_claim_drop_batch"]("batch-a", drop_generation) == (
         False, "duplicate batch",
     )
     app["b_clear_inputs"].click()
     assert app["_DROP_STATE"]["generation"] == drop_generation + 1
+    assert app["example_msg"].value == ""
     assert app["_claim_drop_batch"]("late-batch", drop_generation) == (
         False, "stale generation",
     )
