@@ -98,13 +98,14 @@ Every tool returns the same structured dict so the calling agent can dispatch on
 }
 ```
 
-A failed subcommand additionally surfaces a structured exception envelope inside `summary`:
+Stage-command failures may surface a structured exception envelope inside `summary`:
 
 - `error_class_chain` — list of class names walking the MRO (e.g. `["CudaOutOfMemoryError", "RuntimeError", "Exception"]`)
 - `error_module` — module path of the originating exception class
 - `error_label` — the high-level CLI stage label (e.g. `"optimization"`, `"TS optimization"`, `"IRC"`, `"single-point"`, or the fallback `"UnhandledError"`). This is a coarse stage label; conditions such as OOM must be read from `error_class_chain` (e.g. a CUDA out-of-memory class), not from `error_label`
 
-so an MCP client can pattern-match on the hierarchy instead of substring-matching `stderr_tail`.
+For utility failures, inspect `status`, `hint`, and the stderr/stdout tails;
+their empty `summary` has no exception-envelope guarantee.
 
 ## Opt-in IRC convergence guard
 

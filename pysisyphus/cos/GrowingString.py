@@ -203,6 +203,8 @@ class GrowingString(GrowingChainOfStates):
         # the absolute value of the difference, as we are not interested in the
         # sign.
         param_dens_diff = abs(cpd[ref_index] - cpd[tangent_ind])
+        if not np.isfinite(param_dens_diff) or param_dens_diff <= 1e-15:
+            raise ValueError("Cannot place a new image at zero path density.")
         step_length = self.sk / param_dens_diff
         step = step_length * distance
 

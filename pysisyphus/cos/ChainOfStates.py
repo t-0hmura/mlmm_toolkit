@@ -432,7 +432,7 @@ class ChainOfStates:
             kind = "lanczos"
 
         tangent_kinds = ("upwinding", "simple", "bisect", "lanczos")
-        assert kind in tangent_kinds, "Invalid kind! Valid kinds are: {tangent_kinds}"
+        assert kind in tangent_kinds, f"Invalid kind! Valid kinds are: {tangent_kinds}"
         prev_index = max(i - 1, 0)
         next_index = min(i + 1, len(self.images) - 1)
 

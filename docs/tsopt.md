@@ -7,7 +7,7 @@ Dimer (`grad`/`dimer`), while the Hessian family provides RS-I-RFO (`hess`/`rsir
 the default), RS-P-RFO (`rsprfo`), and TRIM (`trim`):
 
 - **Restricted-Step Image-function Rational Function Optimization (RS-I-RFO)** (`--opt-mode hess`) is the default and the conservative choice when you can afford the Hessian work. It runs with microiteration (`--microiter`, default on) that alternates a machine-learning (ML) 1-step RS-I-RFO move with a molecular-mechanics (MM) L-BFGS relaxation.
-- **Hessian-Guided Dimer** (`--opt-mode grad`) is the lighter alternative, suited to a lower-cost search or quick iteration from several TS guesses. Add `--ml-only-hessian-dimer` to use only the ML-region Hessian for dimer orientation (faster).
+- **Hessian-Guided Dimer** (`--opt-mode grad`) uses initial and periodic orientation Hessians, which is more robust than a random initial direction for systems with many degrees of freedom. Add `--ml-only-hessian-dimer` to use only the ML-region Hessian for dimer orientation (faster).
 
 `tsopt` always sets `reject_uphill: false` for its saddle-search RFO and
 Dimer optimizers, including after YAML overrides. A transition-state search
@@ -16,7 +16,7 @@ must be able to raise the physical energy along its reaction mode. The
 optimization (`opt` and post-IRC endpoint re-optimization in `all`). The
 inner MM-only relaxation in microiteration remains a minimum subproblem.
 
-After convergence, a surplus-imaginary-mode flatten loop (`--flatten`) removes extra negative modes via mass-scaled displacements. A validated TS should show **exactly one** imaginary frequency — always confirm the mode and connectivity with [`freq`](freq.md) / [`irc`](irc.md).
+After convergence, a surplus-imaginary-mode flatten loop (`--flatten`) removes extra negative modes via mass-scaled displacements. A successful TS optimization produces one imaginary mode along the reaction coordinate; confirm its connectivity with [`irc`](irc.md).
 
 ## Building a TS candidate first
 
@@ -37,7 +37,7 @@ mlmm scan -i r.pdb --parm enzyme.parm7 -l 'LIG:Q' \
 ```
 
 ```{note}
-There is no `opt --restraint` flag. Plain [`opt`](opt.md) is an *un-restrained* optimizer; the restrained build-up of a TS candidate is done with [`scan`](scan.md) (drive the distance) or with [`path-search`](path-search.md) (route a).
+There is no `opt --restraint` flag. For a restrained minimum optimization, use [`opt`](opt.md) with `--dist-freeze` and set the strength with `--bias-k`. Use [`scan`](scan.md) to drive a distance toward a TS candidate, or [`path-search`](path-search.md) to build a path.
 ```
 
 ## Wrong number of imaginary frequencies
@@ -148,7 +148,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 4. **Heavy mode (RS-I-RFO)** — runs the RS-I-RFO optimizer with optional Hessian reference files and micro-cycle controls defined in the `rsirfo` YAML section. The flatten behavior:
    - With `--flatten`, when more than one imaginary mode remains after convergence the workflow flattens extra modes and reruns RS-I-RFO until only one imaginary mode remains or the flatten-iteration cap is reached.
    - Each flatten iteration recomputes a fresh ML/MM Hessian (active-coordinate block by default, or full per `--full-hessian-flatten`) for imaginary-mode detection. There is no Bofill update in this path.
-5. **Mode export + conversion** — the converged imaginary mode is always written to `vib/imag_*_trj.xyz` and mirrored to `.pdb` when the input was PDB and conversion is enabled. The optimization trajectory and final geometry are also converted to PDB via the input template when `--dump`.
+5. **Mode export + conversion** — final frequency analysis writes imaginary modes to `vib/imag_*_trj.xyz` and mirrors them to `.pdb` for PDB input when conversion is enabled. Modes below the configured 5 cm⁻¹ magnitude threshold are omitted from these animation files, but still count toward the number of imaginary modes. The optimization trajectory and final geometry are also converted to PDB via the input template when `--dump`.
 
 ## Outputs
 
@@ -156,11 +156,11 @@ With final frequency validation enabled, `result.json` reports `status:
 "converged"` only when the optimizer converged and the final Hessian has exactly
 one imaginary mode. It reports `not_converged` for zero or multiple modes, and
 `unverified` when `--skip-final-freq` suppresses saddle-order validation.
-If a Hessian-family optimizer never reaches every convergence criterion, PHVA
-and mode export are skipped, both imaginary-mode fields are `null`, and the
-status is `stalled` or `not_converged`.
+After a plateau stop, terminal PHVA is run and the status remains `stalled`.
+If the optimizer instead reaches `max_cycles` without convergence, PHVA and
+mode export are skipped and both imaginary-mode fields are `null`.
 
-Three artifacts are written to `result_tsopt/`: `final_geometry.pdb` (and `.xyz`) — the optimized first-order saddle point (3-layer B-factor encoding preserved for PDB); `vib/imag_*_trj.xyz` — animation of every detected imaginary mode (expect exactly one for a valid TS); and `vib/imag_*.pdb` — PDB companions of the imaginary modes (PDB inputs only).
+Three artifacts are written to `result_tsopt/`: `final_geometry.pdb` (and `.xyz`) — the final geometry (3-layer B-factor encoding preserved for PDB); `vib/imag_*_trj.xyz` — imaginary-mode animations above the configured magnitude threshold; and `vib/imag_*.pdb` — their PDB companions (PDB inputs only).
 
 ```text
 out_dir/   (default: ./result_tsopt/)
@@ -284,7 +284,7 @@ source, and Hessian shape.
 ```{note}
 `rsirfo.trust_max` defaults to 0.10 bohr for improved ML/MM stability near the TS.
 
-The shared `opt` block also provides an **energy-plateau stop**, off by default and turned on with `--stop-plateau` (`energy_plateau_thresh: 1.0e-4` au over `energy_plateau_window: 50` steps). If the MLIP force noise floor prevents the gradient-based `thresh` preset from being reached, a plateau stops the search instead of spending the remaining cycles, and reports `status: "stalled"` — a distinct non-converged outcome, never `converged`. The terminal exact Hessian still runs, so the saddle diagnosis is reported either way; the flatten/retry loop does not, because a stalled root is not a validated TS mode. It is opt-in because a TS search that stops on a flat energy typically still carries extra imaginary modes, and it never applies to the MM micro iterations. See [yaml-reference](yaml-reference.md#opt) for full details.
+The shared `opt` block also provides an **energy-plateau stop**, off by default and turned on with `--stop-plateau` (`energy_plateau_thresh: 1.0e-4` au over `energy_plateau_window: 50` steps). A plateau stops the search as `stalled` and runs terminal PHVA; reaching `max_cycles` without convergence does not. It never applies to MM micro iterations. See [yaml-reference](yaml-reference.md#opt) for details.
 
 For `--microiter`, `rsirfo.thresh` controls the macro RS-I-RFO step. The MM
 relaxation threshold is set with `microiter.micro_thresh`; when it is `null` or

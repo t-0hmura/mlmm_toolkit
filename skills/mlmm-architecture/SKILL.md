@@ -39,7 +39,8 @@ pysisyphus/        ← bundled fork of the optimizer / TS / IRC engine.
                      changes require focused numerical validation.
 
 thermoanalysis/    ← bundled fork for ΔG / ZPE / partition functions.
-                     QCData.py is the only consumer; preserve its I/O contract.
+                     `freq.py` imports QCData, constants, thermo, and config;
+                     preserve those contracts.
 
 hessian_ff/        ← analytical Hessian on the MM force field (AMBER
                      ff14SB-style harmonic + LJ + Coulomb). NO upstream

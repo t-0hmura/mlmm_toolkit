@@ -259,9 +259,9 @@ Options:
                                   selectors like "TYR,285,CA"; they are auto-
                                   mapped to the pocket after extraction.
   --scan-out-dir DIRECTORY        Override the scan output directory (default:
-                                  <out-dir>/scan/). Relative paths are resolved
-                                  against the default parent.  [default: (<out-
-                                  dir>/_work/scan)]
+                                  <out-dir>/_work/scan). Relative paths are
+                                  resolved against the default parent.
+                                  [default: (<out-dir>/_work/scan)]
   --scan-one-based / --scan-zero-based
                                   Override scan indexing interpretation (one-
                                   based or zero-based).  [default: (True (one-

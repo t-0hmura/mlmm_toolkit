@@ -60,7 +60,7 @@
 | **L-BFGS** | Limited-memory BFGS | 勾配履歴から Hessian を近似する準ニュートン法。`--opt-mode grad` で使用。 |
 | **RFO** | Rational Function Optimization | 明示的な Hessian 情報を使用する信頼領域最適化法。`--opt-mode hess` で使用。 |
 | **RS-I-RFO** | Restricted-Step Image-RFO | 1 つの負固有値方向に沿う、鞍点（TS）最適化用の RFO 変種。 |
-| **Dimer** | Dimer Method | 完全な Hessian を計算せずに最低曲率モードを推定する TS 最適化法。`--opt-mode grad` の TSOPT で使用。 |
+| **Dimer** | Dimer Method | 低曲率方向を追跡する TS 最適化法。MLMM の Hessian-guided Dimer は初期および定期的な活性部分空間 Hessian を使うため、活性自由度が多い系ではランダムな初期方向より頑健です。`--opt-mode grad` の TSOPT で使用。 |
 | **PHVA** | Partial Hessian Vibrational Analysis | アクティブ（非凍結）原子の Hessian ブロックのみを使用した振動数計算。`freq` のデフォルト。 |
 
 ---

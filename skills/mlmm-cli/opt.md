@@ -86,7 +86,7 @@ mlmm path-opt -i /tmp/relax_R/final_geometry.xyz /tmp/relax_P/final_geometry.xyz
 ```
 result_opt/
 ├── result.json                 # when --out-json
-├── final_geometry.{xyz,pdb}    # converged geometry
+├── final_geometry.{xyz,pdb}    # final geometry
 ├── optimization_trj.xyz        # macro-cycle trajectory (when --dump)
 └── optimization_all_trj.xyz    # full per-step trajectory (when --dump)
 ```

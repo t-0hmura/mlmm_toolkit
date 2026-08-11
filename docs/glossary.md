@@ -57,7 +57,7 @@
 | **L-BFGS** | Limited-memory BFGS | A quasi-Newton optimization algorithm that approximates the Hessian using a limited history of gradients. Used in `--opt-mode grad`. |
 | **RFO** | Rational Function Optimization | A trust-region optimization method that uses explicit Hessian information. Used in `--opt-mode hess`. |
 | **RS-I-RFO** | Restricted-Step Image-RFO | A variant of RFO for saddle point (TS) optimization that follows one negative eigenvalue. |
-| **Dimer** | Dimer Method | A TS optimization method that estimates the lowest curvature mode without computing the full Hessian. Used in `--opt-mode grad` for TSOPT. |
+| **Dimer** | Dimer Method | A TS optimization method that follows a low-curvature direction. MLMM's Hessian-guided variant uses initial and periodic active-subspace Hessians, which is more robust than a random initial orientation for systems with many active degrees of freedom. Used in `--opt-mode grad` for TSOPT. |
 | **PHVA** | Partial Hessian Vibrational Analysis | Computing vibrational frequencies using only the Hessian block for active (non-frozen) atoms. Default in `freq`. |
 
 ---

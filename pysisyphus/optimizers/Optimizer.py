@@ -10,7 +10,6 @@ import time
 from typing import Literal, Optional, Tuple
 
 import numpy as np
-import yaml
 
 from pysisyphus.cos.ChainOfStates import ChainOfStates
 from pysisyphus.Geometry import Geometry
@@ -153,7 +152,6 @@ class Optimizer(metaclass=abc.ABCMeta):
         reparam_when: Optional[Literal["before", "after"]] = "after",
         overachieve_factor: float = 0.0,
         check_eigval_structure: bool = False,
-        restart_info=None,
         check_coord_diffs: bool = True,
         coord_diff_thresh: float = 0.01,
         energy_plateau: bool = False,
@@ -235,8 +233,6 @@ class Optimizer(metaclass=abc.ABCMeta):
             Check the eigenvalues of the modes we maximize along. Convergence requires
             them to be negative. Useful if TS searches are started from geometries close
             to a minimum.
-        restart_info
-            Restart information. Undocumented.
         check_coord_diffs
             Whether coordinates of chain-of-sates images are checked for being
             too similar.
@@ -369,12 +365,6 @@ class Optimizer(metaclass=abc.ABCMeta):
         self.restarted = False
         self.last_cycle = 0
         self.cur_cycle = 0
-        if restart_info is not None:
-            if isinstance(restart_info, str):
-                restart_info = yaml.load(restart_info, Loader=yaml.SafeLoader)
-            self.set_restart_info(restart_info)
-            self.restarted = True
-
         header = "cycle Δ(energy) max(|force|) rms(force) max(|step|) rms(step) s/cycle".split()
         col_fmts = "int float float float float float float_short".split()
         self.table = TablePrinter(header, col_fmts, width=12)

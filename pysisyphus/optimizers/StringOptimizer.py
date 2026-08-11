@@ -169,6 +169,6 @@ class StringOptimizer(Optimizer):
             for image_step in step.reshape(len(self.geometry.images), -1):
                 scale_by_max_step(image_step, self.max_step)
         else:
-            raise Exception("Invalid scale_step={self.scale_step}!")
+            raise Exception(f"Invalid scale_step={self.scale_step}!")
 
         return step

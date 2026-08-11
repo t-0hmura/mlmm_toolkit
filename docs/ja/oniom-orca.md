@@ -25,7 +25,7 @@ ORCAFF のパスを明示し自動変換を無効化:
 
 ```bash
 mlmm oniom-export --mode orca --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
- -o system.inp --orcaff ./ORCAFF.prms --no-convert-orcaff
+ -o system.inp -q 0 --orcaff ./ORCAFF.prms --no-convert-orcaff
 ```
 
 ## 処理の流れ

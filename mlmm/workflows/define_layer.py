@@ -26,9 +26,7 @@ from mlmm.io.structure_formats import (
     register_output_template_and_write_cif,
 )
 
-# Default radii for layer definition
-# NOTE: reserved in 3-layer mode (no-op).
-DEFAULT_RADIUS_PARTIAL_HESSIAN = 0.0  # Å
+# Default radius for layer definition
 DEFAULT_RADIUS_FREEZE = 8.0  # Å
 
 
@@ -248,7 +246,6 @@ def _parse_indices_string(
 def compute_layer_indices_by_residue(
     atoms: List[Dict[str, Any]],
     ml_indices: List[int],
-    radius_partial_hessian: float,
     radius_freeze: float,
 ) -> Dict[str, List[int]]:
     """
@@ -268,8 +265,6 @@ def compute_layer_indices_by_residue(
         List of atom dictionaries from _parse_pdb_atoms
     ml_indices : List[int]
         0-based indices of ML region atoms
-    radius_partial_hessian : float
-        Deprecated in 3-layer mode. Ignored by the 3-layer assignment.
     radius_freeze : float
         Distance cutoff (Å) for movable MM atoms
 
@@ -416,7 +411,6 @@ def _define_layers_pdb(
     output_pdb: Path,
     model_pdb: Optional[Path] = None,
     model_indices: Optional[List[int]] = None,
-    radius_partial_hessian: float = DEFAULT_RADIUS_PARTIAL_HESSIAN,
     radius_freeze: float = DEFAULT_RADIUS_FREEZE,
 ) -> Dict[str, List[int]]:
     """
@@ -432,8 +426,6 @@ def _define_layers_pdb(
         PDB file defining ML region atoms
     model_indices : Optional[List[int]]
         Explicit 0-based indices of ML region atoms (takes precedence over model_pdb)
-    radius_partial_hessian : float
-        Deprecated in 3-layer mode (ignored).
     radius_freeze : float
         Distance cutoff (Å) for movable MM atoms (default: 8.0)
 
@@ -483,7 +475,6 @@ def _define_layers_pdb(
     layer_indices = compute_layer_indices_by_residue(
         atoms,
         ml_indices,
-        radius_partial_hessian,
         radius_freeze,
     )
 
@@ -498,7 +489,6 @@ def define_layers(
     output_pdb: Path,
     model_pdb: Optional[Path] = None,
     model_indices: Optional[List[int]] = None,
-    radius_partial_hessian: float = DEFAULT_RADIUS_PARTIAL_HESSIAN,
     radius_freeze: float = DEFAULT_RADIUS_FREEZE,
 ) -> Dict[str, List[int]]:
     """Define layers through the PDB/mmCIF normalization bridge."""
@@ -515,7 +505,6 @@ def define_layers(
                 prepared_model.source_path if prepared_model is not None else None
             ),
             model_indices=model_indices,
-            radius_partial_hessian=radius_partial_hessian,
             radius_freeze=radius_freeze,
         )
         register_output_template_and_write_cif(
@@ -565,14 +554,6 @@ def _effective_output_pdb(output_path: Path) -> Path:
          "Takes precedence over --model-pdb.",
 )
 @click.option(
-    "--radius-partial-hessian",
-    "radius_partial_hessian",
-    type=float,
-    default=DEFAULT_RADIUS_PARTIAL_HESSIAN,
-    show_default=True,
-    help="Deprecated in 3-layer mode (ignored).",
-)
-@click.option(
     "--radius-freeze",
     "radius_freeze",
     type=float,
@@ -600,7 +581,6 @@ def cli(
     input_pdb: Path,
     model_pdb: Optional[Path],
     model_indices_str: Optional[str],
-    radius_partial_hessian: float,
     radius_freeze: float,
     output_pdb: Optional[Path],
     one_based: bool,
@@ -618,13 +598,6 @@ def cli(
         sys.exit(1)
 
     # Validate radii
-    if radius_partial_hessian < 0:
-        click.echo(
-            "ERROR: --radius-partial-hessian must be non-negative.; "
-            "recover: use a value >= 0 (e.g., --radius-partial-hessian 5.0). Pass 0 to disable.",
-            err=True,
-        )
-        sys.exit(1)
     if radius_freeze < 0:
         click.echo(
             "ERROR: --radius-freeze must be non-negative.; "
@@ -654,13 +627,7 @@ def cli(
         click.echo(f"Model PDB: {model_pdb}")
     if model_indices is not None:
         click.echo(f"Model indices: {len(model_indices)} atoms")
-    click.echo(f"Radius (partial Hessian): {radius_partial_hessian} Å")
     click.echo(f"Radius (freeze): {radius_freeze} Å")
-    if abs(radius_partial_hessian) > 1.0e-12:
-        click.echo(
-            "[warn] --radius-partial-hessian is ignored in 3-layer mode.",
-            err=True,
-        )
     click.echo(f"Output PDB: {output_pdb}")
     click.echo()
 
@@ -670,7 +637,6 @@ def cli(
             output_pdb=output_pdb,
             model_pdb=model_pdb,
             model_indices=model_indices,
-            radius_partial_hessian=radius_partial_hessian,
             radius_freeze=radius_freeze,
         )
 

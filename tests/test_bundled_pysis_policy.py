@@ -48,13 +48,16 @@ def test_missing_optional_config_is_silent(tmp_path: Path) -> None:
     assert "Couldn't find configuration file" not in proc.stderr
 
 
-def test_hessian_postprocessing_requires_convergence_gate() -> None:
+def test_hessian_postprocessing_accepts_convergence_or_plateau() -> None:
     assert not _hessian_postprocessing_is_ready(SimpleNamespace())
-    assert not _hessian_postprocessing_is_ready(
-        SimpleNamespace(is_converged=True, convergence_criteria_met=False)
+    assert _hessian_postprocessing_is_ready(
+        SimpleNamespace(is_converged=True)
     )
     assert _hessian_postprocessing_is_ready(
-        SimpleNamespace(convergence_criteria_met=True)
+        SimpleNamespace(is_stalled=True)
+    )
+    assert not _hessian_postprocessing_is_ready(
+        SimpleNamespace(is_converged=False, convergence_criteria_met=True)
     )
 
 

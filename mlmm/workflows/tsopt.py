@@ -244,9 +244,12 @@ def _optimizer_safeguard_payload(optimizer) -> Dict[str, Any]:
 
 
 def _hessian_postprocessing_is_ready(optimizer: Any) -> bool:
-    """Return whether convergence has authorized exact-Hessian work."""
+    """Return whether convergence or a plateau authorizes final PHVA."""
 
-    return bool(getattr(optimizer, "convergence_criteria_met", False))
+    return bool(
+        getattr(optimizer, "is_converged", False)
+        or getattr(optimizer, "is_stalled", False)
+    )
 
 
 def _mirrored_flatten_start(
@@ -373,6 +376,31 @@ def _force_ts_reject_uphill_off(kwargs: Dict[str, Any]) -> Dict[str, Any]:
     effective = dict(kwargs)
     effective["reject_uphill"] = False
     return effective
+
+
+def _resolve_shared_optimizer_value(
+    opt_cfg: Dict[str, Any],
+    downstream_cfg: Dict[str, Any],
+    key: str,
+    *,
+    opt_explicit: bool,
+    downstream_explicit: bool,
+    downstream_default: Any,
+    downstream_section: str,
+) -> None:
+    """Resolve one duplicated optimizer setting without silent precedence."""
+    if opt_explicit and downstream_explicit and opt_cfg[key] != downstream_cfg[key]:
+        raise click.BadParameter(
+            f"opt.{key} and {downstream_section}.{key} conflict."
+        )
+    if opt_explicit:
+        value = opt_cfg[key]
+    elif downstream_explicit:
+        value = downstream_cfg[key]
+    else:
+        value = downstream_default
+    opt_cfg[key] = value
+    downstream_cfg[key] = value
 
 
 def _build_rsirfo_kwargs(
@@ -1394,8 +1422,8 @@ def _finalize_dimer_saddle_status(
     """Record the final exact-Hessian verdict on a dimer runner.
 
     Saddle order is certified by counting every negative root of the exact
-    compact PHVA spectrum. ``neg_freq_thresh_cm`` stays a recovery/reporting
-    threshold and must not weight certification by mode magnitude.
+    compact PHVA spectrum. ``neg_freq_thresh_cm`` only selects modes for
+    animation, flattening, and recovery; it does not affect certification.
     """
 
     neg_idx = np.where(np.asarray(freqs_cm) < 0.0)[0]
@@ -1457,10 +1485,9 @@ class HessianDimer:
                  thresh_loose: str = "gau_loose",
                  thresh: str = "baker",
                  update_interval_hessian: int = 500,
-                 # neg_freq_thresh_cm selects which imaginary modes are reported, exported
-                 # and flattened. Final saddle-order certification does NOT use it: it
-                 # counts every negative root of the exact compact PHVA spectrum. Raising
-                 # this value only hides soft modes from recovery and reporting.
+                 # neg_freq_thresh_cm selects modes for animation, flattening,
+                 # and recovery. Saddle-order certification counts every
+                 # negative root of the exact compact PHVA spectrum.
                  neg_freq_thresh_cm: float = 5.0,
                  flatten_amp_ang: float = 0.10,
                  flatten_max_iter: int = 50,
@@ -1674,7 +1701,6 @@ class HessianDimer:
             "frozen_atoms": self.freeze_atoms,
             "rigid_basis": rigid_basis.detach().cpu().numpy(),
             "rigid_basis_getter": rigid_basis_at,
-            "write_orientations": False,  # runner override to reduce IO
             "seed": 0,                    # runner override for determinism
             "mem": self.mem,              # accepted by Calculator base through **kwargs
             "out_dir": str(self.out_dir),
@@ -2258,6 +2284,12 @@ class HessianDimer:
                     )
                     break
 
+                if (self.max_total_cycles - self._cycles_spent) <= 0:
+                    self.flatten_skip_reason = (
+                        "max-cycles budget exhausted during flattening"
+                    )
+                    break
+
                 if self.flatten_loop_bofill:
                     # (g) Update across the optimization displacement.
                     x_after_opt = self.geom.cart_coords.copy().reshape(-1)
@@ -2322,8 +2354,15 @@ class HessianDimer:
         atoms_final = Atoms(self.geom.atoms, positions=(self.geom.coords3d * BOHR2ANG), pbc=False)
         write(final_xyz, atoms_final)
 
+        if not self.is_converged and not self.is_stalled:
+            click.echo(
+                "[tsopt] Convergence criteria were not met; PHVA was not run.",
+                err=True,
+            )
+            return
+
         # Final Hessian → imaginary mode animation
-        if self.skip_final_freq:
+        if self.skip_final_freq and not self.is_stalled:
             click.echo("[tsopt] --skip-final-freq: skipping final frequency analysis and imaginary-mode export.")
             click.echo("[tsopt] WARNING: TS saddle-point order is NOT verified.")
             self.saddle_order_verified = False
@@ -2936,7 +2975,10 @@ hessian_dimer_KW = {
     "dimer": {**DIMER_KW},
     # The dimer rotates the physical gradient into an effective TS force, so
     # physical-energy uphill rejection is not meaningful for its inner LBFGS.
-    "lbfgs": {**LBFGS_KW, "reject_uphill": False},
+    "lbfgs": {
+        **{k: v for k, v in LBFGS_KW.items() if k != "max_cycles"},
+        "reject_uphill": False,
+    },
 }
 
 
@@ -3522,8 +3564,9 @@ def cli(
     geom_cfg: Dict[str, Any] = deepcopy(GEOM_KW)
     calc_cfg: Dict[str, Any] = deepcopy(CALC_KW)
     opt_cfg: Dict[str, Any] = dict(OPT_BASE_KW)
+    opt_cfg["out_dir"] = OUT_DIR_TSOPT
     lbfgs_cfg: Dict[str, Any] = dict(LBFGS_KW)
-    simple_cfg: Dict[str, Any] = dict(hessian_dimer_KW)
+    simple_cfg: Dict[str, Any] = deepcopy(hessian_dimer_KW)
     # Keep the flatten loop off unless enabled by YAML/config or explicit --flatten.
     simple_cfg["flatten_max_iter"] = 0
     rsirfo_cfg: Dict[str, Any] = dict(RSIRFO_KW)
@@ -3546,7 +3589,6 @@ def cli(
         calc_cfg["hessian_calc_mode"] = str(hessian_calc_mode)
     if _is_param_explicit("print_every") and print_every is not None:
         opt_cfg["print_every"] = int(print_every)
-        rsirfo_cfg["print_every"] = int(print_every)
     if _is_param_explicit("max_cycles"):
         opt_cfg["max_cycles"] = int(max_cycles)
     if _is_param_explicit("dump"):
@@ -3555,8 +3597,6 @@ def cli(
         opt_cfg["out_dir"] = out_dir
     if _is_param_explicit("thresh") and thresh is not None:
         opt_cfg["thresh"] = str(thresh)
-        simple_cfg["thresh"] = str(thresh)
-        rsirfo_cfg["thresh"] = str(thresh)
     # --stop-plateau* rides the shared `opt` block, which the RS-I-RFO/RS-P-RFO
     # macro now reads. The dimer's inner L-BFGS takes `hessian_dimer.lbfgs`
     # alone and inherits nothing from `opt`, so it is written here too. The MM
@@ -3569,11 +3609,8 @@ def cli(
     if stop_plateau_window is not None:
         _cli_plateau["energy_plateau_window"] = int(stop_plateau_window)
     if _cli_plateau:
-        _cli_dimer_lbfgs = dict(simple_cfg.get("lbfgs", {}))
         for _plateau_key, _plateau_val in _cli_plateau.items():
             opt_cfg[_plateau_key] = _plateau_val
-            _cli_dimer_lbfgs[_plateau_key] = _plateau_val
-        simple_cfg["lbfgs"] = _cli_dimer_lbfgs
     if _is_param_explicit("cli_coord_type") and cli_coord_type is not None:
         geom_cfg["coord_type"] = str(cli_coord_type).lower()
     # Handle --flatten/--no-flatten CLI toggle
@@ -3640,58 +3677,79 @@ def cli(
             (rsirfo_cfg, (("rsirfo",),)),
         ],
     )
-    # Shared ``opt.energy_plateau*`` settings are part of the TSOPT contract.
-    # Route only explicitly configured values, while a setting in the effective
-    # optimizer-specific section keeps precedence at the same or an earlier
-    # YAML layer.
-    plateau_keys = (
-        "energy_plateau",
-        "energy_plateau_thresh",
-        "energy_plateau_window",
-    )
-    simple_lbfgs = dict(simple_cfg.get("lbfgs", {}))
-    for key in plateau_keys:
-        config_shared = yaml_section_has_key(
-            config_layer_cfg, (("opt",),), key
+    def _yaml_has(paths: Tuple[Tuple[str, ...], ...], key: str) -> bool:
+        return yaml_section_has_key(config_layer_cfg, paths, key) or yaml_section_has_key(
+            override_layer_cfg, paths, key
         )
-        override_shared = yaml_section_has_key(
-            override_layer_cfg, (("opt",),), key
-        )
-        config_rsirfo = yaml_section_has_key(
-            config_layer_cfg, (("rsirfo",),), key
-        )
-        override_rsirfo = yaml_section_has_key(
-            override_layer_cfg, (("rsirfo",),), key
-        )
-        config_dimer = yaml_section_has_key(
-            config_layer_cfg, (("hessian_dimer", "lbfgs"),), key
-        )
-        override_dimer = yaml_section_has_key(
-            override_layer_cfg, (("hessian_dimer", "lbfgs"),), key
-        )
-        if override_shared or config_shared:
-            lbfgs_cfg[key] = opt_cfg[key]
-        if (
-            (override_shared and not override_rsirfo)
-            or (
-                not override_shared
-                and not override_rsirfo
-                and config_shared
-                and not config_rsirfo
+
+    if use_heavy:
+        cli_shared = {
+            "max_cycles": "max_cycles",
+            "dump": "dump",
+            "thresh": "thresh",
+            "out_dir": "out_dir",
+            "print_every": "print_every",
+            "energy_plateau": "stop_plateau",
+            "energy_plateau_thresh": "stop_plateau_thresh",
+            "energy_plateau_window": "stop_plateau_window",
+        }
+        for key in sorted(OPT_BASE_KW.keys() & RSIRFO_KW.keys()):
+            cli_name = cli_shared.get(key)
+            _resolve_shared_optimizer_value(
+                opt_cfg,
+                rsirfo_cfg,
+                key,
+                opt_explicit=(
+                    _yaml_has((("opt",),), key)
+                    or (cli_name is not None and _is_param_explicit(cli_name))
+                ),
+                downstream_explicit=_yaml_has((("rsirfo",),), key),
+                downstream_default=RSIRFO_KW[key],
+                downstream_section="rsirfo",
             )
-        ):
-            rsirfo_cfg[key] = opt_cfg[key]
-        if (
-            (override_shared and not override_dimer)
-            or (
-                not override_shared
-                and not override_dimer
-                and config_shared
-                and not config_dimer
+    else:
+        _resolve_shared_optimizer_value(
+            opt_cfg,
+            simple_cfg,
+            "thresh",
+            opt_explicit=(
+                _yaml_has((("opt",),), "thresh")
+                or _is_param_explicit("thresh")
+            ),
+            downstream_explicit=_yaml_has((("hessian_dimer",),), "thresh"),
+            downstream_default=HESSIAN_DIMER_KW["thresh"],
+            downstream_section="hessian_dimer",
+        )
+        simple_lbfgs = dict(simple_cfg.get("lbfgs", {}))
+        dimer_shared = {
+            "print_every": "print_every",
+            "energy_plateau": "stop_plateau",
+            "energy_plateau_thresh": "stop_plateau_thresh",
+            "energy_plateau_window": "stop_plateau_window",
+        }
+        for key, cli_name in dimer_shared.items():
+            _resolve_shared_optimizer_value(
+                opt_cfg,
+                simple_lbfgs,
+                key,
+                opt_explicit=(
+                    _yaml_has((("opt",),), key)
+                    or _is_param_explicit(cli_name)
+                ),
+                downstream_explicit=_yaml_has(
+                    (("hessian_dimer", "lbfgs"),), key
+                ),
+                downstream_default=hessian_dimer_KW["lbfgs"][key],
+                downstream_section="hessian_dimer.lbfgs",
             )
-        ):
-            simple_lbfgs[key] = opt_cfg[key]
-    simple_cfg["lbfgs"] = simple_lbfgs
+        simple_cfg["lbfgs"] = simple_lbfgs
+
+    if _yaml_has((("hessian_dimer", "lbfgs"),), "max_cycles"):
+        raise click.BadParameter(
+            "hessian_dimer.lbfgs.max_cycles is not configurable; "
+            "use opt.max_cycles."
+        )
+
     # A TS search follows a saddle-search direction, so physical energy is not
     # required to decrease. Keep this invariant after every YAML merge.
     opt_cfg["reject_uphill"] = False
@@ -4086,8 +4144,10 @@ def cli(
             hessian_postprocessing_ready = _hessian_postprocessing_is_ready(
                 last_optimizer
             )
-            _do_final_freq = not skip_final_freq and hessian_postprocessing_ready
-            if skip_final_freq:
+            _do_final_freq = hessian_postprocessing_ready and (
+                not skip_final_freq or getattr(last_optimizer, "is_stalled", False)
+            )
+            if skip_final_freq and not getattr(last_optimizer, "is_stalled", False):
                 click.echo("[tsopt] --skip-final-freq: skipping post-convergence frequency analysis and flatten loop.")
                 click.echo("[tsopt] WARNING: TS saddle-point order is NOT verified.")
             elif not hessian_postprocessing_ready:

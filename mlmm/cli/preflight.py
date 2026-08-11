@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import importlib
-import shutil
 from pathlib import Path
-from typing import Iterable, Mapping
+from typing import Iterable
 
 import click
 
@@ -37,52 +35,3 @@ def validate_existing_files(
             raise click.BadParameter(msg)
         out.append(p)
     return out
-
-
-def ensure_commands_available(commands: Iterable[str], *, context: str) -> None:
-    """Raise ClickException when required executables are missing from PATH."""
-    missing = [cmd for cmd in commands if shutil.which(cmd) is None]
-    if not missing:
-        return
-
-    joined = ", ".join(missing)
-    raise click.ClickException(
-        f"[preflight] Missing required command(s) for {context}: {joined}. "
-        "Please ensure they are available on PATH."
-    )
-
-
-def ensure_python_modules_available(
-    modules: Mapping[str, str] | Iterable[str],
-    *,
-    context: str,
-) -> None:
-    """Raise ClickException when required Python modules are unavailable.
-
-    ``modules`` can be either:
-    - ``{\"module\": \"install hint\"}``
-    - ``[\"module1\", \"module2\"]``
-    """
-    if isinstance(modules, Mapping):
-        items = list(modules.items())
-    else:
-        items = [(name, "") for name in modules]
-
-    missing: list[str] = []
-    for module_name, _ in items:
-        try:
-            importlib.import_module(module_name)
-        except (ImportError, ModuleNotFoundError):
-            missing.append(module_name)
-
-    if not missing:
-        return
-
-    hints = []
-    for module_name, hint in items:
-        if module_name in missing and hint:
-            hints.append(f"{module_name}: {hint}")
-    hint_text = f" Hints: {'; '.join(hints)}." if hints else ""
-    raise click.ClickException(
-        f"[preflight] Missing required Python module(s) for {context}: {', '.join(missing)}.{hint_text}"
-    )

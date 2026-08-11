@@ -791,7 +791,7 @@ class Dimer(Calculator):
                 bias_norms = np.linalg.norm(bias_forces, axis=1)
                 bias_norms_str = np.array2string(bias_norms, precision=4)
                 self.log(f"\tnorm(bias_forces)={bias_norms_str}")
-            except np.AxisError:
+            except np.exceptions.AxisError:
                 self.log("Skipping calculation of norm(bias_forces)")
             f0 += np.sum(bias_forces, axis=0)
 

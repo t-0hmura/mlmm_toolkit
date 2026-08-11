@@ -237,6 +237,9 @@ def test_colab_setup_is_pinned_to_matching_release_and_one_backend() -> None:
     assert "installs ambertools/openmm dependencies, mlmm-toolkit, the selected mlip backend" in setup.lower()
     assert "Only the **selected backend** is installed" not in setup
     assert "DFT_SETUP_READY = True" in setup
+    assert "coinor-libipopt-dev" in setup
+    assert "pip('cyipopt')" in setup
+    assert "_missing_dmf" in setup
     assert "_dft_packages = {'pyscf': 'pyscf', 'gpu4pyscf': 'gpu4pyscf-cuda12x'}" in setup
     assert re.search(r"DEBUG_SOURCE_ID = '[0-9a-f]{64}'", setup)
     assert "pip('-e', './' + REPO_DIR + ('[dft]' if install_dft else ''))" in setup
@@ -249,6 +252,60 @@ def test_colab_setup_is_pinned_to_matching_release_and_one_backend() -> None:
         "did not extract the expected source snapshot",
     ):
         assert rejection in setup
+
+
+def test_colab_setup_installs_missing_cyipopt(monkeypatch) -> None:
+    import importlib.metadata
+
+    setup = _notebook()["cells"][1]["source"].replace(
+        "install_dft = True", "install_dft = False", 1
+    )
+    calls: list[list[str]] = []
+    cyipopt_installed = False
+    content_checks = 0
+
+    def fake_run(argv, **_kwargs):
+        nonlocal cyipopt_installed
+        call = [str(value) for value in argv]
+        calls.append(call)
+        if "cyipopt" in call:
+            cyipopt_installed = True
+        return types.SimpleNamespace(stdout="GPU 0", stderr="", returncode=0)
+
+    def fake_find_spec(name):
+        if name == "cyipopt" and not cyipopt_installed:
+            return None
+        return object()
+
+    real_isdir = os.path.isdir
+
+    def fake_isdir(path):
+        nonlocal content_checks
+        if str(path) == "/content":
+            content_checks += 1
+            return content_checks > 1
+        return real_isdir(path)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(importlib.util, "find_spec", fake_find_spec)
+    monkeypatch.setattr(
+        importlib.metadata,
+        "version",
+        lambda name: "0.3.3" if name == "mlmm-toolkit" else "test",
+    )
+    monkeypatch.setattr(os.path, "isdir", fake_isdir)
+
+    exec(compile(setup, str(NOTEBOOK), "exec"), {})
+
+    joined = [" ".join(call) for call in calls]
+    apt_update = next(i for i, call in enumerate(joined) if "apt-get update" in call)
+    apt_ipopt = next(
+        i for i, call in enumerate(joined) if "coinor-libipopt-dev" in call
+    )
+    pip_cyipopt = next(i for i, call in enumerate(joined) if "pip install -q cyipopt" in call)
+    pip_pydmf = next(i for i, call in enumerate(joined) if "pydmf>=1.2" in call)
+    assert apt_update < apt_ipopt < pip_cyipopt < pip_pydmf
+    assert cyipopt_installed
 
 
 def test_colab_setup_dft_branch_installs_extra_and_checks_gpu(monkeypatch, capsys) -> None:
@@ -366,6 +423,7 @@ def test_colab_setup_operates_orb_and_uma_branches(
     fake_hf.notebook_login = lambda: logins.append(("notebook", {}))
     monkeypatch.setitem(sys.modules, "huggingface_hub", fake_hf)
     monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(importlib.util, "find_spec", lambda _name: object())
     monkeypatch.setattr(
         importlib.metadata,
         "version",
@@ -3355,6 +3413,7 @@ def test_colab_uma_login_accepts_a_colab_secret(monkeypatch) -> None:
         subprocess, "run",
         lambda argv, **_kwargs: types.SimpleNamespace(stdout="GPU 0", stderr="", returncode=0),
     )
+    monkeypatch.setattr(importlib.util, "find_spec", lambda _name: object())
     monkeypatch.setattr(
         importlib.metadata, "version",
         lambda name: "0.3.3" if name == "mlmm-toolkit" else "test",
@@ -3377,7 +3436,7 @@ def test_colab_setup_cell_is_frozen() -> None:
     setup = _notebook()["cells"][1]["source"]
     digest = hashlib.sha256(setup.encode("utf-8")).hexdigest()
 
-    assert digest == "01224686caf155a414e72fd69d632cf6376530bd09affc3ecd81dd48f92f4931", (
+    assert digest == "421cca76b82ad76c6c3b91f9c6628a764ecf47a692b46e3ee188e5af623b57fb", (
         "the Colab Setup cell changed; it is frozen for this release. Re-read the "
         "Setup contracts above, then update this digest deliberately. Got: " + digest
     )

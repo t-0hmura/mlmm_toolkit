@@ -1188,23 +1188,6 @@ def write_pdb_as_mmcif(
     )
 
 
-def write_xyz_as_mmcif(
-    xyz_path: Path | str,
-    template: CoordinateTemplate,
-    out_path: Path | str,
-) -> None:
-    from ase.io import read as ase_read
-
-    atoms_frames = ase_read(str(xyz_path), index=":", format="xyz")
-    if not atoms_frames:
-        raise ValueError(f"No coordinate frames found in XYZ/TRJ file: {xyz_path}")
-    write_mmcif_frames(
-        [np.asarray(atoms.get_positions(), dtype=float) for atoms in atoms_frames],
-        template,
-        out_path,
-    )
-
-
 def register_output_template_and_write_cif(
     pdb_path: Path | str,
     template: Optional[CoordinateTemplate],

@@ -257,7 +257,7 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) → `--opt-mode` (on
 | Option | Description | Default |
 | --- | --- | --- |
 | `-s, --scan-lists TEXT...` | Staged scans: `(i, j, target_Å)` tuples. | _None_ |
-| `--scan-out-dir PATH` | Override the scan output directory. | _None_ |
+| `--scan-out-dir PATH` | Override the scan output directory. | `<out-dir>/_work/scan` |
 | `--scan-one-based / --scan-zero-based` | Interpret scan atom indices as 1-based or 0-based. | _None_ |
 | `--scan-max-step-size FLOAT` | Maximum step size (Å). | _Default_ |
 | `--scan-bias-k FLOAT` | Harmonic bias strength (eV / Å²). | _Default_ |

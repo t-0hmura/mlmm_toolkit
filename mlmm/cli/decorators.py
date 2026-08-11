@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 from collections.abc import Mapping
 from copy import deepcopy
 import logging
@@ -66,15 +65,6 @@ def parse_bool(value: Any) -> bool:
     if text in _FALSE_VALUES:
         return False
     raise ValueError(f"Invalid boolean value: {value!r}. Use True/False.")
-
-
-def argparse_bool(value: str) -> bool:
-    """argparse-compatible boolean parser using parse_bool()."""
-    try:
-        return parse_bool(value)
-    except ValueError as e:
-        raise argparse.ArgumentTypeError(str(e))
-
 
 
 def resolve_yaml_sources(

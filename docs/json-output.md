@@ -136,8 +136,8 @@ An optimizer may also report `"status": "stalled"`: the energy stopped decreasin
 |-------|------|-------------|
 | `status` | string | `"converged"` only when the optimizer converged and `n_imaginary_modes == 1`; otherwise `"not_converged"`, or `"unverified"` with `--skip-final-freq`. An energy-plateau `"stalled"` outcome (see above) wins over all of these and is never reported as `converged`; the dimer (grad) mode also reports `stalled`. |
 | `energy_hartree` | float | TS energy (Hartree) |
-| `n_imaginary_modes` | int\|null | Number of imaginary frequencies; `null` when convergence was not reached and PHVA was not run |
-| `imaginary_frequencies_cm` | float[]\|null | Imaginary frequencies (cm$^{-1}$, negative); `null` when a Hessian-family run never reached convergence and PHVA was not run |
+| `n_imaginary_modes` | int\|null | Number of imaginary frequencies; `null` if PHVA was not run |
+| `imaginary_frequencies_cm` | float[]\|null | Imaginary frequencies (cm$^{-1}$, negative); `null` if PHVA was not run |
 | `opt_mode` | string | One of `"grad"`, `"hess"`, `"light"`, `"heavy"`, `"dimer"`, `"rsirfo"`, `"trim"`, `"rsprfo"` (aliases: `light`/`dimer` → `grad` (PHG-Dimer); `heavy`/`rsirfo` → `hess` (RS-I-RFO); `trim` → TRIM; `rsprfo` → RS-P-RFO) |
 | `n_atoms` | int | Total atoms |
 | `n_opt_cycles` | int | Optimization cycles |

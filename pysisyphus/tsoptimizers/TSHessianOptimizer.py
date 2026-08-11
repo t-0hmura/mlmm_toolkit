@@ -264,7 +264,6 @@ class TSHessianOptimizer(HessianOptimizer):
         self.negative_mode_seen = False
         self.rejected_mode_loss_steps = 0
         self.mode_loss_rejections_at_floor = 0
-        self.convergence_criteria_met = False
         self.exact_saddle_checks = 0
         self.saddle_recovery_cycles = 0
         self.saddle_recovery_steps = 0
@@ -820,7 +819,7 @@ class TSHessianOptimizer(HessianOptimizer):
                 self.higher_order_saddle_checks = 0
             self.table.print(
                 "Exact optimizer-space saddle validation: "
-                f"n_negative={negative_count}."
+                f"n_imag={negative_count}."
             )
             if self._last_exact_target_mode_reanchored:
                 self.table.print(
@@ -1059,9 +1058,7 @@ class TSHessianOptimizer(HessianOptimizer):
             mode_np = mode_arr
         self._last_recovery_mode_curvature = curvature
 
-        # Use the same physical frequency threshold as exact PHVA.  Testing
-        # only curvature < 0 would immediately accept a sub-threshold soft
-        # mode that final frequency analysis intentionally discards.
+        # Do not treat a sub-threshold soft trial direction as recovered.
         if self.geometry.coord_type in ("cart", "cartesian"):
             from ase import units
             from pysisyphus.constants import AU2EV, BOHR2ANG
@@ -1209,7 +1206,6 @@ class TSHessianOptimizer(HessianOptimizer):
                 H, self._physical_ts_mode
             )
 
-        exact_checked = False
         if has_negative:
             # For a path-guided run that started in a convex region, a
             # quasi-Newton eigenvalue can flicker negative before the physical
@@ -1219,7 +1215,6 @@ class TSHessianOptimizer(HessianOptimizer):
             if (
                 self.reference_mode is None
                 or self.negative_mode_seen
-                or exact_checked
                 or recovery_active_at_entry
                 or self._physical_ts_mode is not None
             ):
@@ -1273,7 +1268,6 @@ class TSHessianOptimizer(HessianOptimizer):
                     ) = self._refresh_and_verify_exact_saddle_model(
                         -np.asarray(self.forces[-1])
                     )
-                    exact_checked = True
                     resetted = True
                     if has_negative and not self.stop_requested:
                         self.negative_mode_seen = True
@@ -1329,7 +1323,7 @@ class TSHessianOptimizer(HessianOptimizer):
                             "exact-Hessian saddle recovery did not regain "
                             "negative curvature"
                         )
-        elif can_reject_trial and not exact_checked:
+        elif can_reject_trial:
             return self._reject_lost_mode_trial(snapshot)
 
         return energy, gradient, H, eigvals, eigvecs, resetted
@@ -1384,8 +1378,6 @@ class TSHessianOptimizer(HessianOptimizer):
     def validate_terminal_saddle_for_step(self, step):
         """Run exact PHVA after the actual step satisfies convergence criteria."""
         criteria_met = self._all_configured_values_met(step)
-        if criteria_met:
-            self.convergence_criteria_met = True
         if (
             self.verify_saddle
             and not self._saddle_recovery_active
@@ -1454,8 +1446,7 @@ class TSHessianOptimizer(HessianOptimizer):
         # The TS optimizer owns saddle-recovery vs. energy-plateau precedence,
         # so it always suppresses the base plateau stall (allow_stall=False),
         # decides exact-saddle convergence/recovery first, and only then
-        # finalizes a stall if the requested curvature is present while the
-        # configured current force/step criteria fail.
+        # applies the configured plateau stop.
         kwargs = dict(kwargs)
         outer_allow_stall = kwargs.pop("allow_stall", True)
         base_converged, conv_info = super().check_convergence(
@@ -1485,11 +1476,7 @@ class TSHessianOptimizer(HessianOptimizer):
                 exact_current_saddle,
             )
             converged = bool(exact_current_saddle and terminal_criteria)
-            if not converged and outer_allow_stall and exact_current_saddle:
-                # Required curvature is present (a verified first-order saddle
-                # at these exact coordinates) but the energy is flat while the
-                # configured current force/step criteria fail: this is a
-                # stall, never a converged saddle.
+            if not converged and outer_allow_stall:
                 self._maybe_request_energy_plateau_stall(
                     conv_info, curvature_ok=True
                 )
@@ -1738,17 +1725,10 @@ class TSHessianOptimizer(HessianOptimizer):
         poly_fit_kwargs = {
             "e0": e0,
             "e1": e1,
-            "g0": g0,
-            "g1": g1,
+            "g0": prev_step.dot(g0),
+            "g1": prev_step.dot(g1),
             "maximize": maximize,
         }
-        if not maximize:
-            poly_fit_kwargs.update(
-                {
-                    "g0": prev_step.dot(g0),
-                    "g1": prev_step.dot(g1),
-                }
-            )
         prefix = "Max" if maximize else "Min"
 
         fit_result = poly_fit.quartic_fit(**poly_fit_kwargs)
@@ -1757,7 +1737,7 @@ class TSHessianOptimizer(HessianOptimizer):
         fit_step = None
         if fit_result and (0.0 < fit_result.x <= 2.0):
             x = fit_result.x
-            log(logger, f"{prefix}-subpsace interpolation succeeded: x={x:.6f}")
+            log(logger, f"{prefix}-subspace interpolation succeeded: x={x:.6f}")
             fit_energy = fit_result.y
             fit_step = (1 - x) * -prev_step
             fit_grad = (1 - x) * g0 + x * g1
@@ -1784,13 +1764,12 @@ class TSHessianOptimizer(HessianOptimizer):
                 prev_gradient_trans = eigvecs.T.dot(prev_gradient)
                 prev_step = self.steps[-1]
                 prev_step_trans = eigvecs.T.dot(prev_step)
-            # Will be raised when coordinates were rebuilt and the array shapes differe.
+            # Coordinates may have been rebuilt with a different array shape.
             except ValueError:
                 return ip_step, ip_gradient_trans
 
         if self.max_line_search and self.cur_cycle > 0:
             # Max subspace
-            # max_energy, max_gradient, max_step = self.do_max_line_search(
             max_energy, max_gradient, max_step = self.do_line_search(
                 prev_energy,
                 energy,

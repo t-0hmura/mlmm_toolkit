@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 
-from mlmm.io.trj2fig import read_energies_xyz
 from mlmm.io.xyz_trajectory import (
     parse_xyz_energy_comment,
     read_xyz_trajectory,
@@ -119,16 +118,6 @@ def test_xyz_reader_validates_blocks_and_can_keep_missing_energies(
     ]
     with pytest.raises(RuntimeError, match="frame 1"):
         read_xyz_trajectory(trajectory, require_energies=True)
-
-
-def test_trj2fig_uses_the_same_strict_energy_parser(tmp_path: Path) -> None:
-    trajectory = tmp_path / "trajectory.xyz"
-    trajectory.write_text(
-        "1\n-100.0\nH 0.0 0.0 0.0\n"
-        "1\nframe 1 E=-99.5\nH 0.1 0.0 0.0\n",
-        encoding="utf-8",
-    )
-    assert read_energies_xyz(trajectory) == [-100.0, -99.5]
 
 
 @pytest.mark.parametrize(

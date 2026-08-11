@@ -17,19 +17,19 @@ mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.pdb --model-pdb ml_regi
 ```bash
 # メソッドを明示して出力。
 mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
- -o system.com --method "wB97XD/def2-TZVPD"
+ -o system.com -q 0 --method "wB97XD/def2-TZVPD"
 ```
 
 ```bash
 # 元素順チェックを無効化。
 mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.xyz --model-pdb ml_region.pdb \
- -o system.gjf --no-element-check
+ -o system.gjf -q 0 --no-element-check
 ```
 
 ```bash
 # 実行環境パラメータを調整。
 mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
- -o system.com --nproc 16 --mem 32GB --near 5.0
+ -o system.com -q 0 --nproc 16 --mem 32GB --near 5.0
 ```
 
 ## 処理の流れ

@@ -18,12 +18,6 @@ def _parse_bool():
     return parse_bool
 
 
-@pytest.fixture
-def _argparse_bool():
-    from mlmm.cli.decorators import argparse_bool
-    return argparse_bool
-
-
 class TestParseBool:
     @pytest.mark.parametrize("value", ["true", "True", "TRUE", "1", "yes", "y", "t"])
     def test_true_values(self, value, _parse_bool):
@@ -40,14 +34,3 @@ class TestParseBool:
     def test_invalid_raises(self, _parse_bool):
         with pytest.raises(ValueError, match="Invalid boolean"):
             _parse_bool("maybe")
-
-
-class TestArgparseBool:
-    def test_valid(self, _argparse_bool):
-        assert _argparse_bool("true") is True
-        assert _argparse_bool("false") is False
-
-    def test_invalid_raises_argparse_error(self, _argparse_bool):
-        import argparse
-        with pytest.raises(argparse.ArgumentTypeError):
-            _argparse_bool("invalid")

@@ -58,7 +58,7 @@ CALC_SUBCOMMANDS = [
 
 UTILITY_SUBCOMMANDS = [
     ("mm-parm", "-o, --out-prefix", "--keep-temp"),
-    ("define-layer", "--model-pdb", "--radius-partial-hessian"),
+    ("define-layer", "--model-pdb", "--radius-freeze"),
     ("add-elem-info", "-o, --out", "--overwrite"),
     ("trj2fig", "--unit", "--backend-model"),
     ("energy-diagram", "-o, --output", "--label-x"),
@@ -120,6 +120,14 @@ def test_main_help(runner, cli_group):
     assert result.exit_code == 0
     assert "all" in result.output
     assert "opt" in result.output
+
+
+def test_define_layer_rejects_removed_partial_hessian_option(runner, cli_group):
+    result = runner.invoke(
+        cli_group, ["define-layer", "--radius-partial-hessian", "4.0"]
+    )
+    assert result.exit_code != 0
+    assert "No such option: --radius-partial-hessian" in result.output
 
 
 def test_all_help_progressive_disclosure(runner, cli_group):

@@ -27,6 +27,7 @@ from pysisyphus.intcoords.setup_fast import find_bonds, find_bonds_for_geom
 from pysisyphus.intcoords.update import transform_int_step, update_internals
 from pysisyphus.io.qcschema import geom_from_qcschema
 from pysisyphus.Geometry import Geometry, get_trans_rot_vectors
+from pysisyphus.calculators.Dimer import Dimer
 import pysisyphus.normal_modes as nm
 from pysisyphus.irc.EulerPC import EulerPC
 from pysisyphus.irc.DWI import DWI
@@ -52,6 +53,7 @@ from pysisyphus.optimizers.HessianOptimizer import dummy_hessian_update
 from pysisyphus.optimizers.poly_fit import quartic_fit
 from pysisyphus.modefollow.lanczos import lanczos
 from pysisyphus.tsoptimizers.RSPRFOptimizer import RSPRFOptimizer
+from pysisyphus.tsoptimizers.TSHessianOptimizer import TSHessianOptimizer
 from thermoanalysis.constants import AMU2KG, C, KB, PLANCK, R
 from thermoanalysis.thermo import (
     chai_head_gordon_weights,
@@ -59,6 +61,49 @@ from thermoanalysis.thermo import (
     vibrational_heat_capacity,
     vibrational_part_funcs,
 )
+
+
+def test_dimer_bias_force_norm_axis_error_keeps_translation_step(
+    monkeypatch,
+) -> None:
+    dimer = object.__new__(Dimer)
+    dimer.freeze_atoms = np.empty(0, dtype=int)
+    dimer.rigid_basis = None
+    dimer.rigid_basis_getter = None
+    dimer.rotation_remove_trans = False
+    dimer._coords0 = None
+    dimer._energy0 = None
+    dimer._f0 = None
+    dimer._f1 = None
+    dimer.force_evals = 0
+    dimer.N = np.array([1.0, 0.0, 0.0])
+    dimer.rotation_disable = True
+    dimer.rotation_disable_pos_curv = True
+    dimer.write_orientations = False
+    dimer.length = 0.1
+    dimer.bias_translation = True
+    dimer.curvature = lambda *_args: 1.0
+    dimer.calculator = SimpleNamespace(
+        get_energy=lambda _atoms, _coords: {"energy": 0.0},
+        get_forces=lambda _atoms, _coords: {
+            "energy": 0.0,
+            "forces": np.array([1.0, 0.0, 0.0]),
+        },
+    )
+    dimer.gaussians = []
+    dimer.get_gaussian_energies = lambda _coords: 0.0
+    dimer.get_gaussian_forces = lambda _coords, sum_: np.zeros(3)
+    dimer.trans_force_f_perp = True
+    dimer.calc_counter = 0
+    messages = []
+    dimer.log = lambda message="": messages.append(message)
+    dimer.make_fn = lambda name: name
+    monkeypatch.setattr(np, "savetxt", lambda *args, **kwargs: None)
+
+    result = dimer.get_forces(["H"], np.zeros(3))
+
+    np.testing.assert_allclose(result["forces"], [-1.0, 0.0, 0.0])
+    assert "Skipping calculation of norm(bias_forces)" in messages
 
 
 def _qcschema_payload() -> dict:
@@ -494,6 +539,64 @@ def test_growing_string_reparametrization_guards_zero_density() -> None:
     assert GrowingString._reparam_step_fraction(0.0, 0.0, 1.0e-3) is None
     with pytest.raises(ValueError, match="coincident parameter densities"):
         GrowingString._reparam_step_fraction(0.1, 0.0, 1.0e-3)
+
+    class Image:
+        coords = np.zeros(1)
+
+        def copy(self, **_kwargs):
+            return self
+
+        def __sub__(self, _other):
+            return np.zeros(1)
+
+    string = SimpleNamespace(
+        images=[Image(), Image()],
+        lf_ind=0,
+        sk=0.1,
+        get_cur_param_density=lambda: np.zeros(2),
+        reset_geometries=lambda _image: None,
+    )
+    with pytest.raises(ValueError, match="zero path density"):
+        GrowingString.get_new_image(string, 0)
+
+
+def test_max_line_search_projects_endpoint_gradients(monkeypatch) -> None:
+    captured = {}
+
+    def capture_fit(**kwargs):
+        captured.update(kwargs)
+        return None
+
+    monkeypatch.setattr(
+        "pysisyphus.tsoptimizers.TSHessianOptimizer.poly_fit.quartic_fit",
+        capture_fit,
+    )
+    step = np.array([0.5, -0.25])
+    g0 = np.array([2.0, 4.0])
+    g1 = np.array([-3.0, 1.0])
+    optimizer = SimpleNamespace(
+        max_line_search=True,
+        min_line_search=False,
+        cur_cycle=1,
+        energies=[0.0, 0.2],
+        forces=[-g0, -g1],
+        steps=[step],
+        logger=None,
+        do_line_search=TSHessianOptimizer.do_line_search,
+    )
+
+    TSHessianOptimizer.step_and_grad_from_line_search(
+        optimizer,
+        0.2,
+        g1,
+        np.eye(2),
+        np.array([], dtype=int),
+        np.array([0, 1]),
+    )
+
+    assert captured["g0"] == pytest.approx(step.dot(g0))
+    assert captured["g1"] == pytest.approx(step.dot(g1))
+    assert captured["maximize"] is True
 
 
 def test_growing_string_rejects_fewer_than_two_nodes() -> None:

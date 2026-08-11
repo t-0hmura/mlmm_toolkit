@@ -30,12 +30,6 @@ LINE_WIDTH = 2         # curve width
 MARKER_SIZE = 6        # marker size
 
 
-def read_energies_xyz(fname: Path | str) -> List[float]:
-    """Extract Hartree energies with the strict shared XYZ parser."""
-    parsed = read_xyz_trajectory(fname, require_energies=True)
-    return [float(value) for value in parsed["energies_ha"]]
-
-
 def recompute_energies(
     traj_path: Path,
     charge: Optional[int],

@@ -450,7 +450,7 @@ DIMER_KW: Dict[str, Any] = {
     "bias_translation": False,
     "bias_gaussian_dot": 0.1,
     "seed": None,
-    "write_orientations": True,
+    "write_orientations": False,
     "forward_hessian": True,
 }
 

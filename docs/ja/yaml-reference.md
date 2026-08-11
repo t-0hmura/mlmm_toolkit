@@ -184,10 +184,7 @@ opt:
 | `gau_vtight` | 2.0e-6 | 1.0e-6 | 6.0e-6 | 4.0e-6 |
 | `baker` | 3.0e-4 | 2.0e-4 | 3.0e-4 | 2.0e-4 |
 
-`baker` は4列すべてを同時に要求するプリセットではありません。
-`max(|force|) <= 3e-4` **かつ**（`|delta E| < 1e-6` **または**
-`max(|step|) <= 3e-4`）で収束します。RMS force と RMS step の列は診断値であり、
-追加の終了条件ではありません。
+`baker` は5基準すべてを要求します。`|delta E| < 1e-6` に加え、max/RMS force と max/RMS step がすべて閾値を満たす必要があります。
 
 **エネルギープラトー停止（opt-in、デフォルト無効）:**
 
@@ -358,14 +355,14 @@ search:
 
 ### `hessian_dimer`
 
-Hessian・ダイマー TS 最適化（`tsopt --opt-mode grad`）。
+Hessian・ダイマー TS 最適化（`tsopt --opt-mode grad`）。`opt.thresh` と `hessian_dimer.thresh` を両方明示する場合は同じ値にしてください。片方だけならその値、無指定なら Dimer のデフォルトを使います。
 
 ```yaml
 hessian_dimer:
  thresh_loose: gau_loose # 緩い収束プリセット
  thresh: baker # メイン収束プリセット
  update_interval_hessian: 500 # Hessian再構築間隔
- neg_freq_thresh_cm: 5.0 # 負振動数閾値 (cm^-1)
+ neg_freq_thresh_cm: 5.0 # 動画出力・平坦化で無視する微小モードの閾値 (cm^-1)
  flatten_amp_ang: 0.1 # フラット化振幅 (Å)
  flatten_max_iter: 50 # フラット化反復上限（デフォルト 50、--no-flatten で 0 に設定）
  flatten_sep_cutoff: 0.0 # 代表原子間の最小距離
@@ -394,17 +391,17 @@ hessian_dimer:
  bias_translation: false # 並進探索のバイアス
  bias_gaussian_dot: 0.1 # ガウスバイアスの内積
  seed: null # 回転の乱数シード
- write_orientations: true # 回転方向の書き出し
+ write_orientations: false # 回転方向の書き出し（明示的な true も可）
  forward_hessian: true # Hessianの前方伝搬
  lbfgs:
  # lbfgs セクションと同じキー
  thresh: baker
- max_cycles: 10000
 ```
 
 **注記:**
 - 通常の TSOPT 省略時は flattening が無効で実効反復数は 0 です。有効化した場合の上限を `flatten_max_iter` が制御し、そのデフォルトは 50 です。
 - CLI フラグ `--flatten` / `--no-flatten`（`tsopt` および `all`）はこの設定と連動します。`--flatten` はデフォルトの `flatten_max_iter`（50）でフラットニングループを有効化し、`--no-flatten` は `flatten_max_iter` を 0 に強制してループを無効化します。`--flatten` と同時に YAML で `flatten_max_iter` を明示指定した場合は、YAML の値が優先されます。
+- 内側の L-BFGS 固有設定は、最上位の `lbfgs` ではなく `hessian_dimer.lbfgs` に置きます。共通の `print_every` と `energy_plateau*` は上記の競合規則に従い、`line_search` は独立です。`max_cycles` は設定できず、各 segment には `opt.max_cycles` の残り cycle 数が渡されます。
 
 ---
 
@@ -415,7 +412,7 @@ RS-I-RFO TS 最適化（`tsopt --opt-mode hess`）。
 ```yaml
 rsirfo:
  thresh: baker # RS-I-RFO 収束プリセット
- max_cycles: 10000 # 反復上限
+ max_cycles: 10000 # opt.max_cycles と共有。異なる明示値はエラー
  print_every: 100 # ログ出力間隔
  min_step_norm: 1.0e-08 # 最小ステップノルム
  assert_min_step: true # ステップ停滞時にアサート
@@ -444,6 +441,8 @@ rsirfo:
 
 `min_line_search` と `max_line_search` を使用するのは
 `--opt-mode rsprfo` だけで、YAML の明示値を反映します。
+
+`opt` と `rsirfo` に同じ設定を明示する場合は値を一致させてください。片方だけならその値、無指定なら `rsirfo` のデフォルトを使います。
 
 ---
 
@@ -582,7 +581,7 @@ microiter:
 
 **注意:**
 - CLIフラグ `--microiter` / `--no-microiter` で有効化（デフォルト: 有効）
-- `opt`（`--opt-mode hess`）および `tsopt`（`--opt-mode hess`）で使用可能
+- `opt --opt-mode hess` と、すべての Hessian TS mode（`hess`, `rsirfo`, `rsprfo`, `trim`）で使用可能
 - `micro_thresh` は `opt.thresh` と同じプリセット（gau_loose, gau, gau_tight等）を受け付けます。`null` または省略時はマクロステップの閾値と同じになります
 
 ---

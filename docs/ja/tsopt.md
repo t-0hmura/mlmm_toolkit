@@ -7,7 +7,7 @@
 RS-P-RFO（`rsprfo`）、TRIM（`trim`）を提供します。
 
 - **RS-I-RFO**（`--opt-mode hess`）はデフォルトで、Hessian 計算のコストを許容できる場合の保守的な選択肢です。マイクロイテレーション（`--microiter`、デフォルト有効）が ML 1 ステップ RS-I-RFO と MM L-BFGS 緩和を交互に実行します。
-- **Hessian-Guided Dimer**（`--opt-mode grad`）はより軽量な代替で、低コストな探索や複数の TS 推測構造からの素早い反復に向きます。`--ml-only-hessian-dimer` を付けると ML 領域のみの Hessian を Dimer 方向決定に使用できます（高速）。
+- **Hessian-Guided Dimer**（`--opt-mode grad`）は初期および定期的な方向決定 Hessian を使うため、自由度の多い系ではランダムな初期方向より頑健です。`--ml-only-hessian-dimer` を付けると ML 領域のみの Hessian を Dimer 方向決定に使用できます（高速）。
 
 `tsopt` は、YAML 上書き後も鞍点探索を担う RFO 系および Dimer
 optimizer の `reject_uphill` を常に `false` に固定します。TS 探索では
@@ -16,7 +16,7 @@ optimizer の `reject_uphill` を常に `false` に固定します。TS 探索�
 IRC 後エンドポイント再最適化）だけに適用されます。マイクロイテレーション
 内部の MM-only 緩和は最小化の部分問題なので、この区別を維持します。
 
-収束後は `--flatten` の余剰虚モード除去ループが質量重み付け変位で余分な負のモードを整理します。検証済み TS は**正確に 1 つ**の虚振動数を示すべきで、必ず [`freq`](freq.md) / [`irc`](irc.md) でモードと結合性を確認してください。
+収束後は `--flatten` の余剰虚モード除去ループが質量重み付け変位で余分な負のモードを整理します。TS 最適化が成功すると反応座標に対応する虚振動が 1 つ得られます。[`irc`](irc.md) で結合性も確認してください。
 
 ## まず TS 候補を構築する
 
@@ -37,7 +37,7 @@ mlmm scan -i r.pdb --parm enzyme.parm7 -l 'LIG:Q' \
 ```
 
 ```{note}
-`opt --restraint` フラグは存在しません。素の [`opt`](opt.md) は*拘束なし*のオプティマイザです。TS 候補の拘束付き構築は [`scan`](scan.md)（距離を駆動）または [`path-search`](path-search.md)（経路 a）で行います。
+`opt --restraint` フラグは存在しません。拘束付きの極小化には [`opt`](opt.md) の `--dist-freeze` を使い、強さを `--bias-k` で指定します。TS 候補へ距離を駆動する場合は [`scan`](scan.md)、経路を構築する場合は [`path-search`](path-search.md) を使います。
 ```
 
 ## 虚振動数の数が正しくないとき
@@ -86,30 +86,12 @@ mlmm tsopt -i ts_guess.pdb --parm enzyme.parm7 -l 'LIG:Q' -b uma \
 ## 対照を揃えた変異体 vs 野生型（あるいは機構 vs 機構）の比較
 
 ```{important}
-変異体 vs 野生型（あるいは機構 vs 機構）のバリア比較では、**比較するすべてのモデルが同じ原子集合 — 原子数と残基が同一 — を使わなければなりません。** さもないとエネルギー基準が異なり、対照実験として成立しません。変異体上で幾何学的に再導出した ML/可動/凍結分割は、見かけの軟モードも生みます（`tsopt.n_imaginary ≥ 2`、いずれも微小 → IRC が中断）。
+変異体と野生型では、それぞれの系内で求めた活性化エネルギーまたは
+自由エネルギー障壁を比較します。組成が異なる系の絶対エネルギーを直接
+差し引いてはいけません。
 ```
 
-mlmm では、**野生型の B 因子レイヤーエンコーディングを変異構造に移植**し `--detect-layer` で実行することで、野生型の ML/MM レイヤリングを保持します。
-
-| 手順 | 操作 |
-| --- | --- |
-| 1 | 変異体を構築。残基集合は野生型と同じに保つ（変異残基の種類だけが異なる）。 |
-| 2 | 野生型の原子ごとの B 因子レイヤーコードを `(resid, atom-name)` で変異体にコピー: **ML = 0.0、MovableMM = 10.0、FrozenMM = 20.0**。 |
-| 3 | `--detect-layer`（デフォルト有効）で実行し、*同一の*レイヤー割り当てを再利用する。 |
-
-```bash
-mlmm all -i mutant_layered.pdb -l 'LIG:Q' \
-    --tsopt --thermo -o result_mutant
-```
-
-| フラグ | 操作 | 理由 |
-| --- | --- | --- |
-| `--detect-layer` | 維持（デフォルト `True`） | 移植した B 因子を読み、ML / 可動 / 凍結レイヤーを野生型と完全に同一にする |
-| `-c/--center`、`-r/--radius` | **省略** | 幾何学的抽出は変異体上で*異なる*ポケットを再導出してしまう。`-c` を省くと抽出をスキップし、構造をそのまま使う |
-| `-l/--ligand-charge` | 維持 | 非標準リガンドの電荷は標準アミノ酸表にない。`-l 'RES:Q'` が総電荷を自動導出（ハードコードの `-q` より推奨） |
-| `--movable-cutoff` | 渡さない | `--detect-layer` を無効化する |
-
-同じ原子集合の原則は、同一酵素上で 2 つの機構を比較するときも同様に適用されます。両モデルで原子集合を同一に保ち、反応座標だけを変えます。
+ML/MM backend、力場、収束基準、熱化学条件、温度を揃え、化学的に対応する ML/可動領域を定義します。変異で追加・削除された原子は明示的に割り当て、各系の電荷と多重度を個別に決めてください。各 TS は虚振動 1 つ、その変位、IRC endpoint の化学種を独立に検証します。
 
 ## 実行例
 
@@ -149,7 +131,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 4. **Heavy モード（RS-I-RFO）:**
    - RS-I-RFO オプティマイザを、`rsirfo` YAML セクションで定義されたオプションの Hessian 参照ファイルとマイクロサイクル制御とともに実行します。
    - `--flatten` が有効で収束後に 2 つ以上の虚振動数モードが残る場合、余分なモードを平坦化し、1 つだけ残るか平坦化反復上限に達するまで RS-I-RFO を再実行します。
-5. **モードエクスポートと変換** — 収束した虚振動数モードは常に `vib/imag_*_trj.xyz` に書き出され、入力が PDB で変換が有効な場合は `.pdb` にもミラーリングされます。最適化軌跡と最終ジオメトリも `--dump` 時に入力テンプレート経由で PDB に変換されます。
+5. **モードエクスポートと変換** — 最終振動解析で得た虚振動数モードを `vib/imag_*_trj.xyz` に書き出し、PDB 入力で変換が有効なら `.pdb` にもミラーリングします。絶対値が設定値（デフォルト 5 cm⁻¹）未満の微小モードは動画出力では無視しますが、虚振動数には含めます。最適化軌跡と最終ジオメトリも `--dump` 時に入力テンプレート経由で PDB に変換されます。
 
 ## 出力
 
@@ -157,9 +139,9 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 optimizer が収束し、かつ最終 Hessian の虚モードが正確に 1 つの場合だけです。
 0 または複数なら `not_converged`、`--skip-final-freq` で鞍点次数を検証しない
 場合は `unverified` です。
-Hessian 系 optimizer が全収束基準へ一度も到達しない場合は PHVA と mode 出力を
-行わず、虚振動関連の2フィールドを `null`、status を `stalled` または
-`not_converged` とします。
+plateau で停止した場合は終端 PHVA を実行し、status は `stalled` のままです。
+未収束のまま `max_cycles` に到達した場合は PHVA と mode 出力を行わず、
+虚振動関連の2フィールドを `null` とします。
 
 最適化が成功すると 3 種類の成果物が `result_tsopt/` に出力されます。
 
@@ -277,7 +259,7 @@ hessian_dimer:
  thresh_loose: gau_loose           # ゆるい収束プリセット
  thresh: baker                     # メイン収束プリセット
  update_interval_hessian: 500      # Hessian再構築間隔
- neg_freq_thresh_cm: 5.0           # 負の振動数閾値 (cm^-1)
+ neg_freq_thresh_cm: 5.0           # 動画出力・平坦化で無視する微小モードの閾値 (cm^-1)
  flatten_amp_ang: 0.1              # フラットニング振幅 (Å)
  flatten_max_iter: 50              # フラットニング反復上限（--no-flatten 時は無効）
  flatten_sep_cutoff: 0.0           # 代表原子間の最小距離 (Å)
@@ -304,11 +286,10 @@ hessian_dimer:
   bias_translation: false          # 並進探索にバイアス
   bias_gaussian_dot: 0.1           # ガウスバイアスの内積
   seed: null                       # 回転用の RNG シード
-  write_orientations: true         # 回転方向を書き出し
+  write_orientations: false        # 回転方向を書き出し（明示的な true も可）
   forward_hessian: true            # Hessianを前方伝播
  lbfgs:
   thresh: baker                    # L-BFGS 収束プリセット
-  max_cycles: 10000                # 反復上限
   print_every: 100                 # ログ出力間隔
   min_step_norm: 1.0e-08           # 受け入れ最小ステップノルム
   assert_min_step: true            # ステップ停滞時にアサート
@@ -319,6 +300,7 @@ hessian_dimer:
   beta: 1.0                        # 初期ダンピングベータ
   mu_reg: null                     # 正則化強度
   max_mu_reg_adaptions: 10         # mu 適応の上限
+  line_search: true                # Dimer 内側 L-BFGS の line search
 rsirfo:
  thresh: baker                     # RS-IRFO 収束プリセット
  trust_radius: 0.10                # 初期信頼半径（ONIOM 向けに小さめ）
@@ -361,7 +343,7 @@ overlap追跡に使う高度な 3N MEP 接線を与えます。`geom.tr_projecti
 ```{note}
 `rsirfo.trust_max` のデフォルトは 0.10 bohr です。TS 近傍での ML/MM 安定性が改善します。
 
-共有 `opt` ブロックには **エネルギープラトー停止**（デフォルト無効、`--stop-plateau` で有効化。`energy_plateau_thresh: 1.0e-4` au を `energy_plateau_window: 50` ステップにわたって適用）も備わっています。MLIP の力ノイズフロアが勾配ベースの `thresh` プリセットに到達できない場合、残りのサイクルを費やす代わりにプラトーで探索を停止し、`status: "stalled"` を報告します（`converged` とは区別される非収束の結果で、決して `converged` にはなりません）。終端の厳密 Hessian は実行されるため鞍点診断は報告されますが、flatten/retry ループは実行されません（stalled な root は検証済みの TS モードではないため）。デフォルトで無効なのは、平坦なエネルギーで停止した TS 探索が余分な虚振動を残したままになりやすいためです。MM micro 反復には適用されません。詳細は [yaml-reference](yaml-reference.md#opt) を参照してください。
+共有 `opt` ブロックには **エネルギープラトー停止**（デフォルト無効、`--stop-plateau` で有効化）があります。plateau では `stalled` として停止して終端 PHVA を実行し、未収束の `max_cycles` 到達時は実行しません。MM micro 反復には適用されません。詳細は [yaml-reference](yaml-reference.md#opt) を参照してください。
 ```
 
 ## 関連項目

@@ -608,8 +608,10 @@ def test_ts_mode_loss_rejects_trial_and_restores_hessian(tmp_path) -> None:
     assert opt.predicted_energy_changes == []
 
 
-def test_energy_plateau_cannot_bypass_ts_curvature_requirement(tmp_path) -> None:
-    geom, opt = _ts_optimizer(tmp_path, 1.0, energy_plateau_window=5)
+def test_energy_plateau_stalls_before_terminal_workflow_phva(tmp_path) -> None:
+    geom, opt = _ts_optimizer(
+        tmp_path, 1.0, energy_plateau=True, energy_plateau_window=5
+    )
     opt.cur_cycle = 0
     opt.last_cycle = 0
     opt.forces = [np.zeros(3)]
@@ -619,6 +621,7 @@ def test_energy_plateau_cannot_bypass_ts_curvature_requirement(tmp_path) -> None
     converged, conv_info = opt.check_convergence(np.zeros(3))
 
     assert converged is False
+    assert opt.is_stalled is True
     assert conv_info.desired_eigval_structure is False
 
 
@@ -649,7 +652,6 @@ def test_exact_phva_runs_only_after_all_baker_criteria(
     assert not bool(conv_info.max_step_converged)
     assert converged is False
     assert calls == 0
-    assert opt.convergence_criteria_met is False
 
     terminal_step = np.array([1.0e-4, 0.0, 0.0])
     opt.validate_terminal_saddle_for_step(terminal_step)
@@ -657,7 +659,6 @@ def test_exact_phva_runs_only_after_all_baker_criteria(
     assert conv_info.is_converged()
     assert converged is True
     assert calls == 1
-    assert opt.convergence_criteria_met is True
 
 
 def test_gau_loose_force_only_cannot_trigger_exact_phva(
@@ -683,10 +684,9 @@ def test_gau_loose_force_only_cannot_trigger_exact_phva(
     assert not bool(conv_info.max_step_converged)
     assert not bool(conv_info.rms_step_converged)
     assert converged is False
-    assert opt.convergence_criteria_met is False
 
 
-def test_convergence_gate_is_recorded_when_exact_verification_is_disabled(
+def test_exact_verification_disabled_skips_exact_phva(
     tmp_path,
 ) -> None:
     _, opt = _ts_optimizer(
@@ -700,7 +700,6 @@ def test_convergence_gate_is_recorded_when_exact_verification_is_disabled(
 
     opt.validate_terminal_saddle_for_step(np.array([1.0e-4, 0.0, 0.0]))
 
-    assert opt.convergence_criteria_met is True
     assert opt.exact_saddle_checks == 0
 
 

@@ -243,7 +243,7 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 - `freeze_atoms`: CLI `--freeze-atoms` とマージされる 1 始まり凍結原子。
 
 ### セクション `calc` / `mlmm`
-- ML/MM calculatorの設定: `charge`、`spin`、`backend`、MLIP モデル設定、`device`、近傍半径、Hessian オプション等。`embedcharge` は `false` 固定の互換性用キーです。
+- ML/MM calculatorの設定: `model_charge`、`model_mult`、`backend`、MLIP モデル設定、`device`、近傍半径、Hessian オプション等。`embedcharge` は `false` 固定の互換性用キーです。
 
 ### セクション `opt` / `lbfgs`
 - オプティマイザ設定: `thresh`、`max_cycles`、`print_every`、ステップ制御、ラインサーチ、ダンプフラグ。

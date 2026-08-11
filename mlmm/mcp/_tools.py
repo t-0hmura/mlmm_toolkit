@@ -152,7 +152,6 @@ def register_all(mcp) -> None:
         model_pdb: Optional[str] = None,
         model_indices: Optional[str] = None,
         radius_freeze: Optional[float] = None,
-        radius_partial_hessian: Optional[float] = None,
         one_based: Optional[bool] = None,
         extra_args: Optional[list[str]] = None,
         timeout_seconds: Optional[float] = None,
@@ -172,8 +171,6 @@ def register_all(mcp) -> None:
             argv.extend(["--model-indices", model_indices])
         if radius_freeze is not None:
             argv.extend(["--radius-freeze", str(radius_freeze)])
-        if radius_partial_hessian is not None:
-            argv.extend(["--radius-partial-hessian", str(radius_partial_hessian)])
         if one_based is not None:
             argv.append("--one-based" if one_based else "--zero-based")
         _append_extra_args(argv, extra_args, reserved=_UTILITY_RESERVED_OUTPUTS)

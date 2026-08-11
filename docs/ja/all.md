@@ -260,7 +260,7 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
 | `-s, --scan-lists TEXT...` | 段階的スキャン: `(i,j,target_A)` タプル。 | _None_ |
-| `--scan-out-dir PATH` | スキャン出力ディレクトリの上書き。 | _None_ |
+| `--scan-out-dir PATH` | スキャン出力ディレクトリの上書き。 | `<out-dir>/_work/scan` |
 | `--scan-one-based/--scan-zero-based` | スキャン原子インデックスを 1 始まりまたは 0 始まりとして解釈。 | _None_ |
 | `--scan-max-step-size FLOAT` | 最大ステップサイズ (Å)。 | _デフォルト_ |
 | `--scan-bias-k FLOAT` | 調和バイアス強度 (eV/Å^2)。 | _デフォルト_ |

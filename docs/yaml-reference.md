@@ -206,10 +206,8 @@ opt:
 | `gau_vtight` | 2.0e-6 | 1.0e-6 | 6.0e-6 | 4.0e-6 |
 | `baker` | 3.0e-4 | 2.0e-4 | 3.0e-4 | 2.0e-4 |
 
-`baker` is the exception to the four-column rule: it converges when
-`max(|force|) <= 3e-4` **and** (`|delta E| < 1e-6` **or**
-`max(|step|) <= 3e-4`). Its RMS force and RMS step columns are diagnostics,
-not additional terminal gates.
+`baker` requires all five criteria: `|delta E| < 1e-6`, max and RMS force,
+and max and RMS step must all satisfy their thresholds.
 
 **Energy plateau stop (opt-in, default off):**
 
@@ -418,14 +416,16 @@ stopt:
 
 ### `hessian_dimer`
 
-Hessian Dimer TS optimization settings (`tsopt --opt-mode grad`).
+Hessian Dimer TS optimization settings (`tsopt --opt-mode grad`). If
+`opt.thresh` and `hessian_dimer.thresh` are both explicit, they must match.
+One explicit value is used by both; otherwise the Dimer default wins.
 
 ```yaml
 hessian_dimer:
  thresh_loose: gau_loose # Loose convergence preset
  thresh: baker # Main convergence preset
  update_interval_hessian: 500 # Hessian rebuild cadence
- neg_freq_thresh_cm: 5.0 # Negative frequency threshold (cm-1)
+ neg_freq_thresh_cm: 5.0 # Ignore smaller modes in animations and flattening (cm-1)
  flatten_amp_ang: 0.1 # Flattening amplitude (Å)
  flatten_max_iter: 50 # Flattening iteration cap (default 50; --no-flatten sets to 0)
  flatten_sep_cutoff: 0.0 # Minimum distance between representative atoms
@@ -454,17 +454,17 @@ hessian_dimer:
    bias_translation: false # Bias translational search
    bias_gaussian_dot: 0.1 # Gaussian bias dot product
    seed: null # RNG seed for rotations
-   write_orientations: true # Write rotation orientations
+   write_orientations: false # Write rotation orientations (explicit true is allowed)
    forward_hessian: true # Propagate Hessian forward
  lbfgs:
    # Same keys as lbfgs section
    thresh: baker
-   max_cycles: 10000
 ```
 
 **Notes:**
 - Ordinary TSOPT omission leaves flattening off with an effective iteration count of 0. When flattening is enabled, `flatten_max_iter` controls its cap and defaults to 50.
 - The CLI flags `--flatten` / `--no-flatten` (in `tsopt` and `all`) interact with this setting: `--flatten` enables the flattening loop with the default `flatten_max_iter` (50); `--no-flatten` forces `flatten_max_iter` to 0, effectively disabling the loop. An explicit YAML value for `flatten_max_iter` takes precedence when provided alongside `--flatten`.
+- Inner L-BFGS settings live under `hessian_dimer.lbfgs`, not the top-level `lbfgs` section. Shared `print_every` and `energy_plateau*` values follow the conflict rule above; `line_search` remains independent. `max_cycles` is not configurable because each segment receives the cycles remaining from `opt.max_cycles`.
 
 ---
 
@@ -475,7 +475,7 @@ RS-I-RFO TS optimization settings (`tsopt --opt-mode hess`).
 ```yaml
 rsirfo:
  thresh: baker # RS-I-RFO convergence preset
- max_cycles: 10000 # Iteration cap
+ max_cycles: 10000 # Shared with opt.max_cycles; conflicting explicit values are rejected
  print_every: 100 # Logging stride
  min_step_norm: 1.0e-08 # Minimum accepted step norm
  assert_min_step: true # Assert when steps stagnate
@@ -504,6 +504,9 @@ rsirfo:
 
 `min_line_search` and `max_line_search` are consumed only by
 `--opt-mode rsprfo`; explicit YAML values are honored.
+
+Settings duplicated in `opt` and `rsirfo` must match when both are explicit.
+One explicit value is used by both; otherwise the `rsirfo` default wins.
 
 ---
 
@@ -613,7 +616,7 @@ microiter:
 
 **Notes:**
 - Enabled via `--microiter` / `--no-microiter` CLI flag (default: on)
-- Available in `opt` (with `--opt-mode hess`) and `tsopt` (with `--opt-mode hess`)
+- Available in `opt --opt-mode hess` and every Hessian TS mode (`hess`, `rsirfo`, `rsprfo`, `trim`)
 - Uses L-BFGS to minimize MM-region forces while ML atoms are frozen
 - `micro_thresh` accepts the same presets as `opt.thresh` (gau_loose, gau, gau_tight, etc.); when `null` or omitted, defaults to the same threshold as the macro step
 

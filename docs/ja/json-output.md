@@ -138,8 +138,8 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 |-----------|------|------|
 | `status` | string | optimizer 収束かつ `n_imaginary_modes == 1` の場合だけ `"converged"`。それ以外は `"not_converged"`、`--skip-final-freq` 時は `"unverified"`。エネルギープラトーによる `"stalled"`（上記参照）はこれらすべてに優先し、`converged` として報告されることはありません（dimer (grad) モードも `stalled` を返します）。 |
 | `energy_hartree` | float | TS エネルギー (Hartree) |
-| `n_imaginary_modes` | int\|null | 虚振動数。収束に到達せず PHVA を実行しなかった場合は `null` |
-| `imaginary_frequencies_cm` | float[]\|null | 虚振動数 (cm$^{-1}$, 負の値)。Hessian 系で収束に到達せず PHVA を実行しなかった場合は `null` |
+| `n_imaginary_modes` | int\|null | 虚振動数。PHVA を実行しなかった場合は `null` |
+| `imaginary_frequencies_cm` | float[]\|null | 虚振動数 (cm$^{-1}$, 負の値)。PHVA 未実行時は `null` |
 | `opt_mode` | string | `"grad"`, `"hess"`, `"light"`, `"heavy"`, `"dimer"`, `"rsirfo"`, `"trim"`, `"rsprfo"` のいずれか（`light`/`dimer` は `grad` (PHG-Dimer)、`heavy`/`rsirfo` は `hess` (RS-I-RFO)、`trim` は TRIM、`rsprfo` は RS-P-RFO の別名） |
 | `n_atoms` | int | 全原子数 |
 | `n_opt_cycles` | int | 最適化サイクル数 |

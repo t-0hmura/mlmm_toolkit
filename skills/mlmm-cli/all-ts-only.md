@@ -4,7 +4,8 @@
 
 You already have a **TS candidate** (typically from another QM code, an
 older `mlmm-toolkit` run, or a manual guess) and want to run only the
-validation + thermochemistry stages — `tsopt → irc → freq → (dft)` —
+TS validation stages — `tsopt → irc`, plus `freq` with `--thermo` and DFT with
+`--dft` —
 without the upstream extract / path-search.
 
 ## Synopsis
@@ -60,10 +61,10 @@ ts_candidate.{xyz,pdb,cif,mmcif}
    [irc]              (forward + backward; RFO endpoint refinement by default, via --opt-mode-post hess)
        │
        ▼
-   [freq]             (Hessian + thermo)
+   [freq]             (with --thermo)
        │
        ▼
-   [dft]              (optional)
+   [dft]              (with --dft)
 ```
 
 `extract` and `path-search` are skipped entirely. The output tree

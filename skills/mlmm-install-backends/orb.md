@@ -68,7 +68,6 @@ the Hessian/calc keys below apply to every backend; defaults in
 | Strength | Weakness |
 |---|---|
 | Conservative energy/force model with a reduced-precision option | Backend-specific TS and frequency behavior must be validated for the target system |
-| Backend-specific precision selection | Backend-specific TS and frequency behavior must be validated for the target system |
 | Easy installation through the extra | Check checkpoint element and state coverage before use |
 
 Compare candidate geometries and frequencies against the backend selected for

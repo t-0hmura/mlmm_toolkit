@@ -14,7 +14,7 @@ Each row points to the full per-subcommand md in this skill directory.
 | `all.md` | `all` | End-to-end pipeline: extract → MEP → TS → IRC → freq → (DFT) in one invocation.<br>Delegates to a base orientation; specific modes are in `all-{endpoint-mep,scan-list,ts-only}.md`. |
 | `all-endpoint-mep.md` | `all` (mode 1) | Drives the pipeline from N reaction-ordered structures (R, optionally IM₁ … IMₙ, P).<br>Path search runs GSM/DMF between adjacent endpoints; recursion handles multi-step mechanisms. |
 | `all-scan-list.md` | `all` (mode 2) | Drives the pipeline from a single reactant + a list of staged distance scans.<br>The scan list seeds the MEP; recursion handles intermediate states like in mode 1. |
-| `all-ts-only.md` | `all` (mode 3) | Skips path search and starts from a TS candidate; runs `tsopt → irc → freq → dft`.<br>Use when you already have a transition-state guess (from a different code or a prior run). |
+| `all-ts-only.md` | `all` (mode 3) | Skips path search and starts from a TS candidate; runs `tsopt → irc`, with freq/DFT enabled by their flags.<br>Use when you already have a transition-state guess (from a different code or a prior run). |
 | `extract.md` | `extract` | Selects and writes an active-site/model pocket around the substrate residues.<br>`define-layer` separately assigns B-factor layers and frozen atoms. |
 | `mm-parm.md` | `mm-parm` | Generate Amber `parm7` + `rst7` from a PDB via tleap (and antechamber for non-standard ligands).<br>Required for any subcommand that needs MM gradients. |
 | `define-layer.md` | `define-layer` | Assign / refine ML / movable-MM / frozen layers via the PDB B-factor field.<br>Standalone or post-`extract` adjustment without rebuilding parm7. |

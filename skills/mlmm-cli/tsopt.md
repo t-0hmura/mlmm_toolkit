@@ -71,7 +71,7 @@ mlmm tsopt -i hei.xyz --parm real.parm7 --ref-pdb enzyme_layered.pdb \
     -q 0 -m 1 -b uma -o result_tsopt
 ```
 
-### Dimer mode (lighter, no full Hessian)
+### Dimer mode
 
 ```bash
 mlmm tsopt -i hei.xyz --parm real.parm7 --ref-pdb enzyme_layered.pdb -q 0 -m 1 \
@@ -92,7 +92,7 @@ mlmm tsopt -i hei.xyz --parm real.parm7 --ref-pdb enzyme_layered.pdb \
 ```
 result_tsopt/
 ├── result.json                     # when --out-json
-├── final_geometry.{xyz,pdb}        # converged TS
+├── final_geometry.{xyz,pdb}        # final geometry; check result.json status
 ├── optimization_trj.xyz            # macro-cycle trajectory
 ├── optimization_all_trj.xyz        # full per-step trajectory (when --dump)
 └── vib/                            # imaginary-mode vibrations
@@ -117,7 +117,7 @@ print(d["rigid_projection"]["treatment"], d["rigid_projection"]["effective_rank"
 | Mode | Algorithm | When |
 |---|---|---|
 | `hess` / `rsirfo` (default) | RS-I-RFO with full Hessian | Direct curvature treatment; memory and runtime depend on active DOFs and backend |
-| `grad` / `dimer` | Hessian-Guided Dimer | Avoids a full Hessian at every cycle; convergence remains seed- and system-dependent |
+| `grad` / `dimer` | Hessian-Guided Dimer | Uses initial and periodic orientation Hessians, which is more robust than a random initial direction for large systems; convergence remains seed- and system-dependent |
 
 If Dimer stalls, inspect the followed mode and step diagnostics, then compare
 RS-I-RFO on the same seed rather than using a universal cycle threshold.
@@ -130,11 +130,13 @@ reaction coordinate.
 ```python
 import json
 d = json.load(open("result_tsopt/result.json"))
-if d["n_imaginary_modes"] == 1:
+if d["status"] != "converged":
+    print("NOT CONVERGED:", d["status"])
+elif d["n_imaginary_modes"] == 1:
     print("OK: single imaginary mode at", d["imaginary_frequencies_cm"][0], "cm-1")
 elif d["n_imaginary_modes"] == 0:
     print("BAD: collapsed to a minimum during refinement")
-elif d["n_imaginary_modes"] > 1:
+elif d["n_imaginary_modes"] is not None and d["n_imaginary_modes"] > 1:
     print("AMBIGUOUS: multiple imaginary modes; inspect vib/imag_*.pdb")
 ```
 

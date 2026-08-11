@@ -22,8 +22,8 @@ pattern.
   distance-restrained `scan`), fixing a wrong imaginary-frequency count
   (`--precision fp64` / `--coord-type dlc`), reading a barrier when the
   scan started from the Product side, staged vs concerted `--scan-lists`,
-  and the same-atom-set rule for controlled mutant-vs-WT comparisons
-  (B-factor layer transplant + `--detect-layer`).
+  and controlled mutant-vs-WT barrier comparisons with explicit assignment
+  of atoms added or deleted by the mutation.
 - `mlmm-mcp`: how to drive `mlmm-toolkit` from any MCP client (Claude
   Desktop / Claude Code / Cursor / custom SDK) via the bundled
   `mlmm-mcp` server; lists the 22 MCP tools (including the mlmm-specific

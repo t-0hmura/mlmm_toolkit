@@ -28,7 +28,6 @@ mlmm define-layer -i full_system.pdb \
 | `--model-pdb` | path | none | PDB defining the ML-region atoms |
 | `--model-indices` | str | none | Comma/range-separated atom indices, e.g. `'1,2,3'` or `'1-10,15,20-25'`. Takes precedence over `--model-pdb`. |
 | `--radius-freeze` | float | `8.0` | Distance cutoff (Å) from ML region. Atoms beyond are **frozen** (B-factor 20.0); inside but not ML are **movable-MM** (10.0). |
-| `--radius-partial-hessian` | float | `0.0` | Deprecated in 3-layer mode (ignored) |
 | `--one-based / --zero-based` | flag | `--one-based` | Interpret `--model-indices` (1- vs 0-based) |
 | `-o, --output` | path | `<input>_layered.pdb` | Output PDB with B-factor layer encoding |
 
@@ -94,7 +93,6 @@ atom) get `10.00`, the rest get `20.00`.
   ran `extract`, run `define-layer` afterwards or pass
   `--model-pdb` / `--model-indices` directly to the consuming
   subcommand.
-- `--radius-partial-hessian` is a deprecated 4-layer remnant; ignore
   it in 3-layer mode.
 
 ## See also

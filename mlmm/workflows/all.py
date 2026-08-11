@@ -3697,7 +3697,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 )
 @click.option("--scan-out-dir", type=click.Path(path_type=Path, file_okay=False), default=None,
               show_default="<out-dir>/_work/scan",
-              help="Override the scan output directory (default: <out-dir>/scan/). Relative paths are resolved against the default parent.")
+              help="Override the scan output directory (default: <out-dir>/_work/scan). Relative paths are resolved against the default parent.")
 @click.option("--scan-one-based/--scan-zero-based", default=None,
               show_default="True (one-based)",
               help="Override scan indexing interpretation (one-based or zero-based).")

@@ -1,6 +1,6 @@
 ---
 name: mlmm-overview
-description: Orientation for mlmm-toolkit — what it is, when to use it, and how it differs from generic ML/MM MD packages (three-layer ML/movable-MM/frozen ONIOM via PDB B-factor encoding, analytical hessian_ff full-system Hessian, microiteration with link-atom Jacobian coupling, AmberTools-driven MM parameterization). TRIGGER on first-touch / "what is mlmm-toolkit" / "should I use it" / "how does it compare to OpenMM / GROMACS / Sire" questions. SKIP when the user has already named a subcommand, an install issue, an output file, a structure format, or a cluster — sibling skills cover those.
+description: Orientation for mlmm-toolkit — what it is, when to use it, and how it differs from generic ML/MM MD packages (three-layer ML/movable-MM/frozen ONIOM via PDB B-factor encoding, finite-difference MM Hessians with an optional analytical hessian_ff path, microiteration with link-atom Jacobian coupling, AmberTools-driven MM parameterization). TRIGGER on first-touch / "what is mlmm-toolkit" / "should I use it" / "how does it compare to OpenMM / GROMACS / Sire" questions. SKIP when the user has already named a subcommand, an install issue, an output file, a structure format, or a cluster — sibling skills cover those.
 ---
 
 # mlmm-toolkit Overview
@@ -20,9 +20,8 @@ The design choices that make it distinct:
    classifies every atom into ML (0.0), movable-MM (10.0), or frozen
    (20.0). One PDB → one defined system, no separate topology files
    for the partitioning.
-2. **`hessian_ff` analytical Hessian for MM.** Custom analytical
-   Hessian for the MM force field (instead of finite-difference),
-   used both in microiteration and in the ML/MM-coupled freq step.
+2. **MM Hessian choice.** Finite differences are the default; set
+   `calc.mm_fd: false` to use the analytical `hessian_ff` path.
 3. **Microiteration outer/inner loop.** ML region geometry update
    alternates with MM relaxation; outer ML steps see a relaxed MM
    environment.

@@ -120,7 +120,7 @@ mlmm define-layer -i system.pdb --model-pdb model.pdb -o system_layered.pdb
 1. mm-parm       — Generate parm7/rst7 plus LEaP's topology-matched PDB
 2. extract       — Define the ML region from that generated PDB
 3. define-layer  — Layer the same generated full-system PDB
-4. path-search   — MEP search (single-pass `path-opt` by default; `--refine-path` for recursive `path-search`)
+4. all MEP stage — single-pass `path-opt` by default; `mlmm all --refine-path` selects recursive `path-search`
 5. tsopt         — Transition state optimization
 6. freq          — Vibrational analysis + thermochemistry
 7. dft           — Single-point DFT energy evaluation
@@ -208,7 +208,7 @@ Full flag references: [oniom-export](oniom-export.md), [oniom-import](oniom-impo
 | `-s, --scan-lists TEXT...` | Staged distance scans for single-input runs (literals or YAML/JSON file). |
 | `-o, --out-dir PATH` | Top-level output directory. |
 | `--tsopt` / `--thermo` / `--dft` | TS optimization + IRC / vibrational analysis / single-point DFT. |
-| `--refine-path` / `--no-refine-path` | Single-pass `path-opt` (default) vs recursive `path-search` (`--refine-path`). |
+| `--refine-path` / `--no-refine-path` | On `mlmm all`, select single-pass `path-opt` (default) or recursive `path-search`. |
 | `--mep-mode gsm\|dmf` | MEP optimizer for either path route (default `gsm`). |
 | `--dmf-backend gpu\|cpu` | DMF implementation; use `cpu` after a GPU out-of-memory error. |
 | `-b, --backend uma\|orb\|mace\|aimnet2` | MLIP backend (default `uma`). |

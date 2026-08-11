@@ -289,7 +289,7 @@ mlmm define-layer -i system.pdb --model-pdb model.pdb -o system_layered.pdb
 1. mm-parm - parm7/rst7 と LEaP のトポロジー対応 PDB を生成
 2. extract - その生成 PDB から活性部位ポケットを抽出
 3. define-layer - 同じ生成 PDB に 3 層 ML/MM 分割を付与（B-factor エンコード）
-4. path-search - MEP 探索（単一パス path-opt がデフォルト）; `--refine-path` で再帰 path-search に切替
+4. all の MEP stage - 単一パス path-opt がデフォルト。`mlmm all --refine-path` で再帰 path-search に切替
 5. tsopt - 遷移状態最適化
 6. freq - 振動解析と熱化学
 7. dft - DFT 一点計算
@@ -417,8 +417,8 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft -
 
 - MEP/経路探索を完全にスキップ
 - ML 領域の **TS** を TS 最適化で最適化
-- 両方向に **IRC** を実行し、両端を最適化して R, P の極小に緩和
-- その後 `freq` と `dft` を R/TS/P に対して実行可能
+- 両方向に **IRC** を実行し、未割当 endpoint E1/E2 を極小化
+- その後 `freq` と `dft` を E1/TS/E2 に対して実行可能。構造を確認してから反応物/生成物を割り当てる
 - MLIP、Gibbs、DFT//MLIP/MM エネルギー図を生成
 
 ```{important}
@@ -442,7 +442,7 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft -
 | `--tsopt/--no-tsopt` | TS 最適化と IRC を有効化 |
 | `--thermo/--no-thermo` | 振動解析と熱化学を実行 |
 | `--dft/--no-dft` | DFT 一点計算を実行 |
-| `--refine-path/--no-refine-path` | 単一パス `path-opt`（デフォルト）vs `--refine-path` で再帰 `path-search` |
+| `--refine-path/--no-refine-path` | `mlmm all` で単一パス `path-opt`（デフォルト）または再帰 `path-search` を選択 |
 | `--mep-mode gsm\|dmf` | どちらの経路探索にも用いる MEP 最適化法（デフォルト: `gsm`） |
 | `--dmf-backend gpu\|cpu` | DMF 実装。GPU メモリ不足時は `cpu` を選択 |
 | `-o, --out-dir PATH` | トップレベル出力ディレクトリ |
