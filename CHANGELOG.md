@@ -131,7 +131,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   from an omission; each now carries that default as a display string, so
   `--help`, `--help-advanced`, the generated reference and the Colab Options
   pane stop reading as unset. The Colab controls -- dropdowns included -- label
-  it `default: <value>`, or `default: None` when there genuinely is none.
+  and select `default: <value>`, or `default: None` when there genuinely is none.
 - Drop the notice that replaced the preparation panel for workflows that
   extract internally; the panel is simply hidden.
 - Name the custom-calculator entry point `--calc-file-func-name`. It names a
@@ -139,9 +139,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   left unsaid. `--calc-factory` is removed rather than aliased.
 - Head the stdout citation block `====== Citations & References ======` like
   every other console section. `summary.log` keeps its numbered
-  `[6] Methods and citations`; the two shared one renderer, so the log file's
-  section index was leaking into the console. The citations themselves remain
-  one source.
+  `[6] Methods and citations`; the two share one renderer, so the log file's
+  section index was leaking into the console. Each method and its numbered
+  reference are now printed on separate lines.
+- Reconcile a completed Colab run from the browser heartbeat when its final
+  widget update is lost, restoring the controls and Results without rerunning
+  the GUI cell.
 - Keep one execution path in the Colab GUI. An unreachable async twin of the
   whole run path (`_start_async_task`, `_do_validate_async`, `_do_run_guarded`,
   `_do_run_async`, `_stream_async`, `_stop_async_process`,

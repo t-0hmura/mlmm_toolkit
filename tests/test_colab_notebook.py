@@ -1877,6 +1877,7 @@ def test_colab_exercises_every_workflow_and_advanced_flag_widget(
 
     root = app["PRODUCT_CLI"]
     root_context = app["click"].Context(root)
+    default_dropdowns: set[str] = set()
     for subcommand in root.list_commands(root_context):
         rendered = {
             param.name for param in app["_advanced_options"](subcommand)
@@ -1909,6 +1910,11 @@ def test_colab_exercises_every_workflow_and_advanced_flag_widget(
                 app["S"].setdefault("advanced_overrides", {})[subcommand] = {}
                 row = app["_advanced_widget"](subcommand, param)
                 widget = row.children[0]
+                if isinstance(widget, app["W"].Dropdown):
+                    assert widget.index == 0, param.name
+                    assert widget.value == app["_ADVANCED_DEFAULT"], param.name
+                    assert widget.label.startswith("default:"), param.name
+                    default_dropdowns.add(param.name)
                 for value in _advanced_widget_values(app, param):
                     widget.value = value
                     assert (
@@ -1917,7 +1923,10 @@ def test_colab_exercises_every_workflow_and_advanced_flag_widget(
                     )
                     argv = app["_advanced_argv"](subcommand)
                     _assert_advanced_argv_parses(app, subcommand, argv)
-                widget.value = None if hasattr(widget, "options") else ""
+                widget.value = (
+                    app["_ADVANCED_DEFAULT"]
+                    if isinstance(widget, app["W"].Dropdown) else ""
+                )
                 assert (
                     param.name
                     not in app["S"]["advanced_overrides"][subcommand]
@@ -1927,6 +1936,7 @@ def test_colab_exercises_every_workflow_and_advanced_flag_widget(
             subcommand,
             sorted(rendered - exercised),
         )
+    assert {"verbose", "hessian_calc_mode"} <= default_dropdowns
 
 
 def test_colab_operates_every_workflow_through_validate_run_and_results(
@@ -3471,10 +3481,50 @@ def test_option_controls_report_their_effective_default() -> None:
     # Hand-built dropdowns carry the same format as the generated ones.
     for label in ("('default: gsm', '(default)')", "('default: gpu', '(default)')",
                   "('default: gau', '(default)')", "('default: baker', '(default)')",
-                  "('default: per backend', 'auto')", "('default: 2', None)"):
+                  "('default: per backend', 'auto')",
+                  "('default: 2', _ADVANCED_DEFAULT)"):
         assert label in app, label
     # One format only.
     assert "CLI default \u00b7" not in app
+
+
+def test_advanced_dropdowns_select_their_default_label() -> None:
+    source = _notebook()["cells"][2]["source"]
+    wanted = {"_cli_default_label", "_set_advanced_override", "_advanced_widget"}
+    functions = [
+        node for node in ast.parse(source).body
+        if isinstance(node, ast.FunctionDef) and node.name in wanted
+    ]
+    import click
+    import ipywidgets as W
+
+    state = {"advanced_overrides": {"all": {}}}
+    namespace = {
+        "S": state, "W": W, "click": click,
+        "_ADVANCED_DEFAULT": "(default)",
+        "_advanced_flag": lambda param: param.opts[0],
+        "refresh": lambda: None,
+        "_flag_row": lambda widget, _help: types.SimpleNamespace(children=(widget,)),
+    }
+    exec(compile(ast.Module(body=functions, type_ignores=[]),
+                 str(NOTEBOOK), "exec"), namespace)
+
+    params = [
+        click.Option(["--verbose"], type=int, default=2, show_default="2"),
+        click.Option(["--feature/--no-feature"], default=False,
+                     show_default="off"),
+        click.Option(["--mode"], type=click.Choice(["a", "b"]),
+                     default="a", show_default="a"),
+    ]
+    for param in params:
+        widget = namespace["_advanced_widget"]("all", param).children[0]
+        assert widget.index == 0
+        assert widget.value == "(default)"
+        assert widget.label.startswith("default:")
+        widget.value = widget.options[1][1]
+        assert state["advanced_overrides"]["all"][param.name] == widget.value
+        widget.value = "(default)"
+        assert param.name not in state["advanced_overrides"]["all"]
 
 
 def test_the_gui_keeps_one_run_path() -> None:
@@ -3497,3 +3547,47 @@ def test_the_gui_keeps_one_run_path() -> None:
     assert "subprocess.Popen(cmd" in app
     assert "asyncio.create_subprocess_exec" not in app
     assert "_UI_ASYNC_LOOP.call_soon_threadsafe(callback)" in app
+
+
+def test_colab_poll_repairs_a_finished_but_stale_frontend() -> None:
+    source = _notebook()["cells"][2]["source"]
+    tree = ast.parse(source)
+    poll_node = next(
+        node for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name == "_colab_poll_run"
+    )
+    events = []
+    namespace = {
+        "_RUN_EXECUTION": {"task": None, "thread": None, "process": None},
+        "_ACTION_STATE": {"running": False},
+        "_RUN_STATE": {"text": "✓ done", "tone": "ok", "kind": "done"},
+        "S": {"_last_manifest": {"status": "success"},
+              "_last_out_dir": "result"},
+        "_flush_run_log": lambda force=False: events.append(("flush", force)),
+        "_set_running": lambda value, on_loop=False: events.append(
+            ("running", value, on_loop)),
+        "_set_run_status": lambda text, tone, kind, on_loop=False: events.append(
+            ("status", text, tone, kind, on_loop)),
+        "_results": lambda out: events.append(("results", out)),
+        "_tab_go": lambda index: events.append(("tab", index)),
+        "_publish_result_widget_state": lambda: events.append(("publish_results",)),
+        "_publish_run_widget_state": lambda: events.append(("publish_run",)),
+    }
+    exec(compile(ast.Module(body=[poll_node], type_ignores=[]),
+                 str(NOTEBOOK), "exec"), namespace)
+
+    assert "bridge.invokeFunction(CONFIG.poll_callback,[active],{})" in source
+    assert namespace["_colab_poll_run"](False) == {"running": False}
+    assert events == [("flush", True)]
+
+    events.clear()
+    assert namespace["_colab_poll_run"](True) == {"running": False}
+    assert events == [
+        ("flush", True),
+        ("running", False, True),
+        ("status", "✓ done", "ok", "done", True),
+        ("results", "result"),
+        ("tab", 3),
+        ("publish_results",),
+        ("publish_run",),
+    ]

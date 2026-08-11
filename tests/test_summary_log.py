@@ -224,6 +224,11 @@ def test_method_citations_follow_resolved_methods_and_match_stdout(
     assert "Direct Max Flux (DMF)" not in block
     assert all(set(ref) == {"method", "citation", "doi"} for ref in references)
     assert len({ref["doi"] for ref in references}) == len(references)
+    assert lines[1] == "Please cite the software and methods used:"
+    for index, reference in enumerate(references, start=1):
+        offset = 2 * index
+        assert lines[offset] == f"- {reference['method']}:"
+        assert lines[offset + 1] == f"[{index}] {reference['citation']}"
 
 
 def test_method_citations_use_actual_path_and_post_stages() -> None:

@@ -213,12 +213,13 @@ def format_method_citations(
 
     ``summary.log`` numbers its sections, so the default header is section 6.
     Standard output heads its blocks with ``====== ... ======`` instead; passing
-    the numbered form there leaked a log-file section index into the console.
+    the default section header there would leak the log section number.
     """
 
-    lines = [header, "  Please cite the software and methods used:"]
-    for reference in method_references(payload):
-        lines.append(f"  - {reference['method']}: {reference['citation']}")
+    lines = [header, "Please cite the software and methods used:"]
+    for index, reference in enumerate(method_references(payload), start=1):
+        lines.append(f"- {reference['method']}:")
+        lines.append(f"[{index}] {reference['citation']}")
     return lines
 
 
