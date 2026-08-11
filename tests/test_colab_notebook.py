@@ -25,7 +25,7 @@ import pytest
 NOTEBOOK = Path(__file__).parents[1] / "examples" / "mlmm_colab.ipynb"
 
 
-def _execute_app(monkeypatch, tmp_path: Path) -> tuple[dict, list]:
+def _execute_app(monkeypatch, tmp_path: Path, *, parent_header: dict | None = None) -> tuple[dict, list]:
     """Execute the complete app cell with real widgets and captured HTML."""
     rendered: list = []
     import IPython.display as ipd
@@ -35,6 +35,8 @@ def _execute_app(monkeypatch, tmp_path: Path) -> tuple[dict, list]:
     monkeypatch.setattr(ipd, "Image", lambda *args, **kwargs: (args, kwargs))
     monkeypatch.chdir(tmp_path)
     namespace = {"TOOL": "mlmm", "BACKEND": "mace", "REPO_DIR": "unused"}
+    if parent_header is not None:
+        namespace["get_ipython"] = lambda: types.SimpleNamespace(parent_header=parent_header)
     source = _notebook()["cells"][2]["source"]
     exec(compile(source, str(NOTEBOOK), "exec"), namespace)
     return namespace, rendered
@@ -50,6 +52,20 @@ def _notebook() -> dict:
         if isinstance(source, list):
             cell["source"] = "".join(source)
     return notebook
+
+
+def _set_file_upload(widget, name: str, media_type: str, content: bytes) -> None:
+    """Deliver one browser upload through the widget's public trait mechanism."""
+    metadata = {
+        "name": name,
+        "type": media_type,
+        "size": len(content),
+        "last_modified": datetime.datetime.now(datetime.timezone.utc),
+    }
+    if hasattr(widget, "_counter"):  # ipywidgets 7
+        widget.set_trait("value", {name: {"metadata": metadata, "content": content}})
+    else:  # ipywidgets 8
+        widget.set_trait("value", ({**metadata, "content": memoryview(content)},))
 
 
 def _root_normalized_subcommand_argv(app: dict, subcommand: str, argv: list[str]) -> list[str]:
@@ -387,7 +403,7 @@ def test_colab_setup_dft_branch_installs_extra_and_checks_gpu(monkeypatch, capsy
     assert "DFT packages installed but failed their import/GPU check" in setup
     assert "DFT support installed: PySCF %s · GPU4PySCF %s" in setup
     assert "py3Dmol" not in setup
-    assert "pip('ipywidgets','anywidget==0.11.0','matplotlib')" in setup
+    assert "pip('ipywidgets==7.7.2','anywidget==0.11.0','matplotlib')" in setup
     assert "[%%d/6] %%s".replace("%%", "%") in setup
     assert "time.monotonic()" in setup
     assert ".pysisyphusrc" not in setup
@@ -630,9 +646,13 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "message.batch !== active" in app
     assert "if clear:\n        _bump_drop_generation()" in app
     assert "mlmm_gui.on_drop" not in app
-    # Colab draws no AnyWidget and drops a FileUpload's binary buffers, so there
-    # every upload ships its bytes through invokeFunction from its own zone.
+    # Hosted Colab uses the native bridge; a Colab local runtime needs the
+    # standard FileUpload fallback because google.colab is unavailable there.
     assert "_UPLOAD_MODE = ('colab' if IN_COLAB else" in app
+    assert "_colab_frontend = bool(get_ipython().parent_header.get('metadata', {}).get('colab'))" in app
+    assert "IS_COLAB_FRONTEND = IN_COLAB or _colab_frontend" in app
+    assert "'basic' if IS_COLAB_FRONTEND else" in app
+    assert "if _HAS_DROP_WIDGET and not IS_COLAB_FRONTEND:" in app
     assert "_drop_children = ([upl] if _UPLOAD_MODE == 'anywidget'" in app
     assert "_cwm.register_callback('mlmm_gui.upload_files', _on_colab_upload)" in app
     # callback_ns is local to _molstar_document; the module-level block needs a literal.
@@ -927,6 +947,18 @@ def test_colab_drop_protocol_appends_and_rejects_incomplete_batches(
     app["_on_drop_upload"](widget, stale, [pdb])
     assert widget.messages[-1]["ok"] is False
     assert app["S"]["inputs"] == before
+
+
+def test_colab_local_runtime_uses_standard_widgets(monkeypatch, tmp_path: Path) -> None:
+    app, _ = _execute_app(
+        monkeypatch, tmp_path, parent_header={"metadata": {"colab": {"test": True}}}
+    )
+
+    assert app["IN_COLAB"] is False
+    assert app["IS_COLAB_FRONTEND"] is True
+    assert app["_UPLOAD_MODE"] == "basic"
+    assert isinstance(app["upl"], app["W"].FileUpload)
+    assert app["_RUN_LOG_INCREMENTAL"] is False
 
 
 def test_colab_app_executes_atomic_view_and_result_transitions(
@@ -1478,7 +1510,7 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     )
     app["S"]["advanced_overrides"]["all"] = {"verbose": "7"}
     verbose_row = app["_advanced_widget"]("all", verbose_param)
-    assert verbose_row.children[0].value is None
+    assert verbose_row.children[0].value == app["_ADVANCED_DEFAULT"]
     assert "verbose" not in app["S"]["advanced_overrides"]["all"]
 
     app["dd_subcmd"].options = app["_sub_options"](app["SUBS"])
@@ -2382,13 +2414,9 @@ def test_colab_operates_scientific_selectors_and_remaining_buttons(
     session_path = Path(downloads[-1])
     session_bytes = session_path.read_bytes()
     app["w_out"].value = "changed-after-save"
-    app["up_sess"].value = ({
-        "name": "session.json", "type": "application/json",
-        "size": len(session_bytes), "content": memoryview(session_bytes),
-        "last_modified": datetime.datetime.now(datetime.timezone.utc),
-    },)
+    _set_file_upload(app["up_sess"], "session.json", "application/json", session_bytes)
     assert app["w_out"].value == saved_out
-    assert app["up_sess"].value == ()
+    assert not app["up_sess"].value
 
     trajectory_a = tmp_path / "path_a_trj.xyz"
     trajectory_b = tmp_path / "path_b_trj.xyz"
@@ -2484,22 +2512,18 @@ def test_colab_prepared_model_upload_keeps_full_system_inputs(
     parm.write_text("parm", encoding="utf-8")
     app["S"].update(inputs=[str(full)], parm=str(parm), mode="pdb")
     payload = b"HETATM    1  C1  LIG A  10       0.000   0.000   0.000  1.00  0.00           C\nEND\n"
-    app["model_upl"].value = ({"name": "model.pdb", "type": "chemical/x-pdb",
-                                "size": len(payload), "content": memoryview(payload),
-                                "last_modified": datetime.datetime.now(datetime.timezone.utc)},)
+    _set_file_upload(app["model_upl"], "model.pdb", "chemical/x-pdb", payload)
     assert app["S"]["inputs"] == [str(full)] and app["S"]["parm"] == str(parm)
     assert app["S"]["model_pdb"] and Path(app["S"]["model_pdb"]).name == "model.pdb"
-    assert app["model_upl"].value == ()
+    assert not app["model_upl"].value
     first_model = Path(app["S"]["model_pdb"])
     assert first_model.exists()
     app["model_clear"].click()
     assert app["S"]["model_pdb"] is None
     assert not first_model.exists()
-    app["model_upl"].value = ({"name": "model.pdb", "type": "chemical/x-pdb",
-                                "size": len(payload), "content": memoryview(payload),
-                                "last_modified": datetime.datetime.now(datetime.timezone.utc)},)
+    _set_file_upload(app["model_upl"], "model.pdb", "chemical/x-pdb", payload)
     assert app["S"]["model_pdb"] and Path(app["S"]["model_pdb"]).name.startswith("model")
-    assert app["model_upl"].value == ()
+    assert not app["model_upl"].value
     second_model = Path(app["S"]["model_pdb"])
     relative_alias = os.path.relpath(second_model, tmp_path)
     app["_clear_structure_bound_state"](preserve_model=relative_alias)
@@ -3446,7 +3470,7 @@ def test_colab_setup_cell_is_frozen() -> None:
     setup = _notebook()["cells"][1]["source"]
     digest = hashlib.sha256(setup.encode("utf-8")).hexdigest()
 
-    assert digest == "421cca76b82ad76c6c3b91f9c6628a764ecf47a692b46e3ee188e5af623b57fb", (
+    assert digest == "49f0ab24324f0ba958a08511357c415c94d2b253cd4a7966174096ff55dfcb7c", (
         "the Colab Setup cell changed; it is frozen for this release. Re-read the "
         "Setup contracts above, then update this digest deliberately. Got: " + digest
     )
