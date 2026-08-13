@@ -42,6 +42,8 @@ pattern.
   recipe.
 - `mlmm-env-detect`: fallback for detecting scheduler / GPU /
   CUDA / conda env when the environment is unknown.
+- `colab-local-gpu-runtime`: Windows setup and operation for running the Colab
+  interface on a local NVIDIA GPU through WSL2 and Docker Desktop.
 
 The skills accompany the main documentation. Copying this directory exposes
 the workflows to a compatible agent interface; linked project documentation

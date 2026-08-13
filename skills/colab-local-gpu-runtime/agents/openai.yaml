@@ -1,0 +1,4 @@
+interface:
+  display_name: "Colab Local GPU Runtime"
+  short_description: "Run Colab notebooks on a local NVIDIA GPU"
+  default_prompt: "Use $colab-local-gpu-runtime to set up or connect a Colab notebook to my local NVIDIA GPU."
