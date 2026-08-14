@@ -128,6 +128,40 @@ def test_no_native_click_echo_receives_private_or_dynamic_tags() -> None:
     assert violations == []
 
 
+def test_hessian_status_does_not_add_blank_lines() -> None:
+    code = """
+from mlmm.core.output import emit
+from mlmm.core.utils import (
+    _patch_click_echo,
+    set_console_gating,
+    set_pipeline_mode,
+    set_verbose_level,
+)
+set_verbose_level(2)
+set_console_gating(True)
+set_pipeline_mode(True)
+_patch_click_echo()
+print('cycle 400')
+emit('[hessian] Completed FiniteDifference Hessian: 15.44 s', detail=True)
+print('separator')
+print('cycle 500')
+"""
+    proc = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        cwd=Path(__file__).resolve().parents[1],
+    )
+
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout.splitlines() == [
+        "cycle 400",
+        "[hessian] Completed FiniteDifference Hessian: 15.44 s",
+        "separator",
+        "cycle 500",
+    ]
+
+
 def test_lower_layers_depend_on_output_adapter_not_core_utils() -> None:
     package_root = Path(__file__).resolve().parents[1] / "mlmm"
     violations = []

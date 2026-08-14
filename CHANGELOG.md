@@ -255,10 +255,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   trusted PyPI publication.
 
 ### Fixed
-- Run exact PHVA only after every configured Hessian-TS convergence criterion
-  passes for the proposed step. A run that never reaches this gate skips final
-  PHVA and mode export, reports both imaginary-mode fields as `null`, and
-  remains `stalled` or `not_converged`.
+- Keep Hessian status and timing lines adjacent to the surrounding optimizer
+  cycle rows instead of inserting blank lines before and after each Hessian
+  evaluation.
+- Run exact PHVA after every configured Hessian-TS convergence criterion passes
+  for the proposed step, or after an opt-in energy-plateau stop. A run that
+  instead exhausts `max_cycles` skips final PHVA and mode export, reports both
+  imaginary-mode fields as `null`, and remains `not_converged`. A plateau runs
+  PHVA but retains `stalled`.
 - Keep RS-P-RFO line searches off by default while honoring explicit YAML
   values. RS-I-RFO and TRIM discard these unused kwargs, and Hessian TS searches
   require exactly one root.

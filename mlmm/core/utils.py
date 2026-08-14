@@ -695,25 +695,13 @@ def _patch_click_echo() -> None:
     _last_visible_line = [""]
     _raw_path_echo_depth = [0]
 
-    def _is_hessian_status_line(line: str) -> bool:
-        return (
-            line.startswith("[hessian]")
-            or line.startswith("[HessianTiming]")
-            or line.startswith("[HessianVRAM]")
-        )
-
     def _wants_blank_before(first_visible: str, prev_visible: str) -> bool:
         if not first_visible:
             return False
-        starts_hessian_status = _is_hessian_status_line(first_visible)
         return (
             first_visible.startswith("======")
             or first_visible.startswith("[time]")
             or first_visible.startswith("[stage]")
-            or (
-                starts_hessian_status
-                and not _is_hessian_status_line(prev_visible)
-            )
             or (
                 first_visible.startswith("[Imaginary modes]")
                 and not prev_visible.startswith("[Imaginary modes]")
@@ -722,10 +710,6 @@ def _patch_click_echo() -> None:
             or first_visible.startswith("IRC steps exceeded.")
             or first_visible.startswith("Transition vector is mode")
             or first_visible.startswith("Wrote final geometry")
-            or (
-                _is_hessian_status_line(prev_visible)
-                and not _is_hessian_status_line(first_visible)
-            )
         )
 
     def _wants_blank_after(first_visible: str) -> bool:
