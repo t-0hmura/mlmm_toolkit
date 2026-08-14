@@ -695,6 +695,9 @@ def _patch_click_echo() -> None:
     _last_visible_line = [""]
     _raw_path_echo_depth = [0]
 
+    def _is_hessian_status_line(line: str) -> bool:
+        return line.startswith(("[hessian]", "[HessianTiming]", "[HessianVRAM]"))
+
     def _wants_blank_before(first_visible: str, prev_visible: str) -> bool:
         if not first_visible:
             return False
@@ -757,7 +760,12 @@ def _patch_click_echo() -> None:
         if isinstance(message, str):
             first_visible = next((line.strip() for line in message.splitlines() if line.strip()), "")
             prev_visible = _last_visible_line[0]
-            if not _last_was_blank[0] and not message.startswith("\n") and _wants_blank_before(first_visible, prev_visible):
+            if (
+                not _last_was_blank[0]
+                and not message.startswith("\n")
+                and not _is_hessian_status_line(prev_visible)
+                and _wants_blank_before(first_visible, prev_visible)
+            ):
                 message = "\n" + message
             if first_visible and _wants_blank_after(first_visible) and not message.endswith("\n"):
                 message += "\n"
@@ -831,7 +839,7 @@ def _patch_click_echo() -> None:
                     needs_blank = (
                         self._starts_raw_section(stripped)
                         or _wants_blank_before(stripped, prev_visible)
-                    )
+                    ) and not _is_hessian_status_line(prev_visible)
                     if (
                         visible_before
                         and needs_blank
