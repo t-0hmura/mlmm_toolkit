@@ -2408,7 +2408,11 @@ class HessianDimer:
             "storage": storage,
             "source": "tsopt_exact",
         })
-        click.echo(pretty_block("rigid_projection", self.rigid_projection_info))
+        projection_block = pretty_block(
+            "rigid_projection", self.rigid_projection_info
+        )
+        if projection_block:
+            click.echo(projection_block)
 
         del H_analysis
         del H_final_reuse_cpu, H_final_reuse_coords
@@ -2769,7 +2773,6 @@ def _run_microiter_tsopt(
         micro_header = "cycle Δ(energy) max(|force|) rms(force) max(|step|) rms(step) micro_steps s/cycle".split()
         micro_col_fmts = "int float float float float float int float_short".split()
         micro_table = TablePrinter(micro_header, micro_col_fmts, width=12)
-        click.echo("")
         micro_table.print_header()
 
         macro_converged = False
@@ -4823,8 +4826,11 @@ def cli(
                     n_imag=_heavy_n_imag,
                     stalled=_heavy_stalled,
                 )
-            if rigid_projection_info:
-                click.echo(pretty_block("rigid_projection", rigid_projection_info))
+            projection_block = pretty_block(
+                "rigid_projection", rigid_projection_info
+            )
+            if projection_block:
+                click.echo(projection_block)
             # Restart branches share the Hessian cache. Evaluate the selected
             # final coordinates directly so an unselected branch cannot leak
             # its cached energy into result.json.

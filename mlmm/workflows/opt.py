@@ -925,7 +925,6 @@ def _run_microiter_opt(
         micro_header = "cycle Δ(energy) max(|force|) rms(force) max(|step|) rms(step) micro_steps s/cycle".split()
         micro_col_fmts = "int float float float float float int float_short".split()
         micro_table = TablePrinter(micro_header, micro_col_fmts, width=12)
-        click.echo("")
         micro_table.print_header()
 
         macro_converged = False
@@ -2257,7 +2256,11 @@ def cli(
                 )
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-            click.echo(pretty_block("rigid_projection", rigid_projection_info))
+            projection_block = pretty_block(
+                "rigid_projection", rigid_projection_info
+            )
+            if projection_block:
+                click.echo(projection_block)
 
             # Update final geometry after flatten
             final_xyz_path = out_dir_path / "final_geometry.xyz"
