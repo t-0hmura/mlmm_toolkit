@@ -5,8 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from click.testing import CliRunner
+import yaml
 
 from mlmm.cli import cli as root_cli
+from mlmm.workflows.all import _inject_coord_type_into_args_yaml
 
 
 def test_all_accepts_multiplicity_option() -> None:
@@ -36,3 +38,18 @@ def test_all_accepts_multiplicity_option() -> None:
             ],
         )
     assert result.exit_code == 0, result.output
+
+
+def test_all_print_every_is_visible_and_propagated_to_child_yaml() -> None:
+    help_result = CliRunner().invoke(root_cli, ["all", "--help-advanced"])
+    assert help_result.exit_code == 0
+    assert "--print-every" in help_result.output
+    assert "debug knob" not in help_result.output
+
+    args_yaml = _inject_coord_type_into_args_yaml(None, None, print_every=7)
+    assert args_yaml is not None
+    try:
+        payload = yaml.safe_load(args_yaml.read_text(encoding="utf-8"))
+        assert payload["opt"]["print_every"] == 7
+    finally:
+        args_yaml.unlink(missing_ok=True)

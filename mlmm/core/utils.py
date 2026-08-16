@@ -465,9 +465,24 @@ def values_from_bounds(low: float, high: float, h: float) -> "np.ndarray":
         raise click.BadParameter("--max-step-size must be > 0.")
     delta = abs(high - low)
     if delta < 1e-12:
-        return np.array([low], dtype=float)
-    N = int(math.ceil(delta / h))
-    return np.linspace(low, high, N + 1, dtype=float)
+        return np.array([round(float(low), 12)], dtype=float)
+
+    # Binary floating-point can turn an exact-looking ratio such as
+    # (2.6 - 1.4) / 0.2 into 6.000000000000001.  Applying ceil directly would
+    # then create an extra grid interval.  Snap only ratios that are already
+    # numerically indistinguishable from an integer; non-integral ratios still
+    # round upward so the requested maximum step is respected.
+    ratio = delta / h
+    nearest = round(ratio)
+    if math.isclose(ratio, nearest, rel_tol=1e-12, abs_tol=1e-12):
+        N = max(1, int(nearest))
+    else:
+        N = int(math.ceil(ratio))
+
+    # Twelve decimal places are far beyond meaningful structural precision,
+    # while preventing artifacts such as 1.5999999999999999 in CSV/JSON and
+    # widget state.
+    return np.round(np.linspace(low, high, N + 1, dtype=float), decimals=12)
 
 
 def geom_from_xyz_string(

@@ -100,6 +100,49 @@ def test_scan2d_failed_payload_exists_without_usable_plot_point() -> None:
     assert payload["files"] == {"surface_csv": "surface.csv"}
 
 
+def test_scan2d_payload_publishes_explicit_grid_structure_mapping() -> None:
+    from mlmm.workflows.scan2d import _build_scan2d_result_payload
+
+    payload = _build_scan2d_result_payload(
+        records=[
+            {
+                "i": 2,
+                "j": 3,
+                "d1_A": 1.234,
+                "d2_A": 2.345,
+                "bias_converged": True,
+                "energy_hartree": -10.0,
+                "artifact_written": True,
+                "geometry_file": "grid/point_i1234_j2345.xyz",
+                "is_preopt": False,
+            }
+        ],
+        calc_cfg={"backend": "uma", "model_charge": 0, "model_mult": 1},
+        pair1={"i": 1, "j": 2, "low": 1.0, "high": 2.0},
+        pair2={"i": 3, "j": 4, "low": 1.0, "high": 2.0},
+        files={
+            "surface_csv": "surface.csv",
+            "scan2d_landscape_html": "scan2d_landscape.html",
+        },
+    )
+
+    assert payload["grid_points"] == [
+        {
+            "index": [2, 3],
+            "distances_angstrom": [1.234, 2.345],
+            "targets_angstrom": [1.234, 2.345],
+            "energy_hartree": -10.0,
+            "converged": True,
+            "geometry_file": "grid/point_i1234_j2345.xyz",
+        }
+    ]
+    assert payload["current_output_paths"] == [
+        "surface.csv",
+        "scan2d_landscape.html",
+        "grid/point_i1234_j2345.xyz",
+    ]
+
+
 def test_aggregate_success_partial_failed() -> None:
     # All required usable, no missing expected -> success.
     t = aggregate_workflow_truth(

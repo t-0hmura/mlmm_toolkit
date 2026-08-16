@@ -150,12 +150,13 @@ Options:
                                   skip-final-freq]
   --out-json / --no-out-json      Write machine-readable result.json to out_dir.
                                   [default: no-out-json]
-  --detect-layer                  Automatically detect ML/MM layers from input
+  --detect-layer / --no-detect-layer
+                                  Automatically detect ML/MM layers from input
                                   PDB B-factors (ML=0, MovableMM=10,
                                   FrozenMM=20) when explicit ML membership is
                                   absent. With explicit membership, retain valid
                                   movable/frozen MM B-factor layers.  [default:
-                                  True]
+                                  detect-layer]
   --model-indices-one-based / --model-indices-zero-based
                                   Interpret --model-indices as 1-based (default)
                                   or 0-based.  [default: model-indices-one-
@@ -199,8 +200,8 @@ Options:
                                   (cart|redund|dlc|tric). cart is the default;
                                   command-specific choices are listed here.
                                   [default: (cart)]
-  --print-every INTEGER RANGE     Print optimizer status every N cycles (debug
-                                  knob).  [default: (100); x>=1]
+  --print-every INTEGER RANGE     Print optimizer status every N cycles.
+                                  [default: (100); x>=1]
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
                                   electron-parity check (logs that it was
                                   skipped). An open-shell ML region needs a

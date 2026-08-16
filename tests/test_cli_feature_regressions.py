@@ -119,15 +119,25 @@ def test_path_workflow_max_nodes_defaults_to_twenty(command: str) -> None:
     )
 
 
-def test_layer_detection_is_default_on_without_a_disable_flag() -> None:
-    runner = CliRunner()
+def test_layer_detection_has_explicit_on_and_off_flags_for_every_workflow() -> None:
+    """Default-true layer detection must still be user-editable in the CLI/GUI."""
 
-    enabled = runner.invoke(root_cli, ["sp", "--detect-layer", "--help"])
-    assert enabled.exit_code == 0, enabled.output
+    root_context = click.Context(root_cli)
+    commands_with_layer_detection: set[str] = set()
+    for command_name in root_cli.list_commands(root_context):
+        command = root_cli.get_command(root_context, command_name)
+        assert command is not None
+        for parameter in command.params:
+            if isinstance(parameter, click.Option) and parameter.name == "detect_layer":
+                commands_with_layer_detection.add(command_name)
+                assert parameter.default is True
+                assert "--detect-layer" in parameter.opts
+                assert "--no-detect-layer" in parameter.secondary_opts
 
-    disabled = runner.invoke(root_cli, ["sp", "--no-detect-layer"])
-    assert disabled.exit_code == 2, disabled.output
-    assert "No such option: --no-detect-layer" in disabled.output
+    assert commands_with_layer_detection == {
+        "all", "scan", "scan2d", "scan3d", "opt", "path-opt",
+        "path-search", "tsopt", "freq", "irc", "dft", "sp",
+    }
 
 
 @pytest.mark.parametrize("mep_mode", ["gsm", "dmf"])

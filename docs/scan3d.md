@@ -63,6 +63,11 @@ not usable.
 
 ## Outputs
 
+With `--out-json`, a fresh scan records an explicit `grid_points[]` mapping in
+`result.json`. The isosurfaces are interpolated; interactive clients should use
+the mapped computed grid points, rather than arbitrary isosurface vertices, when
+selecting a corresponding structure.
+
 ```text
 out_dir/ (default: ./result_scan3d/)
  surface.csv # Grid metadata (coordinates, energy, convergence, artifact status)

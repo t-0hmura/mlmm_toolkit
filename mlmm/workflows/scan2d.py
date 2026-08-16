@@ -173,6 +173,28 @@ def _build_scan2d_result_payload(
     scientific_status, scientific_reasons = scan_scientific_status(
         point_outcomes
     )
+    grid_geometry_files = [
+        str(rec["geometry_file"])
+        for rec in grid_records
+        if rec.get("geometry_file")
+    ]
+    grid_points = []
+    for rec in grid_records:
+        try:
+            distances = [float(rec["d1_A"]), float(rec["d2_A"])]
+            indices = [int(rec["i"]), int(rec["j"])]
+        except (KeyError, TypeError, ValueError):
+            continue
+        grid_points.append(
+            {
+                "index": indices,
+                "distances_angstrom": distances,
+                "targets_angstrom": list(distances),
+                "energy_hartree": rec.get("energy_hartree"),
+                "converged": rec.get("bias_converged"),
+                "geometry_file": rec.get("geometry_file"),
+            }
+        )
     payload: Dict[str, Any] = {
         "status": status,
         "execution_status": "completed",
@@ -186,6 +208,8 @@ def _build_scan2d_result_payload(
         "min_energy_hartree": (
             min(eligible_energies) if eligible_energies else None
         ),
+        "grid_points": grid_points,
+        "current_output_paths": [*files.values(), *grid_geometry_files],
         "files": dict(files),
         "n_points_attempted": len(point_outcomes),
         "n_points_usable": sum(
@@ -1128,6 +1152,11 @@ def cli(
                             "energy_hartree": energy_h,
                             "bias_converged": converged,
                             "artifact_written": bool(_artifact_written),
+                            "geometry_file": (
+                                str(Path("grid") / xyz_path.name)
+                                if _artifact_written
+                                else None
+                            ),
                             "is_preopt": False,
                         }
                     )
@@ -1197,7 +1226,11 @@ def cli(
             surface_csv = final_dir / "surface.csv"
             # Keep internal-only eligibility columns out of the public CSV so a
             # genuinely converged run's surface.csv schema is unchanged.
-            _csv_drop = [c for c in ("seed_eligible", "artifact_written") if c in df.columns]
+            _csv_drop = [
+                c
+                for c in ("seed_eligible", "artifact_written", "geometry_file")
+                if c in df.columns
+            ]
             df.drop(columns=_csv_drop).to_csv(surface_csv, index=False)
             click.echo(f"[write] Wrote '{surface_csv}'.")
 
@@ -1367,7 +1400,7 @@ def cli(
             else:
                 click.echo(f"[plot] Wrote '{png2d}'.")
 
-            # ---- 3D surface plus base-plane projection ----
+            # ---- 3D surface plus the authored coloured base-plane projection ----
             spread = vmax - vmin if (vmax > vmin) else 1.0
             z_bottom = vmin - spread
             z_top = vmax
@@ -1425,6 +1458,9 @@ def cli(
                 name="2D Contour Projection (Bottom)",
             )
 
+            # The generated artifact keeps the original scientific rendering.
+            # Notebook-only white grid controls are injected only into the linked
+            # Results card and therefore never modify this authored HTML.
             fig3d = go.Figure(data=[surface3d, plane_proj])
             fig3d.update_layout(
                 title="Energy Landscape with 2D PES Scan",
@@ -1483,7 +1519,12 @@ def cli(
             )
 
             html3d = final_dir / "scan2d_landscape.html"
-            fig3d.write_html(str(html3d))
+            fig3d.write_html(
+                str(html3d),
+                config={"responsive": True, "displaylogo": False},
+                default_width="100%",
+                default_height="100%",
+            )
             click.echo(f"[plot] Wrote '{html3d}'.")
 
             if out_json:

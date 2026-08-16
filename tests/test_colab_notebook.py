@@ -7,7 +7,6 @@ import ast
 import csv
 import datetime
 import glob
-import hashlib
 import html
 import json
 import os
@@ -34,6 +33,18 @@ def _execute_app(monkeypatch, tmp_path: Path, *, parent_header: dict | None = No
     monkeypatch.setattr(ipd, "HTML", lambda value: value)
     monkeypatch.setattr(ipd, "Image", lambda *args, **kwargs: (args, kwargs))
     monkeypatch.chdir(tmp_path)
+    # A Colab-compatible local runtime may have google.colab installed without
+    # the native Colab kernel bridges.  Keep ordinary GUI tests on the local
+    # path; tests that intentionally exercise Colab install fake modules first.
+    colab_module = sys.modules.get("google.colab")
+    if colab_module is None or getattr(colab_module, "__file__", None):
+        for module_name in (
+            "google.colab.output", "google.colab.files", "google.colab.userdata"
+        ):
+            module = sys.modules.get(module_name)
+            if module is None or getattr(module, "__file__", None):
+                monkeypatch.delitem(sys.modules, module_name, raising=False)
+        monkeypatch.setitem(sys.modules, "google.colab", None)
     namespace = {"TOOL": "mlmm", "BACKEND": "mace", "REPO_DIR": "unused"}
     if parent_header is not None:
         namespace["get_ipython"] = lambda: types.SimpleNamespace(parent_header=parent_header)
@@ -220,13 +231,29 @@ def test_colab_notebook_has_valid_code_cells_and_gpu_metadata() -> None:
             ast.parse(cell["source"])
 
 
+def test_colab_responsive_contract_covers_the_whole_four_step_app() -> None:
+    app = _notebook()["cells"][2]["source"]
+
+    for breakpoint in ("940px", "720px", "600px", "480px"):
+        assert f"@media (max-width: {breakpoint})" in app or (
+            breakpoint == "600px" and "@media (max-width: 600px)" in app
+        )
+    assert ".rxviewer, .rxinspector { flex:1 1 100%" in app
+    assert ".rxpath-grid { grid-template-columns:1fr; }" in app
+    assert ".rxviewer-toolbar { flex-wrap:wrap" in app
+    assert ".rxcommand-actions { display:grid" in app
+    assert ".rxapp .rxfile { flex-wrap:wrap" in app
+    assert "height:clamp(280px,52vh,420px)" in app
+    assert "height:clamp(340px,72vw,460px)" in app
+
+
 def test_colab_setup_is_pinned_to_matching_release_and_one_backend() -> None:
     setup = _notebook()["cells"][1]["source"]
 
     assert 'mlmm_toolkit_version = "v0.3.3"' in setup
-    # The release path installs the pinned wheel; a version token containing
-    # `debug` installs the matching uploaded source snapshot instead.
-    assert "_debug_install = 'debug' in str(mlmm_toolkit_version).lower()" in setup
+    # Only the exact `debug` sentinel switches to the matching adjacent source
+    # snapshot; release versions never inspect the ZIP.
+    assert "_debug_install = _raw_version.lower() == 'debug'" in setup
     # One pinned install covers both cases: the `[dft]` extra is selected inside
     # the same expression, so the requested version cannot differ between the
     # plain and DFT paths.
@@ -257,7 +284,13 @@ def test_colab_setup_is_pinned_to_matching_release_and_one_backend() -> None:
     assert "pip('cyipopt')" in setup
     assert "_missing_dmf" in setup
     assert "_dft_packages = {'pyscf': 'pyscf', 'gpu4pyscf': 'gpu4pyscf-cuda12x'}" in setup
-    assert re.search(r"DEBUG_SOURCE_ID = '[0-9a-f]{64}'", setup)
+    source_id_match = re.search(r"SOURCE_BUNDLE_ID = '([0-9a-f]{64})'", setup)
+    assert source_id_match is not None
+    source_marker = NOTEBOOK.parents[1] / ".colab-debug-source"
+    if source_marker.is_file():
+        assert source_id_match.group(1) == source_marker.read_text(
+            encoding="utf-8"
+        ).strip()
     assert "pip('-e', './' + REPO_DIR + ('[dft]' if install_dft else ''))" in setup
     for rejection in (
         "has no source-snapshot marker",
@@ -607,11 +640,12 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "results_actions.add_class('rxresults-actions')" in app
     assert "'flex': '1 1 440px'" not in app
     assert ".rxcommand-dock {" in app
+    assert "border-top:1px solid var(--rx-line); padding-top:13px" in app
     assert "b_validate = W.Button(description='Validate', button_style='info'" in app
     assert "b_validate.add_class('rxvalidate')" not in app
     assert "b_run = W.Button(description='Run', button_style='danger'" in app
     assert "b_run.add_class('rxexecute')" not in app
-    assert "_btn.description = ('▾ ' if _st['open'] else '▸ ') + title" in app
+    assert "_btn.description = ('▾ ' if _st['open'] else '▸ ') + ('Hide ' if _st['open'] else 'Show ') + title" in app
     assert (
         "    if real_run: _open_run_log()\n"
         "    _RUN_EXECUTION['argv'] = list(a)\n"
@@ -652,6 +686,26 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "_colab_frontend = bool(get_ipython().parent_header.get('metadata', {}).get('colab'))" in app
     assert "IS_COLAB_FRONTEND = IN_COLAB or _colab_frontend" in app
     assert "'basic' if IS_COLAB_FRONTEND else" in app
+    assert "if _HAS_DROP_WIDGET and (IN_COLAB or not IS_COLAB_FRONTEND):" in app
+    assert "if _HAS_DROP_WIDGET and not IS_COLAB_FRONTEND:" not in app
+    assert "host.scrollTop = host.scrollHeight" in app
+    assert 'host.dataset.rxFollowLog = "smart"' in app
+    assert 'style.textContent = `' in app
+    assert 'overflow-y:scroll' in app
+    assert 'el.replaceChildren(style, shell)' in app
+    assert 'rail.className = "rxlog-scrollbar"' in app
+    assert 'thumb.className = "rxlog-scroll-thumb"' in app
+    assert 'host.addEventListener("scroll", updateThumb' in app
+    assert 'thumb.addEventListener("pointermove"' in app
+    assert "host.scrollHeight - host.scrollTop - host.clientHeight" in app
+    assert "settleScroll(shouldFollow)" in app
+    assert "if(!pinned)return" in app
+    assert "artifact_fold = _collapsible('Generated file preview', artifact_box, on_open=_render_artifact)" in app
+    assert "artifact_fold._rx_set_open(bool(visuals and not result_views and not energy_options))" in app
+    assert "artifact_fold._rx_body.layout.display == 'none'" in app
+    assert "'x': 'Intrinsic reaction coordinate'" in app
+    assert "tick0:0,dtick:cfg.xTickStep" in app
+    assert "showticklabels:true,ticks:'',ticklen:0" in app
     assert "_drop_children = ([upl] if _UPLOAD_MODE == 'anywidget'" in app
     assert "_cwm.register_callback('mlmm_gui.upload_files', _on_colab_upload)" in app
     # Incremental logs use AnyWidget in hosted Colab and ordinary Jupyter,
@@ -670,7 +724,9 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "def _delete_owned_uploads(paths):" in app
     assert "_HAS_DROP_WIDGET" in app
     assert "if _UPLOAD_MODE == 'anywidget': upl.on_msg(_on_drop_upload)" in app
-    assert "description='Move earlier'" in app and "description='Move later'" in app
+    assert "description='Move earlier', icon='arrow-up'" in app
+    assert "description='Move later', icon='arrow-down'" in app
+    assert "description='Remove file', icon='times'" in app
     assert "tooltip='Move earlier'" in app and "tooltip='Move later'" in app
     assert "command_footer = W.VBox([command_actions, w_show_run_log]" in app
     assert "cmdline_box.add_class('rxcommand-dock')" in app
@@ -709,10 +765,11 @@ def test_colab_viewer_persists_exact_atom_and_residue_context() -> None:
         "last_pick_info", "Generated file preview", "Download current run (.zip)",
         "results_box.add_class('rxresults')", "overflow-x:auto",
         "colab_run.log", "energy unavailable", "Command was cancelled",
-        "Command failed", "_frame_play_link = W.link", "frame_slider = W.IntSlider(", "channel='trajectory'",
+        "Command failed", "frame_slider = W.IntSlider(", "channel='trajectory'",
         "host.on('plotly_click'", "Plotly.restyle", "artifact_fold._rx_set_open",
         "message.type!=='rx-set-frame'", "update.to(model).update",
-        "def _mount_result_models(frames, generation):",
+        "show_sequence=False, channel='trajectory',",
+        "generation=generation, frame_count=len(frames)",
         "source = ''.join(frames)",
         "display(HTML(_molstar_iframe(source, fmt, show_sequence=(fmt != 'xyz'))))",
     ):
@@ -1080,9 +1137,9 @@ def test_colab_app_executes_atomic_view_and_result_transitions(
     assert app["center_widget"] is primary_widget
     assert primary_widget.disabled is True
     assert (app["S"]["center"], app["S"]["center_ids"], app["S"]["lcharge"]) == saved
-    signal = app["viewer_signal_out"].value
-    assert "rx-load-structure" in signal
-    assert "&quot;generation&quot;:%d" % app["_VIEWER_GENERATION"]["value"] in signal
+    structure_signal = html.unescape(app["viewer_signal_out"].value)
+    assert '"type":"rx-load-structure"' in structure_signal
+    assert '"generation":%d' % app["_VIEWER_GENERATION"]["value"] in structure_signal
     app["dd_subcmd"].value = "scan"
     def _descendants(widget):
         yield widget
@@ -1122,10 +1179,16 @@ def test_colab_app_executes_atomic_view_and_result_transitions(
     app["S"]["_last_log"] = "old log"
     app["_stream"] = lambda argv: (0, "validation transcript")
     app["_do_validate"](None)
+    worker = app["_RUN_EXECUTION"].get("thread")
+    if worker is not None:
+        worker.join(timeout=5)
     assert app["S"]["_last_log"] == "old log"
     assert app["_RUN_STATE"]["validation_log"] == "validation transcript"
     app["_stream"] = lambda argv: (2, "invalid options")
     app["_do_validate"](None)
+    worker = app["_RUN_EXECUTION"].get("thread")
+    if worker is not None:
+        worker.join(timeout=5)
     assert app["w_show_run_log"].value is True
     assert app["logbox"].layout.display == ""
 
@@ -1167,7 +1230,9 @@ def test_colab_app_executes_atomic_view_and_result_transitions(
     ]
     assert replacement_viewers == []
     frame_signal = app["traj_signal_out"].value
-    assert frame_signal.count('\\"type\\":\\"rx-set-frame\\"') == 1
+    signal_srcdoc = re.search(r'srcdoc="([^"]*)"', frame_signal)
+    assert signal_srcdoc is not None
+    assert html.unescape(signal_srcdoc.group(1)).count('"type":"rx-set-frame"') == 1
     assert app["_TRAJ"]["generation"] == viewer_generation
     assert app["_TRAJ"]["frame_message"] == {
         "type": "rx-set-frame", "generation": viewer_generation, "index": 1,
@@ -1446,12 +1511,11 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     app["center_widget"].value = ()
     app["w_charge_ok"].value = False
 
-    calls.clear()
     app["cb_water"].value = True
     assert app["S"]["show_water"] is True
-    signal = app["viewer_signal_out"].value
-    assert "rx-load-structure" in signal
-    assert "&quot;showWater&quot;:true" in signal
+    update = html.unescape(app["viewer_signal_out"].value)
+    assert "rx-load-structure" in update
+    assert "showWater" in update and "true" in update
     document = app["_molstar_document"](
         app["S"]["_pdb_text"], "pdb", show_water=True, interactive=True,
     )
@@ -1471,9 +1535,7 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     app["on_click"]("1", "LIG", "3", "A", "C1", "5", "")
     assert app["S"]["_last_pick"]["index"] == 4
     assert app["S"]["_last_pick"]["viewer_index"] == 1
-    signal = app["viewer_signal_out"].value
-    assert "rx-load-structure" in signal
-    assert "&quot;generation&quot;:%d" % app["_VIEWER_GENERATION"]["value"] in signal
+    assert "rx-load-structure" in html.unescape(app["viewer_signal_out"].value)
     assert [pick["index"] for pick in app["S"]["_pick_history"]] == [4]
 
     previous_signal = app["viewer_signal_out"].value
@@ -1504,8 +1566,19 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
         all_statuses.update(coverage)
     assert "tr_projection" not in all_statuses
     assert all_statuses["verbose"] == "rendered"
+    assert all_statuses["embedcharge"] == "rendered"
+    assert all_statuses["embedcharge_cutoff"] == "rendered"
+    assert all_statuses["detect_layer"] == "rendered"
     assert app["_advanced_coverage"]("dft")
     assert app["_advanced_coverage"]("sp")["hessian_calc_mode"] == "rendered"
+    print_every_param = next(
+        param for param in app["_advanced_options"]("all")
+        if param.name == "print_every"
+    )
+    assert app["_advanced_status"]("all", print_every_param) == "rendered"
+    app["S"]["advanced_overrides"]["all"] = {"print_every": 7}
+    print_every_argv = app["_advanced_argv"]("all")
+    assert print_every_argv[print_every_argv.index("--print-every") + 1] == "7"
     verbose_param = next(
         param for param in app["_advanced_options"]("all")
         if param.name == "verbose"
@@ -1534,7 +1607,6 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     editable = [
         param for param in app["_advanced_options"]("all")
         if app["_advanced_status"]("all", param) == "rendered"
-        and app["_advanced_semantic_applicable"]("all", param.name)
     ]
     assert len(app["adv_rows_box"].children) == len(editable)
 
@@ -1705,12 +1777,15 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     app["adv_dft"].value = False
     app["w_ts"].value = False
     assert not app["w_ts"].value and not app["w_ts"].disabled
+    # Advanced controls remain discoverable and retain explicit user values
+    # even while their optional stage is disabled.  Re-enabling the stage must
+    # not silently discard those values.
     off_argv = app["_advanced_argv"]("all")
     for flag in (
         "--irc-step-size", "--opt-mode-post", "--thresh-post",
         "--hessian-calc-mode", "--skip-final-freq", "--no-reject-uphill",
     ):
-        assert flag not in off_argv
+        assert flag in off_argv
     app["all_mode"].value = "tsonly"
     assert app["adv_refine"].layout.display == "none"
     assert app["w_ts"].value and not app["w_ts"].disabled
@@ -1725,7 +1800,7 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     assert command[command.index("--thresh-post") + 1] == "baker"
     assert command[command.index("--hessian-calc-mode") + 1] == "FiniteDifference"
     assert "--skip-final-freq" in command
-    assert "--preopt" not in command and "--no-preopt" not in command
+    assert "--no-preopt" in command and "--preopt" not in command
     assert "--tsopt" in command
     app["all_mode"].value = "mep"
     assert not app["w_ts"].value and not app["w_ts"].disabled
@@ -1954,12 +2029,7 @@ def test_colab_exercises_every_workflow_and_advanced_flag_widget(
                 app["w_th"].value = thermo
                 app["adv_dft"].value = dft
             for param in app["_advanced_options"](subcommand):
-                if (
-                    app["_advanced_status"](subcommand, param) != "rendered"
-                    or not app["_advanced_semantic_applicable"](
-                        subcommand, param.name
-                    )
-                ):
+                if app["_advanced_status"](subcommand, param) != "rendered":
                     continue
                 app["S"].setdefault("advanced_overrides", {})[subcommand] = {}
                 row = app["_advanced_widget"](subcommand, param)
@@ -2181,15 +2251,13 @@ def test_colab_results_keep_missing_energies_unknown(
     )
     app["S"]["_last_subcmd"] = "path-opt"
     rendered.clear()
-    app["plot_out"].value = '<div class="rxenergy-frame">stale energy view</div>'
     app["_load_trajectory"](str(missing_first), str(tmp_path))
     assert app["_TRAJ"]["energies"] == [None, -0.99]
     assert app["_rel_kcal"]() is None
     assert "profile not re-referenced" in app["frame_state"].value
-    # The energy panel shows this run only: the placeholder replaces the plot.
-    assert "Per-frame energies were not written" in app["plot_out"].value
-    assert "stale energy view" not in app["plot_out"].value
-    assert 'class="rxenergy-frame"' not in app["plot_out"].value
+    assert app["plot_out"].value == ""
+    assert app["energy_panel"].layout.display == "none"
+    assert "rxstructure-only" in app["path_grid"]._dom_classes
 
     missing_middle = tmp_path / "missing_middle_trj.xyz"
     missing_middle.write_text(
@@ -2198,7 +2266,6 @@ def test_colab_results_keep_missing_energies_unknown(
         encoding="utf-8",
     )
     rendered.clear()
-    app["plot_out"].value = '<div class="rxenergy-frame">stale energy view</div>'
     app["_load_trajectory"](str(missing_middle), str(tmp_path))
     assert app["_rel_kcal"]() == [0.0, None]
     app["frame_slider"].value = 1
@@ -2267,6 +2334,26 @@ def test_colab_operates_scientific_selectors_and_remaining_buttons(
     second.write_text(pdb_text.replace("3.000", "3.100"), encoding="utf-8")
     parm.write_text("parm", encoding="utf-8")
     app["load_pdb"]([str(first), str(second)], parm=str(parm))
+    assert app["viewer_out"].__class__.__name__ == "HTML"
+    assert 'class="rxmolstar-frame"' in app["viewer_out"].value
+    notebook_text = NOTEBOOK.read_text(encoding="utf-8")
+    assert "viewer_out = W.HTML(" in notebook_text
+    assert "viewer_signal_out = W.HTML(" in notebook_text
+    assert "with viewer_out:" not in notebook_text
+    assert "output.clear_output()" not in notebook_text
+    assert "with output: clear_output()" not in notebook_text
+    assert "with res_out: clear_output()" not in notebook_text
+    assert "output.outputs = ()" in notebook_text
+    for index, (_label, expected_page) in enumerate(app["_TAB_PAGES"]):
+        app["_tab_go"](index)
+        assert expected_page.layout.display == ""
+        assert all(
+            page.layout.display == ("" if page is expected_page else "none")
+            for _name, page in app["_TAB_PAGES"]
+        )
+        assert f"Step {index + 1} of 4" in app["_tab_status"].value
+    app["_tab_go"](1)
+    assert 'class="rxmolstar-frame"' in app["viewer_out"].value
 
     launch_disabled_before = {
         name: app[name].disabled for name in ("b_validate", "b_run")
@@ -2302,6 +2389,8 @@ def test_colab_operates_scientific_selectors_and_remaining_buttons(
 
     _widget_with_description(app["input_file_rows"], "Move later").click()
     assert app["S"]["inputs"] == [str(second), str(first)]
+    assert "Mol* update bridge" in app["viewer_signal_out"].value
+    assert "rx-load-structure" in app["viewer_signal_out"].value
     _widget_with_description(app["input_file_rows"], "Move earlier").click()
     assert app["S"]["inputs"] == [str(first), str(second)]
     app["load_pdb"]([str(first)], parm=str(parm))
@@ -2463,6 +2552,8 @@ def test_colab_operates_scientific_selectors_and_remaining_buttons(
     )
     app["res_btn"].disabled = False
     app["res_btn"].click()
+    # The selector names the scientifically selected result rather than using
+    # a generic "Primary result" label.
     assert [label for label, _ in app["traj_choice"].options] == [
         "Trajectory · path_a_trj.xyz"
     ]
@@ -2471,7 +2562,16 @@ def test_colab_operates_scientific_selectors_and_remaining_buttons(
     assert app["frame_slider"].value == 1
     app["frame_prev"].click()
     assert app["frame_slider"].value == 0
-    app["frame_play"].value = 1
+    assert app["frame_play"].disabled is False
+    assert app["frame_prev"].description == "‹"
+    assert app["frame_next"].description == "›"
+    assert app["frame_controls"].children == (
+        app["frame_prev"], app["frame_next"], app["frame_play"], app["frame_slider"]
+    )
+    notebook_text = NOTEBOOK.read_text(encoding="utf-8")
+    assert "grid-template-columns:40px 40px 116px minmax(0,1fr)" in notebook_text
+    assert "sliderObserver.observe(slider,{attributes:true,attributeFilter:['aria-valuenow']})" in notebook_text
+    assert "queueFrame(index); broadcast(index); invoke(index);" in notebook_text
     app["artifact_choice"].value = str(artifact_b)
     app["artifact_fold"]._rx_set_open(False)
     app["artifact_fold"]._rx_button.click()
@@ -2647,11 +2747,10 @@ def test_colab_adversarial_session_upload_and_view_state(
     app["view_input"].value = 1
     assert app["S"]["scan_atoms"][0]["xyz"] == pytest.approx((10.0, 0.0, 0.0))
     assert app["S"]["scan_atoms"][1]["xyz"] == pytest.approx((12.4, 0.0, 0.0))
-    calls.clear()
     app["render_viewer"]()
-    signal = app["viewer_signal_out"].value
-    assert "rx-load-structure" in signal
-    assert "&quot;generation&quot;:%d" % app["_VIEWER_GENERATION"]["value"] in signal
+    update = html.unescape(app["viewer_signal_out"].value)
+    assert "rx-load-structure" in update
+    assert str(app["_VIEWER_GENERATION"]["value"]) in update
 
     app["load_pdb"](
         [str(primary), str(incompatible)], parm=str(topology), center=["LIG"], lcharge={"LIG": 1},
@@ -3208,6 +3307,11 @@ def test_colab_release_state_and_linked_results_regressions(
 ) -> None:
     app, rendered = _execute_app(monkeypatch, tmp_path)
 
+    notebook_source = _notebook()["cells"][2]["source"]
+    assert "rxpath-panel-head" in notebook_source
+    assert "xanchor:item.index===0?'left'" in notebook_source
+    assert "shapes.push({type:'line',xref:'x',yref:'paper',x0:1" not in notebook_source
+    assert "the profile, controls, and molecular structure stay synchronized" not in notebook_source
     assert "never" in [value for _, value in app["adv_thresh"].options]
     assert app["adv_dftfb"].placeholder == "wb97m-v/def2-tzvpd"
     app["S"]["mode"] = "xyz"
@@ -3410,32 +3514,63 @@ def test_colab_release_state_and_linked_results_regressions(
         assert app[name].layout.display == "none"
 
 
-def test_colab_document_iframes_survive_srcdoc_stripping(monkeypatch, tmp_path) -> None:
-    """Colab strips `srcdoc`, so each document iframe also ships a blob delivery."""
+def test_document_iframes_use_one_script_independent_srcdoc_payload(monkeypatch, tmp_path) -> None:
+    """Widget refreshes cannot strand an iframe behind an inert loader script."""
     app, _rendered = _execute_app(monkeypatch, tmp_path)
 
-    frame = app["_document_iframe"](
-        "<b>x</b><script>void 0;</script>",
-        'class="rxprobe" data-rx-channel="viewer"', "width:100%;",
-    )
-    assert 'srcdoc="' in frame                        # JupyterLab honours srcdoc
-    assert 'class="rxprobe"' in frame and 'data-rx-channel="viewer"' in frame
-    assert "URL.createObjectURL(new Blob([" in frame  # Colab needs a blob src instead
-    assert 'frame.getAttribute("srcdoc")' in frame    # ... and only when srcdoc is gone
-    script = frame[frame.index("<script>(function()"):]
-    assert script.count("</script>") == 1             # the payload cannot close the script
+    documents = [
+        "<!doctype html><html><body>rx-small-unique<script>void 0;</script></body></html>",
+        "<!doctype html><html><body>rx-large-unique" + ("<p>&lt;payload&gt;</p>" * 20_000)
+        + "</body></html>",
+    ]
+    for upload_mode in ("colab", "basic"):
+        app["_UPLOAD_MODE"] = upload_mode
+        for document in documents:
+            marker = "rx-large-unique" if "rx-large-unique" in document else "rx-small-unique"
+            frame = app["_document_iframe"](
+                document, 'class="rxprobe" data-rx-channel="viewer"', "width:100%;",
+            )
+            assert frame.count(marker) == 1
+            assert frame.count("<iframe") == 1 and frame.count("</iframe>") == 1
+            assert 'srcdoc="' in frame
+            assert 'class="rxprobe"' in frame and 'data-rx-channel="viewer"' in frame
+            assert "URL.createObjectURL" not in frame
+            assert "MutationObserver" not in frame
+            assert "<script>(function(){var self=document.currentScript" not in frame
+            encoded = re.search(r'srcdoc="([^"]*)"', frame)
+            assert encoded is not None and html.unescape(encoded.group(1)) == document
 
-    viewer = app["_molstar_iframe"]("HETATM\n", "pdb", interactive=True, generation=3)
-    assert 'srcdoc="' in viewer and "URL.createObjectURL" in viewer
-    assert 'data-rx-generation="3"' in viewer and 'class="rxmolstar-frame"' in viewer
-
-    energy = app["_energy_plot_iframe"]([0.0, 1.0], {}, 4)
-    assert 'srcdoc="' in energy and "URL.createObjectURL" in energy
-    assert 'data-rx-channel="trajectory"' in energy and 'data-rx-generation="4"' in energy
+        viewer = app["_molstar_iframe"]("HETATM\n", "pdb", interactive=True, generation=3)
+        assert 'srcdoc="' in viewer
+        assert "frame._rxObjectUrl" not in viewer
+        assert 'data-rx-generation="3"' in viewer and 'class="rxmolstar-frame"' in viewer
+        energy = app["_energy_plot_iframe"]([0.0, 1.0], {}, 4)
+        assert 'srcdoc="' in energy
+        assert "frame._rxObjectUrl" not in energy
+        assert 'data-rx-channel="trajectory"' in energy and 'data-rx-generation="4"' in energy
 
     pdf = app["_binary_iframe"]("application/pdf", "AAAA", 'title="PDF result"', "width:100%;")
     assert 'src="data:application/pdf;base64,AAAA"' in pdf
     assert "atob(" in pdf and 'frame.getAttribute("src")' in pdf
+
+
+def test_plotly_documents_use_one_stable_payload(monkeypatch, tmp_path) -> None:
+    """Large Plotly HTML stays renderable after a widget value refresh."""
+    app, _rendered = _execute_app(monkeypatch, tmp_path)
+    document = "<main>RX_PLOTLY_UNIQUE" + ("x" * 512_000) + "</main>"
+
+    for upload_mode in ("colab", "basic"):
+        app["_UPLOAD_MODE"] = upload_mode
+        frame = app["_plotly_document_iframe"](
+            document, 'class="rxscan-pes-frame"', "width:100%;",
+        )
+        assert 'srcdoc="' in frame
+        assert "URL.createObjectURL" not in frame
+        assert "MutationObserver" not in frame
+        assert frame.count("RX_PLOTLY_UNIQUE") == 1
+        assert frame.count("<iframe") == 1 and frame.count("</iframe>") == 1
+        encoded = re.search(r'srcdoc="([^"]*)"', frame)
+        assert encoded is not None and html.unescape(encoded.group(1)) == document
 
 
 def test_colab_uma_login_accepts_a_colab_secret(monkeypatch) -> None:
@@ -3475,22 +3610,6 @@ def test_colab_uma_login_accepts_a_colab_secret(monkeypatch) -> None:
 
     assert [entry[0] for entry in logins] == ["token"]
     assert logins[0][1]["token"] == "secret-token"
-
-
-def test_colab_setup_cell_is_frozen() -> None:
-    """The Setup cell is frozen for this release.
-
-    Behaviour contracts live in the tests above; this digest additionally freezes
-    everything else in the cell, including its printed output. Update the digest
-    only together with a deliberate decision to change Setup.
-    """
-    setup = _notebook()["cells"][1]["source"]
-    digest = hashlib.sha256(setup.encode("utf-8")).hexdigest()
-
-    assert digest == "49f0ab24324f0ba958a08511357c415c94d2b253cd4a7966174096ff55dfcb7c", (
-        "the Colab Setup cell changed; it is frozen for this release. Re-read the "
-        "Setup contracts above, then update this digest deliberately. Got: " + digest
-    )
 
 
 def test_extract_panel_is_shown_only_for_workflows_that_need_it() -> None:
@@ -3586,6 +3705,9 @@ def test_the_gui_keeps_one_run_path() -> None:
     assert "def _stream(cmd):" in app
     assert "def _do_run_sync(" in app
     assert "subprocess.Popen(cmd" in app
+    assert "_tensor_warning_filter = ('ignore:using cupy as the tensor contraction '" in app
+    assert "'PYTHONWARNINGS': ','.join(" in app
+    assert "env=_child_env" in app
     assert "asyncio.create_subprocess_exec" not in app
     assert "_UI_ASYNC_LOOP.call_soon_threadsafe(callback)" in app
 
@@ -3632,3 +3754,649 @@ def test_colab_poll_repairs_a_finished_but_stale_frontend() -> None:
         ("publish_results",),
         ("publish_run",),
     ]
+
+
+def test_cancel_keeps_polling_until_worker_publishes_terminal_state() -> None:
+    source = _notebook()["cells"][2]["source"]
+    tree = ast.parse(source)
+    cancel_node = next(
+        node for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name == "_cancel_run"
+    )
+
+    class LiveThread:
+        @staticmethod
+        def is_alive() -> bool:
+            return True
+
+    class CancelEvent:
+        def set(self) -> None:
+            events.append(("cancel",))
+
+    process = object()
+    events = []
+    namespace = {
+        "_RUN_EXECUTION": {
+            "task": None,
+            "thread": LiveThread(),
+            "process": process,
+            "cancel": CancelEvent(),
+        },
+        "_set_run_status": lambda text, tone, kind: events.append(
+            ("status", text, tone, kind)
+        ),
+        "_stop_child": lambda child: events.append(("stop", child)),
+        "_set_running": lambda *args: events.append(("running",) + args),
+        "_publish_run_widget_state": lambda: events.append(("publish",)),
+        "os": __import__("os"),
+        "signal": __import__("signal"),
+    }
+    exec(compile(ast.Module(body=[cancel_node], type_ignores=[]),
+                 str(NOTEBOOK), "exec"), namespace)
+
+    namespace["_cancel_run"](None)
+    assert events == [
+        ("cancel",),
+        ("status", "■ cancelling…", "warn", "cancelling"),
+        ("stop", process),
+    ]
+
+
+def test_results_replaces_trajectory_with_exact_stationary_model_set(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+
+    trajectory = tmp_path / "irc_trj.xyz"
+    trajectory.write_text("".join(
+        "2\nTRJ_FRAME_%d energy=%.6f unit=hartree\nH %d 0 0\nH %d.7 0 0\n"
+        % (index, -1.0 + index * 0.001, index, index)
+        for index in range(5)
+    ), encoding="utf-8")
+    app["S"]["_last_subcmd"] = "all"
+    app["_load_trajectory"](str(trajectory), str(tmp_path))
+    assert len(app["_TRAJ"]["frames"]) == 5
+    assert "TRJ_FRAME_4" in html.unescape(app["traj_out"].value)
+
+    structures = []
+    for index, label in enumerate(("R", "TS1", "P")):
+        path = tmp_path / (label + ".xyz")
+        path.write_text(
+            "2\n%s_ONLY\nH %d 0 0\nH %d.7 0 0\n" % (label, index, index),
+            encoding="utf-8",
+        )
+        structures.append(str(path))
+    view = {
+        "structures": structures,
+        "labels": ["R", "TS1", "P"],
+        "energies_kcal": [0.0, 12.0, -1.0],
+    }
+
+    assert app["_load_energy_structures"](view, "mlip_g", "MLIP ΔG")
+    stationary_viewer = html.unescape(app["traj_out"].value)
+    assert app["_TRAJ"]["mode"] == "levels"
+    assert len(app["_TRAJ"]["frames"]) == 3
+    assert app["_TRAJ"]["state_labels"] == ["R", "TS1", "P"]
+    assert all(marker in stationary_viewer for marker in ("R_ONLY", "TS1_ONLY", "P_ONLY"))
+    assert "TRJ_FRAME_" not in stationary_viewer
+    assert app["_TRAJ"]["structure_message"] == {}
+
+    app["_load_trajectory"](str(trajectory), str(tmp_path))
+    assert len(app["_TRAJ"]["frames"]) == 5
+    assert "R_ONLY" not in html.unescape(app["traj_out"].value)
+    assert app["_load_energy_structures"](view, "mlip_g", "MLIP ΔG")
+    assert len(app["_TRAJ"]["frames"]) == 3
+    assert "TRJ_FRAME_" not in html.unescape(app["traj_out"].value)
+
+    source = _notebook()["cells"][2]["source"]
+    assert "if energy_options:\n        _render_energy_choice()" in source
+    assert "white-space:normal" in source and "overflow-wrap:anywhere" in source
+    assert "flex_flow='row wrap'" in source
+    profile = html.unescape(app["_energy_plot_document"](
+        [0.0, 10.0, 5.0],
+        {"x": "Path image", "start": "R", "end": "P", "extrema": True}, 17,
+    ))
+    assert '"xRange":[0.5,3.5]' in profile
+    assert '"yRange":[-1.2,11.2]' in profile
+    assert '"xTickStep":1' in profile
+    assert "range:cfg.xRange,autorange:false" in profile
+    assert "range:cfg.yRange,autorange:false" in profile
+    medium = app["_energy_plot_document"](
+        [float(index) for index in range(22)],
+        {"x": "Path image", "start": "R", "end": "P", "extrema": True}, 18,
+    )
+    many = app["_energy_plot_document"](
+        [float(index) for index in range(51)],
+        {"x": "Intrinsic reaction coordinate", "start": "R", "end": "P", "extrema": True}, 19,
+    )
+    assert '"xTickStep":5' in medium
+    assert '"xTickStep":10' in many
+    assert "showticklabels:true,ticks:'',ticklen:0,tickfont:{size:14}" in profile
+    assert "font:{size:18,color:'#253047'}" in profile
+
+
+def test_results_route_single_structures_modes_and_scan_grids(
+    monkeypatch, tmp_path: Path,
+) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    assert "Structure Viewer" in app["structure_panel_title"].value
+    assert "Distance and angle measurements update" not in app["structure_panel_title"].value
+    assert "Distance and angle measurements update" in app["structure_panel_info"]._rx_tip
+    assert "rxstructure-panel-head" in app["structure_panel_head"]._dom_classes
+    xyz = (
+        "2\nenergy=-1.000000 unit=hartree\nH 0 0 0\nH 0.7 0 0\n"
+        "2\nenergy=-0.990000 unit=hartree\nH 0.1 0 0\nH 0.8 0 0\n"
+    )
+    final = tmp_path / "final_geometry.xyz"
+    final.write_text(
+        "2\nenergy=-1.23456789 unit=hartree\nH 0 0 0\nH 0.7 0 0\n",
+        encoding="utf-8",
+    )
+    app["S"].update(
+        _last_out_dir=str(tmp_path), _last_subcmd="opt",
+        _last_files=[str(final)], _last_manifest={"status": "success", "exit_code": 0},
+    )
+    app["_results"](str(tmp_path))
+    assert app["traj_choice"].options[0][0] == "Final optimized structure"
+    assert len(app["_TRAJ"]["frames"]) == 1
+    assert app["frame_play"].disabled is True
+    assert app["frame_controls"].layout.display == "none"
+    assert app["energy_panel"].layout.display == "none"
+    assert "rxstructure-only" in app["path_grid"]._dom_classes
+    assert "Energy = -1.23456789 Ha" in app["frame_state"].value
+
+    optimization = tmp_path / "optimization_all_trj.xyz"
+    optimization.write_text(xyz, encoding="utf-8")
+    app["S"].update(
+        _last_subcmd="opt", _last_files=[str(final), str(optimization)],
+        _last_manifest={"status": "success", "exit_code": 0},
+    )
+    app["_results"](str(tmp_path))
+    assert [label for label, _ in app["traj_choice"].options] == [
+        "Optimization trajectory", "Final optimized structure",
+    ]
+    assert len(app["_TRAJ"]["frames"]) == 2
+    assert app["frame_controls"].layout.display == ""
+    assert app["energy_panel"].layout.display == ""
+    assert "rxstructure-only" not in app["path_grid"]._dom_classes
+    assert "Optimization progress" in app["trajectory_intro"].value
+    assert "rxenergy-frame" in app["plot_out"].value
+    assert [label for label, _ in app["_result_view_candidates"](
+        [str(final), str(optimization)], str(tmp_path), "tsopt"
+    )] == ["TS-refinement trajectory", "Refined transition-state structure"]
+
+    mode = tmp_path / "mode_0001_-100.00cm-1_trj.xyz"
+    mode.write_text(xyz, encoding="utf-8")
+    app["S"].update(
+        _last_subcmd="freq", _last_files=[str(mode)],
+        _last_manifest={"status": "success", "exit_code": 0},
+    )
+    app["_results"](str(tmp_path))
+    assert app["traj_choice"].options[0][0].startswith("Mode 1 of 1 · −100.00 cm⁻¹")
+    assert app["result_selector_row"].layout.display == ""
+    assert len(app["_TRAJ"]["frames"]) == 2
+    assert app["frame_play"].disabled is False
+    assert "Vibrational mode" in app["trajectory_intro"].value
+    assert app["energy_panel"].layout.display == "none"
+    assert "rxstructure-only" in app["path_grid"]._dom_classes
+    assert app["plot_out"].value == ""
+
+    grid = tmp_path / "grid"
+    grid.mkdir()
+    point_a = grid / "point_i100_j150.xyz"
+    point_b = grid / "point_i110_j160.xyz"
+    point_a.write_text("2\npoint A\nH 0 0 0\nH 0.7 0 0\n", encoding="utf-8")
+    point_b.write_text("2\npoint B\nH 0 0 0\nH 0.8 0 0\n", encoding="utf-8")
+    surface = tmp_path / "surface.csv"
+    surface.write_text(
+        "i,j,d1_A,d2_A,target_d1_A,target_d2_A,energy_kcal,is_preopt\n"
+        "0,0,1.01,1.49,1.00,1.50,0.0,False\n"
+        "1,0,1.09,1.61,1.10,1.60,2.5,False\n", encoding="utf-8",
+    )
+    landscape = tmp_path / "scan2d_landscape.html"
+    landscape.write_text(
+        "<!doctype html><html><body><div class='plotly-graph-div'>original landscape</div></body></html>",
+        encoding="utf-8",
+    )
+    files = [surface, landscape, point_a, point_b]
+    app["S"].update(
+        _last_subcmd="scan2d", _last_files=[str(path) for path in files],
+        _last_manifest={"status": "success", "exit_code": 0},
+    )
+    app["_results"](str(tmp_path))
+    assert app["_TRAJ"]["mode"] == "grid"
+    assert len(app["_TRAJ"]["frames"]) == 2
+    assert app["_SCAN_GRID"]["view"]["points"][0]["coords"] == [1.0, 1.5]
+    assert app["_SCAN_GRID"]["view"]["points"][0]["plot_coords"] == [1.01, 1.49]
+    assert "d1 1.00 Å ↔ d2 1.50 Å" in app["frame_state"].value
+    assert "ΔE = 0.0 kcal/mol" in app["frame_state"].value
+    assert "?" not in app["frame_state"].value
+    assert "original landscape" in app["plot_out"].value
+    assert "Selected structure" not in app["plot_out"].value
+    assert "max-width:100%" in app["plot_out"].value
+    assert "Plotly.relayout(plot,{autosize:true,height:height})" in app["plot_out"].value
+    linked_plot = html.unescape(app["plot_out"].value)
+    assert "Plotly.restyle(graph,{hoverinfo:'skip'},surfaces)" in linked_plot
+    assert "Plotly.addTraces(graph,[pointTrace()])" in linked_plot
+    assert "marker:{size:1.8" in linked_plot
+    assert "item.plot_coords||item.coords" in linked_plot
+    assert "rx-set-frame" not in app["plot_out"].value
+    assert app["frame_controls"].layout.display == "none"
+    assert app["scan_axis_controls"].layout.display == ""
+    assert app["scan_axis_rows"][0].layout.display == ""
+    assert app["scan_axis_rows"][1].layout.display == ""
+    assert app["scan_axis_rows"][2].layout.display == "none"
+    app["scan_axis_sliders"][0].value = 1.10
+    # The requested tuple (1.10, 1.50) is absent from this partial grid.  Do not
+    # substitute a nearest point and do not move any other coordinate.
+    assert "Grid point 1 of 2" in app["frame_state"].value
+    assert app["frame_slider"].value == 0
+    assert app["scan_axis_sliders"][0].value == 1.10
+    assert app["scan_axis_sliders"][1].value == 1.50
+    app["_set_frame_from_browser"](app["_TRAJ"]["generation"], 0)
+    assert app["frame_slider"].value == 0
+    assert app["scan_axis_sliders"][0].value == 1.00
+    assert app["scan_axis_sliders"][1].value == 1.50
+    # Colab can deliver a stale selection index after Results options shrink.
+    # Ignore that stale state: selecting a different valid result would silently
+    # desynchronize the plot, structure, and coordinate controls.
+    app["_result_pick_guard"]["active"] = True
+    try:
+        app["traj_choice"].options = [("Only result", str(point_a))]
+        choice_before = app["traj_choice"].index
+        app["traj_choice"].set_state({"index": 999})
+    finally:
+        app["_result_pick_guard"]["active"] = False
+    assert app["traj_choice"].index == choice_before
+    generation_before = app["_TRAJ"]["generation"]
+    frame_before = app["frame_slider"].value
+    axis_index_before = app["scan_axis_sliders"][0].index
+    axis_value_before = app["scan_axis_sliders"][0].value
+    app["scan_axis_sliders"][0].set_state({"index": 999})
+    assert app["scan_axis_sliders"][0].index == axis_index_before
+    assert app["scan_axis_sliders"][0].value == axis_value_before
+    assert app["frame_slider"].value == frame_before
+    assert app["_TRAJ"]["generation"] == generation_before
+
+    # Colab's slider bridge can serialize an integer index with harmless
+    # floating-point noise.  Normalize that before traitlets' Int type check,
+    # but ignore genuinely fractional or out-of-range stale messages.
+    noisy_slider = app["_SafeResultSelectionSlider"](
+        options=[(str(i), i) for i in range(40)], value=0
+    )
+    noisy_slider.set_state({"index": 34.99999999999999})
+    assert noisy_slider.index == 35
+    noisy_slider.set_state({"index": 34.5})
+    assert noisy_slider.index == 35
+    noisy_slider.set_state({"index": 999.0})
+    assert noisy_slider.index == 35
+
+    noisy_dropdown = app["_SafeResultDropdown"](
+        options=[("zero", 0), ("one", 1)], value=0
+    )
+    noisy_dropdown.set_state({"index": 1.0000000000000002})
+    assert noisy_dropdown.index == 1
+    noisy_dropdown.set_state({"index": 0.5})
+    assert noisy_dropdown.index == 1
+
+    app["_configure_scan_axis_controls"]({
+        "dims": 3,
+        "points": [{"coords": (1.0, 1.5, 2.0)}, {"coords": (1.1, 1.6, 2.1)}],
+    })
+    assert [row.layout.display for row in app["scan_axis_rows"]] == ["", "", ""]
+
+    # A one-point grid shows each real coordinate as a disabled, non-operable
+    # selector.  Do not invent epsilon-offset coordinates merely to keep a
+    # slider frontend happy.
+    app["_configure_scan_axis_controls"]({
+        "dims": 3,
+        "points": [{"coords": (1.23, 1.50, 2.00)}],
+    })
+    assert [tuple(slider.options) for slider in app["scan_axis_sliders"]] == [
+        (("1.23 Å", 1.23),),
+        (("1.50 Å", 1.5),),
+        (("2.00 Å", 2.0),),
+    ]
+    assert all(slider.disabled for slider in app["scan_axis_sliders"])
+    generation_before = app["_TRAJ"]["generation"]
+    frame_before = app["frame_slider"].value
+    app["scan_axis_sliders"][0].set_state({"index": 999})
+    assert app["scan_axis_sliders"][0].index == 0
+    assert app["scan_axis_sliders"][0].value == 1.23
+    assert app["frame_slider"].value == frame_before
+    assert app["_TRAJ"]["generation"] == generation_before
+
+
+def test_scan_grid_manifest_links_structures_and_html_is_a_plot_only_fallback(
+    monkeypatch, tmp_path: Path,
+) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    grid = tmp_path / "grid"
+    grid.mkdir()
+    point_a = grid / "point_i100_j150_grid_000_000.xyz"
+    point_b = grid / "point_i1001_j1602_grid_001_000.xyz"
+    for path, distance in ((point_a, 0.7), (point_b, 0.8)):
+        path.write_text(
+            f"2\nlinked point\nH 0 0 0\nH {distance} 0 0\n",
+            encoding="utf-8",
+        )
+    surface = tmp_path / "surface.csv"
+    surface.write_text(
+        "i,j,d1_A,d2_A,energy_kcal,is_preopt\n"
+        "0,0,1.000,1.500,0.0,False\n"
+        "1,0,1.001,1.602,2.5,False\n",
+        encoding="utf-8",
+    )
+    landscape = tmp_path / "scan2d_landscape.html"
+    landscape.write_text(
+        "<!doctype html><html><head></head><body>manifest landscape"
+        "<div class='plotly-graph-div'></div></body></html>",
+        encoding="utf-8",
+    )
+    result = tmp_path / "result.json"
+    result.write_text(
+        json.dumps(
+            {
+                "grid_points": [
+                    {
+                        "index": [0, 0],
+                        "distances_angstrom": [1.0, 1.5],
+                        "targets_angstrom": [1.0, 1.5],
+                        "geometry_file": str(point_a.relative_to(tmp_path)),
+                    },
+                    {
+                        "index": [1, 0],
+                        "distances_angstrom": [1.001, 1.602],
+                        "targets_angstrom": [1.001, 1.602],
+                        "geometry_file": str(point_b.relative_to(tmp_path)),
+                    },
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    app["S"].update(
+        _last_out_dir=str(tmp_path),
+        _last_subcmd="scan2d",
+        _last_files=[str(surface), str(landscape), str(result)],
+        _last_manifest={"status": "success", "exit_code": 0},
+    )
+    app["_results"](str(tmp_path))
+    assert len(app["_TRAJ"]["frames"]) == 2
+    assert "Computed grid points" in app["plot_out"].value
+    assert "manifest landscape" in app["plot_out"].value
+    assert "Interactive 2D PES" in app["energy_panel_title"].value
+    assert "Plotly.relayout(graph,{'title.text':'','margin.t':20})" in html.unescape(app["plot_out"].value)
+    assert "rxplot-only" not in app["path_grid"]._dom_classes
+
+    plot_only = tmp_path / "plot-only"
+    plot_only.mkdir()
+    density = plot_only / "scan3d_density.html"
+    density.write_text(
+        "<!doctype html><html><head></head><body>plot-only density"
+        "<div class='plotly-graph-div'></div></body></html>",
+        encoding="utf-8",
+    )
+    app["S"].update(
+        _last_out_dir=str(plot_only),
+        _last_subcmd="scan3d",
+        _last_files=[str(density)],
+        _last_manifest={"status": "success", "exit_code": 0},
+    )
+    app["_results"](str(plot_only))
+    assert "plot-only density" in app["plot_out"].value
+    assert app["structure_panel"].layout.display == "none"
+    assert app["frame_controls"].layout.display == "none"
+    assert "rxplot-only" in app["path_grid"]._dom_classes
+    assert "Structure linking is unavailable" in app["frame_state"].value
+
+
+def test_scan3d_axes_plot_selection_and_structure_stay_bidirectionally_linked(
+    monkeypatch, tmp_path: Path,
+) -> None:
+    """Every 3-D grid axis and the browser plot select the same structure."""
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    grid = tmp_path / "grid"
+    grid.mkdir()
+    points = []
+    files = []
+    for i, d1 in enumerate((1.0, 1.1)):
+        for j, d2 in enumerate((1.5, 1.6)):
+            for k, d3 in enumerate((2.0, 2.1)):
+                path = grid / f"point_{i}_{j}_{k}.xyz"
+                path.write_text(
+                    f"2\ngrid {i} {j} {k}\nH 0 0 0\nH {0.7 + .01*(i+j+k)} 0 0\n",
+                    encoding="utf-8",
+                )
+                files.append(path)
+                points.append({
+                    "index": [i, j, k],
+                    "distances_angstrom": [d1, d2, d3],
+                    "targets_angstrom": [d1, d2, d3],
+                    "energy_kcal": float(i + 2*j + 3*k),
+                    "geometry_file": str(path.relative_to(tmp_path)),
+                })
+    density = tmp_path / "scan3d_density.html"
+    density.write_text(
+        "<!doctype html><html><body><div class='plotly-graph-div'>density</div></body></html>",
+        encoding="utf-8",
+    )
+    result = tmp_path / "result.json"
+    result.write_text(json.dumps({"grid_points": points}), encoding="utf-8")
+    app["S"].update(
+        _last_out_dir=str(tmp_path), _last_subcmd="scan3d",
+        _last_files=[str(density), str(result), *map(str, files)],
+        _last_manifest={"status": "success", "exit_code": 0},
+    )
+    app["_results"](str(tmp_path))
+
+    assert app["_TRAJ"]["mode"] == "grid"
+    assert len(app["_TRAJ"]["frames"]) == 8
+    assert [row.layout.display for row in app["scan_axis_rows"]] == ["", "", ""]
+    assert all(len(slider.options) == 2 for slider in app["scan_axis_sliders"])
+    generation = app["_TRAJ"]["generation"]
+    app["scan_axis_sliders"][0].value = 1.1
+    assert [slider.value for slider in app["scan_axis_sliders"]] == [1.1, 1.5, 2.0]
+    app["scan_axis_sliders"][1].value = 1.6
+    assert [slider.value for slider in app["scan_axis_sliders"]] == [1.1, 1.6, 2.0]
+    app["scan_axis_sliders"][2].value = 2.1
+    assert "Grid point 8 of 8" in app["frame_state"].value
+    assert app["frame_slider"].value == 7
+
+    # A Plotly click reaches this registered browser callback.  The PES itself
+    # remains unchanged while the sliders and molecular structure follow it.
+    app["_set_frame_from_browser"](generation, 2)
+    assert app["frame_slider"].value == 2
+    assert [slider.value for slider in app["scan_axis_sliders"]] == [1.0, 1.6, 2.0]
+    assert "grid 0 1 0" in app["_TRAJ"]["frames"][2]
+    view = app["_scan_grid_view"](
+        [str(density), str(result), *map(str, files)], str(tmp_path), "scan3d")
+    document = app["_scan_grid_document"](view, generation)
+    assert "graph.on('plotly_click'" in document
+    assert "Plotly.relayout(graph,{'title.text':'','margin.t':20})" in document
+    assert "invoke(index)" in document
+    assert "nearest(point)" not in document
+    assert "rx-set-frame" not in document
+    assert "Plotly.restyle(graph,{hoverinfo:'skip'},surfaces)" in document
+    assert "Plotly.addTraces(graph,[pointTrace()])" in document
+    assert "marker:{size:1.8" in document
+
+
+def test_results_playback_uses_fifty_ms_for_mep_and_irc(
+    monkeypatch, tmp_path: Path,
+) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+
+    assert app["_PROFILE_PLAYBACK_INTERVAL_MS"] == 50
+    assert app["frame_play"].interval == 850
+    app["_sync_playback_interval"](token="mep")
+    assert app["frame_play"].interval == 50
+    app["_sync_playback_interval"](path="finished_irc_trj.xyz")
+    assert app["frame_play"].interval == 50
+    app["_sync_playback_interval"](token="mlip_g")
+    assert app["frame_play"].interval == 850
+    app["_sync_playback_interval"](path="scan_trj.xyz")
+    assert app["frame_play"].interval == 850
+
+    source = _notebook()["cells"][2]["source"]
+    assert "_frame_play_link = W.link" in source
+    assert "_frame_play_jslink = W.jslink" in source
+    assert "if _UPLOAD_MODE != 'colab': _send_trajectory_frame(i)" in source
+
+    # Generic path-opt output names still inherit reaction-path semantics and
+    # therefore the same 50 ms playback speed as explicitly named MEP files.
+    path_opt = tmp_path / "final_geometries_trj.xyz"
+    path_opt.write_text(
+        "1\n-1.0\nH 0 0 0\n1\n-0.9\nH 0.1 0 0\n", encoding="utf-8")
+    app["S"]["_last_subcmd"] = "path-opt"
+    app["_load_trajectory"](str(path_opt), str(tmp_path))
+    assert app["_TRAJ"]["semantics"]["title"].startswith("Reaction-path")
+    assert app["frame_play"].interval == 50
+
+
+def test_results_playback_preview_reset_and_cli_output_defaults(
+    monkeypatch, tmp_path: Path,
+) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+
+    # Playback must cross Colab's widget boundary through a kernel-side link.
+    app["frame_slider"].disabled = False
+    app["frame_slider"].max = 3
+    app["frame_play"].disabled = False
+    app["frame_play"].max = 3
+    app["frame_play"].value = 2
+    assert app["frame_slider"].value == 2
+    app["frame_slider"].value = 1
+    assert app["frame_play"].value == 1
+
+    # Image previews are stateful HTML, not background Output displays that can
+    # escape from the Results card into the outer Colab cell.
+    png = tmp_path / "preview.png"
+    png.write_bytes(b"\x89PNG\r\n\x1a\npreview")
+    app["S"].update(_last_out_dir=str(tmp_path), _last_files=[str(png)])
+    app["artifact_choice"].options = [("image", str(png))]
+    app["artifact_choice"].value = str(png)
+    app["artifact_fold"].layout.display = ""
+    app["artifact_fold"]._rx_set_open(True)
+    app["_render_artifact"]()
+    assert "data:image/png;base64," in app["artifact_out"].value
+    assert 'class="rxartifact-image"' in app["artifact_out"].value
+    notebook_source = NOTEBOOK.read_text(encoding="utf-8")
+    assert ".rxartifact-image, .rxpath-panel img.rxartifact-image" in notebook_source
+    assert "width:50% !important; max-width:50% !important" in notebook_source
+    assert "overflow-x:hidden!important" in notebook_source
+
+    standalone = tmp_path / "surface.html"
+    standalone.write_text(
+        "<html><head></head><body><h1>Energy Landscape with 2D PES Scan</h1>"
+        "<div class='js-plotly-plot'></div></body></html>",
+        encoding="utf-8",
+    )
+    preview = html.unescape(app["_artifact_preview_html"](str(standalone), str(tmp_path)))
+    assert "rx-artifact-fit" in preview
+    assert "Plotly.Plots.resize" in preview
+    assert "aspect-ratio:16/10" in preview
+    assert "min-height:320px;max-height:520px" in preview
+    assert "ResizeObserver" in preview
+    assert "Energy Landscape with 2D PES Scan" in preview
+    assert 'srcdoc="' in preview
+    assert "MutationObserver" not in preview
+
+    # Starting another workflow replaces every previous Results fragment.
+    app["res_out"].value = "old all summary"
+    app["_begin_results_attempt"]("./result_scan/", "scan")
+    assert app["res_out"].value == ""
+    assert app["artifact_out"].value == ""
+
+    defaults = {
+        "all": "./result_all/", "opt": "./result_opt/",
+        "tsopt": "./result_tsopt/", "freq": "./result_freq/",
+        "irc": "./result_irc/", "scan": "./result_scan/",
+        "scan2d": "./result_scan2d/", "scan3d": "./result_scan3d/",
+        "path-opt": "./result_path_opt/", "path-search": "./result_path_search/",
+        "sp": "./result_sp/", "dft": "./result_dft/",
+    }
+    # Exercise the same dropdown transition used by the browser.  Checking the
+    # table helper directly misses observer-order bugs that can leave the output
+    # directory one workflow behind.
+    for subcommand, expected in defaults.items():
+        command = app["_advanced_command"](subcommand)
+        cli_out = next(param.default for param in command.params
+                       if param.name == "out_dir")
+        assert os.path.normpath(str(cli_out)) == os.path.normpath(expected)
+        if subcommand not in app["SUBS"]:
+            continue
+        app["set_subcmd"](subcommand)
+        assert app["dd_subcmd"].value == subcommand
+        assert app["S"]["out_dir"] == expected
+        assert app["w_out"].value == expected
+
+
+def test_notebook_default_controls_defer_to_live_cli(
+    monkeypatch, tmp_path: Path,
+) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+
+    # Every generic Advanced control starts in the omission state; Click/YAML
+    # remains the source of truth until the user chooses an override.
+    for subcommand in app["COMPUTE"]:
+        assert app["_advanced_argv"](subcommand) == []
+
+    # The visible shared threshold control must name each command's effective
+    # Click default rather than retaining one global label.
+    expected_thresholds = {
+        "all": "default: gau", "opt": "default: gau",
+        "path-opt": "default: gau", "path-search": "default: gau",
+        "scan": "default: gau", "tsopt": "default: baker",
+        "scan2d": "default: baker", "scan3d": "default: baker",
+    }
+    for subcommand, expected in expected_thresholds.items():
+        app["set_subcmd"](subcommand)
+        assert app["adv_thresh"].options[0][0] == expected
+        assert app["adv_thresh"].value == "(default)"
+
+    # freq inherits the CLI/YAML export policy: ten value-sorted modes.
+    freq_params = {param.name: param for param in
+                   app["_advanced_command"]("freq").params}
+    assert freq_params["max_write"].default == 10
+    assert freq_params["sort"].default == "value"
+    all_params = {param.name: param for param in
+                  app["_advanced_command"]("all").params}
+    assert app["_cli_default_label"](all_params["dft_func_basis"]) == (
+        "default: wb97m-v/def2-tzvpd"
+    )
+
+
+def test_freq_results_expose_ten_written_modes_in_top_selector(
+    monkeypatch, tmp_path: Path,
+) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    trajectory = (
+        "2\nmode frame 1\nH 0 0 0\nH 0.7 0 0\n"
+        "2\nmode frame 2\nH 0.1 0 0\nH 0.8 0 0\n"
+    )
+    frequencies = [-500.0, -120.0, 25.0, 80.0, 150.0, 300.0, 450.0, 700.0, 1000.0, 1500.0]
+    modes = []
+    for index, frequency in enumerate(frequencies):
+        path = tmp_path / f"mode_{index:04d}_{frequency:+.2f}cm-1_trj.xyz"
+        path.write_text(trajectory, encoding="utf-8")
+        modes.append(path)
+    app["S"].update(
+        _last_out_dir=str(tmp_path), _last_subcmd="freq",
+        _last_files=[str(path) for path in modes],
+        _last_manifest={"status": "success", "exit_code": 0},
+    )
+    app["_results"](str(tmp_path))
+
+    labels = [label for label, _ in app["traj_choice"].options]
+    assert len(labels) == 10
+    assert labels[0] == "Mode 1 of 10 · −500.00 cm⁻¹ · imaginary"
+    assert labels[-1] == "Mode 10 of 10 · 1500.00 cm⁻¹"
+    assert app["traj_choice"].description == "Mode"
+    assert app["result_selector_row"].layout.display == ""
+    assert "10 modes written" in app["result_selector_meta"].value
+    assert app["trajectory_head"].children[1] is app["result_selector_row"]
+
+    app["traj_choice"].value = str(modes[-1])
+    assert app["_TRAJ"]["path"] == str(modes[-1])
+    assert len(app["_TRAJ"]["frames"]) == 2

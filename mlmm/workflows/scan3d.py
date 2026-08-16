@@ -271,7 +271,11 @@ def _finalize_surface_and_plot(
         df["d1_label"] = d1_label_csv
         df["d2_label"] = d2_label_csv
         df["d3_label"] = d3_label_csv
-        _csv_drop3 = [c for c in ("seed_eligible",) if c in df.columns]
+        _csv_drop3 = [
+            c
+            for c in ("seed_eligible", "artifact_written", "geometry_file")
+            if c in df.columns
+        ]
         df.drop(columns=_csv_drop3).to_csv(surface_csv, index=False)
         click.echo(f"[write] Wrote '{surface_csv}'.")
 
@@ -418,8 +422,7 @@ def _finalize_surface_and_plot(
     fig3d = go.Figure(data=isosurfaces + [colorbar_trace])
     fig3d.update_layout(
         title="3D Energy Landscape (ML/MM)",
-        width=900,
-        height=800,
+        autosize=True,
         scene=dict(
             bgcolor="rgba(0,0,0,0)",
             xaxis=dict(
@@ -471,7 +474,12 @@ def _finalize_surface_and_plot(
     )
 
     html3d = final_dir / "scan3d_density.html"
-    fig3d.write_html(str(html3d))
+    fig3d.write_html(
+        str(html3d),
+        config={"responsive": True, "displaylogo": False},
+        default_width="100%",
+        default_height="100%",
+    )
     click.echo(f"[plot] Wrote '{html3d}'.")
 
     emit("\n====== 3D Scan finished ======\n", narrative=True)
@@ -768,6 +776,7 @@ def cli(
                     "files": {
                         "scan3d_density_html": "scan3d_density.html",
                     },
+                    "current_output_paths": ["scan3d_density.html"],
                 }
                 if surface_stats["complete_provenance"]:
                     result_data["n_points_usable"] = surface_stats[
@@ -1495,6 +1504,11 @@ def cli(
                                 "energy_hartree": energy_h,
                                 "bias_converged": converged,
                                 "artifact_written": bool(_artifact_written),
+                                "geometry_file": (
+                                    str(Path("grid") / xyz_path.name)
+                                    if _artifact_written
+                                    else None
+                                ),
                                 "is_preopt": False,
                             }
                         )
@@ -1559,6 +1573,35 @@ def cli(
                         "scan3d_density_html": "scan3d_density.html",
                     },
                 }
+                grid_geometry_files = [
+                    str(rec["geometry_file"])
+                    for rec in grid_records
+                    if rec.get("geometry_file")
+                ]
+                result_data_main["grid_points"] = [
+                    {
+                        "index": [int(rec["i"]), int(rec["j"]), int(rec["k"])],
+                        "distances_angstrom": [
+                            float(rec["d1_A"]),
+                            float(rec["d2_A"]),
+                            float(rec["d3_A"]),
+                        ],
+                        "targets_angstrom": [
+                            float(rec["d1_A"]),
+                            float(rec["d2_A"]),
+                            float(rec["d3_A"]),
+                        ],
+                        "energy_hartree": rec.get("energy_hartree"),
+                        "converged": rec.get("bias_converged"),
+                        "geometry_file": rec.get("geometry_file"),
+                    }
+                    for rec in grid_records
+                ]
+                result_data_main["current_output_paths"] = [
+                    "surface.csv",
+                    "scan3d_density.html",
+                    *grid_geometry_files,
+                ]
                 # Additive outcome fields: every attempted point and aggregate
                 # scientific_status. Legacy ``status`` stays "completed".
                 _point_outcomes3 = [

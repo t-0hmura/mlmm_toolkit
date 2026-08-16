@@ -1,6 +1,7 @@
 """Fail-closed validation for scan axes and scientific eligibility."""
 
 import json
+import inspect
 from pathlib import Path
 
 import click
@@ -339,3 +340,20 @@ def test_scan3d_csv_failure_invalidates_prior_plot(tmp_path: Path) -> None:
     assert not stale_plot.exists()
     assert '"old"' not in stale_result.read_text(encoding="utf-8")
     assert '"old"' not in stale_summary.read_text(encoding="utf-8")
+
+
+def test_scan_html_plots_are_responsive_and_scan2d_keeps_native_projection() -> None:
+    from mlmm.workflows import scan2d, scan3d
+
+    scan2d_source = inspect.getsource(scan2d)
+    scan3d_source = inspect.getsource(scan3d)
+
+    assert "plane_proj = go.Surface" in scan2d_source
+    assert "go.Figure(data=[surface3d, plane_proj])" in scan2d_source
+    assert 'name="2D Contour Projection (Bottom)"' in scan2d_source
+    assert "Computed grid points" not in scan2d_source
+    assert '"project": {"z": True}' in scan2d_source
+    for source in (scan2d_source, scan3d_source):
+        assert 'config={"responsive": True, "displaylogo": False}' in source
+        assert 'default_width="100%"' in source
+        assert 'default_height="100%"' in source

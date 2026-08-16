@@ -183,7 +183,8 @@ def test_define_layer_rejects_removed_partial_hessian_option(runner, cli_group):
         cli_group, ["define-layer", "--radius-partial-hessian", "4.0"]
     )
     assert result.exit_code != 0
-    assert "No such option: --radius-partial-hessian" in result.output
+    assert "No such option" in result.output
+    assert "--radius-partial-hessian" in result.output
 
 
 def test_all_help_progressive_disclosure(runner, cli_group):

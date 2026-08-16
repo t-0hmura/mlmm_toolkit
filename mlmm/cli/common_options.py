@@ -22,7 +22,7 @@ def add_print_every_option() -> Callable[[Callable], Callable]:
             type=click.IntRange(min=1),
             default=None,
             show_default="100",
-            help="Print optimizer status every N cycles (debug knob).",
+            help="Print optimizer status every N cycles.",
         )(func)
     return decorator
 
@@ -364,9 +364,8 @@ def add_ml_layer_detection_options() -> Callable[[Callable], Callable]:
     """
     options = [
         click.option(
-            "--detect-layer",
+            "--detect-layer/--no-detect-layer",
             "detect_layer",
-            is_flag=True,
             default=True,
             show_default=True,
             help="Automatically detect ML/MM layers from input PDB B-factors "

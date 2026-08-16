@@ -238,6 +238,8 @@ or `source` / `raw_hessian_shape`).
 | `n_grid_points` | int | Total grid points |
 | `n_points_attempted` | int | Fresh-run grid points attempted (preoptimization row excluded) |
 | `n_points_usable` | int | Fresh-run points with explicit convergence, finite energy/coordinates, and a written geometry artifact |
+| `grid_points` | object[] | Explicit grid-index, distances, energy, convergence, and `geometry_file` mapping used by interactive Results viewers |
+| `current_output_paths` | string[] | Current-run CSV/HTML/PNG and grid geometries; consumers can exclude stale files without filename inference |
 | `pair1`, `pair2` (,`pair3`) | object | `{i, j, low, high}` |
 | `min_energy_hartree` | float | Surface minimum energy |
 | `charge` | int \| null | Model-region charge; null for plot-only `scan3d --csv` |

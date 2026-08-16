@@ -103,12 +103,13 @@ Options:
                                   parm7.  [default: (cmap)]
   --out-json / --no-out-json      Write machine-readable result.json to out_dir.
                                   [default: no-out-json]
-  --detect-layer                  Automatically detect ML/MM layers from input
+  --detect-layer / --no-detect-layer
+                                  Automatically detect ML/MM layers from input
                                   PDB B-factors (ML=0, MovableMM=10,
                                   FrozenMM=20) when explicit ML membership is
                                   absent. With explicit membership, retain valid
                                   movable/frozen MM B-factor layers.  [default:
-                                  True]
+                                  detect-layer]
   --model-indices-one-based / --model-indices-zero-based
                                   Interpret --model-indices as 1-based (default)
                                   or 0-based.  [default: model-indices-one-
@@ -123,8 +124,8 @@ Options:
                                   Spin multiplicity (2S+1) for the ML region.
                                   Defaults to 1 when omitted.  [default: (1);
                                   x>=1]
-  --print-every INTEGER RANGE     Print optimizer status every N cycles (debug
-                                  knob).  [default: (100); x>=1]
+  --print-every INTEGER RANGE     Print optimizer status every N cycles.
+                                  [default: (100); x>=1]
   --precision [fp32|fp64]         MLIP backend precision: fp32 or fp64. Unset
                                   defaults per backend (uma: fp32; orb, mace:
                                   fp64). Routed to backend-specific kwargs (UMA

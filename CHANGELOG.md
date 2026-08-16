@@ -11,9 +11,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 > `result.json`/`summary.json` must review the Breaking changes and Machine-readable output sections.
 
 ### Breaking changes
-- Make B-factor layer detection automatic and remove the public
-  `--no-detect-layer` CLI form and MCP `detect_layer` parameter. Explicit
-  `--model-pdb` / `--model-indices` membership remains supported.
 - Remove the public `--tr-projection` option and the `legacy-active` treatment.
   Frozen-boundary PHVA now always uses the constrained treatment; stale YAML
   values fail explicitly.
@@ -42,11 +39,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - **MCP `search_paths` now requires `product_pdb` (keyword-only).** The tool previously
   sent one structure to a CLI that requires at least two. Migration: pass the product
   endpoint explicitly; optional `intermediate_pdbs` are inserted in reaction order.
-- **Retire experimental electronic embedding.** v0.3.3 supports mechanical
-  embedding only. `--embedcharge`, an explicit `--embedcharge-cutoff`, or
-  `calc.embedcharge: true` now fails before calculator allocation because the
-  former correction double-counted ML/MM electrostatics and used an inconsistent
-  uncapped boundary model. Remove those settings and rerun earlier embedding results.
 - **Hessian handoffs now verify electronic state.** `freq --dump-hess` writes
   schema 2 with model charge and multiplicity. `irc --read-hess` rejects a
   state mismatch; schema-1 files require explicit
@@ -126,6 +118,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   calculator-free, and rescoring is a pure MLIP calculation rather than ONIOM.
 
 ### Changed
+- Detect B-factor ML/MM layers by default and expose
+  `--detect-layer/--no-detect-layer` consistently across commands and `all`
+  child stages. Explicit `--model-pdb` / `--model-indices` membership remains
+  supported.
+- Treat `--embedcharge` as an experimental, opt-in, computationally expensive
+  feature. MLIP/MM commands apply the xTB point-charge delta correction; `dft`
+  adds MM point charges directly to the PySCF QM Hamiltonian.
 - Report every option's effective default. Options whose real default lives in
   a config block are declared `None` so an explicit value stays distinguishable
   from an omission; each now carries that default as a display string, so

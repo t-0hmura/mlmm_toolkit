@@ -159,10 +159,11 @@ Options:
                                   and memory depend on the backend and system;
                                   compare both modes on a representative pilot.
                                   [default: (FiniteDifference)]
-  --detect-layer                  Automatically detect ML/MM layers from input
+  --detect-layer / --no-detect-layer
+                                  Automatically detect ML/MM layers from input
                                   PDB B-factors (ML=0, MovableMM=10,
                                   FrozenMM=20) in downstream tools.  [default:
-                                  True]
+                                  detect-layer]
   --tsopt / --no-tsopt            TS optimization + EulerPC IRC per reactive
                                   segment (or TSOPT-only mode for single-
                                   structure), and build energy diagrams.
@@ -241,7 +242,7 @@ Options:
                                   paths resolved against the default).
                                   [default: (<tsopt dir>/dft)]
   --dft-func-basis TEXT           Override dft --func-basis value.  [default:
-                                  (the dft command's own default)]
+                                  (wb97m-v/def2-tzvpd)]
   --dft-max-cycle INTEGER         Override dft --max-cycle value.  [default:
                                   (100)]
   --dft-conv-tol FLOAT            Override dft --conv-tol value.  [default:
@@ -313,6 +314,8 @@ Options:
   --coord-type [cart|dlc]         Optimization coordinate system (cart|dlc).
                                   cart is the default; command-specific choices
                                   are listed here.  [default: (cart)]
+  --print-every INTEGER RANGE     Print optimizer status every N cycles.
+                                  [default: (100); x>=1]
   --precision [fp32|fp64]         MLIP backend precision: fp32 or fp64. Unset
                                   defaults per backend (uma: fp32; orb, mace:
                                   fp64). Routed to backend-specific kwargs (UMA

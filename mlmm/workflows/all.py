@@ -17,7 +17,16 @@ import sys
 import math
 import click
 from mlmm.core.output import emit
-from mlmm.cli.common_options import add_coord_type_option, add_precision_option, add_workers_options, add_backend_model_option, add_calc_file_option, add_deterministic_option, add_allow_charge_mult_mismatch_option
+from mlmm.cli.common_options import (
+    add_allow_charge_mult_mismatch_option,
+    add_backend_model_option,
+    add_calc_file_option,
+    add_coord_type_option,
+    add_deterministic_option,
+    add_precision_option,
+    add_print_every_option,
+    add_workers_options,
+)
 from mlmm.cli.decorators import canonicalize_calculator_section, make_is_param_explicit
 # presentation dependency (workflow -> cli). One advanced-help callback +
 # one visibility loop, shared with the lazily-loaded subcommands.
@@ -590,11 +599,12 @@ def _inject_coord_type_into_args_yaml(
     backend_model: Optional[str] = None,
     calc_file: Optional[str] = None,
     calc_factory: Optional[str] = None,
+    print_every: Optional[int] = None,
 ) -> Optional[Path]:
     """Inject geometry and backend-native calculator overrides into args YAML.
 
-    Used by ``mlmm all --coord-type cart|dlc`` and the backend/model/precision
-    options to propagate the choice through the all-pipeline args YAML. Only the opt/tsopt
+    Used by ``mlmm all --coord-type cart|dlc`` and the backend/model/precision/
+    print-every options to propagate the choice through the all-pipeline args YAML. Only the opt/tsopt
     stages honour ``coord_type`` (DLC is meaningful there via microiteration);
     freq/scan/path stages are fixed to cartesian and ignore it. Returns the
     original ``args_yaml`` unchanged when there are no injected values.
@@ -616,6 +626,7 @@ def _inject_coord_type_into_args_yaml(
         and workers_per_node is None
         and backend_model is None
         and calc_file is None
+        and print_every is None
         and not has_generic_calc_alias
     ):
         return args_yaml
@@ -660,6 +671,14 @@ def _inject_coord_type_into_args_yaml(
         apply_calc_file_to_calc_cfg(calc_cfg, calc_file, calc_factory)
         apply_precision_to_calc_cfg(calc_cfg, precision)
         cfg["calc"] = calc_cfg
+
+    if print_every is not None:
+        opt_cfg = cfg.get("opt")
+        if not isinstance(opt_cfg, dict):
+            opt_cfg = {}
+        opt_cfg = dict(opt_cfg)
+        opt_cfg["print_every"] = int(print_every)
+        cfg["opt"] = opt_cfg
 
     with tempfile.NamedTemporaryFile(
         mode="w",
@@ -2235,8 +2254,7 @@ def _irc_and_match(seg_idx: int,
         "-m", str(int(spin)),
         "--out-dir", str(irc_dir),
     ]
-    if detect_layer:
-        irc_args.append("--detect-layer")
+    irc_args.append("--detect-layer" if detect_layer else "--no-detect-layer")
     if irc_step_size is not None:
         irc_args.extend(["--step-size", str(float(irc_step_size))])
     if irc_never_stop is not None:
@@ -2484,8 +2502,7 @@ def _run_tsopt_on_hei(hei_pdb: Path,
             "-m", str(int(spin)),
             "--out-dir", str(ts_dir),
         ])
-        if detect_layer:
-            ts_args.append("--detect-layer")
+        ts_args.append("--detect-layer" if detect_layer else "--no-detect-layer")
 
         if opt_mode is not None:
             ts_args.extend(["--opt-mode", str(opt_mode)])
@@ -2848,8 +2865,7 @@ def _run_freq_for_state(pdb_path: Path,
         "-m", str(int(spin)),
         "--out-dir", str(fdir),
     ])
-    if detect_layer:
-        args.append("--detect-layer")
+    args.append("--detect-layer" if detect_layer else "--no-detect-layer")
 
     _append_cli_arg(args, "--max-write", overrides.get("max_write"))
     _append_cli_arg(args, "--amplitude-ang", overrides.get("amplitude_ang"))
@@ -3007,8 +3023,7 @@ def _run_opt_for_state(
             # convergence bit can gate the segment (never inferred from files).
             "--out-json",
         ])
-        if detect_layer:
-            args.append("--detect-layer")
+        args.append("--detect-layer" if detect_layer else "--no-detect-layer")
         _append_toggle_arg(args, "--convert-files", convert_files)
         _append_cli_arg(args, "--thresh", thresh)
         _append_toggle_arg(args, "--reject-uphill", reject_uphill)
@@ -3209,8 +3224,7 @@ def _run_dft_for_state(pdb_path: Path,
         "--out-dir", str(ddir),
     ])
     _append_cli_arg(args, "--func-basis", func_basis_use)
-    if detect_layer:
-        args.append("--detect-layer")
+    args.append("--detect-layer" if detect_layer else "--no-detect-layer")
 
     _append_cli_arg(args, "--max-cycle", overrides.get("max_cycle"))
     _append_cli_arg(args, "--conv-tol", overrides.get("conv_tol"))
@@ -3549,9 +3563,8 @@ def _configure_all_help_visibility(command: click.Command) -> None:
                     "Default: 'FiniteDifference'. Runtime and memory depend on "
                     "the backend and system; compare both modes on a representative pilot."))
 @click.option(
-    "--detect-layer",
+    "--detect-layer/--no-detect-layer",
     "detect_layer",
-    is_flag=True,
     default=True,
     show_default=True,
     help="Automatically detect ML/MM layers from input PDB B-factors "
@@ -3681,7 +3694,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
               show_default="<tsopt dir>/dft",
               help="Override dft output base directory (relative paths resolved against the default).")
 @click.option("--dft-func-basis", type=str, default=None,
-              show_default="the dft command's own default",
+              show_default="wb97m-v/def2-tzvpd",
               help="Override dft --func-basis value.")
 @click.option("--dft-max-cycle", type=int, default=None,
               show_default="100",
@@ -3790,6 +3803,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     help="Preserve CMAP terms in both real and model MM layers. Default: enabled when present in parm7.",
 )
 @add_coord_type_option(choices=("cart", "dlc"))
+@add_print_every_option()
 @add_precision_option()
 @add_workers_options()
 @add_backend_model_option()
@@ -3881,6 +3895,7 @@ def cli(
     dft_conv_tol: Optional[float],
     dft_grid_level: Optional[int],
     dft_engine: Optional[str],
+    print_every: Optional[int],
     cli_coord_type: Optional[str],
     precision: Optional[str],
     workers: Optional[int],
@@ -3954,6 +3969,11 @@ def cli(
     _stop_plateau_eff = (
         bool(stop_plateau) if _is_param_explicit("stop_plateau") else None
     )
+    print_every_override = (
+        int(print_every)
+        if _is_param_explicit("print_every") and print_every is not None
+        else None
+    )
     explicit_params = frozenset(
         parameter.name
         for parameter in ctx.command.params
@@ -4007,6 +4027,7 @@ def cli(
         or workers_per_node is not None
         or backend_model is not None
         or calc_file is not None
+        or print_every_override is not None
     ):
         prior_args_yaml = args_yaml
         args_yaml = _inject_coord_type_into_args_yaml(
@@ -4014,6 +4035,7 @@ def cli(
             backend=backend,
             precision=precision, workers=workers, workers_per_node=workers_per_node, backend_model=backend_model,
             calc_file=(str(Path(calc_file).resolve()) if calc_file else None), calc_factory=calc_factory,
+            print_every=print_every_override,
         )
         if args_yaml is not None and args_yaml != prior_args_yaml:
             session.resources.add(lambda p=args_yaml: p.unlink(missing_ok=True))
@@ -4281,6 +4303,7 @@ def cli(
                 "dmf_backend": dmf_backend_effective,
                 "max_nodes": int(max_nodes),
                 "max_cycles": int(max_cycles),
+                "print_every": print_every_override,
                 "climb": bool(climb),
                 "opt_mode": str(opt_mode),
                 "opt_mode_post": (None if opt_mode_post is None else str(opt_mode_post)),
@@ -5578,8 +5601,7 @@ def cli(
             "--preopt" if scan_preopt_use else "--no-preopt",
             "--endopt" if scan_endopt_use else "--no-endopt",
         ]
-        if detect_layer:
-            scan_args.append("--detect-layer")
+        scan_args.append("--detect-layer" if detect_layer else "--no-detect-layer")
 
         if dump_override_requested:
             scan_args.append("--dump" if dump else "--no-dump")
@@ -5739,8 +5761,7 @@ def cli(
         ps_args.extend(["-m", str(int(spin))])
         ps_args.extend(["--parm", str(real_parm7_path)])
         # Layered PDBs use automatic B-factor detection by default.
-        if detect_layer:
-            ps_args.append("--detect-layer")
+        ps_args.append("--detect-layer" if detect_layer else "--no-detect-layer")
 
         # User-tunable parent defaults stay absent so child YAML remains the
         # effective middle layer. Pipeline-owned output paths are always set.
@@ -5835,8 +5856,7 @@ def cli(
                     "--ref-pdb", str(refs_for_path[pair_pos + 1]),
                 ])
             # Forward explicit automatic layer detection.
-            if detect_layer:
-                po_args.append("--detect-layer")
+            po_args.append("--detect-layer" if detect_layer else "--no-detect-layer")
             po_args.extend(
                 _build_path_child_argv(
                     explicit_params,

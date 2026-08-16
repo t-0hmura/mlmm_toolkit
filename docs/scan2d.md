@@ -64,6 +64,9 @@ Add `--print-parsed` to validate the parsed scan spec and exit without running t
 ## Outputs
 
 Check `surface.csv` first. `scan2d_map.png` and `scan2d_landscape.html` are present only when at least three unique, non-collinear finite and converged points support interpolation. Per-point geometries land under `grid/` (the `i###` / `j###` filename tags are integer hundredths of an ångström, not step indices).
+With `--out-json`, `result.json` also records an explicit `grid_points[]`
+mapping from each grid index to its written XYZ geometry. Notebook and other
+interactive clients should use this mapping instead of inferring filenames.
 
 ```
 out_dir/ (default: ./result_scan2d/)
