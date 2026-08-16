@@ -37,6 +37,25 @@ def nocmap_parm(tmp_path: Path) -> Path:
     return path
 
 
+@pytest.fixture
+def layered_complex_pdb(tmp_path: Path) -> Path:
+    """Layer the small full-system fixture as ML / movable MM / frozen MM."""
+    source = _fixture("complex.pdb")
+    output = tmp_path / "complex_layered.pdb"
+    atom_index = 0
+    layered_lines = []
+    for raw_line in source.read_text(encoding="utf-8").splitlines(keepends=True):
+        if raw_line.startswith(("ATOM  ", "HETATM")):
+            newline = "\n" if raw_line.endswith("\n") else ""
+            line = raw_line.rstrip("\n").ljust(66)
+            bfactor = 0.0 if atom_index == 0 else (10.0 if atom_index == 1 else 20.0)
+            raw_line = f"{line[:60]}{bfactor:6.2f}{line[66:]}{newline}"
+            atom_index += 1
+        layered_lines.append(raw_line)
+    output.write_text("".join(layered_lines), encoding="utf-8")
+    return output
+
+
 def test_scan2d_rejects_non_pdb_xyz_input(tmp_path: Path) -> None:
     bad_input = tmp_path / "input.txt"
     bad_input.write_text("dummy\n", encoding="utf-8")
@@ -134,7 +153,11 @@ def test_workflows_guard_optional_companion_conversion() -> None:
             assert guarded, f"unguarded companion conversion in {module.__name__}:{call.lineno}"
 
 
-def test_oniom_export_g16_smoke(tmp_path: Path, nocmap_parm: Path) -> None:
+def test_oniom_export_g16_smoke(
+    tmp_path: Path,
+    nocmap_parm: Path,
+    layered_complex_pdb: Path,
+) -> None:
     out_file = tmp_path / "model.gjf"
 
     runner = CliRunner()
@@ -145,7 +168,7 @@ def test_oniom_export_g16_smoke(tmp_path: Path, nocmap_parm: Path) -> None:
             "--parm",
             str(nocmap_parm),
             "-i",
-            str(_fixture("complex.pdb")),
+            str(layered_complex_pdb),
             "--model-pdb",
             str(_fixture("complex.pdb")),
             "--no-element-check",
@@ -157,8 +180,6 @@ def test_oniom_export_g16_smoke(tmp_path: Path, nocmap_parm: Path) -> None:
             "0",
             "-m",
             "1",
-            "--near",
-            "4.0",
         ],
         catch_exceptions=False,
     )
@@ -171,7 +192,11 @@ def test_oniom_export_g16_smoke(tmp_path: Path, nocmap_parm: Path) -> None:
     assert "MLMM_REF_PDB_ORDER_V1_SHA256=" in text
 
 
-def test_oniom_export_orca_smoke(tmp_path: Path, nocmap_parm: Path) -> None:
+def test_oniom_export_orca_smoke(
+    tmp_path: Path,
+    nocmap_parm: Path,
+    layered_complex_pdb: Path,
+) -> None:
     out_file = tmp_path / "model.inp"
 
     runner = CliRunner()
@@ -182,7 +207,7 @@ def test_oniom_export_orca_smoke(tmp_path: Path, nocmap_parm: Path) -> None:
             "--parm",
             str(nocmap_parm),
             "-i",
-            str(_fixture("complex.pdb")),
+            str(layered_complex_pdb),
             "--model-pdb",
             str(_fixture("complex.pdb")),
             "--no-element-check",
@@ -194,8 +219,6 @@ def test_oniom_export_orca_smoke(tmp_path: Path, nocmap_parm: Path) -> None:
             "0",
             "-m",
             "1",
-            "--near",
-            "4.0",
             "--no-convert-orcaff",
         ],
         catch_exceptions=False,
@@ -212,6 +235,7 @@ def test_oniom_export_orca_smoke(tmp_path: Path, nocmap_parm: Path) -> None:
 def test_oniom_export_mode_inferred_from_output_suffix_g16(
     tmp_path: Path,
     nocmap_parm: Path,
+    layered_complex_pdb: Path,
 ) -> None:
     out_file = tmp_path / "infer_mode.com"
 
@@ -223,7 +247,7 @@ def test_oniom_export_mode_inferred_from_output_suffix_g16(
             "--parm",
             str(nocmap_parm),
             "-i",
-            str(_fixture("complex.pdb")),
+            str(layered_complex_pdb),
             "--model-pdb",
             str(_fixture("complex.pdb")),
             "--no-element-check",
@@ -233,8 +257,6 @@ def test_oniom_export_mode_inferred_from_output_suffix_g16(
             "0",
             "-m",
             "1",
-            "--near",
-            "4.0",
         ],
         catch_exceptions=False,
     )
@@ -247,6 +269,7 @@ def test_oniom_export_mode_inferred_from_output_suffix_g16(
 def test_oniom_export_mode_inferred_from_output_suffix_orca(
     tmp_path: Path,
     nocmap_parm: Path,
+    layered_complex_pdb: Path,
 ) -> None:
     out_file = tmp_path / "infer_mode.inp"
 
@@ -258,7 +281,7 @@ def test_oniom_export_mode_inferred_from_output_suffix_orca(
             "--parm",
             str(nocmap_parm),
             "-i",
-            str(_fixture("complex.pdb")),
+            str(layered_complex_pdb),
             "--model-pdb",
             str(_fixture("complex.pdb")),
             "--no-element-check",
@@ -268,8 +291,6 @@ def test_oniom_export_mode_inferred_from_output_suffix_orca(
             "0",
             "-m",
             "1",
-            "--near",
-            "4.0",
             "--no-convert-orcaff",
         ],
         catch_exceptions=False,
@@ -283,6 +304,7 @@ def test_oniom_export_mode_inferred_from_output_suffix_orca(
 def test_oniom_export_mode_takes_precedence_over_output_suffix(
     tmp_path: Path,
     nocmap_parm: Path,
+    layered_complex_pdb: Path,
 ) -> None:
     out_file = tmp_path / "forced_g16.inp"
 
@@ -294,7 +316,7 @@ def test_oniom_export_mode_takes_precedence_over_output_suffix(
             "--parm",
             str(nocmap_parm),
             "-i",
-            str(_fixture("complex.pdb")),
+            str(layered_complex_pdb),
             "--model-pdb",
             str(_fixture("complex.pdb")),
             "--no-element-check",
@@ -306,8 +328,6 @@ def test_oniom_export_mode_takes_precedence_over_output_suffix(
             "0",
             "-m",
             "1",
-            "--near",
-            "4.0",
         ],
         catch_exceptions=False,
     )
@@ -338,8 +358,6 @@ def test_oniom_export_errors_when_mode_and_suffix_unknown(tmp_path: Path) -> Non
             "0",
             "-m",
             "1",
-            "--near",
-            "4.0",
         ],
         catch_exceptions=False,
     )
@@ -356,6 +374,73 @@ def test_oniom_export_help_shows_convert_orcaff_default_enabled() -> None:
     assert result.exit_code == 0, result.output
     assert "--convert-orcaff / --no-convert-orcaff" in result.output
     assert "[default: convert-orcaff]" in result.output
+    assert "--near" not in result.output
+
+
+def test_oniom_export_rejects_removed_near_option() -> None:
+    result = CliRunner().invoke(
+        root_cli,
+        ["oniom-export", "--near", "4.0"],
+        catch_exceptions=False,
+    )
+
+    assert result.exit_code != 0
+    assert "No such option: --near" in result.output
+
+
+def test_oniom_export_requires_layered_input(
+    tmp_path: Path,
+    nocmap_parm: Path,
+) -> None:
+    result = CliRunner().invoke(
+        root_cli,
+        [
+            "oniom-export",
+            "--parm",
+            str(nocmap_parm),
+            "-i",
+            str(_fixture("complex.pdb")),
+            "--model-pdb",
+            str(_fixture("complex.pdb")),
+            "--mode",
+            "g16",
+            "-o",
+            str(tmp_path / "invalid.gjf"),
+            "-q",
+            "0",
+        ],
+        catch_exceptions=False,
+    )
+
+    assert result.exit_code == 1
+    assert "Invalid or missing MLMM layer B-factors" in result.output
+
+
+def test_oniom_export_uses_bfactor_movable_partition(
+    tmp_path: Path,
+    nocmap_parm: Path,
+    layered_complex_pdb: Path,
+) -> None:
+    result = CliRunner().invoke(
+        root_cli,
+        [
+            "oniom-export",
+            "--parm",
+            str(nocmap_parm),
+            "-i",
+            str(layered_complex_pdb),
+            "--mode",
+            "g16",
+            "-o",
+            str(tmp_path / "layered.gjf"),
+            "-q",
+            "0",
+        ],
+        catch_exceptions=False,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "QM atoms: 1, Movable atoms: 2" in result.output
 
 
 def test_legacy_oniom_subcommands_removed() -> None:
@@ -373,6 +458,7 @@ def test_legacy_oniom_subcommands_removed() -> None:
 def test_oniom_export_default_convert_fallback_without_orca_mm(
     tmp_path: Path,
     nocmap_parm: Path,
+    layered_complex_pdb: Path,
     monkeypatch,
 ) -> None:
     from mlmm.workflows import oniom_export
@@ -388,7 +474,7 @@ def test_oniom_export_default_convert_fallback_without_orca_mm(
             "--parm",
             str(nocmap_parm),
             "-i",
-            str(_fixture("complex.pdb")),
+            str(layered_complex_pdb),
             "--model-pdb",
             str(_fixture("complex.pdb")),
             "--no-element-check",
@@ -400,8 +486,6 @@ def test_oniom_export_default_convert_fallback_without_orca_mm(
             "0",
             "-m",
             "1",
-            "--near",
-            "4.0",
         ],
         catch_exceptions=False,
     )
@@ -415,6 +499,7 @@ def test_oniom_export_default_convert_fallback_without_orca_mm(
 def test_oniom_export_orca_mm_failure_prints_manual_command(
     tmp_path: Path,
     nocmap_parm: Path,
+    layered_complex_pdb: Path,
     monkeypatch,
 ) -> None:
     from mlmm.workflows import oniom_export
@@ -442,7 +527,7 @@ def test_oniom_export_orca_mm_failure_prints_manual_command(
             "--parm",
             nocmap_parm.name,
             "-i",
-            str(_fixture("complex.pdb")),
+            str(layered_complex_pdb),
             "--model-pdb",
             str(_fixture("complex.pdb")),
             "--no-element-check",
@@ -454,8 +539,6 @@ def test_oniom_export_orca_mm_failure_prints_manual_command(
             "0",
             "-m",
             "1",
-            "--near",
-            "4.0",
         ],
         catch_exceptions=False,
     )
@@ -466,31 +549,3 @@ def test_oniom_export_orca_mm_failure_prints_manual_command(
     assert "orca_mm -convff -AMBER" in result.output
     assert calls[0][0][-1] == str(nocmap_parm.resolve())
     assert Path(calls[0][1]["cwd"]) == out_file.parent.resolve()
-
-
-def test_scan_forces_cartesian_even_with_coord_type_dlc(tmp_path, monkeypatch) -> None:
-    """Staged scans run restrained L-BFGS with no microiteration, so DLC over the
-    ML/MM system is meaningless (it crashes poly_line_search with a
-    Cartesian/internal dimension mismatch). Scan must force Cartesian even when
-    ``--coord-type dlc`` is requested, mirroring path-opt / path-search."""
-    repo = Path(__file__).resolve().parents[1]
-    pdb = repo / "examples" / "toy_system" / "r_complex_layered.pdb"
-    parm = repo / "examples" / "toy_system" / "p_complex.parm7"
-    if not (pdb.exists() and parm.exists()):
-        pytest.skip("toy_system example inputs not present")
-
-    # `scan` gathers --scan-lists from sys.argv (to support multiple lists), so
-    # the real argv must be set for the invocation, not just the CliRunner args.
-    argv = [
-        "mlmm", "scan", "-i", str(pdb), "--parm", str(parm), "-q", "-1", "-m", "1",
-        "--scan-lists", "[('PRE 8 C1','PRE 8 C3',2.0)]",
-        "--coord-type", "dlc", "--dry-run", "-v", "3",
-        "--out-dir", str(tmp_path / "scan_out"),
-    ]
-    monkeypatch.setattr(sys, "argv", argv)
-    result = CliRunner().invoke(root_cli, argv[1:])
-
-    assert result.exit_code == 0, result.output
-    # The resolved geometry config in the dry-run plan must be Cartesian, not DLC.
-    assert "coord_type: cart" in result.output
-    assert "coord_type: dlc" not in result.output

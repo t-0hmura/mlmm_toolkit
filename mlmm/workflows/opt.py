@@ -1191,27 +1191,23 @@ def _run_microiter_opt(
     help="Comma-separated 1-based atom indices to freeze (e.g., '1,3,5').",
 )
 @click.option(
-    "--radius-partial-hessian",
     "--hess-cutoff",
-    "radius_partial_hessian",
+    "hess_cutoff",
     type=float,
     default=None,
     show_default="all movable MM atoms",
     help="Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. "
-         "Applied to movable MM atoms and can be combined with --detect-layer. "
-         "`--hess-cutoff` is a compatibility alias.",
+         "Applied to movable MM atoms and can be combined with --detect-layer.",
 )
 @click.option(
-    "--radius-freeze",
     "--movable-cutoff",
-    "radius_freeze",
+    "movable_cutoff",
     type=float,
     default=None,
     show_default="use freeze_atoms",
     help="Distance cutoff (Å) from ML region for movable MM atoms. "
      "MM atoms beyond this are frozen. "
-         "Providing --radius-freeze disables --detect-layer and uses distance-based layer assignment. "
-         "`--movable-cutoff` is a compatibility alias.",
+         "Providing --movable-cutoff disables --detect-layer and uses distance-based layer assignment.",
 )
 @click.option(
     "--dist-freeze",
@@ -1329,7 +1325,7 @@ def _run_microiter_opt(
     "embedcharge",
     default=False,
     show_default=True,
-    help="Unavailable in v0.3.3; retained so older commands fail with an actionable diagnostic.",
+    help="Enable the experimental, computationally expensive xTB point-charge delta correction for MLIP/MM.",
 )
 @click.option(
     "--embedcharge-cutoff",
@@ -1337,7 +1333,7 @@ def _run_microiter_opt(
     type=float,
     default=None,
     show_default="12.0",
-    help="Unavailable in v0.3.3 together with the retired electronic-embedding path.",
+    help="Distance cutoff (Å) from the ML region for MM point charges used by the xTB delta correction.",
 )
 @click.option(
     "--link-atom-method",
@@ -1362,7 +1358,7 @@ def _run_microiter_opt(
     show_default=True,
     help="Skip the MLIP component entirely and minimize using only the MM "
          "force field on the full system. Layers (movable/frozen) are still "
-         "honored via B-factor encoding or --radius-freeze. Only "
+         "honored via B-factor encoding or --movable-cutoff. Only "
          "--opt-mode grad (L-BFGS) is supported in this mode; microiteration "
          "is automatically disabled.",
 )
@@ -1435,8 +1431,8 @@ def cli(
     ligand_charge: Optional[str],
     spin: Optional[int],
     freeze_atoms_text: Optional[str],
-    radius_partial_hessian: Optional[float],
-    radius_freeze: Optional[float],
+    hess_cutoff: Optional[float],
+    movable_cutoff: Optional[float],
     dist_freeze_raw: Sequence[str],
     one_based: bool,
     bias_k: Optional[float],
@@ -1596,10 +1592,10 @@ def cli(
 
         if _is_param_explicit("detect_layer"):
             calc_cfg["use_bfactor_layers"] = bool(detect_layer)
-        if _is_param_explicit("radius_partial_hessian") and radius_partial_hessian is not None:
-            calc_cfg["hess_cutoff"] = float(radius_partial_hessian)
-        if _is_param_explicit("radius_freeze") and radius_freeze is not None:
-            calc_cfg["movable_cutoff"] = float(radius_freeze)
+        if _is_param_explicit("hess_cutoff") and hess_cutoff is not None:
+            calc_cfg["hess_cutoff"] = float(hess_cutoff)
+        if _is_param_explicit("movable_cutoff") and movable_cutoff is not None:
+            calc_cfg["movable_cutoff"] = float(movable_cutoff)
             calc_cfg["use_bfactor_layers"] = False
 
         # CLI-resolved charge/spin (from -q / -l derivation in resolve_charge_spin_or_raise,
@@ -1710,12 +1706,12 @@ def cli(
             ),
         )
 
-        # radius_freeze implies full distance-based layer assignment.
-        # radius_partial_hessian alone can be combined with --detect-layer.
+        # movable_cutoff implies full distance-based layer assignment.
+        # hess_cutoff alone can be combined with --detect-layer.
         detect_layer_enabled = bool(calc_cfg.get("use_bfactor_layers", True))
-        if radius_freeze is not None:
+        if movable_cutoff is not None:
             if detect_layer_enabled:
-                click.echo("[layer] --radius-freeze provided; disabling --detect-layer.", err=True)
+                click.echo("[layer] --movable-cutoff provided; disabling --detect-layer.", err=True)
             detect_layer_enabled = False
             calc_cfg["use_bfactor_layers"] = False
 
@@ -1724,13 +1720,6 @@ def cli(
             click.echo("ERROR: --detect-layer requires a PDB input (or --ref-pdb).", err=True)
             prepared_input.cleanup()
             sys.exit(1)
-
-        from mlmm.core.embedcharge_policy import reject_retired_embedcharge_cli
-
-        reject_retired_embedcharge_cli(
-            calc_cfg,
-            cutoff_requested=_is_param_explicit("embedcharge_cutoff"),
-        )
 
         if show_config:
             click.echo(

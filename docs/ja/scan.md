@@ -84,14 +84,12 @@ out_dir/ (デフォルト:./result_scan/)
 | `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。 | _None_ |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切り原子インデックス（YAML `geom.freeze_atoms` とマージ）。 | _None_ |
-| `--hess-cutoff FLOAT` | Hessian 計算に含める MM 原子の ML 領域からの距離カットオフ (Å)。`--detect-layer` と併用可能。 | _None_ |
 | `--movable-cutoff FLOAT` | 可動 MM 距離カットオフ (Å)。指定すると `--detect-layer` を無効化。 | _None_ |
 | `-s, --scan-lists TEXT` | スキャンターゲット: YAML/JSON スペックファイルパス（自動検出）または `(i, j, target_A)` 3 要素タプルもしくは `(i, j, start, end)` 4 要素タプル（双方向スキャン）を含むインライン Python リテラル。各リテラルが 1 ステージ。単一フラグの後に複数リテラルを供給可能。`i`/`j` は整数インデックスまたは `"TYR,285,CA"` のような PDB 原子セレクターが使用可能。 | 必須 |
 | `--one-based/--zero-based` | 原子インデックスを 1 始まり（デフォルト）または 0 始まりとして解釈。 | `True`（1 始まり） |
 | `--print-parsed/--no-print-parsed` | `-s/--scan-lists` 解釈後のステージ情報を表示。 | `False` |
 | `--max-step-size FLOAT` | ステップごとのスキャン結合の最大変化量 (Å)。積分ステップ数を制御。 | `0.20` |
 | `--bias-k FLOAT` | 調和バイアス強度 `k`（eV/Å²）。 | `300` |
-| `--opt-mode {grad,hess,lbfgs,rfo,light,heavy}` | `mlmm all` からの引き継ぎ用（互換目的の）オプション。現状の `scan` 緩和は mode に関わらず L-BFGS を使用。 | _None_ |
 | `--max-cycles INT` | 各バイアスステップおよび pre/end 最適化ステージの最大 L-BFGS サイクル。 | `10000` |
 | `--relax-max-cycles INT` | `--max-cycles` の互換エイリアス（指定時は上書き）。 | _None_ |
 | `--preopt/--no-preopt` | スキャン前にバイアスなし最適化を実行。 | `False` |
@@ -102,8 +100,6 @@ out_dir/ (デフォルト:./result_scan/)
 | `--config FILE` | ベース YAML 設定ファイル（最初に適用）。 | _None_ |
 | `--ref-pdb FILE` | `--input` が XYZ の場合の参照 PDB トポロジー。 | _None_ |
 | `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`、`orb`、`mace`、`aimnet2`。 | `uma` |
-| `--embedcharge/--no-embedcharge` | v0.3.3 では使用不可。旧コマンドを明示的に拒否するためにのみ残されています。 | `False` |
-| `--embedcharge-cutoff FLOAT` | 廃止した電子埋め込み経路とともに使用不可。 | — |
 | `--cmap/--no-cmap` | REAL と MODEL の両 MM 層で CMAP を保持します。 | `--cmap` |
 | `--mm-backend [hessian_ff\|openmm]` | MM バックエンド。Hessian 構築法は `calc.mm_fd` が別に制御します（デフォルト `true`: 有限差分）。 | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | リンク原子の配置: scaled（$g$ 因子）または固定 1.09/1.01 Å。 | `scaled` |
@@ -243,7 +239,7 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 - `freeze_atoms`: CLI `--freeze-atoms` とマージされる 1 始まり凍結原子。
 
 ### セクション `calc` / `mlmm`
-- ML/MM calculatorの設定: `model_charge`、`model_mult`、`backend`、MLIP モデル設定、`device`、近傍半径、Hessian オプション等。`embedcharge` は `false` 固定の互換性用キーです。
+- ML/MM calculatorの設定: `model_charge`、`model_mult`、`backend`、MLIP モデル設定、`device`、近傍半径、Hessian オプション等。
 
 ### セクション `opt` / `lbfgs`
 - オプティマイザ設定: `thresh`、`max_cycles`、`print_every`、ステップ制御、ラインサーチ、ダンプフラグ。

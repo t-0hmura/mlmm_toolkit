@@ -97,14 +97,12 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives net charge when `-q` is omitted. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based atom indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
-| `--hess-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. Can be combined with `--detect-layer`. | _None_ |
 | `--movable-cutoff FLOAT` | Movable-MM distance cutoff (Å); providing this disables `--detect-layer`. | _None_ |
 | `-s, --scan-lists TEXT` | Scan targets: a YAML/JSON spec file path (auto-detected) or inline Python literal(s) with `(i, j, target_A)` triples or `(i, j, start, end)` 4-tuples for bidirectional scans. Each literal is one stage; supply multiple literals after a single flag. `i`/`j` can be integer indices or PDB atom selectors like `"TYR,285,CA"`. | Required |
 | `--one-based/--zero-based` | Interpret atom indices as 1-based (default) or 0-based. | `True` (1-based) |
 | `--print-parsed/--no-print-parsed` | Print parsed stage tuples after `-s/--scan-lists` resolution. | `False` |
 | `--max-step-size FLOAT` | Maximum change in any scanned bond per step (Å). Controls the number of biased relaxation steps. | `0.20` |
 | `--bias-k FLOAT` | Harmonic bias strength `k` in eV/Å². | `300` |
-| `--opt-mode {grad,hess,lbfgs,rfo,light,heavy}` | Compatibility option for `mlmm all` forwarding. Current scan relaxations use L-BFGS regardless of mode. | _None_ |
 | `--max-cycles INT` | Maximum L-BFGS cycles per biased step and per pre/end optimization stage. | `10000` |
 | `--relax-max-cycles INT` | Compatibility alias of `--max-cycles` (overrides it when provided). | _None_ |
 | `--preopt/--no-preopt` | Run an unbiased optimization before scanning. | `False` |
@@ -115,8 +113,6 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--config FILE` | Base YAML configuration file (applied first). | _None_ |
 | `--ref-pdb FILE` | Reference PDB topology when `--input` is XYZ. | _None_ |
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma`, `orb`, `mace`, `aimnet2`. | `uma` |
-| `--embedcharge/--no-embedcharge` | Unavailable in v0.3.3; the option is retained only to reject older commands explicitly. | `False` |
-| `--embedcharge-cutoff FLOAT` | Unavailable with the retired electronic-embedding path. | — |
 | `--cmap/--no-cmap` | Preserve CMAP in both REAL and MODEL MM layers. | `--cmap` |
 | `--mm-backend [hessian_ff\|openmm]` | MM backend. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | Link-atom placement: scaled ($g$-factor) or fixed 1.09/1.01 Å. | `scaled` |

@@ -48,7 +48,7 @@ Layout:
 ## Export: generate a Gaussian ONIOM gjf
 
 ```bash
-mlmm oniom-export --parm real.parm7 -i pocket.pdb --model-pdb ml.pdb -o out.com
+mlmm oniom-export --parm real.parm7 -i pocket_layered.pdb --model-pdb ml.pdb -o out.com -q 0
 ```
 
 `--mode g16` (or a `.gjf`/`.com` output suffix) selects Gaussian; `.inp` /

@@ -33,6 +33,11 @@ export PYTHONHASHSEED=0
 # Reduce CUDA allocator fragmentation across the 40+ stage processes.
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 
+command -v xtb >/dev/null 2>&1 || {
+  echo "[smoke] BLOCKED: xtb is required by the embedcharge cell" >&2
+  exit 2
+}
+
 python - <<'PY'
 from importlib.metadata import version
 from pathlib import Path
@@ -232,12 +237,8 @@ mlmm oniom-import -i test31.gjf -o test34 > test34.out 2>&1
 # test35: all (--refine-path)
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q -1 -m 1 --refine-path --max-cycles 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test35 > test35.out 2>&1
 
-# test36: retired electronic embedding fails before calculation
-if mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode grad --max-cycles 3 --thresh gau_loose --embedcharge --embedcharge-cutoff 6.0 --out-dir test36 > test36.out 2>&1; then
-  echo "[smoke] FAIL test36: --embedcharge was accepted" >&2
-  exit 1
-fi
-grep -Fq "Electronic embedding is unavailable in v0.3.3" test36.out
+# test36: experimental xTB point-charge correction in MLIP/MM optimization
+mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode grad --max-cycles 3 --thresh gau_loose --embedcharge --embedcharge-cutoff 6.0 --out-dir test36 > test36.out 2>&1
 
 # --- Opt-in TS and IRC methods ---
 
@@ -343,15 +344,6 @@ mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode h
 mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --coord-type dlc --freeze-atoms "$MLMM_COMPLEX_FREEZE_ATOMS" --max-cycles 3 --thresh gau_loose --out-dir test47c_opt_freeze_dlc > test47c_opt_freeze_dlc.out 2>&1
 python check_frozen_atoms.py r_complex_layered.pdb test47c_opt_freeze_dlc/final_geometry.pdb "$MLMM_COMPLEX_FREEZE_ATOMS" test47c >> test47c_opt_freeze_dlc.out 2>&1
 
-# test47d: scan --coord-type dlc with explicit frozen atoms.
-# Small non-reactive target: this checks coordinate integrity, not chemistry.
-mlmm scan -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --coord-type dlc --freeze-atoms "$MLMM_COMPLEX_FREEZE_ATOMS" --scan-lists "[('PRE 8 O1\'','PRE 8 C3',1.5)]" --max-step-size 0.1 --max-cycles 3 --no-endopt --out-dir test47d_scan_freeze_dlc > test47d_scan_freeze_dlc.out 2>&1
-python check_frozen_atoms.py r_complex_layered.pdb test47d_scan_freeze_dlc/stage_01/result.pdb "$MLMM_COMPLEX_FREEZE_ATOMS" test47d >> test47d_scan_freeze_dlc.out 2>&1
-if grep -q "Covalent-bond changes (start vs final): Yes" test47d_scan_freeze_dlc.out; then
-  echo "[bond-check] test47d: unexpected covalent-bond changes in non-reactive DLC+freeze scan" >> test47d_scan_freeze_dlc.out
-  exit 1
-fi
-
 # test47e: Hessian TS microiteration with DLC and frozen atoms. This is the
 # partial-Cartesian-Hessian -> internal-coordinate handoff regression.
 mlmm tsopt -i p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode hess --coord-type dlc --freeze-atoms "$MLMM_COMPLEX_FREEZE_ATOMS" --microiter --max-cycles 2 --thresh gau_loose --out-dir test47e_ts_hess_dlc > test47e_ts_hess_dlc.out 2>&1
@@ -401,12 +393,8 @@ mlmm irc -i p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --mm-backend
 # test54: irc --freeze-atoms (DOF-reduction / reduced-Hessian projection path)
 mlmm irc -i p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --freeze-atoms 1,2,3 --max-cycles 2 --out-dir test54_irc_freeze > test54_irc_freeze.out 2>&1
 
-# test55: DFT also rejects retired electronic embedding before SCF setup
-if mlmm dft -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --func-basis 'hf/sto-3g' --grid-level 0 --conv-tol 1e-5 --max-cycle 40 --engine cpu --embedcharge --embedcharge-cutoff 8.0 --out-dir test55_dft_embed > test55_dft_embed.out 2>&1; then
-  echo "[smoke] FAIL test55: DFT accepted --embedcharge" >&2
-  exit 1
-fi
-grep -Fq "Electronic embedding is unavailable in v0.3.3" test55_dft_embed.out
+# test55: experimental electrostatic embedding in DFT/MM
+mlmm dft -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --func-basis 'hf/sto-3g' --grid-level 0 --conv-tol 1e-5 --max-cycle 40 --engine cpu --embedcharge --embedcharge-cutoff 8.0 --out-dir test55_dft_embed > test55_dft_embed.out 2>&1
 
 # test56: dft --link-atom-method fixed (legacy 1.09/1.01 Å link-atom placement)
 mlmm dft -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --func-basis 'hf/sto-3g' --grid-level 0 --conv-tol 1e-5 --max-cycle 40 --engine cpu --link-atom-method fixed --out-dir test56_dft_linkfixed > test56_dft_linkfixed.out 2>&1

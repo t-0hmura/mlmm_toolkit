@@ -87,7 +87,6 @@ Filename tags `i###_j###_k###` are integer hundredths of an angstrom (d1×100, d
 | `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives total charge when `-q` is omitted. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | 1-based comma-separated frozen atom indices. | _None_ |
-| `--hess-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. Can be combined with `--detect-layer`. | _None_ |
 | `--movable-cutoff FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. Providing this disables `--detect-layer`. | _None_ |
 | `-s, --scan-lists TEXT` | Scan targets: a YAML/JSON spec file path (auto-detected, with `pairs` containing 3 quadruples) or an inline Python literal with three quadruples `(i,j,low,high)`. `i`/`j` can be integer indices or PDB atom selectors. | Required unless `--csv` is used |
 | `--csv FILE` | Load precomputed `surface.csv` and generate plot without running a scan. | _None_ |
@@ -106,8 +105,6 @@ Filename tags `i###_j###_k###` are integer hundredths of an angstrom (d1×100, d
 | `--zmin FLOAT` | Manual lower limit for the isosurface color bands (kcal/mol). | Autoscaled |
 | `--zmax FLOAT` | Manual upper limit for the isosurface color bands (kcal/mol). | Autoscaled |
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma`, `orb`, `mace`, `aimnet2`. | `uma` |
-| `--embedcharge/--no-embedcharge` | Unavailable in v0.3.3; the option is retained only to reject older commands explicitly. | `False` |
-| `--embedcharge-cutoff FLOAT` | Unavailable with the retired electronic-embedding path. | — |
 | `--cmap/--no-cmap` | Preserve CMAP in both REAL and MODEL MM layers. | `--cmap` |
 | `--mm-backend [hessian_ff\|openmm]` | MM backend. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | Link-atom placement: scaled ($g$-factor) or fixed 1.09/1.01 Å. | `scaled` |

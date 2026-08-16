@@ -90,8 +90,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ │ ├── mlmm_calc.py ML/MM ONIOM calculator core (4 MLIP backends UMA / ORB / MACE / AIMNet2
 │ │ inline; CHEMISTRY-RULE:1 / 2 / 8 / 9 host)
 │ │ ├── custom.py user ASE calculator loaded from --calc-file (custom backend)
-│ │ ├── _determinism.py strict-determinism setup (--deterministic)
-│ │ └── xtb_embedcharge_correction.py dormant compatibility implementation
+│ │ └── _determinism.py strict-determinism setup (--deterministic)
 │ │
 │ ├── io/ # === L4b Infra (I/O) ===
 │ │ ├── summary.py summary.json / summary.log writer
@@ -135,7 +134,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 
 Domain helpers are reusable by any L2 stage runner.
 
-**L4a `backends/`**. The ML/MM ONIOM calculator core (`mlmm_calc.py`) lives here together with backend dispatch (`__init__.py`) and a dormant electronic-embedding compatibility module (`xtb_embedcharge_correction.py`; public activation is rejected in v0.3.3). The ML-region backends (UMA / ORB / MACE / AIMNet2) and OpenMM / hessian_ff coupling are dispatched from this layer. `mlmm_calc.py` carries chemistry rules **#1 (subtractive ONIOM)**, **#2 (link-atom Hessian B-matrix)**, and **#8 (3-layer 5-pass partial Hessian)**; rule **#9 (parm7 atom indexing)** lives in `io/pdb_indexing.py` — see §5.1.
+**L4a `backends/`**. The ML/MM ONIOM calculator core (`mlmm_calc.py`) lives here together with backend dispatch (`__init__.py`). The ML-region backends (UMA / ORB / MACE / AIMNet2) and OpenMM / hessian_ff coupling are dispatched from this layer. `mlmm_calc.py` carries chemistry rules **#1 (subtractive ONIOM)**, **#2 (link-atom Hessian B-matrix)**, and **#8 (3-layer 5-pass partial Hessian)**; rule **#9 (parm7 atom indexing)** lives in `io/pdb_indexing.py` — see §5.1.
 
 **L4b `io/`**. Output-side I/O concerns include the per-stage summary writer, energy diagram, trajectory rendering, PDB/altloc handling, Hessian cache, numerical Hessian construction, and frequency/vibrational I/O (`hessian_calc.py`). `io/` never depends on `workflows/`; output format is owned here and consumed by stage runners.
 
@@ -245,7 +244,6 @@ Acronyms used below: MEP = minimum-energy path; GSM = growing-string method; COS
 | ML/MM ONIOM calculator core + 4 inline MLIP backends + ONIOM coupling | `mlmm/backends/mlmm_calc.py` |
 | `--precision` routing (`apply_precision_to_calc_cfg` / `_PRECISION_DISPATCH`) | `mlmm/backends/__init__.py` |
 | Backend dispatch / factory (`_create_ml_backend`) | `mlmm/backends/mlmm_calc.py` |
-| Retired electronic-embedding compatibility module | `mlmm/backends/xtb_embedcharge_correction.py` |
 
 See [MLIP Backends](backends.md) for installation and runtime behavior. Backend
 implementation changes currently touch `mlmm_calc.py` and the dispatcher.
@@ -394,7 +392,7 @@ After the Fresh-eyes tour (§3), follow this depth-first reading order:
 
 `mlmm-toolkit` operates on the **full protein environment** via ONIOM:
 
-- **ML region**: substrate + reaction-center residues, evaluated by one of 4 machine-learning interatomic potential (MLIP) backends (UMA / ORB / MACE / AIMNet2); v0.3.3 uses mechanical embedding
+- **ML region**: substrate + reaction-center residues, evaluated by one of 4 machine-learning interatomic potential (MLIP) backends (UMA / ORB / MACE / AIMNet2)
 - **Movable-MM region**: a shell around the ML region, free to move under the AMBER force field
 - **Frozen region**: the rest of the protein, held rigid
 

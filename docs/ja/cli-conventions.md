@@ -280,13 +280,13 @@ PDB 入力の場合、`--ligand-charge` で非標準残基（基質、補因子�
 
 ## バックエンド選択
 
-すべての計算系サブコマンド（`opt`、`sp`、`tsopt`、`freq`、`irc`、`dft`、`scan`、`scan2d`、`scan3d`、`path-opt`、`path-search`、`all`）で以下を指定できます:
+ML/MM calculator を使うサブコマンド（`opt`、`sp`、`tsopt`、`freq`、
+`irc`、`scan`、`scan2d`、`scan3d`、`path-opt`、`path-search`、`all`）で
+以下を指定できます:
 
 | オプション | 説明 | デフォルト |
 |----------|------|----------|
-| `-b, --backend` | ML 領域の MLIP バックエンド: `uma`、`orb`、`mace`、`aimnet2`。`dft` では出力メタデータに記録されるラベルにすぎず、ML 領域は DFT（PySCF/GPU4PySCF）で計算されます。 | `uma` |
-| `--embedcharge/--no-embedcharge` | 互換性用の廃止済みオプション。v0.3.3 は機械的埋め込みのみをサポートし、`--embedcharge` は計算前に拒否されます。 | `--no-embedcharge` |
-| `--embedcharge-cutoff` | 廃止した電子埋め込み経路の互換性用オプション。明示指定は拒否されます。 | 未指定 |
+| `-b, --backend` | ML 領域の MLIP バックエンド: `uma`、`orb`、`mace`、`aimnet2`。 | `uma` |
 
 代替バックエンドはオプション依存グループでインストールします:
 
@@ -330,11 +330,10 @@ ORB、MACE、AIMNet2 はこの UMA worker pool を使用しません。互換性
 |---|---|---|---|---|
 | `opt` | `grad`（`light`, `lbfgs`） | `hess`（`heavy`, `rfo`） | `grad` | L-BFGS / RFO（任意で `--microiter`）。 |
 | `tsopt` | `grad`（`light`, `dimer`） | `hess`（`heavy`, `rsirfo`） | `hess` | Dimer / RS-I-RFO。 |
-| `path-search` | `grad`（= L-BFGS） | —（`hess` / `rfo` は未配線で Click エラー） | `grad` | GSM / DMF ノードの内部ストリングオプティマイザ。`path-opt` には `--opt-mode` がなく、`--mep-mode gsm`/`dmf` を使います。 |
-| `scan` | `grad`（`lbfgs`/`light`） | — | — | `--opt-mode` は L-BFGS の互換別名としてのみ受理され、それ以外のグリッド緩和は YAML の内部オプティマイザに従う。 |
-| `scan2d` / `scan3d` | — | — | — | `--opt-mode` なし。緩和は YAML の内部オプティマイザを使用。 |
+| `all` | `grad` | `hess` | `grad` | TSOPT と IRC 後の端点最適化の fallback。`--opt-mode-post` が優先されます。 |
 
 `light` / `heavy` は `grad` / `hess` の別名として受理されますが、新しいスクリプトでは `grad` / `hess` を推奨します。
+スキャンと path-search は固定の L-BFGS を使い、`--opt-mode` を受け付けません。
 
 ---
 

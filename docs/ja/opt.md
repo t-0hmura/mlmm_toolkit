@@ -40,7 +40,7 @@ mlmm opt -i system_layered.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## 処理の流れ
 
 1. **入力処理** -- `-i/--input` は PDB または XYZ ファイルを受け付けます（XYZ 入力時は `--ref-pdb` を使用）。オプティマイザは `pysisyphus.helpers.geom_loader` を介してこの PDB から座標を読み取ります。ML/MM レイヤー定義は `--model-pdb`、`--model-indices`、または `--detect-layer`（B 因子エンコーディング: B=0 ML、B=10 Movable-MM、B=20 Frozen）から取得されます。
-2. **ML/MM calculatorの構築** -- ML/MM calculator（MLIP バックエンド + hessian_ff）を構築します。`--parm` で Amber MM トポロジーを提供し、`--model-pdb` で ML 領域を定義します。`-b/--backend` で ML バックエンドを選択します（デフォルト: `uma`）。v0.3.3 は機械的埋め込みを使用し、電子埋め込みの要求は calculator 構築前に拒否します。
+2. **ML/MM calculatorの構築** -- ML/MM calculator（MLIP バックエンド + hessian_ff）を構築します。`--parm` で Amber MM トポロジーを提供し、`--model-pdb` で ML 領域を定義します。`-b/--backend` で ML バックエンドを選択します（デフォルト: `uma`）。
 3. **最適化** -- `--opt-mode grad`（`light`）は L-BFGS、`--opt-mode hess`（`heavy`）は RFOptimizer（RFO）を実行します。
    - `--flatten` は最適化後の虚振動数モードのフラット化を有効にします。検出されたすべての虚振動数モードが各反復でフラット化され、虚振動数モードがなくなるか内部ループ上限に達するまで続きます。
 4. **拘束** -- `--dist-freeze` は Python リテラルタプル `(i, j, target_A)` を受け付けます。`target_A` は目標距離（Å）で、第 3 要素を省略すると開始距離が拘束されます。`--bias-k` はグローバル調和強度（eV/Å²）を設定します。インデックスはデフォルトで 1 始まりですが、`--zero-based` で 0 始まりに変更可能です。
@@ -86,7 +86,8 @@ out_dir/ (デフォルト: ./result_opt/)
 | `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。PDB 入力または `--ref-pdb` が必要。 | _None_ |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス。 | _None_ |
-| `--radius-freeze FLOAT` | ML 領域からの可動 MM 原子の距離カットオフ (Å)。これを超える原子は凍結。指定時は `--detect-layer` が無効化。エイリアス: `--movable-cutoff`。 | _None_ |
+| `--movable-cutoff FLOAT` | ML 領域からの可動 MM 原子の距離カットオフ (Å)。これを超える原子は凍結。指定時は `--detect-layer` が無効化。 | _None_ |
+| `--hess-cutoff FLOAT` | Hessian に含める可動 MM 原子の ML 領域からの距離カットオフ (Å)。`--detect-layer` と併用可能。 | _None_ |
 | `--dist-freeze TEXT` | 調和拘束用の Python リテラル `(i, j, target_A)` タプル。 | _None_ |
 | `--one-based / --zero-based` | `--dist-freeze` のインデックス規約。 | 1 始まり |
 | `--bias-k FLOAT` | 調和バイアス強度 (eV/Å²)。 | `300.0` |
@@ -102,8 +103,6 @@ out_dir/ (デフォルト: ./result_opt/)
 | `--config FILE` | ベース YAML 設定ファイル。 | _None_ |
 | `--show-config/--no-show-config` | 実行前に解決済み YAML レイヤー情報を表示。 | `False` |
 | `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`、`orb`、`mace`、`aimnet2`。 | `uma` |
-| `--embedcharge/--no-embedcharge` | v0.3.3 では使用不可。旧コマンドを明示的に拒否するためにのみ残されています。 | `False` |
-| `--embedcharge-cutoff FLOAT` | 廃止した電子埋め込み経路とともに使用不可。 | — |
 | `--cmap/--no-cmap` | REAL と MODEL の両 MM 層で CMAP を保持します。 | `--cmap` |
 | `--mm-backend [hessian_ff\|openmm]` | MM backend。 | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | link atom 配置方式。 | `scaled` |
@@ -147,7 +146,7 @@ out_dir/ (デフォルト: ./result_opt/)
 - 入力構造と `real_parm7` は CLI で指定します。ML 領域は `model_pdb`、明示的な model index、または有効な B-factor layer から指定できます。
 - `model_charge`（`-q/--charge`、必須）と `model_mult`（`-m/--multiplicity`、デフォルト 1）。
 - `link_mlmm`: ML/MM 境界ペアを明示する `(ML_atom_id, MM_atom_id)` リスト。各ペアから link H を 1 個生成し、配置は `link_atom_method` が制御します。
-- バックエンド選択: `backend`（デフォルト `"uma"`、選択肢: `uma`/`orb`/`mace`/`aimnet2`）。`embedcharge` は互換性用で、`true` は拒否されます。
+- バックエンド選択: `backend`（デフォルト `"uma"`、選択肢: `uma`/`orb`/`mace`/`aimnet2`）。
 - UMA 制御: `uma_model`（デフォルト `"uma-s-1p2"`）、`uma_task_name`（デフォルト `"omol"`）。
 - 共通制御（全バックエンド）: `hessian_calc_mode`（`"Analytical"` または `"FiniteDifference"`）、`out_hess_torch`（bool）、`H_double`（bool）。
 - デバイス選択: `ml_device`（`"auto"`/`"cuda"`/`"cpu"`）、`ml_cuda_idx`、`mm_device`、`mm_cuda_idx`、`mm_threads`。
@@ -190,7 +189,6 @@ calc:                           # calc 計算機キーは単一セクション�
  real_parm7: real.parm7         # 全酵素の Amber parm7 トポロジー
  model_pdb: ml_region.pdb       # ML 領域を定義する PDB
  backend: uma                   # ML バックエンド (uma/orb/mace/aimnet2)
- embedcharge: false             # 互換性用。true は拒否される
  uma_model: uma-s-1p2           # uma-s-1p2 | uma-m-1p1
  uma_task_name: omol            # UMA タスク名 (backend=uma 時)
  ml_device: auto                # ML デバイス選択

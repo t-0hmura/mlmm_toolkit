@@ -66,14 +66,14 @@ calc:
  link_mlmm: null # null: parm7 結合から自動決定; list: 明示上書き
  link_atom_method: scaled    # リンク原子配置: "scaled" (g-factor) または "fixed" (1.09/1.01 Å)
  backend: uma # ML バックエンド: "uma" (デフォルト), "orb", "mace", "aimnet2"
- embedcharge: false # v0.3.3 では false 固定。true は拒否
- embedcharge_step: 0.001 # 非アクティブな互換性用の値
- embedcharge_cutoff: 12.0 # 非アクティブな互換性用の値
- xtb_cmd: xtb # 非アクティブな互換性用の値
- xtb_acc: 0.2 # 非アクティブな互換性用の値
- xtb_workdir: tmp # 非アクティブな互換性用の値
- xtb_keep_files: false # 非アクティブな互換性用の値
- xtb_ncores: 4 # 非アクティブな互換性用の値
+ embedcharge: false # 実験的な xTB 点電荷補正（計算コスト大、デフォルト無効）
+ embedcharge_step: 0.001 # 補正の数値 Hessian ステップ (Å)
+ embedcharge_cutoff: 12.0 # ML 領域からの MM 点電荷カットオフ (Å)
+ xtb_cmd: xtb # xTB 実行コマンド
+ xtb_acc: 0.2 # xTB 精度パラメータ
+ xtb_workdir: tmp # xTB 作業ディレクトリ
+ xtb_keep_files: false # xTB 一時ファイルを保持
+ xtb_ncores: 4 # xTB プロセス数
  uma_model: uma-s-1p2 # UMA モデル名: uma-s-1p2, uma-m-1p1
  uma_task_name: omol # UMA バッチに記録されるタスクタグ (backend=uma 時)
  uma_precision: fp32 # fp32 | fp64 (UMA バックエンドの数値精度)
@@ -120,8 +120,6 @@ calc:
   - `orb_model`、`orb_precision` — ORB バックエンドのみ
   - `mace_model`、`mace_dtype` — MACE バックエンドのみ
   - `aimnet2_model` — AIMNet2 バックエンドのみ
-- v0.3.3 では `embedcharge` を `false` のまま使用します。`embedcharge: true`、`--embedcharge`、または CLI の明示的 `--embedcharge-cutoff` は、二重計数と uncapped 境界 model の不整合のため計算前に拒否されます。
-- YAML の `embedcharge_cutoff` とその他の `embedcharge_*`/`xtb_*` キーは不活性な設定互換値として読み取り可能なだけで、サポート対象の計算経路を有効化しません。
 - `hessian_calc_mode: Analytical` はバックエンドの解析 Hessian を明示的に要求します。UMA、ORB、MACE、AIMNet2 がこの経路を実装しており、インストール済みバックエンドが非対応なら計算法を暗黙に変更せずエラーになります。`workers > 1` との併用もエラーです。
 - `hess_cutoff` のデフォルト `null` は可動 MM 原子をすべて Hessian 対象に含めることを意味します（freq/irc/opt はすべての可動原子を解析します）。値（>0.0）を指定すると、その距離以内の MM 原子のみに Hessian 対象を限定します。`movable_cutoff` を指定しない場合は `freeze_atoms` の指定に従います。
 - `use_bfactor_layers: true` を設定すると、`define-layer` で書き込んだ B-factor から層割り当てを読み取ります。
@@ -653,7 +651,6 @@ calc:
  model_charge: 0
  model_mult: 1
  backend: uma                  # ML バックエンド: uma | orb | mace | aimnet2
- embedcharge: false            # 互換性用。true は拒否される
  uma_model: uma-s-1p2          # uma-s-1p2 | uma-m-1p1
  ml_device: auto
  hessian_calc_mode: Analytical   # 代表的な pilot で FiniteDifference と比較

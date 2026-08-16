@@ -116,8 +116,6 @@ out_dir/ (default: ./result_freq/)
 | `--mm-backend [hessian_ff\|openmm]` | MM backend. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | Link-atom placement: scaled ($g$-factor) or fixed 1.09/1.01 Å. | `scaled` |
 | `--cmap/--no-cmap` | Preserve CMAP in both REAL and MODEL MM layers. | `--cmap` |
-| `--embedcharge/--no-embedcharge` | Unavailable in v0.3.3; the option is retained only to reject older commands explicitly. | `False` |
-| `--embedcharge-cutoff FLOAT` | Unavailable with the retired electronic-embedding path. | — |
 | `--hess-device CHOICE` | Device for post-evaluation Hessian placement and diagonalization: `auto`, `cuda`, `cpu`. It does not move Hessian evaluation/assembly; `cpu` moves the evaluated matrix before diagonalization. | `auto` |
 | **Active-region freezing & Hessian** | | |
 | `--freeze-atoms TEXT` | 1-based comma-separated frozen atom indices. | _None_ |
@@ -170,7 +168,6 @@ calc:
  real_parm7: real.parm7            # Amber parm7 topology
  model_pdb: ml_region.pdb          # ML-region definition
  backend: uma                      # MLIP backend: uma | orb | mace | aimnet2
- embedcharge: false                # Compatibility tombstone; true is rejected
  uma_model: uma-s-1p2              # uma-s-1p2 | uma-m-1p1
  uma_task_name: omol                # UMA task name (UMA backend only)
  ml_device: auto                   # ML backend device selection

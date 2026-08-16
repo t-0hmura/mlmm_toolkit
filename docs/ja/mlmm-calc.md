@@ -19,16 +19,6 @@ ML（高レベル）コンポーネントは、`-b/--backend` CLI オプショ�
 
 内部的に、すべてのバックエンドは `_MLBackend` 抽象クラスに準拠しており、エネルギー、力、Hessian の評価に対して統一的なインターフェースを提供します。ファクトリ関数が `backend` パラメータに基づいて適切なバックエンドを選択・インスタンス化します。
 
-### 電子埋め込み
-
-電子埋め込みは v0.3.3 では使用できません。`--embedcharge`、
-`--embedcharge-cutoff`、`calc.embedcharge: true` は、旧コマンドを計算開始前に
-明示的なエラーへ導くためだけに残されています。以前の実験的補正は、減算型
-ONIOM 式に残る Amber の ML--MM 相互作用へ電子的相互作用を重ねて二重計数し、
-link-H を含む高レベル model と整合しない uncapped model を使用していました。
-デフォルトの機械的埋め込み（`--no-embedcharge`）を使用し、実験的経路で得た
-結果は再利用しないでください。
-
 この計算機は共有結合的 ML/MM 境界にリンク水素原子を自動生成します。ML 領域はモデル PDB（`model.pdb`）で定義され、MM トポロジーは Amber prmtop（`real.parm7`）から取得され、座標は入力 PDB（`input.pdb`）から読み取られます。内部 `real.rst7` は ParmEd により `real.parm7` と `input.pdb` の座標を組み合わせて生成されます -- 外部の `real.rst7` や `real.pdb` は不要です。
 
 ## 3 層スキーム（エネルギー / 力 / Hessian）

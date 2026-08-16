@@ -19,17 +19,6 @@ The ML (high-level) component is provided by one of several MLIP backends, selec
 
 See [MLIP Backends](backends.md) for per-backend kwargs, model identifiers, precision options, and how to add a backend.
 
-### Electronic embedding
-
-Electronic embedding is unavailable in v0.3.3. `--embedcharge`,
-`--embedcharge-cutoff`, and `calc.embedcharge: true` are retained only so older
-commands fail with an explicit diagnostic before calculation. The previous
-experimental correction added an electronic ML--MM interaction on top of the
-Amber interaction already retained by the subtractive ONIOM expression and
-used an uncapped model inconsistent with the link-H high-level system. Use the
-default mechanical embedding (`--no-embedcharge`) and do not reuse results
-generated with the experimental path.
-
 The calculator automatically generates link hydrogen atoms at covalent ML/MM boundaries. The ML region is defined by a model PDB (`model.pdb`), the MM topology comes from an Amber prmtop (`real.parm7`), and coordinates are taken from the input PDB (`input.pdb`). An internal `real.rst7` is generated via ParmEd by combining `real.parm7` with coordinates from `input.pdb` -- no external `real.rst7` or `real.pdb` is required.
 
 ## Three-layer scheme (energy / force / Hessian)

@@ -50,11 +50,6 @@ Options:
                                   minima for dmf)]
   --freeze-atoms TEXT             Comma-separated 1-based atom indices to freeze
                                   (e.g., '1,3,5').
-  --hess-cutoff FLOAT             Distance cutoff (Å) from ML region for MM
-                                  atoms to include in Hessian calculation.
-                                  Applied to movable MM atoms and can be
-                                  combined with --detect-layer.  [default: (all
-                                  movable MM atoms)]
   --movable-cutoff FLOAT          Distance cutoff (Å) from ML region for movable
                                   MM atoms. MM atoms beyond this are frozen.
                                   Providing --movable-cutoff disables --detect-
@@ -70,8 +65,6 @@ Options:
                                   growth.  [default: climb]
   --dump / --no-dump              Dump GSM/single-optimization trajectories
                                   during the run.  [default: no-dump]
-  --opt-mode [grad]               Single-structure optimizer: grad (=L-BFGS).
-                                  RFO (hess) not yet wired.  [default: grad]
   -o, --out-dir TEXT              Output directory.  [default:
                                   ./result_path_search/]
   --thresh [gau_loose|gau|gau_tight|gau_vtight|baker|never]
@@ -113,12 +106,12 @@ Options:
                                   ML backend for the ONIOM high-level region
                                   (default: uma).  [default: (uma)]
   --embedcharge / --no-embedcharge
-                                  Unavailable in v0.3.3; retained so older
-                                  commands fail with an actionable diagnostic.
-                                  [default: no-embedcharge]
-  --embedcharge-cutoff FLOAT      Unavailable in v0.3.3 together with the
-                                  retired electronic-embedding path.  [default:
-                                  (12.0)]
+                                  Enable the experimental, computationally
+                                  expensive xTB point-charge delta correction
+                                  for MLIP/MM.  [default: no-embedcharge]
+  --embedcharge-cutoff FLOAT      Distance cutoff (Å) from the ML region for MM
+                                  point charges used by the xTB delta
+                                  correction.  [default: (12.0)]
   --link-atom-method [scaled|fixed]
                                   Link-atom position mode: scaled (g-factor,
                                   default) or fixed (legacy 1.09/1.01 Å).

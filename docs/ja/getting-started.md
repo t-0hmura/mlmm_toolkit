@@ -447,8 +447,7 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft -
 | `--dmf-backend gpu\|cpu` | DMF 実装。GPU メモリ不足時は `cpu` を選択 |
 | `-o, --out-dir PATH` | トップレベル出力ディレクトリ |
 | `-b, --backend uma\|orb\|mace\|aimnet2` | MLIP バックエンド選択（デフォルト: `uma`） |
-| `--embedcharge/--no-embedcharge` | 電子埋め込みは v0.3.3 では使用不可。機械的埋め込みのデフォルトを使用 |
-| `--opt-mode grad\|hess` | `all` のワークフロープリセット: `grad`（L-BFGS/Dimer、デフォルト）または `hess`（RFO/RS-I-RFO） |
+| `--opt-mode grad\|hess` | TSOPT と IRC 後の端点最適化の fallback。`--opt-mode-post` が優先されます。 |
 | `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian 計算モード。全 MLIP バックエンドで `Analytical` を利用可能。`--workers > 1` とは併用不可。 |
 
 `mlmm all --mep-mode dmf` は、デフォルトの単一パス `path-opt` と
@@ -537,7 +536,6 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1
 | `--parm` | Amber parm7（個別サブコマンドで必要） |
 | `--model-pdb` | ML 領域定義 PDB（個別サブコマンドでは `--model-indices` または有効な B-factor layer も選択可能） |
 | `-b, --backend` | MLIP バックエンド選択（`uma`, `orb`, `mace`, `aimnet2`） |
-| `--embedcharge/--no-embedcharge` | 電子埋め込みは v0.3.3 では使用不可 |
 | `--tsopt` | TS 最適化 + IRC |
 | `--thermo` | 振動解析/熱化学 |
 | `--dft` | DFT 一点計算 |

@@ -121,8 +121,6 @@ out_dir/ (デフォルト: ./result_freq/)
 | `--mm-backend [hessian_ff\|openmm]` | MM バックエンド。Hessian 構築法は `calc.mm_fd` が別に制御します（デフォルト `true`: 有限差分）。 | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | リンク原子配置: scaled（g 因子）または fixed（1.09/1.01 Å）。 | `scaled` |
 | `--out-json/--no-out-json` | 機械可読な `result.json` を `out_dir` に書き出す。 | `False` |
-| `--embedcharge/--no-embedcharge` | v0.3.3 では使用不可。旧コマンドを明示的に拒否するためにのみ残されています。 | `False` |
-| `--embedcharge-cutoff FLOAT` | 廃止した電子埋め込み経路とともに使用不可。 | — |
 | `--cmap/--no-cmap` | REAL と MODEL の両 MM 層で CMAP を保持します。 | `--cmap` |
 | `--hess-device CHOICE` | 評価後 Hessian の配置/対角化 device: `auto`、`cuda`、`cpu`。Hessian 評価/assembly 自体は移動せず、`cpu` は評価済み行列を対角化前に移動。 | `auto` |
 | **アクティブ領域の凍結と Hessian** | | |
@@ -173,7 +171,6 @@ calc:
  real_parm7: real.parm7            # Amber parm7 トポロジー
  model_pdb: ml_region.pdb          # ML 領域定義
  backend: uma                      # ML バックエンド (uma/orb/mace/aimnet2)
- embedcharge: false                # 互換性用。true は拒否される
  uma_model: uma-s-1p2              # uma-s-1p2 | uma-m-1p1
  uma_task_name: omol                # UMA タスク名 (backend=uma 時)
  ml_device: auto                   # ML デバイス選択

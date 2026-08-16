@@ -1,6 +1,6 @@
 # Gaussian ONIOM Mode (`oniom-export --mode g16`)
 
-Export an ML/MM system to Gaussian ONIOM (`.com`/`.gjf`) using an Amber parm7 topology. This is the Gaussian-specific detail page for `oniom-export`; it reads topology data from `--parm` (via ParmEd) and optional coordinates from `-i/--input`, then writes a Gaussian ONIOM input file with method, layer flags, and connectivity.
+Export an ML/MM system to Gaussian ONIOM (`.com`/`.gjf`) using an Amber parm7 topology. This is the Gaussian-specific detail page for `oniom-export`; it reads topology data from `--parm` and the movable/frozen partition from an MLMM layered PDB passed to `-i/--input`.
 
 The input `parm7` must be CMAP-free. Gaussian ONIOM cannot represent the
 topology's CMAP terms faithfully, so export fails before writing when any are
@@ -11,32 +11,32 @@ present.
 Minimal export with explicit charge and multiplicity:
 
 ```bash
-mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode g16 --parm real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
  -o system.com -q 0 -m 1
 ```
 
 ```bash
 # Basic export with explicit method
-mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode g16 --parm real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
  -o system.com -q 0 -m 1 --method "wB97XD/def2-TZVPD"
 ```
 
 ```bash
 # Disable element-sequence validation when atom order is already trusted
-mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.xyz --model-pdb ml_region.pdb \
+mlmm oniom-export --mode g16 --parm real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
  -o system.gjf -q 0 -m 1 --no-element-check
 ```
 
 ```bash
-# Set compute resources and the movable-atom cutoff
-mlmm oniom-export --mode g16 --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
- -o system.com -q 0 -m 1 --nproc 16 --mem 32GB --near 5.0
+# Set compute resources
+mlmm oniom-export --mode g16 --parm real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
+ -o system.com -q 0 -m 1 --nproc 16 --mem 32GB
 ```
 
 ## Workflow
 
 1. Load atom/bond/charge data from parm7.
-2. Optionally load coordinates and run element-order validation (`--element-check`).
+2. Load coordinates and the movable/frozen layers from the input PDB B-factors, then run element-order validation (`--element-check`).
 3. If `--model-pdb` is provided, map those atoms to define the QM layer.
 4. Detect QM/MM boundaries and annotate link atoms.
 5. Write Gaussian input with method, `%nprocshared`, `%mem`, coordinates, layer flags, and connectivity.
@@ -53,14 +53,13 @@ The full flag list is in the generated [command reference](reference/commands/in
 | Option | Description | Default |
 | --- | --- | --- |
 | `--parm PATH` | Amber parm7 topology file. | Required |
-| `-i, --input PATH` | Coordinate file (PDB/XYZ); atom order must match parm7. | _None_ |
+| `-i, --input PATH` | MLMM layered PDB; atom order must match parm7. | Required |
 | `--element-check / --no-element-check` | Validate element sequence between input and parm7. | `True` |
 | `--model-pdb PATH` | PDB file defining QM region atoms. | _None_ |
 | `-o, --output PATH` | Output Gaussian input file (`.com` or `.gjf`). | Required |
 | `--method TEXT` | QM method and basis set. | `wB97XD/def2-TZVPD` |
 | `-q, --charge INT` | Charge of QM region. | Required |
 | `-m, --multiplicity INT` | Multiplicity of QM region. | `1` |
-| `--near FLOAT` | Distance cutoff (Å) for movable MM atoms. | `6.0` |
 | `--nproc INT` | Number of processors. | `8` |
 | `--mem TEXT` | Memory allocation. | `16GB` |
 

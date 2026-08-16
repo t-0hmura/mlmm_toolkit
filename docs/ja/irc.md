@@ -58,7 +58,7 @@ mlmm irc -i TS_STRUCTURE --parm PARM7 --model-pdb ML_REGION [options]
 ## 処理の流れ
 
 1. **入力準備** -- TS 構造、Amber トポロジー（`--parm`）、ML 領域定義（`--model-pdb` / `--model-indices`）を読み込み、電荷とスピンを確定します。直接PDB/mmCIF入力または`--ref-pdb`がcompanion出力用topologyを提供します。
-2. **ML/MM calculatorの構築** -- `--parm` と `--model-pdb` から ML/MM calculatorを構築します。`-b/--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--hessian-calc-mode` は MLIP Hessian 評価を制御します。v0.3.3 は機械的埋め込みを使用し、電子埋め込みの要求は calculator 構築前に拒否します。
+2. **ML/MM calculatorの構築** -- `--parm` と `--model-pdb` から ML/MM calculatorを構築します。`-b/--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--hessian-calc-mode` は MLIP Hessian 評価を制御します。
 3. **凍結境界の TR 処理** -- 固定の constrained 処理は、凍結 anchor をすべて動かさない全系剛体運動だけを除去します。一般的な有効 rank は anchor が 0/1/2/非共線の 3 個以上のとき 6/3/1/0 で、実用的な ML/MM 境界では通常 0 です。
 4. **IRC 積分** -- EulerPC 積分器が両方向に沿って IRC を伝播します（`--no-forward` または `--no-backward` でブランチを無効化可能）。ステップサイズとサイクル数で積分長を制御します。
 5. **出力と変換** -- 軌跡はXYZで書き出されます。PDB/mmCIF topologyが利用可能で`--convert-files`が有効ならPDB companionを生成し、bridge入力では元ID付きCIF companionも生成します。
@@ -107,8 +107,6 @@ standalone IRC はstitched pathの`first` / `last`端点と、その方向のbon
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
 | `-b, --backend CHOICE` | ML バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
-| `--embedcharge/--no-embedcharge` | v0.3.3 では使用不可。旧コマンドを明示的に拒否するためにのみ残されています。 | `False` |
-| `--embedcharge-cutoff FLOAT` | 廃止した電子埋め込み経路とともに使用不可。 | — |
 | `--cmap/--no-cmap` | REAL と MODEL の両 MM 層で CMAP を保持します。 | `--cmap` |
 | `--hess-device CHOICE` | 初期 Hessian の格納・IRC 演算のデバイス: `auto`、`cuda`、`cpu`。大規模非凍結系では `cpu` を推奨。 | `auto` |
 | `--read-hess PATH` | `mlmm freq --dump-hess`のidentified `.npz`を読み込む。geometry、原子順序、layer選択、active-DOF basisが一致する必要があり、cache／新規計算より優先。 | _None_ |
@@ -181,7 +179,6 @@ calc:
  real_parm7: real.parm7            # Amber parm7 トポロジー
  model_pdb: ml_region.pdb          # ML 領域定義
  backend: uma                      # ML バックエンド (uma/orb/mace/aimnet2)
- embedcharge: false                # 互換性用。true は拒否される
  uma_model: uma-s-1p2              # uma-s-1p2 | uma-m-1p1
  uma_task_name: omol                # UMA タスク名 (backend=uma 時)
  ml_device: auto                   # ML デバイス選択

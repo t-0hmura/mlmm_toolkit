@@ -14,8 +14,9 @@ Options:
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
   --parm FILE                     Amber parm7 topology file.  [required]
-  -i, --input FILE                Coordinate file (.pdb or .xyz) for the current
-                                  structure (atom order must match parm7).
+  -i, --input FILE                MLMM layered PDB for the current structure;
+                                  atom order must match parm7 and B-factors
+                                  define the movable/frozen atoms.  [required]
   --element-check / --no-element-check
                                   Validate that the element sequence in --input
                                   matches the parm7 topology.  [default:
@@ -30,8 +31,6 @@ Options:
                                   mode.  [default: (depends on --mode)]
   -q, --charge INTEGER            Charge of QM region.  [required]
   -m, --multiplicity INTEGER      Multiplicity of QM region.  [default: 1]
-  --near FLOAT                    Distance cutoff for movable/active atoms (Å).
-                                  [default: 6.0]
   --nproc INTEGER                 Number of processors.  [default: 8]
   --mem TEXT                      Memory allocation (g16 mode).  [default: 16GB]
   --total-charge INTEGER          Total charge of full QM+MM system for ORCA

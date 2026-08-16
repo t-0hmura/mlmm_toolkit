@@ -54,7 +54,7 @@ Add `--print-parsed` to validate the parsed scan spec and exit without running t
 
 ## Workflow
 
-1. **Input & preoptimization** -- Load PDB/mmCIF, or XYZ with `--ref-pdb`; resolve charge/spin, build the ML/MM calculator (MLIP backend + hessian_ff; backend selected via `-b/--backend`, default `uma`), and optionally run an unbiased pre-optimization when `--preopt`. v0.3.3 uses mechanical embedding and rejects electronic-embedding requests before calculator construction.
+1. **Input & preoptimization** -- Load PDB/mmCIF, or XYZ with `--ref-pdb`; resolve charge/spin, build the ML/MM calculator (MLIP backend + hessian_ff; backend selected via `-b/--backend`, default `uma`), and optionally run an unbiased pre-optimization when `--preopt`.
 2. **Grid construction** -- Parse targets from `-s/--scan-lists` (YAML/JSON spec file or inline literal) into two quadruples, normalize indices (1-based by default or PDB atom selectors like `"TYR,285,CA"`). Build linear grids with `ceil(|high - low| / h) + 1` points where `h = --max-step-size`.
 3. **Outer loop (d1)** -- For each d1 value, relax the system with **only the d1 restraint** active.
 4. **Inner loop (d2)** -- For each d2 value at the current d1, relax with **both restraints** active starting from the nearest previously converged structure.
@@ -94,7 +94,6 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives total charge when `-q` is omitted. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze. | _None_ |
-| `--hess-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. Can be combined with `--detect-layer`. | _None_ |
 | `--movable-cutoff FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. Providing this disables `--detect-layer`. | _None_ |
 | `-s, --scan-lists TEXT` | Scan targets: a YAML/JSON spec file path (auto-detected, with `pairs` containing 2 quadruples) or an inline Python literal `"[(i1,j1,low1,high1),(i2,j2,low2,high2)]"`. Indices can be integers or PDB atom selectors. | Required |
 | `--one-based / --zero-based` | Interpret `(i,j)` indices in `-s/--scan-lists` as 1-based or 0-based. | `True` (1-based) |
@@ -112,8 +111,6 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--zmin FLOAT` | Lower bound of the contour color scale (kcal/mol). | Autoscaled |
 | `--zmax FLOAT` | Upper bound of the contour color scale (kcal/mol). | Autoscaled |
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma`, `orb`, `mace`, `aimnet2`. | `uma` |
-| `--embedcharge/--no-embedcharge` | Unavailable in v0.3.3; the option is retained only to reject older commands explicitly. | `False` |
-| `--embedcharge-cutoff FLOAT` | Unavailable with the retired electronic-embedding path. | — |
 | `--cmap/--no-cmap` | Preserve CMAP in both REAL and MODEL MM layers. | `--cmap` |
 | `--mm-backend [hessian_ff\|openmm]` | MM backend. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | Link-atom placement: scaled ($g$-factor) or fixed 1.09/1.01 Å. | `scaled` |

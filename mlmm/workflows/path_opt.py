@@ -1027,15 +1027,6 @@ def _run_dmf_mep(
     help="Comma-separated 1-based indices to freeze (applied to every image).",
 )
 @click.option(
-    "--hess-cutoff",
-    "hess_cutoff",
-    type=float,
-    default=None,
-    show_default="all movable MM atoms",
-    help="Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. "
-         "Applied to movable MM atoms and can be combined with --detect-layer.",
-)
-@click.option(
     "--movable-cutoff",
     "movable_cutoff",
     type=float,
@@ -1063,7 +1054,7 @@ def _run_dmf_mep(
     "embedcharge",
     default=False,
     show_default=True,
-    help="Unavailable in v0.3.3; retained so older commands fail with an actionable diagnostic.",
+    help="Enable the experimental, computationally expensive xTB point-charge delta correction for MLIP/MM.",
 )
 @click.option(
     "--embedcharge-cutoff",
@@ -1071,7 +1062,7 @@ def _run_dmf_mep(
     type=float,
     default=None,
     show_default="12.0",
-    help="Unavailable in v0.3.3 together with the retired electronic-embedding path.",
+    help="Distance cutoff (Å) from the ML region for MM point charges used by the xTB delta correction.",
 )
 @click.option(
     "--link-atom-method",
@@ -1150,7 +1141,6 @@ def cli(
     model_indices_one_based: bool,
     detect_layer: bool,
     freeze_atoms_cli: Optional[str],
-    hess_cutoff: Optional[float],
     movable_cutoff: Optional[float],
     convert_files: bool,
     backend: Optional[str],
@@ -1295,8 +1285,6 @@ def cli(
             dmf_cfg["tol"] = str(thresh_dmf)
         if _is_param_explicit("detect_layer"):
             calc_cfg["use_bfactor_layers"] = bool(detect_layer)
-        if _is_param_explicit("hess_cutoff") and hess_cutoff is not None:
-            calc_cfg["hess_cutoff"] = float(hess_cutoff)
         if _is_param_explicit("movable_cutoff") and movable_cutoff is not None:
             calc_cfg["movable_cutoff"] = float(movable_cutoff)
             calc_cfg["use_bfactor_layers"] = False
@@ -1384,7 +1372,6 @@ def cli(
         preopt_max_cycles_effective = int(lbfgs_cfg.get("max_cycles", preopt_max_cycles))
 
         # movable_cutoff implies full distance-based layer assignment.
-        # hess_cutoff alone can be combined with --detect-layer.
         detect_layer_enabled = bool(calc_cfg.get("use_bfactor_layers", True))
         model_pdb_cfg = calc_cfg.get("model_pdb")
         if calc_cfg.get("movable_cutoff") is not None:
@@ -1429,13 +1416,6 @@ def cli(
         if detect_layer_enabled and layer_source_pdb.suffix.lower() != ".pdb":
             click.echo("ERROR: --detect-layer requires a PDB input.", err=True)
             sys.exit(1)
-
-        from mlmm.core.embedcharge_policy import reject_retired_embedcharge_cli
-
-        reject_retired_embedcharge_cli(
-            calc_cfg,
-            cutoff_requested=_is_param_explicit("embedcharge_cutoff"),
-        )
 
         if show_config:
             click.echo(

@@ -20,7 +20,10 @@ mlmm define-layer -i system.pdb --model-pdb model.pdb -o system_layered.pdb
 - **TSOPT のみ** -- 1 つの完全構造を提供し `--tsopt` を設定（`--scan-lists` なし）して、MEP 探索なしで TS 最適化を直接実行する。
 
 ```{important}
-`--tsopt` は **TS 候補**を生成します。`all` は検証のために IRC と freq を自動実行しますが、機構解釈の前に必ず結果（虚振動数モード + 端点の結合性）を確認してください。
+`--tsopt` は **TS 候補**を生成します。通常、`all` が IRC を開始するのは、
+TSOPT が `status: converged` と虚振動1つを報告した場合だけです。
+`--skip-final-freq` を明示すると、未検証のTSからIRCを実行できます。
+機構解釈の前に、虚振動モードと端点の結合性を必ず確認してください。
 ```
 
 ## 実行例
@@ -101,15 +104,15 @@ ML領域PDB pairは別の成果物であり、PDB入力では常に出力され�
 
 5. **サマリーと任意の後処理**
    - MEP エンジン生出力（セグメントごとの軌跡、全 MEP 軌跡、エンジンの `summary.json`）は `<out-dir>/_work/path_opt/`（`--refine-path` 使用時は `<out-dir>/_work/path_search/`）に書き出され、マージ済み成果物（`mep.pdb`、bridge 入力時の `mep.cif`、`mep_trj.xyz`、`mep_plot.png`、`energy_diagram_MEP.png`）は `<out-dir>/` へ移動され、`summary.{json,log}` はコピーされます。
-   - `--tsopt`: 各 HEI で TS を最適化し、EulerPC IRC を実行し、セグメントエネルギーダイアグラムを描画します。
+   - `--tsopt`: 各 HEI で TS を最適化します。TS 判定を通過した後、EulerPC IRC とセグメントエネルギーダイアグラムへ進みます。
    - `--thermo`: (R, TS, P) で ML/MM 熱化学を計算し、Gibbs ダイアグラムを追加します。
    - `--dft`: (R, TS, P) のモデル領域で DFT 一点計算を実行し、モデル DFT 電子エネルギーダイアグラムを追加します。`--thermo` と組み合わせると、subtractive DFT//MLIP/MM 全エネルギーに ML/MM 熱補正を加えた DFT//MLIP/MM Gibbs ダイアグラムも生成されます。
    - TS 最適化、IRC、振動解析、flatten PHVA は固定の constrained 処理を使用します。これは凍結 anchor を動かさない全系剛体運動だけを除去し、実用的な ML/MM 境界では有効 rank は通常 0 です。
    - `--hessian-calc-mode` は、対応するバックエンドで解析 Hessian または有限差分 Hessian を選択します。速度とメモリはバックエンドと系に依存するため、対象系の小規模試行で比較してください。
 
 6. **TSOPT のみモード**（単一入力、`--tsopt`、`--scan-lists` なし）
-   - MEP 探索をスキップし、レイヤード全系 PDB で `tsopt`、EulerPC IRC、両端の極小化を実行し、任意で熱化学、DFT、DFT//MLIP/MM ダイアグラムを追加します。
-   - 経路や参照構造による向きがないため、IRC 両端は化学的に未割当の `E1` と `E2` として出力します。サマリーは各端点から TS への障壁を報告し、R/P 反応エネルギーは報告しません。構造を確認してから化学的役割を割り当ててください。
+   - MEP 探索をスキップし、レイヤード全系 PDB で `tsopt` を実行します。TS 判定を通過した後、EulerPC IRC、両端の極小化、任意の熱化学、DFT、DFT//MLIP/MM ダイアグラムへ進みます。
+   - IRC を実行した場合、経路や参照構造による向きがないため、両端は化学的に未割当の `E1` と `E2` として出力します。サマリーは各端点から TS への障壁を報告し、R/P 反応エネルギーは報告しません。構造を確認してから化学的役割を割り当ててください。
 
 ## 出力
 
@@ -139,8 +142,8 @@ ML領域PDB pairは別の成果物であり、PDB入力では常に出力され�
   seg_NN/                              # 2 桁インデックス (1 始まり)、例: seg_01, seg_02
    reactant.{pdb,cif} · ts.{pdb,cif} · product.{pdb,cif} # MEP 実行の R/TS/P
    e1.{pdb,cif} · ts.{pdb,cif} · e2.{pdb,cif}            # TSOPT のみの未割当端点
-   ts/...                              # TS 最適化 + EulerPC IRC（--tsopt）
-   irc/...
+   ts/...                              # TS 最適化（--tsopt）
+   irc/...                             # TS 判定通過後の EulerPC IRC
    freq/...                            # --thermo の場合
    dft/...                             # --dft の場合
    structures/{reactant,ts,product}.pdb  # MEP 実行の入れ子コピー
@@ -153,7 +156,7 @@ ML領域PDB pairは別の成果物であり、PDB入力では常に出力され�
    summary.{json,log} · seg_NN_mep/    # セグメント別の生 MEP 軌跡（マージ済み成果物はルートへ移動）
 ```
 
-**TSOPT のみモード**（単一入力 + `--tsopt`、`--scan-lists` なし）では MEP ステージが無く、化学的方向を割り当てない最適化済み E1/TS/E2 と `ts/`・`irc/`・`freq/`・`dft/` は `segments/seg_01/` 配下に生成され、`_work/path_opt/` は存在しません。
+**TSOPT のみモード**（単一入力 + `--tsopt`、`--scan-lists` なし）では MEP ステージがなく、`ts/` は `segments/seg_01/` 配下に生成されます。TS 判定通過後は E1/TS/E2 と `irc/`、続いて指定した `freq/` と `dft/` が追加されます。`_work/path_opt/` は存在しません。
 
 `-v 2` ではコンソールに抽出、MM 準備、スキャンステージ、MEP の進捗、ステージごとの所要時間が要約されます。{ref}`ja-verbosity-levels` を参照してください。
 
@@ -161,7 +164,7 @@ ML領域PDB pairは別の成果物であり、PDB入力では常に出力され�
 ログは番号付きセクションで構成されています:
 - **[1] グローバル MEP 概要** -- イメージ/セグメント数、MEP 軌跡プロットパス、集約 MEP エネルギーダイアグラム。
 - **[2] セグメントレベル MEP サマリー（MLIP 経路）** -- セグメントごとの障壁、反応エネルギー、結合変化サマリー。
-- **[3] セグメントごとの後処理（TSOPT / Thermo / DFT）** -- セグメントごとの TS 虚振動数チェック、IRC 出力、エネルギーテーブル。
+- **[3] セグメントごとの後処理（TSOPT / Thermo / DFT）** -- セグメントごとの TS 虚振動数チェック、判定通過後の IRC 出力、エネルギーテーブル。
 - **[4] エネルギーダイアグラム（概要）** -- MEP/MLIP/Gibbs/DFT シリーズのダイアグラムテーブルと任意のクロスメソッドサマリーテーブル。
 - **[5] 出力ディレクトリ構造** -- インラインアノテーション付きの生成ファイルのコンパクトツリー。
 
@@ -231,15 +234,13 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 | --- | --- | --- |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `-b, --backend CHOICE` | ML バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。全計算サブコマンドに転送。 | `uma` |
-| `--embedcharge/--no-embedcharge` | v0.3.3 では使用不可。旧コマンドを明示的に拒否するためにのみ残されています。 | `False` |
-| `--embedcharge-cutoff FLOAT` | 廃止した電子埋め込み経路とともに使用不可。 | — |
 | `--cmap/--no-cmap` | REAL と MODEL の両 MM 層で CMAP を保持します。 | `--cmap` |
 | `--mep-mode [gsm\|dmf]` | `path-opt` と再帰的 `path-search` の両方へ転送する MEP 最適化法。 | `gsm` |
 | `--dmf-backend [gpu\|cpu]` | DMF 実装。明示指定時だけ子コマンドへ転送するため、省略時は子コマンドの YAML 設定 `dmf.backend` が有効。 | `gpu` |
 | `--max-nodes INT` | GSM/DMF セグメントの内部ノード数。 | `20` |
 | `--max-cycles INT` | MEP 最適化サイクルの最大数。 | `300` |
 | `--climb/--no-climb` | 選択した最適化法が対応する場合に climbing-image TS 精密化を有効化。 | `True` |
-| `--opt-mode [grad\|hess]` | スキャン/path-search と単一構造最適化のプリセット（`grad` → L-BFGS/Dimer、`hess` → RFO/RSIRFO）。 | `grad` |
+| `--opt-mode [grad\|hess]` | TSOPT と IRC 後の端点最適化に使う予備プリセット（`grad` → Dimer/L-BFGS、`hess` → RS-I-RFO/RFO）。`--opt-mode-post` が優先されます。 | `grad` |
 | `--opt-mode-post [grad\|hess]` | TSOPT/IRC 後端点最適化向けのプリセット上書き（`grad` → Dimer/L-BFGS、`hess` → RS-I-RFO/RFO）。 | `hess` |
 | `--thresh TEXT` | 単一構造最適化と scan 緩和の収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。実効デフォルト: scan は `gau`。 | _None_ |
 | `--thresh-gsm TEXT` | MEP 段の GSM ストリング最適化の収束プリセット（`--thresh` と同じプリセット群）。実効デフォルト: `gau_loose`。 | _None_ |
@@ -272,7 +273,7 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
-| `--tsopt/--no-tsopt` | 反応セグメントごとに TS 最適化 + EulerPC IRC を実行。 | `False` |
+| `--tsopt/--no-tsopt` | 反応セグメントごとに TS 最適化を行い、TS 判定通過後に EulerPC IRC を実行。 | `False` |
 | `--tsopt-from-mep-tan/--no-tsopt-from-mep-tan` | HEI の MEP 接線から初期 TS root を選ぶ。OFF では初期構造の Hessian 振動モードから選ぶ。 | `True` |
 | `--thermo/--no-thermo` | MEP 実行では R/TS/P、TS-only 実行では E1/TS/E2 で振動解析 (`freq`) を実行。 | `False` |
 | `--dft/--no-dft` | MEP 実行では R/TS/P、TS-only 実行では E1/TS/E2 で DFT 一点計算を実行。 | `False` |
@@ -324,7 +325,6 @@ calc:
  model_charge: 0
  model_mult: 1
  backend: uma                    # ML バックエンド (uma/orb/mace/aimnet2)
- embedcharge: false              # 互換性用。true は拒否される
  uma_model: uma-s-1p2            # uma-s-1p2 | uma-m-1p1
  hessian_calc_mode: Analytical     # 代表的な pilot で FiniteDifference と比較
 gs:

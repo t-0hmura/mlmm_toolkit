@@ -58,7 +58,7 @@ CALC_SUBCOMMANDS = [
 
 UTILITY_SUBCOMMANDS = [
     ("mm-parm", "-o, --out-prefix", "--keep-temp"),
-    ("define-layer", "--model-pdb", "--radius-freeze"),
+    ("define-layer", "--model-pdb", "--one-based"),
     ("add-elem-info", "-o, --out", "--overwrite"),
     ("trj2fig", "--unit", "--backend-model"),
     ("energy-diagram", "-o, --output", "--label-x"),
@@ -68,19 +68,62 @@ UTILITY_SUBCOMMANDS = [
 
 SHARED_PRIMARY_SCIENTIFIC_OPTIONS = [
     ("add-elem-info", "--inplace"),
+    ("fix-altloc", "--inplace"),
     ("all", "--refine-path"),
+    ("all", "--scan-max-step-size"),
+    ("all", "--mep-mode"),
+    ("all", "--max-nodes"),
+    ("all", "-r"),
+    ("all", "-m"),
+    ("all", "--opt-mode"),
+    ("all", "--opt-mode-post"),
+    ("all", "--thresh"),
+    ("all", "--parm"),
+    ("all", "--model-pdb"),
+    ("all", "--detect-layer"),
+    ("all", "--ref-pdb"),
     ("opt", "--thresh"),
     ("opt", "--bias-k"),
     ("opt", "--dist-freeze"),
     ("opt", "--dump"),
+    ("opt", "--ref-pdb"),
     ("scan", "--bias-k"),
+    ("scan", "--max-step-size"),
+    ("scan", "--thresh"),
     ("scan2d", "--bias-k"),
+    ("scan2d", "--max-step-size"),
+    ("scan2d", "--thresh"),
+    ("scan2d", "--ref-pdb"),
     ("scan3d", "--bias-k"),
+    ("scan3d", "--max-step-size"),
+    ("scan3d", "--thresh"),
+    ("scan3d", "--ref-pdb"),
     ("sp", "--ref-pdb"),
     ("tsopt", "--thresh"),
-    ("irc", "--never-stop"),
+    ("tsopt", "--dump"),
+    ("tsopt", "--ref-pdb"),
+    ("freq", "--ref-pdb"),
+    ("irc", "--ref-pdb"),
+    ("dft", "--ref-pdb"),
+    ("path-opt", "--ref-pdb"),
+    ("path-search", "--ref-pdb"),
+    ("define-layer", "--radius-freeze"),
     ("dft", "--engine"),
     ("trj2fig", "--reverse-x"),
+]
+
+SHARED_ADVANCED_SCIENTIFIC_OPTIONS = [
+    ("irc", "--never-stop"),
+    ("all", "--dry-run"),
+    ("all", "--scan-bias-k"),
+    ("all", "--scan-relax-max-cycles"),
+    ("all", "--max-cycles"),
+    ("all", "--tsopt-max-cycles"),
+    ("all", "--hessian-calc-mode"),
+    ("scan", "--max-cycles"),
+    ("scan", "--relax-max-cycles"),
+    ("scan2d", "--relax-max-cycles"),
+    ("scan3d", "--relax-max-cycles"),
 ]
 
 
@@ -115,6 +158,19 @@ def test_shared_scientific_options_stay_in_primary_help(
     assert _has_option_header(result.output, option), result.output
 
 
+@pytest.mark.parametrize(("subcommand", "option"), SHARED_ADVANCED_SCIENTIFIC_OPTIONS)
+def test_selected_scientific_options_stay_in_advanced_help(
+    runner, cli_group, subcommand: str, option: str
+) -> None:
+    primary = runner.invoke(cli_group, [subcommand, "--help"])
+    assert primary.exit_code == 0, primary.output
+    assert not _has_option_header(primary.output, option), primary.output
+
+    advanced = runner.invoke(cli_group, [subcommand, "--help-advanced"])
+    assert advanced.exit_code == 0, advanced.output
+    assert _has_option_header(advanced.output, option), advanced.output
+
+
 def test_main_help(runner, cli_group):
     result = runner.invoke(cli_group, ["--help"])
     assert result.exit_code == 0
@@ -146,10 +202,10 @@ def test_all_help_advanced_shows_hidden_options(runner, cli_group):
     assert "--sopt-mode" not in result.output
 
 
-def test_path_search_help_advanced_uses_opt_mode_name(runner, cli_group):
+def test_path_search_help_advanced_omits_fixed_optimizer_selector(runner, cli_group):
     result = runner.invoke(cli_group, ["path-search", "--help-advanced"])
     assert result.exit_code == 0
-    assert "--opt-mode" in result.output
+    assert "--opt-mode" not in result.output
     assert "--sopt-mode" not in result.output
 
 

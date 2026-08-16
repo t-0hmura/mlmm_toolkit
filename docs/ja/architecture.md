@@ -87,8 +87,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ │ ├── mlmm_calc.py ML/MM ONIOM calculator core (4 MLIP backends UMA / ORB / MACE / AIMNet2
 │ │ inline; CHEMISTRY-RULE:1 / 2 / 8 / 9 host)
 │ │ ├── custom.py user ASE calculator loaded from --calc-file (custom backend)
-│ │ ├── _determinism.py strict-determinism setup (--deterministic)
-│ │ └── xtb_embedcharge_correction.py 非アクティブな互換性用実装
+│ │ └── _determinism.py strict-determinism setup (--deterministic)
 │ │
 │ ├── io/ # === L4b Infra (I/O) ===
 │ │ ├── summary.py summary.json / summary.log writer
@@ -127,7 +126,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 
 **L3 `domain/`**。化学を意識したヘルパーロジックで、`torch` / `numpy` / `pysisyphus.constants` (数値バックエンド) はインポートしてよいですが、MLIP ランタイム (`fairchem`、`orb_models`、`mace`、`aimnet`) は **インポートできません**。この deny list は `.github/scripts/check_engineering_markers.py` (`_check_external_library_scope`) によってリポジトリ全体で強制されており、`backends/` 以外のモジュールでこれらのインポートを禁止します。別個の `# DOMAIN_PURE` モジュール docstring マーカーは、これとは異なる CI ゲート (`_check_domain_pure`) です。このマーカーは、MLIP-free を保つ必要があるバックエンド非依存の特定モジュール（`backends/mlmm_calc.py`、`workflows/tsopt.py`、`workflows/freq.py`、および `workflows/sp.py` に存在）を検出します。これ自体は deny-list 機構ではなく、`domain/` のファイルはどれもこのマーカーを持ちません。Domain ヘルパーは任意の L2 ステージランナーから再利用できます。
 
-**L4a `backends/`**。ML/MM ONIOM 計算コア (`mlmm_calc.py`) はバックエンドディスパッチ (`__init__.py`) と非アクティブな電子埋め込み互換モジュール (`xtb_embedcharge_correction.py`; v0.3.3 では公開経路からの有効化を拒否) とともにここにあります。ML 領域の UMA / ORB / MACE / AIMNet2 と OpenMM / hessian_ff の連携はこのレイヤーからディスパッチされます。`mlmm_calc.py` は化学ルール **#1 (subtractive ONIOM)**、**#2 (link-atom Hessian B-matrix)**、**#8 (3-layer 5-pass partial Hessian)** を保持し、ルール **#9 (parm7 atom indexing)** は `io/pdb_indexing.py` にあります — §5.1 を参照してください。
+**L4a `backends/`**。ML/MM ONIOM 計算コア (`mlmm_calc.py`) とバックエンドディスパッチ (`__init__.py`) はここにあります。ML 領域の UMA / ORB / MACE / AIMNet2 と OpenMM / hessian_ff の連携はこのレイヤーからディスパッチされます。`mlmm_calc.py` は化学ルール **#1 (subtractive ONIOM)**、**#2 (link-atom Hessian B-matrix)**、**#8 (3-layer 5-pass partial Hessian)** を保持し、ルール **#9 (parm7 atom indexing)** は `io/pdb_indexing.py` にあります — §5.1 を参照してください。
 
 **L4b `io/`**。出力側の I/O には、ステージごとのサマリーライター、エネルギー図、軌跡レンダリング、PDB/altloc 処理、Hessian キャッシュ、数値 Hessian 構築、および振動数・振動 I/O (`hessian_calc.py`) が含まれます。`io/` は `workflows/` に依存しません。出力形式はここで管理され、ステージランナーから使用されます。
 
@@ -236,7 +235,6 @@ CLI サブコマンドリゾルバ (`cli/app.py:_LAZY_SUBCOMMANDS`) は **絶対
 | ML/MM ONIOM 計算コア + 4 つのインライン MLIP バックエンド + ONIOM カップリング | `mlmm/backends/mlmm_calc.py` |
 | `--precision` ルーティング (`apply_precision_to_calc_cfg` / `_PRECISION_DISPATCH`) | `mlmm/backends/__init__.py` |
 | バックエンドディスパッチ / ファクトリ (`_create_ml_backend`) | `mlmm/backends/mlmm_calc.py` |
-| 廃止した電子埋め込みの互換性用モジュール | `mlmm/backends/xtb_embedcharge_correction.py` |
 
 [MLIP Backends](backends.md) ではインストール方法と実行時の挙動を説明します。
 バックエンド実装の変更は、現時点では `mlmm_calc.py` とディスパッチャに反映します。
@@ -381,7 +379,7 @@ IRC / TSopt / Freq ステージは、CUDA メモリを解放するためにス�
 
 `mlmm-toolkit` は ONIOM を介して **完全なタンパク質環境** を扱います:
 
-- **ML 領域**: 基質 + 反応中心残基。4 つの MLIP バックエンド (UMA / ORB / MACE / AIMNet2) のいずれかで評価されます。v0.3.3 は機械的埋め込みを使用します
+- **ML 領域**: 基質 + 反応中心残基。4 つの MLIP バックエンド (UMA / ORB / MACE / AIMNet2) のいずれかで評価されます
 - **Movable-MM 領域**: ML 領域を取り囲むシェルで、AMBER 力場の下で自由に移動できます
 - **Frozen 領域**: タンパク質の残りの部分で、剛体として保持されます
 

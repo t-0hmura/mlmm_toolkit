@@ -42,7 +42,6 @@ mlmm freq -i ./result_tsopt/final_geometry.pdb --parm real.parm7 --model-pdb ml_
 
 - 代表的な対象系の pilot で `Analytical` と `FiniteDifference` の runtime と memory を比較してください。
 - 別の MLIP バックエンドを使用するには `-b orb`（または `mace`、`aimnet2`）を追加します。デフォルトは `uma` です。
-- 機械的埋め込み（`--no-embedcharge`）を使用します。電子埋め込みは v0.3.3 では使用できません。
 - 全オプションは `mlmm tsopt --help-advanced` と `mlmm freq --help-advanced` を参照してください。
 
 ## 次の導線

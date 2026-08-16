@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Export an `mlmm-toolkit` system (parm7 + layer-encoded PDB / XYZ) as a
+Export an `mlmm-toolkit` system (parm7 + layer-encoded PDB) as a
 Gaussian g16 ONIOM input (`.gjf`/`.com`) or an ORCA ONIOM input
 (`.inp`). Useful for manually comparing against a reference DFT/MM
 calculation, re-running with a third-party engine, or feeding into a
@@ -17,13 +17,13 @@ faithfully; runtime mlmm calculations may still use CMAP in both MM layers.
 ## Synopsis
 
 ```bash
-mlmm oniom-export --parm enzyme.parm7 [-i complex.pdb] \
+mlmm oniom-export --parm enzyme.parm7 -i complex_layered.pdb \
     [--model-pdb model.pdb] \
     -o oniom.gjf \
     [--mode g16|orca] \
     [--method 'wB97X-D/def2-svp'] \
     -q 0 [-m 1] \
-    [--near 6.0] [--nproc 8] [--mem 16GB]
+    [--nproc 8] [--mem 16GB]
 ```
 
 ## Key flags
@@ -31,14 +31,13 @@ mlmm oniom-export --parm enzyme.parm7 [-i complex.pdb] \
 | flag | type | default | description |
 |---|---|---|---|
 | `--parm` | path | required | Amber `parm7` topology |
-| `-i, --input` | path | none | Coordinate file (`.pdb` or `.xyz`); atom order must match parm7 |
+| `-i, --input` | path | required | MLMM layered PDB; atom order must match parm7 and B-factors define movable/frozen atoms |
 | `--model-pdb` | path | none | PDB defining QM-region atoms (B-factor 0 atoms used otherwise) |
 | `-o, --output` | path | required | Output path. Suffix `.gjf` / `.com` → g16; `.inp` → ORCA (when `--mode` omitted) |
 | `--mode` | choice | inferred | `g16` or `orca`; falls back to `-o` suffix |
 | `--method` | str | mode-dependent | QM method + basis set, e.g. `'wB97X-D/def2-svp'` |
 | `-q, --charge` | int | required | Charge of the QM region |
 | `-m, --multiplicity` | int | `1` | Multiplicity of the QM region |
-| `--near` | float | `6.0` | Distance cutoff (Å) for movable/active atoms |
 | `--nproc` | int | `8` | Processor count (g16 nprocshared / ORCA %pal nprocs) |
 | `--mem` | str | `16GB` | Memory allocation (g16) |
 | `--total-charge` / `--total-mult` | int | none | ORCA `Charge_Total` / `Mult_Total` for the full QM+MM system |
@@ -60,7 +59,7 @@ mlmm oniom-export --parm enzyme.parm7 -i complex_layered.pdb \
     -o complex_oniom.gjf \
     --method 'wB97X-D/def2-svp' \
     -q 0 -m 1 \
-    --near 6.0 --nproc 16 --mem 32GB
+    --nproc 16 --mem 32GB
 ```
 
 ### ORCA ONIOM

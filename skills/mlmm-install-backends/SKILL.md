@@ -30,7 +30,7 @@ This skill directory contains ten files; read them in this order:
 | `aimnet2.md` | Installing AIMNet2 |
 | `ambertools.md` | AmberTools (tleap / antechamber) for `mm-parm` |
 | `dft.md` | PySCF + GPU4PySCF (handled separately per `[dft]` extra) |
-| `xtb.md` | v0.3.3 electronic-embedding retirement and xTB custom-calculator routing |
+| `xtb.md` | Experimental xTB point-charge correction (`--embedcharge`) |
 ## Install order
 
 1. **Check the env** — see `mlmm-env-detect/SKILL.md` to discover
@@ -40,7 +40,7 @@ This skill directory contains ten files; read them in this order:
 4. **At least one MLIP backend** — choose from the supported backends below
    after checking the model domain and target-system pilot.
 5. **DFT (optional)** — `dft.md`. Skip if you only need MLIP energies.
-6. **xTB** — `xtb.md`. Read only when an old command contains `--embedcharge` or xTB is requested through a custom calculator.
+6. **xTB (optional)** — `xtb.md`. Install only for MLIP/MM `--embedcharge` or xTB through a custom calculator.
 
 ## Choose a backend
 
@@ -96,13 +96,12 @@ name: <your_mlmm_env>
 channels: [conda-forge, nvidia]
 dependencies:
   - python=3.11
+  - xtb                                # only for the experimental MLIP/MM correction
   - pip
   - pip:
       - --extra-index-url https://download.pytorch.org/whl/<cu_index>
       - torch==2.8.0
       - mlmm-toolkit[orb,aimnet,dft]   # extras: see core.md / per-backend md
-  # xTB is not required by the v0.3.3 built-in ML/MM path.
-  # since xtb is shipped as a binary, not a PyPI wheel.
 ```
 
 `env_mlmm_mace.yml` (MACE only, separate env):

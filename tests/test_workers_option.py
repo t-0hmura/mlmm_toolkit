@@ -9,6 +9,7 @@ exposes no autograd model).
 from __future__ import annotations
 
 import sys
+import warnings
 
 import pytest
 import yaml
@@ -47,6 +48,23 @@ def test_workers_eq1_keeps_analytical_hessian():
     cfg = {"hessian_calc_mode": "Analytical"}
     _router()(cfg, 1, 1)
     assert cfg["hessian_calc_mode"] == "Analytical"
+
+
+def test_non_uma_worker_parallelism_is_reported_and_removed():
+    cfg = {"backend": "orb"}
+    with pytest.warns(UserWarning, match="does not use UMA worker parallelism"):
+        _router()(cfg, 4, 2)
+    assert "workers" not in cfg
+    assert "workers_per_node" not in cfg
+
+
+def test_non_uma_default_worker_values_are_silent():
+    cfg = {"backend": "orb"}
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        _router()(cfg, 1, 1)
+    assert "workers" not in cfg
+    assert "workers_per_node" not in cfg
 
 
 def test_all_injects_workers_into_finite_difference_child_config(tmp_path):

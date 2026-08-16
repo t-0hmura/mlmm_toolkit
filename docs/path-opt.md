@@ -78,7 +78,6 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--mep-mode [gsm\|dmf]` | MEP backend. | `gsm` |
 | `--dmf-backend [cpu\|gpu]` | DMF compute backend (`--mep-mode dmf` only): `gpu` (`dmf.torch`/CUDA) or `cpu` (`dmf`/NumPy). Retry `cpu` on a GPU out-of-memory error. Requires `pydmf>=1.2`. | `gpu` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based atom indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
-| `--hess-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. Applied to movable MM atoms. | _None_ |
 | `--movable-cutoff FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. MM atoms beyond this are frozen. Providing `--movable-cutoff` disables `--detect-layer`. | _None_ |
 | `--fix-ends/--no-fix-ends` | Fix endpoint structures during GSM growth (`gs.fix_first/fix_last`). | `True` |
 | `--max-nodes INT` | Number of internal string nodes (total images = `max_nodes + 2`). | `20` |
@@ -96,8 +95,6 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--show-config/--no-show-config` | Print resolved configuration (including YAML layers) and continue. | `False` |
 | `--dry-run/--no-dry-run` | Validate options and print the execution plan without running optimization. Shown in `--help-advanced`. | `False` |
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
-| `--embedcharge/--no-embedcharge` | Unavailable in v0.3.3; the option is retained only to reject older commands explicitly. | `False` |
-| `--embedcharge-cutoff FLOAT` | Unavailable with the retired electronic-embedding path. | — |
 | `--cmap/--no-cmap` | Preserve CMAP in both REAL and MODEL MM layers. | `--cmap` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 

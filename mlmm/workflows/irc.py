@@ -374,7 +374,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     "embedcharge",
     default=False,
     show_default=True,
-    help="Unavailable in v0.3.3; retained so older commands fail with an actionable diagnostic.",
+    help="Enable the experimental, computationally expensive xTB point-charge delta correction for MLIP/MM.",
 )
 @click.option(
     "--embedcharge-cutoff",
@@ -382,7 +382,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     type=float,
     default=None,
     show_default="12.0",
-    help="Unavailable in v0.3.3 together with the retired electronic-embedding path.",
+    help="Distance cutoff (Å) from the ML region for MM point charges used by the xTB delta correction.",
 )
 @click.option(
     "--link-atom-method",
@@ -674,13 +674,6 @@ def cli(
         layer_source_pdb = source_path
         detect_layer_enabled = bool(calc_cfg.get("use_bfactor_layers", True))
         model_pdb_cfg = calc_cfg.get("model_pdb")
-
-        from mlmm.core.embedcharge_policy import reject_retired_embedcharge_cli
-
-        reject_retired_embedcharge_cli(
-            calc_cfg,
-            cutoff_requested=_is_param_explicit("embedcharge_cutoff"),
-        )
 
         if show_config:
             click.echo(

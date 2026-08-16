@@ -3178,7 +3178,6 @@ def _run_dft_for_state(pdb_path: Path,
                        args_yaml: Optional[Path],
                        func_basis: Optional[str] = None,
                        overrides: Optional[Dict[str, Any]] = None,
-                       backend: Optional[str] = None,
                        embedcharge: bool = False,
                        embedcharge_cutoff: Optional[float] = None,
                        embedcharge_explicit: bool = False,
@@ -3276,18 +3275,30 @@ _ALL_PRIMARY_HELP_OPTIONS = frozenset(
         "--ligand-charge",
         "-q",
         "--charge",
+        "-m",
+        "--multiplicity",
         "--out-dir",
         "--tsopt",
         "--thermo",
         "--dft",
         "--dft-func-basis",
         "--config",
-        "--dry-run",
-        "--embedcharge",
         "-s",
         "--scan-lists",
+        "--scan-max-step-size",
         "-b",
         "--backend",
+        "--mep-mode",
+        "--max-nodes",
+        "--opt-mode",
+        "--opt-mode-post",
+        "--thresh",
+        "--parm",
+        "--model-pdb",
+        "--detect-layer",
+        "--ref-pdb",
+        "-r",
+        "--radius",
         "--refine-path",
         "-o",
         "--help-advanced",
@@ -3451,8 +3462,9 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     default="grad",
     show_default=True,
     help=(
-        "Optimizer mode forwarded to scan/path-search and used for single optimizations: "
-        "grad (=L-BFGS/Dimer) or hess (=RFO/RSIRFO)."
+        "Fallback optimizer mode for TSOPT and post-IRC endpoint optimization: "
+        "grad (=L-BFGS/Dimer) or hess (=RFO/RS-I-RFO). "
+        "--opt-mode-post takes precedence."
     ),
 )
 @click.option(
@@ -3741,7 +3753,11 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     "embedcharge",
     default=False,
     show_default=True,
-    help="Unavailable in v0.3.3; retained so older commands fail with an actionable diagnostic.",
+    help=(
+        "Enable experimental point-charge treatment. MLIP/MM stages use the "
+        "computationally expensive xTB delta correction; DFT/MM stages embed "
+        "MM charges in the PySCF Hamiltonian."
+    ),
 )
 @click.option(
     "--embedcharge-cutoff",
@@ -3749,7 +3765,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     type=float,
     default=None,
     show_default="12.0",
-    help="Unavailable in v0.3.3 together with the retired electronic-embedding path.",
+    help="Distance cutoff (Å) from the ML region for embedded MM point charges.",
 )
 @click.option(
     "--link-atom-method",
@@ -3947,21 +3963,7 @@ def cli(
     dump_override_requested = _is_param_explicit("dump")
     opt_mode_set = _is_param_explicit("opt_mode")
     opt_mode_post_set = _is_param_explicit("opt_mode_post")
-    # Gate --no-embedcharge forwarding: when CLI default False is not user-supplied,
-    # do not emit --no-embedcharge to downstream subprocesses (otherwise a `calc.embedcharge: true`
-    # in --config YAML is silently overridden by the CLI default).
     embedcharge_explicit = _is_param_explicit("embedcharge")
-    from mlmm.core.embedcharge_policy import reject_retired_embedcharge_cli
-
-    # Reject explicit activation before resolving inputs or calculator state.
-    # A later check covers activation inherited from YAML.
-    if (embedcharge_explicit and embedcharge) or _is_param_explicit(
-        "embedcharge_cutoff"
-    ):
-        reject_retired_embedcharge_cli(
-            {"embedcharge": embedcharge},
-            cutoff_requested=_is_param_explicit("embedcharge_cutoff"),
-        )
 
     config_yaml, override_yaml, _ = resolve_yaml_sources(config_yaml, None, None)
     args_yaml, merged_yaml_cfg = _build_effective_args_yaml(
@@ -4042,10 +4044,6 @@ def cli(
         detect_layer = bool(
             resolved_calc_template.materialize().get("use_bfactor_layers", True)
         )
-    reject_retired_embedcharge_cli(
-        resolved_calc_template.materialize(),
-        cutoff_requested=_is_param_explicit("embedcharge_cutoff"),
-    )
 
     mm_ff_set = "ff14SB" if str(mm_ff_set).lower().startswith("ff14") else "ff19SB"
 
@@ -4154,7 +4152,7 @@ def cli(
         effective_dmf_cfg["tol"] = str(thresh_dmf)
     if mep_mode_kind == "dmf" or _is_param_explicit("thresh_dmf"):
         _path_opt.resolve_dmf_solve_tol(effective_dmf_cfg, prefix="[all]")
-    path_search_opt_mode = opt_mode_norm
+    path_optimizer_mode = "grad"
     opt_mode_post_norm = (
         None
         if opt_mode_post is None
@@ -4176,7 +4174,7 @@ def cli(
     def _all_method_citation_payload() -> Dict[str, Any]:
         return {
             "pipeline_mode": all_mode,
-            "path_opt_mode": path_search_opt_mode,
+            "path_opt_mode": path_optimizer_mode,
             "post_opt_mode": tsopt_opt_mode_default,
             "ts_opt_mode": tsopt_opt_mode_default,
             "endpoint_opt_mode": endpoint_opt_mode_default,
@@ -4287,7 +4285,7 @@ def cli(
                 "climb": bool(climb),
                 "opt_mode": str(opt_mode),
                 "opt_mode_post": (None if opt_mode_post is None else str(opt_mode_post)),
-                "path_search_opt_mode": str(path_search_opt_mode),
+                "path_search_opt_mode": path_optimizer_mode,
                 "endpoint_opt_mode": str(endpoint_opt_mode_default),
                 "dump": bool(dump),
                 "refine_path": bool(refine_path),
@@ -5065,18 +5063,21 @@ def cli(
             _echo_detail("[thermo] Single TSOPT: freq on E1/TS/E2")
             tT = _run_freq_for_state(pT, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      freq_root / "TS", args_yaml, overrides=freq_overrides,
-                                     backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
+                                     backend=backend,
+                                     embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
                                      embedcharge_explicit=embedcharge_explicit,
                                      link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xT)
             _clear_hess_cache()  # TS Hessian consumed; R/P need exact computation
             tR = _run_freq_for_state(pR, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      freq_root / "E1", args_yaml, overrides=freq_overrides,
-                                     backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
+                                     backend=backend,
+                                     embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
                                      embedcharge_explicit=embedcharge_explicit,
                                      link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xR)
             tP = _run_freq_for_state(pP, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      freq_root / "E2", args_yaml, overrides=freq_overrides,
-                                     backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
+                                     backend=backend,
+                                     embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
                                      embedcharge_explicit=embedcharge_explicit,
                                      link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xP)
             thermo_payloads = {"E1": tR, "TS": tT, "E2": tP}
@@ -5130,17 +5131,17 @@ def cli(
             _echo_detail("[dft] Single TSOPT: DFT on E1/TS/E2")
             dR = _run_dft_for_state(pR, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      dft_root / "E1", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides,
-                                     backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
+                                     embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
                                      embedcharge_explicit=embedcharge_explicit,
                                      link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xR)
             dT = _run_dft_for_state(pT, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      dft_root / "TS", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides,
-                                     backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
+                                     embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
                                      embedcharge_explicit=embedcharge_explicit,
                                      link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xT)
             dP = _run_dft_for_state(pP, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      dft_root / "E2", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides,
-                                     backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
+                                     embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
                                      embedcharge_explicit=embedcharge_explicit,
                                      link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xP)
             eR_dft = _dft_energy_ha(dR)
@@ -5271,7 +5272,7 @@ def cli(
                 "thermo": do_thermo,
                 "dft": do_dft,
                 "opt_mode": tsopt_opt_mode_default,
-                "path_opt_mode": path_search_opt_mode,
+                "path_opt_mode": path_optimizer_mode,
                 "post_opt_mode": tsopt_opt_mode_default,
                 "ts_opt_mode": tsopt_opt_mode_default,
                 "endpoint_opt_mode": endpoint_opt_mode_default,
@@ -5469,7 +5470,7 @@ def cli(
                     "dft": do_dft,
                     "dft_status": summary_payload["dft_status"],
                     "opt_mode": tsopt_opt_mode_default,
-                    "path_opt_mode": path_search_opt_mode,
+                    "path_opt_mode": path_optimizer_mode,
                     "post_opt_mode": tsopt_opt_mode_default,
                     "ts_opt_mode": tsopt_opt_mode_default,
                     "endpoint_opt_mode": endpoint_opt_mode_default,
@@ -5569,8 +5570,6 @@ def cli(
         _echo("[all] Remapped --scan-lists indices from the full PDB to the pocket ordering.")
         scan_preopt_use = pre_opt if scan_preopt_override is None else bool(scan_preopt_override)
         scan_endopt_use = False if scan_endopt_override is None else bool(scan_endopt_override)
-        scan_opt_mode_use = path_search_opt_mode
-
         scan_args: List[str] = [
             "-i", str(layered_pdb),
             "--parm", str(real_parm7_path),
@@ -5579,7 +5578,6 @@ def cli(
             "--out-dir", str(scan_dir),
             "--preopt" if scan_preopt_use else "--no-preopt",
             "--endopt" if scan_endopt_use else "--no-endopt",
-            "--opt-mode", str(scan_opt_mode_use),
         ]
         if detect_layer:
             scan_args.append("--detect-layer")
@@ -5750,13 +5748,11 @@ def cli(
         ps_args.extend(
             _build_path_child_argv(
                 explicit_params,
-                include_opt_mode=True,
                 mep_mode=mep_mode_kind,
                 dmf_backend=dmf_backend,
                 max_nodes=max_nodes,
                 max_cycles=max_cycles,
                 climb=climb,
-                opt_mode=path_search_opt_mode,
                 dump=dump,
                 pre_opt=pre_opt,
                 convert_files=convert_files,
@@ -5845,13 +5841,11 @@ def cli(
             po_args.extend(
                 _build_path_child_argv(
                     explicit_params,
-                    include_opt_mode=False,
                     mep_mode=mep_mode_kind,
                     dmf_backend=dmf_backend,
                     max_nodes=max_nodes,
                     max_cycles=max_cycles,
                     climb=climb,
-                    opt_mode=None,
                     dump=dump,
                     pre_opt=pre_opt,
                     convert_files=convert_files,
@@ -6102,7 +6096,7 @@ def cli(
                 "thermo": do_thermo,
                 "dft": do_dft,
                 "opt_mode": tsopt_opt_mode_default,
-                "path_opt_mode": path_search_opt_mode,
+                "path_opt_mode": path_optimizer_mode,
                 "post_opt_mode": tsopt_opt_mode_default,
                 "ts_opt_mode": tsopt_opt_mode_default,
                 "endpoint_opt_mode": endpoint_opt_mode_default,
@@ -6194,7 +6188,7 @@ def cli(
                 do_dft=do_dft,
                 opt_mode_norm=opt_mode_norm,
                 opt_mode_post=opt_mode_post,
-                path_opt_mode=path_search_opt_mode,
+                path_opt_mode=path_optimizer_mode,
                 post_opt_mode=tsopt_opt_mode_default,
                 ts_opt_mode=tsopt_opt_mode_default,
                 endpoint_opt_mode=endpoint_opt_mode_default,
@@ -6532,7 +6526,8 @@ def cli(
             tT = _run_freq_for_state(
                 pT, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                 freq_seg_root / "TS", args_yaml, overrides=freq_overrides,
-                backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
+                backend=backend,
+                embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
                 embedcharge_explicit=embedcharge_explicit,
                 link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xT,
             )
@@ -6540,14 +6535,16 @@ def cli(
             tR = _run_freq_for_state(
                 pL, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                 freq_seg_root / "R", args_yaml, overrides=freq_overrides,
-                backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
+                backend=backend,
+                embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
                 embedcharge_explicit=embedcharge_explicit,
                 link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xL,
             )
             tP = _run_freq_for_state(
                 pR, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                 freq_seg_root / "P", args_yaml, overrides=freq_overrides,
-                backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
+                backend=backend,
+                embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
                 embedcharge_explicit=embedcharge_explicit,
                 link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xR,
             )
@@ -6631,21 +6628,21 @@ def cli(
             dR = _run_dft_for_state(
                 pL, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                 dft_seg_root / "R", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides,
-                backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
+                embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
                 embedcharge_explicit=embedcharge_explicit,
                 link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xL,
             )
             dT = _run_dft_for_state(
                 pT, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                 dft_seg_root / "TS", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides,
-                backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
+                embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
                 embedcharge_explicit=embedcharge_explicit,
                 link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xT,
             )
             dP = _run_dft_for_state(
                 pR, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                 dft_seg_root / "P", args_yaml, func_basis=dft_func_basis_use, overrides=dft_overrides,
-                backend=backend, embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
+                embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
                 embedcharge_explicit=embedcharge_explicit,
                 link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xR,
             )
@@ -6938,7 +6935,7 @@ def cli(
                 "thermo": do_thermo,
                 "dft": do_dft,
                 "opt_mode": tsopt_opt_mode_default,
-                "path_opt_mode": path_search_opt_mode,
+                "path_opt_mode": path_optimizer_mode,
                 "post_opt_mode": tsopt_opt_mode_default,
                 "ts_opt_mode": tsopt_opt_mode_default,
                 "endpoint_opt_mode": endpoint_opt_mode_default,

@@ -4,8 +4,8 @@
 
 You already have a **TS candidate** (typically from another QM code, an
 older `mlmm-toolkit` run, or a manual guess) and want to run only the
-TS validation stages — `tsopt → irc`, plus `freq` with `--thermo` and DFT with
-`--dft` —
+TS validation stages — `tsopt`, then IRC after saddle validation, plus `freq`
+with `--thermo` and DFT with `--dft` —
 without the upstream extract / path-search.
 
 ## Synopsis
@@ -41,7 +41,11 @@ mode is selected purely from the input shape. TS-only mode requires
 `--tsopt`; passing `--no-tsopt` with a single input raises a
 validation error.
 
-For finer control, run the underlying subcommands directly:
+Normally, IRC starts only when TSOPT reports `status: converged` and
+`n_imaginary_modes: 1`. Explicit `--skip-final-freq` is the only bypass and
+continues with an unverified TS.
+
+For finer control, check the TS result before running the downstream commands:
 
 ```bash
 mlmm tsopt -i ts.xyz --parm enzyme.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 -o result_tsopt -b uma
@@ -56,7 +60,8 @@ ts_candidate.{xyz,pdb,cif,mmcif}
        │
        ▼
    [tsopt]            (Dimer or RS-I-RFO; default RS-I-RFO)
-       │
+       │  status=converged, n_imaginary_modes=1
+       │  (or explicit --skip-final-freq: unverified)
        ▼
    [irc]              (forward + backward; RFO endpoint refinement by default, via --opt-mode-post hess)
        │
@@ -67,8 +72,8 @@ ts_candidate.{xyz,pdb,cif,mmcif}
    [dft]              (with --dft)
 ```
 
-`extract` and `path-search` are skipped entirely. The output tree
-collapses to one segment:
+`extract` and `path-search` are skipped entirely. The TS child is always kept;
+IRC-derived entries below appear only when the IRC gate passes:
 
 ```
 result_ts_only/
@@ -90,19 +95,23 @@ result_ts_only/
 
 ```python
 import json
+from pathlib import Path
 d = json.load(open("result_ts_only/summary.json"))
 seg = d["segments"][0]
-print(seg["barrier_from_endpoint_1_kcal"])
-print(seg["barrier_from_endpoint_2_kcal"])
-print(seg["bond_changes"])             # what bonds broke / formed along the IRC
 
-# n_imaginary and IRC endpoint energies are NOT on the summary segment;
-# they live in the per-stage result.json files, which all writes
-# unconditionally for the TS and IRC children:
+# n_imaginary and IRC endpoint energies are not on the summary segment.
+# The TS child result is always written:
 ts = json.load(open("result_ts_only/segments/seg_01/ts/result.json"))
 print(ts["n_imaginary_modes"])         # should be 1
-irc = json.load(open("result_ts_only/segments/seg_01/irc/result.json"))
-print(irc["energy_first_hartree"], irc["energy_ts_hartree"], irc["energy_last_hartree"])
+
+# The IRC child exists only when IRC was started:
+irc_path = Path("result_ts_only/segments/seg_01/irc/result.json")
+if irc_path.exists():
+    irc = json.load(open(irc_path))
+    print(seg["barrier_from_endpoint_1_kcal"])
+    print(seg["barrier_from_endpoint_2_kcal"])
+    print(seg["bond_changes"])         # bonds broken/formed along the IRC
+    print(irc["energy_first_hartree"], irc["energy_ts_hartree"], irc["energy_last_hartree"])
 ```
 
 The child IRC result reports directional first/last endpoints only. TS-only
@@ -160,7 +169,6 @@ selection. Most subcommands accept:
 | `--detect-layer` | Automatically read valid B-factor MM sublayers; without explicit or extraction-derived ML membership, B-factors also define ML membership. Enabled by default. |
 | `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |
 | `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
-| `--embedcharge / --no-embedcharge` | Unavailable in v0.3.3; use `--no-embedcharge` |
 | `-q, --charge` | Override the net ML-region/model charge (highest priority) |
 | `-l, --ligand-charge` | Per-residue charge mapping for ML region |
 

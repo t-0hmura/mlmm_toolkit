@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+import click
 import pytest
 from click.testing import CliRunner
 
@@ -35,12 +36,75 @@ def test_root_invocation_resets_charge_multiplicity_override() -> None:
         validate_charge_spin(["H"], 0, 1)
 
 
-def test_sp_accepts_print_every_compatibility_option() -> None:
+def test_sp_rejects_removed_print_every_option() -> None:
     result = CliRunner().invoke(root_cli, ["sp", "--print-every", "3"])
 
     assert result.exit_code == 2
-    assert "No such option: --print-every" not in result.output
-    assert "Missing option '-i' / '--input'" in result.output
+    assert "No such option: --print-every" in result.output
+
+
+@pytest.mark.parametrize(
+    ("command", "option"),
+    [
+        ("sp", "--convert-files"),
+        ("sp", "--use-cmap"),
+        ("sp", "--radius-partial-hessian"),
+        ("sp", "--radius-freeze"),
+        ("opt", "--radius-partial-hessian"),
+        ("opt", "--radius-freeze"),
+        ("dft", "--backend"),
+        ("dft", "--freeze-atoms"),
+        ("scan", "--opt-mode"),
+        ("scan", "--coord-type"),
+        ("path-search", "--opt-mode"),
+        ("scan", "--hess-cutoff"),
+        ("scan2d", "--hess-cutoff"),
+        ("scan3d", "--hess-cutoff"),
+        ("path-opt", "--hess-cutoff"),
+        ("path-search", "--hess-cutoff"),
+    ],
+)
+def test_removed_noop_and_legacy_options_are_unknown(
+    command: str, option: str
+) -> None:
+    subcommand = root_cli.get_command(click.Context(root_cli), command)
+    assert subcommand is not None
+    declared = {
+        flag
+        for parameter in subcommand.params
+        for flag in [*getattr(parameter, "opts", ()), *getattr(parameter, "secondary_opts", ())]
+    }
+    assert option not in declared
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "all", "opt", "tsopt", "irc", "freq", "sp",
+        "scan", "scan2d", "scan3d", "path-opt", "path-search", "dft",
+    ],
+)
+def test_embedcharge_is_an_experimental_advanced_option(command: str) -> None:
+    subcommand = root_cli.get_command(click.Context(root_cli), command)
+    assert subcommand is not None
+    declared = {
+        flag
+        for parameter in subcommand.params
+        for flag in [
+            *getattr(parameter, "opts", ()),
+            *getattr(parameter, "secondary_opts", ()),
+        ]
+    }
+    assert {"--embedcharge", "--no-embedcharge", "--embedcharge-cutoff"} <= declared
+
+    result = CliRunner().invoke(root_cli, [command, "--help-advanced"])
+    assert result.exit_code == 0
+    assert "--embedcharge" in result.output
+    assert "experimental" in result.output.lower()
+
+    primary = CliRunner().invoke(root_cli, [command, "--help"])
+    assert primary.exit_code == 0
+    assert "--embedcharge" not in primary.output
 
 
 @pytest.mark.parametrize("command", ["path-opt", "path-search"])
@@ -722,7 +786,7 @@ def test_all_exposes_irc_step_size_and_tsopt_exposes_charge_guard() -> None:
 
     basic_all_help = runner.invoke(root_cli, ["all", "--help"])
     assert basic_all_help.exit_code == 0, basic_all_help.output
-    assert "--mep-mode" not in basic_all_help.output
+    assert "--mep-mode" in basic_all_help.output
     assert "--dmf-backend" not in basic_all_help.output
 
     tsopt_help = runner.invoke(root_cli, ["tsopt", "--help-advanced"])

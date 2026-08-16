@@ -10,21 +10,21 @@ CMAP 項を適用しないため、CMAP が存在する場合は出力前に停�
 基本的なエクスポート:
 
 ```bash
-mlmm oniom-export --mode orca --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode orca --parm real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
  -o system.inp -q 0 -m 1
 ```
 
 全 QM+MM 系の総電荷/総多重度を明示的に指定:
 
 ```bash
-mlmm oniom-export --mode orca --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode orca --parm real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
  -o system.inp -q 0 -m 1 --total-charge -1 --total-mult 1
 ```
 
 ORCAFF のパスを明示し自動変換を無効化:
 
 ```bash
-mlmm oniom-export --mode orca --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode orca --parm real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
  -o system.inp -q 0 --orcaff ./ORCAFF.prms --no-convert-orcaff
 ```
 
@@ -33,7 +33,7 @@ mlmm oniom-export --mode orca --parm real.parm7 -i pocket.pdb --model-pdb ml_reg
 ORCA モード（`mlmm oniom-export --mode orca`）は `--parm` からトポロジー情報を取得し、ORCA QM/MM 入力を書き出します。
 
 1. parm7 から原子・結合・電荷情報を取得。
-2. `-i/--input` がある場合は読み込み、`--element-check` で元素順を検証。
+2. `-i/--input` の B-factor から可動/固定 layer を読み、`--element-check` で元素順を検証。
 3. `--model-pdb` から QM 領域原子を同定。
 4. `--orcaff` 指定または自動生成ルールで ORCAFF を解決。
 5. method、並列設定、QM 選択、総電荷/総多重度を含む `.inp` を生成。
@@ -48,7 +48,7 @@ ORCA モード（`mlmm oniom-export --mode orca`）は `--parm` からトポロ�
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
 | `--parm PATH` | Amber parm7 トポロジー。 | 必須 |
-| `-i, --input PATH` | 座標ファイル（PDB/XYZ）。原子順は parm7 と一致必須。 | _None_ |
+| `-i, --input PATH` | MLMM layered PDB。原子順は parm7 と一致必須。 | 必須 |
 | `--element-check / --no-element-check` | 入力と parm7 の元素順を検証。 | `True` |
 | `--model-pdb PATH` | QM 領域原子を定義する PDB。 | _None_ |
 | `-o, --output PATH` | 出力 ORCA 入力（`.inp`）。 | 必須 |
@@ -58,7 +58,6 @@ ORCA モード（`mlmm oniom-export --mode orca`）は `--parm` からトポロ�
 | `--total-charge INT` | 全 QM+MM 系の総電荷（`Charge_Total`）。 | トポロジー由来 |
 | `--total-mult INT` | 全 QM+MM 系の総多重度（`Mult_Total`）。 | `--multiplicity` と同じ |
 | `--nproc INT` | 使用コア数。 | `8` |
-| `--near FLOAT` | ActiveAtoms 判定カットオフ (Å)（層タグなし時）。 | `6.0` |
 | `--orcaff PATH` | ORCAFF.prms のパス。 | _None_（自動で `<parm7名>.ORCAFF.prms` を解決） |
 | `--convert-orcaff/--no-convert-orcaff` | ORCAFF 未検出時の `orca_mm -convff -AMBER` 実行可否。 | `True` |
 

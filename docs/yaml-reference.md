@@ -95,15 +95,15 @@ calc:
  ml_cuda_idx: 0 # CUDA device index for ML inference
  hessian_calc_mode: FiniteDifference # ML Hessian mode: "Analytical" or "FiniteDifference"
 
- # --- Retired electronic-embedding compatibility keys ---
- embedcharge: false # Must remain false in v0.3.3; true is rejected
- embedcharge_cutoff: 12.0 # Inactive compatibility value
- embedcharge_step: 0.001 # Inactive compatibility value
- xtb_cmd: xtb # Inactive compatibility value
- xtb_acc: 0.2 # Inactive compatibility value
- xtb_workdir: tmp # Inactive compatibility value
- xtb_keep_files: false # Inactive compatibility value
- xtb_ncores: 4 # Inactive compatibility value
+ # --- Experimental xTB point-charge correction (computationally expensive) ---
+ embedcharge: false # Disabled by default
+ embedcharge_cutoff: 12.0 # MM point-charge cutoff from the ML region (Å)
+ embedcharge_step: 0.001 # Numerical Hessian step for the correction (Å)
+ xtb_cmd: xtb # xTB executable
+ xtb_acc: 0.2 # xTB accuracy parameter
+ xtb_workdir: tmp # xTB working directory
+ xtb_keep_files: false # Keep xTB temporary files
+ xtb_ncores: 4 # xTB process count
 
  # --- MM backend settings ---
  mm_backend: hessian_ff # MM backend; Hessian method is selected by mm_fd below
@@ -146,8 +146,6 @@ calc:
   - `orb_model`, `orb_precision` — ORB backend only
   - `mace_model`, `mace_dtype` — MACE backend only
   - `aimnet2_model` — AIMNet2 backend only
-- `embedcharge` must remain `false` in v0.3.3. `embedcharge: true`, `--embedcharge`, or an explicit CLI `--embedcharge-cutoff` is rejected before calculation because the retired path double-counted ML--MM electrostatics and used an inconsistent uncapped boundary model.
-- YAML `embedcharge_cutoff` and the other `embedcharge_*`/`xtb_*` keys remain readable only as inert configuration-compatibility values; they do not activate a supported calculation path.
 - `hessian_calc_mode: Analytical` requests the backend's analytical Hessian. UMA, ORB, MACE, and AIMNet2 implement this path; an incompatible installed backend version raises an error instead of silently changing methods. Runtime and memory depend on the backend and system, so compare both modes on a representative pilot. `workers > 1` cannot be combined with an analytical Hessian and raises an error.
 - `mm_fd: true` uses a finite-difference MM Hessian; `false` uses the
   analytical `hessian_ff` Hessian. `mm_hessian_mode` is the explicit
@@ -691,7 +689,6 @@ calc:
  model_charge: 0
  model_mult: 1
  backend: uma                  # MLIP backend: "uma", "orb", "mace", or "aimnet2"
- embedcharge: false            # Compatibility tombstone; true is rejected
  uma_model: uma-s-1p2          # uma-s-1p2 | uma-s-1p1 | uma-m-1p1
  ml_device: auto
  hessian_calc_mode: Analytical   # Compare with FiniteDifference on a pilot

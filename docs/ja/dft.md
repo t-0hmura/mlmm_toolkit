@@ -22,16 +22,15 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ```
 
 ```bash
-# ML/MM 側で凍結原子を指定して DFT を実行する
+# SCF 収束を厳しくして反復回数を増やす
 mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q -1 -m 2 --freeze-atoms "1,3,5" --out-dir ./result_dft_freeze
-# SCF 収束を厳しくして反復回数を増やす: -q 0 -m 1 --conv-tol 1e-10 --max-cycle 200 --out-dir ./result_dft_tight
+ -q 0 -m 1 --conv-tol 1e-10 --max-cycle 200 --out-dir ./result_dft_tight
 ```
 
 ## 処理の流れ
 
 1. **入力処理** -- ML/MM 中核の `MLMMCore` が酵素全体の PDB（`-i`）、Amber トポロジー（`--parm`）、ML 領域定義（`--model-pdb` または `--model-indices` または `--detect-layer` による B 因子検出）を読み込みます。YAML で明示的な `link_mlmm` ペアが指定されない限り、ML/MM 選択を横切る parm7 結合にリンク水素を自動付加します。結合の認識に距離は使用しません。
-2. **SCF 構築** -- `--func-basis` でスラッシュ区切りで汎関数/基底関数を定義します。GPU4PySCF バックエンドは利用可能な場合に使用され、closed-shell の GPU 経路では `--lowmem`（デフォルト）が有効なら低メモリ実装 `gpu4pyscf.dft.rks_lowmem.RKS` を使用します。CPU モードを強制するには `--engine cpu` を使用してください。`mlmm dft` は SCF オブジェクトに対して `density_fit()` を呼びません。標準 GPU/CPU 経路ではバックエンドのデフォルト JK 実装を使用し、lowmem 経路では `rks_lowmem.RKS` のメモリ効率の良い直接 JK が使用されます。v0.3.3 は機械的埋め込みを使用し、廃止した電子埋め込み経路の要求は SCF 構築前にエラーになります。
+2. **SCF 構築** -- `--func-basis` でスラッシュ区切りで汎関数/基底関数を定義します。GPU4PySCF バックエンドは利用可能な場合に使用され、closed-shell の GPU 経路では `--lowmem`（デフォルト）が有効なら低メモリ実装 `gpu4pyscf.dft.rks_lowmem.RKS` を使用します。CPU モードを強制するには `--engine cpu` を使用してください。`mlmm dft` は SCF オブジェクトに対して `density_fit()` を呼びません。標準 GPU/CPU 経路ではバックエンドのデフォルト JK 実装を使用し、lowmem 経路では `rks_lowmem.RKS` のメモリ効率の良い直接 JK が使用されます。
 3. **ML(dft)/MM 再結合** -- DFT は `MLMMCore` の高レベル MODEL エネルギーだけを置き換えます。`MLMMCore` は選択した MM バックエンドで REAL-low と MODEL-low を評価し、差し引き式を適用します。別個のトポロジー構築、MM calculator 経路、DFT 力計算はありません。
 4. **集団解析と出力** -- Mulliken、meta-Lowdin、IAO 電荷とスピン密度（UKS のみ）が結合エネルギーブロックとともに `result.yaml` に書き出されます。
 
@@ -61,9 +60,6 @@ out_dir/ (デフォルト: ./result_dft/)
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
-| `-b, --backend CHOICE` | 出力メタデータに記録されるバックエンドラベル: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。dft では計算機を選択しない（ML 領域は DFT/PySCF、MM 低レベルは `--mm-backend` で選択）。 | `uma` |
-| `--embedcharge/--no-embedcharge` | v0.3.3 では使用不可。旧電子埋め込みコマンドを明示的に拒否するためにのみ保持。 | `False` |
-| `--embedcharge-cutoff FLOAT` | 廃止した電子埋め込み経路とともに使用不可。 | — |
 | `--cmap/--no-cmap` | REAL と MODEL の両 MM 層で CMAP を保持します。 | `--cmap` |
 | `-i, --input PATH` | 酵素全体の構造ファイル（PDB/mmCIF、または `--ref-pdb` でトポロジーを指定した XYZ）。 | 必須 |
 | `--parm PATH` | 全系の Amber parm7 トポロジー。 | 必須 |
@@ -74,7 +70,6 @@ out_dir/ (デフォルト: ./result_dft/)
 | `-q, --charge INT` | ML 領域の電荷。`-l/--ligand-charge` 指定時は不要（PDB 入力または `--ref-pdb` 付き XYZ）。 | `-l` 指定時を除き必須 |
 | `-l, --ligand-charge TEXT` | 全体電荷、または残基名ごとのマッピング（例: `SAM:1,GPP:-3`）。`-q` 省略時に ML 領域の電荷を導出するために使用（PDB 入力または `--ref-pdb` が必要）。 | _None_ |
 | `-m, --multiplicity INT` | ML 領域のスピン多重度 (2S+1)。 | `1` |
-| `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス（例: `"1,3,5"`）。YAML `geom.freeze_atoms` とマージ。 | _None_ |
 | `--func-basis TEXT` | 汎関数/基底関数ペア（`"FUNC/BASIS"`）。 | `wb97m-v/def2-tzvpd` |
 | `--max-cycle INT` | 最大 SCF 反復数。 | `100` |
 | `--conv-tol FLOAT` | SCF 収束閾値 (Hartree)。 | `1e-9` |

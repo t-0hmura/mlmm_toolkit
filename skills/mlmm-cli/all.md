@@ -36,7 +36,6 @@ selection. Most subcommands accept:
 | `--detect-layer` | Automatically read valid B-factor MM sublayers; without explicit or extraction-derived ML membership, B-factors also define ML membership. Enabled by default. |
 | `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |
 | `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
-| `--embedcharge / --no-embedcharge` | Unavailable in v0.3.3; use `--no-embedcharge` |
 | `-q, --charge` | Override the net ML-region/model charge (highest priority) |
 | `-l, --ligand-charge` | Per-residue charge mapping for ML region |
 

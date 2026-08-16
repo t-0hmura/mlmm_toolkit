@@ -1630,15 +1630,6 @@ def _build_multistep_path(
     help="Comma-separated 1-based atom indices to freeze (e.g., '1,3,5').",
 )
 @click.option(
-    "--hess-cutoff",
-    "hess_cutoff",
-    type=float,
-    default=None,
-    show_default="all movable MM atoms",
-    help="Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. "
-         "Applied to movable MM atoms and can be combined with --detect-layer.",
-)
-@click.option(
     "--movable-cutoff",
     "movable_cutoff",
     type=float,
@@ -1676,16 +1667,6 @@ def _build_multistep_path(
     default=False,
     show_default=True,
     help="Dump GSM/single-optimization trajectories during the run.",
-)
-@click.option(
-    "--opt-mode",
-    "opt_mode",
-    # Only "grad" (LBFGS) is supported, so YAML/CLI `opt_mode: hess`
-    # raises a clean Click error instead of silently running LBFGS.
-    type=click.Choice(["grad"], case_sensitive=False),
-    default="grad",
-    show_default=True,
-    help="Single-structure optimizer: grad (=L-BFGS). RFO (hess) not yet wired.",
 )
 @click.option("-o", "--out-dir", "out_dir", type=str, default=OUT_DIR_PATH_SEARCH, show_default=True, help="Output directory.")
 @click.option(
@@ -1789,7 +1770,7 @@ def _build_multistep_path(
     "embedcharge",
     default=False,
     show_default=True,
-    help="Unavailable in v0.3.3; retained so older commands fail with an actionable diagnostic.",
+    help="Enable the experimental, computationally expensive xTB point-charge delta correction for MLIP/MM.",
 )
 @click.option(
     "--embedcharge-cutoff",
@@ -1797,7 +1778,7 @@ def _build_multistep_path(
     type=float,
     default=None,
     show_default="12.0",
-    help="Unavailable in v0.3.3 together with the retired electronic-embedding path.",
+    help="Distance cutoff (Å) from the ML region for MM point charges used by the xTB delta correction.",
 )
 @click.option(
     "--link-atom-method",
@@ -1845,13 +1826,11 @@ def cli(
     dmf_backend: str,
     refine_mode: Optional[str],
     freeze_atoms_text: Optional[str],
-    hess_cutoff: Optional[float],
     movable_cutoff: Optional[float],
     max_nodes: int,
     max_cycles: int,
     climb: bool,
     dump: bool,
-    opt_mode: str,
     out_dir: str,
     thresh: Optional[str],
     thresh_gsm: Optional[str],
@@ -2085,8 +2064,6 @@ def cli(
             stopt_cfg["thresh"] = str(thresh_gsm)
         if _is_param_explicit("thresh_dmf") and thresh_dmf is not None:
             dmf_cfg["tol"] = str(thresh_dmf)
-        if _is_param_explicit("hess_cutoff") and hess_cutoff is not None:
-            calc_cfg["hess_cutoff"] = float(hess_cutoff)
         if _is_param_explicit("movable_cutoff") and movable_cutoff is not None:
             calc_cfg["movable_cutoff"] = float(movable_cutoff)
             detect_layer_effective = False
@@ -2170,13 +2147,6 @@ def cli(
             click.echo("ERROR: --detect-layer requires a PDB input (or --ref-pdb).", err=True)
             sys.exit(1)
 
-        from mlmm.core.embedcharge_policy import reject_retired_embedcharge_cli
-
-        reject_retired_embedcharge_cli(
-            calc_cfg,
-            cutoff_requested=_is_param_explicit("embedcharge_cutoff"),
-        )
-
         if dry_run:
             if model_pdb_effective is not None:
                 model_region_source = "model_pdb"
@@ -2223,7 +2193,7 @@ def cli(
                 "output_dir": str(out_dir_path),
                 "mep_mode": mep_mode_kind,
                 "refine_mode": refine_mode_kind,
-                "opt_mode": str(opt_mode),
+                "opt_mode": "grad",
                 "detect_layer": bool(detect_layer_effective),
                 "model_region_source": model_region_source,
                 "model_indices_count": 0 if not model_indices else len(model_indices),
@@ -2326,7 +2296,7 @@ def cli(
                     "align": bool(align),
                     "mep_mode": mep_mode_kind,
                     "refine_mode": refine_mode_kind,
-                    "opt_mode": str(opt_mode),
+                    "opt_mode": "grad",
                 },
             )
         )
@@ -2778,7 +2748,7 @@ def cli(
             {
                 "pipeline_mode": "path-search",
                 "mep_mode": mep_mode_kind,
-                "path_opt_mode": opt_mode,
+                "path_opt_mode": "grad",
                 "dmf_correlated": bool(dmf_cfg.get("correlated", False)),
             }
         )
@@ -2818,7 +2788,7 @@ def cli(
                 "tsopt": False,
                 "thermo": False,
                 "dft": False,
-                "opt_mode": opt_mode,
+                "opt_mode": "grad",
                 "mep_mode": mep_mode_kind,
                 "dmf_correlated": bool(dmf_cfg.get("correlated", False)),
                 **_summary_log_provenance(summary),

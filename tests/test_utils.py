@@ -163,6 +163,75 @@ def test_apply_yaml_overrides():
     assert base_cfg2["x"] == 42  # primary is used
 
 
+def test_apply_yaml_overrides_isolates_nested_optimizer_sections():
+    """Nested leaf sections must not become parent constructor kwargs."""
+    from copy import deepcopy
+
+    from mlmm.core.utils import apply_yaml_overrides
+
+    opt_cfg = {"max_cycles": 100}
+    lbfgs_cfg = {"max_step": 0.30}
+    rfo_cfg = {"trust_radius": 0.10}
+    override_spec = [
+        (opt_cfg, (("opt",),)),
+        (lbfgs_cfg, (("lbfgs",), ("opt", "lbfgs"))),
+        (rfo_cfg, (("rfo",), ("opt", "rfo"))),
+    ]
+    config = {
+        "opt": {
+            "max_cycles": 20,
+            "lbfgs": {"max_step": 0.20},
+            "rfo": {"trust_radius": 0.08},
+        },
+        "lbfgs": {"max_step": 0.25},
+    }
+    config_before = deepcopy(config)
+
+    apply_yaml_overrides(config, override_spec)
+
+    assert opt_cfg == {"max_cycles": 20}
+    assert lbfgs_cfg["max_step"] == 0.25  # first existing candidate wins
+    assert rfo_cfg["trust_radius"] == 0.08
+    assert config == config_before
+
+    override = {
+        "opt": {
+            "lbfgs": {"max_step": 0.15},
+            "rfo": {"trust_radius": 0.05},
+        }
+    }
+    apply_yaml_overrides(override, override_spec)
+
+    assert "lbfgs" not in opt_cfg
+    assert "rfo" not in opt_cfg
+    assert lbfgs_cfg["max_step"] == 0.15
+    assert rfo_cfg["trust_radius"] == 0.05
+
+
+def test_apply_yaml_overrides_isolates_stopt_lbfgs_alias():
+    from mlmm.core.utils import apply_yaml_overrides
+
+    stopt_cfg = {"max_cycles": 300}
+    lbfgs_cfg = {"max_step": 0.30}
+    yaml_cfg = {
+        "stopt": {
+            "max_cycles": 40,
+            "lbfgs": {"max_step": 0.12},
+        }
+    }
+
+    apply_yaml_overrides(
+        yaml_cfg,
+        [
+            (stopt_cfg, (("stopt",), ("opt",))),
+            (lbfgs_cfg, (("opt", "lbfgs"), ("lbfgs",), ("stopt", "lbfgs"))),
+        ],
+    )
+
+    assert stopt_cfg == {"max_cycles": 40}
+    assert lbfgs_cfg["max_step"] == 0.12
+
+
 def test_ensure_dir():
     """Test directory creation utility."""
     from mlmm.core.utils import ensure_dir

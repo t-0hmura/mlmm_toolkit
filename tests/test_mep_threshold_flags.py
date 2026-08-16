@@ -37,13 +37,11 @@ def test_parent_and_mep_children_declare_the_same_flags() -> None:
 def test_path_child_argv_forwards_both_mep_thresholds() -> None:
     argv = build_path_child_argv(
         {"thresh_gsm", "thresh_dmf"},
-        include_opt_mode=False,
         mep_mode="gsm",
         dmf_backend="gpu",
         max_nodes=20,
         max_cycles=300,
         climb=True,
-        opt_mode=None,
         dump=False,
         pre_opt=True,
         convert_files=True,
@@ -57,13 +55,11 @@ def test_path_child_argv_forwards_both_mep_thresholds() -> None:
 def test_path_child_argv_stays_silent_without_explicit_thresholds() -> None:
     argv = build_path_child_argv(
         set(),
-        include_opt_mode=False,
         mep_mode="gsm",
         dmf_backend="gpu",
         max_nodes=20,
         max_cycles=300,
         climb=True,
-        opt_mode=None,
         dump=False,
         pre_opt=True,
         convert_files=True,

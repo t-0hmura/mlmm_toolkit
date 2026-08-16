@@ -26,7 +26,7 @@ mlmm fix-altloc -i in.pdb [-o out.pdb] [--help-advanced]
 | `-i, --input` | path | required | Input PDB file or directory |
 | `-o, --out` | path | derived | Output file (if input is file) or directory (if directory). Omitted: writes `<input>_clean.pdb` (file) or `<input>_clean/` (directory). To overwrite the original use `--inplace` (creates a `.bak`). |
 | `--recursive / --no-recursive` | flag | — | Recurse into subdirectories (directory input) |
-| `--help-advanced` | flag | — | Reveal advanced flags (`--inplace`, `--overwrite`, `--force`) |
+| `--help-advanced` | flag | — | Reveal advanced flags (`--overwrite`, `--force`) |
 
 The selection rule is fixed: highest residue-level mean parsed occupancy, then
 earliest appearance for equal scores.
@@ -40,8 +40,7 @@ mlmm fix-altloc -i raw.pdb -o cleaned.pdb
 # Whole directory
 mlmm fix-altloc -i raw_pdbs/ -o cleaned_pdbs/
 
-# In place (advanced)
-mlmm fix-altloc -i raw.pdb --help-advanced     # see --inplace
+# In place
 mlmm fix-altloc -i raw.pdb --inplace --force
 ```
 

@@ -422,13 +422,11 @@ def build_explicit_child_argv(
 def build_path_child_argv(
     explicit_params: Collection[str],
     *,
-    include_opt_mode: bool,
     mep_mode: str,
     dmf_backend: str,
     max_nodes: int,
     max_cycles: int,
     climb: bool,
-    opt_mode: Optional[str],
     dump: bool,
     pre_opt: bool,
     convert_files: bool,
@@ -441,9 +439,8 @@ def build_path_child_argv(
     The selected MEP algorithm is always forwarded because it is an ``all``
     workflow selector rather than a YAML setting.  Other parent defaults stay
     absent so child YAML remains authoritative; in particular, the DMF backend
-    is forwarded only when explicitly supplied.  Only path-search accepts
-    ``--opt-mode``. Pipeline-owned input, charge, topology, output, and config
-    tokens remain at the dispatch call site.
+    is forwarded only when explicitly supplied. Pipeline-owned input, charge,
+    topology, output, and config tokens remain at the dispatch call site.
     """
 
     specs: list[ChildArgSpec] = [
@@ -452,8 +449,6 @@ def build_path_child_argv(
         ("max_cycles", "--max-cycles", max_cycles, False),
         ("climb", "--climb", climb, True),
     ]
-    if include_opt_mode:
-        specs.append(("opt_mode", "--opt-mode", opt_mode, False))
     specs.extend(
         [
             ("dump", "--dump", dump, True),
@@ -538,17 +533,7 @@ def append_backend_forwarding_args(
     use_cmap: Optional[bool],
     args_yaml: Optional[Any] = None,
 ) -> None:
-    """Append the backend / charge-embedding / link / mm flags to a CLI argv list.
-
-    Extracted from the 7 near-identical inline blocks that each cli()
-    invocation (_run_tsopt_on_hei / _run_freq_for_state / _run_opt_for_state
-    / _run_dft_for_state / path_search / path_opt / build_irc_args) used
-    to build before forwarding to the matching subcommand. All seven
-    copies shared the same truthiness/None-skip semantics (most
-    importantly: ``--no-embedcharge`` is only emitted when the user
-    explicitly typed ``--no-embedcharge``, not when the CLI default
-    False is in effect, so a YAML ``calc.embedcharge: true`` is not
-    silently overridden).
+    """Append shared calculator options to a child CLI argv list.
 
     Mutates ``args`` in place; matches the existing ``_append_cli_arg``
     / ``_append_toggle_arg`` style.

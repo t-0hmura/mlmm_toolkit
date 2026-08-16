@@ -10,21 +10,21 @@ terms, so export fails before writing when the topology contains them.
 Basic export:
 
 ```bash
-mlmm oniom-export --mode orca --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode orca --parm real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
  -o system.inp -q 0 -m 1
 ```
 
 Set explicit total charge/multiplicity for the full QM+MM system:
 
 ```bash
-mlmm oniom-export --mode orca --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode orca --parm real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
  -o system.inp -q 0 -m 1 --total-charge -1 --total-mult 1
 ```
 
 Use an explicit ORCAFF path and disable auto-conversion:
 
 ```bash
-mlmm oniom-export --mode orca --parm real.parm7 -i pocket.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode orca --parm real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
  -o system.inp -q 0 -m 1 --orcaff ./ORCAFF.prms --no-convert-orcaff
 ```
 
@@ -33,7 +33,7 @@ mlmm oniom-export --mode orca --parm real.parm7 -i pocket.pdb --model-pdb ml_reg
 ORCA mode (`mlmm oniom-export --mode orca`) reads topology information from `--parm` and writes ORCA QM/MM input.
 
 1. Load atom/bond/charge data from parm7.
-2. Optionally load coordinates and validate element ordering (`--element-check`).
+2. Load coordinates and the movable/frozen layers from the input PDB B-factors, then validate element ordering (`--element-check`).
 3. Map `--model-pdb` atoms to the full system to define QM atoms.
 4. Resolve ORCAFF parameters from `--orcaff` or auto-generated default.
 5. Write ORCA `.inp` with method, parallel settings, QM set, and total charge/multiplicity fields.
@@ -52,7 +52,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | Option | Description | Default |
 | --- | --- | --- |
 | `--parm PATH` | Amber parm7 topology file. | Required |
-| `-i, --input PATH` | Coordinate file (PDB/XYZ); atom order must match parm7. | _None_ |
+| `-i, --input PATH` | MLMM layered PDB; atom order must match parm7. | Required |
 | `--element-check / --no-element-check` | Validate element sequence between input and parm7. | `True` |
 | `--model-pdb PATH` | PDB file defining QM region atoms. | _None_ |
 | `-o, --output PATH` | Output ORCA input file (`.inp`). | Required |
@@ -62,7 +62,6 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--total-charge INT` | Total charge of full QM+MM system (`Charge_Total`). | topology-derived |
 | `--total-mult INT` | Total multiplicity of full QM+MM system (`Mult_Total`). | same as `--multiplicity` |
 | `--nproc INT` | Number of processors. | `8` |
-| `--near FLOAT` | Distance cutoff (Å) used to define ActiveAtoms when layer tags are absent. | `6.0` |
 | `--orcaff PATH` | Path to ORCAFF.prms. | _None_ (auto-resolved to `<parm7_stem>.ORCAFF.prms`) |
 | `--convert-orcaff/--no-convert-orcaff` | Attempt `orca_mm -convff -AMBER` when ORCAFF is missing. | `True` |
 

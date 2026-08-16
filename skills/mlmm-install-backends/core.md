@@ -12,7 +12,7 @@ C++ compiler must be on `PATH`). The bundled `pysisyphus` (GPU-tensor fork),
 - Python ≥ 3.11
 - A working PyTorch install matching your CUDA driver — see `env-cuda.md`
 - (For DFT) PySCF / GPU4PySCF — see `dft.md`
-- xTB is not required by the v0.3.3 built-in ML/MM path; see `xtb.md` for retired-option and custom-calculator routing.
+- xTB is required only for the optional experimental MLIP/MM `--embedcharge` correction; see `xtb.md`.
 ## Install from PyPI (recommended)
 
 ```bash

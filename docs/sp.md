@@ -75,7 +75,6 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `-b, --backend [uma\|orb\|mace\|aimnet2]` | `uma` | MLIP backend for the ML region |
 | `--hess / --no-hess` | `--no-hess` | also compute and write `hessian.npy` |
 | `--hessian-calc-mode [Analytical\|FiniteDifference]` | `FiniteDifference` | Hessian mode when `--hess` is set; `Analytical` uses the backend's native path |
-| `--embedcharge / --no-embedcharge` | off | Unavailable in v0.3.3; retained only to reject older commands |
 | `--link-atom-method [scaled\|fixed]` | `scaled` | link-atom positioning |
 | `--mm-backend [hessian_ff\|openmm]` | `hessian_ff` | MM backend; Hessian method is controlled separately by `calc.mm_fd` |
 | `-o, --out-dir PATH` | `./result_sp/` | output directory |

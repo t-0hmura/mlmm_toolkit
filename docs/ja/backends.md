@@ -42,7 +42,6 @@ private なファクトリ）を呼び出して適切なアダプタをインス
 |------|------|
 | `mlmm/backends/__init__.py` | `apply_precision_to_calc_cfg()` — 統一された `--precision fp32\|fp64` CLI フラグを各バックエンドのネイティブ kwarg（`uma_precision` / `orb_precision` / `mace_dtype`）にルーティングします |
 | `mlmm/backends/mlmm_calc.py` | `MLMMCore`（ML/MM ONIOM 結合）+ `MLMMASECalculator`（ASE）+ `mlmm`（pysisyphus Calculator）+ バックエンドごとのアダプタ（`_UMABackend`、`_OrbBackend`、`_MACEBackend`、`_AIMNet2Backend`）+ private な `_create_ml_backend` ファクトリ + FD-Hessian の組み立て + 単位変換 |
-| `mlmm/backends/xtb_embedcharge_correction.py` | 互換性のため残した非アクティブ実装。電子埋め込みは v0.3.3 では使用不可 |
 
 ## バックエンド別の特性
 

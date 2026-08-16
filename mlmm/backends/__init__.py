@@ -5,8 +5,8 @@ Modules:
   (``_UMABackend`` / ``_OrbBackend`` / ``_MACEBackend`` / ``_AIMNet2Backend``),
   the ``_create_ml_backend`` factory, ``MLMMASECalculator`` (ASE), and ``mlmm``
   (pysisyphus Calculator).
-- ``xtb_embedcharge_correction`` — dormant compatibility implementation; public
-  electronic embedding is unavailable in v0.3.3.
+- ``xtb_embedcharge_correction`` — optional experimental xTB point-charge
+  correction for ML/MM environmental effects.
 
 User-facing API (factory pattern, per-backend kwargs, unified
 ``--precision fp32|fp64`` option, add-a-backend recipe) — see
@@ -146,8 +146,8 @@ def apply_workers_to_calc_cfg(
 ) -> None:
     """Route ``--workers`` / ``--workers-per-node`` CLI values into ``calc_cfg``.
 
-    Mutates ``calc_cfg`` in place. Unlike ``--precision`` these are real
-    Calculator kwargs, so they simply override the CALC_KW / YAML default.
+    Mutates ``calc_cfg`` in place. These settings apply only to UMA; explicit
+    non-default values are reported and discarded for other backends.
     When ``workers > 1`` the parallel predictor exposes no autograd model.
     Because ``Analytical`` is an explicit numerical-method request, reject this
     combination instead of silently changing it to finite differences.
@@ -157,6 +157,26 @@ def apply_workers_to_calc_cfg(
     if workers_per_node is not None:
         calc_cfg["workers_per_node"] = int(workers_per_node)
     normalize_calculator_methods(calc_cfg)
+    backend = str(calc_cfg.get("backend", "uma")).strip().lower()
+    if backend != "uma":
+        unsupported = {
+            key: int(calc_cfg[key])
+            for key in ("workers", "workers_per_node")
+            if key in calc_cfg and int(calc_cfg[key] or 1) != 1
+        }
+        if unsupported:
+            rendered = ", ".join(
+                f"{key}={value}" for key, value in unsupported.items()
+            )
+            warnings.warn(
+                f"Backend {backend!r} does not use UMA worker parallelism; "
+                f"ignoring {rendered}.",
+                UserWarning,
+                stacklevel=2,
+            )
+        calc_cfg.pop("workers", None)
+        calc_cfg.pop("workers_per_node", None)
+        return
     if int(calc_cfg.get("workers", 1) or 1) > 1:
         mode = calc_cfg.get("hessian_calc_mode")
         if mode == "Analytical":

@@ -24,19 +24,17 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --func-basis "wb97m-v/def2-tzvpd" --out-dir ./result_dft_tz
 ```
 
-Freeze selected atoms in the ML/MM setup before DFT (or tighten SCF):
+Tighten the SCF convergence if needed:
 
 ```bash
-# Freeze selected atoms in the ML/MM setup before DFT
 mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q -1 -m 2 --freeze-atoms "1,3,5" --out-dir ./result_dft_freeze
-# tighten SCF instead: -q 0 -m 1 --conv-tol 1e-10 --max-cycle 200 --out-dir ./result_dft_tight
+ -q 0 -m 1 --conv-tol 1e-10 --max-cycle 200 --out-dir ./result_dft_tight
 ```
 
 ## Workflow
 
 1. **Input handling** -- `MLMMCore` loads the full enzyme PDB (`-i`), Amber topology (`--parm`), and ML-region definition (`--model-pdb` or `--model-indices` or B-factor detection via `--detect-layer`). Unless YAML supplies explicit `link_mlmm` pairs, it appends link hydrogens at parm7 bonds that cross the ML/MM selection; distance is not used to perceive those bonds.
-2. **SCF build** -- `--func-basis` is parsed into functional and basis. The GPU4PySCF backend is used when available; closed-shell GPU runs additionally use the low-memory `gpu4pyscf.dft.rks_lowmem.RKS` SCF when `--lowmem` is on (default). Use `--engine cpu` to force CPU mode. (For the SCF JK / `density_fit()` behavior see the `--lowmem` row in the CLI options table.) v0.3.3 uses mechanical embedding; requests for the retired electronic-embedding path fail before SCF construction.
+2. **SCF build** -- `--func-basis` is parsed into functional and basis. The GPU4PySCF backend is used when available; closed-shell GPU runs additionally use the low-memory `gpu4pyscf.dft.rks_lowmem.RKS` SCF when `--lowmem` is on (default). Use `--engine cpu` to force CPU mode. (For the SCF JK / `density_fit()` behavior see the `--lowmem` row in the CLI options table.)
 3. **ML(dft)/MM recombination** -- DFT replaces only `MLMMCore`'s high-level MODEL energy. `MLMMCore` evaluates REAL-low and MODEL-low with the selected MM backend and applies the subtractive expression. This workflow has no separate topology builder, MM calculator path, or DFT force evaluation.
 4. **Population analysis & outputs** -- Mulliken, meta-Lowdin, and IAO charges and spin densities (UKS only) are written alongside the combined energy block in `result.yaml`.
 
@@ -76,7 +74,6 @@ out_dir/ (default: ./result_dft/)
 | `-q, --charge INT` | Charge of the ML region. Required unless `-l/--ligand-charge` is given (PDB input or XYZ with `--ref-pdb`). | Required unless `-l/--ligand-charge` is provided |
 | `-l, --ligand-charge TEXT` | Total charge or per-resname mapping (e.g. `SAM:1,GPP:-3`) used to derive the ML-region charge when `-q` is omitted (requires PDB input or `--ref-pdb`). | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1) for the ML region. | `1` |
-| `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze (e.g. `"1,3,5"`). Merged with YAML `geom.freeze_atoms`. | _None_ |
 | `--func-basis TEXT` | Functional/basis pair as `"FUNC/BASIS"`. | `wb97m-v/def2-tzvpd` |
 | `--max-cycle INT` | Maximum SCF iterations. | `100` |
 | `--conv-tol FLOAT` | SCF convergence tolerance (Hartree). | `1e-9` |
@@ -86,9 +83,6 @@ out_dir/ (default: ./result_dft/)
 | `-o, --out-dir DIR` | Output directory. | `./result_dft/` |
 | `--config FILE` | Base YAML configuration file applied before explicit CLI options. | _None_ |
 | `--show-config/--no-show-config` | Print resolved configuration and continue execution. | `False` |
-| `-b, --backend CHOICE` | Metadata-only label recorded in output; does not select a calculator in `dft` (the ML region is computed with DFT/PySCF, and the MM low level is chosen via `--mm-backend`): `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
-| `--embedcharge/--no-embedcharge` | Unavailable in v0.3.3; retained only to reject older electronic-embedding commands. | `False` |
-| `--embedcharge-cutoff FLOAT` | Unavailable with the retired electronic-embedding path. | — |
 | `--link-atom-method {scaled,fixed}` | Link-atom placement: `scaled` (g-factor, Gaussian ONIOM standard) or `fixed` (legacy 1.09 Å for C, 1.01 Å for N). | `scaled` |
 | `--mm-backend {hessian_ff,openmm}` | MM backend for the low-level ONIOM evaluation. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |
 | `--cmap/--no-cmap` | Preserve CMAP in both REAL and MODEL MM layers. | `--cmap` |

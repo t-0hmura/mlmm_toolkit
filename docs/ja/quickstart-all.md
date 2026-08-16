@@ -28,7 +28,6 @@ mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
 - `--dry-run` で引数と実行計画を確認してから実行できます。
 - `mlmm all --help` は主要オプション、`mlmm all --help-advanced` は詳細オプションも含めた全オプションを表示します。
 - 別の MLIP バックエンドを使用するには、`-b orb`（または `mace`、`aimnet2`）を追加します。デフォルトは `uma` です。
-- 機械的埋め込み（`--no-embedcharge`）を使用します。電子埋め込みは v0.3.3 では使用できません。
 
 ## 次のステップ
 

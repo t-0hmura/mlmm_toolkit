@@ -828,7 +828,7 @@ def _prepare_frequency_output_paths(
     "embedcharge",
     default=False,
     show_default=True,
-    help="Unavailable in v0.3.3; retained so older commands fail with an actionable diagnostic.",
+    help="Enable the experimental, computationally expensive xTB point-charge delta correction for MLIP/MM.",
 )
 @click.option(
     "--embedcharge-cutoff",
@@ -836,7 +836,7 @@ def _prepare_frequency_output_paths(
     type=float,
     default=None,
     show_default="12.0",
-    help="Unavailable in v0.3.3 together with the retired electronic-embedding path.",
+    help="Distance cutoff (Å) from the ML region for MM point charges used by the xTB delta correction.",
 )
 @click.option(
     "--link-atom-method",
@@ -1207,13 +1207,6 @@ def cli(
             click.echo("[layer] movable_cutoff is set; disabling detect-layer mode.", err=True)
         detect_layer_enabled = False
         calc_cfg["use_bfactor_layers"] = False
-
-    from mlmm.core.embedcharge_policy import reject_retired_embedcharge_cli
-
-    reject_retired_embedcharge_cli(
-        calc_cfg,
-        cutoff_requested=_is_param_explicit("embedcharge_cutoff"),
-    )
 
     if show_config:
         click.echo(

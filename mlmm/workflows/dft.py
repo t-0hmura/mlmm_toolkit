@@ -33,7 +33,6 @@ from mlmm.backends.mlmm_calc import MLMMCore, mlmm as MLMMCalculator
 from mlmm.workflows.opt import (
     GEOM_KW as OPT_GEOM_KW,
     CALC_KW as OPT_CALC_KW,
-    _parse_freeze_atoms as _parse_freeze_atoms_opt,
     _normalize_geom_freeze as _normalize_geom_freeze_opt,
 )
 from mlmm.workflows.charge_prep import resolve_charge_spin_or_raise
@@ -45,7 +44,6 @@ from mlmm.core.utils import (
     pretty_block,
     format_freeze_atoms_for_echo,
     format_elapsed,
-    merge_freeze_atom_indices,
     prepare_input_structure,
     parse_indices_string,
     resolve_ml_layer_assignment,
@@ -674,13 +672,6 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     help="Spin multiplicity (2S+1) for the ML region; defaults to YAML or 1.",
 )
 @click.option(
-    "--freeze-atoms",
-    "freeze_atoms_text",
-    type=str,
-    default=None,
-    help="Comma-separated 1-based indices to freeze (e.g., '1,3,5').",
-)
-@click.option(
     "--func-basis",
     "func_basis",
     type=str,
@@ -743,21 +734,11 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     help="Toggle XYZ/TRJ to PDB companions when a PDB template is available.",
 )
 @click.option(
-    "-b", "--backend",
-    type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
-    default=None,
-    show_default="uma",
-    help=(
-        "Compatibility no-op. The high-level region is always computed with "
-        "DFT; a supplied value emits a diagnostic and is ignored."
-    ),
-)
-@click.option(
     "--embedcharge/--no-embedcharge",
     "embedcharge",
     default=False,
     show_default=True,
-    help="Unavailable in v0.3.3; retained so older commands fail with an actionable diagnostic.",
+    help="Enable experimental electrostatic embedding: MM point charges are added to the PySCF QM Hamiltonian via pyscf.qmmm.mm_charge().",
 )
 @click.option(
     "--embedcharge-cutoff",
@@ -765,7 +746,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     type=float,
     default=None,
     show_default="12.0",
-    help="Unavailable in v0.3.3 together with the retired electronic-embedding path.",
+    help="Distance cutoff (Å) from ML region for MM point charges embedded in the PySCF QM Hamiltonian. Only used when --embedcharge is enabled.",
 )
 @click.option(
     "--link-atom-method",
@@ -813,7 +794,6 @@ def cli(
     charge: Optional[int],
     ligand_charge: Optional[str],
     spin: Optional[int],
-    freeze_atoms_text: Optional[str],
     func_basis: str,
     max_cycle: int,
     conv_tol: float,
@@ -825,7 +805,6 @@ def cli(
     show_config: bool,
     dry_run: bool,
     convert_files: bool,
-    backend: Optional[str],
     embedcharge: bool,
     embedcharge_cutoff: Optional[float],
     link_atom_method: Optional[str],
@@ -890,12 +869,6 @@ def cli(
         )
 
         # CLI explicit overrides (after config YAML)
-        if backend is not None:
-            click.echo(
-                "[dft] NOTE: --backend is retained for compatibility and is "
-                "ignored; the high-level energy backend is DFT.",
-                err=True,
-            )
         if _is_param_explicit("embedcharge"):
             calc_kw["embedcharge"] = bool(embedcharge)
         if _is_param_explicit("embedcharge_cutoff"):
@@ -925,8 +898,7 @@ def cli(
 
         geom_kw["coord_type"] = "cart"
         geom_kw["freeze_atoms"] = _normalize_geom_freeze_opt(geom_kw.get("freeze_atoms"))
-        freeze_atoms_cli = _parse_freeze_atoms_opt(freeze_atoms_text)
-        calc_kw["freeze_atoms"] = merge_freeze_atom_indices(geom_kw, freeze_atoms_cli)
+        calc_kw["freeze_atoms"] = list(geom_kw.get("freeze_atoms") or [])
 
         detect_layer_enabled = bool(calc_kw.get("use_bfactor_layers", True))
         if _is_param_explicit("detect_layer"):
@@ -979,13 +951,6 @@ def cli(
             "engine": engine_name,
             "lowmem": bool(dft_kw.get("lowmem", True)),
         }
-        from mlmm.core.embedcharge_policy import reject_retired_embedcharge_cli
-
-        reject_retired_embedcharge_cli(
-            calc_kw,
-            cutoff_requested=_is_param_explicit("embedcharge_cutoff"),
-        )
-
         click.echo(pretty_block("geom", format_freeze_atoms_for_echo(geom_kw, key="freeze_atoms")))
         click.echo(pretty_block("calc", {k: calc_kw[k] for k in sorted(calc_kw.keys()) if k not in {"freeze_atoms"}}))
         click.echo(pretty_block("dft", dft_block))
@@ -1244,8 +1209,50 @@ def cli(
         if xc.lower().endswith("-v") or "vv10" in xc.lower():
             mf.nlc = "vv10"
 
-        # Retained compatibility fields; active embedding is rejected above.
+        # --- Experimental electrostatic embedding (--embedcharge) ---
         n_mm_charges = 0
+        if calc_kw.get("embedcharge", False):
+            import parmed as pmd
+            from pyscf import qmmm as pyscf_qmmm
+            from scipy.spatial.distance import cdist
+
+            real_top = pmd.load_file(str(workspace.real_parm7))
+            ml_set = set(workspace.selection_indices)
+            mm_indices = [
+                index
+                for index in range(len(workspace.atoms_real))
+                if index not in ml_set
+            ]
+
+            cutoff = calc_kw.get("embedcharge_cutoff")
+            if mm_indices and cutoff is not None:
+                ml_positions = workspace.atoms_real.get_positions()[sorted(ml_set)]
+                mm_positions = workspace.atoms_real.get_positions()[mm_indices]
+                distances = cdist(mm_positions, ml_positions).min(axis=1)
+                mm_indices = [
+                    atom_index
+                    for atom_index, distance in zip(mm_indices, distances)
+                    if distance <= float(cutoff)
+                ]
+
+            if mm_indices:
+                mm_coords = workspace.atoms_real.get_positions()[mm_indices]
+                mm_charges = np.asarray(
+                    [real_top.atoms[index].charge for index in mm_indices],
+                    dtype=float,
+                )
+                mf = pyscf_qmmm.mm_charge(
+                    mf, mm_coords, mm_charges, unit="Angstrom"
+                )
+                n_mm_charges = len(mm_indices)
+                click.echo(
+                    f"[embedcharge] {n_mm_charges} MM point charges embedded "
+                    "into the QM Hamiltonian."
+                )
+            else:
+                click.echo(
+                    "[embedcharge] No MM atoms found; skipping embedding."
+                )
 
         tic_scf = time.time()
         e_tot = mf.kernel()

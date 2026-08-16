@@ -53,7 +53,7 @@ mlmm irc -i TS_STRUCTURE --parm PARM7 --model-pdb ML_REGION [options]
 ## Workflow
 
 1. **Input preparation** -- Load the TS structure, Amber topology (`--parm`), and ML-region definition (`--model-pdb` / `--model-indices`); resolve charge and spin. Direct PDB/mmCIF input or `--ref-pdb` supplies the topology used for companion output.
-2. **ML/MM calculator setup** -- Build the ML/MM calculator from `--parm` and `--model-pdb`. The `-b/--backend` option selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). The `--hessian-calc-mode` controls ML backend Hessian evaluation. v0.3.3 uses mechanical embedding; electronic-embedding requests are rejected before calculator construction.
+2. **ML/MM calculator setup** -- Build the ML/MM calculator from `--parm` and `--model-pdb`. The `-b/--backend` option selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). The `--hessian-calc-mode` controls ML backend Hessian evaluation.
 3. **Frozen-boundary TR treatment** -- The fixed constrained treatment removes only full-system rigid motions that leave all frozen anchors fixed. Its generic effective rank is 6/3/1/0 for zero/one/two/at least three non-collinear anchors; realistic ML/MM boundaries normally have rank 0.
 4. **IRC integration** -- The EulerPC integrator propagates along the IRC in both directions (unless `--no-forward` or `--no-backward` disables a branch). Step size and cycle count control integration length.
 5. **Output & conversion** -- Trajectories are written as XYZ. PDB companions are generated when a PDB/mmCIF reference topology is available and `--convert-files` is enabled. Bridge inputs additionally produce CIF companions with original identifiers.
@@ -124,8 +124,6 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--config FILE` | Base YAML configuration applied before explicit CLI options. | _None_ |
 | `--show-config/--no-show-config` | Print resolved YAML layers/config and continue. | `False` |
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
-| `--embedcharge/--no-embedcharge` | Unavailable in v0.3.3; the option is retained only to reject older commands explicitly. | `False` |
-| `--embedcharge-cutoff FLOAT` | Unavailable with the retired electronic-embedding path. | — |
 | `--cmap/--no-cmap` | Preserve CMAP in both REAL and MODEL MM layers. | `--cmap` |
 | `--hess-device CHOICE` | Device for initial Hessian storage and IRC operations: `auto`, `cuda`, `cpu`. Use `cpu` for large unfrozen systems. | `auto` |
 | `--read-hess PATH` | Read an identified `.npz` from `mlmm freq --dump-hess`; geometry, atom order, layer selection, and active-DOF basis must match. Takes priority over cache/fresh computation. | _None_ |
@@ -158,7 +156,6 @@ calc:
  real_parm7: real.parm7            # Amber parm7 topology
  model_pdb: ml_region.pdb          # ML-region definition
  backend: uma                      # MLIP backend: uma | orb | mace | aimnet2
- embedcharge: false                # Compatibility tombstone; true is rejected
  uma_model: uma-s-1p2              # uma-s-1p2 | uma-m-1p1
  uma_task_name: omol                # UMA task name (UMA backend only)
  ml_device: auto                   # ML backend device selection

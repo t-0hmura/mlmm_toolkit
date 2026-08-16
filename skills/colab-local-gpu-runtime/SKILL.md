@@ -20,6 +20,9 @@ Read `references/colab-connection.md` before connecting or troubleshooting a not
 
 ## pdb2reaction and mlmm-toolkit
 
+- The PowerShell files are bundle templates. In a prepared bundle, `BundleRoot`
+  defaults to its root two levels above `scripts/`; for another layout, pass the
+  directory containing the notebooks and source ZIPs with `-BundleRoot`.
 - Keep the matching notebook and source ZIP together in the distribution root. The scripts copy them to `C:\colab-work` when present.
 - For an unpublished bundle, set the notebook version field to `debug`; Installation then consumes the adjacent source ZIP without a file picker.
 - Retain the version tag for a published release.

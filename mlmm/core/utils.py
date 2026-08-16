@@ -2138,12 +2138,34 @@ def apply_yaml_overrides(
             )
 
         Candidate paths are checked in order and the first mapping is applied.
+        When a descendant path is assigned to a separate target, its top-level
+        container is kept out of the parent target. For example, ``opt.lbfgs``
+        updates the L-BFGS target without leaving an unsupported ``lbfgs``
+        keyword in the shared optimizer target.
     """
+    owned_paths = [
+        (owner, tuple(path))
+        for owner, paths in overrides
+        for path in paths
+    ]
     for target, paths in overrides:
         for path in paths:
             norm_path = tuple(path)
             section = _get_mapping_section(yaml_cfg, norm_path)
             if section is not None:
+                child_keys = {
+                    other_path[len(norm_path)]
+                    for owner, other_path in owned_paths
+                    if owner is not target
+                    and len(other_path) > len(norm_path)
+                    and other_path[: len(norm_path)] == norm_path
+                }
+                if child_keys:
+                    section = {
+                        key: value
+                        for key, value in section.items()
+                        if key not in child_keys
+                    }
                 deep_update(target, section)
                 break
             # A present-but-unusable section is a silent no-op otherwise: the user wrote

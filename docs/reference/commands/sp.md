@@ -30,14 +30,12 @@ Options:
                                   pdb is omitted.
   --freeze-atoms TEXT             Comma-separated 1-based atom indices to freeze
                                   (e.g., '1,3,5').
-  --radius-partial-hessian, --hess-cutoff FLOAT
-                                  Distance cutoff (Å) from ML region for MM
+  --hess-cutoff FLOAT             Distance cutoff (Å) from ML region for MM
                                   atoms to include in Hessian calculation.
                                   Applied to movable MM atoms; combinable with
                                   --detect-layer.  [default: (all movable MM
                                   atoms)]
-  --radius-freeze, --movable-cutoff FLOAT
-                                  Distance cutoff (Å) from ML region for movable
+  --movable-cutoff FLOAT          Distance cutoff (Å) from ML region for movable
                                   MM atoms. MM atoms beyond this are frozen.
                                   [default: (use freeze_atoms)]
   -q, --charge INTEGER            ML region total charge.
@@ -55,11 +53,6 @@ Options:
                                   custom calculators use FiniteDifference.
                                   Analytical cannot be combined with --workers >
                                   1.  [default: (FiniteDifference)]
-  --convert-files / --no-convert-files
-                                  Accepted for cross-command compatibility. The
-                                  sp command writes array results and has no
-                                  structure trajectory to convert.  [default:
-                                  convert-files]
   --config FILE                   YAML config file with sections (calc:, geom:,
                                   …).
   --show-config / --no-show-config
@@ -73,12 +66,12 @@ Options:
                                   ML backend for the ONIOM high-level region
                                   (default: uma).  [default: (uma)]
   --embedcharge / --no-embedcharge
-                                  Unavailable in v0.3.3; retained so older
-                                  commands fail with an actionable diagnostic.
-                                  [default: no-embedcharge]
-  --embedcharge-cutoff FLOAT      Unavailable in v0.3.3 together with the
-                                  retired electronic-embedding path.  [default:
-                                  (12.0)]
+                                  Enable the experimental, computationally
+                                  expensive xTB point-charge delta correction
+                                  for MLIP/MM.  [default: no-embedcharge]
+  --embedcharge-cutoff FLOAT      Distance cutoff (Å) from the ML region for MM
+                                  point charges used by the xTB delta
+                                  correction.  [default: (12.0)]
   --link-atom-method [scaled|fixed]
                                   Link-atom positioning: scaled (g-factor) or
                                   fixed (1.09/1.01 Å).  [default: (scaled)]
@@ -138,7 +131,5 @@ Options:
                                   matching multiplicity; use this only for an
                                   intentional nonstandard input such as a
                                   covalently-cut region.
-  --print-every INTEGER RANGE     Print optimizer status every N cycles (debug
-                                  knob).  [default: (100); x>=1]
   -h, --help                      Show this message and exit.
 ```

@@ -212,7 +212,6 @@ Full flag references: [oniom-export](oniom-export.md), [oniom-import](oniom-impo
 | `--mep-mode gsm\|dmf` | MEP optimizer for either path route (default `gsm`). |
 | `--dmf-backend gpu\|cpu` | DMF implementation; use `cpu` after a GPU out-of-memory error. |
 | `-b, --backend uma\|orb\|mace\|aimnet2` | MLIP backend (default `uma`). |
-| `--embedcharge/--no-embedcharge` | Electronic embedding is unavailable in v0.3.3; keep the mechanical default. |
 | `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian mode. Runtime and memory depend on the backend and system; compare both modes on a representative pilot. `Analytical` is incompatible with `--workers > 1`. |
 
 `mlmm all --mep-mode dmf` applies Direct Max Flux to both the default

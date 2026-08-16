@@ -103,10 +103,10 @@ Options:
   --climb / --no-climb            Enable transition-state climbing after growth
                                   for the *first* segment in each pair.
                                   [default: climb]
-  --opt-mode [grad|hess]          Optimizer mode forwarded to scan/path-search
-                                  and used for single optimizations: grad
-                                  (=L-BFGS/Dimer) or hess (=RFO/RSIRFO).
-                                  [default: grad]
+  --opt-mode [grad|hess]          Fallback optimizer mode for TSOPT and post-IRC
+                                  endpoint optimization: grad (=L-BFGS/Dimer) or
+                                  hess (=RFO/RS-I-RFO). --opt-mode-post takes
+                                  precedence.  [default: grad]
   --opt-mode-post [grad|hess]     Optimizer mode for TSOPT and post-IRC endpoint
                                   optimizations. Takes precedence over --opt-
                                   mode for these stages.  [default: hess]
@@ -292,12 +292,13 @@ Options:
                                   ML backend for the ONIOM high-level region
                                   (default: uma).  [default: (uma)]
   --embedcharge / --no-embedcharge
-                                  Unavailable in v0.3.3; retained so older
-                                  commands fail with an actionable diagnostic.
+                                  Enable experimental point-charge treatment.
+                                  MLIP/MM stages use the computationally
+                                  expensive xTB delta correction; DFT/MM stages
+                                  embed MM charges in the PySCF Hamiltonian.
                                   [default: no-embedcharge]
-  --embedcharge-cutoff FLOAT      Unavailable in v0.3.3 together with the
-                                  retired electronic-embedding path.  [default:
-                                  (12.0)]
+  --embedcharge-cutoff FLOAT      Distance cutoff (Å) from the ML region for
+                                  embedded MM point charges.  [default: (12.0)]
   --link-atom-method [scaled|fixed]
                                   Link-atom position mode: scaled (g-factor,
                                   default) or fixed (legacy 1.09/1.01 Å).

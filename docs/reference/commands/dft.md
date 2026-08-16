@@ -38,8 +38,6 @@ Options:
                                   or --ref-pdb).
   -m, --multiplicity INTEGER      Spin multiplicity (2S+1) for the ML region;
                                   defaults to YAML or 1.  [default: (1)]
-  --freeze-atoms TEXT             Comma-separated 1-based indices to freeze
-                                  (e.g., '1,3,5').
   --func-basis TEXT               Exchange-correlation functional and basis set
                                   as "FUNC/BASIS".  [default:
                                   wb97m-v/def2-tzvpd]
@@ -68,18 +66,15 @@ Options:
                                   Toggle XYZ/TRJ to PDB companions when a PDB
                                   template is available.  [default: convert-
                                   files]
-  -b, --backend [uma|orb|mace|aimnet2]
-                                  Compatibility no-op. The high-level region is
-                                  always computed with DFT; a supplied value
-                                  emits a diagnostic and is ignored.  [default:
-                                  (uma)]
   --embedcharge / --no-embedcharge
-                                  Unavailable in v0.3.3; retained so older
-                                  commands fail with an actionable diagnostic.
+                                  Enable experimental electrostatic embedding:
+                                  MM point charges are added to the PySCF QM
+                                  Hamiltonian via pyscf.qmmm.mm_charge().
                                   [default: no-embedcharge]
-  --embedcharge-cutoff FLOAT      Unavailable in v0.3.3 together with the
-                                  retired electronic-embedding path.  [default:
-                                  (12.0)]
+  --embedcharge-cutoff FLOAT      Distance cutoff (Å) from ML region for MM
+                                  point charges embedded in the PySCF QM
+                                  Hamiltonian. Only used when --embedcharge is
+                                  enabled.  [default: (12.0)]
   --link-atom-method [scaled|fixed]
                                   Link-atom placement: 'scaled' (g-factor,
                                   Gaussian ONIOM standard, default) or 'fixed'

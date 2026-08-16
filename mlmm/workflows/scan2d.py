@@ -298,15 +298,6 @@ def _select_closest_state_1d(
     help='Comma-separated 1-based atom indices to freeze (e.g., "1,3,5").',
 )
 @click.option(
-    "--hess-cutoff",
-    "hess_cutoff",
-    type=float,
-    default=None,
-    show_default="all movable MM atoms",
-    help="Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. "
-         "Applied to movable MM atoms and can be combined with --detect-layer.",
-)
-@click.option(
     "--movable-cutoff",
     "movable_cutoff",
     type=float,
@@ -363,7 +354,7 @@ def _select_closest_state_1d(
     "embedcharge",
     default=False,
     show_default=True,
-    help="Unavailable in v0.3.3; retained so older commands fail with an actionable diagnostic.",
+    help="Enable the experimental, computationally expensive xTB point-charge delta correction for MLIP/MM.",
 )
 @click.option(
     "--embedcharge-cutoff",
@@ -371,7 +362,7 @@ def _select_closest_state_1d(
     type=float,
     default=None,
     show_default="12.0",
-    help="Unavailable in v0.3.3 together with the retired electronic-embedding path.",
+    help="Distance cutoff (Å) from the ML region for MM point charges used by the xTB delta correction.",
 )
 @click.option(
     "--link-atom-method",
@@ -429,7 +420,6 @@ def cli(
     ligand_charge: Optional[str],
     spin: Optional[int],
     freeze_atoms_cli: Optional[str],
-    hess_cutoff: Optional[float],
     movable_cutoff: Optional[float],
     scan_list_raw: str,
     one_based: bool,
@@ -602,13 +592,6 @@ def cli(
             if use_cmap is not None:
                 calc_cfg["use_cmap"] = use_cmap
 
-            from mlmm.core.embedcharge_policy import reject_retired_embedcharge_cli
-
-            reject_retired_embedcharge_cli(
-                calc_cfg,
-                cutoff_requested=_is_param_explicit("embedcharge_cutoff"),
-            )
-
             try:
                 model_pdb_path, layer_info = resolve_ml_layer_assignment(
                     source_path=source_path,
@@ -616,7 +599,7 @@ def cli(
                     model_pdb=model_pdb,
                     model_indices=model_indices,
                     detect_layer=detect_layer_effective,
-                    hess_cutoff=hess_cutoff,
+                    hess_cutoff=calc_cfg.get("hess_cutoff"),
                     movable_cutoff=movable_cutoff,
                     calc_cfg=calc_cfg,
                     protected_inputs=(

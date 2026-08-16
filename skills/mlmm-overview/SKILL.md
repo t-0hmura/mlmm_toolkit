@@ -118,7 +118,6 @@ Every ML/MM-evaluating subcommand (`opt`, `tsopt`, `path-search`,
 | `--detect-layer` | Automatically read B-factor layers; with explicit membership, retain valid movable/frozen MM layers. Enabled by default |
 | `--model-indices` | Explicit ML atom indices used when `--model-pdb` is omitted; higher priority than B-factor ML membership |
 | `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
-| `--embedcharge / --no-embedcharge` | Unavailable in v0.3.3; use `--no-embedcharge` |
 | `-q, --charge` / `-l, --ligand-charge` / `-m, --multiplicity` | ML region charge / spin |
 | `-b, --backend` | ML backend (uma / orb / mace / aimnet2) |
 

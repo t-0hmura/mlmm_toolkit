@@ -124,14 +124,14 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## 処理の流れ
 
 1. **入力処理** — 酵素 PDB、Amber トポロジー、ML 領域定義を読み込みます。電荷/スピンを解決します。CLI と YAML の凍結原子がマージされます。
-2. **ML/MM calculatorの構築** — ML/MM calculator（MLIP バックエンド + hessian_ff）を構築します。`-b/--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--hessian-calc-mode` は MLIP が Hessian を解析的に評価するか有限差分で評価するかを制御します。v0.3.3 は機械的埋め込みを使用し、電子埋め込みの要求は構築前に拒否します。
+2. **ML/MM calculatorの構築** — ML/MM calculator（MLIP バックエンド + hessian_ff）を構築します。`-b/--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--hessian-calc-mode` は MLIP が Hessian を解析的に評価するか有限差分で評価するかを制御します。
 3. **Light モード（Dimer）:**
    - Hessian Dimer ステージはアクティブ部分空間の部分 Hessian を評価して Dimer 方向を定期的に更新します。固定の constrained 処理は凍結 anchor と両立する全系剛体運動だけを除去します。保存・回転・試行する全方向で凍結Cartesian成分をゼロに保ち、中心外のforce評価でも凍結座標を中心imageと厳密に一致させます。
    - 平坦化ループが有効な場合（`--flatten`）、保存されたアクティブ Hessian は変位と勾配差分を使用した Bofill 更新により更新されます。各ループで虚振動数モードを推定し、1 回平坦化し、Dimer 方向を更新し、Dimer + L-BFGS マイクロセグメントを実行します。
 4. **Heavy モード（RS-I-RFO）:**
    - RS-I-RFO オプティマイザを、`rsirfo` YAML セクションで定義されたオプションの Hessian 参照ファイルとマイクロサイクル制御とともに実行します。
    - `--flatten` が有効で収束後に 2 つ以上の虚振動数モードが残る場合、余分なモードを平坦化し、1 つだけ残るか平坦化反復上限に達するまで RS-I-RFO を再実行します。
-5. **モードエクスポートと変換** — 最終振動解析で得た虚振動数モードを `vib/imag_*_trj.xyz` に書き出し、PDB 入力で変換が有効なら `.pdb` にもミラーリングします。絶対値が設定値（デフォルト 5 cm⁻¹）未満の微小モードは動画出力では無視しますが、虚振動数には含めます。最適化軌跡と最終ジオメトリも `--dump` 時に入力テンプレート経由で PDB に変換されます。
+5. **モードエクスポートと変換** — 最終振動解析で得た虚振動数モードを `vib/imag_*_trj.xyz` に書き出し、PDB 入力で変換が有効なら `.pdb` にもミラーリングします。絶対値が設定値（デフォルト 5 cm⁻¹）未満の微小モードは動画出力では無視しますが、虚振動数には含めます。PDB 入力で変換が有効な場合、最終構造は独立して PDB に変換されます。`--dump` は最適化軌跡の出力と変換を追加します。
 
 ## 出力
 
@@ -202,8 +202,6 @@ out_dir/ (デフォルト: ./result_tsopt/)
 | `--workers INT` | UMA predictor worker 数。2 以上は `fairchem-core[extras]` が必要で、`Analytical` と併用不可。 | `1` |
 | `--workers-per-node INT` | UMA 並列 predictor のノード当たり worker 数。 | _None_ |
 | `--allow-charge-mult-mismatch` | 警告を出した上で ML 領域の電荷・多重度の電子パリティ検証を省略。開殻の ML 領域には整合する多重度を指定してください。共有結合を切断した領域など、意図的な非標準入力の場合のみ使用。 | off |
-| `--embedcharge/--no-embedcharge` | v0.3.3 では使用不可。旧コマンドを明示的に拒否するためにのみ残されています。 | `False` |
-| `--embedcharge-cutoff FLOAT` | 廃止した電子埋め込み経路とともに使用不可。 | — |
 | `--cmap/--no-cmap` | REAL と MODEL の両 MM 層で CMAP を保持します。 | `--cmap` |
 | `--mm-backend [hessian_ff\|openmm]` | MM backend。 | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | link atom 配置方式。 | `scaled` |
@@ -232,7 +230,6 @@ calc:
  real_parm7: real.parm7            # Amber parm7 トポロジー
  model_pdb: ml_region.pdb          # ML 領域定義
  backend: uma                      # ML バックエンド (uma/orb/mace/aimnet2)
- embedcharge: false                # 互換性用。true は拒否される
  uma_model: uma-s-1p2              # uma-s-1p2 | uma-m-1p1
  uma_task_name: omol                # UMA タスク名 (backend=uma 時)
  ml_device: auto                   # ML デバイス選択

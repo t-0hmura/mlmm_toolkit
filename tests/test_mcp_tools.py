@@ -147,10 +147,12 @@ def test_summary_only_tools_do_not_expose_leaf_pair_override(registry, tmp_path:
     assert "expected_primary_filename" not in kwargs
 
 
-def test_single_point_tool_forwards_print_every(registry, tmp_path: Path) -> None:
+def test_single_point_tool_uses_only_effective_options(registry, tmp_path: Path) -> None:
     tools, calls = registry
     signature = inspect.signature(tools["run_single_point_oniom"])
-    assert "print_every" in signature.parameters
+    assert "print_every" not in signature.parameters
+    assert "convert_files" not in signature.parameters
+    assert "embedcharge" in signature.parameters
     assert "detect_layer" not in signature.parameters
 
     asyncio.run(
@@ -160,14 +162,22 @@ def test_single_point_tool_forwards_print_every(registry, tmp_path: Path) -> Non
             charge=0,
             multiplicity=1,
             ref_pdb="topology.pdb",
-            print_every=3,
+            hess_cutoff=4.0,
+            movable_cutoff=8.0,
+            embedcharge=True,
+            embedcharge_cutoff=6.0,
             out_dir=str(tmp_path / "sp"),
         )
     )
 
     argv, _kwargs = calls[-1]
-    option_start = argv.index("--print-every")
-    assert argv[option_start : option_start + 2] == ["--print-every", "3"]
+    hess_start = argv.index("--hess-cutoff")
+    assert argv[hess_start : hess_start + 2] == ["--hess-cutoff", "4.0"]
+    movable_start = argv.index("--movable-cutoff")
+    assert argv[movable_start : movable_start + 2] == ["--movable-cutoff", "8.0"]
+    assert "--embedcharge" in argv
+    cutoff_start = argv.index("--embedcharge-cutoff")
+    assert argv[cutoff_start : cutoff_start + 2] == ["--embedcharge-cutoff", "6.0"]
     ref_start = argv.index("--ref-pdb")
     assert argv[ref_start : ref_start + 2] == ["--ref-pdb", "topology.pdb"]
 

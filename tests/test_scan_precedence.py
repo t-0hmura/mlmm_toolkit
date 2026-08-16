@@ -92,6 +92,28 @@ def test_scan_optimizer_resolution_does_not_mutate_yaml() -> None:
     assert second_lbfgs["keep_last"] == 3
 
 
+def test_nested_opt_lbfgs_does_not_reach_scan_constructor_kwargs() -> None:
+    opt_cfg, lbfgs_cfg = resolve_scan_optimizer_configs(
+        {"opt": {"max_cycles": 17, "lbfgs": {"max_step": 0.12}}},
+        thresh="baker",
+        relax_max_cycles=10000,
+        is_param_explicit=lambda _name: False,
+    )
+
+    kwargs = build_scan_lbfgs_kwargs(
+        lbfgs_cfg,
+        opt_cfg,
+        max_step_bohr=0.2,
+        out_dir=Path("result"),
+        prefix="point",
+    )
+
+    assert "lbfgs" not in opt_cfg
+    assert "lbfgs" not in kwargs
+    assert kwargs["max_cycles"] == 17
+    assert kwargs["max_step"] == 0.12
+
+
 @pytest.mark.parametrize(
     ("yaml_cfg", "argv", "expected"),
     [

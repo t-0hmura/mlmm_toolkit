@@ -81,13 +81,7 @@ def _shared_calc_flags(
     mm_backend: Optional[str],
     use_cmap: Optional[bool] = None,
 ) -> list[str]:
-    """Common backend / precision / embedcharge / mm_backend / cmap flags shared by stage runners."""
-    from mlmm.core.embedcharge_policy import validate_retired_embedcharge
-
-    validate_retired_embedcharge(
-        embedcharge=embedcharge,
-        cutoff_requested=embedcharge_cutoff is not None,
-    )
+    """Build calculator flags shared by stage runners."""
     args: list[str] = []
     if backend:
         args.extend(["-b", str(backend)])
@@ -488,8 +482,6 @@ def register_all(mcp) -> None:
         link_atom_method: Optional[str] = None,
         mm_backend: Optional[str] = None,
         use_cmap: Optional[bool] = None,
-        convert_files: Optional[bool] = None,
-        print_every: Optional[int] = None,
         out_dir: Optional[str] = None,
         extra_args: Optional[list[str]] = None,
         timeout_seconds: Optional[float] = None,
@@ -519,17 +511,13 @@ def register_all(mcp) -> None:
         if freeze_atoms:
             argv.extend(["--freeze-atoms", freeze_atoms])
         if hess_cutoff is not None:
-            argv.extend(["--radius-partial-hessian", str(hess_cutoff)])
+            argv.extend(["--hess-cutoff", str(hess_cutoff)])
         if movable_cutoff is not None:
-            argv.extend(["--radius-freeze", str(movable_cutoff)])
+            argv.extend(["--movable-cutoff", str(movable_cutoff)])
         if do_hess:
             argv.append("--hess")
         if hessian_calc_mode:
             argv.extend(["--hessian-calc-mode", hessian_calc_mode])
-        if convert_files is not None:
-            argv.append("--convert-files" if convert_files else "--no-convert-files")
-        if print_every is not None:
-            argv.extend(["--print-every", str(print_every)])
         argv.extend(_shared_calc_flags(
             backend=backend, precision=precision,
             embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
@@ -557,7 +545,6 @@ def register_all(mcp) -> None:
         ligand_charge: Optional[str] = None,
         max_step_size: Optional[float] = None,
         relax_max_cycles: Optional[int] = None,
-        opt_mode: Optional[str] = None,
         thresh: Optional[str] = None,
         backend: Optional[str] = None,
         precision: Optional[str] = None,
@@ -584,8 +571,6 @@ def register_all(mcp) -> None:
             argv.extend(["--max-step-size", str(max_step_size)])
         if relax_max_cycles is not None:
             argv.extend(["--relax-max-cycles", str(relax_max_cycles)])
-        if opt_mode:
-            argv.extend(["--opt-mode", opt_mode])
         if thresh:
             argv.extend(["--thresh", thresh])
         argv.extend(_shared_calc_flags(

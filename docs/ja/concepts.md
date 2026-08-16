@@ -78,10 +78,6 @@ E(ML/MM) = E_MM(real) + E_ML(model) - E_MM(model)
 
 MLIP バックエンドは `-b/--backend`（デフォルト: `uma`）で選択します。`orb` は `pip install "mlmm-toolkit[orb]"`、`aimnet2` は `[aimnet]` extra でインストールします。`mace` には専用 extra がなく、`e3nn` のピンが UMA（`fairchem-core`）と競合するため別の conda env でインストールします。
 
-v0.3.3 は機械的埋め込みのみをサポートします。互換性のため残された
-`--embedcharge` は、以前の実験的補正が ML--MM 静電相互作用を二重計数し、
-uncapped 境界 model と link-H model が不整合だったため、計算前に必ずエラーになります。
-
 ### 従来の QM/MM との比較
 
 | 側面 | 従来の QM/MM | mlmm-toolkit ML/MM |
@@ -89,7 +85,7 @@ uncapped 境界 model と link-H model が不整合だったため、計算前�
 | 高レベル手法 | DFT、HF、post-HF | MLIP（UMA, ORB, MACE, AIMNet2） |
 | 低レベル手法 | OpenMM / Amber | hessian_ff（C++ ネイティブ拡張） |
 | リンク原子 | 通常必要 | 共有結合境界で自動生成 |
-| 静電埋め込み | 一般的 | v0.3.3 では使用不可。ONIOM 減算による機械的埋め込みを使用 |
+| 埋め込み | 静電埋め込みが一般的 | 機械的埋め込み |
 | 速度 | 低速（QM がボトルネック） | 高速（GPU 上の ML 推論） |
 
 ---

@@ -34,7 +34,6 @@ selection. Most subcommands accept:
 | `--model-indices` | Explicit ML atom indices used when `--model-pdb` is omitted; takes precedence over B-factor ML membership |
 | `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |
 | `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
-| `--embedcharge / --no-embedcharge` | Unavailable in v0.3.3; use `--no-embedcharge` |
 | `-q, --charge` | **ML-region** charge (not whole-system) |
 | `-l, --ligand-charge` | Per-residue charge mapping for ML region |
 

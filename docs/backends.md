@@ -49,7 +49,6 @@ name from the CLI.
 |------|------|
 | `mlmm/backends/__init__.py` | `apply_precision_to_calc_cfg()` — routes the unified `--precision fp32\|fp64` CLI flag to each backend's native kwarg (`uma_precision` / `orb_precision` / `mace_dtype`) |
 | `mlmm/backends/mlmm_calc.py` | `MLMMCore` (ML/MM ONIOM coupling) + `MLMMASECalculator` (ASE) + `mlmm` (pysisyphus Calculator) + per-backend adapters (`_UMABackend`, `_OrbBackend`, `_MACEBackend`, `_AIMNet2Backend`) + the private `_create_ml_backend` factory + FD-Hessian assembly + unit conversion |
-| `mlmm/backends/xtb_embedcharge_correction.py` | Dormant compatibility implementation; public electronic embedding is unavailable in v0.3.3 |
 
 ## Per-backend characteristics
 

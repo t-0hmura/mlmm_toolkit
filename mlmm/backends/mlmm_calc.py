@@ -1142,17 +1142,15 @@ def _create_ml_backend(
 
 
 class _EmbedChargeCorrection:
-    """Dormant xTB embedding implementation retained for compatibility tests.
+    """Experimental xTB point-charge correction for ML/MM calculations.
 
     The retained implementation evaluates:
 
         dE = E_xTB(ML + MM_charges) - E_xTB(ML_only)
         dF = F_xTB(ML + MM_charges) - F_xTB(ML_only)
 
-    Public activation is rejected in v0.3.3 because adding this term to the
-    subtractive mechanical-embedding expression double-counts ML--MM
-    electrostatics and the uncapped xTB model is inconsistent with the link-H
-    high-level model.
+    The energy, force, and Hessian corrections are added to the subtractive
+    ML/MM expression when ``embedcharge`` is enabled.
     """
 
     def __init__(
@@ -1825,8 +1823,8 @@ class MLMMCore:
 
     Supported ML backends: UMA (default), ORB, MACE, AIMNet2.
     Supported MM backends: hessian_ff (analytical), OpenMM (FD).
-    Electronic embedding is unavailable in v0.3.3; activation is rejected
-    before workspace or backend allocation.
+    The optional ``embedcharge`` path applies an experimental xTB point-charge
+    correction for ML/MM environmental effects.
     """
 
     def __init__(
@@ -1906,9 +1904,6 @@ class MLMMCore:
                 kwargs.pop(_old_name)
         if kwargs:
             raise TypeError(f"MLMMCore.__init__() got unexpected keyword arguments: {', '.join(kwargs)}")
-        from mlmm.core.embedcharge_policy import validate_retired_embedcharge
-
-        validate_retired_embedcharge(embedcharge=embedcharge)
         if input_pdb is None:
             raise TypeError("MLMMCore.__init__() missing required keyword argument: 'input_pdb'")
         # Canonicalize the two numerical-method enums before any temporary

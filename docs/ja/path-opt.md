@@ -77,7 +77,6 @@ out_dir/ (デフォルト:./result_path_opt/)
 | `--mep-mode [gsm\|dmf]` | MEP バックエンド。 | `gsm` |
 | `--dmf-backend [cpu\|gpu]` | DMF 計算バックエンド（`--mep-mode dmf` 時のみ）: `gpu`（`dmf.torch`/CUDA）または `cpu`（`dmf`/NumPy）。GPU メモリ不足時は `cpu` で再実行。`pydmf>=1.2` が必要。 | `gpu` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切り原子インデックス（内部で 0 始まりに変換; YAML `geom.freeze_atoms` とマージ）。 | _None_ |
-| `--hess-cutoff FLOAT` | ML 領域からの距離カットオフ (Å)。この範囲内の MM 原子を Hessian 計算に含めます。可動 MM 原子に適用。 | _None_ |
 | `--movable-cutoff FLOAT` | ML 領域からの距離カットオフ (Å)。この範囲外の MM 原子を凍結します。`--movable-cutoff` 指定時は `--detect-layer` が無効化されます。 | _None_ |
 | `--fix-ends/--no-fix-ends` | 経路成長中に端点構造を固定（`gs.fix_first/fix_last`）。 | `True` |
 | `--max-nodes INT` | 内部ストリングノード数（総イメージ = `max_nodes + 2`）。 | `20` |
@@ -95,8 +94,6 @@ out_dir/ (デフォルト:./result_path_opt/)
 | `--show-config/--no-show-config` | 解決済み設定（YAML レイヤ情報を含む）を表示して実行継続。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずに検証と実行計画表示のみを行う。`--help-advanced` に表示。 | `False` |
 | `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
-| `--embedcharge/--no-embedcharge` | v0.3.3 では使用不可。旧コマンドを明示的に拒否するためにのみ残されています。 | `False` |
-| `--embedcharge-cutoff FLOAT` | 廃止した電子埋め込み経路とともに使用不可。 | — |
 | `--cmap/--no-cmap` | REAL と MODEL の両 MM 層で CMAP を保持します。 | `--cmap` |
 | `--convert-files/--no-convert-files` | PDB テンプレート利用可能時の XYZ/TRJ から対応する PDB の生成を切り替え。 | `True` |
 

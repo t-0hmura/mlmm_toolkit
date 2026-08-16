@@ -23,7 +23,10 @@ Inputs may also be `.cif` / `.mmcif`; computation uses a temporary internal
 PDB and public CIF companions restore the original identifiers.
 
 ```{important}
-`--tsopt` produces **TS candidates**. `all` runs IRC and freq automatically for validation, but always inspect the results (imaginary mode count + endpoint connectivity) before mechanistic interpretation.
+`--tsopt` produces **TS candidates**. Normally, `all` starts IRC only after
+TSOPT reports `status: converged` with one imaginary mode. Explicit
+`--skip-final-freq` permits IRC from an unverified TS. Always inspect the mode
+and endpoint connectivity before mechanistic interpretation.
 ```
 
 ## Examples
@@ -99,14 +102,14 @@ artifact and is always written for PDB input.
    - For multi-input runs, the original full PDBs are supplied as merge references automatically. In the scan-derived series (single-structure case), the single original full PDB is reused as the reference template.
 5. **Summary and optional post-processing**
    - The raw MEP-engine output (per-segment trajectories, the full MEP trajectory, and the engine `summary.json`) is written under `<out-dir>/_work/path_opt/` (or `<out-dir>/_work/path_search/` with `--refine-path`); the merged products (`mep.pdb`, optional `mep.cif`, `mep_trj.xyz`, `mep_plot.png`, `energy_diagram_MEP.png`) are moved to `<out-dir>/` and `summary.{json,log}` copied there.
-   - `--tsopt` runs TS optimization on each HEI, follows with EulerPC IRC, and emits segment energy diagrams.
+   - `--tsopt` runs TS optimization on each HEI. After the TS gate, `all` continues with EulerPC IRC and segment energy diagrams.
    - `--thermo` computes ML/MM thermochemistry on (R, TS, P) and adds a Gibbs diagram.
    - `--dft` runs model-region DFT single-points on (R, TS, P) and adds a model-DFT electronic diagram. With `--thermo`, the subtractive DFT//MLIP/MM total plus the ML/MM thermal correction produces the DFT//MLIP/MM Gibbs diagram.
    - TS optimization, IRC, frequency analysis, and flatten PHVA use the fixed constrained treatment, which removes only full-system rigid motions that leave frozen anchors fixed; realistic ML/MM boundaries normally have effective rank 0.
    - `--hessian-calc-mode` selects analytical or finite-difference Hessians where supported. Compare both on a target-system pilot because speed and memory depend on the backend and system.
 6. **TSOPT-only mode** (single input, `--tsopt`, no `--scan-lists`)
-   - Skips the MEP search and runs `tsopt` on the layered full-system PDB, performs EulerPC IRC, minimizes both ends, and optionally adds thermochemistry, DFT, and DFT//MLIP/MM diagrams.
-   - With no path/reference orientation, the IRC ends are emitted as chemically unassigned `E1` and `E2`. The summary reports the barrier from each endpoint to TS and does not emit R/P reaction energies. Inspect the structures before assigning chemical identities.
+   - Skips the MEP search and runs `tsopt` on the layered full-system PDB. After the TS gate, it performs EulerPC IRC, minimizes both ends, and optionally adds thermochemistry, DFT, and DFT//MLIP/MM diagrams.
+   - When IRC runs, its ends are emitted as chemically unassigned `E1` and `E2` because no path/reference orientation is available. The summary reports the barrier from each endpoint to TS and does not emit R/P reaction energies. Inspect the structures before assigning chemical identities.
 
 ## Outputs
 
@@ -137,7 +140,8 @@ The tree has three zones: **deliverables at the root**, **per-segment deliverabl
       reactant.pdb · ts.pdb · product.pdb   # canonical R/TS/P for MEP runs
       e1.pdb · ts.pdb · e2.pdb              # unassigned endpoints for TSOPT-only
       *.cif                                 # bridged-input companions with original IDs
-      ts/, irc/                  # TS optimization + EulerPC IRC (--tsopt)
+      ts/                        # TS optimization (--tsopt)
+      irc/                       # EulerPC IRC after the TS gate
       freq/ (--thermo), dft/ (--dft)
       structures/{reactant,ts,product}.pdb  # MEP run nested copy
       structures/{endpoint_1,ts,endpoint_2}.pdb # TSOPT-only nested copy
@@ -149,7 +153,7 @@ The tree has three zones: **deliverables at the root**, **per-segment deliverabl
       summary.{json,log} · seg_NN_mep/    # raw per-segment MEP trajectories (merged products are moved to the root)
 ```
 
-In **TSOPT-only mode** (single input + `--tsopt`, no `--scan-lists`) there is no MEP stage: the optimized E1/TS/E2 structures plus `ts/`, `irc/`, `freq/`, and `dft/` land under `segments/seg_01/`, and `_work/path_opt/` is absent.
+In **TSOPT-only mode** (single input + `--tsopt`, no `--scan-lists`) there is no MEP stage. `ts/` is written under `segments/seg_01/`; after the TS gate, the E1/TS/E2 structures and `irc/` are added there, followed by requested `freq/` and `dft/` outputs. `_work/path_opt/` is absent.
 
 At `-v 2` the console summarises extraction, MM preparation, scan stages, MEP progress, and per-stage timing; see {ref}`verbosity-levels`.
 
@@ -159,7 +163,7 @@ The log is organized into numbered sections:
 
 - **[1] Global MEP overview** — image / segment counts, MEP trajectory plot paths, aggregate MEP energy diagram.
 - **[2] Segment-level MEP summary (MLIP path)** — per-segment barriers, reaction energies, bond-change summaries.
-- **[3] Per-segment post-processing (TSOPT / Thermo / DFT)** — TS imaginary-frequency checks, IRC outputs, energy tables.
+- **[3] Per-segment post-processing (TSOPT / Thermo / DFT)** — TS imaginary-frequency checks, gated IRC outputs, energy tables.
 - **[4] Energy diagrams (overview)** — diagram tables for MEP / MLIP / Gibbs / DFT plus an optional cross-method summary.
 - **[5] Output directory structure** — a compact tree of generated files with inline annotations.
 
@@ -232,7 +236,7 @@ their dedicated options or defaults.
 | `--max-nodes INT` | Internal nodes per GSM/DMF segment. | `20` |
 | `--max-cycles INT` | Maximum cycles for the selected MEP child only. | `300` |
 | `--climb / --no-climb` | Enable climbing-image TS refinement where supported by the selected optimizer. | `True` |
-| `--opt-mode [grad\|hess]` | Optimizer preset for scan / path-search and single optimizations (`grad` → L-BFGS / Dimer, `hess` → RFO / RSIRFO). | `grad` |
+| `--opt-mode [grad\|hess]` | Fallback preset for TSOPT and post-IRC endpoint optimization (`grad` → Dimer / L-BFGS, `hess` → RS-I-RFO / RFO). `--opt-mode-post` takes precedence. | `grad` |
 | `--opt-mode-post [grad\|hess]` | Optimizer preset override for TSOPT / post-IRC endpoint optimizations (`grad` → Dimer / L-BFGS, `hess` → RS-I-RFO / RFO). | `hess` |
 | `--thresh TEXT` | Convergence preset for single-structure optimizations and scan relaxations (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). Effective default: `gau` for scan. | _None_ |
 | `--thresh-gsm TEXT` | Convergence preset for the GSM string optimizer of the MEP stage (same presets as `--thresh`). Effective default: `gau_loose`. | _None_ |
@@ -244,8 +248,6 @@ their dedicated options or defaults.
 | `--precision [fp32\|fp64]` | Backend precision. Unset uses UMA/AIMNet2 fp32 and ORB/MACE fp64. AIMNet2 rejects fp64. | backend-specific |
 | `--workers INT` | UMA predictor workers. Values greater than 1 require `fairchem-core[extras]` and are incompatible with an analytical Hessian. | `1` |
 | `--workers-per-node INT` | Workers per node for the parallel UMA predictor. | _None_ |
-| `--embedcharge / --no-embedcharge` | Unavailable in v0.3.3; use mechanical embedding (`--no-embedcharge`). | `False` |
-| `--embedcharge-cutoff FLOAT` | Unavailable with the retired electronic-embedding path. | — |
 | `--cmap / --no-cmap` | Preserve CMAP in both REAL and MODEL MM layers. | `--cmap` |
 | `--hessian-calc-mode CHOICE` | ML/MM Hessian mode (`Analytical` or `FiniteDifference`). | `FiniteDifference` |
 | `--detect-layer` | Automatically read B-factor layers (B = 0 / 10 / 20). With explicit `--model-pdb`, retain only the MM sublayers; otherwise B-factors also define ML membership. | Enabled |
@@ -269,7 +271,7 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) → `--opt-mode` (on
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `--tsopt / --no-tsopt` | Run TS optimization + EulerPC IRC per reactive segment. | `False` |
+| `--tsopt / --no-tsopt` | Run TS optimization and, after the TS gate, EulerPC IRC per reactive segment. | `False` |
 | `--tsopt-from-mep-tan / --no-tsopt-from-mep-tan` | Select the initial TS root from the HEI MEP tangent; when off, select it from the initial-structure Hessian modes. | `True` |
 | `--thermo / --no-thermo` | Run vibrational analysis (`freq`) on R/TS/P for MEP runs or E1/TS/E2 for TS-only runs. | `False` |
 | `--dft / --no-dft` | Run single-point DFT on R/TS/P for MEP runs or E1/TS/E2 for TS-only runs. | `False` |
@@ -313,7 +315,6 @@ calc:
   model_charge: 0
   model_mult: 1
   backend: uma                      # uma | orb | mace | aimnet2
-  embedcharge: false                # Compatibility tombstone; true is rejected
   uma_model: uma-s-1p2              # uma-s-1p2 | uma-m-1p1
   hessian_calc_mode: Analytical     # compare with FiniteDifference on a pilot
 gs:

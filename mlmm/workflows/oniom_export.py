@@ -794,44 +794,52 @@ def _read_qm_atoms_from_pdb(
 
     return qm_indices
 
-def _identify_qm_atoms_by_distance(
+def _identify_qm_atoms_by_residue(
     parm,
     qm_residue_indices: List[int],
-    near_cutoff: float,
-) -> Tuple[Set[int], Set[int]]:
-    """
-    Identify QM and movable atoms based on residue indices and distance cutoff.
-
-    Returns:
-        (qm_atom_indices, movable_atom_indices) - both 0-based
-    """
-    from scipy import spatial
-
-    # Get QM atom indices from specified residues
+) -> Set[int]:
+    """Return the 0-based atoms belonging to the selected residues."""
     qm_atom_indices: Set[int] = set()
     for resi in qm_residue_indices:
         if 0 <= resi < len(parm.residues):
             for atom in parm.residues[resi].atoms:
                 qm_atom_indices.add(atom.idx)
+    return qm_atom_indices
 
-    if not qm_atom_indices:
-        return set(), set()
 
-    # Find movable atoms (within near_cutoff of QM atoms)
-    qm_list = sorted(qm_atom_indices)
-    neighbor_mask = np.any(
-        spatial.distance.cdist(parm.coordinates, parm.coordinates[qm_list]) <= near_cutoff,
-        axis=1,
+def _load_required_layer_info(
+    input_path: Path,
+    atom_count: int,
+) -> Dict[str, List[int]]:
+    """Load the ML/movable/frozen partition from an mlmm layered PDB."""
+    if input_path.suffix.lower() not in {".pdb", ".ent"}:
+        raise ValueError(
+            "oniom-export requires -i/--input to be an MLMM layered PDB; "
+            "its B-factors define the movable and frozen atoms."
+        )
+
+    from mlmm.core.utils import (
+        has_valid_layer_bfactors,
+        parse_layer_indices_from_bfactors,
+        read_bfactors_from_pdb,
     )
 
-    # Include entire residues if any atom is within cutoff
-    movable_indices: Set[int] = set()
-    neighbor_residues = set(parm.atoms[i].residue for i in np.where(neighbor_mask)[0])
-    for residue in neighbor_residues:
-        for atom in residue.atoms:
-            movable_indices.add(atom.idx)
+    bfactors = read_bfactors_from_pdb(input_path)
+    if len(bfactors) != atom_count:
+        raise ValueError(
+            "The layered PDB and parm7 must contain the same number of atoms "
+            f"({len(bfactors)} != {atom_count})."
+        )
+    if not has_valid_layer_bfactors(bfactors):
+        raise ValueError(
+            "Invalid or missing MLMM layer B-factors in -i/--input "
+            "(expected values near 0, 10, and 20)."
+        )
 
-    return qm_atom_indices, movable_indices
+    click.echo(
+        "[oniom-export] Using ML/MM layer B-factors to decide movable/frozen atoms."
+    )
+    return parse_layer_indices_from_bfactors(bfactors)
 
 
 
@@ -1466,7 +1474,6 @@ def export_gaussian(
     method: str = "wB97XD/def2-TZVPD",
     qm_charge: int = 0,
     qm_mult: int = 1,
-    near_cutoff: float = 6.0,
     nproc: int = 8,
     mem: str = "16GB",
     qm_residues: Optional[List[int]] = None,
@@ -1484,11 +1491,10 @@ def export_gaussian(
         method: QM method and basis set
         qm_charge: Charge of QM region
         qm_mult: Multiplicity of QM region
-        near_cutoff: Distance cutoff for movable atoms (Angstrom)
         nproc: Number of processors
         mem: Memory allocation
         qm_residues: List of 0-based residue indices for QM region (alternative to model_pdb)
-        input_path: Coordinate file (.pdb or .xyz). If omitted, uses coordinates stored in the ParmEd object.
+        input_path: MLMM layered PDB. B-factors define movable/frozen atoms.
         element_check: If True, validate element sequence between parm7 and input coordinates.
     """
     _check_parmed()
@@ -1501,64 +1507,27 @@ def export_gaussian(
             "run the calculation through mlmm, which applies CMAP to both MM layers."
         )
 
-    # Load / attach coordinates
-    elements_for_output: Optional[List[str]] = None
-    if input_path is not None:
-        coords, input_elems = _read_input_geometry(input_path)
-        _apply_coordinates_to_parm(parm, coords)
-        elements_for_output = input_elems
-        if element_check:
-            _validate_element_order(parm, input_elems, strict=True)
-    else:
-        coords_attr = getattr(parm, "coordinates", None)
-        n_coords = 0
-        try:
-            n_coords = len(coords_attr) if coords_attr is not None else 0
-        except Exception:
-            n_coords = 0
-        if n_coords == 0:
-            raise ValueError(
-                "No coordinates found in the loaded parm7. "
-                "Please provide a coordinate file with -i/--input (PDB or XYZ)."
-            )
-        elements_for_output = _get_parm_elements(parm)
-
-    # Detect layer indices from B-factors if the input is a layered PDB produced by mlmm.
-    layer_info: Optional[Dict[str, List[int]]] = None
-    if input_path is not None and input_path.suffix.lower() in {".pdb", ".ent"}:
-        try:
-            from mlmm.core.utils import (
-                has_valid_layer_bfactors,
-                parse_layer_indices_from_bfactors,
-                read_bfactors_from_pdb,
-            )
-
-            bfactors = read_bfactors_from_pdb(input_path)
-            if len(bfactors) == len(parm.atoms) and has_valid_layer_bfactors(bfactors):
-                layer_info = parse_layer_indices_from_bfactors(bfactors)
-                click.echo(
-                    "[oniom-export] Detected ML/MM layer B-factors in the input PDB; "
-                    "using them to decide movable/frozen atoms."
-                )
-        except Exception:
-            layer_info = None
+    if input_path is None:
+        raise ValueError("oniom-export requires an MLMM layered PDB via -i/--input.")
+    layer_info = _load_required_layer_info(input_path, len(parm.atoms))
+    coords, input_elems = _read_input_geometry(input_path)
+    _apply_coordinates_to_parm(parm, coords)
+    elements_for_output: Optional[List[str]] = input_elems
+    if element_check:
+        _validate_element_order(parm, input_elems, strict=True)
 
     # Determine QM region
     qm_indices: Set[int] = set()
-    movable_indices: Set[int] = set()
-
     if model_pdb is not None:
         qm_indices = _read_qm_atoms_from_pdb(
             model_pdb,
-            input_pdb=input_path
-            if (input_path is not None and input_path.suffix.lower() in {".pdb", ".ent"})
-            else None,
+            input_pdb=input_path,
             system_coords=getattr(parm, "coordinates", None),
             system_elements=elements_for_output,
         )
     elif qm_residues:
-        qm_indices, movable_indices = _identify_qm_atoms_by_distance(parm, qm_residues, near_cutoff)
-    elif layer_info is not None and layer_info.get("ml_indices"):
+        qm_indices = _identify_qm_atoms_by_residue(parm, qm_residues)
+    elif layer_info.get("ml_indices"):
         qm_indices = set(int(i) for i in layer_info["ml_indices"])
     else:
         raise ValueError(
@@ -1575,23 +1544,8 @@ def export_gaussian(
             "Check that your model PDB / input PDB and parm7 have consistent atom ordering."
         )
 
-    # Determine movable atoms for partial optimization.
-    if layer_info is not None:
-        frozen = set(int(i) for i in layer_info.get("frozen_indices", []))
-        movable_indices = set(range(len(parm.atoms))) - frozen
-    elif not movable_indices:
-        # Distance-based selection: include all atoms in residues within `near_cutoff` of any QM atom.
-        from scipy import spatial
-
-        qm_list = sorted(qm_indices)
-        neighbor_mask = np.any(
-            spatial.distance.cdist(parm.coordinates, parm.coordinates[qm_list]) <= near_cutoff,
-            axis=1,
-        )
-        neighbor_residues = set(parm.atoms[i].residue for i in np.where(neighbor_mask)[0])
-        for residue in neighbor_residues:
-            for atom in residue.atoms:
-                movable_indices.add(atom.idx)
+    frozen = set(int(i) for i in layer_info.get("frozen_indices", []))
+    movable_indices = set(range(len(parm.atoms))) - frozen
 
     movable_indices |= qm_indices  # QM atoms must always be movable
 
@@ -1705,7 +1659,6 @@ def export_orca(
     total_charge: Optional[int] = None,
     total_mult: Optional[int] = None,
     nproc: int = 8,
-    near_cutoff: float = 6.0,
     qm_residues: Optional[List[int]] = None,
     input_path: Optional[Path] = None,
     element_check: bool = True,
@@ -1738,9 +1691,8 @@ def export_orca(
         total_mult: Multiplicity of the full QM+MM system for Mult_Total in %qmmm.
             If None, uses qm_mult.
         nproc: Number of processors.
-        near_cutoff: Distance cutoff (Å) used to define ActiveAtoms when no layer B-factors exist.
         qm_residues: Alternative QM definition by 0-based residue indices in the ParmEd structure.
-        input_path: Coordinate file (.pdb or .xyz). Atom order must match the topology.
+        input_path: MLMM layered PDB. B-factors define movable/frozen atoms.
         element_check: Validate element sequence between input and topology (best-effort).
         orcaff_path: Path to ORCAFF.prms file. If None, uses/creates <parm7_stem>.ORCAFF.prms in output dir.
         convert_orcaff: If True, try to run `orca_mm -convff -AMBER` when ORCAFF.prms is missing.
@@ -1756,64 +1708,27 @@ def export_orca(
             "or run the calculation through mlmm, which applies CMAP to both MM layers."
         )
 
-    # Load / attach coordinates
-    elements_for_output: Optional[List[str]] = None
-    if input_path is not None:
-        coords, input_elems = _read_input_geometry(input_path)
-        _apply_coordinates_to_parm(parm, coords)
-        elements_for_output = input_elems
-        if element_check:
-            _validate_element_order(parm, input_elems, strict=True)
-    else:
-        coords_attr = getattr(parm, "coordinates", None)
-        n_coords = 0
-        try:
-            n_coords = len(coords_attr) if coords_attr is not None else 0
-        except Exception:
-            n_coords = 0
-        if n_coords == 0:
-            raise ValueError(
-                "No coordinates found in the loaded topology/structure. "
-                "Please provide a coordinate file with -i/--input (PDB or XYZ)."
-            )
-        elements_for_output = _get_parm_elements(parm)
-
-    # Detect layer indices from B-factors if input is a layered PDB produced by mlmm.
-    layer_info: Optional[Dict[str, List[int]]] = None
-    if input_path is not None and input_path.suffix.lower() in {".pdb", ".ent"}:
-        try:
-            from mlmm.core.utils import (
-                has_valid_layer_bfactors,
-                parse_layer_indices_from_bfactors,
-                read_bfactors_from_pdb,
-            )
-
-            bfactors = read_bfactors_from_pdb(input_path)
-            if len(bfactors) == len(parm.atoms) and has_valid_layer_bfactors(bfactors):
-                layer_info = parse_layer_indices_from_bfactors(bfactors)
-                click.echo(
-                    "[oniom-export] Detected ML/MM layer B-factors in the input PDB; "
-                    "using them to decide movable/frozen atoms."
-                )
-        except Exception:
-            layer_info = None
+    if input_path is None:
+        raise ValueError("oniom-export requires an MLMM layered PDB via -i/--input.")
+    layer_info = _load_required_layer_info(input_path, len(parm.atoms))
+    coords, input_elems = _read_input_geometry(input_path)
+    _apply_coordinates_to_parm(parm, coords)
+    elements_for_output: Optional[List[str]] = input_elems
+    if element_check:
+        _validate_element_order(parm, input_elems, strict=True)
 
     # Determine QM region
     qm_indices: Set[int] = set()
-    movable_indices: Set[int] = set()
-
     if model_pdb is not None:
         qm_indices = _read_qm_atoms_from_pdb(
             model_pdb,
-            input_pdb=input_path
-            if (input_path is not None and input_path.suffix.lower() in {".pdb", ".ent"})
-            else None,
+            input_pdb=input_path,
             system_coords=getattr(parm, "coordinates", None),
             system_elements=elements_for_output,
         )
     elif qm_residues:
-        qm_indices, movable_indices = _identify_qm_atoms_by_distance(parm, qm_residues, near_cutoff)
-    elif layer_info is not None and layer_info.get("ml_indices"):
+        qm_indices = _identify_qm_atoms_by_residue(parm, qm_residues)
+    elif layer_info.get("ml_indices"):
         qm_indices = set(int(i) for i in layer_info["ml_indices"])
     else:
         raise ValueError(
@@ -1830,23 +1745,8 @@ def export_orca(
             "Check that your model PDB / input PDB and parm7 have consistent atom ordering."
         )
 
-    # Determine ActiveAtoms (movable atoms)
-    if layer_info is not None:
-        frozen = set(int(i) for i in layer_info.get("frozen_indices", []))
-        movable_indices = set(range(len(parm.atoms))) - frozen
-    elif not movable_indices:
-        # Distance-based selection: include all atoms in residues within `near_cutoff` of any QM atom.
-        from scipy import spatial
-
-        qm_list = sorted(qm_indices)
-        neighbor_mask = np.any(
-            spatial.distance.cdist(parm.coordinates, parm.coordinates[qm_list]) <= near_cutoff,
-            axis=1,
-        )
-        neighbor_residues = set(parm.atoms[i].residue for i in np.where(neighbor_mask)[0])
-        for residue in neighbor_residues:
-            for atom in residue.atoms:
-                movable_indices.add(atom.idx)
+    frozen = set(int(i) for i in layer_info.get("frozen_indices", []))
+    movable_indices = set(range(len(parm.atoms))) - frozen
 
     movable_indices |= qm_indices
 
@@ -2028,8 +1928,11 @@ end
     "--input",
     "input_coords",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
-    default=None,
-    help="Coordinate file (.pdb or .xyz) for the current structure (atom order must match parm7).",
+    required=True,
+    help=(
+        "MLMM layered PDB for the current structure; atom order must match parm7 "
+        "and B-factors define the movable/frozen atoms."
+    ),
 )
 @click.option(
     "--element-check/--no-element-check",
@@ -2078,13 +1981,6 @@ end
     default=1,
     show_default=True,
     help="Multiplicity of QM region.",
-)
-@click.option(
-    "--near",
-    type=float,
-    default=6.0,
-    show_default=True,
-    help="Distance cutoff for movable/active atoms (Å).",
 )
 @click.option(
     "--nproc",
@@ -2145,7 +2041,6 @@ def cli(
     method: Optional[str],
     charge: int,
     multiplicity: int,
-    near: float,
     nproc: int,
     mem: str,
     total_charge: Optional[int],
@@ -2175,7 +2070,6 @@ def cli(
                 method=method or _GAUSSIAN_DEFAULT_METHOD,
                 qm_charge=charge,
                 qm_mult=multiplicity,
-                near_cutoff=near,
                 nproc=nproc,
                 mem=mem,
                 input_path=input_coords,
@@ -2193,7 +2087,6 @@ def cli(
                 total_charge=total_charge,
                 total_mult=total_mult,
                 nproc=nproc,
-                near_cutoff=near,
                 input_path=input_coords,
                 element_check=element_check,
                 orcaff_path=orcaff,

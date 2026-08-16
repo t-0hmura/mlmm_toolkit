@@ -33,7 +33,6 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb \
  --parm real.parm7 --model-pdb ml_region.pdb -q CHARGE [-m MULT]
  [--mep-mode gsm|dmf] [--refine-mode peak|minima]
  [--freeze-atoms "1,3,5"] [--max-nodes N] [--max-cycles N] [--climb/--no-climb]
- [--opt-mode grad]
  [--thresh PRESET] [--dump/--no-dump] [--out-dir DIR]
  [--show-config/--no-show-config] [--dry-run/--no-dry-run]
 ```
@@ -41,7 +40,7 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb \
 ## Workflow
 
 1. **Initial segment per pair (GSM/DMF)** -- Run the selected MEP engine (`--mep-mode`) between each adjacent input (A->B) to obtain a coarse MEP and identify the highest-energy image (HEI).
-2. **Local relaxation around HEI** -- Seed refinement from `--refine-mode` (`peak`: HEI+/-1, `minima`: nearest local minima), then optimize with the chosen single-structure optimizer (`--opt-mode`) to recover nearby minima (`End1`, `End2`).
+2. **Local relaxation around HEI** -- Seed refinement from `--refine-mode` (`peak`: HEI+/-1, `minima`: nearest local minima), then use L-BFGS to recover nearby minima (`End1`, `End2`).
 3. **Decide between kink vs. refinement**:
  - If no covalent bond change is detected between `End1` and `End2`, treat the region as a *kink*: insert `search.kink_max_nodes` linear nodes and optimize each individually.
  - Otherwise, launch a **refinement segment with the selected MEP engine** between `End1` and `End2` to sharpen the barrier.
@@ -85,12 +84,10 @@ out_dir/ (default: ./result_path_search/)
 | `--dmf-backend [cpu\|gpu]` | DMF compute backend (`--mep-mode dmf` only): `gpu` (`dmf.torch`/CUDA) or `cpu` (`dmf`/NumPy). Retry `cpu` on a GPU out-of-memory error. Requires `pydmf>=1.2`. | `gpu` |
 | `--refine-mode [peak\|minima]` | HEI refinement seed rule. | `peak` for `gsm`, `minima` for `dmf` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
-| `--hess-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. Applied to movable MM atoms. | _None_ |
 | `--movable-cutoff FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. MM atoms beyond this are frozen. Providing `--movable-cutoff` disables `--detect-layer`. | _None_ |
 | `--max-nodes INT` | Movable internal images per GSM or DMF segment (`max_nodes + 2` total images). | `20` |
 | `--max-cycles INT` | Optimization-cycle budget for the selected MEP engine. | `300` |
 | `--climb/--no-climb` | Enable TS refinement for segment GSM. | `True` |
-| `--opt-mode [grad]` | Single-structure optimizer preset (currently `grad` = L-BFGS only; `hess` not yet wired). | `grad` |
 | `--preopt/--no-preopt` | Pre-optimize endpoints with L-BFGS before segmentation. | `True` |
 | `--align/--no-align` | After preoptimization, align inputs and, with frozen anchors, run freeze-guided scan/relaxation before re-matching freeze atoms. | `True` |
 | `--thresh TEXT` | Convergence preset for single-structure L-BFGS runs only (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | _None_ (effective: `gau`) |
@@ -104,8 +101,6 @@ out_dir/ (default: ./result_path_search/)
 | `--show-config/--no-show-config` | Print resolved configuration (including YAML layer metadata) and continue. | `False` |
 | `--dry-run/--no-dry-run` | Validate options and print the execution plan without running path search. Shown in `--help-advanced`. | `False` |
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
-| `--embedcharge/--no-embedcharge` | Unavailable in v0.3.3; the option is retained only to reject older commands explicitly. | `False` |
-| `--embedcharge-cutoff FLOAT` | Unavailable with the retired electronic-embedding path. | — |
 | `--cmap/--no-cmap` | Preserve CMAP in both REAL and MODEL MM layers. | `--cmap` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 

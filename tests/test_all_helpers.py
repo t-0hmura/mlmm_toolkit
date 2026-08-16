@@ -21,6 +21,7 @@ def test_element_fix_paths_do_not_collide_for_same_basename(tmp_path: Path) -> N
 import yaml
 
 from mlmm.workflows._all_helpers import (
+    append_backend_forwarding_args,
     build_dft_overrides,
     build_energy_level_dict,
     build_freq_overrides,
@@ -37,15 +38,46 @@ from mlmm.workflows._all_helpers import (
 )
 
 
-def _path_child_kwargs(*, include_opt_mode: bool) -> dict:
+def test_backend_forwarding_preserves_explicit_embedcharge_options() -> None:
+    argv: list[str] = []
+    append_backend_forwarding_args(
+        argv,
+        backend="orb",
+        embedcharge=True,
+        embedcharge_cutoff=8.0,
+        embedcharge_explicit=True,
+        link_atom_method=None,
+        mm_backend=None,
+        use_cmap=None,
+    )
+    assert argv == [
+        "--backend", "orb", "--embedcharge", "--embedcharge-cutoff", "8.0"
+    ]
+
+
+def test_backend_forwarding_does_not_override_yaml_embedcharge_default() -> None:
+    argv: list[str] = []
+    append_backend_forwarding_args(
+        argv,
+        backend=None,
+        embedcharge=False,
+        embedcharge_cutoff=None,
+        embedcharge_explicit=False,
+        link_atom_method=None,
+        mm_backend=None,
+        use_cmap=None,
+        args_yaml=Path("effective.yaml"),
+    )
+    assert argv == ["--config", "effective.yaml"]
+
+
+def _path_child_kwargs() -> dict:
     return {
-        "include_opt_mode": include_opt_mode,
         "mep_mode": "dmf",
         "dmf_backend": "cpu",
         "max_nodes": 31,
         "max_cycles": 47,
         "climb": False,
-        "opt_mode": "hess",
         "dump": False,
         "pre_opt": False,
         "convert_files": False,
@@ -71,7 +103,7 @@ _PATH_COMMON_CASES = (
 
 @pytest.mark.parametrize(
     ("parameter", "expected"),
-    _PATH_COMMON_CASES + (("opt_mode", ["--opt-mode", "hess"]),),
+    _PATH_COMMON_CASES,
 )
 def test_path_search_child_forwards_each_explicit_field_once(
     parameter: str,
@@ -79,7 +111,7 @@ def test_path_search_child_forwards_each_explicit_field_once(
 ) -> None:
     argv = build_path_child_argv(
         {parameter},
-        **_path_child_kwargs(include_opt_mode=True),
+        **_path_child_kwargs(),
     )
     assert argv == ["--mep-mode", "dmf", *expected]
     assert argv.count(expected[0]) == 1
@@ -92,23 +124,20 @@ def test_path_opt_child_forwards_each_explicit_field_once(
 ) -> None:
     argv = build_path_child_argv(
         {parameter},
-        **_path_child_kwargs(include_opt_mode=False),
+        **_path_child_kwargs(),
     )
     assert argv == ["--mep-mode", "dmf", *expected]
     assert argv.count(expected[0]) == 1
 
 
-def test_path_opt_explicitly_omits_unsupported_opt_mode() -> None:
+def test_path_children_omit_parent_opt_mode() -> None:
     assert build_path_child_argv(
         {"opt_mode"},
-        **_path_child_kwargs(include_opt_mode=False),
+        **_path_child_kwargs(),
     ) == ["--mep-mode", "dmf"]
 
 
-@pytest.mark.parametrize("include_opt_mode", [True, False])
-def test_path_defaults_leave_pipeline_owned_and_yaml_tokens_unchanged(
-    include_opt_mode: bool,
-) -> None:
+def test_path_defaults_leave_pipeline_owned_and_yaml_tokens_unchanged() -> None:
     pipeline_owned = [
         "-i",
         "state.pdb",
@@ -123,7 +152,7 @@ def test_path_defaults_leave_pipeline_owned_and_yaml_tokens_unchanged(
     ]
     argv = pipeline_owned + build_path_child_argv(
         set(),
-        **_path_child_kwargs(include_opt_mode=include_opt_mode),
+        **_path_child_kwargs(),
     )
     assert argv == [*pipeline_owned, "--mep-mode", "dmf"]
 
@@ -416,7 +445,6 @@ def test_all_dft_child_relays_success_stderr_without_forwarding_mlip_backend(
         False,
         tmp_path / "dft",
         None,
-        backend="uma",
     )
 
     assert "--backend" not in commands[0]
@@ -555,22 +583,23 @@ def test_all_injection_preserves_alias_only_calculator_values(tmp_path: Path) ->
         encoding="utf-8",
     )
 
-    effective = _inject_coord_type_into_args_yaml(
-        source,
-        None,
-        precision="fp64",
-        workers=3,
-        workers_per_node=2,
-        backend_model="explicit-model",
-    )
+    with pytest.warns(UserWarning, match="does not use UMA worker parallelism"):
+        effective = _inject_coord_type_into_args_yaml(
+            source,
+            None,
+            precision="fp64",
+            workers=3,
+            workers_per_node=2,
+            backend_model="explicit-model",
+        )
     assert effective is not None
     payload = yaml.safe_load(effective.read_text(encoding="utf-8"))
     assert payload["calc"]["backend"] == "orb"
     assert payload["calc"]["orb_model"] == "explicit-model"
     assert payload["calc"]["embedcharge"] is True
     assert payload["calc"]["orb_precision"] == "float64"
-    assert payload["calc"]["workers"] == 3
-    assert payload["calc"]["workers_per_node"] == 2
+    assert "workers" not in payload["calc"]
+    assert "workers_per_node" not in payload["calc"]
 
 
 @pytest.mark.parametrize(

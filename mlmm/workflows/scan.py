@@ -241,15 +241,6 @@ def _snapshot_geometry(g) -> Any:
     help="Comma-separated 1-based atom indices to freeze (e.g., '1,3,5').",
 )
 @click.option(
-    "--hess-cutoff",
-    "hess_cutoff",
-    type=float,
-    default=None,
-    show_default="all movable MM atoms",
-    help="Distance cutoff (Å) from ML region for MM atoms to include in Hessian calculation. "
-         "Applied to movable MM atoms and can be combined with --detect-layer.",
-)
-@click.option(
     "--movable-cutoff",
     "movable_cutoff",
     type=float,
@@ -284,14 +275,6 @@ def _snapshot_geometry(g) -> Any:
                   "Defaults to YAML bias.k (BIAS_KW['k']=300 in defaults.py) when omitted; "
                   "explicit CLI value overrides YAML."
               ))
-@click.option(
-    "--opt-mode",
-    type=click.Choice(["grad", "hess", "lbfgs", "rfo", "light", "heavy"], case_sensitive=False),
-    default=None,
-    show_default="lbfgs",
-    help="Compatibility option for mlmm all forwarding. "
-         "Scan relaxations always use L-BFGS; values other than grad/lbfgs/light emit a warning.",
-)
 @click.option(
     "--max-cycles",
     type=int,
@@ -377,7 +360,7 @@ def _snapshot_geometry(g) -> Any:
     "embedcharge",
     default=False,
     show_default=True,
-    help="Unavailable in v0.3.3; retained so older commands fail with an actionable diagnostic.",
+    help="Enable the experimental, computationally expensive xTB point-charge delta correction for MLIP/MM.",
 )
 @click.option(
     "--embedcharge-cutoff",
@@ -385,7 +368,7 @@ def _snapshot_geometry(g) -> Any:
     type=float,
     default=None,
     show_default="12.0",
-    help="Unavailable in v0.3.3 together with the retired electronic-embedding path.",
+    help="Distance cutoff (Å) from the ML region for MM point charges used by the xTB delta correction.",
 )
 @click.option(
     "--link-atom-method",
@@ -419,18 +402,6 @@ def _snapshot_geometry(g) -> Any:
 )
 @add_ml_layer_detection_options()
 @add_ml_charge_spin_options()
-@click.option(
-    "--coord-type",
-    "cli_coord_type",
-    type=click.Choice(["cart", "redund", "dlc", "tric"], case_sensitive=False),
-    default=None,
-    show_default="cart",
-    help=(
-        "Compatibility input for composite workflows. ML/MM restrained scan "
-        "relaxation always uses Cartesian coordinates; non-cart values are "
-        "accepted with a notice and resolved to cart."
-    ),
-)
 @add_print_every_option()
 @add_precision_option()
 @add_workers_options()
@@ -451,14 +422,12 @@ def cli(
     ligand_charge: Optional[str],
     spin: Optional[int],
     freeze_atoms_cli: Optional[str],
-    hess_cutoff: Optional[float],
     movable_cutoff: Optional[float],
     scan_lists_raw: Sequence[str],
     one_based: bool,
     print_parsed: bool,
     max_step_size: float,
     bias_k: Optional[float],
-    opt_mode: Optional[str],
     max_cycles: int,
     relax_max_cycles: Optional[int],
     dump: bool,
@@ -477,7 +446,6 @@ def cli(
     mm_backend: Optional[str],
     use_cmap: Optional[bool],
     out_json: bool,
-    cli_coord_type: Optional[str],
     print_every: Optional[int],
     precision: Optional[str],
     workers: Optional[int],
@@ -517,13 +485,6 @@ def cli(
         max_cycles = int(relax_max_cycles)
     if max_cycles <= 0:
         raise click.BadParameter("--max-cycles must be > 0.")
-    if opt_mode is not None and str(opt_mode).lower() not in {"lbfgs", "light", "grad"}:
-        click.echo(
-            f"[scan] NOTE: --opt-mode={opt_mode} is accepted for compatibility, "
-            "but scan relaxations use LBFGS.",
-            err=True,
-        )
-
     # Validate input format: PDB/mmCIF directly, or XYZ with --ref-pdb.
     suffix = input_path.suffix.lower()
     if suffix not in (".pdb", ".cif", ".mmcif", ".xyz"):
@@ -592,12 +553,6 @@ def cli(
             # over the ML/MM system is meaningless (it crashes poly_line_search
             # with a Cartesian/internal dimension mismatch); force Cartesian,
             # matching path-opt / path-search.
-            if cli_coord_type is not None and str(cli_coord_type).lower() != "cart":
-                click.echo(
-                    f"[scan] NOTE: --coord-type={cli_coord_type} is accepted for "
-                    "workflow compatibility, but restrained scan relaxation uses cart.",
-                    err=True,
-                )
             geom_cfg["coord_type"] = "cart"
 
             try:
@@ -675,13 +630,6 @@ def cli(
             if use_cmap is not None:
                 calc_cfg["use_cmap"] = use_cmap
 
-            from mlmm.core.embedcharge_policy import reject_retired_embedcharge_cli
-
-            reject_retired_embedcharge_cli(
-                calc_cfg,
-                cutoff_requested=_is_param_explicit("embedcharge_cutoff"),
-            )
-
             try:
                 model_pdb_path, layer_info = resolve_ml_layer_assignment(
                     source_path=source_path,
@@ -689,7 +637,7 @@ def cli(
                     model_pdb=model_pdb,
                     model_indices=model_indices,
                     detect_layer=detect_layer_effective,
-                    hess_cutoff=hess_cutoff,
+                    hess_cutoff=calc_cfg.get("hess_cutoff"),
                     movable_cutoff=movable_cutoff,
                     calc_cfg=calc_cfg,
                     protected_inputs=(

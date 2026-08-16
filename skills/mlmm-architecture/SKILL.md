@@ -22,9 +22,7 @@ mlmm/                              ← the package body, one folder per layer
 │               #      runtime dependency.
 ├── backends/   # L4a — MLIP backend dispatcher + ML/MM ONIOM calculator core
 │               #       (`mlmm_calc.py`, monolithic — UMA / Orb / MACE /
-│               #       AIMNet2 + OpenMM + hessian_ff coupling). The xTB
-│               #       embed-charge module is dormant compatibility code;
-│               #       v0.3.3 rejects public activation.
+│               #       AIMNet2 + OpenMM + hessian_ff coupling).
 ├── io/         # L4b — summary writer, energy diagram, trajectory plot,
 │               #       Hessian cache, analytical-Hessian glue, PDB altloc
 │               #       fix. (harmonic restraints live in workflows/restraints.py, L2)

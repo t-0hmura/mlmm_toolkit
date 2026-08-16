@@ -137,7 +137,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## Workflow
 
 1. **Input handling** — load the enzyme PDB, Amber topology, and ML-region definition. Resolve charge / spin. Frozen atoms from CLI and YAML are merged.
-2. **ML/MM calculator setup** — build the ML/MM calculator (MLIP backend + `hessian_ff`). `-b/--backend` selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). `--hessian-calc-mode` controls whether the ML backend evaluates Hessians analytically or by finite difference. v0.3.3 uses mechanical embedding and rejects electronic-embedding requests before construction.
+2. **ML/MM calculator setup** — build the ML/MM calculator (MLIP backend + `hessian_ff`). `-b/--backend` selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). `--hessian-calc-mode` controls whether the ML backend evaluates Hessians analytically or by finite difference.
 3. **Light mode (Hessian-Guided Dimer)** — the Dimer stage periodically refreshes the dimer direction by evaluating an exact Hessian in the active subspace. Its fixed constrained treatment removes only full-system rigid motions compatible with the frozen anchors. Every stored, rotated, and trial orientation has frozen Cartesian components set to zero, and every off-center force evaluation retains the central image's frozen coordinates exactly. The mechanics:
    - During the loose/final Dimer loops, the internal
      `mm_hessian_mode: none` policy intentionally uses high-level curvature
@@ -148,7 +148,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 4. **Heavy mode (RS-I-RFO)** — runs the RS-I-RFO optimizer with optional Hessian reference files and micro-cycle controls defined in the `rsirfo` YAML section. The flatten behavior:
    - With `--flatten`, when more than one imaginary mode remains after convergence the workflow flattens extra modes and reruns RS-I-RFO until only one imaginary mode remains or the flatten-iteration cap is reached.
    - Each flatten iteration recomputes a fresh ML/MM Hessian (active-coordinate block by default, or full per `--full-hessian-flatten`) for imaginary-mode detection. There is no Bofill update in this path.
-5. **Mode export + conversion** — final frequency analysis writes imaginary modes to `vib/imag_*_trj.xyz` and mirrors them to `.pdb` for PDB input when conversion is enabled. Modes below the configured 5 cm⁻¹ magnitude threshold are omitted from these animation files, but still count toward the number of imaginary modes. The optimization trajectory and final geometry are also converted to PDB via the input template when `--dump`.
+5. **Mode export + conversion** — final frequency analysis writes imaginary modes to `vib/imag_*_trj.xyz` and mirrors them to `.pdb` for PDB input when conversion is enabled. Modes below the configured 5 cm⁻¹ magnitude threshold are omitted from these animation files, but still count toward the number of imaginary modes. With PDB input and conversion enabled, the final geometry is converted to PDB independently; `--dump` additionally writes and converts the optimization trajectory.
 
 ## Outputs
 
@@ -215,8 +215,6 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--workers INT` | UMA predictor workers. Values greater than 1 require `fairchem-core[extras]` and cannot be combined with `Analytical`. | `1` |
 | `--workers-per-node INT` | Workers per node for the parallel UMA predictor. | _None_ |
 | `--allow-charge-mult-mismatch` | Skip ML-region charge/multiplicity electron-parity validation after emitting a warning. An open-shell ML region needs a matching multiplicity; use this only for an intentional nonstandard input. | off |
-| `--embedcharge / --no-embedcharge` | Unavailable in v0.3.3; use mechanical embedding (`--no-embedcharge`). | `False` |
-| `--embedcharge-cutoff FLOAT` | Unavailable with the retired electronic-embedding path. | — |
 | `--cmap / --no-cmap` | Preserve CMAP in both REAL and MODEL MM layers. | `--cmap` |
 | `--mm-backend [hessian_ff\|openmm]` | MM backend. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | Link-atom placement: scaled (g-factor) or fixed 1.09 / 1.01 Å. | `scaled` |

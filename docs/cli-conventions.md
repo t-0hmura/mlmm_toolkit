@@ -187,13 +187,12 @@ multi-character chains and residue numbers above 9,999.
 
 ## Backend selection
 
-All calc subcommands (`opt`, `sp`, `tsopt`, `freq`, `irc`, `dft`, `scan` / `scan2d` / `scan3d`, `path-opt`, `path-search`, `all`) accept:
+ML/MM calculator subcommands (`opt`, `sp`, `tsopt`, `freq`, `irc`,
+`scan` / `scan2d` / `scan3d`, `path-opt`, `path-search`, and `all`) accept:
 
 | Option | Description | Default |
 |---|---|---|
-| `-b, --backend` | MLIP backend: `uma`, `orb`, `mace`, `aimnet2`. On `dft` this is only the backend label recorded in the output metadata — the ML region is computed with DFT (PySCF/GPU4PySCF). | `uma` |
-| `--embedcharge` / `--no-embedcharge` | Compatibility tombstone. v0.3.3 supports mechanical embedding only; `--embedcharge` is rejected before calculation. | `--no-embedcharge` |
-| `--embedcharge-cutoff` | Compatibility tombstone for the retired electronic-embedding path; any explicit value is rejected. | unset |
+| `-b, --backend` | MLIP backend: `uma`, `orb`, `mace`, `aimnet2`. | `uma` |
 
 Install alternatives: `pip install "mlmm-toolkit[orb]"` / `"[aimnet]"` / `pip uninstall -y fairchem-core && pip install mace-torch` (MACE in a dedicated env; its `e3nn` pin conflicts with UMA).
 
@@ -227,11 +226,11 @@ Choices and defaults differ across subcommands.
 |---|---|---|---|---|
 | `opt` | `grad` (`light`, `lbfgs`) | `hess` (`heavy`, `rfo`) | `grad` | L-BFGS vs RFO (with optional `--microiter`). |
 | `tsopt` | `grad` (`light`, `dimer`) | `hess` (`heavy`; RS-I-RFO default, with RS-P-RFO / TRIM choices) | `hess` | Dimer vs Hessian-based TS optimizers. |
-| `path-search` | `grad` (= L-BFGS) | — (RFO/`hess` not yet wired) | `grad` | Inner optimizer for GSM / DMF nodes; `hess`/`rfo` rejected with a Click error. `path-opt` has no `--opt-mode` (use `--mep-mode gsm`/`dmf`). |
-| `scan` | `grad` (`lbfgs`/`light`) | — | — | `--opt-mode` is accepted only as a compatibility alias for L-BFGS; its settings come from the `opt` / `lbfgs` YAML sections. |
-| `scan2d` / `scan3d` | — | — | — | No `--opt-mode`; relaxation uses L-BFGS configured by the `opt` / `lbfgs` YAML sections. |
+| `all` | `grad` | `hess` | `grad` | Fallback for TSOPT and post-IRC endpoint optimization; `--opt-mode-post` takes precedence. |
 
 `light` / `heavy` are accepted as legacy aliases for `grad` / `hess` for backward compatibility; prefer `grad` / `hess` in new scripts.
+Scan and path-search stages use their fixed L-BFGS optimizers and do not accept
+`--opt-mode`.
 
 ### YAML precedence
 

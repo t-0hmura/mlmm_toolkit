@@ -77,7 +77,6 @@ out_dir/ (デフォルト:./result_scan3d/)
 | `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。 | _None_ |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 1 始まりカンマ区切りの凍結原子インデックス。 | _None_ |
-| `--hess-cutoff FLOAT` | ML 領域からの距離カットオフ (Å) — Hessian 計算に含める MM 原子を指定。`--detect-layer` と併用可能。 | _None_ |
 | `--movable-cutoff FLOAT` | ML 領域からの可動 MM 原子の距離カットオフ (Å)。指定すると `--detect-layer` が無効化されます。 | _None_ |
 | `-s, --scan-lists TEXT` | スキャンターゲット: YAML/JSON スペックファイルパス（自動検出、`pairs` に 3 つの 4 要素タプル）またはインライン Python リテラル。`i`/`j` は整数インデックスまたは PDB 原子セレクター。 | `--csv` 指定時を除き必須 |
 | `--csv FILE` | 事前計算済み `surface.csv` を読み込みスキャンなしでプロット生成。 | _None_ |
@@ -96,8 +95,6 @@ out_dir/ (デフォルト:./result_scan3d/)
 | `--zmin FLOAT` | アイソサーフェスカラーバンドの手動下限（kcal/mol）。 | 自動スケール |
 | `--zmax FLOAT` | アイソサーフェスカラーバンドの手動上限（kcal/mol）。 | 自動スケール |
 | `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`、`orb`、`mace`、`aimnet2`。 | `uma` |
-| `--embedcharge/--no-embedcharge` | v0.3.3 では使用不可。旧コマンドを明示的に拒否するためにのみ残されています。 | `False` |
-| `--embedcharge-cutoff FLOAT` | 廃止した電子埋め込み経路とともに使用不可。 | — |
 | `--cmap/--no-cmap` | REAL と MODEL の両 MM 層で CMAP を保持します。 | `--cmap` |
 | `--mm-backend [hessian_ff\|openmm]` | MM バックエンド。Hessian 構築法は `calc.mm_fd` が別に制御します（デフォルト `true`: 有限差分）。 | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | リンク原子の配置法: scaled（$g$ 因子）または固定 1.09/1.01 Å。 | `scaled` |

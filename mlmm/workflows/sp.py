@@ -43,14 +43,12 @@ from mlmm.core.utils import (
     prepare_input_structure,
     read_bfactors_from_pdb,
     resolve_ml_layer_assignment,
-    set_convert_file_enabled,
 )
 from mlmm.cli.common_options import (
     add_ml_layer_detection_options,
     add_precision_option, add_backend_model_option, add_calc_file_option,
     add_workers_options,
     add_deterministic_option, add_allow_charge_mult_mismatch_option,
-    add_print_every_option,
 )
 from mlmm.cli.decorators import (
     load_merged_yaml_cfg,
@@ -208,13 +206,13 @@ def _resolve_sp_ml_region(
     help="Comma-separated 1-based atom indices to freeze (e.g., '1,3,5').",
 )
 @click.option(
-    "--radius-partial-hessian", "--hess-cutoff", "hess_cutoff",
+    "--hess-cutoff", "hess_cutoff",
     type=float, default=None, show_default="all movable MM atoms",
     help="Distance cutoff (Å) from ML region for MM atoms to include in Hessian "
          "calculation. Applied to movable MM atoms; combinable with --detect-layer.",
 )
 @click.option(
-    "--radius-freeze", "--movable-cutoff", "movable_cutoff",
+    "--movable-cutoff", "movable_cutoff",
     type=float, default=None, show_default="use freeze_atoms",
     help="Distance cutoff (Å) from ML region for movable MM atoms. "
          "MM atoms beyond this are frozen.",
@@ -252,14 +250,6 @@ def _resolve_sp_ml_region(
     ),
 )
 @click.option(
-    "--convert-files/--no-convert-files", "convert_files",
-    default=True, show_default=True,
-    help=(
-        "Accepted for cross-command compatibility. The sp command writes "
-        "array results and has no structure trajectory to convert."
-    ),
-)
-@click.option(
     "--config", "config_yaml",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     default=None, help="YAML config file with sections (calc:, geom:, …).",
@@ -285,12 +275,12 @@ def _resolve_sp_ml_region(
 @click.option(
     "--embedcharge/--no-embedcharge", "embedcharge",
     default=False, show_default=True,
-    help="Unavailable in v0.3.3; retained so older commands fail with an actionable diagnostic.",
+    help="Enable the experimental, computationally expensive xTB point-charge delta correction for MLIP/MM.",
 )
 @click.option(
     "--embedcharge-cutoff", "embedcharge_cutoff",
     type=float, default=None, show_default="12.0",
-    help="Unavailable in v0.3.3 together with the retired electronic-embedding path.",
+    help="Distance cutoff (Å) from the ML region for MM point charges used by the xTB delta correction.",
 )
 @click.option(
     "--link-atom-method", "link_atom_method",
@@ -309,11 +299,6 @@ def _resolve_sp_ml_region(
     default=None, show_default="cmap",
     help="Preserve CMAP terms in both real and model MM layers. Default: enabled when present in parm7.",
 )
-@click.option(
-    "--use-cmap/--no-use-cmap", "use_cmap_legacy",
-    default=None, show_default="inherits --cmap", hidden=True,
-    help="Legacy alias for --cmap/--no-cmap. Prefer --cmap.",
-)
 @add_ml_layer_detection_options()
 @add_precision_option()
 @add_workers_options()
@@ -321,7 +306,6 @@ def _resolve_sp_ml_region(
 @add_calc_file_option()
 @add_deterministic_option()
 @add_allow_charge_mult_mismatch_option()
-@add_print_every_option()
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -341,7 +325,6 @@ def cli(
     out_dir: str,
     do_hess: bool,
     hessian_calc_mode: Optional[str],
-    convert_files: bool,
     config_yaml: Optional[Path],
     show_config: bool,
     dry_run: bool,
@@ -352,22 +335,15 @@ def cli(
     link_atom_method: Optional[str],
     mm_backend: Optional[str],
     use_cmap: Optional[bool],
-    use_cmap_legacy: Optional[bool],
     precision: Optional[str],
     workers: Optional[int],
     workers_per_node: Optional[int],
     backend_model: Optional[str],
     calc_file: Optional[str],
     calc_factory: Optional[str],
-    print_every: Optional[int],
 ) -> None:
     """Compute a single-point ML/MM ONIOM energy + forces (and optionally Hessian)."""
-    set_convert_file_enabled(convert_files)
     _is_param_explicit = make_is_param_explicit(ctx)
-    # Legacy alias resolution: --use-cmap/--no-use-cmap → --cmap/--no-cmap.
-    # If the canonical flag was not given, fall back to the legacy alias value.
-    if use_cmap is None and use_cmap_legacy is not None:
-        use_cmap = use_cmap_legacy
 
     config_yaml, _override, _legacy = resolve_yaml_sources(
         config_yaml=config_yaml, override_yaml=None, args_yaml_legacy=None,
@@ -439,17 +415,6 @@ def cli(
             if _is_param_explicit("precision") and precision is not None
             else None,
         )
-        # --print-every is an optimizer-progress knob and `sp` runs no optimizer. It must not go
-        # into calc_cfg: that dict is splatted into ``mlmm(**calc_cfg)`` below and pysisyphus'
-        # Calculator.__init__ takes no **kwargs, so an unknown key aborts the run with a bare
-        # TypeError. The option stays accepted (shared decorator), but say so rather than
-        # dropping an explicit request silently.
-        if _is_param_explicit("print_every") and print_every is not None:
-            click.echo(
-                "[sp] NOTE: --print-every has no effect on sp (no optimizer runs); ignoring it.",
-                err=True,
-            )
-
         # SP-specific CLI overrides
         if _is_param_explicit("out_dir"):
             sp_cfg["out_dir"] = out_dir
@@ -497,13 +462,6 @@ def cli(
             Path(calc_cfg["calc_file"]) if calc_cfg.get("calc_file") else None,
         )
         _reject_sp_output_collisions(out_dir_path, protected_inputs)
-
-        from mlmm.core.embedcharge_policy import reject_retired_embedcharge_cli
-
-        reject_retired_embedcharge_cli(
-            calc_cfg,
-            cutoff_requested=_is_param_explicit("embedcharge_cutoff"),
-        )
 
         if show_config:
             click.echo(yaml.safe_dump(

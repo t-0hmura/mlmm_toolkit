@@ -1,17 +1,13 @@
-"""Dormant xTB embedding implementation retained for compatibility tests.
+"""Experimental xTB point-charge correction for ML/MM calculations.
 
-The retained implementation computes:
+The implementation computes:
 
     dE = E_xTB(QM + MM_charges) - E_xTB(QM_only)
     dF_Q = F_Q(embed) - F_Q(no-embed)
     dF_M = F_M(embed) - 0
 
-where Q are QM/ML atoms and M are external MM point charges.
-
-Public activation is rejected in v0.3.3. Adding the term to the subtractive
-mechanical-embedding expression double-counts ML--MM electrostatics, and this
-uncapped xTB model is inconsistent with the link-H high-level model. The
-implicit-solvent ALPB correction is a separate supported physics path.
+where Q are ML atoms and M are external MM point charges. The correction is
+optional, experimental, and disabled by default.
 """
 
 from __future__ import annotations

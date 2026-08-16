@@ -45,7 +45,6 @@ core = MLMMCore(
     model_charge=0,
     model_mult=1,
     backend="uma",               # uma | orb | mace | aimnet2
-    embedcharge=False,           # v0.3.3 では false 固定
     return_partial_hessian=True, # 部分Hessian（ML領域のみ）
 )
 ```
@@ -60,7 +59,6 @@ core = MLMMCore(
 | `model_charge` | `int` | `0` | ML領域の電荷 |
 | `model_mult` | `int` | `1` | スピン多重度 |
 | `backend` | `str` | `"uma"` | MLIPバックエンド |
-| `embedcharge` | `bool` | `False` | 互換性用。v0.3.3 では `True` を指定すると allocation 前に例外 |
 | `mm_backend` | `str` | `"hessian_ff"` | MMエンジン（`hessian_ff`または`openmm`） |
 | `return_partial_hessian` | `bool` | `True` | 部分 Hessian（ML + 境界）を返す |
 | `link_mlmm` | `list[tuple[str, str]]` | `None` | 手動境界ペア。各 tuple は `(ML 側, MM 側)` の順。`None` は距離ではなく supplied parm7 の全 crossing bond から自動導出 |

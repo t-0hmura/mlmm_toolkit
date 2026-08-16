@@ -43,7 +43,7 @@ mlmm opt -i system_layered.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## Workflow
 
 1. **Input handling** -- The tool accepts `-i/--input` as a PDB or XYZ file (use `--ref-pdb` with XYZ inputs). The optimizer reads coordinates from this PDB via `pysisyphus.helpers.geom_loader`. ML/MM layer definitions come from `--model-pdb`, `--model-indices`, or `--detect-layer` (B-factor encoding: B=0 ML, B=10 Movable-MM, B=20 Frozen).
-2. **ML/MM calculator setup** -- Build the ML/MM calculator (MLIP backend + hessian_ff). The `-b/--backend` option selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). `--parm` provides Amber MM topology; `--model-pdb` defines the ML region. v0.3.3 uses mechanical embedding; electronic-embedding requests are rejected before calculator construction.
+2. **ML/MM calculator setup** -- Build the ML/MM calculator (MLIP backend + hessian_ff). The `-b/--backend` option selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). `--parm` provides Amber MM topology; `--model-pdb` defines the ML region.
 3. **Optimization** -- The optimizer runs in the selected `--opt-mode` (`grad` = L-BFGS, `hess` = RFOptimizer); see the CLI options table for the accepted aliases.
    - `--flatten` enables post-optimization flattening of imaginary modes. All detected imaginary modes are flattened each iteration until none remain or the internal loop cap is reached.
 4. **Restraints** -- Optional harmonic distance restraints via `--dist-freeze` / `--bias-k` (see CLI options).
@@ -82,10 +82,10 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives net charge when `-q` is omitted. Requires PDB input or `--ref-pdb`. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze. | _None_ |
-| `--radius-freeze FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. Atoms beyond this are frozen. Providing this disables `--detect-layer`. Alias: `--movable-cutoff`. | _None_ |
-| `--radius-partial-hessian, --hess-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms included in Hessian calculation. Combinable with `--detect-layer`. | _None_ |
+| `--movable-cutoff FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. Atoms beyond this are frozen. Providing this disables `--detect-layer`. | _None_ |
+| `--hess-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms included in Hessian calculation. Combinable with `--detect-layer`. | _None_ |
 | `--mm-backend [hessian_ff\|openmm]` | MM backend. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |
-| `--mm-only / --no-mm-only` | Skip the MLIP component and minimize on the MM force field only. Layers are still honored via B-factor / `--radius-freeze`; only `--opt-mode grad` is supported in this mode and microiteration is disabled automatically. Suited to fast MM pre-relaxation before ML/MM ONIOM optimization. | `False` |
+| `--mm-only / --no-mm-only` | Skip the MLIP component and minimize on the MM force field only. Layers are still honored via B-factor / `--movable-cutoff`; only `--opt-mode grad` is supported in this mode and microiteration is disabled automatically. Suited to fast MM pre-relaxation before ML/MM ONIOM optimization. | `False` |
 | `--link-atom-method [scaled\|fixed]` | Link-atom placement: scaled ($g$-factor) or fixed 1.09/1.01 Å. | `scaled` |
 | `--out-json/--no-out-json` | Write machine-readable `result.json` to `out_dir`. | `False` |
 | `--dist-freeze TEXT` | Python-literal `(i, j, target_A)` tuples for harmonic restraints (inline literal or YAML/JSON file path); omit `target_A` to restrain the starting distance. | _None_ |
@@ -103,8 +103,6 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--config FILE` | Base YAML configuration file. | _None_ |
 | `--show-config/--no-show-config` | Print resolved YAML layer information before execution. | `False` |
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma`, `orb`, `mace`, `aimnet2`. | `uma` |
-| `--embedcharge/--no-embedcharge` | Unavailable in v0.3.3; the option is retained only to reject older commands explicitly. | `False` |
-| `--embedcharge-cutoff FLOAT` | Unavailable with the retired electronic-embedding path. | — |
 | `--cmap/--no-cmap` | Preserve CMAP in both REAL and MODEL MM layers. | `--cmap` |
 | `--dry-run/--no-dry-run` | Validate options and print execution plan without running optimization. Shown in `--help-advanced`. | `False` |
 

@@ -28,11 +28,6 @@ Options:
                                   pdb is omitted.
   --freeze-atoms TEXT             Comma-separated 1-based atom indices to freeze
                                   (e.g., '1,3,5').
-  --hess-cutoff FLOAT             Distance cutoff (Å) from ML region for MM
-                                  atoms to include in Hessian calculation.
-                                  Applied to movable MM atoms and can be
-                                  combined with --detect-layer.  [default: (all
-                                  movable MM atoms)]
   --movable-cutoff FLOAT          Distance cutoff (Å) from ML region for movable
                                   MM atoms. MM atoms beyond this are frozen.
                                   Providing --movable-cutoff disables --detect-
@@ -53,11 +48,6 @@ Options:
                                   YAML bias.k (BIAS_KW['k']=300 in defaults.py)
                                   when omitted; explicit CLI value overrides
                                   YAML.  [default: (300.0)]
-  --opt-mode [grad|hess|lbfgs|rfo|light|heavy]
-                                  Compatibility option for mlmm all forwarding.
-                                  Scan relaxations always use L-BFGS; values
-                                  other than grad/lbfgs/light emit a warning.
-                                  [default: (lbfgs)]
   --max-cycles INTEGER            Maximum L-BFGS cycles per biased step and per
                                   (pre|end)opt stage.  [default: 10000]
   --relax-max-cycles INTEGER      Compatibility alias of --max-cycles (overrides
@@ -93,12 +83,12 @@ Options:
                                   ML backend for the ONIOM high-level region
                                   (default: uma).  [default: (uma)]
   --embedcharge / --no-embedcharge
-                                  Unavailable in v0.3.3; retained so older
-                                  commands fail with an actionable diagnostic.
-                                  [default: no-embedcharge]
-  --embedcharge-cutoff FLOAT      Unavailable in v0.3.3 together with the
-                                  retired electronic-embedding path.  [default:
-                                  (12.0)]
+                                  Enable the experimental, computationally
+                                  expensive xTB point-charge delta correction
+                                  for MLIP/MM.  [default: no-embedcharge]
+  --embedcharge-cutoff FLOAT      Distance cutoff (Å) from the ML region for MM
+                                  point charges used by the xTB delta
+                                  correction.  [default: (12.0)]
   --link-atom-method [scaled|fixed]
                                   Link-atom position mode: scaled (g-factor,
                                   default) or fixed (legacy 1.09/1.01 Å).
@@ -133,12 +123,6 @@ Options:
                                   Spin multiplicity (2S+1) for the ML region.
                                   Defaults to 1 when omitted.  [default: (1);
                                   x>=1]
-  --coord-type [cart|redund|dlc|tric]
-                                  Compatibility input for composite workflows.
-                                  ML/MM restrained scan relaxation always uses
-                                  Cartesian coordinates; non-cart values are
-                                  accepted with a notice and resolved to cart.
-                                  [default: (cart)]
   --print-every INTEGER RANGE     Print optimizer status every N cycles (debug
                                   knob).  [default: (100); x>=1]
   --precision [fp32|fp64]         MLIP backend precision: fp32 or fp64. Unset

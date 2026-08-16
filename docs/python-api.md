@@ -46,7 +46,6 @@ core = MLMMCore(
     model_charge=0,
     model_mult=1,
     backend="uma",               # uma | orb | mace | aimnet2
-    embedcharge=False,           # Must remain false in v0.3.3
     return_partial_hessian=True, # partial Hessian (ML region only)
 )
 ```
@@ -61,7 +60,6 @@ core = MLMMCore(
 | `model_charge` | `int` | `0` | Net charge of the ML region. The constructor logs the resolved ML-region net charge at INFO level so you can verify it matches your expectation for charged systems. |
 | `model_mult` | `int` | `1` | Spin multiplicity of the ML region |
 | `backend` | `str` | `"uma"` | MLIP backend |
-| `embedcharge` | `bool` | `False` | Compatibility argument; `True` raises before allocation in v0.3.3 |
 | `mm_backend` | `str` | `"hessian_ff"` | MM engine (`hessian_ff` or `openmm`) |
 | `return_partial_hessian` | `bool` | `True` | If `True`, `compute()` returns a 4D `(n_active, 3, n_active, 3)` sub-Hessian plus a `within_partial_hessian` metadata dict (active-atom indices, DOF maps). If `False`, returns the expanded 4D `(N, 3, N, 3)` full-system Hessian. |
 | `link_mlmm` | `List[Tuple[str, str]]` | `None` | Manual link-atom pairs as `[("RESN RESID ATOMNAME", "RESN RESID ATOMNAME"), ...]` (first = ML-side, second = MM-side, e.g. `[("SAM 359 CA", "SAM 359 N")]`). `None` = derive every crossing bond from the supplied parm7 topology (not from distance). |
