@@ -9,9 +9,9 @@ Key terms in mlmm-toolkit — the ML/MM 3-layer system, ONIOM decomposition, seg
 Most workflows follow this sequence:
 
 ```text
-Full system(s) (PDB/XYZ)
+Full system(s) (PDB/mmCIF/XYZ)
  |
- +- ML region definition [extract] <- requires PDB when you use --center/-c
+ +- ML region definition [extract] <- requires PDB or mmCIF with --center/-c
  | |
  | ML region structure(s) (PDB)
  | |
@@ -81,10 +81,10 @@ where:
 - **REAL** = the full system (all atoms)
 - **MODEL** = the ML region (subset of atoms)
 - **high** = the selected MLIP backend (default: UMA; ORB, MACE, AIMNet2 also supported)
-- **low** = hessian_ff (Amber-based classical force field)
+- **low** = the selected MM backend (`hessian_ff` by default; OpenMM is the alternative)
 
 This means:
-1. The **full system** is evaluated at the MM level (hessian_ff).
+1. The **full system** is evaluated with the selected MM backend.
 2. The **ML region** is evaluated at both the MLIP level and the MM level.
 3. The MM contribution of the ML region is subtracted to avoid double-counting.
 
@@ -97,7 +97,7 @@ The MLIP backend is selected via `-b/--backend` (default: `uma`). `orb` installs
 | Aspect | Conventional QM/MM | mlmm-toolkit ML/MM |
 |--------|-------------------|---------------------|
 | High-level method | DFT, HF, post-HF | MLIP (UMA, ORB, MACE, AIMNet2) |
-| Low-level method | OpenMM / Amber | hessian_ff (C++ native extension) |
+| Low-level method | OpenMM / Amber | hessian_ff (default) / OpenMM |
 | Link atoms | Usually required | Automatically generated at covalent boundaries |
 | Embedding | Electrostatic embedding is common | Mechanical embedding |
 | Speed | Slow (QM is bottleneck) | Fast (ML inference on GPU) |
@@ -230,13 +230,14 @@ ML region definition is controlled by:
 
 There are two ways to define the ML region:
 
-- **Automatic extraction** (`-c/--center`): `extract` / `all`
-  truncate the backbone at the Cα–Cβ boundary and **derive** the model charge
+- **Automatic extraction** (`-c/--center`): `extract` / `all` retain side chains
+  for isolated residues and internal backbone atoms for continuous stretches;
+  terminal caps are removed. They **derive** the model charge
   from the residues, `--modified-residue`,
   and `-l/--ligand-charge`. Use `--modified-residue NAME:charge` for an unregistered
   nonstandard amino acid; a known catalog residue may omit `:charge` and retains its
   catalog value. Use `-l NAME:charge` for ligands. An explicit `-q` is then unnecessary.
-  `--exclude-backbone` is an independent, default-off truncation option.
+  `--exclude-backbone` independently removes non-substrate backbone atoms.
 - **Manual** (`--model-pdb` + `--parm`): you supply the ML-atom selection yourself and
   set the model charge explicitly with `-q`. This is the safer choice when you have
   hand-edited atoms (custom truncation, protonation / charge changes) that automatic

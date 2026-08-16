@@ -128,8 +128,8 @@ pass the file to a stage or to `all` (it selects the `custom` ML backend,
 overriding `--backend`):
 
     mlmm sp    -i complex.pdb --parm system.parm7 --calc-file my_calc.py -q 0 -m 1
-    mlmm opt   -i complex.pdb --parm system.parm7 --calc-file my_calc.py
-    mlmm freq  -i complex.pdb --parm system.parm7 --calc-file my_calc.py
+    mlmm opt   -i complex.pdb --parm system.parm7 --calc-file my_calc.py -q 0 -m 1
+    mlmm freq  -i complex.pdb --parm system.parm7 --calc-file my_calc.py -q 0 -m 1
     mlmm all   -i R.pdb P.pdb --parm system.parm7 --calc-file my_calc.py -q 0 -m 1
 
 Notes:

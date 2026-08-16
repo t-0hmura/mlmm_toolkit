@@ -247,7 +247,7 @@ def _parse_label_x(tokens: Sequence[str]) -> List[str]:
     type=str,
     default="ΔE (kcal/mol)",
     show_default=True,
-    help="Y-axis label.",
+    help="Y-axis label; values are plotted unchanged, so units must match.",
 )
 @click.option(
     "--out-json/--no-out-json",

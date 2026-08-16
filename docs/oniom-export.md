@@ -6,7 +6,7 @@ Both export modes require a CMAP-free `parm7`. Gaussian ONIOM cannot
 represent these terms faithfully, and ORCA's MM engine does not apply them;
 the exporter therefore fails before writing when the topology contains CMAP.
 This is an export-format limitation—normal mlmm calculations may keep CMAP
-enabled in both MM layers.
+enabled in both MM layers. See [CMAP-free preparation](mm-parm.md#cmap-free-topology-for-oniom-export).
 
 ## Examples
 

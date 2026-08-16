@@ -49,7 +49,7 @@ summary.json  # byte-identical compatibility mirror after a successful --out-jso
 | `-i, --input TEXT...` | Numeric values (multiple args or list-like string). | Required |
 | `-o, --output PATH` | Output image path (`.png/.jpg/.jpeg/.svg/.pdf`). | `energy_diagram.png` |
 | `--label-x TEXT...` | X-axis state labels. Count must match input value count. | `S1, S2,...` |
-| `--label-y TEXT` | Y-axis label. | `ΔE (kcal/mol)` |
+| `--label-y TEXT` | Y-axis label; values are plotted unchanged, so units must match. | `ΔE (kcal/mol)` |
 | `--out-json / --no-out-json` | Write authoritative `result.json` and its identical `summary.json` mirror next to the image. | `--no-out-json` |
 
 The full flag list is in the generated [command reference](reference/commands/index.md).

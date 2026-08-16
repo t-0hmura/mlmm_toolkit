@@ -65,10 +65,11 @@ the order of known elements before assigning coordinates and stops on a proven
 mismatch. This guard cannot distinguish atoms with the same element, so retain
 names, residue IDs, chains, and atom order when preparing R/IM/P structures.
 
-Generate or reuse one topology for the shared atom ordering:
+For this manual route, first export a topology-ready PDB externally without
+changing atom order or elements:
 
 ```bash
-mlmm mm-parm -i reactant_internal.pdb -l 'SAM:1,GPP:-3' \
+mlmm mm-parm -i reactant_topology.pdb -l 'SAM:1,GPP:-3' \
     --out-prefix full_system
 mlmm all -i reactant.cif product.cif --parm full_system.parm7 \
     -c 'enzyme_A:SAM:10001,enzyme_A:GPP:10002' \

@@ -1957,7 +1957,7 @@ end
     "--mode",
     type=click.Choice(["g16", "orca"], case_sensitive=False),
     default=None,
-    show_default="inferred from the input suffix",
+    show_default="inferred from the output suffix",
     help="Export mode. If omitted, inferred from -o suffix: .gjf/.com -> g16, .inp -> orca.",
 )
 @click.option(

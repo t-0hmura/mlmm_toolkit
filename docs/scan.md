@@ -181,7 +181,7 @@ Quoting rules:
 -s "[(\"TYR,285,CA\",\"MMT,309,C10\",1.35)]"
 ```
 
-Pass multiple literals after a single `-s/--scan-lists` flag. Each literal becomes one stage:
+Example with two stages:
 
 ```bash
 # Stage 1: drive one bond to 1.35 Å
@@ -191,7 +191,7 @@ Pass multiple literals after a single `-s/--scan-lists` flag. Each literal becom
  '[("TYR,285,CA","MMT,309,C10",2.20),("TYR,285,CB","MMT,309,C11",1.80)]'
 ```
 
-Stages run sequentially; each starts from the previous stage's relaxed result. **Do not repeat the `-s/--scan-lists` flag** -- supply all stage literals after a single flag.
+Each stage starts from the previous stage's relaxed result.
 
 **Concerted versus staged scans**
 

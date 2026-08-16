@@ -72,10 +72,10 @@ Per-stage ML membership resolves in this order:
 3. Input PDB B-factor ML atoms under the default `--detect-layer`, when no
    explicit membership is supplied.
 
-With explicit ML membership, automatic detection still uses valid input
-B-factors continue to define the movable/frozen MM layers; they do not replace
-the explicit ML atom set. A B-factor partition must contain at least one ML atom
-and one MM atom; an all-zero PDB is not treated as a layer assignment.
+With explicit ML membership, valid input B-factors still define the
+movable/frozen MM layers; they do not replace the explicit ML atom set. A
+B-factor partition must contain at least one ML atom and one MM atom; an
+all-zero PDB is not treated as a layer assignment.
 
 ```bash
 mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1

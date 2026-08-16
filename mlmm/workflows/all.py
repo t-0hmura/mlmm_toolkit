@@ -3347,7 +3347,6 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @click.option(
     "-c", "--center", "center_spec",
     type=str, required=False, default=None,
-    show_default="the dft command's own default",
     help=("Substrate specification for the extractor: "
           "a PDB path, a residue-ID list like '123,124' or 'A:123,B:456' "
           "(insertion codes OK: '123A' / 'A:123A'), "

@@ -67,6 +67,15 @@ mlmm define-layer -i system.pdb --model-pdb model.pdb -o system_layered.pdb
 
 The full flag list is in the generated [command reference](reference/commands/index.md).
 
+## CMAP-free topology for `oniom-export`
+
+Use ff14SB and confirm that the resulting topology has no CMAP terms:
+
+```bash
+mlmm mm-parm -i input.pdb -l 'LIG:0' --ff-set ff14SB --out-prefix system
+python -c "import parmed as pmd; p=pmd.load_file('system.parm7'); assert not p.cmaps"
+```
+
 ## Notes
 
 `mm-parm` relies on AmberTools tleap with GAFF2 automatic parameterization and works well when the substrate is a **typical organic molecule**. For the following cases, it is strongly recommended to prepare your own topology externally (e.g. with tleap, MCPB.py, or glycam.org tools) and supply it via the `--parm` flag of each subcommand:

@@ -7,21 +7,18 @@
 Default PNG, relative energy with respect to the first frame:
 
 ```bash
-# Default PNG, relative energy with respect to the first frame
 mlmm trj2fig -i traj.xyz
 ```
 
 CSV + SVG with reference frame #5, reported in Hartree:
 
 ```bash
-# CSV + SVG with reference frame #5, reported in Hartree
 mlmm trj2fig -i traj.xyz -o energy.csv energy.svg -r 5 --unit hartree
 ```
 
 Multiple outputs in one run with x-axis reversed:
 
 ```bash
-# Multiple outputs in one run with x-axis reversed
 mlmm trj2fig -i traj.xyz -o energy.png energy.html energy.pdf --reverse-x
 ```
 

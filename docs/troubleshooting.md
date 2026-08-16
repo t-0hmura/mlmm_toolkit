@@ -11,7 +11,7 @@ Before a long run, verify:
 - Your input PDB(s) contain hydrogens and element symbols.
 - When you pass multiple PDBs, they share the same atoms in the same order.
 - `tleap` is on `$PATH` (required by `mm-parm`).
-- The `hessian_ff` C++ native extension built successfully (rebuild with `cd hessian_ff/native && make` if the auto-build failed).
+- The `hessian_ff` C++ extension imports; see [hessian_ff build/import](#hessian_ff-build--import).
 
 ---
 

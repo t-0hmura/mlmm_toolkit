@@ -114,10 +114,6 @@ if has_altloc(Path("input.pdb")):
 
 The full flag list is in the generated [command reference](reference/commands/index.md).
 
-## Notes
-
-- Files with no altLoc characters are skipped unless `--force` is set.
-
 ## See Also
 
 - [Common Error Recipes](recipes-common-errors.md) — Symptom-first failure routing

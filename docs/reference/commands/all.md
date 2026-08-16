@@ -30,7 +30,6 @@ Options:
                                   'A:123A'), or a residue-name list like
                                   'GPP,MMT'. When omitted, extraction is skipped
                                   and full structures are used directly.
-                                  [default: (the dft command's own default)]
   -o, --out-dir DIRECTORY         Top-level output directory for the pipeline.
                                   [default: result_all]
   -r, --radius FLOAT              Inclusion cutoff (Å) around substrate atoms.

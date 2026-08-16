@@ -21,7 +21,8 @@ Options:
                               --label-x (--label-x R --label-x TS --label-x P),
                               or a single list-like string (--label-x
                               "['R','TS','P']").
-  --label-y TEXT              Y-axis label.  [default: ΔE (kcal/mol)]
+  --label-y TEXT              Y-axis label; values are plotted unchanged, so
+                              units must match.  [default: ΔE (kcal/mol)]
   --out-json / --no-out-json  Write machine-readable result.json next to the
                               output image.  [default: no-out-json]
   -h, --help                  Show this message and exit.
