@@ -43,7 +43,7 @@ Provided functionality (concise):
         apply the transform to all atoms; RMSD reported on the Kabsch selection.
     Returns: dict(before_A, after_A, n_used, mode) with RMSD in Å and mode ∈ {"one_anchor","two_anchor","kabsch"}.
 - scan_freeze_atoms_toward_target_inplace(
-      g_ref, g_mob, *, step_A=0.1, per_step_cycles=50, final_cycles=200, max_steps=1000,
+      g_ref, g_mob, *, step_A=0.1, per_step_cycles=1000, final_cycles=10000, max_steps=100,
       shared_calc=None, out_dir=Path("./result_align_refine/"), thresh="gau", verbose=True)
     Moves `g_mob.freeze_atoms` toward `g_ref` by `step_A` Å per iteration. At each step the frozen atoms
     are held fixed and the surroundings are relaxed with LBFGS. When the maximum remaining distance is
@@ -51,13 +51,13 @@ Provided functionality (concise):
     Returns: dict(max_remaining_A, n_steps, converged).
 - align_and_refine_pair_inplace(
       g_ref, g_mob, *, shared_calc=None, out_dir=Path("./result_align_refine/"),
-      step_A=0.1, per_step_cycles=50, final_cycles=200, max_steps=1000,
+      step_A=0.1, per_step_cycles=1000, final_cycles=10000, max_steps=100,
       thresh="gau", verbose=True)
     High-level pair API: (1) rigid alignment, then (2) scan + relaxation toward the reference.
     Returns: {"align": {...}, "scan": {...}}.
 - align_and_refine_sequence_inplace(
       geoms, *, shared_calc=None, out_dir=Path("./result_align_refine/"),
-      step_A=0.1, per_step_cycles=1000, final_cycles=1000, max_steps=10000,
+      step_A=0.1, per_step_cycles=1000, final_cycles=10000, max_steps=100,
       thresh="gau", verbose=True)
     Applies the pair procedure along [g0, g1, g2, ...] as (g0←g1), (g1←g2), ... and returns a list of per-pair results.
 
