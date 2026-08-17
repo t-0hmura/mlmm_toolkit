@@ -19,7 +19,7 @@ import warnings
 import shutil
 import tempfile
 import time
-from contextlib import nullcontext
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 from concurrent.futures import ThreadPoolExecutor
@@ -1041,6 +1041,37 @@ class _CustomBackend(_ASEMLBackend):
         self._model_mult = model_mult
 
 
+_ANNOUNCED_MODEL_LOADS: set = set()
+
+
+@contextmanager
+def _announce_model_load(backend: str, model: str):
+    """Bracket the first load of each model so a download cannot look like a hang.
+
+    Weight downloads happen inside the backend constructor with no output of
+    their own, so a first run appears frozen. Announcing the load and confirming
+    it distinguishes "still fetching" from "already cached" without inspecting
+    another library's cache layout.
+    """
+    from mlmm.core.output import emit
+
+    model = str(model or "").strip()
+    key = (backend, model)
+    if key in _ANNOUNCED_MODEL_LOADS:
+        yield
+        return
+    _ANNOUNCED_MODEL_LOADS.add(key)
+    label = f"{backend}{f' / {model}' if model else ''}"
+    emit(f"[backend] Preparing MLIP model ({label})...", narrative=True)
+    try:
+        yield
+    except BaseException:
+        # A load that raised was never completed; a retry must announce again.
+        _ANNOUNCED_MODEL_LOADS.discard(key)
+        raise
+    emit("[backend] Done.", narrative=True)
+
+
 def _create_ml_backend(
     backend: str,
     *,
@@ -1086,39 +1117,43 @@ def _create_ml_backend(
             "kernels outside mlmm-toolkit's control."
         )
     if backend == "uma":
-        return _UMABackend(
-            uma_model=uma_model,
-            uma_task_name=uma_task_name,
-            model_charge=model_charge,
-            model_mult=model_mult,
-            ml_device=ml_device,
-            precision=uma_precision,
-            workers=workers,
-            workers_per_node=workers_per_node,
-        )
+        with _announce_model_load(backend, uma_model):
+            return _UMABackend(
+                uma_model=uma_model,
+                uma_task_name=uma_task_name,
+                model_charge=model_charge,
+                model_mult=model_mult,
+                ml_device=ml_device,
+                precision=uma_precision,
+                workers=workers,
+                workers_per_node=workers_per_node,
+            )
     elif backend == "orb":
-        return _OrbBackend(
-            orb_model=orb_model,
-            orb_precision=orb_precision,
-            model_charge=model_charge,
-            model_mult=model_mult,
-            ml_device=ml_device,
-        )
+        with _announce_model_load(backend, orb_model):
+            return _OrbBackend(
+                orb_model=orb_model,
+                orb_precision=orb_precision,
+                model_charge=model_charge,
+                model_mult=model_mult,
+                ml_device=ml_device,
+            )
     elif backend == "mace":
-        return _MACEBackend(
-            mace_model=mace_model,
-            mace_dtype=mace_dtype,
-            model_charge=model_charge,
-            model_mult=model_mult,
-            ml_device=ml_device,
-        )
+        with _announce_model_load(backend, mace_model):
+            return _MACEBackend(
+                mace_model=mace_model,
+                mace_dtype=mace_dtype,
+                model_charge=model_charge,
+                model_mult=model_mult,
+                ml_device=ml_device,
+            )
     elif backend == "aimnet2":
-        return _AIMNet2Backend(
-            aimnet2_model=aimnet2_model,
-            model_charge=model_charge,
-            model_mult=model_mult,
-            ml_device=ml_device,
-        )
+        with _announce_model_load(backend, aimnet2_model):
+            return _AIMNet2Backend(
+                aimnet2_model=aimnet2_model,
+                model_charge=model_charge,
+                model_mult=model_mult,
+                ml_device=ml_device,
+            )
     elif backend == "custom":
         if not calc_file:
             raise ValueError(

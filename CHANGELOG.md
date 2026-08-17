@@ -123,6 +123,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Add selectable UMA/ORB/MACE/AIMNet2 frame rescoring to `trj2fig`, with model,
   precision, and machine-readable provenance controls. Comment-energy mode remains
   calculator-free, and rescoring is a pure MLIP calculation rather than ONIOM.
+- Announce the first load of each ML backend model -- `[backend] Preparing MLIP
+  model (<backend> / <model>)...` then `[backend] Done.` -- so the silent weight
+  download inside the backend constructor no longer reads as a hang.
 
 ### Changed
 - Detect B-factor ML/MM layers by default and expose
@@ -279,7 +282,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Classify the Colab flag panel from the live command definition: options hidden
   from `--help` are listed under Advanced flags and the rest under Key flags, so
   the panel covers every flag of the selected command.
-- Announce a model-weight download only when the weights are not already cached.
 - Offer each transition state's imaginary mode in the `all` and `tsopt` Results
   view, labelled by segment and wavenumber, and animate it as a vibrational mode
   instead of falling back to the reaction path.

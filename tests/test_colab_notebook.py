@@ -4307,22 +4307,6 @@ def test_results_playback_uses_fifty_ms_for_mep_and_irc(
     assert app["frame_play"].interval == 50
 
 
-def test_model_download_notice_only_when_weights_are_missing(
-    monkeypatch, tmp_path: Path,
-) -> None:
-    app, _ = _execute_app(monkeypatch, tmp_path)
-    app["S"].update(backend="orb", model="orb_v3_conservative_omol")
-    command = ["mlmm", "sp", "-i", "input.pdb", "-b", "orb"]
-
-    app["_model_weights_cached"] = lambda backend, model: False
-    assert app["_model_download_line"](command) == (
-        "Downloading ORB model weights (orb_v3_conservative_omol)...\n"
-    )
-    app["_model_weights_cached"] = lambda backend, model: True
-    assert app["_model_download_line"](command) == ""
-    assert app["_model_download_line"](["mlmm", "define-layer", "-i", "input.pdb"]) == ""
-
-
 def test_results_playback_preview_reset_and_cli_output_defaults(
     monkeypatch, tmp_path: Path,
 ) -> None:
@@ -4514,3 +4498,35 @@ def test_refine_path_is_an_optional_stage_and_beza_turns_it_on() -> None:
     # the single-step examples turn it back off.
     assert "adv_refine.value = True" in app
     assert app.count("adv_refine.value = False") == 2
+
+
+def test_a_long_flag_label_is_not_clipped_by_the_checkbox_width() -> None:
+    """ipywidgets gives a Checkbox a fixed inline width that clips a long label."""
+    app = _notebook()["cells"][2]["source"]
+    assert ".rxapp .rxflagrow .widget-checkbox, .rxapp .rxflagrow .widget-checkbox > label {" in app
+    assert "width:auto !important; min-width:0 !important; max-width:100% !important;" in app
+    assert "white-space:normal !important; overflow-wrap:anywhere !important" in app
+    # The label this was found with must still be the long one.
+    assert "--refine-path (MEP refinement & multi-step reaction detection)" in app
+
+
+def test_the_run_log_opens_with_the_command_and_nothing_else() -> None:
+    """A model-weight download notice needs another library's cache layout, and
+    guessing it was wrong both ways: the UMA branch read the default HF cache
+    while fairchem downloads into its own CACHE_DIR, and the fallback matched any
+    token under ~/.cache, so even a nonexistent model reported "cached"."""
+    app = _notebook()["cells"][2]["source"]
+    for symbol in ("_model_download_line", "_model_weights_cached",
+                   "_command_option", "Downloading %s model weights"):
+        assert symbol not in app, symbol
+    assert "    transcript = [command_line]" in app
+    assert "    _run_log_emit(command_line, clear=True, flush=True)" in app
+
+
+def test_the_viewer_shows_water_by_default() -> None:
+    """Water is part of the active-site model, so the viewer starts with it visible."""
+    app = _notebook()["cells"][2]["source"]
+    assert "cb_water = W.Checkbox(value=True, description='water'" in app
+    assert "'show_water': True," in app
+    assert "S.get('show_water', False)" not in app
+    assert "Mol* starts with water hidden" not in app
