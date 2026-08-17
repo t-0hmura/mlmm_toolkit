@@ -264,6 +264,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Keep the start-up artwork out of a dry run. `--dry-run` now prints only
   the `mlmm-toolkit ver. <version>` line, so a planning run reads as a plan;
   a real run is unchanged.
+- Log the endpoint-alignment snap. The per-step line reports the gap measured
+  before the anchors are set onto the reference, so the final step now also
+  states the achieved coincidence and that the anchors stay frozen through the
+  finishing relaxation.
 - Rebudget endpoint alignment. Its finishing relaxation — the only one whose
   convergence decides whether a pair is reported as aligned — now gets
   `OPT_BASE_KW["max_cycles"]` (10000) instead of 1000, while each intermediate
