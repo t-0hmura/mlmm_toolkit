@@ -64,33 +64,39 @@ def _has_help_or_version_request(argv: list[str]) -> bool:
     return any(arg in {"-h", "--help", "--version", "--help-advanced"} for arg in argv[1:])
 
 
-def _requests_stdout_json(argv: list[str]) -> bool:
-    """Return whether the selected command promises JSON-only stdout."""
-    args = argv[1:]
-    if "bond-summary" not in args:
-        return False
-
+def _toggle_enabled(args: list[str], flag: str) -> bool:
+    """Resolve a `--flag` / `--no-flag` pair, accepting the legacy value style."""
     enabled = False
     i = 0
     while i < len(args):
         name, separator, value = args[i].partition("=")
         name = name.lower()
-        if name == "--no-json":
+        if name in (f"--{flag}", f"--no-{flag}"):
             parsed = _parse_bool_literal(value) if separator else None
             if parsed is None and not separator and i + 1 < len(args):
                 parsed = _parse_bool_literal(args[i + 1])
                 if parsed is not None:
                     i += 1
-            enabled = False if parsed is None else not parsed
-        elif name == "--json":
-            parsed = _parse_bool_literal(value) if separator else None
-            if parsed is None and not separator and i + 1 < len(args):
-                parsed = _parse_bool_literal(args[i + 1])
-                if parsed is not None:
-                    i += 1
-            enabled = True if parsed is None else parsed
+            positive = name == f"--{flag}"
+            if parsed is None:
+                enabled = positive
+            else:
+                enabled = parsed if positive else not parsed
         i += 1
     return enabled
+
+
+def _requests_stdout_json(argv: list[str]) -> bool:
+    """Return whether the selected command promises JSON-only stdout."""
+    args = argv[1:]
+    if "bond-summary" not in args:
+        return False
+    return _toggle_enabled(args, "json")
+
+
+def _requests_dry_run(argv: list[str]) -> bool:
+    """Return whether the run only reports what it would do."""
+    return _toggle_enabled(argv[1:], "dry-run")
 
 
 def _emit_start_header(
@@ -107,7 +113,8 @@ def _emit_start_header(
     ):
         return
 
-    if verbose_level() >= 2:
+    # A dry run reports a plan, so keep the version line but drop the artwork.
+    if verbose_level() >= 2 and not _requests_dry_run(sys.argv):
         emit(f"{_MLMM_BANNER}\n\nmlmm-toolkit ver. {__version__}\n", narrative=True)
     else:
         emit(f"mlmm-toolkit ver. {__version__}\n", narrative=True)
@@ -552,7 +559,8 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--config",
             "--max-nodes",
             "-o", "--out-dir",
-            "--max-cycles",
+            "--max-cycles-gsm",
+            "--max-cycles-dmf",
             "--help-advanced",
         }
     ),
@@ -576,7 +584,8 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--config",
             "--max-nodes",
             "-o", "--out-dir",
-            "--max-cycles",
+            "--max-cycles-gsm",
+            "--max-cycles-dmf",
             "--help-advanced",
         }
     ),

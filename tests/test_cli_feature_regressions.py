@@ -168,7 +168,7 @@ def test_path_opt_rejects_zero_cycles_with_error_result(
             "1",
             "--mep-mode",
             mep_mode,
-            "--max-cycles",
+            f"--max-cycles-{mep_mode}",
             "0",
             "--dry-run",
             "--out-dir",
@@ -177,10 +177,10 @@ def test_path_opt_rejects_zero_cycles_with_error_result(
     )
 
     assert result.exit_code != 0
-    assert "--max-cycles must be at least 1" in result.output
+    assert f"--max-cycles-{mep_mode} must be at least 1" in result.output
     error_result = json.loads(stale_result.read_text(encoding="utf-8"))
     assert error_result["status"] == "error"
-    assert error_result["error"] == "--max-cycles must be at least 1."
+    assert error_result["error"] == f"--max-cycles-{mep_mode} must be at least 1."
     assert error_result["error_type"] == "BadParameter"
 
 
@@ -209,7 +209,7 @@ def test_gsm_ignores_a_dormant_dmf_tolerance(
             "1",
             "--mep-mode",
             "gsm",
-            "--max-cycles",
+            "--max-cycles-gsm",
             "1",
             "--no-preopt",
             "--config",
@@ -247,7 +247,7 @@ def test_gsm_rejects_an_explicit_invalid_dmf_tolerance(
             "gsm",
             "--thresh-dmf",
             "nan",
-            "--max-cycles",
+            "--max-cycles-gsm",
             "1",
             "--no-preopt",
             "--dry-run",
@@ -318,6 +318,54 @@ def test_start_header_is_silent_for_legacy_json_true(monkeypatch) -> None:
     app._emit_start_header(context, subcommand_name="bond-summary")
 
     assert emitted == []
+
+
+@pytest.mark.parametrize(
+    ("argv", "expected"),
+    [
+        (["mlmm", "opt", "--dry-run"], True),
+        (["mlmm", "opt", "--dry-run=true"], True),
+        (["mlmm", "opt", "--dry-run", "True"], True),
+        (["mlmm", "opt", "--dry-run=false"], False),
+        (["mlmm", "opt", "--dry-run", "--no-dry-run"], False),
+        (["mlmm", "opt", "--no-dry-run", "False"], True),
+        (["mlmm", "opt", "--out-dir", "/tmp/dry-run-dir"], False),
+        (["mlmm", "opt"], False),
+    ],
+)
+def test_dry_run_detection_covers_legacy_boolean_forms(
+    argv: list[str],
+    expected: bool,
+) -> None:
+    from mlmm.cli.app import _requests_dry_run
+
+    assert _requests_dry_run(argv) is expected
+
+
+@pytest.mark.parametrize("dry_run", [True, False])
+def test_a_dry_run_keeps_the_version_line_without_the_artwork(
+    monkeypatch, dry_run: bool,
+) -> None:
+    """The artwork is a run banner; a dry run only reports a plan."""
+    from mlmm.cli import app
+    from mlmm.core.utils import set_verbose_level
+
+    emitted: list[str] = []
+    monkeypatch.setattr(app, "emit", lambda value, **_kwargs: emitted.append(value))
+    monkeypatch.setattr(
+        sys, "argv", ["mlmm", "opt"] + (["--dry-run"] if dry_run else []),
+    )
+    set_verbose_level(2)
+    context = SimpleNamespace(
+        invoked_subcommand=None,
+        command=SimpleNamespace(name="cli"),
+    )
+
+    app._emit_start_header(context, subcommand_name="opt")
+
+    joined = "\n".join(emitted)
+    assert "mlmm-toolkit ver." in joined
+    assert (app._MLMM_BANNER.strip() in joined) is not dry_run
 
 
 def test_freeze_links_removed_from_help_outputs() -> None:

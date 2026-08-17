@@ -910,7 +910,11 @@ def _run_dmf_mep(
         "(total images = max_nodes + 2 endpoints)."
     ),
 )
-@click.option("--max-cycles", type=int, default=300, show_default=True, help="Maximum optimization cycles.")
+@click.option("--max-cycles-gsm", type=int, default=None, show_default="300",
+              help="Maximum GSM string-optimizer cycles for the MEP stage.")
+@click.option("--max-cycles-dmf", type=int, default=None, show_default="300",
+              help=("Maximum IPOPT iterations for the DMF MEP stage. This is a solver "
+                    "iteration count, not a string-optimizer cycle count."))
 @click.option(
     "--climb/--no-climb",
     default=True,
@@ -1122,7 +1126,8 @@ def cli(
     mep_mode: str,
     dmf_backend: str,
     max_nodes: int,
-    max_cycles: int,
+    max_cycles_gsm: Optional[int],
+    max_cycles_dmf: Optional[int],
     climb: bool,
     preopt: bool,
     preopt_max_cycles: int,
@@ -1259,10 +1264,13 @@ def cli(
 
         if _is_param_explicit("max_nodes"):
             gs_cfg["max_nodes"] = int(max_nodes)
-        if _is_param_explicit("max_cycles"):
-            stopt_cfg["max_cycles"] = int(max_cycles)
-            stopt_cfg["stop_in_when_full"] = int(max_cycles)
-            dmf_cfg["max_cycles"] = int(max_cycles)
+        # The GSM cycle budget also bounds the fully-grown string; DMF's budget
+        # is a separate IPOPT iteration count.
+        if _is_param_explicit("max_cycles_gsm") and max_cycles_gsm is not None:
+            stopt_cfg["max_cycles"] = int(max_cycles_gsm)
+            stopt_cfg["stop_in_when_full"] = int(max_cycles_gsm)
+        if _is_param_explicit("max_cycles_dmf") and max_cycles_dmf is not None:
+            dmf_cfg["max_cycles"] = int(max_cycles_dmf)
         if _is_param_explicit("dmf_backend"):
             dmf_cfg["backend"] = str(dmf_backend).lower()
         if _is_param_explicit("climb"):
@@ -1434,10 +1442,13 @@ def cli(
             if mep_mode_kind == "dmf"
             else stopt_cfg.get("max_cycles", 0)
         )
+        cycles_hint = (
+            "--max-cycles-dmf" if mep_mode_kind == "dmf" else "--max-cycles-gsm"
+        )
         if int(effective_max_cycles) <= 0:
             raise click.BadParameter(
-                "--max-cycles must be at least 1.",
-                param_hint="--max-cycles",
+                f"{cycles_hint} must be at least 1.",
+                param_hint=cycles_hint,
             )
 
         validate_endpoint_atom_identities(prepared_inputs)

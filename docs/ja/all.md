@@ -225,9 +225,9 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 ### MEP 探索オプション
 
 ```{note}
-`mlmm all` では `--max-cycles` を指定せず、各ステージ固有のデフォルトを
-使用してください。`--max-cycles` は `opt`、`tsopt`、`path-opt` などの
-単発サブコマンドを直接実行するときだけ指定します。
+`mlmm all` の `--max-cycles-gsm` / `--max-cycles-dmf` は MEP ステージ専用です。
+省略すれば各ステージ固有のデフォルトが使われます。`opt` や `tsopt` を単発で
+実行するときは、それぞれの `--max-cycles` を指定します。
 ```
 
 | オプション | 説明 | デフォルト |
@@ -238,7 +238,8 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 | `--mep-mode [gsm\|dmf]` | `path-opt` と再帰的 `path-search` の両方へ転送する MEP 最適化法。 | `gsm` |
 | `--dmf-backend [gpu\|cpu]` | DMF 実装。明示指定時だけ子コマンドへ転送するため、省略時は子コマンドの YAML 設定 `dmf.backend` が有効。 | `gpu` |
 | `--max-nodes INT` | GSM/DMF セグメントの内部ノード数。 | `20` |
-| `--max-cycles INT` | MEP 最適化サイクルの最大数。 | `300` |
+| `--max-cycles-gsm INT` | GSM string optimizer の最大サイクル数。 | `300` |
+| `--max-cycles-dmf INT` | DMF の最大 IPOPT 反復数。 | `300` |
 | `--climb/--no-climb` | 選択した最適化法が対応する場合に climbing-image TS 精密化を有効化。 | `True` |
 | `--opt-mode [grad\|hess]` | TSOPT と IRC 後の端点最適化に使う予備プリセット（`grad` → Dimer/L-BFGS、`hess` → RS-I-RFO/RFO）。`--opt-mode-post` が優先されます。 | `grad` |
 | `--opt-mode-post [grad\|hess]` | TSOPT/IRC 後端点最適化向けのプリセット上書き（`grad` → Dimer/L-BFGS、`hess` → RS-I-RFO/RFO）。 | `hess` |

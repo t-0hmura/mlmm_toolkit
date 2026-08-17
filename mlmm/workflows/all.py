@@ -3466,7 +3466,11 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 )
 @click.option("--max-nodes", type=int, default=_path_opt.GS_KW["max_nodes"], show_default=True,
               help="Max internal nodes per GSM/DMF segment (max_nodes+2 images including endpoints).")
-@click.option("--max-cycles", type=int, default=300, show_default=True, help="Maximum MEP optimization cycles.")
+@click.option("--max-cycles-gsm", type=int, default=None, show_default="300",
+              help="Maximum GSM string-optimizer cycles for the MEP stage.")
+@click.option("--max-cycles-dmf", type=int, default=None, show_default="300",
+              help=("Maximum IPOPT iterations for the DMF MEP stage. This is a solver "
+                    "iteration count, not a string-optimizer cycle count."))
 @click.option("--climb/--no-climb", default=True, show_default=True,
               help="Enable transition-state climbing after growth for the *first* segment in each pair.")
 @click.option(
@@ -3836,7 +3840,8 @@ def cli(
     mep_mode: str,
     dmf_backend: str,
     max_nodes: int,
-    max_cycles: int,
+    max_cycles_gsm: Optional[int],
+    max_cycles_dmf: Optional[int],
     climb: bool,
     opt_mode: str,
     opt_mode_post: Optional[str],
@@ -4302,7 +4307,8 @@ def cli(
                 "mep_mode": mep_mode_kind,
                 "dmf_backend": dmf_backend_effective,
                 "max_nodes": int(max_nodes),
-                "max_cycles": int(max_cycles),
+                "max_cycles_gsm": (None if max_cycles_gsm is None else int(max_cycles_gsm)),
+                "max_cycles_dmf": (None if max_cycles_dmf is None else int(max_cycles_dmf)),
                 "print_every": print_every_override,
                 "climb": bool(climb),
                 "opt_mode": str(opt_mode),
@@ -5771,7 +5777,8 @@ def cli(
                 mep_mode=mep_mode_kind,
                 dmf_backend=dmf_backend,
                 max_nodes=max_nodes,
-                max_cycles=max_cycles,
+                max_cycles_gsm=max_cycles_gsm,
+                max_cycles_dmf=max_cycles_dmf,
                 climb=climb,
                 dump=dump,
                 pre_opt=pre_opt,
@@ -5863,7 +5870,8 @@ def cli(
                     mep_mode=mep_mode_kind,
                     dmf_backend=dmf_backend,
                     max_nodes=max_nodes,
-                    max_cycles=max_cycles,
+                    max_cycles_gsm=max_cycles_gsm,
+                    max_cycles_dmf=max_cycles_dmf,
                     climb=climb,
                     dump=dump,
                     pre_opt=pre_opt,

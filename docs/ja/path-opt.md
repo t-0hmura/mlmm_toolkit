@@ -80,7 +80,8 @@ out_dir/ (デフォルト:./result_path_opt/)
 | `--movable-cutoff FLOAT` | ML 領域からの距離カットオフ (Å)。この範囲外の MM 原子を凍結します。`--movable-cutoff` 指定時は `--detect-layer` が無効化されます。 | _None_ |
 | `--fix-ends/--no-fix-ends` | 経路成長中に端点構造を固定（`gs.fix_first/fix_last`）。 | `True` |
 | `--max-nodes INT` | 内部ストリングノード数（総イメージ = `max_nodes + 2`）。 | `20` |
-| `--max-cycles INT` | マクロ反復回数の上限（成長 + 精密化）。`opt.stop_in_when_full` も設定。 | `300` |
+| `--max-cycles-gsm INT` | GSM のマクロ反復回数の上限（成長 + 精密化）。`opt.stop_in_when_full` も設定。 | `300` |
+| `--max-cycles-dmf INT` | DMF の IPOPT 反復上限。 | `300` |
 | `--climb/--no-climb` | ストリング完全成長後のクライミングイメージ精密化を有効化。 | `True` |
 | `--preopt/--no-preopt` | アライメント/ストリング成長前に各端点を L-BFGS で事前最適化。 | `True` |
 | `--preopt-max-cycles INT` | 端点事前最適化サイクルの上限。 | `10000` |

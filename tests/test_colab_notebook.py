@@ -736,7 +736,8 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "app.add_class('rxapp-main')" in app
     assert "def _advanced_coverage(" in app and "adv_extra" not in app
     assert "def _advanced_options(sub):" in app
-    assert "adv_acc = _collapsible('Advanced flags', adv_box)" in app
+    assert "adv_acc = _collapsible('All flags', adv_box)" in app
+    assert "row._rx_tier = 'advanced' if bool(getattr(param, 'hidden', False)) else 'key'" in app
     assert "every CLI option accounted for" not in app
     assert "radius_applies = (sub == 'extract' or" in app
     assert "adv_radius.disabled = not radius_applies" in app
@@ -1608,7 +1609,12 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
         param for param in app["_advanced_options"]("all")
         if app["_advanced_status"]("all", param) == "rendered"
     ]
-    assert len(app["adv_rows_box"].children) == len(editable)
+    rendered_rows = [child for child in app["adv_rows_box"].children
+                     if "rxflagrow" in getattr(child, "_dom_classes", ())]
+    assert len(rendered_rows) == len(editable)
+    assert "Key flags" in app["adv_rows_box"].children[0].value
+    assert any("Advanced flags" in getattr(child, "value", "")
+               for child in app["adv_rows_box"].children)
 
     click = app["click"]
     text_param = next(
@@ -3925,6 +3931,43 @@ def test_results_route_single_structures_modes_and_scan_grids(
         [str(final), str(optimization)], str(tmp_path), "tsopt"
     )] == ["TS-refinement trajectory", "Refined transition-state structure"]
 
+    vib_dir = tmp_path / "vib"
+    vib_dir.mkdir()
+    imaginary = vib_dir / "imag_-550.15cm-1_trj.xyz"
+    imaginary.write_text(xyz, encoding="utf-8")
+    assert [label for label, _ in app["_result_view_candidates"](
+        [str(final), str(optimization), str(imaginary)], str(tmp_path), "tsopt"
+    )] == [
+        "TS-refinement trajectory", "Refined transition-state structure",
+        "Imaginary mode · −550.15 cm⁻¹",
+    ]
+
+    segment_vib = tmp_path / "segments" / "seg_02" / "ts" / "vib"
+    segment_vib.mkdir(parents=True)
+    segment_imaginary = segment_vib / "imag_-421.25cm-1_trj.xyz"
+    segment_imaginary.write_text(xyz, encoding="utf-8")
+    mep = tmp_path / "mep_trj.xyz"
+    mep.write_text(xyz, encoding="utf-8")
+    all_views = app["_result_view_candidates"](
+        [str(mep), str(segment_imaginary)], str(tmp_path), "all"
+    )
+    assert [label for label, _ in all_views] == [
+        "Reaction-path trajectory", "Imaginary mode · TS2 · −421.25 cm⁻¹",
+    ]
+
+    app["S"].update(
+        _last_subcmd="all", _last_files=[str(mep), str(segment_imaginary)],
+        _last_manifest={"status": "success", "exit_code": 0},
+    )
+    app["_results"](str(tmp_path))
+    app["traj_choice"].value = str(segment_imaginary)
+    assert app["_TRAJ"]["path"] == str(segment_imaginary)
+    assert len(app["_TRAJ"]["frames"]) == 2
+    assert "Vibrational mode" in app["trajectory_intro"].value
+    assert app["energy_panel"].layout.display == "none"
+    assert "rxstructure-only" in app["path_grid"]._dom_classes
+    assert app["plot_out"].value == ""
+
     mode = tmp_path / "mode_0001_-100.00cm-1_trj.xyz"
     mode.write_text(xyz, encoding="utf-8")
     app["S"].update(
@@ -4242,6 +4285,19 @@ def test_results_playback_uses_fifty_ms_for_mep_and_irc(
     assert "_frame_play_link = W.link" in source
     assert "_frame_play_jslink = W.jslink" in source
     assert "if _UPLOAD_MODE != 'colab': _send_trajectory_frame(i)" in source
+    assert "const modelUiPoll=setInterval(readModelUiFrame,250)" not in source
+    assert "if(!event.isTrusted||!event.target.closest('button'))return" in source
+    assert "if(!ready||!viewer||applyingFrame" in source
+    assert "if getattr(frame_play, '_playing', False):\n        return" in source
+    app["frame_slider"].disabled = False
+    app["frame_slider"].min = 0
+    app["frame_slider"].max = 2
+    app["frame_slider"].value = 0
+    app["_TRAJ"]["generation"] = 7
+    app["frame_play"]._playing = True
+    app["_set_frame_from_browser"](7, 2)
+    assert app["frame_slider"].value == 0
+    app["frame_play"]._playing = False
 
     # Generic path-opt output names still inherit reaction-path semantics and
     # therefore the same 50 ms playback speed as explicitly named MEP files.
@@ -4252,6 +4308,22 @@ def test_results_playback_uses_fifty_ms_for_mep_and_irc(
     app["_load_trajectory"](str(path_opt), str(tmp_path))
     assert app["_TRAJ"]["semantics"]["title"].startswith("Reaction-path")
     assert app["frame_play"].interval == 50
+
+
+def test_model_download_notice_only_when_weights_are_missing(
+    monkeypatch, tmp_path: Path,
+) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    app["S"].update(backend="orb", model="orb_v3_conservative_omol")
+    command = ["mlmm", "sp", "-i", "input.pdb", "-b", "orb"]
+
+    app["_model_weights_cached"] = lambda backend, model: False
+    assert app["_model_download_line"](command) == (
+        "Downloading ORB model weights (orb_v3_conservative_omol)...\n"
+    )
+    app["_model_weights_cached"] = lambda backend, model: True
+    assert app["_model_download_line"](command) == ""
+    assert app["_model_download_line"](["mlmm", "define-layer", "-i", "input.pdb"]) == ""
 
 
 def test_results_playback_preview_reset_and_cli_output_defaults(

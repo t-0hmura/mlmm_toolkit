@@ -18,6 +18,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   optimizations. It no longer sets the GSM string-optimizer preset, which now
   has its own `--thresh-gsm`. A command that relied on `--thresh` to tighten or
   loosen the string optimizer must pass `--thresh-gsm` as well.
+- **Split the MEP cycle budget per algorithm.** `all`, `path-opt`, and
+  `path-search` replace `--max-cycles` with `--max-cycles-gsm` (GSM
+  string-optimizer cycles, which also bound the fully-grown string) and
+  `--max-cycles-dmf` (DMF IPOPT iterations). One flag previously wrote both
+  engines' budgets even though they count different things, mirroring the
+  `--thresh-gsm` / `--thresh-dmf` split. `opt`, `tsopt`, `scan`, and `irc` keep
+  their own `--max-cycles`.
 - **CMAP now defaults to the force-field-faithful policy in both MM layers.**
   Parm7 CMAP terms are preserved in both REAL and MODEL calculations, so complete
   model-internal terms cancel in `E_real_low + E_high - E_model_low` while boundary
@@ -254,6 +261,27 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   trusted PyPI publication.
 
 ### Fixed
+- Keep the start-up artwork out of a dry run. `--dry-run` now prints only
+  the `mlmm-toolkit ver. <version>` line, so a planning run reads as a plan;
+  a real run is unchanged.
+- Rebudget endpoint alignment. Its finishing relaxation — the only one whose
+  convergence decides whether a pair is reported as aligned — now gets
+  `OPT_BASE_KW["max_cycles"]` (10000) instead of 1000, while each intermediate
+  relaxation keeps 1000 because its result is never read. The scan-step guard
+  drops from 10000 to 100 steps, so it bounds anchor travel at 10 Å instead of
+  1000 Å. All three entry points now state the same defaults; the pair-level one
+  previously read 50/200/1000 even though the sequence the workflows call always
+  overrode it.
+- Classify the Colab flag panel from the live command definition: options hidden
+  from `--help` are listed under Advanced flags and the rest under Key flags, so
+  the panel covers every flag of the selected command.
+- Announce a model-weight download only when the weights are not already cached.
+- Offer each transition state's imaginary mode in the `all` and `tsopt` Results
+  view, labelled by segment and wavenumber, and animate it as a vibrational mode
+  instead of falling back to the reaction path.
+- Drive Mol* reverse synchronization from a real user action on its model
+  controls instead of polling the rendered label, so scrubbing the reaction path
+  no longer competes with the viewer's own frame updates.
 - Keep Hessian status and timing lines adjacent to the surrounding optimizer
   cycle rows instead of inserting blank lines before and after each Hessian
   evaluation.

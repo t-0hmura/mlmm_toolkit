@@ -425,7 +425,8 @@ def build_path_child_argv(
     mep_mode: str,
     dmf_backend: str,
     max_nodes: int,
-    max_cycles: int,
+    max_cycles_gsm: Optional[int],
+    max_cycles_dmf: Optional[int],
     climb: bool,
     dump: bool,
     pre_opt: bool,
@@ -446,7 +447,8 @@ def build_path_child_argv(
     specs: list[ChildArgSpec] = [
         ("dmf_backend", "--dmf-backend", dmf_backend, False),
         ("max_nodes", "--max-nodes", max_nodes, False),
-        ("max_cycles", "--max-cycles", max_cycles, False),
+        ("max_cycles_gsm", "--max-cycles-gsm", max_cycles_gsm, False),
+        ("max_cycles_dmf", "--max-cycles-dmf", max_cycles_dmf, False),
         ("climb", "--climb", climb, True),
     ]
     specs.extend(

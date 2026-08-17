@@ -81,7 +81,8 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--movable-cutoff FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. MM atoms beyond this are frozen. Providing `--movable-cutoff` disables `--detect-layer`. | _None_ |
 | `--fix-ends/--no-fix-ends` | Fix endpoint structures during GSM growth (`gs.fix_first/fix_last`). | `True` |
 | `--max-nodes INT` | Number of internal string nodes (total images = `max_nodes + 2`). | `20` |
-| `--max-cycles INT` | Optimizer macro-iteration cap (growth + refinement). Also sets `opt.stop_in_when_full`. | `300` |
+| `--max-cycles-gsm INT` | GSM macro-iteration cap (growth + refinement). Also sets `opt.stop_in_when_full`. | `300` |
+| `--max-cycles-dmf INT` | DMF IPOPT iteration cap. | `300` |
 | `--climb/--no-climb` | Enable climbing-image refinement after full string growth. | `True` |
 | `--preopt/--no-preopt` | Pre-optimize each endpoint with L-BFGS before alignment/string growth. | `True` |
 | `--preopt-max-cycles INT` | Cap for endpoint pre-optimization cycles. | `10000` |

@@ -325,7 +325,7 @@ Direct Max Flux settings for MEP optimization.
 
 ```yaml
 dmf:
- max_cycles: 300 # Maximum DMF/IPOPT iterations (overridden by --max-cycles)
+ max_cycles: 300 # Maximum DMF/IPOPT iterations (overridden by --max-cycles-dmf)
  tol: tight # IPOPT dual_inf_tol: tight (0.04) | middle (0.10) | loose (0.20) or a positive float (overridden by --thresh-dmf)
  correlated: true # Correlated DMF propagation
  sequential: true # Sequential DMF execution

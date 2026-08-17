@@ -33,7 +33,12 @@ Options:
   --max-nodes INTEGER             Number of movable internal images for GSM or
                                   DMF (total images = max_nodes + 2 endpoints).
                                   [default: 20]
-  --max-cycles INTEGER            Maximum optimization cycles.  [default: 300]
+  --max-cycles-gsm INTEGER        Maximum GSM string-optimizer cycles for the
+                                  MEP stage.  [default: (300)]
+  --max-cycles-dmf INTEGER        Maximum IPOPT iterations for the DMF MEP
+                                  stage. This is a solver iteration count, not a
+                                  string-optimizer cycle count.  [default:
+                                  (300)]
   --climb / --no-climb            Search for a transition state (climbing image)
                                   after path growth.  [default: climb]
   --preopt / --no-preopt          Pre-optimize the two endpoint structures with

@@ -223,9 +223,9 @@ Defaults shown are used when the option is not specified. The full flag list is 
 ### MEP search
 
 ```{note}
-`--max-cycles` is not a shared all-stage budget. When passed explicitly, it
-controls only the MEP child; scan, TS optimization, IRC, and other stages keep
-their dedicated options or defaults.
+`--max-cycles-gsm` and `--max-cycles-dmf` are not a shared all-stage budget.
+When passed explicitly they bound only the MEP child; scan, TS optimization,
+IRC, and other stages keep their dedicated options or defaults.
 ```
 
 | Option | Description | Default |
@@ -234,7 +234,8 @@ their dedicated options or defaults.
 | `--mep-mode [gsm\|dmf]` | MEP optimizer forwarded to both `path-opt` and recursive `path-search`. | `gsm` |
 | `--dmf-backend [gpu\|cpu]` | DMF implementation. The parent forwards this only when explicitly set, so a child YAML `dmf.backend` remains effective otherwise. | `gpu` |
 | `--max-nodes INT` | Internal nodes per GSM/DMF segment. | `20` |
-| `--max-cycles INT` | Maximum cycles for the selected MEP child only. | `300` |
+| `--max-cycles-gsm INT` | Maximum GSM string-optimizer cycles for the MEP child only. | `300` |
+| `--max-cycles-dmf INT` | Maximum DMF IPOPT iterations for the MEP child only. | `300` |
 | `--climb / --no-climb` | Enable climbing-image TS refinement where supported by the selected optimizer. | `True` |
 | `--opt-mode [grad\|hess]` | Fallback preset for TSOPT and post-IRC endpoint optimization (`grad` → Dimer / L-BFGS, `hess` → RS-I-RFO / RFO). `--opt-mode-post` takes precedence. | `grad` |
 | `--opt-mode-post [grad\|hess]` | Optimizer preset override for TSOPT / post-IRC endpoint optimizations (`grad` → Dimer / L-BFGS, `hess` → RS-I-RFO / RFO). | `hess` |
