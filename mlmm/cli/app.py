@@ -461,6 +461,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--bias-k",
             "--max-step-size",
             "--thresh",
+            "--print-every",
             "--help-advanced",
         }
     ),
@@ -485,6 +486,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--bias-k",
             "--max-step-size",
             "--thresh",
+            "--print-every",
             "--help-advanced",
         }
     ),
@@ -510,6 +512,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--bias-k",
             "--max-step-size",
             "--thresh",
+            "--print-every",
             "--help-advanced",
         }
     ),
@@ -536,6 +539,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--dist-freeze",
             "--bias-k",
             "--max-cycles",
+            "--print-every",
             "--help-advanced",
         }
     ),
@@ -611,6 +615,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--hessian-calc-mode",
             "--thresh",
             "--dump", "--no-dump",
+            "--print-every",
             "--help-advanced",
         }
     ),
