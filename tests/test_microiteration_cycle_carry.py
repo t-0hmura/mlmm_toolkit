@@ -24,6 +24,7 @@ from mlmm.workflows._microiteration import (
     OptimizerOutcome,
     build_aggregate,
     build_partition,
+    macro_progress_due,
 )
 
 
@@ -115,6 +116,23 @@ def test_ordinary_opt_cycle_count_is_executed_not_zero_based():
 
     assert optimizer_cycle_count(_Opt()) == 1
     assert optimizer_cycle_count(_Opt5()) == 6
+
+
+def test_manual_macro_progress_uses_optimizer_print_every_cadence():
+    """The opt/tsopt microiteration tables match Optimizer.run cadence."""
+
+    assert [cycle for cycle in range(22) if macro_progress_due(cycle, 10)] == [
+        0,
+        10,
+        20,
+    ]
+    assert [cycle for cycle in range(202) if macro_progress_due(cycle, 100)] == [
+        0,
+        100,
+        200,
+    ]
+    with pytest.raises(ValueError, match="at least 1"):
+        macro_progress_due(0, 0)
 
 
 # ---------------------------------------------------------------------------
@@ -914,7 +932,7 @@ def test_micro_bound_is_a_backstop_not_a_schedule():
     # stationary point while the environment still carries force and drift.
     assert MICROITER_KW["micro_thresh"] is None
     # Headroom over the measured worst case (16815).
-    assert MICROITER_KW["micro_max_cycles"] >= 50000
+    assert MICROITER_KW["micro_max_cycles"] is None
 
 
 def test_ts_macro_honours_the_shared_opt_block(tmp_path):

@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools", "wheel", "setuptools-scm"]
+requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -121,6 +121,9 @@ markers = [
     "gpu: marks tests that require CUDA GPU (deselect with '-m \"not gpu\"')",
 ]
 
+[tool.setuptools.dynamic]
+version = {attr = "mlmm._version.__version__"}
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["mlmm*", "pysisyphus*", "thermoanalysis*", "hessian_ff*"]
@@ -128,8 +131,3 @@ include = ["mlmm*", "pysisyphus*", "thermoanalysis*", "hessian_ff*"]
 [tool.setuptools.package-data]
 mlmm = ["py.typed"]
 hessian_ff = ["native/*.cpp", "native/Makefile"]
-
-[tool.setuptools_scm]
-version_file = "mlmm/_version.py"
-version_scheme = "guess-next-dev"
-local_scheme = "no-local-version"

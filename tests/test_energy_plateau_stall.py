@@ -9,6 +9,8 @@ state machine and the product-local status helpers in ``mlmm.core.utils`` /
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 
@@ -269,8 +271,8 @@ def test_stalled_optimizer_never_reports_converged():
 def test_tsopt_terminal_status_composition():
     converged = _FakeOpt(is_converged=True)
     assert _tsopt_terminal_status(converged, saddle_verified=True) == "converged"
-    # A converged optimizer at a non-first-order structure is not_converged.
-    assert _tsopt_terminal_status(converged, saddle_verified=False) == "not_converged"
+    # Numerical convergence is independent of saddle order.
+    assert _tsopt_terminal_status(converged, saddle_verified=False) == "converged"
     assert _tsopt_terminal_status(_FakeOpt(), saddle_verified=True) == "not_converged"
 
 
@@ -289,6 +291,19 @@ def test_emit_terminal_status_stalled_and_converged_are_distinct(capsys):
     conv_out = capsys.readouterr().out
     assert "Converged!" in conv_out
     assert "Stalled" not in conv_out
+
+
+def test_tsopt_terminal_status_labels_numerical_convergence(capsys):
+    emit_optimizer_terminal_status(
+        "tsopt",
+        converged=True,
+        cycles=7,
+        max_cycles=20,
+        converged_message="Numerical optimization converged.",
+    )
+    out = capsys.readouterr().out
+    assert "[tsopt] Numerical optimization converged." in out
+    assert "[tsopt] Converged!" not in out
 
 
 # ---- HessianDimer wrapper: a stalled child stops all further work -------------
@@ -351,6 +366,84 @@ def test_hessian_dimer_stops_after_child_stall(tmp_path, monkeypatch):
     assert steps == 3
     # And the public status mapper reports stalled, never converged.
     assert _tsopt_terminal_status(runner, saddle_verified=True) == "stalled"
+
+
+def test_terminal_saddle_certification_uses_magnitude_threshold():
+    from mlmm.workflows.tsopt import (
+        _certified_negative_frequencies,
+        _certified_saddle_order,
+        _finalize_dimer_saddle_status,
+    )
+
+    freqs_cm = np.array([-450.0, -3.2, 12.0, 640.0])
+    assert _certified_saddle_order(freqs_cm, 5.0) == 1
+    assert _certified_negative_frequencies(freqs_cm, 5.0) == [-450.0]
+
+    runner = _FakeOpt(is_converged=True)
+    export_idx = _finalize_dimer_saddle_status(runner, freqs_cm, 5.0)
+    assert runner.n_imaginary_modes == 1
+    assert runner.imaginary_frequencies_cm == [-450.0]
+    assert runner.saddle_order_verified is True
+    assert runner.is_converged is True
+    assert export_idx.tolist() == [0]
+
+    soft = _FakeOpt(is_converged=True)
+    soft_export = _finalize_dimer_saddle_status(
+        soft, np.array([-3.2, 12.0, 640.0]), 5.0
+    )
+    assert soft.n_imaginary_modes == 0
+    assert soft.imaginary_frequencies_cm == []
+    assert soft.saddle_order_verified is False
+    assert soft_export.tolist() == []
+
+
+def test_exact_phva_validation_ignores_soft_negative_roots():
+    from pysisyphus.tsoptimizers.RSIRFOptimizer import RSIRFOptimizer
+
+    modes = np.eye(3)
+    printed: list[str] = []
+    optimizer = RSIRFOptimizer.__new__(RSIRFOptimizer)
+    optimizer.saddle_imaginary_threshold_cm = 5.0
+    optimizer.small_eigval_thresh = 1e-8
+    optimizer.roots = np.array([0])
+    optimizer.reference_mode = None
+    optimizer.cur_cycle = 7
+    optimizer.higher_order_saddle_checks = 0
+    optimizer.max_higher_order_checks = 99
+    optimizer.forces = []
+    optimizer.geometry = SimpleNamespace(cart_coords=np.zeros(3))
+    optimizer.table = SimpleNamespace(print=printed.append)
+    optimizer._mw_frequencies_and_modes = lambda: (
+        np.array([-450.0, -3.2, 12.0]),
+        modes,
+    )
+    optimizer._recovery_mode_from_mw = (
+        lambda _modes, index: modes[:, int(index)]
+    )
+    optimizer._record_exact_saddle_candidate = lambda: None
+    optimizer.request_stop = lambda *_a, **_k: None
+
+    has_saddle_modes, _mode, _has_mode = (
+        optimizer._verify_exact_vibrational_structure(
+            np.array([-0.1, -1.0e-7, 0.2]), np.eye(3)
+        )
+    )
+    assert optimizer._last_exact_n_imaginary == 1
+    assert optimizer._last_exact_saddle_verified is True
+    assert has_saddle_modes is True
+    assert any("n_imag=1" in message for message in printed)
+
+
+def test_dimer_final_message_separates_no_mode_from_write_failure():
+    from mlmm.workflows.tsopt import _dimer_mode_export_message
+
+    positive, positive_is_diagnostic = _dimer_mode_export_message(0, 0, 5.0, 12.0)
+    assert positive == "[INFO] No imaginary mode detected."
+    assert positive_is_diagnostic is True
+
+    failed, failed_is_diagnostic = _dimer_mode_export_message(0, 1, 5.0, -100.0)
+    assert failed == "[tsopt] ERROR: Failed to write imaginary mode trajectory."
+    assert failed_is_diagnostic is True
 
 
 # ---- Microiteration terminal outcome (opt + tsopt share the helper) ----------

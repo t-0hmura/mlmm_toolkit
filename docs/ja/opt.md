@@ -91,7 +91,7 @@ out_dir/ (デフォルト: ./result_opt/)
 | `--dist-freeze TEXT` | 調和拘束用の Python リテラル `(i, j, target_A)` タプル。 | _None_ |
 | `--one-based / --zero-based` | `--dist-freeze` のインデックス規約。 | 1 始まり |
 | `--bias-k FLOAT` | 調和バイアス強度 (eV/Å²)。 | `300.0` |
-| `--max-cycles INT` | 最適化反復のハードリミット。 | `10000` |
+| `--max-cycles INT` | 任意の最適化反復上限。 | `None` |
 | `--opt-mode [grad\|hess\|light\|heavy\|lbfgs\|rfo]` | オプティマイザモード: `grad`/`lbfgs`（L-BFGS）または `hess`/`rfo`（RFO）。エイリアス `light`/`heavy` も使用可。 | `grad` |
 | `--microiter/--no-microiter` | マイクロイテレーション: ML 1 ステップ（RFO）+ MM 緩和（L-BFGS）を交互に実行。`hess` モードでのみ有効。 | `True` |
 | `--flatten/--no-flatten` | 最適化後の虚振動数モードフラット化ループの有効化/無効化。 | `False` |
@@ -158,7 +158,7 @@ out_dir/ (デフォルト: ./result_opt/)
 
 共有オプティマイザ制御:
 - `thresh` プリセット（上記の収束テーブルを参照）。
-- 共通制御: `max_cycles`（デフォルト 10000）、`print_every`（100）、`min_step_norm`（1e-8）、`assert_min_step` True。
+- 共通制御: `max_cycles`（デフォルトは上限なし）、`print_every`（100）、`min_step_norm`（1e-8）、`assert_min_step` True。
 - 収束トグル: `rms_force`、`rms_force_only`、`max_force_only`、`force_only`。
 - その他: `converge_to_geom_rms_thresh`、`overachieve_factor`、`check_eigval_structure`。
 - エネルギープラトー停止（opt-in、デフォルト無効）: `energy_plateau`（bool、デフォルト False、`--stop-plateau` で有効化）、`energy_plateau_thresh`（1e-4 au、約 0.06 kcal/mol、`--stop-plateau-thresh`）、`energy_plateau_window`（50 ステップ、`--stop-plateau-window`）。有効時、直近ウィンドウのエネルギー範囲が閾値を下回ったら`stalled`（未収束）として停止します。MLIP の力ノイズフロアが勾配ベースの `thresh` プリセットを上回る場合に cycle を節約できますが、収束扱いにはならず、実質的な上限は常に `max_cycles` です。Chain-of-states オプティマイザと `--microiter` の MM micro 反復では自動的にスキップされます。
@@ -198,7 +198,7 @@ calc:                           # calc 計算機キーは単一セクション�
  return_partial_hessian: true   # 部分Hessianを許可（opt のデフォルト）
 opt:
  thresh: gau                    # 収束プリセット（Gaussian/Baker 式）
- max_cycles: 10000              # オプティマイザサイクル上限
+ # max_cycles: 20000            # 任意の有限オプティマイザ上限
  print_every: 100               # ログ出力間隔
  min_step_norm: 1.0e-08         # ステップ受け入れの最小ノルム
  assert_min_step: true          # ステップが閾値以下で停止
@@ -219,7 +219,7 @@ opt:
  out_dir: ./result_opt/         # 出力ディレクトリ
 lbfgs:
  thresh: gau                    # L-BFGS 収束プリセット
- max_cycles: 10000              # 反復上限
+ # max_cycles: 20000            # 任意の有限反復上限
  print_every: 100               # ログ出力間隔
  min_step_norm: 1.0e-08         # 受け入れ最小ステップノルム
  assert_min_step: true          # ステップ停滞時にアサート
@@ -248,7 +248,7 @@ lbfgs:
  max_mu_reg_adaptions: 10       # mu 適応の上限
 rfo:
  thresh: gau                    # RFOptimizer 収束プリセット
- max_cycles: 10000              # 反復上限
+ # max_cycles: 20000            # 任意の有限反復上限
  print_every: 100               # ログ出力間隔
  min_step_norm: 1.0e-08         # 受け入れ最小ステップノルム
  assert_min_step: true          # ステップ停滞時にアサート

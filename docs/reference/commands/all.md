@@ -32,10 +32,12 @@ Options:
                                   and full structures are used directly.
   -o, --out-dir DIRECTORY         Top-level output directory for the pipeline.
                                   [default: result_all]
-  -r, --radius FLOAT              Inclusion cutoff (Å) around substrate atoms.
-                                  [default: 2.6]
-  --radius-het2het FLOAT          Independent hetero–hetero cutoff (Å) for
-                                  non‑C/H pairs.  [default: 0.0]
+  -r, --radius FLOAT RANGE        Inclusion cutoff (Å) around substrate atoms.
+                                  Zero is accepted and evaluated internally as
+                                  0.001 Å (effectively off for ordinary radius-
+                                  based neighbors).  [default: 2.6; x>=0.0]
+  --radius-het2het FLOAT RANGE    Independent hetero–hetero cutoff (Å) for
+                                  non‑C/H pairs.  [default: 0.0; x>=0.0]
   --include-h2o / --no-include-h2o
                                   Include waters (HOH/WAT/H2O/DOD/TIP/TIP3/SOL)
                                   in the pocket.  [default: include-h2o]
@@ -47,8 +49,10 @@ Options:
                                   PDBs. The ML/MM model selection remains link-
                                   free; runtime link H are generated from parm7
                                   boundary bonds.  [default: no-add-linkh]
-  --selected-resn TEXT            Force-include residues (comma/space separated;
-                                  chain/insertion codes allowed).  [default: ""]
+  --selected-resn TEXT            Force-include residues using IDs ('123',
+                                  'A:123A'), names ('SAM'), or chain-qualified
+                                  names ('A:SAM', 'A:SAM:123'); comma/space
+                                  separated.  [default: ""]
   --modified-residue TEXT         Comma-separated modified-residue names with
                                   integer charges for backbone truncation and
                                   charge assignment. A known catalog residue may
@@ -67,7 +71,7 @@ Options:
                                   PDB/parm7 in the same atom order. It takes
                                   precedence over ML membership from -c/--center
                                   or input B-factors.
-  --auto-mm-ff-set [ff19sb|ff14sb]
+  --auto-mm-ff-set [ff19SB|ff14SB]
                                   Force-field set forwarded to mm_parm (ff19SB
                                   uses OPC3; ff14SB uses TIP3P).  [default:
                                   ff19SB]
@@ -97,12 +101,8 @@ Options:
   --max-nodes INTEGER             Max internal nodes per GSM/DMF segment
                                   (max_nodes+2 images including endpoints).
                                   [default: 20]
-  --max-cycles-gsm INTEGER        Maximum GSM string-optimizer cycles for the
-                                  MEP stage.  [default: (300)]
-  --max-cycles-dmf INTEGER        Maximum IPOPT iterations for the DMF MEP
-                                  stage. This is a solver iteration count, not a
-                                  string-optimizer cycle count.  [default:
-                                  (300)]
+  --max-cycles INTEGER            Maximum MEP optimization cycles; omitted means
+                                  no cycle cap.  [default: (None)]
   --climb / --no-climb            Enable transition-state climbing after growth
                                   for the *first* segment in each pair.
                                   [default: climb]
@@ -157,7 +157,7 @@ Options:
                                   no-dry-run]
   --preopt / --no-preopt          Run initial single-structure optimizations of
                                   the pocket inputs.  [default: preopt]
-  --hessian-calc-mode [analytical|finitedifference]
+  --hessian-calc-mode [Analytical|FiniteDifference]
                                   Common MLIP Hessian mode forwarded to tsopt
                                   and freq. Default: 'FiniteDifference'. Runtime
                                   and memory depend on the backend and system;
@@ -173,11 +173,12 @@ Options:
                                   structure), and build energy diagrams.
                                   [default: no-tsopt]
   --tsopt-from-mep-tan / --no-tsopt-from-mep-tan
-                                  Initialize TS root selection from the MEP
-                                  tangent at the highest-energy image. When
-                                  disabled, TSOPT selects its initial mode from
-                                  the initial-structure Hessian.  [default:
-                                  tsopt-from-mep-tan]
+                                  Guide Hessian-based TS root identity from MEP
+                                  tangent candidate(s) at the highest-energy
+                                  image. The CPU/file cache is not created or
+                                  used when disabled. Dimer does not consume
+                                  this Hessian reference mode.  [default: tsopt-
+                                  from-mep-tan]
   --thermo / --no-thermo          Run freq on (R,TS,P) per reactive segment (or
                                   TSOPT-only mode) and build Gibbs free-energy
                                   diagram (MLIP).  [default: no-thermo]
@@ -185,8 +186,8 @@ Options:
                                   DFT energy diagram. With --thermo, also
                                   generate a DFT//MLIP/MM Gibbs diagram.
                                   [default: no-dft]
-  --tsopt-max-cycles INTEGER      Override tsopt --max-cycles value.  [default:
-                                  (10000)]
+  --tsopt-max-cycles INTEGER      Set a tsopt cycle cap; omitted means no cycle
+                                  cap.  [default: (None)]
   --flatten / --no-flatten        Enable the extra-imaginary-mode flattening
                                   loop in tsopt (grad: dimer loop, hess: post-
                                   RSIRFO); --no-flatten forces
@@ -202,8 +203,8 @@ Options:
                                   Stop when the energy stops changing while the
                                   convergence criteria are still unmet, and
                                   report the run as stalled. It never signals
-                                  convergence; --max-cycles remains the real
-                                  bound. The MM micro iterations are never
+                                  convergence; an explicit --max-cycles remains
+                                  the hard bound. The MM micro iterations are never
                                   stopped this way.  [default: no-stop-plateau]
   --stop-plateau-thresh FLOAT     Energy range (hartree) below which --stop-
                                   plateau treats the window as flat.  [default:
@@ -221,9 +222,12 @@ Options:
                                   Default follows irc.never_stop (off).
                                   [default: (no-irc-never-stop)]
   --skip-final-freq / --no-skip-final-freq
-                                  Skip post-convergence frequency analysis in
-                                  tsopt. Useful for large unfrozen systems.
-                                  [default: no-skip-final-freq]
+                                  Skip terminal PHVA/frequency analysis in
+                                  tsopt. The TS structure is retained with
+                                  unverified saddle order, and all stops before
+                                  IRC because no imaginary reaction direction
+                                  can be validated.  [default: no-skip-final-
+                                  freq]
   --tsopt-out-dir DIRECTORY       Override tsopt output subdirectory (relative
                                   paths are resolved against the default).
                                   [default: (<segment>/ts)]
@@ -247,8 +251,8 @@ Options:
                                   [default: (<tsopt dir>/dft)]
   --dft-func-basis TEXT           Override dft --func-basis value.  [default:
                                   (wb97m-v/def2-tzvpd)]
-  --dft-max-cycle INTEGER         Override dft --max-cycle value.  [default:
-                                  (100)]
+  --dft-max-cycle INTEGER         Set a DFT SCF iteration cap; omitted means no
+                                  cycle cap.  [default: (None)]
   --dft-conv-tol FLOAT            Override dft --conv-tol value.  [default:
                                   (1e-09)]
   --dft-grid-level INTEGER        Override dft --grid-level value.  [default:
@@ -275,8 +279,8 @@ Options:
   --scan-bias-k FLOAT             Override scan harmonic bias strength k
                                   (eV/Å^2).  [default: (300.0)]
   --scan-relax-max-cycles INTEGER
-                                  Override scan relaxation max cycles per step.
-                                  [default: (10000)]
+                                  Set a scan relaxation cycle cap per step;
+                                  omitted means no cycle cap.  [default: (None)]
   --scan-preopt / --no-scan-preopt
                                   Override scan --preopt flag.  [default:
                                   (inherits --preopt)]

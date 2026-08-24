@@ -12,6 +12,7 @@ Project-specific overrides are commented with rationale.
 from copy import deepcopy
 from typing import Any, Dict, Mapping, Optional
 from pysisyphus.tr_projection import DEFAULT_TR_PROJECTION
+from pysisyphus.normal_modes import DEFAULT_FREQUENCY_ZERO_CUTOFF_CM
 
 
 # B-factor values encode atom layer membership in PDB files:
@@ -38,7 +39,10 @@ BFACTOR_TOLERANCE = 1.0
 
 THRESH_CHOICES = ("gau_loose", "gau", "gau_tight", "gau_vtight", "baker", "never")
 
-
+# The numerical engines require an integer loop bound even when the public
+# contract is unlimited.  Keep that implementation detail in one place: CLI
+# defaults stay ``None`` and only an explicitly supplied cycle option creates a
+# user-visible cap.
 OUT_DIR_OPT = "./result_opt/"
 OUT_DIR_SCAN = "./result_scan/"
 OUT_DIR_SCAN2D = "./result_scan2d/"
@@ -146,7 +150,7 @@ MLMM_CALC_KW: Dict[str, Any] = {
 
 OPT_BASE_KW: Dict[str, Any] = {
     "thresh": "gau",
-    "max_cycles": 10000,
+    "max_cycles": 100000,
     "print_every": 100,
     "min_step_norm": 1e-8,
     "assert_min_step": True,
@@ -397,11 +401,12 @@ MICROITER_KW: Dict[str, Any] = {
     # reported `not_converged`, whose fail-closed handling aborted the macro
     # search after 45 of 791 steps; with this bound every relaxation converges
     # and the search reaches a certified saddle (n_imag=1).
-    "micro_max_cycles": 100000,     # Max LBFGS cycles per micro iteration
+    "micro_max_cycles": 100000,
 }
 
 
 FREQ_KW: Dict[str, Any] = {
+    "zero_cutoff_cm": DEFAULT_FREQUENCY_ZERO_CUTOFF_CM,
     "amplitude_ang": 0.8,
     "n_frames": 20,
     "max_write": 10,
@@ -425,9 +430,10 @@ TSOPT_MODE_ALIASES = (
     (("rsprfo",), "rsprfo"),
 )
 
-# Saddle certification counts imaginary modes; it does not assess their
-# character. Warn, without changing status, when the leading imaginary mode is
-# very soft so the mode shape and IRC connectivity receive explicit review.
+# Saddle certification counts modes above the configured 5 cm^-1 magnitude
+# gate; it does not assess their chemical character. Warn, without changing
+# status, when the leading certified mode is still very soft so the mode shape
+# and IRC connectivity receive explicit review.
 TS_IMAG_SOFT_WARN_CM = 50.0
 
 
@@ -458,7 +464,7 @@ HESSIAN_DIMER_KW: Dict[str, Any] = {
     "thresh_loose": "gau_loose",
     "thresh": "baker",
     "update_interval_hessian": 500,
-    "neg_freq_thresh_cm": 5.0,
+    "neg_freq_thresh_cm": DEFAULT_FREQUENCY_ZERO_CUTOFF_CM,
     "flatten_amp_ang": 0.10,
     "flatten_max_iter": 50,
     "flatten_sep_cutoff": 0.0,
@@ -505,7 +511,7 @@ RSIRFO_KW: Dict[str, Any] = {
     "mode_loss_trust_floor": 1e-5,
     "max_mode_loss_rejections": 5,
     "verify_saddle": True,
-    "saddle_imaginary_threshold_cm": 5.0,
+    "saddle_imaginary_threshold_cm": DEFAULT_FREQUENCY_ZERO_CUTOFF_CM,
     "saddle_recovery_step": 0.01,
     "saddle_recovery_check_interval": 50,
     "saddle_recovery_max_cycles": 0,

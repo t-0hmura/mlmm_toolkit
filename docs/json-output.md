@@ -34,7 +34,7 @@ Rows marked optional are present only when the producer supplies that data:
 | `schema_version` | string | Envelope schema version; current value comes from `mlmm.core.utils.RESULT_JSON_SCHEMA_VERSION` — pin against that constant rather than the literal in this doc. Bumps signal a structural change. |
 | `command` | string | Leaf envelopes use the subcommand name (e.g. `"opt"`); aggregate `all` / `path-search` summaries record the full invocation. |
 | `mlmm_version` / `mlmm_toolkit_version` | string | Package version (`mlmm_version` in leaf envelopes; `mlmm_toolkit_version` in aggregate summaries). |
-| `status` | string | Command-specific: `all` uses `success`/`partial`/`failed`; `path-search` uses `success`/`partial`; `opt` uses `converged`/`not_converged`/`stalled`; `tsopt` also has `unverified`; completed analysis/integration stages use `completed`; exception envelopes use `error`. |
+| `status` | string | Command-specific: `all` uses `success`/`partial`/`failed`; `path-search` uses `success`/`partial`; `opt` and `tsopt` use the numerical outcomes `converged`/`not_converged`/`stalled`; completed analysis/integration stages use `completed`; exception envelopes use `error`. TS saddle order is reported separately in `saddle_validation` / `hessian_status`. |
 | `elapsed_seconds` | float | Optional wall-clock time; omitted when the producer does not pass timing to the shared writer. |
 | `environment` | object | Hardware info (see below) |
 | `run_id` | string | Optional. Present when an orchestrator (including MCP) assigns a current invocation identity; conflicting caller values are rejected. |
@@ -134,7 +134,14 @@ An optimizer may also report `"status": "stalled"`: the energy stopped decreasin
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `status` | string | `"converged"` only when the optimizer converged and `n_imaginary_modes == 1`; otherwise `"not_converged"`, or `"unverified"` with `--skip-final-freq`. An energy-plateau `"stalled"` outcome (see above) wins over all of these and is never reported as `converged`; the dimer (grad) mode also reports `stalled`. |
+| `status` | string | Backward-compatible numerical outcome; use `optimization_status` and `saddle_validation` separately |
+| `optimization_status` | string | Numerical optimizer outcome: `"converged"`, `"not_converged"`, or `"stalled"`; independent of saddle order |
+| `saddle_validation` | string | `"first_order"`, `"higher_order"`, `"no_imaginary"`, or `"unavailable"` from terminal exact PHVA |
+| `saddle_order_verified` | bool | `true` only for `saddle_validation: "first_order"` |
+| `hessian_status` | string | `"completed"`, `"failed"`, `"skipped"`, or `"unavailable"`; `hessian_error` gives the failure reason |
+| `reaction_mode_index` | int\|null | Selected negative exact-PHVA root for downstream IRC; fallback root 0 is explicitly labelled and does not verify reaction identity |
+| `reaction_mode_frequency_cm` | float\|null | Frequency of the selected negative root |
+| `reaction_mode_source` | string\|null | Reference-aligned or explicit fallback source used for root selection |
 | `energy_hartree` | float | TS energy (Hartree) |
 | `n_imaginary_modes` | int\|null | Number of imaginary frequencies; `null` if PHVA was not run |
 | `imaginary_frequencies_cm` | float[]\|null | Imaginary frequencies (cm⁻¹, negative); no PHVA: `[]` with `--skip-final-freq`, otherwise `null` |
@@ -143,12 +150,21 @@ An optimizer may also report `"status": "stalled"`: the energy stopped decreasin
 | `n_opt_cycles` | int | Optimization cycles |
 | `charge` | int | Model-region charge |
 | `spin` | int | Model-region multiplicity |
-| `reference_mode_file` | string\|null | Advanced path-derived mode supplied with `--ref-mode` |
-| `safeguards` | object | Heavy-mode rejection/recovery, exact-saddle, and target-mode diagnostics |
+| `reference_mode_file` | string\|null | Advanced path-derived mode supplied with `--ref-mode`; Hessian-family only |
+| `safeguards` | object | Hessian-family rejection/recovery, exact-saddle, and target-mode diagnostics |
 | `rigid_projection` | object | Frozen-boundary TR provenance for Dimer/flatten/final saddle analysis |
 | `files` | object | Final geometry + vib mode files |
 
-Explicit `--skip-final-freq` retains the unverified representation:
+The retained terminal geometry normally receives one terminal exact PHVA even
+after numerical non-convergence. A PHVA failure is recorded as
+`hessian_status: "failed"` without discarding the structure or fabricating
+frequencies. Numerical status and saddle order are separate: a converged
+higher-order stationary point remains `optimization_status: "converged"` with
+`saddle_validation: "higher_order"`, and is not a certified first-order TS.
+`all` may continue warning-labelled diagnostic IRC only with a validated
+negative root. Numerical non-convergence, zero imaginary modes, failed/skipped
+PHVA, or no valid negative root stops after TS artifact registration and before
+IRC. Explicit `--skip-final-freq` retains the final structure with
 `n_imaginary_modes: null` and `imaginary_frequencies_cm: []`.
 
 ### `freq`

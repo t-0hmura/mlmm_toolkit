@@ -50,7 +50,7 @@ thermo:
 
 dft:
   func_basis: wb97m-v/def2-tzvpd
-  max_cycle: 100
+  max_cycle: null
   conv_tol: 1.0e-9
   grid_level: 3
 """

@@ -63,7 +63,7 @@ def test_path_cli_preserves_config_before_early_validation(
     out_dir = tmp_path / "path"
     out_dir.mkdir()
     config = out_dir / "result.json"
-    original = b"stopt:\n  max_cycles: 0\n"
+    original = b"stopt:\n  max_cycles: 1\n"
     config.write_bytes(original)
 
     result = CliRunner().invoke(
@@ -106,7 +106,7 @@ def test_yaml_redirect_ignores_unused_click_default_collision(
     effective_out = tmp_path / "effective"
     config = tmp_path / "redirect.yaml"
     config.write_text(
-        f"stopt:\n  out_dir: {effective_out}\n  max_cycles: 0\n",
+        f"stopt:\n  out_dir: {effective_out}\n  max_cycles: 1\n",
         encoding="utf-8",
     )
 

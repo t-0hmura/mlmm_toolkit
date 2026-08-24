@@ -41,9 +41,11 @@ mode is selected purely from the input shape. TS-only mode requires
 `--tsopt`; passing `--no-tsopt` with a single input raises a
 validation error.
 
-Normally, IRC starts only when TSOPT reports `status: converged` and
-`n_imaginary_modes: 1`. Explicit `--skip-final-freq` is the only bypass and
-continues with an unverified TS.
+IRC starts only after numerical TS convergence, completed terminal PHVA,
+and selection of a valid negative root. A converged higher-order result can
+continue only as warning-labelled diagnostic IRC and is not a certified
+first-order TS. `--skip-final-freq` retains the TS structure but leaves the
+reaction direction unverified, so `all` stops before IRC.
 
 For finer control, check the TS result before running the downstream commands:
 
@@ -60,8 +62,9 @@ ts_candidate.{xyz,pdb,cif,mmcif}
        │
        ▼
    [tsopt]            (Dimer or RS-I-RFO; default RS-I-RFO)
-       │  status=converged, n_imaginary_modes=1
-       │  (or explicit --skip-final-freq: unverified)
+       │  optimization_status=converged
+       │  hessian_status=completed, valid negative root
+       │  first_order OR warning-labelled higher_order diagnostic
        ▼
    [irc]              (forward + backward; RFO endpoint refinement by default, via --opt-mode-post hess)
        │
@@ -121,11 +124,17 @@ chemical R/P identity.
 If `n_imaginary_modes != 1`, the geometry is **not a true first-order
 saddle**; see "Distinctive failure modes" below.
 
+`all` preserves the TS child result before deciding whether to continue. It
+stops before IRC for numerical non-convergence, zero imaginary modes,
+failed/skipped PHVA, or no valid negative root. A numerically converged
+higher-order stationary point may continue only as warning-labelled diagnostic
+IRC and remains uncertified.
+
 ## Distinctive failure modes
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `tsopt.status == "not_converged"` | Initial Hessian misleading or step size too large | `mlmm tsopt -i ts.xyz --opt-mode rsirfo --max-cycles 200` standalone, then re-run downstream stages |
+| `tsopt.optimization_status == "not_converged"` | Numerical optimizer did not converge; terminal structure/PHVA artifacts are retained when available | Inspect the stop reason and retained modes, then retry from a better seed or with an appropriate optimizer/coordinate setting |
 | `tsopt.n_imaginary_modes == 0` | Geometry collapsed to a minimum during refinement | TS guess was not a real saddle; re-do `path-search` instead |
 | `tsopt.n_imaginary_modes >= 2` | Higher-order saddle or unresolved constrained mode; first-order certification failed | Inspect the modes, tighten convergence/frozen-boundary setup, then flatten or reoptimize from a better TS seed. Certification requires exactly one imaginary mode plus the intended displacement and IRC connectivity. |
 | `irc.bond_changes == {}` (no bonds change) | TS connects two essentially identical wells (numerical ringing) | Verify the imaginary mode visualization in `freq/`; this is sometimes a non-physical TS |

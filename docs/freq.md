@@ -176,6 +176,7 @@ calc:
  mm_fd: true                       # MM finite-difference toggle
  return_partial_hessian: true      # allow partial Hessians (PHVA default)
 freq:
+ zero_cutoff_cm: 5.0               # remove |frequency| <= cutoff (cm^-1)
  amplitude_ang: 0.8                # displacement amplitude for modes (Å)
  n_frames: 20                      # number of frames per mode
  max_write: 10                     # maximum number of modes to write

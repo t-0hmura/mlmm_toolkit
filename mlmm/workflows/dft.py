@@ -46,6 +46,7 @@ from mlmm.core.utils import (
     format_elapsed,
     prepare_input_structure,
     parse_indices_string,
+    optional_positive_int,
     resolve_ml_layer_assignment,
     set_convert_file_enabled,
 )
@@ -332,7 +333,7 @@ def _apply_explicit_dft_overrides(
     *,
     is_param_explicit,
     conv_tol: float,
-    max_cycle: int,
+    max_cycle: Optional[int],
     grid_level: int,
     out_dir: Path,
     lowmem: bool,
@@ -343,13 +344,16 @@ def _apply_explicit_dft_overrides(
     if is_param_explicit("conv_tol"):
         resolved["conv_tol"] = float(conv_tol)
     if is_param_explicit("max_cycle"):
-        resolved["max_cycle"] = int(max_cycle)
+        resolved["max_cycle"] = optional_positive_int(max_cycle, "--max-cycle")
     if is_param_explicit("grid_level"):
         resolved["grid_level"] = int(grid_level)
     if is_param_explicit("out_dir"):
         resolved["out_dir"] = str(out_dir)
     if is_param_explicit("lowmem"):
         resolved["lowmem"] = bool(lowmem)
+    resolved["max_cycle"] = optional_positive_int(
+        resolved.get("max_cycle"), "dft.max_cycle"
+    )
     return resolved
 
 
@@ -679,7 +683,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     show_default=True,
     help='Exchange-correlation functional and basis set as "FUNC/BASIS".',
 )
-@click.option("--max-cycle", type=int, default=DFT_KW["max_cycle"], show_default=True, help="Maximum SCF iterations.")
+@click.option("--max-cycle", type=click.IntRange(min=1), default=DFT_KW["max_cycle"], show_default=True, help="Maximum SCF iterations.")
 @click.option("--conv-tol", type=float, default=DFT_KW["conv_tol"], show_default=True, help="SCF energy convergence threshold (ΔE in Hartree between SCF cycles).")
 @click.option("--grid-level", type=int, default=DFT_KW["grid_level"], show_default=True, help="DFT integration grid level (0=coarse, 3=default, 5=fine, 9=very fine).")
 @click.option(
@@ -795,7 +799,7 @@ def cli(
     ligand_charge: Optional[str],
     spin: Optional[int],
     func_basis: str,
-    max_cycle: int,
+    max_cycle: Optional[int],
     conv_tol: float,
     grid_level: int,
     engine: str,
@@ -1196,7 +1200,14 @@ def cli(
             mf = pdft.RKS(mol) if model_spin2s == 0 else pdft.UKS(mol)
 
         mf.xc = xc
-        mf.max_cycle = int(dft_kw["max_cycle"])
+        # PySCF requires an integer loop bound. Keep the workflow configuration
+        # truly uncapped (None) and adapt only at this external-library boundary.
+        configured_max_cycle = dft_kw.get("max_cycle")
+        mf.max_cycle = (
+            1_000_000_000
+            if configured_max_cycle is None
+            else int(configured_max_cycle)
+        )
         mf.conv_tol = float(dft_kw["conv_tol"])
         try:
             mf.grids.level = int(dft_kw["grid_level"])

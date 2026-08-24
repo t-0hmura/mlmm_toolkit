@@ -34,12 +34,15 @@ Options:
                                   original chain/residue IDs is written
                                   automatically. One path creates multi-MODEL
                                   output; N paths create one output per input.
-  -r, --radius FLOAT              Cutoff (Å) around substrate atoms for active
-                                  site model inclusion.  [default: 2.6]
-  --radius-het2het FLOAT          Cutoff (Å) for substrate hetero-atom (non-C/H)
+  -r, --radius FLOAT RANGE        Cutoff (Å) around substrate atoms for active-
+                                  site inclusion. Zero is accepted and evaluated
+                                  internally as 0.001 Å (effectively off for
+                                  ordinary radius-based neighbors).  [default:
+                                  2.6; x>=0.0]
+  --radius-het2het FLOAT RANGE    Cutoff (Å) for substrate hetero-atom (non-C/H)
                                   to neighbor hetero-atom proximity. 0 is
                                   treated as 0.001 Å (effectively off).
-                                  [default: 0]
+                                  [default: 0; x>=0.0]
   --include-h2o / --no-include-h2o
                                   Include waters (HOH/WAT/H2O/DOD/TIP/TIP3/SOL).
                                   [default: include-h2o]
@@ -49,9 +52,10 @@ Options:
   --add-linkh / --no-add-linkh    Add link hydrogens (carbon boundaries only) at
                                   1.09 Å along cut-bond directions.  [default:
                                   no-add-linkh]
-  --selected-resn TEXT            Comma/space-separated residue IDs/names to
-                                  force-include; chain-qualified A:SAM is
-                                  supported.
+  --selected-resn TEXT            Force-include residues using IDs ('123',
+                                  'A:123A'), names ('SAM'), or chain-qualified
+                                  names ('A:SAM', 'A:SAM:123'); comma/space
+                                  separated.  [default: ""]
   --modified-residue TEXT         Comma-separated residue names with charges to
                                   treat as amino acids for backbone truncation
                                   and charge assignment. A known catalog residue

@@ -157,12 +157,16 @@ AMINO_ACIDS: Dict[str, int] = dict(_CANONICAL_AMINO_ACIDS)
 )
 @click.option(
     "-r", "--radius",
-    type=float, default=2.6, show_default=True,
-    help="Cutoff (Å) around substrate atoms for active site model inclusion.",
+    type=click.FloatRange(min=0.0), default=2.6, show_default=True,
+    help=(
+        "Cutoff (Å) around substrate atoms for active-site inclusion. Zero is "
+        "accepted and evaluated internally as 0.001 Å (effectively off for "
+        "ordinary radius-based neighbors)."
+    ),
 )
 @click.option(
     "--radius-het2het",
-    type=float, default=0, show_default=True,
+    type=click.FloatRange(min=0.0), default=0, show_default=True,
     help="Cutoff (Å) for substrate hetero-atom (non-C/H) to neighbor hetero-atom proximity. 0 is treated as 0.001 Å (effectively off).",
 )
 @click.option(
@@ -184,8 +188,11 @@ AMINO_ACIDS: Dict[str, int] = dict(_CANONICAL_AMINO_ACIDS)
 )
 @click.option(
     "--selected-resn",
-    type=str, default="",
-    help="Comma/space-separated residue IDs/names to force-include; chain-qualified A:SAM is supported.",
+    type=str, default="", show_default=True,
+    help=(
+        "Force-include residues using IDs ('123', 'A:123A'), names ('SAM'), "
+        "or chain-qualified names ('A:SAM', 'A:SAM:123'); comma/space separated."
+    ),
 )
 @click.option(
     "--modified-residue",

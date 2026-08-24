@@ -171,7 +171,7 @@ authoritative for the keys you left alone.
 opt:
  thresh: gau # Convergence preset: gau_loose, gau, gau_tight, gau_vtight, baker, never
  align: false # StringOptimizer-only: alignment toggle
- max_cycles: 10000 # Maximum optimizer iterations
+ # max_cycles: 20000 # Optional finite optimizer cap; omit for no cycle cap
  print_every: 100 # Logging stride
  min_step_norm: 1.0e-08 # Minimum step norm for acceptance
  assert_min_step: true # Stop if steps fall below threshold
@@ -325,7 +325,7 @@ Direct Max Flux settings for MEP optimization.
 
 ```yaml
 dmf:
- max_cycles: 300 # Maximum DMF/IPOPT iterations (overridden by --max-cycles-dmf)
+ # max_cycles: 500 # Optional finite DMF/IPOPT cap; omit for no cycle cap
  tol: tight # IPOPT dual_inf_tol: tight (0.04) | middle (0.10) | loose (0.20) or a positive float (overridden by --thresh-dmf)
  correlated: true # Correlated DMF propagation
  sequential: true # Sequential DMF execution
@@ -388,7 +388,7 @@ stopt:
  stop_in_when_full: 300 # Early stop threshold when string is full
  align: false           # Alignment toggle
  scale_step: global     # Step scaling mode
- max_cycles: 300        # Maximum string optimizer iterations
+ # max_cycles: 500       # Optional finite string-optimizer cap; omit for no cycle cap
  dump: false            # Dump trajectory/restart data
  dump_restart: false    # Dump restart checkpoints
  reparam_thresh: 0.0    # Reparameterization threshold
@@ -398,7 +398,7 @@ stopt:
  lbfgs:
    # Same keys as lbfgs section (for single-structure optimizer)
    thresh: gau
-   max_cycles: 10000
+   # max_cycles: 20000 # optional finite override
    #... (see lbfgs section)
 ```
 
@@ -423,7 +423,6 @@ hessian_dimer:
  thresh_loose: gau_loose # Loose convergence preset
  thresh: baker # Main convergence preset
  update_interval_hessian: 500 # Hessian rebuild cadence
- neg_freq_thresh_cm: 5.0 # Ignore smaller modes in animations and flattening (cm-1)
  flatten_amp_ang: 0.1 # Flattening amplitude (Å)
  flatten_max_iter: 50 # Flattening iteration cap (default 50; --no-flatten sets to 0)
  flatten_sep_cutoff: 0.0 # Minimum distance between representative atoms
@@ -473,7 +472,7 @@ RS-I-RFO TS optimization settings (`tsopt --opt-mode hess`).
 ```yaml
 rsirfo:
  thresh: baker # RS-I-RFO convergence preset
- max_cycles: 10000 # Shared with opt.max_cycles; conflicting explicit values are rejected
+ # max_cycles: 20000 # Optional finite cap shared with opt.max_cycles
  print_every: 100 # Logging stride
  min_step_norm: 1.0e-08 # Minimum accepted step norm
  assert_min_step: true # Assert when steps stagnate
@@ -519,7 +518,7 @@ IRC integration settings.
 irc:
  step_length: 0.1 # Integration step length
  never_stop: false # Ignore physical endpoint criteria and trace to max_cycles
- max_cycles: 125 # Maximum steps along IRC
+ # max_cycles: 250 # Optional finite IRC-step cap; omit for no cycle cap
  forward: true # Propagate in forward direction
  backward: true # Propagate in backward direction
  root: 0 # Normal-mode root index
@@ -557,12 +556,19 @@ Vibrational frequency analysis settings.
 ```yaml
 freq:
  active_dof_mode: partial # Active-atom selection: "all" | "ml-only" | "partial" | "unfrozen"
+ zero_cutoff_cm: 5.0 # Remove modes with |frequency| <= this value (cm^-1)
  amplitude_ang: 0.8 # Displacement amplitude for modes (Å)
- n_frames: 20 # Number of frames per mode animation
+ n_frames: 20 # Number of frames per mode trajectory
  max_write: 10 # Maximum number of modes to write
  sort: value # Sort order: "value" or "abs"
  out_dir: ./result_freq/ # Output directory
 ```
+
+`freq.zero_cutoff_cm` is shared by standalone `freq`, `opt` flattening,
+Dimer, and Hessian-family TS optimization. The legacy
+`hessian_dimer.neg_freq_thresh_cm` and
+`rsirfo.saddle_imaginary_threshold_cm` spellings remain accepted as aliases;
+conflicting values are rejected.
 
 **Notes:**
 - `active_dof_mode` selects which atoms participate in the vibrational analysis. `all` uses every atom; `ml-only` restricts to ML-region atoms; `partial` (default) uses ML + Movable-MM atoms; `unfrozen` uses every non-frozen atom. The CLI flag `--active-dof-mode` overrides the YAML value when explicitly passed.
@@ -609,7 +615,7 @@ ML Hessian evaluations needed.
 ```yaml
 microiter:
  micro_thresh: null       # Convergence preset for MM relaxation (L-BFGS); null → same as macro thresh
- micro_max_cycles: 100000 # Backstop on L-BFGS iterations per micro-iteration (not a schedule)
+ # micro_max_cycles: 200000 # Optional finite micro-iteration cap; omit for no cycle cap
 ```
 
 **Notes:**
@@ -631,7 +637,7 @@ DFT calculation settings.
 dft:
  func_basis: wb97m-v/def2-tzvpd # Combined "FUNC/BASIS" string
  conv_tol: 1.0e-09 # SCF convergence tolerance (Hartree)
- max_cycle: 100 # Maximum SCF iterations
+ # max_cycle: 200 # Optional finite SCF cap; omit for no cycle cap
  grid_level: 3 # PySCF grid level
  engine: gpu # Compute engine: "gpu" (gpu4pyscf) or "cpu" (pyscf); CLI --engine takes precedence
  ecp: null # ECP basis name; null auto-derives from def2-* basis sets
@@ -703,16 +709,16 @@ gs:
 
 opt:
  thresh: gau
- max_cycles: 300
+ # max_cycles: 500 # optional finite override
  dump: false
  out_dir: ./result_all/
 
 stopt:
  thresh: gau_loose
- max_cycles: 300
+ # max_cycles: 500 # optional finite override
  lbfgs:
    thresh: gau
-   max_cycles: 10000
+   # max_cycles: 20000 # optional finite override
 
 bond:
  bond_factor: 1.2

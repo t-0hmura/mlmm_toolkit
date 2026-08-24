@@ -71,7 +71,7 @@ out_dir/ (デフォルト: ./result_dft/)
 | `-l, --ligand-charge TEXT` | 全体電荷、または残基名ごとのマッピング（例: `SAM:1,GPP:-3`）。`-q` 省略時に ML 領域の電荷を導出するために使用（PDB 入力または `--ref-pdb` が必要）。 | _None_ |
 | `-m, --multiplicity INT` | ML 領域のスピン多重度 (2S+1)。 | `1` |
 | `--func-basis TEXT` | 汎関数/基底関数ペア（`"FUNC/BASIS"`）。 | `wb97m-v/def2-tzvpd` |
-| `--max-cycle INT` | 最大 SCF 反復数。 | `100` |
+| `--max-cycle INT` | 任意の SCF 反復上限。 | `None` |
 | `--conv-tol FLOAT` | SCF 収束閾値 (Hartree)。 | `1e-9` |
 | `--grid-level INT` | DFT 積分グリッドレベル (0=粗, 3=デフォルト, 5=細かい, 9=非常に細かい)。 | `3` |
 | `--engine {gpu,cpu}` | GPU4PySCF（`gpu`）または CPU PySCF（`cpu`）を強制。 | `gpu` |
@@ -96,7 +96,7 @@ out_dir/ (デフォルト: ./result_dft/)
 `dft` キー（括弧内はデフォルト）:
 - `func_basis`（`"wb97m-v/def2-tzvpd"`）: 結合 `FUNC/BASIS` 文字列。
 - `conv_tol`（`1e-9`）: SCF 収束閾値 (Hartree)。
-- `max_cycle`（`100`）: 最大 SCF 反復数。
+- `max_cycle`: 任意の SCF 反復上限（デフォルトは上限なし）。
 - `grid_level`（`3`）: PySCF `grids.level`。
 - `verbose`（`0`）: PySCF verbose レベル (0-9)。デフォルトは quiet。CLI `-v 2/3` では実行時に PySCF verbose レベルが最低 `4` へ上がります。
 - `out_dir`（`"./result_dft/"`）: 出力ディレクトリルート。
@@ -112,7 +112,7 @@ calc:
 dft:
  func_basis: wb97m-v/def2-tzvpd      # 交換相関汎関数 / 基底関数セット
  conv_tol: 1.0e-09                # SCF 収束閾値 (Hartree)
- max_cycle: 100                    # 最大 SCF 反復数
+ max_cycle: 200                    # 任意の有限 SCF 上限。上限なしなら省略
  grid_level: 3                     # PySCF グリッドレベル
  verbose: 0                        # PySCF verbose レベル (0-9); CLI -v 2/3 では実行時 PySCF verbose レベルが >=4
  out_dir: ./result_dft/            # 出力ディレクトリルート

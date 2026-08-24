@@ -109,7 +109,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `-q, --charge INT` | Net charge of the ML region/model system; overrides `calc.model_charge` from YAML. | _None_ (required unless `-l` is given) |
 | `-l, --ligand-charge TEXT` | Total charge for unknown ligand residues or a per-resname mapping (e.g., `GPP:-3,SAM:1`). Derives the ML-region net charge when `-q` is omitted. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1); overrides `calc.model_mult`. | `1` |
-| `--max-cycles INT` | Max number of IRC steps; overrides `irc.max_cycles`. | `125` |
+| `--max-cycles INT` | Optional IRC-step cap; overrides `irc.max_cycles`. | `None` |
 | `--step-size FLOAT` | Step length in Bohr (unweighted Cartesian); overrides `irc.step_length`. | `0.10` |
 | `--root INT` | Imaginary mode index for the initial displacement; overrides `irc.root`. | `0` |
 | `--forward/--no-forward` | Run the forward IRC; overrides `irc.forward`. | `True` |
@@ -163,7 +163,7 @@ calc:
  return_partial_hessian: true      # absent-key default; set false to request the full Hessian
 irc:
  step_length: 0.1                  # integration step length (CLI: --step-size)
- max_cycles: 125                   # maximum steps along IRC (CLI: --max-cycles)
+ # max_cycles: 250                 # optional finite IRC-step cap
  forward: true                     # propagate forward branch (CLI: --forward)
  backward: true                    # propagate backward branch (CLI: --backward)
  never_stop: false                 # ignore physical endpoint criteria through max_cycles

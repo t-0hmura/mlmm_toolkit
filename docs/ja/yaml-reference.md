@@ -149,7 +149,7 @@ optimizer 固有セクションが優先されます。
 opt:
  thresh: gau # 収束プリセット: gau_loose, gau, gau_tight, gau_vtight, baker, never
  align: false # StringOptimizer 専用: alignment の有効/無効
- max_cycles: 10000 # 最大反復回数
+ # max_cycles: 20000 # 任意の有限上限。上限なしなら省略
  print_every: 100 # ログ出力間隔
  min_step_norm: 1.0e-08 # 最小ステップノルム
  assert_min_step: true # ステップが閾値以下で停止
@@ -298,7 +298,7 @@ Direct Max Flux（DMF）による MEP 最適化。
 
 ```yaml
 dmf:
- max_cycles: 300 # DMF/IPOPT の最大反復数（--max-cycles-dmf で上書き）
+ # max_cycles: 500 # 任意の有限 DMF/IPOPT 上限。上限なしなら省略
  tol: tight # IPOPT dual_inf_tol: tight(0.04) | middle(0.10) | loose(0.20) または正の float（--thresh-dmf で上書き）
  correlated: true # 相関 DMF 伝搬
  sequential: true # 逐次 DMF 実行
@@ -360,7 +360,6 @@ hessian_dimer:
  thresh_loose: gau_loose # 緩い収束プリセット
  thresh: baker # メイン収束プリセット
  update_interval_hessian: 500 # Hessian再構築間隔
- neg_freq_thresh_cm: 5.0 # 動画出力・平坦化で無視する微小モードの閾値 (cm^-1)
  flatten_amp_ang: 0.1 # フラット化振幅 (Å)
  flatten_max_iter: 50 # フラット化反復上限（デフォルト 50、--no-flatten で 0 に設定）
  flatten_sep_cutoff: 0.0 # 代表原子間の最小距離
@@ -410,7 +409,7 @@ RS-I-RFO TS 最適化（`tsopt --opt-mode hess`）。
 ```yaml
 rsirfo:
  thresh: baker # RS-I-RFO 収束プリセット
- max_cycles: 10000 # opt.max_cycles と共有。異なる明示値はエラー
+ # max_cycles: 20000 # opt.max_cycles と共有する任意の有限上限
  print_every: 100 # ログ出力間隔
  min_step_norm: 1.0e-08 # 最小ステップノルム
  assert_min_step: true # ステップ停滞時にアサート
@@ -455,7 +454,7 @@ stopt:
  stop_in_when_full: 300 # ストリングが満杯時の早期停止閾値
  align: false           # アライメントトグル
  scale_step: global     # ステップスケーリングモード
- max_cycles: 300        # ストリング最適化の最大反復数
+ # max_cycles: 500       # 任意の有限ストリング最適化上限
  dump: false            # 軌跡/リスタートデータ出力
  dump_restart: false    # リスタートチェックポイントの出力
  reparam_thresh: 0.0    # 再パラメータ化閾値
@@ -465,7 +464,7 @@ stopt:
  lbfgs:
    # 単一構造最適化用（HEI±1、ねじれノード）
    thresh: gau
-   max_cycles: 10000
+   # max_cycles: 20000 # 任意の有限上限
    # ...（詳細は lbfgs セクション参照）
 ```
 
@@ -486,7 +485,7 @@ IRC 積分設定。
 irc:
  step_length: 0.1 # 積分ステップ長
  never_stop: false # 物理的端点判定を無視してmax_cyclesまで追跡
- max_cycles: 125 # IRC の最大ステップ数
+ # max_cycles: 250 # 任意の有限 IRC ステップ上限
  forward: true # 順方向に伝搬
  backward: true # 逆方向に伝搬
  root: 0 # 基準振動モードのルートインデックス
@@ -524,12 +523,18 @@ irc:
 ```yaml
 freq:
  active_dof_mode: partial # アクティブ原子の選択: "all" | "ml-only" | "partial" | "unfrozen"
+ zero_cutoff_cm: 5.0 # |振動数| がこの値以下のモードを除外（cm^-1）
  amplitude_ang: 0.8 # モード変位振幅 (Å)
- n_frames: 20 # モードアニメーションのフレーム数
+ n_frames: 20 # モードtrajectoryのフレーム数
  max_write: 10 # 書き出すモードの最大数
  sort: value # ソート順: "value" または "abs"
  out_dir: ./result_freq/ # 出力ディレクトリ
 ```
+
+`freq.zero_cutoff_cm` は standalone `freq`、`opt` flatten、Dimer、
+Hessian系TS最適化が共有します。旧`hessian_dimer.neg_freq_thresh_cm` と
+`rsirfo.saddle_imaginary_threshold_cm` は互換aliasですが、競合する値は
+エラーになります。
 
 **注記:**
 - `active_dof_mode`: 振動解析に参加させる原子集合を選択します。`all` は全原子、`ml-only` は ML 領域のみ、`partial`（デフォルト）は ML + Movable-MM、`unfrozen` は凍結されていない全原子を使用します。CLI フラグ `--active-dof-mode` が明示された場合は YAML 値より優先されます。
@@ -574,7 +579,7 @@ ML/MM最適化用のマイクロイテレーション設定。`--microiter` 有�
 ```yaml
 microiter:
  micro_thresh: null       # MM緩和の収束プリセット（L-BFGS）; null → マクロステップと同じ
- micro_max_cycles: 100000 # マイクロイテレーションあたりの L-BFGS 反復上限（予定回数ではなく backstop）
+ # micro_max_cycles: 200000 # 任意の有限マイクロイテレーション上限
 ```
 
 **注意:**
@@ -595,7 +600,7 @@ DFT 計算設定。
 dft:
  func_basis: wb97m-v/def2-tzvpd # 汎関数/基底関数の組み合わせ文字列
  conv_tol: 1.0e-09 # SCF 収束許容値 (Hartree)
- max_cycle: 100 # 最大 SCF 反復数
+ # max_cycle: 200 # 任意の有限 SCF 上限
  grid_level: 3 # PySCF グリッドレベル
  engine: gpu # 計算エンジン: "gpu"（gpu4pyscf）または "cpu"（pyscf）。CLI --engine が優先
  ecp: null # ECP 基底名。null の場合は def2-* 基底から自動導出
@@ -665,16 +670,16 @@ gs:
 
 opt:
  thresh: gau
- max_cycles: 300
+ # max_cycles: 500 # 任意の有限上限
  dump: false
  out_dir: ./result_all/
 
 stopt:
  thresh: gau_loose
- max_cycles: 300
+ # max_cycles: 500 # 任意の有限上限
  lbfgs:
    thresh: gau
-   max_cycles: 10000
+   # max_cycles: 20000 # 任意の有限上限
 
 bond:
  bond_factor: 1.2

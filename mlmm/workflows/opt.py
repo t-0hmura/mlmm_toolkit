@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import contextlib
 import gc
 import io
+from itertools import count
 import logging
 
 import sys
@@ -32,6 +33,7 @@ from mlmm.backends.mlmm_calc import mlmm, mlmm_mm_only
 from mlmm.core.defaults import (
     BIAS_KW,
     HESSIAN_DIMER_KW,
+    FREQ_KW,
     OPT_BASE_KW,
     LBFGS_KW,
     RFO_KW,
@@ -76,6 +78,11 @@ from mlmm.core.utils import (
     collect_ml_atom_keys as _collect_ml_atom_keys,
     format_pdb_with_bfactor as _format_with_bfactor,
     unbiased_energy_hartree,
+    optional_positive_int,
+)
+from pysisyphus.normal_modes import (
+    normalize_frequency_zero_cutoff_cm,
+    resolved_imaginary_mask,
 )
 from mlmm.cli.common_options import (
     add_ml_charge_spin_options,
@@ -96,6 +103,7 @@ from mlmm.workflows._microiteration import (
     resolve_partition_from_core,
     micro_reached_force_equilibrium,
     describe_micro_stop,
+    macro_progress_due,
 )
 
 EV2AU = 1.0 / AU2EV                 # eV → Hartree
@@ -155,7 +163,6 @@ def _invalidate_opt_optional_outputs(out_dir: Path) -> None:
 H_EVAA_2_AU = EV2AU / (ANG2BOHR * ANG2BOHR)  # (eV/Å^2) → (Hartree/Bohr^2)
 
 # Flatten-loop constants (sourced from defaults.py)
-OPT_FLATTEN_NEG_FREQ_THRESH_CM = HESSIAN_DIMER_KW["neg_freq_thresh_cm"]
 OPT_FLATTEN_AMP_ANG = HESSIAN_DIMER_KW["flatten_amp_ang"]
 OPT_FLATTEN_MAX_ITER = HESSIAN_DIMER_KW["flatten_max_iter"]
 # Guard: a structure near a stationary point has at most a handful of
@@ -683,10 +690,12 @@ def _run_microiter_opt(
     macro_freeze = list(partition.macro_freeze_atoms)
     micro_freeze = list(partition.micro_freeze_atoms)
 
-    max_cycles = int(opt_cfg.get("max_cycles", 10000))
+    max_cycles = optional_positive_int(opt_cfg.get("max_cycles"), "opt.max_cycles")
     thresh = opt_cfg.get("thresh", "gau")
     micro_thresh = microiter_cfg.get("micro_thresh") or thresh
-    micro_max_cycles = int(microiter_cfg.get("micro_max_cycles", 10000))
+    micro_max_cycles = optional_positive_int(
+        microiter_cfg.get("micro_max_cycles"), "microiter.micro_max_cycles"
+    )
 
     click.echo(
         f"[microiter] ML atoms: {len(ml_indices)}, "
@@ -926,10 +935,16 @@ def _run_microiter_opt(
         micro_col_fmts = "int float float float float float int float_short".split()
         micro_table = TablePrinter(micro_header, micro_col_fmts, width=12)
         micro_table.print_header()
+        printed_macro_rows = 0
 
         macro_converged = False
 
-        for macro_iter in range(max_cycles if run_macro else 0):
+        macro_iterable = (
+            count()
+            if run_macro and max_cycles is None
+            else range(max_cycles if run_macro else 0)
+        )
+        for macro_iter in macro_iterable:
             # ---- Macro step: 1 RFO step with ONIOM forces, MM frozen ----
             geometry.freeze_atoms = macro_freeze
             geometry.set_calculator(macro_calc)
@@ -978,11 +993,14 @@ def _run_microiter_opt(
                 if not np.all(np.isfinite(np.asarray(energy_diff))):
                     marks[1] = False
                 cycle_time = time.time() - t_start
+                if printed_macro_rows and printed_macro_rows % 10 == 0:
+                    micro_table.print_sep()
                 micro_table.print_row(
                     (macro_iter, energy_diff, macro_optimizer.max_forces[-1], macro_optimizer.rms_forces[-1],
                      macro_optimizer.max_steps[-1], macro_optimizer.rms_steps[-1], 0, cycle_time),
                     marks=marks,
                 )
+                printed_macro_rows += 1
                 print()  # blank line closes the table (print() shares the table's stdout path)
                 emit("[microiter] Converged!", detail=True)
                 break
@@ -1067,13 +1085,18 @@ def _run_microiter_opt(
             marks = [False, *conv_info.get_convergence()[:-1], False, False]
             if not np.all(np.isfinite(np.asarray(energy_diff))):
                 marks[1] = False
-            if (macro_iter > 1) and (macro_iter % 10 == 0):
-                micro_table.print_sep()
-            micro_table.print_row(
-                (macro_iter, energy_diff, macro_optimizer.max_forces[-1], macro_optimizer.rms_forces[-1],
-                 macro_optimizer.max_steps[-1], macro_optimizer.rms_steps[-1], micro_steps, cycle_time),
-                marks=marks,
+            macro_print_every = getattr(
+                macro_optimizer, "print_every", opt_cfg.get("print_every", 1)
             )
+            if macro_progress_due(macro_iter, macro_print_every):
+                if printed_macro_rows and printed_macro_rows % 10 == 0:
+                    micro_table.print_sep()
+                micro_table.print_row(
+                    (macro_iter, energy_diff, macro_optimizer.max_forces[-1], macro_optimizer.rms_forces[-1],
+                     macro_optimizer.max_steps[-1], macro_optimizer.rms_steps[-1], micro_steps, cycle_time),
+                    marks=marks,
+                )
+                printed_macro_rows += 1
             if rebuilt_internals:
                 macro_optimizer = RFOptimizer(geometry, **rfo_args)
                 macro_optimizer.prepare_opt()
@@ -1237,7 +1260,7 @@ def _run_microiter_opt(
         "Defaults to BIAS_KW['k']=300 (in defaults.py) when omitted."
     ),
 )
-@click.option("--max-cycles", type=int, default=10000, show_default=True, help="Maximum number of optimization cycles.")
+@click.option("--max-cycles", type=click.IntRange(min=1), default=None, show_default="100000", help="Maximum number of optimization cycles.")
 @click.option(
     "--dump/--no-dump",
     default=False,
@@ -1395,7 +1418,7 @@ def _run_microiter_opt(
     help=(
         "Stop when the energy stops changing while the convergence criteria are "
         "still unmet, and report the run as stalled. It never signals "
-        "convergence; --max-cycles remains the real bound. The MM micro "
+        "convergence; an explicit --max-cycles remains the hard bound. The MM micro "
         "iterations are never stopped this way."
     ),
 )
@@ -1555,6 +1578,7 @@ def cli(
         opt_cfg = dict(OPT_BASE_KW)
         lbfgs_cfg = dict(LBFGS_KW)
         rfo_cfg = dict(RFO_KW)
+        frequency_cfg = {"zero_cutoff_cm": FREQ_KW["zero_cutoff_cm"]}
 
         apply_yaml_overrides(
             config_layer_cfg,
@@ -1564,6 +1588,7 @@ def cli(
                 (opt_cfg, (("opt",),)),
                 (lbfgs_cfg, (("lbfgs",), ("opt", "lbfgs"))),
                 (rfo_cfg, (("rfo",), ("opt", "rfo"))),
+                (frequency_cfg, (("freq",),)),
             ],
         )
 
@@ -1642,7 +1667,11 @@ def cli(
                 (opt_cfg, (("opt",),)),
                 (lbfgs_cfg, (("lbfgs",), ("opt", "lbfgs"))),
                 (rfo_cfg, (("rfo",), ("opt", "rfo"))),
+                (frequency_cfg, (("freq",),)),
             ],
+        )
+        frequency_zero_cutoff_cm = normalize_frequency_zero_cutoff_cm(
+            frequency_cfg["zero_cutoff_cm"]
         )
         model_pdb_cfg = calc_cfg.get("model_pdb")
         # Revalidate after the highest-precedence YAML layer so dry-run and
@@ -2039,7 +2068,7 @@ def cli(
                     "opt",
                     converged=microiter_result.get("converged"),
                     cycles=microiter_result.get("cycles"),
-                    max_cycles=int(opt_cfg.get("max_cycles", 0)) or None,
+                    max_cycles=opt_cfg.get("max_cycles"),
                     stalled=bool(microiter_result.get("is_stalled")),
                     stop_reason=microiter_result.get("stop_reason") or None,
                 )
@@ -2070,7 +2099,7 @@ def cli(
                 "opt",
                 converged=getattr(optimizer, "is_converged", None),
                 cycles=optimizer_cycle_count(optimizer),
-                max_cycles=int(opt_cfg.get("max_cycles", 0)) or None,
+                max_cycles=opt_cfg.get("max_cycles"),
                 stalled=getattr(optimizer, "is_stalled", False),
                 stop_reason=getattr(optimizer, "stop_reason", None) or None,
             )
@@ -2163,6 +2192,7 @@ def cli(
                     freeze_idx=effective_freeze_idx,
                     tr_projection=geom_cfg["tr_projection"],
                     projection_info=rigid_projection_info,
+                    frequency_zero_cutoff_cm=frequency_zero_cutoff_cm,
                 )
                 rigid_projection_info.update({
                     "hessian_space": (
@@ -2176,10 +2206,12 @@ def cli(
                 return freqs_local, modes_local
 
             freqs_cm, modes = _calc_freqs_and_modes()
-            neg_mask = freqs_cm < -abs(OPT_FLATTEN_NEG_FREQ_THRESH_CM)
+            neg_mask = resolved_imaginary_mask(
+                freqs_cm, frequency_zero_cutoff_cm
+            )
             n_imag = int(np.sum(neg_mask))
-            ims = [float(x) for x in freqs_cm if x < -abs(OPT_FLATTEN_NEG_FREQ_THRESH_CM)]
-            emit(f"[Imaginary modes] n={n_imag}  ({ims})", narrative=True)
+            ims = [float(x) for x in freqs_cm[neg_mask]]
+            emit(f"[Imaginary modes] n={n_imag} ({ims})", narrative=True)
 
             flatten_kind = mode_resolved  # reuse same optimizer type
             for it in range(OPT_FLATTEN_MAX_ITER):
@@ -2192,7 +2224,7 @@ def cli(
                     calc_kwargs_for_flatten,
                     freqs_cm,
                     modes,
-                    OPT_FLATTEN_NEG_FREQ_THRESH_CM,
+                    frequency_zero_cutoff_cm,
                     OPT_FLATTEN_AMP_ANG,
                     calculator=active_calc,
                 )
@@ -2212,7 +2244,7 @@ def cli(
                     "opt",
                     converged=getattr(opt_restart, "is_converged", None),
                     cycles=optimizer_cycle_count(opt_restart),
-                    max_cycles=int(opt_cfg.get("max_cycles", 0)) or None,
+                    max_cycles=opt_cfg.get("max_cycles"),
                     stalled=getattr(opt_restart, "is_stalled", False),
                     stop_reason=getattr(opt_restart, "stop_reason", None) or None,
                 )
@@ -2233,10 +2265,12 @@ def cli(
 
                 geometry.set_calculator(None)
                 freqs_cm, modes = _calc_freqs_and_modes()
-                neg_mask = freqs_cm < -abs(OPT_FLATTEN_NEG_FREQ_THRESH_CM)
+                neg_mask = resolved_imaginary_mask(
+                    freqs_cm, frequency_zero_cutoff_cm
+                )
                 n_imag = int(np.sum(neg_mask))
-                ims = [float(x) for x in freqs_cm if x < -abs(OPT_FLATTEN_NEG_FREQ_THRESH_CM)]
-                emit(f"[Imaginary modes] n={n_imag}  ({ims})", narrative=True)
+                ims = [float(x) for x in freqs_cm[neg_mask]]
+                emit(f"[Imaginary modes] n={n_imag} ({ims})", narrative=True)
 
             if n_imag > 0:
                 click.echo(

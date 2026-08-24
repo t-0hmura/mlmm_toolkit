@@ -90,8 +90,6 @@ def test_kabsch_log_names_the_alignment_selection(
 
 
 def test_final_step_log_states_the_achieved_coincidence(tmp_path, monkeypatch):
-    """The step line reports the pre-snap gap, so the snap itself must be logged."""
-
     class _ConvergedLBFGS:
         is_converged = True
 

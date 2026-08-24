@@ -66,13 +66,18 @@ of magnitude.
   with frequency analysis and IRC connectivity.
 
 `--ref-mode` is an advanced path-direction input, not a routine standalone
-remedy. `mlmm all` derives and supplies the normalized 3N Cartesian tangent
-from its MEP by default for initial-root selection and overlap tracking. With
-`all --no-tsopt-from-mep-tan`, TSOPT computes the initial-structure Hessian
-and selects its initial root from the resulting vibrational modes. The default
-search does not launch automatic saddle recovery or displaced multistarts.
-Ordinary standalone `tsopt` should omit it unless an externally derived,
-atom-order-matched reaction mode is available.
+remedy. It accepts one or more atom-order-matched Cartesian 3N candidates from
+`.npz`, `.npy`, or whitespace text and guides negative Hessian-root identity and
+overlap; it does not replace the Hessian. `mlmm all` supplies CPU/file-cached
+MEP candidates to Hessian TS optimizers by default. Dimer does not consume it.
+With `all --no-tsopt-from-mep-tan`, cache creation/use is disabled and TSOPT
+selects its initial root from the initial-structure Hessian modes.
+
+Keep numerical convergence separate from saddle order. A converged
+higher-order stationary point is not a first-order TS, although `all` may run
+warning-labelled diagnostic IRC when a validated negative root exists.
+Numerical non-convergence, no imaginary mode, failed/skipped PHVA, or no valid
+negative root stops after preserving the TS artifacts and before IRC.
 
 ## 4. IRC stops too early
 

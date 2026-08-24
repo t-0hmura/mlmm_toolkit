@@ -47,7 +47,7 @@ Options:
   --hess / --no-hess              Also compute the active-coordinate ONIOM
                                   Hessian and save to hessian.npy.  [default:
                                   no-hess]
-  --hessian-calc-mode [analytical|finitedifference]
+  --hessian-calc-mode [Analytical|FiniteDifference]
                                   Hessian backend when --hess is set. Analytical
                                   is supported by UMA, ORB, MACE, and AIMNet2;
                                   custom calculators use FiniteDifference.

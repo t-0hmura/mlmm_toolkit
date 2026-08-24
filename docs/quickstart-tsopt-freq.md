@@ -20,7 +20,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 `tsopt` performs a final Hessian evaluation and imaginary-frequency check automatically at the end of optimization. Check the terminal output for lines like:
 
 ```
-[Imaginary modes] n=1  ([-593.1])
+[Imaginary modes] n=1 ([-593.1])
 ```
 
 ## What to check

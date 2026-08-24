@@ -41,7 +41,8 @@ Options:
   --func-basis TEXT               Exchange-correlation functional and basis set
                                   as "FUNC/BASIS".  [default:
                                   wb97m-v/def2-tzvpd]
-  --max-cycle INTEGER             Maximum SCF iterations.  [default: 100]
+  --max-cycle INTEGER             Set an SCF iteration cap; omitted means no
+                                  cycle cap.  [default: None]
   --conv-tol FLOAT                SCF energy convergence threshold (ΔE in
                                   Hartree between SCF cycles).  [default: 1e-09]
   --grid-level INTEGER            DFT integration grid level (0=coarse,

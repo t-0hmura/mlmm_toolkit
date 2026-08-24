@@ -186,7 +186,7 @@ def add_scan_common_options(
     # CLI default. Use-sites do `if bias_k is not None: bias_cfg["k"] = ...`,
     # so None means "fall through to YAML/BIAS_KW".
     bias_k_default: float | None = None,
-    relax_max_cycles_default: int = 10000,
+    relax_max_cycles_default: int | None = None,
     one_based_help: str = "Interpret (i,j) indices in --scan-lists as 1-based (default) or 0-based.",
     include_baseline: bool = True,
     include_zmin_zmax: bool = True,
@@ -224,9 +224,9 @@ def add_scan_common_options(
         ),
         click.option(
             "--relax-max-cycles",
-            type=int,
+            type=click.IntRange(min=1),
             default=relax_max_cycles_default,
-            show_default=True,
+            show_default="100000",
             help=relax_max_cycles_help,
         ),
         click.option(

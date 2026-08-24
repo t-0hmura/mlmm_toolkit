@@ -55,8 +55,7 @@ def test_stage_template_preserves_backend_specific_and_mm_fields(
                     precision_key: precision_value,
                     "workers": 7,
                     "workers_per_node": 3,
-                    "embedcharge": True,
-                    "embedcharge_cutoff": 8.75,
+                    "embedcharge": False,
                     "mm_backend": "openmm",
                     "mm_threads": 5,
                     "mm_fd_delta": 0.004,
@@ -92,8 +91,7 @@ def test_stage_template_preserves_backend_specific_and_mm_fields(
         assert derived[precision_key] == precision_value
         assert derived["workers"] == 7
         assert derived["workers_per_node"] == 3
-        assert derived["embedcharge"] is True
-        assert derived["embedcharge_cutoff"] == pytest.approx(8.75)
+        assert derived["embedcharge"] is False
         assert derived["mm_backend"] == "openmm"
         assert derived["mm_threads"] == 5
         assert derived["mm_fd_delta"] == pytest.approx(0.004)
@@ -129,7 +127,6 @@ def test_custom_calculator_and_explicit_overlays_survive_stage_derivation(
         config,
         embedcharge=False,
         embedcharge_explicit=True,
-        embedcharge_cutoff=6.5,
         link_atom_method="fixed",
         mm_backend="openmm",
         use_cmap=True,
@@ -148,7 +145,6 @@ def test_custom_calculator_and_explicit_overlays_survive_stage_derivation(
     assert derived["calc_file"] == "custom_calc.py"
     assert derived["calc_factory"] == "build_calc"
     assert derived["embedcharge"] is False
-    assert derived["embedcharge_cutoff"] == pytest.approx(6.5)
     assert derived["link_atom_method"] == "fixed"
     assert derived["mm_backend"] == "openmm"
     assert derived["use_cmap"] is True

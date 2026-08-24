@@ -202,6 +202,26 @@ def _read_current_summary(
 def _process_group_exists(pgid: int) -> bool:
     """Return whether a POSIX process group still has a live member."""
 
+    proc_root = Path("/proc")
+    if proc_root.is_dir():
+        saw_member = False
+        try:
+            for stat_path in proc_root.glob("[0-9]*/stat"):
+                stat = stat_path.read_text(encoding="utf-8", errors="replace")
+                close = stat.rfind(")")
+                if close < 0:
+                    continue
+                fields = stat[close + 2 :].split()
+                if len(fields) < 3 or int(fields[2]) != int(pgid):
+                    continue
+                saw_member = True
+                if fields[0] != "Z":
+                    return True
+            if saw_member:
+                return False
+        except (OSError, ValueError):
+            pass
+
     try:
         os.killpg(pgid, 0)
     except ProcessLookupError:

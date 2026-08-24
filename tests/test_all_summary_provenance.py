@@ -6,7 +6,7 @@ from mlmm.workflows.all import (
     _derive_pipeline_status,
     _enrich_summary,
     _resolve_mlip_provenance,
-    _validate_tsopt_result_payload,
+    _tsopt_continuation_decision,
 )
 import pytest
 
@@ -87,26 +87,64 @@ def test_pipeline_status_rejects_zero_imaginary_modes() -> None:
     assert any("n_imag=0" in reason for reason in reasons)
 
 
-@pytest.mark.parametrize("n_imag", [0, 2])
-def test_all_stops_before_irc_for_wrong_saddle_order(n_imag: int) -> None:
-    with pytest.raises(Exception, match="IRC was not started"):
-        _validate_tsopt_result_payload(
-            {"status": "not_converged", "n_imaginary_modes": n_imag},
-            skip_final_freq=False,
-        )
+def test_all_stops_before_irc_for_zero_imaginary_modes() -> None:
+    decision = _tsopt_continuation_decision(
+        {
+            "optimization_status": "converged",
+            "hessian_status": "completed",
+            "n_imaginary_modes": 0,
+        },
+        skip_final_freq=False,
+    )
+    assert decision["continue_irc"] is False
+    assert decision["reason"] == "no_imaginary_reaction_mode"
 
 
-def test_all_allows_only_explicitly_unverified_skip() -> None:
-    _validate_tsopt_result_payload(
-        {"status": "unverified", "n_imaginary_modes": None},
+def test_all_continues_diagnostic_irc_for_converged_higher_order_saddle() -> None:
+    decision = _tsopt_continuation_decision(
+        {
+            "optimization_status": "converged",
+            "hessian_status": "completed",
+            "n_imaginary_modes": 2,
+            "imaginary_frequencies_cm": [-400.0, -100.0],
+            "reaction_mode_index": 1,
+            "reaction_mode_frequency_cm": -100.0,
+        },
+        skip_final_freq=False,
+    )
+    assert decision["continue_irc"] is True
+    assert decision["reason"] == "higher_order_saddle"
+
+
+def test_all_stops_before_irc_when_terminal_frequency_is_skipped() -> None:
+    decision = _tsopt_continuation_decision(
+        {
+            "optimization_status": "converged",
+            "hessian_status": "skipped",
+            "n_imaginary_modes": None,
+        },
         skip_final_freq=True,
     )
-    with pytest.raises(Exception, match="IRC was not started"):
-        _validate_tsopt_result_payload(
-            {"status": "unverified", "n_imaginary_modes": None},
-            skip_final_freq=False,
-        )
+    assert decision["continue_irc"] is False
+    assert decision["reason"] == "terminal_hessian_explicitly_skipped"
 
+
+def test_all_rejects_nonnegative_recorded_reaction_root() -> None:
+    decision = _tsopt_continuation_decision(
+        {
+            "optimization_status": "converged",
+            "hessian_status": "completed",
+            "n_imaginary_modes": 2,
+            "imaginary_frequencies_cm": [-400.0, -100.0],
+            "reaction_mode_index": 9,
+            "reaction_mode_frequency_cm": 25.0,
+        },
+        skip_final_freq=False,
+    )
+    assert decision["continue_irc"] is True
+    assert decision["reaction_mode_index"] == 0
+    assert decision["reaction_mode_frequency_cm"] == -400.0
+    assert decision["reaction_mode_fallback"] is True
 
 def test_enriched_rate_limit_uses_refined_barrier(tmp_path) -> None:
     summary = {

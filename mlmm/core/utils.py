@@ -45,6 +45,24 @@ from mlmm.io.structure_formats import (
 logger = logging.getLogger(__name__)
 
 
+def optional_positive_int(value: Any, label: str) -> Optional[int]:
+    """Normalize an optional positive cycle bound (``None`` is uncapped)."""
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        raise click.BadParameter(f"{label} must be a positive integer or None.")
+    try:
+        parsed = int(value)
+        numeric = float(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise click.BadParameter(
+            f"{label} must be a positive integer or None."
+        ) from exc
+    if not math.isfinite(numeric) or numeric != parsed or parsed <= 0:
+        raise click.BadParameter(f"{label} must be a positive integer or None.")
+    return parsed
+
+
 # CLI verbosity state (set by the top-level --verbose callback in cli/app.py).
 # `pretty_block` and any other config-echo helpers consult `is_verbose()` so
 # that running without `-v` keeps stdout focused on milestones / errors /
@@ -270,12 +288,15 @@ def emit_optimizer_terminal_status(
     max_cycles: Optional[int],
     stalled: bool = False,
     stop_reason: Optional[str] = None,
+    converged_message: Optional[str] = None,
 ) -> None:
     """Emit a consistent optimizer terminal status at detail verbosity.
 
     ``stalled`` renders the energy-plateau outcome and takes
     precedence over the convergence/max-cycle branches so a stalled run is
-    never printed as ``Converged!``.
+    never printed as ``Converged!``. ``converged_message`` lets callers label
+    numerical convergence explicitly when a separate scientific validation
+    still follows.
     """
     prefix = f"[{label}]"
     if stalled:
@@ -284,7 +305,7 @@ def emit_optimizer_terminal_status(
         else:
             emit(f"{prefix} Stalled (energy plateau; not converged).", detail=True)
     elif converged is True:
-        emit(f"{prefix} Converged!", detail=True)
+        emit(f"{prefix} {converged_message or 'Converged!'}", detail=True)
     elif cycles is not None and max_cycles is not None and cycles >= max_cycles:
         emit(f"{prefix} Reached max cycles ({cycles}/{max_cycles}).", detail=True)
     elif converged is False:

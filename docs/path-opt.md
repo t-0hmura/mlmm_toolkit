@@ -37,7 +37,7 @@ mlmm path-opt -i REACTANT.pdb PRODUCT.pdb --parm real.parm7 --model-pdb model.pd
     Set up the ML/MM calculator with `--parm`, `--model-pdb`, and charge/spin.
 2. **Optional pre-optimization** -- With `--preopt`, each endpoint is pre-optimized
     by L-BFGS (using the same ML/MM calculator) before alignment and string growth.
-    The number of L-BFGS cycles is controlled by `--preopt-max-cycles` (default: 10000).
+    A finite L-BFGS cycle cap can be set with `--preopt-max-cycles` (default: no cycle cap).
 3. **Alignment and freeze-guided refinement** -- Endpoints after the first are rigidly
     aligned to the first. With `freeze_atoms`, the shared owner then performs its
     freeze-guided scan and L-BFGS relaxation toward the reference before string growth.
@@ -81,11 +81,10 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--movable-cutoff FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. MM atoms beyond this are frozen. Providing `--movable-cutoff` disables `--detect-layer`. | _None_ |
 | `--fix-ends/--no-fix-ends` | Fix endpoint structures during GSM growth (`gs.fix_first/fix_last`). | `True` |
 | `--max-nodes INT` | Number of internal string nodes (total images = `max_nodes + 2`). | `20` |
-| `--max-cycles-gsm INT` | GSM macro-iteration cap (growth + refinement). Also sets `opt.stop_in_when_full`. | `300` |
-| `--max-cycles-dmf INT` | DMF IPOPT iteration cap. | `300` |
+| `--max-cycles INT` | Optional optimizer macro-iteration cap (growth + refinement). Also sets `opt.stop_in_when_full`. | `None` |
 | `--climb/--no-climb` | Enable climbing-image refinement after full string growth. | `True` |
 | `--preopt/--no-preopt` | Pre-optimize each endpoint with L-BFGS before alignment/string growth. | `True` |
-| `--preopt-max-cycles INT` | Cap for endpoint pre-optimization cycles. | `10000` |
+| `--preopt-max-cycles INT` | Optional cap for endpoint pre-optimization cycles. | `None` |
 | `--thresh TEXT` | Convergence preset override for endpoint pre-optimization only (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | _None_ (effective: `gau`) |
 | `--thresh-gsm TEXT` | Convergence preset for the GSM string optimizer (`stopt.thresh`; same presets as `--thresh`). | _None_ (effective: `gau_loose`) |
 | `--thresh-dmf TEXT` | IPOPT dual-infeasibility tolerance of the DMF optimizer (`dmf.tol`): `tight` (0.04), `middle` (0.10), `loose` (0.20), or a positive float. Gaussian presets are rejected. | _None_ (effective: `tight`) |

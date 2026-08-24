@@ -17,7 +17,7 @@ from mlmm.workflows.scan_common import (
 @pytest.mark.parametrize(
     ("yaml_cfg", "explicit", "thresh", "cycles", "expected_thresh", "expected_cycles"),
     [
-        ({}, set(), "baker", 10000, "baker", 10000),
+        ({}, set(), "baker", None, "baker", None),
         (
             {"opt": {"thresh": "gau_loose", "max_cycles": 77}},
             set(),
@@ -117,7 +117,7 @@ def test_nested_opt_lbfgs_does_not_reach_scan_constructor_kwargs() -> None:
 @pytest.mark.parametrize(
     ("yaml_cfg", "argv", "expected"),
     [
-        ({}, [], {"thresh": "baker", "max_cycles": 10000}),
+        ({}, [], {"thresh": "baker", "max_cycles": None}),
         (
             {"opt": {"thresh": "gau_loose", "max_cycles": 17}},
             [],
@@ -137,7 +137,7 @@ def test_click_parameter_sources_drive_scan_precedence(
 ) -> None:
     @click.command()
     @click.option("--thresh", default="baker")
-    @click.option("--relax-max-cycles", type=int, default=10000)
+    @click.option("--relax-max-cycles", type=int, default=None)
     @click.pass_context
     def command(ctx, thresh, relax_max_cycles):
         opt_cfg, _ = resolve_scan_optimizer_configs(

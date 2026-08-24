@@ -37,7 +37,7 @@ Options:
                                   MM atoms. MM atoms beyond this are frozen.
                                   Providing --movable-cutoff disables --detect-
                                   layer.  [default: (use freeze_atoms)]
-  --hessian-calc-mode [analytical|finitedifference]
+  --hessian-calc-mode [Analytical|FiniteDifference]
                                   How the ML backend builds the Hessian
                                   (Analytical or FiniteDifference); overrides
                                   calc.hessian_calc_mode from YAML. Default:

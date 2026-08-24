@@ -44,8 +44,6 @@ tests/smoke/r_complex_layered.pdb
 tests/smoke/r_complex_elem.pdb
 tests/smoke/r_complex_fixalt.pdb
 
-mlmm/_version.py
-
 # Sphinx documentation
 docs/_build/
 docs/_static/*.css.map

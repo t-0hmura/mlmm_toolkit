@@ -4,6 +4,18 @@ All notable changes to **mlmm-toolkit** will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased] — 2026-08-19
+
+### Fixed
+- Gate MEP `--ref-mode` handoff to Hessian TS optimizers; Dimer records the handoff as not applicable instead of receiving an option it rejects.
+- Preserve a non-converged Dimer final structure and stop before terminal PHVA.
+- Use the configurable `freq.zero_cutoff_cm` value for standalone frequency analysis, flattening, and TS saddle classification.
+- Restrict reference-aligned reaction-mode selection to negative exact-PHVA modes and validate the selected frequency before IRC. Invalid or missing selections use an explicit lowest-imaginary root-0 fallback with unverified reaction identity.
+- Keep `--skip-final-freq` artifact-preserving but stop composite `all` before IRC because the negative reaction direction was not validated.
+- Separate numerical optimization status from saddle order. A converged higher-order stationary point is not a first-order TS, but `all` may perform warning-labelled diagnostic IRC when a valid negative root exists.
+- Synchronize EN/JA docs, skills, live help, generated command references, and checked-in contract tests with the current behavior.
+- Remove the replaced path-tangent/single-mode helpers and one unreferenced mass-weighted-frequency wrapper; larger workflow and Notebook refactors remain deferred.
+
 ## [0.3.3] — 2026-07-27
 
 > Upgrade warning: unchanged inputs can produce different geometries, energies/barriers,
@@ -18,13 +30,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   optimizations. It no longer sets the GSM string-optimizer preset, which now
   has its own `--thresh-gsm`. A command that relied on `--thresh` to tighten or
   loosen the string optimizer must pass `--thresh-gsm` as well.
-- **Split the MEP cycle budget per algorithm.** `all`, `path-opt`, and
-  `path-search` replace `--max-cycles` with `--max-cycles-gsm` (GSM
-  string-optimizer cycles, which also bound the fully-grown string) and
-  `--max-cycles-dmf` (DMF IPOPT iterations). One flag previously wrote both
-  engines' budgets even though they count different things, mirroring the
-  `--thresh-gsm` / `--thresh-dmf` split. `opt`, `tsopt`, `scan`, and `irc` keep
-  their own `--max-cycles`.
 - **CMAP now defaults to the force-field-faithful policy in both MM layers.**
   Parm7 CMAP terms are preserved in both REAL and MODEL calculations, so complete
   model-internal terms cancel in `E_real_low + E_high - E_model_low` while boundary
@@ -123,11 +128,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Add selectable UMA/ORB/MACE/AIMNet2 frame rescoring to `trj2fig`, with model,
   precision, and machine-readable provenance controls. Comment-energy mode remains
   calculator-free, and rescoring is a pure MLIP calculation rather than ONIOM.
-- Announce the first load of each ML backend model -- `[backend] Preparing MLIP
-  model (<backend> / <model>)...` then `[backend] Done.` -- so the silent weight
-  download inside the backend constructor no longer reads as a hang.
+- Announce the first load of each ML backend model with
+  `[backend] Preparing MLIP model (...)...` and `[backend] Done.`.
 
 ### Changed
+- Keep finite product cycle defaults: 100000 for ordinary optimization,
+  300 for GSM/DMF, 125 for IRC, 100000 for ML/MM microiterations, and 100 for
+  DFT SCF. An explicit YAML `null` remains the uncapped engine value.
 - Detect B-factor ML/MM layers by default and expose
   `--detect-layer/--no-detect-layer` consistently across commands and `all`
   child stages. Explicit `--model-pdb` / `--model-indices` membership remains
@@ -264,30 +271,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   trusted PyPI publication.
 
 ### Fixed
-- Keep the start-up artwork out of a dry run. `--dry-run` now prints only
-  the `mlmm-toolkit ver. <version>` line, so a planning run reads as a plan;
-  a real run is unchanged.
-- Log the endpoint-alignment snap. The per-step line reports the gap measured
-  before the anchors are set onto the reference, so the final step now also
-  states the achieved coincidence and that the anchors stay frozen through the
-  finishing relaxation.
-- Rebudget endpoint alignment. Its finishing relaxation — the only one whose
-  convergence decides whether a pair is reported as aligned — now gets
-  `OPT_BASE_KW["max_cycles"]` (10000) instead of 1000, while each intermediate
-  relaxation keeps 1000 because its result is never read. The scan-step guard
-  drops from 10000 to 100 steps, so it bounds anchor travel at 10 Å instead of
-  1000 Å. All three entry points now state the same defaults; the pair-level one
-  previously read 50/200/1000 even though the sequence the workflows call always
-  overrode it.
-- Classify the Colab flag panel from the live command definition: options hidden
-  from `--help` are listed under Advanced flags and the rest under Key flags, so
-  the panel covers every flag of the selected command.
-- Offer each transition state's imaginary mode in the `all` and `tsopt` Results
-  view, labelled by segment and wavenumber, and animate it as a vibrational mode
-  instead of falling back to the reaction path.
-- Drive Mol* reverse synchronization from a real user action on its model
-  controls instead of polling the rendered label, so scrubbing the reaction path
-  no longer competes with the viewer's own frame updates.
 - Keep Hessian status and timing lines adjacent to the surrounding optimizer
   cycle rows instead of inserting blank lines before and after each Hessian
   evaluation.

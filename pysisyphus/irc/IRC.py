@@ -8,6 +8,7 @@ from pathlib import Path
 import sys
 
 import h5py
+from itertools import count
 import numpy as np
 
 from pysisyphus._array import active_square
@@ -66,9 +67,10 @@ class IRC:
             Transtion state geometry, or initial geometry for downhill run.
         step_length : float, optional
             Step length in unweighted coordinates.
-        max_cycles : int, optional
-            Positive integer, controlloing the maximum number of IRC steps
-            taken in a direction (forward/backward/downhill).
+        max_cycles : int or None, optional
+            Positive integer controlling the maximum number of IRC steps taken
+            in a direction (forward/backward/downhill). ``None`` means no cycle
+            cap.
         downhill : bool, default=False
             Downhill run from a non-stationary point with non-vanishing
             gradient. Disables forward and backward runs.
@@ -111,7 +113,8 @@ class IRC:
         never_stop : bool, optional
             Ignore RMS-gradient, hard-gradient, energy-increase, and
             energy-change stopping conditions. Numerical/integration failures,
-            external interruption, and max_cycles still stop the path.
+            external interruption, and an explicitly finite max_cycles still
+            stop the path.
         check_bonds : bool, optional, default=False
             Report whether bonds are formed/broken along the IRC, w.r.t the TS.
         out_dir : str, optional
@@ -125,7 +128,9 @@ class IRC:
             Dump to HDF5 every n-th cycle. Disabled by default.
         """
         assert step_length > 0, "step_length must be positive"
-        assert max_cycles > 0, "max_cycles must be positive"
+        assert max_cycles is None or max_cycles > 0, (
+            "max_cycles must be positive or None"
+        )
 
         self.logger = logging.getLogger("irc")
 
@@ -211,7 +216,9 @@ class IRC:
         header = ("Step", "IRC length", "dE / au", "max(|grad|)", "rms(grad)")
         self.table = TablePrinter(header, col_fmts)
 
-        self.cycle_places = ceil(log(self.max_cycles, 10))
+        self.cycle_places = (
+            3 if self.max_cycles is None else max(1, ceil(log(self.max_cycles, 10)))
+        )
 
         self.mm_inv2 = 1.0 / np.sqrt(
             np.asarray(self.geometry.masses_rep)[self._act_dofs]
@@ -795,7 +802,8 @@ class IRC:
         self.irc_mw_gradients.append(self.mw_gradient)
 
         self.table.print_header()
-        for self.cur_cycle in range(self.max_cycles):
+        cycle_iter = count() if self.max_cycles is None else range(self.max_cycles)
+        for self.cur_cycle in cycle_iter:
             self.log(highlight_text(f"IRC step {self.cur_cycle:03d}") + "\n")
 
             # Dump current coordinates to trj
@@ -952,6 +960,8 @@ class IRC:
             self.log("")
             sys.stdout.flush()
         else:
+            # An unlimited iterator cannot exhaust; this message is reserved
+            # for a user-supplied finite cap.
             print("IRC steps exceeded. Stopping.")
             print()
 

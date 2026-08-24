@@ -385,7 +385,8 @@ def test_oniom_export_rejects_removed_near_option() -> None:
     )
 
     assert result.exit_code != 0
-    assert "No such option: --near" in result.output
+    assert "No such option" in result.output
+    assert "--near" in result.output
 
 
 def test_oniom_export_requires_layered_input(

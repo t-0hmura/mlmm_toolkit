@@ -4,11 +4,10 @@ mlmm's `all` runs post-IRC endpoint re-optimization by invoking the `opt` child
 CLI, so the toggle is threaded into `_run_opt_for_state` and forwarded to that
 child as `--reject-uphill` / `--no-reject-uphill`. These tests pin:
 
-1. the shipped default is off (``RFO_KW["reject_uphill"] is False``);
-2. both `opt` and `all` expose the toggle with default off;
-3. the default path (flag not passed -> ``reject_uphill=None``) forwards NO token
-   to the opt child (byte-identical behavior), while an explicit toggle forwards
-   the matching canonical flag through the real ``_run_opt_for_state`` code path;
+1. both `opt` and `all` expose the shipped default-off toggle;
+2. an omitted parent toggle remains omitted for the child optimizer;
+3. `_run_opt_for_state` faithfully forwards its resolved toggle, and the
+   parent `all` workflow preserves omission as ``None``;
 4. TS optimizers force uphill rejection off even when YAML-like input tries to
    re-enable it.
 """
@@ -135,8 +134,7 @@ def test_all_gate_resolves_endpoint_reject_uphill(tmp_path: Path, extra, expecte
 
     Parse `all` the way the CLI does and reproduce the exact resolution line
     ``_reject_uphill_eff = bool(reject_uphill) if _is_param_explicit(...) else None``.
-    The default arm forwards no override and therefore inherits the opt
-    child's shared default-off RFO configuration.
+    The default arm therefore forwards no explicit override.
     """
     from mlmm.workflows.all import cli as all_cli
     from mlmm.cli.decorators import make_is_param_explicit

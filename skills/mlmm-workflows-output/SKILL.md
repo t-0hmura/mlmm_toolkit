@@ -182,16 +182,20 @@ mlmm freq -i seg_NN/tsopt/final_geometry.xyz --ref-pdb enzyme_layered.pdb --parm
 mlmm irc -i seg_NN/tsopt/final_geometry.xyz --ref-pdb enzyme_layered.pdb --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' -b uma --out-json -o seg_NN/irc
 ```
 
-**GATE** in order: tsopt `result.json` `status` is exactly `converged`
-(`not_converged` means zero/multiple modes or optimizer failure; `unverified` means
-the final frequency check was skipped) → freq `result.json` `n_imaginary == 1` (exactly one imaginary frequency)
-whose mode moves the reacting atoms (for 0 or >1, inspect the geometry, modes,
-MEP guess, optimizer stop reason, and backend-specific numerical behavior before retrying;
-see `mlmm-ts-strategy/SKILL.md` §3) → irc
-`result.json` `scientific_status == "success"` and every requested direction
-has a usable outcome before endpoint chemistry is interpreted; the chemically
-oriented endpoints must connect the **intended** R and P. A TS that fails any
-gate is not this elementary step.
+**GATE** for first-order certification: tsopt numerical
+`optimization_status` is `converged`; terminal `hessian_status` is `completed`;
+`saddle_validation` is `first_order`; and the one imaginary displacement moves
+the reacting atoms. The composite `all` workflow can also continue
+warning-labelled **diagnostic** IRC from a numerically converged `higher_order`
+result when a validated negative root exists, but that continuation is not
+first-order certification. Numerical non-convergence, zero modes,
+failed/skipped PHVA, or no valid negative root stops `all` after retaining TS
+artifacts. Then require standalone freq `result.json` `n_imaginary == 1` before
+trusting the barrier → irc `result.json` `scientific_status == "success"` and
+every requested direction has a usable outcome before endpoint chemistry is
+interpreted. The chemically oriented endpoints must connect the **intended** R
+and P. A TS that fails the certification gate is not a validated first-order TS
+for this elementary step.
 
 **Stage 3 — thermochemistry** (optional, = `all --thermo`): run `mlmm freq` on R / TS / P
 for the Gibbs/QRRHO profile (`post_segments[i].gibbs_mlip`).

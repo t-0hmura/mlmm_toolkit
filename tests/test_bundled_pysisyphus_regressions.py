@@ -1220,6 +1220,7 @@ def test_normal_modes_retain_every_low_complement_root() -> None:
         coords_bohr,
         torch.device("cpu"),
         freeze_idx=[1, 2, 3],
+        frequency_zero_cutoff_cm=0.0,
     )
 
     assert len(freqs) == 3
@@ -1253,9 +1254,9 @@ def test_trans_rot_vectors_are_translation_invariant_for_a_linear_molecule() -> 
     assert shifted.shape[0] == here.shape[0]
 
 
-def test_exact_phva_order_counts_every_negative_root() -> None:
-    # A genuine second-order saddle whose weaker imaginary mode is far below the
-    # 5 cm^-1 export/recovery threshold.
+def test_exact_phva_order_ignores_subthreshold_negative_root() -> None:
+    # A strong reaction mode plus a numerically soft negative root below the
+    # configured 5 cm^-1 saddle/export/recovery threshold.
     freqs_cm = np.array([-450.0, -3.2, 12.0])
     modes = torch.eye(3, dtype=torch.float64)
 
@@ -1272,16 +1273,17 @@ def test_exact_phva_order_counts_every_negative_root() -> None:
     opt.cur_cycle = 7
     opt.table = SimpleNamespace(print=lambda *_a, **_kw: None)
     opt.request_stop = lambda *_a: None
+    opt._record_exact_saddle_candidate = lambda: None
     opt._last_exact_target_mode_reanchored = False
 
     has_saddle_modes, physical_mode, verified = opt._verify_exact_vibrational_structure(
         None, None
     )
 
-    # Order is the Morse index, so the -3.2 cm^-1 root still counts.
-    assert opt._last_exact_n_imaginary == 2
-    assert opt._last_exact_saddle_verified is False
-    assert opt._last_exact_saddle_cycle is None
+    # The soft -3.2 cm^-1 root does not change the certified saddle order.
+    assert opt._last_exact_n_imaginary == 1
+    assert opt._last_exact_saddle_verified is True
+    assert opt._last_exact_saddle_cycle == 7
     assert has_saddle_modes is True
     assert verified is True
     assert physical_mode is not None

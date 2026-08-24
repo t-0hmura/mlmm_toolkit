@@ -1,12 +1,4 @@
-"""Pins the announcement that brackets the first load of each MLIP model.
-
-Weight downloads happen inside the backend constructor and print nothing of
-their own, so a first run looked indistinguishable from a hang. The ML backend
-factory brackets the construction with ``Preparing MLIP model (...)`` / ``Done.``
-once per distinct ``(backend, model)``: a cached model shows both lines back to
-back, a download stops between them, a second construction of the same model
-stays silent, and a construction that raises is not remembered as announced.
-"""
+"""Pins the announcement that brackets the first load of each MLIP model."""
 
 from __future__ import annotations
 
@@ -17,15 +9,12 @@ from mlmm.backends import mlmm_calc
 
 
 class _StubBackend:
-    """Stands in for a real ML backend class; records the kwargs it received."""
-
     def __init__(self, **kwargs):
         self.kwargs = kwargs
 
 
 @pytest.fixture(autouse=True)
 def _fresh_announcement_state(monkeypatch):
-    """Each test starts with nothing announced (the set is process-global)."""
     monkeypatch.setattr(mlmm_calc, "_ANNOUNCED_MODEL_LOADS", set())
 
 
@@ -51,10 +40,8 @@ def test_first_load_is_bracketed_then_silent(
     out = capsys.readouterr().out
     assert f"[backend] Preparing MLIP model ({backend} / {model})..." in out
     assert "[backend] Done." in out
-    # The notice must precede the load it brackets, not follow it.
     assert out.index("Preparing MLIP model") < out.index("[backend] Done.")
 
-    # Same (backend, model) again: already loaded once, so no second notice.
     _create(backend, **{model_kwarg: model})
     assert "Preparing MLIP model" not in capsys.readouterr().out
 
@@ -78,9 +65,8 @@ def test_failed_load_is_announced_again(capsys, monkeypatch) -> None:
         _create("uma", uma_model="uma-s-1p2")
     out = capsys.readouterr().out
     assert "Preparing MLIP model" in out
-    assert "[backend] Done." not in out  # nothing was loaded
+    assert "[backend] Done." not in out
 
-    # The retry must announce again: the first attempt never completed.
     monkeypatch.setattr(mlmm_calc, "_UMABackend", _StubBackend)
     _create("uma", uma_model="uma-s-1p2")
     retry = capsys.readouterr().out

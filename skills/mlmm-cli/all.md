@@ -43,9 +43,8 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 
 ## Key flags (cross-mode)
 
-> **Note:** `--max-cycles-gsm` and `--max-cycles-dmf` bound only the MEP child;
-> they are not a shared all-stage budget. Other stages retain their dedicated
-> options or defaults.
+> **Note:** `--max-cycles` controls only the MEP child; it is not a shared
+> all-stage budget. Other stages retain their dedicated options or defaults.
 
 | Flag | Type | Default | Description |
 |---|---|---|---|

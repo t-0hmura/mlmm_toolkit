@@ -67,6 +67,7 @@ from mlmm.core.utils import (
     parse_indices_string,
     resolve_ml_layer_assignment,
     echo_resolved_device,
+    optional_positive_int,
 )
 from mlmm.cli.common_options import add_ml_layer_detection_options, add_precision_option, add_workers_options, add_backend_model_option, add_calc_file_option, add_deterministic_option, add_allow_charge_mult_mismatch_option
 from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, _write_error_json, render_cli_exception
@@ -910,11 +911,7 @@ def _run_dmf_mep(
         "(total images = max_nodes + 2 endpoints)."
     ),
 )
-@click.option("--max-cycles-gsm", type=int, default=None, show_default="300",
-              help="Maximum GSM string-optimizer cycles for the MEP stage.")
-@click.option("--max-cycles-dmf", type=int, default=None, show_default="300",
-              help=("Maximum IPOPT iterations for the DMF MEP stage. This is a solver "
-                    "iteration count, not a string-optimizer cycle count."))
+@click.option("--max-cycles", type=click.IntRange(min=1), default=None, show_default="300", help="Maximum optimization cycles.")
 @click.option(
     "--climb/--no-climb",
     default=True,
@@ -930,8 +927,8 @@ def _run_dmf_mep(
     show_default=True,
     help="Pre-optimize the two endpoint structures with L-BFGS before string growth.",
 )
-@click.option("--preopt-max-cycles", "preopt_max_cycles", type=int, default=10000, show_default=True,
-              help="Maximum L-BFGS cycles for endpoint pre-optimization when --preopt is enabled.")
+@click.option("--preopt-max-cycles", "preopt_max_cycles", type=click.IntRange(min=1), default=None, show_default="100000",
+              help="Maximum L-BFGS cycles for endpoint pre-optimization.")
 @click.option(
     "--fix-ends/--no-fix-ends",
     default=True,
@@ -1126,8 +1123,7 @@ def cli(
     mep_mode: str,
     dmf_backend: str,
     max_nodes: int,
-    max_cycles_gsm: Optional[int],
-    max_cycles_dmf: Optional[int],
+    max_cycles: int,
     climb: bool,
     preopt: bool,
     preopt_max_cycles: int,
@@ -1264,13 +1260,10 @@ def cli(
 
         if _is_param_explicit("max_nodes"):
             gs_cfg["max_nodes"] = int(max_nodes)
-        # The GSM cycle budget also bounds the fully-grown string; DMF's budget
-        # is a separate IPOPT iteration count.
-        if _is_param_explicit("max_cycles_gsm") and max_cycles_gsm is not None:
-            stopt_cfg["max_cycles"] = int(max_cycles_gsm)
-            stopt_cfg["stop_in_when_full"] = int(max_cycles_gsm)
-        if _is_param_explicit("max_cycles_dmf") and max_cycles_dmf is not None:
-            dmf_cfg["max_cycles"] = int(max_cycles_dmf)
+        if _is_param_explicit("max_cycles"):
+            stopt_cfg["max_cycles"] = int(max_cycles)
+            stopt_cfg["stop_in_when_full"] = int(max_cycles)
+            dmf_cfg["max_cycles"] = int(max_cycles)
         if _is_param_explicit("dmf_backend"):
             dmf_cfg["backend"] = str(dmf_backend).lower()
         if _is_param_explicit("climb"):
@@ -1374,10 +1367,15 @@ def cli(
 
         # Keep optimizer alignment policy deterministic.
         stopt_cfg["align"] = False
-        stopt_cfg["stop_in_when_full"] = int(stopt_cfg.get("max_cycles", STOPT_KW["max_cycles"]))
+        # Mirror the string budget without validating yet: output/input
+        # collision checks deliberately run before config-value validation so
+        # an invalid config can never overwrite itself with an error report.
+        stopt_cfg["stop_in_when_full"] = stopt_cfg.get("max_cycles")
 
         out_dir_path = Path(stopt_cfg["out_dir"]).resolve()
-        preopt_max_cycles_effective = int(lbfgs_cfg.get("max_cycles", preopt_max_cycles))
+        preopt_max_cycles_effective = optional_positive_int(
+            lbfgs_cfg.get("max_cycles", preopt_max_cycles), "preopt max_cycles"
+        )
 
         # movable_cutoff implies full distance-based layer assignment.
         detect_layer_enabled = bool(calc_cfg.get("use_bfactor_layers", True))
@@ -1442,14 +1440,9 @@ def cli(
             if mep_mode_kind == "dmf"
             else stopt_cfg.get("max_cycles", 0)
         )
-        cycles_hint = (
-            "--max-cycles-dmf" if mep_mode_kind == "dmf" else "--max-cycles-gsm"
+        effective_max_cycles = optional_positive_int(
+            effective_max_cycles, "--max-cycles"
         )
-        if int(effective_max_cycles) <= 0:
-            raise click.BadParameter(
-                f"{cycles_hint} must be at least 1.",
-                param_hint=cycles_hint,
-            )
 
         validate_endpoint_atom_identities(prepared_inputs)
 
@@ -1483,7 +1476,7 @@ def cli(
                         "model_region_source": model_region_source,
                         "model_indices_count": 0 if not model_indices else len(model_indices),
                         "preopt": bool(preopt),
-                        "preopt_max_cycles": int(preopt_max_cycles_effective),
+                        "preopt_max_cycles": preopt_max_cycles_effective,
                         "will_run_path_opt": True,
                         "will_write_summary": True,
                         "backend": calc_cfg.get("backend", "uma"),
@@ -1547,7 +1540,7 @@ def cli(
                 {
                     "mep_mode": mep_mode_kind,
                     "preopt": bool(preopt),
-                    "preopt_max_cycles": int(preopt_max_cycles_effective),
+                    "preopt_max_cycles": preopt_max_cycles_effective,
                     "fix_ends": bool(gs_cfg.get("fix_first", False) and gs_cfg.get("fix_last", False)),
                 },
             )
@@ -1599,7 +1592,7 @@ def cli(
                     lbfgs_args = dict(lbfgs_cfg)
                     lbfgs_args.update({
                         "out_dir": str(subdir),
-                        "max_cycles": int(preopt_max_cycles_effective),
+                        "max_cycles": preopt_max_cycles_effective,
                     })
                     optimizer = LBFGS(g, **lbfgs_args)
                     optimizer.run()

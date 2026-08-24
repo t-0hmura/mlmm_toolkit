@@ -40,7 +40,7 @@ thermo:
 
 dft:
   func_basis: wb97m-v/def2-tzvpd
-  max_cycle: 100
+  # max_cycle: 200  # optional finite SCF cap; omit for no cycle cap
   conv_tol: 1.0e-9
   grid_level: 3
 ```
@@ -65,7 +65,7 @@ Each scalar is pinned to (and equals) the runtime owner shown.
 | `thermo.pressure_atm` | `float` | `1.0` | `THERMO_KW["pressure_atm"]` |
 | `thermo.symmetry_number` | `NoneType` | `None` | `THERMO_KW["symmetry_number"]` |
 | `dft.func_basis` | `str` | `'wb97m-v/def2-tzvpd'` | `DFT_KW["func_basis"]` |
-| `dft.max_cycle` | `int` | `100` | `DFT_KW["max_cycle"]` |
+| `dft.max_cycle` | `int` | no cycle cap | `DFT_KW["max_cycle"]` |
 | `dft.conv_tol` | `float` | `1e-09` | `DFT_KW["conv_tol"]` |
 | `dft.grid_level` | `int` | `3` | `DFT_KW["grid_level"]` |
 

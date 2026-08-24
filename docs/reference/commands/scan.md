@@ -48,11 +48,12 @@ Options:
                                   YAML bias.k (BIAS_KW['k']=300 in defaults.py)
                                   when omitted; explicit CLI value overrides
                                   YAML.  [default: (300.0)]
-  --max-cycles INTEGER            Maximum L-BFGS cycles per biased step and per
-                                  (pre|end)opt stage.  [default: 10000]
+  --max-cycles INTEGER            Set an L-BFGS cycle cap per biased step and
+                                  (pre|end)opt stage; omitted means no cycle cap.
+                                  [default: None]
   --relax-max-cycles INTEGER      Compatibility alias of --max-cycles (overrides
                                   it when provided).  [default: (inherits --max-
-                                  cycles (10000))]
+                                  cycles (None))]
   --dump / --no-dump              Write per-step optimizer trajectory files.
                                   scan_trj.xyz is always written per-stage and
                                   as a combined file in out-dir; scan.pdb

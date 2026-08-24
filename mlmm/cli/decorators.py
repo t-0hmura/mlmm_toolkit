@@ -178,11 +178,11 @@ def render_cli_exception(
 ):
     """Shared terminal renderer for a subcommand's top-level exception.
 
-    User-input errors (Click UsageError/BadParameter/ClickException, or a
-    malformed --config/override YAML) print a clean one-line ``Error:`` and
-    exit with the conventional code (2). Everything else falls through to
-    the full traceback (exit 1) so genuine internal bugs stay visible — no
-    exception masking. Always calls sys.exit (never returns).
+    User-input errors (Click UsageError/BadParameter/ClickException, a
+    malformed --config/override YAML) print a clean one-line ``Error:`` and exit with the conventional
+    code (2). Everything else falls through to the full traceback (exit 1)
+    so genuine internal bugs stay visible — no exception masking. Always
+    calls sys.exit (never returns).
     """
     if out_dir is not None and command:
         # _write_error_json is best-effort and swallows its own errors

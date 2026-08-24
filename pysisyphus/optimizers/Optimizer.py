@@ -1,6 +1,7 @@
 import abc
 from dataclasses import dataclass
 import functools
+from itertools import count
 import logging
 import os
 from pathlib import Path
@@ -39,15 +40,19 @@ def get_data_model(geometry, is_cos, max_cycles):
     # Define dataset shapes. As pysisyphus offers growing COS methods where
     # the number of images changes along the optimization we have to define
     # the shapes accordingly by considering the maximum number of images.
-    _1d = (max_cycles,)
-    _2d = (max_cycles, image_num * dummy_geom.coords.size)
-    _image_inds = (max_cycles, image_num)
+    # These shapes are retained as metadata only; optimizer history itself is
+    # kept in growable Python lists.  An unlimited run therefore needs no
+    # artificial integer cycle cap here.
+    cycle_capacity = 0 if max_cycles is None else max_cycles
+    _1d = (cycle_capacity,)
+    _2d = (cycle_capacity, image_num * dummy_geom.coords.size)
+    _image_inds = (cycle_capacity, image_num)
     # Number of cartesian coordinates is probably different from the number
     # of internal coordinates.
-    _2d_cart = (max_cycles, image_num * dummy_geom.cart_coords.size)
+    _2d_cart = (cycle_capacity, image_num * dummy_geom.cart_coords.size)
     # The dimensionality of energies depends on whether a COS is optimized or
     # not. I know this is probably not the best idea...
-    _energy = _1d if (not is_cos) else (max_cycles, geometry.max_image_num)
+    _energy = _1d if (not is_cos) else (cycle_capacity, geometry.max_image_num)
 
     data_model = {
         "image_nums": _1d,
@@ -133,7 +138,7 @@ class Optimizer(metaclass=abc.ABCMeta):
         geometry: Geometry,
         thresh: Thresh = "gau_loose",
         max_step: float = 0.04,
-        max_cycles: int = 150,
+        max_cycles: Optional[int] = 150,
         min_step_norm: float = 1e-8,
         assert_min_step: bool = True,
         rms_force: Optional[float] = None,
@@ -175,7 +180,9 @@ class Optimizer(metaclass=abc.ABCMeta):
             Maximum absolute component of the allowed step vector. Utilized in
             optimizers that don't support a trust region or line search.
         max_cycles
-            Maximum number of allowed optimization cycles.
+            Maximum number of allowed optimization cycles. ``None`` means no
+            cycle cap; convergence, numerical failure, or interruption still
+            stop the optimization.
         min_step_norm
             Minimum norm of an allowed step. If the step norm drops below
             this value a ZeroStepLength-exception is raised. The unit depends
@@ -296,11 +303,15 @@ class Optimizer(metaclass=abc.ABCMeta):
         for key, value in self.convergence.items():
             setattr(self, key, value)
 
+        if max_cycles is not None:
+            if isinstance(max_cycles, bool) or int(max_cycles) != max_cycles or max_cycles <= 0:
+                raise ValueError("max_cycles must be a positive integer or None")
+            max_cycles = int(max_cycles)
+
         if self.thresh == "never":
-            max_cycles = 1_000_000_000
             self.dump = False
             self.log(
-                f"Got threshold {self.thresh}, set 'max_cycles' to {max_cycles} "
+                f"Got threshold {self.thresh}, kept max_cycles={max_cycles} "
                 "and disabled dumping!"
             )
             self.conv_dict = {}
@@ -999,7 +1010,12 @@ class Optimizer(metaclass=abc.ABCMeta):
         self.table.print_header(with_sep=False)
         self.stopped = False
         # Actual optimization loop
-        for self.cur_cycle in range(self.last_cycle, self.max_cycles):
+        cycle_iter = (
+            count(self.last_cycle)
+            if self.max_cycles is None
+            else range(self.last_cycle, self.max_cycles)
+        )
+        for self.cur_cycle in cycle_iter:
             start_time = time.time()
             self.log(highlight_text(f"Cycle {self.cur_cycle:03d}"))
 
@@ -1245,6 +1261,8 @@ class Optimizer(metaclass=abc.ABCMeta):
 
             self.log("")
         else:
+            # ``itertools.count`` never exhausts.  This branch is reached only
+            # for an explicitly finite cycle budget.
             self.table.print("Number of cycles exceeded!")
 
         # Outside loop
@@ -1302,9 +1320,15 @@ class Optimizer(metaclass=abc.ABCMeta):
         # Set restart information general to all optimizers
         self.last_cycle = restart_info["last_cycle"] + 1
 
-        must_resize = self.last_cycle >= self.max_cycles
+        must_resize = (
+            self.max_cycles is not None and self.last_cycle >= self.max_cycles
+        )
         if must_resize:
-            self.max_cycles += restart_info["max_cycles"]
+            previous_max_cycles = restart_info["max_cycles"]
+            if previous_max_cycles is None:
+                self.max_cycles = None
+            else:
+                self.max_cycles += previous_max_cycles
 
         self.coords = [np.array(coords) for coords in restart_info["coords"]]
         self.energies = restart_info["energies"]

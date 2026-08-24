@@ -139,7 +139,7 @@ OPT_BASE_KW.update(
     {
         "out_dir": OUT_DIR_SCAN3D,
         "dump": False,
-        "max_cycles": 10000,
+        "max_cycles": None,
     }
 )
 LBFGS_KW: Dict[str, Any] = deepcopy(_OPT_LBFGS_KW)

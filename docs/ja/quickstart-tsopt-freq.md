@@ -20,7 +20,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 `tsopt` は最適化の最後に自動で Hessian 行列（Hessian）の計算と虚振動数の確認を実行します。ターミナル出力で以下のような行を確認してください。
 
 ```
-[Imaginary modes] n=1  ([-593.1])
+[Imaginary modes] n=1 ([-593.1])
 ```
 
 ## まず確認する出力

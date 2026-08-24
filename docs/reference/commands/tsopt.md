@@ -17,11 +17,14 @@ Options:
                                   provides higher coordinate precision. If XYZ,
                                   use --ref-pdb to specify PDB topology for atom
                                   ordering and output conversion.  [required]
-  --ref-mode FILE                 Advanced path-mode hint for Hessian TS root
-                                  selection (.npy or whitespace Cartesian 3N
-                                  text). 'mlmm all' supplies this from its MEP;
-                                  ordinary standalone tsopt runs normally omit
-                                  it.
+  --ref-mode FILE                 Advanced/internal Cartesian reference
+                                  direction(s) for Hessian TS root selection and
+                                  overlap tracking. Accepts .npz path-mode
+                                  caches, .npy arrays, or whitespace text
+                                  containing one 3N vector or a 2-D candidate
+                                  table. This guides mode identity; it does not
+                                  replace the Hessian and is not supported by
+                                  Dimer. mlmm all supplies it from the MEP.
   --ref-pdb FILE                  Reference PDB topology when input is XYZ. XYZ
                                   coordinates are used (higher precision) while
                                   PDB provides atom ordering and residue
@@ -58,7 +61,7 @@ Options:
                                   MM atoms. MM atoms beyond this are frozen.
                                   Providing --movable-cutoff disables --detect-
                                   layer.  [default: (use freeze_atoms)]
-  --hessian-calc-mode [analytical|finitedifference]
+  --hessian-calc-mode [Analytical|FiniteDifference]
                                   How the ML backend builds the Hessian
                                   (Analytical or FiniteDifference); overrides
                                   calc.hessian_calc_mode from YAML. Default:
@@ -66,8 +69,8 @@ Options:
                                   on the backend and system; compare both modes
                                   on a representative pilot.  [default:
                                   (FiniteDifference)]
-  --max-cycles INTEGER            Maximum total optimization cycles.  [default:
-                                  10000]
+  --max-cycles INTEGER            Set an optimization cycle cap; omitted means
+                                  no cycle cap.  [default: None]
   --dump / --no-dump              Write concatenated trajectory
                                   'optimization_all_trj.xyz'.  [default: no-
                                   dump]
@@ -143,11 +146,12 @@ Options:
                                   layers. Default: enabled when present in
                                   parm7.  [default: (cmap)]
   --skip-final-freq / --no-skip-final-freq
-                                  Skip the post-convergence frequency analysis
-                                  and imaginary-mode flattening. Useful for
-                                  large unfrozen systems where the final Hessian
-                                  diagonalization is expensive.  [default: no-
-                                  skip-final-freq]
+                                  Skip terminal PHVA/frequency analysis and
+                                  imaginary-mode flattening. Standalone tsopt
+                                  retains the final structure with unverified
+                                  saddle order; mlmm all stops before IRC
+                                  because no imaginary direction can be
+                                  validated.  [default: no-skip-final-freq]
   --out-json / --no-out-json      Write machine-readable result.json to out_dir.
                                   [default: no-out-json]
   --detect-layer / --no-detect-layer
@@ -212,8 +216,8 @@ Options:
                                   Stop when the energy stops changing while the
                                   convergence criteria are still unmet, and
                                   report the run as stalled. It never signals
-                                  convergence; --max-cycles remains the real
-                                  bound. The MM micro iterations are never
+                                  convergence; an explicit --max-cycles remains
+                                  the hard bound. The MM micro iterations are never
                                   stopped this way.  [default: no-stop-plateau]
   --stop-plateau-thresh FLOAT     Energy range (hartree) below which --stop-
                                   plateau treats the window as flat.  [default:

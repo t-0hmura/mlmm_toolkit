@@ -444,11 +444,13 @@ def build_path_child_argv(
     topology, output, and config tokens remain at the dispatch call site.
     """
 
+    mode = str(mep_mode).strip().lower()
+    cycle_parameter = "max_cycles_dmf" if mode == "dmf" else "max_cycles_gsm"
+    cycle_value = max_cycles_dmf if mode == "dmf" else max_cycles_gsm
+
     specs: list[ChildArgSpec] = [
         ("dmf_backend", "--dmf-backend", dmf_backend, False),
         ("max_nodes", "--max-nodes", max_nodes, False),
-        ("max_cycles_gsm", "--max-cycles-gsm", max_cycles_gsm, False),
-        ("max_cycles_dmf", "--max-cycles-dmf", max_cycles_dmf, False),
         ("climb", "--climb", climb, True),
     ]
     specs.extend(
@@ -461,9 +463,17 @@ def build_path_child_argv(
             ("thresh_dmf", "--thresh-dmf", thresh_dmf, False),
         ]
     )
-    return ["--mep-mode", str(mep_mode).lower(), *build_explicit_child_argv(
-        explicit_params, specs
-    )]
+    argv = ["--mep-mode", mode]
+    if (
+        cycle_value is not None
+        and ("max_cycles" in explicit_params or cycle_parameter in explicit_params)
+    ):
+        # Both path-opt and path-search accept the common --max-cycles token.
+        # Forward only the budget for the selected MEP algorithm; an explicit
+        # GSM-only budget must never cap a DMF child (and vice versa).
+        argv.extend(["--max-cycles", str(cycle_value)])
+    argv.extend(build_explicit_child_argv(explicit_params, specs))
+    return argv
 
 
 def build_scan_child_argv(

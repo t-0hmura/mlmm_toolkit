@@ -77,7 +77,7 @@ def _path_child_kwargs() -> dict:
         "dmf_backend": "cpu",
         "max_nodes": 31,
         "max_cycles_gsm": 47,
-        "max_cycles_dmf": 53,
+        "max_cycles_dmf": 47,
         "climb": False,
         "dump": False,
         "pre_opt": False,
@@ -91,8 +91,7 @@ def _path_child_kwargs() -> dict:
 _PATH_COMMON_CASES = (
     ("dmf_backend", ["--dmf-backend", "cpu"]),
     ("max_nodes", ["--max-nodes", "31"]),
-    ("max_cycles_gsm", ["--max-cycles-gsm", "47"]),
-    ("max_cycles_dmf", ["--max-cycles-dmf", "53"]),
+    ("max_cycles", ["--max-cycles", "47"]),
     ("climb", ["--no-climb"]),
     ("dump", ["--no-dump"]),
     ("pre_opt", ["--no-preopt"]),
@@ -136,6 +135,16 @@ def test_path_children_omit_parent_opt_mode() -> None:
     assert build_path_child_argv(
         {"opt_mode"},
         **_path_child_kwargs(),
+    ) == ["--mep-mode", "dmf"]
+
+
+def test_path_child_forwards_only_the_selected_algorithm_cycle_budget() -> None:
+    kwargs = _path_child_kwargs()
+    assert build_path_child_argv(
+        {"max_cycles_dmf"}, **kwargs
+    ) == ["--mep-mode", "dmf", "--max-cycles", "47"]
+    assert build_path_child_argv(
+        {"max_cycles_gsm"}, **kwargs
     ) == ["--mep-mode", "dmf"]
 
 

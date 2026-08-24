@@ -54,8 +54,8 @@ Options:
                                   --dist-freeze. Defaults to BIAS_KW['k']=300
                                   (in defaults.py) when omitted.  [default:
                                   (300.0)]
-  --max-cycles INTEGER            Maximum number of optimization cycles.
-                                  [default: 10000]
+  --max-cycles INTEGER            Set an optimization cycle cap; omitted means
+                                  no cycle cap.  [default: None]
   --dump / --no-dump              Write optimization trajectories
                                   ('optimization_trj.xyz' and
                                   'optimization_all_trj.xyz').  [default: no-
@@ -195,8 +195,8 @@ Options:
                                   Stop when the energy stops changing while the
                                   convergence criteria are still unmet, and
                                   report the run as stalled. It never signals
-                                  convergence; --max-cycles remains the real
-                                  bound. The MM micro iterations are never
+                                  convergence; an explicit --max-cycles remains
+                                  the hard bound. The MM micro iterations are never
                                   stopped this way.  [default: no-stop-plateau]
   --stop-plateau-thresh FLOAT     Energy range (hartree) below which --stop-
                                   plateau treats the window as flat.  [default:

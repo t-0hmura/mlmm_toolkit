@@ -117,8 +117,7 @@ SHARED_ADVANCED_SCIENTIFIC_OPTIONS = [
     ("all", "--dry-run"),
     ("all", "--scan-bias-k"),
     ("all", "--scan-relax-max-cycles"),
-    ("all", "--max-cycles-gsm"),
-    ("all", "--max-cycles-dmf"),
+    ("all", "--max-cycles"),
     ("all", "--tsopt-max-cycles"),
     ("all", "--hessian-calc-mode"),
     ("scan", "--max-cycles"),
@@ -267,7 +266,7 @@ def test_extract_help_progressive_disclosure(runner, cli_group):
     assert _has_option_header(short.output, "-i, --input")
     assert _has_option_header(short.output, "-c, --center")
     assert _has_option_header(short.output, "--help-advanced")
-    assert not _has_option_header(short.output, "--selected-resn")
+    assert _has_option_header(short.output, "--selected-resn")
 
     advanced = runner.invoke(cli_group, ["extract", "--help-advanced"])
     assert advanced.exit_code == 0

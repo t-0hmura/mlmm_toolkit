@@ -71,6 +71,16 @@ def test_never_stop_reports_physical_thresholds_as_disabled(capsys) -> None:
     assert "rms(|gradient|) <=" not in output
 
 
+def test_active_gradient_accepts_list_indices_from_refined_partial_hessian() -> None:
+    irc = object.__new__(IRC)
+    irc._act_dofs = [0, 2]
+
+    np.testing.assert_array_equal(
+        irc.active_gradient(np.array([1.0, 2.0, 3.0])),
+        np.array([1.0, 3.0]),
+    )
+
+
 @pytest.mark.parametrize("threshold", [-1.0, np.nan, np.inf])
 def test_energy_increase_threshold_must_be_finite_and_nonnegative(
     tmp_path, threshold

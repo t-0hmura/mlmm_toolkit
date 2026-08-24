@@ -41,7 +41,7 @@ mlmm extract -i complex1.pdb complex2.pdb -c A:123 \
  - `--exclude-backbone` の場合、アミノ酸残基は**非主鎖**原子（N/H*/CA/HA*/C/O/OXT 以外）で基質に接触する必要あり。非アミノ酸は任意の原子で可。
 - **独立したヘテロ-ヘテロカットオフ（`--radius-het2het`）:** 基質ヘテロ原子（C/H 以外）が指定 Å 以内のタンパク質ヘテロ原子に近接する残基を追加。主鎖除外有効時はタンパク質原子が非主鎖である必要あり。
 - **水分子処理:** HOH/WAT/H2O/DOD/TIP/TIP3/SOL はデフォルトで含まれます（`--include-h2o`）。
-- **強制包含:** `--selected-resn` は鎖/インサーションコード付き ID を受け付けます（例: `A:123A`）。
+- **強制包含:** `--selected-resn` は残基番号（`123`）、鎖/インサーションコード付き ID（`A:123A`）、残基名（`SAM`）、鎖付き残基名（`A:SAM`）、鎖/残基名/番号（`A:SAM:123`）を受け付けます。`-c` でアミノ酸中心を選んだとき、必要な残基だけを明示的に強制包含する用途にも使えます。
 - **隣接セーフガード:**
  - 主鎖除外オフで残基が主鎖原子で基質に接触する場合、ペプチド隣接 N/C 残基を自動包含（C-N <= 1.9 Å）。末端はキャップ（N/H* または C/O/OXT）を保持。
  - ジスルフィド結合（SG-SG <= 2.5 Å）は両方の Cys を包含。
@@ -107,12 +107,12 @@ mlmm extract -i COMPLEX.pdb [COMPLEX2.pdb...]
 | `-i, --input PATH...` | 1 つ以上のタンパク質-リガンド PDB ファイル（同一原子順序が必要）。 | 必須 |
 | `-c, --center SPEC` | 基質指定（PDB パス、残基 ID、または残基名）。 | 必須 |
 | `-o, --output PATH...` | ポケット PDB 出力。1 パス => マルチ MODEL、N パス => 入力ごと。 | 自動（`pocket.pdb` または `pocket_<input>.pdb`） |
-| `-r, --radius FLOAT` | 包含の原子間距離カットオフ (Å)。 | `2.6` |
+| `-r, --radius FLOAT` | 包含に使う非負の原子間距離カットオフ (Å)。`0` も有効で command line に保持され、extractor 内部では `0.001 Å` として評価されます。 | `2.6` |
 | `--radius-het2het FLOAT` | 独立したヘテロ-ヘテロカットオフ (Å, C/H 以外)。 | `0.0`（内部でゼロの場合 0.001 Å） |
 | `--include-h2o/--no-include-h2o` | HOH/WAT/H2O/DOD/TIP/TIP3/SOL 水分子を含める。 | `True` |
 | `--exclude-backbone/--no-exclude-backbone` | 非基質アミノ酸の主鎖原子を除去（PRO/HYP セーフガード）。 | `False` |
 | `--add-linkh/--no-add-linkh` | 切断結合に 1.09 Å のカーボンオンリーリンク水素を付加（距離ベース）。mlmm の `--model-pdb` 用途では不要（ML/MM calculator が `--parm` のトポロジーから境界に付与）。standalone ポケット用。 | `False` |
-| `--selected-resn TEXT` | 強制包含する残基（鎖/インサーションコード付き ID）。 | `""` |
+| `--selected-resn TEXT` | 残基番号/名前と任意の鎖で強制包含。例: `123`, `A:123A`, `SAM`, `A:SAM`, `A:SAM:123`（カンマ区切り）。 | `""` |
 | `--modified-residue TEXT` | 修飾アミノ酸残基名をカンマ区切りで指定（任意で電荷付き）。主鎖切断と電荷計算においてアミノ酸として扱います。例: `HD1,HD2,HD3` または `HD1:0,SEP:-2`。 | `""` |
 | `-l, --ligand-charge TEXT` | 総電荷または残基名別マッピング（例: `GPP:-3,SAM:1`）。 | _None_ |
 

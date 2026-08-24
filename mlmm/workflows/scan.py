@@ -80,6 +80,7 @@ from mlmm.core.utils import (
     echo_resolved_device,
     unbiased_energy_hartree,
     optimizer_terminal_status,
+    optional_positive_int,
 )
 from mlmm.domain.bond_changes import compare_structures, summarize_changes
 from mlmm.cli.common_options import (
@@ -277,16 +278,16 @@ def _snapshot_geometry(g) -> Any:
               ))
 @click.option(
     "--max-cycles",
-    type=int,
-    default=10000,
-    show_default=True,
+    type=click.IntRange(min=1),
+    default=None,
+    show_default="100000",
     help="Maximum L-BFGS cycles per biased step and per (pre|end)opt stage.",
 )
 @click.option(
     "--relax-max-cycles",
-    type=int,
+    type=click.IntRange(min=0),
     default=None,
-    show_default="inherits --max-cycles (10000)",
+    show_default="inherits --max-cycles (None)",
     help="Compatibility alias of --max-cycles (overrides it when provided).",
 )
 @click.option(
@@ -483,8 +484,7 @@ def cli(
 
     if relax_max_cycles is not None:
         max_cycles = int(relax_max_cycles)
-    if max_cycles <= 0:
-        raise click.BadParameter("--max-cycles must be > 0.")
+    max_cycles = optional_positive_int(max_cycles, "--max-cycles")
     # Validate input format: PDB/mmCIF directly, or XYZ with --ref-pdb.
     suffix = input_path.suffix.lower()
     if suffix not in (".pdb", ".cif", ".mmcif", ".xyz"):
@@ -579,8 +579,8 @@ def cli(
             # opt.py's _is_param_explicit gating; an unconditional assignment
             # here silently clobbered the --config YAML tier.
             if _is_param_explicit("max_cycles") or relax_max_cycles is not None:
-                opt_cfg["max_cycles"] = int(max_cycles)
-                lbfgs_cfg["max_cycles"] = int(max_cycles)
+                opt_cfg["max_cycles"] = max_cycles
+                lbfgs_cfg["max_cycles"] = max_cycles
             if thresh is not None:
                 opt_cfg["thresh"] = str(thresh)
 
@@ -799,7 +799,7 @@ def cli(
                             "endopt": bool(endopt),
                             "bias_k": float(bias_cfg["k"]),
                             "max_step_size": float(max_step_size),
-                            "max_cycles": int(max_cycles),
+                            "max_cycles": max_cycles,
                             "backend": calc_cfg.get("backend", "uma"),
                             "embedcharge": bool(calc_cfg.get("embedcharge", False)),
                         },

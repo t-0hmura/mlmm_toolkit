@@ -86,8 +86,8 @@ Options:
                                   YAML bias.k (BIAS_KW['k']=300 in defaults.py)
                                   when omitted; explicit CLI value overrides
                                   YAML.  [default: (300.0)]
-  --relax-max-cycles INTEGER      Maximum L-BFGS cycles per biased relaxation
-                                  (also used for preopt).  [default: 10000]
+  --relax-max-cycles INTEGER      Set an L-BFGS cycle cap per biased relaxation;
+                                  omitted means no cycle cap.  [default: None]
   --dump / --no-dump              Write inner d2 scan TRJs per d1 slice.
                                   [default: no-dump]
   -o, --out-dir TEXT              Base output directory.  [default:

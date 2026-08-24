@@ -48,16 +48,13 @@ def test_missing_optional_config_is_silent(tmp_path: Path) -> None:
     assert "Couldn't find configuration file" not in proc.stderr
 
 
-def test_hessian_postprocessing_accepts_convergence_or_plateau() -> None:
+def test_hessian_postprocessing_requires_numerical_convergence() -> None:
+    assert not _hessian_postprocessing_is_ready(None)
     assert not _hessian_postprocessing_is_ready(SimpleNamespace())
-    assert _hessian_postprocessing_is_ready(
-        SimpleNamespace(is_converged=True)
-    )
-    assert _hessian_postprocessing_is_ready(
-        SimpleNamespace(is_stalled=True)
-    )
+    assert _hessian_postprocessing_is_ready(SimpleNamespace(is_converged=True))
+    assert not _hessian_postprocessing_is_ready(SimpleNamespace(is_stalled=True))
     assert not _hessian_postprocessing_is_ready(
-        SimpleNamespace(is_converged=False, convergence_criteria_met=True)
+        SimpleNamespace(_last_exact_failure_reason="RuntimeError: failed")
     )
 
 
@@ -133,4 +130,4 @@ def test_the_removed_legacy_projection_is_rejected_not_silently_accepted() -> No
     ) == "converged"
     assert _heavy_ts_terminal_status(
         optimizer_converged=True, n_imag=2, stalled=False
-    ) == "not_converged"
+    ) == "converged"

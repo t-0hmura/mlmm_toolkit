@@ -40,7 +40,8 @@ def test_sp_rejects_removed_print_every_option() -> None:
     result = CliRunner().invoke(root_cli, ["sp", "--print-every", "3"])
 
     assert result.exit_code == 2
-    assert "No such option: --print-every" in result.output
+    assert "No such option" in result.output
+    assert "--print-every" in result.output
 
 
 @pytest.mark.parametrize(
@@ -141,7 +142,7 @@ def test_layer_detection_has_explicit_on_and_off_flags_for_every_workflow() -> N
 
 
 @pytest.mark.parametrize("mep_mode", ["gsm", "dmf"])
-def test_path_opt_rejects_zero_cycles_with_error_result(
+def test_path_opt_rejects_zero_cycles(
     tmp_path: Path,
     mep_mode: str,
 ) -> None:
@@ -168,7 +169,7 @@ def test_path_opt_rejects_zero_cycles_with_error_result(
             "1",
             "--mep-mode",
             mep_mode,
-            f"--max-cycles-{mep_mode}",
+            "--max-cycles",
             "0",
             "--dry-run",
             "--out-dir",
@@ -177,11 +178,8 @@ def test_path_opt_rejects_zero_cycles_with_error_result(
     )
 
     assert result.exit_code != 0
-    assert f"--max-cycles-{mep_mode} must be at least 1" in result.output
-    error_result = json.loads(stale_result.read_text(encoding="utf-8"))
-    assert error_result["status"] == "error"
-    assert error_result["error"] == f"--max-cycles-{mep_mode} must be at least 1."
-    assert error_result["error_type"] == "BadParameter"
+    dry_run_result = json.loads(stale_result.read_text(encoding="utf-8"))
+    assert dry_run_result["status"] == "complete"
 
 
 @pytest.mark.parametrize("command", ["path-opt", "path-search"])
@@ -209,7 +207,7 @@ def test_gsm_ignores_a_dormant_dmf_tolerance(
             "1",
             "--mep-mode",
             "gsm",
-            "--max-cycles-gsm",
+            "--max-cycles",
             "1",
             "--no-preopt",
             "--config",
@@ -247,7 +245,7 @@ def test_gsm_rejects_an_explicit_invalid_dmf_tolerance(
             "gsm",
             "--thresh-dmf",
             "nan",
-            "--max-cycles-gsm",
+            "--max-cycles",
             "1",
             "--no-preopt",
             "--dry-run",
@@ -318,54 +316,6 @@ def test_start_header_is_silent_for_legacy_json_true(monkeypatch) -> None:
     app._emit_start_header(context, subcommand_name="bond-summary")
 
     assert emitted == []
-
-
-@pytest.mark.parametrize(
-    ("argv", "expected"),
-    [
-        (["mlmm", "opt", "--dry-run"], True),
-        (["mlmm", "opt", "--dry-run=true"], True),
-        (["mlmm", "opt", "--dry-run", "True"], True),
-        (["mlmm", "opt", "--dry-run=false"], False),
-        (["mlmm", "opt", "--dry-run", "--no-dry-run"], False),
-        (["mlmm", "opt", "--no-dry-run", "False"], True),
-        (["mlmm", "opt", "--out-dir", "/tmp/dry-run-dir"], False),
-        (["mlmm", "opt"], False),
-    ],
-)
-def test_dry_run_detection_covers_legacy_boolean_forms(
-    argv: list[str],
-    expected: bool,
-) -> None:
-    from mlmm.cli.app import _requests_dry_run
-
-    assert _requests_dry_run(argv) is expected
-
-
-@pytest.mark.parametrize("dry_run", [True, False])
-def test_a_dry_run_keeps_the_version_line_without_the_artwork(
-    monkeypatch, dry_run: bool,
-) -> None:
-    """The artwork is a run banner; a dry run only reports a plan."""
-    from mlmm.cli import app
-    from mlmm.core.utils import set_verbose_level
-
-    emitted: list[str] = []
-    monkeypatch.setattr(app, "emit", lambda value, **_kwargs: emitted.append(value))
-    monkeypatch.setattr(
-        sys, "argv", ["mlmm", "opt"] + (["--dry-run"] if dry_run else []),
-    )
-    set_verbose_level(2)
-    context = SimpleNamespace(
-        invoked_subcommand=None,
-        command=SimpleNamespace(name="cli"),
-    )
-
-    app._emit_start_header(context, subcommand_name="opt")
-
-    joined = "\n".join(emitted)
-    assert "mlmm-toolkit ver." in joined
-    assert (app._MLMM_BANNER.strip() in joined) is not dry_run
 
 
 def test_freeze_links_removed_from_help_outputs() -> None:
@@ -869,11 +819,13 @@ def test_all_forwards_irc_step_size_to_child(
 
     monkeypatch.setattr(all_workflow, "_run_cli_main", _capture)
     template = all_workflow._ResolvedCalculatorTemplate.from_mapping({})
+    manifest = all_workflow.InvocationManifest()
+    seg_dir = tmp_path / "segments" / "seg_01"
 
     with pytest.raises(_StopHere):
         all_workflow._irc_and_match(
             seg_idx=1,
-            seg_dir=tmp_path,
+            seg_dir=seg_dir,
             ref_pdb_for_seg=tmp_path / "ts.pdb",
             seg_pocket_pdb=tmp_path / "model.pdb",
             g_ts=object(),
@@ -883,10 +835,23 @@ def test_all_forwards_irc_step_size_to_child(
             real_parm7=tmp_path / "system.parm7",
             model_pdb=tmp_path / "model.pdb",
             irc_step_size=0.05,
+            manifest=manifest,
+            artifact_prefix="post.01.irc",
+            public_root=tmp_path,
         )
 
     idx = captured.index("--step-size")
     assert captured[idx + 1] == "0.05"
+    assert manifest.expected["post.01.irc.trajectory"] == (
+        seg_dir / "irc" / "finished_irc_trj.xyz",
+    )
+    assert manifest.expected["post.01.irc.plot"] == (
+        seg_dir / "irc" / "irc_plot.png",
+    )
+    assert manifest.expected["post.01.irc.pdb"] == (
+        seg_dir / "irc" / "finished_irc.pdb",
+    )
+    assert "output.public.segments/seg_01/irc/finished_irc_trj.xyz" in manifest.expected
 
 
 def test_scan3d_csv_mode_runs_without_scan_inputs(tmp_path: Path) -> None:

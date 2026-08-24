@@ -144,7 +144,7 @@ imaginary mode.
 (optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor)=
 ### Optimizer "stalls" with flat energy + forces just above threshold (MLIP force noise floor)
 
-MLIPs have finite numerical precision. For large ML/MM systems the noise floor can exceed the `gau` / `baker` gradient thresholds, so forces never drop further even though the geometry is stationary. `--max-cycles` bounds every run. To stop earlier once the energy has flattened, opt in with `--stop-plateau` (stops cleanly as a `stalled` outcome — never relabeled as converged — when the 50-step energy range falls below 1.0e-4 au ≈ 0.06 kcal/mol). To tune it:
+MLIPs have finite numerical precision. For large ML/MM systems the noise floor can exceed the `gau` / `baker` gradient thresholds, so forces never drop further even though the geometry is stationary. Runs are uncapped by default; pass `--max-cycles` when a finite safety bound is desired. To stop earlier once the energy has flattened, opt in with `--stop-plateau` (stops cleanly as a `stalled` outcome — never relabeled as converged — when the 50-step energy range falls below 1.0e-4 au ≈ 0.06 kcal/mol). To tune it:
 
 ```yaml
 opt:

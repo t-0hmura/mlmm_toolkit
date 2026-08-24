@@ -20,10 +20,7 @@ mlmm define-layer -i system.pdb --model-pdb model.pdb -o system_layered.pdb
 - **TSOPT のみ** -- 1 つの完全構造を提供し `--tsopt` を設定（`--scan-lists` なし）して、MEP 探索なしで TS 最適化を直接実行する。
 
 ```{important}
-`--tsopt` は **TS 候補**を生成します。通常、`all` が IRC を開始するのは、
-TSOPT が `status: converged` と虚振動1つを報告した場合だけです。
-`--skip-final-freq` を明示すると、未検証のTSからIRCを実行できます。
-機構解釈の前に、虚振動モードと端点の結合性を必ず確認してください。
+`--tsopt` は **TS 候補**を生成し、数値optimizer収束と終端鞍点次数を別々に記録します。`all` がIRCへ進むのは、数値最適化が収束し、終端PHVAが完了し、負の反応方向を選べる場合です。収束済み高次停留点は警告付きの**診断的**IRCへ進むことがありますが、一次TS認定ではありません。実際のoptimizer非収束、虚振動0本、PHVA失敗/未実施、または有効な負rootなしでは、TS成果物を保持したままIRC前で停止します。`--skip-final-freq`でも反応方向を検証できないためIRC前で停止します。機構解釈の前にmodeと端点接続を必ず確認してください。
 ```
 
 ## 実行例
@@ -204,12 +201,12 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
-| `-r, --radius FLOAT` | ポケット包含カットオフ (Å)。 | `2.6` |
+| `-r, --radius FLOAT` | ポケット包含カットオフ (Å)。`0` は受理し、内部では `0.001 Å`（通常の半径近傍を実質OFF）として評価 | `2.6` |
 | `--radius-het2het FLOAT` | 独立したヘテロ-ヘテロカットオフ (Å)。 | `0.0` |
 | `--include-h2o/--no-include-h2o` | 水分子（HOH/WAT/H2O/DOD/TIP/TIP3/SOL）を含める。 | `True` |
 | `--exclude-backbone/--no-exclude-backbone` | 非基質アミノ酸の主鎖原子を除去。 | `False` |
 | `--add-linkh/--no-add-linkh` | 切断結合にリンク水素を付加。 | `False` |
-| `--selected-resn TEXT` | 強制包含する残基。 | `""` |
+| `--selected-resn TEXT` | `123`、`A:123A`、`SAM`、`A:SAM`、`A:SAM:123`などのID/名前を強制包含（カンマ/空白区切り） | `""` |
 | `--modified-residue TEXT` | 修飾アミノ酸残基名をカンマ区切りで指定。未知残基は整数電荷が必須（例: `HD1:0,HD2:-1`）。catalog 登録済み残基は bare name（例: `SEP`）も可。 | `""` |
 
 ### MM 準備オプション
@@ -225,9 +222,9 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 ### MEP 探索オプション
 
 ```{note}
-`mlmm all` の `--max-cycles-gsm` / `--max-cycles-dmf` は MEP ステージ専用です。
-省略すれば各ステージ固有のデフォルトが使われます。`opt` や `tsopt` を単発で
-実行するときは、それぞれの `--max-cycles` を指定します。
+`mlmm all` の各ステージはデフォルトで上限なしです。有限の安全上限が必要な
+場合だけ `--max-cycles` を指定してください。`--max-cycles` は `opt`、`tsopt`、`path-opt` などの
+単発サブコマンドを直接実行するときだけ指定します。
 ```
 
 | オプション | 説明 | デフォルト |
@@ -238,8 +235,7 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 | `--mep-mode [gsm\|dmf]` | `path-opt` と再帰的 `path-search` の両方へ転送する MEP 最適化法。 | `gsm` |
 | `--dmf-backend [gpu\|cpu]` | DMF 実装。明示指定時だけ子コマンドへ転送するため、省略時は子コマンドの YAML 設定 `dmf.backend` が有効。 | `gpu` |
 | `--max-nodes INT` | GSM/DMF セグメントの内部ノード数。 | `20` |
-| `--max-cycles-gsm INT` | GSM string optimizer の最大サイクル数。 | `300` |
-| `--max-cycles-dmf INT` | DMF の最大 IPOPT 反復数。 | `300` |
+| `--max-cycles INT` | 任意の MEP 最適化サイクル上限。 | `None` |
 | `--climb/--no-climb` | 選択した最適化法が対応する場合に climbing-image TS 精密化を有効化。 | `True` |
 | `--opt-mode [grad\|hess]` | TSOPT と IRC 後の端点最適化に使う予備プリセット（`grad` → Dimer/L-BFGS、`hess` → RS-I-RFO/RFO）。`--opt-mode-post` が優先されます。 | `grad` |
 | `--opt-mode-post [grad\|hess]` | TSOPT/IRC 後端点最適化向けのプリセット上書き（`grad` → Dimer/L-BFGS、`hess` → RS-I-RFO/RFO）。 | `hess` |
@@ -275,7 +271,7 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
 | `--tsopt/--no-tsopt` | 反応セグメントごとに TS 最適化を行い、TS 判定通過後に EulerPC IRC を実行。 | `False` |
-| `--tsopt-from-mep-tan/--no-tsopt-from-mep-tan` | HEI の MEP 接線から初期 TS root を選ぶ。OFF では初期構造の Hessian 振動モードから選ぶ。 | `True` |
+| `--tsopt-from-mep-tan/--no-tsopt-from-mep-tan` | Hessian TS optimizerでCPU/file cacheしたHEI接線候補から反応root identityを追跡。OFFではcache作成・利用を止め初期Hessian modeから選択。Dimerには適用外 | `True` |
 | `--thermo/--no-thermo` | MEP 実行では R/TS/P、TS-only 実行では E1/TS/E2 で振動解析 (`freq`) を実行。 | `False` |
 | `--dft/--no-dft` | MEP 実行では R/TS/P、TS-only 実行では E1/TS/E2 で DFT 一点計算を実行。 | `False` |
 | `--flatten/--no-flatten` | `tsopt` での余分な虚振動数モードフラットニングを有効化。 | `False` |
@@ -293,7 +289,7 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 | `--freq-pressure FLOAT` | 熱化学圧力 (atm)。 | _デフォルト_ |
 | `--dft-out-dir PATH` | DFT 出力ディレクトリの上書き。 | _None_ |
 | `--dft-func-basis TEXT` | 汎関数/基底関数ペア。 | _デフォルト_ |
-| `--dft-max-cycle INT` | 最大 SCF 反復数。 | _デフォルト_ |
+| `--dft-max-cycle INT` | 任意の SCF 反復上限。 | `None` |
 | `--dft-conv-tol FLOAT` | SCF 収束閾値。 | _デフォルト_ |
 | `--dft-grid-level INT` | PySCF グリッドレベル。 | _デフォルト_ |
 | `--dft-engine [gpu\|cpu]` | DFT エンジン（GPU or CPU PySCF）。 | _None_ |

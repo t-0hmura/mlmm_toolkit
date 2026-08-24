@@ -17,7 +17,7 @@ class StringOptimizer(Optimizer):
         self,
         geometry,
         max_step=0.1,
-        stop_in_when_full=-1,
+        stop_in_when_full=None,
         keep_last=10,
         lbfgs_when_full=True,
         gamma_mult=False,
@@ -31,7 +31,9 @@ class StringOptimizer(Optimizer):
             self.is_cos
         ), "StringOptimizer is only intended to be used with COS objects."
 
-        self.stop_in_when_full = int(stop_in_when_full)
+        self.stop_in_when_full = (
+            None if stop_in_when_full is None else int(stop_in_when_full)
+        )
         self.keep_last = int(keep_last)
         assert self.keep_last >= 0
         self.lbfgs_when_full = lbfgs_when_full
@@ -43,7 +45,11 @@ class StringOptimizer(Optimizer):
         assert self.scale_step in ("global", "per_image")
 
         # Add one as we later subtract 1 before we check if this value is 0.
-        self.stop_in = self.stop_in_when_full + 1
+        self.stop_in = (
+            None
+            if self.stop_in_when_full is None
+            else self.stop_in_when_full + 1
+        )
         self.is_cart_opt = self.geometry.coord_type == "cart"
         self.s_list = list()
         self.y_list = list()
@@ -69,13 +75,12 @@ class StringOptimizer(Optimizer):
 
         if self.geometry.fully_grown:
             # We only start decrementing the counter after the string is fully grown.
-            self.stop_in -= 1
-            # Don't print this message if stop_in was disabled in the first place (< 0).
-            if self.stop_in >= 0:
+            if self.stop_in is not None:
+                self.stop_in -= 1
                 self.log(f"String is fully grown. Stopping in {self.stop_in} cycle(s).")
 
         fully_grown = self.geometry.fully_grown
-        full_stop = fully_grown and (self.stop_in == 0)
+        full_stop = fully_grown and self.stop_in is not None and (self.stop_in == 0)
         if full_stop and not converged:
             self.request_stop("full-string cycle budget exhausted")
         return fully_grown and converged, conv_info

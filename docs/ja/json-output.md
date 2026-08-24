@@ -36,7 +36,7 @@ cat result_opt/result.json | python -m json.tool
 | `schema_version` | string | エンベロープのスキーマバージョン。現在値は `mlmm.core.utils.RESULT_JSON_SCHEMA_VERSION` に由来する（この文書のリテラルではなく定数を参照すること）。値の更新は構造変更を示す。 |
 | `command` | string | leaf envelope はサブコマンド名（例: `"opt"`）、aggregate `all` / `path-search` summary は完全な invocation string。 |
 | `mlmm_version` / `mlmm_toolkit_version` | string | パッケージバージョン（leaf は `mlmm_version`、aggregate summary は `mlmm_toolkit_version`）。 |
-| `status` | string | コマンド固有。`all` は success/partial/failed、`path-search` は success/partial、opt は converged/not_converged/stalled、tsopt はさらに unverified、完了した解析/積分 stage は completed、例外 envelope は error。 |
+| `status` | string | コマンド固有。`all` は success/partial/failed、`path-search` は success/partial、`opt` と `tsopt` は数値outcomeの converged/not_converged/stalled、完了した解析/積分 stage は completed、例外 envelope は error。TSの鞍点次数は `saddle_validation` / `hessian_status` に分離して記録します。 |
 | `elapsed_seconds` | float | 任意の実行時間（秒）。shared writer に時間を渡さない producer では省略。 |
 | `environment` | object | ハードウェア情報（下表参照） |
 | `run_id` | string | 任意。MCP などの orchestrator が現在の呼び出し identity を割り当てた場合に含まれる。矛盾する caller 値は拒否される。 |
@@ -136,7 +136,14 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
-| `status` | string | optimizer 収束かつ `n_imaginary_modes == 1` の場合だけ `"converged"`。それ以外は `"not_converged"`、`--skip-final-freq` 時は `"unverified"`。エネルギープラトーによる `"stalled"`（上記参照）はこれらすべてに優先し、`converged` として報告されることはありません（dimer (grad) モードも `stalled` を返します）。 |
+| `status` | string | 後方互換の数値 outcome。数値収束と鞍点次数は `optimization_status` / `saddle_validation` を個別に参照 |
+| `optimization_status` | string | 数値 optimizer の結果: `"converged"` / `"not_converged"` / `"stalled"`。鞍点次数とは独立 |
+| `saddle_validation` | string | 終端 exact PHVA による `"first_order"` / `"higher_order"` / `"no_imaginary"` / `"unavailable"` |
+| `saddle_order_verified` | bool | `saddle_validation: "first_order"` の場合だけ `true` |
+| `hessian_status` | string | `"completed"` / `"failed"` / `"skipped"` / `"unavailable"`。失敗理由は `hessian_error` |
+| `reaction_mode_index` | int\|null | downstream IRC に使う負の exact-PHVA root。root 0 fallback は明示され、反応 identity を保証しない |
+| `reaction_mode_frequency_cm` | float\|null | 選択した負 root の振動数 |
+| `reaction_mode_source` | string\|null | 参照方向整合または明示 fallback による root 選択元 |
 | `energy_hartree` | float | TS エネルギー (Hartree) |
 | `n_imaginary_modes` | int\|null | 虚振動数。PHVA を実行しなかった場合は `null` |
 | `imaginary_frequencies_cm` | float[]\|null | 虚振動数 (cm$^{-1}$, 負の値)。PHVA 未実行時は `null` |
@@ -145,12 +152,19 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | `n_opt_cycles` | int | 最適化サイクル数 |
 | `charge` / `spin` | int / int | model 領域の電荷/多重度 |
 | `rigid_projection` | object | Dimer/flatten/最終鞍点解析の凍結境界 TR provenance |
-| `reference_mode_file` | string\|null | `--ref-mode`で渡した高度なpath由来mode |
-| `safeguards` | object | heavy modeのtrial拒否/recovery、exact saddle、target-mode診断 |
+| `reference_mode_file` | string\|null | `--ref-mode` で渡した高度な path 由来 mode。Hessian family のみ |
+| `safeguards` | object | Hessian family の trial 拒否/recovery、exact saddle、target-mode 診断 |
 | `files` | object | 最終構造 + vib モードファイル |
 
-明示的な `--skip-final-freq` は未検証を
-`n_imaginary_modes: null`、`imaginary_frequencies_cm: []` で表します。
+保持した終端構造には、数値非収束後でも通常 1 回だけ終端 exact PHVA を実行します。
+PHVA 失敗時は構造を破棄したり振動数を捏造したりせず、`hessian_status: "failed"`
+と理由を記録します。数値 status と鞍点次数は独立で、数値収束済み高次停留点は
+`optimization_status: "converged"`、`saddle_validation: "higher_order"` のまま
+保持され、一次 TS 認定にはなりません。`all` は有効な負 root がある場合だけ警告付き
+診断 IRC に進むことがあります。数値非収束、虚振動 0 本、PHVA 失敗/skip、または
+有効な負 root なしでは、TS 成果物登録後に IRC 前で停止します。明示的な
+`--skip-final-freq` は最終構造を保持し、`n_imaginary_modes: null`、
+`imaginary_frequencies_cm: []` を記録します。
 
 ### `freq`
 

@@ -37,7 +37,7 @@ mlmm extract -i complex1.pdb complex2.pdb -c A:123 \
 - **Standard cutoff (`--radius`, default 2.6 Å)**: with `--no-exclude-backbone` (default), any atom within the cutoff qualifies a residue. With `--exclude-backbone`, amino-acid residues must contact the substrate with a **non-backbone** atom (not N / H* / CA / HA* / C / O / OXT). Non-amino acids always use any atom.
 - **Independent hetero-hetero cutoff (`--radius-het2het`)**: adds residues when a substrate hetero atom (non C / H) lies within the specified Å of a protein hetero atom. With backbone exclusion enabled, the protein atom must be non-backbone.
 - **Water handling**: HOH / WAT / H2O / DOD / TIP / TIP3 / SOL are included by default (`--include-h2o`).
-- **Forced inclusion**: `--selected-resn` accepts residue IDs with chains / insertion codes (e.g. `A:123A`).
+- **Forced inclusion**: `--selected-resn` accepts residue numbers (`123`), chain-qualified IDs including insertion codes (`A:123A`), residue names (`SAM`), chain-qualified names (`A:SAM`), and chain/name/number selectors (`A:SAM:123`). This is useful when `-c` selects an amino-acid center but only specific residues should be force-included.
 - **Neighbor safeguards**:
   - When backbone exclusion is off and a residue contacts the substrate with a backbone atom, the peptide-adjacent N / C neighbors (C–N ≤ 1.9 Å) are auto-included; termini keep caps (N/H* or C/O/OXT).
   - Disulfide bonds (SG–SG ≤ 2.5 Å) bring both cysteines.
@@ -110,12 +110,12 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `-i, --input PATH...` | One or more protein–ligand PDB files (identical atom ordering required). | Required |
 | `-c, --center SPEC` | Substrate specification (PDB path, residue IDs, or residue names). | Required |
 | `-o, --output PATH...` | Pocket PDB output(s). One path ⇒ multi-MODEL; N paths ⇒ per input. | Auto (`pocket.pdb` or `pocket_<input>.pdb`) |
-| `-r, --radius FLOAT` | Atom-atom distance cutoff (Å) for inclusion. | `2.6` |
+| `-r, --radius FLOAT` | Non-negative atom-atom distance cutoff (Å) for inclusion. `0` is accepted and retained on the command line; the extractor evaluates it internally as `0.001 Å`. | `2.6` |
 | `--radius-het2het FLOAT` | Independent hetero-hetero cutoff (Å, non C / H). | `0.0` |
 | `--include-h2o / --no-include-h2o` | Include HOH / WAT / H2O / DOD / TIP / TIP3 / SOL waters. | `True` |
 | `--exclude-backbone / --no-exclude-backbone` | Remove backbone atoms on non-substrate amino acids (PRO / HYP safeguards). | `False` |
 | `--add-linkh / --no-add-linkh` | Add carbon-only link hydrogens at 1.09 Å along severed bonds (distance-based). Not needed for an mlmm `--model-pdb` (the ML/MM calculator caps the boundary from the `--parm` topology); use for standalone pocket models only. | `False` |
-| `--selected-resn TEXT` | Force-include residues (IDs with optional chains / insertion codes). | `""` |
+| `--selected-resn TEXT` | Force-include residues by number/name and optional chain, e.g. `123`, `A:123A`, `SAM`, `A:SAM`, `A:SAM:123` (comma-separated). | `""` |
 | `--modified-residue TEXT` | Comma-separated modified-residue names and integer charges for backbone truncation and charge assignment (e.g. `HD1:0,HD2:-1`). A known catalog residue may omit its charge (e.g. `SEP`). | `""` |
 | `-l, --ligand-charge TEXT` | Total charge or per-resname mapping (e.g. `GPP:-3,SAM:1`). | _None_ |
 

@@ -112,7 +112,7 @@ OPT_BASE_KW.update(
     {
         "out_dir": OUT_DIR_SCAN2D,
         "dump": False,        # Keep LBFGS runs light; per-grid TRJs are handled separately via --dump
-        "max_cycles": 10000,  # Overridden per relaxation through --relax-max-cycles
+        "max_cycles": None,  # Overridden per relaxation through --relax-max-cycles
     }
 )
 LBFGS_KW: Dict[str, Any] = deepcopy(_OPT_LBFGS_KW)

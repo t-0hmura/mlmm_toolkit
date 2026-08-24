@@ -45,6 +45,20 @@ class PartitionError(RuntimeError):
     """
 
 
+def macro_progress_due(cycle: int, print_every: int) -> bool:
+    """Return whether a manual macro-iteration table should print this cycle.
+
+    The ordinary pysisyphus optimizer uses ``cycle % print_every == 0``.  The
+    ML/MM microiteration drivers advance their macro optimizer manually, so
+    they must apply the same cadence themselves instead of printing every row.
+    """
+
+    cadence = int(print_every)
+    if cadence < 1:
+        raise ValueError("print_every must be at least 1")
+    return int(cycle) % cadence == 0
+
+
 # ---------------------------------------------------------------------------
 # Immutable macro/micro partition
 # ---------------------------------------------------------------------------

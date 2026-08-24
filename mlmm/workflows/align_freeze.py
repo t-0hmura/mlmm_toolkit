@@ -431,8 +431,6 @@ def scan_freeze_atoms_toward_target_inplace(
                 Q_new[idx] = P[idx]
                 _set_all_coords_disabling_freeze(g_mob, Q_new)
                 if verbose:
-                    # The step line above reports the gap before this assignment,
-                    # so state the achieved coincidence explicitly.
                     emit(
                         f"[scan] step {istep:03d}: anchors set to the reference "
                         f"({max_remaining_A:.6f} Å -> 0.000000 Å); "

@@ -1,6 +1,7 @@
-"""Terminal PHVA runs after convergence or a plateau, not max-cycle expiry."""
+"""Terminal PHVA runs only after numerical convergence."""
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import torch
@@ -14,6 +15,25 @@ class _Geometry:
     cart_coords = np.zeros(3)
     coords3d = np.zeros((1, 3))
     within_partial_hessian = None
+
+
+def test_optimizer_terminal_phva_carries_the_exact_hessian_for_irc_cache():
+    exact_hessian = torch.diag(torch.tensor([-1.0, 2.0, 3.0]))
+    optimizer = SimpleNamespace(
+        _last_exact_cart_coords=np.zeros(3),
+        _last_exact_frequencies_cm=np.array([-100.0, 20.0, 30.0]),
+        _last_exact_modes=torch.eye(3),
+        _last_rigid_projection_info={},
+        cur_H=exact_hessian,
+    )
+
+    reused = tsopt._optimizer_exact_frequency_data(optimizer, _Geometry())
+
+    assert reused is not None
+    assert len(reused) == 4
+    cached_hessian = reused[3]
+    assert torch.equal(cached_hessian, exact_hessian)
+    assert cached_hessian.data_ptr() != exact_hessian.data_ptr()
 
 
 def _runner(tmp_path, monkeypatch, *, stalled):
@@ -103,7 +123,9 @@ def _runner(tmp_path, monkeypatch, *, stalled):
     return runner, hessian_calls, mode_exports
 
 
-def test_dimer_max_cycles_skips_terminal_phva(monkeypatch, tmp_path):
+def test_dimer_max_cycles_saves_final_structure_and_skips_phva(
+    monkeypatch, tmp_path, capsys,
+):
     runner, hessian_calls, mode_exports = _runner(
         tmp_path, monkeypatch, stalled=False
     )
@@ -113,11 +135,13 @@ def test_dimer_max_cycles_skips_terminal_phva(monkeypatch, tmp_path):
     assert len(hessian_calls) == 1
     assert mode_exports == []
     assert runner.n_imaginary_modes is None
-    assert not runner.vib_dir.exists()
+    assert runner.hessian_status == "skipped"
+    assert (tmp_path / "final_geometry.xyz").is_file()
+    assert "ERROR: Not converged." in capsys.readouterr().err
 
 
-def test_dimer_plateau_runs_terminal_phva_even_if_skip_requested(
-    monkeypatch, tmp_path,
+def test_dimer_plateau_saves_final_structure_and_skips_phva(
+    monkeypatch, tmp_path, capsys,
 ):
     runner, hessian_calls, mode_exports = _runner(
         tmp_path, monkeypatch, stalled=True
@@ -125,7 +149,10 @@ def test_dimer_plateau_runs_terminal_phva_even_if_skip_requested(
 
     runner.run()
 
-    assert len(hessian_calls) == 2
-    assert mode_exports == [True]
-    assert runner.n_imaginary_modes == 1
+    assert len(hessian_calls) == 1
+    assert mode_exports == []
+    assert runner.n_imaginary_modes is None
+    assert runner.hessian_status == "skipped"
+    assert (tmp_path / "final_geometry.xyz").is_file()
+    assert "ERROR: Not converged." in capsys.readouterr().err
     assert runner.is_stalled is True

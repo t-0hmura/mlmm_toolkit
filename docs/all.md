@@ -23,10 +23,15 @@ Inputs may also be `.cif` / `.mmcif`; computation uses a temporary internal
 PDB and public CIF companions restore the original identifiers.
 
 ```{important}
-`--tsopt` produces **TS candidates**. Normally, `all` starts IRC only after
-TSOPT reports `status: converged` with one imaginary mode. Explicit
-`--skip-final-freq` permits IRC from an unverified TS. Always inspect the mode
-and endpoint connectivity before mechanistic interpretation.
+`--tsopt` produces **TS candidates** and reports numerical optimization and
+terminal saddle order separately. `all` proceeds to IRC only when optimization
+converged, terminal PHVA completed, and a negative reaction direction is
+available. A converged higher-order stationary point may continue through
+warning-labelled **diagnostic** IRC, but it is not a certified first-order TS.
+Actual optimizer non-convergence, zero imaginary modes, failed/unavailable PHVA,
+or no valid negative root stops after preserving TS artifacts and before IRC.
+`--skip-final-freq` also stops before IRC because the reaction direction cannot
+be validated. Always inspect the modes and endpoint connectivity.
 ```
 
 ## Examples
@@ -202,12 +207,12 @@ Defaults shown are used when the option is not specified. The full flag list is 
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `-r, --radius FLOAT` | Pocket inclusion cutoff (Å). | `2.6` |
+| `-r, --radius FLOAT` | Pocket inclusion cutoff (Å). `0` is accepted and evaluated internally as `0.001 Å` (effectively off for ordinary radius neighbors). | `2.6` |
 | `--radius-het2het FLOAT` | Independent hetero-hetero cutoff (Å). | `0.0` |
 | `--include-h2o / --no-include-h2o` | Include water molecules (HOH / WAT / H2O / DOD / TIP / TIP3 / SOL). | `True` |
 | `--exclude-backbone / --no-exclude-backbone` | Remove backbone atoms on non-substrate amino acids. | `False` |
 | `--add-linkh / --no-add-linkh` | Add link hydrogens for severed bonds. | `False` |
-| `--selected-resn TEXT` | Residues to force include. | `""` |
+| `--selected-resn TEXT` | Force-include IDs/names such as `123`, `A:123A`, `SAM`, `A:SAM`, or `A:SAM:123` (comma/space separated). | `""` |
 | `--modified-residue TEXT` | Comma-separated modified-residue names and integer charges for backbone truncation and charge assignment (e.g. `HD1:0,HD2:-1`). A known catalog residue may omit its charge (e.g. `SEP`). | `""` |
 
 ### MM preparation
@@ -223,9 +228,10 @@ Defaults shown are used when the option is not specified. The full flag list is 
 ### MEP search
 
 ```{note}
-`--max-cycles-gsm` and `--max-cycles-dmf` are not a shared all-stage budget.
-When passed explicitly they bound only the MEP child; scan, TS optimization,
-IRC, and other stages keep their dedicated options or defaults.
+`--max-cycles` is not a shared all-stage budget. The default is uncapped; when
+passed explicitly, it controls only the MEP child. Scan, TS optimization, IRC,
+and other stages keep
+their dedicated options or defaults.
 ```
 
 | Option | Description | Default |
@@ -234,8 +240,7 @@ IRC, and other stages keep their dedicated options or defaults.
 | `--mep-mode [gsm\|dmf]` | MEP optimizer forwarded to both `path-opt` and recursive `path-search`. | `gsm` |
 | `--dmf-backend [gpu\|cpu]` | DMF implementation. The parent forwards this only when explicitly set, so a child YAML `dmf.backend` remains effective otherwise. | `gpu` |
 | `--max-nodes INT` | Internal nodes per GSM/DMF segment. | `20` |
-| `--max-cycles-gsm INT` | Maximum GSM string-optimizer cycles for the MEP child only. | `300` |
-| `--max-cycles-dmf INT` | Maximum DMF IPOPT iterations for the MEP child only. | `300` |
+| `--max-cycles INT` | Optional cycle cap for the selected MEP child only. | `None` |
 | `--climb / --no-climb` | Enable climbing-image TS refinement where supported by the selected optimizer. | `True` |
 | `--opt-mode [grad\|hess]` | Fallback preset for TSOPT and post-IRC endpoint optimization (`grad` → Dimer / L-BFGS, `hess` → RS-I-RFO / RFO). `--opt-mode-post` takes precedence. | `grad` |
 | `--opt-mode-post [grad\|hess]` | Optimizer preset override for TSOPT / post-IRC endpoint optimizations (`grad` → Dimer / L-BFGS, `hess` → RS-I-RFO / RFO). | `hess` |
@@ -273,7 +278,7 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) → `--opt-mode` (on
 | Option | Description | Default |
 | --- | --- | --- |
 | `--tsopt / --no-tsopt` | Run TS optimization and, after the TS gate, EulerPC IRC per reactive segment. | `False` |
-| `--tsopt-from-mep-tan / --no-tsopt-from-mep-tan` | Select the initial TS root from the HEI MEP tangent; when off, select it from the initial-structure Hessian modes. | `True` |
+| `--tsopt-from-mep-tan / --no-tsopt-from-mep-tan` | For Hessian TS optimizers, guide reaction-root identity with CPU/file-cached HEI tangent candidates. Turning it off disables cache creation/use and selects from initial Hessian modes. Not applicable to Dimer. | `True` |
 | `--thermo / --no-thermo` | Run vibrational analysis (`freq`) on R/TS/P for MEP runs or E1/TS/E2 for TS-only runs. | `False` |
 | `--dft / --no-dft` | Run single-point DFT on R/TS/P for MEP runs or E1/TS/E2 for TS-only runs. | `False` |
 | `--flatten / --no-flatten` | Surplus-imaginary-mode flattening in `tsopt`. | `False` |
@@ -291,7 +296,7 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) → `--opt-mode` (on
 | `--freq-pressure FLOAT` | Thermochemistry pressure (atm). | _Default_ |
 | `--dft-out-dir PATH` | Base directory override for DFT outputs. | _None_ |
 | `--dft-func-basis TEXT` | Functional / basis pair. | _Default_ |
-| `--dft-max-cycle INT` | Maximum SCF iterations. | _Default_ |
+| `--dft-max-cycle INT` | Optional SCF-iteration cap. | `None` |
 | `--dft-conv-tol FLOAT` | SCF convergence tolerance. | _Default_ |
 | `--dft-grid-level INT` | PySCF grid level. | _Default_ |
 | `--dft-engine [gpu\|cpu]` | DFT engine (GPU or CPU PySCF). | _None_ |

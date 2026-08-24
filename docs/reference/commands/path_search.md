@@ -59,12 +59,8 @@ Options:
                                   endpoints); recursive segments may override it
                                   with YAML search.max_nodes_segment.  [default:
                                   20]
-  --max-cycles-gsm INTEGER        Maximum GSM string-optimizer cycles for the
-                                  MEP stage.  [default: (300)]
-  --max-cycles-dmf INTEGER        Maximum IPOPT iterations for the DMF MEP
-                                  stage. This is a solver iteration count, not a
-                                  string-optimizer cycle count.  [default:
-                                  (300)]
+  --max-cycles INTEGER            Set an MEP optimization-cycle cap; omitted
+                                  means no cycle cap.  [default: None]
   --climb / --no-climb            Enable transition-state search after path
                                   growth.  [default: climb]
   --dump / --no-dump              Dump GSM/single-optimization trajectories

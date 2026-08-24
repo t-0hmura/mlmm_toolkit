@@ -53,6 +53,7 @@ class TSHessianOptimizer(HessianOptimizer):
         saddle_recovery_check_interval: int = 50,
         saddle_recovery_max_cycles: int = 0,
         max_higher_order_checks: int = 3,
+        flatten_enabled: bool = False,
         **kwargs,
     ) -> None:
         """Baseclass for transition state optimizers utilizing Hessian information.
@@ -122,10 +123,9 @@ class TSHessianOptimizer(HessianOptimizer):
             the saddle with a mass-weighted, translation/rotation-projected
             vibrational analysis.
         saddle_imaginary_threshold_cm
-            Minimum absolute imaginary frequency, in cm^-1, that the
-            near-flat-minimum recovery treats as a usable uphill direction.
-            Saddle order itself is certified from every negative root of the
-            exact spectrum and does not use this threshold.
+            Minimum absolute imaginary frequency, in cm^-1, required by the
+            exact-Hessian saddle-order decision, recovery, and imaginary-mode
+            reporting.
         saddle_recovery_step
             Minimum uphill displacement used to escape a near-flat local minimum
             exposed by exact-Hessian validation.
@@ -135,9 +135,13 @@ class TSHessianOptimizer(HessianOptimizer):
             Maximum bounded recovery steps allowed to regain negative curvature;
             zero disables automatic recovery.
         max_higher_order_checks
-            Consecutive terminal exact checks allowed at a saddle order above
-            the requested order before stopping for an explicit flatten
-            restart instead of repeating exact Hessians indefinitely.
+            Retained for configuration compatibility. Higher-order terminal
+            candidates are finalized after one exact validation per optimizer
+            attempt and are never revalidated in-place.
+        flatten_enabled
+            Whether the calling workflow explicitly requested bounded flatten
+            attempts after this optimizer attempt. This flag never enables an
+            implicit restart inside the optimizer.
 
         Other Parameters
         ----------------
@@ -240,11 +244,11 @@ class TSHessianOptimizer(HessianOptimizer):
         if self.max_mode_loss_rejections < 1:
             raise ValueError("max_mode_loss_rejections must be at least 1")
         self.verify_saddle = bool(verify_saddle)
-        self.saddle_imaginary_threshold_cm = abs(
-            float(saddle_imaginary_threshold_cm)
+        from pysisyphus.normal_modes import normalize_frequency_zero_cutoff_cm
+
+        self.saddle_imaginary_threshold_cm = normalize_frequency_zero_cutoff_cm(
+            saddle_imaginary_threshold_cm
         )
-        if self.saddle_imaginary_threshold_cm <= 0.0:
-            raise ValueError("saddle_imaginary_threshold_cm must be positive")
         self.saddle_recovery_step = float(saddle_recovery_step)
         if self.saddle_recovery_step <= 0.0:
             raise ValueError("saddle_recovery_step must be positive")
@@ -258,6 +262,7 @@ class TSHessianOptimizer(HessianOptimizer):
         self.saddle_recovery_max_cycles = int(saddle_recovery_max_cycles)
         if self.saddle_recovery_max_cycles < 0:
             raise ValueError("saddle_recovery_max_cycles must be non-negative")
+        self.flatten_enabled = bool(flatten_enabled)
         self.max_higher_order_checks = int(max_higher_order_checks)
         if self.max_higher_order_checks < 1:
             raise ValueError("max_higher_order_checks must be at least 1")
@@ -275,6 +280,9 @@ class TSHessianOptimizer(HessianOptimizer):
         self._last_recovery_mode_curvature = None
         self._last_recovery_mode_frequency_cm = None
         self._last_exact_frequencies_cm = None
+        self._last_exact_modes = None
+        self._last_exact_validation = "unavailable"
+        self._last_exact_failure_reason = None
         self._last_exact_n_imaginary = None
         self._last_exact_saddle_cycle = None
         self._last_exact_cart_coords = None
@@ -700,6 +708,7 @@ class TSHessianOptimizer(HessianOptimizer):
                 self.geometry, "tr_projection", DEFAULT_TR_PROJECTION
             ),
             projection_info=projection_info,
+            frequency_zero_cutoff_cm=self.saddle_imaginary_threshold_cm,
         )
         self._last_rigid_projection_info = projection_info
         return np.asarray(freqs_cm, dtype=float), modes
@@ -739,6 +748,12 @@ class TSHessianOptimizer(HessianOptimizer):
         try:
             frequency_data = self._mw_frequencies_and_modes()
         except Exception as err:
+            self._last_exact_validation = "unavailable"
+            self._last_exact_failure_reason = f"{type(err).__name__}: {err}"
+            self._last_exact_frequencies_cm = None
+            self._last_exact_modes = None
+            self._last_exact_n_imaginary = None
+            self._last_exact_cart_coords = self.geometry.cart_coords.copy()
             self.table.print(
                 "Exact PHVA saddle verification failed; stopping without "
                 f"convergence ({type(err).__name__}: {err})."
@@ -779,21 +794,21 @@ class TSHessianOptimizer(HessianOptimizer):
                     eigvecs,
                     reanchor=reanchor,
                 )
-                overlaps = np.abs(eigvecs_np.T @ reference)
-                target_index = int(np.argmax(overlaps))
-                target_overlap = float(overlaps[target_index])
-                physical_mode = eigvecs_np[:, target_index].copy()
-                target_is_negative = bool(
-                    eigvals_np[target_index] < -self.small_eigval_thresh
+                negative_indices = np.flatnonzero(
+                    eigvals_np < -self.small_eigval_thresh
                 )
-                if not target_is_negative:
-                    physical_mode = self._path_recovery_mode_for_eigenspace(
-                        eigvecs
-                    )
-                self._last_exact_target_mode_index = target_index
-                self._last_exact_target_mode_overlap = target_overlap
-                self._last_exact_target_mode_is_negative = target_is_negative
-                self._last_exact_target_mode_reanchored = reanchor
+                if negative_indices.size:
+                    negative_vectors = eigvecs_np[:, negative_indices]
+                    overlaps = np.abs(negative_vectors.T @ reference)
+                    selected = int(np.argmax(overlaps))
+                    target_index = int(negative_indices[selected])
+                    target_overlap = float(overlaps[selected])
+                    physical_mode = eigvecs_np[:, target_index].copy()
+                    target_is_negative = True
+                    self._last_exact_target_mode_index = target_index
+                    self._last_exact_target_mode_overlap = target_overlap
+                    self._last_exact_target_mode_is_negative = True
+                    self._last_exact_target_mode_reanchored = reanchor
 
             # The reference mode guides root selection and remains diagnostic;
             # it is not an additional terminal gate. A first-order saddle is
@@ -809,14 +824,22 @@ class TSHessianOptimizer(HessianOptimizer):
             )
             if exact_order:
                 self._record_exact_saddle_candidate()
-            if negative_count > len(self.roots) and has_saddle_modes:
-                self.higher_order_saddle_checks += 1
-                if self.higher_order_saddle_checks >= self.max_higher_order_checks:
-                    self.request_stop(
-                        "persistent higher-order saddle requires a flatten restart"
-                    )
-            else:
-                self.higher_order_saddle_checks = 0
+            self.higher_order_saddle_checks = int(negative_count > len(self.roots))
+            self._last_exact_validation = (
+                "first_order" if exact_order else
+                "higher_order" if negative_count > len(self.roots) else
+                "no_imaginary"
+            )
+            if negative_count > len(self.roots):
+                action = (
+                    "the caller may run an explicit bounded flatten attempt"
+                    if self.flatten_enabled
+                    else "automatic flattening is disabled"
+                )
+                self.table.print(
+                    "Higher-order saddle retained after one exact validation; "
+                    + action + "."
+                )
             self.table.print(
                 "Exact optimizer-space saddle validation: "
                 f"n_imag={negative_count}."
@@ -832,10 +855,17 @@ class TSHessianOptimizer(HessianOptimizer):
 
         freqs_cm, modes = frequency_data
         self._last_exact_frequencies_cm = freqs_cm.copy()
-        # Saddle order is the Morse index: every negative root of the exact
-        # compact PHVA spectrum counts. saddle_imaginary_threshold_cm stays with
-        # the recovery owner and must not weight certification by magnitude.
-        neg_mask = freqs_cm < 0.0
+        self._last_exact_modes = (
+            modes.detach().cpu().clone()
+            if isinstance(modes, torch.Tensor)
+            else np.asarray(modes, dtype=float).copy()
+        )
+        self._last_exact_failure_reason = None
+        from pysisyphus.normal_modes import resolved_imaginary_mask
+
+        neg_mask = resolved_imaginary_mask(
+            freqs_cm, self.saddle_imaginary_threshold_cm
+        )
         n_imaginary = int(np.count_nonzero(neg_mask))
         self._last_exact_n_imaginary = n_imaginary
         self._last_exact_cart_coords = self.geometry.cart_coords.copy()
@@ -859,6 +889,8 @@ class TSHessianOptimizer(HessianOptimizer):
             candidate_indices = []
             candidate_overlaps = []
             for mode_index, frequency in enumerate(freqs_cm):
+                if not bool(neg_mask[mode_index]):
+                    continue
                 # Projected translations/rotations occupy a numerically null
                 # subspace with arbitrary eigenvectors and cannot be a
                 # chemically meaningful transported path mode.
@@ -878,41 +910,38 @@ class TSHessianOptimizer(HessianOptimizer):
                 target_overlap = float(candidate_overlaps[selected])
                 self._last_exact_target_mode_overlap = target_overlap
                 self._last_exact_target_mode_reanchored = reanchor
-                if target_overlap <= 1.0e-12:
-                    # A custom/partial mode conversion may not span the
-                    # supplied path vector. Preserve the explicit direction
-                    # for optional recovery.
-                    physical_mode = self._path_recovery_mode_for_eigenspace(
-                        eigvecs
-                    )
-                    target_is_negative = False
-                    self._last_exact_target_mode_is_negative = False
-                else:
-                    target_index = candidate_indices[selected]
-                    target_is_negative = bool(neg_mask[target_index])
-                    physical_mode = (
-                        candidate_modes[selected]
-                        if target_is_negative
-                        else self._path_recovery_mode_for_eigenspace(eigvecs)
-                    )
-                    self._last_exact_target_mode_index = target_index
-                    self._last_exact_target_mode_is_negative = target_is_negative
+                # IRC must always start from an actual imaginary mode.  A
+                # weak/zero reference overlap is diagnostic, not permission
+                # to hand a positive-curvature path vector to IRC.
+                target_index = candidate_indices[selected]
+                target_is_negative = True
+                physical_mode = candidate_modes[selected]
+                self._last_exact_target_mode_index = target_index
+                self._last_exact_target_mode_is_negative = True
 
         # The reference tangent guides root following but does not redefine a
         # first-order saddle. Exact PHVA supplies the order; IRC supplies the
         # endpoint-connectivity test.
         has_saddle_modes = n_imaginary >= len(self.roots)
         exact_order = n_imaginary == len(self.roots) and has_saddle_modes
-        # Higher-order saddles are rejected by their exact order regardless of
-        # which mode has the strongest overlap with the reference tangent.
-        if n_imaginary > len(self.roots) and has_saddle_modes:
-            self.higher_order_saddle_checks += 1
-            if self.higher_order_saddle_checks >= self.max_higher_order_checks:
-                self.request_stop(
-                    "persistent higher-order saddle requires a flatten restart"
-                )
-        else:
-            self.higher_order_saddle_checks = 0
+        # Higher-order saddles are retained as converged terminal candidates;
+        # the caller may optionally flatten them or continue a diagnostic IRC.
+        self.higher_order_saddle_checks = int(n_imaginary > len(self.roots))
+        self._last_exact_validation = (
+            "first_order" if exact_order else
+            "higher_order" if n_imaginary > len(self.roots) else
+            "no_imaginary"
+        )
+        if n_imaginary > len(self.roots):
+            action = (
+                "the caller may run an explicit bounded flatten attempt"
+                if getattr(self, "flatten_enabled", False)
+                else "automatic flattening is disabled"
+            )
+            self.table.print(
+                "Higher-order saddle retained after one exact validation; "
+                + action + "."
+            )
         self._last_exact_saddle_verified = exact_order
         self._last_exact_saddle_cycle = (
             self.cur_cycle if exact_order else None
@@ -953,10 +982,6 @@ class TSHessianOptimizer(HessianOptimizer):
                 physical_mode = candidate_modes[selected]
                 self._last_exact_target_mode_index = candidate_indices[selected]
                 self._last_exact_target_mode_overlap = selected_overlap
-        elif physical_mode is None and freqs_cm.size:
-            physical_mode = self._recovery_mode_from_mw(
-                modes, int(np.argmin(freqs_cm))
-            )
         if (
             not has_saddle_modes
             and physical_mode is None
@@ -966,7 +991,11 @@ class TSHessianOptimizer(HessianOptimizer):
             # intended reaction coordinate.  A path tangent carries that
             # otherwise missing information and therefore takes precedence
             # for saddle recovery.
-            physical_mode = self._transported_target_mode_for_eigenspace(eigvecs)
+            physical_mode = self._path_recovery_mode_for_eigenspace(eigvecs)
+        elif physical_mode is None and freqs_cm.size:
+            physical_mode = self._recovery_mode_from_mw(
+                modes, int(np.argmin(freqs_cm))
+            )
         if not has_saddle_modes and physical_mode is None:
             physical_mode = self._fallback_recovery_mode(eigvecs)
         if target_is_negative is True and physical_mode is not None:
@@ -1025,6 +1054,20 @@ class TSHessianOptimizer(HessianOptimizer):
         verified = np.asarray(self._last_exact_cart_coords)
         return current.shape == verified.shape and np.allclose(
             current, verified, rtol=0.0, atol=1e-12
+        )
+
+    def _exact_terminal_candidate_matches_current_geometry(self):
+        """Whether one exact PHVA accepted the current terminal TS candidate.
+
+        Numerical optimization convergence is independent of saddle order. A
+        current geometry with at least the requested number of imaginary modes
+        is therefore a terminal candidate; first- versus higher-order status is
+        reported separately and optional flattening is owned by the caller.
+        """
+        return bool(
+            self._exact_phva_matches_current_geometry()
+            and self._last_exact_n_imaginary is not None
+            and self._last_exact_n_imaginary >= len(self.roots)
         )
 
     def _exact_saddle_matches_current_geometry(self):
@@ -1386,20 +1429,6 @@ class TSHessianOptimizer(HessianOptimizer):
             and criteria_met
         ):
             self._validate_terminal_exact_saddle()
-            higher_order = (
-                self._last_exact_n_imaginary is not None
-                and self._last_exact_n_imaginary > len(self.roots)
-            )
-            active_step = self._active_convergence_vector(step)
-            if (
-                higher_order
-                and not self.stop_requested
-                and np.abs(active_step).max() <= self.min_step_norm
-            ):
-                self.request_stop(
-                    "exact higher-order saddle at zero step requires a "
-                    "flatten restart"
-                )
 
     def _validate_terminal_exact_saddle(self):
         """Run exact curvature validation after convergence."""
@@ -1465,7 +1494,9 @@ class TSHessianOptimizer(HessianOptimizer):
                 self.thresh != "never"
                 and self._all_configured_criteria_met(conv_info)
             )
-            exact_current_saddle = self._exact_saddle_matches_current_geometry()
+            exact_current_candidate = (
+                self._exact_terminal_candidate_matches_current_geometry()
+            )
             conv_info = ConvInfo(
                 conv_info.cur_cycle,
                 conv_info.energy_converged,
@@ -1473,9 +1504,9 @@ class TSHessianOptimizer(HessianOptimizer):
                 conv_info.rms_force_converged,
                 conv_info.max_step_converged,
                 conv_info.rms_step_converged,
-                exact_current_saddle,
+                exact_current_candidate,
             )
-            converged = bool(exact_current_saddle and terminal_criteria)
+            converged = bool(exact_current_candidate and terminal_criteria)
             if not converged and outer_allow_stall:
                 self._maybe_request_energy_plateau_stall(
                     conv_info, curvature_ok=True
@@ -1702,12 +1733,6 @@ class TSHessianOptimizer(HessianOptimizer):
         self.roots = max_ovlp_inds
         self.ts_modes = ovlp_eigvecs.T[self.roots]
         self.ts_mode_eigvals = eigvals[self.roots]
-    def _lowest_mw_freq_cm(self):
-        """Compute the lowest frequency (cm⁻¹) from current Hessian using
-        the same _frequencies_cm_and_modes as the freq command."""
-        freqs = self._all_mw_freqs_cm()
-        return freqs[0] if len(freqs) > 0 else 0.0
-
     def _all_mw_freqs_cm(self):
         """Return all mass-weighted frequencies (cm⁻¹) from current Hessian."""
         try:

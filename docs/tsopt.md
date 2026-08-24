@@ -16,7 +16,16 @@ must be able to raise the physical energy along its reaction mode. The
 optimization (`opt` and post-IRC endpoint re-optimization in `all`). The
 inner MM-only relaxation in microiteration remains a minimum subproblem.
 
-After convergence, a surplus-imaginary-mode flatten loop (`--flatten`) removes extra negative modes via mass-scaled displacements. A successful TS optimization produces one imaginary mode along the reaction coordinate; confirm its connectivity with [`irc`](irc.md).
+When explicitly enabled, the surplus-imaginary-mode flatten loop (`--flatten`) uses mass-scaled displacements to remove extra negative modes. Without `--flatten`, terminal exact PHVA is performed once and the terminal candidate is retained as first-order, higher-order, no-imaginary, or unavailable. First-order TS certification still requires one imaginary mode along the intended reaction coordinate and correct [`irc`](irc.md) connectivity.
+
+### Terminal outcomes and fatal errors
+
+| Condition | `tsopt` artifacts | Composite `all` behavior |
+| --- | --- | --- |
+| Convergence criteria unmet, explicit cycle limit reached, or opt-in energy plateau | Retain the final geometry and trajectory; attempt one terminal PHVA and record frequencies/modes when it succeeds | Register the TS result, then stop before IRC unless numerical status is `converged` and a negative reaction root is available |
+| Terminal PHVA fails or `--skip-final-freq` is explicit | Retain the geometry; record `failed` or `skipped` without inventing frequencies | Stop before IRC after artifact registration |
+| Invalid input/geometry or an unrecoverable optimizer exception such as `ZeroStepLength` / `OptimizationError` | Follow the structured error-envelope path; only files already written are retained on a best-effort basis | Abort the stage rather than relabelling it as ordinary non-convergence |
+
 
 ## Building a TS candidate first
 
@@ -77,16 +86,24 @@ See [Common Error Recipes — Recipe 4](recipes-common-errors.md#recipe-4-conver
 
 ### Advanced MEP reference mode
 
-`--ref-mode` reads a non-zero Cartesian 3N vector (`.npy` or whitespace text)
-that identifies the MEP tangent for initial-root selection and overlap
-tracking. It is an internal,
-advanced input for the end-to-end workflow: `mlmm all` derives and passes it
-from the MEP by default. With `all --no-tsopt-from-mep-tan`, TSOPT computes the
-initial-structure Hessian and selects the initial root from its vibrational
-modes. Ordinary standalone `mlmm tsopt` users should
-omit it unless they have constructed a matching vector in exactly the same atom
-order. Exact PHVA remains the terminal saddle-order test; no automatic
-recovery or displaced multistart is launched by the default search.
+`--ref-mode` is an advanced/internal handoff for Hessian-based TS optimizers,
+not a normal standalone requirement. It accepts one or more atom-order-matched
+Cartesian 3N candidate directions from `.npz`, `.npy`, or whitespace text (a
+single vector or a 2-D candidate table). `mlmm all` supplies CPU/file-cached MEP
+tangent candidates automatically for RS-I-RFO, RS-P-RFO, and TRIM. Dimer does
+not consume `--ref-mode`. With `all --no-tsopt-from-mep-tan`, cache creation/use
+is disabled and TSOPT selects its initial root from the initial-structure
+Hessian modes.
+
+The reference direction guides negative Hessian-root identity and overlap
+tracking; it is not an initial-Hessian replacement. Terminal exact PHVA remains
+authoritative for saddle order. A numerically converged higher-order stationary
+point remains `optimization_status: "converged"` with
+`saddle_validation: "higher_order"`; it is not a certified first-order TS.
+When a validated negative root exists, `all` may continue warning-labelled
+diagnostic IRC. Numerical non-convergence, zero imaginary modes, failed/skipped
+PHVA, or no valid negative root stops `all` after TS artifacts are retained and
+before IRC.
 
 ## Controlled mutant-vs-WT (or mechanism-vs-mechanism) comparison
 
@@ -152,13 +169,22 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## Outputs
 
-With final frequency validation enabled, `result.json` reports `status:
-"converged"` only when the optimizer converged and the final Hessian has exactly
-one imaginary mode. It reports `not_converged` for zero or multiple modes, and
-`unverified` when `--skip-final-freq` suppresses saddle-order validation.
-After a plateau stop, terminal PHVA is run and the status remains `stalled`.
-If the optimizer instead reaches `max_cycles` without convergence, PHVA and
-mode export are skipped and both imaginary-mode fields are `null`.
+`result.json` separates numerical optimization from terminal exact-PHVA
+classification. `optimization_status` is `converged`, `not_converged`, or
+`stalled`; `saddle_validation` is `first_order`, `higher_order`,
+`no_imaginary`, or `unavailable`; and `hessian_status` records whether the
+terminal PHVA completed, failed, was skipped, or was unavailable. The retained
+terminal geometry normally receives one terminal PHVA even after numerical
+non-convergence. A PHVA failure is recorded without discarding the structure or
+fabricating frequencies.
+
+A numerically converged higher-order stationary point is retained and may be
+used only for warning-labelled diagnostic IRC when a validated negative root is
+available. It is not first-order certification. Numerical non-convergence,
+zero imaginary modes, failed/skipped PHVA, or no valid negative root causes
+`all` to stop after registering TS artifacts and before IRC. Explicit
+`--skip-final-freq` retains the final structure but leaves saddle order
+unverified; in `all`, this therefore stops the pipeline before IRC.
 
 Three artifacts are written to `result_tsopt/`: `final_geometry.pdb` (and `.xyz`) — the final geometry (3-layer B-factor encoding preserved for PDB); `vib/imag_*_trj.xyz` — imaginary-mode animations above the configured magnitude threshold; and `vib/imag_*.pdb` — their PDB companions (PDB inputs only).
 
@@ -198,7 +224,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--movable-cutoff FLOAT` | Distance cutoff (Å) for movable MM atoms. | _None_ |
 | **TS search & optimizer mode** | | |
 | `--hessian-calc-mode CHOICE` | ML Hessian mode: `Analytical` or `FiniteDifference`. | `FiniteDifference` |
-| `--ref-mode PATH` | Advanced Cartesian 3N path-direction hint. `all` supplies it from the MEP; ordinary standalone `tsopt` runs omit it. | _None_ |
+| `--ref-mode PATH` | Advanced/internal Cartesian reference candidate(s) from `.npz`, `.npy`, or whitespace text (one 3N vector or a 2-D candidate table). Guides negative Hessian-root identity/overlap; does not replace the Hessian and is unsupported by Dimer. `all` supplies it from the MEP for Hessian TS optimizers. | _None_ |
 | `--max-cycles INT` | Maximum total optimizer cycles. | `10000` |
 | `--opt-mode CHOICE` | TS optimizer mode (Choice: `grad` / `hess` / `light` / `heavy` / `dimer` / `rsirfo` / `trim` / `rsprfo`). `grad` / `light` / `dimer` → Hessian-Guided Dimer; `hess` / `heavy` / `rsirfo` → RS-I-RFO (default); `trim` → TRIM (Helgaker); `rsprfo` → RS-P-RFO (Banerjee). All three Hessian TS optimizers (`rsirfo` / `rsprfo` / `trim`) are microiter-capable. | `hess` |
 | `--microiter / --no-microiter` | Microiteration: alternate a 1-step macro TS move (RS-I-RFO / RS-P-RFO / TRIM) + MM relaxation (L-BFGS). Effective in any Hessian mode (`hess` / `rsirfo` / `rsprfo` / `trim`); no-op in `--opt-mode grad` / `dimer`. | `True` |
@@ -208,7 +234,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--flatten / --no-flatten` | Extra-imaginary-mode flattening loop. `--flatten` uses the default iteration count (50); `--no-flatten` forces it to 0. Applies to both `--opt-mode grad` (Dimer) and `--opt-mode hess` (RS-I-RFO). | _None_ → disabled by default (0 iterations); `--flatten` enables it (50), and YAML/config can also enable it |
 | `--partial-hessian-flatten` / `--full-hessian-flatten` | Use the active-coordinate Hessian block or the full Hessian for imaginary-mode detection in the flatten loop. | `True` (active block) |
 | `--active-dof-mode CHOICE` | Active DOF for final frequency analysis: `all`, `ml-only`, `partial`, `unfrozen`. | `partial` |
-| `--skip-final-freq / --no-skip-final-freq` | Skip post-convergence frequency analysis and imaginary-mode flattening. Useful for large unfrozen systems where Hessian diagonalization is expensive. TS saddle-point order will NOT be verified. | `False` |
+| `--skip-final-freq / --no-skip-final-freq` | Skip terminal frequency/PHVA validation. The final TS candidate is retained, but saddle order and a negative IRC direction are unverified; `all` stops before IRC. | `False` |
 | **Backend & compute** | | |
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
 | `--precision [fp32\|fp64]` | MLIP backend precision; unset uses UMA/AIMNet2 fp32 and ORB/MACE fp64. AIMNet2 rejects fp64. | backend-specific |

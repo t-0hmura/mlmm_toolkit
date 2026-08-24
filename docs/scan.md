@@ -103,7 +103,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--print-parsed/--no-print-parsed` | Print parsed stage tuples after `-s/--scan-lists` resolution. | `False` |
 | `--max-step-size FLOAT` | Maximum change in any scanned bond per step (Å). Controls the number of biased relaxation steps. | `0.20` |
 | `--bias-k FLOAT` | Harmonic bias strength `k` in eV/Å². | `300` |
-| `--max-cycles INT` | Maximum L-BFGS cycles per biased step and per pre/end optimization stage. | `10000` |
+| `--max-cycles INT` | Optional L-BFGS cycle cap per biased step and per pre/end optimization stage. | `None` |
 | `--relax-max-cycles INT` | Compatibility alias of `--max-cycles` (overrides it when provided). | _None_ |
 | `--preopt/--no-preopt` | Run an unbiased optimization before scanning. | `False` |
 | `--endopt/--no-endopt` | Run an unbiased optimization after each stage. | `False` |

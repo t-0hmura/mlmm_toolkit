@@ -30,6 +30,47 @@ from pysisyphus.tr_projection import (
 )
 
 
+DEFAULT_FREQUENCY_ZERO_CUTOFF_CM = 5.00
+
+
+def normalize_frequency_zero_cutoff_cm(value) -> float:
+    """Validate a configurable non-negative zero-mode cutoff."""
+    cutoff = float(value)
+    if not np.isfinite(cutoff) or cutoff < 0.0:
+        raise ValueError("frequency zero cutoff must be finite and non-negative")
+    return cutoff
+
+
+def resolved_frequency_mask(
+    freqs_cm, cutoff_cm=DEFAULT_FREQUENCY_ZERO_CUTOFF_CM
+) -> np.ndarray:
+    """Select modes outside the configured symmetric zero window."""
+    cutoff = normalize_frequency_zero_cutoff_cm(cutoff_cm)
+    return np.abs(np.asarray(freqs_cm, dtype=float)) > cutoff
+
+
+def resolved_imaginary_mask(
+    freqs_cm, cutoff_cm=DEFAULT_FREQUENCY_ZERO_CUTOFF_CM
+) -> np.ndarray:
+    """Select resolved imaginary modes using the configured zero window."""
+    cutoff = normalize_frequency_zero_cutoff_cm(cutoff_cm)
+    return np.asarray(freqs_cm, dtype=float) < -cutoff
+
+
+def filter_resolved_modes(
+    freqs_cm, modes, cutoff_cm=DEFAULT_FREQUENCY_ZERO_CUTOFF_CM
+):
+    """Remove |ν| <= cutoff while preserving frequency/mode alignment."""
+    frequencies = np.asarray(freqs_cm, dtype=float)
+    keep = resolved_frequency_mask(frequencies, cutoff_cm)
+    if isinstance(modes, torch.Tensor):
+        mode_keep = torch.as_tensor(keep, dtype=torch.bool, device=modes.device)
+        filtered_modes = modes[mode_keep]
+    else:
+        filtered_modes = np.asarray(modes)[keep]
+    return frequencies[keep], filtered_modes
+
+
 def symmetrize_inplace(H, chunk: int = 512):
     """Symmetrize a square Hessian-like tensor in place with bounded peak VRAM.
 
@@ -193,14 +234,10 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
                               atomic_numbers: List[int],
                               coords_bohr: np.ndarray,
                               device: torch.device,
-                              # tol is retained for signature compatibility and is ignored: the
-                              # rigid space is removed exactly, by diagonalizing its orthogonal
-                              # complement, so there are no artificial zero roots to filter and no
-                              # magnitude floor is applied to the physical spectrum.
-                              tol: float = 1e-6,
                               freeze_idx: Optional[List[int]] = None,
                               tr_projection: str = "constrained",
-                              projection_info: Optional[dict] = None) -> Tuple[np.ndarray, torch.Tensor]:
+                              projection_info: Optional[dict] = None,
+                              frequency_zero_cutoff_cm: float = DEFAULT_FREQUENCY_ZERO_CUTOFF_CM) -> Tuple[np.ndarray, torch.Tensor]:
     """
     Diagonalize a (possibly PHVA/active-subspace) TR-projected mass-weighted Hessian
     to obtain frequencies (cm^-1) and mass-weighted eigenvectors (modes).
@@ -365,6 +402,9 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
         hnu = s_new * torch.sqrt(torch.abs(omega2))
         hnu = torch.where(omega2 < 0, -hnu, hnu)
         freqs_cm = (hnu / units.invcm).detach().cpu().numpy()
+        freqs_cm, modes = filter_resolved_modes(
+            freqs_cm, modes, frequency_zero_cutoff_cm
+        )
 
         del omega2, hnu
         if torch.cuda.is_available():

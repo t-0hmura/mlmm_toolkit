@@ -771,7 +771,7 @@ class Dimer(Calculator):
             trj_fn = self.make_fn("N_trj.xyz")
             with open(trj_fn, "w") as handle:
                 handle.write(trj_str)
-            self.log(f"Wrote current orientation animation to '{trj_fn}'")
+            self.log(f"Wrote current orientation trajectory to '{trj_fn}'")
         # Always save orientation in Bohr
         N_fn = self.make_fn("N")
         np.savetxt(N_fn, N)

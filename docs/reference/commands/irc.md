@@ -37,8 +37,9 @@ Options:
                                   pdb).
   -m, --multiplicity INTEGER      Spin multiplicity (2S+1); overrides
                                   calc.model_mult from YAML.  [default: (1)]
-  --max-cycles INTEGER            Maximum number of IRC steps; overrides
-                                  irc.max_cycles from YAML.  [default: (125)]
+  --max-cycles INTEGER            Set an IRC-step cap; omitted means no cycle
+                                  cap. An explicit value overrides irc.max_cycles
+                                  from YAML.  [default: (None)]
   --step-size FLOAT               Step length in Bohr (unweighted Cartesian
                                   coordinates). Default: 0.10 Bohr. Overrides
                                   irc.step_length from YAML.  [default: (0.10)]
@@ -56,7 +57,7 @@ Options:
                                   default off.  [default: (no-never-stop)]
   -o, --out-dir TEXT              Output directory; overrides irc.out_dir from
                                   YAML.  [default: ./result_irc/]
-  --hessian-calc-mode [analytical|finitedifference]
+  --hessian-calc-mode [Analytical|FiniteDifference]
                                   How the ML backend builds the Hessian
                                   (Analytical or FiniteDifference); overrides
                                   calc.hessian_calc_mode from YAML. Default:

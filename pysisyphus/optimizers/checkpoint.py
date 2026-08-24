@@ -187,7 +187,11 @@ def build_envelope(optimizer: Any, *, phase: str = RESUMABLE_PHASE) -> dict[str,
         "geometry_identity": _geometry_identity(optimizer.geometry),
         "cycle": {
             "completed_cycle": int(getattr(optimizer, "cur_cycle", 0)),
-            "max_cycles": int(getattr(optimizer, "max_cycles", 0)),
+            "max_cycles": (
+                None
+                if getattr(optimizer, "max_cycles", None) is None
+                else int(optimizer.max_cycles)
+            ),
         },
         "restart_info": restart_info,
     }

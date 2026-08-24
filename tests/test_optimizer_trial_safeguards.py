@@ -147,7 +147,8 @@ def test_path_restart_adds_distinct_initial_soft_root_shell() -> None:
     modes = _path_restart_mode_candidates(
         _Optimizer(),
         _Geometry(),
-        np.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+        [np.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0])],
+        ["tangent"],
     )
 
     assert [source for source, _ in modes] == [
@@ -876,7 +877,7 @@ def test_ts_baker_requires_rms_force_not_only_max_force(tmp_path) -> None:
     assert converged is False
 
 
-def test_exact_higher_order_saddle_cannot_authorize_first_order_convergence(
+def test_exact_higher_order_saddle_authorizes_terminal_convergence(
     tmp_path
 ) -> None:
     geom, opt = _ts_optimizer(tmp_path, 0.0, energy_plateau=False)
@@ -892,11 +893,12 @@ def test_exact_higher_order_saddle_cannot_authorize_first_order_convergence(
 
     converged, _ = opt.check_convergence()
 
-    assert converged is False
+    assert converged is True
     assert not opt._exact_saddle_matches_current_geometry()
+    assert opt._exact_terminal_candidate_matches_current_geometry()
 
 
-def test_zero_step_higher_order_saddle_requests_clean_flatten_stop(
+def test_zero_step_higher_order_saddle_finishes_without_repeat_or_stop(
     tmp_path, monkeypatch
 ) -> None:
     geom, opt = _ts_optimizer(tmp_path, 0.0, energy_plateau=False)
@@ -919,11 +921,10 @@ def test_zero_step_higher_order_saddle_requests_clean_flatten_stop(
 
     opt.run()
 
-    assert opt.is_converged is False
-    assert opt.stopped is True
-    assert opt.stop_reason == (
-        "exact higher-order saddle at zero step requires a flatten restart"
-    )
+    assert opt.is_converged is True
+    assert opt.stopped is False
+    assert opt.stop_reason == ""
+    assert opt._exact_terminal_candidate_matches_current_geometry()
 
 
 def test_exact_verifier_retains_curvature_but_rejects_higher_order_status(
@@ -1065,10 +1066,10 @@ def test_reference_mismatch_is_diagnostic_for_exact_first_order_saddle(
     assert has_saddle is True
     assert opt._last_exact_n_imaginary == 1
     assert opt._last_exact_saddle_verified is True
-    assert opt._last_exact_target_mode_index == 1
-    assert opt._last_exact_target_mode_overlap == pytest.approx(1.0)
-    assert opt._last_exact_target_mode_is_negative is False
-    np.testing.assert_allclose(recovery_mode, [0.0, 1.0, 0.0])
+    assert opt._last_exact_target_mode_index == 0
+    assert opt._last_exact_target_mode_overlap == pytest.approx(0.0)
+    assert opt._last_exact_target_mode_is_negative is True
+    np.testing.assert_allclose(recovery_mode, [1.0, 0.0, 0.0])
 
 
 def test_first_path_recovery_keeps_complete_multimode_tangent(
@@ -1135,7 +1136,7 @@ def test_recovery_uses_transported_mode_after_target_was_negative(
     np.testing.assert_allclose(recovery_mode, [1.0, 0.0, 0.0])
 
 
-def test_higher_order_saddle_is_rejected_independent_of_reference_mode(
+def test_higher_order_saddle_is_retained_with_negative_reference_mode(
     tmp_path, monkeypatch
 ) -> None:
     _, opt = _ts_optimizer(
@@ -1164,10 +1165,11 @@ def test_higher_order_saddle_is_rejected_independent_of_reference_mode(
     assert has_saddle is True
     assert opt._last_exact_n_imaginary == 2
     assert opt._last_exact_saddle_verified is False
-    assert opt._last_exact_target_mode_is_negative is False
+    assert opt._last_exact_target_mode_index == 0
+    assert opt._last_exact_target_mode_is_negative is True
     assert opt.higher_order_saddle_checks == 1
-    assert opt.stop_requested is True
-    np.testing.assert_allclose(recovery_mode, [0.0, 0.0, 1.0])
+    assert opt.stop_requested is False
+    np.testing.assert_allclose(recovery_mode, [1.0, 0.0, 0.0])
 
 
 def test_single_imaginary_path_mode_is_exact_first_order_saddle(
@@ -1249,7 +1251,8 @@ def test_exact_identity_keeps_full_path_until_first_physical_crossing(
         reference_mode=np.array([0.0, 1.0, 0.0]),
     )
     # The numerical uphill root drifted to x while the requested path mode has
-    # never been physically negative. Exact validation must still identify y.
+    # never been physically negative. Exact validation must nevertheless hand
+    # IRC the actual imaginary x mode; the y tangent remains diagnostic.
     opt.ts_modes = np.array([[1.0, 0.0, 0.0]])
     opt.negative_mode_seen = False
     opt.forces = [np.zeros(3)]
@@ -1271,9 +1274,9 @@ def test_exact_identity_keeps_full_path_until_first_physical_crossing(
 
     assert has_saddle is True
     assert opt._last_exact_saddle_verified is True
-    assert opt._last_exact_target_mode_index == 1
-    assert opt._last_exact_target_mode_is_negative is False
-    np.testing.assert_allclose(recovery_mode, [0.0, 1.0, 0.0])
+    assert opt._last_exact_target_mode_index == 0
+    assert opt._last_exact_target_mode_is_negative is True
+    np.testing.assert_allclose(recovery_mode, [1.0, 0.0, 0.0])
 
 
 def test_path_mode_overlap_tracking_can_follow_mode_into_positive_spectrum(
@@ -1458,11 +1461,12 @@ def test_internal_exact_check_treats_reference_mismatch_as_diagnostic(
     assert physical_checked is True
     assert opt._last_exact_n_imaginary == 1
     assert opt._last_exact_saddle_verified is True
-    assert opt._last_exact_target_mode_index == 1
-    np.testing.assert_allclose(recovery_mode, [0.0, 1.0, 0.0])
+    assert opt._last_exact_target_mode_index == 0
+    assert opt._last_exact_target_mode_is_negative is True
+    np.testing.assert_allclose(recovery_mode, [1.0, 0.0, 0.0])
 
 
-def test_persistent_higher_order_saddle_requests_explicit_flatten_restart(
+def test_repeated_higher_order_characterization_never_requests_optimizer_stop(
     tmp_path, monkeypatch
 ) -> None:
     _, opt = _ts_optimizer(tmp_path, 0.0, max_higher_order_checks=3)
@@ -1484,8 +1488,8 @@ def test_persistent_higher_order_saddle_requests_explicit_flatten_restart(
             np.array([-2.0, -1.0, 3.0]), np.eye(3)
         )
 
-    assert opt.stop_requested is True
-    assert "higher-order saddle" in opt.stop_reason
+    assert opt.stop_requested is False
+    assert opt.stop_reason == ""
 
 
 def test_flatten_target_can_preserve_path_correlated_nonlowest_mode() -> None:

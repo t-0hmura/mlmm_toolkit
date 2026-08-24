@@ -16,7 +16,16 @@ optimizer の `reject_uphill` を常に `false` に固定します。TS 探索�
 IRC 後エンドポイント再最適化）だけに適用されます。マイクロイテレーション
 内部の MM-only 緩和は最小化の部分問題なので、この区別を維持します。
 
-収束後は `--flatten` の余剰虚モード除去ループが質量重み付け変位で余分な負のモードを整理します。TS 最適化が成功すると反応座標に対応する虚振動が 1 つ得られます。[`irc`](irc.md) で結合性も確認してください。
+`--flatten` を明示的に有効化した場合だけ、余剰虚モード除去ループが質量重み付け変位で余分な負のモードを整理します。`--flatten` 無効時は終端 exact PHVA を 1 回だけ行い、終端候補を一次、高次、虚振動なし、または検証不能として保持します。一次 TS 認定には、目的反応座標に沿う虚振動が 1 つであることと、正しい [`irc`](irc.md) 接続性が引き続き必要です。
+
+### 通常の終端outcomeと致命的errorの境界
+
+| 条件 | `tsopt` の成果物 | `all` の動作 |
+| --- | --- | --- |
+| 収束条件未達、明示cycle上限到達、またはopt-inのenergy plateau | 最終構造とtrajectoryを保持し、終端PHVAを1回試行。成功時はfrequency/modeを記録 | TS成果物を登録後、数値statusが`converged`かつ有効な負rootがある場合を除いてIRC前停止 |
+| 終端PHVA失敗、または`--skip-final-freq`明示 | 構造を保持し、`failed`または`skipped`を記録。frequencyは捏造しない | 成果物登録後にIRC前停止 |
+| 不正入力/geometry、または`ZeroStepLength` / `OptimizationError`など回復不能なoptimizer例外 | structured error envelopeへ進み、それ以前に書かれたfileだけをbest effortで保持 | 通常の数値非収束へ読み替えずstageを中断 |
+
 
 ## まず TS 候補を構築する
 
@@ -73,15 +82,21 @@ mlmm tsopt -i ts_guess.pdb --parm enzyme.parm7 -l 'LIG:Q' -b uma \
 
 ### 高度な MEP 参照モード
 
-`--ref-mode` は MEP tangent を指定する非ゼロ Cartesian 3N vector
-（`.npy` または空白区切り text）を読み込みます。これは一気通貫 workflow
-向けの内部的な高度オプションで、`mlmm all` が MEP から生成してデフォルトで
-渡します。`all --no-tsopt-from-mep-tan` では TSOPT が初期構造の Hessian を計算し、
-その振動モードから初期 root を選びます。
-通常の単独 `mlmm tsopt` では省略し、同じ原子順のvectorを明示的に構築済みの
-場合だけ指定します。接線は初期root選択とoverlap追跡に使い、デフォルト探索は
-自動saddle recoveryや自動変位multistartを実行しません。終端のexact PHVAが
-鞍点次数を判定します。
+`--ref-mode` は Hessian ベース TS optimizer 用の内部的な高度 handoff で、
+通常の standalone 実行では必須ではありません。`.npz`、`.npy`、または空白区切り
+text から、同じ原子順の Cartesian 3N 候補を 1 本または複数（単一 vector または
+2-D candidate table）読み込みます。`mlmm all` は RS-I-RFO、RS-P-RFO、TRIM に
+CPU/file cache した MEP tangent 候補を自動で渡します。Dimer は `--ref-mode` を
+使用しません。`all --no-tsopt-from-mep-tan` では cache の作成・利用を停止し、
+TSOPT は初期構造 Hessian の振動モードから初期 root を選びます。
+
+参照方向は負の Hessian root の identity と overlap 追跡を補助しますが、初期
+Hessian そのものを置き換えるものではありません。鞍点次数は終端 exact PHVA が
+決定します。数値収束済み高次停留点は `optimization_status: "converged"`、
+`saddle_validation: "higher_order"` のまま保持され、一次 TS 認定にはなりません。
+有効な負 root がある場合、`all` は警告付き診断 IRC に進むことがあります。数値
+非収束、虚振動 0 本、PHVA 失敗/skip、または有効な負 root なしでは、TS 成果物を
+保持した後、IRC 前で停止します。
 
 ## 対照を揃えた変異体 vs 野生型（あるいは機構 vs 機構）の比較
 
@@ -135,13 +150,19 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## 出力
 
-最終振動解析を行う場合、`result.json` の `status` が `converged` になるのは、
-optimizer が収束し、かつ最終 Hessian の虚モードが正確に 1 つの場合だけです。
-0 または複数なら `not_converged`、`--skip-final-freq` で鞍点次数を検証しない
-場合は `unverified` です。
-plateau で停止した場合は終端 PHVA を実行し、status は `stalled` のままです。
-未収束のまま `max_cycles` に到達した場合は PHVA と mode 出力を行わず、
-虚振動関連の2フィールドを `null` とします。
+`result.json` は数値最適化と終端 exact PHVA の分類を分離します。
+`optimization_status` は `converged` / `not_converged` / `stalled`、
+`saddle_validation` は `first_order` / `higher_order` / `no_imaginary` /
+`unavailable`、`hessian_status` は終端 PHVA の completed / failed / skipped /
+unavailable を表します。数値非収束でも、保持した終端構造には通常 1 回だけ終端
+PHVA を実行します。PHVA が失敗しても構造を破棄せず、振動数を捏造せずに理由を
+記録します。
+
+数値収束済み高次停留点は、有効な負 root がある場合に限り警告付き診断 IRC に
+使うことがありますが、一次 TS 認定ではありません。数値非収束、虚振動 0 本、
+PHVA 失敗/skip、または有効な負 root なしでは、`all` は TS 成果物登録後に IRC
+前で停止します。明示的な `--skip-final-freq` は最終構造を保持しますが鞍点次数と
+負の IRC 方向を検証できないため、`all` では IRC 前停止になります。
 
 最適化が成功すると 3 種類の成果物が `result_tsopt/` に出力されます。
 
@@ -185,7 +206,7 @@ out_dir/ (デフォルト: ./result_tsopt/)
 | `--movable-cutoff FLOAT` | 可動 MM 原子の距離カットオフ (Å)。 | _None_ |
 | **TS 探索とオプティマイザモード** | | |
 | `--hessian-calc-mode CHOICE` | MLIP Hessian モード: `Analytical` または `FiniteDifference`。 | `FiniteDifference` |
-| `--ref-mode PATH` | 高度な Cartesian 3N 経路方向ヒント。`all` が MEP から自動供給し、通常の単独 `tsopt` では省略。 | _None_ |
+| `--ref-mode PATH` | `.npz` / `.npy` / 空白区切り text の高度な Cartesian 3N 参照候補（1 本または 2-D table）。負の Hessian root identity/overlap を補助し、Hessian 自体は置換しません。Dimer では非対応で、`all` が Hessian TS optimizer に MEP 由来候補を渡します。 | _None_ |
 | `--max-cycles INT` | 最大総オプティマイザサイクル。 | `10000` |
 | `--opt-mode CHOICE` | TS オプティマイザモード（Choice: `grad` / `hess` / `light` / `heavy` / `dimer` / `rsirfo` / `trim` / `rsprfo`）。`grad`/`light`/`dimer` → Hessian-Guided Dimer; `hess`/`heavy`/`rsirfo` → RS-I-RFO（デフォルト）; `trim` → TRIM（Helgaker）; `rsprfo` → RS-P-RFO（Banerjee）。Hessian TS オプティマイザ3種（`rsirfo`/`rsprfo`/`trim`）はいずれも microiter 対応。 | `hess` |
 | `--microiter/--no-microiter` | マイクロイテレーション: 1 ステップの macro TS 移動（RS-I-RFO / RS-P-RFO / TRIM）+ MM 緩和（L-BFGS）を交互に実行。任意の Hessian モード（`hess`/`rsirfo`/`rsprfo`/`trim`）で有効。 | `True` |
@@ -195,7 +216,7 @@ out_dir/ (デフォルト: ./result_tsopt/)
 | `--flatten/--no-flatten` | 余分な虚振動数モード平坦化ループの有効化/無効化。`--flatten` はデフォルト反復回数（50）を使用、`--no-flatten` は 0 に強制。light と heavy の両モードに適用。 | _None_（CLI デフォルトは無効 = `flatten_max_iter` 0; `--flatten` または YAML/config で初めて有効化され、その場合 50 回） |
 | `--partial-hessian-flatten / --full-hessian-flatten` | 平坦化ループでの虚振動数モード検出に active-coordinate Hessian block または full Hessian を使用。 | `True`（active block） |
 | `--active-dof-mode CHOICE` | 最終振動解析のアクティブ自由度: `all`、`ml-only`、`partial`、`unfrozen`。 | `partial` |
-| `--skip-final-freq/--no-skip-final-freq` | 収束後の振動解析と虚振動数モード平坦化をスキップ。大規模非凍結系で Hessian 対角化が高コストな場合に有用。TS の鞍点次数は未検証のままになる。 | `False` |
+| `--skip-final-freq/--no-skip-final-freq` | 終端 frequency/PHVA 検証をスキップ。最終 TS 候補は保持しますが鞍点次数と負の IRC 方向は未検証となり、`all` は IRC 前で停止します。 | `False` |
 | **バックエンドと計算** | | |
 | `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
 | `--precision [fp32\|fp64]` | MLIP バックエンド精度。省略時は UMA/AIMNet2 fp32、ORB/MACE fp64。AIMNet2 は fp64 を拒否。 | バックエンド依存 |

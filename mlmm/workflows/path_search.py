@@ -80,12 +80,14 @@ from mlmm.core.utils import (
     validate_endpoint_atom_identities,
     parse_indices_string,
     resolve_ml_layer_assignment,
+    optional_positive_int,
 )
 from mlmm.core.result_commit import commit_json_exact, with_current_run_id
 from mlmm.cli.common_options import add_ml_layer_detection_options, add_precision_option, add_workers_options, add_backend_model_option, add_calc_file_option, add_deterministic_option, add_allow_charge_mult_mismatch_option
 from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, _write_error_json, render_cli_exception
 from mlmm.cli.preflight import validate_existing_files
 from mlmm.io.trj2fig import run_trj2fig  # auto-generate an energy plot when a _trj.xyz is produced
+from mlmm.io.path_mode_cache import write_path_mode_cache
 from mlmm.io.summary import emit_method_citations, method_references, write_summary_log
 from mlmm.domain.bond_changes import compare_structures, summarize_changes
 from mlmm.workflows.align_freeze import (
@@ -167,73 +169,6 @@ DMF_KW: Dict[str, Any] = deepcopy(_PATH_DMF_KW)
 # Global search control
 SEARCH_KW: Dict[str, Any] = deepcopy(_SEARCH_KW_DEFAULT)
 
-
-def _normalized_path_tangent(
-    coords: Sequence[np.ndarray],
-    index: int,
-    energies: Optional[Sequence[float]] = None,
-) -> Optional[np.ndarray]:
-    """Return a normalized Cartesian tangent for a path image.
-
-    Finite image energies enable the improved upwind tangent used by the
-    chain-of-states optimizer.  Trajectories without energies fall back to a
-    spacing-independent secant bisector; endpoints use their only secant.
-    """
-    if len(coords) < 2 or not 0 <= int(index) < len(coords):
-        return None
-
-    arrays = [np.asarray(item, dtype=float).reshape(-1) for item in coords]
-
-    def _unit(vector: np.ndarray) -> Optional[np.ndarray]:
-        norm = float(np.linalg.norm(vector))
-        if not np.isfinite(norm) or norm <= 0.0:
-            return None
-        return vector / norm
-
-    if index == 0:
-        return _unit(arrays[1] - arrays[0])
-    if index == len(arrays) - 1:
-        return _unit(arrays[-1] - arrays[-2])
-
-    incoming_raw = arrays[index] - arrays[index - 1]
-    outgoing_raw = arrays[index + 1] - arrays[index]
-    incoming = _unit(incoming_raw)
-    outgoing = _unit(outgoing_raw)
-    if incoming is None:
-        return outgoing
-    if outgoing is None:
-        return incoming
-
-    if energies is not None and len(energies) == len(arrays):
-        energy_values = np.asarray(energies, dtype=float)
-        previous = float(energy_values[index - 1])
-        current = float(energy_values[index])
-        following = float(energy_values[index + 1])
-        if np.all(np.isfinite((previous, current, following))):
-            if following > current > previous:
-                tangent_raw = outgoing_raw
-            elif following < current < previous:
-                tangent_raw = incoming_raw
-            else:
-                next_delta = abs(following - current)
-                previous_delta = abs(previous - current)
-                delta_max = max(next_delta, previous_delta)
-                delta_min = min(next_delta, previous_delta)
-                if following >= previous:
-                    tangent_raw = outgoing_raw * delta_max + incoming_raw * delta_min
-                else:
-                    tangent_raw = outgoing_raw * delta_min + incoming_raw * delta_max
-            tangent = _unit(tangent_raw)
-            if tangent is not None:
-                return tangent
-
-    tangent = _unit(incoming + outgoing)
-    if tangent is not None:
-        return tangent
-    return _unit(arrays[index + 1] - arrays[index - 1])
-
-
-# Multi-structure loader
 def _load_structures(
     inputs: Sequence[PreparedInputStructure],
     coord_type: str,
@@ -1650,15 +1585,25 @@ def _build_multistep_path(
     ),
 )
 @click.option(
+    "--max-cycles",
+    type=click.IntRange(min=1),
+    default=None,
+    show_default="None",
+    help=(
+        "Compatibility cycle cap for the selected MEP optimizer; "
+        "mode-specific options take precedence."
+    ),
+)
+@click.option(
     "--max-cycles-gsm",
-    type=int,
+    type=click.IntRange(min=1),
     default=None,
     show_default="300",
     help="Maximum GSM string-optimizer cycles for the MEP stage.",
 )
 @click.option(
     "--max-cycles-dmf",
-    type=int,
+    type=click.IntRange(min=1),
     default=None,
     show_default="300",
     help=(
@@ -1769,6 +1714,13 @@ def _build_multistep_path(
     help="Convert XYZ/TRJ outputs into PDB companions based on the input format.",
 )
 @click.option(
+    "--write-hei-mode-cache/--no-write-hei-mode-cache",
+    default=True,
+    show_default="on",
+    hidden=True,
+    help="Internal all-workflow switch for HEI path-mode cache emission.",
+)
+@click.option(
     "-b", "--backend",
     type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
     default=None,
@@ -1838,6 +1790,7 @@ def cli(
     freeze_atoms_text: Optional[str],
     movable_cutoff: Optional[float],
     max_nodes: int,
+    max_cycles: Optional[int],
     max_cycles_gsm: Optional[int],
     max_cycles_dmf: Optional[int],
     climb: bool,
@@ -1853,6 +1806,7 @@ def cli(
     align: bool,
     ref_pdb_paths: Optional[Sequence[Path]],
     convert_files: bool,
+    write_hei_mode_cache: bool,
     backend: Optional[str],
     embedcharge: bool,
     embedcharge_cutoff: Optional[float],
@@ -1904,6 +1858,12 @@ def cli(
     # --- end of robust parsing fix ---
 
     _is_param_explicit = make_is_param_explicit(ctx)
+
+    if max_cycles is not None:
+        if max_cycles_gsm is None:
+            max_cycles_gsm = max_cycles
+        if max_cycles_dmf is None:
+            max_cycles_dmf = max_cycles
 
     config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
         config_yaml=config_yaml,
@@ -2056,10 +2016,16 @@ def cli(
             search_cfg["max_nodes_segment"] = int(max_nodes)
         # The GSM cycle budget also bounds the fully-grown string; DMF's budget
         # is a separate IPOPT iteration count.
-        if _is_param_explicit("max_cycles_gsm") and max_cycles_gsm is not None:
+        if (
+            _is_param_explicit("max_cycles_gsm")
+            or _is_param_explicit("max_cycles")
+        ) and max_cycles_gsm is not None:
             stopt_cfg["max_cycles"] = int(max_cycles_gsm)
             stopt_cfg["stop_in_when_full"] = int(max_cycles_gsm)
-        if _is_param_explicit("max_cycles_dmf") and max_cycles_dmf is not None:
+        if (
+            _is_param_explicit("max_cycles_dmf")
+            or _is_param_explicit("max_cycles")
+        ) and max_cycles_dmf is not None:
             dmf_cfg["max_cycles"] = int(max_cycles_dmf)
         if _is_param_explicit("dmf_backend"):
             dmf_cfg["backend"] = str(dmf_backend).lower()
@@ -2283,7 +2249,9 @@ def cli(
             if isinstance(val, (str, Path)):
                 calc_cfg[key] = str(Path(val).expanduser().resolve())
 
-        stopt_cfg["stop_in_when_full"] = int(stopt_cfg.get("max_cycles", STOPT_KW["max_cycles"]))
+        stopt_cfg["stop_in_when_full"] = optional_positive_int(
+            stopt_cfg.get("max_cycles"), "stopt.max_cycles"
+        )
         out_dir_path = Path(stopt_cfg.get("out_dir", out_dir)).resolve()
         error_out_dir = out_dir_path
         echo_geom = format_freeze_atoms_for_echo(geom_cfg, key="freeze_atoms")
@@ -2328,18 +2296,14 @@ def cli(
             )
 
         effective_max_cycles = (
-            dmf_cfg.get("max_cycles", 0)
+            dmf_cfg.get("max_cycles")
             if mep_mode_kind == "dmf"
-            else stopt_cfg.get("max_cycles", 0)
+            else stopt_cfg.get("max_cycles")
         )
         cycles_hint = (
             "--max-cycles-dmf" if mep_mode_kind == "dmf" else "--max-cycles-gsm"
         )
-        if int(effective_max_cycles) <= 0:
-            raise click.BadParameter(
-                f"{cycles_hint} must be at least 1.",
-                param_hint=cycles_hint,
-            )
+        optional_positive_int(effective_max_cycles, cycles_hint)
 
         validate_endpoint_atom_identities(prepared_inputs)
         for name in (
@@ -2552,6 +2516,26 @@ def cli(
                     hei_trj = out_dir_path / f"hei_seg_{seg_idx:02d}.xyz"
                     _write_xyz_trj_with_energy([hei_img], hei_E, hei_trj)
                     emit(f"[write] Wrote segment HEI (pocket) → '{hei_trj}'", detail=True)
+                    if write_hei_mode_cache and len(idxs) >= 2:
+                        cache_path = out_dir_path / f"hei_mode_seg_{seg_idx:02d}.npz"
+                        legacy_mode_path = out_dir_path / f"hei_mode_seg_{seg_idx:02d}.txt"
+                        cache = write_path_mode_cache(
+                            cache_path,
+                            [image.cart_coords for image in seg_imgs],
+                            imax_rel,
+                            energies=energies_seg,
+                            trajectory_path=seg_trj,
+                            hei_path=hei_trj,
+                            atom_numbers=getattr(hei_img, "atomic_numbers", None),
+                            primary_text_path=legacy_mode_path,
+                            source="path-search",
+                        )
+                        if cache is not None:
+                            emit(
+                                "[write] Wrote HEI path-mode candidates "
+                                f"({len(cache.labels)}; CPU/file cache) → '{cache.path}'",
+                                detail=True,
+                            )
                     if ref_pdb_for_segments is not None:
                         _maybe_convert_to_pdb(hei_trj, ref_pdb_for_segments, out_path=out_dir_path / f"hei_seg_{seg_idx:02d}.pdb")
         except Exception as e:

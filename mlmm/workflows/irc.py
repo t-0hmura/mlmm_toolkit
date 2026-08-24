@@ -53,6 +53,7 @@ from mlmm.core.utils import (
     resolve_ml_layer_assignment,
     yaml_section_has_key,
     echo_resolved_device,
+    optional_positive_int,
 )
 from mlmm.cli.common_options import (
     add_ml_layer_detection_options,
@@ -289,7 +290,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     help="Spin multiplicity (2S+1); overrides calc.model_mult from YAML.",
 )
 @click.option(
-    "--max-cycles", type=int, default=None, show_default="125", help="Maximum number of IRC steps; overrides irc.max_cycles from YAML."
+    "--max-cycles", type=click.IntRange(min=1), default=None, show_default="125", help="Maximum number of IRC steps."
 )
 @click.option("--step-size", type=float, default=None, show_default="0.10", help="Step length in Bohr (unweighted Cartesian coordinates). Default: 0.10 Bohr. Overrides irc.step_length from YAML.")
 @click.option("--root", type=int, default=None, show_default="0", help="Imaginary mode index used for the initial displacement; overrides irc.root from YAML.")
@@ -603,6 +604,9 @@ def cli(
         apply_workers_to_calc_cfg(calc_cfg, None, None)
         if _is_param_explicit("max_cycles") and max_cycles is not None:
             irc_cfg["max_cycles"] = int(max_cycles)
+        irc_cfg["max_cycles"] = optional_positive_int(
+            irc_cfg.get("max_cycles"), "irc.max_cycles"
+        )
         if _is_param_explicit("step_size") and step_size is not None:
             irc_cfg["step_length"] = float(step_size)
         if _is_param_explicit("root") and root is not None:
@@ -1052,6 +1056,7 @@ def cli(
             last_cycle = getattr(eulerpc, f"{direction}_cycle", None)
             reached_cycle_cap = (
                 last_cycle is not None
+                and eulerpc.max_cycles is not None
                 and int(last_cycle) + 1 >= int(eulerpc.max_cycles)
             )
             if 0 < n_frames <= 3 and not reached_cycle_cap:
