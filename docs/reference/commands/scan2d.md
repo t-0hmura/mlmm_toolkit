@@ -32,7 +32,7 @@ Options:
                                   to derive the ML-region charge when -q is
                                   omitted (requires PDB input or --ref-pdb).
   -m, --multiplicity INTEGER      Spin multiplicity (2S+1) for the ML region.
-                                  Defaults to 1 when omitted.  [default: (1)]
+                                  [default: (1)]
   --freeze-atoms TEXT             Comma-separated 1-based atom indices to freeze
                                   (e.g., "1,3,5").
   --movable-cutoff FLOAT          Distance cutoff (Å) from ML region for movable
@@ -54,8 +54,8 @@ Options:
                                   based on the input format.  [default: convert-
                                   files]
   -b, --backend [uma|orb|mace|aimnet2]
-                                  ML backend for the ONIOM high-level region
-                                  (default: uma).  [default: (uma)]
+                                  ML backend for the ONIOM high-level region.
+                                  [default: (uma)]
   --embedcharge / --no-embedcharge
                                   Enable the experimental, computationally
                                   expensive xTB point-charge delta correction
@@ -64,30 +64,30 @@ Options:
                                   point charges used by the xTB delta
                                   correction.  [default: (12.0)]
   --link-atom-method [scaled|fixed]
-                                  Link-atom position mode: scaled (g-factor,
-                                  default) or fixed (legacy 1.09/1.01 Å).
-                                  [default: (scaled)]
+                                  Link-atom position mode: scaled (g-factor) or
+                                  fixed (legacy 1.09/1.01 Å).  [default:
+                                  (scaled)]
   --mm-backend [hessian_ff|openmm]
-                                  MM backend (default: hessian_ff). MM Hessians
-                                  use finite differences by default; set
-                                  calc.mm_fd: false for the hessian_ff
-                                  analytical path.  [default: (hessian_ff)]
+                                  MM backend. MM Hessians use finite differences
+                                  by default; set calc.mm_fd: false for the
+                                  hessian_ff analytical path.  [default:
+                                  (hessian_ff)]
   --cmap / --no-cmap              Preserve CMAP terms in both real and model MM
-                                  layers. Default: enabled when present in
-                                  parm7.  [default: (cmap)]
+                                  layers when present in parm7.  [default:
+                                  (cmap)]
   --out-json / --no-out-json      Write machine-readable result.json to out_dir.
                                   [default: no-out-json]
   --one-based / --zero-based      Interpret (i,j) indices in --scan-lists as
-                                  1-based (default) or 0-based.  [default: one-
-                                  based]
+                                  1-based or 0-based.  [default: one-based]
   --max-step-size FLOAT           Maximum spacing between successive distance
                                   targets [Å].  [default: 0.2]
-  --bias-k FLOAT                  Harmonic well strength k [eV/Å^2]. Defaults to
-                                  YAML bias.k (BIAS_KW['k']=300 in defaults.py)
-                                  when omitted; explicit CLI value overrides
-                                  YAML.  [default: (300.0)]
-  --relax-max-cycles INTEGER      Set an L-BFGS cycle cap per biased relaxation;
-                                  omitted means no cycle cap.  [default: None]
+  --bias-k FLOAT                  Harmonic well strength k [eV/Å^2]. YAML bias.k
+                                  applies when this option is omitted; explicit
+                                  CLI wins.  [default: (300.0)]
+  --relax-max-cycles INTEGER RANGE
+                                  Maximum L-BFGS cycles per biased relaxation
+                                  (also used for preopt).  [default: (100000);
+                                  x>=1]
   --dump / --no-dump              Write inner d2 scan TRJs per d1 slice.
                                   [default: no-dump]
   -o, --out-dir TEXT              Base output directory.  [default:
@@ -112,9 +112,8 @@ Options:
                                   movable/frozen MM B-factor layers.  [default:
                                   detect-layer]
   --model-indices-one-based / --model-indices-zero-based
-                                  Interpret --model-indices as 1-based (default)
-                                  or 0-based.  [default: model-indices-one-
-                                  based]
+                                  Interpret --model-indices as 1-based or
+                                  0-based.  [default: model-indices-one-based]
   --print-every INTEGER RANGE     Print optimizer status every N cycles.
                                   [default: (100); x>=1]
   --precision [fp32|fp64]         MLIP backend precision: fp32 or fp64. Unset
@@ -134,9 +133,8 @@ Options:
   --backend-model TEXT            Model variant for the selected --backend (e.g.
                                   uma-s-1p2 / uma-m-1p1 for uma,
                                   orb_v3_conservative_omol for orb, MACE-OMOL-0
-                                  / off:small for mace). Default: the backend's
-                                  built-in model.  [default: (the selected
-                                  backend's own model)]
+                                  / off:small for mace).  [default: (the
+                                  selected backend's own model)]
   --calc-file FILE                Python file exposing get_calculator(...) -> an
                                   ASE Calculator used as the ML-region backend
                                   (overrides --backend). Couples GFN-xTB / DFTB+

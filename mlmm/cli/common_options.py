@@ -185,8 +185,7 @@ def add_backend_model_option() -> Callable[[Callable], Callable]:
             help=(
                 "Model variant for the selected --backend (e.g. "
                 "uma-s-1p2 / uma-m-1p1 for uma, orb_v3_conservative_omol for orb, "
-                "MACE-OMOL-0 / off:small for mace). "
-                "Default: the backend's built-in model."
+                "MACE-OMOL-0 / off:small for mace)."
             ),
         )(func)
     return decorator
@@ -344,7 +343,7 @@ def add_ml_charge_spin_options() -> Callable[[Callable], Callable]:
             type=click.IntRange(min=1),
             default=None,
             show_default="1",
-            help="Spin multiplicity (2S+1) for the ML region. Defaults to 1 when omitted.",
+            help="Spin multiplicity (2S+1) for the ML region.",
         ),
     ]
 
@@ -378,7 +377,7 @@ def add_ml_layer_detection_options() -> Callable[[Callable], Callable]:
             "model_indices_one_based",
             default=True,
             show_default=True,
-            help="Interpret --model-indices as 1-based (default) or 0-based.",
+            help="Interpret --model-indices as 1-based or 0-based.",
         ),
     ]
 

@@ -7,7 +7,7 @@ Compute ML/MM vibrational frequencies and thermochemistry (zero-point energy (ZP
 - Validate stationary-point character of an optimized minimum, transition state, or IRC endpoint (a minimum has no imaginary frequencies; a transition state has exactly one).
 - Compute quasi-rigid-rotor-harmonic-oscillator (QRRHO) thermochemistry.
 
-The command runs vibrational analysis with the ML/MM calculator, honoring frozen atoms via PHVA. It exports normal-mode animations as `_trj.xyz` and `.pdb` (mapped back onto the enzyme ordering), and prints a Gaussian-style thermochemistry summary when the optional `thermoanalysis` package is installed.
+The command runs vibrational analysis with the ML/MM calculator, honoring frozen atoms via PHVA. It exports normal-mode trajectories as `_trj.xyz` and `.pdb` (mapped back onto the enzyme ordering), and prints a Gaussian-style thermochemistry summary when the optional `thermoanalysis` package is installed.
 
 Imaginary frequencies appear as negative values. Runtime and memory depend on
 the backend and system; compare `Analytical` and `FiniteDifference` on a
@@ -51,7 +51,7 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 1. **ML/MM calculator setup** — The ML region is supplied via `--model-pdb`; Amber parameters are read from `--parm`. `--hessian-calc-mode` selects analytical or finite-difference Hessians. The calculator may return either the full 3N x 3N Hessian or an active degree-of-freedom (DOF) sub-block.
 2. **PHVA & translation/rotation (TR) projection** — With frozen atoms, eigenanalysis occurs inside the active subspace. The default constrained projector removes only full-system rigid motions that leave every frozen anchor fixed; it does not treat the active fragment as an isolated molecule. Both 3N x 3N and active-block Hessians are accepted, and frequencies are reported in cm^-1 (negatives = imaginary).
 3. **Active DOF mode** — `--active-dof-mode` selects which atoms enter the analysis (default `partial`); see the CLI options table for the four modes.
-4. **Mode export** — `--max-write` limits how many modes are animated. Modes are sorted by value (or absolute value with `--sort abs`). Each exported mode writes `_trj.xyz` (XYZ-like trajectory) and `.pdb` files (PDB animation mapped back onto the enzyme ordering). The sinusoidal animation amplitude (`--amplitude-ang`) and frame count (`--n-frames`) match the YAML defaults.
+4. **Mode export** — `--max-write` limits how many mode trajectories are written. Modes are sorted by value (or absolute value with `--sort abs`). Each exported mode writes `_trj.xyz` and `.pdb` trajectories mapped back onto the enzyme ordering. The sinusoidal trajectory amplitude (`--amplitude-ang`) and frame count (`--n-frames`) match the YAML defaults.
 5. **Thermochemistry** — If `thermoanalysis` is installed, a QRRHO-like summary (E, ZPE, E/H/G corrections, heat capacities, entropies) is printed using PHVA frequencies. The structure energy is labeled in Hartree as `E + G_corr = G` (electronic energy + Gibbs free-energy correction = Gibbs free energy). CLI pressure in atm is converted internally to Pa. The molecular point group and external rotational symmetry number are detected independently for each analyzed structure, and the resulting `1/sigma` correction is always included. An expert can override the detected number with `thermo.symmetry_number` in YAML. When `--dump`, a `thermoanalysis.yaml` snapshot is also written. **Frequency-treatment policy**: `freq` applies the **standalone-freq policy** — QRRHO with a 100 cm⁻¹ rotor cutoff, unit frequency/ZPE scaling, **no** imaginary-frequency inversion, and **no** positive-frequency floor. This is deliberately different from the internal `Geometry.get_thermoanalysis` policy used by some bundled-engine paths, which additionally inverts small imaginaries (from −15 cm⁻¹) and floors positive frequencies below 25 cm⁻¹. Neither is a universal scientific default; each is tied to its entry point. The effective policy (`kind`, `rotor_cutoff_cm`, `frequency_scale`, `zpe_scale`, `invert_imag_from_cm`, `positive_frequency_floor_cm`) is serialized under `thermo_policy` in `thermoanalysis.yaml` and in `result.json`.
 6. **Device selection** — `ml_device="auto"` triggers CUDA when available, otherwise CPU. The internal TR projection/mode assembly runs on the same device to minimize transfers.
 7. **Exit behavior** — Keyboard interrupts exit with code 130; other failures print a traceback and exit with code 1.
@@ -84,8 +84,8 @@ provenance in `thermoanalysis.yaml`.
 ```text
 out_dir/ (default: ./result_freq/)
 ├─ result.json                      # Present with --out-json; includes rigid_projection provenance
-├─ mode_XXXX_±freqcm-1_trj.xyz   # Per-mode animations (XYZ-like trajectory)
-├─ mode_XXXX_±freqcm-1.pdb       # PDB animation mapped back onto the enzyme ordering
+├─ mode_XXXX_±freqcm-1_trj.xyz   # Per-mode trajectory
+├─ mode_XXXX_±freqcm-1.pdb       # PDB trajectory mapped back onto the enzyme ordering
 ├─ frequencies_cm-1.txt           # Full frequency list using the selected sort order
 └─ thermoanalysis.yaml            # Present when thermoanalysis is importable and --dump is True
 ```
@@ -127,8 +127,8 @@ out_dir/ (default: ./result_freq/)
 | **Mode export** | | |
 | `--max-write INT` | Number of modes to export. | `10` |
 | `--sort CHOICE` | Mode ordering: `value` (cm^-1) or `abs`. | `value` |
-| `--amplitude-ang FLOAT` | Mode animation amplitude (angstrom). | `0.8` |
-| `--n-frames INT` | Frames per mode animation. | `20` |
+| `--amplitude-ang FLOAT` | Mode-trajectory amplitude (angstrom). | `0.8` |
+| `--n-frames INT` | Frames per mode trajectory. | `20` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 | **Thermochemistry** | | |
 | `--temperature FLOAT` | Thermochemistry temperature (K). | `298.15` |

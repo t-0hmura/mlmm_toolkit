@@ -1107,6 +1107,7 @@ def test_all_producer_wires_endpoint_opt_record() -> None:
 
     ros_src = inspect.getsource(_run_opt_for_state)
     assert '"--out-json"' in ros_src
+    assert '_append_toggle_arg(args, "--dump", dump)' in ros_src
     assert "_read_opt_endpoint_converged(opt_dir)" in ros_src
     assert "return g_opt, final_geom_path, endpoint_converged" in ros_src
 
@@ -1116,6 +1117,7 @@ def test_all_producer_wires_endpoint_opt_record() -> None:
     # ...fed by the reader's returned bits, not a hard-coded literal.
     assert all_src.count("_react_opt_conv = _run_opt_for_state(") == 2
     assert all_src.count("_prod_opt_conv = _run_opt_for_state(") == 2
+    assert all_src.count("dump=dump,") >= 4
 
 
 def test_all_pipeline_aggregate_preserves_legacy_severity() -> None:

@@ -84,7 +84,7 @@ out_dir/ (デフォルト:./result_scan3d/)
 | `--print-parsed/--no-print-parsed` | `-s/--scan-lists` 解釈後のペア情報を表示。 | `False` |
 | `--max-step-size FLOAT` | ステップごとの最大距離増分 (Å)。グリッド密度を制御。 | `0.20` |
 | `--bias-k FLOAT` | 調和拘束ポテンシャル強度 k (eV/Å²)。 | `300.0` |
-| `--relax-max-cycles INT` | バイアス緩和ごとの任意のオプティマイザサイクル上限。 | `None` |
+| `--relax-max-cycles INT` | バイアス緩和ごとのオプティマイザサイクル上限。 | `100000` |
 | `--dump/--no-dump` | (d1, d2) スライスごとの内側 d3 スキャン TRJ を書き出し。 | `False` |
 | `-o, --out-dir TEXT` | グリッドとプロットの出力ディレクトリルート。 | `./result_scan3d/` |
 | `--thresh TEXT` | 収束プリセット上書き（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | `baker` |
@@ -178,7 +178,7 @@ calc:
  model_pdb: ml_region.pdb
 opt:
  thresh: baker
- # max_cycles: 20000 # 任意の有限上限
+ # max_cycles: 100000 # 任意の有限上限
 lbfgs:
  max_step: 0.3
 bias:

@@ -26,7 +26,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## What to check
 
 - `result_tsopt/final_geometry.pdb` — optimized TS structure
-- `result_tsopt/vib/` — animation files for the imaginary-frequency normal mode (`imag_*_trj.xyz`, `.pdb`)
+- `result_tsopt/vib/` — trajectories for the imaginary-frequency normal mode (`imag_*_trj.xyz`, `.pdb`)
 - Terminal output: **n=1** is required for first-order-saddle certification; inspect the mode displacement and IRC connectivity
 
 ## 2. (Optional) Separate frequency analysis

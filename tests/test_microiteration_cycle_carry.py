@@ -931,8 +931,8 @@ def test_micro_bound_is_a_backstop_not_a_schedule():
     # Aligned with the macro step: a looser micro would let the macro report a
     # stationary point while the environment still carries force and drift.
     assert MICROITER_KW["micro_thresh"] is None
-    # Headroom over the measured worst case (16815).
-    assert MICROITER_KW["micro_max_cycles"] is None
+    # Finite backstop with headroom over the measured worst case (16815).
+    assert MICROITER_KW["micro_max_cycles"] == 100000
 
 
 def test_ts_macro_honours_the_shared_opt_block(tmp_path):

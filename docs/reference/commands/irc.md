@@ -37,12 +37,11 @@ Options:
                                   pdb).
   -m, --multiplicity INTEGER      Spin multiplicity (2S+1); overrides
                                   calc.model_mult from YAML.  [default: (1)]
-  --max-cycles INTEGER            Set an IRC-step cap; omitted means no cycle
-                                  cap. An explicit value overrides irc.max_cycles
-                                  from YAML.  [default: (None)]
+  --max-cycles INTEGER RANGE      Maximum number of IRC steps.  [default: (125);
+                                  x>=1]
   --step-size FLOAT               Step length in Bohr (unweighted Cartesian
-                                  coordinates). Default: 0.10 Bohr. Overrides
-                                  irc.step_length from YAML.  [default: (0.10)]
+                                  coordinates); overrides irc.step_length from
+                                  YAML.  [default: (0.10)]
   --root INTEGER                  Imaginary mode index used for the initial
                                   displacement; overrides irc.root from YAML.
                                   [default: (0)]
@@ -57,14 +56,13 @@ Options:
                                   default off.  [default: (no-never-stop)]
   -o, --out-dir TEXT              Output directory; overrides irc.out_dir from
                                   YAML.  [default: ./result_irc/]
-  --hessian-calc-mode [Analytical|FiniteDifference]
+  --hessian-calc-mode [analytical|finitedifference]
                                   How the ML backend builds the Hessian
                                   (Analytical or FiniteDifference); overrides
-                                  calc.hessian_calc_mode from YAML. Default:
-                                  'FiniteDifference'. Runtime and memory depend
-                                  on the backend and system; compare both modes
-                                  on a representative pilot.  [default:
-                                  (FiniteDifference)]
+                                  calc.hessian_calc_mode from YAML. Runtime and
+                                  memory depend on the backend and system;
+                                  compare both modes on a representative pilot.
+                                  [default: (FiniteDifference)]
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
   --show-config / --no-show-config
@@ -79,8 +77,8 @@ Options:
                                   based on the input format.  [default: convert-
                                   files]
   -b, --backend [uma|orb|mace|aimnet2]
-                                  ML backend for the ONIOM high-level region
-                                  (default: uma).  [default: (uma)]
+                                  ML backend for the ONIOM high-level region.
+                                  [default: (uma)]
   --embedcharge / --no-embedcharge
                                   Enable the experimental, computationally
                                   expensive xTB point-charge delta correction
@@ -89,17 +87,17 @@ Options:
                                   point charges used by the xTB delta
                                   correction.  [default: (12.0)]
   --link-atom-method [scaled|fixed]
-                                  Link-atom position mode: scaled (g-factor,
-                                  default) or fixed (legacy 1.09/1.01 Å).
-                                  [default: (scaled)]
+                                  Link-atom position mode: scaled (g-factor) or
+                                  fixed (legacy 1.09/1.01 Å).  [default:
+                                  (scaled)]
   --mm-backend [hessian_ff|openmm]
-                                  MM backend (default: hessian_ff). MM Hessians
-                                  use finite differences by default; set
-                                  calc.mm_fd: false for the hessian_ff
-                                  analytical path.  [default: (hessian_ff)]
+                                  MM backend. MM Hessians use finite differences
+                                  by default; set calc.mm_fd: false for the
+                                  hessian_ff analytical path.  [default:
+                                  (hessian_ff)]
   --cmap / --no-cmap              Preserve CMAP terms in both real and model MM
-                                  layers. Default: enabled when present in
-                                  parm7.  [default: (cmap)]
+                                  layers when present in parm7.  [default:
+                                  (cmap)]
   --hess-device [auto|cuda|cpu]   Device for initial Hessian storage and IRC
                                   operations (auto/cuda/cpu). Use 'cpu' for
                                   large unfrozen systems to avoid VRAM limits.
@@ -128,9 +126,8 @@ Options:
                                   movable/frozen MM B-factor layers.  [default:
                                   detect-layer]
   --model-indices-one-based / --model-indices-zero-based
-                                  Interpret --model-indices as 1-based (default)
-                                  or 0-based.  [default: model-indices-one-
-                                  based]
+                                  Interpret --model-indices as 1-based or
+                                  0-based.  [default: model-indices-one-based]
   --precision [fp32|fp64]         MLIP backend precision: fp32 or fp64. Unset
                                   defaults per backend (uma: fp32; orb, mace:
                                   fp64). Routed to backend-specific kwargs (UMA
@@ -148,9 +145,8 @@ Options:
   --backend-model TEXT            Model variant for the selected --backend (e.g.
                                   uma-s-1p2 / uma-m-1p1 for uma,
                                   orb_v3_conservative_omol for orb, MACE-OMOL-0
-                                  / off:small for mace). Default: the backend's
-                                  built-in model.  [default: (the selected
-                                  backend's own model)]
+                                  / off:small for mace).  [default: (the
+                                  selected backend's own model)]
   --calc-file FILE                Python file exposing get_calculator(...) -> an
                                   ASE Calculator used as the ML-region backend
                                   (overrides --backend). Couples GFN-xTB / DFTB+

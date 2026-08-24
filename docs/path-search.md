@@ -32,7 +32,8 @@ General command form:
 mlmm path-search -i R.pdb IM1.pdb P.pdb \
  --parm real.parm7 --model-pdb ml_region.pdb -q CHARGE [-m MULT]
  [--mep-mode gsm|dmf] [--refine-mode peak|minima]
- [--freeze-atoms "1,3,5"] [--max-nodes N] [--max-cycles N] [--climb/--no-climb]
+ [--freeze-atoms "1,3,5"] [--max-nodes N]
+ [--max-cycles-gsm N] [--max-cycles-dmf N] [--climb/--no-climb]
  [--thresh PRESET] [--dump/--no-dump] [--out-dir DIR]
  [--show-config/--no-show-config] [--dry-run/--no-dry-run]
 ```
@@ -86,13 +87,14 @@ out_dir/ (default: ./result_path_search/)
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
 | `--movable-cutoff FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. MM atoms beyond this are frozen. Providing `--movable-cutoff` disables `--detect-layer`. | _None_ |
 | `--max-nodes INT` | Movable internal images per GSM or DMF segment (`max_nodes + 2` total images). | `20` |
-| `--max-cycles INT` | Optional optimization-cycle budget for the selected MEP engine. | `None` |
+| `--max-cycles-gsm INT` | GSM string-optimizer cycle cap. | `300` |
+| `--max-cycles-dmf INT` | DMF IPOPT iteration cap. | `300` |
 | `--climb/--no-climb` | Enable TS refinement for segment GSM. | `True` |
 | `--preopt/--no-preopt` | Pre-optimize endpoints with L-BFGS before segmentation. | `True` |
 | `--align/--no-align` | After preoptimization, align inputs and, with frozen anchors, run freeze-guided scan/relaxation before re-matching freeze atoms. | `True` |
-| `--thresh TEXT` | Convergence preset for single-structure L-BFGS runs only (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | _None_ (effective: `gau`) |
-| `--thresh-gsm TEXT` | Convergence preset for the GSM string optimizer (`stopt.thresh`; same presets as `--thresh`). | _None_ (effective: `gau_loose`) |
-| `--thresh-dmf TEXT` | IPOPT dual-infeasibility tolerance of the DMF optimizer (`dmf.tol`): `tight` (0.04), `middle` (0.10), `loose` (0.20), or a positive float. Gaussian presets are rejected. | _None_ (effective: `tight`) |
+| `--thresh TEXT` | Convergence preset for single-structure L-BFGS runs only (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | `gau` |
+| `--thresh-gsm TEXT` | Convergence preset for the GSM string optimizer (`stopt.thresh`; same presets as `--thresh`). | `gau_loose` |
+| `--thresh-dmf TEXT` | IPOPT dual-infeasibility tolerance of the DMF optimizer (`dmf.tol`): `tight` (0.04), `middle` (0.10), `loose` (0.20), or a positive float. Gaussian presets are rejected. | `tight` |
 | `--mm-backend [hessian_ff\|openmm]` | MM backend. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |
 | `--dump/--no-dump` | Save optimizer dumps. | `False` |
 | `-o, --out-dir PATH` | Output directory. | `./result_path_search/` |

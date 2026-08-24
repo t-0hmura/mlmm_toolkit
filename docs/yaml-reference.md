@@ -171,7 +171,7 @@ authoritative for the keys you left alone.
 opt:
  thresh: gau # Convergence preset: gau_loose, gau, gau_tight, gau_vtight, baker, never
  align: false # StringOptimizer-only: alignment toggle
- # max_cycles: 20000 # Optional finite optimizer cap; omit for no cycle cap
+ max_cycles: 100000 # Optimizer cycle cap
  print_every: 100 # Logging stride
  min_step_norm: 1.0e-08 # Minimum step norm for acceptance
  assert_min_step: true # Stop if steps fall below threshold
@@ -325,7 +325,7 @@ Direct Max Flux settings for MEP optimization.
 
 ```yaml
 dmf:
- # max_cycles: 500 # Optional finite DMF/IPOPT cap; omit for no cycle cap
+ max_cycles: 300 # DMF/IPOPT iteration cap
  tol: tight # IPOPT dual_inf_tol: tight (0.04) | middle (0.10) | loose (0.20) or a positive float (overridden by --thresh-dmf)
  correlated: true # Correlated DMF propagation
  sequential: true # Sequential DMF execution
@@ -388,7 +388,7 @@ stopt:
  stop_in_when_full: 300 # Early stop threshold when string is full
  align: false           # Alignment toggle
  scale_step: global     # Step scaling mode
- # max_cycles: 500       # Optional finite string-optimizer cap; omit for no cycle cap
+ max_cycles: 300         # String-optimizer cycle cap
  dump: false            # Dump trajectory/restart data
  dump_restart: false    # Dump restart checkpoints
  reparam_thresh: 0.0    # Reparameterization threshold
@@ -398,7 +398,7 @@ stopt:
  lbfgs:
    # Same keys as lbfgs section (for single-structure optimizer)
    thresh: gau
-   # max_cycles: 20000 # optional finite override
+   # max_cycles: 100000 # optional override
    #... (see lbfgs section)
 ```
 
@@ -472,7 +472,7 @@ RS-I-RFO TS optimization settings (`tsopt --opt-mode hess`).
 ```yaml
 rsirfo:
  thresh: baker # RS-I-RFO convergence preset
- # max_cycles: 20000 # Optional finite cap shared with opt.max_cycles
+ max_cycles: 100000 # Cycle cap shared with opt.max_cycles
  print_every: 100 # Logging stride
  min_step_norm: 1.0e-08 # Minimum accepted step norm
  assert_min_step: true # Assert when steps stagnate
@@ -518,7 +518,7 @@ IRC integration settings.
 irc:
  step_length: 0.1 # Integration step length
  never_stop: false # Ignore physical endpoint criteria and trace to max_cycles
- # max_cycles: 250 # Optional finite IRC-step cap; omit for no cycle cap
+ max_cycles: 125 # IRC-step cap
  forward: true # Propagate in forward direction
  backward: true # Propagate in backward direction
  root: 0 # Normal-mode root index
@@ -615,7 +615,7 @@ ML Hessian evaluations needed.
 ```yaml
 microiter:
  micro_thresh: null       # Convergence preset for MM relaxation (L-BFGS); null → same as macro thresh
- # micro_max_cycles: 200000 # Optional finite micro-iteration cap; omit for no cycle cap
+ micro_max_cycles: 100000 # Micro-iteration cycle cap
 ```
 
 **Notes:**
@@ -637,7 +637,7 @@ DFT calculation settings.
 dft:
  func_basis: wb97m-v/def2-tzvpd # Combined "FUNC/BASIS" string
  conv_tol: 1.0e-09 # SCF convergence tolerance (Hartree)
- # max_cycle: 200 # Optional finite SCF cap; omit for no cycle cap
+ max_cycle: 100 # SCF iteration cap
  grid_level: 3 # PySCF grid level
  engine: gpu # Compute engine: "gpu" (gpu4pyscf) or "cpu" (pyscf); CLI --engine takes precedence
  ecp: null # ECP basis name; null auto-derives from def2-* basis sets
@@ -709,16 +709,16 @@ gs:
 
 opt:
  thresh: gau
- # max_cycles: 500 # optional finite override
+ max_cycles: 100000 # optimizer cycle cap
  dump: false
  out_dir: ./result_all/
 
 stopt:
  thresh: gau_loose
- # max_cycles: 500 # optional finite override
+ max_cycles: 300 # string-optimizer cycle cap
  lbfgs:
    thresh: gau
-   # max_cycles: 20000 # optional finite override
+   # max_cycles: 100000 # optional override
 
 bond:
  bond_factor: 1.2

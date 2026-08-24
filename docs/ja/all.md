@@ -222,9 +222,9 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 ### MEP 探索オプション
 
 ```{note}
-`mlmm all` の各ステージはデフォルトで上限なしです。有限の安全上限が必要な
-場合だけ `--max-cycles` を指定してください。`--max-cycles` は `opt`、`tsopt`、`path-opt` などの
-単発サブコマンドを直接実行するときだけ指定します。
+`--max-cycles-gsm` と `--max-cycles-dmf` は選択したMEP childだけを制御し、
+いずれもデフォルト300です。scan、TS最適化、IRCなどは各stage固有のcycle optionと
+デフォルトを使用します。
 ```
 
 | オプション | 説明 | デフォルト |
@@ -235,13 +235,14 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 | `--mep-mode [gsm\|dmf]` | `path-opt` と再帰的 `path-search` の両方へ転送する MEP 最適化法。 | `gsm` |
 | `--dmf-backend [gpu\|cpu]` | DMF 実装。明示指定時だけ子コマンドへ転送するため、省略時は子コマンドの YAML 設定 `dmf.backend` が有効。 | `gpu` |
 | `--max-nodes INT` | GSM/DMF セグメントの内部ノード数。 | `20` |
-| `--max-cycles INT` | 任意の MEP 最適化サイクル上限。 | `None` |
+| `--max-cycles-gsm INT` | MEP childのGSMストリング最適化サイクル上限。 | `300` |
+| `--max-cycles-dmf INT` | MEP childのDMF IPOPT反復上限。 | `300` |
 | `--climb/--no-climb` | 選択した最適化法が対応する場合に climbing-image TS 精密化を有効化。 | `True` |
 | `--opt-mode [grad\|hess]` | TSOPT と IRC 後の端点最適化に使う予備プリセット（`grad` → Dimer/L-BFGS、`hess` → RS-I-RFO/RFO）。`--opt-mode-post` が優先されます。 | `grad` |
 | `--opt-mode-post [grad\|hess]` | TSOPT/IRC 後端点最適化向けのプリセット上書き（`grad` → Dimer/L-BFGS、`hess` → RS-I-RFO/RFO）。 | `hess` |
-| `--thresh TEXT` | 単一構造最適化と scan 緩和の収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。実効デフォルト: scan は `gau`。 | _None_ |
-| `--thresh-gsm TEXT` | MEP 段の GSM ストリング最適化の収束プリセット（`--thresh` と同じプリセット群）。実効デフォルト: `gau_loose`。 | _None_ |
-| `--thresh-dmf TEXT` | DMF MEP 段の IPOPT dual-infeasibility 許容値。`tight`(0.04)、`middle`(0.10)、`loose`(0.20) または正の float。Gaussian プリセットではない。実効デフォルト: `tight`。 | _None_ |
+| `--thresh TEXT` | 単一構造最適化と scan 緩和の収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | `gau` |
+| `--thresh-gsm TEXT` | MEP 段の GSM ストリング最適化の収束プリセット（`--thresh` と同じプリセット群）。 | `gau_loose` |
+| `--thresh-dmf TEXT` | DMF MEP 段の IPOPT dual-infeasibility 許容値。`tight`(0.04)、`middle`(0.10)、`loose`(0.20) または正の float。Gaussian プリセットではない。 | `tight` |
 | `--thresh-post TEXT` | IRC 後端点最適化の収束プリセット。 | `baker` |
 | `--preopt/--no-preopt` | セグメント化前に端点を事前最適化。 | `True` |
 | `--refine-path/--no-refine-path` | `--no-refine-path`（デフォルト）= 単一パス `path-opt`（軌跡結合 + HEI 抽出 + 結合変化検出 + `summary.json`）、`--refine-path` = 再帰的 `path-search`。どちらも `--mep-mode` の選択と Stage 5（TSOPT/thermo/DFT）に対応。 | `False` |
@@ -260,9 +261,9 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 | `-s, --scan-lists TEXT...` | 段階的スキャン: `(i,j,target_A)` タプル。 | _None_ |
 | `--scan-out-dir PATH` | スキャン出力ディレクトリの上書き。 | `<out-dir>/_work/scan` |
 | `--scan-one-based/--scan-zero-based` | スキャン原子インデックスを 1 始まりまたは 0 始まりとして解釈。 | _None_ |
-| `--scan-max-step-size FLOAT` | 最大ステップサイズ (Å)。 | _デフォルト_ |
-| `--scan-bias-k FLOAT` | 調和バイアス強度 (eV/Å^2)。 | _デフォルト_ |
-| `--scan-relax-max-cycles INT` | ステップごとの緩和最大サイクル。 | _デフォルト_ |
+| `--scan-max-step-size FLOAT` | 最大ステップサイズ (Å)。 | `0.20` |
+| `--scan-bias-k FLOAT` | 調和バイアス強度 (eV/Å^2)。 | `300.0` |
+| `--scan-relax-max-cycles INT` | ステップごとの緩和最大サイクル。 | `100000` |
 | `--scan-preopt/--no-scan-preopt` | スキャン事前最適化トグルの上書き。 | _None_ |
 | `--scan-endopt/--no-scan-endopt` | スキャンステージ終端最適化の上書き。 | _None_ |
 
@@ -278,21 +279,21 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 | `--reject-uphill/--no-reject-uphill` | IRC 後の**エンドポイント再最適化のみ**で RFO の上り坂ステップ拒否を明示的に有効化（許容値 `1e-4` Hartree、opt 子へ転送。低エネルギー形状へロールバックして trust radius を縮小）。TS 最適化では拒否を常に無効化し、経路探索には影響しない。emergency floor 到達時は、保持したエンドポイントを通常の収束条件で最終確認。 | `False` |
 | `--irc-step-size FLOAT` | TS 後の各 IRC に EulerPC 最大ステップ（Bohr）を転送。数フレームで停止する場合は `0.05` など小さい値で再試行。 | IRC デフォルト `0.10` |
 | `--irc-never-stop/--no-irc-never-stop` | IRCのgradient・energy端点判定を無視して各branchを最大cycleまで追跡。数値／integration失敗や外部中断では停止。 | `False` |
-| `--tsopt-max-cycles INT` | `tsopt --max-cycles` の上書き。 | _デフォルト_ |
+| `--tsopt-max-cycles INT` | `tsopt --max-cycles` の上書き。 | `100000` |
 | `--tsopt-out-dir PATH` | tsopt サブディレクトリのカスタマイズ。 | _None_ |
 | `--freq-out-dir PATH` | freq 出力ディレクトリの上書き。 | _None_ |
-| `--freq-max-write INT` | 出力する最大モード数。 | _デフォルト_ |
-| `--freq-amplitude-ang FLOAT` | モードアニメーション振幅 (Å)。 | _デフォルト_ |
-| `--freq-n-frames INT` | モードアニメーションのフレーム数。 | _デフォルト_ |
-| `--freq-sort TEXT` | モードソート方法。 | _デフォルト_ |
-| `--freq-temperature FLOAT` | 熱化学温度 (K)。 | _デフォルト_ |
-| `--freq-pressure FLOAT` | 熱化学圧力 (atm)。 | _デフォルト_ |
+| `--freq-max-write INT` | 出力する最大モード数。 | `10` |
+| `--freq-amplitude-ang FLOAT` | モード軌跡の振幅 (Å)。 | `0.8` |
+| `--freq-n-frames INT` | モード軌跡のフレーム数。 | `20` |
+| `--freq-sort TEXT` | モードソート方法。 | `value` |
+| `--freq-temperature FLOAT` | 熱化学温度 (K)。 | `298.15` |
+| `--freq-pressure FLOAT` | 熱化学圧力 (atm)。 | `1.0` |
 | `--dft-out-dir PATH` | DFT 出力ディレクトリの上書き。 | _None_ |
-| `--dft-func-basis TEXT` | 汎関数/基底関数ペア。 | _デフォルト_ |
-| `--dft-max-cycle INT` | 任意の SCF 反復上限。 | `None` |
-| `--dft-conv-tol FLOAT` | SCF 収束閾値。 | _デフォルト_ |
-| `--dft-grid-level INT` | PySCF グリッドレベル。 | _デフォルト_ |
-| `--dft-engine [gpu\|cpu]` | DFT エンジン（GPU or CPU PySCF）。 | _None_ |
+| `--dft-func-basis TEXT` | 汎関数/基底関数ペア。 | `wb97m-v/def2-tzvpd` |
+| `--dft-max-cycle INT` | SCF反復上限。 | `100` |
+| `--dft-conv-tol FLOAT` | SCF 収束閾値。 | `1e-9` |
+| `--dft-grid-level INT` | PySCF グリッドレベル。 | `3` |
+| `--dft-engine [gpu\|cpu]` | DFT エンジン（GPU or CPU PySCF）。 | `gpu` |
 
 ## YAML 設定
 

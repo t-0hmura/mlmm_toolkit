@@ -41,7 +41,8 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --parm real.parm7 \
 mlmm path-search -i R.pdb IM1.pdb P.pdb \
  --parm real.parm7 --model-pdb ml_region.pdb -q CHARGE [-m MULT]
  [--mep-mode gsm|dmf] [--refine-mode peak|minima]
- [--freeze-atoms "1,3,5"] [--max-nodes N] [--max-cycles N] [--climb/--no-climb]
+ [--freeze-atoms "1,3,5"] [--max-nodes N]
+ [--max-cycles-gsm N] [--max-cycles-dmf N] [--climb/--no-climb]
  [--thresh PRESET] [--dump/--no-dump] [--out-dir DIR]
  [--show-config/--no-show-config] [--dry-run/--no-dry-run]
 ```
@@ -102,13 +103,14 @@ out_dir/ (デフォルト:./result_path_search/)
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス（YAML `geom.freeze_atoms` とマージ）。 | _None_ |
 | `--movable-cutoff FLOAT` | ML 領域からの可動 MM 原子の距離カットオフ (Å)。これを超える MM 原子は凍結。指定時は `--detect-layer` が無効化。 | _None_ |
 | `--max-nodes INT` | GSM／DMF セグメントごとの可動内部画像数（総画像数は `max_nodes + 2`）。 | `20` |
-| `--max-cycles INT` | 選択した MEP engine の任意の最適化サイクル上限。 | `None` |
+| `--max-cycles-gsm INT` | GSMストリング最適化サイクル上限。 | `300` |
+| `--max-cycles-dmf INT` | DMF IPOPT反復上限。 | `300` |
 | `--climb/--no-climb` | セグメント GSM の TS 精密化を有効化。 | `True` |
 | `--preopt/--no-preopt` | セグメンテーション前に端点を L-BFGS で事前最適化。 | `True` |
 | `--align / --no-align` | 事前最適化後に入力をアラインし、凍結アンカーがあれば freeze-guided scan/緩和後に凍結原子を再マッチ。 | 有効 |
-| `--thresh TEXT` | 単一構造 L-BFGS のみの収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | _None_（実質: `gau`） |
-| `--thresh-gsm TEXT` | GSM ストリング最適化の収束プリセット（`stopt.thresh`; `--thresh` と同じプリセット群）。 | _None_（実質: `gau_loose`） |
-| `--thresh-dmf TEXT` | DMF 最適化の IPOPT dual-infeasibility 許容値（`dmf.tol`）。`tight`(0.04)、`middle`(0.10)、`loose`(0.20) または正の float。Gaussian プリセットは拒否。 | _None_（実質: `tight`） |
+| `--thresh TEXT` | 単一構造 L-BFGS のみの収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | `gau` |
+| `--thresh-gsm TEXT` | GSM ストリング最適化の収束プリセット（`stopt.thresh`; `--thresh` と同じプリセット群）。 | `gau_loose` |
+| `--thresh-dmf TEXT` | DMF 最適化の IPOPT dual-infeasibility 許容値（`dmf.tol`）。`tight`(0.04)、`middle`(0.10)、`loose`(0.20) または正の float。Gaussian プリセットは拒否。 | `tight` |
 | `--mm-backend [hessian_ff\|openmm]` | MM バックエンド。Hessian 構築法は `calc.mm_fd` が別に制御します（デフォルト `true`: 有限差分）。 | `hessian_ff` |
 | `--dump/--no-dump` | オプティマイザダンプを保存。 | `False` |
 | `-o, --out-dir PATH` | 出力ディレクトリ。 | `./result_path_search/` |

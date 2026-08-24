@@ -1196,13 +1196,13 @@ def run_pipeline(args: Args) -> None:
     "ph",
     type=float,
     default=7.0, show_default=True,
-    help="pH used by PDBFixer when adding hydrogens (--add-h). Default: 7.0",
+    help="pH used by PDBFixer when adding hydrogens (--add-h).",
 )
 @click.option(
     "--ff-set",
     type=click.Choice(["ff19SB", "ff14SB"]),
     default="ff19SB", show_default=True,
-    help="Force-field set for proteins/backbone typing and water/ion parameters (default: ff19SB).",
+    help="Force-field set for proteins/backbone typing and water/ion parameters.",
 )
 def cli(
     pdb: Path,

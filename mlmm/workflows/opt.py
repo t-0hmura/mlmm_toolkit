@@ -1248,7 +1248,7 @@ def _run_microiter_opt(
     "one_based",
     default=True,
     show_default=True,
-    help="Interpret --dist-freeze indices as 1-based (default) or 0-based.",
+    help="Interpret --dist-freeze indices as 1-based or 0-based.",
 )
 @click.option(
     "--bias-k",
@@ -1257,7 +1257,7 @@ def _run_microiter_opt(
     show_default="300.0",
     help=(
         "Harmonic restraint strength k [eV/Å^2] for --dist-freeze. "
-        "Defaults to BIAS_KW['k']=300 (in defaults.py) when omitted."
+        "YAML bias.k applies when this option is omitted; explicit CLI wins."
     ),
 )
 @click.option("--max-cycles", type=click.IntRange(min=1), default=None, show_default="100000", help="Maximum number of optimization cycles.")
@@ -1341,7 +1341,7 @@ def _run_microiter_opt(
     type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
     default=None,
     show_default="uma",
-    help="ML backend for the ONIOM high-level region (default: uma).",
+    help="ML backend for the ONIOM high-level region.",
 )
 @click.option(
     "--embedcharge/--no-embedcharge",
@@ -1364,7 +1364,7 @@ def _run_microiter_opt(
     type=click.Choice(["scaled", "fixed"], case_sensitive=False),
     default=None,
     show_default="scaled",
-    help="Link-atom position mode: scaled (g-factor, default) or fixed (legacy 1.09/1.01 Å).",
+    help="Link-atom position mode: scaled (g-factor) or fixed (legacy 1.09/1.01 Å).",
 )
 @click.option(
     "--mm-backend",
@@ -1372,7 +1372,7 @@ def _run_microiter_opt(
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
     show_default="hessian_ff",
-    help="MM backend (default: hessian_ff). MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
+    help="MM backend. MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
 )
 @click.option(
     "--mm-only/--no-mm-only",
@@ -1390,7 +1390,7 @@ def _run_microiter_opt(
     "use_cmap",
     default=None,
     show_default="cmap",
-    help="Preserve CMAP terms in both real and model MM layers. Default: enabled when present in parm7.",
+    help="Preserve CMAP terms in both real and model MM layers when present in parm7.",
 )
 @click.option(
     "--out-json/--no-out-json",

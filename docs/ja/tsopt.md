@@ -22,7 +22,7 @@ IRC 後エンドポイント再最適化）だけに適用されます。マイ�
 
 | 条件 | `tsopt` の成果物 | `all` の動作 |
 | --- | --- | --- |
-| 収束条件未達、明示cycle上限到達、またはopt-inのenergy plateau | 最終構造とtrajectoryを保持し、終端PHVAを1回試行。成功時はfrequency/modeを記録 | TS成果物を登録後、数値statusが`converged`かつ有効な負rootがある場合を除いてIRC前停止 |
+| 収束条件未達、明示cycle上限到達、またはopt-inのenergy plateau | 最終構造とtrajectoryを保持し、終端PHVAをskip | TS成果物を登録後、IRC前停止 |
 | 終端PHVA失敗、または`--skip-final-freq`明示 | 構造を保持し、`failed`または`skipped`を記録。frequencyは捏造しない | 成果物登録後にIRC前停止 |
 | 不正入力/geometry、または`ZeroStepLength` / `OptimizationError`など回復不能なoptimizer例外 | structured error envelopeへ進み、それ以前に書かれたfileだけをbest effortで保持 | 通常の数値非収束へ読み替えずstageを中断 |
 
@@ -146,7 +146,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 4. **Heavy モード（RS-I-RFO）:**
    - RS-I-RFO オプティマイザを、`rsirfo` YAML セクションで定義されたオプションの Hessian 参照ファイルとマイクロサイクル制御とともに実行します。
    - `--flatten` が有効で収束後に 2 つ以上の虚振動数モードが残る場合、余分なモードを平坦化し、1 つだけ残るか平坦化反復上限に達するまで RS-I-RFO を再実行します。
-5. **モードエクスポートと変換** — 最終振動解析で得た虚振動数モードを `vib/imag_*_trj.xyz` に書き出し、PDB 入力で変換が有効なら `.pdb` にもミラーリングします。絶対値が設定値（デフォルト 5 cm⁻¹）未満の微小モードは動画出力では無視しますが、虚振動数には含めます。PDB 入力で変換が有効な場合、最終構造は独立して PDB に変換されます。`--dump` は最適化軌跡の出力と変換を追加します。
+5. **モードエクスポートと変換** — 最終振動解析で得た虚振動数モードを `vib/imag_*_trj.xyz` に書き出し、PDB 入力で変換が有効なら `.pdb` にもミラーリングします。共有 `freq.zero_cutoff_cm` により `|frequency| <= cutoff` のモードを鞍点分類とtrajectory出力の両方から除外します。PDB 入力で変換が有効な場合、最終構造は独立して PDB に変換されます。`--dump` は最適化軌跡の出力と変換を追加します。
 
 ## 出力
 
@@ -154,9 +154,9 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 `optimization_status` は `converged` / `not_converged` / `stalled`、
 `saddle_validation` は `first_order` / `higher_order` / `no_imaginary` /
 `unavailable`、`hessian_status` は終端 PHVA の completed / failed / skipped /
-unavailable を表します。数値非収束でも、保持した終端構造には通常 1 回だけ終端
-PHVA を実行します。PHVA が失敗しても構造を破棄せず、振動数を捏造せずに理由を
-記録します。
+unavailable を表します。終端 PHVA は数値収束後だけ実行し、非収束または
+`stalled`なら最終構造を保持してPHVAをskipします。PHVA が失敗しても構造を
+破棄せず、振動数を捏造せずに理由を記録します。
 
 数値収束済み高次停留点は、有効な負 root がある場合に限り警告付き診断 IRC に
 使うことがありますが、一次 TS 認定ではありません。数値非収束、虚振動 0 本、
@@ -207,7 +207,7 @@ out_dir/ (デフォルト: ./result_tsopt/)
 | **TS 探索とオプティマイザモード** | | |
 | `--hessian-calc-mode CHOICE` | MLIP Hessian モード: `Analytical` または `FiniteDifference`。 | `FiniteDifference` |
 | `--ref-mode PATH` | `.npz` / `.npy` / 空白区切り text の高度な Cartesian 3N 参照候補（1 本または 2-D table）。負の Hessian root identity/overlap を補助し、Hessian 自体は置換しません。Dimer では非対応で、`all` が Hessian TS optimizer に MEP 由来候補を渡します。 | _None_ |
-| `--max-cycles INT` | 最大総オプティマイザサイクル。 | `10000` |
+| `--max-cycles INT` | 最大総オプティマイザサイクル。 | `100000` |
 | `--opt-mode CHOICE` | TS オプティマイザモード（Choice: `grad` / `hess` / `light` / `heavy` / `dimer` / `rsirfo` / `trim` / `rsprfo`）。`grad`/`light`/`dimer` → Hessian-Guided Dimer; `hess`/`heavy`/`rsirfo` → RS-I-RFO（デフォルト）; `trim` → TRIM（Helgaker）; `rsprfo` → RS-P-RFO（Banerjee）。Hessian TS オプティマイザ3種（`rsirfo`/`rsprfo`/`trim`）はいずれも microiter 対応。 | `hess` |
 | `--microiter/--no-microiter` | マイクロイテレーション: 1 ステップの macro TS 移動（RS-I-RFO / RS-P-RFO / TRIM）+ MM 緩和（L-BFGS）を交互に実行。任意の Hessian モード（`hess`/`rsirfo`/`rsprfo`/`trim`）で有効。 | `True` |
 | `--ml-only-hessian-dimer/--no-ml-only-hessian-dimer` | `grad` モードで Dimer 方向決定に ML 領域のみの Hessian を使用。高速だが精度は低下。 | `False` |
@@ -257,7 +257,7 @@ calc:
  hessian_calc_mode: Analytical        # Hessianモード（デフォルトは FiniteDifference; Analytical は opt-in）
 opt:
  thresh: baker                     # 収束プリセット（Gaussian/Baker 式）
- max_cycles: 10000                 # オプティマイザサイクル上限
+ max_cycles: 100000                 # オプティマイザサイクル上限
  print_every: 100                  # ログ出力間隔
  min_step_norm: 1.0e-08            # ステップ受け入れの最小ノルム
  assert_min_step: true             # ステップが閾値以下で停止
@@ -277,7 +277,7 @@ hessian_dimer:
  thresh_loose: gau_loose           # ゆるい収束プリセット
  thresh: baker                     # メイン収束プリセット
  update_interval_hessian: 500      # Hessian再構築間隔
- neg_freq_thresh_cm: 5.0           # 動画出力・平坦化で無視する微小モードの閾値 (cm^-1)
+ neg_freq_thresh_cm: 5.0           # freq.zero_cutoff_cm の互換alias (cm^-1)
  flatten_amp_ang: 0.1              # フラットニング振幅 (Å)
  flatten_max_iter: 50              # フラットニング反復上限（--no-flatten 時は無効）
  flatten_sep_cutoff: 0.0           # 代表原子間の最小距離 (Å)
@@ -361,7 +361,7 @@ overlap追跡に使う高度な 3N MEP 接線を与えます。`geom.tr_projecti
 ```{note}
 `rsirfo.trust_max` のデフォルトは 0.10 bohr です。TS 近傍での ML/MM 安定性が改善します。
 
-共有 `opt` ブロックには **エネルギープラトー停止**（デフォルト無効、`--stop-plateau` で有効化）があります。plateau では `stalled` として停止して終端 PHVA を実行し、未収束の `max_cycles` 到達時は実行しません。MM micro 反復には適用されません。詳細は [yaml-reference](yaml-reference.md#opt) を参照してください。
+共有 `opt` ブロックには **エネルギープラトー停止**（デフォルト無効、`--stop-plateau` で有効化）があります。plateau では `stalled` として停止し、未収束の `max_cycles` 到達時と同様に終端 PHVA を実行しません。MM micro 反復には適用されません。詳細は [yaml-reference](yaml-reference.md#opt) を参照してください。
 ```
 
 ## 関連項目

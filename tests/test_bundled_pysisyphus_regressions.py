@@ -473,7 +473,7 @@ def test_rsprfo_partition_derivative_matches_secular_finite_difference(
     assert analytic == pytest.approx(numeric, rel=2.0e-7, abs=1.0e-10)
 
 
-def test_rfoptimizer_rejects_oversized_accelerated_displacement() -> None:
+def test_rfoptimizer_does_not_restrict_the_accelerated_offset_twice() -> None:
     opt = RFOptimizer.__new__(RFOptimizer)
     opt.trust_radius = 0.1
     opt.log = lambda *_: None
@@ -481,12 +481,17 @@ def test_rfoptimizer_rejects_oversized_accelerated_displacement() -> None:
     result = opt._accept_accelerated_step(
         np.array([0.08, 0.0]), np.array([0.08, 0.0]), ref_step,
     )
-    np.testing.assert_allclose(result, ref_step)
+    np.testing.assert_allclose(result, [0.16, 0.0])
 
     accepted = opt._accept_accelerated_step(
         np.array([0.04, 0.0]), np.array([0.03, 0.0]), ref_step,
     )
     np.testing.assert_allclose(accepted, [0.07, 0.0])
+
+    fallback = opt._accept_accelerated_step(
+        np.array([np.nan, 0.0]), np.array([0.03, 0.0]), ref_step,
+    )
+    np.testing.assert_allclose(fallback, ref_step)
 
 
 def test_rfoptimizer_accelerated_step_keeps_reference_tensor_representation() -> None:

@@ -1530,17 +1530,8 @@ def _finalize_dimer_saddle_status(
     runner.saddle_order_verified = len(certified) == 1
     if len(certified) > 1:
         click.echo(
-            f"[tsopt] WARNING: terminal PHVA found {len(certified)} negative "
-            f"frequencies beyond the {abs(float(neg_freq_thresh_cm)):.2f} cm^-1 "
-            "zero-mode cutoff. The retained geometry is a higher-order stationary "
-            "point, not a certified first-order transition state.",
-            err=True,
-        )
-    elif len(certified) == 0:
-        click.echo(
-            "[tsopt] WARNING: terminal PHVA found no negative frequency beyond "
-            f"the {abs(float(neg_freq_thresh_cm)):.2f} cm^-1 zero-mode cutoff; "
-            "the retained geometry is not certified as a transition state.",
+            f"[tsopt] WARNING: Higher-order stationary point "
+            f"(n_imag={len(certified)}). Try --flatten or all --refine-path.",
             err=True,
         )
     return neg_idx
@@ -1558,7 +1549,7 @@ def _dimer_mode_export_message(
     if n_written:
         return f"[tsopt] Wrote {n_written} final imaginary mode(s).", False
     if n_imag == 0:
-        return "[INFO] No imaginary mode detected.", True
+        return "[tsopt] No imaginary mode detected. Try all --refine-path.", True
     return (
         "[tsopt] ERROR: Failed to write imaginary mode trajectory.",
         True,
@@ -2465,11 +2456,6 @@ class HessianDimer:
             )
             click.echo("[tsopt] Reached --max-cycles budget; skipping flatten loop.")
 
-        # Honest convergence signal: if the dimer optimization exhausted its cycle
-        # budget without the optimizer reporting convergence, surface it loudly so
-        if not self.is_converged:
-            click.echo("[tsopt] ERROR: Not converged.", err=True)
-
         # (5) Final outputs
         final_xyz = self.out_dir / "final_geometry.xyz"
         atoms_final = Atoms(self.geom.atoms, positions=(self.geom.coords3d * BOHR2ANG), pbc=False)
@@ -2485,8 +2471,11 @@ class HessianDimer:
 
         # Final Hessian → imaginary mode trajectory
         if self.skip_final_freq and not self.is_stalled:
-            click.echo("[tsopt] --skip-final-freq: skipping final frequency analysis and imaginary-mode export.")
-            click.echo("[tsopt] WARNING: TS saddle-point order is NOT verified.")
+            click.echo(
+                "[tsopt] WARNING: TS saddle-point order is not verified "
+                "(--skip-final-freq).",
+                err=True,
+            )
             self.saddle_order_verified = False
             self.n_imaginary_modes = None
             self.imaginary_frequencies_cm = []
@@ -2577,16 +2566,16 @@ class HessianDimer:
             self.saddle_order_verified = False
             self.n_imaginary_modes = None
             self.imaginary_frequencies_cm = []
-            click.echo(
-                "[tsopt] WARNING: terminal exact PHVA/frequency analysis failed; "
-                f"the final structure is retained: {self.hessian_error}",
-                err=True,
+            click.echo("[tsopt] ERROR: Terminal PHVA failed.", err=True)
+            emit(
+                f"[tsopt] Terminal PHVA error: {self.hessian_error}",
+                detail=True,
             )
             _clear_cuda_cache()
             click.echo(f"[tsopt] Saved final geometry → {final_xyz}")
             return
         click.echo(f"[tsopt] Saved final geometry → {final_xyz}")
-        click.echo(f"[tsopt] Mode files → {self.vib_dir}")
+        emit(f"[tsopt] Mode files → {self.vib_dir}", detail=True)
 
 
 
@@ -3384,7 +3373,7 @@ def _prepare_tsopt_output_dir(
     type=click.Choice(["Analytical", "FiniteDifference"], case_sensitive=False),
     default=None, show_default="FiniteDifference",
     help="How the ML backend builds the Hessian (Analytical or FiniteDifference); "
-         "overrides calc.hessian_calc_mode from YAML. Default: 'FiniteDifference'. "
+         "overrides calc.hessian_calc_mode from YAML. "
          "Runtime and memory depend on the backend and system; compare both "
          "modes on a representative pilot.",
 )
@@ -3498,7 +3487,7 @@ def _prepare_tsopt_output_dir(
     type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
     default=None,
     show_default="uma",
-    help="ML backend for the ONIOM high-level region (default: uma).",
+    help="ML backend for the ONIOM high-level region.",
 )
 @click.option(
     "--embedcharge/--no-embedcharge",
@@ -3521,7 +3510,7 @@ def _prepare_tsopt_output_dir(
     type=click.Choice(["scaled", "fixed"], case_sensitive=False),
     default=None,
     show_default="scaled",
-    help="Link-atom position mode: scaled (g-factor, default) or fixed (legacy 1.09/1.01 Å).",
+    help="Link-atom position mode: scaled (g-factor) or fixed (legacy 1.09/1.01 Å).",
 )
 @click.option(
     "--mm-backend",
@@ -3529,14 +3518,14 @@ def _prepare_tsopt_output_dir(
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
     show_default="hessian_ff",
-    help="MM backend (default: hessian_ff). MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
+    help="MM backend. MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
 )
 @click.option(
     "--cmap/--no-cmap",
     "use_cmap",
     default=None,
     show_default="cmap",
-    help="Preserve CMAP terms in both real and model MM layers. Default: enabled when present in parm7.",
+    help="Preserve CMAP terms in both real and model MM layers when present in parm7.",
 )
 @click.option(
     "--skip-final-freq/--no-skip-final-freq",
@@ -4352,8 +4341,11 @@ def cli(
                 not skip_final_freq or getattr(last_optimizer, "is_stalled", False)
             )
             if skip_final_freq and not getattr(last_optimizer, "is_stalled", False):
-                click.echo("[tsopt] --skip-final-freq: skipping post-convergence frequency analysis and flatten loop.")
-                click.echo("[tsopt] WARNING: TS saddle-point order is NOT verified.")
+                click.echo(
+                    "[tsopt] WARNING: TS saddle-point order is not verified "
+                    "(--skip-final-freq).",
+                    err=True,
+                )
             mlmm_kwargs_for_heavy = _post_analysis_hessian_config(
                 calc_cfg,
                 partial=partial_hessian_flatten_effective,
@@ -4586,10 +4578,10 @@ def cli(
                     freqs_cm, modes = _terminal_freqs_and_modes(last_optimizer)
             except Exception as exc:
                 hessian_error = f"{type(exc).__name__}: {exc}"
-                click.echo(
-                    "[tsopt] WARNING: terminal exact PHVA/frequency analysis "
-                    f"is unavailable: {hessian_error}",
-                    err=True,
+                click.echo("[tsopt] ERROR: Terminal PHVA failed.", err=True)
+                emit(
+                    f"[tsopt] Terminal PHVA error: {hessian_error}",
+                    detail=True,
                 )
                 _clear_cuda_cache()
                 freqs_cm, modes = None, None
@@ -5065,9 +5057,13 @@ def cli(
                 )
                 click.echo(_export_message, err=_export_message_is_diagnostic)
                 if n_written:
-                    click.echo(f"[DONE] Mode files → {vib_dir}")
+                    emit(f"[DONE] Mode files → {vib_dir}", detail=True)
             elif _do_final_freq:
-                click.echo("[INFO] Skipped final imaginary-mode export due to frequency-analysis fallback.")
+                emit(
+                    "[tsopt] Skipped final imaginary-mode trajectory after "
+                    "frequency-analysis fallback.",
+                    detail=True,
+                )
 
             # Capture freq/energy data for result.json BEFORE deleting
             _heavy_imag_freqs: Optional[list] = (

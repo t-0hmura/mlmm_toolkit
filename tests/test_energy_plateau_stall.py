@@ -438,7 +438,7 @@ def test_dimer_final_message_separates_no_mode_from_write_failure():
     from mlmm.workflows.tsopt import _dimer_mode_export_message
 
     positive, positive_is_diagnostic = _dimer_mode_export_message(0, 0, 5.0, 12.0)
-    assert positive == "[INFO] No imaginary mode detected."
+    assert positive == "[tsopt] No imaginary mode detected. Try all --refine-path."
     assert positive_is_diagnostic is True
 
     failed, failed_is_diagnostic = _dimer_mode_export_message(0, 1, 5.0, -100.0)

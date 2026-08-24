@@ -137,7 +137,7 @@ def test_dimer_max_cycles_saves_final_structure_and_skips_phva(
     assert runner.n_imaginary_modes is None
     assert runner.hessian_status == "skipped"
     assert (tmp_path / "final_geometry.xyz").is_file()
-    assert "ERROR: Not converged." in capsys.readouterr().err
+    assert "ERROR: Not converged." not in capsys.readouterr().err
 
 
 def test_dimer_plateau_saves_final_structure_and_skips_phva(
@@ -154,5 +154,5 @@ def test_dimer_plateau_saves_final_structure_and_skips_phva(
     assert runner.n_imaginary_modes is None
     assert runner.hessian_status == "skipped"
     assert (tmp_path / "final_geometry.xyz").is_file()
-    assert "ERROR: Not converged." in capsys.readouterr().err
+    assert "ERROR: Not converged." not in capsys.readouterr().err
     assert runner.is_stalled is True

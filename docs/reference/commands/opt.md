@@ -48,14 +48,14 @@ Options:
                                   path. Format: (i,j,target_Å) triples. Target
                                   may be omitted to freeze at the current
                                   distance: (i,j).
-  --one-based / --zero-based      Interpret --dist-freeze indices as 1-based
-                                  (default) or 0-based.  [default: one-based]
+  --one-based / --zero-based      Interpret --dist-freeze indices as 1-based or
+                                  0-based.  [default: one-based]
   --bias-k FLOAT                  Harmonic restraint strength k [eV/Å^2] for
-                                  --dist-freeze. Defaults to BIAS_KW['k']=300
-                                  (in defaults.py) when omitted.  [default:
-                                  (300.0)]
-  --max-cycles INTEGER            Set an optimization cycle cap; omitted means
-                                  no cycle cap.  [default: None]
+                                  --dist-freeze. YAML bias.k applies when this
+                                  option is omitted; explicit CLI wins.
+                                  [default: (300.0)]
+  --max-cycles INTEGER RANGE      Maximum number of optimization cycles.
+                                  [default: (100000); x>=1]
   --dump / --no-dump              Write optimization trajectories
                                   ('optimization_trj.xyz' and
                                   'optimization_all_trj.xyz').  [default: no-
@@ -93,8 +93,8 @@ Options:
                                   based on the input format.  [default: convert-
                                   files]
   -b, --backend [uma|orb|mace|aimnet2]
-                                  ML backend for the ONIOM high-level region
-                                  (default: uma).  [default: (uma)]
+                                  ML backend for the ONIOM high-level region.
+                                  [default: (uma)]
   --embedcharge / --no-embedcharge
                                   Enable the experimental, computationally
                                   expensive xTB point-charge delta correction
@@ -103,14 +103,14 @@ Options:
                                   point charges used by the xTB delta
                                   correction.  [default: (12.0)]
   --link-atom-method [scaled|fixed]
-                                  Link-atom position mode: scaled (g-factor,
-                                  default) or fixed (legacy 1.09/1.01 Å).
-                                  [default: (scaled)]
+                                  Link-atom position mode: scaled (g-factor) or
+                                  fixed (legacy 1.09/1.01 Å).  [default:
+                                  (scaled)]
   --mm-backend [hessian_ff|openmm]
-                                  MM backend (default: hessian_ff). MM Hessians
-                                  use finite differences by default; set
-                                  calc.mm_fd: false for the hessian_ff
-                                  analytical path.  [default: (hessian_ff)]
+                                  MM backend. MM Hessians use finite differences
+                                  by default; set calc.mm_fd: false for the
+                                  hessian_ff analytical path.  [default:
+                                  (hessian_ff)]
   --mm-only / --no-mm-only        Skip the MLIP component entirely and minimize
                                   using only the MM force field on the full
                                   system. Layers (movable/frozen) are still
@@ -119,8 +119,8 @@ Options:
                                   supported in this mode; microiteration is
                                   automatically disabled.  [default: no-mm-only]
   --cmap / --no-cmap              Preserve CMAP terms in both real and model MM
-                                  layers. Default: enabled when present in
-                                  parm7.  [default: (cmap)]
+                                  layers when present in parm7.  [default:
+                                  (cmap)]
   --out-json / --no-out-json      Write machine-readable result.json to out_dir.
                                   [default: no-out-json]
   --detect-layer / --no-detect-layer
@@ -131,9 +131,8 @@ Options:
                                   movable/frozen MM B-factor layers.  [default:
                                   detect-layer]
   --model-indices-one-based / --model-indices-zero-based
-                                  Interpret --model-indices as 1-based (default)
-                                  or 0-based.  [default: model-indices-one-
-                                  based]
+                                  Interpret --model-indices as 1-based or
+                                  0-based.  [default: model-indices-one-based]
   -q, --charge INTEGER            ML region charge. Required unless --ligand-
                                   charge is provided.
   -l, --ligand-charge TEXT        Total charge for unknown ligand residues or a
@@ -142,8 +141,7 @@ Options:
                                   omitted (requires PDB input or --ref-pdb).
   -m, --multiplicity INTEGER RANGE
                                   Spin multiplicity (2S+1) for the ML region.
-                                  Defaults to 1 when omitted.  [default: (1);
-                                  x>=1]
+                                  [default: (1); x>=1]
   --coord-type [cart|redund|dlc|tric]
                                   Optimization coordinate system
                                   (cart|redund|dlc|tric). cart is the default;
@@ -168,9 +166,8 @@ Options:
   --backend-model TEXT            Model variant for the selected --backend (e.g.
                                   uma-s-1p2 / uma-m-1p1 for uma,
                                   orb_v3_conservative_omol for orb, MACE-OMOL-0
-                                  / off:small for mace). Default: the backend's
-                                  built-in model.  [default: (the selected
-                                  backend's own model)]
+                                  / off:small for mace).  [default: (the
+                                  selected backend's own model)]
   --calc-file FILE                Python file exposing get_calculator(...) -> an
                                   ASE Calculator used as the ML-region backend
                                   (overrides --backend). Couples GFN-xTB / DFTB+
@@ -196,8 +193,9 @@ Options:
                                   convergence criteria are still unmet, and
                                   report the run as stalled. It never signals
                                   convergence; an explicit --max-cycles remains
-                                  the hard bound. The MM micro iterations are never
-                                  stopped this way.  [default: no-stop-plateau]
+                                  the hard bound. The MM micro iterations are
+                                  never stopped this way.  [default: no-stop-
+                                  plateau]
   --stop-plateau-thresh FLOAT     Energy range (hartree) below which --stop-
                                   plateau treats the window as flat.  [default:
                                   (1e-4)]

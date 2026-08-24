@@ -7,8 +7,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased] — 2026-08-19
 
 ### Fixed
+- Keep accepted line-search/GDIIS offsets in minimum RFO instead of applying
+  the trust radius a second time to the full accelerated displacement.
+- Keep an explicit finite cycle cap when resuming a checkpoint written by an
+  uncapped optimizer.
+- Retain endpoint-optimization diagnostics when `--dump` is enabled.
 - Gate MEP `--ref-mode` handoff to Hessian TS optimizers; Dimer records the handoff as not applicable instead of receiving an option it rejects.
-- Preserve a non-converged Dimer final structure and stop before terminal PHVA.
+- Preserve a non-converged or stalled TS final structure and stop before terminal PHVA.
 - Use the configurable `freq.zero_cutoff_cm` value for standalone frequency analysis, flattening, and TS saddle classification.
 - Restrict reference-aligned reaction-mode selection to negative exact-PHVA modes and validate the selected frequency before IRC. Invalid or missing selections use an explicit lowest-imaginary root-0 fallback with unverified reaction identity.
 - Keep `--skip-final-freq` artifact-preserving but stop composite `all` before IRC because the negative reaction direction was not validated.

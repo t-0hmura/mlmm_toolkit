@@ -7,7 +7,7 @@
 - 最適化した極小、遷移状態（TS）、IRC 端点の停留点としての性質を検証する（極小は虚振動数を持たず、遷移状態はちょうど 1 つ持ちます）。
 - QRRHO（quasi-rigid-rotor-harmonic-oscillator）熱化学を計算する。
 
-`mlmm freq` は ML/MM calculator（`mlmm.backends.mlmm_calc.mlmm`）による振動解析を実行し、PHVA により凍結原子を扱えます。基準振動アニメーションを `_trj.xyz` と `.pdb`（酵素の原子順序にマップバック）としてエクスポートし、オプションの `thermoanalysis` パッケージがインストールされている場合は Gaussian スタイルの熱化学サマリーを出力します。
+`mlmm freq` は ML/MM calculator（`mlmm.backends.mlmm_calc.mlmm`）による振動解析を実行し、PHVA により凍結原子を扱えます。基準振動軌跡を `_trj.xyz` と `.pdb`（酵素の原子順序にマップバック）としてエクスポートし、オプションの `thermoanalysis` パッケージがインストールされている場合は Gaussian スタイルの熱化学サマリーを出力します。
 
 虚振動数は負の値で表示されます。runtime と memory は backend と系に
 依存するため、代表的な pilot で `Analytical` と `FiniteDifference` を比較してください。
@@ -47,7 +47,7 @@ mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 1. **ML/MM calculatorの構築** — ML 領域は `--model-pdb` で提供され、Amber パラメータは `--parm` から読み取られます。`--hessian-calc-mode` は解析的または有限差分の Hessian を選択します。計算機は完全な 3N x 3N Hessian またはアクティブ自由度（DOF）のサブブロックを返す場合があります。
 2. **PHVA と TR（並進/回転、translation/rotation）射影** — 凍結原子がある場合、固有解析はアクティブ部分空間内で行われます。デフォルトの constrained 射影は、凍結 anchor をすべて動かさない全系剛体運動のみを除去し、アクティブ断片を孤立分子として扱いません。3N x 3N とアクティブブロックの両方の Hessian を受け付け、振動数は cm^-1 で報告します（負の値 = 虚振動数）。
 3. **アクティブ自由度モード** — `--active-dof-mode` は振動解析に含まれる原子を制御します: `all`（全原子）、`ml-only`（ML 層、B=0）、`partial`（ML + MovableMM、デフォルト）、`unfrozen`（非凍結層、通常 B=0/10）。
-4. **モードエクスポート** — `--max-write` はアニメーション化するモード数を制限します。モードは値（または `--sort abs` で絶対値）でソートされます。エクスポートされた各モードは `_trj.xyz`（XYZ ライク軌跡）と `.pdb` ファイル（酵素の原子順序にマップバックされた PDB アニメーション）を書き出します。正弦波アニメーション振幅（`--amplitude-ang`）とフレーム数（`--n-frames`）は YAML のデフォルト値と同じです。
+4. **モードエクスポート** — `--max-write` は出力するモード軌跡数を制限します。モードは値（または `--sort abs` で絶対値）でソートされます。エクスポートされた各モードは、酵素の原子順序にマップバックした `_trj.xyz` と `.pdb` 軌跡を書き出します。正弦波軌跡の振幅（`--amplitude-ang`）とフレーム数（`--n-frames`）は YAML のデフォルト値と同じです。
 5. **熱化学** — `thermoanalysis` がインストールされている場合、PHVA 振動数を使用した QRRHO ライクなサマリー（E、ZPE、E/H/G 補正、熱容量、エントロピー）が出力されます。構造の Gibbs free energy は Hartree 単位で `E + G_corr = G`（電子エネルギー + Gibbs free-energy 補正 = Gibbs free energy）と明示します。CLI の圧力（atm）は内部で Pa に変換されます。解析対象構造ごとに分子点群と外部回転対称数を自動判定し、`1/σ` 補正を常に適用します。必要な場合に限り、YAML の `thermo.symmetry_number` で判定値を上書きできます。`--dump` の場合、`thermoanalysis.yaml` スナップショットも書き出されます。**振動数処理ポリシー**: `freq` は **standalone-freq ポリシー**（QRRHO、rotor cutoff 100 cm⁻¹、周波数・ZPE スケール 1、虚振動数の反転**なし**、正振動数のフロア**なし**）を適用します。これは一部の bundled-engine 経路が使う内部の `Geometry.get_thermoanalysis` ポリシー（小さな虚振動数を −15 cm⁻¹ から反転し、25 cm⁻¹ 未満の正振動数をフロアする）とは意図的に異なります。いずれも普遍的な科学的デフォルトではなく、各エントリポイントに固有です。有効なポリシー（`kind`、`rotor_cutoff_cm`、`frequency_scale`、`zpe_scale`、`invert_imag_from_cm`、`positive_frequency_floor_cm`）は `thermoanalysis.yaml` と `result.json` の `thermo_policy` にシリアライズされます。
 6. **デバイス選択** — `ml_device="auto"` は CUDA が利用可能な場合は CUDA を使用し、それ以外は CPU を使用します。内部の TR 射影/モード組み立ては転送を抑えるため同じデバイスで実行されます。
 7. **終了動作** — キーボード割り込みはコード 130 で終了します。その他の失敗はトレースバックを出力してコード 1 で終了します。
@@ -82,8 +82,8 @@ Hessian source、Hessian shape を記録します。`--dump` 時は同じ proven
 ```
 out_dir/ (デフォルト: ./result_freq/)
 ├─ result.json                      # --out-json 時。rigid_projection provenance を含む
-├─ mode_XXXX_±freqcm-1_trj.xyz   # モードごとの正弦波アニメーション（XYZ ライク軌跡）
-├─ mode_XXXX_±freqcm-1.pdb       # 酵素原子順序にマップバックされた PDB アニメーション
+├─ mode_XXXX_±freqcm-1_trj.xyz   # モードごとの正弦波軌跡
+├─ mode_XXXX_±freqcm-1.pdb       # 酵素原子順序にマップバックされた PDB 軌跡
 ├─ frequencies_cm-1.txt           # 選択されたソート順での全振動数リスト
 └─ thermoanalysis.yaml            # thermoanalysis がインポート可能で --dump が True の場合
 ```
@@ -133,8 +133,8 @@ out_dir/ (デフォルト: ./result_freq/)
 | **モードエクスポート** | | |
 | `--max-write INT` | エクスポートするモード数。 | `10` |
 | `--sort CHOICE` | モードのソート方法: `value`（cm^-1）または `abs`。 | `value` |
-| `--amplitude-ang FLOAT` | モードアニメーション振幅 (Å)。 | `0.8` |
-| `--n-frames INT` | モードアニメーションのフレーム数。 | `20` |
+| `--amplitude-ang FLOAT` | モード軌跡の振幅 (Å)。 | `0.8` |
+| `--n-frames INT` | モード軌跡のフレーム数。 | `20` |
 | `--convert-files/--no-convert-files` | PDB テンプレートが利用可能な場合の XYZ/TRJ から対応する PDB への変換の切り替え。 | `True` |
 | **熱化学** | | |
 | `--temperature FLOAT` | 熱化学温度 (K)。 | `298.15` |

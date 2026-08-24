@@ -47,7 +47,7 @@ Options:
   --hess / --no-hess              Also compute the active-coordinate ONIOM
                                   Hessian and save to hessian.npy.  [default:
                                   no-hess]
-  --hessian-calc-mode [Analytical|FiniteDifference]
+  --hessian-calc-mode [analytical|finitedifference]
                                   Hessian backend when --hess is set. Analytical
                                   is supported by UMA, ORB, MACE, and AIMNet2;
                                   custom calculators use FiniteDifference.
@@ -63,8 +63,8 @@ Options:
   --out-json / --no-out-json      Write machine-readable result.json to out_dir.
                                   [default: no-out-json]
   -b, --backend [uma|orb|mace|aimnet2]
-                                  ML backend for the ONIOM high-level region
-                                  (default: uma).  [default: (uma)]
+                                  ML backend for the ONIOM high-level region.
+                                  [default: (uma)]
   --embedcharge / --no-embedcharge
                                   Enable the experimental, computationally
                                   expensive xTB point-charge delta correction
@@ -76,11 +76,10 @@ Options:
                                   Link-atom positioning: scaled (g-factor) or
                                   fixed (1.09/1.01 Å).  [default: (scaled)]
   --mm-backend [hessian_ff|openmm]
-                                  MM backend (default: hessian_ff).  [default:
-                                  (hessian_ff)]
+                                  MM backend.  [default: (hessian_ff)]
   --cmap / --no-cmap              Preserve CMAP terms in both real and model MM
-                                  layers. Default: enabled when present in
-                                  parm7.  [default: (cmap)]
+                                  layers when present in parm7.  [default:
+                                  (cmap)]
   --detect-layer / --no-detect-layer
                                   Automatically detect ML/MM layers from input
                                   PDB B-factors (ML=0, MovableMM=10,
@@ -89,9 +88,8 @@ Options:
                                   movable/frozen MM B-factor layers.  [default:
                                   detect-layer]
   --model-indices-one-based / --model-indices-zero-based
-                                  Interpret --model-indices as 1-based (default)
-                                  or 0-based.  [default: model-indices-one-
-                                  based]
+                                  Interpret --model-indices as 1-based or
+                                  0-based.  [default: model-indices-one-based]
   --precision [fp32|fp64]         MLIP backend precision: fp32 or fp64. Unset
                                   defaults per backend (uma: fp32; orb, mace:
                                   fp64). Routed to backend-specific kwargs (UMA
@@ -109,9 +107,8 @@ Options:
   --backend-model TEXT            Model variant for the selected --backend (e.g.
                                   uma-s-1p2 / uma-m-1p1 for uma,
                                   orb_v3_conservative_omol for orb, MACE-OMOL-0
-                                  / off:small for mace). Default: the backend's
-                                  built-in model.  [default: (the selected
-                                  backend's own model)]
+                                  / off:small for mace).  [default: (the
+                                  selected backend's own model)]
   --calc-file FILE                Python file exposing get_calculator(...) -> an
                                   ASE Calculator used as the ML-region backend
                                   (overrides --backend). Couples GFN-xTB / DFTB+

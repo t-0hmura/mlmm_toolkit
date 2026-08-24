@@ -91,7 +91,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--dist-freeze TEXT` | Python-literal `(i, j, target_A)` tuples for harmonic restraints (inline literal or YAML/JSON file path); omit `target_A` to restrain the starting distance. | _None_ |
 | `--one-based / --zero-based` | Index convention for `--dist-freeze`. | 1-based |
 | `--bias-k FLOAT` | Harmonic bias strength (eV/Å²). | `300.0` |
-| `--max-cycles INT` | Optional hard limit on optimization iterations. | `None` |
+| `--max-cycles INT` | Hard limit on optimization iterations. | `100000` |
 | `--opt-mode [grad\|hess\|light\|heavy\|lbfgs\|rfo]` | Optimizer mode: `grad` (L-BFGS) or `hess` (RFO). Aliases `light`/`heavy` and `lbfgs`/`rfo` accepted. | `grad` |
 | `--microiter/--no-microiter` | Microiteration: alternate ML 1-step (RFO) + MM relaxation (L-BFGS). Only effective in `hess` mode (no-op in `--opt-mode grad`). | `True` |
 | `--flatten/--no-flatten` | Enable/disable the post-optimization imaginary-mode flatten loop. | `False` |
@@ -147,7 +147,7 @@ calc:
  hessian_calc_mode: Analytical  # or FiniteDifference
 opt:
  thresh: gau                    # convergence preset
- # max_cycles: 20000            # optional finite optimizer cap
+ max_cycles: 100000              # optimizer cycle cap
  out_dir: ./result_opt/         # output directory
 ```
 

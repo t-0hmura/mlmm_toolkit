@@ -24,7 +24,9 @@ Options:
                                   containing one 3N vector or a 2-D candidate
                                   table. This guides mode identity; it does not
                                   replace the Hessian and is not supported by
-                                  Dimer. mlmm all supplies it from the MEP.
+                                  Dimer. The all workflow supplies it from the
+                                  MEP; standalone tsopt users normally leave it
+                                  unset.
   --ref-pdb FILE                  Reference PDB topology when input is XYZ. XYZ
                                   coordinates are used (higher precision) while
                                   PDB provides atom ordering and residue
@@ -61,16 +63,15 @@ Options:
                                   MM atoms. MM atoms beyond this are frozen.
                                   Providing --movable-cutoff disables --detect-
                                   layer.  [default: (use freeze_atoms)]
-  --hessian-calc-mode [Analytical|FiniteDifference]
+  --hessian-calc-mode [analytical|finitedifference]
                                   How the ML backend builds the Hessian
                                   (Analytical or FiniteDifference); overrides
-                                  calc.hessian_calc_mode from YAML. Default:
-                                  'FiniteDifference'. Runtime and memory depend
-                                  on the backend and system; compare both modes
-                                  on a representative pilot.  [default:
-                                  (FiniteDifference)]
-  --max-cycles INTEGER            Set an optimization cycle cap; omitted means
-                                  no cycle cap.  [default: None]
+                                  calc.hessian_calc_mode from YAML. Runtime and
+                                  memory depend on the backend and system;
+                                  compare both modes on a representative pilot.
+                                  [default: (FiniteDifference)]
+  --max-cycles INTEGER RANGE      Maximum total optimization cycles.  [default:
+                                  (100000); x>=1]
   --dump / --no-dump              Write concatenated trajectory
                                   'optimization_all_trj.xyz'.  [default: no-
                                   dump]
@@ -124,8 +125,8 @@ Options:
                                   based on the input format.  [default: convert-
                                   files]
   -b, --backend [uma|orb|mace|aimnet2]
-                                  ML backend for the ONIOM high-level region
-                                  (default: uma).  [default: (uma)]
+                                  ML backend for the ONIOM high-level region.
+                                  [default: (uma)]
   --embedcharge / --no-embedcharge
                                   Enable the experimental, computationally
                                   expensive xTB point-charge delta correction
@@ -134,17 +135,17 @@ Options:
                                   point charges used by the xTB delta
                                   correction.  [default: (12.0)]
   --link-atom-method [scaled|fixed]
-                                  Link-atom position mode: scaled (g-factor,
-                                  default) or fixed (legacy 1.09/1.01 Å).
-                                  [default: (scaled)]
+                                  Link-atom position mode: scaled (g-factor) or
+                                  fixed (legacy 1.09/1.01 Å).  [default:
+                                  (scaled)]
   --mm-backend [hessian_ff|openmm]
-                                  MM backend (default: hessian_ff). MM Hessians
-                                  use finite differences by default; set
-                                  calc.mm_fd: false for the hessian_ff
-                                  analytical path.  [default: (hessian_ff)]
+                                  MM backend. MM Hessians use finite differences
+                                  by default; set calc.mm_fd: false for the
+                                  hessian_ff analytical path.  [default:
+                                  (hessian_ff)]
   --cmap / --no-cmap              Preserve CMAP terms in both real and model MM
-                                  layers. Default: enabled when present in
-                                  parm7.  [default: (cmap)]
+                                  layers when present in parm7.  [default:
+                                  (cmap)]
   --skip-final-freq / --no-skip-final-freq
                                   Skip terminal PHVA/frequency analysis and
                                   imaginary-mode flattening. Standalone tsopt
@@ -162,9 +163,8 @@ Options:
                                   movable/frozen MM B-factor layers.  [default:
                                   detect-layer]
   --model-indices-one-based / --model-indices-zero-based
-                                  Interpret --model-indices as 1-based (default)
-                                  or 0-based.  [default: model-indices-one-
-                                  based]
+                                  Interpret --model-indices as 1-based or
+                                  0-based.  [default: model-indices-one-based]
   --precision [fp32|fp64]         MLIP backend precision: fp32 or fp64. Unset
                                   defaults per backend (uma: fp32; orb, mace:
                                   fp64). Routed to backend-specific kwargs (UMA
@@ -182,9 +182,8 @@ Options:
   --backend-model TEXT            Model variant for the selected --backend (e.g.
                                   uma-s-1p2 / uma-m-1p1 for uma,
                                   orb_v3_conservative_omol for orb, MACE-OMOL-0
-                                  / off:small for mace). Default: the backend's
-                                  built-in model.  [default: (the selected
-                                  backend's own model)]
+                                  / off:small for mace).  [default: (the
+                                  selected backend's own model)]
   --calc-file FILE                Python file exposing get_calculator(...) -> an
                                   ASE Calculator used as the ML-region backend
                                   (overrides --backend). Couples GFN-xTB / DFTB+
@@ -216,8 +215,8 @@ Options:
                                   Stop when the energy stops changing while the
                                   convergence criteria are still unmet, and
                                   report the run as stalled. It never signals
-                                  convergence; an explicit --max-cycles remains
-                                  the hard bound. The MM micro iterations are never
+                                  convergence; --max-cycles remains the real
+                                  bound. The MM micro iterations are never
                                   stopped this way.  [default: no-stop-plateau]
   --stop-plateau-thresh FLOAT     Energy range (hartree) below which --stop-
                                   plateau treats the window as flat.  [default:

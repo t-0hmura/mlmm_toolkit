@@ -187,7 +187,7 @@ def add_scan_common_options(
     # so None means "fall through to YAML/BIAS_KW".
     bias_k_default: float | None = None,
     relax_max_cycles_default: int | None = None,
-    one_based_help: str = "Interpret (i,j) indices in --scan-lists as 1-based (default) or 0-based.",
+    one_based_help: str = "Interpret (i,j) indices in --scan-lists as 1-based or 0-based.",
     include_baseline: bool = True,
     include_zmin_zmax: bool = True,
 ) -> Callable[[Callable], Callable]:
@@ -218,8 +218,7 @@ def add_scan_common_options(
             show_default="300.0",
             help=(
                 "Harmonic well strength k [eV/Å^2]. "
-                "Defaults to YAML bias.k (BIAS_KW['k']=300 in defaults.py) when omitted; "
-                "explicit CLI value overrides YAML."
+                "YAML bias.k applies when this option is omitted; explicit CLI wins."
             ),
         ),
         click.option(

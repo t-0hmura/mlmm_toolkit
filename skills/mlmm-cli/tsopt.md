@@ -15,7 +15,7 @@ externally-generated TS guess.
 mlmm tsopt -i ts_guess.{pdb,xyz} --parm real.parm7 \
     [-q 0 -m 1] [-l 'RES:Q,...'] \
     [--opt-mode grad|hess|light|heavy|dimer|rsirfo] \
-    [--max-cycles 10000] \
+    [--max-cycles 100000] \
     [-b uma|orb|mace|aimnet2] [-o ./result_tsopt/]
 ```
 
@@ -46,7 +46,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `-i, --input` | path | required | TS candidate; `.pdb` / `.xyz` (XYZ requires `--ref-pdb`) |
 | `-q` / `-l` / `-m` | — | — | Charge / spin (common conventions) |
 | `--opt-mode` | str | `hess` | `grad`/`dimer` (Hessian-Guided Dimer) or `hess`/`rsirfo` (RS-I-RFO); also `trim` (TRIM/Helgaker) and `rsprfo` (RS-P-RFO/Banerjee); the mlmm-only `light` / `heavy` shortcuts are also accepted (light = Dimer, heavy = full-Hessian RS-I-RFO) |
-| `--max-cycles` | int | 10000 | Optimization step cap |
+| `--max-cycles` | int | 100000 | Optimization step cap |
 | `--hessian-calc-mode` | str | `FiniteDifference` | `Analytical` or `FiniteDifference`; check `RSIRFO_KW` / `DIMER_KW` |
 | `--ref-mode` | path | none | Advanced Cartesian 3N MEP tangent for initial-root selection and overlap tracking. `all` supplies it by default; with `all --no-tsopt-from-mep-tan`, TSOPT selects from the initial-structure Hessian modes. Ordinary standalone runs omit it. |
 | `--precision` | str | backend-specific | UMA/AIMNet2 fp32; ORB/MACE fp64; AIMNet2 rejects fp64 |

@@ -100,7 +100,7 @@ out_dir/ (デフォルト:./result_scan2d/)
 | `--print-parsed/--no-print-parsed` | `-s/--scan-lists` 解釈後のペア情報を表示。 | `False` |
 | `--max-step-size FLOAT` | ステップごとの最大距離増分 (Å)。グリッド密度を決定。 | `0.20` |
 | `--bias-k FLOAT` | 調和拘束ポテンシャル強度 k (eV/Å²)。 | `300.0` |
-| `--relax-max-cycles INT` | バイアス緩和ごとの任意の L-BFGS サイクル上限。 | `None` |
+| `--relax-max-cycles INT` | バイアス緩和ごとの L-BFGS サイクル上限。 | `100000` |
 | `--dump/--no-dump` | d1 スライスごとの内側 d2 スキャン TRJ を書き出し。 | `False` |
 | `-o, --out-dir TEXT` | 基本出力ディレクトリ。 | `./result_scan2d/` |
 | `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | `baker` |
@@ -191,7 +191,7 @@ calc:
  model_pdb: ml_region.pdb
 opt:
  thresh: baker
- # max_cycles: 20000 # 任意の有限上限
+ # max_cycles: 100000 # 任意の有限上限
 lbfgs:
  max_step: 0.3
 bias:

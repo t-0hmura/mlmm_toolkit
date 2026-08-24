@@ -120,7 +120,7 @@ standalone IRC はstitched pathの`first` / `last`端点と、その方向のbon
 | `-q, --charge INT` | ML 領域/model system の正味電荷。YAML の `calc.model_charge` を上書き。 | _None_（`-l` 未指定時は必須） |
 | `-l, --ligand-charge TEXT` | 未知リガンド残基の合計電荷または残基別マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に ML 領域の正味電荷を導出。 | _None_ |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。`calc.model_mult` を上書き。 | `1` |
-| `--max-cycles INT` | 任意の IRC ステップ上限。`irc.max_cycles` を上書き。 | `None` |
+| `--max-cycles INT` | IRCステップ上限。`irc.max_cycles`を上書き。 | `125` |
 | `--step-size FLOAT` | ステップ長（Bohr、非質量加重デカルト座標）。`irc.step_length` を上書き。 | `0.10` |
 | `--root INT` | 初期変位の虚振動数モードインデックス。`irc.root` を上書き。 | `0` |
 | `--forward/--no-forward` | 正方向 IRC を実行。`irc.forward` を上書き。 | `True` |
@@ -186,7 +186,7 @@ calc:
  return_partial_hessian: true      # 省略時の既定。false なら full Hessian を要求
 irc:
  step_length: 0.1                  # 積分ステップ長
- # max_cycles: 250                 # 任意の有限 IRC ステップ上限
+ max_cycles: 125                   # IRCステップ上限
  forward: true                     # 正方向に伝播
  backward: true                    # 逆方向に伝播
  never_stop: false                 # 物理的端点判定を無視してmax_cyclesまで追跡

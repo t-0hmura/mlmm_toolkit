@@ -155,8 +155,8 @@ An optimizer may also report `"status": "stalled"`: the energy stopped decreasin
 | `rigid_projection` | object | Frozen-boundary TR provenance for Dimer/flatten/final saddle analysis |
 | `files` | object | Final geometry + vib mode files |
 
-The retained terminal geometry normally receives one terminal exact PHVA even
-after numerical non-convergence. A PHVA failure is recorded as
+Terminal exact PHVA runs only after numerical convergence. A non-converged or
+stalled run retains the terminal geometry and records PHVA as skipped. A PHVA failure is recorded as
 `hessian_status: "failed"` without discarding the structure or fabricating
 frequencies. Numerical status and saddle order are separate: a converged
 higher-order stationary point remains `optimization_status: "converged"` with

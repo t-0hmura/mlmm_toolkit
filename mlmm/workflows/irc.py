@@ -292,7 +292,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
 @click.option(
     "--max-cycles", type=click.IntRange(min=1), default=None, show_default="125", help="Maximum number of IRC steps."
 )
-@click.option("--step-size", type=float, default=None, show_default="0.10", help="Step length in Bohr (unweighted Cartesian coordinates). Default: 0.10 Bohr. Overrides irc.step_length from YAML.")
+@click.option("--step-size", type=float, default=None, show_default="0.10", help="Step length in Bohr (unweighted Cartesian coordinates); overrides irc.step_length from YAML.")
 @click.option("--root", type=int, default=None, show_default="0", help="Imaginary mode index used for the initial displacement; overrides irc.root from YAML.")
 @click.option(
     "--forward/--no-forward",
@@ -326,7 +326,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     default=None, show_default="FiniteDifference",
     help=("How the ML backend builds the Hessian (Analytical or "
           "FiniteDifference); overrides calc.hessian_calc_mode from YAML. "
-          "Default: 'FiniteDifference'. Runtime and memory depend on the "
+          "Runtime and memory depend on the "
           "backend and system; compare both modes on a representative pilot."),
 )
 @click.option(
@@ -368,7 +368,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
     default=None,
     show_default="uma",
-    help="ML backend for the ONIOM high-level region (default: uma).",
+    help="ML backend for the ONIOM high-level region.",
 )
 @click.option(
     "--embedcharge/--no-embedcharge",
@@ -391,7 +391,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     type=click.Choice(["scaled", "fixed"], case_sensitive=False),
     default=None,
     show_default="scaled",
-    help="Link-atom position mode: scaled (g-factor, default) or fixed (legacy 1.09/1.01 Å).",
+    help="Link-atom position mode: scaled (g-factor) or fixed (legacy 1.09/1.01 Å).",
 )
 @click.option(
     "--mm-backend",
@@ -399,14 +399,14 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
     show_default="hessian_ff",
-    help="MM backend (default: hessian_ff). MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
+    help="MM backend. MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
 )
 @click.option(
     "--cmap/--no-cmap",
     "use_cmap",
     default=None,
     show_default="cmap",
-    help="Preserve CMAP terms in both real and model MM layers. Default: enabled when present in parm7.",
+    help="Preserve CMAP terms in both real and model MM layers when present in parm7.",
 )
 @click.option(
     "--hess-device",

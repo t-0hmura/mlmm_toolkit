@@ -575,7 +575,7 @@ def _effective_output_pdb(output_path: Path) -> Path:
     "one_based",
     default=True,
     show_default=True,
-    help="Interpret --model-indices as 1-based (default) or 0-based.",
+    help="Interpret --model-indices as 1-based or 0-based.",
 )
 def cli(
     input_pdb: Path,

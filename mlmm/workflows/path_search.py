@@ -1527,7 +1527,7 @@ def _build_multistep_path(
     type=int,
     default=None,
     show_default="1",
-    help="Spin multiplicity (2S+1). Defaults to 1 when omitted.",
+    help="Spin multiplicity (2S+1).",
 )
 @click.option(
     "--mep-mode",
@@ -1585,16 +1585,6 @@ def _build_multistep_path(
     ),
 )
 @click.option(
-    "--max-cycles",
-    type=click.IntRange(min=1),
-    default=None,
-    show_default="None",
-    help=(
-        "Compatibility cycle cap for the selected MEP optimizer; "
-        "mode-specific options take precedence."
-    ),
-)
-@click.option(
     "--max-cycles-gsm",
     type=click.IntRange(min=1),
     default=None,
@@ -1641,8 +1631,7 @@ def _build_multistep_path(
     show_default="gau_loose",
     help=(
         "Convergence preset for the GSM string optimizer "
-        "(gau_loose|gau|gau_tight|gau_vtight|baker|never). "
-        "Defaults to 'gau_loose' when not provided."
+        "(gau_loose|gau|gau_tight|gau_vtight|baker|never)."
     ),
 )
 @click.option(
@@ -1653,7 +1642,7 @@ def _build_multistep_path(
     help=(
         "IPOPT dual-infeasibility tolerance for the DMF path optimizer: "
         "tight (0.04) | middle (0.10) | loose (0.20) or a positive float. "
-        "This is not a Gaussian preset. Defaults to 'tight' when not provided."
+        "This is not a Gaussian preset."
     ),
 )
 @click.option(
@@ -1725,7 +1714,7 @@ def _build_multistep_path(
     type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
     default=None,
     show_default="uma",
-    help="ML backend for the ONIOM high-level region (default: uma).",
+    help="ML backend for the ONIOM high-level region.",
 )
 @click.option(
     "--embedcharge/--no-embedcharge",
@@ -1748,7 +1737,7 @@ def _build_multistep_path(
     type=click.Choice(["scaled", "fixed"], case_sensitive=False),
     default=None,
     show_default="scaled",
-    help="Link-atom position mode: scaled (g-factor, default) or fixed (legacy 1.09/1.01 Å).",
+    help="Link-atom position mode: scaled (g-factor) or fixed (legacy 1.09/1.01 Å).",
 )
 @click.option(
     "--mm-backend",
@@ -1756,14 +1745,14 @@ def _build_multistep_path(
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
     show_default="hessian_ff",
-    help="MM backend (default: hessian_ff). MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
+    help="MM backend. MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
 )
 @click.option(
     "--cmap/--no-cmap",
     "use_cmap",
     default=None,
     show_default="cmap",
-    help="Preserve CMAP terms in both real and model MM layers. Default: enabled when present in parm7.",
+    help="Preserve CMAP terms in both real and model MM layers when present in parm7.",
 )
 @add_ml_layer_detection_options()
 @add_precision_option()
@@ -1790,7 +1779,6 @@ def cli(
     freeze_atoms_text: Optional[str],
     movable_cutoff: Optional[float],
     max_nodes: int,
-    max_cycles: Optional[int],
     max_cycles_gsm: Optional[int],
     max_cycles_dmf: Optional[int],
     climb: bool,
@@ -1858,12 +1846,6 @@ def cli(
     # --- end of robust parsing fix ---
 
     _is_param_explicit = make_is_param_explicit(ctx)
-
-    if max_cycles is not None:
-        if max_cycles_gsm is None:
-            max_cycles_gsm = max_cycles
-        if max_cycles_dmf is None:
-            max_cycles_dmf = max_cycles
 
     config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
         config_yaml=config_yaml,
@@ -2016,16 +1998,10 @@ def cli(
             search_cfg["max_nodes_segment"] = int(max_nodes)
         # The GSM cycle budget also bounds the fully-grown string; DMF's budget
         # is a separate IPOPT iteration count.
-        if (
-            _is_param_explicit("max_cycles_gsm")
-            or _is_param_explicit("max_cycles")
-        ) and max_cycles_gsm is not None:
+        if _is_param_explicit("max_cycles_gsm") and max_cycles_gsm is not None:
             stopt_cfg["max_cycles"] = int(max_cycles_gsm)
             stopt_cfg["stop_in_when_full"] = int(max_cycles_gsm)
-        if (
-            _is_param_explicit("max_cycles_dmf")
-            or _is_param_explicit("max_cycles")
-        ) and max_cycles_dmf is not None:
+        if _is_param_explicit("max_cycles_dmf") and max_cycles_dmf is not None:
             dmf_cfg["max_cycles"] = int(max_cycles_dmf)
         if _is_param_explicit("dmf_backend"):
             dmf_cfg["backend"] = str(dmf_backend).lower()

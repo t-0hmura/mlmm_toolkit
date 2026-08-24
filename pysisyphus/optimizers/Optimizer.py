@@ -1325,9 +1325,7 @@ class Optimizer(metaclass=abc.ABCMeta):
         )
         if must_resize:
             previous_max_cycles = restart_info["max_cycles"]
-            if previous_max_cycles is None:
-                self.max_cycles = None
-            else:
+            if previous_max_cycles is not None:
                 self.max_cycles += previous_max_cycles
 
         self.coords = [np.array(coords) for coords in restart_info["coords"]]

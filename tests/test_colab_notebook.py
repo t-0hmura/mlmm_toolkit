@@ -5498,6 +5498,31 @@ def test_cli_flag_introspection_does_not_leak_banner_output() -> None:
     assert "with command.make_context(" in app
 
 
+def test_mep_commands_use_algorithm_specific_cycle_flags() -> None:
+    import click
+
+    from mlmm.cli import cli as root_cli
+
+    app = _notebook()["cells"][2]["source"]
+    assert "adv_maxcyc" not in app
+    assert "'--max-cycles'" not in app
+    assert "--max-cycles (0=None)" not in app
+
+    context = click.Context(root_cli)
+
+    def opts_of(sub: str) -> set[str]:
+        command = root_cli.get_command(context, sub)
+        return {opt for param in command.params for opt in param.opts}
+
+    for sub in ("all", "path-opt", "path-search"):
+        available = opts_of(sub)
+        assert "--max-cycles-gsm" in available, sub
+        assert "--max-cycles-dmf" in available, sub
+        assert "--max-cycles" not in available, sub
+    for sub in ("opt", "tsopt", "irc"):
+        assert "--max-cycles" in opts_of(sub), sub
+
+
 def test_plot_export_installation_does_not_launch_a_render_probe() -> None:
     setup = _notebook()["cells"][1]["source"]
     assert "subprocess.run(['plotly_get_chrome','-y']" in setup

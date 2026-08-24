@@ -17,7 +17,7 @@ from mlmm.workflows.scan_common import (
 @pytest.mark.parametrize(
     ("yaml_cfg", "explicit", "thresh", "cycles", "expected_thresh", "expected_cycles"),
     [
-        ({}, set(), "baker", None, "baker", None),
+        ({}, set(), "baker", None, "baker", 100000),
         (
             {"opt": {"thresh": "gau_loose", "max_cycles": 77}},
             set(),
@@ -117,7 +117,7 @@ def test_nested_opt_lbfgs_does_not_reach_scan_constructor_kwargs() -> None:
 @pytest.mark.parametrize(
     ("yaml_cfg", "argv", "expected"),
     [
-        ({}, [], {"thresh": "baker", "max_cycles": None}),
+        ({}, [], {"thresh": "baker", "max_cycles": 100000}),
         (
             {"opt": {"thresh": "gau_loose", "max_cycles": 17}},
             [],

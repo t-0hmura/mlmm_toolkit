@@ -71,7 +71,7 @@ Options:
                                   PDB/parm7 in the same atom order. It takes
                                   precedence over ML membership from -c/--center
                                   or input B-factors.
-  --auto-mm-ff-set [ff19SB|ff14SB]
+  --auto-mm-ff-set [ff19sb|ff14sb]
                                   Force-field set forwarded to mm_parm (ff19SB
                                   uses OPC3; ff14SB uses TIP3P).  [default:
                                   ff19SB]
@@ -101,8 +101,12 @@ Options:
   --max-nodes INTEGER             Max internal nodes per GSM/DMF segment
                                   (max_nodes+2 images including endpoints).
                                   [default: 20]
-  --max-cycles INTEGER            Maximum MEP optimization cycles; omitted means
-                                  no cycle cap.  [default: (None)]
+  --max-cycles-gsm INTEGER RANGE  Maximum GSM string-optimizer cycles for the
+                                  MEP stage.  [default: (300); x>=1]
+  --max-cycles-dmf INTEGER RANGE  Maximum IPOPT iterations for the DMF MEP
+                                  stage. This is a solver iteration count, not a
+                                  string-optimizer cycle count.  [default:
+                                  (300); x>=1]
   --climb / --no-climb            Enable transition-state climbing after growth
                                   for the *first* segment in each pair.
                                   [default: climb]
@@ -117,31 +121,28 @@ Options:
                                   during the run, forwarding the same flag to
                                   scan/tsopt/freq.  [default: no-dump]
   --refine-path / --no-refine-path
-                                  If False (default), run single-pass path-opt
-                                  with the selected MEP optimizer between each
+                                  When disabled, run single-pass path-opt with
+                                  the selected MEP optimizer between each
                                   adjacent pair and concatenate the segments (no
-                                  path_search); if True, run recursive
+                                  path_search); when enabled, run recursive
                                   path_search on the full ordered series for
                                   automatic multistep discovery.  [default: no-
                                   refine-path]
   --thresh [gau_loose|gau|gau_tight|gau_vtight|baker|never]
                                   Convergence preset for single-structure
                                   optimizations and scan relaxations (gau_loose|
-                                  gau|gau_tight|gau_vtight|baker|never).
-                                  Defaults to 'gau' for scan. The MEP stage
-                                  keeps its own --thresh-gsm / --thresh-dmf.
-                                  [default: (gau)]
+                                  gau|gau_tight|gau_vtight|baker|never). The MEP
+                                  stage keeps its own --thresh-gsm / --thresh-
+                                  dmf.  [default: (gau)]
   --thresh-gsm [gau_loose|gau|gau_tight|gau_vtight|baker|never]
                                   Convergence preset for the GSM string
                                   optimizer of the MEP stage (gau_loose|gau|gau_
-                                  tight|gau_vtight|baker|never). Defaults to
-                                  'gau_loose' when not provided.  [default:
+                                  tight|gau_vtight|baker|never).  [default:
                                   (gau_loose)]
   --thresh-dmf TEXT               IPOPT dual-infeasibility tolerance for the DMF
                                   MEP stage: tight (0.04) | middle (0.10) |
                                   loose (0.20) or a positive float. This is not
-                                  a Gaussian preset. Defaults to 'tight' when
-                                  not provided.  [default: (tight)]
+                                  a Gaussian preset.  [default: (tight)]
   --thresh-post [gau_loose|gau|gau_tight|gau_vtight|baker|never]
                                   Convergence preset for post-IRC endpoint
                                   optimizations (gau_loose|gau|gau_tight|gau_vti
@@ -157,12 +158,12 @@ Options:
                                   no-dry-run]
   --preopt / --no-preopt          Run initial single-structure optimizations of
                                   the pocket inputs.  [default: preopt]
-  --hessian-calc-mode [Analytical|FiniteDifference]
+  --hessian-calc-mode [analytical|finitedifference]
                                   Common MLIP Hessian mode forwarded to tsopt
-                                  and freq. Default: 'FiniteDifference'. Runtime
-                                  and memory depend on the backend and system;
-                                  compare both modes on a representative pilot.
-                                  [default: (FiniteDifference)]
+                                  and freq. Runtime and memory depend on the
+                                  backend and system; compare both modes on a
+                                  representative pilot.  [default:
+                                  (FiniteDifference)]
   --detect-layer / --no-detect-layer
                                   Automatically detect ML/MM layers from input
                                   PDB B-factors (ML=0, MovableMM=10,
@@ -186,8 +187,9 @@ Options:
                                   DFT energy diagram. With --thermo, also
                                   generate a DFT//MLIP/MM Gibbs diagram.
                                   [default: no-dft]
-  --tsopt-max-cycles INTEGER      Set a tsopt cycle cap; omitted means no cycle
-                                  cap.  [default: (None)]
+  --tsopt-max-cycles INTEGER RANGE
+                                  Override tsopt --max-cycles.  [default:
+                                  (100000); x>=1]
   --flatten / --no-flatten        Enable the extra-imaginary-mode flattening
                                   loop in tsopt (grad: dimer loop, hess: post-
                                   RSIRFO); --no-flatten forces
@@ -195,16 +197,15 @@ Options:
   --reject-uphill / --no-reject-uphill
                                   Opt in to rejecting uphill RFO trials during
                                   post-IRC endpoint re-optimization only
-                                  (tolerance: 1e-4 Hartree) and final-check the
-                                  retained endpoint at the emergency floor. Does
-                                  not affect TS optimization or path search.
-                                  [default: no-reject-uphill]
+                                  (tolerance: 1e-4 Hartree). Does not affect TS
+                                  optimization or path search.  [default: no-
+                                  reject-uphill]
   --stop-plateau / --no-stop-plateau
                                   Stop when the energy stops changing while the
                                   convergence criteria are still unmet, and
                                   report the run as stalled. It never signals
-                                  convergence; an explicit --max-cycles remains
-                                  the hard bound. The MM micro iterations are never
+                                  convergence; --max-cycles remains the real
+                                  bound. The MM micro iterations are never
                                   stopped this way.  [default: no-stop-plateau]
   --stop-plateau-thresh FLOAT     Energy range (hartree) below which --stop-
                                   plateau treats the window as flat.  [default:
@@ -214,6 +215,8 @@ Options:
   --irc-step-size FLOAT           Override IRC --step-size (Bohr). If an IRC
                                   stops after only a few frames, retry with a
                                   smaller value such as 0.05.  [default: (0.10)]
+  --irc-max-cycles INTEGER RANGE  Cycle cap for each post-TS IRC.  [default:
+                                  (125); x>=1]
   --irc-never-stop / --no-irc-never-stop
                                   Forward IRC never-stop mode to every post-TS
                                   IRC. It ignores gradient and energy endpoint
@@ -251,8 +254,8 @@ Options:
                                   [default: (<tsopt dir>/dft)]
   --dft-func-basis TEXT           Override dft --func-basis value.  [default:
                                   (wb97m-v/def2-tzvpd)]
-  --dft-max-cycle INTEGER         Set a DFT SCF iteration cap; omitted means no
-                                  cycle cap.  [default: (None)]
+  --dft-max-cycle INTEGER RANGE   Override dft --max-cycle value.  [default:
+                                  (100); x>=1]
   --dft-conv-tol FLOAT            Override dft --conv-tol value.  [default:
                                   (1e-09)]
   --dft-grid-level INTEGER        Override dft --grid-level value.  [default:
@@ -278,9 +281,9 @@ Options:
                                   (0.2)]
   --scan-bias-k FLOAT             Override scan harmonic bias strength k
                                   (eV/Å^2).  [default: (300.0)]
-  --scan-relax-max-cycles INTEGER
-                                  Set a scan relaxation cycle cap per step;
-                                  omitted means no cycle cap.  [default: (None)]
+  --scan-relax-max-cycles INTEGER RANGE
+                                  Override scan relaxation max cycles per step.
+                                  [default: (100000); x>=1]
   --scan-preopt / --no-scan-preopt
                                   Override scan --preopt flag.  [default:
                                   (inherits --preopt)]
@@ -297,8 +300,8 @@ Options:
                                   forwarded to downstream tools (tsopt, irc,
                                   freq, path_search) as --ref-pdb.
   -b, --backend [uma|orb|mace|aimnet2]
-                                  ML backend for the ONIOM high-level region
-                                  (default: uma).  [default: (uma)]
+                                  ML backend for the ONIOM high-level region.
+                                  [default: (uma)]
   --embedcharge / --no-embedcharge
                                   Enable experimental point-charge treatment.
                                   MLIP/MM stages use the computationally
@@ -308,17 +311,17 @@ Options:
   --embedcharge-cutoff FLOAT      Distance cutoff (Å) from the ML region for
                                   embedded MM point charges.  [default: (12.0)]
   --link-atom-method [scaled|fixed]
-                                  Link-atom position mode: scaled (g-factor,
-                                  default) or fixed (legacy 1.09/1.01 Å).
-                                  [default: (scaled)]
+                                  Link-atom position mode: scaled (g-factor) or
+                                  fixed (legacy 1.09/1.01 Å).  [default:
+                                  (scaled)]
   --mm-backend [hessian_ff|openmm]
-                                  MM backend (default: hessian_ff). MM Hessians
-                                  use finite differences by default; set
-                                  calc.mm_fd: false for the hessian_ff
-                                  analytical path.  [default: (hessian_ff)]
+                                  MM backend. MM Hessians use finite differences
+                                  by default; set calc.mm_fd: false for the
+                                  hessian_ff analytical path.  [default:
+                                  (hessian_ff)]
   --cmap / --no-cmap              Preserve CMAP terms in both real and model MM
-                                  layers. Default: enabled when present in
-                                  parm7.  [default: (cmap)]
+                                  layers when present in parm7.  [default:
+                                  (cmap)]
   --coord-type [cart|dlc]         Optimization coordinate system (cart|dlc).
                                   cart is the default; command-specific choices
                                   are listed here.  [default: (cart)]
@@ -341,9 +344,8 @@ Options:
   --backend-model TEXT            Model variant for the selected --backend (e.g.
                                   uma-s-1p2 / uma-m-1p1 for uma,
                                   orb_v3_conservative_omol for orb, MACE-OMOL-0
-                                  / off:small for mace). Default: the backend's
-                                  built-in model.  [default: (the selected
-                                  backend's own model)]
+                                  / off:small for mace).  [default: (the
+                                  selected backend's own model)]
   --calc-file FILE                Python file exposing get_calculator(...) -> an
                                   ASE Calculator used as the ML-region backend
                                   (overrides --backend). Couples GFN-xTB / DFTB+

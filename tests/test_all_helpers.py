@@ -91,7 +91,7 @@ def _path_child_kwargs() -> dict:
 _PATH_COMMON_CASES = (
     ("dmf_backend", ["--dmf-backend", "cpu"]),
     ("max_nodes", ["--max-nodes", "31"]),
-    ("max_cycles", ["--max-cycles", "47"]),
+    ("max_cycles_dmf", ["--max-cycles-dmf", "47"]),
     ("climb", ["--no-climb"]),
     ("dump", ["--no-dump"]),
     ("pre_opt", ["--no-preopt"]),
@@ -142,10 +142,15 @@ def test_path_child_forwards_only_the_selected_algorithm_cycle_budget() -> None:
     kwargs = _path_child_kwargs()
     assert build_path_child_argv(
         {"max_cycles_dmf"}, **kwargs
-    ) == ["--mep-mode", "dmf", "--max-cycles", "47"]
+    ) == ["--mep-mode", "dmf", "--max-cycles-dmf", "47"]
     assert build_path_child_argv(
         {"max_cycles_gsm"}, **kwargs
     ) == ["--mep-mode", "dmf"]
+
+    kwargs["mep_mode"] = "gsm"
+    assert build_path_child_argv(
+        {"max_cycles_gsm"}, **kwargs
+    ) == ["--mep-mode", "gsm", "--max-cycles-gsm", "47"]
 
 
 def test_path_defaults_leave_pipeline_owned_and_yaml_tokens_unchanged() -> None:

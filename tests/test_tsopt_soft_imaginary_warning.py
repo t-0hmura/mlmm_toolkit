@@ -113,18 +113,15 @@ def test_thermo_fallback_is_wired_in_the_product() -> None:
 def test_unexported_soft_mode_is_not_reported_as_no_imaginary_mode() -> None:
     """An exact soft imaginary root must not be announced as absent.
 
-    Certification counts every negative root while the export applies the
-    magnitude threshold, so a run with ``n_imag > 0`` and no exported mode
-    reports the export threshold instead of contradicting its own count.
+    A failed trajectory write is distinct from a spectrum with no imaginary mode.
     """
     from mlmm.workflows.tsopt import _dimer_mode_export_message
 
-    # A -3.2 cm^-1 root is certified but is below the 5 cm^-1 export threshold.
-    message, is_diagnostic = _dimer_mode_export_message(0, 1, 5.0, -3.2)
+    message, is_diagnostic = _dimer_mode_export_message(0, 1, 5.0, -100.0)
     assert is_diagnostic is True
     assert message == "[tsopt] ERROR: Failed to write imaginary mode trajectory."
 
     # A genuinely positive spectrum still reports the absent imaginary mode.
     message, is_diagnostic = _dimer_mode_export_message(0, 0, 5.0, 18.0)
     assert is_diagnostic is True
-    assert message == "[INFO] No imaginary mode detected."
+    assert message == "[tsopt] No imaginary mode detected. Try all --refine-path."

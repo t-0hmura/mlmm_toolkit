@@ -311,7 +311,7 @@ def _select_closest_state_1d(
     type=int,
     default=None,
     show_default="1",
-    help="Spin multiplicity (2S+1) for the ML region. Defaults to 1 when omitted.",
+    help="Spin multiplicity (2S+1) for the ML region.",
 )
 @click.option(
     "--freeze-atoms",
@@ -371,7 +371,7 @@ def _select_closest_state_1d(
     type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
     default=None,
     show_default="uma",
-    help="ML backend for the ONIOM high-level region (default: uma).",
+    help="ML backend for the ONIOM high-level region.",
 )
 @click.option(
     "--embedcharge/--no-embedcharge",
@@ -394,7 +394,7 @@ def _select_closest_state_1d(
     type=click.Choice(["scaled", "fixed"], case_sensitive=False),
     default=None,
     show_default="scaled",
-    help="Link-atom position mode: scaled (g-factor, default) or fixed (legacy 1.09/1.01 Å).",
+    help="Link-atom position mode: scaled (g-factor) or fixed (legacy 1.09/1.01 Å).",
 )
 @click.option(
     "--mm-backend",
@@ -402,14 +402,14 @@ def _select_closest_state_1d(
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
     show_default="hessian_ff",
-    help="MM backend (default: hessian_ff). MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
+    help="MM backend. MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
 )
 @click.option(
     "--cmap/--no-cmap",
     "use_cmap",
     default=None,
     show_default="cmap",
-    help="Preserve CMAP terms in both real and model MM layers. Default: enabled when present in parm7.",
+    help="Preserve CMAP terms in both real and model MM layers when present in parm7.",
 )
 @click.option(
     "--out-json/--no-out-json",

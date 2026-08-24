@@ -153,6 +153,20 @@ def test_supported_rfo_round_trips_and_resumes_uninterrupted_trace(tmp_path) -> 
     np.testing.assert_allclose(geom_b.cart_coords, geom_full.cart_coords, atol=1e-7)
 
 
+def test_finite_resume_cap_is_not_removed_by_uncapped_checkpoint(tmp_path) -> None:
+    _, opt_a = _rfo(tmp_path / "uncapped", [0.5, 0.0, 0.0], max_cycles=2)
+    opt_a.run()
+    payload = checkpoint.build_envelope(opt_a)
+    payload["cycle"]["max_cycles"] = None
+    payload["restart_info"]["max_cycles"] = None
+    ck = checkpoint.atomic_write_yaml(tmp_path / "uncapped.yaml", payload)
+
+    _, opt_b = _rfo(tmp_path / "finite", [9.9, 9.9, 9.9], max_cycles=1)
+    checkpoint.load_and_apply(opt_b, ck)
+
+    assert opt_b.max_cycles == 1
+
+
 def test_supported_lbfgs_round_trips(tmp_path) -> None:
     geom_a, opt_a = _lbfgs(tmp_path / "la", [0.5, 0.0, 0.0], max_cycles=3)
     opt_a.run()

@@ -134,7 +134,7 @@ IRC and remains uncertified.
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `tsopt.optimization_status == "not_converged"` | Numerical optimizer did not converge; terminal structure/PHVA artifacts are retained when available | Inspect the stop reason and retained modes, then retry from a better seed or with an appropriate optimizer/coordinate setting |
+| `tsopt.optimization_status == "not_converged"` | Numerical optimizer did not converge; the terminal structure is retained and PHVA is skipped | Inspect the stop reason, then retry from a better seed or with an appropriate optimizer/coordinate setting |
 | `tsopt.n_imaginary_modes == 0` | Geometry collapsed to a minimum during refinement | TS guess was not a real saddle; re-do `path-search` instead |
 | `tsopt.n_imaginary_modes >= 2` | Higher-order saddle or unresolved constrained mode; first-order certification failed | Inspect the modes, tighten convergence/frozen-boundary setup, then flatten or reoptimize from a better TS seed. Certification requires exactly one imaginary mode plus the intended displacement and IRC connectivity. |
 | `irc.bond_changes == {}` (no bonds change) | TS connects two essentially identical wells (numerical ringing) | Verify the imaginary mode visualization in `freq/`; this is sometimes a non-physical TS |

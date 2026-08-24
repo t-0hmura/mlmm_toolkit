@@ -464,14 +464,10 @@ def build_path_child_argv(
         ]
     )
     argv = ["--mep-mode", mode]
-    if (
-        cycle_value is not None
-        and ("max_cycles" in explicit_params or cycle_parameter in explicit_params)
-    ):
-        # Both path-opt and path-search accept the common --max-cycles token.
+    if cycle_value is not None and cycle_parameter in explicit_params:
         # Forward only the budget for the selected MEP algorithm; an explicit
         # GSM-only budget must never cap a DMF child (and vice versa).
-        argv.extend(["--max-cycles", str(cycle_value)])
+        argv.extend([f"--max-cycles-{mode}", str(cycle_value)])
     argv.extend(build_explicit_child_argv(explicit_params, specs))
     return argv
 

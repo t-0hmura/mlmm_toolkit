@@ -2656,8 +2656,7 @@ def _run_tsopt_on_hei(hei_pdb: Path,
         elif reference_mode is not None:
             _echo(
                 "[tsopt] MEP reference-mode handoff is not applicable to the "
-                "Dimer optimizer; continuing without --ref-mode.",
-                err=True,
+                "Dimer optimizer; continuing without --ref-mode."
             )
 
         _append_cli_arg(ts_args, "--max-cycles", overrides.get("max_cycles"))
@@ -2837,8 +2836,7 @@ def _ensure_hei_path_tangent(
             except Exception as exc:
                 status["reason"] = f"existing cache rejected: {exc}"
                 _echo(
-                    f"[tsopt] Existing HEI path-mode cache rejected; recomputing: {exc}",
-                    err=True,
+                    f"[tsopt] Existing HEI path-mode cache rejected; recomputing: {exc}"
                 )
 
         hei_pos = np.asarray(hei.positions, dtype=float)
@@ -3208,6 +3206,7 @@ def _run_opt_for_state(
     *,
     resolved_calc_template: _ResolvedCalculatorTemplate,
     convert_files: Optional[bool] = None,
+    dump: Optional[bool] = None,
     backend: Optional[str] = None,
     embedcharge: bool = False,
     embedcharge_cutoff: Optional[float] = None,
@@ -3267,6 +3266,7 @@ def _run_opt_for_state(
         ])
         args.append("--detect-layer" if detect_layer else "--no-detect-layer")
         _append_toggle_arg(args, "--convert-files", convert_files)
+        _append_toggle_arg(args, "--dump", dump)
         _append_cli_arg(args, "--thresh", thresh)
         _append_toggle_arg(args, "--reject-uphill", reject_uphill)
         _append_toggle_arg(args, "--stop-plateau", stop_plateau)
@@ -3723,8 +3723,6 @@ def _configure_all_help_visibility(command: click.Command) -> None:
               help="Max internal nodes per GSM/DMF segment (max_nodes+2 images including endpoints).")
 @click.option("--max-cycles-gsm", type=click.IntRange(min=1), default=None, show_default="300",
               help="Maximum GSM string-optimizer cycles for the MEP stage.")
-@click.option("--max-cycles", type=click.IntRange(min=1), default=None, show_default="None",
-              help="Compatibility cycle cap for the selected MEP optimizer; mode-specific options take precedence.")
 @click.option("--max-cycles-dmf", type=click.IntRange(min=1), default=None, show_default="300",
               help=("Maximum IPOPT iterations for the DMF MEP stage. This is a solver "
                     "iteration count, not a string-optimizer cycle count."))
@@ -3759,8 +3757,8 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     default=False,
     show_default=True,
     help=(
-        "If False (default), run single-pass path-opt with the selected MEP optimizer between each adjacent pair and concatenate the "
-        "segments (no path_search); if True, run recursive path_search on the full ordered series for "
+        "When disabled, run single-pass path-opt with the selected MEP optimizer between each adjacent pair and concatenate the "
+        "segments (no path_search); when enabled, run recursive path_search on the full ordered series for "
         "automatic multistep discovery."
     ),
 )
@@ -3772,7 +3770,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     help=(
         "Convergence preset for single-structure optimizations and scan "
         "relaxations (gau_loose|gau|gau_tight|gau_vtight|baker|never). "
-        "Defaults to 'gau' for scan. The MEP stage keeps its own "
+        "The MEP stage keeps its own "
         "--thresh-gsm / --thresh-dmf."
     ),
 )
@@ -3783,8 +3781,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     show_default="gau_loose",
     help=(
         "Convergence preset for the GSM string optimizer of the MEP stage "
-        "(gau_loose|gau|gau_tight|gau_vtight|baker|never). "
-        "Defaults to 'gau_loose' when not provided."
+        "(gau_loose|gau|gau_tight|gau_vtight|baker|never)."
     ),
 )
 @click.option(
@@ -3795,7 +3792,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     help=(
         "IPOPT dual-infeasibility tolerance for the DMF MEP stage: "
         "tight (0.04) | middle (0.10) | loose (0.20) or a positive float. "
-        "This is not a Gaussian preset. Defaults to 'tight' when not provided."
+        "This is not a Gaussian preset."
     ),
 )
 @click.option(
@@ -3821,7 +3818,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
               type=click.Choice(["Analytical", "FiniteDifference"], case_sensitive=False),
               default=None, show_default="FiniteDifference",
               help=("Common MLIP Hessian mode forwarded to tsopt and freq. "
-                    "Default: 'FiniteDifference'. Runtime and memory depend on "
+                    "Runtime and memory depend on "
                     "the backend and system; compare both modes on a representative pilot."))
 @click.option(
     "--detect-layer/--no-detect-layer",
@@ -4029,7 +4026,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
     default=None,
     show_default="uma",
-    help="ML backend for the ONIOM high-level region (default: uma).",
+    help="ML backend for the ONIOM high-level region.",
 )
 @click.option(
     "--embedcharge/--no-embedcharge",
@@ -4056,7 +4053,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     type=click.Choice(["scaled", "fixed"], case_sensitive=False),
     default=None,
     show_default="scaled",
-    help="Link-atom position mode: scaled (g-factor, default) or fixed (legacy 1.09/1.01 Å).",
+    help="Link-atom position mode: scaled (g-factor) or fixed (legacy 1.09/1.01 Å).",
 )
 @click.option(
     "--mm-backend",
@@ -4064,14 +4061,14 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
     show_default="hessian_ff",
-    help="MM backend (default: hessian_ff). MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
+    help="MM backend. MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
 )
 @click.option(
     "--cmap/--no-cmap",
     "use_cmap",
     default=None,
     show_default="cmap",
-    help="Preserve CMAP terms in both real and model MM layers. Default: enabled when present in parm7.",
+    help="Preserve CMAP terms in both real and model MM layers when present in parm7.",
 )
 @add_coord_type_option(choices=("cart", "dlc"))
 @add_print_every_option()
@@ -4107,7 +4104,6 @@ def cli(
     mep_mode: str,
     dmf_backend: str,
     max_nodes: int,
-    max_cycles: Optional[int],
     max_cycles_gsm: Optional[int],
     max_cycles_dmf: Optional[int],
     climb: bool,
@@ -4185,11 +4181,6 @@ def cli(
       - with --scan-lists: run staged scan on the pocket and use stage results as inputs for path-opt (or path_search),
       - with --tsopt and no --scan-lists: run TSOPT-only mode (no MEP search).
     """
-    if max_cycles is not None:
-        if max_cycles_gsm is None:
-            max_cycles_gsm = max_cycles
-        if max_cycles_dmf is None:
-            max_cycles_dmf = max_cycles
     from mlmm.core.utils import (
         collect_option_values,
         current_cli_args,
@@ -4258,11 +4249,6 @@ def cli(
         for parameter in ctx.command.params
         if parameter.name and _is_param_explicit(parameter.name)
     )
-    if "max_cycles" in explicit_params:
-        explicit_params = explicit_params | {
-            "max_cycles_gsm",
-            "max_cycles_dmf",
-        }
     dump_override_requested = _is_param_explicit("dump")
     opt_mode_set = _is_param_explicit("opt_mode")
     opt_mode_post_set = _is_param_explicit("opt_mode_post")
@@ -5482,6 +5468,7 @@ def cli(
                 endpoint_opt_dir / "E1", args_yaml, endpoint_opt_mode_default,
                 resolved_calc_template=resolved_calc_template,
                 convert_files=post_convert_files_forward,
+                dump=dump,
                 backend=backend,
                 embedcharge=embedcharge,
                 embedcharge_cutoff=embedcharge_cutoff,
@@ -5514,6 +5501,7 @@ def cli(
                 endpoint_opt_dir / "E2", args_yaml, endpoint_opt_mode_default,
                 resolved_calc_template=resolved_calc_template,
                 convert_files=post_convert_files_forward,
+                dump=dump,
                 backend=backend,
                 embedcharge=embedcharge,
                 embedcharge_cutoff=embedcharge_cutoff,
@@ -5534,8 +5522,9 @@ def cli(
                 err=True,
             )
             _prod_opt_conv = None
-        shutil.rmtree(endpoint_opt_dir, ignore_errors=True)
-        _echo_detail("[endpoint-opt] Clean endpoint-opt working dir.")
+        if not dump:
+            shutil.rmtree(endpoint_opt_dir, ignore_errors=True)
+            _echo_detail("[endpoint-opt] Clean endpoint-opt working dir.")
 
         xR, pR = _save_single_geom_for_tools(g_react, pocket_ref, struct_dir, "endpoint_1")
         xP, pP = _save_single_geom_for_tools(g_prod,   pocket_ref, struct_dir, "endpoint_2")
@@ -7077,6 +7066,7 @@ def cli(
                 endpoint_opt_dir / "R", args_yaml, endpoint_opt_mode_default,
                 resolved_calc_template=resolved_calc_template,
                 convert_files=post_convert_files_forward,
+                dump=dump,
                 backend=backend,
                 embedcharge=embedcharge,
                 embedcharge_cutoff=embedcharge_cutoff,
@@ -7109,6 +7099,7 @@ def cli(
                 endpoint_opt_dir / "P", args_yaml, endpoint_opt_mode_default,
                 resolved_calc_template=resolved_calc_template,
                 convert_files=post_convert_files_forward,
+                dump=dump,
                 backend=backend,
                 embedcharge=embedcharge,
                 embedcharge_cutoff=embedcharge_cutoff,
@@ -7129,8 +7120,9 @@ def cli(
                 err=True,
             )
             _prod_opt_conv = None
-        shutil.rmtree(endpoint_opt_dir, ignore_errors=True)
-        _echo_detail("[endpoint-opt] Clean endpoint-opt working dir.")
+        if not dump:
+            shutil.rmtree(endpoint_opt_dir, ignore_errors=True)
+            _echo_detail("[endpoint-opt] Clean endpoint-opt working dir.")
 
         xL, pL = _save_single_geom_for_tools(gL, hei_pocket_pdb, struct_dir, "reactant")
         xR, pR = _save_single_geom_for_tools(gR, hei_pocket_pdb, struct_dir, "product")

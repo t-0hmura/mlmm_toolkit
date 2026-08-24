@@ -90,8 +90,8 @@ out_dir/ (デフォルト:./result_scan/)
 | `--print-parsed/--no-print-parsed` | `-s/--scan-lists` 解釈後のステージ情報を表示。 | `False` |
 | `--max-step-size FLOAT` | ステップごとのスキャン結合の最大変化量 (Å)。積分ステップ数を制御。 | `0.20` |
 | `--bias-k FLOAT` | 調和バイアス強度 `k`（eV/Å²）。 | `300` |
-| `--max-cycles INT` | 各バイアスステップおよび pre/end 最適化ステージの任意の L-BFGS サイクル上限。 | `None` |
-| `--relax-max-cycles INT` | `--max-cycles` の互換エイリアス（指定時は上書き）。 | _None_ |
+| `--max-cycles INT` | 各バイアスステップおよび pre/end 最適化ステージの L-BFGS サイクル上限。 | `100000` |
+| `--relax-max-cycles INT` | `--max-cycles` の互換エイリアス（指定時は上書き）。 | `--max-cycles`を継承 |
 | `--preopt/--no-preopt` | スキャン前にバイアスなし最適化を実行。 | `False` |
 | `--endopt/--no-endopt` | 各ステージ後にバイアスなし最適化を実行。 | `False` |
 | `--dump/--no-dump` | ステップごとのオプティマイザ軌跡ファイルをダンプ。`scan_trj.xyz` は常に書き出され、PDB/CIF companion には `--convert-files` と参照トポロジーが必要です。 | `False` |

@@ -41,9 +41,8 @@ Options:
   --add-h / --no-add-h            Add hydrogens using PDBFixer at the specified
                                   --ph.  [default: no-add-h]
   --ph FLOAT                      pH used by PDBFixer when adding hydrogens
-                                  (--add-h). Default: 7.0  [default: 7.0]
+                                  (--add-h).  [default: 7.0]
   --ff-set [ff19SB|ff14SB]        Force-field set for proteins/backbone typing
-                                  and water/ion parameters (default: ff19SB).
-                                  [default: ff19SB]
+                                  and water/ion parameters.  [default: ff19SB]
   -h, --help                      Show this message and exit.
 ```

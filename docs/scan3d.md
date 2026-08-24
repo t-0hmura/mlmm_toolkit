@@ -99,7 +99,7 @@ Filename tags `i###_j###_k###` are integer hundredths of an angstrom (d1×100, d
 | `--print-parsed/--no-print-parsed` | Print parsed pair tuples after `-s/--scan-lists` resolution. | `False` |
 | `--max-step-size FLOAT` | Maximum distance increment per step (Å). Controls grid density. | `0.20` |
 | `--bias-k FLOAT` | Harmonic well strength k (eV/Å²). | `300.0` |
-| `--relax-max-cycles INT` | Optional optimizer-cycle cap during each biased relaxation. | `None` |
+| `--relax-max-cycles INT` | Optimizer-cycle cap during each biased relaxation. | `100000` |
 | `--dump/--no-dump` | Write inner d3 scan TRJs per (d1, d2) slice. | `False` |
 | `-o, --out-dir TEXT` | Output directory root for grids and plots. | `./result_scan3d/` |
 | `--thresh TEXT` | Convergence preset override (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | `baker` |
@@ -193,7 +193,7 @@ calc:
  model_pdb: ml_region.pdb
 opt:
  thresh: baker
- # max_cycles: 20000 # optional finite override
+ # max_cycles: 100000 # optional finite override
 lbfgs:
  max_step: 0.3
 bias:

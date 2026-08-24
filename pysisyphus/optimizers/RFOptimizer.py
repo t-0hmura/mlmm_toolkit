@@ -94,7 +94,13 @@ class RFOptimizer(HessianOptimizer):
         self.successful_line_search = 0
 
     def _accept_accelerated_step(self, step, ip_step, ref_step):
-        """Return an accelerated step only when its full displacement is safe."""
+        """Compose a finite accelerated step in the reference representation.
+
+        The RFO correction is already restricted.  ``ip_step`` is the accepted
+        line-search/GDIIS offset, so comparing their sum with the current trust
+        radius a second time rejects the acceleration path and can prevent
+        convergence.
+        """
         # The interpolation gradient can cross the NumPy/torch boundary even
         # when the reference RFO step lives on CUDA.  Keep the combined step in
         # the reference step's representation so neither NumPy's implicit
@@ -106,7 +112,6 @@ class RFOptimizer(HessianOptimizer):
                     ip_step, dtype=ref_step.dtype, device=ref_step.device
                 )
             )
-            candidate_norm = float(torch.linalg.norm(candidate).detach().cpu())
             finite = bool(torch.isfinite(candidate).all().detach().cpu())
         else:
             def _as_numpy(value):
@@ -115,21 +120,14 @@ class RFOptimizer(HessianOptimizer):
                 return np.asarray(value)
 
             candidate = _as_numpy(step) + _as_numpy(ip_step)
-            candidate_norm = float(np.linalg.norm(candidate))
             finite = bool(np.isfinite(candidate).all())
 
-        if finite and candidate_norm <= self.trust_radius * (1.0 + 1e-12):
+        if finite:
             return candidate
 
-        reason = (
-            "non-finite"
-            if not finite
-            else f"outside trust radius ({candidate_norm:.6f} > "
-            f"{self.trust_radius:.6f})"
-        )
         self.log(
-            "Rejected the interpolated/GDIIS displacement because it is "
-            f"{reason}; using the restricted reference step."
+            "Rejected a non-finite interpolated/GDIIS displacement; using the "
+            "restricted reference step."
         )
         return ref_step
 
@@ -218,8 +216,8 @@ class RFOptimizer(HessianOptimizer):
         if (ip_gradient is not None) and (ip_step is not None):
             gradient = ip_gradient
             step = step_func(big_eigvals, big_eigvecs, gradient) # heavy-compute
-            # The trust region constrains the full displacement, including
-            # the interpolation/GDIIS offset.
+            # The RFO correction is already restricted; compose the accepted
+            # interpolation/GDIIS offset and reject only a non-finite result.
             step = self._accept_accelerated_step(step, ip_step, ref_step)
         # Keep the original gradient when the interpolation failed; reuse ref_step.
         else:

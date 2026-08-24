@@ -228,10 +228,9 @@ Defaults shown are used when the option is not specified. The full flag list is 
 ### MEP search
 
 ```{note}
-`--max-cycles` is not a shared all-stage budget. The default is uncapped; when
-passed explicitly, it controls only the MEP child. Scan, TS optimization, IRC,
-and other stages keep
-their dedicated options or defaults.
+`--max-cycles-gsm` and `--max-cycles-dmf` control only the selected MEP child
+and each default to 300. Scan, TS optimization, IRC, and other stages keep
+their dedicated cycle options and defaults.
 ```
 
 | Option | Description | Default |
@@ -240,13 +239,14 @@ their dedicated options or defaults.
 | `--mep-mode [gsm\|dmf]` | MEP optimizer forwarded to both `path-opt` and recursive `path-search`. | `gsm` |
 | `--dmf-backend [gpu\|cpu]` | DMF implementation. The parent forwards this only when explicitly set, so a child YAML `dmf.backend` remains effective otherwise. | `gpu` |
 | `--max-nodes INT` | Internal nodes per GSM/DMF segment. | `20` |
-| `--max-cycles INT` | Optional cycle cap for the selected MEP child only. | `None` |
+| `--max-cycles-gsm INT` | GSM string-optimizer cycle cap for the MEP child. | `300` |
+| `--max-cycles-dmf INT` | DMF IPOPT iteration cap for the MEP child. | `300` |
 | `--climb / --no-climb` | Enable climbing-image TS refinement where supported by the selected optimizer. | `True` |
 | `--opt-mode [grad\|hess]` | Fallback preset for TSOPT and post-IRC endpoint optimization (`grad` → Dimer / L-BFGS, `hess` → RS-I-RFO / RFO). `--opt-mode-post` takes precedence. | `grad` |
 | `--opt-mode-post [grad\|hess]` | Optimizer preset override for TSOPT / post-IRC endpoint optimizations (`grad` → Dimer / L-BFGS, `hess` → RS-I-RFO / RFO). | `hess` |
-| `--thresh TEXT` | Convergence preset for single-structure optimizations and scan relaxations (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). Effective default: `gau` for scan. | _None_ |
-| `--thresh-gsm TEXT` | Convergence preset for the GSM string optimizer of the MEP stage (same presets as `--thresh`). Effective default: `gau_loose`. | _None_ |
-| `--thresh-dmf TEXT` | IPOPT dual-infeasibility tolerance of the DMF MEP stage: `tight` (0.04), `middle` (0.10), `loose` (0.20), or a positive float. Not a Gaussian preset. Effective default: `tight`. | _None_ |
+| `--thresh TEXT` | Convergence preset for single-structure optimizations and scan relaxations (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | `gau` |
+| `--thresh-gsm TEXT` | Convergence preset for the GSM string optimizer of the MEP stage (same presets as `--thresh`). | `gau_loose` |
+| `--thresh-dmf TEXT` | IPOPT dual-infeasibility tolerance of the DMF MEP stage: `tight` (0.04), `middle` (0.10), `loose` (0.20), or a positive float. Not a Gaussian preset. | `tight` |
 | `--thresh-post TEXT` | Convergence preset for post-IRC endpoint optimizations. | `baker` |
 | `--preopt / --no-preopt` | Pre-optimize endpoints before segmentation. | `True` |
 | `--refine-path / --no-refine-path` | `--no-refine-path` (default) → single-pass `path-opt`; `--refine-path` → recursive `path-search`. Both modes support Stage 5 (TSOPT / thermo / DFT). | `False` |
@@ -267,9 +267,9 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) → `--opt-mode` (on
 | `-s, --scan-lists TEXT...` | Staged scans: `(i, j, target_Å)` tuples. | _None_ |
 | `--scan-out-dir PATH` | Override the scan output directory. | `<out-dir>/_work/scan` |
 | `--scan-one-based / --scan-zero-based` | Interpret scan atom indices as 1-based or 0-based. | _None_ |
-| `--scan-max-step-size FLOAT` | Maximum step size (Å). | _Default_ |
-| `--scan-bias-k FLOAT` | Harmonic bias strength (eV / Å²). | _Default_ |
-| `--scan-relax-max-cycles INT` | Relaxation max cycles per step. | _Default_ |
+| `--scan-max-step-size FLOAT` | Maximum step size (Å). | `0.20` |
+| `--scan-bias-k FLOAT` | Harmonic bias strength (eV / Å²). | `300.0` |
+| `--scan-relax-max-cycles INT` | Relaxation max cycles per step. | `100000` |
 | `--scan-preopt / --no-scan-preopt` | Override scan pre-optimization toggle. | _None_ |
 | `--scan-endopt / --no-scan-endopt` | Override scan end-of-stage optimization. | _None_ |
 
@@ -285,21 +285,21 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) → `--opt-mode` (on
 | `--reject-uphill / --no-reject-uphill` | Opt in to rejecting energy-raising RFO steps during post-IRC **endpoint re-optimization only**, using a `1e-4` Hartree tolerance (forwarded to the opt child); TS optimization forces rejection off, and path search is unaffected. At the emergency floor, the retained endpoint receives a final normal convergence check. | `False` |
 | `--irc-step-size FLOAT` | Override the EulerPC maximum step (Bohr) for every post-TS IRC. If a branch stops after only a few frames, retry with a smaller value such as `0.05`. | IRC default `0.10` |
 | `--irc-never-stop / --no-irc-never-stop` | Ignore IRC gradient and energy endpoint criteria and trace each branch to the cycle cap. Numerical/integration failures and external interruption still stop propagation. | `False` |
-| `--tsopt-max-cycles INT` | Override `tsopt --max-cycles`. | _Default_ |
+| `--tsopt-max-cycles INT` | Override `tsopt --max-cycles`. | `100000` |
 | `--tsopt-out-dir PATH` | Custom tsopt subdirectory. | _None_ |
 | `--freq-out-dir PATH` | Base directory override for freq outputs. | _None_ |
-| `--freq-max-write INT` | Maximum modes to write. | _Default_ |
-| `--freq-amplitude-ang FLOAT` | Mode animation amplitude (Å). | _Default_ |
-| `--freq-n-frames INT` | Frames per mode animation. | _Default_ |
-| `--freq-sort TEXT` | Mode sorting behavior. | _Default_ |
-| `--freq-temperature FLOAT` | Thermochemistry temperature (K). | _Default_ |
-| `--freq-pressure FLOAT` | Thermochemistry pressure (atm). | _Default_ |
+| `--freq-max-write INT` | Maximum modes to write. | `10` |
+| `--freq-amplitude-ang FLOAT` | Mode-trajectory amplitude (Å). | `0.8` |
+| `--freq-n-frames INT` | Frames per mode trajectory. | `20` |
+| `--freq-sort TEXT` | Mode sorting behavior. | `value` |
+| `--freq-temperature FLOAT` | Thermochemistry temperature (K). | `298.15` |
+| `--freq-pressure FLOAT` | Thermochemistry pressure (atm). | `1.0` |
 | `--dft-out-dir PATH` | Base directory override for DFT outputs. | _None_ |
-| `--dft-func-basis TEXT` | Functional / basis pair. | _Default_ |
-| `--dft-max-cycle INT` | Optional SCF-iteration cap. | `None` |
-| `--dft-conv-tol FLOAT` | SCF convergence tolerance. | _Default_ |
-| `--dft-grid-level INT` | PySCF grid level. | _Default_ |
-| `--dft-engine [gpu\|cpu]` | DFT engine (GPU or CPU PySCF). | _None_ |
+| `--dft-func-basis TEXT` | Functional / basis pair. | `wb97m-v/def2-tzvpd` |
+| `--dft-max-cycle INT` | SCF-iteration cap. | `100` |
+| `--dft-conv-tol FLOAT` | SCF convergence tolerance. | `1e-9` |
+| `--dft-grid-level INT` | PySCF grid level. | `3` |
+| `--dft-engine [gpu\|cpu]` | DFT engine (GPU or CPU PySCF). | `gpu` |
 
 ## YAML configuration
 

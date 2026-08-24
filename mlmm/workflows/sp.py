@@ -270,7 +270,7 @@ def _resolve_sp_ml_region(
 @click.option(
     "-b", "--backend",
     type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
-    default=None, show_default="uma", help="ML backend for the ONIOM high-level region (default: uma).",
+    default=None, show_default="uma", help="ML backend for the ONIOM high-level region.",
 )
 @click.option(
     "--embedcharge/--no-embedcharge", "embedcharge",
@@ -292,12 +292,12 @@ def _resolve_sp_ml_region(
     "--mm-backend", "mm_backend",
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None, show_default="hessian_ff",
-    help="MM backend (default: hessian_ff).",
+    help="MM backend.",
 )
 @click.option(
     "--cmap/--no-cmap", "use_cmap",
     default=None, show_default="cmap",
-    help="Preserve CMAP terms in both real and model MM layers. Default: enabled when present in parm7.",
+    help="Preserve CMAP terms in both real and model MM layers when present in parm7.",
 )
 @add_ml_layer_detection_options()
 @add_precision_option()

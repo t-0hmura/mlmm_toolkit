@@ -37,12 +37,11 @@ Options:
                                   charge when -q is omitted (requires PDB input
                                   or --ref-pdb).
   -m, --multiplicity INTEGER      Spin multiplicity (2S+1) for the ML region;
-                                  defaults to YAML or 1.  [default: (1)]
+                                  YAML applies when omitted.  [default: (1)]
   --func-basis TEXT               Exchange-correlation functional and basis set
                                   as "FUNC/BASIS".  [default:
                                   wb97m-v/def2-tzvpd]
-  --max-cycle INTEGER             Set an SCF iteration cap; omitted means no
-                                  cycle cap.  [default: None]
+  --max-cycle INTEGER RANGE       Maximum SCF iterations.  [default: 100; x>=1]
   --conv-tol FLOAT                SCF energy convergence threshold (ΔE in
                                   Hartree between SCF cycles).  [default: 1e-09]
   --grid-level INTEGER            DFT integration grid level (0=coarse,
@@ -78,16 +77,16 @@ Options:
                                   enabled.  [default: (12.0)]
   --link-atom-method [scaled|fixed]
                                   Link-atom placement: 'scaled' (g-factor,
-                                  Gaussian ONIOM standard, default) or 'fixed'
-                                  (legacy 1.09 Å for C, 1.01 Å for N).
-                                  [default: (scaled)]
+                                  Gaussian ONIOM standard) or 'fixed' (legacy
+                                  1.09 Å for C, 1.01 Å for N).  [default:
+                                  (scaled)]
   --mm-backend [hessian_ff|openmm]
                                   MM backend for the low-level ONIOM evaluation:
-                                  'hessian_ff' (default) or 'openmm'.  [default:
+                                  'hessian_ff' or 'openmm'.  [default:
                                   (hessian_ff)]
   --cmap / --no-cmap              Preserve CMAP terms in both real and model MM
-                                  layers. Default: enabled when present in
-                                  parm7.  [default: (cmap)]
+                                  layers when present in parm7.  [default:
+                                  (cmap)]
   --out-json / --no-out-json      Write machine-readable result.json to out_dir.
                                   [default: no-out-json]
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
@@ -104,8 +103,7 @@ Options:
                                   movable/frozen MM B-factor layers.  [default:
                                   detect-layer]
   --model-indices-one-based / --model-indices-zero-based
-                                  Interpret --model-indices as 1-based (default)
-                                  or 0-based.  [default: model-indices-one-
-                                  based]
+                                  Interpret --model-indices as 1-based or
+                                  0-based.  [default: model-indices-one-based]
   -h, --help                      Show this message and exit.
 ```

@@ -22,8 +22,7 @@ Options:
                                   per-resname mapping (e.g., GPP:-3,SAM:1), used
                                   to derive the ML-region charge when -q is
                                   omitted (requires PDB input or --ref-pdb).
-  -m, --multiplicity INTEGER      Spin multiplicity (2S+1). Defaults to 1 when
-                                  omitted.  [default: (1)]
+  -m, --multiplicity INTEGER      Spin multiplicity (2S+1).  [default: (1)]
   --mep-mode [gsm|dmf]            MEP optimizer: Growing String Method (gsm) or
                                   Direct Max Flux (dmf).  [default: gsm]
   --dmf-backend [cpu|gpu]         DMF compute backend (--mep-mode dmf only): gpu
@@ -33,15 +32,20 @@ Options:
   --max-nodes INTEGER             Number of movable internal images for GSM or
                                   DMF (total images = max_nodes + 2 endpoints).
                                   [default: 20]
-  --max-cycles INTEGER            Set an optimization cycle cap; omitted means
-                                  no cycle cap.  [default: None]
+  --max-cycles-gsm INTEGER RANGE  Maximum GSM string-optimizer cycles for the
+                                  MEP stage.  [default: (300); x>=1]
+  --max-cycles-dmf INTEGER RANGE  Maximum IPOPT iterations for the DMF MEP
+                                  stage. This is a solver iteration count, not a
+                                  string-optimizer cycle count.  [default:
+                                  (300); x>=1]
   --climb / --no-climb            Search for a transition state (climbing image)
                                   after path growth.  [default: climb]
   --preopt / --no-preopt          Pre-optimize the two endpoint structures with
                                   L-BFGS before string growth.  [default:
                                   preopt]
-  --preopt-max-cycles INTEGER     Set a cycle cap for endpoint pre-optimization;
-                                  omitted means no cycle cap.  [default: None]
+  --preopt-max-cycles INTEGER RANGE
+                                  Maximum L-BFGS cycles for endpoint pre-
+                                  optimization.  [default: (100000); x>=1]
   --fix-ends / --no-fix-ends      Fix endpoint structures during path growth.
                                   [default: fix-ends]
   --dump / --no-dump              Dump optimizer trajectory/restarts during the
@@ -55,13 +59,11 @@ Options:
   --thresh-gsm [gau_loose|gau|gau_tight|gau_vtight|baker|never]
                                   Convergence preset for the GSM string
                                   optimizer (gau_loose|gau|gau_tight|gau_vtight|
-                                  baker|never). Defaults to 'gau_loose' when not
-                                  provided.  [default: (gau_loose)]
+                                  baker|never).  [default: (gau_loose)]
   --thresh-dmf TEXT               IPOPT dual-infeasibility tolerance for the DMF
                                   path optimizer: tight (0.04) | middle (0.10) |
                                   loose (0.20) or a positive float. This is not
-                                  a Gaussian preset. Defaults to 'tight' when
-                                  not provided.  [default: (tight)]
+                                  a Gaussian preset.  [default: (tight)]
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
   --show-config / --no-show-config
@@ -91,8 +93,8 @@ Options:
                                   based on the input format.  [default: convert-
                                   files]
   -b, --backend [uma|orb|mace|aimnet2]
-                                  ML backend for the ONIOM high-level region
-                                  (default: uma).  [default: (uma)]
+                                  ML backend for the ONIOM high-level region.
+                                  [default: (uma)]
   --embedcharge / --no-embedcharge
                                   Enable the experimental, computationally
                                   expensive xTB point-charge delta correction
@@ -101,17 +103,17 @@ Options:
                                   point charges used by the xTB delta
                                   correction.  [default: (12.0)]
   --link-atom-method [scaled|fixed]
-                                  Link-atom position mode: scaled (g-factor,
-                                  default) or fixed (legacy 1.09/1.01 Å).
-                                  [default: (scaled)]
+                                  Link-atom position mode: scaled (g-factor) or
+                                  fixed (legacy 1.09/1.01 Å).  [default:
+                                  (scaled)]
   --mm-backend [hessian_ff|openmm]
-                                  MM backend (default: hessian_ff). MM Hessians
-                                  use finite differences by default; set
-                                  calc.mm_fd: false for the hessian_ff
-                                  analytical path.  [default: (hessian_ff)]
+                                  MM backend. MM Hessians use finite differences
+                                  by default; set calc.mm_fd: false for the
+                                  hessian_ff analytical path.  [default:
+                                  (hessian_ff)]
   --cmap / --no-cmap              Preserve CMAP terms in both real and model MM
-                                  layers. Default: enabled when present in
-                                  parm7.  [default: (cmap)]
+                                  layers when present in parm7.  [default:
+                                  (cmap)]
   --out-json / --no-out-json      Write machine-readable result.json to out_dir.
                                   [default: no-out-json]
   --ref-pdb FILE                  Full-size template PDBs in the same order as
@@ -125,9 +127,8 @@ Options:
                                   movable/frozen MM B-factor layers.  [default:
                                   detect-layer]
   --model-indices-one-based / --model-indices-zero-based
-                                  Interpret --model-indices as 1-based (default)
-                                  or 0-based.  [default: model-indices-one-
-                                  based]
+                                  Interpret --model-indices as 1-based or
+                                  0-based.  [default: model-indices-one-based]
   --precision [fp32|fp64]         MLIP backend precision: fp32 or fp64. Unset
                                   defaults per backend (uma: fp32; orb, mace:
                                   fp64). Routed to backend-specific kwargs (UMA
@@ -145,9 +146,8 @@ Options:
   --backend-model TEXT            Model variant for the selected --backend (e.g.
                                   uma-s-1p2 / uma-m-1p1 for uma,
                                   orb_v3_conservative_omol for orb, MACE-OMOL-0
-                                  / off:small for mace). Default: the backend's
-                                  built-in model.  [default: (the selected
-                                  backend's own model)]
+                                  / off:small for mace).  [default: (the
+                                  selected backend's own model)]
   --calc-file FILE                Python file exposing get_calculator(...) -> an
                                   ASE Calculator used as the ML-region backend
                                   (overrides --backend). Couples GFN-xTB / DFTB+

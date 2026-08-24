@@ -34,7 +34,7 @@ mlmm path-opt -i REACTANT.pdb PRODUCT.pdb --parm real.parm7 --model-pdb model.pd
 
 ## 処理の流れ
 1. **端点の読み込み** -- PDB/mmCIF 構造、または対応する `--ref-pdb` を伴う XYZ 座標を読み込み、CLI またはデフォルトから電荷/スピンを解決します。`--parm`、`--model-pdb`、電荷/スピンで ML/MM calculatorを構築します。
-2. **任意の事前最適化** -- `--preopt` の場合、各端点はアライメントとストリング成長の前に L-BFGS（同じ ML/MM calculatorを使用）で事前最適化されます。必要な場合だけ `--preopt-max-cycles` で有限の上限を設定します（デフォルト: 上限なし）。
+2. **任意の事前最適化** -- `--preopt` の場合、各端点はアライメントとストリング成長の前に L-BFGS（同じ ML/MM calculatorを使用）で事前最適化されます。`--preopt-max-cycles` でサイクル上限を設定します（デフォルト: 100000）。
 3. **事前アライメント** -- 事前最適化後、最初の構造以降のすべての端点が最初の構造に Kabsch アライメントされます。`freeze_atoms` が定義されている場合、それらの原子のみが RMSD フィットに参加し、結果の変換がすべての原子に適用されます。
 4. **経路最適化** -- `--mep-mode gsm` は PySisyphus `GrowingString`（端点込み `(max_nodes + 2)` イメージ）を使用し、`--mep-mode dmf` は Direct Max Flux を使用します。
 5. **クライミングイメージ（GSM のみ）** -- `--climb` の場合、ストリングが完全に成長した後にクライミングイメージ精密化が適用され、最高エネルギーイメージ（HEI）が報告されます。
@@ -80,13 +80,14 @@ out_dir/ (デフォルト:./result_path_opt/)
 | `--movable-cutoff FLOAT` | ML 領域からの距離カットオフ (Å)。この範囲外の MM 原子を凍結します。`--movable-cutoff` 指定時は `--detect-layer` が無効化されます。 | _None_ |
 | `--fix-ends/--no-fix-ends` | 経路成長中に端点構造を固定（`gs.fix_first/fix_last`）。 | `True` |
 | `--max-nodes INT` | 内部ストリングノード数（総イメージ = `max_nodes + 2`）。 | `20` |
-| `--max-cycles INT` | 任意のマクロ反復回数上限（成長 + 精密化）。`opt.stop_in_when_full` も設定。 | `None` |
+| `--max-cycles-gsm INT` | GSMストリング最適化サイクル上限。`stopt.stop_in_when_full`にも設定。 | `300` |
+| `--max-cycles-dmf INT` | DMF IPOPT反復上限。 | `300` |
 | `--climb/--no-climb` | ストリング完全成長後のクライミングイメージ精密化を有効化。 | `True` |
 | `--preopt/--no-preopt` | アライメント/ストリング成長前に各端点を L-BFGS で事前最適化。 | `True` |
-| `--preopt-max-cycles INT` | 任意の端点事前最適化サイクル上限。 | `None` |
-| `--thresh TEXT` | 端点事前最適化のみの収束プリセット上書き（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | _None_（実効: `gau`） |
-| `--thresh-gsm TEXT` | GSM ストリング最適化の収束プリセット（`stopt.thresh`; `--thresh` と同じプリセット群）。 | _None_（実効: `gau_loose`） |
-| `--thresh-dmf TEXT` | DMF 最適化の IPOPT dual-infeasibility 許容値（`dmf.tol`）。`tight`(0.04)、`middle`(0.10)、`loose`(0.20) または正の float。Gaussian プリセットは拒否。 | _None_（実効: `tight`） |
+| `--preopt-max-cycles INT` | 端点事前最適化サイクル上限。 | `100000` |
+| `--thresh TEXT` | 端点事前最適化のみの収束プリセット上書き（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | `gau` |
+| `--thresh-gsm TEXT` | GSM ストリング最適化の収束プリセット（`stopt.thresh`; `--thresh` と同じプリセット群）。 | `gau_loose` |
+| `--thresh-dmf TEXT` | DMF 最適化の IPOPT dual-infeasibility 許容値（`dmf.tol`）。`tight`(0.04)、`middle`(0.10)、`loose`(0.20) または正の float。Gaussian プリセットは拒否。 | `tight` |
 | `--mm-backend [hessian_ff\|openmm]` | MM バックエンド。Hessian 構築法は `calc.mm_fd` が別に制御します（デフォルト `true`: 有限差分）。 | `hessian_ff` |
 | `--dump/--no-dump` | `out_dir` 内にオプティマイザ軌跡とリスタートをダンプ。 | `False` |
 | `-o, --out-dir TEXT` | 出力ディレクトリ。 | `./result_path_opt/` |

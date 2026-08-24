@@ -149,7 +149,7 @@ optimizer 固有セクションが優先されます。
 opt:
  thresh: gau # 収束プリセット: gau_loose, gau, gau_tight, gau_vtight, baker, never
  align: false # StringOptimizer 専用: alignment の有効/無効
- # max_cycles: 20000 # 任意の有限上限。上限なしなら省略
+ max_cycles: 100000 # オプティマイザサイクル上限
  print_every: 100 # ログ出力間隔
  min_step_norm: 1.0e-08 # 最小ステップノルム
  assert_min_step: true # ステップが閾値以下で停止
@@ -298,7 +298,7 @@ Direct Max Flux（DMF）による MEP 最適化。
 
 ```yaml
 dmf:
- # max_cycles: 500 # 任意の有限 DMF/IPOPT 上限。上限なしなら省略
+ max_cycles: 300 # DMF/IPOPT反復上限
  tol: tight # IPOPT dual_inf_tol: tight(0.04) | middle(0.10) | loose(0.20) または正の float（--thresh-dmf で上書き）
  correlated: true # 相関 DMF 伝搬
  sequential: true # 逐次 DMF 実行
@@ -409,7 +409,7 @@ RS-I-RFO TS 最適化（`tsopt --opt-mode hess`）。
 ```yaml
 rsirfo:
  thresh: baker # RS-I-RFO 収束プリセット
- # max_cycles: 20000 # opt.max_cycles と共有する任意の有限上限
+ max_cycles: 100000 # opt.max_cycles と共有するサイクル上限
  print_every: 100 # ログ出力間隔
  min_step_norm: 1.0e-08 # 最小ステップノルム
  assert_min_step: true # ステップ停滞時にアサート
@@ -454,7 +454,7 @@ stopt:
  stop_in_when_full: 300 # ストリングが満杯時の早期停止閾値
  align: false           # アライメントトグル
  scale_step: global     # ステップスケーリングモード
- # max_cycles: 500       # 任意の有限ストリング最適化上限
+ max_cycles: 300         # ストリング最適化サイクル上限
  dump: false            # 軌跡/リスタートデータ出力
  dump_restart: false    # リスタートチェックポイントの出力
  reparam_thresh: 0.0    # 再パラメータ化閾値
@@ -464,7 +464,7 @@ stopt:
  lbfgs:
    # 単一構造最適化用（HEI±1、ねじれノード）
    thresh: gau
-   # max_cycles: 20000 # 任意の有限上限
+   # max_cycles: 100000 # 任意の上書き
    # ...（詳細は lbfgs セクション参照）
 ```
 
@@ -485,7 +485,7 @@ IRC 積分設定。
 irc:
  step_length: 0.1 # 積分ステップ長
  never_stop: false # 物理的端点判定を無視してmax_cyclesまで追跡
- # max_cycles: 250 # 任意の有限 IRC ステップ上限
+ max_cycles: 125 # IRCステップ上限
  forward: true # 順方向に伝搬
  backward: true # 逆方向に伝搬
  root: 0 # 基準振動モードのルートインデックス
@@ -579,7 +579,7 @@ ML/MM最適化用のマイクロイテレーション設定。`--microiter` 有�
 ```yaml
 microiter:
  micro_thresh: null       # MM緩和の収束プリセット（L-BFGS）; null → マクロステップと同じ
- # micro_max_cycles: 200000 # 任意の有限マイクロイテレーション上限
+ micro_max_cycles: 100000 # マイクロイテレーションサイクル上限
 ```
 
 **注意:**
@@ -600,7 +600,7 @@ DFT 計算設定。
 dft:
  func_basis: wb97m-v/def2-tzvpd # 汎関数/基底関数の組み合わせ文字列
  conv_tol: 1.0e-09 # SCF 収束許容値 (Hartree)
- # max_cycle: 200 # 任意の有限 SCF 上限
+ max_cycle: 100 # SCF反復上限
  grid_level: 3 # PySCF グリッドレベル
  engine: gpu # 計算エンジン: "gpu"（gpu4pyscf）または "cpu"（pyscf）。CLI --engine が優先
  ecp: null # ECP 基底名。null の場合は def2-* 基底から自動導出
@@ -670,16 +670,16 @@ gs:
 
 opt:
  thresh: gau
- # max_cycles: 500 # 任意の有限上限
+ max_cycles: 100000 # オプティマイザサイクル上限
  dump: false
  out_dir: ./result_all/
 
 stopt:
  thresh: gau_loose
- # max_cycles: 500 # 任意の有限上限
+ max_cycles: 300 # ストリング最適化サイクル上限
  lbfgs:
    thresh: gau
-   # max_cycles: 20000 # 任意の有限上限
+   # max_cycles: 100000 # 任意の上書き
 
 bond:
  bond_factor: 1.2

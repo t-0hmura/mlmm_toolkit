@@ -260,7 +260,7 @@ def _snapshot_geometry(g) -> Any:
          "Multiple inline literals define sequential stages.",
 )
 @click.option("--one-based/--zero-based", "one_based", default=True, show_default=True,
-              help="Interpret (i,j) indices in --scan-lists as 1-based (default) or 0-based.")
+              help="Interpret (i,j) indices in --scan-lists as 1-based or 0-based.")
 @click.option(
     "--print-parsed/--no-print-parsed",
     "print_parsed",
@@ -273,8 +273,7 @@ def _snapshot_geometry(g) -> Any:
 @click.option("--bias-k", type=float, default=None, show_default="300.0",
               help=(
                   "Harmonic well strength k [eV/Å^2]. "
-                  "Defaults to YAML bias.k (BIAS_KW['k']=300 in defaults.py) when omitted; "
-                  "explicit CLI value overrides YAML."
+                  "YAML bias.k applies when this option is omitted; explicit CLI wins."
               ))
 @click.option(
     "--max-cycles",
@@ -285,9 +284,9 @@ def _snapshot_geometry(g) -> Any:
 )
 @click.option(
     "--relax-max-cycles",
-    type=click.IntRange(min=0),
+    type=click.IntRange(min=1),
     default=None,
-    show_default="inherits --max-cycles (None)",
+    show_default="inherits --max-cycles",
     help="Compatibility alias of --max-cycles (overrides it when provided).",
 )
 @click.option(
@@ -354,7 +353,7 @@ def _snapshot_geometry(g) -> Any:
     type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
     default=None,
     show_default="uma",
-    help="ML backend for the ONIOM high-level region (default: uma).",
+    help="ML backend for the ONIOM high-level region.",
 )
 @click.option(
     "--embedcharge/--no-embedcharge",
@@ -377,7 +376,7 @@ def _snapshot_geometry(g) -> Any:
     type=click.Choice(["scaled", "fixed"], case_sensitive=False),
     default=None,
     show_default="scaled",
-    help="Link-atom position mode: scaled (g-factor, default) or fixed (legacy 1.09/1.01 Å).",
+    help="Link-atom position mode: scaled (g-factor) or fixed (legacy 1.09/1.01 Å).",
 )
 @click.option(
     "--mm-backend",
@@ -385,14 +384,14 @@ def _snapshot_geometry(g) -> Any:
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
     show_default="hessian_ff",
-    help="MM backend (default: hessian_ff). MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
+    help="MM backend. MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
 )
 @click.option(
     "--cmap/--no-cmap",
     "use_cmap",
     default=None,
     show_default="cmap",
-    help="Preserve CMAP terms in both real and model MM layers. Default: enabled when present in parm7.",
+    help="Preserve CMAP terms in both real and model MM layers when present in parm7.",
 )
 @click.option(
     "--out-json/--no-out-json",

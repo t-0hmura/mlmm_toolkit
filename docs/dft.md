@@ -75,7 +75,7 @@ out_dir/ (default: ./result_dft/)
 | `-l, --ligand-charge TEXT` | Total charge or per-resname mapping (e.g. `SAM:1,GPP:-3`) used to derive the ML-region charge when `-q` is omitted (requires PDB input or `--ref-pdb`). | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1) for the ML region. | `1` |
 | `--func-basis TEXT` | Functional/basis pair as `"FUNC/BASIS"`. | `wb97m-v/def2-tzvpd` |
-| `--max-cycle INT` | Optional SCF-iteration cap. | `None` |
+| `--max-cycle INT` | SCF-iteration cap. | `100` |
 | `--conv-tol FLOAT` | SCF convergence tolerance (Hartree). | `1e-9` |
 | `--grid-level INT` | DFT integration grid level (0=coarse, 3=default, 5=fine, 9=very fine). | `3` |
 | `--engine {gpu,cpu}` | Force GPU4PySCF (`gpu`) or CPU PySCF (`cpu`); `gpu` raises an error if GPU4PySCF is unavailable. | `gpu` |
@@ -108,7 +108,7 @@ calc:
 dft:
  func_basis: wb97m-v/def2-tzvpd      # exchange-correlation functional / basis set
  conv_tol: 1.0e-09                # SCF convergence tolerance (Hartree)
- max_cycle: 200                    # optional finite SCF cap; omit for no cycle cap
+ max_cycle: 100                    # SCF iteration cap
  grid_level: 3                     # PySCF grid level
  verbose: 0                        # PySCF verbosity (0-9); CLI -v 2/3 raises runtime PySCF verbosity to >=4
  out_dir: ./result_dft/            # output directory root

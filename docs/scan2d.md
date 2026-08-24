@@ -103,7 +103,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--print-parsed/--no-print-parsed` | Print parsed pair tuples after `-s/--scan-lists` resolution. | `False` |
 | `--max-step-size FLOAT` | Maximum distance increment per step (Å). Determines grid density. | `0.20` |
 | `--bias-k FLOAT` | Harmonic well strength k (eV/Å²). | `300.0` |
-| `--relax-max-cycles INT` | Optional L-BFGS cycle cap per biased relaxation. | `None` |
+| `--relax-max-cycles INT` | L-BFGS cycle cap per biased relaxation. | `100000` |
 | `--dump/--no-dump` | Write inner d2 scan TRJs per d1 slice. | `False` |
 | `-o, --out-dir TEXT` | Base output directory. | `./result_scan2d/` |
 | `--thresh TEXT` | Convergence preset (`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`). | `baker` |
@@ -194,7 +194,7 @@ calc:
  model_pdb: ml_region.pdb
 opt:
  thresh: baker
- # max_cycles: 20000 # optional finite override
+ # max_cycles: 100000 # optional finite override
 lbfgs:
  max_step: 0.3
 bias:

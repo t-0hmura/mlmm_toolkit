@@ -673,7 +673,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     type=int,
     default=None,
     show_default="1",
-    help="Spin multiplicity (2S+1) for the ML region; defaults to YAML or 1.",
+    help="Spin multiplicity (2S+1) for the ML region; YAML applies when omitted.",
 )
 @click.option(
     "--func-basis",
@@ -758,7 +758,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     type=click.Choice(["scaled", "fixed"], case_sensitive=False),
     default=None,
     show_default="scaled",
-    help="Link-atom placement: 'scaled' (g-factor, Gaussian ONIOM standard, default) or "
+    help="Link-atom placement: 'scaled' (g-factor, Gaussian ONIOM standard) or "
          "'fixed' (legacy 1.09 Å for C, 1.01 Å for N).",
 )
 @click.option(
@@ -767,14 +767,14 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
     show_default="hessian_ff",
-    help="MM backend for the low-level ONIOM evaluation: 'hessian_ff' (default) or 'openmm'.",
+    help="MM backend for the low-level ONIOM evaluation: 'hessian_ff' or 'openmm'.",
 )
 @click.option(
     "--cmap/--no-cmap",
     "use_cmap",
     default=None,
     show_default="cmap",
-    help="Preserve CMAP terms in both real and model MM layers. Default: enabled when present in parm7.",
+    help="Preserve CMAP terms in both real and model MM layers when present in parm7.",
 )
 @click.option(
     "--out-json/--no-out-json",
