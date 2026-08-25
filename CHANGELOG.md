@@ -9,6 +9,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 ### Fixed
 - Preserve the MM micro-optimizer until its non-convergence diagnostics have been collected, preventing a post-macro microiteration failure from raising `UnboundLocalError`.
 - Record terminal PHVA as `skipped`, rather than `unavailable`, when a non-converged Hessian TS optimizer does not authorize the analysis.
+- Print a section heading before each tagged recursive GSM segment and before standalone Growing String optimization.
 - Keep accepted line-search/GDIIS offsets in minimum RFO instead of applying
   the trust radius a second time to the full accelerated displacement.
 - Keep an explicit finite cycle cap when resuming a checkpoint written by an

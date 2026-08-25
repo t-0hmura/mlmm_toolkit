@@ -1759,6 +1759,7 @@ def cli(
             **{k: v for k, v in opt_args.items() if k != "type"}  # 'type' is just a tag
         )
 
+        emit("\n====== Growing String optimization ======\n", narrative=True)
         optimizer.run()
 
         final_trj = out_dir_path / "final_geometries_trj.xyz"

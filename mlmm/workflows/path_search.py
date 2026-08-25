@@ -470,6 +470,7 @@ def _run_gsm_between(
         **{k: v for k, v in _opt_args.items() if k != "type"}
     )
 
+    emit(f"\n====== [{tag}] GSM ======\n", narrative=True)
     optimizer.run()
     # a normal (non-raising) run is NOT convergence — capture the
     # StringOptimizer's explicit bit so a max-cycle segment cannot be promoted.
