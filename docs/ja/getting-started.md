@@ -44,6 +44,8 @@ E_total = E_REAL_low + E_MODEL_high - E_MODEL_low
 - 入力 PDB ファイルには**水素原子**が含まれている必要があります。
 - 複数の PDB を提供する場合、**同じ原子が同じ順序**で含まれている必要があります（座標のみ異なる可能性があります）。そうでない場合はエラーが発生します。
 - 個別の ML/MM 計算には **`--parm`**（全系の Amber トポロジー）と、`--model-pdb`、`--model-indices`、または有効な B-factor layer のいずれかによる ML 領域指定が必要です。`all` ワークフローではトポロジーと ML 領域を自動生成できます。
+- `mlmm all`と個別コマンドのどちらでも、`-q/--charge`は全系ではなくML領域（ONIOM model system）の正味電荷です。
+- MD snapshotを入力する場合は再parameterizeせず、MD計算で用いた同じ全系`.parm7`を再利用します。
 ```
 
 ```{tip}
@@ -362,7 +364,7 @@ mlmm -i R.pdb I1.pdb I2.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --out-dir ./res
 
 ---
 
-### 単一構造 + 段階的スキャン（MEP 精密化に供給）
+### 単一構造 + スキャン定義（MEP 最適化に供給）
 
 **1 つの PDB 構造**しかないが、反応に沿ってどの原子間距離が変化するかが分かっている場合に使用します。
 
@@ -382,11 +384,11 @@ mlmm -i SINGLE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --scan-lists '[("TYR 285 CA","
 
 要点:
 
-- `--scan-lists` は抽出された ML 領域上での**段階的距離スキャン**を定義します。
+- `--scan-lists` は抽出された ML 領域上での距離スキャンを定義します。
 - 各タプル `(i, j, target_A)` は:
  - `'TYR,285,CA'` のような PDB 原子セレクタ文字列（**区切り文字: 空白/カンマ/スラッシュ/バッククォート/バックスラッシュ**）**または** 1-based の原子インデックス
  - ML 領域のインデックスに自動的にリマッピングされます。
-- 1 つの `--scan-lists` リテラルで単一スキャンステージ、複数リテラルで逐次ステージを実行。複数リテラルは 1 つのフラグの後に続けて指定します（フラグの繰り返しは不可）。
+- 1リテラルが1ステージです。同一リテラル内の複数tupleは協奏的に駆動し、複数リテラルは多段階scanとして逐次実行されます。複数リテラルは1つのフラグの後に続けて指定します（フラグの繰り返しは不可）。
 - 各ステージは `stage_XX/result.pdb` を出力し、中間体または生成物の候補として扱われます。
 - デフォルトの `all` ワークフローは連結されたステージに対して単一パス `path-opt` GSM チェーンを実行します。
 - `--refine-path` を使用すると、再帰的 `path-search`（自動精密化）に切り替わります。
@@ -436,7 +438,7 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft -
 | `-l, --ligand-charge TEXT` | 電荷情報: マッピング（`'SAM:1,GPP:-3'`）または単一整数 |
 | `-q, --charge INT` | ML 領域の総電荷の強制上書き |
 | `-m, --multiplicity INT` | スピン多重度（例: 一重項は `1`） |
-| `-s, --scan-lists TEXT...` | 単一入力実行時の段階的距離スキャン（YAML/JSON ファイルまたはインラインリテラル） |
+| `-s, --scan-lists TEXT...` | `all`の単一入力経路ではインライン`(i,j,target)`リテラル。YAML/JSONと双方向4-tupleはstandalone `scan`で使用 |
 | `--parm PATH` | 全系の Amber parm7 トポロジー（`all` では自動生成） |
 | `--model-pdb PATH` | ML 領域を定義する PDB ファイル。個別計算では `--model-indices` または有効な B-factor layer も選択可能（`all` では自動生成可） |
 | `--tsopt/--no-tsopt` | TS 最適化と IRC を有効化 |
@@ -485,7 +487,7 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft -
 | `tsopt` | 遷移状態最適化 | [tsopt](tsopt.md) |
 | `path-opt` | MEP 最適化 (GSM/DMF) | [path-opt](path-opt.md) |
 | `path-search` | 再帰的 MEP 探索 | [path-search](path-search.md) |
-| `scan` | 1D 結合長スキャン | [scan](scan.md) |
+| `scan` | 拘束付き距離scan（複数距離の協奏scan・多段階scanに対応） | [scan](scan.md) |
 | `scan2d` | 2D 距離スキャン | [scan2d](scan2d.md) |
 | `scan3d` | 3D 距離スキャン | [scan3d](scan3d.md) |
 | `irc` | IRC 計算 | [irc](irc.md) |

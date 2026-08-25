@@ -979,6 +979,15 @@ def _parse_scan_lists_literals(
     """
     stages: List[List[Tuple[int, int, float]]] = []
     for idx_stage, literal in enumerate(scan_lists_raw, start=1):
+        candidate = Path(literal)
+        if (
+            candidate.suffix.lower() in {".yaml", ".yml", ".json"}
+            and candidate.is_file()
+        ):
+            raise click.BadParameter(
+                "mlmm all accepts inline (i,j,target) scan triples only; "
+                "use standalone mlmm scan for YAML/JSON specifications."
+            )
         tuples, _ = parse_scan_list_triples(
             literal,
             one_based=one_based,
@@ -989,6 +998,11 @@ def _parse_scan_lists_literals(
         if not tuples:
             raise click.BadParameter(
                 f"--scan-lists #{idx_stage} must contain at least one (i,j,target) triple."
+            )
+        if any(len(entry) != 3 for entry in tuples):
+            raise click.BadParameter(
+                "mlmm all accepts inline (i,j,target) scan triples only; "
+                "use standalone mlmm scan for bidirectional (i,j,start,end) stages."
             )
         stages.append(tuples)
     return stages
@@ -3574,7 +3588,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 
 
 @click.command(
-    help="Run pocket extraction → (optional single-structure staged scan) → MEP search in one shot.\n"
+    help="Run pocket extraction → (optional scan-defined single-structure route) → MEP search in one command.\n"
          "If exactly one input is provided: (a) with --scan-lists, stage results feed into path-opt (or path_search with --refine-path); "
          "(b) with --tsopt and no --scan-lists, run TSOPT-only mode.",
     context_settings={
@@ -3981,9 +3995,10 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     "-s", "--scan-lists",
     "scan_lists_raw",
     type=str, multiple=True, required=False,
-    help='Scan targets: inline Python literal or a YAML/JSON spec file path. '
-         'Multiple inline literals define sequential stages, e.g. '
+    help='Scan targets: inline Python literals containing (i,j,target) triples. '
+         'Multiple literals define sequential stages, e.g. '
          '"[(12,45,1.35)]" "[(10,55,2.20),(23,34,1.80)]". '
+         'Use standalone mlmm scan for YAML/JSON or bidirectional 4-tuples. '
          'Indices refer to the original full PDB (1-based) or PDB atom selectors like "TYR,285,CA"; '
          'they are auto-mapped to the pocket after extraction.',
 )

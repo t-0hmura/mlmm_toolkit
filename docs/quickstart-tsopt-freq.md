@@ -23,7 +23,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 [Imaginary modes] n=1 ([-593.1])
 ```
 
-## What to check
+## Output validation
 
 - `result_tsopt/final_geometry.pdb` — optimized TS structure
 - `result_tsopt/vib/` — trajectories for the imaginary-frequency normal mode (`imag_*_trj.xyz`, `.pdb`)

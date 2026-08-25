@@ -317,7 +317,7 @@ Typical command:
 mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'
 ```
 
-### 2) Single-structure staged scan -> MEP
+### 2) Scan-defined single-structure workflow -> MEP
 Use this when you prefer to define reaction coordinates yourself, rather than providing multiple endpoint structures.
 
 Typical command:
@@ -346,7 +346,7 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt
 
 ### Prefer subcommands when...
 - You want to run each stage step by step, verifying results at each point.
-- You want to mix-and-match a custom workflow (e.g., your own endpoint preparation).
+- A custom sequence of subcommands is required (e.g., independent endpoint preparation).
 - You already have parm7/rst7 and layer-assigned PDB files from a previous run.
 - You want to generate Gaussian/ORCA ONIOM input files via `oniom-export --mode g16|orca`.
 

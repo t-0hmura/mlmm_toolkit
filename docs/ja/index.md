@@ -147,9 +147,9 @@ glossary
 ### スキャン
 | サブコマンド | 説明 |
 |---------|------|
-| [`scan`](scan.md) | 拘束条件付き 1D 結合長スキャン |
-| [`scan2d`](scan2d.md) | 2D 距離グリッドスキャン |
-| [`scan3d`](scan3d.md) | 3D 距離グリッドスキャン |
+| [`scan`](scan.md) | 拘束付き距離scan（複数距離の協奏scan・多段階scanに対応） |
+| [`scan2d`](scan2d.md) | 2 次元 energy landscape 探索・PES mapping |
+| [`scan3d`](scan3d.md) | 3 次元 energy landscape 探索・PES mapping |
 
 ### 解析・後処理
 | サブコマンド | 説明 |

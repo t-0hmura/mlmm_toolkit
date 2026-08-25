@@ -206,7 +206,7 @@ Use the CLI-owned `--dump` and `--out-dir` options for trajectory and output pla
 
 - [Common Error Recipes](recipes-common-errors.md) — Symptom-first failure routing
 - [Troubleshooting](troubleshooting.md) — Detailed troubleshooting guide
-- [scan](scan.md) — 1D bond-length driven scan
+- [scan](scan.md) — Concerted multi-distance and multistage restrained scans
 - [scan2d](scan2d.md) — 2D distance grid scan
 - [opt](opt.md) — Geometry optimization (often precedes scan)
 - [all](all.md) — End-to-end workflow

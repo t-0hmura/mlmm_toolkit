@@ -23,7 +23,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 [Imaginary modes] n=1 ([-593.1])
 ```
 
-## まず確認する出力
+## 出力の検証
 
 - `result_tsopt/final_geometry.pdb` — 最適化済み TS 構造
 - `result_tsopt/vib/` — 虚振動モード（変位ベクトル）の軌跡（`imag_*_trj.xyz`, `.pdb`）

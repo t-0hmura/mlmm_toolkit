@@ -87,6 +87,25 @@ def test_scan_spec_expands_bidirectional_stage_with_reset_markers(tmp_path) -> N
     assert resets == frozenset({1})
 
 
+def test_all_rejects_bidirectional_scan_tuple_cleanly() -> None:
+    from mlmm.workflows.all import _parse_scan_lists_literals
+
+    with pytest.raises(click.BadParameter, match="inline .* scan triples only"):
+        _parse_scan_lists_literals(
+            ("[(1,2,1.2,1.6)]",),
+            one_based=True,
+        )
+
+
+def test_all_rejects_scan_spec_file_cleanly(tmp_path: Path) -> None:
+    from mlmm.workflows.all import _parse_scan_lists_literals
+
+    spec = tmp_path / "scan.yaml"
+    spec.write_text("stages:\n  - [[1, 2, 1.2]]\n", encoding="utf-8")
+    with pytest.raises(click.BadParameter, match="standalone mlmm scan"):
+        _parse_scan_lists_literals((str(spec),), one_based=True)
+
+
 @pytest.mark.parametrize(
     ("x", "y", "expected"),
     [

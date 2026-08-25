@@ -215,7 +215,7 @@ Acronyms used below: MEP = minimum-energy path; GSM = growing-string method; COS
 |---|---|
 | Full pipeline orchestrator | `mlmm/workflows/all.py` |
 | Geometry optimization (ONIOM macro/micro pre-opt) | `mlmm/workflows/opt.py` |
-| 1D / 2D / 3D scans + shared | `mlmm/workflows/scan{,2d,3d,_common}.py` |
+| Scan and 2D/3D energy-landscape grids + shared | `mlmm/workflows/scan{,2d,3d,_common}.py` |
 | MEP search (GSM) | `mlmm/workflows/path_search.py` |
 | MEP optimizer core (pysisyphus COS) | `mlmm/workflows/path_opt.py` |
 | TS optimization (RSIRFO + Bofill + macro/micro) | `mlmm/workflows/tsopt.py` |

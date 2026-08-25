@@ -3,10 +3,10 @@
 ```text
 Usage: mlmm all [OPTIONS]
 
-  Run pocket extraction → (optional single-structure staged scan) → MEP search
-  in one shot. If exactly one input is provided: (a) with --scan-lists, stage
-  results feed into path-opt (or path_search with --refine-path); (b) with
-  --tsopt and no --scan-lists, run TSOPT-only mode.
+  Run pocket extraction → (optional scan-defined single-structure route) → MEP
+  search in one command. If exactly one input is provided: (a) with --scan-
+  lists, stage results feed into path-opt (or path_search with --refine-path);
+  (b) with --tsopt and no --scan-lists, run TSOPT-only mode.
 
 Options:
   -v, --verbose LEVEL             Console verbosity 0-3 (default 2). 0=silent;
@@ -261,14 +261,16 @@ Options:
   --dft-grid-level INTEGER        Override dft --grid-level value.  [default:
                                   (3)]
   --dft-engine [gpu|cpu]          Override dft --engine value.  [default: (gpu)]
-  -s, --scan-lists TEXT           Scan targets: inline Python literal or a
-                                  YAML/JSON spec file path. Multiple inline
+  -s, --scan-lists TEXT           Scan targets: inline Python literals
+                                  containing (i,j,target) triples. Multiple
                                   literals define sequential stages, e.g.
                                   "[(12,45,1.35)]"
-                                  "[(10,55,2.20),(23,34,1.80)]". Indices refer
-                                  to the original full PDB (1-based) or PDB atom
-                                  selectors like "TYR,285,CA"; they are auto-
-                                  mapped to the pocket after extraction.
+                                  "[(10,55,2.20),(23,34,1.80)]". Use standalone
+                                  mlmm scan for YAML/JSON or bidirectional
+                                  4-tuples. Indices refer to the original full
+                                  PDB (1-based) or PDB atom selectors like
+                                  "TYR,285,CA"; they are auto-mapped to the
+                                  pocket after extraction.
   --scan-out-dir DIRECTORY        Override the scan output directory (default:
                                   <out-dir>/_work/scan). Relative paths are
                                   resolved against the default parent.

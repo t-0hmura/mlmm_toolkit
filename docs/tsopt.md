@@ -29,7 +29,9 @@ When explicitly enabled, the surplus-imaginary-mode flatten loop (`--flatten`) u
 
 ## Building a TS candidate first
 
-`tsopt` refines a *candidate* — it does not find one from scratch. Pick the route that matches the information you already have, then feed the result into `tsopt → irc → freq` (or `mlmm all --tsopt`).
+`tsopt` refines an existing candidate rather than generating one de novo.
+Select the candidate-generation route according to the available structural
+information, then continue through `tsopt → irc → freq` (or `mlmm all --tsopt`).
 
 | Route | Subcommand | What it does | Use when |
 | --- | --- | --- | --- |

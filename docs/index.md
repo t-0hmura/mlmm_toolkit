@@ -128,7 +128,7 @@ ja/glossary
 | mmCIF, large residue IDs, and exact selectors | [mmCIF and Large Structures](cif.md) |
 | 3-layer ONIOM, microiteration, link atoms | [Concepts & Workflow](concepts.md) |
 | End-to-end pipeline from a PDB | [Quickstart: all](quickstart-all.md) |
-| Single-structure staged scan | [Quickstart: scan](quickstart-scan-spec.md) |
+| Single-structure restrained scan | [Quickstart: scan](quickstart-scan-spec.md) |
 | TS validation (`tsopt` + freq) | [Quickstart: tsopt](quickstart-tsopt-freq.md) |
 | TS routes, imaginary-frequency fixes, controlled mutant comparison | [`tsopt`](tsopt.md) |
 | Scan modes (staged vs concerted), barrier direction | [`scan`](scan.md) |
@@ -147,7 +147,8 @@ ja/glossary
 | [`extract`](extract.md) · [`mm-parm`](mm-parm.md) · [`define-layer`](define-layer.md) · [`add-elem-info`](add-elem-info.md) · [`fix-altloc`](fix-altloc.md) | Structure preparation |
 | [`opt`](opt.md) · [`tsopt`](tsopt.md) | Geometry / TS optimization |
 | [`path-opt`](path-opt.md) · [`path-search`](path-search.md) | MEP optimization / recursive refinement |
-| [`scan`](scan.md) · [`scan2d`](scan2d.md) · [`scan3d`](scan3d.md) | 1D / 2D / 3D bond-distance scans |
+| [`scan`](scan.md) | Restrained distance scan supporting concerted multi-distance and multistage scans |
+| [`scan2d`](scan2d.md) · [`scan3d`](scan3d.md) | Two- and three-dimensional energy-landscape exploration and PES mapping |
 | [`freq`](freq.md) · [`irc`](irc.md) | Vibrational analysis + thermochemistry / IRC (EulerPC) |
 | [`dft`](dft.md) · [`sp`](sp.md) | Single-point DFT / single-point ML/MM ONIOM |
 | [`bond-summary`](bond-summary.md) | Bond-change report between consecutive structures |

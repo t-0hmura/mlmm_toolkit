@@ -17,7 +17,7 @@ mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
  --tsopt --thermo --dft --out-dir ./result_all
 ```
 
-## まず確認する出力
+## 出力の検証
 
 - `result_all/summary.log`
 - `result_all/summary.json`

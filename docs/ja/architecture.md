@@ -206,7 +206,7 @@ CLI サブコマンドリゾルバ (`cli/app.py:_LAZY_SUBCOMMANDS`) は **絶対
 |---|---|
 | 完全パイプラインオーケストレータ | `mlmm/workflows/all.py` |
 | 構造最適化 (ONIOM マクロ/マイクロ pre-opt) | `mlmm/workflows/opt.py` |
-| 1D / 2D / 3D スキャン + 共有 | `mlmm/workflows/scan{,2d,3d,_common}.py` |
+| Scanと2D/3D energy-landscape grid + 共有 | `mlmm/workflows/scan{,2d,3d,_common}.py` |
 | MEP 探索 (GSM) | `mlmm/workflows/path_search.py` |
 | MEP オプティマイザコア (pysisyphus COS) | `mlmm/workflows/path_opt.py` |
 | TS 最適化 (RSIRFO + Bofill + マクロ/マイクロ) | `mlmm/workflows/tsopt.py` |

@@ -32,7 +32,7 @@ From that input it defines the ML region, runs `mm-parm` + `define-layer`, and p
 ```{important}
 - Input PDBs must already contain **hydrogen atoms**. The "Input prep checklist" below covers the common pitfalls.
 - Multiple PDBs must share the same atoms in the same order (only coordinates differ).
-- Most per-stage subcommands require `--parm` (from `mm-parm`) and `--model-pdb` (from `extract` / `define-layer`); `mlmm all` generates both automatically.
+- Per-stage ML/MM subcommands require `--parm`; ML membership is supplied by `--model-pdb`, `--model-indices`, or a valid B-factor layer assignment. `mlmm all` can generate these inputs automatically.
 ```
 
 For background concepts (3-layer system, link atoms, microiteration, units), read [Concepts & Workflow](concepts.md). For symptom-first diagnosis, jump to [Troubleshooting](troubleshooting.md) or [Common Error Recipes](recipes-common-errors.md).
@@ -57,7 +57,8 @@ Full table: [CLI Conventions](cli-conventions.md).
 - **Match `-l RES:CHARGE` to the H count actually in the file** (e.g. SAM with 23 H = `SAM:1` cation, 22 H = `SAM:0` neutral). Mismatch breaks `antechamber` with an odd-electron sqm failure — do not re-protonate "to look canonical".
 - **R/P atom order must match.** In PyMOL, tick *Original atom order* on export.
 - **Chain boundaries need `TER` records** when automatic insertion is disabled; the default `mm-parm --add-ter` preprocessing inserts chain and disconnected-peptide separators.
-- **Per-stage subcmds**: `-q/--charge` is the **ML-region (ONIOM model-system) net charge**, not the full-system charge. Passing the whole-enzyme charge silently builds a wrong ML region.
+- **Charge scope**: in both `mlmm all` and per-stage commands, `-q/--charge` is the **ML-region (ONIOM model-system) net charge**, not the full-system charge. Passing the whole-enzyme charge silently builds a wrong ML region.
+- **MD snapshots retain their original topology.** Reuse the same full-system `.parm7` used for the MD simulation instead of reparameterizing the snapshot.
 
 ---
 
@@ -136,11 +137,11 @@ custom flows.
 
 ## Main workflow modes
 
-| Mode | Trigger | Use when |
+| Mode | Trigger | Appropriate input |
 |---|---|---|
-| Multi-structure MEP | `-i R.pdb P.pdb [I1.pdb ...]` | You have ≥ 2 endpoints / intermediates (docking, MD, manual modeling). |
-| Staged scan | `-i ONE.pdb --scan-lists '[...]' [ '[...]' ...]` | You'd rather define reaction coordinates than provide multiple endpoints. |
-| TS-only | `-i TS_CANDIDATE.pdb --tsopt` | You already have a TS guess and want `tsopt → IRC → freq`. |
+| Multi-structure MEP | `-i R.pdb P.pdb [I1.pdb ...]` | Two or more endpoints/intermediates are available. |
+| Scan-defined single-structure workflow | `-i ONE.pdb --scan-lists '[...]' [ '[...]' ...]` | Reaction coordinates are specified instead of endpoint structures. |
+| TS-only | `-i TS_CANDIDATE.pdb --tsopt` | A TS candidate is already available for `tsopt → IRC → freq`. |
 
 `mlmm [OPTIONS]` is equivalent to `mlmm all [OPTIONS]` — `all` is the default subcommand, so the bare `mlmm -i ...` examples below run the full `all` workflow.
 
@@ -158,7 +159,9 @@ mlmm -i R.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
 mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo
 ```
 
-Each tuple `(i, j, target_Å)` accepts a PDB atom selector (`'TYR,285,CA'` — space/comma/slash/backtick/backslash) or a 1-based atom index. Pass multiple stages as multiple literals after a single `--scan-lists` flag.
+Each tuple `(i, j, target_Å)` accepts a PDB atom selector or a 1-based atom
+index. Multiple tuples in one literal are advanced concertedly; multiple
+literals after one `--scan-lists` flag define sequential stages.
 
 ```{important}
 Single-input runs require **either** `--scan-lists` (staged scan → GSM) **or** `--tsopt` (TS-only). A bare `-i ONE.pdb` will not trigger a full workflow.
@@ -204,8 +207,8 @@ Full flag references: [oniom-export](oniom-export.md), [oniom-import](oniom-impo
 | `-i, --input PATH...` | Input structures. See the "Main workflow modes" table above for how the input count and accompanying flags select a mode. |
 | `-c, --center TEXT` | Substrate / extraction center (residue names `'SAM,GPP'`, residue IDs `A:123,B:456`, or PDB paths). |
 | `-l, --ligand-charge TEXT` | Charge mapping (`'SAM:1,GPP:-3'`) or single integer. |
-| `-q, --charge INT` / `-m, --multiplicity INT` | ML-region net charge / spin multiplicity. |
-| `-s, --scan-lists TEXT...` | Staged distance scans for single-input runs (literals or YAML/JSON file). |
+| `-q, --charge INT` / `-m, --multiplicity INT` | ML-region/model-system net charge and spin multiplicity, for both `all` and per-stage commands. |
+| `-s, --scan-lists TEXT...` | Inline `(i,j,target)` literals for the scan-defined `all` route. Standalone `scan` additionally accepts YAML/JSON and bidirectional 4-tuples. |
 | `-o, --out-dir PATH` | Top-level output directory. |
 | `--tsopt` / `--thermo` / `--dft` | TS optimization + IRC / vibrational analysis / single-point DFT. |
 | `--refine-path` / `--no-refine-path` | On `mlmm all`, select single-pass `path-opt` (default) or recursive `path-search`. |

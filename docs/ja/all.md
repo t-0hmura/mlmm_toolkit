@@ -1,6 +1,6 @@
 # `all`
 
-`mlmm all` は全系レイヤード PDB 上で ML/MM 機構パイプライン全体を 1 コマンドで実行します。内部では、活性部位抽出、MM トポロジー準備、ML/MM レイヤー割り当て、任意の段階的スキャン、MEP 探索（デフォルトは単一パス `path-opt`、`--refine-path` で再帰 `path-search`）、任意の後処理（TS 最適化、EulerPC IRC、熱化学、DFT 一点計算、DFT//MLIP/MM ダイアグラム）を順に管理します。ML 領域のデフォルト MLIP バックエンドは UMA で、`-b/--backend` で他のバックエンドを選択できます。
+`mlmm all` は全系構造から ML/MM 機構パイプライン全体を 1 コマンドで実行します。内部では、活性部位抽出、MM トポロジー準備、ML/MM レイヤー割り当て、任意のスキャン、MEP 探索（デフォルトは単一パス `path-opt`、`--refine-path` で再帰 `path-search`）、任意の後処理（TS 最適化、EulerPC IRC、熱化学、DFT 一点計算、DFT//MLIP/MM ダイアグラム）を順に管理します。ML 領域のデフォルト MLIP バックエンドは UMA で、`-b/--backend` で他のバックエンドを選択できます。
 
 この順序は `all` が内部管理するステージを示します。単独で再利用するファイルを
 作る場合は、`mm-parm` に明示的な出力接頭辞を与え、その出力 PDB に対して
@@ -15,8 +15,8 @@ mlmm define-layer -i system.pdb --model-pdb model.pdb -o system_layered.pdb
 
 `all` は渡す入力に応じて 3 つのモードのいずれかで動作します:
 
-- **マルチ構造アンサンブル** -- 反応順に 2 つ以上の完全構造を提供し、複数構造にまたがる GSM（デフォルト）または DMF の MEP 探索を実行する。
-- **単一構造 + 段階的スキャン** -- 1 つの完全構造と `--scan-lists` を提供する。各リテラルがスキャンステージとなり、緩和済みの端点が MEP の端点となる。
+- **複数構造 MEP** -- 反応順に 2 つ以上の完全構造を提供し、複数構造にまたがる GSM（デフォルト）または DMF の MEP 探索を実行する。
+- **単一構造 + スキャン定義** -- 1つの完全構造と`--scan-lists`を提供する。1リテラルが1ステージとなり、同一リテラル内の複数tupleは協奏的に駆動する。複数リテラルは多段階scanとして順次実行し、緩和済み端点をMEPの入力列とする。
 - **TSOPT のみ** -- 1 つの完全構造を提供し `--tsopt` を設定（`--scan-lists` なし）して、MEP 探索なしで TS 最適化を直接実行する。
 
 ```{important}
@@ -28,7 +28,7 @@ mlmm define-layer -i system.pdb --model-pdb model.pdb -o system_layered.pdb
 コマンド形式:
 
 ```bash
-mlmm all -i INPUT1 [INPUT2...] -c SUBSTRATE [options]
+mlmm all -i INPUT1 [INPUT2...] [-c SUBSTRATE] [--parm TOPOLOGY] [options]
 ```
 
 コアオプションは `mlmm all --help`、全オプション一覧は `mlmm all --help-advanced` で確認できます。
@@ -258,7 +258,7 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
-| `-s, --scan-lists TEXT...` | 段階的スキャン: `(i,j,target_A)` タプル。 | _None_ |
+| `-s, --scan-lists TEXT...` | インライン`(i,j,target_A)`リテラル。1リテラル=1ステージ、同一リテラル内の複数tupleは同期。YAML/JSONと双方向4-tupleはstandalone `scan`で使用 | _None_ |
 | `--scan-out-dir PATH` | スキャン出力ディレクトリの上書き。 | `<out-dir>/_work/scan` |
 | `--scan-one-based/--scan-zero-based` | スキャン原子インデックスを 1 始まりまたは 0 始まりとして解釈。 | _None_ |
 | `--scan-max-step-size FLOAT` | 最大ステップサイズ (Å)。 | `0.20` |

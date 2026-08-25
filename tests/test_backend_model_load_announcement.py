@@ -41,6 +41,11 @@ def test_first_load_is_bracketed_then_silent(
     assert f"[backend] Preparing MLIP model ({backend} / {model})..." in out
     assert "[backend] Done." in out
     assert out.index("Preparing MLIP model") < out.index("[backend] Done.")
+    lines = out.splitlines()
+    preparing = next(i for i, line in enumerate(lines) if "Preparing MLIP model" in line)
+    done = lines.index("[backend] Done.")
+    assert preparing == 0 or lines[preparing - 1] == ""
+    assert done + 1 < len(lines) and lines[done + 1] == ""
 
     _create(backend, **{model_kwarg: model})
     assert "Preparing MLIP model" not in capsys.readouterr().out

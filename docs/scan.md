@@ -2,6 +2,14 @@
 
 `mlmm scan` drives a reaction coordinate from a single layered enzyme structure to generate a coarse reaction trajectory, providing intermediate/product candidates for downstream MEP refinement. Input may be PDB/mmCIF, or XYZ with `--ref-pdb`. It performs a staged, bond-length-driven scan with the ML/MM calculator (`mlmm.backends.mlmm_calc.mlmm`), driving one or more interatomic distances toward target values under harmonic restraints. At each step the temporary targets are updated, restraint wells are applied, and the structure is relaxed with L-BFGS. The ML/MM calculator couples an MLIP backend (selected via `-b/--backend`; default: UMA) and mlmm-toolkit's MM force field. Use `-s/--scan-lists` to define targets as a YAML/JSON spec file (recommended) or as inline Python literals.
 
+## Scan-coordinate staging
+
+One literal or YAML `stages` entry defines one stage. Several distance tuples
+within that stage are advanced concertedly. Several literals/entries define
+sequential stages, each starting from the preceding endpoint.
+[`scan2d`](scan2d.md) and [`scan3d`](scan3d.md) instead evaluate independent
+distance axes for energy-landscape exploration and PES mapping.
+
 ## Examples
 
 Command form:
@@ -193,14 +201,7 @@ Example with two stages:
 
 Each stage starts from the previous stage's relaxed result.
 
-**Concerted versus staged scans**
-
-The number of literals you pass decides whether the coordinates are driven together (concerted) or in sequence (staged):
-
-| Form | How to invoke | Meaning | Mechanism needed up front? |
-| --- | --- | --- | --- |
-| Concerted | a **single** literal containing several `(i, j, target)` tuples | all coordinates driven together within one stage | No |
-| Staged | **several** literals, one per stage | each stage is its own restrained relaxation, written to `stage_NN/` | Yes — define the mechanism per stage |
+**Synchronized and sequential examples**
 
 ```bash
 # Concerted: one stage, two distances driven together
@@ -213,7 +214,9 @@ mlmm scan -i r.pdb --parm enzyme.parm7 -l 'LIG:Q' \
        '[(7,9,0.95)]' -o result_staged
 ```
 
-A concerted scan needs no mechanism breakdown — [`path-search`](path-search.md) performs the multistep auto-segmentation for you. A staged scan needs the mechanism defined up front and exposes each prescribed coordinate change as a separate stage. (A four-tuple expands into two stages for a bidirectional scan.)
+The concerted form can be followed by [`path-search`](path-search.md) when
+candidate multistep segmentation is required. A four-tuple is a separate
+bidirectional syntax and expands into two stages.
 
 **Bidirectional scan (4-tuple)**
 

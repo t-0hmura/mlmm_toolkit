@@ -1,6 +1,6 @@
 # `all`
 
-`mlmm all` runs the end-to-end ML/MM enzymatic-reaction workflow on full-system layered PDBs in one command. Internally it coordinates active-site extraction, MM topology preparation, ML/MM layer assignment, an optional staged scan, MEP search (single-pass `path-opt` by default; recursive `path-search` with `--refine-path`), and optional post-processing (TS optimization, EulerPC IRC, thermochemistry, single-point DFT, and DFT//MLIP/MM diagrams). The default MLIP backend for the ML region is UMA; choose an alternative with `-b/--backend`.
+`mlmm all` runs the end-to-end ML/MM enzymatic-reaction workflow from full-system structures. Internally it coordinates active-site extraction, MM topology preparation, ML/MM layer assignment, an optional scan, MEP search (single-pass `path-opt` by default; recursive `path-search` with `--refine-path`), and optional post-processing (TS optimization, EulerPC IRC, thermochemistry, single-point DFT, and DFT//MLIP/MM diagrams). The default MLIP backend for the ML region is UMA; choose an alternative with `-b/--backend`.
 
 That sequence describes `all`'s internally managed stages. For reusable files,
 request a distinct `mm-parm` output prefix, then run `extract` and
@@ -15,8 +15,8 @@ mlmm define-layer -i system.pdb --model-pdb model.pdb -o system_layered.pdb
 
 `all` runs in one of three modes, chosen by what you pass:
 
-- **Multi-structure ensemble** — give at least two full structures in reaction order to drive a GSM (default) or DMF MEP search across the supplied structures.
-- **Single-structure staged scan** — give one full structure plus `--scan-lists`; each literal is a scan stage and the relaxed endpoints become the MEP endpoints.
+- **Multi-structure MEP** — give at least two full structures in reaction order to drive a GSM (default) or DMF MEP search across the supplied structures.
+- **Single-structure scan-defined workflow** — give one full structure plus `--scan-lists`. One literal defines one stage; several tuples within it are advanced concertedly. The relaxed stage endpoints become the MEP input series.
 - **TSOPT-only** — give a single full structure and set `--tsopt` (no `--scan-lists`) to run TS optimization directly, with no MEP search.
 
 Inputs may also be `.cif` / `.mmcif`; computation uses a temporary internal
@@ -39,7 +39,7 @@ be validated. Always inspect the modes and endpoint connectivity.
 Command form:
 
 ```bash
-mlmm all -i INPUT1 [INPUT2 ...] -c SUBSTRATE [options]
+mlmm all -i INPUT1 [INPUT2 ...] [-c SUBSTRATE] [--parm TOPOLOGY] [options]
 ```
 
 `mlmm all --help` shows core options; `mlmm all --help-advanced` shows the full option list.
@@ -264,7 +264,7 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) → `--opt-mode` (on
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `-s, --scan-lists TEXT...` | Staged scans: `(i, j, target_Å)` tuples. | _None_ |
+| `-s, --scan-lists TEXT...` | Inline `(i, j, target_Å)` literals. One literal is one stage; several tuples within it form a concerted scan. Use standalone `scan` for YAML/JSON or bidirectional 4-tuples. | _None_ |
 | `--scan-out-dir PATH` | Override the scan output directory. | `<out-dir>/_work/scan` |
 | `--scan-one-based / --scan-zero-based` | Interpret scan atom indices as 1-based or 0-based. | _None_ |
 | `--scan-max-step-size FLOAT` | Maximum step size (Å). | `0.20` |
