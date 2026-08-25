@@ -7,6 +7,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased] — 2026-08-19
 
 ### Fixed
+- Preserve the blank line before the first MLIP model-load announcement even when an stderr warning immediately precedes it.
 - Preserve the MM micro-optimizer until its non-convergence diagnostics have been collected, preventing a post-macro microiteration failure from raising `UnboundLocalError`.
 - Record terminal PHVA as `skipped`, rather than `unavailable`, when a non-converged Hessian TS optimizer does not authorize the analysis.
 - Print a section heading before each tagged recursive GSM segment and before standalone Growing String optimization.

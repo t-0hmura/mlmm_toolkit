@@ -891,7 +891,11 @@ def _patch_click_echo() -> None:
                 if bd in s:
                     s = s.replace(bd + "/", "").replace(bd, ".")
             if isinstance(s, str):
-                if self._last_was_blank and s.startswith("\n"):
+                if (
+                    self._last_was_blank
+                    and _last_was_blank[0]
+                    and s.startswith("\n")
+                ):
                     s = s.lstrip("\n")
                     if not s:
                         return original_len

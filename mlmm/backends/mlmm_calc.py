@@ -1056,8 +1056,7 @@ def _announce_model_load(backend: str, model: str):
         return
     _ANNOUNCED_MODEL_LOADS.add(key)
     label = f"{backend}{f' / {model}' if model else ''}"
-    emit("", narrative=True)
-    emit(f"[backend] Preparing MLIP model ({label})...", narrative=True)
+    emit(f"\n[backend] Preparing MLIP model ({label})...", narrative=True)
     try:
         yield
     except BaseException:

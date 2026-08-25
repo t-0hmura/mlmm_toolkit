@@ -108,6 +108,37 @@ def test_detail_tag_is_not_implicitly_promoted_to_narrative(
     ]
 
 
+def test_stdout_spacing_respects_an_intervening_stderr_line() -> None:
+    code = """
+import click
+from mlmm.core.output import emit
+from mlmm.core.utils import _patch_click_echo
+
+_patch_click_echo()
+emit('[mode]')
+emit('')
+click.echo('[warning]', err=True)
+emit('\\n[backend] Preparing MLIP model (uma / uma-s-1p2)...')
+"""
+    proc = subprocess.run(
+        [sys.executable, "-u", "-c", code],
+        cwd=Path(__file__).resolve().parents[1],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        check=False,
+    )
+
+    assert proc.returncode == 0, proc.stdout
+    assert proc.stdout.splitlines() == [
+        "[mode]",
+        "",
+        "[warning]",
+        "",
+        "[backend] Preparing MLIP model (uma / uma-s-1p2)...",
+    ]
+
+
 def test_no_native_click_echo_receives_private_or_dynamic_tags() -> None:
     private_tags = {"narrative", "detail", "force", "raw_path"}
     package_root = Path(__file__).resolve().parents[1] / "mlmm"
