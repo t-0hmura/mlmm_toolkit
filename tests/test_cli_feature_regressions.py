@@ -1139,8 +1139,8 @@ def test_coord_type_dlc_falls_back_to_cart_under_lbfgs() -> None:
     under `--opt-mode grad` (L-BFGS) it must fall back to Cartesian, while
     `--opt-mode hess` keeps DLC."""
     repo = Path(__file__).resolve().parents[1]
-    in_pdb = repo / "examples" / "toy_system" / "p_complex_layered.pdb"
-    parm = repo / "examples" / "toy_system" / "p_complex.parm7"
+    in_pdb = repo / "examples" / "toy_system" / "p_toy.pdb"
+    parm = repo / "examples" / "toy_system" / "p_toy.parm7"
     if not (in_pdb.exists() and parm.exists()):
         pytest.skip("toy_system example inputs not present")
     runner = CliRunner()
@@ -1165,8 +1165,8 @@ def test_opt_rejects_the_removed_projection_mode_from_yaml(
     tmp_path: Path, configured: str, should_run: bool,
 ) -> None:
     repo = Path(__file__).resolve().parents[1]
-    in_pdb = repo / "examples" / "toy_system" / "p_complex_layered.pdb"
-    parm = repo / "examples" / "toy_system" / "p_complex.parm7"
+    in_pdb = repo / "examples" / "toy_system" / "p_toy.pdb"
+    parm = repo / "examples" / "toy_system" / "p_toy.parm7"
     if not (in_pdb.exists() and parm.exists()):
         pytest.skip("toy_system example inputs not present")
     config = tmp_path / "projection.yaml"

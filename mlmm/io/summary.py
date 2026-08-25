@@ -8,6 +8,7 @@ post-processing energies, 3-layer system info, and key output paths.
 
 from __future__ import annotations
 
+import re
 import textwrap
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence
@@ -22,6 +23,96 @@ from mlmm.core.defaults import (
     WORK_DIRNAME,
     TS_IMAG_SOFT_WARN_CM,
 )
+
+
+def format_result_warning(reason: Any) -> str:
+    """Translate an internal scientific-status reason into user-facing English."""
+    raw = str(reason or "").strip()
+    lowered = raw.lower()
+    segment_match = re.search(r"(?:^|:)segment_(\d+)(?::|$)", lowered)
+    if segment_match is None:
+        segment_match = re.fullmatch(r"missing:segment_(\d+)", lowered)
+    segment = segment_match.group(1) if segment_match else None
+
+    def scoped(message: str) -> str:
+        if segment is None:
+            return message[0].upper() + message[1:]
+        return f"Segment {segment}: {message}"
+
+    direction_matches = re.findall(
+        r"(?:^|[;:])irc:(?:irc:)?(forward|backward):([^;]+)", lowered
+    )
+    if direction_matches:
+        messages: List[str] = []
+        direction_text = {
+            "not_converged": "IRC did not converge. Review its trajectory and IRC log.",
+            "convergence_unknown": (
+                "IRC convergence could not be confirmed. Review its trajectory and IRC log."
+            ),
+            "energy_invalid": (
+                "IRC did not produce a valid energy profile. Review its trajectory and IRC log."
+            ),
+        }
+        for direction, direction_code in direction_matches:
+            detail = direction_text.get(direction_code.strip())
+            if detail is not None:
+                messages.append(f"{direction.capitalize()} {detail}")
+        if messages:
+            return scoped(" ".join(dict.fromkeys(messages)))
+
+    code = lowered.rsplit(":", 1)[-1].strip()
+    if code == "irc_endpoint_connectivity_unvalidated":
+        return (
+            "Bond-topology matching between the two IRC endpoints and the two "
+            "input endpoint structures could not be validated. Review both IRC "
+            "endpoint structures before using this result."
+        )
+    priority_messages = {
+        "mep_not_converged": (
+            "MEP optimization did not converge. Review the MEP trajectory and convergence log."
+        ),
+        "mep_convergence_unknown": (
+            "MEP convergence could not be confirmed. Review the MEP result and log."
+        ),
+        "irc_missing": "IRC results are missing. Confirm that TS optimization and IRC completed.",
+        "post_missing": "requested post-processing is incomplete. Review the post-processing log.",
+        "not_converged": "the calculation did not converge. Review the trajectory and convergence log.",
+        "convergence_unknown": "convergence could not be confirmed. Review the result and log.",
+        "endpoint_hei": (
+            "no reactive segment was identified; only an endpoint/HEI path is available. "
+            "Review the path before using its barrier."
+        ),
+        "engine_nonconverged": "the path-search engine did not converge. Review the path-search log.",
+        "irc_result_missing": "IRC result metadata are missing. Confirm that IRC completed and wrote result.json.",
+        "irc_result_unreadable": "IRC result metadata could not be read. Review result.json and the IRC log.",
+        "irc_status_unknown": "IRC completion status could not be confirmed. Review result.json and the IRC log.",
+        "irc_partial": "IRC completed only partially. Review both directional trajectories and the IRC log.",
+        "irc_failed": "IRC failed. Review the IRC log and generated trajectories.",
+    }
+    if "endpoint_hei" in lowered and "engine_nonconverged" in lowered:
+        return (
+            "No reactive segment was identified and the path-search engine did not converge. "
+            "Review the path and path-search log."
+        )
+    endpoint_match = re.search(r":endpoint_opt:([a-z0-9_]+)$", lowered)
+    if endpoint_match:
+        label = endpoint_match.group(1).removesuffix("_converged").replace("_", " ")
+        return scoped(
+            f"the {label} endpoint optimization did not converge or could not be confirmed. "
+            "Review the endpoint structure and optimizer log."
+        )
+    if lowered.startswith("missing:segment_"):
+        return scoped("the expected segment result is missing. Review the workflow outputs.")
+    if code in priority_messages:
+        return scoped(priority_messages[code])
+    if not raw:
+        return "Result validation did not complete. Review the run details."
+    if "_" in raw and " " not in raw:
+        raw = raw.replace("_", " ")
+    message = raw[0].upper() + raw[1:]
+    if message[-1] not in ".!?":
+        message += "."
+    return message
 
 _CITATION_RECORDS: Dict[str, tuple[str, str]] = {
     "software": (
@@ -712,12 +803,9 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
         or []
     )
     if scientific_status not in (None, "success"):
-        lines.append(
-            "RESULT WARNING      : Energies and barriers below are diagnostic; "
-            "this run is not a complete validated result."
-        )
-    for reason in status_reasons:
-        lines.append(f"Status reason       : {reason}")
+        reasons = list(status_reasons) or [None]
+        for reason in reasons:
+            lines.append(f"RESULT WARNING      : {format_result_warning(reason)}")
     lines.append(f"Total charge (ML)  : {charge if charge is not None else '-'}")
     lines.append(f"Multiplicity (2S+1): {spin if spin is not None else '-'}")
 

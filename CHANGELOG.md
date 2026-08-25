@@ -7,6 +7,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased] — 2026-08-19
 
 ### Fixed
+- Translate internal partial-result codes into concise, actionable warnings in `summary.log` and final stdout.
 - Preserve the blank line before the first MLIP model-load announcement even when an stderr warning immediately precedes it.
 - Preserve the MM micro-optimizer until its non-convergence diagnostics have been collected, preventing a post-macro microiteration failure from raising `UnboundLocalError`.
 - Record terminal PHVA as `skipped`, rather than `unavailable`, when a non-converged Hessian TS optimizer does not authorize the analysis.
@@ -26,6 +27,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Remove the replaced path-tangent/single-mode helpers and one unreferenced mass-weighted-frequency wrapper; larger workflow and Notebook refactors remain deferred.
 
 ### Changed
+- Remove the redundant `Path with N moving images.` startup line; tagged GSM sections and `String=...` records identify progress.
+- Rename the prepared Toy inputs to `r_toy.pdb`, `p_toy.pdb`, and `p_toy.parm7` and label the notebook route as MEP mode.
+- Enable repeated trajectory playback by default, select stitched `finished_irc_trj` for IRC profiles, and place the trajectory/energy view before result status and generated-file details in Colab.
 - Show Hessian cache-reuse notices at `-v 2`; cache identity and rejection details remain at `-v 3`.
 - Map the `hess` TS-optimizer preset to RS-P-RFO. Standalone `tsopt` retains RS-I-RFO through `--opt-mode rsirfo`.
 - Remove the legacy `light` and `heavy` optimizer aliases; use `grad`/`hess` or the algorithm names exposed by each subcommand.

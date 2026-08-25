@@ -73,6 +73,7 @@ from mlmm.io.trj2fig import run_trj2fig
 from mlmm.io.path_mode_cache import load_path_mode_cache, write_path_mode_cache
 from mlmm.io.summary import (
     emit_method_citations,
+    format_result_warning,
     method_references,
     write_summary_log,
 )
@@ -432,12 +433,12 @@ def _emit_final_summary(
             or []
         )
         if scientific_status not in (None, "success"):
-            _echo(
-                "RESULT WARNING: this run is not a complete validated result.",
-                narrative=True,
-            )
-        for reason in status_reasons:
-            _echo(f"Status reason: {reason}", narrative=True)
+            reasons = list(status_reasons) or [None]
+            for reason in reasons:
+                _echo(
+                    f"RESULT WARNING: {format_result_warning(reason)}",
+                    narrative=True,
+                )
         rls = summary.get("rate_limiting_step")
         if isinstance(rls, dict):
             barrier = rls.get("barrier_kcal")

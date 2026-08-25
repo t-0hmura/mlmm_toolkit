@@ -159,8 +159,8 @@ def test_opt_dry_run_rejects_invalid_yaml_method(
     tmp_path: Path, key: str, value: str, message: str
 ) -> None:
     repo = Path(__file__).resolve().parents[1]
-    in_pdb = repo / "examples" / "toy_system" / "p_complex_layered.pdb"
-    parm = repo / "examples" / "toy_system" / "p_complex.parm7"
+    in_pdb = repo / "examples" / "toy_system" / "p_toy.pdb"
+    parm = repo / "examples" / "toy_system" / "p_toy.parm7"
     if not (in_pdb.exists() and parm.exists()):
         pytest.skip("toy_system example inputs not present")
     config = tmp_path / "invalid-method.yaml"

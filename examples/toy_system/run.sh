@@ -16,52 +16,52 @@ cd -- "$work_dir"
 mlmm extract -i r_complex.pdb -c PRE -r 5.0 --ligand-charge 'PRE:0' -o pocket_r.pdb > test1.out 2>&1
 
 # test2: define-layer
-mlmm define-layer -i r_complex.pdb --model-pdb pocket_r.pdb --radius-freeze 8.0 -o r_complex_layered.pdb > test2.out 2>&1
+mlmm define-layer -i r_complex.pdb --model-pdb pocket_r.pdb --radius-freeze 8.0 -o r_toy.pdb > test2.out 2>&1
 
 # test3: mm-parm
 mlmm mm-parm -i r_complex.pdb --ligand-charge 'PRE:0' > test3.out 2>&1
 
 # test4: opt (grad)
-mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode grad --dump --out-dir test4 > test4.out 2>&1
+mlmm opt -i r_toy.pdb --parm p_toy.parm7 -q -1 -m 1 --opt-mode grad --dump --out-dir test4 > test4.out 2>&1
 
 # test5: opt (hess)
-mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode hess --out-dir test5 > test5.out 2>&1
+mlmm opt -i r_toy.pdb --parm p_toy.parm7 -q -1 -m 1 --opt-mode hess --out-dir test5 > test5.out 2>&1
 
 # test6: opt (hess, microiter)
-mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode hess --microiter --out-dir test6 > test6.out 2>&1
+mlmm opt -i r_toy.pdb --parm p_toy.parm7 -q -1 -m 1 --opt-mode hess --microiter --out-dir test6 > test6.out 2>&1
 
 # test7: tsopt (grad / dimer)
-mlmm tsopt -i p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode grad --out-dir test7 > test7.out 2>&1
+mlmm tsopt -i p_toy.pdb --parm p_toy.parm7 -q -1 -m 1 --opt-mode grad --out-dir test7 > test7.out 2>&1
 
 # test8: tsopt (hess / rsprfo, microiteration default)
-mlmm tsopt -i p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode hess --out-dir test8 > test8.out 2>&1
+mlmm tsopt -i p_toy.pdb --parm p_toy.parm7 -q -1 -m 1 --opt-mode hess --out-dir test8 > test8.out 2>&1
 
 # test9: freq
-mlmm freq -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --out-dir test9 > test9.out 2>&1
+mlmm freq -i r_toy.pdb --parm p_toy.parm7 -q -1 -m 1 --out-dir test9 > test9.out 2>&1
 
 # test10: irc
-mlmm irc -i p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --out-dir test10 > test10.out 2>&1
+mlmm irc -i p_toy.pdb --parm p_toy.parm7 -q -1 -m 1 --out-dir test10 > test10.out 2>&1
 
 # test11: dft
-mlmm dft -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --out-dir test11 > test11.out 2>&1
+mlmm dft -i r_toy.pdb --parm p_toy.parm7 -q -1 -m 1 --out-dir test11 > test11.out 2>&1
 
 # test12: scan (1D)
-mlmm scan -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',2.0)]" --out-dir test12 > test12.out 2>&1
+mlmm scan -i r_toy.pdb --parm p_toy.parm7 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',2.0)]" --out-dir test12 > test12.out 2>&1
 
 # test13: scan2d
-mlmm scan2d -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',1.0,3.0),('PRE 8 C1','PRE 8 C8',1.0,3.0)]" --out-dir test13 > test13.out 2>&1
+mlmm scan2d -i r_toy.pdb --parm p_toy.parm7 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',1.0,3.0),('PRE 8 C1','PRE 8 C8',1.0,3.0)]" --out-dir test13 > test13.out 2>&1
 
 # test14: scan3d
-mlmm scan3d -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',1.0,3.0),('PRE 8 C1','PRE 8 C8',1.0,3.0),('PRE 8 C1','PRE 8 C7',1.0,2.0)]" --out-dir test14 > test14.out 2>&1
+mlmm scan3d -i r_toy.pdb --parm p_toy.parm7 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',1.0,3.0),('PRE 8 C1','PRE 8 C8',1.0,3.0),('PRE 8 C1','PRE 8 C7',1.0,2.0)]" --out-dir test14 > test14.out 2>&1
 
 # test15: path-opt (gsm)
-mlmm path-opt -i r_complex_layered.pdb p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --out-dir test15 > test15.out 2>&1
+mlmm path-opt -i r_toy.pdb p_toy.pdb --parm p_toy.parm7 -q -1 -m 1 --out-dir test15 > test15.out 2>&1
 
 # test16: path-opt (dmf)
-mlmm path-opt -i r_complex_layered.pdb p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --mep-mode dmf --out-dir test16 > test16.out 2>&1
+mlmm path-opt -i r_toy.pdb p_toy.pdb --parm p_toy.parm7 -q -1 -m 1 --mep-mode dmf --out-dir test16 > test16.out 2>&1
 
 # test17: path-search
-mlmm path-search -i r_complex_layered.pdb p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --out-dir test17 > test17.out 2>&1
+mlmm path-search -i r_toy.pdb p_toy.pdb --parm p_toy.parm7 -q -1 -m 1 --out-dir test17 > test17.out 2>&1
 
 # test18: all (no tsopt/thermo/dft)
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q -1 -m 1 --no-tsopt --no-thermo --no-dft --out-dir test18 > test18.out 2>&1
@@ -73,25 +73,25 @@ mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q
 mlmm all -i r_complex.pdb p_complex.pdb --parm test19/mm_parm/r_complex.parm7 --model-pdb test19/ml_region.pdb -q -1 -m 1 --no-tsopt --no-thermo --no-dft --out-dir test20 > test20.out 2>&1
 
 # test21: opt --dry-run
-mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode grad --dry-run --out-dir test21 > test21.out 2>&1
+mlmm opt -i r_toy.pdb --parm p_toy.parm7 -q -1 -m 1 --opt-mode grad --dry-run --out-dir test21 > test21.out 2>&1
 
 # test22: tsopt --dry-run
-mlmm tsopt -i p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode hess --dry-run --out-dir test22 > test22.out 2>&1
+mlmm tsopt -i p_toy.pdb --parm p_toy.parm7 -q -1 -m 1 --opt-mode hess --dry-run --out-dir test22 > test22.out 2>&1
 
 # test23: freq --dry-run
-mlmm freq -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --dry-run --out-dir test23 > test23.out 2>&1
+mlmm freq -i r_toy.pdb --parm p_toy.parm7 -q -1 -m 1 --dry-run --out-dir test23 > test23.out 2>&1
 
 # test24: scan --dry-run
-mlmm scan -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',2.0)]" --dry-run --out-dir test24 > test24.out 2>&1
+mlmm scan -i r_toy.pdb --parm p_toy.parm7 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',2.0)]" --dry-run --out-dir test24 > test24.out 2>&1
 
 # test25: dft --dry-run
-mlmm dft -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --dry-run --out-dir test25 > test25.out 2>&1
+mlmm dft -i r_toy.pdb --parm p_toy.parm7 -q -1 -m 1 --dry-run --out-dir test25 > test25.out 2>&1
 
 # test26: path-search --dry-run
-mlmm path-search -i r_complex_layered.pdb p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --dry-run --out-dir test26 > test26.out 2>&1
+mlmm path-search -i r_toy.pdb p_toy.pdb --parm p_toy.parm7 -q -1 -m 1 --dry-run --out-dir test26 > test26.out 2>&1
 
 # test27: irc --dry-run
-mlmm irc -i p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --dry-run --out-dir test27 > test27.out 2>&1
+mlmm irc -i p_toy.pdb --parm p_toy.parm7 -q -1 -m 1 --dry-run --out-dir test27 > test27.out 2>&1
 
 # test28: add-elem-info
 cp r_complex.pdb r_complex_copy.pdb
@@ -104,4 +104,4 @@ mlmm trj2fig -i test4/optimization_trj.xyz -o test29.png > test29.out 2>&1
 mlmm energy-diagram -i "[0, 12.5, 4.3, 18.7, -1.2]" -o test30.png > test30.out 2>&1
 
 # test31: oniom-export
-mlmm oniom-export --parm p_complex.parm7 -i r_complex_layered.pdb --model-pdb ml_region_r.pdb -q -1 -m 1 -o test31.gjf > test31.out 2>&1
+mlmm oniom-export --parm p_toy.parm7 -i r_toy.pdb --model-pdb ml_region_r.pdb -q -1 -m 1 -o test31.gjf > test31.out 2>&1

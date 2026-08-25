@@ -6,13 +6,13 @@ from mlmm.backends.mlmm_calc import MLMMCore, MLMMASECalculator
 
 core = MLMMCore(
     input_pdb="r_complex.pdb",
-    real_parm7="p_complex.parm7",
+    real_parm7="p_toy.parm7",
     model_pdb="ml_region_r.pdb",
     model_charge=-1,
     model_mult=1,
 )
 
-atoms = read("r_complex_layered.pdb")
+atoms = read("r_toy.pdb")
 atoms.calc = MLMMASECalculator(core)
 
 opt = LBFGS(atoms, logfile="opt_ase.log")

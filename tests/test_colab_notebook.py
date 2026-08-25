@@ -77,6 +77,26 @@ def _notebook() -> dict:
     return notebook
 
 
+def test_colab_debug2_result_workflow_is_integrated_without_regressions() -> None:
+    notebook = _notebook()
+    setup = notebook["cells"][1]["source"]
+    app = notebook["cells"][2]["source"]
+
+    assert "_plot_probe_code" in setup
+    assert "'show_water': True" in app
+    assert "Toy system - MEP mode (R->P)" in app
+    assert "toy_system/r_toy.pdb" in app
+    assert "toy_system/p_toy.pdb" in app
+    assert "toy_system/p_toy.parm7" in app
+    assert "repeat=True, show_repeat=True" in app
+    assert "if 'finished_irc_trj' in name:" in app
+    assert "if 'results_dir' in globals(): results_dir.value = str(out)" in app
+    assert "if name == 'summary.log': return -1" in app
+    assert "trajectory_box, res_out, results_empty, result_context, artifact_fold" in app
+    assert "Return every distinct imaginary-mode trajectory for each TS." in app
+    assert "one TS imaginary-mode animation" not in app
+
+
 def _css_rule_has(source: str, selector: str, *declarations: str) -> bool:
     """Match declarations in one selector block without coupling to whitespace."""
     compact = lambda value: re.sub(r"\s+", "", value)

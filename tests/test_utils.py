@@ -6,6 +6,28 @@ import tempfile
 import pytest
 import numpy as np
 
+
+def test_rfo_safeguard_summary_requires_verbose_level_three() -> None:
+    from mlmm.core.utils import _pysis_stdout_visible, set_verbose_level
+
+    line = "RFO safeguards: rejected 0 uphill trial(s), skipped 58 unsafe BFGS update(s)."
+    try:
+        for level in (0, 1, 2):
+            set_verbose_level(level)
+            assert not _pysis_stdout_visible(line)
+        set_verbose_level(3)
+        assert _pysis_stdout_visible(line)
+    finally:
+        set_verbose_level(0)
+
+
+def test_optimizer_omits_redundant_moving_image_startup_line() -> None:
+    import inspect
+    from pysisyphus.optimizers.Optimizer import Optimizer
+
+    assert "Path with" not in inspect.getsource(Optimizer.__init__)
+
+
 # Skip on Python < 3.11
 pytestmark = pytest.mark.skipif(
     sys.version_info < (3, 11),

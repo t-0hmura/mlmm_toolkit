@@ -42,8 +42,8 @@ def _coordinates(path: Path):
 def test_toy_endpoints_reuse_one_ordered_ml_selection() -> None:
     model_r = _records(TOY / "ml_region_r.pdb")
     model_p = _records(TOY / "ml_region_p.pdb")
-    layered_r = _records(TOY / "r_complex_layered.pdb", bfactor=0.0)
-    layered_p = _records(TOY / "p_complex_layered.pdb", bfactor=0.0)
+    layered_r = _records(TOY / "r_toy.pdb", bfactor=0.0)
+    layered_p = _records(TOY / "p_toy.pdb", bfactor=0.0)
 
     assert model_r
     assert model_p == model_r
@@ -65,6 +65,6 @@ def test_toy_endpoints_reuse_one_ordered_ml_selection() -> None:
 
 def test_toy_full_endpoint_atom_order_is_identical() -> None:
     assert _records(TOY / "r_complex.pdb") == _records(TOY / "p_complex.pdb")
-    assert _records(TOY / "r_complex_layered.pdb") == _records(
-        TOY / "p_complex_layered.pdb",
+    assert _records(TOY / "r_toy.pdb") == _records(
+        TOY / "p_toy.pdb",
     )
