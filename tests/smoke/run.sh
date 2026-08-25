@@ -128,12 +128,14 @@ mlmm scan3d -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --scan-li
 
 # test15: path-opt (gsm)
 mlmm path-opt -i r_complex_layered.pdb p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --max-nodes 5 --max-cycles-gsm 5 --thresh-gsm gau_loose --no-preopt --no-climb --out-dir test15 > test15.out 2>&1
+grep -Fq "====== Growing String optimization ======" test15.out || { echo "[smoke] FAIL: path-opt GSM section heading missing" >&2; exit 1; }
 
 # test16: path-opt (dmf)
 mlmm path-opt -i r_complex_layered.pdb p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --mep-mode dmf --max-cycles-dmf 3 --thresh-dmf middle --no-preopt --out-dir test16 > test16.out 2>&1
 
 # test17: path-search
 mlmm path-search -i r_complex_layered.pdb p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --max-cycles-gsm 5 --out-dir test17 > test17.out 2>&1
+grep -Fq "====== [seg_000_refine] GSM ======" test17.out || { echo "[smoke] FAIL: tagged recursive GSM section heading missing" >&2; exit 1; }
 
 # test18: all (no tsopt/thermo/dft)
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q -1 -m 1 --no-refine-path --max-cycles-gsm 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test18 > test18.out 2>&1
