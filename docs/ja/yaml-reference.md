@@ -290,6 +290,8 @@ gs:
  scheduler: null # オプションのスケジューラバックエンド
 ```
 
+`gs.param` は `equi` または `energy` を受け付けます。energy weighting はGSMストリングの完全成長後にのみ適用され、高エネルギー領域へノード密度を寄せます。対応するCLIオプションは `--gsm-param` です。
+
 ---
 
 ### `dmf`

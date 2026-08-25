@@ -306,7 +306,7 @@ gs:
  reparam_check: rms # Reparameterization check metric
  reparam_every: 1 # Reparameterization stride
  reparam_every_full: 1 # Full reparameterization stride
- param: equi # Parametrization scheme
+ param: equi # Parameterization scheme
  max_micro_cycles: 10 # Micro-iteration limit
  reset_dlc: true # Rebuild delocalized coordinates each step
  climb: true # Enable climbing image
@@ -316,6 +316,8 @@ gs:
  climb_fixed: false # Keep climbing image fixed
  scheduler: null # Optional scheduler backend
 ```
+
+`gs.param` accepts `equi` or `energy`. Energy weighting is applied only after the GSM string is fully grown and shifts node density toward high-energy regions. The equivalent CLI option is `--gsm-param`.
 
 ---
 

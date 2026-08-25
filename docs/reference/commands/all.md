@@ -101,6 +101,11 @@ Options:
   --max-nodes INTEGER             Max internal nodes per GSM/DMF segment
                                   (max_nodes+2 images including endpoints).
                                   [default: 20]
+  --gsm-param [equi|energy]       GSM node parameterization after string growth.
+                                  The energy scheme concentrates nodes in high-
+                                  energy regions and may be tried when an
+                                  equidistant path skips the reaction-coordinate
+                                  region near the HEI.  [default: (equi)]
   --max-cycles-gsm INTEGER RANGE  Maximum GSM string-optimizer cycles for the
                                   MEP stage.  [default: (300); x>=1]
   --max-cycles-dmf INTEGER RANGE  Maximum IPOPT iterations for the DMF MEP
@@ -181,8 +186,8 @@ Options:
                                   this Hessian reference mode.  [default: tsopt-
                                   from-mep-tan]
   --thermo / --no-thermo          Run freq on (R,TS,P) per reactive segment (or
-                                  TSOPT-only mode) and build Gibbs free-energy
-                                  diagram (MLIP).  [default: no-thermo]
+                                  TSOPT-only mode) and build a Gibbs free-energy
+                                  diagram (ML/MM).  [default: no-thermo]
   --dft / --no-dft                Run DFT single-point on (R,TS,P) and build a
                                   DFT energy diagram. With --thermo, also
                                   generate a DFT//MLIP/MM Gibbs diagram.

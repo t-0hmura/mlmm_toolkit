@@ -421,6 +421,9 @@ def _emit_final_summary(
                 summary = {}
     if summary:
         _echo_section("====== Pipeline summary ======")
+        summary_config = (
+            summary.get("config") if isinstance(summary.get("config"), dict) else {}
+        )
         execution_status = summary.get("execution_status")
         scientific_status = summary.get("scientific_status")
         if execution_status is not None:
@@ -436,14 +439,28 @@ def _emit_final_summary(
             reasons = list(status_reasons) or [None]
             for reason in reasons:
                 _echo(
-                    f"RESULT WARNING: {format_result_warning(reason)}",
+                    "RESULT WARNING: "
+                    + format_result_warning(
+                        reason,
+                        refine_path=bool(
+                            summary.get(
+                                "refine_path", summary_config.get("refine_path")
+                            )
+                        ),
+                        flatten=bool(
+                            summary.get("flatten", summary_config.get("flatten"))
+                        ),
+                    ),
                     narrative=True,
                 )
         rls = summary.get("rate_limiting_step")
         if isinstance(rls, dict):
             barrier = rls.get("barrier_kcal")
             seg_idx = rls.get("segment")
-            method = rls.get("method", "?")
+            method = {
+                "MLIP": "ML/MM",
+                "MLIP_Gibbs": "ML/MM Gibbs",
+            }.get(str(rls.get("method", "?")), rls.get("method", "?"))
             if barrier is not None:
                 _echo(
                     f"Highest local barrier: {float(barrier):.2f} kcal/mol (segment {seg_idx}, method {method})",
@@ -948,7 +965,11 @@ def _build_mm_parm7(
     return parm7, rst7
 
 
-def _ts_imag_record(n_imag, imag_freqs_cm=None) -> dict:
+def _ts_imag_record(
+    n_imag,
+    imag_freqs_cm=None,
+    frequency_zero_cutoff_cm=None,
+) -> dict:
     """Build the `ts_imag` record for summary.json / summary.log.
 
     The formatter has always been able to render the frequency and to warn on a
@@ -962,6 +983,8 @@ def _ts_imag_record(n_imag, imag_freqs_cm=None) -> dict:
         record["imag_freqs_cm"] = freqs
         record["nu_imag_max_cm"] = min(freqs)          # most negative = the certifying mode
         record["min_abs_imag_cm"] = min(abs(f) for f in freqs)
+    if frequency_zero_cutoff_cm is not None:
+        record["frequency_zero_cutoff_cm"] = float(frequency_zero_cutoff_cm)
     return record
 
 
@@ -1381,6 +1404,11 @@ def _pipeline_aggregate_truth(
                     if converged is False
                     else "mep_convergence_unknown"
                 )
+            tsopt = post.get("tsopt")
+            if isinstance(tsopt, dict) and tsopt.get("continue_irc") is False:
+                converged = _and3(converged, False)
+                if not reason:
+                    reason = f"tsopt:{tsopt.get('reason') or 'status_unknown'}"
             irc = post.get("irc")
             if isinstance(irc, dict):
                 _u = irc.get("usable")
@@ -1563,6 +1591,12 @@ def _derive_pipeline_status(
             )
         for ordinal, item in enumerate(logs, start=1):
             prefix = f"segment {item.get('index', ordinal)}"
+            tsopt_state = item.get("tsopt")
+            if (
+                isinstance(tsopt_state, dict)
+                and tsopt_state.get("continue_irc") is False
+            ):
+                continue
             if cfg.get("tsopt"):
                 if not isinstance(item.get("mlip"), dict):
                     reasons.append(f"{prefix}: TSOPT/IRC refined MLIP energies are missing")
@@ -3517,7 +3551,7 @@ def _run_dft_for_state(pdb_path: Path,
     if proc.stdout:
         _echo(proc.stdout.rstrip())
     if proc.stderr:
-        _echo(proc.stderr.rstrip(), err=True)
+        _echo(proc.stderr.rstrip())
     if proc.returncode != 0:
         _echo(f"[dft] WARNING: dft exited with code {proc.returncode}", err=True)
     y = out_dir / "result.yaml"
@@ -3736,6 +3770,17 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 )
 @click.option("--max-nodes", type=int, default=_path_opt.GS_KW["max_nodes"], show_default=True,
               help="Max internal nodes per GSM/DMF segment (max_nodes+2 images including endpoints).")
+@click.option(
+    "--gsm-param",
+    type=click.Choice(["equi", "energy"], case_sensitive=False),
+    default=None,
+    show_default="equi",
+    help=(
+        "GSM node parameterization after string growth. The energy scheme "
+        "concentrates nodes in high-energy regions and may be tried when an "
+        "equidistant path skips the reaction-coordinate region near the HEI."
+    ),
+)
 @click.option("--max-cycles-gsm", type=click.IntRange(min=1), default=None, show_default="300",
               help="Maximum GSM string-optimizer cycles for the MEP stage.")
 @click.option("--max-cycles-dmf", type=click.IntRange(min=1), default=None, show_default="300",
@@ -3857,7 +3902,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     ),
 )
 @click.option("--thermo/--no-thermo", "do_thermo", default=False, show_default=True,
-              help="Run freq on (R,TS,P) per reactive segment (or TSOPT-only mode) and build Gibbs free-energy diagram (MLIP).")
+              help="Run freq on (R,TS,P) per reactive segment (or TSOPT-only mode) and build a Gibbs free-energy diagram (ML/MM).")
 @click.option("--dft/--no-dft", "do_dft", default=False, show_default=True,
               help="Run DFT single-point on (R,TS,P) and build a DFT energy diagram. With --thermo, also generate a DFT//MLIP/MM Gibbs diagram.")
 @click.option("--tsopt-max-cycles", type=click.IntRange(min=1), default=None,
@@ -4120,6 +4165,7 @@ def cli(
     mep_mode: str,
     dmf_backend: str,
     max_nodes: int,
+    gsm_param: Optional[str],
     max_cycles_gsm: Optional[int],
     max_cycles_dmf: Optional[int],
     climb: bool,
@@ -4592,6 +4638,11 @@ def cli(
                 "mep_mode": mep_mode_kind,
                 "dmf_backend": dmf_backend_effective,
                 "max_nodes": int(max_nodes),
+                "gsm_param": (
+                    str(gsm_param).lower()
+                    if "gsm_param" in explicit_params and gsm_param is not None
+                    else None
+                ),
                 "max_cycles_gsm": (None if max_cycles_gsm is None else int(max_cycles_gsm)),
                 "max_cycles_dmf": (None if max_cycles_dmf is None else int(max_cycles_dmf)),
                 "print_every": print_every_override,
@@ -5131,6 +5182,8 @@ def cli(
                 _echo("[all] Falling back to original PDB (no B-factor layers).", err=True)
                 layered_inputs.append(full_pdb)
 
+    _layer_summary_counts = _summarize_existing_bfactor_layers(layered_inputs[0])
+
     # Other path: single-structure + --tsopt True (and NO scan-lists) → TSOPT-only mode
     if single_tsopt_mode:
         _echo_section("====== [all] TSOPT-only single-structure mode ======")
@@ -5191,6 +5244,9 @@ def cli(
             "imaginary_frequencies_cm": _tsopt_payload.get(
                 "imaginary_frequencies_cm"
             ),
+            "frequency_zero_cutoff_cm": _tsopt_payload.get(
+                "frequency_zero_cutoff_cm"
+            ),
             "stop_reason": _tsopt_payload.get("stop_reason"),
             "files": _tsopt_payload.get("files") or {},
         }
@@ -5234,6 +5290,7 @@ def cli(
                 _stop_log["ts_imag"] = _ts_imag_record(
                     _tsopt_payload.get("n_imaginary_modes"),
                     _tsopt_payload.get("imaginary_frequencies_cm"),
+                    _tsopt_payload.get("frequency_zero_cutoff_cm"),
                 )
 
             summary = {
@@ -5270,6 +5327,7 @@ def cli(
                 post_segments=[_stop_log],
                 config={
                     "refine_path": bool(refine_path),
+                    "flatten": bool(flatten),
                     "tsopt": do_tsopt,
                     "thermo": do_thermo,
                     "dft": do_dft,
@@ -5303,6 +5361,9 @@ def cli(
                 "tsopt": do_tsopt,
                 "thermo": do_thermo,
                 "dft": do_dft,
+                "mlip_backend": mlip_backend_resolved,
+                "mlip_model": mlip_model_resolved,
+                "mlip_precision": mlip_precision_resolved,
                 "status": summary.get("status"),
                 "status_reasons": summary.get("status_reasons", []),
                 "execution_status": summary.get("execution_status"),
@@ -5320,6 +5381,12 @@ def cli(
                 "key_files": summary.get("key_output_files", {}),
             }
             try:
+                summary_payload["layer_counts"] = dict(_layer_summary_counts)
+                summary_payload["current_output_paths"] = [
+                    path.relative_to(out_dir).as_posix()
+                    for path in _refresh_current_public_outputs(manifest, out_dir)
+                    if path.is_relative_to(out_dir)
+                ]
                 write_summary_log(tsroot / "summary.log", summary_payload)
                 _copy_public_logged(
                     tsroot / "summary.log",
@@ -5567,7 +5634,7 @@ def cli(
             mlip_prefix,
             labels=["E1", "TS", "E2"],
             energies_eh=[e_react, eT, e_prod],
-            title_note="(MLIP, TSOPT/IRC)",
+            title_note="(ML/MM, TSOPT/IRC)",
         )
         g_mlip_diag = None
         dft_diag = None
@@ -5628,7 +5695,7 @@ def cli(
                         tsroot / "energy_diagram_G_MLIP",
                         labels=["E1", "TS", "E2"],
                         energies_eh=[GR, GT, GP],
-                        title_note="(Gibbs, MLIP)",
+                        title_note="(Gibbs, ML/MM)",
                         ylabel="ΔG (kcal/mol)",
                     )
                 except Exception as e:
@@ -5636,7 +5703,7 @@ def cli(
             else:
                 _echo(
                     "[thermo] WARNING: one or more E1/TS/E2 FREQ free energies are "
-                    "unavailable; MLIP Gibbs diagram skipped (no MLIP-energy "
+                    "unavailable; ML/MM Gibbs diagram skipped (no ML/MM energy "
                     "substitution).",
                     err=True,
                 )
@@ -5802,6 +5869,7 @@ def cli(
             command=command_str,
             config={
                 "refine_path": bool(refine_path),
+                "flatten": bool(flatten),
                 "tsopt": do_tsopt,
                 "thermo": do_thermo,
                 "dft": do_dft,
@@ -5872,6 +5940,7 @@ def cli(
                 segment_log["ts_imag"] = _ts_imag_record(
                     tsopt_n_imag,
                     _tsopt_result.get("imaginary_frequencies_cm"),
+                    _tsopt_result.get("frequency_zero_cutoff_cm"),
                 )
         if do_thermo:
             n_imag = None
@@ -6001,6 +6070,7 @@ def cli(
                 post_segments=[segment_log],
                 config={
                     "refine_path": bool(refine_path),
+                    "flatten": bool(flatten),
                     "tsopt": do_tsopt,
                     "thermo": do_thermo,
                     "dft": do_dft,
@@ -6039,6 +6109,12 @@ def cli(
             _echo(f"[write] WARNING: failed to refresh summary.json: {e}", err=True)
 
         try:
+            summary_payload["layer_counts"] = dict(_layer_summary_counts)
+            summary_payload["current_output_paths"] = [
+                path.relative_to(out_dir).as_posix()
+                for path in _refresh_current_public_outputs(manifest, out_dir)
+                if path.is_relative_to(out_dir)
+            ]
             write_summary_log(tsroot / "summary.log", summary_payload)
             commit_exact_bytes(
                 out_dir / "summary.log",
@@ -6076,7 +6152,7 @@ def cli(
             mirrors=(tsroot / "summary.json",),
         )
 
-        _echo_section("====== [all] TSOPT-only pipeline finished successfully ======")
+        _echo_section("====== [all] TSOPT-only pipeline successfully finished ======")
         citation_post_segments = [segment_log]
         _emit_final_summary(
             out_dir,
@@ -6285,6 +6361,7 @@ def cli(
                 mep_mode=mep_mode_kind,
                 dmf_backend=dmf_backend,
                 max_nodes=max_nodes,
+                gsm_param=gsm_param,
                 max_cycles_gsm=max_cycles_gsm,
                 max_cycles_dmf=max_cycles_dmf,
                 climb=climb,
@@ -6380,6 +6457,7 @@ def cli(
                     mep_mode=mep_mode_kind,
                     dmf_backend=dmf_backend,
                     max_nodes=max_nodes,
+                    gsm_param=gsm_param,
                     max_cycles_gsm=max_cycles_gsm,
                     max_cycles_dmf=max_cycles_dmf,
                     climb=climb,
@@ -6629,6 +6707,7 @@ def cli(
             command=command_str,
             config={
                 "refine_path": bool(refine_path),
+                "flatten": bool(flatten),
                 "tsopt": do_tsopt,
                 "thermo": do_thermo,
                 "dft": do_dft,
@@ -6740,6 +6819,13 @@ def cli(
                 mlip_model=mlip_model_resolved,
                 mlip_precision=mlip_precision_resolved,
             )
+            summary_payload["layer_counts"] = dict(_layer_summary_counts)
+            _copy_path_outputs_to_root()
+            summary_payload["current_output_paths"] = [
+                path.relative_to(out_dir).as_posix()
+                for path in _refresh_current_public_outputs(manifest, out_dir)
+                if path.is_relative_to(out_dir)
+            ]
             write_summary_log(path_dir / "summary.log", summary_payload)
             _copy_path_outputs_to_root()
         except (OSError, KeyError, ValueError, TypeError) as e:
@@ -6923,6 +7009,9 @@ def cli(
                 "imaginary_frequencies_cm": _tsopt_payload.get(
                     "imaginary_frequencies_cm"
                 ),
+                "frequency_zero_cutoff_cm": _tsopt_payload.get(
+                    "frequency_zero_cutoff_cm"
+                ),
                 "stop_reason": _tsopt_payload.get("stop_reason"),
             }
 
@@ -6961,6 +7050,7 @@ def cli(
                     _stop_log["ts_imag"] = _ts_imag_record(
                         _tsopt_payload.get("n_imaginary_modes"),
                         _tsopt_payload.get("imaginary_frequencies_cm"),
+                        _tsopt_payload.get("frequency_zero_cutoff_cm"),
                     )
                 post_segment_logs.append(_stop_log)
                 summary["stopped_before_irc"] = True
@@ -7167,7 +7257,7 @@ def cli(
             mlip_prefix,
             labels=["R", f"TS{seg_idx}", "P"],
             energies_eh=[eR, eT, eP],
-            title_note="(MLIP, TSOPT/IRC)",
+            title_note="(ML/MM, TSOPT/IRC)",
         )
 
         # ── Release GPU memory before freq/thermo/DFT ──
@@ -7267,7 +7357,7 @@ def cli(
                         _echo_state_energies(
                             "thermo",
                             seg_idx,
-                            "G_MLIP relative",
+                            "G_ML/MM relative",
                             _g_rel,
                             unit="kcal/mol",
                             precision=2,
@@ -7276,7 +7366,7 @@ def cli(
                         seg_dir / "energy_diagram_G_MLIP",
                         labels=["R", f"TS{seg_idx}", "P"],
                         energies_eh=[GR, GT, GP],
-                        title_note="(Gibbs, MLIP)",
+                        title_note="(Gibbs, ML/MM)",
                         ylabel="ΔG (kcal/mol)",
                     )
                 except Exception as e:
@@ -7284,8 +7374,8 @@ def cli(
             else:
                 _echo(
                     f"[thermo] WARNING: seg {seg_idx}: one or more R/TS/P FREQ "
-                    "free energies are unavailable; MLIP Gibbs diagram skipped "
-                    "(no MLIP-energy "
+                    "free energies are unavailable; ML/MM Gibbs diagram skipped "
+                    "(no ML/MM energy "
                     "substitution).",
                     err=True,
                 )
@@ -7484,6 +7574,7 @@ def cli(
                 segment_log["ts_imag"] = _ts_imag_record(
                     tsopt_n_imag,
                     _tsopt_payload.get("imaginary_frequencies_cm"),
+                    _tsopt_payload.get("frequency_zero_cutoff_cm"),
                 )
         if do_thermo:
             n_imag = None
@@ -7555,13 +7646,13 @@ def cli(
 
     _all_diagram_specs = [
         (True, tsopt_seg_energies, "energy_diagram_MLIP_all",
-         "(MLIP, TSOPT + IRC; all segments)", None),
+         "(ML/MM, TSOPT + IRC; all segments)", None),
         (do_thermo, g_mlip_seg_energies, "energy_diagram_G_MLIP_all",
-         "(MLIP + Thermal Correction; all segments)", "ΔG (kcal/mol)"),
+         "(ML/MM + Thermal Correction; all segments)", "ΔG (kcal/mol)"),
         (do_dft, dft_seg_energies, "energy_diagram_DFT_all",
          f"({dft_method_fallback}; all segments)", None),
         (do_dft and do_thermo, g_dft_mlip_seg_energies, "energy_diagram_G_DFT_plus_MLIP_all",
-         f"({dft_method_fallback} // MLIP + Thermal Correction; all segments)", "ΔG (kcal/mol)"),
+         f"({dft_method_fallback} // ML/MM + Thermal Correction; all segments)", "ΔG (kcal/mol)"),
     ]
     from mlmm.workflows._all_helpers import has_complete_segment_energy_series
 
@@ -7618,6 +7709,7 @@ def cli(
             post_segments=post_segment_logs,
             config={
                 "refine_path": bool(refine_path),
+                "flatten": bool(flatten),
                 "tsopt": do_tsopt,
                 "thermo": do_thermo,
                 "dft": do_dft,

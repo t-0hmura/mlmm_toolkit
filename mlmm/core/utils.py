@@ -684,18 +684,6 @@ _PYSIS_L1_ALLOW = re.compile(
     r"|Operator indicated convergence!|Insignificant coordinate change"
     r"|Energy plateau detected|Wrote final geometr)"
 )
-_PYSIS_L2_DENY = re.compile(
-    r"^(?:\d+\s+(?:[-\d.]|nan)"          # compact table data row (cycle 0 col = nan*)
-    r"|cycle\s+\S.*energy"               # compact table header
-    r"|[-=]{5,}\s*$"                      # separator rule
-    r"|If not specified otherwise, all quantities"
-    r"|Spent\s+[\d.]+\s+s\s+preparing"
-    r"|Convergence thresholds|'Superscript"
-    r"|max\(\|force\|\)\s*<=|rms\(force\)\s*<="
-    r"|max\(\|step\|\)\s*<=|rms\(step\)\s*<="
-    r"|Rebuilt internal coordinates|Interfragment distances increased"
-    r"|Dumped latest coordinates|String=|Overall NLP error\.+:)"
-)
 _PYSIS_V2_DENY = re.compile(
     r"^(?:Rebuilt internal coordinates|Interfragment distances increased"
     r"|Dumped latest coordinates"
@@ -718,7 +706,7 @@ def _pysis_stdout_visible(stripped: str) -> bool:
         return not _PYSIS_V2_DENY.match(stripped)
     if _PYSIS_L1_ALLOW.match(stripped):    # -v 1: keep the convergence verdict
         return True
-    return not _PYSIS_L2_DENY.match(stripped)  # drop only the table noise
+    return False                          # -v 1: milestones only
 
 
 def _patch_click_echo() -> None:

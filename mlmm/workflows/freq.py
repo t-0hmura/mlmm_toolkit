@@ -1439,7 +1439,7 @@ def cli(
             atol=1.1e-3,
         )
         if _cached_ts is not None:
-            emit("[freq] Reusing cached TS Hessian.", narrative=True)
+            emit("[freq] Reusing cached TS Hessian.", detail=True)
             H_t = _cached_ts["hessian"]
             if isinstance(H_t, torch.Tensor):
                 H_t = H_t.to(device=device)

@@ -1586,6 +1586,17 @@ def _build_multistep_path(
     ),
 )
 @click.option(
+    "--gsm-param",
+    type=click.Choice(["equi", "energy"], case_sensitive=False),
+    default=None,
+    show_default="equi",
+    help=(
+        "GSM node parameterization after string growth. The energy scheme "
+        "concentrates nodes in high-energy regions and may be tried when an "
+        "equidistant path skips the reaction-coordinate region near the HEI."
+    ),
+)
+@click.option(
     "--max-cycles-gsm",
     type=click.IntRange(min=1),
     default=None,
@@ -1780,6 +1791,7 @@ def cli(
     freeze_atoms_text: Optional[str],
     movable_cutoff: Optional[float],
     max_nodes: int,
+    gsm_param: Optional[str],
     max_cycles_gsm: Optional[int],
     max_cycles_dmf: Optional[int],
     climb: bool,
@@ -1997,6 +2009,8 @@ def cli(
         if _is_param_explicit("max_nodes"):
             gs_cfg["max_nodes"] = int(max_nodes)
             search_cfg["max_nodes_segment"] = int(max_nodes)
+        if _is_param_explicit("gsm_param") and gsm_param is not None:
+            gs_cfg["param"] = str(gsm_param).lower()
         # The GSM cycle budget also bounds the fully-grown string; DMF's budget
         # is a separate IPOPT iteration count.
         if _is_param_explicit("max_cycles_gsm") and max_cycles_gsm is not None:
@@ -2149,6 +2163,7 @@ def cli(
                 "input_last": str(p_list[-1]) if p_list else None,
                 "output_dir": str(out_dir_path),
                 "mep_mode": mep_mode_kind,
+                "gsm_param": str(gs_cfg.get("param", GS_KW["param"])),
                 "refine_mode": refine_mode_kind,
                 "opt_mode": "grad",
                 "detect_layer": bool(detect_layer_effective),
@@ -2373,7 +2388,7 @@ def cli(
         for i in range(len(geoms) - 1):
             gA, gB = geoms[i], geoms[i + 1]
             pair_tag = f"pair_{i:02d}"
-            emit(f"\n--- Processing pair {i:02d}: image {i} → {i+1} ---", narrative=True)
+            emit(f"[stage] Processing pair {i:02d}: image {i} → {i+1}", narrative=True)
             pair_path = _build_multistep_path(
                 gA, gB,
                 shared_calc,
@@ -2552,7 +2567,7 @@ def cli(
             overall_changed, overall_summary = False, ""
             overall_bond_diagnostic = str(exc)
 
-        emit("\n====== MEP Summary started ======\n", narrative=True)
+        emit("\n====== MEP summary started ======\n", narrative=True)
 
         emit("\n[overall] Covalent-bond changes between first and last image:", narrative=True)
         if overall_bond_diagnostic is not None:

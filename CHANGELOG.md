@@ -6,7 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased] — 2026-08-19
 
+### Added
+- Add `--gsm-param {equi,energy}` to `all`, `path-opt`, and `path-search` as an advanced GSM node-parameterization control; `equi` remains the default.
+
 ### Fixed
+- Preserve the TSOPT stop cause, restrict the output tree to current-run artifacts, and report the resolved frequency zero cutoff in `summary.log`.
+- Label subtractive energies as ML/MM in human output and include compact three-layer counts.
+- Keep optimizer verbosity monotonic and show Hessian cache reuse at `-v 2` without exposing raw DFT child diagnostics below `-v 3`.
 - Translate internal partial-result codes into concise, actionable warnings in `summary.log` and final stdout.
 - Preserve the blank line before the first MLIP model-load announcement even when an stderr warning immediately precedes it.
 - Preserve the MM micro-optimizer until its non-convergence diagnostics have been collected, preventing a post-macro microiteration failure from raising `UnboundLocalError`.

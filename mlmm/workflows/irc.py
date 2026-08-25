@@ -957,15 +957,15 @@ def cli(
                     np.asarray(_cached_dofs, dtype=np.int64).reshape(-1),
                     _expected_hessian_dofs,
                 ):
-                    click.echo(
+                    emit(
                         "[irc] Cached TS Hessian active-DOF basis does not match "
                         "the current layer selection; calculating a fresh Hessian.",
-                        err=True,
+                        detail=True,
                     )
                     cached = None
             if cached is not None:
                 _initial_hessian_source = "cache"
-                emit("[irc] Reusing cached TS Hessian from tsopt.", narrative=True)
+                emit("[irc] Reusing cached TS Hessian from tsopt.", detail=True)
                 active_dofs = cached.get("active_dofs")
                 h_raw = cached["hessian"]
                 if isinstance(h_raw, torch.Tensor):

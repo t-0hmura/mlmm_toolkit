@@ -108,7 +108,7 @@ def test_write_summary_log_marks_non_successful_results_and_precision(
         ),
         (
             "all:segment_2:endpoint_opt:endpoint_2_converged",
-            "Segment 2: the endpoint 2 endpoint optimization did not converge or could not be confirmed. "
+            "Segment 2: the endpoint 2 optimization did not converge or could not be confirmed. "
             "Review the endpoint structure and optimizer log.",
         ),
         (
@@ -125,12 +125,102 @@ def test_write_summary_log_marks_non_successful_results_and_precision(
             "missing:segment_4",
             "Segment 4: the expected segment result is missing. Review the workflow outputs.",
         ),
+        (
+            "all:segment_2:tsopt:ts_optimization_not_converged",
+            "Segment 2: TS optimization did not converge. Review the TS trajectory.",
+        ),
+        (
+            "segment 2: TS imaginary-mode validation found n_imag=2, expected 1",
+            "Segment 2: TS imaginary-mode validation found n_imag=2. Consider --flatten --refine-path.",
+        ),
     ],
 )
 def test_format_result_warning_explains_priority_status_codes(reason, expected):
     from mlmm.io.summary import format_result_warning
 
     assert format_result_warning(reason) == expected
+
+
+def test_format_result_warning_omits_already_active_recovery_flags():
+    from mlmm.io.summary import format_result_warning
+
+    reason = "segment 2: TS imaginary-mode validation found n_imag=2, expected 1"
+    assert format_result_warning(reason, refine_path=True) == (
+        "Segment 2: TS imaginary-mode validation found n_imag=2. "
+        "Consider --flatten."
+    )
+    assert format_result_warning(reason, refine_path=True, flatten=True) == (
+        "Segment 2: TS imaginary-mode validation found n_imag=2."
+    )
+
+
+def test_summary_log_tree_lists_only_current_run_paths(tmp_path):
+    from mlmm.io.summary import write_summary_log
+
+    current = tmp_path / "segments" / "seg_01" / "structures" / "ts.pdb"
+    stale = tmp_path / "segments" / "seg_02" / "structures" / "old.pdb"
+    stale_diagram = tmp_path / "irc_plot_all.png"
+    for path in (current, stale, stale_diagram):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("x", encoding="utf-8")
+    dest = tmp_path / "summary.log"
+
+    write_summary_log(
+        dest,
+        {
+            "root_out_dir": str(tmp_path),
+            "current_output_paths": ["segments/seg_01/structures/ts.pdb"],
+        },
+    )
+
+    text = dest.read_text(encoding="utf-8")
+    assert "seg_01/" in text
+    assert "ts.pdb" in text
+    assert "seg_02" not in text
+    assert "irc_plot_all.png" not in text
+
+
+def test_summary_log_renders_mlmm_provenance_and_labels(tmp_path):
+    from mlmm.io.summary import write_summary_log
+
+    dest = tmp_path / "summary.log"
+    write_summary_log(
+        dest,
+        {
+            "root_out_dir": str(tmp_path),
+            "layer_counts": {"ml": 12, "movable": 20, "frozen": 30},
+            "post_segments": [
+                {
+                    "index": 1,
+                    "ts_imag": {
+                        "n_imag": 1,
+                        "nu_imag_max_cm": -430.0,
+                        "frequency_zero_cutoff_cm": 5.0,
+                    },
+                    "thermo_symmetry": {
+                        "R": {
+                            "symmetry_number": 1,
+                            "symmetry_number_source": "automatic",
+                        },
+                    },
+                    "mlip": {
+                        "labels": ["R", "TS", "P"],
+                        "energies_au": [-3.0, -2.9, -3.1],
+                        "energies_kcal": [0.0, 62.75, -62.75],
+                    },
+                }
+            ],
+        },
+    )
+
+    text = dest.read_text(encoding="utf-8")
+    assert "ML (B=0)" in text and "12 atoms" in text
+    assert "Movable MM (B=10)" in text and "20 atoms" in text
+    assert "Frozen MM (B=20)" in text and "30 atoms" in text
+    assert "zero cutoff  : 5.00 cm^-1" in text
+    assert "Thermo symmetry   : R=1 (automatic)" in text
+    assert "ML/MM energies (TSOPT+IRC)" in text
+    assert "MLIP energies (TSOPT+IRC)" not in text
 
 
 def test_write_summary_log_publish_failure_preserves_previous_file(
@@ -370,6 +460,30 @@ def test_final_stdout_explains_non_success_scientific_status(
     assert output.rstrip().splitlines()[-1].startswith(
         "[time] Elapsed Time for Whole Pipeline"
     )
+
+
+def test_final_stdout_does_not_repeat_active_recovery_flags(tmp_path, capsys) -> None:
+    from mlmm.workflows.all import _emit_final_summary
+
+    (tmp_path / "summary.json").write_text(
+        json.dumps(
+            {
+                "execution_status": "completed",
+                "scientific_status": "partial",
+                "scientific_status_reasons": [
+                    "segment 2: TS imaginary-mode validation found n_imag=2, expected 1"
+                ],
+                "config": {"refine_path": True, "flatten": True},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    _emit_final_summary(tmp_path, time.time())
+
+    output = capsys.readouterr().out
+    assert "TS imaginary-mode validation found n_imag=2." in output
+    assert "Consider --" not in output
 
 
 def test_citation_block_headers_match_their_destination() -> None:

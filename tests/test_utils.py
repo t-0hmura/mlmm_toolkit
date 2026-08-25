@@ -28,6 +28,39 @@ def test_optimizer_omits_redundant_moving_image_startup_line() -> None:
     assert "Path with" not in inspect.getsource(Optimizer.__init__)
 
 
+def test_optimizer_stdout_verbosity_is_monotonic() -> None:
+    from mlmm.core.utils import _pysis_stdout_visible, set_verbose_level
+
+    milestone = "Converged!"
+    detail = "optimizer diagnostic detail"
+    hidden_detail = "Unexpected energy increase in trial step"
+    try:
+        set_verbose_level(1)
+        assert _pysis_stdout_visible(milestone)
+        assert not _pysis_stdout_visible(detail)
+        assert not _pysis_stdout_visible(hidden_detail)
+        set_verbose_level(2)
+        assert _pysis_stdout_visible(milestone)
+        assert _pysis_stdout_visible(detail)
+        assert not _pysis_stdout_visible(hidden_detail)
+        set_verbose_level(3)
+        assert _pysis_stdout_visible(hidden_detail)
+    finally:
+        set_verbose_level(0)
+
+
+def test_freq_and_irc_cache_provenance_uses_detail_tier() -> None:
+    import inspect
+    from mlmm.workflows import freq, irc
+
+    freq_source = inspect.getsource(freq.cli.callback)
+    irc_source = inspect.getsource(irc.cli.callback)
+    assert 'Reusing cached TS Hessian.", detail=True' in freq_source
+    assert 'Reusing cached TS Hessian from tsopt.", detail=True' in irc_source
+    assert "active-DOF basis does not match" in irc_source
+    assert "detail=True" in irc_source
+
+
 # Skip on Python < 3.11
 pytestmark = pytest.mark.skipif(
     sys.version_info < (3, 11),

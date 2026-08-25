@@ -118,6 +118,7 @@ SHARED_ADVANCED_SCIENTIFIC_OPTIONS = [
     ("all", "--scan-bias-k"),
     ("all", "--scan-relax-max-cycles"),
     ("all", "--max-cycles-gsm"),
+    ("all", "--gsm-param"),
     ("all", "--max-cycles-dmf"),
     ("all", "--tsopt-max-cycles"),
     ("all", "--hessian-calc-mode"),
@@ -125,6 +126,8 @@ SHARED_ADVANCED_SCIENTIFIC_OPTIONS = [
     ("scan", "--relax-max-cycles"),
     ("scan2d", "--relax-max-cycles"),
     ("scan3d", "--relax-max-cycles"),
+    ("path-opt", "--gsm-param"),
+    ("path-search", "--gsm-param"),
 ]
 
 

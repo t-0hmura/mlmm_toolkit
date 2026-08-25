@@ -1034,6 +1034,30 @@ def test_all_pipeline_tsopt_only_does_not_require_mep_convergence() -> None:
     assert "mep_convergence_unknown" not in truth.status_reasons
 
 
+def test_all_pipeline_preserves_tsopt_stop_reason_before_missing_irc() -> None:
+    from mlmm.workflows.all import _pipeline_aggregate_truth
+
+    summary = {"segments": [{"index": 2, "kind": "seg", "converged": True}]}
+    post = [{
+        "index": 2,
+        "tsopt": {
+            "continue_irc": False,
+            "reason": "ts_optimization_not_converged",
+        },
+    }]
+    truth = _pipeline_aggregate_truth(
+        summary,
+        post_segments=post,
+        config={"tsopt": True},
+        legacy_status="partial",
+    )
+
+    assert "all:segment_2:tsopt:ts_optimization_not_converged" in truth.status_reasons
+    assert not any(reason.endswith("irc_missing") for reason in truth.status_reasons)
+    assert not any("refined MLIP energies are missing" in reason for reason in truth.status_reasons)
+    assert not any("imaginary-mode validation is missing" in reason for reason in truth.status_reasons)
+
+
 def test_read_opt_endpoint_converged_gates_on_status(tmp_path: Path) -> None:
     # The endpoint-opt child's convergence is read from the SAME real result.json
     # the `opt` subcommand writes (status="converged"/"not_converged"); a

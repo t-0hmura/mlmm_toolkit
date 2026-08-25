@@ -32,6 +32,11 @@ Options:
   --max-nodes INTEGER             Number of movable internal images for GSM or
                                   DMF (total images = max_nodes + 2 endpoints).
                                   [default: 20]
+  --gsm-param [equi|energy]       GSM node parameterization after string growth.
+                                  The energy scheme concentrates nodes in high-
+                                  energy regions and may be tried when an
+                                  equidistant path skips the reaction-coordinate
+                                  region near the HEI.  [default: (equi)]
   --max-cycles-gsm INTEGER RANGE  Maximum GSM string-optimizer cycles for the
                                   MEP stage.  [default: (300); x>=1]
   --max-cycles-dmf INTEGER RANGE  Maximum IPOPT iterations for the DMF MEP

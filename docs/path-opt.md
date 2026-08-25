@@ -81,6 +81,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--movable-cutoff FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. MM atoms beyond this are frozen. Providing `--movable-cutoff` disables `--detect-layer`. | _None_ |
 | `--fix-ends/--no-fix-ends` | Fix endpoint structures during GSM growth (`gs.fix_first/fix_last`). | `True` |
 | `--max-nodes INT` | Number of internal string nodes (total images = `max_nodes + 2`). | `20` |
+| `--gsm-param [equi\|energy]` | GSM node parameterization after string growth. `energy` concentrates nodes in high-energy regions and may be tried when an equidistant path skips the reaction-coordinate region near the HEI; it does not identify a TS. | `equi` |
 | `--max-cycles-gsm INT` | GSM string-optimizer cycle cap; also sets `stopt.stop_in_when_full`. | `300` |
 | `--max-cycles-dmf INT` | DMF IPOPT iteration cap. | `300` |
 | `--climb/--no-climb` | Enable climbing-image refinement after full string growth. | `True` |

@@ -13,7 +13,7 @@ from mlmm.cli import cli as root_cli
 from mlmm.workflows._all_helpers import build_path_child_argv
 from mlmm.workflows.path_opt import resolve_dmf_solve_tol
 
-MEP_FLAGS = ("--thresh-gsm", "--thresh-dmf")
+MEP_FLAGS = ("--gsm-param", "--thresh-gsm", "--thresh-dmf")
 
 
 def _declared_flags(cli: click.Command) -> Set[str]:
@@ -40,6 +40,7 @@ def test_path_child_argv_forwards_both_mep_thresholds() -> None:
         mep_mode="gsm",
         dmf_backend="gpu",
         max_nodes=20,
+        gsm_param="equi",
         max_cycles_gsm=300,
         max_cycles_dmf=300,
         climb=True,
@@ -59,6 +60,7 @@ def test_path_child_argv_stays_silent_without_explicit_thresholds() -> None:
         mep_mode="gsm",
         dmf_backend="gpu",
         max_nodes=20,
+        gsm_param="equi",
         max_cycles_gsm=300,
         max_cycles_dmf=300,
         climb=True,
@@ -147,3 +149,35 @@ def test_all_show_config_reports_each_threshold_owner(tmp_path: Path) -> None:
     assert "thresh: gau" in result.output
     assert "thresh_gsm: gau_loose" in result.output
     assert "thresh_dmf: middle" in result.output
+
+
+@pytest.mark.parametrize("command", ["path-opt", "path-search"])
+def test_explicit_gsm_param_overrides_yaml(tmp_path: Path, command: str) -> None:
+    smoke = Path(__file__).resolve().parent / "smoke"
+    config = tmp_path / "gsm.yaml"
+    config.write_text("gs:\n  param: equi\n", encoding="utf-8")
+    result = CliRunner().invoke(
+        root_cli,
+        [
+            command,
+            "-i",
+            str(smoke / "r_complex_layered.pdb"),
+            str(smoke / "p_complex_layered.pdb"),
+            "--parm",
+            str(smoke / "p_complex.parm7"),
+            "-q",
+            "-1",
+            "--config",
+            str(config),
+            "--gsm-param",
+            "energy",
+            "--show-config",
+            "--dry-run",
+            "-v",
+            "3",
+            "--out-dir",
+            str(tmp_path / command),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "gsm_param: energy" in result.output

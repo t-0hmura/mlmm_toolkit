@@ -25,7 +25,12 @@ from mlmm.core.defaults import (
 )
 
 
-def format_result_warning(reason: Any) -> str:
+def format_result_warning(
+    reason: Any,
+    *,
+    refine_path: bool = False,
+    flatten: bool = False,
+) -> str:
     """Translate an internal scientific-status reason into user-facing English."""
     raw = str(reason or "").strip()
     lowered = raw.lower()
@@ -33,6 +38,12 @@ def format_result_warning(reason: Any) -> str:
     if segment_match is None:
         segment_match = re.fullmatch(r"missing:segment_(\d+)", lowered)
     segment = segment_match.group(1) if segment_match else None
+    human_segment_match = re.match(r"segment\s+(\d+):\s*(.+)$", lowered)
+    if segment is None and human_segment_match is not None:
+        segment = human_segment_match.group(1)
+    human_detail = (
+        human_segment_match.group(2) if human_segment_match is not None else lowered
+    )
 
     def scoped(message: str) -> str:
         if segment is None:
@@ -61,6 +72,79 @@ def format_result_warning(reason: Any) -> str:
             return scoped(" ".join(dict.fromkeys(messages)))
 
     code = lowered.rsplit(":", 1)[-1].strip()
+    if code.startswith("ts_optimization_"):
+        status = code.removeprefix("ts_optimization_")
+        if status == "not_converged":
+            return scoped("TS optimization did not converge. Review the TS trajectory.")
+        return scoped(
+            f"TS optimization status is {status.replace('_', ' ')}. Review the TS trajectory."
+        )
+    if code.startswith("terminal_hessian_"):
+        status = code.removeprefix("terminal_hessian_").replace("_", " ")
+        return scoped(
+            f"terminal Hessian status is {status}. Review the TSOPT result."
+        )
+    if code == "imaginary_mode_count_unavailable":
+        return scoped("imaginary-mode validation was unavailable. Review the TSOPT result.")
+    if code == "no_imaginary_reaction_mode":
+        message = "no imaginary mode was detected."
+        if not refine_path:
+            message += " Consider --refine-path."
+        return scoped(message)
+    if code in {"tsopt_status_unknown", "status_unknown"}:
+        return scoped("TSOPT status could not be confirmed. Review the TSOPT result.")
+    aggregate_messages = {
+        "no usable path segments or energy diagrams were produced": (
+            "No usable path result was produced. Review the MEP output."
+        ),
+        "no usable energy diagram was produced": (
+            "No usable energy diagram was produced. Review the MEP and TSOPT results."
+        ),
+        "requested post-processing produced no segment records": (
+            "Post-processing produced no segment records. Review the TSOPT/IRC output."
+        ),
+        "requested post-processing record is missing": (
+            "the post-processing record is missing. Review the segment output."
+        ),
+        "tsopt/irc refined mlip energies are missing": (
+            "TSOPT/IRC energies are missing. Review the TSOPT and IRC outputs."
+        ),
+        "irc trajectory is missing": (
+            "the IRC trajectory is missing. Review the IRC output."
+        ),
+        "mlip thermochemistry result is missing": (
+            "the ML/MM thermochemistry result is missing. Review the frequency output."
+        ),
+        "ts imaginary-mode validation is missing": (
+            "TS imaginary-mode validation is missing. Review the TSOPT result."
+        ),
+        "dft result is missing": (
+            "the DFT result is missing. Review the DFT output."
+        ),
+        "dft//mlip/mm thermochemistry result is missing": (
+            "the DFT//MLIP/MM thermochemistry result is missing. Review the DFT and frequency outputs."
+        ),
+        "dft failed for one or more ts-only states": (
+            "DFT failed for one or more TS-only states. Review the DFT output."
+        ),
+    }
+    if human_detail in aggregate_messages:
+        return scoped(aggregate_messages[human_detail])
+    imag_count_match = re.match(
+        r"ts imaginary-mode validation found n_imag=(\d+), expected 1$",
+        human_detail,
+    )
+    if imag_count_match is not None:
+        n_imag = int(imag_count_match.group(1))
+        recovery: List[str] = []
+        if n_imag > 1 and not flatten:
+            recovery.append("--flatten")
+        if not refine_path:
+            recovery.append("--refine-path")
+        message = f"TS imaginary-mode validation found n_imag={n_imag}."
+        if recovery:
+            message += f" Consider {' '.join(recovery)}."
+        return scoped(message)
     if code == "irc_endpoint_connectivity_unvalidated":
         return (
             "Bond-topology matching between the two IRC endpoints and the two "
@@ -97,8 +181,13 @@ def format_result_warning(reason: Any) -> str:
     endpoint_match = re.search(r":endpoint_opt:([a-z0-9_]+)$", lowered)
     if endpoint_match:
         label = endpoint_match.group(1).removesuffix("_converged").replace("_", " ")
+        subject = (
+            f"{label} optimization"
+            if label.startswith("endpoint ")
+            else f"{label} endpoint optimization"
+        )
         return scoped(
-            f"the {label} endpoint optimization did not converge or could not be confirmed. "
+            f"the {subject} did not converge or could not be confirmed. "
             "Review the endpoint structure and optimizer log."
         )
     if lowered.startswith("missing:segment_"):
@@ -434,11 +523,13 @@ def _format_ts_imag_info(ts_info: Any) -> List[str]:
     n_imag: Optional[int] = None
     nu_imag: Optional[float] = None
     min_abs: Optional[float] = None
+    zero_cutoff: Optional[float] = None
 
     if isinstance(ts_info, dict):
         n_imag = ts_info.get("n_imag")
         nu_imag = ts_info.get("nu_imag_max_cm") or ts_info.get("nu_imag_cm")
         min_abs = ts_info.get("min_abs_imag_cm")
+        zero_cutoff = ts_info.get("frequency_zero_cutoff_cm")
         if nu_imag is None and ts_info.get("ts_imag_freq_cm"):
             nu_imag = ts_info.get("ts_imag_freq_cm")
     else:
@@ -450,6 +541,8 @@ def _format_ts_imag_info(ts_info: Any) -> List[str]:
 
     n_imag_txt = str(n_imag) if n_imag is not None else "-"
     lines.append(f"      n_imag       : {n_imag_txt}")
+    if zero_cutoff is not None:
+        lines.append(f"      zero cutoff  : {float(zero_cutoff):.2f} cm^-1")
 
     nu_label = "\u03bd_imag (max)"
     if nu_imag is not None:
@@ -481,25 +574,50 @@ def _format_ts_imag_info(ts_info: Any) -> List[str]:
     return lines
 
 
+def _format_thermo_symmetry(provenance: Any) -> List[str]:
+    if not isinstance(provenance, dict):
+        return []
+    entries: List[str] = []
+    for label in ("R", "TS", "P", "E1", "E2"):
+        state = provenance.get(label)
+        if not isinstance(state, dict):
+            continue
+        number = state.get("symmetry_number")
+        source = state.get("symmetry_number_source")
+        if number is not None:
+            entries.append(
+                f"{label}={number}" + (f" ({source})" if source else "")
+            )
+    return ["    Thermo symmetry   : " + ", ".join(entries)] if entries else []
+
+
 def _format_layer_info(payload: Dict[str, Any]) -> List[str]:
-    """Format 3-layer ML/MM system information with Hessian-target MM subset info."""
+    """Format compact 3-layer ML/MM system information."""
     lines: List[str] = []
 
+    counts = payload.get("layer_counts")
     ml_atoms = payload.get("ml_atoms")
     hess_mm_atoms = payload.get("hess_mm_atoms")
     movable_mm_atoms = payload.get("movable_mm_atoms")
     frozen_atoms = payload.get("frozen_atoms")
 
-    n_ml = len(ml_atoms) if ml_atoms else 0
-    n_hess = len(hess_mm_atoms) if hess_mm_atoms else 0
-    n_movable = len(movable_mm_atoms) if movable_mm_atoms else 0
-    n_frozen = len(frozen_atoms) if frozen_atoms else 0
+    if isinstance(counts, dict):
+        n_ml = int(counts.get("ml", 0) or 0)
+        n_hess = 0
+        n_movable = int(counts.get("movable", 0) or 0)
+        n_frozen = int(counts.get("frozen", 0) or 0)
+    else:
+        n_ml = len(ml_atoms) if ml_atoms else 0
+        n_hess = len(hess_mm_atoms) if hess_mm_atoms else 0
+        n_movable = len(movable_mm_atoms) if movable_mm_atoms else 0
+        n_frozen = len(frozen_atoms) if frozen_atoms else 0
 
     n_movable_total = n_hess + n_movable
     lines.append("  3-Layer ML/MM System:")
     lines.append(f"    ML (B={BFACTOR_ML:.0f})             : {n_ml:6d} atoms")
     lines.append(f"    Movable MM (B={BFACTOR_MOVABLE_MM:.0f})    : {n_movable_total:6d} atoms")
-    lines.append(f"      Hessian-target subset             : {n_hess:6d} atoms")
+    if not isinstance(counts, dict):
+        lines.append(f"      Hessian-target subset             : {n_hess:6d} atoms")
     lines.append(f"    Frozen MM (B={BFACTOR_FROZEN:.0f})     : {n_frozen:6d} atoms")
     lines.append(f"    Total                               : {n_ml + n_movable_total + n_frozen:6d} atoms")
 
@@ -675,6 +793,50 @@ def _format_directory_tree(
     return lines
 
 
+def _format_selected_directory_tree(
+    root: Path,
+    relative_paths: Sequence[str],
+    annotations: Dict[str, str],
+) -> List[str]:
+    """Render only caller-selected current-run files and their ancestors."""
+
+    tree: Dict[str, Any] = {}
+    for raw in relative_paths:
+        relative = Path(str(raw))
+        if relative.is_absolute() or ".." in relative.parts or not relative.parts:
+            continue
+        node = tree
+        for part in relative.parts[:-1]:
+            child = node.setdefault(part, {})
+            if not isinstance(child, dict):
+                break
+            node = child
+        else:
+            node.setdefault(relative.parts[-1], None)
+
+    lines = [f"  {root.name}/" + _tree_annotate(annotations, ".")]
+
+    def render(node: Dict[str, Any], prefix: str, parts: tuple[str, ...]) -> None:
+        entries = sorted(
+            node.items(), key=lambda item: (item[1] is None, item[0].lower())
+        )
+        for index, (name, child) in enumerate(entries):
+            last = index == len(entries) - 1
+            connector = "└─" if last else "├─"
+            rel_parts = parts + (name,)
+            rel = Path(*rel_parts).as_posix()
+            is_dir = isinstance(child, dict)
+            shown = name + ("/" if is_dir else "")
+            lines.append(
+                f"{prefix}{connector} {shown}{_tree_annotate(annotations, rel)}"
+            )
+            if is_dir:
+                render(child, prefix + ("   " if last else "│  "), rel_parts)
+
+    render(tree, "  ", ())
+    return lines
+
+
 def _segment_table_value(entry: Dict[str, Any], key: str, col_width: int) -> str:
     if entry.get("kind") == "bridge" and not key.startswith("mep_"):
         return "---".rjust(col_width)
@@ -805,7 +967,14 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
     if scientific_status not in (None, "success"):
         reasons = list(status_reasons) or [None]
         for reason in reasons:
-            lines.append(f"RESULT WARNING      : {format_result_warning(reason)}")
+            lines.append(
+                "RESULT WARNING      : "
+                + format_result_warning(
+                    reason,
+                    refine_path=bool(payload.get("refine_path")),
+                    flatten=bool(payload.get("flatten")),
+                )
+            )
     lines.append(f"Total charge (ML)  : {charge if charge is not None else '-'}")
     lines.append(f"Multiplicity (2S+1): {spin if spin is not None else '-'}")
 
@@ -828,7 +997,10 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
     lines.append("")
 
     # 3-layer ML/MM system info
-    if any(payload.get(k) for k in ["ml_atoms", "hess_mm_atoms", "movable_mm_atoms", "frozen_atoms"]):
+    if payload.get("layer_counts") or any(
+        payload.get(k)
+        for k in ["ml_atoms", "hess_mm_atoms", "movable_mm_atoms", "frozen_atoms"]
+    ):
         lines.extend(_format_layer_info(payload))
         lines.append("")
 
@@ -954,6 +1126,7 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
                 )
             ts_imag = seg.get("ts_imag") or seg.get("ts_imag_freq_cm")
             lines.extend(_format_ts_imag_info(ts_imag))
+            lines.extend(_format_thermo_symmetry(seg.get("thermo_symmetry")))
             if seg.get("irc_plot"):
                 lines.append(
                     f"    IRC plot         : {_shorten_path(seg.get('irc_plot'), root_out_path)}"
@@ -963,9 +1136,9 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
                     f"    IRC trajectory   : {_shorten_path(seg.get('irc_traj'), root_out_path)}"
                 )
             _emit_energy_block(
-                lines, "MLIP energies (TSOPT+IRC)", seg.get("mlip"), root_out_path
+                lines, "ML/MM energies (TSOPT+IRC)", seg.get("mlip"), root_out_path
             )
-            _emit_energy_block(lines, "MLIP Gibbs (thermo)", seg.get("gibbs_mlip"), root_out_path)
+            _emit_energy_block(lines, "ML/MM Gibbs (thermo)", seg.get("gibbs_mlip"), root_out_path)
             _emit_energy_block(
                 lines,
                 "model-region DFT single-point",
@@ -1040,10 +1213,10 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
         table_rows = [
             (f"MEP {delta}E{dagger} [kcal/mol]", "mep_barrier"),
             (f"MEP {delta}E  [kcal/mol]", "mep_delta"),
-            (f"MLIP {delta}E{dagger} [kcal/mol]", "mlip_barrier"),
-            (f"MLIP {delta}E  [kcal/mol]", "mlip_delta"),
-            (f"MLIP {delta}G{dagger} [kcal/mol]", "gibbs_mlip_barrier"),
-            (f"MLIP {delta}G  [kcal/mol]", "gibbs_mlip_delta"),
+            (f"ML/MM {delta}E{dagger} [kcal/mol]", "mlip_barrier"),
+            (f"ML/MM {delta}E  [kcal/mol]", "mlip_delta"),
+            (f"ML/MM {delta}G{dagger} [kcal/mol]", "gibbs_mlip_barrier"),
+            (f"ML/MM {delta}G  [kcal/mol]", "gibbs_mlip_delta"),
             (f"model-region DFT {delta}E{dagger} [kcal/mol]", "dft_barrier"),
             (f"model-region DFT {delta}E  [kcal/mol]", "dft_delta"),
             (f"DFT//MLIP/MM {delta}G{dagger} [kcal/mol]", "gibbs_dft_mlip_barrier"),
@@ -1051,10 +1224,10 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
         ]
         if ts_only:
             table_rows = [
-                (f"MLIP {delta}E{dagger} E1->TS [kcal/mol]", "mlip_barrier_e1"),
-                (f"MLIP {delta}E{dagger} E2->TS [kcal/mol]", "mlip_barrier_e2"),
-                (f"MLIP {delta}G{dagger} E1->TS [kcal/mol]", "gibbs_mlip_barrier_e1"),
-                (f"MLIP {delta}G{dagger} E2->TS [kcal/mol]", "gibbs_mlip_barrier_e2"),
+                (f"ML/MM {delta}E{dagger} E1->TS [kcal/mol]", "mlip_barrier_e1"),
+                (f"ML/MM {delta}E{dagger} E2->TS [kcal/mol]", "mlip_barrier_e2"),
+                (f"ML/MM {delta}G{dagger} E1->TS [kcal/mol]", "gibbs_mlip_barrier_e1"),
+                (f"ML/MM {delta}G{dagger} E2->TS [kcal/mol]", "gibbs_mlip_barrier_e2"),
                 (f"model-region DFT {delta}E{dagger} E1->TS [kcal/mol]", "dft_barrier_e1"),
                 (f"model-region DFT {delta}E{dagger} E2->TS [kcal/mol]", "dft_barrier_e2"),
                 (f"DFT//MLIP/MM {delta}G{dagger} E1->TS [kcal/mol]", "gibbs_dft_mlip_barrier_e1"),
@@ -1117,8 +1290,8 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
 
         table_rows = [
             (f"MEP {delta}E  [kcal/mol]", "mep"),
-            (f"MLIP {delta}E  [kcal/mol]", "mlip"),
-            (f"MLIP {delta}G  [kcal/mol]", "gibbs_mlip"),
+            (f"ML/MM {delta}E  [kcal/mol]", "mlip"),
+            (f"ML/MM {delta}G  [kcal/mol]", "gibbs_mlip"),
             (f"model-region DFT {delta}E  [kcal/mol]", "dft"),
             (f"DFT//MLIP/MM {delta}G  [kcal/mol]", "gibbs_dft_mlip"),
         ]
@@ -1163,7 +1336,7 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
         "mep_plot.png": "ML/MM MEP energy plot",
         "energy_diagram_MEP.png": "Compressed MEP diagram",
         "energy_diagram_MLIP_all.png": f"ML/MM {state_triplet} energies (all segments)",
-        "energy_diagram_G_MLIP_all.png": f"MLIP Gibbs {state_triplet} (all segments)",
+        "energy_diagram_G_MLIP_all.png": f"ML/MM Gibbs {state_triplet} (all segments)",
         "energy_diagram_DFT_all.png": f"DFT {state_triplet} (all segments)",
         "energy_diagram_G_DFT_plus_MLIP_all.png": f"DFT//MLIP/MM Gibbs {state_triplet} (all segments)",
         "irc_plot_all.png": "Aggregated IRC plot",
@@ -1173,7 +1346,21 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
         f"{WORK_DIRNAME}/scan": "Staged scan outputs",
     }
 
-    if root_out_path:
+    selected_current = payload.get("current_output_paths")
+    if root_out_path and isinstance(selected_current, (list, tuple)):
+        selected_relative = [Path(str(path)).as_posix() for path in selected_current]
+        for rel in selected_relative:
+            note = default_notes.get(rel)
+            if note:
+                annotations.setdefault(rel, note)
+        lines.extend(
+            _format_selected_directory_tree(
+                root_out_path,
+                selected_relative,
+                annotations,
+            )
+        )
+    elif root_out_path:
         path_dir = payload.get("path_dir")
         if path_dir:
             try:

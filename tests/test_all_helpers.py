@@ -76,6 +76,7 @@ def _path_child_kwargs() -> dict:
         "mep_mode": "dmf",
         "dmf_backend": "cpu",
         "max_nodes": 31,
+        "gsm_param": "energy",
         "max_cycles_gsm": 47,
         "max_cycles_dmf": 47,
         "climb": False,
@@ -91,6 +92,7 @@ def _path_child_kwargs() -> dict:
 _PATH_COMMON_CASES = (
     ("dmf_backend", ["--dmf-backend", "cpu"]),
     ("max_nodes", ["--max-nodes", "31"]),
+    ("gsm_param", ["--gsm-param", "energy"]),
     ("max_cycles_dmf", ["--max-cycles-dmf", "47"]),
     ("climb", ["--no-climb"]),
     ("dump", ["--no-dump"]),
@@ -464,7 +466,7 @@ def test_all_dft_child_relays_success_stderr_without_forwarding_mlip_backend(
     )
 
     assert "--backend" not in commands[0]
-    assert emitted.count(("fallback warning", True)) == 1
+    assert emitted.count(("fallback warning", False)) == 1
     assert not any("exited with code" in message for message, _ in emitted)
 
 

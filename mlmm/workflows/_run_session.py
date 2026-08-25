@@ -492,8 +492,8 @@ def current_key_output_files(
         "energy_diagram_MEP.png": "MEP energy plot",
         "mep_plot.png": "MEP energy plot (trj2fig)",
         "irc_plot_all.png": "Aggregated IRC plot",
-        "energy_diagram_MLIP_all.png": "Aggregated MLIP energy plot",
-        "energy_diagram_G_MLIP_all.png": "Aggregated MLIP Gibbs energy plot",
+        "energy_diagram_MLIP_all.png": "Aggregated ML/MM energy plot",
+        "energy_diagram_G_MLIP_all.png": "Aggregated ML/MM Gibbs energy plot",
         "energy_diagram_DFT_all.png": "Aggregated DFT energy plot",
         "energy_diagram_G_DFT_plus_MLIP_all.png": (
             "Aggregated DFT//MLIP/MM Gibbs energy plot"
