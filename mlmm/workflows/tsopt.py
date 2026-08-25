@@ -1530,11 +1530,23 @@ def _finalize_dimer_saddle_status(
     runner.saddle_order_verified = len(certified) == 1
     if len(certified) > 1:
         click.echo(
-            f"[tsopt] WARNING: Higher-order stationary point "
-            f"(n_imag={len(certified)}). Try --flatten or all --refine-path.",
+            _unexpected_saddle_order_message(len(certified)),
             err=True,
         )
     return neg_idx
+
+
+def _unexpected_saddle_order_message(n_imag: int) -> str:
+    """Return the concise recovery hint for a non-first-order result."""
+
+    if n_imag == 0:
+        return "[tsopt] No imaginary mode detected. Try all --refine-path."
+    if n_imag > 1:
+        return (
+            f"[tsopt] WARNING: Higher-order stationary point (n_imag={n_imag}). "
+            "Try --flatten or all --refine-path."
+        )
+    raise ValueError("n_imag must differ from 1")
 
 
 def _dimer_mode_export_message(
@@ -1549,7 +1561,7 @@ def _dimer_mode_export_message(
     if n_written:
         return f"[tsopt] Wrote {n_written} final imaginary mode(s).", False
     if n_imag == 0:
-        return "[tsopt] No imaginary mode detected. Try all --refine-path.", True
+        return _unexpected_saddle_order_message(n_imag), True
     return (
         "[tsopt] ERROR: Failed to write imaginary mode trajectory.",
         True,
@@ -5082,11 +5094,7 @@ def cli(
                 _heavy_n_imag = len(_heavy_imag_freqs)
                 if _heavy_n_imag != 1:
                     click.echo(
-                        "[tsopt] WARNING: The final exact Hessian has "
-                        f"n_imag={_heavy_n_imag} above the "
-                        f"{abs(neg_freq_thresh_cm):.1f} cm^-1 saddle threshold; "
-                        "numerical optimization "
-                        "status is retained and saddle order is reported separately.",
+                        _unexpected_saddle_order_message(_heavy_n_imag),
                         err=True,
                     )
             # a stall (energy-plateau outcome of the selected optimizer)

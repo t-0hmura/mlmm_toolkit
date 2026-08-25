@@ -435,7 +435,10 @@ def test_exact_phva_validation_ignores_soft_negative_roots():
 
 
 def test_dimer_final_message_separates_no_mode_from_write_failure():
-    from mlmm.workflows.tsopt import _dimer_mode_export_message
+    from mlmm.workflows.tsopt import (
+        _dimer_mode_export_message,
+        _unexpected_saddle_order_message,
+    )
 
     positive, positive_is_diagnostic = _dimer_mode_export_message(0, 0, 5.0, 12.0)
     assert positive == "[tsopt] No imaginary mode detected. Try all --refine-path."
@@ -444,6 +447,11 @@ def test_dimer_final_message_separates_no_mode_from_write_failure():
     failed, failed_is_diagnostic = _dimer_mode_export_message(0, 1, 5.0, -100.0)
     assert failed == "[tsopt] ERROR: Failed to write imaginary mode trajectory."
     assert failed_is_diagnostic is True
+
+    assert _unexpected_saddle_order_message(2) == (
+        "[tsopt] WARNING: Higher-order stationary point (n_imag=2). "
+        "Try --flatten or all --refine-path."
+    )
 
 
 # ---- Microiteration terminal outcome (opt + tsopt share the helper) ----------
