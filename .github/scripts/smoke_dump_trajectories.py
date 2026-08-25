@@ -135,8 +135,8 @@ def _validate_case(case: Case, base_dir: Path, timeout_sec: float | None = None)
 
     # Any non-zero exit is a failure — the optimizer must run cleanly (a
     # ZeroStepLength / no-progress stop is a real failure, never tolerated).
-    # The layered fixture keeps the TS search well-conditioned so heavy
-    # (RS-I-RFO) modes take a valid first step.
+    # The layered fixture keeps Hessian-based TS searches well-conditioned so
+    # they take a valid first step.
     if returncode != 0:
         tail = output[-5000:]
         raise RuntimeError(
@@ -188,34 +188,34 @@ def main() -> int:
 
     cases = [
         Case(
-            name="opt_light_dump",
-            args=["opt", *common, "--opt-mode", "light", "--dump"],
+            name="opt_grad_dump",
+            args=["opt", *common, "--opt-mode", "grad", "--dump"],
             expect_present=("optimization_trj.xyz", "optimization_all_trj.xyz"),
         ),
         Case(
-            name="opt_heavy_dump",
-            args=["opt", *common, "--opt-mode", "heavy", "--dump"],
+            name="opt_hess_dump",
+            args=["opt", *common, "--opt-mode", "hess", "--dump"],
             expect_present=("optimization_all_trj.xyz",),
         ),
         Case(
-            name="tsopt_light_dump",
-            args=["tsopt", *common, "--opt-mode", "light", "--dump"],
+            name="tsopt_grad_dump",
+            args=["tsopt", *common, "--opt-mode", "grad", "--dump"],
             expect_present=("optimization_all_trj.xyz",),
         ),
         Case(
-            name="tsopt_heavy_dump",
-            args=["tsopt", *common, "--opt-mode", "heavy", "--dump"],
+            name="tsopt_hess_dump",
+            args=["tsopt", *common, "--opt-mode", "hess", "--dump"],
             expect_present=("optimization_all_trj.xyz",),
         ),
         Case(
-            name="tsopt_heavy_nodump",
-            args=["tsopt", *common, "--opt-mode", "heavy", "--no-dump"],
+            name="tsopt_hess_nodump",
+            args=["tsopt", *common, "--opt-mode", "hess", "--no-dump"],
             expect_present=(),
             expect_absent=("optimization_trj.xyz", "optimization_all_trj.xyz"),
         ),
         Case(
-            name="opt_light_dump_legacy_bool",
-            args=["opt", *common, "--opt-mode", "light", "--dump", "True"],
+            name="opt_grad_dump_legacy_bool",
+            args=["opt", *common, "--opt-mode", "grad", "--dump", "True"],
             expect_present=("optimization_trj.xyz", "optimization_all_trj.xyz"),
         ),
     ]
