@@ -2599,7 +2599,8 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     }), encoding="utf-8")
     ts_only_html = app["_summary_html"](str(ts_only_summary))
     assert "raw MEP" not in ts_only_html
-    assert "IRC frames: 5" in ts_only_html
+    assert "IRC frames: 5" not in ts_only_html
+    assert "backend/model:" not in ts_only_html
     assert "model-region DFT" in ts_only_html
     assert "energy order" in ts_only_html
     extra_artifacts = []

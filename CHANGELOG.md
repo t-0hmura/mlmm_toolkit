@@ -33,6 +33,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Remove the replaced path-tangent/single-mode helpers and one unreferenced mass-weighted-frequency wrapper; larger workflow and Notebook refactors remain deferred.
 
 ### Changed
+- Remove the repeated status/image-count/backend footer from the Colab summary table; the compact run context owns status and artifact details.
 - Remove the redundant `Path with N moving images.` startup line; tagged GSM sections and `String=...` records identify progress.
 - Rename the prepared Toy inputs to `r_toy.pdb`, `p_toy.pdb`, and `p_toy.parm7` and label the notebook route as MEP mode.
 - Enable repeated trajectory playback by default, select stitched `finished_irc_trj` for IRC profiles, and place the trajectory/energy view before result status and generated-file details in Colab.
