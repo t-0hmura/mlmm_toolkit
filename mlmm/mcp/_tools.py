@@ -304,9 +304,9 @@ def register_all(mcp) -> None:
         """ONIOM TS optimization (CLI: `mlmm tsopt`).
 
         Notes:
-        - opt_mode 'rsirfo' (default), 'rsprfo' (Banerjee 1985), and 'trim'
-          (Helgaker 1991) are all Hessian TS optimizers and support
-          microiteration; pass microiter=False to disable it.
+        - The default opt_mode='hess' selects RS-P-RFO. The explicit
+          'rsprfo', 'rsirfo', and 'trim' tokens select a Hessian TS optimizer
+          and support microiteration; pass microiter=False to disable it.
         """
         od = _resolve_out_dir(out_dir, "tsopt")
         argv: list[str] = ["mlmm", "tsopt", "-i", input_pdb, "--parm", parm7]

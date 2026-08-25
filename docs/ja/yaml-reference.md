@@ -19,7 +19,7 @@
 | [`bond`](#bond) | 結合変化検出設定 | scan, path-search |
 | [`search`](#search) | 再帰的経路探索設定 | path-search |
 | [`hessian_dimer`](#hessian_dimer) | Hessian・ダイマーTS 最適化 | tsopt |
-| [`rsirfo`](#rsirfo) | RS-I-RFO TS 最適化 | tsopt |
+| [`rsirfo`](#rsirfo) | Hessian TS 最適化設定 | tsopt |
 | [`stopt`](#stopt) | ストリング最適化（StringOptimizer）設定 | path-opt, path-search |
 | [`microiter`](#microiter) | マイクロイテレーション（MM緩和）設定 | opt, tsopt |
 
@@ -404,11 +404,12 @@ hessian_dimer:
 
 ### `rsirfo`
 
-RS-I-RFO TS 最適化（`tsopt --opt-mode hess`）。
+Hessian TS 最適化の共通設定です。デフォルトの RS-P-RFO
+（`tsopt --opt-mode hess` / `rsprfo`）と、明示的な `rsirfo` / `trim` に適用されます。
 
 ```yaml
 rsirfo:
- thresh: baker # RS-I-RFO 収束プリセット
+ thresh: baker # Hessian TS 収束プリセット
  max_cycles: 100000 # opt.max_cycles と共有するサイクル上限
  print_every: 100 # ログ出力間隔
  min_step_norm: 1.0e-08 # 最小ステップノルム

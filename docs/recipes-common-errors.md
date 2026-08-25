@@ -23,7 +23,7 @@ For full details, keep [Troubleshooting](troubleshooting.md) open in parallel.
 | CUDA out-of-memory at runtime (`torch.cuda.OutOfMemoryError`) | Shrink ML region (`--radius`), use `--hessian-calc-mode FiniteDifference`, or move to a larger GPU | [CUDA OOM](troubleshooting.md#cuda-oom-torchcudaoutofmemoryerror) |
 | CUDA/GPU runtime mismatch | Verify `torch.cuda.is_available()` and CUDA build pairing | [CUDA / PyTorch](troubleshooting.md#cuda--pytorch-mismatch) |
 | **Convergence** | | |
-| TSOPT does not converge | Reduce `trust_radius` (RFO/RS-I-RFO) or `max_step` (L-BFGS), increase cycles, and validate the TS | [Convergence](troubleshooting.md#calculation--convergence) |
+| TSOPT does not converge | Reduce `trust_radius` (RFO-family TS optimizer) or `max_step` (Dimer/L-BFGS), increase cycles, and validate the TS | [Convergence](troubleshooting.md#calculation--convergence) |
 | IRC does not terminate | Reduce `--step-size`, increase `--max-cycles`, and validate the TS | [Convergence](troubleshooting.md#calculation--convergence) |
 | Optimizer stalls at flat energy (MLIP noise floor) | Let `--max-cycles` bound the run, or opt in to `--stop-plateau` | [Plateau fallback](troubleshooting.md#optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor) |
 | Optimizer stalls at flat energy (MLIP noise floor) | Tune `--stop-plateau-thresh` / `--stop-plateau-window` if the trigger fires too early or too late | [Plateau fallback](troubleshooting.md#optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor) |
@@ -86,7 +86,7 @@ For full details, keep [Troubleshooting](troubleshooting.md) open in parallel.
 
 - First-order-saddle certification requires exactly one imaginary mode;
   inspect its displacement and IRC connectivity.
-- TSOPT: reduce `trust_radius` / `max_step` and increase its cycle limit. `trust_max` defaults to 0.10 bohr for RFO and RS-I-RFO.
+- TSOPT: reduce `trust_radius` / `max_step` and increase its cycle limit. `trust_max` defaults to 0.10 bohr for RFO-family TS optimizers.
 - IRC: reduce `--step-size` and increase `--max-cycles`.
 - Check whether the configured energy-plateau window is flat while force/step
   criteria remain unmet. The default fallback stops with `status: stalled`; it

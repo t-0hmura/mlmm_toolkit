@@ -105,7 +105,7 @@ mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode h
 # test7: tsopt (grad / dimer)
 mlmm tsopt -i p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode grad --max-cycles 100 --thresh gau --out-dir test7 > test7.out 2>&1
 
-# test8: tsopt (hess / rsirfo)
+# test8: tsopt (hess / rsprfo, microiteration default)
 mlmm tsopt -i p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode hess --max-cycles 5 --thresh gau --out-dir test8 > test8.out 2>&1
 
 # test9: freq
@@ -240,8 +240,8 @@ mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode g
 # test37: tsopt --opt-mode trim (Helgaker trust-region image-min; non-microiter)
 mlmm tsopt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode trim --no-microiter --max-cycles 5 --thresh gau_loose --out-dir test37 > test37.out 2>&1
 
-# test38: tsopt --opt-mode rsprfo (Banerjee P-RFO; non-microiter)
-mlmm tsopt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode rsprfo --no-microiter --max-cycles 5 --thresh gau_loose --out-dir test38 > test38.out 2>&1
+# test38: explicit RS-I-RFO (non-microiter); default hess/RS-P-RFO is covered by test8
+mlmm tsopt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode rsirfo --no-microiter --max-cycles 5 --thresh gau_loose --out-dir test38 > test38.out 2>&1
 
 # test39: irc --irc-pos-def (PSD-Hessian convergence guard)
 mlmm irc -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --max-cycles 3 --irc-pos-def --out-dir test39 > test39.out 2>&1
@@ -564,7 +564,7 @@ sed -n '2p' test70_orca_import.xyz | grep -Fq 'q=-1 m=1' || { echo "[smoke] FAIL
 python assert_orca_roundtrip.py test70_three_layer.pdb test70_orca_import_layered.pdb >> test70_orca_import.out 2>&1
 
 # test71: force a known higher-order candidate through the actual flatten
-# branch. The checker requires n_imag>1 before flattening, an executed RS-I-RFO
+# branch. The checker requires n_imag>1 before flattening, an executed RS-P-RFO
 # flatten iteration, and no increase in saddle order.
 mlmm tsopt -i p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode hess --no-microiter --flatten --config flatten_branch_config.yaml --thresh gau_loose --out-json --out-dir test71_flatten > test71_flatten.out 2>&1
 python assert_flatten_branch.py test71_flatten.out test71_flatten/result.json >> test71_flatten.out 2>&1

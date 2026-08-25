@@ -61,7 +61,7 @@ mlmm freq  -i result_tsopt/final_geometry.xyz --parm enzyme.parm7 --ref-pdb enzy
 ts_candidate.{xyz,pdb,cif,mmcif}
        │
        ▼
-   [tsopt]            (Dimer or RS-I-RFO; default RS-I-RFO)
+   [tsopt]            (Dimer or Hessian TS optimizer; default RS-P-RFO)
        │  optimization_status=converged
        │  hessian_status=completed, valid negative root
        │  first_order OR warning-labelled higher_order diagnostic

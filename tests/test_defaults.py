@@ -22,6 +22,8 @@ from mlmm.core.defaults import (
     RSIRFO_KW,
     DFT_KW,
     DMF_KW,
+    OPT_MODE_ALIASES,
+    TSOPT_MODE_ALIASES,
     fresh_dmf_config,
     BFACTOR_ML,
     BFACTOR_HESS_MM,
@@ -66,6 +68,42 @@ def test_ts_search_uses_terminal_exact_validation_without_automatic_recovery():
     assert RSIRFO_KW["reject_mode_loss"] is False
     assert RSIRFO_KW["verify_saddle"] is True
     assert RSIRFO_KW["saddle_recovery_max_cycles"] == 0
+
+
+def test_optimizer_aliases_exclude_removed_light_heavy_tokens():
+    tokens = {
+        token
+        for groups in (OPT_MODE_ALIASES, TSOPT_MODE_ALIASES)
+        for aliases, _canonical in groups
+        for token in aliases
+    }
+    assert tokens.isdisjoint({"light", "heavy"})
+
+
+def test_hess_ts_preset_resolves_to_rsprfo():
+    from mlmm.core.utils import normalize_choice
+
+    assert normalize_choice(
+        "hess",
+        param="--opt-mode",
+        alias_groups=TSOPT_MODE_ALIASES,
+        allowed_hint="grad|hess|dimer|rsirfo|trim|rsprfo",
+    ) == "rsprfo"
+    assert normalize_choice(
+        "rsirfo",
+        param="--opt-mode",
+        alias_groups=TSOPT_MODE_ALIASES,
+        allowed_hint="grad|hess|dimer|rsirfo|trim|rsprfo",
+    ) == "rsirfo"
+
+
+def test_public_optimizer_choices_exclude_removed_light_heavy_tokens():
+    from mlmm.workflows.opt import cli as opt_cli
+    from mlmm.workflows.tsopt import cli as tsopt_cli
+
+    for command in (opt_cli, tsopt_cli):
+        option = next(param for param in command.params if param.name == "opt_mode")
+        assert set(option.type.choices).isdisjoint({"light", "heavy"})
 
 
 def test_lbfgs_inherits_opt():

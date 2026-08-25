@@ -1160,7 +1160,7 @@ def _run_microiter_opt(
 
 
 @click.command(
-    help="ML/MM geometry optimization with L-BFGS (light) or RFO (heavy).",
+    help="ML/MM geometry optimization with L-BFGS or RFO.",
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 @click.option(
@@ -1277,10 +1277,10 @@ def _run_microiter_opt(
 )
 @click.option(
     "--opt-mode",
-    type=click.Choice(["grad", "hess", "light", "heavy", "lbfgs", "rfo"], case_sensitive=False),
+    type=click.Choice(["grad", "hess", "lbfgs", "rfo"], case_sensitive=False),
     default="grad",
     show_default=True,
-    help="Optimization mode: grad (lbfgs) or hess (rfo). Aliases light/heavy and lbfgs/rfo are accepted.",
+    help="Optimization mode: grad/lbfgs or hess/rfo.",
 )
 @click.option(
     "--microiter/--no-microiter",

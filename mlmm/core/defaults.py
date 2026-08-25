@@ -235,8 +235,8 @@ BOND_KW: Dict[str, Any] = {
 
 
 OPT_MODE_ALIASES = (
-    (("grad", "light", "lbfgs"), "lbfgs"),
-    (("hess", "heavy", "rfo"), "rfo"),
+    (("grad", "lbfgs"), "lbfgs"),
+    (("hess", "rfo"), "rfo"),
 )
 
 # DMF (Direct Max Flux) defaults for path optimization
@@ -385,7 +385,7 @@ IRC_KW: Dict[str, Any] = {
     "never_stop": False,
 }
 
-# Microiteration defaults (opt heavy / tsopt heavy)
+# Microiteration defaults (Hessian-based opt / tsopt)
 
 MICROITER_KW: Dict[str, Any] = {
     # The MM relaxation is held to the SAME preset as the macro step: the macro
@@ -424,10 +424,10 @@ THERMO_KW: Dict[str, Any] = {
 
 
 TSOPT_MODE_ALIASES = (
-    (("grad", "light", "dimer"), "dimer"),
-    (("hess", "heavy", "rsirfo"), "rsirfo"),
+    (("grad", "dimer"), "dimer"),
+    (("hess", "rsprfo"), "rsprfo"),
+    (("rsirfo",), "rsirfo"),
     (("trim",), "trim"),
-    (("rsprfo",), "rsprfo"),
 )
 
 # Saddle certification counts modes above the configured 5 cm^-1 magnitude
@@ -478,7 +478,7 @@ HESSIAN_DIMER_KW: Dict[str, Any] = {
     "ml_only_hessian_dimer": False,
 }
 
-# RS-I-RFO defaults for TS optimization (heavy mode)
+# Shared Hessian TS optimizer defaults (RS-P-RFO default; RS-I-RFO / TRIM explicit)
 
 # Inherit shared keys from RFO_KW, but drop two groups the TS optimizers must
 # not take from RFO_KW: the gdiis/gediis family (the base Optimizer has no

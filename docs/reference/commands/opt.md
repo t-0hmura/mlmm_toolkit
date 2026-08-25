@@ -3,7 +3,7 @@
 ```text
 Usage: mlmm opt [OPTIONS]
 
-  ML/MM geometry optimization with L-BFGS (light) or RFO (heavy).
+  ML/MM geometry optimization with L-BFGS or RFO.
 
 Options:
   -v, --verbose LEVEL             Console verbosity 0-3 (default 2). 0=silent;
@@ -63,10 +63,9 @@ Options:
   -o, --out-dir TEXT              Output directory.  [default: ./result_opt/]
   --thresh [gau_loose|gau|gau_tight|gau_vtight|baker|never]
                                   Convergence preset.  [default: (gau)]
-  --opt-mode [grad|hess|light|heavy|lbfgs|rfo]
-                                  Optimization mode: grad (lbfgs) or hess (rfo).
-                                  Aliases light/heavy and lbfgs/rfo are
-                                  accepted.  [default: grad]
+  --opt-mode [grad|hess|lbfgs|rfo]
+                                  Optimization mode: grad/lbfgs or hess/rfo.
+                                  [default: grad]
   --microiter / --no-microiter    Enable microiteration: alternate ML 1-step
                                   (RFO) and MM relaxation (L-BFGS with MM-only
                                   forces). Only effective in --opt-mode hess

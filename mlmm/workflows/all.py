@@ -2495,7 +2495,7 @@ def _save_single_geom_for_tools(g: Any, ref_pdb: Path, out_dir: Path, name: str)
 def _tsopt_reference_mode_is_applicable(opt_mode: Optional[str]) -> bool:
     """Whether the selected TS optimizer consumes a Hessian reference mode."""
     mode = str(opt_mode or "hess").strip().lower()
-    return mode not in {"grad", "dimer", "light", "lbfgs"}
+    return mode not in {"grad", "dimer", "lbfgs"}
 
 
 def _tsopt_continuation_decision(
@@ -3260,7 +3260,7 @@ def _run_opt_for_state(
         prepared_input = prepare_input_structure(pdb_path)
         input_label = pdb_path.name
     try:
-        opt_mode = str(opt_mode_default or "heavy").lower()
+        opt_mode = str(opt_mode_default or "hess").lower()
         args = [
             "-i", str(prepared_input.geom_path),
         ]
@@ -3749,7 +3749,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     show_default=True,
     help=(
         "Fallback optimizer mode for TSOPT and post-IRC endpoint optimization: "
-        "grad (=L-BFGS/Dimer) or hess (=RFO/RS-I-RFO). "
+        "grad (=L-BFGS/Dimer) or hess (=RFO/RS-P-RFO). "
         "--opt-mode-post takes precedence."
     ),
 )
@@ -3867,7 +3867,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     "flatten",
     default=False,
     show_default=True,
-    help="Enable the extra-imaginary-mode flattening loop in tsopt (grad: dimer loop, hess: post-RSIRFO); --no-flatten forces flatten_max_iter=0.",
+    help="Enable the extra-imaginary-mode flattening loop in tsopt (grad: dimer loop, hess: post-RS-P-RFO); --no-flatten forces flatten_max_iter=0.",
 )
 @click.option(
     "--reject-uphill/--no-reject-uphill",
@@ -4448,8 +4448,6 @@ def cli(
     _mode_alias = {
         "grad": "grad",
         "hess": "hess",
-        "light": "grad",
-        "heavy": "hess",
     }
     opt_mode_norm = _mode_alias.get(str(opt_mode).strip().lower(), "grad")
     mep_mode_kind = str(mep_mode).strip().lower()

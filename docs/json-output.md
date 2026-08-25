@@ -114,7 +114,7 @@ An optimizer may also report `"status": "stalled"`: the energy stopped decreasin
 | `stop_reason` | string | Present only for a non-converged stop (stalled/stopped); records the energy plateau range/window and failed criteria |
 | `energy_hartree` | float | Final ONIOM energy (Hartree) |
 | `n_opt_cycles` | int | Optimization cycles completed |
-| `opt_mode` | string | One of `"grad"`, `"hess"`, `"light"`, `"heavy"`, `"lbfgs"`, `"rfo"` (aliases: `light`/`lbfgs` → `grad`; `heavy`/`rfo` → `hess`) |
+| `opt_mode` | string | One of `"grad"`, `"hess"`, `"lbfgs"`, or `"rfo"` |
 | `charge` | int | Model-region charge |
 | `spin` | int | Model-region multiplicity |
 | `n_atoms` | int | Total atoms (all layers) |
@@ -145,7 +145,7 @@ An optimizer may also report `"status": "stalled"`: the energy stopped decreasin
 | `energy_hartree` | float | TS energy (Hartree) |
 | `n_imaginary_modes` | int\|null | Number of imaginary frequencies; `null` if PHVA was not run |
 | `imaginary_frequencies_cm` | float[]\|null | Imaginary frequencies (cm⁻¹, negative); no PHVA: `[]` with `--skip-final-freq`, otherwise `null` |
-| `opt_mode` | string | One of `"grad"`, `"hess"`, `"light"`, `"heavy"`, `"dimer"`, `"rsirfo"`, `"trim"`, `"rsprfo"` (aliases: `light`/`dimer` → `grad` (PHG-Dimer); `heavy`/`rsirfo` → `hess` (RS-I-RFO); `trim` → TRIM; `rsprfo` → RS-P-RFO) |
+| `opt_mode` | string | One of `"grad"`, `"hess"`, `"dimer"`, `"rsprfo"`, `"rsirfo"`, or `"trim"`; `hess` selects RS-P-RFO |
 | `n_atoms` | int | Total atoms |
 | `n_opt_cycles` | int | Optimization cycles |
 | `charge` | int | Model-region charge |

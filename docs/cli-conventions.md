@@ -224,11 +224,10 @@ Choices and defaults differ across subcommands.
 
 | Subcommand | Gradient-only alias | Hessian-based alias | Default | Engine |
 |---|---|---|---|---|
-| `opt` | `grad` (`light`, `lbfgs`) | `hess` (`heavy`, `rfo`) | `grad` | L-BFGS vs RFO (with optional `--microiter`). |
-| `tsopt` | `grad` (`light`, `dimer`) | `hess` (`heavy`; RS-I-RFO default, with RS-P-RFO / TRIM choices) | `hess` | Dimer vs Hessian-based TS optimizers. |
+| `opt` | `grad` (`lbfgs`) | `hess` (`rfo`) | `grad` | L-BFGS vs RFO (with optional `--microiter`). |
+| `tsopt` | `grad` (`dimer`) | `hess` (`rsprfo`; RS-P-RFO default, with RS-I-RFO / TRIM choices) | `hess` | Dimer vs Hessian-based TS optimizers. |
 | `all` | `grad` | `hess` | `grad` | Fallback for TSOPT and post-IRC endpoint optimization; `--opt-mode-post` takes precedence. |
 
-`light` / `heavy` are accepted as legacy aliases for `grad` / `hess` for backward compatibility; prefer `grad` / `hess` in new scripts.
 Scan and path-search stages use their fixed L-BFGS optimizers and do not accept
 `--opt-mode`.
 

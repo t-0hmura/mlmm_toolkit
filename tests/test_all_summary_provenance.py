@@ -205,7 +205,7 @@ def test_enriched_rate_limit_uses_refined_barrier(tmp_path) -> None:
         for ref in summary["references"]
     )
     assert any(
-        ref["method"] == "RS-I-RFO" for ref in summary["references"]
+        ref["method"] == "RS-P-RFO" for ref in summary["references"]
     )
     assert any(
         ref["method"] == "Limited-memory BFGS (L-BFGS)"

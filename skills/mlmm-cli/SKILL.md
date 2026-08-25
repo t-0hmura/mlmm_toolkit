@@ -23,7 +23,7 @@ Each row points to the full per-subcommand md in this skill directory.
 | `path-search.md` | `path-search` | Recursive MEP search (GSM or DMF) across N endpoints with bond-change segmentation.<br>Splits multi-step paths into one-TS-per-segment automatically. |
 | `path-opt.md` | `path-opt` | MEP optimization for a **single** segment between two endpoints.<br>Building block of `path-search`; also useful for refining one segment without re-running the whole search. |
 | `opt.md` | `opt` | Single-structure geometry optimization with L-BFGS or RFO.<br>`--opt-mode grad` (L-BFGS, default) is fast; `--opt-mode hess` (RFO) is robust on tricky surfaces. |
-| `tsopt.md` | `tsopt` | TS optimization: default RS-I-RFO (`--opt-mode hess/rsirfo`); Hessian-Guided Dimer is the lighter alternative (`--opt-mode grad/dimer`). |
+| `tsopt.md` | `tsopt` | TS optimization: default RS-P-RFO (`--opt-mode hess/rsprfo`); RS-I-RFO, TRIM, and Hessian-Guided Dimer remain explicit alternatives. |
 | `freq.md` | `freq` | Vibrational analysis: Hessian, frequencies, normal-mode visualization, QRRHO thermochemistry.<br>Default temperature/pressure 298.15 K / 1 atm; partial-Hessian variant when `freeze_atoms` is non-empty. |
 | `sp.md` | `sp` | ONIOM single-point energy + forces (and optional Hessian).<br>Cheapest stage; useful for spot-checking a geometry without running an optimization. |
 | `irc.md` | `irc` | IRC integration with EulerPC in mass-weighted Cartesians.<br>Writes raw forward/backward endpoints; optimize them separately with `opt` or through `all`. |

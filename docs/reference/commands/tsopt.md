@@ -3,7 +3,7 @@
 ```text
 Usage: mlmm tsopt [OPTIONS]
 
-  TS optimization: grad (Dimer) or hess (RS-I-RFO) for the ML/MM calculator.
+  TS optimization: grad (Dimer) or hess (RS-P-RFO) for the ML/MM calculator.
 
 Options:
   -v, --verbose LEVEL             Console verbosity 0-3 (default 2). 0=silent;
@@ -78,13 +78,12 @@ Options:
   -o, --out-dir TEXT              Output directory.  [default: ./result_tsopt/]
   --thresh [gau_loose|gau|gau_tight|gau_vtight|baker|never]
                                   Convergence preset.  [default: (baker)]
-  --opt-mode [grad|hess|light|heavy|dimer|rsirfo|trim|rsprfo]
-                                  grad/dimer/light → Hessian Guided Dimer;
-                                  hess/rsirfo/heavy → RS-I-RFO; trim → TRIM
-                                  (Helgaker); rsprfo → RS-P-RFO (Banerjee). All
-                                  three Hessian TS optimizers
-                                  (rsirfo/rsprfo/trim) are microiter-capable.
-                                  [default: hess]
+  --opt-mode [grad|hess|dimer|rsirfo|trim|rsprfo]
+                                  grad/dimer → Hessian Guided Dimer; hess/rsprfo
+                                  → RS-P-RFO (Banerjee); rsirfo → RS-I-RFO; trim
+                                  → TRIM (Helgaker). All three Hessian TS
+                                  optimizers (rsirfo/rsprfo/trim) are microiter-
+                                  capable.  [default: hess]
   --microiter / --no-microiter    Enable microiteration: alternate a 1-step
                                   macro TS move (RS-I-RFO / RS-P-RFO / TRIM) and
                                   MM relaxation (L-BFGS with MM-only forces).

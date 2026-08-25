@@ -116,7 +116,7 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | `stop_reason` | string | 非収束停止（stalled/stopped）時のみ出力。エネルギープラトーの範囲・ウィンドウと満たせなかった基準を記録 |
 | `energy_hartree` | float | 最終 ONIOM エネルギー (Hartree) |
 | `n_opt_cycles` | int | 最適化サイクル数 |
-| `opt_mode` | string | `"grad"`, `"hess"`, `"light"`, `"heavy"`, `"lbfgs"`, `"rfo"` のいずれか（`light`/`lbfgs` は `grad`、`heavy`/`rfo` は `hess` の別名） |
+| `opt_mode` | string | `"grad"`, `"hess"`, `"lbfgs"`, `"rfo"` のいずれか |
 | `charge` | int | モデル領域電荷 |
 | `spin` | int | モデル領域スピン多重度 |
 | `n_atoms` | int | 全原子数（全レイヤー） |
@@ -147,7 +147,7 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | `energy_hartree` | float | TS エネルギー (Hartree) |
 | `n_imaginary_modes` | int\|null | 虚振動数。PHVA を実行しなかった場合は `null` |
 | `imaginary_frequencies_cm` | float[]\|null | 虚振動数 (cm$^{-1}$, 負の値)。PHVA 未実行時は `null` |
-| `opt_mode` | string | `"grad"`, `"hess"`, `"light"`, `"heavy"`, `"dimer"`, `"rsirfo"`, `"trim"`, `"rsprfo"` のいずれか（`light`/`dimer` は `grad` (PHG-Dimer)、`heavy`/`rsirfo` は `hess` (RS-I-RFO)、`trim` は TRIM、`rsprfo` は RS-P-RFO の別名） |
+| `opt_mode` | string | `"grad"`, `"hess"`, `"dimer"`, `"rsprfo"`, `"rsirfo"`, `"trim"` のいずれか。`hess` は RS-P-RFO を選択。 |
 | `n_atoms` | int | 全原子数 |
 | `n_opt_cycles` | int | 最適化サイクル数 |
 | `charge` / `spin` | int / int | model 領域の電荷/多重度 |

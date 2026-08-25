@@ -112,7 +112,7 @@ Options:
                                   [default: climb]
   --opt-mode [grad|hess]          Fallback optimizer mode for TSOPT and post-IRC
                                   endpoint optimization: grad (=L-BFGS/Dimer) or
-                                  hess (=RFO/RS-I-RFO). --opt-mode-post takes
+                                  hess (=RFO/RS-P-RFO). --opt-mode-post takes
                                   precedence.  [default: grad]
   --opt-mode-post [grad|hess]     Optimizer mode for TSOPT and post-IRC endpoint
                                   optimizations. Takes precedence over --opt-
@@ -192,7 +192,7 @@ Options:
                                   (100000); x>=1]
   --flatten / --no-flatten        Enable the extra-imaginary-mode flattening
                                   loop in tsopt (grad: dimer loop, hess: post-
-                                  RSIRFO); --no-flatten forces
+                                  RS-P-RFO); --no-flatten forces
                                   flatten_max_iter=0.  [default: no-flatten]
   --reject-uphill / --no-reject-uphill
                                   Opt in to rejecting uphill RFO trials during

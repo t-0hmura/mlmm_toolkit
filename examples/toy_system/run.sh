@@ -33,7 +33,7 @@ mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode h
 # test7: tsopt (grad / dimer)
 mlmm tsopt -i p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode grad --out-dir test7 > test7.out 2>&1
 
-# test8: tsopt (hess / rsirfo)
+# test8: tsopt (hess / rsprfo, microiteration default)
 mlmm tsopt -i p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode hess --out-dir test8 > test8.out 2>&1
 
 # test9: freq

@@ -438,7 +438,7 @@ ML/MM 系は MLIP 単体の計算よりも一般的に大きいため、VRAM の
 - 最適化後も複数の虚振動数が残る
 
 対処の例:
-- オプティマイザモードを切り替える: `--opt-mode grad` (Dimer) または `--opt-mode hess` (RS-I-RFO)
+- オプティマイザモードを切り替える: `--opt-mode grad` (Dimer) または `--opt-mode hess` (RS-P-RFO)
 - 余分な虚モードのフラット化を有効にする: `--flatten`
 - 停止理由と計算予算を確認したうえで `--max-cycles` を増やす
 - より厳しい収束閾値を使う: `--thresh baker` または `--thresh gau_tight`

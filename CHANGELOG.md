@@ -7,6 +7,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased] — 2026-08-19
 
 ### Fixed
+- Preserve the MM micro-optimizer until its non-convergence diagnostics have been collected, preventing a post-macro microiteration failure from raising `UnboundLocalError`.
+- Record terminal PHVA as `skipped`, rather than `unavailable`, when a non-converged Hessian TS optimizer does not authorize the analysis.
 - Keep accepted line-search/GDIIS offsets in minimum RFO instead of applying
   the trust radius a second time to the full accelerated displacement.
 - Keep an explicit finite cycle cap when resuming a checkpoint written by an
@@ -20,6 +22,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Separate numerical optimization status from saddle order. A converged higher-order stationary point is not a first-order TS, but `all` may perform warning-labelled diagnostic IRC when a valid negative root exists.
 - Synchronize EN/JA docs, skills, live help, generated command references, and checked-in contract tests with the current behavior.
 - Remove the replaced path-tangent/single-mode helpers and one unreferenced mass-weighted-frequency wrapper; larger workflow and Notebook refactors remain deferred.
+
+### Changed
+- Map the `hess` TS-optimizer preset to RS-P-RFO. Standalone `tsopt` retains RS-I-RFO through `--opt-mode rsirfo`.
+- Remove the legacy `light` and `heavy` optimizer aliases; use `grad`/`hess` or the algorithm names exposed by each subcommand.
 
 ## [0.3.3] — 2026-07-27
 

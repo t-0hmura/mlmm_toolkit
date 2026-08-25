@@ -37,7 +37,7 @@ def test_reference_mode_rejects_zero_vector(tmp_path) -> None:
         _load_reference_mode(path, 3)
 
 
-@pytest.mark.parametrize("mode", ["dimer", "grad", "light"])
+@pytest.mark.parametrize("mode", ["dimer", "grad"])
 def test_reference_mode_rejects_dimer_aliases(mode, tmp_path) -> None:
     path = tmp_path / "mode.txt"
     path.write_text("1 0 0\n", encoding="utf-8")

@@ -200,7 +200,7 @@ CLI サブコマンドリゾルバ (`cli/app.py:_LAZY_SUBCOMMANDS`) は **絶対
 
 ### 4.2 ワークフローステージランナー (L2 `workflows/`)
 
-以下で用いる略語: MEP = 最小エネルギー経路、GSM = growing-string method、COS = chain-of-states、RSIRFO = restricted-step image-function rational-function optimization (RS-I-RFO とも表記)、Bofill = Bofill Hessian 更新式、PHVA = partial Hessian vibrational analysis、IRC = 内在反応座標、Kabsch = Kabsch 剛体アラインメントアルゴリズム。
+以下で用いる略語: MEP = 最小エネルギー経路、GSM = growing-string method、COS = chain-of-states、RS-P-RFO = restricted-step partitioned rational-function optimization、RS-I-RFO = restricted-step image-function rational-function optimization、Bofill = Bofill Hessian 更新式、PHVA = partial Hessian vibrational analysis、IRC = 固有反応座標、Kabsch = Kabsch 剛体アラインメントアルゴリズム。
 
 | concern | file |
 |---|---|
@@ -209,7 +209,7 @@ CLI サブコマンドリゾルバ (`cli/app.py:_LAZY_SUBCOMMANDS`) は **絶対
 | Scanと2D/3D energy-landscape grid + 共有 | `mlmm/workflows/scan{,2d,3d,_common}.py` |
 | MEP 探索 (GSM) | `mlmm/workflows/path_search.py` |
 | MEP オプティマイザコア (pysisyphus COS) | `mlmm/workflows/path_opt.py` |
-| TS 最適化 (RSIRFO + Bofill + マクロ/マイクロ) | `mlmm/workflows/tsopt.py` |
+| TS 最適化 (RS-P-RFO / RS-I-RFO / TRIM + Bofill + マクロ/マイクロ) | `mlmm/workflows/tsopt.py` |
 | 振動解析 (PHVA + MLIP active block) | `mlmm/workflows/freq.py` |
 | IRC 積分 (マクロ / マイクロ) | `mlmm/workflows/irc.py` |
 | 単一点 DFT (gpu4pyscf サブプロセス、ONIOM 埋め込み) | `mlmm/workflows/dft.py` |
@@ -297,7 +297,7 @@ grep -rn '# DOMAIN_PURE' mlmm/
 |---|---|---|
 | 1 | Subtractive ONIOM エネルギー式 (`E = mm_real + ml_model − mm_model`) | `mlmm/backends/mlmm_calc.py` |
 | 2 | Link-atom Hessian B-matrix 投影 | `mlmm/backends/mlmm_calc.py` |
-| 3 | マクロ / マイクロ交互 (RS-I-RFO hess mode microiteration) | `mlmm/workflows/tsopt.py` |
+| 3 | Hessian TS オプティマイザのマクロ / マイクロ交互（RS-P-RFO がデフォルト） | `mlmm/workflows/tsopt.py` |
 | 4 | gpu4pyscf `rks_lowmem` トリプルガード | `mlmm/workflows/dft.py` |
 | 5 | def2 ファミリーの自動 ECP 注入 | `mlmm/workflows/dft.py` |
 | 6 | PHVA + MLIP active-block partial Hessian | `mlmm/workflows/freq.py` |
@@ -328,7 +328,7 @@ IRC / TSopt / Freq ステージは、CUDA メモリを解放するためにス�
 
 - `pysisyphus/irc/IRC.py` — 初期変位のメモリ管理
 - `pysisyphus/optimizers/hessian_updates.py` — GPU 常駐の in-place rank-two Bofill 更新、オプトインの `PYSIS_BOFILL_CPU_OFFLOAD=1` フォールバック
-- `pysisyphus/tsoptimizers/TSHessianOptimizer.py` — RSIRFO kwargs
+- `pysisyphus/tsoptimizers/TSHessianOptimizer.py` — Hessian TS オプティマイザ kwargs
 - `pysisyphus/calculators/...` — GPU を意識したバックエンドフック
 - `thermoanalysis/QCData.py` — upstream とのブランディング / I/O 差分
 - `hessian_ff/analytical_hessian.py` — `backends/mlmm_calc.py` が消費する唯一のエントリ。**upstream の代替は存在しません**
@@ -368,7 +368,7 @@ IRC / TSopt / Freq ステージは、CUDA メモリを解放するためにス�
 4. `mlmm/workflows/extract.py` + `define_layer.py` — クラスター切り出し + リンク原子キャップ + ONIOM レイヤー割り当て。
 5. `mlmm/workflows/mm_parm.py` — AmberTools parm7 生成。
 6. `mlmm/backends/mlmm_calc.py` — ML/MM の心臓部 (化学ルール #1, #2, #8 がここにある。#9 は `mlmm/io/pdb_indexing.py`)。
-7. `mlmm/workflows/tsopt.py` — RSIRFO + Bofill (CHEMISTRY-RULE:7) + マクロ / マイクロ交互 (CHEMISTRY-RULE:3)。
+7. `mlmm/workflows/tsopt.py` — Hessian TS オプティマイザ + Bofill (CHEMISTRY-RULE:7) + マクロ / マイクロ交互 (CHEMISTRY-RULE:3)。
 8. `mlmm/workflows/freq.py` — PHVA + MLIP active-block (CHEMISTRY-RULE:6)。
 9. `mlmm/workflows/irc.py` — VRAM 管理 + マクロ / マイクロ IRC。
 10. `mlmm/core/utils.py` — 共有 PDB / XYZ / プロットヘルパー。

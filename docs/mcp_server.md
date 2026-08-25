@@ -106,10 +106,10 @@ requires a positive-definite mass-weighted Hessian, blocking the IRC
 "shoulder" false-convergence where the rms-only criterion declares success
 before reaching the local minimum. Defaults to `None` (rms-only, legacy).
 
-`find_transition_state` accepts `opt_mode="trim"` (Helgaker 1991) /
-`opt_mode="rsprfo"` (Banerjee 1985) as alternative TS optimizers. All three
-Hessian TS optimizers (`rsirfo`/`rsprfo`/`trim`) are microiteration-capable
-and run with microiteration on by default; pass `microiter=False` to disable it.
+The default `find_transition_state` value, `opt_mode="hess"`, selects RS-P-RFO.
+The explicit `rsprfo`, `rsirfo`, and `trim` tokens select a Hessian TS
+optimizer. All three support microiteration, which is enabled by default;
+pass `microiter=False` to disable it.
 
 ## Client configuration
 

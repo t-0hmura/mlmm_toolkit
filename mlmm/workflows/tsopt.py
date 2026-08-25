@@ -41,7 +41,7 @@ from pysisyphus.tr_projection import (
     project_hessian_inplace,
 )
 
-# RS-I-RFO optimizer for heavy mode
+# Hessian-based transition-state optimizers
 from pysisyphus.tsoptimizers.RSIRFOptimizer import RSIRFOptimizer
 from pysisyphus.tsoptimizers.TRIM import TRIM  # Helgaker trust-region image-min TS opt
 from pysisyphus.tsoptimizers.RSPRFOptimizer import RSPRFOptimizer  # Banerjee P-RFO TS opt
@@ -194,8 +194,8 @@ def _set_cartesian_flatten_coords(geom, cart_coords: np.ndarray) -> None:
 
 
 # TS optimizer class map. All three classes inherit from TSHessianOptimizer
-# and share the kwargs surface (`_build_rsirfo_kwargs`). Microiter macro
-# stays RSIRFO-specific (different image-function / line-search math).
+# and share the kwargs surface (`_build_rsirfo_kwargs`); each selected class
+# retains its own image-function or partitioned-step mathematics.
 TSOPT_CLASS_MAP = {"rsirfo": RSIRFOptimizer, "trim": TRIM, "rsprfo": RSPRFOptimizer}
 PATH_MODE_RESTART_AMPLITUDES_ANG = (-0.10, 0.10, -0.20, 0.20)
 FLATTEN_RETRY_HIGHER_ORDER_CHECKS = 3
@@ -270,6 +270,23 @@ def _hessian_postprocessing_is_ready(optimizer: Any) -> bool:
         and getattr(optimizer, "is_converged", False)
         and not getattr(optimizer, "_last_exact_failure_reason", None)
     )
+
+
+def _hessian_result_status(
+    *,
+    n_imaginary: Optional[int],
+    hessian_error: Optional[str],
+    postprocessing_ready: bool,
+    explicitly_skipped: bool = False,
+) -> str:
+    """Classify terminal PHVA execution independently of optimizer status."""
+    if hessian_error:
+        return "failed"
+    if n_imaginary is not None:
+        return "completed"
+    if explicitly_skipped or not postprocessing_ready:
+        return "skipped"
+    return "unavailable"
 
 
 def _saddle_validation_from_count(n_imaginary: Optional[int]) -> str:
@@ -487,7 +504,7 @@ def _build_rsirfo_kwargs(
     max_cycles: Optional[int],
     out_dir: Path,
     macro_thresh: Optional[str] = None,
-    mode: str = "rsirfo",
+    mode: str = "rsprfo",
     opt_cfg: Optional[Dict[str, Any]] = None,
     dump: bool = False,
     reference_mode: Optional[Any] = None,
@@ -2606,7 +2623,7 @@ def _run_microiter_tsopt(
     *,
     dump: bool = False,
     thresh: Optional[str] = None,
-    mode: str = "rsirfo",
+    mode: str = "rsprfo",
     reference_mode: Optional[np.ndarray] = None,
     flatten_enabled: bool = False,
 ) -> Dict[str, Any]:
@@ -2635,10 +2652,10 @@ def _run_microiter_tsopt(
       Reference: Vreven & Morokuma 2003 (ONIOM microiteration scheme).
 
     GPU memory pattern (CHEMISTRY-RULE:1 + bofill_update CPU fallback):
-      RS-I-RFO Bofill Hessian update is forced to CPU (= long-loop GPU peak
-      avoidance); this function's macro step runs ML force on GPU + Hessian
-      update on CPU + MM-only micro on CPU. No GPU residency growth across
-      macro cycles.
+      Bofill Hessian updates are forced to CPU (= long-loop GPU peak
+      avoidance); the macro step runs ML forces on GPU, Hessian updates on
+      CPU, and MM-only microiterations on CPU. No GPU residency growth occurs
+      across macro cycles.
     """
     # Resolve the immutable partition from a single accepted core
     # (loud on failure, never a swallowed empty set), consuming the exact
@@ -2828,7 +2845,7 @@ def _run_microiter_tsopt(
                 "outcome": micro_outcome,
             }
 
-        # Seed initial Hessian for RS-I-RFO (with macro freeze)
+        # Seed the initial Hessian for the macro TS optimizer.
         # Try TS Hessian cache first; fall back to full Hessian calculation.
         from mlmm.io.hessian_cache import (
             load_matching as _hess_load_matching,
@@ -2930,7 +2947,7 @@ def _run_microiter_tsopt(
             else range(max_cycles if run_macro else 0)
         )
         for macro_iter in macro_iterable:
-            # ---- Macro step: 1 RS-I-RFO step with ONIOM forces, MM frozen ----
+            # ---- Macro step: one Hessian TS step with ONIOM forces, MM frozen ----
             geometry.freeze_atoms = macro_freeze
             geometry.set_calculator(macro_calc)
 
@@ -3016,6 +3033,11 @@ def _run_microiter_tsopt(
                         "criteria met; accepting it as MM equilibrium.",
                         narrative=True,
                     )
+                _micro_stop_description = (
+                    describe_micro_stop(_micro_out, micro_opt)
+                    if _micro_out.converged is not True and not _micro_equilibrium
+                    else None
+                )
                 del micro_opt
                 _clear_cuda_cache()
             else:
@@ -3027,6 +3049,7 @@ def _run_microiter_tsopt(
                 _micro_out = OptimizerOutcome.vacuous_success()
                 micro_steps = 0
                 _micro_equilibrium = False
+                _micro_stop_description = None
             micro_attempts.append(_micro_out)
             # remember whether THIS micro (MM) relaxation stalled on an
             # energy plateau. Coordinate copying alone is not evidence of
@@ -3045,7 +3068,7 @@ def _run_microiter_tsopt(
             if _micro_out.converged is not True and not _micro_equilibrium:
                 emit(
                     "[microiter] Latest MM relaxation did not converge "
-                    f"({describe_micro_stop(_micro_out, micro_opt)}); "
+                    f"({_micro_stop_description}); "
                     "stopping the macro/micro loop.",
                     narrative=True,
                 )
@@ -3271,7 +3294,7 @@ def _prepare_tsopt_output_dir(
 
 
 @click.command(
-    help="TS optimization: grad (Dimer) or hess (RS-I-RFO) for the ML/MM calculator.",
+    help="TS optimization: grad (Dimer) or hess (RS-P-RFO) for the ML/MM calculator.",
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 @click.option(
@@ -3413,15 +3436,15 @@ def _prepare_tsopt_output_dir(
 @click.option(
     "--opt-mode",
     type=click.Choice(
-        ["grad", "hess", "light", "heavy", "dimer", "rsirfo", "trim", "rsprfo"],
+        ["grad", "hess", "dimer", "rsirfo", "trim", "rsprfo"],
         case_sensitive=False,
     ),
     default="hess",
     show_default=True,
     help=(
-        "grad/dimer/light → Hessian Guided Dimer; "
-        "hess/rsirfo/heavy → RS-I-RFO; trim → TRIM (Helgaker); "
-        "rsprfo → RS-P-RFO (Banerjee). "
+        "grad/dimer → Hessian Guided Dimer; "
+        "hess/rsprfo → RS-P-RFO (Banerjee); "
+        "rsirfo → RS-I-RFO; trim → TRIM (Helgaker). "
         "All three Hessian TS optimizers (rsirfo/rsprfo/trim) are microiter-capable."
     ),
 )
@@ -3722,7 +3745,7 @@ def cli(
 
     time_start = time.perf_counter()
 
-    # Resolve optimizer mode (default is now hess/RS-I-RFO)
+    # Resolve optimizer mode (hess defaults to RS-P-RFO).
     mode_resolved = normalize_choice(
         opt_mode,
         param="--opt-mode",
@@ -4189,8 +4212,9 @@ def cli(
 
     # Pretty-print config summary (only non-default values for concise logging)
     heavy_mode_label = _heavy_mode_label(mode_resolved) if use_heavy else None
+    mode_token = str(opt_mode).strip().lower()
     mode_desc = (
-        f"{heavy_mode_label} (hess)" if use_heavy else "Dimer (grad)"
+        f"{heavy_mode_label} ({mode_token})" if use_heavy else f"Dimer ({mode_token})"
     )
     if use_microiter:
         mode_desc += " + Microiteration"
@@ -4229,7 +4253,7 @@ def cli(
             protected_inputs=tsopt_protected_inputs,
         )
         if use_heavy:
-            # Heavy mode: RS-I-RFO with full Hessian
+            # Hessian-family mode with a full or active-block Hessian.
             optim_all_path = out_dir_path / "optimization_all_trj.xyz"
             if bool(opt_cfg["dump"]) and optim_all_path.exists():
                 optim_all_path.unlink()
@@ -4305,7 +4329,7 @@ def cli(
                 initial_run_cycles = int(microiter_outcome["cycles"])
                 _heavy_cycle_ledger.debit(initial_run_cycles)
             else:
-                # --- Standard RS-I-RFO path ---
+                # --- Standard non-microiteration Hessian TS path ---
                 base_calc = mlmm(**calc_cfg)
                 geometry.set_calculator(base_calc)
 
@@ -4338,7 +4362,7 @@ def cli(
                 if bool(opt_cfg["dump"]):
                     _append_xyz_trajectory(optim_all_path, out_dir_path / "optimization_trj.xyz")
 
-                # --- Post-RSIRFO: count imaginary modes and optional flatten loop ---
+                # --- Post-optimization imaginary-mode count and optional flatten loop ---
                 # Save cycle count before deleting optimizer for budget check.
                 initial_run_cycles = int(optimizer_cycle_count(optimizer) or 0)
                 _heavy_cycle_ledger.debit(initial_run_cycles)
@@ -5045,7 +5069,7 @@ def cli(
                             break
 
             if freqs_cm is not None and modes is not None:
-                # --- Write all final imaginary modes like light mode ---
+                # --- Write all final imaginary modes as in the Dimer path ---
                 vib_dir = out_dir_path / "vib"
                 vib_dir.mkdir(parents=True, exist_ok=True)
                 _ref_pdb_for_modes = source_path if source_path.suffix.lower() == ".pdb" else None
@@ -5152,7 +5176,7 @@ def cli(
                 _heavy_energy = _calc_energy(geometry, calc_cfg)
             except (RuntimeError, ValueError, AttributeError, KeyError) as _ee:
                 logger.warning(
-                    "Heavy-mode final energy evaluation failed: %s. "
+                    "Hessian TS final energy evaluation failed: %s. "
                     "Reporting status='energy_missing' with NaN energy.",
                     _ee,
                 )
@@ -5170,7 +5194,7 @@ def cli(
                 final_xyz.write_text(geometry.as_xyz(), encoding="utf-8")
 
         else:
-            # Light mode: Partial Hessian guided Dimer
+            # Dimer path: partial-Hessian-guided orientation updates.
             light_n_atoms = len(ase_read(str(geom_input_path), index=0))
             light_active_atoms = _resolve_validated_hessian_analysis_atoms(
                 calc_cfg,
@@ -5235,7 +5259,7 @@ def cli(
             final_pdb = out_dir_path / "final_geometry.pdb"
 
             # Get layer indices for B-factor annotation
-            # For heavy mode, base_calc is available; for light mode, create temporary calc
+            # The Hessian path retains base_calc; the Dimer path creates one here.
             layer_indices = None
             if use_heavy and 'base_calc' in dir():
                 calc_core = base_calc.core if hasattr(base_calc, 'core') else base_calc
@@ -5246,7 +5270,7 @@ def cli(
                     "frozen": getattr(calc_core, 'frozen_layer_indices', None),
                 }
             else:
-                # For light mode, create a temporary calculator to get layer indices
+                # Create a temporary calculator to obtain Dimer-path layer indices.
                 try:
                     temp_calc = mlmm(**calc_cfg)
                     calc_core = temp_calc.core if hasattr(temp_calc, 'core') else temp_calc
@@ -5321,18 +5345,17 @@ def cli(
             _tsopt_reaction_mode_overlap = None
 
             if use_heavy:
-                # Heavy mode: use captured data from before del
+                # Hessian path: use data captured before optimizer release.
                 _tsopt_status = _heavy_status
                 _tsopt_imag_freqs = _heavy_imag_freqs
                 _tsopt_n_imag = _heavy_n_imag
                 _tsopt_energy = _heavy_energy
                 _tsopt_saddle_validation = _heavy_saddle_validation
-                _tsopt_hessian_status = (
-                    "skipped"
-                    if skip_final_freq and not _heavy_stalled
-                    else "completed" if _heavy_n_imag is not None
-                    else "failed" if hessian_error
-                    else "unavailable"
+                _tsopt_hessian_status = _hessian_result_status(
+                    n_imaginary=_heavy_n_imag,
+                    hessian_error=hessian_error,
+                    postprocessing_ready=hessian_postprocessing_ready,
+                    explicitly_skipped=bool(skip_final_freq),
                 )
                 _tsopt_hessian_error = hessian_error
                 _tsopt_reaction_mode_index = _heavy_reaction_mode_index
@@ -5345,7 +5368,7 @@ def cli(
                     else None
                 )
             else:
-                # Light mode: compute freq/energy from runner
+                # Dimer path: compute frequency and energy from the runner.
                 _light_optimizer_converged = bool(
                     'runner' in dir()
                     and hasattr(runner, 'is_converged')
@@ -5393,7 +5416,7 @@ def cli(
                         _tsopt_energy = _calc_energy(runner.geom, calc_cfg)
                     except (RuntimeError, ValueError, AttributeError, KeyError) as _ee2:
                         logger.warning(
-                            "Light-mode energy fallback failed: %s. "
+                            "Dimer energy fallback failed: %s. "
                             "Reporting status='energy_missing' with NaN energy.",
                             _ee2,
                         )

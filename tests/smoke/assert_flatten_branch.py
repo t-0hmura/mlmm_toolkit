@@ -20,9 +20,9 @@ if initial_match is None:
 initial = int(initial_match.group(1))
 if initial <= 1:
     raise SystemExit(f"flatten fixture is not a higher-order candidate: n_imag={initial}")
-if "[flatten] Extra imaginary modes detected; starting RS-I-RFO flatten loop." not in text:
+if "[flatten] Extra imaginary modes detected; starting RS-P-RFO flatten loop." not in text:
     raise SystemExit("flatten branch did not start")
-if "[flatten] RS-I-RFO iteration 1/1" not in text:
+if "[flatten] RS-P-RFO iteration 1/1" not in text:
     raise SystemExit("flatten branch did not execute its requested iteration")
 if "skipping flatten loop" in text.lower() or "No eligible modes to flatten" in text:
     raise SystemExit("flatten branch was skipped after entry")

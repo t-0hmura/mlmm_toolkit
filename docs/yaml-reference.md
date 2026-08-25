@@ -21,7 +21,7 @@
 | [`bond`](#bond) | Bond-change detection settings | scan, path-search |
 | [`search`](#search) | Recursive path search settings | path-search |
 | [`hessian_dimer`](#hessian_dimer) | Hessian Dimer TS optimization | tsopt |
-| [`rsirfo`](#rsirfo) | RS-I-RFO TS optimization | tsopt |
+| [`rsirfo`](#rsirfo) | Hessian TS optimization settings | tsopt |
 | [`stopt`](#stopt) | String optimizer settings | path-opt, path-search |
 | [`microiter`](#microiter) | Micro-iteration (MM relaxation) settings | opt, tsopt |
 
@@ -467,11 +467,12 @@ hessian_dimer:
 
 ### `rsirfo`
 
-RS-I-RFO TS optimization settings (`tsopt --opt-mode hess`).
+Shared Hessian TS optimization settings. They apply to the default RS-P-RFO
+(`tsopt --opt-mode hess` / `rsprfo`) and to explicit `rsirfo` or `trim` modes.
 
 ```yaml
 rsirfo:
- thresh: baker # RS-I-RFO convergence preset
+ thresh: baker # Hessian TS convergence preset
  max_cycles: 100000 # Cycle cap shared with opt.max_cycles
  print_every: 100 # Logging stride
  min_step_norm: 1.0e-08 # Minimum accepted step norm

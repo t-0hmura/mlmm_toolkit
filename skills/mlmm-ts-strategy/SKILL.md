@@ -60,7 +60,7 @@ of magnitude.
 - `opt` and `tsopt` accept `--coord-type cart|redund|dlc|tric`; `all` accepts `cart|dlc`. The effective default is `cart`.
 - `dlc` = delocalized internal coordinates. Its cost and convergence behavior
   are system-dependent; compare against `cart` on the same seed.
-- `dlc` requires a **Hessian-based optimizer**: in `opt.py`, `--coord-type dlc` with L-BFGS (`--opt-mode grad`) is forced back to `cart` with a warning. Use it on `tsopt` (RFO/RS-I-RFO) or `opt --opt-mode hess`.
+- `dlc` requires a **Hessian-based optimizer**: in `opt.py`, `--coord-type dlc` with L-BFGS (`--opt-mode grad`) is forced back to `cart` with a warning. Use it on `tsopt` (RS-P-RFO / RS-I-RFO / TRIM) or `opt --opt-mode hess`.
 - `path-opt`/`path-search` have no `--coord-type` flag; they take the coordinate system from `--config` YAML (`geom.coord_type`), and pysisyphus ChainOfStates supports only `cart`/`dlc` there.
 - `cart` is the default. Independently validate a change of coordinate system
   with frequency analysis and IRC connectivity.

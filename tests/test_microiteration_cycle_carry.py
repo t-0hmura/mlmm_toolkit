@@ -642,6 +642,59 @@ def test_tsopt_initial_hessian_is_resolved_after_initial_mm_relaxation(
     np.testing.assert_allclose(hessian_coords[0], 7.0)
 
 
+def test_tsopt_reports_post_macro_micro_nonconvergence_before_release(
+    tmp_path, monkeypatch
+) -> None:
+    """The MM optimizer remains available while its stop is described."""
+    import torch
+    import mlmm.workflows.tsopt as tsopt_mod
+    from mlmm.core.defaults import RSIRFO_KW
+
+    class _SecondMicroDoesNotConverge:
+        calls = 0
+        cur_cycle = 0
+        is_stalled = False
+        stop_reason = "maximum cycles reached"
+        max_forces = [4.2e-4]
+        max_steps = [1.1e-3]
+
+        def __init__(self, _geom, **_kwargs):
+            type(self).calls += 1
+            self.is_converged = type(self).calls == 1
+
+        def run(self):
+            return None
+
+    _install_common_fakes(monkeypatch, tsopt_mod, _SecondMicroDoesNotConverge)
+    monkeypatch.setattr(
+        tsopt_mod,
+        "_calc_full_hessian_torch",
+        lambda *a, **k: torch.zeros((3, 3), dtype=torch.float64),
+    )
+    monkeypatch.setattr(
+        tsopt_mod,
+        "resolve_partition_from_core",
+        lambda *a, **k: _micro_active_partition(),
+    )
+    monkeypatch.setitem(tsopt_mod.TSOPT_CLASS_MAP, "rsprfo", _FakeMacroOptimizer)
+
+    outcome = tsopt_mod._run_microiter_tsopt(
+        _FakeGeom(n_atoms=2),
+        {},
+        dict(RSIRFO_KW),
+        {},
+        {"max_cycles": 2, "dump": False},
+        {"micro_max_cycles": 1},
+        tmp_path,
+        dump=False,
+        mode="rsprfo",
+    )
+
+    assert outcome["converged"] is False
+    assert outcome["cycles"] == 1
+    assert outcome["outcome"].micro_attempts[-1].status == "not_converged"
+
+
 def test_tsopt_exception_restores_entry_calculator_and_freeze_mask(
     tmp_path,
     monkeypatch,

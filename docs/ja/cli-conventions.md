@@ -328,11 +328,10 @@ ORB、MACE、AIMNet2 はこの UMA worker pool を使用しません。互換性
 
 | サブコマンド | 勾配のみ別名 | Hessian ベース別名 | デフォルト | エンジン |
 |---|---|---|---|---|
-| `opt` | `grad`（`light`, `lbfgs`） | `hess`（`heavy`, `rfo`） | `grad` | L-BFGS / RFO（任意で `--microiter`）。 |
-| `tsopt` | `grad`（`light`, `dimer`） | `hess`（`heavy`, `rsirfo`） | `hess` | Dimer / RS-I-RFO。 |
+| `opt` | `grad`（`lbfgs`） | `hess`（`rfo`） | `grad` | L-BFGS / RFO（任意で `--microiter`）。 |
+| `tsopt` | `grad`（`dimer`） | `hess`（`rsprfo`） | `hess` | Dimer / RS-P-RFO（RS-I-RFO / TRIM も明示選択可）。 |
 | `all` | `grad` | `hess` | `grad` | TSOPT と IRC 後の端点最適化の fallback。`--opt-mode-post` が優先されます。 |
 
-`light` / `heavy` は `grad` / `hess` の別名として受理されますが、新しいスクリプトでは `grad` / `hess` を推奨します。
 スキャンと path-search は固定の L-BFGS を使い、`--opt-mode` を受け付けません。
 
 ---

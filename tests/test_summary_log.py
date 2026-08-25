@@ -219,7 +219,7 @@ def test_method_citations_follow_resolved_methods_and_match_stdout(
     assert "mlmm-toolkit:" in block
     assert "Growing String Method (GSM)" in block
     assert "RFO / P-RFO" in block
-    assert "RS-I-RFO" in block
+    assert "RS-P-RFO" in block
     assert "quasi-RRHO thermochemistry" in block
     assert "Direct Max Flux (DMF)" not in block
     assert all(set(ref) == {"method", "citation", "doi"} for ref in references)
@@ -253,11 +253,11 @@ def test_method_citations_use_actual_path_and_post_stages() -> None:
 
     assert "Limited-memory BFGS (L-BFGS)" in path_text
     assert "RFO / P-RFO" not in path_text
-    assert "RS-I-RFO" not in path_text
+    assert "RS-P-RFO" not in path_text
     assert "quasi-RRHO thermochemistry" not in path_text
     assert "Limited-memory BFGS (L-BFGS)" in mixed_text
     assert "RFO / P-RFO" in mixed_text
-    assert "RS-I-RFO" in mixed_text
+    assert "RS-P-RFO" in mixed_text
     assert "quasi-RRHO thermochemistry" not in mixed_text
 
 
@@ -283,7 +283,7 @@ def test_dmf_and_split_ts_endpoint_references_follow_effective_settings() -> Non
         )
     )
 
-    assert "RS-I-RFO" in ts_only
+    assert "RS-P-RFO" in ts_only
     assert "Limited-memory BFGS (L-BFGS)" in ts_only
     assert "Euler predictor-corrector IRC" in ts_only
     assert "Correlated FB-ENM (CFB-ENM)" in correlated_path
@@ -344,10 +344,16 @@ def test_citation_block_headers_match_their_destination() -> None:
     """
     from mlmm.io.summary import format_method_citations
 
-    payload = {"pipeline_mode": "all", "ts_opt_mode": "rsirfo"}
+    payload = {
+        "pipeline_mode": "all",
+        "ts_opt_mode": "rsirfo",
+        "tsopt_executed": True,
+    }
 
     log_block = format_method_citations(payload)
     assert log_block[0] == "[6] Methods and citations"
+    assert "RS-I-RFO" in "\n".join(log_block)
+    assert "RS-P-RFO" not in "\n".join(log_block)
 
     stdout_block = format_method_citations(
         payload, header="====== Citations & References ======"

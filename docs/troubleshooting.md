@@ -130,7 +130,7 @@ ML/MM systems are larger than pure MLIP, so VRAM pressure is higher. Try in orde
 ### TS optimization does not converge / multiple imaginary modes remain
 
 Inspect the optimizer stop reason and mode displacements, then consider switching
-`--opt-mode grad` (Dimer) ↔ `--opt-mode hess` (RS-I-RFO), enabling
+`--opt-mode grad` (Dimer) ↔ `--opt-mode hess` (RS-P-RFO), enabling
 `--flatten` for surplus imaginary modes, increasing `--max-cycles` within the
 available compute budget, tightening `--thresh`, or expanding Hessian-target
 atoms via `hess_cutoff`.

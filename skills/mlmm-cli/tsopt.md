@@ -2,9 +2,9 @@
 
 ## Purpose
 
-Transition-state optimization. Two algorithms: the default full-Hessian
-RS-I-RFO (`--opt-mode hess`/`rsirfo`), and the lighter Hessian-Guided
-Dimer (`--opt-mode grad`/`dimer`). Use after
+Transition-state optimization. The default is Hessian-based RS-P-RFO
+(`--opt-mode hess`/`rsprfo`). RS-I-RFO (`rsirfo`), TRIM (`trim`), and
+Hessian-Guided Dimer (`grad`/`dimer`) remain explicit alternatives. Use after
 `path-search` or `scan` to refine
 a HEI to a true first-order saddle, or as a standalone validator on an
 externally-generated TS guess.
@@ -14,7 +14,7 @@ externally-generated TS guess.
 ```bash
 mlmm tsopt -i ts_guess.{pdb,xyz} --parm real.parm7 \
     [-q 0 -m 1] [-l 'RES:Q,...'] \
-    [--opt-mode grad|hess|light|heavy|dimer|rsirfo] \
+    [--opt-mode grad|hess|dimer|rsprfo|rsirfo|trim] \
     [--max-cycles 100000] \
     [-b uma|orb|mace|aimnet2] [-o ./result_tsopt/]
 ```
@@ -45,7 +45,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 |---|---|---|---|
 | `-i, --input` | path | required | TS candidate; `.pdb` / `.xyz` (XYZ requires `--ref-pdb`) |
 | `-q` / `-l` / `-m` | — | — | Charge / spin (common conventions) |
-| `--opt-mode` | str | `hess` | `grad`/`dimer` (Hessian-Guided Dimer) or `hess`/`rsirfo` (RS-I-RFO); also `trim` (TRIM/Helgaker) and `rsprfo` (RS-P-RFO/Banerjee); the mlmm-only `light` / `heavy` shortcuts are also accepted (light = Dimer, heavy = full-Hessian RS-I-RFO) |
+| `--opt-mode` | str | `hess` | `grad`/`dimer` (Hessian-Guided Dimer), `hess`/`rsprfo` (RS-P-RFO), `rsirfo` (RS-I-RFO), or `trim` (TRIM) |
 | `--max-cycles` | int | 100000 | Optimization step cap |
 | `--hessian-calc-mode` | str | `FiniteDifference` | `Analytical` or `FiniteDifference`; check `RSIRFO_KW` / `DIMER_KW` |
 | `--ref-mode` | path | none | Advanced Cartesian 3N MEP tangent for initial-root selection and overlap tracking. `all` supplies it by default; with `all --no-tsopt-from-mep-tan`, TSOPT selects from the initial-structure Hessian modes. Ordinary standalone runs omit it. |
@@ -63,7 +63,7 @@ optimization (`opt`) and post-IRC endpoint refinement (`all`).
 
 ## Examples
 
-### Default RS-I-RFO
+### Default RS-P-RFO
 
 ```bash
 mlmm tsopt -i hei.xyz --parm real.parm7 --ref-pdb enzyme_layered.pdb \
@@ -115,11 +115,12 @@ print(d["rigid_projection"]["treatment"], d["rigid_projection"]["effective_rank"
 
 | Mode | Algorithm | When |
 |---|---|---|
-| `hess` / `rsirfo` (default) | RS-I-RFO with full Hessian | Direct curvature treatment; memory and runtime depend on active DOFs and backend |
+| `hess` / `rsprfo` (default) | RS-P-RFO | Partitioned restricted-step treatment; memory and runtime depend on active DOFs and backend |
+| `rsirfo` | RS-I-RFO | Explicit image-function alternative using the same microiteration driver |
 | `grad` / `dimer` | Hessian-Guided Dimer | Uses initial and periodic orientation Hessians, which is more robust than a random initial direction for large systems; convergence remains seed- and system-dependent |
 
 If Dimer stalls, inspect the followed mode and step diagnostics, then compare
-RS-I-RFO on the same seed rather than using a universal cycle threshold.
+RS-P-RFO or RS-I-RFO on the same seed rather than using a universal cycle threshold.
 
 ## Validation: imaginary modes
 

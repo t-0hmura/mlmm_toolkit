@@ -209,7 +209,7 @@ After step 5 you can read any other file by following the file index in §4. The
 
 ### 4.2 Workflow stage runners (L2 `workflows/`)
 
-Acronyms used below: MEP = minimum-energy path; GSM = growing-string method; COS = chain-of-states; RSIRFO = restricted-step image-function rational-function optimization (also written RS-I-RFO); Bofill = the Bofill Hessian-update formula; PHVA = partial Hessian vibrational analysis; IRC = intrinsic reaction coordinate; Kabsch = the Kabsch rigid-body alignment algorithm.
+Acronyms used below: MEP = minimum-energy path; GSM = growing-string method; COS = chain-of-states; RS-P-RFO = restricted-step partitioned rational-function optimization; RS-I-RFO = restricted-step image-function rational-function optimization; Bofill = the Bofill Hessian-update formula; PHVA = partial Hessian vibrational analysis; IRC = intrinsic reaction coordinate; Kabsch = the Kabsch rigid-body alignment algorithm.
 
 | concern | file |
 |---|---|
@@ -218,7 +218,7 @@ Acronyms used below: MEP = minimum-energy path; GSM = growing-string method; COS
 | Scan and 2D/3D energy-landscape grids + shared | `mlmm/workflows/scan{,2d,3d,_common}.py` |
 | MEP search (GSM) | `mlmm/workflows/path_search.py` |
 | MEP optimizer core (pysisyphus COS) | `mlmm/workflows/path_opt.py` |
-| TS optimization (RSIRFO + Bofill + macro/micro) | `mlmm/workflows/tsopt.py` |
+| TS optimization (RS-P-RFO / RS-I-RFO / TRIM + Bofill + macro/micro) | `mlmm/workflows/tsopt.py` |
 | Vibrational analysis (PHVA + MLIP active block) | `mlmm/workflows/freq.py` |
 | IRC integration (macro / micro) | `mlmm/workflows/irc.py` |
 | Single-point DFT (gpu4pyscf subprocess, ONIOM-embedded) | `mlmm/workflows/dft.py` |
@@ -309,7 +309,7 @@ All 9 rules apply to `mlmm`:
 |---|---|---|
 | 1 | Subtractive ONIOM energy formula (`E = mm_real + ml_model − mm_model`) | `mlmm/backends/mlmm_calc.py` |
 | 2 | Link-atom Hessian B-matrix projection | `mlmm/backends/mlmm_calc.py` |
-| 3 | Macro / micro alternation (RS-I-RFO hess mode microiteration) | `mlmm/workflows/tsopt.py` |
+| 3 | Macro / micro alternation for Hessian TS optimizers (RS-P-RFO default) | `mlmm/workflows/tsopt.py` |
 | 4 | gpu4pyscf `rks_lowmem` triple-guard | `mlmm/workflows/dft.py` |
 | 5 | def2 family auto-ECP injection | `mlmm/workflows/dft.py` |
 | 6 | PHVA + MLIP active-block partial Hessian | `mlmm/workflows/freq.py` |
@@ -341,7 +341,7 @@ The bundled `pysisyphus/`, `thermoanalysis/`, and `hessian_ff/` packages are **f
 
 - `pysisyphus/irc/IRC.py` — initial-displacement memory hygiene
 - `pysisyphus/optimizers/hessian_updates.py` — GPU-resident in-place rank-two Bofill update; opt-in `PYSIS_BOFILL_CPU_OFFLOAD=1` fallback
-- `pysisyphus/tsoptimizers/TSHessianOptimizer.py` — RSIRFO kwargs
+- `pysisyphus/tsoptimizers/TSHessianOptimizer.py` — Hessian TS optimizer kwargs
 - `pysisyphus/calculators/...` — GPU-aware backend hooks
 - `thermoanalysis/QCData.py` — branding / I/O diff vs upstream
 - `hessian_ff/analytical_hessian.py` — sole entry consumed by `backends/mlmm_calc.py`; **no upstream alternative exists**
@@ -381,7 +381,7 @@ After the Fresh-eyes tour (§3), follow this depth-first reading order:
 4. `mlmm/workflows/extract.py` + `define_layer.py` — cluster cut-out + link-atom cap + ONIOM layer assignment.
 5. `mlmm/workflows/mm_parm.py` — AmberTools parm7 generation.
 6. `mlmm/backends/mlmm_calc.py` — the heart of ML/MM (chemistry-rules #1, #2, #8 live here; #9 in `mlmm/io/pdb_indexing.py`).
-7. `mlmm/workflows/tsopt.py` — RSIRFO + Bofill (CHEMISTRY-RULE:7) + macro / micro alternation (CHEMISTRY-RULE:3).
+7. `mlmm/workflows/tsopt.py` — Hessian TS optimizers + Bofill (CHEMISTRY-RULE:7) + macro / micro alternation (CHEMISTRY-RULE:3).
 8. `mlmm/workflows/freq.py` — PHVA + MLIP active-block (CHEMISTRY-RULE:6).
 9. `mlmm/workflows/irc.py` — VRAM hygiene + macro / micro IRC.
 10. `mlmm/core/utils.py` — shared PDB / XYZ / plot helpers.

@@ -31,9 +31,9 @@ class RSPRFOptimizer(TSHessianOptimizer):
         energy, gradient, H, eigvals, eigvecs, resetted = self.housekeeping()
         self.update_ts_mode(eigvals, eigvecs)
 
-        # RS-PRFO uses np.linalg.norm + scalar Python loops and is not
-        # microiter-capable; coerce torch tensors from the MLIP Hessian path to
-        # numpy so the legacy .dot / fancy-indexing below stay valid.
+        # RS-PRFO uses np.linalg.norm and scalar Python loops; coerce torch
+        # tensors from the MLIP Hessian path to numpy so the .dot and
+        # fancy-indexing operations below stay valid.
         eigvals = as_numpy(eigvals)
         eigvecs = as_numpy(eigvecs)
         gradient = as_numpy(gradient)
