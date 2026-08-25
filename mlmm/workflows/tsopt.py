@@ -4374,6 +4374,9 @@ def cli(
             )
             n_atoms = len(geometry.atomic_numbers)
             requested_active_atoms = list(active_atoms_freq)
+            neg_freq_thresh_cm = float(
+                simple_cfg.get("neg_freq_thresh_cm", 5.0)
+            )
 
             rigid_projection_info: Dict[str, Any] = {}
 
@@ -4597,8 +4600,6 @@ def cli(
                 )
                 _clear_cuda_cache()
                 freqs_cm, modes = None, None
-            neg_freq_thresh_cm = float(simple_cfg.get("neg_freq_thresh_cm", 5.0))
-
             if freqs_cm is not None and modes is not None:
                 neg_mask = freqs_cm < -abs(neg_freq_thresh_cm)
                 n_imag = int(np.sum(neg_mask))

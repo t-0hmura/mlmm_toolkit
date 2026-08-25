@@ -36,6 +36,16 @@ def test_optimizer_terminal_phva_carries_the_exact_hessian_for_irc_cache():
     assert cached_hessian.data_ptr() != exact_hessian.data_ptr()
 
 
+def test_heavy_terminal_phva_binds_frequency_cutoff_before_nested_helper():
+    source = Path(tsopt.__file__).read_text(encoding="utf-8")
+    cutoff = 'neg_freq_thresh_cm = float('
+    helper = 'def _calc_freqs_and_modes()'
+    terminal_call = 'freqs_cm, modes = _terminal_freqs_and_modes(last_optimizer)'
+
+    assert source.count(cutoff) == 1
+    assert source.index(cutoff) < source.index(helper) < source.index(terminal_call)
+
+
 def _runner(tmp_path, monkeypatch, *, stalled):
     runner = object.__new__(tsopt.HessianDimer)
     runner.geom = _Geometry()
