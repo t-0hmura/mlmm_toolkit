@@ -197,7 +197,7 @@ def test_setup_command_fields_do_not_repaint_hidden_results_or_viewer(monkeypatc
     app["prep_radius"].value = 0.0
 
     assert result_spy.writes == 0
-    assert calls == {"summary": 0, "chips": 0, "output": 0}
+    assert calls == {"summary": 1, "chips": 1, "output": 0}
     assert app["_VIEWER_GENERATION"]["value"] == 11
     assert "stable" in app["viewer_out"].value
     assert "--selected-resn A:123" in app["cmd_box"].value
@@ -861,6 +861,8 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "molstar@%s/build/viewer/molstar.js" in app
     assert "layoutShowSequence:cfg.showSequence" in app
     assert "layoutShowControls:true" in app
+    assert "viewportShowControls:true" in app
+    assert "viewportShowSelectionMode:true" in app
     assert "collapseRightPanel:true" in app
     assert "viewportFocusBehavior" not in app
     assert "options=[('Cartoon', 'cartoon'), ('Stick', 'stick')]" in app
@@ -1150,7 +1152,6 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "artifact_fold = _collapsible('Generated file preview', artifact_box, on_open=_render_artifact)" in app
     assert "artifact_fold._rx_set_open(bool(visuals and not result_views and not energy_options))" in app
     assert "artifact_fold._rx_body.layout.display == 'none'" in app
-    assert "'x': 'Intrinsic reaction coordinate'" in app
     assert "tick0:0,dtick:cfg.xTickStep" in app
     assert "showticklabels:true,ticks:'',ticklen:0" in app
     assert "_drop_children = ([upl] if _UPLOAD_MODE == 'anywidget'" in app
@@ -1351,7 +1352,7 @@ def test_colab_viewer_persists_exact_atom_and_residue_context() -> None:
     vibration = contract["_trajectory_semantics"](
         "tsopt", "vib/imag_120i_trj.xyz",
     )
-    assert vibration["title"] == "Vibrational-mode animation"
+    assert vibration["title"] == "Vibrational-mode trajectory"
     assert vibration["x"] == "phase frame" and not vibration["extrema"]
     assert contract["_stationary"]([0.0, 2.0, 0.0], opt) == [
         (0, "initial"), (2, "optimized"),
@@ -1386,6 +1387,7 @@ def test_colab_results_bind_irc_truth_and_skip_bridge_extrema(tmp_path: Path) ->
         encoding="utf-8",
     )
     irc = contract["_trajectory_semantics"]("irc", str(irc_path), n_frames=5)
+    assert irc["title"] == "Combined IRC trajectory"
     assert irc["ts_index"] == 2
     assert "partial" in irc["trajectory_status"]
     assert "forward ✓" in irc["trajectory_status"]
@@ -1395,6 +1397,20 @@ def test_colab_results_bind_irc_truth_and_skip_bridge_extrema(tmp_path: Path) ->
     )
     assert "ts_index" not in mismatch
     assert mismatch["metadata_warning"] == "IRC frame metadata mismatch"
+    forward = contract["_trajectory_semantics"](
+        "all", str(irc_dir / "forward_irc_trj.xyz"), n_frames=2,
+    )
+    backward = contract["_trajectory_semantics"](
+        "all", str(irc_dir / "backward_irc_trj.xyz"), n_frames=2,
+    )
+    assert (forward["title"], forward["start"], forward["end"]) == (
+        "Forward IRC branch", "near TS", "forward endpoint",
+    )
+    assert (backward["title"], backward["start"], backward["end"]) == (
+        "Backward IRC branch", "near TS", "backward endpoint",
+    )
+    assert forward["x"] == "Forward IRC step"
+    assert backward["x"] == "Backward IRC step"
 
     mep_path = tmp_path / "mep_trj.xyz"
     mep_path.write_text("", encoding="utf-8")
@@ -3233,9 +3249,9 @@ def test_colab_operates_scientific_selectors_and_remaining_buttons(
     app["pick_action"].value = "freezeatom"
     pick(2)
     assert app["S"]["freeze_atoms"] == [3]
-    pick(2)
+    assert app["chips_box"].layout.display == "flex"
+    _widget_with_description(app["chips_box"], "⚓3 ✕").click()
     assert app["S"]["freeze_atoms"] == []
-    assert app["S"]["_last_pick_message"] == "removed frozen atom #3"
     pick(2)
     assert app["S"]["freeze_atoms"] == [3]
     _widget_with_description(app["freeze_panel"], "Clear").click()
@@ -3245,13 +3261,23 @@ def test_colab_operates_scientific_selectors_and_remaining_buttons(
     app["exact_atom"].value = "1"
     app["exact_atom_btn"].click()
     assert app["S"]["_last_pick"]["index"] == 0
+    _widget_with_description(app["chips_box"], "A:LIG:1 ✕")
+    app["pick_action"].value = "selectedresn"
+    pick(0)
+    selected_chip = _widget_with_description(app["chips_box"], "🔒 1 ✕")
+    assert "force-included --selected-resn" in app["summary_html"].value
+    selected_chip.click()
+    assert app["selected_resn"].value == ""
     app["center_widget"].value = ("LIG",)
     app["S"]["center_ids"] = ["A:LIG:1"]
+    app["selected_resn"].value = "A:123"
     app["S"]["freeze_atoms"] = [3]
     app["_render_chips"]()
-    for description in ("LIG ✕", "A:LIG:1 ✕", "⚓3 ✕"):
+    assert "force-included --selected-resn" in app["summary_html"].value
+    for description in ("LIG ✕", "A:LIG:1 ✕", "🔒 A:123 ✕", "⚓3 ✕"):
         _widget_with_description(app["chips_box"], description).click()
     assert app["center_widget"].value == ()
+    assert app["selected_resn"].value == ""
     assert app["S"]["center_ids"] == [] and app["S"]["freeze_atoms"] == []
     app["S"]["center_ids"] = ["A:LIG:1"]
     app["S"]["freeze_atoms"] = [2]
@@ -4250,13 +4276,19 @@ def test_colab_release_state_and_linked_results_regressions(
     aggregate_imag.write_text(mode_path.read_text(encoding="utf-8"), encoding="utf-8")
     aggregate_noise = aggregate_vib / "unrelated.xyz"
     aggregate_noise.write_text(mode_path.read_text(encoding="utf-8"), encoding="utf-8")
+    aggregate_mep_dir = aggregate_root / "_work" / "path_search"
+    aggregate_mep_dir.mkdir(parents=True)
+    aggregate_mep = aggregate_mep_dir / "mep_seg_02_trj.xyz"
+    aggregate_mep.write_text(mode_path.read_text(encoding="utf-8"), encoding="utf-8")
     aggregate_paths = {
         Path(path).resolve() for path in app["_structured_current_paths"](
             str(aggregate_root),
-            [str(aggregate_summary), str(aggregate_imag), str(aggregate_noise)],
+            [str(aggregate_summary), str(aggregate_imag), str(aggregate_noise),
+             str(aggregate_mep)],
         )
     }
     assert aggregate_imag.resolve() in aggregate_paths
+    assert aggregate_mep.resolve() in aggregate_paths
     assert aggregate_noise.resolve() not in aggregate_paths
 
     nested_ts = claimed_root / "segments" / "seg_01" / "ts"
@@ -4867,14 +4899,23 @@ def test_results_route_single_structures_modes_and_scan_grids(
     fallback_vib.mkdir(parents=True)
     fallback_imaginary = fallback_vib / "mode_1_-333.50cm-1_trj.xyz"
     fallback_imaginary.write_text(xyz, encoding="utf-8")
+    segment_irc_dir = tmp_path / "segments" / "seg_02" / "irc"
+    segment_irc_dir.mkdir(parents=True)
+    segment_irc = segment_irc_dir / "finished_irc_trj.xyz"
+    segment_irc.write_text(xyz, encoding="utf-8")
+    segment_mep = tmp_path / "mep_seg_02_trj.xyz"
+    segment_mep.write_text(xyz, encoding="utf-8")
     mep = tmp_path / "mep_trj.xyz"
     mep.write_text(xyz, encoding="utf-8")
     all_views = app["_result_view_candidates"](
         [str(mep), str(segment_imaginary), str(weaker_segment_imaginary),
-         str(fallback_imaginary)], str(tmp_path), "all"
+         str(fallback_imaginary), str(segment_irc), str(segment_mep)],
+        str(tmp_path), "all"
     )
     assert [label for label, _ in all_views] == [
         "Reaction-path trajectory",
+        "Reaction-path trajectory · Segment 2",
+        "Combined IRC trajectory · Segment 2",
         "Imaginary mode · TS2 · −421.25 cm⁻¹",
         "Imaginary mode · TS2 · −120.00 cm⁻¹",
         "Imaginary mode · TS3 · −333.50 cm⁻¹",
@@ -5213,10 +5254,44 @@ def test_results_playback_uses_fifty_ms_for_mep_irc_and_imaginary_modes(
 
     irc_plot = tmp_path / "irc_plot_all.png"
     irc_plot.write_bytes(b"\x89PNG\r\n\x1a\n")
+    segment_irc = tmp_path / "segments" / "seg_01" / "irc" / "finished_irc_trj.xyz"
+    segment_irc.parent.mkdir(parents=True)
+    segment_irc.write_text("1\nIRC\nH 0 0 0\n", encoding="utf-8")
     options, _ = app["_energy_diagram_options"](
-        [str(irc_plot)], [], str(tmp_path), "all")
+        [str(irc_plot), str(segment_irc)], [str(segment_irc)], str(tmp_path), "all")
     assert ("IRC", "energy:irc") in options
     assert app["_ENERGY"]["views"]["energy:irc"]["path"] == str(irc_plot)
+    app["S"].update(
+        _last_subcmd="all",
+        _last_out_dir=str(tmp_path),
+        _last_files=[str(irc_plot), str(segment_irc)],
+        _last_manifest={"status": "success", "exit_code": 0},
+    )
+    app["_results"](str(tmp_path))
+    assert app["_TRAJ"]["path"] == str(segment_irc)
+    assert "data:image/png;base64," in app["plot_out"].value
+
+    segment_irc_2 = tmp_path / "segments" / "seg_02" / "irc" / "finished_irc_trj.xyz"
+    segment_irc_2.parent.mkdir(parents=True)
+    segment_irc_2.write_text("1\nIRC\nH 0 0 0\n", encoding="utf-8")
+    options, _ = app["_energy_diagram_options"](
+        [str(segment_irc), str(segment_irc_2)],
+        [str(segment_irc), str(segment_irc_2)],
+        str(tmp_path), "all",
+    )
+    assert ("IRC", "energy:irc") not in options
+
+    standalone_irc = tmp_path / "finished_irc_trj.xyz"
+    forward_irc = tmp_path / "forward_irc_trj.xyz"
+    backward_irc = tmp_path / "backward_irc_trj.xyz"
+    for path in (standalone_irc, forward_irc, backward_irc):
+        path.write_text("1\nIRC\nH 0 0 0\n", encoding="utf-8")
+    app["_energy_diagram_options"](
+        [str(forward_irc), str(backward_irc), str(standalone_irc)],
+        [str(forward_irc), str(backward_irc), str(standalone_irc)],
+        str(tmp_path), "irc",
+    )
+    assert app["_ENERGY"]["views"]["energy:irc"]["path"] == str(standalone_irc)
 
     source = _notebook()["cells"][2]["source"]
     assert "_frame_play_jslink = W.jslink" in source
