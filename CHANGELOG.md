@@ -26,6 +26,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Remove the replaced path-tangent/single-mode helpers and one unreferenced mass-weighted-frequency wrapper; larger workflow and Notebook refactors remain deferred.
 
 ### Changed
+- Show Hessian cache-reuse notices at `-v 2`; cache identity and rejection details remain at `-v 3`.
 - Map the `hess` TS-optimizer preset to RS-P-RFO. Standalone `tsopt` retains RS-I-RFO through `--opt-mode rsirfo`.
 - Remove the legacy `light` and `heavy` optimizer aliases; use `grad`/`hess` or the algorithm names exposed by each subcommand.
 

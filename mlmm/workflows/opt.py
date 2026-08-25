@@ -580,7 +580,7 @@ def _seed_rfo_initial_hessian(
         _hess_identity(geometry, calc_cfg, role="irc_endpoint"),
     )
     if cached is not None:
-        click.echo("[opt] Reusing IRC endpoint Hessian for RFO seeding.")
+        emit("[opt] Reusing IRC endpoint Hessian for RFO seeding.", detail=True)
         active_dofs = cached.get("active_dofs")
         h_raw = cached["hessian"]
         if isinstance(h_raw, torch.Tensor):
@@ -877,9 +877,10 @@ def _run_microiter_opt(
                     "active_atoms": macro_free_atoms,
                 }
                 geometry.cart_hessian = h_init
-                click.echo(
+                emit(
                     "[microiter] Reusing IRC endpoint Hessian for RFO macro "
-                    f"step (shape={h_init.shape[0]}x{h_init.shape[1]})."
+                    f"step (shape={h_init.shape[0]}x{h_init.shape[1]}).",
+                    detail=True,
                 )
                 _cache_used = True
             else:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 
 import numpy as np
@@ -9,6 +10,22 @@ import pytest
 import torch
 
 from mlmm.io import hessian_cache
+
+
+def test_hessian_cache_reuse_messages_are_visible_at_v2() -> None:
+    from mlmm.workflows.opt import _run_microiter_opt, _seed_rfo_initial_hessian
+    from mlmm.workflows.tsopt import HessianDimer, _run_microiter_tsopt
+
+    cases = (
+        (_seed_rfo_initial_hessian, "Reusing IRC endpoint Hessian for RFO seeding"),
+        (_run_microiter_opt, "Reusing IRC endpoint Hessian for RFO macro"),
+        (HessianDimer._calc_full_hessian_cached, "Reusing cached raw Hessian"),
+        (_run_microiter_tsopt, "Reusing cached TS Hessian for the macro TS step"),
+    )
+    for function, marker in cases:
+        source = inspect.getsource(function)
+        offset = source.index(marker)
+        assert "detail=True" in source[offset : offset + 240], marker
 
 
 def setup_function() -> None:

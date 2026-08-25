@@ -1921,7 +1921,10 @@ class HessianDimer:
         if allow_reuse:
             cached = self._reuse_cached_hessian(calc_kwargs)
             if cached is not None:
-                click.echo("[tsopt] Reusing cached raw Hessian (0-step convergence).")
+                emit(
+                    "[tsopt] Reusing cached raw Hessian (0-step convergence).",
+                    detail=True,
+                )
                 return cached
         H = _calc_full_hessian_torch(self.geom, calc_kwargs, self.device)
         H = self._compact_hessian_to_computed_coverage(H)
@@ -2876,8 +2879,9 @@ def _run_microiter_tsopt(
                 full_n_dof=geometry.cart_coords.size,
             )
             if h_init is not None:
-                click.echo(
-                    "[microiter] Reusing cached TS Hessian for the macro TS step."
+                emit(
+                    "[microiter] Reusing cached TS Hessian for the macro TS step.",
+                    detail=True,
                 )
                 geometry.freeze_atoms = macro_freeze
                 geometry.set_calculator(macro_calc)
