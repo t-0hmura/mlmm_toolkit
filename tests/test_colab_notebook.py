@@ -4689,7 +4689,8 @@ def test_colab_poll_repairs_a_finished_but_stale_frontend() -> None:
     namespace = {
         "os": os,
         "_RUN_EXECUTION": {
-            "task": None, "thread": None, "process": None, "operation": "run",
+            "task": None, "thread": None, "process": None,
+            "result_attempt": True,
         },
         "_ACTION_STATE": {"running": False},
         "_RUN_STATE": {"text": "✓ done", "tone": "ok", "kind": "done"},
@@ -4728,7 +4729,7 @@ def test_colab_poll_repairs_a_finished_but_stale_frontend() -> None:
     ]
 
     events.clear()
-    namespace["_RUN_EXECUTION"]["operation"] = "validate"
+    namespace["_RUN_EXECUTION"]["result_attempt"] = False
     namespace["S"]["_last_manifest"]["status"] = "success"
     namespace["S"]["_results_presented_dir"] = os.path.abspath("result")
     namespace["_RUN_STATE"].update(
@@ -4743,7 +4744,7 @@ def test_colab_poll_repairs_a_finished_but_stale_frontend() -> None:
 
     # A scientifically partial result is still a terminal, displayable run.
     events.clear()
-    namespace["_RUN_EXECUTION"]["operation"] = "run"
+    namespace["_RUN_EXECUTION"]["result_attempt"] = True
     namespace["_RUN_STATE"].update(text="✓ done", tone="ok", kind="done")
     namespace["S"]["_last_manifest"]["status"] = "partial"
     namespace["S"]["_results_presented_dir"] = None
@@ -4798,6 +4799,7 @@ def test_cancelled_run_stays_on_the_active_tab_without_result_rendering(
     app["_do_run_sync"](None, [app["CLI"], "fix-altloc", "-i", str(input_path)])
 
     assert app["S"]["_last_manifest"]["status"] == "cancelled"
+    assert app["_RUN_EXECUTION"]["result_attempt"] is True
     assert app["S"]["_last_files"] == [str(partial)]
     assert app["S"]["_results_presented_dir"] == os.path.abspath(partial.parent)
     assert app["_TAB_NAV"]["active"] == 2
