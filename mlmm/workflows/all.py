@@ -1848,6 +1848,7 @@ def _enrich_summary(
             "post_segments": post_segments or [],
             "mlip_backend": summary.get("mlip_backend"),
             "mlip_model": summary.get("mlip_model"),
+            "mlip_task": summary.get("mlip_task"),
         }
     )
     if freeze_atoms:
@@ -4560,6 +4561,7 @@ def cli(
             "post_segments": citation_post_segments,
             "mlip_backend": mlip_backend_resolved,
             "mlip_model": mlip_model_resolved,
+            "mlip_task": _mlip_task_resolved,
         }
 
     from mlmm.workflows._all_helpers import (

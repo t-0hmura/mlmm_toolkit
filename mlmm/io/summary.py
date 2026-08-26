@@ -247,9 +247,9 @@ _CITATION_RECORDS: Dict[str, tuple[str, str]] = {
         "MACE",
         "Batatia, I.; Batzner, S.; Kovács, D. P.; Musaelian, A.; Simm, G. N. "
         "C.; Drautz, R.; Ortner, C.; Kozinsky, B.; Csányi, G. The Design "
-        "Space of E(3)-Equivariant Atom-Centered Interatomic Potentials. "
-        "arXiv 2022, arXiv:2205.06643. "
-        "https://doi.org/10.48550/arXiv.2205.06643",
+        "Space of E(3)-Equivariant Atom-Centred Interatomic Potentials. "
+        "Nat. Mach. Intell. 7, 56-67 (2025). "
+        "https://doi.org/10.1038/s42256-024-00956-x",
     ),
     "omol25": (
         "OMol25",
@@ -261,6 +261,13 @@ _CITATION_RECORDS: Dict[str, tuple[str, str]] = {
         "Molecules 2025 (OMol25) Dataset, Evaluations, and Models. arXiv 2025, "
         "arXiv:2505.08762. "
         "https://doi.org/10.48550/arXiv.2505.08762",
+    ),
+    "aimnet2": (
+        "AIMNet2",
+        "Anstine, D. M.; Zubatyuk, R.; Isayev, O. AIMNet2: A Neural Network "
+        "Potential to Meet Your Neutral, Charged, Organic, and Elemental-Organic "
+        "Needs. Chem. Sci. 16, 10228-10244 (2025). "
+        "https://doi.org/10.1039/D4SC08572H",
     ),
     "gsm_peters": (
         "Growing String Method (GSM)",
@@ -359,8 +366,11 @@ def _method_citation_record_keys(payload: Dict[str, Any]) -> List[str]:
     keys = ["software", "pysisyphus"]
     mlip_backend = str(payload.get("mlip_backend") or "").strip().lower()
     mlip_model = str(payload.get("mlip_model") or "").strip().lower()
+    mlip_task = str(payload.get("mlip_task") or "").strip().lower()
     if mlip_backend == "uma":
-        keys.extend(("uma", "omol25"))
+        keys.append("uma")
+        if (mlip_task or "omol") == "omol":
+            keys.append("omol25")
     elif mlip_backend == "orb":
         if "orb_v3" in mlip_model or "orb-v3" in mlip_model:
             keys.append("orb_v3")
@@ -370,6 +380,8 @@ def _method_citation_record_keys(payload: Dict[str, Any]) -> List[str]:
         keys.extend(("mace", "mace_design"))
         if "omol" in mlip_model:
             keys.append("omol25")
+    elif mlip_backend == "aimnet2":
+        keys.append("aimnet2")
     pipeline_mode = str(payload.get("pipeline_mode") or "").strip().lower()
     if pipeline_mode != "tsopt-only":
         mep_mode = str(payload.get("mep_mode") or "").strip().lower()
@@ -390,6 +402,14 @@ def _method_citation_record_keys(payload: Dict[str, Any]) -> List[str]:
 
     post_segments = payload.get("post_segments") or []
     tsopt_used = bool(payload.get("tsopt_executed")) or any(
+        isinstance(segment, dict) and "tsopt" in segment
+        for segment in post_segments
+    )
+    irc_used = bool(payload.get("irc_executed")) or any(
+        isinstance(segment, dict) and "irc" in segment
+        for segment in post_segments
+    )
+    endpoint_opt_used = bool(payload.get("endpoint_opt_executed")) or any(
         isinstance(segment, dict) and "endpoint_opt" in segment
         for segment in post_segments
     )
@@ -405,8 +425,10 @@ def _method_citation_record_keys(payload: Dict[str, Any]) -> List[str]:
     if thermo_used:
         keys.append("qrrho")
 
-    if tsopt_used:
+    if irc_used:
         keys.extend(("eulerpc", "eulerpc_hessian"))
+
+    if tsopt_used or endpoint_opt_used:
         legacy_post_mode = str(
             payload.get("post_opt_mode")
             or payload.get("opt_mode_post")
@@ -420,6 +442,7 @@ def _method_citation_record_keys(payload: Dict[str, Any]) -> List[str]:
             payload.get("endpoint_opt_mode") or legacy_post_mode
         ).strip().lower()
 
+    if tsopt_used:
         if ts_opt_mode in {"grad", "lbfgs", "dimer"}:
             keys.extend(("lbfgs", "dimer"))
         elif ts_opt_mode in {"hess", "rfo", "rsprfo"}:
@@ -429,6 +452,7 @@ def _method_citation_record_keys(payload: Dict[str, Any]) -> List[str]:
         elif ts_opt_mode == "trim":
             keys.append("trim")
 
+    if endpoint_opt_used:
         if endpoint_opt_mode in {"grad", "lbfgs", "dimer"}:
             keys.append("lbfgs")
         elif endpoint_opt_mode in {

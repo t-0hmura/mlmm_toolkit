@@ -2747,6 +2747,7 @@ def cli(
                 "dmf_correlated": bool(dmf_cfg.get("correlated", False)),
                 "mlip_backend": summary.get("mlip_backend"),
                 "mlip_model": summary.get("mlip_model"),
+                "mlip_task": summary.get("mlip_task"),
             }
         )
 

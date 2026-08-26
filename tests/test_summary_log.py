@@ -315,6 +315,8 @@ def test_method_citations_follow_resolved_methods_and_match_stdout(
         "endpoint_opt_mode": "hess",
         "post_segments": [
             {
+                "tsopt": {"continue_irc": True},
+                "irc": {"forward_converged": True},
                 "endpoint_opt": {"reactant_converged": True},
                 "ts_imag": {"n_imag": 1},
                 "thermo_symmetry": {"R": {"symmetry_number": 1}},
@@ -371,59 +373,99 @@ def test_method_citations_use_actual_path_and_post_stages() -> None:
         "post_opt_mode": "hess",
         "post_segments": [],
     }
-    mixed = {
+    ts_only = {
         **path_only,
+        "ts_opt_mode": "hess",
+        "post_segments": [{"tsopt": {}}],
+    }
+    irc_only = {
+        **path_only,
+        "post_segments": [{"irc": {}}],
+    }
+    endpoint_only = {
+        **path_only,
+        "endpoint_opt_mode": "hess",
+        "post_segments": [{"endpoint_opt": {}}],
+    }
+    complete = {
+        **path_only,
+        "ts_opt_mode": "hess",
+        "endpoint_opt_mode": "hess",
         "post_segments": [
-            {"endpoint_opt": {}, "ts_imag": {"n_imag": 1}}
+            {
+                "tsopt": {},
+                "irc": {},
+                "endpoint_opt": {},
+                "ts_imag": {"n_imag": 1},
+            }
         ],
     }
 
     path_text = "\n".join(format_method_citations(path_only))
-    mixed_text = "\n".join(format_method_citations(mixed))
+    ts_text = "\n".join(format_method_citations(ts_only))
+    irc_text = "\n".join(format_method_citations(irc_only))
+    endpoint_text = "\n".join(format_method_citations(endpoint_only))
+    complete_text = "\n".join(format_method_citations(complete))
 
     assert "Limited-memory BFGS (L-BFGS)" in path_text
     assert "RFO / P-RFO" not in path_text
     assert "RS-P-RFO" not in path_text
+    assert "Euler predictor-corrector IRC" not in path_text
     assert "quasi-RRHO thermochemistry" not in path_text
-    assert "Limited-memory BFGS (L-BFGS)" in mixed_text
-    assert "RFO / P-RFO" in mixed_text
-    assert "RS-P-RFO" in mixed_text
-    assert "quasi-RRHO thermochemistry" not in mixed_text
+    assert "RS-P-RFO" in ts_text
+    assert "Euler predictor-corrector IRC" not in ts_text
+    assert "Euler predictor-corrector IRC" in irc_text
+    assert "RFO / P-RFO" not in irc_text
+    assert "RFO / P-RFO" in endpoint_text
+    assert "RS-P-RFO" not in endpoint_text
+    assert "Euler predictor-corrector IRC" not in endpoint_text
+    assert "RS-P-RFO" in complete_text
+    assert "Euler predictor-corrector IRC" in complete_text
+    assert "quasi-RRHO thermochemistry" not in complete_text
 
 
 @pytest.mark.parametrize(
-    ("backend", "model", "expected"),
+    ("backend", "model", "task", "expected"),
     [
-        ("uma", "uma-s-1p2", ["UMA", "OMol25"]),
+        ("uma", "uma-s-1p2", "omol", ["UMA", "OMol25"]),
+        ("uma", "uma-s-1p2", None, ["UMA", "OMol25"]),
+        ("uma", "uma-s-1p2", "non-omol", ["UMA"]),
         (
-            "orb", "orb_v3_conservative_omol",
+            "orb", "orb_v3_conservative_omol", None,
             ["Orb-v3", "OMol25"],
         ),
         (
-            "mace", "MACE-OMOL-0",
+            "mace", "MACE-OMOL-0", None,
             ["MACE", "MACE", "OMol25"],
         ),
+        ("aimnet2", "aimnet2", None, ["AIMNet2"]),
     ],
 )
 def test_method_citations_include_the_executed_mlip_model(
-    backend: str, model: str, expected: list[str],
+    backend: str, model: str, task, expected: list[str],
 ) -> None:
     from mlmm.io.summary import method_references
 
     references = method_references({
         "mlip_backend": backend,
         "mlip_model": model,
+        "mlip_task": task,
     })
-    methods = [reference["method"] for reference in references]
-    for method in set(expected):
-        assert methods.count(method) >= expected.count(method)
     mlip_references = [
         reference for reference in references
-        if reference["method"] in {"UMA", "Orb-v3", "MACE", "OMol25"}
+        if reference["method"] in {
+            "UMA", "Orb-v3", "MACE", "OMol25", "AIMNet2"
+        }
     ]
+    assert [reference["method"] for reference in mlip_references] == expected
     for reference in mlip_references:
         assert "et al." not in reference["citation"]
         assert "https://doi.org/" in reference["citation"]
+    if backend == "aimnet2":
+        assert mlip_references[0]["doi"] == "10.1039/D4SC08572H"
+        assert "AIMNet2: A Neural Network Potential" in mlip_references[0][
+            "citation"
+        ]
 
 
 def test_mace_citations_share_one_heading_and_keep_both_papers() -> None:
@@ -436,7 +478,8 @@ def test_mace_citations_share_one_heading_and_keep_both_papers() -> None:
 
     assert block.count("- MACE:") == 1
     assert "11423-11436" in block
-    assert "arXiv:2205.06643" in block
+    assert "56-67" in block
+    assert "https://doi.org/10.1038/s42256-024-00956-x" in block
     assert "arXiv:2505.08762" in block
 
 
@@ -468,7 +511,7 @@ def test_runtime_citations_match_the_p2r_paper_bibliography() -> None:
         "mlip_model": "MACE-OMOL-0",
         "pipeline_mode": "path-search",
         "mep_mode": "gsm",
-        "post_segments": [{"endpoint_opt": {}}],
+        "post_segments": [{"tsopt": {}, "irc": {}, "endpoint_opt": {}}],
         "ts_opt_mode": "hess",
         "endpoint_opt_mode": "hess",
     }))
@@ -476,10 +519,8 @@ def test_runtime_citations_match_the_p2r_paper_bibliography() -> None:
     assert "Levine, D. S.; Shuaibi, M." in block
     assert "Batatia, I.; Kovács, D. P." in block
     assert "https://doi.org/10.1021/ct400319w" in block
-    assert "https://doi.org/10.1063/1.4804162" not in block
     assert "https://doi.org/10.1063/1.3514202" in block
     assert "https://doi.org/10.1063/1.1724823" in block
-    assert "https://doi.org/10.1039/C7CP03722H" not in block
 
 
 def test_dmf_and_split_ts_endpoint_references_follow_effective_settings() -> None:
@@ -488,7 +529,7 @@ def test_dmf_and_split_ts_endpoint_references_follow_effective_settings() -> Non
     base = {
         "pipeline_mode": "tsopt-only",
         "mep_mode": "dmf",
-        "post_segments": [{"endpoint_opt": {}}],
+        "post_segments": [{"tsopt": {}, "irc": {}, "endpoint_opt": {}}],
         "ts_opt_mode": "hess",
         "endpoint_opt_mode": "grad",
     }

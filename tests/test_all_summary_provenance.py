@@ -162,6 +162,8 @@ def test_enriched_rate_limit_uses_refined_barrier(tmp_path) -> None:
             "index": 1,
             "mlip": {"barrier_kcal": 12.0},
             "irc_traj": "irc.xyz",
+            "tsopt": {"continue_irc": True},
+            "irc": {"forward_converged": True},
             "ts_imag": {"n_imag": 1},
             "endpoint_opt": {"reactant_converged": True},
         }
@@ -213,6 +215,30 @@ def test_enriched_rate_limit_uses_refined_barrier(tmp_path) -> None:
         ref["method"] == "Limited-memory BFGS (L-BFGS)"
         for ref in summary["references"]
     )
+
+
+def test_enriched_references_only_add_omol25_for_omol(tmp_path) -> None:
+    summary = {"segments": [], "energy_diagrams": []}
+    _enrich_summary(
+        summary,
+        version="",
+        pipeline_mode="path-opt",
+        mlip_backend="uma",
+        mlip_model="uma-s-1p2",
+        charge=0,
+        spin=1,
+        calculator_config={
+            "backend": "uma",
+            "uma_model": "uma-s-1p2",
+            "uma_task_name": "non-omol",
+        },
+        out_dir=tmp_path,
+    )
+
+    methods = [reference["method"] for reference in summary["references"]]
+    assert summary["mlip_task"] == "non-omol"
+    assert "UMA" in methods
+    assert "OMol25" not in methods
 
 
 def test_ts_only_summary_does_not_assign_reaction_direction(tmp_path) -> None:
