@@ -422,10 +422,7 @@ def test_method_citations_include_the_executed_mlip_model(
         if reference["method"] in {"UMA", "Orb-v3", "MACE", "OMol25"}
     ]
     for reference in mlip_references:
-        if reference["method"] in {"UMA", "OMol25"}:
-            assert "et al." in reference["citation"]
-        else:
-            assert "et al." not in reference["citation"]
+        assert "et al." not in reference["citation"]
         assert "https://doi.org/" in reference["citation"]
 
 
@@ -476,9 +473,10 @@ def test_runtime_citations_match_the_p2r_paper_bibliography() -> None:
         "endpoint_opt_mode": "hess",
     }))
 
-    assert "Levine, D. S. et al." in block
+    assert "Levine, D. S.; Shuaibi, M." in block
     assert "Batatia, I.; Kovács, D. P." in block
     assert "https://doi.org/10.1021/ct400319w" in block
+    assert "https://doi.org/10.1063/1.1515483" not in block
     assert "https://doi.org/10.1063/1.4804162" not in block
     assert "https://doi.org/10.1063/1.3514202" in block
     assert "https://doi.org/10.1063/1.1724823" in block

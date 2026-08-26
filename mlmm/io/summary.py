@@ -219,8 +219,12 @@ _CITATION_RECORDS: Dict[str, tuple[str, str]] = {
     ),
     "uma": (
         "UMA",
-        "Wood, B. M. et al. UMA: A Family of Universal Models for Atoms. "
-        "Advances in Neural Information Processing Systems 38, "
+        "Wood, B. M.; Dzamba, M.; Fu, X.; Gao, M.; Shuaibi, M.; "
+        "Barroso-Luque, L.; Abdelmaqsoud, K.; Gharakhanyan, V.; Kitchin, "
+        "J. R.; Levine, D. S.; Michel, K.; Sriram, A.; Cohen, T. S.; Das, A.; "
+        "Sahoo, S. J.; Rizvi, A.; Ulissi, Z. W.; Zitnick, C. L. UMA: A Family "
+        "of Universal Models for Atoms. Advances in Neural Information "
+        "Processing Systems 38, "
         "129391-129427 (2025). "
         "https://doi.org/10.52202/085713-4310",
     ),
@@ -249,8 +253,13 @@ _CITATION_RECORDS: Dict[str, tuple[str, str]] = {
     ),
     "omol25": (
         "OMol25",
-        "Levine, D. S. et al. The Open Molecules 2025 (OMol25) Dataset, "
-        "Evaluations, and Models. arXiv 2025, arXiv:2505.08762. "
+        "Levine, D. S.; Shuaibi, M.; Spotte-Smith, E. W. C.; Taylor, M. G.; "
+        "Hasyim, M. R.; Michel, K.; Batatia, I.; Csányi, G.; Dzamba, M.; "
+        "Eastman, P.; Frey, N. C.; Fu, X.; Gharakhanyan, V.; Krishnapriyan, A. "
+        "S.; Rackers, J. A.; Raja, S.; Rizvi, A.; Rosen, A. S.; Ulissi, Z.; "
+        "Vargas, S.; Zitnick, C. L.; Blau, S. M.; Wood, B. M. The Open "
+        "Molecules 2025 (OMol25) Dataset, Evaluations, and Models. arXiv 2025, "
+        "arXiv:2505.08762. "
         "https://doi.org/10.48550/arXiv.2505.08762",
     ),
     "gsm_peters": (
@@ -296,12 +305,6 @@ _CITATION_RECORDS: Dict[str, tuple[str, str]] = {
         "Liu, D. C.; Nocedal, J. On the limited memory BFGS method for large "
         "scale optimization. Math. Program. 45, 503-528 (1989). "
         "https://doi.org/10.1007/BF01589116",
-    ),
-    "baker": (
-        "Restricted-step optimization and Baker convergence",
-        "Bakken, V.; Helgaker, T. The efficient optimization of molecular "
-        "geometries using redundant internal coordinates. J. Chem. Phys. 117, "
-        "9160-9174 (2002). https://doi.org/10.1063/1.1515483",
     ),
     "rsprfo": (
         "RS-P-RFO",
@@ -383,7 +386,7 @@ def _method_citation_record_keys(payload: Dict[str, Any]) -> List[str]:
         if path_opt_mode in {"grad", "lbfgs"}:
             keys.append("lbfgs")
         elif path_opt_mode in {"hess", "rfo", "rsprfo", "rsirfo"}:
-            keys.extend(("rfo", "baker"))
+            keys.append("rfo")
 
     post_segments = payload.get("post_segments") or []
     tsopt_used = bool(payload.get("tsopt_executed")) or any(
@@ -420,11 +423,11 @@ def _method_citation_record_keys(payload: Dict[str, Any]) -> List[str]:
         if ts_opt_mode in {"grad", "lbfgs", "dimer"}:
             keys.extend(("lbfgs", "dimer"))
         elif ts_opt_mode in {"hess", "rfo", "rsprfo"}:
-            keys.extend(("rfo", "baker", "rsprfo"))
+            keys.extend(("rfo", "rsprfo"))
         elif ts_opt_mode == "rsirfo":
-            keys.extend(("rfo", "baker", "rsirfo"))
+            keys.extend(("rfo", "rsirfo"))
         elif ts_opt_mode == "trim":
-            keys.extend(("baker", "trim"))
+            keys.append("trim")
 
         if endpoint_opt_mode in {"grad", "lbfgs", "dimer"}:
             keys.append("lbfgs")
@@ -435,7 +438,7 @@ def _method_citation_record_keys(payload: Dict[str, Any]) -> List[str]:
             "rsirfo",
             "trim",
         }:
-            keys.extend(("rfo", "baker"))
+            keys.append("rfo")
 
     return list(dict.fromkeys(keys))
 
