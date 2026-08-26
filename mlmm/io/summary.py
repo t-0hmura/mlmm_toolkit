@@ -219,12 +219,9 @@ _CITATION_RECORDS: Dict[str, tuple[str, str]] = {
     ),
     "uma": (
         "UMA",
-        "Wood, B. M.; Dzamba, M.; Fu, X.; Gao, M.; Shuaibi, M.; "
-        "Barroso-Luque, L.; Abdelmaqsoud, K.; Gharakhanyan, V.; Kitchin, "
-        "J. R.; Levine, D. S.; Michel, K.; Sriram, A.; Cohen, T. S.; Das, A.; "
-        "Sahoo, S. J.; Rizvi, A.; Ulissi, Z. W.; Zitnick, C. L. UMA: A Family "
-        "of Universal Models for Atoms. Advances in Neural Information "
-        "Processing Systems 38, 129391-129427 (2025). "
+        "Wood, B. M. et al. UMA: A Family of Universal Models for Atoms. "
+        "Advances in Neural Information Processing Systems 38, "
+        "129391-129427 (2025). "
         "https://doi.org/10.52202/085713-4310",
     ),
     "orb_v3": (
@@ -252,13 +249,8 @@ _CITATION_RECORDS: Dict[str, tuple[str, str]] = {
     ),
     "omol25": (
         "OMol25",
-        "Levine, D. S.; Shuaibi, M.; Spotte-Smith, E. W. C.; Taylor, M. G.; "
-        "Hasyim, M. R.; Michel, K.; Batatia, I.; Csányi, G.; Dzamba, M.; "
-        "Eastman, P.; Frey, N. C.; Fu, X.; Gharakhanyan, V.; Krishnapriyan, A. "
-        "S.; Rackers, J. A.; Raja, S.; Rizvi, A.; Rosen, A. S.; Ulissi, Z.; "
-        "Vargas, S.; Zitnick, C. L.; Blau, S. M.; Wood, B. M. The Open "
-        "Molecules 2025 (OMol25) Dataset, Evaluations, and Models. arXiv 2025, "
-        "arXiv:2505.08762. "
+        "Levine, D. S. et al. The Open Molecules 2025 (OMol25) Dataset, "
+        "Evaluations, and Models. arXiv 2025, arXiv:2505.08762. "
         "https://doi.org/10.48550/arXiv.2505.08762",
     ),
     "gsm_peters": (

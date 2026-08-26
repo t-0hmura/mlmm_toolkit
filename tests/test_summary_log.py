@@ -421,7 +421,12 @@ def test_method_citations_include_the_executed_mlip_model(
         reference for reference in references
         if reference["method"] in {"UMA", "Orb-v3", "MACE", "OMol25"}
     ]
-    assert all("et al." not in reference["citation"] for reference in mlip_references)
+    for reference in mlip_references:
+        if reference["method"] in {"UMA", "OMol25"}:
+            assert "et al." in reference["citation"]
+        else:
+            assert "et al." not in reference["citation"]
+        assert "https://doi.org/" in reference["citation"]
 
 
 def test_mace_citations_share_one_heading_and_keep_both_papers() -> None:
@@ -471,7 +476,8 @@ def test_runtime_citations_match_the_p2r_paper_bibliography() -> None:
         "endpoint_opt_mode": "hess",
     }))
 
-    assert "et al." not in block
+    assert "Levine, D. S. et al." in block
+    assert "Batatia, I.; Kovács, D. P." in block
     assert "https://doi.org/10.1021/ct400319w" in block
     assert "https://doi.org/10.1063/1.4804162" not in block
     assert "https://doi.org/10.1063/1.3514202" in block
