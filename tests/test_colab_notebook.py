@@ -1260,7 +1260,7 @@ def test_colab_viewer_persists_exact_atom_and_residue_context() -> None:
         "last_pick_info", "Generated file preview", "Download current run (.zip)",
         "Results directory", "Load results",
         "results_box.add_class('rxresults')", "overflow-x:auto",
-        "run.log", "energy unavailable", "Command was cancelled",
+        "run.log", "energy unavailable", "No completed result",
         "Command failed", "frame_slider = W.IntSlider(", "channel='trajectory'",
         "host.on('plotly_click'", "Plotly.restyle", "artifact_fold._rx_set_open",
         "message.type!=='rx-set-frame'", "update.to(model).update",
@@ -4688,7 +4688,9 @@ def test_colab_poll_repairs_a_finished_but_stale_frontend() -> None:
     events = []
     namespace = {
         "os": os,
-        "_RUN_EXECUTION": {"task": None, "thread": None, "process": None},
+        "_RUN_EXECUTION": {
+            "task": None, "thread": None, "process": None, "operation": "run",
+        },
         "_ACTION_STATE": {"running": False},
         "_RUN_STATE": {"text": "✓ done", "tone": "ok", "kind": "done"},
         "S": {"_last_manifest": {"status": "success"},
@@ -4700,6 +4702,8 @@ def test_colab_poll_repairs_a_finished_but_stale_frontend() -> None:
         "_set_run_status": lambda text, tone, kind, on_loop=False: events.append(
             ("status", text, tone, kind, on_loop)),
         "_results": lambda out: events.append(("results", out)),
+        "_finish_cancelled_attempt": lambda out: events.append(
+            ("cancelled_results", out)),
         "_tab_go": lambda index: events.append(("tab", index)),
         "_publish_result_widget_state": lambda: events.append(("publish_results",)),
         "_publish_run_widget_state": lambda: events.append(("publish_run",)),
@@ -4723,13 +4727,93 @@ def test_colab_poll_repairs_a_finished_but_stale_frontend() -> None:
         ("publish_run",),
     ]
 
+    events.clear()
+    namespace["_RUN_EXECUTION"]["operation"] = "validate"
+    namespace["S"]["_last_manifest"]["status"] = "success"
+    namespace["S"]["_results_presented_dir"] = os.path.abspath("result")
+    namespace["_RUN_STATE"].update(
+        text="■ cancelled", tone="warn", kind="cancelled")
+    assert namespace["_colab_poll_run"](True) == {"running": False}
+    assert events == [
+        ("flush", True),
+        ("running", False, True),
+        ("status", "■ cancelled", "warn", "cancelled", True),
+        ("publish_run",),
+    ]
+
     # A scientifically partial result is still a terminal, displayable run.
     events.clear()
+    namespace["_RUN_EXECUTION"]["operation"] = "run"
+    namespace["_RUN_STATE"].update(text="✓ done", tone="ok", kind="done")
     namespace["S"]["_last_manifest"]["status"] = "partial"
     namespace["S"]["_results_presented_dir"] = None
     assert namespace["_colab_poll_run"](False) == {"running": False}
     assert ("results", "result") in events
     assert ("tab", 3) in events
+
+    events.clear()
+    namespace["S"]["_last_manifest"]["status"] = "cancelled"
+    namespace["S"]["_results_presented_dir"] = None
+    namespace["_RUN_STATE"].update(
+        text="■ cancelled", tone="warn", kind="cancelled")
+    assert namespace["_colab_poll_run"](False) == {"running": False}
+    assert events == [
+        ("flush", True),
+        ("running", False, True),
+        ("status", "■ cancelled", "warn", "cancelled", True),
+        ("cancelled_results", "result"),
+        ("publish_run",),
+    ]
+
+
+def test_cancelled_run_stays_on_the_active_tab_without_result_rendering(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    input_path = tmp_path / "input.pdb"
+    input_path.write_text("END\n", encoding="utf-8")
+    partial = tmp_path / "result" / "partial_mep_trj.xyz"
+    partial.parent.mkdir()
+    partial.write_text("1\npartial\nH 0 0 0\n", encoding="utf-8")
+    scope = {
+        "target": str(partial.parent), "root": str(partial.parent),
+        "shallow": False, "stdout_only": False, "direct_current": True,
+    }
+    snapshots = iter([{}, {str(partial): (1, 1)}])
+    app["_auto"]["on"] = False
+    app["_preflight_output_scope"] = lambda _argv: scope
+    app["_snapshot_output_scope"] = lambda _scope: next(snapshots)
+    app["_matches_output_scope"] = lambda _path, _scope: True
+    app["_stream"] = lambda _argv: (130, "cancelled")
+    rendered = []
+    tab_calls = []
+    real_results = app["_results"]
+    app["_results"] = lambda out: rendered.append(out)
+    published_results = []
+    app["_publish_result_widget_state"] = lambda: published_results.append(True)
+    real_tab_go = app["_tab_go"]
+    real_tab_go(2)
+    app["_tab_go"] = lambda index: (tab_calls.append(index), real_tab_go(index))[-1]
+
+    app["_do_run_sync"](None, [app["CLI"], "fix-altloc", "-i", str(input_path)])
+
+    assert app["S"]["_last_manifest"]["status"] == "cancelled"
+    assert app["S"]["_last_files"] == [str(partial)]
+    assert app["S"]["_results_presented_dir"] == os.path.abspath(partial.parent)
+    assert app["_TAB_NAV"]["active"] == 2
+    assert tab_calls == [] and rendered == [] and published_results == []
+    assert app["trajectory_box"].layout.display == "none"
+    assert app["artifact_fold"].layout.display == "none"
+    assert "No completed result" in app["results_empty"].value
+    assert app["dl_btn"].disabled
+    app["S"]["_results_presented_dir"] = None
+    real_results(str(partial.parent))
+    assert rendered == []
+    assert app["trajectory_box"].layout.display == "none"
+    assert not app["traj_choice"].options
+    real_tab_go(3)
+    assert rendered == []
+    assert "No completed result" in app["results_empty"].value
 
 
 def test_cancel_keeps_polling_until_worker_publishes_terminal_state() -> None:
