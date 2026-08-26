@@ -945,6 +945,8 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "value = options[selected_index][1]" in app
     assert "var nativeFrameTimer=0" in app
     assert "playButtons[0].dataset.rxNativePlay='true'" in app
+    assert "playButtons[1].textContent='Ⅱ'" in app
+    assert "playButtons[1].title='Pause'" in app
     assert "var repeatButton=playButtons.length>=3?playButtons[playButtons.length-1]:null" in app
     assert "if(!repeatButton||!repeatButton.classList.contains('mod-active'))" in app
     assert "if(!vibration){stopNativePlayback(true);return;}" not in app
@@ -2608,6 +2610,7 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     assert app["_artifact_kind"]("forcefield.prms") == "text"
     preview = app["_text_preview_html"](str(result_json), "JSON")
     assert "&quot;energy&quot;" in preview and "-1.25" in preview
+    assert "DejaVu Sans Mono" in preview and "Liberation Mono" in preview
     summary = tmp_path / "summary.json"
     summary.write_text(json.dumps({
         "status": "success", "scientific_status": "partial",
@@ -2629,6 +2632,7 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
         "n_images": 5,
         "mlip_backend": "mace",
         "mlip_model": "MACE-OMOL-0",
+        "mlip_model_label": "MACE-OMOL-0",
         "endpoint_assignment": {"chemical_direction_known": False},
         "segments": [{
             "index": 1, "kind": "tsopt",
@@ -2646,6 +2650,7 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     assert "raw MEP" not in ts_only_html
     assert "IRC frames: 5" not in ts_only_html
     assert "backend/model:" not in ts_only_html
+    assert "MLIP model: <b>MACE-OMOL-0</b>" in ts_only_html
     assert "model-region DFT" in ts_only_html
     assert "energy order" in ts_only_html
     extra_artifacts = []

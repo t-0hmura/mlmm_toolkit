@@ -199,7 +199,9 @@ def test_enriched_rate_limit_uses_refined_barrier(tmp_path) -> None:
     }
     assert summary["mlip_backend"] == "orb"
     assert summary["mlip_model"] == "orb_v3_conservative_omol"
+    assert summary["mlip_model_label"] == "ORB-v3-conservative-OMol"
     assert any(ref["method"] == "mlmm-toolkit" for ref in summary["references"])
+    assert any(ref["method"] == "Orb-v3" for ref in summary["references"])
     assert any(
         ref["method"] == "Growing String Method (GSM)"
         for ref in summary["references"]

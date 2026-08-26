@@ -119,7 +119,10 @@ def _resolved_backend_config(
     provenance = calculator_provenance(calc_cfg)
     return calc_cfg, {
         key: provenance[key]
-        for key in ("mlip_backend", "mlip_model", "mlip_precision")
+        for key in (
+            "mlip_backend", "mlip_model", "mlip_model_label", "mlip_task",
+            "mlip_precision",
+        )
     }
 
 
@@ -327,6 +330,8 @@ def run_trj2fig(
         provenance = {
             "mlip_backend": None,
             "mlip_model": None,
+            "mlip_model_label": None,
+            "mlip_task": None,
             "mlip_precision": None,
         }
     else:
@@ -334,12 +339,6 @@ def run_trj2fig(
             backend,
             backend_model=backend_model,
             precision=precision,
-        )
-        emit(
-            "[trj2fig] Recomputing energies with "
-            f"{provenance['mlip_backend']} "
-            f"({provenance['mlip_model']}, {provenance['mlip_precision']}) ...",
-            detail=True,
         )
         energies = recompute_energies(
             traj,
@@ -514,6 +513,8 @@ def cli(
             "energy_unit": info["energy_unit"],
             "mlip_backend": info["mlip_backend"],
             "mlip_model": info["mlip_model"],
+            "mlip_model_label": info["mlip_model_label"],
+            "mlip_task": info["mlip_task"],
             "mlip_precision": info["mlip_precision"],
             "charge": info["charge"],
             "multiplicity": info["multiplicity"],

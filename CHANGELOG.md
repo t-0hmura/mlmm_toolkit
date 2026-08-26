@@ -11,6 +11,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 - Keep cancelled Colab runs on the active tab and out of completed-result views.
+- Report the exact MLIP model and UMA task in logs, JSON, and Colab Results, and
+  include model-specific UMA, Orb-v3, MACE, and OMol25 citations.
+- Use pause semantics for Colab trajectory playback.
 - Restore the reviewed Colab selection UI: persistent removable chips, concise
   workflow labels and center summaries, explicit frozen-atom completion, and a
   compact staged-scan editor. The upload panel now treats parm7 as optional for

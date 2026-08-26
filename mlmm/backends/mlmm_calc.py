@@ -1045,17 +1045,24 @@ _ANNOUNCED_MODEL_LOADS: set = set()
 
 
 @contextmanager
-def _announce_model_load(backend: str, model: str):
+def _announce_model_load(backend: str, model: str, task_name: str = ""):
     """Bracket the first load of each model so a download cannot look like a hang."""
-    from mlmm.core.output import emit
+    from mlmm.core.output import emit, mlip_model_label
 
     model = str(model or "").strip()
-    key = (backend, model)
+    task_name = str(task_name or "").strip()
+    if backend == "uma" and not task_name:
+        task_name = "omol"
+    key = (backend, model, task_name)
     if key in _ANNOUNCED_MODEL_LOADS:
         yield
         return
     _ANNOUNCED_MODEL_LOADS.add(key)
-    label = f"{backend}{f' / {model}' if model else ''}"
+    backend_label = {
+        "uma": "UMA", "orb": "ORB", "mace": "MACE", "aimnet2": "AIMNet2",
+    }.get(backend, backend)
+    model_label = mlip_model_label(backend, model, task_name)
+    label = f"{backend_label}{f' / {model_label}' if model else ''}"
     emit(f"\n[backend] Preparing MLIP model ({label})...", narrative=True)
     try:
         yield
@@ -1111,7 +1118,7 @@ def _create_ml_backend(
             "kernels outside mlmm-toolkit's control."
         )
     if backend == "uma":
-        with _announce_model_load(backend, uma_model):
+        with _announce_model_load(backend, uma_model, uma_task_name):
             return _UMABackend(
                 uma_model=uma_model,
                 uma_task_name=uma_task_name,

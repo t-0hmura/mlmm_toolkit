@@ -34,6 +34,8 @@ def _result_calculator_fields(
         return {
             "mlip_backend": None,
             "mlip_model": None,
+            "mlip_model_label": None,
+            "mlip_task": None,
             "mlip_precision": None,
             "mm_backend": None,
             "link_atom_method": None,

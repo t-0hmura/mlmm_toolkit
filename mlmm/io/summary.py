@@ -23,6 +23,7 @@ from mlmm.core.defaults import (
     WORK_DIRNAME,
     TS_IMAG_SOFT_WARN_CM,
 )
+from mlmm.core.output import mlip_model_label
 
 
 def format_result_warning(
@@ -206,7 +207,7 @@ def format_result_warning(
 _CITATION_RECORDS: Dict[str, tuple[str, str]] = {
     "software": (
         "mlmm-toolkit",
-        "Ohmura, T.; Inoue, S.; Terada, T. ML/MM toolkit — Toward Accelerated "
+        "Ohmura, T.; Inoue, S.; Terada, T. ML/MM toolkit — Towards Accelerated "
         "Mechanistic Investigation of Enzymatic Reactions. ChemRxiv (2025). "
         "https://doi.org/10.26434/chemrxiv-2025-jft1k",
     ),
@@ -215,6 +216,50 @@ _CITATION_RECORDS: Dict[str, tuple[str, str]] = {
         "Steinmetzer, J.; Kupfer, S.; Gräfe, S. pysisyphus: Exploring potential "
         "energy surfaces in ground and excited states. Int. J. Quantum Chem. 121, "
         "e26390 (2021). https://doi.org/10.1002/qua.26390",
+    ),
+    "uma": (
+        "UMA",
+        "Wood, B. M.; Dzamba, M.; Fu, X.; Gao, M.; Shuaibi, M.; "
+        "Barroso-Luque, L.; Abdelmaqsoud, K.; Gharakhanyan, V.; Kitchin, "
+        "J. R.; Levine, D. S.; Michel, K.; Sriram, A.; Cohen, T. S.; Das, A.; "
+        "Sahoo, S. J.; Rizvi, A.; Ulissi, Z. W.; Zitnick, C. L. UMA: A Family "
+        "of Universal Models for Atoms. Advances in Neural Information "
+        "Processing Systems 38, 129391-129427 (2025). "
+        "https://doi.org/10.52202/085713-4310",
+    ),
+    "orb_v3": (
+        "Orb-v3",
+        "Rhodes, B.; Vandenhaute, S.; Šimkus, V.; Gin, J.; Godwin, J.; "
+        "Duignan, T.; Neumann, M. Orb-v3: Atomistic Simulation at Scale. "
+        "arXiv 2025, arXiv:2504.06231. "
+        "https://doi.org/10.48550/arXiv.2504.06231",
+    ),
+    "mace": (
+        "MACE",
+        "Batatia, I.; Kovács, D. P.; Simm, G. N. C.; Ortner, C.; Csányi, G. "
+        "MACE: Higher Order Equivariant Message Passing Neural Networks for Fast "
+        "and Accurate Force Fields. Advances in Neural Information Processing "
+        "Systems 35, 11423-11436 (2022). "
+        "https://doi.org/10.52202/068431-0830",
+    ),
+    "mace_design": (
+        "MACE",
+        "Batatia, I.; Batzner, S.; Kovács, D. P.; Musaelian, A.; Simm, G. N. "
+        "C.; Drautz, R.; Ortner, C.; Kozinsky, B.; Csányi, G. The Design "
+        "Space of E(3)-Equivariant Atom-Centered Interatomic Potentials. "
+        "arXiv 2022, arXiv:2205.06643. "
+        "https://doi.org/10.48550/arXiv.2205.06643",
+    ),
+    "omol25": (
+        "OMol25",
+        "Levine, D. S.; Shuaibi, M.; Spotte-Smith, E. W. C.; Taylor, M. G.; "
+        "Hasyim, M. R.; Michel, K.; Batatia, I.; Csányi, G.; Dzamba, M.; "
+        "Eastman, P.; Frey, N. C.; Fu, X.; Gharakhanyan, V.; Krishnapriyan, A. "
+        "S.; Rackers, J. A.; Raja, S.; Rizvi, A.; Rosen, A. S.; Ulissi, Z.; "
+        "Vargas, S.; Zitnick, C. L.; Blau, S. M.; Wood, B. M. The Open "
+        "Molecules 2025 (OMol25) Dataset, Evaluations, and Models. arXiv 2025, "
+        "arXiv:2505.08762. "
+        "https://doi.org/10.48550/arXiv.2505.08762",
     ),
     "gsm_peters": (
         "Growing String Method (GSM)",
@@ -225,10 +270,9 @@ _CITATION_RECORDS: Dict[str, tuple[str, str]] = {
     ),
     "gsm_zimmerman": (
         "Growing String Method (GSM)",
-        "Zimmerman, P. M. Growing string method with interpolation and optimization "
-        "in internal coordinates: Method and examples. J. Chem. Phys. 138, 184102 "
-        "(2013). "
-        "https://doi.org/10.1063/1.4804162",
+        "Zimmerman, P. M. Reliable Transition State Searches Integrated with "
+        "the Growing String Method. J. Chem. Theory Comput. 9, 3043-3050 "
+        "(2013). https://doi.org/10.1021/ct400319w",
     ),
     "dmf": (
         "Direct Max Flux (DMF)",
@@ -294,10 +338,16 @@ _CITATION_RECORDS: Dict[str, tuple[str, str]] = {
     ),
     "eulerpc": (
         "Euler predictor-corrector IRC (EulerPC)",
-        "Meisner, J.; Markmeyer, M. N.; Bohner, M. U.; Kästner, J. Comparison of "
-        "classical reaction paths and tunneling paths studied with the "
-        "semiclassical instanton theory. Phys. Chem. Chem. Phys. 19, 23085-23094 "
-        "(2017). https://doi.org/10.1039/C7CP03722H",
+        "Hratchian, H. P.; Frisch, M. J.; Schlegel, H. B. Steepest Descent "
+        "Reaction Path Integration Using a First-Order Predictor-Corrector "
+        "Method. J. Chem. Phys. 133, 224101 (2010). "
+        "https://doi.org/10.1063/1.3514202",
+    ),
+    "eulerpc_hessian": (
+        "Euler predictor-corrector IRC (EulerPC)",
+        "Hratchian, H. P.; Schlegel, H. B. Accurate Reaction Paths Using a "
+        "Hessian-Based Predictor-Corrector Integrator. J. Chem. Phys. 120, "
+        "9918-9924 (2004). https://doi.org/10.1063/1.1724823",
     ),
     "qrrho": (
         "quasi-RRHO thermochemistry",
@@ -312,6 +362,19 @@ def _method_citation_record_keys(payload: Dict[str, Any]) -> List[str]:
     """Resolve citations from methods actually selected in this run."""
 
     keys = ["software", "pysisyphus"]
+    mlip_backend = str(payload.get("mlip_backend") or "").strip().lower()
+    mlip_model = str(payload.get("mlip_model") or "").strip().lower()
+    if mlip_backend == "uma":
+        keys.extend(("uma", "omol25"))
+    elif mlip_backend == "orb":
+        if "orb_v3" in mlip_model or "orb-v3" in mlip_model:
+            keys.append("orb_v3")
+        if "omol" in mlip_model or "orbmol" in mlip_model:
+            keys.append("omol25")
+    elif mlip_backend == "mace":
+        keys.extend(("mace", "mace_design"))
+        if "omol" in mlip_model:
+            keys.append("omol25")
     pipeline_mode = str(payload.get("pipeline_mode") or "").strip().lower()
     if pipeline_mode != "tsopt-only":
         mep_mode = str(payload.get("mep_mode") or "").strip().lower()
@@ -348,7 +411,7 @@ def _method_citation_record_keys(payload: Dict[str, Any]) -> List[str]:
         keys.append("qrrho")
 
     if tsopt_used:
-        keys.append("eulerpc")
+        keys.extend(("eulerpc", "eulerpc_hessian"))
         legacy_post_mode = str(
             payload.get("post_opt_mode")
             or payload.get("opt_mode_post")
@@ -396,8 +459,11 @@ def format_method_citations(
     """
 
     lines = [header, "Please cite the software and methods used:"]
+    previous_method = None
     for index, reference in enumerate(method_references(payload), start=1):
-        lines.append(f"- {reference['method']}:")
+        if reference["method"] != previous_method:
+            lines.append(f"- {reference['method']}:")
+            previous_method = reference["method"]
         lines.append(f"[{index}] {reference['citation']}")
     return lines
 
@@ -950,8 +1016,14 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
     mlip_backend = payload.get("mlip_backend") or "-"
     mlip_model = payload.get("mlip_model") or "-"
     mlip_precision = payload.get("mlip_precision") or "-"
-    lines.append(f"MLIP backend        : {mlip_backend}")
-    lines.append(f"MLIP model          : {mlip_model}")
+    backend_label = {
+        "uma": "UMA", "orb": "ORB", "mace": "MACE", "aimnet2": "AIMNet2",
+    }.get(str(mlip_backend).lower(), mlip_backend)
+    model_label = payload.get("mlip_model_label") or mlip_model_label(
+        mlip_backend, mlip_model, payload.get("mlip_task")
+    )
+    lines.append(f"MLIP backend        : {backend_label}")
+    lines.append(f"MLIP model          : {model_label}")
     lines.append(f"MLIP precision      : {mlip_precision}")
     execution_status = payload.get("execution_status")
     scientific_status = payload.get("scientific_status") or payload.get("status")

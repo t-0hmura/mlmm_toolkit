@@ -423,7 +423,7 @@ mlmm all -i r_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --scan-
 # test61: --backend-model routing — a non-default model must reach the resolved
 # runtime header. Dry-run avoids downloading the alternate model.
 mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --backend-model uma-m-1p1 --dry-run --out-dir test61_backend_model > test61_backend_model.out 2>&1
-grep -Eq '^\[backend\] uma \(uma-m-1p1, fp32\)$' test61_backend_model.out || { echo "[smoke] FAIL test61: non-default backend model missing from resolved runtime summary" >> test61_backend_model.out; exit 1; }
+grep -Eq '^\[backend\] UMA \(UMA-M-1\.1 \(OMol\), fp32\)$' test61_backend_model.out || { echo "[smoke] FAIL test61: non-default backend model missing from resolved runtime summary" >> test61_backend_model.out; exit 1; }
 
 # Build an mmCIF equivalent of the layered fixture while exercising identifiers
 # that cannot be represented in fixed-column PDB.

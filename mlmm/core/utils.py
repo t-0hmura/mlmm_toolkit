@@ -24,7 +24,7 @@ from pysisyphus.helpers import geom_loader
 from pysisyphus.constants import ANG2BOHR
 
 from mlmm.domain.add_elem_info import guess_element
-from mlmm.core.output import _TAG_AWARE_MARKER, emit
+from mlmm.core.output import _TAG_AWARE_MARKER, emit, mlip_model_label
 from mlmm.core.result_commit import commit_payloads
 from mlmm.io.structure_formats import (
     CIF_SUFFIXES,
@@ -625,9 +625,14 @@ def calculator_provenance(calc_cfg: Mapping[str, Any]) -> Dict[str, Any]:
         else:
             precision = token or None
 
+    task_name = calc_cfg.get("uma_task_name") if backend == "uma" else None
+    if backend == "uma" and task_name is None:
+        task_name = MLMM_CALC_KW.get("uma_task_name")
     return {
         "mlip_backend": backend,
         "mlip_model": None if model is None else str(model),
+        "mlip_model_label": mlip_model_label(backend, model, task_name),
+        "mlip_task": None if task_name is None else str(task_name),
         "mlip_precision": None if precision is None else str(precision),
         "mm_backend": str(calc_cfg.get("mm_backend") or MLMM_CALC_KW["mm_backend"]),
         "link_atom_method": str(
@@ -638,13 +643,18 @@ def calculator_provenance(calc_cfg: Mapping[str, Any]) -> Dict[str, Any]:
 
 
 def calculator_run_label(calc_cfg: Mapping[str, Any]) -> str:
-    """Format backend, model, and effective precision for concise run headers."""
+    """Format backend, model, task, and precision for concise run headers."""
     provenance = calculator_provenance(calc_cfg)
-    backend = provenance["mlip_backend"]
-    model = provenance["mlip_model"]
-    precision = provenance["mlip_precision"]
-    details = [str(value) for value in (model, precision) if value not in (None, "")]
-    return f"{backend} ({', '.join(details)})" if details else str(backend)
+    backend = str(provenance["mlip_backend"])
+    backend_label = {
+        "uma": "UMA", "orb": "ORB", "mace": "MACE", "aimnet2": "AIMNet2",
+    }.get(backend, backend)
+    details = [
+        str(value) for value in (
+            provenance.get("mlip_model_label"), provenance.get("mlip_precision")
+        ) if value not in (None, "")
+    ]
+    return f"{backend_label} ({', '.join(details)})" if details else backend_label
 
 
 def pretty_block(title: str, content: Dict[str, Any], *, force: bool = False) -> str:
@@ -3637,6 +3647,17 @@ def write_result_json(
     data.setdefault("command", command)
     data.setdefault("mlmm_version", __version__)
     data.setdefault("schema_version", RESULT_JSON_SCHEMA_VERSION)
+    mlip_backend = data.get("mlip_backend")
+    mlip_model = data.get("mlip_model")
+    if mlip_backend is not None and mlip_model is not None:
+        mlip_task = data.get("mlip_task")
+        if mlip_task is None and str(mlip_backend).lower() == "uma":
+            mlip_task = data.get("uma_task_name") or "omol"
+            data.setdefault("mlip_task", mlip_task)
+        data.setdefault(
+            "mlip_model_label",
+            mlip_model_label(mlip_backend, mlip_model, mlip_task),
+        )
     if elapsed_seconds is not None:
         data["elapsed_seconds"] = round(elapsed_seconds, 3)
     data.setdefault("environment", _collect_environment_info())

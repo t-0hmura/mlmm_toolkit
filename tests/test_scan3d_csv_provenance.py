@@ -42,6 +42,8 @@ def test_plot_only_csv_emits_complete_nullable_calculator_schema(
     for key in (
         "mlip_backend",
         "mlip_model",
+        "mlip_model_label",
+        "mlip_task",
         "mlip_precision",
         "mm_backend",
         "link_atom_method",
@@ -72,6 +74,8 @@ def test_fresh_scan3d_calculator_schema_uses_resolved_values() -> None:
     assert fields == {
         "mlip_backend": "orb",
         "mlip_model": "orb_v3_conservative_omol",
+        "mlip_model_label": "ORB-v3-conservative-OMol",
+        "mlip_task": None,
         "mlip_precision": "fp64",
         "mm_backend": "openmm",
         "link_atom_method": "fixed",

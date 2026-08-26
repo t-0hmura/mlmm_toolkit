@@ -10,6 +10,8 @@ from pathlib import Path
 
 import numpy as np
 
+from mlmm.core.utils import mlip_model_label
+
 
 def require_finite(value: object, path: str = "root") -> None:
     if isinstance(value, bool) or value is None or isinstance(value, str):
@@ -257,9 +259,15 @@ def check_provenance(
                 f"incorrect {key} provenance: {summary.get(key)!r}, expected {value!r}"
             )
     text = (root / "summary.log").read_text(encoding="utf-8")
-    if f"MLIP backend        : {expected_backend}" not in text:
+    backend_label = {
+        "uma": "UMA", "orb": "ORB", "mace": "MACE", "aimnet2": "AIMNet2",
+    }.get(expected_backend, expected_backend)
+    if f"MLIP backend        : {backend_label}" not in text:
         raise SystemExit("summary.log omits the resolved MLIP backend")
-    if f"MLIP model          : {expected_model}" not in text:
+    model_label = summary.get("mlip_model_label") or mlip_model_label(
+        expected_backend, expected_model, summary.get("mlip_task")
+    )
+    if f"MLIP model          : {model_label}" not in text:
         raise SystemExit("summary.log omits the resolved MLIP model")
     for stale in ("UMA model", "DFT//UMA", "energy_diagram_UMA"):
         if stale in text:

@@ -119,6 +119,11 @@ def test_payload_preserves_legacy_keys_and_records_effective_values(
     assert payload["grid_level"] == 7
     assert payload["conv_tol"] == pytest.approx(2.0e-11)
     assert payload["max_cycle"] == 17
+    assert payload["mlip_backend"] == "dft"
+    assert payload["mlip_model"] is None
+    assert payload["mlip_model_label"] is None
+    assert payload["mlip_task"] is None
+    assert payload["mlip_precision"] is None
 
 
 def test_nonconverged_payload_commits_before_exit_three(

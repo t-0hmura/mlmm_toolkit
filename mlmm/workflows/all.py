@@ -1806,6 +1806,14 @@ def _enrich_summary(
     # Record the resolved MLIP model used by the high-level ML/MM calculator.
     if mlip_model is not None:
         summary["mlip_model"] = mlip_model
+    if str(mlip_backend).lower() == "uma" and not summary.get("mlip_task"):
+        summary["mlip_task"] = MLMM_CALC_KW["uma_task_name"]
+    if summary.get("mlip_model") is not None and not summary.get("mlip_model_label"):
+        from mlmm.core.utils import mlip_model_label as _format_mlip_model_label
+
+        summary["mlip_model_label"] = _format_mlip_model_label(
+            mlip_backend, summary.get("mlip_model"), summary.get("mlip_task")
+        )
     summary["charge"] = charge
     summary["spin"] = spin
     if manifest is not None:
@@ -1838,6 +1846,8 @@ def _enrich_summary(
             "mep_mode": citation_config.get("mep_mode"),
             "dmf_correlated": citation_config.get("dmf_correlated"),
             "post_segments": post_segments or [],
+            "mlip_backend": summary.get("mlip_backend"),
+            "mlip_model": summary.get("mlip_model"),
         }
     )
     if freeze_atoms:
@@ -4402,6 +4412,13 @@ def cli(
         mm_backend=mm_backend,
         use_cmap=use_cmap,
     )
+    from mlmm.core.utils import calculator_provenance as _calculator_provenance
+
+    _resolved_provenance = _calculator_provenance(
+        resolved_calc_template.materialize()
+    )
+    _mlip_model_label_resolved = _resolved_provenance["mlip_model_label"]
+    _mlip_task_resolved = _resolved_provenance["mlip_task"]
     if not _is_param_explicit("detect_layer"):
         detect_layer = bool(
             resolved_calc_template.materialize().get("use_bfactor_layers", True)
@@ -4541,6 +4558,8 @@ def cli(
             "mep_mode": mep_mode_kind,
             "dmf_correlated": dmf_correlated_effective,
             "post_segments": citation_post_segments,
+            "mlip_backend": mlip_backend_resolved,
+            "mlip_model": mlip_model_resolved,
         }
 
     from mlmm.workflows._all_helpers import (
@@ -5372,6 +5391,8 @@ def cli(
                 "dft": do_dft,
                 "mlip_backend": mlip_backend_resolved,
                 "mlip_model": mlip_model_resolved,
+                "mlip_model_label": _mlip_model_label_resolved,
+                "mlip_task": _mlip_task_resolved,
                 "mlip_precision": mlip_precision_resolved,
                 "status": summary.get("status"),
                 "status_reasons": summary.get("status_reasons", []),
@@ -6044,6 +6065,8 @@ def cli(
             "dmf_correlated": dmf_correlated_effective,
             "mlip_backend": mlip_backend_resolved,
             "mlip_model": mlip_model_resolved,
+            "mlip_model_label": _mlip_model_label_resolved,
+            "mlip_task": _mlip_task_resolved,
             "mlip_precision": mlip_precision_resolved,
             "status": summary.get("status"),
             "status_reasons": summary.get("status_reasons", []),
@@ -6826,6 +6849,8 @@ def cli(
                 post_segment_logs=post_segment_logs,
                 mlip_backend=mlip_backend_resolved,
                 mlip_model=mlip_model_resolved,
+                mlip_model_label=_mlip_model_label_resolved,
+                mlip_task=_mlip_task_resolved,
                 mlip_precision=mlip_precision_resolved,
             )
             summary_payload["layer_counts"] = dict(_layer_summary_counts)

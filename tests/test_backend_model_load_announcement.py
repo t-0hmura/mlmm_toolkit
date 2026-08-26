@@ -6,6 +6,7 @@ import pytest
 import torch
 
 from mlmm.backends import mlmm_calc
+from mlmm.core.output import mlip_model_label
 
 
 class _StubBackend:
@@ -38,7 +39,11 @@ def test_first_load_is_bracketed_then_silent(
     created = _create(backend, **{model_kwarg: model})
     assert isinstance(created, _StubBackend)
     out = capsys.readouterr().out
-    assert f"[backend] Preparing MLIP model ({backend} / {model})..." in out
+    expected = {
+        "uma": "UMA / UMA-S-1.2 (OMol)",
+        "mace": "MACE / MACE-OMOL-0",
+    }[backend]
+    assert f"[backend] Preparing MLIP model ({expected})..." in out
     assert "[backend] Done." in out
     assert out.index("Preparing MLIP model") < out.index("[backend] Done.")
     lines = out.splitlines()
@@ -57,7 +62,34 @@ def test_each_model_is_announced_once(capsys, monkeypatch) -> None:
     _create("uma", uma_model="uma-m-1p1")
     out = capsys.readouterr().out
     assert out.count("Preparing MLIP model") == 2
-    assert "(uma / uma-s-1p2)" in out and "(uma / uma-m-1p1)" in out
+    assert "(UMA / UMA-S-1.2 (OMol))" in out
+    assert "(UMA / UMA-M-1.1 (OMol))" in out
+
+
+def test_uma_task_is_part_of_the_model_announcement(capsys, monkeypatch) -> None:
+    monkeypatch.setattr(mlmm_calc, "_UMABackend", _StubBackend)
+    _create("uma", uma_model="uma-s-1p2", uma_task_name="omol")
+    _create("uma", uma_model="uma-s-1p2", uma_task_name="omat")
+    out = capsys.readouterr().out
+    assert "UMA-S-1.2 (OMol)" in out
+    assert "UMA-S-1.2 (OMat)" in out
+
+
+def test_uma_default_and_explicit_omol_share_one_announcement(
+    capsys, monkeypatch
+) -> None:
+    monkeypatch.setattr(mlmm_calc, "_UMABackend", _StubBackend)
+    _create("uma", uma_model="uma-s-1p2")
+    _create("uma", uma_model="uma-s-1p2", uma_task_name="omol")
+    assert capsys.readouterr().out.count("Preparing MLIP model") == 1
+
+
+def test_public_model_labels_canonicalize_supported_aliases() -> None:
+    assert mlip_model_label("mace", "off:small") == "MACE-OFF23-small"
+    assert (
+        mlip_model_label("orb", "orb-v3-conservative-omol")
+        == "ORB-v3-conservative-OMol"
+    )
 
 
 def test_failed_load_is_announced_again(capsys, monkeypatch) -> None:

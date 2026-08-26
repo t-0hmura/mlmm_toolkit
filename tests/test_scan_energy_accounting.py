@@ -48,6 +48,8 @@ def test_calculator_provenance_resolves_backend_specific_model() -> None:
     assert provenance == {
         "mlip_backend": "orb",
         "mlip_model": "orb-test",
+        "mlip_model_label": "ORB-test",
+        "mlip_task": None,
         "mlip_precision": "fp64",
         "mm_backend": "openmm",
         "link_atom_method": "fixed",

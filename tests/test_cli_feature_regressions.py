@@ -989,6 +989,8 @@ def test_trj2fig_json_records_selected_backend_provenance(
     assert payload["energy_unit"] == "hartree"
     assert payload["mlip_backend"] == "orb"
     assert payload["mlip_model"] == "orb-test-model"
+    assert payload["mlip_model_label"] == "ORB-test-model"
+    assert payload["mlip_task"] is None
     assert payload["mlip_precision"] == "fp64"
     assert payload["charge"] == -1
     assert payload["multiplicity"] == 2
@@ -1029,6 +1031,8 @@ def test_trj2fig_comment_json_does_not_claim_calculator_provenance(
     assert payload["energy_unit"] == "hartree"
     assert payload["mlip_backend"] is None
     assert payload["mlip_model"] is None
+    assert payload["mlip_model_label"] is None
+    assert payload["mlip_task"] is None
     assert payload["mlip_precision"] is None
     assert payload["charge"] is None
     assert payload["multiplicity"] is None

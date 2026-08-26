@@ -1196,6 +1196,8 @@ def _summary_log_provenance(summary: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "mlip_backend": summary.get("mlip_backend"),
         "mlip_model": summary.get("mlip_model"),
+        "mlip_model_label": summary.get("mlip_model_label"),
+        "mlip_task": summary.get("mlip_task"),
         "mlip_precision": summary.get("mlip_precision"),
         "status": summary.get("status"),
         "status_reasons": summary.get("status_reasons", []),
@@ -2743,6 +2745,8 @@ def cli(
                 "mep_mode": mep_mode_kind,
                 "path_opt_mode": "grad",
                 "dmf_correlated": bool(dmf_cfg.get("correlated", False)),
+                "mlip_backend": summary.get("mlip_backend"),
+                "mlip_model": summary.get("mlip_model"),
             }
         )
 

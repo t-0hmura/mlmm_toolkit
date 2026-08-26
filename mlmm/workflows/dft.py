@@ -301,6 +301,8 @@ def _build_dft_result_payload(
         {
             "mlip_backend": "dft",
             "mlip_model": None,
+            "mlip_model_label": None,
+            "mlip_task": None,
             "mlip_precision": None,
         }
     )

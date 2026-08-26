@@ -481,7 +481,8 @@ def test_path_summary_log_reuses_enriched_calculator_provenance(tmp_path: Path) 
     destination = tmp_path / "summary.log"
     write_summary_log(destination, payload)
     rendered = destination.read_text(encoding="utf-8")
-    assert "orb" in rendered and "orb-v3" in rendered
+    assert "MLIP backend        : ORB" in rendered
+    assert "MLIP model          : ORB-v3" in rendered
 
 
 def test_path_summary_contract_does_not_swallow_truth_failures(

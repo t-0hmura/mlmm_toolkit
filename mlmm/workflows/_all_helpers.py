@@ -157,6 +157,8 @@ def build_pipeline_summary_payload(
     post_segment_logs: Sequence[Dict[str, Any]],
     mlip_backend: str = "uma",
     mlip_model: Optional[str] = None,
+    mlip_model_label: Optional[str] = None,
+    mlip_task: Optional[str] = None,
     mlip_precision: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Assemble the summary_log payload for the `all` pipeline.
@@ -210,6 +212,8 @@ def build_pipeline_summary_payload(
         "dmf_correlated": bool(dmf_correlated),
         "mlip_backend": mlip_backend,
         "mlip_model": mlip_model,
+        "mlip_model_label": mlip_model_label,
+        "mlip_task": mlip_task,
         "mlip_precision": mlip_precision,
         "status": summary.get("status"),
         "status_reasons": summary.get("status_reasons", []),
