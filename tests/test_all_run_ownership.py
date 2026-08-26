@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import os
 from pathlib import Path
 
@@ -18,6 +19,19 @@ _MIN_PDB = (
     "ATOM      2  CA  ALA A   1       1.000   0.000   0.000  1.00  0.00           C\n"
     "END\n"
 )
+
+
+def test_stopped_ts_summary_reuses_the_final_citation_payload() -> None:
+    source = inspect.getsource(all_workflow.cli.callback)
+    stopped_branch = source.split(
+        'if not bool(_tsopt_decision.get("continue_irc")):', 1
+    )[1]
+    stopped_writer = stopped_branch.split("summary_payload = {", 1)[1].split(
+        "write_summary_log", 1
+    )[0]
+
+    assert "citation_post_segments = [_stop_log]" in stopped_branch
+    assert "summary_payload.update(_all_method_citation_payload())" in stopped_writer
 
 
 class _FakePrepared:
