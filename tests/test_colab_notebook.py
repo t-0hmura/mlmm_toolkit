@@ -230,6 +230,24 @@ def test_setup_command_fields_do_not_repaint_hidden_results_or_viewer(monkeypatc
     assert app["b_pick_selected_resn"].icon == "mouse-pointer"
     assert app["b_pick_selected_resn"].button_style == ""
 
+    def freeze_picker_button(description):
+        stack = [app["freeze_panel"]]
+        while stack:
+            widget = stack.pop()
+            if getattr(widget, "description", None) == description:
+                return widget
+            stack.extend(getattr(widget, "children", ()))
+        raise AssertionError("freeze picker button not found: " + description)
+
+    freeze_picker_button("Pick frozen atoms in viewer").click()
+    assert app["pick_action"].value == "freezeatom"
+    done = freeze_picker_button("Done picking")
+    assert done.icon == "check"
+    assert done.button_style == "primary"
+    done.click()
+    assert app["pick_action"].value == "inspect"
+    assert freeze_picker_button("Pick frozen atoms in viewer").icon == "mouse-pointer"
+
     app["S"]["mode"] = "small"
     app["pick_action"].value = "freezeatom"
     app["_sync_active_selection_card"]()
