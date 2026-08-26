@@ -4917,8 +4917,6 @@ def test_results_route_single_structures_modes_and_scan_grids(
     )
     assert [label for label, _ in all_views] == [
         "Reaction-path trajectory",
-        "Reaction-path trajectory · Segment 2",
-        "Combined IRC trajectory · Segment 2",
         "Imaginary mode · TS2 · −421.25 cm⁻¹",
         "Imaginary mode · TS2 · −120.00 cm⁻¹",
         "Imaginary mode · TS3 · −333.50 cm⁻¹",
@@ -5259,11 +5257,15 @@ def test_results_playback_uses_fifty_ms_for_mep_irc_and_imaginary_modes(
     irc_plot.write_bytes(b"\x89PNG\r\n\x1a\n")
     segment_irc = tmp_path / "segments" / "seg_01" / "irc" / "finished_irc_trj.xyz"
     segment_irc.parent.mkdir(parents=True)
-    segment_irc.write_text("1\nIRC\nH 0 0 0\n", encoding="utf-8")
+    segment_irc.write_text("1\nenergy=-1.0\nH 0 0 0\n", encoding="utf-8")
+    aggregate = app["_aggregate_irc_trajectory"](
+        [str(irc_plot), str(segment_irc)], str(tmp_path))
+    app["_ENERGY"]["aggregate_irc"] = aggregate
     options, _ = app["_energy_diagram_options"](
-        [str(irc_plot), str(segment_irc)], [str(segment_irc)], str(tmp_path), "all")
+        [str(irc_plot), str(segment_irc)],
+        [str(segment_irc), aggregate], str(tmp_path), "all")
     assert ("IRC", "energy:irc") in options
-    assert app["_ENERGY"]["views"]["energy:irc"]["path"] == str(irc_plot)
+    assert app["_ENERGY"]["views"]["energy:irc"]["path"] == aggregate
     app["S"].update(
         _last_subcmd="all",
         _last_out_dir=str(tmp_path),
@@ -5271,18 +5273,20 @@ def test_results_playback_uses_fifty_ms_for_mep_irc_and_imaginary_modes(
         _last_manifest={"status": "success", "exit_code": 0},
     )
     app["_results"](str(tmp_path))
-    assert app["_TRAJ"]["path"] == str(segment_irc)
-    assert "data:image/png;base64," in app["plot_out"].value
+    assert app["_TRAJ"]["path"] == aggregate
+    assert 'class="rxenergy-frame"' in html.unescape(app["plot_out"].value)
+    assert "data:image/png;base64," not in app["plot_out"].value
 
     segment_irc_2 = tmp_path / "segments" / "seg_02" / "irc" / "finished_irc_trj.xyz"
     segment_irc_2.parent.mkdir(parents=True)
-    segment_irc_2.write_text("1\nIRC\nH 0 0 0\n", encoding="utf-8")
+    segment_irc_2.write_text("1\nenergy=-0.9\nH 0 0 0\n", encoding="utf-8")
+    aggregate = app["_aggregate_irc_trajectory"](
+        [str(segment_irc), str(segment_irc_2)], str(tmp_path))
+    app["_ENERGY"]["aggregate_irc"] = aggregate
     options, _ = app["_energy_diagram_options"](
         [str(segment_irc), str(segment_irc_2)],
-        [str(segment_irc), str(segment_irc_2)],
-        str(tmp_path), "all",
-    )
-    assert ("IRC", "energy:irc") not in options
+        [str(segment_irc), str(segment_irc_2), aggregate], str(tmp_path), "all")
+    assert options.count(("IRC", "energy:irc")) == 1
 
     standalone_irc = tmp_path / "finished_irc_trj.xyz"
     forward_irc = tmp_path / "forward_irc_trj.xyz"
@@ -5331,7 +5335,7 @@ def test_results_playback_uses_fifty_ms_for_mep_irc_and_imaginary_modes(
     assert app["frame_play"].interval == 50
 
 
-def test_results_preserve_segment_and_irc_branch_identity(
+def test_results_aggregate_segment_data_without_segment_controls(
     monkeypatch, tmp_path: Path,
 ) -> None:
     app, _ = _execute_app(monkeypatch, tmp_path)
@@ -5346,6 +5350,15 @@ def test_results_preserve_segment_and_irc_branch_identity(
             structures[segment][state] = str(path)
     summary = tmp_path / "summary.json"
     summary.write_text(json.dumps({
+        "energy_diagrams": [{
+            "name": "energy_diagram_DFT_all",
+            "labels": ["R", "TS1", "P1", "R2", "TS2", "P"],
+            "energies_kcal": [0.0, 6.0, -1.0, -1.0, 7.0, -2.0],
+            "structures": [
+                structures[1]["R"], structures[1]["TS"], structures[1]["P"],
+                structures[2]["R"], structures[2]["TS"], structures[2]["P"],
+            ],
+        }],
         "post_segments": [
             {
                 "index": segment,
@@ -5361,10 +5374,11 @@ def test_results_preserve_segment_and_irc_branch_identity(
     current = [str(summary), *[path for group in structures.values() for path in group.values()]]
 
     options, _ = app["_energy_diagram_options"](current, [], str(tmp_path), "all")
-    assert ("DFT//MLIP ΔE · Segment 1", "energy:dft_e:seg_1") in options
-    assert ("DFT//MLIP ΔE · Segment 2", "energy:dft_e:seg_2") in options
-    assert app["_ENERGY"]["views"]["energy:dft_e:seg_2"]["structures"] == [
-        structures[2]["R"], structures[2]["TS"], structures[2]["P"]
+    assert options.count(("DFT//MLIP ΔE", "energy:dft_e")) == 1
+    assert all("Segment" not in label for label, _token in options)
+    assert app["_ENERGY"]["views"]["energy:dft_e"]["structures"] == [
+        structures[1]["R"], structures[1]["TS"], structures[1]["P"],
+        structures[2]["R"], structures[2]["TS"], structures[2]["P"],
     ]
     nested_result = tmp_path / "segments" / "seg_02" / "result.json"
     nested_result.write_text(json.dumps({
@@ -5375,8 +5389,7 @@ def test_results_preserve_segment_and_irc_branch_identity(
     }), encoding="utf-8")
     nested_options, _ = app["_energy_diagram_options"](
         [str(nested_result), *structures[2].values()], [], str(tmp_path), "all")
-    assert ("DFT//MLIP ΔE · Segment 2", "energy:dft_e:seg_2") in nested_options
-    assert ("DFT//MLIP ΔE", "energy:dft_e") not in nested_options
+    assert not nested_options
 
     irc_dir = tmp_path / "segments" / "seg_02" / "irc"
     irc_dir.mkdir(parents=True, exist_ok=True)
@@ -5386,17 +5399,16 @@ def test_results_preserve_segment_and_irc_branch_identity(
         path.write_text("1\nIRC\nH 0 0 0\n", encoding="utf-8")
     irc_plot = irc_dir / "irc_plot.png"
     irc_plot.write_bytes(b"\x89PNG\r\n\x1a\n")
+    aggregate = app["_aggregate_irc_trajectory"](
+        [str(irc_plot), str(finished), str(forward)], str(tmp_path))
+    app["_ENERGY"]["aggregate_irc"] = aggregate
     irc_options, _ = app["_energy_diagram_options"](
         [str(irc_plot), str(finished), str(forward)],
-        [str(finished), str(forward)], str(tmp_path), "all",
-    )
-    assert ("IRC · Segment 2", "energy:irc:seg_2") in irc_options
-    assert ("IRC · Segment 2 · forward branch", "energy:irc:seg_2:forward") in irc_options
-    assert ("IRC", "energy:irc") not in irc_options
+        [str(finished), str(forward), aggregate], str(tmp_path), "all")
+    assert irc_options == [("IRC", "energy:irc")]
     labels = [label for label, _path in app["_result_view_candidates"](
-        [str(finished), str(forward)], str(tmp_path), "all")]
-    assert "Combined IRC trajectory · Segment 2" in labels
-    assert "Forward IRC branch · Segment 2" in labels
+        [str(finished), str(forward), aggregate], str(tmp_path), "all")]
+    assert labels == ["IRC trajectory"]
 
     (irc_dir / "result.json").write_text(json.dumps({
         "n_frames_forward": 0, "n_frames_backward": 1, "n_frames_total": 2,
