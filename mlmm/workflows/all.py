@@ -1614,8 +1614,17 @@ def _derive_pipeline_status(
                 if not isinstance(item.get("gibbs_mlip"), dict):
                     reasons.append(f"{prefix}: MLIP thermochemistry result is missing")
             if cfg.get("dft"):
-                if not isinstance(item.get("dft"), dict):
+                dft = item.get("dft")
+                if not isinstance(dft, dict):
                     reasons.append(f"{prefix}: DFT result is missing")
+                elif dft.get("status") == "failed":
+                    failed_states = dft.get("failed_states") or []
+                    detail = (
+                        f" ({', '.join(map(str, failed_states))})"
+                        if failed_states
+                        else ""
+                    )
+                    reasons.append(f"{prefix}: DFT failed{detail}")
                 if cfg.get("thermo") and not isinstance(
                     item.get("gibbs_dft_mlip"), dict
                 ):

@@ -105,10 +105,11 @@ class LeafOutcome:
 class ScanPointOutcome:
     """One attempted grid/scan point.
 
-    A point is ``seed_eligible`` only when its optimizer explicitly converged,
-    its unbiased energy is finite, and its geometry artifact was written.  Failed
-    points are retained (for CSV/diagnostics) but must never become a seed, a
-    reference minimum, an interpolation input, or the reported minimum energy.
+    A point is ``seed_eligible`` only when it executed, its optimizer explicitly
+    converged, its unbiased energy is finite, and its geometry artifact was
+    written. Failed points are retained (for CSV/diagnostics) but must never
+    become a seed, a reference minimum, an interpolation input, or the reported
+    minimum energy.
     """
 
     point_id: str
@@ -178,8 +179,8 @@ def make_leaf(
     converged = _normalize_bool(converged)
     usable = executed is True and converged is True and bool(energy_valid)
     if not reason:
-        if executed is False:
-            reason = "not_executed"
+        if executed is not True:
+            reason = "not_executed" if executed is False else "execution_unknown"
         elif converged is not True:
             reason = "not_converged" if converged is False else "convergence_unknown"
         elif not energy_valid:
@@ -214,9 +215,16 @@ def make_scan_point(
     converged = _normalize_bool(converged)
     if energy_valid is None:
         energy_valid = _finite(energy)
-    seed_eligible = _is_true(converged) and bool(energy_valid) and bool(artifact_written)
+    seed_eligible = (
+        executed is True
+        and _is_true(converged)
+        and bool(energy_valid)
+        and bool(artifact_written)
+    )
     if not reason:
-        if not _is_true(converged):
+        if executed is not True:
+            reason = "not_executed" if executed is False else "execution_unknown"
+        elif not _is_true(converged):
             reason = "not_converged" if converged is False else "convergence_unknown"
         elif not energy_valid:
             reason = "energy_invalid"
@@ -236,7 +244,7 @@ def make_scan_point(
 
 
 def eligible_points(points: Iterable[ScanPointOutcome]) -> List[ScanPointOutcome]:
-    """Return only the seed-eligible points (converged, finite, artifact written)."""
+    """Return only executed, converged points with finite energy and an artifact."""
 
     return [p for p in points if p.seed_eligible]
 
@@ -425,7 +433,7 @@ def aggregate_workflow_truth(
     observed_required_ids = {leaf.item_id for leaf in required}
 
     missing = [item for item in expected if item not in observed_required_ids]
-    exec_failed = any(_normalize_bool(leaf.executed) is False for leaf in required)
+    exec_failed = any(_normalize_bool(leaf.executed) is not True for leaf in required)
 
     reasons: List[str] = []
     for leaf in required:
@@ -485,14 +493,25 @@ def attach_outcomes(
         data["scientific_status"] = truth.scientific_status
         data["expected_item_ids"] = list(truth.expected_item_ids)
         data["observed_item_ids"] = list(truth.observed_item_ids)
-        if write_status_reasons and truth.status_reasons:
-            data[write_reasons_key] = list(truth.status_reasons)
+        if write_status_reasons:
+            if truth.status_reasons:
+                data[write_reasons_key] = list(truth.status_reasons)
+            else:
+                data.pop(write_reasons_key, None)
     if scientific_status is not None:
         data["scientific_status"] = scientific_status
+        if (
+            scientific_status == "success"
+            and scientific_status_reasons is None
+            and write_status_reasons
+        ):
+            data.pop(write_reasons_key, None)
     if scientific_status_reasons is not None and write_status_reasons:
         reasons = list(scientific_status_reasons)
         if reasons:
             data[write_reasons_key] = reasons
+        else:
+            data.pop(write_reasons_key, None)
     if stage_outcomes is not None:
         data["stage_outcomes"] = [o.to_dict() for o in stage_outcomes]
     if point_outcomes is not None:

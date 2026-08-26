@@ -110,3 +110,26 @@ def test_explicit_no_change_segment_does_not_require_postprocessing() -> None:
     assert status == "success"
     assert truth.scientific_status == "success"
     assert truth.expected_item_ids == ()
+
+
+def test_failed_segment_dft_is_partial() -> None:
+    summary = {
+        "segments": [{"index": 1, "kind": "seg", "converged": True}],
+        "energy_diagrams": [{"name": "MEP"}],
+    }
+    post = [{
+        "index": 1,
+        "mlip": {},
+        "irc_traj": "seg_01/irc.trj",
+        "ts_imag": {"n_imag": 1},
+        "dft": {"status": "failed", "failed_states": ["TS"]},
+    }]
+
+    status, reasons = _derive_pipeline_status(
+        summary,
+        post_segments=post,
+        config={"tsopt": True, "thermo": False, "dft": True},
+    )
+
+    assert status == "partial"
+    assert "segment 1: DFT failed (TS)" in reasons

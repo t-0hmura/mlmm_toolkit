@@ -10,6 +10,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Add `--gsm-param {equi,energy}` to `all`, `path-opt`, and `path-search` as an advanced GSM node-parameterization control; `equi` remains the default.
 
 ### Fixed
+- Fail closed on unknown execution, failed segment DFT, and non-converged path bridges, and clear stale scientific-status reasons.
+- Preserve segment and IRC-branch identity in Colab energy/trajectory views, reset prior result state before reload, and recover only declared or current-run artifacts.
 - Preserve the TSOPT stop cause, restrict the output tree to current-run artifacts, and report the resolved frequency zero cutoff in `summary.log`.
 - Label subtractive energies as ML/MM in human output and include compact three-layer counts.
 - Keep optimizer verbosity monotonic and show Hessian cache reuse at `-v 2` without exposing raw DFT child diagnostics below `-v 3`.

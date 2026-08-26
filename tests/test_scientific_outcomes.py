@@ -242,6 +242,40 @@ def test_serializer_roundtrip_and_additive_only(tmp_path: Path) -> None:
     assert isinstance(r["status"], str) and r["status"] == "completed"
 
 
+def test_unknown_execution_fails_closed_and_is_not_seed_eligible() -> None:
+    leaf = make_leaf(
+        "scan", "stage_1", executed=None, converged=True, artifacts=("result.xyz",)
+    )
+    assert leaf.usable is False
+    assert leaf.reason == "execution_unknown"
+    truth = aggregate_workflow_truth([leaf], ["stage_1"])
+    assert truth.execution_status == "failed"
+    assert truth.scientific_status == "failed"
+
+    point = make_scan_point(
+        "p1", executed=None, converged=True, energy=-1.0, artifact_written=True
+    )
+    assert point.seed_eligible is False
+    assert point.reason == "execution_unknown"
+
+
+def test_attach_outcomes_clears_stale_scientific_reasons() -> None:
+    leaf = make_leaf("scan", "stage_1", executed=True, converged=True)
+    truth = aggregate_workflow_truth([leaf], ["stage_1"])
+    data = {"scientific_status_reasons": ["stale"]}
+
+    attach_outcomes(data, truth=truth)
+    assert "scientific_status_reasons" not in data
+
+    data["scientific_status_reasons"] = ["stale"]
+    attach_outcomes(data, scientific_status_reasons=[])
+    assert "scientific_status_reasons" not in data
+
+    data["scientific_status_reasons"] = ["stale"]
+    attach_outcomes(data, scientific_status="success")
+    assert "scientific_status_reasons" not in data
+
+
 def test_dataclasses_are_json_safe() -> None:
     assert LeafOutcome("s", "a").to_dict()["item_id"] == "a"
     assert ScanPointOutcome("p").to_dict()["seed_eligible"] is False
@@ -511,6 +545,25 @@ def test_path_bridge_only_is_not_success() -> None:
     truth = aggregate_workflow_truth(leaves, expected)
     # A path made only of a non-reactive bridge has no usable reactive segment.
     assert truth.scientific_status != "success"
+
+
+def test_nonconverged_bridge_prevents_mixed_path_success() -> None:
+    from mlmm.workflows.path_search import SegmentReport, _path_leaves_and_expected
+
+    segments = [
+        SegmentReport(tag="seg_01", barrier_kcal=10.0, delta_kcal=0.0,
+                      summary="", kind="seg", seg_index=1, converged=True),
+        SegmentReport(tag="bridge_01", barrier_kcal=0.0, delta_kcal=0.0,
+                      summary="", kind="bridge", seg_index=2, converged=False),
+        SegmentReport(tag="seg_02", barrier_kcal=8.0, delta_kcal=-1.0,
+                      summary="", kind="seg", seg_index=3, converged=True),
+    ]
+
+    leaves, expected = _path_leaves_and_expected(segments)
+    truth = aggregate_workflow_truth(leaves, expected)
+
+    assert truth.scientific_status == "partial"
+    assert "segment_2" in expected
 
 
 # ---------------------------------------------------------------------------
@@ -1208,6 +1261,8 @@ def test_all_pipeline_aggregate_post_missing_fails_closed_when_tsopt_requested()
         summary, post_segments=[], config={"tsopt": True}, legacy_status="success",
     )
     assert truth.scientific_status != "success"        # would have been success (fail-open)
+    assert truth.execution_status == "failed"
+    assert truth.observed_item_ids == ()
     assert any("segment_1" in r for r in truth.status_reasons)
     # post_segments=None (the very first intermediate write, before post-processing)
     # fails closed too.
@@ -1215,6 +1270,8 @@ def test_all_pipeline_aggregate_post_missing_fails_closed_when_tsopt_requested()
         summary, post_segments=None, config={"tsopt": True}, legacy_status="success",
     )
     assert truth_none.scientific_status != "success"
+    assert truth_none.execution_status == "failed"
+    assert truth_none.observed_item_ids == ()
 
 
 def test_all_pipeline_aggregate_no_tsopt_uses_segment_converged() -> None:

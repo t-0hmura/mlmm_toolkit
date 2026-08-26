@@ -1076,10 +1076,10 @@ def _path_leaves_and_expected(
     raw_artifacts: Sequence[str] = (),
     engine_converged: Optional[bool] = True,
 ):
-    """Build path :class:`LeafOutcome` list and expected reactive-segment IDs.
+    """Build path :class:`LeafOutcome` list and expected path-segment IDs.
 
-    Reactive segments (``kind != "bridge"``) are required leaves; bridges are
-    optional connectors.  When there is no reactive segment at all — the
+    Every segment in the final path is required, including connector bridges.
+    When there is no reactive segment at all — the
     endpoint-HEI branch returns ``segments=[]`` even though an R/P energy diagram
     can still be drawn — an unusable ``raw_path`` leaf is emitted so the aggregate
     mapper cannot promote the diagnostic diagram to success.  The raw
@@ -1091,8 +1091,7 @@ def _path_leaves_and_expected(
     leaves: List[Any] = []
     reactive = [s for s in segments if getattr(s, "kind", "seg") != "bridge"]
     for s in segments:
-        is_reactive = getattr(s, "kind", "seg") != "bridge"
-        # a reactive segment is usable only when its optimizer explicitly
+        # A path segment is usable only when its optimizer explicitly
         # converged. A nonconverged (max-cycle) StringOptimizer segment retains
         # its trajectory artifact but must not count toward completeness.
         _seg_conv = getattr(s, "converged", None)
@@ -1100,12 +1099,12 @@ def _path_leaves_and_expected(
             make_leaf(
                 "path",
                 f"segment_{int(s.seg_index)}",
-                required=is_reactive,
+                required=True,
                 executed=True,
                 converged=_seg_conv,
             )
         )
-    expected = [f"segment_{int(s.seg_index)}" for s in reactive]
+    expected = [f"segment_{int(s.seg_index)}" for s in segments]
     if not reactive:
         reason = "endpoint_hei"
         if engine_converged is False:
@@ -1122,6 +1121,7 @@ def _path_leaves_and_expected(
                 artifacts=tuple(str(a) for a in raw_artifacts),
             )
         )
+        expected.append("reactive_segment_1")
     return leaves, expected
 
 
