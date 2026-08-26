@@ -916,6 +916,9 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "Options (optional)" not in app
     assert "def _tab_go(i):" in app
     assert "def _finish_tab_go(i, request):" in app
+    assert "def _defer_results_for_tab(request):" in app
+    assert "timer = threading.Timer(0.16" in app
+    assert "request != _TAB_NAV['request'] or _TAB_NAV['active'] != 3" in app
     assert "def _defer_tab_finish" not in app
     assert "_finish_tab_go(i, _request)" in app
     assert "_TAB_NAV = {'active': 0, 'syncing': False, 'request': 0}" in app
@@ -4727,9 +4730,7 @@ def test_colab_poll_repairs_a_finished_but_stale_frontend() -> None:
         ("flush", True),
         ("running", False, True),
         ("status", "✓ done", "ok", "done", True),
-        ("results", "result"),
         ("tab", 3),
-        ("publish_results",),
         ("publish_run",),
     ]
 
@@ -4754,7 +4755,6 @@ def test_colab_poll_repairs_a_finished_but_stale_frontend() -> None:
     namespace["S"]["_last_manifest"]["status"] = "partial"
     namespace["S"]["_results_presented_dir"] = None
     assert namespace["_colab_poll_run"](False) == {"running": False}
-    assert ("results", "result") in events
     assert ("tab", 3) in events
 
     events.clear()
@@ -4769,6 +4769,32 @@ def test_colab_poll_repairs_a_finished_but_stale_frontend() -> None:
         ("status", "■ cancelled", "warn", "cancelled", True),
         ("cancelled_results", "result"),
         ("publish_run",),
+    ]
+
+
+def test_results_render_only_after_results_tab_owns_the_view(
+    monkeypatch, tmp_path: Path,
+) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    result_root = tmp_path / "result"
+    result_root.mkdir()
+    app["S"].update(
+        _last_manifest={"status": "success"},
+        _last_files=[str(result_root / "summary.log")],
+        _last_out_dir=str(result_root),
+        _results_presented_dir=None,
+    )
+    events = []
+    app["_results"] = lambda out: events.append(
+        ("render", app["_TAB_NAV"]["active"], out))
+    app["_publish_result_widget_state"] = lambda: events.append(
+        ("publish", app["_TAB_NAV"]["active"]))
+
+    app["_tab_go"](3)
+
+    assert events == [
+        ("render", 3, str(result_root)),
+        ("publish", 3),
     ]
 
 
@@ -4972,6 +4998,14 @@ def test_results_replaces_trajectory_with_exact_stationary_model_set(
     assert '"xTickStep":10' in many
     assert "showticklabels:true,ticks:'',ticklen:0,tickfont:{size:14}" in profile
     assert "font:{size:18,color:'#253047'}" in profile
+    assert "const below=/endpoint$/i.test" in profile
+    assert "yshift:below?-18:16,yanchor:below?'top':'bottom'" in profile
+    irc_profile = html.unescape(app["_energy_plot_document"](
+        [0.0, 10.0, 5.0],
+        {"x": "IRC point", "start": "forward endpoint",
+         "end": "backward endpoint", "ts_index": 1, "ts_label": "TS"}, 20,
+    ))
+    assert '"yRange":[-2.2,12.2]' in irc_profile
 
 
 def test_results_route_single_structures_modes_and_scan_grids(

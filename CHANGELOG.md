@@ -10,6 +10,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Add `--gsm-param {equi,energy}` to `all`, `path-opt`, and `path-search` as an advanced GSM node-parameterization control; `equi` remains the default.
 
 ### Fixed
+- Activate the Colab Results tab before rendering completed results, keep the
+  result selectors reusable, and reserve plot space for MEP/IRC labels.
 - Keep cancelled Colab runs on the active tab and out of completed-result views.
 - Report the exact MLIP model and UMA task in logs, JSON, and Colab Results, and
   include model-specific UMA, Orb-v3, MACE, and OMol25 citations.
