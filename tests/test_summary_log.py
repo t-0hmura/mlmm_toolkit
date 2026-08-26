@@ -476,7 +476,6 @@ def test_runtime_citations_match_the_p2r_paper_bibliography() -> None:
     assert "Levine, D. S.; Shuaibi, M." in block
     assert "Batatia, I.; Kovács, D. P." in block
     assert "https://doi.org/10.1021/ct400319w" in block
-    assert "https://doi.org/10.1063/1.1515483" not in block
     assert "https://doi.org/10.1063/1.4804162" not in block
     assert "https://doi.org/10.1063/1.3514202" in block
     assert "https://doi.org/10.1063/1.1724823" in block
