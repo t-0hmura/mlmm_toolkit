@@ -12,7 +12,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 ### Fixed
 - Restore the reviewed Colab selection UI: persistent removable chips, concise
   workflow labels and center summaries, explicit frozen-atom completion, and a
-  compact staged-scan editor.
+  compact staged-scan editor. The upload panel now treats parm7 as optional for
+  `all`, which generates it when omitted.
 - Fail closed on unknown execution, failed segment DFT, and non-converged path bridges, and clear stale scientific-status reasons.
 - Preserve internal result identity while presenting aggregate structure-linked MEP/IRC profiles, reset prior result state before reload, and recover only declared or current-run artifacts.
 - Preserve the TSOPT stop cause, restrict the output tree to current-run artifacts, and report the resolved frequency zero cutoff in `summary.log`.

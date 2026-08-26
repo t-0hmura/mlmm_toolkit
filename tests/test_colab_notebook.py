@@ -239,14 +239,14 @@ def test_setup_command_fields_do_not_repaint_hidden_results_or_viewer(monkeypatc
             stack.extend(getattr(widget, "children", ()))
         raise AssertionError("freeze picker button not found: " + description)
 
-    freeze_picker_button("Pick frozen atoms in viewer").click()
+    freeze_picker_button("Pick frozen atoms").click()
     assert app["pick_action"].value == "freezeatom"
     done = freeze_picker_button("Done picking")
     assert done.icon == "check"
     assert done.button_style == "primary"
     done.click()
     assert app["pick_action"].value == "center"
-    assert freeze_picker_button("Pick frozen atoms in viewer").icon == "mouse-pointer"
+    assert freeze_picker_button("Pick frozen atoms").icon == "mouse-pointer"
 
     app["S"]["mode"] = "small"
     app["pick_action"].value = "freezeatom"
@@ -829,7 +829,10 @@ def test_colab_gui_is_mlmm_native_and_tracks_structure_contracts() -> None:
     assert "SE.Location.create(bond.aStructure,bond.aUnit,bond.aUnit.elements[bond.aIndex])" in app
     assert "CHAIN:RESNAME:RESSEQ" in app
     assert "String(item.sourceIndex)" in app
-    assert "ML/MM compute commands require a matching Amber parm7" in app
+    assert "ML/MM compute commands require a matching Amber parm7" not in app
+    assert "use mlmm all to generate it automatically" in app
+    assert "existing parm7 optional" in app
+    assert "Structures (.pdb/.cif/.xyz/.gjf)" in app
     assert "elif parm:" in app
     assert "S['parm'] = parm" in app
 
@@ -2150,6 +2153,12 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     assert app["all_mode"].value == "mep"
     assert app["S"]["inputs"] == [str(primary), str(secondary)]
     assert app["S"]["parm"] == str(topology)
+    uploaded_parm_command = app["build_cmd"]()
+    assert uploaded_parm_command[uploaded_parm_command.index("--parm") + 1] == str(topology)
+    app["S"]["parm"] = None
+    generated_parm_command = app["build_cmd"]()
+    assert "--parm" not in generated_parm_command
+    app["S"]["parm"] = str(topology)
     assert len(app["input_file_rows"].children) == 3
     assert app["prep_radius"].value == pytest.approx(2.6)
     assert app["adv_radius"].value == pytest.approx(2.6)
@@ -3934,8 +3943,8 @@ def test_colab_gui_preserves_full_system_and_tracks_current_run_only() -> None:
     assert ("No <code>-l</code> charge source is active, so <code>-q</code> "
             "is used directly.") in app
     assert "No ligand-charge source is available" not in app
-    assert ".xyz + reference PDB + .parm7" in app
-    assert "utility .gjf / .com / .inp / .csv" in app
+    assert ".pdb / .cif / .xyz / .gjf + optional .parm7" in app
+    assert "utility .gjf / .com / .inp / .csv" not in app
     assert app.count("effective = _normalized_scope_argv(a)") == 2
     assert "dry_argv = _force_dry_run(list(a))" in app
     assert "if not _validate_command(a): return" in app
