@@ -30,6 +30,7 @@ from mlmm.workflows._outcomes import (
     attach_outcomes,
     combine_step_convergence,
     eligible_points,
+    is_preoptimization_record,
     make_leaf,
     make_scan_point,
     optimizer_converged_bit,
@@ -341,6 +342,30 @@ def test_scan_normal_return_is_not_convergence() -> None:
     assert seed_eligible_mask(
         [normal_return_but_not_converged, unknown_convergence, converged]
     ) == [False, False, True]
+
+
+def test_scan_preoptimization_rows_are_never_seed_eligible() -> None:
+    common = {
+        "energy_hartree": -9.0,
+        "bias_converged": True,
+        "artifact_written": True,
+    }
+    records = [
+        {**common, "i": 0, "j": 0, "is_preopt": True},
+        {**common, "i": 0, "j": 0, "is_preopt": "true"},
+        {**common, "i": -1, "j": -1},
+        {**common, "i": -1, "j": -1, "k": -1},
+        {**common, "i": 0, "j": 0, "k": 0, "is_preopt": False},
+    ]
+
+    assert [is_preoptimization_record(record) for record in records] == [
+        True,
+        True,
+        True,
+        True,
+        False,
+    ]
+    assert seed_eligible_mask(records) == [False, False, False, False, True]
 
 
 def test_scan_stage_leaf_partial_when_middle_step_fails() -> None:

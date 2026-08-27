@@ -38,7 +38,7 @@ mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 3. 外側ループ `d1[i]`: d1 拘束のみで緩和。d1 値が最も近い以前のスキャン済みジオメトリから開始。
 4. 中間ループ `d2[j]`: d1 と d2 の拘束で緩和。最も近い (d1, d2) ジオメトリから開始。
 5. 内側ループ `d3[k]`: 3 つの拘束すべてで緩和。バイアスなしエネルギーを測定（評価時にバイアス除去）し、拘束ジオメトリと収束フラグを書き出し。
-6. スキャン完了後、`surface.csv` を組み立て、kcal/mol ベースラインシフト（`--baseline {min|first}`）を適用し、3D RBF 補間アイソサーフェスプロット（`scan3d_density.html`）を生成（`--zmin/--zmax` を尊重）。
+6. スキャン完了後、`surface.csv` を組み立て、開始／事前最適化構造を常に `i = j = k = -1` の参照行として残し、kcal/mol ベースラインシフト（`--baseline {min|first}`）を適用し、3D RBF 補間アイソサーフェスプロット（`scan3d_density.html`）を生成（`--zmin/--zmax` を尊重）。参照行は基準エネルギー、補間、plot から除外します。
 
 プロット専用 CSV には `d1_A`、`d2_A`、`d3_A` と
 `energy_hartree` または `energy_kcal` が必要です。新規出力は
@@ -46,7 +46,7 @@ mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 新規出力は
 `bias_converged`、`artifact_written`、`is_preopt` も記録し、事前最適化行、
 明示的な非収束行、構造ファイル未作成行、非有限値を除外します。provenance が
-不完全な旧形式は警告付きで読み込みます。補間には座標重複がなく、全 3 軸を
+不完全な旧形式は警告付きで読み込み、全 index が `-1` の行も参照行として除外します。補間には座標重複がなく、全 3 軸を
 またぐ 4 点以上の非共面 usable point が必要です。`baseline=first` で
 `(0,0,0)` が usable でなければ usable minimum にフォールバックします。
 

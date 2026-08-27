@@ -46,7 +46,8 @@ mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 5. Inner loop over `d3[k]`: relax with all three restraints, measure the
     unbiased energy (bias removed for evaluation), and write the constrained
     geometry and convergence flag.
-6. After the scan completes, assemble `surface.csv`, apply the kcal/mol
+6. After the scan completes, assemble `surface.csv`, always retaining the
+    starting/preoptimized reference as `i = j = k = -1`, apply the kcal/mol
     baseline shift (`--baseline {min|first}`), and generate a 3D RBF-interpolated
     isosurface plot (`scan3d_density.html`) honoring `--zmin/--zmax`.
 
@@ -56,7 +57,9 @@ the grid-index columns `i`, `j`, and `k`. Fresh output records
 `bias_converged`, `artifact_written`, and `is_preopt`; rows that are
 preoptimization references, explicitly unconverged, missing their geometry
 artifact, or non-finite are excluded. Legacy files without complete
-provenance are accepted with a warning. Interpolation requires unique
+provenance are accepted with a warning, and an all-minus-one index row is also
+treated as a reference. The reference stays in the table but is excluded from
+the baseline, interpolation, and plot. Interpolation requires unique
 coordinates and at least four non-coplanar usable points spanning every axis;
 `baseline=first` falls back to the usable minimum if grid point `(0,0,0)` is
 not usable.

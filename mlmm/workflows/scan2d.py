@@ -1193,10 +1193,7 @@ def cli(
             # optimizer explicitly converged with a finite unbiased energy may
             # define the baseline or the reported minimum. Failed/nonconverged
             # rows are retained in surface.csv for diagnostics but excluded here.
-            df["seed_eligible"] = (
-                np.asarray(seed_eligible_mask(records), dtype=bool)
-                & ~df["is_preopt"].astype(bool).to_numpy()
-            )
+            df["seed_eligible"] = seed_eligible_mask(records)
             _elig_df = df[df["seed_eligible"]]
 
             def _eligible_min() -> float:

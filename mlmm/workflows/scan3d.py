@@ -78,6 +78,7 @@ from mlmm.workflows.restraints import HarmonicBiasCalculator
 from mlmm.workflows.opt import _convert_yaml_layer_atoms_1to0
 from mlmm.workflows._outcomes import (
     attach_outcomes,
+    is_preoptimization_record,
     make_scan_point,
     optimizer_converged_bit,
     scan_scientific_status,
@@ -210,9 +211,13 @@ def _finalize_surface_and_plot(
             "surface.csv requires energy_hartree or energy_kcal."
         )
 
-    grid_mask = pd.Series(True, index=df.index)
-    if "is_preopt" in df.columns:
-        grid_mask &= ~_explicit_true_series(df["is_preopt"])
+    grid_mask = pd.Series(
+        [
+            not is_preoptimization_record(record)
+            for record in df.to_dict(orient="records")
+        ],
+        index=df.index,
+    )
 
     coordinate_finite = np.ones(len(df), dtype=bool)
     for column in required_coords:

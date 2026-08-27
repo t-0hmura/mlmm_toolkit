@@ -58,8 +58,8 @@ Add `--print-parsed` to validate the parsed scan spec and exit without running t
 2. **Grid construction** -- Parse targets from `-s/--scan-lists` (YAML/JSON spec file or inline literal) into two quadruples, normalize indices (1-based by default or PDB atom selectors like `"TYR,285,CA"`). Build linear grids with `ceil(|high - low| / h) + 1` points where `h = --max-step-size`.
 3. **Outer loop (d1)** -- For each d1 value, relax the system with **only the d1 restraint** active.
 4. **Inner loop (d2)** -- For each d2 value at the current d1, relax with **both restraints** active starting from the nearest previously converged structure.
-5. **Energy evaluation** -- At each (i, j) pair, evaluate the ML/MM energy without bias and record to `surface.csv`.
-6. **Visualization** -- With at least three unique, non-collinear finite and converged points, write `scan2d_map.png` (2D contour) and `scan2d_landscape.html` (3D surface). Otherwise retain `surface.csv` and exit with the support diagnostic. Use `--zmin/--zmax` to clamp the color scale. Baselines: `--baseline min` zeroes the minimum energy; `--baseline first` zeroes the (i=0, j=0) grid point.
+5. **Energy evaluation** -- At each (i, j) pair, evaluate the ML/MM energy without bias and record to `surface.csv`. Always retain the starting/preoptimized reference as `i = j = -1` and `is_preopt = true`.
+6. **Visualization** -- Exclude the `-1` reference from the baseline, interpolation, and plots. With at least three unique, non-collinear finite and converged grid points, write `scan2d_map.png` (2D contour) and `scan2d_landscape.html` (3D surface). Otherwise retain `surface.csv` and exit with the support diagnostic. Use `--zmin/--zmax` to clamp the color scale. Baselines: `--baseline min` zeroes the minimum energy; `--baseline first` zeroes the (i=0, j=0) grid point.
 
 ## Outputs
 

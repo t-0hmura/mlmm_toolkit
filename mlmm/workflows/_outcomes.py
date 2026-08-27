@@ -366,20 +366,41 @@ def seed_eligible_mask(
 ) -> List[bool]:
     """Boolean mask over scan ``records`` marking seed-eligible rows.
 
-    A row is eligible only when its recorded convergence bit is exactly
-    ``True``, its energy is finite, and its geometry artifact was written.
-    Legacy rows lacking any of these provenance fields are ineligible.
+    A row is eligible only when it is a grid point, its recorded convergence
+    bit is exactly ``True``, its energy is finite, and its geometry artifact
+    was written. Legacy rows lacking any provenance field are ineligible.
     """
 
     mask: List[bool] = []
     for rec in records:
         conv = rec.get(converged_key)
         mask.append(
-            _is_true(conv)
+            not is_preoptimization_record(rec)
+            and _is_true(conv)
             and _finite(rec.get(energy_key))
             and _is_true(rec.get("artifact_written"))
         )
     return mask
+
+
+def is_preoptimization_record(record: Mapping[str, Any]) -> bool:
+    """Identify a scan preoptimization/reference row.
+
+    Current tables carry ``is_preopt=true``.  The all-minus-one grid index is
+    also recognized so plot-only use of older 2D/3D tables keeps the reference
+    row out of interpolation.
+    """
+
+    marker = record.get("is_preopt")
+    if _is_true(marker) or str(marker).strip().lower() in {"1", "true", "yes"}:
+        return True
+    indices = [record[key] for key in ("i", "j", "k") if key in record]
+    if len(indices) < 2:
+        return False
+    try:
+        return all(float(value) == -1.0 for value in indices)
+    except (TypeError, ValueError):
+        return False
 
 
 def scan_scientific_status(points: Sequence[ScanPointOutcome]) -> Tuple[str, Tuple[str, ...]]:

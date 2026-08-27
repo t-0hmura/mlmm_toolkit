@@ -58,8 +58,8 @@ mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 2. **グリッド構築** -- `-s/--scan-lists`（YAML/JSON スペックファイルまたはインラインリテラル）からターゲットを 2 つの 4 要素タプルに解析し、インデックスを正規化（デフォルト 1 始まりまたは `"TYR,285,CA"` のような PDB 原子セレクター）。`ceil(|high - low| / h) + 1` 点の線形グリッドを構築（`h = --max-step-size`）。
 3. **外側ループ（d1）** -- 各 d1 値について、**d1 拘束のみ**で系を緩和。
 4. **内側ループ（d2）** -- 現在の d1 での各 d2 値について、最も近い収束済み構造から開始し**両方の拘束**で緩和。
-5. **エネルギー評価** -- 各 (i, j) ペアで ML/MM エネルギーをバイアスなしで評価し `surface.csv` に記録。
-6. **可視化** -- `scan2d_map.png`（2D コンター）と `scan2d_landscape.html`（3D サーフェス）を書き出し。`--zmin/--zmax` でカラースケールをクランプ。ベースライン: `--baseline min` は最小エネルギーをゼロに; `--baseline first` は (i=0, j=0) グリッド点をゼロに。
+5. **エネルギー評価** -- 各 (i, j) ペアで ML/MM エネルギーをバイアスなしで評価し `surface.csv` に記録。開始／事前最適化構造は常に `i = j = -1`、`is_preopt = true` の参照行として表に残す。
+6. **可視化** -- `-1` の参照行を基準エネルギー、補間、plot から除外し、`scan2d_map.png`（2D コンター）と `scan2d_landscape.html`（3D サーフェス）を書き出し。`--zmin/--zmax` でカラースケールをクランプ。ベースライン: `--baseline min` は最小エネルギーをゼロに; `--baseline first` は (i=0, j=0) グリッド点をゼロに。
 
 ## 出力
 
