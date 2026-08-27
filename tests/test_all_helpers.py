@@ -962,6 +962,7 @@ def test_build_pipeline_summary_payload_shape() -> None:
             path_dir=path_dir,
             summary=summary,
             refine_path=True,
+            pipeline_mode_label="Scan",
             thresh="gau_loose",
             thresh_post="gau",
             flatten=False,
@@ -983,6 +984,8 @@ def test_build_pipeline_summary_payload_shape() -> None:
             post_segment_logs=[{"seg": 1, "status": "ok"}],
         )
     assert payload["pipeline_mode"] == "path-search"
+    assert payload["pipeline_mode_label"] == "Scan"
+    assert payload["path_module_dir"] == str(path_dir)
     assert payload["refine_path"] is True
     assert payload["opt_mode"] == "grad"
     assert payload["opt_mode_post"] == "hess"

@@ -988,6 +988,7 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
     root_out_path = Path(root_out) if root_out not in (None, "-") else None
     path_module = payload.get("path_module_dir") or "-"
     pipeline_mode = payload.get("pipeline_mode") or "-"
+    pipeline_mode_disp = payload.get("pipeline_mode_label") or pipeline_mode
     ts_only = pipeline_mode == "tsopt-only"
     charge = payload.get("charge")
     spin = payload.get("spin")
@@ -1005,13 +1006,8 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
             + ", ".join(missing_required)
         )
     lines.append(f"Root out_dir       : {root_out}")
-    path_module_disp = (
-        _shorten_path(path_module, root_out_path)
-        if path_module not in (None, "-")
-        else path_module
-    )
-    lines.append(f"Path module dir    : {path_module_disp}")
-    lines.append(f"Pipeline mode      : {pipeline_mode}")
+    lines.append(f"Path module dir    : {path_module}")
+    lines.append(f"Pipeline mode      : {pipeline_mode_disp}")
     lines.append(f"refine-path        : {_fmt_bool(payload.get('refine_path'))}")
     lines.append(f"TSOPT/IRC          : {_fmt_bool(payload.get('tsopt'))}")
     lines.append(f"Thermochemistry    : {_fmt_bool(payload.get('thermo'))}")

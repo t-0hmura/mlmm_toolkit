@@ -164,6 +164,12 @@ At `-v 2` the console summarises extraction, MM preparation, scan stages, MEP pr
 
 ### Reading `summary.log`
 
+The header identifies the `all` entry route as `MEP`, `Scan`, or `TS-only` and
+prints the absolute root output directory and, for `MEP` / `Scan`, the absolute
+internal path module directory (`TS-only` reports `-`). Internal engine names
+such as `path-opt` / `path-search`
+remain machine-readable metadata rather than the user-facing pipeline mode.
+
 The log is organized into numbered sections:
 
 - **[1] Global MEP overview** — image / segment counts, MEP trajectory plot paths, aggregate MEP energy diagram.

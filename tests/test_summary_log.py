@@ -37,6 +37,35 @@ def test_write_summary_log_accepts_empty_payload(tmp_path: Path):
     assert "missing payload keys replaced with defaults" in text
 
 
+@pytest.mark.parametrize("display_mode", ["MEP", "Scan", "TS-only"])
+def test_all_summary_header_uses_entry_mode_and_absolute_directories(
+    tmp_path: Path, display_mode: str,
+) -> None:
+    from mlmm.io.summary import write_summary_log
+
+    root = (tmp_path / "result_scan2d(1)").resolve()
+    module = root / "_work" / "path_search"
+    module_value = "-" if display_mode == "TS-only" else str(module)
+    root.mkdir()
+    write_summary_log(
+        root / "summary.log",
+        {
+            "root_out_dir": str(root),
+            "path_module_dir": module_value,
+            "pipeline_mode": "path-search",
+            "pipeline_mode_label": display_mode,
+            "segments": [],
+            "energy_diagrams": [],
+        },
+    )
+
+    text = (root / "summary.log").read_text(encoding="utf-8")
+    assert f"Root out_dir       : {root}" in text
+    assert f"Path module dir    : {module_value}" in text
+    assert f"Pipeline mode      : {display_mode}" in text
+    assert "Pipeline mode      : path-search" not in text
+
+
 def test_write_summary_log_renders_segment_section(tmp_path: Path):
     from mlmm.io.summary import write_summary_log
 
