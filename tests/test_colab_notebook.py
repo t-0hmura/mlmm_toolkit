@@ -1527,6 +1527,9 @@ def test_colab_viewer_persists_exact_atom_and_residue_context() -> None:
     assert contract["_artifact_kind"]("forcefield.prms") == "text"
     assert contract["_artifact_kind"]("optimization_trj.xyz") is None
     opt = contract["_trajectory_semantics"]("opt", "optimization_trj.xyz")
+    tsopt_dump = contract["_trajectory_semantics"](
+        "tsopt", "optimization_trj.xyz",
+    )
     path_semantics = contract["_trajectory_semantics"](
         "path-opt", "mep_trj.xyz",
     )
@@ -1535,8 +1538,11 @@ def test_colab_viewer_persists_exact_atom_and_residue_context() -> None:
     )
     assert vibration["title"] == "Vibrational-mode trajectory"
     assert vibration["x"] == "phase frame" and not vibration["extrema"]
+    assert opt["start"] == "input structure"
+    assert opt["end"] == "final optimized structure"
+    assert tsopt_dump == opt
     assert contract["_stationary"]([0.0, 2.0, 0.0], opt) == [
-        (0, "initial"), (2, "optimized"),
+        (0, "input structure"), (2, "final optimized structure"),
     ]
     # A trajectory plot labels R and P only. An
     # energy-only extremum is neither a certified transition state nor a

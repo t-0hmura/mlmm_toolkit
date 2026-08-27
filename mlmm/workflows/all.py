@@ -392,15 +392,17 @@ def _emit_final_summary(
     time_start: float,
     manifest: Optional[InvocationManifest] = None,
     citation_payload: Optional[Dict[str, Any]] = None,
+    *,
+    dry_run: bool = False,
 ) -> None:
-    """Print a visual `====== Pipeline summary ======` block + Elapsed line.
+    """Print a pipeline summary followed by its execution-specific footer.
 
     Reads ``summary.json`` if present and lifts the most-asked-for numbers
     (status, highest local barrier, reaction energy, reactive-segment count,
     output dir) so the user sees them at the bottom of the log without
     scrolling back through `[diagram] Wrote ...` / `[time] Elapsed Time
-    for X:` clutter. Falls back to just the Elapsed line when summary.json
-    is absent (dry-run, early failure, TSOPT-only without aggregation).
+    for X:` clutter. A dry run ends with validation status plus elapsed time;
+    other calls end with the whole-pipeline elapsed line.
 
     A stale ``summary.json`` from an earlier invocation reusing the same
     out_dir is never surfaced: when a ``manifest`` is supplied the summary is
@@ -480,10 +482,13 @@ def _emit_final_summary(
         _echo(narrative=True)
     if citation_payload:
         emit_method_citations(citation_payload)
-    _echo(
-        format_elapsed("[time] Elapsed Time for Whole Pipeline", time_start),
-        narrative=True,
+    footer = (
+        "Dry run complete. Input commands are valid. (%s)"
+        % format_elapsed("Elapsed time", time_start)
+        if dry_run
+        else format_elapsed("[time] Elapsed Time for Whole Pipeline", time_start)
     )
+    _echo(footer, narrative=True)
 
 
 def _run_cli_main(
@@ -4757,7 +4762,7 @@ def cli(
             "[all] Planned stages: extract -> mm_parm -> optional scan -> path_opt/path_search -> optional tsopt/freq/dft.",
             narrative=True,
         )
-        _emit_final_summary(out_dir, time_start, manifest)
+        _emit_final_summary(out_dir, time_start, manifest, dry_run=True)
         # Prepared-input temp trees are session-owned (own_cleanup, above); the
         # run's ctx.call_on_close(session.close) frees them on this dry-run
         # return as well, so no branch-local cleanup is needed here.
