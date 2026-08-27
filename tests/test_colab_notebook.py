@@ -2016,8 +2016,11 @@ def test_colab_app_executes_atomic_view_and_result_transitions(
         {"index": 0, "chain": "A", "resn": "LIG", "resi": "10", "atom": "C1",
          "xyz": (0.0, 0.0, 0.0)},
     ]
+    app["w_out"].value = "./result_all(1)"
     calls.clear()
     app["view_input"].value = 1
+    assert app["S"]["out_dir"] == "./result_all/"
+    assert app["w_out"].value == "./result_all/"
     assert app["S"]["_view_mapping_ok"] is False
     assert app["center_widget"] is primary_widget
     assert primary_widget.disabled is True
@@ -2854,7 +2857,11 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     context_html = app["_result_context_html"](str(tmp_path))
     assert "IRC endpoint mismatch" not in context_html
     assert "<b>all</b>" in context_html
-    assert context_html.count("<code>") == len(extra_artifacts) + 1
+    assert "<b>5 generated files</b>" in context_html
+    for artifact in (summary, *extra_artifacts):
+        assert Path(artifact).name not in context_html
+    assert "and 1 more file" not in context_html
+    assert context_html.count("<code>") == 0
     calls.clear()
     app["_structure_preview"](str(primary))
     assert any(
@@ -5457,9 +5464,9 @@ def test_results_route_single_structures_modes_and_scan_grids(
     assert "max-width:100%" in app["plot_out"].value
     assert "Plotly.relayout(plot,{autosize:true,height:height})" in app["plot_out"].value
     linked_plot = html.unescape(app["plot_out"].value)
-    assert "Plotly.restyle(graph,{hoverinfo:'skip'},surfaces)" in linked_plot
+    assert "Plotly.restyle(graph,cfg.dims===3?{hoverinfo:'skip',showscale:false}:{hoverinfo:'skip'},surfaces)" in linked_plot
     assert "Plotly.addTraces(graph,[pointTrace()])" in linked_plot
-    assert "marker:{size:1.8" in linked_plot
+    assert "marker:{size:3.6" in linked_plot
     assert "item.plot_coords||item.coords" in linked_plot
     assert "rx-set-frame" not in app["plot_out"].value
     assert app["frame_controls"].layout.display == "none"
@@ -5698,9 +5705,10 @@ def test_scan3d_axes_plot_selection_and_structure_stay_bidirectionally_linked(
     assert "invoke(index)" in document
     assert "nearest(point)" not in document
     assert "rx-set-frame" not in document
-    assert "Plotly.restyle(graph,{hoverinfo:'skip'},surfaces)" in document
+    assert "Plotly.restyle(graph,cfg.dims===3?{hoverinfo:'skip',showscale:false}:{hoverinfo:'skip'},surfaces)" in document
+    assert "showscale:false" in document
     assert "Plotly.addTraces(graph,[pointTrace()])" in document
-    assert "marker:{size:1.8" in document
+    assert "marker:{size:3.6" in document
 
 
 def test_results_playback_uses_path_speed_except_for_energy_levels(
@@ -6029,6 +6037,13 @@ def test_results_playback_preview_reset_and_cli_output_defaults(
         "path-opt": "./result_path_opt/", "path-search": "./result_path_search/",
         "sp": "./result_sp/", "dft": "./result_dft/",
     }
+    assert app["w_out"].description == "Output directory (-o)"
+    assert app["run_settings_box"].children == (
+        app["output_run_row"], app["output_note"],
+    )
+    assert app["output_run_row"].children[:2] == (
+        app["w_out"], app["output_info"],
+    )
     # Exercise the same dropdown transition used by the browser.  Checking the
     # table helper directly misses observer-order bugs that can leave the output
     # directory one workflow behind.
