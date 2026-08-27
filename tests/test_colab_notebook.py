@@ -2316,6 +2316,24 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
         encoding="utf-8",
     )
     topology.write_text("parm", encoding="utf-8")
+    assert app["workspace_load"].disabled
+    app["workspace_path"].value = str(primary)
+    assert not app["workspace_load"].disabled
+    app["workspace_load"].click()
+    managed = Path(app["S"]["inputs"][0])
+    assert managed.resolve() != primary.resolve()
+    assert managed.read_bytes() == primary.read_bytes()
+    assert app["workspace_path"].value == ""
+    assert app["workspace_load"].disabled
+    kept_inputs = list(app["S"]["inputs"])
+    app["workspace_path"].value = str(tmp_path)
+    app["workspace_load"].click()
+    assert app["S"]["inputs"] == kept_inputs
+    assert "must identify one file" in html.unescape(app["input_msg"].value)
+    app["workspace_path"].value = ""
+    app["b_clear_inputs"].click()
+    assert not app["S"]["inputs"]
+    assert primary.is_file()
     metadata = {
         str(primary): [
             {"serial": 1, "chain": "A", "resname": "ALA", "resseq": 1, "icode": "", "name": "N"},
@@ -2384,7 +2402,12 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     assert app["logbox"].layout.display == "none"
     app["w_show_run_log"].value = True
     assert app["_input_box_children"][1] is app["_drop"]
-    assert app["_input_box_children"][2] is app["input_msg"]
+    assert app["_input_box_children"][2] is app["workspace_path_row"]
+    assert app["_input_box_children"][3] is app["input_msg"]
+    assert app["workspace_path"].description == "Workspace path"
+    assert app["workspace_path"].placeholder == "/content/path/to/file.pdb"
+    assert app["workspace_load"].description == "Load"
+    assert "rxworkspace-path" in app["workspace_path_row"]._dom_classes
     assert app["_input_box_children"][-1] is app["example_fold"]
     assert app["example_fold"]._rx_body.layout.display == "none"
     assert app["example_fold"]._rx_button.description == "Show Examples"
@@ -3692,12 +3715,16 @@ def test_colab_operates_scientific_selectors_and_remaining_buttons(
 
     app["_example_file"] = lambda relpath: str(NOTEBOOK.parent / relpath)
     for choice in app["ex_choice"].options:
+        app["S"]["out_dir"] = "./custom-output/"
+        app["w_out"].value = "./custom-output/"
         app["ex_choice"].value = choice
         app["ex_btn"].click()
         assert app["S"]["inputs"], choice
         assert app["S"]["parm"] and Path(app["S"]["parm"]).is_file()
         assert "⚠️" not in app["example_msg"].value
         assert app["S"]["subcmd"] == "all"
+        assert app["S"]["out_dir"] == "./result_all/"
+        assert app["w_out"].value == "./result_all/"
         if choice.startswith("Toy system"):
             assert app["all_mode"].value == "mep"
             assert app["S"]["tsopt"] is True
