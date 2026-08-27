@@ -958,7 +958,8 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "def _tab_go(i):" in app
     assert "def _finish_tab_go(i, request):" in app
     assert "def _defer_results_for_tab(request):" in app
-    assert "timer = threading.Timer(0.16" in app
+    assert "timer = threading.Timer(0.16" not in app
+    assert "if i == 3 and not IN_COLAB:" in app
     assert "request != _TAB_NAV['request'] or _TAB_NAV['active'] != 3" in app
     assert "_pane.layout.display = 'block'" in app
     assert "_pane.layout.display = ('flex' if _j in (i, 1) else 'none')" in app
@@ -984,6 +985,11 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "'tab_callback': 'mlmm_gui.tab_go'" in app
     assert "register_callback('mlmm_gui.tab_go', _on_colab_tab)" in app
     assert "register_callback('mlmm_gui.select_result', _on_colab_result)" in app
+    assert "register_callback('mlmm_gui.reconcile_results', _colab_reconcile_results)" in app
+    assert "function wireResultDelivery()" in app
+    assert "new MutationObserver(queueResultDelivery)" in app
+    assert "pollRunState" not in app
+    assert "setTimeout(pollRunState" not in app
     assert "function wireResultChoices()" in app
     assert "document.__rxResultChoicesWired" in app
     assert "document.addEventListener('change',function(event)" in app
@@ -4735,148 +4741,98 @@ def test_the_gui_keeps_one_run_path() -> None:
     assert "_UI_ASYNC_LOOP.call_soon_threadsafe(callback)" in app
 
 
-def test_colab_poll_repairs_a_finished_but_stale_frontend() -> None:
+def test_colab_result_delivery_waits_for_visible_results_tab() -> None:
     source = _notebook()["cells"][2]["source"]
     tree = ast.parse(source)
-    poll_node = next(
+    reconcile_node = next(
         node for node in ast.walk(tree)
-        if isinstance(node, ast.FunctionDef) and node.name == "_colab_poll_run"
+        if (isinstance(node, ast.FunctionDef) and
+            node.name == "_colab_reconcile_results")
     )
     events = []
+    state = {"_last_manifest": {"status": "success"},
+             "_last_out_dir": "result", "_results_presented_dir": None}
+    execution = {
+        "task": None, "thread": None, "process": None,
+        "result_attempt": True, "result_delivery_pending": True,
+    }
+
+    def render_results(request: int) -> None:
+        events.append(("render_results", request))
+        state["_results_presented_dir"] = os.path.abspath("result")
+
+    def finish_cancelled(out: str) -> None:
+        events.append(("cancelled_results", out))
+        execution["result_delivery_pending"] = False
+
     namespace = {
         "os": os,
-        "_RUN_EXECUTION": {
-            "task": None, "thread": None, "process": None,
-            "result_attempt": True, "result_delivery_pending": False,
-        },
+        "_RUN_EXECUTION": execution,
         "_ACTION_STATE": {"running": False},
         "_RUN_STATE": {"text": "✓ done", "tone": "ok", "kind": "done"},
-        "S": {"_last_manifest": {"status": "success"},
-              "_last_out_dir": "result",
-              "_results_presented_dir": os.path.abspath("result")},
-        "_flush_run_log": lambda force=False: events.append(("flush", force)),
+        "S": state,
         "_set_running": lambda value, on_loop=False: events.append(
             ("running", value, on_loop)),
         "_set_run_status": lambda text, tone, kind, on_loop=False: events.append(
             ("status", text, tone, kind, on_loop)),
-        "_results": lambda out: events.append(("results", out)),
-        "_finish_cancelled_attempt": lambda out: events.append(
-            ("cancelled_results", out)),
+        "_finish_cancelled_attempt": finish_cancelled,
         "_tab_go": lambda index: events.append(("tab", index)),
         "_TAB_NAV": {"request": 9},
-        "_RESULT_SET_GENERATION": {"value": 7},
-        "_render_results_for_tab": lambda request: events.append(
-            ("render_results", request)),
-        "_publish_result_widget_state": lambda: events.append(("publish_results",)),
+        "_render_results_for_tab": render_results,
         "_publish_run_widget_state": lambda: events.append(("publish_run",)),
     }
-    exec(compile(ast.Module(body=[poll_node], type_ignores=[]),
+    exec(compile(ast.Module(body=[reconcile_node], type_ignores=[]),
                  str(NOTEBOOK), "exec"), namespace)
 
-    assert ("bridge.invokeFunction(CONFIG.poll_callback,"
-            "[active,activeTab,visibleTab,resultGeneration],{})" in source)
+    assert ("bridge.invokeFunction(CONFIG.delivery_callback,"
+            "[state.running,state.activeTab,state.visibleTab],{})" in source)
     assert "setNativeTabChoice(3); setNativeTabPane(3)" in source
-    assert namespace["_colab_poll_run"](False) == {
-        "running": False, "results_pending": False, "result_generation": 7,
-    }
-    assert events == [("flush", True)]
+    assert "pollRunState" not in source
+    assert "setTimeout(pollRunState" not in source
 
-    events.clear()
-    namespace["_RUN_EXECUTION"]["result_delivery_pending"] = True
-    assert namespace["_colab_poll_run"](False, 2, 2, -1) == {
-        "running": False, "results_pending": True, "result_generation": 7,
+    # Phase 1: request page ④, but do not render before the browser owns it.
+    assert namespace["_colab_reconcile_results"](False, 2, 2) == {
+        "running": False, "results_pending": True, "activate_results": True,
     }
     assert events == [
-        ("flush", True),
         ("running", False, True),
         ("status", "✓ done", "ok", "done", True),
         ("tab", 3),
+        ("publish_run",),
+    ]
+    assert not any(event[0] == "render_results" for event in events)
+    assert execution["result_delivery_pending"] is True
+
+    # Phase 2: only a later browser event confirming page ④ may render.
+    events.clear()
+    assert namespace["_colab_reconcile_results"](False, 3, 3) == {
+        "running": False, "results_pending": False, "activate_results": False,
+    }
+    assert events == [
+        ("running", False, True),
+        ("status", "✓ done", "ok", "done", True),
         ("render_results", 9),
         ("publish_run",),
     ]
-    assert namespace["_RUN_EXECUTION"]["result_delivery_pending"] is True
+    assert execution["result_delivery_pending"] is False
 
+    # Cancellation retains the active tab and never renders Results.
     events.clear()
-    assert namespace["_colab_poll_run"](False, 3, 3, -1) == {
-        "running": False, "results_pending": True, "result_generation": 7,
-    }
-    assert ("tab", 3) in events
-    assert namespace["_RUN_EXECUTION"]["result_delivery_pending"] is True
-
-    events.clear()
-    assert namespace["_colab_poll_run"](False, 3, 2, 7) == {
-        "running": False, "results_pending": True, "result_generation": 7,
-    }
-    assert ("tab", 3) in events
-    assert namespace["_RUN_EXECUTION"]["result_delivery_pending"] is True
-
-    events.clear()
-    assert namespace["_colab_poll_run"](False, 2, 3, 7) == {
-        "running": False, "results_pending": True, "result_generation": 7,
-    }
-    assert ("tab", 3) in events
-    assert namespace["_RUN_EXECUTION"]["result_delivery_pending"] is True
-
-    events.clear()
-    assert namespace["_colab_poll_run"](False, 3, 3, 7) == {
-        "running": False, "results_pending": False, "result_generation": 7,
-    }
-    assert events == [("flush", True)]
-    assert namespace["_RUN_EXECUTION"]["result_delivery_pending"] is False
-
-    events.clear()
-    assert namespace["_colab_poll_run"](True, 3, 3, 7) == {
-        "running": False, "results_pending": False, "result_generation": 7,
-    }
-    assert events == [
-        ("flush", True),
-        ("running", False, True),
-        ("status", "✓ done", "ok", "done", True),
-        ("publish_run",),
-    ]
-
-    events.clear()
-    namespace["_RUN_EXECUTION"]["result_attempt"] = False
-    namespace["S"]["_last_manifest"]["status"] = "success"
-    namespace["S"]["_results_presented_dir"] = os.path.abspath("result")
+    execution["result_delivery_pending"] = True
+    state["_last_manifest"]["status"] = "cancelled"
+    state["_results_presented_dir"] = None
     namespace["_RUN_STATE"].update(
         text="■ cancelled", tone="warn", kind="cancelled")
-    assert namespace["_colab_poll_run"](True) == {
-        "running": False, "results_pending": False, "result_generation": 7,
+    assert namespace["_colab_reconcile_results"](False, 2, 2) == {
+        "running": False, "results_pending": False, "activate_results": False,
     }
     assert events == [
-        ("flush", True),
-        ("running", False, True),
-        ("status", "■ cancelled", "warn", "cancelled", True),
-        ("publish_run",),
-    ]
-
-    # A scientifically partial result is still a terminal, displayable run.
-    events.clear()
-    namespace["_RUN_EXECUTION"]["result_attempt"] = True
-    namespace["_RUN_STATE"].update(text="✓ done", tone="ok", kind="done")
-    namespace["S"]["_last_manifest"]["status"] = "partial"
-    namespace["S"]["_results_presented_dir"] = None
-    assert namespace["_colab_poll_run"](False) == {
-        "running": False, "results_pending": True, "result_generation": 7,
-    }
-    assert ("tab", 3) in events
-
-    events.clear()
-    namespace["S"]["_last_manifest"]["status"] = "cancelled"
-    namespace["S"]["_results_presented_dir"] = None
-    namespace["_RUN_STATE"].update(
-        text="■ cancelled", tone="warn", kind="cancelled")
-    assert namespace["_colab_poll_run"](False) == {
-        "running": False, "results_pending": False, "result_generation": 7,
-    }
-    assert events == [
-        ("flush", True),
         ("running", False, True),
         ("status", "■ cancelled", "warn", "cancelled", True),
         ("cancelled_results", "result"),
         ("publish_run",),
     ]
+    assert not any(event[0] in ("tab", "render_results") for event in events)
 
 
 def test_results_render_only_after_results_tab_owns_the_view(
