@@ -72,6 +72,7 @@ from mlmm.core.utils import (
     strip_inherited_keys,
     filter_calc_for_echo,
     format_freeze_atoms_for_echo,
+    emit_dry_run_complete,
     format_elapsed,
     merge_freeze_atom_indices,
     build_energy_diagram,
@@ -2189,11 +2190,7 @@ def cli(
                 }
 
             click.echo(pretty_block("dry_run_plan", dry_payload))
-            click.echo("[dry-run] Validation complete. Path search execution was skipped.")
-            emit(
-                format_elapsed("[time] Elapsed Time for Path Search", time_start),
-                narrative=True,
-            )
+            emit_dry_run_complete()
             return
 
         try:

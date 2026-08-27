@@ -37,6 +37,7 @@ from mlmm.core.utils import (
     apply_yaml_overrides,
     apply_ref_pdb_override,
     calculator_provenance,
+    emit_dry_run_complete,
     format_elapsed,
     merge_freeze_atom_indices,
     parse_indices_string,
@@ -468,10 +469,10 @@ def cli(
                 {"calc": calc_cfg, "geom": geom_cfg, "sp": sp_cfg},
                 sort_keys=False, allow_unicode=True,
             ).rstrip())
-            # Help text already says "Print effective merged config and exit."
-            # Honor that contract by returning before any SCF/Hessian work.
-            click.echo(format_elapsed("[time] Elapsed Time for SP", time_start))
-            return
+            if not dry_run:
+                # Help text says show-config exits before any calculation.
+                click.echo(format_elapsed("[time] Elapsed Time for SP", time_start))
+                return
 
         # Validate the ML-region contract without creating the requested output
         # directory or constructing a calculator. The real run repeats this
@@ -489,7 +490,7 @@ def cli(
 
         if dry_run:
             click.echo(f"[sp] dry-run: would compute ONIOM SP on {input_path} -> {out_dir_path}")
-            click.echo(format_elapsed("[time] Elapsed Time for SP", time_start))
+            emit_dry_run_complete()
             return
 
         out_dir_path.mkdir(parents=True, exist_ok=True)

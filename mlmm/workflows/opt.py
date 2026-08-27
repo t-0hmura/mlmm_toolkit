@@ -57,6 +57,7 @@ from mlmm.core.utils import (
     strip_inherited_keys,
     filter_calc_for_echo,
     format_freeze_atoms_for_echo,
+    emit_dry_run_complete,
     format_elapsed,
     merge_freeze_atom_indices,
     prepare_input_structure,
@@ -1810,11 +1811,7 @@ def cli(
                     },
                 )
             )
-            click.echo("[dry-run] Validation complete. Optimization execution was skipped.")
-            emit(
-                format_elapsed("[time] Elapsed Time for Opt", time_start),
-                narrative=True,
-            )
+            emit_dry_run_complete()
             return
 
         _invalidate_opt_optional_outputs(out_dir_path)

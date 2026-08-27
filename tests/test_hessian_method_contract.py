@@ -190,7 +190,7 @@ def test_opt_dry_run_rejects_invalid_yaml_method(
 
     assert result.exit_code != 0
     assert message in result.output
-    assert "Validation complete" not in result.output
+    assert "[Dry run] --dry-run completed." not in result.output
 
 
 @pytest.mark.parametrize(
@@ -276,4 +276,4 @@ def test_path_dry_run_rejects_invalid_method_from_final_override(
 
     assert result.exit_code != 0
     assert message in result.output
-    assert "Validation complete" not in result.output
+    assert "[Dry run] --dry-run completed." not in result.output

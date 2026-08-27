@@ -858,7 +858,9 @@ def test_dft_dry_run_uses_one_reference_overlaid_preparation_with_explicit_charg
     )
 
     assert result.exit_code == 0, result.output
-    assert "[dry-run] Validation complete" in result.output
+    assert result.output.rstrip().splitlines()[-1] == (
+        "[Dry run] --dry-run completed. Input command is valid."
+    )
     assert len(prepared_objects) == 1
     assert cleanup_calls == prepared_objects
     assert len(workspace_calls) == 1
@@ -902,7 +904,7 @@ def test_dft_dry_run_rejects_malformed_amber_topology(tmp_path: Path) -> None:
 
     assert result.exit_code != 0
     assert "is not a valid Amber parm7 file" in result.output
-    assert "[dry-run] Validation complete" not in result.output
+    assert "[Dry run] --dry-run completed." not in result.output
 
 
 def test_dft_workspace_keeps_xyz_coordinates_with_pdb_topology(

@@ -101,6 +101,7 @@ from mlmm.core.utils import (
     convert_xyz_to_pdb,
     classify_bfactor_layer,
     ensure_dir,
+    emit_dry_run_complete,
     format_elapsed,
     has_valid_layer_bfactors,
     prepare_input_structure,
@@ -482,12 +483,13 @@ def _emit_final_summary(
         _echo(narrative=True)
     if citation_payload:
         emit_method_citations(citation_payload)
-    footer = (
-        "Dry run complete. Input commands are valid."
-        if dry_run
-        else format_elapsed("[time] Elapsed Time for Whole Pipeline", time_start)
-    )
-    _echo(footer, narrative=True)
+    if dry_run:
+        emit_dry_run_complete()
+    else:
+        _echo(
+            format_elapsed("[time] Elapsed Time for Whole Pipeline", time_start),
+            narrative=True,
+        )
 
 
 def _run_cli_main(

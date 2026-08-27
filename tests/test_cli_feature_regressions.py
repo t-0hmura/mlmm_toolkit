@@ -370,7 +370,9 @@ def test_path_search_dry_run_uses_prepared_layer_source(tmp_path: Path) -> None:
     )
 
     assert result.exit_code == 0, result.output
-    assert "[dry-run] Validation complete. Path search execution was skipped." in result.output
+    assert result.output.rstrip().splitlines()[-1] == (
+        "[Dry run] --dry-run completed. Input command is valid."
+    )
 
 
 def test_freq_dry_run_resolves_active_dof_mode(tmp_path: Path) -> None:
@@ -401,7 +403,9 @@ def test_freq_dry_run_resolves_active_dof_mode(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
     assert "active_dof_mode" in result.output
     assert "ml-only" in result.output
-    assert "[dry-run] Validation complete. Frequency execution was skipped." in result.output
+    assert result.output.rstrip().splitlines()[-1] == (
+        "[Dry run] --dry-run completed. Input command is valid."
+    )
 
 
 @pytest.mark.parametrize(
@@ -779,7 +783,9 @@ def test_path_search_accepts_repeated_inputs_and_reference_templates() -> None:
     )
 
     assert result.exit_code == 0, result.output
-    assert "Validation complete" in result.output
+    assert result.output.rstrip().splitlines()[-1] == (
+        "[Dry run] --dry-run completed. Input command is valid."
+    )
 
 
 def test_all_exposes_irc_step_size_and_tsopt_exposes_charge_guard() -> None:

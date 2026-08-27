@@ -1110,6 +1110,16 @@ def format_freeze_atoms_for_echo(
     return g
 
 
+DRY_RUN_COMPLETE_MESSAGE = (
+    "[Dry run] --dry-run completed. Input command is valid."
+)
+
+
+def emit_dry_run_complete() -> None:
+    """Emit the canonical successful dry-run footer."""
+    emit(DRY_RUN_COMPLETE_MESSAGE, narrative=True)
+
+
 def format_elapsed(prefix: str, start_time: float, end_time: Optional[float] = None) -> str:
     """Return a formatted elapsed-time string with the provided ``prefix`` label."""
     finish = end_time if end_time is not None else time.perf_counter()

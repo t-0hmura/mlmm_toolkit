@@ -3466,8 +3466,13 @@ def test_colab_operates_scientific_selectors_and_remaining_buttons(
             assert low.step == high.step == pytest.approx(0.2)
             low.value = 1.0 + pair_index * 0.1
             high.value = 2.0 + pair_index * 0.1
-            _widget_with_description(app["scan_panel"], "4  Add axis").click()
+            _widget_with_description(app["scan_panel"], "④ Add Axis").click()
         assert len(app["S"]["scan_axes"]) == len(pairs)
+        literal = app["scan2d_literal"]()
+        assert len(ast.literal_eval(literal)) == len(pairs)
+        summary = html.unescape(app["summary_html"].value)
+        assert "scan -s:" in summary
+        assert literal in summary
         _widget_with_description(app["scan_panel"], "×").click()
         assert len(app["S"]["scan_axes"]) == len(pairs) - 1
         app["b_clear_scan"].click()

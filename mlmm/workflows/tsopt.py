@@ -86,6 +86,7 @@ from mlmm.core.utils import (
     strip_inherited_keys,
     filter_calc_for_echo,
     format_freeze_atoms_for_echo,
+    emit_dry_run_complete,
     format_elapsed,
     merge_freeze_atom_indices,
     prepare_input_structure,
@@ -4140,12 +4141,8 @@ def cli(
                 },
             )
         )
-        click.echo("[dry-run] Validation complete. TS optimization execution was skipped.")
+        emit_dry_run_complete()
         prepared_input.cleanup()
-        emit(
-            format_elapsed("[time] Elapsed Time for TS Opt", time_start),
-            narrative=True,
-        )
         return
 
     tsopt_protected_inputs = (

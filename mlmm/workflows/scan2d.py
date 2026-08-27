@@ -65,6 +65,7 @@ from mlmm.core.utils import (
     strip_inherited_keys,
     filter_calc_for_echo,
     format_freeze_atoms_for_echo,
+    emit_dry_run_complete,
     format_elapsed,
     merge_freeze_atom_indices,
     prepare_input_structure,
@@ -729,10 +730,13 @@ def cli(
                 )
                 # --print-parsed = "just show the parsed spec": exit before
                 # the general dry-run plan and before any GPU calculation.
-                emit(
-                    format_elapsed("[time] Elapsed Time for 2D Scan", time_start),
-                    narrative=True,
-                )
+                if dry_run:
+                    emit_dry_run_complete()
+                else:
+                    emit(
+                        format_elapsed("[time] Elapsed Time for 2D Scan", time_start),
+                        narrative=True,
+                    )
                 sys.exit(0)
             if dry_run:
                 emit(
@@ -755,11 +759,7 @@ def cli(
                     ),
                     force=True,
                 )
-                click.echo("[dry-run] Validation complete. Scan execution was skipped.")
-                emit(
-                    format_elapsed("[time] Elapsed Time for 2D Scan", time_start),
-                    narrative=True,
-                )
+                emit_dry_run_complete()
                 return
             click.echo(
                 pretty_block(

@@ -43,6 +43,7 @@ from mlmm.core.utils import (
     convert_xyz_to_pdb,
     pretty_block,
     format_freeze_atoms_for_echo,
+    emit_dry_run_complete,
     format_elapsed,
     prepare_input_structure,
     parse_indices_string,
@@ -1027,13 +1028,7 @@ def cli(
                         },
                     )
                 )
-                click.echo(
-                    "[dry-run] Validation complete. DFT execution was skipped."
-                )
-                emit(
-                    format_elapsed("[time] Elapsed Time for DFT", time_start),
-                    narrative=True,
-                )
+                emit_dry_run_complete()
                 return
 
         # `prepared_input` and `charge/spin` already resolved above
