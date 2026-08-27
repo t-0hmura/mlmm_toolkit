@@ -27,6 +27,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Compact the Colab run/output and Results status surfaces, refresh the output
   default when the displayed structure changes, enlarge scan-grid pick markers,
   and hide the scan3d color scale.
+- Offset the scan2d coloured base plane above the z-axis floor to prevent
+  coplanar rendering flicker.
 - Activate the Colab Results tab before rendering completed results, keep the
   result selectors reusable, and reserve plot space for MEP/IRC labels.
 - Keep cancelled Colab runs on the active tab and out of completed-result views.

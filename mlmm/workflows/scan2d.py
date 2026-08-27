@@ -1442,10 +1442,11 @@ def cli(
                 name="3D Surface",
             )
 
+            plane_z = z_bottom + 0.005
             plane_proj = go.Surface(
                 x=XI,
                 y=YI,
-                z=np.full_like(ZI, z_bottom),
+                z=np.full_like(ZI, plane_z),
                 surfacecolor=ZI,
                 colorscale="plasma",
                 cmin=vmin,

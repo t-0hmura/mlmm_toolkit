@@ -368,6 +368,8 @@ def test_scan_html_plots_are_responsive_and_scan2d_keeps_native_projection() -> 
     scan3d_source = inspect.getsource(scan3d)
 
     assert "plane_proj = go.Surface" in scan2d_source
+    assert "plane_z = z_bottom + 0.005" in scan2d_source
+    assert "z=np.full_like(ZI, plane_z)" in scan2d_source
     assert "go.Figure(data=[surface3d, plane_proj])" in scan2d_source
     assert 'name="2D Contour Projection (Bottom)"' in scan2d_source
     assert "Computed grid points" not in scan2d_source
