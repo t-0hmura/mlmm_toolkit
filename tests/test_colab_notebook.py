@@ -4872,11 +4872,6 @@ def test_colab_poll_repairs_a_finished_but_stale_frontend() -> None:
         node for node in ast.walk(tree)
         if isinstance(node, ast.FunctionDef) and node.name == "_colab_poll_run"
     )
-    render_node = next(
-        node for node in ast.walk(tree)
-        if isinstance(node, ast.FunctionDef)
-        and node.name == "_on_colab_render_results"
-    )
     events = []
     state = {
         "_last_manifest": {"status": "success"},
@@ -4913,61 +4908,37 @@ def test_colab_poll_repairs_a_finished_but_stale_frontend() -> None:
             ("cancelled_results", out)),
         "_tab_go": tab_go,
         "_TAB_NAV": tab_nav,
-        "_RESULT_SET_GENERATION": {"value": 7},
         "_render_results_for_tab": render_results,
         "_publish_result_widget_state": lambda: events.append(("publish_results",)),
         "_publish_run_widget_state": lambda: events.append(("publish_run",)),
     }
-    exec(compile(ast.Module(body=[poll_node, render_node], type_ignores=[]),
+    exec(compile(ast.Module(body=[poll_node], type_ignores=[]),
                  str(NOTEBOOK), "exec"), namespace)
 
     assert "bridge.invokeFunction(CONFIG.poll_callback,[active],{})" in source
-    assert "function callbackData(response){" in source
-    assert "return response.data['application/json'];" in source
-    assert "function(response){\n        var result=callbackData(response);" in source
-    assert source.index("var result=callbackData(response);") < source.index(
-        "var resultsPending=!!(result&&result.results_pending)")
-    assert "setNativeTabChoice(3);" in source
-    assert "setNativeTabPane(3)" in source
+    assert "function(){finishPoll(active?1500:5000);}" in source
     assert "resultsPending?300" not in source
-    assert source.index("setNativeTabChoice(3)") < source.index(
-        "bridge.invokeFunction(CONFIG.render_results_callback")
-    assert namespace["_colab_poll_run"](False) == {
-        "running": False, "results_pending": False, "render_request": -1,
-        "result_generation": 7,
-    }
+    assert "CONFIG.render_results_callback" not in source
+    assert "_on_colab_render_results" not in source
+    assert namespace["_colab_poll_run"](False) == {"running": False}
     assert events == [("flush", True)]
 
     events.clear()
     namespace["_RUN_EXECUTION"]["result_delivery_pending"] = True
     state["_results_presented_dir"] = None
-    assert namespace["_colab_poll_run"](False) == {
-        "running": False, "results_pending": True, "render_request": 10,
-        "result_generation": 7,
-    }
+    assert namespace["_colab_poll_run"](False) == {"running": False}
     assert events == [
         ("flush", True),
         ("running", False, True),
         ("status", "✓ done", "ok", "done", True),
         ("tab", 3, False),
+        ("render_results", 10),
         ("publish_run",),
     ]
-    assert namespace["_RUN_EXECUTION"]["result_delivery_pending"] is True
-
-    events.clear()
-    assert namespace["_on_colab_render_results"](9, 7) == {"ok": False}
-    assert events == []
-    assert namespace["_on_colab_render_results"](10, 6) == {"ok": False}
-    assert events == []
-    assert namespace["_on_colab_render_results"](10, 7) == {"ok": True}
-    assert events == [("render_results", 10)]
     assert namespace["_RUN_EXECUTION"]["result_delivery_pending"] is False
 
     events.clear()
-    assert namespace["_colab_poll_run"](True) == {
-        "running": False, "results_pending": False, "render_request": -1,
-        "result_generation": 7,
-    }
+    assert namespace["_colab_poll_run"](True) == {"running": False}
     assert events == [
         ("flush", True),
         ("running", False, True),
@@ -4981,10 +4952,7 @@ def test_colab_poll_repairs_a_finished_but_stale_frontend() -> None:
     namespace["S"]["_results_presented_dir"] = os.path.abspath("result")
     namespace["_RUN_STATE"].update(
         text="■ cancelled", tone="warn", kind="cancelled")
-    assert namespace["_colab_poll_run"](True) == {
-        "running": False, "results_pending": False, "render_request": -1,
-        "result_generation": 7,
-    }
+    assert namespace["_colab_poll_run"](True) == {"running": False}
     assert events == [
         ("flush", True),
         ("running", False, True),
@@ -4998,21 +4966,18 @@ def test_colab_poll_repairs_a_finished_but_stale_frontend() -> None:
     namespace["_RUN_STATE"].update(text="✓ done", tone="ok", kind="done")
     namespace["S"]["_last_manifest"]["status"] = "partial"
     namespace["S"]["_results_presented_dir"] = None
-    assert namespace["_colab_poll_run"](False) == {
-        "running": False, "results_pending": True, "render_request": 11,
-        "result_generation": 7,
-    }
+    assert namespace["_colab_poll_run"](False) == {"running": False}
     assert ("tab", 3, False) in events
+    assert ("render_results", 11) in events
+    assert namespace["_RUN_EXECUTION"]["result_delivery_pending"] is False
 
     events.clear()
     namespace["S"]["_last_manifest"]["status"] = "cancelled"
     namespace["S"]["_results_presented_dir"] = None
+    namespace["_RUN_EXECUTION"]["result_delivery_pending"] = True
     namespace["_RUN_STATE"].update(
         text="■ cancelled", tone="warn", kind="cancelled")
-    assert namespace["_colab_poll_run"](False) == {
-        "running": False, "results_pending": False, "render_request": -1,
-        "result_generation": 7,
-    }
+    assert namespace["_colab_poll_run"](False) == {"running": False}
     assert events == [
         ("flush", True),
         ("running", False, True),
@@ -5712,13 +5677,16 @@ def test_scan3d_axes_plot_selection_and_structure_stay_bidirectionally_linked(
     assert "marker:{size:1.8" in document
 
 
-def test_results_playback_uses_fifty_ms_for_mep_irc_and_imaginary_modes(
+def test_results_playback_uses_path_speed_except_for_energy_levels(
     monkeypatch, tmp_path: Path,
 ) -> None:
     app, _ = _execute_app(monkeypatch, tmp_path)
 
+    source = _notebook()["cells"][2]["source"]
+    assert app["_PLAYBACK_DEFAULT_INTERVAL_MS"] == 50
     assert app["_PROFILE_PLAYBACK_INTERVAL_MS"] == 50
-    assert app["frame_play"].interval == 850
+    assert app["_ENERGY_LEVEL_PLAYBACK_INTERVAL_MS"] == 1500
+    assert app["frame_play"].interval == 50
     app["_sync_playback_interval"](token="mep")
     assert app["frame_play"].interval == 50
     app["_sync_playback_interval"](path="finished_irc_trj.xyz")
@@ -5728,9 +5696,16 @@ def test_results_playback_uses_fifty_ms_for_mep_irc_and_imaginary_modes(
     app["_sync_playback_interval"](token="vibration")
     assert app["frame_play"].interval == 50
     app["_sync_playback_interval"](token="mlip_g")
-    assert app["frame_play"].interval == 850
+    assert app["frame_play"].interval == 50
     app["_sync_playback_interval"](path="scan_trj.xyz")
-    assert app["frame_play"].interval == 850
+    assert app["frame_play"].interval == 50
+    for subcommand in ("opt", "tsopt"):
+        app["S"]["_last_subcmd"] = subcommand
+        app["_sync_playback_interval"](path="optimization_trj.xyz")
+        assert app["frame_play"].interval == 50
+    assert app["_load_energy_structures"]({}, "energy:mlip_g", "MLIP ΔG") is False
+    assert app["frame_play"].interval == 1500
+    assert "Number(intervalNode&&intervalNode.dataset.rxPlaybackInterval)||50" in source
 
     irc_plot = tmp_path / "irc_plot_all.png"
     irc_plot.write_bytes(b"\x89PNG\r\n\x1a\n")
@@ -5779,7 +5754,6 @@ def test_results_playback_uses_fifty_ms_for_mep_irc_and_imaginary_modes(
     )
     assert app["_ENERGY"]["views"]["energy:irc"]["path"] == str(standalone_irc)
 
-    source = _notebook()["cells"][2]["source"]
     assert "_frame_play_jslink = W.jslink" in source
     assert "_frame_play_link" not in source
     assert "W.link((frame_play, 'value'), (frame_slider, 'value'))" not in source
