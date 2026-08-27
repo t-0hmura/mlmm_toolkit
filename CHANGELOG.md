@@ -10,6 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Add `--gsm-param {equi,energy}` to `all`, `path-opt`, and `path-search` as an advanced GSM node-parameterization control; `equi` remains the default.
 
 ### Fixed
+- Label the Colab advanced-control disclosure as `Show All options`.
 - Show machine-readable workflow warnings above Colab result tables while
   keeping Run details limited to execution metadata.
 - Keep the complete MEP summary visible at default pipeline verbosity,

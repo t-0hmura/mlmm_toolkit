@@ -1388,7 +1388,7 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "app.add_class('rxapp-main')" in app
     assert "def _advanced_coverage(" in app and "adv_extra" not in app
     assert "def _advanced_options(sub):" in app
-    assert "adv_acc = _collapsible('All flags', adv_box)" in app
+    assert "adv_acc = _collapsible('All options', adv_box)" in app
     assert "row._rx_tier = 'advanced' if bool(getattr(param, 'hidden', False)) else 'key'" in app
     assert "every CLI option accounted for" not in app
     assert "radius_applies = (sub == 'extract' or" in app
