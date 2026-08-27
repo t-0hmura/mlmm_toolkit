@@ -5271,12 +5271,17 @@ def test_results_replaces_trajectory_with_exact_stationary_model_set(
     assert '"xTickStep":10' in many
     assert "showticklabels:true,ticks:'',ticklen:0,tickfont:{size:14}" in profile
     assert "font:{size:18,color:'#253047'}" in profile
-    assert "const below=/endpoint$/i.test" in profile
+    assert "const below=/(?:endpoint|scan (?:start|end))$/i.test" in profile
     assert "yshift:below?-18:16,yanchor:below?'top':'bottom'" in profile
+    scan_profile = html.unescape(app["_energy_plot_document"](
+        [0.0, 10.0, 5.0],
+        {"x": "scan frame", "start": "scan start", "end": "scan end"}, 20,
+    ))
+    assert '"yRange":[-2.2,11.2]' in scan_profile
     irc_profile = html.unescape(app["_energy_plot_document"](
         [0.0, 10.0, 5.0],
         {"x": "IRC point", "start": "forward endpoint",
-         "end": "backward endpoint", "ts_index": 1, "ts_label": "TS"}, 20,
+         "end": "backward endpoint", "ts_index": 1, "ts_label": "TS"}, 21,
     ))
     assert '"yRange":[-2.2,12.2]' in irc_profile
 
