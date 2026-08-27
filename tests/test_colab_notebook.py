@@ -177,14 +177,14 @@ def test_setup_command_fields_do_not_repaint_hidden_results_or_viewer(monkeypatc
     app["S"]["inputs"] = [str(tmp_path / "input.pdb")]
     app["_sync_capability_controls"]()
     assert "selectedresn" in dict(app["pick_action"].options).values()
-    assert app["prep_radius"].step == 0.5
-    assert app["adv_radius"].step == 0.5
+    assert app["prep_radius"].step == 0.2
+    assert app["adv_radius"].step == 0.2
     assert app["prep_radius_control"] is app["prep_radius"]
     assert app["adv_radius_control"] is app["adv_radius"]
     assert not hasattr(app["prep_radius_control"], "_rx_step_buttons")
     app["prep_radius"].value += app["prep_radius"].step
-    assert app["prep_radius"].value == pytest.approx(3.1)
-    assert app["adv_radius"].value == pytest.approx(3.1)
+    assert app["prep_radius"].value == pytest.approx(2.8)
+    assert app["adv_radius"].value == pytest.approx(2.8)
     app["prep_radius"].value -= app["prep_radius"].step
     assert app["prep_radius"].value == pytest.approx(2.6)
     assert app["prep_radius"].min == 0.0
@@ -299,6 +299,7 @@ def test_distance_restraint_picker_toggles_and_emits_target(
 
     target = _widget_with_description(app["freeze_panel"], "Target Å")
     assert target.value == pytest.approx(2.0)
+    assert target.step == pytest.approx(0.2)
     target.value = 1.8
     _widget_with_description(app["freeze_panel"], "Done picking").click()
     assert app["_PICK_ACTION_STATE"]["restraint_active"] is False
@@ -331,6 +332,62 @@ def _root_normalized_subcommand_argv(app: dict, subcommand: str, argv: list[str]
         {subcommand: single_flags},
     )
     return normalized[1:]
+
+
+def test_every_distance_spinner_uses_point_two_step(
+    monkeypatch, tmp_path: Path,
+) -> None:
+    source = _notebook()["cells"][2]["source"]
+    explicit = []
+    for node in ast.walk(ast.parse(source)):
+        if not (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == "W"
+            and node.func.attr in {"FloatText", "BoundedFloatText"}
+        ):
+            continue
+        keywords = {keyword.arg: keyword.value for keyword in node.keywords}
+        description = keywords.get("description")
+        if not (isinstance(description, ast.Constant) and
+                ("Å" in str(description.value) or
+                 "radius" in str(description.value).lower())):
+            continue
+        explicit.append(str(description.value))
+        assert ast.literal_eval(keywords["step"]) == pytest.approx(0.2)
+    assert len(explicit) == 9
+
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    expected = {
+        "radius_het2het", "irc_step_size", "freq_amplitude_ang",
+        "scan_max_step_size", "embedcharge_cutoff", "hess_cutoff",
+        "movable_cutoff", "amplitude_ang", "step_size", "max_step_size",
+        "radius_freeze",
+    }
+    assert app["_DISTANCE_FLOAT_PARAMS"] == expected
+    seen = set()
+    for subcommand in app["SPEC"]:
+        for param in app["_advanced_options"](subcommand):
+            if (param.name not in expected or
+                    app["_advanced_status"](subcommand, param) != "rendered"):
+                continue
+            row = app["_advanced_widget"](subcommand, param)
+            widget = _widget_with_description(row, app["_advanced_flag"](param))
+            assert widget.step == pytest.approx(0.2)
+            assert "rxhalf-step" in widget._dom_classes
+            seen.add(param.name)
+    assert seen == expected
+    for contract in (
+        "prep_radius_control = _make_distance_stepper(prep_radius)",
+        "adv_radius_control = _make_distance_stepper(adv_radius)",
+        "_make_distance_stepper(low); _make_distance_stepper(high)",
+        "_make_distance_stepper(lo_edit); _make_distance_stepper(hi_edit)",
+        "_make_distance_stepper(target)",
+        "_make_distance_stepper(target_edit)",
+        "_make_distance_stepper(widget)",
+    ):
+        assert contract in source
 
 
 def _output_contract() -> dict:
@@ -2088,6 +2145,31 @@ def test_colab_run_fails_closed_when_implicit_validation_fails(
     assert "validation failed" in app["run_status"].value
 
 
+def test_run_uses_executed_output_path_for_results_directory(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    structure = tmp_path / "reactant.pdb"
+    topology = tmp_path / "system.parm7"
+    structure.write_text("ATOM\n", encoding="utf-8")
+    topology.write_text("%VERSION\n", encoding="utf-8")
+    output = tmp_path / "edited-output"
+    argv = [
+        "mlmm", "opt", "-i", str(structure), "--parm", str(topology),
+        "-o", str(output),
+    ]
+    assert app["results_dir"].value == ""
+    app["_RUN_STATE"]["validated_fingerprint"] = app["_validation_fingerprint"](argv)
+    app["_stream"] = lambda executed: (0, "ran " + " ".join(executed))
+    app["_results"] = lambda _root: None
+
+    app["_do_run_sync"](None, argv)
+
+    assert app["S"]["_last_argv"] == argv
+    assert app["S"]["_last_out_dir"] == str(output)
+    assert app["results_dir"].value == str(output)
+
+
 def test_colab_manifest_hashes_inplace_input_before_execution(
     tmp_path: Path, monkeypatch,
 ) -> None:
@@ -3327,7 +3409,7 @@ def test_colab_operates_scientific_selectors_and_remaining_buttons(
     app["dd_subcmd"].value = "scan"
     scan_pair(0, 1)
     target = _widget_with_description(app["scan_panel"], "③ Set target Å")
-    assert target.step == pytest.approx(0.5)
+    assert target.step == pytest.approx(0.2)
     target.value = 1.8
     _widget_with_description(app["scan_panel"], "Add sequential stage").click()
     assert len(app["S"]["scan_stages"]) == 1
@@ -3375,6 +3457,7 @@ def test_colab_operates_scientific_selectors_and_remaining_buttons(
             scan_pair(left, right)
             low = _widget_with_description(app["scan_panel"], "③ Set low Å")
             high = _widget_with_description(app["scan_panel"], "High Å")
+            assert low.step == high.step == pytest.approx(0.2)
             low.value = 1.0 + pair_index * 0.1
             high.value = 2.0 + pair_index * 0.1
             _widget_with_description(app["scan_panel"], "4  Add axis").click()
@@ -6042,13 +6125,14 @@ def test_colab_setup_exposes_linked_nonnegative_radius_and_selected_resn() -> No
     assert 'backend = "uma"' in setup
     assert 'mlmm_toolkit_version = "v0.3.3"' in setup
     assert 'prep_radius = W.BoundedFloatText(' in app
-    assert 'value=2.6, min=0.0, max=1000000.0, step=0.5' in app
-    assert 'adv_radius = W.BoundedFloatText(value=2.6, min=0.0, max=1000000.0, step=0.5' in app
+    assert 'value=2.6, min=0.0, max=1000000.0, step=0.2' in app
+    assert 'adv_radius = W.BoundedFloatText(value=2.6, min=0.0, max=1000000.0, step=0.2' in app
     assert "widget.add_class('rxhalf-step')" in app
-    assert "target.add_class('rxhalf-step')" in app
-    assert "target_edit.add_class('rxhalf-step')" in app
+    assert "_make_distance_stepper(target)" in app
+    assert "_make_distance_stepper(target_edit)" in app
     assert "document.addEventListener('keydown'" in app
     assert "document.addEventListener('pointerdown'" in app
+    assert "input.setAttribute('value','0')" in app
     assert "input.setAttribute('value',input.value)" in app
     assert "input.removeAttribute('min')" in app
     assert "value=Math.max(minimum,value)" in app
