@@ -10,6 +10,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Add `--gsm-param {equi,energy}` to `all`, `path-opt`, and `path-search` as an advanced GSM node-parameterization control; `equi` remains the default.
 
 ### Fixed
+- Show machine-readable workflow warnings above Colab result tables while
+  keeping Run details limited to execution metadata.
+- Keep the complete MEP summary visible at default pipeline verbosity,
+  including no-change results and every segment's barrier and reaction energy.
+- Reconcile reported frequency modes against active DOF, rigid modes, and the
+  near-zero window, and render reproduced commands shell-safely.
 - Give generated text and log previews a bounded, visible scroll region in the
   Colab Results panel.
 - Report `all` summary modes as `MEP` / `Scan` / `TS-only` and show absolute

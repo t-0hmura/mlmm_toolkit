@@ -2815,7 +2815,9 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     summary = tmp_path / "summary.json"
     summary.write_text(json.dumps({
         "status": "success", "scientific_status": "partial",
-        "scientific_status_reasons": ["IRC endpoint mismatch"],
+        "scientific_status_reasons": [
+            "IRC endpoint mismatch", "IRC endpoint mismatch",
+        ],
         "segments": [{"index": 1, "barrier_kcal": 8.0, "delta_kcal": -1.0}],
         "post_segments": [{"index": 1, "mlip": {"barrier_kcal": 7.5, "delta_kcal": -1.2}}],
         "rate_limiting_step": {"barrier_kcal": 7.5, "method": "mlip"},
@@ -2823,8 +2825,29 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     summary_html = app["_summary_html"](str(summary))
     assert "Highest local barrier: 7.5" in summary_html
     assert "IRC endpoint mismatch" in summary_html
+    assert '<div role="alert"' in summary_html
+    assert "<b>! WARNING:</b> IRC endpoint mismatch" in summary_html
+    assert summary_html.count("IRC endpoint mismatch") == 1
+    assert summary_html.index("! WARNING:") < summary_html.index("<table")
+    assert "status details" not in summary_html
     assert "MLIP" in summary_html and "partial result" not in summary_html
     assert ">partial</span>" not in summary_html
+    leaf_result = tmp_path / "result.json"
+    leaf_result.write_text(json.dumps({
+        "status": "completed",
+        "scientific_status": "partial",
+        "status_reasons": ["Leaf workflow warning"],
+    }), encoding="utf-8")
+    app["S"].update(
+        _last_out_dir=str(tmp_path),
+        _last_subcmd="irc",
+        _last_files=[str(leaf_result)],
+        _last_manifest={"status": "success", "exit_code": 0},
+    )
+    assert "Leaf workflow warning" not in app["_result_context_html"](str(tmp_path))
+    assert "<b>! WARNING:</b> Leaf workflow warning" in app["_summary_html"](
+        str(leaf_result)
+    )
     ts_only_summary = tmp_path / "ts_only_summary.json"
     ts_only_summary.write_text(json.dumps({
         "status": "success",
@@ -2848,6 +2871,7 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
         },
     }), encoding="utf-8")
     ts_only_html = app["_summary_html"](str(ts_only_summary))
+    assert "! WARNING:" not in ts_only_html
     assert "raw MEP" not in ts_only_html
     assert "IRC frames: 5" not in ts_only_html
     assert "backend/model:" not in ts_only_html

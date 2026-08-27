@@ -87,6 +87,22 @@ from mlmm.cli.common_options import add_ml_charge_spin_options, add_ml_layer_det
 from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, render_cli_exception
 
 
+def _format_mode_accounting(
+    resolved_mode_count: int,
+    active_dof: int,
+    projection_info: dict,
+) -> str:
+    """Return one compact, auditable mode-count equation for the console."""
+    rigid_count = int(projection_info.get("effective_rank", 0))
+    near_zero_count = int(projection_info.get("near_zero_mode_count", 0))
+    cutoff = float(projection_info.get("frequency_zero_cutoff_cm", 0.0))
+    return (
+        f"{resolved_mode_count} modes = {active_dof} active DOF - "
+        f"{rigid_count} rigid - {near_zero_count} near-zero "
+        f"(|ν|≤{cutoff:.1f} cm⁻¹)"
+    )
+
+
 def _torch_device(auto: str = "auto") -> torch.device:
     if auto == "auto":
         return torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -1591,6 +1607,10 @@ def cli(
             f"[freq] {len(freqs_cm)} modes ({len(_imag)} imaginary); "
             f"first {_preview_n} by {freq_cfg['sort']}: [{_freq_preview}{_suffix}] cm⁻¹; "
             f"full list: {out_dir_path / 'frequencies_cm-1.txt'}",
+            narrative=True,
+        )
+        emit(
+            f"[freq] {_format_mode_accounting(len(freqs_cm), 3 * _n_active, _rigid_projection)}",
             narrative=True,
         )
         if len(order) > _preview_n:

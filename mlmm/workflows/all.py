@@ -13,6 +13,7 @@ import tempfile
 
 import gc
 import logging
+import shlex
 import sys
 import math
 import click
@@ -4311,7 +4312,7 @@ def cli(
     _echo_state.reset()
 
     time_start = time.perf_counter()
-    command_str = "mlmm " + " ".join(_argv)
+    command_str = shlex.join(["mlmm", *map(str, _argv)])
 
     _is_param_explicit = make_is_param_explicit(ctx)
     # Post-IRC endpoint re-optimization uphill-rejection toggle. ``None`` unless

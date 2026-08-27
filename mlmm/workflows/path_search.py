@@ -10,6 +10,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 import gc
 import inspect
 import logging
+import shlex
 import sys
 import textwrap
 import tempfile
@@ -1875,7 +1876,7 @@ def cli(
 
     time_start = time.perf_counter()  # start timing
     error_out_dir = Path(out_dir).resolve()
-    command_str = "mlmm " + " ".join(argv_all)
+    command_str = shlex.join(["mlmm", *map(str, argv_all)])
     try:
         if len(input_paths) < 2:
             raise click.BadParameter("Provide at least two structures for --input in reaction order (reactant [intermediates ...] product).")
@@ -2576,19 +2577,27 @@ def cli(
                 err=True,
             )
         elif overall_changed and overall_summary.strip():
-            click.echo(textwrap.indent(overall_summary.strip(), prefix="  "))
+            emit(textwrap.indent(overall_summary.strip(), prefix="  "), narrative=True)
         else:
-            click.echo("  (no covalent changes detected)")
+            emit("  (no covalent changes detected)", narrative=True)
 
         if combined_all.segments:
             emit("\n[segments] Along the final MEP order (ΔE‡, ΔE). Bridges are shown between connected segments:", narrative=True)
             for i, seg in enumerate(combined_all.segments, 1):
                 kind_label = "BRIDGE" if seg.kind == "bridge" else "SEG"
-                click.echo(f"  [{i:02d}] ({kind_label}) {seg.tag}  |  ΔE‡ = {seg.barrier_kcal:.2f} kcal/mol,  ΔE = {seg.delta_kcal:.2f} kcal/mol")
+                emit(
+                    f"  [{i:02d}] ({kind_label}) {seg.tag}  |  "
+                    f"ΔE‡ = {seg.barrier_kcal:.2f} kcal/mol,  "
+                    f"ΔE = {seg.delta_kcal:.2f} kcal/mol",
+                    narrative=True,
+                )
                 if seg.kind != "bridge" and seg.summary.strip():
-                    click.echo(textwrap.indent(seg.summary.strip(), prefix="      "))
+                    emit(
+                        textwrap.indent(seg.summary.strip(), prefix="      "),
+                        narrative=True,
+                    )
         else:
-            click.echo("\n[segments] (no segment reports)")
+            emit("\n[segments] (no segment reports)", narrative=True)
 
         emit("====== MEP Summary finished ======\n", narrative=True)
 

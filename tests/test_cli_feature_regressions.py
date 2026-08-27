@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import json
 import re
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -277,6 +278,16 @@ def test_json_stdout_detection_covers_legacy_boolean_forms(
     from mlmm.cli.app import _requests_stdout_json
 
     assert _requests_stdout_json(argv) is expected
+
+
+def test_command_log_is_shell_safe() -> None:
+    from mlmm.cli.app import _quoted_argv
+
+    argv = ["mlmm", "all", "-o", "result_scan2d(1)", "--label", "$x y"]
+    rendered = _quoted_argv(argv)
+
+    assert shlex.split(rendered) == argv
+    assert "'result_scan2d(1)'" in rendered
 
 
 def test_start_header_uses_registered_subcommand_name(monkeypatch) -> None:

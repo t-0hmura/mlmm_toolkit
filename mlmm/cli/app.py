@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import shlex
 import sys
 import warnings
 from pathlib import Path
@@ -40,24 +41,9 @@ def _command_argv(argv: list[str]) -> list[str]:
     return list(argv)
 
 
-def _display_arg(arg: str) -> str:
-    """Return a readable argv token for the startup command log."""
-    if arg == "":
-        return '""'
-    if not any(ch.isspace() or ch in {'"', "'"} for ch in arg):
-        return arg
-    return '"' + arg.replace('"', r'\"') + '"'
-
-
 def _quoted_argv(argv: list[str]) -> str:
-    """Return a readable representation of the executed argv.
-
-    The shell removes the user's original quote characters before Python
-    starts, so the literal typed string is not recoverable from ``sys.argv``.
-    This keeps argv values intact while avoiding shlex's hard-to-read
-    ``'"'"'`` single-quote escaping in logs.
-    """
-    return " ".join(_display_arg(str(arg)) for arg in _command_argv(argv))
+    """Return a shell-safe representation of the executed argv."""
+    return shlex.join([str(arg) for arg in _command_argv(argv)])
 
 
 def _has_help_or_version_request(argv: list[str]) -> bool:

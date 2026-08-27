@@ -197,6 +197,45 @@ print('cycle 500')
     ]
 
 
+def test_mep_summary_body_is_visible_at_default_pipeline_verbosity() -> None:
+    from mlmm.workflows import path_search
+
+    source = Path(path_search.__file__).read_text(encoding="utf-8")
+    lines = source.splitlines()
+    start = next(
+        i for i, line in enumerate(lines, 1) if "MEP summary started" in line
+    )
+    finish = next(
+        i
+        for i, line in enumerate(lines[start:], start + 1)
+        if "mep summary finished" in line.lower()
+    )
+    tree = ast.parse(source)
+    output_calls = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call) or not start <= node.lineno <= finish:
+            continue
+        is_emit = isinstance(node.func, ast.Name) and node.func.id == "emit"
+        is_click_echo = (
+            isinstance(node.func, ast.Attribute)
+            and node.func.attr == "echo"
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == "click"
+        )
+        if is_emit or is_click_echo:
+            output_calls.append((node, is_emit))
+
+    assert len(output_calls) >= 8
+    for node, is_emit in output_calls:
+        keywords = {kw.arg: kw.value for kw in node.keywords if kw.arg}
+        if is_emit:
+            assert isinstance(keywords.get("narrative"), ast.Constant)
+            assert keywords["narrative"].value is True
+        else:
+            assert isinstance(keywords.get("err"), ast.Constant)
+            assert keywords["err"].value is True
+
+
 def test_lower_layers_depend_on_output_adapter_not_core_utils() -> None:
     package_root = Path(__file__).resolve().parents[1] / "mlmm"
     violations = []

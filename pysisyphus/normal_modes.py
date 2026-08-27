@@ -58,11 +58,28 @@ def resolved_imaginary_mask(
 
 
 def filter_resolved_modes(
-    freqs_cm, modes, cutoff_cm=DEFAULT_FREQUENCY_ZERO_CUTOFF_CM
+    freqs_cm,
+    modes,
+    cutoff_cm=DEFAULT_FREQUENCY_ZERO_CUTOFF_CM,
+    *,
+    filter_info=None,
 ):
     """Remove |ν| <= cutoff while preserving frequency/mode alignment."""
     frequencies = np.asarray(freqs_cm, dtype=float)
-    keep = resolved_frequency_mask(frequencies, cutoff_cm)
+    cutoff = normalize_frequency_zero_cutoff_cm(cutoff_cm)
+    keep = resolved_frequency_mask(frequencies, cutoff)
+    if filter_info is not None:
+        near_zero = frequencies[~keep]
+        filter_info.clear()
+        filter_info.update(
+            {
+                "frequency_zero_cutoff_cm": cutoff,
+                "raw_mode_count": int(frequencies.size),
+                "resolved_mode_count": int(np.count_nonzero(keep)),
+                "near_zero_mode_count": int(near_zero.size),
+                "near_zero_frequencies_cm": [float(value) for value in near_zero],
+            }
+        )
     if isinstance(modes, torch.Tensor):
         mode_keep = torch.as_tensor(keep, dtype=torch.bool, device=modes.device)
         filtered_modes = modes[mode_keep]
@@ -402,9 +419,15 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
         hnu = s_new * torch.sqrt(torch.abs(omega2))
         hnu = torch.where(omega2 < 0, -hnu, hnu)
         freqs_cm = (hnu / units.invcm).detach().cpu().numpy()
+        zero_filter_info = {}
         freqs_cm, modes = filter_resolved_modes(
-            freqs_cm, modes, frequency_zero_cutoff_cm
+            freqs_cm,
+            modes,
+            frequency_zero_cutoff_cm,
+            filter_info=zero_filter_info,
         )
+        if projection_info is not None:
+            projection_info.update(zero_filter_info)
 
         del omega2, hnu
         if torch.cuda.is_available():
