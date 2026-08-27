@@ -479,11 +479,13 @@ def format_method_citations(
 
     lines = [header, "Please cite the software and methods used:"]
     previous_method = None
-    for index, reference in enumerate(method_references(payload), start=1):
+    method_index = 0
+    for reference in method_references(payload):
         if reference["method"] != previous_method:
-            lines.append(f"- {reference['method']}:")
+            method_index += 1
+            lines.append(f"({method_index}) {reference['method']}:")
             previous_method = reference["method"]
-        lines.append(f"({index}) {reference['citation']}")
+        lines.append(f"- {reference['citation']}")
     return lines
 
 

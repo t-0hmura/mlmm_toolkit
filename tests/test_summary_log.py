@@ -353,12 +353,14 @@ def test_method_citations_follow_resolved_methods_and_match_stdout(
     assert lines[1] == "Please cite the software and methods used:"
     cursor = 2
     previous_method = None
-    for index, reference in enumerate(references, start=1):
+    method_index = 0
+    for reference in references:
         if reference["method"] != previous_method:
-            assert lines[cursor] == f"- {reference['method']}:"
+            method_index += 1
+            assert lines[cursor] == f"({method_index}) {reference['method']}:"
             cursor += 1
             previous_method = reference["method"]
-        assert lines[cursor] == f"({index}) {reference['citation']}"
+        assert lines[cursor] == f"- {reference['citation']}"
         cursor += 1
     assert cursor == len(lines)
 
@@ -476,7 +478,7 @@ def test_mace_citations_share_one_heading_and_keep_both_papers() -> None:
         "mlip_model": "MACE-OMOL-0",
     }))
 
-    assert block.count("- MACE:") == 1
+    assert sum(line.endswith(" MACE:") for line in block.splitlines()) == 1
     assert "11423-11436" in block
     assert "56-67" in block
     assert "https://doi.org/10.1038/s42256-024-00956-x" in block

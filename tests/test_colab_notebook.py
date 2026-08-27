@@ -269,6 +269,53 @@ def test_setup_command_fields_do_not_repaint_hidden_results_or_viewer(monkeypatc
     assert "-r 3.3" in app["cmd_box"].value
 
 
+def test_distance_restraint_picker_toggles_and_emits_target(
+    monkeypatch, tmp_path: Path,
+) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    input_path = tmp_path / "input.pdb"
+    input_path.write_text("END\n", encoding="utf-8")
+    atoms = [
+        {"index": 0, "serial": 1, "chain": "A", "resname": "ALA",
+         "resseq": 1, "icode": "", "name": "N", "xyz": (0.0, 0.0, 0.0)},
+        {"index": 1, "serial": 2, "chain": "A", "resname": "ALA",
+         "resseq": 1, "icode": "", "name": "CA", "xyz": (2.0, 0.0, 0.0)},
+    ]
+    app["S"].update(
+        inputs=[str(input_path)], mode="pdb", _atom_meta=atoms,
+        _primary_atom_meta=atoms, _view_mapping_ok=True, _view_input_index=0,
+    )
+    app["dd_subcmd"].value = "opt"
+    app["refresh"]()
+
+    _widget_with_description(
+        app["freeze_panel"], "Pick distance restraint"
+    ).click()
+    assert app["_PICK_ACTION_STATE"]["restraint_active"] is True
+    assert app["pick_action"].value == "freezeA"
+    app["on_click"]("0", live_marked=True)
+    assert app["pick_action"].value == "freezeB"
+    app["on_click"]("1", live_marked=True)
+
+    target = _widget_with_description(app["freeze_panel"], "Target Å")
+    assert target.value == pytest.approx(2.0)
+    target.value = 1.8
+    _widget_with_description(app["freeze_panel"], "Done picking").click()
+    assert app["_PICK_ACTION_STATE"]["restraint_active"] is False
+    assert app["pick_action"].value == "center"
+    _widget_with_description(app["freeze_panel"], "Add restraint").click()
+
+    assert len(app["S"]["freeze_pairs"]) == 1
+    assert app["S"]["freeze_pairs"][0]["t"] == pytest.approx(1.8)
+    restraint = app["freeze_pair_lit"]()
+    assert ",1.8)" in restraint
+    parm = tmp_path / "system.parm7"
+    parm.write_text("%VERSION\n", encoding="utf-8")
+    app["S"]["parm"] = str(parm)
+    command = app["build_cmd"]()
+    assert command[command.index("--dist-freeze") + 1] == restraint
+
+
 def _root_normalized_subcommand_argv(app: dict, subcommand: str, argv: list[str]) -> list[str]:
     """Apply the root CLI's compatibility normalization before direct parsing."""
     root = app["PRODUCT_CLI"]
@@ -3342,9 +3389,9 @@ def test_colab_operates_scientific_selectors_and_remaining_buttons(
     pick(0)
     app["pick_action"].value = "freezeB"
     pick(1)
-    _widget_with_description(app["freeze_panel"], "add freeze pair").click()
+    _widget_with_description(app["freeze_panel"], "Add restraint").click()
     assert len(app["S"]["freeze_pairs"]) == 1
-    _widget_with_description(app["freeze_panel"], "clear pairs").click()
+    _widget_with_description(app["freeze_panel"], "Clear restraints").click()
     assert app["S"]["freeze_pairs"] == []
     app["pick_action"].value = "freezeatom"
     pick(2)
