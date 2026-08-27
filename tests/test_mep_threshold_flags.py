@@ -150,10 +150,7 @@ def test_all_show_config_reports_each_threshold_owner(tmp_path: Path) -> None:
     assert "thresh_gsm: gau_loose" in result.output
     assert "thresh_dmf: middle" in result.output
     footer = result.output.rstrip().splitlines()[-1]
-    assert footer.startswith(
-        "Dry run complete. Input commands are valid. (Elapsed time: "
-    )
-    assert footer.endswith(")")
+    assert footer == "Dry run complete. Input commands are valid."
     assert "Elapsed Time for Whole Pipeline" not in result.output
 
 
