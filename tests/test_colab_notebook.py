@@ -359,6 +359,47 @@ def _viewer_contract() -> dict:
     return namespace
 
 
+def test_small_view_loader_reads_xyz_ordinary_gaussian_and_oniom(
+    tmp_path: Path,
+) -> None:
+    source = _notebook()["cells"][2]["source"]
+    tree = ast.parse(source)
+    loader = next(
+        node for node in tree.body
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "_load_small_view_structure"
+    )
+    namespace = {
+        "Path": Path,
+        "_runtime_path": lambda name: str(tmp_path / name),
+    }
+    exec(
+        compile(ast.Module(body=[loader], type_ignores=[]), str(NOTEBOOK), "exec"),
+        namespace,
+    )
+
+    xyz = tmp_path / "input.xyz"
+    xyz.write_text("2\nXYZ\nC 0 0 0\nH 0 0 1\n", encoding="utf-8")
+    ordinary = tmp_path / "ordinary.gjf"
+    ordinary.write_text(
+        "#p hf/3-21g\n\nordinary\n\n0 1\nC 0 0 0\nH 0 0 1\n\n",
+        encoding="utf-8",
+    )
+    oniom = tmp_path / "oniom.com"
+    oniom.write_text(
+        "# oniom(hf/3-21g:amber)\n\noniom\n\n0 1 0 1 0 1\n"
+        "C-CT 0 0 0 0 H\nH-HC 0 0 0 1 L\n\n",
+        encoding="utf-8",
+    )
+
+    for path in (xyz, ordinary, oniom):
+        text, metadata, viewer_path = namespace["_load_small_view_structure"](path)
+        assert text.splitlines()[0] == "2"
+        assert [atom["element"] for atom in metadata] == ["C", "H"]
+        assert [atom["index"] for atom in metadata] == [0, 1]
+        assert Path(viewer_path).read_text(encoding="utf-8") == text
+
+
 def _advanced_widget_values(app: dict, param) -> list:
     """Return browser-widget values that exercise each option serializer."""
     click = app["click"]
@@ -944,6 +985,11 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "register_callback('mlmm_gui.tab_go', _on_colab_tab)" in app
     assert "register_callback('mlmm_gui.select_result', _on_colab_result)" in app
     assert "function wireResultChoices()" in app
+    assert "document.__rxResultChoicesWired" in app
+    assert "document.addEventListener('change',function(event)" in app
+    assert "select.addEventListener('change'" not in app
+    assert "document.querySelector(selector)||select" in app
+    assert "rxResultBusy" in app
     assert "setNativeResultLoading(label,true)" in app
     assert "var selectedIndex=select.selectedIndex" in app
     assert "bridge.invokeFunction(CONFIG.result_callback,[kind,selectedIndex,generation,label],{})" in app
@@ -5004,6 +5050,7 @@ def test_results_replaces_trajectory_with_exact_stationary_model_set(
     assert '"xTickStep":1' in profile
     assert "range:cfg.xRange,autorange:false" in profile
     assert "range:cfg.yRange,autorange:false" in profile
+    assert profile.count("if(!cfg.linked)return;") == 2
     medium = app["_energy_plot_document"](
         [float(index) for index in range(22)],
         {"x": "Path image", "start": "R", "end": "P", "extrema": True}, 18,
