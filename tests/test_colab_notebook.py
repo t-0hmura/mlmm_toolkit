@@ -5711,6 +5711,60 @@ def test_scan3d_axes_plot_selection_and_structure_stay_bidirectionally_linked(
     assert "marker:{size:3.6" in document
 
 
+def test_energy_levels_match_cli_width_and_fit_annotations(
+    monkeypatch, tmp_path: Path,
+) -> None:
+    from mlmm.core.utils import build_energy_diagram
+
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    for count in (2, 5, 10, 14):
+        labels = [f"S{index + 1}" for index in range(count)]
+        figure = build_energy_diagram(
+            energies=list(range(count)), labels=labels,
+        )
+        cli_width = float(figure.data[0].x[1] - figure.data[0].x[0])
+        assert app["_energy_level_segment_ratio"](count) == pytest.approx(
+            cli_width
+        )
+
+    payload = {
+        "labels": ["Reactant complex with a long label", "TS1", "P1", "TS2", "P"],
+        "energies_kcal": [0.0, 12.3, -4.5, 8.0, -10.0],
+    }
+    document = app["_energy_levels_document"](payload, generation=3)
+    bars = re.findall(
+        r'<line class="rxlevel-bar" x1="([0-9.]+)" x2="([0-9.]+)"',
+        document,
+    )
+    connectors = re.findall(
+        r'<line x1="([0-9.]+)" y1="[0-9.]+" x2="([0-9.]+)" '
+        r'y2="[0-9.]+" stroke="#94a3b8"',
+        document,
+    )
+    spacing = (760 - 96 - 28) / len(payload["labels"])
+    segment_ratio = app["_energy_level_segment_ratio"](len(payload["labels"]))
+    assert len(bars) == len(payload["labels"])
+    assert all(
+        float(x2) - float(x1) == pytest.approx(
+            spacing * segment_ratio, abs=0.2
+        )
+        for x1, x2 in bars
+    )
+    assert len(connectors) == len(payload["labels"]) - 1
+    assert all(
+        float(x2) - float(x1) == pytest.approx(
+            spacing * (1.0 - segment_ratio), abs=0.2
+        )
+        for x1, x2 in connectors
+    )
+    assert 'data-base-font-size="18"' in document
+    assert 'data-base-font-size="24"' in document
+    assert "getComputedTextLength()" in document
+    assert "node.style.fontSize=fitted+'px'" in document
+    assert "fitAnnotations();" in document
+    assert ".rxlevel.active .rxlevel-value{font-weight:850}" in document
+
+
 def test_results_playback_uses_path_speed_except_for_energy_levels(
     monkeypatch, tmp_path: Path,
 ) -> None:

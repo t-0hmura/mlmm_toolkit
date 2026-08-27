@@ -10,6 +10,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Add `--gsm-param {equi,energy}` to `all`, `path-opt`, and `path-search` as an advanced GSM node-parameterization control; `equi` remains the default.
 
 ### Fixed
+- Match the interactive Colab energy-level segment and connector proportions
+  to the CLI diagram and shrink overlong level annotations to fit their bars.
 - Keep the scan2d/scan3d starting reference as the `-1` row in `surface.csv`
   while excluding it from energy baselines, interpolation, and plots.
 - Compact the Colab run/output and Results status surfaces, refresh the output
