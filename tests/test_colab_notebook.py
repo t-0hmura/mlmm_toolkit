@@ -2798,9 +2798,20 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     assert app["_artifact_kind"]("job.com") == "text"
     assert app["_artifact_kind"]("job.inp") == "text"
     assert app["_artifact_kind"]("forcefield.prms") == "text"
+    assert app["_artifact_kind"]("summary.log") == "text"
     preview = app["_text_preview_html"](str(result_json), "JSON")
     assert "&quot;energy&quot;" in preview and "-1.25" in preview
+    assert 'class="rxartifact-text-preview"' in preview
     assert "DejaVu Sans Mono" in preview and "Liberation Mono" in preview
+    notebook_source = NOTEBOOK.read_text(encoding="utf-8")
+    assert ".rxartifact-text-preview" in notebook_source
+    assert "max-height:520px" in notebook_source
+    assert "overflow-y:scroll !important" in notebook_source
+    assert "scrollbar-gutter:stable" in notebook_source
+    result_log = tmp_path / "summary.log"
+    result_log.write_text("line 1\nline 2\n", encoding="utf-8")
+    log_preview = app["_artifact_preview_html"](str(result_log), str(tmp_path))
+    assert 'class="rxartifact-text-preview"' in log_preview
     summary = tmp_path / "summary.json"
     summary.write_text(json.dumps({
         "status": "success", "scientific_status": "partial",

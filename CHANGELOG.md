@@ -10,6 +10,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Add `--gsm-param {equi,energy}` to `all`, `path-opt`, and `path-search` as an advanced GSM node-parameterization control; `equi` remains the default.
 
 ### Fixed
+- Give generated text and log previews a bounded, visible scroll region in the
+  Colab Results panel.
 - Report `all` summary modes as `MEP` / `Scan` / `TS-only` and show absolute
   root and internal path-module output directories in `summary.log`.
 - Match the interactive Colab energy-level segment and connector proportions
