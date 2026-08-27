@@ -5311,6 +5311,16 @@ def test_results_route_single_structures_modes_and_scan_grids(
     assert "rxstructure-only" in app["path_grid"]._dom_classes
     assert "Energy = -1.23456789 Ha" in app["frame_state"].value
 
+    app["S"].update(
+        _last_subcmd="tsopt", _last_files=[str(final)],
+        _last_manifest={"status": "success", "exit_code": 0},
+    )
+    app["_results"](str(tmp_path))
+    assert app["traj_choice"].options[0][0] == (
+        "Optimized transition-state structure"
+    )
+    assert "Optimized transition-state structure" in app["trajectory_intro"].value
+
     optimization = tmp_path / "optimization_all_trj.xyz"
     optimization.write_text(xyz, encoding="utf-8")
     app["S"].update(
@@ -5329,7 +5339,7 @@ def test_results_route_single_structures_modes_and_scan_grids(
     assert "rxenergy-frame" in app["plot_out"].value
     assert [label for label, _ in app["_result_view_candidates"](
         [str(final), str(optimization)], str(tmp_path), "tsopt"
-    )] == ["TS-refinement trajectory", "Refined transition-state structure"]
+    )] == ["TS-refinement trajectory", "Optimized transition-state structure"]
 
     vib_dir = tmp_path / "vib"
     vib_dir.mkdir()
@@ -5338,7 +5348,7 @@ def test_results_route_single_structures_modes_and_scan_grids(
     assert [label for label, _ in app["_result_view_candidates"](
         [str(final), str(optimization), str(imaginary)], str(tmp_path), "tsopt"
     )] == [
-        "TS-refinement trajectory", "Refined transition-state structure",
+        "TS-refinement trajectory", "Optimized transition-state structure",
         "Imaginary mode · −550.15 cm⁻¹",
     ]
 
