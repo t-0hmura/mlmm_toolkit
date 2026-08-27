@@ -4747,7 +4747,7 @@ def test_colab_poll_repairs_a_finished_but_stale_frontend() -> None:
         "os": os,
         "_RUN_EXECUTION": {
             "task": None, "thread": None, "process": None,
-            "result_attempt": True,
+            "result_attempt": True, "result_delivery_pending": False,
         },
         "_ACTION_STATE": {"running": False},
         "_RUN_STATE": {"text": "✓ done", "tone": "ok", "kind": "done"},
@@ -4763,6 +4763,9 @@ def test_colab_poll_repairs_a_finished_but_stale_frontend() -> None:
         "_finish_cancelled_attempt": lambda out: events.append(
             ("cancelled_results", out)),
         "_tab_go": lambda index: events.append(("tab", index)),
+        "_TAB_NAV": {"request": 9},
+        "_render_results_for_tab": lambda request: events.append(
+            ("render_results", request)),
         "_publish_result_widget_state": lambda: events.append(("publish_results",)),
         "_publish_run_widget_state": lambda: events.append(("publish_run",)),
     }
@@ -4772,6 +4775,19 @@ def test_colab_poll_repairs_a_finished_but_stale_frontend() -> None:
     assert "bridge.invokeFunction(CONFIG.poll_callback,[active],{})" in source
     assert namespace["_colab_poll_run"](False) == {"running": False}
     assert events == [("flush", True)]
+
+    events.clear()
+    namespace["_RUN_EXECUTION"]["result_delivery_pending"] = True
+    assert namespace["_colab_poll_run"](False) == {"running": False}
+    assert events == [
+        ("flush", True),
+        ("running", False, True),
+        ("status", "✓ done", "ok", "done", True),
+        ("tab", 3),
+        ("render_results", 9),
+        ("publish_run",),
+    ]
+    assert namespace["_RUN_EXECUTION"]["result_delivery_pending"] is False
 
     events.clear()
     assert namespace["_colab_poll_run"](True) == {"running": False}

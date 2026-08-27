@@ -483,7 +483,7 @@ def format_method_citations(
         if reference["method"] != previous_method:
             lines.append(f"- {reference['method']}:")
             previous_method = reference["method"]
-        lines.append(f"[{index}] {reference['citation']}")
+        lines.append(f"({index}) {reference['citation']}")
     return lines
 
 

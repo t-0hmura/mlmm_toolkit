@@ -358,7 +358,7 @@ def test_method_citations_follow_resolved_methods_and_match_stdout(
             assert lines[cursor] == f"- {reference['method']}:"
             cursor += 1
             previous_method = reference["method"]
-        assert lines[cursor] == f"[{index}] {reference['citation']}"
+        assert lines[cursor] == f"({index}) {reference['citation']}"
         cursor += 1
     assert cursor == len(lines)
 
