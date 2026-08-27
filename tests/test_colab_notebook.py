@@ -4839,6 +4839,11 @@ def test_colab_poll_repairs_a_finished_but_stale_frontend() -> None:
                  str(NOTEBOOK), "exec"), namespace)
 
     assert "bridge.invokeFunction(CONFIG.poll_callback,[active],{})" in source
+    assert "function callbackData(response){" in source
+    assert "return response.data['application/json'];" in source
+    assert "function(response){\n        var result=callbackData(response);" in source
+    assert source.index("var result=callbackData(response);") < source.index(
+        "var resultsPending=!!(result&&result.results_pending)")
     assert "setNativeTabChoice(3);" in source
     assert "setNativeTabPane(3)" in source
     assert "resultsPending?300" not in source
