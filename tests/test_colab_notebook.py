@@ -271,11 +271,17 @@ def test_setup_command_fields_do_not_repaint_hidden_results_or_viewer(monkeypatc
     manual = app["cmd_box"].value + " --manual-flag"
     app["cmd_box"].value = manual
     assert app["manual_mode_notice"].layout.display == ""
+    assert "Manual command mode." in app["manual_mode_notice"].value
     app["prep_radius"].value = 3.3
     assert app["cmd_box"].value == manual
     app["b_rebuild"].click()
     assert app["manual_mode_notice"].layout.display == "none"
+    assert app["manual_mode_notice"].value == ""
     assert "-r 3.3" in app["cmd_box"].value
+    assert '"expanded":false' in app["_molstar_document"]("1\nH\nH 0 0 0\n", "xyz")
+    assert '"expanded":true' in app["_molstar_document"](
+        "1\nH\nH 0 0 0\n", "xyz", expanded=True,
+    )
 
 
 def test_distance_restraint_picker_toggles_and_emits_target(
@@ -1037,6 +1043,9 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "_MOLSTAR_VERSION = '5.11.0'" in app
     assert "molstar@%s/build/viewer/molstar.js" in app
     assert "layoutShowSequence:cfg.showSequence" in app
+    assert "layoutIsExpanded:cfg.expanded" in app
+    assert "'expanded': bool(expanded)" in app
+    assert app.count("expanded=True") >= 4
     assert "layoutShowControls:true" in app
     assert "viewportShowControls:true" in app
     assert "viewportShowSelectionMode:true" in app
@@ -1439,7 +1448,7 @@ def test_colab_viewer_persists_exact_atom_and_residue_context() -> None:
         "show_sequence=False, channel='trajectory',",
         "generation=generation, frame_count=len(frames)",
         "source = ''.join(frames)",
-        "display(HTML(_molstar_iframe(source, fmt, show_sequence=(fmt != 'xyz'))))",
+        "display(HTML(_molstar_iframe(source, fmt, show_sequence=(fmt != 'xyz'), expanded=True)))",
     ):
         assert marker in app
     assert "py3Dmol" not in app
@@ -5384,7 +5393,7 @@ def test_results_replaces_trajectory_with_exact_stationary_model_set(
     assert '"xTickStep":10' in many
     assert "showticklabels:true,ticks:'',ticklen:0,tickfont:{size:14}" in profile
     assert "font:{size:18,color:'#253047'}" in profile
-    assert "const below=/(?:endpoint|scan (?:start|end))$/i.test" in profile
+    assert "const below=/(?:endpoint|scan (?:start|end)|← forward|backward →)$/i.test" in profile
     assert "yshift:below?-18:16,yanchor:below?'top':'bottom'" in profile
     scan_profile = html.unescape(app["_energy_plot_document"](
         [0.0, 10.0, 5.0],
@@ -5393,8 +5402,8 @@ def test_results_replaces_trajectory_with_exact_stationary_model_set(
     assert '"yRange":[-2.2,11.2]' in scan_profile
     irc_profile = html.unescape(app["_energy_plot_document"](
         [0.0, 10.0, 5.0],
-        {"x": "IRC point", "start": "forward endpoint",
-         "end": "backward endpoint", "ts_index": 1, "ts_label": "TS"}, 21,
+        {"x": "IRC point", "start": "← forward",
+         "end": "backward →", "ts_index": 1, "ts_label": "TS"}, 21,
     ))
     assert '"yRange":[-2.2,12.2]' in irc_profile
 
