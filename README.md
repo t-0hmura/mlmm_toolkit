@@ -6,6 +6,12 @@
 
 `mlmm-toolkit` is an open-source CLI for **ML/MM ONIOM** analyses of enzymatic reactions. It replaces the QM region of conventional QM/MM with a machine-learning interatomic potential (MLIP, default: UMA) while keeping the surrounding protein under an analytical Amber force field (`hessian_ff`), and chains **ML-region selection → MM topology/layer preparation → MEP search → TS optimization → IRC → thermochemical correction → DFT single-point** in one command. A link-atom boundary handles amino-acid residues straddling the ML/MM cut, and a microiteration scheme separates ML and MM relaxation in large systems.
 
+## Colab GUI workspace
+
+An interactive GUI workspace is available in Google Colab. It brings full-system coordinates and topology input, ML-region setup, Mol* visualization and atom picking, controls generated from the live CLI, execution, and linked MEP/IRC/result inspection into one notebook. Choose a GPU runtime and open it here:
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb)
+
 Test a reaction mechanism in a single command:
 
 ```bash
@@ -31,31 +37,6 @@ The source repository includes a full-system [BezA endpoint/scan mechanism](exam
 - [Getting Started](docs/getting-started.md) · [mmCIF and Large Structures](docs/cif.md) · [Concepts](docs/concepts.md) · [Installation](docs/getting-started.md#installation) · [Troubleshooting](docs/troubleshooting.md)
 - [Python API](docs/python-api.md) · [CLI Conventions](docs/cli-conventions.md) · [YAML Reference](docs/yaml-reference.md) · [JSON Output Schema](docs/json-output.md)
 - Full command index: [docs/index.md](docs/index.md)
-
-## Colab GUI
-
-An interactive Colab notebook is available.
-
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb)
-
-Before a release, exercise the notebook in a real hosted Colab runtime; the
-headless contract suite does not replace this GUI check:
-
-1. Choose a GPU runtime, run **Installation**, then **Launch GUI**. Test both
-   the pinned release path and, before publication, the documented `debug`
-   source-ZIP path.
-2. Upload `examples/beza/1.R.pdb` and `examples/beza/3.P.pdb` (or the smaller
-   `examples/toy_system` R/P pair plus its `parm7`). Confirm input order,
-   R/P switching in Mol*, layer detection or the explicit topology/model
-   pairing, and make/clear an atom selection.
-3. Select `all`, `path-opt`, and `path-search`; confirm `max-nodes=20`, rebuild
-   and validate the command, and verify that validation writes neither a heavy
-   Hessian nor a scientific result directory. Confirm the resolved topology
-   keeps one consistent CMAP policy for the whole ML/MM run.
-4. Run a deliberately capped command in a fresh output directory. Confirm the
-   live log/Cancel state, current-run Results and ZIP download, trajectory and
-   energy-frame linkage when present, and session save/load. Reusing an output
-   directory must require the notebook's explicit confirmation path.
 
 ## System requirements
 
