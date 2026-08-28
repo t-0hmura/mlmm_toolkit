@@ -532,7 +532,7 @@ def _advanced_widget_values(app: dict, param) -> list:
         assert choices, f"{param.name} has an empty Click choice"
         return [choices[0]]
     if isinstance(param.type, (click.types.IntParamType, click.types.FloatParamType)):
-        default = param.default
+        default = app["_cli_numeric_default"](param)
         lower = getattr(param.type, "min", None)
         upper = getattr(param.type, "max", None)
         step = 1 if isinstance(param.type, click.types.IntParamType) else 0.5
@@ -3108,6 +3108,17 @@ def test_colab_exercises_every_workflow_and_advanced_flag_widget(
                     assert widget.value == app["_ADVANCED_DEFAULT"], param.name
                     assert widget.label.startswith("default:"), param.name
                     default_dropdowns.add(param.name)
+                elif isinstance(
+                    param.type,
+                    (app["click"].types.IntParamType,
+                     app["click"].types.FloatParamType),
+                ):
+                    effective_default = app["_cli_numeric_default"](param)
+                    if effective_default is not None:
+                        assert widget.value == effective_default, (
+                            subcommand, param.name, widget.value,
+                            effective_default,
+                        )
                 for value in _advanced_widget_values(app, param):
                     widget.value = value
                     assert (
@@ -4962,6 +4973,45 @@ def test_advanced_dropdowns_select_their_default_label() -> None:
         assert state["advanced_overrides"]["all"][param.name] == widget.value
         widget.value = "(default)"
         assert param.name not in state["advanced_overrides"]["all"]
+
+
+def test_advanced_numeric_controls_use_the_effective_cli_default() -> None:
+    source = _notebook()["cells"][2]["source"]
+    wanted = {
+        "_cli_default_label", "_cli_numeric_default",
+        "_set_advanced_override", "_advanced_widget",
+    }
+    functions = [
+        node for node in ast.parse(source).body
+        if isinstance(node, ast.FunctionDef) and node.name in wanted
+    ]
+    import click
+    import ipywidgets as W
+
+    state = {"advanced_overrides": {"all": {}}}
+    namespace = {
+        "S": state, "W": W, "click": click,
+        "_ADVANCED_DEFAULT": "(default)",
+        "_DISTANCE_FLOAT_PARAMS": set(),
+        "_advanced_flag": lambda param: param.opts[0],
+        "_make_distance_stepper": lambda _widget: None,
+        "refresh": lambda: None,
+        "_flag_row": lambda widget, _help, **_kwargs: types.SimpleNamespace(children=(widget,)),
+    }
+    exec(compile(ast.Module(body=functions, type_ignores=[]),
+                 str(NOTEBOOK), "exec"), namespace)
+
+    max_cycles = click.Option(
+        ["--max-cycles"], type=click.IntRange(min=1),
+        default=None, show_default="100000",
+    )
+    widget = namespace["_advanced_widget"]("all", max_cycles).children[0]
+    assert widget.value == 100000
+    assert max_cycles.name not in state["advanced_overrides"]["all"]
+    widget.value = 42
+    assert state["advanced_overrides"]["all"][max_cycles.name] == 42
+    widget.value = 100000
+    assert max_cycles.name not in state["advanced_overrides"]["all"]
 
 
 def test_the_gui_keeps_one_run_path() -> None:
