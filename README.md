@@ -8,10 +8,6 @@
 
 `mlmm-toolkit` is an open-source CLI for **ML/MM ONIOM** analyses of enzymatic reactions. It replaces the QM region of conventional QM/MM with a machine-learning interatomic potential (MLIP, default: UMA) while keeping the surrounding protein under an analytical Amber force field (`hessian_ff`), and chains **ML-region selection → MM topology/layer preparation → MEP search → TS optimization → IRC → thermochemical correction → DFT single-point** in one command. A link-atom boundary handles amino-acid residues straddling the ML/MM cut, and a microiteration scheme separates ML and MM relaxation in large systems.
 
-## Colab GUI workspace
-
-An interactive GUI workspace is available in Google Colab. It brings full-system coordinates and topology input, ML-region setup, Mol* visualization and atom picking, controls generated from the live CLI, execution, and linked MEP/IRC/result inspection into one notebook. Choose a GPU runtime and [open the Colab GUI workspace](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb).
-
 Test a reaction mechanism in a single command:
 
 ```bash
@@ -22,6 +18,10 @@ mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo
 The source repository includes a full-system [BezA endpoint/scan mechanism](examples/beza/README.md), a methyltransferase walk-through, and a 122-atom ML/MM fixture; see [`examples/`](https://github.com/t-0hmura/mlmm_toolkit/tree/main/examples). Each stage is also exposed as an [individual subcommand](#cli-subcommands).
 
 > **Prerequisites:** input PDB/mmCIF structures must already contain hydrogens; multiple reaction states must share the same atoms in the same order (only coordinates differ). `mlmm all` runs `mm-parm` automatically. Match `-l RES:CHARGE` to the H count actually present (e.g. SAM with 23 H = `SAM:1` cation, 22 H = `SAM:0` neutral) — full input-prep checklist in [docs/getting-started.md](docs/getting-started.md).
+
+## Colab GUI workspace
+
+An interactive GUI workspace is available in Google Colab. It brings full-system coordinates and topology input, ML-region setup, Mol* visualization and atom picking, controls generated from the live CLI, execution, and linked MEP/IRC/result inspection into one notebook. Choose a GPU runtime and [open the Colab GUI workspace](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb).
 
 ## Related tools
 
