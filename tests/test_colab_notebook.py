@@ -696,6 +696,9 @@ def test_colab_setup_installs_missing_cyipopt(monkeypatch) -> None:
             return None
         return object()
 
+    fake_hf = types.ModuleType("huggingface_hub")
+    fake_hf.login = lambda **_kwargs: None
+    fake_hf.notebook_login = lambda: None
     real_isdir = os.path.isdir
 
     def fake_isdir(path):
@@ -705,6 +708,7 @@ def test_colab_setup_installs_missing_cyipopt(monkeypatch) -> None:
             return content_checks > 1
         return real_isdir(path)
 
+    monkeypatch.setitem(sys.modules, "huggingface_hub", fake_hf)
     monkeypatch.setattr(subprocess, "run", fake_run)
     monkeypatch.setattr(importlib.util, "find_spec", fake_find_spec)
     monkeypatch.setattr(
