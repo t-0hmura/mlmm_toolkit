@@ -21,7 +21,7 @@ The source repository includes a full-system [BezA endpoint/scan mechanism](exam
 
 ## Colab GUI workspace
 
-An interactive GUI workspace is available in Google Colab. It brings full-system coordinates and topology input, ML-region setup, Mol* visualization and atom picking, controls generated from the live CLI, execution, and linked MEP/IRC/result inspection into one notebook. Choose a GPU runtime and [open the Colab GUI workspace](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb).
+**An interactive GUI workspace is available in Google Colab.** It brings full-system coordinates and topology input, ML-region setup, Mol* visualization and atom picking, controls generated from the live CLI, execution, and linked MEP/IRC/result inspection into one notebook. Choose a GPU runtime and [open the Colab GUI workspace](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb).
 
 ## Related tools
 
