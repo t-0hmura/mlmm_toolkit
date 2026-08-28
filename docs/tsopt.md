@@ -18,7 +18,7 @@ inner MM-only relaxation in microiteration remains a minimum subproblem.
 
 When explicitly enabled, the surplus-imaginary-mode flatten loop (`--flatten`) uses mass-scaled displacements to remove extra negative modes. Without `--flatten`, terminal exact PHVA is performed once and the terminal candidate is retained as first-order, higher-order, no-imaginary, or unavailable. First-order TS certification still requires one imaginary mode along the intended reaction coordinate and correct [`irc`](irc.md) connectivity.
 
-### Terminal outcomes and fatal errors
+## Terminal outcomes and fatal errors
 
 | Condition | `tsopt` artifacts | Composite `all` behavior |
 | --- | --- | --- |
