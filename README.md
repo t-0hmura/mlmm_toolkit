@@ -150,7 +150,7 @@ A run writes its deliverables to `--out-dir` (default `./result_all/`):
 
 - `segments/seg_NN/{reactant,ts,product}.pdb` for MEP-oriented segments; TS-only mode writes chemically unassigned `{e1,ts,e2}.pdb`
 - `mep.pdb` / `mep_trj.xyz` — the merged reaction path; `energy_diagram_MEP.png` — barrier diagram
-- `summary.log` (human-readable) / `summary.json` (machine-readable)
+- `summary.log` / `summary.json`
 - Reusable inputs for follow-up runs: `ml_region.pdb` (`--model-pdb`), `mm_parm/*.parm7` (`--parm`), `layered/` (B-factor-annotated full-system PDBs)
 - Directly inspectable model systems before/after link-H insertion:
   `ml_region_without_linkH.xyz` and `ml_region_with_linkH.xyz`, plus matching
