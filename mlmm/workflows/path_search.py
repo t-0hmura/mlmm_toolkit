@@ -59,7 +59,7 @@ from mlmm.workflows.opt import (
     _normalize_geom_freeze as _normalize_geom_freeze_opt,
 )
 from mlmm.workflows.opt import _convert_yaml_layer_atoms_1to0
-from mlmm.workflows._outcomes import optimizer_converged_bit
+from mlmm.workflows._outcomes import combine_step_convergence, optimizer_converged_bit
 from mlmm.workflows.charge_prep import resolve_charge_spin_or_raise
 from mlmm.core.utils import (
     apply_layer_freeze_constraints,
@@ -85,6 +85,7 @@ from mlmm.core.utils import (
     optional_positive_int,
 )
 from mlmm.core.result_commit import commit_json_exact, with_current_run_id
+from mlmm.io.plotly_image import write_plotly_image
 from mlmm.cli.common_options import add_ml_layer_detection_options, add_precision_option, add_workers_options, add_backend_model_option, add_calc_file_option, add_deterministic_option, add_allow_charge_mult_mismatch_option
 from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, _write_error_json, render_cli_exception
 from mlmm.cli.preflight import validate_existing_files
@@ -1134,6 +1135,8 @@ def _enrich_path_summary_contract(
     out_dir: Path,
     calc_cfg: Dict[str, Any],
     command: str,
+    preopt_requested: bool = False,
+    preopt_outcomes: Sequence[Dict[str, Any]] = (),
 ) -> Dict[str, Any]:
     """Attach the fail-closed machine contract for standalone path-search."""
 
@@ -1167,6 +1170,26 @@ def _enrich_path_summary_contract(
         segments,
         raw_artifacts=raw_artifacts,
     )
+    preopt_converged = combine_step_convergence(
+        outcome.get("converged") for outcome in preopt_outcomes
+    ) if preopt_requested else None
+    summary["preopt_requested"] = bool(preopt_requested)
+    summary["preopt_converged"] = preopt_converged
+    summary["preopt_endpoints"] = list(preopt_outcomes)
+    if preopt_requested:
+        from mlmm.workflows._outcomes import make_leaf
+
+        path_leaves.insert(
+            0,
+            make_leaf(
+                "path",
+                "preopt",
+                executed=True,
+                converged=preopt_converged,
+                reason=("ok" if preopt_converged is True else "preopt_not_converged"),
+            ),
+        )
+        path_expected.insert(0, "preopt")
     path_truth = aggregate_workflow_truth(path_leaves, path_expected)
 
     reactive = [
@@ -2322,11 +2345,28 @@ def cli(
         if prepared_inputs:
             ref_pdb_for_segments = prepared_inputs[0].source_path.resolve()
 
+        preopt_outcomes: List[Dict[str, Any]] = []
         if pre_opt:
             new_geoms: List[Any] = []
             for i, g in enumerate(geoms):
                 tag = f"init{i:02d}"
-                g_opt, _ = _optimize_single(g, shared_calc, lbfgs_cfg, out_dir_path, tag=tag, ref_pdb_path=ref_pdb_for_segments)
+                g_opt, converged = _optimize_single(
+                    g,
+                    shared_calc,
+                    lbfgs_cfg,
+                    out_dir_path,
+                    tag=tag,
+                    ref_pdb_path=ref_pdb_for_segments,
+                )
+                preopt_outcomes.append(
+                    {"endpoint": i + 1, "converged": converged}
+                )
+                if converged is not True:
+                    click.echo(
+                        f"[preopt] WARNING: endpoint {i + 1} did not converge; "
+                        "continuing diagnostically.",
+                        err=True,
+                    )
                 new_geoms.append(g_opt)
             geoms = new_geoms
         else:
@@ -2724,10 +2764,10 @@ def cli(
 
             try:
                 png_path = out_dir_path / "energy_diagram_MEP.png"
-                fig.write_image(str(png_path), scale=2)
+                write_plotly_image(fig, png_path, scale=2)
                 emit(f"[diagram] Wrote energy diagram (PNG) → '{png_path}'", detail=True)
             except Exception as e:
-                click.echo(f"[diagram] NOTE: PNG export skipped (install 'kaleido' to enable): {e}", err=True)
+                click.echo(f"[diagram] NOTE: PNG export skipped: {e}", err=True)
 
             chain_text = " ".join(chain_tokens)
             emit(f"[diagram] State label sequence: {chain_text}", detail=True)
@@ -2744,6 +2784,8 @@ def cli(
             out_dir=out_dir_path,
             calc_cfg=calc_cfg,
             command=command_str,
+            preopt_requested=bool(pre_opt),
+            preopt_outcomes=preopt_outcomes,
         )
         summary["references"] = method_references(
             {

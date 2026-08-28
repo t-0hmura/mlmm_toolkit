@@ -2,28 +2,29 @@
 
 ## Overview
 
+`mlmm all` consumes only the sections for its selected active stages.
 
 | Section | Description | Used by |
 |---------|-------------|---------|
 | [`geom`](#geom) | Geometry and coordinate settings | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |
 | [`calc`](#calc) | ML/MM calculator settings (alias: `mlmm:`) | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |
 | [`sp`](#sp-section) | Single-point output settings | sp |
-| [`opt`](#opt) | Shared optimizer settings | opt, scan, scan2d, scan3d, tsopt, path-opt, path-search |
-| [`lbfgs`](#lbfgs) | L-BFGS optimizer settings | opt, scan, scan2d, scan3d, tsopt (microiteration MM relaxation), path-opt, path-search |
-| [`rfo`](#rfo) | RFO optimizer settings | opt |
-| [`gs`](#gs) | Growing String Method settings | path-opt, path-search |
-| [`dmf`](#dmf) | Direct Max Flux settings | path-opt, path-search |
-| [`irc`](#irc-section) | IRC integration settings | irc |
-| [`freq`](#freq-section) | Vibrational analysis settings | freq |
-| [`thermo`](#thermo) | Thermochemistry settings | freq |
-| [`dft`](#dft-section) | DFT calculation settings | dft |
-| [`bias`](#bias) | Harmonic bias settings | scan, scan2d, scan3d |
-| [`bond`](#bond) | Bond-change detection settings | scan, path-search |
-| [`search`](#search) | Recursive path search settings | path-search |
-| [`hessian_dimer`](#hessian_dimer) | Hessian Dimer TS optimization | tsopt |
-| [`rsirfo`](#rsirfo) | Hessian TS optimization settings | tsopt |
-| [`stopt`](#stopt) | String optimizer settings | path-opt, path-search |
-| [`microiter`](#microiter) | Micro-iteration (MM relaxation) settings | opt, tsopt |
+| [`opt`](#opt) | Shared optimizer settings | all, opt, scan, scan2d, scan3d, tsopt, path-opt, path-search |
+| [`lbfgs`](#lbfgs) | L-BFGS optimizer settings | all, opt, scan, scan2d, scan3d, tsopt (microiteration MM relaxation), path-opt, path-search |
+| [`rfo`](#rfo) | RFO optimizer settings | all, opt |
+| [`gs`](#gs) | Growing String Method settings | all, path-opt, path-search |
+| [`dmf`](#dmf) | Direct Max Flux settings | all, path-opt, path-search |
+| [`irc`](#irc-section) | IRC integration settings | all, irc |
+| [`freq`](#freq-section) | Vibrational analysis settings | all, freq |
+| [`thermo`](#thermo) | Thermochemistry settings | all, freq |
+| [`dft`](#dft-section) | DFT calculation settings | all, dft |
+| [`bias`](#bias) | Harmonic bias settings | all, scan, scan2d, scan3d |
+| [`bond`](#bond) | Bond-change detection settings | all, scan, path-search |
+| [`search`](#search) | Recursive path search settings | all, path-search |
+| [`hessian_dimer`](#hessian_dimer) | Hessian Dimer TS optimization | all, tsopt |
+| [`rsirfo`](#rsirfo) | Hessian TS optimization settings | all, tsopt |
+| [`stopt`](#stopt) | String optimizer settings | all, path-opt, path-search |
+| [`microiter`](#microiter) | Micro-iteration (MM relaxation) settings | all, opt, tsopt |
 
 ---
 
@@ -95,10 +96,10 @@ calc:
  ml_cuda_idx: 0 # CUDA device index for ML inference
  hessian_calc_mode: FiniteDifference # ML Hessian mode: "Analytical" or "FiniteDifference"
 
- # --- Experimental xTB point-charge correction (computationally expensive) ---
- embedcharge: false # Disabled by default
+ # --- Optional electrostatic embedding ---
+ embedcharge: false # Experimental: MLIP uses an expensive xTB correction; dft uses direct PySCF embedding
  embedcharge_cutoff: 12.0 # MM point-charge cutoff from the ML region (Å)
- embedcharge_step: 0.001 # Numerical Hessian step for the correction (Å)
+ embedcharge_step: 0.001 # Numerical Hessian step for MLIP/xTB correction (unused by dft)
  xtb_cmd: xtb # xTB executable
  xtb_acc: 0.2 # xTB accuracy parameter
  xtb_workdir: tmp # xTB working directory
@@ -112,7 +113,7 @@ calc:
  mm_cuda_idx: 0 # CUDA device index for MM calculation (OpenMM only)
  mm_threads: 16 # Number of threads for MM calculation
  workers: 1 # Local ML worker processes (supported backends only)
- workers_per_node: null # Optional per-node worker cap
+ workers_per_node: null # Unset; the UMA parallel predictor uses 1 when applicable
  mm_fd: true # Use finite-difference for MM Hessian
  mm_hessian_mode: null # Explicit finite_difference/analytical mode; null maps mm_fd
  mm_fd_dir: null # Directory for MM finite-difference scratch files
@@ -458,12 +459,13 @@ hessian_dimer:
  lbfgs:
    # Same keys as lbfgs section
    thresh: baker
+   line_search: false # Required: Dimer effective force is not energy-conjugate
 ```
 
 **Notes:**
 - Ordinary TSOPT omission leaves flattening off with an effective iteration count of 0. When flattening is enabled, `flatten_max_iter` controls its cap and defaults to 50.
 - The CLI flags `--flatten` / `--no-flatten` (in `tsopt` and `all`) interact with this setting: `--flatten` enables the flattening loop with the default `flatten_max_iter` (50); `--no-flatten` forces `flatten_max_iter` to 0, effectively disabling the loop. An explicit YAML value for `flatten_max_iter` takes precedence when provided alongside `--flatten`.
-- Inner L-BFGS settings live under `hessian_dimer.lbfgs`, not the top-level `lbfgs` section. Shared `print_every` and `energy_plateau*` values follow the conflict rule above; `line_search` remains independent. `max_cycles` is not configurable because each segment receives the cycles remaining from `opt.max_cycles`.
+- Inner L-BFGS settings live under `hessian_dimer.lbfgs`, not the top-level `lbfgs` section. Shared `print_every` and `energy_plateau*` values follow the conflict rule above. `line_search` is fixed to `false`; `true` is rejected because Dimer's effective force is not the gradient of the reported physical energy. `max_cycles` is not configurable because each segment receives the cycles remaining from `opt.max_cycles`.
 
 ---
 

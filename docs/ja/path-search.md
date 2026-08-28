@@ -93,7 +93,7 @@ out_dir/ (デフォルト:./result_path_search/)
 | `--model-pdb PATH` | ML/MM の ML（高レベル）領域原子を定義する PDB。`--detect-layer` または `--model-indices` 利用時は省略可。 | _None_ |
 | `--model-indices TEXT` | ML 領域のカンマ区切り原子インデックス（範囲指定可、例: `1-5`）。`--model-pdb` 省略時に使用。 | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` を 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
-| `--detect-layer` | B 因子レイヤー（B=0/10/20）を自動的に読み取ります。ML 原子集合を明示した場合は MM 側のレイヤーだけを保持し、明示しない場合は B 因子が ML 原子集合も定義します。 | 有効 |
+| `--detect-layer / --no-detect-layer` | B 因子レイヤー（B=0/10/20）を自動的に読み取ります。ML 原子集合を明示した場合は MM 側のレイヤーだけを保持し、明示しない場合は B 因子が ML 原子集合も定義します。 | 有効 |
 | `-q, --charge INT` | ML 領域の電荷（整数）。`-l` 未指定時は必須。 | _None_ |
 | `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `SAM:1,PHN:-1`）。`-q` 省略時に合計電荷を導出。PDB 入力または `--ref-pdb` が必要。 | _None_ |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |

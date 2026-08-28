@@ -36,6 +36,36 @@ from mlmm.workflows._all_helpers import (
     resolve_post_thresh_forwarding,
     has_complete_segment_energy_series,
 )
+from mlmm.workflows.all import _resolve_post_optimizer_mode
+
+
+def test_all_freeze_atoms_merge_yaml_and_cli_into_child_config(
+    tmp_path: Path,
+) -> None:
+    from mlmm.workflows.all import (
+        _inject_coord_type_into_args_yaml,
+        _resolve_all_freeze_atoms,
+    )
+
+    source = tmp_path / "all.yaml"
+    source.write_text(
+        yaml.safe_dump({"geom": {"freeze_atoms": [2, 4]}}),
+        encoding="utf-8",
+    )
+    resolved = _resolve_all_freeze_atoms(
+        {"geom": {"freeze_atoms": [2, 4]}},
+        "1,4,6",
+    )
+    assert resolved == [0, 1, 3, 5]
+
+    effective = _inject_coord_type_into_args_yaml(
+        source,
+        None,
+        freeze_atoms=resolved,
+    )
+    assert effective is not None
+    payload = yaml.safe_load(effective.read_text(encoding="utf-8"))
+    assert payload["geom"]["freeze_atoms"] == [1, 2, 4, 6]
 
 
 def test_backend_forwarding_preserves_explicit_embedcharge_options() -> None:
@@ -270,6 +300,31 @@ def test_all_post_stage_overrides_do_not_reemit_parent_defaults() -> None:
     assert build_tsopt_overrides(**_tsopt_override_kwargs()) == {}
     assert build_freq_overrides(**_freq_override_kwargs()) == {}
     assert build_dft_overrides(**_dft_override_kwargs()) == {}
+
+
+@pytest.mark.parametrize(
+    ("opt_mode_norm", "opt_mode_set", "post_norm", "post_set", "expected"),
+    [
+        ("grad", False, "hess", False, "hess"),
+        ("grad", True, "hess", False, "grad"),
+        ("hess", True, "hess", False, "hess"),
+        ("grad", True, "hess", True, "hess"),
+        ("hess", True, "grad", True, "grad"),
+    ],
+)
+def test_post_optimizer_mode_precedence(
+    opt_mode_norm: str,
+    opt_mode_set: bool,
+    post_norm: str,
+    post_set: bool,
+    expected: str,
+) -> None:
+    assert _resolve_post_optimizer_mode(
+        opt_mode_norm=opt_mode_norm,
+        opt_mode_set=opt_mode_set,
+        opt_mode_post_norm=post_norm,
+        opt_mode_post_set=post_set,
+    ) == expected
 
 
 @pytest.mark.parametrize(
@@ -949,6 +1004,7 @@ def test_build_pipeline_summary_payload_shape() -> None:
         summary = {
             "n_images": 5,
             "n_segments": 1,
+            "freeze_atoms": [0, 3],
             "segments": [{"kind": "seg", "bond_changes": "A->B"}],
             "energy_diagrams": [{"name": "MEP", "x": [0, 1]}],
             "status": "partial",
@@ -998,6 +1054,7 @@ def test_build_pipeline_summary_payload_shape() -> None:
     assert payload["dmf_correlated"] is True
     assert payload["charge"] == -1
     assert payload["spin"] == 1
+    assert payload["freeze_atoms"] == [0, 3]
     assert payload["mlip_backend"] == "uma"
     assert payload["mlip_model"] is None
     assert payload["mlip_precision"] is None

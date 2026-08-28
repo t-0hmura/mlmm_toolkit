@@ -157,7 +157,7 @@ ja/glossary
 
 ## Citation
 
-Ohmura, T., Inoue, S., Terada, T. (2025). *ML/MM toolkit — Towards Accelerated Mechanistic Investigation of Enzymatic Reactions.* ChemRxiv. <https://doi.org/10.26434/chemrxiv-2025-jft1k>
+Ohmura, T., Inoue, S., Terada, T. (2025). *ML/MM toolkit — Toward Accelerated Mechanistic Investigation of Enzymatic Reactions.* ChemRxiv. <https://doi.org/10.26434/chemrxiv-2025-jft1k>
 
 ## License
 

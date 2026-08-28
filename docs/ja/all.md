@@ -194,6 +194,7 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 | `-c, --center TEXT` | 基質指定（PDB パス、残基 ID（`308,309`）、または残基名（`SAM,GPP`））。省略時は抽出をスキップし完全構造をそのまま使用。 | _None_ |
 | `-l, --ligand-charge TEXT` | 非標準残基の総電荷または残基別マッピング（例: `GPP:-3,MMT:-1`）。 | _None_ |
 | `-q, --charge INT` | ML 領域/model system の正味電荷を強制指定（最優先の上書き）。 | _None_ |
+| `--freeze-atoms TEXT` | 全系の1始まり原子indexをカンマ区切りで指定し、scan/MEP/TSOPT/IRC/振動解析を通して固定。YAML `geom.freeze_atoms` および自動検出されたFrozen-MM layerとマージする。 | _None_ |
 | `-o, --out-dir PATH` | トップレベル出力ディレクトリ。 | `./result_all/` |
 | `--parm FILE` | 全系の AMBER parm7 トポロジーファイル。省略時は `mm_parm` で自動生成。 | _None_ |
 | `--model-pdb FILE` | 構築済み ML 領域 PDB。指定時は ML 領域決定をスキップし、このファイルで ML 領域を直接定義。 | _None_ |
@@ -258,7 +259,7 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 | `--precision [fp32\|fp64]` | バックエンド精度。省略時は UMA/AIMNet2 fp32、ORB/MACE fp64。AIMNet2 は fp64 を拒否。 | バックエンド依存 |
 | `--workers INT` | UMA predictor worker 数。2 以上は `fairchem-core[extras]` が必要で、解析 Hessian と併用不可。 | `1` |
 | `--workers-per-node INT` | UMA 並列 predictor のノード当たり worker 数。 | _None_ |
-| `--detect-layer` | B 因子レイヤー（B=0/10/20）を自動的に読み取ります。`--model-pdb` を明示した場合は MM 側のレイヤーだけを保持し、明示しない場合は B 因子が ML 原子集合も定義します。 | 有効 |
+| `--detect-layer / --no-detect-layer` | B 因子レイヤー（B=0/10/20）を自動的に読み取ります。`--model-pdb` を明示した場合は MM 側のレイヤーだけを保持し、明示しない場合は B 因子が ML 原子集合も定義します。 | 有効 |
 
 TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-mode`（明示指定時のみ）-> TSOPT デフォルト（`hess` → RS-P-RFO）。
 
@@ -283,7 +284,7 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 | `--tsopt-from-mep-tan/--no-tsopt-from-mep-tan` | Hessian TS optimizerでCPU/file cacheしたHEI接線候補から反応root identityを追跡。OFFではcache作成・利用を止め初期Hessian modeから選択。Dimerには適用外 | `True` |
 | `--thermo/--no-thermo` | MEP 実行では R/TS/P、TS-only 実行では E1/TS/E2 で振動解析 (`freq`) を実行。 | `False` |
 | `--dft/--no-dft` | MEP 実行では R/TS/P、TS-only 実行では E1/TS/E2 で DFT 一点計算を実行。 | `False` |
-| `--flatten/--no-flatten` | `tsopt` での余分な虚振動数モードフラットニングを有効化。 | `False` |
+| `--flatten/--no-flatten` | `tsopt` で余分な虚振動数モードのflatteningを有効化。 | `False` |
 | `--reject-uphill/--no-reject-uphill` | IRC 後の**エンドポイント再最適化のみ**で RFO の上り坂ステップ拒否を明示的に有効化（許容値 `1e-4` Hartree、opt 子へ転送。低エネルギー形状へロールバックして trust radius を縮小）。TS 最適化では拒否を常に無効化し、経路探索には影響しない。emergency floor 到達時は、保持したエンドポイントを通常の収束条件で最終確認。 | `False` |
 | `--irc-step-size FLOAT` | TS 後の各 IRC に EulerPC 最大ステップ（Bohr）を転送。数フレームで停止する場合は `0.05` など小さい値で再試行。 | IRC デフォルト `0.10` |
 | `--irc-never-stop/--no-irc-never-stop` | IRCのgradient・energy端点判定を無視して各branchを最大cycleまで追跡。数値／integration失敗や外部中断では停止。 | `False` |
@@ -355,7 +356,7 @@ dft:
   の残基・鎖・B 因子メタデータは参照 PDB から取得します。
 - マルチ構造実行には 2 つ以上の構造が必要。
 
-電荷は優先度の高い順に解決されます -- `-q/--charge`（明示的な CLI 上書き）-> ポケット抽出（`-c` 指定時、アミノ酸 + イオン + `--ligand-charge` の合計）-> `-l, --ligand-charge` フォールバック（抽出スキップ時）-> デフォルト（未解決の電荷はエラー）。スピンの解決: `--multiplicity`（CLI）-> デフォルト（1）。正しい電荷伝播のため、非標準基質には常に `--ligand-charge` を指定してください。最初のモデルの ML 領域の総電荷は最も近い整数に丸められ、丸め処理が発生した場合はコンソールに通知されます。
+電荷の優先度は、明示的な `-q/--charge` → workflow で導出した電荷（抽出、または `--ligand-charge` を使う選択 model の導出）→ YAML `calc.model_charge` → error です。多重度の優先度は、明示的な `--multiplicity` → YAML `calc.model_mult` → 1 です。非標準基質には `--ligand-charge` を指定してください。最初の model の ML 領域電荷は最も近い整数へ丸め、console に通知します。
 
 ## 関連項目
 

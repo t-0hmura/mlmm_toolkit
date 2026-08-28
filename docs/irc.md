@@ -104,7 +104,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--model-pdb PATH` | PDB defining the ML region. Optional when valid B-factor layers or `--model-indices` define it. | _None_ |
 | `--model-indices TEXT` | Comma-separated ML-region atom indices (ranges allowed, e.g. `1-10,15`). Used when `--model-pdb` is omitted. | _None_ |
 | `--model-indices-one-based/--model-indices-zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
-| `--detect-layer` | Automatically detect ML/MM layers from input PDB B-factors (`B=0/10/20`). | Enabled |
+| `--detect-layer / --no-detect-layer` | Automatically detect ML/MM layers from input PDB B-factors (`B=0/10/20`). | Enabled |
 | `--freeze-atoms TEXT` | Comma-separated 1-based frozen-atom indices. | _None_ |
 | `-q, --charge INT` | Net charge of the ML region/model system; overrides `calc.model_charge` from YAML. | _None_ (required unless `-l` is given) |
 | `-l, --ligand-charge TEXT` | Total charge for unknown ligand residues or a per-resname mapping (e.g., `GPP:-3,SAM:1`). Derives the ML-region net charge when `-q` is omitted. | _None_ |

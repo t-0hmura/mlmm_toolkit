@@ -207,7 +207,7 @@ def format_result_warning(
 _CITATION_RECORDS: Dict[str, tuple[str, str]] = {
     "software": (
         "mlmm-toolkit",
-        "Ohmura, T.; Inoue, S.; Terada, T. ML/MM toolkit — Towards Accelerated "
+        "Ohmura, T.; Inoue, S.; Terada, T. ML/MM toolkit — Toward Accelerated "
         "Mechanistic Investigation of Enzymatic Reactions. ChemRxiv (2025). "
         "https://doi.org/10.26434/chemrxiv-2025-jft1k",
     ),

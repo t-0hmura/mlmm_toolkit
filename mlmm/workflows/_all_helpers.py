@@ -227,6 +227,7 @@ def build_pipeline_summary_payload(
         "command": command_str,
         "charge": q_int,
         "spin": spin,
+        "freeze_atoms": summary.get("freeze_atoms", []),
         "mep": mep_info,
         "segments": summary.get("segments", []),
         "energy_diagrams": summary.get("energy_diagrams", []),

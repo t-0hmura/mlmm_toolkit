@@ -1598,6 +1598,7 @@ def cli(
         echo_resolved_device()
 
         # optional endpoint pre-optimization
+        preopt_outcomes: List[Dict[str, Any]] = []
         if preopt:
             preopt_completed = 0
             preopt_errors: List[str] = []
@@ -1618,6 +1619,23 @@ def cli(
                     })
                     optimizer = LBFGS(g, **lbfgs_args)
                     optimizer.run()
+                    from mlmm.workflows._outcomes import optimizer_converged_bit
+
+                    preopt_converged = optimizer_converged_bit(optimizer)
+                    preopt_record: Dict[str, Any] = {
+                        "endpoint": i + 1,
+                        "converged": preopt_converged,
+                        "stop_reason": str(
+                            getattr(optimizer, "stop_reason", "") or ""
+                        ),
+                    }
+                    preopt_outcomes.append(preopt_record)
+                    if preopt_converged is not True:
+                        click.echo(
+                            f"[preopt] WARNING: endpoint {i + 1} did not converge; "
+                            "continuing diagnostically.",
+                            err=True,
+                        )
                     try:
                         final_xyz_path = optimizer.final_fn if isinstance(optimizer.final_fn, Path) else Path(optimizer.final_fn)
                         g_new = geom_loader(
@@ -1632,14 +1650,69 @@ def cli(
                         geoms[i] = g_new
                         preopt_completed += 1
                     except Exception as e:
+                        preopt_record["converged"] = False
+                        preopt_record["stop_reason"] = f"reload_failed: {e}"
                         preopt_errors.append(f"endpoint #{i}: {e}")
                         click.echo(f"[preopt] WARNING: Failed to reload optimized endpoint #{i}: {e}", err=True)
             except Exception as e:
                 preopt_errors.append(str(e))
                 click.echo(f"[preopt] WARNING: Endpoint pre-optimization stopped: {e}", err=True)
+            while len(preopt_outcomes) < len(geoms):
+                preopt_outcomes.append(
+                    {
+                        "endpoint": len(preopt_outcomes) + 1,
+                        "converged": None,
+                        "stop_reason": "not_executed",
+                    }
+                )
             click.echo(
                 f"[preopt] Pre-optimized {preopt_completed}/{len(geoms)} endpoints"
                 + (f" ({len(preopt_errors)} error(s))." if preopt_errors else ".")
+            )
+
+        from mlmm.workflows._outcomes import combine_step_convergence
+
+        preopt_converged = (
+            combine_step_convergence(
+                outcome.get("converged") for outcome in preopt_outcomes
+            )
+            if preopt
+            else None
+        )
+
+        def _attach_preopt_leaf(result_data: Dict[str, Any], mep_leaf: Any) -> None:
+            from mlmm.workflows._outcomes import (
+                aggregate_workflow_truth,
+                attach_outcomes,
+                make_leaf,
+            )
+
+            leaves = []
+            expected = []
+            if preopt:
+                leaves.append(
+                    make_leaf(
+                        "path-opt",
+                        "preopt",
+                        executed=True,
+                        converged=preopt_converged,
+                        reason=(
+                            "ok"
+                            if preopt_converged is True
+                            else "preopt_not_converged"
+                        ),
+                    )
+                )
+                expected.append("preopt")
+            leaves.append(mep_leaf)
+            expected.append(mep_leaf.item_id)
+            result_data["preopt_requested"] = bool(preopt)
+            result_data["preopt_converged"] = preopt_converged
+            result_data["preopt_endpoints"] = list(preopt_outcomes)
+            attach_outcomes(
+                result_data,
+                truth=aggregate_workflow_truth(leaves, expected),
+                stage_outcomes=leaves,
             )
 
         # By default, apply external Kabsch alignment (if freeze_atoms exist, use only them)
@@ -1718,8 +1791,6 @@ def cli(
                 # The legacy convergence-aware ``status``/``converged`` fields
                 # (status==0) in result_data_dmf are intentionally left untouched.
                 from mlmm.workflows._outcomes import (
-                    aggregate_workflow_truth as _agg_truth,
-                    attach_outcomes as _attach,
                     ipopt_status_to_converged,
                     make_leaf as _mk_leaf,
                 )
@@ -1732,11 +1803,7 @@ def cli(
                     artifacts=["final_geometries_trj.xyz"],
                     reason=_dmf_leaf_reason or dmf_res.reason or "",
                 )
-                _attach(
-                    result_data_dmf,
-                    truth=_agg_truth([_dmf_leaf], ["dmf_mep"]),
-                    stage_outcomes=[_dmf_leaf],
-                )
+                _attach_preopt_leaf(result_data_dmf, _dmf_leaf)
                 write_result_json(
                     out_dir_path, result_data_dmf,
                     command="path-opt",
@@ -1890,8 +1957,6 @@ def cli(
             # usable only when the StringOptimizer explicitly converged. The legacy
             # convergence-aware ``status``/``converged`` fields are left untouched.
             from mlmm.workflows._outcomes import (
-                aggregate_workflow_truth as _agg_truth,
-                attach_outcomes as _attach,
                 make_leaf as _mk_leaf,
                 optimizer_converged_bit as _optimizer_converged_bit,
             )
@@ -1909,11 +1974,7 @@ def cli(
                 converged=_converged,
                 artifacts=["final_geometries_trj.xyz"],
             )
-            _attach(
-                result_data_gsm,
-                truth=_agg_truth([_gsm_leaf], ["gsm_mep"]),
-                stage_outcomes=[_gsm_leaf],
-            )
+            _attach_preopt_leaf(result_data_gsm, _gsm_leaf)
             write_result_json(
                 out_dir_path, result_data_gsm,
                 command="path-opt",

@@ -15,7 +15,7 @@ url: "https://t-0hmura.github.io/mlmm_toolkit/"
 version: "0.3.3"
 preferred-citation:
   type: article
-  title: "ML/MM toolkit – Towards Accelerated Mechanistic Investigation of Enzymatic Reactions"
+  title: "ML/MM toolkit – Toward Accelerated Mechanistic Investigation of Enzymatic Reactions"
   authors:
     - family-names: Ohmura
       given-names: Takuto

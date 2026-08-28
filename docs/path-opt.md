@@ -71,7 +71,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--model-pdb PATH` | PDB defining the ML region (atom IDs). Optional when `--detect-layer` or `--model-indices` is used. | _None_ |
 | `--model-indices TEXT` | Comma-separated atom indices for the ML region (ranges allowed like `1-5`). Used when `--model-pdb` is omitted. | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
-| `--detect-layer` | Automatically read B-factor layers (B=0/10/20). With explicit ML membership, only the MM sublayers are retained; otherwise B-factors also define ML membership. | Enabled |
+| `--detect-layer / --no-detect-layer` | Automatically read B-factor layers (B=0/10/20). With explicit ML membership, only the MM sublayers are retained; otherwise B-factors also define ML membership. | Enabled |
 | `-q, --charge INT` | Net ML-region charge. | _None_ (required unless `-l` is given) |
 | `-l, --ligand-charge TEXT` | Per-residue charge map, e.g. `SAM:1,PHN:-1`. Derives total charge when `-q` is omitted. Requires PDB input or `--ref-pdb`. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |

@@ -196,7 +196,7 @@ out_dir/ (デフォルト: ./result_tsopt/)
 | `--model-pdb PATH` | ML 領域原子を含む PDB。`--detect-layer` 有効時はオプション。 | _None_ |
 | `--model-indices TEXT` | ML 領域のカンマ区切り原子インデックス（範囲指定可）。 | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` を 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
-| `--detect-layer` | 入力 PDB の B 因子から ML/MM レイヤーを自動検出。 | 有効 |
+| `--detect-layer / --no-detect-layer` | 入力 PDB の B 因子から ML/MM レイヤーを自動検出。 | 有効 |
 | `-q, --charge INT` | ML 領域の総電荷。 | _None_（`-l` 未指定時は必須） |
 | `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。PDB 入力または `--ref-pdb` が必要。 | _None_ |
 | `-m, --multiplicity INT` | ML 領域のスピン多重度 (2S+1)。 | _None_（デフォルト 1） |
@@ -278,11 +278,11 @@ hessian_dimer:
  thresh: baker                     # メイン収束プリセット
  update_interval_hessian: 500      # Hessian再構築間隔
  neg_freq_thresh_cm: 5.0           # freq.zero_cutoff_cm の互換alias (cm^-1)
- flatten_amp_ang: 0.1              # フラットニング振幅 (Å)
- flatten_max_iter: 50              # フラットニング反復上限（--no-flatten 時は無効）
+ flatten_amp_ang: 0.1              # flattening振幅 (Å)
+ flatten_max_iter: 50              # flattening反復上限（--no-flatten 時は無効）
  flatten_sep_cutoff: 0.0           # 代表原子間の最小距離 (Å)
  flatten_k: 10                     # モードごとにサンプルされる代表原子数
- flatten_loop_bofill: false        # フラットニング変位に対する Bofill 更新
+ flatten_loop_bofill: false        # flattening変位に対する Bofill 更新
  mem: 100000                       # ソルバーのメモリ上限
  device: auto                      # 固有値ソルバーのデバイス選択
  root: 0                           # 対象 TS ルートインデックス
@@ -318,7 +318,7 @@ hessian_dimer:
   beta: 1.0                        # 初期ダンピングベータ
   mu_reg: null                     # 正則化強度
   max_mu_reg_adaptions: 10         # mu 適応の上限
-  line_search: true                # Dimer 内側 L-BFGS の line search
+  line_search: false               # Dimer 内側では必須（true は拒否）
 rsirfo:
  thresh: baker                     # Hessian TS 収束プリセット
  trust_radius: 0.10                # 初期信頼半径（ONIOM 向けに小さめ）

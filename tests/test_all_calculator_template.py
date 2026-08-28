@@ -13,6 +13,7 @@ from mlmm.workflows.all import (
     _resolve_mlip_provenance,
     _stage_calc_kwargs,
 )
+from mlmm.workflows._all_helpers import append_backend_forwarding_args
 
 
 def _resolve(path: Path, **overrides):
@@ -148,6 +149,33 @@ def test_custom_calculator_and_explicit_overlays_survive_stage_derivation(
     assert derived["link_atom_method"] == "fixed"
     assert derived["mm_backend"] == "openmm"
     assert derived["use_cmap"] is True
+
+
+def test_yaml_embedding_and_cli_cutoff_forward_as_one_effective_state(
+    tmp_path: Path,
+) -> None:
+    config = tmp_path / "embedding.yaml"
+    config.write_text(
+        yaml.safe_dump(
+            {"calc": {"embedcharge": True, "embedcharge_cutoff": 12.0}}
+        ),
+        encoding="utf-8",
+    )
+    effective = _resolve(config, embedcharge_cutoff=8.5).materialize()
+    argv: list[str] = []
+
+    append_backend_forwarding_args(
+        argv,
+        backend=None,
+        embedcharge=bool(effective["embedcharge"]),
+        embedcharge_cutoff=float(effective["embedcharge_cutoff"]),
+        embedcharge_explicit=False,
+        link_atom_method=None,
+        mm_backend=None,
+        use_cmap=None,
+    )
+
+    assert argv == ["--embedcharge", "--embedcharge-cutoff", "8.5"]
 
 
 @pytest.mark.parametrize("source_kind", ["config", "cli"])

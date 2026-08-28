@@ -232,6 +232,10 @@ def _prepare_ml_region_workspace(
 ) -> MLRegionWorkspace:
     high_level_backend = _DFTEnergyOnlyBackend()
     calculator_kwargs = dict(calc_kwargs or {})
+    # DFT electrostatic embedding is applied directly to the PySCF Hamiltonian
+    # below. The ML/MM core's optional xTB delta correction is an alternative
+    # for MLIP workflows and must not be added to the embedded DFT energy.
+    calculator_kwargs["embedcharge"] = False
     calculator_kwargs.update(
         {
             "input_pdb": str(Path(input_pdb)),
@@ -745,7 +749,10 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     "embedcharge",
     default=False,
     show_default=True,
-    help="Enable experimental electrostatic embedding: MM point charges are added to the PySCF QM Hamiltonian via pyscf.qmmm.mm_charge().",
+    help=(
+        "Experimental: embed MM point charges directly in the PySCF QM Hamiltonian. "
+        "The DFT workflow does not use the optional xTB correction."
+    ),
 )
 @click.option(
     "--embedcharge-cutoff",

@@ -1465,6 +1465,25 @@ class HessianOptimizer(Optimizer):
         else:
             return eigvecs.dot(eigvecs.T.dot(gradient) / eigvals)
 
+    def _bound_to_trust_radius(self, step, *, label="step"):
+        """Return a finite displacement within the current trust radius."""
+        if isinstance(step, torch.Tensor):
+            finite = bool(torch.isfinite(step).all().detach().cpu())
+            step_norm = float(torch.linalg.norm(step).detach().cpu())
+        else:
+            step = np.asarray(step)
+            finite = bool(np.isfinite(step).all())
+            step_norm = float(np.linalg.norm(step))
+        if not finite:
+            raise ValueError(f"{label} contains NaN/inf")
+        if step_norm > self.trust_radius * (1.0 + 1e-12):
+            self.log(
+                f"Scaled {label} to the trust radius "
+                f"({step_norm:.6f} -> {self.trust_radius:.6f})."
+            )
+            step = step * (self.trust_radius / step_norm)
+        return step
+
     def get_newton_step_on_trust(self, eigvals, eigvecs, gradient, transform=True):
         """Step on trust-radius.
 
@@ -1511,10 +1530,10 @@ class HessianOptimizer(Optimizer):
             if transform:
                 if isinstance(eigvecs, torch.Tensor):
                     step = torch.tensor(step, device=eigvecs.device, dtype=eigvecs.dtype)
-                    return (eigvecs @ step).cpu().numpy()
+                    step = (eigvecs @ step).cpu().numpy()
                 else:
-                    return eigvecs.dot(step)
-            return step
+                    step = eigvecs.dot(step)
+            return self._bound_to_trust_radius(step, label="trust-region Newton step")
 
         # Simplest case. Positive definite Hessian and predicted step is
         # already in trust radius.
@@ -1524,9 +1543,12 @@ class HessianOptimizer(Optimizer):
                 newton_step_trans = torch.tensor(
                     newton_step_trans, device=eigvecs.device, dtype=eigvecs.dtype
                 )
-                return (eigvecs @ newton_step_trans).cpu().numpy()
+                newton_step_trans = (eigvecs @ newton_step_trans).cpu().numpy()
             else:
-                return eigvecs.dot(newton_step_trans)
+                newton_step_trans = eigvecs.dot(newton_step_trans)
+            return self._bound_to_trust_radius(
+                newton_step_trans, label="trust-region Newton step"
+            )
 
         # If the Hessian is not positive definite or if the step is too
         # long we have to determine the shift parameter lambda.
@@ -1590,14 +1612,17 @@ class HessianOptimizer(Optimizer):
             tau = 0.0
             step_trans = [tau] + (-without_min).tolist()
 
-        if not transform:
-            return step_trans
-
-        if isinstance(eigvecs, torch.Tensor):
-            step_trans = torch.tensor(step_trans, device=eigvecs.device, dtype=eigvecs.dtype)
-            return (eigvecs @ step_trans).cpu().numpy()
-        else:
-            return eigvecs.dot(step_trans)
+        if transform:
+            if isinstance(eigvecs, torch.Tensor):
+                step_trans = torch.tensor(
+                    step_trans, device=eigvecs.device, dtype=eigvecs.dtype
+                )
+                step_trans = (eigvecs @ step_trans).cpu().numpy()
+            else:
+                step_trans = eigvecs.dot(step_trans)
+        return self._bound_to_trust_radius(
+            step_trans, label="hard-case trust-region Newton step"
+        )
 
     @staticmethod
     def quadratic_model(gradient, hessian, step):

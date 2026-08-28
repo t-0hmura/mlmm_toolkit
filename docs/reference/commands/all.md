@@ -92,6 +92,12 @@ Options:
                                   CYX are bonded and CYS is left untouched.
                                   [default: auto-mm-disulfide]
   -m, --multiplicity INTEGER      Multiplicity (2S+1).  [default: 1]
+  --freeze-atoms TEXT             Comma-separated 1-based full-system atom
+                                  indices to freeze throughout scan, MEP, TSOPT,
+                                  endpoint optimization, IRC, and frequency
+                                  stages (for example, '1,3,5'). Merged with
+                                  YAML geom.freeze_atoms and the automatically
+                                  detected Frozen-MM layer.
   --mep-mode [gsm|dmf]            MEP optimizer: Growing String Method (gsm) or
                                   Direct Max Flux (dmf).  [default: gsm]
   --dmf-backend [cpu|gpu]         DMF compute backend (--mep-mode dmf only): gpu

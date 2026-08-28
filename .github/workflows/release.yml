@@ -57,7 +57,7 @@ jobs:
         run: |
           cffconvert --validate
           python .github/scripts/check_release_versions.py \
-            --expected-version "$SETUPTOOLS_SCM_PRETEND_VERSION"
+            --expected-version "$SETUPTOOLS_SCM_PRETEND_VERSION" --release-mode
 
       - name: Build package
         run: |

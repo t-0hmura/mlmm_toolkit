@@ -74,6 +74,7 @@ def test_rsprfo_honors_explicit_line_search_values(tsopt_mod, tmp_path):
 def test_hessian_dimer_defaults_are_isolated_and_bounded_by_runner(tsopt_mod):
     assert tsopt_mod.hessian_dimer_KW["dimer"]["write_orientations"] is False
     assert "max_cycles" not in tsopt_mod.hessian_dimer_KW["lbfgs"]
+    assert tsopt_mod.hessian_dimer_KW["lbfgs"]["line_search"] is False
 
 
 @pytest.mark.parametrize(
@@ -145,6 +146,11 @@ def test_tsopt_output_dir_precedence(
             "grad",
             "hessian_dimer:\n  lbfgs:\n    max_cycles: 5\n",
             "hessian_dimer.lbfgs.max_cycles is not configurable",
+        ),
+        (
+            "grad",
+            "hessian_dimer:\n  lbfgs:\n    line_search: true\n",
+            "hessian_dimer.lbfgs.line_search must be false",
         ),
     ],
 )

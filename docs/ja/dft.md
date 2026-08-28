@@ -30,7 +30,7 @@ mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## 処理の流れ
 
 1. **入力処理** -- ML/MM 中核の `MLMMCore` が酵素全体の PDB（`-i`）、Amber トポロジー（`--parm`）、ML 領域定義（`--model-pdb` または `--model-indices` または `--detect-layer` による B 因子検出）を読み込みます。YAML で明示的な `link_mlmm` ペアが指定されない限り、ML/MM 選択を横切る parm7 結合にリンク水素を自動付加します。結合の認識に距離は使用しません。
-2. **SCF 構築** -- `--func-basis` でスラッシュ区切りで汎関数/基底関数を定義します。GPU4PySCF バックエンドは利用可能な場合に使用され、closed-shell の GPU 経路では `--lowmem`（デフォルト）が有効なら低メモリ実装 `gpu4pyscf.dft.rks_lowmem.RKS` を使用します。CPU モードを強制するには `--engine cpu` を使用してください。`mlmm dft` は SCF オブジェクトに対して `density_fit()` を呼びません。標準 GPU/CPU 経路ではバックエンドのデフォルト JK 実装を使用し、lowmem 経路では `rks_lowmem.RKS` のメモリ効率の良い直接 JK が使用されます。
+2. **SCF 構築** -- `--func-basis` でスラッシュ区切りで汎関数/基底関数を定義します。GPU4PySCF バックエンドは利用可能な場合に使用され、closed-shell の GPU 経路では `--lowmem`（デフォルト）が有効なら低メモリ実装 `gpu4pyscf.dft.rks_lowmem.RKS` を使用します。CPU モードを強制するには `--engine cpu` を使用してください。実験的な `--embedcharge` を指定すると、MM 点電荷を PySCF Hamiltonian に直接埋め込みます。DFT では MLIP ワークフロー用の任意の xTB 補正を使用しません。`mlmm dft` は SCF オブジェクトに対して `density_fit()` を呼びません。標準 GPU/CPU 経路ではバックエンドのデフォルト JK 実装を使用し、lowmem 経路では `rks_lowmem.RKS` のメモリ効率の良い直接 JK が使用されます。
 3. **ML(dft)/MM 再結合** -- DFT は `MLMMCore` の高レベル MODEL エネルギーだけを置き換えます。`MLMMCore` は選択した MM バックエンドで REAL-low と MODEL-low を評価し、差し引き式を適用します。別個のトポロジー構築、MM calculator 経路、DFT 力計算はありません。
 4. **集団解析と出力** -- Mulliken、meta-Lowdin、IAO 電荷とスピン密度（UKS のみ）が結合エネルギーブロックとともに `result.yaml` に書き出されます。
 
@@ -66,7 +66,7 @@ out_dir/ (デフォルト: ./result_dft/)
 | `--model-pdb PATH` | ML 領域を定義する PDB（原子 ID が酵素 PDB と一致必須）。`--detect-layer` 有効時はオプション。 | _None_ |
 | `--model-indices TEXT` | ML 領域のカンマ区切り原子インデックス（範囲指定可、例: `1-5`）。`--model-pdb` 省略時に使用。 | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` を 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
-| `--detect-layer` | 入力 PDB の B 因子（B=0/10/20）から ML/MM レイヤーを自動検出。 | 有効 |
+| `--detect-layer / --no-detect-layer` | 入力 PDB の B 因子（B=0/10/20）から ML/MM レイヤーを自動検出。 | 有効 |
 | `-q, --charge INT` | ML 領域の電荷。`-l/--ligand-charge` 指定時は不要（PDB 入力または `--ref-pdb` 付き XYZ）。 | `-l` 指定時を除き必須 |
 | `-l, --ligand-charge TEXT` | 全体電荷、または残基名ごとのマッピング（例: `SAM:1,GPP:-3`）。`-q` 省略時に ML 領域の電荷を導出するために使用（PDB 入力または `--ref-pdb` が必要）。 | _None_ |
 | `-m, --multiplicity INT` | ML 領域のスピン多重度 (2S+1)。 | `1` |
@@ -76,6 +76,8 @@ out_dir/ (デフォルト: ./result_dft/)
 | `--grid-level INT` | DFT 積分グリッドレベル (0=粗, 3=デフォルト, 5=細かい, 9=非常に細かい)。 | `3` |
 | `--engine {gpu,cpu}` | GPU4PySCF（`gpu`）または CPU PySCF（`cpu`）を強制。 | `gpu` |
 | `--lowmem/--no-lowmem` | closed-shell の GPU 経路で `gpu4pyscf.dft.rks_lowmem.RKS` を使用（メモリ効率の良い直接 JK；`mlmm dft` はどちらの経路でも `density_fit()` を呼ばない）。open-shell、CPU、`rks_lowmem` 非搭載の旧 `gpu4pyscf` では標準 RKS/UKS に自動フォールバック。 | `True` |
+| `--embedcharge/--no-embedcharge` | 実験的な PySCF 直接静電埋込みです。MM 点電荷を埋め込み、`dft` では xTB 補正を使用しません。 | `False` |
+| `--embedcharge-cutoff FLOAT` | ML 領域からこの距離以内の MM 点電荷を埋め込みます。 | `12.0` Å |
 | `-o, --out-dir DIR` | 出力ディレクトリ。 | `./result_dft/` |
 | `--link-atom-method {scaled,fixed}` | リンク原子位置モード: `scaled`（g-factor、Gaussian ONIOM 標準）または `fixed`（旧式 1.09/1.01 Å 固定）。 | `scaled` |
 | `--mm-backend {hessian_ff,openmm}` | ONIOM 低レベル評価用 MM バックエンド。Hessian 構築法は `calc.mm_fd` が別に制御します（デフォルト `true`: 有限差分）。 | `hessian_ff` |
@@ -109,6 +111,8 @@ calc:
  model_mult: 1                     # スピン多重度 2S+1
  real_parm7: real.parm7            # Amber parm7 トポロジー
  model_pdb: ml_region.pdb          # ML 領域定義
+ embedcharge: false                # PySCF 静電埋込み。dft では xTB を使わない
+ embedcharge_cutoff: 12.0          # ML 領域からの MM 点電荷カットオフ (Å)
 dft:
  func_basis: wb97m-v/def2-tzvpd      # 交換相関汎関数 / 基底関数セット
  conv_tol: 1.0e-09                # SCF 収束閾値 (Hartree)

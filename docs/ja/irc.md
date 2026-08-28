@@ -115,7 +115,7 @@ standalone IRC はstitched pathの`first` / `last`端点と、その方向のbon
 | `--model-pdb PATH` | ML 領域を定義する PDB。有効な B-factor layer または `--model-indices` で定義する場合は省略可能。 | _None_ |
 | `--model-indices TEXT` | ML 領域原子インデックス（カンマ区切り、範囲指定可: `1-10,15`）。`--model-pdb` 省略時に使用。 | _None_ |
 | `--model-indices-one-based/--model-indices-zero-based` | `--model-indices` を 1 始まり/0 始まりとして解釈。 | `True`（1 始まり） |
-| `--detect-layer` | 入力 PDB の B 因子（`B=0/10/20`）から ML/MM レイヤーを自動検出。 | 有効 |
+| `--detect-layer / --no-detect-layer` | 入力 PDB の B 因子（`B=0/10/20`）から ML/MM レイヤーを自動検出。 | 有効 |
 | `--freeze-atoms TEXT` | 1 始まりの凍結原子インデックスをカンマ区切りで指定。 | _None_ |
 | `-q, --charge INT` | ML 領域/model system の正味電荷。YAML の `calc.model_charge` を上書き。 | _None_（`-l` 未指定時は必須） |
 | `-l, --ligand-charge TEXT` | 未知リガンド残基の合計電荷または残基別マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に ML 領域の正味電荷を導出。 | _None_ |

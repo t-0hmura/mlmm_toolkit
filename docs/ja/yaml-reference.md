@@ -2,26 +2,28 @@
 
 ## 概要
 
+`mlmm all` は、選択して有効化した stage の section だけを使用します。
+
 | セクション | 説明 | 使用されるコマンド |
 |---------|-------------|---------|
 | [`geom`](#geom) | ジオメトリと座標設定 | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |
 | [`calc`](#calc) | ML/MM calculatorの設定（別名: `mlmm:`） | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |
-| [`opt`](#opt) | 最適化の共通設定 | opt, scan, scan2d, scan3d, tsopt, path-opt, path-search |
-| [`lbfgs`](#lbfgs) | L-BFGSの設定 | opt, scan, scan2d, scan3d, tsopt（マイクロイテレーションの MM 緩和）, path-opt, path-search |
-| [`rfo`](#rfo) | RFOの設定 | opt |
-| [`gs`](#gs) | GSM（Growing String Method）設定 | path-opt, path-search |
-| [`dmf`](#dmf) | DMF（Direct Max Flux）設定 | path-opt, path-search |
-| [`irc`](#ja-irc-section) | IRC 積分設定 | irc |
-| [`freq`](#ja-freq-section) | 振動解析設定 | freq |
-| [`thermo`](#thermo) | 熱化学設定 | freq |
-| [`dft`](#ja-dft-section) | DFT 計算設定 | dft |
-| [`bias`](#bias) | 調和バイアス設定 | scan, scan2d, scan3d |
-| [`bond`](#bond) | 結合変化検出設定 | scan, path-search |
-| [`search`](#search) | 再帰的経路探索設定 | path-search |
-| [`hessian_dimer`](#hessian_dimer) | Hessian・ダイマーTS 最適化 | tsopt |
-| [`rsirfo`](#rsirfo) | Hessian TS 最適化設定 | tsopt |
-| [`stopt`](#stopt) | ストリング最適化（StringOptimizer）設定 | path-opt, path-search |
-| [`microiter`](#microiter) | マイクロイテレーション（MM緩和）設定 | opt, tsopt |
+| [`opt`](#opt) | 最適化の共通設定 | all, opt, scan, scan2d, scan3d, tsopt, path-opt, path-search |
+| [`lbfgs`](#lbfgs) | L-BFGSの設定 | all, opt, scan, scan2d, scan3d, tsopt（マイクロイテレーションの MM 緩和）, path-opt, path-search |
+| [`rfo`](#rfo) | RFOの設定 | all, opt |
+| [`gs`](#gs) | GSM（Growing String Method）設定 | all, path-opt, path-search |
+| [`dmf`](#dmf) | DMF（Direct Max Flux）設定 | all, path-opt, path-search |
+| [`irc`](#ja-irc-section) | IRC 積分設定 | all, irc |
+| [`freq`](#ja-freq-section) | 振動解析設定 | all, freq |
+| [`thermo`](#thermo) | 熱化学設定 | all, freq |
+| [`dft`](#ja-dft-section) | DFT 計算設定 | all, dft |
+| [`bias`](#bias) | 調和バイアス設定 | all, scan, scan2d, scan3d |
+| [`bond`](#bond) | 結合変化検出設定 | all, scan, path-search |
+| [`search`](#search) | 再帰的経路探索設定 | all, path-search |
+| [`hessian_dimer`](#hessian_dimer) | Hessian・ダイマーTS 最適化 | all, tsopt |
+| [`rsirfo`](#rsirfo) | Hessian TS 最適化設定 | all, tsopt |
+| [`stopt`](#stopt) | ストリング最適化（StringOptimizer）設定 | all, path-opt, path-search |
+| [`microiter`](#microiter) | マイクロイテレーション（MM緩和）設定 | all, opt, tsopt |
 
 ---
 
@@ -66,8 +68,8 @@ calc:
  link_mlmm: null # null: parm7 結合から自動決定; list: 明示上書き
  link_atom_method: scaled    # リンク原子配置: "scaled" (g-factor) または "fixed" (1.09/1.01 Å)
  backend: uma # ML バックエンド: "uma" (デフォルト), "orb", "mace", "aimnet2"
- embedcharge: false # 実験的な xTB 点電荷補正（計算コスト大、デフォルト無効）
- embedcharge_step: 0.001 # 補正の数値 Hessian ステップ (Å)
+ embedcharge: false # 実験的: MLIP は高コストな xTB 補正、dft は PySCF への直接静電埋込み
+ embedcharge_step: 0.001 # MLIP/xTB 補正用の数値 Hessian ステップ（dft では未使用）
  embedcharge_cutoff: 12.0 # ML 領域からの MM 点電荷カットオフ (Å)
  xtb_cmd: xtb # xTB 実行コマンド
  xtb_acc: 0.2 # xTB 精度パラメータ
@@ -93,7 +95,7 @@ calc:
  mm_cuda_idx: 0 # MM CUDA インデックス (OpenMM のみ)
  mm_threads: 16 # MM 計算のスレッド数
  workers: 1 # ローカル ML worker process 数（対応 backend のみ）
- workers_per_node: null # node あたりの worker 上限（任意）
+ workers_per_node: null # 未設定。UMA parallel predictor 使用時の実効値は 1
  mm_fd: true # MM Hessianに有限差分を使用
  mm_hessian_mode: null # 明示指定は finite_difference/analytical。null は mm_fd に従う
  mm_fd_dir: null # MM Hessianログの出力ディレクトリ
@@ -395,12 +397,13 @@ hessian_dimer:
  lbfgs:
  # lbfgs セクションと同じキー
  thresh: baker
+ line_search: false # 必須: Dimer の有効力は物理エネルギーと共役でない
 ```
 
 **注記:**
 - 通常の TSOPT 省略時は flattening が無効で実効反復数は 0 です。有効化した場合の上限を `flatten_max_iter` が制御し、そのデフォルトは 50 です。
-- CLI フラグ `--flatten` / `--no-flatten`（`tsopt` および `all`）はこの設定と連動します。`--flatten` はデフォルトの `flatten_max_iter`（50）でフラットニングループを有効化し、`--no-flatten` は `flatten_max_iter` を 0 に強制してループを無効化します。`--flatten` と同時に YAML で `flatten_max_iter` を明示指定した場合は、YAML の値が優先されます。
-- 内側の L-BFGS 固有設定は、最上位の `lbfgs` ではなく `hessian_dimer.lbfgs` に置きます。共通の `print_every` と `energy_plateau*` は上記の競合規則に従い、`line_search` は独立です。`max_cycles` は設定できず、各 segment には `opt.max_cycles` の残り cycle 数が渡されます。
+- CLI フラグ `--flatten` / `--no-flatten`（`tsopt` および `all`）はこの設定と連動します。`--flatten` はデフォルトの `flatten_max_iter`（50）でflatteningループを有効化し、`--no-flatten` は `flatten_max_iter` を 0 に強制してループを無効化します。`--flatten` と同時に YAML で `flatten_max_iter` を明示指定した場合は、YAML の値が優先されます。
+- 内側の L-BFGS 固有設定は、最上位の `lbfgs` ではなく `hessian_dimer.lbfgs` に置きます。共通の `print_every` と `energy_plateau*` は上記の競合規則に従います。`line_search` は `false` 固定で、Dimer の有効力は表示する物理エネルギーの勾配ではないため `true` は拒否されます。`max_cycles` は設定できず、各 segment には `opt.max_cycles` の残り cycle 数が渡されます。
 
 ---
 

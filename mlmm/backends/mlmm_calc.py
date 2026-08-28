@@ -2360,21 +2360,24 @@ class MLMMCore:
             self.movable_indices = sorted(self.ml_indices + self.hess_mm_indices)
             return
 
-        hess_mm: List[int] = []
-        movable_mm: List[int] = []
-        frozen_mm: List[int] = []
-
-        hess_cut = self.hess_cutoff if self.hess_cutoff is not None else float("inf")
         mov_cut = self.movable_cutoff if self.movable_cutoff is not None else float("inf")
 
-        for idx in mm_indices:
-            d = min_dist_to_ml(idx)
-            if d <= hess_cut:
-                hess_mm.append(idx)
-            elif d <= mov_cut:
-                movable_mm.append(idx)
-            else:
-                frozen_mm.append(idx)
+        movable_pool = {
+            idx for idx in mm_indices if min_dist_to_ml(idx) <= mov_cut
+        }
+        frozen_mm = mm_indices - movable_pool
+        if self.hess_cutoff is None:
+            # The default Hessian target is every atom that remains movable;
+            # it must not include atoms frozen by movable_cutoff.
+            hess_mm = set(movable_pool)
+        else:
+            hess_cut = float(self.hess_cutoff)
+            hess_mm = {
+                idx
+                for idx in movable_pool
+                if min_dist_to_ml(idx) <= hess_cut
+            }
+        movable_mm = movable_pool - hess_mm
 
         self.hess_mm_indices = sorted(hess_mm)
         self.movable_mm_indices = sorted(movable_mm)
@@ -3604,7 +3607,9 @@ class mlmm(PySiCalc):
 
     @freeze_atoms.setter
     def freeze_atoms(self, indices: List[int] | None):
-        self._freeze_atoms = [] if indices is None else list(indices)
+        requested = set([] if indices is None else map(int, indices))
+        requested.update(map(int, getattr(self.core, "frozen_layer_indices", [])))
+        self._freeze_atoms = sorted(requested)
         self.core.freeze_atoms = self._freeze_atoms
         self.core._update_active_dof_mappings()
 

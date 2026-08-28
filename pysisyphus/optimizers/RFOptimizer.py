@@ -94,12 +94,12 @@ class RFOptimizer(HessianOptimizer):
         self.successful_line_search = 0
 
     def _accept_accelerated_step(self, step, ip_step, ref_step):
-        """Compose a finite accelerated step in the reference representation.
+        """Compose a finite, trust-bounded accelerated displacement.
 
         The RFO correction is already restricted.  ``ip_step`` is the accepted
-        line-search/GDIIS offset, so comparing their sum with the current trust
-        radius a second time rejects the acceleration path and can prevent
-        convergence.
+        line-search/GDIIS offset.  Their sum is the displacement actually
+        applied to the geometry, so preserve its direction while scaling its
+        norm to the current trust radius when necessary.
         """
         # The interpolation gradient can cross the NumPy/torch boundary even
         # when the reference RFO step lives on CUDA.  Keep the combined step in
@@ -123,13 +123,15 @@ class RFOptimizer(HessianOptimizer):
             finite = bool(np.isfinite(candidate).all())
 
         if finite:
-            return candidate
+            return self._bound_to_trust_radius(
+                candidate, label="interpolated/GDIIS displacement"
+            )
 
         self.log(
-            "Rejected a non-finite interpolated/GDIIS displacement; using the "
-            "restricted reference step."
+            "Rejected a non-finite or zero-length interpolated/GDIIS "
+            "displacement; using the restricted reference step."
         )
-        return ref_step
+        return self._bound_to_trust_radius(ref_step, label="reference RFO step")
 
     def optimize(self):
         energy, gradient, H, big_eigvals, big_eigvecs, resetted = self.housekeeping()
@@ -141,7 +143,10 @@ class RFOptimizer(HessianOptimizer):
 
         ref_gradient = gradient.copy() if isinstance(gradient, np.ndarray) else gradient.clone()
         # Reference step, used for judging the proposed GDIIS step
-        ref_step = step_func(big_eigvals, big_eigvecs, gradient) # heavy-compute
+        ref_step = self._bound_to_trust_radius(
+            step_func(big_eigvals, big_eigvecs, gradient),  # heavy-compute
+            label="reference RFO step",
+        )
 
         # Right everything is in place to check for convergence.  If all values are below
         # the thresholds, there is no need to do additional inter/extrapolations.

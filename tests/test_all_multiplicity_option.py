@@ -33,6 +33,8 @@ def test_all_accepts_multiplicity_option() -> None:
                 str(fixture_dir / "complex.pdb"),
                 "--tsopt",
                 "--dry-run",
+                "--charge",
+                "-1",
                 "--multiplicity",
                 "1",
             ],

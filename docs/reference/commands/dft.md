@@ -67,9 +67,9 @@ Options:
                                   template is available.  [default: convert-
                                   files]
   --embedcharge / --no-embedcharge
-                                  Enable experimental electrostatic embedding:
-                                  MM point charges are added to the PySCF QM
-                                  Hamiltonian via pyscf.qmmm.mm_charge().
+                                  Experimental: embed MM point charges directly
+                                  in the PySCF QM Hamiltonian. The DFT workflow
+                                  does not use the optional xTB correction.
                                   [default: no-embedcharge]
   --embedcharge-cutoff FLOAT      Distance cutoff (Å) from ML region for MM
                                   point charges embedded in the PySCF QM

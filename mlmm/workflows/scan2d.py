@@ -56,6 +56,7 @@ from mlmm.workflows._outcomes import (
     seed_eligible_mask,
 )
 from mlmm.workflows.charge_prep import resolve_charge_spin_or_raise
+from mlmm.io.plotly_image import write_plotly_image
 from mlmm.core.utils import (
     apply_ref_pdb_override,
     apply_layer_freeze_constraints,
@@ -1388,10 +1389,16 @@ def cli(
             png2d = final_dir / "scan2d_map.png"
             png2d.unlink(missing_ok=True)
             try:
-                fig2d.write_image(str(png2d), scale=2, width=680, height=600)
+                write_plotly_image(
+                    fig2d,
+                    png2d,
+                    scale=2,
+                    width=680,
+                    height=600,
+                )
             except Exception as e:
                 click.echo(
-                    f"[plot] NOTE: PNG export skipped (install 'kaleido' to enable): {e}",
+                    f"[plot] NOTE: PNG export skipped: {e}",
                     err=True,
                 )
             else:

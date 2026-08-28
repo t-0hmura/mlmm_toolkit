@@ -22,6 +22,7 @@ from ase import Atoms
 from ase.io import read
 from pysisyphus.constants import AU2EV, AU2KCALPERMOL
 from mlmm.io.xyz_trajectory import read_xyz_trajectory
+from mlmm.io.plotly_image import write_plotly_image
 
 AXIS_WIDTH = 3         # axis and tick thickness
 FONT_SIZE = 18         # tick-label font size
@@ -268,7 +269,7 @@ def save_outputs(
             kw = {"engine": "kaleido"}
             if ext == ".png":
                 kw["scale"] = 2  # high-resolution PNG
-            fig.write_image(out, **kw)
+            write_plotly_image(fig, out, **kw)
             emit(f"[trj2fig] Saved figure -> {out}", detail=True)
         else:
             raise ValueError(f"Unsupported format: {ext}")

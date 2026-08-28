@@ -103,7 +103,7 @@ out_dir/ (default: ./result_freq/)
 | `--model-pdb PATH` | PDB defining the ML region. Optional when `--detect-layer` is enabled. | _None_ |
 | `--model-indices TEXT` | Explicit ML-region atom indices (alternative to `--model-pdb`). | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | Indexing convention for `--model-indices`. | `True` (1-based) |
-| `--detect-layer` | Automatically detect ML/MM layers from B-factors. | Enabled |
+| `--detect-layer / --no-detect-layer` | Automatically detect ML/MM layers from B-factors. | Enabled |
 | `-q, --charge INT` | ML region charge. | _None_ (required unless `-l` is given) |
 | `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives net charge when `-q` is omitted. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |

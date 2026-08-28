@@ -55,7 +55,7 @@ mlmm sp -i INPUT --parm PARM7 -q CHARGE [options]
 
 | フラグ | 意味 |
 |---|---|
-| `--detect-layer` | B-factor レイヤーを自動検出（既定で有効） |
+| `--detect-layer / --no-detect-layer` | B-factor レイヤーを自動検出（既定で有効） |
 | `--model-pdb FILE` | ML 原子を定義する代替 PDB |
 | `--model-indices TEXT` | カンマ区切りの 1-based 原子インデックス（例: `1-50,75,100-110`） |
 

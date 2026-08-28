@@ -288,6 +288,25 @@ def test_dft_energy_only_backend_replaces_exactly_the_core_high_level_term():
         workspace.cleanup()
 
 
+def test_dft_workspace_disables_the_mlip_xtb_embedding_correction():
+    workspace = _prepare_ml_region_workspace(
+        input_pdb=PDB_FIXTURE,
+        real_parm7=FIXTURE,
+        model_pdb=PDB_FIXTURE,
+        link_mlmm=None,
+        calc_kwargs={
+            "model_charge": 0,
+            "model_mult": 2,
+            "embedcharge": True,
+        },
+    )
+    try:
+        assert workspace.core.embedcharge is False
+        assert workspace.core._embed_correction is None
+    finally:
+        workspace.cleanup()
+
+
 def test_shared_builder_honours_use_cmap():
     assert "use_cmap" in inspect.signature(write_model_parm7).parameters
     assert "use_cmap" in inspect.signature(_prepare_ml_region_workspace).parameters

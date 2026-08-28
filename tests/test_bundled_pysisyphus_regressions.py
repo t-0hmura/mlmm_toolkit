@@ -473,7 +473,7 @@ def test_rsprfo_partition_derivative_matches_secular_finite_difference(
     assert analytic == pytest.approx(numeric, rel=2.0e-7, abs=1.0e-10)
 
 
-def test_rfoptimizer_does_not_restrict_the_accelerated_offset_twice() -> None:
+def test_rfoptimizer_scales_complete_accelerated_displacement_to_trust_radius() -> None:
     opt = RFOptimizer.__new__(RFOptimizer)
     opt.trust_radius = 0.1
     opt.log = lambda *_: None
@@ -481,17 +481,46 @@ def test_rfoptimizer_does_not_restrict_the_accelerated_offset_twice() -> None:
     result = opt._accept_accelerated_step(
         np.array([0.08, 0.0]), np.array([0.08, 0.0]), ref_step,
     )
-    np.testing.assert_allclose(result, [0.16, 0.0])
+    np.testing.assert_allclose(result, [0.1, 0.0])
 
     accepted = opt._accept_accelerated_step(
         np.array([0.04, 0.0]), np.array([0.03, 0.0]), ref_step,
     )
     np.testing.assert_allclose(accepted, [0.07, 0.0])
 
+    direction_preserved = opt._accept_accelerated_step(
+        np.array([0.06, 0.08]), np.array([0.06, 0.08]), ref_step,
+    )
+    np.testing.assert_allclose(direction_preserved, [0.06, 0.08])
+    assert np.linalg.norm(direction_preserved) == pytest.approx(opt.trust_radius)
+
     fallback = opt._accept_accelerated_step(
         np.array([np.nan, 0.0]), np.array([0.03, 0.0]), ref_step,
     )
     np.testing.assert_allclose(fallback, ref_step)
+
+
+@pytest.mark.parametrize(
+    ("eigvals", "gradient"),
+    [
+        (np.array([-1.0, -1.0, 1.0]), np.array([0.0, 1.0e-5, 0.0])),
+        (
+            np.array([-1.0, -1.0 + 1.0e-10, 1.0]),
+            np.array([0.0, 1.0e-7, 0.0]),
+        ),
+    ],
+)
+def test_newton_hard_case_step_is_trust_bounded(eigvals, gradient) -> None:
+    opt = RFOptimizer.__new__(RFOptimizer)
+    opt.trust_radius = 0.1
+    opt.min_step_norm = 1.0e-8
+    opt.log = lambda *_: None
+
+    with np.errstate(all="ignore"):
+        step = opt.get_newton_step_on_trust(eigvals, np.eye(3), gradient)
+
+    assert np.isfinite(step).all()
+    assert np.linalg.norm(step) == pytest.approx(opt.trust_radius)
 
 
 def test_rfoptimizer_accelerated_step_keeps_reference_tensor_representation() -> None:
@@ -563,6 +592,40 @@ def test_growing_string_reparametrization_guards_zero_density() -> None:
     )
     with pytest.raises(ValueError, match="zero path density"):
         GrowingString.get_new_image(string, 0)
+
+
+def _energy_param_density(coords, energies):
+    string = SimpleNamespace(
+        images=[np.array([coord], dtype=float) for coord in coords],
+        all_energies=[energies],
+        log=lambda *_args: None,
+    )
+    return GrowingString.get_cur_param_density(string, kind="energy")
+
+
+def test_energy_param_density_handles_minimum_energy_intervals() -> None:
+    density = _energy_param_density([0.0, 1.0, 2.0], [0.0, 0.0, 1.0])
+
+    assert density[[0, -1]] == pytest.approx([0.0, 1.0])
+    assert np.all(np.diff(density) > 1.0e-15)
+
+
+def test_energy_param_density_uses_arclength_only_for_flat_energies() -> None:
+    density = _energy_param_density([0.0, 1.0, 3.0], [2.0, 2.0, 2.0])
+
+    assert density == pytest.approx([0.0, 1.0 / 3.0, 1.0])
+
+
+def test_energy_param_density_preserves_positive_weight_formula() -> None:
+    density = _energy_param_density([0.0, 1.0, 3.0], [0.0, 2.0, 3.0])
+    old_weighted = np.array([0.0, 1.0, 1.0 + 2.0 * np.sqrt(2.5)])
+
+    assert density == pytest.approx(old_weighted / old_weighted[-1])
+
+
+def test_energy_param_density_rejects_nonfinite_energies() -> None:
+    with pytest.raises(ValueError, match="non-finite energies"):
+        _energy_param_density([0.0, 1.0, 2.0], [0.0, np.nan, 1.0])
 
 
 def test_max_line_search_projects_endpoint_gradients(monkeypatch) -> None:
@@ -912,6 +975,36 @@ def test_directional_irc_trajectory_contains_terminal_frame(tmp_path) -> None:
     assert float(atom_lines[-1].split()[1]) == pytest.approx(
         0.529177, rel=1e-6
     )
+
+
+def test_invalid_downhill_departure_cannot_be_certified(tmp_path) -> None:
+    irc = IRC.__new__(IRC)
+    irc.atoms = ("H",)
+    irc._m_sqrt = np.ones(3)
+    irc.get_path_for_fn = lambda filename: str(tmp_path / filename)
+    irc.irc_coords = [np.zeros(3)]
+    irc.irc_gradients = [np.zeros(3)]
+    irc.irc_mw_coords = [np.zeros(3)]
+    irc.irc_mw_gradients = [np.zeros(3)]
+    irc.irc_energies = [-1.0]
+    irc.all_coords = []
+    irc.all_gradients = []
+    irc.all_mw_coords = []
+    irc.all_mw_gradients = []
+    irc.all_energies = []
+    irc.converged = True
+    irc.downhill_departure_valid = False
+    irc.integration_stop_reason = ""
+    irc.energy_increased = False
+    irc.energy_converged = True
+    irc.never_stop = False
+    irc.cur_cycle = 1
+
+    irc.set_data("forward")
+
+    assert irc.forward_integration_converged is True
+    assert irc.forward_downhill_departure_valid is False
+    assert irc.forward_is_converged is False
 
 
 def test_full_hessian_normal_modes_honor_geometry_freezes() -> None:

@@ -9,6 +9,7 @@
 | `summary.json` | 集約結果の書き込み処理まで到達した `all` / `path-search` | 集約ワークフローの正規 JSON エンベロープ（[JSON 出力リファレンス](json-output.md)）。早期の CLI 引数または入力の検証では作られない場合があります。 |
 | `summary.json` | 正常終了した段階別・レポート系コマンドでは `--out-json` 指定時（デフォルトは `--no-out-json`）。捕捉した実行時エラーでは、フラグなしでも可能な範囲でエラーエンベロープを書く場合があります | 個別結果の `result.json` と互換性のあるミラー。書き込み処理が正常終了した場合は同一のバイト列です。`fix-altloc`、`add-elem-info`、`bond-summary` などは出力しません。 |
 | `result.json` | 段階別 `summary.json` と同条件（`opt`、`tsopt`、`freq`、`irc`、`sp`、scan 系、`path-opt`、`dft`、`extract`、`trj2fig`、`energy-diagram`） | 個別結果・レポートの正規エンベロープ。互換ミラーより後に公開されるため、中断した世代を判定するときはこちらを読みます。 |
+| `run.log` | コマンドへ到達し、出力ディレクトリが作られた CLI / Colab 実行 | shell-safe な実行コマンドと、コマンド実行中の標準出力・標準エラー。早期の Click 検証、help、version、dry-run、出力先が単一ファイルのユーティリティでは生成しません。 |
 | `summary.log` | `path-search`、`all` | 人が読むための実行ログ（セグメント / ステージごとに 1 行）。 |
 | `final_geometry.xyz` | `opt`、`tsopt` | 最適化された構造（XYZ、フル精度）。 |
 | `mep.pdb` / `mep.cif` / `mep_trj.xyz` | `path-search`、`all` | 反応経路のフレーム。bridge 入力では `mep.cif` が元の ID を復元します。単独実行の `path-opt` は代わりに `final_geometries_trj.xyz` / `final_geometries.pdb` を書き込みます。 |
@@ -74,9 +75,10 @@ TSOPT のみのモードでは MEP ステージがないため、`_work/path_opt
 import json
 from pathlib import Path
 
+out_dir = Path("result_opt")
 subcommand = "opt"  # 実行したコマンドに置き換える
 primary = "summary.json" if subcommand in {"all", "path-search"} else "result.json"
-summary = json.loads((Path(out_dir) / primary).read_text())
+summary = json.loads((out_dir / primary).read_text())
 
 if summary["status"] == "error":
     chain = summary.get("error_class_chain", [])

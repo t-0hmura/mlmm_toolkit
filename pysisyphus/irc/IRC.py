@@ -474,6 +474,10 @@ class IRC:
     def prepare(self, direction):
         self.direction = direction
         self.converged = False
+        # This remains True for ordinary downhill starts and length-based
+        # diagnostic starts. Energy-based TS departures clear it only when no
+        # strictly downhill displacement can be found after bisection.
+        self.downhill_departure_valid = True
         self.integration_stop_requested = False
         self.integration_stop_reason = ""
         self._exact_endpoint_hessian_cache = None
@@ -540,7 +544,7 @@ class IRC:
                 f"   Actual energy lowering: {en_str(actual_lowering)}\n"
                 f"                        Δ: {en_str(diff)}"
             )
-            if actual_lowering < 0.0:
+            if actual_lowering <= 0.0:
                 print("Displaced geometry is higher in energy. Bisecting step...")
                 step = initial_step.copy()
                 for _ in range(5):
@@ -551,7 +555,11 @@ class IRC:
                         print(f"  Resolved: lowering={actual_lowering:.6f} au")
                         break
                 else:
-                    print("WARNING: Could not find downhill displacement.")
+                    self.downhill_departure_valid = False
+                    print(
+                        "WARNING: Could not find downhill displacement; "
+                        "continuing diagnostically without IRC certification."
+                    )
             print("\n")
             sys.stdout.flush()
         initial_step_length = np.linalg.norm(initial_step)
@@ -1025,7 +1033,25 @@ class IRC:
         del self.irc_mw_gradients
         del self.irc_energies
 
-        setattr(self, f"{prefix}_is_converged", self.converged)
+        integration_converged = bool(self.converged)
+        downhill_departure_valid = bool(
+            getattr(self, "downhill_departure_valid", True)
+        )
+        setattr(
+            self,
+            f"{prefix}_is_converged",
+            integration_converged and downhill_departure_valid,
+        )
+        setattr(
+            self,
+            f"{prefix}_integration_converged",
+            integration_converged,
+        )
+        setattr(
+            self,
+            f"{prefix}_downhill_departure_valid",
+            downhill_departure_valid,
+        )
         setattr(
             self,
             f"{prefix}_integration_stop_reason",

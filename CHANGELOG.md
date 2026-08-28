@@ -4,12 +4,46 @@ All notable changes to **mlmm-toolkit** will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased] — 2026-08-19
+## [Unreleased]
+
+_No changes yet._
+
+## [0.3.3] — pending
 
 ### Added
 - Add `--gsm-param {equi,energy}` to `all`, `path-opt`, and `path-search` as an advanced GSM node-parameterization control; `equi` remains the default.
 
 ### Fixed
+- Keep energy-weighted GSM parametrization finite across minimum-energy and flat intervals while rejecting invalid energies.
+- Correct CLI/YAML/default documentation, runnable output recipes, TS-only guidance, and canonical toggle names.
+- Pin Torch 2.8.0 in every minimal no-deps CI lane and match the primary citation title.
+- Bound Plotly/Kaleido static-image export to ten minutes in an isolated
+  renderer process so a stalled Chrome startup or shutdown cannot block a
+  scientific workflow indefinitely.
+- Disable polynomial line search inside the Hessian Dimer and reject attempts
+  to enable it, because the effective Dimer force is not conjugate to the
+  reported physical energy.
+- Keep IRC branches diagnostic when energy-based displacement cannot find a
+  downhill departure; later small-gradient termination can no longer certify
+  or cache such a branch.
+- Preserve distance-derived frozen atoms when a calculator is attached, and
+  constrain default Hessian targets to atoms inside `movable_cutoff`.
+- Propagate requested endpoint-preoptimization convergence into standalone and
+  `all` path scientific status while retaining diagnostic path continuation.
+- Make `all --dry-run` validate extraction/scan syntax and the ML-region
+  charge/multiplicity state before reporting success.
+- Forward the resolved embedding state and cutoff together when YAML enables
+  embedding and CLI overrides only the cutoff.
+- Add `all --freeze-atoms`, merge it with YAML `geom.freeze_atoms` and the
+  Frozen-MM layer across every child stage, expose it in Colab `all`, and keep
+  the unsupported selection hidden only for `dft`.
+- Honor an explicit `all --opt-mode` for both TSOPT and post-IRC endpoint
+  optimization when `--opt-mode-post` is omitted.
+- Separate the Colab workspace-path and example actions, restore `opt --dump`
+  trajectories from the `[command]` entry in `run.log`, and persist `run.log`
+  for ordinary output-directory CLI runs.
+- Keep `dft --embedcharge` as direct PySCF electrostatic embedding and do not
+  add the optional MLIP/xTB point-charge correction to the embedded DFT energy.
 - Number TS candidates, validated TS structures, and intermediates across linked
   Colab MEP/IRC trajectories, and label combined IRC endpoints by direction.
 - Label the Colab advanced-control disclosure as `Show All options`.
@@ -53,8 +87,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Preserve the MM micro-optimizer until its non-convergence diagnostics have been collected, preventing a post-macro microiteration failure from raising `UnboundLocalError`.
 - Record terminal PHVA as `skipped`, rather than `unavailable`, when a non-converged Hessian TS optimizer does not authorize the analysis.
 - Print a section heading before each tagged recursive GSM segment and before standalone Growing String optimization.
-- Keep accepted line-search/GDIIS offsets in minimum RFO instead of applying
-  the trust radius a second time to the full accelerated displacement.
+- Bound the complete minimum-RFO line-search/GDIIS displacement by scaling it
+  to the trust radius while preserving its accelerated direction.
+- Enforce the same trust radius on hard-case Newton and reference RFO steps,
+  preventing near-degenerate solvers from returning oversized displacements.
 - Keep an explicit finite cycle cap when resuming a checkpoint written by an
   uncapped optimizer.
 - Retain endpoint-optimization diagnostics when `--dump` is enabled.
@@ -75,8 +111,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Show Hessian cache-reuse notices at `-v 2`; cache identity and rejection details remain at `-v 3`.
 - Map the `hess` TS-optimizer preset to RS-P-RFO. Standalone `tsopt` retains RS-I-RFO through `--opt-mode rsirfo`.
 - Remove the legacy `light` and `heavy` optimizer aliases; use `grad`/`hess` or the algorithm names exposed by each subcommand.
-
-## [0.3.3] — 2026-07-27
 
 > Upgrade warning: unchanged inputs can produce different geometries, energies/barriers,
 > vibrational classifications, thermochemistry, and scientific/terminal status. Consumers of

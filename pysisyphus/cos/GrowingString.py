@@ -106,24 +106,41 @@ class GrowingString(GrowingChainOfStates):
 
         # Energy weighted parametrization density
         if kind == "energy":
-            prev_energies = np.array(self.all_energies[-1])
+            prev_energies = np.asarray(self.all_energies[-1], dtype=float)
 
             if len(prev_energies) != len(self.images):
                 return None
+            if not np.all(np.isfinite(prev_energies)):
+                raise ValueError(
+                    "Cannot build an energy-weighted string from non-finite energies."
+                )
 
-            mean_energies = (prev_energies[1:] + prev_energies[:-1]) / 2
-            weights = mean_energies - prev_energies.min()
-            # This damps everything a bit.
-            weights = np.sqrt(weights)
-            param_density = [
-                0,
-            ]
-            for weight, diff in zip(weights, norms[1:]):
-                assert weight > 0.0
-                param_density.append(param_density[-1] + weight * diff)
+            shifted = prev_energies - prev_energies.min()
+            mean_offsets = 0.5 * shifted[1:] + 0.5 * shifted[:-1]
+            if not np.all(np.isfinite(mean_offsets)) or np.any(mean_offsets < 0.0):
+                raise ValueError("Invalid energy offsets for string parametrization.")
+
+            max_offset = float(np.max(mean_offsets, initial=0.0))
+            if max_offset > 0.0:
+                # Preserve every positive weight from the original formula. A
+                # scale-relative floor only lifts intervals whose mean energy
+                # is exactly the global minimum, keeping their density distinct.
+                offset_floor = np.finfo(float).eps * max_offset
+                mean_offsets = np.where(
+                    mean_offsets > 0.0, mean_offsets, offset_floor
+                )
+                weights = np.sqrt(mean_offsets)
+                param_density = [0.0]
+                for weight, diff in zip(weights, norms[1:]):
+                    param_density.append(param_density[-1] + weight * diff)
+            # A finite, fully flat landscape has no energy information. In
+            # that case retain the ordinary arclength density computed above.
 
         param_density = np.array(param_density)
-        param_density /= param_density[-1]
+        density_total = float(param_density[-1])
+        if not np.isfinite(density_total) or density_total <= 0.0:
+            raise ValueError("Cannot parametrize a string with zero path density.")
+        param_density /= density_total
 
         return param_density
 

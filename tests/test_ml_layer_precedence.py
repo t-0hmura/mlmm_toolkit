@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import click
+import numpy as np
 import pytest
 
 from mlmm.core.utils import (
@@ -12,6 +13,7 @@ from mlmm.core.utils import (
     read_bfactors_from_pdb,
     resolve_ml_layer_assignment,
 )
+from mlmm.backends.mlmm_calc import MLMMCore, mlmm
 
 
 def _line(serial: int, name: str, bfactor: float) -> str:
@@ -157,3 +159,46 @@ def test_bfactor_model_generation_replaces_unprotected_prior_output(
     assert resolved == prior
     assert layer_info is not None
     assert "C1" in prior.read_text(encoding="utf-8")
+
+
+def test_distance_movable_cutoff_bounds_default_hessian_targets() -> None:
+    core = object.__new__(MLMMCore)
+    core.selection_indices = [0]
+    core._explicit_hess_mm_atoms = None
+    core._explicit_movable_mm_atoms = None
+    core._explicit_frozen_mm_atoms = None
+    core.use_bfactor_layers = False
+    core.hess_cutoff = None
+    core.movable_cutoff = 1.5
+
+    core._compute_layer_indices(
+        np.array(
+            [
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [3.0, 0.0, 0.0],
+            ]
+        )
+    )
+
+    assert core.hess_mm_indices == [1]
+    assert core.movable_mm_indices == []
+    assert core.frozen_layer_indices == [2]
+    assert core.movable_indices == [0, 1]
+
+
+def test_calculator_attach_preserves_distance_layer_freezes() -> None:
+    class FakeCore:
+        frozen_layer_indices = [3]
+        freeze_atoms = [3]
+
+        def _update_active_dof_mappings(self) -> None:
+            self.updated = True
+
+    calculator = object.__new__(mlmm)
+    calculator.core = FakeCore()
+
+    calculator.freeze_atoms = [1]
+
+    assert calculator.freeze_atoms == [1, 3]
+    assert calculator.core.updated is True

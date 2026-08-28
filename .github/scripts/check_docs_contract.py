@@ -199,6 +199,18 @@ ORDERED_SNIPPETS: dict[Path, tuple[str, ...]] = {
     ),
 }
 
+YAML_ALL_SECTIONS = frozenset({
+    "geom", "calc", "opt", "lbfgs", "rfo", "gs", "dmf", "irc", "freq",
+    "thermo", "dft", "bias", "bond", "search", "hessian_dimer", "rsirfo",
+    "stopt", "microiter",
+})
+YAML_ALL_SENTENCES = {
+    Path("docs/yaml-reference.md"):
+        "`mlmm all` consumes only the sections for its selected active stages.",
+    Path("docs/ja/yaml-reference.md"):
+        "`mlmm all` は、選択して有効化した stage の section だけを使用します。",
+}
+
 
 def _iter_markdown() -> list[Path]:
     paths: list[Path] = []
@@ -235,6 +247,21 @@ def main() -> int:
         expected_literal = f"uphill_tolerance: {uphill_default:.4f}"
         if text.count(expected_literal) != 2:
             errors.append(f"{rel}: uphill_tolerance examples must match {uphill_default}")
+        if YAML_ALL_SENTENCES[rel] not in text:
+            errors.append(f"{rel}: conditional all-stage routing sentence is missing")
+        all_sections = set()
+        for line in text.splitlines():
+            match = re.match(r"^\| \[`([^`]+)`\]\([^)]*\) \|.*\| ([^|]+) \|$", line)
+            if match is None:
+                continue
+            used_by = {item.strip() for item in match.group(2).split(",")}
+            if "all" in used_by:
+                all_sections.add(match.group(1))
+        if all_sections != YAML_ALL_SECTIONS:
+            errors.append(
+                f"{rel}: all-section matrix={sorted(all_sections)!r}; "
+                f"expected {sorted(YAML_ALL_SECTIONS)!r}"
+            )
 
     # Live-derived canonical bool-style check over the full authored surface
     # (README, CONTRIBUTING, docs, skills, examples, smoke scripts). Only names

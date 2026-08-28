@@ -14,6 +14,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 NOTEBOOK = REPO_ROOT / "examples" / "mlmm_colab.ipynb"
 NOTEBOOK_REF = "mlmm_toolkit_version"
+CHANGELOG = REPO_ROOT / "CHANGELOG.md"
 LANDING_PAGES = (REPO_ROOT / "docs" / "index.md", REPO_ROOT / "docs" / "ja" / "index.md")
 LANDING_SUBSTITUTION = "{{ release }}"
 _LANDING_HEADER_MARKERS = ("Version:", "バージョン:")
@@ -134,9 +135,34 @@ def _check_license() -> list[str]:
     return errors
 
 
+def changelog_release_errors(text: str, expected: str) -> list[str]:
+    errors: list[str] = []
+    unreleased = re.search(
+        r"^## \[Unreleased\][^\n]*\n(?P<body>.*?)(?=^## \[)",
+        text,
+        re.MULTILINE | re.DOTALL,
+    )
+    if unreleased is None:
+        errors.append("CHANGELOG.md has no [Unreleased] section")
+    else:
+        body = unreleased.group("body").strip()
+        if body not in {"", "_No changes yet._"}:
+            errors.append("CHANGELOG.md [Unreleased] contains release payload")
+    if not re.search(
+        rf"^## \[{re.escape(expected)}\] — \d{{4}}-\d{{2}}-\d{{2}}$",
+        text,
+        re.MULTILINE,
+    ):
+        errors.append(
+            f"CHANGELOG.md [{expected}] must use the actual YYYY-MM-DD release date"
+        )
+    return errors
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--expected-version")
+    parser.add_argument("--release-mode", action="store_true")
     args = parser.parse_args()
 
     values = {
@@ -154,6 +180,8 @@ def main() -> int:
         errors.append(f"expected version {expected}; mismatched: {details}")
     errors.extend(_check_landing_pages())
     errors.extend(_check_license())
+    if args.release_mode:
+        errors.extend(changelog_release_errors(CHANGELOG.read_text(encoding="utf-8"), expected))
 
     if errors:
         print("[release-version] FAIL:")

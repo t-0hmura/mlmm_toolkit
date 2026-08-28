@@ -2,8 +2,15 @@
 
 from __future__ import annotations
 
+import contextlib
 import importlib
+import os
+import shlex
+import shutil
+import sys
+import tempfile
 from collections.abc import Callable, Mapping
+from pathlib import Path
 
 import click
 
@@ -38,6 +45,55 @@ BuildUnavailableCommandFunc = Callable[[str, ImportError], click.Command]
 _INTERNAL_IMPORT_ROOTS = frozenset(
     {"mlmm", "pysisyphus", "thermoanalysis", "hessian_ff"}
 )
+
+
+class _TeeText:
+    """Mirror text to the live terminal and an in-memory run transcript."""
+
+    def __init__(self, stream, transcript):
+        self._stream = stream
+        self._transcript = transcript
+
+    def write(self, value):
+        self._transcript.write(value)
+        return self._stream.write(value)
+
+    def flush(self):
+        self._stream.flush()
+
+    def __getattr__(self, name):
+        return getattr(self._stream, name)
+
+
+def _publish_run_log(directory: Path, transcript) -> None:
+    """Atomically publish the ordinary CLI transcript beside its results."""
+
+    if not directory.is_dir():
+        return
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            newline="",
+            prefix=".run.log.",
+            suffix=".tmp",
+            dir=directory,
+            delete=False,
+        ) as handle:
+            temporary = Path(handle.name)
+            transcript.seek(0)
+            shutil.copyfileobj(transcript, handle, length=1024 * 1024)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, directory / "run.log")
+        temporary = None
+    finally:
+        if temporary is not None:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
 
 
 def _is_external_missing_dependency(exc: ModuleNotFoundError) -> bool:
@@ -360,7 +416,95 @@ class DefaultGroup(click.Group):
         # Suppress pysisyphus loggers AFTER lazy import has loaded the
         # subcommand module (which triggers pysisyphus __init__ file handlers).
         self._silence_pysisyphus_loggers()
-        return super().invoke(ctx)
+        run_log_dir = self._run_log_directory(ctx)
+        if run_log_dir is None:
+            return super().invoke(ctx)
+
+        transcript = tempfile.SpooledTemporaryFile(
+            mode="w+", encoding="utf-8", newline="", max_size=1024 * 1024
+        )
+        raw = list(ctx.meta.get("mlmm.cli.raw_args") or ())
+        transcript.write(f"[command] {shlex.join(['mlmm', *raw])}\n")
+        stdout = _TeeText(sys.stdout, transcript)
+        stderr = _TeeText(sys.stderr, transcript)
+        try:
+            with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                return super().invoke(ctx)
+        finally:
+            try:
+                _publish_run_log(run_log_dir, transcript)
+            except OSError as exc:
+                click.echo(f"[run.log] WARNING: Could not save run.log: {exc}", err=True)
+            finally:
+                transcript.close()
+
+    def _run_log_directory(self, ctx) -> Path | None:
+        """Resolve the selected command's Click-owned output directory."""
+
+        from mlmm.core.utils import is_child_mode
+
+        raw = list(ctx.meta.get("mlmm.cli.raw_args") or ())
+        if (
+            is_child_mode()
+            or not raw
+            or any(token in ("-h", "--help", "--help-advanced", "--version", "--dry-run")
+                   for token in raw)
+        ):
+            return None
+        command_name = raw[0]
+        command = self.get_command(ctx, command_name)
+        if command is None:
+            return None
+        output_option = next(
+            (
+                param
+                for param in command.params
+                if isinstance(param, click.Option) and param.name == "out_dir"
+            ),
+            None,
+        )
+        if output_option is None:
+            return None
+        try:
+            sub_ctx = click.Context(
+                command,
+                info_name=command_name,
+                parent=ctx,
+                resilient_parsing=True,
+            )
+            parsed, _remaining, _order = command.make_parser(sub_ctx).parse_args(
+                args=raw[1:]
+            )
+            value = parsed.get(output_option.name, output_option.default)
+        except Exception:
+            return None
+        output_spellings = set(output_option.opts) | set(output_option.secondary_opts)
+        output_explicit = any(
+            token in output_spellings
+            or any(token.startswith(f"{spelling}=") for spelling in output_spellings)
+            or (token.startswith("-o") and "-o" in output_spellings and token != "-o")
+            for token in raw[1:]
+        )
+        if not output_explicit and parsed.get("config_yaml"):
+            try:
+                from mlmm.core.utils import load_yaml_dict
+
+                config = load_yaml_dict(Path(parsed["config_yaml"]))
+                section_names = (
+                    command_name,
+                    command_name.replace("-", "_"),
+                    "search" if command_name == "path-search" else command_name,
+                )
+                for section_name in section_names:
+                    section = config.get(section_name)
+                    if isinstance(section, Mapping) and section.get("out_dir") is not None:
+                        value = section["out_dir"]
+                        break
+            except Exception:
+                pass
+        if value is None:
+            return None
+        return Path(os.path.abspath(os.path.expanduser(os.fspath(value))))
 
     def list_commands(self, ctx):
         # Preserve the semantic order declared in `_LAZY_SUBCOMMANDS` so the

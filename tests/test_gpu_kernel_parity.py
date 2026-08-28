@@ -76,6 +76,17 @@ def test_rfo_accelerated_step_preserves_reference_device(dev, dt):
         accepted, torch.tensor([0.07, 0.0], dtype=dt, device=dev), **_tol(dt)
     )
 
+    scaled = opt._accept_accelerated_step(
+        np.array([0.08, 0.0]),
+        torch.tensor([0.08, 0.0], dtype=dt, device=dev),
+        ref_step,
+    )
+    assert isinstance(scaled, torch.Tensor)
+    assert scaled.device == ref_step.device
+    torch.testing.assert_close(
+        scaled, torch.tensor([0.1, 0.0], dtype=dt, device=dev), **_tol(dt)
+    )
+
 
 # ---------------------------------------------------------------------------
 # Rank-two Bofill parity

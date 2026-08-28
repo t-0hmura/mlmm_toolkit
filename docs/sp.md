@@ -53,7 +53,7 @@ Either embed the partition in the input PDB's B-factor (ML=0.0, movable-MM=10.0,
 
 | flag | meaning |
 |---|---|
-| `--detect-layer` | automatic B-factor layer detection (enabled by default) |
+| `--detect-layer / --no-detect-layer` | automatic B-factor layer detection (enabled by default) |
 | `--model-pdb FILE` | alternative PDB defining ML atoms |
 | `--model-indices TEXT` | comma-separated 1-based atom indices (e.g. `1-50,75,100-110`) |
 

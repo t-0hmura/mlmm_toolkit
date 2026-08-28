@@ -93,7 +93,7 @@ def test_all_binds_run_id_and_restores_process_state(
             all_workflow.cli,
             [
                 "-i", str(inputs[0]), "-i", str(inputs[1]),
-                "-c", "protein",
+                "-c", "ALA",
                 "-q", "0",
                 "--out-dir", str(tmp_path / "out"),
                 "--dry-run",
@@ -146,7 +146,7 @@ def test_all_closes_generated_effective_yaml_with_invocation(
         all_workflow.cli,
         [
             "-i", str(inputs[0]), "-i", str(inputs[1]),
-            "-c", "protein",
+            "-c", "ALA",
             "-q", "0",
             "--out-dir", str(tmp_path / "out"),
             "--dry-run",

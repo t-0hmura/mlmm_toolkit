@@ -50,6 +50,21 @@ def _validate_postprocessing_dependencies(
             "MEP highest-energy image is not a validated transition state."
         )
 
+
+def _resolve_post_optimizer_mode(
+    *,
+    opt_mode_norm: str,
+    opt_mode_set: bool,
+    opt_mode_post_norm: Optional[str],
+    opt_mode_post_set: bool,
+) -> str:
+    """Resolve the shared TSOPT and post-IRC endpoint optimizer preset."""
+    if opt_mode_post_set and opt_mode_post_norm in {"grad", "hess"}:
+        return opt_mode_post_norm
+    if opt_mode_set and opt_mode_norm in {"grad", "hess"}:
+        return opt_mode_norm
+    return "hess"
+
 # Biopython for PDB parsing (post-processing helpers)
 from Bio import PDB
 
@@ -58,7 +73,13 @@ from pysisyphus.helpers import geom_loader
 from pysisyphus.constants import BOHR2ANG, AU2KCALPERMOL
 
 # Local imports from the package
-from mlmm.workflows.extract import extract_api, compute_charge_summary, log_charge_summary
+from mlmm.workflows.extract import (
+    _substrate_residues_for_structs,
+    compute_charge_summary,
+    extract_api,
+    load_structure,
+    log_charge_summary,
+)
 from mlmm.workflows.charge_prep import (
     configured_model_charge_spin,
     infer_present_terminal_cap_ids,
@@ -71,6 +92,7 @@ from mlmm.workflows import freq as _freq_cli
 from mlmm.workflows import irc as _irc_cli
 
 from mlmm.io.trj2fig import run_trj2fig
+from mlmm.io.plotly_image import write_plotly_image
 from mlmm.io.path_mode_cache import load_path_mode_cache, write_path_mode_cache
 from mlmm.io.summary import (
     emit_method_citations,
@@ -96,6 +118,8 @@ from mlmm.core.defaults import (
     fresh_dmf_config,
 )
 from mlmm.core.utils import (
+    _count_atoms_in_file,
+    _parse_freeze_atoms,
     apply_ref_pdb_override,
     build_energy_diagram,
     close_matplotlib_figures,
@@ -116,6 +140,7 @@ from mlmm.core.utils import (
     verbose_level,
     xyz_blocks_first_last,
 )
+from mlmm.workflows._opt_freq_common import _normalize_geom_freeze
 from mlmm.core.result_commit import (
     commit_exact_bytes,
     commit_json_exact,
@@ -626,6 +651,7 @@ def _inject_coord_type_into_args_yaml(
     calc_file: Optional[str] = None,
     calc_factory: Optional[str] = None,
     print_every: Optional[int] = None,
+    freeze_atoms: Optional[Sequence[int]] = None,
 ) -> Optional[Path]:
     """Inject geometry and backend-native calculator overrides into args YAML.
 
@@ -653,16 +679,22 @@ def _inject_coord_type_into_args_yaml(
         and backend_model is None
         and calc_file is None
         and print_every is None
+        and freeze_atoms is None
         and not has_generic_calc_alias
     ):
         return args_yaml
-    if coord_type is not None:
+    if coord_type is not None or freeze_atoms is not None:
         geom_cfg = cfg.get("geom")
         if not isinstance(geom_cfg, dict):
             geom_cfg = {}
         geom_cfg = dict(geom_cfg)
         if coord_type is not None:
             geom_cfg["coord_type"] = coord_type
+        if freeze_atoms is not None:
+            # Child commands read geom.freeze_atoms as a 1-based YAML field.
+            # The caller has already merged YAML and CLI values into one
+            # canonical 0-based set, so overwrite with that resolved set.
+            geom_cfg["freeze_atoms"] = [int(index) + 1 for index in freeze_atoms]
         cfg["geom"] = geom_cfg
     if (
         backend is not None
@@ -718,6 +750,48 @@ def _inject_coord_type_into_args_yaml(
     import atexit
     atexit.register(lambda p=new_path: p.unlink(missing_ok=True))
     return new_path
+
+
+def _resolve_all_freeze_atoms(
+    merged_yaml_cfg: Optional[Mapping[str, Any]],
+    freeze_atoms_text: Optional[str],
+) -> List[int]:
+    """Merge all-level CLI and YAML frozen atoms into a 0-based set."""
+
+    geom_cfg = (
+        merged_yaml_cfg.get("geom")
+        if isinstance(merged_yaml_cfg, Mapping)
+        else None
+    )
+    yaml_freeze = _normalize_geom_freeze(
+        geom_cfg.get("freeze_atoms") if isinstance(geom_cfg, Mapping) else None
+    )
+    cli_freeze = _parse_freeze_atoms(freeze_atoms_text)
+    return sorted(set(yaml_freeze) | set(cli_freeze))
+
+
+def _validate_all_freeze_atom_bounds(
+    freeze_atoms: Sequence[int],
+    prepared_inputs: Sequence[PreparedInputStructure],
+) -> None:
+    """Validate the resolved full-system indices against every endpoint."""
+
+    if not freeze_atoms:
+        return
+    highest = max(int(index) for index in freeze_atoms)
+    for input_ordinal, prepared in enumerate(prepared_inputs, start=1):
+        atom_count = _count_atoms_in_file(prepared.geom_path)
+        if atom_count <= 0:
+            raise click.BadParameter(
+                f"Could not determine the atom count of input #{input_ordinal} "
+                f"({prepared.display_path})."
+            )
+        if highest >= atom_count:
+            raise click.BadParameter(
+                "--freeze-atoms / YAML geom.freeze_atoms references atom "
+                f"{highest + 1}, but input #{input_ordinal} "
+                f"({prepared.display_path.name}) has {atom_count} atoms."
+            )
 
 
 def _write_ml_region_definition(pocket_pdb: Path, dest: Path) -> Path:
@@ -1039,6 +1113,58 @@ def _parse_scan_lists_literals(
     return stages
 
 
+def _validate_all_dry_run_semantics(
+    *,
+    prepared_inputs: Sequence[PreparedInputStructure],
+    center_spec: Optional[str],
+    scan_lists_raw: Sequence[str],
+    scan_one_based: bool,
+    charge_override: Optional[int],
+    yaml_model_charge: Optional[int],
+    ligand_charge: Optional[str],
+    spin: int,
+    mm_ligand_mult: Optional[str],
+) -> None:
+    """Run execution-critical, side-effect-free ``all --dry-run`` checks."""
+    if int(spin) < 1:
+        raise click.BadParameter("Multiplicity must be an integer >= 1.")
+
+    skip_extract = center_spec is None or not str(center_spec).strip()
+    if skip_extract and all(
+        value is None
+        for value in (charge_override, yaml_model_charge, ligand_charge)
+    ):
+        raise click.ClickException(
+            "[all] ML-region charge cannot be resolved when extraction is "
+            "skipped. Provide -q/--charge, --ligand-charge, or "
+            "calc.model_charge in YAML."
+        )
+
+    # These are also consumed later by mm_parm; reject malformed mappings now.
+    _mm_charge_mapping(ligand_charge)
+    _mm_mult_mapping(mm_ligand_mult)
+
+    if center_spec is not None and str(center_spec).strip():
+        try:
+            structures = [
+                load_structure(str(prepared.source_path), f"dry_run_{index}")
+                for index, prepared in enumerate(prepared_inputs, start=1)
+            ]
+            _substrate_residues_for_structs(structures, str(center_spec))
+        except Exception as exc:
+            raise click.BadParameter(
+                f"Invalid -c/--center selection {center_spec!r}: {exc}"
+            ) from exc
+
+    if scan_lists_raw:
+        atom_meta = load_pdb_atom_metadata(prepared_inputs[0].source_path)
+        _parse_scan_lists_literals(
+            scan_lists_raw,
+            atom_meta=atom_meta,
+            one_based=bool(scan_one_based),
+        )
+
+
 def _format_scan_stage(stage: List[Tuple[int, int, float]]) -> str:
     """Serialize a scan stage back into a Python-like literal string."""
     return "[" + ", ".join(f"({i},{j},{target})" for (i, j, target) in stage) + "]"
@@ -1285,11 +1411,29 @@ def _read_path_opt_segment_converged(seg_dir: Path) -> Optional[bool]:
             return None
         data = json.loads(rj.read_text(encoding="utf-8")) or {}
         for leaf in data.get("stage_outcomes") or []:
-            if isinstance(leaf, dict) and isinstance(leaf.get("converged"), bool):
+            if (
+                isinstance(leaf, dict)
+                and leaf.get("item_id") in {"gsm_mep", "dmf_mep"}
+                and isinstance(leaf.get("converged"), bool)
+            ):
                 return bool(leaf["converged"])
         return None
     except Exception as exc:
         logger.debug("Failed to read path-opt segment convergence %s: %s", seg_dir, exc)
+        return None
+
+
+def _read_path_opt_preopt_converged(seg_dir: Path) -> Optional[bool]:
+    """Read the requested endpoint-preoptimization aggregate from a child."""
+    try:
+        rj = seg_dir / "result.json"
+        if not rj.exists():
+            return None
+        data = json.loads(rj.read_text(encoding="utf-8")) or {}
+        value = data.get("preopt_converged")
+        return value if isinstance(value, bool) else None
+    except Exception as exc:
+        logger.debug("Failed to read path-opt preopt convergence %s: %s", seg_dir, exc)
         return None
 
 
@@ -1378,6 +1522,20 @@ def _pipeline_aggregate_truth(
 
     leaves: List[Any] = []
     expected: List[str] = []
+    if summary.get("preopt_requested") is True:
+        _preopt = summary.get("preopt_converged")
+        _preopt_conv = _preopt if isinstance(_preopt, bool) else None
+        leaves.append(
+            make_leaf(
+                "all",
+                "preopt",
+                required=True,
+                executed=True,
+                converged=_preopt_conv,
+                reason=("ok" if _preopt_conv is True else "preopt_not_converged"),
+            )
+        )
+        expected.append("preopt")
     for s in reactive:
         idx = s.get("index")
         if idx is None:
@@ -1490,10 +1648,12 @@ def _pipeline_aggregate_truth(
         agg_exec = agg.execution_status
         agg_reasons = list(agg.status_reasons)
         observed = (
-            [
+            (["preopt"] if summary.get("preopt_requested") is True else [])
+            + [
                 item_id
                 for item_id in expected
-                if item_id.removeprefix("segment_") in {
+                if item_id != "preopt"
+                and item_id.removeprefix("segment_") in {
                     str(index) for index in post_by_idx
                 }
             ]
@@ -1655,7 +1815,7 @@ def _enrich_summary(
     command: str = "",
     post_segments: Optional[list] = None,
     config: Optional[dict] = None,
-    freeze_atoms: Optional[str] = None,
+    freeze_atoms: Optional[Sequence[int]] = None,
     out_dir: Optional[Path] = None,
     mlip_model: Optional[str] = None,
     manifest: Optional[InvocationManifest] = None,
@@ -1859,7 +2019,7 @@ def _enrich_summary(
         }
     )
     if freeze_atoms:
-        summary["freeze_atoms"] = freeze_atoms
+        summary["freeze_atoms"] = sorted({int(index) for index in freeze_atoms})
     if post_segments:
         summary["post_segments"] = _json_safe(post_segments)
 
@@ -3041,9 +3201,9 @@ def _write_segment_energy_diagram(
         fig.update_layout(title=title_note)
     png = prefix.with_suffix(".png")
     try:
-        fig.write_image(str(png), scale=2)
+        write_plotly_image(fig, png, scale=2)
     except Exception as e:
-        click.echo(f"[diagram] NOTE: PNG export skipped (install 'kaleido' to enable): {e}", err=True)
+        click.echo(f"[diagram] NOTE: PNG export skipped: {e}", err=True)
     else:
         emit(f"[diagram] Wrote energy diagram → {png.name}", detail=True)
 
@@ -3779,6 +3939,19 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 # ===== Path search knobs (subset of path_search.cli) =====
 @click.option("-m", "--multiplicity", "spin", type=int, default=1, show_default=True, help="Multiplicity (2S+1).")
 @click.option(
+    "--freeze-atoms",
+    "freeze_atoms_text",
+    type=str,
+    default=None,
+    help=(
+        "Comma-separated 1-based full-system atom indices to freeze throughout "
+        "scan, MEP, TSOPT, endpoint optimization, IRC, and frequency stages "
+        "(for example, '1,3,5'). "
+        "Merged with YAML geom.freeze_atoms and the automatically detected "
+        "Frozen-MM layer."
+    ),
+)
+@click.option(
     "--mep-mode",
     type=click.Choice(["gsm", "dmf"], case_sensitive=False),
     default="gsm",
@@ -4189,6 +4362,7 @@ def cli(
     mm_keep_temp: bool,
     mm_ligand_mult: Optional[str],
     spin: int,
+    freeze_atoms_text: Optional[str],
     mep_mode: str,
     dmf_backend: str,
     max_nodes: int,
@@ -4356,6 +4530,11 @@ def cli(
     )
     if not _is_param_explicit("spin") and yaml_model_spin is not None:
         spin = int(yaml_model_spin)
+    effective_freeze_atoms = _resolve_all_freeze_atoms(
+        merged_yaml_cfg,
+        freeze_atoms_text,
+    )
+    freeze_atoms_cli_explicit = _is_param_explicit("freeze_atoms_text")
     _dmf_yaml_cfg = (
         merged_yaml_cfg.get("dmf", {})
         if isinstance(merged_yaml_cfg, dict)
@@ -4387,6 +4566,7 @@ def cli(
         or backend_model is not None
         or calc_file is not None
         or print_every_override is not None
+        or freeze_atoms_cli_explicit
     ):
         prior_args_yaml = args_yaml
         args_yaml = _inject_coord_type_into_args_yaml(
@@ -4395,6 +4575,7 @@ def cli(
             precision=precision, workers=workers, workers_per_node=workers_per_node, backend_model=backend_model,
             calc_file=(str(Path(calc_file).resolve()) if calc_file else None), calc_factory=calc_factory,
             print_every=print_every_override,
+            freeze_atoms=(effective_freeze_atoms if freeze_atoms_cli_explicit else None),
         )
         if args_yaml is not None and args_yaml != prior_args_yaml:
             session.resources.add(lambda p=args_yaml: p.unlink(missing_ok=True))
@@ -4422,14 +4603,25 @@ def cli(
     )
     from mlmm.core.utils import calculator_provenance as _calculator_provenance
 
-    _resolved_provenance = _calculator_provenance(
-        resolved_calc_template.materialize()
-    )
+    _resolved_calc_values = resolved_calc_template.materialize()
+    _resolved_provenance = _calculator_provenance(_resolved_calc_values)
     _mlip_model_label_resolved = _resolved_provenance["mlip_model_label"]
     _mlip_task_resolved = _resolved_provenance["mlip_task"]
+    # Child argv must reflect the effective calculator state, not Click's raw
+    # Boolean default. In particular, YAML may enable embedding while the CLI
+    # supplies only a higher-priority cutoff override.
+    embedcharge = bool(_resolved_calc_values.get("embedcharge", False))
+    _effective_embedcharge_cutoff = _resolved_calc_values.get(
+        "embedcharge_cutoff"
+    )
+    embedcharge_cutoff = (
+        None
+        if _effective_embedcharge_cutoff is None
+        else float(_effective_embedcharge_cutoff)
+    )
     if not _is_param_explicit("detect_layer"):
         detect_layer = bool(
-            resolved_calc_template.materialize().get("use_bfactor_layers", True)
+            _resolved_calc_values.get("use_bfactor_layers", True)
         )
 
     mm_ff_set = "ff14SB" if str(mm_ff_set).lower().startswith("ff14") else "ff19SB"
@@ -4503,6 +4695,11 @@ def cli(
         session.resources.own_cleanup(_prepared_model_pdb)
         model_pdb_override = _prepared_model_pdb.source_path
 
+    _validate_all_freeze_atom_bounds(
+        effective_freeze_atoms,
+        _prepared_all_inputs,
+    )
+
     if single_tsopt_mode:
         all_mode = "tsopt-only"
     elif has_scan:
@@ -4544,16 +4741,14 @@ def cli(
         if opt_mode_post is None
         else _mode_alias.get(str(opt_mode_post).strip().lower(), "hess")
     )
-    endpoint_opt_mode_default = (
-        opt_mode_post_norm if (opt_mode_post_set and opt_mode_post_norm is not None)
-        else (opt_mode_norm if opt_mode_set else "hess")
+    post_optimizer_mode = _resolve_post_optimizer_mode(
+        opt_mode_norm=opt_mode_norm,
+        opt_mode_set=opt_mode_set,
+        opt_mode_post_norm=opt_mode_post_norm,
+        opt_mode_post_set=opt_mode_post_set,
     )
-    if opt_mode_post_norm in {"grad", "hess"}:
-        tsopt_opt_mode_default = opt_mode_post_norm
-    elif opt_mode_set:
-        tsopt_opt_mode_default = opt_mode_norm
-    else:
-        tsopt_opt_mode_default = "hess"
+    tsopt_opt_mode_default = post_optimizer_mode
+    endpoint_opt_mode_default = post_optimizer_mode
 
     citation_post_segments: List[Dict[str, Any]] = []
 
@@ -4673,6 +4868,7 @@ def cli(
                 "skip_extract": bool(center_spec is None or str(center_spec).strip() == ""),
                 "out_dir": str(out_dir),
                 "spin": int(spin),
+                "freeze_atoms": [index + 1 for index in effective_freeze_atoms],
                 "mep_mode": mep_mode_kind,
                 "dmf_backend": dmf_backend_effective,
                 "max_nodes": int(max_nodes),
@@ -4722,6 +4918,17 @@ def cli(
     if dry_run:
         # Dry-run performs cheap structure/topology/layer validation, but never
         # invokes AmberTools or loads an ML model.
+        _validate_all_dry_run_semantics(
+            prepared_inputs=_prepared_all_inputs,
+            center_spec=center_spec,
+            scan_lists_raw=scan_lists_raw,
+            scan_one_based=(True if scan_one_based is None else bool(scan_one_based)),
+            charge_override=charge_override,
+            yaml_model_charge=yaml_model_charge,
+            ligand_charge=ligand_charge,
+            spin=spin,
+            mm_ligand_mult=mm_ligand_mult,
+        )
         if parm7_override is not None:
             import parmed as pmd
             from mlmm.backends.mlmm_calc import validate_parmed_atom_order
@@ -4755,9 +4962,131 @@ def cli(
                     "B-factor partition with both ML and MM atoms when extraction "
                     "is skipped and --model-pdb is absent."
                 )
+
+        # Mirror the real extraction/model-state preparation in a temporary
+        # tree. With a supplied parm7 this also runs the exact runtime link-H
+        # electron-parity check, without loading an ML model or running an
+        # optimizer.
+        _dry_owner = tempfile.TemporaryDirectory(prefix="mlmm_all_dry_")
+        session.resources.own_cleanup(_dry_owner)
+        _dry_root = Path(_dry_owner.name)
+        _dry_sources: List[Path] = []
+        for _index, _prepared in enumerate(_prepared_all_inputs, start=1):
+            _source = _prepared.source_path
+            if _pdb_needs_elem_fix(_source):
+                _fixed = _dry_root / f"input_{_index:02d}.pdb"
+                _assign_elem_info(str(_source), str(_fixed), overwrite=False)
+                _dry_sources.append(_fixed)
+            else:
+                _dry_sources.append(_source)
+
+        _dry_skip_extract = center_spec is None or not str(center_spec).strip()
+        _dry_model_source: Path
+        _dry_charge: Optional[int] = None
+        if not _dry_skip_extract:
+            _dry_models = [
+                _dry_root / f"model_{index:02d}.pdb"
+                for index in range(1, len(_dry_sources) + 1)
+            ]
+            try:
+                _dry_extract = extract_api(
+                    complex_pdb=[str(path) for path in _dry_sources],
+                    center=str(center_spec),
+                    output=[str(path) for path in _dry_models],
+                    radius=float(radius),
+                    radius_het2het=float(radius_het2het),
+                    include_h2o=bool(include_h2o),
+                    exclude_backbone=bool(exclude_backbone),
+                    add_linkh=bool(add_linkh),
+                    selected_resn=selected_resn or "",
+                    modified_residue=modified_residue or "",
+                    ligand_charge=ligand_charge,
+                    verbose=False,
+                )
+            except Exception as exc:
+                raise click.ClickException(
+                    f"[all] --dry-run extract pre-check failed: {exc}"
+                ) from exc
+            _dry_model_source = _write_ml_region_definition(
+                _dry_models[0], _dry_root / "ml_region.pdb"
+            )
+            _dry_charge_summary = (
+                _dry_extract.get("charge_summary", {})
+                if isinstance(_dry_extract, dict)
+                else {}
+            )
+            _dry_total = _dry_charge_summary.get("total_charge")
+            if _dry_total is None:
+                raise click.ClickException(
+                    "[all] --dry-run extractor produced no total charge."
+                )
+            _dry_charge = _round_charge_with_note(float(_dry_total))
+        elif model_pdb_override is not None:
+            _dry_model_source = _write_ml_region_definition(
+                model_pdb_override, _dry_root / "ml_region.pdb"
+            )
+        elif detect_layer:
+            _dry_subset = _write_bfactor_ml_subset(
+                _dry_sources[0], _dry_root / "ml_region.pdb"
+            )
+            if _dry_subset is None:
+                raise click.ClickException(
+                    "[all] --dry-run could not build the B-factor ML subset."
+                )
+            _dry_model_source = _dry_subset
+        else:
+            _dry_model_source = _write_ml_region_definition(
+                _dry_sources[0], _dry_root / "ml_region.pdb"
+            )
+
+        if charge_override is not None:
+            _dry_charge = int(charge_override)
+        elif _dry_charge is None and ligand_charge is not None:
+            if _dry_skip_extract and detect_layer and model_pdb_override is None:
+                _dry_charge = _derive_ml_charge_from_layered_pdb(
+                    _dry_sources[0], ligand_charge
+                )
+            else:
+                _dry_charge = _derive_charge_from_ligand_charge_when_extract_skipped(
+                    _dry_model_source, ligand_charge
+                )
+        if _dry_charge is None and yaml_model_charge is not None:
+            _dry_charge = int(yaml_model_charge)
+        if _dry_charge is None:
+            raise click.ClickException(
+                "[all] --dry-run could not resolve the ML-region charge."
+            )
+
+        if parm7_override is not None:
+            from mlmm.workflows.dft import _prepare_ml_region_workspace
+
+            _dry_workspace = _prepare_ml_region_workspace(
+                input_pdb=_dry_sources[0],
+                coordinate_path=(
+                    _prepared_all_inputs[0].geom_path
+                    if _prepared_all_inputs[0].geom_path.suffix.lower() == ".xyz"
+                    else None
+                ),
+                real_parm7=parm7_override,
+                model_pdb=_dry_model_source,
+                link_mlmm=_resolved_calc_values.get("link_mlmm"),
+                link_atom_method=str(
+                    _resolved_calc_values.get("link_atom_method") or "scaled"
+                ).lower(),
+                use_cmap=bool(_resolved_calc_values.get("use_cmap", True)),
+                calc_kwargs={
+                    **_resolved_calc_values,
+                    "model_charge": int(_dry_charge),
+                    "model_mult": int(spin),
+                },
+            )
+            # MLMMCore.prepare_atoms(), called above, already runs the exact
+            # link-H-aware charge/multiplicity parity check.
+            _dry_workspace.cleanup()
         _echo(
             "[all] Dry-run validation passed: structure normalization, layer "
-            "metadata, topology atom count/order, and required tools were checked. "
+            "metadata, extraction/scan syntax, charge/spin, topology atom "
+            "count/order, and required tools were checked. "
             "No calculation stage was executed.",
             narrative=True,
         )
@@ -5361,6 +5690,7 @@ def cli(
                 mlip_precision=mlip_precision_resolved,
                 charge=q_int,
                 spin=spin,
+                freeze_atoms=effective_freeze_atoms,
                 command=command_str,
                 post_segments=[_stop_log],
                 config={
@@ -5908,6 +6238,7 @@ def cli(
             mlip_precision=mlip_precision_resolved,
             charge=q_int,
             spin=spin,
+            freeze_atoms=effective_freeze_atoms,
             command=command_str,
             config={
                 "refine_path": bool(refine_path),
@@ -6111,6 +6442,7 @@ def cli(
                 mlip_precision=mlip_precision_resolved,
                 charge=q_int,
                 spin=spin,
+                freeze_atoms=effective_freeze_atoms,
                 command=command_str,
                 post_segments=[segment_log],
                 config={
@@ -6335,7 +6667,10 @@ def cli(
             _align_dir = path_dir / "pre_align"
             ensure_dir(_align_dir)
             _bfs = read_bfactors_from_pdb(pockets_for_path[0])
-            _fa = [i for i, bf in enumerate(_bfs) if bf >= 15.0]
+            _fa = sorted(
+                {i for i, bf in enumerate(_bfs) if bf >= 15.0}
+                | set(effective_freeze_atoms)
+            )
             if _fa:
                 _geoms = [geom_loader(str(p), coord_type="cart") for p in pockets_for_path]
                 for _g in _geoms:
@@ -6469,6 +6804,7 @@ def cli(
         ensure_dir(path_dir)
         combined_blocks: List[str] = []
         path_opt_segments: List[Dict[str, Any]] = []
+        path_opt_preopt_convergences: List[Optional[bool]] = []
 
         for pair_pos in range(len(pockets_for_path) - 1):
             # Array access remains zero-based; every public segment identifier
@@ -6540,6 +6876,10 @@ def cli(
             _run_cli_main("path_opt", _path_opt.cli, po_args, on_nonzero="raise", on_exception="raise", prefix="all")
 
             seg_converged = _read_path_opt_segment_converged(seg_out)
+            if pre_opt:
+                path_opt_preopt_convergences.append(
+                    _read_path_opt_preopt_converged(seg_out)
+                )
 
             # --- Post-processing per segment ---
             seg_trj = seg_out / "final_geometries_trj.xyz"
@@ -6734,6 +7074,16 @@ def cli(
             "n_segments": len(segments_summary),
             "segments": segments_summary,
         }
+        if pre_opt:
+            from mlmm.workflows._outcomes import combine_step_convergence
+
+            po_summary["preopt_requested"] = True
+            po_summary["preopt_converged"] = combine_step_convergence(
+                path_opt_preopt_convergences
+            )
+        else:
+            po_summary["preopt_requested"] = False
+            po_summary["preopt_converged"] = None
         if energy_diagrams_po:
             po_summary["energy_diagrams"] = list(energy_diagrams_po)
         _enrich_summary(
@@ -6749,6 +7099,7 @@ def cli(
             mlip_precision=mlip_precision_resolved,
             charge=q_int,
             spin=spin,
+            freeze_atoms=effective_freeze_atoms,
             command=command_str,
             config={
                 "refine_path": bool(refine_path),
@@ -7753,6 +8104,7 @@ def cli(
             mlip_precision=mlip_precision_resolved,
             charge=q_int,
             spin=spin,
+            freeze_atoms=effective_freeze_atoms,
             command=command_str,
             post_segments=post_segment_logs,
             config={

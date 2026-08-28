@@ -139,7 +139,7 @@ mlmm all -i R.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
     --scan-lists "[('SAM 359 CS1','GPP 360 C8',1.3)]"
 
 # TS-only validation (existing TS candidate)
-mlmm tsopt -i TS_candidate_layered.pdb --parm complex.parm7 -q 1 --opt-mode grad
+mlmm all -i TS_candidate_layered.pdb --parm complex.parm7 -q 1 --tsopt --opt-mode grad
 ```
 
 For Gaussian-ONIOM / ORCA-QM/MM input-deck export and import use [`oniom-export`](docs/oniom-export.md) / [`oniom-import`](docs/oniom-import.md). Per-stage walkthrough (`mm-parm` → `extract` → `define-layer` → `opt` → `path-search` → `tsopt` → `freq` → `irc` → `dft`): [docs/getting-started.md](docs/getting-started.md) and [docs/quickstart-all.md](docs/quickstart-all.md). Working scripts (BezA, methyltransferase, and toy system): [examples/](https://github.com/t-0hmura/mlmm_toolkit/tree/main/examples).
@@ -193,7 +193,7 @@ Issues: <https://github.com/t-0hmura/mlmm_toolkit/issues>.
 ```bibtex
 @article{ohmura2025mlmm,
   author = {Ohmura, Takuto and Inoue, Sei and Terada, Tohru},
-  title  = {ML/MM Toolkit -- Towards Accelerated Mechanistic Investigation of Enzymatic Reactions},
+  title  = {ML/MM Toolkit -- Toward Accelerated Mechanistic Investigation of Enzymatic Reactions},
   year   = {2025}, journal = {ChemRxiv}, doi = {10.26434/chemrxiv-2025-jft1k}
 }
 ```

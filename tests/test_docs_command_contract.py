@@ -107,6 +107,34 @@ def test_comment_line_bool_prose_is_not_flagged(tmp_path: Path) -> None:
     doc.write_text("# --dump on freq: write thermoanalysis.yaml\n", encoding="utf-8")
     assert dc.validate_bool_style([doc], live) == []
 
+
+def test_detect_layer_rows_show_both_live_toggle_names() -> None:
+    root = _root_cli()
+    ctx = root.make_context("mlmm", [], resilient_parsing=True)
+    rows = []
+    try:
+        for path in sorted((REPO_ROOT / "docs").rglob("*.md")):
+            if "reference" in path.relative_to(REPO_ROOT).parts:
+                continue
+            for line in path.read_text(encoding="utf-8").splitlines():
+                if not line.startswith("| `--detect-layer"):
+                    continue
+                rows.append((path, line))
+                command = root.get_command(ctx, path.stem)
+                assert command is not None, path
+                option = next(
+                    parameter
+                    for parameter in command.params
+                    if "--detect-layer" in getattr(parameter, "opts", ())
+                )
+                assert "--no-detect-layer" in option.secondary_opts
+                assert line.startswith(
+                    "| `--detect-layer / --no-detect-layer` |"
+                ), path
+    finally:
+        ctx.close()
+    assert rows
+
 def test_every_option_with_an_effective_default_shows_it() -> None:
     """A flag whose real default lives in a config block used to render as unset
     in --help, in the generated reference and in the Colab option list, which

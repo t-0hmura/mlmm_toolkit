@@ -342,6 +342,7 @@ def test_hessian_dimer_passes_geometry_constraints_to_dimer(tmp_path, monkeypatc
 
         def __init__(self, geometry, **kwargs):
             self.geometry = geometry
+            captured["lbfgs_kwargs"] = kwargs
 
         def run(self):
             return None
@@ -354,7 +355,7 @@ def test_hessian_dimer_passes_geometry_constraints_to_dimer(tmp_path, monkeypatc
     runner.tr_projection = "constrained"
     runner.rigid_projection_info = {}
     runner.dimer_kwargs = {}
-    runner.lbfgs_kwargs = {}
+    runner.lbfgs_kwargs = {"line_search": True}
     runner.mode_path = tmp_path / "mode.dat"
     runner.mem = 100
     runner.out_dir = tmp_path
@@ -376,3 +377,4 @@ def test_hessian_dimer_passes_geometry_constraints_to_dimer(tmp_path, monkeypatc
     np.testing.assert_array_equal(basis[:3], 0.0)
     np.testing.assert_allclose(basis.T @ basis, np.eye(3), atol=2.0e-12)
     assert runner.rigid_projection_info["effective_rank"] == 3
+    assert captured["lbfgs_kwargs"]["line_search"] is False

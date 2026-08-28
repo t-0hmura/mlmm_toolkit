@@ -90,7 +90,7 @@ Filename tags `i###_j###_k###` are integer hundredths of an angstrom (d1×100, d
 | `--model-pdb PATH` | PDB defining the ML region. | _None_ |
 | `--model-indices TEXT` | Explicit ML-region atom indices (alternative to `--model-pdb`). | _None_ |
 | `--model-indices-one-based / --model-indices-zero-based` | Indexing convention for `--model-indices`. | `True` (1-based) |
-| `--detect-layer` | Automatically detect ML/MM layers from B-factors. | Enabled |
+| `--detect-layer / --no-detect-layer` | Automatically detect ML/MM layers from B-factors. | Enabled |
 | `-q, --charge INT` | ML-region net charge. | _None_ (required unless `-l` or `--csv` is given) |
 | `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives total charge when `-q` is omitted. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |

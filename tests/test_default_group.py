@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import click
 import pytest
 from click.testing import CliRunner
@@ -62,6 +64,24 @@ def test_default_subcommand_is_inserted_when_no_args() -> None:
     result = runner.invoke(cli, [])
     assert result.exit_code == 0
     assert "all-called" in result.output
+
+
+def test_output_directory_command_writes_run_log(tmp_path: Path) -> None:
+    cli = _make_group()
+
+    @cli.command(name="work")
+    @click.option("-o", "--out-dir", default="result_work")
+    def work_cmd(out_dir: str) -> None:
+        Path(out_dir).mkdir(parents=True)
+        click.echo("work-complete")
+
+    out = tmp_path / "result"
+    result = CliRunner().invoke(cli, ["work", "-o", str(out)])
+
+    assert result.exit_code == 0
+    log = (out / "run.log").read_text(encoding="utf-8")
+    assert "[command] mlmm work" in log
+    assert "work-complete" in log
 
 
 def test_help_does_not_trigger_default_subcommand() -> None:

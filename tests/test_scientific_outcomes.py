@@ -1351,12 +1351,51 @@ def test_read_path_opt_segment_converged_is_tristate(tmp_path: Path) -> None:
 
     assert _read_path_opt_segment_converged(tmp_path) is None
     result = tmp_path / "result.json"
-    result.write_text(json.dumps({"stage_outcomes": [{"converged": True}]}))
+    result.write_text(json.dumps({"stage_outcomes": [{"item_id": "gsm_mep", "converged": True}]}))
     assert _read_path_opt_segment_converged(tmp_path) is True
-    result.write_text(json.dumps({"stage_outcomes": [{"converged": False}]}))
+    result.write_text(json.dumps({"stage_outcomes": [{"item_id": "dmf_mep", "converged": False}]}))
     assert _read_path_opt_segment_converged(tmp_path) is False
     result.write_text("{ not json")
     assert _read_path_opt_segment_converged(tmp_path) is None
+
+
+def test_requested_preopt_nonconvergence_keeps_path_diagnostic(
+    tmp_path: Path,
+) -> None:
+    from mlmm.workflows.all import (
+        _pipeline_aggregate_truth,
+        _read_path_opt_preopt_converged,
+    )
+
+    (tmp_path / "result.json").write_text(
+        json.dumps(
+            {
+                "preopt_requested": True,
+                "preopt_converged": False,
+                "stage_outcomes": [
+                    {"item_id": "preopt", "converged": False},
+                    {"item_id": "gsm_mep", "converged": True},
+                ],
+            }
+        )
+    )
+    assert _read_path_opt_preopt_converged(tmp_path) is False
+
+    truth = _pipeline_aggregate_truth(
+        {
+            "preopt_requested": True,
+            "preopt_converged": False,
+            "segments": [
+                {"index": 1, "kind": "seg", "converged": True}
+            ],
+        },
+        post_segments=None,
+        config={"tsopt": False},
+        legacy_status="success",
+    )
+    assert truth.execution_status == "completed"
+    assert truth.scientific_status == "partial"
+    assert any("preopt" in reason for reason in truth.status_reasons)
 
 
 def test_all_path_opt_child_emits_machine_result() -> None:

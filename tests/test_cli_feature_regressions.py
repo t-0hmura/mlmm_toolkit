@@ -659,6 +659,11 @@ def test_energy_diagram_preserves_equals_attached_and_grouped_values(
         return _DummyFigure()
 
     monkeypatch.setattr(energy_diagram, "build_energy_diagram", _build)
+    monkeypatch.setattr(
+        energy_diagram,
+        "write_plotly_image",
+        lambda figure, path, **kwargs: figure.write_image(path, **kwargs),
+    )
     output = tmp_path / "mixed.png"
     result = CliRunner().invoke(
         root_cli,

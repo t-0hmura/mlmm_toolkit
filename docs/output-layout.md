@@ -9,6 +9,7 @@ Each `mlmm` subcommand writes to its output directory following the filename con
 | `summary.json` | `all` and `path-search` after their summary writer is reached | Authoritative aggregate JSON envelope (see [JSON Output Reference](json-output.md)). Early CLI/input validation may fail before it exists. |
 | `summary.json` | successful per-stage/report runs with `--out-json` (default `--no-out-json`); caught runtime errors may write a best-effort envelope without the flag | Compatibility mirror of leaf `result.json`. A successful writer return guarantees identical bytes. Pure utilities such as `fix-altloc`, `add-elem-info`, and `bond-summary` never emit it. |
 | `result.json` | same conditions as the per-stage `summary.json` (`opt`, `tsopt`, `freq`, `irc`, `sp`, scan variants, `path-opt`, `dft`, `extract`, `trj2fig`, `energy-diagram`) | Authoritative leaf/report envelope, published after its compatibility mirror. Consume this file when distinguishing interrupted generations. |
+| `run.log` | dispatched CLI and Colab runs once their output directory exists | Shell-safe command plus stdout/stderr emitted during command execution. Early Click validation, help, version, dry-run, and file-only utilities do not create it. |
 | `summary.log` | `path-search`, `all` | Human-readable run log (one row per segment / stage). |
 | `final_geometry.xyz` | `opt`, `tsopt` | Optimized geometry (XYZ, full precision). |
 | `mep.pdb` / `mep.cif` / `mep_trj.xyz` | `path-search`, `all` | Reaction path frames; `mep.cif` restores original IDs for bridged input. Standalone `path-opt` writes `final_geometries_trj.xyz` / `final_geometries.pdb` instead. |
@@ -74,9 +75,10 @@ In TSOPT-only mode there is no MEP stage, so `_work/path_opt/` is absent and the
 import json
 from pathlib import Path
 
+out_dir = Path("result_opt")
 subcommand = "opt"  # replace with the command you ran
 primary = "summary.json" if subcommand in {"all", "path-search"} else "result.json"
-summary = json.loads((Path(out_dir) / primary).read_text())
+summary = json.loads((out_dir / primary).read_text())
 
 if summary["status"] == "error":
     chain = summary.get("error_class_chain", [])

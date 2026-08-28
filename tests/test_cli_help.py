@@ -204,6 +204,7 @@ def test_all_help_advanced_shows_hidden_options(runner, cli_group):
     assert "--scan-bias-k" in result.output
     assert "--freq-temperature" in result.output
     assert "--opt-mode-post" in result.output
+    assert "--freeze-atoms" in result.output
     assert "--sopt-mode" not in result.output
 
 

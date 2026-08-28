@@ -26,6 +26,13 @@ import pytest
 NOTEBOOK = Path(__file__).parents[1] / "examples" / "mlmm_colab.ipynb"
 
 
+def test_freq_hint_matches_the_dump_owned_thermoanalysis_output() -> None:
+    text = NOTEBOOK.read_text(encoding="utf-8")
+
+    assert "thermoanalysis.yaml (--dump)" in text
+    assert "thermoanalysis.yaml (--dump/--thermo)" not in text
+
+
 def _embedded_document(frame: str) -> str:
     """Decode either the direct or large-payload iframe contract."""
     packed = re.search(r'data-rx-document="([^"]+)"', frame)
@@ -239,6 +246,7 @@ def test_setup_command_fields_do_not_repaint_hidden_results_or_viewer(monkeypatc
             stack.extend(getattr(widget, "children", ()))
         raise AssertionError("freeze picker button not found: " + description)
 
+    app["dd_subcmd"].value = "opt"
     freeze_picker_button("Pick frozen atoms").click()
     assert app["pick_action"].value == "freezeatom"
     done = freeze_picker_button("Done picking")
@@ -258,6 +266,7 @@ def test_setup_command_fields_do_not_repaint_hidden_results_or_viewer(monkeypatc
     assert "rxactive-card" in app["freeze_panel"]._dom_classes
     assert "rxactive-card" not in app["system_charge_panel"]._dom_classes
     assert "0 件選択" not in _notebook()["cells"][2]["source"]
+    app["dd_subcmd"].value = "all"
 
     manual = app["cmd_box"].value + " --manual-flag"
     app["cmd_box"].value = manual
@@ -1347,7 +1356,8 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "if(warning)warning.remove();" in app
     assert "def _set_operation_loading(label, active):" in app
     assert "Loading <b>%s</b>…</div>" in app
-    assert "ex_btn.add_class('rxoperation-trigger')" in app
+    assert "ex_btn.add_class('rxexample-trigger')" in app
+    assert "workspace_load.add_class('rxworkspace-trigger')" in app
     assert "def _load_example_impl(_):" in app
     assert "try: return _load_example_impl(_)" in app
     assert "_set_operation_loading('files', True)" in app
@@ -1356,8 +1366,11 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "busy_label = {'model': 'ML-region PDB', 'session': 'session'}.get(role, 'files')" in app
     assert "function setNativeOperationLoading(label,active)" in app
     assert "'example_callback': 'mlmm_gui.load_example'" in app
-    assert "bridge.invokeFunction(CONFIG.example_callback,[],{})" in app
-    assert "setNativeOperationLoading('example',false)" in app
+    assert "'workspace_callback': 'mlmm_gui.load_workspace_path'" in app
+    assert "bridge.invokeFunction(callback,[],{})" in app
+    assert ".rxoperation-trigger" not in app
+    assert "setNativeOperationLoading(label,false)" in app
+    assert "_cwm.register_callback('mlmm_gui.load_workspace_path', _on_colab_workspace_path)" in app
     assert "host.dataset.rxOperationBusy==='true'" in app
     assert "wireOperationTriggers();" in app
     assert "Atom identifiers match input 1" not in app
@@ -2416,7 +2429,7 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     assert app["_input_box_children"][1] is app["_drop"]
     assert app["_input_box_children"][2] is app["workspace_path_row"]
     assert app["_input_box_children"][3] is app["input_msg"]
-    assert app["workspace_path"].description == "Workspace path"
+    assert app["workspace_path"].description == "From workspace path"
     assert app["workspace_path"].placeholder == "/content/path/to/file.pdb"
     assert app["workspace_load"].description == "Load"
     assert "rxworkspace-path" in app["workspace_path_row"]._dom_classes
@@ -2541,6 +2554,18 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     assert app["S"]["inputs"] == [str(primary)]
     assert app["S"]["center_ids"] == ["A:LIG:3", "A:MG:2"]
     assert app["S"]["parm"] == str(topology)
+
+    # A retained atom selection is workflow state. Composite all supports the
+    # same explicit full-system freeze contract as its child optimizers.
+    app["S"]["freeze_atoms"] = [1]
+    app["charge_rows"]["LIG"]["use"].value = True
+    app["w_charge_ok"].value = True
+    app["dd_subcmd"].value = "all"
+    app["all_mode"].value = "tsonly"
+    assert "--freeze-atoms" in app["build_cmd"]()
+    app["dd_subcmd"].value = "opt"
+    assert "--freeze-atoms" in app["build_cmd"]()
+    app["S"]["freeze_atoms"] = []
 
     all_statuses = {}
     root = app["PRODUCT_CLI"]
@@ -4098,8 +4123,8 @@ def test_colab_gui_routes_scientific_options_and_round_trips_sessions() -> None:
     app = _notebook()["cells"][2]["source"]
 
     # SPEC / FLAG_SUBS are the single source of truth, re-derived against the
-    # current mlmm CLI. `all` accepts --mep-mode, while --freeze-atoms also
-    # reaches sp and dft in this repository.
+    # current mlmm CLI. `all` accepts both --mep-mode and --freeze-atoms;
+    # unsupported commands must not inherit the shared selection panel.
     assert "SPEC = {" in app
     assert "SUBREQ = {k: v['req'] for k, v in SPEC.items()}" in app
     assert "'adv_mep':     {'all', 'path-opt', 'path-search'}," in app
@@ -4110,6 +4135,8 @@ def test_colab_gui_routes_scientific_options_and_round_trips_sessions() -> None:
     assert "'adv_thresh':  {'all', 'opt', 'tsopt', 'scan', 'scan2d', 'scan3d', 'path-opt', 'path-search'}," in app
     assert "def _advanced_options(sub):" in app
     assert "if 'freeze' in SPEC.get(sub, {}).get('panels', ()) and S['freeze_atoms']:" in app
+    assert "'all':      dict(n_in=(1, None), panels=('center', 'scan', 'freeze')," in app
+    assert "'dft':      dict(n_in=(1, 1), panels=()," in app
     # The public TR-projection option and legacy treatment are removed.
     assert "legacy-active" not in app
     assert "--tr-projection" not in app
@@ -6106,6 +6133,58 @@ def test_results_aggregate_segment_data_without_segment_controls(
     assert str(stale.resolve()) not in app["S"]["_last_files"]
     assert any(path.endswith("missing.xyz") for path in
                app["S"]["_last_manifest"]["rejected_claims"])
+
+
+def test_existing_opt_dump_uses_command_from_run_log(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    root = tmp_path / "opt_dump"
+    root.mkdir()
+    final = root / "final_geometry.xyz"
+    trajectory = root / "optimization_trj.xyz"
+    final.write_text("1\nfinal\nH 0 0 0\n", encoding="utf-8")
+    trajectory.write_text("1\nstep\nH 0 0 0\n", encoding="utf-8")
+    (root / "result.json").write_text(json.dumps({
+        "mlmm_toolkit_version": "0.3.3", "status": "converged",
+        "command": "all", "files": {"final_geometry_xyz": final.name},
+    }), encoding="utf-8")
+    argv = ["mlmm", "opt", "-i", "input.xyz", "-q", "0",
+            "-o", str(root), "--dump"]
+    (root / "run.log").write_text(
+        "mlmm-toolkit ver. 0.3.3\n\n[command] %s\n[mode] opt\n" % shlex.join(argv),
+        encoding="utf-8",
+    )
+
+    assert app["_recover_existing_results"](str(root), replace=True)
+    assert app["S"]["_last_subcmd"] == "opt"
+    assert app["S"]["_last_argv"][1] == "opt"
+    assert str(trajectory.resolve()) in app["S"]["_last_files"]
+    views = app["_result_view_candidates"](
+        app["S"]["_last_files"], str(root), app["S"]["_last_subcmd"])
+    assert ("Optimization trajectory", str(trajectory.resolve())) in views
+
+
+def test_colab_workspace_callback_loads_optimization_trajectory_path(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    source_dir = tmp_path / "result_opt(1)"
+    source_dir.mkdir()
+    source = source_dir / "optimization_trj.xyz"
+    source.write_text(
+        "1\nstep 0\nH 0 0 0\n1\nstep 1\nH 0 0 0.1\n",
+        encoding="utf-8",
+    )
+
+    app["workspace_path"].value = str(source)
+    result = app["_on_colab_workspace_path"]()
+
+    assert result == {"ok": True}
+    managed = Path(app["S"]["inputs"][-1])
+    assert managed.name == source.name
+    assert managed.read_bytes() == source.read_bytes()
+    assert not app["example_msg"].value
 
 
 def test_run_log_does_not_probe_or_announce_model_weight_cache() -> None:

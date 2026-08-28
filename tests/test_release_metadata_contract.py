@@ -39,6 +39,21 @@ def test_real_license_identities_agree_on_gpl3_or_later() -> None:
     assert crv._pyproject_license() == "GPL-3.0-or-later"
 
 
+def test_primary_source_title_is_identical_across_citation_surfaces() -> None:
+    surfaces = (
+        "CITATION.cff",
+        "README.md",
+        "docs/index.md",
+        "docs/ja/index.md",
+        "mlmm/io/summary.py",
+        "examples/mlmm_colab.ipynb",
+    )
+    for relative in surfaces:
+        text = (REPO_ROOT / relative).read_text(encoding="utf-8")
+        assert "Toward Accelerated" in text, relative
+        assert "Towards Accelerated" not in text, relative
+
+
 def test_hardcoded_landing_literal_fails(tmp_path, monkeypatch) -> None:
     good = tmp_path / "index.md"
     good.write_text("# Docs\n\n*Version: v{{ release }}* — text\n", encoding="utf-8")
