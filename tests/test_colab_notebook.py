@@ -449,6 +449,7 @@ def _viewer_contract() -> dict:
     )
     namespace = {
         "os": os, "S": {}, "_TRAJ": {}, "Path": Path, "csv": csv, "html": html,
+        "_AGGREGATE_IRC_METADATA": {},
         "json": json, "_TEXT_PREVIEW_LIMIT": 512 * 1024,
         "SPEC": {}, "_ARTIFACT_KINDS": {
             ".png": "image", ".jpg": "image", ".jpeg": "image", ".svg": "SVG",
@@ -1553,6 +1554,16 @@ def test_colab_viewer_persists_exact_atom_and_residue_context() -> None:
     assert contract["_stationary"]([2.0, 0.0, 2.0], path_semantics) == [
         (0, "R"), (2, "P"),
     ]
+    linked_semantics = dict(
+        path_semantics,
+        segment_ranges=[(0, 4, "seg", 1), (4, 8, "seg", 2)],
+    )
+    assert contract["_stationary"](
+        [0.0, 1.0, 3.0, 1.0, 0.0, 1.0, 2.0, 0.0], linked_semantics,
+    ) == [
+        (0, "R"), (2, "TS1 candidate"), (4, "IM1"),
+        (6, "TS2 candidate"), (7, "P"),
+    ]
 
 
 def test_colab_results_bind_irc_truth_and_skip_bridge_extrema(tmp_path: Path) -> None:
@@ -1575,6 +1586,7 @@ def test_colab_results_bind_irc_truth_and_skip_bridge_extrema(tmp_path: Path) ->
     )
     irc = contract["_trajectory_semantics"]("irc", str(irc_path), n_frames=5)
     assert irc["title"] == "Combined IRC trajectory"
+    assert (irc["start"], irc["end"]) == ("← forward", "backward →")
     assert irc["ts_index"] == 2
     assert "partial" in irc["trajectory_status"]
     assert "forward ✓" in irc["trajectory_status"]
@@ -5883,9 +5895,25 @@ def test_results_playback_uses_path_speed_except_for_energy_levels(
 
     segment_irc_2 = tmp_path / "segments" / "seg_02" / "irc" / "finished_irc_trj.xyz"
     segment_irc_2.parent.mkdir(parents=True)
-    segment_irc_2.write_text("1\nenergy=-0.9\nH 0 0 0\n", encoding="utf-8")
+    segment_irc_2.write_text(
+        "1\nenergy=-0.9\nH 0 0 0\n"
+        "1\nenergy=-0.8\nH 0.1 0 0\n"
+        "1\nenergy=-1.0\nH 0.2 0 0\n",
+        encoding="utf-8",
+    )
+    (segment_irc_2.parent / "result.json").write_text(json.dumps({
+        "n_frames_forward": 1, "n_frames_backward": 1, "n_frames_total": 3,
+        "forward_converged": True, "backward_converged": True,
+        "scientific_status": "success",
+    }), encoding="utf-8")
     aggregate = app["_aggregate_irc_trajectory"](
         [str(segment_irc), str(segment_irc_2)], str(tmp_path))
+    aggregate_semantics = app["_trajectory_semantics"](
+        "all", aggregate, n_frames=6,
+    )
+    assert aggregate_semantics["stationary_labels"] == {
+        1: "TS1", 2: "IM1", 4: "TS2",
+    }
     app["_ENERGY"]["aggregate_irc"] = aggregate
     options, _ = app["_energy_diagram_options"](
         [str(segment_irc), str(segment_irc_2)],
