@@ -5873,7 +5873,17 @@ def test_results_playback_uses_path_speed_except_for_energy_levels(
     irc_plot.write_bytes(b"\x89PNG\r\n\x1a\n")
     segment_irc = tmp_path / "segments" / "seg_01" / "irc" / "finished_irc_trj.xyz"
     segment_irc.parent.mkdir(parents=True)
-    segment_irc.write_text("1\nenergy=-1.0\nH 0 0 0\n", encoding="utf-8")
+    segment_irc.write_text(
+        "1\nenergy=-1.0\nH 0 0 0\n"
+        "1\nenergy=-0.9\nH 0.1 0 0\n"
+        "1\nenergy=-1.1\nH 0.2 0 0\n",
+        encoding="utf-8",
+    )
+    (segment_irc.parent / "result.json").write_text(json.dumps({
+        "n_frames_forward": 1, "n_frames_backward": 1, "n_frames_total": 3,
+        "forward_converged": True, "backward_converged": True,
+        "scientific_status": "success",
+    }), encoding="utf-8")
     aggregate = app["_aggregate_irc_trajectory"](
         [str(irc_plot), str(segment_irc)], str(tmp_path))
     app["_ENERGY"]["aggregate_irc"] = aggregate
