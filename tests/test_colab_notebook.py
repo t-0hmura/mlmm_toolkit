@@ -1375,6 +1375,7 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "Loading <b>%s</b>…</div>" in app
     assert "ex_btn.add_class('rxexample-trigger')" in app
     assert "workspace_load.add_class('rxworkspace-trigger')" in app
+    assert "res_btn.add_class('rxresults-load-trigger')" in app
     assert "def _load_example_impl(_):" in app
     assert "try: return _load_example_impl(_)" in app
     assert "_set_operation_loading('files', True)" in app
@@ -1384,10 +1385,13 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "function setNativeOperationLoading(label,active)" in app
     assert "'example_callback': 'mlmm_gui.load_example'" in app
     assert "'workspace_callback': 'mlmm_gui.load_workspace_path'" in app
+    assert "'load_results_callback': 'mlmm_gui.load_results'" in app
     assert "bridge.invokeFunction(callback,[],{})" in app
     assert ".rxoperation-trigger" not in app
     assert "setNativeOperationLoading(label,false)" in app
     assert "_cwm.register_callback('mlmm_gui.load_workspace_path', _on_colab_workspace_path)" in app
+    assert "_cwm.register_callback('mlmm_gui.load_results', _on_colab_load_results)" in app
+    assert "wireOperationTrigger('.rxresults-load-trigger',CONFIG.load_results_callback,'results');" in app
     assert "host.dataset.rxOperationBusy==='true'" in app
     assert "wireOperationTriggers();" in app
     assert "Atom identifiers match input 1" not in app
@@ -3739,12 +3743,12 @@ def test_colab_operates_scientific_selectors_and_remaining_buttons(
     assert app["res_btn"].description == "Load results"
     assert app["S"]["_last_out_dir"] == str(tmp_path.resolve())
     app["S"]["_last_log"] = "button coverage log"
-    # The selector names the scientifically selected result rather than using
-    # a generic "Primary result" label.
+    # The top selector stays stable while the child selector owns the concrete
+    # profile or trajectory.
     assert [label for label, _ in app["traj_choice"].options] == [
-        "Trajectory · path_a_trj.xyz"
+        "Energy profile & Trajectory"
     ]
-    app["traj_choice"].value = app["traj_choice"].options[0][1]
+    assert [label for label, _ in app["energy_choice"].options] == ["MEP"]
     app["frame_next"].click()
     assert app["frame_slider"].value == 1
     app["frame_prev"].click()
@@ -6273,6 +6277,54 @@ def test_colab_workspace_callback_loads_optimization_trajectory_path(
     assert managed.name == source.name
     assert managed.read_bytes() == source.read_bytes()
     assert not app["example_msg"].value
+
+
+def test_colab_initial_load_results_uses_native_callback(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    callbacks: dict[str, object] = {}
+    google = types.ModuleType("google")
+    colab = types.ModuleType("google.colab")
+    output = types.ModuleType("google.colab.output")
+    files = types.ModuleType("google.colab.files")
+    userdata = types.ModuleType("google.colab.userdata")
+    output.enable_custom_widget_manager = lambda: None
+    output.register_callback = lambda name, callback: callbacks.__setitem__(name, callback)
+    output.eval_js = lambda _script: None
+    files.download = lambda _path: None
+    userdata.get = lambda _key: None
+    colab.output = output
+    colab.files = files
+    colab.userdata = userdata
+    google.colab = colab
+    for name, module in {
+        "google": google,
+        "google.colab": colab,
+        "google.colab.output": output,
+        "google.colab.files": files,
+        "google.colab.userdata": userdata,
+    }.items():
+        monkeypatch.setitem(sys.modules, name, module)
+
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    assert app["_UPLOAD_MODE"] == "colab"
+    callback = callbacks["mlmm_gui.load_results"]
+
+    root = tmp_path / "existing_result"
+    root.mkdir()
+    trajectory = root / "optimization_trj.xyz"
+    trajectory.write_text("1\nstep\nH 0 0 0\n", encoding="utf-8")
+    (root / "summary.json").write_text(json.dumps({
+        "mlmm_toolkit_version": "0.3.3",
+        "status": "success",
+        "command": "mlmm opt -i input.xyz -o existing_result --dump",
+        "current_output_paths": [trajectory.name],
+    }), encoding="utf-8")
+    app["results_dir"].value = str(root)
+
+    assert callback() == {"ok": True}
+    assert app["S"]["_last_out_dir"] == str(root.resolve())
+    assert app["_TRAJ"]["path"] == str(trajectory.resolve())
 
 
 def test_run_log_does_not_probe_or_announce_model_weight_cache() -> None:

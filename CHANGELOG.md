@@ -11,8 +11,8 @@ _No changes yet._
 ## [0.3.3] — 2026-08-29
 
 > Upgrade warning: unchanged inputs can produce different geometries, energies/barriers,
-> vibrational classifications, thermochemistry, and scientific/terminal status. Consumers of
-> `result.json`/`summary.json` users must review the Breaking changes and output-schema updates below.
+> vibrational classifications, thermochemistry, and scientific/terminal status. Users of
+> `result.json`/`summary.json` must review the Breaking changes and output-schema updates below.
 
 ### Breaking changes
 - Remove the public `--tr-projection` option and the `legacy-active` treatment.
@@ -297,6 +297,7 @@ _No changes yet._
   unchanged.
 
 ### Fixed
+- Route the first Colab `Load results` action through the native browser bridge.
 - Organize Colab Results into `Energy profile & Trajectory` and
   `Imaginary frequency`, with a contextual `View` or `Mode` selector.
 - Install declared wheel dependencies during release validation and allow a
