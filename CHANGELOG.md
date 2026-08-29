@@ -12,7 +12,7 @@ _No changes yet._
 
 > Upgrade warning: unchanged inputs can produce different geometries, energies/barriers,
 > vibrational classifications, thermochemistry, and scientific/terminal status. Consumers of
-> `result.json`/`summary.json` consumers must review the Breaking changes and output-schema updates below.
+> `result.json`/`summary.json` users must review the Breaking changes and output-schema updates below.
 
 ### Breaking changes
 - Remove the public `--tr-projection` option and the `legacy-active` treatment.
