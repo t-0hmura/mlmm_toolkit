@@ -1135,6 +1135,10 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     result_selector_css = re.search(r"\.rxresult-selector\s*\{([^{}]*)\}", app)
     assert result_selector_css is not None
     assert "display:grid!important" not in re.sub(r"\s+", "", result_selector_css.group(1))
+    assert ".rxresults .rxmolstar-frame { border:0 !important; border-radius:0 !important; }" in app
+    assert ".rxresults-page { row-gap:12px !important;" in app
+    assert "min-height:58px; align-items:center !important" in app
+    assert "Recovered existing result · read-only preview" not in app
     assert "var warningHost = document.querySelector('.rxdrop');" in app
     assert "warningHost.parentElement.insertBefore(warning, warningHost.nextSibling);" in app
     assert "File upload controls did not initialize. Rerun the Launch GUI cell." in app
@@ -2205,7 +2209,7 @@ def test_run_uses_executed_output_path_for_results_directory(
         "mlmm", "opt", "-i", str(structure), "--parm", str(topology),
         "-o", str(output),
     ]
-    assert app["results_dir"].value == ""
+    assert app["results_dir"].value == app["w_out"].value
     app["_RUN_STATE"]["validated_fingerprint"] = app["_validation_fingerprint"](argv)
     app["_stream"] = lambda executed: (0, "ran " + " ".join(executed))
     app["_results"] = lambda _root: None
@@ -5413,12 +5417,31 @@ def test_results_replaces_trajectory_with_exact_stationary_model_set(
     app["_results"](str(tmp_path))
     energy_token = app["energy_choice"].value
     assert app["_ENERGY"]["views"][energy_token]["mode"] == "image"
-    assert app["traj_choice"].value == str(mep)
+    assert app["result_selector_row"].children == (
+        app["traj_choice"], app["energy_choice"], app["result_selector_meta"],
+    )
+    assert app["energy_panel_head"].children == (app["energy_panel_title"],)
+    assert app["traj_choice"].value == app["_RESULT_CATEGORY_ENERGY"]
+    assert [label for label, _ in app["traj_choice"].options] == [
+        "Energy profile & Trajectory", "Imaginary frequency",
+    ]
     assert app["_TRAJ"]["path"] == str(mep)
     assert len(app["_TRAJ"]["frames"]) == 5
-    assert "MEP profile" in app["trajectory_intro"].value
+    assert "Energy profile &amp; Trajectory" in app["trajectory_intro"].value
     assert "Vibrational mode" not in app["trajectory_intro"].value
     assert "STALE_MODE_" not in _embedded_document(app["traj_out"].value)
+
+    mep_token = next(
+        value for label, value in app["energy_choice"].options if label == "MEP"
+    )
+    app["energy_choice"].value = mep_token
+    assert app["_TRAJ"]["path"] == str(mep)
+    assert app["result_selector_row"].layout.display == ""
+    assert app["energy_choice"].layout.display == ""
+    app["energy_choice"].value = energy_token
+    assert app["traj_choice"].value == app["_RESULT_CATEGORY_ENERGY"]
+    assert app["result_selector_row"].layout.display == ""
+    assert app["energy_choice"].layout.display == ""
 
     source = _notebook()["cells"][2]["source"]
     assert "selected_energy_view.get('mode') == 'image'" in source
@@ -5569,10 +5592,12 @@ def test_results_route_single_structures_modes_and_scan_grids(
         _last_manifest={"status": "success", "exit_code": 0},
     )
     app["_results"](str(tmp_path))
-    app["traj_choice"].value = str(segment_imaginary)
+    app["traj_choice"].value = app["_RESULT_CATEGORY_IMAGINARY"]
+    assert app["energy_choice"].description == "Mode"
+    app["energy_choice"].value = str(segment_imaginary)
     assert app["_TRAJ"]["path"] == str(segment_imaginary)
     assert len(app["_TRAJ"]["frames"]) == 2
-    assert "Vibrational mode" in app["trajectory_intro"].value
+    assert "Imaginary frequency" in app["trajectory_intro"].value
     assert app["energy_panel"].layout.display == "none"
     assert "rxstructure-only" in app["path_grid"]._dom_classes
     assert app["plot_out"].value == ""
@@ -5588,7 +5613,7 @@ def test_results_route_single_structures_modes_and_scan_grids(
     assert app["result_selector_row"].layout.display == ""
     assert len(app["_TRAJ"]["frames"]) == 2
     assert app["frame_play"].disabled is False
-    assert "Vibrational mode" in app["trajectory_intro"].value
+    assert "Imaginary frequency" in app["trajectory_intro"].value
     assert app["energy_panel"].layout.display == "none"
     assert "rxstructure-only" in app["path_grid"]._dom_classes
     assert app["plot_out"].value == ""

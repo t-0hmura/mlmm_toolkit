@@ -4,6 +4,12 @@ on:
   release:
     types:
       - published
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing published release tag to build and publish
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -13,13 +19,24 @@ jobs:
   publish:
     name: Build and publish
     runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag }}
     steps:
       - name: Verify release title matches tag
         shell: bash
         env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          EVENT_NAME: ${{ github.event_name }}
           RELEASE_NAME: ${{ github.event.release.name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            RELEASE_NAME="$(gh release view "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" --json name --jq .name)"
+            test "$(gh release view "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" = "false"
+            test "$(gh release view "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" --json isPrerelease --jq .isPrerelease)" = "false"
+          fi
           if [[ "$RELEASE_NAME" != "$RELEASE_TAG" ]]; then
             echo "Release title must exactly match tag: expected '$RELEASE_TAG', got '$RELEASE_NAME'." >&2
             exit 1
@@ -28,19 +45,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ env.RELEASE_TAG }}
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Verify tag is the current main commit
+      - name: Verify release tag against main
         shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
         run: |
-          git fetch origin main
-          test "$(git rev-parse HEAD^{commit})" = "$(git rev-parse origin/main^{commit})"
+          git fetch origin main --tags
+          tag_commit="$(git rev-parse HEAD^{commit})"
+          main_commit="$(git rev-parse origin/main^{commit})"
+          if [[ "$EVENT_NAME" == "release" ]]; then
+            test "$tag_commit" = "$main_commit"
+          else
+            git merge-base --is-ancestor "$tag_commit" "$main_commit"
+          fi
 
       - name: Set version from tag
         run: |
-          TAG="${{ github.event.release.tag_name }}"
+          TAG="$RELEASE_TAG"
           VERSION="${TAG#v}"
           echo "SETUPTOOLS_SCM_PRETEND_VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "Building version: $VERSION"
@@ -73,7 +98,7 @@ jobs:
           shopt -s nullglob
           wheels=(dist/*.whl)
           test "${#wheels[@]}" -eq 1
-          python -m pip install --force-reinstall --no-deps "${wheels[0]}"
+          python -m pip install --force-reinstall "${wheels[0]}"
           smoke_dir="$(mktemp -d)"
           cd "$smoke_dir"
           python - <<'PY'
@@ -92,7 +117,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload "${{ github.event.release.tag_name }}" \
+          gh release upload "$RELEASE_TAG" \
             dist/*.whl dist/*.tar.gz --clobber
 
       - name: Publish to PyPI (Trusted Publishing)

@@ -297,6 +297,10 @@ _No changes yet._
   unchanged.
 
 ### Fixed
+- Organize Colab Results into `Energy profile & Trajectory` and
+  `Imaginary frequency`, with a contextual `View` or `Mode` selector.
+- Install declared wheel dependencies during release validation and allow a
+  published release tag to be retried safely after a workflow failure.
 - Restore the intended Mol* expanded-view defaults, clear the manual-command
   notice on Rebuild, and keep combined-IRC endpoint labels below their markers.
 - Initialize generated Colab numeric controls from each option's effective CLI
