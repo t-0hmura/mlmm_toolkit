@@ -2213,7 +2213,7 @@ def test_run_uses_executed_output_path_for_results_directory(
         "mlmm", "opt", "-i", str(structure), "--parm", str(topology),
         "-o", str(output),
     ]
-    assert app["results_dir"].value == app["w_out"].value
+    assert app["results_dir"].value == ""
     app["_RUN_STATE"]["validated_fingerprint"] = app["_validation_fingerprint"](argv)
     app["_stream"] = lambda executed: (0, "ran " + " ".join(executed))
     app["_results"] = lambda _root: None
