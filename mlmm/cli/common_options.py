@@ -7,6 +7,77 @@ from typing import Callable, Sequence
 import click
 
 
+def _capture_dft_option(ctx: click.Context, param: click.Parameter, value):
+    """Store explicit DFT-only values without changing workflow signatures."""
+
+    if ctx.resilient_parsing:
+        return value
+    source = ctx.get_parameter_source(param.name)
+    if source not in (None, click.core.ParameterSource.DEFAULT):
+        from mlmm.core.dft_settings import DFT_CLI_META_KEY
+
+        ctx.meta.setdefault(DFT_CLI_META_KEY, {})[param.name] = value
+    return value
+
+
+def add_dft_calculator_options():
+    """Attach common PySCF options while preserving existing call signatures."""
+
+    def decorator(func):
+        for args, kwargs in reversed(
+            [
+                (("--func-basis",), {
+                    "type": str, "default": None, "show_default": "wb97m-v/def2-svp",
+                    "help": "High-level method as FUNCTIONAL/BASIS; HF/BASIS is accepted.",
+                }),
+                (("--engine",), {
+                    "type": click.Choice(["gpu", "cpu"], case_sensitive=False),
+                    "default": None, "show_default": "gpu",
+                    "help": "PySCF execution engine used by --backend dft.",
+                }),
+                (("--save-scf-checkpoint/--no-save-scf-checkpoint",), {
+                    "default": None, "show_default": "disabled",
+                    "help": "Persist a structure-bound PySCF checkpoint.",
+                }),
+                (("--scf-checkpoint",), {
+                    "type": click.Path(path_type=str, dir_okay=False),
+                    "default": None,
+                    "help": "Load/save the optional structure-bound PySCF checkpoint at PATH.",
+                }),
+                (("--lowmem/--no-lowmem",), {
+                    "default": None, "show_default": "lowmem",
+                    "help": (
+                        "Use GPU4PySCF rks_lowmem for closed-shell GPU DFT; "
+                        "open-shell GPU and CPU use standard direct JK. "
+                        "--no-lowmem enables density fitting."
+                    ),
+                }),
+                (("--dft-nprocs",), {
+                    "name": "nprocs", "type": click.IntRange(min=1),
+                    "default": None, "show_default": "auto",
+                    "help": "PySCF/OpenMP CPU threads; GPU count is unaffected.",
+                }),
+                (("--dft-mem",), {
+                    "name": "memory", "type": str, "default": None,
+                    "show_default": "auto",
+                    "help": "PySCF host RAM limit (for example 64GB or 120000MB).",
+                }),
+            ]
+        ):
+            name = kwargs.pop("name", None)
+            if name is not None:
+                args = (*args, name)
+            func = click.option(
+                *args,
+                expose_value=False,
+                callback=_capture_dft_option,
+                **kwargs,
+            )(func)
+        return func
+
+    return decorator
+
+
 def add_print_every_option() -> Callable[[Callable], Callable]:
     """Attach `--print-every N` (debug verbosity throttle).
 

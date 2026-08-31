@@ -72,7 +72,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 
 | flag | default | meaning |
 |---|---|---|
-| `-b, --backend [uma\|orb\|mace\|aimnet2]` | `uma` | MLIP backend for the ML region |
+| `-b, --backend [uma\|orb\|mace\|aimnet2\|dft]` | `uma` | High-level backend for the model region |
 | `--hess / --no-hess` | `--no-hess` | also compute and write `hessian.npy` |
 | `--hessian-calc-mode [Analytical\|FiniteDifference]` | `FiniteDifference` | Hessian mode when `--hess` is set; `Analytical` uses the backend's native path |
 | `--link-atom-method [scaled\|fixed]` | `scaled` | link-atom positioning |

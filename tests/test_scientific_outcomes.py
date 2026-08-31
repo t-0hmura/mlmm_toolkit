@@ -763,6 +763,40 @@ def test_all_freq_leaves_symmetry_detection_to_each_child(
     assert "--symmetry-number" not in captured
 
 
+def test_all_freq_loads_role_checkpoint_without_rewriting_it(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from mlmm.workflows import all as all_workflow
+
+    structure = tmp_path / "R.xyz"
+    structure.write_text("1\n\nH 0 0 0\n", encoding="utf-8")
+    checkpoint = tmp_path / "R.chk"
+    captured: list[str] = []
+
+    def _capture(_name, _command, argv, **_kwargs):
+        captured.extend(argv)
+        return 1
+
+    monkeypatch.setattr(all_workflow, "_run_cli_main", _capture)
+    monkeypatch.setattr(all_workflow, "_echo", lambda *a, **k: None)
+    all_workflow._run_freq_for_state(
+        structure,
+        0,
+        1,
+        tmp_path / "real.parm7",
+        tmp_path / "model.pdb",
+        False,
+        tmp_path / "freq",
+        None,
+        overrides={},
+        scf_checkpoint=checkpoint,
+    )
+
+    assert "--no-save-scf-checkpoint" in captured
+    assert captured[captured.index("--scf-checkpoint") + 1] == str(checkpoint)
+
+
 def test_thermo_gibbs_finite_gate() -> None:
     # Binds to the production finite-gates the all.py Gibbs/DFT//MLIP/MM consumers
     # use in place of the old 0.0 / MLIP substitution: a missing/nonfinite field

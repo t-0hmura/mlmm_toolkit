@@ -1081,18 +1081,21 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
     lines.append(f"refine-path        : {_fmt_bool(payload.get('refine_path'))}")
     lines.append(f"TSOPT/IRC          : {_fmt_bool(payload.get('tsopt'))}")
     lines.append(f"Thermochemistry    : {_fmt_bool(payload.get('thermo'))}")
-    dft_enabled = payload.get("dft")
-    dft_status_str = _fmt_bool(dft_enabled)
-    if dft_enabled:
-        dft_result = payload.get("dft_status")
-        if dft_result == "failed":
-            dft_status_str = "True (Failed)"
-        elif dft_result == "converged":
-            dft_status_str = "True (Converged)"
-    lines.append(f"DFT single-point   : {dft_status_str}")
-    dft_func_basis = payload.get("dft_func_basis")
-    if dft_func_basis:
-        lines.append(f"DFT functional/basis: {dft_func_basis}")
+    primary_backend = str(payload.get("mlip_backend") or "-")
+    primary_is_dft = primary_backend.strip().lower() == "dft"
+    if not primary_is_dft:
+        dft_enabled = payload.get("dft")
+        dft_status_str = _fmt_bool(dft_enabled)
+        if dft_enabled:
+            dft_result = payload.get("dft_status")
+            if dft_result == "failed":
+                dft_status_str = "True (Failed)"
+            elif dft_result == "converged":
+                dft_status_str = "True (Converged)"
+        lines.append(f"DFT single-point   : {dft_status_str}")
+        dft_func_basis = payload.get("dft_func_basis")
+        if dft_func_basis:
+            lines.append(f"DFT functional/basis: {dft_func_basis}")
     legacy_post_mode = (
         payload.get("post_opt_mode")
         or payload.get("opt_mode_post")
@@ -1141,7 +1144,7 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
     version_base = payload.get("code_version") or __version__
     version_txt = f"mlmm {version_base}"
     lines.append(f"Code version       : {version_txt}")
-    mlip_backend = payload.get("mlip_backend") or "-"
+    mlip_backend = primary_backend
     mlip_model = payload.get("mlip_model") or "-"
     mlip_precision = payload.get("mlip_precision") or "-"
     backend_label = {
@@ -1150,9 +1153,14 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
     model_label = payload.get("mlip_model_label") or mlip_model_label(
         mlip_backend, mlip_model, payload.get("mlip_task")
     )
-    lines.append(f"MLIP backend        : {backend_label}")
-    lines.append(f"MLIP model          : {model_label}")
-    lines.append(f"MLIP precision      : {mlip_precision}")
+    if primary_is_dft:
+        lines.append("Calculator backend  : PySCF DFT/MM")
+        lines.append(f"DFT functional/basis: {model_label}")
+        lines.append(f"DFT engine          : {payload.get('mlip_task') or '-'}")
+    else:
+        lines.append(f"MLIP backend        : {backend_label}")
+        lines.append(f"MLIP model          : {model_label}")
+        lines.append(f"MLIP precision      : {mlip_precision}")
     execution_status = payload.get("execution_status")
     scientific_status = payload.get("scientific_status") or payload.get("status")
     if execution_status is not None:
@@ -1268,7 +1276,11 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
     segments: Iterable[Dict[str, Any]] = payload.get("segments", []) or []
     lines.append("")
     lines.append(
-        "[2] Refined TS/endpoint summary (ML/MM)"
+        "[2] Refined TS/endpoint summary (DFT/MM)"
+        if ts_only and primary_is_dft
+        else "[2] Segment-level MEP summary (DFT/MM path)"
+        if primary_is_dft
+        else "[2] Refined TS/endpoint summary (ML/MM)"
         if ts_only
         else "[2] Segment-level MEP summary (ML/MM path)"
     )
@@ -1356,18 +1368,27 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
                     f"    IRC trajectory   : {_shorten_path(seg.get('irc_traj'), root_out_path)}"
                 )
             _emit_energy_block(
-                lines, "ML/MM energies (TSOPT+IRC)", seg.get("mlip"), root_out_path
-            )
-            _emit_energy_block(lines, "ML/MM Gibbs (thermo)", seg.get("gibbs_mlip"), root_out_path)
-            _emit_energy_block(
                 lines,
-                "model-region DFT single-point",
-                seg.get("dft"),
+                "DFT/MM energies (TSOPT+IRC)" if primary_is_dft else "ML/MM energies (TSOPT+IRC)",
+                seg.get("mlip"),
                 root_out_path,
             )
             _emit_energy_block(
-                lines, "DFT//MLIP/MM Gibbs", seg.get("gibbs_dft_mlip"), root_out_path
+                lines,
+                "DFT/MM Gibbs (thermo)" if primary_is_dft else "ML/MM Gibbs (thermo)",
+                seg.get("gibbs_mlip"),
+                root_out_path,
             )
+            if not primary_is_dft:
+                _emit_energy_block(
+                    lines,
+                    "model-region DFT single-point",
+                    seg.get("dft"),
+                    root_out_path,
+                )
+                _emit_energy_block(
+                    lines, "DFT//MLIP/MM Gibbs", seg.get("gibbs_dft_mlip"), root_out_path
+                )
 
             entry = segment_entries.setdefault(
                 idx, {"index": idx, "tag": tag, "kind": kind}
@@ -1402,7 +1423,7 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
                     )
                     if value is not None:
                         entry[f"gibbs_mlip_barrier_e{endpoint}"] = value
-            if seg.get("dft"):
+            if not primary_is_dft and seg.get("dft"):
                 dft_payload = seg.get("dft") or {}
                 if dft_payload.get("barrier_kcal") is not None:
                     entry["dft_barrier"] = dft_payload.get("barrier_kcal")
@@ -1414,7 +1435,7 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
                     )
                     if value is not None:
                         entry[f"dft_barrier_e{endpoint}"] = value
-            if seg.get("gibbs_dft_mlip"):
+            if not primary_is_dft and seg.get("gibbs_dft_mlip"):
                 gd_payload = seg.get("gibbs_dft_mlip") or {}
                 if gd_payload.get("barrier_kcal") is not None:
                     entry["gibbs_dft_mlip_barrier"] = gd_payload.get("barrier_kcal")
@@ -1430,29 +1451,36 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
         lines.append("  (no post-processing results)")
 
     if segment_entries:
+        primary_label = "DFT/MM" if primary_is_dft else "ML/MM"
         table_rows = [
             (f"MEP {delta}E{dagger} [kcal/mol]", "mep_barrier"),
             (f"MEP {delta}E  [kcal/mol]", "mep_delta"),
-            (f"ML/MM {delta}E{dagger} [kcal/mol]", "mlip_barrier"),
-            (f"ML/MM {delta}E  [kcal/mol]", "mlip_delta"),
-            (f"ML/MM {delta}G{dagger} [kcal/mol]", "gibbs_mlip_barrier"),
-            (f"ML/MM {delta}G  [kcal/mol]", "gibbs_mlip_delta"),
-            (f"model-region DFT {delta}E{dagger} [kcal/mol]", "dft_barrier"),
-            (f"model-region DFT {delta}E  [kcal/mol]", "dft_delta"),
-            (f"DFT//MLIP/MM {delta}G{dagger} [kcal/mol]", "gibbs_dft_mlip_barrier"),
-            (f"DFT//MLIP/MM {delta}G  [kcal/mol]", "gibbs_dft_mlip_delta"),
+            (f"{primary_label} {delta}E{dagger} [kcal/mol]", "mlip_barrier"),
+            (f"{primary_label} {delta}E  [kcal/mol]", "mlip_delta"),
+            (f"{primary_label} {delta}G{dagger} [kcal/mol]", "gibbs_mlip_barrier"),
+            (f"{primary_label} {delta}G  [kcal/mol]", "gibbs_mlip_delta"),
         ]
+        if not primary_is_dft:
+            table_rows.extend([
+                (f"model-region DFT {delta}E{dagger} [kcal/mol]", "dft_barrier"),
+                (f"model-region DFT {delta}E  [kcal/mol]", "dft_delta"),
+                (f"DFT//MLIP/MM {delta}G{dagger} [kcal/mol]", "gibbs_dft_mlip_barrier"),
+                (f"DFT//MLIP/MM {delta}G  [kcal/mol]", "gibbs_dft_mlip_delta"),
+            ])
         if ts_only:
             table_rows = [
-                (f"ML/MM {delta}E{dagger} E1->TS [kcal/mol]", "mlip_barrier_e1"),
-                (f"ML/MM {delta}E{dagger} E2->TS [kcal/mol]", "mlip_barrier_e2"),
-                (f"ML/MM {delta}G{dagger} E1->TS [kcal/mol]", "gibbs_mlip_barrier_e1"),
-                (f"ML/MM {delta}G{dagger} E2->TS [kcal/mol]", "gibbs_mlip_barrier_e2"),
-                (f"model-region DFT {delta}E{dagger} E1->TS [kcal/mol]", "dft_barrier_e1"),
-                (f"model-region DFT {delta}E{dagger} E2->TS [kcal/mol]", "dft_barrier_e2"),
-                (f"DFT//MLIP/MM {delta}G{dagger} E1->TS [kcal/mol]", "gibbs_dft_mlip_barrier_e1"),
-                (f"DFT//MLIP/MM {delta}G{dagger} E2->TS [kcal/mol]", "gibbs_dft_mlip_barrier_e2"),
+                (f"{primary_label} {delta}E{dagger} E1->TS [kcal/mol]", "mlip_barrier_e1"),
+                (f"{primary_label} {delta}E{dagger} E2->TS [kcal/mol]", "mlip_barrier_e2"),
+                (f"{primary_label} {delta}G{dagger} E1->TS [kcal/mol]", "gibbs_mlip_barrier_e1"),
+                (f"{primary_label} {delta}G{dagger} E2->TS [kcal/mol]", "gibbs_mlip_barrier_e2"),
             ]
+            if not primary_is_dft:
+                table_rows.extend([
+                    (f"model-region DFT {delta}E{dagger} E1->TS [kcal/mol]", "dft_barrier_e1"),
+                    (f"model-region DFT {delta}E{dagger} E2->TS [kcal/mol]", "dft_barrier_e2"),
+                    (f"DFT//MLIP/MM {delta}G{dagger} E1->TS [kcal/mol]", "gibbs_dft_mlip_barrier_e1"),
+                    (f"DFT//MLIP/MM {delta}G{dagger} E2->TS [kcal/mol]", "gibbs_dft_mlip_barrier_e2"),
+                ])
         sorted_entries = [segment_entries[k] for k in sorted(segment_entries.keys())]
         headers = [f"{int(e.get('index', 0)):d}({e.get('tag', '-')})" for e in sorted_entries]
         label_width = max(len(label) for label, _ in table_rows) + 2
@@ -1481,9 +1509,17 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
             if image_path and ("post_seg" in str(image_path) or "tsopt_seg_" in str(image_path)):
                 continue
 
+            method_key = _classify_diagram_method(diag_payload)
+            if primary_is_dft and method_key in {"dft", "gibbs_dft_mlip"}:
+                continue
             name = diag_payload.get("name", "diagram")
+            display_name = name
+            if primary_is_dft and method_key == "mlip":
+                display_name = "primary DFT/MM energy diagram"
+            elif primary_is_dft and method_key == "gibbs_mlip":
+                display_name = "primary DFT/MM Gibbs energy diagram"
             ylabel = diag_payload.get("ylabel", f"{delta}E (kcal/mol)")
-            lines.append(f"  {name}  (ylabel: {ylabel})")
+            lines.append(f"  {display_name}  (ylabel: {ylabel})")
             labels = diag_payload.get("labels", [])
             energies = diag_payload.get("energies_kcal", [])
             energy_label = f"{delta}G [kcal/mol]" if f"{delta}G" in str(ylabel) else f"{delta}E [kcal/mol]"
@@ -1497,7 +1533,6 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
                     f"    Image : {_shorten_path(diag_payload.get('image'), root_out_path)}"
                 )
 
-            method_key = _classify_diagram_method(diag_payload)
             diag_by_method.setdefault(method_key, diag_payload)
             if not state_order and labels:
                 state_order = list(labels)
@@ -1508,13 +1543,17 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
         lines.append("")
         lines.append("  Energy diagram overview table")
 
+        primary_label = "DFT/MM" if primary_is_dft else "ML/MM"
         table_rows = [
             (f"MEP {delta}E  [kcal/mol]", "mep"),
-            (f"ML/MM {delta}E  [kcal/mol]", "mlip"),
-            (f"ML/MM {delta}G  [kcal/mol]", "gibbs_mlip"),
-            (f"model-region DFT {delta}E  [kcal/mol]", "dft"),
-            (f"DFT//MLIP/MM {delta}G  [kcal/mol]", "gibbs_dft_mlip"),
+            (f"{primary_label} {delta}E  [kcal/mol]", "mlip"),
+            (f"{primary_label} {delta}G  [kcal/mol]", "gibbs_mlip"),
         ]
+        if not primary_is_dft:
+            table_rows.extend([
+                (f"model-region DFT {delta}E  [kcal/mol]", "dft"),
+                (f"DFT//MLIP/MM {delta}G  [kcal/mol]", "gibbs_dft_mlip"),
+            ])
 
         label_width = max(len(label) for label, _ in table_rows) + 2
         col_width = max(max(len(st) for st in state_order), 7)
@@ -1553,10 +1592,16 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
         "ml_region_with_linkH.xyz": "ML-region coordinates with parm7-derived link H",
         "mep.pdb": "Full MEP as single PDB (all segments)",
         "mep_trj.xyz": "Full MEP as XYZ trajectory",
-        "mep_plot.png": "ML/MM MEP energy plot",
+        "mep_plot.png": "DFT/MM MEP energy plot" if primary_is_dft else "ML/MM MEP energy plot",
         "energy_diagram_MEP.png": "Compressed MEP diagram",
-        "energy_diagram_MLIP_all.png": f"ML/MM {state_triplet} energies (all segments)",
-        "energy_diagram_G_MLIP_all.png": f"ML/MM Gibbs {state_triplet} (all segments)",
+        "energy_diagram_MLIP_all.png": (
+            f"DFT/MM {state_triplet} energies (all segments)" if primary_is_dft
+            else f"ML/MM {state_triplet} energies (all segments)"
+        ),
+        "energy_diagram_G_MLIP_all.png": (
+            f"DFT/MM Gibbs {state_triplet} (all segments)" if primary_is_dft
+            else f"ML/MM Gibbs {state_triplet} (all segments)"
+        ),
         "energy_diagram_DFT_all.png": f"DFT {state_triplet} (all segments)",
         "energy_diagram_G_DFT_plus_MLIP_all.png": f"DFT//MLIP/MM Gibbs {state_triplet} (all segments)",
         "irc_plot_all.png": "Aggregated IRC plot",

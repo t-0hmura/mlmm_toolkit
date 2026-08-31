@@ -24,7 +24,7 @@ Ownership and reuse semantics
   coordinate-only entry (no identity) is never reused through
   ``load_matching``.
 
-This is an implementation detail of mlmm_toolkit v0.3.3.
+This is an implementation detail of mlmm_toolkit v0.4.0.
 """
 
 import hashlib

@@ -48,11 +48,14 @@ Options:
   --engine [gpu|cpu]              SCF backend: gpu (GPU4PySCF, raises error if
                                   unavailable) or cpu (PySCF).  [default: gpu]
   --lowmem / --no-lowmem          Use gpu4pyscf rks_lowmem.RKS for closed-shell
-                                  GPU runs (memory-efficient direct JK; mlmm dft
-                                  does not call density_fit() on either path).
-                                  Open-shell or CPU engines fall back to
-                                  standard RKS/UKS automatically.  [default:
-                                  lowmem]
+                                  GPU single points, including electrostatic
+                                  embedding. Open-shell or CPU runs use standard
+                                  direct-JK RKS/UKS; --no-lowmem enables density
+                                  fitting.  [default: lowmem]
+  --dft-nprocs INTEGER RANGE      PySCF/OpenMP CPU threads; GPU count is
+                                  unaffected.  [default: (auto); x>=1]
+  --dft-mem TEXT                  PySCF host RAM limit (for example 64GB or
+                                  120000MB).  [default: (auto)]
   -o, --out-dir DIRECTORY         Output directory.  [default: result_dft]
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.

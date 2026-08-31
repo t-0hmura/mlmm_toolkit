@@ -70,6 +70,20 @@ EV2AU = 1.0 / AU2EV
 DFT_KW = _DFT_KW_DEFAULT
 
 
+def _reject_redundant_backend_option(
+    ctx: click.Context, param: click.Parameter, value: Optional[str]
+) -> None:
+    """Give ``dft -b ...`` a targeted error instead of a generic parser error."""
+
+    if value is not None:
+        raise click.UsageError(
+            "`dft` already selects the DFT evaluator; `-b dft` is redundant. "
+            "Use `mlmm dft ...` for DFT energy/population analysis, or run "
+            "`mlmm sp -b dft ...` later in a separate process/job for a "
+            "Calculator single point."
+        )
+
+
 @dataclass
 class MLRegionWorkspace:
     calculator: MLMMCalculator
@@ -321,6 +335,14 @@ def _build_dft_result_payload(
         "engine": engine_label,
         "used_gpu": bool(using_gpu),
         "used_lowmem": bool(using_lowmem),
+        "lowmem_requested": bool(dft_kw.get("lowmem", True)),
+        "dft_resources": {
+            "memory_mode": dft_kw.get("memory_mode"),
+            "nprocs": dft_kw.get("nprocs"),
+            "nprocs_source": dft_kw.get("nprocs_source"),
+            "memory_mb": dft_kw.get("memory_mb"),
+            "memory_source": dft_kw.get("memory_source"),
+        },
         **provenance,
         "charge": calc_kw.get("model_charge"),
         "spin": calc_kw.get("model_mult"),
@@ -611,6 +633,12 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 @click.option(
+    "-b", "--backend",
+    callback=_reject_redundant_backend_option,
+    expose_value=False,
+    hidden=True,
+)
+@click.option(
     "-i",
     "--input",
     "input_path",
@@ -705,9 +733,25 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     "lowmem",
     default=DFT_KW["lowmem"],
     show_default=True,
-    help="Use gpu4pyscf rks_lowmem.RKS for closed-shell GPU runs "
-         "(memory-efficient direct JK; mlmm dft does not call density_fit() on either path). "
-         "Open-shell or CPU engines fall back to standard RKS/UKS automatically.",
+    help="Use gpu4pyscf rks_lowmem.RKS for closed-shell GPU single points, "
+         "including electrostatic embedding. Open-shell or CPU runs use standard "
+         "direct-JK RKS/UKS; --no-lowmem enables density fitting.",
+)
+@click.option(
+    "--dft-nprocs",
+    "nprocs",
+    type=click.IntRange(min=1),
+    default=None,
+    show_default="auto",
+    help="PySCF/OpenMP CPU threads; GPU count is unaffected.",
+)
+@click.option(
+    "--dft-mem",
+    "memory",
+    type=str,
+    default=None,
+    show_default="auto",
+    help="PySCF host RAM limit (for example 64GB or 120000MB).",
 )
 @click.option(
     "-o", "--out-dir",
@@ -814,6 +858,8 @@ def cli(
     grid_level: int,
     engine: str,
     lowmem: bool,
+    nprocs: Optional[int],
+    memory: Optional[str],
     out_dir: Path,
     config_yaml: Optional[Path],
     show_config: bool,
@@ -903,11 +949,16 @@ def cli(
             out_dir=out_dir,
             lowmem=lowmem,
         )
+        if _is_param_explicit("nprocs") and nprocs is not None:
+            dft_kw["nprocs"] = int(nprocs)
+        if _is_param_explicit("memory") and memory is not None:
+            dft_kw["memory"] = str(memory)
         out_dir_path = Path(dft_kw["out_dir"]).resolve()
 
         func_basis_value = str(dft_kw.get("func_basis", func_basis))
         if _is_param_explicit("func_basis"):
             func_basis_value = func_basis
+        dft_kw["func_basis"] = func_basis_value
         xc, basis = _parse_func_basis(func_basis_value)
 
         geom_kw["coord_type"] = "cart"
@@ -952,6 +1003,78 @@ def cli(
                 f"got {engine_name!r}."
             )
         dft_kw["engine"] = engine_name
+        from mlmm.core.dft_settings import resolve_dft_settings
+
+        _settings_keys = {
+            "func_basis", "func", "functional", "basis", "engine",
+            "conv_tol", "max_cycle", "grid_level", "verbose", "lowmem",
+            "density_fit", "auxbasis", "nprocs", "memory", "memory_mb",
+            "pyscf",
+        }
+        _settings_dft_cfg = {
+            key: value for key, value in dft_kw.items() if key in _settings_keys
+        }
+        _yaml_dft_cfg = (
+            merged_yaml_cfg.get("dft", {})
+            if isinstance(merged_yaml_cfg, dict)
+            else {}
+        )
+        if not isinstance(_yaml_dft_cfg, dict):
+            _yaml_dft_cfg = {}
+        if (
+            any(name in _yaml_dft_cfg for name in ("func", "functional", "basis"))
+            and "func_basis" not in _yaml_dft_cfg
+            and not _is_param_explicit("func_basis")
+        ):
+            _settings_dft_cfg.pop("func_basis", None)
+        _pyscf_detail = _settings_dft_cfg.get("pyscf", {})
+        if isinstance(_pyscf_detail, dict):
+            for _name, _section, _attribute in (
+                ("conv_tol", "mf", "conv_tol"),
+                ("max_cycle", "mf", "max_cycle"),
+                ("grid_level", "grids", "level"),
+                ("verbose", "mol", "verbose"),
+            ):
+                _section_cfg = _pyscf_detail.get(_section, {})
+                if (
+                    isinstance(_section_cfg, dict)
+                    and _attribute in _section_cfg
+                    and _name not in _yaml_dft_cfg
+                    and not _is_param_explicit(_name)
+                ):
+                    _settings_dft_cfg.pop(_name, None)
+        resolved_settings = resolve_dft_settings({
+            "backend": "dft",
+            "model_charge": int(charge),
+            "model_mult": int(calc_kw["model_mult"]),
+            "embedcharge": bool(calc_kw.get("embedcharge", False)),
+            "embedcharge_cutoff": calc_kw.get("embedcharge_cutoff"),
+            "dft": _settings_dft_cfg,
+        })
+        xc = resolved_settings.functional
+        basis = resolved_settings.basis
+        engine_name = resolved_settings.engine
+        dft_kw.update({
+            "conv_tol": resolved_settings.conv_tol,
+            "max_cycle": resolved_settings.max_cycle,
+            "grid_level": resolved_settings.grid_level,
+            "verbose": resolved_settings.verbose,
+            "lowmem": resolved_settings.lowmem,
+            "density_fit": resolved_settings.density_fit,
+            "auxbasis": resolved_settings.auxbasis,
+            "pyscf": resolved_settings.pyscf,
+        })
+        _pyscf_cfg = resolved_settings.pyscf
+        nprocs_use = resolved_settings.nprocs
+        nprocs_source = resolved_settings.nprocs_source
+        memory_mb = resolved_settings.memory_mb
+        memory_source = resolved_settings.memory_source
+        dft_kw.update({
+            "nprocs": nprocs_use,
+            "nprocs_source": nprocs_source,
+            "memory_mb": memory_mb,
+            "memory_source": memory_source,
+        })
 
         dft_block = {
             "charge": int(charge),
@@ -964,6 +1087,10 @@ def cli(
             "out_dir": str(Path(dft_kw["out_dir"]).resolve()),
             "engine": engine_name,
             "lowmem": bool(dft_kw.get("lowmem", True)),
+            "nprocs": nprocs_use,
+            "nprocs_source": nprocs_source,
+            "memory_mb": memory_mb,
+            "memory_source": memory_source,
         }
         click.echo(pretty_block("geom", format_freeze_atoms_for_echo(geom_kw, key="freeze_atoms")))
         click.echo(pretty_block("calc", {k: calc_kw[k] for k in sorted(calc_kw.keys()) if k not in {"freeze_atoms"}}))
@@ -1125,17 +1252,26 @@ def cli(
             click.echo(f"[write] Wrote '{with_link_pdb}'.")
 
         try:
-            from pyscf import gto
+            from pyscf import gto, lib as _pyscf_lib
         except Exception as exc:
             raise click.ClickException(f"PySCF import failed: {exc}") from exc
 
         from mlmm.core.utils import is_verbose
+        _pyscf_lib.num_threads(int(nprocs_use))
         mol = gto.Mole()
         # PySCF verbose level: 0 silent / 2 warnings / 3 info / 4 prints the
         # full `[INPUT]` per-atom coordinate dump + SCF iteration banner.
         # Default runs stay quiet (DFT_KW seeds a low value); `-v` raises the
         # level to >=4 to restore the dump for debugging (~600 lines/pipeline).
         mol.verbose = int(dft_kw.pop("verbose", 0))
+        if memory_mb is not None:
+            mol.max_memory = int(memory_mb)
+        from mlmm.backends.pyscf_dft import (
+            _apply_attributes,
+            _attach_gpu_lowmem_point_charges,
+        )
+        if isinstance(_pyscf_cfg, dict):
+            _apply_attributes(mol, _pyscf_cfg.get("mol", {}), "pyscf.mol")
         if is_verbose():
             mol.verbose = max(mol.verbose, 4)
         # CHEMISTRY-RULE:5 def2 family auto-ECP injection.
@@ -1165,19 +1301,16 @@ def cli(
             try:
                 from gpu4pyscf import dft as gdf
 
-                # CHEMISTRY-RULE:4 gpu4pyscf rks_lowmem triple-guard
-                # (lowmem flag + closed-shell + module-import success).
                 rks_lowmem_mod = None
-                if lowmem_requested and model_spin2s == 0:
+                if resolved_settings.use_rks_lowmem:
                     try:
                         from gpu4pyscf.dft import rks_lowmem as rks_lowmem_mod  # type: ignore
-                    except ImportError:
-                        click.echo(
-                            "[lowmem] WARNING: gpu4pyscf.dft.rks_lowmem is not available "
-                            "in this gpu4pyscf install; falling back to standard RKS.",
-                            err=True,
-                        )
-                        rks_lowmem_mod = None
+                    except ImportError as exc:
+                        raise click.ClickException(
+                            "gpu4pyscf.dft.rks_lowmem is required by the default "
+                            "closed-shell GPU low-memory path. Install a compatible "
+                            "GPU4PySCF release or explicitly use --no-lowmem."
+                        ) from exc
 
                 if rks_lowmem_mod is not None:
                     mf = rks_lowmem_mod.RKS(mol, xc=xc)
@@ -1203,6 +1336,21 @@ def cli(
 
             mf = pdft.RKS(mol) if model_spin2s == 0 else pdft.UKS(mol)
 
+        density_cfg = _pyscf_cfg.get("density_fit", {})
+        density_enabled = resolved_settings.density_fit
+        density_kwargs: Dict[str, Any] = {
+            key: value for key, value in density_cfg.items() if key != "enabled"
+        }
+        if density_enabled:
+            auxbasis = resolved_settings.auxbasis
+            if auxbasis is not None:
+                density_kwargs.setdefault("auxbasis", auxbasis)
+            mf = mf.density_fit(**density_kwargs)
+            if isinstance(_pyscf_cfg, dict):
+                _apply_attributes(
+                    mf.with_df, _pyscf_cfg.get("with_df", {}), "pyscf.with_df"
+                )
+
         mf.xc = xc
         # PySCF requires an integer loop bound. Keep the workflow configuration
         # truly uncapped (None) and adapt only at this external-library boundary.
@@ -1213,8 +1361,12 @@ def cli(
             else int(configured_max_cycle)
         )
         mf.conv_tol = float(dft_kw["conv_tol"])
+        if isinstance(_pyscf_cfg, dict):
+            _apply_attributes(mf, _pyscf_cfg.get("mf", {}), "pyscf.mf")
         try:
             mf.grids.level = int(dft_kw["grid_level"])
+            if isinstance(_pyscf_cfg, dict):
+                _apply_attributes(mf.grids, _pyscf_cfg.get("grids", {}), "pyscf.grids")
         except Exception as exc:
             click.echo(f"[grids] WARNING: Could not set grids.level={dft_kw['grid_level']}: {exc}", err=True)
         try:
@@ -1228,8 +1380,12 @@ def cli(
         n_mm_charges = 0
         if calc_kw.get("embedcharge", False):
             import parmed as pmd
-            from pyscf import qmmm as pyscf_qmmm
             from scipy.spatial.distance import cdist
+
+            if using_gpu and not using_lowmem:
+                from gpu4pyscf import qmmm as pyscf_qmmm
+            elif not using_gpu:
+                from pyscf import qmmm as pyscf_qmmm
 
             real_top = pmd.load_file(str(workspace.real_parm7))
             ml_set = set(workspace.selection_indices)
@@ -1256,9 +1412,14 @@ def cli(
                     [real_top.atoms[index].charge for index in mm_indices],
                     dtype=float,
                 )
-                mf = pyscf_qmmm.mm_charge(
-                    mf, mm_coords, mm_charges, unit="Angstrom"
-                )
+                if using_lowmem:
+                    mf = _attach_gpu_lowmem_point_charges(
+                        mf, mm_coords, mm_charges, unit="Angstrom"
+                    )
+                else:
+                    mf = pyscf_qmmm.mm_charge(
+                        mf, mm_coords, mm_charges, unit="Angstrom"
+                    )
                 n_mm_charges = len(mm_indices)
                 click.echo(
                     f"[embedcharge] {n_mm_charges} MM point charges embedded "
@@ -1280,6 +1441,8 @@ def cli(
         if not np.isfinite(e_h):
             raise RuntimeError(f"DFT SCF returned a non-finite energy: {e_h!r}")
         e_kcal = _hartree_to_kcalmol(e_h)
+        memory_mode = resolved_settings.memory_mode
+        dft_kw["memory_mode"] = memory_mode
 
         if using_lowmem:
             mf_for_analysis = _build_cpu_surrogate_for_analysis(mol, mf, xc, model_spin2s)
@@ -1366,6 +1529,8 @@ def cli(
                 "engine": engine_label,
                 "used_gpu": bool(using_gpu),
                 "used_lowmem": bool(using_lowmem),
+                "lowmem_requested": lowmem_requested,
+                "memory_mode": memory_mode,
             },
             "mlmm_energy": {
                 "E_real_low_eV": e_real_low,
@@ -1390,6 +1555,12 @@ def cli(
 
         if not converged:
             click.echo("WARNING: SCF did not converge.", err=True)
+            if lowmem_requested:
+                click.echo(
+                    "[lowmem] Retry with --no-lowmem if sufficient GPU and host "
+                    "memory are available; density-fitted SCF may converge more robustly.",
+                    err=True,
+                )
 
         result_data = _build_dft_result_payload(
             converged=converged,

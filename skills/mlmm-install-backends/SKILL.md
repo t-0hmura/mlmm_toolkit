@@ -11,7 +11,7 @@ description: Install recipes for mlmm-toolkit core + MLIP (UMA / MACE / Orb / AI
 
 - a recent **PyTorch** wheel matching your CUDA driver,
 - one or more **MLIP backends** (UMA / Orb / MACE / AIMNet2),
-- optional **PySCF / GPU4PySCF** for DFT single points,
+- optional **PySCF / GPU4PySCF** for DFT calculations,
 - **AmberTools** for MM parameterization (`mlmm mm-parm`).
 
 Bundled and installed automatically with the package: `pysisyphus` (a

@@ -373,9 +373,9 @@ The `all` and `path-search` commands write `summary.json`:
 | `preopt_requested` / `preopt_converged` | bool / bool \| null | Whether endpoint preoptimization ran, and whether every endpoint converged; `null` when any endpoint reported no readable signal. `all` uses this preliminary convergence signal unless requested final TS and both endpoint optimizations have converged for every reactive segment; the original field remains reported |
 | `segments` | object[] | Per-segment barrier, delta, bond changes |
 | `energy_diagrams` | object[] | Energy profiles with labels and kcal/mol values |
-| `mlip_backend` | string | Backend name (`uma`, `orb`, `mace`, `aimnet2`, or `custom`) |
-| `mlip_model` | string \| null | Exact model/checkpoint name, recorded separately from the backend |
-| `mlip_precision` | string \| null | Effective `fp32` / `fp64`; null for custom calculators |
+| `mlip_backend` | string | Backend name (`uma`, `orb`, `mace`, `aimnet2`, `dft`, or `custom`) |
+| `mlip_model` | string \| null | Exact model/checkpoint name, or `FUNCTIONAL/BASIS` for `dft` |
+| `mlip_precision` | string \| null | Effective `fp32` / `fp64`; null for DFT and custom calculators (DFT engine is recorded separately) |
 | `charge` | int | Model-region charge |
 | `spin` | int | Model-region multiplicity |
 | `environment` | object | Hardware info |

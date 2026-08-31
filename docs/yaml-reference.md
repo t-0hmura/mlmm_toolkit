@@ -73,7 +73,7 @@ calc:
  link_atom_method: scaled    # Link atom placement: "scaled" (g-factor) or "fixed" (1.09/1.01 Å)
 
  # --- MLIP backend selection ---
- backend: uma # MLIP backend: "uma", "orb", "mace", or "aimnet2"
+ backend: uma # High-level backend: uma, orb, mace, aimnet2, or dft
 
  # --- UMA backend settings ---
  uma_model: uma-s-1p2 # uma-s-1p2 | uma-s-1p1 | uma-m-1p1
@@ -90,6 +90,23 @@ calc:
 
  # --- AIMNet2 backend settings ---
  aimnet2_model: aimnet2   # AIMNet2 model name (AIMNet2 backend only)
+
+ # --- PySCF/GPU4PySCF high-level backend ---
+ dft:
+  func_basis: wb97m-v/def2-svp
+  engine: gpu # gpu | cpu
+  lowmem: true # direct JK without a persistent DF tensor
+  density_fit: false # enabled by --no-lowmem unless set explicitly
+  nprocs: auto # PySCF/OpenMP threads from scheduler/affinity
+  memory: auto # host RAM limit, e.g. 64GB (not GPU VRAM)
+  save_scf_checkpoint: false
+  checkpoint_path: null # leaf default when enabled: <out-dir>/_work/dft_scf/state.chk
+  pyscf:
+   mol: {}
+   mf: {}
+   grids: {}
+   density_fit: {}
+   with_df: {}
 
  # --- ML device & Hessian ---
  ml_device: auto # Device for ML inference: "cuda", "cpu", or "auto"
@@ -141,7 +158,8 @@ calc:
 
 **Notes:**
 - The section name `calc:` is the canonical form; `mlmm:` is accepted as a legacy alias (recognized by `opt`, `sp`, `tsopt`, `freq`, `irc`, `dft`, `path-opt`, `path-search`, `scan`, `scan2d`, `scan3d`). When both are present, `calc:` takes precedence.
-- `backend` selects the MLIP backend: `uma` (default), `orb`, `mace`, or `aimnet2`. Alternative backends require optional dependencies (`pip install "mlmm-toolkit[orb]"`, etc.)
+- `backend` selects the high-level backend: `uma` (default), `orb`, `mace`, `aimnet2`, or stateful PySCF/GPU4PySCF `dft`.
+- With `backend: dft`, `embedcharge: true` uses native PySCF point charges and MM-site forces. Its Hessian is a finite difference of the complete ML/MM force so cross-response blocks are retained.
 - Backend-specific model keys are only relevant when the corresponding backend is selected:
   - `uma_model`, `uma_task_name` — UMA backend only
   - `orb_model`, `orb_precision` — ORB backend only
@@ -648,13 +666,15 @@ dft:
  grid_level: 3 # PySCF grid level
  engine: gpu # Compute engine: "gpu" (gpu4pyscf) or "cpu" (pyscf); CLI --engine takes precedence
  ecp: null # ECP basis name; null auto-derives from def2-* basis sets
- lowmem: true # Use gpu4pyscf rks_lowmem.RKS for closed-shell GPU runs
+ lowmem: true # Low-memory direct JK; false enables density fitting
+ nprocs: auto # PySCF/OpenMP threads from scheduler/affinity
+ memory: auto # Host RAM limit, e.g. 64GB (not GPU VRAM)
  verbose: 0 # PySCF verbosity level; CLI -v 2/3 raises runtime PySCF verbosity to >=4
  out_dir: ./result_dft/ # Output directory
 ```
 
 **Notes:**
-- `engine`: `gpu` runs through gpu4pyscf (closed-shell uses `rks_lowmem.RKS` when `lowmem: true`); `cpu` falls back to standard PySCF RKS/UKS. The CLI flag `--engine` overrides the YAML value when explicitly passed.
+- `engine`: `gpu` runs through gpu4pyscf (closed-shell calculations, including electrostatic embedding, use `rks_lowmem.RKS` when `lowmem: true`); `cpu` uses standard PySCF RKS/UKS. The CLI flag `--engine` overrides the YAML value when explicitly passed.
 - `ecp`: when the basis name starts with `def2-` and `ecp` is `null`, the same basis name is used as the ECP automatically. Set explicitly to override.
 
 ---

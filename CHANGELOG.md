@@ -6,7 +6,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
-_No changes yet._
+Target release: **0.4.0**.
+
+### Added
+
+- Add a stateful PySCF/GPU4PySCF DFT/MM backend to calculator-consuming workflows while retaining the standalone `dft` command.
+- Reuse converged SCF state between geometry steps, cache exact repeated requests, support analytical Hessians, and provide opt-in structure-bound checkpoints.
+- Add native PySCF point-charge embedding with complete QM/MM force and finite-difference Hessian response.
+
+### Changed
+
+- Use the low-memory direct-JK GPU route by default for closed-shell DFT/MM calculations.
+
 
 ## [0.3.7] — 2026-09-19
 

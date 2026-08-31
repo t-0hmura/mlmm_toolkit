@@ -7,6 +7,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
+import yaml
 
 
 def test_element_fix_paths_do_not_collide_for_same_basename(tmp_path: Path) -> None:
@@ -18,7 +19,144 @@ def test_element_fix_paths_do_not_collide_for_same_basename(tmp_path: Path) -> N
     assert first != second
     assert first.name == "001_input.pdb"
     assert second.name == "002_input.pdb"
-import yaml
+
+
+def test_role_checkpoint_refresh_updates_every_manifest_alias(tmp_path: Path) -> None:
+    from mlmm.workflows._run_session import InvocationManifest
+    from mlmm.workflows.all import _save_role_scf_checkpoint
+
+    checkpoint = (tmp_path / "state.chk").resolve()
+    metadata = checkpoint.with_suffix(".chk.json")
+    manifest = InvocationManifest()
+    manifest.declare("child.checkpoint", [checkpoint])
+    manifest.declare("child.checkpoint.metadata", [metadata])
+
+    class Calculator:
+        generation = 0
+
+        def save_scf_checkpoint(self, path, _geometry):
+            self.generation += 1
+            destination = Path(path)
+            checkpoint_tmp = destination.with_name(destination.name + ".tmp")
+            metadata_path = Path(str(path) + ".json")
+            metadata_tmp = metadata_path.with_name(metadata_path.name + ".tmp")
+            checkpoint_tmp.write_text(
+                f"checkpoint-{self.generation}\n", encoding="utf-8"
+            )
+            metadata_tmp.write_text(
+                f'{{"generation": {self.generation}}}\n', encoding="utf-8"
+            )
+            checkpoint_tmp.replace(destination)
+            metadata_tmp.replace(metadata_path)
+
+    calculator = Calculator()
+    calculator.save_scf_checkpoint(checkpoint, object())
+    manifest.claim_one("child.checkpoint")
+    manifest.claim_one("child.checkpoint.metadata")
+    old_digest = manifest.produced["child.checkpoint"][1].sha256
+
+    saved = _save_role_scf_checkpoint(
+        calculator,
+        object(),
+        checkpoint,
+        manifest=manifest,
+        key="role.checkpoint",
+    )
+
+    assert saved == checkpoint
+    assert manifest.produced["child.checkpoint"][1].sha256 != old_digest
+    assert (
+        manifest.produced["child.checkpoint"][1].sha256
+        == manifest.produced["role.checkpoint"][1].sha256
+    )
+    assert (
+        manifest.produced["child.checkpoint.metadata"][1].sha256
+        == manifest.produced["role.checkpoint.metadata"][1].sha256
+    )
+
+
+def test_tsopt_dft_checkpoint_is_evaluated_before_child_handoff(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mlmm.workflows import all as all_workflow
+
+    events: list[str] = []
+    captured: list[str] = []
+
+    class _StopHere(RuntimeError):
+        pass
+
+    class _Prepared:
+        geom_path = tmp_path / "hei.xyz"
+
+        def cleanup(self):
+            events.append("cleanup")
+
+    class _Geom:
+        calculator = None
+
+        def set_calculator(self, calculator):
+            self.calculator = calculator
+
+        @property
+        def energy(self):
+            events.append("evaluate")
+            return -1.0
+
+    class _Calculator:
+        def save_scf_checkpoint(self, destination, _geometry):
+            events.append("save")
+            destination = Path(destination)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_text("checkpoint\n", encoding="utf-8")
+            destination.with_suffix(".chk.json").write_text(
+                "{}\n", encoding="utf-8"
+            )
+
+        def close(self):
+            events.append("close")
+
+    def _capture(_name, _command, args, **_kwargs):
+        captured.extend(args)
+        raise _StopHere
+
+    monkeypatch.setattr(
+        all_workflow, "prepare_input_structure", lambda _path: _Prepared()
+    )
+    monkeypatch.setattr(all_workflow, "geom_loader", lambda *_args, **_kwargs: _Geom())
+    monkeypatch.setattr(all_workflow, "_mlmm_calc", lambda **_kwargs: _Calculator())
+    monkeypatch.setattr(all_workflow, "_run_cli_main", _capture)
+    template = all_workflow._ResolvedCalculatorTemplate.from_mapping(
+        {
+            "backend": "dft",
+            "dft_settings": {
+                "func_basis": "hf/sto-3g",
+                "engine": "cpu",
+                "save_scf_checkpoint": True,
+            },
+        }
+    )
+
+    with pytest.raises(_StopHere):
+        all_workflow._run_tsopt_on_hei(
+            tmp_path / "hei.pdb",
+            0,
+            1,
+            tmp_path / "system.parm7",
+            tmp_path / "model.pdb",
+            True,
+            None,
+            tmp_path / "segment",
+            "hess",
+            resolved_calc_template=template,
+            backend="dft",
+        )
+
+    checkpoint = tmp_path / "segment" / "ts" / "_work" / "dft_scf" / "state.chk"
+    assert events[:3] == ["evaluate", "save", "close"]
+    assert events[-1] == "cleanup"
+    assert captured[captured.index("--scf-checkpoint") + 1] == str(checkpoint)
+    assert "--save-scf-checkpoint" in captured
 
 from mlmm.workflows._all_helpers import (
     append_backend_forwarding_args,
@@ -548,9 +686,13 @@ def test_all_dft_child_relays_success_stderr_without_forwarding_mlip_backend(
         False,
         tmp_path / "dft",
         None,
+        overrides={"lowmem": False, "nprocs": 8, "memory": "64GB"},
     )
 
     assert "--backend" not in commands[0]
+    assert "--no-lowmem" in commands[0]
+    assert commands[0][commands[0].index("--dft-nprocs") + 1] == "8"
+    assert commands[0][commands[0].index("--dft-mem") + 1] == "64GB"
     assert emitted.count(("fallback warning", False)) == 1
     assert not any("exited with code" in message for message, _ in emitted)
 

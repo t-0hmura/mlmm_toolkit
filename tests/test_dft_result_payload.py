@@ -4,14 +4,185 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import click
 import pytest
+from click.testing import CliRunner
 
 from mlmm.core.result_commit import ResultCommitError
+from mlmm.backends.pyscf_dft import _subtract_packed_mm_hcore
 from mlmm.workflows.dft import (
     _apply_explicit_dft_overrides,
     _build_dft_result_payload,
     _finalize_dft_result,
 )
+
+
+def test_standalone_dft_accepts_pyscf_object_defaults_without_false_conflict(
+    tmp_path: Path,
+) -> None:
+    from mlmm.cli import cli
+
+    config = tmp_path / "pyscf.yaml"
+    config.write_text(
+        "dft:\n"
+        "  pyscf:\n"
+        "    mf:\n"
+        "      conv_tol: 2.0e-8\n"
+        "    grids:\n"
+        "      level: 1\n"
+        "    mol:\n"
+        "      max_memory: 4096\n",
+        encoding="utf-8",
+    )
+    smoke = Path(__file__).resolve().parent / "smoke"
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "dft", "-v", "3", "-i", str(smoke / "r_complex_layered.pdb"),
+            "--parm", str(smoke / "p_complex.parm7"), "-q", "-1", "-m", "1",
+            "--engine", "cpu", "--config", str(config), "--show-config",
+            "--dry-run", "--out-dir", str(tmp_path / "result"),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "conv_tol: 2.0e-08" in result.output
+    assert "grid_level: 1" in result.output
+    assert "memory_mb: 4096" in result.output
+
+
+def test_standalone_dft_honors_explicit_func_basis(tmp_path: Path) -> None:
+    from mlmm.cli import cli
+
+    smoke = Path(__file__).resolve().parent / "smoke"
+    result = CliRunner().invoke(
+        cli,
+        [
+            "dft",
+            "-v",
+            "3",
+            "-i",
+            str(smoke / "r_complex_layered.pdb"),
+            "--parm",
+            str(smoke / "p_complex.parm7"),
+            "-q",
+            "-1",
+            "-m",
+            "1",
+            "--func-basis",
+            "hf/sto-3g",
+            "--engine",
+            "cpu",
+            "--dry-run",
+            "--out-dir",
+            str(tmp_path / "result"),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "xc: hf" in result.output
+    assert "basis: sto-3g" in result.output
+
+
+def test_leaf_dft_checkpoint_uses_yaml_effective_output_directory(
+    tmp_path: Path,
+) -> None:
+    from mlmm.core.dft_settings import (
+        DFT_CLI_META_KEY,
+        finalize_dft_calculator_config,
+    )
+
+    ctx = click.Context(click.Command("sp"), info_name="sp")
+    ctx.params["out_dir"] = tmp_path / "click-default"
+    ctx.meta[DFT_CLI_META_KEY] = {"save_scf_checkpoint": True}
+    calc_cfg = {"backend": "dft", "model_charge": 0, "model_mult": 1}
+    effective_out = tmp_path / "yaml-output"
+
+    finalize_dft_calculator_config(ctx, calc_cfg, output_dir=effective_out)
+
+    assert calc_cfg["dft_settings"]["checkpoint_path"] == str(
+        effective_out / "_work" / "dft_scf" / "state.chk"
+    )
+
+
+@pytest.mark.parametrize(
+    "dft_config",
+    [
+        {"lowmem": "false"},
+        {"density_fit": "false"},
+        {"save_scf_checkpoint": "false"},
+        {"embedcharge": "false"},
+        {"pyscf": {"density_fit": {"enabled": "false"}}},
+    ],
+)
+def test_dft_yaml_booleans_require_yaml_boolean_type(dft_config) -> None:
+    from mlmm.core.dft_settings import resolve_dft_settings
+
+    with pytest.raises(click.BadParameter, match="must be true or false"):
+        resolve_dft_settings({"backend": "dft", "dft": dft_config})
+
+
+@pytest.mark.parametrize("pbs_var", ["PBS_NP", "PBS_NUM_PPN"])
+def test_dft_resources_honor_pbs_cpu_counts(monkeypatch, pbs_var) -> None:
+    from mlmm.core import dft_settings
+
+    for name in (
+        "OMP_NUM_THREADS",
+        "SLURM_CPUS_PER_TASK",
+        "NSLOTS",
+        "PBS_NP",
+        "PBS_NUM_PPN",
+        "PBS_NODEFILE",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv(pbs_var, "3")
+    monkeypatch.setattr(dft_settings, "_affinity_count", lambda: None)
+
+    assert dft_settings.resolve_dft_settings({"backend": "dft"}).nprocs == 3
+
+
+def test_dft_resources_honor_pbs_nodefile(monkeypatch, tmp_path: Path) -> None:
+    from mlmm.core import dft_settings
+
+    for name in (
+        "OMP_NUM_THREADS",
+        "SLURM_CPUS_PER_TASK",
+        "NSLOTS",
+        "PBS_NP",
+        "PBS_NUM_PPN",
+        "PBS_NODEFILE",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    nodefile = tmp_path / "pbs_nodes"
+    nodefile.write_text("node02\nnode02\nnode03\n", encoding="utf-8")
+    monkeypatch.setenv("PBS_NODEFILE", str(nodefile))
+    monkeypatch.setattr(dft_settings, "_affinity_count", lambda: None)
+
+    assert dft_settings.resolve_dft_settings({"backend": "dft"}).nprocs == 3
+
+
+def test_gpu_lowmem_embedding_preserves_packed_hcore_layout_and_sign() -> None:
+    import numpy as np
+
+    class DeviceArray:
+        def __init__(self, value):
+            self.value = value
+
+        def get(self):
+            return self.value
+
+    def pack_lower_triangle(square):
+        return DeviceArray(square[np.tril_indices(square.shape[0])])
+
+    hcore = np.array([10.0, 20.0, 30.0])
+    mm_potential = np.array([[1.0, 2.0], [2.0, 4.0]])
+
+    combined = _subtract_packed_mm_hcore(
+        hcore, mm_potential, pack_lower_triangle
+    )
+
+    assert np.array_equal(combined, np.array([9.0, 18.0, 26.0]))
 
 
 def _payload(*, converged: bool, engine: str = "pyscf(cpu)"):
@@ -24,7 +195,17 @@ def _payload(*, converged: bool, engine: str = "pyscf(cpu)"):
         engine_label=engine,
         using_gpu="gpu4pyscf" in engine,
         using_lowmem="lowmem" in engine,
-        dft_kw={"grid_level": 7, "conv_tol": 2.0e-11, "max_cycle": 17},
+        dft_kw={
+            "grid_level": 7,
+            "conv_tol": 2.0e-11,
+            "max_cycle": 17,
+            "lowmem": True,
+            "memory_mode": "direct_jk",
+            "nprocs": 8,
+            "nprocs_source": "explicit",
+            "memory_mb": 64000,
+            "memory_source": "explicit",
+        },
         calc_kw={
             "backend": "orb",
             "orb_model": "orb-v3-conservative-inf-omat",
@@ -119,6 +300,9 @@ def test_payload_preserves_legacy_keys_and_records_effective_values(
     assert payload["grid_level"] == 7
     assert payload["conv_tol"] == pytest.approx(2.0e-11)
     assert payload["max_cycle"] == 17
+    assert payload["lowmem_requested"] is True
+    assert payload["dft_resources"]["memory_mode"] == "direct_jk"
+    assert payload["dft_resources"]["memory_mb"] == 64000
     assert payload["mlip_backend"] == "dft"
     assert payload["mlip_model"] is None
     assert payload["mlip_model_label"] is None

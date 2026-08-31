@@ -206,7 +206,7 @@ Entries in `mlmm/cli/app.py:_LAZY_SUBCOMMANDS` MUST use absolute module paths (`
 
 ### 4.6 Chemistry default choices
 
-Changes to the default basis set (def2-TZVPD), functional (ωB97M-V),
+Changes to the default basis set (def2-SVP), functional (ωB97M-V),
 convergence thresholds, ECP handling, solvent models, or ONIOM region shell
 radii require a documented numerical comparison and maintainer review. Inspect
 `mlmm/core/defaults.py` and the command-local Click option before proposing a

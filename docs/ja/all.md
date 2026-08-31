@@ -111,7 +111,7 @@ ML領域PDB pairは別の成果物であり、PDB入力では常に出力され�
    - MEP エンジン生出力（セグメントごとの軌跡、全 MEP 軌跡、エンジンの `summary.json`）は `<out-dir>/_work/path_opt/`（`--refine-path` 使用時は `<out-dir>/_work/path_search/`）に書き出され、マージ済み成果物（`mep.pdb`、bridge 入力時の `mep.cif`、`mep_trj.xyz`、`mep_plot.png`、`energy_diagram_MEP.png`）は `<out-dir>/` へ移動され、`summary.{json,log}` はコピーされます。
    - `--tsopt`: 各 HEI で TS を最適化します。TS 判定を通過した後、EulerPC IRC とセグメントエネルギーダイアグラムへ進みます。`--thermo` と `--dft` にも `--tsopt` が必要です。
    - `--thermo`: (R, TS, P) で ML/MM 熱化学を計算し、Gibbs ダイアグラムを追加します。
-   - `--dft`: (R, TS, P) のモデル領域で DFT 一点計算を実行し、モデル DFT 電子エネルギーダイアグラムを追加します。`--thermo` と組み合わせると、subtractive DFT//MLIP/MM 全エネルギーに ML/MM 熱補正を加えた DFT//MLIP/MM Gibbs ダイアグラムも生成されます。
+   - `--dft`: (R, TS, P) のモデル領域で DFT 一点計算を実行し、モデル DFT 電子エネルギーダイアグラムを追加します。`--thermo` と組み合わせると、subtractive DFT//MLIP/MM 全エネルギーに ML/MM 熱補正を加えた DFT//MLIP/MM Gibbs ダイアグラムも生成されます。大規模な本計算では、まずMLIP pipelineを完了し、VRAMを解放した別process/jobで`sp -b dft`を実行することを推奨します。`all -b dft --dft`は主DFT計算を重複するためエラーです。
    - TS 最適化、IRC、振動解析、flatten PHVA は固定の constrained 処理を使用します。これは凍結 anchor を動かさない全系剛体運動だけを除去し、実用的な ML/MM 境界では有効 rank は通常 0 です。
    - `--hessian-calc-mode` は、対応するバックエンドで解析 Hessian または有限差分 Hessian を選択します。速度とメモリはバックエンドと系に依存するため、対象系の小規模試行で比較してください。
 
@@ -316,6 +316,9 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 | `--freq-pressure FLOAT` | 熱化学圧力 (atm)。 | `1.0` |
 | `--dft-out-dir PATH` | DFT 出力ディレクトリの上書き。 | _None_ |
 | `--dft-func-basis TEXT` | 汎関数/基底関数ペア。 | `wb97m-v/def2-svp` |
+| `--lowmem/--no-lowmem` | 主DFT backendまたは任意の`--dft` stageの低memory policy | `--lowmem` |
+| `--dft-nprocs INT` | DFT用PySCF/OpenMP CPU thread数 | `auto` |
+| `--dft-mem SIZE` | DFT用PySCF host RAM上限。GPU VRAMではない | `auto` |
 | `--dft-max-cycle INT` | SCF反復上限。 | `100` |
 | `--dft-conv-tol FLOAT` | SCF 収束閾値。 | `1e-9` |
 | `--dft-grid-level INT` | PySCF グリッドレベル。 | `3` |

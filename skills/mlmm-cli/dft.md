@@ -14,6 +14,8 @@ mlmm dft -i geom.{pdb,xyz} --parm real.parm7 \
     [-q 0 -m 1] [-l 'RES:Q,...'] \
     [--func-basis 'wb97m-v/def2-svp'] \
     [--engine gpu|cpu] \
+    [--embedcharge --embedcharge-cutoff ANGSTROM] \
+    [--dft-nprocs INT --dft-mem SIZE] \
     [-o ./result_dft/]
 ```
 
@@ -45,7 +47,9 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--ref-pdb` | path | none | Reference PDB so `-l` works on `.xyz` input |
 | `--func-basis` | str | `wb97m-v/def2-svp` | `'FUNC/BASIS'` |
 | `--engine` | choice {gpu,cpu} | `gpu` | `gpu` (GPU4PySCF) or `cpu` (PySCF) |
-| `--lowmem/--no-lowmem` | bool | `True` | `gpu4pyscf.dft.rks_lowmem.RKS` (memory-efficient direct JK) on closed-shell GPU; open-shell / CPU / pre-`rks_lowmem` GPU4PySCF auto-fall back to standard RKS/UKS |
+| `--lowmem/--no-lowmem` | bool | `True` | `gpu4pyscf.dft.rks_lowmem.RKS` on closed-shell GPU across calculator workflows, including electrostatic embedding; open-shell GPU and CPU use standard direct-JK RKS/UKS. `--no-lowmem` enables density fitting by default. |
+| `--embedcharge` / `--embedcharge-cutoff` | toggle / Å | off / `12.0` | Embed selected MM point charges in the PySCF Hamiltonian. |
+| `--dft-nprocs` / `--dft-mem` | int / size | auto / auto | Override scheduler/environment-derived thread count and memory limit. |
 | `--config` | path | none | YAML config file |
 | `-o, --out-dir` | path | `./result_dft/` | Output directory |
 | `--show-config` / `--dry-run` / `--help-advanced` | — | — | Standard |
@@ -109,10 +113,6 @@ print(d["converged"])
 expansion, grid_level, SCF iterations, Mulliken / Loewdin / IAO charges,
 spin densities. Useful for debugging convergence problems.
 
-The combined ML(dft)/MM energy is in
-`result.yaml` → `mlmm_energy.E_total_ml_dft_mm_hartree`;
-JSON `energy_hartree` is the model DFT energy alone.
-
 ## Engine choice
 
 | `--engine` | When | Cost |
@@ -129,16 +129,17 @@ falling back.
 
 | Symptom | Fix |
 |---|---|
-| `OSError: libcusolver.so.11 not found` | Check installed CUDA packages and the full error; for library-path diagnostics, see `mlmm-install-backends/env-cuda.md` |
-| `cupy ... invalid device ordinal` | Keep the scheduler's `CUDA_VISIBLE_DEVICES` and select a valid local GPU index |
-| `RuntimeError: CUDA out of memory` | Use `--engine cpu` or a larger-memory GPU. Lowering `grid_level` or switching to `def2-svp` changes the calculation and requires validation |
+| `OSError: libcusolver.so.11 not found` | `mlmm-install-backends/env-cuda.md` (LD_LIBRARY_PATH order) |
+| `cupy ... invalid device ordinal` | `unset CUDA_VISIBLE_DEVICES` |
+| `RuntimeError: CUDA out of memory` | Lower `grid_level`, switch to `def2-svp`, or `--engine cpu` |
 | aarch64 `--engine gpu` raises `ClickException` ("GPU backend failed...") | `gpu4pyscf-cuda12x` is x86_64 only; re-submit with `--engine cpu` |
 
 ## Caveats
 
-- `mlmm dft` runs only **single points**; there is no `-b dft` option.
-  `opt` / `tsopt` can use other engines through the
-  [custom ASE calculator interface](../mlmm-install-backends/SKILL.md#custom-backend--any-ase-calculator---calc-file).
+- `mlmm dft` remains an energy/population-analysis **single-point** command.
+  As an optional high-level calculator backend, `sp`, `opt`, `tsopt`, `irc`,
+  `freq`, scan/path workflows, and `all` also accept `-b dft`; those iterative
+  DFT/MM paths reuse the last converged density/orbitals.
 - `--func-basis` follows PySCF naming; cross-check with
   `python -c "from pyscf import gto; print(gto.basis._BASIS_DEFAULT)"`.
 

@@ -42,6 +42,7 @@ private なファクトリ）を呼び出して適切なアダプタをインス
 |------|------|
 | `mlmm/backends/__init__.py` | `apply_precision_to_calc_cfg()` — 統一された `--precision fp32\|fp64` CLI フラグを各バックエンドのネイティブ kwarg（`uma_precision` / `orb_precision` / `mace_dtype`）にルーティングします |
 | `mlmm/backends/mlmm_calc.py` | `MLMMCore`（ML/MM ONIOM 結合）+ `MLMMASECalculator`（ASE）+ `mlmm`（pysisyphus Calculator）+ バックエンドごとのアダプタ（`_UMABackend`、`_OrbBackend`、`_MACEBackend`、`_AIMNet2Backend`）+ private な `_create_ml_backend` ファクトリ + FD-Hessian の組み立て + 単位変換 |
+| `mlmm/backends/pyscf_dft.py` | stateful PySCF/GPU4PySCF高レベルbackend、静電埋込み |
 
 ## バックエンド別の特性
 
@@ -91,6 +92,36 @@ calc:
 ```
 
 `InferenceSettings` API のために `fairchem-core ≥ 2.0` が必要です。
+
+## Stateful DFT/MM backend
+
+calculatorを使う全workflowで
+`--backend dft --func-basis FUNCTIONAL/BASIS --engine gpu|cpu`を選択できます。既存の
+energy/post-processing用`mlmm dft` subcommandは独立して維持されています。
+
+closed-shell GPU lowmem経路ではgeometryごとに`rks_lowmem.RKS`を再構築し、直前に収束した
+GPU densityを`dm0`として渡します。それ以外の経路は1個のPySCF scannerを保持します。
+両経路とも電子状態を再利用し、同一座標でenergyとforceを要求した場合はexact-coordinate
+cacheによりSCFを重複実行しません。`--embedcharge`
+ではMM点電荷をPySCF Hamiltonianへ直接入れ、点電荷に働く力もreal systemへ加えます。
+埋込みHessianは完成した保存的ML/MM forceの中心差分なので、QM–MMとMM–MM応答blockを
+保持します。外部環境は明示的なMM原子と点電荷で表現し、MLMM DFT backendでは重複する
+PCM/SMD連続溶媒を追加しません。
+
+`--lowmem`が既定です。electrostatic embeddingを含むclosed-shell GPUのenergy・gradient・
+Hessian計算には`gpu4pyscf.dft.rks_lowmem.RKS`を使います。open-shell GPUとCPUではDF tensorを
+保持しない標準direct-JKを使います。十分なmemoryがある場合は`--no-lowmem`でdensity fittingを
+有効にすると難しいSCFの収束が改善することがあります。PySCF thread数とhost RAMはscheduler、process affinity、host/cgroup制約から
+自動検出し、`--dft-nprocs`と`--dft-mem`で上書きできます。memory指定はGPU VRAMではなく
+host RAMです。
+
+SCF checkpointは数十GBになり得るため既定OFFです。`--save-scf-checkpoint`で有効にし、必要なら
+`--scf-checkpoint PATH`を指定します。PATHを省略したleaf workflowでは
+`<out-dir>/_work/dft_scf/state.chk`を使います。`calc.dft.pyscf`はPySCF object名ごとのattributeを
+渡します。native `.pyscf_conf.py`、`PYSCF_CONFIG_FILE`、`PYSCF_MAX_MEMORY`、
+`PYSCF_TMPDIR`もそのまま有効です。
+calculator再生成後のstage間再利用は、このopt-inのstructure-bound checkpoint handoffを
+有効にした場合だけ行われます。
 
 ## カスタムバックエンド — 独自の ASE Calculator を使う (`--calc-file`)
 

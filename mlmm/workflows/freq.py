@@ -88,6 +88,7 @@ from mlmm.core.utils import (
     echo_resolved_device,
 )
 from mlmm.cli.common_options import add_ml_charge_spin_options, add_ml_layer_detection_options, add_precision_option, add_workers_options, add_backend_model_option, add_calc_file_option, add_deterministic_option, add_allow_charge_mult_mismatch_option
+from mlmm.cli.common_options import add_dft_calculator_options
 from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, render_cli_exception
 
 
@@ -840,17 +841,17 @@ def _prepare_frequency_output_paths(
 )
 @click.option(
     "-b", "--backend",
-    type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
+    type=click.Choice(["uma", "orb", "mace", "aimnet2", "dft"], case_sensitive=False),
     default=None,
     show_default="uma",
-    help="ML backend for the ONIOM high-level region.",
+    help="High-level backend for the ONIOM model region.",
 )
 @click.option(
     "--embedcharge/--no-embedcharge",
     "embedcharge",
     default=False,
     show_default=True,
-    help="Enable the experimental, computationally expensive xTB point-charge delta correction for MLIP/MM.",
+    help="Enable electrostatic embedding: MLIP backends use the experimental xTB point-charge delta; dft uses native PySCF MM point charges.",
 )
 @click.option(
     "--embedcharge-cutoff",
@@ -858,7 +859,7 @@ def _prepare_frequency_output_paths(
     type=float,
     default=None,
     show_default="12.0",
-    help="Distance cutoff (Å) from the ML region for MM point charges used by the xTB delta correction.",
+    help="Distance cutoff (Å) from the ML region for MM point charges used by embedding.",
 )
 @click.option(
     "--link-atom-method",
@@ -908,6 +909,7 @@ def _prepare_frequency_output_paths(
 @add_calc_file_option()
 @add_deterministic_option()
 @add_allow_charge_mult_mismatch_option()
+@add_dft_calculator_options()
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -1227,6 +1229,10 @@ def cli(
         merge_freeze_atom_indices(geom_cfg, freeze_atoms_cli)
     freeze_atoms_final = list(geom_cfg.get("freeze_atoms") or [])
     calc_cfg["freeze_atoms"] = freeze_atoms_final
+    from mlmm.core.dft_settings import finalize_dft_calculator_config
+    finalize_dft_calculator_config(
+        ctx, calc_cfg, output_dir=freq_cfg.get("out_dir", FREQ_KW["out_dir"])
+    )
 
     out_dir_path = Path(freq_cfg.get("out_dir", FREQ_KW["out_dir"])).resolve()
     error_out_dir = out_dir_path

@@ -594,7 +594,14 @@ def calculator_provenance(calc_cfg: Mapping[str, Any]) -> Dict[str, Any]:
         "mace": "mace_model",
         "aimnet2": "aimnet2_model",
     }
-    if backend == "custom":
+    if backend == "dft":
+        from mlmm.core.dft_settings import resolve_dft_settings
+
+        settings = resolve_dft_settings(calc_cfg)
+        model = settings.func_basis
+        precision = None
+        dft_identity = settings.scientific_identity()
+    elif backend == "custom":
         calc_file = calc_cfg.get("calc_file")
         factory = calc_cfg.get("calc_factory") or "get_calculator"
         model = f"{Path(calc_file).name}:{factory}" if calc_file else str(factory)
@@ -625,10 +632,16 @@ def calculator_provenance(calc_cfg: Mapping[str, Any]) -> Dict[str, Any]:
         else:
             precision = token or None
 
-    task_name = calc_cfg.get("uma_task_name") if backend == "uma" else None
+    task_name = (
+        calc_cfg.get("uma_task_name")
+        if backend == "uma"
+        else settings.engine
+        if backend == "dft"
+        else None
+    )
     if backend == "uma" and task_name is None:
         task_name = MLMM_CALC_KW.get("uma_task_name")
-    return {
+    provenance = {
         "mlip_backend": backend,
         "mlip_model": None if model is None else str(model),
         "mlip_model_label": mlip_model_label(backend, model, task_name),
@@ -640,6 +653,16 @@ def calculator_provenance(calc_cfg: Mapping[str, Any]) -> Dict[str, Any]:
         ),
         "use_cmap": bool(calc_cfg.get("use_cmap", MLMM_CALC_KW["use_cmap"])),
     }
+    if backend == "dft":
+        provenance["dft_settings"] = dft_identity
+        provenance["dft_resources"] = {
+            "memory_mode": settings.memory_mode,
+            "nprocs": settings.nprocs,
+            "nprocs_source": settings.nprocs_source,
+            "memory_mb": settings.memory_mb,
+            "memory_source": settings.memory_source,
+        }
+    return provenance
 
 
 def calculator_run_label(calc_cfg: Mapping[str, Any]) -> str:
@@ -648,6 +671,7 @@ def calculator_run_label(calc_cfg: Mapping[str, Any]) -> str:
     backend = str(provenance["mlip_backend"])
     backend_label = {
         "uma": "UMA", "orb": "ORB", "mace": "MACE", "aimnet2": "AIMNet2",
+        "dft": "PySCF DFT",
     }.get(backend, backend)
     details = [
         str(value) for value in (

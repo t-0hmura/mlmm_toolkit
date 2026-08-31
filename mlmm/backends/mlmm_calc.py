@@ -281,6 +281,14 @@ class _MLBackend(abc.ABC):
         energy, _, _ = self.eval(atoms, need_grad=False)
         return float(energy)
 
+    def set_embedding(self, coords, charges, indices) -> None:
+        """Update an optional electrostatic environment before evaluation."""
+
+    def mm_forces(self):
+        """Return ``(real-system indices, forces)`` for movable point charges."""
+
+        return [], None
+
     @abc.abstractmethod
     def hessian_analytical(self, opaque: Any, n_atoms: int, *, dtype: torch.dtype) -> torch.Tensor:
         """Compute analytical Hessian from the opaque batch returned by eval().
@@ -1136,6 +1144,7 @@ def _create_ml_backend(
     aimnet2_model: str = "aimnet2",
     calc_file: Optional[str] = None,
     calc_factory: str = "get_calculator",
+    dft_settings: Optional[Dict[str, Any]] = None,
     model_charge: int = 0,
     model_mult: int = 1,
     ml_device: torch.device,
@@ -1218,10 +1227,16 @@ def _create_ml_backend(
             model_mult=model_mult,
             ml_device=ml_device,
         )
+    elif backend == "dft":
+        if dft_settings is None:
+            raise ValueError("ML backend 'dft' requires resolved dft_settings.")
+        from mlmm.backends.pyscf_dft import create_dft_backend
+
+        return create_dft_backend(dft_settings)
     else:
         raise ValueError(
             f"Unknown ML backend '{backend}'. "
-            "Choose from: uma, orb, mace, aimnet2, custom (--calc-file)."
+            "Choose from: uma, orb, mace, aimnet2, dft, custom (--calc-file)."
         )
 
 
@@ -1907,10 +1922,10 @@ def validate_parmed_atom_order(
 class MLMMCore:
     """ONIOM-like ML/MM engine supporting multiple MLIP backends.
 
-    Supported ML backends: UMA (default), ORB, MACE, AIMNet2.
+    Supported high-level backends: UMA (default), ORB, MACE, AIMNet2, PySCF DFT.
     Supported MM backends: hessian_ff (analytical), OpenMM (FD).
-    The optional ``embedcharge`` path applies an experimental xTB point-charge
-    correction for ML/MM environmental effects.
+    The optional ``embedcharge`` path uses native PySCF point charges for the
+    DFT backend and the established xTB correction for MLIP backends.
     """
 
     def __init__(
@@ -1939,6 +1954,7 @@ class MLMMCore:
         # Custom ML backend from a user Python file (--calc-file)
         calc_file: Optional[str] = None,
         calc_factory: str = "get_calculator",
+        dft_settings: Optional[Dict[str, Any]] = None,
         # MM settings
         mm_fd: bool = True,
         mm_hessian_mode: Optional[str] = None,
@@ -2143,6 +2159,9 @@ class MLMMCore:
         if self.mm_fd_dir and not os.path.exists(self.mm_fd_dir):
             os.makedirs(self.mm_fd_dir, exist_ok=True)
 
+        if str(backend or "").strip().lower() == "dft" and dft_settings is not None:
+            ml_device = str(dft_settings.get("engine", "gpu")).strip().lower()
+            ml_device = "cuda" if ml_device == "gpu" else "cpu"
         if ml_device == "auto":
             ml_device = "cuda" if torch.cuda.is_available() else "cpu"
         if ml_device not in ("cuda", "cpu"):
@@ -2208,6 +2227,7 @@ class MLMMCore:
                 aimnet2_model=aimnet2_model,
                 calc_file=calc_file,
                 calc_factory=calc_factory,
+                dft_settings=dft_settings,
                 model_charge=self.model_charge,
                 model_mult=self.model_mult,
                 ml_device=self.ml_device,
@@ -2217,8 +2237,9 @@ class MLMMCore:
         # Point-charge embedding correction
         self.embedcharge = bool(embedcharge)
         self.embedcharge_cutoff = embedcharge_cutoff
+        self._dft_embedding_indices: Optional[Tuple[int, ...]] = None
         self._embed_correction: Optional[_EmbedChargeCorrection] = None
-        if self.embedcharge:
+        if self.embedcharge and self.backend_name != "dft":
             self._embed_correction = _EmbedChargeCorrection(
                 xtb_cmd=xtb_cmd,
                 xtb_acc=xtb_acc,
@@ -2271,6 +2292,12 @@ class MLMMCore:
 
     def cleanup(self):
         """Clean up temporary directory."""
+        close_backend = getattr(getattr(self, "_ml_backend", None), "close", None)
+        if callable(close_backend):
+            try:
+                close_backend()
+            except Exception as exc:
+                logger.warning("Failed to save/close high-level backend: %s", exc)
         if hasattr(self, '_tmpdir_obj') and self._tmpdir_obj is not None:
             try:
                 self._tmpdir_obj.cleanup()
@@ -2460,6 +2487,135 @@ class MLMMCore:
         self.freeze_model = [
             self._idx_map_real_to_model[i] for i in self.freeze_atoms if i in self._idx_map_real_to_model
         ]
+
+    def _configure_native_dft_embedding(self, atoms_real: Atoms) -> None:
+        """Update PySCF point charges from the current real-system geometry."""
+
+        if getattr(self, "backend_name", None) != "dft" or not getattr(
+            self, "embedcharge", False
+        ):
+            return
+        if self._dft_embedding_indices is None:
+            ml_set = set(self.selection_indices)
+            mm_indices = [i for i in range(len(atoms_real)) if i not in ml_set]
+            cutoff = self.embedcharge_cutoff
+            if mm_indices and cutoff is not None:
+                ml_coords = atoms_real.get_positions()[sorted(ml_set)]
+                mm_coords = atoms_real.get_positions()[mm_indices]
+                distances = np.linalg.norm(
+                    mm_coords[:, None, :] - ml_coords[None, :, :], axis=2
+                ).min(axis=1)
+                mm_indices = [
+                    index for index, distance in zip(mm_indices, distances)
+                    if distance <= float(cutoff)
+                ]
+            self._dft_embedding_indices = tuple(map(int, mm_indices))
+        mm_indices = list(self._dft_embedding_indices)
+        if not mm_indices:
+            raise ValueError(
+                "DFT electrostatic embedding selected no MM point charges; "
+                "increase embedcharge_cutoff or disable embedcharge."
+            )
+        self._ml_backend.set_embedding(
+            atoms_real.get_positions()[mm_indices],
+            self._get_mm_charges(mm_indices),
+            mm_indices,
+        )
+        if self.print_timing and not getattr(self, "_embedcharge_logged", False):
+            emit(
+                f"[embedcharge] {len(mm_indices)} MM point charges use native PySCF embedding.",
+                narrative=True,
+            )
+            self._embedcharge_logged = True
+
+    def _checkpoint_model_atoms(self, atoms) -> Atoms:
+        """Build the exact high-level atom/embedding state for checkpoint I/O."""
+
+        if hasattr(atoms, "get_positions"):
+            coord_ang = np.asarray(atoms.get_positions(), dtype=float)
+        elif hasattr(atoms, "coords3d"):
+            coord_ang = np.asarray(atoms.coords3d, dtype=float) * BOHR2ANG
+        elif isinstance(atoms, tuple) and len(atoms) == 2:
+            coord_ang = np.asarray(atoms[1], dtype=float)
+        else:
+            raise TypeError(
+                "atoms must be ASE Atoms, pysisyphus Geometry, or "
+                "(symbols, coordinates_angstrom)."
+            )
+        coord_ang = coord_ang.reshape(-1, 3)
+        if len(coord_ang) != self._n_real:
+            raise ValueError(
+                f"Checkpoint geometry has {len(coord_ang)} atoms; expected {self._n_real}."
+            )
+        atoms_real, _atoms_model, atoms_model_lh, _links, _freeze = (
+            self._prep_3_layer_atoms(coord_ang)
+        )
+        self._configure_native_dft_embedding(atoms_real)
+        return atoms_model_lh
+
+    def save_scf_checkpoint(self, path, atoms):
+        backend = self._ml_backend
+        saver = getattr(backend, "save_scf_checkpoint", None)
+        if self.backend_name != "dft" or not callable(saver):
+            raise RuntimeError("The active high-level backend has no SCF checkpoint state.")
+        return saver(path, self._checkpoint_model_atoms(atoms))
+
+    def load_scf_checkpoint(self, path, atoms) -> bool:
+        backend = self._ml_backend
+        loader = getattr(backend, "load_scf_checkpoint", None)
+        if self.backend_name != "dft" or not callable(loader):
+            return False
+        return bool(loader(path, self._checkpoint_model_atoms(atoms)))
+
+    def _compute_native_dft_embedded_hessian(self, coord_ang: np.ndarray) -> Dict:
+        """Differentiate the complete conservative ML/MM force vector."""
+
+        start = time.perf_counter()
+        coord0 = np.asarray(coord_ang, dtype=float).reshape(self._n_real, 3)
+        base = self.compute(coord0, return_forces=True, return_hessian=False)
+        active_atoms = list(self.hess_active_atoms)
+        n_active = len(active_atoms)
+        hessian = np.zeros((3 * n_active, 3 * n_active), dtype=self.H_np_dtype)
+        eps = 1.0e-3
+        for column_atom, real_atom in enumerate(active_atoms):
+            for axis in range(3):
+                plus = coord0.copy()
+                minus = coord0.copy()
+                plus[real_atom, axis] += eps
+                minus[real_atom, axis] -= eps
+                f_plus = np.asarray(
+                    self.compute(plus, return_forces=True, return_hessian=False)["forces"]
+                )[active_atoms].reshape(-1)
+                f_minus = np.asarray(
+                    self.compute(minus, return_forces=True, return_hessian=False)["forces"]
+                )[active_atoms].reshape(-1)
+                hessian[:, 3 * column_atom + axis] = -(f_plus - f_minus) / (2.0 * eps)
+        # Restore the stateful scanner and checkpoint identity to the requested
+        # geometry rather than leaving the last negative displacement active.
+        base = self.compute(coord0, return_forces=True, return_hessian=False)
+        if self.symmetrize_hessian:
+            hessian = 0.5 * (hessian + hessian.T)
+        compact = torch.as_tensor(
+            hessian, dtype=self.H_dtype, device=self.ml_device
+        ).reshape(n_active, 3, n_active, 3)
+        if self.return_partial_hessian:
+            base["hessian"] = compact
+            base["within_partial_hessian"] = self._build_within_partial_hessian()
+        else:
+            full = torch.zeros(
+                (self._n_real, 3, self._n_real, 3),
+                dtype=self.H_dtype,
+                device=self.ml_device,
+            )
+            idx = torch.as_tensor(active_atoms, dtype=torch.long, device=self.ml_device)
+            if idx.numel():
+                full[idx[:, None], :, idx[None, :], :] = compact.permute(0, 2, 1, 3)
+            base["hessian"] = full
+        timing = dict(base.get("timing", {}))
+        timing["ml_hessian_mode"] = "full-force-finite-difference"
+        timing["hessian_total_s"] = time.perf_counter() - start
+        base["timing"] = timing
+        return self._finalize_result_constraints(base)
 
     def _build_within_partial_hessian(self) -> Dict[str, np.ndarray | int | str]:
         """Build metadata for a partial (Hessian-target-only) Hessian."""
@@ -2892,6 +3048,12 @@ class MLMMCore:
         # derived active maps at the evaluation boundary so direct API users
         # receive the same mask semantics as the higher-level adapters.
         self._update_active_dof_mappings()
+        if (
+            return_hessian
+            and getattr(self, "backend_name", None) == "dft"
+            and getattr(self, "embedcharge", False)
+        ):
+            return self._compute_native_dft_embedded_hessian(coord_ang)
         timing: Dict[str, float | str] = {}
         hess_total_start: Optional[float] = time.perf_counter() if return_hessian else None
         hess_vram_base_alloc: Optional[float] = None
@@ -2909,6 +3071,8 @@ class MLMMCore:
         atoms_real.set_pbc(False)
         atoms_model.set_pbc(False)
         atoms_model_LH.set_pbc(False)
+
+        self._configure_native_dft_embedding(atoms_real)
 
         need_forces = return_forces or return_hessian
         use_parallel = (self.ml_device.type == "cuda") and (getattr(self.calc_real_low, "device", None) == "cpu")
@@ -2998,6 +3162,15 @@ class MLMMCore:
                 redistributed = J @ grad_link
                 F_combined[ml_idx] += redistributed[:3]
                 F_combined[mm_idx] += redistributed[3:]
+            if (
+                getattr(self, "backend_name", None) == "dft"
+                and getattr(self, "embedcharge", False)
+            ):
+                mm_indices, mm_forces = self._ml_backend.mm_forces()
+                if mm_forces is None or len(mm_indices) != len(mm_forces):
+                    raise RuntimeError("PySCF embedding did not return MM point-charge forces.")
+                for row, real_index in enumerate(mm_indices):
+                    F_combined[int(real_index)] += mm_forces[row]
             results["forces"] = F_combined
 
         # Point-charge embedding correction (optional)
@@ -3536,6 +3709,7 @@ class mlmm(PySiCalc):
         # Custom ML backend from a user Python file (--calc-file)
         calc_file: Optional[str] = None,
         calc_factory: str = "get_calculator",
+        dft_settings: Optional[Dict[str, Any]] = None,
         # MM settings
         mm_fd: bool = True,
         mm_hessian_mode: Optional[str] = None,
@@ -3612,6 +3786,7 @@ class mlmm(PySiCalc):
             aimnet2_model=aimnet2_model,
             calc_file=calc_file,
             calc_factory=calc_factory,
+            dft_settings=dft_settings,
             mm_fd=mm_fd,
             mm_hessian_mode=mm_hessian_mode,
             mm_fd_dir=mm_fd_dir,
@@ -3695,6 +3870,33 @@ class mlmm(PySiCalc):
 
     def get_hessian(self, elem, coords):
         return self._run_core(coords, want_forces=True, want_hessian=True)
+
+    def save_scf_checkpoint(self, path=None, atoms=None):
+        if atoms is not None:
+            return self.core.save_scf_checkpoint(path, atoms)
+        backend = getattr(self.core, "_ml_backend", None)
+        saver = getattr(backend, "save_scf_checkpoint", None)
+        if not callable(saver):
+            raise RuntimeError("The active high-level backend has no SCF checkpoint state.")
+        return saver(path)
+
+    def load_scf_checkpoint(self, path, atoms=None) -> bool:
+        if atoms is not None:
+            return self.core.load_scf_checkpoint(path, atoms)
+        backend = getattr(self.core, "_ml_backend", None)
+        loader = getattr(backend, "load_scf_checkpoint", None)
+        if not callable(loader):
+            return False
+        return bool(loader(path))
+
+    def close(self) -> None:
+        self.core.cleanup()
+
+    def __del__(self):
+        try:
+            self.close()
+        except Exception:
+            pass
 
 
 #                     PySisyphus Calculator (MM-only)

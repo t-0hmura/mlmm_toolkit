@@ -526,5 +526,5 @@ DFT_KW: Dict[str, Any] = {
     "grid_level": 3,
     "verbose": 0,      # PySCF mol.verbose at default (quiet); `-v` raises it to >=4 in dft.py for the [INPUT]/SCF dump.
     "out_dir": OUT_DIR_DFT,
-    "lowmem": True,  # Use gpu4pyscf rks_lowmem for closed-shell GPU runs (auto-fallback otherwise)
+    "lowmem": True,  # Use gpu4pyscf rks_lowmem for closed-shell GPU DFT
 }

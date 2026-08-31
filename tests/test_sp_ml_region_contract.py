@@ -7,6 +7,7 @@ from pathlib import Path
 import click
 from click.testing import CliRunner
 import pytest
+import yaml
 
 from mlmm.core.defaults import MLMM_CALC_KW
 from mlmm.core.utils import has_valid_layer_bfactors, read_bfactors_from_pdb
@@ -243,3 +244,40 @@ def test_cli_hessian_mode_override_precedes_worker_validation(
     assert result.output.rstrip().splitlines()[-1].startswith(
         "[time] Elapsed Time for SP:"
     )
+
+
+def test_dft_settings_use_resolved_sp_charge_and_multiplicity(
+    tmp_path: Path,
+) -> None:
+    source = _write_pdb(tmp_path / "source.pdb", [0.0, 50.0])
+    parm = tmp_path / "real.parm7"
+    parm.write_text("placeholder\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        sp.cli,
+        [
+            "-i",
+            str(source),
+            "--parm",
+            str(parm),
+            "-q",
+            "-1",
+            "-m",
+            "1",
+            "-b",
+            "dft",
+            "--func-basis",
+            "hf/sto-3g",
+            "--engine",
+            "cpu",
+            "--show-config",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    rendered = result.output[result.output.index("calc:\n"):].split("\n[time]", 1)[0]
+    config = yaml.safe_load(rendered)
+    assert config["calc"]["model_charge"] == -1
+    assert config["calc"]["model_mult"] == 1
+    assert config["calc"]["dft_settings"]["charge"] == -1
+    assert config["calc"]["dft_settings"]["multiplicity"] == 1

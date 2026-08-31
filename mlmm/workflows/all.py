@@ -28,6 +28,7 @@ from mlmm.cli.common_options import (
     add_print_every_option,
     add_workers_options,
 )
+from mlmm.cli.common_options import add_dft_calculator_options
 from mlmm.cli.decorators import canonicalize_calculator_section, make_is_param_explicit
 # presentation dependency (workflow -> cli). One advanced-help callback +
 # one visibility loop, shared with the lazily-loaded subcommands.
@@ -48,6 +49,20 @@ def _validate_postprocessing_dependencies(
         raise click.UsageError(
             "`all --thermo` and `all --dft` require `--tsopt`; an unoptimized "
             "MEP highest-energy image is not a validated transition state."
+        )
+
+
+def _reject_redundant_dft_postprocessing(
+    *, effective_backend: str, do_dft: bool
+) -> None:
+    """Reject a post-DFT stage while the primary pipeline already uses DFT."""
+
+    if do_dft and str(effective_backend).strip().lower() == "dft":
+        raise click.UsageError(
+            "`--dft` cannot be combined with the effective calculator backend "
+            "`dft`. Finish the DFT pipeline first, then run `mlmm sp -b dft ...` "
+            "in a separate process/job so the pipeline calculator and its VRAM "
+            "are released before the final single point."
         )
 
 
@@ -652,6 +667,7 @@ def _inject_coord_type_into_args_yaml(
     calc_factory: Optional[str] = None,
     print_every: Optional[int] = None,
     freeze_atoms: Optional[Sequence[int]] = None,
+    dft_settings: Optional[Mapping[str, Any]] = None,
 ) -> Optional[Path]:
     """Inject geometry and backend-native calculator overrides into args YAML.
 
@@ -680,6 +696,7 @@ def _inject_coord_type_into_args_yaml(
         and calc_file is None
         and print_every is None
         and freeze_atoms is None
+        and dft_settings is None
         and not has_generic_calc_alias
     ):
         return args_yaml
@@ -703,6 +720,7 @@ def _inject_coord_type_into_args_yaml(
         or workers_per_node is not None
         or backend_model is not None
         or calc_file is not None
+        or dft_settings is not None
         or has_generic_calc_alias
     ):
         calc_cfg = cfg.get("calc")
@@ -715,6 +733,9 @@ def _inject_coord_type_into_args_yaml(
         # UMA and the child silently runs its backend defaults.
         if backend is not None:
             calc_cfg["backend"] = str(backend).strip().lower()
+        if dft_settings is not None:
+            calc_cfg["backend"] = "dft"
+            calc_cfg["dft"] = deepcopy(dict(dft_settings))
         # Translate --precision into the per-backend NATIVE kwarg
         # (uma_precision / orb_precision / mace_dtype) HERE and write THAT into
         # the args YAML. Writing the raw ``precision`` token instead leaks an
@@ -2112,11 +2133,16 @@ def _enrich_summary(
         from mlmm.core.utils import calculator_provenance
 
         summary.update(calculator_provenance(calculator_config))
-    summary["mlip_backend"] = mlip_backend
-    summary["mlip_precision"] = mlip_precision
-    # Record the resolved MLIP model used by the high-level ML/MM calculator.
-    if mlip_model is not None:
-        summary["mlip_model"] = mlip_model
+    primary_dft = bool(
+        calculator_config is not None
+        and str(calculator_config.get("backend", "")).strip().lower() == "dft"
+    )
+    if not primary_dft:
+        summary["mlip_backend"] = mlip_backend
+        summary["mlip_precision"] = mlip_precision
+        # Record the resolved MLIP model used by the high-level ML/MM calculator.
+        if mlip_model is not None:
+            summary["mlip_model"] = mlip_model
     if str(mlip_backend).lower() == "uma" and not summary.get("mlip_task"):
         summary["mlip_task"] = MLMM_CALC_KW["uma_task_name"]
     if summary.get("mlip_model") is not None and not summary.get("mlip_model_label"):
@@ -2637,6 +2663,29 @@ def _validate_optimized_endpoint_pair(
             "endpoint bond topologies"
         )
     return result
+def _save_role_scf_checkpoint(
+    calculator: Any,
+    geometry: Any,
+    destination: Path,
+    *,
+    manifest: InvocationManifest,
+    key: str,
+) -> Path:
+    if isinstance(geometry, (str, Path)):
+        geometry = geom_loader(Path(geometry), coord_type="cart")
+    destination = Path(destination).resolve()
+    metadata = destination.with_suffix(destination.suffix + ".json")
+    if key not in manifest.expected:
+        manifest.declare(key, [destination])
+    metadata_key = f"{key}.metadata"
+    if metadata_key not in manifest.expected:
+        manifest.declare(metadata_key, [metadata])
+    calculator.save_scf_checkpoint(destination, geometry)
+    for declared_key, candidates in manifest.expected.items():
+        if destination in candidates or metadata in candidates:
+            manifest.claim_one(declared_key)
+    claimed = manifest.path(key)
+    return claimed
 
 
 def _irc_and_match(seg_idx: int,
@@ -2648,6 +2697,7 @@ def _irc_and_match(seg_idx: int,
                    spin: int,
                    *,
                    resolved_calc_template: _ResolvedCalculatorTemplate,
+                   ts_xyz_path: Optional[Path] = None,
                    mep_dir: Optional[Path] = None,
                    real_parm7: Optional[Path] = None,
                    model_pdb: Optional[Path] = None,
@@ -2699,16 +2749,35 @@ def _irc_and_match(seg_idx: int,
 
     irc_dir = seg_dir / "irc"
     ensure_dir(irc_dir)
+    ts_scf_checkpoint: Optional[Path] = None
+    if str(resolved_calc_template.materialize().get("backend", "")).lower() == "dft":
+        _dft_settings = resolved_calc_template.materialize().get("dft_settings", {})
+        if isinstance(_dft_settings, Mapping) and _dft_settings.get(
+            "save_scf_checkpoint", False
+        ):
+            candidate = (
+                Path(ref_pdb_for_seg).parent / "_work" / "dft_scf" / "state.chk"
+            )
+            if candidate.is_file() and candidate.with_suffix(
+                candidate.suffix + ".json"
+            ).is_file():
+                ts_scf_checkpoint = candidate
 
     # Build irc CLI arguments
-    irc_args: List[str] = [
-        "-i", str(ref_pdb_for_seg),
+    if ts_xyz_path is not None and Path(ts_xyz_path).is_file():
+        irc_args: List[str] = [
+            "-i", str(ts_xyz_path),
+            "--ref-pdb", str(ref_pdb_for_seg),
+        ]
+    else:
+        irc_args = ["-i", str(ref_pdb_for_seg)]
+    irc_args.extend([
         "--parm", str(real_parm7),
         "--model-pdb", str(model_pdb),
         "-q", str(int(q_int)),
         "-m", str(int(spin)),
         "--out-dir", str(irc_dir),
-    ]
+    ])
     irc_args.append("--detect-layer" if detect_layer else "--no-detect-layer")
     if irc_step_size is not None:
         irc_args.extend(["--step-size", str(float(irc_step_size))])
@@ -2732,6 +2801,12 @@ def _irc_and_match(seg_idx: int,
         use_cmap=use_cmap,
         args_yaml=args_yaml,
     )
+    if ts_scf_checkpoint is not None:
+        irc_args.extend([
+            "--no-save-scf-checkpoint",
+            "--scf-checkpoint",
+            str(ts_scf_checkpoint),
+        ])
     # request the child's machine-readable result.json so the aggregate
     # can gate on reported per-direction IRC convergence instead of trajectory-
     # file existence. A never_stop / max-cycle direction still writes its
@@ -2830,15 +2905,15 @@ def _irc_and_match(seg_idx: int,
             elems, c_first / BOHR2ANG, coord_type="cart", freeze_atoms=[])
         g_right = _path_search._new_geom_from_coords(
             elems, c_last / BOHR2ANG, coord_type="cart", freeze_atoms=[])
+        if g_ts.calculator is None:
+            lease.attach(g_ts)
+        if ts_scf_checkpoint is not None:
+            calc.load_scf_checkpoint(ts_scf_checkpoint, g_ts)
+        _ = float(g_ts.energy)
         lease.attach(g_left)
         lease.attach(g_right)
         _ = float(g_left.energy)
         _ = float(g_right.energy)
-
-        # Reload TS geometry with energy
-        if g_ts.calculator is None:
-            lease.attach(g_ts)
-        _ = float(g_ts.energy)
 
         left_tag = "forward"
         right_tag = "backward"
@@ -2902,6 +2977,7 @@ def _irc_and_match(seg_idx: int,
             # stationarity is diagnostic; finite retained candidates proceed to
             # endpoint optimization regardless of the recorded stop reason.
             "irc_outcome": _read_irc_outcome(irc_dir),
+            "scf_checkpoint": ts_scf_checkpoint,
         }
     except BaseException:
         lease.release()
@@ -3072,9 +3148,10 @@ def _run_tsopt_on_hei(hei_pdb: Path,
                       link_atom_method: Optional[str] = None,
                       mm_backend: Optional[str] = None,
                       use_cmap: Optional[bool] = None,
-                      ref_pdb: Optional[Path] = None) -> Tuple[Path, Any]:
+                      ref_pdb: Optional[Path] = None) -> Tuple[Path, Optional[Path], Any]:
     """
-    Run tsopt CLI on a HEI structure; return (final_ts_pdb_path, ts_geom).
+    Run tsopt CLI on a HEI structure; return
+    ``(final_ts_pdb_path, final_ts_xyz_path, ts_geom)``.
 
     When *ref_pdb* (layered PDB with B-factor layer info) is given, the HEI XYZ
     is used as input and *ref_pdb* is passed via ``--ref-pdb`` so that the
@@ -3095,6 +3172,49 @@ def _run_tsopt_on_hei(hei_pdb: Path,
     try:
         ts_dir = _resolve_override_dir(out_dir / "ts", overrides.get("out_dir"))
         ensure_dir(ts_dir)
+
+        ts_scf_checkpoint: Optional[Path] = None
+        parent_calc_cfg = resolved_calc_template.materialize()
+        parent_dft_settings = parent_calc_cfg.get("dft_settings", {})
+        if (
+            str(parent_calc_cfg.get("backend", "")).strip().lower() == "dft"
+            and isinstance(parent_dft_settings, Mapping)
+            and parent_dft_settings.get("save_scf_checkpoint", False)
+        ):
+            ts_scf_checkpoint = ts_dir / "_work" / "dft_scf" / "state.chk"
+            initial_checkpoint = parent_dft_settings.get("checkpoint_path")
+            role_settings = dict(parent_dft_settings)
+            # The role path below is explicit. Cleanup must not overwrite a
+            # user-supplied checkpoint that was used only as an initial guess.
+            role_settings["checkpoint_path"] = None
+            parent_calc_cfg["dft_settings"] = role_settings
+            parent_calc_cfg.update(
+                {
+                    "input_pdb": str(topology_pdb),
+                    "real_parm7": str(real_parm7),
+                    "model_pdb": str(model_pdb),
+                    "model_charge": int(charge),
+                    "model_mult": int(spin),
+                    "use_bfactor_layers": bool(detect_layer),
+                }
+            )
+            hei_geom = geom_loader(prepared_input.geom_path, coord_type="cart")
+            checkpoint_calc = _mlmm_calc(**parent_calc_cfg)
+            try:
+                if initial_checkpoint:
+                    checkpoint_calc.load_scf_checkpoint(
+                        Path(initial_checkpoint), hei_geom
+                    )
+                hei_geom.set_calculator(checkpoint_calc)
+                _ = float(hei_geom.energy)
+                checkpoint_calc.save_scf_checkpoint(
+                    ts_scf_checkpoint, hei_geom
+                )
+            finally:
+                hei_geom.calculator = None
+                close_checkpoint_calc = getattr(checkpoint_calc, "close", None)
+                if callable(close_checkpoint_calc):
+                    close_checkpoint_calc()
 
         opt_mode = overrides.get("opt_mode", opt_mode_default)
 
@@ -3155,6 +3275,14 @@ def _run_tsopt_on_hei(hei_pdb: Path,
             mm_backend=mm_backend,
             use_cmap=use_cmap,
         )
+        if ts_scf_checkpoint is not None:
+            ts_args.extend(
+                [
+                    "--save-scf-checkpoint",
+                    "--scf-checkpoint",
+                    str(ts_scf_checkpoint),
+                ]
+            )
         _append_toggle_arg(
             ts_args, "--skip-final-freq", overrides.get("skip_final_freq")
         )
@@ -3235,7 +3363,7 @@ def _run_tsopt_on_hei(hei_pdb: Path,
         except Exception as exc:  # pragma: no cover - defensive
             logger.debug("CUDA cache release unavailable: %s", exc)
 
-        return ts_pdb, g_ts
+        return ts_pdb, final_xyz if final_xyz.exists() else None, g_ts
     finally:
         prepared_input.cleanup()
 
@@ -3546,7 +3674,8 @@ def _run_freq_for_state(pdb_path: Path,
                         link_atom_method: Optional[str] = None,
                         mm_backend: Optional[str] = None,
                         use_cmap: Optional[bool] = None,
-                        xyz_path: Optional[Path] = None) -> Dict[str, Any]:
+                        xyz_path: Optional[Path] = None,
+                        scf_checkpoint: Optional[Path] = None) -> Dict[str, Any]:
     """
     Run freq CLI; return parsed thermo dict (may be empty).
     When *xyz_path* is given, use it for full-precision coordinates with
@@ -3604,6 +3733,12 @@ def _run_freq_for_state(pdb_path: Path,
         use_cmap=use_cmap,
         args_yaml=args_yaml,
     )
+    if scf_checkpoint is not None:
+        args.extend([
+            "--no-save-scf-checkpoint",
+            "--scf-checkpoint",
+            str(scf_checkpoint),
+        ])
     _freq_rc = _run_cli_main("freq", _freq_cli.cli, args, on_nonzero="warn", on_exception="raise", prefix="freq")
     # a nonzero freq exit means the thermochemistry is NOT usable, even if
     # a thermoanalysis.yaml (from a prior run or a partial write) exists with
@@ -3691,6 +3826,7 @@ def _run_opt_for_state(
     stop_plateau_thresh: Optional[float] = None,
     stop_plateau_window: Optional[int] = None,
     xyz_path: Optional[Path] = None,
+    scf_checkpoint: Optional[Path] = None,
 ) -> Tuple[Any, Path, Optional[bool]]:
     """
     Run opt CLI for a single endpoint and return
@@ -3760,6 +3896,12 @@ def _run_opt_for_state(
             mm_backend=mm_backend,
             use_cmap=use_cmap,
         )
+        if scf_checkpoint is not None:
+            args.extend([
+                "--save-scf-checkpoint",
+                "--scf-checkpoint",
+                str(scf_checkpoint),
+            ])
 
         _echo_detail(f"[endpoint-opt] Running opt on {input_label} (mode={opt_mode}) → out={opt_dir}")
         endpoint_manifest = InvocationManifest()
@@ -3951,6 +4093,9 @@ def _run_dft_for_state(pdb_path: Path,
     _append_cli_arg(args, "--conv-tol", overrides.get("conv_tol"))
     _append_cli_arg(args, "--grid-level", overrides.get("grid_level"))
     _append_cli_arg(args, "--engine", overrides.get("engine"))
+    _append_toggle_arg(args, "--lowmem", overrides.get("lowmem"))
+    _append_cli_arg(args, "--dft-nprocs", overrides.get("nprocs"))
+    _append_cli_arg(args, "--dft-mem", overrides.get("memory"))
     _append_toggle_arg(args, "--convert-files", overrides.get("convert_files"))
 
     from mlmm.workflows._all_helpers import append_backend_forwarding_args
@@ -4537,10 +4682,10 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 )
 @click.option(
     "-b", "--backend",
-    type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
+    type=click.Choice(["uma", "orb", "mace", "aimnet2", "dft"], case_sensitive=False),
     default=None,
     show_default="uma",
-    help="ML backend for the ONIOM high-level region.",
+    help="High-level backend for the ONIOM model region.",
 )
 @click.option(
     "--embedcharge/--no-embedcharge",
@@ -4592,6 +4737,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @add_calc_file_option()
 @add_deterministic_option()
 @add_allow_charge_mult_mismatch_option()
+@add_dft_calculator_options()
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -4855,6 +5001,39 @@ def cli(
         mm_backend=mm_backend,
         use_cmap=use_cmap,
     )
+    _resolved_dft_values = resolved_calc_template.materialize()
+    from mlmm.core.dft_settings import (
+        DFT_CLI_META_KEY,
+        finalize_dft_calculator_config,
+    )
+    _post_dft_resource_cli: Dict[str, Any] = {}
+    if (
+        str(_resolved_dft_values.get("backend", "")).strip().lower() != "dft"
+        and do_dft
+    ):
+        _dft_cli_meta = ctx.meta.get(DFT_CLI_META_KEY, {})
+        for _resource_name in ("lowmem", "nprocs", "memory"):
+            if _resource_name in _dft_cli_meta:
+                _post_dft_resource_cli[_resource_name] = _dft_cli_meta.pop(
+                    _resource_name
+                )
+    finalize_dft_calculator_config(ctx, _resolved_dft_values)
+    resolved_calc_template = _ResolvedCalculatorTemplate.from_mapping(
+        _resolved_dft_values
+    )
+    _reject_redundant_dft_postprocessing(
+        effective_backend=str(_resolved_dft_values.get("backend", "")),
+        do_dft=do_dft,
+    )
+    if str(_resolved_dft_values.get("backend", "")).lower() == "dft":
+        prior_args_yaml = args_yaml
+        args_yaml = _inject_coord_type_into_args_yaml(
+            args_yaml,
+            None,
+            dft_settings=_resolved_dft_values["dft_settings"],
+        )
+        if args_yaml is not None and args_yaml != prior_args_yaml:
+            session.resources.add(lambda p=args_yaml: p.unlink(missing_ok=True))
     from mlmm.core.utils import calculator_provenance as _calculator_provenance
 
     _resolved_calc_values = resolved_calc_template.materialize()
@@ -5112,6 +5291,7 @@ def cli(
         convert_files=convert_files,
         convert_files_explicit=("convert_files" in explicit_params),
     )
+    dft_overrides.update(_post_dft_resource_cli)
 
     post_convert_files_forward = (
         convert_files if "convert_files" in explicit_params else None
@@ -5838,7 +6018,7 @@ def cli(
                 shutil.copy2(_prepared_all_inputs[0].geom_path, xyz_companion)
                 _echo(f"[all] Copied XYZ input → {xyz_companion} (full precision for tsopt)")
         # TS optimization
-        ts_pdb, g_ts = _run_tsopt_on_hei(
+        ts_pdb, ts_xyz, g_ts = _run_tsopt_on_hei(
             layered_pdb,
             q_int,
             spin,
@@ -6103,6 +6283,7 @@ def cli(
                                  q_int=q_int,
                                  spin=spin,
                                  resolved_calc_template=resolved_calc_template,
+                                 ts_xyz_path=ts_xyz,
                                  real_parm7=real_parm7_path,
                                  model_pdb=ml_region_pdb,
                                  detect_layer=detect_layer,
@@ -6164,6 +6345,20 @@ def cli(
         xT, pT         = _save_single_geom_for_tools(gT,       pocket_ref, struct_dir, "ts")
         xP_irc, pP_irc = _save_single_geom_for_tools(g_prod,   pocket_ref, struct_dir, "endpoint_2_irc")
 
+        scf_checkpoints: Dict[str, Path] = {}
+        working_scf_checkpoint = irc_res.get("scf_checkpoint")
+        _irc_lease = irc_res.get("calculator_lease")
+        if working_scf_checkpoint is not None and _irc_lease is not None:
+            for role, geometry_path in (("E1", xR_irc), ("E2", xP_irc)):
+                scf_checkpoints[role] = _save_role_scf_checkpoint(
+                    _irc_lease.calculator,
+                    geometry_path,
+                    tsroot / "_work" / "dft_scf" / f"{role}.chk",
+                    manifest=manifest,
+                    key=f"post.01.scf_checkpoint.{role}",
+                )
+            scf_checkpoints["TS"] = Path(working_scf_checkpoint)
+
         endpoint_opt_dir = tsroot / "endpoint_opt"
         ensure_dir(endpoint_opt_dir)
         _endpoint_failures: Dict[str, Any] = {}
@@ -6205,6 +6400,7 @@ def cli(
                 stop_plateau_thresh=stop_plateau_thresh,
                 stop_plateau_window=stop_plateau_window,
                 xyz_path=xR_irc,
+                scf_checkpoint=scf_checkpoints.get("E1"),
             )
         except Exception as e:
             _echo(
@@ -6241,6 +6437,7 @@ def cli(
                 stop_plateau_thresh=stop_plateau_thresh,
                 stop_plateau_window=stop_plateau_window,
                 xyz_path=xP_irc,
+                scf_checkpoint=scf_checkpoints.get("E2"),
             )
         except Exception as e:
             _echo(
@@ -6335,6 +6532,21 @@ def cli(
         e_prod = float(g_prod.energy)
         _tsopt_result = dict(_tsopt_payload)
 
+        if working_scf_checkpoint is not None and _irc_lease is not None:
+            for role, geometry_path, destination in (
+                ("E1", xR, tsroot / "_work" / "dft_scf" / "E1.chk"),
+                ("E2", xP, tsroot / "_work" / "dft_scf" / "E2.chk"),
+                ("TS", xT, Path(working_scf_checkpoint)),
+            ):
+                scf_checkpoints[role] = _save_role_scf_checkpoint(
+                    _irc_lease.calculator,
+                    geometry_path,
+                    destination,
+                    manifest=manifest,
+                    key=f"post.01.scf_checkpoint.{role}",
+                )
+            _persist_run_manifest(manifest, out_dir)
+
         bond_cfg = dict(_path_search.BOND_KW)
         try:
             changed, bond_summary = _path_search._has_bond_change(
@@ -6389,20 +6601,23 @@ def cli(
                                      backend=backend,
                                      embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
                                      embedcharge_explicit=embedcharge_explicit,
-                                     link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xT)
+                                     link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xT,
+                                     scf_checkpoint=scf_checkpoints.get("TS"))
             _clear_hess_cache()  # TS Hessian consumed; R/P need exact computation
             tR = _run_freq_for_state(pR, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      freq_root / "E1", args_yaml, overrides=freq_overrides,
                                      backend=backend,
                                      embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
                                      embedcharge_explicit=embedcharge_explicit,
-                                     link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xR)
+                                     link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xR,
+                                     scf_checkpoint=scf_checkpoints.get("E1"))
             tP = _run_freq_for_state(pP, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      freq_root / "E2", args_yaml, overrides=freq_overrides,
                                      backend=backend,
                                      embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
                                      embedcharge_explicit=embedcharge_explicit,
-                                     link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xP)
+                                     link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xP,
+                                     scf_checkpoint=scf_checkpoints.get("E2"))
             thermo_payloads = {"E1": tR, "TS": tT, "E2": tP}
             GR = _thermo_gibbs_ha(tR)
             GT = _thermo_gibbs_ha(tT)
@@ -7768,7 +7983,7 @@ def cli(
                 )
             if reference_mode_path is not None:
                 segment_tsopt_overrides["reference_mode"] = reference_mode_path
-            ts_pdb, g_ts = _run_tsopt_on_hei(
+            ts_pdb, ts_xyz, g_ts = _run_tsopt_on_hei(
                 hei_pocket_pdb,
                 q_int,
                 spin,
@@ -7905,6 +8120,7 @@ def cli(
                                  q_int=q_int,
                                  spin=spin,
                                  resolved_calc_template=resolved_calc_template,
+                                 ts_xyz_path=ts_xyz,
                                  real_parm7=real_parm7_path,
                                  model_pdb=ml_region_pdb,
                                  detect_layer=detect_layer,
@@ -7942,6 +8158,20 @@ def cli(
         xL_irc, pL_irc = _save_single_geom_for_tools(gL, hei_pocket_pdb, struct_dir, "reactant_irc")
         xT, pT         = _save_single_geom_for_tools(gT, hei_pocket_pdb, struct_dir, "ts")
         xR_irc, pR_irc = _save_single_geom_for_tools(gR, hei_pocket_pdb, struct_dir, "product_irc")
+
+        scf_checkpoints: Dict[str, Path] = {}
+        working_scf_checkpoint = irc_res.get("scf_checkpoint")
+        _irc_lease = irc_res.get("calculator_lease")
+        if working_scf_checkpoint is not None and _irc_lease is not None:
+            for role, geometry_path in (("R", xL_irc), ("P", xR_irc)):
+                scf_checkpoints[role] = _save_role_scf_checkpoint(
+                    _irc_lease.calculator,
+                    geometry_path,
+                    seg_dir / "_work" / "dft_scf" / f"{role}.chk",
+                    manifest=manifest,
+                    key=f"post.{seg_idx:02d}.scf_checkpoint.{role}",
+                )
+            scf_checkpoints["TS"] = Path(working_scf_checkpoint)
 
         endpoint_opt_dir = seg_dir / "endpoint_opt"
         ensure_dir(endpoint_opt_dir)
@@ -7986,6 +8216,7 @@ def cli(
                 stop_plateau_thresh=stop_plateau_thresh,
                 stop_plateau_window=stop_plateau_window,
                 xyz_path=xL_irc,
+                scf_checkpoint=scf_checkpoints.get("R"),
             )
         except Exception as e:
             _echo(
@@ -8022,6 +8253,7 @@ def cli(
                 stop_plateau_thresh=stop_plateau_thresh,
                 stop_plateau_window=stop_plateau_window,
                 xyz_path=xR_irc,
+                scf_checkpoint=scf_checkpoints.get("P"),
             )
         except Exception as e:
             _echo(
@@ -8121,6 +8353,20 @@ def cli(
         eR = float(gL.energy)
         eT = float(gT.energy)
         eP = float(gR.energy)
+        if working_scf_checkpoint is not None and _irc_lease is not None:
+            for role, geometry_path, destination in (
+                ("R", xL, seg_dir / "_work" / "dft_scf" / "R.chk"),
+                ("P", xR, seg_dir / "_work" / "dft_scf" / "P.chk"),
+                ("TS", xT, Path(working_scf_checkpoint)),
+            ):
+                scf_checkpoints[role] = _save_role_scf_checkpoint(
+                    _irc_lease.calculator,
+                    geometry_path,
+                    destination,
+                    manifest=manifest,
+                    key=f"post.{seg_idx:02d}.scf_checkpoint.{role}",
+                )
+            _persist_run_manifest(manifest, out_dir)
         tsopt_seg_energies.append((eR, eT, eP))
         mlip_prefix = seg_dir / "energy_diagram_MLIP"
         _write_public_segment_diagram(
@@ -8160,6 +8406,7 @@ def cli(
                 embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
                 embedcharge_explicit=embedcharge_explicit,
                 link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xT,
+                scf_checkpoint=scf_checkpoints.get("TS"),
             )
             _clear_hess_cache()  # TS Hessian consumed; R/P need exact computation
             tR = _run_freq_for_state(
@@ -8169,6 +8416,7 @@ def cli(
                 embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
                 embedcharge_explicit=embedcharge_explicit,
                 link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xL,
+                scf_checkpoint=scf_checkpoints.get("R"),
             )
             tP = _run_freq_for_state(
                 pR, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
@@ -8177,6 +8425,7 @@ def cli(
                 embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
                 embedcharge_explicit=embedcharge_explicit,
                 link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xR,
+                scf_checkpoint=scf_checkpoints.get("P"),
             )
             thermo_payloads = {"R": tR, "TS": tT, "P": tP}
             GR = _thermo_gibbs_ha(tR)

@@ -310,7 +310,7 @@ All 9 rules apply to `mlmm`:
 | 1 | Subtractive ONIOM energy formula (`E = mm_real + ml_model − mm_model`) | `mlmm/backends/mlmm_calc.py` |
 | 2 | Link-atom Hessian B-matrix projection | `mlmm/backends/mlmm_calc.py` |
 | 3 | Macro / micro alternation for Hessian TS optimizers (RS-P-RFO default) | `mlmm/workflows/tsopt.py` |
-| 4 | gpu4pyscf `rks_lowmem` triple-guard | `mlmm/workflows/dft.py` |
+| 4 | gpu4pyscf `rks_lowmem` closed-shell/GPU/lowmem guard | `mlmm/core/dft_settings.py` |
 | 5 | def2 family auto-ECP injection | `mlmm/workflows/dft.py` |
 | 6 | PHVA + MLIP active-block partial Hessian | `mlmm/workflows/freq.py` |
 | 7 | `bofill_update` advanced-indexing scatter | `mlmm/workflows/tsopt.py` |
@@ -327,7 +327,7 @@ scheduled numerical validation (see `CONTRIBUTING.md` §1.1).
 | 5-pass Hessian set | #1, #2, #8, #9 | subtractive ONIOM + link-atom B-matrix + 3-layer assembly + parm7 indexing | `mlmm/backends/mlmm_calc.py` (host of 3 of the 9 rules: #1/#2/#8; #9 in `mlmm/io/pdb_indexing.py`) |
 | TS optimization set | #3, #7 | macro / micro alternation + Bofill scatter | `mlmm/workflows/tsopt.py` |
 | Vibrational set | #6 | PHVA + MLIP active-block partial Hessian | `mlmm/workflows/freq.py` |
-| DFT set | #4, #5 | gpu4pyscf low-memory + def2 ECP injection | `mlmm/workflows/dft.py` |
+| DFT set | #4, #5 | gpu4pyscf low-memory + def2 ECP injection | `mlmm/core/dft_settings.py` (#4), `mlmm/workflows/dft.py` (#5) |
 
 For mlmm the practical curriculum is the 5-pass Hessian set first (#1, #2, #8 in `mlmm_calc.py`; #9 in `io/pdb_indexing.py`), then the TS set (#3, #7), then DFT (#4, #5), then vibrational (#6).
 

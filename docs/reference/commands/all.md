@@ -321,8 +321,8 @@ Options:
                                   for define-layer, mm_parm, ml_region, and
                                   forwarded to downstream tools (tsopt, irc,
                                   freq, path_search) as --ref-pdb.
-  -b, --backend [uma|orb|mace|aimnet2]
-                                  ML backend for the ONIOM high-level region.
+  -b, --backend [uma|orb|mace|aimnet2|dft]
+                                  High-level backend for the ONIOM model region.
                                   [default: (uma)]
   --embedcharge / --no-embedcharge
                                   Enable experimental point-charge treatment.
@@ -388,5 +388,23 @@ Options:
                                   matching multiplicity; use this only for an
                                   intentional nonstandard input such as a
                                   covalently-cut region.
+  --func-basis TEXT               High-level method as FUNCTIONAL/BASIS;
+                                  HF/BASIS is accepted.  [default:
+                                  (wb97m-v/def2-svp)]
+  --engine [gpu|cpu]              PySCF execution engine used by --backend dft.
+                                  [default: (gpu)]
+  --save-scf-checkpoint / --no-save-scf-checkpoint
+                                  Persist a structure-bound PySCF checkpoint.
+                                  [default: (disabled)]
+  --scf-checkpoint FILE           Load/save the optional structure-bound PySCF
+                                  checkpoint at PATH.
+  --lowmem / --no-lowmem          Use GPU4PySCF rks_lowmem for closed-shell GPU
+                                  DFT; open-shell GPU and CPU use standard
+                                  direct JK. --no-lowmem enables density
+                                  fitting.  [default: (lowmem)]
+  --dft-nprocs INTEGER RANGE      PySCF/OpenMP CPU threads; GPU count is
+                                  unaffected.  [default: (auto); x>=1]
+  --dft-mem TEXT                  PySCF host RAM limit (for example 64GB or
+                                  120000MB).  [default: (auto)]
   -h, --help                      Show this message and exit.
 ```

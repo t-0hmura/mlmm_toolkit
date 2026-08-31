@@ -71,6 +71,7 @@ from mlmm.core.utils import (
     optional_positive_int,
 )
 from mlmm.cli.common_options import add_ml_layer_detection_options, add_precision_option, add_workers_options, add_backend_model_option, add_calc_file_option, add_deterministic_option, add_allow_charge_mult_mismatch_option
+from mlmm.cli.common_options import add_dft_calculator_options
 from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, _write_error_json, render_cli_exception
 from mlmm.workflows.align_freeze import (
     align_and_refine_sequence_inplace,
@@ -1071,17 +1072,17 @@ def _run_dmf_mep(
 )
 @click.option(
     "-b", "--backend",
-    type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
+    type=click.Choice(["uma", "orb", "mace", "aimnet2", "dft"], case_sensitive=False),
     default=None,
     show_default="uma",
-    help="ML backend for the ONIOM high-level region.",
+    help="High-level backend for the ONIOM model region.",
 )
 @click.option(
     "--embedcharge/--no-embedcharge",
     "embedcharge",
     default=False,
     show_default=True,
-    help="Enable the experimental, computationally expensive xTB point-charge delta correction for MLIP/MM.",
+    help="Enable electrostatic embedding: MLIP backends use the experimental xTB point-charge delta; dft uses native PySCF MM point charges.",
 )
 @click.option(
     "--embedcharge-cutoff",
@@ -1089,7 +1090,7 @@ def _run_dmf_mep(
     type=float,
     default=None,
     show_default="12.0",
-    help="Distance cutoff (Å) from the ML region for MM point charges used by the xTB delta correction.",
+    help="Distance cutoff (Å) from the ML region for MM point charges used by embedding.",
 )
 @click.option(
     "--link-atom-method",
@@ -1138,6 +1139,7 @@ def _run_dmf_mep(
 @add_calc_file_option()
 @add_deterministic_option()
 @add_allow_charge_mult_mismatch_option()
+@add_dft_calculator_options()
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -1365,6 +1367,10 @@ def cli(
         # Revalidate the fully resolved calculator mapping before dry-run can
         # report success (the constructor repeats this for normal execution).
         apply_workers_to_calc_cfg(calc_cfg, None, None)
+        from mlmm.core.dft_settings import finalize_dft_calculator_config
+        finalize_dft_calculator_config(
+            ctx, calc_cfg, output_dir=stopt_cfg["out_dir"]
+        )
 
         # A dormant YAML DMF section does not affect GSM. An explicit CLI
         # tolerance is still validated as user input, regardless of MEP mode.

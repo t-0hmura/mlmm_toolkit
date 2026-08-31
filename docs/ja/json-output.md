@@ -353,9 +353,9 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | `preopt_requested` / `preopt_converged` | bool / bool \| null | 端点事前最適化を実行したか、および全端点が収束したか。読み取れない端点があれば `null`。`all` はこの事前収束情報を使います。ただし、要求した最終 TS 最適化と両端点最適化がすべての反応区間で収束した場合は、最終結果で判定します。元のフィールドは保持します |
 | `segments` | object[] | セグメントごとの障壁、反応エネルギー、結合変化 |
 | `energy_diagrams` | object[] | エネルギーダイアグラム |
-| `mlip_backend` | string | バックエンド名（`uma`, `orb`, `mace`, `aimnet2`, `custom`） |
-| `mlip_model` | string \| null | バックエンドと分離して記録するモデル/checkpoint名 |
-| `mlip_precision` | string \| null | 実効`fp32` / `fp64`。custom calculatorではnull |
+| `mlip_backend` | string | バックエンド名（`uma`, `orb`, `mace`, `aimnet2`, `dft`, `custom`） |
+| `mlip_model` | string \| null | バックエンドと分離して記録するモデル/checkpoint名。`dft`では`FUNCTIONAL/BASIS` |
+| `mlip_precision` | string \| null | 実効`fp32` / `fp64`。DFTとcustom calculatorではnull（DFT engineは別field） |
 | `charge` | int | モデル領域の電荷 |
 | `spin` | int | モデル領域のスピン多重度 |
 | `environment` | object | ハードウェア情報 |

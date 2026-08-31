@@ -298,7 +298,7 @@ grep -rn '# DOMAIN_PURE' mlmm/
 | 1 | Subtractive ONIOM エネルギー式 (`E = mm_real + ml_model − mm_model`) | `mlmm/backends/mlmm_calc.py` |
 | 2 | Link-atom Hessian B-matrix 投影 | `mlmm/backends/mlmm_calc.py` |
 | 3 | Hessian TS オプティマイザのマクロ / マイクロ交互（RS-P-RFO がデフォルト） | `mlmm/workflows/tsopt.py` |
-| 4 | gpu4pyscf `rks_lowmem` トリプルガード | `mlmm/workflows/dft.py` |
+| 4 | gpu4pyscf `rks_lowmem` のclosed-shell/GPU/lowmem guard | `mlmm/core/dft_settings.py` |
 | 5 | def2 ファミリーの自動 ECP 注入 | `mlmm/workflows/dft.py` |
 | 6 | PHVA + MLIP active-block partial Hessian | `mlmm/workflows/freq.py` |
 | 7 | `bofill_update` advanced-indexing scatter | `mlmm/workflows/tsopt.py` |

@@ -1,11 +1,48 @@
 import click
 import pytest
+from click.testing import CliRunner
+from pathlib import Path
 
 from mlmm.workflows.all import (
     _derive_pipeline_status,
     _pipeline_aggregate_truth,
+    _reject_redundant_dft_postprocessing,
     _validate_postprocessing_dependencies,
 )
+
+
+def test_all_rejects_post_dft_when_primary_backend_is_dft() -> None:
+    with pytest.raises(click.UsageError, match="separate process/job"):
+        _reject_redundant_dft_postprocessing(
+            effective_backend="dft", do_dft=True
+        )
+    _reject_redundant_dft_postprocessing(
+        effective_backend="uma", do_dft=True
+    )
+
+
+@pytest.mark.parametrize("via_yaml", [False, True])
+def test_all_cli_rejects_redundant_dft_before_pipeline(tmp_path, via_yaml) -> None:
+    from mlmm.workflows.all import cli as all_cli
+
+    root = Path(__file__).resolve().parents[1]
+    pdb = root / "tests" / "smoke" / "p_complex_layered.pdb"
+    parm = root / "tests" / "smoke" / "p_complex.parm7"
+    args = [
+        "-i", str(pdb), "-i", str(pdb), "--parm", str(parm),
+        "-q", "0", "--dft", "--dry-run", "--out-dir", str(tmp_path / "result"),
+    ]
+    if via_yaml:
+        config = tmp_path / "dft.yaml"
+        config.write_text("calc:\n  backend: dft\n", encoding="utf-8")
+        args.extend(["--config", str(config)])
+    else:
+        args.extend(["-b", "dft"])
+
+    result = CliRunner().invoke(all_cli, args)
+
+    assert result.exit_code == 2
+    assert "separate process/job" in result.output
 
 
 @pytest.mark.parametrize(

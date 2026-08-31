@@ -119,7 +119,7 @@ artifact and is always written for PDB input.
    - The raw MEP-engine output (per-segment trajectories, the full MEP trajectory, and the engine `summary.json`) is written under `<out-dir>/_work/path_opt/` (or `<out-dir>/_work/path_search/` with `--refine-path`); the merged products (`mep.pdb`, optional `mep.cif`, `mep_trj.xyz`, `mep_plot.png`, `energy_diagram_MEP.png`) are moved to `<out-dir>/` and `summary.{json,log}` copied there.
    - `--tsopt` runs TS optimization on each HEI. After the TS gate, `all` continues with EulerPC IRC and segment energy diagrams. Both `--thermo` and `--dft` require `--tsopt`.
    - `--thermo` computes ML/MM thermochemistry on (R, TS, P) and adds a Gibbs diagram.
-   - `--dft` runs model-region DFT single-points on (R, TS, P) and adds a model-DFT electronic diagram. With `--thermo`, the subtractive DFT//MLIP/MM total plus the ML/MM thermal correction produces the DFT//MLIP/MM Gibbs diagram.
+   - `--dft` runs model-region DFT single-points on (R, TS, P) and adds a model-DFT electronic diagram. With `--thermo`, the subtractive DFT//MLIP/MM total plus the ML/MM thermal correction produces the DFT//MLIP/MM Gibbs diagram. For large production calculations, finish the MLIP pipeline first and run `sp -b dft` later in a separate process/job so the DFT step starts with released VRAM. `all -b dft --dft` is rejected because it would repeat the primary DFT calculation.
    - TS optimization, IRC, frequency analysis, and flatten PHVA use the fixed constrained treatment, which removes only full-system rigid motions that leave frozen anchors fixed; realistic ML/MM boundaries normally have effective rank 0.
    - `--hessian-calc-mode` selects analytical or finite-difference Hessians where supported. Compare both on a target-system pilot because speed and memory depend on the backend and system.
 6. **TSOPT-only mode** (single input, `--tsopt`, no `--scan-lists`)
@@ -277,7 +277,7 @@ and defaults.
 | `--thresh-post TEXT` | Convergence preset for TS and post-IRC endpoint optimizations. | `baker` |
 | `--preopt / --no-preopt` | Pre-optimize endpoints before segmentation. | `True` |
 | `--refine-path / --no-refine-path` | `--no-refine-path` (default) → single-pass `path-opt`; `--refine-path` → recursive `path-search`, which proposes multistep reaction-path candidates and also refines a single-step MEP, where it can improve a poor HEI or TS estimate. Both modes support Stage 5 (TSOPT / thermo / DFT). | `False` |
-| `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
+| `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`, `dft`. | `uma` |
 | `--precision [fp32\|fp64]` | Backend precision. Unset uses UMA/AIMNet2 fp32 and ORB/MACE fp64. AIMNet2 rejects fp64. | backend-specific |
 | `--workers INT` | UMA predictor workers. Values greater than 1 require `fairchem-core[extras]` and are incompatible with an analytical Hessian. | `1` |
 | `--workers-per-node INT` | Workers per node for the parallel UMA predictor. | _None_ |
@@ -323,6 +323,9 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) → `--opt-mode` (on
 | `--freq-pressure FLOAT` | Thermochemistry pressure (atm). | `1.0` |
 | `--dft-out-dir PATH` | Base directory override for DFT outputs. | _None_ |
 | `--dft-func-basis TEXT` | Functional / basis pair. | `wb97m-v/def2-svp` |
+| `--lowmem/--no-lowmem` | Low-memory policy for a primary DFT backend or the optional `--dft` stage. | `--lowmem` |
+| `--dft-nprocs INT` | PySCF/OpenMP CPU threads for DFT. | `auto` |
+| `--dft-mem SIZE` | PySCF host-RAM limit for DFT; not GPU VRAM. | `auto` |
 | `--dft-max-cycle INT` | SCF-iteration cap. | `100` |
 | `--dft-conv-tol FLOAT` | SCF convergence tolerance. | `1e-9` |
 | `--dft-grid-level INT` | PySCF grid level. | `3` |

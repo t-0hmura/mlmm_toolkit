@@ -49,6 +49,7 @@ name from the CLI.
 |------|------|
 | `mlmm/backends/__init__.py` | `apply_precision_to_calc_cfg()` — routes the unified `--precision fp32\|fp64` CLI flag to each backend's native kwarg (`uma_precision` / `orb_precision` / `mace_dtype`) |
 | `mlmm/backends/mlmm_calc.py` | `MLMMCore` (ML/MM ONIOM coupling) + `MLMMASECalculator` (ASE) + `mlmm` (pysisyphus Calculator) + per-backend adapters (`_UMABackend`, `_OrbBackend`, `_MACEBackend`, `_AIMNet2Backend`) + the private `_create_ml_backend` factory + FD-Hessian assembly + unit conversion |
+| `mlmm/backends/pyscf_dft.py` | Stateful PySCF/GPU4PySCF high-level backend with electrostatic embedding |
 
 ## Per-backend characteristics
 
@@ -100,6 +101,42 @@ calc:
 ```
 
 Requires `fairchem-core ≥ 2.0` for the `InferenceSettings` API.
+
+## Stateful DFT/MM backend
+
+All calculator-consuming workflows accept
+`--backend dft --func-basis FUNCTIONAL/BASIS --engine gpu|cpu`. The existing
+`mlmm dft` energy/post-processing subcommand remains separate.
+
+For closed-shell GPU low-memory runs, the DFT adapter rebuilds the
+geometry-bound `rks_lowmem.RKS` object at each step and passes the previous
+converged GPU density as `dm0`. Other routes retain one PySCF scanner. Both
+paths reuse the electronic state, and an exact-coordinate cache prevents a
+second SCF when the same geometry requests energy and forces. With
+`--embedcharge`, MM charges are placed directly in the PySCF Hamiltonian and
+their forces are added to the real system. Embedded Hessians are central
+differences of the complete conservative ML/MM force, retaining QM–MM and MM–MM
+response blocks. The external environment is represented by explicit MM atoms
+and point charges; the MLMM DFT backend does not add an overlapping PCM/SMD
+continuum.
+
+Low-memory execution is the default (`--lowmem`). Closed-shell GPU calculations,
+including electrostatic embedding, use `gpu4pyscf.dft.rks_lowmem.RKS` for
+energy, gradients, and Hessians. Open-shell GPU and CPU calculations use
+standard direct JK without a persistent density-fitting tensor. `--no-lowmem`
+enables density fitting and may improve difficult SCF convergence when enough
+memory is available. PySCF threads and host RAM are detected from
+the scheduler, process affinity, and host/cgroup limits; override them with
+`--dft-nprocs` and `--dft-mem`. The memory value is host RAM, not GPU VRAM.
+
+SCF checkpoint files are disabled by default because they can grow to tens of
+gigabytes. Enable them with `--save-scf-checkpoint`; without an explicit
+`--scf-checkpoint PATH`, a leaf workflow uses
+`<out-dir>/_work/dft_scf/state.chk`.
+Cross-stage reuse after calculator recreation is available only through this
+opt-in, structure-bound checkpoint handoff. `calc.dft.pyscf` passes attributes
+by PySCF object name. Native `.pyscf_conf.py`,
+`PYSCF_CONFIG_FILE`, `PYSCF_MAX_MEMORY`, and `PYSCF_TMPDIR` remain effective.
 
 ## Custom backend — bring your own ASE Calculator (`--calc-file`)
 

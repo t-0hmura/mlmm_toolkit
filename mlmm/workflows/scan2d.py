@@ -97,6 +97,7 @@ from mlmm.cli.common_options import (
     add_workers_options,
     add_deterministic_option, add_allow_charge_mult_mismatch_option,
 )
+from mlmm.cli.common_options import add_dft_calculator_options
 from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, render_cli_exception
 from mlmm.workflows.scan_common import (
     add_scan_common_options,
@@ -370,17 +371,17 @@ def _select_closest_state_1d(
 )
 @click.option(
     "-b", "--backend",
-    type=click.Choice(["uma", "orb", "mace", "aimnet2"], case_sensitive=False),
+    type=click.Choice(["uma", "orb", "mace", "aimnet2", "dft"], case_sensitive=False),
     default=None,
     show_default="uma",
-    help="ML backend for the ONIOM high-level region.",
+    help="High-level backend for the ONIOM model region.",
 )
 @click.option(
     "--embedcharge/--no-embedcharge",
     "embedcharge",
     default=False,
     show_default=True,
-    help="Enable the experimental, computationally expensive xTB point-charge delta correction for MLIP/MM.",
+    help="Enable electrostatic embedding: MLIP backends use the experimental xTB point-charge delta; dft uses native PySCF MM point charges.",
 )
 @click.option(
     "--embedcharge-cutoff",
@@ -388,7 +389,7 @@ def _select_closest_state_1d(
     type=float,
     default=None,
     show_default="12.0",
-    help="Distance cutoff (Å) from the ML region for MM point charges used by the xTB delta correction.",
+    help="Distance cutoff (Å) from the ML region for MM point charges used by embedding.",
 )
 @click.option(
     "--link-atom-method",
@@ -433,6 +434,7 @@ def _select_closest_state_1d(
 @add_calc_file_option()
 @add_deterministic_option()
 @add_allow_charge_mult_mismatch_option()
+@add_dft_calculator_options()
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -617,6 +619,10 @@ def cli(
                 calc_cfg["mm_backend"] = str(mm_backend).lower()
             if use_cmap is not None:
                 calc_cfg["use_cmap"] = use_cmap
+            from mlmm.core.dft_settings import finalize_dft_calculator_config
+            finalize_dft_calculator_config(
+                ctx, calc_cfg, output_dir=out_dir_path
+            )
 
             try:
                 model_pdb_path, layer_info = resolve_ml_layer_assignment(

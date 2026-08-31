@@ -241,6 +241,37 @@ def test_enriched_references_only_add_omol25_for_omol(tmp_path) -> None:
     assert "OMol25" not in methods
 
 
+def test_primary_dft_provenance_is_not_overwritten_by_legacy_mlip_values(
+    tmp_path,
+) -> None:
+    summary = {"segments": [], "energy_diagrams": []}
+    _enrich_summary(
+        summary,
+        version="",
+        pipeline_mode="path-opt",
+        mlip_backend="-",
+        mlip_model="-",
+        mlip_precision=None,
+        charge=0,
+        spin=1,
+        calculator_config={
+            "backend": "dft",
+            "model_charge": 0,
+            "model_mult": 1,
+            "dft_settings": {
+                "func_basis": "hf/sto-3g",
+                "engine": "cpu",
+            },
+        },
+        out_dir=tmp_path,
+    )
+
+    assert summary["mlip_backend"] == "dft"
+    assert summary["mlip_model"] == "hf/sto-3g"
+    assert summary["mlip_task"] == "cpu"
+    assert summary["mlip_precision"] is None
+
+
 def test_ts_only_summary_does_not_assign_reaction_direction(tmp_path) -> None:
     summary = {
         "out_dir": str(tmp_path),

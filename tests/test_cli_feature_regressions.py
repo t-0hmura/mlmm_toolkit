@@ -52,9 +52,10 @@ def test_sp_rejects_removed_print_every_option() -> None:
         ("sp", "--use-cmap"),
         ("sp", "--radius-partial-hessian"),
         ("sp", "--radius-freeze"),
+        ("sp", "--solvent"),
+        ("sp", "--solvent-model"),
         ("opt", "--radius-partial-hessian"),
         ("opt", "--radius-freeze"),
-        ("dft", "--backend"),
         ("dft", "--freeze-atoms"),
         ("scan", "--opt-mode"),
         ("scan", "--coord-type"),
@@ -939,6 +940,63 @@ def test_all_forwards_irc_step_size_to_child(
         seg_dir / "irc" / "finished_irc.pdb",
     )
     assert "output.public.segments/seg_01/irc/finished_irc_trj.xyz" in manifest.expected
+
+
+def test_all_irc_uses_exact_ts_xyz_and_matching_checkpoint(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mlmm.workflows import all as all_workflow
+
+    captured: list[str] = []
+
+    class _StopHere(RuntimeError):
+        pass
+
+    def _capture(_name, _command, args, **_kwargs):
+        captured.extend(args)
+        raise _StopHere
+
+    ts_dir = tmp_path / "segments" / "seg_01" / "ts"
+    ts_dir.mkdir(parents=True)
+    ts_pdb = ts_dir / "final_geometry.pdb"
+    ts_xyz = ts_dir / "final_geometry.xyz"
+    ts_pdb.write_text("END\n", encoding="utf-8")
+    ts_xyz.write_text("1\nTS\nHe 0 0 0\n", encoding="utf-8")
+    checkpoint = ts_dir / "_work" / "dft_scf" / "state.chk"
+    checkpoint.parent.mkdir(parents=True)
+    checkpoint.write_text("checkpoint\n", encoding="utf-8")
+    checkpoint.with_suffix(".chk.json").write_text("{}\n", encoding="utf-8")
+    template = all_workflow._ResolvedCalculatorTemplate.from_mapping(
+        {
+            "backend": "dft",
+            "dft_settings": {
+                "func_basis": "hf/sto-3g",
+                "engine": "cpu",
+                "save_scf_checkpoint": True,
+            },
+        }
+    )
+    monkeypatch.setattr(all_workflow, "_run_cli_main", _capture)
+
+    with pytest.raises(_StopHere):
+        all_workflow._irc_and_match(
+            seg_idx=1,
+            seg_dir=ts_dir.parent,
+            ref_pdb_for_seg=ts_pdb,
+            seg_pocket_pdb=tmp_path / "model.pdb",
+            g_ts=object(),
+            q_int=0,
+            spin=1,
+            resolved_calc_template=template,
+            ts_xyz_path=ts_xyz,
+            real_parm7=tmp_path / "system.parm7",
+            model_pdb=tmp_path / "model.pdb",
+        )
+
+    assert captured[captured.index("-i") + 1] == str(ts_xyz)
+    assert captured[captured.index("--ref-pdb") + 1] == str(ts_pdb)
+    assert "--no-save-scf-checkpoint" in captured
+    assert captured[captured.index("--scf-checkpoint") + 1] == str(checkpoint)
 
 
 def test_scan3d_csv_mode_runs_without_scan_inputs(tmp_path: Path) -> None:

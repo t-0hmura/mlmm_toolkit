@@ -67,7 +67,7 @@ calc:
  model_mult: 1 # ML 領域のスピン多重度 (CLI -m で上書き)
  link_mlmm: null # null: parm7 結合から自動決定; list: 明示上書き
  link_atom_method: scaled    # リンク原子配置: "scaled" (g-factor) または "fixed" (1.09/1.01 Å)
- backend: uma # ML バックエンド: "uma" (デフォルト), "orb", "mace", "aimnet2"
+ backend: uma # 高レベルbackend: uma, orb, mace, aimnet2, dft
  embedcharge: false # 実験的: MLIP は高コストな xTB 補正、dft は PySCF への直接静電埋込み
  embedcharge_step: 0.001 # MLIP/xTB 補正用の数値 Hessian ステップ（dft では未使用）
  embedcharge_cutoff: 12.0 # ML 領域からの MM 点電荷カットオフ (Å)
@@ -84,6 +84,21 @@ calc:
  mace_model: MACE-OMOL-0 # MACE モデル名 (backend=mace 時)
  mace_dtype: float64      # MACE 浮動小数点精度 (backend=mace 時)
  aimnet2_model: aimnet2   # AIMNet2 モデル名 (backend=aimnet2 時)
+ dft:
+  func_basis: wb97m-v/def2-svp
+  engine: gpu # gpu | cpu
+  lowmem: true # DF tensorを保持しないdirect JK
+  density_fit: false # --no-lowmemで既定有効
+  nprocs: auto # scheduler/affinityからPySCF thread数を決定
+  memory: auto # host RAM上限（例64GB、GPU VRAMではない）
+  save_scf_checkpoint: false
+  checkpoint_path: null # leafで有効時: <out-dir>/_work/dft_scf/state.chk
+  pyscf:
+   mol: {}
+   mf: {}
+   grids: {}
+   density_fit: {}
+   with_df: {}
  hessian_calc_mode: FiniteDifference # ML Hessianモード: "FiniteDifference" または "Analytical"
  out_hess_torch: true # Hessianを torch.Tensor で返す
  H_double: true # Hessianを float64 で組み立て・返却
@@ -116,7 +131,8 @@ calc:
 
 **注記:**
 - セクション名は `calc:` が正式名で、`mlmm:` は互換用の別名として受け付けます（`opt`、`sp`、`tsopt`、`freq`、`irc`、`dft`、`path-opt`、`path-search`、`scan`、`scan2d`、`scan3d` で認識）。両方が存在する場合は `calc:` が優先されます。
-- `backend`: ML バックエンドを選択します。`uma`（デフォルト）、`orb`、`mace`、`aimnet2` から選択可能です。UMA 以外のバックエンドを使用するには、対応するオプション依存パッケージのインストールが必要です（例: `pip install "mlmm-toolkit[orb]"`）。
+- `backend`は高レベルbackendを選択します。`uma`（既定）、`orb`、`mace`、`aimnet2`、stateful PySCF/GPU4PySCF `dft`を選択できます。
+- `backend: dft`と`embedcharge: true`の組合せはPySCF native点電荷とMM site forceを使い、HessianはQM–MM応答を含む完成ML/MM forceの有限差分です。
 - バックエンド固有のモデルキーは、対応するバックエンドが選択されている場合にのみ有効です:
   - `uma_model`、`uma_task_name` — UMA バックエンドのみ
   - `orb_model`、`orb_precision` — ORB バックエンドのみ
@@ -614,13 +630,15 @@ dft:
  grid_level: 3 # PySCF グリッドレベル
  engine: gpu # 計算エンジン: "gpu"（gpu4pyscf）または "cpu"（pyscf）。CLI --engine が優先
  ecp: null # ECP 基底名。null の場合は def2-* 基底から自動導出
- lowmem: true # closed-shell GPU で gpu4pyscf rks_lowmem.RKS を使用
+ lowmem: true # 低memory direct JK。falseでdensity fitting
+ nprocs: auto # scheduler/affinityからPySCF thread数を決定
+ memory: auto # host RAM上限（例64GB、GPU VRAMではない）
  verbose: 0 # PySCF 出力詳細レベル; CLI -v 2/3 では実行時 PySCF verbosity が >=4
  out_dir: ./result_dft/ # 出力ディレクトリ
 ```
 
 **注記:**
-- `engine`: `gpu` は gpu4pyscf 経由で実行（closed-shell かつ `lowmem: true` のとき `rks_lowmem.RKS` を使用）。`cpu` は標準 PySCF の RKS/UKS にフォールバックします。CLI フラグ `--engine` が明示された場合は YAML 値より優先されます。
+- `engine`: `gpu`はgpu4pyscf経由で実行します（electrostatic embeddingを含むclosed-shell計算で`lowmem: true`なら`rks_lowmem.RKS`）。`cpu`は標準PySCF RKS/UKSを使います。CLIフラグ`--engine`が明示された場合はYAML値より優先されます。
 - `ecp`: 基底名が `def2-` で始まり `ecp` が `null` の場合、ECP として同名の基底が自動的に使用されます。明示的に上書きするには値を設定してください。
 
 ---
