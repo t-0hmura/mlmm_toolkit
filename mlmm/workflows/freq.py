@@ -133,55 +133,58 @@ def _calc_full_hessian_torch(
     kw["out_hess_torch"] = True
     owns_calc = calculator is None
     calc = mlmm(**kw) if owns_calc else calculator
-    # Pass Cartesian coords explicitly (geom.coords returns the active coord
-    # space which is INTERNAL for coord_type ∈ {redund, dlc, tric}, breaking
-    # mlmm_calc._run_core's `np.asarray(coords).reshape(-1, 3)` assumption).
-    # cart_coords is always 3N Cartesian regardless of geom.coord_type.
-    result = calc.get_hessian(geom.atoms, geom.cart_coords)
+    try:
+        # Pass Cartesian coords explicitly (geom.coords returns the active coord
+        # space which is INTERNAL for coord_type ∈ {redund, dlc, tric}, breaking
+        # mlmm_calc._run_core's `np.asarray(coords).reshape(-1, 3)` assumption).
+        # cart_coords is always 3N Cartesian regardless of geom.coord_type.
+        result = calc.get_hessian(geom.atoms, geom.cart_coords)
 
-    if refresh_geom_meta:
-        within = result.get("within_partial_hessian")
-        if within is None and kw.get("return_partial_hessian"):
+        if refresh_geom_meta:
+            within = result.get("within_partial_hessian")
+            if within is None and kw.get("return_partial_hessian"):
+                try:
+                    core = getattr(calc, "core", None)
+                    if core is not None and hasattr(core, "_build_within_partial_hessian"):
+                        within = core._build_within_partial_hessian()
+                except Exception:
+                    within = None
+            if within is not None:
+                geom.within_partial_hessian = within
+            elif "hessian" in result:
+                geom.within_partial_hessian = None
+
             try:
                 core = getattr(calc, "core", None)
-                if core is not None and hasattr(core, "_build_within_partial_hessian"):
-                    within = core._build_within_partial_hessian()
+                if core is not None and hasattr(core, "hess_active_atoms"):
+                    active_atoms = np.asarray(core.hess_active_atoms, dtype=int)
+                    geom._hess_active_atoms_last = active_atoms
+                    if active_atoms.size:
+                        active_dofs = np.empty(active_atoms.size * 3, dtype=int)
+                        for i, a in enumerate(active_atoms):
+                            base = 3 * int(a)
+                            active_dofs[3 * i:3 * i + 3] = (base, base + 1, base + 2)
+                    else:
+                        active_dofs = np.zeros(0, dtype=int)
+                    geom._hess_active_dofs_last = active_dofs
             except Exception:
-                within = None
-        if within is not None:
-            geom.within_partial_hessian = within
-        elif "hessian" in result:
-            geom.within_partial_hessian = None
+                logger.debug("Failed to extract active DOF info from calculator", exc_info=True)
 
-        try:
-            core = getattr(calc, "core", None)
-            if core is not None and hasattr(core, "hess_active_atoms"):
-                active_atoms = np.asarray(core.hess_active_atoms, dtype=int)
-                geom._hess_active_atoms_last = active_atoms
-                if active_atoms.size:
-                    active_dofs = np.empty(active_atoms.size * 3, dtype=int)
-                    for i, a in enumerate(active_atoms):
-                        base = 3 * int(a)
-                        active_dofs[3 * i:3 * i + 3] = (base, base + 1, base + 2)
-                else:
-                    active_dofs = np.zeros(0, dtype=int)
-                geom._hess_active_dofs_last = active_dofs
-        except Exception:
-            logger.debug("Failed to extract active DOF info from calculator", exc_info=True)
+        H = result["hessian"]
+        if not isinstance(H, torch.Tensor):
+            H = torch.as_tensor(H)
+        H = H.to(device=device)
+        if "energy" not in result:
+            raise KeyError("Hessian result is missing 'energy'.")
+        energy = float(result["energy"])
+        if not np.isfinite(energy):
+            raise ValueError("Hessian energy must be finite for thermochemistry.")
+    finally:
+        if owns_calc:
+            close = getattr(calc, "close", None)
+            if callable(close):
+                close()
 
-    H = result["hessian"]
-    if not isinstance(H, torch.Tensor):
-        H = torch.as_tensor(H)
-    H = H.to(device=device)
-    if "energy" not in result:
-        raise KeyError("Hessian result is missing 'energy'.")
-    energy = float(result["energy"])
-    if not np.isfinite(energy):
-        raise ValueError("Hessian energy must be finite for thermochemistry.")
-
-    del result
-    if owns_calc:
-        del calc
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
 
@@ -377,6 +380,7 @@ def _record_hessian_result_path(files: Dict[str, str], path: Path) -> Dict[str, 
 def _collect_layer_atom_sets(calc_cfg: Dict[str, Any]) -> Dict[str, set[int]]:
     """Collect ML/MM layer index sets from a temporary calculator instance."""
     empty = {"ml": set(), "hess_mm": set(), "movable_mm": set(), "frozen_mm": set()}
+    temp_calc = None
     try:
         temp_calc = mlmm(**dict(calc_cfg))
         calc_core = temp_calc.core if hasattr(temp_calc, "core") else temp_calc
@@ -386,9 +390,6 @@ def _collect_layer_atom_sets(calc_cfg: Dict[str, Any]) -> Dict[str, set[int]]:
             "movable_mm": set(getattr(calc_core, "movable_mm_indices", []) or []),
             "frozen_mm": set(getattr(calc_core, "frozen_layer_indices", []) or []),
         }
-        del temp_calc
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
         return layer_sets
     except Exception as exc:
         logger.debug(
@@ -406,6 +407,12 @@ def _collect_layer_atom_sets(calc_cfg: Dict[str, Any]) -> Dict[str, set[int]]:
             err=True,
         )
         return empty
+    finally:
+        close = getattr(temp_calc, "close", None)
+        if callable(close):
+            close()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
 
 def _align_three_layer_hessian_targets(

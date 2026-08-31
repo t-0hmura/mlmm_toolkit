@@ -217,6 +217,41 @@ def test_enriched_rate_limit_uses_refined_barrier(tmp_path) -> None:
     )
 
 
+def test_enriched_summary_labels_primary_dft_mm_compatibility_energy_keys(
+    tmp_path,
+) -> None:
+    summary = {
+        "out_dir": str(tmp_path / "_work"),
+        "segments": [{"index": 1, "kind": "seg", "barrier_kcal": 5.0}],
+        "energy_diagrams": [
+            {
+                "name": "energy_diagram_MLIP_all",
+                "energies_kcal": [0.0, 8.0, -2.0],
+            }
+        ],
+    }
+    _enrich_summary(
+        summary,
+        version="",
+        pipeline_mode="path-opt",
+        mlip_backend="dft",
+        charge=0,
+        spin=1,
+        post_segments=[{"index": 1, "mlip": {"barrier_kcal": 8.0}}],
+        calculator_config={
+            "backend": "dft",
+            "model_charge": 0,
+            "model_mult": 1,
+            "dft": {"func_basis": "hf/sto-3g", "engine": "cpu"},
+        },
+        out_dir=tmp_path,
+    )
+
+    assert summary["rate_limiting_step"]["method"] == "DFT/MM"
+    assert summary["overall_reaction_energy_method"] == "DFT/MM"
+    assert summary["primary_method_label"] == "DFT/MM"
+
+
 def test_enriched_references_only_add_omol25_for_omol(tmp_path) -> None:
     summary = {"segments": [], "energy_diagrams": []}
     _enrich_summary(

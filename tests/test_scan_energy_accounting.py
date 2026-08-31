@@ -54,6 +54,8 @@ def test_calculator_provenance_resolves_backend_specific_model() -> None:
         "mm_backend": "openmm",
         "link_atom_method": "fixed",
         "use_cmap": True,
+        "primary_method": "mlip",
+        "primary_method_label": "ML/MM",
     }
 
 

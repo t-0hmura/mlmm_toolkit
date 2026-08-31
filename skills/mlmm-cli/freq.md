@@ -14,7 +14,7 @@ Partial-Hessian variant (PHVA) activates automatically when
 mlmm freq -i geom.{pdb,xyz} --parm real.parm7 \
     [-q 0 -m 1] [-l 'RES:Q,...'] \
     [--temperature 298.15] [--pressure 1.0] \
-    [-b uma|orb|mace|aimnet2] [-o ./result_freq/]
+    [-b uma|orb|mace|aimnet2|dft] [-o ./result_freq/]
 ```
 
 
@@ -48,7 +48,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--hessian-calc-mode` | str | `FiniteDifference` | `Analytical` / `FiniteDifference`; check `FREQ_KW` / `MLMM_CALC_KW` |
 | `--precision` | str | backend-specific | UMA/AIMNet2 fp32; ORB/MACE fp64; AIMNet2 rejects fp64 |
 | `--workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
-| `-b, --backend` | str | `uma` | MLIP backend |
+| `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |
 | `-o, --out-dir` | path | `./result_freq/` | Output directory |
 | `--config` / `--show-config` / `--dry-run` / `--help-advanced` | — | — | Standard |
 

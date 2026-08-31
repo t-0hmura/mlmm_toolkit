@@ -19,6 +19,8 @@ The source repository includes full-system COMT and [BezA](examples/beza/README.
 
 > **Prerequisites:** input PDB/mmCIF structures must already contain hydrogens; multiple reaction states must share the same atoms in the same order (only coordinates differ). `mlmm all` runs `mm-parm` automatically. Match `-l RES:CHARGE` to the H count actually present (e.g. SAM with 23 H = `SAM:1` cation, 22 H = `SAM:0` neutral) — full input-prep checklist in [docs/getting-started.md](docs/getting-started.md).
 
+MLIP remains the default high-level layer; calculator workflows also accept optional `-b dft` through PySCF/GPU4PySCF. Select the method with `--func-basis` and pass advanced PySCF attributes through `calc.dft.pyscf` in YAML ([DFT guide](docs/dft.md)).
+
 ## Colab GUI workspace
 
 **An interactive GUI workspace is available in Google Colab.** It brings full-system coordinates and topology input, ML-region setup, Mol* visualization and atom picking, controls generated from the live CLI, execution, and linked MEP/IRC/result inspection into one notebook. Choose a GPU runtime and [open the Colab GUI workspace](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb).
@@ -75,7 +77,7 @@ hf auth login                               # interactive
 | Extra | Adds |
 |---|---|
 | `[orb]` / `[aimnet]` | Orb / AIMNet2 MLIP backend — *not* HF-gated |
-| `[dft]` | PySCF + GPU4PySCF single-point DFT (`--dft` / `mlmm dft`); cost and memory depend on the system and method |
+| `[dft]` | Optional `-b dft` high-level calculator and standalone `mlmm dft` command; cost and memory depend on the system and method |
 | `[mcp]` | Model Context Protocol server (`mlmm-mcp`) for agent clients |
 | `[pdbfixer]` | PDBFixer extra (alternative to the conda install above) |
 | `[openmm]` | OpenMM low-level backend, including virtual-site water models |

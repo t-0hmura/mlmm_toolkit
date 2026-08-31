@@ -297,10 +297,16 @@ only when the imported CSV has complete convergence and artifact provenance.
 |-------|------|-------------|
 | `converged` | bool | SCF converged? |
 | `status` | string | `"converged"` or `"not_converged"`; the latter is committed before exit code 3. |
-| `energy_hartree` | float | DFT energy |
+| `energy_hartree` / `energy_kcal_per_mol` | float | Legacy model-region DFT energy |
+| `model_dft_energy_hartree` / `model_dft_energy_kcal_per_mol` | float | Model-region DFT energy |
+| `total_dft_mm_energy_hartree` / `total_dft_mm_energy_kcal_per_mol` | float | Recombined DFT/MM energy |
 | `xc_functional` | string | XC functional |
 | `basis_set` | string | Basis set |
 | `used_gpu` | bool | GPU acceleration used? |
+| `used_lowmem` / `lowmem_requested` | bool | Effective and requested low-memory state |
+| `dft_settings` / `dft_resources` | object | Canonical scientific settings and effective host resources |
+| `effective_ecp` | string/object \| null | Effective ECP passed to PySCF |
+| `embedding` | object | Point-charge enablement, cutoff, count, and identity digest |
 | `charges` | object | `{mulliken, lowdin, iao}` per-atom arrays |
 | `spin_densities` | object | `{mulliken, lowdin, iao}` per-atom arrays |
 | `n_atoms` | int | QM-region atom count |
@@ -308,6 +314,8 @@ only when the imported CSV has complete convergence and artifact provenance.
 | `conv_tol` | float | SCF convergence tolerance |
 | `max_cycle` | int | Effective maximum SCF iterations after YAML/CLI resolution |
 | `engine` | string | Actual runtime engine label (`pyscf(cpu)`, `gpu4pyscf`, or low-memory GPU variant) |
+| `charge` / `spin` | int | Model-region charge and multiplicity |
+| `input_file` | string | Input structure path |
 | `files` | object | `{"result_yaml": "result.yaml"}` |
 
 ### `trj2fig`

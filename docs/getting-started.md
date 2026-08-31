@@ -210,7 +210,7 @@ Full flag references: [oniom-export](oniom-export.md), [oniom-import](oniom-impo
 | `--refine-path` / `--no-refine-path` | On `mlmm all`, select single-pass `path-opt` (default) or recursive `path-search`. |
 | `--mep-mode gsm\|dmf` | MEP optimizer for either path route (default `gsm`). |
 | `--dmf-backend gpu\|cpu` | DMF implementation; use `cpu` after a GPU out-of-memory error. |
-| `-b, --backend uma\|orb\|mace\|aimnet2` | MLIP backend (default `uma`). |
+| `-b, --backend uma\|orb\|mace\|aimnet2\|dft` | High-level backend (MLIP by default; optional DFT). |
 | `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian mode. Runtime and memory depend on the backend and system; compare both modes on a representative pilot. `Analytical` is incompatible with `--workers > 1`. |
 
 `mlmm all --mep-mode dmf` applies Direct Max Flux to both the default

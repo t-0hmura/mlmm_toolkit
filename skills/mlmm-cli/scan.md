@@ -14,7 +14,7 @@ trajectory you can reuse to seed `path-search`. For most workflows prefer
 mlmm scan -i input.pdb --parm real.parm7 \
     -s '[(idx_a, idx_b, target_A), ...]' \
     [-l 'RES:Q,...'] [-q / -m] \
-    [-b uma|orb|mace|aimnet2] [-o ./result_scan/]
+    [-b uma|orb|mace|aimnet2|dft] [-o ./result_scan/]
 ```
 
 
@@ -44,7 +44,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `-i, --input` | path | required | Reactant `.pdb` / `.xyz` (XYZ requires `--ref-pdb`) |
 | `-s, --scan-lists` | str | required | Inline Python literal `'[(a,b,target),...]'`, or YAML/JSON spec path. Supply multiple stage literals after a single `-s` flag (do not repeat the flag). |
 | `-q` / `-l` / `-m` | — | — | Charge / spin (common conventions) |
-| `-b, --backend` | str | `uma` | MLIP backend |
+| `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |
 | `-o, --out-dir` | path | `./result_scan/` | Output directory |
 | `--ref-pdb` | path | none | Residue context for XYZ inputs |
 | `--config` / `--dry-run` / `--help-advanced` | — | — | Standard |

@@ -19,7 +19,7 @@ elementary steps.
 ```bash
 mlmm all [--parm enzyme.parm7] -i <input(s)> [-c <centers>] [-l 'RES:Q,...'] \
     [--scan-lists '...'] [--tsopt] [--thermo] [--dft] \
-    [-b uma|orb|mace|aimnet2] [-o result_all/]
+    [-b uma|orb|mace|aimnet2|dft] [-o result_all/]
 ```
 
 
@@ -61,10 +61,10 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--tsopt / --no-tsopt` | flag | off | Run TS optimization after MEP, or enter TS-only mode when exactly one input is supplied without `--scan-lists` |
 | `--tsopt-from-mep-tan / --no-tsopt-from-mep-tan` | toggle | on | Select the initial TS root from the HEI MEP tangent; off selects from the initial-structure Hessian modes |
 | `--thermo / --no-thermo` | flag | off | Run freq + thermochemistry |
-| `--dft / --no-dft` | flag | off | Run DFT single points on R/TS/P for MEP runs or E1/TS/E2 for TS-only runs |
+| `--dft / --no-dft` | flag | off | Run DFT single points on R/TS/P for MEP runs or E1/TS/E2 for TS-only runs; incompatible with `-b dft` |
 | `--dump / --no-dump` | toggle | off | Control optional optimizer trajectories/restarts. With `--thermo`, the required child `thermoanalysis.yaml` handoff is retained even under `--no-dump`. |
 | `--dft-func-basis` | str | `wb97m-v/def2-svp` | DFT functional/basis (when `--dft` is enabled) |
-| `-b, --backend` | str | `uma` | MLIP backend |
+| `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |
 | `--precision` | str | backend-specific | Unset uses UMA/AIMNet2 fp32 and ORB/MACE fp64 |
 | `--workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
 | `--irc-step-size` | float | IRC default `0.10` | Forward a smaller EulerPC maximum step; try `0.05` when an IRC branch stops after only a few frames |

@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+import hashlib
 import logging
 import sys
 import tempfile
@@ -303,53 +304,60 @@ def _build_dft_result_payload(
     engine_label: str,
     using_gpu: bool,
     using_lowmem: bool,
-    dft_kw: Dict[str, Any],
     calc_kw: Dict[str, Any],
     n_atoms: int,
     input_path: Path,
     charges: Dict[str, Any],
     spin_densities: Dict[str, Any],
+    resolved_settings,
+    effective_ecp: Any,
+    n_mm_charges: int,
+    embedding_sha256: Optional[str],
+    total_dft_mm_energy_hartree: float,
+    total_dft_mm_energy_kcal_per_mol: float,
 ) -> Dict[str, Any]:
     """Build the DFT JSON payload from the effective runtime request."""
 
     from mlmm.core.utils import calculator_provenance
 
     did_converge = bool(converged)
-    provenance = calculator_provenance(calc_kw)
-    provenance.update(
+    provenance_cfg = dict(calc_kw)
+    provenance_cfg.update(
         {
-            "mlip_backend": "dft",
-            "mlip_model": None,
-            "mlip_model_label": None,
-            "mlip_task": None,
-            "mlip_precision": None,
+            "backend": "dft",
+            "dft_settings": resolved_settings.to_dict(),
         }
     )
+    provenance = calculator_provenance(provenance_cfg)
     return {
         "status": "converged" if did_converge else "not_converged",
         "converged": did_converge,
         "energy_hartree": energy_hartree,
         "energy_kcal_per_mol": energy_kcal_per_mol,
+        "model_dft_energy_hartree": energy_hartree,
+        "model_dft_energy_kcal_per_mol": energy_kcal_per_mol,
+        "total_dft_mm_energy_hartree": total_dft_mm_energy_hartree,
+        "total_dft_mm_energy_kcal_per_mol": total_dft_mm_energy_kcal_per_mol,
         "xc_functional": xc,
         "basis_set": basis,
         "engine": engine_label,
         "used_gpu": bool(using_gpu),
         "used_lowmem": bool(using_lowmem),
-        "lowmem_requested": bool(dft_kw.get("lowmem", True)),
-        "dft_resources": {
-            "memory_mode": dft_kw.get("memory_mode"),
-            "nprocs": dft_kw.get("nprocs"),
-            "nprocs_source": dft_kw.get("nprocs_source"),
-            "memory_mb": dft_kw.get("memory_mb"),
-            "memory_source": dft_kw.get("memory_source"),
-        },
+        "lowmem_requested": bool(resolved_settings.lowmem),
         **provenance,
         "charge": calc_kw.get("model_charge"),
         "spin": calc_kw.get("model_mult"),
         "n_atoms": int(n_atoms),
-        "grid_level": dft_kw["grid_level"],
-        "conv_tol": dft_kw["conv_tol"],
-        "max_cycle": dft_kw["max_cycle"],
+        "grid_level": resolved_settings.grid_level,
+        "conv_tol": resolved_settings.conv_tol,
+        "max_cycle": resolved_settings.max_cycle,
+        "effective_ecp": effective_ecp,
+        "embedding": {
+            "enabled": bool(resolved_settings.embedcharge),
+            "cutoff_angstrom": resolved_settings.embedcharge_cutoff,
+            "n_mm_charges": int(n_mm_charges),
+            "sha256": embedding_sha256,
+        },
         "input_file": str(input_path),
         "charges": dict(charges),
         "spin_densities": dict(spin_densities),
@@ -1003,17 +1011,12 @@ def cli(
                 f"got {engine_name!r}."
             )
         dft_kw["engine"] = engine_name
-        from mlmm.core.dft_settings import resolve_dft_settings
+        from mlmm.core.dft_settings import (
+            resolve_dft_settings,
+            standalone_dft_settings_mapping,
+        )
 
-        _settings_keys = {
-            "func_basis", "func", "functional", "basis", "engine",
-            "conv_tol", "max_cycle", "grid_level", "verbose", "lowmem",
-            "density_fit", "auxbasis", "nprocs", "memory", "memory_mb",
-            "pyscf",
-        }
-        _settings_dft_cfg = {
-            key: value for key, value in dft_kw.items() if key in _settings_keys
-        }
+        _settings_dft_cfg = standalone_dft_settings_mapping(dft_kw)
         _yaml_dft_cfg = (
             merged_yaml_cfg.get("dft", {})
             if isinstance(merged_yaml_cfg, dict)
@@ -1278,6 +1281,17 @@ def cli(
         # def2 is all-electron through Kr and uses def2-ECP from Rb onward;
         # must set mol.ecp explicitly or PySCF uses all-electron treatment.
         _ecp = dft_kw.get("ecp", None)
+        configured_mol_ecp = getattr(mol, "ecp", None)
+        if (
+            _ecp is not None
+            and configured_mol_ecp
+            and str(_ecp) != str(configured_mol_ecp)
+        ):
+            raise click.BadParameter(
+                "dft.ecp conflicts with dft.pyscf.mol.ecp."
+            )
+        if _ecp is None and configured_mol_ecp:
+            _ecp = configured_mol_ecp
         if _ecp is None and basis.lower().startswith("def2"):
             _ecp = basis
         _build_kw: Dict[str, Any] = dict(
@@ -1287,8 +1301,9 @@ def cli(
             spin=model_spin2s,
             basis=basis,
         )
-        if _ecp:
+        if _ecp and not configured_mol_ecp:
             _build_kw["ecp"] = _ecp
+        if _ecp:
             click.echo(f"[dft] Using ECP: {_ecp}")
         mol.build(**_build_kw)
 
@@ -1363,12 +1378,9 @@ def cli(
         mf.conv_tol = float(dft_kw["conv_tol"])
         if isinstance(_pyscf_cfg, dict):
             _apply_attributes(mf, _pyscf_cfg.get("mf", {}), "pyscf.mf")
-        try:
-            mf.grids.level = int(dft_kw["grid_level"])
-            if isinstance(_pyscf_cfg, dict):
-                _apply_attributes(mf.grids, _pyscf_cfg.get("grids", {}), "pyscf.grids")
-        except Exception as exc:
-            click.echo(f"[grids] WARNING: Could not set grids.level={dft_kw['grid_level']}: {exc}", err=True)
+        mf.grids.level = int(dft_kw["grid_level"])
+        if isinstance(_pyscf_cfg, dict):
+            _apply_attributes(mf.grids, _pyscf_cfg.get("grids", {}), "pyscf.grids")
         try:
             mf.chkfile = None
         except Exception:
@@ -1378,6 +1390,7 @@ def cli(
 
         # --- Experimental electrostatic embedding (--embedcharge) ---
         n_mm_charges = 0
+        embedding_sha256 = None
         if calc_kw.get("embedcharge", False):
             import parmed as pmd
             from scipy.spatial.distance import cdist
@@ -1421,13 +1434,25 @@ def cli(
                         mf, mm_coords, mm_charges, unit="Angstrom"
                     )
                 n_mm_charges = len(mm_indices)
+                embedding_digest = hashlib.sha256()
+                embedding_digest.update(
+                    np.asarray(mm_indices, dtype=np.int64).tobytes()
+                )
+                embedding_digest.update(
+                    np.ascontiguousarray(mm_coords, dtype=np.float64).tobytes()
+                )
+                embedding_digest.update(
+                    np.ascontiguousarray(mm_charges, dtype=np.float64).tobytes()
+                )
+                embedding_sha256 = embedding_digest.hexdigest()
                 click.echo(
                     f"[embedcharge] {n_mm_charges} MM point charges embedded "
                     "into the QM Hamiltonian."
                 )
             else:
-                click.echo(
-                    "[embedcharge] No MM atoms found; skipping embedding."
+                raise click.BadParameter(
+                    "--embedcharge selected no MM atoms. Increase "
+                    "--embedcharge-cutoff or disable electrostatic embedding."
                 )
 
         tic_scf = time.time()
@@ -1571,12 +1596,17 @@ def cli(
             engine_label=engine_label,
             using_gpu=using_gpu,
             using_lowmem=using_lowmem,
-            dft_kw=dft_kw,
             calc_kw=calc_kw,
             n_atoms=mol.natm,
             input_path=input_path,
             charges=charges,
             spin_densities=spins,
+            resolved_settings=resolved_settings,
+            effective_ecp=_ecp,
+            n_mm_charges=n_mm_charges,
+            embedding_sha256=embedding_sha256,
+            total_dft_mm_energy_hartree=e_total_au,
+            total_dft_mm_energy_kcal_per_mol=e_total_kcal,
         )
         _finalize_dft_result(
             out_json=out_json,

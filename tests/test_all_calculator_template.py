@@ -8,6 +8,8 @@ import pytest
 import yaml
 
 from mlmm.workflows.all import (
+    _ResolvedCalculatorTemplate,
+    _bind_calculator_state,
     _inject_coord_type_into_args_yaml,
     _resolve_calculator_template,
     _resolve_mlip_provenance,
@@ -264,3 +266,37 @@ def test_template_drops_config_only_aliases_and_is_read_only(tmp_path: Path) -> 
     assert "backend_model" not in derived
     assert derived["model_charge"] == -2
     assert derived["model_mult"] == 3
+
+
+def test_final_dft_state_rebinds_provenance_and_clears_transient_save_target() -> None:
+    template = _ResolvedCalculatorTemplate.from_mapping(
+        {
+            "backend": "dft",
+            "model_charge": 0,
+            "model_mult": 1,
+            "dft_settings": {
+                "func_basis": "hf/sto-3g",
+                "engine": "cpu",
+                "save_scf_checkpoint": True,
+                "checkpoint_path": "initial.chk",
+            },
+        }
+    )
+
+    bound = _bind_calculator_state(template, charge=-1, spin=2)
+    values = bound.materialize()
+    derived = _stage_calc_kwargs(
+        bound,
+        input_pdb="state.pdb",
+        real_parm7="real.parm7",
+        model_pdb="model.pdb",
+        charge=-1,
+        spin=2,
+        use_bfactor_layers=True,
+    )
+
+    assert values["dft_settings"]["charge"] == -1
+    assert values["dft_settings"]["multiplicity"] == 2
+    assert values["dft_settings"]["checkpoint_path"] == "initial.chk"
+    assert derived["dft_settings"]["checkpoint_path"] is None
+    assert derived["dft_settings"]["save_scf_checkpoint"] is True

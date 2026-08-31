@@ -277,7 +277,7 @@ ML/MM calculator を使うサブコマンド（`opt`、`sp`、`tsopt`、`freq`�
 
 | オプション | 説明 | デフォルト |
 |----------|------|----------|
-| `-b, --backend` | ML 領域の MLIP バックエンド: `uma`、`orb`、`mace`、`aimnet2`。 | `uma` |
+| `-b, --backend` | model領域の高レベルbackend: `uma`、`orb`、`mace`、`aimnet2`、`dft`。 | `uma` |
 
 代替バックエンドはオプション依存グループでインストールします:
 

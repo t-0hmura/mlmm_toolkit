@@ -15,7 +15,7 @@ Run `mlmm opt` separately to relax the endpoints to true minima.
 mlmm irc -i ts.{pdb,cif,mmcif,xyz} --parm real.parm7 \
     [-q 0 -m 1] [-l 'RES:Q,...'] \
     [--max-cycles 125] [--step-size 0.1] \
-    [-b uma|orb|mace|aimnet2] [-o ./result_irc/]
+    [-b uma|orb|mace|aimnet2|dft] [-o ./result_irc/]
 ```
 
 
@@ -50,7 +50,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--read-hess` | path | — | Identified NPZ from `freq --dump-hess`; geometry, atom order, active-DOF basis, and schema-2 charge/multiplicity must match |
 | `--allow-unverified-hess-state` | bool | off | Permit a schema-1 Hessian whose charge/multiplicity cannot be verified. Requires `--read-hess` and independent state checking; schema-2 mismatches remain fatal. |
 | `--workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
-| `-b, --backend` | str | `uma` | MLIP backend |
+| `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |
 | `-o, --out-dir` | path | `./result_irc/` | Output directory |
 | `--config` / `--show-config` / `--dry-run` / `--help-advanced` | — | — | Standard |
 

@@ -55,7 +55,7 @@ These flags appear on most subcommands (canonical list:
 | `-q, --charge` | Net ML-region/model-system charge (integer) |
 | `-l, --ligand-charge` | Unknown-ligand total or `'RES1:Q1,RES2:Q2'` mapping used to derive the ML-region charge |
 | `-m, --multiplicity` | Spin multiplicity (2S+1), default 1 |
-| `-b, --backend` | MLIP backend: `uma` / `orb` / `mace` / `aimnet2` |
+| `-b, --backend` | High-level backend: `uma` / `orb` / `mace` / `aimnet2` / `dft` |
 | `--precision` | Unset defaults by backend: UMA/AIMNet2 fp32; ORB/MACE fp64 |
 | `--workers` | UMA predictor workers; `>1` is incompatible with an analytical Hessian |
 | `-o, --out-dir` | Output directory, subcommand-specific default |

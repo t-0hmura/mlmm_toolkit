@@ -652,6 +652,8 @@ def calculator_provenance(calc_cfg: Mapping[str, Any]) -> Dict[str, Any]:
             calc_cfg.get("link_atom_method") or MLMM_CALC_KW["link_atom_method"]
         ),
         "use_cmap": bool(calc_cfg.get("use_cmap", MLMM_CALC_KW["use_cmap"])),
+        "primary_method": "dft" if backend == "dft" else "mlip",
+        "primary_method_label": "DFT/MM" if backend == "dft" else "ML/MM",
     }
     if backend == "dft":
         provenance["dft_settings"] = dft_identity

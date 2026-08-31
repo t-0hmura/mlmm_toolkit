@@ -12,7 +12,7 @@ optimization.
 ```bash
 mlmm sp -i structure.pdb --parm real.parm7 [-q 0 -m 1] \
     [--hess] [--hessian-calc-mode Analytical|FiniteDifference] \
-    [-b uma|orb|mace|aimnet2] [-o ./result_sp/]
+    [-b uma|orb|mace|aimnet2|dft] [-o ./result_sp/]
 ```
 
 
@@ -44,7 +44,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--hess` / `--no-hess` | flag | `no-hess` | Also compute the active-coordinate ONIOM Hessian block and save it to `hessian.npy` |
 | `--hessian-calc-mode` | str | (auto) | `Analytical` (UMA/ORB/MACE/AIMNet2) or `FiniteDifference`; used only with `--hess` |
 | `--mm-backend` | str | `hessian_ff` | MM backend: `hessian_ff` or `openmm` |
-| `-b, --backend` | str | `uma` | MLIP backend |
+| `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |
 | `-o, --out-dir` | path | `./result_sp/` | Output directory |
 | `--out-json / --no-out-json` | flag | `no-out-json` | Write machine-readable `result.json` to out-dir |
 | `--config` / `--dry-run` / `--help-advanced` | — | — | Standard |

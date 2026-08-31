@@ -125,9 +125,12 @@ dft:
  conv_tol: 1.0e-09                # SCF 収束閾値 (Hartree)
  max_cycle: 100                    # SCF反復上限
  grid_level: 3                     # PySCF グリッドレベル
+ pyscf: {mf: {level_shift: 0.2}}   # 任意の PySCF object attribute
  verbose: 0                        # PySCF verbose レベル (0-9); CLI -v 2/3 では実行時 PySCF verbose レベルが >=4
  out_dir: ./result_dft/            # 出力ディレクトリルート
 ```
+
+`dft` subcommand は `dft.pyscf` を、`-b dft` の calculator workflow は同じ PySCF object 名を `calc.dft.pyscf` から読みます。
 
 ## 注記
 

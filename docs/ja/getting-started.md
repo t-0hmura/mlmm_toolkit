@@ -282,7 +282,7 @@ IRC 後の端点 E1/E2 は未割当です。最適化した構造を確認して
 | `--mep-mode gsm\|dmf` | どちらの経路探索にも用いる MEP 最適化法（デフォルト: `gsm`） |
 | `--dmf-backend gpu\|cpu` | DMF 実装。GPU メモリ不足時は `cpu` を選択 |
 | `-o, --out-dir PATH` | トップレベル出力ディレクトリ |
-| `-b, --backend uma\|orb\|mace\|aimnet2` | MLIP バックエンド選択（デフォルト: `uma`） |
+| `-b, --backend uma\|orb\|mace\|aimnet2\|dft` | 高レベルbackend選択（デフォルト: `uma`、`dft`も選択可） |
 | `--opt-mode grad\|hess` | TSOPT と IRC 後の端点最適化の fallback。`--opt-mode-post` が優先されます。 |
 | `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian 計算モード。全 MLIP バックエンドで `Analytical` を利用可能。`--workers > 1` とは併用不可。 |
 

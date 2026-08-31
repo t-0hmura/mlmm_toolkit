@@ -765,3 +765,41 @@ def test_mlmm_potential_identity_rejects_explicit_region_and_link_changes(
                 _Geom(), dict(base_cfg, movable_mm_atoms=[4, 3]), role="ts"
             ),
         ) is not None
+
+
+def test_mlmm_persistent_identity_includes_canonical_dft_settings() -> None:
+    class _Geom:
+        atomic_numbers = np.array([1, 1])
+        cart_coords = np.zeros(6, dtype=float)
+        freeze_atoms = np.array([], dtype=int)
+
+    base = {
+        "backend": "dft",
+        "model_charge": 0,
+        "model_mult": 1,
+        "dft": {"func_basis": "pbe/sto-3g", "engine": "cpu"},
+    }
+    changed = {
+        **base,
+        "dft": {"func_basis": "pbe0/sto-3g", "engine": "cpu"},
+    }
+    resources = {
+        **base,
+        "dft": {
+            "func_basis": "pbe/sto-3g",
+            "engine": "cpu",
+            "nprocs": 8,
+            "memory": "16GB",
+        },
+    }
+
+    identity = hessian_cache.persistent_identity_from_context(_Geom(), base)
+    changed_identity = hessian_cache.persistent_identity_from_context(
+        _Geom(), changed
+    )
+    resource_identity = hessian_cache.persistent_identity_from_context(
+        _Geom(), resources
+    )
+
+    assert identity != changed_identity
+    assert identity == resource_identity

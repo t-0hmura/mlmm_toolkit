@@ -13,7 +13,7 @@ surfaces (e.g. SN2 attack + leaving-group departure).
 mlmm scan2d -i input.pdb --parm real.parm7 \
     -s '[(a1, b1, low1, high1), (a2, b2, low2, high2)]' \
     [-l 'RES:Q,...'] \
-    [-b uma|orb|mace|aimnet2] [-o ./result_scan2d/]
+    [-b uma|orb|mace|aimnet2|dft] [-o ./result_scan2d/]
 ```
 
 
@@ -43,7 +43,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `-i, --input` | path | required | Reactant `.pdb` / `.xyz` |
 | `-s, --scan-lists` | str | required | Inline Python literal containing **two** quadruples `(i,j,low,high)`, one per axis (`low..high` range scanned), or a YAML/JSON spec file. |
 | `-q` / `-l` / `-m` | — | — | Charge / spin |
-| `-b, --backend` | str | `uma` | MLIP backend |
+| `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |
 | `-o, --out-dir` | path | `./result_scan2d/` | Output directory |
 | `--ref-pdb` | path | none | Topology reference required when `--input` is XYZ |
 | `--config` / `--help-advanced` | — | — | Standard (use `--print-parsed` for spec validation without GPU) |

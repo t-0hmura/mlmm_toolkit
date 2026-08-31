@@ -1232,7 +1232,11 @@ def _create_ml_backend(
             raise ValueError("ML backend 'dft' requires resolved dft_settings.")
         from mlmm.backends.pyscf_dft import create_dft_backend
 
-        return create_dft_backend(dft_settings)
+        return create_dft_backend(
+            dft_settings,
+            model_charge=model_charge,
+            model_mult=model_mult,
+        )
     else:
         raise ValueError(
             f"Unknown ML backend '{backend}'. "

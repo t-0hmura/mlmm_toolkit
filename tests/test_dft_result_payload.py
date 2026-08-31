@@ -112,7 +112,6 @@ def test_leaf_dft_checkpoint_uses_yaml_effective_output_directory(
         {"lowmem": "false"},
         {"density_fit": "false"},
         {"save_scf_checkpoint": "false"},
-        {"embedcharge": "false"},
         {"pyscf": {"density_fit": {"enabled": "false"}}},
     ],
 )
@@ -186,32 +185,43 @@ def test_gpu_lowmem_embedding_preserves_packed_hcore_layout_and_sign() -> None:
 
 
 def _payload(*, converged: bool, engine: str = "pyscf(cpu)"):
+    from mlmm.core.dft_settings import resolve_dft_settings
+
+    resolved_settings = resolve_dft_settings(
+        {
+            "backend": "dft",
+            "model_charge": -1,
+            "model_mult": 2,
+            "embedcharge": True,
+            "embedcharge_cutoff": 8.0,
+            "dft": {
+                "func_basis": "hf/sto-3g",
+                "engine": "cpu",
+                "grid_level": 7,
+                "conv_tol": 2.0e-11,
+                "max_cycle": 17,
+                "nprocs": 8,
+                "memory": "64GB",
+            },
+        }
+    )
     return _build_dft_result_payload(
         converged=converged,
         energy_hartree=-10.0,
         energy_kcal_per_mol=-6275.0,
-        xc="wb97m-v",
-        basis="def2-tzvpd",
+        xc="hf",
+        basis="sto-3g",
         engine_label=engine,
         using_gpu="gpu4pyscf" in engine,
         using_lowmem="lowmem" in engine,
-        dft_kw={
-            "grid_level": 7,
-            "conv_tol": 2.0e-11,
-            "max_cycle": 17,
-            "lowmem": True,
-            "memory_mode": "direct_jk",
-            "nprocs": 8,
-            "nprocs_source": "explicit",
-            "memory_mb": 64000,
-            "memory_source": "explicit",
-        },
         calc_kw={
             "backend": "orb",
             "orb_model": "orb-v3-conservative-inf-omat",
             "orb_precision": "fp64",
             "model_charge": -1,
             "model_mult": 2,
+            "embedcharge": True,
+            "embedcharge_cutoff": 8.0,
             "mm_backend": "hessian_ff",
             "link_atom_method": "fixed",
             "use_cmap": False,
@@ -220,6 +230,12 @@ def _payload(*, converged: bool, engine: str = "pyscf(cpu)"):
         input_path=Path("relative/input.pdb"),
         charges={"mulliken": [0.1]},
         spin_densities={"mulliken": [0.2]},
+        resolved_settings=resolved_settings,
+        effective_ecp=None,
+        n_mm_charges=3,
+        embedding_sha256="abc123",
+        total_dft_mm_energy_hartree=-10.5,
+        total_dft_mm_energy_kcal_per_mol=-6588.75,
     )
 
 
@@ -304,10 +320,19 @@ def test_payload_preserves_legacy_keys_and_records_effective_values(
     assert payload["dft_resources"]["memory_mode"] == "direct_jk"
     assert payload["dft_resources"]["memory_mb"] == 64000
     assert payload["mlip_backend"] == "dft"
-    assert payload["mlip_model"] is None
-    assert payload["mlip_model_label"] is None
-    assert payload["mlip_task"] is None
+    assert payload["mlip_model"] == "hf/sto-3g"
+    assert payload["mlip_model_label"] == "hf/sto-3g"
+    assert payload["mlip_task"] == "cpu"
     assert payload["mlip_precision"] is None
+    assert payload["total_dft_mm_energy_hartree"] == pytest.approx(-10.5)
+    assert payload["effective_ecp"] is None
+    assert payload["embedding"] == {
+        "enabled": True,
+        "cutoff_angstrom": 8.0,
+        "n_mm_charges": 3,
+        "sha256": "abc123",
+    }
+    assert payload["dft_settings"]["functional"] == "hf"
 
 
 def test_nonconverged_payload_commits_before_exit_three(

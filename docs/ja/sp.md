@@ -74,7 +74,7 @@ mlmm sp -i INPUT --parm PARM7 -q CHARGE [options]
 
 | フラグ | デフォルト | 意味 |
 |---|---|---|
-| `-b, --backend [uma\|orb\|mace\|aimnet2]` | `uma` | ML 領域の MLIP バックエンド |
+| `-b, --backend [uma\|orb\|mace\|aimnet2\|dft]` | `uma` | 高レベル backend（MLIP または任意の DFT） |
 | `--hess / --no-hess` | `--no-hess` | `hessian.npy` も計算して書き込む |
 | `--hessian-calc-mode [Analytical\|FiniteDifference]` | `FiniteDifference` | `--hess` 指定時の Hessian モード。`Analytical` はバックエンドのネイティブ経路を使用 |
 | `--link-atom-method [scaled\|fixed]` | `scaled` | リンク原子の配置 |

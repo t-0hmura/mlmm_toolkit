@@ -14,7 +14,7 @@ protons + one redox-donor distance).
 ```bash
 mlmm scan3d -i input.pdb --parm real.parm7 \
     -s '[(a1,b1,low1,high1), (a2,b2,low2,high2), (a3,b3,low3,high3)]' \
-    [-l 'RES:Q,...'] [-b uma|orb|mace|aimnet2] [-o ./result_scan3d/]
+    [-l 'RES:Q,...'] [-b uma|orb|mace|aimnet2|dft] [-o ./result_scan3d/]
 
 # Redraw an existing surface without a structure or topology:
 mlmm scan3d --csv surface.csv [-o ./result_scan3d_plot/]
@@ -48,7 +48,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `-s, --scan-lists` | str | required (unless `--csv`) | Python literal with **three** quadruples `(i,j,low,high)` |
 | `--csv` | path | none | Skip the scan; load a precomputed `surface.csv` for downstream plotting |
 | `-q` / `-l` / `-m` | — | — | Charge / spin |
-| `-b, --backend` | str | `uma` | MLIP backend |
+| `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |
 | `-o, --out-dir` | path | `./result_scan3d/` | Output directory |
 | `--ref-pdb` / `--config` / `--help-advanced` | — | — | Standard |
 | `--print-parsed` | — | — | Validate the parsed scan spec without GPU compute |

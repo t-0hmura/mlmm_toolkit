@@ -90,6 +90,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ │ ├── mlmm_calc.py ML/MM ONIOM calculator core (4 MLIP backends UMA / ORB / MACE / AIMNet2
 │ │ inline; CHEMISTRY-RULE:1 / 2 / 8 / 9 host)
 │ │ ├── custom.py user ASE calculator loaded from --calc-file (custom backend)
+│ │ ├── pyscf_dft.py optional PySCF/GPU4PySCF high-level adapter
 │ │ └── _determinism.py strict-determinism setup (--deterministic)
 │ │
 │ ├── io/ # === L4b Infra (I/O) ===
@@ -244,6 +245,7 @@ Acronyms used below: MEP = minimum-energy path; GSM = growing-string method; COS
 | ML/MM ONIOM calculator core + 4 inline MLIP backends + ONIOM coupling | `mlmm/backends/mlmm_calc.py` |
 | `--precision` routing (`apply_precision_to_calc_cfg` / `_PRECISION_DISPATCH`) | `mlmm/backends/__init__.py` |
 | Backend dispatch / factory (`_create_ml_backend`) | `mlmm/backends/mlmm_calc.py` |
+| Optional DFT high-level adapter | `mlmm/backends/pyscf_dft.py` |
 
 See [MLIP Backends](backends.md) for installation and runtime behavior. Backend
 implementation changes currently touch `mlmm_calc.py` and the dispatcher.

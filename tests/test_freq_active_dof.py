@@ -4,6 +4,27 @@ import pytest
 from mlmm.workflows import freq
 
 
+def test_layer_probe_calculator_is_closed(monkeypatch):
+    closed = []
+
+    class Core:
+        ml_indices = [0]
+        hess_mm_indices = [1]
+        movable_mm_indices = []
+        frozen_layer_indices = []
+
+    class Calculator:
+        core = Core()
+
+        def close(self):
+            closed.append(True)
+
+    monkeypatch.setattr(freq, "mlmm", lambda **kwargs: Calculator())
+
+    assert freq._collect_layer_atom_sets({})["ml"] == {0}
+    assert closed == [True]
+
+
 def test_partial_active_dof_includes_hessian_target_mm(monkeypatch):
     monkeypatch.setattr(
         freq,

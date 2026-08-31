@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import uuid
 from pathlib import Path
 from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
@@ -40,6 +41,67 @@ def _apply_attributes(obj: Any, values: Mapping[str, Any], path: str) -> None:
         if not hasattr(obj, name) or callable(getattr(obj, name)):
             raise ValueError(f"Unknown or callable PySCF attribute {path}.{name}.")
         setattr(obj, name, value)
+
+
+def _write_checkpoint_generation(path: Path, generation: str) -> None:
+    import h5py
+
+    with h5py.File(path, "a") as handle:
+        handle.attrs["mlmm_record_generation"] = generation
+
+
+def _read_checkpoint_generation(path: Path) -> str:
+    import h5py
+
+    with h5py.File(path, "r") as handle:
+        value = handle.attrs["mlmm_record_generation"]
+    if isinstance(value, bytes):
+        value = value.decode("utf-8")
+    return str(value)
+
+
+def _validated_checkpoint_record(
+    loaded_mol: Any,
+    record: Mapping[str, Any],
+    symbols: Sequence[str],
+    coords_ang: np.ndarray,
+) -> Dict[str, Any]:
+    energy = float(record["e_tot"])
+    mo_coeff = _to_numpy(record["mo_coeff"])
+    mo_occ = _to_numpy(record["mo_occ"])
+    mo_energy = _to_numpy(record["mo_energy"])
+    if not np.isfinite(energy) or any(
+        value is None or not np.all(np.isfinite(value))
+        for value in (mo_coeff, mo_occ, mo_energy)
+    ):
+        raise ValueError("checkpoint contains non-finite SCF data")
+    if mo_coeff.ndim not in (2, 3) or mo_occ.shape != mo_energy.shape:
+        raise ValueError("checkpoint orbital arrays have inconsistent ranks")
+    if mo_coeff.shape[-1] != mo_occ.shape[-1]:
+        raise ValueError("checkpoint orbital dimensions are inconsistent")
+    if mo_coeff.ndim == 3 and mo_coeff.shape[0] != mo_occ.shape[0]:
+        raise ValueError("checkpoint spin dimensions are inconsistent")
+    if int(loaded_mol.nao_nr()) != int(mo_coeff.shape[-2]):
+        raise ValueError("checkpoint AO dimension is inconsistent")
+    loaded_symbols = tuple(
+        str(loaded_mol.atom_symbol(index)) for index in range(int(loaded_mol.natm))
+    )
+    if loaded_symbols != tuple(map(str, symbols)):
+        raise ValueError("checkpoint Mole symbols do not match metadata")
+    loaded_coords = np.asarray(
+        loaded_mol.atom_coords(unit="Angstrom"), dtype=float
+    ).reshape(-1, 3)
+    if loaded_coords.shape != coords_ang.shape or not np.allclose(
+        loaded_coords, coords_ang, atol=1.0e-8, rtol=0.0
+    ):
+        raise ValueError("checkpoint Mole coordinates do not match metadata")
+    return {
+        "energy": energy,
+        "mol": loaded_mol,
+        "mo_coeff": mo_coeff.copy(),
+        "mo_occ": mo_occ.copy(),
+        "mo_energy": mo_energy.copy(),
+    }
 
 
 def _subtract_packed_mm_hcore(h1e, mm_hcore, pack_tril):
@@ -304,19 +366,28 @@ class PySCFDFTSession:
         self._pending_checkpoint = False
         return energy, guess
 
-    def _metadata(self, symbols, coords) -> Dict[str, Any]:
+    def _metadata(
+        self,
+        symbols,
+        coords,
+        *,
+        generation: str,
+        mm_coords: Optional[np.ndarray] = None,
+        mm_charges: Optional[np.ndarray] = None,
+    ) -> Dict[str, Any]:
         identity = json.dumps(
             self.settings.scientific_identity(), sort_keys=True, separators=(",", ":")
         )
         return {
-            "schema": 1,
+            "schema": 2,
+            "generation": generation,
             "symbols": list(map(str, symbols)),
             "coordinates_angstrom": np.asarray(coords, dtype=float).tolist(),
             "mm_coordinates_angstrom": (
-                None if self._mm_coords is None else self._mm_coords.tolist()
+                None if mm_coords is None else np.asarray(mm_coords).tolist()
             ),
             "mm_charges": (
-                None if self._mm_charges is None else self._mm_charges.tolist()
+                None if mm_charges is None else np.asarray(mm_charges).tolist()
             ),
             "scientific_identity_sha256": hashlib.sha256(identity.encode()).hexdigest(),
         }
@@ -334,7 +405,28 @@ class PySCFDFTSession:
             return False
         try:
             metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-            expected = self._metadata(symbols, coords)
+            if metadata.get("schema") != 2:
+                self.checkpoint_status = {
+                    "loaded": False,
+                    "reason": "schema_mismatch",
+                    "path": str(destination),
+                }
+                return False
+            expected = self._metadata(
+                symbols,
+                coords,
+                generation=str(metadata.get("generation", "")),
+                mm_coords=self._mm_coords,
+                mm_charges=self._mm_charges,
+            )
+            generation = str(metadata.get("generation", ""))
+            if not generation or _read_checkpoint_generation(destination) != generation:
+                self.checkpoint_status = {
+                    "loaded": False,
+                    "reason": "generation_mismatch",
+                    "path": str(destination),
+                }
+                return False
             if metadata.get("symbols") != expected["symbols"]:
                 self.checkpoint_status = {
                     "loaded": False, "reason": "symbols_mismatch", "path": str(destination)
@@ -367,13 +459,25 @@ class PySCFDFTSession:
             from pyscf.scf import chkfile
 
             loaded_mol, record = chkfile.load_scf(str(destination))
-            self._last_good = {
-                "energy": float(record["e_tot"]),
-                "mol": loaded_mol,
-                "mo_coeff": _to_numpy(record["mo_coeff"]).copy(),
-                "mo_occ": _to_numpy(record["mo_occ"]).copy(),
-                "mo_energy": _to_numpy(record["mo_energy"]).copy(),
-            }
+            if int(loaded_mol.charge) != int(self.settings.charge) or int(
+                loaded_mol.spin
+            ) != int(self.settings.multiplicity) - 1:
+                raise ValueError("checkpoint Mole charge/spin mismatch")
+            self._last_good = _validated_checkpoint_record(
+                loaded_mol, record, tuple(map(str, symbols)), np.asarray(coords, dtype=float)
+            )
+            self._last_good.update(
+                {
+                    "symbols": tuple(map(str, symbols)),
+                    "coordinates_angstrom": np.asarray(coords, dtype=float).copy(),
+                    "mm_coordinates_angstrom": (
+                        None if self._mm_coords is None else self._mm_coords.copy()
+                    ),
+                    "mm_charges": (
+                        None if self._mm_charges is None else self._mm_charges.copy()
+                    ),
+                }
+            )
             self._scanner = None
             self._pending_checkpoint = True
             self._last_key = None
@@ -398,27 +502,45 @@ class PySCFDFTSession:
 
         destination = Path(destination_value)
         destination.parent.mkdir(parents=True, exist_ok=True)
-        tmp = destination.with_name(destination.name + ".tmp")
+        generation = uuid.uuid4().hex
+        tmp = destination.with_name(f"{destination.name}.{generation}.tmp")
         metadata_path = destination.with_suffix(destination.suffix + ".json")
-        metadata_tmp = metadata_path.with_name(metadata_path.name + ".tmp")
+        metadata_tmp = metadata_path.with_name(
+            f"{metadata_path.name}.{generation}.tmp"
+        )
         record = self._last_good
         if record is None:
             self._commit_last_good()
             record = self._last_good
-        chkfile.dump_scf(
-            record["mol"],
-            str(tmp),
-            float(record["energy"]),
-            record["mo_energy"],
-            record["mo_coeff"],
-            record["mo_occ"],
-        )
-        metadata_tmp.write_text(
-            json.dumps(self._metadata(self._last_symbols, self._last_coords), indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-        os.replace(tmp, destination)
-        os.replace(metadata_tmp, metadata_path)
+        try:
+            chkfile.dump_scf(
+                record["mol"],
+                str(tmp),
+                float(record["energy"]),
+                record["mo_energy"],
+                record["mo_coeff"],
+                record["mo_occ"],
+            )
+            _write_checkpoint_generation(tmp, generation)
+            metadata_tmp.write_text(
+                json.dumps(
+                    self._metadata(
+                        record["symbols"],
+                        record["coordinates_angstrom"],
+                        generation=generation,
+                        mm_coords=record["mm_coordinates_angstrom"],
+                        mm_charges=record["mm_charges"],
+                    ),
+                    indent=2,
+                    sort_keys=True,
+                ) + "\n",
+                encoding="utf-8",
+            )
+            os.replace(tmp, destination)
+            os.replace(metadata_tmp, metadata_path)
+        finally:
+            tmp.unlink(missing_ok=True)
+            metadata_tmp.unlink(missing_ok=True)
         return destination
 
     def evaluate(self, atoms, *, need_forces: bool = True) -> Dict[str, Any]:
@@ -476,7 +598,30 @@ class PySCFDFTSession:
             "mo_coeff": _to_numpy(self._scanner.mo_coeff).copy(),
             "mo_occ": _to_numpy(self._scanner.mo_occ).copy(),
             "mo_energy": _to_numpy(self._scanner.mo_energy).copy(),
+            "symbols": self._last_symbols,
+            "coordinates_angstrom": (
+                None if self._last_coords is None else self._last_coords.copy()
+            ),
+            "mm_coordinates_angstrom": (
+                None if self._mm_coords is None else self._mm_coords.copy()
+            ),
+            "mm_charges": (
+                None if self._mm_charges is None else self._mm_charges.copy()
+            ),
         }
+
+    def close(self) -> None:
+        """Release all live electronic and embedding state owned by this session."""
+
+        self._scanner = None
+        self._last_good = None
+        self._cache.clear()
+        self._last_key = None
+        self._last_symbols = None
+        self._last_coords = None
+        self._mm_coords = None
+        self._mm_charges = None
+        self._pending_checkpoint = False
 
     def hessian(self, atoms) -> np.ndarray:
         if self.settings.embedcharge:
@@ -558,9 +703,14 @@ class DFTBackend:
     def close(self) -> None:
         if self._closed:
             return
-        if self.settings.save_scf_checkpoint:
-            self.session.save_last_checkpoint()
-        self._closed = True
+        try:
+            if self.settings.save_scf_checkpoint:
+                self.session.save_last_checkpoint()
+        finally:
+            self.session.close()
+            self._last_mm_forces = None
+            self._mm_indices.clear()
+            self._closed = True
 
     def hessian_analytical(self, opaque, n_atoms: int, *, dtype: torch.dtype):
         hessian = self.session.hessian(opaque) * AU2EV * ANG2BOHR * ANG2BOHR
@@ -587,14 +737,21 @@ class DFTBackend:
         return H.reshape(n_atoms, 3, n_atoms, 3)
 
 
-def create_dft_backend(values: Mapping[str, Any]) -> DFTBackend:
+def create_dft_backend(
+    values: Mapping[str, Any], *, model_charge: Optional[int] = None,
+    model_mult: Optional[int] = None,
+) -> DFTBackend:
+    charge = values.get("charge", 0) if model_charge is None else model_charge
+    multiplicity = (
+        values.get("multiplicity", 1) if model_mult is None else model_mult
+    )
     settings = resolve_dft_settings({
         "backend": "dft",
-        "model_charge": values.get("charge", 0),
-        "model_mult": values.get("multiplicity", 1),
+        "model_charge": int(charge),
+        "model_mult": int(multiplicity),
         "embedcharge": values.get("embedcharge", False),
         "embedcharge_cutoff": values.get("embedcharge_cutoff", 12.0),
-        "dft": dict(values),
+        "dft_settings": dict(values),
     })
     return DFTBackend(settings)
 

@@ -189,7 +189,7 @@ ML/MM calculator subcommands (`opt`, `sp`, `tsopt`, `freq`, `irc`,
 
 | Option | Description | Default |
 |---|---|---|
-| `-b, --backend` | MLIP backend: `uma`, `orb`, `mace`, `aimnet2`. | `uma` |
+| `-b, --backend` | High-level backend: `uma`, `orb`, `mace`, `aimnet2`, `dft`. | `uma` |
 
 Install alternatives: `pip install "mlmm-toolkit[orb]"` / `"[aimnet]"` / `pip uninstall -y fairchem-core && pip install mace-torch` (MACE in a dedicated env; its `e3nn` pin conflicts with UMA).
 

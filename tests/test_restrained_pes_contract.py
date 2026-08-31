@@ -304,6 +304,28 @@ def test_explicit_calculator_evaluates_the_exact_active_pes() -> None:
     assert energy == 3.5
 
 
+def test_owned_frequency_calculator_is_closed(monkeypatch) -> None:
+    geometry = _Geometry()
+    evaluator = _StaticBase(
+        {
+            "energy": 3.5,
+            "forces": np.zeros(6),
+            "hessian": torch.eye(6, dtype=torch.float64),
+        }
+    )
+    closed = []
+    evaluator.close = lambda: closed.append(True)
+    monkeypatch.setattr("mlmm.workflows.freq.mlmm", lambda **kwargs: evaluator)
+
+    _calc_full_hessian_torch(
+        geometry,
+        {},
+        torch.device("cpu"),
+    )
+
+    assert closed == [True]
+
+
 def test_restrained_rfo_seed_uses_exact_wrapper_and_never_reads_irc_cache(
     monkeypatch,
 ) -> None:

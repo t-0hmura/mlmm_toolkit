@@ -242,6 +242,12 @@ def _potential_identity(calc_cfg: Mapping) -> Dict[str, Any]:
                 pass
         potential[key] = _canon(val)
     backend = str(calc_cfg.get("backend") or "").strip().lower()
+    if backend == "dft":
+        from mlmm.core.dft_settings import resolve_dft_settings
+
+        potential["dft_settings"] = resolve_dft_settings(
+            calc_cfg
+        ).scientific_identity()
     if backend == "uma" and calc_cfg.get("uma_task_name") is not None:
         potential["uma_task_name"] = str(calc_cfg["uma_task_name"])
     model, _precision = _effective_model_precision(calc_cfg)

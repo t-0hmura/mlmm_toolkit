@@ -87,6 +87,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ │ ├── mlmm_calc.py ML/MM ONIOM calculator core (4 MLIP backends UMA / ORB / MACE / AIMNet2
 │ │ inline; CHEMISTRY-RULE:1 / 2 / 8 / 9 host)
 │ │ ├── custom.py user ASE calculator loaded from --calc-file (custom backend)
+│ │ ├── pyscf_dft.py 任意の PySCF/GPU4PySCF high-level adapter
 │ │ └── _determinism.py strict-determinism setup (--deterministic)
 │ │
 │ ├── io/ # === L4b Infra (I/O) ===
@@ -235,6 +236,7 @@ CLI サブコマンドリゾルバ (`cli/app.py:_LAZY_SUBCOMMANDS`) は **絶対
 | ML/MM ONIOM 計算コア + 4 つのインライン MLIP バックエンド + ONIOM カップリング | `mlmm/backends/mlmm_calc.py` |
 | `--precision` ルーティング (`apply_precision_to_calc_cfg` / `_PRECISION_DISPATCH`) | `mlmm/backends/__init__.py` |
 | バックエンドディスパッチ / ファクトリ (`_create_ml_backend`) | `mlmm/backends/mlmm_calc.py` |
+| 任意の DFT high-level adapter | `mlmm/backends/pyscf_dft.py` |
 
 [MLIP Backends](backends.md) ではインストール方法と実行時の挙動を説明します。
 バックエンド実装の変更は、現時点では `mlmm_calc.py` とディスパッチャに反映します。

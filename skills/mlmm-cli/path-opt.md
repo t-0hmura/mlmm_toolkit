@@ -13,7 +13,7 @@ recursive search.
 ```bash
 mlmm path-opt -i reactant.pdb product.pdb --parm real.parm7 \
     [--mep-mode gsm|dmf] [--max-nodes 20] \
-    [-l 'RES:Q,...'] [-b uma|orb|mace|aimnet2] \
+    [-l 'RES:Q,...'] [-b uma|orb|mace|aimnet2|dft] \
     [-o ./result_path_opt/]
 ```
 
@@ -48,7 +48,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--thresh-gsm` | str | `gau_loose` | GSM string-optimizer convergence preset |
 | `--thresh-dmf` | str/float | `tight` | DMF IPOPT dual-infeasibility tolerance: `tight`, `middle`, `loose`, or a positive float |
 | `-q, --charge` / `-l` / `-m` | — | — | Charge / spin (common conventions) |
-| `-b, --backend` | str | `uma` | MLIP backend |
+| `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |
 | `-o, --out-dir` | path | `./result_path_opt/` | Output directory |
 
 ## Examples

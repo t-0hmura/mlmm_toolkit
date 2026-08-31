@@ -45,6 +45,81 @@ def test_all_cli_rejects_redundant_dft_before_pipeline(tmp_path, via_yaml) -> No
     assert "separate process/job" in result.output
 
 
+@pytest.mark.parametrize("toggle", ["--convert-files", "--no-convert-files"])
+def test_all_post_dft_accepts_explicit_convert_files_forwarding(
+    tmp_path, toggle
+) -> None:
+    from mlmm.workflows.all import cli as all_cli
+
+    root = Path(__file__).resolve().parents[1]
+    pdb = root / "tests" / "smoke" / "p_complex_layered.pdb"
+    parm = root / "tests" / "smoke" / "p_complex.parm7"
+    result = CliRunner().invoke(
+        all_cli,
+        [
+            "-i", str(pdb), "-i", str(pdb), "--parm", str(parm),
+            "-q", "-1", "--tsopt", "--dft", toggle,
+            "--dft-func-basis", "hf/sto-3g", "--dft-engine", "cpu",
+            "--dry-run", "--out-dir", str(tmp_path / "result"),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "--dry-run completed" in result.output
+
+
+def test_all_show_config_separates_canonical_primary_and_post_dft(tmp_path) -> None:
+    from mlmm.workflows.all import cli as all_cli
+
+    root = Path(__file__).resolve().parents[1]
+    pdb = root / "tests" / "smoke" / "p_complex_layered.pdb"
+    parm = root / "tests" / "smoke" / "p_complex.parm7"
+    post_out = tmp_path / "post_dft"
+    result = CliRunner().invoke(
+        all_cli,
+        [
+            "-i", str(pdb), "-i", str(pdb), "--parm", str(parm),
+            "-q", "-1", "--tsopt", "--dft",
+            "--dft-func-basis", "hf/sto-3g", "--dft-engine", "cpu",
+            "--dft-out-dir", str(post_out), "--show-config", "--dry-run",
+            "--out-dir", str(tmp_path / "result"),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "primary_calculator:" in result.output
+    assert "primary_method_label: ML/MM" in result.output
+    assert "post_dft:" in result.output
+    assert "functional: hf" in result.output
+    assert "basis: sto-3g" in result.output
+    assert "charge: -1" in result.output
+    assert "engine: cpu" in result.output
+    assert f"out_dir_override: {post_out}" in result.output
+
+
+def test_all_show_config_primary_dft_uses_explicit_state(tmp_path) -> None:
+    from mlmm.workflows.all import cli as all_cli
+
+    root = Path(__file__).resolve().parents[1]
+    pdb = root / "tests" / "smoke" / "p_complex_layered.pdb"
+    parm = root / "tests" / "smoke" / "p_complex.parm7"
+    result = CliRunner().invoke(
+        all_cli,
+        [
+            "-i", str(pdb), "-i", str(pdb), "--parm", str(parm),
+            "-q", "-2", "-m", "2", "-b", "dft",
+            "--func-basis", "hf/sto-3g", "--engine", "cpu",
+            "--show-config", "--dry-run", "--out-dir", str(tmp_path / "result"),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "primary_method_label: DFT/MM" in result.output
+    assert "charge: -2" in result.output
+    assert "multiplicity: 2" in result.output
+    assert "post_dft: null" in result.output
+
+
 @pytest.mark.parametrize(
     ("do_thermo", "do_dft"),
     [(True, False), (False, True), (True, True)],

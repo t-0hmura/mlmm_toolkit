@@ -16,7 +16,7 @@ mlmm tsopt -i ts_guess.{pdb,xyz} --parm real.parm7 \
     [-q 0 -m 1] [-l 'RES:Q,...'] \
     [--opt-mode grad|hess|dimer|rsprfo|rsirfo|trim] \
     [--max-cycles 100000] \
-    [-b uma|orb|mace|aimnet2] [-o ./result_tsopt/]
+    [-b uma|orb|mace|aimnet2|dft] [-o ./result_tsopt/]
 ```
 
 
@@ -52,7 +52,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--precision` | str | backend-specific | UMA/AIMNet2 fp32; ORB/MACE fp64; AIMNet2 rejects fp64 |
 | `--workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
 | `--allow-charge-mult-mismatch` | flag | off | Warn and skip ML-region charge/multiplicity electron-parity validation for an intentional mismatch |
-| `-b, --backend` | str | `uma` | MLIP backend |
+| `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |
 | `-o, --out-dir` | path | `./result_tsopt/` | Output directory |
 | `--config` / `--show-config` / `--dry-run` / `--help-advanced` | — | — | Standard |
 

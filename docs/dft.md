@@ -121,9 +121,12 @@ dft:
  conv_tol: 1.0e-09                # SCF convergence tolerance (Hartree)
  max_cycle: 100                    # SCF iteration cap
  grid_level: 3                     # PySCF grid level
+ pyscf: {mf: {level_shift: 0.2}}   # optional PySCF object attributes
  verbose: 0                        # PySCF verbosity (0-9); CLI -v 2/3 raises runtime PySCF verbosity to >=4
  out_dir: ./result_dft/            # output directory root
 ```
+
+Standalone `dft` reads `dft.pyscf`; calculator workflows selected with `-b dft` use the same object-name mapping under `calc.dft.pyscf`.
 
 Full schema (every key and default): [YAML Reference](yaml-reference.md).
 

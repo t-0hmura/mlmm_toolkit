@@ -12,7 +12,7 @@ endpoint refinement.
 ```bash
 mlmm opt -i input.pdb --parm real.parm7 [-q 0 -m 1] \
     [--opt-mode grad|hess|lbfgs|rfo] \
-    [-b uma|orb|mace|aimnet2] [-o ./result_opt/]
+    [-b uma|orb|mace|aimnet2|dft] [-o ./result_opt/]
 ```
 
 
@@ -45,7 +45,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--reject-uphill / --no-reject-uphill` | toggle | off | Opt in to rejecting an energy-raising Hessian/RFO trial above `1e-4` Hartree, restoring the lower-energy geometry and shrinking the trust radius. At the emergency floor, run one final convergence check on the retained geometry. Ignored in L-BFGS mode. |
 | `--mm-only` / `--no-mm-only` | flag | `False` | Skip the MLIP component and minimize on the MM force field only. Layers honored as usual; only `--opt-mode grad` supported (microiter auto-off). Useful as a cheap MM pre-relaxation before ML/MM ONIOM opt. |
 | `--max-cycles` | int | (live default) | Stop after N cycles; check `OPT_BASE_KW` |
-| `-b, --backend` | str | `uma` | MLIP backend |
+| `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |
 | `-o, --out-dir` | path | `./result_opt/` | Output directory |
 | `--config` / `--show-config` / `--dry-run` / `--help-advanced` | — | — | Standard |
 

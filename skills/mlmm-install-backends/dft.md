@@ -73,10 +73,10 @@ python -c "import mlmm.core.defaults as d; print(d.GEOM_KW_DEFAULT, d.MLMM_CALC_
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `OSError: libcusolver.so.11 not found` | Missing CUDA libraries or a library-path conflict | Check the full error and installed CUDA packages; for path diagnostics, see `env-cuda.md`, Option 1 |
-| `cupy.cuda.runtime.CUDARuntimeError: invalid device ordinal` | Requested index is outside the visible GPU set | Keep the scheduler's `CUDA_VISIBLE_DEVICES` and select a valid local index (usually 0 in a one-GPU job) |
-| `RuntimeError: CUDA out of memory` mid-SCF | Calculation exceeds available VRAM | Use `--engine cpu` or a larger-memory GPU. Lowering `grid_level` or switching to `def2-svp` is also possible, but changes the calculation and requires validation |
-| `gpu4pyscf` import succeeds but SCF stalls at start | Cause cannot be determined from this symptom alone | Inspect the full log. If cuTENSOR is needed, `pip install cutensor-cu12` adds it; check the [upstream CuPy/cuTENSOR compatibility guidance](https://github.com/pyscf/gpu4pyscf#installation) first |
+| `OSError: libcusolver.so.11 not found` | `LD_LIBRARY_PATH` shadowing torch's bundled CUDA libs | See `env-cuda.md`, Option 1 (`LD_LIBRARY_PATH` reorder) |
+| `cupy.cuda.runtime.CUDARuntimeError: invalid device ordinal` | Invalid local device selection | Keep scheduler-provided `CUDA_VISIBLE_DEVICES`; use a valid local ordinal (usually 0 for a one-GPU allocation). |
+| `RuntimeError: CUDA out of memory` mid-SCF | The selected method exceeds available memory | Try the same method on CPU or a larger-memory GPU. A smaller basis/grid is a different method and must be labeled and revalidated. |
+| GPU startup stalls or fails | The symptom alone does not identify one dependency | Capture the traceback/log, run `pip check`, and compare with the installed GPU4PySCF version's official requirements. |
 | aarch64: `--engine gpu` requested but no `gpu4pyscf` | Architecture not supported | Raises `ClickException`; rerun with `--engine cpu` (or set `dft.engine: cpu` in YAML) |
 
 ## Resource sizing

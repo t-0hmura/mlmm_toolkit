@@ -80,6 +80,8 @@ def test_fresh_scan3d_calculator_schema_uses_resolved_values() -> None:
         "mm_backend": "openmm",
         "link_atom_method": "fixed",
         "use_cmap": True,
+        "primary_method": "mlip",
+        "primary_method_label": "ML/MM",
         "charge": -1,
         "spin": 2,
     }

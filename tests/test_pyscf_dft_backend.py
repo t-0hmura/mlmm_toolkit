@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import shutil
 import numpy as np
 import pytest
 import torch
@@ -78,21 +80,33 @@ def test_dft_resources_are_provenance_but_not_checkpoint_identity() -> None:
 
 
 @pytest.mark.parametrize(
-    ("dft", "expected"),
+    ("dft", "multiplicity", "expected"),
     [
-        ({}, "gpu4pyscf_rks_lowmem"),
-        ({"engine": "cpu"}, "direct_jk"),
-        ({"multiplicity": 2}, "direct_jk"),
-        ({"lowmem": False}, "density_fit"),
+        ({}, 1, "gpu4pyscf_rks_lowmem"),
+        ({"engine": "cpu"}, 1, "direct_jk"),
+        ({}, 2, "direct_jk"),
+        ({"lowmem": False}, 1, "density_fit"),
     ],
 )
-def test_dft_memory_mode_tracks_the_effective_driver(dft, expected) -> None:
+def test_dft_memory_mode_tracks_the_effective_driver(
+    dft, multiplicity, expected
+) -> None:
     from mlmm.core.dft_settings import resolve_dft_settings
 
-    calc = {"backend": "dft", "dft": dft}
-    if "multiplicity" in dft:
-        calc["model_mult"] = dft["multiplicity"]
+    calc = {"backend": "dft", "model_mult": multiplicity, "dft": dft}
     assert resolve_dft_settings(calc).memory_mode == expected
+
+
+@pytest.mark.parametrize(
+    "key", ["charge", "multiplicity", "embedcharge", "embedcharge_cutoff"]
+)
+def test_calculator_dft_mapping_rejects_top_level_owned_state(key) -> None:
+    import click
+
+    from mlmm.core.dft_settings import resolve_dft_settings
+
+    with pytest.raises(click.BadParameter, match=f"calc.dft.{key}"):
+        resolve_dft_settings({"backend": "dft", "dft": {key: 1}})
 
 
 def test_dft_yaml_nprocs_reports_a_click_validation_error() -> None:
@@ -102,6 +116,110 @@ def test_dft_yaml_nprocs_reports_a_click_validation_error() -> None:
 
     with pytest.raises(click.BadParameter, match="positive integer"):
         resolve_dft_settings({"backend": "dft", "dft": {"nprocs": "many"}})
+
+
+@pytest.mark.parametrize(
+    "pyscf_config, field",
+    [
+        ({"mol": {"basis": "sto-3g"}}, "basis"),
+        ({"mf": {"xc": "pbe"}}, "xc"),
+    ],
+)
+def test_dft_rejects_resolver_owned_pyscf_method_fields(
+    pyscf_config, field
+) -> None:
+    import click
+
+    from mlmm.core.dft_settings import resolve_dft_settings
+
+    with pytest.raises(click.BadParameter, match=field):
+        resolve_dft_settings(
+            {"backend": "dft", "dft": {"pyscf": pyscf_config}}
+        )
+
+
+@pytest.mark.parametrize("conv_tol", [float("nan"), float("inf"), float("-inf")])
+def test_dft_rejects_nonfinite_convergence_tolerance(conv_tol) -> None:
+    import click
+
+    from mlmm.core.dft_settings import resolve_dft_settings
+
+    with pytest.raises(click.BadParameter, match="conv_tol"):
+        resolve_dft_settings(
+            {"backend": "dft", "dft": {"conv_tol": conv_tol}}
+        )
+
+
+def test_mlmm_factory_binds_canonical_charge_and_multiplicity() -> None:
+    from mlmm.backends.mlmm_calc import _create_ml_backend
+
+    backend = _create_ml_backend(
+        "dft",
+        dft_settings=_settings(charge=0, multiplicity=1),
+        model_charge=-1,
+        model_mult=2,
+        ml_device=torch.device("cpu"),
+    )
+
+    assert backend.settings.charge == -1
+    assert backend.settings.multiplicity == 2
+
+
+def test_dft_scientific_identity_tracks_active_embedding_cutoff() -> None:
+    from mlmm.core.dft_settings import resolve_dft_settings
+
+    disabled = resolve_dft_settings(
+        {"backend": "dft", "embedcharge": False, "embedcharge_cutoff": 4.0}
+    )
+    enabled = resolve_dft_settings(
+        {"backend": "dft", "embedcharge": True, "embedcharge_cutoff": 4.0}
+    )
+
+    assert disabled.scientific_identity()["embedcharge_cutoff"] is None
+    assert enabled.scientific_identity()["embedcharge_cutoff"] == 4.0
+
+
+@pytest.mark.parametrize(
+    "calc_cfg, message",
+    [
+        ({"model_charge": 0.5}, "model_charge"),
+        ({"model_mult": 0}, "model_mult"),
+        ({"embedcharge_cutoff": float("nan")}, "embedcharge_cutoff"),
+        ({"dft": {"nprocs": 1.5}}, "DFT nprocs"),
+    ],
+)
+def test_dft_rejects_invalid_canonical_charge_spin_and_cutoff(
+    calc_cfg, message
+) -> None:
+    import click
+
+    from mlmm.core.dft_settings import resolve_dft_settings
+
+    with pytest.raises(click.BadParameter, match=message):
+        resolve_dft_settings({"backend": "dft", **calc_cfg})
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "typo_setting",
+        "charge",
+        "multiplicity",
+        "save_scf_checkpoint",
+        "checkpoint_path",
+        "nprocs_source",
+        "memory_source",
+        "embedcharge",
+        "embedcharge_cutoff",
+    ],
+)
+def test_standalone_dft_mapping_fails_closed_on_unowned_key(key) -> None:
+    import click
+
+    from mlmm.core.dft_settings import standalone_dft_settings_mapping
+
+    with pytest.raises(click.BadParameter, match=f"dft.{key}"):
+        standalone_dft_settings_mapping({"out_dir": "result", key: 1})
 
 
 def _settings(**overrides):
@@ -274,6 +392,36 @@ def test_last_good_checkpoint_survives_lost_scanner(tmp_path) -> None:
 
     assert checkpoint.is_file()
     assert checkpoint.with_suffix(".chk.json").is_file()
+
+
+def test_checkpoint_rejects_mixed_binary_and_metadata_generations(tmp_path) -> None:
+    from mlmm.backends.pyscf_dft import create_dft_backend
+
+    atoms = Atoms("He", positions=[[0.0, 0.0, 0.0]])
+    first_path = tmp_path / "first.chk"
+    second_path = tmp_path / "second.chk"
+    for path in (first_path, second_path):
+        backend = create_dft_backend(_settings(save_scf_checkpoint=True))
+        backend.energy(atoms)
+        backend.save_scf_checkpoint(path, atoms)
+        backend.close()
+
+    shutil.copyfile(
+        second_path.with_suffix(".chk.json"),
+        first_path.with_suffix(".chk.json"),
+    )
+    metadata_path = first_path.with_suffix(".chk.json")
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    metadata["schema"] = 1
+    metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+    restored = create_dft_backend(_settings(save_scf_checkpoint=True))
+
+    assert not restored.load_scf_checkpoint(first_path, atoms)
+    assert restored.session.checkpoint_status["reason"] == "schema_mismatch"
+    metadata["schema"] = 2
+    metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+    assert not restored.load_scf_checkpoint(first_path, atoms)
+    assert restored.session.checkpoint_status["reason"] == "generation_mismatch"
 
 
 def test_settings_forward_pyscf_objects_and_reject_analytical_embedding() -> None:

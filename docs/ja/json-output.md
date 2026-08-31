@@ -280,15 +280,23 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 |-----------|------|------|
 | `converged` | bool | SCF 収束? |
 | `status` | string | `"converged"` または `"not_converged"`。後者は exit code 3 より前に書き込まれる。 |
-| `energy_hartree` | float | DFT エネルギー |
+| `energy_hartree` / `energy_kcal_per_mol` | float | 後方互換の model 領域 DFT energy |
+| `model_dft_energy_hartree` / `model_dft_energy_kcal_per_mol` | float | model 領域の DFT energy |
+| `total_dft_mm_energy_hartree` / `total_dft_mm_energy_kcal_per_mol` | float | 再結合した DFT/MM energy |
 | `xc_functional` | string | 汎関数 |
 | `basis_set` | string | 基底関数 |
 | `used_gpu` | bool | GPU 使用? |
+| `used_lowmem` / `lowmem_requested` | bool | 実効/要求low-memory状態 |
+| `dft_settings` / `dft_resources` | object | 正規化済み科学設定と実効host resource |
+| `effective_ecp` | string/object \| null | PySCFへ渡した実効ECP |
+| `embedding` | object | point-charge有効化、cutoff、個数、identity digest |
 | `n_atoms` | int | QM 領域の原子数 |
 | `grid_level` | int | YAML/CLI 解決後の DFT grid level |
 | `conv_tol` | float | YAML/CLI 解決後の SCF 収束閾値 |
 | `max_cycle` | int | YAML/CLI 解決後の SCF 最大反復数 |
 | `engine` | string | 実際に使用した runtime engine label |
+| `charge` / `spin` | int | model領域の電荷と多重度 |
+| `input_file` | string | 入力構造path |
 | `charges` / `spin_densities` | object | `{mulliken, lowdin, iao}` 原子電荷/スピン密度 |
 | `files` | object | `{"result_yaml": "result.yaml"}` |
 

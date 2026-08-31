@@ -103,7 +103,7 @@ Supported MLIP backends:
 MM backend defaults to `hessian_ff` on CPU. MM Hessians use finite differences
 by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path.
 `openmm` is selectable via `--mm-backend openmm`.
-DFT (optional) uses PySCF / GPU4PySCF.
+Optional `-b dft` uses PySCF/GPU4PySCF; see `mlmm-cli/dft.md`.
 
 ## ML/MM-aware CLI conventions
 
@@ -119,7 +119,7 @@ Every ML/MM-evaluating subcommand (`opt`, `tsopt`, `path-search`,
 | `--model-indices` | Explicit ML atom indices used when `--model-pdb` is omitted; higher priority than B-factor ML membership |
 | `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
 | `-q, --charge` / `-l, --ligand-charge` / `-m, --multiplicity` | ML region charge / spin |
-| `-b, --backend` | ML backend (uma / orb / mace / aimnet2) |
+| `-b, --backend` | High-level backend (uma / orb / mace / aimnet2 / dft) |
 
 See `mlmm-cli/SKILL.md` for per-subcommand specifics.
 

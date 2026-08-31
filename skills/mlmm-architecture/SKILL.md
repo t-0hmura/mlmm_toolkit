@@ -20,9 +20,9 @@ mlmm/                              ← the package body, one folder per layer
 ├── domain/     # L3 — chemistry-aware helpers (bond changes, bond summary,
 │               #      element-info repair). May use torch/numpy; no MLIP
 │               #      runtime dependency.
-├── backends/   # L4a — MLIP backend dispatcher + ML/MM ONIOM calculator core
+├── backends/   # L4a — high-level backend dispatcher + ML/MM ONIOM core
 │               #       (`mlmm_calc.py`, monolithic — UMA / Orb / MACE /
-│               #       AIMNet2 + OpenMM + hessian_ff coupling).
+│               #       AIMNet2 + OpenMM + hessian_ff coupling; `pyscf_dft.py`).
 ├── io/         # L4b — summary writer, energy diagram, trajectory plot,
 │               #       Hessian cache, analytical-Hessian glue, PDB altloc
 │               #       fix. (harmonic restraints live in workflows/restraints.py, L2)
