@@ -3783,6 +3783,7 @@ def test_colab_operates_scientific_selectors_and_remaining_buttons(
     assert {path.name for path in current_files} <= members
 
     app["_example_file"] = lambda relpath: str(NOTEBOOK.parent / relpath)
+    assert app["ex_choice"].value == "Toy system - MEP mode (R->P)"
     for choice in app["ex_choice"].options:
         app["S"]["out_dir"] = "./custom-output/"
         app["w_out"].value = "./custom-output/"

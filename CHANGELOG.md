@@ -6,7 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
-_No changes yet._
+### Changed
+- Open the Colab example dropdown on the toy system example.
 
 ## [0.3.3] — 2026-08-29
 
