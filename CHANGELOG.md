@@ -11,6 +11,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Explain the `all` modes, `-c`, and every built-in example inside the Colab GUI.
 - Link the CLI user guide and the UMA licence/token pages from the Colab notebook.
 - Recommend `gsm` or `dmf` by node count in the Colab `--mep-mode` help.
+- Note in the Colab command line that it can be copied to another machine or driven from a
+  local Colab runtime.
 
 ## [0.3.3] — 2026-08-29
 
