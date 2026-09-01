@@ -6688,3 +6688,21 @@ def test_colab_setup_uses_the_hashed_published_pdbfixer_release() -> None:
     assert setup.count("--timeout=60") == 1
     assert setup.count("--retries=8") == 1
     assert "subprocess.run(command, timeout=" not in setup
+
+
+def test_generated_file_preview_defaults_to_the_root_summary(monkeypatch, tmp_path: Path) -> None:
+    """A scratch `_work/` summary.log must not outrank the deliverable at the root."""
+    app, _rendered = _execute_app(monkeypatch, tmp_path)
+    summary_log = tmp_path / "summary.log"
+    summary_log.write_text("mlmm summary.log\n", encoding="utf-8")
+    work_summary = tmp_path / "_work" / "path_opt" / "summary.log"
+    work_summary.parent.mkdir(parents=True)
+    work_summary.write_text("scratch summary\n", encoding="utf-8")
+    app["S"].update({
+        "_last_out_dir": str(tmp_path),
+        "_last_subcmd": "all",
+        "_last_files": [str(work_summary), str(summary_log)],
+        "_last_manifest": {"status": "success", "exit_code": 0},
+    })
+    app["_results"](str(tmp_path))
+    assert app["artifact_choice"].value == str(summary_log)

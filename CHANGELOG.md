@@ -10,6 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Open the Colab example dropdown on the toy system example.
 - Explain the `all` modes, `-c`, and every built-in example inside the Colab GUI.
 - Link the CLI user guide and the UMA licence/token pages from the Colab notebook.
+- Recommend `gsm` or `dmf` by node count in the Colab `--mep-mode` help.
 
 ## [0.3.3] — 2026-08-29
 
