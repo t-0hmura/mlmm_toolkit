@@ -8,6 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 - Open the Colab example dropdown on the toy system example.
+- Link the user guide from the Colab notebook header and point first-time users at the
+  built-in examples and the per-control info buttons.
+- Give each `all` mode its pipeline route and explain what `-c` selects.
+- Walk each built-in example through Input, Setup, Options, the pipeline it runs, what
+  every step does, and how to read the results.
 
 ## [0.3.3] — 2026-08-29
 
