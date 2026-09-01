@@ -131,7 +131,10 @@ def _css_media_body(source: str, condition: str) -> str:
 def test_installation_backend_guidance_is_explicit() -> None:
     setup = _notebook()["cells"][1]["source"]
     expected = (
-        "Recommended backend: UMA (Hugging Face licence acceptance + read token required). "
+        "Recommended backend: UMA \u2014 accept the model licence at "
+        '<a href="https://huggingface.co/facebook/UMA" target="_blank">huggingface.co/facebook/UMA</a> '
+        "and create a read token at "
+        '<a href="https://huggingface.co/settings/tokens" target="_blank">huggingface.co/settings/tokens</a>. '
         "Without a token, use ORB or MACE. Restart the runtime before switching backends. "
         "UMA uses fp32; ORB/MACE use fp64 by default."
     )
