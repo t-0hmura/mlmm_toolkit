@@ -6,18 +6,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+_No changes yet._
+
+## [0.3.4] — 2026-09-02
+
 ### Added
-- Add full-system COMT and refined-path BezA Endpoint examples to the Colab GUI.
+- Add full-system COMT and BezA Endpoint examples to the Colab GUI; BezA uses
+  recursive path refinement to report its elementary steps separately.
 
 ### Changed
-- Run the BezA endpoint example with recursive path refinement so its two
-  elementary steps are reported separately.
-- Open the Colab example dropdown on the toy system example.
-- Explain the `all` modes, `-c`, and every built-in example inside the Colab GUI.
-- Link the CLI user guide and the UMA licence/token pages from the Colab notebook.
-- Recommend `gsm` or `dmf` by node count in the Colab `--mep-mode` help.
-- Note in the Colab command line that it can be copied to another machine or driven from a
-  local Colab runtime.
+- Improve the Colab workflow guidance, built-in example walkthroughs, and
+  linked setup and runtime help.
 
 ## [0.3.3] — 2026-08-29
 
