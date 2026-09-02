@@ -94,7 +94,7 @@ def test_colab_debug2_result_workflow_is_integrated_without_regressions() -> Non
     assert "Toy system - ML/MM model (Endpoint mode)" in app
     assert "COMT O-methyltransferase - ML/MM model (Endpoint mode)" in app
     assert "Methyltransferase complex - ML/MM model (Scan-lists mode)" in app
-    assert "BezA methyltransferase - ML/MM model (Endpoint mode)" in app
+    assert "BezA methyltransferase - ML/MM model (Endpoint mode + multi-step detection)" in app
     assert "toy_system/r_toy.pdb" in app
     assert "toy_system/p_toy.pdb" in app
     assert "toy_system/p_toy.parm7" in app
