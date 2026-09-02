@@ -11,8 +11,7 @@ _No changes yet._
 ## [0.3.4] — 2026-09-02
 
 ### Added
-- Add full-system COMT and BezA Endpoint examples to the Colab GUI; BezA uses
-  recursive path refinement to report its elementary steps separately.
+- Add full-system COMT and refined-path BezA Endpoint examples to the Colab GUI.
 
 ### Changed
 - Improve the Colab workflow guidance, built-in example walkthroughs, and
