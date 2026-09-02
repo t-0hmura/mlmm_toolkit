@@ -10,7 +10,7 @@ cd -- "$work_dir"
 
 mlmm all -i "$script_dir/1.R.pdb" "$script_dir/3.P.pdb" \
   -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
-  --tsopt --thermo --out-dir result_mep > mep.log 2>&1
+  --refine-path --tsopt --thermo --out-dir result_mep > mep.log 2>&1
 
 mlmm all -i "$script_dir/1.R.pdb" \
   -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \

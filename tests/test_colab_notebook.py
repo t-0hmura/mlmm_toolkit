@@ -91,10 +91,17 @@ def test_colab_debug2_result_workflow_is_integrated_without_regressions() -> Non
 
     assert "_plot_probe_code" in setup
     assert "'show_water': True" in app
-    assert "Toy system - MEP mode (R->P)" in app
+    assert "Toy system - ML/MM model (Endpoint mode)" in app
+    assert "COMT O-methyltransferase - ML/MM model (Endpoint mode)" in app
+    assert "Methyltransferase complex - ML/MM model (Scan-lists mode)" in app
+    assert "BezA methyltransferase - ML/MM model (Endpoint mode)" in app
     assert "toy_system/r_toy.pdb" in app
     assert "toy_system/p_toy.pdb" in app
     assert "toy_system/p_toy.parm7" in app
+    assert "comt/1.R.pdb" in app
+    assert "comt/3.P.pdb" in app
+    assert "beza/1.R.pdb" in app
+    assert "beza/3.P.pdb" in app
     assert "repeat=True, show_repeat=True" in app
     assert "role = _irc_trajectory_role(path)" in app
     assert "if 'results_dir' in globals(): results_dir.value = str(out)" in app
@@ -110,6 +117,25 @@ def _css_rule_has(source: str, selector: str, *declarations: str) -> bool:
     expected = tuple(compact(declaration) for declaration in declarations)
     rules = re.findall(rf"{re.escape(selector)}\s*\{{([^{{}}]*)\}}", source)
     return any(all(declaration in compact(rule) for declaration in expected) for rule in rules)
+
+
+def test_colab_full_system_example_assets_and_refined_beza_script() -> None:
+    examples = NOTEBOOK.parent
+    for name, expected_atoms in (("comt", 3420), ("beza", 9215)):
+        for endpoint in ("1.R.pdb", "3.P.pdb"):
+            text = (examples / name / endpoint).read_text(encoding="utf-8")
+            atoms = sum(
+                line.startswith(("ATOM  ", "HETATM")) for line in text.splitlines()
+            )
+            assert atoms == expected_atoms
+
+    beza_script = (examples / "beza" / "run.sh").read_text(encoding="utf-8")
+    endpoint_command = beza_script.split("mlmm all", 2)[1]
+    assert "--refine-path" in endpoint_command
+
+    comt_script = (examples / "comt" / "run.sh").read_text(encoding="utf-8")
+    assert "-c 'CAT,SAM,MG'" in comt_script
+    assert "-l 'CAT:-1,SAM:0,MG:2' -r 4.0" in comt_script
 
 
 def _css_media_body(source: str, condition: str) -> str:
@@ -3786,26 +3812,68 @@ def test_colab_operates_scientific_selectors_and_remaining_buttons(
     assert {path.name for path in current_files} <= members
 
     app["_example_file"] = lambda relpath: str(NOTEBOOK.parent / relpath)
-    assert app["ex_choice"].value == "Toy system - MEP mode (R->P)"
+    assert app["ex_choice"].value == "Toy system - ML/MM model (Endpoint mode)"
     for choice in app["ex_choice"].options:
         app["S"]["out_dir"] = "./custom-output/"
         app["w_out"].value = "./custom-output/"
         app["ex_choice"].value = choice
         app["ex_btn"].click()
         assert app["S"]["inputs"], choice
-        assert app["S"]["parm"] and Path(app["S"]["parm"]).is_file()
         assert "⚠️" not in app["example_msg"].value
         assert app["S"]["subcmd"] == "all"
         assert app["S"]["out_dir"] == "./result_all/"
         assert app["w_out"].value == "./result_all/"
         if choice.startswith("Toy system"):
+            assert app["S"]["parm"] and Path(app["S"]["parm"]).is_file()
+            assert app["prep_radius"].value == pytest.approx(2.6)
             assert app["all_mode"].value == "mep"
             assert app["S"]["tsopt"] is True
             assert app["S"]["thermo"] is True
+            assert app["adv_refine"].value is False
             command = app["build_cmd"]()
             assert command[:2] == ["mlmm", "all"]
             assert command.count("--tsopt") == 1
             assert command.count("--thermo") == 1
+        elif choice.startswith("COMT"):
+            assert len(app["S"]["inputs"]) == 2
+            assert app["S"]["parm"] is None
+            assert app["S"]["center"] == ["CAT", "SAM", "MG"]
+            assert app["S"]["lcharge"] == {"CAT": -1, "SAM": 0}
+            assert app["prep_radius"].value == pytest.approx(4.0)
+            assert app["all_mode"].value == "mep"
+            assert app["adv_refine"].value is False
+            assert "3,420-atom full system" in app["example_msg"].value
+            assert "COMT is a catechol O-methyltransferase" in app["example_about"].value
+            app["w_charge_ok"].value = True
+            command = app["build_cmd"]()
+            assert command[:2] == ["mlmm", "all"]
+            assert float(command[command.index("-r") + 1]) == pytest.approx(4.0)
+            assert command[command.index("-l") + 1] == "CAT:-1,MG:2,SAM:0"
+            assert "--parm" not in command and "--refine-path" not in command
+            assert {"--tsopt", "--thermo"} <= set(command)
+        elif choice.startswith("BezA"):
+            assert len(app["S"]["inputs"]) == 2
+            assert app["S"]["parm"] is None
+            assert app["S"]["center"] == ["SAM", "GPP", "MG"]
+            assert app["S"]["lcharge"] == {"SAM": 1, "GPP": -3}
+            assert app["prep_radius"].value == pytest.approx(2.6)
+            assert app["all_mode"].value == "mep"
+            assert app["adv_refine"].value is True
+            assert "--refine-path is on" in app["example_about"].value
+            assert "proton abstraction from GPP by Glu186" in app["example_about"].value
+            app["w_charge_ok"].value = True
+            command = app["build_cmd"]()
+            assert command[:2] == ["mlmm", "all"]
+            assert float(command[command.index("-r") + 1]) == pytest.approx(2.6)
+            assert command[command.index("-l") + 1] == "GPP:-3,MG:2,SAM:1"
+            assert "--parm" not in command and "--refine-path" in command
+            assert {"--tsopt", "--thermo"} <= set(command)
+        else:
+            assert app["S"]["parm"] and Path(app["S"]["parm"]).is_file()
+            assert app["prep_radius"].value == pytest.approx(2.6)
+            assert app["all_mode"].value == "scan"
+            assert app["adv_refine"].value is False
+            assert "Scan-lists mode" in app["example_about"].value
 
 
 def test_colab_stop_child_reaps_after_disappeared_process_group(
