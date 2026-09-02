@@ -78,8 +78,8 @@ mlmm sp -i complex.pdb --parm system.parm7 --calc-file my_calc.py -q 0 -m 1
 
 `fairchem-core` (UMA) and `mace-torch` pin **different `e3nn` versions**
 which cannot coexist. Solution: keep UMA in your default env (`<env_a>`)
-and put MACE in a second env (`<env_b>`). Other backends (Orb, AIMNet2,
-DFT, xTB) can sit in either.
+and put MACE in a second env (`<env_b>`). Current Orb uses the Python 3.12
+default environment; AIMNet2, DFT, and xTB can sit in either.
 
 `mlmm-toolkit` itself is the same code in both envs; only the calculator
 plugin set differs.
@@ -87,7 +87,8 @@ plugin set differs.
 ## Conda env templates
 
 Replace `<...>` with the values you discovered in `env-detect`. The
-templates assume `python=3.11`; `mlmm-toolkit` requires Python ≥ 3.11.
+The combined-backend template uses `python=3.12` for current ORB;
+`mlmm-toolkit` itself requires Python ≥ 3.11.
 
 `env_mlmm.yml` (UMA / Orb / AIMNet2 / DFT / xTB):
 
@@ -95,12 +96,12 @@ templates assume `python=3.11`; `mlmm-toolkit` requires Python ≥ 3.11.
 name: <your_mlmm_env>
 channels: [conda-forge, nvidia]
 dependencies:
-  - python=3.11
+  - python=3.12
   - xtb                                # only for the experimental MLIP/MM correction
   - pip
   - pip:
       - --extra-index-url https://download.pytorch.org/whl/<cu_index>
-      - torch==2.8.0
+      - torch==2.13.0
       - mlmm-toolkit[orb,aimnet,dft]   # extras: see core.md / per-backend md
 ```
 
@@ -114,7 +115,7 @@ dependencies:
   - pip
   - pip:
       - --extra-index-url https://download.pytorch.org/whl/<cu_index>
-      - torch==2.8.0
+      - torch==2.13.0
       - mlmm-toolkit  # install core first; finish the backend swap below
 ```
 
@@ -131,8 +132,8 @@ pip install mace-torch
 `e3nn==0.4.4`; installing `mlmm-toolkit` after MACE would replace it with
 `fairchem-core`'s incompatible `e3nn>=0.5`.
 
-`<cu_index>` is one of `cpu`, `cu126`, `cu128`, `cu129` — the indexes in
-PyTorch's official 2.8.0 matrix. See `env-cuda.md`.
+`<cu_index>` is one of `cpu`, `cu126`, `cu130`, `cu132` — the indexes in
+PyTorch's official 2.13.0 matrix. See `env-cuda.md`.
 
 ## Verify the install
 
@@ -165,7 +166,7 @@ go back to `env-cuda.md`.
 | `RuntimeError: CUDA out of memory` during freq | Active Hessian exceeds available memory | Reduce the active region, keep `return_partial_hessian: True`, and compare Analytical with FiniteDifference on a pilot |
 
 ## See also
-`pyproject.toml` lists the canonical extras and version pins. To inspect
+`pyproject.toml` lists the canonical extras and required compatibility constraints. To inspect
 without opening the file:
 
 ```bash

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 import torch
 
@@ -64,6 +66,46 @@ def test_each_model_is_announced_once(capsys, monkeypatch) -> None:
     assert out.count("Preparing MLIP model") == 2
     assert "(UMA / UMA-S-1.2 (OMol))" in out
     assert "(UMA / UMA-M-1.1 (OMol))" in out
+
+
+def test_factory_forwards_analytical_hessian_requirement(monkeypatch) -> None:
+    monkeypatch.setattr(mlmm_calc, "_UMABackend", _StubBackend)
+
+    created = _create("uma", analytical_hessian=True)
+
+    assert created.kwargs["analytical_hessian"] is True
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected"),
+    [("Analytical", True), ("FiniteDifference", False)],
+)
+def test_mlmmcore_forwards_effective_hessian_mode_to_backend(
+    monkeypatch, mode, expected
+) -> None:
+    captured = {}
+
+    def fake_create(_backend, **kwargs):
+        captured.update(kwargs)
+        return _StubBackend(**kwargs)
+
+    monkeypatch.setattr(mlmm_calc, "_create_ml_backend", fake_create)
+    monkeypatch.setattr(
+        mlmm_calc, "hessianffCalculator", lambda **_kwargs: object()
+    )
+    example = Path(__file__).resolve().parents[1] / "examples" / "toy_system"
+    core = mlmm_calc.MLMMCore(
+        input_pdb=str(example / "r_complex.pdb"),
+        real_parm7=str(example / "p_toy.parm7"),
+        model_pdb=str(example / "ml_region_r.pdb"),
+        model_charge=-1,
+        ml_device="cpu",
+        hessian_calc_mode=mode,
+    )
+    try:
+        assert captured["analytical_hessian"] is expected
+    finally:
+        core.cleanup()
 
 
 def test_uma_task_is_part_of_the_model_announcement(capsys, monkeypatch) -> None:

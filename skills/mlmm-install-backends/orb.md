@@ -6,6 +6,8 @@ frequencies on the target system before selecting it for a workflow.
 
 ## Install
 
+Use Python 3.12 for the current `orb-models` 0.7 release.
+
 ```bash
 pip install 'mlmm-toolkit[orb]'         # pulls orb-models
 ```

@@ -266,7 +266,7 @@ def save_outputs(
             emit(f"[trj2fig] Saved figure -> {out}", detail=True)
         elif ext in {".png", ".jpg", ".jpeg", ".pdf", ".svg"}:
             assert fig is not None
-            kw = {"engine": "kaleido"}
+            kw = {}
             if ext == ".png":
                 kw["scale"] = 2  # high-resolution PNG
             write_plotly_image(fig, out, **kw)

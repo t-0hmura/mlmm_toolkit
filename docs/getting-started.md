@@ -68,10 +68,10 @@ Full table: [CLI Conventions](cli-conventions.md).
 # 0. Clone only for editable development or repository examples; skip for a released wheel
 git clone https://github.com/t-0hmura/mlmm_toolkit.git && cd mlmm_toolkit
 
-# 1. New env + AmberTools + CUDA-enabled PyTorch (match your CUDA runtime)
-conda create -n mlmm-toolkit python=3.11 -y && conda activate mlmm-toolkit
+# 1. New env + AmberTools + PyTorch (choose for the NVIDIA driver and GPU architecture)
+conda create -n mlmm-toolkit python=3.12 -y && conda activate mlmm-toolkit
 conda install -c conda-forge ambertools pdbfixer -y
-pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu129
+pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cu130
 
 # 2a. Released wheel
 pip install mlmm-toolkit

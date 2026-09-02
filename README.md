@@ -54,9 +54,9 @@ Required external tools: **AmberTools** (`tleap`) and **GCC >= 9** (the default 
 
 ```bash
 # 1. New env + AmberTools + CUDA-enabled PyTorch
-conda create -n mlmm-toolkit python=3.11 -y && conda activate mlmm-toolkit
+conda create -n mlmm-toolkit python=3.12 -y && conda activate mlmm-toolkit
 conda install -c conda-forge ambertools pdbfixer -y
-pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu129
+pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cu130
 
 # 2. mlmm-toolkit (editable from a local clone, or `pip install mlmm-toolkit`)
 pip install -e .

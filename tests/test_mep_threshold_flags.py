@@ -154,6 +154,37 @@ def test_all_show_config_reports_each_threshold_owner(tmp_path: Path) -> None:
     assert "Elapsed Time for Whole Pipeline" not in result.output
 
 
+@pytest.mark.parametrize(
+    ("mode_args", "expected_post"),
+    [
+        ([], "hess"),
+        (["--opt-mode", "grad"], "grad"),
+        (["--opt-mode", "hess", "--opt-mode-post", "grad"], "grad"),
+    ],
+)
+def test_all_show_config_reports_effective_optimizer_modes(
+    tmp_path: Path,
+    mode_args: list[str],
+    expected_post: str,
+) -> None:
+    smoke = Path(__file__).resolve().parent / "smoke"
+    result = CliRunner().invoke(
+        root_cli,
+        [
+            "all", "-i", str(smoke / "r_complex_layered.pdb"),
+            str(smoke / "p_complex_layered.pdb"),
+            "--parm", str(smoke / "p_complex.parm7"),
+            "-q", "-1", "-m", "1", "--show-config", "--dry-run",
+            "--out-dir", str(tmp_path / "all"), *mode_args,
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "path_opt_mode: grad" in result.output
+    assert f"post_opt_mode: {expected_post}" in result.output
+    assert f"opt_mode_post: {expected_post}" in result.output
+
+
 @pytest.mark.parametrize("command", ["path-opt", "path-search"])
 def test_explicit_gsm_param_overrides_yaml(tmp_path: Path, command: str) -> None:
     smoke = Path(__file__).resolve().parent / "smoke"

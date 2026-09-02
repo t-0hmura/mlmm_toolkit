@@ -140,15 +140,15 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
         "列 77–78 を除き、各入力行はそのまま\n保持されます",
     ),
     Path("skills/mlmm-install-backends/SKILL.md"): (
-        "torch==2.8.0",
-        "`cpu`, `cu126`, `cu128`, `cu129`",
+        "torch==2.13.0",
+        "`cpu`, `cu126`, `cu130`, `cu132`",
     ),
     Path("skills/mlmm-install-backends/env-cuda.md"): (
-        "torch==2.8.0",
-        "`cu126`, `cu128`, `cu129`, and `cpu`",
+        "torch==2.13.0",
+        "`cu126`, `cu130`, `cu132`, and `cpu`",
         "does not require a\nmatching local CUDA toolkit",
     ),
-    Path("skills/mlmm-install-backends/mace.md"): ("torch==2.8.0",),
+    Path("skills/mlmm-install-backends/mace.md"): ("torch==2.13.0",),
     Path("docs/device-hpc.md"): (
         "g++ -dumpversion",
         "command -v ninja",

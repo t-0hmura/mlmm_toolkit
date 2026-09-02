@@ -8,6 +8,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 _No changes yet._
 
+## [0.3.5] — 2026-09-02
+
+### Changed
+- Support fairchem-core 2.22 and current compatible runtime dependencies.
+
+### Fixed
+- Restore AIMNet2 evaluation and static image export with current releases.
+- Report path and post-processing optimizer modes separately in `summary.log`.
+
 ## [0.3.4] — 2026-09-02
 
 ### Added

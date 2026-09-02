@@ -680,6 +680,24 @@ def test_energy_diagram_preserves_equals_attached_and_grouped_values(
     assert output.exists()
 
 
+def test_trj2fig_static_export_uses_current_plotly_api(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mlmm.io import trj2fig
+
+    captured: dict[str, object] = {}
+
+    def _capture(_figure, path, **kwargs):
+        captured["path"] = path
+        captured["kwargs"] = kwargs
+
+    monkeypatch.setattr(trj2fig, "write_plotly_image", _capture)
+    output = tmp_path / "profile.png"
+    trj2fig.save_outputs([output], object(), [0.0], [0.0], "kcal", True)
+
+    assert captured == {"path": output, "kwargs": {"scale": 2}}
+
+
 @pytest.mark.parametrize(
     ("command_name", "base_args"),
     [

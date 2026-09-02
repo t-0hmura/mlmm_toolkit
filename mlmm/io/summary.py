@@ -1023,8 +1023,22 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
     dft_func_basis = payload.get("dft_func_basis")
     if dft_func_basis:
         lines.append(f"DFT functional/basis: {dft_func_basis}")
-    opt_mode_disp = payload.get("opt_mode") or "-"
-    lines.append(f"Opt mode           : {opt_mode_disp}")
+    path_opt_mode = payload.get("path_opt_mode") or payload.get("opt_mode") or "-"
+    post_opt_mode = (
+        payload.get("post_opt_mode")
+        or payload.get("opt_mode_post")
+        or payload.get("opt_mode")
+        or "-"
+    )
+    if not ts_only:
+        lines.append(
+            f"Opt mode (path)    : {path_opt_mode}  (grad: lbfgs; hess: rfo)"
+        )
+    if ts_only or payload.get("tsopt"):
+        lines.append(
+            f"Opt mode (post)    : {post_opt_mode}  "
+            "(grad: dimer/lbfgs; hess: rsprfo/rfo)"
+        )
     lines.append(f"MEP mode           : {payload.get('mep_mode') or '-'}")
 
     version_base = payload.get("code_version") or __version__

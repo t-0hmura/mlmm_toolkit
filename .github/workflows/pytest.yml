@@ -7,6 +7,39 @@ on:
     branches: [main]
 
 jobs:
+  optional-dependency-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Resolve CPU-installable optional backends
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -e ".[orb,aimnet,mcp]"
+          python -m pip check
+
+      - name: Probe optional APIs
+        run: |
+          python - <<'PY'
+          from importlib.metadata import version
+          import orb_models
+          from aimnet.calculators import AIMNet2ASE, AIMNet2Calculator
+          from mlmm.mcp.server import mcp
+
+          assert orb_models is not None
+          assert AIMNet2ASE is not None and AIMNet2Calculator is not None
+          assert mcp is not None
+          for package in ("orb-models", "aimnet", "mcp"):
+              print(f"{package}=={version(package)}")
+          PY
+
   pytest:
     runs-on: ubuntu-latest
     strategy:
@@ -24,13 +57,13 @@ jobs:
       - name: Install mlmm with dev extras
         run: |
           python -m pip install --upgrade pip
-          pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu
+          pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cpu
           pip install -e . --no-deps
           pip install click pyyaml numpy biopython scipy ase \
             autograd dask distributed h5py fabric jinja2 joblib \
             matplotlib natsort psutil rmsd sympy scikit-learn \
             pandas tabulate plotly kaleido ParmEd openmm \
-            'pymsym>=0.3.5,<0.4' \
+            pymsym \
             ipywidgets pytest pytest-cov pytest-timeout
         timeout-minutes: 15
 

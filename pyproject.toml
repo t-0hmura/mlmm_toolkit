@@ -38,7 +38,7 @@ classifiers = [
 dependencies = [
     # mlmm core dependencies
     "fairchem-core",
-    "torch~=2.8.0",
+    "torch",
     # hessian_ff JIT-compiles its C++ kernels through torch.utils.cpp_extension,
     # which on torch >= 2.x requires Ninja and no longer has a distutils fallback.
     # The pip `ninja` wheel ships a binary for every platform (incl. linux-aarch64),
@@ -48,12 +48,12 @@ dependencies = [
     # imports them and current fairchem-core does not require them. torch_scatter
     # ships only as an sdist whose setup.py imports torch, which fails under PEP
     # 517 build isolation and breaks a clean `pip install`.
-    "numpy>=2.0,<2.5",
-    "biopython>=1.80,<2.0",
-    "ase>=3.26.0",
+    "numpy",
+    "biopython",
+    "ase",
     "ParmEd>=4.3.1",
-    "pyyaml>=6.0,<7.0",
-    "click>=8.1,<9.0",
+    "pyyaml",
+    "click",
     "plotly>=6.1.1",
     "kaleido",
 
@@ -73,11 +73,11 @@ dependencies = [
 
     # thermoanalysis dependencies (bundled)
     "pandas",
-    "pymsym>=0.3.5,<0.4",
+    "pymsym",
 ]
 
 [project.optional-dependencies]
-orb = ["orb-models"]
+orb = ["orb-models>=0.7.0"]
 aimnet = ["aimnet>=0.2.0"]
 pdbfixer = ["pdbfixer"]
 openmm = ["openmm"]
@@ -100,7 +100,7 @@ docs = [
     "sphinx-copybutton>=0.5",
 ]
 mcp = [
-    "mcp[cli]>=1.0",
+    "mcp[cli]>=1.29,<2",
 ]
 
 [project.urls]

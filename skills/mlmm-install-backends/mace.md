@@ -16,7 +16,7 @@ conda create -n <your_mace_mlmm_env> python=3.11
 conda activate <your_mace_mlmm_env>
 
 # torch matching your CUDA driver (see env-cuda.md)
-pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/<cu_index>
+pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/<cu_index>
 
 # Install mlmm first, then replace its incompatible UMA dependency with MACE.
 pip install mlmm-toolkit

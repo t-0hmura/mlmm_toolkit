@@ -107,7 +107,7 @@ mlmm-toolkit は以下のコンポーネントを使用します:
 
 ### クイックスタート
 
-以下は多くの CUDA 12.9 クラスターで動作する最小限のセットアップ例です。この例はトポロジーを自動生成するデフォルトの `all` ルートと GSM MEP モード（DMF なし）を想定しています。先に AmberTools をインストールしてください。DMF を使用する場合は `cyipopt` と `pydmf>=1.2` も必要です。
+以下は PyTorch 2.13 の `cu130` wheel を使う最小セットアップ例です。実環境では NVIDIA driver と GPU architecture に対応する index を選んでください。この例はトポロジーを自動生成するデフォルトの `all` ルートと GSM MEP モード（DMF なし）を想定しています。先に AmberTools をインストールしてください。DMF を使用する場合は `cyipopt` と `pydmf>=1.2` も必要です。
 
 ```bash
 # 1) AmberTools と CUDA 対応の PyTorch ビルドをインストール
@@ -116,7 +116,7 @@ mlmm-toolkit は以下のコンポーネントを使用します:
 # 4) Plotly 図表エクスポート用のヘッドレス Chrome をインストール
 
 conda install -c conda-forge ambertools -y
-pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu129
+pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cu130
 pip install mlmm-toolkit
 
 # オプション: 代替 MLIP バックエンドのインストール
@@ -156,7 +156,7 @@ huggingface-cli login
 - MEP 探索で Direct Max Flux (DMF) 法を使用する場合は、mlmm のインストール前に conda 環境を作成して `cyipopt` と `pydmf>=1.2` をインストールしてください。
   ```bash
   # 専用の conda 環境を作成してアクティブ化
-  conda create -n mlmm python=3.11 -y
+  conda create -n mlmm python=3.12 -y
   conda activate mlmm
 
   # cyipopt と pydmf をインストール（MEP 探索の DMF 法に必要）
@@ -179,7 +179,7 @@ huggingface-cli login
 2. **conda 環境を作成してアクティブ化**
 
     ```bash
-    conda create -n mlmm python=3.11 -y
+    conda create -n mlmm python=3.12 -y
     conda activate mlmm
     ```
 
@@ -199,7 +199,7 @@ huggingface-cli login
 5. **適切な CUDA ビルドの PyTorch をインストール**
 
     ```bash
-    pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu129
+    pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cu130
     ```
 
 6. **mlmm 本体をインストール**

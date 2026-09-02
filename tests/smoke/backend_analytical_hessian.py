@@ -58,6 +58,7 @@ def main() -> None:
             precision="fp32",
             workers=1,
             workers_per_node=1,
+            analytical_hessian=True,
             model_charge=0,
             model_mult=1,
             ml_device=torch.device("cuda"),

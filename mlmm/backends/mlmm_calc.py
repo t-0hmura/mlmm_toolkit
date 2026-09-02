@@ -369,6 +369,7 @@ class _UMABackend(_MLBackend):
         precision: str = "fp32",
         workers: int = 1,
         workers_per_node: int = 1,
+        analytical_hessian: bool = False,
     ):
         if not HAS_FAIRCHEM:
             raise ImportError(
@@ -395,11 +396,20 @@ class _UMABackend(_MLBackend):
         self.workers_per_node = max(int(workers_per_node or 1), 1)
         self.parallel_predict = self.workers > 1
 
-        _uma_inference_settings = (
-            _UMAInferenceSettings(base_precision_dtype="float64")
-            if self.precision == "fp64" and _UMAInferenceSettings is not None
-            else None
-        )
+        _uma_inference_settings = None
+        if _UMAInferenceSettings is not None and (
+            self.precision == "fp64" or analytical_hessian
+        ):
+            # FAIR-Chem 2.22's named default enables torch.compile. The
+            # compiled backward does not support the double backward used by
+            # ML/MM analytical Hessians, so that route requests the public
+            # non-compiled settings object explicitly.
+            _uma_inference_settings = _UMAInferenceSettings(
+                compile=False,
+                base_precision_dtype=(
+                    "float64" if self.precision == "fp64" else "float32"
+                )
+            )
         if self.parallel_predict:
             # ParallelMLIPPredictUnit spreads inference over `workers` processes but
             # does NOT expose `.model`; analytical Hessians are therefore unavailable
@@ -502,9 +512,11 @@ class _UMABackend(_MLBackend):
             batch = self._data_list_collater([data], otf_graph=True)
             res = self.predictor.predict(batch)
             return res, batch
-        data = data.to(self._device)
-        batch = self._data_list_collater([data], otf_graph=True).to(self._device)
-        pos = batch.pos.detach().clone().to(self._device)
+        # FAIR-Chem owns the device transfer. Since 2.22 its first prediction
+        # prepares the still-CPU model from this batch before moving both to
+        # the execution device.
+        batch = self._data_list_collater([data], otf_graph=True)
+        pos = batch.pos.detach().clone()
         pos.requires_grad_(need_grad)
         batch.pos = pos
         if need_grad:
@@ -567,7 +579,9 @@ class _UMABackend(_MLBackend):
                     f"`--hessian-calc-mode FiniteDifference` (the default), or use "
                     f"a GPU with more memory / a smaller ML region."
                 ) from _oom
-            H = H_flat.view(n_atoms, 3, n_atoms, 3).to(dtype).detach()
+            H = H_flat.view(n_atoms, 3, n_atoms, 3).to(
+                device=self._device, dtype=dtype
+            ).detach()
             # release the autograd-graph-bearing source tensor immediately so
             # the cast scratch peak (= 2× hessian) collapses to 1×.
             del H_flat
@@ -951,39 +965,33 @@ class _AIMNet2Backend(_ASEMLBackend):
                 "aimnet is required for the AIMNet2 backend. "
                 "Install with `pip install aimnet`."
             )
-        from aimnet.calculators import AIMNet2Calculator
+        from aimnet.calculators import AIMNet2ASE, AIMNet2Calculator
 
         device_str = str(ml_device)
-        self._ase_calc = AIMNet2Calculator(model=aimnet2_model, device=device_str)
+        self._aimnet_base_calc = AIMNet2Calculator(
+            model=aimnet2_model,
+            device=device_str,
+        )
+        self._ase_calc = AIMNet2ASE(
+            base_calc=self._aimnet_base_calc,
+            charge=model_charge,
+            mult=model_mult,
+        )
         self._device = ml_device
         self._model_charge = model_charge
         self._model_mult = model_mult
 
     @property
     def supports_analytical_hessian(self) -> bool:
-        return callable(self._ase_calc)
+        return callable(getattr(self._ase_calc, "get_hessian", None))
 
     def hessian_analytical(
         self, opaque: Any, n_atoms: int, *, dtype: torch.dtype
     ) -> torch.Tensor:
         """Return AIMNet2's native analytical Hessian in eV/Å²."""
         atoms = opaque
-        data = {
-            "coord": np.asarray(
-                atoms.get_positions(), dtype=np.float32
-            ).reshape(-1, 3),
-            "numbers": np.asarray(
-                atoms.get_atomic_numbers(), dtype=np.int64
-            ).reshape(-1),
-            "charge": np.asarray(
-                [float(self._model_charge)], dtype=np.float32
-            ),
-            "mult": np.asarray(
-                [float(self._model_mult)], dtype=np.float32
-            ),
-        }
         try:
-            result = self._ase_calc(data, forces=True, hessian=True)
+            hessian = self._ase_calc.get_hessian(atoms)
         except (torch.cuda.OutOfMemoryError, RuntimeError) as exc:
             if "out of memory" in str(exc).lower():
                 raise RuntimeError(
@@ -991,14 +999,6 @@ class _AIMNet2Backend(_ASEMLBackend):
                     "hessian_calc_mode='FiniteDifference'."
                 ) from exc
             raise RuntimeError(f"AIMNet2 analytical Hessian failed: {exc}") from exc
-        hessian = None
-        if isinstance(result, (list, tuple)) and len(result) > 2:
-            hessian = result[2]
-        elif isinstance(result, dict):
-            for key in ("hessian", "Hessian", "hess", "hessians"):
-                if key in result:
-                    hessian = result[key]
-                    break
         if hessian is None:
             raise RuntimeError(
                 "AIMNet2 did not return an analytical Hessian; use "
@@ -1091,6 +1091,7 @@ def _create_ml_backend(
     model_charge: int = 0,
     model_mult: int = 1,
     ml_device: torch.device,
+    analytical_hessian: bool = False,
 ) -> _MLBackend:
     """Factory function to create the appropriate ML backend."""
     model_mult = int(model_mult)
@@ -1128,6 +1129,7 @@ def _create_ml_backend(
                 precision=uma_precision,
                 workers=workers,
                 workers_per_node=workers_per_node,
+                analytical_hessian=analytical_hessian,
             )
     elif backend == "orb":
         with _announce_model_load(backend, orb_model):
@@ -2161,6 +2163,7 @@ class MLMMCore:
                 model_charge=self.model_charge,
                 model_mult=self.model_mult,
                 ml_device=self.ml_device,
+                analytical_hessian=(hessian_calc_mode == "Analytical"),
             )
 
         # Point-charge embedding correction
