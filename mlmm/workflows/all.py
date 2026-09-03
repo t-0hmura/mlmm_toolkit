@@ -1340,12 +1340,12 @@ def _is_reactive_segment(item: Any) -> bool:
 
 
 def _read_irc_outcome(irc_dir: Path) -> Dict[str, Any]:
-    """Read the IRC child's ``result.json`` into a fail-closed usability record.
+    """Read the IRC child's ``result.json`` into a fail-closed execution record.
 
-    The IRC leaf is *usable* only when the child reports ``scientific_status ==
-    "success"`` — i.e. every requested direction explicitly converged. A
-    missing / unreadable result, or any nonconverged requested direction, yields
-    ``usable=False`` while the endpoint trajectory remains a reportable artifact.
+    A normally stopped finite/downhill trajectory is usable input to the
+    endpoint optimizations.  Endpoint stationarity remains diagnostic and does
+    not decide the composite result.  Missing metadata/trajectory, invalid
+    downhill departure, or numerical integration failure remain unusable.
     """
 
     outcome: Dict[str, Any] = {
@@ -1354,6 +1354,8 @@ def _read_irc_outcome(irc_dir: Path) -> Dict[str, Any]:
         "scientific_status": None,
         "forward_converged": None,
         "backward_converged": None,
+        "forward_status": None,
+        "backward_status": None,
         "n_frames_forward": None,
         "n_frames_backward": None,
         "traj": None,
@@ -1374,14 +1376,39 @@ def _read_irc_outcome(irc_dir: Path) -> Dict[str, Any]:
     outcome["scientific_status"] = sci
     outcome["forward_converged"] = data.get("forward_converged")
     outcome["backward_converged"] = data.get("backward_converged")
+    outcome["forward_status"] = data.get("forward_status")
+    outcome["backward_status"] = data.get("backward_status")
     outcome["n_frames_forward"] = data.get("n_frames_forward")
     outcome["n_frames_backward"] = data.get("n_frames_backward")
     _files = data.get("files") if isinstance(data.get("files"), dict) else {}
     outcome["traj"] = _files.get("finished_irc")
 
-    if sci == "success":
+    _direction_status_valid = True
+    for _direction in ("forward", "backward"):
+        _requested = data.get(f"{_direction}_requested")
+        _status = data.get(f"{_direction}_status")
+        if not isinstance(_requested, bool) or _status != (
+            "stopped" if _requested else "disabled"
+        ):
+            _direction_status_valid = False
+    _traj_path = Path(str(outcome["traj"])) if outcome["traj"] else None
+    if _traj_path is not None and not _traj_path.is_absolute():
+        _traj_path = irc_dir / _traj_path
+    _trajectory_valid = bool(
+        _traj_path is not None
+        and _traj_path.is_file()
+        and _traj_path.stat().st_size > 0
+    )
+
+    if sci == "success" and _direction_status_valid and _trajectory_valid:
         outcome["usable"] = True
-        outcome["reason"] = "ok"
+        outcome["reason"] = "stopped"
+    elif sci == "success" and not _direction_status_valid:
+        outcome["usable"] = False
+        outcome["reason"] = "irc_direction_status_invalid"
+    elif sci == "success":
+        outcome["usable"] = False
+        outcome["reason"] = "irc_trajectory_missing"
     elif isinstance(sci, str):
         outcome["usable"] = False
         reasons = data.get("scientific_status_reasons")
@@ -1477,12 +1504,11 @@ def _pipeline_aggregate_truth(
     """Compose the ``all``-pipeline aggregate from per-segment leaves.
 
     One required :class:`LeafOutcome` is built per reactive segment. A path
-    segment is usable only when its MEP and every post-processing convergence
-    signal are explicitly ``True``. A direct TSOPT segment has no MEP stage, so
-    it is gated by its IRC and, when present, both endpoint optimizations. A
-    dict-present / trajectory-present but nonconverged leaf never counts toward
-    fail-closed completeness — a never_stop / max-cycle IRC therefore
-    cannot yield ``scientific_status == "success"``.
+    segment is usable only when its MEP, exact TS order, endpoint optimizations,
+    and optimized endpoint topology are accepted. A direct TSOPT segment has no
+    MEP/topology gate. Raw IRC endpoint stationarity and pre-optimization
+    endpoint assignment remain diagnostics; finite downhill propagation without
+    an integration failure is usable input to endpoint optimization.
 
     The convergence-gated aggregate is then composed with the legacy completeness
     axis (``legacy_status`` from :func:`_derive_pipeline_status`, which already
@@ -1590,32 +1616,32 @@ def _pipeline_aggregate_truth(
                 converged = _and3(converged, None)
                 if not reason:
                     reason = "irc_missing"
-            if tsopt_requested and s.get("kind") != "tsopt":
-                endpoint_assignment = post.get("endpoint_assignment")
-                connectivity = (
-                    endpoint_assignment.get("connectivity_validated")
-                    if isinstance(endpoint_assignment, dict)
-                    else None
-                )
-                connectivity_truth = (
-                    connectivity if isinstance(connectivity, bool) else None
-                )
-                converged = _and3(converged, connectivity_truth)
-                if connectivity_truth is not True and not reason:
-                    reason = "irc_endpoint_connectivity_unvalidated"
             eo = post.get("endpoint_opt")
             if isinstance(eo, dict):
-                for _k in (
-                    "reactant_converged",
-                    "product_converged",
-                    "endpoint_1_converged",
-                    "endpoint_2_converged",
-                ):
-                    if _k in eo:
-                        _v = eo.get(_k)
-                        converged = _and3(converged, _v if isinstance(_v, bool) else None)
-                        if not (isinstance(_v, bool) and _v) and not reason:
-                            reason = f"endpoint_opt:{_k}"
+                _endpoint_keys = (
+                    ("endpoint_1_converged", "endpoint_2_converged")
+                    if s.get("kind") == "tsopt"
+                    else ("reactant_converged", "product_converged")
+                )
+                for _k in _endpoint_keys:
+                    _v = eo.get(_k)
+                    converged = _and3(converged, _v if isinstance(_v, bool) else None)
+                    if not (isinstance(_v, bool) and _v) and not reason:
+                        reason = f"endpoint_opt:{_k}"
+                if tsopt_requested and s.get("kind") != "tsopt":
+                    _connectivity = eo.get("connectivity_validated")
+                    _connectivity_truth = (
+                        _connectivity
+                        if isinstance(_connectivity, bool)
+                        else None
+                    )
+                    converged = _and3(converged, _connectivity_truth)
+                    if _connectivity_truth is not True and not reason:
+                        reason = "optimized_endpoint_connectivity_unvalidated"
+            elif tsopt_requested:
+                converged = _and3(converged, None)
+                if not reason:
+                    reason = "endpoint_opt_missing"
         elif post_requested:
             # tsopt was requested but this segment's IRC/endpoint post-processing
             # has not run yet (the intermediate MEP summary is written before
@@ -2428,6 +2454,48 @@ def _orient_irc_endpoint_geometries(
     )
 
 
+def _validate_optimized_endpoint_pair(
+    g_reactant: Any,
+    g_product: Any,
+    g_mep_reactant: Any,
+    g_mep_product: Any,
+) -> Dict[str, Any]:
+    """Validate optimized R/P topology against the assigned MEP endpoints."""
+
+    try:
+        *_, probe = _orient_irc_endpoint_geometries(
+            g_reactant,
+            g_product,
+            g_mep_reactant,
+            g_mep_product,
+        )
+    except Exception as exc:
+        return {
+            "source": "optimized_endpoints",
+            "method": "unresolved",
+            "connectivity_validated": False,
+            "reason": f"optimized_endpoint_validation_failed:{exc}",
+        }
+    matrix = probe.get("match_matrix") if isinstance(probe, dict) else None
+    direct = bool(
+        isinstance(matrix, dict)
+        and matrix.get("left_to_mep_left") is True
+        and matrix.get("right_to_mep_right") is True
+    )
+    result: Dict[str, Any] = {
+        "source": "optimized_endpoints",
+        "method": "bond_topology",
+        "connectivity_validated": direct,
+        "match_matrix": matrix,
+    }
+    if not direct:
+        result["reason"] = (
+            "optimized reactant/product did not match their assigned MEP "
+            "endpoint bond topologies"
+        )
+    return result
+
+
 def _irc_and_match(seg_idx: int,
                    seg_dir: Path,
                    ref_pdb_for_seg: Path,
@@ -2682,12 +2750,12 @@ def _irc_and_match(seg_idx: int,
             "irc_plot": str(current_plot) if current_plot is not None else None,
             "reverse_irc": reverse_irc,
             "endpoint_assignment": endpoint_assignment,
+            "mep_left_geom": gL_end,
+            "mep_right_geom": gR_end,
             "calculator_lease": lease,
-            # the child's per-direction convergence. The IRC leaf
-            # is usable only when EVERY requested direction explicitly converged; a
-            # trajectory can exist for a nonconverged (never_stop / max-cycle)
-            # direction, so aggregate promotion must gate on this, not file
-            # existence.
+            # The child's per-direction propagation result. Raw endpoint
+            # stationarity is diagnostic; finite downhill trajectories without
+            # an integration failure are usable inputs to endpoint optimization.
             "irc_outcome": _read_irc_outcome(irc_dir),
         }
     except BaseException:
@@ -4756,6 +4824,7 @@ def cli(
         return {
             "pipeline_mode": all_mode,
             "path_opt_mode": path_optimizer_mode,
+            "preopt": bool(pre_opt),
             "post_opt_mode": tsopt_opt_mode_default,
             "ts_opt_mode": tsopt_opt_mode_default,
             "endpoint_opt_mode": endpoint_opt_mode_default,
@@ -4886,6 +4955,7 @@ def cli(
                 "path_opt_mode": str(path_optimizer_mode),
                 "post_opt_mode": str(post_optimizer_mode),
                 "path_search_opt_mode": path_optimizer_mode,
+                "ts_opt_mode": str(tsopt_opt_mode_default),
                 "endpoint_opt_mode": str(endpoint_opt_mode_default),
                 "dump": bool(dump),
                 "refine_path": bool(refine_path),
@@ -5701,11 +5771,12 @@ def cli(
                     "tsopt": do_tsopt,
                     "thermo": do_thermo,
                     "dft": do_dft,
-                    "opt_mode": tsopt_opt_mode_default,
-                    "path_opt_mode": path_optimizer_mode,
-                    "post_opt_mode": tsopt_opt_mode_default,
-                    "ts_opt_mode": tsopt_opt_mode_default,
-                    "endpoint_opt_mode": endpoint_opt_mode_default,
+                    "opt_mode": opt_mode_norm,
+                    "opt_mode_post": tsopt_opt_mode_default if do_tsopt else None,
+                    "path_opt_mode": None,
+                    "post_opt_mode": tsopt_opt_mode_default if do_tsopt else None,
+                    "ts_opt_mode": tsopt_opt_mode_default if do_tsopt else None,
+                    "endpoint_opt_mode": endpoint_opt_mode_default if do_tsopt else None,
                     "mep_mode": mep_mode_kind,
                     "dmf_correlated": dmf_correlated_effective,
                 },
@@ -6248,11 +6319,12 @@ def cli(
                 "tsopt": do_tsopt,
                 "thermo": do_thermo,
                 "dft": do_dft,
-                "opt_mode": tsopt_opt_mode_default,
-                "path_opt_mode": path_optimizer_mode,
-                "post_opt_mode": tsopt_opt_mode_default,
-                "ts_opt_mode": tsopt_opt_mode_default,
-                "endpoint_opt_mode": endpoint_opt_mode_default,
+                "opt_mode": opt_mode_norm,
+                "opt_mode_post": tsopt_opt_mode_default if do_tsopt else None,
+                "path_opt_mode": None,
+                "post_opt_mode": tsopt_opt_mode_default if do_tsopt else None,
+                "ts_opt_mode": tsopt_opt_mode_default if do_tsopt else None,
+                "endpoint_opt_mode": endpoint_opt_mode_default if do_tsopt else None,
                 "mep_mode": mep_mode_kind,
                 "dmf_correlated": dmf_correlated_effective,
             },
@@ -6403,7 +6475,9 @@ def cli(
                 if do_dft and not _dft_all_ok
                 else ("converged" if do_dft else None)
             ),
-            "opt_mode": tsopt_opt_mode_default,
+            "opt_mode": opt_mode_norm,
+            "opt_mode_post": tsopt_opt_mode_default,
+            "path_opt_mode": None,
             "post_opt_mode": tsopt_opt_mode_default,
             "ts_opt_mode": tsopt_opt_mode_default,
             "endpoint_opt_mode": endpoint_opt_mode_default,
@@ -6454,8 +6528,9 @@ def cli(
                     "thermo": do_thermo,
                     "dft": do_dft,
                     "dft_status": summary_payload["dft_status"],
-                    "opt_mode": tsopt_opt_mode_default,
-                    "path_opt_mode": path_optimizer_mode,
+                    "opt_mode": opt_mode_norm,
+                    "opt_mode_post": tsopt_opt_mode_default,
+                    "path_opt_mode": None,
                     "post_opt_mode": tsopt_opt_mode_default,
                     "ts_opt_mode": tsopt_opt_mode_default,
                     "endpoint_opt_mode": endpoint_opt_mode_default,
@@ -7109,11 +7184,13 @@ def cli(
                 "tsopt": do_tsopt,
                 "thermo": do_thermo,
                 "dft": do_dft,
-                "opt_mode": tsopt_opt_mode_default,
+                "opt_mode": opt_mode_norm,
+                "opt_mode_post": tsopt_opt_mode_default if do_tsopt else None,
+                "preopt": bool(pre_opt),
                 "path_opt_mode": path_optimizer_mode,
-                "post_opt_mode": tsopt_opt_mode_default,
-                "ts_opt_mode": tsopt_opt_mode_default,
-                "endpoint_opt_mode": endpoint_opt_mode_default,
+                "post_opt_mode": tsopt_opt_mode_default if do_tsopt else None,
+                "ts_opt_mode": tsopt_opt_mode_default if do_tsopt else None,
+                "endpoint_opt_mode": endpoint_opt_mode_default if do_tsopt else None,
                 "mep_mode": mep_mode_kind,
                 "dmf_correlated": dmf_correlated_effective,
                 "dmf_backend": dmf_backend_effective,
@@ -7204,6 +7281,7 @@ def cli(
                 opt_mode_norm=opt_mode_norm,
                 opt_mode_post=opt_mode_post,
                 path_opt_mode=path_optimizer_mode,
+                preopt=bool(pre_opt),
                 post_opt_mode=tsopt_opt_mode_default,
                 ts_opt_mode=tsopt_opt_mode_default,
                 endpoint_opt_mode=endpoint_opt_mode_default,
@@ -7625,6 +7703,23 @@ def cli(
                 err=True,
             )
             _prod_opt_conv = None
+
+        _mep_left_geom = irc_res.get("mep_left_geom")
+        _mep_right_geom = irc_res.get("mep_right_geom")
+        if _mep_left_geom is None or _mep_right_geom is None:
+            _optimized_connectivity = {
+                "source": "optimized_endpoints",
+                "method": "unresolved",
+                "connectivity_validated": False,
+                "reason": "mep_endpoint_reference_missing",
+            }
+        else:
+            _optimized_connectivity = _validate_optimized_endpoint_pair(
+                gL,
+                gR,
+                _mep_left_geom,
+                _mep_right_geom,
+            )
         if not dump:
             shutil.rmtree(endpoint_opt_dir, ignore_errors=True)
             _echo_detail("[endpoint-opt] Clean endpoint-opt working dir.")
@@ -7938,20 +8033,23 @@ def cli(
             segment_log["irc_plot"] = str(irc_plot_path)
         if irc_trj_path:
             segment_log["irc_traj"] = str(irc_trj_path)
-        # thread the per-direction IRC outcome so the aggregate
-        # gates on convergence, not trajectory-file existence.
+        # Raw IRC status/orientation are diagnostics.  Scientific endpoint
+        # acceptance is determined from the optimized endpoints below.
         _irc_outcome_seg = irc_res.get("irc_outcome")
         if isinstance(_irc_outcome_seg, dict):
             segment_log["irc"] = _irc_outcome_seg
         segment_log["endpoint_assignment"] = irc_res.get(
             "endpoint_assignment"
         )
-        # record endpoint-opt convergence so a nonconverged endpoint
-        # (whose geometry is still used for the diagram) does not silently
-        # promote its segment to a usable success.
+        # Endpoint optimization owns final endpoint acceptance.  Raw IRC
+        # assignment above remains available only as orientation provenance.
         segment_log["endpoint_opt"] = {
             "reactant_converged": _react_opt_conv,
             "product_converged": _prod_opt_conv,
+            "connectivity_validated": _optimized_connectivity.get(
+                "connectivity_validated"
+            ),
+            "connectivity": _optimized_connectivity,
         }
         if do_tsopt:
             segment_log["reference_mode"] = _reference_mode_status
@@ -8115,11 +8213,13 @@ def cli(
                 "tsopt": do_tsopt,
                 "thermo": do_thermo,
                 "dft": do_dft,
-                "opt_mode": tsopt_opt_mode_default,
+                "opt_mode": opt_mode_norm,
+                "opt_mode_post": tsopt_opt_mode_default if do_tsopt else None,
+                "preopt": bool(pre_opt),
                 "path_opt_mode": path_optimizer_mode,
-                "post_opt_mode": tsopt_opt_mode_default,
-                "ts_opt_mode": tsopt_opt_mode_default,
-                "endpoint_opt_mode": endpoint_opt_mode_default,
+                "post_opt_mode": tsopt_opt_mode_default if do_tsopt else None,
+                "ts_opt_mode": tsopt_opt_mode_default if do_tsopt else None,
+                "endpoint_opt_mode": endpoint_opt_mode_default if do_tsopt else None,
                 "mep_mode": mep_mode_kind,
                 "dmf_correlated": dmf_correlated_effective,
                 "dmf_backend": dmf_backend_effective,

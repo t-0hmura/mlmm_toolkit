@@ -106,6 +106,8 @@ print(d["n_frames_forward"], d["n_frames_backward"])
 print(d["energy_first_hartree"], d["energy_ts_hartree"], d["energy_last_hartree"])
 print(d.get("bond_changes"))       # directed first -> last; may be omitted
 print(d["status"])                  # "completed" (success path only; errors emit a separate error JSON)
+print(d["forward_status"], d["backward_status"])
+print(d["forward_endpoint_stationary"], d["backward_endpoint_stationary"])
 print(d["never_stop"], d["never_stop_energy_bypasses"])
 print(d["rigid_projection"]["electronic_state_verified"])  # False only for an opted-in schema-1 handoff
 print(d["rigid_projection"]["treatment"], d["rigid_projection"]["effective_rank"])
@@ -123,6 +125,12 @@ aliases for first/last only. Assign R/P after inspecting or matching the
 endpoint structures. `never_stop` records whether the opt-in mode was enabled;
 `never_stop_energy_bypasses` is the observed bypass count.
 
+Each requested direction reports `*_status` as `stopped` or `failed`.
+`*_endpoint_stationary` and the legacy `*_converged` alias describe only the
+raw endpoint threshold; a normal stop remains usable input to endpoint
+optimization. Numerical propagation failure or an invalid downhill departure
+reports `failed`.
+
 The default `constrained` treatment removes only full-system rigid motions
 that leave frozen anchors fixed. Generic ranks are 6/3/1/0 for
 zero/one/two/at least three non-collinear anchors, and realistic ML/MM
@@ -136,7 +144,7 @@ Two forms of endpoint geometry are written:
 
 | File | What |
 |---|---|
-| `forward_last.{xyz,pdb,cif}` / `backward_last.{xyz,pdb,cif}` | Single-frame raw IRC endpoints — **canonical** for downstream stages; companions depend on topology/bridge metadata |
+| `forward_last.{xyz,pdb,cif}` / `backward_last.{xyz,pdb,cif}` | Single-frame raw IRC endpoints — canonical inputs to downstream endpoint refinement; companions depend on topology/bridge metadata |
 | Last frame of `forward_irc_trj.xyz` / `backward_irc_trj.xyz` | Identical to `forward_last` / `backward_last` (same final IRC frame) |
 
 The validator and bond-change detector use `forward_last` / `backward_last`

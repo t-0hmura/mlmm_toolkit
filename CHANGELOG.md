@@ -10,13 +10,23 @@ _No changes yet._
 
 ## [0.3.5] — 2026-09-02
 
+### Added
+- Add IRC `forward_status` / `backward_status` (`stopped`, `failed`, `disabled`),
+  `*_requested`, `*_endpoint_stationary`, and `*_integration_stop_reason` to
+  `result.json`; legacy `*_converged` remains an alias for endpoint stationarity.
+- Add TSOPT `opt_mode_requested` / `optimizer`, scan `scan_opt_mode` /
+  `scan_optimizer`, and `all` `config.ts_opt_mode` / `config.endpoint_opt_mode`.
+- Add `post_segments[].endpoint_opt.connectivity_validated` with the optimized
+  reactant/product bond-topology record.
+
 ### Changed
 - Support fairchem-core 2.22 and current compatible runtime dependencies.
 - Raise the default DMF IPOPT iteration cap (`--max-cycles-dmf`, `dmf.max_cycles`) from 300 to 3000, matching the solver's own default.
 
 ### Fixed
 - Restore AIMNet2 evaluation and static image export with current releases.
-- Report path and post-processing optimizer modes separately in `summary.log`.
+- Report TS/IRC-endpoint optimizer modes and requested/effective TS optimizer JSON separately.
+- Report IRC directions as stopped/failed/disabled and base composite acceptance on optimized endpoints.
 
 ## [0.3.4] — 2026-09-02
 

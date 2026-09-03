@@ -182,6 +182,8 @@ def test_all_show_config_reports_effective_optimizer_modes(
     assert result.exit_code == 0, result.output
     assert "path_opt_mode: grad" in result.output
     assert f"post_opt_mode: {expected_post}" in result.output
+    assert f"ts_opt_mode: {expected_post}" in result.output
+    assert f"endpoint_opt_mode: {expected_post}" in result.output
     assert f"opt_mode_post: {expected_post}" in result.output
 
 

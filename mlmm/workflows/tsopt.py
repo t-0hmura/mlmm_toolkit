@@ -5460,6 +5460,8 @@ def cli(
                 ),
                 "imaginary_frequencies_cm": _tsopt_imag_freqs,
                 "opt_mode": opt_mode,
+                "opt_mode_requested": str(opt_mode).strip().lower(),
+                "optimizer": mode_resolved,
                 "n_atoms": _tsopt_n_atoms,
                 "n_opt_cycles": _tsopt_n_opt_cycles,
                 **calculator_provenance(calc_cfg),

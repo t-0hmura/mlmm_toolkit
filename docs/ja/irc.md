@@ -1,6 +1,6 @@
 # `irc`
 
-`mlmm irc` は ML/MM calculatorを用いた EulerPC ベースの IRC（固有反応座標）積分により、遷移状態から反応物・生成物の方向へ経路を追跡します。最適化された TS が期待どおり反応物と生成物を接続するかを検証したいとき、あるいは下流の熱化学計算 / DFT 単点計算用の反応物 / 生成物構造を生成したいときに使用します。典型的には `tsopt` -> `freq`（**1 つ**の虚振動数モードを確認）-> `irc` というワークフローで実行します。デフォルトでは正方向と逆方向の両方のブランチが計算されます。共通input bridgeはPDB/mmCIFと`geom_loader`対応形式を受け入れます。直接入力または`--ref-pdb`でPDB/mmCIF topologyがあり、変換が有効ならPDB companionを生成し、mmCIF/oversized-PDB bridge入力では元IDを復元したCIF companionも生成します。
+`mlmm irc` は ML/MM calculator を用いた EulerPC ベースの IRC（固有反応座標）積分により、遷移状態から両方向へ経路を追跡します。standalone 出力は生の端点候補なので、熱化学計算や DFT 単点計算に使う前に最適化と接続性検証を行います。`mlmm all` はこの端点 refinement を自動実行します。典型的には `tsopt` -> `freq`（**1 つ**の虚振動数モードを確認）-> `irc` というワークフローで実行します。共通input bridgeはPDB/mmCIFと`geom_loader`対応形式を受け入れます。直接入力または`--ref-pdb`でPDB/mmCIF topologyがあり、変換が有効ならPDB companionを生成し、mmCIF/oversized-PDB bridge入力では元IDを復元したCIF companionも生成します。
 
 ## 実行例
 
@@ -36,8 +36,8 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0 \
 ```
 
 このモードでも数値／integration失敗、外部中断、サイクル上限では停止します。
-力の閾値に達しても方向の収束とは記録しません。両方向の軌跡と終点接続を
-確認してから採用してください。
+公開する方向状態は `stopped` で、端点 stationary 判定は別の診断値です。
+両方向の軌跡を確認し、端点を最適化・検証してから採用してください。
 
 両ブランチを保持してステップ上限を引き上げ:
 

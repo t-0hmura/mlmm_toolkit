@@ -593,40 +593,45 @@ def test_nonconverged_bridge_prevents_mixed_path_success() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 4. IRC directional non-convergence
-#    A nonconverged direction (whose trajectory + Hessian still exist) must not
-#    be promoted; only the converged direction is usable.
+# 4. IRC directional stopping
+#    Endpoint stationarity is diagnostic.  A finite, downhill trajectory that
+#    stopped normally remains usable by endpoint optimization.
 # ---------------------------------------------------------------------------
 
 
 def _irc_direction_leaves(*, forward, forward_conv, backward, backward_conv,
-                          n_fwd=10, n_bwd=10):
+                          n_fwd=10, n_bwd=10, forward_downhill=True,
+                          backward_downhill=True, forward_error="",
+                          backward_error=""):
     """Exercise _outcomes.irc_direction_leaves, the directional-leaf builder that
     irc.py calls in production (bind to the shared helper, don't copy it)."""
     from mlmm.workflows._outcomes import irc_direction_leaves
     return irc_direction_leaves(
         (
-            ("forward", bool(forward), forward_conv, n_fwd,
+            ("forward", bool(forward), forward_conv, forward_downhill,
+             forward_error, n_fwd,
              ["forward_irc.pdb"] if forward else []),
-            ("backward", bool(backward), backward_conv, n_bwd,
+            ("backward", bool(backward), backward_conv, backward_downhill,
+             backward_error, n_bwd,
              ["backward_irc.pdb"] if backward else []),
         )
     )
 
 
-def test_irc_forward_converged_backward_not_is_partial() -> None:
-    # Both directions requested and both trajectories/Hessians exist, but only
-    # forward converged.
+def test_irc_normal_stop_is_usable_without_endpoint_stationarity() -> None:
     leaves, expected = _irc_direction_leaves(
         forward=True, forward_conv=True, backward=True, backward_conv=False
     )
     truth = aggregate_workflow_truth(leaves, expected)
-    assert truth.scientific_status == "partial"
+    assert truth.scientific_status == "success"
     backward = [leaf for leaf in leaves if leaf.item_id == "backward"][0]
-    assert backward.usable is False  # not promoted despite artifacts existing
+    assert backward.usable is True
+    assert backward.converged is None and backward.reason == "stopped"
 
 
 def test_irc_one_sided_request_succeeds() -> None:
+    from mlmm.workflows._outcomes import irc_direction_statuses
+
     # Backward explicitly disabled: its absence is optional, not a failure.
     leaves, expected = _irc_direction_leaves(
         forward=True, forward_conv=True, backward=False, backward_conv=None
@@ -634,15 +639,41 @@ def test_irc_one_sided_request_succeeds() -> None:
     truth = aggregate_workflow_truth(leaves, expected)
     assert truth.scientific_status == "success"
     assert expected == ["forward"]
+    assert irc_direction_statuses(leaves) == {
+        "forward_status": "stopped",
+        "backward_status": "disabled",
+    }
 
 
-def test_irc_convergence_attribute_absent_fails_closed() -> None:
-    # A missing convergence attribute (None) must fail closed, not read as True.
+def test_irc_stationarity_attribute_absent_does_not_invalidate_stop() -> None:
     leaves, expected = _irc_direction_leaves(
         forward=True, forward_conv=None, backward=False, backward_conv=None
     )
     truth = aggregate_workflow_truth(leaves, expected)
+    assert truth.scientific_status == "success"
+
+
+def test_irc_invalid_departure_or_integration_failure_is_unusable() -> None:
+    from mlmm.workflows._outcomes import irc_direction_statuses
+
+    leaves, expected = _irc_direction_leaves(
+        forward=True,
+        forward_conv=False,
+        backward=True,
+        backward_conv=False,
+        forward_downhill=False,
+        backward_error="integration failed",
+    )
+    truth = aggregate_workflow_truth(leaves, expected)
     assert truth.scientific_status != "success"
+    assert {leaf.reason for leaf in leaves} == {
+        "downhill_departure_invalid",
+        "integration_failed",
+    }
+    assert irc_direction_statuses(leaves) == {
+        "forward_status": "failed",
+        "backward_status": "failed",
+    }
 
 
 def test_irc_hessian_cache_gate_condition() -> None:
@@ -1015,48 +1046,63 @@ def test_dmf_result_legacy_contract_preserved_and_additive_leaf_added() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 8. The ALL-pipeline aggregate consumes leaf outcomes
-#    A never_stop / max-cycle IRC (trajectory present, direction nonconverged)
-#    must not yield scientific_status=success in the all-pipeline aggregate,
-#    while the legacy `status` string is unchanged.
+# 8. The ALL-pipeline aggregate consumes endpoint-owned outcomes
+#    A stopped IRC is diagnostic input.  Final acceptance comes from the MEP,
+#    exact TS, endpoint optimizations, and optimized endpoint connectivity.
 # ---------------------------------------------------------------------------
 
 
-def test_read_irc_outcome_gates_on_scientific_status(tmp_path: Path) -> None:
+def test_read_irc_outcome_accepts_normal_stop_and_rejects_hard_failure(tmp_path: Path) -> None:
     from mlmm.workflows.all import _read_irc_outcome
 
     irc_dir = tmp_path / "irc"
     irc_dir.mkdir()
+    (irc_dir / "finished_irc_trj.xyz").write_text("1\nframe\nH 0 0 0\n")
     # A converged both-direction IRC child result.
     (irc_dir / "result.json").write_text(json.dumps({
         "status": "completed",
         "scientific_status": "success",
+        "forward_requested": True,
+        "backward_requested": True,
         "forward_converged": True,
         "backward_converged": True,
+        "forward_status": "stopped",
+        "backward_status": "stopped",
         "files": {"finished_irc": "finished_irc_trj.xyz"},
     }))
     ok = _read_irc_outcome(irc_dir)
     assert ok["usable"] is True and ok["traj"] == "finished_irc_trj.xyz"
 
-    # A backward direction that hit its cycle limit: trajectory still exists.
+    # Reaching a cycle limit is a normal stop, not a composite failure.
     (irc_dir / "result.json").write_text(json.dumps({
         "status": "completed",              # the IRC PROCESS ran (legacy)
-        "scientific_status": "partial",     # but a direction did not converge
-        "scientific_status_reasons": ["irc:backward:not_converged"],
+        "scientific_status": "success",
+        "forward_requested": True,
+        "backward_requested": True,
         "forward_converged": True,
         "backward_converged": False,
+        "forward_status": "stopped",
+        "backward_status": "stopped",
+        "files": {"finished_irc": "finished_irc_trj.xyz"},
+    }))
+    stopped = _read_irc_outcome(irc_dir)
+    assert stopped["usable"] is True and stopped["reason"] == "stopped"
+
+    (irc_dir / "result.json").write_text(json.dumps({
+        "status": "completed",
+        "scientific_status": "partial",
+        "scientific_status_reasons": ["irc:backward:integration_failed"],
         "files": {"finished_irc": "finished_irc_trj.xyz"},
     }))
     bad = _read_irc_outcome(irc_dir)
-    assert bad["usable"] is False
-    assert "backward" in bad["reason"]
+    assert bad["usable"] is False and "integration_failed" in bad["reason"]
 
     # A missing result.json fails closed.
     (irc_dir / "result.json").unlink()
     assert _read_irc_outcome(irc_dir)["usable"] is False
 
 
-def test_all_pipeline_aggregate_excludes_nonconverged_irc() -> None:
+def test_all_pipeline_aggregate_uses_optimized_endpoints_not_raw_irc_stop() -> None:
     from mlmm.workflows.all import _pipeline_aggregate_truth
 
     summary = {"segments": [{
@@ -1064,21 +1110,22 @@ def test_all_pipeline_aggregate_excludes_nonconverged_irc() -> None:
     }]}
     config = {"tsopt": True, "thermo": False, "dft": False}
 
-    # Legacy status="success" (a trajectory exists, so _derive_pipeline_status is
-    # satisfied). The IRC leaf reports backward nonconverged -> the aggregate must
-    # demote scientific_status while leaving the legacy axis unchanged.
-    nonconverged = [{
+    stopped = [{
         "index": 1,
         "irc_traj": "finished_irc_trj.xyz",
-        "irc": {"usable": False, "reason": "irc:backward:not_converged",
+        "irc": {"usable": True, "reason": "stopped",
                 "traj": "finished_irc_trj.xyz"},
-        "endpoint_opt": {"reactant_converged": True, "product_converged": True},
+        "endpoint_assignment": {"connectivity_validated": False},
+        "endpoint_opt": {
+            "reactant_converged": True,
+            "product_converged": True,
+            "connectivity_validated": True,
+        },
     }]
     truth = _pipeline_aggregate_truth(
-        summary, post_segments=nonconverged, config=config, legacy_status="success",
+        summary, post_segments=stopped, config=config, legacy_status="success",
     )
-    assert truth.scientific_status != "success"           # would have been success
-    assert any("segment_1" in r for r in truth.status_reasons)
+    assert truth.scientific_status == "success"
 
     # Every requested IRC direction converged + endpoints converged -> success.
     converged = [{
@@ -1086,7 +1133,11 @@ def test_all_pipeline_aggregate_excludes_nonconverged_irc() -> None:
         "irc_traj": "finished_irc_trj.xyz",
         "irc": {"usable": True, "reason": "ok", "traj": "finished_irc_trj.xyz"},
         "endpoint_assignment": {"connectivity_validated": True},
-        "endpoint_opt": {"reactant_converged": True, "product_converged": True},
+        "endpoint_opt": {
+            "reactant_converged": True,
+            "product_converged": True,
+            "connectivity_validated": True,
+        },
     }]
     truth_ok = _pipeline_aggregate_truth(
         summary, post_segments=converged, config=config, legacy_status="success",
@@ -1103,7 +1154,11 @@ def test_all_pipeline_tsopt_only_does_not_require_mep_convergence() -> None:
         "index": 1,
         "irc": {"usable": True, "reason": "ok"},
         "endpoint_assignment": {"connectivity_validated": True},
-        "endpoint_opt": {"reactant_converged": True, "product_converged": True},
+        "endpoint_opt": {
+            "endpoint_1_converged": True,
+            "endpoint_2_converged": True,
+            "connectivity_validated": True,
+        },
     }]
     truth = _pipeline_aggregate_truth(
         summary, post_segments=post, config={"tsopt": True},
@@ -1188,6 +1243,7 @@ def test_all_pipeline_aggregate_gates_on_endpoint_opt(tmp_path: Path) -> None:
         "endpoint_opt": {
             "reactant_converged": _read_opt_endpoint_converged(react_dir),
             "product_converged": _read_opt_endpoint_converged(prod_dir),
+            "connectivity_validated": True,
         },
     }]
     assert post[0]["endpoint_opt"]["product_converged"] is False   # from the real read
@@ -1233,7 +1289,11 @@ def test_all_pipeline_aggregate_preserves_legacy_severity() -> None:
         "index": 1,
         "irc": {"usable": True, "reason": "ok"},
         "endpoint_assignment": {"connectivity_validated": True},
-        "endpoint_opt": {"reactant_converged": True, "product_converged": True},
+        "endpoint_opt": {
+            "reactant_converged": True,
+            "product_converged": True,
+            "connectivity_validated": True,
+        },
     }]
     truth = _pipeline_aggregate_truth(
         summary, post_segments=post, config={"tsopt": True, "dft": True},
@@ -1243,7 +1303,7 @@ def test_all_pipeline_aggregate_preserves_legacy_severity() -> None:
     assert "segment 1: DFT failed (TS)" in truth.status_reasons
 
 
-def test_all_pipeline_requires_validated_mep_irc_connectivity() -> None:
+def test_all_pipeline_requires_validated_optimized_endpoint_connectivity() -> None:
     from mlmm.workflows.all import _pipeline_aggregate_truth
 
     summary = {
@@ -1254,16 +1314,18 @@ def test_all_pipeline_requires_validated_mep_irc_connectivity() -> None:
     base = {
         "index": 1,
         "irc": {"usable": True, "reason": "ok"},
-        "endpoint_opt": {
-            "reactant_converged": True,
-            "product_converged": True,
-        },
+        "endpoint_assignment": {"connectivity_validated": True},
     }
 
     for verdict, expected_success in ((False, False), (True, True)):
         post = {
             **base,
-            "endpoint_assignment": {"connectivity_validated": verdict},
+            "endpoint_assignment": {"connectivity_validated": not verdict},
+            "endpoint_opt": {
+                "reactant_converged": True,
+                "product_converged": True,
+                "connectivity_validated": verdict,
+            },
         }
         truth = _pipeline_aggregate_truth(
             summary,
@@ -1272,6 +1334,28 @@ def test_all_pipeline_requires_validated_mep_irc_connectivity() -> None:
             legacy_status="success",
         )
         assert (truth.scientific_status == "success") is expected_success
+
+
+def test_all_pipeline_requires_complete_endpoint_opt_record() -> None:
+    from mlmm.workflows.all import _pipeline_aggregate_truth
+
+    summary = {"segments": [{"index": 1, "kind": "seg", "converged": True}]}
+    base = {"index": 1, "irc": {"usable": True, "reason": "stopped"}}
+    missing = _pipeline_aggregate_truth(
+        summary, post_segments=[base], config={"tsopt": True},
+        legacy_status="success",
+    )
+    incomplete = _pipeline_aggregate_truth(
+        summary,
+        post_segments=[{**base, "endpoint_opt": {
+            "reactant_converged": True,
+            "connectivity_validated": True,
+        }}],
+        config={"tsopt": True},
+        legacy_status="success",
+    )
+    assert missing.scientific_status != "success"
+    assert incomplete.scientific_status != "success"
 
 
 def test_all_pipeline_aggregate_post_missing_fails_closed_when_tsopt_requested() -> None:
@@ -1337,7 +1421,12 @@ def test_all_pipeline_post_success_cannot_promote_bad_mep(
     post = [{
         "index": 1,
         "irc": {"usable": True, "reason": "ok"},
-        "endpoint_opt": {"reactant_converged": True, "product_converged": True},
+        "endpoint_assignment": {"connectivity_validated": True},
+        "endpoint_opt": {
+            "reactant_converged": True,
+            "product_converged": True,
+            "connectivity_validated": True,
+        },
     }]
     truth = _pipeline_aggregate_truth(
         summary, post_segments=post, config={"tsopt": True},

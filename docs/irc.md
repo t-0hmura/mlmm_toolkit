@@ -1,6 +1,6 @@
 # `irc`
 
-Runs EulerPC-based IRC (Intrinsic Reaction Coordinate) integration from a transition state toward reactants and products using the ML/MM calculator. Use it to validate that an optimized TS connects the expected reactant and product, or to generate reactant/product structures for downstream thermochemistry and DFT single-point energy evaluation — typically as `tsopt` -> `freq` (confirm **one** imaginary mode) -> `irc`. By default both forward and backward branches are computed. `mlmm irc` keeps the CLI intentionally narrow; parameters not surfaced on the command line should be provided via YAML so the run remains explicit and reproducible. The common input bridge accepts PDB/mmCIF and `geom_loader` formats. With a PDB/mmCIF topology (direct input or `--ref-pdb`) and conversion enabled, trajectories receive PDB companions; mmCIF and oversized-PDB bridge inputs also receive CIF companions with restored identifiers.
+Runs EulerPC-based IRC (Intrinsic Reaction Coordinate) integration from a transition state in both directions using the ML/MM calculator. Standalone output contains raw endpoint candidates; optimize them and validate their connectivity before thermochemistry or DFT single-point use. `mlmm all` performs this endpoint refinement automatically. A typical sequence is `tsopt` -> `freq` (confirm **one** imaginary mode) -> `irc`. `mlmm irc` keeps the CLI intentionally narrow; parameters not surfaced on the command line should be provided via YAML so the run remains explicit and reproducible. The common input bridge accepts PDB/mmCIF and `geom_loader` formats. With a PDB/mmCIF topology (direct input or `--ref-pdb`) and conversion enabled, trajectories receive PDB companions; mmCIF and oversized-PDB bridge inputs also receive CIF companions with restored identifiers.
 
 ## Examples
 
@@ -38,9 +38,9 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0 \
 ```
 
 This is not an unlimited loop: numerical/integration failures, external
-interruption, and the cycle cap still stop the run. A force threshold reached
-in this mode is not reported as directional convergence. Inspect both
-trajectories and endpoint connectivity before accepting them.
+interruption, and the cycle cap still stop the run. The public direction status
+is `stopped`; endpoint stationarity remains a separate diagnostic. Inspect both
+trajectories and optimize/validate their endpoints before accepting them.
 
 Command form:
 

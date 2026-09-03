@@ -1025,9 +1025,10 @@ def test_build_pipeline_summary_payload_shape() -> None:
             do_tsopt=True,
             do_thermo=False,
             do_dft=False,
-            opt_mode_norm="grad",
-            opt_mode_post="HESS",
+            opt_mode_norm="hess",
+            opt_mode_post="GRAD",
             path_opt_mode="grad",
+            preopt=True,
             post_opt_mode="HESS",
             ts_opt_mode="HESS",
             endpoint_opt_mode="GRAD",
@@ -1043,8 +1044,8 @@ def test_build_pipeline_summary_payload_shape() -> None:
     assert payload["pipeline_mode_label"] == "Scan"
     assert payload["path_module_dir"] == str(path_dir)
     assert payload["refine_path"] is True
-    assert payload["opt_mode"] == "grad"
-    assert payload["opt_mode_post"] == "hess"
+    assert payload["opt_mode"] == "hess"
+    assert payload["opt_mode_post"] == "grad"
     assert payload["path_opt_mode"] == "grad"
     assert payload["post_opt_mode"] == "hess"
     assert payload["ts_opt_mode"] == "hess"
@@ -1107,3 +1108,28 @@ def test_irc_endpoint_topology_tie_uses_rmsd_and_records_provenance(
     assert assignment["method"] == "rmsd_topology_tie"
     assert assignment["rmsd_swapped"] < assignment["rmsd_direct"]
     assert assignment["connectivity_validated"] is True
+
+
+def test_optimized_endpoint_validation_requires_assigned_direct_pair(
+    monkeypatch,
+) -> None:
+    from mlmm.workflows import all as workflow
+
+    monkeypatch.setattr(
+        workflow,
+        "_orient_irc_endpoint_geometries",
+        lambda left, right, mep_left, mep_right: (
+            left, right, "forward", "backward", False,
+            {"match_matrix": {
+                "left_to_mep_left": True,
+                "left_to_mep_right": False,
+                "right_to_mep_left": False,
+                "right_to_mep_right": True,
+            }},
+        ),
+    )
+    result = workflow._validate_optimized_endpoint_pair(
+        object(), object(), object(), object()
+    )
+    assert result["source"] == "optimized_endpoints"
+    assert result["connectivity_validated"] is True

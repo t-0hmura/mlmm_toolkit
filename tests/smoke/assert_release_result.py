@@ -72,6 +72,8 @@ def check_all(root: Path, require_thermo: bool, require_dft: bool) -> None:
         raise SystemExit("all summary is partial but states no reason")
     if scientific == "success" and reasons:
         raise SystemExit(f"all summary claims success yet states reasons: {reasons}")
+    if any("irc:" in str(reason) and "not_converged" in str(reason) for reason in reasons):
+        raise SystemExit(f"normal IRC stopping was misreported as nonconvergence: {reasons}")
 
     segments = summary.get("post_segments") or []
     if not segments:
@@ -96,6 +98,28 @@ def check_all(root: Path, require_thermo: bool, require_dft: bool) -> None:
             trajectory = segment_root / "irc" / f"{direction}_irc_trj.xyz"
             if not trajectory.is_file() or count_xyz_frames(trajectory) < 2:
                 raise SystemExit(f"missing/nontrivial IRC branch: {trajectory}")
+        irc = segment.get("irc") or {}
+        if irc.get("usable") is not True or irc.get("reason") != "stopped":
+            raise SystemExit(f"raw IRC was not retained as a usable stopped trajectory: {irc!r}")
+        for direction in ("forward", "backward"):
+            if irc.get(f"{direction}_status") != "stopped":
+                raise SystemExit(f"{direction} IRC did not report stopped: {irc!r}")
+        endpoint_opt = segment.get("endpoint_opt") or {}
+        endpoint_keys = (
+            ("endpoint_1_converged", "endpoint_2_converged")
+            if segment.get("kind") == "tsopt"
+            else ("reactant_converged", "product_converged")
+        )
+        if any(endpoint_opt.get(key) is not True for key in endpoint_keys):
+            raise SystemExit(f"optimized endpoints did not converge: {endpoint_opt!r}")
+        if (
+            segment.get("kind") != "tsopt"
+            and endpoint_opt.get("connectivity_validated") is not True
+        ):
+            raise SystemExit(
+                "optimized endpoint topology was not validated: "
+                f"{endpoint_opt!r}"
+            )
         if require_thermo:
             missing = [
                 state
@@ -180,6 +204,54 @@ def check_sp_hessian(root: Path) -> None:
         raise SystemExit("custom finite-difference Hessian is identically zero")
 
 
+def check_irc_direction_status_contract(payload: dict) -> None:
+    """Assert the public IRC direction-status enum against its own inputs.
+
+    Endpoint stationarity is a diagnostic, so a never-stop trace leaves both raw
+    endpoints non-stationary. Usability comes from a validated downhill departure
+    and the absence of a numerical propagation failure. Pinning that mapping —
+    rather than one machine's physics — keeps both the `stopped` and the `failed`
+    branch covered wherever the lane happens to land.
+    """
+    requested = [
+        direction
+        for direction in ("forward", "backward")
+        if payload.get(f"{direction}_requested") is True
+    ]
+    stopped = 0
+    for direction in ("forward", "backward"):
+        status = payload.get(f"{direction}_status")
+        if direction not in requested:
+            if status != "disabled":
+                raise SystemExit(f"unrequested {direction} IRC is not disabled: {status!r}")
+            continue
+        if payload.get(f"{direction}_endpoint_stationary") is not False:
+            raise SystemExit(f"{direction} endpoint-stationarity diagnostic was lost")
+        downhill = payload.get(f"{direction}_downhill_departure_valid")
+        integration_failed = bool(
+            str(payload.get(f"{direction}_integration_stop_reason") or "").strip()
+        )
+        expected = "stopped" if (downhill is True and not integration_failed) else "failed"
+        if status != expected:
+            raise SystemExit(
+                f"{direction} IRC status {status!r} contradicts "
+                f"downhill_departure_valid={downhill!r} and "
+                f"integration_failed={integration_failed}"
+            )
+        if status == "stopped":
+            stopped += 1
+    if not requested:
+        raise SystemExit("IRC reported no requested direction")
+    if stopped < 1:
+        raise SystemExit("no requested IRC direction was retained as a usable stopped trajectory")
+    expected_scientific = "success" if stopped == len(requested) else "partial"
+    if payload.get("scientific_status") != expected_scientific:
+        raise SystemExit(
+            f"IRC scientific_status {payload.get('scientific_status')!r} does not follow its "
+            f"direction statuses (expected {expected_scientific!r})"
+        )
+
+
 def check_irc_handoff(root: Path, hessian_file: Path) -> None:
     payload = json.loads((root / "result.json").read_text(encoding="utf-8"))
     require_finite(payload)
@@ -199,10 +271,7 @@ def check_irc_handoff(root: Path, hessian_file: Path) -> None:
         raise SystemExit(
             "IRC never-stop incorrectly reported directional convergence"
         )
-    if payload.get("scientific_status") == "success":
-        raise SystemExit(
-            "IRC never-stop incorrectly reported a converged scientific result"
-        )
+    check_irc_direction_status_contract(payload)
     if int(payload.get("n_frames_forward", 0)) < 2 or int(payload.get("n_frames_backward", 0)) < 2:
         raise SystemExit("IRC Hessian handoff did not produce both nontrivial branches")
     freq_result_path = hessian_file.parent / "result.json"
@@ -229,6 +298,8 @@ def check_tsopt_reference(root: Path) -> None:
     safeguards = payload.get("safeguards") or {}
     if not payload.get("reference_mode_file"):
         raise SystemExit("TS optimization result omitted the reference-mode file")
+    if payload.get("opt_mode_requested") != "hess" or payload.get("optimizer") != "rsprfo":
+        raise SystemExit("TS optimization requested/effective optimizer provenance is wrong")
     index = safeguards.get("initial_reference_root_index")
     overlap = safeguards.get("initial_reference_root_overlap")
     eigenvalue = safeguards.get("initial_reference_root_eigenvalue")
@@ -238,6 +309,29 @@ def check_tsopt_reference(root: Path) -> None:
         raise SystemExit(f"invalid initial reference-root overlap: {overlap!r}")
     if eigenvalue is None or not math.isfinite(float(eigenvalue)):
         raise SystemExit(f"invalid initial reference-root eigenvalue: {eigenvalue!r}")
+
+
+def check_tsopt_optimizer(root: Path, expected_mode: str, expected_optimizer: str) -> None:
+    """Assert TS requested/effective optimizer provenance without requiring convergence.
+
+    Bound to a deliberate max-cycle lane: the run reports its optimizer identity
+    whether or not it converged, so this check must not gate on convergence.
+    """
+    payload = json.loads((root / "result.json").read_text(encoding="utf-8"))
+    require_finite(payload)
+    if payload.get("opt_mode_requested") != expected_mode:
+        raise SystemExit(f"unexpected TS preset: {payload.get('opt_mode_requested')!r}")
+    if payload.get("optimizer") != expected_optimizer:
+        raise SystemExit(f"unexpected TS optimizer: {payload.get('optimizer')!r}")
+
+
+def check_scan_optimizer(root: Path, expected_mode: str, expected_optimizer: str) -> None:
+    payload = json.loads((root / "result.json").read_text(encoding="utf-8"))
+    require_finite(payload)
+    if payload.get("scan_opt_mode") != expected_mode:
+        raise SystemExit(f"unexpected scan preset: {payload.get('scan_opt_mode')!r}")
+    if payload.get("scan_optimizer") != expected_optimizer:
+        raise SystemExit(f"unexpected scan optimizer: {payload.get('scan_optimizer')!r}")
 
 
 def check_provenance(
@@ -278,7 +372,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "kind",
-        choices=("all", "opt-config", "sp-hessian", "irc-handoff", "tsopt-reference", "provenance"),
+        choices=("all", "tsopt-optimizer", "scan-optimizer", "opt-config", "sp-hessian", "irc-handoff", "tsopt-reference", "provenance"),
     )
     parser.add_argument("root", type=Path)
     parser.add_argument("--require-thermo", action="store_true")
@@ -287,12 +381,22 @@ def main() -> None:
     parser.add_argument("--expected-max-cycles", type=int)
     parser.add_argument("--expected-precision")
     parser.add_argument("--expected-backend")
+    parser.add_argument("--expected-mode")
+    parser.add_argument("--expected-optimizer")
     parser.add_argument("--expected-link-atom-method")
     parser.add_argument("--expected-thresh")
     parser.add_argument("--hessian-file", type=Path)
     args = parser.parse_args()
     if args.kind == "all":
         check_all(args.root, args.require_thermo, args.require_dft)
+    elif args.kind == "tsopt-optimizer":
+        if None in (args.expected_mode, args.expected_optimizer):
+            parser.error("tsopt-optimizer requires --expected-mode and --expected-optimizer")
+        check_tsopt_optimizer(args.root, args.expected_mode, args.expected_optimizer)
+    elif args.kind == "scan-optimizer":
+        if None in (args.expected_mode, args.expected_optimizer):
+            parser.error("scan-optimizer requires --expected-mode and --expected-optimizer")
+        check_scan_optimizer(args.root, args.expected_mode, args.expected_optimizer)
     elif args.kind == "opt-config":
         if None in (
             args.expected_model,

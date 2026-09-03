@@ -1298,6 +1298,8 @@ def cli(
             )
             result_data: Dict[str, Any] = {
                 "status": "completed",
+                "scan_opt_mode": "grad",
+                "scan_optimizer": "lbfgs",
                 "energy_reference": "bare_mlmm_pes",
                 "charge": calc_cfg.get("model_charge"),
                 "spin": calc_cfg.get("model_mult"),

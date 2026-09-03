@@ -55,6 +55,7 @@ def test_missing_requested_post_segment_is_partial_and_unobserved():
             "endpoint_opt": {
                 "reactant_converged": True,
                 "product_converged": True,
+                "connectivity_validated": True,
             },
             "ts_imag": {"n_imag": 1},
             "gibbs_mlip": {},

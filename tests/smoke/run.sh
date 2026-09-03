@@ -103,7 +103,8 @@ mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode h
 mlmm opt -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode hess --microiter --max-cycles 2 --thresh gau_loose --out-dir test6 > test6.out 2>&1
 
 # test7: tsopt (grad / dimer)
-mlmm tsopt -i p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode grad --max-cycles 100 --thresh gau --out-dir test7 > test7.out 2>&1
+mlmm tsopt -i p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode grad --max-cycles 100 --thresh gau --out-json --out-dir test7 > test7.out 2>&1
+python assert_release_result.py tsopt-optimizer test7 --expected-mode grad --expected-optimizer dimer >> test7.out 2>&1
 
 # test8: tsopt (hess / rsprfo, microiteration default)
 mlmm tsopt -i p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --opt-mode hess --max-cycles 5 --thresh gau --out-dir test8 > test8.out 2>&1
@@ -118,7 +119,8 @@ mlmm irc -i p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --max-cycles
 mlmm dft -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --func-basis 'hf/sto-3g' --grid-level 0 --conv-tol 1e-5 --max-cycle 40 --engine cpu --out-dir test11 > test11.out 2>&1
 
 # test12: scan (1D)
-mlmm scan -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',3.5),('PRE 8 C1','PRE 8 C8',1.5)]" --max-step-size 2.0 --max-cycles 3 --no-preopt --no-endopt --out-dir test12 > test12.out 2>&1
+mlmm scan -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',3.5),('PRE 8 C1','PRE 8 C8',1.5)]" --max-step-size 2.0 --max-cycles 3 --no-preopt --no-endopt --out-json --out-dir test12 > test12.out 2>&1
+python assert_release_result.py scan-optimizer test12 --expected-mode grad --expected-optimizer lbfgs >> test12.out 2>&1
 
 # test13: scan2d
 mlmm scan2d -i r_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',1.4,1.8),('PRE 8 C1','PRE 8 C8',3.2,3.6)]" --max-step-size 0.4 --relax-max-cycles 100 --thresh gau_loose --out-dir test13 > test13.out 2>&1

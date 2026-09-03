@@ -54,7 +54,7 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 
 ### 実行結果と科学的妥当性
 
-複数段階のワークフローと scan の出力処理は、構成要素を評価できる場合に以下のフィールドを追加します。出力されるフィールドはコマンドによって異なり、各コマンド固有の `status` も互換性のため維持されます。科学的に利用できるかを判断する際は、`scientific_status` と各 outcome を確認してください。収束を確認できない個別結果は安全側に倒して扱われ、`usable` にはなりません。
+複数段階のワークフローと scan の出力処理は、構成要素を評価できる場合に以下のフィールドを追加します。出力されるフィールドはコマンドによって異なり、各コマンド固有の `status` も互換性のため維持されます。科学的に利用できるかを判断する際は、`scientific_status` と各 outcome を確認してください。必須の受理判定が欠ける場合は安全側に倒します。IRC 端点の stationary 判定は診断情報であり、伝播の利用可否とは分離されます。
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
@@ -148,6 +148,8 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | `n_imaginary_modes` | int\|null | 虚振動数。PHVA を実行しなかった場合は `null` |
 | `imaginary_frequencies_cm` | float[]\|null | 虚振動数 (cm$^{-1}$, 負の値)。PHVA 未実行時は `null` |
 | `opt_mode` | string | `"grad"`, `"hess"`, `"dimer"`, `"rsprfo"`, `"rsirfo"`, `"trim"` のいずれか。`hess` は RS-P-RFO を選択。 |
+| `opt_mode_requested` | string | CLI で要求した preset |
+| `optimizer` | string | 実際に使用した optimizer algorithm |
 | `n_atoms` | int | 全原子数 |
 | `n_opt_cycles` | int | 最適化サイクル数 |
 | `charge` / `spin` | int / int | model 領域の電荷/多重度 |
@@ -197,7 +199,12 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | `energy_last_hartree` | float | 連結経路の最後の端点。単独 IRC は反応物/生成物の化学的な同一性を割り当てない |
 | `endpoint_energy_orientation` | string | `"finished_first_to_finished_last"` |
 | `energy_reactant_hartree` / `energy_product_hartree` | float | 最初/最後の端点を表す互換エイリアス。キー名から反応物/生成物の同一性を推定しない |
-| `forward_converged` / `backward_converged` | bool\|null | 各方向の収束フラグ |
+| `forward_requested` / `backward_requested` | bool | 各方向を要求したか |
+| `forward_status` / `backward_status` | string | 各方向の伝播状態: `stopped` / `failed` / `disabled` |
+| `forward_endpoint_stationary` / `backward_endpoint_stationary` | bool\|null | 生 IRC 端点が stationary threshold を満たしたか。診断専用 |
+| `forward_converged` / `backward_converged` | bool\|null | `*_endpoint_stationary` の互換 alias。IRC 利用可否の gate ではない |
+| `forward_downhill_departure_valid` / `backward_downhill_departure_valid` | bool\|null | TS から downhill に離れたことを確認できたか |
+| `forward_integration_stop_reason` / `backward_integration_stop_reason` | string\|null | 数値伝播が失敗した場合だけ非空になる理由 |
 | `never_stop` | bool | 任意指定の物理的端点停止回避モードを有効にしたか |
 | `never_stop_energy_bypasses` | int | 実際に回避したenergy上昇・1 step energy変化量停止event数 |
 | `rigid_projection` | object | 初期/更新 Hessian の凍結境界 TR provenance |
@@ -215,7 +222,7 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 
 ### `scan` / `scan2d` / `scan3d`
 
-scan は `stages[]` 配列にステージごとのデータと `n_stages` を含みます。各 stage には（追加フィールド）`optimizer_status`（`converged`/`not_converged`/`stalled`）と、そのステージの最後の optimizer が非収束停止した場合の `stop_reason` を含みます。scan2d/scan3d は `n_grid_points` と `pair1`/`pair2`(/`pair3`)（各 `{i, j, low, high}`）に加えて、表面の最小エネルギー `min_energy_hartree` を含みます。fresh run は事前最適化行を除く試行数 `n_points_attempted` と、明示的に収束し有限値・構造 artifact を持つ `n_points_usable`、共通 calculator provenance、`charge`・`spin`を記録します。plot-only の `scan3d --csv` は `n_points_attempted` を出力せず、収束・artifact provenance が完全な CSV の場合だけ `n_points_usable` を出力します。また import した energy grid から calculator を特定できないため、`mlip_backend`、`mlip_model`、`mlip_precision`、`mm_backend`、`link_atom_method`、`use_cmap`、`charge`、`spin` は null です。
+scan は固定の L-BFGS 経路を `scan_opt_mode: "grad"` / `scan_optimizer: "lbfgs"` として記録し、`stages[]` 配列にステージごとのデータと `n_stages` を含みます。各 stage には（追加フィールド）`optimizer_status`（`converged`/`not_converged`/`stalled`）と、そのステージの最後の optimizer が非収束停止した場合の `stop_reason` を含みます。scan2d/scan3d は `n_grid_points` と `pair1`/`pair2`(/`pair3`)（各 `{i, j, low, high}`）に加えて、表面の最小エネルギー `min_energy_hartree` を含みます。fresh run は事前最適化行を除く試行数 `n_points_attempted` と、明示的に収束し有限値・構造 artifact を持つ `n_points_usable`、共通 calculator provenance、`charge`・`spin`を記録します。plot-only の `scan3d --csv` は `n_points_attempted` を出力せず、収束・artifact provenance が完全な CSV の場合だけ `n_points_usable` を出力します。また import した energy grid から calculator を特定できないため、`mlip_backend`、`mlip_model`、`mlip_precision`、`mm_backend`、`link_atom_method`、`use_cmap`、`charge`、`spin` は null です。
 
 ### `path-opt`
 
@@ -301,6 +308,7 @@ scan は `stages[]` 配列にステージごとのデータと `n_stages` を含
 | `execution_status` / `scientific_status` | string / string | 実行の完了度と科学的な利用可能性。従来の `status` とは分けて評価します。 |
 | `scientific_status_reasons` | string[] | 不完全または利用できない科学的結果の理由。正常終了時は省略されます。 |
 | `expected_item_ids` / `observed_item_ids` | string[] | 期待された集約項目と観測された集約項目。 |
+| `config` | object | 実効設定。`mep_mode` は GSM/DMF、`ts_opt_mode` / `endpoint_opt_mode` は設定済み後処理 preset を示す。generic `opt_mode*` は解決済み CLI 入力を保持する。`path_opt_mode` は端点 preoptimization に使う単一構造 optimizer であり（`preopt` を参照）、MEP path algorithm ではない。 |
 | `n_segments` | int | セグメント数 |
 | `segments` | object[] | セグメントごとの障壁、反応エネルギー、結合変化 |
 | `energy_diagrams` | object[] | エネルギーダイアグラム |
@@ -320,6 +328,7 @@ scan は `stages[]` 配列にステージごとのデータと `n_stages` を含
 | `rate_limiting_step` | object | 互換性のため維持するキー。各段階の始状態を基準にした局所障壁が最大のセグメントと method。microkinetics に基づく律速段階の判定ではない。 |
 | `overall_reaction_energy_kcal` | float | 全体の反応エネルギー。 |
 | `post_segments` | list | セグメントごとの TS/IRC/freq/DFT 結果。 |
+| `post_segments[].irc` / `.endpoint_assignment` / `.endpoint_opt` | object | 順に、生の伝播、最適化前の向き付け、最適化済み端点の最終受理判定。生 IRC の通常停止は診断であり、MEP mode は端点最適化の収束と最適化後 connectivity で受理する。 |
 | `post_segments[].thermo_symmetry` | object | 子 freq が報告した状態別の点群・回転対称 provenance。MEP 実行では R/TS/P、TS-only 実行では E1/TS/E2 を対象とし、有効な対称数 provenance を持つ状態だけを含む。欠けた状態は省略し、どの状態にも有効な provenance が無い場合だけフィールド全体を省略する。 |
 | `key_output_files` | object | 現在の呼び出しの出力索引。ルートファイルはファイル名 → 説明、各 `seg_NN` は `{description, files}` で、`files` はそのセグメントディレクトリからの相対パス。 |
 | `current_output_paths` | string[] | `--out-dir` からの相対パスを並べたリスト。現在の呼び出しが記録した成果物だけを含みます。 |

@@ -57,10 +57,24 @@ def format_result_warning(
     if direction_matches:
         messages: List[str] = []
         direction_text = {
-            "not_converged": "IRC did not converge. Review its trajectory and IRC log.",
+            "not_converged": (
+                "IRC stopped before its endpoint-stationarity threshold. "
+                "Review the trajectory and optimized endpoint result."
+            ),
+            "stopped": "IRC stopped normally; inspect the optimized endpoint result.",
             "convergence_unknown": (
                 "IRC convergence could not be confirmed. Review its trajectory and IRC log."
             ),
+            "integration_failed": (
+                "IRC integration failed. Review its trajectory and IRC log."
+            ),
+            "downhill_departure_invalid": (
+                "IRC did not establish a downhill departure from the TS. Review the IRC log."
+            ),
+            "downhill_departure_unknown": (
+                "IRC downhill departure could not be confirmed. Review the IRC log."
+            ),
+            "no_frames": "IRC produced no trajectory frames. Review the IRC log.",
             "energy_invalid": (
                 "IRC did not produce a valid energy profile. Review its trajectory and IRC log."
             ),
@@ -146,11 +160,14 @@ def format_result_warning(
         if recovery:
             message += f" Consider {' '.join(recovery)}."
         return scoped(message)
-    if code == "irc_endpoint_connectivity_unvalidated":
+    if code in {
+        "irc_endpoint_connectivity_unvalidated",
+        "optimized_endpoint_connectivity_unvalidated",
+    }:
         return (
-            "Bond-topology matching between the two IRC endpoints and the two "
-            "input endpoint structures could not be validated. Review both IRC "
-            "endpoint structures before using this result."
+            "Bond-topology matching between the optimized IRC endpoints and "
+            "the two input endpoint structures could not be validated. Review "
+            "both optimized endpoint structures before using this result."
         )
     priority_messages = {
         "mep_not_converged": (
@@ -171,6 +188,8 @@ def format_result_warning(
         "irc_result_missing": "IRC result metadata are missing. Confirm that IRC completed and wrote result.json.",
         "irc_result_unreadable": "IRC result metadata could not be read. Review result.json and the IRC log.",
         "irc_status_unknown": "IRC completion status could not be confirmed. Review result.json and the IRC log.",
+        "irc_direction_status_invalid": "IRC directional status metadata are missing or inconsistent. Review result.json and the IRC log.",
+        "irc_trajectory_missing": "IRC trajectory metadata are missing. Confirm that IRC wrote its stitched trajectory.",
         "irc_partial": "IRC completed only partially. Review both directional trajectories and the IRC log.",
         "irc_failed": "IRC failed. Review the IRC log and generated trajectories.",
     }
@@ -392,13 +411,14 @@ def _method_citation_record_keys(payload: Dict[str, Any]) -> List[str]:
             if bool(payload.get("dmf_correlated")):
                 keys.append("cfbenm")
 
-        path_opt_mode = str(
-            payload.get("path_opt_mode") or payload.get("opt_mode") or ""
-        ).strip().lower()
-        if path_opt_mode in {"grad", "lbfgs"}:
-            keys.append("lbfgs")
-        elif path_opt_mode in {"hess", "rfo", "rsprfo", "rsirfo"}:
-            keys.append("rfo")
+        if payload.get("preopt") is not False:
+            path_opt_mode = str(
+                payload.get("path_opt_mode") or payload.get("opt_mode") or ""
+            ).strip().lower()
+            if path_opt_mode in {"grad", "lbfgs"}:
+                keys.append("lbfgs")
+            elif path_opt_mode in {"hess", "rfo", "rsprfo", "rsirfo"}:
+                keys.append("rfo")
 
     post_segments = payload.get("post_segments") or []
     tsopt_used = bool(payload.get("tsopt_executed")) or any(
@@ -1023,23 +1043,50 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
     dft_func_basis = payload.get("dft_func_basis")
     if dft_func_basis:
         lines.append(f"DFT functional/basis: {dft_func_basis}")
-    path_opt_mode = payload.get("path_opt_mode") or payload.get("opt_mode") or "-"
-    post_opt_mode = (
+    legacy_post_mode = (
         payload.get("post_opt_mode")
         or payload.get("opt_mode_post")
         or payload.get("opt_mode")
         or "-"
     )
+    ts_opt_mode = payload.get("ts_opt_mode") or legacy_post_mode
+    endpoint_opt_mode = payload.get("endpoint_opt_mode") or legacy_post_mode
+
+    def _method(mode: Any, stage: str) -> str:
+        value = str(mode or "-").strip().lower()
+        if stage == "ts":
+            return {
+                "grad": "Dimer",
+                "lbfgs": "Dimer",
+                "dimer": "Dimer",
+                "hess": "RS-P-RFO",
+                "rfo": "RFO",
+                "rsprfo": "RS-P-RFO",
+                "rsirfo": "RS-I-RFO",
+                "trim": "TRIM",
+            }.get(value, value.upper())
+        return "L-BFGS" if value in {"grad", "lbfgs", "dimer"} else "RFO"
+
+    post_segments = payload.get("post_segments") or []
+    tsopt_used = bool(payload.get("tsopt_executed")) or any(
+        isinstance(segment, dict) and "tsopt" in segment
+        for segment in post_segments
+    )
+    endpoint_opt_used = bool(payload.get("endpoint_opt_executed")) or any(
+        isinstance(segment, dict) and "endpoint_opt" in segment
+        for segment in post_segments
+    )
+    if tsopt_used:
+        lines.append(
+            f"TS optimization    : {ts_opt_mode} ({_method(ts_opt_mode, 'ts')})"
+        )
+    if endpoint_opt_used:
+        lines.append(
+            "IRC endpoint optimization: "
+            f"{endpoint_opt_mode} ({_method(endpoint_opt_mode, 'endpoint')})"
+        )
     if not ts_only:
-        lines.append(
-            f"Opt mode (path)    : {path_opt_mode}  (grad: lbfgs; hess: rfo)"
-        )
-    if ts_only or payload.get("tsopt"):
-        lines.append(
-            f"Opt mode (post)    : {post_opt_mode}  "
-            "(grad: dimer/lbfgs; hess: rsprfo/rfo)"
-        )
-    lines.append(f"MEP mode           : {payload.get('mep_mode') or '-'}")
+        lines.append(f"MEP mode           : {payload.get('mep_mode') or '-'}")
 
     version_base = payload.get("code_version") or __version__
     version_txt = f"mlmm {version_base}"

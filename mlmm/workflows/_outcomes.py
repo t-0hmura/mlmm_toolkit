@@ -7,11 +7,12 @@ The vocabulary separates three orthogonal questions that the single legacy
 * did the underlying engine converge?        -> ``converged`` (tri-state)
 * may a scientific consumer use the result?  -> ``usable``
 
-Fail-closed invariant: no artifact existence and no
-finite fallback promotes a *required* nonconverged or missing scientific leaf to
-success.  ``converged`` is tri-state: ``True`` means the engine reported
-convergence, ``False`` means it explicitly did not, and ``None`` means the
-convergence is unknown (a missing signal is treated as *not* converged).
+Fail-closed invariant: artifact existence alone never promotes a required leaf.
+``converged`` is tri-state: ``True`` means the engine reported convergence,
+``False`` means it explicitly did not, and ``None`` means the concept is not an
+applicable acceptance gate.  Most leaves require explicit convergence; IRC
+directions instead define usability from finite downhill propagation without a
+numerical integration failure, while endpoint stationarity remains diagnostic.
 Artifacts remain reportable even when the leaf that produced them is unusable.
 
 These types are additive.  They never replace or rename the legacy public
@@ -292,21 +293,33 @@ def irc_hessian_cache_eligible(obj: Any, converged_attr: str) -> bool:
 
 
 def irc_direction_leaves(
-    directions: Iterable[Tuple[str, bool, Any, Any, Sequence[str]]],
+    directions: Iterable[Tuple],
 ) -> Tuple[List[LeafOutcome], List[str]]:
     """Build one :class:`LeafOutcome` per IRC direction plus the expected IDs.
 
-    ``directions`` yields ``(name, requested, converged, n_frames, artifacts)``.
-    A requested direction is a required leaf that is usable only when it
-    explicitly converged and produced at least one frame; its endpoint
-    trajectory is retained as an artifact regardless.  A disabled direction is
-    an optional (not-required) leaf that contributes no failure — a one-sided
-    IRC request is a legitimate success.
+    ``directions`` yields ``(name, requested, endpoint_stationary,
+    downhill_departure_valid, integration_stop_reason, n_frames, artifacts,
+    [energies])``.  Reaching an endpoint threshold is diagnostic: a normally
+    stopped, finite downhill trajectory is usable by the subsequent endpoint
+    optimization even when ``endpoint_stationary`` is false.  Numerical
+    integration failure, an invalid/unknown downhill departure, or invalid
+    samples remain fail-closed.  Endpoint-stationarity continues to govern the
+    stricter Hessian-cache gate in :func:`irc_hessian_cache_eligible`.
     """
 
     leaves: List[LeafOutcome] = []
     expected: List[str] = []
-    for name, requested, converged, n_frames, artifacts in directions:
+    for direction in directions:
+        (
+            name,
+            requested,
+            _endpoint_stationary,
+            downhill_departure_valid,
+            integration_stop_reason,
+            n_frames,
+            artifacts,
+            *samples,
+        ) = direction
         if not requested:
             leaves.append(
                 make_leaf(
@@ -324,18 +337,59 @@ def irc_direction_leaves(
             _n = int(n_frames)
         except (TypeError, ValueError):
             _n = 0
+        energy_valid = _n > 0
+        if samples:
+            try:
+                energy_values = list(samples[0])
+            except TypeError:
+                energy_values = []
+            energy_valid = bool(energy_values) and all(
+                _finite(value) for value in energy_values
+            )
+        downhill = _normalize_bool(downhill_departure_valid)
+        integration_failed = bool(str(integration_stop_reason or "").strip())
+        if _n <= 0:
+            usable, reason = False, "no_frames"
+        elif not energy_valid:
+            usable, reason = False, "energy_invalid"
+        elif downhill is False:
+            usable, reason = False, "downhill_departure_invalid"
+        elif downhill is None:
+            usable, reason = False, "downhill_departure_unknown"
+        elif integration_failed:
+            usable, reason = False, "integration_failed"
+        else:
+            usable, reason = True, "stopped"
         leaves.append(
-            make_leaf(
-                "irc",
-                name,
+            LeafOutcome(
+                stage="irc",
+                item_id=name,
                 required=True,
                 executed=True,
-                converged=_normalize_bool(converged),
-                energy_valid=_n > 0,
-                artifacts=list(artifacts),
+                converged=None,
+                usable=usable,
+                reason=reason,
+                artifacts=tuple(str(path) for path in artifacts),
             )
         )
     return leaves, expected
+
+
+def irc_direction_statuses(leaves: Iterable[LeafOutcome]) -> dict:
+    """Map IRC direction leaves to the public stopped/failed/disabled enum."""
+
+    by_id = {leaf.item_id: leaf for leaf in leaves}
+    statuses = {}
+    for direction in ("forward", "backward"):
+        leaf = by_id.get(direction)
+        if leaf is None or not leaf.required:
+            status = "disabled"
+        elif leaf.usable:
+            status = "stopped"
+        else:
+            status = "failed"
+        statuses[f"{direction}_status"] = status
+    return statuses
 
 
 def ipopt_status_to_converged(status: Any) -> Tuple[Optional[bool], str]:

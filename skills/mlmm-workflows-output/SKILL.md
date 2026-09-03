@@ -192,10 +192,12 @@ first-order certification. Numerical non-convergence, zero modes,
 failed/skipped PHVA, or no valid negative root stops `all` after retaining TS
 artifacts. Then require standalone freq `result.json` `n_imaginary == 1` before
 trusting the barrier → irc `result.json` `scientific_status == "success"` and
-every requested direction has a usable outcome before endpoint chemistry is
-interpreted. The chemically oriented endpoints must connect the **intended** R
-and P. A TS that fails the certification gate is not a validated first-order TS
-for this elementary step.
+every requested direction has a usable `stopped` outcome before endpoint
+optimization. In `all`, require `post_segments[].endpoint_opt` convergence and
+optimized `connectivity_validated`; raw `endpoint_assignment` is orientation
+provenance only. The optimized endpoints must connect the **intended** R and P.
+A TS that fails the certification gate is not a validated first-order TS for
+this elementary step.
 
 **Stage 3 — thermochemistry** (optional, = `all --thermo`): run `mlmm freq` on R / TS / P
 for the Gibbs/QRRHO profile (`post_segments[i].gibbs_mlip`).
@@ -235,11 +237,11 @@ Top-level keys:
 | `execution_status` / `scientific_status` | Whether required leaves executed / whether the science is usable; gate consumption on `scientific_status` |
 | `scientific_status_reasons` | Reasons for missing or unusable leaves; omitted on clean success |
 | `expected_item_ids` / `observed_item_ids` | Expected vs observed leaf IDs; compare before accepting the aggregate |
-| `stage_outcomes` / `point_outcomes` | Fail-closed per-stage / per-scan-point records; require explicit convergence and `usable` / `seed_eligible` when present |
+| `stage_outcomes` / `point_outcomes` | Fail-closed per-stage / per-scan-point records; require `usable` / `seed_eligible` and interpret `converged` by leaf type. IRC direction leaves use `converged: null` and expose propagation status separately. |
 | `charge` / `spin` | Resolved ML-region charge / multiplicity |
 | `environment` | `{device, gpu_name, gpu_vram_gb, cuda_version, cpu, n_cpus, ram_gb}` |
 | `references` | Methods actually used by the resolved workflow, as `{method, citation, doi}` records. The same set appears at the tail of `summary.log` and final stdout immediately before elapsed time. |
-| `config` | Full effective config after CLI + YAML + defaults merge |
+| `config` | Full effective config after CLI + YAML + defaults merge. `mep_mode` identifies GSM/DMF; `ts_opt_mode` and `endpoint_opt_mode` identify configured post-processing presets. Generic `opt_mode*` keys retain the resolved CLI inputs. `path_opt_mode` is the single-structure optimizer used for endpoint preoptimization (see `preopt`), not the MEP path algorithm. |
 | `freeze_atoms` | Indices held fixed during optimization (link-H parents) |
 | `n_segments` | Number of path-search segments; validate chemistry before treating a segment as an elementary step |
 | `n_segments_reactive` | Number of non-bridge (reactive, `kind != "bridge"`) segments |
@@ -284,6 +286,9 @@ Per-segment keys in the post-processing list (`summary.json["post_segments"][i]`
 | `tag` | Matches the corresponding `segments[i].tag` |
 | `post_dir` | `result/segments/seg_NN/` directory |
 | `irc_plot` / `irc_traj` | IRC-related artifact paths |
+| `irc` | Raw propagation record. `reason: "stopped"` is normal; direction status and endpoint-stationarity diagnostics are separate from final endpoint acceptance. |
+| `endpoint_assignment` | Pre-optimization IRC-to-MEP orientation provenance; diagnostic only. |
+| `endpoint_opt` | Optimized endpoint convergence plus `connectivity_validated`; this is the final endpoint gate in MEP modes. |
 | `ts_imag` | `{n_imag}` |
 | `mlip` | R/TS/P runs contain `{energies_au, energies_kcal, barrier_kcal, delta_kcal, ...}`; TS-only E1/TS/E2 runs instead contain one barrier from each endpoint |
 | `gibbs_mlip` | Gibbs analogue of `mlip` (when `--thermo` is on) |
