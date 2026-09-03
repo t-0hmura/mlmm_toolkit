@@ -48,6 +48,9 @@ def test_missing_requested_post_segment_is_partial_and_unobserved():
     post_segments = [
         {
             "index": 1,
+            # A real `all --tsopt` record always carries the TS decision; the
+            # aggregate fails closed without it.
+            "tsopt": {"continue_irc": True},
             "mlip": {},
             "irc_traj": "seg_01/irc.trj",
             "irc": {"usable": True, "traj": "seg_01/irc.trj"},
@@ -108,8 +111,12 @@ def test_explicit_no_change_segment_does_not_require_postprocessing() -> None:
         legacy_reasons=reasons,
     )
 
-    assert status == "success"
-    assert truth.scientific_status == "success"
+    # The no-change segment still requires no per-segment record, which is what
+    # this test guards. The headline verdict now says what actually happened:
+    # TSOPT was requested and never ran, because nothing was reactive.
+    assert status == "partial"
+    assert any("no reactive segment" in reason for reason in reasons)
+    assert truth.scientific_status == "partial"
     assert truth.expected_item_ids == ()
 
 

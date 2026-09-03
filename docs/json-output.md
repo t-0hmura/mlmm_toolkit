@@ -142,7 +142,7 @@ An optimizer may also report `"status": "stalled"`: the energy stopped decreasin
 | `reaction_mode_index` | int\|null | Selected negative exact-PHVA root for downstream IRC; fallback root 0 is explicitly labelled and does not verify reaction identity |
 | `reaction_mode_frequency_cm` | float\|null | Frequency of the selected negative root |
 | `reaction_mode_source` | string\|null | Reference-aligned or explicit fallback source used for root selection |
-| `energy_hartree` | float | TS energy (Hartree); `NaN` when the final energy evaluation failed, in which case `status` is `"energy_missing"` |
+| `energy_hartree` | float \| null | TS energy (Hartree); `null` when the final energy evaluation failed (the writer replaces every non-finite float with `null`), in which case `status` is `"energy_missing"` |
 | `n_imaginary_modes` | int\|null | Number of imaginary frequencies; `null` if PHVA was not run |
 | `imaginary_frequencies_cm` | float[]\|null | Imaginary frequencies (cm⁻¹, negative); no PHVA: `[]` with `--skip-final-freq`, otherwise `null` |
 | `opt_mode` | string | One of `"grad"`, `"hess"`, `"dimer"`, `"rsprfo"`, `"rsirfo"`, or `"trim"`; `hess` selects RS-P-RFO |
@@ -214,6 +214,7 @@ IRC. Explicit `--skip-final-freq` retains the final structure with
 |-------|------|-------------|
 | `status` | string | `"completed"` |
 | `n_frames_forward` / `n_frames_backward` / `n_frames_total` | int | IRC frames |
+| `forward_short_branch` / `backward_short_branch` | bool | Branch produced at most three frames without reaching the cycle cap; diagnostic only |
 | `energy_first_hartree` | float | First stitched-path endpoint; standalone IRC assigns no chemical identity |
 | `energy_ts_hartree` | float | TS energy |
 | `energy_last_hartree` | float | Last stitched-path endpoint; standalone IRC assigns no chemical identity |
@@ -362,9 +363,12 @@ The `all` and `path-search` commands write `summary.json`:
 | `status` | string | `"success"` / `"partial"` / `"failed"` for `all`; `"success"` / `"partial"` for `path-search`. |
 | `execution_status` / `scientific_status` | string / string | Execution completeness and scientific usability; evaluate these separately from legacy `status`. |
 | `scientific_status_reasons` | string[] | Reasons for incomplete or unusable science; omitted on clean success. |
+| `pipeline_stop` | object \| absent | Present only on an early stop: `stage`, `reason`, and the stage's record. Rendered in `summary.log` as `Pipeline stop`. |
 | `expected_item_ids` / `observed_item_ids` | string[] | Expected and observed aggregate leaves. |
 | `config` | object | Effective settings. `mep_mode` identifies GSM/DMF; `ts_opt_mode` and `endpoint_opt_mode` identify the configured post-processing presets. Generic `opt_mode*` keys retain the resolved CLI inputs. `path_opt_mode` is the single-structure optimizer used for endpoint preoptimization (see `preopt`), not the MEP path algorithm. |
 | `n_segments` | int | Segment count |
+| `search_max_depth` | int | Effective recursion cap; `0` means subdivision was disabled |
+| `preopt_requested` / `preopt_converged` | bool / bool \| null | Endpoint preoptimization request and its folded convergence; the `all` aggregate gates on it |
 | `segments` | object[] | Per-segment barrier, delta, bond changes |
 | `energy_diagrams` | object[] | Energy profiles with labels and kcal/mol values |
 | `mlip_backend` | string | Backend name (`uma`, `orb`, `mace`, `aimnet2`, or `custom`) |

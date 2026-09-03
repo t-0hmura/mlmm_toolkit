@@ -379,7 +379,15 @@ def resolve_dmf_solve_tol(
 
 
 def _dmf_solver_outcome(solve_result: Any) -> Tuple[bool, Optional[int], str]:
-    """Normalize cyipopt's ``(x, info)`` result without hiding failures."""
+    """Normalize cyipopt's ``(x, info)`` result without hiding failures.
+
+    The convergence bit comes from :func:`ipopt_status_to_converged`, the single
+    definition this module already uses for the additive stage leaf. Reading the
+    status twice with two different rules made one ``result.json`` report
+    ``status: "not_converged"`` beside ``reason: "ipopt_converged"`` for the same
+    IPOPT code. An unreadable status stays not-converged here, because the
+    public field is a plain boolean.
+    """
 
     info: Dict[str, Any] = {}
     if (
@@ -408,7 +416,10 @@ def _dmf_solver_outcome(solve_result: Any) -> Tuple[bool, Optional[int], str]:
         reason = "IPOPT status was not reported."
     else:
         reason = f"IPOPT status {status}."
-    return status == 0, status, reason
+    from mlmm.workflows._outcomes import ipopt_status_to_converged
+
+    converged, _ = ipopt_status_to_converged(status)
+    return converged is True, status, reason
 
 
 def _shared_frozen_reference(

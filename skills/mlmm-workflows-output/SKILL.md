@@ -286,7 +286,7 @@ Per-segment keys in the post-processing list (`summary.json["post_segments"][i]`
 | `tag` | Matches the corresponding `segments[i].tag` |
 | `post_dir` | `result/segments/seg_NN/` directory |
 | `irc_plot` / `irc_traj` | IRC-related artifact paths |
-| `irc` | Raw propagation record. `reason: "stopped"` is normal; direction status and endpoint-stationarity diagnostics are separate from final endpoint acceptance. |
+| `irc` | Raw propagation record. `reason: "stopped"` is normal; direction status and endpoint-stationarity diagnostics are separate from final endpoint acceptance. Sub-keys: `usable`, `reason`, `forward_status`, `backward_status`, `n_frames_forward`, `n_frames_backward`, `traj`, `scientific_status` (`forward_converged` / `backward_converged` were removed in schema 3.0; read `*_status` instead). |
 | `endpoint_assignment` | Pre-optimization IRC-to-MEP orientation provenance; diagnostic only. |
 | `endpoint_opt` | Optimized endpoint convergence plus `connectivity_validated`; this is the final endpoint gate in MEP modes. |
 | `ts_imag` | `{n_imag}` |

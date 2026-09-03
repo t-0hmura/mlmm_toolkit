@@ -128,6 +128,8 @@ SHARED_ADVANCED_SCIENTIFIC_OPTIONS = [
     ("scan3d", "--relax-max-cycles"),
     ("path-opt", "--gsm-param"),
     ("path-search", "--gsm-param"),
+    ("path-search", "--max-depth"),
+    ("all", "--max-depth"),
 ]
 
 

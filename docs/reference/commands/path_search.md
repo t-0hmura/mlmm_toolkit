@@ -60,14 +60,14 @@ Options:
                                   20]
   --max-depth INTEGER RANGE       Number of recursive subdivision levels allowed
                                   while splitting a multistep path. 0 performs
-                                  no subdivision and yields a single MEP
-                                  segment. Reaching the limit is not an error:
-                                  the remaining interval is returned as one un-
-                                  subdivided segment tagged seg_NNN_maxdepth,
-                                  which is therefore not guaranteed to be a
-                                  single elementary step. When not given, YAML
-                                  search.max_depth applies.  [default: (10);
-                                  x>=0]
+                                  no subdivision, returning each input pair as
+                                  one MEP segment. Reaching the limit is not an
+                                  error: the remaining interval is returned as
+                                  one segment that was not subdivided, tagged
+                                  seg_NNN_maxdepth, which is therefore not
+                                  guaranteed to be a single elementary step.
+                                  When not given, YAML search.max_depth applies.
+                                  [default: (10); x>=0]
   --gsm-param [equi|energy]       GSM node parameterization after string growth.
                                   The energy scheme concentrates nodes in high-
                                   energy regions and may be tried when an

@@ -632,5 +632,6 @@ if grep -Fq 'Reached maximum recursion depth' test75_ps_max_depth0.out; then
   echo '[smoke] FAIL test75: --max-depth 0 announced an exhausted recursion budget' >> test75_ps_max_depth0.out
   exit 1
 fi
+grep -Fq 'Recursive subdivision is disabled' test75_ps_max_depth0.out || { echo '[smoke] FAIL test75: --max-depth 0 did not announce that subdivision is disabled' >> test75_ps_max_depth0.out; exit 1; }
 
 echo "[smoke] PASS: required GPU, ML/MM, Hessian-handoff, and structure-I/O lane completed with zero skips."

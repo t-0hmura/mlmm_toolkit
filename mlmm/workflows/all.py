@@ -1592,8 +1592,21 @@ def _pipeline_aggregate_truth(
                     else "mep_convergence_unknown"
                 )
             tsopt = post.get("tsopt")
-            if isinstance(tsopt, dict) and tsopt.get("continue_irc") is False:
-                converged = _and3(converged, False)
+            if not isinstance(tsopt, dict):
+                # Fail closed only when TSOPT was actually requested: this record
+                # is appended before the TS stage runs and legitimately carries no
+                # `tsopt` key on a route that never ran it. Gated the same way the
+                # sibling `endpoint_opt` branch below gates its missing case.
+                if tsopt_requested:
+                    converged = _and3(converged, None)
+                    if not reason:
+                        reason = "tsopt_missing"
+            elif tsopt.get("continue_irc") is not True:
+                # `is not True` rather than `is False`: a malformed or absent
+                # decision is unknown, not a pass.
+                converged = _and3(
+                    converged, False if tsopt.get("continue_irc") is False else None
+                )
                 if not reason:
                     reason = f"tsopt:{tsopt.get('reason') or 'status_unknown'}"
             irc = post.get("irc")
@@ -1664,7 +1677,10 @@ def _pipeline_aggregate_truth(
             )
         )
 
-    if leaves:
+    # Keyed on SEGMENT leaves: the `preopt` leaf alone must not take a degenerate
+    # summary down the per-segment path, whose fail-closed composition would turn
+    # an ancillary preoptimization failure into a whole-run `failed`.
+    if any(leaf.item_id != "preopt" for leaf in leaves):
         agg = aggregate_workflow_truth(leaves, expected)
         agg_sci = agg.scientific_status
         agg_exec = agg.execution_status
@@ -1690,6 +1706,20 @@ def _pipeline_aggregate_truth(
         agg_exec = "failed" if legacy_status == "failed" else "completed"
         agg_reasons = []
         observed = list(expected)
+        preopt_leaf = next(
+            (leaf for leaf in leaves if leaf.item_id == "preopt"), None
+        )
+        if preopt_leaf is not None and not preopt_leaf.usable:
+            # A failed endpoint preoptimization is a real defect but not the whole
+            # result -- the MEP and its diagram still shipped -- so it demotes to
+            # `partial`, the same verdict it produces when a reactive segment is
+            # present.
+            if agg_sci != "failed":
+                agg_sci = "partial"
+            agg_reasons = [
+                f"{preopt_leaf.stage}:{preopt_leaf.item_id}:"
+                f"{preopt_leaf.reason or 'unusable'}"
+            ]
 
     # Compose with the legacy completeness axis: keep the MORE severe verdict.
     if _STATUS_SEVERITY.get(legacy_status, 0) >= _STATUS_SEVERITY.get(agg_sci, 0):
@@ -1760,6 +1790,17 @@ def _derive_pipeline_status(
 
     cfg = config or {}
     requested = any(bool(cfg.get(name)) for name in ("tsopt", "thermo", "dft"))
+
+    # A requested post stage with no reactive segment never runs at all. That
+    # precondition is independent of whether the per-segment records exist yet,
+    # so it is checked OUTSIDE the ``post_segments`` gate below: on the route
+    # that returns early here, the intermediate summary is the one that ships,
+    # and it otherwise reported ``success`` for stages that were skipped.
+    if requested and not any(_is_reactive_segment(item) for item in segments):
+        reasons.append(
+            "requested post-processing did not run: no reactive segment was identified"
+        )
+
     if post_segments is not None and requested:
         logs = [item for item in post_segments if isinstance(item, dict)]
         reactive_ids = {
@@ -2034,6 +2075,11 @@ def _enrich_summary(
             "endpoint_opt_mode": citation_config.get("endpoint_opt_mode"),
             "mep_mode": citation_config.get("mep_mode"),
             "dmf_correlated": citation_config.get("dmf_correlated"),
+            # The path-optimizer citation is gated on `preopt`, and a missing
+            # key reads as "preoptimization ran". Without this the reference
+            # list in summary.json cites a single-structure optimizer that a
+            # `--no-preopt` run never used, contradicting summary.log.
+            "preopt": citation_config.get("preopt"),
             "post_segments": post_segments or [],
             "mlip_backend": summary.get("mlip_backend"),
             "mlip_model": summary.get("mlip_model"),
@@ -2478,9 +2524,17 @@ def _validate_optimized_endpoint_pair(
         and matrix.get("left_to_mep_left") is True
         and matrix.get("right_to_mep_right") is True
     )
+    # Carry the probe's own resolution label rather than asserting the strongest
+    # one: a `rmsd_topology_tie` or `rmsd_topology_unmatched` resolution published
+    # as `bond_topology` misstates how the pairing was established.
+    probe_method = probe.get("method") if isinstance(probe, dict) else None
     result: Dict[str, Any] = {
         "source": "optimized_endpoints",
-        "method": "bond_topology",
+        "method": (
+            "bond_topology"
+            if direct
+            else (str(probe_method) if probe_method else "unresolved")
+        ),
         "connectivity_validated": direct,
         "match_matrix": matrix,
     }
@@ -4036,9 +4090,9 @@ def _configure_all_help_visibility(command: click.Command) -> None:
               help="Max internal nodes per GSM/DMF segment (max_nodes+2 images including endpoints).")
 @click.option("--max-depth", type=click.IntRange(min=0), default=None, show_default="10",
               help=("Recursive subdivision levels allowed by --refine-path. 0 performs no "
-                    "subdivision and yields a single MEP segment. Reaching the limit is not "
-                    "an error: the remaining interval is returned as one un-subdivided "
-                    "segment tagged seg_NNN_maxdepth, which is therefore not guaranteed to "
+                    "subdivision, returning each input pair as one MEP segment. Reaching the limit is not "
+                    "an error: the remaining interval is returned as one segment that was not subdivided, "
+                    "tagged seg_NNN_maxdepth, and is therefore not guaranteed to "
                     "be a single elementary step."))
 @click.option(
     "--gsm-param",
@@ -4770,6 +4824,12 @@ def cli(
         effective_freeze_atoms,
         _prepared_all_inputs,
     )
+
+    # `--max-depth` is consumed only by the recursive splitter, so accepting it
+    # on the single-pass route would silently drop the request while the config
+    # echo still reported the value.
+    if max_depth is not None and not refine_path:
+        raise click.UsageError("--max-depth requires --refine-path.")
 
     if single_tsopt_mode:
         all_mode = "tsopt-only"
@@ -7342,6 +7402,7 @@ def cli(
     # Use segment summary from path_search / path-opt
     if not segments:
         _echo("[post] No segments found in summary; nothing to do.", narrative=True)
+        summary["pipeline_stop"] = {"stage": "post", "reason": "no_segments"}
         _write_pipeline_summary_log([])
         _finalize_current_summary(
             out_dir / "summary.json",
@@ -7362,6 +7423,7 @@ def cli(
     reactive = [s for s in segments if _is_reactive_segment(s)]
     if not reactive:
         _echo("[post] No bond-change segments. Skipping TS/thermo/DFT.", narrative=True)
+        summary["pipeline_stop"] = {"stage": "post", "reason": "no_reactive_segment"}
         _write_pipeline_summary_log([])
         _finalize_current_summary(
             out_dir / "summary.json",

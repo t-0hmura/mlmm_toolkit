@@ -453,36 +453,60 @@ def check_provenance(
 def check_path_search_max_depth(root: Path) -> None:
     """`--max-depth 0` must perform no subdivision at all.
 
-    The recursion cap counts LEVELS, so 0 returns the interval as a single MEP
-    segment and never enters the splitter. That segment is a deliberate
-    no-subdivision request rather than an exhausted budget, so it also carries
-    the ordinary `seg_NNN` tag: `_maxdepth` is reserved for a recursion that was
-    cut off while covalent changes remained.
+    The recursion cap counts LEVELS, so 0 never enters the splitter. What the run
+    then reports depends on the interval: a string that develops an interior
+    maximum yields exactly one ordinary `seg_NNN` segment, and one that does not
+    takes the endpoint-HEI branch and yields none. Both are legitimate; what must
+    hold either way is that no subdivision happened, that no segment is tagged
+    `_maxdepth` (reserved for a recursion cut off while covalent changes
+    remained), and that the console says subdivision was disabled rather than
+    claiming an exhausted budget.
+
+    `path-search` writes `summary.json`, not `result.json`.
     """
 
-    data = json.loads((root / "result.json").read_text(encoding="utf-8"))
+    data = json.loads((root / "summary.json").read_text(encoding="utf-8"))
     n_segments = data.get("n_segments")
-    if n_segments != 1:
+    if not isinstance(n_segments, int) or n_segments > 1:
         raise SystemExit(
-            f"--max-depth 0 produced n_segments={n_segments!r}, expected exactly 1"
+            f"--max-depth 0 produced n_segments={n_segments!r}; no subdivision "
+            "may happen, so at most one segment is allowed"
         )
     segments = data.get("segments")
-    if not isinstance(segments, list) or len(segments) != 1:
+    if not isinstance(segments, list) or len(segments) != n_segments:
         raise SystemExit(
-            f"--max-depth 0 published {segments!r} instead of one segment record"
+            f"n_segments={n_segments!r} disagrees with segments={segments!r}"
         )
-    tag = str(segments[0].get("tag") or "")
-    if not tag:
-        raise SystemExit("the single --max-depth 0 segment carries no tag")
-    if tag.endswith("_maxdepth"):
+    for segment in segments:
+        tag = str(segment.get("tag") or "")
+        if not tag:
+            raise SystemExit("a --max-depth 0 segment carries no tag")
+        if tag.endswith("_maxdepth"):
+            raise SystemExit(
+                f"--max-depth 0 tagged its segment {tag!r}; a deliberate "
+                "no-subdivision request must not be reported as an exhausted "
+                "recursion budget"
+            )
+        if segment.get("barrier_kcal") is None:
+            raise SystemExit(
+                f"segment {tag!r} reports no barrier, so the single-segment path "
+                "carries no usable energetics"
+            )
+    if n_segments == 0:
+        # Not vacuous: with no segment the run must have taken the endpoint-HEI
+        # branch, and must say so, rather than having silently produced nothing.
+        reasons = " ".join(str(r) for r in (data.get("scientific_status_reasons") or []))
+        if "endpoint_hei" not in reasons:
+            raise SystemExit(
+                "--max-depth 0 produced no segment without reporting an "
+                f"endpoint-HEI reason; reasons were {reasons!r}"
+            )
+    depth_cap = data.get("search_max_depth")
+    if depth_cap != 0:
         raise SystemExit(
-            f"--max-depth 0 tagged its segment {tag!r}; a deliberate no-subdivision "
-            "request must not be reported as an exhausted recursion budget"
-        )
-    if segments[0].get("barrier_kcal") is None:
-        raise SystemExit(
-            f"segment {tag!r} reports no barrier, so the single-segment path "
-            "carries no usable energetics"
+            f"summary.json reports search_max_depth={depth_cap!r}; the effective "
+            "recursion cap must be recorded so a reader can tell that "
+            "subdivision was disabled"
         )
 
 

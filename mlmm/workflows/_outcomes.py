@@ -382,7 +382,11 @@ def irc_direction_statuses(leaves: Iterable[LeafOutcome]) -> dict:
     statuses = {}
     for direction in ("forward", "backward"):
         leaf = by_id.get(direction)
-        if leaf is None or not leaf.required:
+        if leaf is None:
+            # No record at all is not a deliberate user choice, so it must not
+            # read as `disabled`; an absent required outcome fails closed.
+            status = "failed"
+        elif not leaf.required:
             status = "disabled"
         elif leaf.usable:
             status = "stopped"
@@ -495,9 +499,13 @@ def aggregate_workflow_truth(
     * no usable required output, or an execution failure with nothing usable ->
       failed
 
-    A required leaf whose ``converged`` is not ``True`` or whose ``usable`` is
-    ``False`` cannot count toward completeness, regardless of any artifact it
-    produced.
+    A required leaf counts toward completeness only when ``usable`` is ``True``;
+    ``converged`` is an engine diagnostic that this function does not read, so a
+    stage whose contract makes convergence irrelevant (an IRC direction, for
+    instance) publishes ``converged=None`` and can still reach ``success``. An
+    artifact promotes nothing on its own: when every required leaf is unusable
+    the verdict is ``failed``, and only a DIAGNOSTIC leaf's artifact can raise a
+    run to ``partial``.
     """
 
     leaves = list(leaves)
@@ -521,12 +529,18 @@ def aggregate_workflow_truth(
     execution_status = "failed" if exec_failed else "completed"
 
     has_usable_required = bool(usable_required)
-    has_any_artifact = any(leaf.artifacts for leaf in leaves)
+    # Only a DIAGNOSTIC artifact can carry a run to "partial" on its own. A
+    # required leaf that declared itself unusable still keeps its trajectory on
+    # disk, so counting every artifact here let a run in which no required
+    # output is usable report "partial" -- the same word a half-usable run gets.
+    has_usable_diagnostic_artifact = any(
+        leaf.artifacts for leaf in leaves if not leaf.required
+    )
     all_required_usable = bool(required) and all(leaf.usable for leaf in required)
 
     if all_required_usable and not missing:
         scientific = "success"
-    elif has_usable_required or has_any_artifact:
+    elif has_usable_required or has_usable_diagnostic_artifact:
         scientific = "partial"
     else:
         scientific = "failed"

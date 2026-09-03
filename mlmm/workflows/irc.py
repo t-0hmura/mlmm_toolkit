@@ -1208,6 +1208,12 @@ def cli(
                 "n_frames_forward": _n_fwd,
                 "n_frames_backward": _n_bwd,
                 "n_frames_total": len(_all_e),
+                # The console already warns that a branch stopped after only a
+                # few frames; record it so the artifact says what stderr said.
+                # This is diagnostic, not a verdict: the adopted contract keeps
+                # an ordinary stop usable.
+                "forward_short_branch": "forward" in quick_directions,
+                "backward_short_branch": "backward" in quick_directions,
                 "forward_requested": bool(getattr(eulerpc, "forward", False)),
                 "backward_requested": bool(getattr(eulerpc, "backward", False)),
                 "forward_integration_converged": getattr(eulerpc, 'forward_integration_converged', None),

@@ -32,8 +32,13 @@ def test_cap_counts_levels_so_zero_subdivides_nothing() -> None:
 
 def test_deliberate_zero_keeps_the_ordinary_segment_tag() -> None:
     assert "if max_depth > 0:" in SRC
-    assert 'maxdepth_seg_tag = f"seg_{seg_counter[0]:03d}_maxdepth"' in SRC
-    assert 'maxdepth_seg_tag = f"seg_{seg_counter[0]:03d}"' in SRC
+    assert '_terminate_with_single_segment(\n                f"seg_{seg_counter[0]:03d}_maxdepth"' in SRC
+    assert '_terminate_with_single_segment(f"seg_{seg_counter[0]:03d}")' in SRC
+    # Every branch that abandons recursion publishes a segment record, so the
+    # interval cannot vanish from `n_segments` / `segments[]`.
+    assert "def _terminate_with_single_segment(" in SRC
+    assert 'f"seg_{seg_counter[0]:03d}_kinklimit",' in SRC
+    assert "segments=[]" in SRC  # the endpoint-HEI guard still refuses a report
 
 
 def test_max_depth_option_is_declared_on_both_entry_points() -> None:

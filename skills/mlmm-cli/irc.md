@@ -107,7 +107,9 @@ print(d["energy_first_hartree"], d["energy_ts_hartree"], d["energy_last_hartree"
 print(d.get("bond_changes"))       # directed first -> last; may be omitted
 print(d["status"])                  # "completed" (success path only; errors emit a separate error JSON)
 print(d["forward_status"], d["backward_status"])
+print(d["forward_requested"], d["backward_requested"])
 print(d["forward_integration_converged"], d["backward_integration_converged"])
+print(d["forward_integration_stop_reason"], d["backward_integration_stop_reason"])
 print(d["never_stop"], d["never_stop_energy_bypasses"])
 print(d["rigid_projection"]["electronic_state_verified"])  # False only for an opted-in schema-1 handoff
 print(d["rigid_projection"]["treatment"], d["rigid_projection"]["effective_rank"])

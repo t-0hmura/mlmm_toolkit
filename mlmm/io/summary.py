@@ -57,11 +57,15 @@ def format_result_warning(
     if direction_matches:
         messages: List[str] = []
         direction_text = {
+            # `not_converged` and `convergence_unknown` have no producer since
+            # schema 3.0; they are retained so a pre-3.0 payload still renders a
+            # sentence rather than a raw code. `stopped` is deliberately absent:
+            # this block runs only for a non-success status, so a normal stop
+            # never reaches it.
             "not_converged": (
                 "IRC stopped before its endpoint-stationarity threshold. "
                 "Review the trajectory and optimized endpoint result."
             ),
-            "stopped": "IRC stopped normally; inspect the optimized endpoint result.",
             "convergence_unknown": (
                 "IRC convergence could not be confirmed. Review its trajectory and IRC log."
             ),
@@ -181,6 +185,14 @@ def format_result_warning(
             "MEP convergence could not be confirmed. Review the MEP result and log."
         ),
         "irc_missing": "IRC results are missing. Confirm that TS optimization and IRC completed.",
+        "endpoint_opt_missing": (
+            "the endpoint-optimization record is missing. Confirm that endpoint "
+            "optimization ran and wrote its result."
+        ),
+        "tsopt_missing": (
+            "the TS-optimization record is missing. Confirm that TS optimization "
+            "ran and wrote its result."
+        ),
         "post_missing": "requested post-processing is incomplete. Review the post-processing log.",
         "not_converged": "the calculation did not converge. Review the trajectory and convergence log.",
         "convergence_unknown": "convergence could not be confirmed. Review the result and log.",
@@ -1113,6 +1125,15 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
         lines.append(f"Execution status    : {execution_status}")
     if scientific_status is not None:
         lines.append(f"Scientific status   : {scientific_status}")
+    search_max_depth = payload.get("search_max_depth")
+    if search_max_depth is not None:
+        # `0` means recursive subdivision was switched off, so the single segment
+        # is not guaranteed to be one elementary step. Nothing else in a shipped
+        # artifact records the effective cap.
+        depth_note = (
+            " (subdivision disabled)" if int(search_max_depth) <= 0 else ""
+        )
+        lines.append(f"Recursion depth cap : {int(search_max_depth)}{depth_note}")
     pipeline_stop = payload.get("pipeline_stop")
     if isinstance(pipeline_stop, dict):
         # The request echo above reports what was ASKED for. Without this line a
@@ -1249,7 +1270,7 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
                 # A direct-TS segment has no MEP behind it, so the tag must name
                 # what the numbers actually came from.
                 source = (
-                    "refined TS - assigned endpoint"
+                    "refined TS − assigned endpoint"
                     if kind == "tsopt"
                     else "MEP"
                 )

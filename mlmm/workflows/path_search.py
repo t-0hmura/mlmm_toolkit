@@ -1279,9 +1279,94 @@ def _build_multistep_path(
     gs_seg_cfg = {**gs_cfg, "max_nodes": seg_max_nodes}
     max_seq_kink = int(search_cfg.get("max_seq_kink", 2))
 
+    def _terminate_with_single_segment(
+        seg_tag: str,
+        *,
+        convergence_unknown: bool = False,
+    ) -> CombinedPath:
+        """Return the interval as one MEP segment, without subdividing it.
+
+        Used by every branch that abandons recursion -- the depth cap and the
+        consecutive-kink escape. The interval is a real segment of the reported
+        path, so it carries the same record every other segment does: without
+        one, ``n_segments`` / ``segments[]`` omitted the interval and its
+        barrier, delta, bond changes and convergence entirely.
+        """
+
+        gsm = _run_mep_between(
+            gA, gB, shared_calc, gs_seg_cfg, stopt_cfg, out_dir, tag=seg_tag,
+            ref_pdb_path=ref_pdb_path, mep_mode_kind=mep_mode_kind,
+            calc_cfg=calc_cfg, max_nodes=seg_max_nodes, dmf_cfg=dmf_cfg,
+        )
+        seg_counter[0] += 1
+
+        # An endpoint HEI means the interval has no interior maximum, so it is
+        # not a reaction step and `max(E) - E[0]` is not a barrier. The ordinary
+        # branch refuses to build a segment for it, and so must this one: a
+        # report here would let `_path_leaves_and_expected` treat an
+        # endpoint-only path as a verified reactive segment.
+        hei = int(gsm.hei_idx)
+        if not (1 <= hei <= len(gsm.images) - 2):
+            click.echo(
+                f"[{seg_tag}] WARNING: HEI is at an endpoint (idx={hei}). "
+                "Returning the raw path."
+            )
+            _tag_images(gsm.images, pair_index=pair_index)
+            return CombinedPath(
+                images=gsm.images, energies=gsm.energies, segments=[]
+            )
+
+        bond_eval_failed = False
+        try:
+            changed, step_summary = _has_bond_change(
+                gsm.images[0], gsm.images[-1], bond_cfg
+            )
+        except Exception as exc:
+            click.echo(
+                f"[{seg_tag}] WARNING: Failed to evaluate bond changes: {exc}",
+                err=True,
+            )
+            # Keep the interval reactive so it still receives post-processing:
+            # `_is_reactive_segment` reads this text, and an empty string there
+            # reads as "no covalent change" and drops the segment silently. The
+            # sentinel is non-empty for that reason, and convergence becomes
+            # unknown so the aggregate cannot report success on an interval whose
+            # chemistry was never established.
+            bond_eval_failed = True
+            changed, step_summary = True, "(bond-change evaluation failed)"
+        try:
+            barrier_kcal = (max(gsm.energies) - gsm.energies[0]) * AU2KCALPERMOL
+            delta_kcal = (gsm.energies[-1] - gsm.energies[0]) * AU2KCALPERMOL
+        except Exception:
+            barrier_kcal = float("nan")
+            delta_kcal = float("nan")
+
+        _tag_images(
+            gsm.images,
+            mep_seg_tag=seg_tag,
+            mep_seg_kind="seg",
+            mep_has_bond_changes=bool(changed),
+            pair_index=pair_index,
+        )
+        report = SegmentReport(
+            tag=seg_tag,
+            barrier_kcal=float(barrier_kcal),
+            delta_kcal=float(delta_kcal),
+            summary=step_summary if changed else "(no covalent changes detected)",
+            kind="seg",
+            converged=(
+                None
+                if (bond_eval_failed or convergence_unknown)
+                else getattr(gsm, "is_converged", None)
+            ),
+        )
+        return CombinedPath(
+            images=gsm.images, energies=gsm.energies, segments=[report]
+        )
+
     # `max_depth` counts LEVELS of recursive subdivision, so 0 performs none at
     # all and reproduces a single-segment MEP. Reaching the cap is not a failure:
-    # the remaining interval is returned as one un-subdivided segment.
+    # the remaining interval is returned as one segment, not subdivided further.
     max_depth = int(search_cfg.get("max_depth", SEARCH_KW["max_depth"]))
     if depth >= max_depth:
         # `_maxdepth` means "the recursion was cut off while covalent changes
@@ -1291,57 +1376,17 @@ def _build_multistep_path(
         # artifacts are named like any single-segment MEP.
         if max_depth > 0:
             click.echo(f"[{branch_tag}] Reached maximum recursion depth. Returning current endpoints only.")
-            maxdepth_seg_tag = f"seg_{seg_counter[0]:03d}_maxdepth"
-        else:
-            maxdepth_seg_tag = f"seg_{seg_counter[0]:03d}"
-        gsm = _run_mep_between(
-            gA, gB, shared_calc, gs_seg_cfg, stopt_cfg, out_dir, tag=maxdepth_seg_tag,
-            ref_pdb_path=ref_pdb_path, mep_mode_kind=mep_mode_kind,
-            calc_cfg=calc_cfg, max_nodes=seg_max_nodes, dmf_cfg=dmf_cfg,
-        )
-        seg_counter[0] += 1
-
-        # This interval is a real segment of the reported path, so it carries the
-        # same record every other segment does. Returning no report left the run
-        # with no barrier, no bond changes, and no per-segment convergence for the
-        # interval the aggregate gates on.
-        try:
-            _md_changed, _md_summary = _has_bond_change(
-                gsm.images[0], gsm.images[-1], bond_cfg
+            return _terminate_with_single_segment(
+                f"seg_{seg_counter[0]:03d}_maxdepth"
             )
-        except Exception as exc:
-            click.echo(
-                f"[{maxdepth_seg_tag}] WARNING: Failed to evaluate bond changes: {exc}",
-                err=True,
-            )
-            _md_changed, _md_summary = True, ""
-        try:
-            _md_barrier = (max(gsm.energies) - gsm.energies[0]) * AU2KCALPERMOL
-            _md_delta = (gsm.energies[-1] - gsm.energies[0]) * AU2KCALPERMOL
-        except Exception:
-            _md_barrier = float("nan")
-            _md_delta = float("nan")
-
-        _tag_images(
-            gsm.images,
-            mep_seg_tag=maxdepth_seg_tag,
-            mep_seg_kind="seg",
-            mep_has_bond_changes=bool(_md_changed),
-            pair_index=pair_index,
+        # Say so: without the `_maxdepth` tag this run is otherwise identical to
+        # one whose recursion terminated on a verified elementary step.
+        click.echo(
+            f"[{branch_tag}] Recursive subdivision is disabled (max_depth=0); "
+            "returning one MEP segment, which is not guaranteed to be a "
+            "single elementary step."
         )
-        maxdepth_report = SegmentReport(
-            tag=maxdepth_seg_tag,
-            barrier_kcal=float(_md_barrier),
-            delta_kcal=float(_md_delta),
-            summary=_md_summary if _md_changed else "(no covalent changes detected)",
-            kind="seg",
-            converged=getattr(gsm, "is_converged", None),
-        )
-        return CombinedPath(
-            images=gsm.images,
-            energies=gsm.energies,
-            segments=[maxdepth_report],
-        )
+        return _terminate_with_single_segment(f"seg_{seg_counter[0]:03d}")
 
     seg_id = seg_counter[0]
     seg_counter[0] += 1
@@ -1476,14 +1521,12 @@ def _build_multistep_path(
             "Alternatively, try switching the mep-mode. If that still fails, try including intermediate structures in the inputs."
         )
         click.echo(warning_msg)
-        gsm = _run_mep_between(
-            gA, gB, shared_calc, gs_seg_cfg, stopt_cfg, out_dir, tag=f"seg_{seg_counter[0]:03d}_kinklimit",
-            ref_pdb_path=ref_pdb_path, mep_mode_kind=mep_mode_kind,
-            calc_cfg=calc_cfg, max_nodes=seg_max_nodes, dmf_cfg=dmf_cfg,
+        # The path is suspect, so convergence is reported as unknown; the
+        # interval is still published as a segment.
+        return _terminate_with_single_segment(
+            f"seg_{seg_counter[0]:03d}_kinklimit",
+            convergence_unknown=True,
         )
-        seg_counter[0] += 1
-        _tag_images(gsm.images, pair_index=pair_index)
-        return CombinedPath(images=gsm.images, energies=gsm.energies, segments=[])
 
     parts.append((step_imgs, step_E))
     seg_reports.append(seg_report)
@@ -1672,9 +1715,9 @@ def _build_multistep_path(
     show_default="10",
     help=(
         "Number of recursive subdivision levels allowed while splitting a "
-        "multistep path. 0 performs no subdivision and yields a single MEP "
+        "multistep path. 0 performs no subdivision, returning each input pair as one MEP "
         "segment. Reaching the limit is not an error: the remaining interval "
-        "is returned as one un-subdivided segment tagged seg_NNN_maxdepth, "
+        "is returned as one segment that was not subdivided, tagged seg_NNN_maxdepth, "
         "which is therefore not guaranteed to be a single elementary step. "
         "When not given, YAML search.max_depth applies."
     ),
@@ -2857,12 +2900,23 @@ def cli(
             preopt_requested=bool(pre_opt),
             preopt_outcomes=preopt_outcomes,
         )
+        # The effective recursion cap, recorded where `search_cfg` is resolved:
+        # `0` means subdivision was switched off, which no other shipped field
+        # would reveal.
+        summary["search_max_depth"] = int(
+            search_cfg.get("max_depth", SEARCH_KW["max_depth"])
+        )
         summary["references"] = method_references(
             {
                 "pipeline_mode": "path-search",
                 "mep_mode": mep_mode_kind,
                 "path_opt_mode": "grad",
                 "dmf_correlated": bool(dmf_cfg.get("correlated", False)),
+                # The path-optimizer citation is gated on `preopt`, and a missing
+                # key reads as "preoptimization ran". Without this the reference
+                # list in summary.json cites a single-structure optimizer that a
+                # `--no-preopt` run never used, contradicting summary.log.
+                "preopt": bool(pre_opt),
                 "mlip_backend": summary.get("mlip_backend"),
                 "mlip_model": summary.get("mlip_model"),
                 "mlip_task": summary.get("mlip_task"),

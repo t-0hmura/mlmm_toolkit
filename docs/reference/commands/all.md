@@ -108,12 +108,13 @@ Options:
                                   (max_nodes+2 images including endpoints).
                                   [default: 20]
   --max-depth INTEGER RANGE       Recursive subdivision levels allowed by
-                                  --refine-path. 0 performs no subdivision and
-                                  yields a single MEP segment. Reaching the
-                                  limit is not an error: the remaining interval
-                                  is returned as one un-subdivided segment
-                                  tagged seg_NNN_maxdepth, which is therefore
-                                  not guaranteed to be a single elementary step.
+                                  --refine-path. 0 performs no subdivision,
+                                  returning each input pair as one MEP segment.
+                                  Reaching the limit is not an error: the
+                                  remaining interval is returned as one segment
+                                  that was not subdivided, tagged
+                                  seg_NNN_maxdepth, and is therefore not
+                                  guaranteed to be a single elementary step.
                                   [default: (10); x>=0]
   --gsm-param [equi|energy]       GSM node parameterization after string growth.
                                   The energy scheme concentrates nodes in high-
