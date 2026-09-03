@@ -163,7 +163,7 @@ def test_enriched_rate_limit_uses_refined_barrier(tmp_path) -> None:
             "mlip": {"barrier_kcal": 12.0},
             "irc_traj": "irc.xyz",
             "tsopt": {"continue_irc": True},
-            "irc": {"forward_converged": True},
+            "irc": {"forward_status": "stopped"},
             "ts_imag": {"n_imag": 1},
             "endpoint_opt": {"reactant_converged": True},
         }

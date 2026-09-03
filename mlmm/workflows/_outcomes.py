@@ -297,11 +297,11 @@ def irc_direction_leaves(
 ) -> Tuple[List[LeafOutcome], List[str]]:
     """Build one :class:`LeafOutcome` per IRC direction plus the expected IDs.
 
-    ``directions`` yields ``(name, requested, endpoint_stationary,
+    ``directions`` yields ``(name, requested, stationarity_stop,
     downhill_departure_valid, integration_stop_reason, n_frames, artifacts,
     [energies])``.  Reaching an endpoint threshold is diagnostic: a normally
     stopped, finite downhill trajectory is usable by the subsequent endpoint
-    optimization even when ``endpoint_stationary`` is false.  Numerical
+    optimization even when ``stationarity_stop`` is false.  Numerical
     integration failure, an invalid/unknown downhill departure, or invalid
     samples remain fail-closed.  Endpoint-stationarity continues to govern the
     stricter Hessian-cache gate in :func:`irc_hessian_cache_eligible`.
@@ -313,7 +313,7 @@ def irc_direction_leaves(
         (
             name,
             requested,
-            _endpoint_stationary,
+            _stationarity_stop,
             downhill_departure_valid,
             integration_stop_reason,
             n_frames,

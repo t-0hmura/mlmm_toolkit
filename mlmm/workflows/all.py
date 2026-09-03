@@ -1352,8 +1352,6 @@ def _read_irc_outcome(irc_dir: Path) -> Dict[str, Any]:
         "usable": False,
         "reason": "irc_result_missing",
         "scientific_status": None,
-        "forward_converged": None,
-        "backward_converged": None,
         "forward_status": None,
         "backward_status": None,
         "n_frames_forward": None,
@@ -1374,8 +1372,6 @@ def _read_irc_outcome(irc_dir: Path) -> Dict[str, Any]:
 
     sci = data.get("scientific_status")
     outcome["scientific_status"] = sci
-    outcome["forward_converged"] = data.get("forward_converged")
-    outcome["backward_converged"] = data.get("backward_converged")
     outcome["forward_status"] = data.get("forward_status")
     outcome["backward_status"] = data.get("backward_status")
     outcome["n_frames_forward"] = data.get("n_frames_forward")

@@ -393,7 +393,7 @@ def test_method_citations_follow_resolved_methods_and_match_stdout(
         "post_segments": [
             {
                 "tsopt": {"continue_irc": True},
-                "irc": {"forward_converged": True},
+                "irc": {"forward_status": "stopped"},
                 "endpoint_opt": {"reactant_converged": True},
                 "ts_imag": {"n_imag": 1},
                 "thermo_symmetry": {"R": {"symmetry_number": 1}},

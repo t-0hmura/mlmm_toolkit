@@ -10,10 +10,33 @@ _No changes yet._
 
 ## [0.3.5] — 2026-09-02
 
+> Upgrade warning: unchanged inputs can produce a different `scientific_status` for
+> standalone `irc` and for `all`, and `result.json` / `summary.json` now carry
+> `schema_version: "3.0"`. Users of those files must review the Breaking changes below
+> before upgrading.
+
+### Breaking changes
+- **JSON schema 3.0 (breaking).** Remove the IRC `forward_converged` /
+  `backward_converged` keys from `irc` `result.json` and from the `all`
+  `post_segments[].irc` relay. They reported the conjunction of
+  `*_integration_converged` and `*_downhill_departure_valid` under a name that
+  read as an IRC success verdict. Both components remain published, and
+  `*_integration_converged` is now documented. Gate usability on `*_status`.
+- **IRC directional status semantics (breaking).** A requested direction with a
+  finite downhill trajectory and no numerical propagation failure is now usable,
+  so an ordinary energy-rise stop, a max-cycle stop, and `--never-stop` report
+  `*_status: "stopped"` and can yield `scientific_status: "success"` where the
+  same input previously produced `partial`.
+- **`all` endpoint acceptance (breaking).** Final reactant/product acceptance now
+  requires both endpoint-optimization convergence flags plus bond-topology
+  validation of the optimized endpoints against their assigned MEP endpoints. A
+  run whose `post_segments[].endpoint_opt` record is absent or whose optimized
+  topology does not match no longer reports `success`.
+
 ### Added
 - Add IRC `forward_status` / `backward_status` (`stopped`, `failed`, `disabled`),
-  `*_requested`, `*_endpoint_stationary`, and `*_integration_stop_reason` to
-  `result.json`; legacy `*_converged` remains an alias for endpoint stationarity.
+  `*_requested`, and `*_integration_stop_reason` to `result.json`, and document the
+  already-published `*_integration_converged`.
 - Add TSOPT `opt_mode_requested` / `optimizer`, scan `scan_opt_mode` /
   `scan_optimizer`, and `all` `config.ts_opt_mode` / `config.endpoint_opt_mode`.
 - Add `post_segments[].endpoint_opt.connectivity_validated` with the optimized
@@ -26,10 +49,11 @@ _No changes yet._
 ### Fixed
 - Restore AIMNet2 evaluation and static image export with current releases.
 - Report TS/IRC-endpoint optimizer modes and requested/effective TS optimizer JSON separately.
-- Report IRC directions as stopped/failed/disabled and base composite acceptance on optimized endpoints.
 - Show the formatted result warning, including its recovery guidance such as
   `--flatten` for a TS with more than one imaginary mode, in the Colab alert
   instead of the raw status code.
+- Derive the Colab per-direction IRC mark from `*_status` so it can no longer
+  contradict the headline scientific status.
 
 ## [0.3.4] — 2026-09-02
 

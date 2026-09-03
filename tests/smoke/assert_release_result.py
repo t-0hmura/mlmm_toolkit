@@ -213,6 +213,10 @@ def check_irc_direction_status_contract(payload: dict) -> None:
     rather than one machine's physics — keeps both the `stopped` and the `failed`
     branch covered wherever the lane happens to land.
     """
+    for removed in ("forward_converged", "backward_converged",
+                    "forward_endpoint_stationary", "backward_endpoint_stationary"):
+        if removed in payload:
+            raise SystemExit(f"schema 3.0 still publishes the removed field {removed}")
     requested = [
         direction
         for direction in ("forward", "backward")
@@ -225,8 +229,10 @@ def check_irc_direction_status_contract(payload: dict) -> None:
             if status != "disabled":
                 raise SystemExit(f"unrequested {direction} IRC is not disabled: {status!r}")
             continue
-        if payload.get(f"{direction}_endpoint_stationary") is not False:
-            raise SystemExit(f"{direction} endpoint-stationarity diagnostic was lost")
+        if payload.get(f"{direction}_integration_converged") is not False:
+            raise SystemExit(
+                f"{direction} stationarity-stop diagnostic was lost or wrongly true"
+            )
         downhill = payload.get(f"{direction}_downhill_departure_valid")
         integration_failed = bool(
             str(payload.get(f"{direction}_integration_stop_reason") or "").strip()
@@ -265,11 +271,11 @@ def check_irc_handoff(root: Path, hessian_file: Path) -> None:
     if int(payload.get("never_stop_energy_bypasses", 0)) < 1:
         raise SystemExit("IRC never-stop did not bypass an actual energy stop")
     if (
-        payload.get("forward_converged") is not False
-        or payload.get("backward_converged") is not False
+        payload.get("forward_integration_converged") is not False
+        or payload.get("backward_integration_converged") is not False
     ):
         raise SystemExit(
-            "IRC never-stop incorrectly reported directional convergence"
+            "IRC never-stop reported a stationarity stop it cannot reach"
         )
     check_irc_direction_status_contract(payload)
     if int(payload.get("n_frames_forward", 0)) < 2 or int(payload.get("n_frames_backward", 0)) < 2:

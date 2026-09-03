@@ -1210,14 +1210,6 @@ def cli(
                 "n_frames_total": len(_all_e),
                 "forward_requested": bool(getattr(eulerpc, "forward", False)),
                 "backward_requested": bool(getattr(eulerpc, "backward", False)),
-                "forward_converged": getattr(eulerpc, 'forward_is_converged', None),
-                "backward_converged": getattr(eulerpc, 'backward_is_converged', None),
-                # Compatibility aliases above describe whether the raw IRC
-                # endpoint met the stationary-point criterion.  Normal IRC
-                # termination is reported separately as stopped and is
-                # interpreted by endpoint optimization in composite runs.
-                "forward_endpoint_stationary": getattr(eulerpc, 'forward_is_converged', None),
-                "backward_endpoint_stationary": getattr(eulerpc, 'backward_is_converged', None),
                 "forward_integration_converged": getattr(eulerpc, 'forward_integration_converged', None),
                 "backward_integration_converged": getattr(eulerpc, 'backward_integration_converged', None),
                 "forward_integration_stop_reason": getattr(eulerpc, 'forward_integration_stop_reason', None),

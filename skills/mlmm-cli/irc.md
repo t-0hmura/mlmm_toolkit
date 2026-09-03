@@ -107,7 +107,7 @@ print(d["energy_first_hartree"], d["energy_ts_hartree"], d["energy_last_hartree"
 print(d.get("bond_changes"))       # directed first -> last; may be omitted
 print(d["status"])                  # "completed" (success path only; errors emit a separate error JSON)
 print(d["forward_status"], d["backward_status"])
-print(d["forward_endpoint_stationary"], d["backward_endpoint_stationary"])
+print(d["forward_integration_converged"], d["backward_integration_converged"])
 print(d["never_stop"], d["never_stop_energy_bypasses"])
 print(d["rigid_projection"]["electronic_state_verified"])  # False only for an opted-in schema-1 handoff
 print(d["rigid_projection"]["treatment"], d["rigid_projection"]["effective_rank"])
@@ -126,9 +126,11 @@ endpoint structures. `never_stop` records whether the opt-in mode was enabled;
 `never_stop_energy_bypasses` is the observed bypass count.
 
 Each requested direction reports `*_status` as `stopped` or `failed`.
-`*_endpoint_stationary` and the legacy `*_converged` alias describe only the
-raw endpoint threshold; a normal stop remains usable input to endpoint
-optimization. Numerical propagation failure or an invalid downhill departure
+`*_integration_converged` describes only whether the RMS-gradient
+stationarity criterion fired, so `--never-stop` always leaves it false; pair it
+with `*_downhill_departure_valid` when you need both conditions. A normal stop
+remains usable input to endpoint optimization. Schema 3.0 removed the
+`*_converged` keys. Numerical propagation failure or an invalid downhill departure
 reports `failed`.
 
 The default `constrained` treatment removes only full-system rigid motions

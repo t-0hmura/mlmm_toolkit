@@ -3603,7 +3603,7 @@ def _collect_environment_info() -> dict:
 
 # Schema version for result/summary JSON. Version 2.0 removes the UMA-specific
 # all-workflow energy keys in favor of backend-neutral MLIP keys.
-RESULT_JSON_SCHEMA_VERSION = "2.0"
+RESULT_JSON_SCHEMA_VERSION = "3.0"
 
 # Union of public command-specific values for ``status``. Each command exposes
 # a narrower enum documented in docs/json-output.md.

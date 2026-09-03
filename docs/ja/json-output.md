@@ -201,8 +201,7 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | `energy_reactant_hartree` / `energy_product_hartree` | float | 最初/最後の端点を表す互換エイリアス。キー名から反応物/生成物の同一性を推定しない |
 | `forward_requested` / `backward_requested` | bool | 各方向を要求したか |
 | `forward_status` / `backward_status` | string | 各方向の伝播状態: `stopped` / `failed` / `disabled` |
-| `forward_endpoint_stationary` / `backward_endpoint_stationary` | bool\|null | 生 IRC 端点が stationary threshold を満たしたか。診断専用 |
-| `forward_converged` / `backward_converged` | bool\|null | `*_endpoint_stationary` の互換 alias。IRC 利用可否の gate ではない |
+| `forward_integration_converged` / `backward_integration_converged` | bool\|null | RMS 勾配の停留判定が発火して停止したか。診断専用で、`--never-stop` はこの判定を迂回するため常に `false`。削除した `*_converged` が表していた条件は、`*_downhill_departure_valid` との連言で再構成できる |
 | `forward_downhill_departure_valid` / `backward_downhill_departure_valid` | bool\|null | TS から downhill に離れたことを確認できたか |
 | `forward_integration_stop_reason` / `backward_integration_stop_reason` | string\|null | 数値伝播が失敗した場合だけ非空になる理由 |
 | `never_stop` | bool | 任意指定の物理的端点停止回避モードを有効にしたか |

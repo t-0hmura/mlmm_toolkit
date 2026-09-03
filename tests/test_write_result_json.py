@@ -14,7 +14,7 @@ from mlmm.core.utils import (
 
 
 def test_writes_result_and_summary_mirror() -> None:
-    assert RESULT_JSON_SCHEMA_VERSION == "2.0"
+    assert RESULT_JSON_SCHEMA_VERSION == "3.0"
     with tempfile.TemporaryDirectory() as d:
         path = write_result_json(
             Path(d),
