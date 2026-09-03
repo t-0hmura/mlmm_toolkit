@@ -83,7 +83,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--max-nodes INT` | Number of internal string nodes (total images = `max_nodes + 2`). | `20` |
 | `--gsm-param [equi\|energy]` | GSM node parameterization after string growth. `energy` concentrates nodes in high-energy regions and may be tried when an equidistant path skips the reaction-coordinate region near the HEI; it does not identify a TS. | `equi` |
 | `--max-cycles-gsm INT` | GSM string-optimizer cycle cap; also sets `stopt.stop_in_when_full`. | `300` |
-| `--max-cycles-dmf INT` | DMF IPOPT iteration cap. | `300` |
+| `--max-cycles-dmf INT` | DMF IPOPT iteration cap. | `3000` |
 | `--climb/--no-climb` | Enable climbing-image refinement after full string growth. | `True` |
 | `--preopt/--no-preopt` | Pre-optimize each endpoint with L-BFGS before alignment/string growth. | `True` |
 | `--preopt-max-cycles INT` | Endpoint pre-optimization cycle cap. | `100000` |

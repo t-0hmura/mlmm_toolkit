@@ -12,6 +12,7 @@ _No changes yet._
 
 ### Changed
 - Support fairchem-core 2.22 and current compatible runtime dependencies.
+- Raise the default DMF IPOPT iteration cap (`--max-cycles-dmf`, `dmf.max_cycles`) from 300 to 3000, matching the solver's own default.
 
 ### Fixed
 - Restore AIMNet2 evaluation and static image export with current releases.

@@ -68,7 +68,7 @@ Options:
   --max-cycles-dmf INTEGER RANGE  Maximum IPOPT iterations for the DMF MEP
                                   stage. This is a solver iteration count, not a
                                   string-optimizer cycle count.  [default:
-                                  (300); x>=1]
+                                  (3000); x>=1]
   --climb / --no-climb            Enable transition-state search after path
                                   growth.  [default: climb]
   --dump / --no-dump              Dump GSM/single-optimization trajectories

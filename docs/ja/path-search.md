@@ -105,7 +105,7 @@ out_dir/ (デフォルト:./result_path_search/)
 | `--max-nodes INT` | GSM／DMF セグメントごとの可動内部画像数（総画像数は `max_nodes + 2`）。 | `20` |
 | `--gsm-param [equi\|energy]` | 完全成長後のGSMノード配置。`energy` は高エネルギー領域へノード密度を寄せる。等間隔経路がHEI近傍の反応座標領域を飛び越える場合の試行用であり、TSを同定する機能ではない。 | `equi` |
 | `--max-cycles-gsm INT` | GSMストリング最適化サイクル上限。 | `300` |
-| `--max-cycles-dmf INT` | DMF IPOPT反復上限。 | `300` |
+| `--max-cycles-dmf INT` | DMF IPOPT反復上限。 | `3000` |
 | `--climb/--no-climb` | セグメント GSM の TS 精密化を有効化。 | `True` |
 | `--preopt/--no-preopt` | セグメンテーション前に端点を L-BFGS で事前最適化。 | `True` |
 | `--align / --no-align` | 事前最適化後に入力をアラインし、凍結アンカーがあれば freeze-guided scan/緩和後に凍結原子を再マッチ。 | 有効 |

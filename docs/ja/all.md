@@ -245,7 +245,7 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 | `--max-nodes INT` | GSM/DMF セグメントの内部ノード数。 | `20` |
 | `--gsm-param [equi\|energy]` | 完全成長後のGSMノード配置。`energy` は高エネルギー領域へノード密度を寄せる。等間隔経路がHEI近傍の反応座標領域を飛び越える場合の試行用であり、TSを同定する機能ではない。 | `equi` |
 | `--max-cycles-gsm INT` | MEP childのGSMストリング最適化サイクル上限。 | `300` |
-| `--max-cycles-dmf INT` | MEP childのDMF IPOPT反復上限。 | `300` |
+| `--max-cycles-dmf INT` | MEP childのDMF IPOPT反復上限。 | `3000` |
 | `--climb/--no-climb` | 選択した最適化法が対応する場合に climbing-image TS 精密化を有効化。 | `True` |
 | `--opt-mode [grad\|hess]` | TSOPT と IRC 後の端点最適化に使う予備プリセット（`grad` → Dimer/L-BFGS、`hess` → RS-P-RFO/RFO）。`--opt-mode-post` が優先されます。 | `grad` |
 | `--opt-mode-post [grad\|hess]` | TSOPT/IRC 後端点最適化向けのプリセット上書き（`grad` → Dimer/L-BFGS、`hess` → RS-P-RFO/RFO）。 | `hess` |
