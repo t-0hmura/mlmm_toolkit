@@ -135,6 +135,12 @@ grep -Fq "====== Growing String optimization ======" test15.out || { echo "[smok
 # test16: path-opt (dmf)
 mlmm path-opt -i r_complex_layered.pdb p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --mep-mode dmf --max-cycles-dmf 3 --thresh-dmf middle --no-preopt --out-dir test16 > test16.out 2>&1
 
+# test16b: path-opt --mep-mode dmf WITH frozen atoms. No other lane enters the DMF
+# harmonic-restraint branch, so this is its only coverage. The checker compares the
+# optimized path against the FB-ENM interpolation the per-image restraint references.
+mlmm path-opt -i r_complex_layered.pdb p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --mep-mode dmf --max-cycles-dmf 40 --thresh-dmf middle --freeze-atoms 1,2,3 --no-preopt --out-json --out-dir test16b_dmf_freeze > test16b_dmf_freeze.out 2>&1
+python assert_release_result.py dmf-freeze test16b_dmf_freeze --frozen-atoms 1,2,3 >> test16b_dmf_freeze.out 2>&1
+
 # test17: path-search
 mlmm path-search -i r_complex_layered.pdb p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --max-cycles-gsm 5 --out-dir test17 > test17.out 2>&1
 grep -Fq "====== [seg_000_refine] GSM ======" test17.out || { echo "[smoke] FAIL: tagged recursive GSM section heading missing" >&2; exit 1; }

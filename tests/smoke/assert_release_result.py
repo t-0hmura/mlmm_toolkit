@@ -204,6 +204,82 @@ def check_sp_hessian(root: Path) -> None:
         raise SystemExit("custom finite-difference Hessian is identically zero")
 
 
+def read_xyz_coords(path: Path) -> "list[np.ndarray]":
+    """Return one (n_atoms, 3) array of Angstrom coordinates per XYZ frame."""
+    lines = path.read_text(encoding="utf-8").splitlines()
+    frames: list = []
+    index = 0
+    while index < len(lines):
+        try:
+            atoms = int(lines[index].strip())
+        except ValueError as exc:
+            raise SystemExit(f"invalid XYZ frame in {path}") from exc
+        rows = []
+        for offset in range(atoms):
+            parts = lines[index + 2 + offset].split()
+            if len(parts) < 4:
+                raise SystemExit(f"invalid XYZ atom line in {path}")
+            rows.append([float(value) for value in parts[1:4]])
+        frames.append(np.asarray(rows, dtype=float))
+        index += atoms + 2
+    if index != len(lines):
+        raise SystemExit(f"truncated XYZ trajectory: {path}")
+    return frames
+
+
+def check_dmf_frozen_atoms(root: Path, frozen_1based: str) -> None:
+    """Assert the DMF harmonic restraint pinned the requested atoms.
+
+    The rest of the release smoke never enters the DMF ``fix_atoms`` branch, so
+    this lane is its only coverage. The check compares the optimized path against
+    the FB-ENM interpolation the per-image restraint references, which keeps it
+    independent of the MLIP energies and of whether IPOPT converged.
+    """
+    payload = json.loads((root / "result.json").read_text(encoding="utf-8"))
+    require_finite(payload)
+    energies = payload.get("image_energies_hartree")
+    if not isinstance(energies, list) or not energies:
+        raise SystemExit("DMF run published no image_energies_hartree")
+
+    initial = read_xyz_coords(root / "dmf_initial_trj.xyz")
+    final = read_xyz_coords(root / "final_geometries_trj.xyz")
+    if not final or len(initial) != len(final):
+        raise SystemExit(
+            f"DMF frame counts disagree: {len(initial)} interpolated vs {len(final)} final"
+        )
+
+    frozen = sorted({int(token) - 1 for token in frozen_1based.split(",") if token.strip()})
+    if not frozen:
+        raise SystemExit("dmf-freeze requires at least one frozen atom index")
+    n_atoms = final[0].shape[0]
+    if any(index < 0 or index >= n_atoms for index in frozen):
+        raise SystemExit(f"frozen indices outside a {n_atoms}-atom geometry: {frozen}")
+    free = [index for index in range(n_atoms) if index not in set(frozen)]
+    if not free:
+        raise SystemExit("dmf-freeze needs at least one unfrozen atom")
+
+    frozen_drift = 0.0
+    free_drift = 0.0
+    for before, after in zip(initial, final):
+        if before.shape != after.shape:
+            raise SystemExit("DMF interpolated and final frames differ in atom count")
+        displacement = np.linalg.norm(after - before, axis=1)
+        frozen_drift = max(frozen_drift, float(displacement[frozen].max()))
+        free_drift = max(free_drift, float(displacement[free].max()))
+
+    if frozen_drift > 0.05:
+        raise SystemExit(
+            f"frozen atoms drifted {frozen_drift:.4f} A from their DMF reference"
+        )
+    # Positive control: a run in which nothing moved would satisfy the bound above
+    # without exercising the restraint at all.
+    if free_drift <= frozen_drift:
+        raise SystemExit(
+            f"no unfrozen atom moved more than the frozen ones "
+            f"(free {free_drift:.4f} A, frozen {frozen_drift:.4f} A); the lane proves nothing"
+        )
+
+
 def check_irc_direction_status_contract(payload: dict) -> None:
     """Assert the public IRC direction-status enum against its own inputs.
 
@@ -378,7 +454,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "kind",
-        choices=("all", "tsopt-optimizer", "scan-optimizer", "opt-config", "sp-hessian", "irc-handoff", "tsopt-reference", "provenance"),
+        choices=("all", "tsopt-optimizer", "scan-optimizer", "dmf-freeze", "opt-config", "sp-hessian", "irc-handoff", "tsopt-reference", "provenance"),
     )
     parser.add_argument("root", type=Path)
     parser.add_argument("--require-thermo", action="store_true")
@@ -388,6 +464,7 @@ def main() -> None:
     parser.add_argument("--expected-precision")
     parser.add_argument("--expected-backend")
     parser.add_argument("--expected-mode")
+    parser.add_argument("--frozen-atoms")
     parser.add_argument("--expected-optimizer")
     parser.add_argument("--expected-link-atom-method")
     parser.add_argument("--expected-thresh")
@@ -395,6 +472,10 @@ def main() -> None:
     args = parser.parse_args()
     if args.kind == "all":
         check_all(args.root, args.require_thermo, args.require_dft)
+    elif args.kind == "dmf-freeze":
+        if args.frozen_atoms is None:
+            parser.error("dmf-freeze requires --frozen-atoms")
+        check_dmf_frozen_atoms(args.root, args.frozen_atoms)
     elif args.kind == "tsopt-optimizer":
         if None in (args.expected_mode, args.expected_optimizer):
             parser.error("tsopt-optimizer requires --expected-mode and --expected-optimizer")
