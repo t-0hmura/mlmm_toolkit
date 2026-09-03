@@ -257,7 +257,7 @@ their dedicated cycle options and defaults.
 | `--thresh-dmf TEXT` | IPOPT dual-infeasibility tolerance of the DMF MEP stage: `tight` (0.04), `middle` (0.10), `loose` (0.20), or a positive float. Not a Gaussian preset. | `tight` |
 | `--thresh-post TEXT` | Convergence preset for post-IRC endpoint optimizations. | `baker` |
 | `--preopt / --no-preopt` | Pre-optimize endpoints before segmentation. | `True` |
-| `--refine-path / --no-refine-path` | `--no-refine-path` (default) → single-pass `path-opt`; `--refine-path` → recursive `path-search`. Both modes support Stage 5 (TSOPT / thermo / DFT). | `False` |
+| `--refine-path / --no-refine-path` | `--no-refine-path` (default) → single-pass `path-opt`; `--refine-path` → recursive `path-search`, which discovers multistep mechanisms and also refines a single-step MEP, where it can improve a poor HEI or TS estimate. Both modes support Stage 5 (TSOPT / thermo / DFT). | `False` |
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
 | `--precision [fp32\|fp64]` | Backend precision. Unset uses UMA/AIMNet2 fp32 and ORB/MACE fp64. AIMNet2 rejects fp64. | backend-specific |
 | `--workers INT` | UMA predictor workers. Values greater than 1 require `fairchem-core[extras]` and are incompatible with an analytical Hessian. | `1` |

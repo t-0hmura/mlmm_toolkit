@@ -136,9 +136,11 @@ Options:
                                   the selected MEP optimizer between each
                                   adjacent pair and concatenate the segments (no
                                   path_search); when enabled, run recursive
-                                  path_search on the full ordered series for
-                                  automatic multistep discovery.  [default: no-
-                                  refine-path]
+                                  path_search on the full ordered series: it
+                                  discovers multistep mechanisms and also
+                                  refines a single-step MEP, which can improve a
+                                  poor HEI or TS estimate.  [default: no-refine-
+                                  path]
   --thresh [gau_loose|gau|gau_tight|gau_vtight|baker|never]
                                   Convergence preset for single-structure
                                   optimizations and scan relaxations (gau_loose|

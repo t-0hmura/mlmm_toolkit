@@ -4086,8 +4086,8 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     show_default=True,
     help=(
         "When disabled, run single-pass path-opt with the selected MEP optimizer between each adjacent pair and concatenate the "
-        "segments (no path_search); when enabled, run recursive path_search on the full ordered series for "
-        "automatic multistep discovery."
+        "segments (no path_search); when enabled, run recursive path_search on the full ordered series: it discovers "
+        "multistep mechanisms and also refines a single-step MEP, which can improve a poor HEI or TS estimate."
     ),
 )
 @click.option(

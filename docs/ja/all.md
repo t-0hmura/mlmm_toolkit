@@ -254,7 +254,7 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 | `--thresh-dmf TEXT` | DMF MEP 段の IPOPT dual-infeasibility 許容値。`tight`(0.04)、`middle`(0.10)、`loose`(0.20) または正の float。Gaussian プリセットではない。 | `tight` |
 | `--thresh-post TEXT` | IRC 後端点最適化の収束プリセット。 | `baker` |
 | `--preopt/--no-preopt` | セグメント化前に端点を事前最適化。 | `True` |
-| `--refine-path/--no-refine-path` | `--no-refine-path`（デフォルト）= 単一パス `path-opt`（軌跡結合 + HEI 抽出 + 結合変化検出 + `summary.json`）、`--refine-path` = 再帰的 `path-search`。どちらも `--mep-mode` の選択と Stage 5（TSOPT/thermo/DFT）に対応。 | `False` |
+| `--refine-path/--no-refine-path` | `--no-refine-path`（デフォルト）= 単一パス `path-opt`（軌跡結合 + HEI 抽出 + 結合変化検出 + `summary.json`）、`--refine-path` = 再帰的 `path-search`。多段機構の検出に加えて single-step MEP の refine にも使え、poor な HEI や TS 推定を改善できる。どちらも `--mep-mode` の選択と Stage 5（TSOPT/thermo/DFT）に対応。 | `False` |
 | `--hessian-calc-mode CHOICE` | ML/MM Hessian モード（`Analytical` または `FiniteDifference`）。 | `FiniteDifference` |
 | `--precision [fp32\|fp64]` | バックエンド精度。省略時は UMA/AIMNet2 fp32、ORB/MACE fp64。AIMNet2 は fp64 を拒否。 | バックエンド依存 |
 | `--workers INT` | UMA predictor worker 数。2 以上は `fairchem-core[extras]` が必要で、解析 Hessian と併用不可。 | `1` |
