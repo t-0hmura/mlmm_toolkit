@@ -45,7 +45,7 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb \
 3. **Decide between kink vs. refinement**:
  - If no covalent bond change is detected between `End1` and `End2`, treat the region as a *kink*: insert `search.kink_max_nodes` linear nodes and optimize each individually.
  - Otherwise, launch a **refinement segment with the selected MEP engine** between `End1` and `End2` to sharpen the barrier.
-4. **Selective recursion** -- Compare bond changes for `(A->End1)` and `(End2->B)` using the `bond` thresholds. Recurse only on sub-intervals that still contain covalent bond changes. Recursion depth is capped by `search.max_depth`.
+4. **Selective recursion** -- Compare bond changes for `(A->End1)` and `(End2->B)` using the `bond` thresholds. Recurse only on sub-intervals that still contain covalent bond changes. `search.max_depth` sets how many levels of recursive subdivision are allowed; `0` performs none and yields a single MEP segment. Reaching the limit is not an error: the remaining interval is returned as one un-subdivided segment tagged `seg_NNN_maxdepth`, which is therefore not guaranteed to be a single elementary step.
 5. **Stitching & bridging** -- Concatenate resolved subpaths, dropping duplicate endpoints when RMSD <= `search.stitch_rmsd_thresh`. If the RMSD gap between two stitched pieces exceeds `search.bridge_rmsd_thresh`, insert a bridge MEP segment using the selected `--mep-mode`. When the interface itself shows a bond change, a new recursive segment replaces the bridge.
 6. **Optional alignment/refinement** -- After optional preoptimization, `--align` rigidly aligns inputs to the first input. With frozen anchors, the shared owner also performs a freeze-guided scan and L-BFGS relaxation toward the reference, then re-matches the freeze-atom selection. Segments are annotated for plotting/analysis.
 
@@ -116,7 +116,7 @@ Merge order is **defaults < config < explicit CLI**. The YAML root must be a map
 calc:
   backend: uma
 search:
-  max_depth: 10            # recursion depth cap
+  max_depth: 10            # recursive subdivision levels allowed (0 = no subdivision)
   refine_mode: null        # peak | minima | null (auto)
 bond:
   bond_factor: 1.2         # covalent-radius scaling for bond-change cutoff

@@ -1279,16 +1279,69 @@ def _build_multistep_path(
     gs_seg_cfg = {**gs_cfg, "max_nodes": seg_max_nodes}
     max_seq_kink = int(search_cfg.get("max_seq_kink", 2))
 
-    if depth > int(search_cfg.get("max_depth", 10)):
-        click.echo(f"[{branch_tag}] Reached maximum recursion depth. Returning current endpoints only.")
+    # `max_depth` counts LEVELS of recursive subdivision, so 0 performs none at
+    # all and reproduces a single-segment MEP. Reaching the cap is not a failure:
+    # the remaining interval is returned as one un-subdivided segment.
+    max_depth = int(search_cfg.get("max_depth", SEARCH_KW["max_depth"]))
+    if depth >= max_depth:
+        # `_maxdepth` means "the recursion was cut off while covalent changes
+        # remained", so that segment is not guaranteed to be one elementary
+        # step. A deliberate `max_depth: 0` is a different event -- the caller
+        # asked for no subdivision -- and keeps the ordinary tag so its
+        # artifacts are named like any single-segment MEP.
+        if max_depth > 0:
+            click.echo(f"[{branch_tag}] Reached maximum recursion depth. Returning current endpoints only.")
+            maxdepth_seg_tag = f"seg_{seg_counter[0]:03d}_maxdepth"
+        else:
+            maxdepth_seg_tag = f"seg_{seg_counter[0]:03d}"
         gsm = _run_mep_between(
-            gA, gB, shared_calc, gs_seg_cfg, stopt_cfg, out_dir, tag=f"seg_{seg_counter[0]:03d}_maxdepth",
+            gA, gB, shared_calc, gs_seg_cfg, stopt_cfg, out_dir, tag=maxdepth_seg_tag,
             ref_pdb_path=ref_pdb_path, mep_mode_kind=mep_mode_kind,
             calc_cfg=calc_cfg, max_nodes=seg_max_nodes, dmf_cfg=dmf_cfg,
         )
         seg_counter[0] += 1
-        _tag_images(gsm.images, pair_index=pair_index)
-        return CombinedPath(images=gsm.images, energies=gsm.energies, segments=[])
+
+        # This interval is a real segment of the reported path, so it carries the
+        # same record every other segment does. Returning no report left the run
+        # with no barrier, no bond changes, and no per-segment convergence for the
+        # interval the aggregate gates on.
+        try:
+            _md_changed, _md_summary = _has_bond_change(
+                gsm.images[0], gsm.images[-1], bond_cfg
+            )
+        except Exception as exc:
+            click.echo(
+                f"[{maxdepth_seg_tag}] WARNING: Failed to evaluate bond changes: {exc}",
+                err=True,
+            )
+            _md_changed, _md_summary = True, ""
+        try:
+            _md_barrier = (max(gsm.energies) - gsm.energies[0]) * AU2KCALPERMOL
+            _md_delta = (gsm.energies[-1] - gsm.energies[0]) * AU2KCALPERMOL
+        except Exception:
+            _md_barrier = float("nan")
+            _md_delta = float("nan")
+
+        _tag_images(
+            gsm.images,
+            mep_seg_tag=maxdepth_seg_tag,
+            mep_seg_kind="seg",
+            mep_has_bond_changes=bool(_md_changed),
+            pair_index=pair_index,
+        )
+        maxdepth_report = SegmentReport(
+            tag=maxdepth_seg_tag,
+            barrier_kcal=float(_md_barrier),
+            delta_kcal=float(_md_delta),
+            summary=_md_summary if _md_changed else "(no covalent changes detected)",
+            kind="seg",
+            converged=getattr(gsm, "is_converged", None),
+        )
+        return CombinedPath(
+            images=gsm.images,
+            energies=gsm.energies,
+            segments=[maxdepth_report],
+        )
 
     seg_id = seg_counter[0]
     seg_counter[0] += 1
@@ -1613,6 +1666,20 @@ def _build_multistep_path(
     ),
 )
 @click.option(
+    "--max-depth",
+    type=click.IntRange(min=0),
+    default=None,
+    show_default="10",
+    help=(
+        "Number of recursive subdivision levels allowed while splitting a "
+        "multistep path. 0 performs no subdivision and yields a single MEP "
+        "segment. Reaching the limit is not an error: the remaining interval "
+        "is returned as one un-subdivided segment tagged seg_NNN_maxdepth, "
+        "which is therefore not guaranteed to be a single elementary step. "
+        "When not given, YAML search.max_depth applies."
+    ),
+)
+@click.option(
     "--gsm-param",
     type=click.Choice(["equi", "energy"], case_sensitive=False),
     default=None,
@@ -1818,6 +1885,7 @@ def cli(
     freeze_atoms_text: Optional[str],
     movable_cutoff: Optional[float],
     max_nodes: int,
+    max_depth: Optional[int],
     gsm_param: Optional[str],
     max_cycles_gsm: Optional[int],
     max_cycles_dmf: Optional[int],
@@ -2036,6 +2104,8 @@ def cli(
         if _is_param_explicit("max_nodes"):
             gs_cfg["max_nodes"] = int(max_nodes)
             search_cfg["max_nodes_segment"] = int(max_nodes)
+        if _is_param_explicit("max_depth") and max_depth is not None:
+            search_cfg["max_depth"] = int(max_depth)
         if _is_param_explicit("gsm_param") and gsm_param is not None:
             gs_cfg["param"] = str(gsm_param).lower()
         # The GSM cycle budget also bounds the fully-grown string; DMF's budget

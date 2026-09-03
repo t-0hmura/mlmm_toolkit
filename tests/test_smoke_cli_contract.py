@@ -95,4 +95,4 @@ def test_smoke_numbers_follow_execution_order() -> None:
         for line in SMOKE_SCRIPT.read_text(encoding="utf-8").splitlines()
         if (match := re.match(r"# test(\d+):", line))
     ]
-    assert headers == list(range(1, 75))
+    assert headers == list(range(1, 76))

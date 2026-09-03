@@ -80,6 +80,7 @@ def test_status_enum_documented() -> None:
     assert RESULT_JSON_STATUS_VALUES == (
         "completed",
         "converged",
+        "energy_missing",
         "error",
         "failed",
         "not_converged",

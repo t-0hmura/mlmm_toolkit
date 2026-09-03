@@ -367,7 +367,7 @@ Recursive path search settings (path-search only).
 
 ```yaml
 search:
- max_depth: 10 # Recursion depth limit
+ max_depth: 10 # Recursive subdivision levels allowed (0 = no subdivision)
  stitch_rmsd_thresh: 0.0001 # RMSD threshold for stitching segments
  bridge_rmsd_thresh: 0.0001 # RMSD threshold for bridging nodes
  max_nodes_segment: 20 # Max nodes per segment

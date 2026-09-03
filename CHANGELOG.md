@@ -11,9 +11,11 @@ _No changes yet._
 ## [0.3.5] — 2026-09-02
 
 > Upgrade warning: unchanged inputs can produce a different `scientific_status` for
-> standalone `irc` and for `all`, and `result.json` / `summary.json` now carry
-> `schema_version: "3.0"`. Users of those files must review the Breaking changes below
-> before upgrading.
+> standalone `irc` and for `all`, a different `tsopt` `status` when the final TS
+> energy is unavailable, and one subdivision level fewer for a configured
+> `search.max_depth`; `result.json` / `summary.json` now carry
+> `schema_version: "3.0"`. Users of those files must review the Breaking changes
+> below before upgrading.
 
 ### Breaking changes
 - **JSON schema 3.0 (breaking).** Remove the IRC `forward_converged` /
@@ -32,6 +34,16 @@ _No changes yet._
   validation of the optimized endpoints against their assigned MEP endpoints. A
   run whose `post_segments[].endpoint_opt` record is absent or whose optimized
   topology does not match no longer reports `success`.
+- **`tsopt` no longer reports `converged` without a final energy (breaking).** A
+  failed final-energy evaluation recorded `status: "converged"` with
+  `energy_hartree: NaN`; `status` is now `"energy_missing"`.
+  `optimization_status` keeps the optimizer's own verdict, so the two fields are
+  no longer always equal, and `all`'s TS-to-IRC decision reads it unchanged.
+- **`search.max_depth` counts subdivision levels (breaking).** The cap is now
+  `depth >= max_depth`, so the value is the number of recursive subdivision
+  levels allowed and `0` performs none, yielding a single MEP segment. A
+  configured `search.max_depth: N` therefore subdivides one level less than
+  before; the default 10 permits 10 levels, previously 11.
 
 ### Added
 - Add IRC `forward_status` / `backward_status` (`stopped`, `failed`, `disabled`),
@@ -41,12 +53,17 @@ _No changes yet._
   `scan_optimizer`, and `all` `config.ts_opt_mode` / `config.endpoint_opt_mode`.
 - Add `post_segments[].endpoint_opt.connectivity_validated` with the optimized
   reactant/product bond-topology record.
+- Add the advanced `--max-depth` option to `path-search` and to `all --refine-path`,
+  exposing the recursive-subdivision level cap that was previously YAML-only.
 
 ### Changed
 - Support fairchem-core 2.22 and current compatible runtime dependencies.
 - Raise the default DMF IPOPT iteration cap (`--max-cycles-dmf`, `dmf.max_cycles`) from 300 to 3000, matching the solver's own default.
 
 ### Fixed
+- Report the depth-capped `path-search` interval as a real segment. It published
+  no `SegmentReport`, so `n_segments` / `segments[]` omitted the interval and its
+  barrier, ΔE, bond changes, and convergence.
 - Restore AIMNet2 evaluation and static image export with current releases.
 - Report TS/IRC-endpoint optimizer modes and requested/effective TS optimizer JSON separately.
 - Show the formatted result warning, including its recovery guidance such as

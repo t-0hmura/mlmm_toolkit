@@ -4034,6 +4034,12 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 )
 @click.option("--max-nodes", type=int, default=_path_opt.GS_KW["max_nodes"], show_default=True,
               help="Max internal nodes per GSM/DMF segment (max_nodes+2 images including endpoints).")
+@click.option("--max-depth", type=click.IntRange(min=0), default=None, show_default="10",
+              help=("Recursive subdivision levels allowed by --refine-path. 0 performs no "
+                    "subdivision and yields a single MEP segment. Reaching the limit is not "
+                    "an error: the remaining interval is returned as one un-subdivided "
+                    "segment tagged seg_NNN_maxdepth, which is therefore not guaranteed to "
+                    "be a single elementary step."))
 @click.option(
     "--gsm-param",
     type=click.Choice(["equi", "energy"], case_sensitive=False),
@@ -4430,6 +4436,7 @@ def cli(
     mep_mode: str,
     dmf_backend: str,
     max_nodes: int,
+    max_depth: Optional[int],
     gsm_param: Optional[str],
     max_cycles_gsm: Optional[int],
     max_cycles_dmf: Optional[int],
@@ -4937,6 +4944,7 @@ def cli(
                 "mep_mode": mep_mode_kind,
                 "dmf_backend": dmf_backend_effective,
                 "max_nodes": int(max_nodes),
+                "max_depth": (None if max_depth is None else int(max_depth)),
                 "gsm_param": (
                     str(gsm_param).lower()
                     if "gsm_param" in explicit_params and gsm_param is not None
@@ -6826,6 +6834,10 @@ def cli(
                 thresh_dmf=thresh_dmf,
             )
         )
+        # path-search only: the recursive splitter is the sole consumer, so this
+        # stays out of the argv builder shared with the path-opt child.
+        if "max_depth" in explicit_params and max_depth is not None:
+            ps_args.extend(["--max-depth", str(int(max_depth))])
         ps_args.extend(["--out-dir", str(path_dir)])
         if not tsopt_reference_mode_enabled:
             ps_args.append("--no-write-hei-mode-cache")

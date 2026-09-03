@@ -450,11 +450,47 @@ def check_provenance(
             raise SystemExit(f"summary.log contains stale backend label: {stale}")
 
 
+def check_path_search_max_depth(root: Path) -> None:
+    """`--max-depth 0` must perform no subdivision at all.
+
+    The recursion cap counts LEVELS, so 0 returns the interval as a single MEP
+    segment and never enters the splitter. That segment is a deliberate
+    no-subdivision request rather than an exhausted budget, so it also carries
+    the ordinary `seg_NNN` tag: `_maxdepth` is reserved for a recursion that was
+    cut off while covalent changes remained.
+    """
+
+    data = json.loads((root / "result.json").read_text(encoding="utf-8"))
+    n_segments = data.get("n_segments")
+    if n_segments != 1:
+        raise SystemExit(
+            f"--max-depth 0 produced n_segments={n_segments!r}, expected exactly 1"
+        )
+    segments = data.get("segments")
+    if not isinstance(segments, list) or len(segments) != 1:
+        raise SystemExit(
+            f"--max-depth 0 published {segments!r} instead of one segment record"
+        )
+    tag = str(segments[0].get("tag") or "")
+    if not tag:
+        raise SystemExit("the single --max-depth 0 segment carries no tag")
+    if tag.endswith("_maxdepth"):
+        raise SystemExit(
+            f"--max-depth 0 tagged its segment {tag!r}; a deliberate no-subdivision "
+            "request must not be reported as an exhausted recursion budget"
+        )
+    if segments[0].get("barrier_kcal") is None:
+        raise SystemExit(
+            f"segment {tag!r} reports no barrier, so the single-segment path "
+            "carries no usable energetics"
+        )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "kind",
-        choices=("all", "tsopt-optimizer", "scan-optimizer", "dmf-freeze", "opt-config", "sp-hessian", "irc-handoff", "tsopt-reference", "provenance"),
+        choices=("all", "tsopt-optimizer", "scan-optimizer", "dmf-freeze", "opt-config", "sp-hessian", "irc-handoff", "tsopt-reference", "path-search-max-depth", "provenance"),
     )
     parser.add_argument("root", type=Path)
     parser.add_argument("--require-thermo", action="store_true")
@@ -504,6 +540,8 @@ def main() -> None:
             expected_link_atom_method=args.expected_link_atom_method,
             expected_thresh=args.expected_thresh,
         )
+    elif args.kind == "path-search-max-depth":
+        check_path_search_max_depth(args.root)
     elif args.kind == "sp-hessian":
         check_sp_hessian(args.root)
     elif args.kind == "irc-handoff":

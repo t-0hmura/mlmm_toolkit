@@ -622,4 +622,15 @@ if [[ "${#test73_parms[@]}" -ne 1 ]]; then
 fi
 mlmm all -i test73/layered/test73_r_complex_layered.pdb test73/layered/test73_p_complex_layered.pdb --parm "${test73_parms[0]}" --model-pdb test73/ml_region.pdb -q -1 -m 1 --no-refine-path --max-cycles-gsm 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test74 > test74.out 2>&1
 
+# test75: --max-depth 0 switches recursive subdivision off entirely, so the run
+# must return exactly one ordinary `seg_NNN` segment with real energetics and
+# never enter the splitter. `_maxdepth` stays reserved for a recursion cut off
+# while covalent changes remained.
+mlmm path-search -i r_complex_layered.pdb p_complex_layered.pdb --parm p_complex.parm7 -q -1 -m 1 --max-depth 0 --max-cycles-gsm 5 --no-preopt --out-dir test75_ps_max_depth0 > test75_ps_max_depth0.out 2>&1
+python assert_release_result.py path-search-max-depth test75_ps_max_depth0 >> test75_ps_max_depth0.out 2>&1
+if grep -Fq 'Reached maximum recursion depth' test75_ps_max_depth0.out; then
+  echo '[smoke] FAIL test75: --max-depth 0 announced an exhausted recursion budget' >> test75_ps_max_depth0.out
+  exit 1
+fi
+
 echo "[smoke] PASS: required GPU, ML/MM, Hessian-handoff, and structure-I/O lane completed with zero skips."

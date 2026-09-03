@@ -136,7 +136,7 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
-| `status` | string | 後方互換の数値 outcome。数値収束と鞍点次数は `optimization_status` / `saddle_validation` を個別に参照 |
+| `status` | string | 全体の outcome。`optimization_status` と一致するが、収束したのに最終 TS エネルギーを評価できなかった場合は `"energy_missing"` に降格する。数値収束と鞍点次数は `optimization_status` / `saddle_validation` を個別に参照 |
 | `optimization_status` | string | 数値 optimizer の結果: `"converged"` / `"not_converged"` / `"stalled"`。鞍点次数とは独立 |
 | `saddle_validation` | string | 終端 exact PHVA による `"first_order"` / `"higher_order"` / `"no_imaginary"` / `"unavailable"` |
 | `saddle_order_verified` | bool | `saddle_validation: "first_order"` の場合だけ `true` |
@@ -144,7 +144,7 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | `reaction_mode_index` | int\|null | downstream IRC に使う負の exact-PHVA root。root 0 fallback は明示され、反応 identity を保証しない |
 | `reaction_mode_frequency_cm` | float\|null | 選択した負 root の振動数 |
 | `reaction_mode_source` | string\|null | 参照方向整合または明示 fallback による root 選択元 |
-| `energy_hartree` | float | TS エネルギー (Hartree) |
+| `energy_hartree` | float | TS エネルギー (Hartree)。最終エネルギー評価に失敗した場合は `NaN` で、そのとき `status` は `"energy_missing"` |
 | `n_imaginary_modes` | int\|null | 虚振動数。PHVA を実行しなかった場合は `null` |
 | `imaginary_frequencies_cm` | float[]\|null | 虚振動数 (cm$^{-1}$, 負の値)。PHVA 未実行時は `null` |
 | `opt_mode` | string | `"grad"`, `"hess"`, `"dimer"`, `"rsprfo"`, `"rsirfo"`, `"trim"` のいずれか。`hess` は RS-P-RFO を選択。 |
@@ -227,7 +227,7 @@ scan は固定の L-BFGS 経路を `scan_opt_mode: "grad"` / `scan_optimizer: "l
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
-| `converged` | bool | 収束判定 |
+| `converged` | bool \| null | 収束判定: エンジン自身の収束シグナルによる `true` / `false`。読み取れない場合は `null`（`status` は `"completed"` となり、収束を主張しない） |
 | `mep_mode` | string | `"dmf"` / `"gsm"` |
 | `image_energies_hartree` | float[] | 全イメージエネルギー |
 | `n_images` | int | イメージ数 |

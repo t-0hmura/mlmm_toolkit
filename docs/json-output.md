@@ -134,7 +134,7 @@ An optimizer may also report `"status": "stalled"`: the energy stopped decreasin
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `status` | string | Backward-compatible numerical outcome; use `optimization_status` and `saddle_validation` separately |
+| `status` | string | Overall outcome. It mirrors `optimization_status` except that a converged run whose final TS energy could not be evaluated is degraded to `"energy_missing"`; use `optimization_status` and `saddle_validation` for the numerical and saddle-order verdicts separately |
 | `optimization_status` | string | Numerical optimizer outcome: `"converged"`, `"not_converged"`, or `"stalled"`; independent of saddle order |
 | `saddle_validation` | string | `"first_order"`, `"higher_order"`, `"no_imaginary"`, or `"unavailable"` from terminal exact PHVA |
 | `saddle_order_verified` | bool | `true` only for `saddle_validation: "first_order"` |
@@ -142,7 +142,7 @@ An optimizer may also report `"status": "stalled"`: the energy stopped decreasin
 | `reaction_mode_index` | int\|null | Selected negative exact-PHVA root for downstream IRC; fallback root 0 is explicitly labelled and does not verify reaction identity |
 | `reaction_mode_frequency_cm` | float\|null | Frequency of the selected negative root |
 | `reaction_mode_source` | string\|null | Reference-aligned or explicit fallback source used for root selection |
-| `energy_hartree` | float | TS energy (Hartree) |
+| `energy_hartree` | float | TS energy (Hartree); `NaN` when the final energy evaluation failed, in which case `status` is `"energy_missing"` |
 | `n_imaginary_modes` | int\|null | Number of imaginary frequencies; `null` if PHVA was not run |
 | `imaginary_frequencies_cm` | float[]\|null | Imaginary frequencies (cm⁻¹, negative); no PHVA: `[]` with `--skip-final-freq`, otherwise `null` |
 | `opt_mode` | string | One of `"grad"`, `"hess"`, `"dimer"`, `"rsprfo"`, `"rsirfo"`, or `"trim"`; `hess` selects RS-P-RFO |
@@ -280,7 +280,7 @@ only when the imported CSV has complete convergence and artifact provenance.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `converged` | bool | Convergence flag |
+| `converged` | bool \| null | Convergence flag: `true` / `false` from the engine's own convergence signal, `null` when it exposed none (`status` is then `"completed"`, never a success claim) |
 | `mep_mode` | string | `"dmf"` or `"gsm"` |
 | `image_energies_hartree` | float[] | All image energies |
 | `n_images` | int | Image count |

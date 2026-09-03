@@ -5434,9 +5434,25 @@ def cli(
                         )
                         _tsopt_energy = float("nan")
 
+            # Both final-energy evaluations above fall back to NaN and log a
+            # promise of `status='energy_missing'` that nothing delivered, so a
+            # converged saddle could ship with an unusable energy under a
+            # `converged` verdict. `optimization_status` keeps the optimizer's
+            # own outcome; only the overall `status` is degraded.
+            _tsopt_optimization_status = _tsopt_status
+            _final_energy_usable = _tsopt_energy is not None and bool(
+                np.isfinite(_tsopt_energy)
+            )
+            if _tsopt_status == "converged" and not _final_energy_usable:
+                logger.warning(
+                    "Final TS energy is unavailable; reporting status='energy_missing' "
+                    "instead of 'converged'."
+                )
+                _tsopt_status = "energy_missing"
+
             result_data = {
                 "status": _tsopt_status,
-                "optimization_status": _tsopt_status,
+                "optimization_status": _tsopt_optimization_status,
                 "saddle_validation": _tsopt_saddle_validation,
                 "saddle_order_verified": _tsopt_saddle_validation == "first_order",
                 "hessian_status": _tsopt_hessian_status,

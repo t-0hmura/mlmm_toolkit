@@ -162,7 +162,9 @@ used by `bond-summary` and `path-search` segmentation.
 
 ```python
 import json
-bc = json.load(open("result_irc/result.json"))["bond_changes"]
+bc = json.load(open("result_irc/result.json")).get("bond_changes")
+if bc is None:
+    raise RuntimeError("IRC endpoint comparison was not available")
 for b in bc["formed"]: print("FORMED ", b)
 for b in bc["broken"]: print("BROKEN ", b)
 ```

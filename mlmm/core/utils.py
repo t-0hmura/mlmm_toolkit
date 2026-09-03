@@ -3610,6 +3610,7 @@ RESULT_JSON_SCHEMA_VERSION = "3.0"
 RESULT_JSON_STATUS_VALUES = (
     "completed",
     "converged",
+    "energy_missing",
     "error",
     "failed",
     "not_converged",
