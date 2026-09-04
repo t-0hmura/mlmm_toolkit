@@ -86,7 +86,7 @@ plugin set differs.
 
 ## Conda env templates
 
-Replace `<...>` with the values you discovered in `env-detect`. The
+Replace `<...>` with the values you discovered in `env-detect`.
 The combined-backend template uses `python=3.12` for current ORB;
 `mlmm-toolkit` itself requires Python ≥ 3.11.
 

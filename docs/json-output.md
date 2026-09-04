@@ -363,12 +363,12 @@ The `all` and `path-search` commands write `summary.json`:
 | `status` | string | `"success"` / `"partial"` / `"failed"` for `all`; `"success"` / `"partial"` for `path-search`. |
 | `execution_status` / `scientific_status` | string / string | Execution completeness and scientific usability; evaluate these separately from legacy `status`. |
 | `scientific_status_reasons` | string[] | Reasons for incomplete or unusable science; omitted on clean success. |
-| `pipeline_stop` | object \| absent | Present only on an early stop: `stage`, `reason`, and the stage's record. Rendered in `summary.log` as `Pipeline stop`. |
+| `pipeline_stop` | object \| absent | Present only on an early stop. `stage` is `post` (`reason` `no_segments` / `no_reactive_segment`) or `before_irc` (a TSOPT reason, plus `segment` and `tsopt_result`). Rendered in `summary.log` as `Pipeline stop`. |
 | `expected_item_ids` / `observed_item_ids` | string[] | Expected and observed aggregate leaves. |
 | `config` | object | Effective settings. `mep_mode` identifies GSM/DMF; `ts_opt_mode` and `endpoint_opt_mode` identify the configured post-processing presets. Generic `opt_mode*` keys retain the resolved CLI inputs. `path_opt_mode` is the single-structure optimizer used for endpoint preoptimization (see `preopt`), not the MEP path algorithm. |
 | `n_segments` | int | Segment count |
 | `search_max_depth` | int | Effective recursion cap; `0` means subdivision was disabled |
-| `preopt_requested` / `preopt_converged` | bool / bool \| null | Endpoint preoptimization request and its folded convergence; the `all` aggregate gates on it |
+| `preopt_requested` / `preopt_converged` | bool / bool \| null | Whether endpoint preoptimization ran, and whether every endpoint converged; `null` when any endpoint reported no readable signal. The `all` aggregate gates on it |
 | `segments` | object[] | Per-segment barrier, delta, bond changes |
 | `energy_diagrams` | object[] | Energy profiles with labels and kcal/mol values |
 | `mlip_backend` | string | Backend name (`uma`, `orb`, `mace`, `aimnet2`, or `custom`) |

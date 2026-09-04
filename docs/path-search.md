@@ -87,7 +87,7 @@ out_dir/ (default: ./result_path_search/)
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
 | `--movable-cutoff FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. MM atoms beyond this are frozen. Providing `--movable-cutoff` disables `--detect-layer`. | _None_ |
 | `--max-nodes INT` | Movable internal images per GSM or DMF segment (`max_nodes + 2` total images). | `20` |
-| `--max-depth INT` | Recursive subdivision levels allowed. `0` disables subdivision. A capped interval is tagged `seg_NNN_maxdepth` and may hold more than one step. | `10` |
+| `--max-depth INT` | Recursive subdivision levels allowed. `0` disables subdivision, returning each input pair as one MEP segment (none when its HEI sits at an endpoint). A capped interval is tagged `seg_NNN_maxdepth` and may hold more than one step. | `10` |
 | `--gsm-param [equi\|energy]` | GSM node parameterization after string growth. `energy` concentrates nodes in high-energy regions and may be tried when an equidistant path skips the reaction-coordinate region near the HEI; it does not identify a TS. | `equi` |
 | `--max-cycles-gsm INT` | GSM string-optimizer cycle cap. | `300` |
 | `--max-cycles-dmf INT` | DMF IPOPT iteration cap. | `3000` |

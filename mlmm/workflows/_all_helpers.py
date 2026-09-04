@@ -234,13 +234,10 @@ def build_pipeline_summary_payload(
         "segments": summary.get("segments", []),
         "energy_diagrams": summary.get("energy_diagrams", []),
         "post_segments": list(post_segment_logs),
-        # An early stop must reach summary.log, not only summary.json: this is
-        # the file a downstream reader may receive on its own, and without these
-        # keys `write_summary_log` cannot tell a run that stopped at segment k
-        # from one that completed every segment.
         "search_max_depth": summary.get("search_max_depth"),
+        # summary.log is the file a downstream reader may receive on its own, so
+        # an early stop has to reach it too.
         "pipeline_stop": summary.get("pipeline_stop"),
-        "stopped_before_irc": bool(summary.get("stopped_before_irc")),
         "key_files": {},
     }
 

@@ -103,7 +103,7 @@ out_dir/ (デフォルト:./result_path_search/)
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス（YAML `geom.freeze_atoms` とマージ）。 | _None_ |
 | `--movable-cutoff FLOAT` | ML 領域からの可動 MM 原子の距離カットオフ (Å)。これを超える MM 原子は凍結。指定時は `--detect-layer` が無効化。 | _None_ |
 | `--max-nodes INT` | GSM／DMF セグメントごとの可動内部画像数（総画像数は `max_nodes + 2`）。 | `20` |
-| `--max-depth INT` | 許可する再帰分割の階層数。`0` で分割無効。上限に達した区間は `seg_NNN_maxdepth` タグで、素反応1段の保証はない | `10` |
+| `--max-depth INT` | 許可する再帰分割の階層数。`0` で分割無効（入力ペアごとに1セグメント、HEI が端点なら0）。上限に達した区間は `seg_NNN_maxdepth` タグで、素反応1段の保証はない | `10` |
 | `--gsm-param [equi\|energy]` | 完全成長後のGSMノード配置。`energy` は高エネルギー領域へノード密度を寄せる。等間隔経路がHEI近傍の反応座標領域を飛び越える場合の試行用であり、TSを同定する機能ではない。 | `equi` |
 | `--max-cycles-gsm INT` | GSMストリング最適化サイクル上限。 | `300` |
 | `--max-cycles-dmf INT` | DMF IPOPT反復上限。 | `3000` |

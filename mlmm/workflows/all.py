@@ -2519,10 +2519,15 @@ def _validate_optimized_endpoint_pair(
             "reason": f"optimized_endpoint_validation_failed:{exc}",
         }
     matrix = probe.get("match_matrix") if isinstance(probe, dict) else None
+    # The XOR the producer uses: an all-True matrix is a `rmsd_topology_tie`, in
+    # which the optimized endpoints are topologically indistinguishable from both
+    # MEP endpoints and nothing was actually discriminated.
     direct = bool(
         isinstance(matrix, dict)
         and matrix.get("left_to_mep_left") is True
         and matrix.get("right_to_mep_right") is True
+        and matrix.get("left_to_mep_right") is not True
+        and matrix.get("right_to_mep_left") is not True
     )
     # Carry the probe's own resolution label rather than asserting the strongest
     # one: a `rmsd_topology_tie` or `rmsd_topology_unmatched` resolution published
@@ -8103,16 +8108,12 @@ def cli(
             segment_log["irc_plot"] = str(irc_plot_path)
         if irc_trj_path:
             segment_log["irc_traj"] = str(irc_trj_path)
-        # Raw IRC status/orientation are diagnostics.  Scientific endpoint
-        # acceptance is determined from the optimized endpoints below.
         _irc_outcome_seg = irc_res.get("irc_outcome")
         if isinstance(_irc_outcome_seg, dict):
             segment_log["irc"] = _irc_outcome_seg
         segment_log["endpoint_assignment"] = irc_res.get(
             "endpoint_assignment"
         )
-        # Endpoint optimization owns final endpoint acceptance.  Raw IRC
-        # assignment above remains available only as orientation provenance.
         segment_log["endpoint_opt"] = {
             "reactant_converged": _react_opt_conv,
             "product_converged": _prod_opt_conv,

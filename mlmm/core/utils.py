@@ -3601,8 +3601,10 @@ def _collect_environment_info() -> dict:
     return env
 
 
-# Schema version for result/summary JSON. Version 2.0 removes the UMA-specific
-# all-workflow energy keys in favor of backend-neutral MLIP keys.
+# Schema version for result/summary JSON. Version 3.0 removes the IRC
+# `forward_converged` / `backward_converged` and `*_endpoint_stationary` keys;
+# read `forward_status` / `backward_status` instead. Version 2.0 had removed the
+# UMA-specific all-workflow energy keys in favor of backend-neutral MLIP keys.
 RESULT_JSON_SCHEMA_VERSION = "3.0"
 
 # Union of public command-specific values for ``status``. Each command exposes

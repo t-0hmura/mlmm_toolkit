@@ -243,7 +243,7 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 | `--mep-mode [gsm\|dmf]` | `path-opt` と再帰的 `path-search` の両方へ転送する MEP 最適化法。 | `gsm` |
 | `--dmf-backend [gpu\|cpu]` | DMF 実装。明示指定時だけ子コマンドへ転送するため、省略時は子コマンドの YAML 設定 `dmf.backend` が有効。 | `gpu` |
 | `--max-nodes INT` | GSM/DMF セグメントの内部ノード数。 | `20` |
-| `--max-depth INT` | 許可する再帰分割の階層数（`--refine-path` が必須）。`0` で分割無効。上限に達した区間は `seg_NNN_maxdepth` タグで、素反応1段の保証はない | `10` |
+| `--max-depth INT` | 許可する再帰分割の階層数（`--refine-path` が必須）。`0` で分割無効（入力ペアごとに1セグメント、HEI が端点なら0）。上限に達した区間は `seg_NNN_maxdepth` タグで、素反応1段の保証はない | `10` |
 | `--gsm-param [equi\|energy]` | 完全成長後のGSMノード配置。`energy` は高エネルギー領域へノード密度を寄せる。等間隔経路がHEI近傍の反応座標領域を飛び越える場合の試行用であり、TSを同定する機能ではない。 | `equi` |
 | `--max-cycles-gsm INT` | MEP childのGSMストリング最適化サイクル上限。 | `300` |
 | `--max-cycles-dmf INT` | MEP childのDMF IPOPT反復上限。 | `3000` |

@@ -246,7 +246,7 @@ their dedicated cycle options and defaults.
 | `--mep-mode [gsm\|dmf]` | MEP optimizer forwarded to both `path-opt` and recursive `path-search`. | `gsm` |
 | `--dmf-backend [gpu\|cpu]` | DMF implementation. The parent forwards this only when explicitly set, so a child YAML `dmf.backend` remains effective otherwise. | `gpu` |
 | `--max-nodes INT` | Internal nodes per GSM/DMF segment. | `20` |
-| `--max-depth INT` | Recursive subdivision levels allowed; requires `--refine-path`. `0` disables subdivision. A capped interval is tagged `seg_NNN_maxdepth` and may hold more than one step. | `10` |
+| `--max-depth INT` | Recursive subdivision levels allowed; requires `--refine-path`. `0` disables subdivision, returning each input pair as one MEP segment (none when its HEI sits at an endpoint). A capped interval is tagged `seg_NNN_maxdepth` and may hold more than one step. | `10` |
 | `--gsm-param [equi\|energy]` | GSM node parameterization after string growth. `energy` concentrates nodes in high-energy regions and may be tried when an equidistant path skips the reaction-coordinate region near the HEI; it does not identify a TS. | `equi` |
 | `--max-cycles-gsm INT` | GSM string-optimizer cycle cap for the MEP child. | `300` |
 | `--max-cycles-dmf INT` | DMF IPOPT iteration cap for the MEP child. | `3000` |

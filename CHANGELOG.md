@@ -72,10 +72,9 @@ _No changes yet._
   reactant/product bond-topology record.
 - Add the advanced `--max-depth` option to `path-search` and to `all --refine-path`,
   exposing the recursive-subdivision level cap that was previously YAML-only.
-- Add path-search `search_max_depth` and `preopt_requested` /
-  `preopt_converged`, IRC `forward_short_branch` / `backward_short_branch`, `all`
-  `config.preopt` / `config.max_depth`, and `Pipeline stop` / `Recursion depth
-  cap` lines in `summary.log`.
+- Add path-search `search_max_depth`, IRC `forward_short_branch` /
+  `backward_short_branch`, `all` `config.preopt`, and `Pipeline stop` /
+  `Recursion depth cap` lines in `summary.log`.
 
 ### Changed
 - Support fairchem-core 2.22 and current compatible runtime dependencies.
@@ -88,8 +87,9 @@ _No changes yet._
 ### Fixed
 - Relay `preopt` into `summary.json`'s `references`: with `--no-preopt` it cited
   an optimizer the run never used, contradicting `summary.log` and stdout.
-- Carry `pipeline_stop` into the `summary.log` payload; the line was reachable
-  only on the TS-only route, so an early stop looked like a completed run.
+- Carry `pipeline_stop` into the `summary.log` payload; only the TS-only route
+  supplied the key, so the new line never rendered for a path run that stopped
+  early.
 - Publish a segment record for an interval that abandoned recursion, and reject
   one whose HEI sits at an endpoint. `n_segments` / `segments[]` had omitted the
   interval and its barrier, ΔE, bond changes and convergence. A failed
