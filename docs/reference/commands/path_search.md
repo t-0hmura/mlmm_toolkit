@@ -61,9 +61,10 @@ Options:
   --max-depth INTEGER RANGE       Number of recursive subdivision levels allowed
                                   while splitting a multistep path. 0 performs
                                   no subdivision, returning each input pair as
-                                  one MEP segment. Reaching the limit is not an
-                                  error: the remaining interval is returned as
-                                  one segment that was not subdivided, tagged
+                                  one MEP segment (none when its HEI sits at an
+                                  endpoint). Reaching the limit is not an error:
+                                  the remaining interval is returned as one
+                                  segment that was not subdivided, tagged
                                   seg_NNN_maxdepth, which is therefore not
                                   guaranteed to be a single elementary step.
                                   When not given, YAML search.max_depth applies.

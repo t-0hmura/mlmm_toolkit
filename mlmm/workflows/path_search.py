@@ -1383,8 +1383,7 @@ def _build_multistep_path(
         # one whose recursion terminated on a verified elementary step.
         click.echo(
             f"[{branch_tag}] Recursive subdivision is disabled (max_depth=0); "
-            "returning one MEP segment, which is not guaranteed to be a "
-            "single elementary step."
+            "evaluating the current MEP without further splitting."
         )
         return _terminate_with_single_segment(f"seg_{seg_counter[0]:03d}")
 
@@ -1716,7 +1715,8 @@ def _build_multistep_path(
     help=(
         "Number of recursive subdivision levels allowed while splitting a "
         "multistep path. 0 performs no subdivision, returning each input pair as one MEP "
-        "segment. Reaching the limit is not an error: the remaining interval "
+        "segment (none when its HEI sits at an endpoint). Reaching the limit is not an "
+        "error: the remaining interval "
         "is returned as one segment that was not subdivided, tagged seg_NNN_maxdepth, "
         "which is therefore not guaranteed to be a single elementary step. "
         "When not given, YAML search.max_depth applies."
@@ -2955,6 +2955,7 @@ def cli(
                 "path_module_dir": "path_search",
                 "pipeline_mode": "path-search",
                 "refine_path": True,
+                "preopt": bool(pre_opt),
                 "tsopt": False,
                 "thermo": False,
                 "dft": False,
@@ -2969,6 +2970,7 @@ def cli(
                 "mep": mep_info,
                 "segments": summary.get("segments", []),
                 "energy_diagrams": summary.get("energy_diagrams", []),
+                "search_max_depth": summary.get("search_max_depth"),
                 "key_files": {},
             }
             summary_payload_for_citations = summary_payload

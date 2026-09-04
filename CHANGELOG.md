@@ -58,7 +58,7 @@ _No changes yet._
 - **`search.max_depth` counts subdivision levels (breaking).** The cap is now
   `depth >= max_depth`, so the value is the number of recursive subdivision
   levels allowed and `0` performs none, returning each input pair as one MEP
-  segment. A
+  segment (none when its HEI sits at an endpoint). A
   configured `search.max_depth: N` therefore subdivides one level less than
   before; the default 10 permits 10 levels, previously 11.
 
@@ -85,8 +85,9 @@ _No changes yet._
   optimization was not requested, instead of always carrying the default preset.
 
 ### Fixed
-- Relay `preopt` into `summary.json`'s `references`: with `--no-preopt` it cited
-  an optimizer the run never used, contradicting `summary.log` and stdout.
+- Relay `preopt` consistently into path-search citation payloads: with
+  `--no-preopt`, `summary.json`, `summary.log`, and stdout no longer cite an
+  optimizer the run never used.
 - Carry `pipeline_stop` into the `summary.log` payload; only the TS-only route
   supplied the key, so the new line never rendered for a path run that stopped
   early.

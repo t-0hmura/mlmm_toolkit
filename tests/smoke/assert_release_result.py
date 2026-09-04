@@ -508,6 +508,19 @@ def check_path_search_max_depth(root: Path) -> None:
             "recursion cap must be recorded so a reader can tell that "
             "subdivision was disabled"
         )
+    raw_segment_dirs = sorted(
+        path.name for path in root.glob("seg_*_mep") if path.is_dir()
+    )
+    if raw_segment_dirs != ["seg_000_mep"]:
+        raise SystemExit(
+            "--max-depth 0 must keep the ordinary raw-segment tag; found "
+            f"{raw_segment_dirs!r}"
+        )
+    summary_log = (root / "summary.log").read_text(encoding="utf-8")
+    if "Limited-memory BFGS (L-BFGS)" in summary_log:
+        raise SystemExit("summary.log cites L-BFGS although --no-preopt was used")
+    if "Recursion depth cap : 0 (subdivision disabled)" not in summary_log:
+        raise SystemExit("summary.log does not report the effective recursion cap")
 
 
 def main() -> None:

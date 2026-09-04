@@ -4094,8 +4094,9 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @click.option("--max-nodes", type=int, default=_path_opt.GS_KW["max_nodes"], show_default=True,
               help="Max internal nodes per GSM/DMF segment (max_nodes+2 images including endpoints).")
 @click.option("--max-depth", type=click.IntRange(min=0), default=None, show_default="10",
-              help=("Recursive subdivision levels allowed by --refine-path. 0 performs no "
-                    "subdivision, returning each input pair as one MEP segment. Reaching the limit is not "
+              help=("Recursive subdivision levels; requires --refine-path. 0 performs no "
+                    "subdivision, returning each input pair as one MEP segment (none when its "
+                    "HEI sits at an endpoint). Reaching the limit is not "
                     "an error: the remaining interval is returned as one segment that was not subdivided, "
                     "tagged seg_NNN_maxdepth, and is therefore not guaranteed to "
                     "be a single elementary step."))
