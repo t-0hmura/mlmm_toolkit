@@ -21,11 +21,11 @@ See [MLIP Backends](backends.md) for per-backend kwargs, model identifiers, prec
 
 The calculator automatically generates link hydrogen atoms at covalent ML/MM boundaries. The ML region is defined by a model PDB (`model.pdb`), the MM topology comes from an Amber prmtop (`real.parm7`), and coordinates are taken from the input PDB (`input.pdb`). An internal `real.rst7` is generated via ParmEd by combining `real.parm7` with coordinates from `input.pdb` -- no external `real.rst7` or `real.pdb` is required.
 
-## Three-layer scheme (energy / force / Hessian)
+## ONIOM energy decomposition
 
 The calculator combines three evaluations using the ONIOM subtraction:
 
-| Layer | System | Method | Description |
+| Evaluation | System | Method | Description |
 | --- | --- | --- | --- |
 | **REAL-low** | Full system | MM (hessian_ff) | Full system evaluated with Amber prmtop-based MM |
 | **MODEL-low** | ML subset | MM (hessian_ff) | ML region evaluated with MM |

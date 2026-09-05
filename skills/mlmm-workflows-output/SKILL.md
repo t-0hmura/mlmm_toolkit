@@ -36,9 +36,9 @@ through the toolkit.
 
 ## Six canonical workflows
 
-### 1. Cluster + 1-step reaction (multi-input MEP)
+### 1. One-step reaction (multi-input MEP)
 
-You have R and P PDBs (from a published QM study). One step.
+You have full-system R and P PDBs with matching atom identity and order.
 
 ```bash
 mlmm all -i 1.R.pdb 3.P.pdb \
@@ -47,8 +47,9 @@ mlmm all -i 1.R.pdb 3.P.pdb \
     -o result_mep
 ```
 
-Result: `result_mep/seg_NN/{reactant,ts,product}.pdb`,
-`summary.json["segments"][0]["barrier_kcal"]`.
+Result: `result_mep/segments/seg_NN/{reactant,ts,product}.pdb`.
+`segments[].barrier_kcal` is the raw MEP barrier; refined electronic/Gibbs
+barriers are in the matching `post_segments` entry's `mlip` / `gibbs_mlip`.
 
 ### 2. Multi-step recursive (multi-input MEP, recursive segmentation)
 
@@ -64,8 +65,8 @@ mlmm all -i 1.R.pdb 3.P.pdb \
     -o result_mep
 ```
 
-With `--refine-path` the output `summary.json["n_segments"]` may be > 1 —
-that's the recursion finding intermediates the inputs didn't contain.
+With `--refine-path`, `summary.json["n_segments"]` may be > 1;
+the proposed segments still need TS/IRC validation.
 (Without it, single-pass `path-opt` yields one segment per adjacent input
 pair.)
 
@@ -83,8 +84,7 @@ mlmm all -i 1.R.pdb \
     -o result_scan
 ```
 
-Each literal following the single `--scan-lists` flag is one stage; do not
-repeat the flag. See
+Each literal following `--scan-lists` is one stage. See
 `mlmm-cli/all-scan-list.md` for syntax details.
 
 ### 4. Endpoint-MEP with explicit intermediates
@@ -98,10 +98,9 @@ mlmm all -i 1.R.pdb 2.IM1.pdb 3.IM2.pdb 4.P.pdb \
     -o result_mep_4pt
 ```
 
-Add `--refine-path` to run recursive sub-segmentation *between* adjacent
-endpoints (then you don't have to provide every elementary step); default
-single-pass `path-opt` treats the provided endpoints as the elementary
-steps.
+Add `--refine-path` to search for candidate sub-segments *between* adjacent
+endpoints. Default single-pass `path-opt` optimizes one MEP per adjacent pair;
+neither route alone certifies an elementary step.
 
 ### 5. TS-only validation (existing TS candidate)
 
@@ -110,7 +109,7 @@ extract / path-search:
 
 ```bash
 mlmm tsopt -i ts.xyz --parm real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_tsopt
-mlmm freq  -i result_tsopt/final_geometry.xyz --parm real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_freq
+mlmm freq  -i result_tsopt/final_geometry.xyz --parm real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_freq  # optional: full modes / thermochemistry
 mlmm irc   -i result_tsopt/final_geometry.xyz --parm real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_irc
 ```
 
@@ -119,19 +118,20 @@ mode automatically; see `mlmm-cli/all-ts-only.md`).
 
 ### 6. DFT//MLIP/MM single-point energies
 
-After any of the above, evaluate R / TS / P with DFT single points:
+Evaluate the converged TS and optimized, chemically identified IRC endpoints
+with DFT single points. For standalone runs, optimize the endpoints as in
+Stage 2 below first. For example, the TS calculation is:
 
 ```bash
-mlmm dft -i result_irc/backward_last.pdb --parm real.parm7 \
+mlmm dft -i result_tsopt/final_geometry.pdb --parm real.parm7 \
     -l 'SAM:1,GPP:-3' \
     --func-basis 'wb97m-v/def2-tzvpd' \
     --engine gpu \
-    -o dft_R
-mlmm dft -i result_tsopt/final_geometry.pdb --parm real.parm7 -l '...' --func-basis '...' -o dft_TS
-mlmm dft -i result_irc/forward_last.pdb --parm real.parm7 -l '...' --func-basis '...' -o dft_P
+    -o dft_TS
 ```
 
-Composite the energies with `energy-diagram` (see below).
+Repeat for both optimized endpoints with the same settings, then combine the
+energies with `energy-diagram` (see below).
 
 ## Stage-by-stage execution (subcommand-only, gate each stage)
 
@@ -139,11 +139,11 @@ Run the pipeline as separate subcommands instead of one `mlmm all` when you want
 **judge each stage's success before spending GPU time on the next** — e.g. confirm
 path-search found the right segments / bond changes before optimizing a TS, or validate
 the TS (one imaginary mode + correct IRC connectivity) before thermo / DFT. `mlmm all`
-runs this chain (the MEP stage is single-pass `path-opt` by default; recursive
+selects stages from this chain (the MEP stage is single-pass `path-opt` by default; recursive
 `path-search` with `--refine-path`):
 
 ```
-extract → [mm-parm] → path-opt → (per reactive seg) tsopt → irc → freq → [dft] → energy-diagram
+extract → [mm-parm] → path-opt → [--tsopt: TS → IRC → endpoint opt] → [--thermo: freq] → [--dft] → energy-diagram
 ```
 
 **mlmm carry-through**: every ML/MM-evaluating stage needs the *same* `--parm`,
@@ -153,13 +153,13 @@ and the same `--detect-layer` policy for MM sublayers. It also needs the *same*
 `result.json` / `summary.json` `status` and gate before continuing.
 
 **Stage 0 — prep** (only from a full enzyme PDB; most staged campaigns start from
-already-prepared R/P cluster PDBs + parm7): generate topology, cut the pocket, encode
+already-prepared full-system R/P PDBs + parm7): generate topology, select ML atoms, encode
 layers with `mm-parm` → `extract` → `define-layer` (flags in
 `mlmm-cli/{mm-parm,extract,define-layer}.md`). **GATE**: `real.parm7` written and the
 PDB explicitly requested with `mm-parm --out-prefix real` is used for
 extraction/layering; `real.pdb` has complete element columns and the same atom
-identity/order as `real.parm7`. The resulting model carries the intended ML
-atoms + layer B-factors (0/10/20).
+identity/order as `real.parm7`. The layered full-system PDB carries the intended
+ML/MM B-factors (0/10/20).
 
 **Stage 1 — MEP (`path-search`)**
 
@@ -178,7 +178,7 @@ for the wrong step).
 
 ```bash
 mlmm tsopt -i ps/hei_seg_NN.xyz --ref-pdb enzyme_layered.pdb --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' -b uma --out-json -o seg_NN/tsopt
-mlmm freq -i seg_NN/tsopt/final_geometry.xyz --ref-pdb enzyme_layered.pdb --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' -b uma --out-json -o seg_NN/freq
+mlmm freq -i seg_NN/tsopt/final_geometry.xyz --ref-pdb enzyme_layered.pdb --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' -b uma --out-json -o seg_NN/freq  # optional: full modes / thermochemistry
 mlmm irc -i seg_NN/tsopt/final_geometry.xyz --ref-pdb enzyme_layered.pdb --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' -b uma --out-json -o seg_NN/irc
 ```
 
@@ -190,8 +190,8 @@ warning-labelled **diagnostic** IRC from a numerically converged `higher_order`
 result when a validated negative root exists, but that continuation is not
 first-order certification. Numerical non-convergence, zero modes,
 failed/skipped PHVA, or no valid negative root stops `all` after retaining TS
-artifacts. Then require standalone freq `result.json` `n_imaginary == 1` before
-trusting the barrier → irc `result.json` `scientific_status == "success"` and
+artifacts. An additional standalone `freq` is optional; if run, check its modes
+and `n_imaginary == 1`. Require irc `result.json` `scientific_status == "success"` and
 every requested direction has a usable `stopped` outcome before endpoint
 optimization. In `all`, require `post_segments[].endpoint_opt` convergence and
 optimized `connectivity_validated`; raw `endpoint_assignment` is orientation
@@ -199,13 +199,24 @@ provenance only. The optimized endpoints must connect the **intended** R and P.
 A TS that fails the certification gate is not a validated first-order TS for
 this elementary step.
 
+Optimize the raw stitched-path endpoints, then identify R/P from their structures:
+
+```bash
+mlmm opt -i seg_NN/irc/finished_first.xyz --ref-pdb enzyme_layered.pdb --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' -b uma --out-json -o seg_NN/end_first
+mlmm opt -i seg_NN/irc/finished_last.xyz --ref-pdb enzyme_layered.pdb --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' -b uma --out-json -o seg_NN/end_last
+```
+
+Require both optimizations to converge and the endpoints to match the intended
+reaction. Use their `final_geometry.xyz` files downstream; standalone commands
+do not create `all`'s canonical `segments/seg_NN/{reactant,product}.*` files.
+
 **Stage 3 — thermochemistry** (optional, = `all --thermo`): run `mlmm freq` on R / TS / P
 for the Gibbs/QRRHO profile (`post_segments[i].gibbs_mlip`).
 
 **Stage 4 — DFT//MLIP/MM** (optional, = `all --dft`):
 
 ```bash
-mlmm dft -i segments/seg_NN/reactant.pdb --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' --func-basis 'wb97m-v/def2-tzvpd' --out-json -o segments/seg_NN/dft/R   # repeat for ts, product
+mlmm dft -i seg_NN/tsopt/final_geometry.xyz --ref-pdb enzyme_layered.pdb --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' --func-basis 'wb97m-v/def2-tzvpd' --out-json -o seg_NN/dft/TS   # repeat for both optimized endpoints
 ```
 
 **GATE**: each `dft/<state>/result.json` shows `"converged": true`.
@@ -307,7 +318,7 @@ For a segment oriented against MEP endpoints, two locations are written:
 
 ```
 result_all/
-└── segments/seg_NN/                        # CANONICAL — post-L-BFGS optimized
+└── segments/seg_NN/                        # CANONICAL — endpoint-optimized
     ├── reactant.{xyz,pdb}                  # MEP-matched IRC endpoint, then optimized
     ├── ts.{xyz,pdb}                        # tsopt'd transition state
     ├── product.{xyz,pdb}                   # MEP-matched IRC endpoint, then optimized
@@ -321,10 +332,10 @@ result_all/
 
 **Rule of thumb**: read from `segments/seg_NN/` for downstream stages. Use
 `structures/reactant_irc.xyz` / `structures/product_irc.xyz` only when debugging
-IRC vs. L-BFGS divergence.
+IRC vs. endpoint-optimization divergence.
 
 `bond_changes` are computed from `reactant.xyz` / `product.xyz`
-(post-L-BFGS), not from the raw IRC endpoints.
+(after endpoint optimization), not from the raw IRC endpoints.
 
 TS-only mode has no MEP/reference orientation. It writes the same number of
 structures as `e1`, `ts`, and `e2`; endpoint energy and IRC direction do not
@@ -398,17 +409,16 @@ When `summary.json["status"] != "success"`, look at:
 
 Even on failed runs, partial outputs are kept:
 
-- `path_opt/seg_NN/` (`path_search/seg_NN/` under `--refine-path`) exists
-  for any segment that completed the MEP stage (even if downstream stages
-  failed).
+- MEP scratch is under `_work/path_opt/` or `_work/path_search/`; see
+  [the all output table](../mlmm-cli/all.md#output-tree-typical) for its layout.
 - `segments/seg_NN/` can contain current-run partial artifacts even when a
   later stage fails. Trust leaf outcomes and the current-output manifest, not
   directory existence.
 
 ## Energy diagrams
 
-`mlmm all` writes `path_opt/energy_diagram_*.png` (`path_search/...` under
-`--refine-path`):
+`mlmm all` writes these diagrams at the output root when the required energies
+are available and export succeeds:
 
 - `energy_diagram_MEP.png` — bare MEP energies from the path-search
   string (MLIP, no thermochemistry).

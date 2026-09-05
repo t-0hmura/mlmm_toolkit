@@ -21,11 +21,11 @@ ML（高レベル）コンポーネントは、`-b/--backend` CLI オプショ�
 
 この計算機は共有結合的 ML/MM 境界にリンク水素原子を自動生成します。ML 領域はモデル PDB（`model.pdb`）で定義され、MM トポロジーは Amber prmtop（`real.parm7`）から取得され、座標は入力 PDB（`input.pdb`）から読み取られます。内部 `real.rst7` は ParmEd により `real.parm7` と `input.pdb` の座標を組み合わせて生成されます -- 外部の `real.rst7` や `real.pdb` は不要です。
 
-## 3 層スキーム（エネルギー / 力 / Hessian）
+## ONIOM のエネルギー分解
 
 計算機は ONIOM 減算法を使用して 3 つの評価を組み合わせます:
 
-| レイヤー | システム | 手法 | 説明 |
+| 評価 | システム | 手法 | 説明 |
 | --- | --- | --- | --- |
 | **REAL-low** | 全系 | MM (hessian_ff) | Amber prmtop ベースの MM で評価した全系 |
 | **MODEL-low** | ML サブセット | MM (hessian_ff) | MM で評価した ML 領域 |

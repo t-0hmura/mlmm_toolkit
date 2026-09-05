@@ -36,12 +36,12 @@ ONIOM campaign. Every flag below is verified against `mlmm/cli/common_options.py
 
 | Route | Subcommand | Mechanism | Use when |
 |---|---|---|---|
-| (a) MEP / path-search | `path-search` (or `path-opt` for one segment) | Recursive GSM/DMF segmentation; brackets the TS between endpoints, auto-bridges gaps, one TS per segment | You have R (and optionally P / intermediates) and want the path discovered |
+| (a) MEP / path-search | `path-search` (or `path-opt` for one segment) | Recursive GSM/DMF segmentation; returns HEI and segment candidates for TS/IRC validation | You have R and P, optionally with ordered intermediates |
 | (b) Distance-restrained build-up | `scan` (`scan2d`/`scan3d`) | Harmonic restraint `E = ½·k·(r_ij − target)²` (scan default `k=300` via `BIAS_KW`; the `10.0` in `restraints.py` `HarmonicBiasCalculator` is only an unused constructor fallback) drives the reacting distance(s) toward the barrier with L-BFGS relaxation | No usable second endpoint / TS guess — drive the reacting bond directly |
 
 - There is **no `opt --restraint` flag**, but `opt` supports restrained optimization via `--dist-freeze` (with `--bias-k`, default k=300, the same `HarmonicBiasCalculator`); `scan` additionally drives staged target distances up to a TS candidate.
 - `path-search` (`app.py`: "Search reaction pathways recursively.") auto-segments a multistep path; `path-opt` optimizes a single given segment.
-- Feed a TS candidate from either route into `tsopt → irc → freq` (or `all --tsopt`).
+- Feed a TS candidate from either route into `tsopt → irc` (or `all --tsopt`). Terminal PHVA checks saddle order; add `freq` for full modes or thermochemistry.
 
 ## 3. Wrong imaginary-frequency count at TS-opt
 
@@ -51,7 +51,7 @@ of magnitude.
 
 | Symptom | Action |
 |---|---|
-| Extra imaginary modes | Inspect all mode displacements, the MEP guess, optimizer stop reason, and backend-specific numerical behavior; then retry an appropriate coordinate/flattening/precision setting and independently rerun `freq`. |
+| Extra imaginary modes | Inspect all mode displacements, the MEP guess, optimizer stop reason, and backend-specific numerical behavior; then retry an appropriate coordinate/flattening/precision setting and check the new terminal PHVA result. |
 | Collapsed to `n_imag = 0` | Treat as failed, not as a TS. Improve the MEP/initial guess; `--flatten` only removes surplus modes and cannot create a missing reaction direction. |
 | Poor MEP/HEI | In `all`, try opt-in `--refine-path` before TS optimization. It can split a poor path into several stages and increase cost, so it is off by default. |
 | Still no clean saddle | Revise endpoints/scan coordinates and verify that the single imaginary mode moves the reacting atoms. |

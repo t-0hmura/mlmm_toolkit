@@ -165,9 +165,9 @@ Options:
                                   loose (0.20) or a positive float. This is not
                                   a Gaussian preset.  [default: (tight)]
   --thresh-post [gau_loose|gau|gau_tight|gau_vtight|baker|never]
-                                  Convergence preset for post-IRC endpoint
-                                  optimizations (gau_loose|gau|gau_tight|gau_vti
-                                  ght|baker|never).  [default: baker]
+                                  Convergence preset for TS and post-IRC
+                                  endpoint optimizations (gau_loose|gau|gau_tigh
+                                  t|gau_vtight|baker|never).  [default: baker]
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
   --show-config / --no-show-config

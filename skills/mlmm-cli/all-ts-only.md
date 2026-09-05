@@ -6,7 +6,7 @@ You already have a **TS candidate** (typically from another QM code, an
 older `mlmm-toolkit` run, or a manual guess) and want to run only the
 TS validation stages — `tsopt`, then IRC after saddle validation, plus `freq`
 with `--thermo` and DFT with `--dft` —
-without the upstream extract / path-search.
+without an MEP search.
 
 ## Synopsis
 
@@ -35,8 +35,8 @@ mlmm all --parm enzyme.parm7 -i ts_candidate.pdb \
 - `--tsopt` is enabled,
 - **no** `--scan-lists` is provided.
 
-The orchestrator skips path-search automatically and starts the
-pipeline at `tsopt`. There is **no explicit "force TS-only" flag** — the
+After system preparation, the orchestrator skips the MEP and starts at
+`tsopt`. There is **no explicit "force TS-only" flag** — the
 mode is selected purely from the input shape. TS-only mode requires
 `--tsopt`; passing `--no-tsopt` with a single input raises a
 validation error.
@@ -75,7 +75,8 @@ ts_candidate.{xyz,pdb,cif,mmcif}
    [dft]              (with --dft)
 ```
 
-`extract` and `path-search` are skipped entirely. The TS child is always kept;
+MEP search is skipped; model preparation follows the supplied inputs/options.
+The TS child outputs are kept when written;
 IRC-derived entries below appear only when the IRC gate passes:
 
 ```
@@ -87,7 +88,7 @@ result_ts_only/
         ├── e1.pdb         chemically unassigned IRC endpoint 1
         ├── ts.pdb         optimized TS
         ├── e2.pdb         chemically unassigned IRC endpoint 2
-        ├── ts/            final_geometry.{xyz,pdb} (result.json only with --out-json)
+        ├── ts/            final_geometry.{xyz,pdb}, result.json (requested by all)
         ├── irc/           forward_irc_trj.xyz, backward_irc_trj.xyz, finished_irc_trj.xyz
         ├── freq/          frequencies_cm-1.txt, thermoanalysis.yaml
         ├── structures/    nested copies + raw IRC endpoints ({endpoint_1_irc,ts,endpoint_2_irc}.{xyz,pdb})
@@ -103,7 +104,7 @@ d = json.load(open("result_ts_only/summary.json"))
 seg = d["segments"][0]
 
 # n_imaginary and IRC endpoint energies are not on the summary segment.
-# The TS child result is always written:
+# When the TS child reaches its result writer:
 ts = json.load(open("result_ts_only/segments/seg_01/ts/result.json"))
 print(ts["n_imaginary_modes"])         # should be 1
 

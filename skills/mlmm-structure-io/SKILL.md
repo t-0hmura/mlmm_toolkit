@@ -133,7 +133,7 @@ Full byte-by-byte / per-keyword detail in the per-format mds.
   radicals require particular care.
 - `-q` is the **ML region** charge. `-l 'RES:Q'` derives it from
   per-residue charges + `mlmm`'s internal amino-acid table.
-- For XYZ inputs (no header), `-q` and `-m` must be on the CLI.
+- XYZ uses `--ref-pdb` for residue context; charge and spin follow the same CLI / residue-derivation / YAML rules (see `charge-multiplicity.md`).
 
 If unsure about charge or spin, do **not** guess silently — follow
 `charge-multiplicity.md`.

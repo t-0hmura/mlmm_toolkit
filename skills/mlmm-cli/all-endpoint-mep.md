@@ -4,8 +4,8 @@
 
 You have **two or more reaction-ordered structures** (reactant, optional
 intermediate(s), product), all with the **same atom count and atom
-ordering**. The pipeline interpolates an MEP between adjacent
-structures and segments multi-step paths automatically.
+ordering**. By default, the pipeline optimizes one MEP per adjacent pair;
+`--refine-path` enables recursive segmentation.
 
 This is the most common mode for a published-mechanism reproduction
 where you have R and P (and sometimes IM) coordinates from a prior QM
@@ -61,8 +61,8 @@ All `-i` inputs must have:
 - the same element sequence (atom ordering),
 - the same residue assignments.
 
-If the inputs come from different programs or were re-numbered, run
-them through `extract` once to canonicalize ordering:
+Align atom identities and ordering before extraction; `extract` checks them
+but does not repair mismatches. Then apply the same selection to all inputs:
 
 ```bash
 mlmm extract -i 1.R_raw.pdb 3.P_raw.pdb \
@@ -88,17 +88,16 @@ Same as the base `all.md`. Specifically for endpoint-MEP mode:
 |---|---|---|
 | `status == "partial"`, or `bond-summary` reports extra changes vs the optimized MEP | Bond-change detector found extra changes; the reaction in the inputs and the reaction the optimizer found don't match. | Check which bonds changed via `bond-summary -i 1.R.pdb 3.P.pdb`; rerun standalone `path-search` with `--refine-mode minima`, or supply IM explicitly. |
 | `tsopt.n_imaginary_modes > 1` for a segment | Higher-order saddle or unresolved soft modes | Compare a Hessian-based mode and Dimer on the same seed/backend, then rerun frequency analysis and IRC connectivity checks. |
-| Different atom counts across `-i` inputs | Inconsistent extractions | Re-extract per the snippet above, verify with `wc -l 1.R.pdb 3.P.pdb`. |
+| Different atoms/order across `-i` inputs | Inconsistent input series | Compare ordered atom identities first, then apply one common extraction. |
 
 ## Caveats
 
 - GSM is the default. Use `--mep-mode dmf`; choose `--dmf-backend cpu`
   when the GPU implementation runs out of memory.
-- Under `--refine-path`, path search may discover **more** segments than
-  you have inputs: if `summary.json["n_segments"] > len(inputs) - 1`,
-  that's the recursive bond-change segmentation finding intermediates the
-  inputs didn't contain — often the *correct* answer. (Default single-pass
-  `path-opt` yields one segment per adjacent input pair.)
+- Under `--refine-path`, `summary.json["n_segments"]` may exceed
+  `len(inputs) - 1`; the count includes bridge segments. Validate proposed
+  intermediates with TS/IRC. Default single-pass `path-opt` yields one
+  segment per adjacent input pair.
 
 ## See also
 

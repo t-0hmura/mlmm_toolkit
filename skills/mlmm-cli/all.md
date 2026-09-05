@@ -2,10 +2,10 @@
 
 ## Purpose
 
-`all` is the meta-command that chains the entire workflow:
-extract → path-opt → tsopt → irc → freq → (optional) dft. The MEP stage
-is single-pass `path-opt` by default; recursive `path-search` runs only
-with `--refine-path`. It
+`all` prepares the system and runs an MEP by default. `--tsopt` adds TS/IRC
+and endpoint optimization; `--thermo` and `--dft` add frequency/thermochemistry
+and DFT single points (both require `--tsopt`). The MEP stage is single-pass `path-opt` by default;
+recursive `path-search` runs only with `--refine-path`. It
 resolves three input modes via flag context (see the three companion
 mds: `all-endpoint-mep.md`, `all-scan-list.md`, `all-ts-only.md`).
 
@@ -43,7 +43,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 
 ## Key flags (cross-mode)
 
-> **Note:** `--max-cycles` controls only the MEP child; it is not a shared
+> **Note:** `--max-cycles-gsm` / `--max-cycles-dmf` control only the selected MEP child; neither is a shared
 > all-stage budget. Other stages retain their dedicated options or defaults.
 
 | Flag | Type | Default | Description |
@@ -167,13 +167,13 @@ This treatment is unrelated to the internal `tsopt --ref-mode` MEP tangent.
 `--help-advanced`). To rerun only a failed segment:
 
 ```bash
-mlmm tsopt -i _work/path_opt/hei_seg_03.xyz --parm enzyme.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 -o segments/seg_03/ts -b uma
-mlmm irc   -i segments/seg_03/ts/final_geometry.xyz --parm enzyme.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 -o segments/seg_03/irc -b uma
-mlmm freq  -i segments/seg_03/ts/final_geometry.xyz --parm enzyme.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 -o segments/seg_03/freq -b uma
+mlmm tsopt -i _work/path_opt/hei_seg_03.xyz --parm enzyme.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 --out-json -o segments/seg_03/ts -b uma
+mlmm irc   -i segments/seg_03/ts/final_geometry.xyz --parm enzyme.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 --out-json -o segments/seg_03/irc -b uma
+mlmm freq  -i segments/seg_03/ts/final_geometry.xyz --parm enzyme.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 --out-json -o segments/seg_03/freq -b uma
 ```
 
-The directory layout matches what `all` produces, so downstream
-analysis scripts keep working.
+These standalone retries write their own stage JSON; they do not regenerate
+the parent `all` summary or output manifest. Inspect the retry results separately.
 
 ## Caveats
 

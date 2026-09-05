@@ -109,6 +109,10 @@ print(d["converged"])
 expansion, grid_level, SCF iterations, Mulliken / Loewdin / IAO charges,
 spin densities. Useful for debugging convergence problems.
 
+The combined ML(dft)/MM energy is in
+`result.yaml` → `mlmm_energy.E_total_ml_dft_mm_hartree`;
+JSON `energy_hartree` is the model DFT energy alone.
+
 ## Engine choice
 
 | `--engine` | When | Cost |
@@ -132,10 +136,9 @@ falling back.
 
 ## Caveats
 
-- `mlmm dft` runs only **single points**, not optimization. `mlmm tsopt`
-  / `mlmm opt` accept only MLIP backends (`-b uma|orb|mace|aimnet2`),
-  so DFT-level geometry refinement requires a separate QM code (e.g.
-  Gaussian, ORCA, PySCF) — there is no `-b dft` option.
+- `mlmm dft` runs only **single points**; there is no `-b dft` option.
+  `opt` / `tsopt` can use other engines through the
+  [custom ASE calculator interface](../mlmm-install-backends/SKILL.md#custom-backend--any-ase-calculator---calc-file).
 - `--func-basis` follows PySCF naming; cross-check with
   `python -c "from pyscf import gto; print(gto.basis._BASIS_DEFAULT)"`.
 

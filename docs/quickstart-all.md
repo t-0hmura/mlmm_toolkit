@@ -12,7 +12,7 @@ Run the end-to-end ML/MM ONIOM workflow once from a reactant and product PDB pai
 
 ## Minimal command
 
-End-to-end MEP only (matches `examples/toy_system/run.sh` test18):
+Download `r_complex.pdb` and `p_complex.pdb` from the [prepared example](https://github.com/t-0hmura/mlmm_toolkit/tree/main/examples/toy_system) into one working directory. Run this MEP-only command from that directory:
 
 ```bash
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 \
@@ -31,7 +31,7 @@ mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 \
 
 ## Result
 
-Read `summary.log` (human-readable) and `summary.json` (segments, ΔE‡, ΔE, bond_changes); the merged path is `mep.pdb` (plus `mep.cif` for bridged input) with `energy_diagram_MEP.png` at the output root. See [all](all.md) for the full output tree and per-segment deliverables, and [output-layout](output-layout.md) for the filename reference.
+Check [result status and reasons](json-output.md#execution-and-scientific-truth) in `summary.json` before interpreting the segment energies and bond changes in `summary.log`. The merged path is `mep.pdb` (plus `mep.cif` for bridged input) with `energy_diagram_MEP.png` at the output root. See [all](all.md) for the full output tree and per-segment deliverables, and [output-layout](output-layout.md) for the filename reference.
 
 ## Next step
 

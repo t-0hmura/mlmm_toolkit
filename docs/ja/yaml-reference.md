@@ -266,6 +266,24 @@ rfo:
 
 ---
 
+### `microiter`
+
+ML/MM最適化用のマイクロイテレーション設定。`--microiter` 有効時、MLリージョンの
+マクロステップ間でMMリージョンをL-BFGSで緩和（ML原子は凍結）します。
+
+```yaml
+microiter:
+ micro_thresh: null       # MM緩和の収束プリセット（L-BFGS）; null → マクロステップと同じ
+ micro_max_cycles: 100000 # マイクロイテレーションサイクル上限
+```
+
+**注意:**
+- CLIフラグ `--microiter` / `--no-microiter` で有効化（デフォルト: 有効）
+- `opt --opt-mode hess` と、すべての Hessian TS mode（`hess`, `rsirfo`, `rsprfo`, `trim`）で使用可能
+- `micro_thresh` は `opt.thresh` と同じプリセット（gau_loose, gau, gau_tight等）を受け付けます。`null` または省略時はマクロステップの閾値と同じになります
+
+---
+
 ## 経路最適化セクション
 
 ### `gs`
@@ -350,6 +368,37 @@ search:
  max_seq_kink: 2 # 連続ねじれの上限
  refine_mode: null # 精密化戦略: peak, minima, null (自動)
 ```
+
+---
+
+### `stopt`
+
+ストリング最適化（GS/DMF）の設定。path-opt と path-search で使用。
+
+```yaml
+stopt:
+ type: string           # 最適化タイプラベル（StringOptimizer用）
+ thresh: gau_loose      # ストリング最適化の収束プリセット（--thresh-gsm で上書き）
+ stop_in_when_full: 300 # ストリングが満杯時の早期停止閾値
+ align: false           # アライメントトグル
+ scale_step: global     # ステップスケーリングモード
+ max_cycles: 300         # ストリング最適化サイクル上限
+ dump: false            # 軌跡/リスタートデータ出力
+ dump_restart: false    # リスタートチェックポイントの出力
+ reparam_thresh: 0.0    # 再パラメータ化閾値
+ coord_diff_thresh: 0.0 # 座標差分閾値
+ out_dir: ./result_path_opt/  # 出力ディレクトリ
+ print_every: 10        # ログ出力間隔
+ lbfgs:
+   # 単一構造最適化用（HEI±1、ねじれノード）
+   thresh: gau
+   # max_cycles: 100000 # 任意の上書き
+   # ...（詳細は lbfgs セクション参照）
+```
+
+**注意:**
+- `stopt.lbfgs` は HEI±1 端点最適化およびねじれノード最適化に使用される単一構造最適化（L-BFGS）の設定です。この入れ子レベルでは L-BFGS のみが参照されるため、`stopt.rfo:` ブロックは無視されます。
+- 外側の `stopt` キーはストリング最適化（GS または DMF ラッパー）を制御します。
 
 ---
 
@@ -449,37 +498,6 @@ rsirfo:
 
 ---
 
-### `stopt`
-
-ストリング最適化（GS/DMF）の設定。path-opt と path-search で使用。
-
-```yaml
-stopt:
- type: string           # 最適化タイプラベル（StringOptimizer用）
- thresh: gau_loose      # ストリング最適化の収束プリセット（--thresh-gsm で上書き）
- stop_in_when_full: 300 # ストリングが満杯時の早期停止閾値
- align: false           # アライメントトグル
- scale_step: global     # ステップスケーリングモード
- max_cycles: 300         # ストリング最適化サイクル上限
- dump: false            # 軌跡/リスタートデータ出力
- dump_restart: false    # リスタートチェックポイントの出力
- reparam_thresh: 0.0    # 再パラメータ化閾値
- coord_diff_thresh: 0.0 # 座標差分閾値
- out_dir: ./result_path_opt/  # 出力ディレクトリ
- print_every: 10        # ログ出力間隔
- lbfgs:
-   # 単一構造最適化用（HEI±1、ねじれノード）
-   thresh: gau
-   # max_cycles: 100000 # 任意の上書き
-   # ...（詳細は lbfgs セクション参照）
-```
-
-**注意:**
-- `stopt.lbfgs` は HEI±1 端点最適化およびねじれノード最適化に使用される単一構造最適化（L-BFGS）の設定です。この入れ子レベルでは L-BFGS のみが参照されるため、`stopt.rfo:` ブロックは無視されます。
-- 外側の `stopt` キーはストリング最適化（GS または DMF ラッパー）を制御します。
-
----
-
 ## IRC セクション
 
 (ja-irc-section)=
@@ -561,6 +579,8 @@ thermo:
 
 ---
 
+## 一点計算セクション
+
 ### `sp` (section)
 
 single-point 設定。`mlmm sp` だけが読み込みます。
@@ -574,24 +594,6 @@ sp:
 
 対応する CLI の `--hess`、`--hessian-calc-mode`、`-o/--out-dir` を
 明示した場合は CLI が上書きします。
-
----
-
-### `microiter`
-
-ML/MM最適化用のマイクロイテレーション設定。`--microiter` 有効時、MLリージョンの
-マクロステップ間でMMリージョンをL-BFGSで緩和（ML原子は凍結）します。
-
-```yaml
-microiter:
- micro_thresh: null       # MM緩和の収束プリセット（L-BFGS）; null → マクロステップと同じ
- micro_max_cycles: 100000 # マイクロイテレーションサイクル上限
-```
-
-**注意:**
-- CLIフラグ `--microiter` / `--no-microiter` で有効化（デフォルト: 有効）
-- `opt --opt-mode hess` と、すべての Hessian TS mode（`hess`, `rsirfo`, `rsprfo`, `trim`）で使用可能
-- `micro_thresh` は `opt.thresh` と同じプリセット（gau_loose, gau, gau_tight等）を受け付けます。`null` または省略時はマクロステップの閾値と同じになります
 
 ---
 

@@ -11,16 +11,16 @@ Each row points to the full per-subcommand md in this skill directory.
 
 | md | subcommand | role (2 lines) |
 |---|---|---|
-| `all.md` | `all` | End-to-end pipeline: extract → MEP → TS → IRC → freq → (DFT) in one invocation.<br>Delegates to a base orientation; specific modes are in `all-{endpoint-mep,scan-list,ts-only}.md`. |
-| `all-endpoint-mep.md` | `all` (mode 1) | Drives the pipeline from N reaction-ordered structures (R, optionally IM₁ … IMₙ, P).<br>Path search runs GSM/DMF between adjacent endpoints; recursion handles multi-step mechanisms. |
-| `all-scan-list.md` | `all` (mode 2) | Drives the pipeline from a single reactant + a list of staged distance scans.<br>The scan list seeds the MEP; recursion handles intermediate states like in mode 1. |
+| `all.md` | `all` | Run selected preparation, MEP, TS/IRC, frequency and DFT stages.<br>Specific modes are in `all-{endpoint-mep,scan-list,ts-only}.md`. |
+| `all-endpoint-mep.md` | `all` (mode 1) | Runs from N reaction-ordered structures (R, optionally IM₁ … IMₙ, P).<br>Single-pass GSM/DMF between adjacent endpoints; `--refine-path` requests recursion. |
+| `all-scan-list.md` | `all` (mode 2) | Runs from a single reactant + staged distance scans.<br>The scan endpoints seed the MEP; `--refine-path` requests recursion. |
 | `all-ts-only.md` | `all` (mode 3) | Skips path search and starts from a TS candidate; runs `tsopt → irc`, with freq/DFT enabled by their flags.<br>Use when you already have a transition-state guess (from a different code or a prior run). |
 | `extract.md` | `extract` | Selects and writes an active-site/model pocket around the substrate residues.<br>`define-layer` separately assigns B-factor layers and frozen atoms. |
 | `mm-parm.md` | `mm-parm` | Generate Amber `parm7` + `rst7` from a PDB via tleap (and antechamber for non-standard ligands).<br>Required for any subcommand that needs MM gradients. |
 | `define-layer.md` | `define-layer` | Assign / refine ML / movable-MM / frozen layers via the PDB B-factor field.<br>Standalone or post-`extract` adjustment without rebuilding parm7. |
 | `oniom-export.md` | `oniom-export` | Export the layered system as a Gaussian g16 ONIOM input (or ORCA).<br>Useful for input-deck exchange or hand-comparing setup with a third-party DFT/MM run. |
 | `oniom-import.md` | `oniom-import` | Reverse direction: read a g16 / ORCA ONIOM input and reconstruct an `mlmm-toolkit` PDB.<br>Use when adopting an existing Gaussian ONIOM workflow. |
-| `path-search.md` | `path-search` | Recursive MEP search (GSM or DMF) across N endpoints with bond-change segmentation.<br>Splits multi-step paths into one-TS-per-segment automatically. |
+| `path-search.md` | `path-search` | Recursive MEP search (GSM or DMF) across N endpoints with bond-change segmentation.<br>Returns segment and HEI candidates for TS/IRC validation. |
 | `path-opt.md` | `path-opt` | MEP optimization for a **single** segment between two endpoints.<br>Building block of `path-search`; also useful for refining one segment without re-running the whole search. |
 | `opt.md` | `opt` | Single-structure geometry optimization with L-BFGS or RFO.<br>`--opt-mode grad` (L-BFGS, default) is fast; `--opt-mode hess` (RFO) is robust on tricky surfaces. |
 | `tsopt.md` | `tsopt` | TS optimization: default RS-P-RFO (`--opt-mode hess/rsprfo`); RS-I-RFO, TRIM, and Hessian-Guided Dimer remain explicit alternatives. |
@@ -29,7 +29,7 @@ Each row points to the full per-subcommand md in this skill directory.
 | `irc.md` | `irc` | IRC integration with EulerPC in mass-weighted Cartesians.<br>Writes raw forward/backward endpoints; optimize them separately with `opt` or through `all`. |
 | `dft.md` | `dft` | Single-point DFT through PySCF (CPU) or GPU4PySCF (CUDA, x86_64).<br>`--engine gpu` is the default; if the GPU backend is unavailable it raises an error — select CPU explicitly with `--engine cpu`. |
 | `scan.md` | `scan` | 1D distance scan with harmonic restraints to seed a path search.<br>Useful when neither endpoint nor TS guess is available — drives the bond manually. |
-| `scan2d.md` | `scan2d` | 2D analog of `scan` with two restrained distances.<br>Generates a grid; mlmm interpolates the MEP through the grid minima. |
+| `scan2d.md` | `scan2d` | Restrained optimization on a two-distance grid.<br>Maps and visualizes the PES. |
 | `scan3d.md` | `scan3d` | 3D analog with three restrained distances.<br>Rare but supported; output volume grows quickly, plan resources. |
 | `trj2fig.md` | `trj2fig` | Plot an energy profile from an XYZ trajectory.<br>Reads ASE-style energies in the comment line and writes a figure or CSV (PNG/JPEG/HTML/SVG/PDF/CSV). |
 | `energy-diagram.md` | `energy-diagram` | Build an ad-hoc energy diagram from a list of state names + energies.<br>For composing diagrams that combine multiple `mlmm-toolkit` runs. |
@@ -39,17 +39,10 @@ Each row points to the full per-subcommand md in this skill directory.
 
 ## Pipeline at a glance
 
-```
-PDB(s) ──► extract ──► path-search ──┐
-                       path-opt ─────┴──► tsopt ──► irc ──► freq ──► (dft)
-                       (alternative)
-```
-
-`path-opt` and `path-search` are parallel MEP strategies (single-pass
-vs recursive). `dft` is an optional terminal node and can be attached
-to `freq` or directly after `irc`/`tsopt` for an ML-region DFT single-point
-energy evaluation. `mlmm all` chains the whole pipeline; each box is
-also available as its own subcommand.
+`all` prepares the system and runs single-pass `path-opt` by default;
+`--refine-path` selects recursive `path-search`. `--tsopt` adds TS/IRC and
+endpoint optimization; `--thermo` and `--dft` add frequency/thermochemistry
+and DFT single points. Each stage is also available as its own subcommand.
 
 ## Common flag conventions
 
@@ -58,7 +51,7 @@ These flags appear on most subcommands (canonical list:
 
 | Flag | Meaning |
 |---|---|
-| `-i, --input` | Input file(s); calculation workflows use `.pdb` / `.xyz` (Gaussian/ORCA input belongs to `oniom-import`) |
+| `-i, --input` | Input file(s); calculation workflows use `.pdb` / `.cif` / `.mmcif` / `.xyz` (Gaussian/ORCA input belongs to `oniom-import`) |
 | `-q, --charge` | Net ML-region/model-system charge (integer) |
 | `-l, --ligand-charge` | Unknown-ligand total or `'RES1:Q1,RES2:Q2'` mapping used to derive the ML-region charge |
 | `-m, --multiplicity` | Spin multiplicity (2S+1), default 1 |
@@ -100,7 +93,7 @@ mlmm all -i 1.R.pdb \
 
 ```bash
 mlmm tsopt -i ts_guess.xyz --parm real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_tsopt
-mlmm freq  -i result_tsopt/final_geometry.xyz --parm real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_freq
+mlmm freq  -i result_tsopt/final_geometry.xyz --parm real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_freq  # optional: full modes / thermochemistry
 mlmm irc   -i result_tsopt/final_geometry.xyz --parm real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_irc
 ```
 
@@ -124,7 +117,7 @@ mlmm bond-summary -i reactant.pdb product.pdb
 | Pitfall | Fix |
 |---|---|
 | `--scan-lists` syntax error | The list is a Python literal-eval expression. Quote with single-quotes outside, double-quotes inside, and watch space- vs backtick-separated atom specs. |
-| Wrong charge silently | Always run `--show-config` once before a long job; it prints the resolved charge. |
+| Wrong charge silently | Use `--show-config --dry-run` to inspect the resolved charge before a long job. |
 | Forgetting `-b` falls back to the default (`uma`) | Spell `-b uma` / `-b orb` / `-b mace` / `-b aimnet2` explicitly for production runs. |
 | `--config` YAML ignored | YAML is read **after** built-in defaults but **before** explicit CLI flags. Anything also given on CLI overrides YAML. |
 | `--help-advanced` flags differ between versions | They are subject to change; if a flag isn't in `--help`, check `--help-advanced` and version-pin if the workflow is shared. |

@@ -123,7 +123,7 @@ glossary
 | サブコマンド | 説明 |
 |---------|------|
 | [`opt`](opt.md) | 単一構造の構造最適化（L-BFGS / RFO） |
-| [`tsopt`](tsopt.md) | 遷移状態最適化（Dimer / RS-I-RFO） |
+| [`tsopt`](tsopt.md) | 遷移状態最適化（RS-P-RFO / Dimer など） |
 
 ### 経路探索・最適化
 | サブコマンド | 説明 |

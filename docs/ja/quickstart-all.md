@@ -4,6 +4,8 @@
 
 2 つの完全系 PDB から、一気通貫のワークフローを 1 回実行します。
 
+以下の `R.pdb` / `P.pdb` は、自分で準備した水素付きの構造です。同じ原子を同じ順序で含め、リガンド電荷を水素数に合わせてください（[入力の準備](getting-started.md#概要)）。
+
 ## 最小コマンド
 
 ```bash
@@ -20,7 +22,7 @@ mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
 ## 出力の検証
 
 - `result_all/summary.log`
-- `result_all/summary.json`
+- `result_all/summary.json` — エネルギーを解釈する前に[実行結果と理由](json-output.md#実行結果と科学的妥当性)を確認
 - `result_all/mep.pdb`（bridge 入力では `mep.cif` もルートに移動）と生出力 `result_all/_work/path_opt/`（`--refine-path` 時は `_work/path_search/`）
 
 ## 補足

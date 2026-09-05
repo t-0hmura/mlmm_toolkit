@@ -267,6 +267,7 @@ calc:
     - ["A:LIG:1:C1", "A:ALA:2:CA"]
 ```
 
+(model-pdb-selection)=
 #### How to construct a reliable `model.pdb`
 
 `model.pdb` is an **atom-selection file**, not an independently rebuilt cluster.

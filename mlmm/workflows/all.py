@@ -4188,7 +4188,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     default="baker",
     show_default=True,
     help=(
-        "Convergence preset for post-IRC endpoint optimizations "
+        "Convergence preset for TS and post-IRC endpoint optimizations "
         "(gau_loose|gau|gau_tight|gau_vtight|baker|never)."
     ),
 )

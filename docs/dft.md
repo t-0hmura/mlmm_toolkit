@@ -8,6 +8,8 @@ E_total = E_REAL_low + E_ML(DFT) - E_MODEL_low
 
 ## Examples
 
+Install the optional DFT dependencies first: `pip install "mlmm-toolkit[dft]"`.
+
 Minimal single-point DFT on the ML region:
 
 ```bash

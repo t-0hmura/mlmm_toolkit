@@ -127,15 +127,16 @@ ML/MM systems are larger than pure MLIP, so VRAM pressure is higher. Try in orde
 
 ### TS optimization does not converge / multiple imaginary modes remain
 
-Inspect the optimizer stop reason and mode displacements, then consider switching
-`--opt-mode grad` (Dimer) ↔ `--opt-mode hess` (RS-P-RFO), enabling
-`--flatten` for surplus imaginary modes, increasing `--max-cycles` within the
-available compute budget, tightening `--thresh`, or expanding Hessian-target
-atoms via `hess_cutoff`.
+Inspect the stop reason and mode displacements. For standalone `tsopt`, consider
+switching `--opt-mode grad` (Dimer) ↔ `hess` (RS-P-RFO), increasing
+`--max-cycles` within the compute budget, or tightening `--thresh`. In `all`,
+use `--opt-mode-post`, `--tsopt-max-cycles`, and `--thresh-post`, respectively.
+Both routes support `--flatten` for surplus imaginary modes and a larger
+Hessian-target region via `hess_cutoff`.
 
 Any result with `n_imag >= 2` is not a certified first-order saddle, regardless
 of the magnitude of the additional imaginary mode. Re-run with a tighter
-`--thresh` (`gau_tight` or tighter) and inspect the associated displacement.
+convergence preset (`gau_tight` or tighter) and inspect the associated displacement.
 Certification requires the recomputed result itself to have exactly one
 imaginary mode.
 
@@ -155,7 +156,7 @@ The plateau check is skipped automatically for chain-of-states optimizers (GS / 
 
 ### IRC does not terminate properly
 
-Reduce `--step-size 0.05` (default 0.10); raise `--max-cycles 200`; verify the TS candidate has exactly one imaginary frequency before launching IRC.
+For standalone `irc`, try `--step-size 0.05` (default 0.10 bohr) and `--max-cycles 200`; for `all`, use `--irc-step-size 0.05` and `--irc-max-cycles 200`. Verify the TS candidate has exactly one imaginary frequency before launching IRC.
 
 ### MEP search (GSM / DMF) fails or misses bonds
 

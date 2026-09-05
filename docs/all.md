@@ -107,7 +107,7 @@ artifact and is always written for PDB input.
    - For multi-input runs, the original full PDBs are supplied as merge references automatically. In the scan-derived series (single-structure case), the single original full PDB is reused as the reference template.
 5. **Summary and optional post-processing**
    - The raw MEP-engine output (per-segment trajectories, the full MEP trajectory, and the engine `summary.json`) is written under `<out-dir>/_work/path_opt/` (or `<out-dir>/_work/path_search/` with `--refine-path`); the merged products (`mep.pdb`, optional `mep.cif`, `mep_trj.xyz`, `mep_plot.png`, `energy_diagram_MEP.png`) are moved to `<out-dir>/` and `summary.{json,log}` copied there.
-   - `--tsopt` runs TS optimization on each HEI. After the TS gate, `all` continues with EulerPC IRC and segment energy diagrams.
+   - `--tsopt` runs TS optimization on each HEI. After the TS gate, `all` continues with EulerPC IRC and segment energy diagrams. Both `--thermo` and `--dft` require `--tsopt`.
    - `--thermo` computes ML/MM thermochemistry on (R, TS, P) and adds a Gibbs diagram.
    - `--dft` runs model-region DFT single-points on (R, TS, P) and adds a model-DFT electronic diagram. With `--thermo`, the subtractive DFT//MLIP/MM total plus the ML/MM thermal correction produces the DFT//MLIP/MM Gibbs diagram.
    - TS optimization, IRC, frequency analysis, and flatten PHVA use the fixed constrained treatment, which removes only full-system rigid motions that leave frozen anchors fixed; realistic ML/MM boundaries normally have effective rank 0.
@@ -179,6 +179,8 @@ The log is organized into numbered sections:
 - **[5] Output directory structure** — a compact tree of generated files with inline annotations.
 
 ### Reading `summary.json`
+
+Before interpreting energies, check `scientific_status` and `scientific_status_reasons`; see [result status and stage outcomes](json-output.md#execution-and-scientific-truth) for partial or stopped runs.
 
 Top-level keys: `out_dir`, `n_images`, `n_segments` (run metadata and counts); `segments` (per-segment entries with `index`, `tag`, `kind`, `barrier_kcal`, `delta_kcal`, `bond_changes`); `energy_diagrams` (optional payloads with `labels`, `energies_kcal`, `energies_au`, `ylabel`, `image` paths).
 
@@ -256,7 +258,7 @@ and defaults.
 | `--thresh TEXT` | Convergence preset for single-structure optimizations and scan relaxations (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | `gau` |
 | `--thresh-gsm TEXT` | Convergence preset for the GSM string optimizer of the MEP stage (same presets as `--thresh`). | `gau_loose` |
 | `--thresh-dmf TEXT` | IPOPT dual-infeasibility tolerance of the DMF MEP stage: `tight` (0.04), `middle` (0.10), `loose` (0.20), or a positive float. Not a Gaussian preset. | `tight` |
-| `--thresh-post TEXT` | Convergence preset for post-IRC endpoint optimizations. | `baker` |
+| `--thresh-post TEXT` | Convergence preset for TS and post-IRC endpoint optimizations. | `baker` |
 | `--preopt / --no-preopt` | Pre-optimize endpoints before segmentation. | `True` |
 | `--refine-path / --no-refine-path` | `--no-refine-path` (default) → single-pass `path-opt`; `--refine-path` → recursive `path-search`, which proposes multistep reaction-path candidates and also refines a single-step MEP, where it can improve a poor HEI or TS estimate. Both modes support Stage 5 (TSOPT / thermo / DFT). | `False` |
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |

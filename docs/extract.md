@@ -152,12 +152,14 @@ Register each unlisted name with its integer charge, for example
 `--modified-residue HD1:0,HE1:0,CM1:0,AP1:0`. A residue already in the
 catalog may omit `:charge` and keeps its catalog charge (for example, `SEP`
 remains −2). `extract` then treats the names as amino acids and applies
-backbone truncation, link-hydrogen capping, and charge assignment
+backbone truncation and charge assignment
 automatically, and the warning above is suppressed.
 ```
 
 ```{important}
-If `--modified-residue` cannot cover your case (e.g. unusual backbone topology), **construct the pocket model manually**:
+If `--modified-residue` cannot cover your case (e.g. unusual backbone topology), follow the {ref}`manual ML-selection recipe <model-pdb-selection>` to prepare `--model-pdb` without adding atoms.
+
+For a **standalone capped pocket**, not an ML-selection file:
 
 1. Select residues around the active site and determine truncation points.
 2. Add a link hydrogen on the parent atom (the atom that remains) of each severed covalent bond.

@@ -290,6 +290,27 @@ rfo:
 
 ---
 
+### `microiter`
+
+Micro-iteration settings for ML/MM optimization. When `--microiter` is enabled,
+the MM region is relaxed (with frozen ML atoms) between each macro-step of the
+ML-region optimizer. This can substantially reduce the number of expensive
+ML Hessian evaluations needed.
+
+```yaml
+microiter:
+ micro_thresh: null       # Convergence preset for MM relaxation (L-BFGS); null → same as macro thresh
+ micro_max_cycles: 100000 # Micro-iteration cycle cap
+```
+
+**Notes:**
+- Enabled via `--microiter` / `--no-microiter` CLI flag (default: on)
+- Available in `opt --opt-mode hess` and every Hessian TS mode (`hess`, `rsirfo`, `rsprfo`, `trim`)
+- Uses L-BFGS to minimize MM-region forces while ML atoms are frozen
+- `micro_thresh` accepts the same presets as `opt.thresh` (gau_loose, gau, gau_tight, etc.); when `null` or omitted, defaults to the same threshold as the macro step
+
+---
+
 ## Path Optimization Sections
 
 ### `gs`
@@ -578,22 +599,6 @@ conflicting values are rejected.
 
 ---
 
-### `sp` (section)
-
-Single-point settings. Read only by `mlmm sp`.
-
-```yaml
-sp:
- hess: false # Also compute the active-coordinate ONIOM Hessian block
- hessian_calc_mode: FiniteDifference # "FiniteDifference" | "Analytical"
- out_dir: ./result_sp/ # Output directory
-```
-
-**Notes:**
-- The matching CLI flags (`--hess`, `--hessian-calc-mode`, `-o/--out-dir`) override these when passed explicitly.
-
----
-
 ### `thermo`
 
 Thermochemistry settings.
@@ -608,24 +613,21 @@ thermo:
 
 ---
 
-### `microiter`
+## Single-Point Section
 
-Micro-iteration settings for ML/MM optimization. When `--microiter` is enabled,
-the MM region is relaxed (with frozen ML atoms) between each macro-step of the
-ML-region optimizer. This can substantially reduce the number of expensive
-ML Hessian evaluations needed.
+### `sp` (section)
+
+Single-point settings. Read only by `mlmm sp`.
 
 ```yaml
-microiter:
- micro_thresh: null       # Convergence preset for MM relaxation (L-BFGS); null → same as macro thresh
- micro_max_cycles: 100000 # Micro-iteration cycle cap
+sp:
+ hess: false # Also compute the active-coordinate ONIOM Hessian block
+ hessian_calc_mode: FiniteDifference # "FiniteDifference" | "Analytical"
+ out_dir: ./result_sp/ # Output directory
 ```
 
 **Notes:**
-- Enabled via `--microiter` / `--no-microiter` CLI flag (default: on)
-- Available in `opt --opt-mode hess` and every Hessian TS mode (`hess`, `rsirfo`, `rsprfo`, `trim`)
-- Uses L-BFGS to minimize MM-region forces while ML atoms are frozen
-- `micro_thresh` accepts the same presets as `opt.thresh` (gau_loose, gau, gau_tight, etc.); when `null` or omitted, defaults to the same threshold as the macro step
+- The matching CLI flags (`--hess`, `--hessian-calc-mode`, `-o/--out-dir`) override these when passed explicitly.
 
 ---
 

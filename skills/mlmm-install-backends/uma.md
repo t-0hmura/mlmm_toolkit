@@ -26,15 +26,14 @@ UMA model weights are gated on HuggingFace and need an authenticated
 download:
 
 ```bash
-pip install huggingface_hub[cli]
-huggingface-cli login        # paste a Read token from huggingface.co/settings/tokens
+hf auth login               # paste a Read token from huggingface.co/settings/tokens
 ```
 
 The token is cached in `~/.cache/huggingface/`. Once it's there, future
 runs (and PBS jobs) pick it up automatically.
 
 If you hit `huggingface_hub.errors.GatedRepoError` or
-`401 Client Error: Unauthorized`, re-run `huggingface-cli login` and
+`401 Client Error: Unauthorized`, re-run `hf auth login` and
 make sure the token has access to the gated `facebook/UMA` repository
 (model variants are selected by `uma_model` config string, not by
 separate repos).
@@ -93,7 +92,7 @@ YAML under the `calc:` block, or via the appropriate CLI flag):
 
 The MM side of `mlmm-toolkit` is configured separately (`mm_backend`,
 `mm_threads`, `mm_device`, …) — see `mlmm-cli/SKILL.md` for the full
-list. `mlmm-toolkit` runs single-GPU on the ML side.
+list. UMA supports `--workers > 1` with `fairchem-core[extras]` and finite-difference Hessians; analytical Hessians require one worker.
 
 ## Known gotchas
 
@@ -102,7 +101,7 @@ list. `mlmm-toolkit` runs single-GPU on the ML side.
 | `e3nn` install conflict | UMA's `fairchem-core` pin clashes with `mace-torch`. Use a separate env for MACE (see `mace.md`). |
 | Frequency calculation runs out of VRAM | Compare Hessian modes and compatible model sizes on a representative pilot, or move Hessian assembly to CPU. |
 | First call is slower than later calls | One-time model download + JIT compile. The cache lives at `~/.cache/huggingface/hub/`. |
-| `GatedRepoError` / `401 Unauthorized` | HuggingFace token missing or lacks access to the gated UMA repo — re-run `huggingface-cli login`. |
+| `GatedRepoError` / `401 Unauthorized` | HuggingFace token missing or lacks access to the gated UMA repo — re-run `hf auth login`. |
 
 ## See also
 

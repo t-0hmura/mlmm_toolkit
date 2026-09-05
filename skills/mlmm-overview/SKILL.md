@@ -11,8 +11,7 @@ description: Orientation for mlmm-toolkit — what it is, when to use it, and ho
 solvated enzyme systems. It chains active-site definition, ML region
 optimization with MM-environment relaxation, MEP search, TS
 optimization, IRC validation, vibrational analysis, and an optional
-DFT single-point — all driven by GPU-resident MLIP backends together
-with an MM force-field layer.
+DFT single-point, using an MLIP backend together with an MM force-field layer.
 
 The design choices that make it distinct:
 
@@ -25,8 +24,8 @@ The design choices that make it distinct:
 3. **Microiteration outer/inner loop.** ML region geometry update
    alternates with MM relaxation; outer ML steps see a relaxed MM
    environment.
-4. **Bundled GPU pysisyphus fork.** Geometry / TS / IRC stay on the
-   same device as the MLIP.
+4. **Bundled GPU pysisyphus fork.** Supports GPU geometry optimization,
+   TS search, and IRC integration.
 5. **AmberTools-driven MM parameterization.** `mlmm mm-parm` builds
    `parm7`/`rst7` from a PDB; `define-layer` assigns the ML / movable
    / frozen labels.
@@ -74,20 +73,21 @@ PDB(s)          (B-factor: 0.0=ML, 10.0=movable-MM, 20.0=frozen)
                 recursive [path-search] with --refine-path
   │
   ▼
-[tsopt]         TS refinement per segment
+[tsopt]         TS refinement per segment (--tsopt)
   │
   ▼
-[irc]           forward/backward IRC + endpoint L-BFGS
+[irc]           forward/backward IRC + endpoint optimization (--tsopt)
   │
   ▼
-[freq]          analytical-Hessian ONIOM frequencies + QRRHO thermo
+[freq]          PHVA frequencies + QRRHO thermo (--thermo)
   │
   ▼
 [dft]           (optional) single-point DFT on ML region only
 ```
 
-Each step is also available as its own subcommand. `mlmm all` chains
-the whole pipeline.
+Each step is also available as its own subcommand. `mlmm all` runs through
+MEP by default; `--tsopt` adds TS/IRC and endpoint optimization. Add
+`--thermo` or `--dft` for the corresponding post-processing.
 
 ## Backend choices
 

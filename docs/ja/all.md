@@ -101,7 +101,7 @@ ML領域PDB pairは別の成果物であり、PDB入力では常に出力され�
 
 5. **サマリーと任意の後処理**
    - MEP エンジン生出力（セグメントごとの軌跡、全 MEP 軌跡、エンジンの `summary.json`）は `<out-dir>/_work/path_opt/`（`--refine-path` 使用時は `<out-dir>/_work/path_search/`）に書き出され、マージ済み成果物（`mep.pdb`、bridge 入力時の `mep.cif`、`mep_trj.xyz`、`mep_plot.png`、`energy_diagram_MEP.png`）は `<out-dir>/` へ移動され、`summary.{json,log}` はコピーされます。
-   - `--tsopt`: 各 HEI で TS を最適化します。TS 判定を通過した後、EulerPC IRC とセグメントエネルギーダイアグラムへ進みます。
+   - `--tsopt`: 各 HEI で TS を最適化します。TS 判定を通過した後、EulerPC IRC とセグメントエネルギーダイアグラムへ進みます。`--thermo` と `--dft` にも `--tsopt` が必要です。
    - `--thermo`: (R, TS, P) で ML/MM 熱化学を計算し、Gibbs ダイアグラムを追加します。
    - `--dft`: (R, TS, P) のモデル領域で DFT 一点計算を実行し、モデル DFT 電子エネルギーダイアグラムを追加します。`--thermo` と組み合わせると、subtractive DFT//MLIP/MM 全エネルギーに ML/MM 熱補正を加えた DFT//MLIP/MM Gibbs ダイアグラムも生成されます。
    - TS 最適化、IRC、振動解析、flatten PHVA は固定の constrained 処理を使用します。これは凍結 anchor を動かさない全系剛体運動だけを除去し、実用的な ML/MM 境界では有効 rank は通常 0 です。
@@ -173,6 +173,9 @@ metadata に保持し、ユーザー向け pipeline mode には使用しませ�
 - **[5] 出力ディレクトリ構造** -- インラインアノテーション付きの生成ファイルのコンパクトツリー。
 
 ### `summary.json` の読み方
+
+エネルギーを解釈する前に `scientific_status` と `scientific_status_reasons` を確認します。部分結果や途中停止の扱いは[実行結果と科学的妥当性](json-output.md#実行結果と科学的妥当性)を参照してください。
+
 `summary.json` の主なトップレベルキー:
 - `out_dir`、`n_images`、`n_segments` -- 実行メタデータと総数。
 - `segments` -- `index`、`tag`、`kind`、`barrier_kcal`、`delta_kcal`、`bond_changes` を持つセグメントごとのエントリリスト。
@@ -252,7 +255,7 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 | `--thresh TEXT` | 単一構造最適化と scan 緩和の収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | `gau` |
 | `--thresh-gsm TEXT` | MEP 段の GSM ストリング最適化の収束プリセット（`--thresh` と同じプリセット群）。 | `gau_loose` |
 | `--thresh-dmf TEXT` | DMF MEP 段の IPOPT dual-infeasibility 許容値。`tight`(0.04)、`middle`(0.10)、`loose`(0.20) または正の float。Gaussian プリセットではない。 | `tight` |
-| `--thresh-post TEXT` | IRC 後端点最適化の収束プリセット。 | `baker` |
+| `--thresh-post TEXT` | TS 最適化と IRC 後端点最適化の収束プリセット。 | `baker` |
 | `--preopt/--no-preopt` | セグメント化前に端点を事前最適化。 | `True` |
 | `--refine-path/--no-refine-path` | `--no-refine-path`（デフォルト）= 単一パス `path-opt`（軌跡結合 + HEI 抽出 + 結合変化検出 + `summary.json`）、`--refine-path` = 再帰的 `path-search`。多段機構の検出に加えて single-step MEP の refine にも使え、poor な HEI や TS 推定を改善できる。どちらも `--mep-mode` の選択と Stage 5（TSOPT/thermo/DFT）に対応。 | `False` |
 | `--hessian-calc-mode CHOICE` | ML/MM Hessian モード（`Analytical` または `FiniteDifference`）。 | `FiniteDifference` |

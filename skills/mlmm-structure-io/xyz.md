@@ -2,8 +2,8 @@
 
 XYZ is a plain-text dump of element + Cartesian coordinates, with no residue or
 charge information embedded. `mlmm-toolkit` writes XYZ for trajectories,
-optimized stationary points, and IRC paths; it accepts XYZ as input
-when `-q` / `-m` (or `--ref-pdb`) is supplied.
+optimized stationary points, and IRC paths. Calculation commands require
+`--ref-pdb` for topology; charge and multiplicity follow the usual input rules.
 
 ## Layout
 

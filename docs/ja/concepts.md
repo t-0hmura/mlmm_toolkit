@@ -246,6 +246,7 @@ calc:
     - ["A:LIG:1:C1", "A:ALA:2:CA"]
 ```
 
+(ja-model-pdb-selection)=
 #### 信頼できる`model.pdb`の作り方
 
 `model.pdb` は独立に再構築したクラスターではなく、全系 PDB / `parm7` から選んだ

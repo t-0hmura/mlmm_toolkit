@@ -161,7 +161,7 @@ go back to `env-cuda.md`.
 | `import torch` fails with `libcudart.so.12 not found` | Torch wheel CUDA index mismatches the driver | `env-cuda.md` (driver → cu index table) |
 | `e3nn` version conflict on `pip install` | UMA + MACE in the same env | Use a separate env for MACE (this file, `mace.md`) |
 | `gpu4pyscf` import fails on aarch64 | `gpu4pyscf-cuda12x` is x86_64 only | `dft.md` — fall back to CPU PySCF |
-| `huggingface_hub.errors.GatedRepoError` on UMA load | UMA model is gated, not authenticated | `uma.md` — `huggingface-cli login` |
+| `huggingface_hub.errors.GatedRepoError` on UMA load | UMA model is gated, not authenticated | `uma.md` — `hf auth login` |
 | `OSError: libcusolver.so.11 not found` | torch's bundled CUDA libs missing or shadowed | `env-cuda.md` — `LD_LIBRARY_PATH` order |
 | `RuntimeError: CUDA out of memory` during freq | Active Hessian exceeds available memory | Reduce the active region, keep `return_partial_hessian: True`, and compare Analytical with FiniteDifference on a pilot |
 

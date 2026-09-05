@@ -26,8 +26,7 @@ mlmm all --parm enzyme.parm7 -i 1.R.pdb \
     -o result_scan
 ```
 
-Each literal after the single `--scan-lists` flag is **one stage**; do not
-repeat the flag. Stages run
+Each literal after `--scan-lists` is **one stage**. Stages run
 sequentially; the final geometry of stage *k* is the input geometry of
 stage *k+1*.
 
@@ -73,7 +72,7 @@ single-pass `path-opt` (GSM) by default; pass `--refine-path` to run the
 recursive `path-search` instead. `--mep-mode dmf` selects DMF for either
 route.
 
-Unlike endpoint-MEP mode, `-i` is **a single PDB** (the reactant). The
+Unlike endpoint-MEP mode, `-i` is **a single reactant structure**. The
 toolkit synthesizes intermediate / product geometries from the scan
 trajectories.
 
@@ -114,7 +113,7 @@ for stage in d["stages"]:
 |---|---|---|
 | Stage k goes to a different geometry than expected | Distance restraint not strong enough; SCF found a side product | Tighten the target distance, or split a complex stage into two simpler ones |
 | `--scan-lists` triggers a Python literal-eval error | Quoting mistake | Wrap each stage in single quotes outside, double quotes inside; backticks survive bash without escaping |
-| Path search reports more segments than expected | Bond-change detector found a "free" intermediate | This is usually correct; check the IM geometry in `seg_01/product.pdb` (= `seg_02/reactant.pdb`) |
+| Path search reports more segments than expected | Recursion proposed additional intervals | Check candidate intermediates and their adjacent TS/IRC results. |
 
 ## Caveats
 

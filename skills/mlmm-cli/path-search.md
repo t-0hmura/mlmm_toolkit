@@ -4,13 +4,14 @@
 
 Recursive minimum-energy-path (MEP) search across two or more
 endpoints. Detects bond changes along the candidate MEP and
-**recursively re-segments** the path until each segment crosses
-exactly one transition state. Output: flat per-segment files
-(`mep_seg_NN_trj.xyz`, `hei_seg_NN.{xyz,pdb}`) per elementary step,
+**recursively re-segments** the path into candidate reaction intervals.
+Output: flat per-segment files
+(`mep_seg_NN_trj.xyz`, `hei_seg_NN.{xyz,pdb}`),
 plus a stitched `mep.pdb`/`mep_trj.xyz`, a `mep.cif` companion for bridged
 input, and energy diagrams.
 
-This is the engine behind `mlmm all` in endpoint-MEP mode.
+`mlmm all --refine-path` selects this engine. Validate each HEI with TS/IRC
+before treating its segment as an elementary step.
 
 ## Synopsis
 
