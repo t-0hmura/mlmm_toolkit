@@ -58,8 +58,8 @@ conda create -n mlmm-toolkit python=3.12 -y && conda activate mlmm-toolkit
 conda install -c conda-forge ambertools pdbfixer -y
 pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cu130
 
-# 2. mlmm-toolkit (editable from a local clone, or `pip install mlmm-toolkit`)
-pip install -e .
+# 2. Install mlmm-toolkit
+pip install mlmm-toolkit
 
 # 3. Authenticate Hugging Face once (only required for the default UMA backend)
 #    Accept the FAIR Chemistry License v1 at https://huggingface.co/facebook/UMA, then:

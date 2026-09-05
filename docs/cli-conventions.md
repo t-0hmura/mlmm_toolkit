@@ -4,25 +4,18 @@ Conventions shared across all `mlmm` commands.
 
 ## Boolean options
 
-Every on/off CLI toggle accepts **all four forms**:
+Use paired flags for on/off options:
 
 | Form | Example |
 |---|---|
 | Positive flag | `--tsopt` |
 | Negative flag | `--no-tsopt` |
-| Positive value | `--tsopt True`, `--tsopt yes`, `--tsopt 1`, `--tsopt on` |
-| Negative value | `--tsopt False`, `--tsopt no`, `--tsopt 0`, `--tsopt off` |
 
 ```bash
 --tsopt --thermo --no-dft                        # toggle form
---tsopt True --thermo yes --dft 0                # value form
---tsopt true --thermo on --dft off               # mix is fine
 ```
 
-All four forms route through a single root-CLI `bool_compat` synthesizer; the toggle form (`--tsopt` / `--no-tsopt`) is canonical, and the value form (`--tsopt True`) is accepted as a legacy alias for backward compatibility. `tests/test_bool_compat_cli.py` walks every registered bool option against every form on every release, so a missing entry is caught by CI.
-
-`--detect-layer` is different: layer detection is automatic and enabled by
-default, so it is a positive-only marker rather than an on/off toggle.
+Use paired flags (`--tsopt` / `--no-tsopt`) for new commands. Value forms remain accepted for compatibility.
 
 Common toggles: `--tsopt` / `--thermo` / `--dft` (post-processing stages) · `--dump` (write trajectory files) · `--preopt` / `--endopt` (pre/post optimization) · `--climb` (climbing-image MEP).
 
@@ -93,7 +86,7 @@ mlmm opt -i input.pdb --parm real.parm7 -q -1 --show-config --dry-run
 |---|---|---|
 | ML | 0.0 | MLIP energy / force / Hessian |
 | Movable-MM | 10.0 | MM atoms free to move |
-| Frozen | 20.0 | Coordinates fixed (non-bonded interactions still included) |
+| Frozen-MM | 20.0 | Coordinates fixed (non-bonded interactions still included) |
 
 Tolerance ±1.0 when reading B-factors. Inspect visually by coloring on B-factor. Four ways to assign layers:
 
@@ -106,7 +99,7 @@ mlmm define-layer -i system.pdb --model-pdb ml_region.pdb -o labeled.pdb
 # 2. Distance cutoffs (YAML)
 calc:
   hess_cutoff: 3.6        # Hessian-target MM
-  movable_cutoff: 8.0     # Movable-MM (beyond → Frozen)
+  movable_cutoff: 8.0     # Movable-MM (beyond → Frozen-MM)
 
 # 3. Read existing B-factors
 calc:

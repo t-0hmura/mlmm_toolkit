@@ -16,7 +16,7 @@ must be able to raise the physical energy along its reaction mode. The
 optimization (`opt` and post-IRC endpoint re-optimization in `all`). The
 inner MM-only relaxation in microiteration remains a minimum subproblem.
 
-When explicitly enabled, the surplus-imaginary-mode flatten loop (`--flatten`) uses mass-scaled displacements to remove extra negative modes. Without `--flatten`, terminal exact PHVA is performed once and the terminal candidate is retained as first-order, higher-order, no-imaginary, or unavailable. First-order TS certification still requires one imaginary mode along the intended reaction coordinate and correct [`irc`](irc.md) connectivity.
+When explicitly enabled, the surplus-imaginary-mode flatten loop (`--flatten`) uses mass-scaled displacements to remove extra negative modes. Without `--flatten`, terminal exact PHVA runs once after numerical convergence unless `--skip-final-freq` is set. The terminal candidate is retained as first-order, higher-order, no-imaginary, or unavailable. First-order TS certification still requires one imaginary mode along the intended reaction coordinate and correct [`irc`](irc.md) connectivity.
 
 ## Terminal outcomes and fatal errors
 
@@ -24,18 +24,18 @@ When explicitly enabled, the surplus-imaginary-mode flatten loop (`--flatten`) u
 | --- | --- | --- |
 | Convergence criteria unmet, explicit cycle limit reached, or opt-in energy plateau | Retain the final geometry and trajectory; skip terminal PHVA | Register the TS result and stop before IRC |
 | Terminal PHVA fails or `--skip-final-freq` is explicit | Retain the geometry; record `failed` or `skipped` without inventing frequencies | Stop before IRC after artifact registration |
-| Invalid input/geometry or an unrecoverable optimizer exception such as `ZeroStepLength` / `OptimizationError` | Follow the structured error-envelope path; only files already written are retained on a best-effort basis | Abort the stage rather than relabelling it as ordinary non-convergence |
+| Invalid input/geometry or an unrecoverable optimizer exception such as `ZeroStepLength` / `OptimizationError` | Follow the structured error-envelope path; only files already written are retained on a best-effort basis | Abort the stage rather than relabeling it as ordinary non-convergence |
 
 
 ## Building a TS candidate first
 
 `tsopt` refines an existing candidate rather than generating one de novo.
 Select the candidate-generation route according to the available structural
-information, then continue through `tsopt → irc → freq` (or `mlmm all --tsopt`).
+information, then continue through `tsopt → irc` (or `mlmm all --tsopt`), adding `freq` if needed.
 
 | Route | Subcommand | What it does | Use when |
 | --- | --- | --- | --- |
-| (a) MEP / path search | [`path-search`](path-search.md) (or [`path-opt`](path-opt.md) for one segment) | Recursive GSM/DMF minimum-energy-path search; brackets the TS between endpoints, bridges gaps between segments, and emits one TS per segment. | You have a reactant (and optionally a product or intermediates) and want the path *discovered*. |
+| (a) MEP / path search | [`path-search`](path-search.md) (or [`path-opt`](path-opt.md) for one segment) | Recursive GSM/DMF minimum-energy-path search, producing HEI/TS candidates for refinement. | You have reactant and product structures, with optional intermediates. |
 | (b) Distance-restrained build-up | [`scan`](scan.md) | Adds a harmonic restraint `E = ½·k·(r_ij − target)²` to each reacting pair and relaxes everything else with L-BFGS, driving the reacting distance toward the barrier. | You have neither a usable second endpoint nor a TS guess — drive the reacting bond directly. |
 
 ```bash
@@ -102,7 +102,7 @@ tracking; it is not an initial-Hessian replacement. Terminal exact PHVA remains
 authoritative for saddle order. A numerically converged higher-order stationary
 point remains `optimization_status: "converged"` with
 `saddle_validation: "higher_order"`; it is not a certified first-order TS.
-When a validated negative root exists, `all` may continue warning-labelled
+When a validated negative root exists, `all` may continue warning-labeled
 diagnostic IRC. Numerical non-convergence, zero imaginary modes, failed/skipped
 PHVA, or no valid negative root stops `all` after TS artifacts are retained and
 before IRC.
@@ -181,7 +181,7 @@ the geometry and skips PHVA. A PHVA failure is recorded without discarding the
 structure or fabricating frequencies.
 
 A numerically converged higher-order stationary point is retained and may be
-used only for warning-labelled diagnostic IRC when a validated negative root is
+used only for warning-labeled diagnostic IRC when a validated negative root is
 available. It is not first-order certification. Numerical non-convergence,
 zero imaginary modes, failed/skipped PHVA, or no valid negative root causes
 `all` to stop after registering TS artifacts and before IRC. Explicit

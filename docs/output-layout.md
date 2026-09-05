@@ -40,10 +40,8 @@ Override with `--out-dir <path>` (or `-o`); explicit paths take precedence over 
 
 ## Standalone vs `all`
 
-A subcommand run on its own writes a **flat** result directory. The same writer, when orchestrated by `all`, nests into a structured tree:
+Standalone subcommands write to `result_<subcmd>/`. Inside `all`, per-segment stage results use the same layout under `segments/seg_NN/<subcmd>/`.
 
-- **Standalone subcommand** → flat `result_<subcmd>/` with the files above. There is no `segments/` and no `_work/` — those appear only when `all` coordinates several writers in one run.
-- **Inside `all`, leaf writers nest unchanged.** A per-segment leaf output at `segments/seg_NN/<subcmd>/` is structurally identical to the standalone `result_<subcmd>/`; `all` just points the writer at a different directory.
 - **`path-search` / `path-opt` are the engine exception.** Run standalone, `path-search` is itself a deliverable (`result_path_search/` with its own `summary.log`, `mep.pdb`, optional `mep.cif`, `mep_trj.xyz`, `mep_plot.png`, `energy_diagram_MEP.png`). Inside `all`, its raw output is engine scratch under `_work/path_opt/` (`_work/path_search/` only with `--refine-path`); the merged products (`mep.pdb`, optional `mep.cif`, `mep_trj.xyz`, `mep_plot.png`, `energy_diagram_MEP.png`) are moved to the pipeline root and `summary.{json,log}` copied there. This asymmetry is intentional.
 
 The `all` tree therefore has three zones:

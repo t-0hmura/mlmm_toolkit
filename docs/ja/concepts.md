@@ -16,11 +16,11 @@ ML/MM 3 層システム、ONIOM 分解、「セグメント」「画像（image�
  │ ↓
  │ ML 領域構造 (PDB)
  │ │
- │ ├─ MM トポロジー構築 [mm-parm] ← parm7/rst7 の自動生成
+ │ ├─ MM トポロジー構築 [mm-parm、全系] ← parm7/rst7 の自動生成
  │ │ ↓
  │ │ real.parm7 + real.rst7
  │ │
- │ ├─ (任意) 3層定義 [define-layer] ← B-factor による層エンコード
+ │ ├─ (任意) 3層定義 [define-layer、全系 + ML 領域] ← B-factor による層エンコード
  │ │
  │ ├─ (任意) 段階的スキャン [scan] ← 単一構造ワークフロー
  │ │ ↓
@@ -45,15 +45,15 @@ ML/MM 3 層システム、ONIOM 分解、「セグメント」「画像（image�
 
 ## ML/MM 3層システム
 
-`mlmm-toolkit` の中核は、ONIOM 的な ML/MM 結合スキームです。系を以下の 3 層に分割し、各層に異なるレベルの理論を適用します。
+`mlmm-toolkit` の中核は、ONIOM 的な ML/MM 結合スキームです。系を以下の 3 層に分割します。
 
 | 層 | B-factor | 計算レベル | 説明 |
 |----|----------|-----------|------|
 | **Layer 1: ML 領域** | 0.0 | MLIP（UMA, ORB, MACE, AIMNet2） | 活性部位。エネルギー・力・Hessian すべてを MLIP バックエンドで計算 |
 | **Layer 2: Movable-MM** | 10.0 | hessian_ff（MM） | 最適化時に移動可能な MM 原子 |
-| **Layer 3: Frozen** | 20.0 | MM | 座標は固定されるが、MM エネルギー相互作用には参加 |
+| **Layer 3: Frozen-MM** | 20.0 | MM | 座標は固定されるが、MM エネルギー相互作用には参加 |
 
-B-factor 値は PDB ファイルの温度因子列（列 61-66）にエンコードされます。`define-layer` サブコマンドが ML 領域からの距離に基づいて自動設定します（`--radius-freeze`（デフォルト 8.0 Å）以内を Movable-MM、それより遠方を Frozen に割り当て）。Hessian 対象 MM 原子は `hess_cutoff` や `hess_mm_atoms` で別途制御します。
+B-factor 値は PDB ファイルの温度因子列（列 61-66）にエンコードされます。`define-layer` サブコマンドが ML 領域からの距離に基づいて自動設定します（`--radius-freeze`（デフォルト 8.0 Å）以内を Movable-MM、それより遠方を Frozen-MM に割り当て）。Hessian 対象 MM 原子は `hess_cutoff` や `hess_mm_atoms` で別途制御します。
 
 ```{tip}
 B-factor エンコーディングにより、B-factor カラーリングに対応した分子ビューアで層割り当てを視覚的に確認できます。
@@ -225,7 +225,7 @@ ML 領域の指定には 2 通りあります。
 - **手動**（`--model-pdb` + `--parm`）: ML 原子の選択を自分で与え、model 電荷は `-q` で明示
   します。電荷が変わる原子を手で編集した場合（独自の切断・プロトン化/電荷変更で自動導出が
   当てにならない場合）や、自動切り出しが扱えない異常トポロジーで確実です。この経路では
-  `--modified-residue` / `-l` は効かず、model PDB にリンク水素を入れる必要も**ありません**
+  `--modified-residue` は適用されません。model PDB にリンク水素を入れる必要も**ありません**
   — ML/MM calculator が `--parm` のトポロジーから ML/MM 境界に付与します。
 
 個別サブコマンドでは、同じ原子選択を `--model-indices`（デフォルトは1始まり）または

@@ -62,7 +62,7 @@ name from the CLI.
 ### UMA fp64
 
 Switching OMol-trained UMA from the default fp32 to fp64 can have a non-trivial
-impact on TSopt and Hessian evaluation. Enable via:
+impact on TSOPT and Hessian evaluation. For full-system PDBs with valid B-factor layers:
 
 ```bash
 mlmm tsopt -i ts.pdb --parm real.parm7 -q 0 -m 1 --precision fp64
@@ -125,7 +125,7 @@ def get_calculator(charge=0, spin=1, device="auto", **kwargs):
 Swap `EMT()` for the engine you want — e.g. `tblite.ase.TBLite(...)` for
 GFN-xTB, the DFTB+ ASE calculator, or `ase.calculators.orca.ORCA(...)`. Then
 pass the file to a stage or to `all` (it selects the `custom` ML backend,
-overriding `--backend`):
+overriding `--backend`). These examples require full-system PDBs with valid B-factor layers:
 
     mlmm sp    -i complex.pdb --parm system.parm7 --calc-file my_calc.py -q 0 -m 1
     mlmm opt   -i complex.pdb --parm system.parm7 --calc-file my_calc.py -q 0 -m 1
@@ -164,7 +164,7 @@ To add a new backend `XYZModel` exposed as `--backend xyz`:
  eV/Å, plus a backend-specific opaque object), `hessian_analytical(opaque, n_atoms,
  *, dtype) -> torch.Tensor` (returns the Hessian in eV/Å²), and the
  `supports_analytical_hessian` and `device` properties. Inherit from `_MLBackend`
- to pick up the generic finite-difference `hessian_fd(...)` for free (used when the
+ to inherit the generic finite-difference `hessian_fd(...)` (used when the
  backend has no analytical Hessian).
 3. **Register in `_create_ml_backend`**: extend the factory in
  `mlmm/backends/mlmm_calc.py` to dispatch `backend == "xyz"` to `_XYZBackend(...)`.

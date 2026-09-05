@@ -15,9 +15,9 @@ Full system(s) (PDB/mmCIF/XYZ)
  | |
  | ML region structure(s) (PDB)
  | |
- | +- Amber topology [mm-parm] <- generates parm7/rst7 via AmberTools
+ | +- Amber topology [mm-parm, full system] <- generates parm7/rst7 via AmberTools
  | | |
- | +- 3-layer assignment [define-layer] <- B-factor encoding for ML/MM layers
+ | +- 3-layer assignment [define-layer, full system + ML selection] <- B-factor encoding for ML/MM layers
  | | |
  | | v
  | | ML/MM system (PDB with B-factors)
@@ -52,14 +52,14 @@ A central concept in mlmm-toolkit is the **3-layer ML/MM partitioning** of the s
 |-------|----------|-------------|
 | **ML** (Layer 1) | 0.0 | The reactive region. Full MLIP energy, forces, and Hessian. |
 | **Movable-MM** (Layer 2) | 10.0 | MM atoms allowed to move during optimization. |
-| **Frozen** (Layer 3) | 20.0 | Coordinates are fixed; no optimization. |
+| **Frozen-MM** (Layer 3) | 20.0 | Coordinates are fixed; no optimization. |
 
 B-factor values are encoded in PDB columns 61-66 (the temperature factor column).
 
 The [`define-layer`](define-layer.md) subcommand assigns these B-factors based on distance from the ML region:
 
 - Atoms/residues within `--radius-freeze` (default 8.0 Å) are assigned to Movable-MM.
-- Atoms/residues beyond `--radius-freeze` are Frozen.
+- Atoms/residues beyond `--radius-freeze` are Frozen-MM.
 
 Hessian-target MM atoms are controlled by calculator options (`hess_cutoff`, explicit `hess_mm_atoms`, etc.), not by a dedicated B-factor layer.
 
@@ -242,7 +242,7 @@ There are two ways to define the ML region:
   set the model charge explicitly with `-q`. This is the safer choice when you have
   hand-edited atoms (custom truncation, protonation / charge changes) that automatic
   derivation cannot infer, or when the topology is too unusual for automatic
-  extraction. `--modified-residue` / `-l` do not apply on this path, and you do **not**
+  extraction. `--modified-residue` does not apply on this path. You do **not**
   need to add link hydrogens to the model PDB — the ML/MM calculator inserts them from
   the `--parm` topology at the ML/MM boundary.
 

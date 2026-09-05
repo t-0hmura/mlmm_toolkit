@@ -229,9 +229,7 @@ The plateau check is automatically skipped for chain-of-states (COS) optimizers
 `--microiter` run: a flat MM energy with forces still above threshold is a
 stalled micro relaxation, not MM equilibrium, and stopping there would end the
 macro/micro alternation with the environment unrelaxed. `microiter.micro_max_cycles`
-bounds the micro step instead -- as a backstop, not a schedule: the micro exits
-on convergence, and on the release-smoke ML/MM TS lane the median relaxation
-needs 56 cycles while three transients out of 791 need 10^4.
+caps each MM relaxation, which normally ends on convergence.
 
 ---
 
@@ -546,7 +544,7 @@ irc:
  dump_every: null # Disabled by default; set a positive dump stride to opt in
  max_pred_steps: 500 # Predictor-corrector max steps
  loose_cycles: 3 # Loose cycles before tightening
- corr_func: mbs # Correlation function choice
+ corr_func: mbs # EulerPC corrector function
 ```
 
 ---

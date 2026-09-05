@@ -3952,8 +3952,8 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     "-i", "--input", "input_paths",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     multiple=True, required=True,
-    help=("Two or more full PDB/mmCIF structures, or XYZ files with matching "
-          "--ref-pdb entries, in reaction order (reactant [intermediates ...] "
+    help=("Two or more full PDB/mmCIF structures, or XYZ files sharing "
+          "one matching --ref-pdb, in reaction order (reactant [intermediates ...] "
           "product); one full structure is allowed with --scan-lists or "
           "--tsopt. A single '-i' may be followed by multiple space-separated "
           "files (for example, '-i A.pdb B.pdb C.pdb').")
@@ -4145,8 +4145,8 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     show_default=True,
     help=(
         "When disabled, run single-pass path-opt with the selected MEP optimizer between each adjacent pair and concatenate the "
-        "segments (no path_search); when enabled, run recursive path_search on the full ordered series: it discovers "
-        "multistep mechanisms and also refines a single-step MEP, which can improve a poor HEI or TS estimate."
+        "segments (no path-search); when enabled, run recursive path-search on the full ordered series: it proposes "
+        "multistep reaction paths and also refines a single-step MEP, which can improve a poor HEI or TS estimate."
     ),
 )
 @click.option(
@@ -4372,8 +4372,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
          'Multiple literals define sequential stages, e.g. '
          '"[(12,45,1.35)]" "[(10,55,2.20),(23,34,1.80)]". '
          'Use standalone mlmm scan for YAML/JSON or bidirectional 4-tuples. '
-         'Indices refer to the original full PDB (1-based) or PDB atom selectors like "TYR,285,CA"; '
-         'they are auto-mapped to the pocket after extraction.',
+         'Indices refer to the original full PDB (1-based) or PDB atom selectors like "TYR,285,CA".',
 )
 @click.option("--scan-out-dir", type=click.Path(path_type=Path, file_okay=False), default=None,
               show_default="<out-dir>/_work/scan",
@@ -6702,7 +6701,6 @@ def cli(
         scan_stage_literals: List[str] = []
         for stage in converted_scan_stages:
             scan_stage_literals.append(_format_scan_stage(stage))
-        _echo("[all] Remapped --scan-lists indices from the full PDB to the pocket ordering.")
         scan_preopt_use = pre_opt if scan_preopt_override is None else bool(scan_preopt_override)
         scan_endopt_use = False if scan_endopt_override is None else bool(scan_endopt_override)
         scan_args: List[str] = [

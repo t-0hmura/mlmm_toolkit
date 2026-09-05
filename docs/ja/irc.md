@@ -208,7 +208,7 @@ irc:
  hessian_recalc: null              # Hessian再構築間隔
  max_pred_steps: 500               # 予測子-補正子の最大ステップ数
  loose_cycles: 3                   # 厳密化前のゆるいサイクル数
- corr_func: mbs                    # 相関関数の選択
+ corr_func: mbs                    # EulerPC の修正子関数
 ```
 
 完全なスキーマ（すべての `irc` キーとデフォルト）: [YAML リファレンス](yaml-reference.md#irc-section)。

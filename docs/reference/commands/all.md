@@ -17,7 +17,7 @@ Options:
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
   -i, --input FILE                Two or more full PDB/mmCIF structures, or XYZ
-                                  files with matching --ref-pdb entries, in
+                                  files sharing one matching --ref-pdb, in
                                   reaction order (reactant [intermediates ...]
                                   product); one full structure is allowed with
                                   --scan-lists or --tsopt. A single '-i' may be
@@ -143,9 +143,9 @@ Options:
                                   When disabled, run single-pass path-opt with
                                   the selected MEP optimizer between each
                                   adjacent pair and concatenate the segments (no
-                                  path_search); when enabled, run recursive
-                                  path_search on the full ordered series: it
-                                  discovers multistep mechanisms and also
+                                  path-search); when enabled, run recursive
+                                  path-search on the full ordered series: it
+                                  proposes multistep reaction paths and also
                                   refines a single-step MEP, which can improve a
                                   poor HEI or TS estimate.  [default: no-refine-
                                   path]
@@ -290,8 +290,7 @@ Options:
                                   mlmm scan for YAML/JSON or bidirectional
                                   4-tuples. Indices refer to the original full
                                   PDB (1-based) or PDB atom selectors like
-                                  "TYR,285,CA"; they are auto-mapped to the
-                                  pocket after extraction.
+                                  "TYR,285,CA".
   --scan-out-dir DIRECTORY        Override the scan output directory (default:
                                   <out-dir>/_work/scan). Relative paths are
                                   resolved against the default parent.

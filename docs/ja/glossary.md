@@ -15,8 +15,8 @@
 | **model system** | -- | ONIOM 分解における ML 領域（Layer 1）。MLIP バックエンド（デフォルト: UMA）と MM の両方で評価。 |
 | **リンク水素** | Link Hydrogen | 実在原子のML選択を横切るparm7結合ごとに生成する水素原子。既知のtopology結合に沿って配置し、ヤコビアンで力を再分配。任意の`extract --add-linkh`が作る水素は確認用のポケットcapであり、runtime境界の定義には使用しない。 |
 | **hessian_ff** | -- | mlmm-toolkit に同梱される C++ ネイティブ拡張の Amber 力場計算エンジン。解析 Hessian をサポート。 |
-| **3 層システム** | 3-layer system | mlmm-toolkit の B-factor による層分割方式: ML（B=0.0）、Movable-MM（B=10.0）、Frozen（B=20.0）。 |
-| **B-factor エンコーディング** | B-factor encoding | PDB の B-factor（温度因子）カラムに層の所属を格納する方式: 0.0 = ML、10.0 = Movable-MM、20.0 = Frozen。Hessian 対象 MM 原子はカットオフ/明示的インデックスで制御。 |
+| **3 層システム** | 3-layer system | mlmm-toolkit の B-factor による層分割方式: ML（B=0.0）、Movable-MM（B=10.0）、Frozen-MM（B=20.0）。 |
+| **B-factor エンコーディング** | B-factor encoding | PDB の B-factor（温度因子）列に層の所属を格納する方式: 0.0 = ML、10.0 = Movable-MM、20.0 = Frozen-MM。Hessian 対象 MM 原子はカットオフ/明示的インデックスで制御。 |
 
 ---
 
@@ -61,7 +61,7 @@
 | **RFO** | Rational Function Optimization | 明示的な Hessian 情報を使用する信頼領域最適化法。`--opt-mode hess` で使用。 |
 | **RS-I-RFO** | Restricted-Step Image-RFO | 1 つの負固有値方向に沿う、鞍点（TS）最適化用の RFO 変種。 |
 | **Dimer** | Dimer Method | 低曲率方向を追跡する TS 最適化法。MLMM の Hessian-guided Dimer は初期および定期的な活性部分空間 Hessian を使うため、活性自由度が多い系ではランダムな初期方向より頑健です。`--opt-mode grad` の TSOPT で使用。 |
-| **PHVA** | Partial Hessian Vibrational Analysis | アクティブ（非凍結）原子の Hessian ブロックのみを使用した振動数計算。`freq` のデフォルト。 |
+| **PHVA** | Partial Hessian Vibrational Analysis | アクティブ（非凍結）原子の Hessian ブロックのみを使用した振動解析。`freq` のデフォルト。 |
 
 ---
 

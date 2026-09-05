@@ -1452,6 +1452,12 @@ def cli(
             out_dir_path,
             path_protected_inputs,
         )
+        if mep_mode_kind == "gsm" and int(gs_cfg["max_nodes"]) < 2:
+            raise click.BadParameter(
+                "GSM requires at least 2 internal nodes.",
+                param_hint="--max-nodes / gs.max_nodes",
+            )
+
         if detect_layer_enabled and layer_source_pdb.suffix.lower() != ".pdb":
             click.echo("ERROR: --detect-layer requires a PDB input.", err=True)
             sys.exit(1)

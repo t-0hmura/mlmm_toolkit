@@ -6,15 +6,11 @@
 
 ## 事前に必要なファイル
 
-- 入力構造: `pocket.pdb`
-- MM トポロジー: `real.parm7`
-- ML 領域定義: `ml_region.pdb`、明示的model index、または有効なB-factor layer
+- 全系構造（`-i`）: `pocket.pdb`。`real.parm7` と同じ原子・原子順序にします。
+- MM トポロジー（`--parm`）: `real.parm7`
+- ML 領域（`--model-pdb`）: リンク水素を含まない `ml_region.pdb`。モデル原子インデックスや有効な B-factor 層定義も使用できます。
 
-これらは通常、`mlmm all` / `mlmm extract` / `mlmm mm-parm` で生成します。
-
-YAMLの1つの`stages`要素が1ステージです。同一要素内の複数距離tupleは
-協奏的に駆動し、複数要素は多段階scanとして順次実行されます。2距離を独立なグリッド軸と
-する場合は`scan2d`を使用します。
+以下の例では、YAML の各 `stages` 要素が 1 ステージです。同じ要素内の距離は同時に変化させ、複数要素は順に実行します。2 距離を独立なグリッド軸にする場合は `scan2d` を使います。
 
 ## 1. `scan.yaml` を作成
 

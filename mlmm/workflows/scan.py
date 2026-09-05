@@ -267,7 +267,7 @@ def _snapshot_geometry(g) -> Any:
     "print_parsed",
     default=False,
     show_default=True,
-    help="Print parsed scan targets after resolving -s/--scan-lists.",
+    help="Print parsed scan targets and exit without running the scan.",
 )
 @click.option("--max-step-size", type=float, default=0.20, show_default=True,
               help="Maximum change in any scanned bond length per step [Å].")
@@ -399,7 +399,7 @@ def _snapshot_geometry(g) -> Any:
     "out_json",
     default=False,
     show_default=True,
-    help="Write machine-readable result.json to out_dir.",
+    help="Write result.json to the output directory.",
 )
 @add_ml_layer_detection_options()
 @add_ml_charge_spin_options()

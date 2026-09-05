@@ -39,8 +39,8 @@ Options:
   --one-based / --zero-based      Interpret (i,j) indices in --scan-lists as
                                   1-based or 0-based.  [default: one-based]
   --print-parsed / --no-print-parsed
-                                  Print parsed scan targets after resolving
-                                  -s/--scan-lists.  [default: no-print-parsed]
+                                  Print parsed scan targets and exit without
+                                  running the scan.  [default: no-print-parsed]
   --max-step-size FLOAT           Maximum change in any scanned bond length per
                                   step [Å].  [default: 0.2]
   --bias-k FLOAT                  Harmonic well strength k [eV/Å^2]. YAML bias.k
@@ -100,7 +100,7 @@ Options:
   --cmap / --no-cmap              Preserve CMAP terms in both real and model MM
                                   layers when present in parm7.  [default:
                                   (cmap)]
-  --out-json / --no-out-json      Write machine-readable result.json to out_dir.
+  --out-json / --no-out-json      Write result.json to the output directory.
                                   [default: no-out-json]
   --detect-layer / --no-detect-layer
                                   Automatically detect ML/MM layers from input

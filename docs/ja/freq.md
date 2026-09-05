@@ -14,6 +14,8 @@
 
 ## 実行例
 
+以下の例では、`pocket.pdb` が `real.parm7` に対応する全系構造で、`ml_region.pdb` が ML 領域です。
+
 基本的な振動解析:
 
 ```bash

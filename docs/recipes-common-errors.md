@@ -25,8 +25,8 @@ For full details, keep [Troubleshooting](troubleshooting.md) open in parallel.
 | **Convergence** | | |
 | TSOPT does not converge | Reduce `trust_radius` (RFO-family TS optimizer) or `max_step` (Dimer/L-BFGS), increase cycles, and validate the TS | [Convergence](troubleshooting.md#calculation--convergence) |
 | IRC does not terminate | Reduce `--step-size`, increase `--max-cycles`, and validate the TS | [Convergence](troubleshooting.md#calculation--convergence) |
-| Optimizer stalls at flat energy (MLIP noise floor) | Let `--max-cycles` bound the run, or opt in to `--stop-plateau` | [Plateau fallback](troubleshooting.md#optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor) |
-| Optimizer stalls at flat energy (MLIP noise floor) | Tune `--stop-plateau-thresh` / `--stop-plateau-window` if the trigger fires too early or too late | [Plateau fallback](troubleshooting.md#optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor) |
+| Optimizer stalls at flat energy (possible MLIP noise floor) | Let `--max-cycles` bound the run, or opt in to `--stop-plateau` | [Plateau fallback](troubleshooting.md#optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor) |
+| Optimizer stalls at flat energy (possible MLIP noise floor) | Tune `--stop-plateau-thresh` / `--stop-plateau-window` if the trigger fires too early or too late | [Plateau fallback](troubleshooting.md#optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor) |
 | **Plotting** | | |
 | Plot export failures | Install Chrome runtime for Plotly export | [Plot export](troubleshooting.md#plot-export-fails-chrome-missing) |
 
@@ -89,8 +89,8 @@ For full details, keep [Troubleshooting](troubleshooting.md) open in parallel.
 - TSOPT: reduce `trust_radius` / `max_step` and increase its cycle limit. `trust_max` defaults to 0.10 bohr for RFO-family TS optimizers.
 - IRC: reduce `--step-size` and increase `--max-cycles`.
 - Check whether the configured energy-plateau window is flat while force/step
-  criteria remain unmet. The default fallback stops with `status: stalled`; it
-  does not declare convergence (see
+  criteria remain unmet. Plateau stopping is off by default; `--stop-plateau`
+  enables it and reports `status: stalled`, not convergence (see
   [Troubleshooting](troubleshooting.md#optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor)).
 
 **Typical fix path:**

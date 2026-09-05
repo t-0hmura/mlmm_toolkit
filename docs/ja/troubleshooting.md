@@ -85,7 +85,7 @@ Please run `mlmm add-elem-info -i...` to populate element columns before running
 - モデルサイズを大きくすると結果が大幅に変わる
 
 対処:
-- 抽出されたポケットが小さすぎると、エネルギーや障壁の計算値が不正確になることがあります。抽出半径を大きくする（例: `-r 4.0` 以上）ことで、タンパク質環境をより多く含めて精度を改善できます:
+- 抽出されたポケットが小さすぎると、エネルギーや障壁の計算値が不正確になることがあります。ML 領域を広げる（例: `-r 4.0`）などして、領域サイズと境界位置への感度を確認してください:
 
   ```bash
   mlmm extract -i complex.pdb -c 'SUB' -o pocket.pdb -r 4.0
@@ -103,7 +103,7 @@ mlmm extract -i complex.pdb -c PRE --modified-residue "HD1:0" -o pocket.pdb
 
 同じフラグは `all` コマンドでも使用可能で、抽出ステージに転送されます。SEP、TPO、MLY などカタログ登録済みの残基は、電荷を省略して指定してもカタログ電荷を保持します。
 
-`--modified-residue` で対応できない場合は、リンク水素を含むポケットモデルを手動で構築し、`--parm` と `--model-pdb` を使って下流コマンドに直接渡してください。
+`--modified-residue` で対応できない場合は、全系 PDB から実在原子を選んで ML 領域の PDB を作成し、`--parm` と `--model-pdb` を使って下流コマンドに直接渡してください。
 
 ---
 
@@ -298,7 +298,7 @@ To rebuild hessian_ff native extensions in this environment:
   cd hessian_ff/native && make
   ```
 
-- `hessian_ff` パッケージが Python パス上にあることを確認してください（`pip install -e .` でインストールしていれば問題ありません）。
+- `hessian_ff` パッケージが Python パス上にあることを確認してください。
 
 ---
 
@@ -477,7 +477,7 @@ ML/MM 系は MLIP 単体の計算よりも一般的に大きいため、VRAM の
    energy_plateau_thresh: 1.0e-05  # プラトー許容幅を厳格化 (au)
    energy_plateau_window: 100      # より長い平坦区間を要求
   ```
-- ベンチマーク等では既定どおり無効のままにしてください（`thresh` プリセットのみ
+- ベンチマーク等ではデフォルトどおり無効のままにしてください（`thresh` プリセットのみ
   で収束判定され、`max_cycles` が上限になります）。
 - プラトー判定は chain-of-states（COS）オプティマイザ（GS/DMF
   ストリング最適化）では自動的にスキップされるため、`path-opt` /

@@ -145,7 +145,7 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | `reaction_mode_frequency_cm` | float\|null | 選択した負 root の振動数 |
 | `reaction_mode_source` | string\|null | 参照方向整合または明示 fallback による root 選択元 |
 | `energy_hartree` | float \| null | TS エネルギー (Hartree)。最終エネルギー評価に失敗した場合は `null`（writer が非有限 float をすべて `null` に置換する）で、そのとき `status` は `"energy_missing"` |
-| `n_imaginary_modes` | int\|null | 虚振動数。PHVA を実行しなかった場合は `null` |
+| `n_imaginary_modes` | int\|null | 虚振動モードの数。PHVA を実行しなかった場合は `null` |
 | `imaginary_frequencies_cm` | float[]\|null | 虚振動数 (cm$^{-1}$, 負の値)。PHVA 未実行時は `null` |
 | `opt_mode` | string | `"grad"`, `"hess"`, `"dimer"`, `"rsprfo"`, `"rsirfo"`, `"trim"` のいずれか。`hess` は RS-P-RFO を選択。 |
 | `opt_mode_requested` | string | CLI で要求した preset |
@@ -173,8 +173,8 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | フィールド | 型 | 説明 |
 |-----------|------|------|
 | `status` | string | `"completed"` |
-| `n_modes` | int | 全基準振動数 |
-| `n_imaginary` | int | 虚振動数 |
+| `n_modes` | int | 基準振動モードの総数 |
+| `n_imaginary` | int | 虚振動モードの数 |
 | `frequencies_cm` | float[] | 全振動数 (cm$^{-1}$) |
 | `imaginary_frequencies_cm` | float[] | 負の振動数のみ |
 | `thermochemistry` | object\|null | 熱化学データ |

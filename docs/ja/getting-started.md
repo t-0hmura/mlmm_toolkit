@@ -27,7 +27,7 @@ mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft
 - 必要に応じて **遷移状態** を最適化し、**振動解析**・**IRC 計算**・**DFT 一点計算** を実行
 
 ```{important}
-単一コマンドの TS 結果は「候補」として扱ってください。酵素反応では、endpoint 品質、ポケット定義、拘束、scan ターゲットの調整を伴う反復が一般的です。最終解釈の前に、`freq` と `irc` の両方で TS を必ず検証してください。
+TSOPT 終端の振動解析で虚振動がちょうど 1 つあることを確認し、IRC と端点最適化で目的の反応物・生成物につながるか検証してください。追加の `freq` は、全振動モードや熱化学量が必要な場合に実行します。
 ```
 
 MM 領域の計算には hessian_ff（内蔵の C++ ネイティブ MM 力場エンジン）を用います。全エネルギーは ONIOM 的な減算分解に従います:
@@ -44,8 +44,8 @@ E_total = E_REAL_low + E_MODEL_high - E_MODEL_low
 - 入力 PDB ファイルには**水素原子**が含まれている必要があります。
 - 複数の PDB を提供する場合、**同じ原子が同じ順序**で含まれている必要があります（座標のみ異なる可能性があります）。そうでない場合はエラーが発生します。
 - 個別の ML/MM 計算には **`--parm`**（全系の Amber トポロジー）と、`--model-pdb`、`--model-indices`、または有効な B-factor layer のいずれかによる ML 領域指定が必要です。`all` ワークフローではトポロジーと ML 領域を自動生成できます。
-- `mlmm all`と個別コマンドのどちらでも、`-q/--charge`は全系ではなくML領域（ONIOM model system）の正味電荷です。
-- MD snapshotを入力する場合は再parameterizeせず、MD計算で用いた同じ全系`.parm7`を再利用します。
+- `mlmm all` と個別コマンドのどちらでも、`-q/--charge` は全系ではなく ML 領域（ONIOM モデル系）の正味電荷です。
+- MD スナップショットには、MD 計算で用いた全系の `.parm7` を再利用してください。
 ```
 
 ```{tip}
@@ -68,8 +68,6 @@ E_total = E_REAL_low + E_MODEL_high - E_MODEL_low
 
 詳細は [CLI 規約](cli-conventions.md) を参照してください。
 
-`path-search` の命名に関する注意: CLI サブコマンドとドキュメントは `path-search`（ハイフン）、内部ワークフローモジュールは `path_search`（アンダースコア）です。
-
 ### 水素原子付与の推奨ツール
 
 PDB に水素原子がない場合は、mlmm を実行する前に次のいずれかを使ってください。
@@ -91,172 +89,48 @@ PDB に水素原子がない場合は、mlmm を実行する前に次のいず�
 
 ## インストール
 
-`mlmm-toolkit` は、CUDA 対応 GPU を備えた Linux 環境（ローカルワークステーションまたは HPC クラスター）向けに設計されています。特に **PyTorch**、**fairchem-core (UMA)**、**gpu4pyscf-cuda12x** などの依存関係は、動作する CUDA インストールを前提としています。
+Linux の CPU/GPU 環境で利用できます。GPU 実行には対応する NVIDIA ドライバーが必要です。公式 PyTorch wheel には CUDA ランタイムが含まれるため、通常は CUDA toolkit を別途インストールする必要はありません。
 
-### 前提条件
-
-mlmm-toolkit は以下のコンポーネントを使用します:
-
-- **MLIP バックエンド**: ML 領域のエネルギー・力・Hessian 計算。デフォルトは UMA（fairchem-core）。ORB（`pip install "mlmm-toolkit[orb]"`）、AIMNet2（`pip install "mlmm-toolkit[aimnet]"`）も利用可能。MACE も利用可能ですが、`e3nn` バージョン競合のため `fairchem-core` を先にアンインストールする必要があります（`pip uninstall fairchem-core && pip install mace-torch`）。
-- **hessian_ff**: MM 領域の Amber 力場計算（C++ 拡張のビルドが必要）
-- **AmberTools**: `mm-parm` サブコマンドによる parm7/rst7 の自動生成（tleap、antechamber、parmchk2）
-
-詳細は上流プロジェクトを参照してください:
-- fairchem / UMA: <https://github.com/facebookresearch/fairchem>, <https://huggingface.co/facebook/UMA>
-- Hugging Face トークンとセキュリティ: <https://huggingface.co/docs/hub/security-tokens>
-
-### クイックスタート
-
-以下は PyTorch 2.13 の `cu130` wheel を使う最小セットアップ例です。実環境では NVIDIA driver と GPU architecture に対応する index を選んでください。この例はトポロジーを自動生成するデフォルトの `all` ルートと GSM MEP モード（DMF なし）を想定しています。先に AmberTools をインストールしてください。DMF を使用する場合は `cyipopt` と `pydmf>=1.2` も必要です。
+以下は PyTorch 2.13 の `cu130` wheel を使う例です。CPU 実行や別の GPU 環境では、対応する PyTorch wheel を選んでください。MM 計算には C++20 対応コンパイラー、トポロジー生成には AmberTools が必要です。
 
 ```bash
-# 1) AmberTools と CUDA 対応の PyTorch ビルドをインストール
-# 2) mlmm-toolkit をインストール
-# 3) hessian_ff の C++ 拡張をビルド
-# 4) Plotly 図表エクスポート用のヘッドレス Chrome をインストール
-
-conda install -c conda-forge ambertools -y
+conda create -n mlmm-toolkit python=3.12 -y
+conda activate mlmm-toolkit
+conda install -c conda-forge ambertools pdbfixer -y
 pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cu130
 pip install mlmm-toolkit
 
-# オプション: 代替 MLIP バックエンドのインストール
-pip install "mlmm-toolkit[orb]"       # ORB バックエンド
-pip install "mlmm-toolkit[aimnet]"   # AIMNet2 バックエンド
-# MACE バックエンド (UMA と競合 — 先に fairchem-core をアンインストール)
-# pip uninstall fairchem-core && pip install mace-torch
+# UMA の利用許諾を取得した後、Hugging Face にログイン
+hf auth login
+mlmm --version
+```
 
+UMA を使う場合は、[モデルページ](https://huggingface.co/facebook/UMA)で FAIR Chemistry License v1 に同意してください。ログインは環境ごとに一度行います。
+
+### 追加コンポーネント
+
+| 用途 | インストール・設定 |
+| --- | --- |
+| ORB / AIMNet2 | `pip install "mlmm-toolkit[orb]"` / `pip install "mlmm-toolkit[aimnet]"` |
+| MACE | UMA と `e3nn` の依存バージョンが競合するため、専用環境で使用します。 |
+| DMF 経路探索 | `conda install -c conda-forge cyipopt -y` と `pip install 'pydmf>=1.2'` |
+| Plotly の PNG 出力 | `plotly_get_chrome -y` |
+| hessian_ff の手動ビルド | 初回使用時に JIT コンパイルされます。ネイティブ拡張を利用できない場合は、下記を実行してください。 |
+
+```bash
+conda install -c conda-forge ninja -y
 cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make
-plotly_get_chrome -y
 ```
 
-> **Note:** 環境が変わる場合（別ノード/別コンテナ/別 Python・PyTorch）は、その環境で `hessian_ff` を再ビルドしてください。  
-> 多くのクラスターでは、先に Ninja を入れてから再ビルドすると確実です:
->
-> ```bash
-> conda install -c conda-forge ninja -y
-> cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make clean && make
-> ```
-
-最後に、UMA バックエンドを使用する場合は、モデルをダウンロードできるように **Hugging Face Hub** にログインします（UMA バックエンド使用時のみ必要）:
-
-```bash
-# Hugging Face CLI
-hf auth login --token '<YOUR_ACCESS_TOKEN>' --add-to-git-credential
-```
-
-または
-
-```bash
-# クラシック CLI
-huggingface-cli login
-```
-
-これはマシン/環境ごとに 1 回だけ行う必要があります。
-
-- MEP 探索で Direct Max Flux (DMF) 法を使用する場合は、mlmm のインストール前に conda 環境を作成して `cyipopt` と `pydmf>=1.2` をインストールしてください。
-  ```bash
-  # 専用の conda 環境を作成してアクティブ化
-  conda create -n mlmm python=3.12 -y
-  conda activate mlmm
-
-  # cyipopt と pydmf をインストール（MEP 探索の DMF 法に必要）
-  conda install -c conda-forge cyipopt -y
-  pip install 'pydmf>=1.2'
-  ```
-
-- 公式 PyTorch wheel には CUDA のユーザー空間ライブラリが含まれます。通常は互換性のある NVIDIA ドライバーと割り当て済み GPU だけで動作し、ローカル CUDA toolkit や CUDA モジュールは不要です。C/CUDA 拡張をソースからビルドする場合だけ、サイトが指定する toolkit/compiler モジュールをビルド時と実行時の両方で使用してください。
-
-### ステップバイステップインストール
-
-環境を段階的に構築する場合:
-
-1. **NVIDIA ドライバーと GPU 割り当てを確認**
-
-    ```bash
-    nvidia-smi
-    ```
-
-2. **conda 環境を作成してアクティブ化**
-
-    ```bash
-    conda create -n mlmm python=3.12 -y
-    conda activate mlmm
-    ```
-
-3. **AmberTools をインストール**
-
-    ```bash
-    conda install -c conda-forge ambertools -y
-    ```
-
-4. **cyipopt と pydmf をインストール（オプション: DMF 法に必要）**
-
-    ```bash
-    conda install -c conda-forge cyipopt -y
-    pip install 'pydmf>=1.2'
-    ```
-
-5. **適切な CUDA ビルドの PyTorch をインストール**
-
-    ```bash
-    pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cu130
-    ```
-
-6. **mlmm 本体をインストール**
-
-    ```bash
-    pip install mlmm-toolkit
-    ```
-
-7. **hessian_ff の C++ 拡張をビルド**
-
-    多くの環境では初回使用時に JIT コンパイルされます。ネイティブ拡張が利用できない旨の警告が表示された場合は、手動でビルドしてください:
-
-    ```bash
-    cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make
-    ```
-
-    > **Note:** 環境が変わった場合は、その環境で Ninja を入れて再ビルドしてください:
-    >
-    > ```bash
-    > conda install -c conda-forge ninja -y
-    > cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make clean && make
-    > ```
-
-8. **Plotly 可視化用 Chrome をインストール**
-
-    ```bash
-    plotly_get_chrome -y
-    ```
-
-9. **Hugging Face Hub にログイン（UMA バックエンド使用時のみ必要）**
-
-    ```bash
-    huggingface-cli login
-    ```
-
-10. **（任意）代替 MLIP バックエンドのインストール**
-
-    ```bash
-    pip install "mlmm-toolkit[orb]"      # ORB バックエンド
-    pip install "mlmm-toolkit[aimnet]"  # AIMNet2 バックエンド
-    # MACE バックエンド (UMA と競合 — 先に fairchem-core をアンインストール)
-    # pip uninstall fairchem-core && pip install mace-torch
-    ```
-
-11. **インストールの確認**
-
-    ```bash
-    mlmm --version
-    ```
-
-    インストールされたバージョンが表示されます（例: `0.x.y`; 正確な出力は git タグによって異なります）。
+ノード、コンテナ、Python、PyTorch を変更した場合は、その環境で `hessian_ff` を再ビルドしてください。C/CUDA 拡張をソースからビルドする場合の toolkit/compiler 設定やジョブスクリプトは、[デバイスと HPC](device-hpc.md)を参照してください。
 
 ---
 
 ## マルチバックエンドの使用例
 
 デフォルトの MLIP バックエンドは UMA です。`-b/--backend` で代替バックエンドに切り替えます:
+
+この例では、`ml_region.pdb` は `real.parm7` に対応する全系の構造で、`ml.pdb` が ML 領域を指定します。
 
 ```bash
 # ORB バックエンドを使用
@@ -307,9 +181,7 @@ PDB を使用します。明示的な `--out-prefix` でこの PDB を出力で�
 
 ## コマンドラインの基本
 
-メインのエントリーポイントは `pip` でインストールされる `mlmm` コマンドです。内部的には **Click** ライブラリを使用しており、デフォルトのサブコマンドは `all` です。
-
-つまり:
+`mlmm` のデフォルトのサブコマンドは `all` です。
 
 ```bash
 mlmm [OPTIONS]...
@@ -330,101 +202,41 @@ ML 領域抽出を使用する場合、すべての上位ワークフローで�
 
 ## メインワークフローモード
 
-### 複数構造 MEP ワークフロー（反応物 → 生成物）
+### 複数構造からの MEP 探索
 
-推定反応座標に沿った複数の完全な PDB 構造（例: R → I1 → I2 → P）がすでにある場合に使用します。
-
-**最小例**
+反応順に並べた、同じ原子・原子順序の全系構造を 2 つ以上指定します。
 
 ```bash
-mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'
+mlmm -i R.pdb I1.pdb I2.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
+     --out-dir ./result_all --tsopt --thermo --dft
 ```
 
-**詳細例**
+デフォルトは隣接ペアごとの単一パス `path-opt` です。`--refine-path` を指定すると再帰的な `path-search` に切り替わります。どちらも GSM/DMF を選択できます。
+
+### 単一構造とスキャン定義
+
+変化させる原子間距離が分かっている場合は、1 構造に `--scan-lists` を併用します。
 
 ```bash
-mlmm -i R.pdb I1.pdb I2.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --out-dir ./result_all --tsopt --thermo --dft
+mlmm -i R.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
+     --scan-lists '[("TYR 285 CA","MMT 309 C10",2.20),("TYR 285 CB","MMT 309 C11",1.80)]' \
+                  '[("TYR 285 CB","MMT 309 C11",1.20)]'
 ```
 
-動作:
+各タプル `(i, j, target_Å)` には PDB 原子セレクタまたは 1 始まりの原子番号を指定します。1 リテラル内の距離は同時に変化させ、複数のリテラルは順に実行します。複数リテラルは、1 つの `--scan-lists` の後に続けてください。
 
-- 反応順序で 2 つ以上の**完全系**を受け取る
-- 各構造の ML 領域を抽出・定義
-- Amber parm7/rst7 トポロジーを生成し、3 層 ML/MM 分割を付与
-- デフォルトで単一パス `path-opt` による **MEP 探索**を実行（隣接ペアごとに GSM、出力は `_work/path_opt/` 以下）
-- `--refine-path` を指定すると、再帰的 `path-search`（自動精密化）に切り替え（出力は `_work/path_search/` 以下）
-- PDB テンプレートが利用可能な場合、ML 領域 MEP を**完全系**にマージ
-- オプションで各セグメントに対して TS 最適化、振動解析、DFT 一点計算を実行
+### TS 候補からの最適化と IRC
 
-このモードは、適度に間隔を空けた中間体（例: ドッキング、MD、手動モデリングから）を生成できる場合に推奨されます。
+TS 候補を 1 つ指定して `--tsopt` を有効にすると、MEP 探索を省略します。
+
+```bash
+mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo
+```
+
+IRC 後の端点 E1/E2 は未割当です。最適化した構造を確認してから、反応物・生成物を割り当ててください。各モードの処理と出力は [all](all.md) を参照してください。
 
 ```{important}
-`mlmm-toolkit` は複数の入力 PDB が**同じ原子を同じ順序で**含むことを前提とします（座標のみ異なる）。座標以外のフィールドが入力間で異なる場合はエラーが発生します。入力 PDB ファイルには**水素原子**も含まれている必要があります。
-```
-
----
-
-### 単一構造 + スキャン定義（MEP 最適化に供給）
-
-**1 つの PDB 構造**しかないが、反応に沿ってどの原子間距離が変化するかが分かっている場合に使用します。
-
-`-i` に 1 つの構造を指定し、`--scan-lists` を併用します:
-
-**最小例**
-
-```bash
-mlmm -i R.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --scan-lists '[("TYR 285 CA","MMT 309 C10",2.20),("TYR 285 CB","MMT 309 C11",1.80)]' '[("TYR 285 CB","MMT 309 C11",1.20)]'
-```
-
-**詳細例**
-
-```bash
-mlmm -i SINGLE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --scan-lists '[("TYR 285 CA","MMT 309 C10",2.20),("TYR 285 CB","MMT 309 C11",1.80)]' '[("TYR 285 CB","MMT 309 C11",1.20)]' --multiplicity 1 --out-dir ./result_scan_all --tsopt --thermo --dft
-```
-
-要点:
-
-- `--scan-lists` は抽出された ML 領域上での距離スキャンを定義します。
-- 各タプル `(i, j, target_A)` は:
- - `'TYR,285,CA'` のような PDB 原子セレクタ文字列（**区切り文字: 空白/カンマ/スラッシュ/バッククォート/バックスラッシュ**）**または** 1-based の原子インデックス
- - ML 領域のインデックスに自動的にリマッピングされます。
-- 1リテラルが1ステージです。同一リテラル内の複数tupleは協奏的に駆動し、複数リテラルは多段階scanとして逐次実行されます。複数リテラルは1つのフラグの後に続けて指定します（フラグの繰り返しは不可）。
-- 各ステージは `stage_XX/result.pdb` を出力し、中間体または生成物の候補として扱われます。
-- デフォルトの `all` ワークフローは連結されたステージに対して単一パス `path-opt` GSM チェーンを実行します。
-- `--refine-path` を使用すると、再帰的 `path-search`（自動精密化）に切り替わります。
-
-このモードは、単一構造から反応経路を構築する場合に有用です。
-
----
-
-### 単一構造 TSOPT のみモード
-
-すでに**遷移状態候補**があり、それを最適化して IRC 計算を行いたい場合に使用します。
-
-PDB を 1 つだけ指定し、`--tsopt` を有効にします:
-
-**最小例**
-
-```bash
-mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt
-```
-
-**詳細例**
-
-```bash
-mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft --out-dir ./result_tsopt_only
-```
-
-動作:
-
-- MEP/経路探索を完全にスキップ
-- ML 領域の **TS** を TS 最適化で最適化
-- 両方向に **IRC** を実行し、未割当 endpoint E1/E2 を極小化
-- その後 `freq` と `dft` を E1/TS/E2 に対して実行可能。構造を確認してから反応物/生成物を割り当てる
-- MLIP、Gibbs、DFT//MLIP/MM エネルギー図を生成
-
-```{important}
-単一入力での実行には、**`--scan-lists`**（段階的スキャン → GSM）**または** **`--tsopt`**（TSOPT のみ）のいずれかが必要です。単一の `-i` のみでこれらを指定しないと、完全なワークフローはトリガーされません。
+単一入力には `--scan-lists` または `--tsopt` が必要です。
 ```
 
 ---
@@ -462,97 +274,19 @@ mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft -
 
 ## 実行サマリー
 
-`mlmm all` 実行後、トップレベル出力には次が保存されます。
+出力ディレクトリの `summary.log` と `summary.json` に、実行コマンド、セグメントごとの障壁高、MEP 統計、後処理結果がまとまります。入力検証で早期に終了した場合は、作られないことがあります。
 
-- `summary.log` — 人が読むための実行要約
-- `summary.json` — 機械処理向けの要約
-
-通常は、実行コマンド、セグメントごとの障壁高、MEP 統計、後処理（thermo/DFT）結果がまとまります。セグメント別の記録はルートの `summary.json` に集約されます。`segments/seg_NN/` には正規の reactant/TS/product 構造と、実行された各段階のディレクトリが置かれます。各段階の `result.json`/`summary.json` は、その段階の writer が JSON を出力した場合だけ存在します。詳細は [出力ディレクトリ構成](output-layout.md) を参照してください。
-
----
-
-## CLI サブコマンド
-
-ほとんどのユーザーは主に `mlmm all` を使用します。CLI は個別のサブコマンドも公開しており、各サブコマンドは `-h/--help` に対応しています。
-`mlmm all --help` は主要オプションのみを表示します。`mlmm all --help-advanced` で全オプションを表示できます。
-`scan` / `scan2d` / `scan3d` と計算系サブコマンド（`opt` / `path-opt` / `path-search` / `tsopt` / `freq` / `irc` / `dft`）に加え、ユーティリティ系（`mm-parm` / `define-layer` / `add-elem-info` / `trj2fig` / `energy-diagram` / `oniom-export`）も同様に `--help` は主要オプションのみ、`--help-advanced` で全オプションを表示します。`extract` と `fix-altloc` も段階的 help に対応し、`--help-advanced` で parser の全オプションを表示します。
-
-| サブコマンド | 役割 | ドキュメント |
-|------------|------|------------|
-| `all` | 一気通貫ワークフロー | [all](all.md) |
-| `extract` | 活性部位ポケット抽出 | [extract](extract.md) |
-| `mm-parm` | Amber parm7/rst7 構築 | [mm-parm](mm-parm.md) |
-| `define-layer` | 3 層 ML/MM 領域定義 | [define-layer](define-layer.md) |
-| `opt` | 構造最適化 | [opt](opt.md) |
-| `tsopt` | 遷移状態最適化 | [tsopt](tsopt.md) |
-| `path-opt` | MEP 最適化 (GSM/DMF) | [path-opt](path-opt.md) |
-| `path-search` | 再帰的 MEP 探索 | [path-search](path-search.md) |
-| `scan` | 拘束付き距離scan（複数距離の協奏scan・多段階scanに対応） | [scan](scan.md) |
-| `scan2d` | 2D 距離スキャン | [scan2d](scan2d.md) |
-| `scan3d` | 3D 距離スキャン | [scan3d](scan3d.md) |
-| `irc` | IRC 計算 | [irc](irc.md) |
-| `freq` | 振動解析 | [freq](freq.md) |
-| `dft` | DFT 一点計算 | [dft](dft.md) |
-| `oniom-export` | Gaussian ONIOM / ORCA QM/MM 入力生成（`--mode g16\|orca`） | [oniom-export](oniom-export.md) |
-| `oniom-import` | Gaussian/ORCA ONIOM 入力から XYZ + 層付き PDB を再構築 | [oniom-import](oniom-import.md) |
-| `trj2fig` | エネルギープロファイルプロット | [trj2fig](trj2fig.md) |
-| `energy-diagram` | 数値系列から状態エネルギー図を描画 | [energy-diagram](energy-diagram.md) |
-| `add-elem-info` | PDB の元素列（77-78）を修復 | [add-elem-info](add-elem-info.md) |
-| `fix-altloc` | PDB の代替位置標識（altLoc）を除去 | [fix-altloc](fix-altloc.md) |
-
-```{tip}
-`all`、`tsopt`、`freq`、`irc` では、VRAM に余裕がある場合 **`--hessian-calc-mode Analytical`**（ML 領域用）を使用できます。UMA、ORB、MACE、AIMNet2 が対応しますが、`--workers > 1` と同時に指定するとエラーになります。
-```
-
----
-
-## クイックリファレンス
-
-よく使う実行パターン:
-
-```bash
-# 2 構造以上で基本 MEP 探索
-mlmm -i R.pdb P.pdb -c 'SUBSTRATE' -l 'SUB:-1'
-
-# TS/熱化学/DFT まで実行
-mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft
-
-# 1 構造 + staged scan
-mlmm -i SINGLE.pdb -c 'LIG' -l 'LIG:-1' --scan-lists '[("RES1,100,CA","LIG,200,C1",2.0)]'
-
-# TS 候補の単独最適化
-mlmm -i TS.pdb -c 'LIG' -l 'LIG:-1' --tsopt --thermo
-
-# 個別サブコマンド（extract + mm-parm + define-layer 実行後）
-mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1
-mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1
-```
-
-主要オプション:
-
-| オプション | 用途 |
-|----------|------|
-| `-i` | 入力構造（単数または複数） |
-| `-c` | 抽出中心（基質）指定 |
-| `-l, --ligand-charge` | 基質電荷指定（例: `'SAM:1,GPP:-3'`） |
-| `--parm` | Amber parm7（個別サブコマンドで必要） |
-| `--model-pdb` | ML 領域定義 PDB（個別サブコマンドでは `--model-indices` または有効な B-factor layer も選択可能） |
-| `-b, --backend` | MLIP バックエンド選択（`uma`, `orb`, `mace`, `aimnet2`） |
-| `--tsopt` | TS 最適化 + IRC |
-| `--thermo` | 振動解析/熱化学 |
-| `--dft` | DFT 一点計算 |
-| `-o, --out-dir` | 出力ディレクトリ |
+`segments/seg_NN/` には各段階の計算結果が置かれます。段階別 JSON の出力条件は、[出力ディレクトリ構成](output-layout.md)を参照してください。
 
 ---
 
 ## ヘルプ
 
-任意のサブコマンドについて:
+`--help` は主要オプション、`--help-advanced` は全オプションを表示します。
 
 ```bash
-mlmm <subcommand> --help
-mlmm <subcommand> --help-advanced
+mlmm all --help
 mlmm all --help-advanced
 ```
 
-`all` では `--help` は短縮版です。全オプションを確認するときは `--help-advanced` を使用してください。
+個別計算については、[コマンド一覧](index.md#cli-サブコマンド)から各ページを参照してください。

@@ -15,6 +15,8 @@ representative pilot.
 
 ## Examples
 
+Here, `pocket.pdb` contains the full system matching `real.parm7`; `ml_region.pdb` selects the ML atoms.
+
 Basic frequency analysis:
 
 ```bash

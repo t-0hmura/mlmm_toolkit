@@ -6,25 +6,18 @@
 
 ## ブール値オプション
 
-すべての on/off CLI トグルは **4 つの記法**を受け付けます。
+オン・オフは `--flag` / `--no-flag` で指定します。
 
 | 記法 | 例 |
 |---|---|
 | 肯定フラグ | `--tsopt` |
 | 否定フラグ | `--no-tsopt` |
-| 肯定の値指定 | `--tsopt True`、`--tsopt yes`、`--tsopt 1`、`--tsopt on` |
-| 否定の値指定 | `--tsopt False`、`--tsopt no`、`--tsopt 0`、`--tsopt off` |
 
 ```bash
 --tsopt --thermo --no-dft                        # トグル記法
---tsopt True --thermo yes --dft 0                # 値指定記法
---tsopt true --thermo on --dft off               # 混在も可
 ```
 
-4 記法はすべて root CLI の `bool_compat` シンセサイザを経由します。トグル記法（`--tsopt` / `--no-tsopt`）が正規形で、値指定記法（`--tsopt True`）は後方互換のためのレガシー別名として受け付けられます。`tests/test_bool_compat_cli.py` がリリースごとに登録済みの全ブールオプション × 全記法を走査するため、登録漏れは CI で検出されます。
-
-`--detect-layer` は例外です。レイヤー検出は既定で自動実行されるため、
-on/off トグルではなく肯定フラグだけを公開します。
+新しいコマンドには `--tsopt` / `--no-tsopt` を使ってください。値指定も、互換性のため受け付けます。
 
 ### 新しいブールフラグの追加
 
@@ -96,11 +89,11 @@ mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 
 |-----|----------|------|
 | ML | 0.0 | MLIP によるエネルギー・力・Hessian 計算（デフォルトバックエンド: UMA） |
 | Movable-MM | 10.0 | 最適化時に移動可能な MM 原子 |
-| Frozen | 20.0 | 座標固定 |
+| Frozen-MM | 20.0 | 座標固定 |
 
 `define-layer` サブコマンドがこれらの B-factor を PDB に書き込みます。B-factor カラーリングに対応した分子ビューアで層割り当てを確認できます。
 
-B-factor の読み取り時には許容差 1.0 が使用され、0/10/20 に近い値はそれぞれ ML/Movable/Frozen にマッピングされます。
+B-factor の読み取り時には許容差 1.0 が使用され、0/10/20 に近い値はそれぞれ ML/Movable-MM/Frozen-MM にマッピングされます。
 
 ### 層の定義方法
 
@@ -113,7 +106,7 @@ B-factor の読み取り時には許容差 1.0 が使用され、0/10/20 に近�
     ```yaml
     calc:
      hess_cutoff: 3.6       # Hessian 対象 MM の距離カットオフ
-     movable_cutoff: 8.0    # Movable-MM の距離カットオフ（それ以外は Frozen）
+     movable_cutoff: 8.0    # Movable-MM の距離カットオフ（それ以外は Frozen-MM）
     ```
 
 3. **B-factor からの読み取り**:
@@ -142,8 +135,8 @@ B-factor の読み取り時には許容差 1.0 が使用され、0/10/20 に近�
 |---|---|
 | `-v 0` | 無出力。成功は終了コードと出力成果物で確認します。 |
 | `-v 1` | マイルストーンのみ: バージョン、入力要約、主要設定、出力先、dry-run / 最終ステータス。banner・`[command]`・`[mode]`・config dump は出ません。 |
-| `-v 2` | デフォルト。banner、`[command]`、`[mode]`、ステージ進捗、主要な optimizer サイクル表、終了ステータス、Hessian 1 行要約、thermo / DFT 要約、経過時間を追加します。 |
-| `-v 3` | デバッグ: resolved config / dry-run plan、backend DEBUG、raw optimizer・内部座標の詳細、`[HessianTiming]`、`[HessianVRAM]`。 |
+| `-v 2` | デフォルト。banner、`[command]`、`[mode]`、ステージ進捗、主要なオプティマイザのサイクル表、終了ステータス、Hessian 1 行要約、thermo / DFT 要約、経過時間を追加します。 |
+| `-v 3` | デバッグ: resolved config / dry-run plan、backend DEBUG、オプティマイザ・内部座標の詳細、`[HessianTiming]`、`[HessianVRAM]`。 |
 
 意味的な失敗はどのレベルでも失敗です。`-v 3` でのみ現れる `Traceback` も実行失敗を意味します。
 
@@ -209,8 +202,6 @@ PDB 入力の場合、`--ligand-charge` で非標準残基（基質、補因子�
 3. 抽出をスキップした場合の `--ligand-charge` フォールバック（PDB 入力または `--ref-pdb` が必要）。
 4. `.gjf` の電荷/スピンヘッダ（Gaussian 形式）。このヘッダを読むのは `oniom-import` のみです（`bond-summary` も `.gjf` のジオメトリを読みますが、最適化/MEP パイプラインは PDB/XYZ を入力とします）。
 5. デフォルト: なし（未解決なら中断）。
-
-計算系サブコマンド（`scan` / `scan2d` / `scan3d` / `opt` / `sp` / `path-opt` / `path-search` / `tsopt` / `freq` / `irc` / `dft` / `oniom-export`）では、引き続き `-q/--charge` の明示指定が必要です。
 
 ```{tip}
 非標準の残基（基質、補因子、特殊なリガンド）には必ず `--ligand-charge` を指定し、正しい電荷伝播を確保してください。

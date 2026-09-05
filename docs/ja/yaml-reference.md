@@ -207,7 +207,7 @@ Chain-of-states（COS）最適化（GS/DMF ストリング最適化等）では�
 プラトー判定は自動的にスキップされます。`--microiter` の **MM micro 反復** でも
 常にスキップされます（力が閾値を超えたまま MM エネルギーが平坦なのは MM 平衡ではなく
 停滞した micro 緩和であり、そこで止めると周辺環境が緩和されないまま macro/micro
-交互計算が終了してしまうためです）。micro 側の上限は `microiter.micro_max_cycles` で、これは予定回数ではなく backstop です（micro は収束で抜けます。リリーススモークの ML/MM TS レーンでは中央値 56 cycle、791 回中3回の過渡だけが 10^4 台を要しました）。
+交互計算が終了してしまうためです）。`microiter.micro_max_cycles` は MM 緩和の回数上限で、通常は収束した時点で終了します。
 
 ---
 
@@ -514,7 +514,7 @@ irc:
  dump_every: null # デフォルトでは無効。有効化する場合のみ正の間隔を指定
  max_pred_steps: 500 # 予測子-修正子の最大ステップ数
  loose_cycles: 3 # 引き締め前の緩いサイクル数
- corr_func: mbs # 相関関数の選択
+ corr_func: mbs # EulerPC の修正子関数
 ```
 
 ---

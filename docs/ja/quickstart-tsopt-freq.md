@@ -17,7 +17,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --out-dir ./result_tsopt
 ```
 
-`tsopt` は最適化の最後に自動で Hessian 行列（Hessian）の計算と虚振動数の確認を実行します。ターミナル出力で以下のような行を確認してください。
+数値最適化が収束すると、`--skip-final-freq` 指定時を除き、`tsopt` が終端の Hessian と虚振動を確認します。コンソール出力で次の行を確認してください。
 
 ```
 [Imaginary modes] n=1 ([-593.1])
@@ -40,7 +40,7 @@ mlmm freq -i ./result_tsopt/final_geometry.pdb --parm real.parm7 --model-pdb ml_
 
 ## 補足
 
-- 代表的な対象系の pilot で `Analytical` と `FiniteDifference` の runtime と memory を比較してください。
+- 対象系の予備計算で `Analytical` と `FiniteDifference` の実行時間とメモリ使用量を比較してください。
 - 別の MLIP バックエンドを使用するには `-b orb`（または `mace`、`aimnet2`）を追加します。デフォルトは `uma` です。
 - 全オプションは `mlmm tsopt --help-advanced` と `mlmm freq --help-advanced` を参照してください。
 

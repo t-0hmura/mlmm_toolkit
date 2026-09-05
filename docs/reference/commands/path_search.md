@@ -3,7 +3,7 @@
 ```text
 Usage: mlmm path-search [OPTIONS]
 
-  Multistep MEP search via recursive GSM segmentation.
+  Multistep MEP search via recursive GSM/DMF segmentation.
 
 Options:
   -v, --verbose LEVEL             Console verbosity 0-3 (default 2). 0=silent;
@@ -107,9 +107,10 @@ Options:
                                   dry-run]
   --preopt / --no-preopt          If True, run initial single-structure
                                   optimizations of inputs.  [default: preopt]
-  --align / --no-align            After pre-optimization, align all inputs to
-                                  the *first* input and match freeze_atoms using
-                                  the align_freeze_atoms API.  [default: align]
+  --align / --no-align            After optional preoptimization, align adjacent
+                                  inputs in sequence and match frozen-atom
+                                  positions while relaxing the remaining atoms.
+                                  [default: align]
   --ref-pdb FILE                  Full-size template PDBs in the same reaction
                                   order as --input. Required when using XYZ
                                   inputs to provide topology and B-factor

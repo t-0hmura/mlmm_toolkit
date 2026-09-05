@@ -65,21 +65,13 @@ Full table: [CLI Conventions](cli-conventions.md).
 ## Installation
 
 ```bash
-# 0. Clone only for editable development or repository examples; skip for a released wheel
-git clone https://github.com/t-0hmura/mlmm_toolkit.git && cd mlmm_toolkit
-
 # 1. New env + AmberTools + PyTorch (choose for the NVIDIA driver and GPU architecture)
 conda create -n mlmm-toolkit python=3.12 -y && conda activate mlmm-toolkit
 conda install -c conda-forge ambertools pdbfixer -y
 pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cu130
 
-# 2a. Released wheel
+# 2. Install
 pip install mlmm-toolkit
-
-# 2b. Or editable source from the clone above
-pip install -e .
-# Optional MLIP extras: pip install -e ".[orb]"  /  ".[aimnet]"  /  ".[dft]"  /  ".[mcp]"
-# MACE: install in a dedicated env (incompatible with UMA via e3nn==0.4.4 vs >=0.5)
 
 # 3. (UMA backend only) Authenticate Hugging Face once
 #    Accept the FAIR Chemistry License v1 at https://huggingface.co/facebook/UMA, then:
@@ -94,6 +86,7 @@ mlmm --version
 
 | Component | When to add | Install |
 |---|---|---|
+| ORB / AIMNet2 | Alternative MLIP backends | `pip install "mlmm-toolkit[orb]"` / `pip install "mlmm-toolkit[aimnet]"`. Use a separate environment for MACE because its `e3nn` dependency conflicts with UMA. |
 | `hessian_ff` native build | If you see a "native extension not available" warning. JIT compilation usually handles it. | First install `ninja` on most clusters: `conda install -c conda-forge ninja -y`. Then build: `cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make`. |
 | `cyipopt` + `pydmf>=1.2` | Direct Max Flux (DMF) MEP backend for `all`, `path-search`, and `path-opt` (`--mep-mode dmf`). `pydmf>=1.2` ships the PyTorch backend `dmf.torch` used by the default `--dmf-backend gpu`; pass `--dmf-backend cpu` on a GPU out-of-memory error. | `conda install -c conda-forge cyipopt -y && pip install 'pydmf>=1.2'` |
 | Plotly Chrome | Static PNG export beyond default `kaleido` | `plotly_get_chrome -y` (~150 MB) |
@@ -139,7 +132,7 @@ custom flows.
 
 | Mode | Trigger | Appropriate input |
 |---|---|---|
-| Multi-structure MEP | `-i R.pdb P.pdb [I1.pdb ...]` | Two or more endpoints/intermediates are available. |
+| Multi-structure MEP | `-i R.pdb [I1.pdb ...] P.pdb` | Two or more endpoints/intermediates are available. |
 | Scan-defined single-structure workflow | `-i ONE.pdb --scan-lists '[...]' [ '[...]' ...]` | Reaction coordinates are specified instead of endpoint structures. |
 | TS-only | `-i TS_CANDIDATE.pdb --tsopt` | A TS candidate is already available for `tsopt → IRC → freq`. |
 
@@ -168,6 +161,8 @@ Single-input runs require **either** `--scan-lists` (staged scan → GSM) **or**
 ```
 
 ## Multi-backend examples
+
+Here, `ml_region.pdb` contains the full system described by `real.parm7`; `ml.pdb` selects the ML atoms.
 
 ```bash
 mlmm opt -i ml_region.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 -b orb         # ORB
@@ -225,7 +220,7 @@ Full option matrix and YAML schema: [YAML Reference](yaml-reference.md). Subcomm
 
 ## Run summaries
 
-Every `mlmm all` run that reaches its summary writer creates `summary.log` (human-readable) and `summary.json` (machine-readable) with the CLI command, global MEP statistics, per-segment barriers and bond changes, and MLIP/thermochemistry/DFT energies when enabled. The root summary contains the per-segment records. Each `segments/seg_NN/` directory holds canonical reactant/TS/product structures and the stage directories reached by that run; a stage-local `result.json`/`summary.json` exists only where that leaf writer emitted JSON. See [Output Directory Layout](output-layout.md).
+Read `summary.log` and `summary.json` in the output directory for the command, MEP statistics, segment barriers and bond changes, and requested post-processing energies. Early input errors may leave these files absent. Each `segments/seg_NN/` directory holds that segment's stage results. See [Output Directory Layout](output-layout.md) for stage-level JSON output conditions.
 
 ## Getting help
 

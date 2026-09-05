@@ -1,16 +1,18 @@
 # `scan`
 
-`mlmm scan` drives a reaction coordinate from a single layered enzyme structure to generate a coarse reaction trajectory, providing intermediate/product candidates for downstream MEP refinement. Input may be PDB/mmCIF, or XYZ with `--ref-pdb`. It performs a staged, bond-length-driven scan with the ML/MM calculator (`mlmm.backends.mlmm_calc.mlmm`), driving one or more interatomic distances toward target values under harmonic restraints. At each step the temporary targets are updated, restraint wells are applied, and the structure is relaxed with L-BFGS. The ML/MM calculator couples an MLIP backend (selected via `-b/--backend`; default: UMA) and mlmm-toolkit's MM force field. Use `-s/--scan-lists` to define targets as a YAML/JSON spec file (recommended) or as inline Python literals.
+`mlmm scan` drives one or more interatomic distances from a single layered enzyme structure toward target values under harmonic restraints, relaxing the structure with L-BFGS at each step. This ML/MM scan generates a coarse reaction trajectory and intermediate/product candidates for downstream MEP refinement. Input may be PDB/mmCIF, or XYZ with `--ref-pdb`. Use `-s/--scan-lists` to define target distances in a YAML/JSON spec file (recommended) or as inline Python literals.
 
 ## Scan-coordinate staging
 
-One literal or YAML `stages` entry defines one stage. Several distance tuples
+For 3-tuple input, one literal or YAML `stages` entry defines one stage. Several distance tuples
 within that stage are advanced concertedly. Several literals/entries define
 sequential stages, each starting from the preceding endpoint.
 [`scan2d`](scan2d.md) and [`scan3d`](scan3d.md) instead evaluate independent
 distance axes for energy-landscape exploration and PES mapping.
 
 ## Examples
+
+Here, `pocket.pdb` contains the full system matching `real.parm7`; `ml_region.pdb` selects its ML subset without link hydrogens.
 
 Command form:
 
@@ -106,9 +108,9 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based atom indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
 | `--movable-cutoff FLOAT` | Movable-MM distance cutoff (Å); providing this disables `--detect-layer`. | _None_ |
-| `-s, --scan-lists TEXT` | Scan targets: a YAML/JSON spec file path (auto-detected) or inline Python literal(s) with `(i, j, target_A)` triples or `(i, j, start, end)` 4-tuples for bidirectional scans. Each literal is one stage; supply multiple literals after a single flag. `i`/`j` can be integer indices or PDB atom selectors like `"TYR,285,CA"`. | Required |
+| `-s, --scan-lists TEXT` | Scan targets: a YAML/JSON spec file path (auto-detected) or inline Python literal(s) with `(i, j, target_A)` triples or `(i, j, start, end)` 4-tuples for bidirectional scans. Supply multiple literals after a single flag. `i`/`j` can be integer indices or PDB atom selectors like `"TYR,285,CA"`. | Required |
 | `--one-based/--zero-based` | Interpret atom indices as 1-based (default) or 0-based. | `True` (1-based) |
-| `--print-parsed/--no-print-parsed` | Print parsed stage tuples after `-s/--scan-lists` resolution. | `False` |
+| `--print-parsed/--no-print-parsed` | Print parsed scan targets and exit without running the scan. | `False` |
 | `--max-step-size FLOAT` | Maximum change in any scanned bond per step (Å). Controls the number of biased relaxation steps. | `0.20` |
 | `--bias-k FLOAT` | Harmonic bias strength `k` in eV/Å². | `300` |
 | `--max-cycles INT` | L-BFGS cycle cap per biased step and per pre/end optimization stage. | `100000` |
@@ -124,7 +126,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--cmap/--no-cmap` | Preserve CMAP in both REAL and MODEL MM layers. | `--cmap` |
 | `--mm-backend [hessian_ff\|openmm]` | MM backend. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | Link-atom placement: scaled ($g$-factor) or fixed 1.09/1.01 Å. | `scaled` |
-| `--out-json/--no-out-json` | Write machine-readable `result.json` to `out_dir`. | `False` |
+| `--out-json/--no-out-json` | Write `result.json` to `out_dir`. | `False` |
 | `--dry-run/--no-dry-run` | Validate options and print the execution plan without running the scan. Shown in `--help-advanced`. | `False` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 
@@ -157,7 +159,7 @@ Each literal is a Python list of triples `(atom1, atom2, target_A)`:
 
 - Wrap the entire literal in **single quotes** so the shell does not interpret parentheses or spaces.
 - Each triple drives the distance between `atom1`--`atom2` toward `target_A`.
-- One literal = one **stage**. For multiple stages, pass multiple literals after a **single** `-s/--scan-lists` flag (do not repeat the flag).
+- For 3-tuples only, one literal = one **stage**. For multiple stages, pass multiple literals after a **single** `-s/--scan-lists` flag (do not repeat the flag).
 
 Atoms can be given as **integer indices** or **PDB selector strings**:
 
@@ -238,14 +240,14 @@ This is equivalent to two manual stages with a geometry reset between them, but 
 
 ## Reading the barrier direction
 
-The barrier you read depends on which endpoint the scan started from. If the scan (or the path it seeds) **starts at the product**, the raw reported barrier is the **reverse** direction.
+`scan` records sampled and final energies. A barrier derived from a product-start scan, or the path it seeds, is the reverse barrier.
 
 | Quantity | Formula |
 | --- | --- |
 | Forward barrier | `E(TS) − E(reactant)` |
-| Reverse barrier (the raw product-start number) | `E(TS) − E(product)` |
+| Reverse barrier | `E(TS) − E(product)` |
 
-This is a *read-time* interpretation, not a CLI flag. Always confirm which endpoint is the reactant versus the product by reading `segments/seg_NN/{reactant,product}.pdb` from the IRC, rather than trusting the scan direction. For a product-start campaign, the forward barrier you want is `E(TS) − E(reactant)`, not the number printed against the product start.
+Assign reactant and product identities by inspecting the optimized IRC endpoints before interpreting either barrier.
 
 ## YAML configuration
 

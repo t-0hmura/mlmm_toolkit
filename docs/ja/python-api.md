@@ -45,7 +45,7 @@ core = MLMMCore(
     model_charge=0,
     model_mult=1,
     backend="uma",               # uma | orb | mace | aimnet2
-    return_partial_hessian=True, # 部分Hessian（ML領域のみ）
+    return_partial_hessian=True, # Hessian 計算対象の可動原子に対する部分 Hessian
 )
 ```
 
@@ -60,7 +60,7 @@ core = MLMMCore(
 | `model_mult` | `int` | `1` | スピン多重度 |
 | `backend` | `str` | `"uma"` | MLIPバックエンド |
 | `mm_backend` | `str` | `"hessian_ff"` | MMエンジン（`hessian_ff`または`openmm`） |
-| `return_partial_hessian` | `bool` | `True` | 部分 Hessian（ML + 境界）を返す |
+| `return_partial_hessian` | `bool` | `True` | Hessian 対象の非凍結原子の部分 Hessian を返す |
 | `link_mlmm` | `list[tuple[str, str]]` | `None` | 手動境界ペア。各 tuple は `(ML 側, MM 側)` の順。`None` は距離ではなく supplied parm7 の全 crossing bond から自動導出 |
 
 ### compute()

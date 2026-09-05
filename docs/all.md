@@ -27,7 +27,7 @@ PDB and public CIF companions restore the original identifiers.
 terminal saddle order separately. `all` proceeds to IRC only when optimization
 converged, terminal PHVA completed, and a negative reaction direction is
 available. A converged higher-order stationary point may continue through
-warning-labelled **diagnostic** IRC, but it is not a certified first-order TS.
+warning-labeled **diagnostic** IRC, but it is not a certified first-order TS.
 Actual optimizer non-convergence, zero imaginary modes, failed/unavailable PHVA,
 or no valid negative root stops after preserving TS artifacts and before IRC.
 `--skip-final-freq` also stops before IRC because the reaction direction cannot
@@ -95,13 +95,13 @@ artifact and is always written for PDB input.
    - Omitting `-c/--center` skips extraction and uses the full input structures directly.
 2. **ML/MM preparation (parm7 + layer assignment)**
    - `mm_parm` runs once on the first full input PDB and writes `<out-dir>/mm_parm/<input_basename>.parm7` / `.rst7` (a reusable deliverable you can pass back as `--parm`), which are passed automatically as `--parm`.
-   - `define-layer` runs on each full-system PDB and assigns 3-layer B-factors (ML = 0.0, Movable-MM = 10.0, Frozen = 20.0) based on the ML-region definition. The layered full-system PDBs are written under `<out-dir>/layered/`.
+   - `define-layer` runs on each full-system PDB and assigns 3-layer B-factors (ML = 0.0, Movable-MM = 10.0, Frozen-MM = 20.0) based on the ML-region definition. The layered full-system PDBs are written under `<out-dir>/layered/`.
 3. **Optional staged scan** (single-structure only)
    - When exactly one input PDB is provided and `--scan-lists` is given, the tool performs a staged, bond-length-driven scan on the layered full-system PDB using the ML/MM calculator.
    - Each stage's relaxed structure (`stage_XX/result.pdb`) is collected as an intermediate / product candidate. The ordered input series for the path search becomes `[initial layered PDB, stage_01/result.pdb, stage_02/result.pdb, ...]`.
 4. **MEP search on full-system layered PDBs**
    - All MEP calculations run on full-system layered PDBs (with `--parm` and `--detect-layer`), not on pockets.
-   - **`--refine-path`** runs recursive `path_search` with automatic refinement, detecting multistep reactions and building a detailed MEP per elementary step. It also refines a single-step MEP, relaxing the HEI region on a path that needs no subdivision. `--max-depth` caps the subdivision levels (`0` disables subdivision). Complex multistep mechanisms may need manual trial-and-error to obtain a converged pathway.
+   - **`--refine-path`** runs recursive `path_search` with automatic refinement, proposing multistep reaction-path candidates for TS/IRC validation. It also refines a single-step MEP, relaxing the HEI region on a path that needs no subdivision. `--max-depth` caps the subdivision levels (`0` disables subdivision). Complex multistep mechanisms may need manual trial-and-error to obtain a converged pathway.
    - Select GSM (default) or DMF with `--mep-mode`. `--dmf-backend gpu` uses `dmf.torch`; use `--dmf-backend cpu` for the NumPy implementation or after a GPU out-of-memory error.
    - **`--no-refine-path` (default)** runs `path-opt` with the selected optimizer per adjacent pair, then concatenates trajectories, extracts the HEI per segment, detects bond changes, and writes `summary.json`. Both modes support Stage 5 post-processing.
    - For multi-input runs, the original full PDBs are supplied as merge references automatically. In the scan-derived series (single-structure case), the single original full PDB is reused as the reference template.
@@ -160,7 +160,7 @@ The tree has three zones: **deliverables at the root**, **per-segment deliverabl
 
 In **TSOPT-only mode** (single input + `--tsopt`, no `--scan-lists`) there is no MEP stage. `ts/` is written under `segments/seg_01/`; after the TS gate, the E1/TS/E2 structures and `irc/` are added there, followed by requested `freq/` and `dft/` outputs. `_work/path_opt/` is absent.
 
-At `-v 2` the console summarises extraction, MM preparation, scan stages, MEP progress, and per-stage timing; see {ref}`verbosity-levels`.
+At `-v 2` the console summarizes extraction, MM preparation, scan stages, MEP progress, and per-stage timing; see {ref}`verbosity-levels`.
 
 ### Reading `summary.log`
 
@@ -235,9 +235,9 @@ Defaults shown are used when the option is not specified. The full flag list is 
 ### MEP search
 
 ```{note}
-`--max-cycles-gsm` and `--max-cycles-dmf` control only the selected MEP child
-and each default to 300. Scan, TS optimization, IRC, and other stages keep
-their dedicated cycle options and defaults.
+`--max-cycles-gsm` and `--max-cycles-dmf` control only the selected MEP stage.
+Scan, TS optimization, IRC, and other stages keep their dedicated cycle options
+and defaults.
 ```
 
 | Option | Description | Default |
@@ -258,7 +258,7 @@ their dedicated cycle options and defaults.
 | `--thresh-dmf TEXT` | IPOPT dual-infeasibility tolerance of the DMF MEP stage: `tight` (0.04), `middle` (0.10), `loose` (0.20), or a positive float. Not a Gaussian preset. | `tight` |
 | `--thresh-post TEXT` | Convergence preset for post-IRC endpoint optimizations. | `baker` |
 | `--preopt / --no-preopt` | Pre-optimize endpoints before segmentation. | `True` |
-| `--refine-path / --no-refine-path` | `--no-refine-path` (default) → single-pass `path-opt`; `--refine-path` → recursive `path-search`, which discovers multistep mechanisms and also refines a single-step MEP, where it can improve a poor HEI or TS estimate. Both modes support Stage 5 (TSOPT / thermo / DFT). | `False` |
+| `--refine-path / --no-refine-path` | `--no-refine-path` (default) → single-pass `path-opt`; `--refine-path` → recursive `path-search`, which proposes multistep reaction-path candidates and also refines a single-step MEP, where it can improve a poor HEI or TS estimate. Both modes support Stage 5 (TSOPT / thermo / DFT). | `False` |
 | `-b, --backend CHOICE` | MLIP backend for the ML region: `uma` (default), `orb`, `mace`, `aimnet2`. | `uma` |
 | `--precision [fp32\|fp64]` | Backend precision. Unset uses UMA/AIMNet2 fp32 and ORB/MACE fp64. AIMNet2 rejects fp64. | backend-specific |
 | `--workers INT` | UMA predictor workers. Values greater than 1 require `fairchem-core[extras]` and are incompatible with an analytical Hessian. | `1` |

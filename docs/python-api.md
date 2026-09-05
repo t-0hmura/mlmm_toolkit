@@ -46,7 +46,7 @@ core = MLMMCore(
     model_charge=0,
     model_mult=1,
     backend="uma",               # uma | orb | mace | aimnet2
-    return_partial_hessian=True, # partial Hessian (ML region only)
+    return_partial_hessian=True, # partial Hessian for the active Hessian atoms
 )
 ```
 

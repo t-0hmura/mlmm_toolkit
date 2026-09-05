@@ -184,6 +184,53 @@ def test_path_opt_rejects_zero_cycles(
 
 
 @pytest.mark.parametrize("command", ["path-opt", "path-search"])
+@pytest.mark.parametrize(
+    ("mode", "nodes", "source", "cli_override", "expected_exit"),
+    [
+        ("gsm", -1, "cli", None, 2),
+        ("gsm", 1, "cli", None, 2),
+        ("gsm", 2, "cli", None, 0),
+        ("dmf", 1, "cli", None, 0),
+        ("gsm", 1, "config", None, 2),
+        ("gsm", 1, "config", 2, 0),
+        ("gsm", 2, "config", 1, 2),
+    ],
+)
+def test_path_dry_run_validates_effective_gsm_nodes(
+    tmp_path: Path, command: str, mode: str, nodes: int,
+    source: str, cli_override: int | None, expected_exit: int,
+) -> None:
+    smoke = Path(__file__).resolve().parent / "smoke"
+    args = [
+        command, "-i", str(smoke / "r_complex_layered.pdb"),
+        str(smoke / "p_complex_layered.pdb"),
+        "--parm", str(smoke / "p_complex.parm7"),
+        "--model-pdb", str(smoke / "pocket_r.pdb"),
+        "-q", "-1", "-m", "1", "--mep-mode", mode,
+        "--no-preopt", "--dry-run", "--out-dir", str(tmp_path / command),
+    ]
+    key = "gs.max_nodes" if command == "path-opt" else "search.max_nodes_segment"
+    if source == "cli":
+        args.extend(["--max-nodes", str(nodes)])
+    else:
+        section, field = key.split(".")
+        config = tmp_path / "nodes.yaml"
+        config.write_text(f"{section}:\n  {field}: {nodes}\n", encoding="utf-8")
+        args.extend([f"--{source}", str(config)])
+    if cli_override is not None:
+        args.extend(["--max-nodes", str(cli_override)])
+    result = CliRunner().invoke(root_cli, args)
+    assert result.exit_code == expected_exit, result.output
+    if expected_exit:
+        assert "--max-nodes" in result.output
+        assert key in result.output
+        assert "at least 2" in result.output
+        assert "Input command is valid" not in result.output
+    else:
+        assert "Input command is valid" in result.output
+
+
+@pytest.mark.parametrize("command", ["path-opt", "path-search"])
 def test_gsm_ignores_a_dormant_dmf_tolerance(
     tmp_path: Path,
     command: str,

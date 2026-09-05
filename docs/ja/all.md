@@ -94,7 +94,7 @@ ML領域PDB pairは別の成果物であり、PDB入力では常に出力され�
 
 4. **全系レイヤード PDB での MEP 探索**
    - すべての MEP 計算は全系レイヤード PDB（`--parm` + `--detect-layer`）上で実行されます（ポケット上ではありません）。
-   - **`--refine-path`:** 自動精密化を含む再帰的 `path_search` を実行し、多段階反応を自動検出して各素反応の詳細な MEP を構築します。分割が不要な単一段階の MEP でも HEI 領域を精密化します。`--max-depth` で分割階層数を制限できます（`0` で分割無効）。複雑な多段階反応では手動での試行錯誤が必要な場合があります。両モードとも Stage 5 後処理に対応。
+   - **`--refine-path`:** 自動精密化を含む再帰的 `path_search` を実行し、TS・IRC で検証する多段階反応経路の候補を構築します。分割が不要な単一段階の MEP でも HEI 領域を精密化します。`--max-depth` で分割階層数を制限できます（`0` で分割無効）。複雑な多段階反応では手動での試行錯誤が必要な場合があります。両モードとも Stage 5 後処理に対応。
    - `--mep-mode` で GSM（デフォルト）または DMF を選択します。`--dmf-backend gpu` は `dmf.torch`、`--dmf-backend cpu` は NumPy 実装を使用します。GPU メモリ不足時は CPU を選択してください。
    - **`--no-refine-path`（デフォルト）:** 隣接ペアごとに選択した最適化法で単一パス `path-opt` を実行後、軌跡を結合、セグメントごとの HEI 抽出、結合変化検出、`summary.json` 書き出しまで行い、Stage 5 後処理（TSOPT、thermo、DFT）が利用可能。
    - マルチ入力実行では、元の完全 PDB がマージ参照として自動的に供給されます。スキャン由来の系列（単一構造の場合）では、元の完全 PDB 1 つがすべての入力の参照テンプレートとして再利用されます。
@@ -173,7 +173,7 @@ metadata に保持し、ユーザー向け pipeline mode には使用しませ�
 - **[5] 出力ディレクトリ構造** -- インラインアノテーション付きの生成ファイルのコンパクトツリー。
 
 ### `summary.json` の読み方
-summary.json はコンパクトな機械可読サマリーです。主なトップレベルキー:
+`summary.json` の主なトップレベルキー:
 - `out_dir`、`n_images`、`n_segments` -- 実行メタデータと総数。
 - `segments` -- `index`、`tag`、`kind`、`barrier_kcal`、`delta_kcal`、`bond_changes` を持つセグメントごとのエントリリスト。
 - `energy_diagrams`（任意）-- `labels`、`energies_kcal`、`energies_au`、`ylabel`、`image` パスを持つダイアグラムペイロード。
@@ -230,9 +230,8 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 ### MEP 探索オプション
 
 ```{note}
-`--max-cycles-gsm` と `--max-cycles-dmf` は選択したMEP childだけを制御し、
-いずれもデフォルト300です。scan、TS最適化、IRCなどは各stage固有のcycle optionと
-デフォルトを使用します。
+`--max-cycles-gsm` と `--max-cycles-dmf` は選択した MEP 計算だけを制御します。
+スキャン、TS 最適化、IRC などは、それぞれのサイクル数オプションとデフォルトを使用します。
 ```
 
 | オプション | 説明 | デフォルト |

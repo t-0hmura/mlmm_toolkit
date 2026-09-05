@@ -1,17 +1,17 @@
 # `scan`
 
-MM backend は選択可能で、デフォルトは `hessian_ff`、代替は OpenMM です。
-
-ML/MM calculatorを用い、調和拘束による結合距離スキャンで階層化された酵素 PDB の反応座標を駆動します。単一の出発構造から 1 つ以上の原子間距離を目標値まで駆動して反応軌跡の粗い候補を生成し、下流の MEP 精密化用の中間体/生成物候補を得たいときに使用します。`mlmm scan` は ML/MM calculator（`mlmm.backends.mlmm_calc.mlmm`）による調和拘束付きの段階的な結合距離駆動スキャンを実行します。各ステップで一時的なターゲットを更新し、調和拘束ポテンシャルを適用して L-BFGS で構造を緩和します。ML/MM calculatorは MLIP バックエンド（デフォルト: UMA、`-b/--backend` で選択）と hessian_ff を結合します。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルとしてターゲット距離を定義します。
+`mlmm scan` は、レイヤー分けした単一の酵素構造から、調和拘束によって1つ以上の原子間距離を目標値へ駆動し、各ステップで L-BFGS により構造を緩和します。この ML/MM スキャンで粗い反応軌跡と、下流の MEP 精密化用の中間体・生成物候補を生成します。入力には PDB/mmCIF、または `--ref-pdb` を伴う XYZ を使用できます。`-s/--scan-lists` で、YAML/JSON スペックファイル（推奨）またはインライン Python リテラルとして目標距離を定義します。
 
 ## スキャン座標のステージ構成
 
-1リテラルまたはYAMLの1つの`stages`要素が1ステージを定義します。
+3 要素タプルの入力では、1 リテラルまたは YAML の 1 つの `stages` 要素が 1 ステージを定義します。
 同一ステージ内の複数距離tupleは協奏的に駆動し、複数のリテラル/要素は
 多段階scanとして前ステージの端点から順次実行されます。`scan2d` / `scan3d`は独立な
 距離軸を用いて energy landscape を探索し、PESを描画します。
 
 ## 実行例
+
+以下の例では、`pocket.pdb` が `real.parm7` に対応する全系構造で、`ml_region.pdb` が ML 領域（リンク水素なし）です。
 
 コマンド形式:
 
@@ -55,7 +55,7 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
  - 各ペアの増分変化は `step_k = delta / N` (Å)。ステップ `s` での一時ターゲットは `r_k(s) = r_k(0) + s * step_k`。
 5. すべてのステップを進み、調和拘束ポテンシャル `E_bias = sum 1/2 * k * (|r_i - r_j| - target_k)^2` を適用して L-BFGS で極小化。`k` は `--bias-k`（eV/Å²）から取得され、Hartree/Bohr^2 に一度だけ変換されます。座標は PySisyphus 用に Bohr で保存され、レポート時に内部変換されます。
 6. 各ステージの最後のステップ後、任意でバイアスなし緩和（`--endopt`）を実行してから共有結合変化を報告し `result.*` ファイルを書き出します。
-7. すべてのステージで繰り返します。任意の軌跡は `--dump` が `True` の場合のみダンプされます。
+7. すべてのステージで繰り返します。
 
 ## 出力
 
@@ -92,9 +92,9 @@ out_dir/ (デフォルト:./result_scan/)
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切り原子インデックス（YAML `geom.freeze_atoms` とマージ）。 | _None_ |
 | `--movable-cutoff FLOAT` | 可動 MM 距離カットオフ (Å)。指定すると `--detect-layer` を無効化。 | _None_ |
-| `-s, --scan-lists TEXT` | スキャンターゲット: YAML/JSON スペックファイルパス（自動検出）または `(i, j, target_A)` 3 要素タプルもしくは `(i, j, start, end)` 4 要素タプル（双方向スキャン）を含むインライン Python リテラル。各リテラルが 1 ステージ。単一フラグの後に複数リテラルを供給可能。`i`/`j` は整数インデックスまたは `"TYR,285,CA"` のような PDB 原子セレクターが使用可能。 | 必須 |
+| `-s, --scan-lists TEXT` | スキャンターゲット: YAML/JSON スペックファイルパス（自動検出）または `(i, j, target_A)` 3 要素タプルもしくは `(i, j, start, end)` 4 要素タプル（双方向スキャン）を含むインライン Python リテラル。単一フラグの後に複数リテラルを供給可能。`i`/`j` は整数インデックスまたは `"TYR,285,CA"` のような PDB 原子セレクターが使用可能。 | 必須 |
 | `--one-based/--zero-based` | 原子インデックスを 1 始まり（デフォルト）または 0 始まりとして解釈。 | `True`（1 始まり） |
-| `--print-parsed/--no-print-parsed` | `-s/--scan-lists` 解釈後のステージ情報を表示。 | `False` |
+| `--print-parsed/--no-print-parsed` | 解釈したスキャン対象を表示し、計算せず終了。 | `False` |
 | `--max-step-size FLOAT` | ステップごとのスキャン結合の最大変化量 (Å)。積分ステップ数を制御。 | `0.20` |
 | `--bias-k FLOAT` | 調和バイアス強度 `k`（eV/Å²）。 | `300` |
 | `--max-cycles INT` | 各バイアスステップおよび pre/end 最適化ステージの L-BFGS サイクル上限。 | `100000` |
@@ -110,7 +110,7 @@ out_dir/ (デフォルト:./result_scan/)
 | `--cmap/--no-cmap` | REAL と MODEL の両 MM 層で CMAP を保持します。 | `--cmap` |
 | `--mm-backend [hessian_ff\|openmm]` | MM バックエンド。Hessian 構築法は `calc.mm_fd` が別に制御します（デフォルト `true`: 有限差分）。 | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | リンク原子の配置: scaled（$g$ 因子）または固定 1.09/1.01 Å。 | `scaled` |
-| `--out-json/--no-out-json` | 機械可読な `result.json` を `out_dir` に書き出す。 | `False` |
+| `--out-json/--no-out-json` | `result.json` を `out_dir` に書き出す。 | `False` |
 | `--dry-run/--no-dry-run` | オプションの検証と実行計画の表示のみ行い、スキャンは実行しない。`--help-advanced` に表示。 | `False` |
 | `--convert-files/--no-convert-files` | PDB テンプレートが利用可能な場合に、XYZ/TRJ から対応する PDB を生成するかどうかを切り替え。 | `True` |
 
@@ -185,7 +185,7 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
  '[("TYR,285,CA","MMT,309,C10",2.20),("TYR,285,CB","MMT,309,C11",1.80)]'
 ```
 
-ステージは順次実行され、各ステージは前のステージの緩和結果から開始します。**`-s/--scan-lists` フラグを繰り返さないでください** -- 単一のフラグの後にすべてのステージリテラルを供給してください。
+ステージは順次実行され、各ステージは前のステージの緩和結果から開始します。
 
 **同期ステージと順次ステージの例**
 
@@ -224,14 +224,14 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ## バリアの方向を読む
 
-読み取るバリアは、スキャンがどちらの端点から始まったかに依存します。スキャン（またはそれを起点に生成した経路）が**生成物から始まる**場合、生のバリア値は**逆方向**です。
+`scan` は各点のエネルギーを保存します。反応障壁は、TS・IRC で検証した構造のエネルギーから求めます。
 
 | 量 | 式 |
 | --- | --- |
 | 順方向バリア | `E(TS) − E(reactant)` |
-| 逆方向バリア（生成物始点の生の値） | `E(TS) − E(product)` |
+| 逆方向の反応障壁 | `E(TS) − E(product)` |
 
-これは*読み取り時*の解釈であり、CLI フラグではありません。どちらの端点が反応物か生成物かは、スキャン方向を信頼せず、IRC の `segments/seg_NN/{reactant,product}.pdb` を読んで必ず確認してください。生成物始点の計算では、必要な順方向バリアは `E(TS) − E(reactant)` であり、生成物始点に対して印字される値ではありません。
+反応物・生成物の割り当ては、IRC 後に最適化した端点構造で確認してください。
 
 ## YAML 設定
 

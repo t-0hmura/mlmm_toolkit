@@ -1609,7 +1609,7 @@ def _build_multistep_path(
 
 
 @click.command(
-    help="Multistep MEP search via recursive GSM segmentation.",
+    help="Multistep MEP search via recursive GSM/DMF segmentation.",
     context_settings={
         "help_option_names": ["-h", "--help"],
         "ignore_unknown_options": True,
@@ -1850,8 +1850,8 @@ def _build_multistep_path(
     "align",
     default=True,
     show_default=True,
-    help=("After pre-optimization, align all inputs to the *first* input and match freeze_atoms "
-          "using the align_freeze_atoms API.")
+    help=("After optional preoptimization, align adjacent inputs in sequence "
+          "and match frozen-atom positions while relaxing the remaining atoms.")
 )
 # Full template PDBs for XYZ→PDB conversion and topology reference
 @click.option(
@@ -2260,6 +2260,14 @@ def cli(
             ),
         )
 
+        if mep_mode_kind == "gsm" and int(
+            search_cfg.get("max_nodes_segment", gs_cfg.get("max_nodes", GS_KW["max_nodes"]))
+        ) < 2:
+            raise click.BadParameter(
+                "GSM requires at least 2 internal nodes.",
+                param_hint="--max-nodes / search.max_nodes_segment",
+            )
+
         hess_cutoff_effective = calc_cfg.get("hess_cutoff")
         movable_cutoff_effective = calc_cfg.get("movable_cutoff")
         if movable_cutoff_effective is not None:
@@ -2506,11 +2514,11 @@ def cli(
         else:
             click.echo("[init] Skipping endpoint pre-optimization as requested by --no-preopt.")
 
-        # Align all inputs to the first structure, guided by freeze constraints, when requested
+        # Align adjacent inputs in sequence, guided by freeze constraints.
         align_thresh = str(stopt_cfg.get("thresh", "gau"))
         if align:
             try:
-                emit("\n====== Aligning all inputs to the first structure (freeze-guided scan + relaxation) ======\n", narrative=True)
+                emit("\n====== Aligning adjacent inputs in sequence (freeze-guided scan + relaxation) ======\n", narrative=True)
                 alignment_results = align_and_refine_sequence_inplace(
                     geoms,
                     thresh=align_thresh,

@@ -92,9 +92,7 @@ backend 内部の Hessian 計算中に発生する out-of-memory は、このオ
 | MACE | fp64 | 上流の `default_dtype="float64"` と一致。 |
 | AIMNet2 | fp32 | 精度切替を持たず、明示的 fp64 は拒否。 |
 
-対応する両精度について、対象 backend/model/system で energy、force、
-frequency、runtime、memory を比較してください。どの精度でも freq と IRC
-による独立検証が必要です。
+両精度に対応する場合は、使用するバックエンド・モデル・対象系で、エネルギー、力、振動数、実行時間、メモリ使用量を比較してください。どの精度でも振動解析と IRC による独立した検証が必要です。
 
 ```bash
 # データセンター H200 — フル精度のベース推論

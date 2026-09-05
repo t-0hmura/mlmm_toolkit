@@ -103,19 +103,6 @@ glossary
 
 ---
 
-## ドキュメントガイド
-
-| トピック | ページ |
-|---------|--------|
-| **インストールと初回実行** | [はじめに](getting-started.md) |
-| **対話型 GPU GUI** | [mlmm Colab notebook](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb) |
-| **主要概念とワークフロー概要** | [概念とワークフロー](concepts.md) |
-| **症状起点の切り分け** | [典型エラー別レシピ](recipes-common-errors.md) |
-| **よくあるエラーと対処** | [トラブルシューティング](troubleshooting.md) |
-| **CLI 規約と入力要件** | [CLI 規約](cli-conventions.md) |
-| **GPU・HPC 設定** | [Device & HPC](device-hpc.md) |
-
----
 
 ## CLI サブコマンド
 
@@ -147,7 +134,7 @@ glossary
 ### スキャン
 | サブコマンド | 説明 |
 |---------|------|
-| [`scan`](scan.md) | 拘束付き距離scan（複数距離の協奏scan・多段階scanに対応） |
+| [`scan`](scan.md) | 拘束付き距離スキャン（複数距離の協奏スキャン・多段階スキャンに対応） |
 | [`scan2d`](scan2d.md) | 2 次元 energy landscape 探索・PES mapping |
 | [`scan3d`](scan3d.md) | 3 次元 energy landscape 探索・PES mapping |
 
@@ -180,6 +167,8 @@ glossary
 | トピック | ページ |
 |---------|--------|
 | **CLI コマンドリファレンス** | [コマンドリファレンス](../reference/commands/index.md) |
+| **CLI 規約と入力要件** | [CLI 規約](cli-conventions.md) |
+| **GPU・HPC 設定** | [デバイスと HPC](device-hpc.md) |
 | **`mlmm all` スターター設定** | [スターター設定スナップショット（抜粋）](../reference/yaml.md) |
 | **YAML 設定オプション** | [YAML リファレンス](yaml-reference.md) |
 | **ML/MM calculatorアーキテクチャ** | [ML/MM calculator](mlmm-calc.md) |
@@ -189,40 +178,14 @@ glossary
 
 ## システム要件
 
-installation と backend ごとの互換性は
-[Getting Started](getting-started.md#インストール) を参照してください。
-GPU/driver は選択 backend の要件を満たす必要があります。VRAM、RAM、
-walltime は対象系の代表的な pilot と scheduler log から設定してください。
+インストールとバックエンドごとの互換性は、
+[はじめに](getting-started.md#インストール)を参照してください。
+GPU とドライバーは、選択したバックエンドの要件を満たす必要があります。
+VRAM、RAM、実行時間は、対象系の予備計算とジョブログから見積もってください。
 `mm-parm` には AmberTools が必要です。
 
 ---
 
-## クイック例
-
-### 基本的な ML/MM MEP 探索
-```bash
-mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'
-```
-
-### TS 最適化を含む完全ワークフロー
-```bash
-mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
- --tsopt --thermo --dft
-```
-
-### 単一構造スキャンモード
-```bash
-mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 -s scan.yaml
-```
-
-### TS 最適化のみ
-```bash
-mlmm -i TS_candidate.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
- --tsopt
-```
-
----
 
 ## 重要な概念
 
@@ -230,7 +193,7 @@ mlmm -i TS_candidate.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
 mlmm は PDB の B-factor による 3 層分割スキームを使用します:
 - **ML 領域**（B=0.0）: 選択した MLIP バックエンドで計算
 - **Movable-MM**（B=10.0）: 最適化時に移動可能な MM 原子
-- **Frozen**（B=20.0）: 座標固定の MM 原子。最適化中に座標は変化しないが、Movable-MM および ML 領域との非結合相互作用（静電・van der Waals）は MM エネルギー評価に含まれる
+- **Frozen-MM**（B=20.0）: 座標固定の MM 原子。最適化中に座標は変化しないが、Movable-MM および ML 領域との非結合相互作用（静電・van der Waals）は MM エネルギー評価に含まれる
 
 Hessian 計算に含める MM 原子は、B-factor 専用層ではなく `hess_cutoff` や `hess_mm_atoms` で制御します。
 
@@ -256,8 +219,8 @@ Hessian 計算に含める MM 原子は、B-factor 専用層ではなく `hess_c
 典型的な `mlmm all` 実行の出力:
 ```
 result_all/
-├── summary.log # 人間が読めるサマリー
-├── summary.json # 機械可読サマリー
+├── summary.log # 実行要約
+├── summary.json # 実行要約（JSON）
 ├── mep.pdb / mep.cif / mep_trj.xyz # CIF は bridge 入力時
 ├── energy_diagram_MEP.png # MEP ダイアグラム
 ├── ml_region.pdb # ML 領域定義（--model-pdb として再利用可）

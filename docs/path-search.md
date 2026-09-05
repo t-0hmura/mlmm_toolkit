@@ -1,6 +1,6 @@
 # `path-search`
 
-`mlmm path-search` builds a continuous minimum-energy path (MEP) across two or more structures using the selected MEP engine (GSM by default, or DMF). It selectively refines only those regions where covalent bond changes are detected, then stitches the resolved subpaths into a single trajectory. Use it to drive a multistep mechanism from R + (optional intermediates) + P, where the recursive segmentation auto-detects elementary steps. Complex multistep mechanisms may require manual trial-and-error—adjusting input intermediates, MEP-engine settings, or convergence thresholds—to obtain a satisfactory pathway.
+`mlmm path-search` builds a continuous minimum-energy path (MEP) across two or more structures using the selected MEP engine (GSM by default, or DMF). It selectively refines only those regions where covalent bond changes are detected, then stitches the resolved subpaths into a single trajectory. Use it to drive a multistep mechanism from R + (optional intermediates) + P, where recursive segmentation proposes reactive segments for TS/IRC validation. Complex multistep mechanisms may require manual trial-and-error—adjusting input intermediates, MEP-engine settings, or convergence thresholds—to obtain a satisfactory pathway.
 
 ## Examples
 
@@ -40,6 +40,8 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb \
 
 ## Workflow
 
+After optional preoptimization, `--align` aligns adjacent inputs in sequence before MEP search. With frozen atoms, their positions are matched stepwise while the remaining atoms relax.
+
 1. **Initial segment per pair (GSM/DMF)** -- Run the selected MEP engine (`--mep-mode`) between each adjacent input (A->B) to obtain a coarse MEP and identify the highest-energy image (HEI).
 2. **Local relaxation around HEI** -- Seed refinement from `--refine-mode` (`peak`: HEI+/-1, `minima`: nearest local minima), then use L-BFGS to recover nearby minima (`End1`, `End2`).
 3. **Decide between kink vs. refinement**:
@@ -47,7 +49,6 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb \
  - Otherwise, launch a **refinement segment with the selected MEP engine** between `End1` and `End2` to sharpen the barrier.
 4. **Selective recursion** -- Compare bond changes for `(A->End1)` and `(End2->B)` using the `bond` thresholds. Recurse only on sub-intervals that still contain covalent bond changes. `search.max_depth` sets how many levels of recursive subdivision are allowed; `0` performs no subdivision. Reaching the limit is not an error. Any segment retained at a positive cap is tagged `seg_NNN_maxdepth` and is not guaranteed to be a single elementary step.
 5. **Stitching & bridging** -- Concatenate resolved subpaths, dropping duplicate endpoints when RMSD <= `search.stitch_rmsd_thresh`. If the RMSD gap between two stitched pieces exceeds `search.bridge_rmsd_thresh`, insert a bridge MEP segment using the selected `--mep-mode`. When the interface itself shows a bond change, a new recursive segment replaces the bridge.
-6. **Optional alignment/refinement** -- After optional preoptimization, `--align` rigidly aligns inputs to the first input. With frozen anchors, the shared owner also performs a freeze-guided scan and L-BFGS relaxation toward the reference, then re-matches the freeze-atom selection. Segments are annotated for plotting/analysis.
 
 Bond-change detection relies on `bond_changes.compare_structures` with thresholds surfaced under the `bond` YAML section.
 

@@ -76,9 +76,7 @@ mlmm irc -i ts.pdb --parm real.parm7 -q 0 -m 1 --precision fp64
 | `mace` | fp64 | MACE は上流で `default_dtype="float64"` をデフォルトとする。 |
 | `aimnet2` | fp32 | 精度の切り替えを持たない。 |
 
-対応する両精度について、対象 backend/model/system で energy、force、
-frequency、runtime、memory を比較してください。精度の選択にかかわらず
-frequency と IRC による独立検証が必要です。
+両精度に対応する場合は、使用するバックエンド・モデル・対象系で、エネルギー、力、振動数、実行時間、メモリ使用量を比較してください。精度の選択にかかわらず、振動解析と IRC による独立した検証が必要です。
 
 統一された `--backend-model NAME` フラグも同様に、選択中の `--backend` のモデル変種を
 上書きし、`apply_backend_model_to_calc_cfg` によってバックエンドのモデル kwarg
@@ -116,11 +114,11 @@ def get_calculator(charge=0, spin=1, device="auto", **kwargs):
 `EMT()` を使いたいエンジンに差し替えてください — 例えば GFN-xTB なら
 `tblite.ase.TBLite(...)`、DFTB+ の ASE calculator、`ase.calculators.orca.ORCA(...)`
 など。このファイルを各stageまたは`all`に渡すと、`custom` ML backendが選択され
-`--backend`を上書きします:
+`--backend` を上書きします。以下の例では、有効な B-factor 層定義を持つ全系 PDB を使います:
 
     mlmm sp    -i complex.pdb --parm system.parm7 --calc-file my_calc.py -q 0 -m 1
-    mlmm opt   -i complex.pdb --parm system.parm7 --calc-file my_calc.py
-    mlmm freq  -i complex.pdb --parm system.parm7 --calc-file my_calc.py
+    mlmm opt   -i complex.pdb --parm system.parm7 --calc-file my_calc.py -q 0 -m 1
+    mlmm freq  -i complex.pdb --parm system.parm7 --calc-file my_calc.py -q 0 -m 1
     mlmm all   -i R.pdb P.pdb --parm system.parm7 --calc-file my_calc.py -q 0 -m 1
 
 補足:

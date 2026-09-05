@@ -71,15 +71,13 @@ conda install -c conda-forge ninja -y
 cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make clean && make
 ```
 
-Also ensure `hessian_ff` is importable at all (it is if you installed mlmm-toolkit with `pip install -e .`).
-
 ---
 
 ## B-factor layer assignment
 
-Encoding: ML = 0.0, Movable-MM = 10.0, Frozen = 20.0 (tolerance ±1.0). Common symptoms:
+Encoding: ML = 0.0, Movable-MM = 10.0, Frozen-MM = 20.0 (tolerance ±1.0). Common symptoms:
 
-- **Wrong layer assignments / ML region too small or too large** — verify `--model-pdb` selects the intended atoms; adjust `--radius-freeze` (default 8.0 Å) for the Movable / Frozen boundary; control Hessian-target MM separately via `hess_cutoff` / `hess_mm_atoms`. Inspect the layered PDB visually (color by B-factor).
+- **Wrong layer assignments / ML region too small or too large** — verify `--model-pdb` selects the intended atoms; adjust `--radius-freeze` (default 8.0 Å) for the Movable-MM / Frozen-MM boundary; control Hessian-target MM separately via `hess_cutoff` / `hess_mm_atoms`. Inspect the layered PDB visually (color by B-factor).
 - **B-factors not recognized** (calculator treats all atoms as one layer) — re-run `define-layer`; do not hand-edit B-factors to arbitrary values.
 - **Automatic layer detection produces unexpected splits or fails without `--model-pdb`** — supply a PDB input (or XYZ + `--ref-pdb`); re-run `define-layer` explicitly. For distance-based control, set `hess_cutoff` / `movable_cutoff`; supplying `--movable-cutoff` automatically takes precedence over B-factor layers.
 
@@ -121,7 +119,7 @@ See the `Plot export fails (Plotly / Chrome)` row above.
 
 ML/MM systems are larger than pure MLIP, so VRAM pressure is higher. Try in order:
 
-1. **Verify Frozen** — `define-layer` should put distal atoms at B=20.0. If the Frozen region is too small, the Movable-MM region (and its Hessian) inflates. Decrease `--radius-freeze` to expand Frozen.
+1. **Verify Frozen-MM** — `define-layer` should put distal atoms at B=20.0. If the Frozen-MM region is too small, the Movable-MM region (and its Hessian) inflates. Decrease `--radius-freeze` to expand Frozen-MM.
 2. **Shrink ML region** — smaller `--radius` in `extract`, or hand-craft a smaller `--model-pdb`.
 3. **Compare Hessian modes** — finite difference often lowers ML autograd memory, but both modes form a dense active-space Hessian; benchmark runtime and peak memory on the target system.
 4. **Pre-define layers** with `define-layer` and `use_bfactor_layers: true` in YAML.
@@ -144,7 +142,7 @@ imaginary mode.
 (optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor)=
 ### Optimizer "stalls" with flat energy + forces just above threshold (MLIP force noise floor)
 
-MLIPs have finite numerical precision. For large ML/MM systems the noise floor can exceed the `gau` / `baker` gradient thresholds, so forces never drop further even though the geometry is stationary. Optimizer runs default to a 100000-cycle cap. To stop earlier once the energy has flattened, opt in with `--stop-plateau` (stops cleanly as a `stalled` outcome — never relabeled as converged — when the 50-step energy range falls below 1.0e-4 au ≈ 0.06 kcal/mol). To tune it:
+MLIPs have finite numerical precision. For large ML/MM systems the noise floor can exceed the `gau` / `baker` gradient thresholds, so forces never drop further. Optimizer runs default to a 100000-cycle cap. To stop earlier once the energy has flattened, opt in with `--stop-plateau` (stops cleanly as a `stalled` outcome — never relabeled as converged — when the 50-step energy range falls below 1.0e-4 au ≈ 0.06 kcal/mol). To tune it:
 
 ```yaml
 opt:
