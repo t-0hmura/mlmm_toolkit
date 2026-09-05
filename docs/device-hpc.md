@@ -119,16 +119,15 @@ hostname
 cd "${PBS_O_WORKDIR}"
 
 # hessian_ff JIT-compiles C++ kernels on first use. If the system compiler is
-# missing or older than GCC 9, load the site's compiler module here:
+# missing or cannot compile in C++20 mode, load the site's compiler module here:
 # module load <COMPILER_MODULE>
 
 # Activate conda environment
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate <your-env>
 command -v g++ >/dev/null || { echo "g++ is required for hessian_ff" >&2; exit 1; }
-gxx_major=$(g++ -dumpversion | cut -d. -f1)
-if [[ ! $gxx_major =~ ^[0-9]+$ ]] || (( gxx_major < 9 )); then
-  echo "hessian_ff requires GCC >= 9 (found major: $gxx_major)" >&2
+if ! g++ -std=c++20 -x c++ -fsyntax-only /dev/null; then
+  echo "hessian_ff requires a compiler supporting PyTorch's C++20 JIT flag" >&2
   exit 1
 fi
 command -v ninja >/dev/null || { echo "ninja is required for hessian_ff" >&2; exit 1; }
@@ -163,9 +162,8 @@ hostname
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate <your-env>
 command -v g++ >/dev/null || { echo "g++ is required for hessian_ff" >&2; exit 1; }
-gxx_major=$(g++ -dumpversion | cut -d. -f1)
-if [[ ! $gxx_major =~ ^[0-9]+$ ]] || (( gxx_major < 9 )); then
-  echo "hessian_ff requires GCC >= 9 (found major: $gxx_major)" >&2
+if ! g++ -std=c++20 -x c++ -fsyntax-only /dev/null; then
+  echo "hessian_ff requires a compiler supporting PyTorch's C++20 JIT flag" >&2
   exit 1
 fi
 command -v ninja >/dev/null || { echo "ninja is required for hessian_ff" >&2; exit 1; }
@@ -184,7 +182,7 @@ mlmm opt \
 - **CPU threads:** Request enough CPUs for the MM backend (`mm_threads`, default 16). Set `ppn=32` (PBS) or `--cpus-per-task=32` (Slurm) for a safety margin.
 - **Memory:** size RAM from a representative pilot and scheduler peak-memory logs.
 - **CUDA runtime:** Official PyTorch wheels carry CUDA user-space libraries; a compatible NVIDIA driver is normally sufficient. Load a site CUDA toolkit only for an extension that needs it.
-- **C++ compiler:** The default `hessian_ff` MM backend JIT-compiles C++ kernels on first use, independently of CUDA. Every compute node needs GCC ≥ 9 and Ninja; load a compiler module when the system `g++` is absent or too old.
+- **C++ compiler:** The default `hessian_ff` MM backend JIT-compiles C++ kernels on first use, independently of CUDA. Every compute node needs a C++20-capable compiler and Ninja (GCC 13.3 was validated); load a compiler module when the system `g++` is absent or too old.
 
 ### Specifying a GPU index
 

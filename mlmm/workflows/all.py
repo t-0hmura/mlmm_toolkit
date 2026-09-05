@@ -2075,11 +2075,8 @@ def _enrich_summary(
             "endpoint_opt_mode": citation_config.get("endpoint_opt_mode"),
             "mep_mode": citation_config.get("mep_mode"),
             "dmf_correlated": citation_config.get("dmf_correlated"),
-            # The path-optimizer citation is gated on `preopt`, and a missing
-            # key reads as "preoptimization ran". Without this the reference
-            # list in summary.json cites a single-structure optimizer that a
-            # `--no-preopt` run never used, contradicting summary.log.
             "preopt": citation_config.get("preopt"),
+            "path_optimizers": summary.get("path_optimizers"),
             "post_segments": post_segments or [],
             "mlip_backend": summary.get("mlip_backend"),
             "mlip_model": summary.get("mlip_model"),
@@ -4097,8 +4094,8 @@ def _configure_all_help_visibility(command: click.Command) -> None:
               help=("Recursive subdivision levels; requires --refine-path. 0 performs no "
                     "subdivision, returning each input pair as one MEP segment (none when its "
                     "HEI sits at an endpoint). Reaching the limit is not "
-                    "an error: the remaining interval is returned as one segment that was not subdivided, "
-                    "tagged seg_NNN_maxdepth, and is therefore not guaranteed to "
+                    "an error. Any segment retained at a positive cap is tagged "
+                    "seg_NNN_maxdepth and is not guaranteed to "
                     "be a single elementary step."))
 @click.option(
     "--gsm-param",
@@ -4888,12 +4885,14 @@ def cli(
     endpoint_opt_mode_default = post_optimizer_mode
 
     citation_post_segments: List[Dict[str, Any]] = []
+    path_optimizers: set[str] = set()
 
     def _all_method_citation_payload() -> Dict[str, Any]:
         return {
             "pipeline_mode": all_mode,
             "path_opt_mode": path_optimizer_mode,
             "preopt": bool(pre_opt),
+            "path_optimizers": sorted(path_optimizers),
             "post_opt_mode": tsopt_opt_mode_default,
             "ts_opt_mode": tsopt_opt_mode_default,
             "endpoint_opt_mode": endpoint_opt_mode_default,
@@ -6714,6 +6713,7 @@ def cli(
             "--out-dir", str(scan_dir),
             "--preopt" if scan_preopt_use else "--no-preopt",
             "--endopt" if scan_endopt_use else "--no-endopt",
+            "--out-json",
         ]
         scan_args.append("--detect-layer" if detect_layer else "--no-detect-layer")
 
@@ -6760,6 +6760,16 @@ def cli(
         _echo("[all] mlmm scan " + " ".join(scan_args))
 
         _run_cli_main("scan", _scan_cli.cli, scan_args, on_nonzero="raise", on_exception="raise", prefix="all")
+
+        try:
+            scan_result = json.loads((scan_dir / "result.json").read_text(encoding="utf-8"))
+            if not isinstance(scan_result, dict):
+                raise ValueError("scan result is not an object")
+        except (OSError, ValueError) as exc:
+            logger.warning("Could not read scan citation provenance: %s", exc)
+            scan_result = {}
+        if scan_preopt_use or any(stage.get("optimizer_status") for stage in scan_result.get("stages", [])):
+            path_optimizers.add("lbfgs")
 
         # Collect stage results — prefer XYZ (full precision), keep PDB as ref for topology
         stage_results: List[Path] = []
@@ -6836,6 +6846,8 @@ def cli(
                     _geoms, shared_calc=_align_calc,
                     out_dir=_align_dir / "refine", verbose=True,
                 )
+                if any(result.get("scan", {}).get("n_steps", 0) > 0 for result in alignment_results):
+                    path_optimizers.add("lbfgs")
                 failed_pairs = alignment_failed_pair_indices(alignment_results)
                 if failed_pairs:
                     raise click.ClickException(
@@ -7027,6 +7039,12 @@ def cli(
             _run_cli_main("path_opt", _path_opt.cli, po_args, on_nonzero="raise", on_exception="raise", prefix="all")
 
             seg_converged = _read_path_opt_segment_converged(seg_out)
+            try:
+                methods = json.loads((seg_out / "result.json").read_text(encoding="utf-8")).get("path_optimizers", [])
+                if isinstance(methods, list):
+                    path_optimizers.update(method for method in methods if method in ("lbfgs", "rfo"))
+            except (OSError, ValueError, AttributeError) as exc:
+                logger.warning("Could not read path-opt citation provenance: %s", exc)
             if pre_opt:
                 path_opt_preopt_convergences.append(
                     _read_path_opt_preopt_converged(seg_out)
@@ -7224,6 +7242,7 @@ def cli(
             "n_images": len(read_xyz_as_blocks(final_trj)),
             "n_segments": len(segments_summary),
             "segments": segments_summary,
+            "path_optimizers": sorted(path_optimizers),
         }
         if pre_opt:
             from mlmm.workflows._outcomes import combine_step_convergence
@@ -7315,6 +7334,8 @@ def cli(
         except Exception:
             summary_loaded = {}
     summary: Dict[str, Any] = summary_loaded if isinstance(summary_loaded, dict) else {}
+    path_optimizers.update(summary.get("path_optimizers", []))
+    summary["path_optimizers"] = sorted(path_optimizers)
     segments = _read_summary(summary_json_path)
     energy_diagrams: List[Dict[str, Any]] = []
     existing_diagrams = summary.get("energy_diagrams", [])

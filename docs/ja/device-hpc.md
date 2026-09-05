@@ -129,16 +129,15 @@ hostname
 cd "${PBS_O_WORKDIR}"
 
 # hessian_ff は初回利用時に C++ カーネルを JIT ビルドします。システムの
-# コンパイラがない、または GCC 9 未満なら、サイトのコンパイラモジュールを読み込みます:
+# コンパイラがない、または C++20 モードでコンパイルできない場合は、サイトのコンパイラモジュールを読み込みます:
 # module load <COMPILER_MODULE>
 
 # conda 環境の有効化
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate <your-env>
 command -v g++ >/dev/null || { echo "hessian_ff には g++ が必要です" >&2; exit 1; }
-gxx_major=$(g++ -dumpversion | cut -d. -f1)
-if [[ ! $gxx_major =~ ^[0-9]+$ ]] || (( gxx_major < 9 )); then
-  echo "hessian_ff には GCC >= 9 が必要です（検出したメジャー: $gxx_major）" >&2
+if ! g++ -std=c++20 -x c++ -fsyntax-only /dev/null; then
+  echo "hessian_ff には PyTorch の C++20 JIT フラグに対応するコンパイラが必要です" >&2
   exit 1
 fi
 command -v ninja >/dev/null || { echo "hessian_ff には ninja が必要です" >&2; exit 1; }
@@ -173,9 +172,8 @@ hostname
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate <your-env>
 command -v g++ >/dev/null || { echo "hessian_ff には g++ が必要です" >&2; exit 1; }
-gxx_major=$(g++ -dumpversion | cut -d. -f1)
-if [[ ! $gxx_major =~ ^[0-9]+$ ]] || (( gxx_major < 9 )); then
-  echo "hessian_ff には GCC >= 9 が必要です（検出したメジャー: $gxx_major）" >&2
+if ! g++ -std=c++20 -x c++ -fsyntax-only /dev/null; then
+  echo "hessian_ff には PyTorch の C++20 JIT フラグに対応するコンパイラが必要です" >&2
   exit 1
 fi
 command -v ninja >/dev/null || { echo "hessian_ff には ninja が必要です" >&2; exit 1; }
@@ -194,7 +192,7 @@ mlmm opt \
 - **CPU thread:** MM backend の `mm_threads` と対象系の pilot に合わせて要求します。
 - **メモリ:** 代表的な pilot と scheduler の peak-memory log から RAM を設定。
 - **CUDA ランタイム:** 公式 PyTorch wheel には CUDA のユーザー空間ライブラリが含まれるため、通常は互換性のある NVIDIA ドライバーだけで十分です。必要な拡張をソースビルドする場合だけ CUDA toolkit module を読み込みます。
-- **C++ コンパイラ:** デフォルトの `hessian_ff` MM バックエンドは初回利用時に C++ カーネルを JIT ビルドします。CUDA とは独立に、各計算ノードで GCC 9 以上と Ninja が必要です。システムの `g++` がない、または古い場合はコンパイラモジュールを読み込みます。
+- **C++ コンパイラ:** デフォルトの `hessian_ff` MM バックエンドは初回利用時に C++ カーネルを JIT ビルドします。CUDA とは独立に、各計算ノードで C++20 対応コンパイラと Ninja が必要です（GCC 13.3 で検証済み）。システムの `g++` がない、または古い場合はコンパイラモジュールを読み込みます。
 
 ### GPU インデックスの指定
 

@@ -14,6 +14,7 @@ import inspect
 from pathlib import Path
 
 import click
+import pytest
 
 from mlmm.core.defaults import SEARCH_KW
 from mlmm.workflows import path_search
@@ -54,3 +55,59 @@ def test_max_depth_option_is_declared_on_both_entry_points() -> None:
         assert option.show_default == str(SEARCH_KW["max_depth"])
         assert isinstance(option.type, click.IntRange)
         assert option.type.min == 0
+
+@pytest.mark.parametrize(
+    "max_depth,primary_hei,refined_hei,n_segments,single_opt_executed",
+    [
+        (0, 1, 1, 1, False),
+        (1, 0, 1, 0, False),
+        (1, 1, 0, 0, True),
+        (1, 1, 2, 0, True),
+        (1, 1, 1, 1, True),
+    ],
+)
+def test_single_optimizer_provenance_and_refined_hei_boundary(
+    tmp_path, monkeypatch, max_depth, primary_hei, refined_hei,
+    n_segments, single_opt_executed,
+):
+    from types import SimpleNamespace
+
+    def mep(hei):
+        energies = [0.0, 0.0, 0.0]
+        energies[hei] = 1.0
+        return SimpleNamespace(
+            images=[SimpleNamespace(energy=energy) for energy in energies],
+            energies=energies, hei_idx=hei, is_converged=True,
+        )
+
+    primary, refined = mep(primary_hei), mep(refined_hei)
+    optimizer_calls = []
+
+    def optimize(geometry, *_args, **kwargs):
+        optimizer_calls.append(kwargs["tag"])
+        return geometry, True
+
+    # A reactive refined interval with no further changes on either side.
+    changes = iter([True, True, False, False])
+    monkeypatch.setattr(path_search, "_run_mep_between", lambda *_a, **_k: primary)
+    monkeypatch.setattr(path_search, "_refine_between", lambda *_a, **_k: refined)
+    monkeypatch.setattr(path_search, "_optimize_single", optimize)
+    monkeypatch.setattr(
+        path_search, "_has_bond_change",
+        lambda *_a, **_k: (next(changes), "Bond formed"),
+    )
+    monkeypatch.setattr(path_search, "_stitch_paths", lambda parts, **_k: parts[0])
+
+    result = path_search._build_multistep_path(
+        primary.images[0], primary.images[-1], None,
+        geom_cfg={}, gs_cfg={}, stopt_cfg={}, single_opt_cfg={}, bond_cfg={},
+        search_cfg={"max_depth": max_depth, "stitch_rmsd_thresh": 1e-4,
+                    "bridge_rmsd_thresh": 1e-4},
+        refine_mode_kind="peak", mep_mode_kind="gsm",
+        out_dir=tmp_path, ref_pdb_path=None, depth=0, seg_counter=[0],
+        branch_tag="pair_00",
+    )
+
+    assert len(optimizer_calls) == (2 if single_opt_executed else 0)
+    assert result.single_opt_executed is single_opt_executed
+    assert len(result.segments) == n_segments

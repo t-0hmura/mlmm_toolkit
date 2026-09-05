@@ -111,12 +111,10 @@ Options:
                                   --refine-path. 0 performs no subdivision,
                                   returning each input pair as one MEP segment
                                   (none when its HEI sits at an endpoint).
-                                  Reaching the limit is not an error: the
-                                  remaining interval is returned as one segment
-                                  that was not subdivided, tagged
-                                  seg_NNN_maxdepth, and is therefore not
-                                  guaranteed to be a single elementary step.
-                                  [default: (10); x>=0]
+                                  Reaching the limit is not an error. Any
+                                  segment retained at a positive cap is tagged
+                                  seg_NNN_maxdepth and is not guaranteed to be a
+                                  single elementary step.  [default: (10); x>=0]
   --gsm-param [equi|energy]       GSM node parameterization after string growth.
                                   The energy scheme concentrates nodes in high-
                                   energy regions and may be tried when an

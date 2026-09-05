@@ -150,11 +150,11 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
     ),
     Path("skills/mlmm-install-backends/mace.md"): ("torch==2.13.0",),
     Path("docs/device-hpc.md"): (
-        "g++ -dumpversion",
+        "g++ -std=c++20 -x c++ -fsyntax-only /dev/null",
         "command -v ninja",
     ),
     Path("docs/ja/device-hpc.md"): (
-        "g++ -dumpversion",
+        "g++ -std=c++20 -x c++ -fsyntax-only /dev/null",
         "command -v ninja",
     ),
     Path("docs/oniom-import.md"): (
@@ -172,11 +172,11 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
         '`result.json["rigid_projection"]["electronic_state_verified"]`',
     ),
     Path("skills/mlmm-hpc/SKILL.md"): (
-        "g++ -dumpversion",
+        "g++ -std=c++20 -x c++ -fsyntax-only /dev/null",
         "command -v ninja",
     ),
     Path("skills/mlmm-hpc/dynamic-dispatch.md"): (
-        "g++ -dumpversion",
+        "g++ -std=c++20 -x c++ -fsyntax-only /dev/null",
         "command -v ninja",
     ),
     Path("skills/mlmm-cli/extract.md"): (

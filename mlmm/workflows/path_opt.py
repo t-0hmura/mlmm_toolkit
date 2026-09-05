@@ -1610,6 +1610,7 @@ def cli(
 
         # optional endpoint pre-optimization
         preopt_outcomes: List[Dict[str, Any]] = []
+        path_optimizers: set[str] = set()
         if preopt:
             preopt_completed = 0
             preopt_errors: List[str] = []
@@ -1629,6 +1630,7 @@ def cli(
                         "max_cycles": preopt_max_cycles_effective,
                     })
                     optimizer = LBFGS(g, **lbfgs_args)
+                    path_optimizers.add("lbfgs")
                     optimizer.run()
                     from mlmm.workflows._outcomes import optimizer_converged_bit
 
@@ -1720,6 +1722,7 @@ def cli(
             result_data["preopt_requested"] = bool(preopt)
             result_data["preopt_converged"] = preopt_converged
             result_data["preopt_endpoints"] = list(preopt_outcomes)
+            result_data["path_optimizers"] = sorted(path_optimizers)
             attach_outcomes(
                 result_data,
                 truth=aggregate_workflow_truth(leaves, expected),
@@ -1738,6 +1741,8 @@ def cli(
                 verbose=True,
             )
             failed_pairs = alignment_failed_pair_indices(alignment_results)
+            if any(result.get("scan", {}).get("n_steps", 0) > 0 for result in alignment_results):
+                path_optimizers.add("lbfgs")
             if failed_pairs:
                 raise click.ClickException(
                     "Input alignment did not converge for pair(s): "

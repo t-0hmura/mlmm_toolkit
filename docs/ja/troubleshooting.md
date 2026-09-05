@@ -247,7 +247,7 @@ Coordinate shape mismatch for... got (N, 3), expected (M, 3)
 
 対処の例:
 - ビルドはローカルの一時ディレクトリで行われます（`TORCH_EXTENSIONS_DIR` で変更可）。ネットワーク FS（NFS/Lustre）上の build dir は torch のビルドロックでハングするため、デフォルトでローカルパスを使います。
-- C++ コンパイラ（g++ >= 9; conda なら `conda install -c conda-forge gxx_linux-64`）がインストールされていることを確認:
+- C++20 対応コンパイラ（GCC 13.3 で検証済み。conda なら `conda install -c conda-forge gxx_linux-64`）がインストールされていることを確認:
 
   ```bash
   g++ --version

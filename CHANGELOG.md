@@ -85,6 +85,12 @@ _No changes yet._
   optimization was not requested, instead of always carrying the default preset.
 
 ### Fixed
+- Record executed single-structure methods in `path_optimizers`, preserving
+  citations for scan, alignment, and recursive refinement with `--no-preopt`.
+- Retain a refined path whose HEI is at an endpoint as raw output, without
+  reporting it as a reactive segment.
+- Match compiler guidance and job preflight checks to the C++20 flag selected
+  by current PyTorch JIT builds.
 - Relay `preopt` consistently into path-search citation payloads: with
   `--no-preopt`, `summary.json`, `summary.log`, and stdout no longer cite an
   optimizer the run never used.

@@ -48,7 +48,7 @@ The source repository includes full-system COMT and [BezA](examples/beza/README.
 | GPU / CUDA / VRAM | A backend-compatible NVIDIA GPU/driver for GPU execution; size VRAM from a representative target-system pilot. |
 | RAM / Disk | Size RAM and disk for the selected backend, model cache, topology tools, and expected artifacts. |
 
-Required external tools: **AmberTools** (`tleap`) and **GCC >= 9** (the default `hessian_ff` backend JIT-compiles native kernels on first use). **pdbfixer** is optional — only `mm-parm --add-h` needs it — `conda install -c conda-forge ambertools pdbfixer -y` installs both. CPU-only ML/MM execution is supported but can be substantially slower than GPU execution; benchmark the selected backend and system. Full requirement and tuning details: [docs/getting-started.md#installation](docs/getting-started.md#installation).
+Required external tools: **AmberTools** (`tleap`) and **a C++20-capable compiler** (validated with GCC 13.3; the default `hessian_ff` backend JIT-compiles native kernels on first use). **pdbfixer** is optional — only `mm-parm --add-h` needs it — `conda install -c conda-forge ambertools pdbfixer -y` installs both. CPU-only ML/MM execution is supported but can be substantially slower than GPU execution; benchmark the selected backend and system. Full requirement and tuning details: [docs/getting-started.md#installation](docs/getting-started.md#installation).
 
 ## Installation
 

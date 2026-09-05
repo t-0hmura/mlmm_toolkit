@@ -24,7 +24,7 @@ There is no upstream `hessian_ff` package on PyPI or any public registry. The mo
 | `system.py` | atom / topology data classes |
 | `constants.py` | unit conversion constants |
 | `terms/` | per-term analytical derivative code (one file per term type); `terms/cmap.py` includes OpenMM-derived MIT-licensed material |
-| `native/` | **required** C-accelerated kernels for `build_analytical_hessian` (JIT-compiled on first use at runtime via `torch.utils.cpp_extension`; needs GCC ≥ 9 + ninja); `native/bonded_ext.cpp` includes OpenMM-derived MIT-licensed material |
+| `native/` | **required** C-accelerated kernels for `build_analytical_hessian` (JIT-compiled on first use at runtime via `torch.utils.cpp_extension`; needs a C++20-capable compiler + ninja, validated with GCC 13.3); `native/bonded_ext.cpp` includes OpenMM-derived MIT-licensed material |
 | `workflows.py` | compatibility API declared through `__all__`; not imported by the production path |
 | `tests/` | unit tests for individual force-field terms |
 

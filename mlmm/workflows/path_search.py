@@ -1071,6 +1071,7 @@ class CombinedPath:
     images: List[Any]
     energies: List[float]
     segments: List[SegmentReport]  # segment summaries in final output order
+    single_opt_executed: bool = False
 
 
 def _path_leaves_and_expected(
@@ -1278,6 +1279,7 @@ def _build_multistep_path(
     )
     gs_seg_cfg = {**gs_cfg, "max_nodes": seg_max_nodes}
     max_seq_kink = int(search_cfg.get("max_seq_kink", 2))
+    single_opt_executed = False
 
     def _terminate_with_single_segment(
         seg_tag: str,
@@ -1313,7 +1315,8 @@ def _build_multistep_path(
             )
             _tag_images(gsm.images, pair_index=pair_index)
             return CombinedPath(
-                images=gsm.images, energies=gsm.energies, segments=[]
+                images=gsm.images, energies=gsm.energies, segments=[],
+                single_opt_executed=single_opt_executed,
             )
 
         bond_eval_failed = False
@@ -1361,7 +1364,8 @@ def _build_multistep_path(
             ),
         )
         return CombinedPath(
-            images=gsm.images, energies=gsm.energies, segments=[report]
+            images=gsm.images, energies=gsm.energies, segments=[report],
+            single_opt_executed=single_opt_executed,
         )
 
     # `max_depth` counts LEVELS of recursive subdivision, so 0 performs none at
@@ -1418,6 +1422,7 @@ def _build_multistep_path(
         right_img = gsm0.images[hei + 1]
         emit(f"[{tag0}] Refining HEI±1 (peak mode).", narrative=True)
 
+    single_opt_executed = True
     left_end, left_conv = _optimize_single(left_img, shared_calc, single_opt_cfg, out_dir, tag=f"{tag0}_left", ref_pdb_path=ref_pdb_path)
     right_end, right_conv = _optimize_single(right_img, shared_calc, single_opt_cfg, out_dir, tag=f"{tag0}_right", ref_pdb_path=ref_pdb_path)
 
@@ -1463,6 +1468,18 @@ def _build_multistep_path(
         step_tag_for_report = f"{tag0}_refine"
 
     step_imgs, step_E = ref1.images, ref1.energies
+
+    if not (1 <= int(ref1.hei_idx) <= len(step_imgs) - 2):
+        click.echo(
+            f"[{step_tag_for_report}] WARNING: HEI is at an endpoint. "
+            "Returning the raw refined path.",
+            err=True,
+        )
+        _tag_images(step_imgs, pair_index=pair_index)
+        return CombinedPath(
+            images=step_imgs, energies=step_E, segments=[],
+            single_opt_executed=True,
+        )
 
     _changed, step_summary = _has_bond_change(step_imgs[0], step_imgs[-1], bond_cfg)
     _tag_images(step_imgs, mep_seg_tag=step_tag_for_report, mep_seg_kind="seg",
@@ -1584,7 +1601,10 @@ def _build_multistep_path(
 
     _tag_images(stitched_imgs, pair_index=pair_index)
 
-    return CombinedPath(images=stitched_imgs, energies=stitched_E, segments=seg_reports)
+    return CombinedPath(
+        images=stitched_imgs, energies=stitched_E, segments=seg_reports,
+        single_opt_executed=True,
+    )
 
 
 
@@ -1716,9 +1736,8 @@ def _build_multistep_path(
         "Number of recursive subdivision levels allowed while splitting a "
         "multistep path. 0 performs no subdivision, returning each input pair as one MEP "
         "segment (none when its HEI sits at an endpoint). Reaching the limit is not an "
-        "error: the remaining interval "
-        "is returned as one segment that was not subdivided, tagged seg_NNN_maxdepth, "
-        "which is therefore not guaranteed to be a single elementary step. "
+        "error. Any segment retained at a positive cap is tagged seg_NNN_maxdepth "
+        "and is not guaranteed to be a single elementary step. "
         "When not given, YAML search.max_depth applies."
     ),
 )
@@ -2459,6 +2478,7 @@ def cli(
             ref_pdb_for_segments = prepared_inputs[0].source_path.resolve()
 
         preopt_outcomes: List[Dict[str, Any]] = []
+        path_optimizers: set[str] = set()
         if pre_opt:
             new_geoms: List[Any] = []
             for i, g in enumerate(geoms):
@@ -2482,6 +2502,7 @@ def cli(
                     )
                 new_geoms.append(g_opt)
             geoms = new_geoms
+            path_optimizers.add("lbfgs")
         else:
             click.echo("[init] Skipping endpoint pre-optimization as requested by --no-preopt.")
 
@@ -2498,6 +2519,8 @@ def cli(
                     verbose=True,
                 )
                 failed_pairs = alignment_failed_pair_indices(alignment_results)
+                if any(result.get("scan", {}).get("n_steps", 0) > 0 for result in alignment_results):
+                    path_optimizers.add("lbfgs")
                 if failed_pairs:
                     raise click.ClickException(
                         "Input alignment did not converge for pair(s): "
@@ -2536,6 +2559,8 @@ def cli(
                 mep_mode_kind=mep_mode_kind, calc_cfg=calc_cfg, dmf_cfg=dmf_cfg,
                 kink_seq_count=_trailing_kink_count(seg_reports_all),
             )
+            if sub.single_opt_executed:
+                path_optimizers.add("lbfgs")
             return sub
 
         for i in range(len(geoms) - 1):
@@ -2556,6 +2581,9 @@ def cli(
                 pair_index=i,
                 mep_mode_kind=mep_mode_kind, calc_cfg=calc_cfg, dmf_cfg=dmf_cfg,
             )
+
+            if pair_path.single_opt_executed:
+                path_optimizers.add("lbfgs")
 
             if i == 0:
                 combined_imgs = list(pair_path.images)
@@ -2906,17 +2934,15 @@ def cli(
         summary["search_max_depth"] = int(
             search_cfg.get("max_depth", SEARCH_KW["max_depth"])
         )
+        summary["path_optimizers"] = sorted(path_optimizers)
         summary["references"] = method_references(
             {
                 "pipeline_mode": "path-search",
                 "mep_mode": mep_mode_kind,
                 "path_opt_mode": "grad",
                 "dmf_correlated": bool(dmf_cfg.get("correlated", False)),
-                # The path-optimizer citation is gated on `preopt`, and a missing
-                # key reads as "preoptimization ran". Without this the reference
-                # list in summary.json cites a single-structure optimizer that a
-                # `--no-preopt` run never used, contradicting summary.log.
                 "preopt": bool(pre_opt),
+                "path_optimizers": summary["path_optimizers"],
                 "mlip_backend": summary.get("mlip_backend"),
                 "mlip_model": summary.get("mlip_model"),
                 "mlip_task": summary.get("mlip_task"),
@@ -2956,6 +2982,7 @@ def cli(
                 "pipeline_mode": "path-search",
                 "refine_path": True,
                 "preopt": bool(pre_opt),
+                "path_optimizers": summary["path_optimizers"],
                 "tsopt": False,
                 "thermo": False,
                 "dft": False,

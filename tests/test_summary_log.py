@@ -757,3 +757,17 @@ def test_path_stage_citation_follows_the_preoptimization_stage() -> None:
     # MLMM path preoptimization is fixed L-BFGS, so the path stage never cites
     # an RFO single-structure optimizer.
     assert "RFO / P-RFO" not in with_preopt
+
+
+@pytest.mark.parametrize("methods", [[], ["lbfgs"]])
+def test_path_citations_follow_execution_instead_of_initial_preopt(methods):
+    from mlmm.io.summary import method_references
+
+    payload = {
+        "pipeline_mode": "path-search", "mep_mode": "gsm",
+        "path_opt_mode": "grad", "preopt": False, "path_optimizers": methods,
+    }
+    for requested in (False, True):
+        payload["preopt"] = requested
+        cited = {reference["method"] for reference in method_references(payload)}
+        assert ("Limited-memory BFGS (L-BFGS)" in cited) is bool(methods)

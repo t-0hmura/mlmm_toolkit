@@ -204,6 +204,7 @@ def build_pipeline_summary_payload(
             path_opt_mode.lower() if path_opt_mode else None
         ),
         "preopt": bool(preopt),
+        "path_optimizers": summary.get("path_optimizers"),
         "post_opt_mode": (
             post_opt_mode.lower() if post_opt_mode else None
         ),

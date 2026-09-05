@@ -43,7 +43,7 @@ nvidia-smi -L >/dev/null     || { echo "no GPU visible"; exit 1; }
 
 # Prebuilt PyTorch/backend wheels need a compatible NVIDIA driver, not a local
 # CUDA toolkit module. hessian_ff still JIT-compiles C++ kernels on first use;
-# if the system g++ is missing or older than GCC 9, load <COMPILER_MODULE> here.
+# if the system g++ cannot compile in C++20 mode, load <COMPILER_MODULE> here.
 # Load <CUDA_MODULE> separately only for an extension that needs that toolkit.
 # The default workers=1 run needs no MPI launcher.
 
@@ -51,9 +51,8 @@ nvidia-smi -L >/dev/null     || { echo "no GPU visible"; exit 1; }
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate <YOUR_ENV>
 command -v g++ >/dev/null || { echo "g++ is required for hessian_ff" >&2; exit 1; }
-gxx_major=$(g++ -dumpversion | cut -d. -f1)
-if [[ ! $gxx_major =~ ^[0-9]+$ ]] || (( gxx_major < 9 )); then
-    echo "hessian_ff requires GCC >= 9 (found major: $gxx_major)" >&2
+if ! g++ -std=c++20 -x c++ -fsyntax-only /dev/null; then
+    echo "hessian_ff requires a compiler supporting PyTorch's C++20 JIT flag" >&2
     exit 1
 fi
 command -v ninja >/dev/null || { echo "ninja is required for hessian_ff" >&2; exit 1; }
@@ -90,14 +89,13 @@ cd "${SLURM_SUBMIT_DIR}"
 # Preflight: confirm conda + GPU before launching
 command -v conda >/dev/null || { echo "ERROR: conda not on PATH"; exit 1; }
 command -v nvidia-smi >/dev/null && nvidia-smi -L || echo "WARN: nvidia-smi not found; continuing"
-# Prebuilt wheels need no CUDA toolkit module. hessian_ff needs GCC >= 9;
+# Prebuilt wheels need no CUDA toolkit module. hessian_ff needs a C++20-capable compiler;
 # load <COMPILER_MODULE> here if the system g++ is missing or too old.
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate <YOUR_ENV>
 command -v g++ >/dev/null || { echo "g++ is required for hessian_ff" >&2; exit 1; }
-gxx_major=$(g++ -dumpversion | cut -d. -f1)
-if [[ ! $gxx_major =~ ^[0-9]+$ ]] || (( gxx_major < 9 )); then
-    echo "hessian_ff requires GCC >= 9 (found major: $gxx_major)" >&2
+if ! g++ -std=c++20 -x c++ -fsyntax-only /dev/null; then
+    echo "hessian_ff requires a compiler supporting PyTorch's C++20 JIT flag" >&2
     exit 1
 fi
 command -v ninja >/dev/null || { echo "ninja is required for hessian_ff" >&2; exit 1; }

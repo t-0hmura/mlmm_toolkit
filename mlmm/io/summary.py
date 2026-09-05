@@ -427,7 +427,10 @@ def _method_citation_record_keys(payload: Dict[str, Any]) -> List[str]:
             if bool(payload.get("dmf_correlated")):
                 keys.append("cfbenm")
 
-        if payload.get("preopt") is not False:
+        path_optimizers = payload.get("path_optimizers")
+        if isinstance(path_optimizers, list):
+            keys.extend(method for method in path_optimizers if method in {"lbfgs", "rfo"})
+        elif payload.get("preopt") is not False:
             path_opt_mode = str(
                 payload.get("path_opt_mode") or payload.get("opt_mode") or ""
             ).strip().lower()
