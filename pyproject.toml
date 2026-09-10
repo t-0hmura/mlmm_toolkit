@@ -77,7 +77,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-orb = ["orb-models>=0.7.0"]
+orb = [
+    # orb-models >=0.6 requires Python >=3.12; 0.5.x is the last 3.11-capable line.
+    "orb-models>=0.7.0; python_version >= '3.12'",
+    "orb-models>=0.5.5,<0.6; python_version < '3.12'",
+]
 aimnet = ["aimnet>=0.2.0"]
 pdbfixer = ["pdbfixer"]
 openmm = ["openmm"]
