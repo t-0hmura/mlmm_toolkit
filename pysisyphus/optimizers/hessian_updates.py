@@ -40,10 +40,19 @@ def bfgs_update(H, dx, dg):
         dx = torch.as_tensor(dx, dtype=H.dtype, device=H.device)
         dg = torch.as_tensor(dg, dtype=H.dtype, device=H.device)
 
+    xp = torch if isinstance(H, torch.Tensor) else np
     Hdx = H @ dx
-    first_term = _outer(dg, dg) / _dot(dg, dx)
-    second_term = _outer(Hdx, Hdx) / _dot(dx, Hdx)
+    dxdg = _dot(dg, dx)
+    dxHdx = _dot(dx, Hdx)
+    if not bool(xp.isfinite(dxdg)) or not bool(xp.isfinite(dxHdx)):
+        raise ValueError("BFGS update received non-finite curvature.")
+    if bool(dxdg == 0) or bool(dxHdx == 0):
+        return xp.zeros_like(H), "BFGS (skipped: zero curvature denominator)"
+    first_term = _outer(dg, dg) / dxdg
+    second_term = _outer(Hdx, Hdx) / dxHdx
     update = first_term - second_term
+    if not bool(xp.isfinite(update).all()):
+        raise ValueError("BFGS update produced a non-finite Hessian correction.")
     if isinstance(H, torch.Tensor):
         return update.to(dtype=H.dtype, device=H.device), "BFGS"
     return update, "BFGS"
@@ -329,34 +338,44 @@ def bofill_update(H, dx, dg):
 def _ts_update_inputs(H, dx, dg):
     """Return one backend-consistent Hessian/secant triple."""
     if isinstance(H, torch.Tensor):
-        return (
-            torch,
-            H,
-            torch.as_tensor(dx, dtype=H.dtype, device=H.device).reshape(-1, 1),
-            torch.as_tensor(dg, dtype=H.dtype, device=H.device).reshape(-1, 1),
-        )
-    H = np.asarray(H)
-    return (
-        np,
-        H,
-        np.asarray(dx, dtype=H.dtype).reshape(-1, 1),
-        np.asarray(dg, dtype=H.dtype).reshape(-1, 1),
-    )
+        xp = torch
+        dx = torch.as_tensor(dx, dtype=H.dtype, device=H.device).reshape(-1, 1)
+        dg = torch.as_tensor(dg, dtype=H.dtype, device=H.device).reshape(-1, 1)
+    else:
+        xp = np
+        H = np.asarray(H)
+        dx = np.asarray(dx, dtype=H.dtype).reshape(-1, 1)
+        dg = np.asarray(dg, dtype=H.dtype).reshape(-1, 1)
+    if not all(bool(xp.isfinite(value).all()) for value in (H, dx, dg)):
+        raise ValueError("TS-BFGS update received a non-finite Hessian or secant.")
+    return xp, H, dx, dg
 
 
 def ts_bfgs_update(H, dx, dg):
     """As described in [7]"""
     xp, H, dx, dg = _ts_update_inputs(H, dx, dg)
     j = dg - H @ dx
+    if not bool(dx.any()) or not bool(j.any()):
+        return xp.zeros_like(H), "TS-BFGS"
     jdx = j.T @ dx
     # Diagonalize Hessian, to construct positive definite version of it
     w, v = xp.linalg.eigh(H)
     Hdx = xp.abs(w) * v @ (v.T @ dx)
-    M = dg @ dg.T + Hdx @ Hdx.T
-    dxTM = dx.T @ M
-    u = xp.linalg.solve(dxTM @ dx, dxTM).T
+    # s.T M s = (s.T y)**2 + (s.T |H| s)**2. Scale these
+    # scalars before squaring so a valid tiny step does not underflow.
+    dxdg = dx.T @ dg
+    dxHdx = dx.T @ Hdx
+    scale = xp.maximum(xp.abs(dxdg), xp.abs(dxHdx))
+    if not bool(xp.isfinite(scale)) or bool(scale == 0):
+        raise ValueError("TS-BFGS weight is singular for a nonzero secant.")
+    y_weight, h_weight = dxdg / scale, dxHdx / scale
+    u = ((dg * y_weight + Hdx * h_weight) / scale) / (
+        y_weight**2 + h_weight**2
+    )
     juT = j @ u.T
     ts_bfgs_update = juT + juT.T - jdx * u @ u.T
+    if not bool(xp.isfinite(ts_bfgs_update).all()):
+        raise ValueError("TS-BFGS update produced a non-finite Hessian correction.")
     return ts_bfgs_update, "TS-BFGS"
 
 
@@ -368,19 +387,30 @@ def ts_bfgs_update_org(H, dx, dg):
     u = dg
     j = H @ dx
     j = u - j
+    if not bool(dx.any()) or not bool(j.any()):
+        return xp.zeros_like(H), "TS-BFGS"
     # jTdx = float(j.T @ dx)
     jTdx = j.T @ dx
     # dxTdx = float(dx.T @ dx)
     dxTdx = dx.T @ dx
     # jTj = float(j.T @ j)
     jTj = j.T @ j
-    phi = jTdx ** 2 / dxTdx / jTj
-    u = phi * dg * dg.T @ dx
+    phi = (jTdx / dxTdx) * (jTdx / jTj)
     w, v = xp.linalg.eigh(H)
-    u = u + (1 - phi) * xp.abs(w) * v @ (v.T @ dx)
-    u = u / (u.T @ dx)
+    if bool(phi == 1):
+        # The common y.T s factor cancels before normalization.
+        u = dg
+    else:
+        u = phi * dg * dg.T @ dx
+        u = u + (1 - phi) * xp.abs(w) * v @ (v.T @ dx)
+    denominator = u.T @ dx
+    if not bool(xp.isfinite(denominator)) or bool(denominator == 0):
+        raise ValueError("Original TS-BFGS weight is singular for a nonzero secant.")
+    u = u / denominator
     juT = j @ u.T
     ts_bfgs_update = juT + juT.T - jTdx * u @ u.T
+    if not bool(xp.isfinite(ts_bfgs_update).all()):
+        raise ValueError("TS-BFGS update produced a non-finite Hessian correction.")
     return ts_bfgs_update, "TS-BFGS"
 
 
@@ -393,26 +423,37 @@ def ts_bfgs_update_revised(H, dx, dg):
     in the paper abs(a) is used (|a| in the paper)."""
 
     xp, H, dx, dg = _ts_update_inputs(H, dx, dg)
-    dgTdg = dg.T @ dg
-    dgTdx = dg.T @ dx
-    a = (dgTdg - dg.T @ H @ dx) / (dgTdg * dgTdx)
-    a = abs(a)
+    j = dg - H @ dx
+    if not bool(dx.any()) or not bool(j.any()):
+        return xp.zeros_like(H), "TS-BFGS"
 
     # Diagonalize Hessian, to construct positive definite version of it
     w, v = xp.linalg.eigh(H)
     H_pos_dx = xp.abs(w) * v @ (v.T @ dx)
     # Mixing factor
-    j = dg - H @ dx
     jTdx = j.T @ dx
     dxTdx = dx.T @ dx
     jTj = j.T @ j
-    phi = jTdx ** 2 / dxTdx / jTj
-    u = ((1 - phi) * H_pos_dx + a * phi * dgTdx * dg) / (
-        (1 - phi) * dx.T @ H_pos_dx + phi * a * dgTdx ** 2
-    )
+    phi = (jTdx / dxTdx) * (jTdx / jTj)
+    numerator = (1 - phi) * H_pos_dx
+    denominator = (1 - phi) * dx.T @ H_pos_dx
+    if not bool(phi == 0):
+        dgTdg = dg.T @ dg
+        dgTdx = dg.T @ dx
+        if bool(dgTdg == 0) or bool(dgTdx == 0):
+            raise ValueError("Revised TS-BFGS weight is singular for a nonzero secant.")
+        # Cancel y.T s from a before multiplying; its sign still matters.
+        a = xp.abs((dgTdg - dg.T @ H @ dx) / dgTdg)
+        numerator = numerator + a * phi * xp.sign(dgTdx) * dg
+        denominator = denominator + phi * a * xp.abs(dgTdx)
+    if not bool(xp.isfinite(denominator)) or bool(denominator == 0):
+        raise ValueError("Revised TS-BFGS weight is singular for a nonzero secant.")
+    u = numerator / denominator
 
     juT = j @ u.T
     ts_bfgs_update = juT + juT.T - jTdx * u @ u.T
+    if not bool(xp.isfinite(ts_bfgs_update).all()):
+        raise ValueError("TS-BFGS update produced a non-finite Hessian correction.")
     return ts_bfgs_update, "TS-BFGS"
 
 

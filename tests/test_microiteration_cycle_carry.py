@@ -950,9 +950,8 @@ def test_microiter_macro_honours_the_whole_shared_opt_block(tmp_path, monkeypatc
     assert ignored == [], f"shared opt keys not forwarded to the macro step: {ignored}"
 
 
-def test_microiter_macro_default_path_is_unchanged(tmp_path, monkeypatch):
-    """The merge passes only values the user actually changed, so an untouched
-    configuration reaches the macro step exactly as `rfo.*` declares it."""
+def test_microiter_macro_preserves_numerical_defaults(tmp_path, monkeypatch):
+    """Numerical defaults are unchanged; the workflow owns flatten policy."""
     import mlmm.workflows.opt as opt_mod
     from mlmm.core.defaults import OPT_BASE_KW
 
@@ -967,6 +966,7 @@ def test_microiter_macro_default_path_is_unchanged(tmp_path, monkeypatch):
             "out_dir": kwargs["out_dir"],
             "dump": False,
             "thresh": OPT_BASE_KW["thresh"],
+            "flatten_enabled": False,
         }
     )
     assert kwargs == expected
@@ -1060,3 +1060,76 @@ def test_micro_stop_description_names_the_bound_the_user_can_raise():
     )
     assert "micro_max_cycles" not in describe_micro_stop(short)
     assert "12/10000 cycles" in describe_micro_stop(short)
+
+
+@pytest.mark.parametrize("flatten_enabled", [False, True])
+def test_macro_flatten_policy_wins_after_shared_opt_merge(
+    tmp_path, monkeypatch, flatten_enabled
+):
+    import mlmm.workflows.opt as opt_mod
+
+    def no_micro(*args, **kwargs):
+        raise AssertionError("this control has no micro-active atoms")
+
+    _install_common_fakes(monkeypatch, opt_mod, no_micro)
+    captured = []
+
+    class CapturingMacro(_FakeMacroOptimizer):
+        def __init__(self, geometry, **kwargs):
+            captured.append(kwargs)
+            super().__init__(geometry, **kwargs)
+
+    monkeypatch.setattr(opt_mod, "RFOptimizer", CapturingMacro)
+    opt_mod._run_microiter_opt(
+        _FakeGeom(n_atoms=2), _FakeCalc(), calc_cfg={},
+        rfo_cfg={"flatten_enabled": not flatten_enabled}, lbfgs_cfg={},
+        opt_cfg={"max_cycles": 1, "flatten_enabled": not flatten_enabled},
+        microiter_cfg={}, out_dir_path=tmp_path,
+        partition=_no_micro_active_partition(), dump=False,
+        flatten_enabled=flatten_enabled,
+    )
+    assert len(captured) == 1
+    assert captured[0]["flatten_enabled"] is flatten_enabled
+
+
+def test_late_micro_nonconvergence_retains_diagnostic_and_state(tmp_path, monkeypatch, capsys):
+    import mlmm.workflows.opt as opt_mod
+
+    class InitialSuccessThenExhaustedMicro:
+        calls = 0
+        cur_cycle = 0
+        is_stalled = False
+
+        def __init__(self, geometry, **kwargs):
+            self.is_converged = False
+            self.stop_reason = ""
+            self.max_forces = [1e-2]
+            self.max_steps = [1e-2]
+
+        def run(self):
+            type(self).calls += 1
+            self.is_converged = type(self).calls == 1
+            self.stop_reason = "" if self.is_converged else "maximum cycles reached"
+
+    _install_common_fakes(monkeypatch, opt_mod, InitialSuccessThenExhaustedMicro)
+    monkeypatch.setattr(opt_mod, "RFOptimizer", _FakeMacroOptimizer)
+    geometry = _FakeGeom(n_atoms=2)
+    base_calc = _FakeCalc()
+    partition = _micro_active_partition()
+    outcome = opt_mod._run_microiter_opt(
+        geometry, base_calc, calc_cfg={}, rfo_cfg={}, lbfgs_cfg={},
+        opt_cfg={"max_cycles": 1}, microiter_cfg={"micro_max_cycles": 1},
+        out_dir_path=tmp_path, partition=partition, dump=False,
+    )
+    assert InitialSuccessThenExhaustedMicro.calls == 2
+    assert outcome["converged"] is False
+    assert outcome["cycles"] == 1
+    attempts = outcome["outcome"].micro_attempts
+    assert len(attempts) == 2
+    assert attempts[0].converged is True
+    assert attempts[1].converged is False
+    assert attempts[1].stop_reason == "maximum cycles reached"
+    assert outcome["outcome"].aggregate.converged is False
+    assert geometry.freeze_atoms == list(partition.original_freeze)
+    assert geometry._calc is base_calc
+    assert "max|F|=1.000e-02" in capsys.readouterr().out

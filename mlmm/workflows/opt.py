@@ -654,6 +654,7 @@ def _run_microiter_opt(
     *,
     partition: MicroiterationPartition,
     dump: bool = False,
+    flatten_enabled: bool = False,
 ) -> Dict[str, Any]:
     """Run macro/micro alternating optimization (Gaussian 16-style microiteration).
 
@@ -928,6 +929,7 @@ def _run_microiter_opt(
         rfo_args["out_dir"] = str(out_dir_path)
         rfo_args["dump"] = False  # trajectory dumping handled externally
         rfo_args["thresh"] = thresh
+        rfo_args["flatten_enabled"] = bool(flatten_enabled)
 
         macro_optimizer = RFOptimizer(geometry, **rfo_args)
         macro_optimizer.prepare_opt()  # initialize Hessian from geometry.cart_hessian
@@ -1045,6 +1047,8 @@ def _run_microiter_opt(
                         "criteria met; accepting it as MM equilibrium.",
                         narrative=True,
                     )
+                if _micro_out.converged is not True:
+                    micro_stop_detail = describe_micro_stop(_micro_out, micro_opt)
                 del micro_opt
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
@@ -1074,7 +1078,7 @@ def _run_microiter_opt(
             if _micro_out.converged is not True:
                 emit(
                     "[microiter] Latest MM relaxation did not converge "
-                    f"({describe_micro_stop(_micro_out, micro_opt)}); "
+                    f"({micro_stop_detail}); "
                     "stopping the macro/micro loop.",
                     narrative=True,
                 )
@@ -1289,8 +1293,8 @@ def _run_microiter_opt(
     "microiter",
     default=True,
     show_default=True,
-    help="Enable microiteration: alternate ML 1-step (RFO) and MM relaxation (L-BFGS with MM-only forces). "
-         "Only effective in --opt-mode hess (RFO). Ignored in grad mode.",
+    help="Alternate one RFO step with MM L-BFGS relaxation. "
+         "Used in hess mode without embedding.",
 )
 @click.option(
     "--flatten/--no-flatten",
@@ -2000,6 +2004,7 @@ def cli(
                 return LBFGS(geometry, **lbfgs_args)
             if run_kind == "rfo":
                 rfo_args = {**rfo_cfg, **common_kwargs}
+                rfo_args["flatten_enabled"] = bool(flatten)
                 return RFOptimizer(geometry, **rfo_args)
             raise click.BadParameter(f"Unknown optimizer kind '{run_kind}'.")
 
@@ -2027,6 +2032,13 @@ def cli(
         if bool(microiter) and use_rfo and dist_freeze:
             microiter_fallback_reason = "distance_restraints"
             click.echo("[microiter] --microiter is not compatible with --dist-freeze. Falling back to standard RFO.")
+        if use_microiter and bool(calc_cfg.get("embedcharge", False)):
+            use_microiter = False
+            microiter_fallback_reason = "embedcharge"
+            click.echo(
+                "[microiter] Using standard optimization with embedding; "
+                "MM-only microiterations omit embedding forces."
+            )
 
         if use_microiter:
             # resolve the ONE immutable partition strictly from the accepted
@@ -2060,6 +2072,7 @@ def cli(
                 out_dir_path,
                 partition=microiter_partition,
                 dump=bool(opt_cfg["dump"]),
+                flatten_enabled=bool(flatten),
             )
             if microiter_result is not None:
                 emit_optimizer_terminal_status(

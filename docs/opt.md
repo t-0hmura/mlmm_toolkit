@@ -45,6 +45,7 @@ mlmm opt -i system_layered.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 1. **Input handling** -- The tool accepts `-i/--input` as a PDB or XYZ file (use `--ref-pdb` with XYZ inputs). The optimizer reads coordinates from this PDB via `pysisyphus.helpers.geom_loader`. ML/MM layer definitions come from `--model-pdb`, `--model-indices`, or `--detect-layer` (B-factor encoding: B=0 ML, B=10 Movable-MM, B=20 Frozen).
 2. **ML/MM calculator setup** -- Build the ML/MM calculator (MLIP backend + hessian_ff). The `-b/--backend` option selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). `--parm` provides Amber MM topology; `--model-pdb` defines the ML region.
 3. **Optimization** -- The optimizer runs in the selected `--opt-mode` (`grad`/`lbfgs` = L-BFGS, `hess`/`rfo` = RFOptimizer).
+   - Without `--flatten`, RFO checks calculated curvature before acceptance. Cartesian runs require no negative frequencies, including negative modes in the display zero window in the active subspace; internal-coordinate runs retain their optimizer-space check, not this strict PHVA certificate. With microiteration, this is the ML/link-parent macro subspace. Use [`freq`](freq.md) to check the full selected ML/MM space.
    - `--flatten` enables post-optimization flattening of imaginary modes. All detected imaginary modes are flattened each iteration until none remain or the internal loop cap is reached.
 4. **Restraints** -- Optional harmonic distance restraints via `--dist-freeze` / `--bias-k` (see CLI options).
 5. **Dumping & conversion** -- `--dump` writes `optimization_trj.xyz`; when conversion is enabled, trajectories are mirrored to `.pdb` for PDB inputs (with B-factor annotations). `opt.dump_restart` can emit restart YAML snapshots.
@@ -93,7 +94,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--bias-k FLOAT` | Harmonic bias strength (eV/Å²). | `300.0` |
 | `--max-cycles INT` | Hard limit on optimization iterations. | `100000` |
 | `--opt-mode [grad\|hess\|lbfgs\|rfo]` | Optimizer mode: `grad`/`lbfgs` (L-BFGS) or `hess`/`rfo` (RFO). | `grad` |
-| `--microiter/--no-microiter` | Microiteration: alternate ML 1-step (RFO) + MM relaxation (L-BFGS). Only effective in `hess` mode (no-op in `--opt-mode grad`). | `True` |
+| `--microiter/--no-microiter` | Alternate one ML RFO step with MM L-BFGS relaxation in `hess` mode. With `--embedcharge`, use standard optimization instead. | `True` |
 | `--flatten/--no-flatten` | Enable/disable the post-optimization imaginary-mode flatten loop. | `False` |
 | `--reject-uphill/--no-reject-uphill` | Opt in to rejecting energy-raising RFO trial steps in `hess` mode with a `1e-4` Hartree tolerance (roll back to the lower-energy geometry and shrink the trust radius); ignored in `grad`/`lbfgs` mode. At the emergency trust floor, the retained geometry receives a final normal convergence check before a non-converged stop is reported. | `False` |
 | `--dump/--no-dump` | Emit trajectory dumps (`optimization_trj.xyz`, `optimization_all_trj.xyz`). | `False` |
@@ -120,8 +121,8 @@ Forces in Hartree/bohr, steps in bohr.
 
 ### Frozen-boundary TR projection
 
-The fixed constrained treatment affects `opt` only when `--flatten` performs
-PHVA. It removes only full-system rigid motions that do
+The constrained treatment is used by Cartesian RFO curvature checks and by
+`--flatten`. It removes only full-system rigid motions that do
 not move frozen anchors; its generic effective rank is 6/3/1/0 for
 zero/one/two/at least three non-collinear anchors. Realistic ML/MM boundaries
 normally have rank 0, and an all-frozen selection raises an explicit error.

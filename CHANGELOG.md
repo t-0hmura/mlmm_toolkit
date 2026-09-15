@@ -6,7 +6,35 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
-_No changes yet._
+### Fixed
+
+- Include near-zero negative modes in OPT/TS curvature acceptance while keeping
+  frequency display thresholds unchanged.
+- Clear cached results when internal-coordinate rebuilding changes the geometry.
+- Handle remaining negative image curvature in TRIM's trust-region step.
+- Honor small trust radii in RFO and RS-I-RFO microiterations.
+- Use standard optimization with embedding, since MM-only microiterations omit embedding forces.
+- Write `all` MEP PDB trajectories when XYZ coordinates have a separate reference PDB.
+- Keep UMA's backbone in evaluation mode during analytical Hessian calculation.
+- Handle zero or non-finite energy predictions consistently when updating trust radii.
+- Solve scaled RFO with an equivalent symmetric matrix and reject unresolved
+  restricted steps while preserving terminal saddle checks and recovery.
+- Handle degenerate trust-region steps and keep TS roots in the active Hessian basis.
+- Reject inaccurate secular RFO roots and avoid growing small trust radii after
+  interior steps.
+- Check calculated active-space curvature before RFO acceptance and continue
+  RS-P-RFO from higher-order candidates; preserve explicit flatten handoffs.
+- Preserve scheduled Hessian refreshes during no-flatten RS-P-RFO continuation.
+- Preserve genuine complementary negative curvature after earlier TS validation;
+  restrict artifact stabilization to pure, unconstrained translations.
+- Reuse terminal frequencies only for matching analysis conditions, preserving
+  partial-Hessian ordering and separating macro-space from final ML/MM validation.
+- Retain microiteration failure diagnostics and honor the CLI flatten setting.
+- Handle singular BFGS/TS-BFGS inputs and reset multistep Hessian history when
+  rebuilding the coordinate basis.
+- Stop frequency/DFT and refined diagrams after endpoint execution failures;
+  retain diagnostic structures and failure details.
+- Document startup BLIS thread settings for slow DMF/IPOPT calculations.
 
 ## [0.3.5] — 2026-09-02
 

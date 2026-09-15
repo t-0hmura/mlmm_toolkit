@@ -70,3 +70,31 @@ def test_mode_accounting_is_one_compact_line() -> None:
 def test_cutoff_rejects_invalid_values(value) -> None:
     with pytest.raises(ValueError):
         normalize_frequency_zero_cutoff_cm(value)
+
+
+@pytest.mark.parametrize("cutoff", [0.0, 5.0])
+def test_strict_count_keeps_negative_zero_window_and_signed_zero(cutoff):
+    from pysisyphus.normal_modes import _strict_negative_count
+
+    values = np.array([-10., -5., -1e-9, -0., 0., 1e-9, 5., 10.])
+    before = values.copy()
+    info = {}
+    resolved, _ = filter_resolved_modes(values, np.eye(len(values)), cutoff, filter_info=info)
+    assert _strict_negative_count(resolved, info) == 3
+    assert np.count_nonzero(resolved_imaginary_mask(resolved, cutoff)) == (3 if cutoff == 0 else 1)
+    np.testing.assert_array_equal(values, before)
+
+
+@pytest.mark.parametrize("frequencies,info", [
+    ([20.], None), ([20.], {}), ([20.], {"raw_mode_count": 1}),
+    ([20.], {"raw_mode_count": 2, "near_zero_frequencies_cm": []}),
+    ([20.], {"raw_mode_count": True, "near_zero_frequencies_cm": []}),
+    ([20.], {"raw_mode_count": 1, "near_zero_frequencies_cm": [], "resolved_mode_count": 2}),
+    ([20.], {"raw_mode_count": 2, "near_zero_frequencies_cm": [np.nan]}),
+    ([np.inf], {"raw_mode_count": 1, "near_zero_frequencies_cm": []}),
+    ([np.nan], {"raw_mode_count": 1, "near_zero_frequencies_cm": []}),
+])
+def test_incomplete_or_nonfinite_partition_cannot_certify_strict_zero(frequencies, info):
+    from pysisyphus.normal_modes import _strict_negative_count
+
+    assert _strict_negative_count(frequencies, info) is None

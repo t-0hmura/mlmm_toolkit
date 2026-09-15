@@ -284,6 +284,7 @@ class TSHessianOptimizer(HessianOptimizer):
         self._last_exact_validation = "unavailable"
         self._last_exact_failure_reason = None
         self._last_exact_n_imaginary = None
+        self._last_exact_n_negative = None
         self._last_exact_saddle_cycle = None
         self._last_exact_cart_coords = None
         self._last_exact_saddle_verified = False
@@ -361,11 +362,14 @@ class TSHessianOptimizer(HessianOptimizer):
         # Determiniation of initial mode either by using a provided
         # reference hessian, or by using a supplied root.
 
-        if isinstance(self.H, torch.Tensor):
-            eigvals, eigvecs = torch.linalg.eigh(self.H)
+        # Select roots in the same active/projected eigenspace used by the
+        # first step. Full Cartesian frozen-coordinate roots have different
+        # indices and cannot be carried into a partial-Hessian calculation.
+        _, _, eigvals, eigvecs = self._hessian_system(
+            np.zeros_like(self.geometry.coords)
+        )
+        if isinstance(eigvals, torch.Tensor):
             eigvals = eigvals.cpu().numpy()
-        else:
-            eigvals, eigvecs = np.linalg.eigh(self.H)
         neg_inds = eigvals < -self.small_eigval_thresh
         self.log_negative_eigenvalues(eigvals, "Initial ")
 
@@ -390,7 +394,9 @@ class TSHessianOptimizer(HessianOptimizer):
         # Select an initial TS-mode by highest overlap with eigenvectors from
         # reference Hessian.
         elif self.hessian_ref is not None:
-            eigvals_ref, eigvecs_ref = np.linalg.eigh(self.hessian_ref)
+            eigvals_ref, eigvecs_ref = np.linalg.eigh(
+                self.active_hessian(self.hessian_ref)
+            )
             self.log_negative_eigenvalues(eigvals_ref, "Reference ")
             assert eigvals_ref[0] < -self.small_eigval_thresh
             ref_mode = eigvecs_ref[:, 0]
@@ -655,63 +661,6 @@ class TSHessianOptimizer(HessianOptimizer):
             neg_num = int(np.count_nonzero(neg))
         return neg_num >= len(self.roots)
 
-    def _mw_frequencies_and_modes(self):
-        """Return PHVA frequencies/modes using the final ``freq`` criterion.
-
-        The frequency helper assumes a Cartesian full or atom-wise active
-        Hessian.  Other coordinate systems retain the legacy raw-Hessian
-        criterion because converting their Hessian back to Cartesian space is
-        outside this optimizer's responsibility.
-        """
-        if self.geometry.coord_type not in ("cart", "cartesian"):
-            return None
-
-        H = self.cur_H
-        if H is None:
-            return None
-
-        n_atoms = len(self.geometry.atoms)
-        n_full = 3 * n_atoms
-        frozen = {
-            int(index)
-            for index in np.asarray(self.geometry.freeze_atoms, dtype=int)
-            if 0 <= int(index) < n_atoms
-        }
-        n_active = n_full - 3 * len(frozen)
-        if tuple(H.shape) not in ((n_full, n_full), (n_active, n_active)):
-            self.log(
-                "Skipping PHVA saddle verification for a non atom-wise "
-                f"partial Hessian with shape {tuple(H.shape)}."
-            )
-            return None
-
-        from pysisyphus.normal_modes import _frequencies_cm_and_modes
-        from pysisyphus.tr_projection import DEFAULT_TR_PROJECTION
-
-        if isinstance(H, torch.Tensor):
-            H_in = H.detach().clone().to(dtype=torch.float64)
-            device = H_in.device
-        else:
-            H_in = torch.as_tensor(
-                np.array(H, dtype=np.float64, copy=True), dtype=torch.float64
-            )
-            device = H_in.device
-
-        projection_info = {}
-        freqs_cm, modes = _frequencies_cm_and_modes(
-            H_in,
-            list(self.geometry.atomic_numbers),
-            self.geometry.cart_coords.reshape(-1, 3).copy(),
-            device,
-            freeze_idx=sorted(frozen) or None,
-            tr_projection=getattr(
-                self.geometry, "tr_projection", DEFAULT_TR_PROJECTION
-            ),
-            projection_info=projection_info,
-            frequency_zero_cutoff_cm=self.saddle_imaginary_threshold_cm,
-        )
-        self._last_rigid_projection_info = projection_info
-        return np.asarray(freqs_cm, dtype=float), modes
 
     def _recovery_mode_from_mw(self, modes, mode_index):
         """Convert a full mass-weighted vibration to active Cartesian DOFs."""
@@ -745,10 +694,22 @@ class TSHessianOptimizer(HessianOptimizer):
 
     def _verify_exact_vibrational_structure(self, eigvals, eigvecs):
         """Verify exact curvature in the same space used by final TS freq."""
+        # The non-Cartesian fallback below retains its existing optimizer-space
+        # criterion; without complete physical PHVA it has no strict certificate.
+        self._last_exact_n_negative = None
         try:
             frequency_data = self._mw_frequencies_and_modes()
+            if frequency_data is not None:
+                from pysisyphus.normal_modes import _strict_negative_count
+                n_strict = _strict_negative_count(
+                    frequency_data[0], getattr(self, "_last_rigid_projection_info", None)
+                )
+                if n_strict is None:
+                    raise ValueError("Incomplete/nonfinite PHVA partition cannot certify saddle order.")
         except Exception as err:
             self._last_exact_validation = "unavailable"
+            self._last_exact_saddle_verified = False
+            self._last_exact_saddle_cycle = None
             self._last_exact_failure_reason = f"{type(err).__name__}: {err}"
             self._last_exact_frequencies_cm = None
             self._last_exact_modes = None
@@ -762,6 +723,8 @@ class TSHessianOptimizer(HessianOptimizer):
             return False, None, True
 
         if frequency_data is None:
+            self._last_exact_frequencies_cm = None
+            self._last_exact_modes = None
             # Internal/custom coordinate spaces cannot use the Cartesian PHVA
             # helper, but a supplied path tangent can still be transformed to
             # this Hessian space for root-selection diagnostics.
@@ -837,7 +800,7 @@ class TSHessianOptimizer(HessianOptimizer):
                     else "automatic flattening is disabled"
                 )
                 self.table.print(
-                    "Higher-order saddle retained after one exact validation; "
+                    "Exact validation found a higher-order saddle; "
                     + action + "."
                 )
             self.table.print(
@@ -868,6 +831,7 @@ class TSHessianOptimizer(HessianOptimizer):
         )
         n_imaginary = int(np.count_nonzero(neg_mask))
         self._last_exact_n_imaginary = n_imaginary
+        self._last_exact_n_negative = n_strict
         self._last_exact_cart_coords = self.geometry.cart_coords.copy()
         self._last_exact_target_mode_index = None
         self._last_exact_target_mode_overlap = None
@@ -923,23 +887,23 @@ class TSHessianOptimizer(HessianOptimizer):
         # first-order saddle. Exact PHVA supplies the order; IRC supplies the
         # endpoint-connectivity test.
         has_saddle_modes = n_imaginary >= len(self.roots)
-        exact_order = n_imaginary == len(self.roots) and has_saddle_modes
+        exact_order = n_strict == n_imaginary == len(self.roots) and has_saddle_modes
         # Higher-order saddles are retained as converged terminal candidates;
         # the caller may optionally flatten them or continue a diagnostic IRC.
-        self.higher_order_saddle_checks = int(n_imaginary > len(self.roots))
+        self.higher_order_saddle_checks = int(n_strict > len(self.roots))
         self._last_exact_validation = (
             "first_order" if exact_order else
-            "higher_order" if n_imaginary > len(self.roots) else
+            "higher_order" if n_strict > len(self.roots) else
             "no_imaginary"
         )
-        if n_imaginary > len(self.roots):
+        if n_strict > len(self.roots):
             action = (
                 "the caller may run an explicit bounded flatten attempt"
                 if getattr(self, "flatten_enabled", False)
                 else "automatic flattening is disabled"
             )
             self.table.print(
-                "Higher-order saddle retained after one exact validation; "
+                "Exact validation found a higher-order saddle; "
                 + action + "."
             )
         self._last_exact_saddle_verified = exact_order
@@ -951,7 +915,7 @@ class TSHessianOptimizer(HessianOptimizer):
         lowest = f"{float(freqs_cm[0]):+.2f} cm^-1" if freqs_cm.size else "n/a"
         self.table.print(
             "Exact PHVA saddle validation: "
-            f"n_imag={n_imaginary}, lowest={lowest}."
+            f"n_imag={n_imaginary}, n_negative={n_strict}, lowest={lowest}."
         )
         if self._last_exact_target_mode_reanchored:
             self.table.print(
@@ -1081,6 +1045,10 @@ class TSHessianOptimizer(HessianOptimizer):
         return bool(
             self._last_exact_saddle_verified
             and self._exact_phva_matches_current_geometry()
+            and (
+                self._last_exact_frequencies_cm is None  # legacy optimizer-space fallback
+                or self._last_exact_n_negative == self._last_exact_n_imaginary == len(self.roots)
+            )
         )
 
     def _recovery_mode_has_negative_curvature(self, H, mode=None):
@@ -1604,6 +1572,46 @@ class TSHessianOptimizer(HessianOptimizer):
                     step = component * mode + orthogonal
         self.saddle_recovery_steps += 1
         return step
+
+    def _translation_mode_mask(self, eigvecs):
+        """Identify pure, feasible whole-system translations in Cartesian space."""
+        is_torch = isinstance(eigvecs, torch.Tensor)
+        empty = (
+            torch.zeros(eigvecs.shape[1], dtype=torch.bool, device=eigvecs.device)
+            if is_torch else np.zeros(eigvecs.shape[1], dtype=bool)
+        )
+        n_full = self.geometry.cart_coords.size
+        if (
+            self.geometry.coord_type not in ("cart", "cartesian")
+            or len(self.geometry.freeze_atoms)
+            or eigvecs.shape[0] != n_full
+            or n_full == 0
+        ):
+            return empty
+        vectors = (
+            eigvecs.to(dtype=torch.float64) if is_torch
+            else np.asarray(eigvecs, dtype=np.float64)
+        )
+        if self.using_active_dofs and self.active_dof_indices is not None:
+            indices = np.asarray(self.active_dof_indices)
+            if not np.array_equal(np.sort(indices), np.arange(n_full)):
+                return empty
+            order = np.argsort(indices)
+            if is_torch:
+                order = torch.as_tensor(order, dtype=torch.long, device=vectors.device)
+            vectors = vectors[order]
+        displacements = vectors.reshape(n_full // 3, 3, -1)
+        if is_torch:
+            residual = displacements - displacements.mean(dim=0, keepdim=True)
+            norm = torch.linalg.vector_norm(vectors, dim=0)
+            residual_norm = torch.linalg.vector_norm(residual, dim=(0, 1))
+            return torch.isfinite(norm) & (norm > 0.) & (residual_norm <= 1e-10 * norm)
+        residual = displacements - displacements.mean(axis=0, keepdims=True)
+        norm = np.linalg.norm(vectors, axis=0)
+        return (
+            np.isfinite(norm) & (norm > 0.)
+            & (np.linalg.norm(residual, axis=(0, 1)) <= 1e-10 * norm)
+        )
 
     def update_ts_mode(self, eigvals, eigvecs):
         neg_eigval_inds = eigvals < -self.small_eigval_thresh

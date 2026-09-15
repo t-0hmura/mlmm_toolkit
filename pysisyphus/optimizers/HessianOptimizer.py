@@ -37,7 +37,7 @@ import torch
 # torch-specific ops (`index_select`, `matmul`, `.clone()`) keep their inline
 # isinstance branches because the corresponding numpy code is structurally
 # different, not just a different module.
-from pysisyphus._array import get_xp, active_square
+from pysisyphus._array import get_xp, active_square, as_numpy
 
 def dummy_hessian_update(H, dx, dg):
     if isinstance(H, torch.Tensor):
@@ -72,6 +72,7 @@ HessUpdate = Literal[
 
 
 class HessianOptimizer(Optimizer):
+    supports_max_atom_trust = False
     rfo_dict = {
         "min": (0, "min"),
         "max": (-1, "max"),
@@ -114,6 +115,7 @@ class HessianOptimizer(Optimizer):
         uphill_tolerance: float = 1e-4,
         rejection_trust_floor: float = 1e-7,
         max_rejections_at_floor: int = 3,
+        trust_norm: Literal["l2", "max_atom"] = "l2",
         **kwargs,
     ) -> None:
         """Baseclass for optimizers utilizing Hessian information.
@@ -130,6 +132,11 @@ class HessianOptimizer(Optimizer):
             Minimum trust radius.
         trust_max
             Maximum trust radius.
+        trust_norm
+            ``l2`` preserves the existing global norm. ``max_atom`` is an
+            opt-in Cartesian maximum atomic displacement norm, in Bohr.
+            RS-PRFO solves its scalar restriction in this norm; quadratic
+            fallback steps retain a conservative global-L2 subproblem.
         max_energy_incr
             Maximum allowed energy increased after a faulty step. Optimization is
             aborted when the threshold is exceeded.
@@ -175,6 +182,22 @@ class HessianOptimizer(Optimizer):
         **kwargs
             Keyword arguments passed to the Optimizer baseclass.
         """
+        if trust_norm not in ("l2", "max_atom"):
+            raise ValueError("trust_norm must be 'l2' or 'max_atom'")
+        if trust_norm == "max_atom":
+            if not self.supports_max_atom_trust:
+                raise ValueError("trust_norm='max_atom' is supported only by RS-PRFO")
+            if geometry.coord_type not in ("cart", "cartesian"):
+                raise ValueError("trust_norm='max_atom' requires Cartesian coordinates")
+            if getattr(getattr(geometry, "internal", None), "mass_weighted", False):
+                raise ValueError("max_atom does not support mass-weighted Cartesian steps")
+            if weighted_trust:
+                raise ValueError("max_atom and weighted_trust cannot be combined")
+            if any(not np.isfinite(x) or x <= 0 for x in
+                   (trust_radius, trust_min, trust_max)):
+                raise ValueError("max_atom trust radii must be finite and positive")
+        self.trust_norm = trust_norm
+        self.atomic_trust_conservative_quadratic_steps = 0
         super().__init__(geometry, **kwargs)
 
         assert not issubclass(
@@ -208,6 +231,8 @@ class HessianOptimizer(Optimizer):
         # Constrain initial trust radius if trust_max > trust_radius
         self.trust_radius = min(trust_radius, trust_max)
         self.log(f"Initial trust radius: {self.trust_radius:.6f}")
+        if self.trust_norm == "max_atom":
+            self.log("Trust norm: maximum Cartesian atomic displacement (Bohr)")
         # Optional rho-band trust-update parameters.
         # If trust_band=True, set_new_trust_radius uses gentler sigma_inc/sigma_dec
         # multipliers (1.15 / 0.65) inside an rho-band gate (1/rho_inc < rho < rho_inc
@@ -314,22 +339,18 @@ class HessianOptimizer(Optimizer):
         # Sanitize indices (drop negatives / out-of-bounds)
         try:
             inds = np.asarray(inds, dtype=int)
+            if len(inds) > 0 and np.any(inds < 0):
+                inds = inds[inds >= 0]
+            # Check compact shape before clamping global indices to its length.
+            if vec.shape[0] == len(inds):
+                return vec
             if len(inds) > 0:
-                if np.any(inds < 0):
-                    inds = inds[inds >= 0]
-                if len(inds) > 0:
-                    max_valid = vec.shape[0] - 1
-                    if np.any(inds > max_valid):
-                        inds = inds[inds <= max_valid]
+                max_valid = vec.shape[0] - 1
+                if np.any(inds > max_valid):
+                    inds = inds[inds <= max_valid]
                 if len(inds) > 0:
                     if np.min(inds) < 0 or np.max(inds) >= vec.shape[0]:
                         return vec
-        except (ValueError, IndexError, TypeError):
-            pass
-        # Avoid double-slicing if vector is already in active space
-        try:
-            if vec.shape[0] == len(inds):
-                return vec
         except (ValueError, IndexError, TypeError):
             pass
         try:
@@ -457,6 +478,10 @@ class HessianOptimizer(Optimizer):
             hessian_init = self.hessian_init
 
         self.H, hess_str = get_guess_hessian(self.geometry, hessian_init)
+        # A rebuilt coordinate basis invalidates even same-sized secant pairs.
+        # Checkpoint resumes skip prepare_opt and retain their restored history.
+        self._sy_buffer_S = []
+        self._sy_buffer_Y = []
         if self.hessian_init != "calc" and self.geometry.is_analytical_2d:
             assert self.H.shape == (3, 3)
             self.H[2, 2] = 0.0
@@ -599,6 +624,7 @@ class HessianOptimizer(Optimizer):
 
     def _get_opt_restart_info(self):
         opt_restart_info = {
+            "trust_norm": getattr(self, "trust_norm", "l2"),
             "adapt_norm": self.adapt_norm,
             "H": self._restart_list(self.H),
             # Backend/dtype/device of H, so a resumed run keeps the configured
@@ -648,7 +674,22 @@ class HessianOptimizer(Optimizer):
         }
         return opt_restart_info
 
+    def _check_restart_trust_norm(self, restart_info):
+        stored = restart_info.get("trust_norm", "l2")
+        configured = getattr(self, "trust_norm", "l2")
+        if stored != configured:
+            raise ValueError(
+                f"Restart trust_norm={stored!r} does not match configured {configured!r}; "
+                "legacy checkpoints use the global L2 norm"
+            )
+
+    def set_restart_info(self, restart_info):
+        # Reject incompatible units before the base loader mutates histories.
+        self._check_restart_trust_norm(restart_info)
+        super().set_restart_info(restart_info)
+
     def _set_opt_restart_info(self, opt_restart_info):
+        self._check_restart_trust_norm(opt_restart_info)
         self.adapt_norm = opt_restart_info["adapt_norm"]
         # Restore every array in the backend, dtype and device recorded for that
         # array.  The ``*_spec`` keys are absent in checkpoints written before
@@ -710,7 +751,20 @@ class HessianOptimizer(Optimizer):
         self.log("Trust radius update")
         self.log(f"\tCurrent trust radius: {self.trust_radius:.6f}")
         predicted_change = self.predicted_energy_changes[-1]
-        actual_change = self.energies[-1] - self.energies[-2]
+        previous_energy, current_energy = self.energies[-2:]
+        for label, value in (
+            ("previous energy", previous_energy),
+            ("current energy", current_energy),
+            ("predicted energy change", predicted_change),
+        ):
+            if not bool(np.isfinite(value)):
+                raise OptimizationError(f"Non-finite {label} in trust-radius energy quality.")
+        # Convert numerical overflow into an explicit quality error, while
+        # preserving the existing scalar arithmetic for all finite results.
+        with np.errstate(over="ignore", invalid="ignore"):
+            actual_change = current_energy - previous_energy
+        if not bool(np.isfinite(actual_change)):
+            raise OptimizationError("Non-finite actual energy change in trust-radius energy quality.")
         # Only report an unexpected increase if we actually predicted a
         # decrease.
         unexpected_increase = (actual_change > 0) and (predicted_change < 0)
@@ -719,16 +773,31 @@ class HessianOptimizer(Optimizer):
             self.log(f"Energy increased by {actual_change:.6f} au!")
             if self.max_energy_incr and (actual_change > self.max_energy_incr):
                 raise OptimizationError("Actual energy change too high!")
-        coeff = actual_change / predicted_change
         self.log(f"\tPredicted change: {predicted_change:.4e} au")
         self.log(f"\tActual change: {actual_change:.4e} au")
+        if predicted_change == 0:
+            self.log("\tEnergy quality unavailable: zero predicted change; keeping trust radius.")
+            return unexpected_increase
+        with np.errstate(over="ignore", invalid="ignore"):
+            coeff = actual_change / predicted_change
+        if not bool(np.isfinite(coeff)):
+            raise OptimizationError(
+                "Trust-radius energy-quality ratio overflow from finite changes: "
+                f"actual={actual_change!r}, predicted={predicted_change!r}."
+            )
         self.log(f"\tCoefficient: {coeff:.2%}")
         step = self.steps[-1]
         # Weighted L_inf norm replaces L2 when weighted_trust is enabled AND
         # geometry has internals with matching typed_prims length.
         internal = getattr(self.geometry, "internal", None)
         typed_prims = getattr(internal, "typed_prims", None) if internal is not None else None
-        if (
+        if getattr(self, "trust_norm", "l2") == "max_atom":
+            # Optimizer.run records actual geometry.coords differences.
+            # Raw cart uses 3N; CartesianCoords uses its movable-atom vector.
+            last_step_norm = self._trust_step_norm(
+                step, full=self.geometry.coord_type == "cart"
+            )
+        elif (
             self.weighted_trust
             and typed_prims is not None
             and len(typed_prims) == len(np.asarray(step).ravel())
@@ -781,6 +850,8 @@ class HessianOptimizer(Optimizer):
             )
 
     def set_new_trust_radius(self, coeff, last_step_norm, min_radius=None):
+        if not bool(np.isfinite(coeff)):
+            raise ValueError("Trust-radius coefficient must be finite.")
         if min_radius is None:
             min_radius = self.trust_min
         # A rejected RFO trial may deliberately move the radius below the
@@ -819,8 +890,10 @@ class HessianOptimizer(Optimizer):
         # elif coeff > 0.75 and (last_step_norm >= .8*self.trust_radius):
         #
         # Only increase trust radius if last step norm corresponded approximately
-        # to the trust radius.
-        elif coeff > 0.75 and abs(self.trust_radius - last_step_norm) <= 1e-3:
+        # to the trust radius, including when the radius is below 1e-3.
+        elif coeff > 0.75 and abs(self.trust_radius - last_step_norm) <= min(
+            1e-3, 0.01 * self.trust_radius
+        ):
             self.trust_radius = min(self.trust_radius * 2, self.trust_max)
             self.log("\tIncreasing trust radius.")
         else:
@@ -963,37 +1036,37 @@ class HessianOptimizer(Optimizer):
                 self.H = new_H
                 self.log("Did Bofill Hessian update (rank-2, copy-on-write).")
             else:
-                dH, key = self.hessian_update_func(H_work, dx, dg)
+                update_func = self.hessian_update_func
+                if self.hessian_update == "bfgs" and bool(
+                    (get_xp(H_work).linalg.eigvalsh(H_work) < 0).any()
+                ):
+                    update_func = ts_bfgs_update
+                dH, key = update_func(H_work, dx, dg)
                 self.log(f"Did {key} Hessian update.")
                 self.H = H_work + dH
 
-    def solve_rfo(self, rfo_mat, kind="min", prev_eigvec=None):
-        # When using the restricted step variant of RFO the RFO matrix
-        # may not be symmetric. Thats why we can't use eigh here.
-        # torch/numpy dispatch via _array.get_xp — both backends share
-        # isfinite / nan_to_num / allclose / linalg.{eigh,eig} / argsort by
-        # name, so xp.foo(...) is equivalent to the prior if-is_torch branch.
+    def solve_rfo(self, rfo_mat, kind="min", prev_eigvec=None, *, alpha=1.0):
+        """Solve the symmetric augmented problem and recover RFO coordinates.
+
+        Besalú–Bofill Eqs. 22–23 use D = diag(alpha**-0.5, ..., 1).
+        The original right eigenvectors are D times the symmetric ones.
+        """
         xp = get_xp(rfo_mat)
-        is_torch = xp is torch  # still needed for the typed-exception in eigh fallback
+        alpha = float(alpha)
+        if not np.isfinite(alpha) or alpha <= 0.0:
+            raise ValueError("RFO alpha must be finite and positive.")
+        if not bool(xp.isfinite(rfo_mat).all()):
+            raise ValueError("RFO matrix contains NaN/inf.")
+        if not bool((rfo_mat == rfo_mat.T).all()):
+            raise ValueError("RFO requires the symmetric augmented matrix.")
 
-        if not xp.isfinite(rfo_mat).all():
-            self.log("RFO matrix contains NaN/inf; sanitizing entries.")
-            rfo_mat = xp.nan_to_num(rfo_mat, nan=0.0, posinf=1e8, neginf=-1e8)
-
-        is_sym = xp.allclose(rfo_mat, rfo_mat.T)
-
-        if is_sym:
-            try:
-                eigenvalues, eigenvectors = xp.linalg.eigh(rfo_mat)
-            except (torch._C._LinAlgError, np.linalg.LinAlgError):
-                self.log("eigh failed; falling back to eig.")
-                eigenvalues, eigenvectors = xp.linalg.eig(rfo_mat)
-                eigenvalues = eigenvalues.real
-                eigenvectors = eigenvectors.real
+        eigenvalues, eigenvectors = xp.linalg.eigh(rfo_mat)
+        eigenvectors[:-1] /= sqrt(alpha)
+        # Root following uses normalized vectors in the ORIGINAL coordinates.
+        if xp is torch:
+            eigenvectors /= torch.linalg.vector_norm(eigenvectors, dim=0)
         else:
-            eigenvalues, eigenvectors = xp.linalg.eig(rfo_mat)
-            eigenvalues = eigenvalues.real
-            eigenvectors = eigenvectors.real
+            eigenvectors /= np.linalg.norm(eigenvectors, axis=0)
 
         self.log("\tdiagonalized augmented Hessian")
 
@@ -1018,6 +1091,17 @@ class HessianOptimizer(Optimizer):
                 f"Overlap: {ind} ({eigenvalues[ind]:.6f}), "
                 f"Naive: {naive_ind} ({eigenvalues[naive_ind]:.6f})"
             )
+        # A repeated root can have both finite-step and zero-denominator
+        # eigenvectors. Select a finite representative of that SAME root.
+        if float(eigenvectors[-1, ind]) == 0.0:
+            same_root = eigenvalues == eigenvalues[ind]
+            candidates = xp.abs(eigenvectors[-1]) * same_root
+            ind = int(candidates.argmax())
+            if float(candidates[ind]) == 0.0:
+                raise ZeroDivisionError(
+                    "RFO extremal root has a zero augmented component; "
+                    "no finite RFO step exists for this root."
+                )
         follow_eigvec = eigenvectors.T[ind]
         if isinstance(follow_eigvec, torch.Tensor):
             step_nu = follow_eigvec.clone()
@@ -1028,6 +1112,8 @@ class HessianOptimizer(Optimizer):
         # Scale eigenvector so that its last element equals 1. The
         # final is step is the scaled eigenvector without the last element.
         step = step_nu[:-1] / nu
+        if not bool(xp.isfinite(step).all()):
+            raise ValueError("RFO root produces a nonfinite step.")
         eigval = eigenvalues[ind]
         self.log(f"\teigenvalue_{verbose}={eigval:.8e}")
         return step, eigval, nu, follow_eigvec
@@ -1041,19 +1127,34 @@ class HessianOptimizer(Optimizer):
         solvable in O(N) instead of O(N^3).
 
         Returns (step, eigval, nu, eigvec) on success, None on failure.
+        The tolerance is relative to the terms in the scalar equation.
         """
         is_torch = isinstance(eigvals, torch.Tensor)
 
         # Convert all inputs to plain numpy/float for root-finding
-        _np = lambda x: x.detach().cpu().numpy().copy() if isinstance(x, torch.Tensor) else np.asarray(x, dtype=np.float64)
+        _np = lambda x: np.asarray(x.detach().cpu().numpy() if isinstance(x, torch.Tensor) else x, dtype=np.float64)
         g = _np(gradient)
         lam = _np(eigvals)
         alpha = alpha.detach().cpu().item() if isinstance(alpha, torch.Tensor) else float(alpha)
 
+        if not np.isfinite(alpha) or alpha <= 0.0:
+            raise ValueError("RFO alpha must be finite and positive.")
+        if not (np.isfinite(lam).all() and np.isfinite(g).all()):
+            raise ValueError("RFO eigenvalues and gradient must be finite.")
+        # An extremal root alone cannot establish maximum overlap with every
+        # other root. Let the dense solver perform the requested root following.
+        if prev_eigvec is not None:
+            return None
+
         n = len(lam)
         g2 = g ** 2
-        nz = g2 > 1e-30
+        nz = g2 > 0.0
+        if np.any((g != 0.0) & ~nz):
+            return None
         if not nz.any():
+            adverse_root = (lam < 0.0).any() if kind == "min" else (lam > 0.0).any()
+            if adverse_root:
+                return None
             step = np.zeros(n)
             eigvec = np.zeros(n + 1); eigvec[-1] = 1.0
             if is_torch:
@@ -1063,10 +1164,6 @@ class HessianOptimizer(Optimizer):
             return step, 0.0, 1.0, eigvec
 
         g2_nz, lam_nz = g2[nz], lam[nz]
-
-        # Guard against alpha ≈ 0 (can arise from trust-radius adaptation)
-        if abs(alpha) < 1e-14:
-            return None
 
         def f_df(mu):
             d = alpha * mu - lam_nz
@@ -1096,11 +1193,22 @@ class HessianOptimizer(Optimizer):
         else:
             return None
 
+        # The pole offset can exclude a weakly coupled root. In that case,
+        # leave it to the symmetric solver rather than search a false bracket.
+        f_lo, f_hi = f_df(lo)[0], f_df(hi)[0]
+        if not (np.isfinite(f_lo) and np.isfinite(f_hi)
+                and f_lo >= 0.0 and f_hi <= 0.0):
+            return None
+
         # Newton-Raphson with bisection safeguard
         mu_cur = (lo + hi) / 2.0
         for _ in range(max_iter):
             fval, dfval = f_df(mu_cur)
-            if abs(fval) < tol:
+            equation_scale = max(
+                abs(mu_cur), float(np.sum(np.abs(g2_nz / (alpha * mu_cur - lam_nz))))
+            )
+            if (np.isfinite(fval) and np.isfinite(equation_scale)
+                    and abs(fval) <= tol * equation_scale):
                 break
             mu_new = mu_cur - fval / dfval if abs(dfval) > 1e-30 else (lo + hi) / 2.0
             if mu_new <= lo or mu_new >= hi:
@@ -1118,18 +1226,13 @@ class HessianOptimizer(Optimizer):
 
         # Compute step: s_i = g_i / (alpha * mu - lam_i)
         denom = alpha * mu_cur - lam
-        step_np = np.where(nz, g / denom, 0.0)
+        step_np = np.divide(g, denom, out=np.zeros_like(g), where=nz)
+        if not np.isfinite(step_np).all():
+            return None
 
         # Eigenvector for mode tracking
         eigvec_np = np.append(step_np, 1.0)
         eigvec_np /= np.linalg.norm(eigvec_np)
-
-        # Mode tracking check
-        if prev_eigvec is not None:
-            prev_np = _np(prev_eigvec)
-            if abs(float(np.dot(prev_np, eigvec_np))) < 0.3:
-                self.log("Secular eigvec overlap too low; falling back.")
-                return None
 
         if is_torch:
             step_np = torch.tensor(step_np, device=eigvals.device, dtype=eigvals.dtype)
@@ -1282,7 +1385,88 @@ class HessianOptimizer(Optimizer):
         self.cur_H = H
         return gradient, H, eigvals, eigvecs
 
+    def _mw_frequencies_and_modes(self):
+        """Return PHVA frequencies/modes using the final ``freq`` criterion.
+
+        The frequency helper assumes a Cartesian full or atom-wise active
+        Hessian.  Other coordinate systems retain the legacy raw-Hessian
+        criterion because converting their Hessian back to Cartesian space is
+        outside this optimizer's responsibility.
+        """
+        if self.geometry.coord_type not in ("cart", "cartesian"):
+            return None
+
+        H = self.cur_H
+        if H is None:
+            return None
+
+        n_atoms = len(self.geometry.atoms)
+        n_full = 3 * n_atoms
+        frozen = {
+            int(index)
+            for index in np.asarray(self.geometry.freeze_atoms, dtype=int)
+            if 0 <= int(index) < n_atoms
+        }
+        n_active = n_full - 3 * len(frozen)
+        if tuple(H.shape) not in ((n_full, n_full), (n_active, n_active)):
+            self.log(
+                "Skipping PHVA saddle verification for a non atom-wise "
+                f"partial Hessian with shape {tuple(H.shape)}."
+            )
+            return None
+
+        # Compact optimizer blocks follow declared DOF order; the frequency
+        # helper expects the ascending atom order defined by the frozen mask.
+        active_dofs = getattr(self, "active_dof_indices", None)
+        if active_dofs is not None and H.shape[0] == n_active:
+            active_dofs = np.asarray(active_dofs, dtype=int)
+            canonical = np.array([
+                3 * atom + axis for atom in range(n_atoms) if atom not in frozen
+                for axis in range(3)
+            ])
+            order = np.argsort(active_dofs)
+            if not np.array_equal(active_dofs[order], canonical):
+                return None
+            if not np.array_equal(active_dofs, canonical):
+                H = active_square(H, order)
+
+        from pysisyphus.normal_modes import (
+            _frequencies_cm_and_modes, DEFAULT_FREQUENCY_ZERO_CUTOFF_CM,
+        )
+        from pysisyphus.tr_projection import DEFAULT_TR_PROJECTION
+
+        if isinstance(H, torch.Tensor):
+            H_in = H.detach().clone().to(dtype=torch.float64)
+            device = H_in.device
+        else:
+            H_in = torch.as_tensor(
+                np.array(H, dtype=np.float64, copy=True), dtype=torch.float64
+            )
+            device = H_in.device
+
+        projection_info = {}
+        freqs_cm, modes = _frequencies_cm_and_modes(
+            H_in,
+            list(self.geometry.atomic_numbers),
+            self.geometry.cart_coords.reshape(-1, 3).copy(),
+            device,
+            freeze_idx=sorted(frozen) or None,
+            tr_projection=getattr(
+                self.geometry, "tr_projection", DEFAULT_TR_PROJECTION
+            ),
+            projection_info=projection_info,
+            frequency_zero_cutoff_cm=getattr(
+                self, "saddle_imaginary_threshold_cm", DEFAULT_FREQUENCY_ZERO_CUTOFF_CM
+            ),
+        )
+        self._last_rigid_projection_info = projection_info
+        return np.asarray(freqs_cm, dtype=float), modes
+
     def get_augmented_hessian(self, eigvals, gradient, alpha=1.0):
+        """Return the symmetric RFO matrix for a positive scaling metric."""
+        alpha = float(alpha)
+        if not np.isfinite(alpha) or alpha <= 0.0:
+            raise ValueError("RFO alpha must be finite and positive.")
         if isinstance(gradient, torch.Tensor):
             dim_ = eigvals.size(0) + 1
             H_aug = torch.zeros((dim_, dim_), device=gradient.device, dtype=gradient.dtype)
@@ -1291,10 +1475,9 @@ class HessianOptimizer(Optimizer):
             dim_ = eigvals.size + 1
             H_aug = np.zeros((dim_, dim_))
             H_aug[: dim_ - 1, : dim_ - 1] = np.diag(eigvals / alpha)
-        H_aug[-1, :-1] = gradient
-        H_aug[:-1, -1] = gradient
-
-        H_aug[:-1, -1] /= alpha
+        coupling = gradient / sqrt(alpha)
+        H_aug[-1, :-1] = coupling
+        H_aug[:-1, -1] = coupling
 
         return H_aug
 
@@ -1359,9 +1542,13 @@ class HessianOptimizer(Optimizer):
                 # Fallback to full eigendecomposition
                 self.log("Secular solver failed; using full eigendecomposition.")
                 H_aug = self.get_augmented_hessian(eigvals, gradient_, alpha)
-                rfo_step_, eigval_min, nu, self.prev_eigvec_min = self.solve_rfo(
-                    H_aug, "min", prev_eigvec=self.prev_eigvec_min
-                )
+                try:
+                    rfo_step_, eigval_min, nu, self.prev_eigvec_min = self.solve_rfo(
+                        H_aug, "min", prev_eigvec=self.prev_eigvec_min, alpha=alpha
+                    )
+                except ZeroDivisionError:
+                    self.log("RFO hard case; using the trust-region Newton step.")
+                    return self.get_newton_step_on_trust(eigvals, eigvecs, gradient)
             if isinstance(rfo_step_, torch.Tensor):
                 rfo_norm_ = torch.linalg.norm(rfo_step_)
             else:
@@ -1377,9 +1564,7 @@ class HessianOptimizer(Optimizer):
                 )
                 break
 
-            if (rfo_norm_ < self.trust_radius) or abs(
-                rfo_norm_ - self.trust_radius
-            ) <= 1e-3:
+            if rfo_norm_ <= self.trust_radius * (1.0 + 1e-12):
                 step_ = rfo_step_
                 break
 
@@ -1401,7 +1586,11 @@ class HessianOptimizer(Optimizer):
                 rfo_step_, eigval_min, nu, _ = secular_result
             else:
                 H_aug = self.get_augmented_hessian(eigvals, gradient_, alpha=1.0)
-                rfo_step_, eigval_min, nu, _ = self.solve_rfo(H_aug, "min")
+                try:
+                    rfo_step_, eigval_min, nu, _ = self.solve_rfo(H_aug, "min")
+                except ZeroDivisionError:
+                    self.log("RFO hard case; using the trust-region Newton step.")
+                    return self.get_newton_step_on_trust(eigvals, eigvecs, gradient)
             if isinstance(rfo_step_, torch.Tensor):
                 rfo_norm_ = torch.linalg.norm(rfo_step_)
             else:
@@ -1465,6 +1654,45 @@ class HessianOptimizer(Optimizer):
         else:
             return eigvecs.dot(eigvecs.T.dot(gradient) / eigvals)
 
+    def _trust_step_norm(self, step, *, full=False):
+        """Measure a Cartesian step in its ordered working-DOF map.
+
+        ``full=True`` identifies actual full-coordinate displacements and
+        avoids ambiguity when a full-size working map is a permutation.
+        Frozen/uncontrolled full-coordinate motion is never discarded.
+        """
+        flat = np.asarray(as_numpy(step), dtype=float).reshape(-1)
+        if getattr(self, "trust_norm", "l2") != "max_atom":
+            return float(np.linalg.norm(flat))
+        if self.geometry.coord_type not in ("cart", "cartesian"):
+            raise ValueError("max_atom requires Cartesian displacement coordinates")
+        size = int(self.geometry.cart_coords.size)
+        indices = None
+        if not full and getattr(self, "using_active_dofs", False):
+            indices = np.asarray(self.active_dof_indices)
+        elif not full and self.geometry.coord_type == "cartesian":
+            # CartesianCoords is an internal wrapper whose coordinates omit
+            # frozen atoms. It is still unweighted Cartesian displacement.
+            internal = self.geometry.internal
+            if getattr(internal, "mass_weighted", False):
+                raise ValueError("max_atom does not support mass-weighted Cartesian steps")
+            indices = np.flatnonzero(internal.move_mask_rep)
+        if indices is not None:
+            if (indices.ndim != 1 or indices.dtype.kind not in "iu"
+                    or len(indices) != flat.size
+                    or np.any(indices < 0) or np.any(indices >= size)
+                    or len(np.unique(indices)) != len(indices)):
+                raise ValueError("max_atom step does not match its ordered active DOFs")
+            cart = np.zeros(size, dtype=flat.dtype)
+            cart[indices] = flat
+        else:
+            if flat.size != size:
+                raise ValueError("max_atom needs full coordinates or an active-DOF map")
+            cart = flat
+        if size == 0 or size % 3 or not np.isfinite(cart).all():
+            raise ValueError("max_atom requires a finite, nonempty Cartesian step")
+        return float(np.max(np.linalg.norm(cart.reshape(-1, 3), axis=1)))
+
     def _bound_to_trust_radius(self, step, *, label="step"):
         """Return a finite displacement within the current trust radius."""
         if isinstance(step, torch.Tensor):
@@ -1476,6 +1704,8 @@ class HessianOptimizer(Optimizer):
             step_norm = float(np.linalg.norm(step))
         if not finite:
             raise ValueError(f"{label} contains NaN/inf")
+        if getattr(self, "trust_norm", "l2") == "max_atom":
+            step_norm = self._trust_step_norm(step)
         if step_norm > self.trust_radius * (1.0 + 1e-12):
             self.log(
                 f"Scaled {label} to the trust radius "
@@ -1485,144 +1715,79 @@ class HessianOptimizer(Optimizer):
         return step
 
     def get_newton_step_on_trust(self, eigvals, eigvecs, gradient, transform=True):
-        """Step on trust-radius.
+        """Solve the quadratic trust subproblem, including a degenerate hard case.
 
-        See Nocedal 4.3 Iterative solutions of the subproblem
+        Use the nonnegative spectral shift of Moré and Sorensen,
+        doi:10.1137/0904038. A missing gradient component in the lowest
+        eigenspace is supplied by a bounded negative-curvature component.
         """
-        if isinstance(eigvals, torch.Tensor):
-            eigvals = eigvals.cpu().numpy()
+        lam = np.asarray(as_numpy(eigvals), dtype=float)
+        vectors = np.asarray(as_numpy(eigvecs), dtype=float)
+        g = vectors.T @ np.asarray(as_numpy(gradient), dtype=float)
+        radius = float(self.trust_radius)
+        atomic_trust = getattr(self, "trust_norm", "l2") == "max_atom"
+        if atomic_trust:
+            self.atomic_trust_conservative_quadratic_steps = getattr(
+                self, "atomic_trust_conservative_quadratic_steps", 0
+            ) + 1
+            self.log("max_atom: conservative L2 quadratic substep; not an atomic-ball optimum")
+        if not (np.isfinite(lam).all() and np.isfinite(g).all()):
+            raise ValueError("Trust-region Hessian and gradient must be finite.")
+        if not np.isfinite(radius) or radius <= 0.0:
+            raise ValueError("Trust radius must be finite and positive.")
 
-        min_ind = eigvals.argmin()
-        min_eigval = eigvals[min_ind]
-        pos_definite = bool((eigvals > 0.0).all())
-        if isinstance(eigvecs, torch.Tensor):
-            if not isinstance(gradient, torch.Tensor):
-                gradient = torch.tensor(
-                    gradient, device=eigvecs.device, dtype=eigvecs.dtype
-                )
-            else:
-                gradient = gradient.to(device=eigvecs.device, dtype=eigvecs.dtype)
-            gradient_trans = eigvecs.T @ gradient
-            gradient_trans = gradient_trans.cpu().numpy()
-        else:
-            gradient_trans = eigvecs.T.dot(gradient)
-
-        # This will be also be True when we come close to a minimizer,
-        # but then the Hessian will also be positive definite and a
-        # simple Newton step will be used.
-        hard_case = abs(gradient_trans[min_ind]) <= 1e-6
-        self.log(f"Smallest eigenvalue: {min_eigval:.6f}")
-        self.log(f"Positive definite Hessian: {pos_definite}")
-        self.log(f"Hard case: {hard_case}")
-
-        def get_step(shift):
-            return -gradient_trans / (eigvals + shift)
-
-        # Unshifted Newton step
-        newton_step_trans = get_step(0.0)
-        newton_norm = np.linalg.norm(newton_step_trans)
-
-        def on_trust_radius_lin(step):
-            return 1 / self.trust_radius - 1 / np.linalg.norm(step)
-
-        def finalize_step(shift):
-            step = get_step(shift)
+        def finish(step):
             if transform:
-                if isinstance(eigvecs, torch.Tensor):
-                    step = torch.tensor(step, device=eigvecs.device, dtype=eigvecs.dtype)
-                    step = (eigvecs @ step).cpu().numpy()
-                else:
-                    step = eigvecs.dot(step)
+                step = vectors @ step
+            elif atomic_trust:
+                # These are eigenbasis coefficients, not grouped Cartesian
+                # components. The L2 ball is contained in the max-atom ball.
+                norm = float(np.linalg.norm(step))
+                if not np.isfinite(step).all():
+                    raise ValueError("Quadratic substep contains NaN/inf")
+                if norm > radius:
+                    step = step * (radius / norm)
+                return step
             return self._bound_to_trust_radius(step, label="trust-region Newton step")
 
-        # Simplest case. Positive definite Hessian and predicted step is
-        # already in trust radius.
-        if pos_definite and newton_norm <= self.trust_radius:
-            self.log("Using unshifted Newton step.")
-            if isinstance(eigvecs, torch.Tensor):
-                newton_step_trans = torch.tensor(
-                    newton_step_trans, device=eigvecs.device, dtype=eigvecs.dtype
-                )
-                newton_step_trans = (eigvecs @ newton_step_trans).cpu().numpy()
-            else:
-                newton_step_trans = eigvecs.dot(newton_step_trans)
-            return self._bound_to_trust_radius(
-                newton_step_trans, label="trust-region Newton step"
-            )
+        # Work in the distance from the lowest admissible shift. This avoids
+        # subtracting nearly equal eigenvalues at a pole during the root search.
+        minimum = float(lam.min())
+        base = lam + max(0.0, -minimum)
+        null = base == 0.0
+        regular = ~null
+        at_boundary = np.zeros_like(g)
+        at_boundary[regular] = -g[regular] / base[regular]
+        if not np.any(g[null]):
+            norm = np.linalg.norm(at_boundary)
+            if norm <= radius:
+                if minimum < 0.0:
+                    # The whole lowest eigenspace can be degenerate. Its
+                    # zero-gradient components do not enter the pseudoinverse.
+                    index = int(np.flatnonzero(null)[0])
+                    at_boundary[index] = sqrt(max(0.0, radius**2 - norm**2))
+                return finish(at_boundary)
 
-        # If the Hessian is not positive definite or if the step is too
-        # long we have to determine the shift parameter lambda.
-        rs_kwargs = {
-            "f": lambda shift: on_trust_radius_lin(get_step(shift)),
-            "xtol": 1e-3,
-            # Would otherwise be chosen automatically, but we set it
-            # here explicitly for verbosity.
-            "method": "brentq",
-        }
+        def step_norm(offset):
+            denom = base + offset
+            if np.any((denom == 0.0) & (g != 0.0)):
+                return np.inf
+            step = np.divide(-g, denom, out=np.zeros_like(g), where=denom != 0.0)
+            return np.linalg.norm(step)
 
-        def root_search(bracket):
-            rs_kwargs.update(
-                {
-                    "bracket": bracket,
-                    "x0": bracket[0] + 1e-3,
-                }
-            )
-            res = root_scalar(**rs_kwargs)
-            return res
-
-        BRACKET_END = 1e10
-        if not hard_case:
-            bracket_start = 0.0 if pos_definite else -min_eigval + 1e-2
-            bracket = (bracket_start, BRACKET_END)
-            try:
-                res = root_search(bracket)
-                assert res.converged
-                return finalize_step(res.root)
-            # ValueError may be raised when the function values for the
-            # initial bracket have the same sign. If so, we continue with
-            # treating it as a hard case.
-            except ValueError:
-                pass
-
-        # Now we would try the bracket (-b2, -b1). The resulting step should have
-        # a suitable length, but the (shifted) Hessian would have an incorrect
-        # eigenvalue spectrum (not positive definite). To solve this we use a
-        # different formula to calculate the step.
-        mask = np.ones_like(gradient_trans)
-        mask[min_ind] = 0
-        mask = mask.astype(bool)
-        without_min = gradient_trans[mask] / (eigvals[mask] - min_eigval)
-        tau_sq = self.trust_radius**2 - (without_min**2).sum()
-        if tau_sq >= 0.0:
-            tau = sqrt(tau_sq)
-            step_trans = [tau] + (-without_min).tolist()
-        else:
-            # Hard case. Search in open interval (endpoints not included)
-            # (-min_eigval, inf).
-            bracket = (-min_eigval + 1e-6, BRACKET_END)
-            try:
-                res = root_search(bracket)
-                if res.converged:
-                    return finalize_step(res.root)
-            except ValueError:
-                pass
-            # Fallback: clamp tau to 0 so the step excludes the
-            # minimum-eigenvalue component but remains valid.
-            self.log("Hard case fallback: tau clamped to 0.")
-            tau = 0.0
-            step_trans = [tau] + (-without_min).tolist()
-
-        if transform:
-            if isinstance(eigvecs, torch.Tensor):
-                step_trans = torch.tensor(
-                    step_trans, device=eigvecs.device, dtype=eigvecs.dtype
-                )
-                step_trans = (eigvecs @ step_trans).cpu().numpy()
-            else:
-                step_trans = eigvecs.dot(step_trans)
-        return self._bound_to_trust_radius(
-            step_trans, label="hard-case trust-region Newton step"
+        # Use a strict upper bound: the closed bound ||g||/radius can round
+        # just outside the ball when every shifted eigenvalue is zero.
+        upper = max(2.0 * float(np.linalg.norm(g)) / radius, np.finfo(float).tiny)
+        result = root_scalar(
+            lambda offset: 1.0 / radius - 1.0 / step_norm(offset),
+            bracket=(0.0, upper),
+            method="brentq",
+            xtol=np.finfo(float).smallest_subnormal,
+            rtol=4.0 * np.finfo(float).eps,
         )
+        if not result.converged:
+            raise ValueError("Trust-region spectral shift did not converge.")
+        return finish(-g / (base + result.root))
 
     @staticmethod
     def quadratic_model(gradient, hessian, step):

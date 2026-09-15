@@ -42,6 +42,7 @@ mlmm opt -i system_layered.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 1. **入力処理** -- `-i/--input` は PDB または XYZ ファイルを受け付けます（XYZ 入力時は `--ref-pdb` を使用）。オプティマイザは `pysisyphus.helpers.geom_loader` を介してこの PDB から座標を読み取ります。ML/MM レイヤー定義は `--model-pdb`、`--model-indices`、または `--detect-layer`（B 因子エンコーディング: B=0 ML、B=10 Movable-MM、B=20 Frozen）から取得されます。
 2. **ML/MM calculatorの構築** -- ML/MM calculator（MLIP バックエンド + hessian_ff）を構築します。`--parm` で Amber MM トポロジーを提供し、`--model-pdb` で ML 領域を定義します。`-b/--backend` で ML バックエンドを選択します（デフォルト: `uma`）。
 3. **最適化** -- `--opt-mode grad`/`lbfgs` は L-BFGS、`--opt-mode hess`/`rfo` は RFOptimizer（RFO）を実行します。
+   - `--flatten` なしの RFO は、受理前に計算した曲率を確認します。Cartesian 座標では活性部分空間の負の振動数 0 本（微小モードを含む）を、内部座標では従来の最適化空間の固有値を確認し、この厳密PHVA証明とは区別します。微小反復では ML 領域と link-parent の macro 部分空間が対象です。選択した ML/MM 全体の確認には [`freq`](freq.md) を使います。
    - `--flatten` は最適化後の虚振動数モードのフラット化を有効にします。検出されたすべての虚振動数モードが各反復でフラット化され、虚振動数モードがなくなるか内部ループ上限に達するまで続きます。
 4. **拘束** -- `--dist-freeze` は Python リテラルタプル `(i, j, target_A)` を受け付けます。`target_A` は目標距離（Å）で、第 3 要素を省略すると開始距離が拘束されます。`--bias-k` はグローバル調和強度（eV/Å²）を設定します。インデックスはデフォルトで 1 始まりですが、`--zero-based` で 0 始まりに変更可能です。
 5. **ダンプと変換** -- `--dump` は `optimization_trj.xyz` を書き出します。変換が有効な場合、PDB 入力では軌跡も `.pdb` に変換されます（B 因子アノテーション付き）。`opt.dump_restart` はリスタート YAML スナップショットを出力できます。
@@ -93,7 +94,7 @@ out_dir/ (デフォルト: ./result_opt/)
 | `--bias-k FLOAT` | 調和バイアス強度 (eV/Å²)。 | `300.0` |
 | `--max-cycles INT` | 最適化反復上限。 | `100000` |
 | `--opt-mode [grad\|hess\|lbfgs\|rfo]` | オプティマイザモード: `grad`/`lbfgs`（L-BFGS）または `hess`/`rfo`（RFO）。 | `grad` |
-| `--microiter/--no-microiter` | マイクロイテレーション: ML 1 ステップ（RFO）+ MM 緩和（L-BFGS）を交互に実行。`hess` モードでのみ有効。 | `True` |
+| `--microiter/--no-microiter` | `hess` モードで ML の RFO 1 ステップと MM の L-BFGS 緩和を交互に実行。`--embedcharge` 有効時は通常の最適化に切り替えます。 | `True` |
 | `--flatten/--no-flatten` | 最適化後の虚振動数モードフラット化ループの有効化/無効化。 | `False` |
 | `--reject-uphill/--no-reject-uphill` | `hess` モードで RFO の上り坂試行ステップ拒否を明示的に有効化（許容値 `1e-4` Hartree、低エネルギー形状へロールバックして trust radius を縮小）。`grad`/`lbfgs` モードでは無効。emergency trust floor 到達時は、非収束停止を報告する前に保持構造を通常の収束条件で最終確認。 | `False` |
 | `--dump/--no-dump` | 軌跡ダンプ（`optimization_trj.xyz`、`optimization_all_trj.xyz`）を出力。 | `False` |
@@ -123,7 +124,7 @@ out_dir/ (デフォルト: ./result_opt/)
 
 ### 凍結境界の TR 射影
 
-固定の constrained 処理が `opt` に影響するのは、`--flatten` が PHVA を実行するときだけです。
+constrained 処理は、Cartesian RFO の曲率確認と `--flatten` で使用します。
 これは凍結 anchor を動かさない全系剛体運動だけを除去します。
 一般的な有効 rank は anchor が 0/1/2/非共線の 3 個以上のとき 6/3/1/0 で、
 実用的な ML/MM 境界では通常 0 です。全原子凍結は明示的なエラーになります。

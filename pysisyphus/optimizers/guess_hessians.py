@@ -274,6 +274,9 @@ def get_guess_hessian(
         # Use the previously set hessian in whatever coordinate system we
         # actually employ.
         H = geometry.hessian
+        # The supplied matrix is an optimizer model, not a calculator result.
+        # A later exact-curvature check must evaluate the physical Hessian.
+        geometry.cart_hessian = None
         hess_str = "saved"
 
     # if (h5_fn is not None) and (hessian_init == "calc"):

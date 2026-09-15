@@ -16,7 +16,37 @@ must be able to raise the physical energy along its reaction mode. The
 optimization (`opt` and post-IRC endpoint re-optimization in `all`). The
 inner MM-only relaxation in microiteration remains a minimum subproblem.
 
-When explicitly enabled, the surplus-imaginary-mode flatten loop (`--flatten`) uses mass-scaled displacements to remove extra negative modes. Without `--flatten`, terminal exact PHVA runs once after numerical convergence unless `--skip-final-freq` is set. The terminal candidate is retained as first-order, higher-order, no-imaginary, or unavailable. First-order TS certification still requires one imaginary mode along the intended reaction coordinate and correct [`irc`](irc.md) connectivity.
+RS-P-RFO checks calculated curvature when a candidate meets the numerical tolerances. Without `--flatten`, it continues if surplus negative modes remain in the optimizer's active space. With microiteration, this is the ML/link-parent macro space; final PHVA checks the separately selected ML/MM space. Zero imaginary modes stop the internal search by default. First-order TS certification still requires one imaginary mode along the intended reaction coordinate and correct [`irc`](irc.md) connectivity.
+
+`--flatten` explicitly enables the separate surplus-mode displacement loop. `--skip-final-freq` skips the final PHVA output stage, leaving the final saddle order unverified.
+
+
+`n_imaginary_modes` remains the resolved display count; `n_negative_modes` counts all negative frequencies in the complete finite PHVA partition, including near-zero modes. First-order certification requires both counts to equal one; incomplete partitions cannot certify it.
+
+## Cartesian RS-P-RFO defaults
+
+For ordinary, unweighted Cartesian coordinates, `hess` / `rsprfo` uses
+`hessian_update: ts_bfgs` and `trust_norm: max_atom`. The initial and maximum
+trust radius are **0.1 Å** (about **0.1889726 Bohr**), bounding each atom's
+three-dimensional displacement. The minimum radius remains 1e-4 Bohr.
+YAML radii remain in **Bohr**.
+
+An explicit `hessian_update`, including `bofill`, is preserved independently.
+If any of `trust_norm`, `trust_radius`, `trust_min`, or `trust_max` is present
+in `opt` or `rsirfo`, an omitted norm retains its previous global-L2 meaning.
+Explicit `trust_norm: l2` also retains the previous 0.1-Bohr radius defaults.
+With explicit `trust_norm: max_atom`, only an omitted initial or maximum radius
+receives the 0.1-Å default; explicit numeric radii are preserved.
+Internal or mass-weighted coordinates, weighted trust, RS-I-RFO, TRIM and Dimer
+retain their existing defaults.
+
+For the previous Cartesian norm and Hessian update, use:
+
+```yaml
+rsirfo:
+  trust_norm: l2
+  hessian_update: bofill
+```
 
 ## Terminal outcomes and fatal errors
 
@@ -167,7 +197,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 4. **Hessian TS optimization** — runs the default RS-P-RFO, or an explicitly selected RS-I-RFO / TRIM optimizer, with the shared controls defined in the `rsirfo` YAML section. The flatten behavior:
    - With `--flatten`, when more than one imaginary mode remains after convergence the workflow flattens extra modes and reruns the selected optimizer until only one imaginary mode remains or the flatten-iteration cap is reached.
    - Each flatten iteration recomputes a fresh ML/MM Hessian (active-coordinate block by default, or full per `--full-hessian-flatten`) for imaginary-mode detection. There is no Bofill update in this path.
-5. **Mode export + conversion** — final frequency analysis writes imaginary modes to `vib/imag_*_trj.xyz` and mirrors them to `.pdb` for PDB input when conversion is enabled. The shared `freq.zero_cutoff_cm` value removes `|frequency| <= cutoff` modes before both saddle classification and trajectory output. With PDB input and conversion enabled, the final geometry is converted to PDB independently; `--dump` additionally writes and converts the optimization trajectory.
+5. **Mode export + conversion** — final frequency analysis writes imaginary modes to `vib/imag_*_trj.xyz` and mirrors them to `.pdb` for PDB input when conversion is enabled. The shared `freq.zero_cutoff_cm` value removes `|frequency| <= cutoff` modes before display and trajectory output; strict saddle acceptance also counts negative modes in that zero window. With PDB input and conversion enabled, the final geometry is converted to PDB independently; `--dump` additionally writes and converts the optimization trajectory.
 
 ## Outputs
 
@@ -175,10 +205,10 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 classification. `optimization_status` is `converged`, `not_converged`, or
 `stalled`; `saddle_validation` is `first_order`, `higher_order`,
 `no_imaginary`, or `unavailable`; and `hessian_status` records whether the
-terminal PHVA completed, failed, was skipped, or was unavailable. Terminal PHVA
-runs only after numerical convergence; a non-converged or stalled run retains
-the geometry and skips PHVA. A PHVA failure is recorded without discarding the
-structure or fabricating frequencies.
+terminal PHVA completed, failed, was skipped, or was unavailable. A non-converged
+or stalled run retains the geometry and skips the final PHVA output stage,
+even if curvature was checked during optimization. A PHVA failure is recorded
+with its reason.
 
 A numerically converged higher-order stationary point is retained and may be
 used only for warning-labeled diagnostic IRC when a validated negative root is
@@ -229,7 +259,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--ref-mode PATH` | Advanced/internal Cartesian reference candidate(s) from `.npz`, `.npy`, or whitespace text (one 3N vector or a 2-D candidate table). Guides negative Hessian-root identity/overlap; does not replace the Hessian and is unsupported by Dimer. `all` supplies it from the MEP for Hessian TS optimizers. | _None_ |
 | `--max-cycles INT` | Maximum total optimizer cycles. | `100000` |
 | `--opt-mode CHOICE` | TS optimizer mode: `grad`/`dimer` → Hessian-Guided Dimer; `hess`/`rsprfo` → RS-P-RFO (default); `rsirfo` → RS-I-RFO; `trim` → TRIM. All three Hessian TS optimizers support microiteration. | `hess` |
-| `--microiter / --no-microiter` | Microiteration: alternate a 1-step macro TS move (RS-I-RFO / RS-P-RFO / TRIM) + MM relaxation (L-BFGS). Effective in any Hessian mode (`hess` / `rsirfo` / `rsprfo` / `trim`); no-op in `--opt-mode grad` / `dimer`. | `True` |
+| `--microiter / --no-microiter` | Alternate one macro TS step with MM L-BFGS relaxation in Hessian modes. With `--embedcharge`, use standard optimization instead. | `True` |
 | `--ml-only-hessian-dimer / --no-ml-only-hessian-dimer` | Use ML-region-only Hessian for dimer orientation in `grad` mode (faster but less accurate). | `False` |
 | **Convergence & flatten** | | |
 | `--thresh TEXT` | Convergence preset (`gau_loose` / `gau` / `gau_tight` / `gau_vtight` / `baker` / `never`). | _None_ |

@@ -368,7 +368,7 @@ def test_hessian_dimer_stops_after_child_stall(tmp_path, monkeypatch):
     assert _tsopt_terminal_status(runner, saddle_verified=True) == "stalled"
 
 
-def test_terminal_saddle_certification_uses_magnitude_threshold():
+def test_terminal_saddle_certification_separates_magnitude_threshold():
     from mlmm.workflows.tsopt import (
         _certified_negative_frequencies,
         _certified_saddle_order,
@@ -380,14 +380,17 @@ def test_terminal_saddle_certification_uses_magnitude_threshold():
     assert _certified_negative_frequencies(freqs_cm, 5.0) == [-450.0]
 
     runner = _FakeOpt(is_converged=True)
+    runner.rigid_projection_info = {"raw_mode_count": 4, "near_zero_frequencies_cm": []}
     export_idx = _finalize_dimer_saddle_status(runner, freqs_cm, 5.0)
     assert runner.n_imaginary_modes == 1
     assert runner.imaginary_frequencies_cm == [-450.0]
-    assert runner.saddle_order_verified is True
+    assert runner.saddle_order_verified is False
+    assert runner.n_negative_modes == 2
     assert runner.is_converged is True
     assert export_idx.tolist() == [0]
 
     soft = _FakeOpt(is_converged=True)
+    soft.rigid_projection_info = {"raw_mode_count": 3, "near_zero_frequencies_cm": []}
     soft_export = _finalize_dimer_saddle_status(
         soft, np.array([-3.2, 12.0, 640.0]), 5.0
     )
@@ -397,7 +400,7 @@ def test_terminal_saddle_certification_uses_magnitude_threshold():
     assert soft_export.tolist() == []
 
 
-def test_exact_phva_validation_ignores_soft_negative_roots():
+def test_exact_phva_validation_rejects_soft_negative_roots():
     from pysisyphus.tsoptimizers.RSIRFOptimizer import RSIRFOptimizer
 
     modes = np.eye(3)
@@ -413,6 +416,7 @@ def test_exact_phva_validation_ignores_soft_negative_roots():
     optimizer.forces = []
     optimizer.geometry = SimpleNamespace(cart_coords=np.zeros(3))
     optimizer.table = SimpleNamespace(print=printed.append)
+    optimizer._last_rigid_projection_info = {"raw_mode_count": 3, "near_zero_frequencies_cm": []}
     optimizer._mw_frequencies_and_modes = lambda: (
         np.array([-450.0, -3.2, 12.0]),
         modes,
@@ -429,7 +433,8 @@ def test_exact_phva_validation_ignores_soft_negative_roots():
         )
     )
     assert optimizer._last_exact_n_imaginary == 1
-    assert optimizer._last_exact_saddle_verified is True
+    assert optimizer._last_exact_saddle_verified is False
+    assert optimizer._last_exact_n_negative == 2
     assert has_saddle_modes is True
     assert any("n_imag=1" in message for message in printed)
 

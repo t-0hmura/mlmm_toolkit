@@ -396,6 +396,16 @@ DMF（`--mep-mode dmf`）を使うときに `ase`、`cyipopt`、`pydmf` のい�
 
 ---
 
+### DMF が IPOPT 内で極端に遅い
+
+IPOPT/MUMPS が並列版 BLIS を使う環境では、入れ子の並列化で長い待ちが
+生じることがあります。ジョブスクリプトなどで、Python や CLI の起動前に
+`BLIS_NUM_THREADS=1` を設定してください。外側の OpenMP/MM のスレッド数は
+変更不要です。`BLIS_JC_NT`、`BLIS_PC_NT`、`BLIS_IC_NT`、`BLIS_JR_NT`、
+`BLIS_IR_NT` の手動設定はこの制限より優先されるため、そのジョブの設定から
+外してください。起動済みの Notebook は、設定変更後にカーネルを再起動します。
+詳しくは [BLIS のスレッド設定](https://github.com/flame/blis/blob/2.0/docs/Multithreading.md)を参照してください。
+
 ### 図のエクスポートが失敗する（Chrome がない）
 
 Plotly/Chrome 系のエラーで静的画像が出ない場合:

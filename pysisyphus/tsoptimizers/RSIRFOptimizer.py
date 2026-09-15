@@ -40,16 +40,13 @@ class RSIRFOptimizer(TSHessianOptimizer):
             H_star = P.dot(H)
             eigvals_, eigvecs_ = np.linalg.eigh(H_star)
 
-        # Once PHVA has identified the physical first-order saddle mode, any
-        # remaining negative roots of the unprojected Cartesian Hessian are
-        # outside that target (commonly translation/rotation FD artifacts).
-        # RS-I-RFO minimizes the image potential, so leaving those roots
-        # negative makes that minimization indefinite and can drive a large
-        # nonphysical step. Reflect only these residual image-Hessian roots to
-        # positive curvature; the selected TS root has already been flipped by
-        # P above.
+        # Retain physical complementary curvature even after a previous PHVA
+        # certificate; reflect only pure unconstrained translation artifacts.
         if self._physical_ts_mode is not None:
-            residual_negative = eigvals_ < -self.small_eigval_thresh
+            residual_negative = (
+                (eigvals_ < -self.small_eigval_thresh)
+                & self._translation_mode_mask(eigvecs_)
+            )
             if isinstance(eigvals_, torch.Tensor):
                 residual_count = int(residual_negative.sum().item())
                 if residual_count:
@@ -63,8 +60,7 @@ class RSIRFOptimizer(TSHessianOptimizer):
             if residual_count:
                 self.log(
                     "Stabilized "
-                    f"{residual_count} residual negative image-Hessian root(s) "
-                    "outside the PHVA-verified TS mode."
+                    f"{residual_count} negative translational image-Hessian root(s)."
                 )
         # Neglect small eigenvalues
         eigvals_, eigvecs_ = self.filter_small_eigvals(eigvals_, eigvecs_)

@@ -57,6 +57,33 @@ def resolved_imaginary_mask(
     return np.asarray(freqs_cm, dtype=float) < -cutoff
 
 
+def _strict_negative_count(freqs_cm, projection_info) -> Optional[int]:
+    """Count all finite negative modes in an explicitly complete PHVA partition.
+
+    Display/eligibility filtering is unchanged. Missing near-zero metadata or
+    incomplete/nonfinite partitions provide no strict curvature certificate.
+    """
+    if not isinstance(projection_info, dict):
+        return None
+    try:
+        frequencies = np.asarray(freqs_cm, dtype=float)
+        near = np.asarray(projection_info["near_zero_frequencies_cm"], dtype=float)
+        raw = projection_info["raw_mode_count"]
+    except (KeyError, TypeError, ValueError):
+        return None
+    if (
+        frequencies.ndim != 1 or near.ndim != 1
+        or not np.isfinite(frequencies).all() or not np.isfinite(near).all()
+        or isinstance(raw, (bool, np.bool_))
+        or not isinstance(raw, (int, np.integer)) or raw < 0
+        or frequencies.size + near.size != raw
+        or projection_info.get("resolved_mode_count", frequencies.size) != frequencies.size
+        or projection_info.get("near_zero_mode_count", near.size) != near.size
+    ):
+        return None
+    return int(np.count_nonzero(frequencies < 0.0) + np.count_nonzero(near < 0.0))
+
+
 def filter_resolved_modes(
     freqs_cm,
     modes,

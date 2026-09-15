@@ -355,6 +355,60 @@ class _MLBackend(abc.ABC):
         """The torch device this backend uses."""
 
 
+@contextmanager
+def _uma_analytical_head_scope(model):
+    """Enable UMA's EFS derivative graph without training its backbone."""
+    inner = getattr(model, "module", model)
+    try:
+        head = inner.output_heads["energyandforcehead"].head
+        backbone = inner.backbone
+    except (AttributeError, KeyError, TypeError) as exc:
+        raise RuntimeError(
+            "UMA analytical Hessian requires the energyandforcehead EFS head; "
+            "use FiniteDifference with this unsupported model layout."
+        ) from exc
+    modules = list(model.modules())
+    if (
+        not isinstance(head, nn.Module)
+        or not isinstance(backbone, nn.Module)
+        or not any(head is module for module in modules)
+        or any(head is module for module in backbone.modules())
+        or head is model
+        or head is inner
+    ):
+        raise RuntimeError("UMA analytical Hessian requires a separate EFS head.")
+
+    module_flags = [(module, module.training) for module in modules]
+    parameter_flags = [(parameter, parameter.requires_grad) for parameter in model.parameters()]
+    dropout_types = (
+        nn.Dropout, nn.Dropout1d, nn.Dropout2d, nn.Dropout3d,
+        nn.AlphaDropout, nn.FeatureAlphaDropout,
+    )
+    dropout_flags = [
+        (module, module.p) for module in head.modules()
+        if isinstance(module, dropout_types)
+    ]
+    try:
+        for parameter, _ in parameter_flags:
+            parameter.requires_grad_(False)
+        # Backbone training enables functional composition dropout in UMA.
+        # Only the EFS head needs training=True to retain the force graph.
+        model.eval()
+        head.train(True)
+        for module, _ in dropout_flags:
+            module.p = 0.0
+            module.training = False
+        yield
+    finally:
+        for module, probability in dropout_flags:
+            module.p = probability
+        # Recursive train()/eval() would overwrite saved mixed child states.
+        for module, training in module_flags:
+            module.training = training
+        for parameter, requires_grad in parameter_flags:
+            parameter.requires_grad_(requires_grad)
+
+
 class _UMABackend(_MLBackend):
     """UMA (FAIR-Chem) ML backend."""
 
@@ -553,42 +607,35 @@ class _UMABackend(_MLBackend):
 
     def hessian_analytical(self, opaque: Any, n_atoms: int, *, dtype: torch.dtype) -> torch.Tensor:
         batch = opaque
-        p_flags = [p.requires_grad for p in self.predictor.model.parameters()]
-        for p in self.predictor.model.parameters():
-            p.requires_grad_(False)
-
-        self.predictor.model.train()
         try:
-            pos = batch.pos
+            with _uma_analytical_head_scope(self.predictor.model):
+                pos = batch.pos
 
-            def energy_fn(flat_pos: torch.Tensor):
-                batch.pos = flat_pos.view(-1, 3)
-                return self.predictor.predict(batch)["energy"].squeeze()
+                def energy_fn(flat_pos: torch.Tensor):
+                    batch.pos = flat_pos.view(-1, 3)
+                    return self.predictor.predict(batch)["energy"].squeeze()
 
-            # Analytical autograd Hessians allocate O(N²) tensors. Convert a
-            # CUDA allocation failure into an actionable user-facing error.
-            try:
-                H_flat = torch.autograd.functional.hessian(energy_fn, pos.view(-1), vectorize=False)
-            except torch.cuda.OutOfMemoryError as _oom:
-                if self._device.type == "cuda":
-                    torch.cuda.empty_cache()
-                raise RuntimeError(
-                    f"Analytical Hessian (torch.autograd) ran out of GPU memory "
-                    f"for {n_atoms} atoms ({_oom}). The analytical Hessian needs "
-                    f"substantially more VRAM than finite differences; rerun with "
-                    f"`--hessian-calc-mode FiniteDifference` (the default), or use "
-                    f"a GPU with more memory / a smaller ML region."
-                ) from _oom
-            H = H_flat.view(n_atoms, 3, n_atoms, 3).to(
-                device=self._device, dtype=dtype
-            ).detach()
-            # release the autograd-graph-bearing source tensor immediately so
-            # the cast scratch peak (= 2× hessian) collapses to 1×.
-            del H_flat
+                # Analytical autograd Hessians allocate O(N²) tensors. Convert a
+                # CUDA allocation failure into an actionable user-facing error.
+                try:
+                    H_flat = torch.autograd.functional.hessian(energy_fn, pos.view(-1), vectorize=False)
+                except torch.cuda.OutOfMemoryError as _oom:
+                    if self._device.type == "cuda":
+                        torch.cuda.empty_cache()
+                    raise RuntimeError(
+                        f"Analytical Hessian (torch.autograd) ran out of GPU memory "
+                        f"for {n_atoms} atoms ({_oom}). The analytical Hessian needs "
+                        f"substantially more VRAM than finite differences; rerun with "
+                        f"`--hessian-calc-mode FiniteDifference` (the default), or use "
+                        f"a GPU with more memory / a smaller ML region."
+                    ) from _oom
+                H = H_flat.view(n_atoms, 3, n_atoms, 3).to(
+                    device=self._device, dtype=dtype
+                ).detach()
+                # release the autograd-graph-bearing source tensor immediately so
+                # the cast scratch peak (= 2× hessian) collapses to 1×.
+                del H_flat
         finally:
-            self.predictor.model.eval()
-            for p, flag in zip(self.predictor.model.parameters(), p_flags):
-                p.requires_grad_(flag)
             if self._device.type == "cuda":
                 torch.cuda.empty_cache()
         return H

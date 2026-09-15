@@ -30,6 +30,7 @@ class RFOptimizer(HessianOptimizer):
         uphill_tolerance: float = 1e-4,
         rejection_trust_floor: float = 1e-7,
         max_rejections_at_floor: int = 3,
+        flatten_enabled: bool = False,
         **kwargs,
     ) -> None:
         """
@@ -65,6 +66,9 @@ class RFOptimizer(HessianOptimizer):
         max_rejections_at_floor
             Rejections allowed at the emergency floor before retaining the
             lower-energy point for one final convergence check.
+        flatten_enabled
+            Return numerical candidates to an explicitly requested external
+            flatten loop instead of certifying minimum curvature here.
 
         Other Parameters
         ----------------
@@ -88,10 +92,96 @@ class RFOptimizer(HessianOptimizer):
         self.gediis_thresh = gediis_thresh  # Will be compared to rms(forces)
         self.gdiis_test_direction = gdiis_test_direction
         self.adapt_step_func = adapt_step_func
+        self.flatten_enabled = bool(flatten_enabled)
 
         self.successful_gediis = 0
         self.successful_gdiis = 0
         self.successful_line_search = 0
+        self._minimum_exact_coords = None
+        self._minimum_curvature_valid = False
+
+    def prepare_opt(self, *args, **kwargs):
+        self._minimum_exact_coords = None
+        self._minimum_curvature_valid = False
+        return super().prepare_opt(*args, **kwargs)
+
+    def _minimum_matches_current_geometry(self):
+        return (
+            self._minimum_exact_coords is not None
+            and np.array_equal(self._minimum_exact_coords, self.geometry.cart_coords)
+        )
+
+    def _minimum_negative_count(self, eigvals):
+        frequencies = self._mw_frequencies_and_modes()
+        if frequencies is None:
+            return int((eigvals < -self.small_eigval_thresh).sum())
+        from pysisyphus.normal_modes import _strict_negative_count
+        count = _strict_negative_count(
+            frequencies[0], getattr(self, "_last_rigid_projection_info", None)
+        )
+        if count is None:
+            raise ValueError("Incomplete/nonfinite PHVA partition cannot certify a minimum.")
+        return count
+
+    def _verify_minimum_step(
+        self, step, gradient, hessian, predictor, eigvals, eigvecs
+    ):
+        """Refresh missing terminal curvature before accepting a minimum."""
+        if self.flatten_enabled:
+            return step, gradient, hessian, predictor
+        numerical_convergence = super().check_convergence(
+            step, allow_stall=False
+        )[0]
+        if not numerical_convergence or self._minimum_matches_current_geometry():
+            return step, gradient, hessian, predictor
+
+        # A model still carrying verified negative curvature cannot certify a
+        # minimum. Keep its escape direction and the normal physical refresh
+        # schedule; do not request a full Hessian after every tiny displacement.
+        screen_model = (
+            self._minimum_exact_coords is not None
+            and not self._minimum_curvature_valid
+            and self.hessian_recalc is not None
+            and np.isfinite(self.hessian_recalc)
+            and self.hessian_recalc > 0
+            and not self.hessian_xtb
+        )
+        negative_count = self._minimum_negative_count(eigvals) if screen_model else 0
+        if not negative_count:
+            self.H = None
+            self.cur_H = None
+            self.H = self.geometry.take_hessian()
+            gradient, hessian, eigvals, eigvecs = self._hessian_system(
+                -np.asarray(self.forces[-1])
+            )
+            self.hessian_recalc_in = self.hessian_recalc
+            negative_count = self._minimum_negative_count(eigvals)
+            self._minimum_exact_coords = self.geometry.cart_coords.copy()
+            self._minimum_curvature_valid = negative_count == 0
+            if negative_count:
+                self.table.print(
+                    f"Exact minimum validation: {negative_count} imaginary mode(s); "
+                    "continuing with the refreshed Hessian."
+                )
+        # The first calculated Hessian may also establish a new active space.
+        # Rebuild the proposal and its predictor together, even at a minimum.
+        step_func, predictor = self.get_step_func(eigvals, gradient)
+        step = self._bound_to_trust_radius(
+            step_func(eigvals, eigvecs, gradient), label="curvature-checked RFO step"
+        )
+        if negative_count and np.linalg.norm(step) <= self.min_step_norm:
+            self.request_stop("negative curvature remains without a finite escape step")
+        return step, gradient, hessian, predictor
+
+    def check_convergence(self, *args, **kwargs):
+        converged, info = super().check_convergence(*args, **kwargs)
+        if self.flatten_enabled:
+            return converged, info
+        return (
+            bool(converged and self._minimum_matches_current_geometry()
+                 and self._minimum_curvature_valid),
+            info,
+        )
 
     def _accept_accelerated_step(self, step, ip_step, ref_step):
         """Compose a finite, trust-bounded accelerated displacement.
@@ -152,9 +242,12 @@ class RFOptimizer(HessianOptimizer):
         # the thresholds, there is no need to do additional inter/extrapolations.
         # allow_stall=False: this is a provisional probe of a proposed step, not
         # the run-loop's terminal check, so a plateau here must not stall.
-        if self.check_convergence(ref_step, allow_stall=False)[0]:  # Drop conv_info
-            self.log("Convergence achieved! Skipping inter/extrapolation.")
-            return ref_step
+        if super().check_convergence(ref_step, allow_stall=False)[0]:
+            ref_step, ref_gradient, H, pred_func = self._verify_minimum_step(
+                ref_step, ref_gradient, H, pred_func, big_eigvals, big_eigvecs
+            )
+            self.predicted_energy_changes.append(pred_func(ref_gradient, H, ref_step))
+            return self.full_from_active(ref_step)
 
         # Try to interpolate an intermediate geometry, either from GDIIS or line search.
         #
@@ -221,14 +314,24 @@ class RFOptimizer(HessianOptimizer):
         if (ip_gradient is not None) and (ip_step is not None):
             gradient = ip_gradient
             step = step_func(big_eigvals, big_eigvecs, gradient) # heavy-compute
-            # The RFO correction is already restricted; compose the accepted
-            # interpolation/GDIIS offset and reject only a non-finite result.
+            # Compose a finite, trust-bounded interpolation/GDIIS displacement.
             step = self._accept_accelerated_step(step, ip_step, ref_step)
+            # Compare both steps in the same current-point model, before a
+            # terminal curvature refresh can replace its gradient or Hessian.
+            accelerated_prediction = self.quadratic_model(ref_gradient, H, step)
+            if np.isfinite(accelerated_prediction) and accelerated_prediction >= 0:
+                reference_prediction = self.quadratic_model(ref_gradient, H, ref_step)
+                if np.isfinite(reference_prediction) and reference_prediction < 0:
+                    self.log("Rejected non-descending accelerated model step; retaining descending reference.")
+                    step = ref_step
         # Keep the original gradient when the interpolation failed; reuse ref_step.
         else:
             step = ref_step
 
         # Use the original, actually calculated, gradient
+        step, ref_gradient, H, pred_func = self._verify_minimum_step(
+            step, ref_gradient, H, pred_func, big_eigvals, big_eigvecs
+        )
         prediction = pred_func(ref_gradient, H, step)
         self.predicted_energy_changes.append(prediction)
 

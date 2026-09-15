@@ -1136,3 +1136,18 @@ def test_optimized_endpoint_validation_requires_assigned_direct_pair(
     )
     assert result["source"] == "optimized_endpoints"
     assert result["connectivity_validated"] is True
+
+
+def test_strict_higher_order_is_not_reclassified_by_resolved_count():
+    from mlmm.workflows.all import _tsopt_continuation_decision
+
+    payload = dict(optimization_status="converged", hessian_status="completed",
+                   n_imaginary_modes=1, n_negative_modes=2, saddle_validation="higher_order",
+                   reaction_mode_index=0, reaction_mode_frequency_cm=-100.)
+    result = _tsopt_continuation_decision(payload, skip_final_freq=False)
+    assert result["continue_irc"] is True  # existing diagnostic IRC policy
+    assert result["reason"] == "higher_order_saddle"
+    assert result["n_negative_modes"] == 2
+    payload.pop("n_negative_modes")
+    payload["saddle_validation"] = "first_order"  # legacy resolved-only claim
+    assert _tsopt_continuation_decision(payload, skip_final_freq=False)["reason"] == "saddle_order_unavailable"

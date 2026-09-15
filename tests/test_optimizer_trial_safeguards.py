@@ -877,7 +877,7 @@ def test_ts_baker_requires_rms_force_not_only_max_force(tmp_path) -> None:
     assert converged is False
 
 
-def test_exact_higher_order_saddle_authorizes_terminal_convergence(
+def test_exact_higher_order_saddle_requires_further_rsprfo_steps(
     tmp_path
 ) -> None:
     geom, opt = _ts_optimizer(tmp_path, 0.0, energy_plateau=False)
@@ -893,15 +893,15 @@ def test_exact_higher_order_saddle_authorizes_terminal_convergence(
 
     converged, _ = opt.check_convergence()
 
-    assert converged is True
+    assert converged is False
     assert not opt._exact_saddle_matches_current_geometry()
-    assert opt._exact_terminal_candidate_matches_current_geometry()
+    assert not opt._exact_terminal_candidate_matches_current_geometry()
 
 
-def test_zero_step_higher_order_saddle_finishes_without_repeat_or_stop(
+def test_zero_step_higher_order_saddle_proposes_curvature_step(
     tmp_path, monkeypatch
 ) -> None:
-    geom, opt = _ts_optimizer(tmp_path, 0.0, energy_plateau=False)
+    geom, opt = _ts_optimizer(tmp_path, 0.0, energy_plateau=False, max_cycles=1)
 
     def exact_higher_order(gradient):
         hessian = np.diag([-4.0, -2.0, 10.0])
@@ -921,10 +921,11 @@ def test_zero_step_higher_order_saddle_finishes_without_repeat_or_stop(
 
     opt.run()
 
-    assert opt.is_converged is True
+    assert opt.is_converged is False
     assert opt.stopped is False
     assert opt.stop_reason == ""
-    assert opt._exact_terminal_candidate_matches_current_geometry()
+    assert 0.0 < np.linalg.norm(opt.steps[-1]) <= opt.trust_radius * (1.0 + 1e-12)
+    assert not opt._exact_terminal_candidate_matches_current_geometry()
 
 
 def test_exact_verifier_retains_curvature_but_rejects_higher_order_status(
@@ -938,6 +939,7 @@ def test_exact_verifier_retains_curvature_but_rejects_higher_order_status(
         "_mw_frequencies_and_modes",
         lambda: (np.array([-100.0, -20.0, 30.0]), torch.eye(3)),
     )
+    opt._last_rigid_projection_info = {"raw_mode_count": 3, "near_zero_frequencies_cm": []}
     monkeypatch.setattr(
         opt,
         "_recovery_mode_from_mw",
@@ -1014,6 +1016,7 @@ def test_exact_higher_order_saddle_keeps_path_correlated_negative_mode(
         "_mw_frequencies_and_modes",
         lambda: (np.array([-100.0, -20.0, 30.0]), torch.eye(3)),
     )
+    opt._last_rigid_projection_info = {"raw_mode_count": 3, "near_zero_frequencies_cm": []}
     exact_modes = {
         0: np.array([1.0, 0.0, 0.0]),
         1: np.array([0.0, 1.0, 0.0]),
@@ -1053,6 +1056,7 @@ def test_reference_mismatch_is_diagnostic_for_exact_first_order_saddle(
         "_mw_frequencies_and_modes",
         lambda: (np.array([-100.0, 20.0, 30.0]), torch.eye(3)),
     )
+    opt._last_rigid_projection_info = {"raw_mode_count": 3, "near_zero_frequencies_cm": []}
     monkeypatch.setattr(
         opt,
         "_recovery_mode_from_mw",
@@ -1091,6 +1095,7 @@ def test_first_path_recovery_keeps_complete_multimode_tangent(
         "_mw_frequencies_and_modes",
         lambda: (np.array([10.0, 20.0, 30.0]), torch.eye(3)),
     )
+    opt._last_rigid_projection_info = {"raw_mode_count": 3, "near_zero_frequencies_cm": []}
     monkeypatch.setattr(
         opt,
         "_recovery_mode_from_mw",
@@ -1122,6 +1127,7 @@ def test_recovery_uses_transported_mode_after_target_was_negative(
         "_mw_frequencies_and_modes",
         lambda: (np.array([10.0, 20.0, 30.0]), torch.eye(3)),
     )
+    opt._last_rigid_projection_info = {"raw_mode_count": 3, "near_zero_frequencies_cm": []}
     monkeypatch.setattr(
         opt,
         "_recovery_mode_from_mw",
@@ -1152,6 +1158,7 @@ def test_higher_order_saddle_is_retained_with_negative_reference_mode(
         "_mw_frequencies_and_modes",
         lambda: (np.array([-100.0, -20.0, 30.0]), torch.eye(3)),
     )
+    opt._last_rigid_projection_info = {"raw_mode_count": 3, "near_zero_frequencies_cm": []}
     monkeypatch.setattr(
         opt,
         "_recovery_mode_from_mw",
@@ -1187,6 +1194,7 @@ def test_single_imaginary_path_mode_is_exact_first_order_saddle(
         "_mw_frequencies_and_modes",
         lambda: (np.array([-100.0, 20.0, 30.0]), torch.eye(3)),
     )
+    opt._last_rigid_projection_info = {"raw_mode_count": 3, "near_zero_frequencies_cm": []}
     monkeypatch.setattr(
         opt,
         "_recovery_mode_from_mw",
@@ -1226,6 +1234,7 @@ def test_exact_identity_uses_overlap_transported_mode_after_rotation(
         "_mw_frequencies_and_modes",
         lambda: (np.array([-100.0, 20.0, 30.0]), torch.eye(3)),
     )
+    opt._last_rigid_projection_info = {"raw_mode_count": 3, "near_zero_frequencies_cm": []}
     monkeypatch.setattr(
         opt,
         "_recovery_mode_from_mw",
@@ -1262,6 +1271,7 @@ def test_exact_identity_keeps_full_path_until_first_physical_crossing(
         "_mw_frequencies_and_modes",
         lambda: (np.array([-100.0, 20.0, 30.0]), torch.eye(3)),
     )
+    opt._last_rigid_projection_info = {"raw_mode_count": 3, "near_zero_frequencies_cm": []}
     monkeypatch.setattr(
         opt,
         "_recovery_mode_from_mw",
@@ -1477,6 +1487,7 @@ def test_repeated_higher_order_characterization_never_requests_optimizer_stop(
         "_mw_frequencies_and_modes",
         lambda: (np.array([-100.0, -20.0, 30.0]), torch.eye(3)),
     )
+    opt._last_rigid_projection_info = {"raw_mode_count": 3, "near_zero_frequencies_cm": []}
     monkeypatch.setattr(
         opt,
         "_recovery_mode_from_mw",
@@ -1693,6 +1704,7 @@ def test_path_reference_mode_overrides_unrelated_lowest_mode_for_recovery(
         "_mw_frequencies_and_modes",
         lambda: (np.array([10.0, 20.0, 30.0]), torch.eye(3)),
     )
+    opt._last_rigid_projection_info = {"raw_mode_count": 3, "near_zero_frequencies_cm": []}
     monkeypatch.setattr(
         opt,
         "_recovery_mode_from_mw",

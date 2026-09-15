@@ -116,6 +116,12 @@ artifact and is always written for PDB input.
    - Skips the MEP search and runs `tsopt` on the layered full-system PDB. After the TS gate, it performs EulerPC IRC, minimizes both ends, and optionally adds thermochemistry, DFT, and DFT//MLIP/MM diagrams.
    - When IRC runs, its ends are emitted as chemically unassigned `E1` and `E2` because no path/reference orientation is available. The summary reports the barrier from each endpoint to TS and does not emit R/P reaction energies. Inspect the structures before assigning chemical identities.
 
+An endpoint execution error or missing valid final structure stops that segment
+before frequency/DFT and refined diagrams. `endpoint_opt/failure.json` records
+the error; TS/IRC structures and endpoint diagnostics are retained. Diagnostic
+frequency/DFT calculations may still run after ordinary nonconvergence with
+finite output.
+
 ## Outputs
 
 The tree has three zones: **deliverables at the root**, **per-segment deliverables under `segments/seg_NN/`**, and **pipeline scratch under `_work/`** (safe to remove once you have the results). The three you check first are `summary.log`, `summary.json`, and `mep.pdb` (the concatenated reaction path, moved to the root; raw engine output stays under `_work/path_opt/` by default, or `_work/path_search/` with `--refine-path`).

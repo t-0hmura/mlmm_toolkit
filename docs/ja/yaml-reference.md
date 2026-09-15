@@ -560,6 +560,8 @@ Hessian系TS最適化が共有します。旧`hessian_dimer.neg_freq_thresh_cm` 
 `rsirfo.saddle_imaginary_threshold_cm` は互換aliasですが、競合する値は
 エラーになります。
 
+このcutoffは表示・モード選択用です。Cartesian PHVAの受理は負のnear-zeroも含めて数え、OPTは厳密0、一次TSは厳密1かつresolved1を要求します。
+
 **注記:**
 - `active_dof_mode`: 振動解析に参加させる原子集合を選択します。`all` は全原子、`ml-only` は ML 領域のみ、`partial`（デフォルト）は ML + Movable-MM、`unfrozen` は凍結されていない全原子を使用します。CLI フラグ `--active-dof-mode` が明示された場合は YAML 値より優先されます。
 

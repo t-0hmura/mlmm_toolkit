@@ -1464,7 +1464,8 @@ def _read_opt_endpoint_converged(opt_dir: Path) -> Optional[bool]:
     """Read an endpoint-opt child's reported convergence (tri-state).
 
     The ``opt`` subcommand writes the final optimizer's ``is_converged`` bit to
-    its ``result.json`` as ``status`` = ``"converged"`` / ``"not_converged"``
+    its ``result.json`` as ``status`` = ``"converged"`` / ``"not_converged"``;
+    the explicit ``"stalled"`` terminal state also means not converged
     (mirroring how :func:`_read_irc_outcome` reads the IRC child). Returns
     ``None`` when no readable signal exists (fail-closed: a missing / unreadable
     child result never promotes the endpoint to converged, so a nonconverged or
@@ -1480,7 +1481,7 @@ def _read_opt_endpoint_converged(opt_dir: Path) -> Optional[bool]:
         status = data.get("status")
         if status == "converged":
             return True
-        if status == "not_converged":
+        if status in {"not_converged", "stalled"}:
             return False
         return None
     except Exception as exc:
@@ -2857,6 +2858,14 @@ def _tsopt_continuation_decision(
     except (TypeError, ValueError):
         n_imaginary = None
 
+    raw_n_negative = payload.get("n_negative_modes")
+    try:
+        n_negative = None if raw_n_negative is None else int(raw_n_negative)
+    except (TypeError, ValueError):
+        n_negative = None
+    if n_negative is not None and n_negative < 0:
+        n_negative = None
+
     raw_mode_index = payload.get("reaction_mode_index")
     try:
         reaction_mode_index = (
@@ -2893,7 +2902,15 @@ def _tsopt_continuation_decision(
         reason = "no_imaginary_reaction_mode"
     else:
         continue_irc = True
-        reason = "higher_order_saddle" if n_imaginary > 1 else "first_order_saddle"
+        # Continue IRC under the existing resolved-mode policy, but never turn
+        # a strict higher-order (or unavailable) proof into first-order status.
+        reason = (
+            "higher_order_saddle"
+            if (n_negative is not None and n_negative > 1)
+            or saddle_validation == "higher_order" or n_imaginary > 1
+            else "first_order_saddle" if n_negative == n_imaginary == 1
+            else "saddle_order_unavailable"
+        )
         reaction_mode_index_valid = bool(
             reaction_mode_index is not None
             and 0 <= int(reaction_mode_index) < int(n_imaginary)
@@ -2931,6 +2948,7 @@ def _tsopt_continuation_decision(
         "hessian_status": hessian_status,
         "hessian_error": payload.get("hessian_error"),
         "n_imaginary_modes": n_imaginary,
+        "n_negative_modes": n_negative,
         "reaction_mode_index": reaction_mode_index,
         "reaction_mode_frequency_cm": reaction_mode_frequency,
         "reaction_mode_overlap": reaction_mode_overlap,
@@ -3586,6 +3604,8 @@ def _run_opt_for_state(
     optimization did not explicitly converge is still retained as a geometry /
     artifact but must not promote its segment to a usable success. ``--out-json``
     is forced on so that the convergence bit is always emitted.
+    Both the result and finite terminal geometry must belong to this invocation;
+    missing, unreadable or stale output raises before any refined consumer runs.
 
     When *xyz_path* is given, pass it as ``-i`` with ``--ref-pdb pdb_path`` to
     preserve full coordinate precision.
@@ -3645,24 +3665,26 @@ def _run_opt_for_state(
         )
 
         _echo_detail(f"[endpoint-opt] Running opt on {input_label} (mode={opt_mode}) → out={opt_dir}")
+        endpoint_manifest = InvocationManifest()
+        endpoint_manifest.declare("result", [opt_dir / "result.json"])
+        endpoint_manifest.declare("final", [opt_dir / "final_geometry.xyz", opt_dir / "final_geometry.pdb"])
         _run_cli_main("opt", _opt_cli.cli, args, on_nonzero="raise", on_exception="raise", prefix="endpoint-opt")
 
         # Read the endpoint opt child's explicit convergence bit from its
         # result.json (fail-closed tri-state) so a nonconverged endpoint cannot
         # silently promote its segment to a usable success.
+        endpoint_manifest.claim_one("result")
         endpoint_converged = _read_opt_endpoint_converged(opt_dir)
+        if endpoint_converged is None:
+            raise click.ClickException(f"[endpoint-opt] No valid terminal opt result under {opt_dir}")
 
         final_pdb = opt_dir / "final_geometry.pdb"
-        final_xyz = opt_dir / "final_geometry.xyz"
         # Prefer XYZ (full precision) for geometry loading
-        if final_xyz.exists():
-            final_geom_path = final_xyz
-        elif final_pdb.exists():
-            final_geom_path = final_pdb
-        else:
-            raise click.ClickException(f"[endpoint-opt] opt outputs not found under {opt_dir}")
+        final_geom_path = endpoint_manifest.claim_one("final")
 
         g_opt = geom_loader(final_geom_path, coord_type="cart")
+        if not np.isfinite(g_opt.cart_coords).all():
+            raise click.ClickException(f"[endpoint-opt] Nonfinite final coordinates under {opt_dir}")
         calc_input_pdb = final_pdb if final_pdb.exists() else pdb_path
         _opt_calc_kwargs = _stage_calc_kwargs(
             resolved_calc_template,
@@ -3675,19 +3697,23 @@ def _run_opt_for_state(
         )
         calc = _mlmm_calc(**_opt_calc_kwargs)
         g_opt.set_calculator(calc)
-        _ = float(g_opt.energy)
-        g_opt.calculator = None
-        close_calc = getattr(calc, "close", None)
-        if callable(close_calc):
-            try:
-                close_calc()
-            except Exception as exc:  # pragma: no cover - defensive
-                logger.debug("Endpoint probe calculator close failed: %s", exc)
-        del calc
-        gc.collect()
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        try:
+            endpoint_energy = float(g_opt.energy)
+        finally:
+            g_opt.calculator = None
+            close_calc = getattr(calc, "close", None)
+            if callable(close_calc):
+                try:
+                    close_calc()
+                except Exception as exc:  # pragma: no cover - defensive
+                    logger.debug("Endpoint probe calculator close failed: %s", exc)
+            del calc
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
+        if not np.isfinite(endpoint_energy):
+            raise click.ClickException(f"[endpoint-opt] Nonfinite final energy under {opt_dir}")
         return g_opt, final_geom_path, endpoint_converged
     finally:
         prepared_input.cleanup()
@@ -6038,6 +6064,7 @@ def cli(
 
         endpoint_opt_dir = tsroot / "endpoint_opt"
         ensure_dir(endpoint_opt_dir)
+        _endpoint_failures: Dict[str, Any] = {}
 
         # The first/last IRC Hessians follow endpoint 1/2 without assigning
         # chemical R/P identity.
@@ -6083,6 +6110,9 @@ def cli(
                 err=True,
             )
             _react_opt_conv = None
+            _endpoint_failures["endpoint_1"] = {
+                "error_type": type(e).__name__, "error": str(e),
+            }
 
         _hess_discard("irc_endpoint")
         _c = _hess_load(_prod_hk)
@@ -6116,7 +6146,80 @@ def cli(
                 err=True,
             )
             _prod_opt_conv = None
-        if not dump:
+            _endpoint_failures["endpoint_2"] = {
+                "error_type": type(e).__name__, "error": str(e),
+            }
+        if _endpoint_failures:
+            # The parent's IRC input is not the failed child's terminal iterate.
+            for _state, _irc_path, _child_dir in (
+                ("endpoint_1", xR_irc, endpoint_opt_dir / "E1"),
+                ("endpoint_2", xP_irc, endpoint_opt_dir / "E2"),
+            ):
+                if _state in _endpoint_failures:
+                    _endpoint_failures[_state].update({
+                        "irc_structure": str(_irc_path),
+                        "geometry_role": "parent_irc_input_not_child_iterate",
+                        "child_work_dir": str(_child_dir),
+                    })
+            _endpoint_stop = {
+                "stage": "endpoint_opt", "segment": 1,
+                "reason": "endpoint_execution_failed", "failures": _endpoint_failures,
+                "diagnostic_dir": str(endpoint_opt_dir), "ts_structure": str(pT),
+            }
+            commit_json_exact(endpoint_opt_dir / "failure.json", _endpoint_stop)
+            _stop_log = {
+                "index": 1, "tag": "seg_01", "kind": "tsopt",
+                "post_dir": str(tsroot), "pipeline_stop": _endpoint_stop,
+                "irc": irc_res.get("irc_outcome"),
+                "irc_plot": str(irc_plot_path) if irc_plot_path else None,
+                "irc_traj": str(irc_trj_path) if irc_trj_path else None,
+                "endpoint_assignment": endpoint_assignment,
+                "endpoint_opt": {
+                    "endpoint_1_converged": _react_opt_conv,
+                    "endpoint_2_converged": _prod_opt_conv,
+                    "failures": _endpoint_failures,
+                },
+                "tsopt": _tsopt_record,
+            }
+            _irc_lease = irc_res.get("calculator_lease")
+            if _irc_lease is not None:
+                _irc_lease.release()
+            for _geom in (gL, gR, gT, g_react, g_prod):
+                if _geom is not None:
+                    _geom.calculator = None
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            summary = {
+                "out_dir": str(tsroot), "n_images": None, "n_segments": 1,
+                "segments": [{"index": 1, "tag": "seg_01", "kind": "tsopt"}],
+                "pipeline_stop": _endpoint_stop, "energy_diagrams": [],
+            }
+            _enrich_summary(
+                summary, version="", pipeline_mode="tsopt-only",
+                out_dir=out_dir, manifest=manifest, post_segments=[_stop_log],
+                charge=q_int, spin=spin, command=command_str,
+                calculator_config=resolved_calc_template.materialize(),
+                mlip_backend=mlip_backend_resolved, mlip_model=mlip_model_resolved,
+                mlip_precision=mlip_precision_resolved, freeze_atoms=effective_freeze_atoms,
+                config={
+                    "tsopt": do_tsopt, "thermo": do_thermo, "dft": do_dft,
+                    "ts_opt_mode": tsopt_opt_mode_default,
+                    "endpoint_opt_mode": endpoint_opt_mode_default,
+                    "mep_mode": mep_mode_kind,
+                },
+            )
+            citation_post_segments = [_stop_log]
+            _finalize_current_summary(
+                out_dir / "summary.json", summary, manifest=manifest,
+                out_dir=out_dir, mirrors=(tsroot / "summary.json",),
+            )
+            _persist_run_manifest(manifest, out_dir)
+            _echo("[all] Endpoint optimization failed; dependent stages skipped. Diagnostics retained.", err=True)
+            _emit_final_summary(out_dir, time_start, manifest, citation_payload=_all_method_citation_payload())
+            return
+
+        if not dump and _react_opt_conv is True and _prod_opt_conv is True:
             shutil.rmtree(endpoint_opt_dir, ignore_errors=True)
             _echo_detail("[endpoint-opt] Clean endpoint-opt working dir.")
 
@@ -6966,6 +7069,7 @@ def cli(
         combined_blocks: List[str] = []
         path_opt_segments: List[Dict[str, Any]] = []
         path_opt_preopt_convergences: List[Optional[bool]] = []
+        mep_ref_pdb: Optional[Path] = None
 
         for pair_pos in range(len(pockets_for_path) - 1):
             # Array access remains zero-based; every public segment identifier
@@ -6986,11 +7090,19 @@ def cli(
             # When the single+scan route handed over XYZ pockets, forward the
             # matching layered-template ref PDBs so path-opt can overlay the XYZ
             # coordinates onto full ML/MM topology (path-search receives these too).
+            ref_pdb_for_seg: Optional[Path] = None
             if is_single and has_scan:
+                ref_pdb_for_seg = refs_for_path[pair_pos]
                 po_args.extend([
                     "--ref-pdb", str(refs_for_path[pair_pos]),
                     "--ref-pdb", str(refs_for_path[pair_pos + 1]),
                 ])
+            elif p_left.suffix.lower() == ".pdb":
+                ref_pdb_for_seg = p_left
+            elif p_right.suffix.lower() == ".pdb":
+                ref_pdb_for_seg = p_right
+            if pair_pos == 0:
+                mep_ref_pdb = ref_pdb_for_seg
             # Forward explicit automatic layer detection.
             po_args.append("--detect-layer" if detect_layer else "--no-detect-layer")
             po_args.extend(
@@ -7059,10 +7171,10 @@ def cli(
             try:
                 seg_mep_trj = path_dir / f"mep_seg_{seg_idx:02d}_trj.xyz"
                 shutil.copy2(seg_trj, seg_mep_trj)
-                if pockets_for_path[0].suffix.lower() == ".pdb":
+                if convert_files and ref_pdb_for_seg is not None:
                     _path_search._maybe_convert_to_pdb(
                         seg_mep_trj,
-                        ref_pdb_path=pockets_for_path[0],
+                        ref_pdb_path=ref_pdb_for_seg,
                         out_path=path_dir / f"mep_seg_{seg_idx:02d}.pdb",
                     )
             except Exception as e:
@@ -7146,11 +7258,11 @@ def cli(
 
         # PDB conversion of concatenated trajectory
         try:
-            if pockets_for_path[0].suffix.lower() == ".pdb":
+            if convert_files and mep_ref_pdb is not None:
                 mep_pdb_dest = path_dir / "mep.pdb"
                 mep_pdb_path = _path_search._maybe_convert_to_pdb(
                     final_trj,
-                    ref_pdb_path=pockets_for_path[0],
+                    ref_pdb_path=mep_ref_pdb,
                     out_path=mep_pdb_dest,
                 )
                 if mep_pdb_path is not None:
@@ -7718,6 +7830,7 @@ def cli(
 
         endpoint_opt_dir = seg_dir / "endpoint_opt"
         ensure_dir(endpoint_opt_dir)
+        _endpoint_failures: Dict[str, Any] = {}
 
         # Map IRC left/right Hessians → R/P endpoint
         # When reverse_irc is True, _irc_and_match swapped left/right to match MEP endpoints,
@@ -7765,6 +7878,9 @@ def cli(
                 err=True,
             )
             _react_opt_conv = None
+            _endpoint_failures["reactant"] = {
+                "error_type": type(e).__name__, "error": str(e),
+            }
 
         _hess_discard("irc_endpoint")
         _c = _hess_load(_right_hk)
@@ -7798,6 +7914,54 @@ def cli(
                 err=True,
             )
             _prod_opt_conv = None
+            _endpoint_failures["product"] = {
+                "error_type": type(e).__name__, "error": str(e),
+            }
+
+        if _endpoint_failures:
+            # The parent's IRC input is not the failed child's terminal iterate.
+            for _state, _irc_path, _child_dir in (
+                ("reactant", xL_irc, endpoint_opt_dir / "R"),
+                ("product", xR_irc, endpoint_opt_dir / "P"),
+            ):
+                if _state in _endpoint_failures:
+                    _endpoint_failures[_state].update({
+                        "irc_structure": str(_irc_path),
+                        "geometry_role": "parent_irc_input_not_child_iterate",
+                        "child_work_dir": str(_child_dir),
+                    })
+            _endpoint_stop = {
+                "stage": "endpoint_opt", "segment": seg_idx,
+                "reason": "endpoint_execution_failed", "failures": _endpoint_failures,
+                "diagnostic_dir": str(endpoint_opt_dir), "ts_structure": str(pT),
+            }
+            commit_json_exact(endpoint_opt_dir / "failure.json", _endpoint_stop)
+            _stop_log = {
+                "index": seg_idx, "tag": seg_tag, "kind": s.get("kind", "seg"),
+                "post_dir": str(seg_dir), "pipeline_stop": _endpoint_stop,
+                "irc": irc_res.get("irc_outcome"),
+                "irc_plot": str(irc_plot_path) if irc_plot_path else None,
+                "irc_traj": str(irc_trj_path) if irc_trj_path else None,
+                "endpoint_assignment": irc_res.get("endpoint_assignment"),
+                "endpoint_opt": {
+                    "reactant_converged": _react_opt_conv,
+                    "product_converged": _prod_opt_conv,
+                    "failures": _endpoint_failures,
+                },
+                "tsopt": dict(_tsopt_decision),
+            }
+            _irc_lease = irc_res.get("calculator_lease")
+            if _irc_lease is not None:
+                _irc_lease.release()
+            for _geom in (gL, gR, gT):
+                if _geom is not None:
+                    _geom.calculator = None
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            post_segment_logs.append(_stop_log)
+            _echo(f"[all] Segment {seg_idx:02d}: endpoint optimization failed; dependent stages skipped. Diagnostics retained.", err=True)
+            continue
 
         _mep_left_geom = irc_res.get("mep_left_geom")
         _mep_right_geom = irc_res.get("mep_right_geom")
@@ -7815,7 +7979,7 @@ def cli(
                 _mep_left_geom,
                 _mep_right_geom,
             )
-        if not dump:
+        if not dump and _react_opt_conv is True and _prod_opt_conv is True:
             shutil.rmtree(endpoint_opt_dir, ignore_errors=True)
             _echo_detail("[endpoint-opt] Clean endpoint-opt working dir.")
 

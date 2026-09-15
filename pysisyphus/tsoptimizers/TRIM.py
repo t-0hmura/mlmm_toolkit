@@ -5,7 +5,6 @@
 import numpy as np
 import torch
 
-from scipy.optimize import newton
 from pysisyphus._array import as_numpy
 from pysisyphus.tsoptimizers.TSHessianOptimizer import TSHessianOptimizer
 
@@ -30,9 +29,7 @@ class TRIM(TSHessianOptimizer):
             if gradient.size != eigvecs.shape[0]:
                 gradient = self.active_from_full(gradient)
 
-        # TRIM uses scipy.optimize.newton + np.nan_to_num internally and is not
-        # microiter-capable; coerce torch tensors from the MLIP Hessian path to
-        # numpy so the legacy .dot / np.linalg.norm below stay valid.
+        # The shared trust-region solver works with NumPy arrays.
         eigvals = as_numpy(eigvals)
         eigvecs = as_numpy(eigvecs)
         gradient = as_numpy(gradient)
@@ -47,53 +44,26 @@ class TRIM(TSHessianOptimizer):
         eigvals_ = eigvals.copy()
         eigvals_[self.roots] *= -1
         if self._physical_ts_mode is not None:
-            residual_negative = eigvals_ < -self.small_eigval_thresh
+            residual_negative = (
+                (eigvals_ < -self.small_eigval_thresh)
+                & self._translation_mode_mask(eigvecs)
+            )
             residual_negative[self.roots] = False
             residual_count = int(np.count_nonzero(residual_negative))
             if residual_count:
                 eigvals_[residual_negative] *= -1
                 self.log(
                     "Stabilized "
-                    f"{residual_count} residual negative image-Hessian root(s) "
-                    "outside the PHVA-verified TS mode."
+                    f"{residual_count} negative translational image-Hessian root(s)."
                 )
         gradient_ = gradient_.copy()
         gradient_[self.roots] *= -1
 
-        def get_step(mu):
-            zetas = -gradient_ / (eigvals_ - mu)
-            # Replace nan with 0.
-            zetas = np.nan_to_num(zetas)
-            # Transform to original basis
-            step = eigvecs * zetas
-            step = step.sum(axis=1)
-            return step
-
-        def get_step_norm(mu):
-            return np.linalg.norm(get_step(mu))
-
-        def func(mu):
-            return get_step_norm(mu) - self.trust_radius
-
-        mu = 0
-        norm0 = get_step_norm(mu)
-        if norm0 > self.trust_radius:
-            try:
-                mu, res = newton(func, x0=mu, full_output=True)
-                if not res.converged:
-                    raise RuntimeError("newton not converged")
-                self.log(f"Using levelshift of μ={mu:.4f}")
-                step = get_step(mu)
-            except RuntimeError as exc:
-                self.log(
-                    f"Levelshift newton diverged ({exc}); falling back to "
-                    "L_2 truncation at trust_radius."
-                )
-                step = get_step(0)
-                step = step / np.linalg.norm(step) * self.trust_radius
-        else:
-            self.log("Took pure newton step without levelshift")
-            step = get_step(mu)
+        # Minimize the image quadratic even when complementary negative
+        # curvature remains. The solver takes the gradient in coordinate space.
+        step = self.get_newton_step_on_trust(
+            eigvals_, eigvecs, eigvecs @ gradient_
+        )
 
         step_norm = np.linalg.norm(step)
         self.log(f"norm(step)={step_norm:.6f}")

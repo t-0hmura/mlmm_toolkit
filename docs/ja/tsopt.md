@@ -16,7 +16,37 @@ optimizer の `reject_uphill` を常に `false` に固定します。TS 探索�
 IRC 後エンドポイント再最適化）だけに適用されます。マイクロイテレーション
 内部の MM-only 緩和は最小化の部分問題なので、この区別を維持します。
 
-`--flatten` を明示的に有効化した場合だけ、余剰虚モード除去ループが質量重み付け変位で余分な負のモードを整理します。`--flatten` 無効時は、数値収束後に終端 exact PHVA を 1 回行います（`--skip-final-freq` 指定時を除く）。終端候補は一次、高次、虚振動なし、または検証不能として保持します。一次 TS 認定には、目的反応座標に沿う虚振動が 1 つであることと、正しい [`irc`](irc.md) 接続性が引き続き必要です。
+RS-P-RFO は、数値条件を満たした候補で曲率を計算・確認します。`--flatten` なしでは、最適化の活性空間に余分な負のモードが残ると探索を続けます。微小反復では ML 領域と link-parent の macro 空間が対象で、最終 PHVA は別途選択した ML/MM 空間を確認します。内部判定で虚振動 0 本の場合はデフォルトで停止します。一次 TS 認定には、目的反応座標に沿う虚振動 1 本と、正しい [`irc`](irc.md) 接続性が引き続き必要です。
+
+`--flatten` は、余剰モードに沿って変位させる別の再探索ループを有効にします。`--skip-final-freq` は最終 PHVA の出力段階を省略し、最終構造の鞍点次数を未検証のまま保持します。
+
+
+`n_imaginary_modes` は表示閾値を超える負モード数、`n_negative_modes` はnear-zeroを含む完全で有限なPHVAの負モード数です。一次鞍点の証明には両方が1であることを要求し、partitionが不完全なら証明しません。
+
+## Cartesian RS-P-RFO の既定値
+
+通常の質量重み付きでない Cartesian 座標では、`hess` / `rsprfo` は
+`hessian_update: ts_bfgs` と `trust_norm: max_atom` を使用します。
+初期・最大信頼半径は **0.1 Å**（約 **0.1889726 Bohr**）で、各原子の
+3次元変位を制限します。最小半径は 1e-4 Bohr のままです。
+YAML の半径の単位は引き続き **Bohr** です。
+
+`bofill` など、明示した `hessian_update` は独立に保持します。
+`opt` または `rsirfo` に `trust_norm`、`trust_radius`、`trust_min`、
+`trust_max` のいずれかがあれば、norm 省略時は従来の全体 L2 ノルムの
+意味を保ちます。`trust_norm: l2` を明示した場合も、未指定の初期・最大
+半径は従来の 0.1 Bohr です。`trust_norm: max_atom` を明示した場合だけ、
+未指定の初期・最大半径を 0.1 Å に設定し、明示した数値は保持します。
+内部座標、質量重み付き座標、weighted trust、RS-I-RFO、TRIM、Dimer の
+既定値は変わりません。
+
+従来の Cartesian ノルムと Hessian 更新を使用する設定例:
+
+```yaml
+rsirfo:
+  trust_norm: l2
+  hessian_update: bofill
+```
 
 ## 最適化の終了状態とエラー時の出力
 
@@ -146,7 +176,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 4. **Hessian TS オプティマイザ:**
    - デフォルトの RS-P-RFO、または明示的に選択した RS-I-RFO / TRIM を、`rsirfo` YAML セクションの共通設定で実行します。
    - `--flatten` が有効で収束後に 2 つ以上の虚振動数モードが残る場合、余分なモードを平坦化し、1 つだけ残るか反復上限に達するまで選択中のオプティマイザを再実行します。
-5. **モードエクスポートと変換** — 最終振動解析で得た虚振動数モードを `vib/imag_*_trj.xyz` に書き出し、PDB 入力で変換が有効なら `.pdb` にもミラーリングします。共有 `freq.zero_cutoff_cm` により `|frequency| <= cutoff` のモードを鞍点分類とtrajectory出力の両方から除外します。PDB 入力で変換が有効な場合、最終構造は独立して PDB に変換されます。`--dump` は最適化軌跡の出力と変換を追加します。
+5. **モードエクスポートと変換** — 最終振動解析で得た虚振動数モードを `vib/imag_*_trj.xyz` に書き出し、PDB 入力で変換が有効なら `.pdb` にもミラーリングします。共有 `freq.zero_cutoff_cm` により `|frequency| <= cutoff` のモードを表示とtrajectory出力から除外しますが、厳密な鞍点判定では負の微小モードも数えます。PDB 入力で変換が有効な場合、最終構造は独立して PDB に変換されます。`--dump` は最適化軌跡の出力と変換を追加します。
 
 ## 出力
 
@@ -154,9 +184,9 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 `optimization_status` は `converged` / `not_converged` / `stalled`、
 `saddle_validation` は `first_order` / `higher_order` / `no_imaginary` /
 `unavailable`、`hessian_status` は終端 PHVA の completed / failed / skipped /
-unavailable を表します。終端 PHVA は数値収束後だけ実行し、非収束または
-`stalled`なら最終構造を保持してPHVAをskipします。PHVA が失敗しても構造を
-破棄せず、振動数を捏造せずに理由を記録します。
+unavailable を表します。非収束や `stalled` の場合は最終構造を保持し、探索中に
+曲率を確認していても最終 PHVA の出力段階には進みません。PHVA の失敗時は
+理由を記録します。
 
 数値収束済み高次停留点は、有効な負 root がある場合に限り警告付き診断 IRC に
 使うことがありますが、一次 TS 認定ではありません。数値非収束、虚振動 0 本、
@@ -209,7 +239,7 @@ out_dir/ (デフォルト: ./result_tsopt/)
 | `--ref-mode PATH` | `.npz` / `.npy` / 空白区切り text の高度な Cartesian 3N 参照候補（1 本または 2-D table）。負の Hessian root identity/overlap を補助し、Hessian 自体は置換しません。Dimer では非対応で、`all` が Hessian TS optimizer に MEP 由来候補を渡します。 | _None_ |
 | `--max-cycles INT` | 最大総オプティマイザサイクル。 | `100000` |
 | `--opt-mode CHOICE` | TS オプティマイザモード: `grad`/`dimer` → Hessian-Guided Dimer、`hess`/`rsprfo` → RS-P-RFO（デフォルト）、`rsirfo` → RS-I-RFO、`trim` → TRIM。3 種の Hessian TS オプティマイザはいずれも microiter 対応。 | `hess` |
-| `--microiter/--no-microiter` | マイクロイテレーション: 1 ステップの macro TS 移動（RS-I-RFO / RS-P-RFO / TRIM）+ MM 緩和（L-BFGS）を交互に実行。任意の Hessian モード（`hess`/`rsirfo`/`rsprfo`/`trim`）で有効。 | `True` |
+| `--microiter/--no-microiter` | Hessian モードで macro TS の 1 ステップと MM の L-BFGS 緩和を交互に実行。`--embedcharge` 有効時は通常の最適化に切り替えます。 | `True` |
 | `--ml-only-hessian-dimer/--no-ml-only-hessian-dimer` | `grad` モードで Dimer 方向決定に ML 領域のみの Hessian を使用。高速だが精度は低下。 | `False` |
 | **収束と平坦化** | | |
 | `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | _None_ |

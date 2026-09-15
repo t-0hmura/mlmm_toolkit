@@ -139,6 +139,7 @@ def test_the_removed_legacy_projection_is_rejected_not_silently_accepted() -> No
 
     runner = SimpleNamespace(
         tr_projection="constrained",
+        rigid_projection_info={"raw_mode_count": 2, "near_zero_frequencies_cm": []},
         freeze_atoms=[0],
         is_converged=True,
         stop_reason="",

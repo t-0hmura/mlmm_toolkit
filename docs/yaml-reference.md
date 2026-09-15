@@ -594,6 +594,8 @@ Dimer, and Hessian-family TS optimization. The legacy
 `rsirfo.saddle_imaginary_threshold_cm` spellings remain accepted as aliases;
 conflicting values are rejected.
 
+This cutoff controls display and mode selection. Cartesian PHVA acceptance also counts negative near-zero modes: strict zero for OPT, and strict one plus resolved one for first-order TS.
+
 **Notes:**
 - `active_dof_mode` selects which atoms participate in the vibrational analysis. `all` uses every atom; `ml-only` restricts to ML-region atoms; `partial` (default) uses ML + Movable-MM atoms; `unfrozen` uses every non-frozen atom. The CLI flag `--active-dof-mode` overrides the YAML value when explicitly passed.
 
