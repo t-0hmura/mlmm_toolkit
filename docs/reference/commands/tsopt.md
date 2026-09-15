@@ -84,12 +84,9 @@ Options:
                                   → TRIM (Helgaker). All three Hessian TS
                                   optimizers (rsirfo/rsprfo/trim) are microiter-
                                   capable.  [default: hess]
-  --microiter / --no-microiter    Enable microiteration: alternate a 1-step
-                                  macro TS move (RS-I-RFO / RS-P-RFO / TRIM) and
-                                  MM relaxation (L-BFGS with MM-only forces).
-                                  Effective in any Hessian --opt-mode
-                                  (hess/rsirfo/rsprfo/trim); ignored in
-                                  grad/dimer mode.  [default: microiter]
+  --microiter / --no-microiter    Alternate one Hessian TS step with MM L-BFGS
+                                  relaxation. Disabled for grad/dimer modes and
+                                  embedding.  [default: microiter]
   --partial-hessian-flatten / --full-hessian-flatten
                                   Use partial (active-block) Hessian for
                                   imaginary mode detection in flatten loop.

@@ -66,11 +66,9 @@ Options:
   --opt-mode [grad|hess|lbfgs|rfo]
                                   Optimization mode: grad/lbfgs or hess/rfo.
                                   [default: grad]
-  --microiter / --no-microiter    Enable microiteration: alternate ML 1-step
-                                  (RFO) and MM relaxation (L-BFGS with MM-only
-                                  forces). Only effective in --opt-mode hess
-                                  (RFO). Ignored in grad mode.  [default:
-                                  microiter]
+  --microiter / --no-microiter    Alternate one RFO step with MM L-BFGS
+                                  relaxation. Used in hess mode without
+                                  embedding.  [default: microiter]
   --flatten / --no-flatten        Enable/disable imaginary-mode flatten loop
                                   after optimization.  [default: no-flatten]
   --reject-uphill / --no-reject-uphill
