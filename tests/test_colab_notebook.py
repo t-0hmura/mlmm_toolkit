@@ -478,6 +478,8 @@ def _viewer_contract() -> dict:
         "_text_preview_html",
         "_atom_signatures",
         "_resolve_atom_query",
+        "_trajectory_stem",
+        "_is_result_trajectory",
         "_irc_trajectory_role",
         "_trajectory_result_metadata",
         "_trajectory_segment_ranges",
@@ -1486,9 +1488,9 @@ def test_colab_viewer_persists_exact_atom_and_residue_context() -> None:
         "Command failed", "frame_slider = W.IntSlider(", "channel='trajectory'",
         "host.on('plotly_click'", "Plotly.restyle", "artifact_fold._rx_set_open",
         "message.type!=='rx-set-frame'", "update.to(model).update",
-        "show_sequence=False, channel='trajectory',",
+        "show_sequence=(model_format == 'pdb'), channel='trajectory',",
         "generation=generation, frame_count=len(frames)",
-        "source = ''.join(frames)",
+        "source = model_source or ''.join(frames)",
         "display(HTML(_molstar_iframe(source, fmt, show_sequence=(fmt != 'xyz'), expanded=True)))",
     ):
         assert marker in app
@@ -1584,7 +1586,7 @@ def test_colab_viewer_persists_exact_atom_and_residue_context() -> None:
     assert contract["_artifact_kind"]("final_geometries_trj.xyz") == "MEP profile"
     assert contract["_artifact_kind"]("finished_irc_trj.xyz") == "IRC trajectory"
     assert contract["_artifact_kind"]("mode_0001_-100.00cm-1_trj.xyz") == "vibrational mode"
-    assert contract["_artifact_kind"]("imag_-421.25cm-1.pdb") == "frequency structure"
+    assert contract["_artifact_kind"]("imag_-421.25cm-1.pdb") == "vibrational mode"
     assert contract["_artifact_kind"]("job.gjf") == "text"
     assert contract["_artifact_kind"]("job.com") == "text"
     assert contract["_artifact_kind"]("job.inp") == "text"
@@ -6913,3 +6915,236 @@ def test_orb_installer_failure_retains_original_error(monkeypatch, capsys, failu
     assert calls[-1][0][0] == failure_at
     assert dict(os.environ) == original
     assert "ORB installed" not in capsys.readouterr().out
+
+def _write_result_pdb(path, coordinates, symbols=("O", "H")):
+    models = []
+    for index, positions in enumerate(coordinates, 1):
+        lines = [f"MODEL     {index:4d}\n"]
+        for atom, (symbol, position) in enumerate(zip(symbols, positions), 1):
+            x, y, z = position
+            lines.append(
+                f"HETATM{atom:5d} {symbol + str(atom):<4s} LIG A  12    "
+                f"{x:8.3f}{y:8.3f}{z:8.3f}{1.0:6.2f}{0.0:6.2f}          {symbol:>2s}  \n"
+            )
+        models.append("".join(lines) + "ENDMDL\n")
+    path.write_text("".join(models) + "END\n", encoding="utf-8")
+    return path
+
+
+def _write_result_xyz(path, coordinates, energies=None, symbols=("O", "H")):
+    frames = []
+    for index, positions in enumerate(coordinates):
+        comment = f"E={energies[index]} Ha" if energies else f"frame {index + 1}"
+        rows = [str(len(symbols)), comment]
+        rows.extend(f"{symbol} {x:.8f} {y:.8f} {z:.8f}"
+                    for symbol, (x, y, z) in zip(symbols, positions))
+        frames.append("\n".join(rows) + "\n")
+    path.write_text("".join(frames), encoding="utf-8")
+    return path
+
+
+def test_results_pdb_mep_preserves_models_metadata_and_energy_click(
+    monkeypatch, tmp_path: Path,
+) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    coordinates = [((0.0, 0.0, 0.0), (0.75724, 0.586, 0.0)),
+                   ((0.1, 0.0, 0.0), (0.80148, 0.586, 0.0))]
+    pdb = _write_result_pdb(tmp_path / "mep.pdb", coordinates)
+    xyz = _write_result_xyz(tmp_path / "mep_trj.xyz", coordinates, [-10.0, -9.99])
+    summary = tmp_path / "summary.json"
+    summary.write_text(json.dumps({"segments": [
+        {"kind": "seg", "index": 1, "frame_ranges": [[0, 1]]},
+        {"kind": "bridge", "frame_ranges": [[1, 2]]},
+    ]}), encoding="utf-8")
+    app["S"].update(_last_out_dir=str(tmp_path), _last_subcmd="path-search",
+                    _last_files=[str(pdb), str(xyz), str(summary)],
+                    _last_manifest={"status": "success", "exit_code": 0})
+    mounted = []
+    monkeypatch.setitem(app, "_molstar_iframe", lambda source, fmt, **kw:
+                        mounted.append((source, fmt, kw)) or "<div>viewer</div>")
+    app["_results"](str(tmp_path))
+    assert app["_TRAJ"]["path"] == str(pdb)
+    assert len(app["_TRAJ"]["frames"]) == 2
+    assert app["_TRAJ"]["energies"] == [-10.0, -9.99]
+    assert app["_TRAJ"]["semantics"]["bridge_ranges"] == [(1, 2)]
+    source, fmt, settings = next(item for item in mounted if item[2].get("channel") == "trajectory")
+    assert fmt == "pdb" and settings["show_sequence"] is True
+    assert source.count("MODEL ") == settings["frame_count"] == 2
+    assert "LIG A  12" in source and " O1 " in source
+    app["_set_frame_from_browser"](app["_TRAJ"]["generation"], 1)
+    assert app["frame_slider"].value == 1
+    assert "6.3 kcal/mol" in app["frame_state"].value
+    assert "bridge" in app["frame_state"].value
+    assert app["_result_trajectories"]([str(xyz), str(pdb)]) == [str(pdb)]
+    artifact = app["_artifact_preview_html"](str(pdb), str(tmp_path))
+    assert "2 frames" in artifact
+    assert any(fmt == "pdb" and kw.get("channel") == "artifact" for _, fmt, kw in mounted)
+
+
+@pytest.mark.parametrize("mismatch", ["frames", "atom_order", "coordinates", "unowned"])
+def test_results_pdb_never_borrows_mismatched_or_unowned_xyz_energy(
+    monkeypatch, tmp_path: Path, mismatch: str,
+) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    coordinates = [((0., 0., 0.), (0.7, 0., 0.)),
+                   ((0., 0., 0.), (0.8, 0., 0.))]
+    pdb = _write_result_pdb(tmp_path / "mep.pdb", coordinates)
+    xyz_coordinates = coordinates[:1] if mismatch == "frames" else list(coordinates)
+    if mismatch == "coordinates":
+        xyz_coordinates[1] = ((0., 0., 0.), (0.9, 0., 0.))
+    symbols = ("H", "O") if mismatch == "atom_order" else ("O", "H")
+    xyz = _write_result_xyz(tmp_path / "mep_trj.xyz", xyz_coordinates,
+                            [-10., -9.][:len(xyz_coordinates)], symbols=symbols)
+    files = [str(pdb)] if mismatch == "unowned" else [str(pdb), str(xyz)]
+    app["S"].update(_last_out_dir=str(tmp_path), _last_subcmd="path-search", _last_files=files)
+    app["_load_trajectory"](str(pdb), str(tmp_path))
+    assert len(app["_TRAJ"]["frames"]) == 2
+    assert app["_TRAJ"]["energies"] == [None, None]
+    assert "per-frame energies unavailable" in app["frame_state"].value
+    if mismatch != "unowned":
+        assert "mismatch" in app["_TRAJ"]["semantics"]["metadata_warning"]
+    assert app["_parse_trj"](str(pdb))["model_format"] == "pdb"
+
+
+def test_results_pdb_missing_or_damaged_retains_xyz_fallback(
+    monkeypatch, tmp_path: Path,
+) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    coordinates = [((0., 0., 0.), (0.7, 0., 0.)),
+                   ((0., 0., 0.), (0.8, 0., 0.))]
+    xyz = _write_result_xyz(tmp_path / "mep_trj.xyz", coordinates, [-10., -9.])
+    app["S"].update(_last_out_dir=str(tmp_path), _last_subcmd="path-search", _last_files=[str(xyz)])
+    assert app["_result_view_candidates"]([str(xyz)], str(tmp_path), "path-search")[0][1] == str(xyz)
+    app["_load_trajectory"](str(xyz), str(tmp_path))
+    assert app["_TRAJ"]["energies"] == [-10., -9.]
+    pdb = tmp_path / "mep.pdb"
+    pdb.write_text("MODEL        1\n", encoding="utf-8")
+    app["S"]["_last_files"].append(str(pdb))
+    app["_load_trajectory"](str(pdb), str(tmp_path))
+    assert app["_TRAJ"]["energies"] == [-10., -9.]
+    assert len(app["_TRAJ"]["frames"]) == 2
+    assert "showing the current XYZ" in app["_TRAJ"]["semantics"]["metadata_warning"]
+
+
+@pytest.mark.parametrize("sub,pdb_name,xyz_name", [
+    ("opt", "optimization.pdb", "optimization_trj.xyz"),
+    ("tsopt", "optimization_all.pdb", "optimization_all_trj.xyz"),
+    ("scan", "scan.pdb", "scan_trj.xyz"),
+    ("path-opt", "final_geometries.pdb", "final_geometries_trj.xyz"),
+    ("irc", "finished_irc.pdb", "finished_irc_trj.xyz"),
+    ("freq", "mode_0001_-25.00cm-1.pdb", "mode_0001_-25.00cm-1_trj.xyz"),
+    ("tsopt", "imag_-25.00cm-1.pdb", "imag_-25.00cm-1_trj.xyz"),
+])
+def test_results_pdb_trajectory_names_share_semantics_without_duplicate_modes(
+    monkeypatch, tmp_path: Path, sub: str, pdb_name: str, xyz_name: str,
+) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    coordinates = [((0., 0., 0.), (0.7, 0., 0.)),
+                   ((0., 0., 0.), (0.8, 0., 0.))]
+    pdb = _write_result_pdb(tmp_path / pdb_name, coordinates)
+    xyz = _write_result_xyz(tmp_path / xyz_name, coordinates)
+    views = app["_result_view_candidates"]([str(pdb), str(xyz)], str(tmp_path), sub)
+    assert len(views) == 1 and views[0][1] == str(pdb)
+    assert app["_trajectory_semantics"](sub, str(pdb), 2) == app["_trajectory_semantics"](sub, str(xyz), 2)
+    if "25.00" in pdb_name:
+        assert "25.00 cm⁻¹" in views[0][0]
+        assert "imaginary" in views[0][0].lower()
+
+
+def test_results_pdb_single_and_diagram_state_order_preserve_topology(
+    monkeypatch, tmp_path: Path,
+) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    coordinates = [((0., 0., 0.), (0.7, 0., 0.))]
+    final = _write_result_pdb(tmp_path / "final_geometry.pdb", coordinates)
+    final_xyz = _write_result_xyz(tmp_path / "final_geometry.xyz", coordinates)
+    for sub in ("opt", "tsopt", "freq"):
+        assert app["_result_view_candidates"]([str(final_xyz), str(final)], str(tmp_path), sub)[0][1] == str(final)
+    input_pdb = _write_result_pdb(tmp_path / "input_geometry.pdb", coordinates)
+    input_xyz = _write_result_xyz(tmp_path / "input_geometry.xyz", coordinates)
+    assert app["_result_view_candidates"]([str(input_xyz), str(input_pdb)], str(tmp_path), "dft")[0][1] == str(input_pdb)
+    paths, current = [], []
+    for index, role in enumerate(("reactant", "ts", "product")):
+        folder = tmp_path / "segments" / "seg_01"
+        folder.mkdir(parents=True, exist_ok=True)
+        geometry = [((float(index), 0., 0.), (index + 0.7, 0., 0.))]
+        xyz = _write_result_xyz(folder / (role + ".xyz"), geometry)
+        pdb = _write_result_pdb(folder / (role + ".pdb"), geometry)
+        paths.append(str(xyz)); current.extend([str(xyz), str(pdb)])
+    summary = tmp_path / "summary.json"
+    summary.write_text(json.dumps({"energy_diagrams": [{
+        "name": "energy_diagram_MLIP_all", "labels": ["R", "TS", "P"],
+        "energies_kcal": [0., 5., -2.], "structures": paths,
+    }]}), encoding="utf-8")
+    current.append(str(summary))
+    app["S"].update(_last_out_dir=str(tmp_path), _last_subcmd="all", _last_files=current)
+    app["_energy_diagram_options"](current, [], str(tmp_path), "all")
+    view = app["_ENERGY"]["views"]["energy:mlip_e"]
+    assert view["structures"] == [str(Path(path).with_suffix(".pdb")) for path in paths]
+    mounted = []
+    monkeypatch.setitem(app, "_molstar_iframe", lambda source, fmt, **kw:
+                        mounted.append((source, fmt, kw)) or "<div>viewer</div>")
+    assert app["_load_energy_structures"](view, "energy:mlip_e", "MLIP ΔE") is True
+    assert mounted[-1][1] == "pdb" and mounted[-1][0].count("MODEL ") == 3
+    assert "LIG A  12" in mounted[-1][0]
+    app["_set_frame_from_browser"](app["_TRAJ"]["generation"], 1)
+    assert "TS" in app["frame_state"].value and "5.0 kcal/mol" in app["frame_state"].value
+    # A differently ordered explicit summary must retain that exact state order.
+    assert [app["_preferred_result_structure"](path, current) for path in paths[::-1]] == view["structures"][::-1]
+    # A same-named PDB with different coordinates cannot replace a diagram's XYZ state.
+    _write_result_pdb(Path(paths[1]).with_suffix(".pdb"), coordinates)
+    assert app["_preferred_result_structure"](paths[1], current) == paths[1]
+
+
+def test_results_pdb_aggregate_irc_reverses_models_and_owned_energies_together(
+    monkeypatch, tmp_path: Path,
+) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    coordinates = [((0., 0., 0.), (0.7, 0., 0.)),
+                   ((1., 0., 0.), (1.7, 0., 0.)),
+                   ((2., 0., 0.), (2.7, 0., 0.))]
+    folder = tmp_path / "segments" / "seg_01" / "irc"
+    folder.mkdir(parents=True)
+    pdb = _write_result_pdb(folder / "finished_irc.pdb", coordinates)
+    xyz = _write_result_xyz(folder / "finished_irc_trj.xyz", coordinates, [-10., -9., -11.])
+    result = folder / "result.json"
+    result.write_text(json.dumps({"n_frames_forward": 1, "n_frames_backward": 1,
+                                  "n_frames_total": 3}), encoding="utf-8")
+    summary = tmp_path / "summary.json"
+    summary.write_text(json.dumps({"post_segments": [
+        {"index": 1, "endpoint_assignment": {"reversed": True}},
+    ]}), encoding="utf-8")
+    current = [str(pdb), str(xyz), str(result), str(summary)]
+    app["S"].update(_last_out_dir=str(tmp_path), _last_subcmd="all", _last_files=current)
+    aggregate = app["_aggregate_irc_trajectory"](current, str(tmp_path))
+    assert aggregate.endswith("_finished_irc.pdb")
+    parsed = app["_parse_trj"](aggregate)
+    assert parsed["energies_ha"] == [-11., -9., -10.]
+    assert parsed["frames"][0].splitlines()[2].split()[1] == "2"
+    assert len(parsed["pdb_models"]) == 3
+    semantics = app["_trajectory_semantics"]("all", aggregate, 3)
+    assert semantics["stationary_labels"] == {1: "TS"}
+
+def test_results_explicit_pdb_state_preserves_ownership_with_mismatched_xyz(
+    monkeypatch, tmp_path: Path,
+) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    pdb = _write_result_pdb(tmp_path / "input_geometry.pdb",
+                            [((0., 0., 0.), (0.7, 0., 0.))])
+    xyz = _write_result_xyz(tmp_path / "input_geometry.xyz",
+                            [((0., 0., 0.), (0.9, 0., 0.))])
+    result = tmp_path / "result.json"
+    result.write_text(json.dumps({"energy_hartree": -10.}), encoding="utf-8")
+    current = [str(pdb), str(xyz), str(result)]
+    app["S"].update(_last_out_dir=str(tmp_path), _last_subcmd="dft", _last_files=current)
+    app["_load_trajectory"](str(pdb), str(tmp_path))
+    assert app["_TRAJ"]["energies"] == [None]
+    assert "per-frame energies unavailable" in app["frame_state"].value
+    # An explicit summary PDB remains that state; only an explicit XYZ is
+    # upgraded after a validated match.
+    assert app["_preferred_result_structure"](str(pdb), current) == str(pdb)
+    assert app["_preferred_result_structure"](str(xyz), current) == str(xyz)
+    # MLMM has no scalar JSON fallback; a matching XYZ supplies its own energy.
+    _write_result_xyz(xyz, [((0., 0., 0.), (0.7, 0., 0.))], [-10.])
+    app["_load_trajectory"](str(pdb), str(tmp_path))
+    assert app["_TRAJ"]["energies"] == [-10.]

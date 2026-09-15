@@ -6,53 +6,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
-### Fixed
+_No changes yet._
 
-- Address the UMA first-call CUDA device mismatch reported in
-  [pdb2reaction #298](https://github.com/t-0hmura/pdb2reaction/pull/298) by keeping
-  input batches on the CPU during FAIR-Chem's lazy initialization, before its
-  native device transfer. Add regression coverage for initial and repeated
-  energy/force evaluations.
-- Retain all signed physical frequency modes and their vectors, including positive
-  modes at or below the reporting cutoff, in frequency exports and thermochemistry.
-  Report resolved imaginary counts separately from all negative modes; near-zero
-  metadata now annotates the complete spectrum. Thermal corrections can change
-  when previously omitted positive modes are restored. Existing thermal policies,
-  reporting thresholds and strict curvature acceptance remain unchanged.
-- Avoid allocating an unused square left-singular-vector matrix when many
-  frozen atoms constrain the rigid-mode subspace.
-- Keep optimizer mode indices out of flatten-branch scoring after the final
-  frequency analysis expands to a different active space.
-
-- Include near-zero negative modes in OPT/TS curvature acceptance while keeping
-  frequency display thresholds unchanged.
-- Clear cached results when internal-coordinate rebuilding changes the geometry.
-- Handle remaining negative image curvature in TRIM's trust-region step.
-- Honor small trust radii in RFO and RS-I-RFO microiterations.
-- Use standard optimization with embedding, since MM-only microiterations omit embedding forces.
-- Write `all` MEP PDB trajectories when XYZ coordinates have a separate reference PDB.
-- Keep UMA's backbone in evaluation mode during analytical Hessian calculation.
-- Handle zero or non-finite energy predictions consistently when updating trust radii.
-- Solve scaled RFO with an equivalent symmetric matrix and reject unresolved
-  restricted steps while preserving terminal saddle checks and recovery.
-- Handle degenerate trust-region steps and keep TS roots in the active Hessian basis.
-- Reject inaccurate secular RFO roots and avoid growing small trust radii after
-  interior steps.
-- Check calculated active-space curvature before RFO acceptance and continue
-  RS-P-RFO from higher-order candidates; preserve explicit flatten handoffs.
-- Preserve scheduled Hessian refreshes during no-flatten RS-P-RFO continuation.
-- Preserve genuine complementary negative curvature after earlier TS validation;
-  restrict artifact stabilization to pure, unconstrained translations.
-- Reuse terminal frequencies only for matching analysis conditions, preserving
-  partial-Hessian ordering and separating macro-space from final ML/MM validation.
-- Retain microiteration failure diagnostics and honor the CLI flatten setting.
-- Handle singular BFGS/TS-BFGS inputs and reset multistep Hessian history when
-  rebuilding the coordinate basis.
-- Stop frequency/DFT and refined diagrams after endpoint execution failures;
-  retain diagnostic structures and failure details.
-- Document startup BLIS thread settings for slow DMF/IPOPT calculations.
-
-## [0.3.5] — 2026-09-02
+## [0.3.5] — 2026-09-16
 
 > Upgrade warning: unchanged inputs can produce a different `scientific_status` for
 > standalone `irc` and for `all` (including `failed` where a run with no usable
@@ -62,6 +18,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 > configured `search.max_depth`; `result.json` / `summary.json` now carry
 > `schema_version: "3.0"`. Users of those files must review the Breaking changes
 > below before upgrading.
+
+> Cartesian optimizer trajectories and convergence verdicts can also change.
+> Frequency exports now retain the complete signed physical spectrum;
+> thermochemical corrections can change when soft positive modes that were
+> previously omitted are restored. Resolved imaginary-mode reporting remains
+> separate from the raw spectrum and optimizer curvature checks.
 
 ### Breaking changes
 - **JSON schema 3.0 (breaking).** Remove the IRC `forward_converged` /
@@ -121,6 +83,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   `Recursion depth cap` lines in `summary.log`.
 
 ### Changed
+
+- For ordinary Cartesian RS-P-RFO, default to TS-BFGS updates and a 0.1 Å
+  maximum-atom initial/maximum trust radius when those settings are omitted.
+  Explicit optimizer settings remain authoritative.
+- With BFGS selected, use the existing TS-BFGS update for an indefinite
+  working Hessian while retaining the nonpositive-curvature skip. Keep a
+  descending RFO reference step when an extrapolated step is non-descending.
+- Continue no-flatten RS-P-RFO from higher-order candidates with fresh
+  curvature checks; preserve explicitly requested flatten workflows.
+- Preserve scheduled Hessian refreshes during no-flatten RS-P-RFO continuation.
+- Document startup BLIS thread settings for slow DMF/IPOPT calculations.
 - Support fairchem-core 2.22 and current compatible runtime dependencies.
 - Raise the default DMF IPOPT iteration cap (`--max-cycles-dmf`,
   `dmf.max_cycles`) from 300 to 3000, matching the solver's own default. A DMF
@@ -129,6 +102,53 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
   optimization was not requested, instead of always carrying the default preset.
 
 ### Fixed
+- Repair ORB installation on Python 3.13 Colab runtimes by preparing its
+  pinned dm-tree build dependency, while preserving the resolved Torch and NumPy
+  versions and exposing installer diagnostics.
+- Normalize quoted scan inputs in the Colab command display.
+- Prefer PDB structures and trajectories in Colab Results, preserving atom,
+  residue and chain metadata and all trajectory frames. Link XYZ energies only
+  to matching current-run PDB frames; retain XYZ fallback and signed mode labels.
+- Address the UMA first-call CUDA device mismatch reported in
+  [pdb2reaction #298](https://github.com/t-0hmura/pdb2reaction/pull/298) by keeping
+  input batches on the CPU during FAIR-Chem's lazy initialization, before its
+  native device transfer. Add regression coverage for initial and repeated
+  energy/force evaluations.
+- Retain all signed physical frequency modes and their vectors, including positive
+  modes at or below the reporting cutoff, in frequency exports and thermochemistry.
+  Report resolved imaginary counts separately from all negative modes; near-zero
+  metadata now annotates the complete spectrum. Thermal corrections can change
+  when previously omitted positive modes are restored. Existing thermal policies,
+  reporting thresholds and strict curvature acceptance remain unchanged.
+- Avoid allocating an unused square left-singular-vector matrix when many
+  frozen atoms constrain the rigid-mode subspace.
+- Keep optimizer mode indices out of flatten-branch scoring after the final
+  frequency analysis expands to a different active space.
+
+- Include near-zero negative modes in OPT/TS curvature acceptance while keeping
+  frequency display thresholds unchanged.
+- Clear cached results when internal-coordinate rebuilding changes the geometry.
+- Handle remaining negative image curvature in TRIM's trust-region step.
+- Honor small trust radii in RFO and RS-I-RFO microiterations.
+- Use standard optimization with embedding, since MM-only microiterations omit embedding forces.
+- Write `all` MEP PDB trajectories when XYZ coordinates have a separate reference PDB.
+- Keep UMA's backbone in evaluation mode during analytical Hessian calculation.
+- Handle zero or non-finite energy predictions consistently when updating trust radii.
+- Solve scaled RFO with an equivalent symmetric matrix and reject unresolved
+  restricted steps while preserving terminal saddle checks and recovery.
+- Handle degenerate trust-region steps and keep TS roots in the active Hessian basis.
+- Reject inaccurate secular RFO roots and avoid growing small trust radii after
+  interior steps.
+- Require a current-coordinate curvature check before accepting an RFO minimum.
+- Preserve genuine complementary negative curvature after earlier TS validation;
+  restrict artifact stabilization to pure, unconstrained translations.
+- Reuse terminal frequencies only for matching analysis conditions, preserving
+  partial-Hessian ordering and separating macro-space from final ML/MM validation.
+- Retain microiteration failure diagnostics and honor the CLI flatten setting.
+- Handle singular BFGS/TS-BFGS inputs and reset multistep Hessian history when
+  rebuilding the coordinate basis.
+- Stop frequency/DFT and refined diagrams after endpoint execution failures;
+  retain diagnostic structures and failure details.
 - Reject fewer than two GSM internal nodes during `path-opt` / `path-search`
   preflight, including dry runs and YAML configuration.
 - Clarify input roles, TS validation, and GSM/DMF help; shorten installation
