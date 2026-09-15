@@ -6720,8 +6720,8 @@ def test_plot_export_installation_does_not_launch_a_render_probe() -> None:
     assert "timeout=90" in setup
     assert "_plot_probe_code" in setup
     assert "PNG export verified" in setup
-    assert "def _run_installer(command, label, check=True):" in setup
-    assert "completed = subprocess.run(command)" in setup
+    assert "def _run_installer(command, label, check=True, env=None):" in setup
+    assert "command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True" in setup
     assert "Still installing" not in setup
     assert "worker.join(timeout=max(1, interval))" not in setup
     assert "_ChoreographerChromium.find_browser" not in setup
@@ -6774,3 +6774,138 @@ def test_generated_file_preview_defaults_to_the_root_summary(monkeypatch, tmp_pa
     })
     app["_results"](str(tmp_path))
     assert app["artifact_choice"].value == str(summary_log)
+
+
+def _installer_helpers_from_setup() -> dict:
+    setup = ast.parse(_notebook()["cells"][1]["source"])
+    definitions = [node for node in setup.body if isinstance(node, ast.FunctionDef)
+                   and node.name in {"_run_installer", "pip"}]
+    assert len(definitions) == 2
+    namespace = {"subprocess": subprocess, "sys": sys}
+    exec(compile(ast.Module(body=definitions, type_ignores=[]), str(NOTEBOOK), "exec"), namespace)
+    return namespace
+
+
+def test_installer_success_keeps_captured_output_quiet(monkeypatch, capsys) -> None:
+    calls = []
+
+    def fake_run(command, **kwargs):
+        calls.append((command, kwargs))
+        return types.SimpleNamespace(returncode=0, stdout="Successful build details\n")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    command = ["python", "-m", "pip", "install", "example"]
+    assert _installer_helpers_from_setup()["_run_installer"](command, "Installing example") == 0
+    assert capsys.readouterr().out == "      … Installing example\n"
+    assert calls == [(command, {
+        "stdout": subprocess.PIPE, "stderr": subprocess.STDOUT,
+        "text": True, "errors": "replace", "env": None,
+    })]
+
+
+@pytest.mark.parametrize("check", [True, False])
+def test_installer_failure_keeps_full_output_and_check_policy(monkeypatch, capsys, check) -> None:
+    output = "FIRST BUILD DETAIL\n" + "x" * 14000 + "\nactual compiler diagnostic\n"
+    monkeypatch.setattr(subprocess, "run", lambda *_args, **_kwargs:
+                        types.SimpleNamespace(returncode=7, stdout=output))
+    command = ["python", "-m", "pip", "install", "example"]
+    installer = _installer_helpers_from_setup()["_run_installer"]
+    if check:
+        with pytest.raises(subprocess.CalledProcessError) as raised:
+            installer(command, "Installing example", check=True)
+        assert raised.value.returncode == 7
+        assert raised.value.cmd == command
+        assert raised.value.output == output
+    else:
+        assert installer(command, "Installing example", check=False) == 7
+    displayed = capsys.readouterr().out
+    assert "FIRST BUILD DETAIL" not in displayed
+    assert output[-12000:] in displayed
+    assert "actual compiler diagnostic" in displayed
+
+
+def test_pip_passes_child_environment_without_mutating_parent(monkeypatch) -> None:
+    calls = []
+    monkeypatch.setattr(subprocess, "run", lambda command, **kwargs:
+                        calls.append((command, kwargs)) or
+                        types.SimpleNamespace(returncode=0, stdout=""))
+    original = os.environ.copy()
+    child = dict(original, CXXFLAGS="-include cstdint")
+    _installer_helpers_from_setup()["pip"]("example==1", env=child)
+    assert calls[0][0] == [sys.executable, "-m", "pip", "install", "-q", "example==1"]
+    assert calls[0][1]["env"] is child
+    assert dict(os.environ) == original
+
+
+def _run_orb_install_branch(monkeypatch, *, python_version, platform, calls, failure_at=None):
+    import importlib.metadata
+
+    setup = ast.parse(_notebook()["cells"][1]["source"])
+    orb_branch = next(
+        node for node in ast.walk(setup)
+        if isinstance(node, ast.If)
+        and isinstance(node.test, ast.Compare)
+        and isinstance(node.test.left, ast.Name)
+        and node.test.left.id == "backend"
+        and len(node.test.comparators) == 1
+        and isinstance(node.test.comparators[0], ast.Constant)
+        and node.test.comparators[0].value == "orb"
+    )
+
+    def fake_pip(*args, **kwargs):
+        calls.append((args, kwargs))
+        if args[0] == failure_at:
+            raise subprocess.CalledProcessError(1, ["pip", *args], output="build diagnostic")
+
+    monkeypatch.setattr(importlib.metadata, "version", lambda name:
+                        {"torch": "2.8.0", "numpy": "2.1.3"}[name])
+    namespace = {"pip": fake_pip, "os": os,
+                 "sys": types.SimpleNamespace(version_info=python_version, platform=platform)}
+    exec(compile(ast.Module(body=orb_branch.body, type_ignores=[]), str(NOTEBOOK), "exec"), namespace)
+
+
+@pytest.mark.parametrize(("python_version", "platform", "build_tools"), [
+    ((3, 13), "linux", True),
+    ((3, 14), "linux", True),
+    ((3, 12), "linux", False),
+    ((3, 13), "darwin", False),
+    ((3, 13), "win32", False),
+])
+@pytest.mark.parametrize("existing_flags", [None, "-O2 -DUSER_BUILD_FLAG=1"])
+def test_orb_source_build_environment_is_scoped_and_preserves_pins(
+    monkeypatch, python_version, platform, build_tools, existing_flags,
+) -> None:
+    if existing_flags is None:
+        monkeypatch.delenv("CXXFLAGS", raising=False)
+    else:
+        monkeypatch.setenv("CXXFLAGS", existing_flags)
+    original = os.environ.copy()
+    calls = []
+    _run_orb_install_branch(monkeypatch, python_version=python_version,
+                            platform=platform, calls=calls)
+    assert calls[-1][0] == ("orb-models", "torch==2.8.0", "numpy==2.1.3")
+    assert dict(os.environ) == original
+    if build_tools:
+        assert len(calls) == 2
+        assert calls[0] == (("cmake<4",), {})
+        child = calls[-1][1]["env"]
+        expected_flags = ((existing_flags or "") + " -include cstdint").strip()
+        assert child == dict(original, CXXFLAGS=expected_flags)
+        assert child is not os.environ
+    else:
+        assert len(calls) == 1
+        assert calls[-1][1] == {"env": None}
+
+
+@pytest.mark.parametrize("failure_at", ["cmake<4", "orb-models"])
+def test_orb_installer_failure_retains_original_error(monkeypatch, capsys, failure_at) -> None:
+    calls = []
+    original = os.environ.copy()
+    with pytest.raises(subprocess.CalledProcessError) as raised:
+        _run_orb_install_branch(monkeypatch, python_version=(3, 13), platform="linux",
+                                calls=calls, failure_at=failure_at)
+    assert raised.value.output == "build diagnostic"
+    assert raised.value.returncode == 1
+    assert calls[-1][0][0] == failure_at
+    assert dict(os.environ) == original
+    assert "ORB installed" not in capsys.readouterr().out
