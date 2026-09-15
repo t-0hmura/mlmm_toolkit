@@ -109,6 +109,16 @@ def test_yaml_redirect_ignores_unused_click_default_collision(
         f"stopt:\n  out_dir: {effective_out}\n  max_cycles: 1\n",
         encoding="utf-8",
     )
+    prepared_dirs = []
+    prepare_output = path_module._prepare_path_output_dir
+
+    def stop_after_preparing_output(path):
+        prepared_dirs.append(prepare_output(path))
+        raise SystemExit(0)
+
+    monkeypatch.setattr(
+        path_module, "_prepare_path_output_dir", stop_after_preparing_output
+    )
 
     result = CliRunner().invoke(
         path_module.cli,
@@ -121,6 +131,9 @@ def test_yaml_redirect_ignores_unused_click_default_collision(
         ],
     )
 
+    assert result.exit_code == 0, result.output
+    assert prepared_dirs == [effective_out.resolve()]
+    assert effective_out.is_dir()
     assert "collides with a reserved path-opt output" not in result.output
     assert occupied.read_text(encoding="utf-8") == "input\n"
 
