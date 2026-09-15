@@ -141,11 +141,10 @@ from mlmm.workflows.freq import (
 )
 from pysisyphus.normal_modes import (
     DEFAULT_FREQUENCY_ZERO_CUTOFF_CM,
-    filter_resolved_modes,
     normalize_frequency_zero_cutoff_cm,
-    resolved_frequency_mask,
     resolved_imaginary_mask,
     _strict_negative_count,
+    frequency_partition_info,
 )
 
 logger = logging.getLogger(__name__)
@@ -343,11 +342,22 @@ def _optimizer_exact_frequency_data(
         != normalize_frequency_zero_cutoff_cm(frequency_zero_cutoff_cm)
     ):
         return None
+    # An old resolved-only cache cannot supply its omitted mode vectors.
+    # Let the established exact-Hessian path produce a complete PHVA instead.
+    if projection.get("frequency_representation") != "complete":
+        if len(projection["near_zero_frequencies_cm"]) != 0:
+            return None
+        projection.update(frequency_partition_info(freqs, frequency_zero_cutoff_cm))
     modes_t = (
         modes.detach().cpu().clone()
         if isinstance(modes, torch.Tensor)
         else torch.as_tensor(np.asarray(modes), dtype=torch.float64).clone()
     )
+    if (
+        tuple(modes_t.shape) != (len(freqs), current.size)
+        or not bool(torch.isfinite(modes_t).all())
+    ):
+        return None
     projection.update({
         "source": "optimizer_terminal_exact_phva",
         "reused_without_hessian_recalculation": True,
@@ -363,6 +373,20 @@ def _optimizer_exact_frequency_data(
         projection,
         exact_hessian,
     )
+
+def _matching_optimizer_mode_index(optimizer, freqs_cm, projection_info, cutoff_cm):
+    """Return an optimizer index only in its reused terminal mode basis."""
+    if projection_info.get("source") != "optimizer_terminal_exact_phva":
+        return None
+    index = getattr(optimizer, "_last_exact_target_mode_index", None)
+    if index is None:
+        return None
+    index = int(index)
+    frequencies = np.asarray(freqs_cm, dtype=float)
+    if not (0 <= index < frequencies.size):
+        return None
+    return index if resolved_imaginary_mask(frequencies, cutoff_cm)[index] else None
+
 
 def _mirrored_flatten_start(
     saddle_coords: np.ndarray,
@@ -888,9 +912,9 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
 
         # convert to cm^-1
         freqs_cm = _omega2_to_freqs_cm(omega2)
-        freqs_cm, modes = filter_resolved_modes(
-            freqs_cm, modes, frequency_zero_cutoff_cm
-        )
+        frequency_info = frequency_partition_info(freqs_cm, frequency_zero_cutoff_cm)
+        if projection_info is not None:
+            projection_info.update(frequency_info)
 
         del omega2, Vsub, masses_amu, masses_au_t, coords_bohr_t, Hmw
         _clear_cuda_cache(H_t)
@@ -1134,9 +1158,9 @@ def _frequencies_from_Hact(H_act: torch.Tensor,
         symmetrize_inplace(Hmw)
         omega2 = torch.linalg.eigvalsh(Hmw, UPLO="U")
         freqs_cm = _omega2_to_freqs_cm(omega2)
-        freqs_cm = freqs_cm[
-            resolved_frequency_mask(freqs_cm, frequency_zero_cutoff_cm)
-        ]
+        frequency_info = frequency_partition_info(freqs_cm, frequency_zero_cutoff_cm)
+        if projection_info is not None:
+            projection_info.update(frequency_info)
         del coords_full, masses_full_au, Hmw, omega2, _lift
         _clear_cuda_cache(H_act)
         return freqs_cm
@@ -1188,11 +1212,7 @@ def _modes_from_Hact_embedded(H_act: torch.Tensor,
         modes_full[:, mask_t] = Vsub.T
         # frequencies
         freqs_cm = _omega2_to_freqs_cm(omega2)
-        frequency_info = {}
-        freqs_cm, modes_full = filter_resolved_modes(
-            freqs_cm, modes_full, frequency_zero_cutoff_cm,
-            filter_info=frequency_info,
-        )
+        frequency_info = frequency_partition_info(freqs_cm, frequency_zero_cutoff_cm)
         if projection_info is not None:
             projection_info.update(frequency_info)
 
@@ -5016,10 +5036,9 @@ def cli(
                         negative_indices = np.flatnonzero(
                             branch_freqs < -abs(neg_freq_thresh_cm)
                         )
-                        target_index = getattr(
-                            branch_optimizer,
-                            "_last_exact_target_mode_index",
-                            None,
+                        target_index = _matching_optimizer_mode_index(
+                            branch_optimizer, branch_freqs,
+                            result.get("projection", {}), neg_freq_thresh_cm,
                         )
                         surplus_strength = sum(
                             abs(float(branch_freqs[int(mode_index)]))
@@ -5270,15 +5289,10 @@ def cli(
             _heavy_reaction_mode_index = None
             _heavy_reaction_mode_frequency = None
             _heavy_reaction_mode_overlap = None
-            _heavy_candidate_mode_index = getattr(
-                last_optimizer, "_last_exact_target_mode_index", None
-            )
-            if (
-                _heavy_candidate_mode_index is not None
-                and freqs_cm is not None
-                and 0 <= int(_heavy_candidate_mode_index) < len(freqs_cm)
-                and float(freqs_cm[int(_heavy_candidate_mode_index)]) < 0.0
-            ):
+            _heavy_candidate_mode_index = _matching_optimizer_mode_index(
+                last_optimizer, freqs_cm, rigid_projection_info, neg_freq_thresh_cm,
+            ) if freqs_cm is not None else None
+            if _heavy_candidate_mode_index is not None:
                 _heavy_reaction_mode_index = int(_heavy_candidate_mode_index)
                 _heavy_reaction_mode_frequency = float(
                     freqs_cm[_heavy_reaction_mode_index]
@@ -5287,7 +5301,9 @@ def cli(
                     last_optimizer, "_last_exact_target_mode_overlap", None
                 )
             elif freqs_cm is not None and len(freqs_cm):
-                _negative_indices = np.flatnonzero(np.asarray(freqs_cm) < 0.0)
+                _negative_indices = np.flatnonzero(
+                    resolved_imaginary_mask(freqs_cm, neg_freq_thresh_cm)
+                )
                 if _negative_indices.size:
                     _heavy_reaction_mode_index = int(_negative_indices[0])
                     _heavy_reaction_mode_frequency = float(

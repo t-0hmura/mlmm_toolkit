@@ -301,7 +301,10 @@ class RSPRFOptimizer(TSHessianOptimizer):
         atomic_trust = getattr(self, "trust_norm", "l2") == "max_atom"
         if self.max_micro_cycles < 1:
             raise ValueError("RS-P-RFO requires at least one micro cycle.")
-        if atomic_trust:
+        # One micro cycle requests the existing unrestricted proposal;
+        # the final bound below uses the selected norm, including line search.
+        restrict_atomic = atomic_trust and self.max_micro_cycles > 1
+        if restrict_atomic:
             try:
                 step = self._max_atom_prfo_step(
                     eigvals, eigvecs, gradient_trans, ip_step_trans,
@@ -310,7 +313,7 @@ class RSPRFOptimizer(TSHessianOptimizer):
             except ZeroDivisionError:
                 step, gradient = self._image_trust_step()
                 image_step = True
-        for mu in range(0 if atomic_trust else self.max_micro_cycles):
+        for mu in range(0 if restrict_atomic else self.max_micro_cycles):
             self.log(f"RS-PRFO micro cycle {mu:02d}, alpha={alpha:.6f}")
 
             # A stationary candidate belongs to the terminal PHVA/recovery

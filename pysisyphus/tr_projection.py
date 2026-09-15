@@ -169,7 +169,12 @@ def active_tr_basis(
         if full_rank == 0:
             coefficient_null = full_q.new_zeros((0, 0))
         else:
-            _, singular, vh = torch.linalg.svd(q_frozen_rows, full_matrices=True)
+            # A tall matrix needs only reduced U; retain all right-null
+            # vectors for a wide matrix (small frozen-atom complements).
+            _, singular, vh = torch.linalg.svd(
+                q_frozen_rows,
+                full_matrices=(q_frozen_rows.shape[0] < q_frozen_rows.shape[1]),
+            )
             scale = float(singular[0].item()) if singular.numel() else 0.0
             frozen_rank = (
                 int((singular > float(rtol) * scale).sum().item())

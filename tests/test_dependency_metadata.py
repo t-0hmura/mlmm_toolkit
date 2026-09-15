@@ -3,6 +3,9 @@
 from pathlib import Path
 import tomllib
 
+import pytest
+from packaging.requirements import Requirement
+
 
 def test_parmed_requirement_supports_the_unbounded_numpy_runtime() -> None:
     pyproject = (Path(__file__).parents[1] / "pyproject.toml").read_text(encoding="utf-8")
@@ -35,6 +38,25 @@ def test_runtime_dependency_floors_match_consumed_apis() -> None:
 
     assert "ParmEd>=4.3.1" in dependencies
     assert "plotly>=6.1.1" in dependencies
-    assert extras["orb"] == ["orb-models>=0.7.0"]
     assert extras["aimnet"] == ["aimnet>=0.2.0"]
     assert extras["mcp"] == ["mcp[cli]>=1.29,<2"]
+
+
+@pytest.mark.parametrize("python_version", ["3.11", "3.12", "3.13"])
+def test_orb_extra_selects_the_supported_api_for_each_python(python_version):
+    project = tomllib.loads(
+        (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text(encoding="utf-8")
+    )["project"]
+    requirements = [Requirement(value) for value in project["optional-dependencies"]["orb"]]
+    environment = {"python_version": python_version, "python_full_version": python_version + ".0"}
+    eligible = [requirement for requirement in requirements
+                if requirement.marker is None or requirement.marker.evaluate(environment)]
+    assert len(eligible) == 1
+    assert eligible[0].name == "orb-models"
+    specifier = eligible[0].specifier
+    if python_version == "3.11":
+        assert "0.5.5" in specifier and "0.5.99" in specifier
+        assert "0.5.4" not in specifier and "0.6.0" not in specifier and "0.7.0" not in specifier
+    else:
+        assert "0.7.0" in specifier and "0.8.0" in specifier
+        assert "0.6.99" not in specifier

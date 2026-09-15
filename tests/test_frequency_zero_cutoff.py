@@ -48,7 +48,7 @@ def test_mode_accounting_is_one_compact_line() -> None:
     from mlmm.workflows.freq import _format_mode_accounting
 
     line = _format_mode_accounting(
-        410,
+        411,
         414,
         {
             "effective_rank": 3,
@@ -59,7 +59,7 @@ def test_mode_accounting_is_one_compact_line() -> None:
     )
 
     assert line == (
-        "410 modes = 414 active DOF - 3 rigid - 1 near-zero "
+        "411 modes = 414 active DOF - 3 rigid; 1 near-zero retained "
         "(|ν|≤5.0 cm⁻¹)"
     )
     assert "\n" not in line

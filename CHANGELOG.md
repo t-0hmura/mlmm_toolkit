@@ -8,6 +8,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Address the UMA first-call CUDA device mismatch reported in
+  [pdb2reaction #298](https://github.com/t-0hmura/pdb2reaction/pull/298) by keeping
+  input batches on the CPU during FAIR-Chem's lazy initialization, before its
+  native device transfer. Add regression coverage for initial and repeated
+  energy/force evaluations.
+- Retain all signed physical frequency modes and their vectors, including positive
+  modes at or below the reporting cutoff, in frequency exports and thermochemistry.
+  Report resolved imaginary counts separately from all negative modes; near-zero
+  metadata now annotates the complete spectrum. Thermal corrections can change
+  when previously omitted positive modes are restored. Existing thermal policies,
+  reporting thresholds and strict curvature acceptance remain unchanged.
+- Avoid allocating an unused square left-singular-vector matrix when many
+  frozen atoms constrain the rigid-mode subspace.
+- Keep optimizer mode indices out of flatten-branch scoring after the final
+  frequency analysis expands to a different active space.
+
 - Include near-zero negative modes in OPT/TS curvature acceptance while keeping
   frequency display thresholds unchanged.
 - Clear cached results when internal-coordinate rebuilding changes the geometry.

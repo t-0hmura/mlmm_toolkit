@@ -569,6 +569,7 @@ class _UMABackend(_MLBackend):
         # FAIR-Chem owns the device transfer. Since 2.22 its first prediction
         # prepares the still-CPU model from this batch before moving both to
         # the execution device.
+        # First-call mismatch analysis: https://github.com/t-0hmura/pdb2reaction/pull/298
         batch = self._data_list_collater([data], otf_graph=True)
         pos = batch.pos.detach().clone()
         pos.requires_grad_(need_grad)

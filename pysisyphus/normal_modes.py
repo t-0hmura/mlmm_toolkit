@@ -57,11 +57,34 @@ def resolved_imaginary_mask(
     return np.asarray(freqs_cm, dtype=float) < -cutoff
 
 
-def _strict_negative_count(freqs_cm, projection_info) -> Optional[int]:
-    """Count all finite negative modes in an explicitly complete PHVA partition.
+def frequency_partition_info(freqs_cm, cutoff_cm=DEFAULT_FREQUENCY_ZERO_CUTOFF_CM):
+    """Describe a complete signed physical spectrum without removing modes.
 
-    Display/eligibility filtering is unchanged. Missing near-zero metadata or
-    incomplete/nonfinite partitions provide no strict curvature certificate.
+    Near-zero frequencies are a subset of the returned spectrum, not an
+    omitted partition. The representation marker prevents double counting
+    when reading legacy frequency packets that stored only resolved modes.
+    """
+    frequencies = np.asarray(freqs_cm, dtype=float)
+    if frequencies.ndim != 1 or not np.all(np.isfinite(frequencies)):
+        raise ValueError("physical frequencies must be a finite one-dimensional array")
+    cutoff = normalize_frequency_zero_cutoff_cm(cutoff_cm)
+    keep = resolved_frequency_mask(frequencies, cutoff)
+    return {
+        "frequency_representation": "complete",
+        "frequency_zero_cutoff_cm": cutoff,
+        "raw_mode_count": int(frequencies.size),
+        "resolved_mode_count": int(np.count_nonzero(keep)),
+        "near_zero_mode_count": int(np.count_nonzero(~keep)),
+        "near_zero_frequencies_cm": frequencies[~keep].tolist(),
+    }
+
+
+def _strict_negative_count(freqs_cm, projection_info) -> Optional[int]:
+    """Count finite negative modes in a validated complete or legacy packet.
+
+    Complete packets include the near-zero subset in freqs_cm already.
+    Unmarked legacy packets store disjoint resolved and near-zero arrays.
+    Missing, inconsistent or unknown representations cannot certify curvature.
     """
     if not isinstance(projection_info, dict):
         return None
@@ -73,10 +96,34 @@ def _strict_negative_count(freqs_cm, projection_info) -> Optional[int]:
         return None
     if (
         frequencies.ndim != 1 or near.ndim != 1
-        or not np.isfinite(frequencies).all() or not np.isfinite(near).all()
+        or not np.all(np.isfinite(frequencies)) or not np.all(np.isfinite(near))
         or isinstance(raw, (bool, np.bool_))
         or not isinstance(raw, (int, np.integer)) or raw < 0
-        or frequencies.size + near.size != raw
+    ):
+        return None
+    representation = projection_info.get("frequency_representation")
+    if representation == "complete":
+        try:
+            expected = frequency_partition_info(
+                frequencies, projection_info["frequency_zero_cutoff_cm"]
+            )
+        except (KeyError, TypeError, ValueError):
+            return None
+        for key in ("raw_mode_count", "resolved_mode_count", "near_zero_mode_count"):
+            value = projection_info.get(key)
+            if (
+                isinstance(value, (bool, np.bool_))
+                or not isinstance(value, (int, np.integer))
+                or value != expected[key]
+            ):
+                return None
+        if not np.array_equal(near, expected["near_zero_frequencies_cm"]):
+            return None
+        return int(np.count_nonzero(frequencies < 0.0))
+    if representation is not None:
+        return None
+    if (
+        frequencies.size + near.size != raw
         or projection_info.get("resolved_mode_count", frequencies.size) != frequencies.size
         or projection_info.get("near_zero_mode_count", near.size) != near.size
     ):
@@ -302,7 +349,7 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
          3) diagonalize and embed back to 3N by zero-filling frozen DOF
 
     Returns:
-      freqs_cm : (nmode,) numpy, negatives are imaginary
+      freqs_cm : (nmode,) numpy, all physical modes; negatives are imaginary
       modes    : (nmode, 3N) torch (mass-weighted eigenvectors)
     """
     with torch.no_grad():
@@ -446,15 +493,10 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
         hnu = s_new * torch.sqrt(torch.abs(omega2))
         hnu = torch.where(omega2 < 0, -hnu, hnu)
         freqs_cm = (hnu / units.invcm).detach().cpu().numpy()
-        zero_filter_info = {}
-        freqs_cm, modes = filter_resolved_modes(
-            freqs_cm,
-            modes,
-            frequency_zero_cutoff_cm,
-            filter_info=zero_filter_info,
-        )
+        # Keep every physical eigenpair; the cutoff classifies a subset.
+        frequency_info = frequency_partition_info(freqs_cm, frequency_zero_cutoff_cm)
         if projection_info is not None:
-            projection_info.update(zero_filter_info)
+            projection_info.update(frequency_info)
 
         del omega2, hnu
         if torch.cuda.is_available():

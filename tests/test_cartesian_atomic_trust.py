@@ -314,3 +314,26 @@ def test_restart_norm_round_trip_and_reverse_mismatch(tmp_path):
     legacy.pop("trust_norm")
     default._set_opt_restart_info(legacy)
     assert default.trust_norm == "l2"
+
+
+@pytest.mark.parametrize("norm", ["l2", "max_atom"])
+@pytest.mark.parametrize("partial", [False, True])
+@pytest.mark.parametrize("with_line_step", [False, True])
+def test_one_micro_cycle_retains_unrestricted_prfo_then_selected_norm_bound(
+    tmp_path, monkeypatch, norm, partial, with_line_step
+):
+    line_step = np.array([.01, -.02, 0., .01, .01, .01]) if with_line_step else None
+    raw_opt = make_opt(tmp_path / "raw", norm=norm, radius=2., partial=partial,
+                       max_micro_cycles=1)
+    raw, _, _ = proposal(raw_opt, monkeypatch, line_step=line_step)
+    raw_norm = atom_norm(raw) if norm == "max_atom" else np.linalg.norm(raw)
+    assert .03 < raw_norm < 2.
+    optimizer = make_opt(tmp_path / "bounded", norm=norm, radius=.03, partial=partial,
+                         max_micro_cycles=1)
+    step, gradient, hessian = proposal(optimizer, monkeypatch, line_step=line_step)
+    np.testing.assert_allclose(step, raw * (.03 / raw_norm), rtol=1e-10, atol=1e-14)
+    bounded_norm = atom_norm(step) if norm == "max_atom" else np.linalg.norm(step)
+    assert bounded_norm == pytest.approx(.03, rel=1e-12)
+    active = optimizer.active_from_full(step)
+    expected_energy = float((gradient @ active + .5 * active @ hessian @ active) / (1. + active @ active))
+    assert optimizer.predicted_energy_changes[-1] == pytest.approx(expected_energy, abs=1e-14)

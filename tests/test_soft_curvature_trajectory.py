@@ -29,17 +29,17 @@ CRITERIA = ("energy_converged", "max_force_converged", "rms_force_converged",
 def true_phva(hessian, coords):
     """Use the native mass/conversion kernel, independently of acceptance state."""
     info = {}
-    resolved, modes = _frequencies_cm_and_modes(
+    complete, modes = _frequencies_cm_and_modes(
         torch.tensor(hessian, dtype=torch.float64), [1] * 4,
         np.asarray(coords).reshape(-1, 3), torch.device("cpu"),
         freeze_idx=FROZEN, tr_projection="constrained", projection_info=info,
     )
     assert info["frequency_zero_cutoff_cm"] == 5.
     assert info["effective_rank"] == 0 and info["raw_mode_count"] == 3
-    assert modes.shape == (len(resolved), 12)
+    assert modes.shape == (len(complete), 12)
     assert torch.count_nonzero(modes[:, :9]).item() == 0
     near = np.asarray(info["near_zero_frequencies_cm"])
-    complete = np.sort(np.r_[resolved, near])
+    resolved = complete[np.abs(complete) > 5.]
     assert complete.shape == (3,) and np.isfinite(complete).all()
     return complete, resolved, near
 

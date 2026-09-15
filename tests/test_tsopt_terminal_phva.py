@@ -37,10 +37,35 @@ def test_active_mode_producer_preserves_projection_and_near_partition(soft, stri
     assert projection["resolved_mode_count"] == 2
     assert projection["near_zero_mode_count"] == 1
     assert _strict_negative_count(frequencies, projection) == strict
-    assert np.count_nonzero(frequencies < 0.) == 1
-    assert modes.shape == (2, 12)
+    assert np.count_nonzero(frequencies < 0.) == strict
+    assert modes.shape == (3, 12)
     assert torch.count_nonzero(modes[:, :9]).item() == 0
     assert torch.equal(hessian, original)
+
+
+@pytest.mark.parametrize("source,expected", [
+    ("optimizer_terminal_exact_phva", 1), ("tsopt_exact", None), (None, None),
+])
+def test_optimizer_mode_identity_requires_the_same_analysis_basis(source, expected):
+    optimizer = SimpleNamespace(_last_exact_target_mode_index=1)
+    # In a wider PHVA the same integer may identify an unrelated negative mode.
+    frequencies = np.array([-300., -100., -.2, 3., 200.])
+    selected = tsopt._matching_optimizer_mode_index(
+        optimizer, frequencies, {"source": source}, 5.,
+    )
+    assert selected == expected
+    surplus = sum(abs(f) for i, f in enumerate(frequencies)
+                  if f < -5. and i != selected)
+    assert surplus == (300. if expected is not None else 400.)
+
+
+@pytest.mark.parametrize("index", [None, -1, 2, 3, 20])
+def test_optimizer_mode_identity_rejects_unresolved_or_missing_roots(index):
+    assert tsopt._matching_optimizer_mode_index(
+        SimpleNamespace(_last_exact_target_mode_index=index),
+        np.array([-100., -20., -.2, 3.]),
+        {"source": "optimizer_terminal_exact_phva"}, 5.,
+    ) is None
 
 
 def test_optimizer_terminal_phva_carries_the_exact_hessian_for_irc_cache():
@@ -306,3 +331,25 @@ def test_selected_flatten_branch_owns_opposite_near_sign_metadata(chosen, expect
     assert primary["projection"]["near_zero_frequencies_cm"] == [-2.]
     assert alternate["projection"]["near_zero_frequencies_cm"] == [2.]
     assert _strict_negative_count(selected["freqs"], live) == expected
+
+
+@pytest.mark.parametrize("near", [[-2.], [2.]])
+def test_legacy_packet_with_omitted_vectors_must_be_recomputed(near):
+    optimizer, geometry = _two_atom_exact_cache()
+    optimizer._last_rigid_projection_info.update({
+        "raw_mode_count": 4, "near_zero_frequencies_cm": near,
+    })
+    assert tsopt._optimizer_exact_frequency_data(optimizer, geometry) is None
+
+
+def test_complete_cache_reuses_soft_pairs_without_double_counting():
+    from pysisyphus.normal_modes import frequency_partition_info
+    optimizer, geometry = _two_atom_exact_cache()
+    optimizer._last_exact_frequencies_cm = np.array([-100., -2., 2.])
+    optimizer._last_rigid_projection_info.update(
+        frequency_partition_info(optimizer._last_exact_frequencies_cm, 5.))
+    reused = tsopt._optimizer_exact_frequency_data(optimizer, geometry)
+    assert reused is not None
+    np.testing.assert_array_equal(reused[0], [-100., -2., 2.])
+    assert reused[1].shape == (3, 9)
+    assert tsopt._strict_negative_count(reused[0], reused[2]) == 2

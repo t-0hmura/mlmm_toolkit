@@ -957,9 +957,15 @@ class TSHessianOptimizer(HessianOptimizer):
             # for saddle recovery.
             physical_mode = self._path_recovery_mode_for_eigenspace(eigvecs)
         elif physical_mode is None and freqs_cm.size:
-            physical_mode = self._recovery_mode_from_mw(
-                modes, int(np.argmin(freqs_cm))
-            )
+            # Retaining soft physical modes must not change the established
+            # recovery choice, which used the resolved subset of this spectrum.
+            from pysisyphus.normal_modes import resolved_frequency_mask
+            eligible = np.flatnonzero(resolved_frequency_mask(
+                freqs_cm, self.saddle_imaginary_threshold_cm
+            ))
+            if eligible.size:
+                mode_index = int(eligible[np.argmin(freqs_cm[eligible])])
+                physical_mode = self._recovery_mode_from_mw(modes, mode_index)
         if not has_saddle_modes and physical_mode is None:
             physical_mode = self._fallback_recovery_mode(eigvecs)
         if target_is_negative is True and physical_mode is not None:

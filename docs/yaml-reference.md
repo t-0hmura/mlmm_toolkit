@@ -580,7 +580,7 @@ Vibrational frequency analysis settings.
 ```yaml
 freq:
  active_dof_mode: partial # Active-atom selection: "all" | "ml-only" | "partial" | "unfrozen"
- zero_cutoff_cm: 5.0 # Remove modes with |frequency| <= this value (cm^-1)
+ zero_cutoff_cm: 5.0 # Near-zero classification window (cm^-1); modes are retained
  amplitude_ang: 0.8 # Displacement amplitude for modes (Å)
  n_frames: 20 # Number of frames per mode trajectory
  max_write: 10 # Maximum number of modes to write
@@ -594,7 +594,7 @@ Dimer, and Hessian-family TS optimization. The legacy
 `rsirfo.saddle_imaginary_threshold_cm` spellings remain accepted as aliases;
 conflicting values are rejected.
 
-This cutoff controls display and mode selection. Cartesian PHVA acceptance also counts negative near-zero modes: strict zero for OPT, and strict one plus resolved one for first-order TS.
+This cutoff controls resolved imaginary counts and TS/flatten mode selection. It never removes modes from the complete physical frequency array or changes the positive frequencies supplied to thermochemistry. Cartesian PHVA acceptance also counts negative near-zero modes: strict zero for OPT, and strict one plus resolved one for first-order TS.
 
 **Notes:**
 - `active_dof_mode` selects which atoms participate in the vibrational analysis. `all` uses every atom; `ml-only` restricts to ML-region atoms; `partial` (default) uses ML + Movable-MM atoms; `unfrozen` uses every non-frozen atom. The CLI flag `--active-dof-mode` overrides the YAML value when explicitly passed.

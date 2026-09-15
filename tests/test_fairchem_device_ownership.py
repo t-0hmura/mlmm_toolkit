@@ -248,3 +248,152 @@ def test_serial_uma_prediction_supplies_a_cpu_batch() -> None:
     assert energy == 0.0
     assert forces.shape == (1, 3)
     assert batch.pos.requires_grad
+
+
+def _lazy_preparation_backend(monkeypatch, *, device, precision, workers=1):
+    """Model the PR298 preparation order with CPU tensors and logical devices."""
+    from contextlib import nullcontext
+    from types import SimpleNamespace
+
+    dtype = torch.float64 if precision == "fp64" else torch.float32
+    events = []
+
+    class Batch:
+        def __init__(self, data):
+            self.pos = data.pos
+            self.charge, self.spin = data.charge, data.spin
+            self.device = self.charge_device = self.spin_device = "cpu"
+
+        def to(self, target):
+            # No CUDA allocation: these labels track the ordering contract.
+            self.device = self.charge_device = self.spin_device = str(target)
+            events.append(("batch_to", str(target)))
+            return self
+
+    class LazyPredictor:
+        def __init__(self):
+            if workers == 1:
+                self.model = torch.nn.Module()
+                self.model.backbone = torch.nn.Module()
+            self.model_device = "cpu"
+            self.initialized = False
+
+        def predict(self, batch):
+            if not self.initialized:
+                assert (batch.device == batch.charge_device == batch.spin_device
+                        == self.model_device), "lazy preparation device mismatch"
+                events.append(("prepare", self.model_device))
+                self.model_device = device
+                self.initialized = True
+            assert batch.device == "cpu", "the predictor must receive a host batch"
+            assert (batch.charge, batch.spin) == (-1, 2)
+            assert batch.pos.dtype == dtype and batch.pos.device.type == "cpu"
+            batch.to(device)  # FAIR-Chem's transfer follows its lazy preparation.
+            assert batch.device == self.model_device
+            events.append(("predict", batch.device))
+            return {"energy": (batch.pos ** 2).sum().reshape(1),
+                    "forces": -2 * batch.pos}
+
+    predictor = LazyPredictor()  # Deliberately exposes no move_to_device hook.
+
+    class AtomicData:
+        @staticmethod
+        def from_ase(atoms, **kwargs):
+            keys = kwargs["r_data_keys"]
+            return SimpleNamespace(
+                pos=torch.tensor(atoms.positions, dtype=kwargs["target_dtype"]),
+                charge=atoms.info.get("charge", 0) if "charge" in keys else 0,
+                spin=atoms.info.get("spin", 0) if "spin" in keys else 0,
+                dataset=None,
+            )
+
+    def collate(data, **kwargs):
+        assert len(data) == 1 and data[0].dataset == "omol"
+        assert kwargs == {"otf_graph": True}
+        return Batch(data[0])
+
+    def serial_factory(model, **kwargs):
+        assert model == "uma-s-1p2" and kwargs["device"] == device
+        events.append(("construct", "serial"))
+        return predictor
+
+    def parallel_factory(**kwargs):
+        assert kwargs["device"] == device and kwargs["num_workers"] == workers
+        events.append(("construct", "parallel"))
+        return predictor
+
+    pretrained = SimpleNamespace(
+        get_predict_unit=serial_factory,
+        pretrained_checkpoint_path_from_name=lambda _model: "/unused-checkpoint",
+        get_reference_energies=lambda *_args, **_kwargs: {},
+    )
+    monkeypatch.setattr(mlmm_calc, "HAS_FAIRCHEM", True)
+    monkeypatch.setattr(mlmm_calc, "pretrained_mlip", pretrained, raising=False)
+    monkeypatch.setattr(mlmm_calc, "AtomicData", AtomicData, raising=False)
+    monkeypatch.setattr(mlmm_calc, "data_list_collater", collate, raising=False)
+    monkeypatch.setattr(mlmm_calc, "_UMAInferenceSettings", SimpleNamespace)
+    monkeypatch.setattr(mlmm_calc, "ParallelMLIPPredictUnit", parallel_factory)
+    monkeypatch.setattr(mlmm_calc, "guess_inference_settings", lambda name: name)
+    monkeypatch.setattr(mlmm_calc.torch.cuda, "device", lambda _device: nullcontext())
+    backend = _UMABackend(uma_model="uma-s-1p2", model_charge=-1, model_mult=2,
+                          ml_device=torch.device(device), precision=precision, workers=workers)
+    assert events == [("construct", "parallel" if workers > 1 else "serial")]
+    assert not predictor.initialized
+    return backend, predictor, events
+
+
+@pytest.mark.parametrize("entry", ["eval", "energy", "forces_tensor"])
+@pytest.mark.parametrize("device", ["cpu", "cuda"])
+@pytest.mark.parametrize("precision", ["fp32", "fp64"])
+def test_fresh_uma_entries_prepare_before_predictor_owned_transfer(
+    monkeypatch, entry, device, precision,
+):
+    backend, predictor, events = _lazy_preparation_backend(
+        monkeypatch, device=device, precision=precision,
+    )
+    positions = np.array([[0., 0., 0.], [.757, .586, 0.], [-.757, .586, 0.]])
+    for displacement in (0., .001):
+        current = positions.copy()
+        current[1, 0] += displacement
+        atoms = Atoms("OHH", positions=current)
+        if entry == "eval":
+            energy, force, batch = backend.eval(atoms, need_grad=True)
+            assert batch.pos.requires_grad
+            assert energy == pytest.approx((current ** 2).sum(), rel=1e-6)
+            np.testing.assert_allclose(force, -2 * current, rtol=1e-6)
+        elif entry == "energy":
+            assert backend.energy(atoms) == pytest.approx((current ** 2).sum(), rel=1e-6)
+        else:
+            force = backend.forces_tensor(atoms)
+            assert not force.requires_grad
+            assert force.dtype == (torch.float64 if precision == "fp64" else torch.float32)
+            np.testing.assert_allclose(force.numpy(), -2 * current, rtol=1e-6)
+    assert predictor.initialized
+    assert events[1:] == [("prepare", "cpu"), ("batch_to", device), ("predict", device),
+                          ("batch_to", device), ("predict", device)]
+
+
+def test_parallel_uma_constructor_keeps_host_handoff(monkeypatch):
+    backend, _, events = _lazy_preparation_backend(
+        monkeypatch, device="cuda", precision="fp32", workers=2,
+    )
+    assert backend.parallel_predict and not backend.supports_analytical_hessian
+    _, force, _ = backend.eval(Atoms("OHH", positions=np.ones((3, 3))))
+    np.testing.assert_array_equal(force, -2 * np.ones((3, 3)))
+    assert events == [("construct", "parallel"), ("prepare", "cpu"),
+                      ("batch_to", "cuda"), ("predict", "cuda")]
+
+
+def test_lazy_preparation_control_detects_premature_device_transfer(monkeypatch):
+    backend, predictor, _ = _lazy_preparation_backend(
+        monkeypatch, device="cuda", precision="fp32",
+    )
+    original_collate = backend._data_list_collater
+
+    def premature_collate(*args, **kwargs):
+        return original_collate(*args, **kwargs).to("cuda")
+
+    monkeypatch.setattr(backend, "_data_list_collater", premature_collate)
+    with pytest.raises(AssertionError, match="lazy preparation device mismatch"):
+        backend.energy(Atoms("OHH", positions=np.zeros((3, 3))))
+    assert not predictor.initialized

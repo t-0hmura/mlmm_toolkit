@@ -196,20 +196,21 @@ def test_model_near_sign_uses_model_not_restored_exact_metadata(
     prior_hosp, monkeypatch, exact_values, exact_near, model_near, expected,
 ):
     _, opt, calc = prior_hosp
-    opt._last_exact_frequencies_cm = np.array(exact_values)
-    opt._last_exact_n_imaginary = int(np.count_nonzero(np.array(exact_values) < -5.))
+    from pysisyphus.normal_modes import frequency_partition_info
+
+    exact_complete = np.sort(np.r_[exact_values, exact_near])
+    opt._last_exact_frequencies_cm = exact_complete
+    opt._last_exact_n_imaginary = int(np.count_nonzero(exact_complete < -5.))
     opt._last_exact_n_negative = 2
-    opt._last_rigid_projection_info.update(
-        raw_mode_count=3, resolved_mode_count=2, near_zero_mode_count=1,
-        near_zero_frequencies_cm=exact_near,
-    )
+    opt._last_rigid_projection_info.update(frequency_partition_info(exact_complete, 5.))
     exact_info = opt._last_rigid_projection_info
 
     def model_packet():
+        model_complete = np.sort(np.r_[-100., 50., model_near])
         opt._last_rigid_projection_info = {
-            **exact_info, "near_zero_frequencies_cm": model_near,
+            **exact_info, **frequency_partition_info(model_complete, 5.),
         }
-        return np.array([-100., 50.]), np.zeros((2, 12))
+        return model_complete, np.zeros((3, 12))
 
     monkeypatch.setattr(opt, "_mw_frequencies_and_modes", model_packet)
     assert screen_without_state_change(opt, calc) is expected

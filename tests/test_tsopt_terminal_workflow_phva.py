@@ -159,7 +159,7 @@ def test_real_terminal_workflow_phva_scope_and_raw_order(tmp_path, monkeypatch, 
     assert len(calls) == 1 + int(widen)  # one macro H; zero/one terminal H
     assert len(exported) == 1
     frequencies, modes = exported[0]
-    assert frequencies.size == 3 * len(final_atoms) - int(widen and soft_added_root)
+    assert frequencies.size == 3 * len(final_atoms)
     assert np.count_nonzero(frequencies < -5.0) == expected_count
     assert torch.count_nonzero(modes[:, dofs(final_frozen)]).item() == 0
     geom = observed["geometry"]
