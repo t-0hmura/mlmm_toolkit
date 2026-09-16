@@ -34,7 +34,7 @@ or no valid negative root stops after preserving TS artifacts and before IRC.
 be validated. Always inspect the modes and endpoint connectivity.
 ```
 
-### Optimization completion and IRC diagnostics
+## Optimization completion and IRC diagnostics
 
 The aggregate uses numerical convergence of TSOPT and both endpoint optimizations. IRC stop conditions are not an independent success/failure test: a predictor-budget stop may still supply finite candidates for endpoint OPT. Missing/nonfinite structures and execution exceptions remain reported. Frequency counts/signs and correspondence with intended R/P structures are retained as diagnostic/mechanism information, not additional optimizer-success gates. Missing requested MEP, thermochemistry or DFT work remains visible in its own stage outcome. Endpoint execution errors retain `summary.json`, `summary.log` and `endpoint_opt/failure.json`.
 
