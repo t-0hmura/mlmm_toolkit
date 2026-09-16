@@ -421,11 +421,11 @@ def check_provenance(
 
 
 def check_path_search_max_depth(root: Path) -> None:
-    """Check the effective cap and complete records under zero-based depth semantics."""
+    """Check that max_depth=0 retains one input interval without subdivision."""
     data = json.loads((root / "summary.json").read_text(encoding="utf-8"))
     n_segments = data.get("n_segments")
     segments = data.get("segments")
-    if not isinstance(n_segments, int) or n_segments < 0:
+    if not isinstance(n_segments, int) or n_segments not in (0, 1):
         raise SystemExit(f"Invalid n_segments={n_segments!r}")
     if not isinstance(segments, list) or len(segments) != n_segments:
         raise SystemExit("Segment records disagree with n_segments")
@@ -441,9 +441,13 @@ def check_path_search_max_depth(root: Path) -> None:
     if not any(path.is_dir() for path in root.glob("seg_*_mep")):
         raise SystemExit("The raw MEP interval is missing")
     text = (root / "summary.log").read_text(encoding="utf-8")
-    if "Recursion depth cap : 0" not in text or "subdivision disabled" in text:
-        raise SystemExit("summary.log misreports the zero-based recursion cap")
+    if "Recursion depth cap : 0 (subdivision disabled)" not in text:
+        raise SystemExit("summary.log omits the disabled-subdivision setting")
+    if any(str(segment.get("tag", "")).endswith("_maxdepth") for segment in segments):
+        raise SystemExit("Disabled subdivision must retain the plain input-interval tag")
     optimizers = data.get("path_optimizers", [])
+    if "lbfgs" in optimizers or "rfo" in optimizers:
+        raise SystemExit("No single-structure optimizer is requested in this no-preopt case")
     if ("lbfgs" in optimizers) != ("Limited-memory BFGS (L-BFGS)" in text):
         raise SystemExit("L-BFGS citation does not match the executed optimizer record")
 

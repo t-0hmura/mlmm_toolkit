@@ -1,6 +1,6 @@
-"""Preserve the zero-based recursion cap and numerical MEP outcome.
+"""Verify subdivision limits and numerical MEP outcomes.
 
-Depth N is processed at cap N; only deeper children terminate subdivision.
+Depth N terminates subdivision at cap N; cap zero runs one input interval.
 Chemical diagnostic failures must not overwrite the solver's convergence fact.
 """
 
@@ -28,12 +28,16 @@ def test_max_depth_option_is_declared_on_both_entry_points() -> None:
         assert isinstance(option.type, click.IntRange)
         assert option.type.min == 0
 
+@pytest.mark.parametrize("mep_mode", ["gsm", "dmf"])
 @pytest.mark.parametrize(
     "max_depth,depth,primary_hei,refined_hei,n_segments,single_opt_executed",
     [
-        (0, 0, 1, 1, 1, True),
+        (0, 0, 1, 1, 1, False),
+        (0, 0, 0, 1, 0, False),
+        (0, 0, 2, 1, 0, False),
         (0, 1, 1, 1, 1, False),
-        (2, 2, 1, 1, 1, True),
+        (2, 1, 1, 1, 1, True),
+        (2, 2, 1, 1, 1, False),
         (2, 3, 1, 1, 1, False),
         (1, 0, 0, 1, 0, False),
         (1, 0, 1, 0, 0, True),
@@ -43,7 +47,7 @@ def test_max_depth_option_is_declared_on_both_entry_points() -> None:
 )
 def test_single_optimizer_provenance_and_refined_hei_boundary(
     tmp_path, monkeypatch, max_depth, depth, primary_hei, refined_hei,
-    n_segments, single_opt_executed,
+    n_segments, single_opt_executed, mep_mode,
 ):
     from types import SimpleNamespace
 
@@ -65,6 +69,8 @@ def test_single_optimizer_provenance_and_refined_hei_boundary(
     # A reactive refined interval with no further changes on either side.
     changes = iter([True, True, False, False])
     monkeypatch.setattr(path_search, "_run_mep_between", lambda *_a, **_k: primary)
+    if hasattr(path_search, "_run_dmf_between"):
+        monkeypatch.setattr(path_search, "_run_dmf_between", lambda *_a, **_k: primary)
     monkeypatch.setattr(path_search, "_refine_between", lambda *_a, **_k: refined)
     monkeypatch.setattr(path_search, "_optimize_single", optimize)
     monkeypatch.setattr(
@@ -78,7 +84,7 @@ def test_single_optimizer_provenance_and_refined_hei_boundary(
         geom_cfg={}, gs_cfg={}, stopt_cfg={}, single_opt_cfg={}, bond_cfg={},
         search_cfg={"max_depth": max_depth, "stitch_rmsd_thresh": 1e-4,
                     "bridge_rmsd_thresh": 1e-4},
-        refine_mode_kind="peak", mep_mode_kind="gsm",
+        refine_mode_kind="peak", mep_mode_kind=mep_mode,
         out_dir=tmp_path, ref_pdb_path=None, depth=depth, seg_counter=[0],
         branch_tag="pair_00",
     )
@@ -86,8 +92,11 @@ def test_single_optimizer_provenance_and_refined_hei_boundary(
     assert len(optimizer_calls) == (2 if single_opt_executed else 0)
     assert result.single_opt_executed is single_opt_executed
     assert len(result.segments) == n_segments
+    if max_depth == 0 and primary_hei in (0, 2):
+        assert len(result.required_outcomes) == 1
+        assert len(result.images) == 3
     if result.segments:
-        assert result.segments[0].tag.endswith("_maxdepth") is (depth > max_depth)
+        assert result.segments[0].tag.endswith("_maxdepth") is (max_depth > 0 and depth >= max_depth)
 
     assert len(result.required_outcomes) == (0 if n_segments else 1)
     if not n_segments:

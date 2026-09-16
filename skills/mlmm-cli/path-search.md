@@ -50,7 +50,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--mep-mode` | str | `gsm` | `gsm` (Growing String) or `dmf` (Direct Max Flux) |
 | `--refine-mode` | str | mode-dep | `peak` (HEI±1) or `minima` (nearest local minima) |
 | `--max-nodes` | int | 20 | Max internal nodes per segment string |
-| `--max-depth` | int | 10 | Zero-based recursion depth limit; depth 0 is processed even at limit 0. A capped interval is tagged `seg_NNN_maxdepth` |
+| `--max-depth` | int | 10 | Recursive subdivision levels; `0` disables it. A capped interval is tagged `seg_NNN_maxdepth` |
 | `--thresh` | str | `gau` | Single-structure optimization convergence preset |
 | `--thresh-gsm` | str | `gau_loose` | GSM string-optimizer convergence preset |
 | `--thresh-dmf` | str/float | `tight` | DMF IPOPT dual-infeasibility tolerance: `tight`, `middle`, `loose`, or a positive float |

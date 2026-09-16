@@ -4075,10 +4075,17 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 )
 @click.option("--max-nodes", type=int, default=_path_opt.GS_KW["max_nodes"], show_default=True,
               help="Max internal nodes per GSM/DMF segment (max_nodes+2 images including endpoints).")
-@click.option("--max-depth", type=click.IntRange(min=0), default=None, show_default="10",
-              help=("Zero-based recursion depth limit; requires --refine-path. Depth 0 is "
-                    "processed even when the limit is 0. Capped child intervals use "
-                    "seg_NNN_maxdepth and may contain multiple steps."))
+@click.option(
+    "--max-depth",
+    type=click.IntRange(min=0),
+    default=None,
+    show_default="10",
+    help=(
+        "Maximum recursive subdivision levels; requires --refine-path. "
+        "0 disables subdivision. Intervals retained at a positive cap use "
+        "seg_NNN_maxdepth and may contain multiple steps."
+    ),
+)
 @click.option(
     "--gsm-param",
     type=click.Choice(["equi", "energy"], case_sensitive=False),
@@ -4092,7 +4099,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 )
 @click.option("--max-cycles-gsm", type=click.IntRange(min=1), default=None, show_default="300",
               help="Maximum GSM string-optimizer cycles for the MEP stage.")
-@click.option("--max-cycles-dmf", type=click.IntRange(min=1), default=None, show_default="300",
+@click.option("--max-cycles-dmf", type=click.IntRange(min=1), default=None, show_default="3000",
               help=("Maximum IPOPT iterations for the DMF MEP stage. This is a solver "
                     "iteration count, not a string-optimizer cycle count."))
 @click.option("--climb/--no-climb", default=True, show_default=True,

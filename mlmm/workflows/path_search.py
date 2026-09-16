@@ -1360,11 +1360,7 @@ def _build_multistep_path(
                 f"[{seg_tag}] WARNING: Failed to evaluate bond changes: {exc}",
                 err=True,
             )
-            # Keep the interval reactive so it still receives post-processing:
-            # `_is_reactive_segment` reads this text, and an empty string there
-            # reads as "no covalent change" and drops the segment silently. The
-            # sentinel is non-empty for that reason. Preserve the solver's
-            # numerical convergence separately from this chemical diagnostic.
+            # Preserve the diagnostic separately from solver convergence.
             changed, step_summary = True, "(bond-change evaluation failed)"
         try:
             barrier_kcal = (max(gsm.energies) - gsm.energies[0]) * AU2KCALPERMOL
@@ -1393,12 +1389,15 @@ def _build_multistep_path(
             single_opt_executed=single_opt_executed,
         )
 
-    # Preserve the established zero-based depth limit: process depth N and
-    # stop subdivision when entering a child deeper than max_depth.
+    # Depth 0 is the input interval; the cap counts subdivision levels.
     max_depth = int(search_cfg.get("max_depth", SEARCH_KW["max_depth"]))
-    if depth > max_depth:
-        click.echo(f"[{branch_tag}] Reached maximum recursion depth. Returning current endpoints only.")
-        return _terminate_with_single_segment(f"seg_{seg_counter[0]:03d}_maxdepth")
+    if depth >= max_depth:
+        if max_depth == 0:
+            click.echo(f"[{branch_tag}] Recursive subdivision disabled. Running one MEP interval.")
+        else:
+            click.echo(f"[{branch_tag}] Reached maximum recursion depth. Running the retained MEP interval.")
+        suffix = "_maxdepth" if max_depth > 0 else ""
+        return _terminate_with_single_segment(f"seg_{seg_counter[0]:03d}{suffix}")
 
     seg_id = seg_counter[0]
     seg_counter[0] += 1
@@ -1753,7 +1752,10 @@ def _build_multistep_path(
     type=click.IntRange(min=0),
     default=None,
     show_default="10",
-    help=("Zero-based recursion depth limit for multistep refinement. Depth 0 is processed even when the limit is 0. Capped child intervals use seg_NNN_maxdepth and may contain multiple steps. When omitted, YAML search.max_depth applies."
+    help=(
+        "Maximum recursive subdivision levels. "
+        "0 disables subdivision. Intervals retained at a positive cap use "
+        "seg_NNN_maxdepth and may contain multiple steps. When omitted, YAML search.max_depth applies."
     ),
 )
 @click.option(
@@ -1778,7 +1780,7 @@ def _build_multistep_path(
     "--max-cycles-dmf",
     type=click.IntRange(min=1),
     default=None,
-    show_default="300",
+    show_default="3000",
     help=(
         "Maximum IPOPT iterations for the DMF MEP stage. This is a solver "
         "iteration count, not a string-optimizer cycle count."
@@ -2955,7 +2957,7 @@ def cli(
             preopt_outcomes=preopt_outcomes,
             required_outcomes=combined_all.required_outcomes,
         )
-        # Record the effective zero-based recursion cap from resolved config.
+        # Record the effective subdivision-level cap from resolved config.
         summary["search_max_depth"] = int(
             search_cfg.get("max_depth", SEARCH_KW["max_depth"])
         )

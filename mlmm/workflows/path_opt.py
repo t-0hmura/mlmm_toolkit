@@ -936,7 +936,7 @@ def _run_dmf_mep(
 )
 @click.option("--max-cycles-gsm", type=click.IntRange(min=1), default=None, show_default="300",
               help="Maximum GSM string-optimizer cycles for the MEP stage.")
-@click.option("--max-cycles-dmf", type=click.IntRange(min=1), default=None, show_default="300",
+@click.option("--max-cycles-dmf", type=click.IntRange(min=1), default=None, show_default="3000",
               help=("Maximum IPOPT iterations for the DMF MEP stage. This is a solver "
                     "iteration count, not a string-optimizer cycle count."))
 @click.option(

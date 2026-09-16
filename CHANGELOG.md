@@ -15,7 +15,8 @@ _No changes yet._
 - JSON schema 3.0: IRC records stop diagnostics without directional success fields; update consumers of `forward_converged` / `backward_converged` or `forward_status` / `backward_status`.
 - Keep complete signed frequencies and positive soft modes in thermochemistry; classify imaginary modes using mass-weighted eigenvalues below −1e−6 Hartree/(Bohr²·amu).
 - Report requested numerical workflow completion separately from frequency, IRC-stop and bond-connectivity diagnostics.
-- Keep Bofill/L2 Cartesian TS defaults, a 300-iteration DMF cap and zero-based path-search depth limits. Optimization does not resume automatically after a final Hessian check.
+- Raise the default DMF iteration cap from 300 to 3000. `--max-depth` counts recursive subdivision levels; `0` disables subdivision.
+- Keep Bofill/L2 Cartesian TS defaults. Optimization does not resume automatically after a final Hessian check.
 
 ### Fixed
 

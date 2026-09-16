@@ -347,7 +347,7 @@ Direct Max Flux settings for MEP optimization.
 
 ```yaml
 dmf:
- max_cycles: 300 # DMF/IPOPT iteration cap
+ max_cycles: 3000 # DMF/IPOPT iteration cap
  tol: tight # IPOPT dual_inf_tol: tight (0.04) | middle (0.10) | loose (0.20) or a positive float (overridden by --thresh-dmf)
  correlated: true # Correlated DMF propagation
  sequential: true # Sequential DMF execution
@@ -386,7 +386,7 @@ Recursive path search settings (path-search only).
 
 ```yaml
 search:
- max_depth: 10 # Zero-based recursion depth limit (depth 0 is processed at limit 0)
+ max_depth: 10 # Recursive subdivision levels allowed (0 = no subdivision)
  stitch_rmsd_thresh: 0.0001 # RMSD threshold for stitching segments
  bridge_rmsd_thresh: 0.0001 # RMSD threshold for bridging nodes
  max_nodes_segment: 20 # Max nodes per segment

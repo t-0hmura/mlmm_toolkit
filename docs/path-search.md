@@ -47,7 +47,7 @@ After optional preoptimization, `--align` aligns adjacent inputs in sequence bef
 3. **Decide between kink vs. refinement**:
  - If no covalent bond change is detected between `End1` and `End2`, treat the region as a *kink*: insert `search.kink_max_nodes` linear nodes and optimize each individually.
  - Otherwise, launch a **refinement segment with the selected MEP engine** between `End1` and `End2` to sharpen the barrier.
-4. **Selective recursion** -- Compare bond changes for `(A->End1)` and `(End2->B)` using the `bond` thresholds. Recurse only on sub-intervals that still contain covalent bond changes. `search.max_depth` limits zero-based recursion depth. Depth 0 is processed even when the limit is 0; children beyond the limit are retained without further subdivision. A capped interval is tagged `seg_NNN_maxdepth` and is not guaranteed to be a single elementary step.
+4. **Selective recursion** -- Compare bond changes for `(A->End1)` and `(End2->B)` using the `bond` thresholds. Recurse only on sub-intervals that still contain covalent bond changes. `search.max_depth` sets how many levels of recursive subdivision are allowed; `0` performs no subdivision. Reaching the limit is not an error. Any segment retained at a positive cap is tagged `seg_NNN_maxdepth` and is not guaranteed to be a single elementary step.
 5. **Stitching & bridging** -- Concatenate resolved subpaths, dropping duplicate endpoints when RMSD <= `search.stitch_rmsd_thresh`. If the RMSD gap between two stitched pieces exceeds `search.bridge_rmsd_thresh`, insert a bridge MEP segment using the selected `--mep-mode`. When the interface itself shows a bond change, a new recursive segment replaces the bridge.
 
 Bond-change detection relies on `bond_changes.compare_structures` with thresholds surfaced under the `bond` YAML section.
@@ -88,10 +88,10 @@ out_dir/ (default: ./result_path_search/)
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
 | `--movable-cutoff FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. MM atoms beyond this are frozen. Providing `--movable-cutoff` disables `--detect-layer`. | _None_ |
 | `--max-nodes INT` | Movable internal images per GSM or DMF segment (`max_nodes + 2` total images). | `20` |
-| `--max-depth INT` | Zero-based recursion depth limit. Depth 0 is processed even at limit 0; deeper child intervals are retained without further subdivision. A capped interval is tagged `seg_NNN_maxdepth` and may hold more than one step. | `10` |
+| `--max-depth INT` | Recursive subdivision levels allowed. `0` disables subdivision, returning each input pair as one MEP segment (none when its HEI sits at an endpoint). A capped interval is tagged `seg_NNN_maxdepth` and may hold more than one step. | `10` |
 | `--gsm-param [equi\|energy]` | GSM node parameterization after string growth. `energy` concentrates nodes in high-energy regions and may be tried when an equidistant path skips the reaction-coordinate region near the HEI; it does not identify a TS. | `equi` |
 | `--max-cycles-gsm INT` | GSM string-optimizer cycle cap. | `300` |
-| `--max-cycles-dmf INT` | DMF IPOPT iteration cap. | `300` |
+| `--max-cycles-dmf INT` | DMF IPOPT iteration cap. | `3000` |
 | `--climb/--no-climb` | Enable TS refinement for segment GSM. | `True` |
 | `--preopt/--no-preopt` | Pre-optimize endpoints with L-BFGS before segmentation. | `True` |
 | `--align/--no-align` | After preoptimization, align inputs and, with frozen anchors, run freeze-guided scan/relaxation before re-matching freeze atoms. | `True` |
@@ -118,7 +118,7 @@ Merge order is **defaults < config < explicit CLI**. The YAML root must be a map
 calc:
   backend: uma
 search:
-  max_depth: 10            # zero-based recursion depth limit (depth 0 is processed at limit 0)
+  max_depth: 10            # recursive subdivision levels allowed (0 = no subdivision)
   refine_mode: null        # peak | minima | null (auto)
 bond:
   bond_factor: 1.2         # covalent-radius scaling for bond-change cutoff

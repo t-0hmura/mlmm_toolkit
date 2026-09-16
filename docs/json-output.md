@@ -368,7 +368,7 @@ The `all` and `path-search` commands write `summary.json`:
 | `expected_item_ids` / `observed_item_ids` | string[] | Expected and observed aggregate leaves. |
 | `config` | object | Effective settings. `mep_mode` identifies GSM/DMF; `ts_opt_mode` and `endpoint_opt_mode` identify the configured post-processing presets. Generic `opt_mode*` keys retain the resolved CLI inputs. `path_opt_mode` is the single-structure optimizer used for endpoint preoptimization (see `preopt`), not the MEP path algorithm. |
 | `n_segments` | int | Segment count |
-| `search_max_depth` | int | Effective zero-based recursion cap; depth 0 is processed even at limit 0 |
+| `search_max_depth` | int | Effective recursion cap; `0` means subdivision was disabled |
 | `path_optimizers` | string[] | Single-structure optimizers actually used during path preparation/refinement (`lbfgs`, `rfo`); includes scan and alignment work in `all`. Also present in `path-opt` `result.json` and `all` `summary.json` |
 | `preopt_requested` / `preopt_converged` | bool / bool \| null | Whether endpoint preoptimization ran, and whether every endpoint converged; `null` when any endpoint reported no readable signal. `all` uses this preliminary convergence signal unless requested final TS and both endpoint optimizations have converged for every reactive segment; the original field remains reported |
 | `segments` | object[] | Per-segment barrier, delta, bond changes |

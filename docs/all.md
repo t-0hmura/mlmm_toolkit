@@ -111,7 +111,7 @@ artifact and is always written for PDB input.
    - Each stage's relaxed structure (`stage_XX/result.pdb`) is collected as an intermediate / product candidate. The ordered input series for the path search becomes `[initial layered PDB, stage_01/result.pdb, stage_02/result.pdb, ...]`.
 4. **MEP search on full-system layered PDBs**
    - All MEP calculations run on full-system layered PDBs (with `--parm` and `--detect-layer`), not on pockets.
-   - **`--refine-path`** runs recursive `path_search` with automatic refinement, proposing multistep reaction-path candidates for TS/IRC validation. It also refines a single-step MEP, relaxing the HEI region on a path that needs no subdivision. `--max-depth` limits zero-based recursion depth; depth 0 is processed even at limit 0. Complex multistep mechanisms may need manual trial-and-error to obtain a converged pathway.
+   - **`--refine-path`** runs recursive `path_search` with automatic refinement, proposing multistep reaction-path candidates for TS/IRC validation. It also refines a single-step MEP, relaxing the HEI region on a path that needs no subdivision. `--max-depth` caps the subdivision levels (`0` disables subdivision). Complex multistep mechanisms may need manual trial-and-error to obtain a converged pathway.
    - Select GSM (default) or DMF with `--mep-mode`. `--dmf-backend gpu` uses `dmf.torch`; use `--dmf-backend cpu` for the NumPy implementation or after a GPU out-of-memory error.
    - **`--no-refine-path` (default)** runs `path-opt` with the selected optimizer per adjacent pair, then concatenates trajectories, extracts the HEI per segment, detects bond changes, and writes `summary.json`. Both modes support Stage 5 post-processing.
    - For multi-input runs, the original full PDBs are supplied as merge references automatically. In the scan-derived series (single-structure case), the single original full PDB is reused as the reference template.
@@ -264,10 +264,10 @@ and defaults.
 | `--mep-mode [gsm\|dmf]` | MEP optimizer forwarded to both `path-opt` and recursive `path-search`. | `gsm` |
 | `--dmf-backend [gpu\|cpu]` | DMF implementation. The parent forwards this only when explicitly set, so a child YAML `dmf.backend` remains effective otherwise. | `gpu` |
 | `--max-nodes INT` | Internal nodes per GSM/DMF segment. | `20` |
-| `--max-depth INT` | Zero-based recursion depth limit; requires `--refine-path`. Depth 0 is processed even at limit 0; deeper child intervals are retained without further subdivision. A capped interval is tagged `seg_NNN_maxdepth` and may hold more than one step. | `10` |
+| `--max-depth INT` | Recursive subdivision levels allowed; requires `--refine-path`. `0` disables subdivision, returning each input pair as one MEP segment (none when its HEI sits at an endpoint). A capped interval is tagged `seg_NNN_maxdepth` and may hold more than one step. | `10` |
 | `--gsm-param [equi\|energy]` | GSM node parameterization after string growth. `energy` concentrates nodes in high-energy regions and may be tried when an equidistant path skips the reaction-coordinate region near the HEI; it does not identify a TS. | `equi` |
 | `--max-cycles-gsm INT` | GSM string-optimizer cycle cap for the MEP child. | `300` |
-| `--max-cycles-dmf INT` | DMF IPOPT iteration cap for the MEP child. | `300` |
+| `--max-cycles-dmf INT` | DMF IPOPT iteration cap for the MEP child. | `3000` |
 | `--climb / --no-climb` | Enable climbing-image TS refinement where supported by the selected optimizer. | `True` |
 | `--opt-mode [grad\|hess]` | Fallback preset for TSOPT and post-IRC endpoint optimization (`grad` → Dimer / L-BFGS, `hess` → RS-P-RFO / RFO). `--opt-mode-post` takes precedence. | `grad` |
 | `--opt-mode-post [grad\|hess]` | Optimizer preset override for TSOPT / post-IRC endpoint optimizations (`grad` → Dimer / L-BFGS, `hess` → RS-P-RFO / RFO). | `hess` |

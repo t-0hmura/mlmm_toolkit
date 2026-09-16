@@ -58,12 +58,12 @@ Options:
                                   endpoints); recursive segments may override it
                                   with YAML search.max_nodes_segment.  [default:
                                   20]
-  --max-depth INTEGER RANGE       Zero-based recursion depth limit for multistep
-                                  refinement. Depth 0 is processed even when the
-                                  limit is 0. Capped child intervals use
-                                  seg_NNN_maxdepth and may contain multiple
-                                  steps. When omitted, YAML search.max_depth
-                                  applies.  [default: (10); x>=0]
+  --max-depth INTEGER RANGE       Maximum recursive subdivision levels. 0
+                                  disables subdivision. Intervals retained at a
+                                  positive cap use seg_NNN_maxdepth and may
+                                  contain multiple steps. When omitted, YAML
+                                  search.max_depth applies.  [default: (10);
+                                  x>=0]
   --gsm-param [equi|energy]       GSM node parameterization after string growth.
                                   The energy scheme concentrates nodes in high-
                                   energy regions and may be tried when an
@@ -74,7 +74,7 @@ Options:
   --max-cycles-dmf INTEGER RANGE  Maximum IPOPT iterations for the DMF MEP
                                   stage. This is a solver iteration count, not a
                                   string-optimizer cycle count.  [default:
-                                  (300); x>=1]
+                                  (3000); x>=1]
   --climb / --no-climb            Enable transition-state search after path
                                   growth.  [default: climb]
   --dump / --no-dump              Dump GSM/single-optimization trajectories

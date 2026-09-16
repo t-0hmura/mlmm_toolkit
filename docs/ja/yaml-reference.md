@@ -320,7 +320,7 @@ Direct Max Flux（DMF）による MEP 最適化。
 
 ```yaml
 dmf:
- max_cycles: 300 # DMF/IPOPT反復上限
+ max_cycles: 3000 # DMF/IPOPT反復上限
  tol: tight # IPOPT dual_inf_tol: tight(0.04) | middle(0.10) | loose(0.20) または正の float（--thresh-dmf で上書き）
  correlated: true # 相関 DMF 伝搬
  sequential: true # 逐次 DMF 実行
@@ -359,7 +359,7 @@ dmf:
 
 ```yaml
 search:
- max_depth: 10 # 0始まりの再帰深さ上限（上限0でも深さ0を処理）
+ max_depth: 10 # 許可する再帰分割の階層数（0 = 分割しない）
  stitch_rmsd_thresh: 0.0001 # セグメント縫合の RMSD 閾値
  bridge_rmsd_thresh: 0.0001 # ブリッジノードの RMSD 閾値
  max_nodes_segment: 20 # セグメントあたりの最大ノード数

@@ -1130,7 +1130,8 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
         lines.append(f"Scientific status   : {scientific_status}")
     search_max_depth = payload.get("search_max_depth")
     if search_max_depth is not None:
-        lines.append(f"Recursion depth cap : {int(search_max_depth)}")
+        depth_note = " (subdivision disabled)" if int(search_max_depth) == 0 else ""
+        lines.append(f"Recursion depth cap : {int(search_max_depth)}{depth_note}")
     pipeline_stop = payload.get("pipeline_stop")
     if isinstance(pipeline_stop, dict):
         # The request echo above reports what was ASKED for. Without this line a
