@@ -10,6 +10,8 @@ _No changes yet._
 
 ## [0.3.5] — 2026-09-16
 
+> Withdrawn from PyPI and GitHub Releases while additional RFO Hessian evaluations and optimizer behavior are reviewed. Use v0.3.4 for now.
+
 ### Breaking changes
 
 - JSON schema 3.0: replace IRC `forward_converged` / `backward_converged` with `forward_status` / `backward_status` (`stopped`, `failed`, `disabled`). Integration and downhill-departure diagnostics remain available.

@@ -175,6 +175,12 @@ def main() -> int:
 
     errors: list[str] = []
     mismatches = {name: value for name, value in values.items() if value != expected}
+    # The withdrawn release remains identifiable in source metadata. Hosted
+    # Colab temporarily installs the preceding published version. Publication
+    # checks still require every version to match, including the notebook.
+    if (not args.release_mode and expected == "0.3.5"
+            and values[NOTEBOOK.name] == "0.3.4"):
+        mismatches.pop(NOTEBOOK.name, None)
     if mismatches:
         details = ", ".join(f"{name}={value}" for name, value in mismatches.items())
         errors.append(f"expected version {expected}; mismatched: {details}")
