@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
@@ -1072,6 +1072,34 @@ class CombinedPath:
     energies: List[float]
     segments: List[SegmentReport]  # segment summaries in final output order
     single_opt_executed: bool = False
+    required_outcomes: List[Any] = field(default_factory=list)
+
+
+def _raw_path_outcome(
+    item_id: str,
+    *,
+    engine_converged: Optional[bool],
+    artifacts: Sequence[str] = (),
+):
+    """Return an unusable diagnostic path outcome with engine provenance."""
+    from mlmm.workflows._outcomes import LeafOutcome
+
+    converged = (
+        engine_converged if isinstance(engine_converged, bool) else None
+    )
+    reason = "endpoint_hei"
+    if converged is False:
+        reason = "endpoint_hei;engine_nonconverged"
+    return LeafOutcome(
+        stage="path",
+        item_id=item_id,
+        required=True,
+        executed=True,
+        converged=converged,
+        usable=False,
+        reason=reason,
+        artifacts=tuple(str(artifact) for artifact in artifacts),
+    )
 
 
 def _path_leaves_and_expected(
@@ -1079,23 +1107,24 @@ def _path_leaves_and_expected(
     *,
     raw_artifacts: Sequence[str] = (),
     engine_converged: Optional[bool] = True,
+    required_outcomes: Sequence[Any] = (),
 ):
-    """Build path :class:`LeafOutcome` list and expected path-segment IDs.
+    """Build path :class:`LeafOutcome` list + expected required IDs.
 
-    Every segment in the final path is required, including connector bridges.
-    When there is no reactive segment at all — the
+    Every segment used in the final path is required, including connector
+    bridges.  When there is no reactive segment at all — the
     endpoint-HEI branch returns ``segments=[]`` even though an R/P energy diagram
     can still be drawn — an unusable ``raw_path`` leaf is emitted so the aggregate
-    mapper cannot promote the diagnostic diagram to success.  The raw
+    mapper cannot promote the diagnostic diagram to success. The raw
     trajectory/diagram remain reportable as artifacts.
     """
 
-    from mlmm.workflows._outcomes import LeafOutcome, make_leaf
+    from mlmm.workflows._outcomes import make_leaf
 
-    leaves: List[Any] = []
-    reactive = [s for s in segments if getattr(s, "kind", "seg") != "bridge"]
+    leaves: List[Any] = list(required_outcomes)
+    reactive = [s for s in segments if getattr(s, "kind", "seg") == "seg"]
     for s in segments:
-        # A path segment is usable only when its optimizer explicitly
+        # a reactive segment is usable only when its optimizer explicitly
         # converged. A nonconverged (max-cycle) StringOptimizer segment retains
         # its trajectory artifact but must not count toward completeness.
         _seg_conv = getattr(s, "converged", None)
@@ -1108,25 +1137,25 @@ def _path_leaves_and_expected(
                 converged=_seg_conv,
             )
         )
-    expected = [f"segment_{int(s.seg_index)}" for s in segments]
+    expected = [
+        outcome.item_id
+        for outcome in required_outcomes
+        if getattr(outcome, "required", True)
+    ]
+    expected.extend(f"segment_{int(s.seg_index)}" for s in segments)
     if not reactive:
-        reason = "endpoint_hei"
-        if engine_converged is False:
-            reason = "endpoint_hei;engine_nonconverged"
-        leaves.append(
-            LeafOutcome(
-                stage="path",
-                item_id="raw_path",
-                required=True,
-                executed=True,
-                converged=engine_converged if isinstance(engine_converged, bool) else None,
-                usable=False,
-                reason=reason,
-                artifacts=tuple(str(a) for a in raw_artifacts),
+        if not required_outcomes:
+            leaves.append(
+                _raw_path_outcome(
+                    "raw_path",
+                    engine_converged=engine_converged,
+                    artifacts=raw_artifacts,
+                )
             )
-        )
+            expected.append("raw_path")
         expected.append("reactive_segment_1")
     return leaves, expected
+
 
 
 def _enrich_path_summary_contract(
@@ -1138,6 +1167,7 @@ def _enrich_path_summary_contract(
     command: str,
     preopt_requested: bool = False,
     preopt_outcomes: Sequence[Dict[str, Any]] = (),
+    required_outcomes: Sequence[Any] = (),
 ) -> Dict[str, Any]:
     """Attach the fail-closed machine contract for standalone path-search."""
 
@@ -1170,6 +1200,7 @@ def _enrich_path_summary_contract(
     path_leaves, path_expected = _path_leaves_and_expected(
         segments,
         raw_artifacts=raw_artifacts,
+        required_outcomes=required_outcomes,
     )
     preopt_converged = combine_step_convergence(
         outcome.get("converged") for outcome in preopt_outcomes
@@ -1317,6 +1348,9 @@ def _build_multistep_path(
             return CombinedPath(
                 images=gsm.images, energies=gsm.energies, segments=[],
                 single_opt_executed=single_opt_executed,
+                required_outcomes=[_raw_path_outcome(
+                    f"raw_{seg_tag}", engine_converged=gsm.is_converged,
+                )],
             )
 
         bond_eval_failed = False
@@ -1405,7 +1439,12 @@ def _build_multistep_path(
     if not (1 <= hei <= len(gsm0.images) - 2):
         click.echo(f"[{tag0}] WARNING: HEI is at an endpoint (idx={hei}). Returning the raw GSM path.")
         _tag_images(gsm0.images, pair_index=pair_index)
-        return CombinedPath(images=gsm0.images, energies=gsm0.energies, segments=[])
+        return CombinedPath(
+            images=gsm0.images, energies=gsm0.energies, segments=[],
+            required_outcomes=[_raw_path_outcome(
+                f"raw_{tag0}", engine_converged=gsm0.is_converged,
+            )],
+        )
 
     if refine_mode_kind == "minima":
         left_idx = _find_nearest_local_minimum(hei_idx=hei, direction=-1, energies=gsm0.energies)
@@ -1479,6 +1518,9 @@ def _build_multistep_path(
         return CombinedPath(
             images=step_imgs, energies=step_E, segments=[],
             single_opt_executed=True,
+            required_outcomes=[_raw_path_outcome(
+                f"raw_{step_tag_for_report}", engine_converged=ref1.is_converged,
+            )],
         )
 
     _changed, step_summary = _has_bond_change(step_imgs[0], step_imgs[-1], bond_cfg)
@@ -1513,6 +1555,7 @@ def _build_multistep_path(
 
     parts: List[Tuple[List[Any], List[float]]] = []
     seg_reports: List[SegmentReport] = []
+    required_outcomes: List[Any] = []
 
     trailing_kink_run = kink_seq_count
     if left_changed:
@@ -1527,6 +1570,7 @@ def _build_multistep_path(
         _tag_images(subL.images, pair_index=pair_index)
         parts.append((subL.images, subL.energies))
         seg_reports.extend(subL.segments)
+        required_outcomes.extend(subL.required_outcomes)
         trailing_kink_run = _trailing_kink_count(seg_reports)
 
     current_kink_run = trailing_kink_run + 1 if use_kink else 0
@@ -1559,6 +1603,7 @@ def _build_multistep_path(
         _tag_images(subR.images, pair_index=pair_index)
         parts.append((subR.images, subR.energies))
         seg_reports.extend(subR.segments)
+        required_outcomes.extend(subR.required_outcomes)
 
     bridge_max_nodes = int(search_cfg.get("max_nodes_bridge", 5))
     gs_bridge_cfg = {**gs_cfg, "max_nodes": bridge_max_nodes, "climb": False, "climb_lanczos": False}
@@ -1580,6 +1625,7 @@ def _build_multistep_path(
             kink_seq_count=_trailing_kink_count(seg_reports),
         )
         _tag_images(sub.images, pair_index=pair_index)
+        required_outcomes.extend(sub.required_outcomes)
         return sub
 
     stitched_imgs, stitched_E = _stitch_paths(
@@ -1603,6 +1649,7 @@ def _build_multistep_path(
 
     return CombinedPath(
         images=stitched_imgs, energies=stitched_E, segments=seg_reports,
+        required_outcomes=required_outcomes,
         single_opt_executed=True,
     )
 
@@ -1763,7 +1810,7 @@ def _build_multistep_path(
     "--max-cycles-dmf",
     type=click.IntRange(min=1),
     default=None,
-    show_default="3000",
+    show_default="300",
     help=(
         "Maximum IPOPT iterations for the DMF MEP stage. This is a solver "
         "iteration count, not a string-optimizer cycle count."
@@ -2550,6 +2597,7 @@ def cli(
         combined_imgs: List[Any] = []
         combined_Es: List[float] = []
         seg_reports_all: List[SegmentReport] = []
+        required_outcomes_all: List[Any] = []
 
         def _segment_builder_for_pairs(tail_g, head_g, _tag: str) -> CombinedPath:
             sub = _build_multistep_path(
@@ -2567,6 +2615,7 @@ def cli(
                 mep_mode_kind=mep_mode_kind, calc_cfg=calc_cfg, dmf_cfg=dmf_cfg,
                 kink_seq_count=_trailing_kink_count(seg_reports_all),
             )
+            required_outcomes_all.extend(sub.required_outcomes)
             if sub.single_opt_executed:
                 path_optimizers.add("lbfgs")
             return sub
@@ -2590,6 +2639,7 @@ def cli(
                 mep_mode_kind=mep_mode_kind, calc_cfg=calc_cfg, dmf_cfg=dmf_cfg,
             )
 
+            required_outcomes_all.extend(pair_path.required_outcomes)
             if pair_path.single_opt_executed:
                 path_optimizers.add("lbfgs")
 
@@ -2629,7 +2679,7 @@ def cli(
             narrative=True,
         )
 
-        combined_all = CombinedPath(images=combined_imgs, energies=combined_Es, segments=seg_reports_all)
+        combined_all = CombinedPath(images=combined_imgs, energies=combined_Es, segments=seg_reports_all, required_outcomes=required_outcomes_all)
 
         for idx, srep in enumerate(combined_all.segments, 1):
             srep.seg_index = idx
@@ -2935,6 +2985,7 @@ def cli(
             command=command_str,
             preopt_requested=bool(pre_opt),
             preopt_outcomes=preopt_outcomes,
+            required_outcomes=combined_all.required_outcomes,
         )
         # The effective recursion cap, recorded where `search_cfg` is resolved:
         # `0` means subdivision was switched off, which no other shipped field

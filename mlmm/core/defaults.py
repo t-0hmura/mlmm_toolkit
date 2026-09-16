@@ -243,7 +243,7 @@ OPT_MODE_ALIASES = (
 
 DMF_KW: Dict[str, Any] = {
     "backend": "gpu",  # DMF backend: "gpu" (dmf.torch / CUDA, default) or "cpu" (dmf / NumPy)
-    "max_cycles": 3000,
+    "max_cycles": 300,
     "correlated": True,
     "sequential": True,
     "fbenm_only_endpoints": False,

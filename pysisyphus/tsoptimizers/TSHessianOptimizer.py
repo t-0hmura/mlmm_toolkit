@@ -8,6 +8,7 @@ import numpy as np
 from pysisyphus.Geometry import Geometry
 from pysisyphus._array import as_numpy
 from pysisyphus.helpers_pure import log
+from pysisyphus.normal_modes import DEFAULT_FREQUENCY_ZERO_CUTOFF_CM
 from pysisyphus.intcoords.augment_bonds import augment_bonds
 from pysisyphus.intcoords.PrimTypes import normalize_prim_input, normalize_prim_inputs
 from pysisyphus.optimizers import poly_fit
@@ -48,7 +49,7 @@ class TSHessianOptimizer(HessianOptimizer):
         mode_loss_trust_floor: float = 1e-5,
         max_mode_loss_rejections: int = 5,
         verify_saddle: bool = True,
-        saddle_imaginary_threshold_cm: float = 5.0,
+        saddle_imaginary_threshold_cm: float = DEFAULT_FREQUENCY_ZERO_CUTOFF_CM,
         saddle_recovery_step: float = 0.01,
         saddle_recovery_check_interval: int = 50,
         saddle_recovery_max_cycles: int = 0,
@@ -887,16 +888,17 @@ class TSHessianOptimizer(HessianOptimizer):
         # first-order saddle. Exact PHVA supplies the order; IRC supplies the
         # endpoint-connectivity test.
         has_saddle_modes = n_imaginary >= len(self.roots)
-        exact_order = n_strict == n_imaginary == len(self.roots) and has_saddle_modes
+        # Raw negative signs remain diagnostic after the complete-packet guard.
+        exact_order = n_imaginary == len(self.roots) and has_saddle_modes
         # Higher-order saddles are retained as converged terminal candidates;
         # the caller may optionally flatten them or continue a diagnostic IRC.
-        self.higher_order_saddle_checks = int(n_strict > len(self.roots))
+        self.higher_order_saddle_checks = int(n_imaginary > len(self.roots))
         self._last_exact_validation = (
             "first_order" if exact_order else
-            "higher_order" if n_strict > len(self.roots) else
+            "higher_order" if n_imaginary > len(self.roots) else
             "no_imaginary"
         )
-        if n_strict > len(self.roots):
+        if n_imaginary > len(self.roots):
             action = (
                 "the caller may run an explicit bounded flatten attempt"
                 if getattr(self, "flatten_enabled", False)
@@ -1053,7 +1055,10 @@ class TSHessianOptimizer(HessianOptimizer):
             and self._exact_phva_matches_current_geometry()
             and (
                 self._last_exact_frequencies_cm is None  # legacy optimizer-space fallback
-                or self._last_exact_n_negative == self._last_exact_n_imaginary == len(self.roots)
+                or (
+                    self._last_exact_n_negative is not None
+                    and self._last_exact_n_imaginary == len(self.roots)
+                )
             )
         )
 
@@ -1391,6 +1396,47 @@ class TSHessianOptimizer(HessianOptimizer):
                 energy_ok = True
             criteria_met = criteria_met and energy_ok
         return bool(criteria_met)
+
+    def validate_terminal_step_basis(self, gradient, step):
+        """Retain the proposal across a terminal exact-Hessian basis refresh.
+
+        Validation can discover a different ordered Cartesian active space.
+        Carry the existing proposal through full coordinates before that change;
+        remap it and the current physical gradient without generating a new step
+        or requesting another Hessian. Same-basis calls retain their inputs.
+        """
+        previous = getattr(self, "active_dof_indices", None)
+        previous = None if previous is None else np.asarray(previous).copy()
+        full_step = self.full_from_active(step)
+        full_step = (
+            full_step.clone() if isinstance(full_step, torch.Tensor)
+            else np.asarray(full_step).copy()
+        )
+        self.validate_terminal_saddle_for_step(step)
+        current = getattr(self, "active_dof_indices", None)
+        if np.array_equal(previous, current):
+            return gradient, step
+
+        physical_gradient = -np.asarray(self.forces[-1])
+        if isinstance(gradient, torch.Tensor):
+            physical_gradient = torch.as_tensor(
+                physical_gradient, dtype=gradient.dtype, device=gradient.device
+            )
+        if current is not None:
+            # Both arrays are explicitly full, even when len(current) == 3N.
+            # active_from_full cannot distinguish that same-size permutation.
+            indices = np.asarray(current, dtype=int)
+            if isinstance(full_step, torch.Tensor):
+                idx = torch.as_tensor(indices, dtype=torch.long, device=full_step.device)
+                full_step = full_step.index_select(0, idx)
+            else:
+                full_step = full_step[indices]
+            if isinstance(physical_gradient, torch.Tensor):
+                idx = torch.as_tensor(indices, dtype=torch.long, device=physical_gradient.device)
+                physical_gradient = physical_gradient.index_select(0, idx)
+            else:
+                physical_gradient = physical_gradient[indices]
+        return physical_gradient, full_step
 
     def validate_terminal_saddle_for_step(self, step):
         """Run exact PHVA after the actual step satisfies convergence criteria."""

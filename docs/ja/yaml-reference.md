@@ -320,7 +320,7 @@ Direct Max Flux（DMF）による MEP 最適化。
 
 ```yaml
 dmf:
- max_cycles: 3000 # DMF/IPOPT反復上限
+ max_cycles: 300 # DMF/IPOPT反復上限
  tol: tight # IPOPT dual_inf_tol: tight(0.04) | middle(0.10) | loose(0.20) または正の float（--thresh-dmf で上書き）
  correlated: true # 相関 DMF 伝搬
  sequential: true # 逐次 DMF 実行
@@ -547,7 +547,7 @@ irc:
 ```yaml
 freq:
  active_dof_mode: partial # アクティブ原子の選択: "all" | "ml-only" | "partial" | "unfrozen"
- zero_cutoff_cm: 5.0 # near-zero と分類する |振動数| の上限（cm^-1）。モードは保持
+ # zero_cutoff_cm: 5.0 # 非推奨の明示的上書き。元の固有値基準を使う場合は省略
  amplitude_ang: 0.8 # モード変位振幅 (Å)
  n_frames: 20 # モードtrajectoryのフレーム数
  max_write: 10 # 書き出すモードの最大数
@@ -560,7 +560,7 @@ Hessian系TS最適化が共有します。旧`hessian_dimer.neg_freq_thresh_cm` 
 `rsirfo.saddle_imaginary_threshold_cm` は互換aliasですが、競合する値は
 エラーになります。
 
-このcutoffは resolved な負モード数とTS/flattenのモード選択用です。完全な物理振動数配列からモードを削除せず、熱化学へ渡す正の振動数も変えません。Cartesian PHVAの受理は負のnear-zeroも含めて数え、OPTは厳密0、一次TSは厳密1かつresolved1を要求します。
+既定では質量重み付き Hessian の固有値 < −10⁻⁶ Hartree/(bohr²·amu) を虚振動と分類します。対応する振動数の閾値は約 −5.14 cm⁻¹ です。従来の `freq.zero_cutoff_cm` を明示すると、非推奨の警告付きでこの基準を上書きします。選択した虚振動の本数は鞍点次数を記述し、すべての負符号の数は `n_negative_modes` に別途記録します。いずれも最適化の数値収束を変更しません。符号付き物理モードと熱化学に使う正のモードはすべて保持します。
 
 **注記:**
 - `active_dof_mode`: 振動解析に参加させる原子集合を選択します。`all` は全原子、`ml-only` は ML 領域のみ、`partial`（デフォルト）は ML + Movable-MM、`unfrozen` は凍結されていない全原子を使用します。CLI フラグ `--active-dof-mode` が明示された場合は YAML 値より優先されます。

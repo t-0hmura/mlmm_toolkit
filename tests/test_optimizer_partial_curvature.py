@@ -1,4 +1,4 @@
-"""The first exact minimum Hessian can reveal a smaller working space."""
+"""Numerical candidates and explicitly available partial-Hessian spaces."""
 
 import numpy as np
 import pytest
@@ -41,7 +41,7 @@ class PartialHarmonic(Calculator):
         return result
 
 
-def test_positive_exact_refresh_rebuilds_proposal_in_new_partial_space(tmp_path):
+def test_stationary_candidate_does_not_request_a_new_partial_hessian(tmp_path):
     coords = np.array([-0.5, 0.0, 0.0, 0.5, 0.0, 0.0])
     geom = Geometry(["H", "H"], coords.copy(), coord_type="cart", freeze_atoms=[])
     calculator = PartialHarmonic(coords, tmp_path)
@@ -63,12 +63,10 @@ def test_positive_exact_refresh_rebuilds_proposal_in_new_partial_space(tmp_path)
 
     opt.run()
 
-    assert calculator.hessian_calls == 1
-    assert opt.using_active_dofs
-    assert opt.cur_H.shape == (3, 3)
+    assert calculator.hessian_calls == 0
+    assert not opt.using_active_dofs
+    assert opt.cur_H.shape == (6, 6)
     assert opt.is_converged
-    assert opt._minimum_curvature_valid
-    assert opt._minimum_matches_current_geometry()
     assert len(opt.steps) == len(opt.predicted_energy_changes) == 1
     np.testing.assert_array_equal(opt.steps[0], np.zeros(6))
     np.testing.assert_array_equal(geom.cart_coords, coords)

@@ -82,7 +82,7 @@ out_dir/ (デフォルト:./result_path_opt/)
 | `--max-nodes INT` | 内部ストリングノード数（総イメージ = `max_nodes + 2`）。 | `20` |
 | `--gsm-param [equi\|energy]` | 完全成長後のGSMノード配置。`energy` は高エネルギー領域へノード密度を寄せる。等間隔経路がHEI近傍の反応座標領域を飛び越える場合の試行用であり、TSを同定する機能ではない。 | `equi` |
 | `--max-cycles-gsm INT` | GSMストリング最適化サイクル上限。`stopt.stop_in_when_full`にも設定。 | `300` |
-| `--max-cycles-dmf INT` | DMF IPOPT反復上限。 | `3000` |
+| `--max-cycles-dmf INT` | DMF IPOPT反復上限。 | `300` |
 | `--climb/--no-climb` | ストリング完全成長後のクライミングイメージ精密化を有効化。 | `True` |
 | `--preopt/--no-preopt` | アライメント/ストリング成長前に各端点を L-BFGS で事前最適化。 | `True` |
 | `--preopt-max-cycles INT` | 端点事前最適化サイクル上限。 | `100000` |

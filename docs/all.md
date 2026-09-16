@@ -34,6 +34,16 @@ or no valid negative root stops after preserving TS artifacts and before IRC.
 be validated. Always inspect the modes and endpoint connectivity.
 ```
 
+### Optimization completion and IRC diagnostics
+
+The aggregate uses numerical convergence of TSOPT and both endpoint optimizations. IRC stop conditions are not an independent success/failure test: a predictor-budget stop may still supply finite candidates for endpoint OPT. Missing/nonfinite structures and execution exceptions remain reported. Frequency counts/signs and correspondence with intended R/P structures are retained as diagnostic/mechanism information, not additional optimizer-success gates. Missing requested MEP, thermochemistry or DFT work remains visible in its own stage outcome. Endpoint execution errors retain `summary.json`, `summary.log` and `endpoint_opt/failure.json`.
+
+When `--tsopt` is requested, completed TS and endpoint optimizations supersede
+preliminary MEP/preoptimization convergence for the processed segment. The
+original convergence fields remain available. Unprocessed intervals, missing
+requested outputs and final optimization failures still prevent completion.
+Without `--tsopt`, MEP convergence remains the final optimization criterion.
+
 ## Examples
 
 Command form:
@@ -257,7 +267,7 @@ and defaults.
 | `--max-depth INT` | Recursive subdivision levels allowed; requires `--refine-path`. `0` disables subdivision, returning each input pair as one MEP segment (none when its HEI sits at an endpoint). A capped interval is tagged `seg_NNN_maxdepth` and may hold more than one step. | `10` |
 | `--gsm-param [equi\|energy]` | GSM node parameterization after string growth. `energy` concentrates nodes in high-energy regions and may be tried when an equidistant path skips the reaction-coordinate region near the HEI; it does not identify a TS. | `equi` |
 | `--max-cycles-gsm INT` | GSM string-optimizer cycle cap for the MEP child. | `300` |
-| `--max-cycles-dmf INT` | DMF IPOPT iteration cap for the MEP child. | `3000` |
+| `--max-cycles-dmf INT` | DMF IPOPT iteration cap for the MEP child. | `300` |
 | `--climb / --no-climb` | Enable climbing-image TS refinement where supported by the selected optimizer. | `True` |
 | `--opt-mode [grad\|hess]` | Fallback preset for TSOPT and post-IRC endpoint optimization (`grad` → Dimer / L-BFGS, `hess` → RS-P-RFO / RFO). `--opt-mode-post` takes precedence. | `grad` |
 | `--opt-mode-post [grad\|hess]` | Optimizer preset override for TSOPT / post-IRC endpoint optimizations (`grad` → Dimer / L-BFGS, `hess` → RS-P-RFO / RFO). | `hess` |

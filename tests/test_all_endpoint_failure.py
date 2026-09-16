@@ -186,6 +186,7 @@ def test_endpoint_boundary_retains_provenance_and_stops_consumers(
         "_finalize_current_summary": write_record,
         "_copy_public_logged": lambda *_a, **_kw: None,
         "_persist_run_manifest": lambda *_a: None,
+        "_write_endpoint_failure_summary_log": lambda *_a, **_kw: None,
         "_all_method_citation_payload": lambda: {},
         "_freeze_atoms_for_log": lambda: [],
         "_emit_final_summary": lambda *_a, **_kw: None,

@@ -1,6 +1,8 @@
 # `irc`
 
-Runs EulerPC-based IRC (Intrinsic Reaction Coordinate) integration from a transition state in both directions using the ML/MM calculator. Standalone output contains raw endpoint candidates; optimize them and validate their connectivity before thermochemistry or DFT single-point use. `mlmm all` performs this endpoint refinement automatically. A typical sequence is `tsopt` -> `freq` (confirm **one** imaginary mode) -> `irc`. `mlmm irc` keeps the CLI intentionally narrow; parameters not surfaced on the command line should be provided via YAML so the run remains explicit and reproducible. The common input bridge accepts PDB/mmCIF and `geom_loader` formats. With a PDB/mmCIF topology (direct input or `--ref-pdb`) and conversion enabled, trajectories receive PDB companions; mmCIF and oversized-PDB bridge inputs also receive CIF companions with restored identifiers.
+Runs EulerPC-based IRC (Intrinsic Reaction Coordinate) integration from a transition state in both directions using the ML/MM calculator. Standalone output contains raw endpoint candidates. Endpoint optimization and correspondence with the intended reactant/product are recorded separately. `mlmm all` performs this endpoint refinement automatically. A typical sequence is `tsopt` -> `freq` (confirm **one** imaginary mode) -> `irc`. `mlmm irc` keeps the CLI intentionally narrow; parameters not surfaced on the command line should be provided via YAML so the run remains explicit and reproducible. The common input bridge accepts PDB/mmCIF and `geom_loader` formats. With a PDB/mmCIF topology (direct input or `--ref-pdb`) and conversion enabled, trajectories receive PDB companions; mmCIF and oversized-PDB bridge inputs also receive CIF companions with restored identifiers.
+
+IRC does not publish an independent `scientific_status` or directional success verdict. A predictor integration-budget stop can still supply finite retained candidates to endpoint OPT. Trajectories and stop reasons remain available; missing structures, nonfinite coordinates/energies and execution exceptions remain errors. Correspondence with intended R/P structures is mechanism information separate from optimizer convergence.
 
 ## Examples
 
@@ -38,8 +40,7 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0 \
 ```
 
 This is not an unlimited loop: numerical/integration failures, external
-interruption, and the cycle cap still stop the run. The public direction status
-is `stopped`; endpoint stationarity remains a separate diagnostic. Inspect both
+interruption, and the cycle cap still stop the run. Directional stop reasons and endpoint stationarity remain diagnostics. Inspect both
 trajectories and optimize/validate their endpoints before accepting them.
 
 Command form:

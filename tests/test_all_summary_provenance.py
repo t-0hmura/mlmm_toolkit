@@ -68,7 +68,7 @@ def test_resolved_mlip_provenance_records_effective_precision(
     )[2] == expected
 
 
-def test_pipeline_status_rejects_zero_imaginary_modes() -> None:
+def test_pipeline_status_keeps_frequency_count_diagnostic() -> None:
     status, reasons = _derive_pipeline_status(
         {"segments": [{"index": 1}], "energy_diagrams": [{"name": "MEP"}]},
         post_segments=[
@@ -83,8 +83,8 @@ def test_pipeline_status_rejects_zero_imaginary_modes() -> None:
         config={"tsopt": True, "thermo": True, "dft": False},
     )
 
-    assert status == "partial"
-    assert any("n_imag=0" in reason for reason in reasons)
+    assert status == "success"
+    assert reasons == []
 
 
 def test_all_stops_before_irc_for_zero_imaginary_modes() -> None:

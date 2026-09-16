@@ -54,12 +54,12 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 
 ### 実行結果と科学的妥当性
 
-複数段階のワークフローと scan の出力処理は、構成要素を評価できる場合に以下のフィールドを追加します。出力されるフィールドはコマンドによって異なり、各コマンド固有の `status` も互換性のため維持されます。科学的に利用できるかを判断する際は、`scientific_status` と各 outcome を確認してください。必須の受理判定が欠ける場合は安全側に倒します。IRC 端点の stationary 判定は診断情報であり、伝播の利用可否とは分離されます。
+複数段階のワークフローと scan の出力処理は、構成要素を評価できる場合に以下のフィールドを追加します。出力されるフィールドはコマンドによって異なり、各コマンド固有の `status` も互換性のため維持されます。要求段階の完了状況は `scientific_status` と各 outcome で確認できます。必須の最適化・計算結果が欠ける場合は未完了として記録します。IRC の停止理由・端点 stationary 判定は診断情報です。IRC 独立の `scientific_status` は出力せず、all は TSOPT と両端点 OPT の数値収束を集約します。
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
 | `execution_status` | string | 通常は `completed` または `failed`。必須の構成コマンドが実行されたかを示します。 |
-| `scientific_status` | string | `success`、`partial`、`failed`。得られた科学的結果が完全かつ利用可能かを示します。 |
+| `scientific_status` | string | `success`、`partial`、`failed`。要求した計算段階と最適化・SCF 結果の完了度。振動・結合対応の解釈は別に確認します。 |
 | `scientific_status_reasons` | string[] | 利用できない、または欠落した個別結果の理由。正常終了時は省略されます。集約ワークフローの従来の `status_reasons` とは別です。 |
 | `expected_item_ids` / `observed_item_ids` | string[] | 集約結果の欠落を検出するための、期待された項目と観測された項目の ID。 |
 | `stage_outcomes` | object[] | `stage`、`item_id`、`required`、`executed`、`converged`、`usable`、`reason`、`artifacts` を持つ段階別 outcome。 |
@@ -190,6 +190,8 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 
 ### `irc`
 
+`status: "completed"` は実行が戻ったことを示します。IRC 独自の `scientific_status`、`stage_outcomes`、`forward_status` / `backward_status` は出力しません。方向ごとの停止理由と軌跡を保持し、端点最適化の結果は `all` の `endpoint_opt` に記録します。
+
 | フィールド | 型 | 説明 |
 |-----------|------|------|
 | `status` | string | `"completed"` |
@@ -201,7 +203,6 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | `endpoint_energy_orientation` | string | `"finished_first_to_finished_last"` |
 | `energy_reactant_hartree` / `energy_product_hartree` | float | 最初/最後の端点を表す互換エイリアス。キー名から反応物/生成物の同一性を推定しない |
 | `forward_requested` / `backward_requested` | bool | 各方向を要求したか |
-| `forward_status` / `backward_status` | string | 各方向の伝播状態: `stopped` / `failed` / `disabled` |
 | `forward_integration_converged` / `backward_integration_converged` | bool\|null | RMS 勾配の停留判定が発火して停止したか。診断専用で、`--never-stop` はこの判定を迂回するため常に `false`。削除した `*_converged` が表していた条件は、`*_downhill_departure_valid` との連言で再構成できる |
 | `forward_downhill_departure_valid` / `backward_downhill_departure_valid` | bool\|null | TS から downhill に離れたことを確認できたか |
 | `forward_integration_stop_reason` / `backward_integration_stop_reason` | string\|null | 数値伝播が失敗した場合だけ非空になる理由 |
@@ -307,13 +308,13 @@ scan は固定の L-BFGS 経路を `scan_opt_mode: "grad"` / `scan_optimizer: "l
 | `status` | string | `"success"` / `"partial"` / `"failed"`（all。path-search は success/partial） |
 | `execution_status` / `scientific_status` | string / string | 実行の完了度と科学的な利用可能性。従来の `status` とは分けて評価します。 |
 | `scientific_status_reasons` | string[] | 不完全または利用できない科学的結果の理由。正常終了時は省略されます。 |
-| `pipeline_stop` | object \| 不在 | 早期停止時のみ存在。`stage` は `post`（`reason` は `no_segments` / `no_reactive_segment`）または `before_irc`（TSOPT の理由と `segment`・`tsopt_result`）。`summary.log` では `Pipeline stop` |
+| `pipeline_stop` | object \| 不在 | 早期停止時のみ存在。`stage` は `post`（`reason` は `no_segments` / `no_reactive_segment`）、`before_irc`（TSOPT の理由と `segment`・`tsopt_result`）、または `endpoint_opt`（`endpoint_execution_failed` と端点別 `failures`）。`summary.log` では `Pipeline stop` |
 | `expected_item_ids` / `observed_item_ids` | string[] | 期待された集約項目と観測された集約項目。 |
 | `config` | object | 実効設定。`mep_mode` は GSM/DMF、`ts_opt_mode` / `endpoint_opt_mode` は設定済み後処理 preset を示す。generic `opt_mode*` は解決済み CLI 入力を保持する。`path_opt_mode` は端点 preoptimization に使う単一構造 optimizer であり（`preopt` を参照）、MEP path algorithm ではない。 |
 | `n_segments` | int | セグメント数 |
 | `search_max_depth` | int | 実効の再帰分割階層上限。`0` は分割無効 |
 | `path_optimizers` | string[] | 経路の準備・精密化で実際に使用した単一構造オプティマイザ（`lbfgs`, `rfo`）。`all` ではスキャン・アライメントの実行も含む。`path-opt` の `result.json` と `all` の `summary.json` にも記録 |
-| `preopt_requested` / `preopt_converged` | bool / bool \| null | 端点事前最適化を実行したか、および全端点が収束したか。読み取れない端点があれば `null`。`all` の集約が判定に使う |
+| `preopt_requested` / `preopt_converged` | bool / bool \| null | 端点事前最適化を実行したか、および全端点が収束したか。読み取れない端点があれば `null`。`all` はこの事前収束情報を使います。ただし、要求した最終 TS 最適化と両端点最適化がすべての反応区間で収束した場合は、最終結果で判定します。元のフィールドは保持します |
 | `segments` | object[] | セグメントごとの障壁、反応エネルギー、結合変化 |
 | `energy_diagrams` | object[] | エネルギーダイアグラム |
 | `mlip_backend` | string | バックエンド名（`uma`, `orb`, `mace`, `aimnet2`, `custom`） |
@@ -332,7 +333,7 @@ scan は固定の L-BFGS 経路を `scan_opt_mode: "grad"` / `scan_optimizer: "l
 | `rate_limiting_step` | object | 互換性のため維持するキー。各段階の始状態を基準にした局所障壁が最大のセグメントと method。microkinetics に基づく律速段階の判定ではない。 |
 | `overall_reaction_energy_kcal` | float | 全体の反応エネルギー。 |
 | `post_segments` | list | セグメントごとの TS/IRC/freq/DFT 結果。 |
-| `post_segments[].irc` / `.endpoint_assignment` / `.endpoint_opt` | object | 順に、生の伝播、最適化前の向き付け、最適化済み端点の最終受理判定。生 IRC の通常停止は診断であり、MEP mode は端点最適化の収束と最適化後 connectivity で受理する。 |
+| `post_segments[].irc` / `.endpoint_assignment` / `.endpoint_opt` | object | 順に IRC 停止診断、端点の向き付け、端点 OPT の収束記録。IRC 停止・結合対応は独立した成功条件にしない。端点の connectivity 情報は機構解釈用に保持する。 |
 | `post_segments[].thermo_symmetry` | object | 子 freq が報告した状態別の点群・回転対称 provenance。MEP 実行では R/TS/P、TS-only 実行では E1/TS/E2 を対象とし、有効な対称数 provenance を持つ状態だけを含む。欠けた状態は省略し、どの状態にも有効な provenance が無い場合だけフィールド全体を省略する。 |
 | `key_output_files` | object | 現在の呼び出しの出力索引。ルートファイルはファイル名 → 説明、各 `seg_NN` は `{description, files}` で、`files` はそのセグメントディレクトリからの相対パス。 |
 | `current_output_paths` | string[] | `--out-dir` からの相対パスを並べたリスト。現在の呼び出しが記録した成果物だけを含みます。 |

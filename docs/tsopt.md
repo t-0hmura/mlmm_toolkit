@@ -1,6 +1,6 @@
 # `tsopt`
 
-`mlmm tsopt` refines a transition-state candidate on a layered enzyme PDB into a first-order saddle point. Run it on a standalone transition-state (TS) guess, or on the highest-energy image (HEI) extracted by [`path-search`](path-search.md).
+`mlmm tsopt` optimizes a transition-state candidate on a layered enzyme PDB and reports its final imaginary-frequency analysis. Run it on a standalone transition-state (TS) guess, or on the highest-energy image (HEI) extracted by [`path-search`](path-search.md).
 
 Two optimizer families are available. The gradient family provides Hessian-Guided
 Dimer (`grad`/`dimer`), while the Hessian family provides RS-P-RFO
@@ -16,37 +16,23 @@ must be able to raise the physical energy along its reaction mode. The
 optimization (`opt` and post-IRC endpoint re-optimization in `all`). The
 inner MM-only relaxation in microiteration remains a minimum subproblem.
 
-RS-P-RFO checks calculated curvature when a candidate meets the numerical tolerances. Without `--flatten`, it continues if surplus negative modes remain in the optimizer's active space. With microiteration, this is the ML/link-parent macro space; final PHVA checks the separately selected ML/MM space. Zero imaginary modes stop the internal search by default. First-order TS certification still requires one imaginary mode along the intended reaction coordinate and correct [`irc`](irc.md) connectivity.
+RS-P-RFO terminates when its numerical convergence criteria are met. Final PHVA reports curvature separately and does not request extra optimization steps because of imaginary-mode counts. Additional searches require explicit `--flatten` or a positive `rsirfo.saddle_recovery_max_cycles` budget (default 0). With microiteration, the macro optimization space and the final selected ML/MM PHVA space remain distinct. Inspect the mode and [`irc`](irc.md) connectivity to assess the proposed reaction.
 
 `--flatten` explicitly enables the separate surplus-mode displacement loop. `--skip-final-freq` skips the final PHVA output stage, leaving the final saddle order unverified.
 
 
-`n_imaginary_modes` remains the resolved display count; `n_negative_modes` counts all negative frequencies in the complete finite PHVA partition, including near-zero modes. First-order certification requires both counts to equal one; incomplete partitions cannot certify it.
+`n_imaginary_modes` counts modes under the selected criterion; `n_negative_modes` records every negative frequency in the complete finite PHVA spectrum. `saddle_validation` and `saddle_order_verified` describe the selected-criterion count, independently of `optimization_status`. The raw negative count does not trigger further optimization or failure. A recomputed final PHVA uses its own mode basis: cached optimizer indices and overlaps are reused only with the same validated terminal PHVA packet.
+
+The default imaginary-mode criterion is the original PySisyphus mass-weighted Hessian rule: eigenvalue < −10⁻⁶ Hartree/(bohr²·amu). The equivalent frequency magnitude is derived by `eigval_to_wavenumber` (about 5.14 cm⁻¹); it is not an independently rounded cutoff. `imaginary_mode_criterion`, `imaginary_eigenvalue_threshold` (positive magnitude), `imaginary_eigenvalue_units`, and `imaginary_frequency_threshold_cm` record the rule. Explicit legacy `freq.zero_cutoff_cm` overrides remain available with a deprecation warning. This reporting criterion is separate from the optimizer-coordinate `small_eigval_thresh` of 10⁻⁸. No sign is changed and no physical mode is removed.
 
 ## Cartesian RS-P-RFO defaults
 
-For ordinary, unweighted Cartesian coordinates, `hess` / `rsprfo` uses
-`hessian_update: ts_bfgs` and `trust_norm: max_atom`. The initial and maximum
-trust radius are **0.1 Å** (about **0.1889726 Bohr**), bounding each atom's
-three-dimensional displacement. The minimum radius remains 1e-4 Bohr.
-YAML radii remain in **Bohr**.
-
-An explicit `hessian_update`, including `bofill`, is preserved independently.
-If any of `trust_norm`, `trust_radius`, `trust_min`, or `trust_max` is present
-in `opt` or `rsirfo`, an omitted norm retains its previous global-L2 meaning.
-Explicit `trust_norm: l2` also retains the previous 0.1-Bohr radius defaults.
-With explicit `trust_norm: max_atom`, only an omitted initial or maximum radius
-receives the 0.1-Å default; explicit numeric radii are preserved.
-Internal or mass-weighted coordinates, weighted trust, RS-I-RFO, TRIM and Dimer
-retain their existing defaults.
-
-For the previous Cartesian norm and Hessian update, use:
-
-```yaml
-rsirfo:
-  trust_norm: l2
-  hessian_update: bofill
-```
+`hess` / `rsprfo` defaults to `hessian_update: bofill`, the global L2 norm,
+initial and maximum trust radii of 0.1 Bohr, and a minimum radius of 1e-4 Bohr.
+YAML radii are in Bohr; the existing `opt` / `rsirfo` precedence is preserved.
+Explicit `trust_norm: max_atom` bounds each atom's three-dimensional displacement.
+Selecting it does not change the radii or Hessian update. `ts_bfgs` also remains
+available as an explicit choice.
 
 ## Terminal outcomes and fatal errors
 
@@ -83,13 +69,14 @@ There is no `opt --restraint` flag. For a restrained minimum optimization, use [
 
 ## Wrong number of imaginary frequencies
 
-A certified first-order saddle has **exactly one** imaginary mode. Inspect its
-displacement and use IRC to establish the connected chemical states. Two or
-more imaginary modes fail certification regardless of their magnitudes.
+First-order classification requires **exactly one** imaginary mode under the
+criterion recorded in the result. Raw negative counts remain separate
+diagnostics. Inspect the mode displacement and IRC endpoints to identify the
+connected chemical states.
 
 | Symptom | Fix |
 | --- | --- |
-| `n_imag = 0` (collapsed to a minimum) | Treat the run as failed. Improve the TS guess or MEP; `--flatten` only removes surplus negative modes and cannot create the missing reaction direction. |
+| `n_imag = 0` | The PHVA has no imaginary mode under the selected criterion; numerical convergence is retained. Improve the TS guess or MEP; `--flatten` only removes surplus negative modes and cannot create the missing reaction direction. |
 | `n_imag > 1` | Recompute at the backend's production precision, try `--coord-type dlc`, and use `--flatten` for residual surplus modes. |
 | Exactly one mode, but wrong motion | Improve the path/guess and verify connectivity by IRC; mode count alone does not identify the intended reaction. |
 
@@ -197,7 +184,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 4. **Hessian TS optimization** — runs the default RS-P-RFO, or an explicitly selected RS-I-RFO / TRIM optimizer, with the shared controls defined in the `rsirfo` YAML section. The flatten behavior:
    - With `--flatten`, when more than one imaginary mode remains after convergence the workflow flattens extra modes and reruns the selected optimizer until only one imaginary mode remains or the flatten-iteration cap is reached.
    - Each flatten iteration recomputes a fresh ML/MM Hessian (active-coordinate block by default, or full per `--full-hessian-flatten`) for imaginary-mode detection. There is no Bofill update in this path.
-5. **Mode export + conversion** — final frequency analysis writes imaginary modes to `vib/imag_*_trj.xyz` and mirrors them to `.pdb` for PDB input when conversion is enabled. The shared `freq.zero_cutoff_cm` sets the resolved imaginary-mode count and TS export threshold; strict saddle acceptance also counts negative modes in that window. Standalone `freq` retains the complete physical spectrum and its positive low-frequency thermal contributions. With PDB input and conversion enabled, the final geometry is converted to PDB independently; `--dump` additionally writes and converts the optimization trajectory.
+5. **Mode export + conversion** — final frequency analysis writes imaginary modes to `vib/imag_*_trj.xyz` and mirrors them to `.pdb` for PDB input when conversion is enabled. The selected imaginary-mode criterion controls the reported count and TS mode export; raw negative signs remain a separate diagnostic. Standalone `freq` retains the complete physical spectrum and its positive low-frequency thermal contributions. With PDB input and conversion enabled, the final geometry is converted to PDB independently; `--dump` additionally writes and converts the optimization trajectory.
 
 ## Outputs
 

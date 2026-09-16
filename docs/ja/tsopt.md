@@ -1,6 +1,6 @@
 # `tsopt`
 
-`mlmm tsopt` はレイヤー分けした酵素 PDB の遷移状態*候補*を一次鞍点まで精密化します。単独の TS（遷移状態）推測構造でも、[`path-search`](path-search.md) が抽出する最高エネルギー像（HEI）でも実行できます。
+`mlmm tsopt` はレイヤー分けした酵素 PDB の遷移状態*候補*を最適化し、最終的な虚振動数解析を報告します。単独の TS（遷移状態）推測構造でも、[`path-search`](path-search.md) が抽出する最高エネルギー像（HEI）でも実行できます。
 
 オプティマイザは 2 系統です。gradient 系は Hessian-Guided Dimer
 （`grad`/`dimer`）、Hessian 系は RS-P-RFO（`hess`/`rsprfo`、デフォルト）、
@@ -16,37 +16,22 @@ optimizer の `reject_uphill` を常に `false` に固定します。TS 探索�
 IRC 後エンドポイント再最適化）だけに適用されます。マイクロイテレーション
 内部の MM-only 緩和は最小化の部分問題なので、この区別を維持します。
 
-RS-P-RFO は、数値条件を満たした候補で曲率を計算・確認します。`--flatten` なしでは、最適化の活性空間に余分な負のモードが残ると探索を続けます。微小反復では ML 領域と link-parent の macro 空間が対象で、最終 PHVA は別途選択した ML/MM 空間を確認します。内部判定で虚振動 0 本の場合はデフォルトで停止します。一次 TS 認定には、目的反応座標に沿う虚振動 1 本と、正しい [`irc`](irc.md) 接続性が引き続き必要です。
+RS-P-RFO は数値収束条件を満たすと終了します。最終 PHVA は曲率を別途報告し、虚振動の本数を理由に追加の最適化ステップを要求しません。追加探索は明示的な `--flatten`、または正の `rsirfo.saddle_recovery_max_cycles`（既定値 0）で有効にします。反応の妥当性はモード変位と [`irc`](irc.md) の接続性から確認してください。 微小反復の macro 最適化空間と最終 PHVA の ML/MM 空間は区別して保持します。
 
 `--flatten` は、余剰モードに沿って変位させる別の再探索ループを有効にします。`--skip-final-freq` は最終 PHVA の出力段階を省略し、最終構造の鞍点次数を未検証のまま保持します。
 
 
-`n_imaginary_modes` は表示閾値を超える負モード数、`n_negative_modes` はnear-zeroを含む完全で有限なPHVAの負モード数です。一次鞍点の証明には両方が1であることを要求し、partitionが不完全なら証明しません。
+`n_imaginary_modes` は選択した分類基準による本数、`n_negative_modes` は完全で有限な PHVA の全負振動数の本数です。`saddle_validation` と `saddle_order_verified` は分類基準による本数を表し、`optimization_status` とは独立です。生の負モード数で追加探索や失敗判定を行いません。最終 PHVA を再計算した場合はその基底を使用し、最適化時のモード番号や overlap は同一の検証済み PHVA を再利用できる場合だけ引き継ぎます。
+
+虚振動の既定の分類は、元の PySisyphus と同じ質量重み付き Hessian の固有値 < −10⁻⁶ Hartree/(bohr²·amu) です。対応する振動数の絶対値は `eigval_to_wavenumber` から導く約 5.14 cm⁻¹ で、独立に丸めた閾値ではありません。`imaginary_mode_criterion`、`imaginary_eigenvalue_threshold`（正の絶対値）、`imaginary_eigenvalue_units`、`imaginary_frequency_threshold_cm` に分類基準を記録します。従来の `freq.zero_cutoff_cm` の明示指定は非推奨の警告付きで利用できます。この分類基準は最適化座標の `small_eigval_thresh` = 10⁻⁸ とは別です。振動数の符号を変えたり、物理モードを除いたりしません。
 
 ## Cartesian RS-P-RFO の既定値
 
-通常の質量重み付きでない Cartesian 座標では、`hess` / `rsprfo` は
-`hessian_update: ts_bfgs` と `trust_norm: max_atom` を使用します。
-初期・最大信頼半径は **0.1 Å**（約 **0.1889726 Bohr**）で、各原子の
-3次元変位を制限します。最小半径は 1e-4 Bohr のままです。
-YAML の半径の単位は引き続き **Bohr** です。
-
-`bofill` など、明示した `hessian_update` は独立に保持します。
-`opt` または `rsirfo` に `trust_norm`、`trust_radius`、`trust_min`、
-`trust_max` のいずれかがあれば、norm 省略時は従来の全体 L2 ノルムの
-意味を保ちます。`trust_norm: l2` を明示した場合も、未指定の初期・最大
-半径は従来の 0.1 Bohr です。`trust_norm: max_atom` を明示した場合だけ、
-未指定の初期・最大半径を 0.1 Å に設定し、明示した数値は保持します。
-内部座標、質量重み付き座標、weighted trust、RS-I-RFO、TRIM、Dimer の
-既定値は変わりません。
-
-従来の Cartesian ノルムと Hessian 更新を使用する設定例:
-
-```yaml
-rsirfo:
-  trust_norm: l2
-  hessian_update: bofill
-```
+`hess` / `rsprfo` の既定値は `hessian_update: bofill`、全体の L2 ノルム、
+初期・最大信頼半径 0.1 Bohr、最小半径 1e-4 Bohr です。
+YAML の半径は Bohr 単位で、`opt` / `rsirfo` の既存の優先順位を保持します。
+`trust_norm: max_atom` は明示的に選択でき、各原子の3次元変位を制限します。
+この選択だけで半径や Hessian 更新法を変更しません。`ts_bfgs` も明示指定できます。
 
 ## 最適化の終了状態とエラー時の出力
 
@@ -85,7 +70,7 @@ mlmm scan -i r.pdb --parm enzyme.parm7 -l 'LIG:Q' \
 
 | 症状 | 対処 |
 | --- | --- |
-| `n_imag = 0`（極小へ崩壊） | 失敗として扱い、TS 初期構造または MEP を改善する。`--flatten` は余分な負モードを除くだけで、失われた反応方向を作れない。 |
+| `n_imag = 0` | 選択した基準では虚振動なしと記録し、数値収束は保持する。TS 初期構造または MEP を改善する。`--flatten` は余分な負モードを除くだけで、失われた反応方向を作れない。 |
 | `n_imag > 1` | バックエンドの本計算精度で再計算し、`--coord-type dlc` と残留モード向け `--flatten` を検討する。 |
 | 1 モードだが原子運動が意図と異なる | 経路/初期構造を改善し IRC で接続性を確認する。モード数だけでは目的反応を同定できない。 |
 
@@ -176,7 +161,7 @@ mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 4. **Hessian TS オプティマイザ:**
    - デフォルトの RS-P-RFO、または明示的に選択した RS-I-RFO / TRIM を、`rsirfo` YAML セクションの共通設定で実行します。
    - `--flatten` が有効で収束後に 2 つ以上の虚振動数モードが残る場合、余分なモードを平坦化し、1 つだけ残るか反復上限に達するまで選択中のオプティマイザを再実行します。
-5. **モードエクスポートと変換** — 最終振動解析で得た虚振動数モードを `vib/imag_*_trj.xyz` に書き出し、PDB 入力で変換が有効なら `.pdb` にもミラーリングします。共有 `freq.zero_cutoff_cm` は resolved な虚振動数の本数とTSモード出力の閾値です。厳密な鞍点判定では負の微小モードも数え、standalone `freq` は完全な物理振動数と正の低振動数モードの熱化学寄与を保持します。PDB 入力で変換が有効な場合、最終構造は独立して PDB に変換されます。`--dump` は最適化軌跡の出力と変換を追加します。
+5. **モードエクスポートと変換** — 最終振動解析で得た虚振動数モードを `vib/imag_*_trj.xyz` に書き出し、PDB 入力で変換が有効なら `.pdb` にもミラーリングします。選択した虚振動の分類基準で本数と TS モード出力を決め、生の負モード数は別の診断値として記録します。standalone `freq` は完全な物理振動数と正の低振動数モードの熱化学寄与を保持します。PDB 入力で変換が有効な場合、最終構造は独立して PDB に変換されます。`--dump` は最適化軌跡の出力と変換を追加します。
 
 ## 出力
 
@@ -307,7 +292,7 @@ hessian_dimer:
  thresh_loose: gau_loose           # ゆるい収束プリセット
  thresh: baker                     # メイン収束プリセット
  update_interval_hessian: 500      # Hessian再構築間隔
- neg_freq_thresh_cm: 5.0           # freq.zero_cutoff_cm の互換alias (cm^-1)
+ # neg_freq_thresh_cm: 5.0  # legacy override; omit for the original criterion
  flatten_amp_ang: 0.1              # flattening振幅 (Å)
  flatten_max_iter: 50              # flattening反復上限（--no-flatten 時は無効）
  flatten_sep_cutoff: 0.0           # 代表原子間の最小距離 (Å)

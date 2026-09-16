@@ -4,6 +4,7 @@
 
 import numpy as np
 
+from pysisyphus._array import as_numpy
 from pysisyphus.tsoptimizers.TSHessianOptimizer import TSHessianOptimizer
 
 import torch
@@ -71,9 +72,28 @@ class RSIRFOptimizer(TSHessianOptimizer):
             grad_star = P.dot(gradient)
         step = self.get_rs_step(eigvals_, eigvecs_, grad_star, name="RS-I-RFO")
 
-        self.validate_terminal_saddle_for_step(step)
+        gradient, step = self.validate_terminal_step_basis(gradient, step)
         step = self.apply_saddle_recovery_step(step)
-        self.predicted_energy_changes.append(self.rfo_model(gradient, self.cur_H, step))
+        # A terminal refresh may change the Hessian backend independently of
+        # its active map. Match only the prediction vectors to the current H;
+        # retain the proposal and avoid transferring a dense CUDA Hessian.
+        if isinstance(self.cur_H, torch.Tensor):
+            pred_gradient = torch.as_tensor(
+                gradient, dtype=self.cur_H.dtype, device=self.cur_H.device
+            )
+            pred_step = torch.as_tensor(
+                step, dtype=self.cur_H.dtype, device=self.cur_H.device
+            )
+            prediction = (
+                pred_step @ pred_gradient
+                + 0.5 * pred_step @ self.cur_H @ pred_step
+            ) / (1.0 + pred_step @ pred_step)
+            prediction = prediction.detach().cpu().item()
+        else:
+            prediction = self.rfo_model(
+                as_numpy(gradient), self.cur_H, as_numpy(step)
+            )
+        self.predicted_energy_changes.append(prediction)
 
         step = self.full_from_active(step)
         if isinstance(step, torch.Tensor):

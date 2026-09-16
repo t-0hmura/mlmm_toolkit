@@ -23,6 +23,14 @@ mlmm define-layer -i system.pdb --model-pdb model.pdb -o system_layered.pdb
 `--tsopt` は **TS 候補**を生成し、数値optimizer収束と終端鞍点次数を別々に記録します。`all` がIRCへ進むのは、数値最適化が収束し、終端PHVAが完了し、負の反応方向を選べる場合です。収束済み高次停留点は警告付きの**診断的**IRCへ進むことがありますが、一次TS認定ではありません。実際のoptimizer非収束、虚振動0本、PHVA失敗/未実施、または有効な負rootなしでは、TS成果物を保持したままIRC前で停止します。`--skip-final-freq`でも反応方向を検証できないためIRC前で停止します。機構解釈の前にmodeと端点接続を必ず確認してください。
 ```
 
+### 最適化結果と IRC 診断
+
+TSOPT と両端点 OPT の数値収束を集約します。IRC の停止条件は独立した成功・失敗判定にしません。予測子の積分予算で停止しても、有限の保存端点を最適化できます。端点構造の欠損・非有限値や実行例外は引き続き報告します。振動数の本数・符号と目的の R/P への対応は診断・機構情報として保持し、別名の最適化成功条件にはしません。要求した MEP、熱化学、DFT の結果が欠ける場合は、その段階の不足を記録します。端点実行エラーでも `summary.json`、`summary.log`、`endpoint_opt/failure.json` を残します。
+
+`--tsopt` を要求した場合、処理済み区間では最終 TS・両端最適化の収束を用い、
+その入力を作った MEP・事前最適化の収束は診断として残します。未処理区間、要求出力の欠落、
+最終最適化の失敗は完了扱いにしません。`--tsopt` を指定しない場合は MEP が最終最適化です。
+
 ## 実行例
 
 コマンド形式:
@@ -254,7 +262,7 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 | `--max-depth INT` | 許可する再帰分割の階層数（`--refine-path` が必須）。`0` で分割無効（入力ペアごとに1セグメント、HEI が端点なら0）。上限に達した区間は `seg_NNN_maxdepth` タグで、素反応1段の保証はない | `10` |
 | `--gsm-param [equi\|energy]` | 完全成長後のGSMノード配置。`energy` は高エネルギー領域へノード密度を寄せる。等間隔経路がHEI近傍の反応座標領域を飛び越える場合の試行用であり、TSを同定する機能ではない。 | `equi` |
 | `--max-cycles-gsm INT` | MEP childのGSMストリング最適化サイクル上限。 | `300` |
-| `--max-cycles-dmf INT` | MEP childのDMF IPOPT反復上限。 | `3000` |
+| `--max-cycles-dmf INT` | MEP childのDMF IPOPT反復上限。 | `300` |
 | `--climb/--no-climb` | 選択した最適化法が対応する場合に climbing-image TS 精密化を有効化。 | `True` |
 | `--opt-mode [grad\|hess]` | TSOPT と IRC 後の端点最適化に使う予備プリセット（`grad` → Dimer/L-BFGS、`hess` → RS-P-RFO/RFO）。`--opt-mode-post` が優先されます。 | `grad` |
 | `--opt-mode-post [grad\|hess]` | TSOPT/IRC 後端点最適化向けのプリセット上書き（`grad` → Dimer/L-BFGS、`hess` → RS-P-RFO/RFO）。 | `hess` |

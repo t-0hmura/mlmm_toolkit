@@ -8,6 +8,7 @@ import pytest
 import torch
 
 from mlmm.workflows import tsopt
+from pysisyphus.normal_modes import DEFAULT_FREQUENCY_ZERO_CUTOFF_CM
 
 
 class _Geometry:
@@ -76,7 +77,7 @@ def test_optimizer_terminal_phva_carries_the_exact_hessian_for_irc_cache():
         _last_exact_modes=torch.eye(3),
         _last_rigid_projection_info={
             "active_atoms": [0], "frozen_atoms": [],
-            "treatment": "constrained", "frequency_zero_cutoff_cm": 5.0,
+            "treatment": "constrained", "frequency_zero_cutoff_cm": DEFAULT_FREQUENCY_ZERO_CUTOFF_CM,
             "raw_mode_count": 3, "near_zero_frequencies_cm": [],
         },
         cur_H=exact_hessian,
@@ -101,7 +102,7 @@ def _two_atom_exact_cache():
         _last_exact_modes=torch.zeros((3, 9)),
         _last_rigid_projection_info={
             "active_atoms": [0, 1], "frozen_atoms": [2],
-            "treatment": "constrained", "frequency_zero_cutoff_cm": 5.,
+            "treatment": "constrained", "frequency_zero_cutoff_cm": DEFAULT_FREQUENCY_ZERO_CUTOFF_CM,
             "raw_mode_count": 3, "near_zero_frequencies_cm": [],
         },
         cur_H=torch.eye(6),
@@ -281,8 +282,8 @@ def test_legacy_cache_without_complete_partition_is_not_reused(key, value):
     assert tsopt._optimizer_exact_frequency_data(optimizer, geometry) is None
 
 
-@pytest.mark.parametrize("near,strict,expected", [([-3.2], 2, False), ([3.2], 1, True)])
-def test_final_dimer_verdict_uses_near_zero_partition(near, strict, expected):
+@pytest.mark.parametrize("near,strict,expected", [([-3.2], 2, True), ([3.2], 1, True)])
+def test_final_dimer_count_keeps_near_zero_sign_diagnostic(near, strict, expected):
     runner = SimpleNamespace(rigid_projection_info={
         "raw_mode_count": 3, "near_zero_frequencies_cm": near,
     })
@@ -347,9 +348,17 @@ def test_complete_cache_reuses_soft_pairs_without_double_counting():
     optimizer, geometry = _two_atom_exact_cache()
     optimizer._last_exact_frequencies_cm = np.array([-100., -2., 2.])
     optimizer._last_rigid_projection_info.update(
-        frequency_partition_info(optimizer._last_exact_frequencies_cm, 5.))
+        frequency_partition_info(optimizer._last_exact_frequencies_cm))
     reused = tsopt._optimizer_exact_frequency_data(optimizer, geometry)
     assert reused is not None
     np.testing.assert_array_equal(reused[0], [-100., -2., 2.])
     assert reused[1].shape == (3, 9)
     assert tsopt._strict_negative_count(reused[0], reused[2]) == 2
+
+
+@pytest.mark.parametrize("raw", [None, 1, 2, 5])
+def test_raw_negative_count_does_not_override_selected_criterion(raw):
+    assert tsopt._saddle_validation_from_count(1, raw) == "first_order"
+    assert tsopt._saddle_validation_from_count(2, raw) == "higher_order"
+    assert tsopt._saddle_validation_from_count(0, raw) == "no_imaginary"
+    assert tsopt._saddle_validation_from_count(None, raw) == "unavailable"

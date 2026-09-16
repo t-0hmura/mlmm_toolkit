@@ -15,71 +15,12 @@ from pysisyphus._array import as_numpy
 from pysisyphus.tsoptimizers.TSHessianOptimizer import TSHessianOptimizer
 
 
+class _NoFeasibleAtomicStep(ValueError):
+    """The evaluated PRFO family contains no point inside the atomic bound."""
+
+
 class RSPRFOptimizer(TSHessianOptimizer):
     supports_max_atom_trust = True
-    def _defer_hosp_terminal_check(self, step):
-        """Keep the physical refresh cadence while the model still rejects TS."""
-        if (
-            self.flatten_enabled
-            or not self.verify_saddle
-            or self._saddle_recovery_active
-            or self.stop_requested
-            or self._last_exact_validation != "higher_order"
-            or self._last_exact_n_negative is None
-            or self._last_exact_n_negative <= len(self.roots)
-            or self._last_exact_frequencies_cm is None
-            or not np.all(np.isfinite(self._last_exact_frequencies_cm))
-            or self._last_exact_cart_coords is None
-            or np.shape(self._last_exact_cart_coords) != np.shape(self.geometry.cart_coords)
-            or self.hessian_recalc is None
-            or not np.isfinite(self.hessian_recalc)
-            or self.hessian_recalc <= 0
-            or self.hessian_xtb
-            or self._exact_phva_matches_current_geometry()
-            or not self._all_configured_values_met(step)
-        ):
-            return False
-
-        exact_projection = getattr(self, "_last_rigid_projection_info", None)
-        from pysisyphus.normal_modes import _strict_negative_count
-        if (
-            not exact_projection
-            or _strict_negative_count(self._last_exact_frequencies_cm, exact_projection)
-            != self._last_exact_n_negative
-        ):
-            return False
-        try:
-            frequency_data = self._mw_frequencies_and_modes()
-            model_projection = self._last_rigid_projection_info
-            model_n_negative = (
-                _strict_negative_count(frequency_data[0], model_projection)
-                if frequency_data is not None else None
-            )
-        except Exception as err:
-            self.log(f"Model PHVA screen unavailable; retaining exact check: {err}")
-            return False
-        finally:
-            # Model screening must not replace the saved exact PHVA metadata.
-            self._last_rigid_projection_info = exact_projection
-        if frequency_data is None:
-            return False
-        scope_keys = (
-            "active_atoms", "frozen_atoms", "treatment", "frequency_zero_cutoff_cm",
-        )
-        if any(
-            key not in exact_projection or key not in model_projection
-            or exact_projection[key] != model_projection[key]
-            for key in scope_keys
-        ):
-            return False
-        return bool(
-            model_n_negative is not None and model_n_negative > len(self.roots)
-        )
-
-    def _exact_terminal_candidate_matches_current_geometry(self):
-        if self.flatten_enabled:
-            return super()._exact_terminal_candidate_matches_current_geometry()
-        return self._exact_saddle_matches_current_geometry()
 
     def _image_trust_step(self):
         """Build a bounded image step from the current physical model."""
@@ -165,7 +106,7 @@ class RSPRFOptimizer(TSHessianOptimizer):
             return cache[alpha]
 
         if not np.any(gradient_trans):
-            # Preserve the stationary-candidate terminal PHVA/recovery owner.
+            # Leave stationary-candidate classification to terminal PHVA.
             self._last_atomic_trust = dict(
                 alpha=alpha0, evaluations=0, termination="stationary",
                 max_atom_bohr=self._trust_step_norm(eigvecs @ ip_step_trans),
@@ -203,7 +144,9 @@ class RSPRFOptimizer(TSHessianOptimizer):
                 feasible = [(value, row) for value, row in cache.items()
                             if row[1] <= radius]
                 if not feasible:
-                    raise ValueError("max_atom PRFO exhausted its budget without a feasible point")
+                    raise _NoFeasibleAtomicStep(
+                        "max_atom PRFO exhausted its budget without a feasible point"
+                    )
                 alpha, (step, norm, returned) = max(feasible, key=lambda item: item[1][1])
                 if termination == "boundary":
                     termination = "feasible_roundoff"
@@ -224,10 +167,6 @@ class RSPRFOptimizer(TSHessianOptimizer):
     def optimize(self):
         energy, gradient, H, eigvals, eigvecs, resetted = self.housekeeping()
         self.update_ts_mode(eigvals, eigvecs)
-        exact_negative_count = self._last_exact_n_negative
-        if self._last_exact_frequencies_cm is None:
-            # Preserve the legacy non-Cartesian step policy, not a PHVA proof.
-            exact_negative_count = self._last_exact_n_imaginary
 
         # RS-PRFO uses np.linalg.norm and scalar Python loops; coerce torch
         # tensors from the MLIP Hessian path to numpy so the .dot and
@@ -236,14 +175,7 @@ class RSPRFOptimizer(TSHessianOptimizer):
         eigvecs = as_numpy(eigvecs)
         gradient = as_numpy(gradient)
 
-        if (
-            self._physical_ts_mode is not None
-            and not (
-                not self.flatten_enabled
-                and exact_negative_count is not None
-                and exact_negative_count > len(self.roots)
-            )
-        ):
+        if self._physical_ts_mode is not None:
             # A past PHVA result does not classify today's complementary
             # curvature. Only pure unconstrained translations are artifacts;
             # rotations at nonstationary points and mixed modes can be physical.
@@ -306,18 +238,38 @@ class RSPRFOptimizer(TSHessianOptimizer):
         restrict_atomic = atomic_trust and self.max_micro_cycles > 1
         if restrict_atomic:
             try:
-                step = self._max_atom_prfo_step(
-                    eigvals, eigvecs, gradient_trans, ip_step_trans,
-                    max_indices, min_indices,
-                )
+                try:
+                    step = self._max_atom_prfo_step(
+                        eigvals, eigvecs, gradient_trans, ip_step_trans,
+                        max_indices, min_indices,
+                    )
+                except _NoFeasibleAtomicStep:
+                    if not np.any(ip_step_trans):
+                        raise
+                    # A combined interpolation/RFO family can leave and re-enter
+                    # the atomic ball between sampled alpha values. Retry from
+                    # the actual current point, including its gradient; keeping
+                    # the fitted gradient after discarding the offset is invalid.
+                    # The failed family has not committed augmented-root history.
+                    self.log(
+                        "Discarded infeasible line-search proposal; "
+                        "recomputing atomic PRFO at the current point."
+                    )
+                    ip_step_trans = np.zeros_like(gradient_trans)
+                    gradient_trans = eigvecs.T.dot(gradient)
+                    step = self._max_atom_prfo_step(
+                        eigvals, eigvecs, gradient_trans, ip_step_trans,
+                        max_indices, min_indices,
+                    )
+                    self._last_atomic_trust["discarded_line_search"] = True
             except ZeroDivisionError:
                 step, gradient = self._image_trust_step()
                 image_step = True
         for mu in range(0 if restrict_atomic else self.max_micro_cycles):
             self.log(f"RS-PRFO micro cycle {mu:02d}, alpha={alpha:.6f}")
 
-            # A stationary candidate belongs to the terminal PHVA/recovery
-            # gate below, including a minimum with an uncoupled uphill root.
+            # A stationary candidate belongs to terminal PHVA below,
+            # including a minimum with an uncoupled uphill root.
             if not np.any(gradient_trans):
                 step = np.zeros_like(gradient_trans)
                 break
@@ -466,35 +418,10 @@ class RSPRFOptimizer(TSHessianOptimizer):
         # predicted_energy_change = 1/2 * (eigval_max / nu_max**2 + eigval_min / nu_min**2)
         # self.predicted_energy_changes.append(predicted_energy_change)
 
-        deferred_hosp_check = self._defer_hosp_terminal_check(step)
-        if not deferred_hosp_check:
-            self.validate_terminal_saddle_for_step(step)
-        exact_negative_count = (
-            self._last_exact_n_negative if self._last_exact_frequencies_cm is not None
-            else self._last_exact_n_imaginary
-        )
-        if (
-            not self.stop_requested
-            and not self.flatten_enabled
-            and (
-                deferred_hosp_check
-                or (
-                    self._exact_phva_matches_current_geometry()
-                    and exact_negative_count is not None
-                    and exact_negative_count > len(self.roots)
-                )
-            )
-        ):
-            # Exact PHVA exposed complementary negative curvature that the
-            # current physical model still carries.
-            # Take one bounded image-quadratic trust step (as in TRIM), not a
-            # finite-ratio P-RFO step at an uncoupled augmented root. Keep the
-            # physical Hessian/gradient for updates and energy prediction.
-            step, gradient = self._image_trust_step()
-            image_step = True
+        gradient, step = self.validate_terminal_step_basis(gradient, step)
         step = self.apply_saddle_recovery_step(step)
         if atomic_trust:
-            # Recovery/terminal fallback can replace the initial proposal.
+            # Explicitly configured recovery can replace the initial proposal.
             # Bound the actual combined Cartesian proposal before prediction.
             step = self._bound_to_trust_radius(step, label="combined RS-PRFO step")
         prediction = self.quadratic_model if image_step else self.rfo_model

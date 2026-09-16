@@ -46,6 +46,9 @@ from pysisyphus.normal_modes import (  # noqa: F401
     _mass_weighted_hessian,
     _frequencies_cm_and_modes,
     _mw_mode_to_cart,
+    DEFAULT_FREQUENCY_ZERO_CUTOFF_CM,
+    frequency_criterion_info,
+    warn_legacy_frequency_cutoff,
     normalize_frequency_zero_cutoff_cm,
     resolved_imaginary_mask,
 )
@@ -1124,13 +1127,14 @@ def cli(
     )
     try:
         freq_cfg["zero_cutoff_cm"] = normalize_frequency_zero_cutoff_cm(
-            freq_cfg.get("zero_cutoff_cm", 5.0)
+            freq_cfg.get("zero_cutoff_cm", DEFAULT_FREQUENCY_ZERO_CUTOFF_CM)
         )
     except (TypeError, ValueError) as exc:
         raise click.BadParameter(
             f"freq.zero_cutoff_cm must be finite and non-negative, got "
             f"{freq_cfg.get('zero_cutoff_cm')!r}."
         ) from exc
+    warn_legacy_frequency_cutoff(freq_cfg["zero_cutoff_cm"])
     _override_has_symmetry_number = (
         yaml_section_has_key(
             override_layer_cfg, thermo_paths, "symmetry_number"
@@ -1850,6 +1854,7 @@ def cli(
                 "n_imaginary": len(_imag_freqs),
                 "n_negative_modes": _n_negative,
                 "frequency_representation": "complete",
+                **frequency_criterion_info(freq_cfg["zero_cutoff_cm"]),
                 "frequency_zero_cutoff_cm": freq_cfg["zero_cutoff_cm"],
                 "frequencies_cm": _all_freqs,
                 "imaginary_frequencies_cm": _imag_freqs,

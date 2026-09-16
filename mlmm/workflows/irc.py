@@ -1045,6 +1045,14 @@ def cli(
         _hess_discard("irc_right")
         eulerpc.run()
 
+        from mlmm.workflows._outcomes import validate_irc_samples
+        validate_irc_samples(
+            (direction, bool(getattr(eulerpc, direction, False)),
+             getattr(eulerpc, f"{direction}_energies", []),
+             getattr(eulerpc, f"{direction}_coords", []))
+            for direction in ("forward", "backward")
+        )
+
         quick_directions = []
         for direction in ("forward", "backward"):
             if not getattr(eulerpc, direction, False):
@@ -1250,48 +1258,6 @@ def cli(
                 "files": _irc_files,
             }
             result_data.update(_directional_endpoint_energy_fields(_all_e, _ts_e))
-
-            # One LeafOutcome per requested IRC direction.  A normal stop is
-            # usable input to endpoint optimization; only missing or invalid
-            # trajectories, failed downhill departure, and numerical integration
-            # failure are unusable.  Endpoint-stationarity remains a diagnostic
-            # and retains its stricter Hessian-cache role.
-            from mlmm.workflows._outcomes import (
-                aggregate_workflow_truth as _agg_truth,
-                attach_outcomes as _attach,
-                irc_direction_leaves as _irc_dir_leaves,
-                irc_direction_statuses as _irc_dir_statuses,
-            )
-            _dir_leaves, _dir_expected = _irc_dir_leaves(
-                (
-                    (
-                        "forward",
-                        bool(getattr(eulerpc, "forward", False)),
-                        getattr(eulerpc, "forward_is_converged", None),
-                        getattr(eulerpc, "forward_downhill_departure_valid", None),
-                        getattr(eulerpc, "forward_integration_stop_reason", None),
-                        _n_fwd,
-                        [_irc_files["forward_irc"]] if "forward_irc" in _irc_files else [],
-                        getattr(eulerpc, "forward_energies", []),
-                    ),
-                    (
-                        "backward",
-                        bool(getattr(eulerpc, "backward", False)),
-                        getattr(eulerpc, "backward_is_converged", None),
-                        getattr(eulerpc, "backward_downhill_departure_valid", None),
-                        getattr(eulerpc, "backward_integration_stop_reason", None),
-                        _n_bwd,
-                        [_irc_files["backward_irc"]] if "backward_irc" in _irc_files else [],
-                        getattr(eulerpc, "backward_energies", []),
-                    ),
-                )
-            )
-            _attach(
-                result_data,
-                truth=_agg_truth(_dir_leaves, _dir_expected),
-                stage_outcomes=_dir_leaves,
-            )
-            result_data.update(_irc_dir_statuses(_dir_leaves))
 
             # Bond changes between IRC endpoints
             try:

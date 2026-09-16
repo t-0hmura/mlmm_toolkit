@@ -111,3 +111,12 @@ def test_single_optimizer_provenance_and_refined_hei_boundary(
     assert len(optimizer_calls) == (2 if single_opt_executed else 0)
     assert result.single_opt_executed is single_opt_executed
     assert len(result.segments) == n_segments
+
+    assert len(result.required_outcomes) == (0 if n_segments else 1)
+    if not n_segments:
+        raw = result.required_outcomes[0]
+        assert raw.executed is True and raw.converged is True
+        assert raw.usable is False and raw.reason == "endpoint_hei"
+        leaves, expected = path_search._path_leaves_and_expected(
+            result.segments, required_outcomes=result.required_outcomes)
+        assert raw in leaves and raw.item_id in expected

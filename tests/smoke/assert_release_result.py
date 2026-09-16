@@ -44,6 +44,34 @@ def count_xyz_frames(path: Path) -> int:
     return frames
 
 
+def check_dft_states(segment_root: Path, segment: dict) -> None:
+    """Verify the requested CPU HF/STO-3G SCF results, not artifact names."""
+    import yaml
+
+    dft = segment.get("dft") or {}
+    energies = dft.get("energies_au") or []
+    if dft.get("status") == "failed" or len(energies) != 3 or not all(
+        isinstance(value, (int, float)) and not isinstance(value, bool)
+        and math.isfinite(float(value)) for value in energies
+    ):
+        raise SystemExit(f"DFT R/TS/P energies are incomplete: {dft!r}")
+    states = ("E1", "TS", "E2") if segment.get("kind") == "tsopt" else ("R", "TS", "P")
+    for state in states:
+        path = segment_root / "dft" / state / "result.yaml"
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        energy = data.get("energy") or {}
+        value = energy.get("hartree")
+        if energy.get("converged") is not True or isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+            raise SystemExit(f"DFT {state} has no finite converged SCF result: {energy!r}")
+        request = data.get("input") or {}
+        if str(request.get("xc")).lower() != "hf" or str(request.get("basis")).lower() != "sto-3g":
+            raise SystemExit(f"DFT {state} did not use requested HF/STO-3G: {request!r}")
+        if request.get("max_cycle") != 40 or request.get("grid_level") != 0 or request.get("conv_tol") != 1e-5:
+            raise SystemExit(f"DFT {state} did not preserve requested SCF settings: {request!r}")
+        if energy.get("used_gpu") is not False:
+            raise SystemExit(f"DFT {state} did not use the requested CPU calculation")
+
+
 def check_all(root: Path, require_thermo: bool, require_dft: bool) -> None:
     summary = json.loads((root / "summary.json").read_text(encoding="utf-8"))
     require_finite(summary)
@@ -79,9 +107,8 @@ def check_all(root: Path, require_thermo: bool, require_dft: bool) -> None:
     if not segments:
         raise SystemExit("all summary has no post-TS segments")
     for segment in segments:
-        ts_imag = segment.get("ts_imag") or {}
-        if int(ts_imag.get("n_imag", -1)) != 1:
-            raise SystemExit("post-TS segment is not a first-order saddle")
+        if (segment.get("tsopt") or {}).get("optimization_status") != "converged":
+            raise SystemExit("TS numerical optimization did not converge")
         tag = str(segment["tag"])
         # Use the directory the producer published for this segment. ``tag`` is
         # the path-search segment id (``seg_%03d``) and is NOT a directory name;
@@ -99,11 +126,8 @@ def check_all(root: Path, require_thermo: bool, require_dft: bool) -> None:
             if not trajectory.is_file() or count_xyz_frames(trajectory) < 2:
                 raise SystemExit(f"missing/nontrivial IRC branch: {trajectory}")
         irc = segment.get("irc") or {}
-        if irc.get("usable") is not True or irc.get("reason") != "stopped":
-            raise SystemExit(f"raw IRC was not retained as a usable stopped trajectory: {irc!r}")
-        for direction in ("forward", "backward"):
-            if irc.get(f"{direction}_status") != "stopped":
-                raise SystemExit(f"{direction} IRC did not report stopped: {irc!r}")
+        if {"usable", "scientific_status", "forward_status", "backward_status"} & irc.keys():
+            raise SystemExit(f"all retained an independent IRC acceptance field: {irc!r}")
         endpoint_opt = segment.get("endpoint_opt") or {}
         endpoint_keys = (
             ("endpoint_1_converged", "endpoint_2_converged")
@@ -112,14 +136,6 @@ def check_all(root: Path, require_thermo: bool, require_dft: bool) -> None:
         )
         if any(endpoint_opt.get(key) is not True for key in endpoint_keys):
             raise SystemExit(f"optimized endpoints did not converge: {endpoint_opt!r}")
-        if (
-            segment.get("kind") != "tsopt"
-            and endpoint_opt.get("connectivity_validated") is not True
-        ):
-            raise SystemExit(
-                "optimized endpoint topology was not validated: "
-                f"{endpoint_opt!r}"
-            )
         if require_thermo:
             missing = [
                 state
@@ -132,18 +148,9 @@ def check_all(root: Path, require_thermo: bool, require_dft: bool) -> None:
             if not isinstance(segment.get("gibbs_mlip"), dict):
                 raise SystemExit(f"MLIP/MM thermochemistry is missing for {tag}")
         if require_dft:
-            dft = segment.get("dft") or {}
-            energies = dft.get("energies_au") or []
-            if len(energies) != 3 or not all(math.isfinite(float(value)) for value in energies):
-                raise SystemExit(f"DFT R/TS/P energies are incomplete for {tag}: {dft!r}")
-            if not isinstance(segment.get("gibbs_dft_mlip"), dict):
-                raise SystemExit(f"DFT//MLIP/MM thermochemistry is missing for {tag}")
-            dft_files = [
-                path for path in segment_root.rglob("*")
-                if path.is_file() and "dft" in path.as_posix().lower()
-            ]
-            if not dft_files:
-                raise SystemExit(f"missing DFT artifacts below {segment_root}")
+            check_dft_states(segment_root, segment)
+            if require_thermo and not isinstance(segment.get("gibbs_dft_mlip"), dict):
+                raise SystemExit(f"DFT//MLIP thermochemistry is missing for {tag}")
 
 
 def check_opt_config(
@@ -281,57 +288,20 @@ def check_dmf_frozen_atoms(root: Path, frozen_1based: str) -> None:
 
 
 def check_irc_direction_status_contract(payload: dict) -> None:
-    """Assert the public IRC direction-status enum against its own inputs.
-
-    Endpoint stationarity is a diagnostic, so a never-stop trace leaves both raw
-    endpoints non-stationary. Usability comes from a validated downhill departure
-    and the absence of a numerical propagation failure. Pinning that mapping —
-    rather than one machine's physics — keeps both the `stopped` and the `failed`
-    branch covered wherever the lane happens to land.
-    """
+    """IRC retains stop diagnostics and candidates, not a scientific verdict."""
     for removed in ("forward_converged", "backward_converged",
-                    "forward_endpoint_stationary", "backward_endpoint_stationary"):
+                    "forward_endpoint_stationary", "backward_endpoint_stationary",
+                    "forward_status", "backward_status", "scientific_status", "stage_outcomes"):
         if removed in payload:
-            raise SystemExit(f"schema 3.0 still publishes the removed field {removed}")
-    requested = [
-        direction
-        for direction in ("forward", "backward")
-        if payload.get(f"{direction}_requested") is True
-    ]
-    stopped = 0
-    for direction in ("forward", "backward"):
-        status = payload.get(f"{direction}_status")
-        if direction not in requested:
-            if status != "disabled":
-                raise SystemExit(f"unrequested {direction} IRC is not disabled: {status!r}")
-            continue
-        if payload.get(f"{direction}_integration_converged") is not False:
-            raise SystemExit(
-                f"{direction} stationarity-stop diagnostic was lost or wrongly true"
-            )
-        downhill = payload.get(f"{direction}_downhill_departure_valid")
-        integration_failed = bool(
-            str(payload.get(f"{direction}_integration_stop_reason") or "").strip()
-        )
-        expected = "stopped" if (downhill is True and not integration_failed) else "failed"
-        if status != expected:
-            raise SystemExit(
-                f"{direction} IRC status {status!r} contradicts "
-                f"downhill_departure_valid={downhill!r} and "
-                f"integration_failed={integration_failed}"
-            )
-        if status == "stopped":
-            stopped += 1
+            raise SystemExit(f"IRC still publishes an independent acceptance field: {removed}")
+    requested = [d for d in ("forward", "backward") if payload.get(f"{d}_requested") is True]
     if not requested:
         raise SystemExit("IRC reported no requested direction")
-    if stopped < 1:
-        raise SystemExit("no requested IRC direction was retained as a usable stopped trajectory")
-    expected_scientific = "success" if stopped == len(requested) else "partial"
-    if payload.get("scientific_status") != expected_scientific:
-        raise SystemExit(
-            f"IRC scientific_status {payload.get('scientific_status')!r} does not follow its "
-            f"direction statuses (expected {expected_scientific!r})"
-        )
+    for direction in requested:
+        if int(payload.get(f"n_frames_{direction}", 0)) < 1:
+            raise SystemExit(f"{direction} produced no retained candidate frames")
+        if f"{direction}_integration_stop_reason" not in payload:
+            raise SystemExit(f"{direction} stop diagnostics are missing")
 
 
 def check_irc_handoff(root: Path, hessian_file: Path) -> None:

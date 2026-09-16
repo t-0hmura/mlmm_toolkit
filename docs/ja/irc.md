@@ -1,6 +1,8 @@
 # `irc`
 
-`mlmm irc` は ML/MM calculator を用いた EulerPC ベースの IRC（固有反応座標）積分により、遷移状態から両方向へ経路を追跡します。standalone 出力は生の端点候補なので、熱化学計算や DFT 単点計算に使う前に最適化と接続性検証を行います。`mlmm all` はこの端点 refinement を自動実行します。典型的には `tsopt` -> `freq`（**1 つ**の虚振動数モードを確認）-> `irc` というワークフローで実行します。共通input bridgeはPDB/mmCIFと`geom_loader`対応形式を受け入れます。直接入力または`--ref-pdb`でPDB/mmCIF topologyがあり、変換が有効ならPDB companionを生成し、mmCIF/oversized-PDB bridge入力では元IDを復元したCIF companionも生成します。
+`mlmm irc` は ML/MM calculator を用いた EulerPC ベースの IRC（固有反応座標）積分により、遷移状態から両方向へ経路を追跡します。standalone 出力は生の端点候補です。端点の最適化結果と、目的の反応物・生成物への対応は別々に記録します。`mlmm all` はこの端点 refinement を自動実行します。典型的には `tsopt` -> `freq`（**1 つ**の虚振動数モードを確認）-> `irc` というワークフローで実行します。共通input bridgeはPDB/mmCIFと`geom_loader`対応形式を受け入れます。直接入力または`--ref-pdb`でPDB/mmCIF topologyがあり、変換が有効ならPDB companionを生成し、mmCIF/oversized-PDB bridge入力では元IDを復元したCIF companionも生成します。
+
+IRC 単独の `scientific_status` や方向別の成功判定は出力しません。予測子の内部積分予算による停止でも、有限の保存端点は端点 OPT に渡します。軌跡・停止理由は保持し、欠損構造、非有限の座標・エネルギー、実行例外はエラーとして報告します。目的の R/P との対応は機構検討の情報であり、最適化収束とは別です。
 
 ## 実行例
 
@@ -36,7 +38,7 @@ mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0 \
 ```
 
 このモードでも数値／integration失敗、外部中断、サイクル上限では停止します。
-公開する方向状態は `stopped` で、端点 stationary 判定は別の診断値です。
+方向ごとの停止理由と端点 stationary 判定を診断情報として記録します。
 両方向の軌跡を確認し、端点を最適化・検証してから採用してください。
 
 両ブランチを保持してステップ上限を引き上げ:

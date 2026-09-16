@@ -7,7 +7,6 @@ import pytest
 from mlmm.core.defaults import GEOM_KW_DEFAULT, OPT_BASE_KW, RSIRFO_KW
 from mlmm.core.utils import apply_yaml_overrides
 from mlmm.workflows import tsopt
-from pysisyphus.constants import BOHR2ANG
 
 
 def resolve(base=None, override=None, *, kind="rsprfo", geom=None):
@@ -20,26 +19,22 @@ def resolve(base=None, override=None, *, kind="rsprfo", geom=None):
                                      (geometry, (("geom",),))])
     if geom:
         geometry.update(geom)
-    tsopt._apply_cartesian_ts_defaults(
-        opt, rs, geometry, kind=kind,
-        config_layer_cfg=base, override_layer_cfg=override,
-    )
     assert (base, override) == raw_before
     return tsopt._build_rsirfo_kwargs(rs, max_cycles=1, out_dir=".", mode=kind, opt_cfg=opt)
 
 
-def assert_atomic(kwargs):
-    assert kwargs["trust_norm"] == "max_atom"
-    assert kwargs["trust_radius"] == kwargs["trust_max"] == 0.1 / BOHR2ANG
+def assert_baseline(kwargs):
+    assert kwargs.get("trust_norm", "l2") == "l2"
+    assert kwargs["trust_radius"] == kwargs["trust_max"] == 0.1
     assert kwargs["trust_min"] == 1e-4
 
 
 @pytest.mark.parametrize("coord", ["cart", "cartesian"])
-def test_unconfigured_cartesian_defaults_are_local(coord):
+def test_unconfigured_cartesian_defaults_preserve_baseline(coord):
     before = deepcopy(RSIRFO_KW)
     kwargs = resolve(geom={"coord_type": coord})
-    assert_atomic(kwargs)
-    assert kwargs["hessian_update"] == "ts_bfgs"
+    assert_baseline(kwargs)
+    assert kwargs["hessian_update"] == "bofill"
     assert RSIRFO_KW == before  # other TS owners still share the old dictionary
 
 
@@ -67,28 +62,29 @@ def test_radius_alone_keeps_legacy_global_l2_meaning(section, key, value):
     assert kwargs[key] == value
     assert kwargs["trust_radius"] == (value if key == "trust_radius" else 0.1)
     assert kwargs["trust_max"] == 0.1
-    assert kwargs["hessian_update"] == "ts_bfgs"
-
-
-@pytest.mark.parametrize("section", ["opt", "rsirfo"])
-def test_explicit_l2_keeps_old_radius_but_update_default_is_independent(section):
-    kwargs = resolve({section: {"trust_norm": "l2"}})
-    assert kwargs["trust_norm"] == "l2"
-    assert kwargs["trust_radius"] == kwargs["trust_max"] == 0.1
-    assert kwargs["hessian_update"] == "ts_bfgs"
-
-
-@pytest.mark.parametrize("section", ["opt", "rsirfo"])
-def test_explicit_bofill_does_not_disable_atomic_defaults(section):
-    kwargs = resolve({section: {"hessian_update": "bofill"}})
-    assert_atomic(kwargs)
     assert kwargs["hessian_update"] == "bofill"
 
 
 @pytest.mark.parametrize("section", ["opt", "rsirfo"])
-def test_explicit_max_atom_fills_only_missing_radii(section):
+def test_explicit_l2_keeps_baseline_radius_and_update(section):
+    kwargs = resolve({section: {"trust_norm": "l2"}})
+    assert kwargs["trust_norm"] == "l2"
+    assert kwargs["trust_radius"] == kwargs["trust_max"] == 0.1
+    assert kwargs["hessian_update"] == "bofill"
+
+
+@pytest.mark.parametrize("section", ["opt", "rsirfo"])
+def test_explicit_bofill_keeps_baseline_trust(section):
+    kwargs = resolve({section: {"hessian_update": "bofill"}})
+    assert_baseline(kwargs)
+    assert kwargs["hessian_update"] == "bofill"
+
+
+@pytest.mark.parametrize("section", ["opt", "rsirfo"])
+def test_explicit_max_atom_preserves_default_and_explicit_radii(section):
     kwargs = resolve({section: {"trust_norm": "max_atom"}})
-    assert_atomic(kwargs)
+    assert kwargs["trust_norm"] == "max_atom"
+    assert kwargs["trust_radius"] == kwargs["trust_max"] == 0.1
     kwargs = resolve({section: {"trust_norm": "max_atom", "trust_radius": 0.025,
                                "trust_min": 2e-4, "trust_max": 0.075}})
     assert kwargs["trust_norm"] == "max_atom"
@@ -114,7 +110,7 @@ def test_explicit_atomic_override_preserves_base_radius():
                      {"rsirfo": {"trust_norm": "max_atom"}})
     assert kwargs["trust_norm"] == "max_atom"
     assert kwargs["trust_radius"] == 0.1
-    assert kwargs["trust_max"] == 0.1 / BOHR2ANG
+    assert kwargs["trust_max"] == 0.1
 
 
 @pytest.mark.parametrize("kind,geom,extra", [
@@ -138,8 +134,8 @@ def test_existing_opt_rsirfo_priority_is_retained():
                       "rsirfo": {"trust_norm": "l2", "weighted_trust": True}})
     assert kwargs["trust_norm"] == "max_atom"
     assert kwargs["weighted_trust"] is False
-    assert kwargs["trust_radius"] == 0.1 / BOHR2ANG
-    assert kwargs["hessian_update"] == "ts_bfgs"
+    assert kwargs["trust_radius"] == 0.1
+    assert kwargs["hessian_update"] == "bofill"
 
 
 @pytest.fixture
@@ -221,8 +217,8 @@ def capture_cli(monkeypatch, tmp_path):
 @pytest.mark.parametrize("mode", [None, "hess", "rsprfo"])
 def test_real_default_entry_reaches_constructor(capture_cli, mode):
     kwargs = capture_cli(mode=mode)
-    assert_atomic(kwargs)
-    assert kwargs["hessian_update"] == "ts_bfgs"
+    assert_baseline(kwargs)
+    assert kwargs["hessian_update"] == "bofill"
 
 
 @pytest.mark.parametrize("section", ["opt", "rsirfo"])
@@ -237,7 +233,7 @@ def test_real_entry_preserves_explicit_legacy_choices(capture_cli, section):
 def test_real_entry_uses_final_cli_coordinate_choice(capture_cli):
     kwargs = capture_cli({"geom": {"coord_type": "dlc"}}, coord="cart")
     assert kwargs["coord_type"] == "cart"
-    assert_atomic(kwargs)
+    assert_baseline(kwargs)
 
 
 @pytest.mark.parametrize("section", ["opt", "rsirfo"])
@@ -245,11 +241,21 @@ def test_real_entry_radius_alone_keeps_l2(capture_cli, section):
     kwargs = capture_cli({section: {"trust_radius": 0.1}})
     assert kwargs.get("trust_norm", "l2") == "l2"
     assert kwargs["trust_radius"] == kwargs["trust_max"] == 0.1
-    assert kwargs["hessian_update"] == "ts_bfgs"
+    assert kwargs["hessian_update"] == "bofill"
 
 
 def test_real_default_entry_reaches_microdriver(capture_cli):
     kwargs = capture_cli(micro=True)
     assert kwargs["micro_boundary"] is True
-    assert_atomic(kwargs)
+    assert_baseline(kwargs)
+    assert kwargs["hessian_update"] == "bofill"
+
+
+@pytest.mark.parametrize("section", ["opt", "rsirfo"])
+def test_real_entry_preserves_explicit_atomic_norm(capture_cli, section):
+    kwargs = capture_cli({section: {"trust_norm": "max_atom", "trust_radius": 0.025,
+                                   "trust_max": 0.075, "hessian_update": "ts_bfgs"}})
+    assert kwargs["trust_norm"] == "max_atom"
+    assert kwargs["trust_radius"] == 0.025
+    assert kwargs["trust_max"] == 0.075
     assert kwargs["hessian_update"] == "ts_bfgs"

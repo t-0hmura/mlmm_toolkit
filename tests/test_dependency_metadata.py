@@ -7,18 +7,21 @@ import pytest
 from packaging.requirements import Requirement
 
 
-def test_parmed_requirement_supports_the_unbounded_numpy_runtime() -> None:
+def test_parmed_requirement_supports_the_selected_numpy_runtime() -> None:
     pyproject = (Path(__file__).parents[1] / "pyproject.toml").read_text(encoding="utf-8")
 
-    assert '"numpy"' in pyproject
-    assert '"numpy>=' not in pyproject
+    requirements = {r.name: r for r in map(Requirement, tomllib.loads(pyproject)["project"]["dependencies"])}
+    assert "2.4.6" in requirements["numpy"].specifier
+    assert "2.5.0" not in requirements["numpy"].specifier
     assert '"ParmEd>=4.3.1"' in pyproject
 
 
 def test_no_deps_ci_jobs_install_the_current_fairchem_torch_minor() -> None:
     root = Path(__file__).parents[1]
     pyproject = (root / "pyproject.toml").read_text(encoding="utf-8")
-    assert '"torch"' in pyproject
+    requirements = {r.name: r for r in map(Requirement, tomllib.loads(pyproject)["project"]["dependencies"])}
+    assert "2.13.0" in requirements["torch"].specifier
+    assert "2.14.0" not in requirements["torch"].specifier
     assert '"torch~=' not in pyproject
 
     workflows = ("pytest.yml", "docs_quality.yml", "markers.yml")
@@ -60,3 +63,11 @@ def test_orb_extra_selects_the_supported_api_for_each_python(python_version):
     else:
         assert "0.7.0" in specifier and "0.8.0" in specifier
         assert "0.6.99" not in specifier
+
+
+def test_version_tuple_matches_the_packaged_version() -> None:
+    from packaging.version import Version
+    from mlmm import _version
+
+    assert _version.__version_tuple__ == _version.version_tuple == Version(_version.__version__).release
+    assert _version.version == _version.__version__

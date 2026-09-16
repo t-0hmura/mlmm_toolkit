@@ -2,6 +2,8 @@
 
 `frequencies_cm-1.txt`, JSON `frequencies_cm`, and `n_modes` retain the complete signed physical spectrum after the existing frozen-atom and rigid-mode projection. `--max-write` and `--sort` control only which mode files are written and their order. `n_imaginary` (YAML `num_imag_freq`) is the resolved negative count below the reporting threshold; `n_negative_modes` also includes weak negative modes. With `frequency_representation: complete`, `near_zero_frequencies_cm` is a subset of the complete array; do not append it and count modes twice.
 
+The default imaginary-mode criterion is the original PySisyphus mass-weighted Hessian rule: eigenvalue < −10⁻⁶ Hartree/(bohr²·amu). The equivalent frequency magnitude is derived by `eigval_to_wavenumber` (about 5.14 cm⁻¹); it is not an independently rounded cutoff. `imaginary_mode_criterion`, `imaginary_eigenvalue_threshold` (positive magnitude), `imaginary_eigenvalue_units`, and `imaginary_frequency_threshold_cm` record the rule. Explicit legacy `freq.zero_cutoff_cm` overrides remain available with a deprecation warning. This reporting criterion is separate from the optimizer-coordinate `small_eigval_thresh` of 10⁻⁸. No sign is changed and no physical mode is removed.
+
 Thermochemistry retains the existing QRRHO policy (100 cm⁻¹ rotor cutoff, no imaginary inversion and no positive-frequency floor), including positive low-frequency modes. Changing `freq.zero_cutoff_cm` does not change thermal values computed from the same complete spectrum.
 
 
@@ -183,7 +185,7 @@ calc:
  mm_fd: true                       # MM finite-difference toggle
  return_partial_hessian: true      # allow partial Hessians (PHVA default)
 freq:
- zero_cutoff_cm: 5.0               # Near-zero classification window (cm^-1); modes are retained
+ # zero_cutoff_cm: 5.0  # legacy override; omit for the original eigenvalue criterion
  amplitude_ang: 0.8                # displacement amplitude for modes (Å)
  n_frames: 20                      # number of frames per mode
  max_write: 10                     # maximum number of modes to write

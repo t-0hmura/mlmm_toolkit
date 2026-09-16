@@ -1150,4 +1150,4 @@ def test_strict_higher_order_is_not_reclassified_by_resolved_count():
     assert result["n_negative_modes"] == 2
     payload.pop("n_negative_modes")
     payload["saddle_validation"] = "first_order"  # legacy resolved-only claim
-    assert _tsopt_continuation_decision(payload, skip_final_freq=False)["reason"] == "saddle_order_unavailable"
+    assert _tsopt_continuation_decision(payload, skip_final_freq=False)["reason"] == "first_order_saddle"

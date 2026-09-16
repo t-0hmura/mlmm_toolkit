@@ -101,3 +101,44 @@ def test_soft_positive_modes_reach_thermochemistry_without_cutoff_dependence():
         assert np.isfinite([tr.ZPE, tr.G, tr.S_tot, tr.c_tot]).all()
         results.append([tr.ZPE, tr.G, tr.S_tot, tr.c_tot])
     np.testing.assert_array_equal(results, [results[0]] * 3)
+
+
+@pytest.mark.parametrize("partial", [False, True])
+def test_original_eigenvalue_criterion_matches_geometry_with_all_soft_pairs(partial):
+    from ase.data import atomic_masses
+    from pysisyphus.Geometry import Geometry
+    from pysisyphus.helpers_pure import eigval_to_wavenumber
+
+    coords = np.vstack((COORDS, [3., 1., 2.]))
+    numbers = [1, 6, 8, 1, 6, 8]
+    masses = atomic_masses[numbers]
+    # Eigenvalues are in Hartree/(bohr^2*amu), independently imposed by H=M*D.
+    eigenvalues = np.array([-1e-3, -1.01e-6, -.99e-6, -1e-12, 0.,
+                            1e-12, 5e-8, 9e-7, 2e-6])
+    active_hessian = np.diag(eigenvalues * np.repeat(masses[3:], 3))
+    full_hessian = np.zeros((18, 18))
+    full_hessian[9:, 9:] = active_hessian
+    geometry = Geometry(["H", "C", "O", "H", "C", "O"], coords.ravel(),
+                        freeze_atoms=[0, 1, 2])
+    geometry.masses = masses.copy()  # Compare the same mass table in both owners.
+    expected_imaginary = geometry.get_imag_frequencies(full_hessian)
+    source = active_hessian if partial else full_hessian
+    info = {}
+    frequencies, modes = _frequencies_cm_and_modes(
+        torch.tensor(source, dtype=torch.float64), numbers, coords,
+        torch.device("cpu"), freeze_idx=[0, 1, 2], projection_info=info,
+    )
+    np.testing.assert_allclose(frequencies, eigval_to_wavenumber(eigenvalues),
+                               rtol=1e-12, atol=1e-12)
+    np.testing.assert_allclose(frequencies[resolved_imaginary_mask(frequencies)],
+                               expected_imaginary, rtol=1e-12, atol=1e-12)
+    assert info["imaginary_eigenvalue_threshold"] == 1e-6
+    assert info["imaginary_eigenvalue_units"] == "hartree/(bohr^2*amu)"
+    assert info["raw_mode_count"] == frequencies.size == 9
+    assert np.count_nonzero(resolved_imaginary_mask(frequencies)) == 2
+    assert _strict_negative_count(frequencies, info) == 4
+    assert np.count_nonzero((frequencies > 0.) & (frequencies < 5.)) == 3
+    assert modes.shape == (9, 18)
+    np.testing.assert_array_equal(modes[:, :9], 0.)
+    np.testing.assert_allclose(modes.numpy()[:, 9:] @ modes.numpy()[:, 9:].T,
+                               np.eye(9), atol=1e-12)

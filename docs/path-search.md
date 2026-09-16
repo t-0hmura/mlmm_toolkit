@@ -91,7 +91,7 @@ out_dir/ (default: ./result_path_search/)
 | `--max-depth INT` | Recursive subdivision levels allowed. `0` disables subdivision, returning each input pair as one MEP segment (none when its HEI sits at an endpoint). A capped interval is tagged `seg_NNN_maxdepth` and may hold more than one step. | `10` |
 | `--gsm-param [equi\|energy]` | GSM node parameterization after string growth. `energy` concentrates nodes in high-energy regions and may be tried when an equidistant path skips the reaction-coordinate region near the HEI; it does not identify a TS. | `equi` |
 | `--max-cycles-gsm INT` | GSM string-optimizer cycle cap. | `300` |
-| `--max-cycles-dmf INT` | DMF IPOPT iteration cap. | `3000` |
+| `--max-cycles-dmf INT` | DMF IPOPT iteration cap. | `300` |
 | `--climb/--no-climb` | Enable TS refinement for segment GSM. | `True` |
 | `--preopt/--no-preopt` | Pre-optimize endpoints with L-BFGS before segmentation. | `True` |
 | `--align/--no-align` | After preoptimization, align inputs and, with frozen anchors, run freeze-guided scan/relaxation before re-matching freeze atoms. | `True` |

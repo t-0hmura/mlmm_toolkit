@@ -645,7 +645,7 @@ def test_colab_responsive_contract_covers_the_whole_four_step_app() -> None:
 def test_colab_setup_is_pinned_to_matching_release_and_one_backend() -> None:
     setup = _notebook()["cells"][1]["source"]
 
-    assert 'mlmm_toolkit_version = "v0.3.5"' in setup
+    assert 'mlmm_toolkit_version = "v0.3.6"' in setup
     # Only the exact `debug` sentinel switches to the matching adjacent source
     # snapshot; release versions never inspect the ZIP.
     assert "_raw_version = str(mlmm_toolkit_version)" in setup
@@ -745,7 +745,7 @@ def test_colab_setup_installs_missing_cyipopt(monkeypatch) -> None:
     monkeypatch.setattr(
         importlib.metadata,
         "version",
-        lambda name: "0.3.5" if name == "mlmm-toolkit" else "test",
+        lambda name: "0.3.6" if name == "mlmm-toolkit" else "test",
     )
     monkeypatch.setattr(os.path, "isdir", fake_isdir)
 
@@ -811,7 +811,7 @@ def test_colab_setup_dft_branch_installs_extra_and_checks_gpu(monkeypatch, capsy
     versions = {
         "pyscf": "2.11.0",
         "gpu4pyscf-cuda12x": "1.5.2",
-        "mlmm-toolkit": "0.3.5",
+        "mlmm-toolkit": "0.3.6",
     }
     monkeypatch.setattr(subprocess, "run", fake_run)
     monkeypatch.setattr(subprocess, "Popen", _FakePopen)
@@ -824,8 +824,8 @@ def test_colab_setup_dft_branch_installs_extra_and_checks_gpu(monkeypatch, capsy
     installs = [argv for argv in calls if "install" in argv]
     # One pinned install carries the extra, so the DFT branch differs from the
     # plain branch only by the `[dft]` marker on the same requested version.
-    assert any("mlmm-toolkit[dft]==0.3.5" in argv for argv in installs)
-    assert not any("mlmm-toolkit==0.3.5" in argv for argv in installs)
+    assert any("mlmm-toolkit[dft]==0.3.6" in argv for argv in installs)
+    assert not any("mlmm-toolkit==0.3.6" in argv for argv in installs)
     assert popen_calls == []          # no streamed pip log, only the announcement
     logged = capsys.readouterr().out
     assert "install_dft is ticked" in logged
@@ -882,7 +882,7 @@ def test_colab_setup_operates_orb_and_uma_branches(
     monkeypatch.setattr(
         importlib.metadata,
         "version",
-        lambda name: "0.3.5" if name == "mlmm-toolkit" else "test",
+        lambda name: "0.3.6" if name == "mlmm-toolkit" else "test",
     )
     monkeypatch.delenv("HF_TOKEN", raising=False)
     if use_token:
@@ -927,7 +927,7 @@ def test_colab_setup_handles_cancelled_uma_sign_in(monkeypatch, capsys) -> None:
     monkeypatch.setattr(
         importlib.metadata,
         "version",
-        lambda name: "0.3.5" if name == "mlmm-toolkit" else "test",
+        lambda name: "0.3.6" if name == "mlmm-toolkit" else "test",
     )
     monkeypatch.delenv("HF_TOKEN", raising=False)
 
@@ -950,25 +950,25 @@ def test_colab_setup_explains_unavailable_release(monkeypatch) -> None:
 
     def fake_run(argv, **_kwargs):
         command = [str(value) for value in argv]
-        failed = any(value == "mlmm-toolkit==0.3.5" for value in command)
+        failed = any(value == "mlmm-toolkit==0.3.6" for value in command)
         return types.SimpleNamespace(stdout="GPU 0", stderr="", returncode=1 if failed else 0)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
     monkeypatch.setattr(importlib.util, "find_spec", lambda _name: object())
-    monkeypatch.setattr(importlib.metadata, "version", lambda _name: "0.3.5")
+    monkeypatch.setattr(importlib.metadata, "version", lambda _name: "0.3.6")
 
     with pytest.raises(RuntimeError) as error:
         exec(compile(setup, str(NOTEBOOK), "exec"), {})
 
     message = str(error.value)
-    assert "Could not install mlmm-toolkit==0.3.5 from PyPI" in message
-    assert "version v0.3.5 may not be published" in message
+    assert "Could not install mlmm-toolkit==0.3.6 from PyPI" in message
+    assert "version v0.3.6 may not be published" in message
     assert "mlmm-toolkit-src.zip pair, then enter debug" in message
 
 
 def test_colab_setup_explains_missing_debug_zip(monkeypatch, tmp_path) -> None:
     setup = _notebook()["cells"][1]["source"].replace(
-        'mlmm_toolkit_version = "v0.3.5"', 'mlmm_toolkit_version = "debug"', 1,
+        'mlmm_toolkit_version = "v0.3.6"', 'mlmm_toolkit_version = "debug"', 1,
     ).replace("install_dft = True", "install_dft = False", 1)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
@@ -985,7 +985,7 @@ def test_colab_setup_explains_missing_debug_zip(monkeypatch, tmp_path) -> None:
     message = str(error.value)
     assert "Debug mode needs the adjacent source ZIP" in message
     assert "mlmm-toolkit-src.zip" in message
-    assert "enter v0.3.5 for a published release install" in message
+    assert "enter v0.3.6 for a published release install" in message
 
 
 def test_colab_gui_is_mlmm_native_and_tracks_structure_contracts() -> None:
@@ -4978,7 +4978,7 @@ def test_colab_uma_login_accepts_a_colab_secret(monkeypatch) -> None:
     monkeypatch.setattr(importlib.util, "find_spec", lambda _name: object())
     monkeypatch.setattr(
         importlib.metadata, "version",
-        lambda name: "0.3.5" if name == "mlmm-toolkit" else "test",
+        lambda name: "0.3.6" if name == "mlmm-toolkit" else "test",
     )
     monkeypatch.delenv("HF_TOKEN", raising=False)
 
@@ -6589,7 +6589,7 @@ def test_colab_setup_exposes_linked_nonnegative_radius_and_selected_resn() -> No
     app = _notebook()["cells"][2]["source"]
     setup = _notebook()["cells"][1]["source"]
     assert 'backend = "uma"' in setup
-    assert 'mlmm_toolkit_version = "v0.3.5"' in setup
+    assert 'mlmm_toolkit_version = "v0.3.6"' in setup
     assert 'prep_radius = W.BoundedFloatText(' in app
     assert 'value=2.6, min=0.0, max=1000000.0, step=0.2' in app
     assert 'adv_radius = W.BoundedFloatText(value=2.6, min=0.0, max=1000000.0, step=0.2' in app
@@ -7148,3 +7148,66 @@ def test_results_explicit_pdb_state_preserves_ownership_with_mismatched_xyz(
     _write_result_xyz(xyz, [((0., 0., 0.), (0.7, 0., 0.))], [-10.])
     app["_load_trajectory"](str(pdb), str(tmp_path))
     assert app["_TRAJ"]["energies"] == [-10.]
+
+
+def test_scan_inputs_preserve_numeric_values(monkeypatch, tmp_path: Path) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    for target in (1.23456789, 1.2345678901234567e-10, 1.2345678901234567e10):
+        original = [("LIG 1 O1'", "LIG 1 C2", target)]
+        app["S"]["scan_stages"] = []
+        app["S"]["scan_preset"] = repr(original)
+        app["S"]["scan_atoms"] = [None, None]
+        literal, = app["scan_literals"]()
+        assert ast.literal_eval(literal) == original
+        assert ast.literal_eval(shlex.split(shlex.quote(literal))[0]) == original
+        atoms = [{"index": i, "chain": "", "resn": "LIG", "resi": "1", "icode": "",
+                  "atom": name, "xyz": (float(i), 0.0, 0.0)}
+                 for i, name in enumerate(("O1'", "C2"))]
+        app["S"]["scan_stages"] = [[{"a": atoms[0], "b": atoms[1], "t": target}]]
+        stage, = app["scan_literals"]()
+        assert ast.literal_eval(stage)[0][2] == target
+        app["S"].update(scan_stages=[], scan_preset="", scan_atoms=atoms, scan_target=target)
+        picked, = app["scan_literals"]()
+        assert ast.literal_eval(picked)[0][2] == target
+
+
+def test_ts_result_reports_convergence_and_raw_spectrum_separately(monkeypatch, tmp_path: Path) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    result = tmp_path / "result.json"
+    result.write_text(json.dumps({
+        "status": "converged", "optimization_status": "converged",
+        "saddle_validation": "higher_order", "n_imaginary_modes": 1,
+        "n_negative_modes": 2, "imaginary_frequencies_cm": [-100.0],
+    }), encoding="utf-8")
+    app["S"].update(_last_out_dir=str(tmp_path), _last_subcmd="tsopt",
+                    _last_files=[str(result)], _last_manifest={})
+    context = app["_result_context_html"](str(tmp_path))
+    assert "Converged" in context
+    assert "numerical optimization: <b>converged</b>" in context
+    assert "negative frequencies (raw): <b>2</b>" in context
+    assert "frequency analysis: <b>higher_order</b>" in context
+    assert "Failed" not in context and "Partial" not in context
+    summary = app["_summary_html"](str(result))
+    assert "negative frequencies (raw): <b>2</b>" in summary
+    result.write_text(json.dumps({"converged": None}), encoding="utf-8")
+    unknown = app["_result_context_html"](str(tmp_path))
+    assert "Unknown" in unknown and "Not converged" not in unknown
+
+
+def test_irc_trajectory_displays_stop_diagnostics_without_a_success_verdict(monkeypatch, tmp_path: Path) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    trajectory = tmp_path / "finished_irc_trj.xyz"
+    trajectory.write_text("1\n0\nH 0 0 0\n", encoding="utf-8")
+    payload = {"status": "completed", "forward_requested": True, "backward_requested": True,
+               "n_frames_forward": 8, "n_frames_backward": 17, "n_frames_total": 26,
+               "forward_integration_converged": True, "backward_integration_converged": False,
+               "backward_integration_stop_reason": "predictor budget exhausted"}
+    result = tmp_path / "result.json"
+    result.write_text(json.dumps(payload), encoding="utf-8")
+    metadata = app["_trajectory_result_metadata"](str(trajectory), 26)
+    assert metadata["ts_index"] == 8
+    assert metadata["trajectory_status"] == "completed · forward: 8 frames · backward: 17 frames"
+    assert metadata["stop_reasons"] == {"backward": "predictor budget exhausted"}
+    summary = app["_summary_html"](str(result))
+    assert "backward stop: <b>predictor budget exhausted</b>" in summary
+    assert "WARNING" not in summary and "failed" not in summary.lower()

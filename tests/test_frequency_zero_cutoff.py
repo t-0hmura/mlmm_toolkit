@@ -8,14 +8,37 @@ import torch
 
 from mlmm.core.defaults import FREQ_KW
 from pysisyphus.normal_modes import (
+    DEFAULT_FREQUENCY_ZERO_CUTOFF_CM,
+    DEFAULT_IMAGINARY_EIGENVALUE_THRESHOLD,
+    frequency_criterion_info,
+    warn_legacy_frequency_cutoff,
     filter_resolved_modes,
     normalize_frequency_zero_cutoff_cm,
     resolved_imaginary_mask,
 )
 
 
-def test_default_cutoff_is_five_cm_inverse() -> None:
-    assert FREQ_KW["zero_cutoff_cm"] == 5.0
+def test_default_cutoff_derives_from_original_mass_weighted_eigenvalue() -> None:
+    from pysisyphus.helpers_pure import eigval_to_wavenumber
+
+    assert DEFAULT_IMAGINARY_EIGENVALUE_THRESHOLD == 1e-6
+    assert FREQ_KW["zero_cutoff_cm"] == eigval_to_wavenumber(1e-6)
+    assert 5.1 < DEFAULT_FREQUENCY_ZERO_CUTOFF_CM < 5.2
+    eigenvalues = np.array([-1.01e-6, -1e-6, -.99e-6, -1e-12, 0., 1e-12])
+    frequencies = eigval_to_wavenumber(eigenvalues)
+    np.testing.assert_array_equal(resolved_imaginary_mask(frequencies), eigenvalues < -1e-6)
+    # The old rounded 5 cm^-1 rule gives a different decision near the bound.
+    assert resolved_imaginary_mask(frequencies, 5.0)[2]
+    info = frequency_criterion_info()
+    assert info["imaginary_mode_criterion"] == "mass_weighted_eigenvalue"
+    assert info["imaginary_eigenvalue_threshold"] == 1e-6
+    assert info["imaginary_eigenvalue_units"] == "hartree/(bohr^2*amu)"
+
+
+def test_explicit_legacy_cutoff_is_visible_and_warns():
+    with pytest.warns(FutureWarning, match="overrides the original"):
+        warn_legacy_frequency_cutoff(5.0)
+    assert frequency_criterion_info(5.0)["imaginary_mode_criterion"] == "legacy_frequency_cutoff"
 
 
 def test_cutoff_is_configurable_and_boundary_is_removed() -> None:

@@ -9,6 +9,7 @@ import torch
 from click.testing import CliRunner
 
 from pysisyphus.Geometry import Geometry
+from pysisyphus.normal_modes import DEFAULT_FREQUENCY_ZERO_CUTOFF_CM, resolved_imaginary_mask
 from mlmm.core import calc_eval
 from mlmm.io import hessian_cache
 from mlmm.workflows import freq, tsopt
@@ -16,7 +17,8 @@ from mlmm.workflows import freq, tsopt
 
 @pytest.mark.parametrize("widen", [False, True], ids=["reuse", "wider-final"])
 @pytest.mark.parametrize("soft_added_root", [False, True], ids=["resolved-extra", "soft-extra"])
-def test_real_terminal_workflow_phva_scope_and_raw_order(tmp_path, monkeypatch, widen, soft_added_root):
+@pytest.mark.parametrize("final_energy", ["finite", "raises", "nonfinite"])
+def test_real_terminal_workflow_phva_scope_and_raw_order(tmp_path, monkeypatch, widen, soft_added_root, final_energy):
     # Three noncollinear fixed anchors remove all compatible rigid motions.
     # E = 1/2 (x-x0)^T D (x-x0), with negative x curvature on atoms3 and4.
     # The macro block contains atoms3,5; restoring atom4 adds exactly one root.
@@ -86,10 +88,10 @@ def test_real_terminal_workflow_phva_scope_and_raw_order(tmp_path, monkeypatch, 
         frequencies, modes = tsopt._modes_from_Hact_embedded(
             h_analysis, geom.atomic_numbers, geom.cart_coords.reshape(-1, 3),
             active, torch.device("cpu"), tr_projection=geom.tr_projection,
-            projection_info=projection, frequency_zero_cutoff_cm=5.0,
+            projection_info=projection, frequency_zero_cutoff_cm=DEFAULT_FREQUENCY_ZERO_CUTOFF_CM,
         )
         # The optimizer's terminal record includes its configured analysis cutoff.
-        projection["frequency_zero_cutoff_cm"] = 5.0
+        projection["frequency_zero_cutoff_cm"] = DEFAULT_FREQUENCY_ZERO_CUTOFF_CM
         permutation = [3, 4, 5, 0, 1, 2]
         optimizer = SimpleNamespace(
             is_converged=True, is_stalled=False, cur_cycle=0, stop_reason="",
@@ -98,8 +100,9 @@ def test_real_terminal_workflow_phva_scope_and_raw_order(tmp_path, monkeypatch, 
             _last_exact_cart_coords=geom.cart_coords.copy(),
             _last_exact_frequencies_cm=frequencies.copy(),
             _last_exact_modes=modes.clone(), _last_rigid_projection_info=projection,
+            _last_exact_target_mode_index=0, _last_exact_target_mode_overlap=0.91,
         )
-        assert np.count_nonzero(frequencies < -5.0) == 1
+        assert np.count_nonzero(resolved_imaginary_mask(frequencies)) == 1
         assert projection["effective_rank"] == 0
         observed["optimizer"] = optimizer
         # Match the existing driver's restoration boundary; cached optimizer data
@@ -130,6 +133,18 @@ def test_real_terminal_workflow_phva_scope_and_raw_order(tmp_path, monkeypatch, 
     monkeypatch.setattr(tsopt, "geom_loader", load_geometry)
     monkeypatch.setattr(tsopt, "_run_microiter_tsopt", completed_macro)
     monkeypatch.setattr(tsopt, "_write_all_imag_modes", export_modes)
+    energy_calls = []
+    actual_energy = tsopt._calc_energy
+
+    def terminal_energy(*args, **kwargs):
+        energy_calls.append(True)
+        if final_energy == "raises":
+            raise RuntimeError("injected final energy failure")
+        if final_energy == "nonfinite":
+            return float("nan")
+        return actual_energy(*args, **kwargs)
+
+    monkeypatch.setattr(tsopt, "_calc_energy", terminal_energy)
     output = tmp_path / "terminal"
     result = CliRunner().invoke(tsopt.cli, [
         "-i", str(source), "--parm", str(parm), "-q", "0", "-m", "1",
@@ -146,9 +161,17 @@ def test_real_terminal_workflow_phva_scope_and_raw_order(tmp_path, monkeypatch, 
     assert report["hessian_error"] is None
     assert report["n_imaginary_modes"] == expected_count
     assert report["n_negative_modes"] == expected_strict
-    assert report["saddle_validation"] == ("higher_order" if widen else "first_order")
-    assert report["saddle_order_verified"] is (not widen)
-    assert report["energy_hartree"] == 0.0
+    assert report["saddle_validation"] == ("higher_order" if expected_count > 1 else "first_order")
+    assert report["saddle_order_verified"] is (expected_count == 1)
+    assert report["optimization_status"] == "converged"
+    assert report["status"] == ("converged" if final_energy == "finite" else "energy_missing")
+    assert report["energy_hartree"] == (0.0 if final_energy == "finite" else None)
+    assert len(energy_calls) == 1
+    assert report["reaction_mode_index"] == 0
+    assert report["reaction_mode_overlap"] == (None if widen else 0.91)
+    assert report["reaction_mode_source"] == ("lowest-imaginary" if widen else "mep-reference-overlap")
+    assert report["imaginary_mode_criterion"] == "mass_weighted_eigenvalue"
+    assert report["imaginary_eigenvalue_threshold"] == 1e-6
     projection = report["rigid_projection"]
     assert projection["active_atoms"] == final_atoms
     assert projection["frozen_atoms"] == final_frozen
@@ -160,7 +183,7 @@ def test_real_terminal_workflow_phva_scope_and_raw_order(tmp_path, monkeypatch, 
     assert len(exported) == 1
     frequencies, modes = exported[0]
     assert frequencies.size == 3 * len(final_atoms)
-    assert np.count_nonzero(frequencies < -5.0) == expected_count
+    assert np.count_nonzero(resolved_imaginary_mask(frequencies)) == expected_count
     assert torch.count_nonzero(modes[:, dofs(final_frozen)]).item() == 0
     geom = observed["geometry"]
     assert list(geom.freeze_atoms) == final_frozen

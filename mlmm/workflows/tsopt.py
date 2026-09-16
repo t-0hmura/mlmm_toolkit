@@ -20,7 +20,6 @@ from mlmm.core.output import emit
 import numpy as np
 import torch
 from ase import Atoms
-import ase.units as units
 from ase.data import atomic_masses
 from ase.io import read as ase_read
 from ase.io import write
@@ -30,7 +29,7 @@ from pysisyphus.helpers import geom_loader
 from pysisyphus.optimizers.LBFGS import LBFGS
 from pysisyphus.optimizers.exceptions import OptimizationError, ZeroStepLength
 from pysisyphus.intcoords.exceptions import RebuiltInternalsException
-from pysisyphus.constants import BOHR2ANG, AMU2AU, AU2EV
+from pysisyphus.constants import BOHR2ANG, AMU2AU
 from pysisyphus._array import active_square
 from pysisyphus.calculators.Dimer import Dimer  # Dimer calculator (orientation-projected forces)
 from pysisyphus.tr_projection import (
@@ -141,6 +140,8 @@ from mlmm.workflows.freq import (
 )
 from pysisyphus.normal_modes import (
     DEFAULT_FREQUENCY_ZERO_CUTOFF_CM,
+    frequency_criterion_info,
+    warn_legacy_frequency_cutoff,
     normalize_frequency_zero_cutoff_cm,
     resolved_imaginary_mask,
     _strict_negative_count,
@@ -296,12 +297,13 @@ def _hessian_result_status(
 def _saddle_validation_from_count(
     n_imaginary: Optional[int], n_negative: Optional[int] = None,
 ) -> str:
-    """Keep resolved mode availability separate from strict saddle order."""
-    if n_imaginary is None or n_negative is None:
+    """Describe order under the selected criterion; raw signs are diagnostic."""
+    del n_negative  # Retained for compatibility with callers reporting raw signs.
+    if n_imaginary is None:
         return "unavailable"
-    if int(n_imaginary) == int(n_negative) == 1:
+    if int(n_imaginary) == 1:
         return "first_order"
-    if int(n_negative) > 1:
+    if int(n_imaginary) > 1:
         return "higher_order"
     return "no_imaginary"
 
@@ -548,52 +550,6 @@ def _resolve_shared_optimizer_value(
     downstream_cfg[key] = value
 
 
-def _apply_cartesian_ts_defaults(
-    opt_cfg: Dict[str, Any],
-    rsirfo_cfg: Dict[str, Any],
-    geom_cfg: Dict[str, Any],
-    *,
-    kind: str,
-    config_layer_cfg: Dict[str, Any],
-    override_layer_cfg: Dict[str, Any],
-) -> None:
-    """Fill Cartesian RS-P-RFO defaults without reinterpreting explicit radii."""
-    # These keys are not shared OPT_BASE_KW/RSIRFO_KW defaults. Follow this
-    # product's existing _build_rsirfo_kwargs precedence for their values.
-    effective = {**rsirfo_cfg, **opt_cfg}
-    coord_kwargs = geom_cfg.get("coord_kwargs") or {}
-    if (
-        kind != "rsprfo"
-        or str(geom_cfg.get("coord_type", "cart")).lower() not in ("cart", "cartesian")
-        or bool(coord_kwargs.get("mass_weighted", False))
-        or bool(effective.get("weighted_trust", False))
-    ):
-        return
-
-    def explicit(key: str) -> bool:
-        # Presence, including an explicit old default value, is authoritative.
-        # Use both raw layers: an ignored non-mapping override must not erase
-        # the provenance of a valid base section.
-        return any(
-            isinstance(layer.get(section), dict) and key in layer[section]
-            for layer in (config_layer_cfg, override_layer_cfg)
-            for section in ("opt", "rsirfo")
-        )
-
-    if not explicit("hessian_update"):
-        rsirfo_cfg["hessian_update"] = "ts_bfgs"
-
-    trust_keys = ("trust_norm", "trust_radius", "trust_min", "trust_max")
-    configured_trust = any(explicit(key) for key in trust_keys)
-    if configured_trust and effective.get("trust_norm", "l2") != "max_atom":
-        return  # A legacy radius alone retains its original global-L2 meaning.
-    if not configured_trust:
-        rsirfo_cfg["trust_norm"] = "max_atom"
-    for key in ("trust_radius", "trust_max"):
-        if not explicit(key):
-            rsirfo_cfg[key] = 0.1 / BOHR2ANG
-
-
 def _build_rsirfo_kwargs(
     rsirfo_cfg: Dict[str, Any],
     *,
@@ -676,10 +632,9 @@ from mlmm.core.calc_eval import calc_energy as _calc_energy  # noqa: E402
 
 def _omega2_to_freqs_cm(omega2: torch.Tensor) -> np.ndarray:
     """Convert eigenvalues (omega^2) to vibrational frequencies in cm^-1."""
-    s_new = (units._hbar * 1e10 / np.sqrt(units._e * units._amu) * np.sqrt(AU2EV) / BOHR2ANG)
-    hnu = s_new * torch.sqrt(torch.abs(omega2))
-    hnu = torch.where(omega2 < 0, -hnu, hnu)
-    return (hnu / units.invcm).detach().cpu().numpy()
+    from pysisyphus.helpers_pure import eigval_to_wavenumber
+    # Both mass-weighting helpers use amu, including the active-block path.
+    return eigval_to_wavenumber(omega2.detach().cpu().numpy())
 
 
 def _clear_cuda_cache(tensor: Optional[torch.Tensor] = None) -> None:
@@ -687,8 +642,6 @@ def _clear_cuda_cache(tensor: Optional[torch.Tensor] = None) -> None:
     if torch.cuda.is_available():
         if tensor is None or tensor.is_cuda:
             torch.cuda.empty_cache()
-
-
 
 
 def _mw_projected_hessian_inplace(H_t: torch.Tensor,
@@ -1049,10 +1002,9 @@ def _certified_saddle_order(
     freqs_cm: np.ndarray,
     neg_freq_thresh_cm: float,
 ) -> int:
-    """Legacy resolved count; strict acceptance additionally checks the partition."""
+    """Count imaginary modes under the selected classification criterion."""
 
     return len(_certified_negative_frequencies(freqs_cm, neg_freq_thresh_cm))
-
 
 
 def _active_indices(N: int, freeze_idx: Optional[List[int]]) -> List[int]:
@@ -1643,7 +1595,7 @@ def _finalize_dimer_saddle_status(
     runner.n_negative_modes = _strict_negative_count(
         freqs_cm, getattr(runner, "rigid_projection_info", None)
     )
-    runner.saddle_order_verified = runner.n_negative_modes == len(certified) == 1
+    runner.saddle_order_verified = len(certified) == 1
     if not runner.saddle_order_verified:
         click.echo(
             _unexpected_saddle_order_message(len(certified), runner.n_negative_modes),
@@ -1655,16 +1607,8 @@ def _finalize_dimer_saddle_status(
 def _unexpected_saddle_order_message(
     n_imag: int, n_negative: Optional[int] = None,
 ) -> str:
-    """Return the concise hint without recertifying resolved-only counts."""
-
-    if n_negative is None and n_imag == 1:
-        return "[tsopt] WARNING: Strict saddle order unavailable (incomplete PHVA partition)."
-    if n_negative is not None and n_negative > 1:
-        return (
-            f"[tsopt] WARNING: Higher-order stationary point "
-            f"(n_imag={n_imag}, n_negative={n_negative}). "
-            "Try --flatten or all --refine-path."
-        )
+    """Describe topology under the selected criterion, independent of raw signs."""
+    del n_negative
     if n_imag == 0:
         return "[tsopt] No imaginary mode detected. Try all --refine-path."
     if n_imag > 1:
@@ -1718,10 +1662,10 @@ class HessianDimer:
                  thresh_loose: str = "gau_loose",
                  thresh: str = "baker",
                  update_interval_hessian: int = 500,
-                 # neg_freq_thresh_cm selects modes for trajectory output, flattening,
-                 # and recovery. Saddle-order certification counts every
-                 # negative root of the exact compact PHVA spectrum.
-                 neg_freq_thresh_cm: float = 5.0,
+                 # Compatibility cm^-1 override of the original eigenvalue rule;
+                 # used for mode classification, export, and explicit recovery.
+                 # Every negative sign is also reported as a separate diagnostic.
+                 neg_freq_thresh_cm: float = DEFAULT_FREQUENCY_ZERO_CUTOFF_CM,
                  flatten_amp_ang: float = 0.10,
                  flatten_max_iter: int = 50,
                  mem: int = 100000,
@@ -2724,8 +2668,6 @@ class HessianDimer:
         emit(f"[tsopt] Mode files → {self.vib_dir}", detail=True)
 
 
-
-
 # Macro/micro alternation follows the Gaussian 16 ONIOM(QM:MM) algorithm
 # described in the function docstring.
 # CHEMISTRY-RULE:3 Macro/micro alternation (Gaussian 16 microiteration、ML+linkparent co-macro)。
@@ -3267,7 +3209,6 @@ def _run_microiter_tsopt(
         else:
             geometry.set_calculator(entry_calculator)
         _clear_cuda_cache()
-
 
 
 # Configuration defaults (imported from defaults.py)
@@ -4027,6 +3968,7 @@ def cli(
             )
         cutoff = alias_value
         cutoff_source = label
+    warn_legacy_frequency_cutoff(cutoff)
     frequency_cfg["zero_cutoff_cm"] = cutoff
     simple_cfg["neg_freq_thresh_cm"] = cutoff
     rsirfo_cfg["saddle_imaginary_threshold_cm"] = cutoff
@@ -4133,10 +4075,6 @@ def cli(
             "using coord_type=cart."
         )
         geom_cfg["coord_type"] = "cart"
-    _apply_cartesian_ts_defaults(
-        opt_cfg, rsirfo_cfg, geom_cfg, kind=mode_resolved,
-        config_layer_cfg=config_layer_cfg, override_layer_cfg=override_layer_cfg,
-    )
 
     calc_paths = (("calc",), ("mlmm",))
     partial_explicit = (
@@ -4536,7 +4474,7 @@ def cli(
             n_atoms = len(geometry.atomic_numbers)
             requested_active_atoms = list(active_atoms_freq)
             neg_freq_thresh_cm = float(
-                simple_cfg.get("neg_freq_thresh_cm", 5.0)
+                simple_cfg.get("neg_freq_thresh_cm", DEFAULT_FREQUENCY_ZERO_CUTOFF_CM)
             )
 
             rigid_projection_info: Dict[str, Any] = {}
@@ -5258,14 +5196,14 @@ def cli(
             _heavy_n_negative: Optional[int] = None
             _heavy_energy = None
             if freqs_cm is not None:
-                # Display/export remains resolved; the FINAL restored active PHVA
-                # partition, not the macro optimizer cache, proves strict order.
+                # Classify the FINAL restored active PHVA under the selected
+                # criterion and retain every negative sign as a diagnostic.
                 _heavy_imag_freqs = _certified_negative_frequencies(
                     freqs_cm, neg_freq_thresh_cm
                 )
                 _heavy_n_imag = len(_heavy_imag_freqs)
                 _heavy_n_negative = _strict_negative_count(freqs_cm, rigid_projection_info)
-                if _heavy_n_negative != 1 or _heavy_n_imag != 1:
+                if _heavy_n_imag != 1:
                     click.echo(
                         _unexpected_saddle_order_message(_heavy_n_imag, _heavy_n_negative),
                         err=True,
@@ -5354,7 +5292,7 @@ def cli(
                 thresh_loose=simple_cfg.get("thresh_loose", "gau_loose"),
                 thresh=simple_cfg.get("thresh", "baker"),
                 update_interval_hessian=int(simple_cfg.get("update_interval_hessian", 500)),
-                neg_freq_thresh_cm=float(simple_cfg.get("neg_freq_thresh_cm", 5.0)),
+                neg_freq_thresh_cm=float(simple_cfg.get("neg_freq_thresh_cm", DEFAULT_FREQUENCY_ZERO_CUTOFF_CM)),
                 flatten_amp_ang=float(simple_cfg.get("flatten_amp_ang", 0.10)),
                 flatten_max_iter=int(simple_cfg.get("flatten_max_iter", 50)),
                 mem=int(simple_cfg.get("mem", 100000)),
@@ -5608,6 +5546,7 @@ def cli(
                 "energy_hartree": _tsopt_energy,
                 "n_imaginary_modes": _tsopt_n_imag,
                 "n_negative_modes": _tsopt_n_negative,
+                **frequency_criterion_info(frequency_cfg["zero_cutoff_cm"]),
                 "frequency_zero_cutoff_cm": float(
                     frequency_cfg["zero_cutoff_cm"]
                 ),

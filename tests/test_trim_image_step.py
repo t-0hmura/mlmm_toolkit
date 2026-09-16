@@ -1,7 +1,6 @@
 """Actual one-cycle TRIM steps, without terminal physical certification.
 
 Run with the selected source tree and its tests directory on PYTHONPATH.
-The constrained analytic calculator is reused from test_ts_terminal_cadence.
 These tests examine the optional TRIM path, not default RS-P-RFO behavior.
 """
 
@@ -10,7 +9,35 @@ import pytest
 
 from pysisyphus.Geometry import Geometry
 from pysisyphus.tsoptimizers.TRIM import TRIM
-from test_ts_terminal_cadence import CountedQuadratic
+from pysisyphus.calculators.Calculator import Calculator
+
+
+class CountedQuadratic(Calculator):
+    """One movable H relative to three frozen noncollinear H anchors."""
+
+    def __init__(self, out_dir, diagonal):
+        super().__init__(out_dir=out_dir, check_mem=False)
+        self.diagonal = np.asarray(diagonal, dtype=float)
+        self.hessian_calls = []
+        self.optimizer = None
+
+    def get_forces(self, atoms, coords, **kwargs):
+        displacement = np.asarray(coords)[-3:] - [0., 0., 1.]
+        gradient = np.zeros(12)
+        gradient[-3:] = self.diagonal * displacement
+        return {"energy": float(.5 * np.dot(gradient[-3:], displacement)),
+                "forces": -gradient}  # no hidden Hessian in E/g results
+
+    get_energy = get_forces
+
+    def get_hessian(self, atoms, coords, **kwargs):
+        self.hessian_calls.append({
+            "cycle": int(self.optimizer.cur_cycle),
+            "coords": np.asarray(coords).copy(),
+        })
+        hessian = np.zeros((12, 12))
+        hessian[-3:, -3:] = np.diag(self.diagonal)
+        return {**self.get_forces(atoms, coords), "hessian": hessian}
 
 
 def make_trim(tmp_path, diagonal, displacement):

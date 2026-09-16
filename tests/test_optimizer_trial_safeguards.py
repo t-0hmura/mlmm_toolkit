@@ -877,7 +877,7 @@ def test_ts_baker_requires_rms_force_not_only_max_force(tmp_path) -> None:
     assert converged is False
 
 
-def test_exact_higher_order_saddle_requires_further_rsprfo_steps(
+def test_exact_higher_order_saddle_is_a_terminal_numerical_candidate(
     tmp_path
 ) -> None:
     geom, opt = _ts_optimizer(tmp_path, 0.0, energy_plateau=False)
@@ -893,12 +893,12 @@ def test_exact_higher_order_saddle_requires_further_rsprfo_steps(
 
     converged, _ = opt.check_convergence()
 
-    assert converged is False
+    assert converged is True
     assert not opt._exact_saddle_matches_current_geometry()
-    assert not opt._exact_terminal_candidate_matches_current_geometry()
+    assert opt._exact_terminal_candidate_matches_current_geometry()
 
 
-def test_zero_step_higher_order_saddle_proposes_curvature_step(
+def test_zero_step_higher_order_saddle_does_not_add_curvature_steps(
     tmp_path, monkeypatch
 ) -> None:
     geom, opt = _ts_optimizer(tmp_path, 0.0, energy_plateau=False, max_cycles=1)
@@ -921,11 +921,11 @@ def test_zero_step_higher_order_saddle_proposes_curvature_step(
 
     opt.run()
 
-    assert opt.is_converged is False
+    assert opt.is_converged is True
     assert opt.stopped is False
     assert opt.stop_reason == ""
-    assert 0.0 < np.linalg.norm(opt.steps[-1]) <= opt.trust_radius * (1.0 + 1e-12)
-    assert not opt._exact_terminal_candidate_matches_current_geometry()
+    np.testing.assert_array_equal(opt.steps[-1], np.zeros(3))
+    assert opt._exact_terminal_candidate_matches_current_geometry()
 
 
 def test_exact_verifier_retains_curvature_but_rejects_higher_order_status(

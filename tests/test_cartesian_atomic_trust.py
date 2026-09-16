@@ -114,6 +114,74 @@ def test_combined_line_search_contribution_uses_same_cartesian_bound(tmp_path, m
     assert optimizer.predicted_energy_changes[-1] == pytest.approx(expected)
 
 
+@pytest.mark.parametrize("offset, retry", [(-.0894, True), (0., False), (-.005, False)])
+def test_atomic_line_search_false_abort_retries_with_current_gradient(
+    tmp_path, monkeypatch, offset, retry
+):
+    """CPU9163's missed feasible interval must not abort the optimizer.
+
+    The actual PRFO family/solver is exercised. A distinct current gradient
+    detects the error of dropping only the fitted displacement on retry.
+    """
+    optimizer = make_opt(tmp_path, radius=.025, rfo_overlaps=True)
+    values = np.array([1., 2., 2., 2., 2., 2.])
+    vectors = np.eye(6)
+    current_gradient = np.array([2e-6, 0., 0., 0., 0., 0.])
+    fitted_gradient = np.array([1e-6, 0., 0., 0., 0., 0.])
+    hessian = np.diag(values)
+    optimizer.H = optimizer.cur_H = hessian.copy()
+    optimizer.forces = [-current_gradient.copy()]
+    incoming = (np.array([1., 0.]), np.r_[np.zeros(5), 1.])
+    optimizer.prev_eigvec_max, optimizer.prev_eigvec_min = incoming
+    monkeypatch.setattr(optimizer, "housekeeping", lambda: (
+        0., current_gradient.copy(), hessian.copy(), values.copy(), vectors.copy(), False,
+    ))
+    monkeypatch.setattr(optimizer, "step_and_grad_from_line_search", lambda *_: (
+        np.array([offset, 0., 0., 0., 0., 0.]), fitted_gradient.copy(),
+    ))
+    calls = []
+    native = optimizer._max_atom_prfo_step
+
+    def observe(lam, basis, gradient, interpolation, max_indices, min_indices):
+        calls.append((gradient.copy(), interpolation.copy(),
+                      optimizer.prev_eigvec_max.copy(), optimizer.prev_eigvec_min.copy()))
+        return native(lam, basis, gradient, interpolation, max_indices, min_indices)
+
+    monkeypatch.setattr(optimizer, "_max_atom_prfo_step", observe)
+    step = optimizer.optimize()
+
+    assert len(calls) == (2 if retry else 1)
+    np.testing.assert_array_equal(calls[0][0], fitted_gradient)
+    if retry:
+        np.testing.assert_array_equal(calls[1][0], current_gradient)
+        np.testing.assert_array_equal(calls[1][1], np.zeros(6))
+        # No augmented-root history from the failed family leaks into retry.
+        np.testing.assert_array_equal(calls[1][2], incoming[0])
+        np.testing.assert_array_equal(calls[1][3], incoming[1])
+        assert optimizer._last_atomic_trust["discarded_line_search"] is True
+    else:
+        assert "discarded_line_search" not in optimizer._last_atomic_trust
+    assert atom_norm(step) <= .025 * (1 + 1e-12)
+    np.testing.assert_array_equal(optimizer.cur_H, hessian)
+    assert optimizer.geometry.calculator is None
+    expected = optimizer.rfo_model(current_gradient, hessian, step)
+    assert optimizer.predicted_energy_changes[-1] == pytest.approx(expected)
+
+
+def test_atomic_line_search_retry_does_not_hide_invalid_model_errors(tmp_path, monkeypatch):
+    optimizer = make_opt(tmp_path)
+    calls = []
+
+    def invalid_model(*_args):
+        calls.append(None)
+        raise ValueError("nonfinite scalar-family model")
+
+    monkeypatch.setattr(optimizer, "_max_atom_prfo_step", invalid_model)
+    with pytest.raises(ValueError, match="nonfinite scalar-family model"):
+        proposal(optimizer, monkeypatch, line_step=[.004, 0., 0., 0., 0., 0.])
+    assert len(calls) == 1
+
+
 @pytest.mark.parametrize("backend", ["numpy", "torch"])
 def test_partial_mapping_and_final_guard_preserve_distributed_step(tmp_path, backend):
     optimizer = make_opt(tmp_path, radius=.05, partial=True)

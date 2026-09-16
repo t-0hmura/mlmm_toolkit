@@ -2,7 +2,7 @@
 
 Only housekeeping and the interpolation result are controlled. Native step
 selection, composition, prediction, active-space expansion and the new guard
-run unchanged. A verification receipt avoids an unrelated terminal PHVA.
+run unchanged. No physical Hessian is requested by this model safeguard.
 """
 from types import SimpleNamespace
 import importlib
@@ -82,12 +82,7 @@ def make_case(request, tmp_path, monkeypatch):
             seen["composed"] = _array(result).copy()
             return result
 
-        def verify(step, grad, hessian, predictor, *_):
-            seen["verify_step"] = _array(step).copy()
-            return step, grad, hessian, predictor
-
         monkeypatch.setattr(opt, "_accept_accelerated_step", accept)
-        monkeypatch.setattr(opt, "_verify_minimum_step", verify)
 
         def diis(_errors, coords, _forces, _reference, **_kwargs):
             if branch != "gdiis":
@@ -116,7 +111,6 @@ def test_model_uphill_or_zero_acceleration_keeps_descending_reference(make_case,
     step = case.opt.optimize()
     np.testing.assert_allclose(step[case.active], case.seen["reference"], rtol=1e-12, atol=1e-14)
     np.testing.assert_array_equal(step[3:], 0.)
-    np.testing.assert_array_equal(case.seen["verify_step"], case.seen["reference"])
     assert case.opt.quadratic_model(case.gradient, case.H, case.seen["composed"]) >= 0
     assert case.opt.predicted_energy_changes[-1] < 0
 
@@ -167,7 +161,6 @@ def test_guard_uses_compact_model_order_before_expanding_frozen_dofs(make_case):
     case = make_case([4e-4, 0., 0.], active_order=(2, 0, 1))
     step = case.opt.optimize()
     np.testing.assert_allclose(step, [0., 0., -1e-3, 0., 0., 0.], atol=1e-14)
-    np.testing.assert_array_equal(case.seen["verify_step"], case.seen["reference"])
 
 
 @pytest.mark.parametrize(("target", "value"), [

@@ -2,6 +2,8 @@
 
 `frequencies_cm-1.txt`、JSON の `frequencies_cm` と `n_modes` は、既存の固定原子・剛体射影を適用した後の完全な符号付き物理モードを保持します。`--max-write` と `--sort` はモードファイルの出力範囲・順序だけを変更します。`n_imaginary`（YAML の `num_imag_freq`）は閾値より負の resolved 本数、`n_negative_modes` は微小な負モードも含む本数です。`frequency_representation: complete` の `near_zero_frequencies_cm` は完全配列の部分集合なので、配列へ追加して二重計数しないでください。
 
+虚振動の既定の分類は、元の PySisyphus と同じ質量重み付き Hessian の固有値 < −10⁻⁶ Hartree/(bohr²·amu) です。対応する振動数の絶対値は `eigval_to_wavenumber` から導く約 5.14 cm⁻¹ で、独立に丸めた閾値ではありません。`imaginary_mode_criterion`、`imaginary_eigenvalue_threshold`（正の絶対値）、`imaginary_eigenvalue_units`、`imaginary_frequency_threshold_cm` に分類基準を記録します。従来の `freq.zero_cutoff_cm` の明示指定は非推奨の警告付きで利用できます。この分類基準は最適化座標の `small_eigval_thresh` = 10⁻⁸ とは別です。振動数の符号を変えたり、物理モードを除いたりしません。
+
 熱化学は従来どおり QRRHO（rotor cutoff 100 cm⁻¹、虚振動数反転なし、正の振動数floorなし）を使い、正の低振動数モードも保持します。`freq.zero_cutoff_cm` を変えても、同じ完全振動数から計算する熱化学値は変わりません。
 
 

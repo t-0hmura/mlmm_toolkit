@@ -584,7 +584,8 @@ python assert_flatten_branch.py test71_flatten.out test71_flatten/result.json >>
 # their dependency-isolated cluster environments.
 bash run_backend_hessian.sh uma orb > test72_backend_hessian.out 2>&1
 
-# test73: required positive MEP -> TSopt -> IRC -> thermo -> DFT handoff.
+# test73: required positive MEP -> TSopt -> endpoint OPT -> thermo -> DFT handoff.
+# Explicit --flatten validates the pipeline, not no-flatten optimizer behavior.
 # Endpoint and GSM thresholds are pinned independently for this positive lane.
 # The long lane runs last with its dependent manual-topology reuse check.
 mlmm all \

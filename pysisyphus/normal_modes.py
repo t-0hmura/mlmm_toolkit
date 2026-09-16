@@ -18,10 +18,10 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 import torch
-import ase.units as units
 from ase.data import atomic_masses
 
-from pysisyphus.constants import BOHR2ANG, AMU2AU, AU2EV
+from pysisyphus.constants import AMU2AU
+from pysisyphus.helpers_pure import eigval_to_wavenumber
 from pysisyphus._array import active_square
 from pysisyphus.tr_projection import (
     active_tr_basis,
@@ -30,7 +30,16 @@ from pysisyphus.tr_projection import (
 )
 
 
-DEFAULT_FREQUENCY_ZERO_CUTOFF_CM = 5.00
+# Geometry.get_imag_frequencies uses eigenvalues of H / sqrt(m_i*m_j),
+# with H in Hartree/bohr^2 and masses in amu. The helpers below also convert
+# their masses_au inputs back to amu before weighting. This is NOT the
+# optimizer-coordinate small_eigval_thresh (1e-8).
+DEFAULT_IMAGINARY_EIGENVALUE_THRESHOLD = 1.0e-6
+# Preserve the cm^-1 configuration API, deriving the default from the
+# original eigenvalue criterion rather than introducing a rounded cutoff.
+DEFAULT_FREQUENCY_ZERO_CUTOFF_CM = float(
+    eigval_to_wavenumber(DEFAULT_IMAGINARY_EIGENVALUE_THRESHOLD)
+)
 
 
 def normalize_frequency_zero_cutoff_cm(value) -> float:
@@ -52,9 +61,48 @@ def resolved_frequency_mask(
 def resolved_imaginary_mask(
     freqs_cm, cutoff_cm=DEFAULT_FREQUENCY_ZERO_CUTOFF_CM
 ) -> np.ndarray:
-    """Select resolved imaginary modes using the configured zero window."""
+    """Select imaginary modes under the original eigenvalue criterion.
+
+    eigval_to_wavenumber is monotone, so the default comparison is the
+    frequency-space form of eigenvalue < -1e-6 in Hartree/(bohr^2*amu).
+    An explicit legacy cm^-1 cutoff selects the equivalent alternate bound.
+    This mask describes modes; it never filters the physical spectrum.
+    """
     cutoff = normalize_frequency_zero_cutoff_cm(cutoff_cm)
     return np.asarray(freqs_cm, dtype=float) < -cutoff
+
+
+def frequency_criterion_info(cutoff_cm=DEFAULT_FREQUENCY_ZERO_CUTOFF_CM):
+    """Describe imaginary-mode classification; no physical mode is removed."""
+    cutoff = normalize_frequency_zero_cutoff_cm(cutoff_cm)
+    original = cutoff == DEFAULT_FREQUENCY_ZERO_CUTOFF_CM
+    return {
+        "imaginary_mode_criterion": (
+            "mass_weighted_eigenvalue" if original else "legacy_frequency_cutoff"
+        ),
+        "imaginary_eigenvalue_threshold": (
+            DEFAULT_IMAGINARY_EIGENVALUE_THRESHOLD if original
+            else float((cutoff / eigval_to_wavenumber(1.0)) ** 2)
+        ),
+        "imaginary_eigenvalue_units": "hartree/(bohr^2*amu)",
+        "imaginary_frequency_threshold_cm": cutoff,
+    }
+
+
+def warn_legacy_frequency_cutoff(cutoff_cm):
+    """Warn at workflow entry when a legacy cm^-1 override is selected."""
+    cutoff = normalize_frequency_zero_cutoff_cm(cutoff_cm)
+    if cutoff != DEFAULT_FREQUENCY_ZERO_CUTOFF_CM:
+        import warnings
+        warnings.warn(
+            "An explicit frequency cutoff in cm^-1 overrides the original "
+            "mass-weighted Hessian eigenvalue criterion (< -1e-6 "
+            "hartree/(bohr^2*amu)). This legacy override is deprecated; "
+            "omit it to use the original criterion. All signed physical "
+            "modes remain in the output and positive modes in thermochemistry.",
+            FutureWarning,
+            stacklevel=2,
+        )
 
 
 def frequency_partition_info(freqs_cm, cutoff_cm=DEFAULT_FREQUENCY_ZERO_CUTOFF_CM):
@@ -71,6 +119,7 @@ def frequency_partition_info(freqs_cm, cutoff_cm=DEFAULT_FREQUENCY_ZERO_CUTOFF_C
     keep = resolved_frequency_mask(frequencies, cutoff)
     return {
         "frequency_representation": "complete",
+        **frequency_criterion_info(cutoff),
         "frequency_zero_cutoff_cm": cutoff,
         "raw_mode_count": int(frequencies.size),
         "resolved_mode_count": int(np.count_nonzero(keep)),
@@ -489,16 +538,14 @@ def _frequencies_cm_and_modes(H_t: torch.Tensor,
             del V
 
         # Convert to frequencies (cm^-1)
-        s_new = (units._hbar * 1e10 / np.sqrt(units._e * units._amu) * np.sqrt(AU2EV) / BOHR2ANG)
-        hnu = s_new * torch.sqrt(torch.abs(omega2))
-        hnu = torch.where(omega2 < 0, -hnu, hnu)
-        freqs_cm = (hnu / units.invcm).detach().cpu().numpy()
-        # Keep every physical eigenpair; the cutoff classifies a subset.
+        # The helpers weight with amu, exactly as Geometry does. Use its
+        # conversion too so classification shares the original physical units.
+        freqs_cm = eigval_to_wavenumber(omega2.detach().cpu().numpy())
         frequency_info = frequency_partition_info(freqs_cm, frequency_zero_cutoff_cm)
         if projection_info is not None:
             projection_info.update(frequency_info)
 
-        del omega2, hnu
+        del omega2
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         return freqs_cm, modes
