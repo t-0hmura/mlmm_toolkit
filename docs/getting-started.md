@@ -86,7 +86,7 @@ mlmm --version
 
 | Component | When to add | Install |
 |---|---|---|
-| ORB / AIMNet2 | Alternative MLIP backends | `pip install "mlmm-toolkit[orb]"` / `pip install "mlmm-toolkit[aimnet]"`. Use a separate environment for MACE because its `e3nn` dependency conflicts with UMA. |
+| ORB / AIMNet2 | Alternative MLIP backends | ORB requires Python 3.11 or 3.12 (3.12 recommended). `pip install --only-binary=dm-tree "mlmm-toolkit[orb]"` / `pip install "mlmm-toolkit[aimnet]"`. Use a separate environment for MACE because its `e3nn` dependency conflicts with UMA. |
 | `hessian_ff` native build | If you see a "native extension not available" warning. JIT compilation usually handles it. | First install `ninja` on most clusters: `conda install -c conda-forge ninja -y`. Then build: `cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make`. |
 | `cyipopt` + `pydmf>=1.2` | Direct Max Flux (DMF) MEP backend for `all`, `path-search`, and `path-opt` (`--mep-mode dmf`). `pydmf>=1.2` ships the PyTorch backend `dmf.torch` used by the default `--dmf-backend gpu`; pass `--dmf-backend cpu` on a GPU out-of-memory error. | `conda install -c conda-forge cyipopt -y && pip install 'pydmf>=1.2'` |
 | Plotly Chrome | Static PNG export beyond default `kaleido` | `plotly_get_chrome -y` (~150 MB) |

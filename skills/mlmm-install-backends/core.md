@@ -9,7 +9,7 @@ C++ compiler must be on `PATH`). The bundled `pysisyphus` (GPU-tensor fork),
 
 ## Prerequisites
 
-- Python ≥ 3.11
+- Python ≥ 3.11; 3.12 recommended. ORB requires 3.11 or 3.12.
 - A working PyTorch install matching your CUDA driver — see `env-cuda.md`
 - (For DFT) PySCF / GPU4PySCF — see `dft.md`
 - xTB is required only for the optional experimental MLIP/MM `--embedcharge` correction; see `xtb.md`.
@@ -18,7 +18,7 @@ C++ compiler must be on `PATH`). The bundled `pysisyphus` (GPU-tensor fork),
 ```bash
 conda activate <YOUR_ENV>
 pip install mlmm-toolkit                         # core only (UMA)
-pip install 'mlmm-toolkit[orb,aimnet,dft]'        # extras as needed
+pip install --only-binary=dm-tree 'mlmm-toolkit[orb,aimnet,dft]'        # extras as needed
 ```
 
 Available extras (canonical list lives in `pyproject.toml`):
@@ -47,7 +47,7 @@ python -c "import importlib.metadata as m; print(m.metadata('mlmm-toolkit').get_
 ```bash
 git clone https://github.com/t-0hmura/mlmm_toolkit.git mlmm
 cd mlmm
-pip install -e '.[orb,aimnet,dft]'
+pip install --only-binary=dm-tree -e '.[orb,aimnet,dft]'
 ```
 
 `pip install -e .` will pick up edits to the source tree without

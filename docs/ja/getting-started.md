@@ -111,7 +111,7 @@ UMA を使う場合は、[モデルページ](https://huggingface.co/facebook/UM
 
 | 用途 | インストール・設定 |
 | --- | --- |
-| ORB / AIMNet2 | `pip install "mlmm-toolkit[orb]"` / `pip install "mlmm-toolkit[aimnet]"` |
+| ORB / AIMNet2 | ORB は Python 3.11／3.12 が必要です（3.12 推奨）。`pip install --only-binary=dm-tree "mlmm-toolkit[orb]"` / `pip install "mlmm-toolkit[aimnet]"` |
 | MACE | UMA と `e3nn` の依存バージョンが競合するため、専用環境で使用します。 |
 | DMF 経路探索 | `conda install -c conda-forge cyipopt -y` と `pip install 'pydmf>=1.2'` |
 | Plotly の PNG 出力 | `plotly_get_chrome -y` |
