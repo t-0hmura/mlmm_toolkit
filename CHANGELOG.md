@@ -10,21 +10,21 @@ _No changes yet._
 
 ## [0.3.6] — 2026-09-16
 
+### Breaking changes
+
+- JSON schema 3.0 removes IRC directional success fields; diagnostics are reported separately from numerical convergence.
+
 ### Changed
 
-- JSON schema 3.0: IRC records stop diagnostics without directional success fields; update consumers of `forward_converged` / `backward_converged` or `forward_status` / `backward_status`.
-- Keep complete signed frequencies and positive soft modes in thermochemistry; classify imaginary modes using mass-weighted eigenvalues below −1e−6 Hartree/(Bohr²·amu).
-- Report requested numerical workflow completion separately from frequency, IRC-stop and bond-connectivity diagnostics.
-- Raise the default DMF iteration cap from 300 to 3000. `--max-depth` counts recursive subdivision levels; `0` disables subdivision.
-- Keep Bofill/L2 Cartesian TS defaults. Optimization does not resume automatically after a final Hessian check.
+- Replace the 5 cm⁻¹ cutoff with the pysis imaginary-mode criterion; retain signed frequencies and soft positive modes.
+- Set the DMF iteration cap to 3000; `--max-depth` now counts subdivision levels (`0`: no subdivision).
 
 ### Fixed
 
-- Correct RFO trust-region steps, Hessian updates, active-space mode mapping and stale frequency caches.
-- Fix UMA initialization and analytical Hessians, including the first-call device issue reported in [#298](https://github.com/t-0hmura/pdb2reaction/pull/298).
-- Pin Colab to Python 3.12 and install ORB with a prebuilt dm-tree wheel; fix result previews and scan command display.
-- Preserve numerical convergence when bond analysis or plotting fails; handle zero-step scans and requested TS post-processing consistently.
-- Restore AIMNet2 evaluation and include embedding forces during OPT/TSOPT; preserve endpoint and microiteration error details.
+- Correct RFO/Hessian updates, TS mode mapping and frequency caches.
+- Fix UMA initialization and analytical Hessians ([#298](https://github.com/t-0hmura/pdb2reaction/pull/298)).
+- Fix AIMNet2, embedding forces, scan/endpoint status handling and plot export.
+- Fix ORB installation with Python 3.12 Colab runtimes, result previews and scan display.
 
 ## [0.3.5] — 2026-09-16
 
