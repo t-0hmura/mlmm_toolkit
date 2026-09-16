@@ -143,3 +143,17 @@ def test_final_optimizations_supersede_preliminary_convergence(preliminary):
     assert "raw_unprocessed" in incomplete.expected_item_ids
     assert workflow._pipeline_aggregate_truth(summary, post_segments=None, config={"tsopt":False},
                                                legacy_status="success").scientific_status != "success"
+
+
+@pytest.mark.parametrize("present", [False, True])
+def test_complete_result_without_ts_convergence_signal_is_not_success(present):
+    summary, post = _fixture()
+    if present:
+        post[0]["tsopt"]["optimization_status"] = None
+    else:
+        del post[0]["tsopt"]["optimization_status"]
+    truth = workflow._pipeline_aggregate_truth(
+        summary, post_segments=post, config={"tsopt": True}, legacy_status="success",
+    )
+    assert truth.scientific_status != "success"
+    assert any("tsopt" in reason for reason in truth.status_reasons)

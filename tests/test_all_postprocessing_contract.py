@@ -50,7 +50,7 @@ def test_missing_requested_post_segment_is_partial_and_unobserved():
             "index": 1,
             # A real `all --tsopt` record always carries the TS decision; the
             # aggregate fails closed without it.
-            "tsopt": {"continue_irc": True},
+            "tsopt": {"optimization_status": "converged", "continue_irc": True},
             "mlip": {},
             "irc_traj": "seg_01/irc.trj",
             "irc": {"usable": True, "traj": "seg_01/irc.trj"},

@@ -1352,10 +1352,12 @@ def test_trans_rot_vectors_are_translation_invariant_for_a_linear_molecule() -> 
     assert shifted.shape[0] == here.shape[0]
 
 
-def test_exact_phva_order_rejects_subthreshold_negative_root() -> None:
-    # A strong reaction mode plus a numerically soft negative root below the
-    # configured 5 cm^-1 export/recovery threshold, still counted strictly.
-    freqs_cm = np.array([-450.0, -3.2, 12.0])
+@pytest.mark.parametrize("soft_frequency, selected_count", [(-3.2, 1), (-30.0, 2)])
+def test_exact_phva_order_uses_selected_count_and_retains_raw_signs(soft_frequency, selected_count) -> None:
+    # Classification and the complete signed spectrum are separate.
+    from pysisyphus.normal_modes import DEFAULT_FREQUENCY_ZERO_CUTOFF_CM
+
+    freqs_cm = np.array([-450.0, soft_frequency, 12.0])
     modes = torch.eye(3, dtype=torch.float64)
 
     # RSPRFOptimizer is the concrete TSHessianOptimizer used by the product.
@@ -1366,7 +1368,7 @@ def test_exact_phva_order_rejects_subthreshold_negative_root() -> None:
     opt.geometry = SimpleNamespace(cart_coords=np.zeros(3))
     opt.reference_mode = None
     opt.roots = [0]
-    opt.saddle_imaginary_threshold_cm = 5.0
+    opt.saddle_imaginary_threshold_cm = DEFAULT_FREQUENCY_ZERO_CUTOFF_CM
     opt.higher_order_saddle_checks = 0
     opt.max_higher_order_checks = 99
     opt.cur_cycle = 7
@@ -1379,11 +1381,10 @@ def test_exact_phva_order_rejects_subthreshold_negative_root() -> None:
         None, None
     )
 
-    # Display/eligibility stays one; the soft negative root prevents TS1 certification.
-    assert opt._last_exact_n_imaginary == 1
-    assert opt._last_exact_saddle_verified is False
+    assert opt._last_exact_n_imaginary == selected_count
+    assert opt._last_exact_saddle_verified is (selected_count == 1)
     assert opt._last_exact_n_negative == 2
-    assert opt._last_exact_saddle_cycle is None
+    assert opt._last_exact_saddle_cycle == (opt.cur_cycle if selected_count == 1 else None)
     assert has_saddle_modes is True
     assert verified is True
     assert physical_mode is not None
