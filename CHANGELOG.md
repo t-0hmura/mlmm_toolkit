@@ -10,190 +10,42 @@ _No changes yet._
 
 ## [0.3.5] — 2026-09-16
 
-> Upgrade warning: unchanged inputs can produce a different `scientific_status` for
-> standalone `irc` and for `all` (including `failed` where a run with no usable
-> required output previously read `partial`), a different `tsopt` `status` when
-> the final TS energy is unavailable, a different DMF `status` / `converged` for
-> IPOPT code 1, a looser DMF iteration cap, and one subdivision level fewer for a
-> configured `search.max_depth`; `result.json` / `summary.json` now carry
-> `schema_version: "3.0"`. Users of those files must review the Breaking changes
-> below before upgrading.
-
-> Cartesian optimizer trajectories and convergence verdicts can also change.
-> Frequency exports now retain the complete signed physical spectrum;
-> thermochemical corrections can change when soft positive modes that were
-> previously omitted are restored. Resolved imaginary-mode reporting remains
-> separate from the raw spectrum and optimizer curvature checks.
-
 ### Breaking changes
-- **JSON schema 3.0 (breaking).** Remove the IRC `forward_converged` /
-  `backward_converged` keys from `irc` `result.json` and from the `all`
-  `post_segments[].irc` relay. They reported the conjunction of
-  `*_integration_converged` and `*_downhill_departure_valid` under a name that
-  read as an IRC success verdict. Both components remain published, and
-  `*_integration_converged` is now documented. Gate usability on `*_status`.
-- **IRC directional status semantics (breaking).** A requested direction with a
-  finite downhill trajectory and no numerical propagation failure is now usable,
-  so an ordinary energy-rise stop, a max-cycle stop, and `--never-stop` report
-  `*_status: "stopped"` and can yield `scientific_status: "success"` where the
-  same input previously produced `partial`.
-- **`all` endpoint acceptance (breaking).** Final reactant/product acceptance now
-  requires both endpoint-optimization convergence flags plus bond-topology
-  validation of the optimized endpoints against their assigned MEP endpoints. A
-  run whose `post_segments[].endpoint_opt` record is absent or whose optimized
-  topology does not match no longer reports `success`.
-- **`tsopt` no longer reports `converged` without a final energy (breaking).** A
-  failed final-energy evaluation recorded `status: "converged"` beside
-  `energy_hartree: null`; `status` is now `"energy_missing"`.
-  `optimization_status` keeps the optimizer's own verdict, so the two fields are
-  no longer always equal, and `all`'s TS-to-IRC decision reads it unchanged.
-- **An unusable required output is `failed`, not `partial` (breaking).** A
-  required leaf's own retained trajectory no longer promotes a run; only a
-  diagnostic leaf's artifact can. A run with no usable required output now reads
-  `scientific_status: "failed"` with `execution_status: "completed"` — an IRC
-  whose every direction hard-failed, an endpoint-HEI path, or a nonconverged MEP.
-- **`all` reports a requested post stage that never ran (breaking).** With no
-  reactive segment, `--tsopt` / `--thermo` / `--dft` were skipped under a
-  reasonless `success`. It is now `partial`, and `pipeline_stop` records
-  `post` / `no_reactive_segment`.
-- **DMF convergence uses one definition (breaking).** `path-opt` mapped the IPOPT
-  status with `status == 0` for `status` / `converged` while its stage leaf used
-  `ipopt_status_to_converged`, so code 1 (`Solved_To_Acceptable_Level`) read
-  `not_converged` beside `reason: "ipopt_converged"`. Both use the shared mapper
-  now, and code 1 is `converged`.
-- **`search.max_depth` counts subdivision levels (breaking).** The cap is now
-  `depth >= max_depth`, so the value is the number of recursive subdivision
-  levels allowed and `0` performs none, returning each input pair as one MEP
-  segment (none when its HEI sits at an endpoint). A
-  configured `search.max_depth: N` therefore subdivides one level less than
-  before; the default 10 permits 10 levels, previously 11.
+
+- JSON schema 3.0: replace IRC `forward_converged` / `backward_converged` with `forward_status` / `backward_status` (`stopped`, `failed`, `disabled`). Integration and downhill-departure diagnostics remain available.
+- `all` requires converged, topology-validated endpoints. Missing or unusable required stages now report `partial` or `failed` rather than `success`.
+- `search.max_depth` now counts subdivision levels: `0` disables subdivision; the same value permits one level fewer than before.
+- TSOPT reports `energy_missing` when final energy evaluation fails; `optimization_status` retains the optimizer verdict.
 
 ### Added
-- Add IRC `forward_status` / `backward_status` (`stopped`, `failed`, `disabled`),
-  `*_requested`, and `*_integration_stop_reason` to `result.json`, and document the
-  already-published `*_integration_converged`.
-- Add TSOPT `opt_mode_requested` / `optimizer` and scan `scan_opt_mode` /
-  `scan_optimizer`.
-- Add `post_segments[].endpoint_opt.connectivity_validated` with the optimized
-  reactant/product bond-topology record.
-- Add the advanced `--max-depth` option to `path-search` and to `all --refine-path`,
-  exposing the recursive-subdivision level cap that was previously YAML-only.
-- Add path-search `search_max_depth`, IRC `forward_short_branch` /
-  `backward_short_branch`, `all` `config.preopt`, and `Pipeline stop` /
-  `Recursion depth cap` lines in `summary.log`.
+
+- Expose `--max-depth` for recursive path search and report executed optimizers, convergence and stop reasons in JSON and logs.
 
 ### Changed
 
-- For ordinary Cartesian RS-P-RFO, default to TS-BFGS updates and a 0.1 Å
-  maximum-atom initial/maximum trust radius when those settings are omitted.
-  Explicit optimizer settings remain authoritative.
-- With BFGS selected, use the existing TS-BFGS update for an indefinite
-  working Hessian while retaining the nonpositive-curvature skip. Keep a
-  descending RFO reference step when an extrapolated step is non-descending.
-- Continue no-flatten RS-P-RFO from higher-order candidates with fresh
-  curvature checks; preserve explicitly requested flatten workflows.
-- Preserve scheduled Hessian refreshes during no-flatten RS-P-RFO continuation.
-- Document startup BLIS thread settings for slow DMF/IPOPT calculations.
-- Support fairchem-core 2.22 and current compatible runtime dependencies.
-- Raise the default DMF IPOPT iteration cap (`--max-cycles-dmf`,
-  `dmf.max_cycles`) from 300 to 3000, matching the solver's own default. A DMF
-  MEP that previously stopped at that cap can now continue.
-- `all` `config.ts_opt_mode` / `config.endpoint_opt_mode` are `null` when TS
-  optimization was not requested, instead of always carrying the default preset.
+- Cartesian RS-P-RFO defaults to TS-BFGS updates and a 0.1 Å maximum-atom initial/maximum trust radius; explicit settings take precedence.
+- Support fairchem-core 2.22. DMF reports IPOPT convergence consistently (success codes 0 and 1), and its default iteration limit increases from 300 to 3000.
+- Retain all signed physical frequencies and mode vectors, including soft positive modes, in exports and thermochemistry. Thermal corrections may change; the 5 cm⁻¹ reporting threshold remains separate from raw curvature checks.
 
 ### Fixed
-- Repair ORB installation on Python 3.13 Colab runtimes by preparing its
-  pinned dm-tree build dependency, while preserving the resolved Torch and NumPy
-  versions and exposing installer diagnostics.
-- Normalize quoted scan inputs in the Colab command display.
-- Prefer PDB structures and trajectories in Colab Results, preserving atom,
-  residue and chain metadata and all trajectory frames. Link XYZ energies only
-  to matching current-run PDB frames; retain XYZ fallback and signed mode labels.
-- Address the UMA first-call CUDA device mismatch reported in
-  [pdb2reaction #298](https://github.com/t-0hmura/pdb2reaction/pull/298) by keeping
-  input batches on the CPU during FAIR-Chem's lazy initialization, before its
-  native device transfer. Add regression coverage for initial and repeated
-  energy/force evaluations.
-- Retain all signed physical frequency modes and their vectors, including positive
-  modes at or below the reporting cutoff, in frequency exports and thermochemistry.
-  Report resolved imaginary counts separately from all negative modes; near-zero
-  metadata now annotates the complete spectrum. Thermal corrections can change
-  when previously omitted positive modes are restored. Existing thermal policies,
-  reporting thresholds and strict curvature acceptance remain unchanged.
-- Avoid allocating an unused square left-singular-vector matrix when many
-  frozen atoms constrain the rigid-mode subspace.
-- Keep optimizer mode indices out of flatten-branch scoring after the final
-  frequency analysis expands to a different active space.
 
-- Include near-zero negative modes in OPT/TS curvature acceptance while keeping
-  frequency display thresholds unchanged.
-- Clear cached results when internal-coordinate rebuilding changes the geometry.
-- Handle remaining negative image curvature in TRIM's trust-region step.
-- Honor small trust radii in RFO and RS-I-RFO microiterations.
-- Use standard optimization with embedding, since MM-only microiterations omit embedding forces.
-- Write `all` MEP PDB trajectories when XYZ coordinates have a separate reference PDB.
-- Keep UMA's backbone in evaluation mode during analytical Hessian calculation.
-- Handle zero or non-finite energy predictions consistently when updating trust radii.
-- Solve scaled RFO with an equivalent symmetric matrix and reject unresolved
-  restricted steps while preserving terminal saddle checks and recovery.
-- Handle degenerate trust-region steps and keep TS roots in the active Hessian basis.
-- Reject inaccurate secular RFO roots and avoid growing small trust radii after
-  interior steps.
-- Require a current-coordinate curvature check before accepting an RFO minimum.
-- Preserve genuine complementary negative curvature after earlier TS validation;
-  restrict artifact stabilization to pure, unconstrained translations.
-- Reuse terminal frequencies only for matching analysis conditions, preserving
-  partial-Hessian ordering and separating macro-space from final ML/MM validation.
-- Retain microiteration failure diagnostics and honor the CLI flatten setting.
-- Handle singular BFGS/TS-BFGS inputs and reset multistep Hessian history when
-  rebuilding the coordinate basis.
-- Stop frequency/DFT and refined diagrams after endpoint execution failures;
-  retain diagnostic structures and failure details.
-- Reject fewer than two GSM internal nodes during `path-opt` / `path-search`
-  preflight, including dry runs and YAML configuration.
-- Clarify input roles, TS validation, and GSM/DMF help; shorten installation
-  guidance and repeated introductory documentation.
-- Record executed single-structure methods in `path_optimizers`, preserving
-  citations for scan, alignment, and recursive refinement with `--no-preopt`.
-- Retain a refined path whose HEI is at an endpoint as raw output, without
-  reporting it as a reactive segment.
-- Match compiler guidance and job preflight checks to the C++20 flag selected
-  by current PyTorch JIT builds.
-- Relay `preopt` consistently into path-search citation payloads: with
-  `--no-preopt`, `summary.json`, `summary.log`, and stdout no longer cite an
-  optimizer the run never used.
-- Carry `pipeline_stop` into the `summary.log` payload; only the TS-only route
-  supplied the key, so the new line never rendered for a path run that stopped
-  early.
-- Publish a segment record for an interval that abandoned recursion, and reject
-  one whose HEI sits at an endpoint. `n_segments` / `segments[]` had omitted the
-  interval and its barrier, ΔE, bond changes and convergence. A failed
-  bond-change evaluation now carries a sentinel instead of an empty summary,
-  which read as "no covalent change" and dropped the interval from
-  post-processing.
-- Fail closed on a missing `tsopt` post-segment record when TSOPT was requested,
-  and give `tsopt_missing` / `endpoint_opt_missing` messages.
-- Report `endpoint_opt.connectivity.method` from the probe's own resolution
-  instead of always claiming `bond_topology`.
-- Match a suffixed segment's MEP scratch directory when claiming its endpoint
-  trajectory, so a depth-capped segment keeps its IRC endpoint orientation.
-- Reject `--max-depth` without `--refine-path`, which was accepted, dropped, and
-  still echoed.
-- Report a missing IRC direction record as `failed`, not `disabled`.
-- Restore AIMNet2 evaluation and static image export with current releases.
-- Report TS/IRC-endpoint optimizer modes and requested/effective TS optimizer JSON separately.
-- Show the formatted result warning, including its recovery guidance such as
-  `--flatten` for a TS with more than one imaginary mode, in the Colab alert
-  instead of the raw status code.
-- Derive the Colab per-direction IRC mark from `*_status` so it can no longer
-  contradict the headline scientific status.
+- Improve Cartesian OPT/TSOPT Hessian updates, trust-region steps and final curvature checks, including no-flatten continuation from higher-order saddles. Reduce constrained-Hessian memory use and correct stale frequency-cache reuse.
+- Fix the UMA first-call CUDA mismatch reported in [pdb2reaction #298](https://github.com/t-0hmura/pdb2reaction/pull/298).
+- Fix ORB installation on Python 3.13 Colab runtimes; prefer PDB results and trajectories, and correct scan command display and status messages.
+- Use standard optimization with embedding; preserve microiteration failure diagnostics and correct final mode-index handling. Restore AIMNet2 evaluation and Plotly image export.
+
+### Documentation
+
+- Update workflow and installation guidance.
 
 ## [0.3.4] — 2026-09-02
 
 ### Added
+
 - Add full-system COMT and refined-path BezA Endpoint examples to the Colab GUI.
 
 ### Changed
+
 - Improve the Colab workflow guidance, built-in example walkthroughs, and
   linked setup and runtime help.
 
@@ -204,6 +56,7 @@ _No changes yet._
 > `result.json`/`summary.json` must review the Breaking changes and output-schema updates below.
 
 ### Breaking changes
+
 - Remove the public `--tr-projection` option and the `legacy-active` treatment.
   Frozen-boundary PHVA now always uses the constrained treatment; stale YAML
   values fail explicitly.
@@ -252,6 +105,7 @@ _No changes yet._
   YAML `opt.energy_plateau: true` also still enables it.
 
 ### Added
+
 - Add `--gsm-param {equi,energy}` to `all`, `path-opt`, and `path-search` as an advanced GSM node-parameterization control; `equi` remains the default.
 - Add `--stop-plateau/--no-stop-plateau`, `--stop-plateau-thresh`, and
   `--stop-plateau-window` to `opt`, `tsopt`, and `all`, exposing the
@@ -314,6 +168,7 @@ _No changes yet._
   `[backend] Preparing MLIP model (...)...` and `[backend] Done.`.
 
 ### Changed
+
 - Remove the repeated status/image-count/backend footer from the Colab summary table; the compact run context owns status and artifact details.
 - Remove the redundant `Path with N moving images.` startup line; tagged GSM sections and `String=...` records identify progress.
 - Rename the prepared Toy inputs to `r_toy.pdb`, `p_toy.pdb`, and `p_toy.parm7` and label the notebook route as MEP mode.
@@ -486,6 +341,7 @@ _No changes yet._
   unchanged.
 
 ### Fixed
+
 - Route the first Colab `Load results` action through the native browser bridge.
 - Organize Colab Results into `Energy profile & Trajectory` and
   `Imaginary frequency`, with a contextual `View` or `Mode` selector.
@@ -750,6 +606,7 @@ _No changes yet._
   spot check.
 
 ### Documentation
+
 - Rebuild the CLI references and skills for the current ML/MM input contract,
   validate required parm7 and XYZ topology references in runnable skill examples,
   and document JSON 2.0 truth/provenance plus the Colab workflow.
@@ -758,19 +615,8 @@ _No changes yet._
 
 ## [0.3.2] — 2026-07-10
 
-### Changed
-- **`--precision` now defaults per backend instead of globally to fp32: ORB runs fp64
-  when no precision is given (MACE already did), UMA keeps fp32.** ORB's fp32 is the
-  reduced `float32-high` (TF32) matmul mode. Pass `--precision fp32`
-  explicitly to select the reduced-precision screening configuration.
-- **Behavior change (default): the default UMA model is now `uma-s-1p2`** (was
-  `uma-s-1p1`). Other models (`uma-s-1p1`,
-  `uma-m-1p1`, MACE-OMOL, Orb-v3-omol) remain selectable via `-b` / `--backend-model` / config.
-- **Centralized the default UMA model** in a single constant `DEFAULT_UMA_MODEL`
-  (`mlmm/core/defaults.py`); the `uma-s-1p1` defaults previously hardcoded across backends and
-  `io/trj2fig.py` now all reference it. CLI help and docs were updated for consistency.
-
 ### Added
+
 - **`--dry-run` on `scan2d` and `scan3d`.** Validates options and prints the execution
   plan without running the scan, pairing with `scan` and pdb2reaction.
 - **`--workers` / `--workers-per-node` on every MLIP subcommand** (`sp`, `opt`, `tsopt`, `freq`,
@@ -786,7 +632,21 @@ _No changes yet._
   share the `optimize()`/`prepare_opt()`/Bofill-update contract the macro loop drives. The default
   TS optimizer (RS-I-RFO) is unchanged.
 
+### Changed
+
+- **`--precision` now defaults per backend instead of globally to fp32: ORB runs fp64
+  when no precision is given (MACE already did), UMA keeps fp32.** ORB's fp32 is the
+  reduced `float32-high` (TF32) matmul mode. Pass `--precision fp32`
+  explicitly to select the reduced-precision screening configuration.
+- **Behavior change (default): the default UMA model is now `uma-s-1p2`** (was
+  `uma-s-1p1`). Other models (`uma-s-1p1`,
+  `uma-m-1p1`, MACE-OMOL, Orb-v3-omol) remain selectable via `-b` / `--backend-model` / config.
+- **Centralized the default UMA model** in a single constant `DEFAULT_UMA_MODEL`
+  (`mlmm/core/defaults.py`); the `uma-s-1p1` defaults previously hardcoded across backends and
+  `io/trj2fig.py` now all reference it. CLI help and docs were updated for consistency.
+
 ### Fixed
+
 - **MACE backend could not load its own default model.** The `MACE-OMOL-0` default was
   routed to `mace_off()`, which treats any non-preset, non-URL string as a local file
   path (raising `FileNotFoundError`). It now uses the dedicated `mace_omol` factory.
@@ -818,7 +678,13 @@ _No changes yet._
 
 ## [0.3.1] — 2026-07-05
 
+### Changed
+
+- Documentation corrections to match the code (`--precision` per-backend default; `pdbfixer`
+  is optional; backend/architecture notes).
+
 ### Fixed
+
 - **Charge/spin were silently dropped on the UMA MLIP path.** `AtomicData.from_ase` was
   called without `r_data_keys`, so fairchem-core ≥2.x ran the UMA/ORB/MACE backends at
   charge=0/spin=0 regardless of the requested charge/multiplicity. Now passes
@@ -830,13 +696,120 @@ _No changes yet._
   assigning them charge 0, and used a different disulfide cutoff). It now imports the canonical
   tables.
 
-### Changed
-- Documentation corrections to match the code (`--precision` per-backend default; `pdbfixer`
-  is optional; backend/architecture notes).
-
 ## [0.3.0] — 2026-06-28
 
+### Added
+
+- `--calc-file PATH` (with `--calc-factory NAME`): drive the ML region with an
+  arbitrary ASE Calculator loaded from a user Python file (a `custom` backend) —
+  usable on every subcommand and forwarded through the `all` pipeline. Couple
+  GFN-xTB, DFTB+, ORCA, or any ASE-compatible engine without modifying the
+  package; the MM side and ONIOM coupling are unchanged and Hessians use the
+  finite-difference path. See `docs/backends.md`.
+- `--backend-model NAME` flag on every backend-using subcommand (`opt`,
+  `tsopt`, `freq`, `irc`, `scan` / `scan2d` / `scan3d`, `path-opt`,
+  `path-search`, `sp`, `all`) to override the model variant for the selected
+  `--backend` (e.g. `--backend uma --backend-model uma-m-1p1`), routed to the
+  backend's model kwarg via `apply_backend_model_to_calc_cfg`. Previously the
+  model variant was settable only through `--config` YAML.
+- `--deterministic` flag on every compute subcommand (`opt`, `tsopt`,
+  `freq`, `irc`, `scan`, `scan2d`, `scan3d`, `path-opt`, `path-search`,
+  `all`, `sp`) requests deterministic algorithms and an `index_reduce_` shim.
+  `MLMM_STRICT_DETERMINISTIC=1` is the environment-variable equivalent;
+  backend/model/SDK and target-stack repeatability must be verified.
+- `docs/reproducibility.md` documents backend support and verification guidance.
+- `tests/test_help_grouping.py` locks the four-bucket `--help` section
+  rendering + order.
+- `MLMMCore.compute` / `mlmm` Calculator class / MLMMCore.__init__
+  workspace setup all gained docstrings (previously empty).
+- `result.json` / `summary.json` envelope now carries
+  `schema_version: "1.0"` (bumped when the structure changes) and
+  `write_result_json` mirrors every per-stage `result.json` payload to
+  a sibling `summary.json` so MCP clients and agents can converge on a
+  single filename across every subcommand. `result.json` is preserved
+  for back-compat. `RESULT_JSON_STATUS_VALUES` enumerates the allowed
+  `status` strings (`success` / `partial` / `error` / `unknown`).
+- Structured error envelope when a subcommand fails: the JSON envelope
+  now carries `error_class_chain` (MRO names so agents can match the
+  exception hierarchy without parsing text), `error_module`, and
+  `error_label` alongside the legacy `error` / `error_type` / `status`
+  keys.
+- `mlmm.mcp._runner` exposes `SubcmdResultDict` (TypedDict matching the
+  runtime tool payload), `MCP_SUBCMD_RESULT_SCHEMA_VERSION = "1.0"`,
+  and `MCP_SUBCMD_RESULT_STATUSES` enum. `SubcmdResult.to_dict` now
+  emits `schema_version` so MCP clients can pin the contract.
+- `docs/output-layout.md` (new): single-page reference for the filename
+  conventions per subcommand + agent recipe for reading `summary.json`
+  with class-chain pattern matching. `docs/json-output.md` and
+  `docs/mcp_server.md` updated with the schema_version, summary.json
+  mirror, and error envelope semantics.
+- `tests/test_write_result_json.py`, `tests/test_error_envelope.py`,
+  `tests/test_mcp_runner.py` (~9 tier-1 assertions) lock in the new
+  envelope contracts so regressions show up at pytest time.
+- `mlmm.workflows._all_helpers` (new module) hosts module-level helpers
+  extracted from `workflows/all.py:cli()`:
+    - `AllContext` (frozen dataclass) bundling the 72 `mlmm all` CLI
+      parameters in declaration order.
+    - `copy_path_outputs_to_root` / `promote_diag_for_root` (replace
+      nested closures).
+    - `build_energy_level_dict` factors the 5-way R/TS/P energy-level
+      dict pattern (UMA / Gibbs / DFT / Gibbs-DFT) into one helper.
+    - `build_pipeline_summary_payload` factors the summary-log payload
+      assembly so the dict construction is unit-testable separately
+      from the I/O wrapper.
+    - `build_tsopt_overrides` / `build_freq_overrides` /
+      `build_dft_overrides` factor the inline override-dict assembly
+      (`if x is not None: cfg[k] = ...` ladder) for the post-MEP
+      TSOPT / FREQ / DFT stage calls.
+    - `append_backend_forwarding_args` consolidates the 8 copies of
+      the backend / charge-embedding / link / mm / cmap / args-yaml
+      argv-build ladder shared by every cli()-internal subcommand
+      forwarder. Preserves the "only emit `--no-embedcharge` when
+      the user explicitly typed it" subtlety so a YAML
+      `calc.embedcharge: true` is not silently overridden.
+- `mlmm.core.utils.resolve_ml_layer_assignment` (new helper) collapses
+  the ~30-LOC layer-resolution block that was duplicated verbatim
+  across `scan.py`, `scan2d.py`, and `scan3d.py` (movable_cutoff
+  gating, detect_layer fallback to explicit ML region, model_pdb /
+  model_indices resolution, calc_cfg mutation). Single source of
+  truth for the layer-assignment behavior.
+- `tests/test_all_helpers.py` (9 cases) pins the extracted helper
+  contracts (copy-outputs no-op, copy-outputs canonical artefact set,
+  promote-diag none/rewrite, energy-level kcal projection +
+  no-input-mutation, AllContext frozen + 72 fields, pipeline summary
+  payload shape, AllContext signature drift guard).
+- TS-opt microiteration now supports internal coordinate macro steps
+  (`--coord-type dlc|redund|tric`) by running the MM-only micro relax
+  on a fresh cart twin Geometry and projecting the converged positions
+  back onto the macro geometry via `Geometry.reset_coords()`. Cart-only
+  macro path is byte-equivalent to the previous behaviour. Removes the
+  pre-existing pysisyphus cart<->internal roundtrip drift that aborted
+  microiter runs with `assert_allclose` after a few macro cycles.
+- Smoke `tests/smoke/run.sh` expanded with per-stage `--coord-type
+  {dlc,redund,tric}` + `--precision fp64` + `--mm-backend openmm` +
+  `--link-atom-method fixed` test coverage (test50a/d/g/j/k/m/n/o);
+  test50 itself capped at `--max-cycles 5 --no-tsopt/thermo/dft` so
+  the DLC code path is exercised without the multi-hour GSM
+  convergence the uncapped run requires.
+- `--precision fp32|fp64` accepted on every calculator-constructing
+  subcommand. The flag was previously available only on `tsopt / freq /
+  irc / sp`; it now also covers `opt / all / path-opt / path-search /
+  scan / scan2d / scan3d`. For `all`, the value propagates to every
+  child stage through the shared args YAML, so a single top-level
+  switch covers the full pipeline.
+- `--irc-pos-def` (IRC convergence guard requiring PSD mass-weighted
+  Hessian) is opt-in on `irc`; blocks the IRC "shoulder" false
+  convergence where the rms-only criterion calls success before
+  reaching the local minimum.
+- `mlmm.core.residue_data` (new module) hosts the `AMINO_ACIDS` / `ION`
+  / `WATER_RES` tables shared between `workflows/extract` and
+  `domain/add_elem_info`; removes the L3 -> L2 import inversion that
+  previously had `domain/add_elem_info` reaching back into
+  `workflows/extract`. The legacy `from mlmm.workflows.extract import
+  AMINO_ACIDS, ...` form is preserved via re-export.
+
 ### Changed
+
 - **Behavior change (default):** `all --refine-path/--no-refine-path` now
   defaults to `--no-refine-path`. The `all` pipeline's MEP stage runs a
   single-pass `path-opt` by default; pass `--refine-path` to run the recursive
@@ -885,7 +858,48 @@ _No changes yet._
   section pointing at the `add_*_option` factory + `_COMMAND_BOOL_*`
   registries.
 
+### Removed
+
+- **BREAKING:** `mlmm pysis` subcommand and the `mlmm.pysis_runner` module.
+  This was a thin wrapper that registered the `mlmm` calculator into
+  pysisyphus's `CALC_DICT` and shelled out to the pysisyphus YAML runner,
+  providing v0.1.x YAML-workflow compatibility (`mlmm opt.yaml`). That
+  compatibility surface is dropped: drive runs through the `mlmm`
+  subcommands (with `--config` for YAML-supplied defaults) instead. Using
+  the `mlmm` calculator directly from Python (`from mlmm import mlmm`)
+  is unaffected.
+- **BREAKING:** Flat-top compatibility shim layer removed. The package now
+  lives under 6 layer directories (`cli/`, `workflows/`, `domain/`,
+  `backends/`, `io/`, `core/`); the shims at `mlmm/<file>.py` that
+  re-exported the new locations have been deleted in this release. External
+  code must migrate dotted imports to the layered paths:
+
+  | Old (removed)              | New                                |
+  |----------------------------|------------------------------------|
+  | `mlmm.{all,opt,tsopt,freq,irc,scan,scan2d,scan3d,path_opt,path_search,extract,dft,mm_parm,oniom_export,oniom_import,define_layer}` | `mlmm.workflows.<same>` |
+  | `mlmm.align_freeze_atoms`  | `mlmm.workflows.align_freeze`      |
+  | `mlmm.scan_common`         | `mlmm.workflows.scan_common`       |
+  | `mlmm.{defaults,utils}`    | `mlmm.core.<same>`                 |
+  | `mlmm.{mlmm_calc,xtb_embedcharge_correction}` | `mlmm.backends.<same>` |
+  | `mlmm.{bond_changes,bond_summary,add_elem_info}` | `mlmm.domain.<same>` |
+  | `mlmm.{energy_diagram,trj2fig,hessian_cache,hessian_calc}` | `mlmm.io.<same>` |
+  | `mlmm.harmonic_constraints` | `mlmm.workflows.restraints`       |
+  | `mlmm.fix_altloc`          | `mlmm.io.pdb_fix`                  |
+  | `mlmm.summary_log`         | `mlmm.io.summary`                  |
+  | `mlmm.cli_utils`           | `mlmm.cli.decorators`              |
+  | `mlmm.{bool_compat,default_group,preflight}` | `mlmm.cli.<same>`   |
+  | `mlmm.advanced_help`       | `mlmm.cli.help_pages`              |
+
+  All console-script subcommands are preserved across this move **except**
+  `mlmm pysis` (removed, see below); `mlmm sp` was added. Other Python
+  imports change as tabulated above.
+- `--trust-band` / `--hessian-window` / `--weighted-trust` CLI flags
+  (and their `add_*_option` factories). The vendored
+  pysisyphus `HessianOptimizer` kwargs are left dormant; no
+  behaviour change since defaults were always legacy.
+
 ### Fixed
+
 - Bond-change detection (`domain/bond_changes.compare_structures`) is now
   row-chunked instead of building dense N×N distance matrices, removing a CUDA
   out-of-memory failure on large solvated clusters (~20k+ atoms) during
@@ -946,155 +960,8 @@ _No changes yet._
   parity was valid). A bad `--charge` / `--multiplicity` combination
   now fails in O(ms) instead of after the multi-second ML model load.
 
-### Added
-- `--calc-file PATH` (with `--calc-factory NAME`): drive the ML region with an
-  arbitrary ASE Calculator loaded from a user Python file (a `custom` backend) —
-  usable on every subcommand and forwarded through the `all` pipeline. Couple
-  GFN-xTB, DFTB+, ORCA, or any ASE-compatible engine without modifying the
-  package; the MM side and ONIOM coupling are unchanged and Hessians use the
-  finite-difference path. See `docs/backends.md`.
-- `--backend-model NAME` flag on every backend-using subcommand (`opt`,
-  `tsopt`, `freq`, `irc`, `scan` / `scan2d` / `scan3d`, `path-opt`,
-  `path-search`, `sp`, `all`) to override the model variant for the selected
-  `--backend` (e.g. `--backend uma --backend-model uma-m-1p1`), routed to the
-  backend's model kwarg via `apply_backend_model_to_calc_cfg`. Previously the
-  model variant was settable only through `--config` YAML.
-- `--deterministic` flag on every compute subcommand (`opt`, `tsopt`,
-  `freq`, `irc`, `scan`, `scan2d`, `scan3d`, `path-opt`, `path-search`,
-  `all`, `sp`) requests deterministic algorithms and an `index_reduce_` shim.
-  `MLMM_STRICT_DETERMINISTIC=1` is the environment-variable equivalent;
-  backend/model/SDK and target-stack repeatability must be verified.
-- `docs/reproducibility.md` documents backend support and verification guidance.
-- `tests/test_help_grouping.py` locks the four-bucket `--help` section
-  rendering + order.
-- `MLMMCore.compute` / `mlmm` Calculator class / MLMMCore.__init__
-  workspace setup all gained docstrings (previously empty).
-- `result.json` / `summary.json` envelope now carries
-  `schema_version: "1.0"` (bumped when the structure changes) and
-  `write_result_json` mirrors every per-stage `result.json` payload to
-  a sibling `summary.json` so MCP clients and agents can converge on a
-  single filename across every subcommand. `result.json` is preserved
-  for back-compat. `RESULT_JSON_STATUS_VALUES` enumerates the allowed
-  `status` strings (`success` / `partial` / `error` / `unknown`).
-- Structured error envelope when a subcommand fails: the JSON envelope
-  now carries `error_class_chain` (MRO names so agents can match the
-  exception hierarchy without parsing text), `error_module`, and
-  `error_label` alongside the legacy `error` / `error_type` / `status`
-  keys.
-- `mlmm.mcp._runner` exposes `SubcmdResultDict` (TypedDict matching the
-  runtime tool payload), `MCP_SUBCMD_RESULT_SCHEMA_VERSION = "1.0"`,
-  and `MCP_SUBCMD_RESULT_STATUSES` enum. `SubcmdResult.to_dict` now
-  emits `schema_version` so MCP clients can pin the contract.
-- `docs/output-layout.md` (new): single-page reference for the filename
-  conventions per subcommand + agent recipe for reading `summary.json`
-  with class-chain pattern matching. `docs/json-output.md` and
-  `docs/mcp_server.md` updated with the schema_version, summary.json
-  mirror, and error envelope semantics.
-- `tests/test_write_result_json.py`, `tests/test_error_envelope.py`,
-  `tests/test_mcp_runner.py` (~9 tier-1 assertions) lock in the new
-  envelope contracts so regressions show up at pytest time.
-- `mlmm.workflows._all_helpers` (new module) hosts module-level helpers
-  extracted from `workflows/all.py:cli()`:
-    * `AllContext` (frozen dataclass) bundling the 72 `mlmm all` CLI
-      parameters in declaration order.
-    * `copy_path_outputs_to_root` / `promote_diag_for_root` (replace
-      nested closures).
-    * `build_energy_level_dict` factors the 5-way R/TS/P energy-level
-      dict pattern (UMA / Gibbs / DFT / Gibbs-DFT) into one helper.
-    * `build_pipeline_summary_payload` factors the summary-log payload
-      assembly so the dict construction is unit-testable separately
-      from the I/O wrapper.
-    * `build_tsopt_overrides` / `build_freq_overrides` /
-      `build_dft_overrides` factor the inline override-dict assembly
-      (`if x is not None: cfg[k] = ...` ladder) for the post-MEP
-      TSOPT / FREQ / DFT stage calls.
-    * `append_backend_forwarding_args` consolidates the 8 copies of
-      the backend / charge-embedding / link / mm / cmap / args-yaml
-      argv-build ladder shared by every cli()-internal subcommand
-      forwarder. Preserves the "only emit `--no-embedcharge` when
-      the user explicitly typed it" subtlety so a YAML
-      `calc.embedcharge: true` is not silently overridden.
-- `mlmm.core.utils.resolve_ml_layer_assignment` (new helper) collapses
-  the ~30-LOC layer-resolution block that was duplicated verbatim
-  across `scan.py`, `scan2d.py`, and `scan3d.py` (movable_cutoff
-  gating, detect_layer fallback to explicit ML region, model_pdb /
-  model_indices resolution, calc_cfg mutation). Single source of
-  truth for the layer-assignment behavior.
-- `tests/test_all_helpers.py` (9 cases) pins the extracted helper
-  contracts (copy-outputs no-op, copy-outputs canonical artefact set,
-  promote-diag none/rewrite, energy-level kcal projection +
-  no-input-mutation, AllContext frozen + 72 fields, pipeline summary
-  payload shape, AllContext signature drift guard).
-- TS-opt microiteration now supports internal coordinate macro steps
-  (`--coord-type dlc|redund|tric`) by running the MM-only micro relax
-  on a fresh cart twin Geometry and projecting the converged positions
-  back onto the macro geometry via `Geometry.reset_coords()`. Cart-only
-  macro path is byte-equivalent to the previous behaviour. Removes the
-  pre-existing pysisyphus cart<->internal roundtrip drift that aborted
-  microiter runs with `assert_allclose` after a few macro cycles.
-- Smoke `tests/smoke/run.sh` expanded with per-stage `--coord-type
-  {dlc,redund,tric}` + `--precision fp64` + `--mm-backend openmm` +
-  `--link-atom-method fixed` test coverage (test50a/d/g/j/k/m/n/o);
-  test50 itself capped at `--max-cycles 5 --no-tsopt/thermo/dft` so
-  the DLC code path is exercised without the multi-hour GSM
-  convergence the uncapped run requires.
-- `--precision fp32|fp64` accepted on every calculator-constructing
-  subcommand. The flag was previously available only on `tsopt / freq /
-  irc / sp`; it now also covers `opt / all / path-opt / path-search /
-  scan / scan2d / scan3d`. For `all`, the value propagates to every
-  child stage through the shared args YAML, so a single top-level
-  switch covers the full pipeline.
-- `--irc-pos-def` (IRC convergence guard requiring PSD mass-weighted
-  Hessian) is opt-in on `irc`; blocks the IRC "shoulder" false
-  convergence where the rms-only criterion calls success before
-  reaching the local minimum.
-- `mlmm.core.residue_data` (new module) hosts the `AMINO_ACIDS` / `ION`
-  / `WATER_RES` tables shared between `workflows/extract` and
-  `domain/add_elem_info`; removes the L3 -> L2 import inversion that
-  previously had `domain/add_elem_info` reaching back into
-  `workflows/extract`. The legacy `from mlmm.workflows.extract import
-  AMINO_ACIDS, ...` form is preserved via re-export.
-
-### Removed
-- **BREAKING:** `mlmm pysis` subcommand and the `mlmm.pysis_runner` module.
-  This was a thin wrapper that registered the `mlmm` calculator into
-  pysisyphus's `CALC_DICT` and shelled out to the pysisyphus YAML runner,
-  providing v0.1.x YAML-workflow compatibility (`mlmm opt.yaml`). That
-  compatibility surface is dropped: drive runs through the `mlmm`
-  subcommands (with `--config` for YAML-supplied defaults) instead. Using
-  the `mlmm` calculator directly from Python (`from mlmm import mlmm`)
-  is unaffected.
-- **BREAKING:** Flat-top compatibility shim layer removed. The package now
-  lives under 6 layer directories (`cli/`, `workflows/`, `domain/`,
-  `backends/`, `io/`, `core/`); the shims at `mlmm/<file>.py` that
-  re-exported the new locations have been deleted in this release. External
-  code must migrate dotted imports to the layered paths:
-
-  | Old (removed)              | New                                |
-  |----------------------------|------------------------------------|
-  | `mlmm.{all,opt,tsopt,freq,irc,scan,scan2d,scan3d,path_opt,path_search,extract,dft,mm_parm,oniom_export,oniom_import,define_layer}` | `mlmm.workflows.<same>` |
-  | `mlmm.align_freeze_atoms`  | `mlmm.workflows.align_freeze`      |
-  | `mlmm.scan_common`         | `mlmm.workflows.scan_common`       |
-  | `mlmm.{defaults,utils}`    | `mlmm.core.<same>`                 |
-  | `mlmm.{mlmm_calc,xtb_embedcharge_correction}` | `mlmm.backends.<same>` |
-  | `mlmm.{bond_changes,bond_summary,add_elem_info}` | `mlmm.domain.<same>` |
-  | `mlmm.{energy_diagram,trj2fig,hessian_cache,hessian_calc}` | `mlmm.io.<same>` |
-  | `mlmm.harmonic_constraints` | `mlmm.workflows.restraints`       |
-  | `mlmm.fix_altloc`          | `mlmm.io.pdb_fix`                  |
-  | `mlmm.summary_log`         | `mlmm.io.summary`                  |
-  | `mlmm.cli_utils`           | `mlmm.cli.decorators`              |
-  | `mlmm.{bool_compat,default_group,preflight}` | `mlmm.cli.<same>`   |
-  | `mlmm.advanced_help`       | `mlmm.cli.help_pages`              |
-
-  All console-script subcommands are preserved across this move **except**
-  `mlmm pysis` (removed, see below); `mlmm sp` was added. Other Python
-  imports change as tabulated above.
-- `--trust-band` / `--hessian-window` / `--weighted-trust` CLI flags
-  (and their `add_*_option` factories). The vendored
-  pysisyphus `HessianOptimizer` kwargs are left dormant; no
-  behaviour change since defaults were always legacy.
-
 ### Documentation
+
 - Documented that the `[orb]` extra's `torch_scatter` has no PyPI binary wheel
   (sdist only, fails under PEP517 build isolation): install from PyG's
   prebuilt-wheel index, e.g.
@@ -1106,7 +973,8 @@ _No changes yet._
   and switched the README overview image to an absolute URL so it renders on PyPI.
 - Documented the default MM backend's 4-point-water (OPC/TIP4P) limitation and the
   3-point (OPC3/TIP3P) / `--mm-backend openmm` workarounds in `mm-parm.md`.
-## [0.2.9] — unreleased
+
+## [0.2.9] — Unreleased
 
 Consolidated changes since v0.2.4, pending the `v0.2.9` tag. Highlights: end-to-end
 JSON output, MM-only optimization mode, GPU memory headroom for 16 GB
@@ -1114,7 +982,10 @@ consumer cards via Hessian-update CPU offload, 1-based atom indices in
 all user-facing I/O, energy-plateau convergence fallback, and a
 comprehensive documentation overhaul (EN/JA).
 
-### Added — CLI features
+### Added
+
+#### CLI features
+
 - `mlmm bond-summary`: detect bond changes between two structures
   (positional args supported, R/P sanity check companion to `mlmm all`).
 - `mlmm opt --mm-only`: skip the MLIP component and minimize on the MM
@@ -1138,13 +1009,15 @@ comprehensive documentation overhaul (EN/JA).
 - ML-region charge/multiplicity sanity validator that runs before the
   first MLIP evaluation, surfacing wavefunction-charge mismatches early.
 
-### Added — Convergence and stability
+#### Convergence and stability
+
 - Energy-plateau convergence fallback for optimizers (range-based,
   `1e-4 au` threshold; skipped for chain-of-states optimizers).
 - Pre-MEP global alignment of reactant / product structures.
 - Auto ECP for def2 basis sets in `mlmm dft`.
 
-### Added — Documentation & infrastructure
+#### Documentation & infrastructure
+
 - Agent skill set under `skills/` covering install, structure
   I/O, CLI subcommands, workflows / outputs, and HPC submission.
 - ChemRxiv preprint added as `preferred-citation` in `CITATION.cff`
@@ -1155,6 +1028,7 @@ comprehensive documentation overhaul (EN/JA).
 - `mm-parm` antechamber sqm odd-electron pitfall.
 
 ### Changed
+
 - Atom indices unified to **1-based** for all user-facing I/O
   (`--freeze-atoms`, layer atoms, scan target display, etc.) with
   corresponding EN/JA documentation updates.
@@ -1171,7 +1045,10 @@ comprehensive documentation overhaul (EN/JA).
 - Shorter / cleaner CLI logging with deduplicated blank lines, relative
   paths in echo, and suppressed empty config blocks.
 
-### Fixed — GPU memory
+### Fixed
+
+#### GPU memory
+
 - `pysisyphus/optimizers/hessian_updates.py`: `bofill_update` runs on
   CPU for `torch.Tensor` input, avoiding a ~5 GB GPU peak (sr1 / psb /
   mix temporaries each ~1.35 GB for ~4000-atom active DOF). Result is
@@ -1188,7 +1065,8 @@ comprehensive documentation overhaul (EN/JA).
   in `mlmm all` on bezA-class systems with 16 GB GPU (cyclic-gc could
   not break torch.nn.Module hook / closure cycles).
 
-### Fixed — Correctness
+#### Correctness
+
 - ML-region `model_charge` / `model_mult` now follow the CLI-resolved
   value (`-q` or `-l` derivation) across `opt`, `tsopt`, `freq`,
   `irc`, `scan`, `path-search`, `path-opt`. Previously the
@@ -1221,7 +1099,8 @@ comprehensive documentation overhaul (EN/JA).
   wrapped in `try / finally`.
 - MODEL / ENDMDL missing on first frame in PDB trajectory conversion.
 
-### Fixed — Documentation hygiene
+#### Documentation hygiene
+
 - `skills/`: factual cleanup of trajectory file names
   (`opt_trj.xyz` → `optimization_trj.xyz`), default-dict references
   (`UMA_CALC_KW` → `MLMM_CALC_KW`), TS Hessian flag (`--hessian-init`
@@ -1230,6 +1109,7 @@ comprehensive documentation overhaul (EN/JA).
   cheatsheets; the docs/source are the canonical references.
 
 ### Documentation
+
 - Bilingual documentation overhaul (EN/JA) covering terminology,
   accuracy, and consistency: net charge (not total), pocket → ML
   region determination, total → net charge wording, link-atom and
@@ -1258,10 +1138,12 @@ comprehensive documentation overhaul (EN/JA).
 ## [0.2.4] — 2026-03-18
 
 ### Added
+
 - GitHub Pages deployment and PyPI release workflows.
 - Bidirectional scan (4-tuple) documentation (EN/JA).
 
 ### Fixed
+
 - Regenerated CLI reference docs to match current `--help` output.
 - Documentation accuracy: defaults, YAML examples, EN/JA alignment.
 - Generalized UMA-specific wording to MLIP where applicable.
@@ -1272,7 +1154,7 @@ comprehensive documentation overhaul (EN/JA).
 **Complete rewrite from `mlmm` (v0.1.1) to `mlmm-toolkit` (v0.2.0).**
 This release replaces the previous pysisyphus-wrapper architecture with a unified Click-based CLI toolkit. The package name, CLI interface, dependency stack, and internal architecture have all changed.
 
-### Breaking Changes
+### Breaking changes
 
 - **Package name**: `mlmm-toolkit` on PyPI. Install with `pip install mlmm-toolkit`.
 - **CLI completely redesigned**: The old entry points (`mlmm`, `def_ml_region`, `bond_scan`, `ts_search`, `energy_summary`, `trj2fig`, `add_elem_info`, `get_freeze_indices`, `xyz_geom2pdb`) are replaced by a single `mlmm <subcommand>` interface with 21 subcommands.
@@ -1283,7 +1165,9 @@ This release replaces the previous pysisyphus-wrapper architecture with a unifie
 - **numpy constraint relaxed**: `numpy<2.0` → `numpy>=1.24` (NumPy 2.x compatible).
 - **Configuration**: Shared runtime defaults were centralized in `defaults.py`; command-local CLI defaults remain with their Click options.
 
-### Added — CLI & Workflow
+### Added
+
+#### CLI & Workflow
 
 - **`mlmm all`**: End-to-end workflow command. Given PDB files (R → P), automatically extracts active-site pockets, generates MM parameters, assigns ONIOM layers, runs MEP search, and optionally performs TS optimization, IRC, vibrational analysis, and single-point DFT — all in one invocation.
 - **`mlmm opt`**: Single-structure geometry optimization with LBFGS (grad mode) or RFO (hess mode) with microiteration support.
@@ -1303,7 +1187,7 @@ This release replaces the previous pysisyphus-wrapper architecture with a unifie
 - **`mlmm energy-diagram`**: Plot energy profiles with Plotly (interactive HTML + static PNG).
 - **`mlmm trj2fig`**: Trajectory visualization (PNG snapshots from XYZ trajectories).
 
-### Added — Core Features
+#### Core Features
 
 - **Multi-backend MLIP support**: UMA (default), ORB, MACE, AIMNet2 — selectable via `-b/--backend` on all subcommands.
 - **ONIOM-like ML/MM decomposition**: `E = E_MM_real + E_ML_model − E_MM_model` with link-atom Jacobian transformation.
@@ -1315,7 +1199,7 @@ This release replaces the previous pysisyphus-wrapper architecture with a unifie
 - **Progressive help**: `--help` shows primary options; `--help-advanced` shows the full option set.
 - **DefaultGroup**: Lazy-loading Click subcommand architecture with automatic boolean normalization (`--flag/--no-flag` and `--flag True/False` both supported).
 
-### Added — Dependencies & Extras
+#### Dependencies & Extras
 
 - **Optional backends**: `pip install "mlmm-toolkit[orb]"`, `"mlmm-toolkit[aimnet]"`. MACE (`mace-torch`) conflicts with `fairchem-core` (UMA) due to incompatible `e3nn` versions; use separate conda environments if both are needed.
 - **Optional DFT**: `pip install "mlmm-toolkit[dft]"` for PySCF + gpu4pyscf-cuda12x + CuPy.
@@ -1323,7 +1207,7 @@ This release replaces the previous pysisyphus-wrapper architecture with a unifie
 - **New core dependencies**: `click`, `torch_geometric`, `torch_scatter`, `pyparsing`, `tabulate`.
 - **Bundled packages**: `pysisyphus` (modified fork), `thermoanalysis`, `hessian_ff`.
 
-### Added — Documentation & Testing
+#### Documentation & Testing
 
 - Bilingual documentation (English + Japanese) under `docs/` and `docs/ja/`.
 - Per-subcommand reference docs with CLI tables and YAML configuration examples.
@@ -1333,18 +1217,9 @@ This release replaces the previous pysisyphus-wrapper architecture with a unifie
 - Smoke test suite: 34 end-to-end tests covering all subcommands.
 - Working examples in `examples/toy_system/` and `examples/methyltransferase/`.
 
-### Fixed (relative to v0.1.1)
+### Changed
 
-- IRC energy-based initial displacement: Added `step_length` clamp (max 0.5 au) to prevent divergence when `min_eigval ≈ 0`.
-- Hessian cache: Fixed `set_calculator()` clearing `within_partial_hessian` before `cart_hessian` assignment.
-- HessianOptimizer: Fixed GPU/CPU device mismatch in `hessian_recalc`.
-- Frequency analysis: Added float64 enforcement and explicit `(H+Hᵀ)/2` symmetrization.
-- PDB element inference: Fixed `_infer_element_from_pdb_atom_name()` misidentifying protein hydrogens (e.g., `HG2` → `Hg`). Now uses residue-context-aware `guess_element()`.
-- Silent `except Exception: pass` blocks converted to `logger.debug(...)` across all modules.
-- Charge derivation: Uses `--model-pdb` instead of full input when provided.
-- TypeError in `_pseudo_irc_and_match` when mapping value is `None`.
-
-### Architecture — v0.1.1 → v0.2.0
+#### Architecture — v0.1.1 → v0.2.0
 
 | Aspect | v0.1.1 (`mlmm`) | v0.2.0 (`mlmm-toolkit`) |
 |--------|------------------|--------------------------|
@@ -1360,3 +1235,16 @@ This release replaces the previous pysisyphus-wrapper architecture with a unifie
 | Documentation | README only | Full bilingual docs (EN/JA) |
 | CI/CD | None | GitHub Actions (3 workflows) |
 | Tests | None | 198 unit + 34 smoke tests |
+
+### Fixed
+
+#### (relative to v0.1.1)
+
+- IRC energy-based initial displacement: Added `step_length` clamp (max 0.5 au) to prevent divergence when `min_eigval ≈ 0`.
+- Hessian cache: Fixed `set_calculator()` clearing `within_partial_hessian` before `cart_hessian` assignment.
+- HessianOptimizer: Fixed GPU/CPU device mismatch in `hessian_recalc`.
+- Frequency analysis: Added float64 enforcement and explicit `(H+Hᵀ)/2` symmetrization.
+- PDB element inference: Fixed `_infer_element_from_pdb_atom_name()` misidentifying protein hydrogens (e.g., `HG2` → `Hg`). Now uses residue-context-aware `guess_element()`.
+- Silent `except Exception: pass` blocks converted to `logger.debug(...)` across all modules.
+- Charge derivation: Uses `--model-pdb` instead of full input when provided.
+- TypeError in `_pseudo_irc_and_match` when mapping value is `None`.
