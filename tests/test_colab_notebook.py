@@ -6870,16 +6870,15 @@ def _run_orb_install_branch(monkeypatch, *, python_version, platform, calls, fai
     exec(compile(ast.Module(body=orb_branch.body, type_ignores=[]), str(NOTEBOOK), "exec"), namespace)
 
 
-@pytest.mark.parametrize(("python_version", "platform", "build_tools"), [
-    ((3, 13), "linux", True),
-    ((3, 14), "linux", True),
-    ((3, 12), "linux", False),
-    ((3, 13), "darwin", False),
-    ((3, 13), "win32", False),
-])
+def test_colab_runtime_is_pinned_to_python312_image() -> None:
+    notebook = _notebook()
+    assert notebook["metadata"]["colab"]["runtime_attributes"]["runtime_version"] == "2026.07"
+
+
+@pytest.mark.parametrize("python_version", [(3, 11), (3, 12)])
 @pytest.mark.parametrize("existing_flags", [None, "-O2 -DUSER_BUILD_FLAG=1"])
-def test_orb_source_build_environment_is_scoped_and_preserves_pins(
-    monkeypatch, python_version, platform, build_tools, existing_flags,
+def test_orb_uses_dm_tree_wheel_and_preserves_base_pins(
+    monkeypatch, python_version, existing_flags,
 ) -> None:
     if existing_flags is None:
         monkeypatch.delenv("CXXFLAGS", raising=False)
@@ -6888,31 +6887,20 @@ def test_orb_source_build_environment_is_scoped_and_preserves_pins(
     original = os.environ.copy()
     calls = []
     _run_orb_install_branch(monkeypatch, python_version=python_version,
-                            platform=platform, calls=calls)
-    assert calls[-1][0] == ("orb-models", "torch==2.8.0", "numpy==2.1.3")
+                            platform="linux", calls=calls)
+    assert calls == [(("orb-models", "--only-binary=dm-tree", "torch==2.8.0", "numpy==2.1.3"), {})]
     assert dict(os.environ) == original
-    if build_tools:
-        assert len(calls) == 2
-        assert calls[0] == (("cmake<4",), {})
-        child = calls[-1][1]["env"]
-        expected_flags = ((existing_flags or "") + " -include cstdint").strip()
-        assert child == dict(original, CXXFLAGS=expected_flags)
-        assert child is not os.environ
-    else:
-        assert len(calls) == 1
-        assert calls[-1][1] == {"env": None}
 
 
-@pytest.mark.parametrize("failure_at", ["cmake<4", "orb-models"])
-def test_orb_installer_failure_retains_original_error(monkeypatch, capsys, failure_at) -> None:
+def test_orb_installer_failure_retains_original_error(monkeypatch, capsys) -> None:
     calls = []
     original = os.environ.copy()
     with pytest.raises(subprocess.CalledProcessError) as raised:
-        _run_orb_install_branch(monkeypatch, python_version=(3, 13), platform="linux",
-                                calls=calls, failure_at=failure_at)
+        _run_orb_install_branch(monkeypatch, python_version=(3, 12), platform="linux",
+                                calls=calls, failure_at="orb-models")
     assert raised.value.output == "build diagnostic"
     assert raised.value.returncode == 1
-    assert calls[-1][0][0] == failure_at
+    assert calls[-1][0][0] == "orb-models"
     assert dict(os.environ) == original
     assert "ORB installed" not in capsys.readouterr().out
 

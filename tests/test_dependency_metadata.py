@@ -5,6 +5,7 @@ import tomllib
 
 import pytest
 from packaging.requirements import Requirement
+from packaging.specifiers import SpecifierSet
 
 
 def test_parmed_requirement_supports_the_selected_numpy_runtime() -> None:
@@ -45,7 +46,7 @@ def test_runtime_dependency_floors_match_consumed_apis() -> None:
     assert extras["mcp"] == ["mcp[cli]>=1.29,<2"]
 
 
-@pytest.mark.parametrize("python_version", ["3.11", "3.12", "3.13"])
+@pytest.mark.parametrize("python_version", ["3.11", "3.12"])
 def test_orb_extra_selects_the_supported_api_for_each_python(python_version):
     project = tomllib.loads(
         (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text(encoding="utf-8")
@@ -71,3 +72,15 @@ def test_version_tuple_matches_the_packaged_version() -> None:
 
     assert _version.__version_tuple__ == _version.version_tuple == Version(_version.__version__).release
     assert _version.version == _version.__version__
+
+
+@pytest.mark.parametrize(("version", "supported"), [
+    ("3.9.23", False), ("3.10.18", False), ("3.11.0", True),
+    ("3.11.13", True), ("3.12.0", True), ("3.12.13", True),
+    ("3.13.0", False), ("3.14.0", False),
+])
+def test_python_requirement_matches_supported_dependency_range(version, supported):
+    project = tomllib.loads(
+        (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text(encoding="utf-8")
+    )["project"]
+    assert (version in SpecifierSet(project["requires-python"])) is supported

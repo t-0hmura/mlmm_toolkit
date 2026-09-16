@@ -44,7 +44,7 @@ The source repository includes full-system COMT and [BezA](examples/beza/README.
 
 | Component | Requirement |
 |---|---|
-| OS / Python | Linux recommended; native Windows unsupported (AmberTools/`tleap` unavailable). Python >= 3.11. |
+| OS / Python | Linux recommended; native Windows unsupported (AmberTools/`tleap` unavailable). Python 3.11–3.12. |
 | GPU / CUDA / VRAM | A backend-compatible NVIDIA GPU/driver for GPU execution; size VRAM from a representative target-system pilot. |
 | RAM / Disk | Size RAM and disk for the selected backend, model cache, topology tools, and expected artifacts. |
 

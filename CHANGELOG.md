@@ -12,6 +12,7 @@ _No changes yet._
 
 ### Changed
 
+- Support Python 3.11–3.12 (`>=3.11,<3.13`).
 - JSON schema 3.0: IRC records stop diagnostics without directional success fields; update consumers of `forward_converged` / `backward_converged` or `forward_status` / `backward_status`.
 - Keep complete signed frequencies and positive soft modes in thermochemistry; classify imaginary modes using mass-weighted eigenvalues below −1e−6 Hartree/(Bohr²·amu).
 - Report requested numerical workflow completion separately from frequency, IRC-stop and bond-connectivity diagnostics.
@@ -22,7 +23,7 @@ _No changes yet._
 
 - Correct RFO trust-region steps, Hessian updates, active-space mode mapping and stale frequency caches.
 - Fix UMA initialization and analytical Hessians, including the first-call device issue reported in [#298](https://github.com/t-0hmura/pdb2reaction/pull/298).
-- Fix ORB installation in Python 3.13 notebooks, result previews and scan command display.
+- Pin Colab to Python 3.12 and install ORB with a prebuilt dm-tree wheel; fix result previews and scan command display.
 - Preserve numerical convergence when bond analysis or plotting fails; handle zero-step scans and requested TS post-processing consistently.
 - Restore AIMNet2 evaluation and include embedding forces during OPT/TSOPT; preserve endpoint and microiteration error details.
 
