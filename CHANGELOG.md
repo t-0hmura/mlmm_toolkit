@@ -12,7 +12,6 @@ _No changes yet._
 
 ### Changed
 
-- Support Python 3.11–3.12 (`>=3.11,<3.13`).
 - JSON schema 3.0: IRC records stop diagnostics without directional success fields; update consumers of `forward_converged` / `backward_converged` or `forward_status` / `backward_status`.
 - Keep complete signed frequencies and positive soft modes in thermochemistry; classify imaginary modes using mass-weighted eigenvalues below −1e−6 Hartree/(Bohr²·amu).
 - Report requested numerical workflow completion separately from frequency, IRC-stop and bond-connectivity diagnostics.

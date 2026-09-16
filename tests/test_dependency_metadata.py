@@ -46,7 +46,7 @@ def test_runtime_dependency_floors_match_consumed_apis() -> None:
     assert extras["mcp"] == ["mcp[cli]>=1.29,<2"]
 
 
-@pytest.mark.parametrize("python_version", ["3.11", "3.12"])
+@pytest.mark.parametrize("python_version", ["3.11", "3.12", "3.13"])
 def test_orb_extra_selects_the_supported_api_for_each_python(python_version):
     project = tomllib.loads(
         (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text(encoding="utf-8")
@@ -77,9 +77,9 @@ def test_version_tuple_matches_the_packaged_version() -> None:
 @pytest.mark.parametrize(("version", "supported"), [
     ("3.9.23", False), ("3.10.18", False), ("3.11.0", True),
     ("3.11.13", True), ("3.12.0", True), ("3.12.13", True),
-    ("3.13.0", False), ("3.14.0", False),
+    ("3.13.0", True), ("3.14.0", True),
 ])
-def test_python_requirement_matches_supported_dependency_range(version, supported):
+def test_python_requirement_keeps_core_floor_without_orb_upper_bound(version, supported):
     project = tomllib.loads(
         (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text(encoding="utf-8")
     )["project"]
