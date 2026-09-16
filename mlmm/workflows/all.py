@@ -1322,21 +1322,8 @@ _STATUS_SEVERITY = {"success": 0, "partial": 1, "failed": 2}
 
 
 def _is_reactive_segment(item: Any) -> bool:
-    """Return whether a segment legitimately requires TS post-processing."""
-    if not isinstance(item, dict):
-        return False
-    kind = item.get("kind", "seg")
-    if kind == "tsopt":
-        return True
-    if kind != "seg":
-        return False
-    # Legacy/directly constructed segment records predate bond-change
-    # serialization and remain reactive.  Only an explicit no-change result
-    # suppresses post-processing.
-    if "bond_changes" not in item:
-        return True
-    changes = str(item.get("bond_changes", "")).strip()
-    return bool(changes and changes != "(no covalent changes detected)")
+    """Select TS-capable segments independently of bond-detection diagnostics."""
+    return isinstance(item, dict) and item.get("kind", "seg") in {"seg", "tsopt"}
 
 
 def _write_endpoint_failure_summary_log(
@@ -3294,21 +3281,25 @@ def _write_segment_energy_diagram(
         return None
     e0 = energies_eh[0]
     energies_kcal = [(e - e0) * AU2KCALPERMOL for e in energies_eh]
-    fig = build_energy_diagram(
-        energies=energies_kcal,
-        labels=labels,
-        ylabel=ylabel,
-        baseline=True,
-        showgrid=False,
-    )
-    if title_note:
-        fig.update_layout(title=title_note)
     png = prefix.with_suffix(".png")
+    image_written = False
+    image_error: Optional[str] = None
     try:
+        fig = build_energy_diagram(
+            energies=energies_kcal,
+            labels=labels,
+            ylabel=ylabel,
+            baseline=True,
+            showgrid=False,
+        )
+        if title_note:
+            fig.update_layout(title=title_note)
         write_plotly_image(fig, png, scale=2)
     except Exception as e:
+        image_error = str(e)
         click.echo(f"[diagram] NOTE: PNG export skipped: {e}", err=True)
     else:
+        image_written = True
         emit(f"[diagram] Wrote energy diagram → {png.name}", detail=True)
 
     payload: Dict[str, Any] = {
@@ -3318,8 +3309,10 @@ def _write_segment_energy_diagram(
         "ylabel": ylabel,
         "energies_au": list(energies_eh),
     }
-    if png.is_file():
-        payload["image"] = str(png)
+    payload["image"] = str(png) if image_written else None
+    payload["image_written"] = image_written
+    if image_error:
+        payload["image_error"] = image_error
     if title_note:
         payload["title"] = title_note
     return payload
@@ -4083,12 +4076,9 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @click.option("--max-nodes", type=int, default=_path_opt.GS_KW["max_nodes"], show_default=True,
               help="Max internal nodes per GSM/DMF segment (max_nodes+2 images including endpoints).")
 @click.option("--max-depth", type=click.IntRange(min=0), default=None, show_default="10",
-              help=("Recursive subdivision levels; requires --refine-path. 0 performs no "
-                    "subdivision, returning each input pair as one MEP segment (none when its "
-                    "HEI sits at an endpoint). Reaching the limit is not "
-                    "an error. Any segment retained at a positive cap is tagged "
-                    "seg_NNN_maxdepth and is not guaranteed to "
-                    "be a single elementary step."))
+              help=("Zero-based recursion depth limit; requires --refine-path. Depth 0 is "
+                    "processed even when the limit is 0. Capped child intervals use "
+                    "seg_NNN_maxdepth and may contain multiple steps."))
 @click.option(
     "--gsm-param",
     type=click.Choice(["equi", "energy"], case_sensitive=False),
@@ -7204,8 +7194,7 @@ def cli(
                     "traj": seg_trj,
                     "inputs": (p_left, p_right),
                     "first_last": first_last,
-                    # Child MEP signal; False/unknown remains
-                    # fail-closed even if later IRC/endpoint work succeeds.
+                    # Preserve the child MEP numerical signal for aggregation.
                     "converged": seg_converged,
                 }
             )
@@ -7219,10 +7208,16 @@ def cli(
             raise click.ClickException(f"[all] Failed to write concatenated MEP: {e}")
 
         # Energy plot for concatenated trajectory
+        current_path_images = {}
+        manifest.declare("path_opt.mep_plot", [path_dir / "mep_plot.png"])
+        manifest.declare("path_opt.energy_diagram", [path_dir / "energy_diagram_MEP.png"])
         try:
             run_trj2fig(final_trj, [path_dir / "mep_plot.png"], unit="kcal", reference="init", reverse_x=False)
             close_matplotlib_figures()
-            _echo_detail(f"[plot] Saved energy plot → '{path_dir / 'mep_plot.png'}'")
+            current_plot = manifest.claim_optional("path_opt.mep_plot")
+            if current_plot is not None:
+                current_path_images[current_plot.name] = current_plot
+                _echo_detail(f"[plot] Saved energy plot → '{current_plot}'")
         except Exception as e:
             _echo(f"[plot] WARNING: Failed to plot concatenated MEP: {e}", err=True)
 
@@ -7270,6 +7265,10 @@ def cli(
                 )
                 if diag_payload:
                     energy_diagrams_po.append(diag_payload)
+                    if diag_payload.get("image_written") is True:
+                        current_diagram = manifest.claim_optional("path_opt.energy_diagram")
+                        if current_diagram is not None:
+                            current_path_images[current_diagram.name] = current_diagram
         except Exception as e:
             _echo(
                 f"[diagram] WARNING: Failed to build {mep_mode_label} diagram "
@@ -7383,10 +7382,8 @@ def cli(
 
         # Copy key outputs to out_dir root
         try:
-            for name in ("mep_plot.png", "energy_diagram_MEP.png"):
-                src = path_dir / name
-                if src.exists():
-                    shutil.copy2(src, out_dir / name)
+            for name, src in current_path_images.items():
+                shutil.copy2(src, out_dir / name)
             for ext in ("_trj.xyz", ".xyz"):
                 src = path_dir / f"mep{ext}"
                 if src.exists():
@@ -7431,6 +7428,7 @@ def cli(
             path_dir,
             out_dir,
             warn_fn=lambda msg: _echo(msg, err=True),
+            image_names=None if refine_path else current_path_images.keys(),
         )
 
     def _write_pipeline_summary_log(post_segment_logs: Sequence[Dict[str, Any]]) -> None:
@@ -7526,10 +7524,10 @@ def cli(
         )
         return
 
-    # Iterate only bond-change segments (kind='seg' and bond_changes not empty and not '(no covalent...)')
+    # Process ordinary MEP/TS candidates independently of bond diagnostics.
     reactive = [s for s in segments if _is_reactive_segment(s)]
     if not reactive:
-        _echo("[post] No bond-change segments. Skipping TS/thermo/DFT.", narrative=True)
+        _echo("[post] No TS-capable segments. Skipping TS/thermo/DFT.", narrative=True)
         summary["pipeline_stop"] = {"stage": "post", "reason": "no_reactive_segment"}
         _write_pipeline_summary_log([])
         _finalize_current_summary(

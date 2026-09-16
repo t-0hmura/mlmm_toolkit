@@ -1,8 +1,7 @@
-"""Current-model safeguard through native RFO.optimize, without a PES.
+"""Preserve configured RFO interpolation and active-space bookkeeping.
 
-Only housekeeping and the interpolation result are controlled. Native step
-selection, composition, prediction, active-space expansion and the new guard
-run unchanged. No physical Hessian is requested by this model safeguard.
+Control only housekeeping/interpolation; exercise the native step composition
+and prediction without requesting an additional physical Hessian.
 """
 from types import SimpleNamespace
 import importlib
@@ -106,13 +105,13 @@ def make_case(request, tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("offset", [[4e-4, 0., 0.], [0., 0., 0.]])
 @pytest.mark.parametrize("branch", ["gdiis", "poly"])
-def test_model_uphill_or_zero_acceleration_keeps_descending_reference(make_case, offset, branch):
+def test_finite_acceleration_is_not_vetoed_by_the_approximate_model(make_case, offset, branch):
     case = make_case(offset, branch=branch)
     step = case.opt.optimize()
-    np.testing.assert_allclose(step[case.active], case.seen["reference"], rtol=1e-12, atol=1e-14)
+    np.testing.assert_allclose(step[case.active], case.seen["composed"], rtol=1e-12, atol=1e-14)
     np.testing.assert_array_equal(step[3:], 0.)
     assert case.opt.quadratic_model(case.gradient, case.H, case.seen["composed"]) >= 0
-    assert case.opt.predicted_energy_changes[-1] < 0
+    assert case.opt.predicted_energy_changes[-1] >= 0
 
 
 def test_descending_acceleration_is_retained_even_when_reference_predicts_more_descent(make_case):
@@ -157,28 +156,9 @@ def test_zero_gradient_negative_curvature_keeps_descending_acceleration(make_cas
     assert np.dot(_array(case.gradient), step[case.active]) == 0
 
 
-def test_guard_uses_compact_model_order_before_expanding_frozen_dofs(make_case):
+def test_interpolation_uses_compact_model_order_before_expanding_frozen_dofs(make_case):
     case = make_case([4e-4, 0., 0.], active_order=(2, 0, 1))
     step = case.opt.optimize()
-    np.testing.assert_allclose(step, [0., 0., -1e-3, 0., 0., 0.], atol=1e-14)
+    np.testing.assert_allclose(step, [0., 0., 4e-4, 0., 0., 0.], atol=1e-14)
 
 
-@pytest.mark.parametrize(("target", "value"), [
-    (target, value) for target in ("reference", "candidate")
-    for value in (np.nan, np.inf, -np.inf)
-] + [("reference", 0.)])
-def test_guard_requires_finite_predictions_and_strictly_descending_reference(
-    make_case, monkeypatch, target, value,
-):
-    case = make_case([4e-4, 0., 0.])
-    native_model = case.opt.quadratic_model
-
-    def model(gradient, H, step):
-        is_reference = _array(step)[0] < 0
-        if is_reference == (target == "reference"):
-            return value
-        return native_model(gradient, H, step)
-
-    monkeypatch.setattr(case.opt, "quadratic_model", model)
-    step = case.opt.optimize()
-    np.testing.assert_array_equal(step[case.active], case.seen["composed"])

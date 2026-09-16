@@ -31,7 +31,7 @@ mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 \
 
 ## Result
 
-Check [result status and reasons](json-output.md#execution-and-scientific-truth) in `summary.json` before interpreting the segment energies and bond changes in `summary.log`. The merged path is `mep.pdb` (plus `mep.cif` for bridged input) with `energy_diagram_MEP.png` at the output root. See [all](all.md) for the full output tree and per-segment deliverables, and [output-layout](output-layout.md) for the filename reference.
+Check [result status and reasons](json-output.md#execution-and-requested-stage-completion) in `summary.json` before interpreting the segment energies and bond changes in `summary.log`. The merged path is `mep.pdb` (plus `mep.cif` for bridged input) with `energy_diagram_MEP.png` at the output root. See [all](all.md) for the full output tree and per-segment deliverables, and [output-layout](output-layout.md) for the filename reference.
 
 ## Next step
 

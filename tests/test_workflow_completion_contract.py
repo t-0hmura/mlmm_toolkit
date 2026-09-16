@@ -157,3 +157,19 @@ def test_complete_result_without_ts_convergence_signal_is_not_success(present):
     )
     assert truth.scientific_status != "success"
     assert any("tsopt" in reason for reason in truth.status_reasons)
+
+
+@pytest.mark.parametrize("bond_changes", ["", "(no covalent changes detected)"])
+def test_final_numerical_completion_is_independent_of_bond_diagnostics(bond_changes):
+    summary, post = _fixture()
+    summary["segments"][0]["bond_changes"] = bond_changes
+    truth = workflow._pipeline_aggregate_truth(
+        summary, post_segments=post, config={"tsopt": True}, legacy_status="success",
+    )
+    assert truth.scientific_status == "success"
+    assert truth.expected_item_ids == ("segment_1",)
+    post[0]["endpoint_opt"]["product_converged"] = False
+    truth = workflow._pipeline_aggregate_truth(
+        summary, post_segments=post, config={"tsopt": True}, legacy_status="success",
+    )
+    assert truth.scientific_status != "success"

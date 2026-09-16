@@ -1,4 +1,4 @@
-"""Single-pair routing through native update_hessian; no PES or optimizer run."""
+"""Honor the configured single-pair Hessian update without an implicit method switch."""
 import importlib
 from types import SimpleNamespace
 
@@ -71,17 +71,19 @@ def _unchanged_inputs(case):
 
 
 @pytest.mark.parametrize("diagonal", [(-1., 1.001), (-1e-12, 2.)])
-def test_indefinite_bfgs_routes_to_existing_ts_bfgs(make_case, diagonal):
+def test_indefinite_model_retains_selected_bfgs(make_case, monkeypatch, diagonal):
     case = make_case(diagonal)
-    expected_delta, _ = hessian_updates.ts_bfgs_update(case.H, case.s, case.y)
-    old_delta, _ = hessian_updates.bfgs_update(case.H, case.s, case.y)
-    assert not np.allclose(_numpy(expected_delta), _numpy(old_delta), rtol=1e-8, atol=1e-14)
+    expected_delta, _ = hessian_updates.bfgs_update(case.H, case.s, case.y)
+    alternative_delta, _ = hessian_updates.ts_bfgs_update(case.H, case.s, case.y)
+    assert not np.allclose(_numpy(expected_delta), _numpy(alternative_delta), rtol=1e-8, atol=1e-14)
+    monkeypatch.setattr(owner, "get_xp", _forbidden)
+    monkeypatch.setattr(owner, "ts_bfgs_update", _forbidden)
 
     case.opt.update_hessian()
 
     np.testing.assert_allclose(_numpy(case.opt.H), _numpy(case.H + expected_delta), rtol=1e-12, atol=1e-12)
     np.testing.assert_allclose(_numpy(case.opt.H) @ case.s, case.y, rtol=1e-12, atol=1e-12)
-    assert "Did TS-BFGS Hessian update." in case.logs
+    assert "Did BFGS Hessian update." in case.logs
     assert case.opt.skipped_bfgs_updates == 0
     _unchanged_inputs(case)
 

@@ -50,7 +50,7 @@ MLIP/ML/MM calculator stages additionally record:
 | `link_atom_method` | string \| null | Link-atom placement (`scaled` or `fixed`); null for plot-only output |
 | `use_cmap` | bool \| null | Whether CMAP terms were enabled; null for plot-only output |
 
-### Execution and scientific truth
+### Execution and requested-stage completion
 
 Multi-stage and scan producers add the fields below when they can evaluate constituent work. These fields are additive and producer-dependent; the command-specific `status` remains in place. Consumers can inspect requested-stage completion using `scientific_status` and the leaf outcomes. Missing required optimization or calculation results remain incomplete. IRC stop conditions and stationarity are diagnostics. IRC does not publish an independent `scientific_status`; `all` uses TSOPT and endpoint-OPT numerical outcomes.
 
@@ -362,13 +362,13 @@ The `all` and `path-search` commands write `summary.json`:
 | Field | Type | Description |
 |-------|------|-------------|
 | `status` | string | `"success"` / `"partial"` / `"failed"` for `all`; `"success"` / `"partial"` for `path-search`. |
-| `execution_status` / `scientific_status` | string / string | Execution completeness and scientific usability; evaluate these separately from legacy `status`. |
-| `scientific_status_reasons` | string[] | Reasons for incomplete or unrequested work; omitted on clean success. |
+| `execution_status` / `scientific_status` | string / string | Execution completeness and completion of requested numerical/calculation stages. |
+| `scientific_status_reasons` | string[] | Reasons for missing or unusable requested results; omitted on success. |
 | `pipeline_stop` | object \| absent | Present only on an early stop. `stage` is `post` (`reason` `no_segments` / `no_reactive_segment`), `before_irc` (a TSOPT reason, plus `segment` and `tsopt_result`), or `endpoint_opt` (`endpoint_execution_failed` and endpoint-specific `failures`). Rendered in `summary.log` as `Pipeline stop`. |
 | `expected_item_ids` / `observed_item_ids` | string[] | Expected and observed aggregate leaves. |
 | `config` | object | Effective settings. `mep_mode` identifies GSM/DMF; `ts_opt_mode` and `endpoint_opt_mode` identify the configured post-processing presets. Generic `opt_mode*` keys retain the resolved CLI inputs. `path_opt_mode` is the single-structure optimizer used for endpoint preoptimization (see `preopt`), not the MEP path algorithm. |
 | `n_segments` | int | Segment count |
-| `search_max_depth` | int | Effective recursion cap; `0` means subdivision was disabled |
+| `search_max_depth` | int | Effective zero-based recursion cap; depth 0 is processed even at limit 0 |
 | `path_optimizers` | string[] | Single-structure optimizers actually used during path preparation/refinement (`lbfgs`, `rfo`); includes scan and alignment work in `all`. Also present in `path-opt` `result.json` and `all` `summary.json` |
 | `preopt_requested` / `preopt_converged` | bool / bool \| null | Whether endpoint preoptimization ran, and whether every endpoint converged; `null` when any endpoint reported no readable signal. `all` uses this preliminary convergence signal unless requested final TS and both endpoint optimizations have converged for every reactive segment; the original field remains reported |
 | `segments` | object[] | Per-segment barrier, delta, bond changes |

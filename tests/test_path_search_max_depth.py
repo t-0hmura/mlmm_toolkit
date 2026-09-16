@@ -1,45 +1,17 @@
-"""`search.max_depth` counts LEVELS of recursive subdivision.
+"""Preserve the zero-based recursion cap and numerical MEP outcome.
 
-The cap therefore compares ``depth >= max_depth``: ``0`` performs no
-subdivision at all and reproduces a single-segment MEP, which is the setting a
-user reaches for when recursive splitting is not wanted. A deliberate ``0``
-also keeps the ordinary ``seg_NNN`` tag, because ``_maxdepth`` means "the
-recursion was cut off while covalent changes remained" and that segment is not
-guaranteed to be a single elementary step.
+Depth N is processed at cap N; only deeper children terminate subdivision.
+Chemical diagnostic failures must not overwrite the solver's convergence fact.
 """
 
 from __future__ import annotations
 
-import inspect
-from pathlib import Path
 
 import click
 import pytest
 
 from mlmm.core.defaults import SEARCH_KW
 from mlmm.workflows import path_search
-
-
-SRC = Path(inspect.getfile(path_search)).read_text(encoding="utf-8")
-
-
-def test_cap_counts_levels_so_zero_subdivides_nothing() -> None:
-    assert 'max_depth = int(search_cfg.get("max_depth", SEARCH_KW["max_depth"]))' in SRC
-    assert "if depth >= max_depth:" in SRC
-    # `depth > max_depth` allows one split even at 0, leaving no way to switch
-    # subdivision off and making the name mean "N+1 levels".
-    assert 'if depth > int(search_cfg.get("max_depth"' not in SRC
-
-
-def test_deliberate_zero_keeps_the_ordinary_segment_tag() -> None:
-    assert "if max_depth > 0:" in SRC
-    assert '_terminate_with_single_segment(\n                f"seg_{seg_counter[0]:03d}_maxdepth"' in SRC
-    assert '_terminate_with_single_segment(f"seg_{seg_counter[0]:03d}")' in SRC
-    # Every branch that abandons recursion publishes a segment record, so the
-    # interval cannot vanish from `n_segments` / `segments[]`.
-    assert "def _terminate_with_single_segment(" in SRC
-    assert 'f"seg_{seg_counter[0]:03d}_kinklimit",' in SRC
-    assert "segments=[]" in SRC  # the endpoint-HEI guard still refuses a report
 
 
 def test_max_depth_option_is_declared_on_both_entry_points() -> None:
@@ -57,17 +29,20 @@ def test_max_depth_option_is_declared_on_both_entry_points() -> None:
         assert option.type.min == 0
 
 @pytest.mark.parametrize(
-    "max_depth,primary_hei,refined_hei,n_segments,single_opt_executed",
+    "max_depth,depth,primary_hei,refined_hei,n_segments,single_opt_executed",
     [
-        (0, 1, 1, 1, False),
-        (1, 0, 1, 0, False),
-        (1, 1, 0, 0, True),
-        (1, 1, 2, 0, True),
-        (1, 1, 1, 1, True),
+        (0, 0, 1, 1, 1, True),
+        (0, 1, 1, 1, 1, False),
+        (2, 2, 1, 1, 1, True),
+        (2, 3, 1, 1, 1, False),
+        (1, 0, 0, 1, 0, False),
+        (1, 0, 1, 0, 0, True),
+        (1, 0, 1, 2, 0, True),
+        (1, 0, 1, 1, 1, True),
     ],
 )
 def test_single_optimizer_provenance_and_refined_hei_boundary(
-    tmp_path, monkeypatch, max_depth, primary_hei, refined_hei,
+    tmp_path, monkeypatch, max_depth, depth, primary_hei, refined_hei,
     n_segments, single_opt_executed,
 ):
     from types import SimpleNamespace
@@ -104,13 +79,15 @@ def test_single_optimizer_provenance_and_refined_hei_boundary(
         search_cfg={"max_depth": max_depth, "stitch_rmsd_thresh": 1e-4,
                     "bridge_rmsd_thresh": 1e-4},
         refine_mode_kind="peak", mep_mode_kind="gsm",
-        out_dir=tmp_path, ref_pdb_path=None, depth=0, seg_counter=[0],
+        out_dir=tmp_path, ref_pdb_path=None, depth=depth, seg_counter=[0],
         branch_tag="pair_00",
     )
 
     assert len(optimizer_calls) == (2 if single_opt_executed else 0)
     assert result.single_opt_executed is single_opt_executed
     assert len(result.segments) == n_segments
+    if result.segments:
+        assert result.segments[0].tag.endswith("_maxdepth") is (depth > max_depth)
 
     assert len(result.required_outcomes) == (0 if n_segments else 1)
     if not n_segments:
@@ -120,3 +97,86 @@ def test_single_optimizer_provenance_and_refined_hei_boundary(
         leaves, expected = path_search._path_leaves_and_expected(
             result.segments, required_outcomes=result.required_outcomes)
         assert raw in leaves and raw.item_id in expected
+
+
+@pytest.mark.parametrize("route", ["depth", "kink"])
+@pytest.mark.parametrize("solver_converged", [True, False, None])
+@pytest.mark.parametrize("bond_failure", [False, True])
+def test_terminal_path_keeps_solver_fact_and_diagnostics(
+    tmp_path, monkeypatch, capsys, route, solver_converged, bond_failure,
+):
+    from types import SimpleNamespace
+
+    def image(energy):
+        return SimpleNamespace(energy=energy, set_calculator=lambda _calc: None)
+
+    def mep(converged):
+        energies = [0.0, 1.0, 0.2]  # finite, interior HEI
+        return SimpleNamespace(
+            images=[image(e) for e in energies], energies=energies,
+            hei_idx=1, is_converged=converged,
+        )
+
+    primary = mep(True)
+    terminal = mep(solver_converged)
+    responses = iter([primary, terminal] if route == "kink" else [terminal])
+    mep_tags = []
+
+    def run_mep(*_args, **kwargs):
+        mep_tags.append(kwargs["tag"])
+        return next(responses)
+
+    monkeypatch.setattr(path_search, "_run_mep_between", run_mep)
+    monkeypatch.setattr(path_search, "_optimize_single",
+                        lambda geometry, *_args, **_kwargs: (geometry, True))
+    monkeypatch.setattr(path_search, "_make_linear_interpolations",
+                        lambda *_args: [image(1.0)])
+
+    n_bond = 0
+    def compare(*_args, **_kwargs):
+        nonlocal n_bond
+        n_bond += 1
+        if route == "kink" and n_bond <= 4:
+            # Detect a kink; no left/right recursion; then hit max_seq_kink=1.
+            return False, "(no covalent changes detected)"
+        if bond_failure:
+            raise ValueError("injected bond diagnostic failure")
+        return True, "Bond formed"
+
+    is_p = path_search.__name__.startswith("pdb2reaction.")
+    monkeypatch.setattr(path_search,
+                        "has_bond_change" if is_p else "_has_bond_change", compare)
+    kwargs = dict(
+        geom_cfg={}, gs_cfg={}, stopt_cfg={}, single_opt_cfg={}, bond_cfg={},
+        search_cfg={"max_depth": 0 if route == "depth" else 2,
+                    "max_seq_kink": 1, "kink_max_nodes": 1,
+                    "stitch_rmsd_thresh": 1e-4, "bridge_rmsd_thresh": 1e-4},
+        refine_mode_kind="peak", mep_mode_kind="gsm", out_dir=tmp_path,
+        ref_pdb_path=None, depth=1 if route == "depth" else 0,
+        seg_counter=[0], branch_tag="pair_00", calc_cfg={}, dmf_cfg={},
+    )
+    if is_p:
+        kwargs.update(single_opt_kind="lbfgs", prepared_inputs=[], prepared_input=None)
+    result = path_search._build_multistep_path(
+        primary.images[0], primary.images[-1], None, **kwargs
+    )
+    assert len(mep_tags) == (2 if route == "kink" else 1)
+    assert n_bond == (5 if route == "kink" else 1)
+    assert len(result.segments) == 1
+    assert not result.required_outcomes
+    segment = result.segments[0]
+    assert segment.converged is solver_converged
+    assert segment.summary == (
+        "(bond-change evaluation failed)" if bond_failure else "Bond formed"
+    )
+    segment.seg_index = 1
+    leaves, expected = path_search._path_leaves_and_expected(result.segments)
+    assert expected == ["segment_1"]
+    assert leaves[0].converged is solver_converged
+    assert leaves[0].usable is (solver_converged is True)
+    captured = capsys.readouterr()
+    text = captured.out + captured.err
+    if bond_failure:
+        assert "injected bond diagnostic failure" in text
+    if route == "kink":
+        assert "Consecutive kink segments" in text

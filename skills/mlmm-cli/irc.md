@@ -106,7 +106,6 @@ print(d["n_frames_forward"], d["n_frames_backward"])
 print(d["energy_first_hartree"], d["energy_ts_hartree"], d["energy_last_hartree"])
 print(d.get("bond_changes"))       # directed first -> last; may be omitted
 print(d["status"])                  # "completed" (success path only; errors emit a separate error JSON)
-print(d["forward_status"], d["backward_status"])
 print(d["forward_requested"], d["backward_requested"])
 print(d["forward_integration_converged"], d["backward_integration_converged"])
 print(d["forward_integration_stop_reason"], d["backward_integration_stop_reason"])
@@ -127,13 +126,15 @@ aliases for first/last only. Assign R/P after inspecting or matching the
 endpoint structures. `never_stop` records whether the opt-in mode was enabled;
 `never_stop_energy_bypasses` is the observed bypass count.
 
-Each requested direction reports `*_status` as `stopped` or `failed`.
-`*_integration_converged` describes only whether the RMS-gradient
-stationarity criterion fired, so `--never-stop` always leaves it false; pair it
-with `*_downhill_departure_valid` when you need both conditions. A normal stop
-remains usable input to endpoint optimization. Schema 3.0 removed the
-`*_converged` keys. Numerical propagation failure or an invalid downhill departure
-reports `failed`.
+IRC has no independent scientific success verdict. Each requested direction
+records its frame count and `*_integration_stop_reason`.
+`*_integration_converged` describes whether the RMS-gradient stationarity
+criterion fired, so `--never-stop` leaves it false. This field and
+`*_downhill_departure_valid` are diagnostics, not endpoint-optimization gates.
+Finite retained endpoints can proceed to optimization after a predictor-budget
+or max-cycle stop. Missing or non-finite coordinates and execution errors must
+still be reported. Schema 3.0 removed the old `*_converged` and direction-status
+keys; read the diagnostics shown above.
 
 The default `constrained` treatment removes only full-system rigid motions
 that leave frozen anchors fixed. Generic ranks are 6/3/1/0 for

@@ -86,38 +86,23 @@ def test_missing_requested_post_segment_is_partial_and_unobserved():
     assert truth.observed_item_ids == ("segment_1",)
 
 
-def test_explicit_no_change_segment_does_not_require_postprocessing() -> None:
-    summary = {
-        "segments": [
-            {
-                "index": 1,
-                "kind": "seg",
-                "converged": True,
-                "bond_changes": "(no covalent changes detected)",
-            }
-        ],
-        "energy_diagrams": [{"name": "MEP"}],
-    }
-    config = {"tsopt": True, "thermo": False, "dft": False}
+@pytest.mark.parametrize("bond_changes", ["", "(no covalent changes detected)", "forming 1-2"])
+def test_bond_diagnostics_do_not_suppress_requested_postprocessing(bond_changes):
+    from mlmm.workflows.all import _is_reactive_segment
 
-    status, reasons = _derive_pipeline_status(
-        summary, post_segments=[], config=config
-    )
-    truth = _pipeline_aggregate_truth(
-        summary,
-        post_segments=[],
-        config=config,
-        legacy_status=status,
-        legacy_reasons=reasons,
-    )
-
-    # The no-change segment still requires no per-segment record, which is what
-    # this test guards. The headline verdict now says what actually happened:
-    # TSOPT was requested and never ran, because nothing was reactive.
+    segment = {"index": 1, "kind": "seg", "converged": True,
+               "bond_changes": bond_changes}
+    assert _is_reactive_segment(segment)
+    assert not _is_reactive_segment({**segment, "kind": "bridge"})
+    summary = {"segments": [segment], "energy_diagrams": [{"name": "MEP"}]}
+    config = {"tsopt": True}
+    status, reasons = _derive_pipeline_status(summary, post_segments=[], config=config)
+    truth = _pipeline_aggregate_truth(summary, post_segments=[], config=config,
+                                      legacy_status=status, legacy_reasons=reasons)
     assert status == "partial"
-    assert any("no reactive segment" in reason for reason in reasons)
-    assert truth.scientific_status == "partial"
-    assert truth.expected_item_ids == ()
+    assert "segment 1: requested post-processing record is missing" in reasons
+    assert truth.scientific_status != "success"
+    assert truth.expected_item_ids == ("segment_1",)
 
 
 def test_failed_segment_dft_is_partial() -> None:

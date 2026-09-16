@@ -62,13 +62,16 @@ def _assert_pdb(path: Path, frames, residue: str) -> None:
     assert actual == [xyz for index in frames for xyz in _coords(index)]
 
 
+@pytest.mark.parametrize("plot_writes", [False, True])
 @pytest.mark.parametrize("case", ["scan_preopt", "direct_pdb", "no_convert"])
-def test_all_path_opt_mep_pdb_publication(tmp_path: Path, monkeypatch, case: str) -> None:
+def test_all_path_opt_mep_pdb_publication(tmp_path: Path, monkeypatch, case: str, plot_writes: bool) -> None:
     monkeypatch.delenv(MLMM_RUN_ID_ENV, raising=False)
     # Isolate inherited process state. Keep conversion enabled even in the
     # negative case, so the parent's explicit --no-convert-files guard is tested.
     monkeypatch.setattr(utils, "_CONVERT_FILES_ENABLED", True)
     out = tmp_path / "out"
+    stale_diagram = _write(out / "_work/path_opt/energy_diagram_MEP.png", "old image")
+    _write(out / "_work/path_opt/mep_plot.png", "old plot")
     convert = case != "no_convert"
     inputs = [_write(tmp_path / f"input{i}.pdb", _pdb(label)) for i, label in enumerate(("RAW", "MID", "END"))]
     # Explicit model/parm avoid AmberTools; this fake parm is never parsed.
@@ -109,7 +112,11 @@ def test_all_path_opt_mep_pdb_publication(tmp_path: Path, monkeypatch, case: str
 
     monkeypatch.setattr(all_workflow, "_run_cli_main", fake_child)
     monkeypatch.setattr(all_workflow, "_mlmm_calc", no_calculator)
-    monkeypatch.setattr(all_workflow, "run_trj2fig", lambda *_a, **_k: None)
+    def plot(_source, outputs, **kwargs):
+        if not plot_writes:
+            raise RuntimeError("plot renderer unavailable")
+        Path(outputs[0]).write_text("current plot")
+    monkeypatch.setattr(all_workflow, "run_trj2fig", plot)
     monkeypatch.setattr(all_workflow, "close_matplotlib_figures", lambda: None)
     monkeypatch.setattr(all_workflow, "_write_segment_energy_diagram", lambda *_a, **_k: None)
     monkeypatch.setattr(all_workflow._path_search, "_has_bond_change", lambda *_a, **_k: (False, ""))
@@ -125,6 +132,13 @@ def test_all_path_opt_mep_pdb_publication(tmp_path: Path, monkeypatch, case: str
     summary = json.loads((out / "summary.json").read_text())
     manifest = json.loads((out / "_work/_run_manifest.json").read_text())
     assert summary["run_id"] == manifest["run_id"]
+    assert stale_diagram.read_text() == "old image"
+    assert not (out / "energy_diagram_MEP.png").exists()
+    assert (out / "mep_plot.png").exists() is plot_writes
+    if plot_writes:
+        assert (out / "mep_plot.png").read_text() == "current plot"
+    assert ("mep_plot.png" in summary["key_output_files"]) is plot_writes
+    assert "energy_diagram_MEP.png" not in summary["key_output_files"]
     assert summary["n_images"] == 3 and summary["n_segments"] == 2
     assert (out / "mep_trj.xyz").read_text() == "".join(_frame(i) for i in range(3))
     assert not (out / "mep_trj.pdb").exists()

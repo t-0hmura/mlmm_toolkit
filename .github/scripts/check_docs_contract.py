@@ -12,6 +12,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SCAN_ROOTS = (REPO_ROOT / "docs", REPO_ROOT / "skills")
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 STALE_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r'd\["(?:forward|backward)_status"\]'),
+     "IRC examples must read retained diagnostics, not removed direction-status keys"),
     (re.compile(
         r"uma-s-1p1\s*(?:\([^)]*\))?\s*(?:is\s+)?(?:the\s+)?default\b"
         r"|\bdefault(?:\s+(?:model|is))?\s*[:=]?\s*[`'\"]?uma-s-1p1\b",
@@ -78,6 +80,7 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
         "active-DOF basis",
         "inserts one underscore",
         'd["rigid_projection"]["electronic_state_verified"]',
+        "IRC has no independent scientific success verdict",
     ),
     Path("skills/mlmm-workflows-output/SKILL.md"): (
         "`mlip_model`",
@@ -126,7 +129,10 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
     ),
     Path("docs/freq.md"): ("E + G_corr = G",),
     Path("docs/ja/freq.md"): ("E + G_corr = G",),
-    Path("skills/mlmm-cli/freq.md"): ("E + G_corr = G",),
+    Path("skills/mlmm-cli/freq.md"): (
+        "E + G_corr = G", "`-1e-6` Hartree/(bohr²·amu)",
+        "Raw negative counts are diagnostic",
+    ),
     Path("docs/backends.md"): ("mlmm all", "forwards the same factory"),
     Path("docs/ja/backends.md"): ("mlmm all", "同じfactory"),
     Path("docs/add-elem-info.md"): (

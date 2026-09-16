@@ -1036,12 +1036,8 @@ class HessianOptimizer(Optimizer):
                 self.H = new_H
                 self.log("Did Bofill Hessian update (rank-2, copy-on-write).")
             else:
-                update_func = self.hessian_update_func
-                if self.hessian_update == "bfgs" and bool(
-                    (get_xp(H_work).linalg.eigvalsh(H_work) < 0).any()
-                ):
-                    update_func = ts_bfgs_update
-                dH, key = update_func(H_work, dx, dg)
+                # Honor the selected update, including an explicit TS-BFGS choice.
+                dH, key = self.hessian_update_func(H_work, dx, dg)
                 self.log(f"Did {key} Hessian update.")
                 self.H = H_work + dH
 

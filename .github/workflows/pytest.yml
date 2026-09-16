@@ -59,11 +59,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cpu
           pip install -e . --no-deps
-          pip install click pyyaml numpy biopython scipy ase \
+          pip install 'click>=8.1,<9.0' 'pyyaml>=6.0,<7.0' 'numpy>=2.0,<2.5' 'biopython>=1.80,<2.0' scipy 'ase>=3.26.0' \
             autograd dask distributed h5py fabric jinja2 joblib \
             matplotlib natsort psutil rmsd sympy scikit-learn \
-            pandas tabulate plotly kaleido ParmEd openmm \
-            pymsym \
+            pandas tabulate 'plotly>=6.1.1' kaleido 'ParmEd>=4.3.1' openmm \
+            'pymsym>=0.3.5,<0.4' \
             ipywidgets pytest pytest-cov pytest-timeout
         timeout-minutes: 15
 

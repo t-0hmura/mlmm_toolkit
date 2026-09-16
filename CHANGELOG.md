@@ -10,12 +10,20 @@ _No changes yet._
 
 ## [0.3.6] — 2026-09-16
 
+### Changed
+
+- JSON schema 3.0: IRC records stop diagnostics without directional success fields; update consumers of `forward_converged` / `backward_converged` or `forward_status` / `backward_status`.
+- Keep complete signed frequencies and positive soft modes in thermochemistry; classify imaginary modes using mass-weighted eigenvalues below −1e−6 Hartree/(Bohr²·amu).
+- Report requested numerical workflow completion separately from frequency, IRC-stop and bond-connectivity diagnostics.
+- Keep Bofill/L2 Cartesian TS defaults, a 300-iteration DMF cap and zero-based path-search depth limits. Optimization does not resume automatically after a final Hessian check.
+
 ### Fixed
-- Retain validated Hessian-update, RFO solver, cache, complete-frequency and backend fixes, including the UMA first-call correction ([#298](https://github.com/t-0hmura/pdb2reaction/pull/298)).
-- Report numerical optimization and frequency results separately; keep IRC stop and endpoint-connectivity details as diagnostics.
-- Restore conventional Cartesian TS defaults and the DMF iteration cap; remove implicit post-convergence curvature recovery.
-- Preserve soft positive modes and use the original pysisyphus eigenvalue criterion for default imaginary-mode reporting.
-- Correct result completeness, endpoint error summaries, mode-index ownership and notebook scan precision.
+
+- Correct RFO trust-region steps, Hessian updates, active-space mode mapping and stale frequency caches.
+- Fix UMA initialization and analytical Hessians, including the first-call device issue reported in [#298](https://github.com/t-0hmura/pdb2reaction/pull/298).
+- Fix ORB installation in Python 3.13 notebooks, result previews and scan command display.
+- Preserve numerical convergence when bond analysis or plotting fails; handle zero-step scans and requested TS post-processing consistently.
+- Restore AIMNet2 evaluation and include embedding forces during OPT/TSOPT; preserve endpoint and microiteration error details.
 
 ## [0.3.5] — 2026-09-16
 

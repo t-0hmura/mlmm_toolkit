@@ -102,7 +102,7 @@ ML領域PDB pairは別の成果物であり、PDB入力では常に出力され�
 
 4. **全系レイヤード PDB での MEP 探索**
    - すべての MEP 計算は全系レイヤード PDB（`--parm` + `--detect-layer`）上で実行されます（ポケット上ではありません）。
-   - **`--refine-path`:** 自動精密化を含む再帰的 `path_search` を実行し、TS・IRC で検証する多段階反応経路の候補を構築します。分割が不要な単一段階の MEP でも HEI 領域を精密化します。`--max-depth` で分割階層数を制限できます（`0` で分割無効）。複雑な多段階反応では手動での試行錯誤が必要な場合があります。両モードとも Stage 5 後処理に対応。
+   - **`--refine-path`:** 自動精密化を含む再帰的 `path_search` を実行し、TS・IRC で検証する多段階反応経路の候補を構築します。分割が不要な単一段階の MEP でも HEI 領域を精密化します。`--max-depth` で0始まりの再帰深さを制限できます（上限0でも深さ0を処理）。複雑な多段階反応では手動での試行錯誤が必要な場合があります。両モードとも Stage 5 後処理に対応。
    - `--mep-mode` で GSM（デフォルト）または DMF を選択します。`--dmf-backend gpu` は `dmf.torch`、`--dmf-backend cpu` は NumPy 実装を使用します。GPU メモリ不足時は CPU を選択してください。
    - **`--no-refine-path`（デフォルト）:** 隣接ペアごとに選択した最適化法で単一パス `path-opt` を実行後、軌跡を結合、セグメントごとの HEI 抽出、結合変化検出、`summary.json` 書き出しまで行い、Stage 5 後処理（TSOPT、thermo、DFT）が利用可能。
    - マルチ入力実行では、元の完全 PDB がマージ参照として自動的に供給されます。スキャン由来の系列（単一構造の場合）では、元の完全 PDB 1 つがすべての入力の参照テンプレートとして再利用されます。
@@ -188,7 +188,7 @@ metadata に保持し、ユーザー向け pipeline mode には使用しませ�
 
 ### `summary.json` の読み方
 
-エネルギーを解釈する前に `scientific_status` と `scientific_status_reasons` を確認します。部分結果や途中停止の扱いは[実行結果と科学的妥当性](json-output.md#実行結果と科学的妥当性)を参照してください。
+エネルギーを解釈する前に `scientific_status` と `scientific_status_reasons` を確認します。部分結果や途中停止の扱いは[実行と要求段階の完了状況](json-output.md#実行と要求段階の完了状況)を参照してください。
 
 `summary.json` の主なトップレベルキー:
 - `out_dir`、`n_images`、`n_segments` -- 実行メタデータと総数。
@@ -259,7 +259,7 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 | `--mep-mode [gsm\|dmf]` | `path-opt` と再帰的 `path-search` の両方へ転送する MEP 最適化法。 | `gsm` |
 | `--dmf-backend [gpu\|cpu]` | DMF 実装。明示指定時だけ子コマンドへ転送するため、省略時は子コマンドの YAML 設定 `dmf.backend` が有効。 | `gpu` |
 | `--max-nodes INT` | GSM/DMF セグメントの内部ノード数。 | `20` |
-| `--max-depth INT` | 許可する再帰分割の階層数（`--refine-path` が必須）。`0` で分割無効（入力ペアごとに1セグメント、HEI が端点なら0）。上限に達した区間は `seg_NNN_maxdepth` タグで、素反応1段の保証はない | `10` |
+| `--max-depth INT` | 0始まりの再帰深さ上限（`--refine-path` が必須）。上限0でも深さ0の処理を行い、それより深い子区間は分割せず保持する。上限に達した区間は `seg_NNN_maxdepth` タグで、素反応1段の保証はない | `10` |
 | `--gsm-param [equi\|energy]` | 完全成長後のGSMノード配置。`energy` は高エネルギー領域へノード密度を寄せる。等間隔経路がHEI近傍の反応座標領域を飛び越える場合の試行用であり、TSを同定する機能ではない。 | `equi` |
 | `--max-cycles-gsm INT` | MEP childのGSMストリング最適化サイクル上限。 | `300` |
 | `--max-cycles-dmf INT` | MEP childのDMF IPOPT反復上限。 | `300` |

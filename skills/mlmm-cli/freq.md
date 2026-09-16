@@ -148,6 +148,12 @@ and Hessian shape under `rigid_projection`.
 - Separate minimum certification ideally has **0 imaginary frequencies**; a
   certified TS must have **exactly 1**. Residual imaginary modes in R/P do not
   block thermochemistry.
+- `freq` retains every signed physical mode. The default imaginary criterion is
+  a mass-weighted Hessian eigenvalue below `-1e-6` Hartree/(bohr²·amu), equivalent
+  to approximately -5.140487 cm⁻¹. An explicit `freq.zero_cutoff_cm` is a legacy
+  classification override, recorded with a warning. Positive modes between 0
+  and 5 cm⁻¹ remain in thermochemistry. Raw negative counts are diagnostic and
+  do not add a pipeline failure gate.
 - A small-magnitude imaginary frequency may be numerical or a real shallow
   mode. Inspect its displacement and repeat the Hessian at suitable precision;
   the QRRHO cutoff does not validate a stationary point.

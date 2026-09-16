@@ -56,7 +56,7 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb \
 3. **ねじれ vs 精密化の判定**:
  - `End1` と `End2` の間に共有結合変化が検出されない場合、その領域を*ねじれ*として扱い、`search.kink_max_nodes` 個の線形ノードを挿入して各ノードを個別に最適化。
  - それ以外の場合、`End1` と `End2` の間で**選択した MEP engine による精密化セグメント**を起動して障壁を明確化。
-4. **選択的再帰** -- `(A->End1)` と `(End2->B)` の結合変化を `bond` 閾値で比較。共有結合の更新を含むサブ区間のみに再帰。`search.max_depth` は許可する再帰分割の階層数で、`0` なら分割しない。上限到達はエラーではない。正の上限で残るセグメントには `seg_NNN_maxdepth` タグを付けるが、その区間が素反応1段である保証はない。
+4. **選択的再帰** -- `(A->End1)` と `(End2->B)` の結合変化を `bond` 閾値で比較。共有結合の更新を含むサブ区間のみに再帰。`search.max_depth` は0始まりの再帰深さ上限。上限0でも深さ0の処理を行い、上限を超える子区間では分割を打ち切る。上限に達した区間には `seg_NNN_maxdepth` タグを付けるが、その区間が素反応1段である保証はない。
 5. **統合とブリッジ** -- 精密化済みのサブパスを連結し、RMSD <= `search.stitch_rmsd_thresh` の重複端点を削除。2 つの統合部分の間の RMSD ギャップが `search.bridge_rmsd_thresh` を超える場合、選択中の `--mep-mode` でブリッジ MEP セグメントを挿入。インターフェース自体に結合変化がある場合、ブリッジの代わりに新たな再帰セグメントを生成。
 
 結合変化検出は `bond` YAML セクションの閾値を使用する `bond_changes.compare_structures` に依存します。
@@ -104,7 +104,7 @@ out_dir/ (デフォルト:./result_path_search/)
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス（YAML `geom.freeze_atoms` とマージ）。 | _None_ |
 | `--movable-cutoff FLOAT` | ML 領域からの可動 MM 原子の距離カットオフ (Å)。これを超える MM 原子は凍結。指定時は `--detect-layer` が無効化。 | _None_ |
 | `--max-nodes INT` | GSM／DMF セグメントごとの可動内部画像数（総画像数は `max_nodes + 2`）。 | `20` |
-| `--max-depth INT` | 許可する再帰分割の階層数。`0` で分割無効（入力ペアごとに1セグメント、HEI が端点なら0）。上限に達した区間は `seg_NNN_maxdepth` タグで、素反応1段の保証はない | `10` |
+| `--max-depth INT` | 0始まりの再帰深さ上限。上限0でも深さ0の処理を行い、それより深い子区間は分割せず保持する。上限に達した区間は `seg_NNN_maxdepth` タグで、素反応1段の保証はない | `10` |
 | `--gsm-param [equi\|energy]` | 完全成長後のGSMノード配置。`energy` は高エネルギー領域へノード密度を寄せる。等間隔経路がHEI近傍の反応座標領域を飛び越える場合の試行用であり、TSを同定する機能ではない。 | `equi` |
 | `--max-cycles-gsm INT` | GSMストリング最適化サイクル上限。 | `300` |
 | `--max-cycles-dmf INT` | DMF IPOPT反復上限。 | `300` |

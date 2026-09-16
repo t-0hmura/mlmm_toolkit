@@ -22,7 +22,7 @@ mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
 ## 出力の検証
 
 - `result_all/summary.log`
-- `result_all/summary.json` — エネルギーを解釈する前に[実行結果と理由](json-output.md#実行結果と科学的妥当性)を確認
+- `result_all/summary.json` — エネルギーを解釈する前に[実行結果と理由](json-output.md#実行と要求段階の完了状況)を確認
 - `result_all/mep.pdb`（bridge 入力では `mep.cif` もルートに移動）と生出力 `result_all/_work/path_opt/`（`--refine-path` 時は `_work/path_search/`）
 
 ## 補足

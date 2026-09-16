@@ -1059,6 +1059,8 @@ def cli(
                     with open(final_xyz, "w") as f:
                         f.write(_coords3d_to_xyz_string(geom, energy=final_energy_h))
                     click.echo(f"[write] Wrote '{final_xyz}'.")
+                    srec["result_xyz"] = str(final_xyz)
+                    srec["coordinates_valid"] = bool(np.isfinite(geom.cart_coords).all())
                     srec["final_energy_hartree"] = final_energy_h
                     if convert_files:
                         try:
@@ -1238,6 +1240,7 @@ def cli(
         if out_json:
             from mlmm.core.utils import calculator_provenance, write_result_json
             from mlmm.workflows._outcomes import (
+                LeafOutcome,
                 aggregate_workflow_truth,
                 attach_outcomes,
                 combine_step_convergence as _combine_step_convergence,
@@ -1283,6 +1286,18 @@ def cli(
                     isinstance(_fe, (int, float, np.integer, np.floating))
                     and np.isfinite(float(_fe))
                 )
+                if srec["num_steps"] == 0 and not srec.get("endopt_requested"):
+                    _artifact_valid = (srec.get("coordinates_valid") is True
+                                       and Path(srec["result_xyz"]).is_file())
+                    _stage_leaves.append(LeafOutcome(
+                        stage="scan", item_id=f"stage_{srec['index']}",
+                        executed=True, converged=None,
+                        usable=bool(_energy_valid and _artifact_valid),
+                        reason=("energy_invalid" if not _energy_valid else
+                                "artifact_invalid" if not _artifact_valid else
+                                "no_optimization_requested"),
+                    ))
+                    continue
                 _stage_leaves.append(
                     make_leaf(
                         "scan",

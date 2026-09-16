@@ -1314,8 +1314,6 @@ def _build_multistep_path(
 
     def _terminate_with_single_segment(
         seg_tag: str,
-        *,
-        convergence_unknown: bool = False,
     ) -> CombinedPath:
         """Return the interval as one MEP segment, without subdividing it.
 
@@ -1353,7 +1351,6 @@ def _build_multistep_path(
                 )],
             )
 
-        bond_eval_failed = False
         try:
             changed, step_summary = _has_bond_change(
                 gsm.images[0], gsm.images[-1], bond_cfg
@@ -1366,10 +1363,8 @@ def _build_multistep_path(
             # Keep the interval reactive so it still receives post-processing:
             # `_is_reactive_segment` reads this text, and an empty string there
             # reads as "no covalent change" and drops the segment silently. The
-            # sentinel is non-empty for that reason, and convergence becomes
-            # unknown so the aggregate cannot report success on an interval whose
-            # chemistry was never established.
-            bond_eval_failed = True
+            # sentinel is non-empty for that reason. Preserve the solver's
+            # numerical convergence separately from this chemical diagnostic.
             changed, step_summary = True, "(bond-change evaluation failed)"
         try:
             barrier_kcal = (max(gsm.energies) - gsm.energies[0]) * AU2KCALPERMOL
@@ -1391,39 +1386,19 @@ def _build_multistep_path(
             delta_kcal=float(delta_kcal),
             summary=step_summary if changed else "(no covalent changes detected)",
             kind="seg",
-            converged=(
-                None
-                if (bond_eval_failed or convergence_unknown)
-                else getattr(gsm, "is_converged", None)
-            ),
+            converged=getattr(gsm, "is_converged", None),
         )
         return CombinedPath(
             images=gsm.images, energies=gsm.energies, segments=[report],
             single_opt_executed=single_opt_executed,
         )
 
-    # `max_depth` counts LEVELS of recursive subdivision, so 0 performs none at
-    # all and reproduces a single-segment MEP. Reaching the cap is not a failure:
-    # the remaining interval is returned as one segment, not subdivided further.
+    # Preserve the established zero-based depth limit: process depth N and
+    # stop subdivision when entering a child deeper than max_depth.
     max_depth = int(search_cfg.get("max_depth", SEARCH_KW["max_depth"]))
-    if depth >= max_depth:
-        # `_maxdepth` means "the recursion was cut off while covalent changes
-        # remained", so that segment is not guaranteed to be one elementary
-        # step. A deliberate `max_depth: 0` is a different event -- the caller
-        # asked for no subdivision -- and keeps the ordinary tag so its
-        # artifacts are named like any single-segment MEP.
-        if max_depth > 0:
-            click.echo(f"[{branch_tag}] Reached maximum recursion depth. Returning current endpoints only.")
-            return _terminate_with_single_segment(
-                f"seg_{seg_counter[0]:03d}_maxdepth"
-            )
-        # Say so: without the `_maxdepth` tag this run is otherwise identical to
-        # one whose recursion terminated on a verified elementary step.
-        click.echo(
-            f"[{branch_tag}] Recursive subdivision is disabled (max_depth=0); "
-            "evaluating the current MEP without further splitting."
-        )
-        return _terminate_with_single_segment(f"seg_{seg_counter[0]:03d}")
+    if depth > max_depth:
+        click.echo(f"[{branch_tag}] Reached maximum recursion depth. Returning current endpoints only.")
+        return _terminate_with_single_segment(f"seg_{seg_counter[0]:03d}_maxdepth")
 
     seg_id = seg_counter[0]
     seg_counter[0] += 1
@@ -1581,11 +1556,10 @@ def _build_multistep_path(
             "Alternatively, try switching the mep-mode. If that still fails, try including intermediate structures in the inputs."
         )
         click.echo(warning_msg)
-        # The path is suspect, so convergence is reported as unknown; the
-        # interval is still published as a segment.
+        # Retain the diagnostic and the terminal solver's numerical outcome;
+        # the interval is still published as a segment.
         return _terminate_with_single_segment(
             f"seg_{seg_counter[0]:03d}_kinklimit",
-            convergence_unknown=True,
         )
 
     parts.append((step_imgs, step_E))
@@ -1779,13 +1753,7 @@ def _build_multistep_path(
     type=click.IntRange(min=0),
     default=None,
     show_default="10",
-    help=(
-        "Number of recursive subdivision levels allowed while splitting a "
-        "multistep path. 0 performs no subdivision, returning each input pair as one MEP "
-        "segment (none when its HEI sits at an endpoint). Reaching the limit is not an "
-        "error. Any segment retained at a positive cap is tagged seg_NNN_maxdepth "
-        "and is not guaranteed to be a single elementary step. "
-        "When not given, YAML search.max_depth applies."
+    help=("Zero-based recursion depth limit for multistep refinement. Depth 0 is processed even when the limit is 0. Capped child intervals use seg_NNN_maxdepth and may contain multiple steps. When omitted, YAML search.max_depth applies."
     ),
 )
 @click.option(
@@ -2987,9 +2955,7 @@ def cli(
             preopt_outcomes=preopt_outcomes,
             required_outcomes=combined_all.required_outcomes,
         )
-        # The effective recursion cap, recorded where `search_cfg` is resolved:
-        # `0` means subdivision was switched off, which no other shipped field
-        # would reveal.
+        # Record the effective zero-based recursion cap from resolved config.
         summary["search_max_depth"] = int(
             search_cfg.get("max_depth", SEARCH_KW["max_depth"])
         )

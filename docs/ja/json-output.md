@@ -52,7 +52,7 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | `link_atom_method` | string \| null | link atom配置（`scaled` / `fixed`）。plot-onlyではnull |
 | `use_cmap` | bool \| null | CMAP項を有効にしたか。plot-onlyではnull |
 
-### 実行結果と科学的妥当性
+### 実行と要求段階の完了状況
 
 複数段階のワークフローと scan の出力処理は、構成要素を評価できる場合に以下のフィールドを追加します。出力されるフィールドはコマンドによって異なり、各コマンド固有の `status` も互換性のため維持されます。要求段階の完了状況は `scientific_status` と各 outcome で確認できます。必須の最適化・計算結果が欠ける場合は未完了として記録します。IRC の停止理由・端点 stationary 判定は診断情報です。IRC 独立の `scientific_status` は出力せず、all は TSOPT と両端点 OPT の数値収束を集約します。
 
@@ -306,13 +306,13 @@ scan は固定の L-BFGS 経路を `scan_opt_mode: "grad"` / `scan_optimizer: "l
 | フィールド | 型 | 説明 |
 |-----------|------|------|
 | `status` | string | `"success"` / `"partial"` / `"failed"`（all。path-search は success/partial） |
-| `execution_status` / `scientific_status` | string / string | 実行の完了度と科学的な利用可能性。従来の `status` とは分けて評価します。 |
-| `scientific_status_reasons` | string[] | 不完全または利用できない科学的結果の理由。正常終了時は省略されます。 |
+| `execution_status` / `scientific_status` | string / string | 実行の完了度と、要求した数値最適化・計算段階の完了度。 |
+| `scientific_status_reasons` | string[] | 要求した結果の欠損・未収束などの理由。正常終了時は省略されます。 |
 | `pipeline_stop` | object \| 不在 | 早期停止時のみ存在。`stage` は `post`（`reason` は `no_segments` / `no_reactive_segment`）、`before_irc`（TSOPT の理由と `segment`・`tsopt_result`）、または `endpoint_opt`（`endpoint_execution_failed` と端点別 `failures`）。`summary.log` では `Pipeline stop` |
 | `expected_item_ids` / `observed_item_ids` | string[] | 期待された集約項目と観測された集約項目。 |
 | `config` | object | 実効設定。`mep_mode` は GSM/DMF、`ts_opt_mode` / `endpoint_opt_mode` は設定済み後処理 preset を示す。generic `opt_mode*` は解決済み CLI 入力を保持する。`path_opt_mode` は端点 preoptimization に使う単一構造 optimizer であり（`preopt` を参照）、MEP path algorithm ではない。 |
 | `n_segments` | int | セグメント数 |
-| `search_max_depth` | int | 実効の再帰分割階層上限。`0` は分割無効 |
+| `search_max_depth` | int | 実効の0始まり再帰深さ上限。上限0でも深さ0を処理 |
 | `path_optimizers` | string[] | 経路の準備・精密化で実際に使用した単一構造オプティマイザ（`lbfgs`, `rfo`）。`all` ではスキャン・アライメントの実行も含む。`path-opt` の `result.json` と `all` の `summary.json` にも記録 |
 | `preopt_requested` / `preopt_converged` | bool / bool \| null | 端点事前最適化を実行したか、および全端点が収束したか。読み取れない端点があれば `null`。`all` はこの事前収束情報を使います。ただし、要求した最終 TS 最適化と両端点最適化がすべての反応区間で収束した場合は、最終結果で判定します。元のフィールドは保持します |
 | `segments` | object[] | セグメントごとの障壁、反応エネルギー、結合変化 |

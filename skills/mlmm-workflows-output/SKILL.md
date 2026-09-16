@@ -191,13 +191,14 @@ result when a validated negative root exists, but that continuation is not
 first-order certification. Numerical non-convergence, zero modes,
 failed/skipped PHVA, or no valid negative root stops `all` after retaining TS
 artifacts. An additional standalone `freq` is optional; if run, check its modes
-and `n_imaginary == 1`. Require irc `result.json` `scientific_status == "success"` and
-every requested direction has a usable `stopped` outcome before endpoint
-optimization. In `all`, require `post_segments[].endpoint_opt` convergence and
-optimized `connectivity_validated`; raw `endpoint_assignment` is orientation
-provenance only. The optimized endpoints must connect the **intended** R and P.
-A TS that fails the certification gate is not a validated first-order TS for
-this elementary step.
+and the selected imaginary count. IRC has no independent scientific success
+verdict: read frame counts, retained coordinates and stop reasons, then optimize
+the finite retained endpoints. A predictor-budget stop alone does not block
+endpoint optimization. In `all`, read `post_segments[].endpoint_opt` for the
+actual numerical convergence of both endpoints. Optimized `connectivity_validated`
+and raw `endpoint_assignment` report mechanism/orientation diagnostics; they do
+not add an optimizer-completion gate. Check the intended R/P assignment separately.
+A first-order numerical TS does not by itself establish the elementary reaction.
 
 Optimize the raw stitched-path endpoints, then identify R/P from their structures:
 
@@ -206,8 +207,8 @@ mlmm opt -i seg_NN/irc/finished_first.xyz --ref-pdb enzyme_layered.pdb --parm re
 mlmm opt -i seg_NN/irc/finished_last.xyz --ref-pdb enzyme_layered.pdb --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' -b uma --out-json -o seg_NN/end_last
 ```
 
-Require both optimizations to converge and the endpoints to match the intended
-reaction. Use their `final_geometry.xyz` files downstream; standalone commands
+Require both optimizations to converge. Assess whether the endpoints match the
+intended reaction separately. Use their `final_geometry.xyz` files downstream; standalone commands
 do not create `all`'s canonical `segments/seg_NN/{reactant,product}.*` files.
 
 **Stage 3 — thermochemistry** (optional, = `all --thermo`): run `mlmm freq` on R / TS / P
@@ -244,11 +245,11 @@ Top-level keys:
 |---|---|
 | `command` | Full recorded invocation string for this `all` run |
 | `mlmm_toolkit_version` | Toolkit version that produced this aggregate output |
-| `status` | `"success"` (all requested science usable), `"partial"` (some requested TS/IRC/thermo/DFT output is missing or unusable but partial scientific output remains), or `"failed"`; use reasons and leaf outcomes when consuming partial runs |
-| `execution_status` / `scientific_status` | Whether required leaves executed / whether the science is usable; gate consumption on `scientific_status` |
+| `status` | `"success"` (requested stages completed), `"partial"` (some required results are missing or unusable), or `"failed"`; inspect reasons and stage outcomes |
+| `execution_status` / `scientific_status` | Whether requested stages executed / met their numerical completion criteria |
 | `scientific_status_reasons` | Reasons for missing or unusable leaves; omitted on clean success |
 | `expected_item_ids` / `observed_item_ids` | Expected vs observed leaf IDs; compare before accepting the aggregate |
-| `stage_outcomes` / `point_outcomes` | Fail-closed per-stage / per-scan-point records; require `usable` / `seed_eligible` and interpret `converged` by leaf type. IRC direction leaves use `converged: null` and expose propagation status separately. |
+| `stage_outcomes` / `point_outcomes` | Per-stage / per-scan-point records. Interpret `converged` by stage type; IRC reports stop diagnostics without direction success/failure verdicts. |
 | `charge` / `spin` | Resolved ML-region charge / multiplicity |
 | `environment` | `{device, gpu_name, gpu_vram_gb, cuda_version, cpu, n_cpus, ram_gb}` |
 | `references` | Methods actually used by the resolved workflow, as `{method, citation, doi}` records. The same set appears at the tail of `summary.log` and final stdout immediately before elapsed time. |
@@ -297,9 +298,9 @@ Per-segment keys in the post-processing list (`summary.json["post_segments"][i]`
 | `tag` | Matches the corresponding `segments[i].tag` |
 | `post_dir` | `result/segments/seg_NN/` directory |
 | `irc_plot` / `irc_traj` | IRC-related artifact paths |
-| `irc` | Raw propagation record. `reason: "stopped"` is normal; direction status and endpoint-stationarity diagnostics are separate from final endpoint acceptance. Sub-keys: `usable`, `reason`, `forward_status`, `backward_status`, `n_frames_forward`, `n_frames_backward`, `traj`, `scientific_status` (`forward_converged` / `backward_converged` were removed in schema 3.0; read `*_status` instead). |
+| `irc` | Diagnostic propagation record: `traj`, `n_frames_forward`, `n_frames_backward`, `forward_requested`, `backward_requested`, and each direction's `*_integration_converged`, `*_integration_stop_reason`, `*_downhill_departure_valid`, `*_energy_increased`, `*_short_branch`. No independent IRC scientific verdict or direction-status keys. Finite retained endpoints are passed to endpoint optimization. |
 | `endpoint_assignment` | Pre-optimization IRC-to-MEP orientation provenance; diagnostic only. |
-| `endpoint_opt` | Optimized endpoint convergence plus `connectivity_validated`; this is the final endpoint gate in MEP modes. |
+| `endpoint_opt` | Actual numerical convergence of both optimized endpoints, plus a separate `connectivity_validated` diagnostic and topology record. Connectivity does not add a numerical-completion gate. |
 | `ts_imag` | `{n_imag}` |
 | `mlip` | R/TS/P runs contain `{energies_au, energies_kcal, barrier_kcal, delta_kcal, ...}`; TS-only E1/TS/E2 runs instead contain one barrier from each endpoint |
 | `gibbs_mlip` | Gibbs analogue of `mlip` (when `--thermo` is on) |

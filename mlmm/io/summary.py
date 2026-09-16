@@ -1130,13 +1130,7 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
         lines.append(f"Scientific status   : {scientific_status}")
     search_max_depth = payload.get("search_max_depth")
     if search_max_depth is not None:
-        # `0` means recursive subdivision was switched off, so the single segment
-        # is not guaranteed to be one elementary step. Nothing else in a shipped
-        # artifact records the effective cap.
-        depth_note = (
-            " (subdivision disabled)" if int(search_max_depth) <= 0 else ""
-        )
-        lines.append(f"Recursion depth cap : {int(search_max_depth)}{depth_note}")
+        lines.append(f"Recursion depth cap : {int(search_max_depth)}")
     pipeline_stop = payload.get("pipeline_stop")
     if isinstance(pipeline_stop, dict):
         # The request echo above reports what was ASKED for. Without this line a

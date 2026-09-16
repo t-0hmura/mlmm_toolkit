@@ -228,13 +228,6 @@ class RFOptimizer(HessianOptimizer):
             step = step_func(big_eigvals, big_eigvecs, gradient) # heavy-compute
             # Compose a finite, trust-bounded interpolation/GDIIS displacement.
             step = self._accept_accelerated_step(step, ip_step, ref_step)
-            # Compare both steps in the same current-point model.
-            accelerated_prediction = self.quadratic_model(ref_gradient, H, step)
-            if np.isfinite(accelerated_prediction) and accelerated_prediction >= 0:
-                reference_prediction = self.quadratic_model(ref_gradient, H, ref_step)
-                if np.isfinite(reference_prediction) and reference_prediction < 0:
-                    self.log("Rejected non-descending accelerated model step; retaining descending reference.")
-                    step = ref_step
         # Keep the original gradient when the interpolation failed; reuse ref_step.
         else:
             step = ref_step

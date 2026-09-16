@@ -18,17 +18,12 @@ def copy_path_outputs_to_root(
     out_dir: Path,
     *,
     warn_fn: Optional[Callable[[str], None]] = None,
+    image_names: Optional[Collection[str]] = None,
 ) -> None:
-    """Copy MEP path-search outputs from ``path_dir`` up to ``out_dir``.
+    """Move MEP structures/images and copy summaries to the output root.
 
-    Extracted from the nested ``_copy_path_outputs_to_root`` in
-    ``workflows/all.py:cli()``. Behavior-equivalent: best-effort copy
-    of the canonical MEP artifacts (plot / pdb / xyz / summary), with
-    any copy failure routed to ``warn_fn`` instead of propagating.
-
-    When ``warn_fn`` is None (default), failures are swallowed silently
-    — the original nested helper printed a "[all] WARNING: ..." line,
-    so callers that want that behavior pass an `_echo`-equivalent.
+    When supplied, ``image_names`` limits promotion to current-run plots.
+    Report I/O errors through ``warn_fn`` when it is provided.
     """
     try:
         from mlmm.core.result_commit import commit_exact_bytes
@@ -43,6 +38,8 @@ def copy_path_outputs_to_root(
             "mep.pdb",
             "mep.cif",
         ):
+            if name.endswith(".png") and image_names is not None and name not in image_names:
+                continue
             src = path_dir / name
             if src.exists():
                 shutil.move(str(src), str(out_dir / name))

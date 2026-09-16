@@ -1810,8 +1810,8 @@ def cli(
                 # scientific_status path routes convergence through the
                 # canonical criterion (IPOPT status 0 or 1), matching path_search,
                 # so the additive axis is consistent across both DMF producers.
-                # The legacy convergence-aware ``status``/``converged`` fields
-                # (status==0) in result_data_dmf are intentionally left untouched.
+                # The status/converged fields use the same canonical criterion.
+                # Code 1 means IPOPT's acceptable level, not its strict optimum.
                 from mlmm.workflows._outcomes import (
                     ipopt_status_to_converged,
                     make_leaf as _mk_leaf,
