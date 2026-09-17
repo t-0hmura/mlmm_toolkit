@@ -10,6 +10,8 @@ _No changes yet._
 
 ## [0.3.6] — 2026-09-16
 
+Replaces the withdrawn v0.3.5 release.
+
 ### Breaking changes
 
 - JSON schema 3.0 removes IRC directional success fields; diagnostics are reported separately from numerical convergence.
@@ -28,35 +30,7 @@ _No changes yet._
 
 ## [0.3.5] — 2026-09-16
 
-> Withdrawn from PyPI and GitHub Releases while additional RFO Hessian evaluations and optimizer behavior are reviewed. Use v0.3.4 for now.
-
-### Breaking changes
-
-- JSON schema 3.0: replace IRC `forward_converged` / `backward_converged` with `forward_status` / `backward_status` (`stopped`, `failed`, `disabled`). Integration and downhill-departure diagnostics remain available.
-- `all` requires converged, topology-validated endpoints. Missing or unusable required stages now report `partial` or `failed` rather than `success`.
-- `search.max_depth` now counts subdivision levels: `0` disables subdivision; the same value permits one level fewer than before.
-- TSOPT reports `energy_missing` when final energy evaluation fails; `optimization_status` retains the optimizer verdict.
-
-### Added
-
-- Expose `--max-depth` for recursive path search and report executed optimizers, convergence and stop reasons in JSON and logs.
-
-### Changed
-
-- Cartesian RS-P-RFO defaults to TS-BFGS updates and a 0.1 Å maximum-atom initial/maximum trust radius; explicit settings take precedence.
-- Support fairchem-core 2.22. DMF reports IPOPT convergence consistently (success codes 0 and 1), and its default iteration limit increases from 300 to 3000.
-- Retain all signed physical frequencies and mode vectors, including soft positive modes, in exports and thermochemistry. Thermal corrections may change; the 5 cm⁻¹ reporting threshold remains separate from raw curvature checks.
-
-### Fixed
-
-- Improve Cartesian OPT/TSOPT Hessian updates, trust-region steps and final curvature checks, including no-flatten continuation from higher-order saddles. Reduce constrained-Hessian memory use and correct stale frequency-cache reuse.
-- Fix the UMA first-call CUDA mismatch reported in [pdb2reaction #298](https://github.com/t-0hmura/pdb2reaction/pull/298).
-- Fix ORB installation on Python 3.13 Colab runtimes; prefer PDB results and trajectories, and correct scan command display and status messages.
-- Use standard optimization with embedding; preserve microiteration failure diagnostics and correct final mode-index handling. Restore AIMNet2 evaluation and Plotly image export.
-
-### Documentation
-
-- Update workflow and installation guidance.
+> Withdrawn due to extra Hessian evaluations and optimizer changes. Use [v0.3.6](https://github.com/t-0hmura/mlmm_toolkit/releases/tag/v0.3.6) instead.
 
 ## [0.3.4] — 2026-09-02
 
