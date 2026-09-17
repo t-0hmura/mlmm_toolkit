@@ -49,7 +49,7 @@ mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'
 
 | Symptom | Fix |
 |---|---|
-| `AmberTools preflight failed. Missing required command(s): tleap, antechamber, parmchk2` | `conda install -c conda-forge ambertools=24.8 "numpy>=2,<2.5" -y`. Verify with `which tleap`. Without AmberTools you can still run `opt` / `tsopt` / `path-search` if you supply `--parm` manually. |
+| `AmberTools preflight failed. Missing required command(s): tleap, antechamber, parmchk2` | `conda install -c conda-forge ambertools -y` (or `module load ambertools` on HPC, or build from source: <https://ambermd.org/AmberTools.php>). Verify with `which tleap`. Without AmberTools you can still run `opt` / `tsopt` / `path-search` if you supply `--parm` manually. |
 | `antechamber` fails for a ligand | Check ligand element symbols + connectivity + TER records. Specify `-l 'LIG:-1'` and (for non-singlet) `--ligand-mult 'HEM:1,NO:2'`. Inspect `<resname>.antechamber.log` via `--keep-temp`. Try manually: `antechamber -i ligand.pdb -fi pdb -o ligand.mol2 -fo mol2 -c bcc -nc -3 -at gaff2`. For higher-accuracy partial charges, generate RESP from HF/6-31G* and pass custom `frcmod` / `lib`. |
 | `Atom count in parm7 does not match input PDB` / `parm7 topology does not match the input structure` / `Coordinate shape mismatch for... got (N,3), expected (M,3)` | Re-run `mm-parm` from the current PDB; use its output `<prefix>.pdb` for downstream subcommands (tleap may add / remove hydrogens). Never reorder PDB atoms after `mm-parm`. |
 | `oniom-export` reports `Element sequence mismatch at atom index ...` | Use the same PDB for `-i` that was used to generate the parm7. As an escape hatch, `--no-element-check` disables the check (verify results manually). |
@@ -64,13 +64,12 @@ ImportError: cannot import name 'ForceFieldTorch' from 'hessian_ff'
 RuntimeError: hessian_ff build attempts failed: ...
 ```
 
-The native extension compiles automatically on first use. Install the compiler and Ninja in the active conda environment, then rerun the original command:
+The C++ native extension is JIT-built on first use, in a local temp directory (override with `TORCH_EXTENSIONS_DIR`; a network-mounted build dir — NFS/Lustre — can hang on torch's build lock, so a local path is used by default). If that fails: ensure a C++20-capable compiler (GCC 13.3 was validated; `g++ --version`; on conda, `conda install -c conda-forge gxx_linux-64`), that PyTorch headers are available (`python -c "import torch; print(torch.utils.cmake_prefix_path)"`), and that `ninja` is installed. On HPC: `module load <COMPILER_MODULE>`. Then clean + rebuild:
 
 ```bash
-conda install -c conda-forge cxx-compiler ninja -y
+conda install -c conda-forge ninja -y
+cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make clean && make
 ```
-
-If it still fails, include the compilation error when reporting the issue. Set `TORCH_EXTENSIONS_DIR` to local scratch on systems where network-mounted build directories cause lock delays.
 
 ---
 

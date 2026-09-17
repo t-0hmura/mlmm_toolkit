@@ -132,7 +132,7 @@ Full schema (every key and default): [YAML Reference](yaml-reference.md).
   functional, grid, and software stack. Pilot the target system and, if
   necessary, choose a smaller basis only after validating its effect on the
   quantities of interest.
-- The GPU4PySCF wheels installed by this extra target x86_64. On other architectures, use `--engine cpu`.
+- Compiled GPU4PySCF wheels may not support non-x86 systems; build from source in that case (see https://github.com/pyscf/gpu4pyscf).
 
 ## See Also
 

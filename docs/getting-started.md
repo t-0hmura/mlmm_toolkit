@@ -66,13 +66,12 @@ Full table: [CLI Conventions](cli-conventions.md).
 
 ```bash
 # 1. New env + AmberTools + PyTorch (choose for the NVIDIA driver and GPU architecture)
-conda create -n mlmm-toolkit -c conda-forge python=3.12 pip ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler -y
-conda activate mlmm-toolkit
+conda create -n mlmm-toolkit python=3.12 -y && conda activate mlmm-toolkit
+conda install -c conda-forge ambertools pdbfixer -y
 pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cu130
 
 # 2. Install
 pip install mlmm-toolkit
-plotly_get_chrome -y
 
 # 3. (UMA backend only) Authenticate Hugging Face once
 #    Accept the FAIR Chemistry License v1 at https://huggingface.co/facebook/UMA, then:
@@ -88,11 +87,12 @@ mlmm --version
 | Component | When to add | Install |
 |---|---|---|
 | ORB / AIMNet2 | Alternative MLIP backends | ORB requires Python 3.11 or 3.12 (3.12 recommended). `pip install --only-binary=dm-tree "mlmm-toolkit[orb]"` / `pip install "mlmm-toolkit[aimnet]"`. Use a separate environment for MACE because its `e3nn` dependency conflicts with UMA. |
+| `hessian_ff` native build | If you see a "native extension not available" warning. JIT compilation usually handles it. | First install `ninja` on most clusters: `conda install -c conda-forge ninja -y`. Then build: `cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make`. |
 | `cyipopt` + `pydmf>=1.2` | Direct Max Flux (DMF) MEP backend for `all`, `path-search`, and `path-opt` (`--mep-mode dmf`). `pydmf>=1.2` ships the PyTorch backend `dmf.torch` used by the default `--dmf-backend gpu`; pass `--dmf-backend cpu` on a GPU out-of-memory error. | `conda install -c conda-forge cyipopt -y && pip install 'pydmf>=1.2'` |
-| Plotly Chrome | PNG export; included in the setup above | `plotly_get_chrome -y` (~150 MB) |
+| Plotly Chrome | Static PNG export beyond default `kaleido` | `plotly_get_chrome -y` (~150 MB) |
 | CUDA toolkit/module | Only when compiling a C/CUDA extension from source | Use the site-supported toolkit/compiler pair for that build. Official PyTorch wheels carry their CUDA user-space libraries and require only a compatible NVIDIA driver at runtime. |
 
-`hessian_ff` compiles its native kernels automatically on first use. Detailed HPC job-script templates: [docs/device-hpc.md](device-hpc.md).
+If you switch runtime environments (node / container / Python / PyTorch), rebuild `hessian_ff` in the new env. Detailed HPC job-script templates: [docs/device-hpc.md](device-hpc.md).
 
 ## Quickstart routes
 
