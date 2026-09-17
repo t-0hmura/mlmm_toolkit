@@ -14,8 +14,8 @@
 - MLIP モデルの重みがダウンロードできる（デフォルトの UMA バックエンドの場合、Hugging Face のログイン/トークンが必要。他のバックエンドは別のソースからダウンロードする場合がある）
 - 酵素系ワークフローでは、入力 PDB に **水素** と **元素記号（element column）** が入っている
 - 複数の PDB を与える場合、**同じ原子が同じ順序** で並んでいる（座標だけが異なる）
-- **AmberTools** が conda チャンネル（またはソースビルド）で正しくインストールされ、`tleap` が利用可能（`mm-parm` を使う場合）
-- hessian_ff の C++ ネイティブ拡張が正しくビルド済み（自動ビルドが失敗した場合は `cd hessian_ff/native && make` を実行）
+- **AmberTools** が conda チャンネルで正しくインストールされ、`tleap` が利用可能（`mm-parm` を使う場合）
+- hessian_ff の C++ ネイティブ拡張が正しくビルド済み（自動ビルドが失敗した場合は `conda install -c conda-forge cxx-compiler ninja -y` を実行）
 
 ---
 
@@ -149,13 +149,7 @@ mm-parm requires AmberTools (tleap, antechamber, parmchk2).
 - conda で AmberTools をインストールします:
 
   ```bash
-  conda install -c conda-forge ambertools -y
-  ```
-
-- ソースからビルド（<https://ambermd.org/AmberTools.php>）するか、HPC クラスターでは環境モジュールでロードします:
-
-  ```bash
-  module load ambertools
+  conda install -c conda-forge ambertools=24.8 "numpy>=2,<2.5" -y
   ```
 
 - 利用可能か確認します:
@@ -238,67 +232,13 @@ Coordinate shape mismatch for... got (N, 3), expected (M, 3)
 
 ## hessian_ff ビルドの問題
 
-### ビルドが失敗する（"make" エラー）
+ネイティブ拡張は初回使用時に自動コンパイルされます。`hessian_ff build attempts failed` が出る場合は、使用中の conda 環境へコンパイラと Ninja を導入し、元のコマンドを再実行してください。
 
-典型的な症状:
-- `hessian_ff/native/` での `make` がコンパイルエラーを出す
-- `ImportError: cannot import name 'ForceFieldTorch' from 'hessian_ff'`
-- `RuntimeError: hessian_ff build attempts failed: ...`
-
-対処の例:
-- ビルドはローカルの一時ディレクトリで行われます（`TORCH_EXTENSIONS_DIR` で変更可）。ネットワーク FS（NFS/Lustre）上の build dir は torch のビルドロックでハングするため、デフォルトでローカルパスを使います。
-- C++20 対応コンパイラ（GCC 13.3 で検証済み。conda なら `conda install -c conda-forge gxx_linux-64`）がインストールされていることを確認:
-
-  ```bash
-  g++ --version
-  ```
-
-- PyTorch のヘッダが利用可能であることを確認:
-
-  ```bash
-  python -c "import torch; print(torch.utils.cmake_prefix_path)"
-  ```
-
-- HPC ではコンパイラモジュールをロード:
-
-  ```bash
-  module load gcc/11
-  ```
-
-- クリーンしてリビルド:
-
-  ```bash
-  conda install -c conda-forge ninja -y
-  cd hessian_ff/native && make clean && make
-  ```
-
----
-
-### hessian_ff の import エラー
-
-典型的なメッセージ:
-
-```text
-ImportError: cannot import name 'ForceFieldTorch' from 'hessian_ff'
+```bash
+conda install -c conda-forge cxx-compiler ninja -y
 ```
 
-または:
-
-```text
-RuntimeError: hessian_ff build attempts failed: ...
-To rebuild hessian_ff native extensions in this environment:
-  conda install -c conda-forge ninja -y
-  cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make clean && make
-```
-
-対処:
-- C++ ネイティブ拡張を先にビルドする必要があります:
-
-  ```bash
-  cd hessian_ff/native && make
-  ```
-
-- `hessian_ff` パッケージが Python パス上にあることを確認してください。
+解消しない場合はコンパイルエラーを添えて報告してください。ネットワーク FS 上のビルドロックで待機する場合は、`TORCH_EXTENSIONS_DIR` にローカルの一時ディレクトリを指定します。
 
 ---
 

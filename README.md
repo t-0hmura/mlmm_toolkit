@@ -49,23 +49,26 @@ The source repository includes full-system COMT and [BezA](examples/beza/README.
 | GPU / CUDA / VRAM | A backend-compatible NVIDIA GPU/driver for GPU execution; size VRAM from a representative target-system pilot. |
 | RAM / Disk | Size RAM and disk for the selected backend, model cache, topology tools, and expected artifacts. |
 
-**AmberTools** (`tleap`) is required to generate a topology with `mm-parm` or `all`; reuse an existing matching `--parm` to skip that preparation. The default `hessian_ff` backend needs **a C++20-capable compiler** (validated with GCC 13.3) to JIT-compile native kernels on first use. **pdbfixer** is optional — only `mm-parm --add-h` needs it — `conda install -c conda-forge ambertools pdbfixer -y` installs both. CPU-only ML/MM execution is supported but can be substantially slower than GPU execution; benchmark the selected backend and system. Full requirement and tuning details: [docs/getting-started.md#installation](docs/getting-started.md#installation).
+**AmberTools** (`tleap`) is required to generate a topology with `mm-parm` or `all`; reuse an existing matching `--parm` to skip that preparation. The default `hessian_ff` backend needs **a C++20-capable compiler** (validated with GCC 13.3) to JIT-compile native kernels on first use. **pdbfixer** is needed only for `mm-parm --add-h`. The installation below includes it and the compiler; native kernels compile automatically on first use. CPU-only ML/MM execution is supported but can be substantially slower than GPU execution; benchmark the selected backend and system. Full requirement and tuning details: [docs/getting-started.md#installation](docs/getting-started.md#installation).
 
 ## Installation
 
+For Linux with an NVIDIA GPU and a CUDA 13-compatible driver, copy this block into a terminal. Accept the [UMA model license](https://huggingface.co/facebook/UMA) before logging in.
+
 ```bash
 # 1. New env + AmberTools + CUDA-enabled PyTorch
-conda create -n mlmm-toolkit python=3.12 -y && conda activate mlmm-toolkit
-conda install -c conda-forge ambertools pdbfixer -y
+conda create -n mlmm-toolkit -c conda-forge python=3.12 pip ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler -y
+conda activate mlmm-toolkit
 pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cu130
 
 # 2. Install mlmm-toolkit
 pip install mlmm-toolkit
+plotly_get_chrome -y
 
 # 3. Authenticate Hugging Face once (only required for the default UMA backend)
 #    Accept the FAIR Chemistry License v1 at https://huggingface.co/facebook/UMA, then:
-hf auth login                               # interactive
-# OR: export HF_TOKEN=hf_xxx && hf auth login --token "$HF_TOKEN"   # CI / HPC
+hf auth login
+mlmm --version
 ```
 
 > **Avoid AmberTools conflicts:** on clusters with a system AmberTools module loaded, run `module unload amber` before installing to prevent a ParmEd conflict with the conda-installed AmberTools.

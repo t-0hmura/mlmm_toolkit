@@ -15,10 +15,16 @@ C++ compiler must be on `PATH`). The bundled `pysisyphus` (GPU-tensor fork),
 - xTB is required only for the optional experimental MLIP/MM `--embedcharge` correction; see `xtb.md`.
 ## Install from PyPI (recommended)
 
+The example uses a CUDA 13-compatible NVIDIA driver. Accept the [UMA model license](https://huggingface.co/facebook/UMA) before `hf auth login`. Add backend extras from the table below when needed.
+
 ```bash
-conda activate <YOUR_ENV>
-pip install mlmm-toolkit                         # core only (UMA)
-pip install --only-binary=dm-tree 'mlmm-toolkit[orb,aimnet,dft]'        # extras as needed
+conda create -n mlmm-toolkit -c conda-forge python=3.12 pip ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler -y
+conda activate mlmm-toolkit
+pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cu130
+pip install mlmm-toolkit
+plotly_get_chrome -y
+hf auth login
+mlmm --version
 ```
 
 Available extras (canonical list lives in `pyproject.toml`):
@@ -118,4 +124,4 @@ conda env remove -n <YOUR_ENV>
 
 - `env-cuda.md` — torch / CUDA setup that must come first
 - `uma.md`, `orb.md`, `mace.md`, `aimnet2.md` — backend-specific extras
-- `dft.md` — `[dft]` install details and aarch64 fallback
+- `dft.md` — `[dft]` installation and CPU/GPU selection

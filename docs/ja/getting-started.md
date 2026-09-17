@@ -94,11 +94,11 @@ Linux の CPU/GPU 環境で利用できます。GPU 実行には対応する NVI
 以下は PyTorch 2.13 の `cu130` wheel を使う例です。CPU 実行や別の GPU 環境では、対応する PyTorch wheel を選んでください。MM 計算には C++20 対応コンパイラー、トポロジー生成には AmberTools が必要です。
 
 ```bash
-conda create -n mlmm-toolkit python=3.12 -y
+conda create -n mlmm-toolkit -c conda-forge python=3.12 pip ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler -y
 conda activate mlmm-toolkit
-conda install -c conda-forge ambertools pdbfixer -y
 pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cu130
 pip install mlmm-toolkit
+plotly_get_chrome -y
 
 # UMA の利用許諾を取得した後、Hugging Face にログイン
 hf auth login
@@ -114,15 +114,9 @@ UMA を使う場合は、[モデルページ](https://huggingface.co/facebook/UM
 | ORB / AIMNet2 | ORB は Python 3.11／3.12 が必要です（3.12 推奨）。`pip install --only-binary=dm-tree "mlmm-toolkit[orb]"` / `pip install "mlmm-toolkit[aimnet]"` |
 | MACE | UMA と `e3nn` の依存バージョンが競合するため、専用環境で使用します。 |
 | DMF 経路探索 | `conda install -c conda-forge cyipopt -y` と `pip install 'pydmf>=1.2'` |
-| Plotly の PNG 出力 | `plotly_get_chrome -y` |
-| hessian_ff の手動ビルド | 初回使用時に JIT コンパイルされます。ネイティブ拡張を利用できない場合は、下記を実行してください。 |
+| Plotly の PNG 出力 | 上記手順に含まれます。再導入は `plotly_get_chrome -y` |
 
-```bash
-conda install -c conda-forge ninja -y
-cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make
-```
-
-ノード、コンテナ、Python、PyTorch を変更した場合は、その環境で `hessian_ff` を再ビルドしてください。C/CUDA 拡張をソースからビルドする場合の toolkit/compiler 設定やジョブスクリプトは、[デバイスと HPC](device-hpc.md)を参照してください。
+`hessian_ff` のネイティブカーネルは初回使用時に自動コンパイルされます。ジョブスクリプトは[デバイスと HPC](device-hpc.md)を参照してください。
 
 ---
 

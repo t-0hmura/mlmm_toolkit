@@ -13,7 +13,7 @@ them to the compute subcommands (`opt` / `sp` / `freq` / `tsopt` / `irc` /
 
 ```bash
 conda activate <your_mlmm_env>
-conda install -c conda-forge ambertools
+conda install -c conda-forge ambertools=24.8 "numpy>=2,<2.5"
 ```
 
 This pulls `tleap`, `antechamber`, `parmchk2`, `cpptraj`, and the
@@ -25,20 +25,6 @@ Verify:
 which tleap antechamber parmchk2
 tleap -h | head -3
 ```
-
-## Install from the official tarball
-
-If `conda-forge` is not available, AmberTools can also be installed
-from the official tarball at https://ambermd.org/AmberTools.php
-(free academic license required). After install:
-
-```bash
-source <amber_install>/amber.sh   # sets AMBERHOME, PATH, LD_LIBRARY_PATH
-which tleap
-```
-
-Add `source <amber_install>/amber.sh` to every PBS / SLURM job that
-calls `mlmm mm-parm`, or build it into your env-init shell hook.
 
 ## CLI usage (`mlmm mm-parm`)
 
@@ -61,10 +47,9 @@ separate `--water` flag**, and there is **no `--force-field` flag**
 
 | Symptom | Cause / fix |
 |---|---|
-| `tleap: command not found` | AmberTools not installed; or `<amber_install>/amber.sh` not sourced. |
+| `tleap: command not found` | Install AmberTools24.8 in the active conda environment using the command above. |
 | `Unknown residue name 'GPP'` | A non-standard ligand: give its formal charge via `--ligand-charge` (e.g. `-l 'GPP:-3'`); `mm-parm` then auto-runs `antechamber` + `parmchk2` to derive GAFF2 parameters (AM1-BCC charges; there is no flag to pass a pre-built `.frcmod`). |
 | `parm7` written but `mm-parm` reports charge mismatch | Check `mlmm-structure-io/charge-multiplicity.md` — the `-l` mapping must agree with the protonation states in the PDB. |
-| Linux aarch64 not supported | conda-forge ships `linux-64`, `osx-64`, and `osx-arm64` only — `linux-aarch64` is not a published platform for `ambertools`. On ARM HPC, build from the official tarball. |
 
 ## What AmberTools is **not** used for
 

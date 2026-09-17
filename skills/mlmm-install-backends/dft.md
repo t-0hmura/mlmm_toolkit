@@ -73,10 +73,10 @@ python -c "import mlmm.core.defaults as d; print(d.GEOM_KW_DEFAULT, d.MLMM_CALC_
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `OSError: libcusolver.so.11 not found` | `LD_LIBRARY_PATH` shadowing torch's bundled CUDA libs | See `env-cuda.md`, Option 1 (`LD_LIBRARY_PATH` reorder) |
-| `cupy.cuda.runtime.CUDARuntimeError: invalid device ordinal` | Torch and cupy disagree on CUDA visibility | `unset CUDA_VISIBLE_DEVICES` and let GPU4PySCF use device 0 |
-| `RuntimeError: CUDA out of memory` mid-SCF | Functional / basis too heavy for VRAM | Lower `grid_level`, switch to `def2-svp`, or use `--engine cpu` |
-| `gpu4pyscf` import succeeds but SCF stalls at start | cuTENSOR not installed | `pip install cutensor-cu12` (optional accelerator; no longer pulled by the `[dft]` extra) |
+| `OSError: libcusolver.so.11 not found` | Missing/mixed CUDA wheel dependency or environment library collision | Check the installed stack with `python -m pip check` and inspect the full traceback before changing library paths |
+| `cupy.cuda.runtime.CUDARuntimeError: invalid device ordinal` | Requested device is outside the visible GPU set | Keep the scheduler's `CUDA_VISIBLE_DEVICES` and select a valid local device index |
+| `RuntimeError: CUDA out of memory` mid-SCF | The selected method/system exceeds available VRAM | Use the same method with `--engine cpu` or a larger-memory GPU |
+| `gpu4pyscf` import succeeds but SCF stalls at start | The symptom alone does not identify the missing dependency | Inspect the full traceback and the installed GPU4PySCF requirements before adding libraries |
 | aarch64: `--engine gpu` requested but no `gpu4pyscf` | Architecture not supported | Raises `ClickException`; rerun with `--engine cpu` (or set `dft.engine: cpu` in YAML) |
 
 ## Resource sizing
