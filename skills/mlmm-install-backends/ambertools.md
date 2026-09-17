@@ -13,7 +13,7 @@ them to the compute subcommands (`opt` / `sp` / `freq` / `tsopt` / `irc` /
 
 ```bash
 conda activate <your_mlmm_env>
-conda install -c conda-forge ambertools
+conda install -c conda-forge ambertools=24.8 "numpy>=2,<2.5"
 ```
 
 This pulls `tleap`, `antechamber`, `parmchk2`, `cpptraj`, and the

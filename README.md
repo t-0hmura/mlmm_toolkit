@@ -56,7 +56,7 @@ The source repository includes full-system COMT and [BezA](examples/beza/README.
 ```bash
 # 1. New env + AmberTools + CUDA-enabled PyTorch
 conda create -n mlmm-toolkit python=3.12 -y && conda activate mlmm-toolkit
-conda install -c conda-forge ambertools pdbfixer -y
+conda install -c conda-forge ambertools=24.8 "numpy>=2,<2.5" pdbfixer -y
 pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cu130
 
 # 2. Install mlmm-toolkit

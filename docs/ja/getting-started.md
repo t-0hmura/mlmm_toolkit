@@ -96,7 +96,7 @@ Linux の CPU/GPU 環境で利用できます。GPU 実行には対応する NVI
 ```bash
 conda create -n mlmm-toolkit python=3.12 -y
 conda activate mlmm-toolkit
-conda install -c conda-forge ambertools pdbfixer -y
+conda install -c conda-forge ambertools=24.8 "numpy>=2,<2.5" pdbfixer -y
 pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cu130
 pip install mlmm-toolkit
 

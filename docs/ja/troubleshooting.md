@@ -149,7 +149,7 @@ mm-parm requires AmberTools (tleap, antechamber, parmchk2).
 - conda で AmberTools をインストールします:
 
   ```bash
-  conda install -c conda-forge ambertools -y
+  conda install -c conda-forge ambertools=24.8 "numpy>=2,<2.5" -y
   ```
 
 - ソースからビルド（<https://ambermd.org/AmberTools.php>）するか、HPC クラスターでは環境モジュールでロードします:
