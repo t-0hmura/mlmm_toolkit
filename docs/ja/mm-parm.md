@@ -8,14 +8,14 @@
 
 ```bash
 mlmm mm-parm -i input.pdb --out-prefix complex \
- -l "GPP=-3,MMT=-1" --ligand-mult "GPP=1,MMT=1"
+ -l "GPP:-3,MMT:-1" --ligand-mult "GPP:1,MMT:1"
 ```
 
 TER レコード追加、ff19SB、pH 7 での水素付加。
 
 ```bash
 mlmm mm-parm -i input.pdb --out-prefix complex \
- -l "GPP=-3,MMT=-1" --ligand-mult "GPP=1,MMT=1" \
+ -l "GPP:-3,MMT:-1" --ligand-mult "GPP:1,MMT:1" \
  --add-ter --ff-set ff19SB --add-h --ph 7.0
 ```
 
@@ -23,7 +23,7 @@ mlmm mm-parm -i input.pdb --out-prefix complex \
 
 ```bash
 mlmm mm-parm -i input.pdb --out-prefix complex \
- -l "GPP=-3" --no-add-h
+ -l "GPP:-3" --no-add-h
 ```
 
 ## 処理の流れ
@@ -56,8 +56,8 @@ mlmm define-layer -i system.pdb --model-pdb model.pdb -o system_layered.pdb
 | --- | --- | --- |
 | `-i, --input PATH` | 入力 PDB（`--add-h` でない限りそのまま使用）。 | 必須 |
 | `-o, --out-prefix TEXT` | parm7/rst7/pdb ファイルの出力接頭辞。 | 入力 PDB のファイル名（拡張子なし） |
-| `-l, --ligand-charge TEXT` | 残基名と形式電荷のマッピング（例: `"GPP=-3,MMT=-1"`）。 | _None_ |
-| `--ligand-mult TEXT` | 残基名とスピン多重度のマッピング（例: `"HEM=1,NO=2"`）。未指定の残基はデフォルトで一重項（1）。 | _None_ |
+| `-l, --ligand-charge TEXT` | 残基名と形式電荷のマッピング（例: `"GPP:-3,MMT:-1"`）。 | _None_ |
+| `--ligand-mult TEXT` | 残基名とスピン多重度のマッピング（例: `"HEM:1,NO:2"`）。未指定の残基はデフォルトで一重項（1）。 | _None_ |
 | `--keep-temp/--no-keep-temp` | 作業ディレクトリの中間ファイル/ログを保持（デバッグ用）。 | `False` |
 | `--add-ter/--no-add-ter` | リガンド/水/イオンブロックの前後に TER を挿入。 | `True` |
 | `--auto-disulfide/--no-auto-disulfide` | CYS/CYM/CYX にわたり SG-SG 幾何からジスルフィドを検出して結合し、結合された CYS を CYX にリネーム。`--no-auto-disulfide` では既に CYX の残基のみを結合。 | `True` |
@@ -66,6 +66,15 @@ mlmm define-layer -i system.pdb --model-pdb model.pdb -o system_layered.pdb
 | `--ff-set {ff19SB\|ff14SB}` | 力場セット: ff19SB（デフォルト）または ff14SB。 | `ff19SB` |
 
 全フラグの一覧は生成された[コマンドリファレンス](../reference/commands/index.md)にあります。
+
+## `oniom-export` 用のCMAPを含まないトポロジー
+
+ff14SBで作成し、CMAP項がないことを確認します。
+
+```bash
+mlmm mm-parm -i input.pdb -l 'LIG:0' --ff-set ff14SB --out-prefix system
+python -c "import parmed as pmd; p=pmd.load_file('system.parm7'); assert not p.cmaps"
+```
 
 ## 注記
 

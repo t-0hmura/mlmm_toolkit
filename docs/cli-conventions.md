@@ -100,11 +100,15 @@ mlmm define-layer -i system.pdb --model-pdb ml_region.pdb -o labeled.pdb
 calc:
   hess_cutoff: 3.6        # Hessian-target MM
   movable_cutoff: 8.0     # Movable-MM (beyond → Frozen-MM)
+```
 
+```yaml
 # 3. Read existing B-factors
 calc:
   use_bfactor_layers: true
+```
 
+```yaml
 # 4. Explicit index lists
 calc:
   hess_mm_atoms:    [100, 101, 102, ...]

@@ -172,7 +172,8 @@ mlmm opt -i ml_region.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 -b mace     
 ## Export to Gaussian / ORCA
 
 `mlmm-toolkit` can export Gaussian or ORCA input. Gaussian or ORCA must be
-installed and licensed separately:
+installed and licensed separately. Export requires a topology without CMAP;
+see [mm-parm](mm-parm.md#cmap-free-topology-for-oniom-export) for preparation.
 
 ```bash
 # 1. ML/MM TS refinement
@@ -232,7 +233,7 @@ mlmm <subcommand> --help-advanced      # full option set
 
 ## Driving from an AI coding agent
 
-`mlmm-toolkit` ships `skills/` with agent-readable instructions. Copy `skills/` into your project as `.claude/skills/` (or merge into `~/.claude/skills/`) for Claude Code / Cursor / OpenCode pickup.
+`skills/` contains instructions for CLI workflows, structure I/O, installation, and HPC use. See the [Skills index](https://github.com/t-0hmura/mlmm_toolkit/blob/main/skills/README.md) for the available guides and installation.
 
 ```{warning}
 This software is still under development. Please use it at your own risk.

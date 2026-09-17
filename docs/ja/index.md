@@ -75,192 +75,134 @@ glossary
 
 ## 目的別クイックスタート
 
-| ユースケース | 推奨コマンド | ガイド |
-|--------------|--------------|--------|
-| 最初の 1 回を実行（一気通貫） | `mlmm all` | [クイックスタート: all](quickstart-all.md) |
-| GPU GUI から対話的に実行 | -- | [mlmm Colab notebook を開く](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb) |
-| mmCIF・大規模残基 ID・一意な selector | -- | [mmCIF と大規模構造](cif.md) |
-| 単一構造スキャン（`-s`） | `mlmm scan` | [クイックスタート: scan](quickstart-scan-spec.md) |
-| TS 検証（`tsopt` + 振動解析） | `mlmm tsopt` | [クイックスタート: tsopt](quickstart-tsopt-freq.md) |
-| PDB から反応経路探索を一通り実行 | `mlmm all` | [all.md](all.md) |
-| 現在の設定を確認 | `mlmm opt -i layered.pdb --parm system.parm7 -q 0 --show-config --dry-run` | [YAML リファレンス](yaml-reference.md) |
-| タンパク質-リガンド複合体から ML 領域を抽出 | `mlmm extract` | [extract.md](extract.md) |
-| MM トポロジー（parm7/rst7）を構築 | `mlmm mm-parm` | [mm-parm.md](mm-parm.md) |
-| ML/MM 3層領域を定義 | `mlmm define-layer` | [define-layer.md](define-layer.md) |
-| 単一構造を最適化 | `mlmm opt` | [opt.md](opt.md) |
-| MEP 探索で遷移状態候補を発見 | `mlmm path-opt`（再帰精密化は `path-search`） | [path-opt.md](path-opt.md) |
-| 遷移状態候補を最適化 | `mlmm tsopt` | [tsopt.md](tsopt.md) |
-| 遷移状態から IRC を実行 | `mlmm irc` | [irc.md](irc.md) |
-| エネルギープロファイルを可視化 | `mlmm trj2fig` | [trj2fig.md](trj2fig.md) |
-| Gaussian ONIOM / ORCA QM/MM 入力を生成 | `mlmm oniom-export --mode g16\|orca` | [oniom-export.md](oniom-export.md) |
-| ONIOM 入力から XYZ/層付き PDB を再構築 | `mlmm oniom-import` | [oniom-import.md](oniom-import.md) |
-| 数値から状態エネルギーダイアグラムを描画 | `mlmm energy-diagram` | [energy-diagram.md](energy-diagram.md) |
-| チュートリアルに従う | -- | [はじめに](getting-started.md) |
-| 症状からエラー対処を探す | -- | [典型エラー別レシピ](recipes-common-errors.md) |
-| 全体像（概念・用語）の把握 | -- | [概念とワークフロー](concepts.md) |
-| よくあるエラーの解決 | -- | [トラブルシューティング](troubleshooting.md) |
-| 略語や用語を調べる | -- | [用語集](glossary.md) |
+インストールと入力の準備は[はじめに](getting-started.md)を参照してください。
 
----
-
+| 目的 | ガイド |
+|---|---|
+| 一気通貫の初回実行 | [クイックスタート: all](quickstart-all.md) |
+| 単一構造と結合スキャンから開始 | [クイックスタート: scan](quickstart-scan-spec.md) |
+| 手元のTS候補を検証 | [クイックスタート: tsopt](quickstart-tsopt-freq.md) |
+| GPU GUIで対話的に実行 | [Colabを開く](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb) |
+| 実行失敗・エラーを調べる | [典型エラー別レシピ](recipes-common-errors.md) |
 
 ## CLI サブコマンド
 
 ### メインワークフロー
+
 | サブコマンド | 説明 |
-|---------|------|
-| [`all`](all.md) | 一気通貫ワークフロー: ML/MM モデル構築 -> MEP 探索 -> TS 最適化 -> IRC -> freq -> DFT |
+|---|---|
+| [`all`](all.md) | ML/MMモデル構築とMEP探索。TS・IRC・熱化学・DFTは任意 |
 
 ### 構造準備
+
 | サブコマンド | 説明 |
-|---------|------|
-| [`extract`](extract.md) | タンパク質-リガンド複合体から ML 領域（QM 領域）を定義 |
-| [`add-elem-info`](add-elem-info.md) | PDB の元素列（77-78）を修復 |
-| [`mm-parm`](mm-parm.md) | AmberTools (tleap + GAFF2) を使用して Amber トポロジー（parm7/rst7）を構築 |
-| [`define-layer`](define-layer.md) | ML 領域からの距離に基づき 3 層 ML/MM 領域を定義し、B-factor でエンコード |
+|---|---|
+| [`extract`](extract.md) | タンパク質–リガンド複合体からML領域を定義 |
+| [`add-elem-info`](add-elem-info.md) | PDBの元素列（77–78）を補完 |
+| [`mm-parm`](mm-parm.md) | Amberトポロジー・座標（parm7/rst7）を構築 |
+| [`define-layer`](define-layer.md) | ML・可動MM・凍結MM層をB-factorで指定 |
 
 ### 構造最適化
+
 | サブコマンド | 説明 |
-|---------|------|
-| [`opt`](opt.md) | 単一構造の構造最適化（L-BFGS / RFO） |
-| [`tsopt`](tsopt.md) | 遷移状態最適化（RS-P-RFO / Dimer など） |
+|---|---|
+| [`opt`](opt.md) | L-BFGSまたはRFOで構造最適化 |
+| [`tsopt`](tsopt.md) | RS-P-RFO・DimerなどでTS候補を最適化 |
 
 ### 経路探索・最適化
+
 | サブコマンド | 説明 |
-|---------|------|
-| [`path-opt`](path-opt.md) | GSM または DMF による MEP 最適化 |
-| [`path-search`](path-search.md) | 自動精密化を伴う再帰的 MEP 探索 |
+|---|---|
+| [`path-opt`](path-opt.md) | 2端点間のMEPをGSMまたはDMFで最適化 |
+| [`path-search`](path-search.md) | MEP探索と再帰的な精密化 |
 
 ### スキャン
+
 | サブコマンド | 説明 |
-|---------|------|
-| [`scan`](scan.md) | 拘束付き距離スキャン（複数距離の協奏スキャン・多段階スキャンに対応） |
-| [`scan2d`](scan2d.md) | 2 次元 energy landscape 探索・PES mapping |
-| [`scan3d`](scan3d.md) | 3 次元 energy landscape 探索・PES mapping |
+|---|---|
+| [`scan`](scan.md) | 拘束付き距離スキャン。複数距離の協奏変化と多段階に対応 |
+| [`scan2d`](scan2d.md) | 2次元エネルギー面 |
+| [`scan3d`](scan3d.md) | 3次元エネルギー面 |
 
 ### 解析・後処理
+
 | サブコマンド | 説明 |
-|---------|------|
-| [`irc`](irc.md) | 固有反応座標（IRC）計算 |
+|---|---|
+| [`irc`](irc.md) | 固有反応座標を追跡 |
 | [`freq`](freq.md) | 振動解析と熱化学 |
-| [`dft`](dft.md) | DFT 一点計算（GPU4PySCF / PySCF） |
-| [`sp`](sp.md) | ML/MM ONIOM 一点エネルギー・力（任意で Hessian） |
-| [`trj2fig`](trj2fig.md) | XYZ 軌跡からエネルギープロファイルをプロット |
-| [`energy-diagram`](energy-diagram.md) | 数値入力からエネルギーダイアグラムを作成 |
-| [`bond-summary`](bond-summary.md) | 連続構造間の共有結合変化を検出・レポート |
+| [`dft`](dft.md) | GPU4PySCFまたはPySCFによるDFT一点計算 |
+| [`sp`](sp.md) | ML/MM ONIOMエネルギー・力。任意でHessian |
+| [`trj2fig`](trj2fig.md) | XYZ軌跡のエネルギープロファイルを描画 |
+| [`energy-diagram`](energy-diagram.md) | 数値から状態エネルギー図を描画 |
+| [`bond-summary`](bond-summary.md) | 構造間の共有結合変化を記録 |
 
 ### ユーティリティ
-| サブコマンド | 説明 |
-|---------|------|
-| [`fix-altloc`](fix-altloc.md) | PDB の代替コンフォメーション（altloc）を解決 |
 
-### エクスポート
 | サブコマンド | 説明 |
-|---------|------|
-| [`oniom-export`](oniom-export.md) | Amber parm7 から Gaussian ONIOM / ORCA QM/MM 入力を生成（`--mode g16\|orca`） |
-| [`oniom-import`](oniom-import.md) | Gaussian/ORCA ONIOM 入力を読み込み、XYZ と層付き PDB を再構築 |
+|---|---|
+| [`fix-altloc`](fix-altloc.md) | PDBの代替コンフォメーションを解決 |
 
----
+### エクスポート・インポート
+
+| サブコマンド | 説明 |
+|---|---|
+| [`oniom-export`](oniom-export.md) | Gaussian ONIOMまたはORCA QM/MM入力を生成 |
+| [`oniom-import`](oniom-import.md) | ONIOM入力からXYZ・層付きPDBを再構築 |
 
 ## 設定・リファレンス
 
 | トピック | ページ |
-|---------|--------|
-| **CLI コマンドリファレンス** | [コマンドリファレンス](../reference/commands/index.md) |
-| **CLI 規約と入力要件** | [CLI 規約](cli-conventions.md) |
-| **GPU・HPC 設定** | [デバイスと HPC](device-hpc.md) |
-| **`mlmm all` スターター設定** | [スターター設定スナップショット（抜粋）](../reference/yaml.md) |
-| **YAML 設定オプション** | [YAML リファレンス](yaml-reference.md) |
-| **ML/MM calculatorアーキテクチャ** | [ML/MM calculator](mlmm-calc.md) |
-| **用語集** | [用語集](glossary.md) |
-
----
+|---|---|
+| CLI規約と入力形式 | [CLI規約](cli-conventions.md) · [mmCIF](cif.md) |
+| 概念・用語 | [概念](concepts.md) · [用語集](glossary.md) |
+| YAML設定 | [YAMLリファレンス](yaml-reference.md) |
+| 出力ファイル・JSON | [出力構造](output-layout.md) · [JSONスキーマ](json-output.md) |
+| バックエンド・再現性 | [バックエンド](backends.md) · [再現性](reproducibility.md) |
+| デバイス・HPC | [デバイスとHPC](device-hpc.md) |
+| Python API・構成 | [Python API](python-api.md) · [ML/MM計算機](mlmm-calc.md) · [アーキテクチャ](architecture.md) |
+| MCPサーバー | [MCPサーバー](mcp_server.md) |
+| トラブルシューティング | [トラブルシューティング](troubleshooting.md) |
+| 自動生成CLIリファレンス（英語） | [コマンドリファレンス](../reference/commands/index.md) |
+| スターター設定（英語） | [YAML抜粋](../reference/yaml.md) |
 
 ## システム要件
 
-インストールとバックエンドごとの互換性は、
-[はじめに](getting-started.md#インストール)を参照してください。
-GPU とドライバーは、選択したバックエンドの要件を満たす必要があります。
-VRAM、RAM、実行時間は、対象系の予備計算とジョブログから見積もってください。
-`mm-parm` には AmberTools が必要です。
-
----
-
+インストールとバックエンドの互換性は[はじめに](getting-started.md#インストール)を参照してください。
+GPUとドライバーは選択したバックエンドの要件を満たす必要があります。
+VRAM・RAM・実行時間は、代表的な計算から見積もってください。
+`mm-parm` にはAmberToolsが必要です。
 
 ## 重要な概念
 
-### ML/MM 3 層システム
-mlmm は PDB の B-factor による 3 層分割スキームを使用します:
-- **ML 領域**（B=0.0）: 選択した MLIP バックエンドで計算
-- **Movable-MM**（B=10.0）: 最適化時に移動可能な MM 原子
-- **Frozen-MM**（B=20.0）: 座標固定の MM 原子。最適化中に座標は変化しないが、Movable-MM および ML 領域との非結合相互作用（静電・van der Waals）は MM エネルギー評価に含まれる
+- **層:** B=0はML、B=10は可動MM、B=20は凍結MMです。凍結原子もMMの非結合相互作用に寄与します。Hessianに含めるMM原子は `hess_cutoff` / `hess_mm_atoms` で別に選択します。
+- **電荷・スピン:** `--ligand-charge` で残基電荷（例: `'SAM:1,GPP:-3'`）、`-q/--charge` でML領域の正味電荷、`-m/--multiplicity` で多重度（既定1）を指定します。
+- **ブール値:** `--flag` / `--no-flag` で指定します。例: `--tsopt --thermo --no-dft`。
+- **設定:** [YAMLリファレンス](yaml-reference.md)を参照してください。最適化せずに実効設定を確認する例:
 
-Hessian 計算に含める MM 原子は、B-factor 専用層ではなく `hess_cutoff` や `hess_mm_atoms` で制御します。
-
-### 電荷とスピン
-- 未知残基の電荷を指定するには `--ligand-charge` を使用: `'SAM:1,GPP:-3'`
-- ML 領域の正味電荷を上書きするには `-q/--charge` を使用
-- スピン多重度は `-m/--multiplicity`（デフォルト: 1）で設定
-
-### ブール値オプション
-ブール値 CLI オプションはトグル形式（`--flag` / `--no-flag`）を使用します:
 ```bash
---tsopt --thermo --no-dft
+mlmm opt -i layered.pdb --parm system.parm7 -q 0 --show-config --dry-run
 ```
-
-### YAML 設定
-
-詳細なオプションについては [YAML リファレンス](yaml-reference.md) を参照してください。
-
----
 
 ## 出力構造
 
-典型的な `mlmm all` 実行の出力:
-```
-result_all/
-├── summary.log # 実行要約
-├── summary.json # 実行要約（JSON）
-├── mep.pdb / mep.cif / mep_trj.xyz # CIF は bridge 入力時
-├── energy_diagram_MEP.png # MEP ダイアグラム
-├── ml_region.pdb # ML 領域定義（--model-pdb として再利用可）
-├── mm_parm/ # AMBER トポロジー（--parm として再利用可）
-├── layered/ # B-factor 層付き全系 PDB（再利用可）
-├── segments/ # 反応セグメント別の成果物
-│ └── seg_NN/ # 正規 R/TS/P + 後処理
-│ ├── reactant.pdb · ts.pdb · product.pdb
-│ ├── ts/ # TS 最適化結果
-│ ├── irc/ # IRC 軌跡
-│ ├── freq/ # 振動モード（--thermo）
-│ └── dft/ # DFT 結果（--dft）
-└── _work/ # パイプライン作業領域（削除可）
- ├── pockets/ # extract で決定された ML 領域構造
- ├── scan/ # （オプション）スキャン結果
- └── path_opt/ # MEP エンジン生出力（--refine-path 時: path_search/）
- ├── mep_seg_XX_trj.xyz · hei_seg_XX.xyz/.pdb
- └── summary.{json,log} · seg_*/ # セグメントごとの詳細
-```
-
----
+MEPモードの `all` は `summary.log`・`summary.json`、MEP（`mep.pdb` / `mep_trj.xyz`、bridge入力では `mep.cif` も）、
+`energy_diagram_MEP.png` を出力します。
+再利用できる準備ファイルは `ml_region.pdb`、`mm_parm/`、`layered/` です。
+`segments/seg_NN/` にR/TS/P構造と指定したTS・IRC・freq・DFT結果、`_work/` に準備・scan・pathの中間出力を保存します。
+TS-onlyモードではE1/TS/E2と表記し、MEPは出力しません。
+全体のツリーは [all](all.md#出力)、ファイルの規約は[出力構造](output-layout.md)を参照してください。
 
 ## 引用
 
-本ソフトウェアを研究に使用した場合は、以下を引用してください:
-
-[1] Ohmura, T., Inoue, S., Terada, T. (2025). ML/MM toolkit -- Toward Accelerated Mechanistic Investigation of Enzymatic Reactions. ChemRxiv. https://doi.org/10.26434/chemrxiv-2025-jft1k
+Ohmura, T., Inoue, S., Terada, T. (2025). *ML/MM toolkit — Toward Accelerated Mechanistic Investigation of Enzymatic Reactions.* [ChemRxiv](https://doi.org/10.26434/chemrxiv-2025-jft1k)。
 
 ## ライセンス
 
-`mlmm-toolkit` は **GNU General Public License version 3 or later (GPL-3.0-or-later)** の下で配布されています。
-
----
+GNU General Public License version 3 or later (GPL-3.0-or-later)。
 
 ## ヘルプ
 
 ```bash
-# 一般的なヘルプ
 mlmm --help
-
-# コマンドのヘルプ
 mlmm <command> --help
 ```

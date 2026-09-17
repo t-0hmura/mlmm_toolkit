@@ -96,7 +96,10 @@ output option を上書きできません。短縮 option の連結形と
 
 ## オプトインの IRC 収束ガード
 
-`run_irc` は `irc_pos_def: bool` を受け付けます。これを指定すると、IRC の収束に加えて正定値の質量重み付き Hessian も必要となり、rms のみの基準が局所極小に到達する前に成功と判定してしまう IRC の「ショルダー」誤収束をブロックします。デフォルトは `None`（rms のみ、レガシー）です。
+`run_irc` の `irc_pos_def=True` は、RMS勾配による停止に、質量重み付き
+Hessianの正定値性を追加で要求します。これは積分の停止診断であり、
+ワークフロー全体の成功判定ではありません。既定では無効です。
+`None` は未指定を表し、端点OPTの収束は別に記録します。
 
 `find_transition_state` のデフォルト `opt_mode="hess"` は RS-P-RFO を選択します。Hessian TS オプティマイザは `rsprfo`、`rsirfo`、`trim` でも明示的に選択できます。3 種はいずれも microiteration に対応し、デフォルトで有効です。無効化するには `microiter=False` を渡します。
 

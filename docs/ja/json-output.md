@@ -221,9 +221,45 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 `thermoanalysis.yaml` にも書き出します。最後の 2 値のキー名は生成 workflow により
 `hessian_source` / `hessian_shape` または `source` / `raw_hessian_shape` です。
 
-### `scan` / `scan2d` / `scan3d`
+### `scan`
 
-scan は固定の L-BFGS 経路を `scan_opt_mode: "grad"` / `scan_optimizer: "lbfgs"` として記録し、`stages[]` 配列にステージごとのデータと `n_stages` を含みます。各 stage には（追加フィールド）`optimizer_status`（`converged`/`not_converged`/`stalled`）と、そのステージの最後の optimizer が非収束停止した場合の `stop_reason` を含みます。scan2d/scan3d は `n_grid_points` と `pair1`/`pair2`(/`pair3`)（各 `{i, j, low, high}`）に加えて、表面の最小エネルギー `min_energy_hartree` を含みます。fresh run は事前最適化行を除く試行数 `n_points_attempted` と、明示的に収束し有限値・構造 artifact を持つ `n_points_usable`、共通 calculator provenance、`charge`・`spin`を記録します。plot-only の `scan3d --csv` は `n_points_attempted` を出力せず、収束・artifact provenance が完全な CSV の場合だけ `n_points_usable` を出力します。また import した energy grid から calculator を特定できないため、`mlip_backend`、`mlip_model`、`mlip_precision`、`mm_backend`、`link_atom_method`、`use_cmap`、`charge`、`spin` は null です。
+| フィールド | 型 | 説明 |
+|---|---|---|
+| `status` | string | `"completed"` |
+| `scan_opt_mode` | string | 拘束付きL-BFGS緩和で使う固定の `grad` |
+| `scan_optimizer` | string | 使用した最適化法（`lbfgs`） |
+| `n_stages` | int | スキャンステージ数 |
+| `stages` | object[] | ステージごとの結果 |
+| `charge` | int | ML領域の電荷 |
+| `spin` | int | ML領域の多重度 |
+| `files` | object | 出力ファイル |
+
+`stages[]` は `n_steps`、`converged`、`pairs_1based`、
+`energies_hartree`、`final_energy_hartree`、`bond_changes`、
+`optimizer_status`（`converged` / `not_converged` / `stalled`）を含みます。
+最後の最適化が未収束で止まった場合は `stop_reason` も記録します。
+
+### `scan2d` / `scan3d`
+
+| フィールド | 型 | 説明 |
+|---|---|---|
+| `n_grid_points` | int | 格子点数 |
+| `n_points_attempted` | int | 新規計算で試行した格子点数（事前最適化行を除く） |
+| `n_points_usable` | int | 明示的に収束し、有限のエネルギー・座標と構造ファイルを持つ点の数 |
+| `grid_points` | object[] | 格子インデックス、距離、エネルギー、収束結果、`geometry_file` の対応。Results表示で使用 |
+| `current_output_paths` | string[] | 今回生成したCSV・HTML・PNG・格子点構造のパス |
+| `pair1`、`pair2`（`pair3`） | object | `{i, j, low, high}` |
+| `min_energy_hartree` | float | 表面上の最小エネルギー |
+| `charge` | int \| null | ML領域の電荷。作図のみの `scan3d --csv` ではnull |
+| `spin` | int \| null | ML領域の多重度。作図のみの `scan3d --csv` ではnull |
+| `files` | object | CSV・プロットファイル |
+
+新規の `scan2d` / `scan3d` には共通のMLIP・ML/MM計算機情報も記録します。
+作図のみの `scan3d --csv` では、CSVから元の計算機を特定できないため、
+`mlip_backend`、`mlip_model`、`mlip_precision`、`mm_backend`、
+`link_atom_method`、`use_cmap`、`charge`、`spin` はnullです。
+`n_points_attempted` は出力せず、`n_points_usable` はCSVに収束・構造ファイルの
+情報が揃っている場合だけ出力します。
 
 ### `path-opt`
 

@@ -33,6 +33,13 @@ mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 \
 
 Check [result status and reasons](json-output.md#execution-and-requested-stage-completion) in `summary.json` before interpreting the segment energies and bond changes in `summary.log`. The merged path is `mep.pdb` (plus `mep.cif` for bridged input) with `energy_diagram_MEP.png` at the output root. See [all](all.md) for the full output tree and per-segment deliverables, and [output-layout](output-layout.md) for the filename reference.
 
+Raw outputs are in `_work/path_opt/` (`_work/path_search/` with `--refine-path`).
+
+## Tips
+
+- Use `--dry-run` to check arguments and the execution plan.
+- `mlmm all --help` shows common options; `mlmm all --help-advanced` shows all options.
+
 ## Next step
 
 - Single-structure scan route: [Quickstart: `mlmm scan` with `-s` (YAML spec)](quickstart-scan-spec.md)

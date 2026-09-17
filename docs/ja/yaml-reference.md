@@ -326,26 +326,26 @@ dmf:
  sequential: true # 逐次 DMF 実行
  fbenm_only_endpoints: false # 端点を超えて FB-ENM を実行
  fbenm_options:
- delta_scale: 0.2 # FB-ENM 変位スケーリング
- bond_scale: 1.25 # 結合カットオフスケーリング
- fix_planes: true # 平面拘束の強制
+   delta_scale: 0.2 # FB-ENM 変位スケーリング
+   bond_scale: 1.25 # 結合カットオフスケーリング
+   fix_planes: true # 平面拘束の強制
  cfbenm_options:
- bond_scale: 1.25 # CFB-ENM 結合カットオフスケーリング
- corr0_scale: 1.1 # corr0 の相関スケール
- corr1_scale: 1.5 # corr1 の相関スケール
- corr2_scale: 1.6 # corr2 の相関スケール
- eps: 0.05 # 相関イプシロン
- pivotal: true # ピボット残基の処理
- single: true # 単一原子ピボット
- remove_fourmembered: true # 四員環の除去
+   bond_scale: 1.25 # CFB-ENM 結合カットオフスケーリング
+   corr0_scale: 1.1 # corr0 の相関スケール
+   corr1_scale: 1.5 # corr1 の相関スケール
+   corr2_scale: 1.6 # corr2 の相関スケール
+   eps: 0.05 # 相関イプシロン
+   pivotal: true # ピボット残基の処理
+   single: true # 単一原子ピボット
+   remove_fourmembered: true # 四員環の除去
  dmf_options:
- remove_rotation_and_translation: false # 剛体運動を保持
- mass_weighted: false # 質量重み付けの切替
- parallel: false # 並列 DMF を有効化
- eps_vel: 0.01 # 速度許容値
- eps_rot: 0.01 # 回転許容値
- beta: 10.0 # DMF の beta パラメータ
- update_teval: false # 遷移評価の更新
+   remove_rotation_and_translation: false # 剛体運動を保持
+   mass_weighted: false # 質量重み付けの切替
+   parallel: false # 並列 DMF を有効化
+   eps_vel: 0.01 # 速度許容値
+   eps_rot: 0.01 # 回転許容値
+   beta: 10.0 # DMF の beta パラメータ
+   update_teval: false # 遷移評価の更新
  k_fix: 300.0 # 拘束の調和定数
 ```
 
@@ -424,29 +424,29 @@ hessian_dimer:
  partial_hessian_flatten: true # 部分Hessianを虚モード検出に使用
  ml_only_hessian_dimer: false # ダイマー方向決定に ML 領域のみのHessianを使用
  dimer:
- length: 0.0189 # ダイマー間隔 (Bohr)
- rotation_max_cycles: 15 # 最大回転反復数
- rotation_method: fourier # 回転最適化手法
- rotation_thresh: 0.0001 # 回転収束閾値
- rotation_tol: 1 # 回転許容係数
- rotation_max_element: 0.001 # 回転行列の最大要素
- rotation_interpolate: true # 回転ステップの補間
- rotation_disable: false # 回転を完全に無効化
- rotation_disable_pos_curv: true # 正曲率検出時に回転を無効化
- rotation_remove_trans: true # 選択した剛体null成分を除去
- trans_force_f_perp: true # 並進に垂直な力の投影
- bonds: null # 拘束用の結合リスト
- N_hessian: null # Hessianサイズの上書き
- bias_rotation: false # 回転探索のバイアス
- bias_translation: false # 並進探索のバイアス
- bias_gaussian_dot: 0.1 # ガウスバイアスの内積
- seed: null # 回転の乱数シード
- write_orientations: false # 回転方向の書き出し（明示的な true も可）
- forward_hessian: true # Hessianの前方伝搬
+   length: 0.0189 # ダイマー間隔 (Bohr)
+   rotation_max_cycles: 15 # 最大回転反復数
+   rotation_method: fourier # 回転最適化手法
+   rotation_thresh: 0.0001 # 回転収束閾値
+   rotation_tol: 1 # 回転許容係数
+   rotation_max_element: 0.001 # 回転行列の最大要素
+   rotation_interpolate: true # 回転ステップの補間
+   rotation_disable: false # 回転を完全に無効化
+   rotation_disable_pos_curv: true # 正曲率検出時に回転を無効化
+   rotation_remove_trans: true # 選択した剛体null成分を除去
+   trans_force_f_perp: true # 並進に垂直な力の投影
+   bonds: null # 拘束用の結合リスト
+   N_hessian: null # Hessianサイズの上書き
+   bias_rotation: false # 回転探索のバイアス
+   bias_translation: false # 並進探索のバイアス
+   bias_gaussian_dot: 0.1 # ガウスバイアスの内積
+   seed: null # 回転の乱数シード
+   write_orientations: false # 回転方向の書き出し（明示的な true も可）
+   forward_hessian: true # Hessianの前方伝搬
  lbfgs:
- # lbfgs セクションと同じキー
- thresh: baker
- line_search: false # 必須: Dimer の有効力は物理エネルギーと共役でない
+   # lbfgs セクションと同じキー
+   thresh: baker
+   line_search: false # 必須: Dimer の有効力は物理エネルギーと共役でない
 ```
 
 **注記:**

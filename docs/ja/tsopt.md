@@ -377,6 +377,8 @@ overlap追跡に使う高度な 3N MEP 接線を与えます。`geom.tr_projecti
 `rsirfo.trust_max` のデフォルトは 0.10 bohr です。TS 近傍での ML/MM 安定性が改善します。
 
 共有 `opt` ブロックには **エネルギープラトー停止**（デフォルト無効、`--stop-plateau` で有効化）があります。plateau では `stalled` として停止し、未収束の `max_cycles` 到達時と同様に終端 PHVA を実行しません。MM micro 反復には適用されません。詳細は [yaml-reference](yaml-reference.md#opt) を参照してください。
+
+`--microiter` では `rsirfo.thresh` がmacro側、`microiter.micro_thresh` がMM緩和側の収束閾値です。後者が `null` または未指定ならmacro側を継承します。`--micro-thresh` CLIフラグはなく、[YAML](yaml-reference.md#microiter)で設定します。
 ```
 
 ## 関連項目

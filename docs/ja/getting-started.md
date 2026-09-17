@@ -179,6 +179,28 @@ PDB を使用します。明示的な `--out-prefix` でこの PDB を出力で�
 
 ---
 
+## Gaussian / ORCAへのエクスポート
+
+Gaussian / ORCAの入力を生成できます。実行には各ソフトウェアの別途インストールとライセンスが必要です。
+CMAPを含まないトポロジーを使ってください（[準備例](mm-parm.md#oniom-export-用のcmapを含まないトポロジー)）。
+
+```bash
+# 1. ML/MMでTSを精密化
+mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0 -m 1
+
+# 2. Gaussian ONIOM入力を生成
+mlmm oniom-export --mode g16 --parm real.parm7 -i result_tsopt/final_geometry.pdb \
+     --model-pdb ml_region.pdb -o ts_refine.com -q 0 -m 1 --method "wB97XD/def2-TZVPD"
+
+# 3. 外部ソフトウェアで実行（ORCAは --mode orca で生成）
+g16 < ts_refine.com > ts_refine.log
+```
+
+`oniom-import` が読むのはGaussian/ORCAの**入力ファイル**です。出力ログから最適化構造を抽出する機能ではありません。
+mlmmで計算を続けるには、原子順を保った最終構造を外部ソフトウェアから出力し、元のparm7とML領域を使います。
+
+詳細: [oniom-export](oniom-export.md) · [oniom-import](oniom-import.md) · [Gaussian](oniom-gaussian.md) · [ORCA](oniom-orca.md)。
+
 ## コマンドラインの基本
 
 `mlmm` のデフォルトのサブコマンドは `all` です。
@@ -290,3 +312,8 @@ mlmm all --help-advanced
 ```
 
 個別計算については、[コマンド一覧](index.md#cli-サブコマンド)から各ページを参照してください。
+
+## AIエージェントからの利用
+
+`skills/` にCLIワークフロー、構造I/O、インストール、HPC運用の手順書を同梱しています。
+利用できる手順書と導入方法は[Skills索引](https://github.com/t-0hmura/mlmm_toolkit/blob/main/skills/README.md)を参照してください。

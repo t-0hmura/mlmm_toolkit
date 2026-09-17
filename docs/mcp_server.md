@@ -104,7 +104,7 @@ When a subcommand fails, the parsed `summary` (or sibling `result.json`) carries
 `run_irc` accepts `irc_pos_def: bool`. When enabled, the IRC
 gradient-convergence stop also requires a positive-definite mass-weighted
 Hessian. This is an integration diagnostic, not a separate workflow-success
-verdict. The option is off by default; endpoint OPT reports its own convergence.
+verdict. The option is off by default; `None` means unset. Endpoint OPT reports its own convergence.
 
 The default `find_transition_state` value, `opt_mode="hess"`, selects RS-P-RFO.
 The explicit `rsprfo`, `rsirfo`, and `trim` tokens select a Hessian TS
