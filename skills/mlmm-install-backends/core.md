@@ -118,4 +118,4 @@ conda env remove -n <YOUR_ENV>
 
 - `env-cuda.md` — torch / CUDA setup that must come first
 - `uma.md`, `orb.md`, `mace.md`, `aimnet2.md` — backend-specific extras
-- `dft.md` — `[dft]` install details and aarch64 fallback
+- `dft.md` — `[dft]` installation and CPU/GPU selection

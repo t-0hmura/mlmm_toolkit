@@ -122,7 +122,7 @@ conda install -c conda-forge ninja -y
 cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make
 ```
 
-ノード、コンテナ、Python、PyTorch を変更した場合は、その環境で `hessian_ff` を再ビルドしてください。C/CUDA 拡張をソースからビルドする場合の toolkit/compiler 設定やジョブスクリプトは、[デバイスと HPC](device-hpc.md)を参照してください。
+`hessian_ff` はビルド済みキャッシュを確認し、必要な場合は自動ビルドします。失敗時の確認事項と手動再ビルドは、[トラブルシューティング](troubleshooting.md)を参照してください。C/CUDA 拡張をソースからビルドする場合の toolkit/compiler 設定やジョブスクリプトは、[デバイスと HPC](device-hpc.md)を参照してください。
 
 ---
 

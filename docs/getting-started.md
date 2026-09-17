@@ -92,7 +92,7 @@ mlmm --version
 | Plotly Chrome | Static PNG export beyond default `kaleido` | `plotly_get_chrome -y` (~150 MB) |
 | CUDA toolkit/module | Only when compiling a C/CUDA extension from source | Use the site-supported toolkit/compiler pair for that build. Official PyTorch wheels carry their CUDA user-space libraries and require only a compatible NVIDIA driver at runtime. |
 
-If you switch runtime environments (node / container / Python / PyTorch), rebuild `hessian_ff` in the new env. Detailed HPC job-script templates: [docs/device-hpc.md](device-hpc.md).
+`hessian_ff` checks its native build cache and builds automatically when needed. For build failures and manual rebuilding, see [Troubleshooting](troubleshooting.md#hessian_ff-build--import). Detailed HPC job-script templates: [docs/device-hpc.md](device-hpc.md).
 
 ## Quickstart routes
 

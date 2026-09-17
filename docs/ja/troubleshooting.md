@@ -240,65 +240,27 @@ Coordinate shape mismatch for... got (N, 3), expected (M, 3)
 
 ### ビルドが失敗する（"make" エラー）
 
-典型的な症状:
-- `hessian_ff/native/` での `make` がコンパイルエラーを出す
-- `ImportError: cannot import name 'ForceFieldTorch' from 'hessian_ff'`
-- `RuntimeError: hessian_ff build attempts failed: ...`
-
-対処の例:
-- ビルドはローカルの一時ディレクトリで行われます（`TORCH_EXTENSIONS_DIR` で変更可）。ネットワーク FS（NFS/Lustre）上の build dir は torch のビルドロックでハングするため、デフォルトでローカルパスを使います。
-- C++20 対応コンパイラ（GCC 13.3 で検証済み。conda なら `conda install -c conda-forge gxx_linux-64`）がインストールされていることを確認:
-
-  ```bash
-  g++ --version
-  ```
-
-- PyTorch のヘッダが利用可能であることを確認:
-
-  ```bash
-  python -c "import torch; print(torch.utils.cmake_prefix_path)"
-  ```
-
-- HPC ではコンパイラモジュールをロード:
-
-  ```bash
-  module load gcc/11
-  ```
-
-- クリーンしてリビルド:
-
-  ```bash
-  conda install -c conda-forge ninja -y
-  cd hessian_ff/native && make clean && make
-  ```
-
----
-
-### hessian_ff の import エラー
-
-典型的なメッセージ:
+ネイティブ拡張は通常、初回使用時に自動ビルドされます。`hessian_ff/native/` でのコンパイルエラーや、次のエラーが出る場合は以下を確認してください。
 
 ```text
 ImportError: cannot import name 'ForceFieldTorch' from 'hessian_ff'
-```
-
-または:
-
-```text
 RuntimeError: hessian_ff build attempts failed: ...
-To rebuild hessian_ff native extensions in this environment:
-  conda install -c conda-forge ninja -y
-  cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make clean && make
 ```
 
-対処:
-- C++ ネイティブ拡張を先にビルドする必要があります:
+- C++20 対応コンパイラと Ninja が必要です（GCC 13.3 で検証済み）。`g++ --version` で確認し、conda では `conda install -c conda-forge gxx_linux-64`、HPC では `module load <COMPILER_MODULE>` で対応コンパイラを導入します。
+- PyTorch ヘッダの場所は `python -c "import torch; print(torch.utils.cmake_prefix_path)"` で確認できます。
+- ビルド先は通常ローカルの一時ディレクトリです。ネットワーク FS（NFS/Lustre）でビルドロック待ちが起きる場合は、`TORCH_EXTENSIONS_DIR` でローカルパスを指定してください。
 
-  ```bash
-  cd hessian_ff/native && make
-  ```
+原因を修正した後、元のコマンドを再実行してください。手動でクリーンビルドする場合は次を使います。
 
-- `hessian_ff` パッケージが Python パス上にあることを確認してください。
+```bash
+conda install -c conda-forge ninja -y
+cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make clean && make
+```
+
+### hessian_ff の import エラー
+
+上記のビルド確認に加え、`hessian_ff` が使用中の Python 環境から見えることを確認してください。手動での事前ビルドは通常不要です。
 
 ---
 

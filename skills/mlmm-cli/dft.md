@@ -129,9 +129,9 @@ falling back.
 
 | Symptom | Fix |
 |---|---|
-| `OSError: libcusolver.so.11 not found` | `mlmm-install-backends/env-cuda.md` (LD_LIBRARY_PATH order) |
-| `cupy ... invalid device ordinal` | `unset CUDA_VISIBLE_DEVICES` |
-| `RuntimeError: CUDA out of memory` | Lower `grid_level`, switch to `def2-svp`, or `--engine cpu` |
+| `OSError: libcusolver.so.11 not found` | Check installed CUDA packages and the full error; for library-path diagnostics, see `mlmm-install-backends/env-cuda.md` |
+| `cupy ... invalid device ordinal` | Keep the scheduler's `CUDA_VISIBLE_DEVICES` and select a valid local GPU index |
+| `RuntimeError: CUDA out of memory` | Use `--engine cpu` or a larger-memory GPU. Lowering `grid_level` or switching to `def2-svp` changes the calculation and requires validation |
 | aarch64 `--engine gpu` raises `ClickException` ("GPU backend failed...") | `gpu4pyscf-cuda12x` is x86_64 only; re-submit with `--engine cpu` |
 
 ## Caveats
