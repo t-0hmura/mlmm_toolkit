@@ -2515,13 +2515,16 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     # and the GUI emits no -q until the user opts into an explicit override.
     derived_command = app["build_cmd"]()
     assert "-q" not in derived_command
+    assert app["w_q"].layout.display == "none"
+    assert "omitted" in app["charge_mode_note"].value
     assert derived_command[derived_command.index("-l") + 1] == "LIG:0,MG:2"
-    # Without -l, the visible system charge is emitted directly.
+    # Without -l, the visible region charge is emitted directly.
     app["center_widget"].value = ()
     app["charge_rows"]["LIG"]["use"].value = False
     app["charge_rows"]["MG"]["use"].value = False
     direct_charge_command = app["build_cmd"]()
     assert direct_charge_command[direct_charge_command.index("-q") + 1] == "0"
+    assert app["w_q"].layout.display == ""
     app["charge_rows"]["MG"]["use"].value = True
     app["charge_rows"]["LIG"]["use"].value = True
     app["center_widget"].value = ("MG",)
@@ -2531,6 +2534,8 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     assert app["w_charge_ok"].value is True
     charged_command = app["build_cmd"]()
     assert charged_command[charged_command.index("-q") + 1] == "-1"
+    assert app["w_q"].layout.display == ""
+    assert "-q -1" in app["charge_mode_note"].value
     ligand_values = dict(
         item.split(":", 1)
         for item in charged_command[charged_command.index("-l") + 1].split(",")
@@ -2540,6 +2545,15 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     assert app["_charge_scope_fingerprint"]("opt") == stage_scope
     assert app["_charge_scope_fingerprint"]("all") != stage_scope
     mg_row["val"].value = 2
+    app["dd_subcmd"].value = "sp"
+    assert not app["w_charge_ok"].value
+    assert app["w_q"].value == -1 and app["w_q"].layout.display == "none"
+    assert "-q" not in app["build_cmd"]()
+    app["w_charge_ok"].value = True
+    rechecked = app["build_cmd"]()
+    assert rechecked[rechecked.index("-q") + 1] == "-1"
+    assert app["w_q"].layout.display == ""
+    app["dd_subcmd"].value = "all"
     app["charge_rows"]["LIG"]["use"].value = False
     app["center_widget"].value = ()
     app["w_charge_ok"].value = False
@@ -3019,16 +3033,16 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
         for value in calls
     )
 
-    # The Setup page keeps one explicit system-charge contract across workflows.
+    # The Setup page keeps the charge scope across workflows.
     app["dd_subcmd"].value = "all"
-    assert app["w_q"].description == "system charge (-q)"
+    assert app["w_q"].description == "ML-region charge (-q)"
     assert "Ligand charges calculate the ML-region charge automatically" in app["charge_info"].value
-    assert "overwrite system charge" in app["charge_info"].value
+    assert "set -q explicitly" in app["charge_info"].value
     app["dd_subcmd"].value = "sp"
-    assert app["w_q"].description == "system charge (-q)"
+    assert app["w_q"].description == "ML-region charge (-q)"
     app["dd_subcmd"].options = app["_sub_options"](app["SUBS"])
     app["dd_subcmd"].value = "oniom-export"
-    assert app["w_q"].description == "system charge (-q)"
+    assert app["w_q"].description == "QM-region charge (-q)"
 
     # mm-parm exposes its owned ligand-charge editor and gates AmberTools.
     app["S"]["inputs"] = [str(primary)]
@@ -4353,7 +4367,6 @@ def test_colab_gui_preserves_full_system_and_tracks_current_run_only() -> None:
     assert "submit(event.dataTransfer ? event.dataTransfer.files : []);" in app
     assert "_tab_body.children = [_TAB_PAGES[i][1]]" not in app
     assert "layout=W.Layout(width='560px')" not in app
-    assert "system charge (-q)" in app and "overwrite system charge" in app
     assert ("No <code>-l</code> charge source is active, so <code>-q</code> "
             "is used directly.") in app
     assert "No ligand-charge source is available" not in app
@@ -6357,9 +6370,7 @@ def test_colab_workspace_callback_loads_optimization_trajectory_path(
     assert not app["example_msg"].value
 
 
-def test_colab_initial_load_results_uses_native_callback(
-    tmp_path: Path, monkeypatch,
-) -> None:
+def _mock_colab_callbacks(monkeypatch):
     callbacks: dict[str, object] = {}
     google = types.ModuleType("google")
     colab = types.ModuleType("google.colab")
@@ -6384,6 +6395,13 @@ def test_colab_initial_load_results_uses_native_callback(
     }.items():
         monkeypatch.setitem(sys.modules, name, module)
 
+    return callbacks
+
+
+def test_colab_initial_load_results_uses_native_callback(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    callbacks = _mock_colab_callbacks(monkeypatch)
     app, _ = _execute_app(monkeypatch, tmp_path)
     assert app["_UPLOAD_MODE"] == "colab"
     callback = callbacks["mlmm_gui.load_results"]
@@ -7199,3 +7217,61 @@ def test_irc_trajectory_displays_stop_diagnostics_without_a_success_verdict(monk
     summary = app["_summary_html"](str(result))
     assert "backward stop: <b>predictor budget exhausted</b>" in summary
     assert "WARNING" not in summary and "failed" not in summary.lower()
+
+
+def test_colab_native_extraction_commits_model_and_recovers_from_failure(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    callbacks = _mock_colab_callbacks(monkeypatch)
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    callback = callbacks["mlmm_gui.extract_model"]
+    primary = tmp_path / "input.pdb"
+    primary.write_text(
+        "HETATM    1  C1  LIG A   1       0.000   0.000   0.000  1.00  0.00           C\n"
+        "HETATM    2  H1  LIG A   1       1.000   0.000   0.000  1.00  0.00           H\nEND\n"
+    )
+    topology = tmp_path / "system.parm7"
+    topology.write_text("parm")
+    assert app["_ingest_saved_files"]([str(primary), str(topology)], "test")
+    app["dd_subcmd"].value = "sp"
+    app["center_widget"].value = ("LIG",)
+    app["charge_rows"]["LIG"]["use"].value = True
+    app["w_charge_ok"].value = True
+    inputs = list(app["S"]["inputs"])
+    parm = app["S"]["parm"]
+    calls = []
+
+    def extract(command, **kwargs):
+        assert app["b_extract"].disabled
+        calls.append(command)
+        target = Path(command[command.index("-o") + 1])
+        target.write_bytes(primary.read_bytes())
+        return types.SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(app["subprocess"], "run", extract)
+    assert callback() == {"ok": True}
+    assert len(calls) == 1 and app["_EXTRACT_TASK"]["thread"] is None
+    model = app["S"]["model_pdb"]
+    assert Path(model).read_bytes() == primary.read_bytes()
+    assert not app["b_extract"].disabled
+    assert model in app["model_upload_msg"].value
+    assert app["b_revert"].layout.display == ""
+    assert app["S"]["inputs"] == inputs and app["S"]["parm"] == parm
+    command = app["build_cmd"]()
+    assert command[command.index("--model-pdb") + 1] == model
+
+    app["b_extract"].disabled = True
+    assert callback() == {"ok": False} and len(calls) == 1
+    app["b_extract"].disabled = False
+
+    def fail(*args, **kwargs):
+        return types.SimpleNamespace(returncode=1, stdout="", stderr="<bad input>")
+
+    monkeypatch.setattr(app["subprocess"], "run", fail)
+    app["w_charge_ok"].value = True
+    assert callback() == {"ok": False}
+    assert not app["b_extract"].disabled
+    assert app["S"]["model_pdb"] == model
+    assert "&lt;bad input&gt;" in app["extract_msg"].value
+    app["b_revert"].click()
+    assert app["S"]["model_pdb"] is None
