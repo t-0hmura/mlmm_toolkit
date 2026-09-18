@@ -15,7 +15,9 @@ def _fixture():
                "energy_diagrams": [{"name": "MLIP"}]}
     post = [{"index": 1, "mlip": {}, "irc_traj": "irc.xyz",
              "tsopt": {"optimization_status": "converged", "continue_irc": True,
-                       "n_negative_modes": 2, "n_imaginary_modes": 1},
+                       "hessian_status": "completed", "n_negative_modes": 2,
+                       "n_imaginary_modes": 1, "energy_valid": True,
+                       "structure_valid": True},
              "ts_imag": {"n_imag": 1},
              "irc": {"usable": False, "reason": "integration_failed",
                      "backward_integration_stop_reason": "Predictor integration exhausted."},
@@ -24,8 +26,8 @@ def _fixture():
     return summary, post
 
 
-@pytest.mark.parametrize("count", [None, 0, 1, 2])
-def test_actual_aggregate_uses_numerical_optimizations(count):
+@pytest.mark.parametrize(("count", "expected"), [(1, "success"), (2, "partial")])
+def test_actual_aggregate_separates_ts_order_from_numerical_convergence(count, expected):
     summary, post = _fixture()
     post[0]["tsopt"]["n_imaginary_modes"] = count
     post[0]["ts_imag"]["n_imag"] = count
@@ -33,12 +35,14 @@ def test_actual_aggregate_uses_numerical_optimizations(count):
     status, reasons = workflow._derive_pipeline_status(summary, post_segments=post, config=config)
     truth = workflow._pipeline_aggregate_truth(summary, post_segments=post, config=config,
                                               legacy_status=status, legacy_reasons=reasons)
-    assert truth.scientific_status == "success"
+    assert truth.scientific_status == expected
+    if count > 1:
+        assert any("n_imag=2" in reason for reason in truth.status_reasons)
     assert post[0]["irc"]["backward_integration_stop_reason"]
     assert post[0]["endpoint_opt"]["connectivity_validated"] is False
     post[0]["endpoint_opt"]["product_converged"] = False
     assert workflow._pipeline_aggregate_truth(summary, post_segments=post, config=config,
-                                               legacy_status=status).scientific_status != "success"
+                                               legacy_status=status).scientific_status == "partial"
     post[0]["endpoint_opt"]["product_converged"] = True
     post[0]["tsopt"]["optimization_status"] = "not_converged"
     assert workflow._pipeline_aggregate_truth(summary, post_segments=post, config=config,
@@ -114,6 +118,32 @@ def test_summary_relays_mode_counts_and_numerical_status(tmp_path):
     assert record["ts_imag"]["n_negative_modes"] == 2
     assert record["ts_imag"]["n_imaginary_modes"] == 1
     assert record["ts_imag"]["optimization_status"] == "converged"
+
+
+def test_higher_order_saddle_is_partial_in_summary_json(tmp_path):
+    summary, post = _fixture()
+    post[0]["tsopt"].update(
+        n_imaginary_modes=2,
+        saddle_validation="higher_order",
+    )
+    post[0]["ts_imag"]["n_imag"] = 2
+
+    result = workflow._enrich_summary(
+        summary,
+        version="",
+        pipeline_mode="path-opt",
+        mlip_backend="uma",
+        charge=0,
+        spin=1,
+        out_dir=tmp_path,
+        post_segments=post,
+        config={"tsopt": True},
+    )
+
+    assert result["status"] == "success"
+    assert result["execution_status"] == "completed"
+    assert result["scientific_status"] == "partial"
+    assert any("n_imag=2" in reason for reason in result["scientific_status_reasons"])
 
 
 @pytest.mark.parametrize("preliminary", [False, None])

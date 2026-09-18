@@ -2942,7 +2942,8 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     assert 'class="rxartifact-text-preview"' in log_preview
     summary = tmp_path / "summary.json"
     summary.write_text(json.dumps({
-        "status": "success", "scientific_status": "partial",
+        "status": "success", "execution_status": "completed",
+        "scientific_status": "partial",
         "scientific_status_reasons": [
             "IRC endpoint mismatch", "IRC endpoint mismatch",
         ],
@@ -2957,9 +2958,9 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     assert "<b>! WARNING:</b> IRC endpoint mismatch" in summary_html
     assert summary_html.count("IRC endpoint mismatch") == 1
     assert summary_html.index("! WARNING:") < summary_html.index("<table")
-    assert "status details" not in summary_html
+    assert "Execution status: <b>completed</b>" in summary_html
+    assert "Scientific status: <b>partial</b>" in summary_html
     assert "MLIP" in summary_html and "partial result" not in summary_html
-    assert ">partial</span>" not in summary_html
     leaf_result = tmp_path / "result.json"
     leaf_result.write_text(json.dumps({
         "status": "completed",
@@ -2973,13 +2974,14 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
         _last_manifest={"status": "success", "exit_code": 0},
     )
     assert "Leaf workflow warning" not in app["_result_context_html"](str(tmp_path))
-    assert "<b>! WARNING:</b> Leaf workflow warning" in app["_summary_html"](
-        str(leaf_result)
-    )
+    leaf_html = app["_summary_html"](str(leaf_result))
+    assert "<b>! WARNING:</b> Scientific status is partial." in leaf_html
+    assert "Leaf workflow warning" not in leaf_html
     ts_only_summary = tmp_path / "ts_only_summary.json"
     ts_only_summary.write_text(json.dumps({
         "status": "success",
         "scientific_status": "success",
+        "status_reasons": ["legacy-only reason"],
         "pipeline_mode": "tsopt-only",
         "n_images": 5,
         "mlip_backend": "mace",
@@ -3000,6 +3002,8 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     }), encoding="utf-8")
     ts_only_html = app["_summary_html"](str(ts_only_summary))
     assert "! WARNING:" not in ts_only_html
+    assert "Scientific status: <b>success</b>" in ts_only_html
+    assert "legacy-only reason" not in ts_only_html
     assert "raw MEP" not in ts_only_html
     assert "IRC frames: 5" not in ts_only_html
     assert "backend/model:" not in ts_only_html

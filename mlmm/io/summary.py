@@ -216,7 +216,38 @@ def format_result_warning(
         )
     endpoint_match = re.search(r":endpoint_opt:([a-z0-9_]+)$", lowered)
     if endpoint_match:
-        label = endpoint_match.group(1).removesuffix("_converged").replace("_", " ")
+        endpoint_code = endpoint_match.group(1)
+        if endpoint_code.endswith("_execution_failed"):
+            label = endpoint_code.removesuffix("_execution_failed").replace("_", " ")
+            subject = (
+                f"{label} optimization"
+                if label.startswith("endpoint ")
+                else f"{label} endpoint optimization"
+            )
+            return scoped(
+                f"the {subject} raised an exception. Review failure.json and the optimizer log."
+            )
+        if endpoint_code.endswith("_not_converged"):
+            label = endpoint_code.removesuffix("_not_converged").replace("_", " ")
+            subject = (
+                f"{label} optimization"
+                if label.startswith("endpoint ")
+                else f"{label} endpoint optimization"
+            )
+            return scoped(
+                f"the {subject} did not converge. Review the endpoint structure and optimizer log."
+            )
+        if endpoint_code.endswith("_convergence_unknown"):
+            label = endpoint_code.removesuffix("_convergence_unknown").replace("_", " ")
+            subject = (
+                f"{label} optimization"
+                if label.startswith("endpoint ")
+                else f"{label} endpoint optimization"
+            )
+            return scoped(
+                f"the {subject} could not be confirmed. Review the endpoint structure and optimizer log."
+            )
+        label = endpoint_code.removesuffix("_converged").replace("_", " ")
         subject = (
             f"{label} optimization"
             if label.startswith("endpoint ")
@@ -1142,9 +1173,9 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
         stop_text = f"{stop_stage} ({stop_reason})" if stop_reason else stop_stage
         lines.append(f"Pipeline stop       : {stop_text}")
     status_reasons = (
-        payload.get("scientific_status_reasons")
-        or payload.get("status_reasons")
-        or []
+        payload.get("scientific_status_reasons") or []
+        if payload.get("scientific_status") is not None
+        else payload.get("status_reasons") or []
     )
     if scientific_status not in (None, "success"):
         reasons = list(status_reasons) or [None]

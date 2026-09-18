@@ -29,9 +29,15 @@ def test_failed_ts_only_summary_does_not_invent_a_barrier(tmp_path):
     post = [{
         "index": 1, "kind": "tsopt", "pipeline_stop": stop,
         "tsopt": {"continue_irc": True, "saddle_validation": "first_order",
-                  "n_imaginary_modes": 1},
+                  "optimization_status": "converged", "hessian_status": "completed",
+                  "n_imaginary_modes": 1, "energy_valid": True,
+                  "structure_valid": True},
         "irc": {"usable": True, "reason": "ok"}, "irc_traj": "irc.xyz",
-        "endpoint_opt": {"reactant_converged": None, "product_converged": True},
+        "endpoint_opt": {
+            "endpoint_1_converged": None,
+            "endpoint_2_converged": True,
+            "failures": {"endpoint_1": {"error_type": "ValueError", "error": "boom"}},
+        },
     }]
     workflow._enrich_summary(
         summary, version="", pipeline_mode="tsopt-only", out_dir=tmp_path,
@@ -39,8 +45,46 @@ def test_failed_ts_only_summary_does_not_invent_a_barrier(tmp_path):
         charge=0, spin=1, post_segments=post,
         config={"tsopt": True, "thermo": True, "dft": True},
     )
-    assert summary["scientific_status"] == "failed"
+    assert summary["scientific_status"] == "partial"
+    assert summary["execution_status"] == "failed"
+    assert any(
+        "endpoint_1_execution_failed" in reason
+        for reason in summary["scientific_status_reasons"]
+    )
     assert "rate_limiting_step" not in summary
+
+
+def test_valid_ts1_with_one_nonconverged_endpoint_is_partial_not_failed(tmp_path):
+    summary = {
+        "segments": [{"index": 1, "kind": "tsopt"}],
+        "energy_diagrams": [],
+    }
+    post = [{
+        "index": 1,
+        "kind": "tsopt",
+        "tsopt": {
+            "optimization_status": "converged",
+            "hessian_status": "completed",
+            "n_imaginary_modes": 1,
+            "energy_valid": True,
+            "structure_valid": True,
+        },
+        "endpoint_opt": {
+            "endpoint_1_converged": True,
+            "endpoint_2_converged": False,
+        },
+    }]
+
+    truth = workflow._pipeline_aggregate_truth(
+        summary,
+        post_segments=post,
+        config={"tsopt": True},
+        legacy_status="partial",
+    )
+
+    assert truth.scientific_status == "partial"
+    assert truth.execution_status == "completed"
+    assert "all:segment_1:endpoint_opt:endpoint_2_not_converged" in truth.status_reasons
 
 
 class Geometry:

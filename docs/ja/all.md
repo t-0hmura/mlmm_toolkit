@@ -25,7 +25,7 @@ mlmm define-layer -i system.pdb --model-pdb model.pdb -o system_layered.pdb
 
 ## 最適化結果と IRC 診断
 
-TSOPT と両端点 OPT の数値収束を集約します。IRC の停止条件は独立した成功・失敗判定にしません。予測子の積分予算で停止しても、有限の保存端点を最適化できます。端点構造の欠損・非有限値や実行例外は引き続き報告します。振動数の本数・符号と目的の R/P への対応は診断・機構情報として保持し、別名の最適化成功条件にはしません。要求した MEP、熱化学、DFT の結果が欠ける場合は、その段階の不足を記録します。端点実行エラーでも `summary.json`、`summary.log`、`endpoint_opt/failure.json` を残します。
+実行完了度と科学的達成度を分けて集約します。有限構造・エネルギーを持ち、数値収束、終端PHVA完了、虚振動1本を満たすTSを有効なTS1とします。片端OPTだけが未収束ならTS1を`partial`として保持し、`execution_status=completed`とします。片端OPTで例外を捕捉した場合も`partial`ですが、`execution_status=failed`です。収束済みHOSP（`n_imag > 1`）は診断的IRCを続けても`partial`です。IRC停止条件と端点connectivityは診断情報として保持します。要求したMEP、熱化学、DFTの欠損は各段階の不足として記録します。
 
 `--tsopt` を要求した場合、処理済み区間では最終 TS・両端最適化の収束を用い、
 その入力を作った MEP・事前最適化の収束は診断として残します。未処理区間、要求出力の欠落、

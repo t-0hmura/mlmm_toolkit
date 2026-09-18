@@ -460,9 +460,9 @@ def _emit_final_summary(
         if scientific_status is not None:
             _echo(f"Scientific status: {scientific_status}", narrative=True)
         status_reasons = (
-            summary.get("scientific_status_reasons")
-            or summary.get("status_reasons")
-            or []
+            summary.get("scientific_status_reasons") or []
+            if scientific_status is not None
+            else summary.get("status_reasons") or []
         )
         if scientific_status not in (None, "success"):
             reasons = list(status_reasons) or [None]
@@ -1326,6 +1326,60 @@ def _is_reactive_segment(item: Any) -> bool:
     return isinstance(item, dict) and item.get("kind", "seg") in {"seg", "tsopt"}
 
 
+def _tsopt_result_validity(
+    payload: Dict[str, Any], geometry: Any, final_structure: Path
+) -> Dict[str, Any]:
+    """Record finite TS data already produced by TSOPT.
+
+    This validates the existing terminal structure and energy only.  It never
+    requests another Hessian, energy evaluation, or optimization step.
+    """
+
+    raw_energy = payload.get("energy_hartree")
+    try:
+        energy = float(raw_energy)
+    except (TypeError, ValueError):
+        energy = None
+    energy_valid = energy is not None and bool(np.isfinite(energy))
+    try:
+        coordinates = np.asarray(geometry.cart_coords, dtype=float)
+        structure_valid = bool(
+            final_structure.is_file()
+            and coordinates.size
+            and np.isfinite(coordinates).all()
+        )
+    except (AttributeError, OSError, TypeError, ValueError):
+        structure_valid = False
+    return {
+        "energy_hartree": energy if energy_valid else None,
+        "energy_valid": energy_valid,
+        "structure_valid": structure_valid,
+    }
+
+
+def _validated_ts_kind(tsopt: Any) -> Tuple[Optional[str], Optional[int]]:
+    """Classify an existing finite terminal TS result for workflow status."""
+
+    if not isinstance(tsopt, dict):
+        return None, None
+    if (
+        tsopt.get("optimization_status") != "converged"
+        or tsopt.get("hessian_status") != "completed"
+        or tsopt.get("energy_valid") is not True
+        or tsopt.get("structure_valid") is not True
+    ):
+        return None, None
+    try:
+        n_imaginary = int(tsopt.get("n_imaginary_modes"))
+    except (TypeError, ValueError):
+        return None, None
+    if n_imaginary == 1:
+        return "first_order", n_imaginary
+    if n_imaginary > 1:
+        return "higher_order", n_imaginary
+    return None, n_imaginary
+
+
 def _write_endpoint_failure_summary_log(
     summary: dict, *, out_dir: Path, tsroot: Path,
     manifest: InvocationManifest, citation_payload: dict,
@@ -1485,6 +1539,63 @@ def _pipeline_aggregate_truth(
             if isinstance(ps, dict) and ps.get("index") is not None:
                 post_by_idx[ps.get("index")] = ps
 
+    validated_partial = False
+    validated_partial_reasons: List[str] = []
+    endpoint_execution_failed = False
+    for segment in reactive:
+        idx = segment.get("index")
+        post = post_by_idx.get(idx)
+        if not isinstance(post, dict):
+            continue
+        endpoint_opt = post.get("endpoint_opt")
+        failures = (
+            endpoint_opt.get("failures")
+            if isinstance(endpoint_opt, dict)
+            and isinstance(endpoint_opt.get("failures"), dict)
+            else {}
+        )
+        stop = post.get("pipeline_stop")
+        if failures or (
+            isinstance(stop, dict)
+            and stop.get("stage") == "endpoint_opt"
+            and stop.get("reason") == "endpoint_execution_failed"
+        ):
+            endpoint_execution_failed = True
+
+        ts_kind, n_imaginary = _validated_ts_kind(post.get("tsopt"))
+        if ts_kind == "higher_order":
+            validated_partial = True
+            validated_partial_reasons.append(
+                f"segment {idx}: TS imaginary-mode validation found "
+                f"n_imag={n_imaginary}, expected 1"
+            )
+            continue
+        if ts_kind != "first_order" or not isinstance(endpoint_opt, dict):
+            continue
+
+        endpoint_keys = (
+            ("endpoint_1_converged", "endpoint_2_converged")
+            if segment.get("kind") == "tsopt"
+            else ("reactant_converged", "product_converged")
+        )
+        values = {key: endpoint_opt.get(key) for key in endpoint_keys}
+        complete = [key for key, value in values.items() if value is True]
+        incomplete = [key for key, value in values.items() if value is not True]
+        if len(complete) != 1 or len(incomplete) != 1:
+            continue
+        key = incomplete[0]
+        label = key.removesuffix("_converged")
+        if values[key] is False:
+            validated_partial = True
+            validated_partial_reasons.append(
+                f"all:segment_{idx}:endpoint_opt:{label}_not_converged"
+            )
+        elif label in failures:
+            validated_partial = True
+            validated_partial_reasons.append(
+                f"all:segment_{idx}:endpoint_opt:{label}_execution_failed"
+            )
+
     def _and3(a: Optional[bool], b: Optional[bool]) -> Optional[bool]:
         if a is False or b is False:
             return False
@@ -1599,6 +1710,11 @@ def _pipeline_aggregate_truth(
                 artifacts.append(str(irc["traj"]))
             eo = post.get("endpoint_opt")
             if isinstance(eo, dict):
+                _failures = (
+                    eo.get("failures")
+                    if isinstance(eo.get("failures"), dict)
+                    else {}
+                )
                 _endpoint_keys = (
                     ("endpoint_1_converged", "endpoint_2_converged")
                     if s.get("kind") == "tsopt"
@@ -1608,7 +1724,13 @@ def _pipeline_aggregate_truth(
                     _v = eo.get(_k)
                     converged = _and3(converged, _v if isinstance(_v, bool) else None)
                     if not (isinstance(_v, bool) and _v) and not reason:
-                        reason = f"endpoint_opt:{_k}"
+                        _label = _k.removesuffix("_converged")
+                        if _label in _failures:
+                            reason = f"endpoint_opt:{_label}_execution_failed"
+                        elif _v is False:
+                            reason = f"endpoint_opt:{_label}_not_converged"
+                        else:
+                            reason = f"endpoint_opt:{_label}_convergence_unknown"
             elif tsopt_requested:
                 converged = _and3(converged, None)
                 if not reason:
@@ -1677,8 +1799,17 @@ def _pipeline_aggregate_truth(
         scientific = legacy_status
     else:
         scientific = agg_sci
-    execution = "failed" if (legacy_status == "failed" or agg_exec == "failed") else "completed"
+    if validated_partial:
+        scientific = "partial"
+    execution = (
+        "failed"
+        if legacy_status == "failed" or agg_exec == "failed" or endpoint_execution_failed
+        else "completed"
+    )
     reasons = legacy_reasons + [r for r in agg_reasons if r not in legacy_reasons]
+    reasons.extend(
+        reason for reason in validated_partial_reasons if reason not in reasons
+    )
 
     return AggregateTruth(
         execution_status=execution,
@@ -5733,6 +5864,7 @@ def cli(
         _tsopt_result_path = getattr(g_ts, "_tsopt_result_path", None)
         _tsopt_record: Dict[str, Any] = {
             **_tsopt_decision,
+            **_tsopt_result_validity(_tsopt_payload, g_ts, ts_pdb),
             "result_json": (
                 None if _tsopt_result_path is None else str(_tsopt_result_path)
             ),
@@ -7663,6 +7795,7 @@ def cli(
             _tsopt_result_path = getattr(g_ts, "_tsopt_result_path", None)
             _tsopt_record = {
                 **_tsopt_decision,
+                **_tsopt_result_validity(_tsopt_payload, g_ts, ts_pdb),
                 "result_json": (
                     None if _tsopt_result_path is None else str(_tsopt_result_path)
                 ),
@@ -8285,6 +8418,7 @@ def cli(
             segment_log["reference_mode"] = _reference_mode_status
             segment_log["tsopt"] = {
                 **_tsopt_decision,
+                **_tsopt_result_validity(_tsopt_payload, g_ts, ts_pdb),
                 "result_json": (
                     None
                     if getattr(g_ts, "_tsopt_result_path", None) is None

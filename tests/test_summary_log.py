@@ -188,6 +188,16 @@ def test_write_summary_log_marks_non_successful_results_and_precision(
             "Review the endpoint structure and optimizer log.",
         ),
         (
+            "all:segment_2:endpoint_opt:endpoint_2_not_converged",
+            "Segment 2: the endpoint 2 optimization did not converge. "
+            "Review the endpoint structure and optimizer log.",
+        ),
+        (
+            "all:segment_2:endpoint_opt:endpoint_2_execution_failed",
+            "Segment 2: the endpoint 2 optimization raised an exception. "
+            "Review failure.json and the optimizer log.",
+        ),
+        (
             "all:segment_3:irc:irc:forward:not_converged;irc:backward:energy_invalid",
             "Segment 3: Forward IRC stopped before its endpoint-stationarity threshold. "
             "Review the trajectory and optimized endpoint result. "
@@ -674,12 +684,34 @@ def test_final_stdout_explains_non_success_scientific_status(
     _emit_final_summary(tmp_path, time.time())
 
     output = capsys.readouterr().out
+    assert "Execution status: completed" in output
     assert "Scientific status: partial" in output
     assert "RESULT WARNING: IRC endpoint was not validated." in output
     assert "Status reason:" not in output
     assert output.rstrip().splitlines()[-1].startswith(
         "[time] Elapsed Time for Whole Pipeline"
     )
+
+
+def test_final_stdout_does_not_fall_back_to_legacy_reasons(tmp_path, capsys) -> None:
+    from mlmm.workflows.all import _emit_final_summary
+
+    (tmp_path / "summary.json").write_text(
+        json.dumps({
+            "status": "partial",
+            "status_reasons": ["legacy-only reason"],
+            "execution_status": "completed",
+            "scientific_status": "success",
+        }),
+        encoding="utf-8",
+    )
+
+    _emit_final_summary(tmp_path, time.time())
+
+    output = capsys.readouterr().out
+    assert "Execution status: completed" in output
+    assert "Scientific status: success" in output
+    assert "legacy-only reason" not in output
 
 
 def test_final_stdout_does_not_repeat_active_recovery_flags(tmp_path, capsys) -> None:

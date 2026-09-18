@@ -56,8 +56,8 @@ Multi-stage and scan producers add the fields below when they can evaluate const
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `execution_status` | string | Normally `completed` or `failed`; reports whether required constituent commands executed. |
-| `scientific_status` | string | `success`, `partial`, or `failed`; reports completion of requested calculation stages and optimization/SCF outcomes. Mode and connectivity interpretation remains separate. |
+| `execution_status` | string | Normally `completed` or `failed`; endpoint nonconvergence is completed execution, while a captured endpoint exception is failed execution. |
+| `scientific_status` | string | `success`, `partial`, or `failed`. A valid TS1 plus one failed endpoint OPT is partial; a converged higher-order saddle is also partial. |
 | `scientific_status_reasons` | string[] | Reasons for unusable or missing leaves; omitted on clean success. This is distinct from an aggregate workflow's legacy `status_reasons`. |
 | `expected_item_ids` / `observed_item_ids` | string[] | Expected and observed leaf identifiers used to detect missing aggregate work. |
 | `stage_outcomes` | object[] | Stage leaves with `stage`, `item_id`, `required`, `executed`, `converged`, `usable`, `reason`, and `artifacts`. |
@@ -389,6 +389,7 @@ The `all` command additionally includes:
 | `rate_limiting_step` | object | Legacy key for the highest independently referenced local segment barrier. It is not a microkinetic rate-limiting-step assignment. |
 | `overall_reaction_energy_kcal` | float | Overall reaction energy |
 | `post_segments` | list | Per-segment TS/IRC/freq/DFT results |
+| `post_segments[].tsopt.energy_valid` / `.structure_valid` | bool | Finite terminal TS checks combined with the existing terminal-Hessian result; status classification runs no extra Hessian or optimization. |
 | `post_segments[].irc` / `.endpoint_assignment` / `.endpoint_opt` | object | IRC stop diagnostics, endpoint orientation, and endpoint-OPT convergence, respectively. IRC stopping and topology correspondence are not independent success gates; connectivity information remains available for mechanism interpretation. |
 | `post_segments[].thermo_symmetry` | object | Child-reported point-group and rotational-symmetry provenance by state: R/TS/P for MEP runs and E1/TS/E2 for TS-only runs. States with valid symmetry-number provenance are included; missing states are omitted, and the field is absent only when no state has valid provenance. |
 | `key_output_files` | object | Current-run output index: root filename → description; each `seg_NN` entry is `{description, files}` with paths relative to that segment directory. |

@@ -39,6 +39,36 @@ from mlmm.workflows._all_helpers import (
 from mlmm.workflows.all import _resolve_post_optimizer_mode
 
 
+def test_ts_status_validates_existing_finite_structure_and_energy(tmp_path: Path) -> None:
+    import numpy as np
+    from types import SimpleNamespace
+    from mlmm.workflows.all import _tsopt_result_validity, _validated_ts_kind
+
+    structure = tmp_path / "ts.pdb"
+    structure.write_text("END\n", encoding="utf-8")
+    geometry = SimpleNamespace(cart_coords=np.zeros(6))
+    validity = _tsopt_result_validity(
+        {"energy_hartree": -1.25}, geometry, structure
+    )
+    record = {
+        "optimization_status": "converged",
+        "hessian_status": "completed",
+        "n_imaginary_modes": 1,
+        **validity,
+    }
+
+    assert validity == {
+        "energy_hartree": -1.25,
+        "energy_valid": True,
+        "structure_valid": True,
+    }
+    assert _validated_ts_kind(record) == ("first_order", 1)
+    assert _validated_ts_kind({**record, "n_imaginary_modes": 2}) == (
+        "higher_order", 2
+    )
+    assert _validated_ts_kind({**record, "energy_valid": False}) == (None, None)
+
+
 def test_all_freeze_atoms_merge_yaml_and_cli_into_child_config(
     tmp_path: Path,
 ) -> None:

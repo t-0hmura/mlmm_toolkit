@@ -1155,7 +1155,7 @@ def test_all_pipeline_aggregate_gates_on_endpoint_opt(tmp_path: Path) -> None:
         summary, post_segments=post, config=config, legacy_status="success",
     )
     assert truth.scientific_status != "success"
-    assert any(reason.endswith("endpoint_opt:product_converged") for reason in truth.status_reasons)
+    assert any(reason.endswith("endpoint_opt:product_not_converged") for reason in truth.status_reasons)
 
 
 def test_all_producer_wires_endpoint_opt_record() -> None:
@@ -1268,7 +1268,7 @@ def test_all_pipeline_requires_complete_endpoint_opt_record() -> None:
     assert missing.scientific_status != "success"
     assert incomplete.scientific_status != "success"
     assert any(reason.endswith("endpoint_opt_missing") for reason in missing.status_reasons)
-    assert any(reason.endswith("endpoint_opt:product_converged") for reason in incomplete.status_reasons)
+    assert any(reason.endswith("endpoint_opt:product_convergence_unknown") for reason in incomplete.status_reasons)
 
 
 def test_all_pipeline_aggregate_post_missing_fails_closed_when_tsopt_requested() -> None:

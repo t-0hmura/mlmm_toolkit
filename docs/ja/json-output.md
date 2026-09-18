@@ -58,8 +58,8 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
-| `execution_status` | string | 通常は `completed` または `failed`。必須の構成コマンドが実行されたかを示します。 |
-| `scientific_status` | string | `success`、`partial`、`failed`。要求した計算段階と最適化・SCF 結果の完了度。振動・結合対応の解釈は別に確認します。 |
+| `execution_status` | string | 通常は `completed` または `failed`。端点未収束は実行完了、捕捉した端点例外は実行失敗です。 |
+| `scientific_status` | string | `success`、`partial`、`failed`。有効なTS1と片端OPT失敗の組合せ、および収束済みHOSPは`partial`です。 |
 | `scientific_status_reasons` | string[] | 利用できない、または欠落した個別結果の理由。正常終了時は省略されます。集約ワークフローの従来の `status_reasons` とは別です。 |
 | `expected_item_ids` / `observed_item_ids` | string[] | 集約結果の欠落を検出するための、期待された項目と観測された項目の ID。 |
 | `stage_outcomes` | object[] | `stage`、`item_id`、`required`、`executed`、`converged`、`usable`、`reason`、`artifacts` を持つ段階別 outcome。 |
@@ -369,6 +369,7 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | `rate_limiting_step` | object | 互換性のため維持するキー。各段階の始状態を基準にした局所障壁が最大のセグメントと method。microkinetics に基づく律速段階の判定ではない。 |
 | `overall_reaction_energy_kcal` | float | 全体の反応エネルギー。 |
 | `post_segments` | list | セグメントごとの TS/IRC/freq/DFT 結果。 |
+| `post_segments[].tsopt.energy_valid` / `.structure_valid` | bool | 既存の終端Hessian結果と組み合わせる有限TSの確認。status判定のための追加Hessian・最適化は実行しません。 |
 | `post_segments[].irc` / `.endpoint_assignment` / `.endpoint_opt` | object | 順に IRC 停止診断、端点の向き付け、端点 OPT の収束記録。IRC 停止・結合対応は独立した成功条件にしない。端点の connectivity 情報は機構解釈用に保持する。 |
 | `post_segments[].thermo_symmetry` | object | 子 freq が報告した状態別の点群・回転対称 provenance。MEP 実行では R/TS/P、TS-only 実行では E1/TS/E2 を対象とし、有効な対称数 provenance を持つ状態だけを含む。欠けた状態は省略し、どの状態にも有効な provenance が無い場合だけフィールド全体を省略する。 |
 | `key_output_files` | object | 現在の呼び出しの出力索引。ルートファイルはファイル名 → 説明、各 `seg_NN` は `{description, files}` で、`files` はそのセグメントディレクトリからの相対パス。 |

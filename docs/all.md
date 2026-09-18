@@ -36,7 +36,7 @@ be validated. Always inspect the modes and endpoint connectivity.
 
 ## Optimization completion and IRC diagnostics
 
-The aggregate uses numerical convergence of TSOPT and both endpoint optimizations. IRC stop conditions are not an independent success/failure test: a predictor-budget stop may still supply finite candidates for endpoint OPT. Missing/nonfinite structures and execution exceptions remain reported. Frequency counts/signs and correspondence with intended R/P structures are retained as diagnostic/mechanism information, not additional optimizer-success gates. Missing requested MEP, thermochemistry or DFT work remains visible in its own stage outcome. Endpoint execution errors retain `summary.json`, `summary.log` and `endpoint_opt/failure.json`.
+The aggregate reports execution and scientific completion separately. A finite, numerically converged TS with completed terminal PHVA and one imaginary mode is a valid TS1. If exactly one endpoint optimization is nonconverged, that TS1 remains a `partial` scientific result with `execution_status=completed`; a captured endpoint exception also remains `partial` but sets `execution_status=failed`. A converged higher-order saddle (`n_imag > 1`) is `partial` even when diagnostic IRC continues. IRC stop conditions and endpoint connectivity remain diagnostics. Missing requested MEP, thermochemistry or DFT work remains visible in its own stage outcome.
 
 When `--tsopt` is requested, completed TS and endpoint optimizations supersede
 preliminary MEP/preoptimization convergence for the processed segment. The
