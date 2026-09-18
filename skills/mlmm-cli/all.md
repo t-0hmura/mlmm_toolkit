@@ -63,7 +63,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--thermo / --no-thermo` | flag | off | Run freq + thermochemistry |
 | `--dft / --no-dft` | flag | off | Run DFT single points on R/TS/P for MEP runs or E1/TS/E2 for TS-only runs |
 | `--dump / --no-dump` | toggle | off | Control optional optimizer trajectories/restarts. With `--thermo`, the required child `thermoanalysis.yaml` handoff is retained even under `--no-dump`. |
-| `--dft-func-basis` | str | `wb97m-v/def2-tzvpd` | DFT functional/basis (when `--dft` is enabled) |
+| `--dft-func-basis` | str | `wb97m-v/def2-svp` | DFT functional/basis (when `--dft` is enabled) |
 | `-b, --backend` | str | `uma` | MLIP backend |
 | `--precision` | str | backend-specific | Unset uses UMA/AIMNet2 fp32 and ORB/MACE fp64 |
 | `--workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |

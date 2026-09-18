@@ -4469,7 +4469,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
               show_default="<tsopt dir>/dft",
               help="Override dft output base directory (relative paths resolved against the default).")
 @click.option("--dft-func-basis", type=str, default=None,
-              show_default="wb97m-v/def2-tzvpd",
+              show_default="wb97m-v/def2-svp",
               help="Override dft --func-basis value.")
 @click.option("--dft-max-cycle", type=click.IntRange(min=1), default=None,
               show_default="100",

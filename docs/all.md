@@ -322,7 +322,7 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) → `--opt-mode` (on
 | `--freq-temperature FLOAT` | Thermochemistry temperature (K). | `298.15` |
 | `--freq-pressure FLOAT` | Thermochemistry pressure (atm). | `1.0` |
 | `--dft-out-dir PATH` | Base directory override for DFT outputs. | _None_ |
-| `--dft-func-basis TEXT` | Functional / basis pair. | `wb97m-v/def2-tzvpd` |
+| `--dft-func-basis TEXT` | Functional / basis pair. | `wb97m-v/def2-svp` |
 | `--dft-max-cycle INT` | SCF-iteration cap. | `100` |
 | `--dft-conv-tol FLOAT` | SCF convergence tolerance. | `1e-9` |
 | `--dft-grid-level INT` | PySCF grid level. | `3` |

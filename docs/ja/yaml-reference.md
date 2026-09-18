@@ -608,7 +608,7 @@ DFT 計算設定。
 
 ```yaml
 dft:
- func_basis: wb97m-v/def2-tzvpd # 汎関数/基底関数の組み合わせ文字列
+ func_basis: wb97m-v/def2-svp # 汎関数/基底関数の組み合わせ文字列
  conv_tol: 1.0e-09 # SCF 収束許容値 (Hartree)
  max_cycle: 100 # SCF反復上限
  grid_level: 3 # PySCF グリッドレベル
@@ -709,7 +709,7 @@ thermo:
  symmetry_number: null
 
 dft:
- func_basis: wb97m-v/def2-tzvpd
+ func_basis: wb97m-v/def2-svp
  grid_level: 3
 ```
 

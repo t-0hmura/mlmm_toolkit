@@ -39,8 +39,7 @@ Options:
   -m, --multiplicity INTEGER      Spin multiplicity (2S+1) for the ML region;
                                   YAML applies when omitted.  [default: (1)]
   --func-basis TEXT               Exchange-correlation functional and basis set
-                                  as "FUNC/BASIS".  [default:
-                                  wb97m-v/def2-tzvpd]
+                                  as "FUNC/BASIS".  [default: wb97m-v/def2-svp]
   --max-cycle INTEGER RANGE       Maximum SCF iterations.  [default: 100; x>=1]
   --conv-tol FLOAT                SCF energy convergence threshold (ΔE in
                                   Hartree between SCF cycles).  [default: 1e-09]

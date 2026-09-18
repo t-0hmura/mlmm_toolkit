@@ -43,7 +43,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `-i, --input` | path | required | `.pdb` / `.xyz` (XYZ requires `--ref-pdb`) |
 | `-q` / `-l` / `-m` | — | — | ML-region charge / ligand-charge mapping / multiplicity (XYZ input always needs `--ref-pdb`) |
 | `--ref-pdb` | path | none | Reference PDB so `-l` works on `.xyz` input |
-| `--func-basis` | str | `wb97m-v/def2-tzvpd` | `'FUNC/BASIS'` |
+| `--func-basis` | str | `wb97m-v/def2-svp` | `'FUNC/BASIS'` |
 | `--engine` | choice {gpu,cpu} | `gpu` | `gpu` (GPU4PySCF) or `cpu` (PySCF) |
 | `--lowmem/--no-lowmem` | bool | `True` | `gpu4pyscf.dft.rks_lowmem.RKS` (memory-efficient direct JK) on closed-shell GPU; open-shell / CPU / pre-`rks_lowmem` GPU4PySCF auto-fall back to standard RKS/UKS |
 | `--config` | path | none | YAML config file |

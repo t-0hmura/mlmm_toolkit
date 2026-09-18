@@ -13,6 +13,7 @@ _No changes yet._
 ### Changed
 
 - Report execution and scientific status separately; classify a valid TS1 with one unsuccessful endpoint and a converged higher-order saddle point as `partial`.
+- Use wB97M-V/def2-SVP as the default DFT method.
 
 ### Fixed
 

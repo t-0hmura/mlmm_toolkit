@@ -49,7 +49,7 @@ thermo:
   symmetry_number: null
 
 dft:
-  func_basis: wb97m-v/def2-tzvpd
+  func_basis: wb97m-v/def2-svp
   max_cycle: 100
   conv_tol: 1.0e-9
   grid_level: 3

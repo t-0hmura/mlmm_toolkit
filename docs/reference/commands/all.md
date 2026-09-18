@@ -271,7 +271,7 @@ Options:
                                   paths resolved against the default).
                                   [default: (<tsopt dir>/dft)]
   --dft-func-basis TEXT           Override dft --func-basis value.  [default:
-                                  (wb97m-v/def2-tzvpd)]
+                                  (wb97m-v/def2-svp)]
   --dft-max-cycle INTEGER RANGE   Override dft --max-cycle value.  [default:
                                   (100); x>=1]
   --dft-conv-tol FLOAT            Override dft --conv-tol value.  [default:

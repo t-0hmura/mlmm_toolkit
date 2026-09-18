@@ -523,7 +523,7 @@ def resolve_dft_func_basis_forwarding(
     *,
     dft_func_basis: Optional[str],
     yaml_cfg: Mapping[str, Any],
-    default: str = "wb97m-v/def2-tzvpd",
+    default: str = "wb97m-v/def2-svp",
 ) -> Tuple[Optional[str], str]:
     """Return the child CLI value and effective DFT method label.
 

@@ -1,6 +1,6 @@
 # `dft`
 
-GPU4PySCF（または CPU PySCF）を使用して ML 領域で DFT 一点エネルギー計算を実行し、QM 領域（ML 領域）の DFT エネルギーを MM エネルギーと合成して ML(dft)/MM 総エネルギーを取得します。DFT 勾配と力は要求しません。`mlmm dft` は酵素全体の PDB から ML 領域を抽出し、リンク水素を付加したうえで PySCF（または GPU4PySCF）で計算します。MLIP 経路探索後の停留点（R / TS / P / IM）に対する DFT 一点エネルギー評価や、MLIP 障壁の基準汎関数/基底による sanity check に使用します。デフォルトの汎関数/基底関数は `wb97m-v/def2-tzvpd` です。結果にはエネルギーと集団解析（Mulliken、meta-Lowdin、IAO 電荷）が含まれます。
+GPU4PySCF（または CPU PySCF）を使用して ML 領域で DFT 一点エネルギー計算を実行し、QM 領域（ML 領域）の DFT エネルギーを MM エネルギーと合成して ML(dft)/MM 総エネルギーを取得します。DFT 勾配と力は要求しません。`mlmm dft` は酵素全体の PDB から ML 領域を抽出し、リンク水素を付加したうえで PySCF（または GPU4PySCF）で計算します。MLIP 経路探索後の停留点（R / TS / P / IM）に対する DFT 一点エネルギー評価や、MLIP 障壁の基準汎関数/基底による sanity check に使用します。デフォルトの汎関数/基底関数は `wb97m-v/def2-svp` です。結果にはエネルギーと集団解析（Mulliken、meta-Lowdin、IAO 電荷）が含まれます。
 
 ```
 E_total = E_REAL_low + E_ML(DFT) - E_MODEL_low
@@ -72,7 +72,7 @@ out_dir/ (デフォルト: ./result_dft/)
 | `-q, --charge INT` | ML 領域の電荷。`-l/--ligand-charge` 指定時は不要（PDB 入力または `--ref-pdb` 付き XYZ）。 | `-l` 指定時を除き必須 |
 | `-l, --ligand-charge TEXT` | 全体電荷、または残基名ごとのマッピング（例: `SAM:1,GPP:-3`）。`-q` 省略時に ML 領域の電荷を導出するために使用（PDB 入力または `--ref-pdb` が必要）。 | _None_ |
 | `-m, --multiplicity INT` | ML 領域のスピン多重度 (2S+1)。 | `1` |
-| `--func-basis TEXT` | 汎関数/基底関数ペア（`"FUNC/BASIS"`）。 | `wb97m-v/def2-tzvpd` |
+| `--func-basis TEXT` | 汎関数/基底関数ペア（`"FUNC/BASIS"`）。 | `wb97m-v/def2-svp` |
 | `--max-cycle INT` | SCF反復上限。 | `100` |
 | `--conv-tol FLOAT` | SCF 収束閾値 (Hartree)。 | `1e-9` |
 | `--grid-level INT` | DFT 積分グリッドレベル (0=粗, 3=デフォルト, 5=細かい, 9=非常に細かい)。 | `3` |
@@ -98,7 +98,7 @@ out_dir/ (デフォルト: ./result_dft/)
 - 明示的に指定した CLI オプション
 
 `dft` キー（括弧内はデフォルト）:
-- `func_basis`（`"wb97m-v/def2-tzvpd"`）: 結合 `FUNC/BASIS` 文字列。
+- `func_basis`（`"wb97m-v/def2-svp"`）: 結合 `FUNC/BASIS` 文字列。
 - `conv_tol`（`1e-9`）: SCF 収束閾値 (Hartree)。
 - `max_cycle`: SCF 反復上限（デフォルト `100`）。
 - `grid_level`（`3`）: PySCF `grids.level`。
@@ -116,7 +116,7 @@ calc:
  embedcharge: false                # PySCF 静電埋込み。dft では xTB を使わない
  embedcharge_cutoff: 12.0          # ML 領域からの MM 点電荷カットオフ (Å)
 dft:
- func_basis: wb97m-v/def2-tzvpd      # 交換相関汎関数 / 基底関数セット
+ func_basis: wb97m-v/def2-svp      # 交換相関汎関数 / 基底関数セット
  conv_tol: 1.0e-09                # SCF 収束閾値 (Hartree)
  max_cycle: 100                    # SCF反復上限
  grid_level: 3                     # PySCF グリッドレベル

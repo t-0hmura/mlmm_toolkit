@@ -315,7 +315,7 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 | `--freq-temperature FLOAT` | 熱化学温度 (K)。 | `298.15` |
 | `--freq-pressure FLOAT` | 熱化学圧力 (atm)。 | `1.0` |
 | `--dft-out-dir PATH` | DFT 出力ディレクトリの上書き。 | _None_ |
-| `--dft-func-basis TEXT` | 汎関数/基底関数ペア。 | `wb97m-v/def2-tzvpd` |
+| `--dft-func-basis TEXT` | 汎関数/基底関数ペア。 | `wb97m-v/def2-svp` |
 | `--dft-max-cycle INT` | SCF反復上限。 | `100` |
 | `--dft-conv-tol FLOAT` | SCF 収束閾値。 | `1e-9` |
 | `--dft-grid-level INT` | PySCF グリッドレベル。 | `3` |

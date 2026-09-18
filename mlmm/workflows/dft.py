@@ -686,7 +686,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     "--func-basis",
     "func_basis",
     type=str,
-    default="wb97m-v/def2-tzvpd",
+    default=DFT_KW["func_basis"],
     show_default=True,
     help='Exchange-correlation functional and basis set as "FUNC/BASIS".',
 )

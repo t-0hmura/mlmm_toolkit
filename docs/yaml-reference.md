@@ -642,7 +642,7 @@ DFT calculation settings.
 
 ```yaml
 dft:
- func_basis: wb97m-v/def2-tzvpd # Combined "FUNC/BASIS" string
+ func_basis: wb97m-v/def2-svp # Combined "FUNC/BASIS" string
  conv_tol: 1.0e-09 # SCF convergence tolerance (Hartree)
  max_cycle: 100 # SCF iteration cap
  grid_level: 3 # PySCF grid level
@@ -745,7 +745,7 @@ thermo:
  symmetry_number: null
 
 dft:
- func_basis: wb97m-v/def2-tzvpd
+ func_basis: wb97m-v/def2-svp
  grid_level: 3
 ```
 
