@@ -645,7 +645,7 @@ def test_colab_responsive_contract_covers_the_whole_four_step_app() -> None:
 def test_colab_setup_is_pinned_to_matching_release_and_one_backend() -> None:
     setup = _notebook()["cells"][1]["source"]
 
-    assert 'mlmm_toolkit_version = "v0.3.6"' in setup
+    assert 'mlmm_toolkit_version = "v0.3.7"' in setup
     # Only the exact `debug` sentinel switches to the matching adjacent source
     # snapshot; release versions never inspect the ZIP.
     assert "_raw_version = str(mlmm_toolkit_version)" in setup
@@ -962,13 +962,13 @@ def test_colab_setup_explains_unavailable_release(monkeypatch) -> None:
 
     message = str(error.value)
     assert "Could not install mlmm-toolkit==0.3.6 from PyPI" in message
-    assert "version v0.3.6 may not be published" in message
+    assert "version v0.3.7 may not be published" in message
     assert "mlmm-toolkit-src.zip pair, then enter debug" in message
 
 
 def test_colab_setup_explains_missing_debug_zip(monkeypatch, tmp_path) -> None:
     setup = _notebook()["cells"][1]["source"].replace(
-        'mlmm_toolkit_version = "v0.3.6"', 'mlmm_toolkit_version = "debug"', 1,
+        'mlmm_toolkit_version = "v0.3.7"', 'mlmm_toolkit_version = "debug"', 1,
     ).replace("install_dft = True", "install_dft = False", 1)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
@@ -985,7 +985,7 @@ def test_colab_setup_explains_missing_debug_zip(monkeypatch, tmp_path) -> None:
     message = str(error.value)
     assert "Debug mode needs the adjacent source ZIP" in message
     assert "mlmm-toolkit-src.zip" in message
-    assert "enter v0.3.6 for a published release install" in message
+    assert "enter v0.3.7 for a published release install" in message
 
 
 def test_colab_gui_is_mlmm_native_and_tracks_structure_contracts() -> None:
@@ -6611,7 +6611,7 @@ def test_colab_setup_exposes_linked_nonnegative_radius_and_selected_resn() -> No
     app = _notebook()["cells"][2]["source"]
     setup = _notebook()["cells"][1]["source"]
     assert 'backend = "uma"' in setup
-    assert 'mlmm_toolkit_version = "v0.3.6"' in setup
+    assert 'mlmm_toolkit_version = "v0.3.7"' in setup
     assert 'prep_radius = W.BoundedFloatText(' in app
     assert 'value=2.6, min=0.0, max=1000000.0, step=0.2' in app
     assert 'adv_radius = W.BoundedFloatText(value=2.6, min=0.0, max=1000000.0, step=0.2' in app

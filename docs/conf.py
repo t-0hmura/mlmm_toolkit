@@ -16,7 +16,7 @@ copyright = '2025, Takuto Ohmura'
 author = 'Takuto Ohmura'
 
 # Hardcoded release version (setuptools_scm is unavailable in the docs build env)
-release = '0.3.6'
+release = '0.3.7'
 
 version = release
 

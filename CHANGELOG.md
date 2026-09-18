@@ -8,6 +8,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 _No changes yet._
 
+## [0.3.7] — 2026-09-18
+
+### Changed
+
+- Report execution and scientific status separately; classify a valid TS1 with one unsuccessful endpoint and a converged higher-order saddle point as `partial`.
+
+### Fixed
+
+- Stream XYZ trajectories during PDB/CIF conversion to reduce peak memory.
+- Synchronize Colab ML-region extraction and effective-charge controls.
+- Document the verified AmberTools 24.8 installation and align the English and Japanese guides.
+
 ## [0.3.6] — 2026-09-16
 
 Replaces the withdrawn v0.3.5 release.
