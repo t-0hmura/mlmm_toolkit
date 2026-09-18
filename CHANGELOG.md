@@ -17,6 +17,7 @@ _No changes yet._
 
 ### Fixed
 
+- Preserve peptide continuity for amino-acid extraction centers and warn about non-C–C covalent model boundaries.
 - Stream XYZ trajectories during PDB/CIF conversion to reduce peak memory.
 - Synchronize Colab ML-region extraction and effective-charge controls.
 - Document the verified AmberTools 24.8 installation and align the English and Japanese guides.

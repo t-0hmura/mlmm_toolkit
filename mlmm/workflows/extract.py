@@ -23,6 +23,8 @@ from mlmm.core.output import emit
 import numpy as np
 from Bio import PDB
 from Bio.PDB import NeighborSearch
+from pysisyphus.constants import BOHR2ANG
+from pysisyphus.elem_data import COVALENT_RADII
 
 from mlmm.io.structure_formats import (
     CIF_SUFFIXES,
@@ -109,6 +111,21 @@ from mlmm.core.residue_data import (
 # residue_data stays immutable across requests.
 AMINO_ACIDS: Dict[str, int] = dict(_CANONICAL_AMINO_ACIDS)
 
+_COVALENT_NONMETALS = frozenset(
+    {"H", "B", "C", "N", "O", "F", "SI", "P", "S", "CL", "AS", "SE", "BR", "I"}
+)
+_COVALENT_RADII_ANG = {
+    element.upper(): float(radius) * BOHR2ANG
+    for element, radius in COVALENT_RADII.items()
+    if float(radius) > 0.0
+}
+_BOUNDARY_BOND_SCALE = 1.20 * (1.0 - 0.05)
+_MAX_BOUNDARY_BOND_DISTANCE = _BOUNDARY_BOND_SCALE * 2.0 * max(
+    _COVALENT_RADII_ANG[element]
+    for element in _COVALENT_NONMETALS
+    if element in _COVALENT_RADII_ANG
+)
+
 
 
 
@@ -116,7 +133,7 @@ AMINO_ACIDS: Dict[str, int] = dict(_CANONICAL_AMINO_ACIDS)
 @click.command(
     name="extract",
     help=(
-        "Extract an active site model around substrate residues (from PDB/mmCIF or "
+        "Extract an active site model around extraction centers (from PDB/mmCIF or "
         "residue IDs/names), with biochemically aware truncation and optional "
         "link-H; mmCIF inputs also produce mmCIF outputs."
     ),
@@ -140,10 +157,11 @@ AMINO_ACIDS: Dict[str, int] = dict(_CANONICAL_AMINO_ACIDS)
     "-c", "--center", "substrate_pdb",
     type=str, required=True,
     help=(
-        "Substrate specification: a PDB/mmCIF path, a comma/space-separated residue-ID list "
+        "Centers (normally substrate + catalytic residues): a PDB/mmCIF path, a comma/space-separated residue-ID list "
         "like '123,124' or 'A:123,B:456' (insertion codes supported), "
         "a residue-name list like 'GPP,SAM', or a chain-qualified name like "
-        "'A:SAM' (all matches in chain A) / 'A:SAM:123' (one residue)."
+        "'A:SAM' (all matches in chain A) / 'A:SAM:123' (one residue). "
+        "Each match starts radius expansion."
     ),
 )
 @click.option(
@@ -159,7 +177,7 @@ AMINO_ACIDS: Dict[str, int] = dict(_CANONICAL_AMINO_ACIDS)
     "-r", "--radius",
     type=click.FloatRange(min=0.0), default=2.6, show_default=True,
     help=(
-        "Cutoff (Å) around substrate atoms for active-site inclusion. Zero is "
+        "Cutoff (Å) around center atoms for active-site inclusion. Zero is "
         "accepted and evaluated internally as 0.001 Å (effectively off for "
         "ordinary radius-based neighbors)."
     ),
@@ -167,7 +185,7 @@ AMINO_ACIDS: Dict[str, int] = dict(_CANONICAL_AMINO_ACIDS)
 @click.option(
     "--radius-het2het",
     type=click.FloatRange(min=0.0), default=0, show_default=True,
-    help="Cutoff (Å) for substrate hetero-atom (non-C/H) to neighbor hetero-atom proximity. 0 is treated as 0.001 Å (effectively off).",
+    help="Cutoff (Å) for center hetero-atom (non-C/H) to neighbor hetero-atom proximity. 0 is treated as 0.001 Å (effectively off).",
 )
 @click.option(
     "--include-h2o/--no-include-h2o",
@@ -178,7 +196,7 @@ AMINO_ACIDS: Dict[str, int] = dict(_CANONICAL_AMINO_ACIDS)
 @click.option(
     "--exclude-backbone/--no-exclude-backbone",
     default=False, show_default=True,
-    help="Delete main-chain atoms from non-substrate amino acids.",
+    help="Delete main-chain atoms from amino acids outside the extraction centers.",
 )
 @click.option(
     "--add-linkh/--no-add-linkh",
@@ -190,7 +208,7 @@ AMINO_ACIDS: Dict[str, int] = dict(_CANONICAL_AMINO_ACIDS)
     "--selected-resn",
     type=str, default="", show_default=True,
     help=(
-        "Force-include residues using IDs ('123', 'A:123A'), names ('SAM'), "
+        "Force-include residues without radius expansion using IDs ('123', 'A:123A'), names ('SAM'), "
         "or chain-qualified names ('A:SAM', 'A:SAM:123'); comma/space separated."
     ),
 )
@@ -761,6 +779,80 @@ def select_residues(complex_struct,
     return selected_ids, backbone_contact_ids
 
 
+def _normalized_element(atom: PDB.Atom.Atom) -> str:
+    element = str(atom.element or "").strip().upper()
+    return "H" if element == "D" else element
+
+
+def _atom_boundary_label(atom: PDB.Atom.Atom) -> str:
+    residue = atom.get_parent()
+    chain = residue.get_parent().id or "-"
+    resseq = residue.id[1]
+    icode = str(residue.id[2]).strip()
+    return f"{chain}:{residue.get_resname()}:{resseq}{icode}:{atom.get_name()}"
+
+
+def _find_non_cc_boundary_cuts(
+    structure,
+    selected_ids: Set[Tuple],
+    skip_map: Dict[Tuple, Set[str]],
+) -> List[Tuple[str, str, float]]:
+    """Find inferred non-C-C covalent bonds crossing the output boundary."""
+
+    atoms = list(structure.get_atoms())
+    kept = {
+        id(atom): (
+            atom.get_parent().get_full_id() in selected_ids
+            and atom.get_name()
+            not in skip_map.get(atom.get_parent().get_full_id(), set())
+        )
+        for atom in atoms
+    }
+    if not any(kept.values()) or all(kept.values()):
+        return []
+
+    search = NeighborSearch(atoms)
+    cuts: Dict[Tuple[str, str], Tuple[str, str, float]] = {}
+    for atom in atoms:
+        if not kept[id(atom)]:
+            continue
+        elem_a = _normalized_element(atom)
+        if elem_a not in _COVALENT_NONMETALS:
+            continue
+        for other in search.search(atom.get_coord(), _MAX_BOUNDARY_BOND_DISTANCE):
+            if other is atom or kept[id(other)]:
+                continue
+            elem_b = _normalized_element(other)
+            if elem_b not in _COVALENT_NONMETALS or elem_a == elem_b == "C":
+                continue
+            radius_a = _COVALENT_RADII_ANG.get(elem_a)
+            radius_b = _COVALENT_RADII_ANG.get(elem_b)
+            if radius_a is None or radius_b is None:
+                continue
+            distance = float(np.linalg.norm(atom.get_coord() - other.get_coord()))
+            if distance > _BOUNDARY_BOND_SCALE * (radius_a + radius_b):
+                continue
+            labels = tuple(sorted((_atom_boundary_label(atom), _atom_boundary_label(other))))
+            cuts.setdefault(labels, (labels[0], labels[1], distance))
+    return [cuts[key] for key in sorted(cuts)]
+
+
+def _warn_non_cc_boundary_cuts(cuts: Sequence[Tuple[str, str, float]]) -> None:
+    if not cuts:
+        return
+    shown = "; ".join(f"{left}--{right} ({distance:.2f} Å)" for left, right, distance in cuts[:5])
+    remainder = f"; +{len(cuts) - 5} more" if len(cuts) > 5 else ""
+    _echo_warning(
+        "[extract] Model construction detected %d inferred non-C-C covalent bond(s) "
+        "crossing the model boundary: %s%s. Inspect the boundary, caps, and "
+        "charge/multiplicity. For an intentionally minimal model, use -c 'SUBSTRATE' "
+        "--selected-resn 'CATALYTIC_RESIDUES' -r 0.",
+        len(cuts),
+        shown,
+        remainder,
+    )
+
+
 
 def augment_disulfides(structure, selected_ids: Set[Tuple],
                        cutoff: float = DISULFIDE_CUTOFF):
@@ -830,11 +922,11 @@ def augment_proline_prev_neighbor(structure, selected_ids: Set[Tuple]):
 def augment_backbone_contact_neighbors(structure,
                                        selected_ids: Set[Tuple],
                                        backbone_contact_ids: Set[Tuple],
-                                       substrate_ids: Set[Tuple],
+                                       center_ids: Set[Tuple],
                                        *,
                                        report: bool = True) -> Tuple[Set[Tuple], Set[Tuple]]:
     """
-    If a non-substrate residue had **any backbone atom** within selection radii,
+    If a truncated residue had **any backbone atom** within selection radii,
     include its immediate N- and C-side amino-acid neighbors **only if peptide-bond adjacent**.
 
     If a side has no peptide-adjacent neighbor (true terminus; e.g., separated by TER),
@@ -851,8 +943,8 @@ def augment_backbone_contact_neighbors(structure,
     termini_kept_c = 0
 
     for fid in list(backbone_contact_ids):
-        if fid in substrate_ids:
-            continue  # do not augment around substrate residues
+        if fid in center_ids:
+            continue
         model_id, chain_id = fid[1], fid[2]
         chain = structure[model_id][chain_id]
         residues: List[PDB.Residue.Residue] = list(chain.get_residues())
@@ -902,12 +994,12 @@ def augment_backbone_contact_neighbors(structure,
 
 
 
-def mark_atoms_to_skip(structure, selected_ids: Set[Tuple], substrate_ids: Set[Tuple],
+def mark_atoms_to_skip(structure, selected_ids: Set[Tuple], center_ids: Set[Tuple],
                        exclude_backbone: bool,
                        keep_ncap_ids: Set[Tuple] | None = None,
                        keep_ccap_ids: Set[Tuple] | None = None) -> Dict[Tuple, Set[str]]:
     """
-    Decide which atoms to delete (truncation). Never delete substrate atoms.
+    Decide which atoms to delete from selected residues.
 
     Returns
     -------
@@ -916,12 +1008,12 @@ def mark_atoms_to_skip(structure, selected_ids: Set[Tuple], substrate_ids: Set[T
     keep_ncap_ids = keep_ncap_ids or set()
     keep_ccap_ids = keep_ccap_ids or set()
 
-    # start with the original truncation logic (except for substrate residues)
+    # Amino-acid centers join peptide segmentation, but their atoms remain protected.
     chain_map: Dict[Tuple[str, str], List[Tuple]] = {}
     for fid in _sorted_fids_by_file_order(structure, selected_ids):
-        if fid in substrate_ids:
-            continue  # never delete atoms from substrate residues
         res = structure[fid[1]][fid[2]].child_dict[fid[3]]
+        if fid in center_ids and res.get_resname() not in AMINO_ACIDS:
+            continue
         if res.get_resname() in WATER_RES:
             continue
         chain_map.setdefault((fid[1], fid[2]), []).append(fid)
@@ -967,21 +1059,21 @@ def mark_atoms_to_skip(structure, selected_ids: Set[Tuple], substrate_ids: Set[T
             c_res = chain_obj.child_dict[c_id[3]]
 
             # N-terminal cap deletion (only for amino acids; skip if PRO/HYP or explicitly kept)
-            if (n_res.get_resname() in AMINO_ACIDS) and (n_res.get_resname() not in {"PRO", "HYP"}) and (n_id not in keep_ncap_ids):
+            if (n_id not in center_ids) and (n_res.get_resname() in AMINO_ACIDS) and (n_res.get_resname() not in {"PRO", "HYP"}) and (n_id not in keep_ncap_ids):
                 add(n_id, {"N", "H", "H1", "H2", "H3", "HN"})
             # C-terminal cap deletion (only for amino acids; skip if explicitly kept)
-            if (c_res.get_resname() in AMINO_ACIDS) and (c_id not in keep_ccap_ids):
+            if (c_id not in center_ids) and (c_res.get_resname() in AMINO_ACIDS) and (c_id not in keep_ccap_ids):
                 add(c_id, {"C", "O", "OXT"})
 
             # Isolated stretch – remove CA/HA* (only for amino acids; except PRO/HYP)
-            if single and (n_res.get_resname() in AMINO_ACIDS) and (n_res.get_resname() not in {"PRO", "HYP"}):
+            if single and (n_id not in center_ids) and (n_res.get_resname() in AMINO_ACIDS) and (n_res.get_resname() not in {"PRO", "HYP"}):
                 add(n_id, {"CA", "HA", "HA2", "HA3"})
 
-    #   Optional: remove *all* backbone atoms from every non-substrate residue
+    #   Optional: remove all backbone atoms outside fully protected centers.
     #             PRO/HYP keep N, CA, and HA* to preserve the ring.
     if exclude_backbone:
         for fid in _sorted_fids_by_file_order(structure, selected_ids):
-            if fid in substrate_ids:
+            if fid in center_ids:
                 continue
             res = structure[fid[1]][fid[2]].child_dict[fid[3]]
             if res.get_resname() in WATER_RES:
@@ -1746,8 +1838,18 @@ def extract_multi(args: argparse.Namespace, api=False) -> Dict[str, Any]:
         substrate_idsets_per_struct.append(sub_ids)
         kn_fids = _keys_to_fids(st, keep_ncap_union) if (not args.exclude_backbone) else None
         kc_fids = _keys_to_fids(st, keep_ccap_union) if (not args.exclude_backbone) else None
-        skip_map = mark_atoms_to_skip(st, sel_fids, sub_ids, args.exclude_backbone, kn_fids, kc_fids)
+        skip_map = mark_atoms_to_skip(
+            st, sel_fids, sub_ids, args.exclude_backbone, kn_fids, kc_fids
+        )
         skip_maps_per_struct.append(skip_map)
+
+    boundary_cuts: Dict[Tuple[str, str], Tuple[str, str, float]] = {}
+    for st, sel_fids, skip_map in zip(
+        structs, selected_ids_per_struct, skip_maps_per_struct
+    ):
+        for cut in _find_non_cc_boundary_cuts(st, sel_fids, skip_map):
+            boundary_cuts.setdefault((cut[0], cut[1]), cut)
+    _warn_non_cc_boundary_cuts([boundary_cuts[key] for key in sorted(boundary_cuts)])
 
     # ==== Compute link‑H definitions for each model and ensure identical targets/order ====
     linkdefs_per_struct: List[List[Tuple[Tuple[ResidueKey, str], Tuple[float, float, float]]]] = []
@@ -1994,7 +2096,7 @@ def _extract_body(args, api):
         # Resolve substrate residues from PDB path or residue-ID/name list
         substrate_residues = resolve_substrate_residues(complex_struct, args.substrate_pdb)
         substrate_ids = {r.get_full_id() for r in substrate_residues}
-        _echo_info("[extract] Substrate residues matched: resseq %s",
+        _echo_info("[extract] Center residues matched: resseq %s",
                      [r.id[1] for r in substrate_residues])
 
         selected_ids, backbone_contact_ids = select_residues(
@@ -2023,7 +2125,10 @@ def _extract_body(args, api):
         keep_ccap_ids: Set[Tuple] = set()
         if not args.exclude_backbone and backbone_contact_ids:
             kn, kc = augment_backbone_contact_neighbors(
-                complex_struct, selected_ids, backbone_contact_ids, substrate_ids
+                complex_struct,
+                selected_ids,
+                backbone_contact_ids,
+                substrate_ids,
             )
             keep_ncap_ids.update(kn)
             keep_ccap_ids.update(kc)
@@ -2040,6 +2145,10 @@ def _extract_body(args, api):
             args.exclude_backbone,
             keep_ncap_ids if not args.exclude_backbone else None,
             keep_ccap_ids if not args.exclude_backbone else None
+        )
+
+        _warn_non_cc_boundary_cuts(
+            _find_non_cc_boundary_cuts(complex_struct, selected_ids, skip_map)
         )
 
         kept_atoms = sum(
@@ -2165,23 +2274,23 @@ def extract_api(complex_pdb: List[str],
     complex_pdb : list[str]
         Input PDB/mmCIF path(s). len==1 → single, len>1 → multi.
     center : str
-        Substrate spec: a PDB/mmCIF path, residue IDs such as 'A:123,456',
+        Extraction centers: a PDB/mmCIF path, residue IDs such as 'A:123,456',
         residue names such as 'GPP,SAM', or chain-qualified names such as 'A:SAM'.
     output : list[str] | None
         Output path(s): one path for multi‑MODEL PDB, or N paths for per‑file outputs.
         If None, defaults to ['pocket.pdb'].
     radius : float
-        Atom–atom cutoff (Å) for inclusion around substrate atoms.
+        Atom–atom cutoff (Å) for inclusion around center atoms.
     radius_het2het : float
         Independent hetero‑hetero cutoff (Å) for non‑C/H pairs.
     include_h2o : bool
         Include waters in the selection.
     exclude_backbone : bool
-        Remove backbone atoms on non‑substrate amino acids (with safeguards).
+        Remove backbone atoms from amino acids outside the extraction centers (with safeguards).
     add_linkh : bool
         Add link‑H atoms for cut bonds (carbon‑only) and append as HL/LKH HETATM records.
     selected_resn : str
-        Additional residues to force‑include (comma/space separated).
+        Additional residues to force‑include without radius expansion (comma/space separated).
     modified_residue : str
         Comma-separated residue names with integer charges to treat as amino
         acids for backbone truncation and charge assignment. A known catalog

@@ -4084,10 +4084,10 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @click.option(
     "-c", "--center", "center_spec",
     type=str, required=False, default=None,
-    help=("Substrate specification for the extractor: "
+    help=("Extraction centers (normally substrate + catalytic residues): "
           "a PDB path, a residue-ID list like '123,124' or 'A:123,B:456' "
           "(insertion codes OK: '123A' / 'A:123A'), "
-          "or a residue-name list like 'GPP,MMT'. "
+          "or a residue-name list like 'GPP,MMT'. Each match starts radius expansion. "
           "When omitted, extraction is skipped and full structures are used directly.")
 )
 @click.option(
@@ -4100,7 +4100,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @click.option(
     "-r", "--radius", type=click.FloatRange(min=0.0), default=2.6, show_default=True,
     help=(
-        "Inclusion cutoff (Å) around substrate atoms. Zero is accepted and "
+        "Inclusion cutoff (Å) around center atoms. Zero is accepted and "
         "evaluated internally as 0.001 Å (effectively off for ordinary "
         "radius-based neighbors)."
     ),
@@ -4118,7 +4118,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @click.option(
     "--selected-resn", type=str, default="", show_default=True,
     help=(
-        "Force-include residues using IDs ('123', 'A:123A'), names ('SAM'), "
+        "Force-include residues without radius expansion using IDs ('123', 'A:123A'), names ('SAM'), "
         "or chain-qualified names ('A:SAM', 'A:SAM:123'); comma/space separated."
     ),
 )

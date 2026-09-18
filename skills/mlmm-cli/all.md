@@ -17,7 +17,7 @@ elementary steps.
 ## Synopsis
 
 ```bash
-mlmm all [--parm enzyme.parm7] -i <input(s)> [-c <substrate>] [-l 'RES:Q,...'] \
+mlmm all [--parm enzyme.parm7] -i <input(s)> [-c <centers>] [-l 'RES:Q,...'] \
     [--scan-lists '...'] [--tsopt] [--thermo] [--dft] \
     [-b uma|orb|mace|aimnet2] [-o result_all/]
 ```
@@ -49,7 +49,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | Flag | Type | Default | Description |
 |---|---|---|---|
 | `-i, --input` | path(s) | required | One or more reaction-ordered structures, or a TS-candidate alone |
-| `-c, --center` | str | (uses input as-is) | Substrate selector: `'RES1,RES2,...'`, PDB path, or `'A:44,B:SAM'` |
+| `-c, --center` | str | (uses input as-is) | Substrate + catalytic residues; every match starts radius expansion |
 | `-l, --ligand-charge` | str | none | Per-residue charges, e.g. `'SAM:1,GPP:-3'` |
 | `-q, --charge` | int | derived from `-l` | Net ML-region/model charge override |
 | `-m, --multiplicity` | int | 1 | Spin multiplicity (2S+1) |

@@ -46,6 +46,123 @@ def _sample_pdb(*, swap_first_two_atoms: bool = False, drop_last_atom: bool = Fa
     return "".join(lines)
 
 
+def _linear_peptide_pdb():
+    names = {112: "CYS", 113: "THR", 114: "ASP"}
+    lines = []
+    serial = 1
+    for offset, resseq in enumerate(range(108, 119)):
+        base = offset * 4.2
+        for atom, element, x, y in (
+            ("N", "N", base, 0.0),
+            ("CA", "C", base + 1.45, 0.0),
+            ("C", "C", base + 2.90, 0.0),
+            ("O", "O", base + 3.50, 0.8),
+            ("CB", "C", base + 1.45, 1.5),
+        ):
+            lines.append(
+                _atom_line(
+                    serial, atom, names.get(resseq, "ALA"), "A", resseq,
+                    x, y, 0.0, element,
+                )
+            )
+            serial += 1
+    lines.append(_atom_line(serial, "C1", "PRD", "A", 200, 100.0, 0.0, 0.0, "C", "HETATM"))
+    lines.extend(("TER\n", "END\n"))
+    return "".join(lines)
+
+
+def _residue_atoms(path):
+    from Bio import PDB
+
+    structure = PDB.PDBParser(QUIET=True).get_structure("model", path)
+    return {
+        residue.id[1]: {atom.get_name() for atom in residue}
+        for residue in structure.get_residues()
+        if residue.get_parent().id == "A"
+    }
+
+
+@pytest.mark.parametrize("n_inputs", [1, 2])
+def test_amino_acid_centers_preserve_contiguous_peptide(tmp_path, n_inputs):
+    from mlmm.workflows.extract import extract_api
+
+    sources = [tmp_path / f"state_{index}.pdb" for index in range(n_inputs)]
+    outputs = [tmp_path / f"model_{index}.pdb" for index in range(n_inputs)]
+    for source in sources:
+        source.write_text(_linear_peptide_pdb(), encoding="utf-8")
+
+    result = extract_api(
+        [str(path) for path in sources],
+        center="A:PRD,A:CYS:112,A:ASP:114",
+        output=[str(path) for path in outputs],
+        radius=2.6,
+        add_linkh=True,
+    )
+
+    for output in outputs:
+        atoms = _residue_atoms(output)
+        for resseq in range(111, 116):
+            assert {"N", "CA", "C"} <= atoms[resseq]
+        assert "N" not in atoms[110]
+        assert "C" not in atoms[116]
+    assert result["n_link_hydrogens"] == 2
+
+
+@pytest.mark.parametrize("exclude_backbone", [False, True])
+def test_zero_radius_keeps_only_untruncated_amino_acid_center(
+    tmp_path, exclude_backbone
+):
+    from mlmm.workflows.extract import extract_api
+
+    source = tmp_path / "complex.pdb"
+    output = tmp_path / "model.pdb"
+    source.write_text(_linear_peptide_pdb(), encoding="utf-8")
+    extract_api(
+        [str(source)], center="A:CYS:112", output=[str(output)],
+        radius=0.0, exclude_backbone=exclude_backbone,
+    )
+
+    atoms = _residue_atoms(output)
+    assert set(atoms) == {112}
+    assert {"N", "CA", "C", "O", "CB"} <= atoms[112]
+
+
+@pytest.mark.parametrize(
+    ("kept_element", "other_element", "expect_warning"),
+    [("C", "N", True), ("C", "C", False), ("N", "ZN", False)],
+)
+def test_model_boundary_warns_only_for_non_cc_covalent_cut(
+    tmp_path, capsys, kept_element, other_element, expect_warning
+):
+    from mlmm.workflows.extract import extract_api
+
+    source = tmp_path / "complex.pdb"
+    source.write_text(
+        _atom_line(
+            1, kept_element, "ONE", "A", 1, 0.0, 0.0, 0.0,
+            kept_element, "HETATM",
+        )
+        + _atom_line(
+            2, other_element, "TWO", "A", 2, 1.4, 0.0, 0.0,
+            other_element, "HETATM",
+        )
+        + "END\n",
+        encoding="utf-8",
+    )
+    extract_api(
+        [str(source)],
+        center="A:ONE:1",
+        output=[str(tmp_path / "model.pdb")],
+        radius=0.0,
+        add_linkh=False,
+    )
+
+    warning = capsys.readouterr().err
+    assert ("non-C-C covalent bond" in warning) is expect_warning
+    if expect_warning:
+        assert "--selected-resn 'CATALYTIC_RESIDUES' -r 0" in warning
+
+
 def _parse_structure(pdb_text: str, name: str):
     from Bio import PDB
 

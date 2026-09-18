@@ -3,7 +3,7 @@
 ## Purpose
 
 Extracts a **binding pocket** from a protein-substrate complex PDB
-around the specified substrate residues, with biochemically aware
+around the specified extraction centers, with biochemically aware
 truncation and optional carbon-only link-H. Default output is
 `pocket.pdb`. Multi-input mode produces one PDB per file (or one
 multi-MODEL PDB) for use with `path-search`-style workflows.
@@ -14,7 +14,7 @@ This is mlmm-toolkit's pocket extractor; for layer assignment use
 ## Synopsis
 
 ```bash
-mlmm extract -i complex.pdb -c <substrate-spec> [-l 'RES:Q,...'] \
+mlmm extract -i complex.pdb -c <center-spec> [-l 'RES:Q,...'] \
     [-r 2.6] [-o pocket.pdb] [--add-linkh] [--include-h2o] \
     [--exclude-backbone] [--out-json]
 ```
@@ -24,15 +24,15 @@ mlmm extract -i complex.pdb -c <substrate-spec> [-l 'RES:Q,...'] \
 | flag | type | default | description |
 |---|---|---|---|
 | `-i, --input` | path(s) | required | Protein-substrate complex PDB(s); multi-input requires identical atom count + ordering |
-| `-c, --center` | str | required | Substrate selector: PDB path, residue-ID list (`'123,124'`, `'A:123,B:456'`), or residue-name list (`'GPP,SAM'`) |
-| `-r, --radius` | float | `2.6` | Cutoff (Å) around substrate atoms for pocket inclusion |
-| `--radius-het2het` | float | `0` | Cutoff (Å) for substrate-protein hetero-atom proximity (non-C/H); 0 disables |
+| `-c, --center` | str | required | Substrate + catalytic residues; every match starts radius expansion; accepts a PDB path, IDs (`'A:44,B:321'`), or names (`'GPP,SAM'`) |
+| `-r, --radius` | float | `2.6` | Cutoff (Å) around center atoms for pocket inclusion |
+| `--radius-het2het` | float | `0` | Cutoff (Å) for center-protein hetero-atom proximity (non-C/H); 0 disables |
 | `-l, --ligand-charge` | str | none | Per-residue charges, e.g. `'GPP:-3,SAM:1'` |
 | `-o, --output` | path(s) | `pocket.pdb` (single) / `pocket_<filename>.pdb` (multi) | Output PDB(s) |
 | `--include-h2o / --no-include-h2o` | flag | `--include-h2o` | Include waters (HOH/WAT/H2O/DOD/TIP/TIP3/SOL) |
-| `--exclude-backbone / --no-exclude-backbone` | flag | `--no-exclude-backbone` | Delete main-chain atoms from non-substrate amino acids |
+| `--exclude-backbone / --no-exclude-backbone` | flag | `--no-exclude-backbone` | Delete main-chain atoms from amino acids outside the extraction centers |
 | `--add-linkh / --no-add-linkh` | flag | `--no-add-linkh` | Add carbon-only link-H at 1.09 Å along cut-bond directions |
-| `--selected-resn` | str | none | Comma/space-separated residue IDs to force-include |
+| `--selected-resn` | str | none | Force-include residues without radius expansion (`'A:123,B:456'`, `'A:SAM'`) |
 | `--modified-residue` | str | none | Unregistered residue names with integer charges, e.g. `'HD1:0'`; known catalog residues may omit the charge, e.g. `'SEP'` |
 | `--out-json / --no-out-json` | flag | `--no-out-json` | Write `result.json` next to the output PDB |
 | `--help-advanced` | flag | — | Reveal advanced flags |

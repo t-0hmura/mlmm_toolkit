@@ -36,7 +36,7 @@ mlmm define-layer -i system.pdb --model-pdb model.pdb -o system_layered.pdb
 コマンド形式:
 
 ```bash
-mlmm all -i INPUT1 [INPUT2...] [-c SUBSTRATE] [--parm TOPOLOGY] [options]
+mlmm all -i INPUT1 [INPUT2...] [-c CENTERS] [--parm TOPOLOGY] [options]
 ```
 
 コアオプションは `mlmm all --help`、全オプション一覧は `mlmm all --help-advanced` で確認できます。
@@ -84,7 +84,7 @@ ML領域PDB pairは別の成果物であり、PDB入力では常に出力され�
 ## 処理の流れ
 
 1. **活性部位抽出と ML 領域定義**（複数入力時はマルチ構造の和集合）
-   - 基質を定義します（`-c/--center`、PDB、残基 ID、または残基名で指定）。
+   - `-c/--center`には通常、基質と触媒残基を指定し、一致した各残基から半径展開します。
    - 任意で `--ligand-charge` を総数値（分配）またはマッピング（例: `GPP:-3,MMT:-1`）として提供します。
    - 抽出器は入力ごとのポケット PDB を `<out-dir>/_work/pockets/` に書き出します。最初のポケットが `<out-dir>/ml_region.pdb`（`--model-pdb` として再利用可能な成果物）としてコピーされ、後続の全 ML/MM 計算の ML 領域を定義します。
    - `<out-dir>/ml_region_without_linkH.xyz` と `ml_region_with_linkH.xyz` に、リンク H 挿入前後のモデル系を出力します。PDB 入力では対応する `.pdb` companion も出力します。自動リンクペアは ML/MM 選択を横切る parm7 結合から決まり、距離による結合認識は行いません。
@@ -229,7 +229,7 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 | `-r, --radius FLOAT` | ポケット包含カットオフ (Å)。`0` は受理し、内部では `0.001 Å`（通常の半径近傍を実質OFF）として評価 | `2.6` |
 | `--radius-het2het FLOAT` | 独立したヘテロ-ヘテロカットオフ (Å)。 | `0.0` |
 | `--include-h2o/--no-include-h2o` | 水分子（HOH/WAT/H2O/DOD/TIP/TIP3/SOL）を含める。 | `True` |
-| `--exclude-backbone/--no-exclude-backbone` | 非基質アミノ酸の主鎖原子を除去。 | `False` |
+| `--exclude-backbone/--no-exclude-backbone` | 抽出中心以外のアミノ酸の主鎖原子を除去。 | `False` |
 | `--add-linkh/--no-add-linkh` | 切断結合にリンク水素を付加。 | `False` |
 | `--selected-resn TEXT` | `123`、`A:123A`、`SAM`、`A:SAM`、`A:SAM:123`などのID/名前を強制包含（カンマ/空白区切り） | `""` |
 | `--modified-residue TEXT` | 修飾アミノ酸残基名をカンマ区切りで指定。未知残基は整数電荷が必須（例: `HD1:0,HD2:-1`）。catalog 登録済み残基は bare name（例: `SEP`）も可。 | `""` |

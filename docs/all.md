@@ -49,7 +49,7 @@ Without `--tsopt`, MEP convergence remains the final optimization criterion.
 Command form:
 
 ```bash
-mlmm all -i INPUT1 [INPUT2 ...] [-c SUBSTRATE] [--parm TOPOLOGY] [options]
+mlmm all -i INPUT1 [INPUT2 ...] [-c CENTERS] [--parm TOPOLOGY] [options]
 ```
 
 `mlmm all --help` shows core options; `mlmm all --help-advanced` shows the full option list.
@@ -98,7 +98,7 @@ artifact and is always written for PDB input.
 ## Workflow
 
 1. **Active-site extraction and ML-region definition** (multi-structure union when multiple inputs)
-   - Define the substrate via `-c/--center` (PDB path, residue IDs, or residue names) and optionally `--ligand-charge` as a total number (distributed) or a mapping such as `GPP:-3,MMT:-1`.
+   - `-c/--center` normally contains substrate + catalytic residues; every match starts radius expansion. Optionally provide `--ligand-charge` as a total or mapping such as `GPP:-3,MMT:-1`.
    - The extractor writes per-input pocket PDBs under `<out-dir>/_work/pockets/`. The first pocket is copied to `<out-dir>/ml_region.pdb` (a reusable deliverable you can pass back as `--model-pdb`) and defines the ML region for all subsequent ML/MM calculations.
    - `<out-dir>/ml_region_without_linkH.xyz` and `ml_region_with_linkH.xyz` expose the exact model system before and after link-H insertion. PDB inputs also produce matching `.pdb` companions. Automatic link pairs are parm7 bonds crossing the ML/MM selection, never distance-perceived bonds.
    - The **first-model net ML-region charge** becomes the net ML-region charge for later steps.
@@ -235,7 +235,7 @@ Defaults shown are used when the option is not specified. The full flag list is 
 | `-r, --radius FLOAT` | Pocket inclusion cutoff (Å). `0` is accepted and evaluated internally as `0.001 Å` (effectively off for ordinary radius neighbors). | `2.6` |
 | `--radius-het2het FLOAT` | Independent hetero-hetero cutoff (Å). | `0.0` |
 | `--include-h2o / --no-include-h2o` | Include water molecules (HOH / WAT / H2O / DOD / TIP / TIP3 / SOL). | `True` |
-| `--exclude-backbone / --no-exclude-backbone` | Remove backbone atoms on non-substrate amino acids. | `False` |
+| `--exclude-backbone / --no-exclude-backbone` | Remove backbone atoms from amino acids outside the extraction centers. | `False` |
 | `--add-linkh / --no-add-linkh` | Add link hydrogens for severed bonds. | `False` |
 | `--selected-resn TEXT` | Force-include IDs/names such as `123`, `A:123A`, `SAM`, `A:SAM`, or `A:SAM:123` (comma/space separated). | `""` |
 | `--modified-residue TEXT` | Comma-separated modified-residue names and integer charges for backbone truncation and charge assignment (e.g. `HD1:0,HD2:-1`). A known catalog residue may omit its charge (e.g. `SEP`). | `""` |
