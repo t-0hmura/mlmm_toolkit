@@ -1271,30 +1271,43 @@ def test_all_pipeline_requires_complete_endpoint_opt_record() -> None:
     assert any(reason.endswith("endpoint_opt:product_convergence_unknown") for reason in incomplete.status_reasons)
 
 
-def test_all_pipeline_aggregate_post_missing_fails_closed_when_tsopt_requested() -> None:
-    # Shipped-artifact fail-open: an intermediate MEP summary (post_segments not
-    # yet assembled) with tsopt requested must NOT be promoted to success on the
-    # MEP trajectory's existence alone. The reactive leaf fails closed
-    # (post_missing) until IRC/endpoint post-processing actually runs.
+def test_all_pipeline_aggregate_post_missing_preserves_converged_mep_as_partial() -> None:
+    # A converged MEP is usable partial output when requested TSOPT
+    # post-processing is missing. It must not be promoted to success or demoted
+    # to failed solely because the downstream record is absent.
     from mlmm.workflows.all import _pipeline_aggregate_truth
 
-    summary = {"segments": [{"index": 1, "kind": "seg", "barrier_kcal": 10.0}]}
+    summary = {"segments": [{
+        "index": 1, "kind": "seg", "barrier_kcal": 10.0, "converged": True,
+    }]}
     # post_segments=[] (post ran but produced no record for this segment).
     truth = _pipeline_aggregate_truth(
         summary, post_segments=[], config={"tsopt": True}, legacy_status="success",
     )
-    assert truth.scientific_status != "success"        # would have been success (fail-open)
+    assert truth.scientific_status == "partial"
     assert truth.execution_status == "failed"
     assert truth.observed_item_ids == ()
     assert any("segment_1" in r for r in truth.status_reasons)
     # post_segments=None (the very first intermediate write, before post-processing)
-    # fails closed too.
+    # preserves the same partial result.
     truth_none = _pipeline_aggregate_truth(
         summary, post_segments=None, config={"tsopt": True}, legacy_status="success",
     )
-    assert truth_none.scientific_status != "success"
+    assert truth_none.scientific_status == "partial"
     assert truth_none.execution_status == "failed"
     assert truth_none.observed_item_ids == ()
+
+    # A missing or nonconverged MEP has no usable partial result to preserve.
+    for converged in (None, False):
+        unavailable = {"segments": [{
+            "index": 1, "kind": "seg", "barrier_kcal": 10.0,
+            "converged": converged,
+        }]}
+        unavailable_truth = _pipeline_aggregate_truth(
+            unavailable, post_segments=[], config={"tsopt": True},
+            legacy_status="success",
+        )
+        assert unavailable_truth.scientific_status == "failed"
 
 
 def test_all_pipeline_aggregate_no_tsopt_uses_segment_converged() -> None:

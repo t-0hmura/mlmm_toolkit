@@ -1771,6 +1771,13 @@ def _pipeline_aggregate_truth(
         agg_reasons = list(agg.status_reasons)
         observed = ([leaf.item_id for leaf in leaves if leaf.executed is True]
                     if post_requested else list(agg.observed_item_ids))
+        if agg_sci == "failed" and any(
+            s.get("kind") != "tsopt" and s.get("converged") is True
+            for s in reactive
+        ):
+            # A converged MEP remains a usable partial result when a requested
+            # downstream stage is missing or unusable.
+            agg_sci = "partial"
     else:
         # No reactive-segment leaves to gate on (degenerate/endpoint-only
         # summary): mirror the legacy completeness axis rather than manufacture a
