@@ -7818,7 +7818,7 @@ def cli(
     # These outputs are produced below for a new MEP and recovered in place for
     # resume.  Define them before the mutually exclusive path branches so every
     # downstream summary/copy path has the same contract.
-    final_trj = path_dir / "mep_trj.xyz"
+    final_trj = (out_dir if resuming else path_dir) / "mep_trj.xyz"
     current_path_images: Dict[str, Path] = {}
     if resuming and not final_trj.is_file():
         raise click.ClickException(
