@@ -25,6 +25,15 @@ def test_command_checker_requires_topology_for_compute_examples() -> None:
         "mlmm sp -i system.pdb --parm7 system.parm7 -q 0", contracts
     ) == []
 
+    issues = checker._check_command(
+        "mlmm irc -i ts.xyz --ref-pdb system.pdb -q 0", contracts
+    )
+    assert any("missing topology option" in issue for issue in issues)
+    assert checker._check_command(
+        "mlmm irc -i ts.xyz --parm7 system.parm7 --ref-pdb system.pdb -q 0",
+        contracts,
+    ) == []
+
 
 def test_command_checker_requires_charge_for_compute_examples() -> None:
     checker = _load_checker()

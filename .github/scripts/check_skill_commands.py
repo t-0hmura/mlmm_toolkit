@@ -200,7 +200,9 @@ def _check_command(cmd_text: str, contracts: dict[str, CommandContract]) -> list
     plot_only_scan3d = sub == "scan3d" and "--csv" in present_flags
     parm_flags = set(contract.parm_flags)
     if sub in {"irc", "scan3d"} and not plot_only_scan3d:
-        parm_flags.add("--parm")
+        parm_flags.update(
+            contract.flags & {"--parm7", "--parm", "--real-parm7"}
+        )
     if parm_flags and not (present_flags & parm_flags):
         # ``irc`` may obtain calc.real_parm7 from YAML. Click-required topology
         # options on the other commands cannot be satisfied this way.
