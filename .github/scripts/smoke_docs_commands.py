@@ -121,9 +121,9 @@ def _sanitize_all_args(args: list[str], fixture: dict[str, Path]) -> list[str]:
                 n_values += 1
                 i += 1
             continue
-        if tok == "--parm":
+        if tok in {"--parm7", "--parm"}:
             saw_parm = True
-            out.extend([tok, str(fixture["parm7"])])
+            out.extend(["--parm7", str(fixture["parm7"])])
             i += 2
             continue
         if tok in {"-i", "--input"}:
@@ -172,7 +172,7 @@ def _sanitize_all_args(args: list[str], fixture: dict[str, Path]) -> list[str]:
     if not saw_center:
         out.extend(["-c", "LIG"])
     if not saw_parm:
-        out.extend(["--parm", str(fixture["parm7"])])
+        out.extend(["--parm7", str(fixture["parm7"])])
     if not saw_dry_run:
         out.append("--dry-run")
     if "--out-dir" not in out:
@@ -190,6 +190,23 @@ def _run_help_smoke(commands: list[str]) -> None:
                 f"[help-smoke] failed for '{TOOL_NAME} {subcmd} --help':\n{result.output}"
             )
     print(f"[help-smoke] validated {len(subcommands)} subcommands from docs.")
+
+
+def _select_executable_all_commands(commands: list[str]) -> list[str]:
+    """Select ``all`` examples that can run without prior artifacts."""
+
+    selected: set[str] = set()
+    for cmd in commands:
+        tokens = shlex.split(cmd)
+        if not tokens or tokens[0] != TOOL_NAME or "--resume-segment" in tokens:
+            continue
+        if len(tokens) >= 2 and tokens[1] == "all":
+            selected.add(cmd)
+            continue
+        if len(tokens) >= 2 and tokens[1].startswith("-"):
+            if any(tok in {"-i", "--input"} for tok in tokens[1:]):
+                selected.add(cmd)
+    return sorted(selected)
 
 
 def _run_all_dry_run_smoke(commands: list[str]) -> None:
@@ -212,18 +229,7 @@ def _run_all_dry_run_smoke(commands: list[str]) -> None:
             "[dry-run-smoke] required 'all' command is unavailable in this environment."
         )
 
-    all_cmds: set[str] = set()
-    for cmd in commands:
-        tokens = shlex.split(cmd)
-        if not tokens or tokens[0] != TOOL_NAME:
-            continue
-        if len(tokens) >= 2 and tokens[1] == "all":
-            all_cmds.add(cmd)
-            continue
-        if len(tokens) >= 2 and tokens[1].startswith("-"):
-            if any(tok in {"-i", "--input"} for tok in tokens[1:]):
-                all_cmds.add(cmd)
-    all_cmds = sorted(all_cmds)
+    all_cmds = _select_executable_all_commands(commands)
     if not all_cmds:
         raise RuntimeError("No 'all' command examples found in docs.")
 
