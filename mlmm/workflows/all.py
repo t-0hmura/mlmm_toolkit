@@ -7815,6 +7815,15 @@ def cli(
 
     # Stage 2: Path search on full-system layered PDBs
     mep_mode_label = mep_mode_kind.upper()
+    # These outputs are produced below for a new MEP and recovered in place for
+    # resume.  Define them before the mutually exclusive path branches so every
+    # downstream summary/copy path has the same contract.
+    final_trj = path_dir / "mep_trj.xyz"
+    current_path_images: Dict[str, Path] = {}
+    if resuming and not final_trj.is_file():
+        raise click.ClickException(
+            f"The saved MEP trajectory required for resume is missing: {final_trj}"
+        )
     if refine_path and not resuming:
         _echo_section(
             f"====== [all] Stage 2/{stage_total} — MEP search on full-system "
