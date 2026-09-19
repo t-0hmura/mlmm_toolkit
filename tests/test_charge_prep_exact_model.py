@@ -106,8 +106,8 @@ def test_explicit_charge_bypasses_automatic_model_selection():
         ({"mlmm": {"model_charge": -1, "model_mult": 2}}, (-1, 2)),
         (
             {
-                "calc": {"model_charge": -3, "model_mult": 4},
-                "mlmm": {"model_charge": 1, "model_mult": 5},
+                "calc": {"model_charge": -3},
+                "mlmm": {"model_mult": 4},
             },
             (-3, 4),
         ),
@@ -127,13 +127,13 @@ def test_yaml_charge_spin_precedence(yaml_cfg, expected):
     ) == expected
 
 
-def test_canonical_calculator_section_shadows_legacy_per_key_fallback():
+def test_conflicting_calculator_sections_are_rejected_before_charge_resolution():
     prepared = PreparedInputStructure(
         source_path=Path("dummy.pdb"),
         geom_path=Path("dummy.pdb"),
     )
 
-    with pytest.raises(click.ClickException, match="charge is unresolved"):
+    with pytest.raises(click.BadParameter, match="Conflicting YAML values"):
         resolve_charge_spin_or_raise(
             prepared,
             charge=None,
@@ -183,7 +183,7 @@ def test_explicit_cli_charge_spin_override_yaml():
         (
             {
                 "calc": {"model_pdb": "canonical.pdb"},
-                "mlmm": {"model_pdb": "legacy.pdb"},
+                "mlmm": {"model_charge": -1},
             },
             "canonical.pdb",
         ),

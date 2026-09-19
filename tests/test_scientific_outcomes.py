@@ -153,6 +153,9 @@ def test_scan2d_payload_publishes_explicit_grid_structure_mapping() -> None:
     assert payload["grid_points"] == [
         {
             "index": [2, 3],
+            "coordinate_values": [1.234, 2.345],
+            "coordinate_targets": [1.234, 2.345],
+            "coordinate_units": ["angstrom", "angstrom"],
             "distances_angstrom": [1.234, 2.345],
             "targets_angstrom": [1.234, 2.345],
             "energy_hartree": -10.0,
@@ -1477,7 +1480,10 @@ def test_all_path_opt_child_emits_machine_result() -> None:
     from mlmm.workflows import all as all_workflow
 
     source = Path(all_workflow.__file__).read_text(encoding="utf-8")
-    branch = source[source.index("else:\n        # --no-refine-path"):source.index("final_trj = path_dir", source.index("else:\n        # --no-refine-path"))]
+    branch_start = source.index("elif not resuming:")
+    branch = source[
+        branch_start:source.index("# --- Concatenated MEP trajectory ---", branch_start)
+    ]
     assert 'po_args.append("--out-json")' in branch
     assert "_read_path_opt_segment_converged(seg_out)" in branch
     assert "seg_idx = pair_pos + 1" in branch

@@ -64,9 +64,9 @@ def test_all_help_progressive_disclosure_and_repeat_idempotent(runner, cli_group
     assert r1.output == r2.output
 
     # Default hides an advanced option; advanced reveals it exactly once.
-    assert "--scan-bias-k" not in r1.output
-    assert "--scan-bias-k" not in r2.output
-    assert ra.output.count("--scan-bias-k") == 1
+    assert "--scan-restraint-k" not in r1.output
+    assert "--scan-restraint-k" not in r2.output
+    assert ra.output.count("--scan-restraint-k") == 1
     # A primary option is always visible.
     assert "--tsopt" in r1.output and "--tsopt" in ra.output
 

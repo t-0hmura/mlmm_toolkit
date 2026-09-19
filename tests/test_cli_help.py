@@ -59,7 +59,7 @@ CALC_SUBCOMMANDS = [
 UTILITY_SUBCOMMANDS = [
     ("mm-parm", "-o, --out-prefix", "--keep-temp"),
     ("define-layer", "--model-pdb", "--one-based"),
-    ("add-elem-info", "-o, --out", "--overwrite"),
+    ("add-elem-info", "-o, --output", "--overwrite"),
     ("trj2fig", "--unit", "--backend-model"),
     ("energy-diagram", "-o, --output", "--label-x"),
     ("oniom-export", "--mode", "--orcaff"),
@@ -78,23 +78,23 @@ SHARED_PRIMARY_SCIENTIFIC_OPTIONS = [
     ("all", "--opt-mode"),
     ("all", "--opt-mode-post"),
     ("all", "--thresh"),
-    ("all", "--parm"),
+    ("all", "--parm7"),
     ("all", "--model-pdb"),
     ("all", "--detect-layer"),
     ("all", "--ref-pdb"),
     ("opt", "--thresh"),
-    ("opt", "--bias-k"),
-    ("opt", "--dist-freeze"),
+    ("opt", "--restraint-k"),
+    ("opt", "--distance-restraint"),
     ("opt", "--dump"),
     ("opt", "--ref-pdb"),
-    ("scan", "--bias-k"),
+    ("scan", "--restraint-k"),
     ("scan", "--max-step-size"),
     ("scan", "--thresh"),
-    ("scan2d", "--bias-k"),
+    ("scan2d", "--restraint-k"),
     ("scan2d", "--max-step-size"),
     ("scan2d", "--thresh"),
     ("scan2d", "--ref-pdb"),
-    ("scan3d", "--bias-k"),
+    ("scan3d", "--restraint-k"),
     ("scan3d", "--max-step-size"),
     ("scan3d", "--thresh"),
     ("scan3d", "--ref-pdb"),
@@ -107,19 +107,19 @@ SHARED_PRIMARY_SCIENTIFIC_OPTIONS = [
     ("dft", "--ref-pdb"),
     ("path-opt", "--ref-pdb"),
     ("path-search", "--ref-pdb"),
-    ("define-layer", "--radius-freeze"),
-    ("dft", "--engine"),
+    ("define-layer", "--movable-cutoff"),
+    ("dft", "--dft-engine"),
     ("trj2fig", "--reverse-x"),
 ]
 
 SHARED_ADVANCED_SCIENTIFIC_OPTIONS = [
     ("irc", "--never-stop"),
     ("all", "--dry-run"),
-    ("all", "--scan-bias-k"),
+    ("all", "--scan-restraint-k"),
     ("all", "--scan-relax-max-cycles"),
     ("all", "--max-cycles-gsm"),
     ("all", "--gsm-param"),
-    ("all", "--max-cycles-dmf"),
+    ("all", "--dmf-max-iterations"),
     ("all", "--tsopt-max-cycles"),
     ("all", "--hessian-calc-mode"),
     ("scan", "--max-cycles"),
@@ -197,13 +197,13 @@ def test_all_help_progressive_disclosure(runner, cli_group):
     result = runner.invoke(cli_group, ["all", "--help"])
     assert result.exit_code == 0
     assert "--help-advanced" in result.output
-    assert "--scan-bias-k" not in result.output
+    assert "--scan-restraint-k" not in result.output
 
 
 def test_all_help_advanced_shows_hidden_options(runner, cli_group):
     result = runner.invoke(cli_group, ["all", "--help-advanced"])
     assert result.exit_code == 0
-    assert "--scan-bias-k" in result.output
+    assert "--scan-restraint-k" in result.output
     assert "--freq-temperature" in result.output
     assert "--opt-mode-post" in result.output
     assert "--freeze-atoms" in result.output
