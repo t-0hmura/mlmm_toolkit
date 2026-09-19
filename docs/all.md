@@ -107,7 +107,7 @@ artifact and is always written for PDB input.
    - `mm_parm` runs once on the first full input PDB and writes `<out-dir>/mm_parm/<input_basename>.parm7` / `.rst7` (a reusable deliverable you can pass back as `--parm`), which are passed automatically as `--parm`.
    - `define-layer` runs on each full-system PDB and assigns 3-layer B-factors (ML = 0.0, Movable-MM = 10.0, Frozen-MM = 20.0) based on the ML-region definition. The layered full-system PDBs are written under `<out-dir>/layered/`.
 3. **Optional staged scan** (single-structure only)
-   - When exactly one input PDB is provided and `--scan-lists` is given, the tool performs a staged, bond-length-driven scan on the layered full-system PDB using the ML/MM calculator.
+   - When exactly one input PDB is provided and `--scan-lists` is given, the tool performs a staged distance, angle, or dihedral scan on the layered full-system PDB using the ML/MM calculator.
    - Each stage's relaxed structure (`stage_XX/result.pdb`) is collected as an intermediate / product candidate. The ordered input series for the path search becomes `[initial layered PDB, stage_01/result.pdb, stage_02/result.pdb, ...]`.
 4. **MEP search on full-system layered PDBs**
    - All MEP calculations run on full-system layered PDBs (with `--parm` and `--detect-layer`), not on pockets.
@@ -291,7 +291,7 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) → `--opt-mode` (on
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `-s, --scan-lists TEXT...` | Inline `(i, j, target_Å)` literals. One literal is one stage; several tuples within it form a concerted scan. Use standalone `scan` for YAML/JSON or bidirectional 4-tuples. | _None_ |
+| `-s, --scan-lists TEXT...` | Inline distance `(i,j,target_Å)`, angle `(i,j,k,target_deg)`, or dihedral `(i,j,k,l,target_deg)` literals. One literal is one stage; several tuples within it form a concerted scan. | _None_ |
 | `--scan-out-dir PATH` | Override the scan output directory. | `<out-dir>/_work/scan` |
 | `--scan-one-based / --scan-zero-based` | Interpret scan atom indices as 1-based or 0-based. | _None_ |
 | `--scan-max-step-size FLOAT` | Maximum step size (Å). | `0.20` |

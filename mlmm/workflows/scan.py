@@ -1,5 +1,5 @@
 """
-ML/MM staged bond-length scan with harmonic restraints.
+ML/MM staged internal-coordinate scan with harmonic restraints.
 
 Example:
     mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0 --scan-lists "[(12,45,2.20)]"
@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import gc
+import ast
 import logging
 import math
 import re
@@ -71,7 +72,10 @@ from mlmm.core.utils import (
     prepare_input_structure,
     load_pdb_atom_metadata,
     parse_scan_list_triples,
+    parse_scan_list_quads,
     parse_scan_spec_stages,
+    parse_scan_spec_quads,
+    _load_scan_spec_root,
     is_scan_spec_file,
     PDB_ATOM_META_HEADER,
     format_pdb_atom_metadata,
@@ -82,6 +86,16 @@ from mlmm.core.utils import (
     unbiased_energy_hartree,
     optimizer_terminal_status,
     optional_positive_int,
+)
+from mlmm.domain.scan_coordinates import (
+    coordinate_atoms,
+    coordinate_delta,
+    coordinate_kind,
+    coordinate_step_cap,
+    coordinate_target,
+    coordinate_unit,
+    coordinate_value,
+    format_coordinate,
 )
 from mlmm.domain.bond_changes import compare_structures, summarize_changes
 from mlmm.cli.common_options import (
@@ -147,27 +161,28 @@ def _pair_distances(coords_ang: np.ndarray, pairs: Iterable[Tuple[int, int]]) ->
 
 
 def _schedule_for_stage(
-    coords_ang: np.ndarray,
-    tuples: List[Tuple[int, int, float]],
+    coords_bohr: np.ndarray,
+    tuples: List[Tuple[Any, ...]],
     max_step_size_ang: float,
+    max_angle_step_deg: float = 5.0,
+    max_dihedral_step_deg: float = 10.0,
 ) -> Tuple[int, List[float], List[float], List[float]]:
-    """
-    Given current *Å* coords and stage tuples, compute:
-      N: number of steps
-      r0: initial distances per tuple (Å)
-      rT: target distances per tuple (Å)
-      step_widths: δ_k per tuple (Å, signed)
-    """
-    pairs = [(i, j) for (i, j, _) in tuples]
-    r0 = _pair_distances(coords_ang, pairs)
-    rT = [t for (_, _, t) in tuples]
-    deltas = [RT - R0 for (R0, RT) in zip(r0, rT)]
-    d_max = max((abs(d) for d in deltas), default=0.0)
-    if d_max <= 0.0:
+    r0 = [coordinate_value(coords_bohr, entry) for entry in tuples]
+    rT = [coordinate_target(entry) for entry in tuples]
+    deltas = [coordinate_delta(coordinate_kind(entry), target, initial)
+              for entry, initial, target in zip(tuples, r0, rT)]
+    intervals = []
+    for entry, delta in zip(tuples, deltas):
+        cap = coordinate_step_cap(
+            coordinate_kind(entry), max_step_size_ang,
+            max_angle_step_deg, max_dihedral_step_deg,
+        )
+        if cap <= 0.0:
+            raise click.BadParameter("All scan step-size limits must be > 0.")
+        intervals.append(int(math.ceil(abs(delta) / cap)))
+    N = max(intervals, default=0)
+    if N == 0:
         return 0, r0, rT, [0.0] * len(tuples)
-    if max_step_size_ang <= 0.0:
-        raise click.BadParameter("--max-step-size must be > 0.")
-    N = int(math.ceil(d_max / max_step_size_ang))
     step_widths = [d / N for d in deltas]
     return N, r0, rT, step_widths
 
@@ -196,7 +211,7 @@ def _snapshot_geometry(g) -> Any:
 
 
 @click.command(
-    help="Bond-length driven scan with staged harmonic restraints and relaxation (ML/MM).",
+    help="Internal-coordinate scan with harmonic restraints and relaxation (ML/MM).",
     context_settings={
         "help_option_names": ["-h", "--help"],
         "ignore_unknown_options": True,
@@ -258,11 +273,13 @@ def _snapshot_geometry(g) -> Any:
     type=str,
     multiple=True,
     required=False,
-    help="Scan targets: inline Python literal (e.g. '[(1,5,1.4)]') or a YAML/JSON spec file path. "
+    help="Scan ranges: distance (i,j,low,high), angle (i,j,k,low,high), or "
+         "dihedral (i,j,k,l,low,high). "
          "Multiple inline literals define sequential stages.",
 )
+@click.option("--target-mode", is_flag=True, default=False, hidden=True)
 @click.option("--one-based/--zero-based", "one_based", default=True, show_default=True,
-              help="Interpret (i,j) indices in --scan-lists as 1-based or 0-based.")
+              help="Interpret atom indices in --scan-lists as 1-based or 0-based.")
 @click.option(
     "--print-parsed/--no-print-parsed",
     "print_parsed",
@@ -271,10 +288,14 @@ def _snapshot_geometry(g) -> Any:
     help="Print parsed scan targets and exit without running the scan.",
 )
 @click.option("--max-step-size", type=float, default=0.20, show_default=True,
-              help="Maximum change in any scanned bond length per step [Å].")
+              help="Maximum scanned distance change per step [Å].")
+@click.option("--max-angle-step-size", type=click.FloatRange(min=0.0, min_open=True), default=5.0, show_default=True,
+              help="Maximum scanned angle change per step [degree].")
+@click.option("--max-dihedral-step-size", type=click.FloatRange(min=0.0, min_open=True), default=10.0, show_default=True,
+              help="Maximum scanned dihedral change per step [degree].")
 @click.option("--bias-k", type=float, default=None, show_default="300.0",
               help=(
-                  "Harmonic well strength k [eV/Å^2]. "
+                  "Harmonic well strength k [eV/Å^2 for distances; eV/rad^2 for angles]. "
                   "YAML bias.k applies when this option is omitted; explicit CLI wins."
               ))
 @click.option(
@@ -378,7 +399,7 @@ def _snapshot_geometry(g) -> Any:
     type=click.Choice(["scaled", "fixed"], case_sensitive=False),
     default=None,
     show_default="scaled",
-    help="Link-atom position mode: scaled (g-factor) or fixed (legacy 1.09/1.01 Å).",
+    help="Link-atom position mode: scaled (g-factor) or fixed (1.09/1.01 Å).",
 )
 @click.option(
     "--mm-backend",
@@ -427,9 +448,12 @@ def cli(
     freeze_atoms_cli: Optional[str],
     movable_cutoff: Optional[float],
     scan_lists_raw: Sequence[str],
+    target_mode: bool,
     one_based: bool,
     print_parsed: bool,
     max_step_size: float,
+    max_angle_step_size: float,
+    max_dihedral_step_size: float,
     bias_k: Optional[float],
     max_cycles: int,
     relax_max_cycles: Optional[int],
@@ -697,58 +721,73 @@ def cli(
             if not cli_scan_values:
                 raise click.BadParameter("--scan-lists is required.")
 
-            stages: List[List[Tuple[int, int, float]]]
+            stages: List[List[Tuple[Any, ...]]]
             scan_one_based = bool(one_based)
             scan_source = "--scan-lists"
-            # Bidirectional scan support (4-tuple): track which stages
-            # need geometry snapshot/reset.
             _bidir_reset_before: set = set()
             _bidir_snapshot_before: set = set()
-            # Auto-detect: single value that is a YAML/JSON file → spec mode
-            if spec_path is not None:
-                (
-                    stages,
-                    scan_one_based,
-                    _bidir_snapshot_before,
-                    _bidir_reset_before,
-                ) = parse_scan_spec_stages(
-                    spec_path,
-                    one_based_default=one_based,
-                    atom_meta=pdb_atom_meta,
-                    option_name="--scan-lists",
-                    return_bidirectional_markers=True,
+            spec_root = _load_scan_spec_root(spec_path) if spec_path is not None else None
+            try:
+                legacy_targets = all(
+                    not is_scan_spec_file(value)
+                    and all(len(entry) == 3 for entry in ast.literal_eval(value))
+                    for value in cli_scan_values
                 )
-                scan_source = f"--scan-lists ({spec_path})"
+            except Exception:
+                legacy_targets = True
+            if target_mode or legacy_targets or (spec_root is not None and "stages" in spec_root):
+                if spec_path is not None:
+                    (
+                        stages,
+                        scan_one_based,
+                        _bidir_snapshot_before,
+                        _bidir_reset_before,
+                    ) = parse_scan_spec_stages(
+                        spec_path,
+                        one_based_default=one_based,
+                        atom_meta=pdb_atom_meta,
+                        option_name="--scan-lists",
+                        return_bidirectional_markers=True,
+                    )
+                    scan_source = f"--scan-lists ({spec_path})"
+                else:
+                    stages = []
+                    for idx, raw in enumerate(cli_scan_values, start=1):
+                        parsed, _ = parse_scan_list_triples(
+                            raw, one_based=scan_one_based, atom_meta=pdb_atom_meta,
+                            option_name=f"--scan-lists #{idx}",
+                        )
+                        stages.append(parsed)
             else:
                 stages = []
-                for idx, raw in enumerate(cli_scan_values, start=1):
-                    parsed, _ = parse_scan_list_triples(
-                        raw,
-                        one_based=scan_one_based,
-                        atom_meta=pdb_atom_meta,
-                        option_name=f"--scan-lists #{idx}",
-                    )
-                    for t in parsed:
-                        for dist in t[2:]:
-                            if dist <= 0.0:
-                                raise click.BadParameter(
-                                    f"Non-positive target length in --scan-lists #{idx}: {t}."
-                                )
-                    # Expand 4-tuples into two stages with reset marker
-                    has_4tuple = any(len(t) == 4 for t in parsed)
-                    if has_4tuple:
-                        for t in parsed:
-                            if len(t) == 4:
-                                i, j, start, end = t
-                                stage_a_idx = len(stages)
-                                stages.append([(i, j, start)])
-                                _bidir_snapshot_before.add(stage_a_idx)
-                                _bidir_reset_before.add(stage_a_idx + 1)
-                                stages.append([(i, j, end)])
-                            else:
-                                stages.append([t])
+                raw_values = list(cli_scan_values)
+                for idx, raw in enumerate(raw_values, start=1):
+                    if is_scan_spec_file(raw):
+                        root = _load_scan_spec_root(Path(raw))
+                        pairs = root.get("pairs")
+                        expected_len = len(pairs) if isinstance(pairs, (list, tuple)) else 0
+                        parsed, _, scan_one_based = parse_scan_spec_quads(
+                            Path(raw), expected_len=expected_len,
+                            one_based_default=one_based, atom_meta=pdb_atom_meta,
+                            option_name="--scan-lists",
+                        )
                     else:
-                        stages.append(parsed)
+                        try:
+                            obj = ast.literal_eval(raw)
+                        except Exception as exc:
+                            raise click.BadParameter(f"Invalid literal for --scan-lists #{idx}: {exc}")
+                        if not isinstance(obj, (list, tuple)) or not obj:
+                            raise click.BadParameter("Each --scan-lists range must contain at least one coordinate.")
+                        parsed, _ = parse_scan_list_quads(
+                            raw, expected_len=len(obj), one_based=one_based,
+                            atom_meta=pdb_atom_meta, option_name=f"--scan-lists #{idx}",
+                        )
+                    first_stage = len(stages)
+                    _bidir_snapshot_before.add(first_stage)
+                    _bidir_reset_before.add(first_stage + 1)
+                    stages.append([(*coordinate_atoms(entry, is_range=True), float(entry[-2])) for entry in parsed])
+                    stages.append([(*coordinate_atoms(entry, is_range=True), float(entry[-1])) for entry in parsed])
+                scan_source = "--scan-lists ranges"
             K = len(stages)
             emit(f"[scan] Received {K} stage(s).", narrative=True)
             if not np.isfinite(float(max_step_size)) or float(max_step_size) <= 0.0:
@@ -757,12 +796,12 @@ def cli(
                 )
             frozen_set = set(int(index) for index in freeze_atoms_final)
             for stage_index, tuples in enumerate(stages, start=1):
-                for atom_i, atom_j, _target in tuples:
-                    if int(atom_i) in frozen_set and int(atom_j) in frozen_set:
+                for entry in tuples:
+                    atoms = coordinate_atoms(entry)
+                    if all(int(atom) in frozen_set for atom in atoms):
                         raise click.BadParameter(
-                            "A scan restraint cannot connect two frozen atoms: "
-                            f"stage {stage_index}, atoms {int(atom_i) + 1} and "
-                            f"{int(atom_j) + 1}."
+                            "A scan restraint cannot contain only frozen atoms: "
+                            f"stage {stage_index}, atoms {[int(atom) + 1 for atom in atoms]}."
                         )
             if print_parsed:
                 click.echo(
@@ -824,15 +863,13 @@ def cli(
                 emit(f"        legend: {legend}", detail=True)
                 for stage_idx, tuples in enumerate(stages, start=1):
                     emit(f"  Stage {stage_idx}:", detail=True)
-                    for pair_idx, (i, j, _) in enumerate(tuples, start=1):
-                        emit(
-                            f"    pair {pair_idx} i: {format_pdb_atom_metadata(pdb_atom_meta, i)}",
-                            detail=True,
-                        )
-                        emit(
-                            f"           j: {format_pdb_atom_metadata(pdb_atom_meta, j)}",
-                            detail=True,
-                        )
+                    for coord_idx, entry in enumerate(tuples, start=1):
+                        for atom_pos, atom_index in enumerate(coordinate_atoms(entry), start=1):
+                            emit(
+                                f"    coordinate {coord_idx} atom {atom_pos}: "
+                                f"{format_pdb_atom_metadata(pdb_atom_meta, atom_index)}",
+                                detail=True,
+                            )
             stages_summary: List[Dict[str, Any]] = []
 
             out_dir_path.mkdir(parents=True, exist_ok=True)
@@ -979,23 +1016,41 @@ def cli(
                 stage_dir = out_dir_path / f"stage_{k:02d}"
                 stage_dir.mkdir(parents=True, exist_ok=True)
                 click.echo(f"\n--- Stage {k}/{K} ---")
-                emit(f"Targets (i,j,target Å, 1-based): {[(i + 1, j + 1, t) for (i, j, t) in tuples]}", narrative=True)
+                emit(f"Targets (1-based; Å for distance, degrees for angles): {[format_coordinate(entry) for entry in tuples]}", narrative=True)
 
                 start_geom_for_stage = _snapshot_geometry(geom)
 
                 R_bohr = np.array(geom.coords3d, dtype=float)
-                R_ang = R_bohr * BOHR2ANG
-                Nsteps, r0, rT, step_widths = _schedule_for_stage(R_ang, tuples, float(max_step_size))
-                emit(f"[stage {k}] initial distances (Å) = {['{:.3f}'.format(x) for x in r0]}", narrative=True)
-                emit(f"[stage {k}] target distances  (Å) = {['{:.3f}'.format(x) for x in rT]}", narrative=True)
+                Nsteps, r0, rT, step_widths = _schedule_for_stage(
+                    R_bohr, tuples, float(max_step_size),
+                    float(max_angle_step_size), float(max_dihedral_step_size),
+                )
+                emit(f"[stage {k}] initial coordinate values = {['{:.3f}'.format(x) for x in r0]}", narrative=True)
+                emit(f"[stage {k}] target coordinate values  = {['{:.3f}'.format(x) for x in rT]}", narrative=True)
                 emit(f"[stage {k}] steps N = {Nsteps}", narrative=True)
+                distance_rows = [
+                    (initial, target, step)
+                    for entry, initial, target, step in zip(tuples, r0, rT, step_widths)
+                    if coordinate_kind(entry) == "distance"
+                ]
 
                 srec: Dict[str, Any] = {
                     "index": int(k),
-                    "pairs_1based": [(int(i) + 1, int(j) + 1) for (i, j, _) in tuples],
-                    "initial_distances_A": [float(f"{x:.3f}") for x in r0],
-                    "target_distances_A": [float(f"{x:.3f}") for x in rT],
-                    "per_pair_step_A": [float(f"{x:.3f}") for x in step_widths],
+                    "coordinates": [
+                        {
+                            "kind": coordinate_kind(entry),
+                            "atoms_1based": [int(i) + 1 for i in coordinate_atoms(entry)],
+                            "unit": coordinate_unit(coordinate_kind(entry)),
+                            "initial": float(f"{initial:.6f}"),
+                            "target": float(f"{target:.6f}"),
+                            "step": float(f"{step:.6f}"),
+                        }
+                        for entry, initial, target, step in zip(tuples, r0, rT, step_widths)
+                    ],
+                    "pairs_1based": [tuple(int(i) + 1 for i in coordinate_atoms(entry)) for entry in tuples if coordinate_kind(entry) == "distance"],
+                    "initial_distances_A": [float(f"{row[0]:.3f}") for row in distance_rows],
+                    "target_distances_A": [float(f"{row[1]:.3f}") for row in distance_rows],
+                    "per_pair_step_A": [float(f"{row[2]:.3f}") for row in distance_rows],
                     "num_steps": int(Nsteps),
                     "bond_change": {"changed": None, "summary": ""},
                     # additive terminal status of the last optimizer
@@ -1017,8 +1072,6 @@ def cli(
                 stage_energies: List[Optional[float]] = []
                 stage_trj_path = stage_dir / "scan_trj.xyz"
                 stage_trj_path.write_text("")
-                pairs = [(i, j) for (i, j, _) in tuples]
-
                 if Nsteps == 0:
                     if stage_idx_0 in _bidir_reset_before:
                         all_trj_blocks.extend(reversed(_bidir_pass1_trj))
@@ -1078,7 +1131,10 @@ def cli(
 
                 for s in range(1, Nsteps + 1):
                     step_targets = [r0_i + s * dw for (r0_i, dw) in zip(r0, step_widths)]
-                    biased.set_pairs([(i, j, t) for ((i, j), t) in zip(pairs, step_targets)])
+                    biased.set_restraints([
+                        (*coordinate_atoms(entry), target)
+                        for entry, target in zip(tuples, step_targets)
+                    ])
                     geom.set_calculator(biased)
 
                     prefix = f"scan_s{s:04d}"
@@ -1218,6 +1274,23 @@ def cli(
             click.echo("------------------")
             for s in _stages:
                 idx = int(s.get("index", 0))
+                coordinates = list(s.get("coordinates", []))
+                if coordinates:
+                    emit(
+                        f"[stage {idx}] Targets: "
+                        + str([(*item["atoms_1based"], item["target"]) for item in coordinates]),
+                        narrative=True,
+                    )
+                    emit(
+                        f"[stage {idx}] initial values = "
+                        + str([f"{item['initial']:.3f} {item['unit']}" for item in coordinates]),
+                        narrative=True,
+                    )
+                    emit(
+                        f"[stage {idx}] per-coordinate step = "
+                        + str([f"{item['step']:.3f} {item['unit']}" for item in coordinates]),
+                        narrative=True,
+                    )
                 pairs_1b = list(s.get("pairs_1based", []))
                 r0 = list(s.get("initial_distances_A", []))
                 rT = list(s.get("target_distances_A", []))
@@ -1227,10 +1300,11 @@ def cli(
                 changed = bool(bchg.get("changed"))
                 summary_txt = (bchg.get("summary") or "").strip()
 
-                emit(f"[stage {idx}] Targets (i,j,target Å, 1-based): { _targets_triplet_str(pairs_1b, rT) }", narrative=True)
-                emit(f"[stage {idx}] initial distances (Å) = { _list_of_str_3f(r0) }", narrative=True)
-                emit(f"[stage {idx}] target distances  (Å) = { _list_of_str_3f(rT) }", narrative=True)
-                emit(f"[stage {idx}] per_pair_step     (Å) = { _list_of_str_3f(dA) }", narrative=True)
+                if not coordinates:
+                    emit(f"[stage {idx}] Targets (i,j,target Å, 1-based): { _targets_triplet_str(pairs_1b, rT) }", narrative=True)
+                    emit(f"[stage {idx}] initial distances (Å) = { _list_of_str_3f(r0) }", narrative=True)
+                    emit(f"[stage {idx}] target distances  (Å) = { _list_of_str_3f(rT) }", narrative=True)
+                    emit(f"[stage {idx}] per_pair_step     (Å) = { _list_of_str_3f(dA) }", narrative=True)
                 emit(f"[stage {idx}] steps N = {N}", narrative=True)
                 emit(f"[stage {idx}] Covalent-bond changes (start vs final): {'Yes' if changed else 'No'}", narrative=True)
                 if changed and summary_txt:
@@ -1260,6 +1334,7 @@ def cli(
                     "n_steps": srec["num_steps"],
                     "converged": srec.get("converged"),
                     "bond_changes": srec.get("bond_change", {}),
+                    "coordinates": srec.get("coordinates", []),
                     "pairs_1based": srec.get("pairs_1based"),
                     "initial_distances_angstrom": srec.get("initial_distances_A"),
                     "target_distances_angstrom": srec.get("target_distances_A"),
@@ -1326,6 +1401,8 @@ def cli(
                 "spin": calc_cfg.get("model_mult"),
                 **calculator_provenance(calc_cfg),
                 "max_step_size_angstrom": float(max_step_size),
+                "max_angle_step_size_degree": float(max_angle_step_size),
+                "max_dihedral_step_size_degree": float(max_dihedral_step_size),
                 "n_stages": len(stages_summary),
                 "stages": json_stages,
                 "files": {},

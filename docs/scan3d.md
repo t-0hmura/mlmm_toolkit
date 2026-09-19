@@ -2,6 +2,9 @@
 
 Perform a three-dimensional (d1, d2, d3) grid scan with harmonic restraints and ML/MM relaxations on a layered enzyme structure, mapping a 3D PES across three coupled distances. Input may be PDB/mmCIF, or XYZ with `--ref-pdb`. `mlmm scan3d` nests loops over d1, d2, and d3, relaxing each point with the ML/MM calculator (`mlmm.backends.mlmm_calc.mlmm`) under the appropriate restraints. ML membership comes from `--model-pdb`, `--model-indices`, or B-factor layers via `--detect-layer`; Amber parameters are read from `--parm`. The MLIP backend is selected via `-b/--backend` (default: `uma`), and the optimizer is PySisyphus L-BFGS. Use `-s/--scan-lists` with a YAML/JSON spec file (recommended) or an inline Python literal. A precomputed surface can be loaded via `--csv` for re-plotting without re-running the scan.
 
+Any axis may instead be an angle `(i,j,k,low,high)` or dihedral
+`(i,j,k,l,low,high)`. Angular ranges use degrees.
+
 ## Examples
 
 ```bash
@@ -96,12 +99,14 @@ Filename tags `i###_j###_k###` are integer hundredths of an angstrom (d1×100, d
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | 1-based comma-separated frozen atom indices. | _None_ |
 | `--movable-cutoff FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. Providing this disables `--detect-layer`. | _None_ |
-| `-s, --scan-lists TEXT` | Scan targets: a YAML/JSON spec file path (auto-detected, with `pairs` containing 3 quadruples) or an inline Python literal with three quadruples `(i,j,low,high)`. `i`/`j` can be integer indices or PDB atom selectors. | Required unless `--csv` is used |
+| `-s, --scan-lists TEXT` | Three distance, angle, or dihedral ranges in YAML/JSON or one inline Python literal. Atom entries can be integer indices or PDB selectors. | Required unless `--csv` is used |
 | `--csv FILE` | Load precomputed `surface.csv` and generate plot without running a scan. | _None_ |
 | `--one-based / --zero-based` | Interpret `(i, j)` indices as 1- or 0-based. | `True` (1-based) |
 | `--print-parsed/--no-print-parsed` | Print parsed pair tuples after `-s/--scan-lists` resolution. | `False` |
 | `--max-step-size FLOAT` | Maximum distance increment per step (Å). Controls grid density. | `0.20` |
-| `--bias-k FLOAT` | Harmonic well strength k (eV/Å²). | `300.0` |
+| `--max-angle-step-size FLOAT` | Maximum angle change per step (degrees). | `5.0` |
+| `--max-dihedral-step-size FLOAT` | Maximum dihedral change per step (degrees). | `10.0` |
+| `--bias-k FLOAT` | Harmonic well strength: eV/Å² for distances and eV/rad² for angles. | `300.0` |
 | `--relax-max-cycles INT` | Optimizer-cycle cap during each biased relaxation. | `100000` |
 | `--dump/--no-dump` | Write inner d3 scan TRJs per (d1, d2) slice. | `False` |
 | `-o, --out-dir TEXT` | Output directory root for grids and plots. | `./result_scan3d/` |
@@ -135,15 +140,15 @@ pairs:
  - [15, 60, 1.10, 3.00]
 ```
 
-- `pairs` is required and must contain exactly 3 quadruples.
-- Each quadruple is `(i, j, low_A, high_A)`.
+- `pairs` is required and must contain exactly 3 coordinate ranges.
+- A range is distance `(i,j,low,high)`, angle `(i,j,k,low,high)`, or dihedral `(i,j,k,l,low,high)`.
 - Indices may be integers or PDB selectors (same as inline literals).
 
 ### Inline literal format
 
 When `-s/--scan-lists` receives a value that is not a file path, it is treated as a **single Python literal** string. Shell quoting matters.
 
-The literal is a Python list of exactly **three** quadruples `(atom1, atom2, low_A, high_A)`:
+The literal is a Python list of exactly **three** coordinate ranges:
 
 ```
 -s '[(atom1, atom2, low_A, high_A), (atom3, atom4, low_A, high_A), (atom5, atom6, low_A, high_A)]'

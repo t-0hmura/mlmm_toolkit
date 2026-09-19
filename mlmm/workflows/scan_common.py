@@ -177,7 +177,7 @@ def add_scan_common_options(
     out_dir_default: str,
     baseline_help: str,
     dump_help: str,
-    max_step_help: str = "Maximum spacing between successive distance targets [Å].",
+    max_step_help: str = "Maximum scanned distance change per step [Å].",
     relax_max_cycles_help: str = "Maximum L-BFGS cycles per biased relaxation (also used for preopt).",
     preopt_help: str = "Run an unbiased pre-optimization.",
     thresh_default: str = "baker",
@@ -187,7 +187,7 @@ def add_scan_common_options(
     # so None means "fall through to YAML/BIAS_KW".
     bias_k_default: float | None = None,
     relax_max_cycles_default: int | None = None,
-    one_based_help: str = "Interpret (i,j) indices in --scan-lists as 1-based or 0-based.",
+    one_based_help: str = "Interpret atom indices in --scan-lists as 1-based or 0-based.",
     include_baseline: bool = True,
     include_zmin_zmax: bool = True,
 ) -> Callable[[Callable], Callable]:
@@ -212,12 +212,26 @@ def add_scan_common_options(
             help=max_step_help,
         ),
         click.option(
+            "--max-angle-step-size",
+            type=click.FloatRange(min=0.0, min_open=True),
+            default=5.0,
+            show_default=True,
+            help="Maximum scanned angle change per step [degree].",
+        ),
+        click.option(
+            "--max-dihedral-step-size",
+            type=click.FloatRange(min=0.0, min_open=True),
+            default=10.0,
+            show_default=True,
+            help="Maximum scanned dihedral change per step [degree].",
+        ),
+        click.option(
             "--bias-k",
             type=float,
             default=bias_k_default,
             show_default="300.0",
             help=(
-                "Harmonic well strength k [eV/Å^2]. "
+                "Harmonic well strength k [eV/Å^2 for distances; eV/rad^2 for angles]. "
                 "YAML bias.k applies when this option is omitted; explicit CLI wins."
             ),
         ),

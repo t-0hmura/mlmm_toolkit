@@ -2,8 +2,8 @@
 
 ## Purpose
 
-1D bond-length-driven scan with staged harmonic restraints and inter-stage
-relaxation. Drive one or more bonds toward target distances, producing a
+1D internal-coordinate scan with staged harmonic restraints and inter-stage
+relaxation. Drive distances, angles, or dihedrals, producing a
 trajectory you can reuse to seed `path-search`. For most workflows prefer
 `mlmm all --scan-lists` (see `all-scan-list.md`); standalone
 `scan` is for one-off exploration.
@@ -42,7 +42,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | flag | type | default | description |
 |---|---|---|---|
 | `-i, --input` | path | required | Reactant `.pdb` / `.xyz` (XYZ requires `--ref-pdb`) |
-| `-s, --scan-lists` | str | required | Inline Python literal `'[(a,b,target),...]'`, or YAML/JSON spec path. Supply multiple stage literals after a single `-s` flag (do not repeat the flag). |
+| `-s, --scan-lists` | str | required | Distance target/range, angle range, or dihedral range in an inline Python literal or YAML/JSON spec. Supply multiple stage literals after a single `-s` flag (do not repeat the flag). |
 | `-q` / `-l` / `-m` | — | — | Charge / spin (common conventions) |
 | `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |
 | `-o, --out-dir` | path | `./result_scan/` | Output directory |

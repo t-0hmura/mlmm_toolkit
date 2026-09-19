@@ -1,4 +1,4 @@
-"""ML/MM two-distance (d1, d2) grid scan with harmonic restraints.
+"""ML/MM two-coordinate grid scan with harmonic restraints.
 
 Example:
     mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
@@ -106,6 +106,15 @@ from mlmm.workflows.scan_common import (
     prepare_grid_scan_output,
     resolve_scan_optimizer_configs,
 )
+from mlmm.domain.scan_coordinates import (
+    coordinate_atoms,
+    coordinate_bounds,
+    coordinate_kind,
+    coordinate_step_cap,
+    coordinate_unit,
+    coordinate_value,
+    format_coordinate,
+)
 
 # Shared defaults (copied from opt.py to keep ML/MM behavior consistent)
 GEOM_KW: Dict[str, Any] = deepcopy(_OPT_GEOM_KW)
@@ -188,16 +197,19 @@ def _build_scan2d_result_payload(
             indices = [int(rec["i"]), int(rec["j"])]
         except (KeyError, TypeError, ValueError):
             continue
-        grid_points.append(
-            {
+        point = {
                 "index": indices,
-                "distances_angstrom": distances,
-                "targets_angstrom": list(distances),
+                "coordinate_values": distances,
+                "coordinate_targets": list(distances),
+                "coordinate_units": [pair1.get("unit", "angstrom"), pair2.get("unit", "angstrom")],
                 "energy_hartree": rec.get("energy_hartree"),
                 "converged": rec.get("bias_converged"),
                 "geometry_file": rec.get("geometry_file"),
             }
-        )
+        if pair1.get("kind", "distance") == pair2.get("kind", "distance") == "distance":
+            point["distances_angstrom"] = list(distances)
+            point["targets_angstrom"] = list(distances)
+        grid_points.append(point)
     payload: Dict[str, Any] = {
         "status": status,
         "execution_status": "completed",
@@ -266,7 +278,7 @@ def _select_closest_state_1d(
 
 
 @click.command(
-    help="2D distance scan with harmonic restraints using the ML/MM calculator.",
+    help="2D internal-coordinate scan with harmonic restraints using ML/MM.",
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 @click.option(
@@ -338,7 +350,11 @@ def _select_closest_state_1d(
     "scan_list_raw",
     type=str,
     required=True,
-    help="Scan targets: inline Python literal or a YAML/JSON spec file path.",
+    help=(
+        "Two scan ranges as an inline literal or YAML/JSON file: distance "
+        "(i,j,low,high), angle (i,j,k,low,high), or dihedral "
+        "(i,j,k,l,low,high). Distances use Å; angles and dihedrals use degrees."
+    ),
 )
 @click.option(
     "--print-parsed/--no-print-parsed",
@@ -397,7 +413,7 @@ def _select_closest_state_1d(
     type=click.Choice(["scaled", "fixed"], case_sensitive=False),
     default=None,
     show_default="scaled",
-    help="Link-atom position mode: scaled (g-factor) or fixed (legacy 1.09/1.01 Å).",
+    help="Link-atom position mode: scaled (g-factor) or fixed (1.09/1.01 Å).",
 )
 @click.option(
     "--mm-backend",
@@ -454,6 +470,8 @@ def cli(
     print_parsed: bool,
     dry_run: bool,
     max_step_size: float,
+    max_angle_step_size: float,
+    max_dihedral_step_size: float,
     bias_k: float,
     relax_max_cycles: int,
     dump: bool,
@@ -703,16 +721,35 @@ def cli(
                     atom_meta=pdb_atom_meta,
                     option_name="--scan-lists",
                 )
-            (i1, j1, low1, high1), (i2, j2, low2, high2) = parsed
+            axis1, axis2 = parsed
+            kind1, kind2 = coordinate_kind(axis1, is_range=True), coordinate_kind(axis2, is_range=True)
+            unit1 = "Å" if kind1 == "distance" else "deg"
+            unit2 = "Å" if kind2 == "distance" else "deg"
+            atoms1, atoms2 = coordinate_atoms(axis1, is_range=True), coordinate_atoms(axis2, is_range=True)
+            low1, high1 = coordinate_bounds(axis1)
+            low2, high2 = coordinate_bounds(axis2)
+            def _axis_payload(kind_axis, atoms_axis, low, high):
+                payload = {
+                    "kind": kind_axis,
+                    "atoms_1based": [int(i) + 1 for i in atoms_axis],
+                    "unit": coordinate_unit(kind_axis),
+                    "low": float(low), "high": float(high),
+                }
+                if kind_axis == "distance":
+                    payload.update(i=int(atoms_axis[0] + 1), j=int(atoms_axis[1] + 1))
+                return payload
             frozen_set = set(map(int, freeze_atoms_final))
-            for axis, (atom_i, atom_j, _low, _high) in enumerate(parsed, start=1):
-                if int(atom_i) in frozen_set and int(atom_j) in frozen_set:
+            for axis, entry in enumerate(parsed, start=1):
+                atoms = coordinate_atoms(entry, is_range=True)
+                if all(int(atom) in frozen_set for atom in atoms):
                     raise click.BadParameter(
-                        "A scan restraint cannot connect two frozen atoms: "
-                        f"axis d{axis}, atoms {int(atom_i) + 1} and {int(atom_j) + 1}."
+                        "A scan restraint cannot contain only frozen atoms: "
+                        f"axis d{axis}, atoms {[int(atom) + 1 for atom in atoms]}."
                     )
-            d1_label_csv = axis_label_csv("d1", i1, j1, scan_one_based, pdb_atom_meta, raw_pairs[0])
-            d2_label_csv = axis_label_csv("d2", i2, j2, scan_one_based, pdb_atom_meta, raw_pairs[1])
+            d1_label_csv = (axis_label_csv("d1", *atoms1, scan_one_based, pdb_atom_meta, raw_pairs[0])
+                            if kind1 == "distance" else f"d1_{kind1}_{'_'.join(str(i + 1) for i in atoms1)}_deg")
+            d2_label_csv = (axis_label_csv("d2", *atoms2, scan_one_based, pdb_atom_meta, raw_pairs[1])
+                            if kind2 == "distance" else f"d2_{kind2}_{'_'.join(str(i + 1) for i in atoms2)}_deg")
             d1_label_html = axis_label_html(d1_label_csv)
             d2_label_html = axis_label_html(d2_label_csv)
             if print_parsed:
@@ -730,8 +767,8 @@ def cli(
                 emit(
                     pretty_block(
                         "scan-list",
-                        {"d1": (i1 + 1, j1 + 1, low1, high1),
-                         "d2": (i2 + 1, j2 + 1, low2, high2)},
+                        {"d1": format_coordinate(axis1, is_range=True),
+                         "d2": format_coordinate(axis2, is_range=True)},
                     force=True),
                     force=True,
                 )
@@ -754,8 +791,8 @@ def cli(
                             "output_dir": str(out_dir_path),
                             "scan_source": scan_source,
                             "one_based": bool(scan_one_based),
-                            "d1_0based": (i1, j1, low1, high1),
-                            "d2_0based": (i2, j2, low2, high2),
+                            "d1_0based": tuple(axis1),
+                            "d2_0based": tuple(axis2),
                             "charge": int(charge),
                             "spin": int(spin),
                             "detect_layer": bool(detect_layer_effective),
@@ -771,17 +808,16 @@ def cli(
             click.echo(
                 pretty_block(
                     "scan-list",
-                    {"d1": (i1 + 1, j1 + 1, low1, high1), "d2": (i2 + 1, j2 + 1, low2, high2)},
+                    {"d1": format_coordinate(axis1, is_range=True), "d2": format_coordinate(axis2, is_range=True)},
                 )
             )
             if pdb_atom_meta:
                 emit("[scan2d] PDB atom details for scanned pairs:", detail=True)
                 legend = PDB_ATOM_META_HEADER
                 emit(f"        legend: {legend}", detail=True)
-                emit(f"  d1 i: {format_pdb_atom_metadata(pdb_atom_meta, i1)}", detail=True)
-                emit(f"     j: {format_pdb_atom_metadata(pdb_atom_meta, j1)}", detail=True)
-                emit(f"  d2 i: {format_pdb_atom_metadata(pdb_atom_meta, i2)}", detail=True)
-                emit(f"     j: {format_pdb_atom_metadata(pdb_atom_meta, j2)}", detail=True)
+                for label, atoms in (("d1", atoms1), ("d2", atoms2)):
+                    for pos, atom in enumerate(atoms, start=1):
+                        emit(f"  {label} atom {pos}: {format_pdb_atom_metadata(pdb_atom_meta, atom)}", detail=True)
 
             # Directory layout: final outputs under out_dir/, optimizer scratch in a temporary directory
             tmp_root = Path(tempfile.mkdtemp(prefix="scan2d_tmp_"))
@@ -874,12 +910,12 @@ def cli(
             grid_states: List[Dict[str, Any]] = []
 
             # Measure reference distances on the (pre)optimized structure
-            d1_ref = distance_A_from_coords(np.asarray(geom_outer.coords3d), i1, j1)
-            d2_ref = distance_A_from_coords(np.asarray(geom_outer.coords3d), i2, j2)
+            d1_ref = coordinate_value(np.asarray(geom_outer.coords3d), axis1, is_range=True)
+            d2_ref = coordinate_value(np.asarray(geom_outer.coords3d), axis2, is_range=True)
             if math.isfinite(d1_ref) and math.isfinite(d2_ref):
                 click.echo(
-                    f"[center] reference distances from (pre)optimized structure: "
-                    f"d1 = {d1_ref:.3f} Å, d2 = {d2_ref:.3f} Å"
+                    f"[center] reference coordinate values: "
+                    f"d1 = {d1_ref:.3f} {unit1}, d2 = {d2_ref:.3f} {unit2}"
                 )
 
                 # Write preoptimized structure into the grid directory with distance-based name
@@ -936,12 +972,8 @@ def cli(
                         err=True,
                     )
                     geom_outer = _snapshot_geometry(raw_anchor)
-                    d1_ref = distance_A_from_coords(
-                        np.asarray(geom_outer.coords3d), i1, j1
-                    )
-                    d2_ref = distance_A_from_coords(
-                        np.asarray(geom_outer.coords3d), i2, j2
-                    )
+                    d1_ref = coordinate_value(np.asarray(geom_outer.coords3d), axis1, is_range=True)
+                    d2_ref = coordinate_value(np.asarray(geom_outer.coords3d), axis2, is_range=True)
 
                 # The anchor initializes relaxation but is never a PES point.
                 if math.isfinite(d1_ref) and math.isfinite(d2_ref):
@@ -961,12 +993,8 @@ def cli(
                     )
                     _preopt_conv = False
                     geom_outer = _snapshot_geometry(raw_anchor)
-                    d1_ref = distance_A_from_coords(
-                        np.asarray(geom_outer.coords3d), i1, j1
-                    )
-                    d2_ref = distance_A_from_coords(
-                        np.asarray(geom_outer.coords3d), i2, j2
-                    )
+                    d1_ref = coordinate_value(np.asarray(geom_outer.coords3d), axis1, is_range=True)
+                    d2_ref = coordinate_value(np.asarray(geom_outer.coords3d), axis2, is_range=True)
                 if not (math.isfinite(d1_ref) and math.isfinite(d2_ref)):
                     click.echo(
                         "[center] WARNING: failed to determine reference distances; using grid order as-is.",
@@ -976,8 +1004,8 @@ def cli(
                 d2_ref_tag = None
 
             # Build distance grids and reorder so that scanning starts near the reference structure
-            d1_values = values_from_bounds(low1, high1, float(max_step_size))
-            d2_values = values_from_bounds(low2, high2, float(max_step_size))
+            d1_values = values_from_bounds(low1, high1, coordinate_step_cap(kind1, max_step_size, max_angle_step_size, max_dihedral_step_size))
+            d2_values = values_from_bounds(low2, high2, coordinate_step_cap(kind2, max_step_size, max_angle_step_size, max_dihedral_step_size))
 
             # One tag precision per axis, so a fine grid cannot map two targets
             # onto the same point tag and truncate the earlier artifact.
@@ -1002,15 +1030,15 @@ def cli(
                 )
 
             N1, N2 = len(d1_values), len(d2_values)
-            emit(f"[grid] d1 steps = {N1}  values(A)={list(map(lambda x: f'{x:.3f}', d1_values))}", narrative=True)
-            emit(f"[grid] d2 steps = {N2}  values(A)={list(map(lambda x: f'{x:.3f}', d2_values))}", narrative=True)
+            emit(f"[grid] d1 steps = {N1}  values({unit1})={list(map(lambda x: f'{x:.3f}', d1_values))}", narrative=True)
+            emit(f"[grid] d2 steps = {N2}  values({unit2})={list(map(lambda x: f'{x:.3f}', d2_values))}", narrative=True)
             emit(f"[grid] total grid points = {N1 * N2}", narrative=True)
 
             max_step_bohr = float(max_step_size) * ANG2BOHR
 
             for i_idx, d1_target in enumerate(d1_values):
                 d1_tag = _d1_tag(d1_target)
-                click.echo(f"\n--- d1 step {i_idx + 1}/{N1} : target = {d1_target:.3f} Å ---")
+                click.echo(f"\n--- d1 step {i_idx + 1}/{N1} : target = {d1_target:.3f} {unit1} ---")
 
                 # Choose the closest previously visited structure (in d1) as the
                 # starting point for the d1-biased relaxation.
@@ -1020,7 +1048,7 @@ def cli(
                 geom_outer = _snapshot_geometry(start_outer)
 
                 geom_outer.set_calculator(biased)
-                biased.set_pairs([(i1, j1, float(d1_target))])
+                biased.set_restraints([(*atoms1, float(d1_target))])
                 geom_outer.set_calculator(biased)
 
                 opt1 = _make_lbfgs(
@@ -1046,8 +1074,8 @@ def cli(
                 # starting point for subsequent grid points — ONLY when it
                 # explicitly converged, so a nonconverged relaxation never seeds a
                 # later grid point.
-                d1_cur_outer = distance_A_from_coords(np.asarray(geom_outer.coords3d), i1, j1)
-                d2_cur_outer = distance_A_from_coords(np.asarray(geom_outer.coords3d), i2, j2)
+                d1_cur_outer = coordinate_value(np.asarray(geom_outer.coords3d), axis1, is_range=True)
+                d2_cur_outer = coordinate_value(np.asarray(geom_outer.coords3d), axis2, is_range=True)
                 if _outer_conv is True and math.isfinite(d1_cur_outer) and math.isfinite(d2_cur_outer):
                     grid_states.append(
                         {
@@ -1072,7 +1100,7 @@ def cli(
                     geom_inner = _snapshot_geometry(start_inner)
                     geom_inner.set_calculator(biased)
 
-                    biased.set_pairs([(i1, j1, float(d1_target)), (i2, j2, float(d2_target))])
+                    biased.set_restraints([(*atoms1, float(d1_target)), (*atoms2, float(d2_target))])
 
                     opt2 = _make_lbfgs(
                         geom_inner,
@@ -1100,8 +1128,8 @@ def cli(
 
                     energy_h = unbiased_energy_hartree(geom_inner, base_calc)
 
-                    d1_cur = distance_A_from_coords(np.asarray(geom_inner.coords3d), i1, j1)
-                    d2_cur = distance_A_from_coords(np.asarray(geom_inner.coords3d), i2, j2)
+                    d1_cur = coordinate_value(np.asarray(geom_inner.coords3d), axis1, is_range=True)
+                    d2_cur = coordinate_value(np.asarray(geom_inner.coords3d), axis2, is_range=True)
 
                     # Distance-based filenames: e.g., point_i125_j324.xyz for d1=1.25 Å, d2=3.24 Å
                     xyz_path = grid_dir / f"point_i{d1_tag}_j{d2_tag}.xyz"
@@ -1226,6 +1254,9 @@ def cli(
             df["energy_kcal"] = (df["energy_hartree"] - ref) * AU2KCALPERMOL
             df["d1_label"] = d1_label_csv
             df["d2_label"] = d2_label_csv
+            for axis_number, axis_kind in ((1, kind1), (2, kind2)):
+                df[f"q{axis_number}"] = df[f"d{axis_number}_A"]
+                df[f"q{axis_number}_unit"] = coordinate_unit(axis_kind)
 
             surface_csv = final_dir / "surface.csv"
             # Keep internal-only eligibility columns out of the public CSV so a
@@ -1268,18 +1299,8 @@ def cli(
                     result_data = _build_scan2d_result_payload(
                         records=records,
                         calc_cfg=calc_cfg,
-                        pair1={
-                            "i": int(i1 + 1),
-                            "j": int(j1 + 1),
-                            "low": float(low1),
-                            "high": float(high1),
-                        },
-                        pair2={
-                            "i": int(i2 + 1),
-                            "j": int(j2 + 1),
-                            "low": float(low2),
-                            "high": float(high2),
-                        },
+                        pair1=_axis_payload(kind1, atoms1, low1, high1),
+                        pair2=_axis_payload(kind2, atoms2, low2, high2),
                         files={"surface_csv": "surface.csv"},
                         status="failed",
                     )
@@ -1551,18 +1572,8 @@ def cli(
                 result_data = _build_scan2d_result_payload(
                     records=records,
                     calc_cfg=calc_cfg,
-                    pair1={
-                        "i": int(i1 + 1),
-                        "j": int(j1 + 1),
-                        "low": float(low1),
-                        "high": float(high1),
-                    },
-                    pair2={
-                        "i": int(i2 + 1),
-                        "j": int(j2 + 1),
-                        "low": float(low2),
-                        "high": float(high2),
-                    },
+                    pair1=_axis_payload(kind1, atoms1, low1, high1),
+                    pair2=_axis_payload(kind2, atoms2, low2, high2),
                     files=files,
                 )
                 write_result_json(

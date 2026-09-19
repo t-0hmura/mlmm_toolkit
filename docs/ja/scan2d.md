@@ -4,6 +4,9 @@ calculator は選択した MM backend（デフォルト `hessian_ff`、または
 
 調和拘束と ML/MM 緩和による 2 距離（d1, d2）グリッドスキャンを実行します。2 つの反応距離（例: 結合形成 + 結合切断）に対する 2D ポテンシャル面をマッピングし、後続のTS最適化に用いる鞍点候補領域や分岐構造を調べます。`mlmm scan2d` は `--max-step-size` を使用して 2 つの結合距離の線形グリッドを構築し、適切な拘束を適用して各グリッド点を緩和し、バイアスなしの ML/MM エネルギーを可視化用に記録します。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルを使用します。どちらの形式も正確に 2 つのスキャン軸を受け付けます。3D の `scan2d_landscape.html` には底面に投影した等高線が含まれます。
 
+各軸には角度`(i,j,k,low,high)`または二面角
+`(i,j,k,l,low,high)`も指定できます。角度値には度を使います。
+
 ## 実行例
 
 コマンド形式:
@@ -95,11 +98,13 @@ out_dir/ (デフォルト:./result_scan2d/)
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス。 | _None_ |
 | `--movable-cutoff FLOAT` | ML 領域からの可動 MM 原子の距離カットオフ (Å)。指定すると `--detect-layer` が無効化されます。 | _None_ |
-| `-s, --scan-lists TEXT` | スキャンターゲット: YAML/JSON スペックファイルパス（自動検出、`pairs` に 2 つの 4 要素タプル）またはインライン Python リテラル `"[(i1,j1,low1,high1),(i2,j2,low2,high2)]"`。インデックスは整数または PDB 原子セレクター。 | 必須 |
+| `-s, --scan-lists TEXT` | YAML/JSONまたは単一inline literalで2つの距離・角度・二面角rangeを指定。原子は整数indexまたはPDB selector。 | 必須 |
 | `--one-based / --zero-based` | `-s/--scan-lists` の `(i,j)` インデックスを 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
 | `--print-parsed/--no-print-parsed` | `-s/--scan-lists` 解釈後のペア情報を表示。 | `False` |
 | `--max-step-size FLOAT` | ステップごとの最大距離増分 (Å)。グリッド密度を決定。 | `0.20` |
-| `--bias-k FLOAT` | 調和拘束ポテンシャル強度 k (eV/Å²)。 | `300.0` |
+| `--max-angle-step-size FLOAT` | 角度の1stepあたりの最大変化量（度）。 | `5.0` |
+| `--max-dihedral-step-size FLOAT` | 二面角の1stepあたりの最大変化量（度）。 | `10.0` |
+| `--bias-k FLOAT` | 調和拘束強度。距離はeV/Å²、角度はeV/rad²。 | `300.0` |
 | `--relax-max-cycles INT` | バイアス緩和ごとの L-BFGS サイクル上限。 | `100000` |
 | `--dump/--no-dump` | d1 スライスごとの内側 d2 スキャン TRJ を書き出し。 | `False` |
 | `-o, --out-dir TEXT` | 基本出力ディレクトリ。 | `./result_scan2d/` |
@@ -130,8 +135,8 @@ pairs:
  - [10, 55, 1.20, 3.20]
 ```
 
-- `pairs` は必須で、ちょうど 2 つの 4 要素タプルを含む必要があります。
-- 各 4 要素タプルは `(i, j, low_A, high_A)` です。
+- `pairs` は必須で、ちょうど2つの座標rangeを含む必要があります。
+- rangeは距離`(i,j,low,high)`、角度`(i,j,k,low,high)`、二面角`(i,j,k,l,low,high)`のいずれかです。
 - インデックスは整数または PDB セレクター（インラインリテラルと同じ）が使用可能です。
 
 ### インラインリテラルフォーマット

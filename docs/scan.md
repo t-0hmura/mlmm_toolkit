@@ -10,6 +10,10 @@ sequential stages, each starting from the preceding endpoint.
 [`scan2d`](scan2d.md) and [`scan3d`](scan3d.md) instead evaluate independent
 distance axes for energy-landscape exploration and PES mapping.
 
+Angle ranges use `(i,j,k,low,high)` and dihedral ranges use
+`(i,j,k,l,low,high)`; angular values are in degrees. Each range uses the same
+two-pass `low` / `high` staging as a distance range.
+
 ## Examples
 
 Here, `pocket.pdb` contains the full system matching `real.parm7`; `ml_region.pdb` selects its ML subset without link hydrogens.
@@ -112,7 +116,9 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--one-based/--zero-based` | Interpret atom indices as 1-based (default) or 0-based. | `True` (1-based) |
 | `--print-parsed/--no-print-parsed` | Print parsed scan targets and exit without running the scan. | `False` |
 | `--max-step-size FLOAT` | Maximum change in any scanned bond per step (Å). Controls the number of biased relaxation steps. | `0.20` |
-| `--bias-k FLOAT` | Harmonic bias strength `k` in eV/Å². | `300` |
+| `--max-angle-step-size FLOAT` | Maximum angle change per step (degrees). | `5.0` |
+| `--max-dihedral-step-size FLOAT` | Maximum dihedral change per step (degrees). | `10.0` |
+| `--bias-k FLOAT` | Harmonic bias strength `k`: eV/Å² for distances and eV/rad² for angles. | `300` |
 | `--max-cycles INT` | L-BFGS cycle cap per biased step and per pre/end optimization stage. | `100000` |
 | `--relax-max-cycles INT` | Compatibility alias of `--max-cycles` (overrides it when provided). | inherits `--max-cycles` |
 | `--preopt/--no-preopt` | Run an unbiased optimization before scanning. | `False` |

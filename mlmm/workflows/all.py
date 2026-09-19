@@ -1134,7 +1134,7 @@ def _parse_scan_lists_literals(
     scan_lists_raw: Sequence[str],
     atom_meta: Optional[Sequence[Dict[str, Any]]] = None,
     one_based: bool = True,
-) -> List[List[Tuple[int, int, float]]]:
+) -> List[List[Tuple[Any, ...]]]:
     """Parse ``--scan-lists`` literals without re-basing atom indices.
 
     Parameters
@@ -1143,7 +1143,7 @@ def _parse_scan_lists_literals(
         Honour the CLI ``--scan-one-based`` toggle so users can pass 0-based
         indices via ``all`` and have them forwarded unchanged to ``scan``.
     """
-    stages: List[List[Tuple[int, int, float]]] = []
+    stages: List[List[Tuple[Any, ...]]] = []
     for idx_stage, literal in enumerate(scan_lists_raw, start=1):
         candidate = Path(literal)
         if (
@@ -1151,8 +1151,8 @@ def _parse_scan_lists_literals(
             and candidate.is_file()
         ):
             raise click.BadParameter(
-                "mlmm all accepts inline (i,j,target) scan triples only; "
-                "use standalone mlmm scan for YAML/JSON specifications."
+                "mlmm all accepts inline scan targets; use standalone mlmm scan "
+                "for YAML/JSON specifications."
             )
         tuples, _ = parse_scan_list_triples(
             literal,
@@ -1163,12 +1163,7 @@ def _parse_scan_lists_literals(
         )
         if not tuples:
             raise click.BadParameter(
-                f"--scan-lists #{idx_stage} must contain at least one (i,j,target) triple."
-            )
-        if any(len(entry) != 3 for entry in tuples):
-            raise click.BadParameter(
-                "mlmm all accepts inline (i,j,target) scan triples only; "
-                "use standalone mlmm scan for bidirectional (i,j,start,end) stages."
+                f"--scan-lists #{idx_stage} must contain at least one scan target."
             )
         stages.append(tuples)
     return stages
@@ -1226,9 +1221,9 @@ def _validate_all_dry_run_semantics(
         )
 
 
-def _format_scan_stage(stage: List[Tuple[int, int, float]]) -> str:
+def _format_scan_stage(stage: List[Tuple[Any, ...]]) -> str:
     """Serialize a scan stage back into a Python-like literal string."""
-    return "[" + ", ".join(f"({i},{j},{target})" for (i, j, target) in stage) + "]"
+    return repr([tuple(entry) for entry in stage])
 
 
 def _round_charge_with_note(q: float) -> int:
@@ -4720,11 +4715,10 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     "-s", "--scan-lists",
     "scan_lists_raw",
     type=str, multiple=True, required=False,
-    help='Scan targets: inline Python literals containing (i,j,target) triples. '
-         'Multiple literals define sequential stages, e.g. '
-         '"[(12,45,1.35)]" "[(10,55,2.20),(23,34,1.80)]". '
-         'Use standalone mlmm scan for YAML/JSON or bidirectional 4-tuples. '
-         'Indices refer to the original full PDB (1-based) or PDB atom selectors like "TYR,285,CA".',
+    help=('Scan targets: distance (i,j,target), angle (i,j,k,target), or '
+          'dihedral (i,j,k,l,target). Multiple inline literals define sequential '
+          'stages. Distances use Å; angles and dihedrals use degrees. Indices '
+          'refer to the original full PDB (1-based) or PDB atom selectors.'),
 )
 @click.option("--scan-out-dir", type=click.Path(path_type=Path, file_okay=False), default=None,
               show_default="<out-dir>/_work/scan",
@@ -7358,6 +7352,7 @@ def cli(
         scan_endopt_use = False if scan_endopt_override is None else bool(scan_endopt_override)
         scan_args: List[str] = [
             "-i", str(layered_pdb),
+            "--target-mode",
             "--parm", str(real_parm7_path),
             "-q", str(int(q_int)),
             "-m", str(int(spin)),

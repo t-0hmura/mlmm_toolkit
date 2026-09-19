@@ -1,4 +1,4 @@
-"""Harmonic restraint calculator wrappers (position fix + bond-length bias).
+"""Harmonic restraint calculator wrappers (position and internal coordinates).
 
 Two pysisyphus-style Calculator wrappers consumed by multiple workflow stages:
 
@@ -6,10 +6,9 @@ Two pysisyphus-style Calculator wrappers consumed by multiple workflow stages:
   Used by ``path_opt`` and ``path_search`` (incl. the DMF path optimizer) to pin
   pre-selected atoms with a quadratic well around their reference coordinates.
 
-- ``HarmonicBiasCalculator`` — harmonic *distance* restraint on selected atom
-  pairs (1-based / 0-based indexing per caller). Used by ``scan`` / ``scan2d`` /
-  ``scan3d`` for bond-length staged scans, and by ``opt`` for ad-hoc distance
-  biasing. Wraps a base ML/MM calculator and adds the bias E/F/H on one PES.
+- ``HarmonicBiasCalculator`` — harmonic distance, angle or dihedral restraints.
+  Used by ``scan`` / ``scan2d`` / ``scan3d`` and by ``opt`` for distance biasing.
+  It wraps a base ML/MM calculator and adds the restraint derivatives on one PES.
 
 Both classes are pure-Python (numpy only) and do not import any MLIP SDK, so they
 belong with the workflow orchestration layer rather than ``io`` or ``backends``.
@@ -25,6 +24,13 @@ from pysisyphus.constants import ANG2BOHR, AU2EV
 from mlmm.core.pes_composition import (
     clone_pes_result,
     compose_additive_pes_result,
+)
+from mlmm.domain.scan_coordinates import (
+    coordinate_delta,
+    coordinate_derivative,
+    coordinate_kind,
+    coordinate_target,
+    coordinate_value,
 )
 
 
@@ -132,6 +138,58 @@ def harmonic_pair_energy_forces_hessian(
     return float(energy), force.reshape(-1), hessian
 
 
+def harmonic_internal_energy_forces_hessian(
+    coords_bohr: np.ndarray,
+    k_ev: float,
+    restraints: Sequence[Tuple],
+    *,
+    need_hessian: bool = True,
+) -> Tuple[float, np.ndarray, Optional[np.ndarray]]:
+    """Evaluate distance/angle/dihedral harmonic restraints."""
+    coords = np.asarray(coords_bohr, dtype=float).reshape(-1, 3)
+    if restraints and all(coordinate_kind(item) == "distance" for item in restraints):
+        return harmonic_pair_energy_forces_hessian(
+            coords, float(k_ev) * H_EVAA_2_AU, restraints, need_hessian=need_hessian
+        )
+    if not np.isfinite(coords).all():
+        raise ValueError("Harmonic restraint coordinates must be finite.")
+    k_hartree = float(k_ev) * EV2AU
+    if not np.isfinite(k_hartree) or k_hartree < 0.0:
+        raise ValueError("Harmonic restraint force constant must be finite and non-negative.")
+
+    def energy_force(at: np.ndarray) -> Tuple[float, np.ndarray]:
+        energy = 0.0
+        force = np.zeros(at.size, dtype=float)
+        for restraint in restraints:
+            kind = coordinate_kind(restraint)
+            value = coordinate_value(at, restraint)
+            delta_native = coordinate_delta(kind, value, coordinate_target(restraint))
+            delta = delta_native if kind == "distance" else np.deg2rad(delta_native)
+            derivative = coordinate_derivative(at, restraint)
+            energy += 0.5 * k_hartree * delta * delta
+            force -= k_hartree * delta * derivative
+        return float(energy), force
+
+    energy, force = energy_force(coords)
+    hessian = None
+    if need_hessian:
+        size = coords.size
+        hessian = np.zeros((size, size), dtype=float)
+        affected = sorted({3 * int(atom) + axis
+                           for item in restraints for atom in item[:-1]
+                           for axis in range(3)})
+        step = 1.0e-4
+        flat = coords.reshape(-1)
+        for column in affected:
+            plus = flat.copy(); plus[column] += step
+            minus = flat.copy(); minus[column] -= step
+            _, force_plus = energy_force(plus.reshape(-1, 3))
+            _, force_minus = energy_force(minus.reshape(-1, 3))
+            hessian[:, column] = -(force_plus - force_minus) / (2.0 * step)
+        hessian = 0.5 * (hessian + hessian.T)
+    return energy, force, hessian
+
+
 class HarmonicFixAtoms(Calculator):
     """Harmonic position restraint on a subset of atoms (ASE Calculator).
 
@@ -175,31 +233,33 @@ class HarmonicFixAtoms(Calculator):
 
 
 class HarmonicBiasCalculator:
-    """Wrap a base UMA-style calculator with harmonic distance restraints.
+    """Add harmonic distance, angle or dihedral restraints to a calculator.
 
-    Per-pair bias: Energy = 1/2 * k * (r_ij − target)² for each (i, j, target) tuple.
-    Forces and exact Cartesian Hessians are added to the base calculator's
-    output. Indices are 0-based Cartesian atom indices.
-
-    Used by scan / scan2d / scan3d for bond-length staged scans, and by opt for
-    ad-hoc distance biasing. Reusable for any future DMF distance-restraint case
-    (same pattern: wrap base calc + add per-pair harmonic E/F).
+    Atom indices are 0-based. Distances and distance force constants use Å and
+    eV/Å²; angular targets and force constants use degrees and eV/rad².
     """
 
     def __init__(self, base_calc, k: float = 10.0, pairs: Optional[List[Tuple[int, int, float]]] = None):
         self.base = base_calc
         self.k_evAA = float(k)
         self.k_au_bohr2 = self.k_evAA * H_EVAA_2_AU
-        self._pairs: List[Tuple[int, int, float]] = list(pairs or [])
+        self._restraints: List[Tuple] = list(pairs or [])
+
+    @property
+    def _pairs(self):
+        return self._restraints
 
     def set_pairs(self, pairs: List[Tuple[int, int, float]]) -> None:
-        self._pairs = [(int(i), int(j), float(t)) for (i, j, t) in pairs]
+        self.set_restraints(pairs)
+
+    def set_restraints(self, restraints: Sequence[Tuple]) -> None:
+        self._restraints = [tuple(item) for item in restraints]
 
     def _bias_energy_forces_bohr(self, coords_bohr: np.ndarray) -> Tuple[float, np.ndarray]:
-        energy, forces, _ = harmonic_pair_energy_forces_hessian(
+        energy, forces, _ = harmonic_internal_energy_forces_hessian(
             coords_bohr,
-            self.k_au_bohr2,
-            self._pairs,
+            self.k_evAA,
+            self._restraints,
             need_hessian=False,
         )
         return energy, forces
@@ -260,7 +320,7 @@ class HarmonicBiasCalculator:
     def get_energy(self, elem, coords):
         coords_bohr = np.asarray(coords, dtype=float).reshape(-1, 3)
         base = self.base.get_energy(elem, coords_bohr)
-        if not self._pairs:
+        if not self._restraints:
             return clone_pes_result(base)
         Ebias, _ = self._bias_energy_forces_bohr(coords_bohr)
         return compose_additive_pes_result(
@@ -272,12 +332,12 @@ class HarmonicBiasCalculator:
     def get_hessian(self, elem, coords):
         coords_bohr = np.asarray(coords, dtype=float).reshape(-1, 3)
         base = self.base.get_hessian(elem, coords_bohr)
-        if not self._pairs:
+        if not self._restraints:
             return clone_pes_result(base)
-        energy, forces, hessian = harmonic_pair_energy_forces_hessian(
+        energy, forces, hessian = harmonic_internal_energy_forces_hessian(
             coords_bohr,
-            self.k_au_bohr2,
-            self._pairs,
+            self.k_evAA,
+            self._restraints,
             need_hessian=True,
         )
         assert hessian is not None

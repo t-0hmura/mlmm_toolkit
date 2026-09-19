@@ -2,6 +2,9 @@
 
 調和拘束と ML/MM 緩和による 3 距離（d1, d2, d3）のグリッドスキャンを実行し、3 つの結合距離を変数とする 3D PES をマッピングします。入力には PDB/mmCIF、または `--ref-pdb` を伴う XYZ を使用できます。`mlmm scan3d` は d1、d2、d3 のネストループを実行し、ML/MM calculator（`mlmm.backends.mlmm_calc.mlmm`）を使用して適切な拘束で各点を緩和します。ML 領域は `--model-pdb`、`--model-indices`、または `--detect-layer` による B-factor layer から解決し、Amber パラメータは `--parm` から読み取ります。MLIP バックエンドは `-b/--backend` で選択し（デフォルト: `uma`）、オプティマイザは PySisyphus L-BFGS です。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルを使用します。`--csv` で事前計算した surface を読み込めば、スキャンを再実行せずに再描画のみ行えます。
 
+各軸には角度`(i,j,k,low,high)`または二面角
+`(i,j,k,l,low,high)`も指定できます。角度値には度を使います。
+
 ## 実行例
 
 ```bash
@@ -78,12 +81,14 @@ out_dir/ (デフォルト:./result_scan3d/)
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 1 始まりカンマ区切りの凍結原子インデックス。 | _None_ |
 | `--movable-cutoff FLOAT` | ML 領域からの可動 MM 原子の距離カットオフ (Å)。指定すると `--detect-layer` が無効化されます。 | _None_ |
-| `-s, --scan-lists TEXT` | スキャンターゲット: YAML/JSON スペックファイルパス（自動検出、`pairs` に 3 つの 4 要素タプル）またはインライン Python リテラル。`i`/`j` は整数インデックスまたは PDB 原子セレクター。 | `--csv` 指定時を除き必須 |
+| `-s, --scan-lists TEXT` | YAML/JSONまたは単一inline literalで3つの距離・角度・二面角rangeを指定。原子は整数indexまたはPDB selector。 | `--csv` 指定時を除き必須 |
 | `--csv FILE` | 事前計算済み `surface.csv` を読み込みスキャンなしでプロット生成。 | _None_ |
 | `--one-based / --zero-based` | `(i, j)` インデックスを 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
 | `--print-parsed/--no-print-parsed` | `-s/--scan-lists` 解釈後のペア情報を表示。 | `False` |
 | `--max-step-size FLOAT` | ステップごとの最大距離増分 (Å)。グリッド密度を制御。 | `0.20` |
-| `--bias-k FLOAT` | 調和拘束ポテンシャル強度 k (eV/Å²)。 | `300.0` |
+| `--max-angle-step-size FLOAT` | 角度の1stepあたりの最大変化量（度）。 | `5.0` |
+| `--max-dihedral-step-size FLOAT` | 二面角の1stepあたりの最大変化量（度）。 | `10.0` |
+| `--bias-k FLOAT` | 調和拘束強度。距離はeV/Å²、角度はeV/rad²。 | `300.0` |
 | `--relax-max-cycles INT` | バイアス緩和ごとのオプティマイザサイクル上限。 | `100000` |
 | `--dump/--no-dump` | (d1, d2) スライスごとの内側 d3 スキャン TRJ を書き出し。 | `False` |
 | `-o, --out-dir TEXT` | グリッドとプロットの出力ディレクトリルート。 | `./result_scan3d/` |
@@ -118,7 +123,7 @@ pairs:
 ```
 
 - `pairs` は必須で、正確に 3 つの 4 要素タプルを含む必要があります。
-- 各 4 要素タプルは `(i, j, low_A, high_A)` です。
+- 各軸は距離`(i,j,low,high)`、角度`(i,j,k,low,high)`、二面角`(i,j,k,l,low,high)`のいずれかです。
 - インデックスは整数または PDB セレクター（`--scan-lists` と同じ）が使用可能です。
 
 ### インラインリテラルフォーマット

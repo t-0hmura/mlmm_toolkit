@@ -9,6 +9,10 @@
 多段階scanとして前ステージの端点から順次実行されます。`scan2d` / `scan3d`は独立な
 距離軸を用いて energy landscape を探索し、PESを描画します。
 
+角度rangeは`(i,j,k,low,high)`、二面角rangeは
+`(i,j,k,l,low,high)`で指定し、角度値には度を使います。どちらも
+距離rangeと同じ2passの`low` / `high` stageとして実行します。
+
 ## 実行例
 
 以下の例では、`pocket.pdb` が `real.parm7` に対応する全系構造で、`ml_region.pdb` が ML 領域（リンク水素なし）です。
@@ -96,7 +100,9 @@ out_dir/ (デフォルト:./result_scan/)
 | `--one-based/--zero-based` | 原子インデックスを 1 始まり（デフォルト）または 0 始まりとして解釈。 | `True`（1 始まり） |
 | `--print-parsed/--no-print-parsed` | 解釈したスキャン対象を表示し、計算せず終了。 | `False` |
 | `--max-step-size FLOAT` | ステップごとのスキャン結合の最大変化量 (Å)。積分ステップ数を制御。 | `0.20` |
-| `--bias-k FLOAT` | 調和バイアス強度 `k`（eV/Å²）。 | `300` |
+| `--max-angle-step-size FLOAT` | 角度の1stepあたりの最大変化量（度）。 | `5.0` |
+| `--max-dihedral-step-size FLOAT` | 二面角の1stepあたりの最大変化量（度）。 | `10.0` |
+| `--bias-k FLOAT` | 調和バイアス強度。距離はeV/Å²、角度はeV/rad²。 | `300` |
 | `--max-cycles INT` | 各バイアスステップおよび pre/end 最適化ステージの L-BFGS サイクル上限。 | `100000` |
 | `--relax-max-cycles INT` | `--max-cycles` の互換エイリアス（指定時は上書き）。 | `--max-cycles`を継承 |
 | `--preopt/--no-preopt` | スキャン前にバイアスなし最適化を実行。 | `False` |

@@ -1711,76 +1711,40 @@ def parse_scan_list_triples(
     atom_meta: Optional[_Sequence[Dict[str, Any]]],
     option_name: str,
     return_one_based: bool = False,
-) -> Tuple[List[Tuple[int, int, float]], List[Tuple[Any, Any, float]]]:
-    """Parse --scan-lists entries into indices (0-based by default).
-
-    Accepts both 3-tuples ``(i, j, target)`` and 4-tuples
-    ``(i, j, start, end)`` for bidirectional scans.  4-tuples are
-    expanded into two 3-tuple stages (initial→start, then initial→end)
-    by the caller in scan.py.
-
-    The returned *parsed* list contains tuples of length 3 **or** 4:
-    ``(i, j, target)`` or ``(i, j, start, end)``.
-    """
+) -> Tuple[List[Tuple[Any, ...]], List[Tuple[Any, ...]]]:
+    """Parse distance, angle, or dihedral target tuples."""
     try:
         obj = ast.literal_eval(raw)
     except Exception as e:
         raise click.BadParameter(f"Invalid literal for {option_name}: {e}")
 
     if not isinstance(obj, (list, tuple)):
-        raise click.BadParameter(f"{option_name} must be a list/tuple of (i,j,target) or (i,j,start,end).")
+        raise click.BadParameter(f"{option_name} must be a list/tuple of scan targets.")
     if len(obj) == 0:
         raise click.BadParameter(f"{option_name} must contain at least one atom pair.")
 
-    parsed: list = []
-    seen_pairs: set[tuple[int, int]] = set()
+    from mlmm.domain.scan_coordinates import (
+        canonical_axis_key, coordinate_atoms, coordinate_kind,
+        parse_coordinate_entry,
+    )
+    parsed: list[tuple[Any, ...]] = []
+    seen_axes: set[tuple[str, tuple[int, ...]]] = set()
     for entry_idx, t in enumerate(obj, start=1):
-        is_3 = (
-            isinstance(t, (list, tuple))
-            and len(t) == 3
-            and isinstance(t[2], Real)
+        entry = parse_coordinate_entry(
+            t, is_range=False, one_based=one_based, atom_meta=atom_meta,
+            context=f"{option_name} entry {entry_idx}", resolve_index=resolve_scan_index,
         )
-        is_4 = (
-            isinstance(t, (list, tuple))
-            and len(t) == 4
-            and isinstance(t[2], Real)
-            and isinstance(t[3], Real)
-        )
-        if not (is_3 or is_4):
+        kind = coordinate_kind(entry)
+        atoms = coordinate_atoms(entry)
+        axis_key = canonical_axis_key(kind, atoms)
+        if axis_key in seen_axes:
             raise click.BadParameter(
-                f"{option_name} entry {entry_idx} must be (i,j,target) or (i,j,start,end): got {t}"
+                f"{option_name} entry {entry_idx} repeats scan coordinate {axis_key}."
             )
-
-        i = resolve_scan_index(
-            t[0],
-            one_based=one_based,
-            atom_meta=atom_meta,
-            context=f"{option_name} entry {entry_idx} (i)",
-        )
-        j = resolve_scan_index(
-            t[1],
-            one_based=one_based,
-            atom_meta=atom_meta,
-            context=f"{option_name} entry {entry_idx} (j)",
-        )
-        if i == j:
-            raise click.BadParameter(
-                f"{option_name} entry {entry_idx} selects the same atom twice."
-            )
-        pair_key = tuple(sorted((i, j)))
-        if pair_key in seen_pairs:
-            raise click.BadParameter(
-                f"{option_name} entry {entry_idx} repeats atom pair "
-                f"{pair_key}; each simultaneous scan axis must be unique."
-            )
-        seen_pairs.add(pair_key)
+        seen_axes.add(axis_key)
         if return_one_based:
-            i += 1
-            j += 1
-        if is_4:
-            parsed.append((i, j, float(t[2]), float(t[3])))
-        else:
-            parsed.append((i, j, float(t[2])))
+            entry = (*tuple(index + 1 for index in atoms), float(entry[-1]))
+        parsed.append(entry)
 
     return parsed, list(obj)
 
@@ -1895,58 +1859,37 @@ def parse_scan_list_quads(
     one_based: bool,
     atom_meta: Optional[_Sequence[Dict[str, Any]]],
     option_name: str,
-) -> Tuple[List[Tuple[int, int, float, float]], List[Tuple[Any, Any, float, float]]]:
-    """Parse --scan-lists quadruples into 0-based indices."""
+) -> Tuple[List[Tuple[Any, ...]], List[Tuple[Any, ...]]]:
+    """Parse distance, angle, or dihedral coordinate ranges."""
     try:
         obj = ast.literal_eval(raw)
     except Exception as e:
         raise click.BadParameter(f"Invalid literal for {option_name}: {e}")
 
     if not (isinstance(obj, (list, tuple)) and len(obj) == expected_len):
-        quads = ",".join([f"(i{n},j{n},low{n},high{n})" for n in range(1, expected_len + 1)])
         raise click.BadParameter(
-            f"{option_name} must contain exactly {expected_len} quadruples: [{quads}]"
+            f"{option_name} must contain exactly {expected_len} coordinate ranges."
         )
-
-    parsed: List[Tuple[int, int, float, float]] = []
-    seen_pairs: set[tuple[int, int]] = set()
+    from mlmm.domain.scan_coordinates import (
+        canonical_axis_key, coordinate_atoms, coordinate_kind,
+        parse_coordinate_entry,
+    )
+    parsed: List[Tuple[Any, ...]] = []
+    seen_axes: set[tuple[str, tuple[int, ...]]] = set()
     for entry_idx, q in enumerate(obj, start=1):
-        if not (
-            isinstance(q, (list, tuple))
-            and len(q) == 4
-            and isinstance(q[2], Real)
-            and isinstance(q[3], Real)
-        ):
-            raise click.BadParameter(f"{option_name} entry must be (i,j,low,high): got {q}")
-
-        i = resolve_scan_index(
-            q[0],
-            one_based=one_based,
-            atom_meta=atom_meta,
-            context=f"{option_name} entry {entry_idx} (i)",
+        entry = parse_coordinate_entry(
+            q, is_range=True, one_based=one_based, atom_meta=atom_meta,
+            context=f"{option_name} entry {entry_idx}", resolve_index=resolve_scan_index,
         )
-        j = resolve_scan_index(
-            q[1],
-            one_based=one_based,
-            atom_meta=atom_meta,
-            context=f"{option_name} entry {entry_idx} (j)",
-        )
-        if i == j:
+        kind = coordinate_kind(entry, is_range=True)
+        atoms = coordinate_atoms(entry, is_range=True)
+        axis_key = canonical_axis_key(kind, atoms)
+        if axis_key in seen_axes:
             raise click.BadParameter(
-                f"{option_name} entry {entry_idx} selects the same atom twice."
+                f"{option_name} entry {entry_idx} repeats scan coordinate {axis_key}."
             )
-        pair_key = tuple(sorted((i, j)))
-        if pair_key in seen_pairs:
-            raise click.BadParameter(
-                f"{option_name} entry {entry_idx} repeats atom pair "
-                f"{pair_key}; each scan axis must be unique."
-            )
-        seen_pairs.add(pair_key)
-        parsed.append((i, j, float(q[2]), float(q[3])))
-
-    for i, j, low, high in parsed:
-        if low <= 0.0 or high <= 0.0:
-            raise click.BadParameter(f"Distances must be positive: {(i, j, low, high)}")
+        seen_axes.add(axis_key)
+        parsed.append(entry)
 
     return parsed, list(obj)
 
@@ -2028,12 +1971,7 @@ def parse_scan_spec_stages(
     option_name: str = "--scan-lists",
     return_bidirectional_markers: bool = False,
 ) -> Any:
-    """Parse staged 1D scan spec into 0-based executable stages.
-
-    A stage containing only ``(i, j, target)`` entries stays simultaneous.
-    The legacy ``(i, j, start, end)`` form expands exactly like the inline
-    CLI form: snapshot before the first leg, restore before the second.
-    """
+    """Parse staged distance targets and internal-coordinate ranges."""
     spec_cfg = _load_scan_spec_root(spec_path, option_name=option_name)
     stages_key, stages_raw = _first_spec_field(spec_cfg, ("stages",))
     if stages_key is None:
@@ -2044,7 +1982,7 @@ def parse_scan_spec_stages(
     one_based = _spec_one_based(
         spec_cfg.get("one_based"), default=one_based_default, option_name=option_name
     )
-    stages: List[List[Tuple[int, int, float]]] = []
+    stages: List[List[Tuple[Any, ...]]] = []
     reset_before: set[int] = set()
     snapshot_before: set[int] = set()
     for stage_idx, stage_raw in enumerate(stages_raw, start=1):
@@ -2052,35 +1990,42 @@ def parse_scan_spec_stages(
             raise click.BadParameter(
                 f"{option_name} {stages_key}[{stage_idx}] must be a list of (i,j,target) entries."
             )
-        parsed, _ = parse_scan_list_triples(
-            repr(list(stage_raw)),
-            one_based=one_based,
-            atom_meta=atom_meta,
-            option_name=f"{option_name} {stages_key}[{stage_idx}]",
-        )
-        if not parsed:
+        if not stage_raw:
             raise click.BadParameter(
-                f"{option_name} {stages_key}[{stage_idx}] must contain at least one (i,j,target) triple."
+                f"{option_name} {stages_key}[{stage_idx}] must not be empty."
             )
-        for entry in parsed:
-            if any(float(distance) <= 0.0 for distance in entry[2:]):
-                raise click.BadParameter(
-                    f"Non-positive target distance in {option_name} "
-                    f"{stages_key}[{stage_idx}]: {entry}."
-                )
-        if any(len(entry) == 4 for entry in parsed):
-            for entry in parsed:
-                if len(entry) == 4:
-                    i, j, start, end = entry
-                    first_leg = len(stages)
-                    stages.append([(i, j, start)])
-                    snapshot_before.add(first_leg)
-                    reset_before.add(first_leg + 1)
-                    stages.append([(i, j, end)])
-                else:
-                    stages.append([entry])
-        else:
+        if all(isinstance(entry, (list, tuple)) and len(entry) == 3 for entry in stage_raw):
+            parsed, _ = parse_scan_list_triples(
+                repr(list(stage_raw)), one_based=one_based, atom_meta=atom_meta,
+                option_name=f"{option_name} {stages_key}[{stage_idx}]",
+            )
             stages.append(parsed)
+            continue
+        for entry_idx, entry in enumerate(stage_raw, start=1):
+            if isinstance(entry, (list, tuple)) and len(entry) == 3:
+                parsed_target, _ = parse_scan_list_triples(
+                    repr([entry]), one_based=one_based, atom_meta=atom_meta,
+                    option_name=f"{option_name} {stages_key}[{stage_idx}] entry {entry_idx}",
+                )
+                stages.append(parsed_target)
+                continue
+            if not isinstance(entry, (list, tuple)) or len(entry) not in (4, 5, 6):
+                raise click.BadParameter(
+                    f"{option_name} {stages_key}[{stage_idx}] entry {entry_idx} must be "
+                    "a distance target or a distance/angle/dihedral range."
+                )
+            parsed_range, _ = parse_scan_list_quads(
+                repr([entry]), expected_len=1, one_based=one_based,
+                atom_meta=atom_meta,
+                option_name=f"{option_name} {stages_key}[{stage_idx}] entry {entry_idx}",
+            )
+            parsed_entry = parsed_range[0]
+            atoms = tuple(parsed_entry[:-2])
+            first_leg = len(stages)
+            stages.append([(*atoms, float(parsed_entry[-2]))])
+            snapshot_before.add(first_leg)
+            reset_before.add(first_leg + 1)
+            stages.append([(*atoms, float(parsed_entry[-1]))])
     if return_bidirectional_markers:
         return (
             stages,
@@ -2098,8 +2043,8 @@ def parse_scan_spec_quads(
     one_based_default: bool,
     atom_meta: Optional[_Sequence[Dict[str, Any]]],
     option_name: str = "--scan-lists",
-) -> Tuple[List[Tuple[int, int, float, float]], List[Tuple[Any, Any, float, float]], bool]:
-    """Parse 2D/3D scan spec into 0-based quad tuples."""
+) -> Tuple[List[Tuple[Any, ...]], List[Tuple[Any, ...]], bool]:
+    """Parse 2D/3D scan spec into 0-based coordinate ranges."""
     spec_cfg = _load_scan_spec_root(spec_path, option_name=option_name)
     pairs_key, pairs_raw = _first_spec_field(spec_cfg, ("pairs",))
     if pairs_key is None:

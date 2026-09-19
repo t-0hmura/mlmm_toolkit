@@ -96,7 +96,7 @@ ML領域PDB pairは別の成果物であり、PDB入力では常に出力され�
    - 各完全系 PDB に対して `define-layer` を実行し、ML 領域定義に基づく 3 層 B 因子（ML=0.0、MovableMM=10.0、FrozenMM=20.0）を付与します。レイヤード全系 PDB は `<out-dir>/layered/` に書き出されます。
 
 3. **任意の段階的スキャン（単一入力のみ）**
-   - 完全入力 PDB が 1 つのみで `--scan-lists` が指定された場合、レイヤード全系 PDB に対して ML/MM calculatorを使用した段階的な結合距離駆動スキャンを実行します。
+   - 完全入力 PDB が 1 つのみで `--scan-lists` が指定された場合、レイヤード全系 PDB に対して ML/MM calculatorを使用した距離・角度・二面角の段階的scanを実行します。
    - 各ステージの最終緩和構造（`stage_XX/result.pdb`）が中間体/生成物候補として収集されます。
    - 経路探索の入力系列は `[初期レイヤード PDB, stage_01/result.pdb, stage_02/result.pdb,...]` となります。
 
@@ -284,7 +284,7 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
-| `-s, --scan-lists TEXT...` | インライン`(i,j,target_A)`リテラル。1リテラル=1ステージ、同一リテラル内の複数tupleは同期。YAML/JSONと双方向4-tupleはstandalone `scan`で使用 | _None_ |
+| `-s, --scan-lists TEXT...` | 距離`(i,j,target_A)`、角度`(i,j,k,target_deg)`、二面角`(i,j,k,l,target_deg)`のinline literal。1literal=1stage、同一literal内の複数tupleは同期 | _None_ |
 | `--scan-out-dir PATH` | スキャン出力ディレクトリの上書き。 | `<out-dir>/_work/scan` |
 | `--scan-one-based/--scan-zero-based` | スキャン原子インデックスを 1 始まりまたは 0 始まりとして解釈。 | _None_ |
 | `--scan-max-step-size FLOAT` | 最大ステップサイズ (Å)。 | `0.20` |

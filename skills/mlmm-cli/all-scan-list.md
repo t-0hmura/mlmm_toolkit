@@ -3,7 +3,7 @@
 ## When to use
 
 You have **only the reactant** (no product structure) and you can
-articulate the chemistry as a sequence of staged distance scans —
+articulate the chemistry as a sequence of staged internal-coordinate scans —
 e.g. "first push the methyl from S of SAM to C7 of GPP, then snap H11
 to OE2 of GLU186". `mlmm all` runs each stage in order, then ties
 the resulting trajectories into an MEP with single-pass `path-opt`. With
@@ -32,8 +32,9 @@ stage *k+1*.
 
 ## `--scan-lists` syntax
 
-Each argument is a Python literal-eval expression: a list of bond
-tuples, where each tuple is `(atom_a, atom_b, target_distance_Å)`.
+Each argument is a Python literal-eval expression containing distance
+`(i,j,target_Å)`, angle `(i,j,k,target_deg)`, or dihedral
+`(i,j,k,l,target_deg)` tuples.
 
 ```
 [ ("<atom-spec>", "<atom-spec>", <float>) , ... ]
@@ -65,7 +66,7 @@ Examples:
 
 | Flag | Default | Meaning |
 |---|---|---|
-| `--scan-lists` | required | One or more stages of distance-restraint scans |
+| `--scan-lists` | required | One or more distance, angle, or dihedral restraint stages |
 
 After scans complete, `mlmm all` stitches the scan trajectories with
 single-pass `path-opt` (GSM) by default; pass `--refine-path` to run the
@@ -127,7 +128,7 @@ for stage in d["stages"]:
 ## See also
 
 - `all.md` — base orientation.
-- `scan.md`, `scan2d.md`, `scan3d.md` — standalone distance scan
+- `scan.md`, `scan2d.md`, `scan3d.md` — standalone scan
   subcommands (without the surrounding pipeline).
 - `path-search.md` — what happens after all scans complete.
 - Defaults: `import mlmm.core.defaults as d; print(d.SEARCH_KW, d.STOPT_KW)`.

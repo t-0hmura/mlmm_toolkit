@@ -54,7 +54,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `-q, --charge` | int | derived from `-l` | Net ML-region/model charge override |
 | `-m, --multiplicity` | int | 1 | Spin multiplicity (2S+1) |
 | `-r, --radius` | float | 2.6 | Pocket radius (Å) when `-c` triggers extraction |
-| `--scan-lists` | repeated | none | Staged distance scans (mode 2 — `all-scan-list.md`) |
+| `--scan-lists` | repeated | none | Staged distance, angle, or dihedral targets (mode 2 — `all-scan-list.md`) |
 | `--thresh` | str | `gau` | Convergence preset for single-structure optimization and scan relaxation |
 | `--thresh-gsm` | str | `gau_loose` | Convergence preset for the GSM string optimizer |
 | `--thresh-dmf` | str/float | `tight` | DMF IPOPT dual-infeasibility tolerance: `tight`, `middle`, `loose`, or a positive float |
@@ -86,7 +86,7 @@ Single -i input.{xyz,pdb,cif,mmcif} + --tsopt (no --scan-lists)
     └── all-ts-only.md     (TS candidate; tsopt+IRC, plus freq with --thermo)
 
 Single -i input.pdb + --scan-lists '...'
-    └── all-scan-list.md   (single reactant + staged distance scans)
+    └── all-scan-list.md   (single reactant + staged internal-coordinate scans)
 
 Multiple -i 1.R.pdb [2.IM.pdb ...] N.P.pdb (reaction-ordered)
     └── all-endpoint-mep.md (multi-endpoint MEP)

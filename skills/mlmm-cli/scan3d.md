@@ -45,7 +45,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | flag | type | default | description |
 |---|---|---|---|
 | `-i, --input` | path | required (unless `--csv`) | Reactant `.pdb` / `.xyz` |
-| `-s, --scan-lists` | str | required (unless `--csv`) | Python literal with **three** quadruples `(i,j,low,high)` |
+| `-s, --scan-lists` | str | required (unless `--csv`) | Three distance, angle, or dihedral ranges, inline or in YAML/JSON |
 | `--csv` | path | none | Skip the scan; load a precomputed `surface.csv` for downstream plotting |
 | `-q` / `-l` / `-m` | — | — | Charge / spin |
 | `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |

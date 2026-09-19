@@ -41,7 +41,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | flag | type | default | description |
 |---|---|---|---|
 | `-i, --input` | path | required | Reactant `.pdb` / `.xyz` |
-| `-s, --scan-lists` | str | required | Inline Python literal containing **two** quadruples `(i,j,low,high)`, one per axis (`low..high` range scanned), or a YAML/JSON spec file. |
+| `-s, --scan-lists` | str | required | Two distance `(i,j,low,high)`, angle `(i,j,k,low,high)`, or dihedral `(i,j,k,l,low,high)` ranges, inline or in YAML/JSON. |
 | `-q` / `-l` / `-m` | — | — | Charge / spin |
 | `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |
 | `-o, --out-dir` | path | `./result_scan2d/` | Output directory |

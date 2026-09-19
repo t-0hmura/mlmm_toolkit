@@ -65,7 +65,7 @@ def test_grid_scan_rejects_self_and_duplicate_axes(raw) -> None:
         )
 
 
-def test_scan_spec_expands_bidirectional_stage_with_reset_markers(tmp_path) -> None:
+def test_scan_spec_expands_bidirectional_distance_with_reset_markers(tmp_path) -> None:
     spec = tmp_path / "scan.yaml"
     spec.write_text(
         "one_based: true\n"
@@ -87,14 +87,46 @@ def test_scan_spec_expands_bidirectional_stage_with_reset_markers(tmp_path) -> N
     assert resets == frozenset({1})
 
 
-def test_all_rejects_bidirectional_scan_tuple_cleanly() -> None:
+def test_scan_spec_expands_angle_range_with_reset_markers(tmp_path) -> None:
+    spec = tmp_path / "scan.yaml"
+    spec.write_text(
+        "one_based: true\n"
+        "stages:\n"
+        "  - [[1, 2, 3, 80.0, 120.0]]\n",
+        encoding="utf-8",
+    )
+    stages, one_based, snapshots, resets = parse_scan_spec_stages(
+        spec, one_based_default=False, atom_meta=None,
+        return_bidirectional_markers=True,
+    )
+    assert one_based is True
+    assert stages == [[(0, 1, 2, 80.0)], [(0, 1, 2, 120.0)]]
+    assert snapshots == frozenset({0})
+    assert resets == frozenset({1})
+
+
+def test_scan_spec_keeps_mixed_target_and_range_order(tmp_path) -> None:
+    spec = tmp_path / "scan.yaml"
+    spec.write_text(
+        "stages:\n"
+        "  - [[1, 2, 1.4], [2, 3, 1.2, 1.8]]\n",
+        encoding="utf-8",
+    )
+    stages, _, snapshots, resets = parse_scan_spec_stages(
+        spec, one_based_default=True, atom_meta=None,
+        return_bidirectional_markers=True,
+    )
+    assert stages == [[(0, 1, 1.4)], [(1, 2, 1.2)], [(1, 2, 1.8)]]
+    assert snapshots == frozenset({1})
+    assert resets == frozenset({2})
+
+
+def test_all_accepts_angle_and_dihedral_scan_targets() -> None:
     from mlmm.workflows.all import _parse_scan_lists_literals
 
-    with pytest.raises(click.BadParameter, match="inline .* scan triples only"):
-        _parse_scan_lists_literals(
-            ("[(1,2,1.2,1.6)]",),
-            one_based=True,
-        )
+    assert _parse_scan_lists_literals(
+        ("[(1,2,3,110.0),(1,2,3,4,-60.0)]",), one_based=True,
+    ) == [[(1, 2, 3, 110.0), (1, 2, 3, 4, -60.0)]]
 
 
 def test_all_rejects_scan_spec_file_cleanly(tmp_path: Path) -> None:

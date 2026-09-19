@@ -4,6 +4,9 @@ The calculator uses the selected MM backend: `hessian_ff` by default, or OpenMM.
 
 Perform a two-distance (d1, d2) grid scan with harmonic restraints and ML/MM relaxations on a layered enzyme structure. Input may be PDB/mmCIF, or XYZ with `--ref-pdb`. It maps a 2D potential-energy surface across two reactive distances (e.g., bond formation and cleavage) and can identify candidate saddle regions or bifurcation features for subsequent TS optimization. `mlmm scan2d` constructs linear grids for two bond distances using `--max-step-size`, relaxes each grid point with the appropriate restraints active, and records unbiased ML/MM energies for visualization. Pass `-s/--scan-lists` a YAML/JSON spec file (recommended) or an inline Python literal; both forms accept exactly two scan axes. The 3D `scan2d_landscape.html` includes a bottom contour projection.
 
+Either axis may instead be an angle `(i,j,k,low,high)` or dihedral
+`(i,j,k,l,low,high)`. Angular ranges use degrees.
+
 ## Examples
 
 Command form:
@@ -98,11 +101,13 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze. | _None_ |
 | `--movable-cutoff FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. Providing this disables `--detect-layer`. | _None_ |
-| `-s, --scan-lists TEXT` | Scan targets: a YAML/JSON spec file path (auto-detected, with `pairs` containing 2 quadruples) or an inline Python literal `"[(i1,j1,low1,high1),(i2,j2,low2,high2)]"`. Indices can be integers or PDB atom selectors. | Required |
+| `-s, --scan-lists TEXT` | Two distance, angle, or dihedral ranges in YAML/JSON or one inline Python literal. Indices can be integers or PDB atom selectors. | Required |
 | `--one-based / --zero-based` | Interpret `(i,j)` indices in `-s/--scan-lists` as 1-based or 0-based. | `True` (1-based) |
 | `--print-parsed/--no-print-parsed` | Print parsed pair tuples after `-s/--scan-lists` resolution. | `False` |
 | `--max-step-size FLOAT` | Maximum distance increment per step (Å). Determines grid density. | `0.20` |
-| `--bias-k FLOAT` | Harmonic well strength k (eV/Å²). | `300.0` |
+| `--max-angle-step-size FLOAT` | Maximum angle change per step (degrees). | `5.0` |
+| `--max-dihedral-step-size FLOAT` | Maximum dihedral change per step (degrees). | `10.0` |
+| `--bias-k FLOAT` | Harmonic well strength: eV/Å² for distances and eV/rad² for angles. | `300.0` |
 | `--relax-max-cycles INT` | L-BFGS cycle cap per biased relaxation. | `100000` |
 | `--dump/--no-dump` | Write inner d2 scan TRJs per d1 slice. | `False` |
 | `-o, --out-dir TEXT` | Base output directory. | `./result_scan2d/` |
@@ -133,15 +138,15 @@ pairs:
  - [10, 55, 1.20, 3.20]
 ```
 
-- `pairs` is required and must contain exactly 2 quadruples.
-- Each quadruple is `(i, j, low_A, high_A)`.
+- `pairs` is required and must contain exactly 2 coordinate ranges.
+- A range is distance `(i,j,low,high)`, angle `(i,j,k,low,high)`, or dihedral `(i,j,k,l,low,high)`.
 - Indices may be integers or PDB selectors (same as inline literals).
 
 ### Inline literal format
 
 When `-s/--scan-lists` receives a value that is not a file path, it is treated as a **single Python literal** string. Shell quoting matters.
 
-The literal is a Python list of exactly **two** quadruples `(atom1, atom2, low_A, high_A)`:
+The literal is a Python list of exactly **two** coordinate ranges:
 
 ```
 -s '[(atom1, atom2, low_A, high_A), (atom3, atom4, low_A, high_A)]'
