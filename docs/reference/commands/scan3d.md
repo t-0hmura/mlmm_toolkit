@@ -3,7 +3,7 @@
 ```text
 Usage: mlmm scan3d [OPTIONS]
 
-  3D distance scan with harmonic restraints using the ML/MM calculator.
+  3D internal-coordinate scan with harmonic restraints using ML/MM.
 
 Options:
   -v, --verbose LEVEL             Console verbosity 0-3 (default 2). 0=silent;
@@ -40,8 +40,11 @@ Options:
                                   MM atoms. MM atoms beyond this are frozen.
                                   Providing --movable-cutoff disables --detect-
                                   layer.  [default: (use freeze_atoms)]
-  -s, --scan-lists TEXT           Scan targets: inline Python literal or a
-                                  YAML/JSON spec file path.
+  -s, --scan-lists TEXT           Three scan ranges as an inline literal or
+                                  YAML/JSON file: distance (i,j,low,high), angle
+                                  (i,j,k,low,high), or dihedral
+                                  (i,j,k,l,low,high). Distances use Å; angles
+                                  and dihedrals use degrees.
   --csv FILE                      Plot-only mode: load a precomputed surface.csv
                                   and skip the 3D scan.
   --print-parsed / --no-print-parsed
@@ -60,8 +63,9 @@ Options:
                                   High-level backend for the ONIOM model region.
                                   [default: (uma)]
   --embedcharge / --no-embedcharge
-                                  Enable electrostatic embedding: MLIP backends
-                                  use the experimental xTB point-charge delta;
+                                  Enable electrostatic embedding. MLIP backends
+                                  use the experimental, computationally
+                                  expensive xTB point-charge delta correction;
                                   dft uses native PySCF MM point charges.
                                   [default: no-embedcharge]
   --embedcharge-cutoff FLOAT      Distance cutoff (Å) from the ML region for MM
@@ -69,8 +73,7 @@ Options:
                                   (12.0)]
   --link-atom-method [scaled|fixed]
                                   Link-atom position mode: scaled (g-factor) or
-                                  fixed (legacy 1.09/1.01 Å).  [default:
-                                  (scaled)]
+                                  fixed (1.09/1.01 Å).  [default: (scaled)]
   --mm-backend [hessian_ff|openmm]
                                   MM backend. MM Hessians use finite differences
                                   by default; set calc.mm_fd: false for the
@@ -81,11 +84,18 @@ Options:
                                   (cmap)]
   --out-json / --no-out-json      Write machine-readable result.json to out_dir.
                                   [default: no-out-json]
-  --one-based / --zero-based      Interpret (i,j) indices in --scan-lists as
+  --one-based / --zero-based      Interpret atom indices in --scan-lists as
                                   1-based or 0-based.  [default: one-based]
-  --max-step-size FLOAT           Maximum spacing between successive distance
-                                  targets [Å].  [default: 0.2]
-  --bias-k FLOAT                  Harmonic well strength k [eV/Å^2]. YAML bias.k
+  --max-step-size FLOAT           Maximum scanned distance change per step [Å].
+                                  [default: 0.2]
+  --max-angle-step-size FLOAT RANGE
+                                  Maximum scanned angle change per step
+                                  [degree].  [default: 5.0; x>0.0]
+  --max-dihedral-step-size FLOAT RANGE
+                                  Maximum scanned dihedral change per step
+                                  [degree].  [default: 10.0; x>0.0]
+  --bias-k FLOAT                  Harmonic well strength k [eV/Å^2 for
+                                  distances; eV/rad^2 for angles]. YAML bias.k
                                   applies when this option is omitted; explicit
                                   CLI wins.  [default: (300.0)]
   --relax-max-cycles INTEGER RANGE

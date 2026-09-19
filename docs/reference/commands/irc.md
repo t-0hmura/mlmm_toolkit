@@ -80,8 +80,9 @@ Options:
                                   High-level backend for the ONIOM model region.
                                   [default: (uma)]
   --embedcharge / --no-embedcharge
-                                  Enable electrostatic embedding: MLIP backends
-                                  use the experimental xTB point-charge delta;
+                                  Enable electrostatic embedding. MLIP backends
+                                  use the experimental, computationally
+                                  expensive xTB point-charge delta correction;
                                   dft uses native PySCF MM point charges.
                                   [default: no-embedcharge]
   --embedcharge-cutoff FLOAT      Distance cutoff (Å) from the ML region for MM

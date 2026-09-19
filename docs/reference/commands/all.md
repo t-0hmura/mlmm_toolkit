@@ -282,15 +282,12 @@ Options:
   --dft-grid-level INTEGER        Override dft --grid-level value.  [default:
                                   (3)]
   --dft-engine [gpu|cpu]          Override dft --engine value.  [default: (gpu)]
-  -s, --scan-lists TEXT           Scan targets: inline Python literals
-                                  containing (i,j,target) triples. Multiple
-                                  literals define sequential stages, e.g.
-                                  "[(12,45,1.35)]"
-                                  "[(10,55,2.20),(23,34,1.80)]". Use standalone
-                                  mlmm scan for YAML/JSON or bidirectional
-                                  4-tuples. Indices refer to the original full
-                                  PDB (1-based) or PDB atom selectors like
-                                  "TYR,285,CA".
+  -s, --scan-lists TEXT           Scan targets: distance (i,j,target), angle
+                                  (i,j,k,target), or dihedral (i,j,k,l,target).
+                                  Multiple inline literals define sequential
+                                  stages. Distances use Å; angles and dihedrals
+                                  use degrees. Indices refer to the original
+                                  full PDB (1-based) or PDB atom selectors.
   --scan-out-dir DIRECTORY        Override the scan output directory (default:
                                   <out-dir>/_work/scan). Relative paths are
                                   resolved against the default parent.
