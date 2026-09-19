@@ -2286,7 +2286,7 @@ def _enrich_summary(
                 ("summary.log", "Human-readable results summary"),
                 ("summary.json", "Machine-readable results summary"),
                 ("mep_trj.xyz", "Full MEP trajectory"),
-                ("mep.pdb", "Full MEP as PDB"),
+                ("mep_trj.pdb", "Full MEP as PDB"),
                 ("mep.cif", "Full MEP with original mmCIF identifiers"),
                 ("energy_diagram_MEP.png", "MEP energy plot"),
                 ("mep_plot.png", "MEP energy plot (trj2fig)"),
@@ -5734,6 +5734,9 @@ def cli(
         return
 
     out_dir = out_dir.resolve()
+    # Remove the pre-0.4 aggregate trajectory name so a resumed output tree
+    # cannot present both the retired and canonical filenames.
+    (out_dir / "mep.pdb").unlink(missing_ok=True)
     work_dir = out_dir / WORK_DIRNAME  # pipeline-wide scratch (safe to rm -rf)
     session.resources.own_exclusive_lock(work_dir / ".run.lock")
     input_paths = _materialize_all_coordinate_inputs(
@@ -5749,7 +5752,7 @@ def cli(
         "summary.json",
         "mep_trj.xyz",
         "mep.xyz",
-        "mep.pdb",
+        "mep_trj.pdb",
         "mep.cif",
         "ml_region.pdb",
         "ml_region_without_linkH.xyz",
@@ -7823,7 +7826,7 @@ def cli(
         # PDB conversion of concatenated trajectory
         try:
             if convert_files and mep_ref_pdb is not None:
-                mep_pdb_dest = path_dir / "mep.pdb"
+                mep_pdb_dest = path_dir / "mep_trj.pdb"
                 mep_pdb_path = _path_search._maybe_convert_to_pdb(
                     final_trj,
                     ref_pdb_path=mep_ref_pdb,
@@ -7994,7 +7997,7 @@ def cli(
     _echo_section(f"====== [all] Stage 3/{stage_total} — Core MEP outputs ======")
     _echo_detail(f"[all] Final products can be found under: {out_dir}")
     _echo_detail("  - mep_trj.xyz              (concatenated MEP trajectory)")
-    _echo_detail("  - mep.pdb / mep.cif        (coordinate companions when topology is available)")
+    _echo_detail("  - mep_trj.pdb / mep.cif        (coordinate companions when topology is available)")
     _echo_detail("  - summary.json             (segment barriers, ΔE, bond changes)")
     _echo_detail("  - mep_plot.png / energy_diagram_MEP.png / summary.log")
     _echo_detail(f"[all] Raw per-segment MEP-engine files stay under: {path_dir}")

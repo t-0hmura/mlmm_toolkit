@@ -82,7 +82,7 @@ Same overall tree as in `all.md`, plus per-stage scan output:
 
 ```
 result_scan/
-├── mep.pdb / mep.cif / mep_trj.xyz # CIF companion for bridged input
+├── mep_trj.pdb / mep.cif / mep_trj.xyz # CIF companion for bridged input
 ├── segments/
 │   └── seg_NN/                     # canonical R/TS/P + post-processing per segment
 └── _work/                          # pipeline scratch

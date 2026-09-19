@@ -108,7 +108,7 @@ ML領域PDB pairは別の成果物であり、PDB入力では常に出力され�
    - マルチ入力実行では、元の完全 PDB がマージ参照として自動的に供給されます。スキャン由来の系列（単一構造の場合）では、元の完全 PDB 1 つがすべての入力の参照テンプレートとして再利用されます。
 
 5. **サマリーと任意の後処理**
-   - MEP エンジン生出力（セグメントごとの軌跡、全 MEP 軌跡、エンジンの `summary.json`）は `<out-dir>/_work/path_opt/`（`--refine-path` 使用時は `<out-dir>/_work/path_search/`）に書き出され、マージ済み成果物（`mep.pdb`、bridge 入力時の `mep.cif`、`mep_trj.xyz`、`mep_plot.png`、`energy_diagram_MEP.png`）は `<out-dir>/` へ移動され、`summary.{json,log}` はコピーされます。
+   - MEP エンジン生出力（セグメントごとの軌跡、全 MEP 軌跡、エンジンの `summary.json`）は `<out-dir>/_work/path_opt/`（`--refine-path` 使用時は `<out-dir>/_work/path_search/`）に書き出され、マージ済み成果物（`mep_trj.pdb`、bridge 入力時の `mep.cif`、`mep_trj.xyz`、`mep_plot.png`、`energy_diagram_MEP.png`）は `<out-dir>/` へ移動され、`summary.{json,log}` はコピーされます。
    - `--tsopt`: 各 HEI で TS を最適化します。TS 判定を通過した後、EulerPC IRC とセグメントエネルギーダイアグラムへ進みます。`--thermo` と `--dft` にも `--tsopt` が必要です。
    - `--thermo`: (R, TS, P) で ML/MM 熱化学を計算し、Gibbs ダイアグラムを追加します。
    - `--dft`: (R, TS, P) のモデル領域で DFT 一点計算を実行し、モデル DFT 電子エネルギーダイアグラムを追加します。`--thermo` と組み合わせると、subtractive DFT//MLIP/MM 全エネルギーに ML/MM 熱補正を加えた DFT//MLIP/MM Gibbs ダイアグラムも生成されます。大規模な本計算では、まずMLIP pipelineを完了し、VRAMを解放した別process/jobで`sp -b dft`を実行することを推奨します。`all -b dft --dft`は主DFT計算を重複するためエラーです。
@@ -127,13 +127,13 @@ ML領域PDB pairは別の成果物であり、PDB入力では常に出力され�
 
 ## 出力
 
-ツリーは 3 つのゾーンで構成されます: **ルート直下の成果物**、**`segments/seg_NN/` 配下のセグメント別成果物**、**`_work/` 配下のパイプライン作業領域**（結果を取り出したあとは削除して構いません）。最初に確認する 3 つは `summary.log`、`summary.json`、`mep.pdb`（連結した反応経路。ルートへ移動）です。CIF/mmCIF bridge 入力では、元の識別子を復元した `mep.cif` もルートへ移動します。
+ツリーは 3 つのゾーンで構成されます: **ルート直下の成果物**、**`segments/seg_NN/` 配下のセグメント別成果物**、**`_work/` 配下のパイプライン作業領域**（結果を取り出したあとは削除して構いません）。最初に確認する 3 つは `summary.log`、`summary.json`、`mep_trj.pdb`（連結した反応経路。ルートへ移動）です。CIF/mmCIF bridge 入力では、元の識別子を復元した `mep.cif` もルートへ移動します。
 
 ```text
 <out-dir>/
  summary.json                          # トップレベルサマリーのミラー（MEP ステージ実行時）
  summary.log
- mep.pdb · mep.cif                     # CIF は bridge 入力で元の ID を復元
+ mep_trj.pdb · mep.cif                     # CIF は bridge 入力で元の ID を復元
  mep_trj.xyz
  mep_plot.png                          # MEP 生エネルギープロファイル
  energy_diagram_MEP.png                # 全セグメント MEP 障壁

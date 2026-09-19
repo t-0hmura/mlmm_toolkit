@@ -35,7 +35,7 @@ def copy_path_outputs_to_root(
         for name in (
             "mep_plot.png",
             "energy_diagram_MEP.png",
-            "mep.pdb",
+            "mep_trj.pdb",
             "mep.cif",
         ):
             if name.endswith(".png") and image_names is not None and name not in image_names:
@@ -178,7 +178,7 @@ def build_pipeline_summary_payload(
     mep_info = {
         "n_images": summary.get("n_images"),
         "n_segments": summary.get("n_segments"),
-        "traj_pdb": str(out_dir / "mep.pdb") if (path_dir / "mep.pdb").exists() else None,
+        "traj_pdb": str(out_dir / "mep_trj.pdb") if (path_dir / "mep_trj.pdb").exists() else None,
         "mep_plot": str(out_dir / "mep_plot.png") if (path_dir / "mep_plot.png").exists() else None,
         "diagram": diag_for_log,
     }

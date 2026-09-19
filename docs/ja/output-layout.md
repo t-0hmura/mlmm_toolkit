@@ -12,7 +12,7 @@
 | `run.log` | コマンドへ到達し、出力ディレクトリが作られた CLI / Colab 実行 | shell-safe な実行コマンドと、コマンド実行中の標準出力・標準エラー。早期の Click 検証、help、version、dry-run、出力先が単一ファイルのユーティリティでは生成しません。 |
 | `summary.log` | `path-search`、`all` | 実行要約（セグメント / ステージごとに 1 行）。 |
 | `final_geometry.xyz` | `opt`、`tsopt` | 最適化された構造（XYZ、フル精度）。 |
-| `mep.pdb` / `mep.cif` / `mep_trj.xyz` | `path-search`、`all` | 反応経路のフレーム。bridge 入力では `mep.cif` が元の ID を復元します。単独実行の `path-opt` は代わりに `final_geometries_trj.xyz` / `final_geometries.pdb` を書き込みます。 |
+| `mep_trj.pdb` / `mep.cif` / `mep_trj.xyz` | `path-search`、`all` | 反応経路のフレーム。bridge 入力では `mep.cif` が元の ID を復元します。単独実行の `path-opt` は代わりに `final_geometries_trj.xyz` / `final_geometries.pdb` を書き込みます。 |
 | `ml_region_without_linkH.{xyz,pdb}` / `ml_region_with_linkH.{xyz,pdb}` | `all`、`dft` | parm7 の ML/MM 境界結合からリンク H を生成する前後の ML モデル。PDB companion は PDB 入力時に出力します。 |
 | `mep_plot.png` | `path-search`、`all` | 生の MEP エネルギープロファイル（PNG）。`all` はエンジン出力からルートにコピーします。 |
 | `forward_irc_trj.xyz` / `backward_irc_trj.xyz`（および `finished_irc_trj.xyz`） | `irc` | IRC 軌跡（XYZ）。対応する `*_irc.pdb` ファイルが同じフレームを PDB 形式で保持します。 |
@@ -42,14 +42,14 @@
 
 単独実行では `result_<subcmd>/` に出力します。`all` では、セグメントごとの後処理結果を同じファイル構成で `segments/seg_NN/<subcmd>/` に配置します。
 
-- **`path-search` / `path-opt` はエンジン側の例外です。** 単独実行では `path-search` 自体が成果物となります（`result_path_search/` に独自の `summary.log`、`mep.pdb`、bridge 入力時の `mep.cif`、`mep_trj.xyz`、`mep_plot.png`、`energy_diagram_MEP.png` を持ちます）。`all` の内部では、その生の出力は `_work/path_opt/` 以下のエンジン用スクラッチであり（`--refine-path` 指定時のみ `_work/path_search/`）、マージされた成果物（`mep.pdb`、bridge 入力時の `mep.cif`、`mep_trj.xyz`、`mep_plot.png`、`energy_diagram_MEP.png`）はパイプラインのルートに移動され、`summary.{json,log}` がそこにコピーされます。この非対称性は意図的なものです。
+- **`path-search` / `path-opt` はエンジン側の例外です。** 単独実行では `path-search` 自体が成果物となります（`result_path_search/` に独自の `summary.log`、`mep_trj.pdb`、bridge 入力時の `mep.cif`、`mep_trj.xyz`、`mep_plot.png`、`energy_diagram_MEP.png` を持ちます）。`all` の内部では、その生の出力は `_work/path_opt/` 以下のエンジン用スクラッチであり（`--refine-path` 指定時のみ `_work/path_search/`）、マージされた成果物（`mep_trj.pdb`、bridge 入力時の `mep.cif`、`mep_trj.xyz`、`mep_plot.png`、`energy_diagram_MEP.png`）はパイプラインのルートに移動され、`summary.{json,log}` がそこにコピーされます。この非対称性は意図的なものです。
 
 したがって `all` のツリーには 3 つのゾーンがあります。
 
 ```text
 result_all/
 ├─ summary.log · summary.json                 # ルートへコピー
-├─ mep.pdb · mep.cif · mep_trj.xyz · mep_plot.png · energy_diagram_MEP.png
+├─ mep_trj.pdb · mep.cif · mep_trj.xyz · mep_plot.png · energy_diagram_MEP.png
 ├─ energy_diagram_*_all.png · irc_plot_all.png
 ├─ ml_region.pdb                              # ML-region definition (reusable as --model-pdb)
 ├─ ml_region_without_linkH.{xyz,pdb} · ml_region_with_linkH.{xyz,pdb}

@@ -1590,7 +1590,7 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
         "ml_region.pdb": "ML-region definition — reuse via --model-pdb",
         "ml_region_without_linkH.xyz": "ML-region coordinates without link H",
         "ml_region_with_linkH.xyz": "ML-region coordinates with parm7-derived link H",
-        "mep.pdb": "Full MEP as single PDB (all segments)",
+        "mep_trj.pdb": "Full MEP as single PDB (all segments)",
         "mep_trj.xyz": "Full MEP as XYZ trajectory",
         "mep_plot.png": "DFT/MM MEP energy plot" if primary_is_dft else "ML/MM MEP energy plot",
         "energy_diagram_MEP.png": "Compressed MEP diagram",

@@ -59,7 +59,7 @@ out_dir/ (default: ./result_path_search/)
  summary.json # MEP-level run summary (no full settings dump)
  summary.log # Human-readable summary
  mep_trj.xyz # Final MEP (always written)
- mep.pdb # Final MEP (PDB when ref template available)
+ mep_trj.pdb # Final MEP (PDB when ref template available)
  mep_seg_XX_trj.xyz / mep_seg_XX.pdb # Per-segment paths
  hei_seg_XX.xyz / hei_seg_XX.pdb # HEI per bond-change segment
  mep_plot.png # Delta-E profile vs image index (from trj2fig)

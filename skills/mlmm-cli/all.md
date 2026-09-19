@@ -100,7 +100,7 @@ A single input without either `--scan-lists` or `--tsopt` is rejected.
 result_all/
 ├── summary.json                    # machine-readable per-stage results
 ├── summary.log                     # human-readable text + dir tree
-├── mep.pdb / mep.cif / mep_trj.xyz # CIF companion for bridged input
+├── mep_trj.pdb / mep.cif / mep_trj.xyz # CIF companion for bridged input
 ├── mep_plot.png / energy_diagram_MEP.png
 ├── ml_region.pdb / mm_parm/ / layered/   # reusable ONIOM setup (--model-pdb / --parm inputs)
 ├── ml_region_without_linkH.{xyz,pdb}      # exact ML selection; PDB companion for PDB input
@@ -119,7 +119,7 @@ result_all/
 └── _work/                          # pipeline scratch (safe to delete)
     ├── pockets/ / scan/ / add_elem_info/
     └── path_opt/                   # raw MEP-engine output; absent in TS-only mode
-        ├── seg_NN_mep/ / hei_seg_NN.* / mep_trj.xyz / mep.pdb
+        ├── seg_NN_mep/ / hei_seg_NN.* / mep_trj.xyz / mep_trj.pdb
         └── energy_diagram_*.png
 ```
 

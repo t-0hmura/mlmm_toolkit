@@ -1151,7 +1151,7 @@ def test_copy_path_outputs_copies_known_artefacts(tmp_path: Path) -> None:
     src.mkdir()
     dst.mkdir()
     (src / "mep_plot.png").write_text("dummy-png")
-    (src / "mep.pdb").write_text("dummy-pdb")
+    (src / "mep_trj.pdb").write_text("dummy-pdb")
     (src / "mep.cif").write_text("dummy-cif")
     (src / "summary.json").write_text("{}")
     (src / "mep_trj.xyz").write_text("xyz")
@@ -1160,7 +1160,7 @@ def test_copy_path_outputs_copies_known_artefacts(tmp_path: Path) -> None:
     copy_path_outputs_to_root(src, dst)
 
     assert (dst / "mep_plot.png").read_text() == "dummy-png"
-    assert (dst / "mep.pdb").read_text() == "dummy-pdb"
+    assert (dst / "mep_trj.pdb").read_text() == "dummy-pdb"
     assert (dst / "mep.cif").read_text() == "dummy-cif"
     assert (dst / "summary.json").read_text() == "{}"
     assert (dst / "mep_trj.xyz").read_text() == "xyz"

@@ -161,7 +161,7 @@ filter can cancel an unrelated job in the same account.
 a fresh `result_all/`. Several stages support manual continuation:
 
 - `tsopt`, `freq`, `irc`, `dft` — re-run on the previous output.
-- `path-search` — needs **≥2** input structures (reactant/product endpoints); pass them as repeated `-i` (a lone `mep.pdb` is rejected).
+- `path-search` — needs **≥2** input structures (reactant/product endpoints); pass them as repeated `-i` (a lone `mep_trj.pdb` is rejected).
 
 For walltime-truncated jobs, write the per-stage outputs to a
 persistent location and resume from the last completed stage.

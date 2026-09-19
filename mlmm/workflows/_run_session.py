@@ -486,7 +486,7 @@ def current_key_output_files(
         "summary.json": "Machine-readable results summary",
         "mep_trj.xyz": "Full MEP trajectory",
         "mep.xyz": "MEP trajectory",
-        "mep.pdb": "Full MEP as PDB",
+        "mep_trj.pdb": "Full MEP as PDB",
         "mep.cif": "Full MEP with original mmCIF identifiers",
         "ml_region.pdb": "Reusable ML-region model",
         "energy_diagram_MEP.png": "MEP energy plot",

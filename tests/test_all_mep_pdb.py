@@ -141,10 +141,9 @@ def test_all_path_opt_mep_pdb_publication(tmp_path: Path, monkeypatch, case: str
     assert "energy_diagram_MEP.png" not in summary["key_output_files"]
     assert summary["n_images"] == 3 and summary["n_segments"] == 2
     assert (out / "mep_trj.xyz").read_text() == "".join(_frame(i) for i in range(3))
-    assert not (out / "mep_trj.pdb").exists()
-    assert (out / "mep.pdb").exists() is convert
-    assert ("mep.pdb" in summary["key_output_files"]) is convert
-    assert ("output.public.mep.pdb" in manifest["produced"]) is convert
+    assert (out / "mep_trj.pdb").exists() is convert
+    assert ("mep_trj.pdb" in summary["key_output_files"]) is convert
+    assert ("output.public.mep_trj.pdb" in manifest["produced"]) is convert
     path_dir = out / "_work/path_opt"
     labels = ["RAW", "MID"] if case == "direct_pdb" else ["RAW", "S01"]
     if case == "direct_pdb":
@@ -160,4 +159,4 @@ def test_all_path_opt_mep_pdb_publication(tmp_path: Path, monkeypatch, case: str
         if convert:
             _assert_pdb(segment_pdb, [index - 1, index], labels[index - 1])
     if convert:
-        _assert_pdb(out / "mep.pdb", [0, 1, 2], labels[0])
+        _assert_pdb(out / "mep_trj.pdb", [0, 1, 2], labels[0])

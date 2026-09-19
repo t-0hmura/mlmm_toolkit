@@ -68,7 +68,7 @@ out_dir/ (デフォルト:./result_path_search/)
  summary.json # MEP レベルの実行サマリー（完全設定ダンプなし）
  summary.log # 実行要約
  mep_trj.xyz # 最終 MEP（常に書き出し）
- mep.pdb # 最終 MEP（参照テンプレート利用可能時は PDB）
+ mep_trj.pdb # 最終 MEP（参照テンプレート利用可能時は PDB）
  mep_seg_XX_trj.xyz / mep_seg_XX.pdb # セグメント別経路
  hei_seg_XX.xyz / hei_seg_XX.pdb # 結合変化セグメントごとの HEI
  mep_plot.png # イメージインデックスに対する Delta-E プロファイル（trj2fig より）

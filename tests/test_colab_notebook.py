@@ -6967,7 +6967,7 @@ def test_results_pdb_mep_preserves_models_metadata_and_energy_click(
     app, _ = _execute_app(monkeypatch, tmp_path)
     coordinates = [((0.0, 0.0, 0.0), (0.75724, 0.586, 0.0)),
                    ((0.1, 0.0, 0.0), (0.80148, 0.586, 0.0))]
-    pdb = _write_result_pdb(tmp_path / "mep.pdb", coordinates)
+    pdb = _write_result_pdb(tmp_path / "mep_trj.pdb", coordinates)
     xyz = _write_result_xyz(tmp_path / "mep_trj.xyz", coordinates, [-10.0, -9.99])
     summary = tmp_path / "summary.json"
     summary.write_text(json.dumps({"segments": [
@@ -7006,7 +7006,7 @@ def test_results_pdb_never_borrows_mismatched_or_unowned_xyz_energy(
     app, _ = _execute_app(monkeypatch, tmp_path)
     coordinates = [((0., 0., 0.), (0.7, 0., 0.)),
                    ((0., 0., 0.), (0.8, 0., 0.))]
-    pdb = _write_result_pdb(tmp_path / "mep.pdb", coordinates)
+    pdb = _write_result_pdb(tmp_path / "mep_trj.pdb", coordinates)
     xyz_coordinates = coordinates[:1] if mismatch == "frames" else list(coordinates)
     if mismatch == "coordinates":
         xyz_coordinates[1] = ((0., 0., 0.), (0.9, 0., 0.))
@@ -7035,7 +7035,7 @@ def test_results_pdb_missing_or_damaged_retains_xyz_fallback(
     assert app["_result_view_candidates"]([str(xyz)], str(tmp_path), "path-search")[0][1] == str(xyz)
     app["_load_trajectory"](str(xyz), str(tmp_path))
     assert app["_TRAJ"]["energies"] == [-10., -9.]
-    pdb = tmp_path / "mep.pdb"
+    pdb = tmp_path / "mep_trj.pdb"
     pdb.write_text("MODEL        1\n", encoding="utf-8")
     app["S"]["_last_files"].append(str(pdb))
     app["_load_trajectory"](str(pdb), str(tmp_path))

@@ -116,7 +116,7 @@ artifact and is always written for PDB input.
    - **`--no-refine-path` (default)** runs `path-opt` with the selected optimizer per adjacent pair, then concatenates trajectories, extracts the HEI per segment, detects bond changes, and writes `summary.json`. Both modes support Stage 5 post-processing.
    - For multi-input runs, the original full PDBs are supplied as merge references automatically. In the scan-derived series (single-structure case), the single original full PDB is reused as the reference template.
 5. **Summary and optional post-processing**
-   - The raw MEP-engine output (per-segment trajectories, the full MEP trajectory, and the engine `summary.json`) is written under `<out-dir>/_work/path_opt/` (or `<out-dir>/_work/path_search/` with `--refine-path`); the merged products (`mep.pdb`, optional `mep.cif`, `mep_trj.xyz`, `mep_plot.png`, `energy_diagram_MEP.png`) are moved to `<out-dir>/` and `summary.{json,log}` copied there.
+   - The raw MEP-engine output (per-segment trajectories, the full MEP trajectory, and the engine `summary.json`) is written under `<out-dir>/_work/path_opt/` (or `<out-dir>/_work/path_search/` with `--refine-path`); the merged products (`mep_trj.pdb`, optional `mep.cif`, `mep_trj.xyz`, `mep_plot.png`, `energy_diagram_MEP.png`) are moved to `<out-dir>/` and `summary.{json,log}` copied there.
    - `--tsopt` runs TS optimization on each HEI. After the TS gate, `all` continues with EulerPC IRC and segment energy diagrams. Both `--thermo` and `--dft` require `--tsopt`.
    - `--thermo` computes ML/MM thermochemistry on (R, TS, P) and adds a Gibbs diagram.
    - `--dft` runs model-region DFT single-points on (R, TS, P) and adds a model-DFT electronic diagram. With `--thermo`, the subtractive DFT//MLIP/MM total plus the ML/MM thermal correction produces the DFT//MLIP/MM Gibbs diagram. For large production calculations, finish the MLIP pipeline first and run `sp -b dft` later in a separate process/job so the DFT step starts with released VRAM. `all -b dft --dft` is rejected because it would repeat the primary DFT calculation.
@@ -134,13 +134,13 @@ finite output.
 
 ## Outputs
 
-The tree has three zones: **deliverables at the root**, **per-segment deliverables under `segments/seg_NN/`**, and **pipeline scratch under `_work/`** (safe to remove once you have the results). The three you check first are `summary.log`, `summary.json`, and `mep.pdb` (the concatenated reaction path, moved to the root; raw engine output stays under `_work/path_opt/` by default, or `_work/path_search/` with `--refine-path`).
+The tree has three zones: **deliverables at the root**, **per-segment deliverables under `segments/seg_NN/`**, and **pipeline scratch under `_work/`** (safe to remove once you have the results). The three you check first are `summary.log`, `summary.json`, and `mep_trj.pdb` (the concatenated reaction path, moved to the root; raw engine output stays under `_work/path_opt/` by default, or `_work/path_search/` with `--refine-path`).
 
 ```text
 <out-dir>/
   summary.json                   # mirrored top-level summary (when the MEP stage runs)
   summary.log
-  mep.pdb · mep.cif             # path; CIF companion is emitted for bridged input
+  mep_trj.pdb · mep.cif             # path; CIF companion is emitted for bridged input
   mep_trj.xyz
   mep_plot.png                   # smooth MEP energy profile
   energy_diagram_MEP.png         # all-segment MEP barriers

@@ -129,7 +129,7 @@ def _reject_path_search_output_collisions(
         out_dir / name
         for name in (
             "mep_trj.xyz",
-            "mep.pdb",
+            "mep_trj.pdb",
             "mep.cif",
             "mep_plot.png",
             "energy_diagram_MEP.png",
@@ -1191,6 +1191,7 @@ def _enrich_path_summary_contract(
     raw_artifacts = [
         name
         for name in (
+            "mep_trj.pdb",
             "mep.pdb",
             "mep.cif",
             "mep_plot.png",
@@ -1907,7 +1908,7 @@ def _build_multistep_path(
     "embedcharge",
     default=False,
     show_default=True,
-    help="Enable electrostatic embedding: MLIP backends use the experimental xTB point-charge delta; dft uses native PySCF MM point charges.",
+    help="Enable electrostatic embedding. MLIP backends use the experimental, computationally expensive xTB point-charge delta correction; dft uses native PySCF MM point charges.",
 )
 @click.option(
     "--embedcharge-cutoff",
@@ -2485,7 +2486,7 @@ def cli(
 
         validate_endpoint_atom_identities(prepared_inputs)
         for name in (
-            "mep.pdb",
+            "mep_trj.pdb",
             "mep.cif",
             "mep_plot.png",
             "energy_diagram_MEP.png",
@@ -2681,7 +2682,7 @@ def cli(
 
         if pdb_input and is_convert_file_enabled():
             try:
-                final_pdb = out_dir_path / "mep.pdb"
+                final_pdb = out_dir_path / "mep_trj.pdb"
                 convert_xyz_to_pdb(final_trj, ref_pdb_for_segments, final_pdb)
                 emit(f"[convert] Wrote '{final_pdb}'.", detail=True)
             except Exception as e:
@@ -3004,7 +3005,7 @@ def cli(
             mep_info = {
                 "n_images": len(combined_all.images),
                 "n_segments": len(combined_all.segments),
-                "traj_pdb": str(out_dir_path / "mep.pdb") if (out_dir_path / "mep.pdb").exists() else None,
+                "traj_pdb": str(out_dir_path / "mep_trj.pdb") if (out_dir_path / "mep_trj.pdb").exists() else None,
                 "mep_plot": str(out_dir_path / "mep_plot.png") if (out_dir_path / "mep_plot.png").exists() else None,
                 "diagram": diag_for_log,
             }
