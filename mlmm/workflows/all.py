@@ -5878,6 +5878,7 @@ def cli(
     pockets_dir = work_dir / "pockets"
     # MEP-engine raw output is scratch under _work/; only its moved products reach root.
     path_dir = work_dir / ("path_search" if refine_path else "path_opt")
+    summary_mirrors = () if resuming else (path_dir / "summary.json",)
     scan_dir = _resolve_override_dir(work_dir / "scan", scan_out_dir)  # for single-structure scan mode
     # One monotonic Stage numbering for the whole pipeline: Stage 1 extraction
     # (+ lettered preparation sub-stages 1b/1c/1d), 2 MEP search, 3 merge,
@@ -8256,7 +8257,7 @@ def cli(
                 po_summary,
                 manifest=manifest,
                 out_dir=out_dir,
-                mirrors=(path_dir / "summary.json",),
+                mirrors=summary_mirrors,
             )
             _echo_detail(f"[write] Wrote '{path_dir / 'summary.json'}'.")
         except Exception as e:
@@ -8415,7 +8416,7 @@ def cli(
             summary,
             manifest=manifest,
             out_dir=out_dir,
-            mirrors=(path_dir / "summary.json",),
+            mirrors=summary_mirrors,
         )
         # Elapsed time
         _emit_final_summary(
@@ -8438,7 +8439,7 @@ def cli(
             summary,
             manifest=manifest,
             out_dir=out_dir,
-            mirrors=(path_dir / "summary.json",),
+            mirrors=summary_mirrors,
         )
         _emit_final_summary(
             out_dir,
@@ -8464,7 +8465,7 @@ def cli(
             summary,
             manifest=manifest,
             out_dir=out_dir,
-            mirrors=(path_dir / "summary.json",),
+            mirrors=summary_mirrors,
         )
         _emit_final_summary(
             out_dir,
@@ -9469,7 +9470,7 @@ def cli(
             summary,
             manifest=manifest,
             out_dir=out_dir,
-            mirrors=(path_dir / "summary.json",),
+            mirrors=summary_mirrors,
         )
     except Exception as e:
         _echo(f"[write] WARNING: Failed to refresh summary.json with energy diagram metadata: {e}", err=True)
@@ -9480,7 +9481,7 @@ def cli(
         summary,
         manifest=manifest,
         out_dir=out_dir,
-        mirrors=(path_dir / "summary.json",),
+        mirrors=summary_mirrors,
     )
     _emit_final_summary(
         out_dir,
