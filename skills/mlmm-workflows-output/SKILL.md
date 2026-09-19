@@ -300,7 +300,8 @@ Per-segment keys in the post-processing list (`summary.json["post_segments"][i]`
 | `irc_plot` / `irc_traj` | IRC-related artifact paths |
 | `irc` | Diagnostic propagation record: `traj`, `n_frames_forward`, `n_frames_backward`, `forward_requested`, `backward_requested`, and each direction's `*_integration_converged`, `*_integration_stop_reason`, `*_downhill_departure_valid`, `*_energy_increased`, `*_short_branch`. No independent IRC scientific verdict or direction-status keys. Finite retained endpoints are passed to endpoint optimization. |
 | `endpoint_assignment` | Pre-optimization IRC-to-MEP orientation provenance; diagnostic only. |
-| `endpoint_opt` | Actual numerical convergence of both optimized endpoints, plus a separate `connectivity_validated` diagnostic and topology record. Connectivity does not add a numerical-completion gate. |
+| `tsopt` | TS terminal record. `n_opt_cycles` is the executed optimization-cycle count and `max_cycles` is the configured limit, including normally non-converged runs. |
+| `endpoint_opt` | Actual numerical convergence of both optimized endpoints. Endpoint records (`reactant` / `product`, or `endpoint_1` / `endpoint_2` in TS-only mode) include `status`, `n_opt_cycles`, `max_cycles`, and any `stop_reason`; connectivity remains a separate diagnostic and does not add a numerical-completion gate. |
 | `ts_imag` | `{n_imag}` |
 | `mlip` | R/TS/P runs contain `{energies_au, energies_kcal, barrier_kcal, delta_kcal, ...}`; TS-only E1/TS/E2 runs instead contain one barrier from each endpoint |
 | `gibbs_mlip` | Gibbs analogue of `mlip` (when `--thermo` is on) |

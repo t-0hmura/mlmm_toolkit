@@ -145,6 +145,7 @@ An optimizer may also report `"status": "stalled"`: the energy stopped decreasin
 | `energy_hartree` | float \| null | TS energy (Hartree); `null` when the final energy evaluation failed (the writer replaces every non-finite float with `null`), in which case `status` is `"energy_missing"` |
 | `n_imaginary_modes` | int\|null | Number of imaginary frequencies; `null` if PHVA was not run |
 | `imaginary_frequencies_cm` | float[]\|null | Imaginary frequencies (cm⁻¹, negative); no PHVA: `[]` with `--skip-final-freq`, otherwise `null` |
+| `frequency_zero_cutoff_cm` / `imaginary_mode_criterion` / `imaginary_frequency_threshold_cm` | float / string / float | The default is `5.0`, `"frequency_cutoff_cm"`, and `-5.0`: only ν < −5.00 cm⁻¹ counts as imaginary. |
 | `opt_mode` | string | One of `"grad"`, `"hess"`, `"dimer"`, `"rsprfo"`, `"rsirfo"`, or `"trim"`; `hess` selects RS-P-RFO |
 | `opt_mode_requested` | string | Requested CLI preset |
 | `optimizer` | string | Effective optimizer algorithm used by the run |
@@ -398,7 +399,8 @@ The `all` command additionally includes:
 | `overall_reaction_energy_kcal` | float | Overall reaction energy |
 | `post_segments` | list | Per-segment TS/IRC/freq/DFT results |
 | `post_segments[].tsopt.energy_valid` / `.structure_valid` | bool | Finite terminal TS checks combined with the existing terminal-Hessian result; status classification runs no extra Hessian or optimization. |
-| `post_segments[].irc` / `.endpoint_assignment` / `.endpoint_opt` | object | IRC stop diagnostics, endpoint orientation, and endpoint-OPT convergence, respectively. IRC stopping and topology correspondence are not independent success gates; connectivity information remains available for mechanism interpretation. |
+| `post_segments[].tsopt.n_opt_cycles` / `.max_cycles` | int / int\|null | TS optimization cycles executed and configured limit. These are reported for both converged and normally non-converged runs. |
+| `post_segments[].irc` / `.endpoint_assignment` / `.endpoint_opt` | object | IRC stop diagnostics, endpoint orientation, and endpoint-OPT convergence, respectively. Endpoint records (`reactant` / `product`, or `endpoint_1` / `endpoint_2` in TS-only mode) report `status`, `n_opt_cycles`, `max_cycles`, and any `stop_reason`. IRC stopping and topology correspondence are not independent success gates; connectivity information remains available for mechanism interpretation. |
 | `post_segments[].thermo_symmetry` | object | Child-reported point-group and rotational-symmetry provenance by state: R/TS/P for MEP runs and E1/TS/E2 for TS-only runs. States with valid symmetry-number provenance are included; missing states are omitted, and the field is absent only when no state has valid provenance. |
 | `key_output_files` | object | Current-run output index: root filename → description; each `seg_NN` entry is `{description, files}` with paths relative to that segment directory. |
 | `current_output_paths` | string[] | Sorted paths relative to `--out-dir`, limited to artifacts claimed by the current invocation. |

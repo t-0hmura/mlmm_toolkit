@@ -1,11 +1,10 @@
-"""Physical classification uses the original eigenvalue criterion, not raw signs."""
+"""Physical classification uses the -5.00 cm^-1 criterion, not raw signs."""
 from types import SimpleNamespace
 
 import numpy as np
 import pytest
 
 from pysisyphus.Geometry import Geometry
-from pysisyphus.helpers_pure import eigval_to_wavenumber
 from pysisyphus.normal_modes import (
     DEFAULT_FREQUENCY_ZERO_CUTOFF_CM, frequency_partition_info,
     resolved_imaginary_mask,
@@ -17,22 +16,21 @@ def test_direct_optimizer_constructor_uses_geometry_imaginary_default(tmp_path):
     geometry = Geometry(["H"], [0., 0., 0.])
     optimizer = RSPRFOptimizer(geometry, hessian_init="unit", dump=False,
                               out_dir=tmp_path)
-    assert optimizer.saddle_imaginary_threshold_cm == eigval_to_wavenumber(1e-6)
+    assert optimizer.saddle_imaginary_threshold_cm == 5.0
     assert optimizer.small_eigval_thresh == 1e-8
-    values = np.array([-1.01e-6, -1e-6, -.99e-6, 1e-9])
-    # Geometry.get_imag_frequencies owns the original strict eigenvalue test.
-    frequencies = eigval_to_wavenumber(values)
-    geometry.get_normal_modes = lambda _hessian: (frequencies, values, None, None)
     np.testing.assert_array_equal(
-        frequencies[resolved_imaginary_mask(frequencies, optimizer.saddle_imaginary_threshold_cm)],
-        geometry.get_imag_frequencies(),
+        resolved_imaginary_mask(
+            np.array([-5.01, -5.0, -4.99, 1.0]),
+            optimizer.saddle_imaginary_threshold_cm,
+        ),
+        [True, False, False, False],
     )
 
 
-@pytest.mark.parametrize("second,selected,verified", [(-.99e-6, 1, True), (-1.01e-6, 2, False)])
+@pytest.mark.parametrize("second,selected,verified", [(-4.99, 1, True), (-5.01, 2, False)])
 def test_exact_phva_keeps_raw_two_and_classifies_selected_count(second, selected, verified):
     coordinates = np.zeros(3)
-    frequencies = eigval_to_wavenumber(np.array([-1e-3, second, 1e-6]))
+    frequencies = np.array([-100.0, second, 20.0])
     modes = np.eye(3)
     optimizer = RSPRFOptimizer.__new__(RSPRFOptimizer)
     optimizer.geometry = SimpleNamespace(cart_coords=coordinates.copy())
@@ -65,7 +63,7 @@ def test_exact_phva_keeps_raw_two_and_classifies_selected_count(second, selected
 def test_incomplete_phva_still_clears_saddle_diagnostics():
     optimizer = RSPRFOptimizer.__new__(RSPRFOptimizer)
     optimizer.geometry = SimpleNamespace(cart_coords=np.zeros(3))
-    frequencies = eigval_to_wavenumber(np.array([-1e-3, -.99e-6, 1e-6]))
+    frequencies = np.array([-100.0, -4.99, 20.0])
     optimizer._mw_frequencies_and_modes = lambda: (frequencies, np.eye(3))
     optimizer._last_rigid_projection_info = frequency_partition_info(frequencies)
     optimizer._last_rigid_projection_info["raw_mode_count"] += 1

@@ -170,8 +170,8 @@ def test_real_terminal_workflow_phva_scope_and_raw_order(tmp_path, monkeypatch, 
     assert report["reaction_mode_index"] == 0
     assert report["reaction_mode_overlap"] == (None if widen else 0.91)
     assert report["reaction_mode_source"] == ("lowest-imaginary" if widen else "mep-reference-overlap")
-    assert report["imaginary_mode_criterion"] == "mass_weighted_eigenvalue"
-    assert report["imaginary_eigenvalue_threshold"] == 1e-6
+    assert report["imaginary_mode_criterion"] == "frequency_cutoff_cm"
+    assert report["imaginary_frequency_threshold_cm"] == -5.0
     projection = report["rigid_projection"]
     assert projection["active_atoms"] == final_atoms
     assert projection["frozen_atoms"] == final_frozen

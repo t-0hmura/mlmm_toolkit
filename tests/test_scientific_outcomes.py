@@ -39,6 +39,29 @@ from mlmm.workflows._outcomes import (
 )
 
 
+def test_all_preserves_tsopt_cycle_and_frequency_criterion_metadata() -> None:
+    from mlmm.workflows.all import _tsopt_summary_metadata
+
+    payload = {
+        "imaginary_frequencies_cm": [-512.31],
+        "frequency_zero_cutoff_cm": 5.0,
+        "imaginary_mode_criterion": "frequency_cutoff_cm",
+        "imaginary_frequency_threshold_cm": -5.0,
+        "n_opt_cycles": 37,
+        "max_cycles": 3000,
+        "stop_reason": None,
+        "private_child_field": "not propagated",
+    }
+
+    record = _tsopt_summary_metadata(payload)
+
+    assert record["n_opt_cycles"] == 37
+    assert record["max_cycles"] == 3000
+    assert record["imaginary_mode_criterion"] == "frequency_cutoff_cm"
+    assert record["imaginary_frequency_threshold_cm"] == -5.0
+    assert "private_child_field" not in record
+
+
 # ---------------------------------------------------------------------------
 # 1. Pure outcome types and serializer compatibility
 # ---------------------------------------------------------------------------

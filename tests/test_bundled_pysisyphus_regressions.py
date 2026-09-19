@@ -1324,15 +1324,19 @@ def test_normal_modes_retain_every_low_complement_root() -> None:
     assert len(freqs) == 3
     assert modes.shape == (3, 12)
     assert (freqs < 0.0).sum() == 1
-    # The tiny roots are far below the historical 5.14 cm^-1 magnitude floor.
+    # Both tiny roots survive the rank-based rigid-space removal.
     assert abs(freqs[freqs < 0.0][0]) < 1.0
 
 
-def test_imaginary_frequencies_exclude_small_positive_eigenvalues() -> None:
+def test_imaginary_frequencies_use_strict_negative_five_cm_cutoff() -> None:
     geom = Geometry(["H", "H"], np.array([0.0, 0.0, 0.0, 0.0, 0.0, 1.4]))
 
     def fake_normal_modes(hessian=None):
-        return np.array([3.0, -7.0]), np.array([1.0e-9, -2.0e-6]), None
+        return (
+            np.array([-7.0, -5.0, -4.99, 3.0]),
+            np.array([-2.0e-6, -1.0e-8, -1.0e-8, 1.0e-9]),
+            None,
+        )
 
     geom.get_normal_modes = fake_normal_modes
     imag = geom.get_imag_frequencies()

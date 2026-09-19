@@ -23,7 +23,7 @@ RS-P-RFO terminates when its numerical convergence criteria are met. Final PHVA 
 
 `n_imaginary_modes` counts modes under the selected criterion; `n_negative_modes` records every negative frequency in the complete finite PHVA spectrum. `saddle_validation` and `saddle_order_verified` describe the selected-criterion count, independently of `optimization_status`. The raw negative count does not trigger further optimization or failure. A recomputed final PHVA uses its own mode basis: cached optimizer indices and overlaps are reused only with the same validated terminal PHVA packet.
 
-The default imaginary-mode criterion is the original PySisyphus mass-weighted Hessian rule: eigenvalue < −10⁻⁶ Hartree/(bohr²·amu). The equivalent frequency magnitude is derived by `eigval_to_wavenumber` (about 5.14 cm⁻¹); it is not an independently rounded cutoff. `imaginary_mode_criterion`, `imaginary_eigenvalue_threshold` (positive magnitude), `imaginary_eigenvalue_units`, and `imaginary_frequency_threshold_cm` record the rule. Explicit legacy `freq.zero_cutoff_cm` overrides remain available with a deprecation warning. This reporting criterion is separate from the optimizer-coordinate `small_eigval_thresh` of 10⁻⁸. No sign is changed and no physical mode is removed.
+The default imaginary-mode criterion is ν < −5.00 cm⁻¹. `frequency_zero_cutoff_cm: 5.0`, `imaginary_mode_criterion: "frequency_cutoff_cm"`, and `imaginary_frequency_threshold_cm: -5.0` record the rule. `freq.zero_cutoff_cm` can set another magnitude explicitly. This reporting criterion is separate from the optimizer-coordinate `small_eigval_thresh` of 10⁻⁸. No sign is changed and no physical mode is removed.
 
 ## Cartesian RS-P-RFO defaults
 

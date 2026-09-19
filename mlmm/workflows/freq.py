@@ -48,7 +48,6 @@ from pysisyphus.normal_modes import (  # noqa: F401
     _mw_mode_to_cart,
     DEFAULT_FREQUENCY_ZERO_CUTOFF_CM,
     frequency_criterion_info,
-    warn_legacy_frequency_cutoff,
     normalize_frequency_zero_cutoff_cm,
     resolved_imaginary_mask,
 )
@@ -1143,7 +1142,6 @@ def cli(
             f"freq.zero_cutoff_cm must be finite and non-negative, got "
             f"{freq_cfg.get('zero_cutoff_cm')!r}."
         ) from exc
-    warn_legacy_frequency_cutoff(freq_cfg["zero_cutoff_cm"])
     _override_has_symmetry_number = (
         yaml_section_has_key(
             override_layer_cfg, thermo_paths, "symmetry_number"

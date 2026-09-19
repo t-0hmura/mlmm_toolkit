@@ -30,16 +30,11 @@ from pysisyphus.tr_projection import (
 )
 
 
-# Geometry.get_imag_frequencies uses eigenvalues of H / sqrt(m_i*m_j),
-# with H in Hartree/bohr^2 and masses in amu. The helpers below also convert
-# their masses_au inputs back to amu before weighting. This is NOT the
-# optimizer-coordinate small_eigval_thresh (1e-8).
-DEFAULT_IMAGINARY_EIGENVALUE_THRESHOLD = 1.0e-6
-# Preserve the cm^-1 configuration API, deriving the default from the
-# original eigenvalue criterion rather than introducing a rounded cutoff.
-DEFAULT_FREQUENCY_ZERO_CUTOFF_CM = float(
-    eigval_to_wavenumber(DEFAULT_IMAGINARY_EIGENVALUE_THRESHOLD)
-)
+# Imaginary-mode classification is expressed directly in cm^-1.  Frequencies
+# strictly below -5.00 cm^-1 are imaginary; modes in [-5.00, 0) remain visible
+# as weak negative modes but do not count toward saddle order.  This is separate
+# from the optimizer-coordinate small_eigval_thresh (1e-8).
+DEFAULT_FREQUENCY_ZERO_CUTOFF_CM = 5.0
 
 
 def normalize_frequency_zero_cutoff_cm(value) -> float:
@@ -61,12 +56,9 @@ def resolved_frequency_mask(
 def resolved_imaginary_mask(
     freqs_cm, cutoff_cm=DEFAULT_FREQUENCY_ZERO_CUTOFF_CM
 ) -> np.ndarray:
-    """Select imaginary modes under the original eigenvalue criterion.
+    """Select frequencies strictly below the configured negative cutoff.
 
-    eigval_to_wavenumber is monotone, so the default comparison is the
-    frequency-space form of eigenvalue < -1e-6 in Hartree/(bohr^2*amu).
-    An explicit legacy cm^-1 cutoff selects the equivalent alternate bound.
-    This mask describes modes; it never filters the physical spectrum.
+    This mask classifies saddle order; it never filters the physical spectrum.
     """
     cutoff = normalize_frequency_zero_cutoff_cm(cutoff_cm)
     return np.asarray(freqs_cm, dtype=float) < -cutoff
@@ -75,34 +67,10 @@ def resolved_imaginary_mask(
 def frequency_criterion_info(cutoff_cm=DEFAULT_FREQUENCY_ZERO_CUTOFF_CM):
     """Describe imaginary-mode classification; no physical mode is removed."""
     cutoff = normalize_frequency_zero_cutoff_cm(cutoff_cm)
-    original = cutoff == DEFAULT_FREQUENCY_ZERO_CUTOFF_CM
     return {
-        "imaginary_mode_criterion": (
-            "mass_weighted_eigenvalue" if original else "legacy_frequency_cutoff"
-        ),
-        "imaginary_eigenvalue_threshold": (
-            DEFAULT_IMAGINARY_EIGENVALUE_THRESHOLD if original
-            else float((cutoff / eigval_to_wavenumber(1.0)) ** 2)
-        ),
-        "imaginary_eigenvalue_units": "hartree/(bohr^2*amu)",
-        "imaginary_frequency_threshold_cm": cutoff,
+        "imaginary_mode_criterion": "frequency_cutoff_cm",
+        "imaginary_frequency_threshold_cm": -cutoff,
     }
-
-
-def warn_legacy_frequency_cutoff(cutoff_cm):
-    """Warn at workflow entry when a legacy cm^-1 override is selected."""
-    cutoff = normalize_frequency_zero_cutoff_cm(cutoff_cm)
-    if cutoff != DEFAULT_FREQUENCY_ZERO_CUTOFF_CM:
-        import warnings
-        warnings.warn(
-            "An explicit frequency cutoff in cm^-1 overrides the original "
-            "mass-weighted Hessian eigenvalue criterion (< -1e-6 "
-            "hartree/(bohr^2*amu)). This legacy override is deprecated; "
-            "omit it to use the original criterion. All signed physical "
-            "modes remain in the output and positive modes in thermochemistry.",
-            FutureWarning,
-            stacklevel=2,
-        )
 
 
 def frequency_partition_info(freqs_cm, cutoff_cm=DEFAULT_FREQUENCY_ZERO_CUTOFF_CM):

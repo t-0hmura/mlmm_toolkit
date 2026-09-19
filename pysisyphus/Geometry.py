@@ -1491,11 +1491,22 @@ class Geometry:
         nus = eigval_to_wavenumber(eigvals)
         return nus, eigvals, mw_cart_displs, cart_displs
 
-    def get_imag_frequencies(self, hessian=None, thresh=1e-6):
-        vibfreqs, eigvals, *_ = self.get_normal_modes(hessian)
-        # Only genuinely negative eigenvalues correspond to imaginary frequencies;
-        # 'thresh' is the magnitude below which a root counts as numerical noise.
-        return vibfreqs[eigvals < -abs(thresh)]
+    def get_imag_frequencies(self, hessian=None, frequency_zero_cutoff_cm=None):
+        """Return modes strictly below the configured frequency cutoff."""
+        from pysisyphus.normal_modes import (
+            DEFAULT_FREQUENCY_ZERO_CUTOFF_CM,
+            resolved_imaginary_mask,
+        )
+
+        vibfreqs, *_ = self.get_normal_modes(hessian)
+        cutoff = (
+            DEFAULT_FREQUENCY_ZERO_CUTOFF_CM
+            if frequency_zero_cutoff_cm is None
+            else frequency_zero_cutoff_cm
+        )
+        return vibfreqs[
+            resolved_imaginary_mask(vibfreqs, cutoff)
+        ]
 
     def get_thermoanalysis(
         self, energy=None, cart_hessian=None, T=T_DEFAULT, p=p_DEFAULT, point_group="c1"

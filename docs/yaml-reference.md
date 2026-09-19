@@ -598,7 +598,7 @@ Vibrational frequency analysis settings.
 ```yaml
 freq:
  active_dof_mode: partial # Active-atom selection: "all" | "ml-only" | "partial" | "unfrozen"
- # zero_cutoff_cm: 5.0 # Deprecated explicit override; omit for the original eigenvalue criterion
+ zero_cutoff_cm: 5.0 # Imaginary modes satisfy nu < -zero_cutoff_cm
  amplitude_ang: 0.8 # Displacement amplitude for modes (Å)
  n_frames: 20 # Number of frames per mode trajectory
  max_write: 10 # Maximum number of modes to write
@@ -606,13 +606,13 @@ freq:
  out_dir: ./result_freq/ # Output directory
 ```
 
-`freq.zero_cutoff_cm` is shared by standalone `freq`, `opt` flattening,
+`freq.zero_cutoff_cm` defaults to 5.0 and is shared by standalone `freq`, `opt` flattening,
 Dimer, and Hessian-family TS optimization. The legacy
 `hessian_dimer.neg_freq_thresh_cm` and
 `rsirfo.saddle_imaginary_threshold_cm` spellings remain accepted as aliases;
 conflicting values are rejected.
 
-The default selects mass-weighted Hessian eigenvalues < −10⁻⁶ Hartree/(bohr²·amu), equivalent to a frequency below the derived cutoff of about −5.14 cm⁻¹. An explicit legacy `freq.zero_cutoff_cm` overrides this criterion with a deprecation warning. The selected imaginary count describes saddle order; every negative sign is also reported separately as `n_negative_modes`. Neither count changes numerical optimizer convergence. All signed physical modes and positive thermochemistry modes are retained.
+The default classifies ν < −5.00 cm⁻¹ as imaginary. `freq.zero_cutoff_cm` sets another cutoff magnitude explicitly. The selected imaginary count describes saddle order; every negative sign is also reported separately as `n_negative_modes`. Neither count changes numerical optimizer convergence. All signed physical modes and positive thermochemistry modes are retained.
 
 **Notes:**
 - `active_dof_mode` selects which atoms participate in the vibrational analysis. `all` uses every atom; `ml-only` restricts to ML-region atoms; `partial` (default) uses ML + Movable-MM atoms; `unfrozen` uses every non-frozen atom. The CLI flag `--active-dof-mode` overrides the YAML value when explicitly passed.

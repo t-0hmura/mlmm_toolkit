@@ -104,7 +104,7 @@ def test_soft_positive_modes_reach_thermochemistry_without_cutoff_dependence():
 
 
 @pytest.mark.parametrize("partial", [False, True])
-def test_original_eigenvalue_criterion_matches_geometry_with_all_soft_pairs(partial):
+def test_frequency_cutoff_classifies_complete_spectrum_with_all_soft_pairs(partial):
     from ase.data import atomic_masses
     from pysisyphus.Geometry import Geometry
     from pysisyphus.helpers_pure import eigval_to_wavenumber
@@ -121,7 +121,7 @@ def test_original_eigenvalue_criterion_matches_geometry_with_all_soft_pairs(part
     geometry = Geometry(["H", "C", "O", "H", "C", "O"], coords.ravel(),
                         freeze_atoms=[0, 1, 2])
     geometry.masses = masses.copy()  # Compare the same mass table in both owners.
-    expected_imaginary = geometry.get_imag_frequencies(full_hessian)
+    expected_imaginary = eigval_to_wavenumber(eigenvalues[:3])
     source = active_hessian if partial else full_hessian
     info = {}
     frequencies, modes = _frequencies_cm_and_modes(
@@ -132,10 +132,10 @@ def test_original_eigenvalue_criterion_matches_geometry_with_all_soft_pairs(part
                                rtol=1e-12, atol=1e-12)
     np.testing.assert_allclose(frequencies[resolved_imaginary_mask(frequencies)],
                                expected_imaginary, rtol=1e-12, atol=1e-12)
-    assert info["imaginary_eigenvalue_threshold"] == 1e-6
-    assert info["imaginary_eigenvalue_units"] == "hartree/(bohr^2*amu)"
+    assert info["imaginary_mode_criterion"] == "frequency_cutoff_cm"
+    assert info["imaginary_frequency_threshold_cm"] == -5.0
     assert info["raw_mode_count"] == frequencies.size == 9
-    assert np.count_nonzero(resolved_imaginary_mask(frequencies)) == 2
+    assert np.count_nonzero(resolved_imaginary_mask(frequencies)) == 3
     assert _strict_negative_count(frequencies, info) == 4
     assert np.count_nonzero((frequencies > 0.) & (frequencies < 5.)) == 3
     assert modes.shape == (9, 18)

@@ -1113,6 +1113,23 @@ def _ts_imag_record(
     return record
 
 
+_TSOPT_SUMMARY_METADATA_KEYS = (
+    "imaginary_frequencies_cm",
+    "frequency_zero_cutoff_cm",
+    "imaginary_mode_criterion",
+    "imaginary_frequency_threshold_cm",
+    "n_opt_cycles",
+    "max_cycles",
+    "stop_reason",
+)
+
+
+def _tsopt_summary_metadata(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Select TSOPT diagnostics that the parent ``all`` summary preserves."""
+
+    return {key: payload.get(key) for key in _TSOPT_SUMMARY_METADATA_KEYS}
+
+
 def _parse_scan_lists_literals(
     scan_lists_raw: Sequence[str],
     atom_meta: Optional[Sequence[Dict[str, Any]]] = None,
@@ -3873,6 +3890,7 @@ def _run_opt_for_state(
     stop_plateau_window: Optional[int] = None,
     xyz_path: Optional[Path] = None,
     scf_checkpoint: Optional[Path] = None,
+    outcome: Optional[Dict[str, Any]] = None,
 ) -> Tuple[Any, Path, Optional[bool]]:
     """
     Run opt CLI for a single endpoint and return
@@ -3885,12 +3903,16 @@ def _run_opt_for_state(
     is forced on so that the convergence bit is always emitted.
     Both the result and finite terminal geometry must belong to this invocation;
     missing, unreadable or stale output raises before any refined consumer runs.
+    When ``outcome`` is supplied, it is populated from the child result with
+    terminal status, executed cycle count, configured cycle limit, and stop reason.
 
     When *xyz_path* is given, pass it as ``-i`` with ``--ref-pdb pdb_path`` to
     preserve full coordinate precision.
     """
     opt_dir = out_dir
     ensure_dir(opt_dir)
+    if outcome is not None:
+        outcome.clear()
 
     # Use XYZ (full precision) when available; fall back to PDB
     if xyz_path is not None and xyz_path.exists():
@@ -3958,10 +3980,22 @@ def _run_opt_for_state(
         # Read the endpoint opt child's explicit convergence bit from its
         # result.json (fail-closed tri-state) so a nonconverged endpoint cannot
         # silently promote its segment to a usable success.
-        endpoint_manifest.claim_one("result")
+        result_path = endpoint_manifest.claim_one("result")
         endpoint_converged = _read_opt_endpoint_converged(opt_dir)
         if endpoint_converged is None:
             raise click.ClickException(f"[endpoint-opt] No valid terminal opt result under {opt_dir}")
+        if outcome is not None:
+            endpoint_payload = json.loads(result_path.read_text(encoding="utf-8"))
+            outcome.update(
+                {
+                    "status": endpoint_payload.get("status"),
+                    "converged": endpoint_converged,
+                    "n_opt_cycles": endpoint_payload.get("n_opt_cycles"),
+                    "max_cycles": endpoint_payload.get("max_cycles"),
+                }
+            )
+            if endpoint_payload.get("stop_reason"):
+                outcome["stop_reason"] = endpoint_payload["stop_reason"]
 
         final_pdb = opt_dir / "final_geometry.pdb"
         # Prefer XYZ (full precision) for geometry loading
@@ -6230,13 +6264,7 @@ def cli(
                 None if _tsopt_result_path is None else str(_tsopt_result_path)
             ),
             "final_structure": str(ts_pdb),
-            "imaginary_frequencies_cm": _tsopt_payload.get(
-                "imaginary_frequencies_cm"
-            ),
-            "frequency_zero_cutoff_cm": _tsopt_payload.get(
-                "frequency_zero_cutoff_cm"
-            ),
-            "stop_reason": _tsopt_payload.get("stop_reason"),
+            **_tsopt_summary_metadata(_tsopt_payload),
             "files": _tsopt_payload.get("files") or {},
         }
 
@@ -6554,6 +6582,7 @@ def cli(
             _hess_store("irc_endpoint", _c["hessian"], active_dofs=_c.get("active_dofs"), meta=_c.get("meta"), identity=_c.get("identity"))
         # Fail-closed endpoint-opt convergence (None if the opt could not run).
         _react_opt_conv: Optional[bool] = None
+        _react_opt_outcome: Dict[str, Any] = {}
         try:
             g_react, _, _react_opt_conv = _run_opt_for_state(
                 pR_irc, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
@@ -6575,6 +6604,7 @@ def cli(
                 stop_plateau_window=stop_plateau_window,
                 xyz_path=xR_irc,
                 scf_checkpoint=scf_checkpoints.get("E1"),
+                outcome=_react_opt_outcome,
             )
         except Exception as e:
             _echo(
@@ -6582,6 +6612,14 @@ def cli(
                 err=True,
             )
             _react_opt_conv = None
+            _react_opt_outcome.update(
+                {
+                    "status": "error",
+                    "converged": None,
+                    "error_type": type(e).__name__,
+                    "error": str(e),
+                }
+            )
             _endpoint_failures["endpoint_1"] = {
                 "error_type": type(e).__name__, "error": str(e),
             }
@@ -6591,6 +6629,7 @@ def cli(
         if _c:
             _hess_store("irc_endpoint", _c["hessian"], active_dofs=_c.get("active_dofs"), meta=_c.get("meta"), identity=_c.get("identity"))
         _prod_opt_conv: Optional[bool] = None
+        _prod_opt_outcome: Dict[str, Any] = {}
         try:
             g_prod, _, _prod_opt_conv = _run_opt_for_state(
                 pP_irc, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
@@ -6612,6 +6651,7 @@ def cli(
                 stop_plateau_window=stop_plateau_window,
                 xyz_path=xP_irc,
                 scf_checkpoint=scf_checkpoints.get("E2"),
+                outcome=_prod_opt_outcome,
             )
         except Exception as e:
             _echo(
@@ -6619,6 +6659,14 @@ def cli(
                 err=True,
             )
             _prod_opt_conv = None
+            _prod_opt_outcome.update(
+                {
+                    "status": "error",
+                    "converged": None,
+                    "error_type": type(e).__name__,
+                    "error": str(e),
+                }
+            )
             _endpoint_failures["endpoint_2"] = {
                 "error_type": type(e).__name__, "error": str(e),
             }
@@ -6650,6 +6698,8 @@ def cli(
                 "endpoint_opt": {
                     "endpoint_1_converged": _react_opt_conv,
                     "endpoint_2_converged": _prod_opt_conv,
+                    "endpoint_1": dict(_react_opt_outcome),
+                    "endpoint_2": dict(_prod_opt_outcome),
                     "failures": _endpoint_failures,
                 },
                 "tsopt": _tsopt_record,
@@ -7046,6 +7096,8 @@ def cli(
         segment_log["endpoint_opt"] = {
             "endpoint_1_converged": _react_opt_conv,
             "endpoint_2_converged": _prod_opt_conv,
+            "endpoint_1": dict(_react_opt_outcome),
+            "endpoint_2": dict(_prod_opt_outcome),
         }
         if do_tsopt:
             tsopt_n_imag = _tsopt_result.get("n_imaginary_modes")
@@ -8208,13 +8260,7 @@ def cli(
                     None if _tsopt_result_path is None else str(_tsopt_result_path)
                 ),
                 "final_structure": str(ts_pdb),
-                "imaginary_frequencies_cm": _tsopt_payload.get(
-                    "imaginary_frequencies_cm"
-                ),
-                "frequency_zero_cutoff_cm": _tsopt_payload.get(
-                    "frequency_zero_cutoff_cm"
-                ),
-                "stop_reason": _tsopt_payload.get("stop_reason"),
+                **_tsopt_summary_metadata(_tsopt_payload),
             }
 
             if not bool(_tsopt_decision.get("continue_irc")):
@@ -8382,6 +8428,7 @@ def cli(
             _hess_store("irc_endpoint", _c["hessian"], active_dofs=_c.get("active_dofs"), meta=_c.get("meta"), identity=_c.get("identity"))
         # Fail-closed endpoint-opt convergence (None if the opt could not run).
         _react_opt_conv: Optional[bool] = None
+        _react_opt_outcome: Dict[str, Any] = {}
         try:
             gL, _, _react_opt_conv = _run_opt_for_state(
                 pL_irc, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
@@ -8403,6 +8450,7 @@ def cli(
                 stop_plateau_window=stop_plateau_window,
                 xyz_path=xL_irc,
                 scf_checkpoint=scf_checkpoints.get("R"),
+                outcome=_react_opt_outcome,
             )
         except Exception as e:
             _echo(
@@ -8410,6 +8458,14 @@ def cli(
                 err=True,
             )
             _react_opt_conv = None
+            _react_opt_outcome.update(
+                {
+                    "status": "error",
+                    "converged": None,
+                    "error_type": type(e).__name__,
+                    "error": str(e),
+                }
+            )
             _endpoint_failures["reactant"] = {
                 "error_type": type(e).__name__, "error": str(e),
             }
@@ -8419,6 +8475,7 @@ def cli(
         if _c:
             _hess_store("irc_endpoint", _c["hessian"], active_dofs=_c.get("active_dofs"), meta=_c.get("meta"), identity=_c.get("identity"))
         _prod_opt_conv: Optional[bool] = None
+        _prod_opt_outcome: Dict[str, Any] = {}
         try:
             gR, _, _prod_opt_conv = _run_opt_for_state(
                 pR_irc, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
@@ -8440,6 +8497,7 @@ def cli(
                 stop_plateau_window=stop_plateau_window,
                 xyz_path=xR_irc,
                 scf_checkpoint=scf_checkpoints.get("P"),
+                outcome=_prod_opt_outcome,
             )
         except Exception as e:
             _echo(
@@ -8447,6 +8505,14 @@ def cli(
                 err=True,
             )
             _prod_opt_conv = None
+            _prod_opt_outcome.update(
+                {
+                    "status": "error",
+                    "converged": None,
+                    "error_type": type(e).__name__,
+                    "error": str(e),
+                }
+            )
             _endpoint_failures["product"] = {
                 "error_type": type(e).__name__, "error": str(e),
             }
@@ -8479,6 +8545,8 @@ def cli(
                 "endpoint_opt": {
                     "reactant_converged": _react_opt_conv,
                     "product_converged": _prod_opt_conv,
+                    "reactant": dict(_react_opt_outcome),
+                    "product": dict(_prod_opt_outcome),
                     "failures": _endpoint_failures,
                 },
                 "tsopt": dict(_tsopt_decision),
@@ -8851,6 +8919,8 @@ def cli(
         segment_log["endpoint_opt"] = {
             "reactant_converged": _react_opt_conv,
             "product_converged": _prod_opt_conv,
+            "reactant": dict(_react_opt_outcome),
+            "product": dict(_prod_opt_outcome),
             "connectivity_validated": _optimized_connectivity.get(
                 "connectivity_validated"
             ),
@@ -8867,10 +8937,7 @@ def cli(
                     else str(getattr(g_ts, "_tsopt_result_path"))
                 ),
                 "final_structure": str(ts_pdb),
-                "imaginary_frequencies_cm": _tsopt_payload.get(
-                    "imaginary_frequencies_cm"
-                ),
-                "stop_reason": _tsopt_payload.get("stop_reason"),
+                **_tsopt_summary_metadata(_tsopt_payload),
             }
             tsopt_n_imag = _tsopt_payload.get(
                 "n_imaginary_modes"

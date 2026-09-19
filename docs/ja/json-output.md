@@ -147,6 +147,7 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | `energy_hartree` | float \| null | TS エネルギー (Hartree)。最終エネルギー評価に失敗した場合は `null`（writer が非有限 float をすべて `null` に置換する）で、そのとき `status` は `"energy_missing"` |
 | `n_imaginary_modes` | int\|null | 虚振動モードの数。PHVA を実行しなかった場合は `null` |
 | `imaginary_frequencies_cm` | float[]\|null | 虚振動数 (cm$^{-1}$, 負の値)。PHVA 未実行時は `null` |
+| `frequency_zero_cutoff_cm` / `imaginary_mode_criterion` / `imaginary_frequency_threshold_cm` | float / string / float | 既定値は`5.0`、`"frequency_cutoff_cm"`、`-5.0`で、ν < −5.00 cm⁻¹だけを虚振動として数えます。 |
 | `opt_mode` | string | `"grad"`, `"hess"`, `"dimer"`, `"rsprfo"`, `"rsirfo"`, `"trim"` のいずれか。`hess` は RS-P-RFO を選択。 |
 | `opt_mode_requested` | string | CLI で要求した preset |
 | `optimizer` | string | 実際に使用した optimizer algorithm |
@@ -378,7 +379,8 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | `overall_reaction_energy_kcal` | float | 全体の反応エネルギー。 |
 | `post_segments` | list | セグメントごとの TS/IRC/freq/DFT 結果。 |
 | `post_segments[].tsopt.energy_valid` / `.structure_valid` | bool | 既存の終端Hessian結果と組み合わせる有限TSの確認。status判定のための追加Hessian・最適化は実行しません。 |
-| `post_segments[].irc` / `.endpoint_assignment` / `.endpoint_opt` | object | 順に IRC 停止診断、端点の向き付け、端点 OPT の収束記録。IRC 停止・結合対応は独立した成功条件にしない。端点の connectivity 情報は機構解釈用に保持する。 |
+| `post_segments[].tsopt.n_opt_cycles` / `.max_cycles` | int / int\|null | TS 最適化で実行したサイクル数と設定上限。通常の非収束時にも記録します。 |
+| `post_segments[].irc` / `.endpoint_assignment` / `.endpoint_opt` | object | 順に IRC 停止診断、端点の向き付け、端点 OPT の収束記録。端点別の record（通常は `reactant` / `product`、TS-onlyでは `endpoint_1` / `endpoint_2`）に `status`, `n_opt_cycles`, `max_cycles`, `stop_reason`（存在する場合）を記録します。IRC 停止・結合対応は独立した成功条件にせず、connectivity 情報は機構解釈用に保持します。 |
 | `post_segments[].thermo_symmetry` | object | 子 freq が報告した状態別の点群・回転対称 provenance。MEP 実行では R/TS/P、TS-only 実行では E1/TS/E2 を対象とし、有効な対称数 provenance を持つ状態だけを含む。欠けた状態は省略し、どの状態にも有効な provenance が無い場合だけフィールド全体を省略する。 |
 | `key_output_files` | object | 現在の呼び出しの出力索引。ルートファイルはファイル名 → 説明、各 `seg_NN` は `{description, files}` で、`files` はそのセグメントディレクトリからの相対パス。 |
 | `current_output_paths` | string[] | `--out-dir` からの相対パスを並べたリスト。現在の呼び出しが記録した成果物だけを含みます。 |

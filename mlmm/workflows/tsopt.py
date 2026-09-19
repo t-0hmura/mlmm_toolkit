@@ -142,7 +142,6 @@ from mlmm.workflows.freq import (
 from pysisyphus.normal_modes import (
     DEFAULT_FREQUENCY_ZERO_CUTOFF_CM,
     frequency_criterion_info,
-    warn_legacy_frequency_cutoff,
     normalize_frequency_zero_cutoff_cm,
     resolved_imaginary_mask,
     _strict_negative_count,
@@ -1663,8 +1662,8 @@ class HessianDimer:
                  thresh_loose: str = "gau_loose",
                  thresh: str = "baker",
                  update_interval_hessian: int = 500,
-                 # Compatibility cm^-1 override of the original eigenvalue rule;
-                 # used for mode classification, export, and explicit recovery.
+                 # Shared cm^-1 cutoff used for mode classification, export,
+                 # and explicit recovery.
                  # Every negative sign is also reported as a separate diagnostic.
                  neg_freq_thresh_cm: float = DEFAULT_FREQUENCY_ZERO_CUTOFF_CM,
                  flatten_amp_ang: float = 0.10,
@@ -3970,7 +3969,6 @@ def cli(
             )
         cutoff = alias_value
         cutoff_source = label
-    warn_legacy_frequency_cutoff(cutoff)
     frequency_cfg["zero_cutoff_cm"] = cutoff
     simple_cfg["neg_freq_thresh_cm"] = cutoff
     rsirfo_cfg["saddle_imaginary_threshold_cm"] = cutoff

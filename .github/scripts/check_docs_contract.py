@@ -130,7 +130,7 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
     Path("docs/freq.md"): ("E + G_corr = G",),
     Path("docs/ja/freq.md"): ("E + G_corr = G",),
     Path("skills/mlmm-cli/freq.md"): (
-        "E + G_corr = G", "`-1e-6` Hartree/(bohr²·amu)",
+        "E + G_corr = G", "ν < −5.00 cm⁻¹",
         "Raw negative counts are diagnostic",
     ),
     Path("docs/backends.md"): ("mlmm all", "forwards the same factory"),

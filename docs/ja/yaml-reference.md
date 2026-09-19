@@ -571,12 +571,12 @@ freq:
  out_dir: ./result_freq/ # 出力ディレクトリ
 ```
 
-`freq.zero_cutoff_cm` は standalone `freq`、`opt` flatten、Dimer、
+`freq.zero_cutoff_cm` の既定値は5.0で、standalone `freq`、`opt` flatten、Dimer、
 Hessian系TS最適化が共有します。旧`hessian_dimer.neg_freq_thresh_cm` と
 `rsirfo.saddle_imaginary_threshold_cm` は互換aliasですが、競合する値は
 エラーになります。
 
-既定では質量重み付き Hessian の固有値 < −10⁻⁶ Hartree/(bohr²·amu) を虚振動と分類します。対応する振動数の閾値は約 −5.14 cm⁻¹ です。従来の `freq.zero_cutoff_cm` を明示すると、非推奨の警告付きでこの基準を上書きします。選択した虚振動の本数は鞍点次数を記述し、すべての負符号の数は `n_negative_modes` に別途記録します。いずれも最適化の数値収束を変更しません。符号付き物理モードと熱化学に使う正のモードはすべて保持します。
+既定では ν < −5.00 cm⁻¹ を虚振動と分類します。`freq.zero_cutoff_cm` で別の閾値絶対値を指定できます。選択した虚振動の本数は鞍点次数を記述し、すべての負符号の数は `n_negative_modes` に別途記録します。いずれも最適化の数値収束を変更しません。符号付き物理モードと熱化学に使う正のモードはすべて保持します。
 
 **注記:**
 - `active_dof_mode`: 振動解析に参加させる原子集合を選択します。`all` は全原子、`ml-only` は ML 領域のみ、`partial`（デフォルト）は ML + Movable-MM、`unfrozen` は凍結されていない全原子を使用します。CLI フラグ `--active-dof-mode` が明示された場合は YAML 値より優先されます。

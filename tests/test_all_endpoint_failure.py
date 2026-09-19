@@ -184,6 +184,14 @@ def test_endpoint_boundary_retains_provenance_and_stops_consumers(
     def optimize(*args, **kwargs):
         index = len(opt_calls)
         opt_calls.append(index)
+        metadata = kwargs.get("outcome")
+        if metadata is not None:
+            metadata.update({
+                "status": "converged",
+                "converged": True,
+                "n_opt_cycles": index + 3,
+                "max_cycles": 3000,
+            })
         child = args[6]
         geom = Geometry(index + 1)
         child.mkdir(parents=True, exist_ok=True)
@@ -274,6 +282,10 @@ def test_endpoint_boundary_retains_provenance_and_stops_consumers(
     else:
         assert all(state in events for state in states)
         assert (root / "endpoint_opt").exists() is (dump or outcome == "not_converged")
+    if branch == "seg" and namespace["post_segment_logs"]:
+        endpoint_record = namespace["post_segment_logs"][0]["endpoint_opt"]
+        assert endpoint_record["reactant"]["n_opt_cycles"] == 3
+        assert endpoint_record["product"]["n_opt_cycles"] == 4
 
 
 @pytest.mark.parametrize(
@@ -306,6 +318,7 @@ def test_endpoint_child_requires_current_finite_output(monkeypatch, tmp_path, ou
             status = outcome if outcome in {"converged", "not_converged", "stalled", "failed"} else "converged"
             result_path.write_text("{" if outcome == "malformed_result" else json.dumps({
                 "status": status, "stop_reason": "plateau" if outcome == "stalled" else None,
+                "n_opt_cycles": 7, "max_cycles": 12,
             }))
         if outcome != "missing_geometry":
             final_path.write_text("terminal coordinates")
@@ -323,16 +336,22 @@ def test_endpoint_child_requires_current_finite_output(monkeypatch, tmp_path, ou
     closed = []
     monkeypatch.setattr(workflow, "_mlmm_calc", lambda **_kw: SimpleNamespace(close=lambda: closed.append(True)))
 
+    endpoint_outcome = {}
+
     def run():
         return workflow._run_opt_for_state(
             source, 0, 1, tmp_path / "system.parm7", source, True,
             output, None, "grad", resolved_calc_template=object(),
+            outcome=endpoint_outcome,
         )
 
     if outcome in {"converged", "not_converged", "stalled"}:
         result, path, converged = run()
         assert result is terminal and path == final_path
         assert converged is (outcome == "converged")
+        assert endpoint_outcome["status"] == outcome
+        assert endpoint_outcome["n_opt_cycles"] == 7
+        assert endpoint_outcome["max_cycles"] == 12
         if outcome == "stalled":
             assert json.loads(result_path.read_text())["stop_reason"] == "plateau"
     elif outcome == "energy_error":

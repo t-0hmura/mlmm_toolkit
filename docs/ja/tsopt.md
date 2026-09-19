@@ -23,7 +23,7 @@ RS-P-RFO は数値収束条件を満たすと終了します。最終 PHVA は�
 
 `n_imaginary_modes` は選択した分類基準による本数、`n_negative_modes` は完全で有限な PHVA の全負振動数の本数です。`saddle_validation` と `saddle_order_verified` は分類基準による本数を表し、`optimization_status` とは独立です。生の負モード数で追加探索や失敗判定を行いません。最終 PHVA を再計算した場合はその基底を使用し、最適化時のモード番号や overlap は同一の検証済み PHVA を再利用できる場合だけ引き継ぎます。
 
-虚振動の既定の分類は、元の PySisyphus と同じ質量重み付き Hessian の固有値 < −10⁻⁶ Hartree/(bohr²·amu) です。対応する振動数の絶対値は `eigval_to_wavenumber` から導く約 5.14 cm⁻¹ で、独立に丸めた閾値ではありません。`imaginary_mode_criterion`、`imaginary_eigenvalue_threshold`（正の絶対値）、`imaginary_eigenvalue_units`、`imaginary_frequency_threshold_cm` に分類基準を記録します。従来の `freq.zero_cutoff_cm` の明示指定は非推奨の警告付きで利用できます。この分類基準は最適化座標の `small_eigval_thresh` = 10⁻⁸ とは別です。振動数の符号を変えたり、物理モードを除いたりしません。
+虚振動の既定の分類は ν < −5.00 cm⁻¹ です。`frequency_zero_cutoff_cm: 5.0`、`imaginary_mode_criterion: "frequency_cutoff_cm"`、`imaginary_frequency_threshold_cm: -5.0` に基準を記録します。`freq.zero_cutoff_cm` で別の絶対値を明示できます。この分類基準は最適化座標の `small_eigval_thresh` = 10⁻⁸ とは別です。振動数の符号を変えたり、物理モードを除いたりしません。
 
 ## Cartesian RS-P-RFO の既定値
 
@@ -292,7 +292,7 @@ hessian_dimer:
  thresh_loose: gau_loose           # ゆるい収束プリセット
  thresh: baker                     # メイン収束プリセット
  update_interval_hessian: 500      # Hessian再構築間隔
- # neg_freq_thresh_cm: 5.0  # legacy override; omit for the original criterion
+ neg_freq_thresh_cm: 5.0  # 虚振動は nu < -neg_freq_thresh_cm
  flatten_amp_ang: 0.1              # flattening振幅 (Å)
  flatten_max_iter: 50              # flattening反復上限（--no-flatten 時は無効）
  flatten_sep_cutoff: 0.0           # 代表原子間の最小距離 (Å)
