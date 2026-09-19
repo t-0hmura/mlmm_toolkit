@@ -112,7 +112,7 @@ under Linux containers, some HPC nodes):
 
 - torch wheels exist for aarch64 + CUDA on recent versions; check
   `https://download.pytorch.org/whl/torch/`.
-- **`gpu4pyscf-cuda12x` is x86_64 only.** DFT must use CPU PySCF on
+- **`gpu4pyscf-cuda13x` is x86_64 only.** DFT must use CPU PySCF on
   aarch64 — see `dft.md`.
 - UMA / Orb / MACE / AIMNet2 wheels: check the backend's PyPI page.
 
@@ -139,4 +139,4 @@ This is the canonical "is my CUDA + torch healthy?" probe used everywhere.
 - `core.md` — install `mlmm-toolkit` itself (after torch is healthy).
 - Backend mds (`uma.md`, `mace.md`, …) — extras that piggyback on the
   torch you just installed.
-- `dft.md` — `gpu4pyscf-cuda12x` install + aarch64 fallback.
+- `dft.md` — `gpu4pyscf-cuda13x` install + aarch64 fallback.

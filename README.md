@@ -77,7 +77,7 @@ hf auth login                               # interactive
 | Extra | Adds |
 |---|---|
 | `[orb]` / `[aimnet]` | Orb / AIMNet2 MLIP backend — *not* HF-gated |
-| `[dft]` | Optional `-b dft` high-level calculator and standalone `mlmm dft` command; cost and memory depend on the system and method |
+| `[dft]` / `[dft-cuda12]` | DFT calculator and standalone command with native CUDA 13 / CUDA 12 GPU4PySCF |
 | `[mcp]` | Model Context Protocol server (`mlmm-mcp`) for agent clients |
 | `[pdbfixer]` | PDBFixer extra (alternative to the conda install above) |
 | `[openmm]` | OpenMM low-level backend, including virtual-site water models |

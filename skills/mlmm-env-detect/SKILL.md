@@ -41,7 +41,7 @@ uname -s                          # Linux / Darwin
 lscpu | grep -E "^(Architecture|Model name|CPU\(s\)):"
 ```
 
-`aarch64` (ARM64) means **`gpu4pyscf-cuda12x` is not available** — DFT must
+`aarch64` (ARM64) means **`gpu4pyscf-cuda13x` is not available** — DFT must
 fall back to CPU PySCF. Other backends (UMA / MACE / Orb / AIMNet2) work
 on aarch64 if the wheels exist for your driver.
 
@@ -175,4 +175,4 @@ back to for the rest of your session.
 - `mlmm-install-backends/env-cuda.md` — uses driver version
   and `<CUDA_MODULE>` to pick the right torch CUDA wheel.
 - `mlmm-install-backends/dft.md` — uses `uname -m` to decide
-  between `gpu4pyscf-cuda12x` (x86_64) and CPU PySCF (aarch64).
+  between `gpu4pyscf-cuda13x` (x86_64) and CPU PySCF (aarch64).

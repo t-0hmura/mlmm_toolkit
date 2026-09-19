@@ -120,7 +120,7 @@ settings, engine/low-memory state, recombined energy, and population analyses.
 | `cpu` | aarch64, no supported GPU stack, or explicit CPU execution | Pilot the target system |
 
 aarch64 (`uname -m`) **requires `--engine cpu` explicitly**:
-`gpu4pyscf-cuda12x` ships x86_64 wheels only, so `--engine gpu` (the
+`gpu4pyscf-cuda13x` ships x86_64 wheels only, so `--engine gpu` (the
 default) raises `ClickException` on aarch64 rather than silently
 falling back.
 
@@ -131,7 +131,7 @@ falling back.
 | `OSError: libcusolver.so.11 not found` | `mlmm-install-backends/env-cuda.md` (LD_LIBRARY_PATH order) |
 | `cupy ... invalid device ordinal` | Keep scheduler-provided `CUDA_VISIBLE_DEVICES`; use a valid local ordinal (usually 0 for a one-GPU allocation). |
 | `RuntimeError: CUDA out of memory` | Try the same method on CPU or a larger-memory GPU. A smaller basis/grid is a different method and must be labeled and revalidated. |
-| aarch64 `--engine gpu` raises `ClickException` ("GPU backend failed...") | `gpu4pyscf-cuda12x` is x86_64 only; re-submit with `--engine cpu` |
+| aarch64 `--engine gpu` raises `ClickException` ("GPU backend failed...") | `gpu4pyscf-cuda13x` is x86_64 only; re-submit with `--engine cpu` |
 
 ## Caveats
 

@@ -684,7 +684,7 @@ def test_colab_setup_is_pinned_to_matching_release_and_one_backend() -> None:
     assert "coinor-libipopt-dev" in setup
     assert "pip('cyipopt')" in setup
     assert "_missing_dmf" in setup
-    assert "_dft_packages = {'pyscf': 'pyscf', 'gpu4pyscf': 'gpu4pyscf-cuda12x'}" in setup
+    assert "_dft_packages = {'pyscf': 'pyscf', 'gpu4pyscf': 'gpu4pyscf-cuda13x'}" in setup
     source_id_match = re.search(r"SOURCE_BUNDLE_ID = '([0-9a-f]{64})'", setup)
     assert source_id_match is not None
     source_marker = NOTEBOOK.parents[1] / ".colab-debug-source"
@@ -810,7 +810,7 @@ def test_colab_setup_dft_branch_installs_extra_and_checks_gpu(monkeypatch, capsy
 
     versions = {
         "pyscf": "2.11.0",
-        "gpu4pyscf-cuda12x": "1.5.2",
+        "gpu4pyscf-cuda13x": "1.5.2",
         "mlmm-toolkit": "0.4.0",
     }
     monkeypatch.setattr(subprocess, "run", fake_run)
@@ -6781,7 +6781,7 @@ def test_colab_setup_uses_the_hashed_published_pdbfixer_release() -> None:
         )
     )
     args = [ast.literal_eval(arg) for arg in pdbfixer_call.args]
-    assert args[:3] == ["--timeout=60", "--retries=8", "openmm[cuda12]"]
+    assert args[:3] == ["--timeout=60", "--retries=8", "openmm[cuda13]"]
     assert args[-1] == "ninja"
     assert args[3].startswith("https://files.pythonhosted.org/packages/")
     assert args[3].endswith(

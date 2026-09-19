@@ -37,8 +37,8 @@ classifiers = [
 ]
 dependencies = [
     # mlmm core dependencies
-    "fairchem-core",
-    "torch>=2.8,<2.14",
+    "fairchem-core>=2.22,<3",
+    "torch>=2.13,<2.14",
     # hessian_ff JIT-compiles its C++ kernels through torch.utils.cpp_extension,
     # which on torch >= 2.x requires Ninja and no longer has a distutils fallback.
     # The pip `ninja` wheel ships a binary for every platform (incl. linux-aarch64),
@@ -92,8 +92,14 @@ openmm = ["openmm"]
 # fairchem-core && pip install mace-torch` (e.g. in `mlmm-toolkit-mace`).
 dft = [
     "pyscf>=2.13.0",
-    "gpu4pyscf-cuda12x>=1.7.0; platform_machine == 'x86_64'",
-    "cupy-cuda12x>=13.0,!=13.4.0; platform_machine == 'x86_64'",
+    "gpu4pyscf-cuda13x>=1.8.1,<2; sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "cupy-cuda13x>=13.6,<15; sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "basis-set-exchange>=0.11",
+]
+dft-cuda12 = [
+    "pyscf>=2.13.0",
+    "gpu4pyscf-cuda12x>=1.8.1,<2; sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "cupy-cuda12x>=13.6,<15; sys_platform == 'linux' and platform_machine == 'x86_64'",
     "basis-set-exchange>=0.11",
 ]
 dev = ["pytest", "pytest-cov", "pytest-timeout", "ipywidgets"]

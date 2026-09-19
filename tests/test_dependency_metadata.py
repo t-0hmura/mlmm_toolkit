@@ -44,6 +44,13 @@ def test_runtime_dependency_floors_match_consumed_apis() -> None:
     assert "plotly>=6.1.1" in dependencies
     assert extras["aimnet"] == ["aimnet>=0.2.0"]
     assert extras["mcp"] == ["mcp[cli]>=1.29,<2"]
+    dft = {req.name: req for req in map(Requirement, extras["dft"])}
+    dft_cuda12 = {req.name: req for req in map(Requirement, extras["dft-cuda12"])}
+    assert {"gpu4pyscf-cuda13x", "cupy-cuda13x"} <= set(dft)
+    assert {"gpu4pyscf-cuda12x", "cupy-cuda12x"} <= set(dft_cuda12)
+    requirements = {req.name: req for req in map(Requirement, project["dependencies"])}
+    assert "2.22.0" in requirements["fairchem-core"].specifier
+    assert "3.0.0" not in requirements["fairchem-core"].specifier
 
 
 @pytest.mark.parametrize("python_version", ["3.11", "3.12", "3.13"])

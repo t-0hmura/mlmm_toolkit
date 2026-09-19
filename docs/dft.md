@@ -8,7 +8,7 @@ E_total = E_REAL_low + E_ML(DFT) - E_MODEL_low
 
 ## Examples
 
-Install the optional DFT dependencies first: `pip install "mlmm-toolkit[dft]"`.
+Install `mlmm-toolkit[dft]` for native CUDA 13 GPU4PySCF, or `mlmm-toolkit[dft-cuda12]` on a CUDA 12 site.
 
 Minimal single-point DFT on the ML region:
 

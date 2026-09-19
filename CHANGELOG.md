@@ -17,6 +17,7 @@ Target release: **0.4.0**.
 ### Changed
 
 - Use the low-memory direct-JK GPU route by default for closed-shell DFT/MM calculations.
+- Use the current FAIR-Chem/Torch stack and native CUDA 13 DFT/OpenMM wheels; retain CUDA 12 DFT through the `dft-cuda12` extra.
 - Classify imaginary modes with the strict ν < −5.00 cm⁻¹ criterion and include optimization cycle counts in `all` summaries.
 
 ## [0.3.7] — 2026-09-19

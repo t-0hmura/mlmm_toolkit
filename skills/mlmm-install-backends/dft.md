@@ -12,6 +12,7 @@ not pulled by the default install.
 
 ```bash
 pip install 'mlmm-toolkit[dft]'
+# CUDA 12 systems: pip install 'mlmm-toolkit[dft-cuda12]'
 ```
 
 This pulls (canonical pin in `pyproject.toml`):
@@ -19,11 +20,11 @@ This pulls (canonical pin in `pyproject.toml`):
 | Package | Purpose | Platform |
 |---|---|---|
 | `pyscf>=2.13.0` | Reference SCF / DFT engine | All |
-| `gpu4pyscf-cuda12x>=1.7.0` | CUDA acceleration of PySCF | **x86_64 only** |
-| `cupy-cuda12x>=13.0,!=13.4.0` | Tensor backend for GPU4PySCF | x86_64 only |
+| `gpu4pyscf-cuda13x>=1.8.1,<2` | CUDA acceleration of PySCF | **x86_64 only** |
+| `cupy-cuda13x>=13.6,<15` | Tensor backend for GPU4PySCF | x86_64 only |
 | `basis-set-exchange>=0.11` | Programmatic basis-set lookup | All |
 
-On `aarch64` (`uname -m`), `gpu4pyscf-cuda12x` is unavailable — the
+On `aarch64` (`uname -m`), `gpu4pyscf-cuda13x` is unavailable — the
 extras install will succeed for `pyscf` and `basis-set-exchange` but
 skip GPU4PySCF, leaving you on CPU PySCF.
 

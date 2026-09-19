@@ -28,7 +28,8 @@ Available extras (canonical list lives in `pyproject.toml`):
 | (none) | UMA via `fairchem-core`, base deps | Default; UMA backend works out of the box |
 | `[orb]` | `orb-models>=0.7.0` | Using `-b orb` (Python 3.12) |
 | `[aimnet]` | `aimnet>=0.2.0` | Using `-b aimnet2` |
-| `[dft]` | `pyscf>=2.13.0`, `gpu4pyscf-cuda12x>=1.7.0` (x86_64), `cupy-cuda12x`, `basis-set-exchange` | `mlmm dft` subcommand |
+| `[dft]` | PySCF plus native CUDA 13 GPU4PySCF/CuPy (x86_64) | DFT calculator and command |
+| `[dft-cuda12]` | PySCF plus CUDA 12 GPU4PySCF/CuPy (x86_64) | CUDA 12 compatibility |
 | `[mcp]` | `mcp[cli]>=1.29,<2` | Running the MCP server |
 | `[dev]` | `pytest` family | Contributing |
 
