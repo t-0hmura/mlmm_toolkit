@@ -5,7 +5,7 @@
 ## Examples
 
 ```bash
-mlmm path-search -i reactant.pdb product.pdb --parm real.parm7 \
+mlmm path-search -i reactant.pdb product.pdb --parm7 real.parm7 \
  --model-pdb ml_region.pdb -q 0 --out-dir ./result_path_search
 ```
 
@@ -13,7 +13,7 @@ Build a multistep path with explicit intermediates:
 
 ```bash
 # Build a multistep path with explicit intermediates
-mlmm path-search -i R.pdb IM1.pdb IM2.pdb P.pdb --parm real.parm7 \
+mlmm path-search -i R.pdb IM1.pdb IM2.pdb P.pdb --parm7 real.parm7 \
  --model-pdb ml_region.pdb -q -1 --out-dir ./result_path_search_multi
 ```
 
@@ -21,7 +21,7 @@ Lighter pass without pre-optimization or alignment:
 
 ```bash
 # Lighter pass without pre-optimization or alignment
-mlmm path-search -i reactant.pdb product.pdb --parm real.parm7 \
+mlmm path-search -i reactant.pdb product.pdb --parm7 real.parm7 \
  --model-pdb ml_region.pdb -q 0 --no-preopt --no-align --max-nodes 8 \
  --out-dir ./result_path_search_fast
 ```
@@ -30,10 +30,10 @@ General command form:
 
 ```bash
 mlmm path-search -i R.pdb IM1.pdb P.pdb \
- --parm real.parm7 --model-pdb ml_region.pdb -q CHARGE [-m MULT]
+ --parm7 real.parm7 --model-pdb ml_region.pdb -q CHARGE [-m MULT]
  [--mep-mode gsm|dmf] [--refine-mode peak|minima]
  [--freeze-atoms "1,3,5"] [--max-nodes N]
- [--max-cycles-gsm N] [--max-cycles-dmf N] [--climb/--no-climb]
+ [--max-cycles-gsm N] [--dmf-max-iterations N] [--climb/--no-climb]
  [--thresh PRESET] [--dump/--no-dump] [--out-dir DIR]
  [--show-config/--no-show-config] [--dry-run/--no-dry-run]
 ```
@@ -74,10 +74,9 @@ out_dir/ (default: ./result_path_search/)
 | Option | Description | Default |
 | --- | --- | --- |
 | `-i, --input PATH...` | Two or more PDB/mmCIF structures, or XYZ files with corresponding `--ref-pdb` entries, in reaction order. Repeat `-i` or pass multiple paths after one flag. | Required |
-| `--parm PATH` | Amber parm7 topology for the full enzyme complex. | Required |
+| `--parm7 PATH` | Amber parm7 topology for the full enzyme complex. | Required |
 | `--model-pdb PATH` | PDB defining the ML (high-level) region atoms for ML/MM. Optional when `--detect-layer` or `--model-indices` is used. | _None_ |
 | `--model-indices TEXT` | Comma-separated atom indices for the ML region (ranges allowed like `1-5`). Used when `--model-pdb` is omitted. | _None_ |
-| `--model-indices-one-based / --model-indices-zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
 | `--detect-layer / --no-detect-layer` | Automatically read B-factor layers (B=0/10/20). With explicit ML membership, only the MM sublayers are retained; otherwise B-factors also define ML membership. | Enabled |
 | `-q, --charge INT` | Net charge of the ML region (integer). Required unless `--ligand-charge` is provided. | _None_ |
 | `-l, --ligand-charge TEXT` | Per-residue charge map, e.g. `SAM:1,PHN:-1`. Derives total charge when `-q` is omitted. Requires PDB input or `--ref-pdb`. | _None_ |
@@ -91,13 +90,13 @@ out_dir/ (default: ./result_path_search/)
 | `--max-depth INT` | Recursive subdivision levels allowed. `0` disables subdivision, returning each input pair as one MEP segment (none when its HEI sits at an endpoint). A capped interval is tagged `seg_NNN_maxdepth` and may hold more than one step. | `10` |
 | `--gsm-param [equi\|energy]` | GSM node parameterization after string growth. `energy` concentrates nodes in high-energy regions and may be tried when an equidistant path skips the reaction-coordinate region near the HEI; it does not identify a TS. | `equi` |
 | `--max-cycles-gsm INT` | GSM string-optimizer cycle cap. | `300` |
-| `--max-cycles-dmf INT` | DMF IPOPT iteration cap. | `3000` |
+| `--dmf-max-iterations INT` | DMF IPOPT iteration cap. | `3000` |
 | `--climb/--no-climb` | Enable TS refinement for segment GSM. | `True` |
 | `--preopt/--no-preopt` | Pre-optimize endpoints with L-BFGS before segmentation. | `True` |
 | `--align/--no-align` | After preoptimization, align inputs and, with frozen anchors, run freeze-guided scan/relaxation before re-matching freeze atoms. | `True` |
 | `--thresh TEXT` | Convergence preset for single-structure L-BFGS runs only (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | `gau` |
 | `--thresh-gsm TEXT` | Convergence preset for the GSM string optimizer (`stopt.thresh`; same presets as `--thresh`). | `gau_loose` |
-| `--thresh-dmf TEXT` | IPOPT dual-infeasibility tolerance of the DMF optimizer (`dmf.tol`): `tight` (0.04), `middle` (0.10), `loose` (0.20), or a positive float. Gaussian presets are rejected. | `tight` |
+| `--dmf-tol TEXT` | IPOPT dual-infeasibility tolerance of the DMF optimizer (`dmf.tol`): `tight` (0.04), `middle` (0.10), `loose` (0.20), or a positive float. Gaussian presets are rejected. | `tight` |
 | `--mm-backend [hessian_ff\|openmm]` | MM backend. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |
 | `--dump/--no-dump` | Save optimizer dumps. | `False` |
 | `-o, --out-dir PATH` | Output directory. | `./result_path_search/` |

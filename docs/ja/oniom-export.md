@@ -11,19 +11,19 @@ CMAP を含むトポロジーでは出力前に停止します。これはエク
 
 ```bash
 # Gaussian ONIOM 入力
-mlmm oniom-export --parm real.parm7 -i pocket_layered.pdb --model-pdb ml.pdb \
+mlmm oniom-export --parm7 real.parm7 -i pocket_layered.pdb --model-pdb ml.pdb \
  -o out.gjf --mode g16 -q 0 -m 1
 ```
 
 ```bash
 # ORCA QM/MM 入力（.inp 拡張子からモード推定）
-mlmm oniom-export --parm real.parm7 -i pocket_layered.pdb --model-pdb ml.pdb \
+mlmm oniom-export --parm7 real.parm7 -i pocket_layered.pdb --model-pdb ml.pdb \
  -o out.inp -q 0 -m 1
 ```
 
 ```bash
 # メソッド/基底とリソースを指定した Gaussian 入力
-mlmm oniom-export --parm real.parm7 -i pocket_layered.pdb --model-pdb ml.pdb \
+mlmm oniom-export --parm7 real.parm7 -i pocket_layered.pdb --model-pdb ml.pdb \
  -o out.gjf --mode g16 --method 'wb97xd/def2-svp' --nproc 16 --mem 32GB -q 0 -m 1
 ```
 
@@ -45,7 +45,7 @@ mlmm oniom-export --parm real.parm7 -i pocket_layered.pdb --model-pdb ml.pdb \
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
-| `--parm FILE` | Amber parm7 トポロジーファイル | 必須 |
+| `--parm7 FILE` | Amber parm7 トポロジーファイル | 必須 |
 | `-i, --input FILE` | MLMM layered PDB。原子順序は parm7 と一致し、B-factor が可動/固定原子を定義 | 必須 |
 | `--model-pdb FILE` | QM 領域原子を定義する PDB | _None_ |
 | `-o, --output FILE` | 出力ファイルパス（g16 は `.gjf` / `.com`、ORCA は `.inp`） | 必須 |

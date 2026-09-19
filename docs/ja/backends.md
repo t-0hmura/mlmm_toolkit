@@ -59,9 +59,9 @@ OMol で訓練された UMA をデフォルトの fp32 から fp64 に切り替�
 無視できない影響を与える場合があります。次のように有効化します:
 
 ```bash
-mlmm tsopt -i ts.pdb --parm real.parm7 -q 0 -m 1 --precision fp64
-mlmm freq -i opt.pdb --parm real.parm7 -q 0 -m 1 --precision fp64
-mlmm irc -i ts.pdb --parm real.parm7 -q 0 -m 1 --precision fp64
+mlmm tsopt -i ts.pdb --parm7 real.parm7 -q 0 -m 1 --precision fp64
+mlmm freq -i opt.pdb --parm7 real.parm7 -q 0 -m 1 --precision fp64
+mlmm irc -i ts.pdb --parm7 real.parm7 -q 0 -m 1 --precision fp64
 ```
 
 統一された `--precision` フラグは、`mlmm/backends/__init__.py` の `apply_precision_to_calc_cfg`
@@ -96,7 +96,7 @@ calc:
 ## Stateful DFT/MM backend
 
 calculatorを使う全workflowで
-`--backend dft --func-basis FUNCTIONAL/BASIS --engine gpu|cpu`を選択できます。既存の
+`--backend dft --func-basis FUNCTIONAL/BASIS --dft-engine gpu|cpu`を選択できます。既存の
 energy/post-processing用`mlmm dft` subcommandは独立して維持されています。
 
 closed-shell GPU lowmem経路ではgeometryごとに`rks_lowmem.RKS`を再構築し、直前に収束した
@@ -108,11 +108,11 @@ cacheによりSCFを重複実行しません。`--embedcharge`
 保持します。外部環境は明示的なMM原子と点電荷で表現し、MLMM DFT backendでは重複する
 PCM/SMD連続溶媒を追加しません。
 
-`--lowmem`が既定です。electrostatic embeddingを含むclosed-shell GPUのenergy・gradient・
+`--dft-low-memory`が既定です。electrostatic embeddingを含むclosed-shell GPUのenergy・gradient・
 Hessian計算には`gpu4pyscf.dft.rks_lowmem.RKS`を使います。open-shell GPUとCPUではDF tensorを
-保持しない標準direct-JKを使います。十分なmemoryがある場合は`--no-lowmem`でdensity fittingを
+保持しない標準direct-JKを使います。十分なmemoryがある場合は`--no-dft-low-memory`でdensity fittingを
 有効にすると難しいSCFの収束が改善することがあります。PySCF thread数とhost RAMはscheduler、process affinity、host/cgroup制約から
-自動検出し、`--dft-nprocs`と`--dft-mem`で上書きできます。memory指定はGPU VRAMではなく
+自動検出し、`--dft-nprocs`と`--dft-memory`で上書きできます。memory指定はGPU VRAMではなく
 host RAMです。
 
 SCF checkpointは数十GBになり得るため既定OFFです。`--save-scf-checkpoint`で有効にし、必要なら
@@ -147,10 +147,10 @@ def get_calculator(charge=0, spin=1, device="auto", **kwargs):
 など。このファイルを各stageまたは`all`に渡すと、`custom` ML backendが選択され
 `--backend` を上書きします。以下の例では、有効な B-factor 層定義を持つ全系 PDB を使います:
 
-    mlmm sp    -i complex.pdb --parm system.parm7 --calc-file my_calc.py -q 0 -m 1
-    mlmm opt   -i complex.pdb --parm system.parm7 --calc-file my_calc.py -q 0 -m 1
-    mlmm freq  -i complex.pdb --parm system.parm7 --calc-file my_calc.py -q 0 -m 1
-    mlmm all   -i R.pdb P.pdb --parm system.parm7 --calc-file my_calc.py -q 0 -m 1
+    mlmm sp    -i complex.pdb --parm7 system.parm7 --calc-file my_calc.py -q 0 -m 1
+    mlmm opt   -i complex.pdb --parm7 system.parm7 --calc-file my_calc.py -q 0 -m 1
+    mlmm freq  -i complex.pdb --parm7 system.parm7 --calc-file my_calc.py -q 0 -m 1
+    mlmm all   -i R.pdb P.pdb --parm7 system.parm7 --calc-file my_calc.py -q 0 -m 1
 
 補足:
 

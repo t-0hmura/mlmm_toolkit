@@ -10,27 +10,27 @@ terms, so export fails before writing when the topology contains them.
 Basic export:
 
 ```bash
-mlmm oniom-export --mode orca --parm real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode orca --parm7 real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
  -o system.inp -q 0 -m 1
 ```
 
 Set explicit total charge/multiplicity for the full QM+MM system:
 
 ```bash
-mlmm oniom-export --mode orca --parm real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode orca --parm7 real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
  -o system.inp -q 0 -m 1 --total-charge -1 --total-mult 1
 ```
 
 Use an explicit ORCAFF path and disable auto-conversion:
 
 ```bash
-mlmm oniom-export --mode orca --parm real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode orca --parm7 real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
  -o system.inp -q 0 -m 1 --orcaff ./ORCAFF.prms --no-convert-orcaff
 ```
 
 ## Workflow
 
-ORCA mode (`mlmm oniom-export --mode orca`) reads topology information from `--parm` and writes ORCA QM/MM input.
+ORCA mode (`mlmm oniom-export --mode orca`) reads topology information from `--parm7` and writes ORCA QM/MM input.
 
 1. Load atom/bond/charge data from parm7.
 2. Load coordinates and the movable/frozen layers from the input PDB B-factors, then validate element ordering (`--element-check`).
@@ -51,7 +51,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `--parm PATH` | Amber parm7 topology file. | Required |
+| `--parm7 PATH` | Amber parm7 topology file. | Required |
 | `-i, --input PATH` | MLMM layered PDB; atom order must match parm7. | Required |
 | `--element-check / --no-element-check` | Validate element sequence between input and parm7. | `True` |
 | `--model-pdb PATH` | PDB file defining QM region atoms. | _None_ |

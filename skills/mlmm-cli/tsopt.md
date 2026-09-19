@@ -12,7 +12,7 @@ externally-generated TS guess.
 ## Synopsis
 
 ```bash
-mlmm tsopt -i ts_guess.{pdb,xyz} --parm real.parm7 \
+mlmm tsopt -i ts_guess.{pdb,xyz} --parm7 real.parm7 \
     [-q 0 -m 1] [-l 'RES:Q,...'] \
     [--opt-mode grad|hess|dimer|rsprfo|rsirfo|trim] \
     [--max-cycles 100000] \
@@ -28,7 +28,7 @@ selection. Most subcommands accept:
 
 | flag | purpose |
 |---|---|
-| `--parm FILE` | Amber `parm7` topology of the whole enzyme — **required** |
+| `--parm7 FILE` | Amber `parm7` topology of the whole enzyme — **required** |
 | `--model-pdb FILE` | Explicit ML-region PDB; takes precedence over B-factor ML membership |
 | `--detect-layer` | Automatically read B-factor layers; explicit ML membership retains valid movable/frozen MM layers. Enabled by default. |
 | `--model-indices` | Explicit ML atom indices used when `--model-pdb` is omitted; takes precedence over B-factor ML membership |
@@ -50,7 +50,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--hessian-calc-mode` | str | `FiniteDifference` | `Analytical` or `FiniteDifference`; check `RSIRFO_KW` / `DIMER_KW` |
 | `--ref-mode` | path | none | Advanced Cartesian 3N MEP tangent for initial-root selection and overlap tracking. `all` supplies it by default; with `all --no-tsopt-from-mep-tan`, TSOPT selects from the initial-structure Hessian modes. Ordinary standalone runs omit it. |
 | `--precision` | str | backend-specific | UMA/AIMNet2 fp32; ORB/MACE fp64; AIMNet2 rejects fp64 |
-| `--workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
+| `--uma-workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
 | `--allow-charge-mult-mismatch` | flag | off | Warn and skip ML-region charge/multiplicity electron-parity validation for an intentional mismatch |
 | `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |
 | `-o, --out-dir` | path | `./result_tsopt/` | Output directory |
@@ -66,21 +66,21 @@ optimization (`opt`) and post-IRC endpoint refinement (`all`).
 ### Default RS-P-RFO
 
 ```bash
-mlmm tsopt -i hei.xyz --parm real.parm7 --ref-pdb enzyme_layered.pdb \
+mlmm tsopt -i hei.xyz --parm7 real.parm7 --ref-pdb enzyme_layered.pdb \
     -q 0 -m 1 -b uma -o result_tsopt
 ```
 
 ### Dimer mode
 
 ```bash
-mlmm tsopt -i hei.xyz --parm real.parm7 --ref-pdb enzyme_layered.pdb -q 0 -m 1 \
+mlmm tsopt -i hei.xyz --parm7 real.parm7 --ref-pdb enzyme_layered.pdb -q 0 -m 1 \
     --opt-mode dimer -b uma -o result_tsopt_dimer
 ```
 
 ### Tighter convergence on an ill-conditioned saddle
 
 ```bash
-mlmm tsopt -i hei.xyz --parm real.parm7 --ref-pdb enzyme_layered.pdb \
+mlmm tsopt -i hei.xyz --parm7 real.parm7 --ref-pdb enzyme_layered.pdb \
     -l 'SAM:1,GPP:-3' \
     --opt-mode rsirfo --max-cycles 200 -b mace \
     -o result_tsopt_rsirfo

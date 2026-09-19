@@ -157,7 +157,7 @@ def test_every_option_with_an_effective_default_shows_it() -> None:
         "-i", "--input", "-o", "--out", "--output", "--out-dir", "--ref-pdb",
         "--ref-full-pdb", "--config", "--override", "--calc-file",
         "-c", "--center", "-q", "--charge", "-l",
-        "--ligand-charge", "--freeze-atoms", "--dist-freeze", "--model-pdb",
+        "--ligand-charge", "--freeze-atoms", "--distance-restraint", "--dist-freeze", "--model-pdb",
         "--model-indices", "-s", "--scan-lists", "--label-x", "--selected-resn",
         "--modified-residue", "--ref-mode", "--hessian-ref", "--csv",
         "--parm", "--real-parm7",

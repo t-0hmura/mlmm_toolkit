@@ -40,7 +40,7 @@ Is the input the full enzyme + parm7 you'll run ML/MM on?
       → opt / tsopt / scans / path commands / freq / irc / dft / all
 
 Is the input a single TS candidate to validate?
-  └── XYZ + --ref-pdb (full enzyme PDB/mmCIF) + --parm
+  └── XYZ + --ref-pdb (full enzyme PDB/mmCIF) + --parm7
       → tsopt / freq / irc / all (TS-only mode)
 
 Is the input a Gaussian g16 ONIOM input you want to import?
@@ -52,7 +52,7 @@ Do you need a parm7 / rst7 from a raw enzyme PDB?
 
 ## ML/MM-aware CLI conventions
 
-Most subcommands take `--parm FILE` (the parm7). ML membership resolves in
+Most subcommands take `--parm7 FILE` (the parm7). ML membership resolves in
 this order:
 
 1. `--model-pdb FILE`

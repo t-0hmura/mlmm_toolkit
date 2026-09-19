@@ -381,7 +381,7 @@ def _apply_explicit_dft_overrides(
     if is_param_explicit("conv_tol"):
         resolved["conv_tol"] = float(conv_tol)
     if is_param_explicit("max_cycle"):
-        resolved["max_cycle"] = optional_positive_int(max_cycle, "--max-cycle")
+        resolved["max_cycle"] = optional_positive_int(max_cycle, "--scf-max-cycles")
     if is_param_explicit("grid_level"):
         resolved["grid_level"] = int(grid_level)
     if is_param_explicit("out_dir"):
@@ -664,6 +664,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
          "while PDB provides atom ordering and residue information.",
 )
 @click.option(
+    "--parm7",
     "--parm",
     "real_parm7",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
@@ -726,24 +727,27 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     show_default=True,
     help='Exchange-correlation functional and basis set as "FUNC/BASIS".',
 )
-@click.option("--max-cycle", type=click.IntRange(min=1), default=DFT_KW["max_cycle"], show_default=True, help="Maximum SCF iterations.")
-@click.option("--conv-tol", type=float, default=DFT_KW["conv_tol"], show_default=True, help="SCF energy convergence threshold (ΔE in Hartree between SCF cycles).")
-@click.option("--grid-level", type=int, default=DFT_KW["grid_level"], show_default=True, help="DFT integration grid level (0=coarse, 3=default, 5=fine, 9=very fine).")
+@click.option("--scf-max-cycles", "--max-cycle", "max_cycle", type=click.IntRange(min=1), default=DFT_KW["max_cycle"], show_default=True, help="Maximum SCF iterations.")
+@click.option("--scf-tol", "--conv-tol", "conv_tol", type=float, default=DFT_KW["conv_tol"], show_default=True, help="SCF energy convergence threshold (ΔE in Hartree between SCF cycles).")
+@click.option("--dft-grid-level", "--grid-level", "grid_level", type=int, default=DFT_KW["grid_level"], show_default=True, help="DFT integration grid level (0=coarse, 3=default, 5=fine, 9=very fine).")
 @click.option(
+    "--dft-engine",
     "--engine",
+    "engine",
     type=click.Choice(["gpu", "cpu"], case_sensitive=False),
     default="gpu",
     show_default=True,
     help="SCF backend: gpu (GPU4PySCF, raises error if unavailable) or cpu (PySCF).",
 )
 @click.option(
+    "--dft-low-memory/--no-dft-low-memory",
     "--lowmem/--no-lowmem",
     "lowmem",
     default=DFT_KW["lowmem"],
     show_default=True,
     help="Use gpu4pyscf rks_lowmem.RKS for closed-shell GPU single points, "
          "including electrostatic embedding. Open-shell or CPU runs use standard "
-         "direct-JK RKS/UKS; --no-lowmem enables density fitting.",
+         "direct-JK RKS/UKS; --no-dft-low-memory enables density fitting.",
 )
 @click.option(
     "--dft-nprocs",
@@ -754,6 +758,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     help="PySCF/OpenMP CPU threads; GPU count is unaffected.",
 )
 @click.option(
+    "--dft-memory",
     "--dft-mem",
     "memory",
     type=str,
@@ -892,6 +897,10 @@ def cli(
     merged_yaml_cfg, _, _ = load_merged_yaml_cfg(
         config_yaml=config_yaml,
         override_yaml=None,
+    )
+    from mlmm.cli.decorators import resolve_model_indices_setting
+    model_indices_str, model_indices_one_based = resolve_model_indices_setting(
+        ctx, merged_yaml_cfg, model_indices_str, model_indices_one_based
     )
 
     prepared_input = None

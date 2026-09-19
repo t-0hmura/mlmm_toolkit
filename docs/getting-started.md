@@ -32,7 +32,7 @@ From that input it defines the ML region, runs `mm-parm` + `define-layer`, and p
 ```{important}
 - Input PDBs must already contain **hydrogen atoms**. The "Input prep checklist" below covers the common pitfalls.
 - Multiple PDBs must share the same atoms in the same order (only coordinates differ).
-- Per-stage ML/MM subcommands require `--parm`; ML membership is supplied by `--model-pdb`, `--model-indices`, or a valid B-factor layer assignment. `mlmm all` can generate these inputs automatically.
+- Per-stage ML/MM subcommands require `--parm7`; ML membership is supplied by `--model-pdb`, `--model-indices`, or a valid B-factor layer assignment. `mlmm all` can generate these inputs automatically.
 ```
 
 For background concepts (3-layer system, link atoms, microiteration, units), read [Concepts & Workflow](concepts.md). For symptom-first diagnosis, jump to [Troubleshooting](troubleshooting.md) or [Common Error Recipes](recipes-common-errors.md).
@@ -165,8 +165,8 @@ Single-input runs require **either** `--scan-lists` (staged scan → GSM) **or**
 Here, `ml_region.pdb` contains the full system described by `real.parm7`; `ml.pdb` selects the ML atoms.
 
 ```bash
-mlmm opt -i ml_region.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 -b orb         # ORB
-mlmm opt -i ml_region.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 -b mace        # MACE
+mlmm opt -i ml_region.pdb --parm7 real.parm7 --model-pdb ml.pdb -q 0 -b orb         # ORB
+mlmm opt -i ml_region.pdb --parm7 real.parm7 --model-pdb ml.pdb -q 0 -b mace        # MACE
 ```
 
 ## Export to Gaussian / ORCA
@@ -177,10 +177,10 @@ see [mm-parm](mm-parm.md#cmap-free-topology-for-oniom-export) for preparation.
 
 ```bash
 # 1. ML/MM TS refinement
-mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0 -m 1
+mlmm tsopt -i ts_guess.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m 1
 
 # 2. Export to Gaussian ONIOM (.com)
-mlmm oniom-export --mode g16 --parm real.parm7 -i result_tsopt/final_geometry.pdb \
+mlmm oniom-export --mode g16 --parm7 real.parm7 -i result_tsopt/final_geometry.pdb \
      --model-pdb ml_region.pdb -o ts_refine.com -q 0 -m 1 --method "wB97XD/def2-TZVPD"
 
 # 3. Run externally (ORCA via --mode orca also supported)
@@ -211,7 +211,7 @@ Full flag references: [oniom-export](oniom-export.md), [oniom-import](oniom-impo
 | `--mep-mode gsm\|dmf` | MEP optimizer for either path route (default `gsm`). |
 | `--dmf-backend gpu\|cpu` | DMF implementation; use `cpu` after a GPU out-of-memory error. |
 | `-b, --backend uma\|orb\|mace\|aimnet2\|dft` | High-level backend (MLIP by default; optional DFT). |
-| `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian mode. Runtime and memory depend on the backend and system; compare both modes on a representative pilot. `Analytical` is incompatible with `--workers > 1`. |
+| `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian mode. Runtime and memory depend on the backend and system; compare both modes on a representative pilot. `Analytical` is incompatible with `--uma-workers > 1`. |
 
 `mlmm all --mep-mode dmf` applies Direct Max Flux to both the default
 single-pass `path-opt` route and recursive `path-search` selected by

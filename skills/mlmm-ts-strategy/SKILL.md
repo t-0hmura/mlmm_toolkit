@@ -39,7 +39,7 @@ ONIOM campaign. Every flag below is verified against `mlmm/cli/common_options.py
 | (a) MEP / path-search | `path-search` (or `path-opt` for one segment) | Recursive GSM/DMF segmentation; returns HEI and segment candidates for TS/IRC validation | You have R and P, optionally with ordered intermediates |
 | (b) Distance-restrained build-up | `scan` (`scan2d`/`scan3d`) | Harmonic restraint `E = ½·k·(r_ij − target)²` (scan default `k=300` via `BIAS_KW`; the `10.0` in `restraints.py` `HarmonicBiasCalculator` is only an unused constructor fallback) drives the reacting distance(s) toward the barrier with L-BFGS relaxation | No usable second endpoint / TS guess — drive the reacting bond directly |
 
-- There is **no `opt --restraint` flag**, but `opt` supports restrained optimization via `--dist-freeze` (with `--bias-k`, default k=300, the same `HarmonicBiasCalculator`); `scan` additionally drives staged target distances up to a TS candidate.
+- There is **no `opt --restraint` flag**, but `opt` supports restrained optimization via `--distance-restraint` (with `--restraint-k`, default k=300, the same `HarmonicBiasCalculator`); `scan` additionally drives staged target distances up to a TS candidate.
 - `path-search` (`app.py`: "Search reaction pathways recursively.") auto-segments a multistep path; `path-opt` optimizes a single given segment.
 - Feed a TS candidate from either route into `tsopt → irc` (or `all --tsopt`). Terminal PHVA checks saddle order; add `freq` for full modes or thermochemistry.
 
@@ -109,11 +109,11 @@ If the scan/path **starts from P**, the raw reported barrier is the **reverse** 
 
 ```bash
 # Concerted (one stage, two coords driven together):
-mlmm scan -i r.pdb --parm e.parm7 -l 'LIG:Q' \
+mlmm scan -i r.pdb --parm7 e.parm7 -l 'LIG:Q' \
     --scan-lists '[(1,5,1.40),(7,9,1.60)]' -o result_concerted
 
 # Staged (two sequential stages):
-mlmm scan -i r.pdb --parm e.parm7 -l 'LIG:Q' \
+mlmm scan -i r.pdb --parm7 e.parm7 -l 'LIG:Q' \
     --scan-lists '[(1,5,1.40)]' '[(7,9,0.95)]' -o result_staged
 ```
 

@@ -59,10 +59,10 @@ calc:
 
 ```bash
 # デフォルト: 解決済みの ML デバイス
-mlmm freq -i input.pdb --parm real.parm7 -q -1
+mlmm freq -i input.pdb --parm7 real.parm7 -q -1
 
 # 計算済み Hessian を CPU へ移して対角化
-mlmm freq -i input.pdb --parm real.parm7 -q -1 --hess-device cpu
+mlmm freq -i input.pdb --parm7 real.parm7 -q -1 --hess-device cpu
 ```
 
 `--hess-device cpu` を使用する場面：
@@ -73,7 +73,7 @@ backend 内部の Hessian 計算中に発生する out-of-memory は、このオ
 
 ### VRAM 節約のヒント
 
-1. **ML 領域を小さくする:** `mlmm extract` で小さい `--radius` を使用します。独立に、`define-layer --radius-freeze` を絞ると movable-MM shell が小さくなり frozen 環境が広がります。
+1. **ML 領域を小さくする:** `mlmm extract` で小さい `--radius` を使用します。独立に、`define-layer --movable-cutoff` を絞ると movable-MM shell が小さくなり frozen 環境が広がります。
 2. **hessian_ff（デフォルト）を使用:** hessian_ff は CPU で実行されるため、GPU 上の追加 MM 割り当てを避けられます。
 3. **MM デバイスを明示的に選ぶ:** ML と MM の両方で CUDA を使う場合は代表的な小規模実行でメモリ使用量を測り、必要に応じて `mm_device: cpu` を使用します。
 4. **VRAM を監視:** `print_vram` はデフォルトで true（Hessian 計算中に VRAM 使用量（ピーク）を表示）。抑制するには YAML で `print_vram: False` を設定。
@@ -96,10 +96,10 @@ backend 内部の Hessian 計算中に発生する out-of-memory は、このオ
 
 ```bash
 # データセンター H200 — フル精度のベース推論
-mlmm tsopt -i ts.pdb --parm enzyme.parm7 -q 0 -m 1 -b uma --precision fp64 -o result_ts
+mlmm tsopt -i ts.pdb --parm7 enzyme.parm7 -q 0 -m 1 -b uma --precision fp64 -o result_ts
 
 # ORB の縮約精度を明示した screening
-mlmm scan -i r.pdb --parm enzyme.parm7 -q 0 -b orb --precision fp32 --scan-lists '[(1,5,1.4)]' -o result_scan
+mlmm scan -i r.pdb --parm7 enzyme.parm7 -q 0 -b orb --precision fp32 --scan-lists '[(1,5,1.4)]' -o result_scan
 ```
 
 `--precision` はすべての計算系サブコマンド（`sp`、`opt`、`tsopt`、`freq`、`irc`、`scan` / `scan2d` / `scan3d`、`path-opt`、`path-search`、`all`）で受け付けられ、バックエンドごとにルーティングされます（UMA precision、ORB precision、MACE `default_dtype`）。
@@ -143,7 +143,7 @@ command -v ninja >/dev/null || { echo "hessian_ff には ninja が必要です" 
 # 最適化の実行
 mlmm opt \
   -i r_complex_layered.pdb \
-  --parm p_complex.parm7 \
+  --parm7 p_complex.parm7 \
   -q -1 -m 1 \
   --opt-mode grad \
   --out-dir opt_result
@@ -178,7 +178,7 @@ command -v ninja >/dev/null || { echo "hessian_ff には ninja が必要です" 
 
 mlmm opt \
   -i r_complex_layered.pdb \
-  --parm p_complex.parm7 \
+  --parm7 p_complex.parm7 \
   -q -1 -m 1 \
   --opt-mode grad \
   --out-dir opt_result
@@ -204,7 +204,7 @@ export CUDA_VISIBLE_DEVICES=0
 # config.yaml に記述:
 # calc:
 #   ml_cuda_idx: 0
-mlmm opt -i input.pdb --parm real.parm7 -q -1 --config config.yaml
+mlmm opt -i input.pdb --parm7 real.parm7 -q -1 --config config.yaml
 ```
 
 ---

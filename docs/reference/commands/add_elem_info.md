@@ -14,7 +14,7 @@ Options:
   --help-advanced               Show all options (including advanced settings)
                                 and exit.
   -i, --input FILE              Input PDB filepath  [required]
-  -o, --out FILE                Output PDB filepath (default:
+  -o, --output, --out FILE      Output PDB filepath (default:
                                 <input>_add_elem.pdb; overrides --inplace)
   --inplace / --no-inplace      Replace the input file when -o/--out is omitted.
                                 [default: no-inplace]

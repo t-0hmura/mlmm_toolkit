@@ -20,7 +20,7 @@
 コマンド形式:
 
 ```bash
-mlmm scan -i INPUT.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm scan -i INPUT.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q CHARGE [-m MULT] \
  (-s scan.yaml | -s "[(I,J,TARGET_ANG)]") [options]
 ```
@@ -28,7 +28,7 @@ mlmm scan -i INPUT.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 スペックファイルによるスキャン（`--print-parsed` を追加すると、解釈したスキャンスペックを検証し GPU 計算を実行せずに終了します）:
 
 ```bash
-mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s scan.yaml -o ./result_scan
 ```
 
@@ -36,7 +36,7 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ```bash
 # インライン Python リテラル
-mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s "[(12,45,2.20)]"
 ```
 
@@ -44,20 +44,20 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ```bash
 # ステージごとの軌跡を保存して確認する
-mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s scan.yaml --dump -o ./result_scan_dump
 ```
 
 ## 処理の流れ
 
-1. `geom_loader` で構造を読み込み、CLI またはデフォルトから電荷/スピンを解決します。ML/MM calculatorに `--parm`、`--model-pdb`、`-q/--charge`、任意で `-m/--multiplicity` を提供します。
+1. `geom_loader` で構造を読み込み、CLI またはデフォルトから電荷/スピンを解決します。ML/MM calculatorに `--parm7`、`--model-pdb`、`-q/--charge`、任意で `-m/--multiplicity` を提供します。
 2. 任意でバイアスなし事前最適化（`--preopt`）を実行し、開始点を緩和します。
 3. `-s/--scan-lists`（YAML/JSON スペックファイルまたはインラインリテラル）からステージターゲットを解析し、`(i, j)` インデックスを正規化します（デフォルトは 1 始まり）。PDB メタデータを利用できる場合、各エントリは整数インデックスまたは `'TYR,285,CA'` のような原子セレクター文字列のいずれかで指定可能です。セレクターフィールドはスペース、カンマ、スラッシュ、バッククォート、バックスラッシュで区切ることができ、順序は任意です。
 4. 結合ごとの変位を計算してステップに分割します:
  - スキャンタプル `[(i, j, target_A)]` に対し、`delta = target - current_distance_A` を計算。
  - `--max-step-size = h` の場合、ステージは `N = ceil(max(|delta|) / h)` 回のバイアス付き緩和を実行。
  - 各ペアの増分変化は `step_k = delta / N` (Å)。ステップ `s` での一時ターゲットは `r_k(s) = r_k(0) + s * step_k`。
-5. すべてのステップを進み、調和拘束ポテンシャル `E_bias = sum 1/2 * k * (|r_i - r_j| - target_k)^2` を適用して L-BFGS で極小化。`k` は `--bias-k`（eV/Å²）から取得され、Hartree/Bohr^2 に一度だけ変換されます。座標は PySisyphus 用に Bohr で保存され、レポート時に内部変換されます。
+5. すべてのステップを進み、調和拘束ポテンシャル `E_bias = sum 1/2 * k * (|r_i - r_j| - target_k)^2` を適用して L-BFGS で極小化。`k` は `--restraint-k`（eV/Å²）から取得され、Hartree/Bohr^2 に一度だけ変換されます。座標は PySisyphus 用に Bohr で保存され、レポート時に内部変換されます。
 6. 各ステージの最後のステップ後、任意でバイアスなし緩和（`--endopt`）を実行してから共有結合変化を報告し `result.*` ファイルを書き出します。
 7. すべてのステージで繰り返します。
 
@@ -86,10 +86,9 @@ out_dir/ (デフォルト:./result_scan/)
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
 | `-i, --input PATH` | 入力 PDB/mmCIF、またはトポロジー用に `--ref-pdb` を伴う XYZ。 | 必須 |
-| `--parm PATH` | 完全 REAL 系の Amber prmtop。 | 必須 |
+| `--parm7 PATH` | 完全 REAL 系の Amber prmtop。 | 必須 |
 | `--model-pdb PATH` | ML 領域を定義する PDB（原子 ID）。`--detect-layer` 有効時または `--model-indices` 指定時は省略可能。 | _None_ |
 | `--model-indices TEXT` | ML 領域原子インデックス（カンマ区切り、範囲指定可）。 | _None_ |
-| `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` を 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
 | `--detect-layer / --no-detect-layer` | 入力 PDB の B 因子から ML/MM レイヤーを自動検出。 | 有効 |
 | `-q, --charge INT` | ML 領域の総電荷。 | _None_（`-l` 未指定時は必須） |
 | `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。 | _None_ |
@@ -102,7 +101,7 @@ out_dir/ (デフォルト:./result_scan/)
 | `--max-step-size FLOAT` | ステップごとのスキャン結合の最大変化量 (Å)。積分ステップ数を制御。 | `0.20` |
 | `--max-angle-step-size FLOAT` | 角度の1stepあたりの最大変化量（度）。 | `5.0` |
 | `--max-dihedral-step-size FLOAT` | 二面角の1stepあたりの最大変化量（度）。 | `10.0` |
-| `--bias-k FLOAT` | 調和バイアス強度。距離はeV/Å²、角度はeV/rad²。 | `300` |
+| `--restraint-k FLOAT` | 調和バイアス強度。距離はeV/Å²、角度はeV/rad²。 | `300` |
 | `--max-cycles INT` | 各バイアスステップおよび pre/end 最適化ステージの L-BFGS サイクル上限。 | `100000` |
 | `--relax-max-cycles INT` | `--max-cycles` の互換エイリアス（指定時は上書き）。 | `--max-cycles`を継承 |
 | `--preopt/--no-preopt` | スキャン前にバイアスなし最適化を実行。 | `False` |
@@ -197,11 +196,11 @@ PDB セレクターのトークンは、カンマ `,`、スペース、スラッ
 
 ```bash
 # 協奏的: 1 ステージ、2 つの距離を同時に駆動
-mlmm scan -i r.pdb --parm enzyme.parm7 -l 'LIG:Q' \
+mlmm scan -i r.pdb --parm7 enzyme.parm7 -l 'LIG:Q' \
     -s '[(1,5,1.40),(7,9,1.60)]' -o result_concerted
 
 # 段階的: 2 つの順次ステージ
-mlmm scan -i r.pdb --parm enzyme.parm7 -l 'LIG:Q' \
+mlmm scan -i r.pdb --parm7 enzyme.parm7 -l 'LIG:Q' \
     -s '[(1,5,1.40)]' \
        '[(7,9,0.95)]' -o result_staged
 ```
@@ -222,7 +221,7 @@ segmentを構築できます。4-tupleは別の双方向構文であり、2ス�
 ```bash
 # 双方向スキャン: 結合 12--45 を現在の構造から
 # 1.35 Å（パス 1）と 2.50 Å（パス 2）に向けて駆動
-mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s '[(12, 45, 1.35, 2.50)]'
 ```
 

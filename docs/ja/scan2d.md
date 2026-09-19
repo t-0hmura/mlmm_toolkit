@@ -12,10 +12,10 @@ calculator は選択した MM backend（デフォルト `hessian_ff`、または
 コマンド形式:
 
 ```bash
-mlmm scan2d -i INPUT.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm scan2d -i INPUT.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q CHARGE [-m MULT] \
  (-s scan2d.yaml | -s "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2)]") \
- [--one-based|--zero-based] [--max-step-size FLOAT] [--bias-k FLOAT] \
+ [--one-based|--zero-based] [--max-step-size FLOAT] [--restraint-k FLOAT] \
  [--freeze-atoms "1,3,5"] [--relax-max-cycles INT] [--thresh PRESET] \
  [--dump/--no-dump] [--out-dir DIR] \
  [--preopt/--no-preopt] [--baseline {min|first}] [--zmin FLOAT] [--zmax FLOAT]
@@ -31,7 +31,7 @@ pairs:
  - [12, 45, 1.30, 3.10]
  - [10, 55, 1.20, 3.20]
 YAML
-mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm scan2d -i input.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s scan2d.yaml --print-parsed
 ```
 
@@ -39,7 +39,7 @@ mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 
 ```bash
 # 代替: インライン Python リテラル
-mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm scan2d -i input.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s "[(12,45,1.30,3.10),(10,55,1.20,3.20)]"
 ```
 
@@ -47,7 +47,7 @@ TRJ ダンプ付き L-BFGS スキャン、コンタープロットの固定カ�
 
 ```bash
 # TRJ ダンプ付き L-BFGS スキャン、コンタープロットの固定カラースケール
-mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm scan2d -i input.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s "[(12,45,1.30,3.10),(10,55,1.20,3.20)]" \
  --max-step-size 0.20 --dump -o ./result_scan2d/ --preopt --baseline min \
  --zmin 0.0 --zmax 40.0
@@ -88,10 +88,9 @@ out_dir/ (デフォルト:./result_scan2d/)
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
 | `-i, --input PATH` | 入力 PDB/mmCIF、または `--ref-pdb` を伴う XYZ。 | 必須 |
-| `--parm PATH` | 酵素の Amber parm7 トポロジー（必須）。 | 必須 |
+| `--parm7 PATH` | 酵素の Amber parm7 トポロジー（必須）。 | 必須 |
 | `--model-pdb PATH` | ML 領域を定義する PDB。`--detect-layer` 有効時はオプション。 | _None_ |
 | `--model-indices TEXT` | ML 領域のカンマ区切り原子インデックス（範囲指定可）。 | _None_ |
-| `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` を 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
 | `--detect-layer / --no-detect-layer` | 入力 PDB の B 因子から ML/MM レイヤーを自動検出。 | 有効 |
 | `-q, --charge INT` | ML 領域の総電荷。 | _None_（`-l` 未指定時は必須） |
 | `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。 | _None_ |
@@ -104,7 +103,7 @@ out_dir/ (デフォルト:./result_scan2d/)
 | `--max-step-size FLOAT` | ステップごとの最大距離増分 (Å)。グリッド密度を決定。 | `0.20` |
 | `--max-angle-step-size FLOAT` | 角度の1stepあたりの最大変化量（度）。 | `5.0` |
 | `--max-dihedral-step-size FLOAT` | 二面角の1stepあたりの最大変化量（度）。 | `10.0` |
-| `--bias-k FLOAT` | 調和拘束強度。距離はeV/Å²、角度はeV/rad²。 | `300.0` |
+| `--restraint-k FLOAT` | 調和拘束強度。距離はeV/Å²、角度はeV/rad²。 | `300.0` |
 | `--relax-max-cycles INT` | バイアス緩和ごとの L-BFGS サイクル上限。 | `100000` |
 | `--dump/--no-dump` | d1 スライスごとの内側 d2 スキャン TRJ を書き出し。 | `False` |
 | `-o, --out-dir TEXT` | 基本出力ディレクトリ。 | `./result_scan2d/` |

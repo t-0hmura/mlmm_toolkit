@@ -17,7 +17,7 @@ etc.) as separate stages.
 ## Synopsis
 
 ```bash
-mlmm all --parm enzyme.parm7 -i 1.R.pdb \
+mlmm all --parm7 enzyme.parm7 -i 1.R.pdb \
     -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
     --scan-lists \
         '[("CS1 SAM 320","GPP 321 C7",1.60)]' \
@@ -140,7 +140,7 @@ selection. Most subcommands accept:
 
 | flag | purpose |
 |---|---|
-| `--parm FILE` | Amber `parm7` topology of the whole enzyme — optional; when omitted, `mm_parm` generates a parm7 from the input PDB |
+| `--parm7 FILE` | Amber `parm7` topology of the whole enzyme — optional; when omitted, `mm_parm` generates a parm7 from the input PDB |
 | `--model-pdb FILE` | Explicit ML-region PDB; takes precedence over extraction- or B-factor-derived ML membership |
 | `--detect-layer` | Automatically read valid B-factor MM sublayers; without explicit or extraction-derived ML membership, B-factors also define ML membership. Enabled by default. |
 | `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |

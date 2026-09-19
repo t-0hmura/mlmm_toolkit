@@ -10,7 +10,7 @@ endpoint refinement.
 ## Synopsis
 
 ```bash
-mlmm opt -i input.pdb --parm real.parm7 [-q 0 -m 1] \
+mlmm opt -i input.pdb --parm7 real.parm7 [-q 0 -m 1] \
     [--opt-mode grad|hess|lbfgs|rfo] \
     [-b uma|orb|mace|aimnet2|dft] [-o ./result_opt/]
 ```
@@ -24,7 +24,7 @@ selection. Most subcommands accept:
 
 | flag | purpose |
 |---|---|
-| `--parm FILE` | Amber `parm7` topology of the whole enzyme — **required** |
+| `--parm7 FILE` | Amber `parm7` topology of the whole enzyme — **required** |
 | `--model-pdb FILE` | Explicit ML-region PDB; takes precedence over B-factor ML membership |
 | `--detect-layer` | Automatically read B-factor layers; explicit ML membership retains valid movable/frozen MM layers. Enabled by default. |
 | `--model-indices` | Explicit ML atom indices used when `--model-pdb` is omitted; takes precedence over B-factor ML membership |
@@ -61,22 +61,22 @@ geometries whose remaining RMS force still displaces the structure.
 ### Default L-BFGS
 
 ```bash
-mlmm opt -i my.pdb --parm real.parm7 -l 'SAM:1' -b uma -o result_opt
+mlmm opt -i my.pdb --parm7 real.parm7 -l 'SAM:1' -b uma -o result_opt
 ```
 
 ### RFO for stiffer convergence
 
 ```bash
-mlmm opt -i my.xyz --parm real.parm7 --ref-pdb topology.pdb -q -1 -m 1 --opt-mode rfo -b mace -o result_opt_rfo
+mlmm opt -i my.xyz --parm7 real.parm7 --ref-pdb topology.pdb -q -1 -m 1 --opt-mode rfo -b mace -o result_opt_rfo
 ```
 
 ### Pre-relax endpoints before path-opt
 
 ```bash
-mlmm opt -i 1.R.pdb --parm real.parm7 -l '...' -o /tmp/relax_R
-mlmm opt -i 3.P.pdb --parm real.parm7 -l '...' -o /tmp/relax_P
+mlmm opt -i 1.R.pdb --parm7 real.parm7 -l '...' -o /tmp/relax_R
+mlmm opt -i 3.P.pdb --parm7 real.parm7 -l '...' -o /tmp/relax_P
 mlmm path-opt -i /tmp/relax_R/final_geometry.xyz /tmp/relax_P/final_geometry.xyz \
-    --parm real.parm7 --ref-pdb 1.R.pdb --ref-pdb 3.P.pdb \
+    --parm7 real.parm7 --ref-pdb 1.R.pdb --ref-pdb 3.P.pdb \
     -l 'SAM:1,GPP:-3' -o result_path_opt
 ```
 

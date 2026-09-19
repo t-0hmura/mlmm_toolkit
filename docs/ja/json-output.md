@@ -11,7 +11,7 @@ mlmm は、AI エージェント・スクリプト・下流ツールがプログ
 `summary.json` が通常の出力と同じ場所に生成されます。
 
 ```bash
-mlmm opt -i r_complex_layered.pdb --parm real.parm7 -q 0 -m 1 \
+mlmm opt -i r_complex_layered.pdb --parm7 real.parm7 -q 0 -m 1 \
   --max-cycles 5 --out-json --out-dir result_opt
 cat result_opt/result.json | python -m json.tool
 ```

@@ -5,7 +5,7 @@
 ## 実行例
 
 ```bash
-mlmm path-search -i reactant.pdb product.pdb --parm real.parm7 \
+mlmm path-search -i reactant.pdb product.pdb --parm7 real.parm7 \
  --model-pdb ml_region.pdb -q 0 --out-dir ./result_path_search
 ```
 
@@ -13,7 +13,7 @@ mlmm path-search -i reactant.pdb product.pdb --parm real.parm7 \
 
 ```bash
 # 中間体を含む多段経路を構築する
-mlmm path-search -i R.pdb IM1.pdb IM2.pdb P.pdb --parm real.parm7 \
+mlmm path-search -i R.pdb IM1.pdb IM2.pdb P.pdb --parm7 real.parm7 \
  --model-pdb ml_region.pdb -q -1 --out-dir ./result_path_search_multi
 ```
 
@@ -21,7 +21,7 @@ mlmm path-search -i R.pdb IM1.pdb IM2.pdb P.pdb --parm real.parm7 \
 
 ```bash
 # 事前最適化とアライメントを無効にして軽く試す
-mlmm path-search -i reactant.pdb product.pdb --parm real.parm7 \
+mlmm path-search -i reactant.pdb product.pdb --parm7 real.parm7 \
  --model-pdb ml_region.pdb -q 0 --no-preopt --no-align --max-nodes 8 \
  --out-dir ./result_path_search_fast
 ```
@@ -30,7 +30,7 @@ YAML 上書きや凍結原子を併用する例:
 
 ```bash
 # YAML 上書き、凍結原子付きマルチステップ経路
-mlmm path-search -i R.pdb IM1.pdb P.pdb --parm real.parm7 \
+mlmm path-search -i R.pdb IM1.pdb P.pdb --parm7 real.parm7 \
  --model-pdb ml_region.pdb -q -1 --freeze-atoms "1,3,5" \
  --ref-pdb holo_template.pdb --out-dir ./run_ps
 ```
@@ -39,10 +39,10 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb --parm real.parm7 \
 
 ```bash
 mlmm path-search -i R.pdb IM1.pdb P.pdb \
- --parm real.parm7 --model-pdb ml_region.pdb -q CHARGE [-m MULT]
+ --parm7 real.parm7 --model-pdb ml_region.pdb -q CHARGE [-m MULT]
  [--mep-mode gsm|dmf] [--refine-mode peak|minima]
  [--freeze-atoms "1,3,5"] [--max-nodes N]
- [--max-cycles-gsm N] [--max-cycles-dmf N] [--climb/--no-climb]
+ [--max-cycles-gsm N] [--dmf-max-iterations N] [--climb/--no-climb]
  [--thresh PRESET] [--dump/--no-dump] [--out-dir DIR]
  [--show-config/--no-show-config] [--dry-run/--no-dry-run]
 ```
@@ -90,10 +90,9 @@ out_dir/ (デフォルト:./result_path_search/)
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
 | `-i, --input PATH...` | 反応順の 2 つ以上の PDB/mmCIF 構造、または対応する `--ref-pdb` を伴う XYZ。`-i` を繰り返すか、1 つのフラグの後に複数パスを渡す。 | 必須 |
-| `--parm PATH` | 完全酵素複合体の Amber parm7 トポロジー。 | 必須 |
+| `--parm7 PATH` | 完全酵素複合体の Amber parm7 トポロジー。 | 必須 |
 | `--model-pdb PATH` | ML/MM の ML（高レベル）領域原子を定義する PDB。`--detect-layer` または `--model-indices` 利用時は省略可。 | _None_ |
 | `--model-indices TEXT` | ML 領域のカンマ区切り原子インデックス（範囲指定可、例: `1-5`）。`--model-pdb` 省略時に使用。 | _None_ |
-| `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` を 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
 | `--detect-layer / --no-detect-layer` | B 因子レイヤー（B=0/10/20）を自動的に読み取ります。ML 原子集合を明示した場合は MM 側のレイヤーだけを保持し、明示しない場合は B 因子が ML 原子集合も定義します。 | 有効 |
 | `-q, --charge INT` | ML 領域の電荷（整数）。`-l` 未指定時は必須。 | _None_ |
 | `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `SAM:1,PHN:-1`）。`-q` 省略時に合計電荷を導出。PDB 入力または `--ref-pdb` が必要。 | _None_ |
@@ -107,13 +106,13 @@ out_dir/ (デフォルト:./result_path_search/)
 | `--max-depth INT` | 許可する再帰分割の階層数。`0` で分割無効（入力ペアごとに1セグメント、HEI が端点なら0）。上限に達した区間は `seg_NNN_maxdepth` タグで、素反応1段の保証はない | `10` |
 | `--gsm-param [equi\|energy]` | 完全成長後のGSMノード配置。`energy` は高エネルギー領域へノード密度を寄せる。等間隔経路がHEI近傍の反応座標領域を飛び越える場合の試行用であり、TSを同定する機能ではない。 | `equi` |
 | `--max-cycles-gsm INT` | GSMストリング最適化サイクル上限。 | `300` |
-| `--max-cycles-dmf INT` | DMF IPOPT反復上限。 | `3000` |
+| `--dmf-max-iterations INT` | DMF IPOPT反復上限。 | `3000` |
 | `--climb/--no-climb` | セグメント GSM の TS 精密化を有効化。 | `True` |
 | `--preopt/--no-preopt` | セグメンテーション前に端点を L-BFGS で事前最適化。 | `True` |
 | `--align / --no-align` | 事前最適化後に入力をアラインし、凍結アンカーがあれば freeze-guided scan/緩和後に凍結原子を再マッチ。 | 有効 |
 | `--thresh TEXT` | 単一構造 L-BFGS のみの収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | `gau` |
 | `--thresh-gsm TEXT` | GSM ストリング最適化の収束プリセット（`stopt.thresh`; `--thresh` と同じプリセット群）。 | `gau_loose` |
-| `--thresh-dmf TEXT` | DMF 最適化の IPOPT dual-infeasibility 許容値（`dmf.tol`）。`tight`(0.04)、`middle`(0.10)、`loose`(0.20) または正の float。Gaussian プリセットは拒否。 | `tight` |
+| `--dmf-tol TEXT` | DMF 最適化の IPOPT dual-infeasibility 許容値（`dmf.tol`）。`tight`(0.04)、`middle`(0.10)、`loose`(0.20) または正の float。Gaussian プリセットは拒否。 | `tight` |
 | `--mm-backend [hessian_ff\|openmm]` | MM バックエンド。Hessian 構築法は `calc.mm_fd` が別に制御します（デフォルト `true`: 有限差分）。 | `hessian_ff` |
 | `--dump/--no-dump` | オプティマイザダンプを保存。 | `False` |
 | `-o, --out-dir PATH` | 出力ディレクトリ。 | `./result_path_search/` |

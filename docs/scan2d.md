@@ -12,10 +12,10 @@ Either axis may instead be an angle `(i,j,k,low,high)` or dihedral
 Command form:
 
 ```bash
-mlmm scan2d -i INPUT.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm scan2d -i INPUT.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q CHARGE [-m MULT] \
  (-s scan2d.yaml | -s "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2)]") \
- [--one-based|--zero-based] [--max-step-size FLOAT] [--bias-k FLOAT] \
+ [--one-based|--zero-based] [--max-step-size FLOAT] [--restraint-k FLOAT] \
  [--freeze-atoms "1,3,5"] [--relax-max-cycles INT] [--thresh PRESET] \
  [--dump/--no-dump] [--out-dir DIR] \
  [--preopt/--no-preopt] [--baseline {min|first}] [--zmin FLOAT] [--zmax FLOAT]
@@ -31,7 +31,7 @@ pairs:
  - [12, 45, 1.30, 3.10]
  - [10, 55, 1.20, 3.20]
 YAML
-mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm scan2d -i input.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s scan2d.yaml --print-parsed
 ```
 
@@ -39,7 +39,7 @@ Alternative: inline Python literal.
 
 ```bash
 # Alternative: inline Python literal
-mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm scan2d -i input.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s "[(12,45,1.30,3.10),(10,55,1.20,3.20)]"
 ```
 
@@ -47,7 +47,7 @@ L-BFGS scan with TRJ dumps and fixed color scale for the contour plot.
 
 ```bash
 # L-BFGS scan with TRJ dumps and fixed color scale for the contour plot
-mlmm scan2d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm scan2d -i input.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s "[(12,45,1.30,3.10),(10,55,1.20,3.20)]" \
  --max-step-size 0.20 --dump -o ./result_scan2d/ --preopt --baseline min \
  --zmin 0.0 --zmax 40.0
@@ -91,10 +91,9 @@ The full flag list is in the generated [command reference](reference/commands/in
 | Option | Description | Default |
 | --- | --- | --- |
 | `-i, --input PATH` | Input PDB/mmCIF, or XYZ with `--ref-pdb`. | Required |
-| `--parm PATH` | Amber parm7 topology for the enzyme (required). | Required |
+| `--parm7 PATH` | Amber parm7 topology for the enzyme (required). | Required |
 | `--model-pdb PATH` | PDB defining the ML region. Optional when `--detect-layer` is enabled. | _None_ |
 | `--model-indices TEXT` | Comma-separated atom indices for the ML region (ranges allowed). | _None_ |
-| `--model-indices-one-based / --model-indices-zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
 | `--detect-layer / --no-detect-layer` | Automatically detect ML/MM layers from input PDB B-factors. | Enabled |
 | `-q, --charge INT` | ML-region net charge. | _None_ (required unless `-l` is given) |
 | `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives total charge when `-q` is omitted. | _None_ |
@@ -107,7 +106,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--max-step-size FLOAT` | Maximum distance increment per step (Å). Determines grid density. | `0.20` |
 | `--max-angle-step-size FLOAT` | Maximum angle change per step (degrees). | `5.0` |
 | `--max-dihedral-step-size FLOAT` | Maximum dihedral change per step (degrees). | `10.0` |
-| `--bias-k FLOAT` | Harmonic well strength: eV/Å² for distances and eV/rad² for angles. | `300.0` |
+| `--restraint-k FLOAT` | Harmonic well strength: eV/Å² for distances and eV/rad² for angles. | `300.0` |
 | `--relax-max-cycles INT` | L-BFGS cycle cap per biased relaxation. | `100000` |
 | `--dump/--no-dump` | Write inner d2 scan TRJs per d1 slice. | `False` |
 | `-o, --out-dir TEXT` | Base output directory. | `./result_scan2d/` |

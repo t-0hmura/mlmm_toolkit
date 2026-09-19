@@ -388,6 +388,7 @@ def run_trj2fig(
 )
 @click.option(
     "-o",
+    "--output",
     "--out",
     "outs",
     multiple=True,                      # allow repeating -o

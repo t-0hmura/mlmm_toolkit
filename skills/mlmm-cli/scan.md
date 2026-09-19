@@ -11,7 +11,7 @@ trajectory you can reuse to seed `path-search`. For most workflows prefer
 ## Synopsis
 
 ```bash
-mlmm scan -i input.pdb --parm real.parm7 \
+mlmm scan -i input.pdb --parm7 real.parm7 \
     -s '[(idx_a, idx_b, target_A), ...]' \
     [-l 'RES:Q,...'] [-q / -m] \
     [-b uma|orb|mace|aimnet2|dft] [-o ./result_scan/]
@@ -26,7 +26,7 @@ selection. Most subcommands accept:
 
 | flag | purpose |
 |---|---|
-| `--parm FILE` | Amber `parm7` topology of the whole enzyme — **required** |
+| `--parm7 FILE` | Amber `parm7` topology of the whole enzyme — **required** |
 | `--model-pdb FILE` | Explicit ML-region PDB; takes precedence over B-factor ML membership |
 | `--detect-layer` | Automatically read B-factor layers; explicit ML membership retains valid movable/frozen MM layers. Enabled by default. |
 | `--model-indices` | Explicit ML atom indices used when `--model-pdb` is omitted; takes precedence over B-factor ML membership |
@@ -59,7 +59,7 @@ previous stage's final geometry.
 ### Single stage by atom name
 
 ```bash
-mlmm scan -i 1.R.pdb --parm real.parm7 -l 'SAM:1,GPP:-3' \
+mlmm scan -i 1.R.pdb --parm7 real.parm7 -l 'SAM:1,GPP:-3' \
     -s '[("CS1 SAM 320","C7 GPP 321",1.60)]' \
     -b uma -o result_scan
 ```
@@ -67,7 +67,7 @@ mlmm scan -i 1.R.pdb --parm real.parm7 -l 'SAM:1,GPP:-3' \
 ### Two sequential stages
 
 ```bash
-mlmm scan -i 1.R.pdb --parm real.parm7 -l 'SAM:1,GPP:-3' \
+mlmm scan -i 1.R.pdb --parm7 real.parm7 -l 'SAM:1,GPP:-3' \
     -s '[("CS1 SAM 320","C7 GPP 321",1.60)]' '[("GPP 321 H11","GLU 186 OE2",0.90)]' \
     -b uma -o result_scan_staged
 ```

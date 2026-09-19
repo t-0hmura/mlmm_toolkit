@@ -13,12 +13,16 @@ Target release: **0.4.0**.
 - Add a stateful PySCF/GPU4PySCF DFT/MM backend to calculator-consuming workflows while retaining the standalone `dft` command.
 - Reuse converged SCF state between geometry steps, cache exact repeated requests, support analytical Hessians, and provide opt-in structure-bound checkpoints.
 - Add native PySCF point-charge embedding with complete QM/MM force and finite-difference Hessian response.
+- Add distance, angle, and dihedral coordinates to `scan`, `scan2d`, `scan3d`, and `all`.
+- Add verified `all --resume-segment N` post-processing restart from a saved MEP.
 
 ### Changed
 
 - Use the low-memory direct-JK GPU route by default for closed-shell DFT/MM calculations.
 - Use the current FAIR-Chem/Torch stack and native CUDA 13 DFT/OpenMM wheels; retain CUDA 12 DFT through the `dft-cuda12` extra.
 - Classify imaginary modes with the strict ν < −5.00 cm⁻¹ criterion and include optimization cycle counts in `all` summaries.
+- Use common CLI names with compatibility aliases, canonical boolean toggles, and conflict-checked YAML/CLI precedence.
+- Name the aggregate PDB trajectory `mep_trj.pdb`.
 
 ## [0.3.7] — 2026-09-19
 

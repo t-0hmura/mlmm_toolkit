@@ -21,7 +21,7 @@ Here, `pocket.pdb` contains the full system matching `real.parm7`; `ml_region.pd
 Command form:
 
 ```bash
-mlmm scan -i INPUT.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm scan -i INPUT.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q CHARGE [-m MULT] \
  (-s scan.yaml | -s "[(I,J,TARGET_ANG)]") [options]
 ```
@@ -29,7 +29,7 @@ mlmm scan -i INPUT.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 Spec-file scan (add `--print-parsed` to validate the parsed scan spec and exit without running the GPU calculation):
 
 ```bash
-mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s scan.yaml -o ./result_scan
 ```
 
@@ -37,7 +37,7 @@ Inline Python literal:
 
 ```bash
 # Inline Python literal
-mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s "[(12,45,2.20)]"
 ```
 
@@ -45,14 +45,14 @@ Dump trajectories for stage-by-stage inspection:
 
 ```bash
 # Dump trajectories for stage-by-stage inspection
-mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s scan.yaml --dump -o ./result_scan_dump
 ```
 
 ## Workflow
 
 1. Load the structure through `geom_loader`, resolving charge/spin from the CLI
-    or defaults. Provide `--parm`, `-q/--charge`, and optionally
+    or defaults. Provide `--parm7`, `-q/--charge`, and optionally
     `-m/--multiplicity` for the ML/MM calculator. Define ML membership with
     `--model-pdb`, `--model-indices`, or B-factor layers.
 2. Optionally run an unbiased preoptimization (`--preopt`) before any
@@ -69,7 +69,7 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
   target is `r_k(s) = r_k(0) + s * step_k`.
 5. March through all steps, applying the harmonic wells
     `E_bias = sum 1/2 * k * (|r_i - r_j| - target_k)^2` and minimizing with L-BFGS.
-    `k` comes from `--bias-k` (eV/Å²) and is converted once to Hartree/Bohr^2.
+    `k` comes from `--restraint-k` (eV/Å²) and is converted once to Hartree/Bohr^2.
     Coordinates are stored in Bohr for PySisyphus and converted internally for reporting.
 6. After the last step of each stage, optionally run an unbiased relaxation
     (`--endopt`) before reporting covalent bond changes and writing the
@@ -102,10 +102,9 @@ The full flag list is in the generated [command reference](reference/commands/in
 | Option | Description | Default |
 | --- | --- | --- |
 | `-i, --input PATH` | Input PDB/mmCIF, or XYZ with `--ref-pdb` for topology. | Required |
-| `--parm PATH` | Amber prmtop for the full REAL system. | Required |
+| `--parm7 PATH` | Amber prmtop for the full REAL system. | Required |
 | `--model-pdb PATH` | PDB defining the ML region (atom IDs). Optional when `--detect-layer` is enabled or `--model-indices` is provided. | _None_ |
 | `--model-indices TEXT` | Comma-separated ML-region atom indices (ranges allowed). | _None_ |
-| `--model-indices-one-based / --model-indices-zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
 | `--detect-layer / --no-detect-layer` | Automatically detect ML/MM layers from input PDB B-factors. | Enabled |
 | `-q, --charge INT` | Net ML-region charge. | _None_ (required unless `-l` is given) |
 | `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives net charge when `-q` is omitted. | _None_ |
@@ -118,7 +117,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--max-step-size FLOAT` | Maximum change in any scanned bond per step (Å). Controls the number of biased relaxation steps. | `0.20` |
 | `--max-angle-step-size FLOAT` | Maximum angle change per step (degrees). | `5.0` |
 | `--max-dihedral-step-size FLOAT` | Maximum dihedral change per step (degrees). | `10.0` |
-| `--bias-k FLOAT` | Harmonic bias strength `k`: eV/Å² for distances and eV/rad² for angles. | `300` |
+| `--restraint-k FLOAT` | Harmonic bias strength `k`: eV/Å² for distances and eV/rad² for angles. | `300` |
 | `--max-cycles INT` | L-BFGS cycle cap per biased step and per pre/end optimization stage. | `100000` |
 | `--relax-max-cycles INT` | Compatibility alias of `--max-cycles` (overrides it when provided). | inherits `--max-cycles` |
 | `--preopt/--no-preopt` | Run an unbiased optimization before scanning. | `False` |
@@ -213,11 +212,11 @@ Each stage starts from the previous stage's relaxed result.
 
 ```bash
 # Concerted: one stage, two distances driven together
-mlmm scan -i r.pdb --parm enzyme.parm7 -l 'LIG:Q' \
+mlmm scan -i r.pdb --parm7 enzyme.parm7 -l 'LIG:Q' \
     -s '[(1,5,1.40),(7,9,1.60)]' -o result_concerted
 
 # Staged: two sequential stages
-mlmm scan -i r.pdb --parm enzyme.parm7 -l 'LIG:Q' \
+mlmm scan -i r.pdb --parm7 enzyme.parm7 -l 'LIG:Q' \
     -s '[(1,5,1.40)]' \
        '[(7,9,0.95)]' -o result_staged
 ```
@@ -238,7 +237,7 @@ The concatenated trajectory is assembled as `start → initial → end`, giving 
 ```bash
 # Bidirectional scan: drive bond 12--45 from current geometry
 # toward 1.35 Å (pass 1) and toward 2.50 Å (pass 2)
-mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s '[(12, 45, 1.35, 2.50)]'
 ```
 

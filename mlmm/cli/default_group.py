@@ -297,6 +297,58 @@ class DefaultGroup(click.Group):
         self._resolved_bool_options_by_command[command_name] = resolved
         return resolved
 
+    def _reject_conflicting_aliases(
+        self, ctx: click.Context, args: list[str]
+    ) -> None:
+        """Reject different values supplied through aliases of one option."""
+
+        if not args or args[0].startswith("-"):
+            return
+        command = self.get_command(ctx, args[0])
+        if command is None:
+            return
+        for option in command.params:
+            if not isinstance(option, click.Option) or option.multiple or option.nargs != 1:
+                continue
+            positives = [name for name in option.opts if name.startswith("--")]
+            negatives = [name for name in option.secondary_opts if name.startswith("--")]
+            if len(positives) < 2 and len(negatives) < 2:
+                continue
+            accepted = set(positives) | set(negatives)
+            seen: list[tuple[str, object]] = []
+            index = 1
+            while index < len(args):
+                token = args[index]
+                name, separator, inline = token.partition("=")
+                if name not in accepted:
+                    index += 1
+                    continue
+                if option.is_bool_flag:
+                    value: object = name in positives
+                    index += 1
+                else:
+                    if separator:
+                        raw = inline
+                        index += 1
+                    elif index + 1 < len(args):
+                        raw = args[index + 1]
+                        index += 2
+                    else:
+                        index += 1
+                        continue
+                    try:
+                        value = option.type.convert(raw, option, ctx)
+                    except Exception:
+                        value = raw
+                seen.append((name, value))
+            if len({name for name, _ in seen}) > 1 and any(
+                value != seen[0][1] for _, value in seen[1:]
+            ):
+                aliases = ", ".join(sorted({name for name, _ in seen}))
+                raise click.UsageError(
+                    f"Conflicting values were supplied through aliases: {aliases}."
+                )
+
     def parse_args(self, ctx, args):
         # Reset the console gate and pipeline mode at the start of every
         # top-level parse; the eager -v callback (only on the real CLI group)
@@ -366,6 +418,7 @@ class DefaultGroup(click.Group):
             bool_toggle_negative_aliases,
             bool_single_flag_options,
         )
+        self._reject_conflicting_aliases(ctx, args)
         # Preserve the normalized token stream for commands with historical
         # variadic options (for example ``-i A B``).  Nested Click contexts
         # share ``meta``, unlike ``sys.argv`` under in-process invocation.

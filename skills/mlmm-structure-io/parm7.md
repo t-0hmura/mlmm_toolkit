@@ -19,10 +19,10 @@ reference for **reading** and **diagnosing** the pair.
 
 The names match: a single `mm-parm` invocation produces one `.parm7`
 and one `.rst7` file. Downstream geometry subcommands take the structure
-via `-i` (PDB/mmCIF or XYZ with `--ref-pdb`) and the topology via `--parm`:
+via `-i` (PDB/mmCIF or XYZ with `--ref-pdb`) and the topology via `--parm7`:
 
 ```bash
-mlmm opt -i complex.pdb --parm complex.parm7 ...
+mlmm opt -i complex.pdb --parm7 complex.parm7 ...
 ```
 
 ## Atom-order contract
@@ -67,10 +67,10 @@ for r in p.residues[:5]:
 `parm7` carries MM parameters. The ML / movable-MM / frozen partition
 is encoded in the **PDB's B-factor field** (see `pdb.md`). A geometry
 subcommand reads the layered structure from `-i` and the topology from
-`--parm` (use `--ref-pdb` only when the input is an XYZ):
+`--parm7` (use `--ref-pdb` only when the input is an XYZ):
 
 ```bash
-mlmm opt -i complex.pdb --parm complex.parm7 -q 0 -m 1 -b uma -o result_opt
+mlmm opt -i complex.pdb --parm7 complex.parm7 -q 0 -m 1 -b uma -o result_opt
 ```
 
 For a PDB input with no explicit ML selection, `--detect-layer` (default on)
@@ -118,7 +118,7 @@ moves):
 # Move residue 44 from movable-MM (10.0) to frozen (20.0):
 awk 'BEGIN{OFS=""} /^ATOM|^HETATM/{if(substr($0,23,4)+0==44){$0=substr($0,1,60)" 20.00"substr($0,67)}} {print}' \
     complex.pdb > complex_edited.pdb
-mlmm opt -i complex_edited.pdb --parm complex.parm7 -o result_opt ...
+mlmm opt -i complex_edited.pdb --parm7 complex.parm7 -o result_opt ...
 ```
 
 For larger reassignments, use `mlmm define-layer` instead of by-hand

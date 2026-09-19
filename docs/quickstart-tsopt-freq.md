@@ -13,7 +13,7 @@ Optimize a TS candidate and verify that it is a first-order saddle point.
 ## 1. TS optimization
 
 ```bash
-mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm tsopt -i ts_guess.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --out-dir ./result_tsopt
 ```
 
@@ -34,7 +34,7 @@ After numerical convergence, `tsopt` checks the final Hessian for imaginary mode
 Run a standalone `freq` job when you need full vibrational frequency output or thermochemistry corrections (`--thermo` in the `all` command). If you only need the imaginary-frequency check, the `tsopt` output above is sufficient.
 
 ```bash
-mlmm freq -i ./result_tsopt/final_geometry.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm freq -i ./result_tsopt/final_geometry.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --out-dir ./result_freq
 ```
 

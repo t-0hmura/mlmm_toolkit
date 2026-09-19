@@ -226,7 +226,9 @@ def add_scan_common_options(
             help="Maximum scanned dihedral change per step [degree].",
         ),
         click.option(
+            "--restraint-k",
             "--bias-k",
+            "bias_k",
             type=float,
             default=bias_k_default,
             show_default="300.0",

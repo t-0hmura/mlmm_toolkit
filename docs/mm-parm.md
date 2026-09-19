@@ -78,7 +78,7 @@ python -c "import parmed as pmd; p=pmd.load_file('system.parm7'); assert not p.c
 
 ## Notes
 
-`mm-parm` relies on AmberTools tleap with GAFF2 automatic parameterization and works well when the substrate is a **typical organic molecule**. For the following cases, it is strongly recommended to prepare your own topology externally (e.g. with tleap, MCPB.py, or glycam.org tools) and supply it via the `--parm` flag of each subcommand:
+`mm-parm` relies on AmberTools tleap with GAFF2 automatic parameterization and works well when the substrate is a **typical organic molecule**. For the following cases, it is strongly recommended to prepare your own topology externally (e.g. with tleap, MCPB.py, or glycam.org tools) and supply it via the `--parm7` flag of each subcommand:
 
 - **Metalloenzymes** -- Metal centers require specialized bonded/non-bonded parameters (e.g. MCPB.py, the bonded model, or ZAFF). Automatic GAFF2 parameterization cannot handle metal-ligand coordination.
 - **Glycans and carbohydrate-containing systems** -- Glycan linkages need GLYCAM force field parameters that are not included in the standard GAFF2/ff19SB setup.
@@ -90,7 +90,7 @@ python -c "import parmed as pmd; p=pmd.load_file('system.parm7'); assert not p.c
 
 ```bash
 # Example: supply a pre-built topology from MD
-mlmm opt -i snapshot_layered.pdb --parm md_system.parm7 -q -1 -m 1 \
+mlmm opt -i snapshot_layered.pdb --parm7 md_system.parm7 -q -1 -m 1 \
   --opt-mode grad --out-dir result
 ```
 

@@ -92,7 +92,7 @@ YAML under the `calc:` block, or via the appropriate CLI flag):
 
 The MM side of `mlmm-toolkit` is configured separately (`mm_backend`,
 `mm_threads`, `mm_device`, …) — see `mlmm-cli/SKILL.md` for the full
-list. UMA supports `--workers > 1` with `fairchem-core[extras]` and finite-difference Hessians; analytical Hessians require one worker.
+list. UMA supports `--uma-workers > 1` with `fairchem-core[extras]` and finite-difference Hessians; analytical Hessians require one worker.
 
 ## Known gotchas
 

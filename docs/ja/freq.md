@@ -26,34 +26,34 @@
 基本的な振動解析:
 
 ```bash
-mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm freq -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --out-dir ./result_freq
 ```
 
 まずは出力モード数を絞って確認する:
 
 ```bash
-mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm freq -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --max-write 6 --out-dir ./result_freq_quick
 ```
 
 凍結原子を指定した PHVA と熱化学ダンプを実行する:
 
 ```bash
-mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm freq -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --freeze-atoms "1,3,5,7" --dump --out-dir ./result_freq_phva
 ```
 
 VRAM に余裕があるノードで解析的 Hessian を使う:
 
 ```bash
-mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm freq -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --hessian-calc-mode Analytical --out-dir ./result_freq_analytical
 ```
 
 ## 処理の流れ
 
-1. **ML/MM calculatorの構築** — ML 領域は `--model-pdb` で提供され、Amber パラメータは `--parm` から読み取られます。`--hessian-calc-mode` は解析的または有限差分の Hessian を選択します。計算機は完全な 3N x 3N Hessian またはアクティブ自由度（DOF）のサブブロックを返す場合があります。
+1. **ML/MM calculatorの構築** — ML 領域は `--model-pdb` で提供され、Amber パラメータは `--parm7` から読み取られます。`--hessian-calc-mode` は解析的または有限差分の Hessian を選択します。計算機は完全な 3N x 3N Hessian またはアクティブ自由度（DOF）のサブブロックを返す場合があります。
 2. **PHVA と TR（並進/回転、translation/rotation）射影** — 凍結原子がある場合、固有解析はアクティブ部分空間内で行われます。デフォルトの constrained 射影は、凍結 anchor をすべて動かさない全系剛体運動のみを除去し、アクティブ断片を孤立分子として扱いません。3N x 3N とアクティブブロックの両方の Hessian を受け付け、振動数は cm^-1 で報告します（負の値 = 虚振動数）。
 3. **アクティブ自由度モード** — `--active-dof-mode` は振動解析に含まれる原子を制御します: `all`（全原子）、`ml-only`（ML 層、B=0）、`partial`（ML + MovableMM、デフォルト）、`unfrozen`（非凍結層、通常 B=0/10）。
 4. **モードエクスポート** — `--max-write` は出力するモード軌跡数を制限します。モードは値（または `--sort abs` で絶対値）でソートされます。エクスポートされた各モードは、酵素の原子順序にマップバックした `_trj.xyz` と `.pdb` 軌跡を書き出します。正弦波軌跡の振幅（`--amplitude-ang`）とフレーム数（`--n-frames`）は YAML のデフォルト値と同じです。
@@ -113,10 +113,9 @@ out_dir/ (デフォルト: ./result_freq/)
 | --- | --- | --- |
 | **入力と電荷** | | |
 | `-i, --input PATH` | 完全酵素 PDB（リンク原子なし）。 | 必須 |
-| `--parm PATH` | 完全酵素の Amber parm7 トポロジー。 | 必須 |
+| `--parm7 PATH` | 完全酵素の Amber parm7 トポロジー。 | 必須 |
 | `--model-pdb PATH` | ML 領域を定義する PDB。`--detect-layer` 有効時はオプション。 | _None_ |
 | `--model-indices TEXT` | 明示的な ML 領域原子インデックス（`--model-pdb` の代替）。 | _None_ |
-| `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` のインデックス規約。 | `True`（1 始まり） |
 | `--detect-layer / --no-detect-layer` | 入力 PDB の B 因子から ML/MM 層を自動検出。 | 有効 |
 | `-q, --charge INT` | ML 領域の電荷。 | _None_（`-l` 未指定時は必須） |
 | `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。 | _None_ |
@@ -125,8 +124,8 @@ out_dir/ (デフォルト: ./result_freq/)
 | **バックエンドと計算** | | |
 | `-b, --backend CHOICE` | 高レベルbackend: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`、`dft`。 | `uma` |
 | `--precision [fp32\|fp64]` | MLIP バックエンド精度。省略時は UMA/AIMNet2 fp32、ORB/MACE fp64。AIMNet2 は fp64 を拒否。 | バックエンド依存 |
-| `--workers INT` | UMA predictor worker 数。2 以上は `fairchem-core[extras]` が必要で、`Analytical` と併用不可。 | `1` |
-| `--workers-per-node INT` | UMA 並列 predictor のノード当たり worker 数。 | _None_ |
+| `--uma-workers INT` | UMA predictor worker 数。2 以上は `fairchem-core[extras]` が必要で、`Analytical` と併用不可。 | `1` |
+| `--uma-workers-per-node INT` | UMA 並列 predictor のノード当たり worker 数。 | _None_ |
 | `--mm-backend [hessian_ff\|openmm]` | MM バックエンド。Hessian 構築法は `calc.mm_fd` が別に制御します（デフォルト `true`: 有限差分）。 | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | リンク原子配置: scaled（g 因子）または fixed（1.09/1.01 Å）。 | `scaled` |
 | `--out-json/--no-out-json` | 機械可読な `result.json` を `out_dir` に書き出す。 | `False` |
@@ -135,7 +134,7 @@ out_dir/ (デフォルト: ./result_freq/)
 | **アクティブ領域の凍結と Hessian** | | |
 | `--freeze-atoms TEXT` | 1 始まりカンマ区切りの凍結原子インデックス。 | _None_ |
 | `--active-dof-mode CHOICE` | アクティブ自由度選択: `all`、`ml-only`、`partial`、`unfrozen`。 | `partial` |
-| `--hess-cutoff FLOAT` | Hessian 対象 MM 原子のカットオフ距離。 | _None_ |
+| `--hessian-cutoff FLOAT` | Hessian 対象 MM 原子のカットオフ距離。 | _None_ |
 | `--movable-cutoff FLOAT` | Movable-MM 層のカットオフ距離。 | _None_ |
 | `--hessian-calc-mode CHOICE` | Hessian モード（`Analytical` または `FiniteDifference`）。 | `FiniteDifference` |
 | `--dump-hess PATH` | Hessian、原子順序、Cartesian geometry、active-DOF basis、PHVA metadata、model charge、多重度を`.npz`へ保存し、一致する`mlmm irc --read-hess`へ渡す。 | _None_ |

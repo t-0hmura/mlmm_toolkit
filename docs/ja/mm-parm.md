@@ -1,6 +1,6 @@
 # `mm-parm`
 
-`mlmm mm-parm` は PDB から Amber トポロジー/座標ファイル（parm7/rst7/pdb）を生成します。不明な残基は GAFF2（AM1-BCC 電荷）で自動的にパラメータ化され、ジスルフィド結合検出や PDBFixer による任意の水素付加にも対応します。パイプライン全体については「処理の流れ」を、力場や水素付加のフラグは「CLI オプション」を参照してください。金属酵素、糖鎖、非標準アミノ酸・翻訳後修飾、MD スナップショット入力には不向きで、これらは外部で用意したトポロジーを `--parm` で指定します（[注記](#注記)を参照）。
+`mlmm mm-parm` は PDB から Amber トポロジー/座標ファイル（parm7/rst7/pdb）を生成します。不明な残基は GAFF2（AM1-BCC 電荷）で自動的にパラメータ化され、ジスルフィド結合検出や PDBFixer による任意の水素付加にも対応します。パイプライン全体については「処理の流れ」を、力場や水素付加のフラグは「CLI オプション」を参照してください。金属酵素、糖鎖、非標準アミノ酸・翻訳後修飾、MD スナップショット入力には不向きで、これらは外部で用意したトポロジーを `--parm7` で指定します（[注記](#注記)を参照）。
 
 ## 実行例
 
@@ -78,7 +78,7 @@ python -c "import parmed as pmd; p=pmd.load_file('system.parm7'); assert not p.c
 
 ## 注記
 
-`mm-parm` は AmberTools の tleap と GAFF2 自動パラメータ化に依存しており、基質が**典型的な有機分子**である場合にうまく機能します。以下のケースでは、外部でトポロジーを自作し（例: tleap, MCPB.py, glycam.org ツール）、各サブコマンドの `--parm` フラグから入力することを強く推奨します。
+`mm-parm` は AmberTools の tleap と GAFF2 自動パラメータ化に依存しており、基質が**典型的な有機分子**である場合にうまく機能します。以下のケースでは、外部でトポロジーを自作し（例: tleap, MCPB.py, glycam.org ツール）、各サブコマンドの `--parm7` フラグから入力することを強く推奨します。
 
 - **金属酵素** -- 金属中心には専用の結合/非結合パラメータが必要です（例: MCPB.py, bonded model, ZAFF）。GAFF2 の自動パラメータ化では金属-配位子の配位を扱えません。
 - **糖鎖（Glycan）を含む系** -- 糖鎖結合には GLYCAM 力場パラメータが必要であり、標準の GAFF2/ff19SB セットアップには含まれていません。
@@ -90,7 +90,7 @@ python -c "import parmed as pmd; p=pmd.load_file('system.parm7'); assert not p.c
 
 ```bash
 # 例: MD で構築済みのトポロジーを供給
-mlmm opt -i snapshot_layered.pdb --parm md_system.parm7 -q -1 -m 1 \
+mlmm opt -i snapshot_layered.pdb --parm7 md_system.parm7 -q -1 -m 1 \
   --opt-mode grad --out-dir result
 ```
 

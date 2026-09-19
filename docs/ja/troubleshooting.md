@@ -103,7 +103,7 @@ mlmm extract -i complex.pdb -c PRE --modified-residue "HD1:0" -o pocket.pdb
 
 同じフラグは `all` コマンドでも使用可能で、抽出ステージに転送されます。SEP、TPO、MLY などカタログ登録済みの残基は、電荷を省略して指定してもカタログ電荷を保持します。
 
-`--modified-residue` で対応できない場合は、全系 PDB から実在原子を選んで ML 領域の PDB を作成し、`--parm` と `--model-pdb` を使って下流コマンドに直接渡してください。
+`--modified-residue` で対応できない場合は、全系 PDB から実在原子を選んで ML 領域の PDB を作成し、`--parm7` と `--model-pdb` を使って下流コマンドに直接渡してください。
 
 ---
 
@@ -118,7 +118,7 @@ mlmm extract -i complex.pdb -c PRE --modified-residue "HD1:0" -o pocket.pdb
 - 電荷と多重度を明示的に指定します:
 
   ```bash
-  mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1
+  mlmm path-search -i R.pdb P.pdb --parm7 real.parm7 --model-pdb model.pdb -q 0 -m 1
   ```
 
 - あるいは、抽出経由で自動導出させるため `all` を使い、残基名ごとの電荷マッピングを与えます:
@@ -166,7 +166,7 @@ mm-parm requires AmberTools (tleap, antechamber, parmchk2).
   which parmchk2
   ```
 
-- AmberTools なしでも、`--parm` を手動で用意すれば `opt`、`tsopt`、`path-search` 等は動作します。
+- AmberTools なしでも、`--parm7` を手動で用意すれば `opt`、`tsopt`、`path-search` 等は動作します。
 
 ---
 
@@ -277,7 +277,7 @@ cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && mak
 - レイヤーが割り当てられた PDB を分子ビューアで可視化（B-factor で色分け）する
 - `--model-pdb` が正しく ML 領域の原子を定義しているか確認する
 - `define-layer` の距離カットオフを調整する:
- - `--radius-freeze`（デフォルト 8.0 Å）: Movable-MM/Frozen の境界を制御
+ - `--movable-cutoff`（デフォルト 8.0 Å）: Movable-MM/Frozen の境界を制御
 - 必要に応じて、計算オプション（`hess_cutoff`, `hess_mm_atoms`）で Hessian 対象 MM を別途制御する
 - YAML で `use_bfactor_layers: true` を使う場合、B-factor 値が期待されるエンコーディング（0.0, 10.0, 20.0; 許容差 1.0）と一致するか確認する
 
@@ -394,7 +394,7 @@ Plotly/Chrome 系のエラーで静的画像が出ない場合:
 ML/MM 系は MLIP 単体の計算よりも一般的に大きいため、VRAM の負荷が高くなります。
 
 対処の例（優先度順）:
-- **Frozen 層を確認**: `define-layer` で Frozen 原子（B=20.0）が正しく割り当てられているか確認する。Frozen 領域が小さすぎると、Movable-MM 領域（ひいては Hessian）が不必要に大きくなる。`--radius-freeze` を小さくして Frozen 領域を拡大する。
+- **Frozen 層を確認**: `define-layer` で Frozen 原子（B=20.0）が正しく割り当てられているか確認する。Frozen 領域が小さすぎると、Movable-MM 領域（ひいては Hessian）が不必要に大きくなる。`--movable-cutoff` を小さくして Frozen 領域を拡大する。
 - **ML 領域サイズを縮小**: `extract` の `--radius` を小さくするか、`--model-pdb` で手動定義した小さい ML 領域 PDB を指定する。
 - **Hessian モードを比較**: 有限差分は ML autograd メモリを抑える場合がありますが、どちらも密な active-space Hessian を形成します。対象系で実行時間とピークメモリを比較してください。
 - **`define-layer` で事前に層を定義** し、`use_bfactor_layers: true` で読み取る。
@@ -492,7 +492,7 @@ ML/MM 系は MLIP 単体の計算よりも一般的に大きいため、VRAM の
   active region に依存するため、対象系で確認してください。
 - **MM Hessian**: `mm_fd: true`（デフォルト）は MM Hessian に有限差分を使用。解析 MM Hessian（`mm_fd: false`）は小規模系では高速だがメモリ消費が増える場合がある
 - **MM Hessian 計算が遅い**: `hess_cutoff` を設定して Hessian-MM 原子数を制限する
-- **大規模系**: `define-layer` の `--radius-freeze` を調整して可動自由度数を制御し、対象系の pilot で科学的妥当性と資源使用量を確認する
+- **大規模系**: `define-layer` の `--movable-cutoff` を調整して可動自由度数を制御し、対象系の pilot で科学的妥当性と資源使用量を確認する
 - **GPU 配置**: 現行の topology と解析 MM 経路は CPU 側です。ML/DFT backend の対応範囲内で device を選び、対象系で検証してください
 - **ML と MM の並列実行**: デフォルトで ML（GPU）と MM（CPU）は並列実行されます。`mm_threads` で CPU スレッド数を調整可能
 

@@ -13,26 +13,26 @@ native CUDA 13 GPU4PySCF は `mlmm-toolkit[dft]`、CUDA 12 site では `mlmm-too
 ML 領域に対する最小構成の DFT 一点計算:
 
 ```bash
-mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm dft -i enzyme.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --out-dir ./result_dft
 ```
 
 ```bash
 # 汎関数/基底関数を変更して一点計算する
-mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm dft -i enzyme.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --func-basis "wb97m-v/def2-tzvpd" --out-dir ./result_dft_tz
 ```
 
 ```bash
 # SCF 収束を厳しくして反復回数を増やす
-mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 -m 1 --conv-tol 1e-10 --max-cycle 200 --out-dir ./result_dft_tight
+mlmm dft -i enzyme.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
+ -q 0 -m 1 --scf-tol 1e-10 --scf-max-cycles 200 --out-dir ./result_dft_tight
 ```
 
 ## 処理の流れ
 
-1. **入力処理** -- ML/MM 中核の `MLMMCore` が酵素全体の PDB（`-i`）、Amber トポロジー（`--parm`）、ML 領域定義（`--model-pdb` または `--model-indices` または `--detect-layer` による B 因子検出）を読み込みます。YAML で明示的な `link_mlmm` ペアが指定されない限り、ML/MM 選択を横切る parm7 結合にリンク水素を自動付加します。結合の認識に距離は使用しません。
-2. **SCF 構築** -- `--func-basis` で汎関数/基底関数を定義します。低メモリモードは既定で有効です。electrostatic embeddingを含むclosed-shell GPU計算は`gpu4pyscf.dft.rks_lowmem.RKS`、open-shell GPUとCPUはDF tensorを保持しない標準direct-JK RKS/UKSを使います。embedding時もQM/MMの1電子項をpacked lower-triangleのhost表現にそろえます。calculator workflowはgeometryごとにlow-memory methodを再構築し、前stepのGPU densityを`dm0`として再利用します。十分なメモリがある場合、`--no-lowmem`でdensity fittingを有効にすると難しいSCFの収束が改善することがあります。CPU thread数とhost RAM上限はscheduler/process制約から自動検出し、`--dft-nprocs`と`--dft-mem`で上書きできます。`--embedcharge`ではMM点電荷をPySCF Hamiltonianに直接埋め込み、MLIP workflow用のxTB補正は使いません。
+1. **入力処理** -- ML/MM 中核の `MLMMCore` が酵素全体の PDB（`-i`）、Amber トポロジー（`--parm7`）、ML 領域定義（`--model-pdb` または `--model-indices` または `--detect-layer` による B 因子検出）を読み込みます。YAML で明示的な `link_mlmm` ペアが指定されない限り、ML/MM 選択を横切る parm7 結合にリンク水素を自動付加します。結合の認識に距離は使用しません。
+2. **SCF 構築** -- `--func-basis` で汎関数/基底関数を定義します。低メモリモードは既定で有効です。electrostatic embeddingを含むclosed-shell GPU計算は`gpu4pyscf.dft.rks_lowmem.RKS`、open-shell GPUとCPUはDF tensorを保持しない標準direct-JK RKS/UKSを使います。embedding時もQM/MMの1電子項をpacked lower-triangleのhost表現にそろえます。calculator workflowはgeometryごとにlow-memory methodを再構築し、前stepのGPU densityを`dm0`として再利用します。十分なメモリがある場合、`--no-dft-low-memory`でdensity fittingを有効にすると難しいSCFの収束が改善することがあります。CPU thread数とhost RAM上限はscheduler/process制約から自動検出し、`--dft-nprocs`と`--dft-memory`で上書きできます。`--embedcharge`ではMM点電荷をPySCF Hamiltonianに直接埋め込み、MLIP workflow用のxTB補正は使いません。
 3. **ML(dft)/MM 再結合** -- DFT は `MLMMCore` の高レベル MODEL エネルギーだけを置き換えます。`MLMMCore` は選択した MM バックエンドで REAL-low と MODEL-low を評価し、差し引き式を適用します。別個のトポロジー構築、MM calculator 経路、DFT 力計算はありません。
 4. **集団解析と出力** -- Mulliken、meta-Lowdin、IAO 電荷とスピン密度（UKS のみ）が結合エネルギーブロックとともに `result.yaml` に書き出されます。
 
@@ -64,22 +64,21 @@ out_dir/ (デフォルト: ./result_dft/)
 | --- | --- | --- |
 | `--cmap/--no-cmap` | REAL と MODEL の両 MM 層で CMAP を保持します。 | `--cmap` |
 | `-i, --input PATH` | 酵素全体の構造ファイル（PDB/mmCIF、または `--ref-pdb` でトポロジーを指定した XYZ）。 | 必須 |
-| `--parm PATH` | 全系の Amber parm7 トポロジー。 | 必須 |
+| `--parm7 PATH` | 全系の Amber parm7 トポロジー。 | 必須 |
 | `--model-pdb PATH` | ML 領域を定義する PDB（原子 ID が酵素 PDB と一致必須）。`--detect-layer` 有効時はオプション。 | _None_ |
 | `--model-indices TEXT` | ML 領域のカンマ区切り原子インデックス（範囲指定可、例: `1-5`）。`--model-pdb` 省略時に使用。 | _None_ |
-| `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` を 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
 | `--detect-layer / --no-detect-layer` | 入力 PDB の B 因子（B=0/10/20）から ML/MM レイヤーを自動検出。 | 有効 |
 | `-q, --charge INT` | ML 領域の電荷。`-l/--ligand-charge` 指定時は不要（PDB 入力または `--ref-pdb` 付き XYZ）。 | `-l` 指定時を除き必須 |
 | `-l, --ligand-charge TEXT` | 全体電荷、または残基名ごとのマッピング（例: `SAM:1,GPP:-3`）。`-q` 省略時に ML 領域の電荷を導出するために使用（PDB 入力または `--ref-pdb` が必要）。 | _None_ |
 | `-m, --multiplicity INT` | ML 領域のスピン多重度 (2S+1)。 | `1` |
 | `--func-basis TEXT` | 汎関数/基底関数ペア（`"FUNC/BASIS"`）。 | `wb97m-v/def2-svp` |
-| `--max-cycle INT` | SCF反復上限。 | `100` |
-| `--conv-tol FLOAT` | SCF 収束閾値 (Hartree)。 | `1e-9` |
+| `--scf-max-cycles INT` | SCF反復上限。 | `100` |
+| `--scf-tol FLOAT` | SCF 収束閾値 (Hartree)。 | `1e-9` |
 | `--grid-level INT` | DFT 積分グリッドレベル (0=粗, 3=デフォルト, 5=細かい, 9=非常に細かい)。 | `3` |
-| `--engine {gpu,cpu}` | GPU4PySCF（`gpu`）または CPU PySCF（`cpu`）を強制。 | `gpu` |
-| `--lowmem/--no-lowmem` | electrostatic embeddingを含むclosed-shell GPU計算で`rks_lowmem.RKS`を使用。open-shell GPUとCPUは標準direct JKを使い、`--no-lowmem`でdensity fittingを有効化 | `True` |
+| `--dft-engine {gpu,cpu}` | GPU4PySCF（`gpu`）または CPU PySCF（`cpu`）を強制。 | `gpu` |
+| `--dft-low-memory/--no-dft-low-memory` | electrostatic embeddingを含むclosed-shell GPU計算で`rks_lowmem.RKS`を使用。open-shell GPUとCPUは標準direct JKを使い、`--no-dft-low-memory`でdensity fittingを有効化 | `True` |
 | `--dft-nprocs INT` | PySCF/OpenMPのCPU thread数。省略時はscheduler/affinity/hostから自動検出 | `auto` |
-| `--dft-mem SIZE` | PySCF host RAM上限（例: `64GB`、`120000MB`）。GPU VRAMではありません | `auto` |
+| `--dft-memory SIZE` | PySCF host RAM上限（例: `64GB`、`120000MB`）。GPU VRAMではありません | `auto` |
 | `--embedcharge/--no-embedcharge` | 実験的な PySCF 直接静電埋込みです。MM 点電荷を埋め込み、`dft` では xTB 補正を使用しません。 | `False` |
 | `--embedcharge-cutoff FLOAT` | ML 領域からこの距離以内の MM 点電荷を埋め込みます。 | `12.0` Å |
 | `-o, --out-dir DIR` | 出力ディレクトリ。 | `./result_dft/` |
@@ -137,7 +136,7 @@ dft:
 - 基底関数名が `def2` で始まる場合、対応する def2 有効内殻ポテンシャル（ECP）が自動的に付加されます（元素の有無はチェックしません）。
 - **Blackwell アーキテクチャ GPU**（RTX 50xx）: インストールした
   GPU4PySCF/CuPy が対象デバイスをサポートすることを確認してください。
-  GPU 経路が失敗する場合は `--engine cpu` または外部 DFT
+  GPU 経路が失敗する場合は `--dft-engine cpu` または外部 DFT
   プログラムを使用してください。
 - **def2-TZVPD でメモリ不足になる場合**: 必要メモリは元素、基底関数、
   汎関数、グリッド、ソフトウェア構成に依存します。対象系で試行し、

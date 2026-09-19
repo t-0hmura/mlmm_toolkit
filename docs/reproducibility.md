@@ -18,7 +18,7 @@ and an `index_reduce_` shim for operations controlled by mlmm-toolkit. PyTorch
 raises if a selected operation lacks a deterministic implementation.
 
 ```bash
-mlmm opt -i complex.pdb --parm enzyme.parm7 -q 0 --deterministic
+mlmm opt -i complex.pdb --parm7 enzyme.parm7 -q 0 --deterministic
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -q -1 --deterministic
 ```
 

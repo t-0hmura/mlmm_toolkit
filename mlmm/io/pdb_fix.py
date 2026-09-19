@@ -436,7 +436,7 @@ def _run_fix_altloc(
     help="Input PDB file or directory.",
 )
 @click.option(
-    "-o", "--out",
+    "-o", "--output", "--out", "out",
     type=click.Path(path_type=Path),
     default=None,
     help="Output file (if input is a file) or output directory (if input is a directory).",

@@ -53,7 +53,7 @@ ML/MM 3 層システム、ONIOM 分解、「セグメント」「画像（image�
 | **Layer 2: Movable-MM** | 10.0 | hessian_ff（MM） | 最適化時に移動可能な MM 原子 |
 | **Layer 3: Frozen-MM** | 20.0 | MM | 座標は固定されるが、MM エネルギー相互作用には参加 |
 
-B-factor 値は PDB ファイルの温度因子列（列 61-66）にエンコードされます。`define-layer` サブコマンドが ML 領域からの距離に基づいて自動設定します（`--radius-freeze`（デフォルト 8.0 Å）以内を Movable-MM、それより遠方を Frozen-MM に割り当て）。Hessian 対象 MM 原子は `hess_cutoff` や `hess_mm_atoms` で別途制御します。
+B-factor 値は PDB ファイルの温度因子列（列 61-66）にエンコードされます。`define-layer` サブコマンドが ML 領域からの距離に基づいて自動設定します（`--movable-cutoff`（デフォルト 8.0 Å）以内を Movable-MM、それより遠方を Frozen-MM に割り当て）。Hessian 対象 MM 原子は `hess_cutoff` や `hess_mm_atoms` で別途制御します。
 
 ```{tip}
 B-factor エンコーディングにより、B-factor カラーリングに対応した分子ビューアで層割り当てを視覚的に確認できます。
@@ -165,8 +165,8 @@ MM 緩和ループを含むすべてのオプティマイザで `overachieve_fac
 マイクロイテレーションは `--microiter` で有効化します（`--opt-mode hess` 時のデフォルト）:
 
 ```bash
-mlmm opt -i layered.pdb --parm system.parm7 -q 0 --opt-mode hess --microiter
-mlmm opt -i layered.pdb --parm system.parm7 -q 0 --opt-mode hess --no-microiter  # 無効化
+mlmm opt -i layered.pdb --parm7 system.parm7 -q 0 --opt-mode hess --microiter
+mlmm opt -i layered.pdb --parm7 system.parm7 -q 0 --opt-mode hess --no-microiter  # 無効化
 ```
 
 ---
@@ -222,11 +222,11 @@ ML 領域の指定には 2 通りあります。
   カタログ未登録の非標準アミノ酸は `--modified-residue NAME:charge`、リガンドは
   `-l NAME:charge` で与え、`-q` は不要です。登録済みの残基は電荷を省略しても
   カタログ値を保持します。
-- **手動**（`--model-pdb` + `--parm`）: ML 原子の選択を自分で与え、model 電荷は `-q` で明示
+- **手動**（`--model-pdb` + `--parm7`）: ML 原子の選択を自分で与え、model 電荷は `-q` で明示
   します。電荷が変わる原子を手で編集した場合（独自の切断・プロトン化/電荷変更で自動導出が
   当てにならない場合）や、自動切り出しが扱えない異常トポロジーで確実です。この経路では
   `--modified-residue` は適用されません。model PDB にリンク水素を入れる必要も**ありません**
-  — ML/MM calculator が `--parm` のトポロジーから ML/MM 境界に付与します。
+  — ML/MM calculator が `--parm7` のトポロジーから ML/MM 境界に付与します。
 
 個別サブコマンドでは、同じ原子選択を `--model-indices`（デフォルトは1始まり）または
 `--detect-layer`（B 因子 `0` = ML、`10` = movable MM、`20` = frozen MM）でも指定できます。
@@ -340,7 +340,7 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt
 - ブール値オプションは `--flag` / `--no-flag` と `--flag True/False`（`yes/no`, `1/0` 含む）の両方を受理します。新規スクリプトでは toggle 形式を推奨します。
 - 複数 PDB を与える場合、各ファイルは **同じ原子が同じ順序** で並んでいることが重要です（座標だけが異なる）。
 - 酵素の反応機構解析では、水素を含んだ入力 PDB を用意することを強く推奨します。
-- ML/MM 計算には parm7 トポロジーが必須です。`all` ワークフローでは自動生成されますが、個別サブコマンドでは `--parm`（全系トポロジー）と、`--model-pdb`、`--model-indices`、または有効な B-factor layer のいずれかによる ML 領域指定が必要です。
+- ML/MM 計算には parm7 トポロジーが必須です。`all` ワークフローでは自動生成されますが、個別サブコマンドでは `--parm7`（全系トポロジー）と、`--model-pdb`、`--model-indices`、または有効な B-factor layer のいずれかによる ML 領域指定が必要です。
 ```
 
 ---

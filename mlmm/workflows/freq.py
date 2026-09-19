@@ -708,6 +708,7 @@ def _prepare_frequency_output_paths(
     help="Enzyme complex PDB/mmCIF, or XYZ with --ref-pdb, used by geom_loader and the ML/MM calculator.",
 )
 @click.option(
+    "--parm7",
     "--parm",
     "real_parm7",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
@@ -741,6 +742,7 @@ def _prepare_frequency_output_paths(
     help="Comma-separated 1-based atom indices to freeze (e.g., '1,3,5').",
 )
 @click.option(
+    "--hessian-cutoff",
     "--hess-cutoff",
     "hess_cutoff",
     type=float,
@@ -975,6 +977,10 @@ def cli(
     merged_yaml_cfg, _, _ = load_merged_yaml_cfg(
         config_yaml=config_yaml,
         override_yaml=None,
+    )
+    from mlmm.cli.decorators import resolve_model_indices_setting
+    model_indices_str, model_indices_one_based = resolve_model_indices_setting(
+        ctx, merged_yaml_cfg, model_indices_str, model_indices_one_based
     )
 
     # Validate input format: PDB/mmCIF directly, or XYZ with --ref-pdb.

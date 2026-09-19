@@ -100,9 +100,9 @@ pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cpu
 
 `mlmm-toolkit` runs MLIP backends on CPU but is usually much slower; benchmark
 a representative structure. For DFT (`mlmm dft`), CPU PySCF is **not** an automatic
-fallback — pass `--engine cpu` (or set `dft.engine: cpu` in YAML)
+fallback — pass `--dft-engine cpu` (or set `dft.engine: cpu` in YAML)
 explicitly when the GPU backend is unavailable; with the default
-`--engine gpu` the command raises a `ClickException` rather than
+`--dft-engine gpu` the command raises a `ClickException` rather than
 silently falling back. See `dft.md`.
 
 ## Architecture quirk: aarch64

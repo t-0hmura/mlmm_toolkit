@@ -49,7 +49,7 @@ mlmm all --help-advanced  # 全オプション
 現在の設定を確認できます（YAML オーバーライドの検証に便利）：
 
 ```bash
-mlmm opt -i input.pdb --parm real.parm7 -q -1 --show-config --dry-run
+mlmm opt -i input.pdb --parm7 real.parm7 -q -1 --show-config --dry-run
 ```
 
 ---
@@ -59,10 +59,10 @@ mlmm opt -i input.pdb --parm real.parm7 -q -1 --show-config --dry-run
 ML/MM 計算を行う大半のサブコマンド（`all`、`extract`、`mm-parm`、`define-layer` を除く）では、以下のトポロジー指定が常に必要です:
 
 ```bash
---parm real.parm7      # 全系（real system）の Amber parm7 トポロジーファイル
+--parm7 real.parm7      # 全系（real system）の Amber parm7 トポロジーファイル
 ```
 
-`all` ワークフローでは、`--parm` を省略するとトポロジーを自動生成します。
+`all` ワークフローでは、`--parm7` を省略するとトポロジーを自動生成します。
 個別サブコマンドの ML 原子集合は、次の順で決まります。
 
 1. `--model-pdb` を指定した場合はその原子集合
@@ -76,7 +76,7 @@ Movable-MM/Frozen-MM の割り当てに引き続き使われますが、明示�
 
 ```bash
 # 個別サブコマンドの例
-mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1
+mlmm path-search -i R.pdb P.pdb --parm7 real.parm7 --model-pdb model.pdb -q 0 -m 1
 ```
 
 ---
@@ -264,7 +264,7 @@ PDB 入力の場合、`--ligand-charge` で非標準残基（基質、補因子�
 - ML 領域決定をスキップする場合（`-c/--center` を省略）に使用可能
 
 ### Amber トポロジー
-- `--parm`: 全系の力場トポロジー（`mm-parm` で自動生成可能）
+- `--parm7`: 全系の力場トポロジー（`mm-parm` で自動生成可能）
 - parm7 は入力 PDB の原子順序と正確に一致する必要があります
 
 ---
@@ -295,14 +295,14 @@ pip uninstall -y fairchem-core && pip install mace-torch  # MACE は別 env で�
 fp64 を使用します。AIMNet2 は fp64 を受け付けません。ORB/MACE の fp32
 明示指定は、曲率の低ノイズ性よりスクリーニング速度を優先する場合に限ります。
 
-`--workers` は一般的な CPU スレッド数ではなく、UMA の並列 predictor
+`--uma-workers` は一般的な CPU スレッド数ではなく、UMA の並列 predictor
 （`fairchem-core[extras]`）を制御します。デフォルトは 1 です。
-`--workers > 1` は解析 Hessian に必要な autograd model を公開しないため、
+`--uma-workers > 1` は解析 Hessian に必要な autograd model を公開しないため、
 `--hessian-calc-mode Analytical` との併用はエラーになります。
 
 ```bash
---workers 1 --hessian-calc-mode Analytical       # 解析 Hessian
---workers 4 --hessian-calc-mode FiniteDifference # UMA 並列 predictor + FD
+--uma-workers 1 --hessian-calc-mode Analytical       # 解析 Hessian
+--uma-workers 4 --hessian-calc-mode FiniteDifference # UMA 並列 predictor + FD
 ```
 
 ORB、MACE、AIMNet2 はこの UMA worker pool を使用しません。互換性のある

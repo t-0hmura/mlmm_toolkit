@@ -27,7 +27,7 @@ Here, `pocket.pdb` contains the full system matching `real.parm7`; `ml_region.pd
 Basic frequency analysis:
 
 ```bash
-mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm freq -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --out-dir ./result_freq
 ```
 
@@ -35,7 +35,7 @@ Limit the number of exported modes for quick inspection:
 
 ```bash
 # Limit the number of exported modes for quick inspection
-mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm freq -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --max-write 6 --out-dir ./result_freq_quick
 ```
 
@@ -43,7 +43,7 @@ PHVA with explicit frozen atoms and dump thermo payload:
 
 ```bash
 # PHVA with explicit frozen atoms and dump thermo payload
-mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm freq -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --freeze-atoms "1,3,5,7" --dump --out-dir ./result_freq_phva
 ```
 
@@ -51,13 +51,13 @@ Analytical Hessian mode on VRAM-rich nodes:
 
 ```bash
 # Analytical Hessian mode on VRAM-rich nodes
-mlmm freq -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm freq -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --hessian-calc-mode Analytical --out-dir ./result_freq_analytical
 ```
 
 ## Workflow
 
-1. **ML/MM calculator setup** — The ML region is supplied via `--model-pdb`; Amber parameters are read from `--parm`. `--hessian-calc-mode` selects analytical or finite-difference Hessians. The calculator may return either the full 3N x 3N Hessian or an active degree-of-freedom (DOF) sub-block.
+1. **ML/MM calculator setup** — The ML region is supplied via `--model-pdb`; Amber parameters are read from `--parm7`. `--hessian-calc-mode` selects analytical or finite-difference Hessians. The calculator may return either the full 3N x 3N Hessian or an active degree-of-freedom (DOF) sub-block.
 2. **PHVA & translation/rotation (TR) projection** — With frozen atoms, eigenanalysis occurs inside the active subspace. The default constrained projector removes only full-system rigid motions that leave every frozen anchor fixed; it does not treat the active fragment as an isolated molecule. Both 3N x 3N and active-block Hessians are accepted, and frequencies are reported in cm^-1 (negatives = imaginary).
 3. **Active DOF mode** — `--active-dof-mode` selects which atoms enter the analysis (default `partial`); see the CLI options table for the four modes.
 4. **Mode export** — `--max-write` limits how many mode trajectories are written. Modes are sorted by value (or absolute value with `--sort abs`). Each exported mode writes `_trj.xyz` and `.pdb` trajectories mapped back onto the enzyme ordering. The sinusoidal trajectory amplitude (`--amplitude-ang`) and frame count (`--n-frames`) match the YAML defaults.
@@ -108,10 +108,9 @@ out_dir/ (default: ./result_freq/)
 | --- | --- | --- |
 | **Input & charge** | | |
 | `-i, --input PATH` | Full enzyme PDB (no link atoms). | Required |
-| `--parm PATH` | Amber parm7 topology for the full enzyme. | Required |
+| `--parm7 PATH` | Amber parm7 topology for the full enzyme. | Required |
 | `--model-pdb PATH` | PDB defining the ML region. Optional when `--detect-layer` is enabled. | _None_ |
 | `--model-indices TEXT` | Explicit ML-region atom indices (alternative to `--model-pdb`). | _None_ |
-| `--model-indices-one-based / --model-indices-zero-based` | Indexing convention for `--model-indices`. | `True` (1-based) |
 | `--detect-layer / --no-detect-layer` | Automatically detect ML/MM layers from B-factors. | Enabled |
 | `-q, --charge INT` | ML region charge. | _None_ (required unless `-l` is given) |
 | `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives net charge when `-q` is omitted. | _None_ |
@@ -120,8 +119,8 @@ out_dir/ (default: ./result_freq/)
 | **Backend & compute** | | |
 | `-b, --backend CHOICE` | High-level backend for the model region: `uma` (default), `orb`, `mace`, `aimnet2`, `dft`. | `uma` |
 | `--precision [fp32\|fp64]` | MLIP backend precision; unset uses UMA/AIMNet2 fp32 and ORB/MACE fp64. AIMNet2 rejects fp64. | backend-specific |
-| `--workers INT` | UMA predictor workers. Values greater than 1 require `fairchem-core[extras]` and cannot be combined with `Analytical`. | `1` |
-| `--workers-per-node INT` | Workers per node for the parallel UMA predictor. | _None_ |
+| `--uma-workers INT` | UMA predictor workers. Values greater than 1 require `fairchem-core[extras]` and cannot be combined with `Analytical`. | `1` |
+| `--uma-workers-per-node INT` | Workers per node for the parallel UMA predictor. | _None_ |
 | `--mm-backend [hessian_ff\|openmm]` | MM backend. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | Link-atom placement: scaled ($g$-factor) or fixed 1.09/1.01 Å. | `scaled` |
 | `--cmap/--no-cmap` | Preserve CMAP in both REAL and MODEL MM layers. | `--cmap` |
@@ -129,7 +128,7 @@ out_dir/ (default: ./result_freq/)
 | **Active-region freezing & Hessian** | | |
 | `--freeze-atoms TEXT` | 1-based comma-separated frozen atom indices. | _None_ |
 | `--active-dof-mode CHOICE` | Active DOF selection: `all`, `ml-only`, `partial`, `unfrozen`. | `partial` |
-| `--hess-cutoff FLOAT` | Cutoff distance for Hessian-target MM atoms. | _None_ |
+| `--hessian-cutoff FLOAT` | Cutoff distance for Hessian-target MM atoms. | _None_ |
 | `--movable-cutoff FLOAT` | Cutoff distance for movable-MM layer. | _None_ |
 | `--hessian-calc-mode CHOICE` | Hessian mode (`Analytical` or `FiniteDifference`). | `FiniteDifference` |
 | `--dump-hess PATH` | Save Hessian, atom order, Cartesian geometry, active-DOF basis, PHVA metadata, model charge, and multiplicity to `.npz` for a matching `mlmm irc --read-hess` run. | _None_ |

@@ -6,6 +6,7 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
+import click
 import pytest
 import yaml
 
@@ -778,13 +779,13 @@ def test_all_effective_yaml_canonicalizes_alias_only_calculator(tmp_path: Path) 
         source, None, tmp_prefix="test_mlmm_alias_"
     )
     assert effective is not None
-    assert effective != source
-    assert payload["calc"] == payload["mlmm"]
+    assert effective == source
+    assert "mlmm" not in payload
     assert payload["calc"]["backend"] == "orb"
-    assert yaml.safe_load(effective.read_text(encoding="utf-8"))["calc"] == payload["calc"]
+    assert yaml.safe_load(effective.read_text(encoding="utf-8"))["mlmm"]["backend"] == "orb"
 
 
-def test_all_effective_yaml_keeps_canonical_whole_section_precedence(
+def test_all_effective_yaml_rejects_conflicting_calculator_sections(
     tmp_path: Path,
 ) -> None:
     from mlmm.workflows.all import _build_effective_args_yaml
@@ -800,15 +801,10 @@ def test_all_effective_yaml_keeps_canonical_whole_section_precedence(
         encoding="utf-8",
     )
 
-    effective, payload = _build_effective_args_yaml(
-        source, None, tmp_prefix="test_mlmm_both_"
-    )
-    assert effective == source
-    assert payload["calc"] == {
-        "backend": "mace",
-        "mace_model": "canonical-model",
-    }
-    assert payload["mlmm"]["backend"] == "orb"
+    with pytest.raises(click.BadParameter, match="Conflicting YAML values"):
+        _build_effective_args_yaml(
+            source, None, tmp_prefix="test_mlmm_both_"
+        )
 
 
 def test_all_injection_preserves_alias_only_calculator_values(tmp_path: Path) -> None:

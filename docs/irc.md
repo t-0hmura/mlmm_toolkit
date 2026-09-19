@@ -8,7 +8,7 @@ IRC does not publish an independent `scientific_status` or directional success v
 
 ```bash
 # Minimal run from a TS PDB
-mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm irc -i ts.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --max-cycles 50 --out-dir ./result_irc
 ```
 
@@ -16,7 +16,7 @@ Forward branch only:
 
 ```bash
 # Forward branch only
-mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm irc -i ts.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 --no-backward --out-dir ./result_irc_forward
 ```
 
@@ -24,7 +24,7 @@ Smaller step size with analytical Hessians:
 
 ```bash
 # Smaller step size for a shallow surface
-mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm irc -i ts.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --step-size 0.05 \
  --hessian-calc-mode Analytical --out-dir ./result_irc_analytical
 # keep both branches and raise the step limit with --max-cycles 150
@@ -35,7 +35,7 @@ from 0.10 to 0.05 Bohr). To ignore every physical endpoint criterion and trace
 unconditionally, opt in to `--never-stop`:
 
 ```bash
-mlmm irc -i ts.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0 \
+mlmm irc -i ts.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
  --step-size 0.05 --never-stop --max-cycles 250 -o result_irc_continue
 ```
 
@@ -46,15 +46,15 @@ trajectories and optimize/validate their endpoints before accepting them.
 Command form:
 
 ```bash
-mlmm irc -i TS_STRUCTURE --parm PARM7 --model-pdb ML_REGION [options]
+mlmm irc -i TS_STRUCTURE --parm7 PARM7 --model-pdb ML_REGION [options]
 ```
 
 `mlmm irc --help` shows core options; `mlmm irc --help-advanced` shows the full option list.
 
 ## Workflow
 
-1. **Input preparation** -- Load the TS structure, Amber topology (`--parm`), and ML-region definition (`--model-pdb` / `--model-indices`); resolve charge and spin. Direct PDB/mmCIF input or `--ref-pdb` supplies the topology used for companion output.
-2. **ML/MM calculator setup** -- Build the ML/MM calculator from `--parm` and `--model-pdb`. The `-b/--backend` option selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). The `--hessian-calc-mode` controls ML backend Hessian evaluation.
+1. **Input preparation** -- Load the TS structure, Amber topology (`--parm7`), and ML-region definition (`--model-pdb` / `--model-indices`); resolve charge and spin. Direct PDB/mmCIF input or `--ref-pdb` supplies the topology used for companion output.
+2. **ML/MM calculator setup** -- Build the ML/MM calculator from `--parm7` and `--model-pdb`. The `-b/--backend` option selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). The `--hessian-calc-mode` controls ML backend Hessian evaluation.
 3. **Frozen-boundary TR treatment** -- The fixed constrained treatment removes only full-system rigid motions that leave all frozen anchors fixed. Its generic effective rank is 6/3/1/0 for zero/one/two/at least three non-collinear anchors; realistic ML/MM boundaries normally have rank 0.
 4. **IRC integration** -- The EulerPC integrator propagates along the IRC in both directions (unless `--no-forward` or `--no-backward` disables a branch). Step size and cycle count control integration length.
 5. **Output & conversion** -- Trajectories are written as XYZ. PDB companions are generated when a PDB/mmCIF reference topology is available and `--convert-files` is enabled. Bridge inputs additionally produce CIF companions with original identifiers.
@@ -101,10 +101,9 @@ The full flag list is in the generated [command reference](reference/commands/in
 | Option | Description | Default |
 | --- | --- | --- |
 | `-i, --input PATH` | Structure file (`.pdb`/`.xyz`/`_trj.xyz`/...). | Required |
-| `--parm PATH` | Amber topology for the full enzyme/MM region. Required unless `calc.real_parm7` is set in YAML. | _None_ |
+| `--parm7 PATH` | Amber topology for the full enzyme/MM region. Required unless `calc.real_parm7` is set in YAML. | _None_ |
 | `--model-pdb PATH` | PDB defining the ML region. Optional when valid B-factor layers or `--model-indices` define it. | _None_ |
 | `--model-indices TEXT` | Comma-separated ML-region atom indices (ranges allowed, e.g. `1-10,15`). Used when `--model-pdb` is omitted. | _None_ |
-| `--model-indices-one-based/--model-indices-zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
 | `--detect-layer / --no-detect-layer` | Automatically detect ML/MM layers from input PDB B-factors (`B=0/10/20`). | Enabled |
 | `--freeze-atoms TEXT` | Comma-separated 1-based frozen-atom indices. | _None_ |
 | `-q, --charge INT` | Net charge of the ML region/model system; overrides `calc.model_charge` from YAML. | _None_ (required unless `-l` is given) |
@@ -120,8 +119,8 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--ref-pdb FILE` | Reference PDB or mmCIF topology to use when `--input` is XYZ (keeps XYZ coordinates). | _None_ |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB/CIF companions when a reference topology is available. | `True` |
 | `--hessian-calc-mode CHOICE` | How the ML backend builds the Hessian (`Analytical` or `FiniteDifference`); overrides `calc.hessian_calc_mode`. | `FiniteDifference` |
-| `--workers INT` | UMA predictor workers. Values greater than 1 require `fairchem-core[extras]` and cannot be combined with `Analytical`. | `1` |
-| `--workers-per-node INT` | Workers per node for the parallel UMA predictor. | _None_ |
+| `--uma-workers INT` | UMA predictor workers. Values greater than 1 require `fairchem-core[extras]` and cannot be combined with `Analytical`. | `1` |
+| `--uma-workers-per-node INT` | Workers per node for the parallel UMA predictor. | _None_ |
 | `--config FILE` | Base YAML configuration applied before explicit CLI options. | _None_ |
 | `--show-config/--no-show-config` | Print resolved YAML layers/config and continue. | `False` |
 | `-b, --backend CHOICE` | High-level backend for the model region: `uma` (default), `orb`, `mace`, `aimnet2`, `dft`. | `uma` |

@@ -63,7 +63,7 @@ overriding `-b`):
 #   from ase.calculators.emt import EMT
 #   def get_calculator(charge=0, spin=1, device="auto", **kwargs):
 #       return EMT()              # swap for tblite.ase.TBLite(...) etc.
-mlmm sp -i complex.pdb --parm system.parm7 --calc-file my_calc.py -q 0 -m 1
+mlmm sp -i complex.pdb --parm7 system.parm7 --calc-file my_calc.py -q 0 -m 1
 ```
 
 - The custom calculator drives the **ML region only**; the MM side keeps its

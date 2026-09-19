@@ -8,7 +8,7 @@ structure using a YAML scan specification.
 ## Prerequisites
 
 - Full-system structure (`-i`): `pocket.pdb`, with atom identity and order matching `real.parm7`
-- MM topology (`--parm`): `real.parm7`
+- MM topology (`--parm7`): `real.parm7`
 - ML subset (`--model-pdb`): `ml_region.pdb`, without link hydrogens. Explicit model indices or valid B-factor layers are also accepted.
 
 One YAML `stages` entry defines one stage. Multiple distance tuples within an
@@ -27,7 +27,7 @@ stages:
 ## 2. Run scan
 
 ```bash
-mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s scan.yaml -o ./result_scan
 ```
 
@@ -46,14 +46,14 @@ To validate the spec without running (GPU-free), add `--print-parsed`. This prin
 Instead of a YAML spec file, you can pass scan targets directly on the command line:
 
 ```bash
-mlmm scan -i layered.pdb --parm system.parm7 -q 0 \
+mlmm scan -i layered.pdb --parm7 system.parm7 -q 0 \
   --scan-lists '[(1,5,1.4)]' --no-preopt --no-endopt
 ```
 
 Or using PDB atom selectors:
 
 ```bash
-mlmm scan -i layered.pdb --parm system.parm7 -q 0 \
+mlmm scan -i layered.pdb --parm7 system.parm7 -q 0 \
   --scan-lists '[("TYR,285,CA","MMT,309,C10",2.20)]' --no-preopt --no-endopt
 ```
 

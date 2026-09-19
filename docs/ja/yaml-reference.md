@@ -61,8 +61,10 @@ ML/MM calculator（MLIP バックエンド + hessian_ff）の設定。
 ```yaml
 calc:
  input_pdb: null # 入力 PDB ファイルパス (CLI --input から設定)
- real_parm7: null # 全系の Amber parm7 トポロジー (CLI --parm)
+ real_parm7: null # 全系の Amber parm7 トポロジー (CLI --parm7)
  model_pdb: null # ML 領域を定義する PDB (CLI --model-pdb)
+ model_indices: null # model_pdb省略時のML原子index
+ model_indices_base: 1 # YAML model_indicesだけに適用する1または0
  model_charge: 0 # ML 領域の電荷 (CLI -q で上書き)
  model_mult: 1 # ML 領域のスピン多重度 (CLI -m で上書き)
  link_mlmm: null # null: parm7 結合から自動決定; list: 明示上書き
@@ -88,7 +90,7 @@ calc:
   func_basis: wb97m-v/def2-svp
   engine: gpu # gpu | cpu
   lowmem: true # DF tensorを保持しないdirect JK
-  density_fit: false # --no-lowmemで既定有効
+  density_fit: false # --no-dft-low-memoryで既定有効
   nprocs: auto # scheduler/affinityからPySCF thread数を決定
   memory: auto # host RAM上限（例64GB、GPU VRAMではない）
   save_scf_checkpoint: false
@@ -130,7 +132,11 @@ calc:
 ```
 
 **注記:**
-- セクション名は `calc:` が正式名で、`mlmm:` は互換用の別名として受け付けます（`opt`、`sp`、`tsopt`、`freq`、`irc`、`dft`、`path-opt`、`path-search`、`scan`、`scan2d`、`scan3d` で認識）。両方が存在する場合は `calc:` が優先されます。
+- calculator workflowは`calc:`と`mlmm:`を受け付けます。両方にある重複しない
+  keyは統合し、同じkeyの値が異なる場合はerrorにします。
+- CLIの`--model-indices`は常に1始まりです。YAMLでは
+  `calc.model_indices`にlistまたはrange文字列を指定でき、0始まりのYAML data
+  だけ`calc.model_indices_base: 0`を指定します。
 - `backend`は高レベルbackendを選択します。`uma`（既定）、`orb`、`mace`、`aimnet2`、stateful PySCF/GPU4PySCF `dft`を選択できます。
 - `backend: dft`と`embedcharge: true`の組合せはPySCF native点電荷とMM site forceを使い、HessianはQM–MM応答を含む完成ML/MM forceの有限差分です。
 - バックエンド固有のモデルキーは、対応するバックエンドが選択されている場合にのみ有効です:
@@ -337,7 +343,7 @@ Direct Max Flux（DMF）による MEP 最適化。
 ```yaml
 dmf:
  max_cycles: 3000 # DMF/IPOPT反復上限
- tol: tight # IPOPT dual_inf_tol: tight(0.04) | middle(0.10) | loose(0.20) または正の float（--thresh-dmf で上書き）
+ tol: tight # IPOPT dual_inf_tol: tight(0.04) | middle(0.10) | loose(0.20) または正の float（--dmf-tol で上書き）
  correlated: true # 相関 DMF 伝搬
  sequential: true # 逐次 DMF 実行
  fbenm_only_endpoints: false # 端点を超えて FB-ENM を実行
@@ -628,7 +634,7 @@ dft:
  conv_tol: 1.0e-09 # SCF 収束許容値 (Hartree)
  max_cycle: 100 # SCF反復上限
  grid_level: 3 # PySCF グリッドレベル
- engine: gpu # 計算エンジン: "gpu"（gpu4pyscf）または "cpu"（pyscf）。CLI --engine が優先
+ engine: gpu # 計算エンジン: "gpu"（gpu4pyscf）または "cpu"（pyscf）。CLI --dft-engine が優先
  ecp: null # ECP 基底名。null の場合は def2-* 基底から自動導出
  lowmem: true # 低memory direct JK。falseでdensity fitting
  nprocs: auto # scheduler/affinityからPySCF thread数を決定
@@ -638,7 +644,7 @@ dft:
 ```
 
 **注記:**
-- `engine`: `gpu`はgpu4pyscf経由で実行します（electrostatic embeddingを含むclosed-shell計算で`lowmem: true`なら`rks_lowmem.RKS`）。`cpu`は標準PySCF RKS/UKSを使います。CLIフラグ`--engine`が明示された場合はYAML値より優先されます。
+- `engine`: `gpu`はgpu4pyscf経由で実行します（electrostatic embeddingを含むclosed-shell計算で`lowmem: true`なら`rks_lowmem.RKS`）。`cpu`は標準PySCF RKS/UKSを使います。CLIフラグ`--dft-engine`が明示された場合はYAML値より優先されます。
 - `ecp`: 基底名が `def2-` で始まり `ecp` が `null` の場合、ECP として同名の基底が自動的に使用されます。明示的に上書きするには値を設定してください。
 
 ---

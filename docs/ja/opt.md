@@ -9,7 +9,7 @@
 コマンド形式:
 
 ```bash
-mlmm opt -i INPUT --parm PARM7 --model-pdb ML_REGION -q CHARGE [options]
+mlmm opt -i INPUT --parm7 PARM7 --model-pdb ML_REGION -q CHARGE [options]
 ```
 
 `mlmm opt --help` でコアオプション、`mlmm opt --help-advanced` で全オプションリストが表示されます。
@@ -17,22 +17,22 @@ mlmm opt -i INPUT --parm PARM7 --model-pdb ML_REGION -q CHARGE [options]
 最小構成の L-BFGS 最適化（grad モード、デフォルト）:
 
 ```bash
-mlmm opt -i system_layered.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 --out-dir ./result_opt
 ```
 
 収束を厳しくして軌跡を保存する:
 
 ```bash
-mlmm opt -i system_layered.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 --thresh gau_tight --dump --out-dir ./result_opt_tight
-# 調和距離拘束を1つ追加する: --dist-freeze "[(12,45,2.20)]" --bias-k 20.0
+# 調和距離拘束を1つ追加する: --distance-restraint "[(12,45,2.20)]" --restraint-k 20.0
 ```
 
 RFO 最適化を選択する:
 
 ```bash
-mlmm opt -i system_layered.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 --opt-mode hess --out-dir ./result_opt_rfo
 # デフォルトの代わりに ORB バックエンドを使う: --backend orb
 ```
@@ -40,11 +40,11 @@ mlmm opt -i system_layered.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## 処理の流れ
 
 1. **入力処理** -- `-i/--input` は PDB または XYZ ファイルを受け付けます（XYZ 入力時は `--ref-pdb` を使用）。オプティマイザは `pysisyphus.helpers.geom_loader` を介してこの PDB から座標を読み取ります。ML/MM レイヤー定義は `--model-pdb`、`--model-indices`、または `--detect-layer`（B 因子エンコーディング: B=0 ML、B=10 Movable-MM、B=20 Frozen）から取得されます。
-2. **ML/MM calculatorの構築** -- ML/MM calculator（MLIP バックエンド + hessian_ff）を構築します。`--parm` で Amber MM トポロジーを提供し、`--model-pdb` で ML 領域を定義します。`-b/--backend` で ML バックエンドを選択します（デフォルト: `uma`）。
+2. **ML/MM calculatorの構築** -- ML/MM calculator（MLIP バックエンド + hessian_ff）を構築します。`--parm7` で Amber MM トポロジーを提供し、`--model-pdb` で ML 領域を定義します。`-b/--backend` で ML バックエンドを選択します（デフォルト: `uma`）。
 3. **最適化** -- `--opt-mode grad`/`lbfgs` は L-BFGS、`--opt-mode hess`/`rfo` は RFOptimizer（RFO）を実行します。
    - RFO は数値収束を報告し、極小点の判定だけのために追加Hessian計算や曲率回復ループを実行しません。macroとMM緩和の収束条件は区別します。選択したML/MM空間の振動解析には [`freq`](freq.md) を使います。
    - `--flatten` は最適化後の虚振動数モードのフラット化を有効にします。検出されたすべての虚振動数モードが各反復でフラット化され、虚振動数モードがなくなるか内部ループ上限に達するまで続きます。
-4. **拘束** -- `--dist-freeze` は Python リテラルタプル `(i, j, target_A)` を受け付けます。`target_A` は目標距離（Å）で、第 3 要素を省略すると開始距離が拘束されます。`--bias-k` はグローバル調和強度（eV/Å²）を設定します。インデックスはデフォルトで 1 始まりですが、`--zero-based` で 0 始まりに変更可能です。
+4. **拘束** -- `--distance-restraint` は Python リテラルタプル `(i, j, target_A)` を受け付けます。`target_A` は目標距離（Å）で、第 3 要素を省略すると開始距離が拘束されます。`--restraint-k` はグローバル調和強度（eV/Å²）を設定します。インデックスはデフォルトで 1 始まりですが、`--zero-based` で 0 始まりに変更可能です。
 5. **ダンプと変換** -- `--dump` は `optimization_trj.xyz` を書き出します。変換が有効な場合、PDB 入力では軌跡も `.pdb` に変換されます（B 因子アノテーション付き）。`opt.dump_restart` はリスタート YAML スナップショットを出力できます。
 6. **終了コード** -- `0` 成功、`2` CLI 使用法・設定エラーまたはオプティマイザのゼロステップ（ステップノルム < `min_step_norm`）、`3` オプティマイザエラー、`130` キーボード割り込み、`1` 予期しないエラー。
 
@@ -78,20 +78,19 @@ out_dir/ (デフォルト: ./result_opt/)
 | --- | --- | --- |
 | `-i, --input PATH` | `geom_loader` が受け付ける入力構造（`.pdb`、`.cif`、`.mmcif`、`.xyz`、`_trj.xyz`）。XYZ 入力時は `--ref-pdb` を併用。 | 必須 |
 | `--ref-pdb PATH` | 入力が XYZ の場合の参照 PDB トポロジー。 | _None_ |
-| `--parm PATH` | 全酵素の Amber parm7 トポロジー。 | 必須 |
+| `--parm7 PATH` | 全酵素の Amber parm7 トポロジー。 | 必須 |
 | `--model-pdb PATH` | ML 領域原子を定義する PDB。`--detect-layer` 有効時は省略可。 | _None_ |
 | `--model-indices TEXT` | ML 領域のカンマ区切り原子インデックス（範囲指定可、例: `1-5`）。`--model-pdb` の代替。 | _None_ |
-| `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` のインデックス規約。 | 1 始まり |
 | `--detect-layer / --no-detect-layer` | B 因子（0/10/20）から ML/MM レイヤーを自動検出。 | 有効 |
 | `-q, --charge INT` | ML 領域の電荷。 | _None_（`-l` 未指定時は必須） |
 | `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。PDB 入力または `--ref-pdb` が必要。 | _None_ |
 | `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス。 | _None_ |
 | `--movable-cutoff FLOAT` | ML 領域からの可動 MM 原子の距離カットオフ (Å)。これを超える原子は凍結。指定時は `--detect-layer` が無効化。 | _None_ |
-| `--hess-cutoff FLOAT` | Hessian に含める可動 MM 原子の ML 領域からの距離カットオフ (Å)。`--detect-layer` と併用可能。 | _None_ |
-| `--dist-freeze TEXT` | 調和拘束用の Python リテラル `(i, j, target_A)` タプル。 | _None_ |
-| `--one-based / --zero-based` | `--dist-freeze` のインデックス規約。 | 1 始まり |
-| `--bias-k FLOAT` | 調和バイアス強度 (eV/Å²)。 | `300.0` |
+| `--hessian-cutoff FLOAT` | Hessian に含める可動 MM 原子の ML 領域からの距離カットオフ (Å)。`--detect-layer` と併用可能。 | _None_ |
+| `--distance-restraint TEXT` | 調和拘束用の Python リテラル `(i, j, target_A)` タプル。 | _None_ |
+| `--one-based / --zero-based` | `--distance-restraint` のインデックス規約。 | 1 始まり |
+| `--restraint-k FLOAT` | 調和バイアス強度 (eV/Å²)。 | `300.0` |
 | `--max-cycles INT` | 最適化反復上限。 | `100000` |
 | `--opt-mode [grad\|hess\|lbfgs\|rfo]` | オプティマイザモード: `grad`/`lbfgs`（L-BFGS）または `hess`/`rfo`（RFO）。 | `grad` |
 | `--microiter/--no-microiter` | `hess` モードで ML の RFO 1 ステップと MM の L-BFGS 緩和を交互に実行。`--embedcharge` 有効時は通常の最適化に切り替えます。 | `True` |

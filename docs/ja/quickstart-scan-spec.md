@@ -7,7 +7,7 @@
 ## 事前に必要なファイル
 
 - 全系構造（`-i`）: `pocket.pdb`。`real.parm7` と同じ原子・原子順序にします。
-- MM トポロジー（`--parm`）: `real.parm7`
+- MM トポロジー（`--parm7`）: `real.parm7`
 - ML 領域（`--model-pdb`）: リンク水素を含まない `ml_region.pdb`。モデル原子インデックスや有効な B-factor 層定義も使用できます。
 
 以下の例では、YAML の各 `stages` 要素が 1 ステージです。同じ要素内の距離は同時に変化させ、複数要素は順に実行します。2 距離を独立なグリッド軸にする場合は `scan2d` を使います。
@@ -24,7 +24,7 @@ stages:
 ## 2. 実行
 
 ```bash
-mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s scan.yaml -o ./result_scan
 ```
 
@@ -44,14 +44,14 @@ mlmm scan -i pocket.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 YAML スペックファイルの代わりに、スキャンターゲットをコマンドラインで直接指定できます:
 
 ```bash
-mlmm scan -i layered.pdb --parm system.parm7 -q 0 \
+mlmm scan -i layered.pdb --parm7 system.parm7 -q 0 \
   --scan-lists '[(1,5,1.4)]' --no-preopt --no-endopt
 ```
 
 PDB 原子セレクタも使用可能です:
 
 ```bash
-mlmm scan -i layered.pdb --parm system.parm7 -q 0 \
+mlmm scan -i layered.pdb --parm7 system.parm7 -q 0 \
   --scan-lists '[("TYR,285,CA","MMT,309,C10",2.20)]' --no-preopt --no-endopt
 ```
 

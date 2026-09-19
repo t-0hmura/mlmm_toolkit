@@ -10,7 +10,7 @@ optimization.
 ## Synopsis
 
 ```bash
-mlmm sp -i structure.pdb --parm real.parm7 [-q 0 -m 1] \
+mlmm sp -i structure.pdb --parm7 real.parm7 [-q 0 -m 1] \
     [--hess] [--hessian-calc-mode Analytical|FiniteDifference] \
     [-b uma|orb|mace|aimnet2|dft] [-o ./result_sp/]
 ```
@@ -24,7 +24,7 @@ selection. Most subcommands accept:
 
 | flag | purpose |
 |---|---|
-| `--parm FILE` | Amber `parm7` topology of the whole enzyme — **required** (`--real-parm7` alias) |
+| `--parm7 FILE` | Amber `parm7` topology of the whole enzyme — **required** (`--real-parm7` alias) |
 | `--model-pdb FILE` | Explicit ML-region PDB; takes precedence over B-factor ML membership |
 | `--detect-layer` | Automatically read B-factor layers; explicit ML membership retains valid movable/frozen MM layers. Enabled by default. |
 | `--model-indices` | Explicit ML atom indices used when `--model-pdb` is omitted; takes precedence over B-factor ML membership |
@@ -56,18 +56,18 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 For XYZ coordinates, supply the matching full-system topology:
 
 ```bash
-mlmm sp -i structure.xyz --ref-pdb structure.pdb --parm real.parm7 \
+mlmm sp -i structure.xyz --ref-pdb structure.pdb --parm7 real.parm7 \
   -q 0 -m 1 -o result_sp
 ```
 
 ```bash
-mlmm sp -i my.pdb --parm real.parm7 -l 'SAM:1' -b uma -o result_sp
+mlmm sp -i my.pdb --parm7 real.parm7 -l 'SAM:1' -b uma -o result_sp
 ```
 
 ### Energy + active-coordinate Hessian
 
 ```bash
-mlmm sp -i my.pdb --parm real.parm7 -q -1 -m 1 --hess -o result_sp_hess
+mlmm sp -i my.pdb --parm7 real.parm7 -q -1 -m 1 --hess -o result_sp_hess
 ```
 
 ## Output

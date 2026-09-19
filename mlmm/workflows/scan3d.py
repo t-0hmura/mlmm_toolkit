@@ -528,6 +528,7 @@ def _finalize_surface_and_plot(
           "provided."),
 )
 @click.option(
+    "--parm7",
     "--parm",
     "real_parm7",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
@@ -757,6 +758,10 @@ def cli(
     yaml_cfg, _, _ = load_merged_yaml_cfg(
         config_yaml=config_yaml,
         override_yaml=None,
+    )
+    from mlmm.cli.decorators import resolve_model_indices_setting
+    model_indices_str, model_indices_one_based = resolve_model_indices_setting(
+        ctx, yaml_cfg, model_indices_str, model_indices_one_based
     )
 
     if csv_path is not None:

@@ -227,6 +227,7 @@ def _snapshot_geometry(g) -> Any:
           "calculator."),
 )
 @click.option(
+    "--parm7",
     "--parm",
     "real_parm7",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
@@ -277,7 +278,9 @@ def _snapshot_geometry(g) -> Any:
          "dihedral (i,j,k,l,low,high). "
          "Multiple inline literals define sequential stages.",
 )
-@click.option("--target-mode", is_flag=True, default=False, hidden=True)
+@click.option(
+    "--target-mode", is_flag=True, default=False, show_default=True, hidden=True
+)
 @click.option("--one-based/--zero-based", "one_based", default=True, show_default=True,
               help="Interpret atom indices in --scan-lists as 1-based or 0-based.")
 @click.option(
@@ -293,7 +296,7 @@ def _snapshot_geometry(g) -> Any:
               help="Maximum scanned angle change per step [degree].")
 @click.option("--max-dihedral-step-size", type=click.FloatRange(min=0.0, min_open=True), default=10.0, show_default=True,
               help="Maximum scanned dihedral change per step [degree].")
-@click.option("--bias-k", type=float, default=None, show_default="300.0",
+@click.option("--restraint-k", "--bias-k", "bias_k", type=float, default=None, show_default="300.0",
               help=(
                   "Harmonic well strength k [eV/Å^2 for distances; eV/rad^2 for angles]. "
                   "YAML bias.k applies when this option is omitted; explicit CLI wins."
@@ -506,6 +509,10 @@ def cli(
     yaml_cfg, _, _ = load_merged_yaml_cfg(
         config_yaml=config_yaml,
         override_yaml=None,
+    )
+    from mlmm.cli.decorators import resolve_model_indices_setting
+    model_indices_str, model_indices_one_based = resolve_model_indices_setting(
+        ctx, yaml_cfg, model_indices_str, model_indices_one_based
     )
 
     if relax_max_cycles is not None:

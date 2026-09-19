@@ -228,7 +228,7 @@ Estimate VRAM, RAM, and runtime with a representative calculation.
 - **Configuration:** see [YAML Reference](yaml-reference.md). Preview the resolved settings without optimization:
 
 ```bash
-mlmm opt -i layered.pdb --parm system.parm7 -q 0 --show-config --dry-run
+mlmm opt -i layered.pdb --parm7 system.parm7 -q 0 --show-config --dry-run
 ```
 
 ## Output layout

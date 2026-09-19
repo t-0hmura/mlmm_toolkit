@@ -1452,7 +1452,7 @@ def _resolve_validated_hessian_analysis_atoms(
             raise click.ClickException(
                 "The requested frequency-analysis basis is wider than the "
                 "configured Hessian coverage; missing 1-based atom indices: "
-                f"{preview}{suffix}. Increase --radius-hessian or choose a "
+                f"{preview}{suffix}. Increase --hessian-cutoff or choose a "
                 "narrower --active-dof-mode."
             )
     return sorted(requested)
@@ -3389,6 +3389,7 @@ def _prepare_tsopt_output_dir(
          "while PDB provides atom ordering and residue information for output conversion.",
 )
 @click.option(
+    "--parm7",
     "--parm",
     "real_parm7",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
@@ -3442,6 +3443,7 @@ def _prepare_tsopt_output_dir(
     help="Comma-separated 1-based indices to freeze (e.g., '1,3,5').",
 )
 @click.option(
+    "--hessian-cutoff",
     "--radius-hessian",
     "--hess-cutoff",
     "hess_cutoff",
@@ -3521,6 +3523,7 @@ def _prepare_tsopt_output_dir(
     "partial_hessian_flatten",
     default=True,
     show_default=True,
+    hidden=True,
     help="Use partial (active-block) Hessian for imaginary mode detection in flatten loop.",
 )
 @click.option(
@@ -3742,6 +3745,10 @@ def cli(
     merged_yaml_cfg, _, _ = load_merged_yaml_cfg(
         config_yaml=config_yaml,
         override_yaml=None,
+    )
+    from mlmm.cli.decorators import resolve_model_indices_setting
+    model_indices_str, model_indices_one_based = resolve_model_indices_setting(
+        ctx, merged_yaml_cfg, model_indices_str, model_indices_one_based
     )
 
     # Handle PDB/mmCIF directly, or XYZ with --ref-pdb for topology.

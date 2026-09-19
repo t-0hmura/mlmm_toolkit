@@ -28,7 +28,7 @@ mlmm all -i reactant.cif product.cif \
     -l 'SAM:1,GPP:-3' --tsopt --thermo -o result
 
 mlmm tsopt -i hei.xyz --ref-pdb full_system.mmcif \
-    --parm full_system.parm7 -q -2 -o result_tsopt
+    --parm7 full_system.parm7 -q -2 -o result_tsopt
 ```
 
 ## 一意な selector

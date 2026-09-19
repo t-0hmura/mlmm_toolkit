@@ -24,7 +24,7 @@ Before a long run, verify:
 | `[multi] Atom count mismatch` / `[multi] Atom order mismatch` | Inputs prepared by different tools / settings. | Regenerate **all** structures with the same protonation tool + settings. For MD ensembles, extract frames from the same trajectory + topology. As a fallback, switch to the staged-scan workflow (one PDB + `--scan-lists`). |
 | Pocket too small / catalytic residues missing | Default radius too small for the system. | Increase `--radius` (e.g. 2.6 → 3.5 Å); force-include residues with `--selected-resn 'A:123,B:456'`; or hand-craft an ML-region PDB in PyMOL and pass via `--model-pdb`. |
 | Unreliable energies / barriers shifting with model size | Extracted pocket too small. | Increase `-r` (e.g. `mlmm extract -i complex.pdb -c 'SUB' -o pocket.pdb -r 4.0`). |
-| An unregistered modified residue is not truncated correctly | Backbone truncation + link-H placement require a residue catalog entry. | Register the residue and its integer charge, for example `--modified-residue "HD1:0"` (also accepted on `mlmm all`). Catalog residues such as SEP, TPO, and MLY retain their catalog charges when named without `:charge`. If the backbone topology is unusual, build the pocket manually and pass `--parm` + `--model-pdb` to downstream subcommands directly. |
+| An unregistered modified residue is not truncated correctly | Backbone truncation + link-H placement require a residue catalog entry. | Register the residue and its integer charge, for example `--modified-residue "HD1:0"` (also accepted on `mlmm all`). Catalog residues such as SEP, TPO, and MLY retain their catalog charges when named without `:charge`. If the backbone topology is unusual, build the pocket manually and pass `--parm7` + `--model-pdb` to downstream subcommands directly. |
 
 ---
 
@@ -38,7 +38,7 @@ be overridden with `-m`. In `mlmm all`, charge is resolved in order: `-q`
 override → extraction summary → `--ligand-charge` fallback (when extraction is skipped).
 
 ```bash
-mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1
+mlmm path-search -i R.pdb P.pdb --parm7 real.parm7 --model-pdb model.pdb -q 0 -m 1
 mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'
 ```
 
@@ -49,7 +49,7 @@ mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'
 
 | Symptom | Fix |
 |---|---|
-| `AmberTools preflight failed. Missing required command(s): tleap, antechamber, parmchk2` | `conda install -c conda-forge ambertools=24.8 "numpy>=2,<2.5" -y` (or `module load ambertools` on HPC, or build from source: <https://ambermd.org/AmberTools.php>). Verify with `which tleap`. Without AmberTools you can still run `opt` / `tsopt` / `path-search` if you supply `--parm` manually. |
+| `AmberTools preflight failed. Missing required command(s): tleap, antechamber, parmchk2` | `conda install -c conda-forge ambertools=24.8 "numpy>=2,<2.5" -y` (or `module load ambertools` on HPC, or build from source: <https://ambermd.org/AmberTools.php>). Verify with `which tleap`. Without AmberTools you can still run `opt` / `tsopt` / `path-search` if you supply `--parm7` manually. |
 | `antechamber` fails for a ligand | Check ligand element symbols + connectivity + TER records. Specify `-l 'LIG:-1'` and (for non-singlet) `--ligand-mult 'HEM:1,NO:2'`. Inspect `<resname>.antechamber.log` via `--keep-temp`. Try manually: `antechamber -i ligand.pdb -fi pdb -o ligand.mol2 -fo mol2 -c bcc -nc -3 -at gaff2`. For higher-accuracy partial charges, generate RESP from HF/6-31G* and pass custom `frcmod` / `lib`. |
 | `Atom count in parm7 does not match input PDB` / `parm7 topology does not match the input structure` / `Coordinate shape mismatch for... got (N,3), expected (M,3)` | Re-run `mm-parm` from the current PDB; use its output `<prefix>.pdb` for downstream subcommands (tleap may add / remove hydrogens). Never reorder PDB atoms after `mm-parm`. |
 | `oniom-export` reports `Element sequence mismatch at atom index ...` | Use the same PDB for `-i` that was used to generate the parm7. As an escape hatch, `--no-element-check` disables the check (verify results manually). |
@@ -77,7 +77,7 @@ cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && mak
 
 Encoding: ML = 0.0, Movable-MM = 10.0, Frozen-MM = 20.0 (tolerance ±1.0). Common symptoms:
 
-- **Wrong layer assignments / ML region too small or too large** — verify `--model-pdb` selects the intended atoms; adjust `--radius-freeze` (default 8.0 Å) for the Movable-MM / Frozen-MM boundary; control Hessian-target MM separately via `hess_cutoff` / `hess_mm_atoms`. Inspect the layered PDB visually (color by B-factor).
+- **Wrong layer assignments / ML region too small or too large** — verify `--model-pdb` selects the intended atoms; adjust `--movable-cutoff` (default 8.0 Å) for the Movable-MM / Frozen-MM boundary; control Hessian-target MM separately via `hess_cutoff` / `hess_mm_atoms`. Inspect the layered PDB visually (color by B-factor).
 - **B-factors not recognized** (calculator treats all atoms as one layer) — re-run `define-layer`; do not hand-edit B-factors to arbitrary values.
 - **Automatic layer detection produces unexpected splits or fails without `--model-pdb`** — supply a PDB input (or XYZ + `--ref-pdb`); re-run `define-layer` explicitly. For distance-based control, set `hess_cutoff` / `movable_cutoff`; supplying `--movable-cutoff` automatically takes precedence over B-factor layers.
 
@@ -129,7 +129,7 @@ See the `Plot export fails (Plotly / Chrome)` row above.
 
 ML/MM systems are larger than pure MLIP, so VRAM pressure is higher. Try in order:
 
-1. **Verify Frozen-MM** — `define-layer` should put distal atoms at B=20.0. If the Frozen-MM region is too small, the Movable-MM region (and its Hessian) inflates. Decrease `--radius-freeze` to expand Frozen-MM.
+1. **Verify Frozen-MM** — `define-layer` should put distal atoms at B=20.0. If the Frozen-MM region is too small, the Movable-MM region (and its Hessian) inflates. Decrease `--movable-cutoff` to expand Frozen-MM.
 2. **Shrink ML region** — smaller `--radius` in `extract`, or hand-craft a smaller `--model-pdb`.
 3. **Compare Hessian modes** — finite difference often lowers ML autograd memory, but both modes form a dense active-space Hessian; benchmark runtime and peak memory on the target system.
 4. **Pre-define layers** with `define-layer` and `use_bfactor_layers: true` in YAML.

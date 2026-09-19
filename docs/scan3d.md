@@ -1,6 +1,6 @@
 # `scan3d`
 
-Perform a three-dimensional (d1, d2, d3) grid scan with harmonic restraints and ML/MM relaxations on a layered enzyme structure, mapping a 3D PES across three coupled distances. Input may be PDB/mmCIF, or XYZ with `--ref-pdb`. `mlmm scan3d` nests loops over d1, d2, and d3, relaxing each point with the ML/MM calculator (`mlmm.backends.mlmm_calc.mlmm`) under the appropriate restraints. ML membership comes from `--model-pdb`, `--model-indices`, or B-factor layers via `--detect-layer`; Amber parameters are read from `--parm`. The MLIP backend is selected via `-b/--backend` (default: `uma`), and the optimizer is PySisyphus L-BFGS. Use `-s/--scan-lists` with a YAML/JSON spec file (recommended) or an inline Python literal. A precomputed surface can be loaded via `--csv` for re-plotting without re-running the scan.
+Perform a three-dimensional (d1, d2, d3) grid scan with harmonic restraints and ML/MM relaxations on a layered enzyme structure, mapping a 3D PES across three coupled distances. Input may be PDB/mmCIF, or XYZ with `--ref-pdb`. `mlmm scan3d` nests loops over d1, d2, and d3, relaxing each point with the ML/MM calculator (`mlmm.backends.mlmm_calc.mlmm`) under the appropriate restraints. ML membership comes from `--model-pdb`, `--model-indices`, or B-factor layers via `--detect-layer`; Amber parameters are read from `--parm7`. The MLIP backend is selected via `-b/--backend` (default: `uma`), and the optimizer is PySisyphus L-BFGS. Use `-s/--scan-lists` with a YAML/JSON spec file (recommended) or an inline Python literal. A precomputed surface can be loaded via `--csv` for re-plotting without re-running the scan.
 
 Any axis may instead be an angle `(i,j,k,low,high)` or dihedral
 `(i,j,k,l,low,high)`. Angular ranges use degrees.
@@ -9,7 +9,7 @@ Any axis may instead be an angle `(i,j,k,low,high)` or dihedral
 
 ```bash
 # Minimal: run a 3D scan from a YAML spec
-mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm scan3d -i input.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s scan3d.yaml -o ./result_scan3d/
 ```
 (Add `--print-parsed` to validate the parsed scan spec and exit without running the GPU calculation.)
@@ -23,13 +23,13 @@ pairs:
  - [10, 55, 1.20, 3.20]
  - [15, 60, 1.10, 3.00]
 YAML
-mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm scan3d -i input.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s scan3d.yaml --print-parsed
 ```
 
 ```bash
 # Inline Python literal, with pre-optimization, --dump, and custom output directory
-mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm scan3d -i input.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s "[(12,45,1.30,3.10),(10,55,1.20,3.20),(15,60,1.10,3.00)]" \
  --max-step-size 0.20 --dump -o ./result_scan3d/ \
  --preopt --baseline min
@@ -89,10 +89,9 @@ Filename tags `i###_j###_k###` are integer hundredths of an angstrom (d1×100, d
 | Option | Description | Default |
 | --- | --- | --- |
 | `-i, --input PATH` | Full-system PDB/mmCIF, or XYZ with `--ref-pdb` (no link atoms). | Required unless `--csv` |
-| `--parm PATH` | Amber parm7 topology for the full enzyme. | Required unless `--csv` |
+| `--parm7 PATH` | Amber parm7 topology for the full enzyme. | Required unless `--csv` |
 | `--model-pdb PATH` | PDB defining the ML region. | _None_ |
 | `--model-indices TEXT` | Explicit ML-region atom indices (alternative to `--model-pdb`). | _None_ |
-| `--model-indices-one-based / --model-indices-zero-based` | Indexing convention for `--model-indices`. | `True` (1-based) |
 | `--detect-layer / --no-detect-layer` | Automatically detect ML/MM layers from B-factors. | Enabled |
 | `-q, --charge INT` | ML-region net charge. | _None_ (required unless `-l` or `--csv` is given) |
 | `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives total charge when `-q` is omitted. | _None_ |
@@ -106,7 +105,7 @@ Filename tags `i###_j###_k###` are integer hundredths of an angstrom (d1×100, d
 | `--max-step-size FLOAT` | Maximum distance increment per step (Å). Controls grid density. | `0.20` |
 | `--max-angle-step-size FLOAT` | Maximum angle change per step (degrees). | `5.0` |
 | `--max-dihedral-step-size FLOAT` | Maximum dihedral change per step (degrees). | `10.0` |
-| `--bias-k FLOAT` | Harmonic well strength: eV/Å² for distances and eV/rad² for angles. | `300.0` |
+| `--restraint-k FLOAT` | Harmonic well strength: eV/Å² for distances and eV/rad² for angles. | `300.0` |
 | `--relax-max-cycles INT` | Optimizer-cycle cap during each biased relaxation. | `100000` |
 | `--dump/--no-dump` | Write inner d3 scan TRJs per (d1, d2) slice. | `False` |
 | `-o, --out-dir TEXT` | Output directory root for grids and plots. | `./result_scan3d/` |

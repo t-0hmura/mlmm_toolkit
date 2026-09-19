@@ -58,8 +58,8 @@ B-factor values are encoded in PDB columns 61-66 (the temperature factor column)
 
 The [`define-layer`](define-layer.md) subcommand assigns these B-factors based on distance from the ML region:
 
-- Atoms/residues within `--radius-freeze` (default 8.0 Å) are assigned to Movable-MM.
-- Atoms/residues beyond `--radius-freeze` are Frozen-MM.
+- Atoms/residues within `--movable-cutoff` (default 8.0 Å) are assigned to Movable-MM.
+- Atoms/residues beyond `--movable-cutoff` are Frozen-MM.
 
 Hessian-target MM atoms are controlled by calculator options (`hess_cutoff`, explicit `hess_mm_atoms`, etc.), not by a dedicated B-factor layer.
 
@@ -181,8 +181,8 @@ non-Baker presets (e.g. `overachieve_factor: 3`).
 Enable microiteration with `--microiter` (default for `--opt-mode hess`):
 
 ```bash
-mlmm opt -i layered.pdb --parm system.parm7 -q 0 --opt-mode hess --microiter
-mlmm opt -i layered.pdb --parm system.parm7 -q 0 --opt-mode hess --no-microiter  # disable
+mlmm opt -i layered.pdb --parm7 system.parm7 -q 0 --opt-mode hess --microiter
+mlmm opt -i layered.pdb --parm7 system.parm7 -q 0 --opt-mode hess --no-microiter  # disable
 ```
 
 ---
@@ -238,13 +238,13 @@ There are two ways to define the ML region:
   nonstandard amino acid; a known catalog residue may omit `:charge` and retains its
   catalog value. Use `-l NAME:charge` for ligands. An explicit `-q` is then unnecessary.
   `--exclude-backbone` independently removes non-substrate backbone atoms.
-- **Manual** (`--model-pdb` + `--parm`): you supply the ML-atom selection yourself and
+- **Manual** (`--model-pdb` + `--parm7`): you supply the ML-atom selection yourself and
   set the model charge explicitly with `-q`. This is the safer choice when you have
   hand-edited atoms (custom truncation, protonation / charge changes) that automatic
   derivation cannot infer, or when the topology is too unusual for automatic
   extraction. `--modified-residue` does not apply on this path. You do **not**
   need to add link hydrogens to the model PDB — the ML/MM calculator inserts them from
-  the `--parm` topology at the ML/MM boundary.
+  the `--parm7` topology at the ML/MM boundary.
 
 For per-stage commands there is a third representation of the same selection:
 `--model-indices` (1-based by default), or B-factor detection with
@@ -253,7 +253,7 @@ precedence is `--model-pdb` → `--model-indices` → B-factor detection. These
 inputs select real atoms only; they never contain runtime link H.
 
 With `link_mlmm: null` (the default), the calculator reads the bond graph from
-`--parm` and inserts a link H for each parm7 bond with exactly one endpoint in
+`--parm7` and inserts a link H for each parm7 bond with exactly one endpoint in
 the ML selection. It does not infer boundary bonds from interatomic distance.
 The current coordinates are used only after that topological decision, to place
 the H by the selected `--link-atom-method`. An explicit YAML `calc.link_mlmm`
@@ -359,7 +359,7 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt
 - Boolean options accept both `--flag` / `--no-flag` and value style `--flag True/False` (`yes/no`, `1/0` are also accepted). Prefer toggle style.
 - With multiple PDB inputs, all files should have the **same atoms in the same order** (only coordinates differ).
 - For enzyme use-cases, you usually want hydrogens present in the input PDB.
-- Most subcommands require `--parm` and `--model-pdb` for ML/MM calculations.
+- Most subcommands require `--parm7` and `--model-pdb` for ML/MM calculations.
 ```
 
 ---

@@ -13,7 +13,7 @@ Options:
                                   [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
-  --parm FILE                     Amber parm7 topology file.  [required]
+  --parm7, --parm FILE            Amber parm7 topology file.  [required]
   -i, --input FILE                MLMM layered PDB for the current structure;
                                   atom order must match parm7 and B-factors
                                   define the movable/frozen atoms.  [required]

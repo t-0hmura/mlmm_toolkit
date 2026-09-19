@@ -1,6 +1,6 @@
 # `scan3d`
 
-調和拘束と ML/MM 緩和による 3 距離（d1, d2, d3）のグリッドスキャンを実行し、3 つの結合距離を変数とする 3D PES をマッピングします。入力には PDB/mmCIF、または `--ref-pdb` を伴う XYZ を使用できます。`mlmm scan3d` は d1、d2、d3 のネストループを実行し、ML/MM calculator（`mlmm.backends.mlmm_calc.mlmm`）を使用して適切な拘束で各点を緩和します。ML 領域は `--model-pdb`、`--model-indices`、または `--detect-layer` による B-factor layer から解決し、Amber パラメータは `--parm` から読み取ります。MLIP バックエンドは `-b/--backend` で選択し（デフォルト: `uma`）、オプティマイザは PySisyphus L-BFGS です。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルを使用します。`--csv` で事前計算した surface を読み込めば、スキャンを再実行せずに再描画のみ行えます。
+調和拘束と ML/MM 緩和による 3 距離（d1, d2, d3）のグリッドスキャンを実行し、3 つの結合距離を変数とする 3D PES をマッピングします。入力には PDB/mmCIF、または `--ref-pdb` を伴う XYZ を使用できます。`mlmm scan3d` は d1、d2、d3 のネストループを実行し、ML/MM calculator（`mlmm.backends.mlmm_calc.mlmm`）を使用して適切な拘束で各点を緩和します。ML 領域は `--model-pdb`、`--model-indices`、または `--detect-layer` による B-factor layer から解決し、Amber パラメータは `--parm7` から読み取ります。MLIP バックエンドは `-b/--backend` で選択し（デフォルト: `uma`）、オプティマイザは PySisyphus L-BFGS です。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルを使用します。`--csv` で事前計算した surface を読み込めば、スキャンを再実行せずに再描画のみ行えます。
 
 各軸には角度`(i,j,k,low,high)`または二面角
 `(i,j,k,l,low,high)`も指定できます。角度値には度を使います。
@@ -9,7 +9,7 @@
 
 ```bash
 # 最小: YAML spec から 3D スキャンを実行
-mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm scan3d -i input.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s scan3d.yaml -o ./result_scan3d/
 ```
 （`--print-parsed` を追加すると、解釈されたスキャンスペックを検証し、GPU 計算を実行せずに終了します。）
@@ -23,13 +23,13 @@ pairs:
  - [10, 55, 1.20, 3.20]
  - [15, 60, 1.10, 3.00]
 YAML
-mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm scan3d -i input.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s scan3d.yaml --print-parsed
 ```
 
 ```bash
 # インライン Python リテラル、事前最適化・--dump・カスタム出力ディレクトリ付き
-mlmm scan3d -i input.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm scan3d -i input.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s "[(12,45,1.30,3.10),(10,55,1.20,3.20),(15,60,1.10,3.00)]" \
  --max-step-size 0.20 --dump -o ./result_scan3d/ \
  --preopt --baseline min
@@ -71,10 +71,9 @@ out_dir/ (デフォルト:./result_scan3d/)
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
 | `-i, --input PATH` | 全系 PDB/mmCIF、または `--ref-pdb` を伴う XYZ（リンク原子なし）。 | `--csv` 指定時を除き必須 |
-| `--parm PATH` | 完全酵素の Amber parm7 トポロジー。 | `--csv` 指定時を除き必須 |
+| `--parm7 PATH` | 完全酵素の Amber parm7 トポロジー。 | `--csv` 指定時を除き必須 |
 | `--model-pdb PATH` | ML 領域を定義する PDB。 | _None_ |
 | `--model-indices TEXT` | 明示的な ML 領域原子インデックス（`--model-pdb` の代替）。 | _None_ |
-| `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` のインデックス規約。 | `True`（1 始まり） |
 | `--detect-layer / --no-detect-layer` | B 因子から ML/MM レイヤーを自動検出。 | 有効 |
 | `-q, --charge INT` | ML 領域の総電荷。 | _None_（`-l` または `--csv` 未指定時は必須） |
 | `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。 | _None_ |
@@ -88,7 +87,7 @@ out_dir/ (デフォルト:./result_scan3d/)
 | `--max-step-size FLOAT` | ステップごとの最大距離増分 (Å)。グリッド密度を制御。 | `0.20` |
 | `--max-angle-step-size FLOAT` | 角度の1stepあたりの最大変化量（度）。 | `5.0` |
 | `--max-dihedral-step-size FLOAT` | 二面角の1stepあたりの最大変化量（度）。 | `10.0` |
-| `--bias-k FLOAT` | 調和拘束強度。距離はeV/Å²、角度はeV/rad²。 | `300.0` |
+| `--restraint-k FLOAT` | 調和拘束強度。距離はeV/Å²、角度はeV/rad²。 | `300.0` |
 | `--relax-max-cycles INT` | バイアス緩和ごとのオプティマイザサイクル上限。 | `100000` |
 | `--dump/--no-dump` | (d1, d2) スライスごとの内側 d3 スキャン TRJ を書き出し。 | `False` |
 | `-o, --out-dir TEXT` | グリッドとプロットの出力ディレクトリルート。 | `./result_scan3d/` |

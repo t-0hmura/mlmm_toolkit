@@ -9,7 +9,7 @@ Optimizes a single layered enzyme PDB (or XYZ + `--ref-pdb`) to a local minimum 
 Command form:
 
 ```bash
-mlmm opt -i INPUT --parm PARM7 --model-pdb ML_REGION -q CHARGE [options]
+mlmm opt -i INPUT --parm7 PARM7 --model-pdb ML_REGION -q CHARGE [options]
 ```
 
 `mlmm opt --help` shows core options; `mlmm opt --help-advanced` shows the full option list.
@@ -18,7 +18,7 @@ Minimal L-BFGS optimization (grad mode, default):
 
 ```bash
 # Minimal L-BFGS optimization (grad mode, default)
-mlmm opt -i system_layered.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 --out-dir ./result_opt
 ```
 
@@ -26,16 +26,16 @@ Tighten convergence and keep an optimization trajectory:
 
 ```bash
 # Tighten convergence and keep an optimization trajectory
-mlmm opt -i system_layered.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 --thresh gau_tight --dump --out-dir ./result_opt_tight
-# add one harmonic distance restraint: --dist-freeze "[(12,45,2.20)]" --bias-k 20.0
+# add one harmonic distance restraint: --distance-restraint "[(12,45,2.20)]" --restraint-k 20.0
 ```
 
 Select RFO optimization:
 
 ```bash
 # Select RFO optimization
-mlmm opt -i system_layered.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 --opt-mode hess --out-dir ./result_opt_rfo
 # use the ORB backend instead of the default: --backend orb
 ```
@@ -43,11 +43,11 @@ mlmm opt -i system_layered.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 ## Workflow
 
 1. **Input handling** -- The tool accepts `-i/--input` as a PDB or XYZ file (use `--ref-pdb` with XYZ inputs). The optimizer reads coordinates from this PDB via `pysisyphus.helpers.geom_loader`. ML/MM layer definitions come from `--model-pdb`, `--model-indices`, or `--detect-layer` (B-factor encoding: B=0 ML, B=10 Movable-MM, B=20 Frozen).
-2. **ML/MM calculator setup** -- Build the ML/MM calculator (MLIP backend + hessian_ff). The `-b/--backend` option selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). `--parm` provides Amber MM topology; `--model-pdb` defines the ML region.
+2. **ML/MM calculator setup** -- Build the ML/MM calculator (MLIP backend + hessian_ff). The `-b/--backend` option selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). `--parm7` provides Amber MM topology; `--model-pdb` defines the ML region.
 3. **Optimization** -- The optimizer runs in the selected `--opt-mode` (`grad`/`lbfgs` = L-BFGS, `hess`/`rfo` = RFOptimizer).
    - RFO reports numerical convergence without an additional minimum-certification Hessian or implicit curvature-recovery loop. With microiteration, the macro and MM relaxation criteria remain distinct. Use [`freq`](freq.md) for separate analysis of the selected ML/MM space.
    - `--flatten` enables post-optimization flattening of imaginary modes. All detected imaginary modes are flattened each iteration until none remain or the internal loop cap is reached.
-4. **Restraints** -- Optional harmonic distance restraints via `--dist-freeze` / `--bias-k` (see CLI options).
+4. **Restraints** -- Optional harmonic distance restraints via `--distance-restraint` / `--restraint-k` (see CLI options).
 5. **Dumping & conversion** -- `--dump` writes `optimization_trj.xyz`; when conversion is enabled, trajectories are mirrored to `.pdb` for PDB inputs (with B-factor annotations). `opt.dump_restart` can emit restart YAML snapshots.
 6. **Exit codes** -- `0` success, `2` CLI usage/configuration failure or optimizer zero step (step norm < `min_step_norm`), `3` optimizer failure, `130` keyboard interrupt, `1` unexpected error.
 
@@ -74,24 +74,23 @@ The full flag list is in the generated [command reference](reference/commands/in
 | --- | --- | --- |
 | `-i, --input PATH` | Input structure accepted by `geom_loader` (`.pdb`, `.cif`, `.mmcif`, `.xyz`, `_trj.xyz`). | Required |
 | `--ref-pdb PATH` | Reference PDB topology when input is XYZ. | _None_ |
-| `--parm PATH` | Amber parm7 topology for the full enzyme. | Required |
+| `--parm7 PATH` | Amber parm7 topology for the full enzyme. | Required |
 | `--model-pdb PATH` | PDB defining the ML region atoms. Optional when `--detect-layer` is enabled. | _None_ |
 | `--model-indices TEXT` | Comma-separated atom indices for the ML region (ranges allowed, e.g. `1-5`). Alternative to `--model-pdb`. | _None_ |
-| `--model-indices-one-based / --model-indices-zero-based` | Index convention for `--model-indices`. | 1-based |
 | `--detect-layer / --no-detect-layer` | Automatically detect ML/MM layers from B-factors (B=0 ML, B=10 Movable-MM, B=20 Frozen). | Enabled |
 | `-q, --charge INT` | Charge of the ML region. | _None_ (required unless `-l` is given) |
 | `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives net charge when `-q` is omitted. Requires PDB input or `--ref-pdb`. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze. | _None_ |
 | `--movable-cutoff FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. Atoms beyond this are frozen. Providing this disables `--detect-layer`. | _None_ |
-| `--hess-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms included in Hessian calculation. Combinable with `--detect-layer`. | _None_ |
+| `--hessian-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms included in Hessian calculation. Combinable with `--detect-layer`. | _None_ |
 | `--mm-backend [hessian_ff\|openmm]` | MM backend. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |
 | `--mm-only / --no-mm-only` | Skip the MLIP component and minimize on the MM force field only. Layers are still honored via B-factor / `--movable-cutoff`; only `--opt-mode grad` is supported in this mode and microiteration is disabled automatically. Suited to fast MM pre-relaxation before ML/MM ONIOM optimization. | `False` |
 | `--link-atom-method [scaled\|fixed]` | Link-atom placement: scaled ($g$-factor) or fixed 1.09/1.01 Å. | `scaled` |
 | `--out-json/--no-out-json` | Write machine-readable `result.json` to `out_dir`. | `False` |
-| `--dist-freeze TEXT` | Python-literal `(i, j, target_A)` tuples for harmonic restraints (inline literal or YAML/JSON file path); omit `target_A` to restrain the starting distance. | _None_ |
-| `--one-based / --zero-based` | Index convention for `--dist-freeze`. | 1-based |
-| `--bias-k FLOAT` | Harmonic bias strength (eV/Å²). | `300.0` |
+| `--distance-restraint TEXT` | Python-literal `(i, j, target_A)` tuples for harmonic restraints (inline literal or YAML/JSON file path); omit `target_A` to restrain the starting distance. | _None_ |
+| `--one-based / --zero-based` | Index convention for `--distance-restraint`. | 1-based |
+| `--restraint-k FLOAT` | Harmonic bias strength (eV/Å²). | `300.0` |
 | `--max-cycles INT` | Hard limit on optimization iterations. | `100000` |
 | `--opt-mode [grad\|hess\|lbfgs\|rfo]` | Optimizer mode: `grad`/`lbfgs` (L-BFGS) or `hess`/`rfo` (RFO). | `grad` |
 | `--microiter/--no-microiter` | Alternate one ML RFO step with MM L-BFGS relaxation in `hess` mode. With `--embedcharge`, use standard optimization instead. | `True` |

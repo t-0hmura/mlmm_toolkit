@@ -937,7 +937,7 @@ def _run_dmf_mep(
 )
 @click.option("--max-cycles-gsm", type=click.IntRange(min=1), default=None, show_default="300",
               help="Maximum GSM string-optimizer cycles for the MEP stage.")
-@click.option("--max-cycles-dmf", type=click.IntRange(min=1), default=None, show_default="3000",
+@click.option("--dmf-max-iterations", "--max-cycles-dmf", "max_cycles_dmf", type=click.IntRange(min=1), default=None, show_default="3000",
               help=("Maximum IPOPT iterations for the DMF MEP stage. This is a solver "
                     "iteration count, not a string-optimizer cycle count."))
 @click.option(
@@ -978,7 +978,7 @@ def _run_dmf_mep(
     show_default="gau",
     help=(
         "Convergence preset for endpoint preoptimization only. "
-        "The MEP itself keeps --thresh-gsm / --thresh-dmf."
+        "The MEP itself keeps --thresh-gsm / --dmf-tol."
     ),
 )
 @click.option(
@@ -992,7 +992,9 @@ def _run_dmf_mep(
     ),
 )
 @click.option(
+    "--dmf-tol",
     "--thresh-dmf",
+    "thresh_dmf",
     type=str,
     default=None,
     show_default="tight",
@@ -1024,6 +1026,7 @@ def _run_dmf_mep(
     help="Validate options and print the execution plan without running path optimization.",
 )
 @click.option(
+    "--parm7",
     "--parm",
     "real_parm7",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
@@ -1199,6 +1202,10 @@ def cli(
     merged_yaml_cfg, _, _ = load_merged_yaml_cfg(
         config_yaml=config_yaml,
         override_yaml=None,
+    )
+    from mlmm.cli.decorators import resolve_model_indices_setting
+    model_indices_str, model_indices_one_based = resolve_model_indices_setting(
+        ctx, merged_yaml_cfg, model_indices_str, model_indices_one_based
     )
 
     input_paths = tuple(Path(p) for p in input_paths)

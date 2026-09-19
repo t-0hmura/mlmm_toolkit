@@ -1917,6 +1917,7 @@ end
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 @click.option(
+    "--parm7",
     "--parm",
     "parm7",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),

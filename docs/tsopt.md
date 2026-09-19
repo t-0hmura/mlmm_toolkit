@@ -56,15 +56,15 @@ information, then continue through `tsopt → irc` (or `mlmm all --tsopt`), addi
 
 ```bash
 # Route (a): discover the path, then refine its highest-energy image
-mlmm path-search -i r.pdb p.pdb --parm enzyme.parm7 -l 'LIG:Q' -o result_mep
+mlmm path-search -i r.pdb p.pdb --parm7 enzyme.parm7 -l 'LIG:Q' -o result_mep
 
 # Route (b): drive the reacting distance to build a TS candidate
-mlmm scan -i r.pdb --parm enzyme.parm7 -l 'LIG:Q' \
+mlmm scan -i r.pdb --parm7 enzyme.parm7 -l 'LIG:Q' \
     --scan-lists '[(1,5,1.40)]' -o result_scan
 ```
 
 ```{note}
-There is no `opt --restraint` flag. For a restrained minimum optimization, use [`opt`](opt.md) with `--dist-freeze` and set the strength with `--bias-k`. Use [`scan`](scan.md) to drive a distance toward a TS candidate, or [`path-search`](path-search.md) to build a path.
+There is no `opt --restraint` flag. For a restrained minimum optimization, use [`opt`](opt.md) with `--distance-restraint` and set the strength with `--restraint-k`. Use [`scan`](scan.md) to drive a distance toward a TS candidate, or [`path-search`](path-search.md) to build a path.
 ```
 
 ## Wrong number of imaginary frequencies
@@ -89,7 +89,7 @@ path into multiple segments and substantially increase cost, so it is also off
 by default.
 
 ```bash
-mlmm tsopt -i ts_guess.pdb --parm enzyme.parm7 -l 'LIG:Q' -b uma \
+mlmm tsopt -i ts_guess.pdb --parm7 enzyme.parm7 -l 'LIG:Q' -b uma \
     --precision fp64 --coord-type dlc -o result_ts
 ```
 
@@ -144,12 +144,12 @@ endpoints have the expected chemical identities.
 
 ## Examples
 
-The command form is `mlmm tsopt -i TS_GUESS --parm PARM7 --model-pdb ML_REGION -q CHARGE -m MULT [options]`. `mlmm tsopt --help` shows core options; `mlmm tsopt --help-advanced` shows the full option list.
+The command form is `mlmm tsopt -i TS_GUESS --parm7 PARM7 --model-pdb ML_REGION -q CHARGE -m MULT [options]`. `mlmm tsopt --help` shows core options; `mlmm tsopt --help-advanced` shows the full option list.
 
 Default run:
 
 ```bash
-mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm tsopt -i ts_guess.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
     -q 0 -m 1 --out-dir ./result_tsopt
 ```
 
@@ -157,7 +157,7 @@ Hessian-Guided Dimer with analytical Hessian:
 
 ```bash
 # Hessian-Guided Dimer with analytical Hessian
-mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm tsopt -i ts_guess.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
     -q 0 -m 1 --opt-mode grad --hessian-calc-mode Analytical --out-dir ./result_tsopt_grad
 ```
 
@@ -165,7 +165,7 @@ RS-P-RFO with YAML overrides:
 
 ```bash
 # RS-P-RFO with YAML overrides
-mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm tsopt -i ts_guess.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
     -q 0 -m 1 --opt-mode hess --config tsopt.yaml --out-dir ./result_tsopt_hess
 # --dump keeps the full optimization trajectory; --backend mace uses the MACE backend
 ```
@@ -229,17 +229,16 @@ The full flag list is in the generated [command reference](reference/commands/in
 | **Input & charge** | | |
 | `-i, --input PATH` | Starting geometry (PDB or XYZ). If XYZ, use `--ref-pdb` for topology. | Required |
 | `--ref-pdb FILE` | Reference PDB topology when input is XYZ. | _None_ |
-| `--parm PATH` | Amber parm7 topology for the whole enzyme. | Required |
+| `--parm7 PATH` | Amber parm7 topology for the whole enzyme. | Required |
 | `--model-pdb PATH` | PDB containing the ML-region atoms. Optional when `--detect-layer` is enabled. | _None_ |
 | `--model-indices TEXT` | Comma-separated atom indices for the ML region (ranges allowed). | _None_ |
-| `--model-indices-one-based / --model-indices-zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
 | `--detect-layer / --no-detect-layer` | Automatically detect ML/MM layers from input PDB B-factors. | Enabled |
 | `-q, --charge INT` | Net charge of the ML region. | _None_ (required unless `-l` is given) |
 | `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g. `GPP:-3,SAM:1`). Derives net charge when `-q` is omitted. Requires PDB input or `--ref-pdb`. | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1) for the ML region. | `1` |
 | **Active-region freezing** | | |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
-| `--radius-hessian` / `--hess-cutoff FLOAT` | Distance cutoff (Å) from the ML region for MM atoms to include in Hessian calculation. Unset includes every required movable MM atom. `0.0` requests an ML-only Hessian and must be paired with `--active-dof-mode ml-only` for final frequency validation. | _None_ |
+| `--hessian-cutoff` / `--hessian-cutoff FLOAT` | Distance cutoff (Å) from the ML region for MM atoms to include in Hessian calculation. Unset includes every required movable MM atom. `0.0` requests an ML-only Hessian and must be paired with `--active-dof-mode ml-only` for final frequency validation. | _None_ |
 | `--movable-cutoff FLOAT` | Distance cutoff (Å) for movable MM atoms. | _None_ |
 | **TS search & optimizer mode** | | |
 | `--hessian-calc-mode CHOICE` | ML Hessian mode: `Analytical` or `FiniteDifference`. | `FiniteDifference` |
@@ -257,8 +256,8 @@ The full flag list is in the generated [command reference](reference/commands/in
 | **Backend & compute** | | |
 | `-b, --backend CHOICE` | High-level backend for the model region: `uma` (default), `orb`, `mace`, `aimnet2`, `dft`. | `uma` |
 | `--precision [fp32\|fp64]` | MLIP backend precision; unset uses UMA/AIMNet2 fp32 and ORB/MACE fp64. AIMNet2 rejects fp64. | backend-specific |
-| `--workers INT` | UMA predictor workers. Values greater than 1 require `fairchem-core[extras]` and cannot be combined with `Analytical`. | `1` |
-| `--workers-per-node INT` | Workers per node for the parallel UMA predictor. | _None_ |
+| `--uma-workers INT` | UMA predictor workers. Values greater than 1 require `fairchem-core[extras]` and cannot be combined with `Analytical`. | `1` |
+| `--uma-workers-per-node INT` | Workers per node for the parallel UMA predictor. | _None_ |
 | `--allow-charge-mult-mismatch` | Skip ML-region charge/multiplicity electron-parity validation after emitting a warning. An open-shell ML region needs a matching multiplicity; use this only for an intentional nonstandard input. | off |
 | `--cmap / --no-cmap` | Preserve CMAP in both REAL and MODEL MM layers. | `--cmap` |
 | `--mm-backend [hessian_ff\|openmm]` | MM backend. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |

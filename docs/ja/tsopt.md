@@ -53,15 +53,15 @@ YAML の半径は Bohr 単位で、`opt` / `rsirfo` の既存の優先順位を�
 
 ```bash
 # 経路 (a): 経路を探索し、その最高エネルギー像を精密化
-mlmm path-search -i r.pdb p.pdb --parm enzyme.parm7 -l 'LIG:Q' -o result_mep
+mlmm path-search -i r.pdb p.pdb --parm7 enzyme.parm7 -l 'LIG:Q' -o result_mep
 
 # 経路 (b): 反応距離を駆動して TS 候補を構築
-mlmm scan -i r.pdb --parm enzyme.parm7 -l 'LIG:Q' \
+mlmm scan -i r.pdb --parm7 enzyme.parm7 -l 'LIG:Q' \
     --scan-lists '[(1,5,1.40)]' -o result_scan
 ```
 
 ```{note}
-`opt --restraint` フラグは存在しません。拘束付きの極小化には [`opt`](opt.md) の `--dist-freeze` を使い、強さを `--bias-k` で指定します。TS 候補へ距離を駆動する場合は [`scan`](scan.md)、経路を構築する場合は [`path-search`](path-search.md) を使います。
+`opt --restraint` フラグは存在しません。拘束付きの極小化には [`opt`](opt.md) の `--distance-restraint` を使い、強さを `--restraint-k` で指定します。TS 候補へ距離を駆動する場合は [`scan`](scan.md)、経路を構築する場合は [`path-search`](path-search.md) を使います。
 ```
 
 ## 虚振動数の数が正しくないとき
@@ -83,7 +83,7 @@ Dimer loop、`hess`: RS-P-RFO 後処理）。`--no-flatten` は
 デフォルトでは無効です。
 
 ```bash
-mlmm tsopt -i ts_guess.pdb --parm enzyme.parm7 -l 'LIG:Q' -b uma \
+mlmm tsopt -i ts_guess.pdb --parm7 enzyme.parm7 -l 'LIG:Q' -b uma \
     --precision fp64 --coord-type dlc -o result_ts
 ```
 
@@ -125,12 +125,12 @@ ML/MM backend、力場、収束基準、熱化学条件、温度を揃え、化�
 
 ## 実行例
 
-コマンド形式は `mlmm tsopt -i TS_GUESS --parm PARM7 --model-pdb ML_REGION -q CHARGE -m MULT [options]` です。`mlmm tsopt --help` で主要オプション、`mlmm tsopt --help-advanced` で全オプション一覧を表示します。
+コマンド形式は `mlmm tsopt -i TS_GUESS --parm7 PARM7 --model-pdb ML_REGION -q CHARGE -m MULT [options]` です。`mlmm tsopt --help` で主要オプション、`mlmm tsopt --help-advanced` で全オプション一覧を表示します。
 
 デフォルト実行:
 
 ```bash
-mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm tsopt -i ts_guess.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --out-dir ./result_tsopt
 ```
 
@@ -138,7 +138,7 @@ Dimer + 解析的 Hessian:
 
 ```bash
 # Dimer と解析的 Hessian を使用する
-mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm tsopt -i ts_guess.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --opt-mode grad --hessian-calc-mode Analytical --out-dir ./result_tsopt_grad
 ```
 
@@ -146,7 +146,7 @@ RS-P-RFO + YAML 上書き:
 
 ```bash
 # RS-P-RFO を YAML 上書きと併用する
-mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm tsopt -i ts_guess.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --opt-mode hess --config tsopt.yaml --out-dir ./result_tsopt_hess
 # --dump で最適化軌跡を保存、--backend mace で MACE バックエンドを使用
 ```
@@ -207,17 +207,16 @@ out_dir/ (デフォルト: ./result_tsopt/)
 | **入力と電荷** | | |
 | `-i, --input PATH` | 開始ジオメトリ（PDB または XYZ）。XYZ の場合はトポロジーに `--ref-pdb` を使用。 | 必須 |
 | `--ref-pdb FILE` | 入力が XYZ の場合の参照 PDB トポロジー。 | _None_ |
-| `--parm PATH` | 全酵素の Amber parm7 トポロジー。 | 必須 |
+| `--parm7 PATH` | 全酵素の Amber parm7 トポロジー。 | 必須 |
 | `--model-pdb PATH` | ML 領域原子を含む PDB。`--detect-layer` 有効時はオプション。 | _None_ |
 | `--model-indices TEXT` | ML 領域のカンマ区切り原子インデックス（範囲指定可）。 | _None_ |
-| `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` を 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
 | `--detect-layer / --no-detect-layer` | 入力 PDB の B 因子から ML/MM レイヤーを自動検出。 | 有効 |
 | `-q, --charge INT` | ML 領域の総電荷。 | _None_（`-l` 未指定時は必須） |
 | `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。PDB 入力または `--ref-pdb` が必要。 | _None_ |
 | `-m, --multiplicity INT` | ML 領域のスピン多重度 (2S+1)。 | _None_（デフォルト 1） |
 | **アクティブ領域の凍結** | | |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス（YAML `geom.freeze_atoms` とマージ）。 | _None_ |
-| `--hess-cutoff FLOAT` | ML 領域からの Hessian-MM 原子の距離カットオフ (Å)。未指定時は最終解析に必要な可動 MM 原子をすべて含めます。`0.0` で ML のみを評価する場合は、最終周波数解析も `--active-dof-mode ml-only` にします。エイリアス: `--radius-hessian`。 | _None_ |
+| `--hessian-cutoff FLOAT` | ML 領域からの Hessian-MM 原子の距離カットオフ (Å)。未指定時は最終解析に必要な可動 MM 原子をすべて含めます。`0.0` で ML のみを評価する場合は、最終周波数解析も `--active-dof-mode ml-only` にします。エイリアス: `--hessian-cutoff`。 | _None_ |
 | `--movable-cutoff FLOAT` | 可動 MM 原子の距離カットオフ (Å)。 | _None_ |
 | **TS 探索とオプティマイザモード** | | |
 | `--hessian-calc-mode CHOICE` | MLIP Hessian モード: `Analytical` または `FiniteDifference`。 | `FiniteDifference` |
@@ -235,8 +234,8 @@ out_dir/ (デフォルト: ./result_tsopt/)
 | **バックエンドと計算** | | |
 | `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
 | `--precision [fp32\|fp64]` | MLIP バックエンド精度。省略時は UMA/AIMNet2 fp32、ORB/MACE fp64。AIMNet2 は fp64 を拒否。 | バックエンド依存 |
-| `--workers INT` | UMA predictor worker 数。2 以上は `fairchem-core[extras]` が必要で、`Analytical` と併用不可。 | `1` |
-| `--workers-per-node INT` | UMA 並列 predictor のノード当たり worker 数。 | _None_ |
+| `--uma-workers INT` | UMA predictor worker 数。2 以上は `fairchem-core[extras]` が必要で、`Analytical` と併用不可。 | `1` |
+| `--uma-workers-per-node INT` | UMA 並列 predictor のノード当たり worker 数。 | _None_ |
 | `--allow-charge-mult-mismatch` | 警告を出した上で ML 領域の電荷・多重度の電子パリティ検証を省略。開殻の ML 領域には整合する多重度を指定してください。共有結合を切断した領域など、意図的な非標準入力の場合のみ使用。 | off |
 | `--cmap/--no-cmap` | REAL と MODEL の両 MM 層で CMAP を保持します。 | `--cmap` |
 | `--mm-backend [hessian_ff\|openmm]` | MM backend。 | `hessian_ff` |

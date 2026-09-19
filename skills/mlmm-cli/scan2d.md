@@ -10,7 +10,7 @@ surfaces (e.g. SN2 attack + leaving-group departure).
 ## Synopsis
 
 ```bash
-mlmm scan2d -i input.pdb --parm real.parm7 \
+mlmm scan2d -i input.pdb --parm7 real.parm7 \
     -s '[(a1, b1, low1, high1), (a2, b2, low2, high2)]' \
     [-l 'RES:Q,...'] \
     [-b uma|orb|mace|aimnet2|dft] [-o ./result_scan2d/]
@@ -25,7 +25,7 @@ selection. Most subcommands accept:
 
 | flag | purpose |
 |---|---|
-| `--parm FILE` | Amber `parm7` topology of the whole enzyme — **required** |
+| `--parm7 FILE` | Amber `parm7` topology of the whole enzyme — **required** |
 | `--model-pdb FILE` | Explicit ML-region PDB; takes precedence over B-factor ML membership |
 | `--detect-layer` | Automatically read B-factor layers; explicit ML membership retains valid movable/frozen MM layers. Enabled by default. |
 | `--model-indices` | Explicit ML atom indices used when `--model-pdb` is omitted; takes precedence over B-factor ML membership |
@@ -54,7 +54,7 @@ are driven simultaneously, generating the grid.
 ## Examples
 
 ```bash
-mlmm scan2d -i 1.R.pdb --parm real.parm7 -l 'SAM:1,GPP:-3' \
+mlmm scan2d -i 1.R.pdb --parm7 real.parm7 -l 'SAM:1,GPP:-3' \
     -s '[("CS1 SAM 320","C7 GPP 321",1.60,3.10), ("GPP 321 H11","GLU 186 OE2",0.90,1.80)]' \
     -b uma -o result_scan2d
 ```

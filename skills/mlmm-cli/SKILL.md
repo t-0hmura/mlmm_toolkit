@@ -27,7 +27,7 @@ Each row points to the full per-subcommand md in this skill directory.
 | `freq.md` | `freq` | Vibrational analysis: Hessian, frequencies, normal-mode visualization, QRRHO thermochemistry.<br>Default temperature/pressure 298.15 K / 1 atm; partial-Hessian variant when `freeze_atoms` is non-empty. |
 | `sp.md` | `sp` | ONIOM single-point energy + forces (and optional Hessian).<br>Cheapest stage; useful for spot-checking a geometry without running an optimization. |
 | `irc.md` | `irc` | IRC integration with EulerPC in mass-weighted Cartesians.<br>Writes raw forward/backward endpoints; optimize them separately with `opt` or through `all`. |
-| `dft.md` | `dft` | Single-point DFT through PySCF (CPU) or GPU4PySCF (CUDA, x86_64).<br>`--engine gpu` is the default; if the GPU backend is unavailable it raises an error — select CPU explicitly with `--engine cpu`. |
+| `dft.md` | `dft` | Single-point DFT through PySCF (CPU) or GPU4PySCF (CUDA, x86_64).<br>`--dft-engine gpu` is the default; if the GPU backend is unavailable it raises an error — select CPU explicitly with `--dft-engine cpu`. |
 | `scan.md` | `scan` | 1D distance scan with harmonic restraints to seed a path search.<br>Useful when neither endpoint nor TS guess is available — drives the bond manually. |
 | `scan2d.md` | `scan2d` | Restrained optimization on a two-distance grid.<br>Maps and visualizes the PES. |
 | `scan3d.md` | `scan3d` | 3D analog with three restrained distances.<br>Rare but supported; output volume grows quickly, plan resources. |
@@ -57,7 +57,7 @@ These flags appear on most subcommands (canonical list:
 | `-m, --multiplicity` | Spin multiplicity (2S+1), default 1 |
 | `-b, --backend` | High-level backend: `uma` / `orb` / `mace` / `aimnet2` / `dft` |
 | `--precision` | Unset defaults by backend: UMA/AIMNet2 fp32; ORB/MACE fp64 |
-| `--workers` | UMA predictor workers; `>1` is incompatible with an analytical Hessian |
+| `--uma-workers` | UMA predictor workers; `>1` is incompatible with an analytical Hessian |
 | `-o, --out-dir` | Output directory, subcommand-specific default |
 | `--config` | YAML configuration file applied before CLI flags |
 | `--show-config` | Print resolved merged config, then continue execution (`sp` prints and exits before evaluation) |
@@ -92,18 +92,18 @@ mlmm all -i 1.R.pdb \
 ### Validate a TS candidate without re-running path search
 
 ```bash
-mlmm tsopt -i ts_guess.xyz --parm real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_tsopt
-mlmm freq  -i result_tsopt/final_geometry.xyz --parm real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_freq  # optional: full modes / thermochemistry
-mlmm irc   -i result_tsopt/final_geometry.xyz --parm real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_irc
+mlmm tsopt -i ts_guess.xyz --parm7 real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_tsopt
+mlmm freq  -i result_tsopt/final_geometry.xyz --parm7 real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_freq  # optional: full modes / thermochemistry
+mlmm irc   -i result_tsopt/final_geometry.xyz --parm7 real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_irc
 ```
 
 ### DFT//MLIP/MM single point on the highest-local-barrier TS candidate
 
 ```bash
-mlmm dft -i seg_01/ts.pdb --parm real.parm7 \
+mlmm dft -i seg_01/ts.pdb --parm7 real.parm7 \
     -l 'SAM:1,GPP:-3' \
     --func-basis 'wb97m-v/def2-tzvpd' \
-    --engine gpu
+    --dft-engine gpu
 ```
 
 ### Bond-change report between R and P

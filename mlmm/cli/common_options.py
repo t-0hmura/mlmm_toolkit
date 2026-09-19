@@ -20,17 +20,16 @@ def _capture_dft_option(ctx: click.Context, param: click.Parameter, value):
     return value
 
 
-def add_dft_calculator_options():
+def add_dft_calculator_options(*, include_method: bool = True, include_engine: bool = True):
     """Attach common PySCF options while preserving existing call signatures."""
 
     def decorator(func):
-        for args, kwargs in reversed(
-            [
+        definitions = [
                 (("--func-basis",), {
                     "type": str, "default": None, "show_default": "wb97m-v/def2-svp",
                     "help": "High-level method as FUNCTIONAL/BASIS; HF/BASIS is accepted.",
                 }),
-                (("--engine",), {
+                (("--dft-engine", "--engine"), {
                     "type": click.Choice(["gpu", "cpu"], case_sensitive=False),
                     "default": None, "show_default": "gpu",
                     "help": "PySCF execution engine used by --backend dft.",
@@ -44,7 +43,7 @@ def add_dft_calculator_options():
                     "default": None,
                     "help": "Load/save the optional structure-bound PySCF checkpoint at PATH.",
                 }),
-                (("--lowmem/--no-lowmem",), {
+                (("--dft-low-memory/--no-dft-low-memory", "--lowmem/--no-lowmem"), {
                     "default": None, "show_default": "lowmem",
                     "help": (
                         "Use GPU4PySCF rks_lowmem for closed-shell GPU DFT; "
@@ -57,13 +56,17 @@ def add_dft_calculator_options():
                     "default": None, "show_default": "auto",
                     "help": "PySCF/OpenMP CPU threads; GPU count is unaffected.",
                 }),
-                (("--dft-mem",), {
+                (("--dft-memory", "--dft-mem"), {
                     "name": "memory", "type": str, "default": None,
                     "show_default": "auto",
                     "help": "PySCF host RAM limit (for example 64GB or 120000MB).",
                 }),
             ]
-        ):
+        if not include_method:
+            definitions = [item for item in definitions if "--func-basis" not in item[0]]
+        if not include_engine:
+            definitions = [item for item in definitions if "--dft-engine" not in item[0]]
+        for args, kwargs in reversed(definitions):
             name = kwargs.pop("name", None)
             if name is not None:
                 args = (*args, name)
@@ -207,6 +210,7 @@ def add_workers_options() -> Callable[[Callable], Callable]:
     """
     def decorator(func: Callable) -> Callable:
         func = click.option(
+            "--uma-workers-per-node",
             "--workers-per-node",
             "workers_per_node",
             type=int,
@@ -215,6 +219,7 @@ def add_workers_options() -> Callable[[Callable], Callable]:
             help="Workers per node when the parallel MLIP predictor is used (--workers > 1).",
         )(func)
         func = click.option(
+            "--uma-workers",
             "--workers",
             "workers",
             type=int,
@@ -276,6 +281,7 @@ def add_calc_file_option() -> Callable[[Callable], Callable]:
     """
     def decorator(func: Callable) -> Callable:
         func = click.option(
+            "--calc-factory",
             "--calc-file-func-name",
             "calc_factory",
             type=str,
@@ -448,6 +454,7 @@ def add_ml_layer_detection_options() -> Callable[[Callable], Callable]:
             "model_indices_one_based",
             default=True,
             show_default=True,
+            hidden=True,
             help="Interpret --model-indices as 1-based or 0-based.",
         ),
     ]

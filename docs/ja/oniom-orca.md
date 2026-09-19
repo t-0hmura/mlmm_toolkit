@@ -10,27 +10,27 @@ CMAP 項を適用しないため、CMAP が存在する場合は出力前に停�
 基本的なエクスポート:
 
 ```bash
-mlmm oniom-export --mode orca --parm real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode orca --parm7 real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
  -o system.inp -q 0 -m 1
 ```
 
 全 QM+MM 系の総電荷/総多重度を明示的に指定:
 
 ```bash
-mlmm oniom-export --mode orca --parm real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode orca --parm7 real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
  -o system.inp -q 0 -m 1 --total-charge -1 --total-mult 1
 ```
 
 ORCAFF のパスを明示し自動変換を無効化:
 
 ```bash
-mlmm oniom-export --mode orca --parm real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode orca --parm7 real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
  -o system.inp -q 0 -m 1 --orcaff ./ORCAFF.prms --no-convert-orcaff
 ```
 
 ## 処理の流れ
 
-ORCA モード（`mlmm oniom-export --mode orca`）は `--parm` からトポロジー情報を取得し、ORCA QM/MM 入力を書き出します。
+ORCA モード（`mlmm oniom-export --mode orca`）は `--parm7` からトポロジー情報を取得し、ORCA QM/MM 入力を書き出します。
 
 1. parm7 から原子・結合・電荷情報を取得。
 2. `-i/--input` の B-factor から可動/固定 layer を読み、`--element-check` で元素順を検証。
@@ -47,7 +47,7 @@ ORCA モード（`mlmm oniom-export --mode orca`）は `--parm` からトポロ�
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
-| `--parm PATH` | Amber parm7 トポロジー。 | 必須 |
+| `--parm7 PATH` | Amber parm7 トポロジー。 | 必須 |
 | `-i, --input PATH` | MLMM layered PDB。原子順は parm7 と一致必須。 | 必須 |
 | `--element-check / --no-element-check` | 入力と parm7 の元素順を検証。 | `True` |
 | `--model-pdb PATH` | QM 領域原子を定義する PDB。 | _None_ |

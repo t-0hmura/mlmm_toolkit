@@ -375,7 +375,7 @@ def main():
     help="Input PDB filepath",
 )
 @click.option(
-    "-o", "--out",
+    "-o", "--output", "--out",
     "out_pdb",
     type=click.Path(path_type=Path, dir_okay=False),
     default=None,

@@ -38,12 +38,12 @@ E_total = E_REAL_low + E_MODEL_high - E_MODEL_low
 
 ここで REAL は全系、MODEL は ML 領域、"high" は MLIP バックエンド、"low" は hessian_ff です。
 
-一連の処理は CLI から呼び出せるように統一されており、手作業を最小化して **多段階の酵素反応メカニズム** を組み立てられるように設計されています。同じワークフローは小分子系にも適用可能です。`.xyz` 入力を個別計算で使う場合は、対応する全系トポロジーを `--parm`、構造テンプレートを `--ref-pdb`、ML 領域を `--model-pdb`、`--model-indices`、または有効な B-factor layer で指定します。
+一連の処理は CLI から呼び出せるように統一されており、手作業を最小化して **多段階の酵素反応メカニズム** を組み立てられるように設計されています。同じワークフローは小分子系にも適用可能です。`.xyz` 入力を個別計算で使う場合は、対応する全系トポロジーを `--parm7`、構造テンプレートを `--ref-pdb`、ML 領域を `--model-pdb`、`--model-indices`、または有効な B-factor layer で指定します。
 
 ```{important}
 - 入力 PDB ファイルには**水素原子**が含まれている必要があります。
 - 複数の PDB を提供する場合、**同じ原子が同じ順序**で含まれている必要があります（座標のみ異なる可能性があります）。そうでない場合はエラーが発生します。
-- 個別の ML/MM 計算には **`--parm`**（全系の Amber トポロジー）と、`--model-pdb`、`--model-indices`、または有効な B-factor layer のいずれかによる ML 領域指定が必要です。`all` ワークフローではトポロジーと ML 領域を自動生成できます。
+- 個別の ML/MM 計算には **`--parm7`**（全系の Amber トポロジー）と、`--model-pdb`、`--model-indices`、または有効な B-factor layer のいずれかによる ML 領域指定が必要です。`all` ワークフローではトポロジーと ML 領域を自動生成できます。
 - `mlmm all` と個別コマンドのどちらでも、`-q/--charge` は全系ではなく ML 領域（ONIOM モデル系）の正味電荷です。
 - MD スナップショットには、MD 計算で用いた全系の `.parm7` を再利用してください。
 ```
@@ -134,10 +134,10 @@ cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && mak
 
 ```bash
 # ORB バックエンドを使用
-mlmm opt -i ml_region.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 -b orb
+mlmm opt -i ml_region.pdb --parm7 real.parm7 --model-pdb ml.pdb -q 0 -b orb
 
 # MACE バックエンドを使用
-mlmm opt -i ml_region.pdb --parm real.parm7 --model-pdb ml.pdb -q 0 -b mace
+mlmm opt -i ml_region.pdb --parm7 real.parm7 --model-pdb ml.pdb -q 0 -b mace
 
 ```
 
@@ -186,10 +186,10 @@ CMAPを含まないトポロジーを使ってください（[準備例](mm-parm
 
 ```bash
 # 1. ML/MMでTSを精密化
-mlmm tsopt -i ts_guess.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0 -m 1
+mlmm tsopt -i ts_guess.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m 1
 
 # 2. Gaussian ONIOM入力を生成
-mlmm oniom-export --mode g16 --parm real.parm7 -i result_tsopt/final_geometry.pdb \
+mlmm oniom-export --mode g16 --parm7 real.parm7 -i result_tsopt/final_geometry.pdb \
      --model-pdb ml_region.pdb -o ts_refine.com -q 0 -m 1 --method "wB97XD/def2-TZVPD"
 
 # 3. 外部ソフトウェアで実行（ORCAは --mode orca で生成）
@@ -273,7 +273,7 @@ IRC 後の端点 E1/E2 は未割当です。最適化した構造を確認して
 | `-q, --charge INT` | ML 領域の総電荷の強制上書き |
 | `-m, --multiplicity INT` | スピン多重度（例: 一重項は `1`） |
 | `-s, --scan-lists TEXT...` | `all`の単一入力経路ではインライン`(i,j,target)`リテラル。YAML/JSONと双方向4-tupleはstandalone `scan`で使用 |
-| `--parm PATH` | 全系の Amber parm7 トポロジー（`all` では自動生成） |
+| `--parm7 PATH` | 全系の Amber parm7 トポロジー（`all` では自動生成） |
 | `--model-pdb PATH` | ML 領域を定義する PDB ファイル。個別計算では `--model-indices` または有効な B-factor layer も選択可能（`all` では自動生成可） |
 | `--tsopt/--no-tsopt` | TS 最適化と IRC を有効化 |
 | `--thermo/--no-thermo` | 振動解析と熱化学を実行 |
@@ -284,7 +284,7 @@ IRC 後の端点 E1/E2 は未割当です。最適化した構造を確認して
 | `-o, --out-dir PATH` | トップレベル出力ディレクトリ |
 | `-b, --backend uma\|orb\|mace\|aimnet2\|dft` | 高レベルbackend選択（デフォルト: `uma`、`dft`も選択可） |
 | `--opt-mode grad\|hess` | TSOPT と IRC 後の端点最適化の fallback。`--opt-mode-post` が優先されます。 |
-| `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian 計算モード。全 MLIP バックエンドで `Analytical` を利用可能。`--workers > 1` とは併用不可。 |
+| `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian 計算モード。全 MLIP バックエンドで `Analytical` を利用可能。`--uma-workers > 1` とは併用不可。 |
 
 `mlmm all --mep-mode dmf` は、デフォルトの単一パス `path-opt` と
 `--refine-path` で選択する再帰的 `path-search` のどちらにも Direct Max Flux

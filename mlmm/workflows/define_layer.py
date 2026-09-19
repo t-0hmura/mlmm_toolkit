@@ -554,6 +554,7 @@ def _effective_output_pdb(output_path: Path) -> Path:
          "Takes precedence over --model-pdb.",
 )
 @click.option(
+    "--movable-cutoff",
     "--radius-freeze",
     "radius_freeze",
     type=float,

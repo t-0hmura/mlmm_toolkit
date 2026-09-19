@@ -51,7 +51,7 @@ MLIP remains the default high-level layer; calculator workflows also accept opti
 | GPU / CUDA / VRAM | A backend-compatible NVIDIA GPU/driver for GPU execution; size VRAM from a representative target-system pilot. |
 | RAM / Disk | Size RAM and disk for the selected backend, model cache, topology tools, and expected artifacts. |
 
-**AmberTools** (`tleap`) is required to generate a topology with `mm-parm` or `all`; reuse an existing matching `--parm` to skip that preparation. The default `hessian_ff` backend needs **a C++20-capable compiler** (validated with GCC 13.3) to JIT-compile native kernels on first use. **pdbfixer** is needed only for `mm-parm --add-h`; the installation commands below include it. CPU-only ML/MM execution is supported but can be substantially slower than GPU execution; benchmark the selected backend and system. Full requirement and tuning details: [docs/getting-started.md#installation](docs/getting-started.md#installation).
+**AmberTools** (`tleap`) is required to generate a topology with `mm-parm` or `all`; reuse an existing matching `--parm7` to skip that preparation. The default `hessian_ff` backend needs **a C++20-capable compiler** (validated with GCC 13.3) to JIT-compile native kernels on first use. **pdbfixer** is needed only for `mm-parm --add-h`; the installation commands below include it. CPU-only ML/MM execution is supported but can be substantially slower than GPU execution; benchmark the selected backend and system. Full requirement and tuning details: [docs/getting-started.md#installation](docs/getting-started.md#installation).
 
 ## Installation
 
@@ -94,7 +94,7 @@ For most systems the only hard requirement is a **PDB with explicit hydrogens** 
    Download coordinates from the Protein Data Bank. If an experimental structure is not available, use structure-prediction programs such as **AlphaFold3**, **Boltz2**, or **Chai**; docking programs; or GUI software such as **PyMOL**. Add hydrogens at the intended protonation state (or let `mm-parm --add-h --ph 7` add them). For multi-structure (R → P) runs, every PDB must share the same atoms in the same order.
 
 2. **(Optional) Build the MM topology yourself — it is automatic by default.**
-   `mlmm all` (via [`mlmm mm-parm`](docs/mm-parm.md)) generates the Amber `.parm7` / `.rst7` from the PDB automatically; unknown residues (ligands, cofactors) are parameterized with GAFF2 / AM1-BCC — pass formal charges with `-l 'RES:CHARGE'`. Build the topology by hand when it helps — a custom force field, special solvation, or a system the automatic route cannot handle — then pass it with `--parm`. To mimic aqueous conditions, solvate the complex and remove water molecules beyond ~6 Å (see the [OpenMM cookbook](https://openmm.github.io/openmm-cookbook/latest/tutorials) / tleap).
+   `mlmm all` (via [`mlmm mm-parm`](docs/mm-parm.md)) generates the Amber `.parm7` / `.rst7` from the PDB automatically; unknown residues (ligands, cofactors) are parameterized with GAFF2 / AM1-BCC — pass formal charges with `-l 'RES:CHARGE'`. Build the topology by hand when it helps — a custom force field, special solvation, or a system the automatic route cannot handle — then pass it with `--parm7`. To mimic aqueous conditions, solvate the complex and remove water molecules beyond ~6 Å (see the [OpenMM cookbook](https://openmm.github.io/openmm-cookbook/latest/tutorials) / tleap).
    With an explicit `--out-prefix` (or `--add-h`), `mm-parm` also exports LEaP's topology-matched PDB and fills missing element columns while preserving its atom records and order.
 
 3. **(Optional) Define the ML region yourself.**
@@ -125,7 +125,7 @@ mlmm all -i R.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
     --scan-lists "[('SAM 359 CS1','GPP 360 C8',1.3)]"
 
 # TS-only validation (existing TS candidate)
-mlmm all -i TS_candidate_layered.pdb --parm complex.parm7 -q 1 --tsopt --opt-mode grad
+mlmm all -i TS_candidate_layered.pdb --parm7 complex.parm7 -q 1 --tsopt --opt-mode grad
 ```
 
 For Gaussian-ONIOM / ORCA-QM/MM input-deck export and import use [`oniom-export`](docs/oniom-export.md) / [`oniom-import`](docs/oniom-import.md). Per-stage walkthrough (`mm-parm` → `extract` → `define-layer` → `opt` → `path-search` → `tsopt` → `freq` → `irc` → `dft`): [docs/getting-started.md](docs/getting-started.md) and [docs/quickstart-all.md](docs/quickstart-all.md). Working examples (COMT, BezA, methyltransferase, and toy system): [examples/](https://github.com/t-0hmura/mlmm_toolkit/tree/main/examples).
@@ -137,7 +137,7 @@ A run writes its deliverables to `--out-dir` (default `./result_all/`):
 - `segments/seg_NN/{reactant,ts,product}.pdb` for MEP-oriented segments; TS-only mode writes chemically unassigned `{e1,ts,e2}.pdb`
 - `mep_trj.pdb` / `mep_trj.xyz` — the merged reaction path; `energy_diagram_MEP.png` — barrier diagram
 - `summary.log` / `summary.json`
-- Reusable inputs for follow-up runs: `ml_region.pdb` (`--model-pdb`), `mm_parm/*.parm7` (`--parm`), `layered/` (B-factor-annotated full-system PDBs)
+- Reusable inputs for follow-up runs: `ml_region.pdb` (`--model-pdb`), `mm_parm/*.parm7` (`--parm7`), `layered/` (B-factor-annotated full-system PDBs)
 - Directly inspectable model systems before/after link-H insertion:
   `ml_region_without_linkH.xyz` and `ml_region_with_linkH.xyz`, plus matching
   PDB companions for PDB input

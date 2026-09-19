@@ -16,7 +16,7 @@ before treating its segment as an elementary step.
 ## Synopsis
 
 ```bash
-mlmm path-search -i 1.R.pdb 3.P.pdb [-i 1.R.pdb 2.IM.pdb 3.P.pdb] --parm real.parm7 \
+mlmm path-search -i 1.R.pdb 3.P.pdb [-i 1.R.pdb 2.IM.pdb 3.P.pdb] --parm7 real.parm7 \
     [--mep-mode gsm|dmf] [--refine-mode peak|minima] \
     [--max-nodes 20] [-l 'RES:Q,...'] [-b uma|orb|mace|aimnet2|dft] \
     [-o ./result_path_search/]
@@ -31,7 +31,7 @@ accept:
 
 | flag | purpose |
 |---|---|
-| `--parm FILE` | Amber `parm7` topology of the whole enzyme — **required** |
+| `--parm7 FILE` | Amber `parm7` topology of the whole enzyme — **required** |
 | `--model-pdb FILE` | Explicit ML-region PDB; takes precedence over B-factor ML membership |
 | `--detect-layer` | Automatically read B-factor layers; explicit ML membership retains valid movable/frozen MM layers. Enabled by default. |
 | `--model-indices` | Explicit ML atom indices used when `--model-pdb` is omitted; takes precedence over B-factor ML membership |
@@ -53,7 +53,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--max-depth` | int | 10 | Recursive subdivision levels; `0` disables it. A capped interval is tagged `seg_NNN_maxdepth` |
 | `--thresh` | str | `gau` | Single-structure optimization convergence preset |
 | `--thresh-gsm` | str | `gau_loose` | GSM string-optimizer convergence preset |
-| `--thresh-dmf` | str/float | `tight` | DMF IPOPT dual-infeasibility tolerance: `tight`, `middle`, `loose`, or a positive float |
+| `--dmf-tol` | str/float | `tight` | DMF IPOPT dual-infeasibility tolerance: `tight`, `middle`, `loose`, or a positive float |
 | `-q, --charge` / `-l` / `-m` | — | — | Charge / multiplicity (see common conventions) |
 | `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |
 | `-o, --out-dir` | path | `./result_path_search/` | Output directory |
@@ -64,7 +64,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 ### 2-endpoint MEP, GSM, default refinement
 
 ```bash
-mlmm path-search -i 1.R.pdb 3.P.pdb --parm real.parm7 \
+mlmm path-search -i 1.R.pdb 3.P.pdb --parm7 real.parm7 \
     -l 'SAM:1,GPP:-3' -b uma \
     -o result_path_search
 ```
@@ -72,7 +72,7 @@ mlmm path-search -i 1.R.pdb 3.P.pdb --parm real.parm7 \
 ### 3-endpoint with explicit intermediate
 
 ```bash
-mlmm path-search -i 1.R.pdb 2.IM.pdb 3.P.pdb --parm real.parm7 \
+mlmm path-search -i 1.R.pdb 2.IM.pdb 3.P.pdb --parm7 real.parm7 \
     -l 'SAM:1,GPP:-3' -b uma --max-nodes 30 \
     -o result_path_search
 ```
@@ -80,7 +80,7 @@ mlmm path-search -i 1.R.pdb 2.IM.pdb 3.P.pdb --parm real.parm7 \
 ### DMF mode (sometimes better for ill-conditioned strings)
 
 ```bash
-mlmm path-search -i 1.R.pdb 3.P.pdb --parm real.parm7 \
+mlmm path-search -i 1.R.pdb 3.P.pdb --parm7 real.parm7 \
     --mep-mode dmf --refine-mode minima \
     -l 'SAM:1,GPP:-3' -b uma -o result_path_search
 ```

@@ -12,19 +12,19 @@ enabled in both MM layers. See [CMAP-free preparation](mm-parm.md#cmap-free-topo
 
 ```bash
 # Gaussian ONIOM input
-mlmm oniom-export --parm real.parm7 -i pocket_layered.pdb --model-pdb ml.pdb \
+mlmm oniom-export --parm7 real.parm7 -i pocket_layered.pdb --model-pdb ml.pdb \
  -o out.gjf --mode g16 -q 0 -m 1
 ```
 
 ```bash
 # ORCA QM/MM input (mode inferred from the .inp suffix)
-mlmm oniom-export --parm real.parm7 -i pocket_layered.pdb --model-pdb ml.pdb \
+mlmm oniom-export --parm7 real.parm7 -i pocket_layered.pdb --model-pdb ml.pdb \
  -o out.inp -q 0 -m 1
 ```
 
 ```bash
 # Gaussian input with a custom method/basis and resources
-mlmm oniom-export --parm real.parm7 -i pocket_layered.pdb --model-pdb ml.pdb \
+mlmm oniom-export --parm7 real.parm7 -i pocket_layered.pdb --model-pdb ml.pdb \
  -o out.gjf --mode g16 --method 'wb97xd/def2-svp' --nproc 16 --mem 32GB -q 0 -m 1
 ```
 
@@ -46,7 +46,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `--parm PATH` | Amber parm7 topology file. | Required |
+| `--parm7 PATH` | Amber parm7 topology file. | Required |
 | `-i, --input PATH` | MLMM layered PDB; atom order must match the parm7 and B-factors define movable/frozen atoms. | Required |
 | `--model-pdb PATH` | PDB defining the QM-region atoms. | _None_ |
 | `-o, --output PATH` | Output file path (`.gjf` / `.com` for g16, `.inp` for ORCA). | Required |

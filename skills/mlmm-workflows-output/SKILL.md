@@ -15,7 +15,7 @@ through the toolkit.
 
 > **mlmm-specific notes**:
 >
-> - Standalone ML/MM-evaluating subcommands require an Amber `--parm`; `all`
+> - Standalone ML/MM-evaluating subcommands require an Amber `--parm7`; `all`
 >   can generate it through `mm-parm` when omitted. Calculations also need
 >   a layer-encoded PDB (`--detect-layer` from B-factor 0.0/10.0/20.0,
 >   or explicit `--model-pdb`/`--model-indices`).
@@ -108,9 +108,9 @@ You have a TS guess from another code or a prior run. Skip
 extract / path-search:
 
 ```bash
-mlmm tsopt -i ts.xyz --parm real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_tsopt
-mlmm freq  -i result_tsopt/final_geometry.xyz --parm real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_freq  # optional: full modes / thermochemistry
-mlmm irc   -i result_tsopt/final_geometry.xyz --parm real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_irc
+mlmm tsopt -i ts.xyz --parm7 real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_tsopt
+mlmm freq  -i result_tsopt/final_geometry.xyz --parm7 real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_freq  # optional: full modes / thermochemistry
+mlmm irc   -i result_tsopt/final_geometry.xyz --parm7 real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_irc
 ```
 
 Or use `mlmm all` with a single `-i` plus `--tsopt` (collapses to TS-only
@@ -123,10 +123,10 @@ with DFT single points. For standalone runs, optimize the endpoints as in
 Stage 2 below first. For example, the TS calculation is:
 
 ```bash
-mlmm dft -i result_tsopt/final_geometry.pdb --parm real.parm7 \
+mlmm dft -i result_tsopt/final_geometry.pdb --parm7 real.parm7 \
     -l 'SAM:1,GPP:-3' \
     --func-basis 'wb97m-v/def2-tzvpd' \
-    --engine gpu \
+    --dft-engine gpu \
     -o dft_TS
 ```
 
@@ -146,7 +146,7 @@ selects stages from this chain (the MEP stage is single-pass `path-opt` by defau
 extract → [mm-parm] → path-opt → [--tsopt: TS → IRC → endpoint opt] → [--thermo: freq] → [--dft] → energy-diagram
 ```
 
-**mlmm carry-through**: every ML/MM-evaluating stage needs the *same* `--parm`,
+**mlmm carry-through**: every ML/MM-evaluating stage needs the *same* `--parm7`,
 explicit ML membership (`--model-pdb` / `--model-indices`) or B-factor fallback,
 and the same `--detect-layer` policy for MM sublayers. It also needs the *same*
 `-l` / `-q` / `-m`. Pass them on every command. After each stage, read its
@@ -164,7 +164,7 @@ ML/MM B-factors (0/10/20).
 **Stage 1 — MEP (`path-search`)**
 
 ```bash
-mlmm path-search -i 1.R.pdb 3.P.pdb --parm real.parm7 --detect-layer \
+mlmm path-search -i 1.R.pdb 3.P.pdb --parm7 real.parm7 --detect-layer \
     -l 'SAM:1,GPP:-3' -b uma -o ps/
 ```
 
@@ -177,9 +177,9 @@ for the wrong step).
 **Stage 2 — per reactive segment: TS → validate → connectivity** (seed = `ps/hei_seg_NN.xyz`)
 
 ```bash
-mlmm tsopt -i ps/hei_seg_NN.xyz --ref-pdb enzyme_layered.pdb --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' -b uma --out-json -o seg_NN/tsopt
-mlmm freq -i seg_NN/tsopt/final_geometry.xyz --ref-pdb enzyme_layered.pdb --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' -b uma --out-json -o seg_NN/freq  # optional: full modes / thermochemistry
-mlmm irc -i seg_NN/tsopt/final_geometry.xyz --ref-pdb enzyme_layered.pdb --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' -b uma --out-json -o seg_NN/irc
+mlmm tsopt -i ps/hei_seg_NN.xyz --ref-pdb enzyme_layered.pdb --parm7 real.parm7 --detect-layer -l 'SAM:1,GPP:-3' -b uma --out-json -o seg_NN/tsopt
+mlmm freq -i seg_NN/tsopt/final_geometry.xyz --ref-pdb enzyme_layered.pdb --parm7 real.parm7 --detect-layer -l 'SAM:1,GPP:-3' -b uma --out-json -o seg_NN/freq  # optional: full modes / thermochemistry
+mlmm irc -i seg_NN/tsopt/final_geometry.xyz --ref-pdb enzyme_layered.pdb --parm7 real.parm7 --detect-layer -l 'SAM:1,GPP:-3' -b uma --out-json -o seg_NN/irc
 ```
 
 **GATE** for first-order certification: tsopt numerical
@@ -203,8 +203,8 @@ A first-order numerical TS does not by itself establish the elementary reaction.
 Optimize the raw stitched-path endpoints, then identify R/P from their structures:
 
 ```bash
-mlmm opt -i seg_NN/irc/finished_first.xyz --ref-pdb enzyme_layered.pdb --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' -b uma --out-json -o seg_NN/end_first
-mlmm opt -i seg_NN/irc/finished_last.xyz --ref-pdb enzyme_layered.pdb --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' -b uma --out-json -o seg_NN/end_last
+mlmm opt -i seg_NN/irc/finished_first.xyz --ref-pdb enzyme_layered.pdb --parm7 real.parm7 --detect-layer -l 'SAM:1,GPP:-3' -b uma --out-json -o seg_NN/end_first
+mlmm opt -i seg_NN/irc/finished_last.xyz --ref-pdb enzyme_layered.pdb --parm7 real.parm7 --detect-layer -l 'SAM:1,GPP:-3' -b uma --out-json -o seg_NN/end_last
 ```
 
 Require both optimizations to converge. Assess whether the endpoints match the
@@ -217,7 +217,7 @@ for the Gibbs/QRRHO profile (`post_segments[i].gibbs_mlip`).
 **Stage 4 — DFT//MLIP/MM** (optional, = `all --dft`):
 
 ```bash
-mlmm dft -i seg_NN/tsopt/final_geometry.xyz --ref-pdb enzyme_layered.pdb --parm real.parm7 --detect-layer -l 'SAM:1,GPP:-3' --func-basis 'wb97m-v/def2-tzvpd' --out-json -o seg_NN/dft/TS   # repeat for both optimized endpoints
+mlmm dft -i seg_NN/tsopt/final_geometry.xyz --ref-pdb enzyme_layered.pdb --parm7 real.parm7 --detect-layer -l 'SAM:1,GPP:-3' --func-basis 'wb97m-v/def2-tzvpd' --out-json -o seg_NN/dft/TS   # repeat for both optimized endpoints
 ```
 
 **GATE**: each `dft/<state>/result.json` shows `"converged": true`.

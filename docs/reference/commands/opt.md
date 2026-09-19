@@ -21,7 +21,7 @@ Options:
                                   coordinates are used (higher precision) while
                                   PDB provides atom ordering and residue
                                   information for output conversion.
-  --parm FILE                     Amber parm7 topology covering the whole enzyme
+  --parm7, --parm FILE            Amber parm7 topology covering the whole enzyme
                                   complex.  [required]
   --model-pdb FILE                ML-only, link-H-free PDB subset; atom
                                   identity/order must match the full PDB/parm7.
@@ -33,7 +33,8 @@ Options:
                                   pdb is omitted.
   --freeze-atoms TEXT             Comma-separated 1-based atom indices to freeze
                                   (e.g., '1,3,5').
-  --hess-cutoff FLOAT             Distance cutoff (Å) from ML region for MM
+  --hessian-cutoff, --hess-cutoff FLOAT
+                                  Distance cutoff (Å) from ML region for MM
                                   atoms to include in Hessian calculation.
                                   Applied to movable MM atoms and can be
                                   combined with --detect-layer.  [default: (all
@@ -43,16 +44,17 @@ Options:
                                   Providing --movable-cutoff disables --detect-
                                   layer and uses distance-based layer
                                   assignment.  [default: (use freeze_atoms)]
-  --dist-freeze TEXT              Distance restraints: inline Python literal
+  --distance-restraint, --dist-freeze TEXT
+                                  Distance restraints: inline Python literal
                                   (e.g. '[(1,5,1.4)]') or a YAML/JSON spec file
                                   path. Format: (i,j,target_Å) triples. Target
                                   may be omitted to freeze at the current
                                   distance: (i,j).
-  --one-based / --zero-based      Interpret --dist-freeze indices as 1-based or
-                                  0-based.  [default: one-based]
-  --bias-k FLOAT                  Harmonic restraint strength k [eV/Å^2] for
-                                  --dist-freeze. YAML bias.k applies when this
-                                  option is omitted; explicit CLI wins.
+  --one-based / --zero-based      Interpret --distance-restraint indices as
+                                  1-based or 0-based.  [default: one-based]
+  --restraint-k, --bias-k FLOAT   Harmonic restraint strength k [eV/Å^2] for
+                                  --distance-restraint. YAML bias.k applies when
+                                  this option is omitted; explicit CLI wins.
                                   [default: (300.0)]
   --max-cycles INTEGER RANGE      Maximum number of optimization cycles.
                                   [default: (100000); x>=1]
@@ -129,9 +131,6 @@ Options:
                                   absent. With explicit membership, retain valid
                                   movable/frozen MM B-factor layers.  [default:
                                   detect-layer]
-  --model-indices-one-based / --model-indices-zero-based
-                                  Interpret --model-indices as 1-based or
-                                  0-based.  [default: model-indices-one-based]
   -q, --charge INTEGER            ML region charge. Required unless --ligand-
                                   charge is provided.
   -l, --ligand-charge TEXT        Total charge for unknown ligand residues or a
@@ -155,11 +154,13 @@ Options:
                                   default_dtype). aimnet2: fp32 no-op; fp64
                                   rejected.  [default: (per backend: uma fp32;
                                   orb, mace fp64)]
-  --workers INTEGER               MLIP predictor workers (UMA). >1 uses a
+  --uma-workers, --workers INTEGER
+                                  MLIP predictor workers (UMA). >1 uses a
                                   parallel predictor (fairchem-core[extras]);
                                   combining it with an analytical Hessian is an
                                   error. Default 1.  [default: (1)]
-  --workers-per-node INTEGER      Workers per node when the parallel MLIP
+  --uma-workers-per-node, --workers-per-node INTEGER
+                                  Workers per node when the parallel MLIP
                                   predictor is used (--workers > 1).  [default:
                                   (1)]
   --backend-model TEXT            Model variant for the selected --backend (e.g.
@@ -171,7 +172,8 @@ Options:
                                   ASE Calculator used as the ML-region backend
                                   (overrides --backend). Couples GFN-xTB / DFTB+
                                   / any ASE engine. See --calc-file-func-name.
-  --calc-file-func-name TEXT      Name of the callable in --calc-file that
+  --calc-factory, --calc-file-func-name TEXT
+                                  Name of the callable in --calc-file that
                                   returns an ASE Calculator (or a module-level
                                   Calculator instance). CLI overrides config
                                   YAML; otherwise defaults to get_calculator.
@@ -190,20 +192,22 @@ Options:
   --func-basis TEXT               High-level method as FUNCTIONAL/BASIS;
                                   HF/BASIS is accepted.  [default:
                                   (wb97m-v/def2-svp)]
-  --engine [gpu|cpu]              PySCF execution engine used by --backend dft.
+  --dft-engine, --engine [gpu|cpu]
+                                  PySCF execution engine used by --backend dft.
                                   [default: (gpu)]
   --save-scf-checkpoint / --no-save-scf-checkpoint
                                   Persist a structure-bound PySCF checkpoint.
                                   [default: (disabled)]
   --scf-checkpoint FILE           Load/save the optional structure-bound PySCF
                                   checkpoint at PATH.
-  --lowmem / --no-lowmem          Use GPU4PySCF rks_lowmem for closed-shell GPU
+  --dft-low-memory, --lowmem / --no-dft-low-memory, --no-lowmem
+                                  Use GPU4PySCF rks_lowmem for closed-shell GPU
                                   DFT; open-shell GPU and CPU use standard
                                   direct JK. --no-lowmem enables density
                                   fitting.  [default: (lowmem)]
   --dft-nprocs INTEGER RANGE      PySCF/OpenMP CPU threads; GPU count is
                                   unaffected.  [default: (auto); x>=1]
-  --dft-mem TEXT                  PySCF host RAM limit (for example 64GB or
+  --dft-memory, --dft-mem TEXT    PySCF host RAM limit (for example 64GB or
                                   120000MB).  [default: (auto)]
   --stop-plateau / --no-stop-plateau
                                   Stop when the energy stops changing while the

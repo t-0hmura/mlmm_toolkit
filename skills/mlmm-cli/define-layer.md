@@ -5,7 +5,7 @@
 Assign 3-layer ML / movable-MM / frozen labels by writing the
 appropriate B-factor values (0.0 / 10.0 / 20.0) to a PDB. The ML
 region is supplied either as a separate PDB or as an atom-index list;
-movable-MM is everything within `--radius-freeze` of the ML region
+movable-MM is everything within `--movable-cutoff` of the ML region
 (non-ML atoms inside the radius), and the rest becomes frozen.
 
 Use it before any ML/MM-evaluating subcommand if you want explicit
@@ -16,7 +16,7 @@ layer control.
 ```bash
 mlmm define-layer -i full_system.pdb \
     (--model-pdb model.pdb | --model-indices '1-50,75,100-110') \
-    [--radius-freeze 8.0] \
+    [--movable-cutoff 8.0] \
     [-o full_system_layered.pdb]
 ```
 
@@ -27,7 +27,7 @@ mlmm define-layer -i full_system.pdb \
 | `-i, --input` | path | required | Full-system PDB |
 | `--model-pdb` | path | none | PDB defining the ML-region atoms |
 | `--model-indices` | str | none | Comma/range-separated atom indices, e.g. `'1,2,3'` or `'1-10,15,20-25'`. Takes precedence over `--model-pdb`. |
-| `--radius-freeze` | float | `8.0` | Distance cutoff (Å) from ML region. Atoms beyond are **frozen** (B-factor 20.0); inside but not ML are **movable-MM** (10.0). |
+| `--movable-cutoff` | float | `8.0` | Distance cutoff (Å) from ML region. Atoms beyond are **frozen** (B-factor 20.0); inside but not ML are **movable-MM** (10.0). |
 | `--one-based / --zero-based` | flag | `--one-based` | Interpret `--model-indices` (1- vs 0-based) |
 | `-o, --output` | path | `<input>_layered.pdb` | Output PDB with B-factor layer encoding |
 
@@ -47,7 +47,7 @@ conjugated, disulfide, and metal-coordination cuts. See
 
 ```bash
 mlmm define-layer -i complex.pdb --model-pdb ml_model.pdb \
-    --radius-freeze 8.0 \
+    --movable-cutoff 8.0 \
     -o complex_layered.pdb
 ```
 
@@ -55,7 +55,7 @@ mlmm define-layer -i complex.pdb --model-pdb ml_model.pdb \
 
 ```bash
 mlmm define-layer -i complex.pdb --model-indices '1-50,75,100-110' \
-    --radius-freeze 6.0 \
+    --movable-cutoff 6.0 \
     -o complex_layered.pdb
 ```
 
@@ -77,13 +77,13 @@ ATOM      1  CB  TYR A  44       4.050  -8.106   6.935  1.00  0.00           C
                                                               └── occupancy unchanged
 ```
 
-ML atoms get `0.00`, movable-MM (within `--radius-freeze` of any ML
+ML atoms get `0.00`, movable-MM (within `--movable-cutoff` of any ML
 atom) get `10.00`, the rest get `20.00`.
 
 ## Caveats
 
 - The radius logic is a **freezing threshold**, not an expansion radius.
-  Atoms **beyond** `--radius-freeze` of any ML atom are frozen; atoms
+  Atoms **beyond** `--movable-cutoff` of any ML atom are frozen; atoms
   **inside** but not ML are movable-MM. Increase the radius to free
   more of the environment; decrease it to lock more.
 - Layer assignment lives in the **PDB B-factor**, not the parm7. The

@@ -8,14 +8,14 @@ Energy + forces on a layered PDB (B-factor encodes ML / movable-MM / frozen):
 
 ```bash
 # energy + forces on a layered PDB (B-factor encodes ML / movable-MM / frozen)
-mlmm sp -i layered.pdb --parm real.parm7 -q 0 -m 1
+mlmm sp -i layered.pdb --parm7 real.parm7 -q 0 -m 1
 ```
 
 Also compute the active-coordinate ONIOM Hessian:
 
 ```bash
 # finite differences are used by default; select Analytical only for a backend that supports it
-mlmm sp -i layered.pdb --parm real.parm7 -q 0 -m 1 --hess
+mlmm sp -i layered.pdb --parm7 real.parm7 -q 0 -m 1 --hess
 ```
 
 ## Outputs
@@ -35,14 +35,14 @@ mlmm sp -i layered.pdb --parm real.parm7 -q 0 -m 1 --hess
 Command form:
 
 ```bash
-mlmm sp -i INPUT --parm PARM7 -q CHARGE [options]
+mlmm sp -i INPUT --parm7 PARM7 -q CHARGE [options]
 ```
 
 | Input | Required | Notes |
 |---|---|---|
 | `-i, --input FILE` | yes | layered PDB/mmCIF, or XYZ coordinates accompanied by `--ref-pdb` |
 | `--ref-pdb FILE` | for XYZ | atom-order-identical full-system PDB/mmCIF supplying topology and layer metadata |
-| `--parm FILE` | yes | Amber `parm7` topology of the full enzyme (`--real-parm7` retained as alias) |
+| `--parm7 FILE` | yes | Amber `parm7` topology of the full enzyme (`--real-parm7` retained as alias) |
 | `-q, --charge INT` | yes (unless `-l` is given) | ML region total charge |
 | `-l, --ligand-charge TEXT` | no | per-ligand charge mapping (e.g. `SAM:1,GPP:-3`); derives the net charge when `-q` is omitted |
 | `-m, --multiplicity INT` | no | ML region spin multiplicity, 2S+1 (default `1`) |

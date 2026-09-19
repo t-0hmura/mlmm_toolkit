@@ -49,10 +49,10 @@ The `freq` command supports `--hess-device` to control where the evaluated Hessi
 
 ```bash
 # Default: the resolved ML device
-mlmm freq -i input.pdb --parm real.parm7 -q -1
+mlmm freq -i input.pdb --parm7 real.parm7 -q -1
 
 # Move the evaluated Hessian to CPU for diagonalization
-mlmm freq -i input.pdb --parm real.parm7 -q -1 --hess-device cpu
+mlmm freq -i input.pdb --parm7 real.parm7 -q -1 --hess-device cpu
 ```
 
 Use `--hess-device cpu` when:
@@ -63,7 +63,7 @@ This option cannot prevent an out-of-memory failure that occurs inside the backe
 
 ### General VRAM tips
 
-1. **Reduce the ML region size:** Use `mlmm extract` with a smaller `--radius`. Independently, tighten `define-layer --radius-freeze` to shrink the movable-MM shell and expand the frozen environment.
+1. **Reduce the ML region size:** Use `mlmm extract` with a smaller `--radius`. Independently, tighten `define-layer --movable-cutoff` to shrink the movable-MM shell and expand the frozen environment.
 2. **Use hessian_ff (default):** The hessian_ff backend runs on CPU, avoiding an additional MM allocation on the GPU.
 3. **Select the MM device deliberately:** When both ML and MM use CUDA, measure memory use on a representative pilot and use `mm_device: cpu` if needed.
 4. **Monitor VRAM:** `print_vram` defaults to `True` (VRAM usage is printed during Hessian computation); set `print_vram: False` in YAML to suppress it.
@@ -88,10 +88,10 @@ an independent frequency and IRC check.
 
 ```bash
 # Explicit fp64 UMA calculation
-mlmm tsopt -i ts.pdb --parm enzyme.parm7 -q 0 -m 1 -b uma --precision fp64 -o result_ts
+mlmm tsopt -i ts.pdb --parm7 enzyme.parm7 -q 0 -m 1 -b uma --precision fp64 -o result_ts
 
 # Explicit fp32 ORB calculation
-mlmm scan -i r.pdb --parm enzyme.parm7 -q 0 -b orb --precision fp32 --scan-lists '[(1,5,1.4)]' -o result_scan
+mlmm scan -i r.pdb --parm7 enzyme.parm7 -q 0 -b orb --precision fp32 --scan-lists '[(1,5,1.4)]' -o result_scan
 ```
 
 `--precision` is accepted on every compute subcommand (`sp`, `opt`, `tsopt`, `freq`, `irc`, `scan` / `scan2d` / `scan3d`, `path-opt`, `path-search`, `all`) and is routed per backend (UMA precision, ORB precision, MACE `default_dtype`).
@@ -135,7 +135,7 @@ command -v ninja >/dev/null || { echo "ninja is required for hessian_ff" >&2; ex
 # Run optimization
 mlmm opt \
   -i r_complex_layered.pdb \
-  --parm p_complex.parm7 \
+  --parm7 p_complex.parm7 \
   -q -1 -m 1 \
   --opt-mode grad \
   --out-dir opt_result
@@ -170,7 +170,7 @@ command -v ninja >/dev/null || { echo "ninja is required for hessian_ff" >&2; ex
 
 mlmm opt \
   -i r_complex_layered.pdb \
-  --parm p_complex.parm7 \
+  --parm7 p_complex.parm7 \
   -q -1 -m 1 \
   --opt-mode grad \
   --out-dir opt_result
@@ -196,7 +196,7 @@ export CUDA_VISIBLE_DEVICES=0
 # In config.yaml:
 # calc:
 #   ml_cuda_idx: 0
-mlmm opt -i input.pdb --parm real.parm7 -q -1 --config config.yaml
+mlmm opt -i input.pdb --parm7 real.parm7 -q -1 --config config.yaml
 ```
 
 ---

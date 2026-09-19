@@ -12,7 +12,7 @@ protons + one redox-donor distance).
 ## Synopsis
 
 ```bash
-mlmm scan3d -i input.pdb --parm real.parm7 \
+mlmm scan3d -i input.pdb --parm7 real.parm7 \
     -s '[(a1,b1,low1,high1), (a2,b2,low2,high2), (a3,b3,low3,high3)]' \
     [-l 'RES:Q,...'] [-b uma|orb|mace|aimnet2|dft] [-o ./result_scan3d/]
 
@@ -29,7 +29,7 @@ selection. Most subcommands accept:
 
 | flag | purpose |
 |---|---|
-| `--parm FILE` | Amber `parm7` topology of the whole enzyme — **required** |
+| `--parm7 FILE` | Amber `parm7` topology of the whole enzyme — **required** |
 | `--model-pdb FILE` | Explicit ML-region PDB; takes precedence over B-factor ML membership |
 | `--detect-layer` | Automatically read B-factor layers; explicit ML membership retains valid movable/frozen MM layers. Enabled by default. |
 | `--model-indices` | Explicit ML atom indices used when `--model-pdb` is omitted; takes precedence over B-factor ML membership |

@@ -12,7 +12,7 @@ Run `mlmm opt` separately to relax the endpoints to true minima.
 ## Synopsis
 
 ```bash
-mlmm irc -i ts.{pdb,cif,mmcif,xyz} --parm real.parm7 \
+mlmm irc -i ts.{pdb,cif,mmcif,xyz} --parm7 real.parm7 \
     [-q 0 -m 1] [-l 'RES:Q,...'] \
     [--max-cycles 125] [--step-size 0.1] \
     [-b uma|orb|mace|aimnet2|dft] [-o ./result_irc/]
@@ -27,7 +27,7 @@ selection. Most subcommands accept:
 
 | flag | purpose |
 |---|---|
-| `--parm FILE` | Amber `parm7` topology of the whole enzyme — required unless provided in YAML as `calc.real_parm7` |
+| `--parm7 FILE` | Amber `parm7` topology of the whole enzyme — required unless provided in YAML as `calc.real_parm7` |
 | `--model-pdb FILE` | Explicit ML-region PDB; takes precedence over B-factor ML membership |
 | `--detect-layer` | Automatically read B-factor layers; explicit ML membership retains valid movable/frozen MM layers. Enabled by default. |
 | `--model-indices` | Explicit ML atom indices used when `--model-pdb` is omitted; takes precedence over B-factor ML membership |
@@ -49,7 +49,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--never-stop / --no-never-stop` | bool | off | Ignore gradient and energy endpoint criteria and trace to max cycles; propagation failures still stop |
 | `--read-hess` | path | — | Identified NPZ from `freq --dump-hess`; geometry, atom order, active-DOF basis, and schema-2 charge/multiplicity must match |
 | `--allow-unverified-hess-state` | bool | off | Permit a schema-1 Hessian whose charge/multiplicity cannot be verified. Requires `--read-hess` and independent state checking; schema-2 mismatches remain fatal. |
-| `--workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
+| `--uma-workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
 | `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |
 | `-o, --out-dir` | path | `./result_irc/` | Output directory |
 | `--config` / `--show-config` / `--dry-run` / `--help-advanced` | — | — | Standard |
@@ -59,14 +59,14 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 ### Default IRC from a tsopt'd geometry
 
 ```bash
-mlmm irc -i result_tsopt/final_geometry.xyz --parm real.parm7 \
+mlmm irc -i result_tsopt/final_geometry.xyz --parm7 real.parm7 \
     --ref-pdb enzyme_layered.pdb -q 0 -m 1 -b uma -o result_irc
 ```
 
 ### Tighter step / longer integration for shallow surfaces
 
 ```bash
-mlmm irc -i ts.xyz --parm real.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 \
+mlmm irc -i ts.xyz --parm7 real.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 \
     --max-cycles 250 --step-size 0.05 \
     -b uma -o result_irc_long
 ```

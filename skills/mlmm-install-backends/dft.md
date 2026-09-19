@@ -38,7 +38,7 @@ python -c "import cupy; print('cupy        :', cupy.__version__)"
 
 ## CPU vs GPU choice
 
-| `--engine` | When to pick | Approximate cost |
+| `--dft-engine` | When to pick | Approximate cost |
 |---|---|---|
 | `gpu` (default) | x86_64 + a supported CUDA/GPU4PySCF stack. **Raises `ClickException` if GPU unavailable** — does **not** auto-fallback to CPU | Pilot the target system |
 | `cpu` | aarch64, no supported GPU stack, or when you want to force CPU | Pilot the target system |
@@ -46,10 +46,10 @@ python -c "import cupy; print('cupy        :', cupy.__version__)"
 ## CLI usage
 
 ```bash
-mlmm dft -i ts.pdb --parm real.parm7 \
+mlmm dft -i ts.pdb --parm7 real.parm7 \
     -l 'SAM:1,GPP:-3' \
     --func-basis 'wb97m-v/def2-svp' \
-    --engine gpu                  # default; use 'cpu' to force PySCF CPU
+    --dft-engine gpu                  # default; use 'cpu' to force PySCF CPU
 ```
 
 Common flag set:
@@ -57,11 +57,11 @@ Common flag set:
 | Flag | Purpose | Default |
 |---|---|---|
 | `-i, --input` | `.pdb`, or `.xyz` (with `--ref-pdb`) input | required |
-| `--parm` | Amber parm7 topology for the full system | required |
+| `--parm7` | Amber parm7 topology for the full system | required |
 | `-q, --charge` / `-l, --ligand-charge` | Total charge or per-residue mapping | `-q` or `-l` required for all inputs (charge cannot be auto-derived without one) |
 | `-m, --multiplicity` | Spin multiplicity (2S+1) | 1 |
 | `--func-basis` | `'FUNC/BASIS'` like `'wb97m-v/def2-tzvpd'` | `wb97m-v/def2-svp` |
-| `--engine` | `gpu` / `cpu` | `gpu` |
+| `--dft-engine` | `gpu` / `cpu` | `gpu` |
 | `-o, --out-dir` | Output directory | `./result_dft/` |
 
 Inspect the live default kwargs:
@@ -78,7 +78,7 @@ python -c "import mlmm.core.defaults as d; print(d.GEOM_KW_DEFAULT, d.MLMM_CALC_
 | `cupy.cuda.runtime.CUDARuntimeError: invalid device ordinal` | Invalid local device selection | Keep scheduler-provided `CUDA_VISIBLE_DEVICES`; use a valid local ordinal (usually 0 for a one-GPU allocation). |
 | `RuntimeError: CUDA out of memory` mid-SCF | The selected method exceeds available memory | Try the same method on CPU or a larger-memory GPU. A smaller basis/grid is a different method and must be labeled and revalidated. |
 | GPU startup stalls or fails | The symptom alone does not identify one dependency | Capture the traceback/log, run `pip check`, and compare with the installed GPU4PySCF version's official requirements. |
-| aarch64: `--engine gpu` requested but no `gpu4pyscf` | Architecture not supported | Raises `ClickException`; rerun with `--engine cpu` (or set `dft.engine: cpu` in YAML) |
+| aarch64: `--dft-engine gpu` requested but no `gpu4pyscf` | Architecture not supported | Raises `ClickException`; rerun with `--dft-engine cpu` (or set `dft.engine: cpu` in YAML) |
 
 ## Resource sizing
 

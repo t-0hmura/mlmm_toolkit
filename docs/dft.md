@@ -14,7 +14,7 @@ Minimal single-point DFT on the ML region:
 
 ```bash
 # Minimal single-point DFT on the ML region
-mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm dft -i enzyme.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --out-dir ./result_dft
 ```
 
@@ -22,21 +22,21 @@ Change functional/basis for a higher-level single point:
 
 ```bash
 # Change functional/basis for a higher-level single point
-mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm dft -i enzyme.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -m 1 --func-basis "wb97m-v/def2-tzvpd" --out-dir ./result_dft_tz
 ```
 
 Tighten the SCF convergence if needed:
 
 ```bash
-mlmm dft -i enzyme.pdb --parm real.parm7 --model-pdb ml_region.pdb \
- -q 0 -m 1 --conv-tol 1e-10 --max-cycle 200 --out-dir ./result_dft_tight
+mlmm dft -i enzyme.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
+ -q 0 -m 1 --scf-tol 1e-10 --scf-max-cycles 200 --out-dir ./result_dft_tight
 ```
 
 ## Workflow
 
-1. **Input handling** -- `MLMMCore` loads the full enzyme PDB (`-i`), Amber topology (`--parm`), and ML-region definition (`--model-pdb` or `--model-indices` or B-factor detection via `--detect-layer`). Unless YAML supplies explicit `link_mlmm` pairs, it appends link hydrogens at parm7 bonds that cross the ML/MM selection; distance is not used to perceive those bonds.
-2. **SCF build** -- `--func-basis` is parsed into functional and basis. Low-memory mode is on by default: closed-shell GPU calculations, including electrostatic embedding, use `gpu4pyscf.dft.rks_lowmem.RKS`; open-shell GPU and CPU use standard direct-JK RKS/UKS without retaining a density-fitting tensor. Embedded `rks_lowmem` calculations keep both the QM and MM one-electron terms in packed lower-triangle host storage. Calculator workflows rebuild the geometry-bound low-memory method and reuse the previous GPU density as `dm0`. `--no-lowmem` enables density fitting and can improve difficult SCF convergence when sufficient memory is available. PySCF threads and host RAM are detected from scheduler/process limits; `--dft-nprocs` and `--dft-mem` override them. The experimental `--embedcharge` option embeds MM point charges directly in the PySCF Hamiltonian; the DFT workflow does not apply the optional xTB correction used by MLIP workflows.
+1. **Input handling** -- `MLMMCore` loads the full enzyme PDB (`-i`), Amber topology (`--parm7`), and ML-region definition (`--model-pdb` or `--model-indices` or B-factor detection via `--detect-layer`). Unless YAML supplies explicit `link_mlmm` pairs, it appends link hydrogens at parm7 bonds that cross the ML/MM selection; distance is not used to perceive those bonds.
+2. **SCF build** -- `--func-basis` is parsed into functional and basis. Low-memory mode is on by default: closed-shell GPU calculations, including electrostatic embedding, use `gpu4pyscf.dft.rks_lowmem.RKS`; open-shell GPU and CPU use standard direct-JK RKS/UKS without retaining a density-fitting tensor. Embedded `rks_lowmem` calculations keep both the QM and MM one-electron terms in packed lower-triangle host storage. Calculator workflows rebuild the geometry-bound low-memory method and reuse the previous GPU density as `dm0`. `--no-dft-low-memory` enables density fitting and can improve difficult SCF convergence when sufficient memory is available. PySCF threads and host RAM are detected from scheduler/process limits; `--dft-nprocs` and `--dft-memory` override them. The experimental `--embedcharge` option embeds MM point charges directly in the PySCF Hamiltonian; the DFT workflow does not apply the optional xTB correction used by MLIP workflows.
 3. **ML(dft)/MM recombination** -- DFT replaces only `MLMMCore`'s high-level MODEL energy. `MLMMCore` evaluates REAL-low and MODEL-low with the selected MM backend and applies the subtractive expression. This workflow has no separate topology builder, MM calculator path, or DFT force evaluation.
 4. **Population analysis & outputs** -- Mulliken, meta-Lowdin, and IAO charges and spin densities (UKS only) are written alongside the combined energy block in `result.yaml`.
 
@@ -68,22 +68,21 @@ out_dir/ (default: ./result_dft/)
 | --- | --- | --- |
 | `-i, --input PATH` | Full enzyme structure (PDB/mmCIF, or XYZ with `--ref-pdb` topology). | Required |
 | `--ref-pdb FILE` | Reference PDB topology when input is XYZ. | _None_ |
-| `--parm PATH` | Amber parm7 topology for the full system. | Required |
+| `--parm7 PATH` | Amber parm7 topology for the full system. | Required |
 | `--model-pdb PATH` | PDB defining the ML region (atom IDs must match the enzyme PDB). Optional when `--detect-layer` is enabled. | _None_ |
 | `--model-indices TEXT` | Comma-separated atom indices for the ML region (ranges allowed, e.g. `1-5`). Used when `--model-pdb` is omitted. | _None_ |
-| `--model-indices-one-based / --model-indices-zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
 | `--detect-layer / --no-detect-layer` | Automatically detect ML/MM layers from input PDB B-factors (B=0/10/20). | Enabled |
 | `-q, --charge INT` | Charge of the ML region. Required unless `-l/--ligand-charge` is given (PDB input or XYZ with `--ref-pdb`). | Required unless `-l/--ligand-charge` is provided |
 | `-l, --ligand-charge TEXT` | Total charge or per-resname mapping (e.g. `SAM:1,GPP:-3`) used to derive the ML-region charge when `-q` is omitted (requires PDB input or `--ref-pdb`). | _None_ |
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1) for the ML region. | `1` |
 | `--func-basis TEXT` | Functional/basis pair as `"FUNC/BASIS"`. | `wb97m-v/def2-svp` |
-| `--max-cycle INT` | SCF-iteration cap. | `100` |
-| `--conv-tol FLOAT` | SCF convergence tolerance (Hartree). | `1e-9` |
+| `--scf-max-cycles INT` | SCF-iteration cap. | `100` |
+| `--scf-tol FLOAT` | SCF convergence tolerance (Hartree). | `1e-9` |
 | `--grid-level INT` | DFT integration grid level (0=coarse, 3=default, 5=fine, 9=very fine). | `3` |
-| `--engine {gpu,cpu}` | Force GPU4PySCF (`gpu`) or CPU PySCF (`cpu`); `gpu` raises an error if GPU4PySCF is unavailable. | `gpu` |
-| `--lowmem/--no-lowmem` | Use `rks_lowmem.RKS` for closed-shell GPU calculations, including electrostatic embedding. Open-shell GPU and CPU use standard direct JK; `--no-lowmem` enables density fitting. | `True` |
+| `--dft-engine {gpu,cpu}` | Force GPU4PySCF (`gpu`) or CPU PySCF (`cpu`); `gpu` raises an error if GPU4PySCF is unavailable. | `gpu` |
+| `--dft-low-memory/--no-dft-low-memory` | Use `rks_lowmem.RKS` for closed-shell GPU calculations, including electrostatic embedding. Open-shell GPU and CPU use standard direct JK; `--no-dft-low-memory` enables density fitting. | `True` |
 | `--dft-nprocs INT` | PySCF/OpenMP CPU threads. Omission uses scheduler/affinity/host detection. | `auto` |
-| `--dft-mem SIZE` | PySCF host-RAM limit, for example `64GB` or `120000MB`; this is not GPU VRAM. | `auto` |
+| `--dft-memory SIZE` | PySCF host-RAM limit, for example `64GB` or `120000MB`; this is not GPU VRAM. | `auto` |
 | `--embedcharge/--no-embedcharge` | Experimental direct PySCF electrostatic embedding of MM point charges. No xTB correction is used in `dft`. | `False` |
 | `--embedcharge-cutoff FLOAT` | Include MM point charges within this distance of the ML region. | `12.0` Å |
 | `-o, --out-dir DIR` | Output directory. | `./result_dft/` |
@@ -135,7 +134,7 @@ Full schema (every key and default): [YAML Reference](yaml-reference.md).
 - A matching def2 effective core potential is auto-attached whenever the basis name begins with `def2` (no element-presence check).
 - **Blackwell-architecture GPUs** (RTX 50xx): verify that the installed
   GPU4PySCF/CuPy stack supports the device. If the GPU path fails, use
-  `--engine cpu` or an external DFT program.
+  `--dft-engine cpu` or an external DFT program.
 - **Out-of-memory with def2-TZVPD**: memory depends on atom types, basis,
   functional, grid, and software stack. Pilot the target system and, if
   necessary, choose a smaller basis only after validating its effect on the

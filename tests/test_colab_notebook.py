@@ -358,7 +358,7 @@ def test_distance_restraint_picker_toggles_and_emits_target(
     parm.write_text("%VERSION\n", encoding="utf-8")
     app["S"]["parm"] = str(parm)
     command = app["build_cmd"]()
-    assert command[command.index("--dist-freeze") + 1] == restraint
+    assert command[command.index("--distance-restraint") + 1] == restraint
 
 
 def _root_normalized_subcommand_argv(app: dict, subcommand: str, argv: list[str]) -> list[str]:
@@ -2351,7 +2351,7 @@ def test_colab_xyz_reference_inputs_are_transactional_and_stay_paired(
         if token == "--ref-pdb"
     ]
     assert emitted_refs == [str(ref_b), str(ref_a)]
-    assert command[command.index("--parm") + 1] == str(topology)
+    assert command[command.index("--parm7") + 1] == str(topology)
     assert command[command.index("-q") + 1] == "0"
 
     app["_queue_change"](path=str(xyz_b), remove=True)
@@ -2443,7 +2443,7 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     assert app["S"]["inputs"] == [str(primary), str(secondary)]
     assert app["S"]["parm"] == str(topology)
     uploaded_parm_command = app["build_cmd"]()
-    assert uploaded_parm_command[uploaded_parm_command.index("--parm") + 1] == str(topology)
+    assert uploaded_parm_command[uploaded_parm_command.index("--parm7") + 1] == str(topology)
     app["S"]["parm"] = None
     generated_parm_command = app["build_cmd"]()
     assert "--parm" not in generated_parm_command
@@ -2784,7 +2784,7 @@ def test_colab_compact_selection_upload_viewer_and_advanced_contracts(
     app["charge_rows"]["LIG"]["use"].value = False
     app["w_q"].value = 0
     app["w_charge_ok"].value = True
-    assert "--dist-freeze" not in app["build_cmd"]()
+    assert "--distance-restraint" not in app["build_cmd"]()
     app["dd_subcmd"].value = "opt"
     assert "Distance restraints" in " ".join(
         getattr(child, "value", "") for child in app["freeze_panel"].children
@@ -6735,7 +6735,7 @@ def test_mep_commands_use_algorithm_specific_cycle_flags() -> None:
     for sub in ("all", "path-opt", "path-search"):
         available = opts_of(sub)
         assert "--max-cycles-gsm" in available, sub
-        assert "--max-cycles-dmf" in available, sub
+        assert "--dmf-max-iterations" in available, sub
         assert "--max-cycles" not in available, sub
     for sub in ("opt", "tsopt", "irc"):
         assert "--max-cycles" in opts_of(sub), sub

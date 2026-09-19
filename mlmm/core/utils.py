@@ -1,6 +1,7 @@
 """Shared configuration, structure-I/O, reporting, and plotting utilities."""
 
 import ast
+from copy import deepcopy
 import logging
 import math
 import os
@@ -1754,9 +1755,9 @@ def parse_dist_freeze_list(
     *,
     one_based: bool,
     atom_meta: Optional[_Sequence[Dict[str, Any]]],
-    option_name: str = "--dist-freeze",
+    option_name: str = "--distance-restraint",
 ) -> List[Tuple[int, int, Optional[float]]]:
-    """Parse ``--dist-freeze`` entries: ``(i,j)`` or ``(i,j,target_A)``.
+    """Parse distance-restraint entries: ``(i,j)`` or ``(i,j,target_A)``.
 
     Uses the same :func:`resolve_scan_index` as ``--scan-lists``, so string
     atom specs (e.g. ``'A:SER123:OG'``) are supported when PDB metadata is
@@ -1819,7 +1820,7 @@ def parse_dist_freeze_spec(
     *,
     one_based_default: bool,
     atom_meta: Optional[_Sequence[Dict[str, Any]]],
-    option_name: str = "--dist-freeze",
+    option_name: str = "--distance-restraint",
 ) -> List[Tuple[int, int, Optional[float]]]:
     """Parse a YAML/JSON dist-freeze spec file.
 
@@ -2173,6 +2174,19 @@ def apply_yaml_overrides(
         for path in paths:
             norm_path = tuple(path)
             section = _get_mapping_section(yaml_cfg, norm_path)
+            if norm_path == ("calc",) and ("mlmm",) in {
+                tuple(candidate) for candidate in paths
+            }:
+                calc_section = _get_mapping_section(yaml_cfg, ("calc",))
+                mlmm_section = _get_mapping_section(yaml_cfg, ("mlmm",))
+                if calc_section is not None or mlmm_section is not None:
+                    section = deepcopy(dict(mlmm_section or {}))
+                    for key, value in dict(calc_section or {}).items():
+                        if key in section and section[key] != value:
+                            raise click.BadParameter(
+                                f"Conflicting YAML values for calc.{key} and mlmm.{key}."
+                            )
+                        section[key] = deepcopy(value)
             if section is not None:
                 child_keys = {
                     other_path[len(norm_path)]
@@ -2186,6 +2200,12 @@ def apply_yaml_overrides(
                         key: value
                         for key, value in section.items()
                         if key not in child_keys
+                    }
+                if norm_path[-1] in {"calc", "mlmm"}:
+                    section = {
+                        key: value
+                        for key, value in section.items()
+                        if key not in {"model_indices", "model_indices_base"}
                     }
                 deep_update(target, section)
                 break

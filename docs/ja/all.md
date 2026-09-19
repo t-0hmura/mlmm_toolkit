@@ -36,7 +36,7 @@ mlmm define-layer -i system.pdb --model-pdb model.pdb -o system_layered.pdb
 コマンド形式:
 
 ```bash
-mlmm all -i INPUT1 [INPUT2...] [-c CENTERS] [--parm TOPOLOGY] [options]
+mlmm all -i INPUT1 [INPUT2...] [-c CENTERS] [--parm7 TOPOLOGY] [options]
 ```
 
 コアオプションは `mlmm all --help`、全オプション一覧は `mlmm all --help-advanced` で確認できます。
@@ -92,7 +92,7 @@ ML領域PDB pairは別の成果物であり、PDB入力では常に出力され�
    - `-c/--center` を省略した場合は抽出をスキップし、完全入力構造をそのまま使用します。
 
 2. **ML/MM 準備（parm7 + レイヤー割り当て）**
-   - 最初の完全入力 PDB に対して `mm_parm` を一度実行し、`<out-dir>/mm_parm/<input_basename>.parm7` / `.rst7`（`--parm` として再利用可能な成果物）を構築します。これは自動的に `--parm` として渡されます。
+   - 最初の完全入力 PDB に対して `mm_parm` を一度実行し、`<out-dir>/mm_parm/<input_basename>.parm7` / `.rst7`（`--parm7` として再利用可能な成果物）を構築します。これは自動的に `--parm7` として渡されます。
    - 各完全系 PDB に対して `define-layer` を実行し、ML 領域定義に基づく 3 層 B 因子（ML=0.0、MovableMM=10.0、FrozenMM=20.0）を付与します。レイヤード全系 PDB は `<out-dir>/layered/` に書き出されます。
 
 3. **任意の段階的スキャン（単一入力のみ）**
@@ -101,7 +101,7 @@ ML領域PDB pairは別の成果物であり、PDB入力では常に出力され�
    - 経路探索の入力系列は `[初期レイヤード PDB, stage_01/result.pdb, stage_02/result.pdb,...]` となります。
 
 4. **全系レイヤード PDB での MEP 探索**
-   - すべての MEP 計算は全系レイヤード PDB（`--parm` + `--detect-layer`）上で実行されます（ポケット上ではありません）。
+   - すべての MEP 計算は全系レイヤード PDB（`--parm7` + `--detect-layer`）上で実行されます（ポケット上ではありません）。
    - **`--refine-path`:** 自動精密化を含む再帰的 `path_search` を実行し、TS・IRC で検証する多段階反応経路の候補を構築します。分割が不要な単一段階の MEP でも HEI 領域を精密化します。`--max-depth` で分割階層数を制限できます（`0` で分割無効）。複雑な多段階反応では手動での試行錯誤が必要な場合があります。両モードとも Stage 5 後処理に対応。
    - `--mep-mode` で GSM（デフォルト）または DMF を選択します。`--dmf-backend gpu` は `dmf.torch`、`--dmf-backend cpu` は NumPy 実装を使用します。GPU メモリ不足時は CPU を選択してください。
    - **`--no-refine-path`（デフォルト）:** 隣接ペアごとに選択した最適化法で単一パス `path-opt` を実行後、軌跡を結合、セグメントごとの HEI 抽出、結合変化検出、`summary.json` 書き出しまで行い、Stage 5 後処理（TSOPT、thermo、DFT）が利用可能。
@@ -147,7 +147,7 @@ ML領域PDB pairは別の成果物であり、PDB入力では常に出力され�
  ml_region_with_linkH.xyz              # parm7 結合由来リンク H 挿入後の ML モデル
  ml_region_without_linkH.pdb           # PDB 入力時の topology 付き companion
  ml_region_with_linkH.pdb              # 生成した HL/LKH を含む PDB companion
- mm_parm/<input1>.parm7,.rst7          # 最初の完全酵素入力 PDB から生成した MM トポロジー（--parm として再利用可能）
+ mm_parm/<input1>.parm7,.rst7          # 最初の完全酵素入力 PDB から生成した MM トポロジー（--parm7 として再利用可能）
  layered/                              # レイヤード全系 PDB（B 因子アノテーション付き、再利用可能な入力）
  segments/                             # 反応セグメント別の成果物
   seg_NN/                              # 2 桁インデックス (1 始まり)、例: seg_01, seg_02
@@ -213,7 +213,7 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 | `-q, --charge INT` | ML 領域/model system の正味電荷を強制指定（最優先の上書き）。 | _None_ |
 | `--freeze-atoms TEXT` | 全系の1始まり原子indexをカンマ区切りで指定し、scan/MEP/TSOPT/IRC/振動解析を通して固定。YAML `geom.freeze_atoms` および自動検出されたFrozen-MM layerとマージする。 | _None_ |
 | `-o, --out-dir PATH` | トップレベル出力ディレクトリ。 | `./result_all/` |
-| `--parm FILE` | 全系の AMBER parm7 トポロジーファイル。省略時は `mm_parm` で自動生成。 | _None_ |
+| `--parm7 FILE` | 全系の AMBER parm7 トポロジーファイル。省略時は `mm_parm` で自動生成。 | _None_ |
 | `--model-pdb FILE` | 構築済み ML 領域 PDB。指定時は ML 領域決定をスキップし、このファイルで ML 領域を直接定義。 | _None_ |
 | `--ref-pdb FILE` | XYZ 入力用の参照 PDB。入力が XYZ の場合に PDB メタデータ（残基、鎖、B 因子）を復元するために必要。 | _None_ |
 | `--convert-files/--no-convert-files` | テンプレート利用可能時に XYZ/TRJ から対応する PDB の生成を切り替えるグローバルトグル。 | `True` |
@@ -247,7 +247,7 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 ### MEP 探索オプション
 
 ```{note}
-`--max-cycles-gsm` と `--max-cycles-dmf` は選択した MEP 計算だけを制御します。
+`--max-cycles-gsm` と `--dmf-max-iterations` は選択した MEP 計算だけを制御します。
 スキャン、TS 最適化、IRC などは、それぞれのサイクル数オプションとデフォルトを使用します。
 ```
 
@@ -262,20 +262,20 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 | `--max-depth INT` | 許可する再帰分割の階層数（`--refine-path` が必須）。`0` で分割無効（入力ペアごとに1セグメント、HEI が端点なら0）。上限に達した区間は `seg_NNN_maxdepth` タグで、素反応1段の保証はない | `10` |
 | `--gsm-param [equi\|energy]` | 完全成長後のGSMノード配置。`energy` は高エネルギー領域へノード密度を寄せる。等間隔経路がHEI近傍の反応座標領域を飛び越える場合の試行用であり、TSを同定する機能ではない。 | `equi` |
 | `--max-cycles-gsm INT` | MEP childのGSMストリング最適化サイクル上限。 | `300` |
-| `--max-cycles-dmf INT` | MEP childのDMF IPOPT反復上限。 | `3000` |
+| `--dmf-max-iterations INT` | MEP childのDMF IPOPT反復上限。 | `3000` |
 | `--climb/--no-climb` | 選択した最適化法が対応する場合に climbing-image TS 精密化を有効化。 | `True` |
 | `--opt-mode [grad\|hess]` | TSOPT と IRC 後の端点最適化に使う予備プリセット（`grad` → Dimer/L-BFGS、`hess` → RS-P-RFO/RFO）。`--opt-mode-post` が優先されます。 | `grad` |
 | `--opt-mode-post [grad\|hess]` | TSOPT/IRC 後端点最適化向けのプリセット上書き（`grad` → Dimer/L-BFGS、`hess` → RS-P-RFO/RFO）。 | `hess` |
 | `--thresh TEXT` | 単一構造最適化と scan 緩和の収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | `gau` |
 | `--thresh-gsm TEXT` | MEP 段の GSM ストリング最適化の収束プリセット（`--thresh` と同じプリセット群）。 | `gau_loose` |
-| `--thresh-dmf TEXT` | DMF MEP 段の IPOPT dual-infeasibility 許容値。`tight`(0.04)、`middle`(0.10)、`loose`(0.20) または正の float。Gaussian プリセットではない。 | `tight` |
+| `--dmf-tol TEXT` | DMF MEP 段の IPOPT dual-infeasibility 許容値。`tight`(0.04)、`middle`(0.10)、`loose`(0.20) または正の float。Gaussian プリセットではない。 | `tight` |
 | `--thresh-post TEXT` | TS 最適化と IRC 後端点最適化の収束プリセット。 | `baker` |
 | `--preopt/--no-preopt` | セグメント化前に端点を事前最適化。 | `True` |
 | `--refine-path/--no-refine-path` | `--no-refine-path`（デフォルト）= 単一パス `path-opt`（軌跡結合 + HEI 抽出 + 結合変化検出 + `summary.json`）、`--refine-path` = 再帰的 `path-search`。多段機構の検出に加えて single-step MEP の refine にも使え、poor な HEI や TS 推定を改善できる。どちらも `--mep-mode` の選択と Stage 5（TSOPT/thermo/DFT）に対応。 | `False` |
 | `--hessian-calc-mode CHOICE` | ML/MM Hessian モード（`Analytical` または `FiniteDifference`）。 | `FiniteDifference` |
 | `--precision [fp32\|fp64]` | バックエンド精度。省略時は UMA/AIMNet2 fp32、ORB/MACE fp64。AIMNet2 は fp64 を拒否。 | バックエンド依存 |
-| `--workers INT` | UMA predictor worker 数。2 以上は `fairchem-core[extras]` が必要で、解析 Hessian と併用不可。 | `1` |
-| `--workers-per-node INT` | UMA 並列 predictor のノード当たり worker 数。 | _None_ |
+| `--uma-workers INT` | UMA predictor worker 数。2 以上は `fairchem-core[extras]` が必要で、解析 Hessian と併用不可。 | `1` |
+| `--uma-workers-per-node INT` | UMA 並列 predictor のノード当たり worker 数。 | _None_ |
 | `--detect-layer / --no-detect-layer` | B 因子レイヤー（B=0/10/20）を自動的に読み取ります。`--model-pdb` を明示した場合は MM 側のレイヤーだけを保持し、明示しない場合は B 因子が ML 原子集合も定義します。 | 有効 |
 
 TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-mode`（明示指定時のみ）-> TSOPT デフォルト（`hess` → RS-P-RFO）。
@@ -288,7 +288,7 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 | `--scan-out-dir PATH` | スキャン出力ディレクトリの上書き。 | `<out-dir>/_work/scan` |
 | `--scan-one-based/--scan-zero-based` | スキャン原子インデックスを 1 始まりまたは 0 始まりとして解釈。 | _None_ |
 | `--scan-max-step-size FLOAT` | 最大ステップサイズ (Å)。 | `0.20` |
-| `--scan-bias-k FLOAT` | 調和バイアス強度 (eV/Å^2)。 | `300.0` |
+| `--scan-restraint-k FLOAT` | 調和バイアス強度 (eV/Å^2)。 | `300.0` |
 | `--scan-relax-max-cycles INT` | ステップごとの緩和最大サイクル。 | `100000` |
 | `--scan-preopt/--no-scan-preopt` | スキャン事前最適化トグルの上書き。 | _None_ |
 | `--scan-endopt/--no-scan-endopt` | スキャンステージ終端最適化の上書き。 | _None_ |
@@ -315,14 +315,30 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 | `--freq-temperature FLOAT` | 熱化学温度 (K)。 | `298.15` |
 | `--freq-pressure FLOAT` | 熱化学圧力 (atm)。 | `1.0` |
 | `--dft-out-dir PATH` | DFT 出力ディレクトリの上書き。 | _None_ |
-| `--dft-func-basis TEXT` | 汎関数/基底関数ペア。 | `wb97m-v/def2-svp` |
-| `--lowmem/--no-lowmem` | 主DFT backendまたは任意の`--dft` stageの低memory policy | `--lowmem` |
+| `--func-basis TEXT` | 汎関数/基底関数ペア。 | `wb97m-v/def2-svp` |
+| `--dft-low-memory/--no-dft-low-memory` | 主DFT backendまたは任意の`--dft` stageの低memory policy | `--dft-low-memory` |
 | `--dft-nprocs INT` | DFT用PySCF/OpenMP CPU thread数 | `auto` |
-| `--dft-mem SIZE` | DFT用PySCF host RAM上限。GPU VRAMではない | `auto` |
-| `--dft-max-cycle INT` | SCF反復上限。 | `100` |
-| `--dft-conv-tol FLOAT` | SCF 収束閾値。 | `1e-9` |
+| `--dft-memory SIZE` | DFT用PySCF host RAM上限。GPU VRAMではない | `auto` |
+| `--scf-max-cycles INT` | SCF反復上限。 | `100` |
+| `--scf-tol FLOAT` | SCF 収束閾値。 | `1e-9` |
 | `--dft-grid-level INT` | PySCF グリッドレベル。 | `3` |
 | `--dft-engine [gpu\|cpu]` | DFT エンジン（GPU or CPU PySCF）。 | `gpu` |
+
+## セグメントから後処理を再開する
+
+元の`all`コマンドと同じ入力、topology、layer、抽出、経路、calculator設定、
+`--out-dir`を指定し、`--resume-segment N`を追加します。
+`--tsopt-max-cycles`などの後処理設定は変更できます。
+
+```bash
+mlmm all -i R.pdb P.pdb --parm7 system.parm7 --model-pdb model.pdb \
+  --tsopt --thermo --tsopt-max-cycles 200000 \
+  --resume-segment 3 --out-dir result_all
+```
+
+保存済みの入力とMEP artifactを検証し、`N`より前の完了済みセグメントを
+保持して、`N`以降の後処理出力と集約summaryを再生成します。出力directory
+には、以前の`all`実行が書いた再開用metadataが必要です。
 
 ## YAML 設定
 

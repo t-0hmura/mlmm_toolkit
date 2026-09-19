@@ -35,7 +35,7 @@ mlmm all -i reactant.cif product.cif \
 
 # Preserve topology while using high-precision XYZ coordinates
 mlmm tsopt -i hei.xyz --ref-pdb full_system.mmcif \
-    --parm full_system.parm7 -q -2 -o result_tsopt
+    --parm7 full_system.parm7 -q -2 -o result_tsopt
 ```
 
 For mmCIF or oversized-PDB topology, coordinate conversions write an internal
@@ -71,7 +71,7 @@ changing atom order or elements:
 ```bash
 mlmm mm-parm -i reactant_topology.pdb -l 'SAM:1,GPP:-3' \
     --out-prefix full_system
-mlmm all -i reactant.cif product.cif --parm full_system.parm7 \
+mlmm all -i reactant.cif product.cif --parm7 full_system.parm7 \
     -c 'enzyme_A:SAM:10001,enzyme_A:GPP:10002' \
     -l 'SAM:1,GPP:-3' --tsopt --thermo -o result
 ```

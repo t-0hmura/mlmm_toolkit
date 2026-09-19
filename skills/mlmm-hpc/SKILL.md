@@ -123,7 +123,7 @@ engine. Add margin for retries and first-use compilation.
 | `mlmm dft` | Supported | Supported with a compatible GPU4PySCF stack |
 | Analytical MLIP Hessian | Supported by selected backends | Runtime and memory are backend/model/system dependent; compare with finite difference on a pilot |
 
-Check `mlmm-install-backends/dft.md` for `--engine gpu` / `cpu`
+Check `mlmm-install-backends/dft.md` for `--dft-engine gpu` / `cpu`
 specifics, including the aarch64 caveat (CPU PySCF only).
 
 ## Monitoring and control
@@ -157,26 +157,24 @@ filter can cancel an unrelated job in the same account.
 
 ## Failed jobs / restart
 
-`mlmm all` doesn't auto-resume by default; re-running creates
-a fresh `result_all/`. Several stages support manual continuation:
-
-- `tsopt`, `freq`, `irc`, `dft` — re-run on the previous output.
-- `path-search` — needs **≥2** input structures (reactant/product endpoints); pass them as repeated `-i` (a lone `mep_trj.pdb` is rejected).
-
-For walltime-truncated jobs, write the per-stage outputs to a
-persistent location and resume from the last completed stage.
+For a completed MEP with failed segment post-processing, repeat the original
+`all` command against the persistent `--out-dir` and add
+`--resume-segment N`. Keep the original inputs, topology, layers, extraction,
+path, and calculator settings; post-processing settings may change. If the MEP
+itself did not complete, restart the path calculation from its endpoint
+structures.
 
 ## UMA predictor workers
 
-The default `--workers 1` uses one in-process UMA predictor. `--workers N`
+The default `--uma-workers 1` uses one in-process UMA predictor. `--uma-workers N`
 with `N > 1` selects fairchem's `ParallelMLIPPredictUnit`; install
 `fairchem-core[extras]`, request enough GPU/process resources, and set
-`--workers-per-node` to match the allocation. The exact multi-node launcher is
+`--uma-workers-per-node` to match the allocation. The exact multi-node launcher is
 site/fairchem specific and is intentionally absent from these generic templates.
 
 The parallel predictor exposes no autograd model. Therefore an explicit
-`--hessian-calc-mode Analytical` combined with `--workers > 1` is a hard error,
-not a finite-difference fallback. Use `--workers 1` or explicitly select
+`--hessian-calc-mode Analytical` combined with `--uma-workers > 1` is a hard error,
+not a finite-difference fallback. Use `--uma-workers 1` or explicitly select
 `FiniteDifference`. ORB, MACE, AIMNet2, and custom calculators do not use the
 UMA worker pool.
 

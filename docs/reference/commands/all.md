@@ -67,7 +67,7 @@ Options:
   -q, --charge INTEGER            Override the net charge of the ML region/model
                                   atoms. Highest priority over the charge
                                   derived by the workflow.
-  --parm FILE                     Pre-built AMBER parm7 topology file. When
+  --parm7, --parm FILE            Pre-built AMBER parm7 topology file. When
                                   provided, mm_parm generation is skipped.
   --model-pdb FILE                ML-only atom-selection PDB. It must be an
                                   unchanged, link-H-free subset of the full
@@ -122,7 +122,8 @@ Options:
                                   region near the HEI.  [default: (equi)]
   --max-cycles-gsm INTEGER RANGE  Maximum GSM string-optimizer cycles for the
                                   MEP stage.  [default: (300); x>=1]
-  --max-cycles-dmf INTEGER RANGE  Maximum IPOPT iterations for the DMF MEP
+  --dmf-max-iterations, --max-cycles-dmf INTEGER RANGE
+                                  Maximum IPOPT iterations for the DMF MEP
                                   stage. This is a solver iteration count, not a
                                   string-optimizer cycle count.  [default:
                                   (3000); x>=1]
@@ -153,14 +154,14 @@ Options:
                                   Convergence preset for single-structure
                                   optimizations and scan relaxations (gau_loose|
                                   gau|gau_tight|gau_vtight|baker|never). The MEP
-                                  stage keeps its own --thresh-gsm / --thresh-
-                                  dmf.  [default: (gau)]
+                                  stage keeps its own --thresh-gsm / --dmf-tol.
+                                  [default: (gau)]
   --thresh-gsm [gau_loose|gau|gau_tight|gau_vtight|baker|never]
                                   Convergence preset for the GSM string
                                   optimizer of the MEP stage (gau_loose|gau|gau_
                                   tight|gau_vtight|baker|never).  [default:
                                   (gau_loose)]
-  --thresh-dmf TEXT               IPOPT dual-infeasibility tolerance for the DMF
+  --dmf-tol, --thresh-dmf TEXT    IPOPT dual-infeasibility tolerance for the DMF
                                   MEP stage: tight (0.04) | middle (0.10) |
                                   loose (0.20) or a positive float. This is not
                                   a Gaussian preset.  [default: (tight)]
@@ -170,6 +171,11 @@ Options:
                                   t|gau_vtight|baker|never).  [default: baker]
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
+  --resume-segment INTEGER RANGE  Reuse the verified MEP in --out-dir and rerun
+                                  post-processing from segment N. Repeat the
+                                  original path/extraction/calculator options;
+                                  post-processing options may be changed.
+                                  [default: (disabled); x>=1]
   --show-config / --no-show-config
                                   Print resolved configuration and continue
                                   execution.  [default: no-show-config]
@@ -273,15 +279,20 @@ Options:
   --dft-out-dir DIRECTORY         Override dft output base directory (relative
                                   paths resolved against the default).
                                   [default: (<tsopt dir>/dft)]
-  --dft-func-basis TEXT           Override dft --func-basis value.  [default:
+  --func-basis, --dft-func-basis TEXT
+                                  Override dft --func-basis value.  [default:
                                   (wb97m-v/def2-svp)]
-  --dft-max-cycle INTEGER RANGE   Override dft --max-cycle value.  [default:
-                                  (100); x>=1]
-  --dft-conv-tol FLOAT            Override dft --conv-tol value.  [default:
-                                  (1e-09)]
+  --scf-max-cycles, --dft-max-cycle INTEGER RANGE
+                                  Override the DFT SCF iteration limit.
+                                  [default: (100); x>=1]
+  --scf-tol, --dft-conv-tol FLOAT
+                                  Override the DFT SCF convergence tolerance.
+                                  [default: (1e-09)]
   --dft-grid-level INTEGER        Override dft --grid-level value.  [default:
                                   (3)]
-  --dft-engine [gpu|cpu]          Override dft --engine value.  [default: (gpu)]
+  --dft-engine, --engine [gpu|cpu]
+                                  Override the DFT execution engine.  [default:
+                                  (gpu)]
   -s, --scan-lists TEXT           Scan targets: distance (i,j,target), angle
                                   (i,j,k,target), or dihedral (i,j,k,l,target).
                                   Multiple inline literals define sequential
@@ -298,7 +309,8 @@ Options:
                                   based))]
   --scan-max-step-size FLOAT      Override scan --max-step-size (Å).  [default:
                                   (0.2)]
-  --scan-bias-k FLOAT             Override scan harmonic bias strength k
+  --scan-restraint-k, --scan-bias-k FLOAT
+                                  Override scan harmonic bias strength k
                                   (eV/Å^2).  [default: (300.0)]
   --scan-relax-max-cycles INTEGER RANGE
                                   Override scan relaxation max cycles per step.
@@ -353,11 +365,13 @@ Options:
                                   default_dtype). aimnet2: fp32 no-op; fp64
                                   rejected.  [default: (per backend: uma fp32;
                                   orb, mace fp64)]
-  --workers INTEGER               MLIP predictor workers (UMA). >1 uses a
+  --uma-workers, --workers INTEGER
+                                  MLIP predictor workers (UMA). >1 uses a
                                   parallel predictor (fairchem-core[extras]);
                                   combining it with an analytical Hessian is an
                                   error. Default 1.  [default: (1)]
-  --workers-per-node INTEGER      Workers per node when the parallel MLIP
+  --uma-workers-per-node, --workers-per-node INTEGER
+                                  Workers per node when the parallel MLIP
                                   predictor is used (--workers > 1).  [default:
                                   (1)]
   --backend-model TEXT            Model variant for the selected --backend (e.g.
@@ -369,7 +383,8 @@ Options:
                                   ASE Calculator used as the ML-region backend
                                   (overrides --backend). Couples GFN-xTB / DFTB+
                                   / any ASE engine. See --calc-file-func-name.
-  --calc-file-func-name TEXT      Name of the callable in --calc-file that
+  --calc-factory, --calc-file-func-name TEXT
+                                  Name of the callable in --calc-file that
                                   returns an ASE Calculator (or a module-level
                                   Calculator instance). CLI overrides config
                                   YAML; otherwise defaults to get_calculator.
@@ -385,23 +400,19 @@ Options:
                                   matching multiplicity; use this only for an
                                   intentional nonstandard input such as a
                                   covalently-cut region.
-  --func-basis TEXT               High-level method as FUNCTIONAL/BASIS;
-                                  HF/BASIS is accepted.  [default:
-                                  (wb97m-v/def2-svp)]
-  --engine [gpu|cpu]              PySCF execution engine used by --backend dft.
-                                  [default: (gpu)]
   --save-scf-checkpoint / --no-save-scf-checkpoint
                                   Persist a structure-bound PySCF checkpoint.
                                   [default: (disabled)]
   --scf-checkpoint FILE           Load/save the optional structure-bound PySCF
                                   checkpoint at PATH.
-  --lowmem / --no-lowmem          Use GPU4PySCF rks_lowmem for closed-shell GPU
+  --dft-low-memory, --lowmem / --no-dft-low-memory, --no-lowmem
+                                  Use GPU4PySCF rks_lowmem for closed-shell GPU
                                   DFT; open-shell GPU and CPU use standard
                                   direct JK. --no-lowmem enables density
                                   fitting.  [default: (lowmem)]
   --dft-nprocs INTEGER RANGE      PySCF/OpenMP CPU threads; GPU count is
                                   unaffected.  [default: (auto); x>=1]
-  --dft-mem TEXT                  PySCF host RAM limit (for example 64GB or
+  --dft-memory, --dft-mem TEXT    PySCF host RAM limit (for example 64GB or
                                   120000MB).  [default: (auto)]
   -h, --help                      Show this message and exit.
 ```

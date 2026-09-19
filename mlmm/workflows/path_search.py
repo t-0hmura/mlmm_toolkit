@@ -1650,6 +1650,7 @@ def _build_multistep_path(
           "followed by multiple space-separated paths (e.g., '-i A B C').")
 )
 @click.option(
+    "--parm7",
     "--parm",
     "real_parm7",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
@@ -1779,7 +1780,9 @@ def _build_multistep_path(
     help="Maximum GSM string-optimizer cycles for the MEP stage.",
 )
 @click.option(
+    "--dmf-max-iterations",
     "--max-cycles-dmf",
+    "max_cycles_dmf",
     type=click.IntRange(min=1),
     default=None,
     show_default="3000",
@@ -1808,7 +1811,7 @@ def _build_multistep_path(
     show_default="gau",
     help=(
         "Convergence preset for single L-BFGS runs only. "
-        "The MEP itself keeps --thresh-gsm / --thresh-dmf."
+        "The MEP itself keeps --thresh-gsm / --dmf-tol."
     ),
 )
 @click.option(
@@ -1822,7 +1825,9 @@ def _build_multistep_path(
     ),
 )
 @click.option(
+    "--dmf-tol",
     "--thresh-dmf",
+    "thresh_dmf",
     type=str,
     default=None,
     show_default="tight",
@@ -2045,6 +2050,10 @@ def cli(
     merged_yaml_cfg, _, _ = load_merged_yaml_cfg(
         config_yaml=config_yaml,
         override_yaml=None,
+    )
+    from mlmm.cli.decorators import resolve_model_indices_setting
+    model_indices_str, model_indices_one_based = resolve_model_indices_setting(
+        ctx, merged_yaml_cfg, model_indices_str, model_indices_one_based
     )
 
     time_start = time.perf_counter()  # start timing

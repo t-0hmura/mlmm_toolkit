@@ -14,7 +14,7 @@ Options:
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
   -i, --input FILE                XYZ trajectory file  [required]
-  -o, --out FILE                  Output file(s). You can repeat -o, and/or list
+  -o, --output, --out FILE        Output file(s). You can repeat -o, and/or list
                                   extra filenames after options
                                   (.png/.jpg/.jpeg/.html/.svg/.pdf/.csv). If
                                   nothing is given, defaults to energy.png.

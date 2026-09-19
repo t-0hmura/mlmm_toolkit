@@ -1,6 +1,6 @@
 # Gaussian ONIOM モード（`oniom-export --mode g16`）
 
-Amber parm7 トポロジーを用いて、ML/MM システムを Gaussian ONIOM（`.com`/`.gjf`）入力へエクスポートします。`--parm` からトポロジーを、`-i/--input` の MLMM layered PDB から可動/固定原子を読み取ります。
+Amber parm7 トポロジーを用いて、ML/MM システムを Gaussian ONIOM（`.com`/`.gjf`）入力へエクスポートします。`--parm7` からトポロジーを、`-i/--input` の MLMM layered PDB から可動/固定原子を読み取ります。
 
 入力 `parm7` は CMAP を含まない必要があります。Gaussian ONIOM は
 CMAP 項を忠実に表現できないため、CMAP が存在する場合は出力前に停止します。
@@ -10,25 +10,25 @@ CMAP 項を忠実に表現できないため、CMAP が存在する場合は出�
 電荷・多重度を明示した最小構成のエクスポート:
 
 ```bash
-mlmm oniom-export --mode g16 --parm real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode g16 --parm7 real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
  -o system.com -q 0 -m 1
 ```
 
 ```bash
 # メソッドを明示して出力。
-mlmm oniom-export --mode g16 --parm real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode g16 --parm7 real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
  -o system.com -q 0 -m 1 --method "wB97XD/def2-TZVPD"
 ```
 
 ```bash
 # 元素順チェックを無効化。
-mlmm oniom-export --mode g16 --parm real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode g16 --parm7 real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
  -o system.gjf -q 0 -m 1 --no-element-check
 ```
 
 ```bash
 # 実行環境パラメータを調整。
-mlmm oniom-export --mode g16 --parm real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode g16 --parm7 real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
  -o system.com -q 0 -m 1 --nproc 16 --mem 32GB
 ```
 
@@ -49,7 +49,7 @@ mlmm oniom-export --mode g16 --parm real.parm7 -i pocket_layered.pdb --model-pdb
 
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
-| `--parm PATH` | Amber parm7 トポロジー。 | 必須 |
+| `--parm7 PATH` | Amber parm7 トポロジー。 | 必須 |
 | `-i, --input PATH` | MLMM layered PDB。原子順は parm7 と一致必須。 | 必須 |
 | `--element-check / --no-element-check` | 入力と parm7 の元素順を検証。 | `True` |
 | `--model-pdb PATH` | QM 領域原子を定義する PDB。 | _None_ |

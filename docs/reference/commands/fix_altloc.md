@@ -15,7 +15,7 @@ Options:
   --help-advanced               Show all options (including advanced settings)
                                 and exit.
   -i, --input PATH              Input PDB file or directory.  [required]
-  -o, --out PATH                Output file (if input is a file) or output
+  -o, --output, --out PATH      Output file (if input is a file) or output
                                 directory (if input is a directory).
   --recursive / --no-recursive  When input is a directory, process *.pdb
                                 recursively (including subdirectories).

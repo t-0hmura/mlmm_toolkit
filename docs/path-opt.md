@@ -6,19 +6,19 @@
 
 ```bash
 # Minimal invocation
-mlmm path-opt -i reac.pdb prod.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm path-opt -i reac.pdb prod.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 --out-dir ./result_path_opt
 ```
 
 ```bash
 # Pre-optimize both endpoints before path growth
-mlmm path-opt -i reac.pdb prod.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm path-opt -i reac.pdb prod.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 --preopt --preopt-max-cycles 20000 --out-dir ./result_path_opt_preopt
 ```
 
 ```bash
 # Disable climbing-image refinement for a quick first pass
-mlmm path-opt -i reac.pdb prod.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm path-opt -i reac.pdb prod.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 --no-climb --max-nodes 8 --out-dir ./result_path_opt_fast
 # freeze selected atoms and keep optimizer dumps: --freeze-atoms "1,3,5,7" --dump
 ```
@@ -26,7 +26,7 @@ mlmm path-opt -i reac.pdb prod.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 General command form:
 
 ```bash
-mlmm path-opt -i REACTANT.pdb PRODUCT.pdb --parm real.parm7 --model-pdb model.pdb \
+mlmm path-opt -i REACTANT.pdb PRODUCT.pdb --parm7 real.parm7 --model-pdb model.pdb \
  -q CHARGE [-m MULT] [--mep-mode gsm|dmf] [--fix-ends/--no-fix-ends] [options]
 ```
 
@@ -34,7 +34,7 @@ mlmm path-opt -i REACTANT.pdb PRODUCT.pdb --parm real.parm7 --model-pdb model.pd
 
 ## Workflow
 1. **Load endpoints** -- Read PDB/mmCIF structures, or XYZ coordinates with matching `--ref-pdb` topology, and resolve charge/spin.
-    Set up the ML/MM calculator with `--parm`, `--model-pdb`, and charge/spin.
+    Set up the ML/MM calculator with `--parm7`, `--model-pdb`, and charge/spin.
 2. **Optional pre-optimization** -- With `--preopt`, each endpoint is pre-optimized
     by L-BFGS (using the same ML/MM calculator) before alignment and string growth.
     `--preopt-max-cycles` sets the L-BFGS cycle cap (default: 100000).
@@ -67,10 +67,9 @@ The full flag list is in the generated [command reference](reference/commands/in
 | Option | Description | Default |
 | --- | --- | --- |
 | `-i, --input PATH PATH` | Reactant and product PDB/mmCIF structures, or XYZ coordinates with corresponding `--ref-pdb` entries. | Required |
-| `--parm PATH` | Amber prmtop for the full REAL system. | Required |
+| `--parm7 PATH` | Amber prmtop for the full REAL system. | Required |
 | `--model-pdb PATH` | PDB defining the ML region (atom IDs). Optional when `--detect-layer` or `--model-indices` is used. | _None_ |
 | `--model-indices TEXT` | Comma-separated atom indices for the ML region (ranges allowed like `1-5`). Used when `--model-pdb` is omitted. | _None_ |
-| `--model-indices-one-based / --model-indices-zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
 | `--detect-layer / --no-detect-layer` | Automatically read B-factor layers (B=0/10/20). With explicit ML membership, only the MM sublayers are retained; otherwise B-factors also define ML membership. | Enabled |
 | `-q, --charge INT` | Net ML-region charge. | _None_ (required unless `-l` is given) |
 | `-l, --ligand-charge TEXT` | Per-residue charge map, e.g. `SAM:1,PHN:-1`. Derives total charge when `-q` is omitted. Requires PDB input or `--ref-pdb`. | _None_ |
@@ -83,13 +82,13 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--max-nodes INT` | Number of internal string nodes (total images = `max_nodes + 2`). | `20` |
 | `--gsm-param [equi\|energy]` | GSM node parameterization after string growth. `energy` concentrates nodes in high-energy regions and may be tried when an equidistant path skips the reaction-coordinate region near the HEI; it does not identify a TS. | `equi` |
 | `--max-cycles-gsm INT` | GSM string-optimizer cycle cap; also sets `stopt.stop_in_when_full`. | `300` |
-| `--max-cycles-dmf INT` | DMF IPOPT iteration cap. | `3000` |
+| `--dmf-max-iterations INT` | DMF IPOPT iteration cap. | `3000` |
 | `--climb/--no-climb` | Enable climbing-image refinement after full string growth. | `True` |
 | `--preopt/--no-preopt` | Pre-optimize each endpoint with L-BFGS before alignment/string growth. | `True` |
 | `--preopt-max-cycles INT` | Endpoint pre-optimization cycle cap. | `100000` |
 | `--thresh TEXT` | Convergence preset override for endpoint pre-optimization only (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | `gau` |
 | `--thresh-gsm TEXT` | Convergence preset for the GSM string optimizer (`stopt.thresh`; same presets as `--thresh`). | `gau_loose` |
-| `--thresh-dmf TEXT` | IPOPT dual-infeasibility tolerance of the DMF optimizer (`dmf.tol`): `tight` (0.04), `middle` (0.10), `loose` (0.20), or a positive float. Gaussian presets are rejected. | `tight` |
+| `--dmf-tol TEXT` | IPOPT dual-infeasibility tolerance of the DMF optimizer (`dmf.tol`): `tight` (0.04), `middle` (0.10), `loose` (0.20), or a positive float. Gaussian presets are rejected. | `tight` |
 | `--mm-backend [hessian_ff\|openmm]` | MM backend. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |
 | `--dump/--no-dump` | Dump optimizer trajectories and restarts inside `out_dir`. | `False` |
 | `-o, --out-dir TEXT` | Output directory. | `./result_path_opt/` |

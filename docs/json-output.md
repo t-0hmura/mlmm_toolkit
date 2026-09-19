@@ -8,7 +8,7 @@ Most MLIP-based and reporting subcommands (`opt`, `sp`, `tsopt`, `freq`, `irc`, 
 When enabled, authoritative `result.json` and its identical `summary.json` compatibility mirror are written beside the normal outputs.
 
 ```bash
-mlmm opt -i r_complex_layered.pdb --parm real.parm7 -q 0 -m 1 \
+mlmm opt -i r_complex_layered.pdb --parm7 real.parm7 -q 0 -m 1 \
   --max-cycles 5 --out-json --out-dir result_opt
 cat result_opt/result.json | python -m json.tool
 ```

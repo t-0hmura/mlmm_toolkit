@@ -180,7 +180,7 @@ VRAM・RAM・実行時間は、代表的な計算から見積もってくださ�
 - **設定:** [YAMLリファレンス](yaml-reference.md)を参照してください。最適化せずに実効設定を確認する例:
 
 ```bash
-mlmm opt -i layered.pdb --parm system.parm7 -q 0 --show-config --dry-run
+mlmm opt -i layered.pdb --parm7 system.parm7 -q 0 --show-config --dry-run
 ```
 
 ## 出力構造

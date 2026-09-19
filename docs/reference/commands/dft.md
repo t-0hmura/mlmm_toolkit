@@ -19,7 +19,7 @@ Options:
                                   coordinates are used (higher precision) while
                                   PDB provides atom ordering and residue
                                   information.
-  --parm FILE                     Amber parm7 topology for the full system.
+  --parm7, --parm FILE            Amber parm7 topology for the full system.
                                   [required]
   --model-pdb FILE                ML-only, link-H-free PDB subset; atom
                                   identity/order must match the full PDB/parm7.
@@ -40,21 +40,25 @@ Options:
                                   YAML applies when omitted.  [default: (1)]
   --func-basis TEXT               Exchange-correlation functional and basis set
                                   as "FUNC/BASIS".  [default: wb97m-v/def2-svp]
-  --max-cycle INTEGER RANGE       Maximum SCF iterations.  [default: 100; x>=1]
-  --conv-tol FLOAT                SCF energy convergence threshold (ΔE in
+  --scf-max-cycles, --max-cycle INTEGER RANGE
+                                  Maximum SCF iterations.  [default: 100; x>=1]
+  --scf-tol, --conv-tol FLOAT     SCF energy convergence threshold (ΔE in
                                   Hartree between SCF cycles).  [default: 1e-09]
-  --grid-level INTEGER            DFT integration grid level (0=coarse,
+  --dft-grid-level, --grid-level INTEGER
+                                  DFT integration grid level (0=coarse,
                                   3=default, 5=fine, 9=very fine).  [default: 3]
-  --engine [gpu|cpu]              SCF backend: gpu (GPU4PySCF, raises error if
+  --dft-engine, --engine [gpu|cpu]
+                                  SCF backend: gpu (GPU4PySCF, raises error if
                                   unavailable) or cpu (PySCF).  [default: gpu]
-  --lowmem / --no-lowmem          Use gpu4pyscf rks_lowmem.RKS for closed-shell
+  --dft-low-memory, --lowmem / --no-dft-low-memory, --no-lowmem
+                                  Use gpu4pyscf rks_lowmem.RKS for closed-shell
                                   GPU single points, including electrostatic
                                   embedding. Open-shell or CPU runs use standard
-                                  direct-JK RKS/UKS; --no-lowmem enables density
-                                  fitting.  [default: lowmem]
+                                  direct-JK RKS/UKS; --no-dft-low-memory enables
+                                  density fitting.  [default: dft-low-memory]
   --dft-nprocs INTEGER RANGE      PySCF/OpenMP CPU threads; GPU count is
                                   unaffected.  [default: (auto); x>=1]
-  --dft-mem TEXT                  PySCF host RAM limit (for example 64GB or
+  --dft-memory, --dft-mem TEXT    PySCF host RAM limit (for example 64GB or
                                   120000MB).  [default: (auto)]
   -o, --out-dir DIRECTORY         Output directory.  [default: result_dft]
   --config FILE                   Base YAML configuration file applied before
@@ -104,8 +108,5 @@ Options:
                                   absent. With explicit membership, retain valid
                                   movable/frozen MM B-factor layers.  [default:
                                   detect-layer]
-  --model-indices-one-based / --model-indices-zero-based
-                                  Interpret --model-indices as 1-based or
-                                  0-based.  [default: model-indices-one-based]
   -h, --help                      Show this message and exit.
 ```

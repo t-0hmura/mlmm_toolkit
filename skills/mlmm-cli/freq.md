@@ -11,7 +11,7 @@ Partial-Hessian variant (PHVA) activates automatically when
 ## Synopsis
 
 ```bash
-mlmm freq -i geom.{pdb,xyz} --parm real.parm7 \
+mlmm freq -i geom.{pdb,xyz} --parm7 real.parm7 \
     [-q 0 -m 1] [-l 'RES:Q,...'] \
     [--temperature 298.15] [--pressure 1.0] \
     [-b uma|orb|mace|aimnet2|dft] [-o ./result_freq/]
@@ -26,7 +26,7 @@ selection. Most subcommands accept:
 
 | flag | purpose |
 |---|---|
-| `--parm FILE` | Amber `parm7` topology of the whole enzyme — **required** |
+| `--parm7 FILE` | Amber `parm7` topology of the whole enzyme — **required** |
 | `--model-pdb FILE` | Explicit ML-region PDB; takes precedence over B-factor ML membership |
 | `--detect-layer` | Automatically read B-factor layers; explicit ML membership retains valid movable/frozen MM layers. Enabled by default. |
 | `--model-indices` | Explicit ML atom indices used when `--model-pdb` is omitted; takes precedence over B-factor ML membership |
@@ -47,7 +47,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--pressure` | float | 1.0 | atm, for thermochemistry |
 | `--hessian-calc-mode` | str | `FiniteDifference` | `Analytical` / `FiniteDifference`; check `FREQ_KW` / `MLMM_CALC_KW` |
 | `--precision` | str | backend-specific | UMA/AIMNet2 fp32; ORB/MACE fp64; AIMNet2 rejects fp64 |
-| `--workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
+| `--uma-workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
 | `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |
 | `-o, --out-dir` | path | `./result_freq/` | Output directory |
 | `--config` / `--show-config` / `--dry-run` / `--help-advanced` | — | — | Standard |
@@ -57,14 +57,14 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 ### Default (298.15 K, 1 atm)
 
 ```bash
-mlmm freq -i ts.xyz --parm real.parm7 --ref-pdb full_enzyme.pdb \
+mlmm freq -i ts.xyz --parm7 real.parm7 --ref-pdb full_enzyme.pdb \
     -q 0 -m 1 -b uma -o result_freq
 ```
 
 ### Higher temperature for activation enthalpy
 
 ```bash
-mlmm freq -i ts.xyz --parm real.parm7 --ref-pdb full_enzyme.pdb \
+mlmm freq -i ts.xyz --parm7 real.parm7 --ref-pdb full_enzyme.pdb \
     -l 'SAM:1' \
     --temperature 310.15 --pressure 1.0 \
     -b uma -o result_freq_310K

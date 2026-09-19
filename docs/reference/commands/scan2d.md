@@ -15,7 +15,7 @@ Options:
                                   and exit.
   -i, --input FILE                Input PDB/mmCIF, or XYZ with --ref-pdb.
                                   [required]
-  --parm FILE                     Amber parm7 topology for the enzyme.
+  --parm7, --parm FILE            Amber parm7 topology for the enzyme.
                                   [required]
   --model-pdb FILE                ML-only, link-H-free PDB subset; atom
                                   identity/order must match the full PDB/parm7.
@@ -91,7 +91,7 @@ Options:
   --max-dihedral-step-size FLOAT RANGE
                                   Maximum scanned dihedral change per step
                                   [degree].  [default: 10.0; x>0.0]
-  --bias-k FLOAT                  Harmonic well strength k [eV/Å^2 for
+  --restraint-k, --bias-k FLOAT   Harmonic well strength k [eV/Å^2 for
                                   distances; eV/rad^2 for angles]. YAML bias.k
                                   applies when this option is omitted; explicit
                                   CLI wins.  [default: (300.0)]
@@ -122,9 +122,6 @@ Options:
                                   absent. With explicit membership, retain valid
                                   movable/frozen MM B-factor layers.  [default:
                                   detect-layer]
-  --model-indices-one-based / --model-indices-zero-based
-                                  Interpret --model-indices as 1-based or
-                                  0-based.  [default: model-indices-one-based]
   --print-every INTEGER RANGE     Print optimizer status every N cycles.
                                   [default: (100); x>=1]
   --precision [fp32|fp64]         MLIP backend precision: fp32 or fp64. Unset
@@ -134,11 +131,13 @@ Options:
                                   default_dtype). aimnet2: fp32 no-op; fp64
                                   rejected.  [default: (per backend: uma fp32;
                                   orb, mace fp64)]
-  --workers INTEGER               MLIP predictor workers (UMA). >1 uses a
+  --uma-workers, --workers INTEGER
+                                  MLIP predictor workers (UMA). >1 uses a
                                   parallel predictor (fairchem-core[extras]);
                                   combining it with an analytical Hessian is an
                                   error. Default 1.  [default: (1)]
-  --workers-per-node INTEGER      Workers per node when the parallel MLIP
+  --uma-workers-per-node, --workers-per-node INTEGER
+                                  Workers per node when the parallel MLIP
                                   predictor is used (--workers > 1).  [default:
                                   (1)]
   --backend-model TEXT            Model variant for the selected --backend (e.g.
@@ -150,7 +149,8 @@ Options:
                                   ASE Calculator used as the ML-region backend
                                   (overrides --backend). Couples GFN-xTB / DFTB+
                                   / any ASE engine. See --calc-file-func-name.
-  --calc-file-func-name TEXT      Name of the callable in --calc-file that
+  --calc-factory, --calc-file-func-name TEXT
+                                  Name of the callable in --calc-file that
                                   returns an ASE Calculator (or a module-level
                                   Calculator instance). CLI overrides config
                                   YAML; otherwise defaults to get_calculator.
@@ -169,20 +169,22 @@ Options:
   --func-basis TEXT               High-level method as FUNCTIONAL/BASIS;
                                   HF/BASIS is accepted.  [default:
                                   (wb97m-v/def2-svp)]
-  --engine [gpu|cpu]              PySCF execution engine used by --backend dft.
+  --dft-engine, --engine [gpu|cpu]
+                                  PySCF execution engine used by --backend dft.
                                   [default: (gpu)]
   --save-scf-checkpoint / --no-save-scf-checkpoint
                                   Persist a structure-bound PySCF checkpoint.
                                   [default: (disabled)]
   --scf-checkpoint FILE           Load/save the optional structure-bound PySCF
                                   checkpoint at PATH.
-  --lowmem / --no-lowmem          Use GPU4PySCF rks_lowmem for closed-shell GPU
+  --dft-low-memory, --lowmem / --no-dft-low-memory, --no-lowmem
+                                  Use GPU4PySCF rks_lowmem for closed-shell GPU
                                   DFT; open-shell GPU and CPU use standard
                                   direct JK. --no-lowmem enables density
                                   fitting.  [default: (lowmem)]
   --dft-nprocs INTEGER RANGE      PySCF/OpenMP CPU threads; GPU count is
                                   unaffected.  [default: (auto); x>=1]
-  --dft-mem TEXT                  PySCF host RAM limit (for example 64GB or
+  --dft-memory, --dft-mem TEXT    PySCF host RAM limit (for example 64GB or
                                   120000MB).  [default: (auto)]
   -h, --help                      Show this message and exit.
 ```

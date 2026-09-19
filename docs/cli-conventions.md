@@ -53,10 +53,10 @@ ML/MM calculation stages (`opt`, `sp`, `tsopt`, `freq`, `irc`, `dft`, scans,
 and path workflows) need the full-system Amber topology:
 
 ```bash
---parm real.parm7              # Amber parm7 topology of the full (real) system
+--parm7 real.parm7              # Amber parm7 topology of the full (real) system
 ```
 
-`mlmm all` generates the topology automatically when `--parm` is omitted.
+`mlmm all` generates the topology automatically when `--parm7` is omitted.
 Utilities and structure/topology preparation commands do not require it.
 Per-stage ML membership resolves in this order:
 
@@ -71,13 +71,13 @@ B-factor partition must contain at least one ML atom and one MM atom; an
 all-zero PDB is not treated as a layer assignment.
 
 ```bash
-mlmm path-search -i R.pdb P.pdb --parm real.parm7 --model-pdb model.pdb -q 0 -m 1
+mlmm path-search -i R.pdb P.pdb --parm7 real.parm7 --model-pdb model.pdb -q 0 -m 1
 ```
 
 ## Inspect resolved config
 
 ```bash
-mlmm opt -i input.pdb --parm real.parm7 -q -1 --show-config --dry-run
+mlmm opt -i input.pdb --parm7 real.parm7 -q -1 --show-config --dry-run
 ```
 
 ## B-factor layer encoding
@@ -180,7 +180,7 @@ multi-character chains and residue numbers above 9,999.
 
 - **PDB** — must contain hydrogens (add via `reduce` / `pdb2pqr` / Open Babel / `mlmm mm-parm --add-h`) and element symbols in cols 77–78 (`mlmm add-elem-info` if missing). Multiple PDBs must share identical atoms in the same order.
 - **XYZ** — accepted when ML-region determination is skipped (omit `-c/--center`).
-- **Amber `--parm` (parm7)** — force-field parameters for the full system; atom ordering must match the input PDB exactly.
+- **Amber `--parm7` (parm7)** — force-field parameters for the full system; atom ordering must match the input PDB exactly.
 
 ## Backend selection
 
@@ -199,14 +199,14 @@ Leaving `--precision` unset selects the backend default: UMA and AIMNet2 use
 fp32; ORB and MACE use fp64. AIMNet2 rejects fp64. Use explicit fp32 for
 ORB/MACE only when screening speed is more important than low-noise curvature.
 
-`--workers` controls the UMA parallel predictor (`fairchem-core[extras]`), not
-generic CPU threading. The default is one worker. `--workers > 1` cannot expose
+`--uma-workers` controls the UMA parallel predictor (`fairchem-core[extras]`), not
+generic CPU threading. The default is one worker. `--uma-workers > 1` cannot expose
 the autograd model needed for an analytical Hessian, so combining it with an
 explicit `--hessian-calc-mode Analytical` is a hard error. Choose one of:
 
 ```bash
---workers 1 --hessian-calc-mode Analytical       # analytical Hessian
---workers 4 --hessian-calc-mode FiniteDifference # parallel UMA predictor + FD
+--uma-workers 1 --hessian-calc-mode Analytical       # analytical Hessian
+--uma-workers 4 --hessian-calc-mode FiniteDifference # parallel UMA predictor + FD
 ```
 
 ORB, MACE, and AIMNet2 do not use this UMA worker pool. All four MLIP backends

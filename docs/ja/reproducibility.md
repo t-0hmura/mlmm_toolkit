@@ -9,7 +9,7 @@ GPU 上の MLIP 推論は、ハードウェアと software stack に依存する
 `--deterministic` はすべての計算系サブコマンド（`opt`、`tsopt`、`freq`、`irc`、`scan`、`scan2d`、`scan3d`、`path-opt`、`path-search`、`all`、`sp`）で受け付けられます。これは `torch.use_deterministic_algorithms` と `index_reduce_` shim を有効化し、mlmm-toolkit が制御する演算で決定論的 algorithm を要求します。
 
 ```bash
-mlmm opt -i complex.pdb --parm enzyme.parm7 -q 0 --deterministic
+mlmm opt -i complex.pdb --parm7 enzyme.parm7 -q 0 --deterministic
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -q -1 --deterministic
 ```
 

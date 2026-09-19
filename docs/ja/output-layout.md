@@ -53,7 +53,7 @@ result_all/
 ├─ energy_diagram_*_all.png · irc_plot_all.png
 ├─ ml_region.pdb                              # ML-region definition (reusable as --model-pdb)
 ├─ ml_region_without_linkH.{xyz,pdb} · ml_region_with_linkH.{xyz,pdb}
-├─ mm_parm/                                   # MM topology <input>.parm7 / .rst7 (reusable as --parm)
+├─ mm_parm/                                   # MM topology <input>.parm7 / .rst7 (reusable as --parm7)
 ├─ layered/                                   # layered full-system PDBs (B-factor annotated; reusable inputs)
 ├─ segments/
 │  └─ seg_NN/                                  # 反応セグメント別の成果物（2桁番号）

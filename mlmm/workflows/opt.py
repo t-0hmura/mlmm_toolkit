@@ -199,7 +199,7 @@ def _parse_dist_freeze_args(
     one_based: bool,
     atom_meta: Optional[Sequence[Dict[str, Any]]],
 ) -> List[Tuple[int, int, Optional[float]]]:
-    """Parse all ``--dist-freeze`` arguments (inline literal or spec file).
+    """Parse all ``--distance-restraint`` arguments (inline literal or spec file).
 
     Accepts the same format as ``--scan-lists``: inline Python literal
     (e.g. ``'[(1,5,1.4)]'``) or a YAML/JSON spec file path.  String atom
@@ -235,7 +235,7 @@ def _resolve_dist_freeze_targets(
     for (i, j, target) in tuples:
         if not (0 <= i < n and 0 <= j < n):
             raise click.BadParameter(
-                f"--dist-freeze indices {(i, j)} are out of bounds for the loaded geometry (N={n})."
+                f"--distance-restraint indices {(i, j)} are out of bounds for the loaded geometry (N={n})."
             )
         if target is None:
             vec = coords_ang[i] - coords_ang[j]
@@ -1188,6 +1188,7 @@ def _run_microiter_opt(
          "while PDB provides atom ordering and residue information for output conversion.",
 )
 @click.option(
+    "--parm7",
     "--parm",
     "real_parm7",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
@@ -1221,6 +1222,7 @@ def _run_microiter_opt(
     help="Comma-separated 1-based atom indices to freeze (e.g., '1,3,5').",
 )
 @click.option(
+    "--hessian-cutoff",
     "--hess-cutoff",
     "hess_cutoff",
     type=float,
@@ -1240,6 +1242,7 @@ def _run_microiter_opt(
          "Providing --movable-cutoff disables --detect-layer and uses distance-based layer assignment.",
 )
 @click.option(
+    "--distance-restraint",
     "--dist-freeze",
     "dist_freeze_raw",
     type=str,
@@ -1255,15 +1258,17 @@ def _run_microiter_opt(
     "one_based",
     default=True,
     show_default=True,
-    help="Interpret --dist-freeze indices as 1-based or 0-based.",
+    help="Interpret --distance-restraint indices as 1-based or 0-based.",
 )
 @click.option(
+    "--restraint-k",
     "--bias-k",
+    "bias_k",
     type=float,
     default=None,
     show_default="300.0",
     help=(
-        "Harmonic restraint strength k [eV/Å^2] for --dist-freeze. "
+        "Harmonic restraint strength k [eV/Å^2] for --distance-restraint. "
         "YAML bias.k applies when this option is omitted; explicit CLI wins."
     ),
 )
@@ -1511,6 +1516,10 @@ def cli(
     merged_yaml_cfg, _, _ = load_merged_yaml_cfg(
         config_yaml=config_yaml,
         override_yaml=None,
+    )
+    from mlmm.cli.decorators import resolve_model_indices_setting
+    model_indices_str, model_indices_one_based = resolve_model_indices_setting(
+        ctx, merged_yaml_cfg, model_indices_str, model_indices_one_based
     )
 
     # Handle PDB/mmCIF directly, or XYZ with --ref-pdb for topology.

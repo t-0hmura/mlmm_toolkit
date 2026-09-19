@@ -11,13 +11,13 @@
 層構造 PDB 上のエネルギーと力（B-factor が ML / movable-MM / frozen をエンコード）:
 
 ```bash
-mlmm sp -i layered.pdb --parm real.parm7 -q 0 -m 1
+mlmm sp -i layered.pdb --parm7 real.parm7 -q 0 -m 1
 ```
 
 active-coordinate Hessian block も計算する（デフォルトは FiniteDifference。バックエンドのネイティブ Hessian を使うには `--hessian-calc-mode Analytical` を指定）:
 
 ```bash
-mlmm sp -i layered.pdb --parm real.parm7 -q 0 -m 1 --hess
+mlmm sp -i layered.pdb --parm7 real.parm7 -q 0 -m 1 --hess
 ```
 
 ## 出力
@@ -37,14 +37,14 @@ mlmm sp -i layered.pdb --parm real.parm7 -q 0 -m 1 --hess
 コマンド形式:
 
 ```bash
-mlmm sp -i INPUT --parm PARM7 -q CHARGE [options]
+mlmm sp -i INPUT --parm7 PARM7 -q CHARGE [options]
 ```
 
 | 入力 | 必須 | 備考 |
 |---|---|---|
 | `-i, --input FILE` | はい | 層構造 PDB/mmCIF、または `--ref-pdb` を伴う XYZ 座標 |
 | `--ref-pdb FILE` | XYZ の場合 | 原子順序が一致する全系 PDB/mmCIF（トポロジーと層情報を供給） |
-| `--parm FILE` | はい | 全系の Amber `parm7` トポロジー（`--real-parm7` をエイリアスとして保持） |
+| `--parm7 FILE` | はい | 全系の Amber `parm7` トポロジー（`--real-parm7` をエイリアスとして保持） |
 | `-q, --charge INT` | はい（`-l` を指定する場合は不要） | ML 領域の総電荷 |
 | `-l, --ligand-charge TEXT` | いいえ | リガンドごとの電荷マッピング（例: `SAM:1,GPP:-3`）。`-q` を省略した場合に正味電荷を導出 |
 | `-m, --multiplicity INT` | いいえ | ML 領域のスピン多重度、2S+1（デフォルト `1`） |

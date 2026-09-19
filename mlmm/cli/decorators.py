@@ -20,19 +20,69 @@ logger = logging.getLogger(__name__)
 
 
 def canonicalize_calculator_section(config: Dict[str, Any]) -> Dict[str, Any]:
-    """Return a copy whose alias-only ``mlmm`` section is available as ``calc``.
-
-    ``calc`` is the canonical section and has whole-section precedence when
-    both names are present.  The legacy alias is retained for compatibility;
-    only alias-only inputs receive a copied canonical section.
-    """
+    """Merge the accepted ``mlmm`` section into ``calc`` safely."""
 
     normalized = deepcopy(config)
-    if "calc" not in normalized:
-        legacy = normalized.get("mlmm")
-        if isinstance(legacy, Mapping):
-            normalized["calc"] = deepcopy(dict(legacy))
+    canonical = normalized.get("calc")
+    legacy = normalized.get("mlmm")
+    if canonical is not None and not isinstance(canonical, Mapping):
+        raise click.BadParameter("YAML section 'calc' must be a mapping.")
+    if legacy is not None and not isinstance(legacy, Mapping):
+        raise click.BadParameter("YAML section 'mlmm' must be a mapping.")
+    if isinstance(legacy, Mapping):
+        merged = deepcopy(dict(legacy))
+        for key, value in dict(canonical or {}).items():
+            if key in merged and merged[key] != value:
+                raise click.BadParameter(
+                    f"Conflicting YAML values for calc.{key} and mlmm.{key}."
+                )
+            merged[key] = deepcopy(value)
+        normalized["calc"] = merged
+        normalized.pop("mlmm", None)
     return normalized
+
+
+def resolve_model_indices_setting(
+    ctx: click.Context,
+    yaml_cfg: Mapping[str, Any],
+    model_indices: Optional[str],
+    legacy_one_based: bool,
+) -> tuple[Optional[str], bool]:
+    """Resolve CLI/YAML ML-region indices with a fixed 1-based CLI contract."""
+
+    explicit = make_is_param_explicit(ctx)
+    if explicit("model_indices_str"):
+        return model_indices, (
+            bool(legacy_one_based)
+            if explicit("model_indices_one_based")
+            else True
+        )
+    normalized = canonicalize_calculator_section(dict(yaml_cfg))
+    calc = normalized.get("calc")
+    if not isinstance(calc, Mapping) or calc.get("model_indices") is None:
+        return model_indices, True
+    raw = calc.get("model_indices")
+    if isinstance(raw, str):
+        rendered = raw.strip()
+    elif isinstance(raw, (list, tuple)):
+        if not raw or any(isinstance(value, bool) for value in raw):
+            raise click.BadParameter("calc.model_indices must contain atom indices.")
+        try:
+            rendered = ",".join(str(int(value)) for value in raw)
+        except (TypeError, ValueError) as exc:
+            raise click.BadParameter(
+                "calc.model_indices must be a string or a sequence of integers."
+            ) from exc
+    else:
+        raise click.BadParameter(
+            "calc.model_indices must be a string or a sequence of integers."
+        )
+    if not rendered:
+        raise click.BadParameter("calc.model_indices must not be empty.")
+    base = calc.get("model_indices_base", 1)
+    if isinstance(base, bool) or base not in (0, 1):
+        raise click.BadParameter("calc.model_indices_base must be 0 or 1.")
+    return rendered, bool(base == 1)
 
 
 def make_is_param_explicit(ctx: "click.Context"):
@@ -118,13 +168,14 @@ def load_merged_yaml_cfg(
     merged dict for ``show_config`` display without re-reading the files.
     """
     try:
-        config_dict = load_yaml_dict(config_yaml)
-        override_dict = load_yaml_dict(override_yaml)
+        config_dict = canonicalize_calculator_section(load_yaml_dict(config_yaml))
+        override_dict = canonicalize_calculator_section(load_yaml_dict(override_yaml))
     except ValueError as exc:
         raise click.BadParameter(str(exc), param_hint="--config/--override") from exc
     merged: Dict[str, Any] = {}
     deep_update(merged, config_dict)
     deep_update(merged, override_dict)
+    merged = canonicalize_calculator_section(merged)
     _warn_unknown_yaml_sections(merged)
     return merged, config_dict, override_dict
 

@@ -179,10 +179,10 @@ def _resolve_sp_ml_region(
     help="Full-system PDB/mmCIF topology required when --input is XYZ.",
 )
 @click.option(
-    "--parm", "--real-parm7", "real_parm7",
+    "--parm7", "--parm", "--real-parm7", "real_parm7",
     type=click.Path(exists=True, dir_okay=False, path_type=Path),
     required=True,
-    help="Amber parm7 of the full enzyme (canonical flag is --parm; --real-parm7 retained as alias).",
+    help="Amber parm7 topology of the full enzyme.",
 )
 # ML-layer selection options (mirror opt.py / dft.py surface).
 # These five options must remain on sp.py's decorator stack to match the
@@ -208,7 +208,7 @@ def _resolve_sp_ml_region(
     help="Comma-separated 1-based atom indices to freeze (e.g., '1,3,5').",
 )
 @click.option(
-    "--hess-cutoff", "hess_cutoff",
+    "--hessian-cutoff", "--hess-cutoff", "hess_cutoff",
     type=float, default=None, show_default="all movable MM atoms",
     help="Distance cutoff (Å) from ML region for MM atoms to include in Hessian "
          "calculation. Applied to movable MM atoms; combinable with --detect-layer.",
@@ -353,6 +353,10 @@ def cli(
     )
     merged_yaml_cfg, config_layer_cfg, _override_layer_cfg = load_merged_yaml_cfg(
         config_yaml=config_yaml, override_yaml=None,
+    )
+    from mlmm.cli.decorators import resolve_model_indices_setting
+    model_indices_str, model_indices_one_based = resolve_model_indices_setting(
+        ctx, merged_yaml_cfg, model_indices_str, model_indices_one_based
     )
 
     if input_path.suffix.lower() == ".xyz" and ref_pdb is None:

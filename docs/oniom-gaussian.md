@@ -1,6 +1,6 @@
 # Gaussian ONIOM Mode (`oniom-export --mode g16`)
 
-Export an ML/MM system to Gaussian ONIOM (`.com`/`.gjf`) using an Amber parm7 topology. This is the Gaussian-specific detail page for `oniom-export`; it reads topology data from `--parm` and the movable/frozen partition from an MLMM layered PDB passed to `-i/--input`.
+Export an ML/MM system to Gaussian ONIOM (`.com`/`.gjf`) using an Amber parm7 topology. This is the Gaussian-specific detail page for `oniom-export`; it reads topology data from `--parm7` and the movable/frozen partition from an MLMM layered PDB passed to `-i/--input`.
 
 The input `parm7` must be CMAP-free. Gaussian ONIOM cannot represent the
 topology's CMAP terms faithfully, so export fails before writing when any are
@@ -11,25 +11,25 @@ present.
 Minimal export with explicit charge and multiplicity:
 
 ```bash
-mlmm oniom-export --mode g16 --parm real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode g16 --parm7 real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
  -o system.com -q 0 -m 1
 ```
 
 ```bash
 # Basic export with explicit method
-mlmm oniom-export --mode g16 --parm real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode g16 --parm7 real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
  -o system.com -q 0 -m 1 --method "wB97XD/def2-TZVPD"
 ```
 
 ```bash
 # Disable element-sequence validation when atom order is already trusted
-mlmm oniom-export --mode g16 --parm real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode g16 --parm7 real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
  -o system.gjf -q 0 -m 1 --no-element-check
 ```
 
 ```bash
 # Set compute resources
-mlmm oniom-export --mode g16 --parm real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
+mlmm oniom-export --mode g16 --parm7 real.parm7 -i pocket_layered.pdb --model-pdb ml_region.pdb \
  -o system.com -q 0 -m 1 --nproc 16 --mem 32GB
 ```
 
@@ -52,7 +52,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `--parm PATH` | Amber parm7 topology file. | Required |
+| `--parm7 PATH` | Amber parm7 topology file. | Required |
 | `-i, --input PATH` | MLMM layered PDB; atom order must match parm7. | Required |
 | `--element-check / --no-element-check` | Validate element sequence between input and parm7. | `True` |
 | `--model-pdb PATH` | PDB file defining QM region atoms. | _None_ |

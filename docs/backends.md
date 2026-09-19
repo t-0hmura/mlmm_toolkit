@@ -66,9 +66,9 @@ Switching OMol-trained UMA from the default fp32 to fp64 can have a non-trivial
 impact on TSOPT and Hessian evaluation. For full-system PDBs with valid B-factor layers:
 
 ```bash
-mlmm tsopt -i ts.pdb --parm real.parm7 -q 0 -m 1 --precision fp64
-mlmm freq -i opt.pdb --parm real.parm7 -q 0 -m 1 --precision fp64
-mlmm irc -i ts.pdb --parm real.parm7 -q 0 -m 1 --precision fp64
+mlmm tsopt -i ts.pdb --parm7 real.parm7 -q 0 -m 1 --precision fp64
+mlmm freq -i opt.pdb --parm7 real.parm7 -q 0 -m 1 --precision fp64
+mlmm irc -i ts.pdb --parm7 real.parm7 -q 0 -m 1 --precision fp64
 ```
 
 The unified `--precision` flag is routed to each backend's native kwarg
@@ -105,7 +105,7 @@ Requires `fairchem-core ≥ 2.0` for the `InferenceSettings` API.
 ## Stateful DFT/MM backend
 
 All calculator-consuming workflows accept
-`--backend dft --func-basis FUNCTIONAL/BASIS --engine gpu|cpu`. The existing
+`--backend dft --func-basis FUNCTIONAL/BASIS --dft-engine gpu|cpu`. The existing
 `mlmm dft` energy/post-processing subcommand remains separate.
 
 For closed-shell GPU low-memory runs, the DFT adapter rebuilds the
@@ -120,14 +120,14 @@ response blocks. The external environment is represented by explicit MM atoms
 and point charges; the MLMM DFT backend does not add an overlapping PCM/SMD
 continuum.
 
-Low-memory execution is the default (`--lowmem`). Closed-shell GPU calculations,
+Low-memory execution is the default (`--dft-low-memory`). Closed-shell GPU calculations,
 including electrostatic embedding, use `gpu4pyscf.dft.rks_lowmem.RKS` for
 energy, gradients, and Hessians. Open-shell GPU and CPU calculations use
-standard direct JK without a persistent density-fitting tensor. `--no-lowmem`
+standard direct JK without a persistent density-fitting tensor. `--no-dft-low-memory`
 enables density fitting and may improve difficult SCF convergence when enough
 memory is available. PySCF threads and host RAM are detected from
 the scheduler, process affinity, and host/cgroup limits; override them with
-`--dft-nprocs` and `--dft-mem`. The memory value is host RAM, not GPU VRAM.
+`--dft-nprocs` and `--dft-memory`. The memory value is host RAM, not GPU VRAM.
 
 SCF checkpoint files are disabled by default because they can grow to tens of
 gigabytes. Enable them with `--save-scf-checkpoint`; without an explicit
@@ -164,10 +164,10 @@ GFN-xTB, the DFTB+ ASE calculator, or `ase.calculators.orca.ORCA(...)`. Then
 pass the file to a stage or to `all` (it selects the `custom` ML backend,
 overriding `--backend`). These examples require full-system PDBs with valid B-factor layers:
 
-    mlmm sp    -i complex.pdb --parm system.parm7 --calc-file my_calc.py -q 0 -m 1
-    mlmm opt   -i complex.pdb --parm system.parm7 --calc-file my_calc.py -q 0 -m 1
-    mlmm freq  -i complex.pdb --parm system.parm7 --calc-file my_calc.py -q 0 -m 1
-    mlmm all   -i R.pdb P.pdb --parm system.parm7 --calc-file my_calc.py -q 0 -m 1
+    mlmm sp    -i complex.pdb --parm7 system.parm7 --calc-file my_calc.py -q 0 -m 1
+    mlmm opt   -i complex.pdb --parm7 system.parm7 --calc-file my_calc.py -q 0 -m 1
+    mlmm freq  -i complex.pdb --parm7 system.parm7 --calc-file my_calc.py -q 0 -m 1
+    mlmm all   -i R.pdb P.pdb --parm7 system.parm7 --calc-file my_calc.py -q 0 -m 1
 
 Notes:
 

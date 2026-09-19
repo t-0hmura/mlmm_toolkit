@@ -121,7 +121,7 @@ After summing residue + ligand + metal charges, sanity-check by:
 - Or run a tiny optimization and read `summary.json`:
 
   ```bash
-  mlmm opt -i cluster.pdb --parm real.parm7 -q ... -m 1 -o /tmp/check --out-json
+  mlmm opt -i cluster.pdb --parm7 real.parm7 -q ... -m 1 -o /tmp/check --out-json
   python -c "import json; print(json.load(open('/tmp/check/result.json'))['charge'])"
   ```
 

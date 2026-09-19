@@ -39,6 +39,8 @@ import yaml
 import numpy as np
 import torch
 
+from mlmm.cli.bool_compat import BoolCompatCommand
+
 logger = logging.getLogger(__name__)
 
 
@@ -173,6 +175,18 @@ from mlmm.workflows._run_session import (
     public_output_key as _public_output_key,
     refresh_current_public_outputs as _refresh_current_public_outputs,
 )
+from mlmm.workflows._segment_resume import (
+    build_resume_identity,
+    file_sha256,
+    invalidate_from_segment,
+    load_previous_manifest,
+    parm7_content_sha256,
+    preferred_endpoint_trajectories,
+    retained_energy_diagrams,
+    retained_post_segments,
+    retained_public_artifact,
+    validate_resume_identity,
+)
 from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg
 from mlmm.cli.preflight import validate_existing_files
 from mlmm.workflows import scan as _scan_cli
@@ -196,6 +210,8 @@ _CALC_CONFIG_ONLY_KEYS = frozenset(
         "charge",
         "model_indices_one_based",
         "model_indices_str",
+        "model_indices",
+        "model_indices_base",
         "precision",
         "spin",
     }
@@ -2445,6 +2461,8 @@ def _finalize_current_summary(
             out_dir=out_dir,
             mirrors=mirrors,
         )
+    if "path.summary" in manifest.expected:
+        manifest.refresh_recorded("path.summary")
     _refresh_current_public_outputs(manifest, out_dir)
     _persist_run_manifest(manifest, out_dir)
     return published
@@ -4236,7 +4254,7 @@ _ALL_PRIMARY_HELP_OPTIONS = frozenset(
         "--tsopt",
         "--thermo",
         "--dft",
-        "--dft-func-basis",
+        "--func-basis",
         "--config",
         "-s",
         "--scan-lists",
@@ -4248,7 +4266,7 @@ _ALL_PRIMARY_HELP_OPTIONS = frozenset(
         "--opt-mode",
         "--opt-mode-post",
         "--thresh",
-        "--parm",
+        "--parm7",
         "--model-pdb",
         "--detect-layer",
         "--ref-pdb",
@@ -4256,6 +4274,7 @@ _ALL_PRIMARY_HELP_OPTIONS = frozenset(
         "--radius",
         "--selected-resn",
         "--refine-path",
+        "--resume-segment",
         "-o",
         "--print-every",
         "--help-advanced",
@@ -4273,6 +4292,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 
 
 @click.command(
+    cls=BoolCompatCommand,
     help="Run pocket extraction → (optional scan-defined single-structure route) → MEP search in one command.\n"
          "If exactly one input is provided: (a) with --scan-lists, stage results feed into path-opt (or path_search with --refine-path); "
          "(b) with --tsopt and no --scan-lists, run TSOPT-only mode.",
@@ -4361,6 +4381,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     ),
 )
 @click.option(
+    "--parm7",
     "--parm",
     "parm7_override",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
@@ -4457,7 +4478,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 )
 @click.option("--max-cycles-gsm", type=click.IntRange(min=1), default=None, show_default="300",
               help="Maximum GSM string-optimizer cycles for the MEP stage.")
-@click.option("--max-cycles-dmf", type=click.IntRange(min=1), default=None, show_default="3000",
+@click.option("--dmf-max-iterations", "--max-cycles-dmf", "max_cycles_dmf", type=click.IntRange(min=1), default=None, show_default="3000",
               help=("Maximum IPOPT iterations for the DMF MEP stage. This is a solver "
                     "iteration count, not a string-optimizer cycle count."))
 @click.option("--climb/--no-climb", default=True, show_default=True,
@@ -4505,7 +4526,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
         "Convergence preset for single-structure optimizations and scan "
         "relaxations (gau_loose|gau|gau_tight|gau_vtight|baker|never). "
         "The MEP stage keeps its own "
-        "--thresh-gsm / --thresh-dmf."
+        "--thresh-gsm / --dmf-tol."
     ),
 )
 @click.option(
@@ -4519,7 +4540,9 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     ),
 )
 @click.option(
+    "--dmf-tol",
     "--thresh-dmf",
+    "thresh_dmf",
     type=str,
     default=None,
     show_default="tight",
@@ -4541,6 +4564,17 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 )
 @click.option("--config", "config_yaml", type=click.Path(path_type=Path, exists=True, dir_okay=False),
               default=None, help="Base YAML configuration file applied before explicit CLI options.")
+@click.option(
+    "--resume-segment",
+    type=click.IntRange(min=1),
+    default=None,
+    show_default="disabled",
+    help=(
+        "Reuse the verified MEP in --out-dir and rerun post-processing from "
+        "segment N. Repeat the original path/extraction/calculator options; "
+        "post-processing options may be changed."
+    ),
+)
 @click.option("--show-config/--no-show-config", "show_config", default=False, show_default=True,
               help="Print resolved configuration and continue execution.")
 @click.option("--dry-run/--no-dry-run", "dry_run", default=False, show_default=True,
@@ -4695,21 +4729,21 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @click.option("--dft-out-dir", type=click.Path(path_type=Path, file_okay=False), default=None,
               show_default="<tsopt dir>/dft",
               help="Override dft output base directory (relative paths resolved against the default).")
-@click.option("--dft-func-basis", type=str, default=None,
+@click.option("--func-basis", "--dft-func-basis", "dft_func_basis", type=str, default=None,
               show_default="wb97m-v/def2-svp",
               help="Override dft --func-basis value.")
-@click.option("--dft-max-cycle", type=click.IntRange(min=1), default=None,
+@click.option("--scf-max-cycles", "--dft-max-cycle", "dft_max_cycle", type=click.IntRange(min=1), default=None,
               show_default="100",
-              help="Override dft --max-cycle value.")
-@click.option("--dft-conv-tol", type=float, default=None,
+              help="Override the DFT SCF iteration limit.")
+@click.option("--scf-tol", "--dft-conv-tol", "dft_conv_tol", type=float, default=None,
               show_default="1e-09",
-              help="Override dft --conv-tol value.")
+              help="Override the DFT SCF convergence tolerance.")
 @click.option("--dft-grid-level", type=int, default=None,
               show_default="3",
               help="Override dft --grid-level value.")
-@click.option("--dft-engine", type=click.Choice(["gpu", "cpu"]), default=None,
+@click.option("--dft-engine", "--engine", "dft_engine", type=click.Choice(["gpu", "cpu"]), default=None,
               show_default="gpu",
-              help="Override dft --engine value.")
+              help="Override the DFT execution engine.")
 # ===== Staged scan specification for single-structure route =====
 @click.option(
     "-s", "--scan-lists",
@@ -4729,7 +4763,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @click.option("--scan-max-step-size", type=float, default=None,
               show_default="0.2",
               help="Override scan --max-step-size (Å).")
-@click.option("--scan-bias-k", type=float, default=None,
+@click.option("--scan-restraint-k", "--scan-bias-k", "scan_bias_k", type=float, default=None,
               show_default="300.0",
               help="Override scan harmonic bias strength k (eV/Å^2).")
 @click.option("--scan-relax-max-cycles", type=click.IntRange(min=1), default=None,
@@ -4811,7 +4845,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @add_calc_file_option()
 @add_deterministic_option()
 @add_allow_charge_mult_mismatch_option()
-@add_dft_calculator_options()
+@add_dft_calculator_options(include_method=False, include_engine=False)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -4853,6 +4887,7 @@ def cli(
     thresh_dmf: Optional[str],
     thresh_post: str,
     config_yaml: Optional[Path],
+    resume_segment: Optional[int],
     show_config: bool,
     dry_run: bool,
     pre_opt: bool,
@@ -4963,6 +4998,17 @@ def cli(
     command_str = shlex.join(["mlmm", *map(str, _argv)])
 
     _is_param_explicit = make_is_param_explicit(ctx)
+    resuming = resume_segment is not None
+    if resuming and dry_run:
+        raise click.UsageError(
+            "--resume-segment performs a verified in-place continuation and "
+            "cannot be combined with --dry-run."
+        )
+    if resuming and not (do_tsopt or do_thermo or do_dft):
+        raise click.UsageError(
+            "--resume-segment requires at least one post-processing stage: "
+            "--tsopt, --thermo, or --dft."
+        )
     # Post-IRC endpoint re-optimization uphill-rejection toggle. ``None`` unless
     # the flag was explicitly passed, so the default path inherits the child
     # optimizer's default-off setting.
@@ -5081,6 +5127,20 @@ def cli(
         finalize_dft_calculator_config,
     )
     _post_dft_resource_cli: Dict[str, Any] = {}
+    _primary_dft_active = (
+        str(_resolved_dft_values.get("backend", "")).strip().lower() == "dft"
+    )
+    if _primary_dft_active:
+        _primary_dft_meta = ctx.meta.setdefault(DFT_CLI_META_KEY, {})
+        for _option_name, _setting_name, _value in (
+            ("dft_func_basis", "func_basis", dft_func_basis),
+            ("dft_max_cycle", "max_cycle", dft_max_cycle),
+            ("dft_conv_tol", "conv_tol", dft_conv_tol),
+            ("dft_grid_level", "grid_level", dft_grid_level),
+            ("dft_engine", "engine", dft_engine),
+        ):
+            if _is_param_explicit(_option_name) and _value is not None:
+                _primary_dft_meta[_setting_name] = _value
     if (
         str(_resolved_dft_values.get("backend", "")).strip().lower() != "dft"
         and do_dft
@@ -5175,6 +5235,7 @@ def cli(
     # the registered coordinate template.
     _prepared_all_inputs: List[Any] = []
     _original_input_paths = tuple(Path(path) for path in input_paths)
+    _original_ref_pdb_cli = ref_pdb_cli
     for path in _original_input_paths:
         suffix = path.suffix.lower()
         if suffix not in {".pdb", ".cif", ".mmcif", ".xyz"}:
@@ -5380,8 +5441,14 @@ def cli(
         "dft_grid_level",
         "dft_engine",
     )
+    _shared_dft_cli_names = {
+        "dft_func_basis", "dft_max_cycle", "dft_conv_tol",
+        "dft_grid_level", "dft_engine",
+    }
     _unused_post_dft = [
-        name for name in _post_dft_cli_names if _is_param_explicit(name)
+        name for name in _post_dft_cli_names
+        if _is_param_explicit(name)
+        and not (_primary_dft_active and name in _shared_dft_cli_names)
     ]
     if _unused_post_dft and not do_dft:
         raise click.BadParameter(
@@ -5733,6 +5800,27 @@ def cli(
     (out_dir / "mep.pdb").unlink(missing_ok=True)
     work_dir = out_dir / WORK_DIRNAME  # pipeline-wide scratch (safe to rm -rf)
     session.resources.own_exclusive_lock(work_dir / ".run.lock")
+    previous_manifest_payload: Optional[Dict[str, Any]] = None
+    previous_root_summary: Optional[Dict[str, Any]] = None
+    if resuming:
+        previous_manifest_payload = load_previous_manifest(
+            work_dir / "_run_manifest.json", out_dir=out_dir
+        )
+        prior_summary_path = out_dir / "summary.json"
+        try:
+            loaded_prior_summary = json.loads(
+                prior_summary_path.read_text(encoding="utf-8")
+            )
+        except (OSError, json.JSONDecodeError) as exc:
+            raise click.ClickException(
+                f"Cannot read the saved summary required for resume: "
+                f"{prior_summary_path}: {exc}"
+            ) from exc
+        if not isinstance(loaded_prior_summary, dict):
+            raise click.ClickException(
+                f"Saved summary is not a JSON object: {prior_summary_path}"
+            )
+        previous_root_summary = loaded_prior_summary
     input_paths = _materialize_all_coordinate_inputs(
         _prepared_all_inputs,
         work_dir,
@@ -5741,7 +5829,7 @@ def cli(
     # baseline is captured before any producer writes.  A stale file from an
     # earlier invocation that this run does not rewrite stays unclaimed and is
     # excluded from the current-run key_output_files.
-    for _public_name in (
+    for _public_name in (() if resuming else (
         "summary.log",
         "summary.json",
         "mep_trj.xyz",
@@ -5760,7 +5848,7 @@ def cli(
         "energy_diagram_G_MLIP_all.png",
         "energy_diagram_DFT_all.png",
         "energy_diagram_G_DFT_plus_MLIP_all.png",
-    ):
+    )):
         _declare_public_output(manifest, out_dir, out_dir / _public_name)
 
     def _write_public_segment_diagram(
@@ -5801,6 +5889,14 @@ def cli(
     ensure_dir(out_dir)
     if not single_tsopt_mode:
         ensure_dir(path_dir)  # path_search might be skipped only in tsopt-only mode
+    preparation_out_dir = out_dir
+    if resuming:
+        preparation_out_dir = Path(
+            tempfile.mkdtemp(prefix="resume_preparation_", dir=work_dir)
+        ).resolve()
+        session.resources.add(
+            lambda path=preparation_out_dir: shutil.rmtree(path, ignore_errors=True)
+        )
 
     # Preflight: add_elem_info only for inputs lacking element fields
     # → Create fixed copies under a temporary folder inside out_dir (used ONLY for extraction)
@@ -6010,7 +6106,7 @@ def cli(
                 )
         ml_region_pdb = _write_ml_region_definition(
             model_pdb_source,
-            out_dir / "ml_region.pdb",
+            preparation_out_dir / "ml_region.pdb",
         )
         _echo_detail(
             f"[all] ML region selection (--model-pdb {model_pdb_source}) → "
@@ -6019,11 +6115,15 @@ def cli(
     else:
         ml_region_pdb = None
         if skip_extract and detect_layer:
-            ml_region_pdb = _write_bfactor_ml_subset(pocket_for_ml_region, out_dir / "ml_region.pdb")
+            ml_region_pdb = _write_bfactor_ml_subset(
+                pocket_for_ml_region, preparation_out_dir / "ml_region.pdb"
+            )
             if ml_region_pdb is not None:
                 _echo_detail(f"[all] ML region definition (B≈0 subset from layered input) → {ml_region_pdb}{_ml_region_summary_suffix(ml_region_pdb)}")
         if ml_region_pdb is None:
-            ml_region_pdb = _write_ml_region_definition(pocket_for_ml_region, out_dir / "ml_region.pdb")  # reusable deliverable (--model-pdb input for follow-up runs)
+            ml_region_pdb = _write_ml_region_definition(
+                pocket_for_ml_region, preparation_out_dir / "ml_region.pdb"
+            )  # reusable deliverable (--model-pdb input for follow-up runs)
             _echo_detail(f"[all] ML region definition → {ml_region_pdb}{_ml_region_summary_suffix(ml_region_pdb)}")
 
     # mm_parm: use --parm if provided, otherwise run tleap
@@ -6032,7 +6132,7 @@ def cli(
         _echo_detail(f"[all] parm7 (--parm override) → {real_parm7_path}")
     else:
         _echo_detail(f"[all] mm_parm source PDB → {pdb_for_mm_parm}")
-        mm_dir = out_dir / "mm_parm"  # reusable deliverable (parm7/rst7 = --parm input for follow-up runs)
+        mm_dir = preparation_out_dir / "mm_parm"  # reusable deliverable (parm7/rst7 = --parm input for follow-up runs)
         missing_ambertools = _missing_ambertools_commands(
             _ambertools_command_paths()
         )
@@ -6090,7 +6190,7 @@ def cli(
     try:
         ml_without_link, ml_with_link = write_ml_region_xyz_pair(
             region_workspace,
-            out_dir,
+            preparation_out_dir,
         )
         n_model_atoms = len(region_workspace.atoms_model)
         n_link_atoms = len(region_workspace.link_pairs)
@@ -6110,7 +6210,7 @@ def cli(
         if _original_input_paths[0].suffix.lower() == ".pdb":
             ml_without_link_pdb, ml_with_link_pdb = write_ml_region_pdb_pair(
                 region_workspace,
-                out_dir,
+                preparation_out_dir,
                 xyz_paths=(ml_without_link, ml_with_link),
             )
             _echo_detail(
@@ -6130,7 +6230,7 @@ def cli(
 
     # define-layer: assign 3-layer B-factors to each full-system PDB
     _echo_section("====== [all] Stage 1c — define-layer — assign 3-layer B-factors to full-system PDBs ======")
-    layered_dir = out_dir / "layered"  # deliverable (B-factor-layered PDBs for inspection / reuse)
+    layered_dir = preparation_out_dir / "layered"  # deliverable (B-factor-layered PDBs for inspection / reuse)
     ensure_dir(layered_dir)
     layer_source_dir = work_dir / "layer_sources"
     layered_inputs: List[Path] = []
@@ -6202,6 +6302,191 @@ def cli(
                 layered_inputs.append(full_pdb)
 
     _layer_summary_counts = _summarize_existing_bfactor_layers(layered_inputs[0])
+
+    _resume_path_request = {
+        "center": None if center_spec is None else str(center_spec),
+        "radius": float(radius),
+        "radius_het2het": float(radius_het2het),
+        "include_h2o": bool(include_h2o),
+        "exclude_backbone": bool(exclude_backbone),
+        "add_linkh": bool(add_linkh),
+        "selected_resn": str(selected_resn or ""),
+        "modified_residue": str(modified_residue or ""),
+        "ligand_charge": None if ligand_charge is None else str(ligand_charge),
+        "parm7_sha256": parm7_content_sha256(real_parm7_path),
+        "model_region_sha256": file_sha256(ml_region_pdb),
+        "layered_input_sha256": [file_sha256(path) for path in layered_inputs],
+        "mm_ff_set": str(mm_ff_set),
+        "mm_add_ter": bool(mm_add_ter),
+        "mm_auto_disulfide": bool(mm_auto_disulfide),
+        "mm_ligand_mult": None if mm_ligand_mult is None else str(mm_ligand_mult),
+        "detect_layer": bool(detect_layer),
+        "freeze_atoms": [int(value) for value in effective_freeze_atoms],
+        "scan_lists": [str(value) for value in scan_lists_raw],
+        "scan_one_based": True if scan_one_based is None else bool(scan_one_based),
+        "scan_max_step_size": scan_max_step_size,
+        "scan_bias_k": scan_bias_k,
+        "scan_relax_max_cycles": scan_relax_max_cycles,
+        "scan_preopt": scan_preopt_override,
+        "scan_endopt": scan_endopt_override,
+        "refine_path": bool(refine_path),
+        "mep_mode": str(mep_mode_kind),
+        "dmf_backend": str(dmf_backend_effective),
+        "max_nodes": int(max_nodes),
+        "max_depth": max_depth,
+        "gsm_param": gsm_param,
+        "max_cycles_gsm": max_cycles_gsm,
+        "max_cycles_dmf": max_cycles_dmf,
+        "climb": bool(climb),
+        "opt_mode": str(opt_mode_norm),
+        "preopt": bool(pre_opt),
+        "thresh": thresh,
+        "thresh_gsm": thresh_gsm,
+        "thresh_dmf": thresh_dmf,
+        "coord_type": None if cli_coord_type is None else str(cli_coord_type),
+        "config_sha256": None if config_yaml is None else file_sha256(config_yaml),
+    }
+    _resume_calculator_identity = {
+        key: deepcopy(_resolved_provenance.get(key))
+        for key in (
+            "mlip_backend", "mlip_model", "mlip_task", "mlip_precision",
+            "primary_method", "dft_settings",
+        )
+        if key in _resolved_provenance
+    }
+    _resume_calculator_identity.update(
+        {
+            "embedcharge": bool(embedcharge),
+            "embedcharge_cutoff": embedcharge_cutoff,
+            "link_atom_method": _resolved_calc_values.get("link_atom_method"),
+            "mm_backend": _resolved_calc_values.get("mm_backend"),
+            "use_cmap": _resolved_calc_values.get("use_cmap"),
+        }
+    )
+    resume_identity = build_resume_identity(
+        inputs=_original_input_paths,
+        ref_pdb=_original_ref_pdb_cli,
+        pipeline_mode="path-search" if refine_path else "path-opt",
+        path_request=_resume_path_request,
+        calculator_identity=_resume_calculator_identity,
+        charge=q_int,
+        spin=spin,
+    )
+
+    if resuming:
+        assert previous_manifest_payload is not None
+        assert previous_root_summary is not None
+        prior_segments = previous_root_summary.get("segments") or []
+        available_indices = [
+            int(item.get("index", 0) or 0)
+            for item in prior_segments
+            if isinstance(item, dict)
+        ]
+        validate_resume_identity(
+            previous_root_summary.get("resume_identity"),
+            resume_identity,
+            segment=int(resume_segment),
+            available_segments=available_indices,
+        )
+
+        recorded_path_request = previous_root_summary["resume_identity"][
+            "path_request"
+        ]
+        saved_model_region = out_dir / "ml_region.pdb"
+        if (
+            not saved_model_region.is_file()
+            or file_sha256(saved_model_region)
+            != recorded_path_request["model_region_sha256"]
+        ):
+            raise click.ClickException(
+                f"Saved ML-region file does not match the completed MEP: "
+                f"{saved_model_region}"
+            )
+        saved_layered_inputs: List[Path] = []
+        for generated, expected_digest in zip(
+            layered_inputs,
+            recorded_path_request["layered_input_sha256"],
+            strict=True,
+        ):
+            generated_resolved = generated.resolve()
+            saved = (
+                out_dir / "layered" / generated.name
+                if generated_resolved.is_relative_to(preparation_out_dir)
+                else generated_resolved
+            )
+            if not saved.is_file() or file_sha256(saved) != expected_digest:
+                raise click.ClickException(
+                    f"Saved layered input does not match the completed MEP: {saved}"
+                )
+            saved_layered_inputs.append(saved.resolve())
+        if parm7_override is None:
+            saved_parm7 = out_dir / "mm_parm" / real_parm7_path.name
+            if (
+                not saved_parm7.is_file()
+                or parm7_content_sha256(saved_parm7)
+                != recorded_path_request["parm7_sha256"]
+            ):
+                raise click.ClickException(
+                    f"Saved parm7 does not match the completed MEP: {saved_parm7}"
+                )
+            real_parm7_path = saved_parm7.resolve()
+        ml_region_pdb = saved_model_region.resolve()
+        layered_inputs = saved_layered_inputs
+        _layer_summary_counts = _summarize_existing_bfactor_layers(layered_inputs[0])
+
+        produced = previous_manifest_payload["produced"]
+        source_prefixes = (
+            "path.hei.", "path.hei_ref.", "path.hei_gjf.", "path.mep.",
+        )
+        for artifact_key, entry in produced.items():
+            keep_source = (
+                artifact_key == "path.summary"
+                or artifact_key.startswith(source_prefixes)
+                or (
+                    artifact_key.startswith("path.segment.")
+                    and artifact_key.endswith(".endpoint_trajectory")
+                )
+            )
+            artifact_path = Path(entry["path"])
+            keep_public = (
+                artifact_key.startswith("output.public.")
+                and retained_public_artifact(
+                    artifact_path,
+                    out_dir=out_dir,
+                    resume_segment=int(resume_segment),
+                )
+            )
+            if not (keep_source or keep_public):
+                continue
+            manifest.adopt_existing(
+                artifact_key,
+                artifact_path,
+                sha256_expected=entry["stamp"]["sha256"],
+            )
+        if "path.summary" not in manifest.produced:
+            raise click.ClickException(
+                "The saved run manifest does not contain the path summary required for resume."
+            )
+        selected_hei_key = f"path.hei.{int(resume_segment):02d}"
+        if selected_hei_key not in manifest.produced:
+            raise click.ClickException(
+                f"The saved MEP has no verified HEI artifact for segment "
+                f"{int(resume_segment):02d}."
+            )
+        invalidate_from_segment(out_dir, int(resume_segment))
+        for _public_name in (
+            "summary.log", "summary.json", "irc_plot_all.png",
+            "energy_diagram_MLIP_all.png", "energy_diagram_G_MLIP_all.png",
+            "energy_diagram_DFT_all.png",
+            "energy_diagram_G_DFT_plus_MLIP_all.png",
+        ):
+            _declare_public_output(manifest, out_dir, out_dir / _public_name)
+        _persist_run_manifest(manifest, out_dir)
+        _echo(
+            f"[all] Reusing the verified MEP and resuming post-processing at "
+            f"segment {int(resume_segment):02d}.",
+            narrative=True,
+        )
 
     # Other path: single-structure + --tsopt True (and NO scan-lists) → TSOPT-only mode
     if single_tsopt_mode:
@@ -7333,7 +7618,7 @@ def cli(
 
     # Stage 1d: Optional scan (single-structure only) to build ordered pocket inputs
     pockets_for_path: List[Path]
-    if is_single and has_scan:
+    if is_single and has_scan and not resuming:
         _echo_section("====== [all] Stage 1d — Staged scan on layered full-system PDB (single-structure mode) ======")
         ensure_dir(scan_dir)
         layered_pdb = Path(layered_inputs[0]).resolve()
@@ -7464,7 +7749,7 @@ def cli(
         pockets_for_path = list(layered_inputs)
 
     # --- Global pre-alignment for coordinate continuity across segments ---
-    if not refine_path and len(pockets_for_path) >= 2:
+    if not resuming and not refine_path and len(pockets_for_path) >= 2:
         try:
             _echo("[all] Pre-aligning all input structures to first frame...")
             _align_dir = path_dir / "pre_align"
@@ -7529,7 +7814,7 @@ def cli(
 
     # Stage 2: Path search on full-system layered PDBs
     mep_mode_label = mep_mode_kind.upper()
-    if refine_path:
+    if refine_path and not resuming:
         _echo_section(
             f"====== [all] Stage 2/{stage_total} — MEP search on full-system "
             f"layered PDBs (recursive {mep_mode_label}) ======"
@@ -7612,7 +7897,7 @@ def cli(
         _echo("[all] mlmm path-search " + " ".join(ps_args))
 
         _run_cli_main("path_search", _path_search.cli, ps_args, on_nonzero="raise", on_exception="raise", prefix="all")
-    else:
+    elif not resuming:
         # --no-refine-path: run path-opt between each adjacent pair and concatenate.
         _echo_section(
             f"====== [all] Stage 2/{stage_total} — MEP path-opt on full-system "
@@ -7988,6 +8273,37 @@ def cli(
         except Exception as e:
             _echo(f"[all] WARNING: Failed to relocate path-opt summary files: {e}", err=True)
 
+    if not resuming:
+        import re as _resume_re
+
+        source_summary = path_dir / "summary.json"
+        manifest.record_current("path.summary", source_summary)
+        for artifact in sorted(path_dir.glob("hei_seg_*.*")):
+            match = _resume_re.match(r"hei_seg_(\d+)$", artifact.stem)
+            if match is None:
+                continue
+            index = int(match.group(1))
+            if artifact.suffix.lower() == ".pdb":
+                key = f"path.hei_ref.{index:02d}"
+            elif artifact.suffix.lower() == ".gjf":
+                key = f"path.hei_gjf.{index:02d}"
+            else:
+                key = f"path.hei.{index:02d}"
+            if key not in manifest.expected:
+                manifest.record_current(key, artifact)
+        for artifact in sorted(path_dir.glob("mep_seg_*_trj.xyz")):
+            match = _resume_re.match(r"mep_seg_(\d+)_trj$", artifact.stem)
+            if match is not None:
+                index = int(match.group(1))
+                manifest.record_current(
+                    f"path.mep.{index:02d}.trajectory", artifact
+                )
+        for index, artifact in preferred_endpoint_trajectories(path_dir):
+            key = f"path.segment.{index:02d}.endpoint_trajectory"
+            if key not in manifest.expected:
+                manifest.record_current(key, artifact)
+        _persist_run_manifest(manifest, out_dir)
+
     # Stage 3: Merge (performed by path_search when --ref-pdb was supplied)
     _echo_section(f"====== [all] Stage 3/{stage_total} — Core MEP outputs ======")
     _echo_detail(f"[all] Final products can be found under: {out_dir}")
@@ -8008,6 +8324,17 @@ def cli(
         except Exception:
             summary_loaded = {}
     summary: Dict[str, Any] = summary_loaded if isinstance(summary_loaded, dict) else {}
+    summary["resume_identity"] = resume_identity
+    if resuming:
+        summary["energy_diagrams"] = retained_energy_diagrams(
+            previous_root_summary or summary,
+            int(resume_segment),
+        )
+        summary.pop("pipeline_stop", None)
+        summary["stopped_before_irc"] = False
+        summary["resumed_from_segment"] = int(resume_segment)
+    else:
+        summary.pop("resumed_from_segment", None)
     path_optimizers.update(summary.get("path_optimizers", []))
     summary["path_optimizers"] = sorted(path_optimizers)
     segments = _read_summary(summary_json_path)
@@ -8122,8 +8449,13 @@ def cli(
         return
 
     # Process ordinary MEP/TS candidates independently of bond diagnostics.
-    reactive = [s for s in segments if _is_reactive_segment(s)]
-    if not reactive:
+    all_reactive = [s for s in segments if _is_reactive_segment(s)]
+    reactive = [
+        s for s in all_reactive
+        if not resuming
+        or int(s.get("index", 0) or 0) >= int(resume_segment)
+    ]
+    if not all_reactive:
         _echo("[post] No TS-capable segments. Skipping TS/thermo/DFT.", narrative=True)
         summary["pipeline_stop"] = {"stage": "post", "reason": "no_reactive_segment"}
         _write_pipeline_summary_log([])
@@ -8142,13 +8474,49 @@ def cli(
         )
         return
 
-    post_segment_logs: List[Dict[str, Any]] = []
+    post_segment_logs: List[Dict[str, Any]] = (
+        retained_post_segments(previous_root_summary or {}, int(resume_segment))
+        if resuming
+        else []
+    )
     tsopt_seg_energies: List[Tuple[float, float, float]] = []
     g_mlip_seg_energies: List[Tuple[float, float, float]] = []
     dft_seg_energies: List[Tuple[float, float, float]] = []
     g_dft_mlip_seg_energies: List[Tuple[float, float, float]] = []
     irc_trj_for_all: List[Tuple[Path, bool]] = []
     pipeline_stop: Optional[Dict[str, Any]] = None
+
+    def _restore_prior_energy(key: str, target: List[Tuple[float, float, float]]) -> None:
+        for prior in post_segment_logs:
+            block = prior.get(key)
+            values = block.get("energies_au") if isinstance(block, dict) else None
+            if not isinstance(values, list) or len(values) != 3:
+                continue
+            try:
+                triple = tuple(float(value) for value in values)
+            except (TypeError, ValueError):
+                continue
+            if np.isfinite(triple).all():
+                target.append(triple)
+
+    if resuming:
+        _restore_prior_energy("mlip", tsopt_seg_energies)
+        _restore_prior_energy("gibbs_mlip", g_mlip_seg_energies)
+        _restore_prior_energy("dft", dft_seg_energies)
+        _restore_prior_energy("gibbs_dft_mlip", g_dft_mlip_seg_energies)
+        for prior in post_segment_logs:
+            trajectory = prior.get("irc_traj")
+            if not trajectory:
+                continue
+            path = Path(str(trajectory))
+            if path.is_file():
+                assignment = prior.get("endpoint_assignment")
+                reverse = bool(
+                    assignment.get("reversed", False)
+                    if isinstance(assignment, dict)
+                    else False
+                )
+                irc_trj_for_all.append((path, reverse))
 
     # For each reactive segment
     for s in reactive:
@@ -8169,7 +8537,7 @@ def cli(
         }
         _tsopt_payload: Dict[str, Any] = {}
         _tsopt_decision: Dict[str, Any] = {}
-        multi_segment_post = len(reactive) > 1
+        multi_segment_post = len(all_reactive) > 1
         freq_out_dir_segment = freq_out_dir
         dft_out_dir_segment = dft_out_dir
         if multi_segment_post:
@@ -9028,12 +9396,12 @@ def cli(
 
     for cond, seg_energies, fname_stem, title_note, ylabel in _all_diagram_specs:
         if not cond or not has_complete_segment_energy_series(
-            seg_energies, expected_segments=len(reactive)
+            seg_energies, expected_segments=len(all_reactive)
         ):
             continue
         all_energies = [e for triple in seg_energies for e in triple]
         all_labels = _build_global_segment_labels(
-            [int(segment["index"]) for segment in reactive]
+            [int(segment["index"]) for segment in all_reactive]
         )
         if not (all_labels and len(all_labels) == len(all_energies)):
             continue

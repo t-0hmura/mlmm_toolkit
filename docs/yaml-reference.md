@@ -58,8 +58,8 @@ geom:
 (calc)=
 ### `calc` (section)
 
-`mlmm:` is an accepted alias for this section — the loaders read `calc` first and fall back to
-`mlmm`, so a file may use either name (not both).
+`calc:` and `mlmm:` are accepted section names. Non-overlapping keys are merged;
+conflicting values are rejected.
 
 ```yaml
 calc:
@@ -67,6 +67,8 @@ calc:
  input_pdb: null # Input PDB file path (usually set by CLI)
  real_parm7: null # Amber parm7 topology for the full (real) system
  model_pdb: null # PDB defining the ML (model) region atoms
+ model_indices: null # ML atom indices used when model_pdb is omitted
+ model_indices_base: 1 # 1 or 0; applies only to YAML model_indices
  model_charge: 0 # Charge of the ML (model) region
  model_mult: 1 # Spin multiplicity of the ML (model) region
  link_mlmm: null # null: derive boundary pairs from parm7 bonds; list: explicit override
@@ -96,7 +98,7 @@ calc:
   func_basis: wb97m-v/def2-svp
   engine: gpu # gpu | cpu
   lowmem: true # direct JK without a persistent DF tensor
-  density_fit: false # enabled by --no-lowmem unless set explicitly
+  density_fit: false # enabled by --no-dft-low-memory unless set explicitly
   nprocs: auto # PySCF/OpenMP threads from scheduler/affinity
   memory: auto # host RAM limit, e.g. 64GB (not GPU VRAM)
   save_scf_checkpoint: false
@@ -157,7 +159,10 @@ calc:
 ```
 
 **Notes:**
-- The section name `calc:` is the canonical form; `mlmm:` is accepted as a legacy alias (recognized by `opt`, `sp`, `tsopt`, `freq`, `irc`, `dft`, `path-opt`, `path-search`, `scan`, `scan2d`, `scan3d`). When both are present, `calc:` takes precedence.
+- `calc:` and `mlmm:` are accepted by calculator workflows. If both are present,
+  non-overlapping keys are merged and conflicting values raise an error.
+- CLI `--model-indices` is always 1-based. YAML accepts a list or range string in
+  `calc.model_indices`; set `calc.model_indices_base: 0` only for zero-based YAML data.
 - `backend` selects the high-level backend: `uma` (default), `orb`, `mace`, `aimnet2`, or stateful PySCF/GPU4PySCF `dft`.
 - With `backend: dft`, `embedcharge: true` uses native PySCF point charges and MM-site forces. Its Hessian is a finite difference of the complete ML/MM force so cross-response blocks are retained.
 - Backend-specific model keys are only relevant when the corresponding backend is selected:
@@ -366,7 +371,7 @@ Direct Max Flux settings for MEP optimization.
 ```yaml
 dmf:
  max_cycles: 3000 # DMF/IPOPT iteration cap
- tol: tight # IPOPT dual_inf_tol: tight (0.04) | middle (0.10) | loose (0.20) or a positive float (overridden by --thresh-dmf)
+ tol: tight # IPOPT dual_inf_tol: tight (0.04) | middle (0.10) | loose (0.20) or a positive float (overridden by --dmf-tol)
  correlated: true # Correlated DMF propagation
  sequential: true # Sequential DMF execution
  fbenm_only_endpoints: false # Run FB-ENM beyond endpoints
@@ -664,7 +669,7 @@ dft:
  conv_tol: 1.0e-09 # SCF convergence tolerance (Hartree)
  max_cycle: 100 # SCF iteration cap
  grid_level: 3 # PySCF grid level
- engine: gpu # Compute engine: "gpu" (gpu4pyscf) or "cpu" (pyscf); CLI --engine takes precedence
+ engine: gpu # Compute engine: "gpu" (gpu4pyscf) or "cpu" (pyscf); CLI --dft-engine takes precedence
  ecp: null # ECP basis name; null auto-derives from def2-* basis sets
  lowmem: true # Low-memory direct JK; false enables density fitting
  nprocs: auto # PySCF/OpenMP threads from scheduler/affinity
@@ -674,7 +679,7 @@ dft:
 ```
 
 **Notes:**
-- `engine`: `gpu` runs through gpu4pyscf (closed-shell calculations, including electrostatic embedding, use `rks_lowmem.RKS` when `lowmem: true`); `cpu` uses standard PySCF RKS/UKS. The CLI flag `--engine` overrides the YAML value when explicitly passed.
+- `engine`: `gpu` runs through gpu4pyscf (closed-shell calculations, including electrostatic embedding, use `rks_lowmem.RKS` when `lowmem: true`); `cpu` uses standard PySCF RKS/UKS. The CLI flag `--dft-engine` overrides the YAML value when explicitly passed.
 - `ecp`: when the basis name starts with `def2-` and `ecp` is `null`, the same basis name is used as the ECP automatically. Set explicitly to override.
 
 ---

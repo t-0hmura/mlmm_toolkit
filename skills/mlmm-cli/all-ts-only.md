@@ -11,17 +11,17 @@ without an MEP search.
 ## Synopsis
 
 ```bash
-mlmm all --parm enzyme.parm7 -i ts_candidate.xyz --ref-pdb enzyme_layered.pdb \
+mlmm all --parm7 enzyme.parm7 -i ts_candidate.xyz --ref-pdb enzyme_layered.pdb \
     -q -1 -m 1 -b uma \
     --tsopt --thermo \
-    [--dft --dft-func-basis 'wb97m-v/def2-svp'] \
+    [--dft --func-basis 'wb97m-v/def2-svp'] \
     -o result_ts_only
 ```
 
 Or with a PDB that carries residue / charge info:
 
 ```bash
-mlmm all --parm enzyme.parm7 -i ts_candidate.pdb \
+mlmm all --parm7 enzyme.parm7 -i ts_candidate.pdb \
     -l 'SAM:1,GPP:-3' \
     --tsopt --thermo \
     -o result_ts_only
@@ -50,9 +50,9 @@ reaction direction unverified, so `all` stops before IRC.
 For finer control, check the TS result before running the downstream commands:
 
 ```bash
-mlmm tsopt -i ts.xyz --parm enzyme.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 -o result_tsopt -b uma
-mlmm irc   -i result_tsopt/final_geometry.xyz --parm enzyme.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 -o result_irc -b uma
-mlmm freq  -i result_tsopt/final_geometry.xyz --parm enzyme.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 -o result_freq -b uma
+mlmm tsopt -i ts.xyz --parm7 enzyme.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 -o result_tsopt -b uma
+mlmm irc   -i result_tsopt/final_geometry.xyz --parm7 enzyme.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 -o result_irc -b uma
+mlmm freq  -i result_tsopt/final_geometry.xyz --parm7 enzyme.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 -o result_freq -b uma
 ```
 
 ## Pipeline collapses to
@@ -174,7 +174,7 @@ selection. Most subcommands accept:
 
 | flag | purpose |
 |---|---|
-| `--parm FILE` | Amber `parm7` topology of the whole enzyme — optional; when omitted, `mm_parm` generates a parm7 from the input PDB |
+| `--parm7 FILE` | Amber `parm7` topology of the whole enzyme — optional; when omitted, `mm_parm` generates a parm7 from the input PDB |
 | `--model-pdb FILE` | Explicit ML-region PDB; takes precedence over extraction- or B-factor-derived ML membership |
 | `--detect-layer` | Automatically read valid B-factor MM sublayers; without explicit or extraction-derived ML membership, B-factors also define ML membership. Enabled by default. |
 | `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |

@@ -67,19 +67,19 @@ def read_xyz(path):
 ## Charge / multiplicity for XYZ inputs
 
 XYZ has **no header for charge or spin**, and mlmm also needs a PDB template
-for topology — so pass `--parm`, `--ref-pdb`, and the charge/spin. Use `-q -m`
+for topology — so pass `--parm7`, `--ref-pdb`, and the charge/spin. Use `-q -m`
 for an explicit total charge:
 
 ```bash
-mlmm tsopt -i ts.xyz --parm real.parm7 --ref-pdb enzyme.pdb -q 0 -m 1 -b uma -o result_tsopt
-mlmm dft   -i ts.xyz --parm real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 --func-basis 'wb97m-v/def2-svp'
+mlmm tsopt -i ts.xyz --parm7 real.parm7 --ref-pdb enzyme.pdb -q 0 -m 1 -b uma -o result_tsopt
+mlmm dft   -i ts.xyz --parm7 real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 --func-basis 'wb97m-v/def2-svp'
 ```
 
 The `--ref-pdb` template also lets the residue-based charge mapping (`-l`)
 resolve, so you can give per-residue charges instead of `-q`:
 
 ```bash
-mlmm tsopt -i ts.xyz --parm real.parm7 --ref-pdb cluster.pdb -l 'SAM:1,GPP:-3' -m 1
+mlmm tsopt -i ts.xyz --parm7 real.parm7 --ref-pdb cluster.pdb -l 'SAM:1,GPP:-3' -m 1
 ```
 
 If unsure about `-q` / `-m`, see `charge-multiplicity.md` before

@@ -6,7 +6,7 @@
 parameter file (`parm7`) generation through the toolkit; if you have
 hand-built `parm7` / `rst7` files, you can skip the install and feed
 them to the compute subcommands (`opt` / `sp` / `freq` / `tsopt` / `irc` /
-`dft` / `path-opt` / `path-search` / `all`) via `--parm`. (`extract` and
+`dft` / `path-opt` / `path-search` / `all`) via `--parm7`. (`extract` and
 `define-layer` operate on PDB only and do not take `parm7` / `rst7`.)
 
 ## Install via conda (recommended)
@@ -51,7 +51,7 @@ mlmm mm-parm -i complex.pdb \
 
 `mm-parm` writes `complex.parm7` and `complex.rst7` directly to the
 current working directory. Pass them to downstream subcommands via
-`--parm` (and the layer-encoded PDB via `--ref-pdb` or
+`--parm7` (and the layer-encoded PDB via `--ref-pdb` or
 `--detect-layer`). The water model is **fixed by `--ff-set`**:
 `ff19SB` ships with OPC3 water, `ff14SB` with TIP3P. There is **no
 separate `--water` flag**, and there is **no `--force-field` flag**

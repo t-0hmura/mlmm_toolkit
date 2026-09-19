@@ -1,24 +1,24 @@
 # `path-opt`
 
-`mlmm path-opt` は、PySisyphus `GrowingString`（デフォルト）または DMF（`--mep-mode dmf`）を用いて、**ちょうど 2 つ**の層付き酵素構造間の最小エネルギー経路（MEP）を最適化します。最適化には ML/MM calculator を使い、リンク原子なしで完全な酵素複合体を保持します。ML 領域は `--model-pdb` で定義し、Amber トポロジーは `--parm` から取得します。両端点には全系座標を含む PDB/mmCIF、または対応する `--ref-pdb` を伴う XYZ を使用できます。経路軌跡を書き出し、最高エネルギーイメージ（HEI）を TS 候補としてエクスポートします。2 つの層付き端点が明確で中間体が無いと予想されるときに使います。再帰的な分割も、結合変化に基づく分解も行わない、`path-search` のシンプル版です。**2 つ以上**の構造から開始し、反応領域のみを自動精密化するワークフローには、代わりに [path-search](path-search.md) を使用してください。
+`mlmm path-opt` は、PySisyphus `GrowingString`（デフォルト）または DMF（`--mep-mode dmf`）を用いて、**ちょうど 2 つ**の層付き酵素構造間の最小エネルギー経路（MEP）を最適化します。最適化には ML/MM calculator を使い、リンク原子なしで完全な酵素複合体を保持します。ML 領域は `--model-pdb` で定義し、Amber トポロジーは `--parm7` から取得します。両端点には全系座標を含む PDB/mmCIF、または対応する `--ref-pdb` を伴う XYZ を使用できます。経路軌跡を書き出し、最高エネルギーイメージ（HEI）を TS 候補としてエクスポートします。2 つの層付き端点が明確で中間体が無いと予想されるときに使います。再帰的な分割も、結合変化に基づく分解も行わない、`path-search` のシンプル版です。**2 つ以上**の構造から開始し、反応領域のみを自動精密化するワークフローには、代わりに [path-search](path-search.md) を使用してください。
 
 ## 実行例
 
 ```bash
 # ミニマル呼び出し
-mlmm path-opt -i reac.pdb prod.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm path-opt -i reac.pdb prod.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 --out-dir ./result_path_opt
 ```
 
 ```bash
 # ストリング成長前に両端点を事前最適化する
-mlmm path-opt -i reac.pdb prod.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm path-opt -i reac.pdb prod.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 --preopt --preopt-max-cycles 20000 --out-dir ./result_path_opt_preopt
 ```
 
 ```bash
 # まずは高速に確認するため climb を無効化する
-mlmm path-opt -i reac.pdb prod.pdb --parm real.parm7 --model-pdb ml_region.pdb \
+mlmm path-opt -i reac.pdb prod.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 --no-climb --max-nodes 8 --out-dir ./result_path_opt_fast
 # 凍結原子の指定とダンプの保存: --freeze-atoms "1,3,5,7" --dump
 ```
@@ -26,14 +26,14 @@ mlmm path-opt -i reac.pdb prod.pdb --parm real.parm7 --model-pdb ml_region.pdb \
 コマンド形式:
 
 ```bash
-mlmm path-opt -i REACTANT.pdb PRODUCT.pdb --parm real.parm7 --model-pdb model.pdb \
+mlmm path-opt -i REACTANT.pdb PRODUCT.pdb --parm7 real.parm7 --model-pdb model.pdb \
  -q CHARGE [-m MULT] [--mep-mode gsm|dmf] [--fix-ends/--no-fix-ends] [options]
 ```
 
 `mlmm path-opt --help` は主要オプションを、`mlmm path-opt --help-advanced` は全オプション一覧を表示します。
 
 ## 処理の流れ
-1. **端点の読み込み** -- PDB/mmCIF 構造、または対応する `--ref-pdb` を伴う XYZ 座標を読み込み、CLI またはデフォルトから電荷/スピンを解決します。`--parm`、`--model-pdb`、電荷/スピンで ML/MM calculatorを構築します。
+1. **端点の読み込み** -- PDB/mmCIF 構造、または対応する `--ref-pdb` を伴う XYZ 座標を読み込み、CLI またはデフォルトから電荷/スピンを解決します。`--parm7`、`--model-pdb`、電荷/スピンで ML/MM calculatorを構築します。
 2. **任意の事前最適化** -- `--preopt` の場合、各端点はアライメントとストリング成長の前に L-BFGS（同じ ML/MM calculatorを使用）で事前最適化されます。`--preopt-max-cycles` でサイクル上限を設定します（デフォルト: 100000）。
 3. **事前アライメント** -- 事前最適化後、最初の構造以降のすべての端点が最初の構造に Kabsch アライメントされます。`freeze_atoms` が定義されている場合、それらの原子のみが RMSD フィットに参加し、結果の変換がすべての原子に適用されます。
 4. **経路最適化** -- `--mep-mode gsm` は PySisyphus `GrowingString`（端点込み `(max_nodes + 2)` イメージ）を使用し、`--mep-mode dmf` は Direct Max Flux を使用します。
@@ -66,10 +66,9 @@ out_dir/ (デフォルト:./result_path_opt/)
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
 | `-i, --input PATH PATH` | 反応物と生成物の PDB/mmCIF 構造、または対応する `--ref-pdb` を伴う XYZ 座標。 | 必須 |
-| `--parm PATH` | 完全 REAL 系の Amber prmtop。 | 必須 |
+| `--parm7 PATH` | 完全 REAL 系の Amber prmtop。 | 必須 |
 | `--model-pdb PATH` | ML 領域を定義する PDB（原子 ID）。`--detect-layer` または `--model-indices` 利用時は省略可。 | _None_ |
 | `--model-indices TEXT` | ML 領域のカンマ区切り原子インデックス（範囲指定可、例: `1-5`）。`--model-pdb` 省略時に使用。 | _None_ |
-| `--model-indices-one-based / --model-indices-zero-based` | `--model-indices` を 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
 | `--detect-layer / --no-detect-layer` | B-factor 層（B=0/10/20）を自動的に読み取ります。ML 原子集合を明示した場合は MM 側の層だけを保持し、明示しない場合は B-factor が ML 原子集合も定義します。 | 有効 |
 | `-q, --charge INT` | ML 領域の総電荷。 | _None_（`-l` 未指定時は必須） |
 | `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `SAM:1,PHN:-1`）。`-q` 省略時に合計電荷を導出。PDB 入力または `--ref-pdb` が必要。 | _None_ |
@@ -82,13 +81,13 @@ out_dir/ (デフォルト:./result_path_opt/)
 | `--max-nodes INT` | 内部ストリングノード数（総イメージ = `max_nodes + 2`）。 | `20` |
 | `--gsm-param [equi\|energy]` | 完全成長後のGSMノード配置。`energy` は高エネルギー領域へノード密度を寄せる。等間隔経路がHEI近傍の反応座標領域を飛び越える場合の試行用であり、TSを同定する機能ではない。 | `equi` |
 | `--max-cycles-gsm INT` | GSMストリング最適化サイクル上限。`stopt.stop_in_when_full`にも設定。 | `300` |
-| `--max-cycles-dmf INT` | DMF IPOPT反復上限。 | `3000` |
+| `--dmf-max-iterations INT` | DMF IPOPT反復上限。 | `3000` |
 | `--climb/--no-climb` | ストリング完全成長後のクライミングイメージ精密化を有効化。 | `True` |
 | `--preopt/--no-preopt` | アライメント/ストリング成長前に各端点を L-BFGS で事前最適化。 | `True` |
 | `--preopt-max-cycles INT` | 端点事前最適化サイクル上限。 | `100000` |
 | `--thresh TEXT` | 端点事前最適化のみの収束プリセット上書き（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | `gau` |
 | `--thresh-gsm TEXT` | GSM ストリング最適化の収束プリセット（`stopt.thresh`; `--thresh` と同じプリセット群）。 | `gau_loose` |
-| `--thresh-dmf TEXT` | DMF 最適化の IPOPT dual-infeasibility 許容値（`dmf.tol`）。`tight`(0.04)、`middle`(0.10)、`loose`(0.20) または正の float。Gaussian プリセットは拒否。 | `tight` |
+| `--dmf-tol TEXT` | DMF 最適化の IPOPT dual-infeasibility 許容値（`dmf.tol`）。`tight`(0.04)、`middle`(0.10)、`loose`(0.20) または正の float。Gaussian プリセットは拒否。 | `tight` |
 | `--mm-backend [hessian_ff\|openmm]` | MM バックエンド。Hessian 構築法は `calc.mm_fd` が別に制御します（デフォルト `true`: 有限差分）。 | `hessian_ff` |
 | `--dump/--no-dump` | `out_dir` 内にオプティマイザ軌跡とリスタートをダンプ。 | `False` |
 | `-o, --out-dir TEXT` | 出力ディレクトリ。 | `./result_path_opt/` |

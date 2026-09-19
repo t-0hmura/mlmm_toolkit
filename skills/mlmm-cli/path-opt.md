@@ -11,7 +11,7 @@ recursive search.
 ## Synopsis
 
 ```bash
-mlmm path-opt -i reactant.pdb product.pdb --parm real.parm7 \
+mlmm path-opt -i reactant.pdb product.pdb --parm7 real.parm7 \
     [--mep-mode gsm|dmf] [--max-nodes 20] \
     [-l 'RES:Q,...'] [-b uma|orb|mace|aimnet2|dft] \
     [-o ./result_path_opt/]
@@ -26,7 +26,7 @@ accept:
 
 | flag | purpose |
 |---|---|
-| `--parm FILE` | Amber `parm7` topology of the whole enzyme — **required** |
+| `--parm7 FILE` | Amber `parm7` topology of the whole enzyme — **required** |
 | `--model-pdb FILE` | Explicit ML-region PDB; takes precedence over B-factor ML membership |
 | `--detect-layer` | Automatically read B-factor layers; explicit ML membership retains valid movable/frozen MM layers. Enabled by default. |
 | `--model-indices` | Explicit ML atom indices used when `--model-pdb` is omitted; takes precedence over B-factor ML membership |
@@ -46,7 +46,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--max-nodes` | int | 20 | Max internal nodes (final string ≤ `max-nodes + 2`) |
 | `--thresh` | str | `gau` | Endpoint preoptimization convergence preset |
 | `--thresh-gsm` | str | `gau_loose` | GSM string-optimizer convergence preset |
-| `--thresh-dmf` | str/float | `tight` | DMF IPOPT dual-infeasibility tolerance: `tight`, `middle`, `loose`, or a positive float |
+| `--dmf-tol` | str/float | `tight` | DMF IPOPT dual-infeasibility tolerance: `tight`, `middle`, `loose`, or a positive float |
 | `-q, --charge` / `-l` / `-m` | — | — | Charge / spin (common conventions) |
 | `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |
 | `-o, --out-dir` | path | `./result_path_opt/` | Output directory |
@@ -56,13 +56,13 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 ### Default GSM single segment
 
 ```bash
-mlmm path-opt -i R.pdb P.pdb --parm real.parm7 -q 0 -m 1 -b uma -o result_path_opt
+mlmm path-opt -i R.pdb P.pdb --parm7 real.parm7 -q 0 -m 1 -b uma -o result_path_opt
 ```
 
 ### DMF for hard-to-converge strings
 
 ```bash
-mlmm path-opt -i R.pdb P.pdb --parm real.parm7 -l 'GPP:-3' --mep-mode dmf -b mace \
+mlmm path-opt -i R.pdb P.pdb --parm7 real.parm7 -l 'GPP:-3' --mep-mode dmf -b mace \
     -o result_path_opt_dmf
 ```
 

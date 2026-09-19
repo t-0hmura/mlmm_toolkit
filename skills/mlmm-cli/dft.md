@@ -10,12 +10,12 @@ input.
 ## Synopsis
 
 ```bash
-mlmm dft -i geom.{pdb,xyz} --parm real.parm7 \
+mlmm dft -i geom.{pdb,xyz} --parm7 real.parm7 \
     [-q 0 -m 1] [-l 'RES:Q,...'] \
     [--func-basis 'wb97m-v/def2-svp'] \
-    [--engine gpu|cpu] \
+    [--dft-engine gpu|cpu] \
     [--embedcharge --embedcharge-cutoff ANGSTROM] \
-    [--dft-nprocs INT --dft-mem SIZE] \
+    [--dft-nprocs INT --dft-memory SIZE] \
     [-o ./result_dft/]
 ```
 
@@ -27,7 +27,7 @@ topology** and supports layer-aware selection. Most subcommands accept:
 
 | flag | purpose |
 |---|---|
-| `--parm FILE` | Amber `parm7` topology of the whole enzyme — **required** |
+| `--parm7 FILE` | Amber `parm7` topology of the whole enzyme — **required** |
 | `--model-pdb FILE` | Explicit ML-region PDB; takes precedence over B-factor ML membership |
 | `--detect-layer` | Automatically read B-factor layers; explicit ML membership retains valid movable/frozen MM layers. Enabled by default. |
 | `--model-indices` | Explicit ML atom indices used when `--model-pdb` is omitted; takes precedence over B-factor ML membership |
@@ -46,10 +46,10 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `-q` / `-l` / `-m` | — | — | ML-region charge / ligand-charge mapping / multiplicity (XYZ input always needs `--ref-pdb`) |
 | `--ref-pdb` | path | none | Reference PDB so `-l` works on `.xyz` input |
 | `--func-basis` | str | `wb97m-v/def2-svp` | `'FUNC/BASIS'` |
-| `--engine` | choice {gpu,cpu} | `gpu` | `gpu` (GPU4PySCF) or `cpu` (PySCF) |
-| `--lowmem/--no-lowmem` | bool | `True` | `gpu4pyscf.dft.rks_lowmem.RKS` on closed-shell GPU across calculator workflows, including electrostatic embedding; open-shell GPU and CPU use standard direct-JK RKS/UKS. `--no-lowmem` enables density fitting by default. |
+| `--dft-engine` | choice {gpu,cpu} | `gpu` | `gpu` (GPU4PySCF) or `cpu` (PySCF) |
+| `--dft-low-memory/--no-dft-low-memory` | bool | `True` | `gpu4pyscf.dft.rks_lowmem.RKS` on closed-shell GPU across calculator workflows, including electrostatic embedding; open-shell GPU and CPU use standard direct-JK RKS/UKS. `--no-dft-low-memory` enables density fitting by default. |
 | `--embedcharge` / `--embedcharge-cutoff` | toggle / Å | off / `12.0` | Embed selected MM point charges in the PySCF Hamiltonian. |
-| `--dft-nprocs` / `--dft-mem` | int / size | auto / auto | Override scheduler/environment-derived thread count and memory limit. |
+| `--dft-nprocs` / `--dft-memory` | int / size | auto / auto | Override scheduler/environment-derived thread count and memory limit. |
 | `--config` | path | none | YAML config file |
 | `-o, --out-dir` | path | `./result_dft/` | Output directory |
 | `--show-config` / `--dry-run` / `--help-advanced` | — | — | Standard |
@@ -59,27 +59,27 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 ### Default DFT//MLIP/MM on a TS
 
 ```bash
-mlmm dft -i seg_01/ts.pdb --parm real.parm7 \
+mlmm dft -i seg_01/ts.pdb --parm7 real.parm7 \
     -l 'SAM:1,GPP:-3' \
     --func-basis 'wb97m-v/def2-tzvpd' \
-    --engine gpu
+    --dft-engine gpu
 ```
 
 ### Lighter basis for benchmark scans
 
 ```bash
-mlmm dft -i seg_01/ts.pdb --parm real.parm7 -l 'SAM:1,GPP:-3' \
+mlmm dft -i seg_01/ts.pdb --parm7 real.parm7 -l 'SAM:1,GPP:-3' \
     --func-basis 'wb97m-v/def2-svp' \
-    --engine gpu \
+    --dft-engine gpu \
     -o result_dft_svp
 ```
 
 ### CPU PySCF (aarch64 / no GPU)
 
 ```bash
-mlmm dft -i ts.xyz --ref-pdb real.pdb --parm real.parm7 -q 0 -m 1 \
+mlmm dft -i ts.xyz --ref-pdb real.pdb --parm7 real.parm7 -q 0 -m 1 \
     --func-basis 'wb97m-v/def2-svp' \
-    --engine cpu \
+    --dft-engine cpu \
     -o result_dft_cpu
 ```
 
@@ -114,13 +114,13 @@ settings, engine/low-memory state, recombined energy, and population analyses.
 
 ## Engine choice
 
-| `--engine` | When | Cost |
+| `--dft-engine` | When | Cost |
 |---|---|---|
 | `gpu` | x86_64 + a supported CUDA/GPU4PySCF stack | Pilot the target system |
 | `cpu` | aarch64, no supported GPU stack, or explicit CPU execution | Pilot the target system |
 
-aarch64 (`uname -m`) **requires `--engine cpu` explicitly**:
-`gpu4pyscf-cuda13x` ships x86_64 wheels only, so `--engine gpu` (the
+aarch64 (`uname -m`) **requires `--dft-engine cpu` explicitly**:
+`gpu4pyscf-cuda13x` ships x86_64 wheels only, so `--dft-engine gpu` (the
 default) raises `ClickException` on aarch64 rather than silently
 falling back.
 
@@ -131,7 +131,7 @@ falling back.
 | `OSError: libcusolver.so.11 not found` | `mlmm-install-backends/env-cuda.md` (LD_LIBRARY_PATH order) |
 | `cupy ... invalid device ordinal` | Keep scheduler-provided `CUDA_VISIBLE_DEVICES`; use a valid local ordinal (usually 0 for a one-GPU allocation). |
 | `RuntimeError: CUDA out of memory` | Try the same method on CPU or a larger-memory GPU. A smaller basis/grid is a different method and must be labeled and revalidated. |
-| aarch64 `--engine gpu` raises `ClickException` ("GPU backend failed...") | `gpu4pyscf-cuda13x` is x86_64 only; re-submit with `--engine cpu` |
+| aarch64 `--dft-engine gpu` raises `ClickException` ("GPU backend failed...") | `gpu4pyscf-cuda13x` is x86_64 only; re-submit with `--dft-engine cpu` |
 
 ## Caveats
 

@@ -17,7 +17,7 @@ faithfully; runtime mlmm calculations may still use CMAP in both MM layers.
 ## Synopsis
 
 ```bash
-mlmm oniom-export --parm enzyme.parm7 -i complex_layered.pdb \
+mlmm oniom-export --parm7 enzyme.parm7 -i complex_layered.pdb \
     [--model-pdb model.pdb] \
     -o oniom.gjf \
     [--mode g16|orca] \
@@ -30,7 +30,7 @@ mlmm oniom-export --parm enzyme.parm7 -i complex_layered.pdb \
 
 | flag | type | default | description |
 |---|---|---|---|
-| `--parm` | path | required | Amber `parm7` topology |
+| `--parm7` | path | required | Amber `parm7` topology |
 | `-i, --input` | path | required | MLMM layered PDB; atom order must match parm7 and B-factors define movable/frozen atoms |
 | `--model-pdb` | path | none | PDB defining QM-region atoms (B-factor 0 atoms used otherwise) |
 | `-o, --output` | path | required | Output path. Suffix `.gjf` / `.com` → g16; `.inp` → ORCA (when `--mode` omitted) |
@@ -55,7 +55,7 @@ region; MM is parm7-driven.
 ### g16 ONIOM
 
 ```bash
-mlmm oniom-export --parm enzyme.parm7 -i complex_layered.pdb \
+mlmm oniom-export --parm7 enzyme.parm7 -i complex_layered.pdb \
     -o complex_oniom.gjf \
     --method 'wB97X-D/def2-svp' \
     -q 0 -m 1 \
@@ -65,7 +65,7 @@ mlmm oniom-export --parm enzyme.parm7 -i complex_layered.pdb \
 ### ORCA ONIOM
 
 ```bash
-mlmm oniom-export --parm enzyme.parm7 -i complex_layered.pdb \
+mlmm oniom-export --parm7 enzyme.parm7 -i complex_layered.pdb \
     -o complex_oniom.inp \
     --method 'B3LYP def2-SVP' \
     -q 0 -m 1 \

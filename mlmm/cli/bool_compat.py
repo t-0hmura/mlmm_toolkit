@@ -10,6 +10,8 @@ input is case-insensitive while the canonical form stays lowercase.
 
 from __future__ import annotations
 
+import click
+
 
 _BOOL_TRUE_LITERALS = {"1", "true", "t", "yes", "y", "on"}
 _BOOL_FALSE_LITERALS = {"0", "false", "f", "no", "n", "off"}
@@ -250,3 +252,45 @@ def normalize_bool_argv(
         i += 1
 
     return normalized, legacy_used
+
+
+class BoolCompatCommand(click.Command):
+    """Accept toggle booleans and legacy ``--flag true|false`` values."""
+
+    def parse_args(self, ctx: click.Context, args: list[str]) -> list[str]:
+        command = self.name or "command"
+        value_options: set[str] = set()
+        toggle_options: set[str] = set()
+        negative_aliases: dict[str, str] = {}
+        single_flags: set[str] = set()
+
+        for param in self.params:
+            if not isinstance(param, click.Option):
+                continue
+            positives = [name for name in param.opts if name.startswith("--")]
+            if not positives:
+                continue
+            negatives = [
+                name for name in param.secondary_opts if name.startswith("--")
+            ]
+            if param.is_bool_flag:
+                if negatives:
+                    toggle_options.update(positives)
+                    fallback = negatives[0]
+                    for index, positive in enumerate(positives):
+                        negative_aliases[positive] = (
+                            negatives[index] if index < len(negatives) else fallback
+                        )
+                elif param.default is not True:
+                    single_flags.update(positives)
+            elif isinstance(param.type, click.types.BoolParamType):
+                value_options.update(positives)
+
+        normalized, _legacy_used = normalize_bool_argv(
+            [command, *normalize_argv_option_names(list(args))],
+            {command: frozenset(value_options)},
+            {command: frozenset(toggle_options)},
+            {command: negative_aliases},
+            {command: frozenset(single_flags)},
+        )
+        return super().parse_args(ctx, normalized[1:])
