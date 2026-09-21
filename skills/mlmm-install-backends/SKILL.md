@@ -30,7 +30,7 @@ This skill directory contains ten files; read them in this order:
 | `aimnet2.md` | Installing AIMNet2 |
 | `ambertools.md` | AmberTools (tleap / antechamber) for `mm-parm` |
 | `dft.md` | PySCF + GPU4PySCF (handled separately per `[dft]` extra) |
-| `xtb.md` | Experimental xTB point-charge correction (`--embedcharge`) |
+| `xtb.md` | xTB point-charge correction (`--embedcharge`) |
 ## Install order
 
 1. **Check the env** — see `mlmm-env-detect/SKILL.md` to discover
@@ -97,7 +97,7 @@ name: <your_mlmm_env>
 channels: [conda-forge, nvidia]
 dependencies:
   - python=3.12
-  - xtb                                # only for the experimental MLIP/MM correction
+  - xtb                                # only for the MLIP/MM correction
   - pip
   - pip:
       - --extra-index-url https://download.pytorch.org/whl/<cu_index>

@@ -82,7 +82,7 @@ def check_all(root: Path, require_thermo: bool, require_dft: bool) -> None:
     if execution != "completed":
         raise SystemExit(f"all pipeline did not complete: execution_status={execution!r}")
 
-    # The test73 lane runs with strict convergence criteria (`gau` optimizer
+    # The test72 lane runs with strict convergence criteria (`gau` optimizer
     # and `baker` TS verification) and requires the reported outcome to be TRUE:
     # either a real `success`, or a `partial` that clearly states what is missing.
     # A silent degradation, a `failed`, or a `partial` with no stated reason will

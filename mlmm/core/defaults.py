@@ -135,7 +135,7 @@ MLMM_CALC_KW: Dict[str, Any] = {
     "hess_mm_atoms": None,    # Explicit Hessian-target MM atom indices
     "movable_mm_atoms": None, # Explicit movable MM atom indices
     "frozen_mm_atoms": None,  # Explicit frozen MM atom indices
-    # Optional experimental xTB point-charge correction.
+    # Optional xTB point-charge correction.
     "embedcharge": False,
     "embedcharge_step": 1.0e-3,
     "embedcharge_cutoff": 12.0,

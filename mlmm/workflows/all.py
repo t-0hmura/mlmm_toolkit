@@ -4801,7 +4801,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     default=False,
     show_default=True,
     help=(
-        "Enable experimental point-charge treatment. MLIP/MM stages use the "
+        "Enable point-charge treatment. MLIP/MM stages use the "
         "computationally expensive xTB delta correction; DFT/MM stages embed "
         "MM charges in the PySCF Hamiltonian."
     ),

@@ -68,7 +68,7 @@ def test_required_positive_lane_uses_release_settings_and_runs_last() -> None:
     command = next(
         command.text
         for command in _literal_smoke_commands(SMOKE_SCRIPT)
-        if "--out-dir test73" in command.text
+        if "--out-dir test72" in command.text
     )
     assert "--deterministic" in command
     assert "--no-refine-path" in command
@@ -84,9 +84,9 @@ def test_required_positive_lane_uses_release_settings_and_runs_last() -> None:
     assert "--tsopt-max-cycles" not in command
 
     script = SMOKE_SCRIPT.read_text(encoding="utf-8")
-    assert script.index("--out-dir test71_flatten") < script.index("--out-dir test73")
-    assert script.index("test72_backend_hessian.out") < script.index("--out-dir test73")
-    assert script.index("--out-dir test73") < script.index("--out-dir test74")
+    assert script.index("--out-dir test70_flatten") < script.index("--out-dir test72")
+    assert script.index("test71_backend_hessian.out") < script.index("--out-dir test72")
+    assert script.index("--out-dir test72") < script.index("--out-dir test73")
 
 
 def test_smoke_numbers_follow_execution_order() -> None:
@@ -95,4 +95,23 @@ def test_smoke_numbers_follow_execution_order() -> None:
         for line in SMOKE_SCRIPT.read_text(encoding="utf-8").splitlines()
         if (match := re.match(r"# test(\d+):", line))
     ]
-    assert headers == list(range(1, 79))
+    assert headers == list(range(1, 78))
+
+
+def test_smoke_cleanup_preserves_bundled_inputs(tmp_path: Path) -> None:
+    """Renumbering smoke lanes must not delete their checked-in input PDBs."""
+    fixtures = list(SMOKE_SCRIPT.parent.glob("test*_complex.pdb"))
+    assert fixtures
+    expected = {path.name: path.read_bytes() for path in fixtures}
+    for name, content in expected.items():
+        (tmp_path / name).write_bytes(content)
+    stale = tmp_path / "test999_old_output"
+    stale.mkdir()
+    (stale / "result.json").write_text("{}")
+    script = SMOKE_SCRIPT.read_text(encoding="utf-8")
+    cleanup = script[script.index("for artifact in "):script.index("MLMM_COMPLEX_FREEZE_ATOMS=")]
+    result = subprocess.run(["bash", "-eu", "-c", cleanup], cwd=tmp_path,
+                            capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert not stale.exists()
+    assert {name: (tmp_path / name).read_bytes() for name in expected} == expected

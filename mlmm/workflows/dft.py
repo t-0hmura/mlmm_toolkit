@@ -807,7 +807,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     default=False,
     show_default=True,
     help=(
-        "Experimental: embed MM point charges directly in the PySCF QM Hamiltonian. "
+        "Embed MM point charges directly in the PySCF QM Hamiltonian. "
         "The DFT workflow does not use the optional xTB correction."
     ),
 )
@@ -1397,7 +1397,7 @@ def cli(
         if xc.lower().endswith("-v") or "vv10" in xc.lower():
             mf.nlc = "vv10"
 
-        # --- Experimental electrostatic embedding (--embedcharge) ---
+        # --- Electrostatic embedding (--embedcharge) ---
         n_mm_charges = 0
         embedding_sha256 = None
         if calc_kw.get("embedcharge", False):

@@ -93,6 +93,17 @@ calc:
 
 `InferenceSettings` API のために `fairchem-core ≥ 2.0` が必要です。
 
+## xTB静電補正
+
+MLIP/MM workflowでは、`--embedcharge`により
+`E_xTB(ML + MM point charges) - E_xTB(ML)`と対応するforce/Hessian差分を加えます。
+補正の各評価でMM点電荷あり・なしのxTB計算を行います。ML領域は200–300原子程度以下を
+実用上の目安とし、実際の系、点電荷数、hardwareで事前にbenchmarkしてください。
+これはハード上限ではなく、Hessianの反復評価ではさらに小さい系でも高コストになります。
+
+`--backend dft`では、`--embedcharge`はMM点電荷をPySCF Hamiltonianへ直接入れます。
+この経路はxTB補正を使わず、選択したDFT手法側の計算コスト制約を受けます。
+
 ## Stateful DFT/MM backend
 
 calculatorを使う全workflowで

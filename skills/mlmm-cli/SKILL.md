@@ -64,7 +64,7 @@ These flags appear on most subcommands (canonical list:
 | `--dry-run` | Validate options and print the run plan without executing |
 | `--help-advanced` | Reveal hidden / advanced flags |
 | `--ref-pdb` | Reference PDB used to derive residue context for XYZ inputs |
-| `--embedcharge` | Experimental, computationally expensive xTB correction for MLIP/MM: `E_xTB(ML + MM charges) - E_xTB(ML)`. On `dft`, it instead adds Amber MM charges to the PySCF Hamiltonian. |
+| `--embedcharge` | Computationally expensive xTB correction for MLIP/MM: `E_xTB(ML + MM charges) - E_xTB(ML)`. Keep the ML region to roughly a few hundred atoms; on `dft`, the flag instead adds Amber MM charges to the PySCF Hamiltonian. |
 Charge precedence: explicit `-q` > `-l 'RES:Q'` derivation > `--config` YAML > `defaults.py`.
 
 ## Canonical recipes

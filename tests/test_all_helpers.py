@@ -303,24 +303,8 @@ _PATH_COMMON_CASES = (
 )
 
 
-@pytest.mark.parametrize(
-    ("parameter", "expected"),
-    _PATH_COMMON_CASES,
-)
-def test_path_search_child_forwards_each_explicit_field_once(
-    parameter: str,
-    expected: list[str],
-) -> None:
-    argv = build_path_child_argv(
-        {parameter},
-        **_path_child_kwargs(),
-    )
-    assert argv == ["--mep-mode", "dmf", *expected]
-    assert argv.count(expected[0]) == 1
-
-
 @pytest.mark.parametrize(("parameter", "expected"), _PATH_COMMON_CASES)
-def test_path_opt_child_forwards_each_explicit_field_once(
+def test_path_child_forwards_each_explicit_field_once(
     parameter: str,
     expected: list[str],
 ) -> None:

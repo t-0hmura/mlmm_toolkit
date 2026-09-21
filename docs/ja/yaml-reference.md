@@ -70,7 +70,7 @@ calc:
  link_mlmm: null # null: parm7 結合から自動決定; list: 明示上書き
  link_atom_method: scaled    # リンク原子配置: "scaled" (g-factor) または "fixed" (1.09/1.01 Å)
  backend: uma # 高レベルbackend: uma, orb, mace, aimnet2, dft
- embedcharge: false # 実験的: MLIP は高コストな xTB 補正、dft は PySCF への直接静電埋込み
+ embedcharge: false # MLIP は高コストな xTB 補正、dft は PySCF への直接静電埋込み
  embedcharge_step: 0.001 # MLIP/xTB 補正用の数値 Hessian ステップ（dft では未使用）
  embedcharge_cutoff: 12.0 # ML 領域からの MM 点電荷カットオフ (Å)
  xtb_cmd: xtb # xTB 実行コマンド

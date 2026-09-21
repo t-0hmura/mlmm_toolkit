@@ -73,10 +73,10 @@ Options:
                                   template is available.  [default: convert-
                                   files]
   --embedcharge / --no-embedcharge
-                                  Experimental: embed MM point charges directly
-                                  in the PySCF QM Hamiltonian. The DFT workflow
-                                  does not use the optional xTB correction.
-                                  [default: no-embedcharge]
+                                  Embed MM point charges directly in the PySCF
+                                  QM Hamiltonian. The DFT workflow does not use
+                                  the optional xTB correction.  [default: no-
+                                  embedcharge]
   --embedcharge-cutoff FLOAT      Distance cutoff (Å) from ML region for MM
                                   point charges embedded in the PySCF QM
                                   Hamiltonian. Only used when --embedcharge is

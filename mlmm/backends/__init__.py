@@ -5,7 +5,7 @@ Modules:
   (``_UMABackend`` / ``_OrbBackend`` / ``_MACEBackend`` / ``_AIMNet2Backend``),
   the ``_create_ml_backend`` factory, ``MLMMASECalculator`` (ASE), and ``mlmm``
   (pysisyphus Calculator).
-- ``xtb_embedcharge_correction`` — optional experimental xTB point-charge
+- ``xtb_embedcharge_correction`` — optional xTB point-charge
   correction for ML/MM environmental effects.
 
 User-facing API (factory pattern, per-backend kwargs, unified

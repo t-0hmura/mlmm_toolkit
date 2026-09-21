@@ -1,4 +1,4 @@
-"""Experimental xTB point-charge correction for ML/MM calculations.
+"""xTB point-charge correction for ML/MM calculations.
 
 The implementation computes:
 
@@ -7,7 +7,7 @@ The implementation computes:
     dF_M = F_M(embed) - 0
 
 where Q are ML atoms and M are external MM point charges. The correction is
-optional, experimental, and disabled by default.
+optional and disabled by default.
 """
 
 from __future__ import annotations

@@ -102,6 +102,20 @@ calc:
 
 Requires `fairchem-core ≥ 2.0` for the `InferenceSettings` API.
 
+## xTB electrostatic correction
+
+For MLIP/MM workflows, `--embedcharge` adds
+`E_xTB(ML + MM point charges) - E_xTB(ML)` and the corresponding force/Hessian
+difference. Each correction evaluates xTB with and without the MM point
+charges. Keep the ML region to roughly 200–300 atoms or fewer as a practical
+guideline, then benchmark the actual system, point-charge count, and hardware.
+This is not a hard atom limit, and repeated Hessian evaluations can make a
+smaller calculation expensive.
+
+With `--backend dft`, `--embedcharge` instead places MM point charges directly
+in the PySCF Hamiltonian. That route does not use the xTB correction and has the
+separate cost limits of the selected DFT method.
+
 ## Stateful DFT/MM backend
 
 All calculator-consuming workflows accept

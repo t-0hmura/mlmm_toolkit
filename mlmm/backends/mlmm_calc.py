@@ -1247,7 +1247,7 @@ def _create_ml_backend(
 
 
 class _EmbedChargeCorrection:
-    """Experimental xTB point-charge correction for ML/MM calculations.
+    """xTB point-charge correction for ML/MM calculations.
 
     The retained implementation evaluates:
 

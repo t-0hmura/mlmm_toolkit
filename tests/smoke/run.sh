@@ -70,15 +70,15 @@ mlmm() { python -m mlmm "$@"; }
 python assert_tr_cuda_parity.py
 
 # Clean only artifacts authored by this harness. The positive-lane input PDBs
-# share the test73 prefix and are static fixtures, not run output.
+# share the test72 prefix and are static fixtures, not run output.
 for artifact in test[0-9]*; do
   case "$artifact" in
-    test73_r_complex.pdb|test73_p_complex.pdb) ;;
+    test72_r_complex.pdb|test72_p_complex.pdb) ;;
     *) rm -rf -- "$artifact" ;;
   esac
 done
 rm -rf -- pocket_r.pdb r_complex_layered.pdb r_complex_layered.cif r_complex_elem.pdb r_complex_fixalt.pdb
-for fixture in test73_r_complex.pdb test73_p_complex.pdb; do
+for fixture in test72_r_complex.pdb test72_p_complex.pdb; do
   test -s "$fixture" || { echo "[smoke] BLOCKED: required fixture missing after cleanup: $fixture" >&2; exit 1; }
 done
 
@@ -242,7 +242,7 @@ mlmm oniom-import -i test31.gjf -o test34 > test34.out 2>&1
 # test35: all (--refine-path)
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q -1 -m 1 --refine-path --max-cycles-gsm 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test35 > test35.out 2>&1
 
-# test36: experimental MLIP/MM embedding remains accepted by the CLI.
+# test36: MLIP/MM embedding remains accepted by the CLI.
 mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode grad --max-cycles 3 --thresh gau_loose --embedcharge --embedcharge-cutoff 6.0 --dry-run --out-dir test36 > test36.out 2>&1
 
 # --- Opt-in TS and IRC methods ---
@@ -309,29 +309,25 @@ fi
 # test42: `all --coord-type cart` — explicit cart (== default), verifies CLI plumbing.
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --coord-type cart --no-refine-path --max-cycles-gsm 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test42 > test42.out 2>&1
 
-# test43: `all --coord-type dlc` — DLC propagated to the child opt / path-opt
-# stages this run enables (it passes --no-tsopt).
-mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --coord-type dlc --no-refine-path --max-cycles-gsm 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test43 > test43.out 2>&1
+# test43: `sp` (single-point ONIOM) — energy + forces.
+mlmm sp -i r_complex_layered.pdb --real-parm7 p_complex.parm7 -q -1 -m 1 --out-dir test43 > test43.out 2>&1
 
-# test44: `sp` (single-point ONIOM) — energy + forces.
-mlmm sp -i r_complex_layered.pdb --real-parm7 p_complex.parm7 -q -1 -m 1 --out-dir test44 > test44.out 2>&1
-
-# test45: `sp --hess` — energy + forces + ONIOM Hessian (default FiniteDifference).
-mlmm sp -i r_complex_layered.pdb --real-parm7 p_complex.parm7 -q -1 -m 1 --hess --out-dir test45 > test45.out 2>&1
+# test44: `sp --hess` — energy + forces + ONIOM Hessian (default FiniteDifference).
+mlmm sp -i r_complex_layered.pdb --real-parm7 p_complex.parm7 -q -1 -m 1 --hess --out-dir test44 > test44.out 2>&1
 
 # --- Full-pipeline release-gate runs ---
-# test46 exercises the unthrottled default `all` flow without a cycle cap.
-# test47 is capped to cover the DLC path without requiring downstream
+# test45 exercises the unthrottled default `all` flow without a cycle cap.
+# test46 is capped to cover the DLC path without requiring downstream
 # convergence.
 
-# test46: full `all` cart — default thresh, no max-cycles cap.
-mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --out-dir test46 > test46.out 2>&1
+# test45: full `all` cart — default thresh, no max-cycles cap.
+mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --out-dir test45 > test45.out 2>&1
 
-# test47: `all` dlc — verifies the DLC code-path lights up end-to-end.
+# test46: `all` dlc — verifies the DLC code-path lights up end-to-end.
 # Capped at max-cycles 5 + thresh gau_loose + --no-tsopt/thermo/dft so this
 # lane exercises DLC setup and trajectory handling without requiring a
-# converged HEI. test46 keeps the no-cap default-behaviour check.
-mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --coord-type dlc --no-refine-path --max-cycles-gsm 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test47 > test47.out 2>&1
+# converged HEI. test45 keeps the no-cap default-behaviour check.
+mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --coord-type dlc --no-refine-path --max-cycles-gsm 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test46 > test46.out 2>&1
 
 # --- Per-stage internal-coordinate code-path verification ---
 # Each test is scoped at a 2-3 cycle cap (plus gau_loose where the stage
@@ -339,99 +335,99 @@ mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -
 # coordinate paths without requiring convergence. Frequency analysis remains
 # Cartesian because its PHVA contract consumes a Cartesian Hessian directly.
 
-# test47a: opt --coord-type dlc
-mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --coord-type dlc --max-cycles 3 --thresh gau_loose --out-dir test47a_opt_dlc > test47a_opt_dlc.out 2>&1
+# test46a: opt --coord-type dlc
+mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --coord-type dlc --max-cycles 3 --thresh gau_loose --out-dir test46a_opt_dlc > test46a_opt_dlc.out 2>&1
 
-# test47b: opt --opt-mode hess --coord-type dlc (microiter+DLC regression: ML internals, MM cart twin)
-mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode hess --coord-type dlc --max-cycles 3 --thresh gau_loose --out-dir test47b_opt_hess_dlc > test47b_opt_hess_dlc.out 2>&1
+# test46b: opt --opt-mode hess --coord-type dlc (microiter+DLC regression: ML internals, MM cart twin)
+mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode hess --coord-type dlc --max-cycles 3 --thresh gau_loose --out-dir test46b_opt_hess_dlc > test46b_opt_hess_dlc.out 2>&1
 
-# test47c: opt --coord-type dlc with explicit frozen atoms
-mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --coord-type dlc --freeze-atoms "$MLMM_COMPLEX_FREEZE_ATOMS" --max-cycles 3 --thresh gau_loose --out-dir test47c_opt_freeze_dlc > test47c_opt_freeze_dlc.out 2>&1
-python check_frozen_atoms.py r_complex_layered.pdb test47c_opt_freeze_dlc/final_geometry.pdb "$MLMM_COMPLEX_FREEZE_ATOMS" test47c >> test47c_opt_freeze_dlc.out 2>&1
+# test46c: opt --coord-type dlc with explicit frozen atoms
+mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --coord-type dlc --freeze-atoms "$MLMM_COMPLEX_FREEZE_ATOMS" --max-cycles 3 --thresh gau_loose --out-dir test46c_opt_freeze_dlc > test46c_opt_freeze_dlc.out 2>&1
+python check_frozen_atoms.py r_complex_layered.pdb test46c_opt_freeze_dlc/final_geometry.pdb "$MLMM_COMPLEX_FREEZE_ATOMS" test46c >> test46c_opt_freeze_dlc.out 2>&1
 
-# test47e: Hessian TS microiteration with DLC and frozen atoms. This is the
+# test46e: Hessian TS microiteration with DLC and frozen atoms. This is the
 # partial-Cartesian-Hessian -> internal-coordinate handoff regression.
-mlmm tsopt -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode hess --coord-type dlc --freeze-atoms "$MLMM_COMPLEX_FREEZE_ATOMS" --microiter --max-cycles 2 --thresh gau_loose --out-dir test47e_ts_hess_dlc > test47e_ts_hess_dlc.out 2>&1
+mlmm tsopt -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode hess --coord-type dlc --freeze-atoms "$MLMM_COMPLEX_FREEZE_ATOMS" --microiter --max-cycles 2 --thresh gau_loose --out-dir test46e_ts_hess_dlc > test46e_ts_hess_dlc.out 2>&1
 
-# test47g: opt --coord-type redund
-mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --coord-type redund --max-cycles 3 --thresh gau_loose --out-dir test47g_opt_redund > test47g_opt_redund.out 2>&1
+# test46g: opt --coord-type redund
+mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --coord-type redund --max-cycles 3 --thresh gau_loose --out-dir test46g_opt_redund > test46g_opt_redund.out 2>&1
 
-# test47k: opt --coord-type tric
-mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --coord-type tric --max-cycles 3 --thresh gau_loose --out-dir test47k_opt_tric > test47k_opt_tric.out 2>&1
+# test46k: opt --coord-type tric
+mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --coord-type tric --max-cycles 3 --thresh gau_loose --out-dir test46k_opt_tric > test46k_opt_tric.out 2>&1
 
 # --- Multi-mode flag code-path verify (single-stage) ---
 
-# test47m: opt --precision fp64 (UMA backend, alternate precision)
-mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --precision fp64 --max-cycles 3 --thresh gau_loose --out-dir test47m_opt_fp64 > test47m_opt_fp64.out 2>&1
+# test46m: opt --precision fp64 (UMA backend, alternate precision)
+mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --precision fp64 --max-cycles 3 --thresh gau_loose --out-dir test46m_opt_fp64 > test46m_opt_fp64.out 2>&1
 
-# test47n: opt --precision fp32 (explicit UMA fp32 dispatch alongside test47m fp64)
-mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --precision fp32 --max-cycles 3 --thresh gau_loose --out-dir test47n_opt_fp32 > test47n_opt_fp32.out 2>&1
+# test46n: opt --precision fp32 (explicit UMA fp32 dispatch alongside test46m fp64)
+mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --precision fp32 --max-cycles 3 --thresh gau_loose --out-dir test46n_opt_fp32 > test46n_opt_fp32.out 2>&1
 
-# test47p: opt --mm-backend openmm (alternate MM backend; analytical Hessian path → FD)
-mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --mm-backend openmm --max-cycles 3 --thresh gau_loose --out-dir test47p_opt_openmm > test47p_opt_openmm.out 2>&1
+# test46p: opt --mm-backend openmm (alternate MM backend; analytical Hessian path → FD)
+mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --mm-backend openmm --max-cycles 3 --thresh gau_loose --out-dir test46p_opt_openmm > test46p_opt_openmm.out 2>&1
 
-# test47q: opt --link-atom-method fixed (legacy 1.09/1.01 Å placement)
-mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --link-atom-method fixed --max-cycles 3 --thresh gau_loose --out-dir test47q_opt_linkfixed > test47q_opt_linkfixed.out 2>&1
+# test46q: opt --link-atom-method fixed (legacy 1.09/1.01 Å placement)
+mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --link-atom-method fixed --max-cycles 3 --thresh gau_loose --out-dir test46q_opt_linkfixed > test46q_opt_linkfixed.out 2>&1
 
 # --- Non-default MLIP backend, full pipeline ---
 
-# test48: full `all` with `--backend orb` — exercises the non-default MLIP backend.
-mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --backend orb --out-dir test48 > test48.out 2>&1
-python assert_release_result.py provenance test48 --expected-backend orb --expected-model orb_v3_conservative_omol --expected-precision fp64 >> test48.out 2>&1
+# test47: full `all` with `--backend orb` — exercises the non-default MLIP backend.
+mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --backend orb --out-dir test47 > test47.out 2>&1
+python assert_release_result.py provenance test47 --expected-backend orb --expected-model orb_v3_conservative_omol --expected-precision fp64 >> test47.out 2>&1
 
 # ---- Subcommand-specific regression coverage ----
-# test49: opt --mm-only (MM-only minimization; skips the MLIP component entirely)
-mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --mm-only --opt-mode grad --max-cycles 3 --thresh gau_loose --out-dir test49_opt_mmonly > test49_opt_mmonly.out 2>&1
+# test48: opt --mm-only (MM-only minimization; skips the MLIP component entirely)
+mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --mm-only --opt-mode grad --max-cycles 3 --thresh gau_loose --out-dir test48_opt_mmonly > test48_opt_mmonly.out 2>&1
 
-# test50: freq --active-dof-mode ml-only (alternate PHVA active-DOF subspace)
-mlmm freq -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --active-dof-mode ml-only --max-write 5 --out-dir test50_freq_mlonly > test50_freq_mlonly.out 2>&1
+# test49: freq --active-dof-mode ml-only (alternate PHVA active-DOF subspace)
+mlmm freq -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --active-dof-mode ml-only --max-write 5 --out-dir test49_freq_mlonly > test49_freq_mlonly.out 2>&1
 
-# test51: freq --hessian-calc-mode Analytical (workflow analytical path)
-mlmm freq -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --hessian-calc-mode Analytical --max-write 5 --out-dir test51_freq_anahess > test51_freq_anahess.out 2>&1
+# test50: freq --hessian-calc-mode Analytical (workflow analytical path)
+mlmm freq -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --hessian-calc-mode Analytical --max-write 5 --out-dir test50_freq_anahess > test50_freq_anahess.out 2>&1
 
-# test52: irc --hessian-calc-mode analytical (IRC initial Hessian path)
-mlmm irc -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --hessian-calc-mode analytical --max-cycles 2 --out-dir test52_irc_anahess > test52_irc_anahess.out 2>&1
+# test51: irc --hessian-calc-mode analytical (IRC initial Hessian path)
+mlmm irc -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --hessian-calc-mode analytical --max-cycles 2 --out-dir test51_irc_anahess > test51_irc_anahess.out 2>&1
 
-# test53: irc --mm-backend openmm (MM Hessian via OpenMM finite-difference)
-mlmm irc -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --mm-backend openmm --max-cycles 2 --out-dir test53_irc_openmm > test53_irc_openmm.out 2>&1
+# test52: irc --mm-backend openmm (MM Hessian via OpenMM finite-difference)
+mlmm irc -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --mm-backend openmm --max-cycles 2 --out-dir test52_irc_openmm > test52_irc_openmm.out 2>&1
 
-# test54: irc --freeze-atoms (DOF-reduction / reduced-Hessian projection path)
-mlmm irc -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --freeze-atoms 1,2,3 --max-cycles 2 --out-dir test54_irc_freeze > test54_irc_freeze.out 2>&1
+# test53: irc --freeze-atoms (DOF-reduction / reduced-Hessian projection path)
+mlmm irc -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --freeze-atoms 1,2,3 --max-cycles 2 --out-dir test53_irc_freeze > test53_irc_freeze.out 2>&1
 
-# test55: experimental DFT/MM embedding remains accepted by the CLI.
-mlmm dft -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --func-basis 'hf/sto-3g' --grid-level 0 --scf-tol 1e-5 --scf-max-cycles 40 --dft-engine cpu --embedcharge --embedcharge-cutoff 8.0 --dry-run --out-dir test55_dft_embed > test55_dft_embed.out 2>&1
+# test54: DFT/MM embedding remains accepted by the CLI.
+mlmm dft -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --func-basis 'hf/sto-3g' --grid-level 0 --scf-tol 1e-5 --scf-max-cycles 40 --dft-engine cpu --embedcharge --embedcharge-cutoff 8.0 --dry-run --out-dir test54_dft_embed > test54_dft_embed.out 2>&1
 
-# test56: dft --link-atom-method fixed (legacy 1.09/1.01 Å link-atom placement)
-mlmm dft -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --func-basis 'hf/sto-3g' --grid-level 0 --scf-tol 1e-5 --scf-max-cycles 40 --dft-engine cpu --link-atom-method fixed --out-dir test56_dft_linkfixed > test56_dft_linkfixed.out 2>&1
+# test55: dft --link-atom-method fixed (legacy 1.09/1.01 Å link-atom placement)
+mlmm dft -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --func-basis 'hf/sto-3g' --grid-level 0 --scf-tol 1e-5 --scf-max-cycles 40 --dft-engine cpu --link-atom-method fixed --out-dir test55_dft_linkfixed > test55_dft_linkfixed.out 2>&1
 
-# test57: path-search --mep-mode dmf (Direct Max Flux vs GrowingString)
-mlmm path-search -i r_complex_layered.pdb p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --mep-mode dmf --dmf-max-iterations 3 --no-preopt --out-dir test57_psdmf > test57_psdmf.out 2>&1
+# test56: path-search --mep-mode dmf (Direct Max Flux vs GrowingString)
+mlmm path-search -i r_complex_layered.pdb p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --mep-mode dmf --dmf-max-iterations 3 --no-preopt --out-dir test56_psdmf > test56_psdmf.out 2>&1
 
-# test58: all --scan-lists (single-PDB scan->path mode of `all`, distinct from the multi-PDB MEP branch)
-mlmm all -i r_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',3.5),('PRE 8 C1','PRE 8 C8',1.5)]" --no-refine-path --max-cycles-gsm 3 --thresh gau_loose --no-tsopt --no-thermo --no-dft --out-dir test58_all_scan > test58_all_scan.out 2>&1
+# test57: all --scan-lists (single-PDB scan->path mode of `all`, distinct from the multi-PDB MEP branch)
+mlmm all -i r_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',3.5),('PRE 8 C1','PRE 8 C8',1.5)]" --no-refine-path --max-cycles-gsm 3 --thresh gau_loose --no-tsopt --no-thermo --no-dft --out-dir test57_all_scan > test57_all_scan.out 2>&1
 
 # --- refine-path opt-in (recursive path_search) extra coverage ---
 # The `all` default is now single-pass path-opt; exercise the recursive
 # path_search opt-in (`--refine-path`) in scan->path mode too (test35 already
 # covers the multi-input endpoint MEP with --refine-path).
 
-# test59: extract MULTI-INPUT via space-separated '-i a.pdb b.pdb' (one flag, two paths).
+# test58: extract MULTI-INPUT via space-separated '-i a.pdb b.pdb' (one flag, two paths).
 # Regression guard: a single -i with several space-separated paths must NOT drop the 2nd input.
 # A single -o yields one multi-MODEL PDB, so both endpoints must appear (-> exactly 2 MODEL records).
-mlmm extract -i r_complex.pdb p_complex.pdb -c PRE -r 5.0 --no-exclude-backbone --ligand-charge 'PRE:0' -o pocket_multi.pdb > test59_multi_extract.out 2>&1
+mlmm extract -i r_complex.pdb p_complex.pdb -c PRE -r 5.0 --no-exclude-backbone --ligand-charge 'PRE:0' -o pocket_multi.pdb > test58_multi_extract.out 2>&1
 n_models=$(grep -c '^MODEL' pocket_multi.pdb 2>/dev/null)
 if [ "${n_models:-0}" -ne 2 ]; then
-  echo "[extract-multi] test59: space-separated '-i a b' yielded ${n_models:-0} MODEL records (expected 2); the 2nd input was dropped" >> test59_multi_extract.out
+  echo "[extract-multi] test58: space-separated '-i a b' yielded ${n_models:-0} MODEL records (expected 2); the 2nd input was dropped" >> test58_multi_extract.out
   exit 1
 fi
 
-# test60: all --scan-lists --refine-path (single-PDB scan -> recursive path_search)
-mlmm all -i r_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',3.5),('PRE 8 C1','PRE 8 C8',1.5)]" --refine-path --max-cycles-gsm 3 --thresh gau_loose --no-tsopt --no-thermo --no-dft --out-dir test60_rp_scan > test60_rp_scan.out 2>&1
+# test59: all --scan-lists --refine-path (single-PDB scan -> recursive path_search)
+mlmm all -i r_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',3.5),('PRE 8 C1','PRE 8 C8',1.5)]" --refine-path --max-cycles-gsm 3 --thresh gau_loose --no-tsopt --no-thermo --no-dft --out-dir test59_rp_scan > test59_rp_scan.out 2>&1
 
-# test61: --backend-model routing — a non-default model must reach the resolved
+# test60: --backend-model routing — a non-default model must reach the resolved
 # runtime header. Dry-run avoids downloading the alternate model.
-mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --backend-model uma-m-1p1 --dry-run --out-dir test61_backend_model > test61_backend_model.out 2>&1
-grep -Eq '^\[backend\] UMA \(UMA-M-1\.1 \(OMol\), fp32\)$' test61_backend_model.out || { echo "[smoke] FAIL test61: non-default backend model missing from resolved runtime summary" >> test61_backend_model.out; exit 1; }
+mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --backend-model uma-m-1p1 --dry-run --out-dir test60_backend_model > test60_backend_model.out 2>&1
+grep -Eq '^\[backend\] UMA \(UMA-M-1\.1 \(OMol\), fp32\)$' test60_backend_model.out || { echo "[smoke] FAIL test60: non-default backend model missing from resolved runtime summary" >> test60_backend_model.out; exit 1; }
 
 # Build an mmCIF equivalent of the layered fixture while exercising identifiers
 # that cannot be represented in fixed-column PDB.
@@ -452,32 +448,32 @@ writer.set_structure(structure)
 writer.save("r_complex_layered.cif")
 PY
 
-# test62: a real ML/MM optimization crosses the mmCIF bridge and restores the
+# test61: a real ML/MM optimization crosses the mmCIF bridge and restores the
 # original long chain and five-digit residue identifier in its public output.
-mlmm opt -i r_complex_layered.cif --parm7 p_complex.parm7 -q -1 -m 1 --max-cycles 1 --thresh gau_loose --out-dir test62_opt_cif > test62_opt_cif.out 2>&1
-test -s test62_opt_cif/final_geometry.pdb || { echo "[smoke] FAIL test62: final PDB missing" >> test62_opt_cif.out; exit 1; }
-test -s test62_opt_cif/final_geometry.cif || { echo "[smoke] FAIL test62: final CIF missing" >> test62_opt_cif.out; exit 1; }
-grep -q 'LONG_CHAIN' test62_opt_cif/final_geometry.cif || { echo "[smoke] FAIL test62: auth chain was not restored" >> test62_opt_cif.out; exit 1; }
-grep -q '10001' test62_opt_cif/final_geometry.cif || { echo "[smoke] FAIL test62: auth residue number was not restored" >> test62_opt_cif.out; exit 1; }
+mlmm opt -i r_complex_layered.cif --parm7 p_complex.parm7 -q -1 -m 1 --max-cycles 1 --thresh gau_loose --out-dir test61_opt_cif > test61_opt_cif.out 2>&1
+test -s test61_opt_cif/final_geometry.pdb || { echo "[smoke] FAIL test61: final PDB missing" >> test61_opt_cif.out; exit 1; }
+test -s test61_opt_cif/final_geometry.cif || { echo "[smoke] FAIL test61: final CIF missing" >> test61_opt_cif.out; exit 1; }
+grep -q 'LONG_CHAIN' test61_opt_cif/final_geometry.cif || { echo "[smoke] FAIL test61: auth chain was not restored" >> test61_opt_cif.out; exit 1; }
+grep -q '10001' test61_opt_cif/final_geometry.cif || { echo "[smoke] FAIL test61: auth residue number was not restored" >> test61_opt_cif.out; exit 1; }
 
-# test63: exact chain/residue-name/residue-number selection remains stable
+# test62: exact chain/residue-name/residue-number selection remains stable
 # after normalization, with both internal PDB and identifier-preserving CIF.
-mlmm extract -i r_complex_layered.cif -c 'LONG_CHAIN:PRE:10001' -r 0.1 --no-add-linkh -o test63_model_from_cif.pdb -v 0 > test63_extract_cif.out 2>&1
-test -s test63_model_from_cif.pdb || { echo "[smoke] FAIL test63: extracted PDB missing" >> test63_extract_cif.out; exit 1; }
-test -s test63_model_from_cif.cif || { echo "[smoke] FAIL test63: extracted CIF missing" >> test63_extract_cif.out; exit 1; }
+mlmm extract -i r_complex_layered.cif -c 'LONG_CHAIN:PRE:10001' -r 0.1 --no-add-linkh -o test62_model_from_cif.pdb -v 0 > test62_extract_cif.out 2>&1
+test -s test62_model_from_cif.pdb || { echo "[smoke] FAIL test62: extracted PDB missing" >> test62_extract_cif.out; exit 1; }
+test -s test62_model_from_cif.cif || { echo "[smoke] FAIL test62: extracted CIF missing" >> test62_extract_cif.out; exit 1; }
 
-# test64: dump a partial Hessian with its active-DOF metadata.
-# test65: consume that Hessian unchanged in IRC and verify never-stop at runtime.
+# test63: dump a partial Hessian with its active-DOF metadata.
+# test64: consume that Hessian unchanged in IRC and verify never-stop at runtime.
 # The dump must use IRC's own active-DOF basis (ML + MovableMM, i.e. freq's
 # default). IRC has no --active-dof-mode/--hessian-cutoff flag and always analyzes
 # every movable atom, so an ml-only dump would be rejected as a basis mismatch;
 # the partial nature is still exercised because --freeze-atoms keeps it < full.
-mlmm freq -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --freeze-atoms 1,2,3 --max-write 1 --dump-hess test64_freq/hessian.npz --out-json --out-dir test64_freq > test64_freq.out 2>&1
-test -s test64_freq/hessian.npz || { echo "[smoke] FAIL test64: dumped Hessian missing" >> test64_freq.out; exit 1; }
-mlmm irc -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --freeze-atoms 1,2,3 --read-hess test64_freq/hessian.npz --never-stop --config never_stop_config.yaml --max-cycles 2 --out-json --out-dir test65_irc_handoff > test65_irc_handoff.out 2>&1
-python assert_release_result.py irc-handoff test65_irc_handoff --hessian-file test64_freq/hessian.npz >> test65_irc_handoff.out 2>&1
-if grep -Fq '[irc] IRC stopped after only a few frames' test65_irc_handoff.out; then
-  echo '[smoke] FAIL test65: cycle-cap completion was reported as early IRC termination' >> test65_irc_handoff.out
+mlmm freq -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --freeze-atoms 1,2,3 --max-write 1 --dump-hess test63_freq/hessian.npz --out-json --out-dir test63_freq > test63_freq.out 2>&1
+test -s test63_freq/hessian.npz || { echo "[smoke] FAIL test63: dumped Hessian missing" >> test63_freq.out; exit 1; }
+mlmm irc -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --freeze-atoms 1,2,3 --read-hess test63_freq/hessian.npz --never-stop --config never_stop_config.yaml --max-cycles 2 --out-json --out-dir test64_irc_handoff > test64_irc_handoff.out 2>&1
+python assert_release_result.py irc-handoff test64_irc_handoff --hessian-file test63_freq/hessian.npz >> test64_irc_handoff.out 2>&1
+if grep -Fq '[irc] IRC stopped after only a few frames' test64_irc_handoff.out; then
+  echo '[smoke] FAIL test64: cycle-cap completion was reported as early IRC termination' >> test64_irc_handoff.out
   exit 1
 fi
 
@@ -491,17 +487,17 @@ for index, line in enumerate(lines):
         x = float(line[30:38]) + 0.100
         lines[index] = line[:30] + f"{x:8.3f}" + line[38:]
         break
-Path("test65_wrong_geometry.pdb").write_text("".join(lines), encoding="utf-8")
+Path("test64_wrong_geometry.pdb").write_text("".join(lines), encoding="utf-8")
 PY
 rc=0
-mlmm irc -i test65_wrong_geometry.pdb --parm7 p_complex.parm7 -q -1 -m 1 --freeze-atoms 1,2,3 --read-hess test64_freq/hessian.npz --max-cycles 1 --out-dir test65_wrong > test65_wrong.out 2>&1 || rc=$?
-if [ "$rc" -eq 0 ] || ! grep -Eq 'coordinates do not match|PES identity does not match' test65_wrong.out; then
-  echo "[smoke] FAIL test65: stale same-size Hessian was not rejected" >> test65_wrong.out
+mlmm irc -i test64_wrong_geometry.pdb --parm7 p_complex.parm7 -q -1 -m 1 --freeze-atoms 1,2,3 --read-hess test63_freq/hessian.npz --max-cycles 1 --out-dir test64_wrong > test64_wrong.out 2>&1 || rc=$?
+if [ "$rc" -eq 0 ] || ! grep -Eq 'coordinates do not match|PES identity does not match' test64_wrong.out; then
+  echo "[smoke] FAIL test64: stale same-size Hessian was not rejected" >> test64_wrong.out
   exit 1
 fi
 
-# test66: standalone --ref-mode is an actual Cartesian mode vector. The
-# all-workflow path-tangent handoff is exercised by required-positive test73.
+# test65: standalone --ref-mode is an actual Cartesian mode vector. The
+# all-workflow path-tangent handoff is exercised by required-positive test72.
 python - <<'PY'
 from pathlib import Path
 import numpy as np
@@ -521,31 +517,31 @@ mode = (reactant - product).reshape(-1)
 active = np.repeat(np.isclose(layers, 0.0, atol=1.0), 3)
 if np.linalg.norm(mode[active]) <= 1.0e-8:
     raise SystemExit("reference path tangent is zero in the active ML Hessian space")
-np.savetxt("test66_reference_mode.txt", mode)
+np.savetxt("test65_reference_mode.txt", mode)
 PY
-mlmm tsopt -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode hess --ref-mode test66_reference_mode.txt --max-cycles 2 --thresh gau_loose --out-json --out-dir test66_ref_mode > test66_ref_mode.out 2>&1
-python assert_release_result.py tsopt-reference test66_ref_mode >> test66_ref_mode.out 2>&1
+mlmm tsopt -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode hess --ref-mode test65_reference_mode.txt --max-cycles 2 --thresh gau_loose --out-json --out-dir test65_ref_mode > test65_ref_mode.out 2>&1
+python assert_release_result.py tsopt-reference test65_ref_mode >> test65_ref_mode.out 2>&1
 
-# test67: YAML backend-model/precision settings reach a real calculation while
+# test66: YAML backend-model/precision settings reach a real calculation while
 # an explicit CLI max-cycles value retains precedence.
-mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --config runtime_config.yaml --max-cycles 1 --out-json --out-dir test67_config > test67_config.out 2>&1
-python assert_release_result.py opt-config test67_config --expected-model uma-s-1p2 --expected-max-cycles 1 --expected-precision fp64 --expected-link-atom-method fixed --expected-thresh gau_loose >> test67_config.out 2>&1
+mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --config runtime_config.yaml --max-cycles 1 --out-json --out-dir test66_config > test66_config.out 2>&1
+python assert_release_result.py opt-config test66_config --expected-model uma-s-1p2 --expected-max-cycles 1 --expected-precision fp64 --expected-link-atom-method fixed --expected-thresh gau_loose >> test66_config.out 2>&1
 
-# test68: a user ASE calculator with only energy/forces supports the ML-region
+# test67: a user ASE calculator with only energy/forces supports the ML-region
 # finite-difference Hessian path.
-mlmm sp -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --calc-file harmonic_calc.py --hess --hessian-calc-mode FiniteDifference --out-json --out-dir test68_custom > test68_custom.out 2>&1
-python assert_release_result.py sp-hessian test68_custom >> test68_custom.out 2>&1
+mlmm sp -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --calc-file harmonic_calc.py --hess --hessian-calc-mode FiniteDifference --out-json --out-dir test67_custom > test67_custom.out 2>&1
+python assert_release_result.py sp-hessian test67_custom >> test67_custom.out 2>&1
 
-# test69: an explicit analytical Hessian request cannot silently fall back when
+# test68: an explicit analytical Hessian request cannot silently fall back when
 # predictor workers remove the autograd model.
 rc=0
-mlmm sp -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --hess --hessian-calc-mode Analytical --uma-workers 2 --out-dir test69_workers > test69_workers.out 2>&1 || rc=$?
-if [ "$rc" -ne 1 ] || ! grep -Fq "Analytical Hessian cannot be combined with workers>1: the parallel predictor exposes no autograd model. Use workers=1 or select hessian_calc_mode='FiniteDifference'." test69_workers.out || [ -e test69_workers/hessian.npy ]; then
-  echo "[smoke] FAIL test69: Analytical + workers>1 was not rejected exactly" >> test69_workers.out
+mlmm sp -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --hess --hessian-calc-mode Analytical --uma-workers 2 --out-dir test68_workers > test68_workers.out 2>&1 || rc=$?
+if [ "$rc" -ne 1 ] || ! grep -Fq "Analytical Hessian cannot be combined with workers>1: the parallel predictor exposes no autograd model. Use workers=1 or select hessian_calc_mode='FiniteDifference'." test68_workers.out || [ -e test68_workers/hessian.npy ]; then
+  echo "[smoke] FAIL test68: Analytical + workers>1 was not rejected exactly" >> test68_workers.out
   exit 1
 fi
 
-# test70: ORCA QM/MM export/import round-trip preserves coordinates and all
+# test69: ORCA QM/MM export/import round-trip preserves coordinates and all
 # three layer classes without requiring an ORCA installation.
 python - <<'PY'
 from pathlib import Path
@@ -560,36 +556,36 @@ for index in range(len(lines) - 1, -1, -1):
         break
 if not changed:
     raise SystemExit("could not create a frozen-MM layer for ORCA round-trip")
-Path("test70_three_layer.pdb").write_text("".join(lines), encoding="utf-8")
+Path("test69_three_layer.pdb").write_text("".join(lines), encoding="utf-8")
 PY
-mlmm oniom-export --parm7 p_complex_nocmap.parm7 -i test70_three_layer.pdb --model-pdb pocket_r.pdb -q -1 -m 1 --mode orca --no-convert-orcaff -o test70_orca.inp > test70_orca_export.out 2>&1
+mlmm oniom-export --parm7 p_complex_nocmap.parm7 -i test69_three_layer.pdb --model-pdb pocket_r.pdb -q -1 -m 1 --mode orca --no-convert-orcaff -o test69_orca.inp > test69_orca_export.out 2>&1
 for token in '! QMMM' 'QMAtoms {' 'ActiveAtoms {' 'Charge_Total -1' '* xyz -1 1'; do
-  grep -Fq "$token" test70_orca.inp || { echo "[smoke] FAIL test70: ORCA input missing $token" >> test70_orca_export.out; exit 1; }
+  grep -Fq "$token" test69_orca.inp || { echo "[smoke] FAIL test69: ORCA input missing $token" >> test69_orca_export.out; exit 1; }
 done
-mlmm oniom-import -i test70_orca.inp --ref-pdb test70_three_layer.pdb -o test70_orca_import > test70_orca_import.out 2>&1
-test -s test70_orca_import.xyz || { echo "[smoke] FAIL test70: restored XYZ missing" >> test70_orca_import.out; exit 1; }
-test -s test70_orca_import_layered.pdb || { echo "[smoke] FAIL test70: restored layered PDB missing" >> test70_orca_import.out; exit 1; }
-sed -n '2p' test70_orca_import.xyz | grep -Fq 'mode=orca' || { echo "[smoke] FAIL test70: restored XYZ omits ORCA provenance" >> test70_orca_import.out; exit 1; }
-sed -n '2p' test70_orca_import.xyz | grep -Fq 'q=-1 m=1' || { echo "[smoke] FAIL test70: restored XYZ charge/multiplicity mismatch" >> test70_orca_import.out; exit 1; }
-python assert_orca_roundtrip.py test70_three_layer.pdb test70_orca_import_layered.pdb >> test70_orca_import.out 2>&1
+mlmm oniom-import -i test69_orca.inp --ref-pdb test69_three_layer.pdb -o test69_orca_import > test69_orca_import.out 2>&1
+test -s test69_orca_import.xyz || { echo "[smoke] FAIL test69: restored XYZ missing" >> test69_orca_import.out; exit 1; }
+test -s test69_orca_import_layered.pdb || { echo "[smoke] FAIL test69: restored layered PDB missing" >> test69_orca_import.out; exit 1; }
+sed -n '2p' test69_orca_import.xyz | grep -Fq 'mode=orca' || { echo "[smoke] FAIL test69: restored XYZ omits ORCA provenance" >> test69_orca_import.out; exit 1; }
+sed -n '2p' test69_orca_import.xyz | grep -Fq 'q=-1 m=1' || { echo "[smoke] FAIL test69: restored XYZ charge/multiplicity mismatch" >> test69_orca_import.out; exit 1; }
+python assert_orca_roundtrip.py test69_three_layer.pdb test69_orca_import_layered.pdb >> test69_orca_import.out 2>&1
 
-# test71: force a known higher-order candidate through the actual flatten
+# test70: force a known higher-order candidate through the actual flatten
 # branch. The checker requires n_imag>1 before flattening, an executed RS-P-RFO
 # flatten iteration, and no increase in saddle order.
-mlmm tsopt -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode hess --no-microiter --flatten --config flatten_branch_config.yaml --thresh gau_loose --out-json --out-dir test71_flatten > test71_flatten.out 2>&1
-python assert_flatten_branch.py test71_flatten.out test71_flatten/result.json >> test71_flatten.out 2>&1
+mlmm tsopt -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode hess --no-microiter --flatten --config flatten_branch_config.yaml --thresh gau_loose --out-json --out-dir test70_flatten > test70_flatten.out 2>&1
+python assert_flatten_branch.py test70_flatten.out test70_flatten/result.json >> test70_flatten.out 2>&1
 
-# test72: numerical analytical-vs-FD agreement for every backend installed in the
+# test71: numerical analytical-vs-FD agreement for every backend installed in the
 # default strict environment. MACE/AIMNet2 use this same required wrapper in
 # their dependency-isolated cluster environments.
-bash run_backend_hessian.sh uma orb > test72_backend_hessian.out 2>&1
+bash run_backend_hessian.sh uma orb > test71_backend_hessian.out 2>&1
 
-# test73: required positive MEP -> TSopt -> endpoint OPT -> thermo -> DFT handoff.
+# test72: required positive MEP -> TSopt -> endpoint OPT -> thermo -> DFT handoff.
 # Explicit --flatten validates the pipeline, not no-flatten optimizer behavior.
 # Endpoint and GSM thresholds are pinned independently for this positive lane.
 # The long lane runs last with its dependent manual-topology reuse check.
 mlmm all \
-    -i test73_r_complex.pdb test73_p_complex.pdb \
+    -i test72_r_complex.pdb test72_p_complex.pdb \
     -c PRE \
     -r 4.0 \
     --ligand-charge 'PRE:0' \
@@ -611,36 +607,36 @@ mlmm all \
     --scf-tol 1e-5 \
     --scf-max-cycles 40 \
     --dft-engine cpu \
-    --out-dir test73 \
-    > test73.out 2>&1
-python assert_release_result.py all test73 --require-thermo --require-dft >> test73.out 2>&1
+    --out-dir test72 \
+    > test72.out 2>&1
+python assert_release_result.py all test72 --require-thermo --require-dft >> test72.out 2>&1
 
-# test74: all (manual --parm7 + --model-pdb override, reuse test73 outputs)
-mapfile -t test73_parms < <(find test73/mm_parm -maxdepth 1 -type f -name '*.parm7' -print)
-if [[ "${#test73_parms[@]}" -ne 1 ]]; then
-  echo "[smoke] FAIL test74: expected exactly one reusable test73 parm7, found ${#test73_parms[@]}" >&2
+# test73: all (manual --parm7 + --model-pdb override, reuse test72 outputs)
+mapfile -t test72_parms < <(find test72/mm_parm -maxdepth 1 -type f -name '*.parm7' -print)
+if [[ "${#test72_parms[@]}" -ne 1 ]]; then
+  echo "[smoke] FAIL test73: expected exactly one reusable test72 parm7, found ${#test72_parms[@]}" >&2
   exit 1
 fi
-mlmm all -i test73/layered/test73_r_complex_layered.pdb test73/layered/test73_p_complex_layered.pdb --parm7 "${test73_parms[0]}" --model-pdb test73/ml_region.pdb -q -1 -m 1 --no-refine-path --max-cycles-gsm 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test74 > test74.out 2>&1
+mlmm all -i test72/layered/test72_r_complex_layered.pdb test72/layered/test72_p_complex_layered.pdb --parm7 "${test72_parms[0]}" --model-pdb test72/ml_region.pdb -q -1 -m 1 --no-refine-path --max-cycles-gsm 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test73 > test73.out 2>&1
 
-# test75: explicit zero cap retains the initial refinement and records the
+# test74: explicit zero cap retains the initial refinement and records the
 # effective depth limit and any capped child intervals.
-mlmm path-search -i r_complex_layered.pdb p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --max-depth 0 --max-cycles-gsm 5 --no-preopt --out-dir test75_ps_max_depth0 > test75_ps_max_depth0.out 2>&1
-python assert_release_result.py path-search-max-depth test75_ps_max_depth0 >> test75_ps_max_depth0.out 2>&1
+mlmm path-search -i r_complex_layered.pdb p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --max-depth 0 --max-cycles-gsm 5 --no-preopt --out-dir test74_ps_max_depth0 > test74_ps_max_depth0.out 2>&1
+python assert_release_result.py path-search-max-depth test74_ps_max_depth0 >> test74_ps_max_depth0.out 2>&1
 
-# test76: standalone scan accepts angle and dihedral ranges.
-mlmm scan -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --scan-lists "[(1,2,3,35.5,35.6),(1,2,3,4,-28.6,-28.5)]" --dry-run --out-dir test76_scan_angular > test76_scan_angular.out 2>&1
+# test75: standalone scan accepts angle and dihedral ranges.
+mlmm scan -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --scan-lists "[(1,2,3,35.5,35.6),(1,2,3,4,-28.6,-28.5)]" --dry-run --out-dir test75_scan_angular > test75_scan_angular.out 2>&1
 
-# test77: all accepts angle and dihedral targets without an extra mode flag.
-mlmm all -i r_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q -1 -m 1 --scan-lists "[(1,2,3,35.6),(1,2,3,4,-28.5)]" --dry-run --out-dir test77_all_angular > test77_all_angular.out 2>&1
+# test76: all accepts angle and dihedral targets without an extra mode flag.
+mlmm all -i r_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q -1 -m 1 --scan-lists "[(1,2,3,35.6),(1,2,3,4,-28.5)]" --dry-run --out-dir test76_all_angular > test76_all_angular.out 2>&1
 
-# test78: resume post-processing without recomputing or changing the saved MEP.
-test78_path_summary="test18/_work/path_opt/summary.json"
-test -s "$test78_path_summary" || { echo "[smoke] FAIL test78: source MEP summary missing" > test78_resume.out; exit 1; }
-test78_before=$(sha256sum "$test78_path_summary" | awk '{print $1}')
-mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q -1 -m 1 --no-refine-path --max-cycles-gsm 5 --thresh gau_loose --thresh-post gau_loose --tsopt --tsopt-max-cycles 1 --resume-segment 1 --out-dir test18 > test78_resume.out 2>&1
-test78_after=$(sha256sum "$test78_path_summary" | awk '{print $1}')
-test "$test78_before" = "$test78_after" || { echo "[smoke] FAIL test78: resume changed the saved MEP summary" >> test78_resume.out; exit 1; }
+# test77: resume post-processing without recomputing or changing the saved MEP.
+test77_path_summary="test18/_work/path_opt/summary.json"
+test -s "$test77_path_summary" || { echo "[smoke] FAIL test77: source MEP summary missing" > test77_resume.out; exit 1; }
+test77_before=$(sha256sum "$test77_path_summary" | awk '{print $1}')
+mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q -1 -m 1 --no-refine-path --max-cycles-gsm 5 --thresh gau_loose --thresh-post gau_loose --tsopt --tsopt-max-cycles 1 --resume-segment 1 --out-dir test18 > test77_resume.out 2>&1
+test77_after=$(sha256sum "$test77_path_summary" | awk '{print $1}')
+test "$test77_before" = "$test77_after" || { echo "[smoke] FAIL test77: resume changed the saved MEP summary" >> test77_resume.out; exit 1; }
 python - <<'PY'
 import json
 from pathlib import Path

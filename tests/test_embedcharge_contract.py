@@ -1,4 +1,4 @@
-"""Active contracts for the optional experimental embedcharge paths."""
+"""Active contracts for the optional embedcharge paths."""
 
 from __future__ import annotations
 

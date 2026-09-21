@@ -81,10 +81,9 @@ Options:
                                   [default: (uma)]
   --embedcharge / --no-embedcharge
                                   Enable electrostatic embedding. MLIP backends
-                                  use the experimental, computationally
-                                  expensive xTB point-charge delta correction;
-                                  dft uses native PySCF MM point charges.
-                                  [default: no-embedcharge]
+                                  use the computationally expensive xTB point-
+                                  charge delta correction; dft uses native PySCF
+                                  MM point charges.  [default: no-embedcharge]
   --embedcharge-cutoff FLOAT      Distance cutoff (Å) from the ML region for MM
                                   point charges used by embedding.  [default:
                                   (12.0)]

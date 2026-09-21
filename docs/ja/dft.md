@@ -79,7 +79,7 @@ out_dir/ (デフォルト: ./result_dft/)
 | `--dft-low-memory/--no-dft-low-memory` | electrostatic embeddingを含むclosed-shell GPU計算で`rks_lowmem.RKS`を使用。open-shell GPUとCPUは標準direct JKを使い、`--no-dft-low-memory`でdensity fittingを有効化 | `True` |
 | `--dft-nprocs INT` | PySCF/OpenMPのCPU thread数。省略時はscheduler/affinity/hostから自動検出 | `auto` |
 | `--dft-memory SIZE` | PySCF host RAM上限（例: `64GB`、`120000MB`）。GPU VRAMではありません | `auto` |
-| `--embedcharge/--no-embedcharge` | 実験的な PySCF 直接静電埋込みです。MM 点電荷を埋め込み、`dft` では xTB 補正を使用しません。 | `False` |
+| `--embedcharge/--no-embedcharge` | PySCF 直接静電埋込みです。MM 点電荷を埋め込み、`dft` では xTB 補正を使用しません。 | `False` |
 | `--embedcharge-cutoff FLOAT` | ML 領域からこの距離以内の MM 点電荷を埋め込みます。 | `12.0` Å |
 | `-o, --out-dir DIR` | 出力ディレクトリ。 | `./result_dft/` |
 | `--link-atom-method {scaled,fixed}` | リンク原子位置モード: `scaled`（g-factor、Gaussian ONIOM 標準）または `fixed`（旧式 1.09/1.01 Å 固定）。 | `scaled` |

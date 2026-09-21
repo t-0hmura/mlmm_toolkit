@@ -1913,7 +1913,7 @@ def _build_multistep_path(
     "embedcharge",
     default=False,
     show_default=True,
-    help="Enable electrostatic embedding. MLIP backends use the experimental, computationally expensive xTB point-charge delta correction; dft uses native PySCF MM point charges.",
+    help="Enable electrostatic embedding. MLIP backends use the computationally expensive xTB point-charge delta correction; dft uses native PySCF MM point charges.",
 )
 @click.option(
     "--embedcharge-cutoff",

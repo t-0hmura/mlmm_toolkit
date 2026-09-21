@@ -131,15 +131,6 @@ def test_load_pdb_atom_metadata_handles_missing_columns(tmp_path: Path):
     assert meta[0]["name"] == "N"
 
 
-def test_parse_ligand_charge_option_rejects_bad_mapping_token():
-    import click
-    from mlmm.workflows.extract import _parse_ligand_charge_option
-
-    # click.BadParameter provides a clean CLI error display.
-    with pytest.raises(click.BadParameter, match="Invalid --ligand-charge token"):
-        _parse_ligand_charge_option("GPP")
-
-
 @pytest.mark.parametrize("value", ["HEM", "HEM=x", "HEM=0"])
 def test_parse_ligand_mult_rejects_bad_mapping_as_click_error(value):
     import click

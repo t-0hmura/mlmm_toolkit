@@ -3114,15 +3114,17 @@ def test_colab_exercises_every_workflow_and_advanced_flag_widget(
         )
         assert app["_advanced_status"](subcommand, param) == "rendered"
         help_text = param.help.lower()
-        assert "experimental" in help_text
         if subcommand == "dft":
             assert "pyscf qm hamiltonian" in help_text
         else:
-            assert "xtb" in help_text and "delta correction" in help_text
-            assert "computationally expensive" in help_text
-        assert "experimental" in app["_advanced_widget"](
-            subcommand, param
-        )._rx_search
+            assert (
+                "xtb point-charge delta" in help_text
+                or "xtb delta correction" in help_text
+            )
+            assert (
+                "native pyscf mm point charges" in help_text
+                or "embed mm charges in the pyscf hamiltonian" in help_text
+            )
     app["dd_subcmd"].options = app["_sub_options"](app["SUBS"])
     option_values = {
         item[1] if isinstance(item, tuple) else item

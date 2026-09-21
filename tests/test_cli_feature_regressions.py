@@ -87,7 +87,7 @@ def test_removed_noop_and_legacy_options_are_unknown(
         "scan", "scan2d", "scan3d", "path-opt", "path-search", "dft",
     ],
 )
-def test_embedcharge_is_an_experimental_advanced_option(command: str) -> None:
+def test_embedcharge_is_an_advanced_option(command: str) -> None:
     subcommand = root_cli.get_command(click.Context(root_cli), command)
     assert subcommand is not None
     declared = {
@@ -103,7 +103,12 @@ def test_embedcharge_is_an_experimental_advanced_option(command: str) -> None:
     result = CliRunner().invoke(root_cli, [command, "--help-advanced"])
     assert result.exit_code == 0
     assert "--embedcharge" in result.output
-    assert "experimental" in result.output.lower()
+    assert "experimental" not in result.output.lower()
+    if command == "dft":
+        assert "pyscf" in result.output.lower()
+        assert "qm hamiltonian" in result.output.lower()
+    else:
+        assert "point-charge" in result.output.lower()
 
     primary = CliRunner().invoke(root_cli, [command, "--help"])
     assert primary.exit_code == 0

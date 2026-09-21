@@ -334,11 +334,11 @@ Options:
                                   High-level backend for the ONIOM model region.
                                   [default: (uma)]
   --embedcharge / --no-embedcharge
-                                  Enable experimental point-charge treatment.
-                                  MLIP/MM stages use the computationally
-                                  expensive xTB delta correction; DFT/MM stages
-                                  embed MM charges in the PySCF Hamiltonian.
-                                  [default: no-embedcharge]
+                                  Enable point-charge treatment. MLIP/MM stages
+                                  use the computationally expensive xTB delta
+                                  correction; DFT/MM stages embed MM charges in
+                                  the PySCF Hamiltonian.  [default: no-
+                                  embedcharge]
   --embedcharge-cutoff FLOAT      Distance cutoff (Å) from the ML region for
                                   embedded MM point charges.  [default: (12.0)]
   --link-atom-method [scaled|fixed]

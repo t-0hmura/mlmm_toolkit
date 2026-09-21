@@ -894,7 +894,7 @@ def test_euler_corrector_degrades_instead_of_aborting_on_oscillation(capsys) -> 
     The corrector descends the two-point DWI *interpolation*, not the real PES,
     so a reversal there is an interpolation artefact. Raising instead of
     returning the last non-oscillating point aborted complete ``mlmm all`` runs
-    from inside a healthy IRC (smoke test73), because this branch is also the
+    from inside a healthy IRC (smoke test72), because this branch is also the
     integration loop's escape hatch.
     """
 
