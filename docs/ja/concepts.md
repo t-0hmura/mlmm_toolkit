@@ -130,7 +130,7 @@ fixed 配置は座標依存 Jacobian を持つため、[ML/MM Calculator](mlmm-c
 |---|---|---|
 | **Calculator** | 全 ONIOM (`E_MM_real + E_ML − E_MM_model`) | MM 力場のみ (`E_MM_real`) |
 | **最適化座標** | ML原子 + リンク原子MM親原子 | 可動MM（リンク原子MM親を除く） |
-| **オプティマイザ** | RFO（陽的 Hessian、BFGS更新） | L-BFGS（Hessian 不要、毎回初期化） |
+| **オプティマイザ** | RFO（陽的 Hessian、TS-BFGS 更新） | L-BFGS（Hessian 不要、毎回初期化） |
 | **収束判定** | `--thresh`（デフォルト: `gau`） | YAML の `microiter.micro_thresh`（デフォルト: `--thresh` と同じ） |
 
 ```{note}

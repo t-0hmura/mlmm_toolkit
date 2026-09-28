@@ -145,7 +145,7 @@ repeat until converged:
 |---|---|---|
 | **Calculator** | Full ONIOM (`E_MM_real + E_ML − E_MM_model`) | MM force field only (`E_MM_real`) |
 | **Coordinates optimized** | ML atoms + link-atom MM parents | Movable-MM (excluding link-atom MM parents) |
-| **Optimizer** | RFO (explicit Hessian, BFGS-updated) | L-BFGS (Hessian-free, from scratch each cycle) |
+| **Optimizer** | RFO (explicit Hessian, TS-BFGS-updated) | L-BFGS (Hessian-free, from scratch each cycle) |
 | **Convergence** | `--thresh` (default: `gau`) | `micro_thresh` YAML key (default: same as `--thresh`) |
 
 ```{note}
