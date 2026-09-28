@@ -497,6 +497,10 @@ if grep -Fq 'Seeding initial Hessian via shared freq backend' test64c_tsopt_hess
 fi
 mlmm tsopt -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --freeze-atoms 1,2,3 --opt-mode grad --read-hess test63_freq/hessian.npy --max-cycles 2 --out-dir test64d_tsopt_dimer > test64d_tsopt_dimer.out 2>&1
 grep -Fq '[tsopt] Initial Hessian read from test63_freq/hessian.npy' test64d_tsopt_dimer.out || { echo "[smoke] FAIL test64d: Dimer TS did not start from --read-hess" >> test64d_tsopt_dimer.out; exit 1; }
+if sed '/^Spent /q' test64d_tsopt_dimer.out | grep -Fq '[hessian] Completed'; then
+  echo "[smoke] FAIL test64d: --read-hess Hessian was recomputed" >> test64d_tsopt_dimer.out
+  exit 1
+fi
 
 # test65: standalone --ref-mode is an actual Cartesian mode vector. The
 # all-workflow path-tangent handoff is exercised by required-positive test72.

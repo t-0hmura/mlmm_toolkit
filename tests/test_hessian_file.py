@@ -155,11 +155,14 @@ def test_hessian_file_at_a_reserved_output_path_is_rejected(
     assert reserved.read_bytes() == b"existing"
 
 
+@pytest.mark.parametrize("dry_run", [[], ["--dry-run"]])
 @pytest.mark.parametrize(
     ("command", "section", "extra"),
     [("irc", "irc", []), ("tsopt", "rsirfo", ["--opt-mode", "hess"])],
 )
-def test_read_hess_needs_the_calc_hessian_init(tmp_path, command, section, extra) -> None:
+def test_read_hess_needs_the_calc_hessian_init(
+    tmp_path, command, section, extra, dry_run
+) -> None:
     import importlib
 
     module = importlib.import_module(f"mlmm.workflows.{command}")
@@ -172,6 +175,7 @@ def test_read_hess_needs_the_calc_hessian_init(tmp_path, command, section, extra
         module.cli,
         _smoke_args(tmp_path / "out")
         + extra
+        + dry_run
         + ["--config", str(config), "--read-hess", str(hess)],
     )
 

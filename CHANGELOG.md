@@ -26,6 +26,7 @@ Target release: **0.4.0**.
 - Name the aggregate MEP trajectory `mep_trj.pdb` and its bridged-input CIF companion `mep_trj.cif`.
 - Use the TS-BFGS Hessian update by default for RFO minimizations (`rfo.hessian_update: ts_bfgs`).
 - Run terminal PHVA after an energy-plateau stop (`stalled`) in `tsopt` and report n_imag; runs that end at the cycle limit still skip it.
+- Keep running `tsopt --flatten` after an energy-plateau stop, since flattening can still remove extra imaginary modes; the retries stop when the `--max-cycles` budget is used up.
 - Warn and fall back to `false` when `rsirfo.min_line_search` or `rsirfo.max_line_search` is `true` for RS-P-RFO.
 - Describe `--show-config` as printing the loaded YAML file and its top-level keys, and `--dry-run` as validating options and inputs, matching what they print at the default verbosity.
 - `define-layer` uses `--model-pdb` when both `--model-pdb` and `--model-indices` are given, matching the calculation commands.
@@ -35,6 +36,9 @@ Target release: **0.4.0**.
 
 - When both `--model-pdb` and `--model-indices` are given, B-factor MM layers now exclude the `--model-pdb` atoms, matching the calculator's ML region.
 - `freq` no longer fails with `AttributeError` when it reuses a TS Hessian from an earlier stage that was stored without its energy.
+- When `tsopt --flatten` also tries the displacement in the opposite direction and keeps the first result, `--dump-hess` and IRC now use the Hessian of that result.
+- `tsopt --dry-run` now rejects `--read-hess` with a `hessian_init` other than `calc`, as a real run does.
+- `tsopt --opt-mode grad --skip-final-freq` now records n_imag in `result.json` after an energy-plateau stop, matching the Hessian it computes there.
 
 ### Removed
 

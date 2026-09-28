@@ -60,6 +60,22 @@ def test_discard_prevents_missing_endpoint_from_reusing_previous_seed() -> None:
     assert hessian_cache.load("irc_endpoint") is None
 
 
+def test_restore_puts_back_a_loaded_entry() -> None:
+    hessian_cache.store("ts", np.eye(3), meta={"source": "primary"})
+    primary = hessian_cache.load("ts")
+    hessian_cache.store("ts", 2.0 * np.eye(3), meta={"source": "alternate"})
+
+    hessian_cache.restore("ts", primary)
+    entry = hessian_cache.load("ts")
+    assert entry["meta"]["source"] == "primary"
+    torch.testing.assert_close(
+        torch.as_tensor(entry["hessian"]), torch.eye(3, dtype=torch.float64)
+    )
+
+    hessian_cache.restore("ts", None)
+    assert hessian_cache.load("ts") is None
+
+
 # ---------------------------------------------------------------------------
 # — defensive in-process ownership
 # ---------------------------------------------------------------------------

@@ -677,6 +677,14 @@ def discard(key: str) -> None:
     _cache.pop(key, None)
 
 
+def restore(key: str, snapshot: Optional[Mapping]) -> None:
+    """Put back an entry returned by :func:`load`; ``None`` drops the key."""
+    if snapshot is None:
+        _cache.pop(key, None)
+    else:
+        _cache[key] = _snapshot(snapshot)
+
+
 def clear() -> None:
     """Drop all cached Hessians."""
     _cache.clear()

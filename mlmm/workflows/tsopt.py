@@ -1815,10 +1815,8 @@ class HessianDimer:
         # RS-I-RFO branch instead of a neutral "completed" literal.
         self.is_converged = False
 
-        # Additive stall state propagated from a child LBFGS whose
-        # energy plateaued (energy stopped decreasing while its force/step
-        # criteria stayed unmet).  A stall stops all later segments/loops and
-        # is never reported as a converged TS.
+        # Stall state of the last optimization loop (a child LBFGS whose energy
+        # plateaued before its force/step criteria were met); never converged.
         self.is_stalled = False
         self.stop_reason = ""
         self.flatten_skip_reason: Optional[str] = None
@@ -2199,6 +2197,8 @@ class HessianDimer:
         steps_in_this_call = 0
         zero_step_converged = False
         loop_converged = False
+        self.is_stalled = False
+        self.stop_reason = ""
         while True:
             remaining_global = (
                 None
@@ -2421,9 +2421,7 @@ class HessianDimer:
         self.is_converged = bool(conv_loose and thresholds_match)
 
         zero_step_normal = False
-        # A stalled loose loop stops all further optimization work :
-        # skip the Hessian/mode update and the normal + flatten loops so a
-        # stalled TS search is never retried.
+        # A stalled loose loop skips the normal loop; the flatten loop still runs.
         if self.is_stalled:
             click.echo("[tsopt] Optimization stalled (energy plateau); skipping the normal dimer loop.")
         elif thresholds_match and conv_loose:
@@ -2464,11 +2462,7 @@ class HessianDimer:
         else:
             click.echo("[tsopt] Reached --max-cycles budget after loose loop; skipping normal dimer loop.")
 
-        # A stalled optimization never enters the flatten/retry loop.
-        if self.flatten_max_iter > 0 and self.is_stalled:
-            self.flatten_skip_reason = "optimization stalled before flattening"
-            click.echo("[tsopt] Optimization stalled (energy plateau); skipping the flatten loop.")
-        elif self.flatten_max_iter > 0 and (
+        if self.flatten_max_iter > 0 and (
             self.max_total_cycles is None
             or (self.max_total_cycles - self._cycles_spent) > 0
         ):
@@ -2577,14 +2571,6 @@ class HessianDimer:
                     torch.cuda.empty_cache()
                 _, zero_step_flat, conv_flat = self._dimer_loop(self.thresh)
                 self.is_converged = conv_flat
-
-                # A stall inside the flatten loop stops the remaining iterations
-                # : do not keep retrying a stalled optimization.
-                if self.is_stalled:
-                    self.flatten_skip_reason = (
-                        "optimization stalled during flattening"
-                    )
-                    break
 
                 if (
                     self.max_total_cycles is not None
@@ -4333,6 +4319,12 @@ def cli(
         prepared_input.cleanup()
         sys.exit(1)
 
+    if use_heavy and read_hess and rsirfo_cfg.get("hessian_init", "calc") != "calc":
+        prepared_input.cleanup()
+        raise click.BadParameter(
+            "--read-hess needs hessian_init: calc.", param_hint="--read-hess"
+        )
+
     if show_config:
         click.echo(
             pretty_block(
@@ -4500,11 +4492,6 @@ def cli(
             dict(simple_cfg.get("lbfgs", {})), opt_cfg
         )
         click.echo(pretty_block("hessian_dimer", sd_cfg_for_echo))
-    if use_heavy and read_hess and rsirfo_cfg.get("hessian_init", "calc") != "calc":
-        prepared_input.cleanup()
-        raise click.BadParameter(
-            "--read-hess needs hessian_init: calc.", param_hint="--read-hess"
-        )
 
     geometry = None
     try:
@@ -5081,10 +5068,6 @@ def cli(
                     _heavy_safeguards["path_mode_restarts"] = saddle_multistart_attempts
 
                 flatten_max_iter = int(simple_cfg.get("flatten_max_iter", 0))
-                if flatten_max_iter > 0 and getattr(last_optimizer, "is_stalled", False):
-                    flatten_max_iter = 0
-                    _flatten_skip_reason = "optimization stalled before flattening"
-                    click.echo("[tsopt] Optimization stalled (energy plateau); skipping the flatten loop.")
                 target_mode_is_negative = getattr(
                     last_optimizer,
                     "_last_exact_target_mode_is_negative",
@@ -5277,6 +5260,13 @@ def cli(
                                     _heavy_cycle_ledger.remaining is None
                                     or _heavy_cycle_ledger.remaining > 0
                                 ):
+                                    from mlmm.io.hessian_cache import (
+                                        load as _hess_load,
+                                        restore as _hess_restore,
+                                    )
+
+                                    # The alternate branch overwrites the cached TS Hessian.
+                                    primary_ts_hessian = _hess_load("ts")
                                     alternate_result = _run_flatten_branch(
                                         _mirrored_flatten_start(
                                             pre_flatten_coords, primary_start
@@ -5289,6 +5279,8 @@ def cli(
                                     )
                                     if alternate_score < primary_score:
                                         selected_result = alternate_result
+                                    else:
+                                        _hess_restore("ts", primary_ts_hessian)
                                     emit(
                                         "[flatten] Signed-branch probe selected "
                                         f"{selected_result['label']} "
@@ -5349,8 +5341,6 @@ def cli(
                         )
                         if not hessian_postprocessing_ready:
                             freqs_cm, modes = None, None
-                            break
-                        if getattr(last_optimizer, "is_stalled", False):
                             break
                         if (
                             reference_mode is not None
@@ -5703,7 +5693,7 @@ def cli(
                     else "converged" if _light_optimizer_converged
                     else "not_converged"
                 )
-                if not skip_final_freq and 'runner' in dir():
+                if 'runner' in dir() and (not skip_final_freq or _light_stalled):
                     _tsopt_n_imag = getattr(runner, "n_imaginary_modes", None)
                     _tsopt_n_negative = getattr(runner, "n_negative_modes", None)
                     _tsopt_imag_freqs = list(

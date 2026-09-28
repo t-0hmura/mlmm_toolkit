@@ -276,6 +276,48 @@ def test_dimer_plateau_runs_terminal_phva(
     assert runner.is_stalled is True
 
 
+def test_dimer_plateau_still_enters_the_flatten_loop(monkeypatch, tmp_path, capsys):
+    runner, _, mode_exports = _runner(tmp_path, monkeypatch, stalled=True)
+    runner.max_total_cycles = 10
+
+    def stalled_loop(_threshold, **kwargs):
+        runner._cycles_spent += 1
+        runner.is_stalled = True
+        runner.stop_reason = "energy plateau"
+        return 1, False, False
+
+    runner._dimer_loop = stalled_loop
+    monkeypatch.setattr(
+        tsopt,
+        "_frequencies_from_Hact",
+        lambda *args, **kwargs: np.array([-100.0, 20.0, 30.0]),
+    )
+
+    runner.run()
+
+    assert "Flatten loop with exact Hessian refreshes" in capsys.readouterr().out
+    assert runner.is_stalled is True
+    assert runner.n_imaginary_modes == 1
+    assert mode_exports == [True]
+
+
+def test_dimer_loop_clears_the_stall_of_an_earlier_loop():
+    runner = object.__new__(tsopt.HessianDimer)
+    runner.geom = SimpleNamespace(cart_coords=np.zeros(3))
+    runner.max_total_cycles = 10
+    runner._cycles_spent = 0
+    runner.update_interval_hessian = 5
+    runner.is_stalled = True
+    runner.stop_reason = "energy plateau"
+    runner._dimer_segment = lambda _threshold, _n: (2, True)
+
+    _, _, loop_converged = runner._dimer_loop("baker")
+
+    assert loop_converged is True
+    assert runner.is_stalled is False
+    assert runner.stop_reason == ""
+
+
 @pytest.mark.parametrize("key,value", [
     ("raw_mode_count", 4), ("near_zero_frequencies_cm", [float("nan")]),
     ("near_zero_frequencies_cm", None),

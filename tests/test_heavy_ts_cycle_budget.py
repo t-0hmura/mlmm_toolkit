@@ -35,3 +35,10 @@ def test_heavy_ts_restarts_receive_only_remaining_cycle_budget():
     assert "_rsirfo_cycles_spent" not in source
     assert "_tsopt_n_opt_cycles = (" in source
     assert "_heavy_cycle_ledger.spent" in source
+
+
+def test_heavy_ts_flatten_continues_after_a_plateau_stop():
+    source = Path(tsopt.__file__).read_text(encoding="utf-8")
+
+    assert "optimization stalled before flattening" not in source
+    assert "optimization stalled during flattening" not in source

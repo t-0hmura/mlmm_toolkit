@@ -53,6 +53,7 @@ from pysisyphus.normal_modes import (  # noqa: F401
 )
 
 from mlmm.backends.mlmm_calc import mlmm
+from mlmm.core.calc_eval import calc_energy as _calc_energy
 from mlmm.core.defaults import FREQ_KW, THERMO_KW
 # Import shared layer/keyword helpers from the neutral ``_opt_freq_common``
 # module and ``_parse_freeze_atoms`` from its canonical home in core.utils.
@@ -188,23 +189,6 @@ def _calc_full_hessian_torch(
         torch.cuda.empty_cache()
 
     return H, energy
-
-
-def _calc_energy(geom, calc_kwargs: Dict[str, Any]) -> float:
-    """Return the electronic energy (Hartree) from a temporary ML/MM calculator."""
-
-    kw = dict(calc_kwargs or {})
-    kw["out_hess_torch"] = False
-    calc = mlmm(**kw)
-    try:
-        energy = float(calc.get_energy(geom.atoms, geom.cart_coords)["energy"])
-    finally:
-        close = getattr(calc, "close", None)
-        if callable(close):
-            close()
-    if not np.isfinite(energy):
-        raise ValueError("Electronic energy must be finite for thermochemistry.")
-    return energy
 
 
 def _ordered_hessian_coverage_atoms(
