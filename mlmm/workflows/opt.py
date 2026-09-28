@@ -910,7 +910,7 @@ def _run_microiter_opt(
             del h_init
 
         # Create persistent RFOptimizer once (LayerOpt pattern).
-        # This preserves the BFGS Hessian update chain across macro iterations.
+        # This preserves the Hessian update chain across macro iterations.
         # NOTE: geometry already has macro_calc set (line above); do NOT call
         # set_calculator again as it clears the pre-computed cart_hessian.
         geometry.freeze_atoms = macro_freeze
@@ -960,7 +960,7 @@ def _run_microiter_opt(
             macro_optimizer.cur_cycle = macro_iter
 
             t_start = time.time()
-            step = macro_optimizer.optimize()  # housekeeping() triggers BFGS update
+            step = macro_optimizer.optimize()  # housekeeping() triggers the Hessian update
             macro_optimizer.steps.append(step)
 
             # Convergence check

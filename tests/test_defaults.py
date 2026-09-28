@@ -48,6 +48,10 @@ def test_opt_defaults():
     assert "max_cycles" in OPT_BASE_KW
 
 
+def test_rfo_hessian_update_default():
+    assert RFO_KW["hessian_update"] == "ts_bfgs"
+
+
 def test_minimizer_trial_rejection_defaults():
     assert LBFGS_KW["reject_uphill"] is False
     assert RFO_KW["reject_uphill"] is False

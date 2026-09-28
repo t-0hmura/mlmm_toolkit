@@ -203,7 +203,7 @@ RFO_KW: Dict[str, Any] = {
     "uphill_tolerance": 1e-4,
     "rejection_trust_floor": 1e-7,
     "max_rejections_at_floor": 3,
-    "hessian_update": "bfgs",
+    "hessian_update": "ts_bfgs",
     "hessian_init": "calc",
     "hessian_recalc": 500,
     "hessian_recalc_adapt": None,

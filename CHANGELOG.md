@@ -23,6 +23,7 @@ Target release: **0.4.0**.
 - Classify imaginary modes with the strict ν < −5.00 cm⁻¹ criterion and include optimization cycle counts in `all` summaries.
 - Use common CLI names with compatibility aliases, canonical boolean toggles, and conflict-checked YAML/CLI precedence.
 - Name the aggregate PDB trajectory `mep_trj.pdb`.
+- Use the TS-BFGS Hessian update by default for RFO minimizations (`rfo.hessian_update: ts_bfgs`).
 
 ## [0.3.7] — 2026-09-19
 

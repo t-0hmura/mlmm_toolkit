@@ -272,7 +272,7 @@ rfo:
  trust_min: 0.0001              # 最小信頼半径
  trust_max: 0.10                # 最大信頼半径（ML/MM 安定性のため調整）
  max_energy_incr: null          # ステップごとの許容エネルギー増加
- hessian_update: bfgs           # Hessian更新方式
+ hessian_update: ts_bfgs        # Hessian更新方式
  hessian_init: calc             # Hessian初期化ソース
  hessian_recalc: 500            # N ステップごとにHessianを再構築
  hessian_recalc_adapt: null     # 適応的Hessian再構築上限

@@ -295,7 +295,7 @@ rfo:
  uphill_tolerance: 0.0001 # Energy-rise tolerance (Hartree)
  rejection_trust_floor: 1.0e-07 # Smallest retry trust radius
  max_rejections_at_floor: 3 # Stop after repeated rejection at the floor
- hessian_update: bfgs # Hessian update scheme: bfgs, bofill, etc.
+ hessian_update: ts_bfgs # Hessian update scheme: ts_bfgs, bfgs, bofill, etc.
  hessian_init: calc # Hessian initialization: calc, unit, etc.
  hessian_recalc: 500 # Rebuild Hessian every N steps
  hessian_recalc_adapt: null # Adaptive Hessian rebuild factor

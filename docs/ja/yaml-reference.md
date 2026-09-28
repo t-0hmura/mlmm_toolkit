@@ -270,7 +270,7 @@ rfo:
  uphill_tolerance: 0.0001 # energy上昇許容値（Hartree）
  rejection_trust_floor: 1.0e-07 # retry trust radiusの下限
  max_rejections_at_floor: 3 # 下限での連続拒否後に停止
- hessian_update: bfgs # Hessian更新スキーム: bfgs, bofill 等
+ hessian_update: ts_bfgs # Hessian更新スキーム: ts_bfgs, bfgs, bofill 等
  hessian_init: calc # Hessian初期化: calc, unit 等
  hessian_recalc: 500 # N ステップごとにHessianを再構築
  hessian_recalc_adapt: null # 適応的Hessian再構築係数
