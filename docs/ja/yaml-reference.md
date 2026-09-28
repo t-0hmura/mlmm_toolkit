@@ -501,8 +501,8 @@ rsirfo:
  hessian_recalc: 500 # Hessian再構築間隔
  max_micro_cycles: 50 # マクロサイクルあたりのマイクロイテレーション数
  augment_bonds: false # 結合解析に基づく反応経路の拡張
- min_line_search: false # RS-P-RFO のみ: 最小化部分空間で補間
- max_line_search: false # RS-P-RFO のみ: 最大化部分空間で補間
+ min_line_search: false # 常に false: RS-P-RFO は line search を使わない
+ max_line_search: false # 常に false: RS-P-RFO は line search を使わない
  assert_neg_eigval: false # 収束時に負の固有値を要求
  track_mode_by_overlap: false # mlmm 固有: オーバーラップでターゲットモードを追跡
  trust_radius: 0.10 # 信頼領域半径
@@ -513,8 +513,8 @@ rsirfo:
  out_dir: ./result_tsopt/ # 出力ディレクトリ
 ```
 
-`min_line_search` と `max_line_search` を使用するのは
-`--opt-mode rsprfo` だけで、YAML の明示値を反映します。
+RS-P-RFO は line search を使いません。`min_line_search` または
+`max_line_search` に `true` を書くと警告を出して `false` に戻します。
 
 `opt` と `rsirfo` に同じ設定を明示する場合は値を一致させてください。片方だけならその値、無指定なら `rsirfo` のデフォルトを使います。
 

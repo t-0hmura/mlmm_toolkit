@@ -49,11 +49,11 @@ def test_missing_optional_config_is_silent(tmp_path: Path) -> None:
     assert "Couldn't find configuration file" not in proc.stderr
 
 
-def test_hessian_postprocessing_requires_numerical_convergence() -> None:
+def test_hessian_postprocessing_requires_convergence_or_plateau_stop() -> None:
     assert not _hessian_postprocessing_is_ready(None)
     assert not _hessian_postprocessing_is_ready(SimpleNamespace())
     assert _hessian_postprocessing_is_ready(SimpleNamespace(is_converged=True))
-    assert not _hessian_postprocessing_is_ready(SimpleNamespace(is_stalled=True))
+    assert _hessian_postprocessing_is_ready(SimpleNamespace(is_stalled=True))
     assert not _hessian_postprocessing_is_ready(
         SimpleNamespace(_last_exact_failure_reason="RuntimeError: failed")
     )

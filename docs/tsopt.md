@@ -38,7 +38,8 @@ available as an explicit choice.
 
 | Condition | `tsopt` artifacts | Composite `all` behavior |
 | --- | --- | --- |
-| Convergence criteria unmet, explicit cycle limit reached, or opt-in energy plateau | Retain the final geometry and trajectory; skip terminal PHVA | Register the TS result and stop before IRC |
+| Convergence criteria unmet or explicit cycle limit reached | Retain the final geometry and trajectory; skip terminal PHVA | Register the TS result and stop before IRC |
+| Opt-in energy plateau (`stalled`) | Retain the final geometry and trajectory; run terminal PHVA and report n_imag, also with `--skip-final-freq` | Register the TS result and stop before IRC |
 | Terminal PHVA fails or `--skip-final-freq` is explicit | Retain the geometry; record `failed` or `skipped` without inventing frequencies | Stop before IRC after artifact registration |
 | Invalid input/geometry or an unrecoverable optimizer exception such as `ZeroStepLength` / `OptimizationError` | Follow the structured error-envelope path; only files already written are retained on a best-effort basis | Abort the stage rather than relabeling it as ordinary non-convergence |
 
@@ -192,9 +193,10 @@ mlmm tsopt -i ts_guess.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 classification. `optimization_status` is `converged`, `not_converged`, or
 `stalled`; `saddle_validation` is `first_order`, `higher_order`,
 `no_imaginary`, or `unavailable`; and `hessian_status` records whether the
-terminal PHVA completed, failed, was skipped, or was unavailable. A non-converged
-or stalled run retains the geometry and skips the final PHVA output stage,
-even if curvature was checked during optimization. A PHVA failure is recorded
+terminal PHVA completed, failed, was skipped, or was unavailable. A run that ends
+without converging retains the geometry and skips the final PHVA output stage,
+even if curvature was checked during optimization; a run stopped on an energy
+plateau (`stalled`) still runs terminal PHVA and reports n_imag. A PHVA failure is recorded
 with its reason.
 
 A numerically converged higher-order stationary point is retained and may be
@@ -326,7 +328,7 @@ source, and Hessian shape.
 ```{note}
 `rsirfo.trust_max` defaults to 0.10 bohr for improved ML/MM stability near the TS.
 
-The shared `opt` block also provides an **energy-plateau stop**, off by default and turned on with `--stop-plateau` (`energy_plateau_thresh: 1.0e-4` au over `energy_plateau_window: 50` steps). A plateau stops the search as `stalled` and skips terminal PHVA, as does reaching `max_cycles` without convergence. It never applies to MM micro iterations. See [yaml-reference](yaml-reference.md#opt) for details.
+The shared `opt` block also provides an **energy-plateau stop**, off by default and turned on with `--stop-plateau` (`energy_plateau_thresh: 1.0e-4` au over `energy_plateau_window: 50` steps). A plateau stops the search as `stalled`; terminal PHVA still runs and reports n_imag, while reaching `max_cycles` without convergence skips it. It never applies to MM micro iterations. See [yaml-reference](yaml-reference.md#opt) for details.
 
 For `--microiter`, `rsirfo.thresh` controls the selected macro Hessian TS step. The MM
 relaxation threshold is set with `microiter.micro_thresh`; when it is `null` or

@@ -59,7 +59,7 @@ def test_microiter_macro_optimizer_builds(tsopt_mod, mode, tmp_path):
     assert type(opt).__name__ in ("RSIRFOptimizer", "RSPRFOptimizer", "TRIM")
 
 
-def test_rsprfo_honors_explicit_line_search_values(tsopt_mod, tmp_path):
+def test_rsprfo_line_search_true_falls_back_to_false(tsopt_mod, tmp_path):
     kw = tsopt_mod._build_rsirfo_kwargs(
         {"min_line_search": True, "max_line_search": True},
         max_cycles=1,
@@ -67,8 +67,8 @@ def test_rsprfo_honors_explicit_line_search_values(tsopt_mod, tmp_path):
         mode="rsprfo",
     )
 
-    assert kw["min_line_search"] is True
-    assert kw["max_line_search"] is True
+    assert kw["min_line_search"] is False
+    assert kw["max_line_search"] is False
 
 
 def test_hessian_dimer_defaults_are_isolated_and_bounded_by_runner(tsopt_mod):
@@ -176,6 +176,32 @@ def test_tsopt_rejects_ambiguous_shared_optimizer_config(
 
     assert result.exit_code != 0
     assert message in result.output
+
+
+def test_tsopt_rsprfo_line_search_true_warns(tsopt_mod, monkeypatch, tmp_path):
+    source_repo = Path(__file__).resolve().parents[1]
+    source = source_repo / "tests" / "smoke" / "p_complex_layered.pdb"
+    parm = source_repo / "tests" / "smoke" / "p_complex.parm7"
+    if not source.is_file() or not parm.is_file():
+        pytest.skip("smoke inputs are not present")
+
+    config = tmp_path / "tsopt.yaml"
+    config.write_text(
+        "rsirfo:\n  min_line_search: true\n  max_line_search: true\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    result = CliRunner().invoke(
+        tsopt_mod.cli,
+        [
+            "-i", str(source), "--parm", str(parm), "-q", "-1", "-m", "1",
+            "--opt-mode", "rsprfo", "--dry-run", "--config", str(config),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "rsirfo.min_line_search is set to false" in result.output
+    assert "rsirfo.max_line_search is set to false" in result.output
 
 
 def test_hessian_dimer_nested_yaml_does_not_leak_between_invocations(

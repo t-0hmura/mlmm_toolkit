@@ -269,10 +269,11 @@ def _optimizer_safeguard_payload(optimizer) -> Dict[str, Any]:
 
 
 def _hessian_postprocessing_is_ready(optimizer: Any) -> bool:
-    """Whether numerical convergence authorizes terminal PHVA."""
+    """Whether convergence or a plateau stop authorizes terminal PHVA."""
     return bool(
         optimizer is not None
-        and getattr(optimizer, "is_converged", False)
+        and (getattr(optimizer, "is_converged", False)
+             or getattr(optimizer, "is_stalled", False))
         and not getattr(optimizer, "_last_exact_failure_reason", None)
     )
 
@@ -606,8 +607,8 @@ def _build_rsirfo_kwargs(
     for _diis_kw in ("gediis", "gdiis", "gdiis_thresh", "gediis_thresh", "gdiis_test_direction", "adapt_step_func"):
         args.pop(_diis_kw, None)
     if mode == "rsprfo":
-        args.setdefault("min_line_search", False)
-        args.setdefault("max_line_search", False)
+        args["min_line_search"] = False
+        args["max_line_search"] = False
     else:
         args.pop("min_line_search", None)
         args.pop("max_line_search", None)
@@ -2548,7 +2549,7 @@ class HessianDimer:
         atoms_final = Atoms(self.geom.atoms, positions=(self.geom.coords3d * BOHR2ANG), pbc=False)
         write(final_xyz, atoms_final)
 
-        if not self.is_converged:
+        if not (self.is_converged or self.is_stalled):
             self.saddle_order_verified = False
             self.n_imaginary_modes = None
             self.n_negative_modes = None
@@ -4055,6 +4056,16 @@ def cli(
             "hessian_dimer.lbfgs.line_search must be false because the "
             "Dimer effective force is not the gradient of the physical energy."
         )
+    if mode_resolved == "rsprfo":
+        # RS-P-RFO does not use line searches; an explicit true falls back to false.
+        for key in ("min_line_search", "max_line_search"):
+            if rsirfo_cfg.get(key):
+                click.echo(
+                    "[tsopt] WARNING: RS-P-RFO does not use line searches; "
+                    f"rsirfo.{key} is set to false.",
+                    err=True,
+                )
+                rsirfo_cfg[key] = False
 
     # A TS search follows a saddle-search direction, so physical energy is not
     # required to decrease. Keep this invariant after every YAML merge.
@@ -4729,6 +4740,7 @@ def cli(
                 if (
                     int(rsirfo_args.get("saddle_recovery_max_cycles", 0)) > 0
                     and not _heavy_optimizer_converged
+                    and not getattr(last_optimizer, "is_stalled", False)
                     and reference_mode is not None
                     and (n_imag <= 1 or target_mode_is_negative is False)
                 ):
@@ -4880,6 +4892,10 @@ def cli(
                     _heavy_safeguards["path_mode_restarts"] = saddle_multistart_attempts
 
                 flatten_max_iter = int(simple_cfg.get("flatten_max_iter", 0))
+                if flatten_max_iter > 0 and getattr(last_optimizer, "is_stalled", False):
+                    flatten_max_iter = 0
+                    _flatten_skip_reason = "optimization stalled before flattening"
+                    click.echo("[tsopt] Optimization stalled (energy plateau); skipping the flatten loop.")
                 target_mode_is_negative = getattr(
                     last_optimizer,
                     "_last_exact_target_mode_is_negative",
@@ -5144,6 +5160,8 @@ def cli(
                         )
                         if not hessian_postprocessing_ready:
                             freqs_cm, modes = None, None
+                            break
+                        if getattr(last_optimizer, "is_stalled", False):
                             break
                         if (
                             reference_mode is not None

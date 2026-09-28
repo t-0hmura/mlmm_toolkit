@@ -37,7 +37,8 @@ YAML の半径は Bohr 単位で、`opt` / `rsirfo` の既存の優先順位を�
 
 | 条件 | `tsopt` の成果物 | `all` の動作 |
 | --- | --- | --- |
-| 収束条件未達、明示したサイクル上限への到達、有効化したエネルギープラトー停止 | 最終構造と軌跡を保持し、終端 PHVA を省略 | TS 結果の登録後、IRC 前で停止 |
+| 収束条件未達、明示したサイクル上限への到達 | 最終構造と軌跡を保持し、終端 PHVA を省略 | TS 結果の登録後、IRC 前で停止 |
+| 有効化したエネルギープラトー停止（`stalled`） | 最終構造と軌跡を保持し、終端 PHVA を実行して n_imag を報告（`--skip-final-freq` 指定時も同じ） | TS 結果の登録後、IRC 前で停止 |
 | 終端 PHVA の失敗、または `--skip-final-freq` 指定 | 構造を保持し、`failed` または `skipped` を記録 | 結果の登録後、IRC 前で停止 |
 | 不正な入力・構造、または `ZeroStepLength` / `OptimizationError` など回復不能なオプティマイザの例外 | エラー情報を記録し、それ以前に書かれたファイルを可能な範囲で保持 | 通常の数値非収束とは区別して処理を中断 |
 
@@ -169,8 +170,9 @@ mlmm tsopt -i ts_guess.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 `optimization_status` は `converged` / `not_converged` / `stalled`、
 `saddle_validation` は `first_order` / `higher_order` / `no_imaginary` /
 `unavailable`、`hessian_status` は終端 PHVA の completed / failed / skipped /
-unavailable を表します。非収束や `stalled` の場合は最終構造を保持し、探索中に
-曲率を確認していても最終 PHVA の出力段階には進みません。PHVA の失敗時は
+unavailable を表します。収束せずに終わった場合は最終構造を保持し、探索中に
+曲率を確認していても最終 PHVA の出力段階には進みません。エネルギープラトーで
+停止した場合（`stalled`）は終端 PHVA を実行し、n_imag を報告します。PHVA の失敗時は
 理由を記録します。
 
 数値収束済み高次停留点は、有効な負 root がある場合に限り警告付き診断 IRC に
@@ -375,7 +377,7 @@ overlap追跡に使う高度な 3N MEP 接線を与えます。`geom.tr_projecti
 ```{note}
 `rsirfo.trust_max` のデフォルトは 0.10 bohr です。TS 近傍での ML/MM 安定性が改善します。
 
-共有 `opt` ブロックには **エネルギープラトー停止**（デフォルト無効、`--stop-plateau` で有効化）があります。plateau では `stalled` として停止し、未収束の `max_cycles` 到達時と同様に終端 PHVA を実行しません。MM micro 反復には適用されません。詳細は [yaml-reference](yaml-reference.md#opt) を参照してください。
+共有 `opt` ブロックには **エネルギープラトー停止**（デフォルト無効、`--stop-plateau` で有効化）があります。plateau では `stalled` として停止し、終端 PHVA を実行して n_imag を報告します（未収束の `max_cycles` 到達時は実行しません）。MM micro 反復には適用されません。詳細は [yaml-reference](yaml-reference.md#opt) を参照してください。
 
 `--microiter` では `rsirfo.thresh` がmacro側、`microiter.micro_thresh` がMM緩和側の収束閾値です。後者が `null` または未指定ならmacro側を継承します。`--micro-thresh` CLIフラグはなく、[YAML](yaml-reference.md#microiter)で設定します。
 ```

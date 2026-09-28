@@ -159,8 +159,8 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | `safeguards` | object | Hessian family の trial 拒否/recovery、exact saddle、target-mode 診断 |
 | `files` | object | 最終構造 + vib モードファイル |
 
-終端exact PHVAは数値収束後だけ実行します。非収束または`stalled`なら終端構造を
-保持してPHVAをskipします。PHVA失敗時は構造を破棄したり振動数を捏造したりせず、`hessian_status: "failed"`
+終端exact PHVAは数値収束後とエネルギープラトー停止（`stalled`）後に実行します。それ以外の
+非収束では終端構造を保持してPHVAをskipします。PHVA失敗時は構造を破棄したり振動数を捏造したりせず、`hessian_status: "failed"`
 と理由を記録します。数値 status と鞍点次数は独立で、数値収束済み高次停留点は
 `optimization_status: "converged"`、`saddle_validation: "higher_order"` のまま
 保持され、一次 TS 認定にはなりません。`all` は有効な負 root がある場合だけ警告付き

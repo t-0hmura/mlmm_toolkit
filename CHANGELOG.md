@@ -24,6 +24,8 @@ Target release: **0.4.0**.
 - Use common CLI names with compatibility aliases, canonical boolean toggles, and conflict-checked YAML/CLI precedence.
 - Name the aggregate PDB trajectory `mep_trj.pdb`.
 - Use the TS-BFGS Hessian update by default for RFO minimizations (`rfo.hessian_update: ts_bfgs`).
+- Run terminal PHVA after an energy-plateau stop (`stalled`) in `tsopt` and report n_imag; runs that end at the cycle limit still skip it.
+- Warn and fall back to `false` when `rsirfo.min_line_search` or `rsirfo.max_line_search` is `true` for RS-P-RFO.
 
 ## [0.3.7] — 2026-09-19
 
