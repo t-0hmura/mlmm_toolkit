@@ -59,7 +59,7 @@ mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
     biasing so the starting point is relaxed.
 3. Parse stage targets from `-s/--scan-lists` (YAML/JSON spec file or inline literal), then normalize the
     `(i, j)` indices (1-based by default). When PDB metadata are available, each entry
-    may be either an integer index or an atom selector string like `'TYR,285,CA'`;
+    may be either an integer index or an atom selector string like `'SAM,320,CS1'`;
     selector fields can be separated by spaces, commas, slashes, backticks, or
     backslashes and may be in any order.
 4. Compute the per-bond displacement and split into steps:
@@ -111,7 +111,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
 | `--freeze-atoms TEXT` | Comma-separated 1-based atom indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
 | `--movable-cutoff FLOAT` | Movable-MM distance cutoff (Å); providing this disables `--detect-layer`. | _None_ |
-| `-s, --scan-lists TEXT` | Scan targets: a YAML/JSON spec file path (auto-detected) or inline Python literal(s) with `(i, j, target_A)` triples or `(i, j, start, end)` 4-tuples for bidirectional scans. Supply multiple literals after a single flag. `i`/`j` can be integer indices or PDB atom selectors like `"TYR,285,CA"`. | Required |
+| `-s, --scan-lists TEXT` | Scan targets: a YAML/JSON spec file path (auto-detected) or inline Python literal(s) with `(i, j, target_A)` triples or `(i, j, start, end)` 4-tuples for bidirectional scans. Supply multiple literals after a single flag. `i`/`j` can be integer indices or PDB atom selectors like `"SAM,320,CS1"`. | Required |
 | `--one-based/--zero-based` | Interpret atom indices as 1-based (default) or 0-based. | `True` (1-based) |
 | `--print-parsed/--no-print-parsed` | Print parsed scan targets and exit without running the scan. | `False` |
 | `--max-step-size FLOAT` | Maximum change in any scanned bond per step (Å). Controls the number of biased relaxation steps. | `0.20` |
@@ -171,39 +171,39 @@ Atoms can be given as **integer indices** or **PDB selector strings**:
 | Method | Example | Notes |
 | --- | --- | --- |
 | Integer index | `(1, 5, 2.0)` | 1-based by default (`--one-based`) |
-| PDB selector | `("TYR,285,CA", "MMT,309,C10", 2.0)` | Residue name, residue number, atom name |
+| PDB selector | `("SAM,320,CS1", "GPP,321,C7", 1.60)` | Residue name, residue number, atom name |
 
 PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, backtick `` ` ``, or backslash `\`. Token order is flexible.
 
 ```bash
 # All of these specify the same atom:
-"TYR,285,CA"
-"TYR 285 CA"
-"TYR/285/CA"
-"285,TYR,CA" # order is flexible
+"SAM,320,CS1"
+"SAM 320 CS1"
+"SAM/320/CS1"
+"320,SAM,CS1" # order is flexible
 ```
 
 Quoting rules:
 
 ```bash
 # Correct: single-quote the list, double-quote selector strings inside
--s '[("TYR,285,CA","MMT,309,C10",1.35)]'
+-s '[("SAM,320,CS1","GPP,321,C7",1.60)]'
 
 # Correct: integer indices need no inner quotes
 -s '[(1, 5, 2.0)]'
 
 # Avoid: double-quoting the outer literal requires escaping inner quotes
--s "[(\"TYR,285,CA\",\"MMT,309,C10\",1.35)]"
+-s "[(\"SAM,320,CS1\",\"GPP,321,C7\",1.60)]"
 ```
 
 Example with two stages:
 
 ```bash
-# Stage 1: drive one bond to 1.35 Å
-# Stage 2: drive two bonds simultaneously
+# Stage 1: drive the methyl-transfer distance to 1.60 Å
+# Stage 2: then drive the proton transfer to 0.90 Å
 -s \
- '[("TYR,285,CA","MMT,309,C10",1.35)]' \
- '[("TYR,285,CA","MMT,309,C10",2.20),("TYR,285,CB","MMT,309,C11",1.80)]'
+ '[("SAM,320,CS1","GPP,321,C7",1.60)]' \
+ '[("GPP,321,H11","GLU,186,OE2",0.90)]'
 ```
 
 Each stage starts from the previous stage's relaxed result.

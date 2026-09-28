@@ -1997,17 +1997,6 @@ class MLMMCore:
         _skip_high_level_backend: bool = False,
         **kwargs,
     ):
-        # --- v0.1.x backward compatibility aliases ---
-        if "real_pdb" in kwargs:
-            warnings.warn("'real_pdb' is deprecated; use 'input_pdb'.", DeprecationWarning, stacklevel=2)
-            if input_pdb is None:
-                input_pdb = kwargs.pop("real_pdb")
-            else:
-                kwargs.pop("real_pdb")
-        for _old_name in ("real_rst7", "vib_run", "vib_dir"):
-            if _old_name in kwargs:
-                warnings.warn(f"'{_old_name}' is no longer used and will be ignored.", DeprecationWarning, stacklevel=2)
-                kwargs.pop(_old_name)
         if kwargs:
             raise TypeError(f"MLMMCore.__init__() got unexpected keyword arguments: {', '.join(kwargs)}")
         if input_pdb is None:
@@ -3753,17 +3742,6 @@ class mlmm(PySiCalc):
         _skip_high_level_backend: bool = False,
         **kwargs,
     ):
-        # --- v0.1.x backward compatibility aliases ---
-        if "real_pdb" in kwargs:
-            warnings.warn("'real_pdb' is deprecated; use 'input_pdb'.", DeprecationWarning, stacklevel=2)
-            if input_pdb is None:
-                input_pdb = kwargs.pop("real_pdb")
-            else:
-                kwargs.pop("real_pdb")
-        for _old_name in ("real_rst7", "vib_run", "vib_dir"):
-            if _old_name in kwargs:
-                warnings.warn(f"'{_old_name}' is no longer used and will be ignored.", DeprecationWarning, stacklevel=2)
-                kwargs.pop(_old_name)
 
         self._freeze_atoms = [] if freeze_atoms is None else list(freeze_atoms)
         super().__init__(charge=model_charge, mult=model_mult, **kwargs)
@@ -3946,23 +3924,3 @@ class mlmm_mm_only(PySiCalc):
 
     def get_hessian(self, elem, coords):
         raise NotImplementedError("MM-only calculator does not support Hessian computation.")
-
-
-#               v0.1.x compatibility: mlmm_ase() factory
-
-
-def mlmm_ase(**kwargs):
-    """v0.1.x compatibility wrapper.
-
-    Accepts all MLMMCore parameters as keyword arguments and returns
-    an MLMMASECalculator.  Equivalent to::
-
-        MLMMASECalculator(MLMMCore(**kwargs))
-    """
-    warnings.warn(
-        "mlmm_ase() is deprecated; use MLMMASECalculator(MLMMCore(...)) instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    core = MLMMCore(**kwargs)
-    return MLMMASECalculator(core)

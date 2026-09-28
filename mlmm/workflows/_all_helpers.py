@@ -36,7 +36,7 @@ def copy_path_outputs_to_root(
             "mep_plot.png",
             "energy_diagram_MEP.png",
             "mep_trj.pdb",
-            "mep.cif",
+            "mep_trj.cif",
         ):
             if name.endswith(".png") and image_names is not None and name not in image_names:
                 continue

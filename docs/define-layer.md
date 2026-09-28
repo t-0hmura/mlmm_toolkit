@@ -43,7 +43,7 @@ mlmm define-layer -i system.pdb --model-pdb ml_region.pdb \
 ```
 
 ## Workflow
-1. **ML region identification** -- The ML region is defined by `--model-pdb` (atom matching against the input PDB) or `--model-indices` (explicit atom indices). If `--model-indices` is provided, it takes precedence over `--model-pdb`.
+1. **ML region identification** -- The ML region is defined by `--model-pdb` (atom matching against the input PDB) or `--model-indices` (explicit atom indices). If both are given, `--model-pdb` is used, as in the calculation commands.
 2. **Distance computation** -- For each non-ML atom (or residue), the minimum distance from any ML atom is computed.
 3. **Layer assignment** -- Non-ML atoms/residues are assigned to Movable-MM or Frozen by `--movable-cutoff`.
 4. **Output** -- The output PDB has B-factors set to layer values (0, 10, 20). A summary of layer assignments is printed to the console.
@@ -58,7 +58,7 @@ mlmm define-layer -i system.pdb --model-pdb ml_region.pdb \
 | --- | --- | --- |
 | `-i, --input PATH` | Input PDB or mmCIF file containing the full system. | Required |
 | `--model-pdb PATH` | PDB or mmCIF file defining atoms in the ML region. | _None_ |
-| `--model-indices TEXT` | Comma-separated atom indices for the ML region (e.g. `"1,2,3,4"` or `"1-10,15,20-25"`); 1-based by default, use `--zero-based` for 0-based. Takes precedence over `--model-pdb`. | _None_ |
+| `--model-indices TEXT` | Comma-separated atom indices for the ML region (e.g. `"1,2,3,4"` or `"1-10,15,20-25"`); 1-based by default, use `--zero-based` for 0-based. Used when `--model-pdb` is omitted. | _None_ |
 | `--movable-cutoff FLOAT` | Distance cutoff (Å) from ML region for Movable-MM. Atoms beyond this are Frozen. | `8.0` |
 | `-o, --output PATH` | Output PDB file with B-factors set to layer values. | `<input>_layered.pdb` |
 | `--one-based / --zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |

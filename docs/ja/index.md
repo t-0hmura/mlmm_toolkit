@@ -6,71 +6,6 @@
 
 <img src="../mlmm_toolkit_overview.png" alt="mlmm-toolkit workflow overview" width="90%">
 
-```{toctree}
-:maxdepth: 2
-:caption: ガイド
-:hidden:
-
-getting-started
-cif
-concepts
-quickstart-all
-quickstart-scan-spec
-quickstart-tsopt-freq
-recipes-common-errors
-troubleshooting
-cli-conventions
-reproducibility
-```
-
-```{toctree}
-:maxdepth: 2
-:caption: コマンド
-:hidden:
-
-all
-extract
-add-elem-info
-mm-parm
-define-layer
-opt
-tsopt
-path-opt
-path-search
-scan
-scan2d
-scan3d
-freq
-irc
-dft
-sp
-trj2fig
-oniom-export
-oniom-import
-fix-altloc
-energy-diagram
-bond-summary
-oniom-gaussian
-oniom-orca
-```
-
-```{toctree}
-:maxdepth: 2
-:caption: リファレンス
-:hidden:
-
-yaml-reference
-json-output
-mlmm-calc
-python-api
-backends
-device-hpc
-architecture
-output-layout
-mcp_server
-glossary
-```
-
 ---
 
 ## 目的別クイックスタート
@@ -185,7 +120,7 @@ mlmm opt -i layered.pdb --parm7 system.parm7 -q 0 --show-config --dry-run
 
 ## 出力構造
 
-MEPモードの `all` は `summary.log`・`summary.json`、MEP（`mep_trj.pdb` / `mep_trj.xyz`、bridge入力では `mep.cif` も）、
+MEPモードの `all` は `summary.log`・`summary.json`、MEP（`mep_trj.pdb` / `mep_trj.xyz`、bridge入力では `mep_trj.cif` も）、
 `energy_diagram_MEP.png` を出力します。
 再利用できる準備ファイルは `ml_region.pdb`、`mm_parm/`、`layered/` です。
 `segments/seg_NN/` にR/TS/P構造と指定したTS・IRC・freq・DFT結果、`_work/` に準備・scan・pathの中間出力を保存します。

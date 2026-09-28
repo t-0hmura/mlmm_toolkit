@@ -493,7 +493,7 @@ ML/MM 系は MLIP 単体の計算よりも一般的に大きいため、VRAM の
 - **MM Hessian**: `mm_fd: true`（デフォルト）は MM Hessian に有限差分を使用。解析 MM Hessian（`mm_fd: false`）は小規模系では高速だがメモリ消費が増える場合がある
 - **MM Hessian 計算が遅い**: `hess_cutoff` を設定して Hessian-MM 原子数を制限する
 - **大規模系**: `define-layer` の `--movable-cutoff` を調整して可動自由度数を制御し、対象系の pilot で科学的妥当性と資源使用量を確認する
-- **GPU 配置**: 現行の topology と解析 MM 経路は CPU 側です。ML/DFT backend の対応範囲内で device を選び、対象系で検証してください
+- **GPU 配置**: 既定の hessian_ff MM backend は CPU 専用です。MM を別の GPU に置く場合は `mm_backend: openmm`、`mm_device: cuda`、`mm_cuda_idx: 1` を指定します
 - **ML と MM の並列実行**: デフォルトで ML（GPU）と MM（CPU）は並列実行されます。`mm_threads` で CPU スレッド数を調整可能
 
 ---

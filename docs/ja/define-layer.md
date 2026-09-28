@@ -47,7 +47,7 @@ mlmm define-layer -i system.pdb --model-pdb ml_region.pdb \
 
 ## 処理の流れ
 
-1. **ML 領域の同定** -- ML 領域は `--model-pdb`（入力 PDB との原子マッチング）または `--model-indices`（明示的な原子インデックス）で定義されます。`--model-indices` が指定された場合、`--model-pdb` より優先されます。
+1. **ML 領域の同定** -- ML 領域は `--model-pdb`（入力 PDB との原子マッチング）または `--model-indices`（明示的な原子インデックス）で定義されます。両方を指定すると、計算コマンドと同じく `--model-pdb` が使われます。
 2. **距離計算** -- 各非 ML 原子（または残基）について、任意の ML 原子からの最小距離を計算します。
 3. **レイヤー割り当て** -- 非 ML 原子/残基は `--movable-cutoff` に基づいて Movable-MM または Frozen に割り当てられます。
 4. **出力** -- 出力 PDB の B 因子がレイヤー値（0、10、20）に設定されます。レイヤー割り当てのサマリーがコンソールに出力されます。
@@ -63,7 +63,7 @@ mlmm define-layer -i system.pdb --model-pdb ml_region.pdb \
 | --- | --- | --- |
 | `-i, --input PATH` | 全系を含む入力 PDB/mmCIF ファイル。 | 必須 |
 | `--model-pdb PATH` | ML 領域の原子を定義する PDB/mmCIF ファイル。 | _None_ |
-| `--model-indices TEXT` | ML 領域のカンマ区切り原子インデックス（例: `"1,2,3,4"` または `"1-10,15,20-25"`）。`--model-pdb` より優先。 | _None_ |
+| `--model-indices TEXT` | ML 領域のカンマ区切り原子インデックス（例: `"1,2,3,4"` または `"1-10,15,20-25"`）。`--model-pdb` が無いときに使う。 | _None_ |
 | `--movable-cutoff FLOAT` | ML 領域からの Movable-MM の距離カットオフ (Å)。これを超える原子は Frozen。 | `8.0` |
 | `-o, --output PATH` | B 因子がレイヤー値に設定された出力 PDB ファイル。 | `<input>_layered.pdb` |
 | `--one-based / --zero-based` | `--model-indices` を 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |

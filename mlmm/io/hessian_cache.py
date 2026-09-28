@@ -647,12 +647,15 @@ def load_matching(
     expected: Mapping,
     *,
     atol: float = 1.0e-5,
+    any_run: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """Single reuse chokepoint: return a snapshot only on a full identity match.
 
     A cached entry without an identity token (legacy coordinate-only) is never
     reused here.  Missing/mismatched run ID, evaluator, system, active space,
-    constraints, potential, or representation all reject.
+    constraints, potential, or representation all reject.  ``any_run`` skips
+    only the run-ID check, for a command reading back its own entry (a
+    standalone command has no run ID).
     """
 
     entry = _cache.get(role)
@@ -661,34 +664,12 @@ def load_matching(
     stored_identity = entry.get("identity")
     if stored_identity is None:
         return None
+    if any_run:
+        run = {"run_id": stored_identity.get("run_id") or "standalone"}
+        stored_identity, expected = {**stored_identity, **run}, {**expected, **run}
     if not identities_match(stored_identity, expected, atol=atol):
         return None
     return _snapshot(entry)
-
-
-def matches_cart_coords(
-    entry: Dict[str, Any],
-    cart_coords,
-    *,
-    atol: float = 1.0e-5,
-) -> bool:
-    """Whether an entry belongs to ``cart_coords``.
-
-    Entries without a coordinate fingerprint are not safe for cross-stage
-    reuse. Coordinates are in bohr and the tolerance accommodates serialized
-    structure round-tripping.  Coordinate identity alone is *not* sufficient
-    for reuse — see ``load_matching`` for the full-identity chokepoint.
-    """
-    cached_coords = entry.get("meta", {}).get("cart_coords")
-    if cached_coords is None:
-        return False
-    if isinstance(cart_coords, torch.Tensor):
-        cart_coords = cart_coords.detach().cpu().numpy()
-    cached_arr = np.asarray(cached_coords, dtype=float).reshape(-1)
-    current_arr = np.asarray(cart_coords, dtype=float).reshape(-1)
-    return cached_arr.shape == current_arr.shape and bool(
-        np.allclose(cached_arr, current_arr, rtol=0.0, atol=float(atol))
-    )
 
 
 def discard(key: str) -> None:

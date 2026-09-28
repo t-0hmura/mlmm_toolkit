@@ -12,7 +12,6 @@ __all__ = [
     "MLMMCore",
     "MLMMASECalculator",
     "mlmm",
-    "mlmm_ase",
     "mlmm_mm_only",
 ]
 
@@ -22,7 +21,6 @@ _LAZY_IMPORTS = {
     "MLMMCore": "mlmm.backends.mlmm_calc",
     "MLMMASECalculator": "mlmm.backends.mlmm_calc",
     "mlmm": "mlmm.backends.mlmm_calc",
-    "mlmm_ase": "mlmm.backends.mlmm_calc",
     "mlmm_mm_only": "mlmm.backends.mlmm_calc",
 }
 

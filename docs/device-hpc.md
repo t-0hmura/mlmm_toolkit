@@ -189,7 +189,8 @@ mlmm opt \
 If you are allocated multiple GPUs or want to target a specific GPU on a multi-GPU node:
 
 ```bash
-# Option A: Environment variable (affects all CUDA programs)
+# Option A: Environment variable (affects all CUDA programs).
+# Under a scheduler, keep the value it sets; set it yourself only outside one.
 export CUDA_VISIBLE_DEVICES=0
 
 # Option B: YAML configuration (mlmm-specific)

@@ -218,7 +218,7 @@ out_dir/ (デフォルト: ./result_tsopt/)
 | `-m, --multiplicity INT` | ML 領域のスピン多重度 (2S+1)。 | _None_（デフォルト 1） |
 | **アクティブ領域の凍結** | | |
 | `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス（YAML `geom.freeze_atoms` とマージ）。 | _None_ |
-| `--hessian-cutoff FLOAT` | ML 領域からの Hessian-MM 原子の距離カットオフ (Å)。未指定時は最終解析に必要な可動 MM 原子をすべて含めます。`0.0` で ML のみを評価する場合は、最終周波数解析も `--active-dof-mode ml-only` にします。エイリアス: `--hessian-cutoff`。 | _None_ |
+| `--hessian-cutoff FLOAT` | ML 領域からの Hessian-MM 原子の距離カットオフ (Å)。未指定時は最終解析に必要な可動 MM 原子をすべて含めます。`0.0` で ML のみを評価する場合は、最終周波数解析も `--active-dof-mode ml-only` にします。 | _None_ |
 | `--movable-cutoff FLOAT` | 可動 MM 原子の距離カットオフ (Å)。 | _None_ |
 | **TS 探索とオプティマイザモード** | | |
 | `--hessian-calc-mode CHOICE` | MLIP Hessian モード: `Analytical` または `FiniteDifference`。 | `FiniteDifference` |
@@ -228,13 +228,13 @@ out_dir/ (デフォルト: ./result_tsopt/)
 | `--microiter/--no-microiter` | Hessian モードで macro TS の 1 ステップと MM の L-BFGS 緩和を交互に実行。`--embedcharge` 有効時は通常の最適化に切り替えます。 | `True` |
 | `--ml-only-hessian-dimer/--no-ml-only-hessian-dimer` | `grad` モードで Dimer 方向決定に ML 領域のみの Hessian を使用。高速だが精度は低下。 | `False` |
 | **収束と平坦化** | | |
-| `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | _None_ |
+| `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | `baker` |
 | `--flatten/--no-flatten` | 余分な虚振動数モード平坦化ループの有効化/無効化。`--flatten` はデフォルト反復回数（50）を使用、`--no-flatten` は 0 に強制。Dimer とすべての Hessian TS オプティマイザに適用。 | _None_（CLI デフォルトは無効 = `flatten_max_iter` 0; `--flatten` または YAML/config で初めて有効化され、その場合 50 回） |
 | `--partial-hessian-flatten / --full-hessian-flatten` | 平坦化ループでの虚振動数モード検出に active-coordinate Hessian block または full Hessian を使用。 | `True`（active block） |
 | `--active-dof-mode CHOICE` | 最終振動解析のアクティブ自由度: `all`、`ml-only`、`partial`、`unfrozen`。 | `partial` |
 | `--skip-final-freq/--no-skip-final-freq` | 終端 frequency/PHVA 検証をスキップ。最終 TS 候補は保持しますが鞍点次数と負の IRC 方向は未検証となり、`all` は IRC 前で停止します。 | `False` |
 | **バックエンドと計算** | | |
-| `-b, --backend CHOICE` | ML 領域の MLIP バックエンド: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`。 | `uma` |
+| `-b, --backend CHOICE` | 高レベルbackend: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`、`dft`。 | `uma` |
 | `--precision [fp32\|fp64]` | MLIP バックエンド精度。省略時は UMA/AIMNet2 fp32、ORB/MACE fp64。AIMNet2 は fp64 を拒否。 | バックエンド依存 |
 | `--uma-workers INT` | UMA predictor worker 数。2 以上は `fairchem-core[extras]` が必要で、`Analytical` と併用不可。 | `1` |
 | `--uma-workers-per-node INT` | UMA 並列 predictor のノード当たり worker 数。 | _None_ |
@@ -247,9 +247,11 @@ out_dir/ (デフォルト: ./result_tsopt/)
 | `--convert-files/--no-convert-files` | PDB 入力時の XYZ/TRJ から対応する PDB の生成を切り替え。 | `True` |
 | `-o, --out-dir TEXT` | 出力ディレクトリ。 | `./result_tsopt/` |
 | `--config FILE` | 明示 CLI オプションより前に適用するベース YAML 設定ファイル。 | _None_ |
-| `--show-config/--no-show-config` | 解決後の設定レイヤーを表示して実行を継続。 | `False` |
+| `--show-config/--no-show-config` | 読み込んだ YAML ファイルとその最上位の key を表示して実行を継続。 | `False` |
 | `--out-json/--no-out-json` | machine-readable `result.json` を出力。 | `False` |
-| `--dry-run/--no-dry-run` | 実行せずに入力/設定を検証し、実行計画を表示。`--help-advanced` に表示。 | `False` |
+| `--read-hess PATH` | Hessian を計算せず、NumPy の `.npy` ファイル（`freq`・`tsopt` の `--dump-hess` で書いたものなど。形式は [`freq`](freq.md)）から初期 Hessian を読む。`--opt-mode hess` では `rsirfo.hessian_init: calc`（デフォルト）が必要。microiteration では最初の macro step に使う。 | _None_ |
+| `--dump-hess PATH` | 最終構造の Hessian を NumPy の `.npy` 配列として保存する。`freq`・`tsopt`・`irc` の `--read-hess` や、ほかのプログラムで使える。最終 Hessian を計算したときだけ書き、`--skip-final-freq` とは併用できない。 | _None_ |
+| `--dry-run/--no-dry-run` | 実行せずにオプションと入力を検証する。`--help-advanced` に表示。 | `False` |
 
 ## YAML 設定
 
@@ -266,7 +268,7 @@ calc:
  model_mult: 1                     # スピン多重度 2S+1
  real_parm7: real.parm7            # Amber parm7 トポロジー
  model_pdb: ml_region.pdb          # ML 領域定義
- backend: uma                      # ML バックエンド (uma/orb/mace/aimnet2)
+ backend: uma                      # 高レベルbackend (uma/orb/mace/aimnet2/dft)
  uma_model: uma-s-1p2              # uma-s-1p2 | uma-m-1p1
  uma_task_name: omol                # UMA タスク名 (backend=uma 時)
  ml_device: auto                   # ML デバイス選択
@@ -282,9 +284,8 @@ opt:
  max_force_only: false             # 最大力収束のみに依存
  force_only: false                 # 変位チェックをスキップ
  converge_to_geom_rms_thresh: 0.05  # 参照への収束時の geom RMS 閾値
- overachieve_factor: 0.0           # 閾値を厳しくする係数
+ overachieve_factor: 0.0           # 0.0 で無効。正の値では力が閾値/係数を下回ると step 基準なしで収束（baker では不使用）
  check_eigval_structure: false     # Hessian固有値構造の検証
- line_search: true                 # ラインサーチを有効化
  dump: false                       # 軌跡/リスタートデータのダンプ
  dump_restart: false               # リスタートチェックポイントのダンプ
  prefix: ""                        # ファイル名プレフィックス
@@ -293,7 +294,6 @@ hessian_dimer:
  thresh_loose: gau_loose           # ゆるい収束プリセット
  thresh: baker                     # メイン収束プリセット
  update_interval_hessian: 500      # Hessian再構築間隔
- neg_freq_thresh_cm: 5.0  # 虚振動は nu < -neg_freq_thresh_cm
  flatten_amp_ang: 0.1              # flattening振幅 (Å)
  flatten_max_iter: 50              # flattening反復上限（--no-flatten 時は無効）
  flatten_sep_cutoff: 0.0           # 代表原子間の最小距離 (Å)
@@ -348,8 +348,10 @@ rsirfo:
  hessian_recalc_adapt: null        # 適応的Hessian再計算
  small_eigval_thresh: 1.0e-08      # 小固有値の閾値
  alpha0: 1.0                       # 初期シフトパラメータ
- max_micro_cycles: 50              # マクロサイクルごとのマイクロイテレーション
+ max_micro_cycles: 50              # 1 step 内の RS 反復の上限（ML/MM のマイクロイテレーションとは別）
  track_mode_by_overlap: false      # ステップ間の固有ベクトル重なりで TS モードを追跡
+freq:
+ zero_cutoff_cm: 5.0               # 虚振動は nu < -zero_cutoff_cm
 ```
 
 ```{tip}

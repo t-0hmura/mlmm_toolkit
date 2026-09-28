@@ -82,11 +82,11 @@ Options:
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
   --show-config / --no-show-config
-                                  Print resolved configuration and continue
-                                  execution.  [default: no-show-config]
-  --dry-run / --no-dry-run        Validate options and print the execution plan
-                                  without running optimization.  [default: no-
-                                  dry-run]
+                                  Print the loaded YAML file and its top-level
+                                  keys, then continue.  [default: no-show-
+                                  config]
+  --dry-run / --no-dry-run        Validate options and inputs without running
+                                  optimization.  [default: no-dry-run]
   --convert-files / --no-convert-files
                                   Convert XYZ/TRJ outputs into PDB companions
                                   based on the input format.  [default: convert-

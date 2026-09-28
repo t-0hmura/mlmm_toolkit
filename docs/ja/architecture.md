@@ -85,7 +85,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ ├── backends/ # === L4a Infra (MLIP + ONIOM) ===
 │ │ ├── __init__.py --precision routing (apply_precision_to_calc_cfg)
 │ │ ├── mlmm_calc.py ML/MM ONIOM calculator core (4 MLIP backends UMA / ORB / MACE / AIMNet2
-│ │ inline; CHEMISTRY-RULE:1 / 2 / 8 / 9 host)
+│ │ inline; CHEMISTRY-RULE:1 / 2 / 8 host)
 │ │ ├── custom.py user ASE calculator loaded from --calc-file (custom backend)
 │ │ ├── pyscf_dft.py 任意の PySCF/GPU4PySCF high-level adapter
 │ │ └── _determinism.py strict-determinism setup (--deterministic)
@@ -95,11 +95,13 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ │ ├── energy_diagram.py Plotly diagram
 │ │ ├── trj2fig.py trajectory → PNG / HTML / SVG / PDF
 │ │ ├── pdb_fix.py altloc resolution
+│ │ ├── pdb_indexing.py parm7 atom indexing (CHEMISTRY-RULE:9)
 │ │ ├── hessian_cache.py in-memory Hessian cache
 │ │ └── hessian_calc.py numerical-Hessian build + frequency / vibrational I/O helpers
 │ │
 │ ├── core/ # === L5 Foundation ===
 │ │ ├── defaults.py shared workflow/calculator defaults
+│ │ ├── dft_settings.py DFT settings (CHEMISTRY-RULE:4)
 │ │ ├── utils.py PDB / XYZ / plot helpers
 │ │ ├── logging.py -v/--verbose LEVEL（0–3）ロギング配線
 │ │ ├── calc_eval.py per-stage calc evaluation
@@ -125,7 +127,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 
 **L2 `workflows/`** にはコマンドモジュールと共有ワークフローヘルパーがあります。`cli/app.py:_LAZY_SUBCOMMANDS` に登録されたモジュールが `cli` という `@click.command()` を所有します。`_all_helpers.py`、`_opt_freq_common.py`、`_run_session.py`、`scan_common.py`、`restraints.py` などは独立したコマンドを持たない共有ヘルパーです。大きなステージランナーは現在も単一モジュールです。
 
-**L3 `domain/`**。化学を意識したヘルパーロジックで、`torch` / `numpy` / `pysisyphus.constants` (数値バックエンド) はインポートしてよいですが、MLIP ランタイム (`fairchem`、`orb_models`、`mace`、`aimnet`) は **インポートできません**。この deny list は `.github/scripts/check_engineering_markers.py` (`_check_external_library_scope`) によってリポジトリ全体で強制されており、`backends/` 以外のモジュールでこれらのインポートを禁止します。別個の `# DOMAIN_PURE` モジュール docstring マーカーは、これとは異なる CI ゲート (`_check_domain_pure`) です。このマーカーは、MLIP-free を保つ必要があるバックエンド非依存の特定モジュール（`backends/mlmm_calc.py`、`workflows/tsopt.py`、`workflows/freq.py`、および `workflows/sp.py` に存在）を検出します。これ自体は deny-list 機構ではなく、`domain/` のファイルはどれもこのマーカーを持ちません。Domain ヘルパーは任意の L2 ステージランナーから再利用できます。
+**L3 `domain/`**。化学を意識したヘルパーロジックで、`torch` / `numpy` / `pysisyphus.constants` (数値バックエンド) はインポートしてよいですが、MLIP ランタイム (`fairchem`、`orb_models`、`mace`、`aimnet`) は **インポートできません**。この deny list は `.github/scripts/check_engineering_markers.py` (`_check_external_library_scope`) によってリポジトリ全体で強制されており、`backends/` 以外のモジュールでこれらのインポートを禁止します。別個の `# DOMAIN_PURE` モジュール docstring マーカーは、これとは異なる CI ゲート (`_check_domain_pure`) です。このゲートは `backends/mlmm_calc.py`、`workflows/tsopt.py`、`workflows/freq.py` にマーカーがあることだけを確かめ（`workflows/sp.py` にも付いています）、import は制限しません。これ自体は deny-list 機構ではなく、`domain/` のファイルはどれもこのマーカーを持ちません。Domain ヘルパーは任意の L2 ステージランナーから再利用できます。
 
 **L4a `backends/`**。ML/MM ONIOM 計算コア (`mlmm_calc.py`) とバックエンドディスパッチ (`__init__.py`) はここにあります。ML 領域の UMA / ORB / MACE / AIMNet2 と OpenMM / hessian_ff の連携はこのレイヤーからディスパッチされます。`mlmm_calc.py` は化学ルール **#1 (subtractive ONIOM)**、**#2 (link-atom Hessian B-matrix)**、**#8 (3-layer 5-pass partial Hessian)** を保持し、ルール **#9 (parm7 atom indexing)** は `io/pdb_indexing.py` にあります — §5.1 を参照してください。
 
@@ -163,7 +165,7 @@ mlmm myaction ─────────────────► mlmm/cli/ap
 2 つのインポートサーフェスをサポートします:
 
 1. **レイヤー化インポートパス**: 外部コードはレイヤーディレクトリから直接インポートします (`from mlmm.backends.mlmm_calc import MLMMCore`、`from mlmm.core.utils import …`、`import mlmm.io.trj2fig` など)。
-2. **ルートシンボル属性** (`from mlmm import MLMMCore`) — `mlmm/__init__.py:_LAZY_IMPORTS` + PEP 562 `__getattr__` によって処理されます。再エクスポートされる 5 つのシンボル (`MLMMCore`、`MLMMASECalculator`、`mlmm`、`mlmm_ase`、`mlmm_mm_only`) はすべて `mlmm.backends.mlmm_calc` に解決され、初回アクセス時にロードされるため、`import mlmm` は安価なまま保たれます (eager なのは `__version__` のみ)。ルートのモジュール属性サーフェスは **存在しません** — サブモジュールはトップレベルパッケージの属性としてではなく、フルパス (`import mlmm.io.trj2fig`) で到達します。
+2. **ルートシンボル属性** (`from mlmm import MLMMCore`) — `mlmm/__init__.py:_LAZY_IMPORTS` + PEP 562 `__getattr__` によって処理されます。再エクスポートされる 4 つのシンボル (`MLMMCore`、`MLMMASECalculator`、`mlmm`、`mlmm_mm_only`) はすべて `mlmm.backends.mlmm_calc` に解決され、初回アクセス時にロードされるため、`import mlmm` は安価なまま保たれます (eager なのは `__version__` のみ)。ルートのモジュール属性サーフェスは **存在しません** — サブモジュールはトップレベルパッケージの属性としてではなく、フルパス (`import mlmm.io.trj2fig`) で到達します。
 
 CLI サブコマンドリゾルバ (`cli/app.py:_LAZY_SUBCOMMANDS`) は **絶対** モジュールパス (例: `"mlmm.workflows.all"`) を使用するため、サブコマンド発見はリゾルバモジュールの `__package__` に依存しません。
 
@@ -249,6 +251,7 @@ CLI サブコマンドリゾルバ (`cli/app.py:_LAZY_SUBCOMMANDS`) は **絶対
 | Plotly エネルギー図 | `mlmm/io/energy_diagram.py` |
 | Trajectory → PNG / HTML / SVG / PDF | `mlmm/io/trj2fig.py` |
 | PDB altloc 解決 | `mlmm/io/pdb_fix.py` |
+| parm7 の原子 index（CHEMISTRY-RULE:9） | `mlmm/io/pdb_indexing.py` |
 | インメモリ Hessian キャッシュ (run ごとの TTL) | `mlmm/io/hessian_cache.py` |
 | 数値 Hessian 構築 + 振動数 / 振動 I/O | `mlmm/io/hessian_calc.py` |
 | 調和拘束のセットアップ | `mlmm/workflows/restraints.py` (L2 ステージヘルパー) |
@@ -258,6 +261,7 @@ CLI サブコマンドリゾルバ (`cli/app.py:_LAZY_SUBCOMMANDS`) は **絶対
 | concern | file |
 |---|---|
 | 共有ワークフロー・calculator デフォルト | `mlmm/core/defaults.py` |
+| DFT 設定（CHEMISTRY-RULE:4） | `mlmm/core/dft_settings.py` |
 | PDB / XYZ / プロットヘルパー | `mlmm/core/utils.py` |
 | `-v/--verbose LEVEL`（0–3）ロギング配線 | `mlmm/core/logging.py` |
 | ステージごとの calc 評価 | `mlmm/core/calc_eval.py` |
@@ -281,7 +285,7 @@ CLI サブコマンドリゾルバ (`cli/app.py:_LAZY_SUBCOMMANDS`) は **絶対
 
 ### 5.1 9 つの化学ルール (grep レシピ)
 
-正しさに関わる 9 つのルールが `backends/`、`workflows/`、`core/defaults.py` にまたがって存在します。インラインの `# CHEMISTRY-RULE:N` マーカーと `# DOMAIN_PURE` モジュール docstring マーカーが実装箇所を示し、`.github/scripts/check_engineering_markers.py` がマーカーの完全性を検査します。
+正しさに関わる 9 つのルールが `backends/`、`workflows/`、`core/`、`io/` にまたがって存在します。インラインの `# CHEMISTRY-RULE:N` マーカーが実装箇所を示し、`.github/scripts/check_engineering_markers.py` がマーカーの完全性を検査します。
 
 編集前にすべての化学ルールを見つけるには:
 
@@ -289,7 +293,7 @@ CLI サブコマンドリゾルバ (`cli/app.py:_LAZY_SUBCOMMANDS`) は **絶対
 # List all 9 rule sites in the repo (host file + line)
 grep -rnE '# CHEMISTRY-RULE:[0-9]+' mlmm/
 
-# List every # DOMAIN_PURE marker (= chemistry-rule host modules)
+# List every # DOMAIN_PURE marker (modules the CI check requires to carry it)
 grep -rn '# DOMAIN_PURE' mlmm/
 ```
 

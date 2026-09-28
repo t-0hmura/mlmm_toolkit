@@ -64,7 +64,7 @@ E_total = E_REAL_low + E_MODEL_high - E_MODEL_low
 |-----|-----|------|
 | **残基セレクタ** | `'SAM,GPP'`, `'A:123,B:456'` | 複数値はシェル展開防止のためクォート |
 | **電荷マッピング** | `-l 'SAM:1,GPP:-3'` | `all` / `extract` などではコロン（`:`）で名前と電荷を区切る。`mm-parm` は互換用に `=` も受理 |
-| **原子セレクタ** | `'TYR,285,CA'` または `'TYR 285 CA'` | 区切り文字: 空白、カンマ、スラッシュ、バッククォート、バックスラッシュ |
+| **原子セレクタ** | `'SAM,320,CS1'` または `'SAM 320 CS1'` | 区切り文字: 空白、カンマ、スラッシュ、バッククォート、バックスラッシュ |
 
 詳細は [CLI 規約](cli-conventions.md) を参照してください。
 
@@ -130,14 +130,14 @@ cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && mak
 
 デフォルトの MLIP バックエンドは UMA です。`-b/--backend` で代替バックエンドに切り替えます:
 
-この例では、`ml_region.pdb` は `real.parm7` に対応する全系の構造で、`ml.pdb` が ML 領域を指定します。
+この例では、`system_layered.pdb` は `real.parm7` に対応する全系の構造で、`ml_region.pdb` が ML 領域を指定します。
 
 ```bash
 # ORB バックエンドを使用
-mlmm opt -i ml_region.pdb --parm7 real.parm7 --model-pdb ml.pdb -q 0 -b orb
+mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b orb
 
 # MACE バックエンドを使用
-mlmm opt -i ml_region.pdb --parm7 real.parm7 --model-pdb ml.pdb -q 0 -b mace
+mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b mace
 
 ```
 
@@ -167,8 +167,9 @@ mlmm define-layer -i system.pdb --model-pdb model.pdb -o system_layered.pdb
 3. define-layer - 同じ生成 PDB に 3 層 ML/MM 分割を付与（B-factor エンコード）
 4. all の MEP stage - 単一パス path-opt がデフォルト。`mlmm all --refine-path` で再帰 path-search に切替
 5. tsopt - 遷移状態最適化
-6. freq - 振動解析と熱化学
-7. dft - DFT 一点計算
+6. irc - TS から反応物側・生成物側へ IRC をたどる
+7. freq - 振動解析と熱化学
+8. dft - DFT 一点計算
 ```
 
 LEaP が水素を変更する場合があるため、2 以降では `mm-parm` が出力した
@@ -218,7 +219,7 @@ ML 領域抽出を使用する場合、すべての上位ワークフローで�
 - `-i/--input`: 1 つ以上の**完全系構造**（反応物、中間体、生成物）。
 - `-c/--center`: **基質/抽出中心**の定義方法（例: 残基名や残基 ID）。
 
-`--center/-c` を省略すると、ML 領域抽出はスキップされ、**入力構造全体**がそのまま使用されます。
+`--center/-c` を省略すると抽出はスキップされ、入力構造の全体を全系として使います。ML 領域は入力 PDB の B-factor レイヤー（既定の `--detect-layer`）か `--model-pdb` で与える必要があり、どちらも無いとエラーになります。
 
 ---
 
@@ -241,8 +242,8 @@ mlmm -i R.pdb I1.pdb I2.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
 
 ```bash
 mlmm -i R.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
-     --scan-lists '[("TYR 285 CA","MMT 309 C10",2.20),("TYR 285 CB","MMT 309 C11",1.80)]' \
-                  '[("TYR 285 CB","MMT 309 C11",1.20)]'
+     --scan-lists '[("CS1 SAM 320","C7 GPP 321",1.50),("CS1 SAM 320","SD SAM 320",3.30)]' \
+                  '[("C7 GPP 321","H11 GPP 321",2.90),("OE2 GLU 186","H11 GPP 321",1.00)]'
 ```
 
 各タプル `(i, j, target_Å)` には PDB 原子セレクタまたは 1 始まりの原子番号を指定します。1 リテラル内の距離は同時に変化させ、複数のリテラルは順に実行します。複数リテラルは、1 つの `--scan-lists` の後に続けてください。

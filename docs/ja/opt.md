@@ -61,7 +61,7 @@ out_dir/ (デフォルト: ./result_opt/)
 └─ restart_*.yaml              # opt.dump_restart 設定時のオプションリスタート
 ```
 
-コンソールには解決済みの設定ブロック（`geom`、`calc`、`opt`、`lbfgs`）、`print_every` サイクルごとの進捗、最終的な実行時間サマリーが出力されます。
+コンソールには `print_every` サイクルごとの進捗と最終的な実行時間サマリーが出力されます。`-v 3` では解決済みの設定ブロック（`geom`、`calc`、`opt`、`lbfgs`）も出力されます。
 
 出力の見方:
 - `result_opt/final_geometry.xyz`
@@ -101,13 +101,13 @@ out_dir/ (デフォルト: ./result_opt/)
 | `-o, --out-dir TEXT` | 出力ディレクトリ。 | `./result_opt/` |
 | `--thresh TEXT` | 収束プリセットの上書き（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | _None_（内部的に `gau` を適用） |
 | `--config FILE` | ベース YAML 設定ファイル。 | _None_ |
-| `--show-config/--no-show-config` | 実行前に解決済み YAML レイヤー情報を表示。 | `False` |
+| `--show-config/--no-show-config` | 読み込んだ YAML ファイルとその最上位の key を表示して実行を継続。 | `False` |
 | `-b, --backend CHOICE` | model領域の高レベルbackend: `uma`、`orb`、`mace`、`aimnet2`、`dft`。 | `uma` |
 | `--cmap/--no-cmap` | REAL と MODEL の両 MM 層で CMAP を保持します。 | `--cmap` |
 | `--mm-backend [hessian_ff\|openmm]` | MM backend。 | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | link atom 配置方式。 | `scaled` |
 | `--out-json/--no-out-json` | machine-readable `result.json` を出力。 | `False` |
-| `--dry-run/--no-dry-run` | 実行せずに設定検証と実行計画表示のみ行う。`--help-advanced` に表示。 | `False` |
+| `--dry-run/--no-dry-run` | 実行せずにオプションと入力を検証する。`--help-advanced` に表示。 | `False` |
 
 ### 収束閾値プリセット
 
@@ -146,7 +146,7 @@ constrained 処理は、独立したCartesian振動解析と `--flatten` で使�
 - 入力構造と `real_parm7` は CLI で指定します。ML 領域は `model_pdb`、明示的な model index、または有効な B-factor layer から指定できます。
 - `model_charge`（`-q/--charge`、必須）と `model_mult`（`-m/--multiplicity`、デフォルト 1）。
 - `link_mlmm`: ML/MM 境界ペアを明示する `(ML_atom_id, MM_atom_id)` リスト。各ペアから link H を 1 個生成し、配置は `link_atom_method` が制御します。
-- バックエンド選択: `backend`（デフォルト `"uma"`、選択肢: `uma`/`orb`/`mace`/`aimnet2`）。
+- バックエンド選択: `backend`（デフォルト `"uma"`、選択肢: `uma`/`orb`/`mace`/`aimnet2`/`dft`）。
 - UMA 制御: `uma_model`（デフォルト `"uma-s-1p2"`）、`uma_task_name`（デフォルト `"omol"`）。
 - 共通制御（全バックエンド）: `hessian_calc_mode`（`"Analytical"` または `"FiniteDifference"`）、`out_hess_torch`（bool）、`H_double`（bool）。
 - デバイス選択: `ml_device`（`"auto"`/`"cuda"`/`"cpu"`）、`ml_cuda_idx`、`mm_device`、`mm_cuda_idx`、`mm_threads`。
@@ -171,7 +171,7 @@ L-BFGS 固有の拡張: `keep_last`、`beta`、`gamma_mult`、`max_step`、`cont
 
 ### `rfo`
 
-RFOptimizer 固有の拡張: 信頼領域サイジング（`trust_radius`、`trust_min`、`trust_max`、`trust_update`）、`max_energy_incr`、Hessian 管理（`hessian_update`、`hessian_init`、`hessian_recalc`、`hessian_recalc_adapt`、`small_eigval_thresh`）、マイクロイテレーション制御（`alpha0`、`max_micro_cycles`、`rfo_overlaps`）、DIIS ヘルパー（`gdiis`、`gediis`、閾値、`gdiis_test_direction`）、`adapt_step_func`。
+RFOptimizer 固有の拡張: 信頼領域サイジング（`trust_radius`、`trust_min`、`trust_max`、`trust_update`）、`max_energy_incr`、Hessian 管理（`hessian_update`、`hessian_init`、`hessian_recalc`、`hessian_recalc_adapt`、`small_eigval_thresh`）、RS 反復の制御（`alpha0`、`max_micro_cycles`、`rfo_overlaps`）、DIIS ヘルパー（`gdiis`、`gediis`、閾値、`gdiis_test_direction`）、`adapt_step_func`。
 
 ### `microiter`
 
@@ -188,7 +188,7 @@ calc:                           # calc 計算機キーは単一セクション�
  model_mult: 1                  # スピン多重度 2S+1（キーは spin ではなく model_mult）
  real_parm7: real.parm7         # 全酵素の Amber parm7 トポロジー
  model_pdb: ml_region.pdb       # ML 領域を定義する PDB
- backend: uma                   # ML バックエンド (uma/orb/mace/aimnet2)
+ backend: uma                   # 高レベルbackend (uma/orb/mace/aimnet2/dft)
  uma_model: uma-s-1p2           # uma-s-1p2 | uma-m-1p1
  uma_task_name: omol            # UMA タスク名 (backend=uma 時)
  ml_device: auto                # ML デバイス選択
@@ -207,7 +207,7 @@ opt:
  max_force_only: false          # 最大力収束のみに依存
  force_only: false              # 変位チェックをスキップ
  converge_to_geom_rms_thresh: 0.05  # 参照への収束時の geom RMS 閾値
- overachieve_factor: 0.0        # 閾値を厳しくする係数
+ overachieve_factor: 0.0        # 0.0 で無効。正の値では力が閾値/係数を下回ると step 基準なしで収束（baker では不使用）
  check_eigval_structure: false  # Hessian固有値構造の検証
  energy_plateau: false          # opt-in（--stop-plateau）: エネルギー停滞時にstalled（未収束）で停止（COS/MM micro では自動スキップ）
  energy_plateau_thresh: 1.0e-04 # プラトー許容幅 au（約 0.06 kcal/mol）
@@ -228,7 +228,7 @@ lbfgs:
  max_force_only: false          # 最大力収束のみに依存
  force_only: false              # 変位チェックをスキップ
  converge_to_geom_rms_thresh: 0.05  # ジオメトリ収束時の RMS 閾値
- overachieve_factor: 0.0        # 閾値を厳しくする
+ overachieve_factor: 0.0        # 0.0 で無効。正の値では力が閾値/係数を下回ると step 基準なしで収束（baker では不使用）
  check_eigval_structure: false  # Hessian固有値構造の検証
  energy_plateau: false          # opt-in（--stop-plateau）: エネルギー停滞時にstalled（未収束）で停止
  energy_plateau_thresh: 1.0e-04 # プラトー許容幅 au（約 0.06 kcal/mol）
@@ -257,7 +257,7 @@ rfo:
  max_force_only: false          # 最大力収束のみに依存
  force_only: false              # 変位チェックをスキップ
  converge_to_geom_rms_thresh: 0.05  # ジオメトリ収束時の RMS 閾値
- overachieve_factor: 0.0        # 閾値を厳しくする
+ overachieve_factor: 0.0        # 0.0 で無効。正の値では力が閾値/係数を下回ると step 基準なしで収束（baker では不使用）
  check_eigval_structure: false  # Hessian固有値構造の検証
  energy_plateau: false          # opt-in（--stop-plateau）: エネルギー停滞時にstalled（未収束）で停止
  energy_plateau_thresh: 1.0e-04 # プラトー許容幅 au（約 0.06 kcal/mol）
@@ -278,7 +278,7 @@ rfo:
  hessian_recalc_adapt: null     # 適応的Hessian再構築上限
  small_eigval_thresh: 1.0e-08   # 安定性のための固有値閾値
  alpha0: 1.0                    # 初期マイクロステップ
- max_micro_cycles: 50           # マイクロイテレーション上限
+ max_micro_cycles: 50           # 1 step 内の RS 反復の上限（ML/MM のマイクロイテレーションとは別）
  rfo_overlaps: false            # RFO オーバーラップを有効化
  gediis: false                  # GEDIIS を有効化
  gdiis: true                    # GDIIS を有効化

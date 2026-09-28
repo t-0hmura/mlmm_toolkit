@@ -102,3 +102,57 @@ def test_tsopt_cli_preserves_layer_source_at_generated_model_path(
     assert result.exit_code == 2, result.output
     assert "collides with a reserved TSOPT output path" in result.output
     assert source.read_bytes() == original
+
+
+def _tsopt_smoke_args(out_dir: Path) -> list[str]:
+    smoke = Path(__file__).resolve().parents[1] / "tests" / "smoke"
+    return [
+        "-i",
+        str(smoke / "p_complex_layered.pdb"),
+        "--parm",
+        str(smoke / "p_complex.parm7"),
+        "-q",
+        "-1",
+        "-m",
+        "1",
+        "--out-dir",
+        str(out_dir),
+    ]
+
+
+def test_tsopt_cli_preserves_read_hessian_at_reserved_output(
+    tmp_path: Path,
+) -> None:
+    from mlmm.workflows import tsopt as tsopt_module
+
+    out_dir = tmp_path / "tsopt"
+    out_dir.mkdir()
+    read_hess = out_dir / "result.json"
+    original = b"existing Hessian input"
+    read_hess.write_bytes(original)
+
+    result = CliRunner().invoke(
+        tsopt_module.cli,
+        _tsopt_smoke_args(out_dir) + ["--read-hess", str(read_hess)],
+    )
+
+    assert result.exit_code == 2, result.output
+    assert "collides with a reserved TSOPT output path" in result.output
+    assert read_hess.read_bytes() == original
+
+
+def test_tsopt_cli_rejects_dump_hess_without_final_hessian(
+    tmp_path: Path,
+) -> None:
+    from mlmm.workflows import tsopt as tsopt_module
+
+    out_dir = tmp_path / "tsopt"
+    result = CliRunner().invoke(
+        tsopt_module.cli,
+        _tsopt_smoke_args(out_dir)
+        + ["--dump-hess", str(tmp_path / "ts.npy"), "--skip-final-freq"],
+    )
+
+    assert result.exit_code == 2, result.output
+    assert "--dump-hess needs the final Hessian" in result.output
+    assert not out_dir.exists()

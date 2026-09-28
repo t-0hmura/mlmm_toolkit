@@ -157,7 +157,7 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | `rigid_projection` | object | Dimer/flatten/最終鞍点解析の凍結境界 TR provenance |
 | `reference_mode_file` | string\|null | `--ref-mode` で渡した高度な path 由来 mode。Hessian family のみ |
 | `safeguards` | object | Hessian family の trial 拒否/recovery、exact saddle、target-mode 診断 |
-| `files` | object | 最終構造 + vib モードファイル |
+| `files` | object | 最終構造 + vib モードファイル。`--dump-hess` で書いたときは `hessian_npy`（絶対 path）を含む |
 
 終端exact PHVAは数値収束後とエネルギープラトー停止（`stalled`）後に実行します。それ以外の
 非収束では終端構造を保持してPHVAをskipします。PHVA失敗時は構造を破棄したり振動数を捏造したりせず、`hessian_status: "failed"`
@@ -183,7 +183,7 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | `n_atoms` | int | 原子数 |
 | `n_freeze_atoms` | int | 凍結原子数 |
 | `rigid_projection` | object | 振動解析と熱化学で使った凍結境界 TR provenance |
-| `files` | object | 出力map。`--dump-hess`時は`hessian_npz`を含む |
+| `files` | object | 出力map。`--dump-hess` で書いたときは `hessian_npy`（絶対 path）を含む |
 
 **`thermochemistry`** (thermoanalysis 利用不可時は null):
 
@@ -202,7 +202,6 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | `energy_ts_hartree` | float | TS エネルギー |
 | `energy_last_hartree` | float | 連結経路の最後の端点。単独 IRC は反応物/生成物の化学的な同一性を割り当てない |
 | `endpoint_energy_orientation` | string | `"finished_first_to_finished_last"` |
-| `energy_reactant_hartree` / `energy_product_hartree` | float | 最初/最後の端点を表す互換エイリアス。キー名から反応物/生成物の同一性を推定しない |
 | `forward_requested` / `backward_requested` | bool | 各方向を要求したか |
 | `forward_integration_converged` / `backward_integration_converged` | bool\|null | RMS 勾配の停留判定が発火して停止したか。診断専用で、`--never-stop` はこの判定を迂回するため常に `false`。削除した `*_converged` が表していた条件は、`*_downhill_departure_valid` との連言で再構成できる |
 | `forward_downhill_departure_valid` / `backward_downhill_departure_valid` | bool\|null | TS から downhill に離れたことを確認できたか |
@@ -210,7 +209,7 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | `never_stop` | bool | 任意指定の物理的端点停止回避モードを有効にしたか |
 | `never_stop_energy_bypasses` | int | 実際に回避したenergy上昇・1 step energy変化量停止event数 |
 | `rigid_projection` | object | 初期/更新 Hessian の凍結境界 TR provenance |
-| `rigid_projection.electronic_state_verified` | bool | ファイルから初期化した Hessian の model charge・多重度を identity 検証できたか |
+| `rigid_projection.hessian_source` | string | 初期 Hessian の出所。`"file"`（`--read-hess`）、`"cache"`（同じ実行の前の stage）、`"fresh"`（新規計算） |
 | `bond_changes` | object | 最初→最後の方向の `{formed: [...], broken: [...]}`。比較できない場合は省略 |
 | `bond_changes_direction` | string | 結合変化がある場合は `"finished_first_to_finished_last"` |
 | `files` | object | 軌跡と端点ファイル（XYZと、利用可能なPDB/CIF companion） |

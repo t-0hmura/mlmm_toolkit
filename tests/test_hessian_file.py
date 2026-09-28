@@ -1,4 +1,4 @@
-"""Tests for geometry-identified Hessian file handoff."""
+"""Tests for the plain ``.npy`` Hessian files of ``--dump-hess`` / ``--read-hess``."""
 
 from __future__ import annotations
 
@@ -6,452 +6,217 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from click.testing import CliRunner
 
 from mlmm.core import result_commit
 from mlmm.core.result_commit import ResultCommitError
 from mlmm.io.hessian_file import load_hessian_file, save_hessian_file
 from mlmm.workflows.freq import _record_hessian_result_path
 
-
-def _pes_identity(atomic_numbers) -> dict:
-    return {
-        "schema": "hessian-cache-identity/v1",
-        "system": {"atoms": [int(number) for number in atomic_numbers]},
-        "evaluator": {
-            "backend": "uma",
-            "model": "uma-s-1p1",
-            "precision": "float64",
-            "potential": {"mm_backend": "hessian_ff"},
-        },
-    }
+SMOKE = Path(__file__).resolve().parents[1] / "tests" / "smoke"
 
 
-def _save_state(atomic_numbers) -> dict:
-    return {
-        "model_charge": 0,
-        "model_mult": 1,
-        "potential_identity": _pes_identity(atomic_numbers),
-    }
+def test_full_hessian_round_trips_as_a_plain_npy_array(tmp_path) -> None:
+    path = tmp_path / "h.npy"
+    hess = np.diag(np.arange(1.0, 10.0))
+    save_hessian_file(path, hess)
+
+    np.testing.assert_array_equal(np.load(path), hess)  # readable by any NumPy user
+    np.testing.assert_array_equal(load_hessian_file(path, n_atoms=3), hess)
 
 
-def _load_state(atomic_numbers) -> dict:
-    return {
-        "expected_model_charge": 0,
-        "expected_model_mult": 1,
-        "expected_potential_identity": _pes_identity(atomic_numbers),
-    }
+def test_full_hessian_is_restricted_to_the_movable_atoms(tmp_path) -> None:
+    path = tmp_path / "full.npy"
+    save_hessian_file(path, np.diag(np.arange(1.0, 10.0)))
+
+    loaded = load_hessian_file(path, n_atoms=3, active_dofs=[6, 7, 8])
+
+    np.testing.assert_array_equal(loaded, np.diag([7.0, 8.0, 9.0]))
 
 
-PES_IDENTITY = _pes_identity([6, 1, 8])
-SAVE_STATE = {
-    "model_charge": 0,
-    "model_mult": 1,
-    "potential_identity": PES_IDENTITY,
-}
-LOAD_STATE = {
-    "expected_model_charge": 0,
-    "expected_model_mult": 1,
-    "expected_potential_identity": PES_IDENTITY,
-}
+def test_movable_atom_block_is_used_as_is(tmp_path) -> None:
+    path = tmp_path / "partial.npy"
+    np.save(path, np.eye(6))
 
+    loaded = load_hessian_file(path, n_atoms=3, active_dofs=[0, 1, 2, 6, 7, 8])
 
-def test_partial_hessian_round_trip_preserves_identity_and_active_dofs(tmp_path) -> None:
-    path = tmp_path / "partial.npz"
-    coords = np.arange(9, dtype=float) / 10.0
-    numbers = np.array([6, 1, 8])
-    active = [0, 1, 2, 6, 7, 8]
-    save_hessian_file(
-        path,
-        hessian=np.eye(6),
-        energy_ha=-1.25,
-        cart_coords_bohr=coords,
-        atomic_numbers=numbers,
-        **_save_state(numbers),
-        partial_metadata={
-            "active_dofs": active,
-            "active_n_dof": 6,
-            "full_n_dof": 9,
-        },
-    )
-
-    loaded = load_hessian_file(
-        path,
-        cart_coords_bohr=coords + 1.0e-5,
-        atomic_numbers=numbers,
-        expected_active_dofs=active,
-        **_load_state(numbers),
-    )
-
-    np.testing.assert_allclose(loaded["hessian"], np.eye(6))
-    assert loaded["energy_ha"] == pytest.approx(-1.25)
-    assert loaded["schema_version"] == 3
-    assert loaded["model_charge"] == 0
-    assert loaded["model_mult"] == 1
-    assert loaded["electronic_state_verified"] is True
-    assert loaded["potential_identity_verified"] is True
-    assert loaded["partial_metadata"] == {
-        "active_n_dof": 6,
-        "full_n_dof": 9,
-        "active_dofs": active,
-        "active_atoms": [0, 2],
-    }
+    np.testing.assert_array_equal(loaded, np.eye(6))
 
 
 @pytest.mark.parametrize(
-    ("coords", "numbers", "message"),
+    ("active", "message"),
     [
-        (np.array([0.0, 0.0, 0.1]), np.array([1]), "coordinates"),
-        (np.zeros(3), np.array([8]), "atomic numbers/order"),
+        (None, r"is 6x6; expected 9x9 \(all atoms\)\.$"),
+        ([0, 1, 2], r"is 6x6; expected 9x9 \(all atoms\) or 3x3 \(movable atoms only\)"),
     ],
 )
-def test_hessian_file_rejects_wrong_geometry(tmp_path, coords, numbers, message) -> None:
-    path = tmp_path / "full.npz"
-    save_hessian_file(
-        path,
-        hessian=np.eye(3),
-        energy_ha=0.0,
-        cart_coords_bohr=np.zeros(3),
-        atomic_numbers=np.array([1]),
-        **SAVE_STATE,
-    )
+def test_wrong_size_is_rejected(tmp_path, active, message) -> None:
+    path = tmp_path / "h.npy"
+    np.save(path, np.eye(6))
     with pytest.raises(ValueError, match=message):
-        load_hessian_file(
-            path,
-            cart_coords_bohr=coords,
-            atomic_numbers=numbers,
-            **LOAD_STATE,
-        )
+        load_hessian_file(path, n_atoms=3, active_dofs=active)
 
 
-def test_hessian_file_rejects_legacy_unidentified_npz(tmp_path) -> None:
-    path = tmp_path / "legacy.npz"
-    np.savez_compressed(path, hessian=np.eye(3), energy_ha=0.0)
-    with pytest.raises(ValueError, match="lacks geometry identity metadata"):
-        load_hessian_file(
-            path,
-            cart_coords_bohr=np.zeros(3),
-            atomic_numbers=np.array([1]),
-            **LOAD_STATE,
-        )
+@pytest.mark.parametrize(
+    ("array", "message"),
+    [
+        (np.triu(np.ones((3, 3))), "is not symmetric"),
+        (np.full((3, 3), np.nan), "non-finite"),
+        (np.zeros(9), "real square matrix"),
+        (np.eye(3, dtype=complex), "real square matrix"),
+    ],
+)
+def test_invalid_matrix_is_rejected(tmp_path, array, message) -> None:
+    path = tmp_path / "h.npy"
+    np.save(path, array)
+    with pytest.raises(ValueError, match=message):
+        load_hessian_file(path, n_atoms=1)
 
 
-def test_hessian_file_rejects_inconsistent_active_metadata(tmp_path) -> None:
-    path = tmp_path / "bad-active.npz"
-    np.savez_compressed(
-        path,
-        schema_version=np.int64(1),
-        hessian=np.eye(3),
-        energy_ha=0.0,
-        cart_coords_bohr=np.zeros(6),
-        atomic_numbers=np.array([1, 1]),
-        wph_active_dofs=np.array([0, 1]),
-        wph_active_n_dof=np.int64(2),
-        wph_full_n_dof=np.int64(6),
-    )
-    with pytest.raises(ValueError, match="inconsistent active-DOF metadata"):
-        load_hessian_file(
-            path,
-            cart_coords_bohr=np.zeros(6),
-            atomic_numbers=np.array([1, 1]),
-            allow_unverified_state=True,
-            allow_unverified_pes=True,
-            **LOAD_STATE,
-        )
+def test_npz_archive_is_rejected(tmp_path) -> None:
+    path = tmp_path / "h.npz"
+    np.savez(path, hessian=np.eye(3))
+    with pytest.raises(ValueError, match="is not a .npy array"):
+        load_hessian_file(path, n_atoms=1)
 
 
-def test_hessian_file_rejects_different_current_active_basis(tmp_path) -> None:
-    path = tmp_path / "partial.npz"
-    coords = np.zeros(9)
-    numbers = np.array([6, 1, 8])
-    save_hessian_file(
-        path,
-        hessian=np.eye(6),
-        energy_ha=0.0,
-        cart_coords_bohr=coords,
-        atomic_numbers=numbers,
-        **_save_state(numbers),
-        partial_metadata={
-            "active_dofs": [0, 1, 2, 6, 7, 8],
-            "active_n_dof": 6,
-            "full_n_dof": 9,
-        },
-    )
-
-    with pytest.raises(ValueError, match="active-DOF basis"):
-        load_hessian_file(
-            path,
-            cart_coords_bohr=coords,
-            atomic_numbers=numbers,
-            expected_active_dofs=[0, 1, 2, 3, 4, 5],
-            **LOAD_STATE,
-        )
+@pytest.mark.parametrize("content", [b"", b"not numpy\n", b"PK\x03\x04broken"])
+def test_unreadable_file_is_rejected(tmp_path, content) -> None:
+    path = tmp_path / "h.npy"
+    path.write_bytes(content)
+    with pytest.raises(ValueError, match="Cannot read"):
+        load_hessian_file(path, n_atoms=1)
 
 
-@pytest.mark.parametrize("name", ["hessian", "hessian.bin", "hessian.npz"])
-def test_hessian_save_uses_exact_requested_path(tmp_path, name: str) -> None:
+@pytest.mark.parametrize("array", [np.ones((2, 3)), np.array([[np.inf]])])
+def test_save_rejects_a_non_square_or_non_finite_matrix(tmp_path, array) -> None:
+    with pytest.raises(ValueError, match="finite square matrix"):
+        save_hessian_file(tmp_path / "h.npy", array)
+
+
+@pytest.mark.parametrize("name", ["hessian", "hessian.bin", "hessian.npy"])
+def test_save_uses_the_exact_requested_path(tmp_path, name: str) -> None:
     requested = tmp_path / name
-    coords = np.arange(6, dtype=float) / 10.0
-    numbers = np.array([1, 8])
-    returned = save_hessian_file(
-        requested,
-        hessian=np.eye(6),
-        energy_ha=-2.5,
-        cart_coords_bohr=coords,
-        atomic_numbers=numbers,
-        **_save_state(numbers),
-    )
 
-    assert returned == requested
-    assert requested.exists()
-    assert not Path(str(requested) + ".npz").exists()
-    loaded = load_hessian_file(
-        requested,
-        cart_coords_bohr=coords,
-        atomic_numbers=numbers,
-        **_load_state(numbers),
-    )
-    np.testing.assert_allclose(loaded["hessian"], np.eye(6))
-    assert loaded["energy_ha"] == pytest.approx(-2.5)
+    assert save_hessian_file(requested, np.eye(3)) == requested
+    assert [path.name for path in tmp_path.iterdir()] == [name]
+    np.testing.assert_array_equal(load_hessian_file(requested, n_atoms=1), np.eye(3))
 
-    files = _record_hessian_result_path({"frequencies_txt": "frequencies_cm-1.txt"}, returned)
-    assert files["hessian_npz"] == str(requested)
-    assert Path(files["hessian_npz"]).exists()
+    files = _record_hessian_result_path({"frequencies_txt": "frequencies_cm-1.txt"}, requested)
+    assert files["hessian_npy"] == str(requested.resolve())
 
 
-def test_hessian_atomic_publish_failure_preserves_old_exact_artifact(
-    tmp_path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    requested = tmp_path / "hessian.bin"
-    old = b"old-hessian"
-    requested.write_bytes(old)
+def test_publish_failure_preserves_the_old_file(tmp_path, monkeypatch) -> None:
+    requested = tmp_path / "hessian.npy"
+    requested.write_bytes(b"old-hessian")
 
     def fail_replace(source, destination):
         raise OSError("injected")
 
     monkeypatch.setattr(result_commit.os, "replace", fail_replace)
     with pytest.raises(ResultCommitError, match="publish"):
-        save_hessian_file(
-            requested,
-            hessian=np.eye(3),
-            energy_ha=0.0,
-            cart_coords_bohr=np.zeros(3),
-            atomic_numbers=np.array([1]),
-            **SAVE_STATE,
-        )
-    assert requested.read_bytes() == old
-    assert not Path(str(requested) + ".npz").exists()
-    assert list(tmp_path.glob(".*.tmp")) == []
+        save_hessian_file(requested, np.eye(3))
+    assert requested.read_bytes() == b"old-hessian"
+    assert [path.name for path in tmp_path.iterdir()] == [requested.name]
+
+
+def _smoke_args(out: Path) -> list[str]:
+    return [
+        "-i", str(SMOKE / "p_complex_layered.pdb"),
+        "--parm", str(SMOKE / "p_complex.parm7"),
+        "-q", "-1", "-m", "1",
+        "--out-dir", str(out),
+    ]
 
 
 @pytest.mark.parametrize(
-    ("expected_charge", "expected_mult"),
-    [(1, 1), (0, 3)],
-)
-def test_hessian_file_rejects_electronic_state_mismatch_even_with_override(
-    tmp_path, expected_charge, expected_mult
-) -> None:
-    path = tmp_path / "state.npz"
-    save_hessian_file(
-        path,
-        hessian=np.eye(3),
-        energy_ha=0.0,
-        cart_coords_bohr=np.zeros(3),
-        atomic_numbers=np.array([1]),
-        **SAVE_STATE,
-    )
-    with pytest.raises(ValueError, match="electronic state"):
-        load_hessian_file(
-            path,
-            cart_coords_bohr=np.zeros(3),
-            atomic_numbers=np.array([1]),
-            expected_model_charge=expected_charge,
-            expected_model_mult=expected_mult,
-            allow_unverified_state=True,
-        )
-
-
-def test_schema_one_requires_explicit_unverified_state_opt_in(tmp_path) -> None:
-    path = tmp_path / "schema-one.npz"
-    np.savez_compressed(
-        path,
-        schema_version=np.int64(1),
-        hessian=np.eye(3),
-        energy_ha=0.0,
-        cart_coords_bohr=np.zeros(3),
-        atomic_numbers=np.array([1]),
-    )
-    with pytest.raises(ValueError, match="does not identify model charge"):
-        load_hessian_file(
-            path,
-            cart_coords_bohr=np.zeros(3),
-            atomic_numbers=np.array([1]),
-            **LOAD_STATE,
-        )
-    loaded = load_hessian_file(
-        path,
-        cart_coords_bohr=np.zeros(3),
-        atomic_numbers=np.array([1]),
-        allow_unverified_state=True,
-        allow_unverified_pes=True,
-        **_load_state(np.array([1])),
-    )
-    assert loaded["schema_version"] == 1
-    assert loaded["model_charge"] is None
-    assert loaded["model_mult"] is None
-    assert loaded["electronic_state_verified"] is False
-    assert loaded["potential_identity_verified"] is False
-
-
-@pytest.mark.parametrize("missing", ["model_charge", "model_mult"])
-def test_schema_two_requires_complete_electronic_state_metadata(tmp_path, missing) -> None:
-    payload = {
-        "schema_version": np.int64(2),
-        "hessian": np.eye(3),
-        "energy_ha": 0.0,
-        "cart_coords_bohr": np.zeros(3),
-        "atomic_numbers": np.array([1]),
-        "model_charge": np.int64(0),
-        "model_mult": np.int64(1),
-    }
-    payload.pop(missing)
-    path = tmp_path / f"missing-{missing}.npz"
-    np.savez_compressed(path, **payload)
-    with pytest.raises(ValueError, match="lacks electronic-state metadata"):
-        load_hessian_file(
-            path,
-            cart_coords_bohr=np.zeros(3),
-            atomic_numbers=np.array([1]),
-            allow_unverified_state=True,
-            **LOAD_STATE,
-        )
-
-
-@pytest.mark.parametrize(
-    ("field", "value", "message"),
+    ("command", "option", "message"),
     [
-        ("model_charge", 0.5, "scalar integer"),
-        ("model_mult", 0, "must be >= 1"),
+        ("freq", "--read-hess", "collides with a reserved frequency output"),
+        ("freq", "--dump-hess", "collides with a reserved frequency output"),
+        ("tsopt", "--dump-hess", "collides with a reserved TSOPT output"),
     ],
 )
-def test_hessian_file_rejects_invalid_state_metadata(tmp_path, field, value, message) -> None:
-    kwargs = dict(SAVE_STATE)
-    kwargs[field] = value
-    with pytest.raises(ValueError, match=message):
-        save_hessian_file(
-            tmp_path / "invalid.npz",
-            hessian=np.eye(3),
-            energy_ha=0.0,
-            cart_coords_bohr=np.zeros(3),
-            atomic_numbers=np.array([1]),
-            **kwargs,
-        )
+def test_hessian_file_at_a_reserved_output_path_is_rejected(
+    tmp_path, command, option, message
+) -> None:
+    import importlib
+
+    module = importlib.import_module(f"mlmm.workflows.{command}")
+    out = tmp_path / "out"
+    out.mkdir()
+    reserved = out / "result.json"
+    reserved.write_bytes(b"existing")
+
+    result = CliRunner().invoke(module.cli, _smoke_args(out) + [option, str(reserved)])
+
+    assert result.exit_code == 2, result.output
+    assert message in result.output
+    assert reserved.read_bytes() == b"existing"
 
 
-@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
-def test_hessian_file_rejects_nonfinite_pes_identity(tmp_path, value) -> None:
-    identity = {
-        **PES_IDENTITY,
-        "evaluator": {
-            **PES_IDENTITY["evaluator"],
-            "potential": {"unexpected_nonfinite": value},
-        },
-    }
-    with pytest.raises(ValueError, match="finite JSON-compatible values"):
-        save_hessian_file(
-            tmp_path / "nonfinite-identity.npz",
-            hessian=np.eye(3),
-            energy_ha=0.0,
-            cart_coords_bohr=np.zeros(3),
-            atomic_numbers=np.array([1]),
-            **{**SAVE_STATE, "potential_identity": identity},
-        )
+@pytest.mark.parametrize(
+    ("command", "section", "extra"),
+    [("irc", "irc", []), ("tsopt", "rsirfo", ["--opt-mode", "hess"])],
+)
+def test_read_hess_needs_the_calc_hessian_init(tmp_path, command, section, extra) -> None:
+    import importlib
 
+    module = importlib.import_module(f"mlmm.workflows.{command}")
+    config = tmp_path / "config.yaml"
+    config.write_text(f"{section}:\n  hessian_init: unit\n", encoding="utf-8")
+    hess = tmp_path / "h.npy"
+    np.save(hess, np.eye(3))
 
-@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
-def test_hessian_file_rejects_nonfinite_energy_on_save(tmp_path, value) -> None:
-    with pytest.raises(ValueError, match="energy_ha must be a finite scalar"):
-        save_hessian_file(
-            tmp_path / "nonfinite-energy.npz",
-            hessian=np.eye(3),
-            energy_ha=value,
-            cart_coords_bohr=np.zeros(3),
-            atomic_numbers=np.array([1]),
-            **SAVE_STATE,
-        )
-
-
-@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
-def test_hessian_file_rejects_nonfinite_energy_on_load(tmp_path, value) -> None:
-    path = tmp_path / "nonfinite-energy.npz"
-    np.savez_compressed(
-        path,
-        schema_version=np.int64(3),
-        hessian=np.eye(3),
-        energy_ha=value,
-        cart_coords_bohr=np.zeros(3),
-        atomic_numbers=np.array([1]),
-        model_charge=np.int64(0),
-        model_mult=np.int64(1),
-        potential_identity_json=np.str_(
-            '{"evaluator":{"model":"uma-s-1p1","potential":{"mm_backend":'
-            '"hessian_ff"},"precision":"float64","backend":"uma"},'
-            '"schema":"hessian-cache-identity/v1","system":{"atoms":[6,1,8]}}'
-        ),
+    result = CliRunner().invoke(
+        module.cli,
+        _smoke_args(tmp_path / "out")
+        + extra
+        + ["--config", str(config), "--read-hess", str(hess)],
     )
 
-    with pytest.raises(ValueError, match="energy_ha must be a finite scalar"):
-        load_hessian_file(
-            path,
-            cart_coords_bohr=np.zeros(3),
-            atomic_numbers=np.array([1]),
-            **LOAD_STATE,
-        )
+    assert result.exit_code == 2, result.output
+    assert "--read-hess needs hessian_init: calc." in result.output
 
 
-def test_hessian_file_rejects_fractional_schema_version(tmp_path) -> None:
-    path = tmp_path / "fractional-schema.npz"
-    np.savez_compressed(
-        path,
-        schema_version=np.float64(3.5),
-        hessian=np.eye(3),
-        energy_ha=0.0,
-        cart_coords_bohr=np.zeros(3),
-        atomic_numbers=np.array([1]),
+def test_tsopt_final_hessian_round_trips_through_dump_and_read(
+    tmp_path, capsys, monkeypatch
+) -> None:
+    from types import SimpleNamespace
+
+    import torch
+
+    from mlmm.core.result_commit import MLMM_RUN_ID_ENV
+    from mlmm.io import hessian_cache
+    from mlmm.workflows import tsopt
+
+    monkeypatch.delenv(MLMM_RUN_ID_ENV, raising=False)  # a standalone tsopt run
+    geom = SimpleNamespace(
+        atomic_numbers=np.array([6, 1, 8]),
+        atoms=["C", "H", "O"],
+        cart_coords=np.arange(9, dtype=float) / 10.0,
+        freeze_atoms=[1],
     )
-
-    with pytest.raises(ValueError, match="schema_version must be a scalar integer"):
-        load_hessian_file(
-            path,
-            cart_coords_bohr=np.zeros(3),
-            atomic_numbers=np.array([1]),
-            **LOAD_STATE,
+    calc = {"backend": "uma", "model_charge": 0, "model_mult": 1, "freeze_atoms": [1]}
+    block = np.diag(np.arange(1.0, 7.0))
+    hessian_cache.clear()
+    try:
+        hessian_cache.store(
+            "ts",
+            torch.as_tensor(block),
+            active_dofs=[0, 1, 2, 6, 7, 8],
+            meta={"cart_coords": geom.cart_coords},
+            identity=hessian_cache.identity_from_context(geom, calc, role="ts"),
         )
+        written = tsopt._dump_terminal_hessian(tmp_path / "ts.npy", geom, calc)
+        np.testing.assert_array_equal(np.load(written), block)
+        loaded = tsopt._load_initial_hessian_file(written, geom, calc)
+        np.testing.assert_array_equal(loaded["hessian"], block)
+        assert loaded["active_dofs"] == [0, 1, 2, 6, 7, 8]
 
-
-def test_hessian_file_rejects_pes_identity_mismatch(tmp_path) -> None:
-    path = tmp_path / "pes.npz"
-    save_hessian_file(
-        path,
-        hessian=np.eye(3),
-        energy_ha=0.0,
-        cart_coords_bohr=np.zeros(3),
-        atomic_numbers=np.array([1]),
-        **SAVE_STATE,
-    )
-
-    different = {
-        **PES_IDENTITY,
-        "evaluator": {
-            **PES_IDENTITY["evaluator"],
-            "precision": "float32",
-        },
-    }
-    with pytest.raises(ValueError, match="PES identity"):
-        load_hessian_file(
-            path,
-            cart_coords_bohr=np.zeros(3),
-            atomic_numbers=np.array([1]),
-            expected_model_charge=0,
-            expected_model_mult=1,
-            expected_potential_identity=different,
-        )
+        geom.cart_coords = geom.cart_coords + 0.01
+        assert tsopt._dump_terminal_hessian(tmp_path / "moved.npy", geom, calc) is None
+        assert "--dump-hess file was not written" in capsys.readouterr().err
+        assert not (tmp_path / "moved.npy").exists()
+    finally:
+        hessian_cache.clear()

@@ -20,7 +20,7 @@ For full details, keep [Troubleshooting](troubleshooting.md) open in parallel.
 | `hessian_ff` import/build errors | Rebuild native extension (`hessian_ff/native`) | [hessian_ff build](troubleshooting.md#hessian_ff-build--import) |
 | DMF mode import errors (`ase` / `cyipopt` / `pydmf`) | Install `ase` + `cyipopt` (conda-forge) and `pydmf>=1.2` (PyPI) | [DMF mode](troubleshooting.md#dmf-mode-fails-cyipopt--pydmf--ase-missing) |
 | **GPU & CUDA** | | |
-| CUDA out-of-memory at runtime (`torch.cuda.OutOfMemoryError`) | Shrink ML region (`--radius`), use `--hessian-calc-mode FiniteDifference`, or move to a larger GPU | [CUDA OOM](troubleshooting.md#cuda-oom-torchcudaoutofmemoryerror) |
+| CUDA out-of-memory at runtime (`torch.cuda.OutOfMemoryError`) | Shrink ML region (`--radius`), limit Hessian MM atoms with `hess_cutoff`, return to the default `FiniteDifference` if you selected `Analytical`, or move to a larger GPU | [CUDA OOM](troubleshooting.md#cuda-oom-torchcudaoutofmemoryerror) |
 | CUDA/GPU runtime mismatch | Verify `torch.cuda.is_available()` and CUDA build pairing | [CUDA / PyTorch](troubleshooting.md#cuda--pytorch-mismatch) |
 | **Convergence** | | |
 | TSOPT does not converge | Reduce `trust_radius` (RFO-family TS optimizer) or `max_step` (Dimer/L-BFGS), increase cycles, and validate the TS | [Convergence](troubleshooting.md#calculation--convergence) |

@@ -190,6 +190,23 @@ def _calc_full_hessian_torch(
     return H, energy
 
 
+def _calc_energy(geom, calc_kwargs: Dict[str, Any]) -> float:
+    """Return the electronic energy (Hartree) from a temporary ML/MM calculator."""
+
+    kw = dict(calc_kwargs or {})
+    kw["out_hess_torch"] = False
+    calc = mlmm(**kw)
+    try:
+        energy = float(calc.get_energy(geom.atoms, geom.cart_coords)["energy"])
+    finally:
+        close = getattr(calc, "close", None)
+        if callable(close):
+            close()
+    if not np.isfinite(energy):
+        raise ValueError("Electronic energy must be finite for thermochemistry.")
+    return energy
+
+
 def _ordered_hessian_coverage_atoms(
     geom: Any,
     n_atoms: int,
@@ -370,9 +387,9 @@ def _reconcile_hessian_analysis_basis(
 
 
 def _record_hessian_result_path(files: Dict[str, str], path: Path) -> Dict[str, str]:
-    """Record the exact Hessian artifact path under its legacy JSON key."""
+    """Record the absolute path of the ``--dump-hess`` file."""
 
-    files["hessian_npz"] = str(Path(path))
+    files["hessian_npy"] = str(Path(path).resolve())
     return files
 
 
@@ -815,14 +832,14 @@ def _prepare_frequency_output_paths(
     "show_config",
     default=False,
     show_default=True,
-    help="Print resolved configuration and continue execution.",
+    help="Print the loaded YAML file and its top-level keys, then continue.",
 )
 @click.option(
     "--dry-run/--no-dry-run",
     "dry_run",
     default=False,
     show_default=True,
-    help="Validate options and print the execution plan without running frequency analysis.",
+    help="Validate options and inputs without running frequency analysis.",
 )
 @click.option(
     "--ref-pdb",
@@ -893,14 +910,25 @@ def _prepare_frequency_output_paths(
     help="Preserve CMAP terms in both real and model MM layers when present in parm7.",
 )
 @click.option(
+    "--read-hess",
+    "read_hess",
+    type=click.Path(exists=True, dir_okay=False),
+    default=None,
+    show_default="None",
+    help="Use the Hessian in this .npy file (e.g. from freq or tsopt "
+         "--dump-hess) instead of computing it: the Cartesian Hessian of the "
+         "input geometry in Hartree/bohr^2, for all atoms or only the atoms "
+         "selected by --active-dof-mode.",
+)
+@click.option(
     "--dump-hess",
     "dump_hess",
     type=click.Path(dir_okay=False),
     default=None,
     show_default="None",
-    help="Save the computed Hessian and geometry/active-basis identity to a "
-         "compressed .npz file for a matching 'mlmm irc --read-hess' run. "
-         "The file also identifies model charge and multiplicity.",
+    help="Save the Hessian as a NumPy .npy array (Cartesian, Hartree/bohr^2; "
+         "the atoms selected by --active-dof-mode) for '--read-hess' in freq, "
+         "tsopt, or irc, or for other programs.",
 )
 @click.option(
     "--out-json/--no-out-json",
@@ -955,6 +983,7 @@ def cli(
     link_atom_method: Optional[str],
     mm_backend: Optional[str],
     use_cmap: Optional[bool],
+    read_hess: Optional[str],
     dump_hess: Optional[str],
     out_json: bool,
     precision: Optional[str],
@@ -1344,6 +1373,8 @@ def cli(
             if calc_cfg.get("calc_file")
             else None
         ),
+        Path(read_hess) if read_hess else None,
+        Path(dump_hess) if dump_hess else None,
     )
     try:
         _thermo_yaml, _thermo_yaml_tmp = _prepare_frequency_output_paths(
@@ -1464,56 +1495,80 @@ def cli(
             load_matching as _hess_load_matching,
             identity_from_context as _hess_identity,
         )
-        # reuse a cached TS Hessian only on a full evaluation-identity
-        # match (run/system/evaluator/active space/potential).  The all
-        # workflow may round-trip the TS through a three-decimal PDB, so the
-        # coordinate field keeps the wider bohr tolerance.
-        _cached_ts = _hess_load_matching(
-            "ts",
-            _hess_identity(geometry, calc_cfg, role="ts"),
-            atol=1.1e-3,
-        )
-        if _cached_ts is not None:
-            emit("[freq] Reusing cached TS Hessian.", detail=True)
-            H_t = _cached_ts["hessian"]
-            if isinstance(H_t, torch.Tensor):
-                H_t = H_t.to(device=device)
-            else:
-                H_t = torch.as_tensor(H_t, device=device)
-            energy_ha = _cached_ts.get("meta", {}).get("energy_ha")
-            if energy_ha is None:
-                energy_ha = float(geometry.energy)
-            # Restore active-DOF metadata so cached partial Hessians follow the
-            # same PHVA route as freshly evaluated Hessians.
-            _cached_active_dofs = _cached_ts.get("active_dofs")
-            if _cached_active_dofs is not None and len(_cached_active_dofs) > 0:
-                _active_atoms_from_cache = sorted({d // 3 for d in _cached_active_dofs})
-                geometry._hess_active_atoms_last = np.asarray(
-                    _active_atoms_from_cache, dtype=int
-                )
-                geometry._hess_active_dofs_last = np.asarray(
-                    _cached_active_dofs, dtype=int
-                )
-                if getattr(geometry, "within_partial_hessian", None) is None:
-                    geometry.within_partial_hessian = {
-                        "active_n_dof": len(_cached_active_dofs),
-                        "full_n_dof": int(geometry.cart_coords.size),
-                        "active_dofs": list(_cached_active_dofs),
-                        "active_atoms": _active_atoms_from_cache,
-                    }
-        else:
-            # Populate active-DOF metadata for downstream PHVA routing.
-            H_t, energy_ha = _calc_full_hessian_torch(
-                geometry, calc_cfg, device, refresh_geom_meta=True
-            )
-
-        echo_resolved_device()
-
-        _raw_hessian_shape = tuple(H_t.shape)
         _requested_atoms = [
             i for i in range(len(geometry.atomic_numbers))
             if i not in set(int(j) for j in freeze_list)
         ]
+
+        def _restore_active_dofs(active_dofs) -> None:
+            # Stored partial Hessians follow the same PHVA route as fresh ones.
+            if active_dofs is None or len(active_dofs) == 0:
+                return
+            _atoms = sorted({d // 3 for d in active_dofs})
+            geometry._hess_active_atoms_last = np.asarray(_atoms, dtype=int)
+            geometry._hess_active_dofs_last = np.asarray(active_dofs, dtype=int)
+            if getattr(geometry, "within_partial_hessian", None) is None:
+                geometry.within_partial_hessian = {
+                    "active_n_dof": len(active_dofs),
+                    "full_n_dof": int(geometry.cart_coords.size),
+                    "active_dofs": list(active_dofs),
+                    "active_atoms": _atoms,
+                }
+
+        # Priority: --read-hess file > Hessian from an earlier stage > fresh.
+        _hessian_source = "fresh"
+        if read_hess:
+            from mlmm.io.hessian_file import load_hessian_file
+
+            _requested_dofs = [
+                3 * atom + axis for atom in _requested_atoms for axis in range(3)
+            ]
+            try:
+                _loaded = load_hessian_file(
+                    read_hess,
+                    n_atoms=len(geometry.atomic_numbers),
+                    active_dofs=_requested_dofs,
+                )
+            except ValueError as exc:
+                raise click.ClickException(str(exc)) from exc
+            emit(f"[freq] Hessian read from {read_hess}.", narrative=True)
+            H_t = torch.as_tensor(_loaded, dtype=torch.float64, device=device)
+            energy_ha = _calc_energy(geometry, calc_cfg)
+            if len(_requested_dofs) != geometry.cart_coords.size:
+                _restore_active_dofs(_requested_dofs)
+            _hessian_source = "file"
+            del _loaded
+        else:
+            # reuse a cached TS Hessian only on a full evaluation-identity
+            # match (run/system/evaluator/active space/potential).  The all
+            # workflow may round-trip the TS through a three-decimal PDB, so the
+            # coordinate field keeps the wider bohr tolerance.
+            _cached_ts = _hess_load_matching(
+                "ts",
+                _hess_identity(geometry, calc_cfg, role="ts"),
+                atol=1.1e-3,
+            )
+            if _cached_ts is not None:
+                emit("[freq] Reusing cached TS Hessian.", detail=True)
+                H_t = _cached_ts["hessian"]
+                if isinstance(H_t, torch.Tensor):
+                    H_t = H_t.to(device=device)
+                else:
+                    H_t = torch.as_tensor(H_t, device=device)
+                energy_ha = _cached_ts.get("meta", {}).get("energy_ha")
+                if energy_ha is None:
+                    energy_ha = _calc_energy(geometry, calc_cfg)
+                _restore_active_dofs(_cached_ts.get("active_dofs"))
+                _hessian_source = "cache"
+            else:
+                # Populate active-DOF metadata for downstream PHVA routing.
+                H_t, energy_ha = _calc_full_hessian_torch(
+                    geometry, calc_cfg, device, refresh_geom_meta=True
+                )
+
+        echo_resolved_device()
+
+        _raw_hessian_shape = tuple(H_t.shape)
         H_analysis, _analysis_atoms, _computed_atoms, _hessian_storage = (
             _reconcile_hessian_analysis_basis(
                 H_t,
@@ -1523,44 +1578,12 @@ def cli(
         )
         del H_t
 
-        # --dump-hess: save Hessian to compressed .npz
+        # --dump-hess: the analysis block (movable atoms) as a plain .npy array
         if dump_hess:
-            _h_np = H_analysis.detach().cpu().numpy()
-            # The opt-in dump needs a host copy; H_analysis remains live for
-            # the frequency calculation immediately below.
-            _dump_path = Path(dump_hess)
-            # Persist partial-Hessian metadata so `mlmm irc --read-hess` can
-            # restore geometry.within_partial_hessian. Without it the loaded
-            # partial Hessian (active_n_dof != 3N) tripped a Geometry shape
-            # assertion (the npz was not a usable round-trip).
             from mlmm.io.hessian_file import save_hessian_file
-            from mlmm.io.hessian_cache import persistent_identity_from_context
 
-            _analysis_dofs = [
-                3 * atom + axis for atom in _analysis_atoms for axis in range(3)
-            ]
-            _analysis_metadata = None
-            if len(_analysis_atoms) != len(geometry.atomic_numbers):
-                _analysis_metadata = {
-                    "active_n_dof": len(_analysis_dofs),
-                    "full_n_dof": int(geometry.cart_coords.size),
-                    "active_dofs": _analysis_dofs,
-                    "active_atoms": list(_analysis_atoms),
-                }
-            _dump_path = save_hessian_file(
-                _dump_path,
-                hessian=_h_np,
-                energy_ha=float(energy_ha) if energy_ha is not None else 0.0,
-                cart_coords_bohr=geometry.cart_coords,
-                atomic_numbers=geometry.atomic_numbers,
-                model_charge=int(calc_cfg["model_charge"]),
-                model_mult=int(calc_cfg["model_mult"]),
-                potential_identity=persistent_identity_from_context(
-                    geometry,
-                    calc_cfg,
-                ),
-                partial_metadata=_analysis_metadata,
-            )
+            _h_np = H_analysis.detach().cpu().numpy()
+            _dump_path = save_hessian_file(dump_hess, _h_np)
             emit(f"[freq] Hessian saved → {_dump_path} (shape={_h_np.shape})", narrative=True)
             del _h_np
 
@@ -1600,7 +1623,7 @@ def cli(
                 "computed_atom_count": len(_computed_atoms),
                 "analysis_atom_count": len(_analysis_atoms),
                 "storage": _hessian_storage,
-                "hessian_source": "cache" if _cached_ts is not None else "fresh",
+                "hessian_source": _hessian_source,
                 "hessian_representation": "cartesian-unweighted-unprojected",
             }
         )

@@ -101,9 +101,6 @@ def _directional_endpoint_energy_fields(
         "energy_ts_hartree": ts,
         "energy_last_hartree": last,
         "endpoint_energy_orientation": "finished_first_to_finished_last",
-        # Retained for schema compatibility; their orientation is declared above.
-        "energy_reactant_hartree": first,
-        "energy_product_hartree": last,
     }
 
 
@@ -344,14 +341,14 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     "show_config",
     default=False,
     show_default=True,
-    help="Print resolved configuration and continue execution.",
+    help="Print the loaded YAML file and its top-level keys, then continue.",
 )
 @click.option(
     "--dry-run/--no-dry-run",
     "dry_run",
     default=False,
     show_default=True,
-    help="Validate options and print the execution plan without running IRC.",
+    help="Validate options and inputs without running IRC.",
 )
 @click.option(
     "--ref-pdb",
@@ -426,17 +423,11 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     type=click.Path(exists=True, dir_okay=False),
     default=None,
     show_default="None",
-    help="Read an identified initial Hessian from 'mlmm freq --dump-hess'. "
-         "Geometry, atom order, active-DOF basis, charge, and multiplicity must "
-         "match; the file takes priority over hessian_cache and fresh computation.",
-)
-@click.option(
-    "--allow-unverified-hess-state/--no-allow-unverified-hess-state",
-    "allow_unverified_hess_state",
-    default=False,
-    show_default=True,
-    help="Allow a schema-1 Hessian file whose charge and multiplicity cannot be "
-         "verified. Use only after independently checking the electronic state.",
+    help="Start from the Hessian in this .npy file (e.g. from freq or tsopt "
+         "--dump-hess): the Cartesian Hessian of the input geometry in "
+         "Hartree/bohr^2, for all atoms or only the atoms in the Hessian "
+         "calculation. The file takes priority over a Hessian from an earlier "
+         "stage and fresh computation.",
 )
 @click.option(
     "--freeze-atoms",
@@ -496,7 +487,6 @@ def cli(
     use_cmap: Optional[bool],
     hess_device: str,
     read_hess: Optional[str],
-    allow_unverified_hess_state: bool,
     out_json: bool,
     precision: Optional[str],
     workers: Optional[int],
@@ -508,11 +498,6 @@ def cli(
 ) -> None:
     set_convert_file_enabled(convert_files)
     _is_param_explicit = make_is_param_explicit(ctx)
-    if allow_unverified_hess_state and not read_hess:
-        raise click.UsageError(
-            "--allow-unverified-hess-state requires --read-hess."
-        )
-
     config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
         config_yaml=config_yaml,
         override_yaml=None,
@@ -680,6 +665,10 @@ def cli(
             ctx, calc_cfg, output_dir=irc_cfg["out_dir"]
         )
         _validate_irc_directions(irc_cfg)
+        if read_hess and irc_cfg.get("hessian_init", "calc") != "calc":
+            raise click.BadParameter(
+                "--read-hess needs hessian_init: calc.", param_hint="--read-hess"
+            )
         if not calc_cfg.get("real_parm7"):
             raise click.BadParameter(
                 "Missing --parm (or calc.real_parm7 in YAML).; "
@@ -880,73 +869,28 @@ def cli(
             _initial_hessian_source = "file"
             click.echo(f"[irc] Loading initial Hessian from {read_hess}")
             from mlmm.io.hessian_file import load_hessian_file
-            from mlmm.io.hessian_cache import persistent_identity_from_context
 
+            _full_n_dof = int(geometry.cart_coords.size)
+            _dofs = [int(d) for d in _expected_hessian_dofs]
             try:
                 _loaded_hessian = load_hessian_file(
                     read_hess,
-                    cart_coords_bohr=geometry.cart_coords,
-                    atomic_numbers=geometry.atomic_numbers,
-                    expected_model_charge=int(calc_cfg["model_charge"]),
-                    expected_model_mult=int(calc_cfg["model_mult"]),
-                    expected_potential_identity=persistent_identity_from_context(
-                        geometry,
-                        calc_cfg,
-                    ),
-                    expected_active_dofs=_expected_hessian_dofs,
-                    allow_unverified_state=allow_unverified_hess_state,
-                    allow_unverified_pes=allow_unverified_hess_state,
+                    n_atoms=len(geometry.atomic_numbers),
+                    active_dofs=_dofs,
                 )
             except ValueError as exc:
                 raise click.ClickException(str(exc)) from exc
-            h_init = torch.as_tensor(
-                _loaded_hessian["hessian"], dtype=torch.float64, device=_hess_dev
-            )
-            # Restore partial-Hessian metadata if freq --dump-hess saved it,
-            # so a partial Hessian (active_n_dof != 3N) is consumed correctly
-            # instead of tripping the Geometry cart_hessian shape assertion.
-            _partial_metadata = _loaded_hessian["partial_metadata"]
-            _hessian_state_verified = bool(
-                _loaded_hessian["electronic_state_verified"]
-            )
-            _hessian_pes_verified = bool(
-                _loaded_hessian["potential_identity_verified"]
-            )
-            _hessian_file_schema = int(_loaded_hessian["schema_version"])
-            import hashlib
-
-            _hessian_hasher = hashlib.sha256()
-            with Path(read_hess).open("rb") as _hessian_stream:
-                for _hessian_block in iter(
-                    lambda: _hessian_stream.read(1 << 20),
-                    b"",
-                ):
-                    _hessian_hasher.update(_hessian_block)
-            _hessian_file_sha256 = _hessian_hasher.hexdigest()
-            if not _hessian_state_verified:
-                click.echo(
-                    "[irc] WARNING: the schema-1 Hessian does not identify "
-                    "charge or multiplicity; proceeding by explicit opt-in.",
-                    err=True,
-                )
-            if not _hessian_pes_verified:
-                click.echo(
-                    "[irc] WARNING: the legacy Hessian does not identify its "
-                    "generating PES; proceeding by explicit opt-in.",
-                    err=True,
-                )
-            if _partial_metadata is not None:
-                geometry.within_partial_hessian = dict(_partial_metadata)
-                click.echo(
-                    f"[irc] Restored partial-Hessian metadata from npz "
-                    f"(active_n_dof={_partial_metadata['active_n_dof']})."
-                )
+            h_init = torch.as_tensor(_loaded_hessian, dtype=torch.float64, device=_hess_dev)
+            # A partial Hessian is consumed in the same basis as a fresh one.
+            if len(_dofs) < _full_n_dof:
+                geometry.within_partial_hessian = {
+                    "active_n_dof": len(_dofs),
+                    "full_n_dof": _full_n_dof,
+                    "active_dofs": _dofs,
+                    "active_atoms": sorted({d // 3 for d in _dofs}),
+                }
             del _loaded_hessian
         else:
-            _hessian_state_verified = True
-            _hessian_pes_verified = True
-            _hessian_file_schema = None
-            _hessian_file_sha256 = None
             # reuse the tsopt TS Hessian only on a full evaluation-identity
             # match; the all workflow may round-trip the TS through a
             # three-decimal PDB, so the coordinate field keeps the wider bohr
@@ -1259,10 +1203,6 @@ def cli(
                     ),
                     "hessian_shape": list(eulerpc.init_hessian_shape),
                     "hessian_source": _initial_hessian_source,
-                    "electronic_state_verified": _hessian_state_verified,
-                    "pes_identity_verified": _hessian_pes_verified,
-                    "hessian_file_schema": _hessian_file_schema,
-                    "hessian_file_sha256": _hessian_file_sha256,
                     "hessian_representation": "cartesian-unweighted-unprojected",
                 },
                 "input_file": str(source_path),

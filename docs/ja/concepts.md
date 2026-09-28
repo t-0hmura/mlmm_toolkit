@@ -36,6 +36,7 @@ ML/MM 3 層システム、ONIOM 分解、「セグメント」「画像（image�
 ```
 
 各ステージはサブコマンドとして単独実行できます。また `mlmm all` を使うと、複数ステージをまとめて実行できます。
+この図は `mlmm all` の中での順序です。サブコマンドを手で順に実行するときは、先に `mm-parm` を実行し、それが書き出した PDB を `extract` と `define-layer` に渡します（[はじめに](getting-started.md) の「典型的な手動ワークフロー」）。
 
 ```{important}
 遷移状態: HEI や `tsopt` の出力は **TS 候補** として扱い、`freq`（虚振動数モードが 1 本）と `irc`（両端が意図した極小へ落ちる）で検証してから解釈してください。
@@ -182,7 +183,7 @@ mlmm opt -i layered.pdb --parm7 system.parm7 -q 0 --opt-mode hess --no-microiter
 - CPU 実行（GPU メモリを MLIP 推論に専有させるため）
 - CMAP トーション補正（parm7 に含まれる場合は両 MM 層で保持）
 
-`hessian_ff` は解析 MM Hessian を提供します。OpenMM backend を選ぶ経路では MM Hessian を有限差分で構成します。
+`hessian_ff` は解析 MM Hessian を計算できますが、既定（`mm_fd: true`）では有限差分を使います。解析 Hessian は `mm_fd: false` で有効になります。OpenMM backend では常に有限差分です。
 
 ---
 
@@ -215,13 +216,13 @@ ML 領域定義は主に以下で制御します。
 
 ML 領域の指定には 2 通りあります。
 
-- **自動切り出し**（`-c/--center`）: `extract` / `all` が、必要に応じて
-  default-off の `--exclude-backbone` を使って Cα–Cβ
-  境界で主鎖を切断し、残基・`--modified-residue`・
-  `-l/--ligand-charge` から model 電荷を**導出**します。
+- **自動切り出し**（`-c/--center`）: `extract` / `all` は、孤立した残基では側鎖だけを残し
+  （Cα–Cβ で切断）、連続した区間では内部の主鎖を残して末端の cap だけを除きます。
+  残基・`--modified-residue`・`-l/--ligand-charge` から model 電荷を**導出**します。
   カタログ未登録の非標準アミノ酸は `--modified-residue NAME:charge`、リガンドは
   `-l NAME:charge` で与え、`-q` は不要です。登録済みの残基は電荷を省略しても
-  カタログ値を保持します。
+  カタログ値を保持します。default-off の `--exclude-backbone` は、抽出中心以外の
+  アミノ酸の主鎖原子を除きます。
 - **手動**（`--model-pdb` + `--parm7`）: ML 原子の選択を自分で与え、model 電荷は `-q` で明示
   します。電荷が変わる原子を手で編集した場合（独自の切断・プロトン化/電荷変更で自動導出が
   当てにならない場合）や、自動切り出しが扱えない異常トポロジーで確実です。この経路では
@@ -304,8 +305,8 @@ mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'
 例:
 
 ```bash
-mlmm -i holo.pdb -c '308,309' -l 'MMT:-1' \
- --scan-lists '[("TYR,285,CA","MMT,309,C10",2.20)]'
+mlmm -i R.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
+ --scan-lists '[("SAM,320,CS1","GPP,321,C7",1.60)]'
 ```
 
 ### 3) TSOPT のみ（ML/MM TS 最適化）

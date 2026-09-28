@@ -3,8 +3,8 @@
 mlmm-toolkit drives every ML/MM workflow stage (`opt`, `scan`, `tsopt`, `freq`,
 `irc`, `path-search`,...) through a single `MLMMCore` ONIOM-coupling object.
 `MLMMCore` dispatches the ML region to a per-backend adapter (`_UMABackend` /
-`_OrbBackend` / `_MACEBackend` / `_AIMNet2Backend`) via the private
-`_create_ml_backend` factory. This page documents how to select a backend, the
+`_OrbBackend` / `_MACEBackend` / `_AIMNet2Backend`, or the PySCF/GPU4PySCF DFT
+backend for `backend="dft"`) via the private `_create_ml_backend` factory. This page documents how to select a backend, the
 per-backend kwargs, and how to add a new backend.
 
 ## Public surface
@@ -18,7 +18,7 @@ core = MLMMCore(
     input_pdb="layered.pdb",
     real_parm7="real.parm7",
     model_pdb="model.pdb",
-    backend="uma",          # one of: "uma", "orb", "mace", "aimnet2"
+    backend="uma",          # "uma", "orb", "mace", "aimnet2", or "dft" (dft also needs dft_settings)
     model_charge=0, model_mult=1,
     uma_model="uma-s-1p2",
     uma_precision="fp32",   # or "fp64" (full-precision base inference)
@@ -99,8 +99,6 @@ Or via YAML config (per-backend kwarg name):
 calc:
  uma_precision: fp64
 ```
-
-Requires `fairchem-core ≥ 2.0` for the `InferenceSettings` API.
 
 ## xTB electrostatic correction
 

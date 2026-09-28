@@ -50,7 +50,7 @@ out_dir/ (default: ./result_dft/)
 ├── ml_region_with_linkH.pdb    # PDB input with --convert-files; generated link-H as HL/LKH
 ├── result.yaml                 # DFT + ML(dft)/MM energy summary, charges, spin densities
 ├── result.json                 # only when --out-json is passed
-└── (stdout)                    # Pretty-printed configuration blocks and energies
+└── (stdout)                    # Energies (configuration blocks at `-v 3`)
 ```
 
 - `result.yaml` expands to:
@@ -87,12 +87,12 @@ out_dir/ (default: ./result_dft/)
 | `--embedcharge-cutoff FLOAT` | Include MM point charges within this distance of the ML region. | `12.0` Å |
 | `-o, --out-dir DIR` | Output directory. | `./result_dft/` |
 | `--config FILE` | Base YAML configuration file applied before explicit CLI options. | _None_ |
-| `--show-config/--no-show-config` | Print resolved configuration and continue execution. | `False` |
+| `--show-config/--no-show-config` | Print the loaded YAML file and its top-level keys, then continue. | `False` |
 | `--link-atom-method {scaled,fixed}` | Link-atom placement: `scaled` (g-factor, Gaussian ONIOM standard) or `fixed` (legacy 1.09 Å for C, 1.01 Å for N). | `scaled` |
 | `--mm-backend {hessian_ff,openmm}` | MM backend for the low-level ONIOM evaluation. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |
 | `--cmap/--no-cmap` | Preserve CMAP in both REAL and MODEL MM layers. | `--cmap` |
 | `--out-json/--no-out-json` | Write a machine-readable `result.json` to `out_dir`. | `False` |
-| `--dry-run/--no-dry-run` | Validate options and print execution plan without running DFT. Shown in `--help-advanced`. | `False` |
+| `--dry-run/--no-dry-run` | Validate options and inputs without running DFT. Shown in `--help-advanced`. | `False` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 
 ## YAML configuration

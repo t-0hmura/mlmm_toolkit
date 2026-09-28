@@ -2,8 +2,8 @@
 
 Modules:
 - ``energy_diagram`` — render energy diagrams from numeric values (Plotly).
-- ``hessian_cache`` — ``--read-hess`` / ``--dump-hess`` Hessian cache I/O.
-- ``hessian_file`` — geometry-identified Hessian file serialization.
+- ``hessian_cache`` — in-process Hessian cache shared by the stages of ``all``.
+- ``hessian_file`` — plain NumPy ``.npy`` Hessian files (``--dump-hess`` / ``--read-hess``).
 - ``hessian_calc`` — Hessian computation helpers (CPU/GPU dispatch).
 - ``gaussian_input`` — ordinary Gaussian Cartesian input parsing.
 - ``pdb_fix`` — ``mlmm fix-altloc`` subcommand backend (PDB altloc resolution).

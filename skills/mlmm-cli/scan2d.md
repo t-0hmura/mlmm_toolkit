@@ -2,9 +2,9 @@
 
 ## Purpose
 
-2D distance scan with harmonic restraints. Drives two bonds toward
-target distances simultaneously and produces a 2D grid of relaxed
-geometries. Useful for mapping concerted-vs-stepwise reaction
+2D scan with harmonic restraints. Drives two distance, angle, or dihedral
+coordinates toward their targets simultaneously and produces a 2D grid of
+relaxed geometries. Useful for mapping concerted-vs-stepwise reaction
 surfaces (e.g. SN2 attack + leaving-group departure).
 
 ## Synopsis
@@ -48,7 +48,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--ref-pdb` | path | none | Topology reference required when `--input` is XYZ |
 | `--config` / `--help-advanced` | — | — | Standard (use `--print-parsed` for spec validation without GPU) |
 
-The two tuples in the `-s` literal define the two scan axes; both bonds
+The two tuples in the `-s` literal define the two scan axes; both coordinates
 are driven simultaneously, generating the grid.
 
 ## Examples

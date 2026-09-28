@@ -122,13 +122,13 @@ mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft
 
 # Scan mode (single structure → staged bond scans → MEP)
 mlmm all -i R.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
-    --scan-lists "[('SAM 359 CS1','GPP 360 C8',1.3)]"
+    --scan-lists "[('SAM 320 CS1','GPP 321 C7',1.60)]"
 
 # TS-only validation (existing TS candidate)
 mlmm all -i TS_candidate_layered.pdb --parm7 complex.parm7 -q 1 --tsopt --opt-mode grad
 ```
 
-For Gaussian-ONIOM / ORCA-QM/MM input-deck export and import use [`oniom-export`](docs/oniom-export.md) / [`oniom-import`](docs/oniom-import.md). Per-stage walkthrough (`mm-parm` → `extract` → `define-layer` → `opt` → `path-search` → `tsopt` → `freq` → `irc` → `dft`): [docs/getting-started.md](docs/getting-started.md) and [docs/quickstart-all.md](docs/quickstart-all.md). Working examples (COMT, BezA, methyltransferase, and toy system): [examples/](https://github.com/t-0hmura/mlmm_toolkit/tree/main/examples).
+For Gaussian-ONIOM / ORCA-QM/MM input-deck export and import use [`oniom-export`](docs/oniom-export.md) / [`oniom-import`](docs/oniom-import.md). Per-stage walkthrough (`mm-parm` → `extract` → `define-layer` → `opt` → `path-search` → `tsopt` → `irc` → `freq` → `dft`): [docs/getting-started.md](docs/getting-started.md) and [docs/quickstart-all.md](docs/quickstart-all.md). Working examples (COMT, BezA, methyltransferase, and toy system): [examples/](https://github.com/t-0hmura/mlmm_toolkit/tree/main/examples).
 
 ## Output
 

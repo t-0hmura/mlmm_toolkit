@@ -274,8 +274,8 @@ def _snapshot_geometry(g) -> Any:
     type=str,
     multiple=True,
     required=False,
-    help="Scan ranges: distance (i,j,low,high), angle (i,j,k,low,high), or "
-         "dihedral (i,j,k,l,low,high). "
+    help="Distance targets (i,j,target), or scan ranges: distance (i,j,low,high), "
+         "angle (i,j,k,low,high), or dihedral (i,j,k,l,low,high). "
          "Multiple inline literals define sequential stages.",
 )
 @click.option(
@@ -735,14 +735,14 @@ def cli(
             _bidir_snapshot_before: set = set()
             spec_root = _load_scan_spec_root(spec_path) if spec_path is not None else None
             try:
-                legacy_targets = all(
+                distance_targets = all(
                     not is_scan_spec_file(value)
                     and all(len(entry) == 3 for entry in ast.literal_eval(value))
                     for value in cli_scan_values
                 )
             except Exception:
-                legacy_targets = True
-            if target_mode or legacy_targets or (spec_root is not None and "stages" in spec_root):
+                distance_targets = True
+            if target_mode or distance_targets or (spec_root is not None and "stages" in spec_root):
                 if spec_path is not None:
                     (
                         stages,

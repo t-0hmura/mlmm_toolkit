@@ -57,8 +57,9 @@ Bond broken (2):
 
 ## Caveats
 
-- Atom ordering must match across all inputs. If it doesn't, run
-  `mlmm extract` first to canonicalize.
+- Atom ordering must match across all inputs. Neither `bond-summary` nor
+  `mlmm extract` reorders atoms (`extract` only detects a mismatch and stops),
+  so regenerate the inputs from the same topology.
 - The default `1.2` × covalent-radius cutoff (with internal margin
   fraction `0.05`) is geometry-only — it does not classify covalent
   vs ionic vs hydrogen-bonded; metal–ligand interactions may hover

@@ -198,6 +198,7 @@ mlmm opt \
 
 ```bash
 # 方法 A: 環境変数（全 CUDA プログラムに影響）
+# scheduler の下では scheduler が設定した値をそのまま使い、自分で設定するのは scheduler の外だけ
 export CUDA_VISIBLE_DEVICES=0
 
 # 方法 B: YAML 設定（mlmm 固有）

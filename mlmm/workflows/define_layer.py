@@ -425,7 +425,7 @@ def _define_layers_pdb(
     model_pdb : Optional[Path]
         PDB file defining ML region atoms
     model_indices : Optional[List[int]]
-        Explicit 0-based indices of ML region atoms (takes precedence over model_pdb)
+        Explicit 0-based indices of ML region atoms (used when model_pdb is None)
     radius_freeze : float
         Distance cutoff (Å) for movable MM atoms (default: 8.0)
 
@@ -453,12 +453,12 @@ def _define_layers_pdb(
         raise ValueError(f"No atoms found in {input_pdb}")
 
     # Get ML indices
-    if model_indices is not None:
-        ml_indices = sorted(set(model_indices))
-    elif model_pdb is not None:
+    if model_pdb is not None:
         ml_indices = _get_ml_indices_from_model_pdb(
             atoms, model_pdb, input_pdb_path=input_pdb
         )
+    elif model_indices is not None:
+        ml_indices = sorted(set(model_indices))
     else:
         raise ValueError("Either model_pdb or model_indices must be provided")
 
@@ -551,7 +551,7 @@ def _effective_output_pdb(output_path: Path) -> Path:
     type=str,
     default=None,
     help="Comma-separated atom indices for ML region (e.g., '1,2,3,4' or '1-10,15,20-25'). "
-         "Takes precedence over --model-pdb.",
+         "Used when --model-pdb is omitted.",
 )
 @click.option(
     "--movable-cutoff",

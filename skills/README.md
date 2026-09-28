@@ -17,11 +17,11 @@ pattern.
 - `mlmm-cli`: index of the 22 subcommands plus per-subcommand
   mds (each with synopsis, key flags, examples, output, caveats).
 - `mlmm-ts-strategy`: cross-cutting decision know-how for a
-  reaction-barrier campaign — backend/model-specific precision guidance
-  (`--precision` fp32/fp64) plus GPU capacity/performance planning, the two TS-candidate routes (`path-search` MEP vs
-  distance-restrained `scan`), fixing a wrong imaginary-frequency count
-  (`--precision fp64` / `--coord-type dlc`), reading a barrier when the
-  scan started from the Product side, staged vs concerted `--scan-lists`,
+  reaction-barrier campaign — keeping backend-default precision, the two
+  TS-candidate routes (`path-search` MEP vs distance-restrained `scan`),
+  inspecting and retrying a wrong imaginary-frequency count
+  (coordinate / flattening / precision settings), an IRC that stops too early,
+  reading a barrier when the scan started from the Product side, staged vs concerted `--scan-lists`,
   and controlled mutant-vs-WT barrier comparisons with explicit assignment
   of atoms added or deleted by the mutation.
 - `mlmm-mcp`: how to drive `mlmm-toolkit` from any MCP client (Claude

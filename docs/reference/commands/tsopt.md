@@ -107,11 +107,11 @@ Options:
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
   --show-config / --no-show-config
-                                  Print resolved configuration and continue
-                                  execution.  [default: no-show-config]
-  --dry-run / --no-dry-run        Validate options and print the execution plan
-                                  without running TS optimization.  [default:
-                                  no-dry-run]
+                                  Print the loaded YAML file and its top-level
+                                  keys, then continue.  [default: no-show-
+                                  config]
+  --dry-run / --no-dry-run        Validate options and inputs without running TS
+                                  optimization.  [default: no-dry-run]
   --convert-files / --no-convert-files
                                   Convert XYZ/TRJ outputs into PDB companions
                                   based on the input format.  [default: convert-
@@ -146,6 +146,18 @@ Options:
                                   saddle order; mlmm all stops before IRC
                                   because no imaginary direction can be
                                   validated.  [default: no-skip-final-freq]
+  --read-hess FILE                Start from the Hessian in this .npy file (e.g.
+                                  from freq or tsopt --dump-hess) instead of
+                                  computing it: the Cartesian Hessian of the
+                                  input geometry in Hartree/bohr^2, for all
+                                  atoms or only the movable ones.  [default:
+                                  (None)]
+  --dump-hess FILE                Save the Hessian of the final geometry as a
+                                  NumPy .npy array (Cartesian, Hartree/bohr^2;
+                                  only the atoms in the Hessian calculation when
+                                  atoms are frozen or --hess-cutoff is set) for
+                                  '--read-hess' in freq, tsopt, or irc, or for
+                                  other programs.  [default: (None)]
   --out-json / --no-out-json      Write machine-readable result.json to out_dir.
                                   [default: no-out-json]
   --detect-layer / --no-detect-layer

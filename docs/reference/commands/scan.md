@@ -31,7 +31,8 @@ Options:
                                   MM atoms. MM atoms beyond this are frozen.
                                   Providing --movable-cutoff disables --detect-
                                   layer.  [default: (use freeze_atoms)]
-  -s, --scan-lists TEXT           Scan ranges: distance (i,j,low,high), angle
+  -s, --scan-lists TEXT           Distance targets (i,j,target), or scan ranges:
+                                  distance (i,j,low,high), angle
                                   (i,j,k,low,high), or dihedral
                                   (i,j,k,l,low,high). Multiple inline literals
                                   define sequential stages.

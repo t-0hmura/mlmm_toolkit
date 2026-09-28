@@ -156,7 +156,7 @@ An optimizer may also report `"status": "stalled"`: the energy stopped decreasin
 | `reference_mode_file` | string\|null | Advanced path-derived mode supplied with `--ref-mode`; Hessian-family only |
 | `safeguards` | object | Hessian-family rejection/recovery, exact-saddle, and target-mode diagnostics |
 | `rigid_projection` | object | Frozen-boundary TR provenance for Dimer/flatten/final saddle analysis |
-| `files` | object | Final geometry + vib mode files |
+| `files` | object | Final geometry + vib mode files; includes `hessian_npy` (absolute path) when `--dump-hess` wrote a file |
 
 Terminal exact PHVA runs after numerical convergence or an energy-plateau stop
 (`stalled`). A run that ends without either retains the terminal geometry and records PHVA as skipped. A PHVA failure is recorded as
@@ -185,7 +185,7 @@ IRC. Explicit `--skip-final-freq` retains the final structure with
 | `n_atoms` | int | Total atoms |
 | `n_freeze_atoms` | int | Frozen atoms |
 | `rigid_projection` | object | Frozen-boundary TR provenance used for frequencies and thermochemistry |
-| `files` | object | Output map; includes `hessian_npz` when `--dump-hess` is used |
+| `files` | object | Output map; includes `hessian_npy` (absolute path) when `--dump-hess` wrote a file |
 
 **`thermochemistry`** (null if thermoanalysis unavailable):
 
@@ -222,7 +222,6 @@ IRC. Explicit `--skip-final-freq` retains the final structure with
 | `energy_ts_hartree` | float | TS energy |
 | `energy_last_hartree` | float | Last stitched-path endpoint; standalone IRC assigns no chemical identity |
 | `endpoint_energy_orientation` | string | `"finished_first_to_finished_last"` |
-| `energy_reactant_hartree` / `energy_product_hartree` | float | Compatibility aliases for first/last; do not infer R/P identity from the names |
 | `forward_requested` / `backward_requested` | bool | Whether each direction was requested |
 | `forward_integration_converged` / `backward_integration_converged` | bool\|null | Whether the direction stopped because the RMS-gradient stationarity criterion fired; diagnostic only, and always `false` under `--never-stop`, which bypasses that criterion. Combine it with `*_downhill_departure_valid` to reconstruct the condition the removed `*_converged` reported. |
 | `forward_downhill_departure_valid` / `backward_downhill_departure_valid` | bool\|null | Whether the branch established a downhill departure from the TS |
@@ -230,7 +229,7 @@ IRC. Explicit `--skip-final-freq` retains the final structure with
 | `never_stop` | bool | Whether opt-in physical endpoint-stop bypass mode was enabled |
 | `never_stop_energy_bypasses` | int | Number of energy-rise or one-step energy-change stops actually bypassed |
 | `rigid_projection` | object | Frozen-boundary TR provenance for the initial/updated Hessian |
-| `rigid_projection.electronic_state_verified` | bool | For a file-seeded Hessian, whether model charge and multiplicity were identity-verified |
+| `rigid_projection.hessian_source` | string | Initial Hessian source: `"file"` (`--read-hess`), `"cache"` (earlier stage in the same run), or `"fresh"` |
 | `bond_changes` | object | Directed first→last `{formed: [...], broken: [...]}`; omitted if comparison was unavailable |
 | `bond_changes_direction` | string | `"finished_first_to_finished_last"` when bond changes are present |
 | `files` | object | Trajectory and endpoint files (XYZ plus available PDB/CIF companions) |

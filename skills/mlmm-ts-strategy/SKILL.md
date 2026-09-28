@@ -139,7 +139,7 @@ compositions are not directly subtracted.
 ## See also
 
 - `mlmm-cli/tsopt.md`, `scan.md`, `path-search.md`, `define-layer.md` — per-subcommand flags.
-- `mlmm-cli/all-ts-only.md` — the full mutate→complete→transplant→run mutation recipe.
+- `mlmm-cli/all-ts-only.md` — checklist for comparing mutant and WT barriers (last section).
 - `mlmm-workflows-output/SKILL.md` — IRC R/TS/P canonical paths and bond-change conventions.
-- `mlmm-hpc/SKILL.md` — choosing the GPU class that determines §1.
+- `mlmm-hpc/SKILL.md` — job templates and CPU/GPU resource choice.
 - docs `reproducibility.md` — fp64 vs `--deterministic`.

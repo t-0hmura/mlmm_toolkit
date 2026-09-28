@@ -1,6 +1,6 @@
 # Python API
 
-Use mlmm-toolkit as a Python library — `MLMMCore` (base engine), `MLMMASECalculator` (ASE interface), `mlmm` (pysisyphus Calculator), and the `mlmm_ase()` compatibility wrapper.
+Use mlmm-toolkit as a Python library — `MLMMCore` (base engine), `MLMMASECalculator` (ASE interface), and `mlmm` (pysisyphus Calculator).
 
 ## Quick Start
 
@@ -45,7 +45,7 @@ core = MLMMCore(
     model_pdb="pocket.pdb",
     model_charge=0,
     model_mult=1,
-    backend="uma",               # uma | orb | mace | aimnet2
+    backend="uma",               # uma | orb | mace | aimnet2 | dft (dft also needs dft_settings)
     return_partial_hessian=True, # partial Hessian for the active Hessian atoms
 )
 ```
@@ -120,37 +120,6 @@ geom = geom_loader("r_layered.pdb")
 geom.set_calculator(calc)
 energy = geom.energy            # Hartree
 forces = geom.forces            # Hartree/Bohr (flat)
-```
-
-## v0.1.x Compatibility
-
-### Parameter aliases
-
-The following v0.1.x parameter names are accepted with a `DeprecationWarning`:
-
-| v0.1.x name | v0.2.x name | Notes |
-|-------------|-------------|-------|
-| `real_pdb` | `input_pdb` | Legacy alias — maps to `input_pdb` |
-| `real_rst7` | *(removed)* | Ignored with warning (auto-generated internally) |
-| `vib_run` | *(removed)* | Ignored with warning |
-| `vib_dir` | *(removed)* | Ignored with warning |
-
-```python
-# v0.1.x style — still works, emits DeprecationWarning
-from mlmm import MLMMCore
-core = MLMMCore(real_pdb="complex.pdb", real_parm7="real.parm7", model_pdb="ml.pdb")
-```
-
-### mlmm_ase() factory
-
-The v0.1.x `mlmm_ase(real_pdb=..., ...)` convenience function is preserved for backward compatibility:
-
-```python
-from mlmm import mlmm_ase
-
-# v0.1.x style — emits DeprecationWarning
-calc = mlmm_ase(real_pdb="complex.pdb", real_parm7="real.parm7", model_pdb="ml.pdb")
-# Equivalent to: MLMMASECalculator(MLMMCore(input_pdb="complex.pdb", ...))
 ```
 
 ## See Also

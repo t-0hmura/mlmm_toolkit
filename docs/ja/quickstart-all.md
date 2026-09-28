@@ -35,7 +35,7 @@ mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 \
 ## 出力の検証
 
 エネルギーや結合変化を解釈する前に、`summary.json` の[実行結果と理由](json-output.md#実行と要求段階の完了状況)を確認します。
-`summary.log` に結果の要約、出力ルートに `mep_trj.pdb`（bridge入力では `mep.cif` も）と
+`summary.log` に結果の要約、出力ルートに `mep_trj.pdb`（bridge入力では `mep_trj.cif` も）と
 `energy_diagram_MEP.png` を保存します。
 生出力は `_work/path_opt/`（`--refine-path` 時は `_work/path_search/`）にあります。
 全体の出力ツリーは [all](all.md)、ファイル名は [出力構造](output-layout.md) を参照してください。

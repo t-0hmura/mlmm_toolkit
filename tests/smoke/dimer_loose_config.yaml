@@ -1,0 +1,4 @@
+hessian_dimer:
+  lbfgs:
+    rms_force: 0.1
+    rms_force_only: true

@@ -130,7 +130,7 @@ def _reject_path_search_output_collisions(
         for name in (
             "mep_trj.xyz",
             "mep_trj.pdb",
-            "mep.cif",
+            "mep_trj.cif",
             "mep_plot.png",
             "energy_diagram_MEP.png",
             "summary.json",
@@ -1193,7 +1193,7 @@ def _enrich_path_summary_contract(
         for name in (
             "mep_trj.pdb",
             "mep.pdb",
-            "mep.cif",
+            "mep_trj.cif",
             "mep_plot.png",
             "energy_diagram_MEP.png",
         )
@@ -1849,14 +1849,14 @@ def _build_multistep_path(
     "show_config",
     default=False,
     show_default=True,
-    help="Print resolved configuration and continue execution.",
+    help="Print the loaded YAML file and its top-level keys, then continue.",
 )
 @click.option(
     "--dry-run/--no-dry-run",
     "dry_run",
     default=False,
     show_default=True,
-    help="Validate options and print the execution plan without running path search.",
+    help="Validate options and inputs without running path search.",
 )
 @click.option(
     "--preopt/--no-preopt",
@@ -2496,7 +2496,7 @@ def cli(
         validate_endpoint_atom_identities(prepared_inputs)
         for name in (
             "mep_trj.pdb",
-            "mep.cif",
+            "mep_trj.cif",
             "mep_plot.png",
             "energy_diagram_MEP.png",
         ):

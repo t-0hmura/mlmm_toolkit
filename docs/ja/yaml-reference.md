@@ -182,7 +182,7 @@ opt:
  max_force_only: false # 最大力のみで収束判定
  force_only: false # 変位チェックをスキップ
  converge_to_geom_rms_thresh: 0.05 # 参照ジオメトリへの収束 RMS 閾値
- overachieve_factor: 0.0 # 閾値の引き締め係数
+ overachieve_factor: 0.0 # 0.0 で無効。正の値では力が閾値/係数を下回ると step 基準なしで収束（baker では不使用）
  check_eigval_structure: false # Hessian固有値構造の検証
  energy_plateau: false # opt-in（--stop-plateau）: エネルギーが停滞したら stalled として停止 (収束扱いにはしない)
  energy_plateau_thresh: 1.0e-4 # エネルギー変動許容幅 au（約 0.06 kcal/mol）
@@ -276,7 +276,7 @@ rfo:
  hessian_recalc_adapt: null # 適応的Hessian再構築係数
  small_eigval_thresh: 1.0e-08 # 安定性のための固有値閾値
  alpha0: 1.0 # 初期マイクロステップ
- max_micro_cycles: 50 # マイクロイテレーションの上限
+ max_micro_cycles: 50 # 1 step 内の RS 反復の上限（ML/MM のマイクロイテレーションとは別）
  rfo_overlaps: false # RFO オーバーラップを有効化
  gediis: false # GEDIIS を有効化
  gdiis: true # GDIIS を有効化
@@ -322,7 +322,7 @@ gs:
  reparam_every: 1 # 再パラメータ化間隔
  reparam_every_full: 1 # 完全再パラメータ化間隔
  param: equi # パラメータ化スキーム
- max_micro_cycles: 10 # マイクロイテレーションの上限
+ max_micro_cycles: 10 # 1 step 内の RS 反復の上限（ML/MM のマイクロイテレーションとは別）
  reset_dlc: true # 各ステップで非局在化座標を再構築
  climb: true # クライミングイメージを有効化
  climb_rms: 0.0005 # クライミング RMS 閾値
@@ -499,7 +499,7 @@ rsirfo:
  hessian_recalc_reset: true # 正確なHessian後に再計算カウンタをリセット
  hessian_init: calc # Hessian初期化
  hessian_recalc: 500 # Hessian再構築間隔
- max_micro_cycles: 50 # マクロサイクルあたりのマイクロイテレーション数
+ max_micro_cycles: 50 # 1 step 内の RS 反復の上限（ML/MM のマイクロイテレーションとは別）
  augment_bonds: false # 結合解析に基づく反応経路の拡張
  min_line_search: false # 常に false: RS-P-RFO は line search を使わない
  max_line_search: false # 常に false: RS-P-RFO は line search を使わない
@@ -569,7 +569,7 @@ irc:
 ```yaml
 freq:
  active_dof_mode: partial # アクティブ原子の選択: "all" | "ml-only" | "partial" | "unfrozen"
- # zero_cutoff_cm: 5.0 # 非推奨の明示的上書き。元の固有値基準を使う場合は省略
+ zero_cutoff_cm: 5.0 # ν < −zero_cutoff_cm のモードを虚振動とみなす
  amplitude_ang: 0.8 # モード変位振幅 (Å)
  n_frames: 20 # モードtrajectoryのフレーム数
  max_write: 10 # 書き出すモードの最大数
@@ -689,7 +689,7 @@ geom:
 calc:
  model_charge: 0
  model_mult: 1
- backend: uma                  # ML バックエンド: uma | orb | mace | aimnet2
+ backend: uma                  # 高レベルbackend: uma | orb | mace | aimnet2 | dft
  uma_model: uma-s-1p2          # uma-s-1p2 | uma-m-1p1
  ml_device: auto
  hessian_calc_mode: Analytical   # 代表的な pilot で FiniteDifference と比較

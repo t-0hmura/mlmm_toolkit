@@ -47,7 +47,7 @@ For background concepts (3-layer system, link atoms, microiteration, units), rea
 |---|---|
 | Residue selector | `'SAM,GPP'` or `'A:123,B:456'` |
 | Charge mapping | `-l 'SAM:1,GPP:-3'` |
-| Atom selector | `'TYR,285,CA'` or `'TYR 285 CA'` |
+| Atom selector | `'SAM,320,CS1'` or `'SAM 320 CS1'` |
 
 Full table: [CLI Conventions](cli-conventions.md).
 
@@ -116,8 +116,9 @@ mlmm define-layer -i system.pdb --model-pdb model.pdb -o system_layered.pdb
 3. define-layer  — Layer the same generated full-system PDB
 4. all MEP stage — single-pass `path-opt` by default; `mlmm all --refine-path` selects recursive `path-search`
 5. tsopt         — Transition state optimization
-6. freq          — Vibrational analysis + thermochemistry
-7. dft           — Single-point DFT energy evaluation
+6. irc           — Trace the TS down to reactant and product
+7. freq          — Vibrational analysis + thermochemistry
+8. dft           — Single-point DFT energy evaluation
 ```
 
 Use the PDB written by `mm-parm` for steps 2 onward because LEaP may change
@@ -145,8 +146,8 @@ mlmm -i R.pdb I1.pdb I2.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
 
 # Staged scan
 mlmm -i R.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
-     --scan-lists '[("TYR 285 CA","MMT 309 C10",2.20),("TYR 285 CB","MMT 309 C11",1.80)]' \
-                  '[("TYR 285 CB","MMT 309 C11",1.20)]'
+     --scan-lists '[("CS1 SAM 320","C7 GPP 321",1.50),("CS1 SAM 320","SD SAM 320",3.30)]' \
+                  '[("C7 GPP 321","H11 GPP 321",2.90),("OE2 GLU 186","H11 GPP 321",1.00)]'
 
 # TS-only
 mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo
@@ -162,11 +163,11 @@ Single-input runs require **either** `--scan-lists` (staged scan → GSM) **or**
 
 ## Multi-backend examples
 
-Here, `ml_region.pdb` contains the full system described by `real.parm7`; `ml.pdb` selects the ML atoms.
+Here, `system_layered.pdb` is the full system described by `real.parm7`; `ml_region.pdb` selects the ML atoms.
 
 ```bash
-mlmm opt -i ml_region.pdb --parm7 real.parm7 --model-pdb ml.pdb -q 0 -b orb         # ORB
-mlmm opt -i ml_region.pdb --parm7 real.parm7 --model-pdb ml.pdb -q 0 -b mace        # MACE
+mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b orb         # ORB
+mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b mace        # MACE
 ```
 
 ## Export to Gaussian / ORCA

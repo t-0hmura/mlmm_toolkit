@@ -88,7 +88,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ ├── backends/ # === L4a Infra (MLIP + ONIOM) ===
 │ │ ├── __init__.py --precision routing (apply_precision_to_calc_cfg)
 │ │ ├── mlmm_calc.py ML/MM ONIOM calculator core (4 MLIP backends UMA / ORB / MACE / AIMNet2
-│ │ inline; CHEMISTRY-RULE:1 / 2 / 8 / 9 host)
+│ │ inline; CHEMISTRY-RULE:1 / 2 / 8 host)
 │ │ ├── custom.py user ASE calculator loaded from --calc-file (custom backend)
 │ │ ├── pyscf_dft.py optional PySCF/GPU4PySCF high-level adapter
 │ │ └── _determinism.py strict-determinism setup (--deterministic)
@@ -98,11 +98,13 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ │ ├── energy_diagram.py Plotly diagram
 │ │ ├── trj2fig.py trajectory → PNG / HTML / SVG / PDF
 │ │ ├── pdb_fix.py altloc resolution
+│ │ ├── pdb_indexing.py parm7 atom indexing (CHEMISTRY-RULE:9)
 │ │ ├── hessian_cache.py in-memory Hessian cache
 │ │ └── hessian_calc.py numerical-Hessian build + frequency / vibrational I/O helpers
 │ │
 │ ├── core/ # === L5 Foundation ===
 │ │ ├── defaults.py shared workflow/calculator defaults
+│ │ ├── dft_settings.py DFT settings (CHEMISTRY-RULE:4)
 │ │ ├── utils.py PDB / XYZ / plot helpers
 │ │ ├── logging.py -v/--verbose LEVEL (0–3) logging wiring
 │ │ ├── calc_eval.py per-stage calc evaluation
@@ -131,7 +133,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 **L3 `domain/`**. Chemistry-aware helper logic that may import `torch` / `numpy` / `pysisyphus.constants` (numeric back-ends), but **may not import** machine-learning interatomic potential (MLIP) runtimes (`fairchem`, `orb_models`, `mace`, `aimnet`). Two distinct CI gates cover this, both in `.github/scripts/check_engineering_markers.py`:
 
 - The MLIP-runtime deny list (`fairchem` / `orb_models` / `mace` / `aimnet`) is enforced repo-wide by `_check_external_library_scope`, which forbids those imports in any module outside `backends/`.
-- The separate `# DOMAIN_PURE` module-docstring marker is a distinct CI gate (`_check_domain_pure`) that flags the specific backend-agnostic modules required to stay MLIP-free — `backends/mlmm_calc.py`, `workflows/tsopt.py`, `workflows/freq.py` (and present on `workflows/sp.py`). It is not itself the deny-list mechanism, and no `domain/` file carries it.
+- The separate `# DOMAIN_PURE` module-docstring marker is a distinct CI gate (`_check_domain_pure`) that only checks the marker is present on `backends/mlmm_calc.py`, `workflows/tsopt.py`, and `workflows/freq.py` (it is also on `workflows/sp.py`); it does not restrict imports. It is not itself the deny-list mechanism, and no `domain/` file carries it.
 
 Domain helpers are reusable by any L2 stage runner.
 
@@ -171,7 +173,7 @@ mlmm myaction ─────────────────► mlmm/cli/ap
 Two import surfaces are supported:
 
 1. **Layered import path**: external code imports directly from the layer directory (see the §2.1 layer table; e.g. `from mlmm.backends.mlmm_calc import MLMMCore`).
-2. **Root symbol attribute** (`from mlmm import MLMMCore`) — handled by `mlmm/__init__.py:_LAZY_IMPORTS` + PEP 562 `__getattr__`. The five re-exported symbols (`MLMMCore`, `MLMMASECalculator`, `mlmm`, `mlmm_ase`, `mlmm_mm_only`) all resolve to `mlmm.backends.mlmm_calc` and are loaded on first access, so `import mlmm` stays cheap (only `__version__` is eager). There is **no** root module-attribute surface — submodules are reached by their full path (`import mlmm.io.trj2fig`), not as attributes of the top-level package.
+2. **Root symbol attribute** (`from mlmm import MLMMCore`) — handled by `mlmm/__init__.py:_LAZY_IMPORTS` + PEP 562 `__getattr__`. The four re-exported symbols (`MLMMCore`, `MLMMASECalculator`, `mlmm`, `mlmm_mm_only`) all resolve to `mlmm.backends.mlmm_calc` and are loaded on first access, so `import mlmm` stays cheap (only `__version__` is eager). There is **no** root module-attribute surface — submodules are reached by their full path (`import mlmm.io.trj2fig`), not as attributes of the top-level package.
 
 The CLI subcommand resolver (`cli/app.py:_LAZY_SUBCOMMANDS`) uses **absolute** module paths (e.g. `"mlmm.workflows.all"`) so subcommand discovery is independent of the resolver module's `__package__`.
 
@@ -258,6 +260,7 @@ implementation changes currently touch `mlmm_calc.py` and the dispatcher.
 | Plotly energy diagram | `mlmm/io/energy_diagram.py` |
 | Trajectory → PNG / HTML / SVG / PDF | `mlmm/io/trj2fig.py` |
 | PDB altloc resolution | `mlmm/io/pdb_fix.py` |
+| parm7 atom indexing (CHEMISTRY-RULE:9) | `mlmm/io/pdb_indexing.py` |
 | In-memory Hessian cache (per-run TTL) | `mlmm/io/hessian_cache.py` |
 | Numerical Hessian build + frequency / vibrational I/O | `mlmm/io/hessian_calc.py` |
 | Harmonic restraint setup | `mlmm/workflows/restraints.py` (L2 stage helper) |
@@ -267,6 +270,7 @@ implementation changes currently touch `mlmm_calc.py` and the dispatcher.
 | concern | file |
 |---|---|
 | Shared workflow and calculator defaults | `mlmm/core/defaults.py` |
+| DFT settings (CHEMISTRY-RULE:4) | `mlmm/core/dft_settings.py` |
 | PDB / XYZ / plot helpers | `mlmm/core/utils.py` |
 | `-v/--verbose LEVEL` (0–3) logging wiring | `mlmm/core/logging.py` |
 | Per-stage calc evaluation | `mlmm/core/calc_eval.py` |
@@ -290,10 +294,10 @@ See each dir's `README.md` for the touch-restriction boundary.
 
 ### 5.1 Nine chemistry rules (grep recipe)
 
-Nine correctness-critical rules are spread across `backends/`, `workflows`,
-and `core/defaults.py`. Inline `# CHEMISTRY-RULE:N` markers and
-`# DOMAIN_PURE` module-docstring markers identify their implementation sites;
-`.github/scripts/check_engineering_markers.py` checks marker completeness.
+Nine correctness-critical rules are spread across `backends/`, `workflows/`,
+`core/`, and `io/`. Inline `# CHEMISTRY-RULE:N` markers identify their
+implementation sites; `.github/scripts/check_engineering_markers.py` checks
+marker completeness.
 
 To find every chemistry rule before editing:
 
@@ -301,7 +305,7 @@ To find every chemistry rule before editing:
 # List all 9 rule sites in the repo (host file + line)
 grep -rnE '# CHEMISTRY-RULE:[0-9]+' mlmm/
 
-# List every # DOMAIN_PURE marker (= chemistry-rule host modules)
+# List every # DOMAIN_PURE marker (modules the CI check requires to carry it)
 grep -rn '# DOMAIN_PURE' mlmm/
 ```
 

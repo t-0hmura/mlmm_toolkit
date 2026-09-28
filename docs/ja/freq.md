@@ -14,7 +14,7 @@
 - 最適化した極小、遷移状態（TS）、IRC 端点の停留点としての性質を検証する（極小は虚振動数を持たず、遷移状態はちょうど 1 つ持ちます）。
 - QRRHO（quasi-rigid-rotor-harmonic-oscillator）熱化学を計算する。
 
-`mlmm freq` は ML/MM calculator（`mlmm.backends.mlmm_calc.mlmm`）による振動解析を実行し、PHVA により凍結原子を扱えます。基準振動軌跡を `_trj.xyz` と `.pdb`（酵素の原子順序にマップバック）としてエクスポートし、オプションの `thermoanalysis` パッケージがインストールされている場合は Gaussian スタイルの熱化学サマリーを出力します。
+`mlmm freq` は ML/MM calculator（`mlmm.backends.mlmm_calc.mlmm`）による振動解析を実行し、PHVA により凍結原子を扱えます。基準振動軌跡を `_trj.xyz` と `.pdb`（酵素の原子順序にマップバック）としてエクスポートし、同梱の `thermoanalysis` パッケージで Gaussian スタイルの熱化学サマリーを出力します。
 
 虚振動数は負の値で表示されます。runtime と memory は backend と系に
 依存するため、代表的な pilot で `Analytical` と `FiniteDifference` を比較してください。
@@ -57,7 +57,7 @@ mlmm freq -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 2. **PHVA と TR（並進/回転、translation/rotation）射影** — 凍結原子がある場合、固有解析はアクティブ部分空間内で行われます。デフォルトの constrained 射影は、凍結 anchor をすべて動かさない全系剛体運動のみを除去し、アクティブ断片を孤立分子として扱いません。3N x 3N とアクティブブロックの両方の Hessian を受け付け、振動数は cm^-1 で報告します（負の値 = 虚振動数）。
 3. **アクティブ自由度モード** — `--active-dof-mode` は振動解析に含まれる原子を制御します: `all`（全原子）、`ml-only`（ML 層、B=0）、`partial`（ML + MovableMM、デフォルト）、`unfrozen`（非凍結層、通常 B=0/10）。
 4. **モードエクスポート** — `--max-write` は出力するモード軌跡数を制限します。モードは値（または `--sort abs` で絶対値）でソートされます。エクスポートされた各モードは、酵素の原子順序にマップバックした `_trj.xyz` と `.pdb` 軌跡を書き出します。正弦波軌跡の振幅（`--amplitude-ang`）とフレーム数（`--n-frames`）は YAML のデフォルト値と同じです。
-5. **熱化学** — `thermoanalysis` がインストールされている場合、PHVA 振動数を使用した QRRHO ライクなサマリー（E、ZPE、E/H/G 補正、熱容量、エントロピー）が出力されます。構造の Gibbs free energy は Hartree 単位で `E + G_corr = G`（電子エネルギー + Gibbs free-energy 補正 = Gibbs free energy）と明示します。CLI の圧力（atm）は内部で Pa に変換されます。解析対象構造ごとに分子点群と外部回転対称数を自動判定し、`1/σ` 補正を常に適用します。必要な場合に限り、YAML の `thermo.symmetry_number` で判定値を上書きできます。`--dump` の場合、`thermoanalysis.yaml` スナップショットも書き出されます。**振動数処理ポリシー**: `freq` は **standalone-freq ポリシー**（QRRHO、rotor cutoff 100 cm⁻¹、周波数・ZPE スケール 1、虚振動数の反転**なし**、正振動数のフロア**なし**）を適用します。これは一部の bundled-engine 経路が使う内部の `Geometry.get_thermoanalysis` ポリシー（小さな虚振動数を −15 cm⁻¹ から反転し、25 cm⁻¹ 未満の正振動数をフロアする）とは意図的に異なります。いずれも普遍的な科学的デフォルトではなく、各エントリポイントに固有です。有効なポリシー（`kind`、`rotor_cutoff_cm`、`frequency_scale`、`zpe_scale`、`invert_imag_from_cm`、`positive_frequency_floor_cm`）は `thermoanalysis.yaml` と `result.json` の `thermo_policy` にシリアライズされます。
+5. **熱化学** — PHVA 振動数を使用した QRRHO ライクなサマリー（E、ZPE、E/H/G 補正、熱容量、エントロピー）が出力されます。構造の Gibbs free energy は Hartree 単位で `E + G_corr = G`（電子エネルギー + Gibbs free-energy 補正 = Gibbs free energy）と明示します。CLI の圧力（atm）は内部で Pa に変換されます。解析対象構造ごとに分子点群と外部回転対称数を自動判定し、`1/σ` 補正を常に適用します。必要な場合に限り、YAML の `thermo.symmetry_number` で判定値を上書きできます。`--dump` の場合、`thermoanalysis.yaml` スナップショットも書き出されます。**振動数処理ポリシー**: `freq` は **standalone-freq ポリシー**（QRRHO、rotor cutoff 100 cm⁻¹、周波数・ZPE スケール 1、虚振動数の反転**なし**、正振動数のフロア**なし**）を適用します。これは一部の bundled-engine 経路が使う内部の `Geometry.get_thermoanalysis` ポリシー（小さな虚振動数を −15 cm⁻¹ から反転し、25 cm⁻¹ 未満の正振動数をフロアする）とは意図的に異なります。いずれも普遍的な科学的デフォルトではなく、各エントリポイントに固有です。有効なポリシー（`kind`、`rotor_cutoff_cm`、`frequency_scale`、`zpe_scale`、`invert_imag_from_cm`、`positive_frequency_floor_cm`）は `thermoanalysis.yaml` と `result.json` の `thermo_policy` にシリアライズされます。
 6. **デバイス選択** — `ml_device="auto"` は CUDA が利用可能な場合は CUDA を使用し、それ以外は CPU を使用します。内部の TR 射影/モード組み立ては転送を抑えるため同じデバイスで実行されます。
 7. **終了動作** — キーボード割り込みはコード 130 で終了します。その他の失敗はトレースバックを出力してコード 1 で終了します。
 
@@ -94,7 +94,7 @@ out_dir/ (デフォルト: ./result_freq/)
 ├─ mode_XXXX_±freqcm-1_trj.xyz   # モードごとの正弦波軌跡
 ├─ mode_XXXX_±freqcm-1.pdb       # 酵素原子順序にマップバックされた PDB 軌跡
 ├─ frequencies_cm-1.txt           # 選択されたソート順での全振動数リスト
-└─ thermoanalysis.yaml            # thermoanalysis がインポート可能で --dump が True の場合
+└─ thermoanalysis.yaml            # --dump が True の場合
 ```
 
 - コンソールには確定した `geom`、`calc`、`freq`、熱化学設定をまとめたブロックが出力されます。
@@ -137,7 +137,8 @@ out_dir/ (デフォルト: ./result_freq/)
 | `--hessian-cutoff FLOAT` | Hessian 対象 MM 原子のカットオフ距離。 | _None_ |
 | `--movable-cutoff FLOAT` | Movable-MM 層のカットオフ距離。 | _None_ |
 | `--hessian-calc-mode CHOICE` | Hessian モード（`Analytical` または `FiniteDifference`）。 | `FiniteDifference` |
-| `--dump-hess PATH` | Hessian、原子順序、Cartesian geometry、active-DOF basis、PHVA metadata、model charge、多重度を`.npz`へ保存し、一致する`mlmm irc --read-hess`へ渡す。 | _None_ |
+| `--read-hess PATH` | Hessian を計算せず、NumPy の `.npy` ファイル（`freq`・`tsopt` の `--dump-hess` で書いたものなど）から読む。 | _None_ |
+| `--dump-hess PATH` | Hessian を NumPy の `.npy` 配列として保存する。`freq`・`tsopt`・`irc` の `--read-hess` や、ほかのプログラムで使える。 | _None_ |
 | **モードエクスポート** | | |
 | `--max-write INT` | エクスポートするモード数。 | `10` |
 | `--sort CHOICE` | モードのソート方法: `value`（cm^-1）または `abs`。 | `value` |
@@ -151,13 +152,15 @@ out_dir/ (デフォルト: ./result_freq/)
 | **出力と設定** | | |
 | `-o, --out-dir TEXT` | 出力ディレクトリ。 | `./result_freq/` |
 | `--config FILE` | 明示 CLI 適用前に読み込むベース YAML。 | _None_ |
-| `--show-config/--no-show-config` | 確定した YAML レイヤー/設定を表示して続行。 | `False` |
-| `--dry-run/--no-dry-run` | 実行せずに検証と実行計画のみ表示。`--help-advanced` に表示。 | `False` |
+| `--show-config/--no-show-config` | 読み込んだ YAML ファイルとその最上位の key を表示して実行を継続。 | `False` |
+| `--dry-run/--no-dry-run` | 実行せずにオプションと入力を検証する。`--help-advanced` に表示。 | `False` |
 
-受け渡し時に識別情報（identity）を検証します。IRC は、原子順序・座標・
-レイヤー選択・Hessian のアクティブ基底・model charge・多重度が異なる
-ファイルを拒否します。電子状態 identity 導入前の schema 1 は、独立に状態を
-確認したうえで IRC に `--allow-unverified-hess-state` を明示した場合だけ使用できます。
+`--read-hess`・`--dump-hess` のファイルは、`numpy.save` で書いた配列 1 つです。
+中身は Cartesian の Hessian（Hartree/bohr²、質量はかけない）で、原子は入力の順です。
+全原子の 3N×3N か、Hessian を計算した原子（`freq` では `--active-dof-mode` で
+選んだ原子）の分だけを持ちます。`--read-hess` が確かめるのは、正方・有限・対称で、
+この 2 つの大きさのどちらかであることだけです。同じ構造・電荷・多重度・layer・
+計算設定で求めた Hessian を渡してください。
 
 ## YAML 設定
 
@@ -178,7 +181,7 @@ calc:
  model_mult: 1                     # スピン多重度 2S+1
  real_parm7: real.parm7            # Amber parm7 トポロジー
  model_pdb: ml_region.pdb          # ML 領域定義
- backend: uma                      # ML バックエンド (uma/orb/mace/aimnet2)
+ backend: uma                      # 高レベルbackend (uma/orb/mace/aimnet2/dft)
  uma_model: uma-s-1p2              # uma-s-1p2 | uma-m-1p1
  uma_task_name: omol                # UMA タスク名 (backend=uma 時)
  ml_device: auto                   # ML デバイス選択

@@ -204,7 +204,7 @@ shared list with file-lock-protected counter increment.
 | Variable | Purpose |
 |---|---|
 | `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` | Reduce torch memory fragmentation |
-| `CUDA_VISIBLE_DEVICES=0` | Restrict to a single GPU per worker |
+| `CUDA_VISIBLE_DEVICES` | Normally leave the scheduler-provided mapping unchanged. Set it manually only outside scheduler isolation or as part of a tested worker-launch scheme; device indices inside a job are local to that mapping. |
 | `OMP_NUM_THREADS=<NCPU>` | Limit OpenMP threads (avoid oversubscription) |
 | `MKL_NUM_THREADS=<NCPU>` | Intel MKL thread cap |
 | `LD_LIBRARY_PATH=<torch lib>:...` | Override system CUDA libs (see env-cuda.md) |

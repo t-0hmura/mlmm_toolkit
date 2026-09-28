@@ -3340,10 +3340,10 @@ def resolve_ml_layer_assignment(
                 layer_info = parse_layer_indices_from_bfactors(
                     bfactors, tolerance=BFACTOR_TOLERANCE
                 )
-                if model_indices:
-                    explicit_ml_indices = {int(index) for index in model_indices}
+                if explicit_model_indices is not None:
+                    explicit_ml_indices = set(explicit_model_indices)
                 else:
-                    explicit_ml_indices = set(explicit_model_indices or [])
+                    explicit_ml_indices = {int(index) for index in model_indices}
 
                 # The explicit region owns ML membership. B-factors only assign
                 # the remaining atoms to MM sublayers, so an explicit ML atom

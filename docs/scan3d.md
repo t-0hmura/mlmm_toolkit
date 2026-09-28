@@ -40,7 +40,7 @@ mlmm scan3d -i input.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
     optionally run an unbiased preoptimization when `--preopt`.
 2. Parse targets from `-s/--scan-lists` (YAML/JSON spec file or inline literal; default 1-based indices unless
     `--zero-based` is passed) into three quadruples. When PDB metadata are available, each atom
-    entry can be an integer index or a selector string like `"TYR,285,CA"`;
+    entry can be an integer index or a selector string like `"SAM,320,CS1"`;
     delimiters may be spaces, commas, slashes, backticks, or backslashes.
 3. Outer loop over `d1[i]`: relax with only the d1 restraint active, starting
     from the previously scanned geometry whose d1 value is closest.
@@ -162,29 +162,29 @@ Atoms can be given as **integer indices** or **PDB selector strings**:
 | Method | Example | Notes |
 | --- | --- | --- |
 | Integer index | `(1, 5, 1.30, 3.10)` | 1-based by default (`--one-based`) |
-| PDB selector | `("TYR,285,CA", "MMT,309,C10", 1.30, 3.10)` | Residue name, residue number, atom name |
+| PDB selector | `("SAM,320,CS1", "GPP,321,C7", 1.50, 3.00)` | Residue name, residue number, atom name |
 
 PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, backtick `` ` ``, or backslash `\`. Token order is flexible.
 
 ```bash
 # All of these specify the same atom:
-"TYR,285,CA"
-"TYR 285 CA"
-"TYR/285/CA"
-"285,TYR,CA" # order is flexible
+"SAM,320,CS1"
+"SAM 320 CS1"
+"SAM/320/CS1"
+"320,SAM,CS1" # order is flexible
 ```
 
 Quoting rules:
 
 ```bash
 # Correct: single-quote the list, double-quote selector strings inside
--s '[("TYR,285,CA","MMT,309,C10",1.30,3.10),("TYR,285,CB","MMT,309,C11",1.20,3.20),("TYR,285,CG","MMT,309,C12",1.10,3.00)]'
+-s '[("SAM,320,CS1","GPP,321,C7",1.50,3.00),("GPP,321,H11","GLU,186,OE2",0.90,2.50),("SAM,320,SD","SAM,320,CS1",1.80,3.00)]'
 
 # Correct: integer indices need no inner quotes
 -s '[(1, 5, 1.30, 3.10), (2, 8, 1.20, 3.20), (3, 12, 1.10, 3.00)]'
 
 # Avoid: double-quoting the outer literal requires escaping inner quotes
--s "[(\"TYR,285,CA\",\"MMT,309,C10\",1.30,3.10),...]"
+-s "[(\"SAM,320,CS1\",\"GPP,321,C7\",1.50,3.00),...]"
 ```
 
 ## YAML configuration

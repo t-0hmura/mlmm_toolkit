@@ -47,8 +47,8 @@ python -c "from mlmm.core.residue_data import AMINO_ACIDS, ION; print(dict(AMINO
 ```
 
 For unknown/non-standard ligand residues, supply `-l`. Recognized monatomic
-ions use the internal `ION` table and must not be repeated in `-l`; a mapping
-does not override a recognized ion. To represent a different oxidation state,
+ions use the internal `ION` table; listing one in `-l` with the same value is
+accepted, but a mapping does not override a recognized ion. To represent a different oxidation state,
 use the appropriate residue name in the model or provide the verified total
 with `-q`.
 
@@ -139,7 +139,7 @@ Always confirm against the relevant mechanism.
 
 | Ligand | Resname (PDB) | Charge at pH 7 |
 |---|---|---|
-| Methionine sulfonium (SAM) | `SAM` | +1 |
+| S-Adenosylmethionine (SAM) | `SAM` | +1 |
 | Adenosylhomocysteine | `SAH` | 0 |
 | Geranyl pyrophosphate | `GPP` | −3 |
 | ATP | `ATP` | −4 |

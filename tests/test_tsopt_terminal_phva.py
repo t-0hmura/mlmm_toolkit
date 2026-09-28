@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 import torch
 
+from mlmm.io import hessian_cache
 from mlmm.workflows import tsopt
 from pysisyphus.normal_modes import DEFAULT_FREQUENCY_ZERO_CUTOFF_CM
 
@@ -179,11 +180,13 @@ def _runner(tmp_path, monkeypatch, *, stalled):
     runner.saddle_order_verified = False
     runner.skip_final_freq = stalled
     runner.ml_only_hessian_dimer = False
+    runner.calc_kwargs = {}
     runner.calc_kwargs_partial = {}
     runner.calc_kwargs_full = {}
     runner.calc_kwargs_ml_only = {}
     runner.analysis_active_atoms = [0]
     runner.source_path = None
+    runner.initial_hessian = None
 
     hessian_calls = []
     mode_exports = []
@@ -229,6 +232,7 @@ def _runner(tmp_path, monkeypatch, *, stalled):
         lambda *args, **kwargs: mode_exports.append(True) or 1,
     )
     monkeypatch.setattr(tsopt, "_clear_cuda_cache", lambda: None)
+    monkeypatch.setattr(hessian_cache, "_cache", {})
     monkeypatch.setattr(
         tsopt,
         "write",

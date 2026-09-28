@@ -1,8 +1,8 @@
 # CUDA + PyTorch setup (env-cuda.md)
 
 This file picks up after `mlmm-env-detect/SKILL.md` — i.e. you
-already know your driver version, your CPU architecture, and whether
-CUDA is available via `module`, system install, or conda.
+already know your driver version, your GPU and CPU architecture, and whether
+a CUDA toolkit is available (needed only for source builds).
 
 ## Step 1. Pick an official PyTorch 2.13 wheel
 

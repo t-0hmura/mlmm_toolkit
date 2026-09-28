@@ -53,6 +53,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--uma-workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
 | `--allow-charge-mult-mismatch` | flag | off | Warn and skip ML-region charge/multiplicity electron-parity validation for an intentional mismatch |
 | `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |
+| `--read-hess` / `--dump-hess` | path | — | Initial Hessian from / final Hessian to a NumPy `.npy` array (shared with `freq`, `irc`); `--dump-hess` needs the final Hessian |
 | `-o, --out-dir` | path | `./result_tsopt/` | Output directory |
 | `--config` / `--show-config` / `--dry-run` / `--help-advanced` | — | — | Standard |
 

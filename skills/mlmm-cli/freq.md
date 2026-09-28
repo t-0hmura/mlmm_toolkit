@@ -49,6 +49,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--precision` | str | backend-specific | UMA/AIMNet2 fp32; ORB/MACE fp64; AIMNet2 rejects fp64 |
 | `--uma-workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
 | `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |
+| `--read-hess` / `--dump-hess` | path | — | Reuse / save the Hessian as a NumPy `.npy` array (shared by `freq`, `tsopt`, `irc`) |
 | `-o, --out-dir` | path | `./result_freq/` | Output directory |
 | `--config` / `--show-config` / `--dry-run` / `--help-advanced` | — | — | Standard |
 
@@ -80,14 +81,13 @@ result_freq/
 └── mode_NNNN_<±freq>cm-1_trj.xyz / .pdb # per-mode displacement (visualize in PyMOL)
 ```
 
-`--dump-hess result_freq/hessian.npz` writes the Hessian at that exact path;
+`--dump-hess result_freq/hessian.npy` writes the Hessian at that exact path;
 a relative path is resolved from the current working directory, not relocated
-under `--out-dir`. The schema-2 NPZ stores atom order, Cartesian geometry,
-active-DOF basis, PHVA metadata, model charge, and multiplicity with the
-Hessian. `mlmm irc --read-hess` accepts it only for the matching geometry,
-layer/Hessian settings, and electronic state. Schema-1 files lack charge/spin
-identity and require IRC's explicit `--allow-unverified-hess-state` opt-in;
-unidentified legacy NPZ files are rejected.
+under `--out-dir`. The file is one `numpy.save` array: the Cartesian Hessian in
+Hartree/bohr² (not mass-weighted), atoms in input order, 3N×3N or only the
+atoms selected by `--active-dof-mode`. `--read-hess` checks only size,
+symmetry, and finiteness, so pass a Hessian computed for the same geometry,
+charge, multiplicity, layers, and calculator.
 
 `result.json` keys:
 

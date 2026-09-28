@@ -174,7 +174,7 @@ mlmm tsopt -i ts_guess.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 ## Workflow
 
 1. **Input handling** — load the enzyme PDB, Amber topology, and ML-region definition. Resolve charge / spin. Frozen atoms from CLI and YAML are merged.
-2. **ML/MM calculator setup** — build the ML/MM calculator (MLIP backend + `hessian_ff`). `-b/--backend` selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). `--hessian-calc-mode` controls whether the ML backend evaluates Hessians analytically or by finite difference.
+2. **ML/MM calculator setup** — build the ML/MM calculator (MLIP backend + `hessian_ff`). `-b/--backend` selects the high-level backend (`uma`, `orb`, `mace`, `aimnet2`, or `dft`; default `uma`). `--hessian-calc-mode` controls whether the ML backend evaluates Hessians analytically or by finite difference.
 3. **Hessian-Guided Dimer** — the Dimer stage periodically refreshes the dimer direction by evaluating an exact Hessian in the active subspace. Its fixed constrained treatment removes only full-system rigid motions compatible with the frozen anchors. Every stored, rotated, and trial orientation has frozen Cartesian components set to zero, and every off-center force evaluation retains the central image's frozen coordinates exactly. The mechanics:
    - During the loose/final Dimer loops, the internal
      `mm_hessian_mode: none` policy intentionally uses high-level curvature
@@ -240,7 +240,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `-m, --multiplicity INT` | Spin multiplicity (2S+1) for the ML region. | `1` |
 | **Active-region freezing** | | |
 | `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
-| `--hessian-cutoff` / `--hessian-cutoff FLOAT` | Distance cutoff (Å) from the ML region for MM atoms to include in Hessian calculation. Unset includes every required movable MM atom. `0.0` requests an ML-only Hessian and must be paired with `--active-dof-mode ml-only` for final frequency validation. | _None_ |
+| `--hessian-cutoff FLOAT` | Distance cutoff (Å) from the ML region for MM atoms to include in Hessian calculation. Unset includes every required movable MM atom. `0.0` requests an ML-only Hessian and must be paired with `--active-dof-mode ml-only` for final frequency validation. | _None_ |
 | `--movable-cutoff FLOAT` | Distance cutoff (Å) for movable MM atoms. | _None_ |
 | **TS search & optimizer mode** | | |
 | `--hessian-calc-mode CHOICE` | ML Hessian mode: `Analytical` or `FiniteDifference`. | `FiniteDifference` |
@@ -250,7 +250,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--microiter / --no-microiter` | Alternate one macro TS step with MM L-BFGS relaxation in Hessian modes. With `--embedcharge`, use standard optimization instead. | `True` |
 | `--ml-only-hessian-dimer / --no-ml-only-hessian-dimer` | Use ML-region-only Hessian for dimer orientation in `grad` mode (faster but less accurate). | `False` |
 | **Convergence & flatten** | | |
-| `--thresh TEXT` | Convergence preset (`gau_loose` / `gau` / `gau_tight` / `gau_vtight` / `baker` / `never`). | _None_ |
+| `--thresh TEXT` | Convergence preset (`gau_loose` / `gau` / `gau_tight` / `gau_vtight` / `baker` / `never`). | `baker` |
 | `--flatten / --no-flatten` | Extra-imaginary-mode flattening loop. `--flatten` uses the default iteration count (50); `--no-flatten` forces it to 0. Applies to Dimer and all Hessian TS optimizers. | _None_ → disabled by default (0 iterations); `--flatten` enables it (50), and YAML/config can also enable it |
 | `--partial-hessian-flatten` / `--full-hessian-flatten` | Use the active-coordinate Hessian block or the full Hessian for imaginary-mode detection in the flatten loop. | `True` (active block) |
 | `--active-dof-mode CHOICE` | Active DOF for final frequency analysis: `all`, `ml-only`, `partial`, `unfrozen`. | `partial` |
@@ -269,9 +269,11 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--convert-files / --no-convert-files` | Toggle XYZ / TRJ → PDB companions for PDB inputs. | `True` |
 | `-o, --out-dir TEXT` | Output directory. | `./result_tsopt/` |
 | `--config FILE` | Base YAML configuration applied before explicit CLI options. | _None_ |
-| `--show-config / --no-show-config` | Print resolved config layers and continue execution. | `False` |
+| `--show-config / --no-show-config` | Print the loaded YAML file and its top-level keys, then continue. | `False` |
 | `--out-json / --no-out-json` | Write a machine-readable `result.json` to `out_dir`. | `False` |
-| `--dry-run / --no-dry-run` | Validate inputs / config and print the execution plan without running TS optimization (shown in `--help-advanced`). | `False` |
+| `--read-hess PATH` | Start from the Hessian in a NumPy `.npy` file (for example from `freq` or `tsopt --dump-hess`; format in [`freq`](freq.md)) instead of computing it. With `--opt-mode hess`, `rsirfo.hessian_init` must be `calc` (the default); with microiteration the file seeds the first macro step. | _None_ |
+| `--dump-hess PATH` | Save the final-geometry Hessian as a NumPy `.npy` array for `--read-hess` in `freq`, `tsopt`, or `irc`, or for other programs. Written only when the final Hessian was computed; cannot be combined with `--skip-final-freq`. | _None_ |
+| `--dry-run / --no-dry-run` | Validate options and inputs without running TS optimization. Shown in `--help-advanced`. | `False` |
 
 ## YAML configuration
 
@@ -286,7 +288,7 @@ calc:
   model_mult: 1
   real_parm7: real.parm7
   model_pdb: ml_region.pdb
-  backend: uma                  # uma | orb | mace | aimnet2
+  backend: uma                  # uma | orb | mace | aimnet2 | dft
   hessian_calc_mode: Analytical # or FiniteDifference
 opt:
   thresh: baker

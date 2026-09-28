@@ -78,6 +78,30 @@ def test_indices_win_when_model_is_absent(tmp_path: Path) -> None:
     assert "C2" in resolved.read_text(encoding="utf-8")
 
 
+def test_explicit_model_wins_over_indices_for_layer_membership(tmp_path: Path) -> None:
+    source = tmp_path / "full.pdb"
+    model = tmp_path / "explicit.pdb"
+    lines = [_line(1, "C1", 0.0), _line(2, "C2", 10.0), _line(3, "C3", 20.0)]
+    source.write_text("".join(lines) + "END\n", encoding="utf-8")
+    model.write_text(lines[2] + "END\n", encoding="utf-8")
+
+    resolved, layer_info = resolve_ml_layer_assignment(
+        source_path=source,
+        out_dir_path=tmp_path / "out",
+        model_pdb=model,
+        model_indices=[1],
+        detect_layer=True,
+        hess_cutoff=None,
+        movable_cutoff=None,
+        calc_cfg={},
+        protected_inputs=(),
+    )
+
+    assert resolved == model
+    assert layer_info is not None
+    assert layer_info["ml_indices"] == [2]
+
+
 def test_bfactor_is_used_only_without_explicit_membership(tmp_path: Path) -> None:
     source = tmp_path / "full.pdb"
     lines = [_line(1, "C1", 0.0), _line(2, "C2", 10.0), _line(3, "C3", 20.0)]

@@ -12,7 +12,7 @@ Each `mlmm` subcommand writes to its output directory following the filename con
 | `run.log` | dispatched CLI and Colab runs once their output directory exists | Shell-safe command plus stdout/stderr emitted during command execution. Early Click validation, help, version, dry-run, and file-only utilities do not create it. |
 | `summary.log` | `path-search`, `all` | Human-readable run log (one row per segment / stage). |
 | `final_geometry.xyz` | `opt`, `tsopt` | Optimized geometry (XYZ, full precision). |
-| `mep_trj.pdb` / `mep.cif` / `mep_trj.xyz` | `path-search`, `all` | Reaction path frames; `mep.cif` restores original IDs for bridged input. Standalone `path-opt` writes `final_geometries_trj.xyz` / `final_geometries.pdb` instead. |
+| `mep_trj.pdb` / `mep_trj.cif` / `mep_trj.xyz` | `path-search`, `all` | Reaction path frames; `mep_trj.cif` restores original IDs for bridged input. Standalone `path-opt` writes `final_geometries_trj.xyz` / `final_geometries.pdb` instead. |
 | `mep_plot.png` | `path-search`, `all` | Raw MEP energy profile (PNG). `all` copies it to the root from the engine output. |
 | `forward_irc_trj.xyz` / `backward_irc_trj.xyz` (and `finished_irc_trj.xyz`) | `irc` | IRC trajectories (XYZ); companion `*_irc.pdb` files carry the same frames in PDB form. |
 | `frequencies_cm-1.txt` | `freq` | Vibrational frequency listing (cm⁻¹). |
@@ -40,16 +40,16 @@ Override with `--out-dir <path>` (or `-o`); explicit paths take precedence over 
 
 ## Standalone vs `all`
 
-Standalone subcommands write to `result_<subcmd>/`. Inside `all`, per-segment stage results use the same layout under `segments/seg_NN/<subcmd>/`.
+Standalone subcommands write to `result_<subcmd>/`. Inside `all`, per-segment stage results use the same layout under `segments/seg_NN/` in `ts/`, `irc/`, `freq/`, and `dft/`.
 
-- **`path-search` / `path-opt` are the engine exception.** Run standalone, `path-search` is itself a deliverable (`result_path_search/` with its own `summary.log`, `mep_trj.pdb`, optional `mep.cif`, `mep_trj.xyz`, `mep_plot.png`, `energy_diagram_MEP.png`). Inside `all`, its raw output is engine scratch under `_work/path_opt/` (`_work/path_search/` only with `--refine-path`); the merged products (`mep_trj.pdb`, optional `mep.cif`, `mep_trj.xyz`, `mep_plot.png`, `energy_diagram_MEP.png`) are moved to the pipeline root and `summary.{json,log}` copied there. This asymmetry is intentional.
+- **`path-search` / `path-opt` are the engine exception.** Run standalone, `path-search` is itself a deliverable (`result_path_search/` with its own `summary.log`, `mep_trj.pdb`, optional `mep_trj.cif`, `mep_trj.xyz`, `mep_plot.png`, `energy_diagram_MEP.png`). Inside `all`, its raw output is engine scratch under `_work/path_opt/` (`_work/path_search/` only with `--refine-path`); the merged products (`mep_trj.pdb`, optional `mep_trj.cif`, `mep_trj.xyz`, `mep_plot.png`, `energy_diagram_MEP.png`) are moved to the pipeline root and `summary.{json,log}` copied there. This asymmetry is intentional.
 
 The `all` tree therefore has three zones:
 
 ```text
 result_all/
 ├─ summary.log · summary.json                 # copied to the root
-├─ mep_trj.pdb · mep.cif · mep_trj.xyz · mep_plot.png · energy_diagram_MEP.png
+├─ mep_trj.pdb · mep_trj.cif · mep_trj.xyz · mep_plot.png · energy_diagram_MEP.png
 ├─ energy_diagram_*_all.png · irc_plot_all.png
 ├─ ml_region.pdb                              # ML-region definition (reusable as --model-pdb)
 ├─ ml_region_without_linkH.{xyz,pdb} · ml_region_with_linkH.{xyz,pdb}

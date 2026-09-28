@@ -79,7 +79,7 @@ The `--ref-pdb` template also lets the residue-based charge mapping (`-l`)
 resolve, so you can give per-residue charges instead of `-q`:
 
 ```bash
-mlmm tsopt -i ts.xyz --parm7 real.parm7 --ref-pdb cluster.pdb -l 'SAM:1,GPP:-3' -m 1
+mlmm tsopt -i ts.xyz --parm7 real.parm7 --ref-pdb enzyme.pdb -l 'SAM:1,GPP:-3' -m 1
 ```
 
 If unsure about `-q` / `-m`, see `charge-multiplicity.md` before

@@ -120,7 +120,7 @@ mlmm extract -i COMPLEX.pdb [COMPLEX2.pdb...]
 | `--exclude-backbone/--no-exclude-backbone` | 抽出中心以外のアミノ酸の主鎖原子を除去（PRO/HYP セーフガード）。 | `False` |
 | `--add-linkh/--no-add-linkh` | 切断結合に 1.09 Å のカーボンオンリーリンク水素を付加（距離ベース）。mlmm の `--model-pdb` 用途では不要（ML/MM calculator が `--parm7` のトポロジーから境界に付与）。standalone ポケット用。 | `False` |
 | `--selected-resn TEXT` | 残基番号/名前と任意の鎖で強制包含。例: `123`, `A:123A`, `SAM`, `A:SAM`, `A:SAM:123`（カンマ区切り）。 | `""` |
-| `--modified-residue TEXT` | 修飾アミノ酸残基名をカンマ区切りで指定（任意で電荷付き）。主鎖切断と電荷計算においてアミノ酸として扱います。例: `HD1,HD2,HD3` または `HD1:0,SEP:-2`。 | `""` |
+| `--modified-residue TEXT` | 修飾アミノ酸残基名をカンマ区切りで指定します。主鎖切断と電荷計算においてアミノ酸として扱います。カタログ未登録の名前は `NAME:charge` で整数電荷が必須で、登録済みの残基（例: `SEP`）は電荷を省略できます。例: `HD1:0,HD2:0,HD3:0` または `HD1:0,SEP`。 | `""` |
 | `-l, --ligand-charge TEXT` | 総電荷または残基名別マッピング（例: `GPP:-3,SAM:1`）。 | _None_ |
 
 (substrate-spec)=

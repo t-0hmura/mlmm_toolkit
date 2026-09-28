@@ -37,6 +37,7 @@ Full system(s) (PDB/mmCIF/XYZ)
 ```
 
 Each stage is available as an individual subcommand. The `mlmm all` command runs many stages end-to-end.
+The diagram shows the order inside `mlmm all`. When you run the subcommands by hand, run `mm-parm` first and pass the PDB it writes to `extract` and `define-layer` ([Getting Started](getting-started.md#typical-manual-workflow)).
 
 ```{important}
 Transition states: treat HEI / [`tsopt`](tsopt.md) outputs as **TS candidates** until validated via [`freq`](freq.md) (a single imaginary mode) and [`irc`](irc.md) (endpoints reach intended minima).
@@ -324,8 +325,8 @@ Use this when you prefer to define reaction coordinates yourself, rather than pr
 Typical command:
 
 ```bash
-mlmm -i holo.pdb -c '308,309' -l 'MMT:-1' \
- --scan-lists '[("TYR,285,CA","MMT,309,C10",2.20)]'
+mlmm -i R.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
+ --scan-lists '[("SAM,320,CS1","GPP,321,C7",1.60)]'
 ```
 
 ### 3) TSOPT-only mode (ML/MM TS optimization)
@@ -359,7 +360,7 @@ mlmm -i ts_guess.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt
 - Boolean options accept both `--flag` / `--no-flag` and value style `--flag True/False` (`yes/no`, `1/0` are also accepted). Prefer toggle style.
 - With multiple PDB inputs, all files should have the **same atoms in the same order** (only coordinates differ).
 - For enzyme use-cases, you usually want hydrogens present in the input PDB.
-- Most subcommands require `--parm7` and `--model-pdb` for ML/MM calculations.
+- Per-stage ML/MM subcommands require `--parm7`; the ML region comes from `--model-pdb`, `--model-indices`, or a valid B-factor layer assignment. `mlmm all` generates both automatically.
 ```
 
 ---

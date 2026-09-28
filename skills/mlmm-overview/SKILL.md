@@ -60,7 +60,10 @@ If `mlmm` is not on PATH or imports fail, see
 ## Pipeline at a glance
 
 ```
-PDB(s)          (B-factor: 0.0=ML, 10.0=movable-MM, 20.0=frozen)
+PDB(s)          full system (B-factor layers optional: 0.0=ML, 10.0=movable-MM, 20.0=frozen)
+  │
+  ▼
+[extract]       ML region around -c (skipped without -c: B-factor layers or --model-pdb)
   │
   ▼
 [mm-parm]       AmberTools tleap → parm7 / rst7

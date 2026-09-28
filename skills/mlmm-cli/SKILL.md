@@ -60,8 +60,8 @@ These flags appear on most subcommands (canonical list:
 | `--uma-workers` | UMA predictor workers; `>1` is incompatible with an analytical Hessian |
 | `-o, --out-dir` | Output directory, subcommand-specific default |
 | `--config` | YAML configuration file applied before CLI flags |
-| `--show-config` | Print resolved merged config, then continue execution (`sp` prints and exits before evaluation) |
-| `--dry-run` | Validate options and print the run plan without executing |
+| `--show-config` | Print the loaded YAML file and its top-level keys, then continue execution (`all` prints the resolved settings; `sp` prints its merged config and exits before evaluation) |
+| `--dry-run` | Validate options and inputs without executing |
 | `--help-advanced` | Reveal hidden / advanced flags |
 | `--ref-pdb` | Reference PDB used to derive residue context for XYZ inputs |
 | `--embedcharge` | Computationally expensive xTB correction for MLIP/MM: `E_xTB(ML + MM charges) - E_xTB(ML)`. Keep the ML region to roughly a few hundred atoms; on `dft`, the flag instead adds Amber MM charges to the PySCF Hamiltonian. |

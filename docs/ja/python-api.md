@@ -44,7 +44,7 @@ core = MLMMCore(
     model_pdb="ml_region.pdb",
     model_charge=0,
     model_mult=1,
-    backend="uma",               # uma | orb | mace | aimnet2
+    backend="uma",               # uma | orb | mace | aimnet2 | dft (dft also needs dft_settings)
     return_partial_hessian=True, # Hessian 計算対象の可動原子に対する部分 Hessian
 )
 ```
@@ -118,37 +118,6 @@ geom = geom_loader("complex_layered.pdb")
 geom.set_calculator(calc)
 energy = geom.energy            # Hartree
 forces = geom.forces            # Hartree/Bohr (flat)
-```
-
-## v0.1.x 互換性
-
-### パラメータエイリアス
-
-以下の v0.1.x パラメータ名は `DeprecationWarning` 付きで受け付けられます:
-
-| v0.1.x 名 | v0.2.x 名 | 備考 |
-|-------------|-------------|-------|
-| `real_pdb` | `input_pdb` | レガシーエイリアス — `input_pdb` にマップ |
-| `real_rst7` | *(削除)* | 警告付きで無視（内部で自動生成） |
-| `vib_run` | *(削除)* | 警告付きで無視 |
-| `vib_dir` | *(削除)* | 警告付きで無視 |
-
-```python
-# v0.1.x スタイル — 動作するが DeprecationWarning を発する
-from mlmm import MLMMCore
-core = MLMMCore(real_pdb="complex.pdb", real_parm7="real.parm7", model_pdb="ml.pdb")
-```
-
-### mlmm_ase() ファクトリ
-
-v0.1.x の `mlmm_ase(real_pdb=..., ...)` ユーティリティ関数は後方互換のため保持されています:
-
-```python
-from mlmm import mlmm_ase
-
-# v0.1.x スタイル — DeprecationWarning を発する
-calc = mlmm_ase(real_pdb="complex.pdb", real_parm7="real.parm7", model_pdb="ml.pdb")
-# 等価: MLMMASECalculator(MLMMCore(input_pdb="complex.pdb", ...))
 ```
 
 ## 関連項目

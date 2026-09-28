@@ -52,7 +52,7 @@ PDB 原子セレクタも使用可能です:
 
 ```bash
 mlmm scan -i layered.pdb --parm7 system.parm7 -q 0 \
-  --scan-lists '[("TYR,285,CA","MMT,309,C10",2.20)]' --no-preopt --no-endopt
+  --scan-lists '[("SAM,320,CS1","GPP,321,C7",1.60)]' --no-preopt --no-endopt
 ```
 
 1-based の原子インデックスと PDB 原子名文字列の両方が使用できます。詳細は [scan.md](scan.md) を参照してください。

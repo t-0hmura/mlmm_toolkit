@@ -7,7 +7,7 @@ endpoints. Detects bond changes along the candidate MEP and
 **recursively re-segments** the path into candidate reaction intervals.
 Output: flat per-segment files
 (`mep_seg_NN_trj.xyz`, `hei_seg_NN.{xyz,pdb}`),
-plus a stitched `mep_trj.pdb`/`mep_trj.xyz`, a `mep.cif` companion for bridged
+plus a stitched `mep_trj.pdb`/`mep_trj.xyz`, a `mep_trj.cif` companion for bridged
 input, and energy diagrams.
 
 `mlmm all --refine-path` selects this engine. Validate each HEI with TS/IRC
@@ -91,15 +91,15 @@ mlmm path-search -i 1.R.pdb 3.P.pdb --parm7 real.parm7 \
 result_path_search/
 ├── summary.json                       # full result, see below
 ├── summary.log                        # human-readable
-├── mep_seg_NN_trj.xyz                 # stitched string nodes per elementary step (2-digit tag)
+├── mep_seg_NN_trj.xyz                 # stitched string nodes per elementary step (NN = summary.json `index`, 1-based, 2 digits; not the 3-digit `tag`)
 ├── mep_seg_NN.pdb                     # PDB conversion when input is PDB or --ref-pdb supplied
 ├── hei_seg_NN.{xyz,pdb}               # highest-energy image (TS candidate) per segment
 ├── mep_trj.xyz                        # full stitched MEP across all segments
 └── energy_diagram_*.png
 ```
 
-The per-segment TS refinement seeds (`segments/seg_NN/structures/`) are
-produced only by `mlmm all`, not by standalone `path-search`.
+The nested copies of the post-tsopt/IRC structures (`segments/seg_NN/structures/`)
+are produced only by `mlmm all`, not by standalone `path-search`.
 
 `summary.json["segments"]` lists each elementary step with:
 
@@ -123,12 +123,12 @@ produced only by `mlmm all`, not by standalone `path-search`.
 - Increasing `--max-nodes` trades cost for path resolution but does not repair
   chemically inconsistent endpoints. Benchmark convergence on the actual
   system and inspect the trajectory and bond changes.
-- Output **does not** include refined TSs; `all` writes those under `segments/seg_NN/ts/`
-  in the `all` pipeline.
+- Output **does not** include refined TSs; `all` writes the optimized TS to
+  `segments/seg_NN/ts.pdb` (canonical), and `ts/` holds the tsopt working output.
 
 ## See also
 
 - `path-opt.md` — single-segment MEP optimization (the building block).
-- `tsopt.md` — runs after path-search on each `segments/seg_NN/structures/ts.pdb`.
+- `tsopt.md` — starts from each `hei_seg_NN.{xyz,pdb}` (TS candidate).
 - `bond-summary.md` — same bond-change algorithm used here, standalone.
 - Defaults: `import mlmm.core.defaults as d; print(d.SEARCH_KW, d.GS_KW, d.DMF_KW)`

@@ -66,10 +66,11 @@ Options:
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
   --show-config / --no-show-config
-                                  Print resolved configuration and continue
-                                  execution.  [default: no-show-config]
-  --dry-run / --no-dry-run        Validate options and print the execution plan
-                                  without running IRC.  [default: no-dry-run]
+                                  Print the loaded YAML file and its top-level
+                                  keys, then continue.  [default: no-show-
+                                  config]
+  --dry-run / --no-dry-run        Validate options and inputs without running
+                                  IRC.  [default: no-dry-run]
   --ref-pdb FILE                  Reference PDB/mmCIF topology to use when
                                   --input is XYZ (keeps XYZ coordinates).
   --convert-files / --no-convert-files
@@ -103,18 +104,14 @@ Options:
                                   operations (auto/cuda/cpu). Use 'cpu' for
                                   large unfrozen systems to avoid VRAM limits.
                                   [default: auto]
-  --read-hess FILE                Read an identified initial Hessian from 'mlmm
-                                  freq --dump-hess'. Geometry, atom order,
-                                  active-DOF basis, charge, and multiplicity
-                                  must match; the file takes priority over
-                                  hessian_cache and fresh computation.
-                                  [default: (None)]
-  --allow-unverified-hess-state / --no-allow-unverified-hess-state
-                                  Allow a schema-1 Hessian file whose charge and
-                                  multiplicity cannot be verified. Use only
-                                  after independently checking the electronic
-                                  state.  [default: no-allow-unverified-hess-
-                                  state]
+  --read-hess FILE                Start from the Hessian in this .npy file (e.g.
+                                  from freq or tsopt --dump-hess): the Cartesian
+                                  Hessian of the input geometry in
+                                  Hartree/bohr^2, for all atoms or only the
+                                  atoms in the Hessian calculation. The file
+                                  takes priority over a Hessian from an earlier
+                                  stage and fresh computation.  [default:
+                                  (None)]
   --freeze-atoms TEXT             Comma-separated 1-based atom indices to freeze
                                   (e.g., '1,3,5').
   --out-json / --no-out-json      Write machine-readable result.json to out_dir.

@@ -54,7 +54,7 @@ mlmm irc -i TS_STRUCTURE --parm7 PARM7 --model-pdb ML_REGION [options]
 ## Workflow
 
 1. **Input preparation** -- Load the TS structure, Amber topology (`--parm7`), and ML-region definition (`--model-pdb` / `--model-indices`); resolve charge and spin. Direct PDB/mmCIF input or `--ref-pdb` supplies the topology used for companion output.
-2. **ML/MM calculator setup** -- Build the ML/MM calculator from `--parm7` and `--model-pdb`. The `-b/--backend` option selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). The `--hessian-calc-mode` controls ML backend Hessian evaluation.
+2. **ML/MM calculator setup** -- Build the ML/MM calculator from `--parm7` and `--model-pdb`. The `-b/--backend` option selects the high-level backend (`uma`, `orb`, `mace`, `aimnet2`, or `dft`; default `uma`). The `--hessian-calc-mode` controls ML backend Hessian evaluation.
 3. **Frozen-boundary TR treatment** -- The fixed constrained treatment removes only full-system rigid motions that leave all frozen anchors fixed. Its generic effective rank is 6/3/1/0 for zero/one/two/at least three non-collinear anchors; realistic ML/MM boundaries normally have rank 0.
 4. **IRC integration** -- The EulerPC integrator propagates along the IRC in both directions (unless `--no-forward` or `--no-backward` disables a branch). Step size and cycle count control integration length.
 5. **Output & conversion** -- Trajectories are written as XYZ. PDB companions are generated when a PDB/mmCIF reference topology is available and `--convert-files` is enabled. Bridge inputs additionally produce CIF companions with original identifiers.
@@ -122,23 +122,20 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--uma-workers INT` | UMA predictor workers. Values greater than 1 require `fairchem-core[extras]` and cannot be combined with `Analytical`. | `1` |
 | `--uma-workers-per-node INT` | Workers per node for the parallel UMA predictor. | _None_ |
 | `--config FILE` | Base YAML configuration applied before explicit CLI options. | _None_ |
-| `--show-config/--no-show-config` | Print resolved YAML layers/config and continue. | `False` |
+| `--show-config/--no-show-config` | Print the loaded YAML file and its top-level keys, then continue. | `False` |
 | `-b, --backend CHOICE` | High-level backend for the model region: `uma` (default), `orb`, `mace`, `aimnet2`, `dft`. | `uma` |
 | `--cmap/--no-cmap` | Preserve CMAP in both REAL and MODEL MM layers. | `--cmap` |
 | `--hess-device CHOICE` | Device for initial Hessian storage and IRC operations: `auto`, `cuda`, `cpu`. Use `cpu` for large unfrozen systems. | `auto` |
-| `--read-hess PATH` | Read an identified `.npz` from `mlmm freq --dump-hess`; geometry, atom order, layer selection, and active-DOF basis must match. Takes priority over cache/fresh computation. | _None_ |
-| `--allow-unverified-hess-state/--no-allow-unverified-hess-state` | Permit a schema-1 Hessian file whose charge/multiplicity cannot be verified; requires `--read-hess` and independent state checking. | `False` |
+| `--read-hess PATH` | Start from the Hessian in a NumPy `.npy` file (for example from `freq` or `tsopt --dump-hess`) instead of computing it or reusing one from an earlier stage. Needs `irc.hessian_init: calc` (the default). | _None_ |
 | `--mm-backend [hessian_ff\|openmm]` | MM backend. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | Link-atom placement: scaled ($g$-factor) or fixed 1.09/1.01 Å. | `scaled` |
 | `--out-json/--no-out-json` | Write machine-readable `result.json` to `out_dir`. | `False` |
-| `--dry-run/--no-dry-run` | Validate and print execution plan without running IRC. Shown in `--help-advanced`. | `False` |
+| `--dry-run/--no-dry-run` | Validate options and inputs without running IRC. Shown in `--help-advanced`. | `False` |
 
-NPZ geometry, atom order, active basis, model charge, and multiplicity must
-match the current run. Schema-1 files lack electronic-state identity and
-require the explicit `--allow-unverified-hess-state` opt-in; schema-2 state
-mismatches are always fatal.
-`result.json["rigid_projection"]["electronic_state_verified"]` records whether
-the file handoff was verified.
+`--read-hess` takes the same `.npy` file as [`freq`](freq.md) (all atoms, or
+only the atoms in the Hessian calculation) and checks only its size, symmetry,
+and finiteness. When the file is used,
+`result.json["rigid_projection"]["hessian_source"]` is `"file"`.
 
 ## YAML configuration
 
@@ -155,7 +152,7 @@ calc:
  model_mult: 1                     # spin multiplicity 2S+1
  real_parm7: real.parm7            # Amber parm7 topology
  model_pdb: ml_region.pdb          # ML-region definition
- backend: uma                      # MLIP backend: uma | orb | mace | aimnet2
+ backend: uma                      # High-level backend: uma | orb | mace | aimnet2 | dft
  uma_model: uma-s-1p2              # uma-s-1p2 | uma-m-1p1
  uma_task_name: omol                # UMA task name (UMA backend only)
  ml_device: auto                   # ML backend device selection

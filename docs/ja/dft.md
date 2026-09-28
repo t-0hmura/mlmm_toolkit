@@ -46,7 +46,7 @@ out_dir/ (デフォルト: ./result_dft/)
 ├── ml_region_with_linkH.pdb    # PDB 入力かつ --convert-files 時。生成リンク水素は HL/LKH
 ├── result.yaml                 # DFT + ML(dft)/MM エネルギーサマリー、電荷、スピン密度
 ├── result.json                 # --out-json 指定時のみ
-└── (stdout)                    # 整形された設定ブロックとエネルギーの出力
+└── (stdout)                    # エネルギー（`-v 3` では設定ブロックも）
 ```
 
 - `result.yaml` の内容:
@@ -86,8 +86,8 @@ out_dir/ (デフォルト: ./result_dft/)
 | `--mm-backend {hessian_ff,openmm}` | ONIOM 低レベル評価用 MM バックエンド。Hessian 構築法は `calc.mm_fd` が別に制御します（デフォルト `true`: 有限差分）。 | `hessian_ff` |
 | `--out-json/--no-out-json` | 機械可読な `result.json` を `out_dir` に出力。 | `False` |
 | `--config FILE` | 明示的な CLI オプション適用前に読み込むベース YAML。 | _None_ |
-| `--show-config/--no-show-config` | 解決済み設定を表示して実行を継続。 | `False` |
-| `--dry-run/--no-dry-run` | 実行せずに設定検証と実行計画表示のみ行う。`--help-advanced` に表示。 | `False` |
+| `--show-config/--no-show-config` | 読み込んだ YAML ファイルとその最上位の key を表示して実行を継続。 | `False` |
+| `--dry-run/--no-dry-run` | 実行せずにオプションと入力を検証する。`--help-advanced` に表示。 | `False` |
 | `--ref-pdb FILE` | XYZ 入力時の参照 PDB トポロジー（原子順序と残基マッピングのテンプレート）。 | _None_ |
 | `--convert-files/--no-convert-files` | PDB テンプレートがあれば XYZ/TRJ → 対応する PDB ファイルを生成。 | `True` |
 

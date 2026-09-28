@@ -131,7 +131,7 @@
 |------|-------------|
 | **Boolean option** | Toggle flag pair `--flag / --no-flag` (e.g., `--tsopt / --no-tsopt`); the value form `--flag True/False` is also accepted for backward compatibility. |
 | **Residue selector** | A specification like `'SAM,GPP'` (names) or `'A:123,B:456'` (chain:ID). |
-| **Atom selector** | A specification like `'TYR,285,CA'` identifying a specific atom by residue name, number, and atom name. |
+| **Atom selector** | A specification like `'SAM,320,CS1'` identifying a specific atom by residue name, number, and atom name. |
 | **B-factor layer encoding** | The convention of using the PDB B-factor column to encode 3-layer assignments (0.0, 10.0, 20.0). Hessian-target MM atoms are controlled separately. |
 
 ---

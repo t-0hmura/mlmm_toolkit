@@ -43,7 +43,7 @@ mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 ## Workflow
 
 1. **Input handling** -- The tool accepts `-i/--input` as a PDB or XYZ file (use `--ref-pdb` with XYZ inputs). The optimizer reads coordinates from this PDB via `pysisyphus.helpers.geom_loader`. ML/MM layer definitions come from `--model-pdb`, `--model-indices`, or `--detect-layer` (B-factor encoding: B=0 ML, B=10 Movable-MM, B=20 Frozen).
-2. **ML/MM calculator setup** -- Build the ML/MM calculator (MLIP backend + hessian_ff). The `-b/--backend` option selects the MLIP (`uma`, `orb`, `mace`, or `aimnet2`; default `uma`). `--parm7` provides Amber MM topology; `--model-pdb` defines the ML region.
+2. **ML/MM calculator setup** -- Build the ML/MM calculator (MLIP backend + hessian_ff). The `-b/--backend` option selects the high-level backend (`uma`, `orb`, `mace`, `aimnet2`, or `dft`; default `uma`). `--parm7` provides Amber MM topology; `--model-pdb` defines the ML region.
 3. **Optimization** -- The optimizer runs in the selected `--opt-mode` (`grad`/`lbfgs` = L-BFGS, `hess`/`rfo` = RFOptimizer).
    - RFO reports numerical convergence without an additional minimum-certification Hessian or implicit curvature-recovery loop. With microiteration, the macro and MM relaxation criteria remain distinct. Use [`freq`](freq.md) for separate analysis of the selected ML/MM space.
    - `--flatten` enables post-optimization flattening of imaginary modes. All detected imaginary modes are flattened each iteration until none remain or the internal loop cap is reached.
@@ -64,7 +64,7 @@ out_dir/ (default: ./result_opt/)
 └─ restart_*.yaml              # Optional restarts when opt.dump_restart is set
 ```
 
-Console output prints resolved configuration blocks (`geom`, `calc`, `opt`, `lbfgs`), progress every `print_every` cycles, and a final wall-clock time summary.
+Console output prints progress every `print_every` cycles and a final wall-clock time summary; `-v 3` also prints the resolved configuration blocks (`geom`, `calc`, `opt`, `lbfgs`).
 
 ## CLI options
 
@@ -101,10 +101,10 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `-o, --out-dir TEXT` | Output directory for all files. | `./result_opt/` |
 | `--thresh TEXT` | Override convergence preset (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | _None_ (`gau` applied internally) |
 | `--config FILE` | Base YAML configuration file. | _None_ |
-| `--show-config/--no-show-config` | Print resolved YAML layer information before execution. | `False` |
+| `--show-config/--no-show-config` | Print the loaded YAML file and its top-level keys, then continue. | `False` |
 | `-b, --backend CHOICE` | High-level backend for the model region: `uma`, `orb`, `mace`, `aimnet2`, `dft`. | `uma` |
 | `--cmap/--no-cmap` | Preserve CMAP in both REAL and MODEL MM layers. | `--cmap` |
-| `--dry-run/--no-dry-run` | Validate options and print execution plan without running optimization. Shown in `--help-advanced`. | `False` |
+| `--dry-run/--no-dry-run` | Validate options and inputs without running optimization. Shown in `--help-advanced`. | `False` |
 
 ### Convergence threshold presets
 
@@ -143,7 +143,7 @@ calc:
  model_mult: 1                  # spin multiplicity 2S+1
  real_parm7: real.parm7         # Amber parm7 topology
  model_pdb: ml_region.pdb       # ML region definition
- backend: uma                   # uma | orb | mace | aimnet2
+ backend: uma                   # uma | orb | mace | aimnet2 | dft
  hessian_calc_mode: Analytical  # or FiniteDifference
 opt:
  thresh: gau                    # convergence preset

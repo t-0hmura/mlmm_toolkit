@@ -2,8 +2,8 @@
 
 ## Purpose
 
-3D distance scan with harmonic restraints. Drives three bonds toward
-target distances and produces a 3D grid of relaxed geometries. Rare in
+3D scan with harmonic restraints. Drives three distance, angle, or dihedral
+coordinates toward their targets and produces a 3D grid of relaxed geometries. Rare in
 practice; usually a sequence of 1D / 2D scans (or `all-scan-list.md`)
 captures the chemistry with less compute. Provided for inherently
 3D-coupled mechanisms (e.g. proton-coupled electron transfer with two

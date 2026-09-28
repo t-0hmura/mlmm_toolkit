@@ -14,7 +14,7 @@ Compute ML/MM vibrational frequencies and thermochemistry (zero-point energy (ZP
 - Validate stationary-point character of an optimized minimum, transition state, or IRC endpoint (a minimum has no imaginary frequencies; a transition state has exactly one).
 - Compute quasi-rigid-rotor-harmonic-oscillator (QRRHO) thermochemistry.
 
-The command runs vibrational analysis with the ML/MM calculator, honoring frozen atoms via PHVA. It exports normal-mode trajectories as `_trj.xyz` and `.pdb` (mapped back onto the enzyme ordering), and prints a Gaussian-style thermochemistry summary when the optional `thermoanalysis` package is installed.
+The command runs vibrational analysis with the ML/MM calculator, honoring frozen atoms via PHVA. It exports normal-mode trajectories as `_trj.xyz` and `.pdb` (mapped back onto the enzyme ordering), and prints a Gaussian-style thermochemistry summary with the bundled `thermoanalysis` package.
 
 Imaginary frequencies appear as negative values. Runtime and memory depend on
 the backend and system; compare `Analytical` and `FiniteDifference` on a
@@ -61,7 +61,7 @@ mlmm freq -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 2. **PHVA & translation/rotation (TR) projection** — With frozen atoms, eigenanalysis occurs inside the active subspace. The default constrained projector removes only full-system rigid motions that leave every frozen anchor fixed; it does not treat the active fragment as an isolated molecule. Both 3N x 3N and active-block Hessians are accepted, and frequencies are reported in cm^-1 (negatives = imaginary).
 3. **Active DOF mode** — `--active-dof-mode` selects which atoms enter the analysis (default `partial`); see the CLI options table for the four modes.
 4. **Mode export** — `--max-write` limits how many mode trajectories are written. Modes are sorted by value (or absolute value with `--sort abs`). Each exported mode writes `_trj.xyz` and `.pdb` trajectories mapped back onto the enzyme ordering. The sinusoidal trajectory amplitude (`--amplitude-ang`) and frame count (`--n-frames`) match the YAML defaults.
-5. **Thermochemistry** — If `thermoanalysis` is installed, a QRRHO-like summary (E, ZPE, E/H/G corrections, heat capacities, entropies) is printed using PHVA frequencies. The structure energy is labeled in Hartree as `E + G_corr = G` (electronic energy + Gibbs free-energy correction = Gibbs free energy). CLI pressure in atm is converted internally to Pa. The molecular point group and external rotational symmetry number are detected independently for each analyzed structure, and the resulting `1/sigma` correction is always included. An expert can override the detected number with `thermo.symmetry_number` in YAML. When `--dump`, a `thermoanalysis.yaml` snapshot is also written. **Frequency-treatment policy**: `freq` applies the **standalone-freq policy** — QRRHO with a 100 cm⁻¹ rotor cutoff, unit frequency/ZPE scaling, **no** imaginary-frequency inversion, and **no** positive-frequency floor. This is deliberately different from the internal `Geometry.get_thermoanalysis` policy used by some bundled-engine paths, which additionally inverts small imaginaries (from −15 cm⁻¹) and floors positive frequencies below 25 cm⁻¹. Neither is a universal scientific default; each is tied to its entry point. The effective policy (`kind`, `rotor_cutoff_cm`, `frequency_scale`, `zpe_scale`, `invert_imag_from_cm`, `positive_frequency_floor_cm`) is serialized under `thermo_policy` in `thermoanalysis.yaml` and in `result.json`.
+5. **Thermochemistry** — A QRRHO-like summary (E, ZPE, E/H/G corrections, heat capacities, entropies) is printed using PHVA frequencies. The structure energy is labeled in Hartree as `E + G_corr = G` (electronic energy + Gibbs free-energy correction = Gibbs free energy). CLI pressure in atm is converted internally to Pa. The molecular point group and external rotational symmetry number are detected independently for each analyzed structure, and the resulting `1/sigma` correction is always included. An expert can override the detected number with `thermo.symmetry_number` in YAML. When `--dump`, a `thermoanalysis.yaml` snapshot is also written. **Frequency-treatment policy**: `freq` applies the **standalone-freq policy** — QRRHO with a 100 cm⁻¹ rotor cutoff, unit frequency/ZPE scaling, **no** imaginary-frequency inversion, and **no** positive-frequency floor. This is deliberately different from the internal `Geometry.get_thermoanalysis` policy used by some bundled-engine paths, which additionally inverts small imaginaries (from −15 cm⁻¹) and floors positive frequencies below 25 cm⁻¹. Neither is a universal scientific default; each is tied to its entry point. The effective policy (`kind`, `rotor_cutoff_cm`, `frequency_scale`, `zpe_scale`, `invert_imag_from_cm`, `positive_frequency_floor_cm`) is serialized under `thermo_policy` in `thermoanalysis.yaml` and in `result.json`.
 6. **Device selection** — `ml_device="auto"` triggers CUDA when available, otherwise CPU. The internal TR projection/mode assembly runs on the same device to minimize transfers.
 7. **Exit behavior** — Keyboard interrupts exit with code 130; other failures print a traceback and exit with code 1.
 
@@ -96,7 +96,7 @@ out_dir/ (default: ./result_freq/)
 ├─ mode_XXXX_±freqcm-1_trj.xyz   # Per-mode trajectory
 ├─ mode_XXXX_±freqcm-1.pdb       # PDB trajectory mapped back onto the enzyme ordering
 ├─ frequencies_cm-1.txt           # Full frequency list using the selected sort order
-└─ thermoanalysis.yaml            # Present when thermoanalysis is importable and --dump is True
+└─ thermoanalysis.yaml            # Present when --dump is True
 ```
 - Console blocks summarizing resolved `geom`, `calc`, `freq`, and thermochemistry settings.
 
@@ -131,7 +131,8 @@ out_dir/ (default: ./result_freq/)
 | `--hessian-cutoff FLOAT` | Cutoff distance for Hessian-target MM atoms. | _None_ |
 | `--movable-cutoff FLOAT` | Cutoff distance for movable-MM layer. | _None_ |
 | `--hessian-calc-mode CHOICE` | Hessian mode (`Analytical` or `FiniteDifference`). | `FiniteDifference` |
-| `--dump-hess PATH` | Save Hessian, atom order, Cartesian geometry, active-DOF basis, PHVA metadata, model charge, and multiplicity to `.npz` for a matching `mlmm irc --read-hess` run. | _None_ |
+| `--read-hess PATH` | Use the Hessian in a NumPy `.npy` file instead of computing it (for example one written by `freq` or `tsopt --dump-hess`). | _None_ |
+| `--dump-hess PATH` | Save the Hessian as a NumPy `.npy` array for `--read-hess` in `freq`, `tsopt`, or `irc`, or for other programs. | _None_ |
 | **Mode export** | | |
 | `--max-write INT` | Number of modes to export. | `10` |
 | `--sort CHOICE` | Mode ordering: `value` (cm^-1) or `abs`. | `value` |
@@ -146,14 +147,16 @@ out_dir/ (default: ./result_freq/)
 | `-o, --out-dir TEXT` | Output directory. | `./result_freq/` |
 | `--out-json/--no-out-json` | Write machine-readable `result.json` to `out_dir`. | `False` |
 | `--config FILE` | Base YAML configuration applied before explicit CLI options. | _None_ |
-| `--show-config/--no-show-config` | Print resolved YAML layers/config and continue. | `False` |
-| `--dry-run/--no-dry-run` | Validate and print execution plan without running frequency analysis. Shown in `--help-advanced`. | `False` |
+| `--show-config/--no-show-config` | Print the loaded YAML file and its top-level keys, then continue. | `False` |
+| `--dry-run/--no-dry-run` | Validate options and inputs without running frequency analysis. Shown in `--help-advanced`. | `False` |
 
-The handoff is identity-checked: IRC rejects files from a different atom order,
-geometry, layer selection, Hessian active basis, model charge, or multiplicity.
-Schema-1 files predate electronic-state identity and are rejected unless
-`--allow-unverified-hess-state` is explicitly supplied to IRC after independent
-state verification.
+A `--read-hess` / `--dump-hess` file is one plain NumPy array (`numpy.save`):
+the Cartesian Hessian in Hartree/bohr², not mass-weighted, with atoms in input
+order. It covers all atoms (3N × 3N) or only the atoms in the Hessian
+calculation (for `freq`, those selected by `--active-dof-mode`). `--read-hess`
+checks only that the matrix is square, finite, symmetric, and one of these two
+sizes, so pass a Hessian computed for the same geometry, charge, multiplicity,
+layers, and calculator.
 
 ## YAML configuration
 
@@ -175,7 +178,7 @@ calc:
  model_mult: 1                     # spin multiplicity 2S+1
  real_parm7: real.parm7            # Amber parm7 topology
  model_pdb: ml_region.pdb          # ML-region definition
- backend: uma                      # MLIP backend: uma | orb | mace | aimnet2
+ backend: uma                      # High-level backend: uma | orb | mace | aimnet2 | dft
  uma_model: uma-s-1p2              # uma-s-1p2 | uma-m-1p1
  uma_task_name: omol                # UMA task name (UMA backend only)
  ml_device: auto                   # ML backend device selection

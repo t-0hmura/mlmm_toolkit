@@ -50,9 +50,9 @@ mlmm all -i R.pdb P.pdb -c 'SAM' -l 'SAM:1' -b uma --out-dir ./result_all
 # --dump on freq: write thermoanalysis.yaml alongside the standard outputs
 mlmm freq -i opt.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0 --dump
 
-# --dump-hess <path>: dump the Hessian for downstream IRC restart
+# --dump-hess <path>: save the Hessian for a later --read-hess run (freq, tsopt, irc)
 mlmm freq -i opt.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0 \
-    --dump-hess /scratch/hess.npz
+    --dump-hess /scratch/hess.npy
 ```
 
 Use `--dump` when reproducing a resource-intensive regression or attaching artefacts to a bug report. Use `-v 3` when diagnosing an import-time or stage-bridge issue (e.g. AmberTools preflight failure, parm7 mismatch); the additional log volume is acceptable for short runs.
@@ -73,9 +73,9 @@ See [`docs/architecture.md`](docs/architecture.md) for the full 6-layer dir tree
 - `mlmm/cli/` — L1 Interface (Click group, decorator factories, help, bool compat, subcommand resolver, AmberTools preflight).
 - `mlmm/workflows/` — L2 Application (one file per subcommand stage runner, including the ONIOM-specific `define_layer`, `mm_parm`, `oniom_export`, `oniom_import`).
 - `mlmm/domain/` — L3 Domain (chemistry-aware helpers: bond changes, bond summary, element info).
-- `mlmm/backends/` — L4a Infra (MLIP dispatcher + ML/MM ONIOM calculator core; future splits into per-backend adapter + ONIOM subdir).
+- `mlmm/backends/` — L4a Infra (MLIP dispatcher + ML/MM ONIOM calculator core).
 - `mlmm/io/` — L4b Infra (summary, trajectory, diagram, PDB fix, Hessian cache, analytical-Hessian glue).
-- `mlmm/core/` — L5 Foundation (defaults, utils, future errors / types / logging).
+- `mlmm/core/` — L5 Foundation (defaults, utils, logging, DFT settings, output/result-commit helpers).
 - `pysisyphus/`, `thermoanalysis/`, `hessian_ff/` — bundled forks at the repo top; **not** upstream PyPI (and `hessian_ff/` has no upstream — bundling is mandatory).
 - `tests/` — unit and regression tests.
 - `tests/smoke/` — short representative job covering the canonical ONIOM CLI surface.
@@ -172,7 +172,7 @@ These are **hard constraints** enforced by the release process. Violating them e
 
 ### 4.1 Nine chemistry rules
 
-The reaction-path correctness rules listed in [`docs/architecture.md`](docs/architecture.md) §5.1 must not be reordered, simplified, or factored out. They are marked with `# CHEMISTRY-RULE:N` inline comments and `# DOMAIN_PURE` module-docstring markers. The CI gate `.github/scripts/check_engineering_markers.py` enforces marker completeness and confines MLIP-only SDK imports (`fairchem`, `orb_models`, `mace`, `aimnet`) to the `backends/` layer. For **mlmm specifically** all 9 rules apply: #1 (subtractive ONIOM energy), #2 (link-atom Hessian B-matrix), #8 (3-layer 5-pass partial Hessian) in `backends/mlmm_calc.py`; #9 (parm7 atom indexing) in `io/pdb_indexing.py`; #3 (macro/micro alternation), #7 (`bofill_update` advanced-indexing) in `workflows/tsopt.py`; #6 (PHVA + MLIP active block) in `workflows/freq.py`; #4 (gpu4pyscf `rks_lowmem`), #5 (def2 auto-ECP) in `workflows/dft.py`.
+The reaction-path correctness rules listed in [`docs/architecture.md`](docs/architecture.md) §5.1 must not be reordered, simplified, or factored out. They are marked with `# CHEMISTRY-RULE:N` inline comments and `# DOMAIN_PURE` module-docstring markers. The CI gate `.github/scripts/check_engineering_markers.py` enforces marker completeness and confines MLIP-only SDK imports (`fairchem`, `orb_models`, `mace`, `aimnet`) to the `backends/` layer. For **mlmm specifically** all 9 rules apply: #1 (subtractive ONIOM energy), #2 (link-atom Hessian B-matrix), #8 (3-layer 5-pass partial Hessian) in `backends/mlmm_calc.py`; #9 (parm7 atom indexing) in `io/pdb_indexing.py`; #3 (macro/micro alternation), #7 (`bofill_update` advanced-indexing) in `workflows/tsopt.py`; #6 (PHVA + MLIP active block) in `workflows/freq.py`; #4 (gpu4pyscf `rks_lowmem`) in `core/dft_settings.py`; #5 (def2 auto-ECP) in `workflows/dft.py`.
 
 To locate the markers:
 
@@ -212,9 +212,10 @@ radii require a documented numerical comparison and maintainer review. Inspect
 `mlmm/core/defaults.py` and the command-local Click option before proposing a
 change.
 
-### 4.7 Downstream-parser-visible log lines
+### 4.7 Downstream-parser-visible output
 
-Any `summary.log` or `summary.json` line that downstream parsers consume is **frozen byte-for-byte**. See §1.5 above (Downstream parser freeze rule).
+Apply the versioned-schema rule in §1.5. Do not make a machine-readable
+compatibility break as a side effect of wording cleanup.
 
 ---
 

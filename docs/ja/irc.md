@@ -111,7 +111,7 @@ standalone IRC はstitched pathの`first` / `last`端点と、その方向のbon
 | `-b, --backend CHOICE` | 高レベルbackend: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`、`dft`。 | `uma` |
 | `--cmap/--no-cmap` | REAL と MODEL の両 MM 層で CMAP を保持します。 | `--cmap` |
 | `--hess-device CHOICE` | 初期 Hessian の格納・IRC 演算のデバイス: `auto`、`cuda`、`cpu`。大規模非凍結系では `cpu` を推奨。 | `auto` |
-| `--read-hess PATH` | `mlmm freq --dump-hess`のidentified `.npz`を読み込む。geometry、原子順序、layer選択、active-DOF basisが一致する必要があり、cache／新規計算より優先。 | _None_ |
+| `--read-hess PATH` | Hessian を計算せず、また前の stage の Hessian も使わず、NumPy の `.npy` ファイル（`freq`・`tsopt` の `--dump-hess` で書いたものなど）から初期 Hessian を読む。`irc.hessian_init: calc`（デフォルト）が必要。 | _None_ |
 | `-i, --input PATH` | 構造ファイル（`.pdb`/`.xyz`/`_trj.xyz`/...）。`geom_loader` で読み取り可能な任意の形式。 | 必須 |
 | `--parm7 PATH` | 全酵素/MM 領域の Amber トポロジー。YAML の `calc.real_parm7` が無い場合は必須。 | _None_ |
 | `--model-pdb PATH` | ML 領域を定義する PDB。有効な B-factor layer または `--model-indices` で定義する場合は省略可能。 | _None_ |
@@ -134,18 +134,15 @@ standalone IRC はstitched pathの`first` / `last`端点と、その方向のbon
 | `--uma-workers INT` | UMA predictor worker 数。2 以上は `fairchem-core[extras]` が必要で、解析 Hessian と併用不可。 | `1` |
 | `--uma-workers-per-node INT` | UMA 並列 predictor のノード当たり worker 数。 | _None_ |
 | `--config FILE` | 明示 CLI 適用前に読み込むベース YAML。 | _None_ |
-| `--show-config/--no-show-config` | 解決済み YAML レイヤー/設定を表示して続行。 | `False` |
+| `--show-config/--no-show-config` | 読み込んだ YAML ファイルとその最上位の key を表示して実行を継続。 | `False` |
 | `--mm-backend [hessian_ff\|openmm]` | MM バックエンド。Hessian 構築法は `calc.mm_fd` が別に制御します（デフォルト `true`: 有限差分）。 | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | リンク原子配置: scaled（$g$ 係数）または fixed（1.09/1.01 Å）。 | `scaled` |
 | `--out-json/--no-out-json` | 機械可読な `result.json` を `out_dir` に書き出し。 | `False` |
-| `--dry-run/--no-dry-run` | 実行せずに検証と実行計画のみ表示。`--help-advanced` に表示。 | `False` |
-| `--allow-unverified-hess-state/--no-allow-unverified-hess-state` | charge/多重度を検証できない schema 1 Hessian を許可。`--read-hess` と独立した状態確認が必要。 | `False` |
+| `--dry-run/--no-dry-run` | 実行せずにオプションと入力を検証する。`--help-advanced` に表示。 | `False` |
 
-NPZ の geometry、原子順序、active basis、model charge、多重度は現在の実行と
-一致する必要があります。電子状態 identity を持たない schema 1 は
-`--allow-unverified-hess-state` の明示的 opt-in が必要で、schema 2 の状態不一致は
-常に致命的です。
-`result.json["rigid_projection"]["electronic_state_verified"]` が検証結果を記録します。
+`--read-hess` は [`freq`](freq.md) と同じ `.npy` ファイル（全原子か、Hessian を計算した
+原子だけ）を受け、確かめるのは大きさ・対称・有限だけです。ファイルから読んだときの
+`result.json["rigid_projection"]["hessian_source"]` は `"file"` です。
 
 ## YAML 設定
 
@@ -179,7 +176,7 @@ calc:
  model_mult: 1                     # スピン多重度 2S+1
  real_parm7: real.parm7            # Amber parm7 トポロジー
  model_pdb: ml_region.pdb          # ML 領域定義
- backend: uma                      # ML バックエンド (uma/orb/mace/aimnet2)
+ backend: uma                      # 高レベルbackend (uma/orb/mace/aimnet2/dft)
  uma_model: uma-s-1p2              # uma-s-1p2 | uma-m-1p1
  uma_task_name: omol                # UMA タスク名 (backend=uma 時)
  ml_device: auto                   # ML デバイス選択

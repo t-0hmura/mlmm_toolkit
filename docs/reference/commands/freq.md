@@ -67,11 +67,11 @@ Options:
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
   --show-config / --no-show-config
-                                  Print resolved configuration and continue
-                                  execution.  [default: no-show-config]
-  --dry-run / --no-dry-run        Validate options and print the execution plan
-                                  without running frequency analysis.  [default:
-                                  no-dry-run]
+                                  Print the loaded YAML file and its top-level
+                                  keys, then continue.  [default: no-show-
+                                  config]
+  --dry-run / --no-dry-run        Validate options and inputs without running
+                                  frequency analysis.  [default: no-dry-run]
   --ref-pdb FILE                  Reference PDB topology to use when --input is
                                   XYZ (keeps XYZ coordinates).
   --convert-files / --no-convert-files
@@ -107,10 +107,16 @@ Options:
   --cmap / --no-cmap              Preserve CMAP terms in both real and model MM
                                   layers when present in parm7.  [default:
                                   (cmap)]
-  --dump-hess FILE                Save the computed Hessian and geometry/active-
-                                  basis identity to a compressed .npz file for a
-                                  matching 'mlmm irc --read-hess' run. The file
-                                  also identifies model charge and multiplicity.
+  --read-hess FILE                Use the Hessian in this .npy file (e.g. from
+                                  freq or tsopt --dump-hess) instead of
+                                  computing it: the Cartesian Hessian of the
+                                  input geometry in Hartree/bohr^2, for all
+                                  atoms or only the atoms selected by --active-
+                                  dof-mode.  [default: (None)]
+  --dump-hess FILE                Save the Hessian as a NumPy .npy array
+                                  (Cartesian, Hartree/bohr^2; the atoms selected
+                                  by --active-dof-mode) for '--read-hess' in
+                                  freq, tsopt, or irc, or for other programs.
                                   [default: (None)]
   --out-json / --no-out-json      Write machine-readable result.json to out_dir.
                                   [default: no-out-json]

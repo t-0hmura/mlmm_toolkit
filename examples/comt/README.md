@@ -13,6 +13,6 @@ bash examples/comt/run.sh /path/to/mlmm_comt_output
 The script uses `mlmm all` to build the Amber topology and ML/MM layers from
 the input structures. The 4.0 Å region around CAT, SAM, and Mg is assigned to
 the ML potential, while the rest of the enzyme remains in the MM environment;
-the Mg<sup>2+</sup> charge is recognized automatically. AmberTools is required;
+the Mg<sup>2+</sup> charge is recognized automatically (`MG:2` in `-l` restates it). AmberTools is required;
 a backend-compatible GPU environment and scheduled execution are recommended
 for this full-system example.

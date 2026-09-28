@@ -48,7 +48,7 @@ which they often are after PyMOL/Maestro export. Always run it before
 ## Residue selectors (the `-c / --center` flag)
 
 `mlmm extract` (and any subcommand that also extracts internally)
-uses three forms:
+uses four forms:
 
 ```bash
 # Form 1 — comma-separated residue names. Matches every residue with
@@ -84,8 +84,8 @@ mlmm extract -i complex.pdb \
 Standard amino acids are looked up from `mlmm-toolkit`'s internal
 `AMINO_ACIDS` table and recognized monatomic ions from `ION`; provide only
 unknown/non-standard ligand residues in `-l`. For example, `MG` is already
-`+2`; adding `MG:2` to `-l` does not override it and emits an unmatched-entry
-warning. The total cluster charge is the sum of all retained residues after
+`+2`; `MG:2` in `-l` is accepted as a restatement, while `MG:3` does not
+override it and emits an unmatched-entry warning. The total cluster charge is the sum of all retained residues after
 extraction.
 
 If you don't know a ligand's formal charge, see

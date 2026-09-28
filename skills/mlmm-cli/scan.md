@@ -91,8 +91,9 @@ energies. Plot with `trj2fig.md`.
 ## Caveats
 
 - `-s` is Python literal-eval. Quote with single quotes outside,
-  double quotes inside. Atom-name strings use `"RESNAME RESID NAME"`
-  with single spaces.
+  double quotes inside. An atom spec has three fields (residue name,
+  residue number, atom name) in any order, separated by spaces, commas,
+  slashes, backticks, or backslashes (e.g. `"SAM 320 CS1"`, `"CS1 SAM 320"`).
 - Stage *k+1* starts from stage *k*'s final geometry; a diverged
   stage derails all downstream stages.
 - For coupled multi-bond drives in one stage, put multiple tuples in

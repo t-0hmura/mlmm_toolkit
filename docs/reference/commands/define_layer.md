@@ -18,8 +18,8 @@ Options:
   --model-pdb FILE                PDB or mmCIF file defining atoms in the ML
                                   region.
   --model-indices TEXT            Comma-separated atom indices for ML region
-                                  (e.g., '1,2,3,4' or '1-10,15,20-25'). Takes
-                                  precedence over --model-pdb.
+                                  (e.g., '1,2,3,4' or '1-10,15,20-25'). Used
+                                  when --model-pdb is omitted.
   --movable-cutoff, --radius-freeze FLOAT
                                   Distance cutoff (Å) from ML region for movable
                                   MM atoms. Atoms beyond this distance are

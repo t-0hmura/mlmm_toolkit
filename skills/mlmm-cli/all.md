@@ -100,7 +100,7 @@ A single input without either `--scan-lists` or `--tsopt` is rejected.
 result_all/
 ├── summary.json                    # machine-readable per-stage results
 ├── summary.log                     # human-readable text + dir tree
-├── mep_trj.pdb / mep.cif / mep_trj.xyz # CIF companion for bridged input
+├── mep_trj.pdb / mep_trj.cif / mep_trj.xyz # CIF companion for bridged input
 ├── mep_plot.png / energy_diagram_MEP.png
 ├── ml_region.pdb / mm_parm/ / layered/   # reusable ONIOM setup (--model-pdb / --parm7 inputs)
 ├── ml_region_without_linkH.{xyz,pdb}      # exact ML selection; PDB companion for PDB input
@@ -173,9 +173,10 @@ summary.
 
 - `--scan-lists` is a Python literal-eval expression. Most
   shell-quoting trouble traces back to single vs double quotes.
-- If `summary.json` shows `"status": "failed"` for any segment, look
-  at the corresponding `summary.log` block; per-stage errors are also
-  duplicated into `segments/seg_NN/<stage>/result.json`.
+- If the top-level `status` in `summary.json` is `"partial"` or `"failed"`,
+  read `status_reasons` and the matching `summary.log` block. Per-stage
+  `result.json` exists only for `ts/` and `irc/` (and endpoint-opt and
+  path-opt), not for `freq/` or `dft/`.
 - `segments/seg_NN/` may contain current-run partial artifacts after a
   later-stage failure; trust leaf outcomes and current-output claims, not
   directory existence. Failed segments can also leave engine scratch under

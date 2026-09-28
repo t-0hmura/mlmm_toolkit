@@ -12,25 +12,13 @@
 :hidden:
 
 getting-started
-cif
 concepts
 quickstart-all
 quickstart-scan-spec
 quickstart-tsopt-freq
+cif
 recipes-common-errors
 troubleshooting
-cli-conventions
-reproducibility
-ja/getting-started
-ja/cif
-ja/concepts
-ja/quickstart-all
-ja/quickstart-scan-spec
-ja/quickstart-tsopt-freq
-ja/recipes-common-errors
-ja/troubleshooting
-ja/cli-conventions
-ja/reproducibility
 ```
 
 ```{toctree}
@@ -39,53 +27,29 @@ ja/reproducibility
 :hidden:
 
 all
-extract
+fix-altloc
 add-elem-info
 mm-parm
+extract
 define-layer
+sp
 opt
-tsopt
 path-opt
 path-search
 scan
 scan2d
 scan3d
-freq
+tsopt
 irc
+freq
 dft
-sp
-trj2fig
-oniom-export
-oniom-import
-fix-altloc
 energy-diagram
+trj2fig
 bond-summary
+oniom-export
 oniom-gaussian
 oniom-orca
-ja/all
-ja/extract
-ja/add-elem-info
-ja/mm-parm
-ja/define-layer
-ja/opt
-ja/tsopt
-ja/path-opt
-ja/path-search
-ja/scan
-ja/scan2d
-ja/scan3d
-ja/freq
-ja/irc
-ja/dft
-ja/sp
-ja/trj2fig
-ja/oniom-export
-ja/oniom-import
-ja/fix-altloc
-ja/energy-diagram
-ja/bond-summary
-ja/oniom-gaussian
-ja/oniom-orca
+oniom-import
 ```
 
 ```{toctree}
@@ -95,30 +59,84 @@ ja/oniom-orca
 
 reference/commands/index
 reference/yaml
+cli-conventions
 yaml-reference
 json-output
-mlmm-calc
-python-api
+output-layout
 backends
 device-hpc
-architecture
-output-layout
+reproducibility
+mlmm-calc
+python-api
 mcp_server
+architecture
 glossary
-ja/yaml-reference
-ja/json-output
-ja/mlmm-calc
-ja/python-api
-ja/device-hpc
-ja/glossary
 ```
 
 ```{toctree}
-:maxdepth: 1
-:caption: Language
+:maxdepth: 2
+:caption: ガイド
 :hidden:
 
-日本語 <ja/index>
+ja/index
+ja/getting-started
+ja/concepts
+ja/quickstart-all
+ja/quickstart-scan-spec
+ja/quickstart-tsopt-freq
+ja/cif
+ja/recipes-common-errors
+ja/troubleshooting
+```
+
+```{toctree}
+:maxdepth: 2
+:caption: コマンド
+:hidden:
+
+ja/all
+ja/fix-altloc
+ja/add-elem-info
+ja/mm-parm
+ja/extract
+ja/define-layer
+ja/sp
+ja/opt
+ja/path-opt
+ja/path-search
+ja/scan
+ja/scan2d
+ja/scan3d
+ja/tsopt
+ja/irc
+ja/freq
+ja/dft
+ja/energy-diagram
+ja/trj2fig
+ja/bond-summary
+ja/oniom-export
+ja/oniom-gaussian
+ja/oniom-orca
+ja/oniom-import
+```
+
+```{toctree}
+:maxdepth: 2
+:caption: リファレンス
+:hidden:
+
+ja/cli-conventions
+ja/yaml-reference
+ja/json-output
+ja/output-layout
+ja/backends
+ja/device-hpc
+ja/reproducibility
+ja/mlmm-calc
+ja/python-api
+ja/mcp_server
+ja/architecture
+ja/glossary
 ```
 
 ## Quick start
@@ -233,7 +251,7 @@ mlmm opt -i layered.pdb --parm7 system.parm7 -q 0 --show-config --dry-run
 
 ## Output layout
 
-In MEP mode, `all` writes `summary.log` and `summary.json`, the MEP (`mep_trj.pdb` / `mep_trj.xyz`, plus `mep.cif` for bridged input), and `energy_diagram_MEP.png`.
+In MEP mode, `all` writes `summary.log` and `summary.json`, the MEP (`mep_trj.pdb` / `mep_trj.xyz`, plus `mep_trj.cif` for bridged input), and `energy_diagram_MEP.png`.
 Reusable preparation outputs are `ml_region.pdb`, `mm_parm/`, and `layered/`.
 `segments/seg_NN/` holds R/TS/P structures and requested TS/IRC/freq/DFT results; `_work/` holds intermediate preparation, scan, and path outputs.
 TS-only runs use E1/TS/E2 labels and produce no MEP.

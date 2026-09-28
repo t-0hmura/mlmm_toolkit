@@ -204,7 +204,7 @@ opt:
  max_force_only: false # Rely only on max force convergence
  force_only: false # Skip displacement checks
  converge_to_geom_rms_thresh: 0.05 # RMS threshold when converging to reference geometry
- overachieve_factor: 0.0 # Factor to tighten thresholds
+ overachieve_factor: 0.0 # 0.0 = off; >0: converge when forces < thresh/factor, ignoring step (not used by baker)
  check_eigval_structure: false # Validate Hessian eigenstructure
  energy_plateau: false # Opt-in (--stop-plateau): stop the optimizer as stalled (status: "stalled", never converged) when the energy plateaus
  energy_plateau_thresh: 1.0e-4 # Energy range tolerance in au (~0.06 kcal/mol)
@@ -301,7 +301,7 @@ rfo:
  hessian_recalc_adapt: null # Adaptive Hessian rebuild factor
  small_eigval_thresh: 1.0e-08 # Eigenvalue threshold for stability
  alpha0: 1.0 # Initial micro step
- max_micro_cycles: 50 # Micro-iteration limit
+ max_micro_cycles: 50 # RS iterations per step (not ML/MM microiteration)
  rfo_overlaps: false # Enable RFO overlaps
  gediis: false # Enable GEDIIS
  gdiis: true # Enable GDIIS
@@ -350,7 +350,7 @@ gs:
  reparam_every: 1 # Reparameterization stride
  reparam_every_full: 1 # Full reparameterization stride
  param: equi # Parameterization scheme
- max_micro_cycles: 10 # Micro-iteration limit
+ max_micro_cycles: 10 # RS iterations per step (not ML/MM microiteration)
  reset_dlc: true # Rebuild delocalized coordinates each step
  climb: true # Enable climbing image
  climb_rms: 0.0005 # Climbing RMS threshold
@@ -531,7 +531,7 @@ rsirfo:
  hessian_update: bofill # Hessian update scheme
  hessian_init: calc # Hessian initialization
  hessian_recalc_reset: true # Reset recalc counter after exact Hessian
- max_micro_cycles: 50 # Micro-iterations per macro cycle
+ max_micro_cycles: 50 # RS iterations per step (not ML/MM microiteration)
  augment_bonds: false # Augment reaction path based on bond analysis
  min_line_search: false # Always false: RS-P-RFO does not use line searches
  max_line_search: false # Always false: RS-P-RFO does not use line searches
@@ -726,7 +726,7 @@ geom:
 calc:
  model_charge: 0
  model_mult: 1
- backend: uma                  # MLIP backend: "uma", "orb", "mace", or "aimnet2"
+ backend: uma                  # High-level backend: "uma", "orb", "mace", "aimnet2", or "dft"
  uma_model: uma-s-1p2          # uma-s-1p2 | uma-s-1p1 | uma-m-1p1
  ml_device: auto
  hessian_calc_mode: Analytical   # Compare with FiniteDifference on a pilot

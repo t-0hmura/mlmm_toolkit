@@ -74,7 +74,7 @@ mlmm extract -i 1.R_raw.pdb 3.P_raw.pdb \
 
 Same as the base `all.md`. Specifically for endpoint-MEP mode:
 
-- `mep_trj.pdb` (and `mep.cif` for bridged input) at the output root — the full MEP across all segments
+- `mep_trj.pdb` (and `mep_trj.cif` for bridged input) at the output root — the full MEP across all segments
   (raw engine copy under `_work/path_opt/`, or `_work/path_search/` with `--refine-path`)
 - `segments/seg_01/ … seg_NN/` — per-segment string of nodes
 - `segments/seg_NN/{reactant,ts,product}.pdb` (plus CIF companions for bridged input) — canonical R/TS/P per
@@ -87,7 +87,7 @@ Same as the base `all.md`. Specifically for endpoint-MEP mode:
 | Symptom in `summary.json` | Likely cause | Fix |
 |---|---|---|
 | `status == "partial"`, or `bond-summary` reports extra changes vs the optimized MEP | Bond-change detector found extra changes; the reaction in the inputs and the reaction the optimizer found don't match. | Check which bonds changed via `bond-summary -i 1.R.pdb 3.P.pdb`; rerun standalone `path-search` with `--refine-mode minima`, or supply IM explicitly. |
-| `tsopt.n_imaginary_modes > 1` for a segment | Higher-order saddle or unresolved soft modes | Compare a Hessian-based mode and Dimer on the same seed/backend, then rerun frequency analysis and IRC connectivity checks. |
+| `post_segments[].tsopt.n_imaginary_modes > 1` | Higher-order saddle or unresolved soft modes | Compare a Hessian-based mode and Dimer on the same seed/backend, then rerun frequency analysis and IRC connectivity checks. |
 | Different atoms/order across `-i` inputs | Inconsistent input series | Compare ordered atom identities first, then apply one common extraction. |
 
 ## Caveats

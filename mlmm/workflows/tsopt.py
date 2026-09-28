@@ -137,6 +137,7 @@ from mlmm.workflows.freq import (
     _align_three_layer_hessian_targets,
     _ordered_hessian_coverage_atoms,
     _reconcile_hessian_analysis_basis,
+    _record_hessian_result_path,
     _resolve_active_atom_indices,
 )
 from pysisyphus.normal_modes import (
@@ -626,6 +627,78 @@ def _calc_full_hessian_torch(geom, calc_kwargs: Dict[str, Any], device: torch.de
         refresh_geom_meta=True,
     )
     return H
+
+
+def _load_initial_hessian_file(path, geom, calc_kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    """Read a ``--read-hess`` file in the movable-atom basis."""
+    from mlmm.io.hessian_file import load_hessian_file
+
+    freeze = calc_kwargs.get("freeze_atoms")
+    frozen = set(int(i) for i in (geom.freeze_atoms if freeze is None else freeze))
+    dofs = [
+        3 * atom + axis
+        for atom in range(len(geom.atomic_numbers))
+        if atom not in frozen
+        for axis in range(3)
+    ]
+    try:
+        hessian = load_hessian_file(path, n_atoms=len(geom.atomic_numbers), active_dofs=dofs)
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+    emit(f"[tsopt] Initial Hessian read from {path}.", narrative=True)
+    return {"hessian": hessian, "active_dofs": dofs}
+
+
+def _initial_hessian_in_basis(
+    entry: Dict[str, Any], dofs: Sequence[int], full_n_dof: int
+) -> torch.Tensor:
+    """Return a ``--read-hess`` Hessian in the basis a fresh evaluation uses."""
+    from mlmm.io.hessian_cache import reconcile_active_hessian
+
+    hessian = reconcile_active_hessian(entry, dofs, full_n_dof=full_n_dof)
+    if hessian is None:
+        raise click.ClickException(
+            "Hessian file does not cover the Hessian atoms of this run; "
+            "regenerate it with the same layer and Hessian settings."
+        )
+    return hessian
+
+
+def _dump_terminal_hessian(path, geom, calc_kwargs: Dict[str, Any]) -> Optional[Path]:
+    """Write the final TS Hessian for ``--dump-hess``; ``None`` if there is none."""
+    from mlmm.io.hessian_cache import identity_from_context, load_matching
+    from mlmm.io.hessian_file import save_hessian_file
+
+    entry = load_matching(
+        "ts",
+        identity_from_context(geom, calc_kwargs, role="ts"),
+        atol=1.0e-8,
+        any_run=True,
+    )
+    full_n_dof = int(geom.cart_coords.size)
+    hessian = None
+    if entry is not None and entry.get("hessian") is not None:
+        hessian = entry["hessian"]
+        if isinstance(hessian, torch.Tensor):
+            hessian = hessian.detach().cpu().numpy()
+        hessian = np.asarray(hessian, dtype=np.float64)
+        dofs = entry.get("active_dofs")
+        if dofs is not None and len(dofs) != full_n_dof and hessian.shape[0] == full_n_dof:
+            # Zero-padded 3N storage: keep only the evaluated block.
+            hessian = hessian[np.ix_(dofs, dofs)]
+        expected = full_n_dof if dofs is None else len(dofs)
+        if hessian.shape != (expected, expected):
+            hessian = None
+    if hessian is None:
+        click.echo(
+            "[tsopt] WARNING: no Hessian at the final geometry; "
+            "the --dump-hess file was not written.",
+            err=True,
+        )
+        return None
+    written = save_hessian_file(path, hessian)
+    emit(f"[tsopt] Hessian saved → {written} (shape={hessian.shape})", narrative=True)
+    return written
 
 
 from mlmm.core.calc_eval import calc_energy as _calc_energy  # noqa: E402
@@ -1756,6 +1829,9 @@ class HessianDimer:
         self.hessian_status = "not_run"
         self.hessian_error: Optional[str] = None
 
+        # ``--read-hess`` Hessian for the initial direction (set by the CLI).
+        self.initial_hessian: Optional[Dict[str, Any]] = None
+
         # Hessian caching for 0-step convergence (avoid redundant recalculation)
         self._raw_hessian_cache_cpu: Optional[torch.Tensor] = None
         self._raw_hessian_coords_cpu: Optional[np.ndarray] = None
@@ -2273,11 +2349,28 @@ class HessianDimer:
         H_final_reuse_coords: Optional[np.ndarray] = None
 
         # (1) Initial Hessian → pick direction by `root`
-        hess_kw_init = self.calc_kwargs_ml_only if self.ml_only_hessian_dimer else self.calc_kwargs_partial
-        if self.ml_only_hessian_dimer:
-            click.echo("[tsopt] Using ML-only Hessian for dimer orientation.")
-        H_t = _calc_full_hessian_torch(self.geom, hess_kw_init, self.device)
-        H_t = self._compact_hessian_to_computed_coverage(H_t)
+        if self.initial_hessian is not None:
+            dofs = [int(d) for d in self.initial_hessian["active_dofs"]]
+            H_t = _initial_hessian_in_basis(
+                self.initial_hessian, dofs, 3 * N
+            ).to(self.device)
+            self.geom.within_partial_hessian = (
+                None
+                if len(dofs) == 3 * N
+                else {
+                    "active_n_dof": len(dofs),
+                    "full_n_dof": 3 * N,
+                    "active_dofs": dofs,
+                    "active_atoms": sorted({d // 3 for d in dofs}),
+                }
+            )
+            self.initial_hessian = None
+        else:
+            hess_kw_init = self.calc_kwargs_ml_only if self.ml_only_hessian_dimer else self.calc_kwargs_partial
+            if self.ml_only_hessian_dimer:
+                click.echo("[tsopt] Using ML-only Hessian for dimer orientation.")
+            H_t = _calc_full_hessian_torch(self.geom, hess_kw_init, self.device)
+            H_t = self._compact_hessian_to_computed_coverage(H_t)
         coords_bohr_t = torch.as_tensor(self.geom.cart_coords.reshape(-1, 3),
                                         dtype=H_t.dtype, device=H_t.device)
         active_idx, mask_dof = self._resolve_hessian_active_subspace(H_t, N)
@@ -2584,6 +2677,29 @@ class HessianDimer:
                 H_t = H_final_reuse_cpu.to(self.device)
             else:
                 H_t = _calc_full_hessian_torch(self.geom, self.calc_kwargs_full, self.device)
+            # Publish the terminal Hessian so IRC and --dump-hess reuse it.
+            from mlmm.io.hessian_cache import (
+                identity_from_context as _hess_identity,
+                store as _hess_store,
+            )
+            _coverage = _ordered_hessian_coverage_atoms(self.geom, N)
+            if _coverage is None:
+                _hess_store(
+                    "ts", H_t, active_dofs=None,
+                    meta={"cart_coords": self.geom.cart_coords, "source": "tsopt_exact"},
+                    identity=_hess_identity(self.geom, self.calc_kwargs, role="ts"),
+                )
+            else:
+                _H_cov, _, _cov_atoms, _ = _reconcile_hessian_analysis_basis(
+                    H_t, self.geom, _coverage
+                )
+                _hess_store(
+                    "ts", _H_cov,
+                    active_dofs=[3 * a + k for a in sorted(_cov_atoms) for k in range(3)],
+                    meta={"cart_coords": self.geom.cart_coords, "source": "tsopt_exact"},
+                    identity=_hess_identity(self.geom, self.calc_kwargs, role="ts"),
+                )
+                del _H_cov
             raw_hessian_shape = tuple(H_t.shape)
             H_analysis, active_idx_final, computed_atoms, storage = (
                 _reconcile_hessian_analysis_basis(
@@ -2686,6 +2802,7 @@ def _run_microiter_tsopt(
     mode: str = "rsprfo",
     reference_mode: Optional[np.ndarray] = None,
     flatten_enabled: bool = False,
+    initial_hessian: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Run macro/micro alternating TS optimization (Gaussian 16-style microiteration).
 
@@ -2914,12 +3031,15 @@ def _run_microiter_tsopt(
         )
         hess_device = _torch_device(calc_cfg.get("ml_device", "auto"))
 
+        # A --read-hess file comes first;
         # reuse a cached TS Hessian only on a full evaluation-identity match.
-        cached_ts = _hess_load_matching(
-            "ts",
-            _hess_identity(geometry, calc_cfg, role="ts"),
-            atol=1.1e-3,
-        )
+        cached_ts = initial_hessian
+        if cached_ts is None:
+            cached_ts = _hess_load_matching(
+                "ts",
+                _hess_identity(geometry, calc_cfg, role="ts"),
+                atol=1.1e-3,
+            )
         macro_free_atoms = sorted(
             set(range(geometry.cart_coords.size // 3)) - set(macro_freeze)
         )
@@ -2930,14 +3050,21 @@ def _run_microiter_tsopt(
         ]
         _cache_used = False
         if cached_ts is not None:
-            h_init = _hess_reconcile_active(
-                cached_ts,
-                macro_free_dofs,
-                full_n_dof=geometry.cart_coords.size,
-            )
+            if initial_hessian is not None:
+                h_init = _initial_hessian_in_basis(
+                    initial_hessian, macro_free_dofs, geometry.cart_coords.size
+                )
+            else:
+                h_init = _hess_reconcile_active(
+                    cached_ts,
+                    macro_free_dofs,
+                    full_n_dof=geometry.cart_coords.size,
+                )
             if h_init is not None:
                 emit(
-                    "[microiter] Reusing cached TS Hessian for the macro TS step.",
+                    "[microiter] Reusing "
+                    + ("the --read-hess" if initial_hessian is not None else "cached TS")
+                    + " Hessian for the macro TS step.",
                     detail=True,
                 )
                 geometry.freeze_atoms = macro_freeze
@@ -2950,8 +3077,9 @@ def _run_microiter_tsopt(
                 }
                 geometry.cart_hessian = h_init
                 click.echo(
-                    "[microiter] Initial Hessian seeded from cache "
-                    f"(shape={h_init.shape[0]}x{h_init.shape[1]})."
+                    "[microiter] Initial Hessian seeded from "
+                    + ("file" if initial_hessian is not None else "cache")
+                    + f" (shape={h_init.shape[0]}x{h_init.shape[1]})."
                 )
                 _cache_used = True
                 del h_init
@@ -3565,14 +3693,14 @@ def _prepare_tsopt_output_dir(
     "show_config",
     default=False,
     show_default=True,
-    help="Print resolved configuration and continue execution.",
+    help="Print the loaded YAML file and its top-level keys, then continue.",
 )
 @click.option(
     "--dry-run/--no-dry-run",
     "dry_run",
     default=False,
     show_default=True,
-    help="Validate options and print the execution plan without running TS optimization.",
+    help="Validate options and inputs without running TS optimization.",
 )
 @click.option(
     "--convert-files/--no-convert-files",
@@ -3637,6 +3765,27 @@ def _prepare_tsopt_output_dir(
         "order; mlmm all stops before IRC because no imaginary direction can "
         "be validated."
     ),
+)
+@click.option(
+    "--read-hess",
+    "read_hess",
+    type=click.Path(exists=True, dir_okay=False),
+    default=None,
+    show_default="None",
+    help="Start from the Hessian in this .npy file (e.g. from freq or tsopt "
+         "--dump-hess) instead of computing it: the Cartesian Hessian of the "
+         "input geometry in Hartree/bohr^2, for all atoms or only the movable ones.",
+)
+@click.option(
+    "--dump-hess",
+    "dump_hess",
+    type=click.Path(dir_okay=False),
+    default=None,
+    show_default="None",
+    help="Save the Hessian of the final geometry as a NumPy .npy array "
+         "(Cartesian, Hartree/bohr^2; only the atoms in the Hessian calculation "
+         "when atoms are frozen or --hess-cutoff is set) for '--read-hess' in "
+         "freq, tsopt, or irc, or for other programs.",
 )
 @click.option(
     "--out-json/--no-out-json",
@@ -3725,6 +3874,8 @@ def cli(
     mm_backend: Optional[str],
     use_cmap: Optional[bool],
     skip_final_freq: bool,
+    read_hess: Optional[str],
+    dump_hess: Optional[str],
     out_json: bool,
     precision: Optional[str],
     workers: Optional[int],
@@ -3737,6 +3888,11 @@ def cli(
 ) -> None:
     set_convert_file_enabled(convert_files)
     _is_param_explicit = make_is_param_explicit(ctx)
+    if dump_hess and skip_final_freq:
+        raise click.BadParameter(
+            "--dump-hess needs the final Hessian; drop --skip-final-freq.",
+            param_hint="--dump-hess",
+        )
 
     config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
         config_yaml=config_yaml,
@@ -4267,6 +4423,8 @@ def cli(
             else None
         ),
         reference_mode_path,
+        Path(read_hess) if read_hess else None,
+        Path(dump_hess) if dump_hess else None,
     )
     try:
         _reject_tsopt_output_collisions(
@@ -4342,6 +4500,11 @@ def cli(
             dict(simple_cfg.get("lbfgs", {})), opt_cfg
         )
         click.echo(pretty_block("hessian_dimer", sd_cfg_for_echo))
+    if use_heavy and read_hess and rsirfo_cfg.get("hessian_init", "calc") != "calc":
+        prepared_input.cleanup()
+        raise click.BadParameter(
+            "--read-hess needs hessian_init: calc.", param_hint="--read-hess"
+        )
 
     geometry = None
     try:
@@ -4364,6 +4527,11 @@ def cli(
                 **coord_kwargs,
             )
             initial_ts_cart_coords = geometry.cart_coords.copy()
+            _initial_hessian = (
+                _load_initial_hessian_file(read_hess, geometry, calc_cfg)
+                if read_hess
+                else None
+            )
 
             echo_resolved_device()
             _heavy_optimizer_converged = False
@@ -4410,6 +4578,7 @@ def cli(
                     flatten_enabled=bool(
                         int(simple_cfg.get("flatten_max_iter", 0)) > 0
                     ),
+                    initial_hessian=_initial_hessian,
                 )
                 _heavy_optimizer_converged = bool(microiter_outcome["converged"])
                 _heavy_safeguards = dict(microiter_outcome["safeguards"])
@@ -4430,9 +4599,29 @@ def cli(
                 base_calc = mlmm(**calc_cfg)
                 geometry.set_calculator(base_calc)
 
-                click.echo("[tsopt] Seeding initial Hessian via shared freq backend.")
                 hess_device = _torch_device(simple_cfg.get("device", calc_cfg.get("ml_device", "auto")))
-                h_init = _calc_full_hessian_torch(geometry, calc_cfg, hess_device)
+                if _initial_hessian is not None:
+                    # Same basis and geometry metadata as a fresh evaluation.
+                    _core = getattr(base_calc, "core", base_calc)
+                    _n_dof = int(geometry.cart_coords.size)
+                    _hess_atoms = [int(a) for a in _core.hess_active_atoms]
+                    _hess_dofs = [3 * a + k for a in _hess_atoms for k in range(3)]
+                    _within = (
+                        _core._build_within_partial_hessian()
+                        if getattr(_core, "return_partial_hessian", False)
+                        else None
+                    )
+                    h_init = _initial_hessian_in_basis(
+                        _initial_hessian,
+                        _hess_dofs if _within is not None else range(_n_dof),
+                        _n_dof,
+                    ).to(hess_device)
+                    geometry.within_partial_hessian = _within
+                    geometry._hess_active_atoms_last = np.asarray(_hess_atoms, dtype=int)
+                    geometry._hess_active_dofs_last = np.asarray(_hess_dofs, dtype=int)
+                else:
+                    click.echo("[tsopt] Seeding initial Hessian via shared freq backend.")
+                    h_init = _calc_full_hessian_torch(geometry, calc_cfg, hess_device)
                 geometry.cart_hessian = h_init
                 click.echo(
                     f"[tsopt] Initial Hessian seeded (shape={h_init.shape[0]}x{h_init.shape[1]})."
@@ -5350,6 +5539,10 @@ def cli(
                 source_path=source_path,
                 skip_final_freq=skip_final_freq,
             )
+            if read_hess:
+                runner.initial_hessian = _load_initial_hessian_file(
+                    read_hess, runner.geom, runner.calc_kwargs
+                )
 
             echo_resolved_device()
 
@@ -5363,6 +5556,14 @@ def cli(
                 stalled=getattr(runner, "is_stalled", False),
                 stop_reason=getattr(runner, "stop_reason", None) or None,
                 converged_message="Numerical optimization converged.",
+            )
+
+        _dump_hess_path: Optional[Path] = None
+        if dump_hess:
+            _dump_hess_path = _dump_terminal_hessian(
+                dump_hess,
+                geometry if use_heavy else runner.geom,
+                calc_cfg if use_heavy else runner.calc_kwargs,
             )
 
         if is_convert_file_enabled() and source_path.suffix.lower() == ".pdb":
@@ -5659,6 +5860,8 @@ def cli(
                     for f in _vib_dir.glob(pattern)
                     if f.is_file()
                 ])
+            if _dump_hess_path is not None:
+                _record_hessian_result_path(result_data["files"], _dump_hess_path)
             write_result_json(
                 out_dir_path, result_data,
                 command="tsopt",

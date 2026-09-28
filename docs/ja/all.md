@@ -89,7 +89,7 @@ ML領域PDB pairは別の成果物であり、PDB入力では常に出力され�
    - 抽出器は入力ごとのポケット PDB を `<out-dir>/_work/pockets/` に書き出します。最初のポケットが `<out-dir>/ml_region.pdb`（`--model-pdb` として再利用可能な成果物）としてコピーされ、後続の全 ML/MM 計算の ML 領域を定義します。
    - `<out-dir>/ml_region_without_linkH.xyz` と `ml_region_with_linkH.xyz` に、リンク H 挿入前後のモデル系を出力します。PDB 入力では対応する `.pdb` companion も出力します。自動リンクペアは ML/MM 選択を横切る parm7 結合から決まり、距離による結合認識は行いません。
    - 抽出器の**最初のモデルの ML 領域の総電荷**が後続ステップの総電荷として使用され、丸め処理が発生した場合はコンソールに通知されます。
-   - `-c/--center` を省略した場合は抽出をスキップし、完全入力構造をそのまま使用します。
+   - `-c/--center` を省略した場合は抽出をスキップし、入力構造の全体を全系として使います。ML 領域は入力の B-factor レイヤー（既定の `--detect-layer`）か `--model-pdb` から取り、どちらも無いとエラーで止まります。
 
 2. **ML/MM 準備（parm7 + レイヤー割り当て）**
    - 最初の完全入力 PDB に対して `mm_parm` を一度実行し、`<out-dir>/mm_parm/<input_basename>.parm7` / `.rst7`（`--parm7` として再利用可能な成果物）を構築します。これは自動的に `--parm7` として渡されます。
@@ -108,7 +108,7 @@ ML領域PDB pairは別の成果物であり、PDB入力では常に出力され�
    - マルチ入力実行では、元の完全 PDB がマージ参照として自動的に供給されます。スキャン由来の系列（単一構造の場合）では、元の完全 PDB 1 つがすべての入力の参照テンプレートとして再利用されます。
 
 5. **サマリーと任意の後処理**
-   - MEP エンジン生出力（セグメントごとの軌跡、全 MEP 軌跡、エンジンの `summary.json`）は `<out-dir>/_work/path_opt/`（`--refine-path` 使用時は `<out-dir>/_work/path_search/`）に書き出され、マージ済み成果物（`mep_trj.pdb`、bridge 入力時の `mep.cif`、`mep_trj.xyz`、`mep_plot.png`、`energy_diagram_MEP.png`）は `<out-dir>/` へ移動され、`summary.{json,log}` はコピーされます。
+   - MEP エンジン生出力（セグメントごとの軌跡、全 MEP 軌跡、エンジンの `summary.json`）は `<out-dir>/_work/path_opt/`（`--refine-path` 使用時は `<out-dir>/_work/path_search/`）に書き出され、マージ済み成果物（`mep_trj.pdb`、bridge 入力時の `mep_trj.cif`、`mep_trj.xyz`、`mep_plot.png`、`energy_diagram_MEP.png`）は `<out-dir>/` へ移動され、`summary.{json,log}` はコピーされます。
    - `--tsopt`: 各 HEI で TS を最適化します。TS 判定を通過した後、EulerPC IRC とセグメントエネルギーダイアグラムへ進みます。`--thermo` と `--dft` にも `--tsopt` が必要です。
    - `--thermo`: (R, TS, P) で ML/MM 熱化学を計算し、Gibbs ダイアグラムを追加します。
    - `--dft`: (R, TS, P) のモデル領域で DFT 一点計算を実行し、モデル DFT 電子エネルギーダイアグラムを追加します。`--thermo` と組み合わせると、subtractive DFT//MLIP/MM 全エネルギーに ML/MM 熱補正を加えた DFT//MLIP/MM Gibbs ダイアグラムも生成されます。大規模な本計算では、まずMLIP pipelineを完了し、VRAMを解放した別process/jobで`sp -b dft`を実行することを推奨します。`all -b dft --dft`は主DFT計算を重複するためエラーです。
@@ -127,13 +127,13 @@ ML領域PDB pairは別の成果物であり、PDB入力では常に出力され�
 
 ## 出力
 
-ツリーは 3 つのゾーンで構成されます: **ルート直下の成果物**、**`segments/seg_NN/` 配下のセグメント別成果物**、**`_work/` 配下のパイプライン作業領域**（結果を取り出したあとは削除して構いません）。最初に確認する 3 つは `summary.log`、`summary.json`、`mep_trj.pdb`（連結した反応経路。ルートへ移動）です。CIF/mmCIF bridge 入力では、元の識別子を復元した `mep.cif` もルートへ移動します。
+ツリーは 3 つのゾーンで構成されます: **ルート直下の成果物**、**`segments/seg_NN/` 配下のセグメント別成果物**、**`_work/` 配下のパイプライン作業領域**（結果を取り出したあとは削除して構いません）。最初に確認する 3 つは `summary.log`、`summary.json`、`mep_trj.pdb`（連結した反応経路。ルートへ移動）です。CIF/mmCIF bridge 入力では、元の識別子を復元した `mep_trj.cif` もルートへ移動します。
 
 ```text
 <out-dir>/
  summary.json                          # トップレベルサマリーのミラー（MEP ステージ実行時）
  summary.log
- mep_trj.pdb · mep.cif                     # CIF は bridge 入力で元の ID を復元
+ mep_trj.pdb · mep_trj.cif             # CIF は bridge 入力で元の ID を復元
  mep_trj.xyz
  mep_plot.png                          # MEP 生エネルギープロファイル
  energy_diagram_MEP.png                # 全セグメント MEP 障壁
@@ -208,7 +208,7 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 | オプション | 説明 | デフォルト |
 | --- | --- | --- |
 | `-i, --input PATH...` | 反応順の 2 つ以上の完全構造。PDB/mmCIF は直接、XYZ は `--ref-pdb` と併用（`--scan-lists`（段階的スキャン）または `--tsopt`（TSOPT のみ）の場合のみ単一入力可）。 | 必須 |
-| `-c, --center TEXT` | 基質指定（PDB パス、残基 ID（`308,309`）、または残基名（`SAM,GPP`））。省略時は抽出をスキップし完全構造をそのまま使用。 | _None_ |
+| `-c, --center TEXT` | 基質指定（PDB パス、残基 ID（`308,309`）、または残基名（`SAM,GPP`））。省略すると抽出をスキップ。 | _None_ |
 | `-l, --ligand-charge TEXT` | 非標準残基の総電荷または残基別マッピング（例: `GPP:-3,MMT:-1`）。 | _None_ |
 | `-q, --charge INT` | ML 領域/model system の正味電荷を強制指定（最優先の上書き）。 | _None_ |
 | `--freeze-atoms TEXT` | 全系の1始まり原子indexをカンマ区切りで指定し、scan/MEP/TSOPT/IRC/振動解析を通して固定。YAML `geom.freeze_atoms` および自動検出されたFrozen-MM layerとマージする。 | _None_ |
@@ -367,7 +367,7 @@ geom:
 calc:
  model_charge: 0
  model_mult: 1
- backend: uma                    # ML バックエンド (uma/orb/mace/aimnet2)
+ backend: uma                    # 高レベルbackend (uma/orb/mace/aimnet2/dft)
  uma_model: uma-s-1p2            # uma-s-1p2 | uma-m-1p1
  hessian_calc_mode: Analytical     # 代表的な pilot で FiniteDifference と比較
 gs:

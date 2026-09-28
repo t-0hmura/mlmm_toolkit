@@ -15,6 +15,7 @@ Target release: **0.4.0**.
 - Add native PySCF point-charge embedding with complete QM/MM force and finite-difference Hessian response.
 - Add distance, angle, and dihedral coordinates to `scan`, `scan2d`, `scan3d`, and `all`.
 - Add verified `all --resume-segment N` post-processing restart from a saved MEP.
+- Add `--read-hess` to `freq` and `tsopt`, and `--dump-hess` to `tsopt`, so one Hessian file can be passed between `freq`, `tsopt`, and `irc`.
 
 ### Changed
 
@@ -22,10 +23,23 @@ Target release: **0.4.0**.
 - Use the current FAIR-Chem/Torch stack and native CUDA 13 DFT/OpenMM wheels; retain CUDA 12 DFT through the `dft-cuda12` extra.
 - Classify imaginary modes with the strict ν < −5.00 cm⁻¹ criterion and include optimization cycle counts in `all` summaries.
 - Use common CLI names with compatibility aliases, canonical boolean toggles, and conflict-checked YAML/CLI precedence.
-- Name the aggregate PDB trajectory `mep_trj.pdb`.
+- Name the aggregate MEP trajectory `mep_trj.pdb` and its bridged-input CIF companion `mep_trj.cif`.
 - Use the TS-BFGS Hessian update by default for RFO minimizations (`rfo.hessian_update: ts_bfgs`).
 - Run terminal PHVA after an energy-plateau stop (`stalled`) in `tsopt` and report n_imag; runs that end at the cycle limit still skip it.
 - Warn and fall back to `false` when `rsirfo.min_line_search` or `rsirfo.max_line_search` is `true` for RS-P-RFO.
+- Describe `--show-config` as printing the loaded YAML file and its top-level keys, and `--dry-run` as validating options and inputs, matching what they print at the default verbosity.
+- `define-layer` uses `--model-pdb` when both `--model-pdb` and `--model-indices` are given, matching the calculation commands.
+- **Breaking:** `--dump-hess` / `--read-hess` files are now one plain NumPy `.npy` array (Cartesian Hessian in Hartree/bohr², all atoms or only the atoms in the Hessian calculation) instead of `.npz`, so other programs can read and write them; `--read-hess` checks only size, symmetry, and finiteness. `result.json` names the file in `files.hessian_npy` (absolute path). Convert an older file with `numpy.save("hessian.npy", numpy.load("old.npz")["hessian"])`.
+
+### Fixed
+
+- When both `--model-pdb` and `--model-indices` are given, B-factor MM layers now exclude the `--model-pdb` atoms, matching the calculator's ML region.
+- `freq` no longer fails with `AttributeError` when it reuses a TS Hessian from an earlier stage that was stored without its energy.
+
+### Removed
+
+- Remove `irc --allow-unverified-hess-state`, `rigid_projection.electronic_state_verified`, and the IRC `hessian_file_schema` / `hessian_file_sha256` result keys. `rigid_projection.hessian_source` reports where the IRC Hessian came from.
+- Remove the v0.1.x calculator keyword aliases (`real_pdb`, `real_rst7`, `vib_run`, `vib_dir`) and the `mlmm_ase()` factory; use `input_pdb` and `MLMMASECalculator(MLMMCore(...))`.
 
 ## [0.3.7] — 2026-09-19
 
@@ -47,7 +61,7 @@ Replaces the withdrawn v0.3.5 release.
 
 ### Breaking changes
 
-- JSON schema 3.0 removes IRC directional success fields; diagnostics are reported separately from numerical convergence.
+- JSON schema 3.0 removes IRC directional success fields and the `energy_reactant_hartree` / `energy_product_hartree` aliases; diagnostics are reported separately from numerical convergence.
 
 ### Changed
 

@@ -229,8 +229,9 @@ mlmm energy-diagram -i 0.0 -i 21.5 -i -0.7 --label-x R --label-x TS --label-x P 
 ```
 
 > Resuming after a walltime hit uses these same commands — see `mlmm-cli/all.md`
-> "Resume / restart". On any non-success status read `summary.log`, then
-> `segments/seg_NN/<stage>/result.json`, before retrying. If an IRC Bofill Hessian
+> "Resume / restart". On any non-success status read `summary.log`, then the
+> per-stage `result.json` under `ts/`, `irc/`, or `endpoint_opt/` (`freq/` and
+> `dft/` have none), before retrying. If an IRC Bofill Hessian
 > update exhausts GPU memory, rerun with `PYSIS_BOFILL_CPU_OFFLOAD=1`. This
 > explicit fallback moves the full Hessian to CPU, forms the dense SR1/PSB terms
 > there, and copies the update back to the original device. It trades
@@ -289,7 +290,7 @@ Per-segment keys (`summary.json["segments"][i]`, from path-search output):
 | `kind` | `"seg"` or `"bridge"` (non-bridge reactive segments are `"seg"`) |
 | `barrier_kcal` | MEP barrier — peak energy along the segment, kcal/mol (relative to segment reactant) |
 | `delta_kcal` | MEP reaction energy — segment endpoint difference, kcal/mol |
-| `bond_changes` | Multi-line **string** in the form `"Bond formed (k):\n  Cs-C : 3.17 Å -> 1.68 Å\n..."` (empty for `kind=="bridge"`). Default cutoff is 1.20× covalent radii (with internal margin 0.05) — see `mlmm-cli/bond-summary.md`. |
+| `bond_changes` | Multi-line **string** in the form `"Bond formed (k):\n  - C12-C7 : 3.170 Å --> 1.680 Å\n..."` (empty for `kind=="bridge"`). Default cutoff is 1.20× covalent radii (with internal margin 0.05) — see `mlmm-cli/bond-summary.md`. |
 
 Per-segment keys in the post-processing list (`summary.json["post_segments"][i]`, populated when `--tsopt` / `--thermo` / `--dft` are active):
 
@@ -405,8 +406,8 @@ The flat `{"formed": [...], "broken": [...]}` dict shape is used in the **`irc` 
 When `summary.json["status"] != "success"`, look at:
 
 1. `summary.log` — human-readable, prints the failure point first.
-2. `segments/seg_NN/<stage>/result.json` — per-stage status (which step
-   crashed).
+2. `segments/seg_NN/{ts,irc,endpoint_opt}/result.json` — per-stage status
+   (which step crashed). `all` does not write one under `freq/` or `dft/`.
 3. Captured terminal or scheduler stderr — traceback/diagnostics not represented in the JSON envelope.
 
 Even on failed runs, partial outputs are kept:
@@ -424,10 +425,13 @@ are available and export succeeds:
 
 - `energy_diagram_MEP.png` — bare MEP energies from the path-search
   string (MLIP, no thermochemistry).
-- `energy_diagram_MLIP_all.png` (etc.) — per-segment energies for
+- `energy_diagram_MLIP_all.png` — per-segment energies for
   whichever backend was used.
 - `energy_diagram_G_MLIP_all.png` — Gibbs free-energy diagram with
   QRRHO thermochemistry (when `--thermo`).
+- `energy_diagram_DFT_all.png` — DFT single-point energies (when `--dft`).
+- `energy_diagram_G_DFT_plus_MLIP_all.png` — DFT energies plus MLIP
+  thermal corrections (when `--dft` and `--thermo`).
 
 To compose a custom diagram from energies of multiple runs, use
 `mlmm-cli/energy-diagram.md`:

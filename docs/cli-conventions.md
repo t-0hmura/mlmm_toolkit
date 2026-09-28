@@ -43,7 +43,7 @@ mlmm <subcmd> --help-advanced       # full option set
 | `-v 0` | Silent. Confirm success from the exit code and the output artifacts. |
 | `-v 1` | Milestones only: version, input summary, key settings, output location, dry-run / final status. No banner, `[command]`, `[mode]`, or config dump. |
 | `-v 2` | Default. Adds the banner, `[command]`, `[mode]`, stage progress, the main optimizer cycle table, terminal status, the one-line Hessian summary, thermo / DFT summaries, and elapsed time. |
-| `-v 3` | Debug: resolved config / dry-run plan, backend DEBUG, raw optimizer and internal-coordinate chatter, `[HessianTiming]`, and `[HessianVRAM]`. |
+| `-v 3` | Debug: resolved config, backend DEBUG, raw optimizer and internal-coordinate chatter, `[HessianTiming]`, and `[HessianVRAM]`. |
 
 A semantic failure is a failure at any level: a `Traceback` that appears only at `-v 3` still means the run failed.
 
@@ -127,8 +127,9 @@ calc:
 ## Charge specification
 
 For PDB inputs, `--ligand-charge` specifies charges for unknown/non-standard
-ligand residues such as substrates and cofactors. Recognized ions use the
-internal `ION` table and must not be repeated in `-l`; the net charge of the
+ligand residues such as substrates and cofactors. Recognized ions take their
+charge from the internal `ION` table (`MG` is +2); listing one in `-l` with the
+same value is accepted, and a different value is ignored with a warning. The net charge of the
 selected ML region/model system is derived by summing amino-acid,
 recognized-ion, and supplied ligand charges.
 
@@ -166,11 +167,11 @@ Always provide `--ligand-charge` for non-standard residues so charges propagate 
 
 ```bash
 --scan-lists '[(1, 5, 2.0)]'                                          # 1-based integer indices
---scan-lists '[("TYR,285,CA", "MMT,309,C10", 2.20)]'                  # PDB-style selector strings
---scan-lists '[("A:TYR:285:CA", "B:MMT:309A:C10", 2.20)]'             # exact chain-qualified form
+--scan-lists '[("SAM,320,CS1", "GPP,321,C7", 1.60)]'                  # PDB-style selector strings
+--scan-lists '[("A:SAM:320:CS1", "A:GPP:321:C7", 1.60)]'             # exact chain-qualified form
 ```
 
-Selector field delimiters: space · comma · slash · backtick · backslash — e.g. `'TYR 285 CA'`, `'TYR,285,CA'`, `'TYR/285/CA'`, `` 'TYR`285`CA' ``, `'TYR\285\CA'`. The three tokens (residue name / residue number / atom name) may appear in any order — the parser falls back to a heuristic for non-standard orderings.
+Selector field delimiters: space · comma · slash · backtick · backslash — e.g. `'SAM 320 CS1'`, `'SAM,320,CS1'`, `'SAM/320/CS1'`, `` 'SAM`320`CS1' ``, `'SAM\320\CS1'`. The three tokens (residue name / residue number / atom name) may appear in any order — the parser falls back to a heuristic for non-standard orderings.
 
 For repeated identifiers and mmCIF inputs, prefer the exact four-field form
 `CHAIN:RESNAME:RESSEQ[ICODE]:ATOM`; it avoids heuristic matching and supports

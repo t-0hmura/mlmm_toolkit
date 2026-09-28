@@ -328,20 +328,43 @@ def check_irc_handoff(root: Path, hessian_file: Path) -> None:
         raise SystemExit("IRC Hessian handoff did not produce both nontrivial branches")
     freq_result_path = hessian_file.parent / "result.json"
     freq_payload = json.loads(freq_result_path.read_text(encoding="utf-8"))
-    reported_hessian = (freq_payload.get("files") or {}).get("hessian_npz")
+    reported_hessian = (freq_payload.get("files") or {}).get("hessian_npy")
     if Path(str(reported_hessian)).resolve() != hessian_file.resolve():
         raise SystemExit(
             f"freq result does not identify its Hessian dump: {reported_hessian!r}"
         )
-    with np.load(hessian_file, allow_pickle=False) as data:
-        active = np.asarray(data["wph_active_dofs"], dtype=int).reshape(-1)
-        hessian = np.asarray(data["hessian"], dtype=float)
-        full_n_dof = int(data["wph_full_n_dof"])
-        coords = np.asarray(data["cart_coords_bohr"], dtype=float).reshape(-1)
-        if not (active.size == hessian.shape[0] < full_n_dof == coords.size):
-            raise SystemExit("freq dump was not a self-consistent partial Hessian")
-        if list(projection.get("hessian_shape") or []) != list(hessian.shape):
-            raise SystemExit("IRC result does not report the dumped partial-Hessian shape")
+    hessian = np.load(hessian_file, allow_pickle=False)
+    if projection.get("hessian_space") != "active":
+        raise SystemExit("IRC did not consume the freq dump as a partial Hessian")
+    if list(projection.get("hessian_shape") or []) != list(hessian.shape):
+        raise SystemExit("IRC result does not report the dumped partial-Hessian shape")
+
+
+def check_hessian_dump(root: Path, hessian_file: Path) -> None:
+    """A converged tsopt run names its --dump-hess file in result.json."""
+    payload = json.loads((root / "result.json").read_text(encoding="utf-8"))
+    if payload.get("status") != "converged":
+        raise SystemExit(f"TS optimization did not converge: {payload.get('status')!r}")
+    reported = (payload.get("files") or {}).get("hessian_npy")
+    if reported is None or Path(str(reported)).resolve() != hessian_file.resolve():
+        raise SystemExit(f"tsopt result does not identify its Hessian dump: {reported!r}")
+    hessian = np.load(hessian_file, allow_pickle=False)
+    if hessian.ndim != 2 or hessian.shape[0] != hessian.shape[1] or hessian.shape[0] % 3:
+        raise SystemExit(f"dumped Hessian has an invalid shape: {hessian.shape}")
+    if not np.all(np.isfinite(hessian)):
+        raise SystemExit("dumped Hessian is not finite")
+    if not np.allclose(hessian, hessian.T):
+        raise SystemExit("dumped Hessian is not symmetric")
+
+
+def check_hessian_read(root: Path, log_file: Path) -> None:
+    """A --read-hess run uses the file and does not recompute the Hessian."""
+    payload = json.loads((root / "result.json").read_text(encoding="utf-8"))
+    source = (payload.get("rigid_projection") or {}).get("hessian_source")
+    if source != "file":
+        raise SystemExit(f"run did not use --read-hess: hessian_source={source!r}")
+    if "[hessian] Completed" in log_file.read_text(encoding="utf-8"):
+        raise SystemExit("run recomputed the Hessian it was given")
 
 
 def check_tsopt_reference(root: Path) -> None:
@@ -456,7 +479,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "kind",
-        choices=("all", "tsopt-optimizer", "scan-optimizer", "dmf-freeze", "opt-config", "sp-hessian", "irc-handoff", "tsopt-reference", "path-search-max-depth", "provenance"),
+        choices=("all", "tsopt-optimizer", "scan-optimizer", "dmf-freeze", "opt-config", "sp-hessian", "irc-handoff", "hessian-dump", "hessian-read", "tsopt-reference", "path-search-max-depth", "provenance"),
     )
     parser.add_argument("root", type=Path)
     parser.add_argument("--require-thermo", action="store_true")
@@ -471,6 +494,7 @@ def main() -> None:
     parser.add_argument("--expected-link-atom-method")
     parser.add_argument("--expected-thresh")
     parser.add_argument("--hessian-file", type=Path)
+    parser.add_argument("--log-file", type=Path)
     args = parser.parse_args()
     if args.kind == "all":
         check_all(args.root, args.require_thermo, args.require_dft)
@@ -514,6 +538,14 @@ def main() -> None:
         if args.hessian_file is None:
             parser.error("irc-handoff requires --hessian-file")
         check_irc_handoff(args.root, args.hessian_file)
+    elif args.kind == "hessian-dump":
+        if args.hessian_file is None:
+            parser.error("hessian-dump requires --hessian-file")
+        check_hessian_dump(args.root, args.hessian_file)
+    elif args.kind == "hessian-read":
+        if args.log_file is None:
+            parser.error("hessian-read requires --log-file")
+        check_hessian_read(args.root, args.log_file)
     elif args.kind == "tsopt-reference":
         check_tsopt_reference(args.root)
     else:

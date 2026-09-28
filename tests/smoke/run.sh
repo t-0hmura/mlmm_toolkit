@@ -462,39 +462,41 @@ mlmm extract -i r_complex_layered.cif -c 'LONG_CHAIN:PRE:10001' -r 0.1 --no-add-
 test -s test62_model_from_cif.pdb || { echo "[smoke] FAIL test62: extracted PDB missing" >> test62_extract_cif.out; exit 1; }
 test -s test62_model_from_cif.cif || { echo "[smoke] FAIL test62: extracted CIF missing" >> test62_extract_cif.out; exit 1; }
 
-# test63: dump a partial Hessian with its active-DOF metadata.
+# test63: dump the movable-atom block of the Hessian as a plain .npy array.
 # test64: consume that Hessian unchanged in IRC and verify never-stop at runtime.
 # The dump must use IRC's own active-DOF basis (ML + MovableMM, i.e. freq's
 # default). IRC has no --active-dof-mode/--hessian-cutoff flag and always analyzes
 # every movable atom, so an ml-only dump would be rejected as a basis mismatch;
 # the partial nature is still exercised because --freeze-atoms keeps it < full.
-mlmm freq -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --freeze-atoms 1,2,3 --max-write 1 --dump-hess test63_freq/hessian.npz --out-json --out-dir test63_freq > test63_freq.out 2>&1
-test -s test63_freq/hessian.npz || { echo "[smoke] FAIL test63: dumped Hessian missing" >> test63_freq.out; exit 1; }
-mlmm irc -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --freeze-atoms 1,2,3 --read-hess test63_freq/hessian.npz --never-stop --config never_stop_config.yaml --max-cycles 2 --out-json --out-dir test64_irc_handoff > test64_irc_handoff.out 2>&1
-python assert_release_result.py irc-handoff test64_irc_handoff --hessian-file test63_freq/hessian.npz >> test64_irc_handoff.out 2>&1
+mlmm freq -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --freeze-atoms 1,2,3 --max-write 1 --dump-hess test63_freq/hessian.npy --out-json --out-dir test63_freq > test63_freq.out 2>&1
+test -s test63_freq/hessian.npy || { echo "[smoke] FAIL test63: dumped Hessian missing" >> test63_freq.out; exit 1; }
+mlmm irc -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --freeze-atoms 1,2,3 --read-hess test63_freq/hessian.npy --never-stop --config never_stop_config.yaml --max-cycles 2 --out-json --out-dir test64_irc_handoff > test64_irc_handoff.out 2>&1
+python assert_release_result.py irc-handoff test64_irc_handoff --hessian-file test63_freq/hessian.npy >> test64_irc_handoff.out 2>&1
 if grep -Fq '[irc] IRC stopped after only a few frames' test64_irc_handoff.out; then
   echo '[smoke] FAIL test64: cycle-cap completion was reported as early IRC termination' >> test64_irc_handoff.out
   exit 1
 fi
 
-# A same-size Hessian from a different geometry must be rejected before IRC.
-python - <<'PY'
-from pathlib import Path
-
-lines = Path("p_complex_layered.pdb").read_text(encoding="utf-8").splitlines(True)
-for index, line in enumerate(lines):
-    if line.startswith(("ATOM  ", "HETATM")):
-        x = float(line[30:38]) + 0.100
-        lines[index] = line[:30] + f"{x:8.3f}" + line[38:]
-        break
-Path("test64_wrong_geometry.pdb").write_text("".join(lines), encoding="utf-8")
-PY
+# A Hessian file of the wrong size must be rejected before IRC.
+python -c 'import numpy as np; np.save("test64_small.npy", np.eye(6))'
 rc=0
-mlmm irc -i test64_wrong_geometry.pdb --parm7 p_complex.parm7 -q -1 -m 1 --freeze-atoms 1,2,3 --read-hess test63_freq/hessian.npz --max-cycles 1 --out-dir test64_wrong > test64_wrong.out 2>&1 || rc=$?
-if [ "$rc" -eq 0 ] || ! grep -Eq 'coordinates do not match|PES identity does not match' test64_wrong.out; then
-  echo "[smoke] FAIL test64: stale same-size Hessian was not rejected" >> test64_wrong.out
+mlmm irc -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --freeze-atoms 1,2,3 --read-hess test64_small.npy --max-cycles 1 --out-dir test64_wrong > test64_wrong.out 2>&1 || rc=$?
+if [ "$rc" -eq 0 ] || ! grep -Fq 'is 6x6; expected' test64_wrong.out; then
+  echo "[smoke] FAIL test64: a Hessian file of the wrong size was not rejected" >> test64_wrong.out
   exit 1
 fi
+
+# test64b-d: tsopt starts from the same freq Hessian in each TS path.
+mlmm tsopt -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --freeze-atoms 1,2,3 --opt-mode hess --read-hess test63_freq/hessian.npy --max-cycles 2 --out-dir test64b_tsopt_microiter > test64b_tsopt_microiter.out 2>&1
+grep -Fq '[microiter] Initial Hessian seeded from file' test64b_tsopt_microiter.out || { echo "[smoke] FAIL test64b: microiteration TS did not start from --read-hess" >> test64b_tsopt_microiter.out; exit 1; }
+mlmm tsopt -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --freeze-atoms 1,2,3 --opt-mode hess --no-microiter --read-hess test63_freq/hessian.npy --max-cycles 2 --out-dir test64c_tsopt_hess > test64c_tsopt_hess.out 2>&1
+grep -Fq '[tsopt] Initial Hessian read from test63_freq/hessian.npy' test64c_tsopt_hess.out || { echo "[smoke] FAIL test64c: Hessian TS did not start from --read-hess" >> test64c_tsopt_hess.out; exit 1; }
+if grep -Fq 'Seeding initial Hessian via shared freq backend' test64c_tsopt_hess.out; then
+  echo "[smoke] FAIL test64c: --read-hess Hessian was recomputed" >> test64c_tsopt_hess.out
+  exit 1
+fi
+mlmm tsopt -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --freeze-atoms 1,2,3 --opt-mode grad --read-hess test63_freq/hessian.npy --max-cycles 2 --out-dir test64d_tsopt_dimer > test64d_tsopt_dimer.out 2>&1
+grep -Fq '[tsopt] Initial Hessian read from test63_freq/hessian.npy' test64d_tsopt_dimer.out || { echo "[smoke] FAIL test64d: Dimer TS did not start from --read-hess" >> test64d_tsopt_dimer.out; exit 1; }
 
 # test65: standalone --ref-mode is an actual Cartesian mode vector. The
 # all-workflow path-tangent handoff is exercised by required-positive test72.
@@ -572,8 +574,15 @@ python assert_orca_roundtrip.py test69_three_layer.pdb test69_orca_import_layere
 # test70: force a known higher-order candidate through the actual flatten
 # branch. The checker requires n_imag>1 before flattening, an executed RS-P-RFO
 # flatten iteration, and no increase in saddle order.
-mlmm tsopt -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode hess --no-microiter --flatten --config flatten_branch_config.yaml --thresh gau_loose --out-json --out-dir test70_flatten > test70_flatten.out 2>&1
+mlmm tsopt -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode hess --no-microiter --flatten --config flatten_branch_config.yaml --thresh gau_loose --dump-hess test70_flatten/ts_hessian.npy --out-json --out-dir test70_flatten > test70_flatten.out 2>&1
 python assert_flatten_branch.py test70_flatten.out test70_flatten/result.json >> test70_flatten.out 2>&1
+python assert_release_result.py hessian-dump test70_flatten --hessian-file test70_flatten/ts_hessian.npy >> test70_flatten.out 2>&1
+
+# test70b-c: freq and IRC at the final geometry reuse the tsopt Hessian.
+mlmm freq -i test70_flatten/final_geometry.pdb --parm7 p_complex.parm7 -q -1 -m 1 --read-hess test70_flatten/ts_hessian.npy --max-write 1 --out-json --out-dir test70b_freq > test70b_freq.out 2>&1
+python assert_release_result.py hessian-read test70b_freq --log-file test70b_freq.out >> test70b_freq.out 2>&1
+mlmm irc -i test70_flatten/final_geometry.pdb --parm7 p_complex.parm7 -q -1 -m 1 --read-hess test70_flatten/ts_hessian.npy --max-cycles 2 --out-json --out-dir test70c_irc > test70c_irc.out 2>&1
+python assert_release_result.py hessian-read test70c_irc --log-file test70c_irc.out >> test70c_irc.out 2>&1
 
 # test71: numerical analytical-vs-FD agreement for every backend installed in the
 # default strict environment. MACE/AIMNet2 use this same required wrapper in
@@ -646,5 +655,11 @@ assert summary["resumed_from_segment"] == 1
 assert summary["resume_identity"]["schema_version"] == 1
 PY
 
+
+# test78: a converged Dimer run writes its final Hessian for IRC.
+mlmm tsopt -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode grad --config dimer_loose_config.yaml --dump-hess test78_dimer/ts_hessian.npy --out-json --out-dir test78_dimer > test78_dimer.out 2>&1
+python assert_release_result.py hessian-dump test78_dimer --hessian-file test78_dimer/ts_hessian.npy >> test78_dimer.out 2>&1
+mlmm irc -i test78_dimer/final_geometry.pdb --parm7 p_complex.parm7 -q -1 -m 1 --read-hess test78_dimer/ts_hessian.npy --max-cycles 2 --out-json --out-dir test78_irc > test78_irc.out 2>&1
+python assert_release_result.py hessian-read test78_irc --log-file test78_irc.out >> test78_irc.out 2>&1
 
 echo "[smoke] PASS: required GPU, ML/MM, Hessian-handoff, and structure-I/O lane completed with zero skips."

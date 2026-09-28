@@ -2298,7 +2298,7 @@ def _enrich_summary(
                 ("summary.json", "Machine-readable results summary"),
                 ("mep_trj.xyz", "Full MEP trajectory"),
                 ("mep_trj.pdb", "Full MEP as PDB"),
-                ("mep.cif", "Full MEP with original mmCIF identifiers"),
+                ("mep_trj.cif", "Full MEP with original mmCIF identifiers"),
                 ("energy_diagram_MEP.png", "MEP energy plot"),
                 ("mep_plot.png", "MEP energy plot (trj2fig)"),
                 ("irc_plot_all.png", "Aggregated IRC plot"),
@@ -5835,7 +5835,7 @@ def cli(
         "mep_trj.xyz",
         "mep.xyz",
         "mep_trj.pdb",
-        "mep.cif",
+        "mep_trj.cif",
         "ml_region.pdb",
         "ml_region_without_linkH.xyz",
         "ml_region_with_linkH.xyz",
@@ -8318,7 +8318,7 @@ def cli(
     _echo_section(f"====== [all] Stage 3/{stage_total} — Core MEP outputs ======")
     _echo_detail(f"[all] Final products can be found under: {out_dir}")
     _echo_detail("  - mep_trj.xyz              (concatenated MEP trajectory)")
-    _echo_detail("  - mep_trj.pdb / mep.cif        (coordinate companions when topology is available)")
+    _echo_detail("  - mep_trj.pdb / mep_trj.cif (coordinate companions when topology is available)")
     _echo_detail("  - summary.json             (segment barriers, ΔE, bond changes)")
     _echo_detail("  - mep_plot.png / energy_diagram_MEP.png / summary.log")
     _echo_detail(f"[all] Raw per-segment MEP-engine files stay under: {path_dir}")

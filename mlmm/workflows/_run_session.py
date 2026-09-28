@@ -553,7 +553,7 @@ def current_key_output_files(
         "mep_trj.xyz": "Full MEP trajectory",
         "mep.xyz": "MEP trajectory",
         "mep_trj.pdb": "Full MEP as PDB",
-        "mep.cif": "Full MEP with original mmCIF identifiers",
+        "mep_trj.cif": "Full MEP with original mmCIF identifiers",
         "ml_region.pdb": "Reusable ML-region model",
         "energy_diagram_MEP.png": "MEP energy plot",
         "mep_plot.png": "MEP energy plot (trj2fig)",

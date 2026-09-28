@@ -54,7 +54,7 @@ Or using PDB atom selectors:
 
 ```bash
 mlmm scan -i layered.pdb --parm7 system.parm7 -q 0 \
-  --scan-lists '[("TYR,285,CA","MMT,309,C10",2.20)]' --no-preopt --no-endopt
+  --scan-lists '[("SAM,320,CS1","GPP,321,C7",1.60)]' --no-preopt --no-endopt
 ```
 
 Both 1-based atom indices and PDB atom name strings are accepted. See [scan.md](scan.md) for full details.

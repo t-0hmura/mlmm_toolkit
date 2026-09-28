@@ -1400,6 +1400,25 @@ def test_define_layer_matches_cif_author_identifiers_and_emits_cif(
     assert data["_atom_site.B_iso_or_equiv"] == ["0.00", "10.00"]
 
 
+def test_define_layer_model_pdb_wins_over_model_indices(tmp_path: Path) -> None:
+    from mlmm.workflows.define_layer import define_layers
+
+    full = tmp_path / "full.cif"
+    model = tmp_path / "model.cif"
+    _write_minimal_cif(full)
+    model.write_text(
+        full.read_text(encoding="utf-8").replace(
+            "HETATM 2 O O1 . SAM LONG_CHAIN 1 . ? 1.0 1.0 2.0 1.00 13.0 . 10001 SAM LONG_CHAIN O1 1\n",
+            "",
+        ),
+        encoding="utf-8",
+    )
+
+    layers = define_layers(full, tmp_path / "layered.pdb", model_pdb=model, model_indices=[1])
+
+    assert layers["ml_indices"] == [0]
+
+
 def test_define_layer_accepts_extracted_internal_model_pdb(tmp_path: Path) -> None:
     from mlmm.core.utils import prepare_input_structure
     from mlmm.workflows.define_layer import define_layers
@@ -1809,4 +1828,27 @@ def test_annotated_conversion_primary_failure_rolls_back_public_generation(
         assert coordinate_template_for(out_pdb) is previous_template
     finally:
         unregister_coordinate_template(out_pdb)
+        prepared.cleanup()
+
+
+def test_mep_trajectory_cif_companion_is_copied_to_root(tmp_path: Path) -> None:
+    from mlmm.core.utils import convert_xyz_to_pdb, prepare_input_structure
+    from mlmm.workflows._all_helpers import copy_path_outputs_to_root
+
+    source = tmp_path / "input.cif"
+    _write_minimal_cif(source)
+    out_dir = tmp_path / "out"
+    path_dir = out_dir / "_work" / "path_opt"
+    path_dir.mkdir(parents=True)
+    xyz = path_dir / "mep_trj.xyz"
+    xyz.write_text(
+        "2\nf1\nC 0.0 1.0 2.0\nO 1.0 1.0 2.0\n2\nf2\nC 0.1 1.0 2.0\nO 1.1 1.0 2.0\n",
+        encoding="utf-8",
+    )
+    prepared = prepare_input_structure(source)
+    try:
+        convert_xyz_to_pdb(xyz, prepared.source_path, path_dir / "mep_trj.pdb")
+        copy_path_outputs_to_root(path_dir, out_dir, image_names=set())
+        assert (out_dir / "mep_trj.cif").exists()
+    finally:
         prepared.cleanup()

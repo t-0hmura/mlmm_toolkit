@@ -1334,6 +1334,7 @@ def test_opt_rejects_the_removed_projection_mode_from_yaml(
         [
             "opt", "-i", str(in_pdb), "--parm", str(parm), "-q", "0",
             "--detect-layer", "--config", str(config), "--dry-run", "-v", "3",
+            "-o", str(tmp_path / "out"),
         ],
     )
 

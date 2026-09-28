@@ -102,7 +102,7 @@ artifact and is always written for PDB input.
    - The extractor writes per-input pocket PDBs under `<out-dir>/_work/pockets/`. The first pocket is copied to `<out-dir>/ml_region.pdb` (a reusable deliverable you can pass back as `--model-pdb`) and defines the ML region for all subsequent ML/MM calculations.
    - `<out-dir>/ml_region_without_linkH.xyz` and `ml_region_with_linkH.xyz` expose the exact model system before and after link-H insertion. PDB inputs also produce matching `.pdb` companions. Automatic link pairs are parm7 bonds crossing the ML/MM selection, never distance-perceived bonds.
    - The **first-model net ML-region charge** becomes the net ML-region charge for later steps.
-   - Omitting `-c/--center` skips extraction and uses the full input structures directly.
+   - Omitting `-c/--center` skips extraction and uses the full input structures as the full system. The ML region then comes from the input's B-factor layers (default `--detect-layer`) or from `--model-pdb`; with neither, the run stops with an error.
 2. **ML/MM preparation (parm7 + layer assignment)**
    - `mm_parm` runs once on the first full input PDB and writes `<out-dir>/mm_parm/<input_basename>.parm7` / `.rst7` (a reusable deliverable you can pass back as `--parm7`), which are passed automatically as `--parm7`.
    - `define-layer` runs on each full-system PDB and assigns 3-layer B-factors (ML = 0.0, Movable-MM = 10.0, Frozen-MM = 20.0) based on the ML-region definition. The layered full-system PDBs are written under `<out-dir>/layered/`.
@@ -116,7 +116,7 @@ artifact and is always written for PDB input.
    - **`--no-refine-path` (default)** runs `path-opt` with the selected optimizer per adjacent pair, then concatenates trajectories, extracts the HEI per segment, detects bond changes, and writes `summary.json`. Both modes support Stage 5 post-processing.
    - For multi-input runs, the original full PDBs are supplied as merge references automatically. In the scan-derived series (single-structure case), the single original full PDB is reused as the reference template.
 5. **Summary and optional post-processing**
-   - The raw MEP-engine output (per-segment trajectories, the full MEP trajectory, and the engine `summary.json`) is written under `<out-dir>/_work/path_opt/` (or `<out-dir>/_work/path_search/` with `--refine-path`); the merged products (`mep_trj.pdb`, optional `mep.cif`, `mep_trj.xyz`, `mep_plot.png`, `energy_diagram_MEP.png`) are moved to `<out-dir>/` and `summary.{json,log}` copied there.
+   - The raw MEP-engine output (per-segment trajectories, the full MEP trajectory, and the engine `summary.json`) is written under `<out-dir>/_work/path_opt/` (or `<out-dir>/_work/path_search/` with `--refine-path`); the merged products (`mep_trj.pdb`, optional `mep_trj.cif`, `mep_trj.xyz`, `mep_plot.png`, `energy_diagram_MEP.png`) are moved to `<out-dir>/` and `summary.{json,log}` copied there.
    - `--tsopt` runs TS optimization on each HEI. After the TS gate, `all` continues with EulerPC IRC and segment energy diagrams. Both `--thermo` and `--dft` require `--tsopt`.
    - `--thermo` computes ML/MM thermochemistry on (R, TS, P) and adds a Gibbs diagram.
    - `--dft` runs model-region DFT single-points on (R, TS, P) and adds a model-DFT electronic diagram. With `--thermo`, the subtractive DFT//MLIP/MM total plus the ML/MM thermal correction produces the DFT//MLIP/MM Gibbs diagram. For large production calculations, finish the MLIP pipeline first and run `sp -b dft` later in a separate process/job so the DFT step starts with released VRAM. `all -b dft --dft` is rejected because it would repeat the primary DFT calculation.
@@ -140,7 +140,7 @@ The tree has three zones: **deliverables at the root**, **per-segment deliverabl
 <out-dir>/
   summary.json                   # mirrored top-level summary (when the MEP stage runs)
   summary.log
-  mep_trj.pdb · mep.cif             # path; CIF companion is emitted for bridged input
+  mep_trj.pdb · mep_trj.cif      # path; CIF companion is emitted for bridged input
   mep_trj.xyz
   mep_plot.png                   # smooth MEP energy profile
   energy_diagram_MEP.png         # all-segment MEP barriers
@@ -368,7 +368,7 @@ geom:
 calc:
   model_charge: 0
   model_mult: 1
-  backend: uma                      # uma | orb | mace | aimnet2
+  backend: uma                      # uma | orb | mace | aimnet2 | dft
   uma_model: uma-s-1p2              # uma-s-1p2 | uma-m-1p1
   hessian_calc_mode: Analytical     # compare with FiniteDifference on a pilot
 gs:

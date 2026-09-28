@@ -71,8 +71,11 @@ command -v nvcc && nvcc --version
 ls "$(conda info --base 2>/dev/null)/envs"/*/bin/nvcc 2>/dev/null
 ```
 
-If none of the three returns anything, CUDA is not installed locally —
-either install it or run CPU-only.
+If none of the three returns anything, a local CUDA **toolkit** is not
+installed. That does not prevent a prebuilt CUDA-enabled PyTorch wheel from
+using the GPU: the wheel supplies its CUDA runtime libraries and needs the
+NVIDIA driver. Install/load a toolkit only when a dependency must compile a
+CUDA extension from source. See `mlmm-install-backends/env-cuda.md`.
 
 ### 5. PBS scheduler details (when `SCHED=pbs`)
 
@@ -172,7 +175,7 @@ back to for the rest of your session.
 ## See also
 - `mlmm-hpc/SKILL.md` — uses `<YOUR_QUEUE>`, `<NCPU>`, `<NGPU>`,
   `<MEM>`, `<HH:MM:SS>`, `<CUDA_MODULE>`, `<YOUR_ENV>` placeholders.
-- `mlmm-install-backends/env-cuda.md` — uses driver version
-  and `<CUDA_MODULE>` to pick the right torch CUDA wheel.
+- `mlmm-install-backends/env-cuda.md` — uses the driver and GPU architecture
+  to pick a torch CUDA wheel; `<CUDA_MODULE>` is only for source builds.
 - `mlmm-install-backends/dft.md` — uses `uname -m` to decide
   between `gpu4pyscf-cuda13x` (x86_64) and CPU PySCF (aarch64).

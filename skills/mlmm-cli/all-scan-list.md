@@ -44,7 +44,7 @@ Each argument is a Python literal-eval expression containing distance
 
 | Form | Meaning |
 |---|---|
-| `"RESNAME RESID NAME"` | Atom by residue name + residue index + PDB name, separated by single spaces |
+| `"RESNAME RESID NAME"` | Atom by residue name + residue index + PDB name; the three fields may appear in any order (e.g. `"CS1 SAM 320"`) and may be separated by spaces, commas, slashes, backticks, or backslashes |
 | `"RESNAME\`RESID/NAME"` | Compact form with backticks and slash; same three fields, different separators |
 | `"CHAIN:RESNAME:RESID[ICODE]:NAME"` | Exact chain-qualified form for repeated or mmCIF identifiers |
 
@@ -55,7 +55,7 @@ Examples:
 
 ```bash
 # One stage, two bonds driven together (concerted SN2):
---scan-lists '[("CS1 SAM 320","GPP 321 C7",1.60),("GPP 321 C7","S SAM 320",3.0)]'
+--scan-lists '[("CS1 SAM 320","GPP 321 C7",1.60),("CS1 SAM 320","SD SAM 320",3.0)]'
 
 # Two stages, one bond each (stepwise mechanism):
 --scan-lists '[("CS1 SAM 320","GPP 321 C7",1.60)]' \
@@ -83,7 +83,7 @@ Same overall tree as in `all.md`, plus per-stage scan output:
 
 ```
 result_scan/
-├── mep_trj.pdb / mep.cif / mep_trj.xyz # CIF companion for bridged input
+├── mep_trj.pdb / mep_trj.cif / mep_trj.xyz # CIF companion for bridged input
 ├── segments/
 │   └── seg_NN/                     # canonical R/TS/P + post-processing per segment
 └── _work/                          # pipeline scratch

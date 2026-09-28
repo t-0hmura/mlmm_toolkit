@@ -1,6 +1,6 @@
 # MLIP Backends
 
-mlmm-toolkit は、あらゆる ML/MM ワークフローステージ（`opt`、`scan`、`tsopt`、`freq`、`irc`、`path-search`,...）を単一の `MLMMCore` ONIOM 結合オブジェクトを通じて実行します。`MLMMCore` は ML 領域を、private な `_create_ml_backend` ファクトリ経由でバックエンドごとのアダプタ（`_UMABackend` / `_OrbBackend` / `_MACEBackend` / `_AIMNet2Backend`）にディスパッチします。このページでは、バックエンドの選択方法、バックエンドごとの kwargs、新しいバックエンドの追加方法を説明します。
+mlmm-toolkit は、あらゆる ML/MM ワークフローステージ（`opt`、`scan`、`tsopt`、`freq`、`irc`、`path-search`,...）を単一の `MLMMCore` ONIOM 結合オブジェクトを通じて実行します。`MLMMCore` は ML 領域を、private な `_create_ml_backend` ファクトリ経由でバックエンドごとのアダプタ（`_UMABackend` / `_OrbBackend` / `_MACEBackend` / `_AIMNet2Backend`、`backend="dft"` では PySCF/GPU4PySCF の DFT backend）にディスパッチします。このページでは、バックエンドの選択方法、バックエンドごとの kwargs、新しいバックエンドの追加方法を説明します。
 
 ## 公開インターフェース
 
@@ -13,7 +13,7 @@ core = MLMMCore(
     input_pdb="layered.pdb",
     real_parm7="real.parm7",
     model_pdb="model.pdb",
-    backend="uma",          # one of: "uma", "orb", "mace", "aimnet2"
+    backend="uma",          # "uma", "orb", "mace", "aimnet2", or "dft" (dft also needs dft_settings)
     model_charge=0, model_mult=1,
     uma_model="uma-s-1p2",
     uma_precision="fp32",   # or "fp64" (full-precision base inference)
@@ -90,8 +90,6 @@ mlmm irc -i ts.pdb --parm7 real.parm7 -q 0 -m 1 --precision fp64
 calc:
  uma_precision: fp64
 ```
-
-`InferenceSettings` API のために `fairchem-core ≥ 2.0` が必要です。
 
 ## xTB静電補正
 

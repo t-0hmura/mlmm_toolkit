@@ -26,13 +26,13 @@ mlmm define-layer -i full_system.pdb \
 |---|---|---|---|
 | `-i, --input` | path | required | Full-system PDB |
 | `--model-pdb` | path | none | PDB defining the ML-region atoms |
-| `--model-indices` | str | none | Comma/range-separated atom indices, e.g. `'1,2,3'` or `'1-10,15,20-25'`. Takes precedence over `--model-pdb`. |
+| `--model-indices` | str | none | Comma/range-separated atom indices, e.g. `'1,2,3'` or `'1-10,15,20-25'`. Used when `--model-pdb` is omitted. |
 | `--movable-cutoff` | float | `8.0` | Distance cutoff (Å) from ML region. Atoms beyond are **frozen** (B-factor 20.0); inside but not ML are **movable-MM** (10.0). |
 | `--one-based / --zero-based` | flag | `--one-based` | Interpret `--model-indices` (1- vs 0-based) |
 | `-o, --output` | path | `<input>_layered.pdb` | Output PDB with B-factor layer encoding |
 
 Supply at least one of `--model-pdb` and `--model-indices`. When both are
-given, `--model-indices` takes precedence.
+given, `--model-pdb` is used.
 
 The model PDB must be an unchanged atom subset of the full input/topology:
 preserve original order and identifiers, do not include explicit link H, and

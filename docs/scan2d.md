@@ -58,7 +58,7 @@ Add `--print-parsed` to validate the parsed scan spec and exit without running t
 ## Workflow
 
 1. **Input & preoptimization** -- Load PDB/mmCIF, or XYZ with `--ref-pdb`; resolve charge/spin, build the ML/MM calculator (MLIP backend + hessian_ff; backend selected via `-b/--backend`, default `uma`), and optionally run an unbiased pre-optimization when `--preopt`.
-2. **Grid construction** -- Parse targets from `-s/--scan-lists` (YAML/JSON spec file or inline literal) into two quadruples, normalize indices (1-based by default or PDB atom selectors like `"TYR,285,CA"`). Build linear grids with `ceil(|high - low| / h) + 1` points where `h = --max-step-size`.
+2. **Grid construction** -- Parse targets from `-s/--scan-lists` (YAML/JSON spec file or inline literal) into two quadruples, normalize indices (1-based by default or PDB atom selectors like `"SAM,320,CS1"`). Build linear grids with `ceil(|high - low| / h) + 1` points where `h = --max-step-size`.
 3. **Outer loop (d1)** -- For each d1 value, relax the system with **only the d1 restraint** active.
 4. **Inner loop (d2)** -- For each d2 value at the current d1, relax with **both restraints** active starting from the nearest previously converged structure.
 5. **Energy evaluation** -- At each (i, j) pair, evaluate the ML/MM energy without bias and record to `surface.csv`. Always retain the starting/preoptimized reference as `i = j = -1` and `is_preopt = true`.
@@ -160,29 +160,29 @@ Atoms can be given as **integer indices** or **PDB selector strings**:
 | Method | Example | Notes |
 | --- | --- | --- |
 | Integer index | `(1, 5, 1.30, 3.10)` | 1-based by default (`--one-based`) |
-| PDB selector | `("TYR,285,CA", "MMT,309,C10", 1.30, 3.10)` | Residue name, residue number, atom name |
+| PDB selector | `("SAM,320,CS1", "GPP,321,C7", 1.50, 3.00)` | Residue name, residue number, atom name |
 
 PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, backtick `` ` ``, or backslash `\`. Token order is flexible.
 
 ```bash
 # All of these specify the same atom:
-"TYR,285,CA"
-"TYR 285 CA"
-"TYR/285/CA"
-"285,TYR,CA" # order is flexible
+"SAM,320,CS1"
+"SAM 320 CS1"
+"SAM/320/CS1"
+"320,SAM,CS1" # order is flexible
 ```
 
 Quoting rules:
 
 ```bash
 # Correct: single-quote the list, double-quote selector strings inside
--s '[("TYR,285,CA","MMT,309,C10",1.30,3.10),("TYR,285,CB","MMT,309,C11",1.20,3.20)]'
+-s '[("SAM,320,CS1","GPP,321,C7",1.50,3.00),("GPP,321,H11","GLU,186,OE2",0.90,2.50)]'
 
 # Correct: integer indices need no inner quotes
 -s '[(1, 5, 1.30, 3.10), (2, 8, 1.20, 3.20)]'
 
 # Avoid: double-quoting the outer literal requires escaping inner quotes
--s "[(\"TYR,285,CA\",\"MMT,309,C10\",1.30,3.10),...]"
+-s "[(\"SAM,320,CS1\",\"GPP,321,C7\",1.50,3.00),...]"
 ```
 
 ## YAML configuration

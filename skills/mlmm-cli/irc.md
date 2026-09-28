@@ -47,8 +47,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--max-cycles` | int | 125 | Max IRC steps per branch (forward + backward) |
 | `--step-size` | float | 0.10 (Bohr) | Step in Bohr; maps to `IRC_KW['step_length']` |
 | `--never-stop / --no-never-stop` | bool | off | Ignore gradient and energy endpoint criteria and trace to max cycles; propagation failures still stop |
-| `--read-hess` | path | — | Identified NPZ from `freq --dump-hess`; geometry, atom order, active-DOF basis, and schema-2 charge/multiplicity must match |
-| `--allow-unverified-hess-state` | bool | off | Permit a schema-1 Hessian whose charge/multiplicity cannot be verified. Requires `--read-hess` and independent state checking; schema-2 mismatches remain fatal. |
+| `--read-hess` | path | — | `.npy` Hessian from `freq --dump-hess` or `tsopt --dump-hess` (all atoms or only the Hessian atoms); needs `irc.hessian_init: calc` |
 | `--uma-workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
 | `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |
 | `-o, --out-dir` | path | `./result_irc/` | Output directory |
@@ -110,19 +109,16 @@ print(d["forward_requested"], d["backward_requested"])
 print(d["forward_integration_converged"], d["backward_integration_converged"])
 print(d["forward_integration_stop_reason"], d["backward_integration_stop_reason"])
 print(d["never_stop"], d["never_stop_energy_bypasses"])
-print(d["rigid_projection"]["electronic_state_verified"])  # False only for an opted-in schema-1 handoff
+print(d["rigid_projection"]["hessian_source"])  # "file", "cache", or "fresh"
 print(d["rigid_projection"]["treatment"], d["rigid_projection"]["effective_rank"])
 ```
 
-Schema-2 Hessian handoffs fail closed on model charge or multiplicity
-mismatch. Schema-1 files can be used only with
-`--allow-unverified-hess-state`; this bypasses missing identity metadata, not a
-known mismatch.
+`--read-hess` checks only the size, symmetry, and finiteness of the `.npy`
+file, so pass a Hessian computed for the same geometry, charge,
+multiplicity, layers, and calculator.
 
 Standalone IRC does not know which endpoint is the chemical reactant or
-product. Read `energy_first_hartree` / `energy_last_hartree`; the older
-`energy_reactant_hartree` / `energy_product_hartree` keys are compatibility
-aliases for first/last only. Assign R/P after inspecting or matching the
+product. Read `energy_first_hartree` / `energy_last_hartree` and assign R/P after inspecting or matching the
 endpoint structures. `never_stop` records whether the opt-in mode was enabled;
 `never_stop_energy_bypasses` is the observed bypass count.
 
@@ -133,8 +129,7 @@ criterion fired, so `--never-stop` leaves it false. This field and
 `*_downhill_departure_valid` are diagnostics, not endpoint-optimization gates.
 Finite retained endpoints can proceed to optimization after a predictor-budget
 or max-cycle stop. Missing or non-finite coordinates and execution errors must
-still be reported. Schema 3.0 removed the old `*_converged` and direction-status
-keys; read the diagnostics shown above.
+still be reported.
 
 The default `constrained` treatment removes only full-system rigid motions
 that leave frozen anchors fixed. Generic ranks are 6/3/1/0 for
@@ -177,9 +172,10 @@ for b in bc["broken"]: print("BROKEN ", b)
 - IRC starts from a **single imaginary mode** TS. If `tsopt` produced
   multiple imaginary modes, IRC may follow the wrong one — re-tsopt
   first.
-- `--max-cycles 125` is enough for most clusters. If forward / backward
-  hits the cap, the surface is probably very shallow; try a smaller
-  `--step-size`.
+- `--max-cycles 125` is enough for most clusters. A branch that hits the
+  cap still leaves a finite endpoint that goes on to endpoint `opt`; raise
+  `--max-cycles` only when the branch must be followed further (lower
+  `--step-size` when a branch stops almost immediately).
 - The bond-change detector is geometry-based (covalent-radius cutoff),
   not physics-based. Metal–ligand bonds may flicker on the borderline.
 
