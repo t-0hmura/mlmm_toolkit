@@ -195,7 +195,7 @@ def _runner(tmp_path, monkeypatch, *, stalled):
         hessian_calls.append(True)
         return torch.eye(3)
 
-    def fake_loop(_threshold, **kwargs):
+    def fake_loop(_threshold):
         runner._cycles_spent = runner.max_total_cycles
         if stalled:
             runner.is_stalled = True
@@ -280,7 +280,7 @@ def test_dimer_plateau_still_enters_the_flatten_loop(monkeypatch, tmp_path, caps
     runner, _, mode_exports = _runner(tmp_path, monkeypatch, stalled=True)
     runner.max_total_cycles = 10
 
-    def stalled_loop(_threshold, **kwargs):
+    def stalled_loop(_threshold):
         runner._cycles_spent += 1
         runner.is_stalled = True
         runner.stop_reason = "energy plateau"
@@ -299,6 +299,25 @@ def test_dimer_plateau_still_enters_the_flatten_loop(monkeypatch, tmp_path, caps
     assert runner.is_stalled is True
     assert runner.n_imaginary_modes == 1
     assert mode_exports == [True]
+
+
+def test_dimer_loose_loop_may_spend_the_whole_budget(monkeypatch, tmp_path):
+    runner, hessian_calls, _ = _runner(tmp_path, monkeypatch, stalled=False)
+    runner.thresh_loose = "gau_loose"
+    runner.update_interval_hessian = 10
+    del runner._dimer_loop
+    segments = []
+
+    def segment(threshold, steps):
+        segments.append((threshold, steps))
+        return steps, False
+
+    runner._dimer_segment = segment
+
+    runner.run()
+
+    assert segments == [("gau_loose", 1)]
+    assert len(hessian_calls) == 1
 
 
 def test_dimer_loop_clears_the_stall_of_an_earlier_loop():

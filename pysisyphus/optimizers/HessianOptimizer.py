@@ -512,124 +512,87 @@ class HessianOptimizer(Optimizer):
             # the first cycle.
             self.hessian_recalc_in = self.hessian_recalc - 1
 
-    # Subclass restart keys required for a bit-exact resume.  ``trust_radius``
-    # is adapted every cycle in :meth:`update_trust_radius`; omitting it from
-    # the restart payload silently reset a resumed run to
-    # ``min(trust_radius, trust_max)`` and diverged the trajectory.  It is a
-    # newly added key, so it is *restored tolerantly* (see
-    # :meth:`_set_opt_restart_info`) and is deliberately absent from the
-    # transactional-load required set below to keep pre-``trust_radius``
-    # checkpoints loadable.  The same holds for the newer uphill-rejection
-    # counters (``rejections_at_floor`` / ``rejected_uphill_steps`` /
-    # ``uphill_rejection_stalled``), the multi-step Hessian buffer
-    # (``_sy_buffer_S`` / ``_sy_buffer_Y``, empty unless
-    # ``hessian_update_window >= 2``) and ``_prev_eigvec_min`` (``None`` unless
-    # ``rfo_overlaps``): all are serialized unconditionally but restored
-    # presence-guarded, so a checkpoint written before they existed still
-    # loads.  Keeping them out of the required set below preserves that
-    # backward tolerance; the presence-guard means an absent key never raises.
+    # Subclass restart keys a checkpoint must carry for a bit-exact resume; the
+    # loader rejects a checkpoint missing any of them before changing state.
+    # ``trust_norm`` is not required: a checkpoint without it uses the L2 norm.
     required_opt_restart_keys = (
         "adapt_norm",
         "H",
+        "H_backend",
         "hessian_recalc_in",
         "predicted_energy_changes",
+        "trust_radius",
+        "rejections_at_floor",
+        "rejected_uphill_steps",
+        "uphill_rejection_stalled",
+        "_sy_buffer_S",
+        "_sy_buffer_Y",
+        "_sy_buffer_S_backend",
+        "_sy_buffer_Y_backend",
+        "_prev_eigvec_min",
+        "_prev_eigvec_min_backend",
     )
 
     @staticmethod
-    def _restart_array_spec(array):
-        """Describe one array's own backend so a resume can reproduce it.
+    def _restart_list(value):
+        """Serialize an array or tensor without leaving it on its device."""
+        if isinstance(value, torch.Tensor):
+            return value.detach().cpu().tolist()
+        return np.asarray(value).tolist()
 
-        Every restart array carries its own spec: the Hessian, the multi-step
-        (dx, dg) buffers and the overlap eigenvector are independent states and
-        must not be assumed to share a backend.  The full device string, CUDA
-        index included, is preserved.
+    @staticmethod
+    def _restart_backend(value):
+        """Describe the backend and layout of *value* with safe primitives.
+
+        Nested lists cannot express the layout of an empty array -- a ``(0, 0)``
+        active Hessian serializes to ``[]`` -- so the shape travels with the
+        backend spec and is restored explicitly.
         """
-
-        if isinstance(array, torch.Tensor):
+        if isinstance(value, torch.Tensor):
             return {
                 "backend": "torch",
-                "dtype": str(array.dtype).replace("torch.", ""),
-                "device": str(array.device),
-                # Nested lists lose the shape of any empty array: a (0, 0)
-                # Hessian serializes to []. Record it so the resume restores the
-                # same shape.
-                "shape": list(array.shape),
+                "dtype": str(value.dtype).rpartition(".")[2],
+                "device": str(value.device),
+                "shape": [int(size) for size in value.shape],
             }
-        array = np.asarray(array)
+        array = np.asarray(value)
         return {
             "backend": "numpy",
             "dtype": str(array.dtype),
-            "shape": list(array.shape),
+            "shape": [int(size) for size in array.shape],
         }
 
-    @staticmethod
-    def _restart_list(array):
-        """Convert an array to nested lists, also for a CUDA tensor."""
-
-        if isinstance(array, torch.Tensor):
-            return array.detach().cpu().tolist()
-        return np.asarray(array).tolist()
-
-    @staticmethod
-    def _restart_shape(spec):
-        """Shape recorded with a restart array, or ``None`` when absent."""
-
-        if not isinstance(spec, dict):
-            return None
-        shape = spec.get("shape")
-        if not isinstance(shape, (list, tuple)):
-            return None
-        try:
-            return tuple(int(dim) for dim in shape)
-        except (TypeError, ValueError):
-            return None
-
-    @classmethod
-    def _restart_numpy_array(cls, value, spec):
-        """Rebuild a NumPy-only restart array with its recorded dtype/shape."""
-
-        dtype = float
-        if isinstance(spec, dict) and spec.get("backend") == "numpy":
+    def _restore_array(self, values, backend):
+        """Rebuild a serialized array in its recorded backend/dtype/device."""
+        backend = backend if isinstance(backend, dict) else {}
+        shape = backend.get("shape")
+        shape = None if shape is None else tuple(int(size) for size in shape)
+        if backend.get("backend") != "torch":
+            restored = np.array(values, dtype=np.dtype(backend.get("dtype", "float64")))
+        else:
+            dtype = getattr(torch, str(backend.get("dtype", "float64")), torch.float64)
+            device = str(backend.get("device", "cpu"))
             try:
-                dtype = np.dtype(spec.get("dtype", "float64"))
-            except TypeError:
-                dtype = float
-        array = np.array(value, dtype=dtype)
-        shape = cls._restart_shape(spec)
-        if shape is not None and array.shape != shape:
-            array = array.reshape(shape)
-        return array
-
-    def _restart_array(self, value, spec):
-        """Rebuild an array from a checkpoint list in its recorded backend."""
-
-        if not isinstance(spec, dict) or spec.get("backend") != "torch":
-            return self._restart_numpy_array(value, spec)
-        dtype = getattr(torch, str(spec.get("dtype", "float64")), torch.float64)
-        device = spec.get("device", "cpu")
-        try:
-            tensor = torch.as_tensor(value, dtype=dtype, device=device)
-        except Exception:
-            # A checkpoint written on a device that is unavailable here still
-            # resumes; only its placement changes.
-            self.log(
-                f"Checkpoint device {device!r} is unavailable; "
-                "restoring on the CPU."
-            )
-            tensor = torch.as_tensor(value, dtype=dtype, device="cpu")
-        shape = self._restart_shape(spec)
-        if shape is not None and tuple(tensor.shape) != shape:
-            tensor = tensor.reshape(shape)
-        return tensor
+                restored = torch.as_tensor(values, dtype=dtype, device=device)
+            except Exception:
+                # A device this host lacks (no CUDA, or fewer GPUs than the
+                # writer) only changes the placement; the resume continues.
+                self.log(
+                    f"Checkpoint device {device!r} is unavailable; "
+                    "restoring on the CPU."
+                )
+                restored = torch.as_tensor(values, dtype=dtype, device="cpu")
+        return restored if shape is None else restored.reshape(shape)
 
     def _get_opt_restart_info(self):
         opt_restart_info = {
             "trust_norm": getattr(self, "trust_norm", "l2"),
             "adapt_norm": self.adapt_norm,
             "H": self._restart_list(self.H),
-            # Backend/dtype/device of H, so a resumed run keeps the configured
-            # representation instead of silently falling back to NumPy.
-            "H_spec": self._restart_array_spec(self.H),
+            # Backend of the optimizer Hessian and the overlap vector, so a
+            # resume restores the configured backend, dtype, and device instead
+            # of silently falling back to NumPy on the CPU.
+            "H_backend": self._restart_backend(self.H),
             "hessian_recalc_in": self.hessian_recalc_in,
             "predicted_energy_changes": self.predicted_energy_changes,
             # Per-cycle adaptive trust radius (see update_trust_radius).
@@ -646,18 +609,12 @@ class HessianOptimizer(Optimizer):
             # these columns, so an empty buffer on resume diverges the update.
             "_sy_buffer_S": [self._restart_list(s) for s in self._sy_buffer_S],
             "_sy_buffer_Y": [self._restart_list(y) for y in self._sy_buffer_Y],
-            # The multi-step update consumes these buffers with np.column_stack,
-            # so they are NumPy-only state; only their dtype is restored.
-            "_sy_buffer_S_spec": (
-                self._restart_array_spec(self._sy_buffer_S[0])
-                if self._sy_buffer_S
-                else None
-            ),
-            "_sy_buffer_Y_spec": (
-                self._restart_array_spec(self._sy_buffer_Y[0])
-                if self._sy_buffer_Y
-                else None
-            ),
+            "_sy_buffer_S_backend": [
+                self._restart_backend(s) for s in self._sy_buffer_S
+            ],
+            "_sy_buffer_Y_backend": [
+                self._restart_backend(y) for y in self._sy_buffer_Y
+            ],
             # Previous minimum-mode eigenvector for ``rfo_overlaps`` root
             # following; ``None`` unless overlap-based mode following is active.
             "_prev_eigvec_min": (
@@ -665,11 +622,10 @@ class HessianOptimizer(Optimizer):
                 if self._prev_eigvec_min is None
                 else self._restart_list(self._prev_eigvec_min)
             ),
-            # Own spec; the overlap vector does not have to share H's backend.
-            "_prev_eigvec_min_spec": (
+            "_prev_eigvec_min_backend": (
                 None
                 if self._prev_eigvec_min is None
-                else self._restart_array_spec(self._prev_eigvec_min)
+                else self._restart_backend(self._prev_eigvec_min)
             ),
         }
         return opt_restart_info
@@ -691,56 +647,35 @@ class HessianOptimizer(Optimizer):
     def _set_opt_restart_info(self, opt_restart_info):
         self._check_restart_trust_norm(opt_restart_info)
         self.adapt_norm = opt_restart_info["adapt_norm"]
-        # Restore every array in the backend, dtype and device recorded for that
-        # array.  The ``*_spec`` keys are absent in checkpoints written before
-        # they existed; those entries restore as NumPy.
-        self.H = self._restart_array(
-            opt_restart_info["H"], opt_restart_info.get("H_spec")
+        self.H = self._restore_array(
+            opt_restart_info["H"], opt_restart_info["H_backend"]
         )
-        # A checkpoint written before the shape was recorded serialized a (0, 0)
-        # Hessian as [], which reconstructs with a single axis.
-        if getattr(self.H, "ndim", 2) != 2 and self.H.size == 0:
-            self.H = self.H.reshape((0, 0))
         self.hessian_recalc_in = opt_restart_info["hessian_recalc_in"]
         self.predicted_energy_changes = opt_restart_info["predicted_energy_changes"]
-        # Backward-tolerant: a checkpoint written before trust_radius was
-        # serialized keeps the __init__-constrained value already in place.
-        if "trust_radius" in opt_restart_info:
-            self.trust_radius = float(opt_restart_info["trust_radius"])
-        # Uphill-rejection adaptive state.  All presence-guarded so a checkpoint
-        # written before these keys existed keeps the __init__ defaults.
-        if "rejections_at_floor" in opt_restart_info:
-            self.rejections_at_floor = int(opt_restart_info["rejections_at_floor"])
-        if "rejected_uphill_steps" in opt_restart_info:
-            self.rejected_uphill_steps = int(opt_restart_info["rejected_uphill_steps"])
-        if "uphill_rejection_stalled" in opt_restart_info:
-            self.uphill_rejection_stalled = bool(
-                opt_restart_info["uphill_rejection_stalled"]
+        self.trust_radius = float(opt_restart_info["trust_radius"])
+        self.rejections_at_floor = int(opt_restart_info["rejections_at_floor"])
+        self.rejected_uphill_steps = int(opt_restart_info["rejected_uphill_steps"])
+        self.uphill_rejection_stalled = bool(
+            opt_restart_info["uphill_rejection_stalled"]
+        )
+        backends = opt_restart_info["_sy_buffer_S_backend"]
+        self._sy_buffer_S = [
+            self._restore_array(s, backends[i])
+            for i, s in enumerate(opt_restart_info["_sy_buffer_S"])
+        ]
+        backends = opt_restart_info["_sy_buffer_Y_backend"]
+        self._sy_buffer_Y = [
+            self._restore_array(y, backends[i])
+            for i, y in enumerate(opt_restart_info["_sy_buffer_Y"])
+        ]
+        stored = opt_restart_info["_prev_eigvec_min"]
+        self._prev_eigvec_min = (
+            None
+            if stored is None
+            else self._restore_array(
+                stored, opt_restart_info["_prev_eigvec_min_backend"]
             )
-        # Multi-step Hessian-update buffer; only non-empty for
-        # ``hessian_update_window >= 2``.  Default [] when the key is absent.
-        if "_sy_buffer_S" in opt_restart_info:
-            spec = opt_restart_info.get("_sy_buffer_S_spec")
-            self._sy_buffer_S = [
-                self._restart_numpy_array(s, spec)
-                for s in opt_restart_info["_sy_buffer_S"]
-            ]
-        if "_sy_buffer_Y" in opt_restart_info:
-            spec = opt_restart_info.get("_sy_buffer_Y_spec")
-            self._sy_buffer_Y = [
-                self._restart_numpy_array(y, spec)
-                for y in opt_restart_info["_sy_buffer_Y"]
-            ]
-        # Previous minimum-mode eigenvector for ``rfo_overlaps``; default None.
-        if "_prev_eigvec_min" in opt_restart_info:
-            stored = opt_restart_info["_prev_eigvec_min"]
-            self._prev_eigvec_min = (
-                None
-                if stored is None
-                else self._restart_array(
-                    stored, opt_restart_info.get("_prev_eigvec_min_spec")
-                )
-            )
+        )
 
     def update_trust_radius(self):
         # The predicted change should be calculated at the end of optimize

@@ -1237,11 +1237,8 @@ class Optimizer(metaclass=abc.ABCMeta):
                 and self.dump_restart
                 and (self.cur_cycle % self.dump_restart) == 0
             ):
-                # Declining to write a checkpoint must not kill the optimization.
-                # is right that a restart file this class cannot reload is
-                # worthless, but ``dump_restart`` is a documented opt-in
-                # (docs/yaml-reference.md, docs/opt.md) and at the RC the same run
-                # completed.  Warn once, stop dumping, keep optimizing.
+                # A class without checkpoint support warns once, stops dumping
+                # and keeps optimizing.
                 from pysisyphus.optimizers.checkpoint import CheckpointUnsupportedError
 
                 try:
@@ -1296,19 +1293,10 @@ class Optimizer(metaclass=abc.ABCMeta):
             "coords": self.coords,
             "forces": [forces.tolist() for forces in self.forces],
             "steps": [step.tolist() for step in self.steps],
+            # An uphill rejection after a resume restores cart_coords[-2]
+            # (see reject_current_trial).
+            "cart_coords": [np.asarray(cc).tolist() for cc in self.cart_coords],
         }
-        # Cartesian coordinate history.  The uphill-rejection transaction
-        # (:meth:`reject_current_trial`) restores ``cart_coords[-2]`` and refuses
-        # with a ``len(self.cart_coords) < 2`` guard; a resume that never
-        # repopulates ``cart_coords`` therefore fails/diverges on the first
-        # rejection after restart.  Serialized alongside the other accepted-state
-        # histories and restored presence-guarded (see set_restart_info), so an
-        # optimizer/geometry without a cart_coords history still loads.
-        cart_coords = getattr(self, "cart_coords", None)
-        if cart_coords is not None:
-            restart_info["cart_coords"] = [
-                np.asarray(cc).tolist() for cc in cart_coords
-            ]
         restart_info.update(self._get_opt_restart_info())
         return restart_info
 
@@ -1328,13 +1316,7 @@ class Optimizer(metaclass=abc.ABCMeta):
         self.energies = restart_info["energies"]
         self.forces = [np.array(forces) for forces in restart_info["forces"]]
         self.steps = [np.array(step) for step in restart_info["steps"]]
-        # Restore the Cartesian coordinate history when present (see
-        # get_restart_info).  Presence-guarded so a checkpoint written before
-        # cart_coords was serialized still loads (the empty list stays in place).
-        if "cart_coords" in restart_info:
-            self.cart_coords = [
-                np.array(cc) for cc in restart_info["cart_coords"]
-            ]
+        self.cart_coords = [np.array(cc) for cc in restart_info["cart_coords"]]
 
         # Set subclass specific information
         self._set_opt_restart_info(restart_info)

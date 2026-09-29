@@ -131,7 +131,7 @@ Hessian shape under `result.json.rigid_projection`.
 
 ## YAML configuration
 
-Settings are applied with **defaults < config < explicit CLI**. The accepted sections are `geom` (`coord_type`, `freeze_atoms`), `calc` / `mlmm` (ML/MM calculator: backends, devices, Hessian mode, embedding), `opt` (shared optimizer controls), and the optimizer-specific `lbfgs` / `rfo` sections.
+Settings are applied with **defaults < config < explicit CLI**. The accepted sections are `geom` (`coord_type`, `freeze_atoms`), `calc` / `mlmm` (ML/MM calculator: backends, devices, Hessian mode, embedding), `opt` (shared optimizer controls), and the optimizer-specific `lbfgs` / `rfo` sections. For ML/MM systems, internal coordinates such as `dlc` can be slow to build; `cart` (the default) is recommended.
 
 ```yaml
 geom:

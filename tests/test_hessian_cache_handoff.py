@@ -368,7 +368,7 @@ def test_persistent_identity_includes_uma_task_name() -> None:
     assert first["evaluator"]["potential"]["uma_task_name"] == "omol"
 
 
-def test_persistent_identity_hashes_file_backed_model(tmp_path) -> None:
+def test_persistent_identity_matches_file_backed_model_by_path(tmp_path) -> None:
     class _Geom:
         atomic_numbers = np.array([1])
         cart_coords = np.zeros(3)
@@ -384,15 +384,17 @@ def test_persistent_identity_hashes_file_backed_model(tmp_path) -> None:
     first = hessian_cache.identity_from_context(_Geom(), cfg, role="ts")
     model.write_bytes(b"second")
     second = hessian_cache.identity_from_context(_Geom(), cfg, role="ts")
-
-    assert (
-        first["evaluator"]["potential"]["model_sha256"]
-        != second["evaluator"]["potential"]["model_sha256"]
+    other = hessian_cache.identity_from_context(
+        _Geom(), {**cfg, "mace_model": str(tmp_path / "other.pt")}, role="ts"
     )
 
+    assert first["evaluator"] == second["evaluator"]
+    assert "model_sha256" not in first["evaluator"]["potential"]
+    assert other["evaluator"] != first["evaluator"]
 
-def test_persistent_identity_uses_region_file_content_not_location(tmp_path) -> None:
-    """Generated region files with identical bytes identify the same PES."""
+
+def test_persistent_identity_matches_region_file_by_path(tmp_path) -> None:
+    """Region files are matched by path; their bytes are not read."""
 
     class _Geom:
         atomic_numbers = np.array([1, 8])
@@ -420,12 +422,14 @@ def test_persistent_identity_uses_region_file_content_not_location(tmp_path) -> 
         _Geom(), {**base, "model_pdb": str(second)}
     )
 
-    assert produced == consumed
-    second.write_bytes(b"DIFFERENT-REGION-CONTENT")
-    changed = hessian_cache.persistent_identity_from_context(
-        _Geom(), {**base, "model_pdb": str(second)}
+    assert produced != consumed
+    assert produced["evaluator"]["potential"]["model_pdb"] == str(first)
+    assert "model_pdb_sha256" not in produced["evaluator"]["potential"]
+    first.write_bytes(b"DIFFERENT-REGION-CONTENT")
+    rewritten = hessian_cache.persistent_identity_from_context(
+        _Geom(), {**base, "model_pdb": str(first)}
     )
-    assert changed != produced
+    assert rewritten == produced
 
 
 def test_reconcile_active_hessian_extracts_required_dofs_in_order() -> None:
@@ -571,7 +575,7 @@ def test_identity_from_context_custom_backend_uses_calc_file_as_model(monkeypatc
         ) is None
 
 
-def test_custom_calculator_content_change_rejects_same_path_cache(
+def test_custom_calculator_file_is_matched_by_path(
     monkeypatch,
     tmp_path,
 ) -> None:
@@ -599,19 +603,28 @@ def test_custom_calculator_content_change_rejects_same_path_cache(
     ) is not None
 
     calc_file.write_text("VALUE = 2\n", encoding="utf-8")
-    changed = hessian_cache.identity_from_context(_Geom(), cfg, role="ts")
+    rewritten = hessian_cache.identity_from_context(_Geom(), cfg, role="ts")
 
-    assert first["evaluator"]["potential"]["calc_file_sha256"] != (
-        changed["evaluator"]["potential"]["calc_file_sha256"]
-    )
-    assert hessian_cache.load_matching("ts", changed) is None
+    assert "calc_file_sha256" not in rewritten["evaluator"]["potential"]
+    assert rewritten["evaluator"]["potential"]["calc_file"] == str(calc_file)
+    assert hessian_cache.load_matching("ts", rewritten) is not None
+
+    moved = tmp_path / "moved" / "calculator.py"
+    moved.parent.mkdir()
+    moved.write_text("VALUE = 1\n", encoding="utf-8")
+    assert hessian_cache.load_matching(
+        "ts",
+        hessian_cache.identity_from_context(
+            _Geom(), dict(cfg, calc_file=str(moved)), role="ts"
+        ),
+    ) is None
 
 
 def test_mlmm_potential_identity_rejects_parm7_link_embed_region_changes(
     tmp_path,
     monkeypatch,
 ) -> None:
-    """The mlmm potential identity rejects a topology-content change,
+    """The mlmm potential identity rejects a different topology path,
     a link-method change, an embedding change, and a region-map change."""
 
     parm7 = tmp_path / "system.parm7"
@@ -645,16 +658,20 @@ def test_mlmm_potential_identity_rejects_parm7_link_embed_region_changes(
             "ts", hessian_cache.identity_from_context(_Geom(), base_cfg, role="ts")
         ) is not None
 
-        # Replace the parm7's BYTES at the same path -> reject.
+        # The parm7 is matched by path: new bytes at the same path still reuse.
         parm7.write_bytes(b"MUTATED-PRMTOP-CONTENT-DIFFERENT")
         assert hessian_cache.load_matching(
             "ts", hessian_cache.identity_from_context(_Geom(), base_cfg, role="ts")
-        ) is None
-        # Restore original bytes -> reuse again (content, not path, is authoritative).
-        parm7.write_bytes(b"ORIGINAL-PRMTOP-CONTENT")
-        assert hessian_cache.load_matching(
-            "ts", hessian_cache.identity_from_context(_Geom(), base_cfg, role="ts")
         ) is not None
+        # The same bytes at a different path reject.
+        copied = tmp_path / "copy.parm7"
+        copied.write_bytes(parm7.read_bytes())
+        assert hessian_cache.load_matching(
+            "ts",
+            hessian_cache.identity_from_context(
+                _Geom(), dict(base_cfg, real_parm7=str(copied)), role="ts"
+            ),
+        ) is None
 
         # Link-method / embedding / region-map changes each reject.
         assert hessian_cache.load_matching(
@@ -744,7 +761,7 @@ def test_mlmm_potential_identity_rejects_explicit_region_and_link_changes(
         ) is not None
 
 
-def test_mlmm_persistent_identity_includes_canonical_dft_settings() -> None:
+def test_mlmm_persistent_identity_has_no_dft_settings() -> None:
     class _Geom:
         atomic_numbers = np.array([1, 1])
         cart_coords = np.zeros(6, dtype=float)
@@ -760,23 +777,11 @@ def test_mlmm_persistent_identity_includes_canonical_dft_settings() -> None:
         **base,
         "dft": {"func_basis": "pbe0/sto-3g", "engine": "cpu"},
     }
-    resources = {
-        **base,
-        "dft": {
-            "func_basis": "pbe/sto-3g",
-            "engine": "cpu",
-            "nprocs": 8,
-            "memory": "16GB",
-        },
-    }
 
     identity = hessian_cache.persistent_identity_from_context(_Geom(), base)
     changed_identity = hessian_cache.persistent_identity_from_context(
         _Geom(), changed
     )
-    resource_identity = hessian_cache.persistent_identity_from_context(
-        _Geom(), resources
-    )
 
-    assert identity != changed_identity
-    assert identity == resource_identity
+    assert "dft_settings" not in identity["evaluator"]["potential"]
+    assert identity == changed_identity

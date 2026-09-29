@@ -47,8 +47,9 @@ Options:
                                   per-resname mapping (e.g., GPP:-3,SAM:1), used
                                   to derive the ML-region charge when -q is
                                   omitted (requires PDB input or --ref-pdb).
-  -m, --multiplicity INTEGER      Spin multiplicity (2S+1) for the ML region.
-                                  [default: (1)]
+  -m, --multiplicity INTEGER RANGE
+                                  Spin multiplicity (2S+1) for the ML region.
+                                  [default: (1); x>=1]
   --freeze-atoms TEXT             Comma-separated 1-based indices to freeze
                                   (e.g., '1,3,5').
   --hessian-cutoff, --radius-hessian, --hess-cutoff FLOAT
@@ -140,12 +141,14 @@ Options:
                                   layers when present in parm7.  [default:
                                   (cmap)]
   --skip-final-freq / --no-skip-final-freq
-                                  Skip terminal PHVA/frequency analysis and
-                                  imaginary-mode flattening. Standalone tsopt
+                                  Skip the terminal PHVA/frequency analysis
+                                  after convergence (a plateau stop still runs
+                                  it); RS-P-RFO/RS-I-RFO/TRIM also skip
+                                  --flatten, which needs it. Standalone tsopt
                                   retains the final structure with unverified
-                                  saddle order; mlmm all stops before IRC
-                                  because no imaginary direction can be
-                                  validated.  [default: no-skip-final-freq]
+                                  saddle order; all stops before IRC because no
+                                  imaginary direction can be validated.
+                                  [default: no-skip-final-freq]
   --read-hess FILE                Start from the Hessian in this .npy file (e.g.
                                   from freq or tsopt --dump-hess) instead of
                                   computing it: the Cartesian Hessian of the

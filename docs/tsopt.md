@@ -96,7 +96,9 @@ mlmm tsopt -i ts_guess.pdb --parm7 enzyme.parm7 -l 'LIG:Q' -b uma \
 
 `--coord-type` selects the optimization coordinate system (`cart` | `redund` |
 `dlc` | `tric`; default `cart`). Coordinate-system cost and convergence are
-system-dependent; compare alternatives on the same seed.
+system-dependent; compare alternatives on the same seed. For ML/MM systems,
+internal coordinates such as `dlc` can be slow to build; `cart` (the default)
+is recommended.
 
 ```{warning}
 `--coord-type dlc` needs a **Hessian-based** optimizer. On [`opt`](opt.md) with the default L-BFGS (`--opt-mode grad`) the CLI warns and falls back to `cart`; use it on `tsopt` (RS-P-RFO / RS-I-RFO / TRIM) or `opt --opt-mode hess`. `path-opt` / `path-search` accept only `cart` and `dlc`. `DLC + link atom` and `DLC + 3-layer frozen MM` are numerically unverified, so `cart` remains the default.

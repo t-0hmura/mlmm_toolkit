@@ -112,6 +112,50 @@ def test_all_dry_run_does_not_print_success_for_unresolved_charge() -> None:
     assert "Dry-run validation passed" not in result.output
 
 
+@pytest.mark.parametrize(
+    ("args", "stages"),
+    [
+        (["-i", "R", "-i", "P", "--parm", "PARM", "--detect-layer"], "path_opt"),
+        (
+            ["-i", "R", "-i", "P", "--parm", "PARM", "--detect-layer",
+             "--refine-path", "--tsopt", "--thermo", "--dft"],
+            "path_search -> tsopt -> irc -> freq -> dft",
+        ),
+        (["-i", "P", "--parm", "PARM", "--detect-layer", "--tsopt"], "tsopt -> irc"),
+        (
+            ["-i", "R", "--parm", "PARM", "--detect-layer", "--scan-lists", "[(1,2,1.8)]"],
+            "scan -> path_opt",
+        ),
+        (["-i", "R", "-i", "P", "-c", "PRE"], "extract -> mm_parm -> path_opt"),
+    ],
+)
+def test_all_dry_run_lists_only_planned_stages(
+    tmp_path: Path, args: list, stages: str
+) -> None:
+    smoke = Path(__file__).resolve().parent / "smoke"
+    files = {
+        "R": smoke / "r_complex_layered.pdb",
+        "P": smoke / "p_complex_layered.pdb",
+        "PARM": smoke / "p_complex.parm7",
+    }
+    if not all(path.is_file() for path in files.values()):
+        pytest.skip("smoke inputs are not present")
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            *(str(files.get(arg, arg)) for arg in args),
+            "-q", "-1",
+            "-m", "1",
+            "--dry-run",
+            "--out-dir", str(tmp_path / "out"),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert f"[all] Planned stages: {stages}." in result.output
+
+
 def test_all_freeze_atoms_are_validated_against_each_full_input(
     tmp_path: Path,
 ) -> None:

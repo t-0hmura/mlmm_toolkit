@@ -293,3 +293,14 @@ def test_result_manifest_collects_prefixed_cif_companions(tmp_path) -> None:
         "forward_endpoint": "segment_forward_first.xyz",
         "forward_endpoint_cif": "segment_forward_first.cif",
     }
+
+
+def test_result_json_records_each_direction_field_read_by_all() -> None:
+    # Keys read back by mlmm.workflows.all._read_irc_outcome.
+    source = (Path(__file__).resolve().parents[1] / "mlmm" / "workflows" / "irc.py").read_text(
+        encoding="utf-8"
+    )
+    for direction in ("forward", "backward"):
+        for suffix in ("requested", "integration_converged", "integration_stop_reason",
+                       "downhill_departure_valid", "energy_increased", "short_branch"):
+            assert f'"{direction}_{suffix}":' in source, f"{direction}_{suffix}"

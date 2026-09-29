@@ -114,9 +114,9 @@ def test_tsopt_rejects_configured_basis_gap_before_optimization(
     ) == [0, 1, 2, 3]
 
 
-def test_dimer_reserves_the_strict_threshold_cycle() -> None:
+def test_dimer_loop_accepts_an_unlimited_budget() -> None:
     runner = HessianDimer.__new__(HessianDimer)
-    runner.max_total_cycles = 1
+    runner.max_total_cycles = None
     runner._cycles_spent = 0
     runner.update_interval_hessian = 10
     runner.is_stalled = False
@@ -128,18 +128,21 @@ def test_dimer_reserves_the_strict_threshold_cycle() -> None:
         return 1, True
 
     runner._dimer_segment = segment
-    assert runner._dimer_loop("gau_loose", reserve_cycles=1) == (0, False, False)
     assert runner._dimer_loop("baker") == (1, True, True)
-    assert calls == [("baker", 1)]
+    assert calls == [("baker", 10)]
 
 
-def test_direct_dimer_rejects_internal_coordinates(tmp_path) -> None:
-    with pytest.raises(ValueError, match="coord_type must be 'cart'"):
-        HessianDimer(
-            "unused.xyz",
-            out_dir=str(tmp_path / "ts"),
-            geom_kwargs={"coord_type": "dlc"},
-        )
+@pytest.mark.parametrize("coord_type", ["redund", "dlc"])
+def test_direct_dimer_keeps_internal_coordinates(tmp_path, coord_type) -> None:
+    xyz = tmp_path / "water.xyz"
+    xyz.write_text("3\nwater\nO 0.0 0.0 0.0\nH 0.95 0.0 0.0\nH -0.21 0.9 0.0\n")
+    runner = HessianDimer(
+        str(xyz),
+        out_dir=str(tmp_path / "ts"),
+        device="cpu",
+        geom_kwargs={"coord_type": coord_type},
+    )
+    assert runner.geom.coord_type == coord_type
 
 
 def test_dimer_hessian_cache_separates_guidance_and_exact_curvature(

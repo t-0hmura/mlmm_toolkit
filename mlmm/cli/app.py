@@ -248,6 +248,7 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
             "--embedcharge",
             "--forward",
             "--model-indices-one-based",
+            "--never-stop",
             "--out-json",
             "--show-config",
         }
@@ -329,6 +330,7 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
         {
             "--cmap",
             "--convert-files",
+            "--dry-run",
             "--dump",
             "--embedcharge",
             "--model-indices-one-based",
@@ -342,6 +344,7 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
         {
             "--cmap",
             "--convert-files",
+            "--dry-run",
             "--dump",
             "--embedcharge",
             "--model-indices-one-based",
@@ -353,6 +356,7 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
     ),
     "trj2fig": frozenset(
         {
+            "--out-json",
             "--reverse-x",
         }
     ),
@@ -409,7 +413,6 @@ _COMMAND_BOOL_TOGGLE_NEGATIVE_ALIASES: dict[str, dict[str, str]] = {
         "--partial-hessian-flatten": "--full-hessian-flatten",
         "--ml-only-hessian-dimer": "--no-ml-only-hessian-dimer",
         "--microiter": "--no-microiter",
-        "--convert-files": "--no-convert-files",
     },
     "path-opt": {
         "--model-indices-one-based": "--model-indices-zero-based",
@@ -430,7 +433,6 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
         {
             "-i",
             "--input",
-            "--ref-pdb",
             "--parm7",
             "--model-pdb",
             "--detect-layer",
@@ -455,7 +457,6 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
         {
             "-i",
             "--input",
-            "--ref-pdb",
             "--parm7",
             "--model-pdb",
             "--detect-layer",
@@ -480,7 +481,6 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
         {
             "-i",
             "--input",
-            "--ref-pdb",
             "--parm7",
             "--model-pdb",
             "--detect-layer",
@@ -506,7 +506,6 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
         {
             "-i",
             "--input",
-            "--ref-pdb",
             "--parm7",
             "--model-pdb",
             "--detect-layer",
@@ -533,7 +532,6 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
         {
             "-i",
             "--input",
-            "--ref-pdb",
             "--parm7",
             "--model-pdb",
             "--detect-layer",
@@ -558,7 +556,6 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
         {
             "-i",
             "--input",
-            "--ref-pdb",
             "--parm7",
             "--model-pdb",
             "--detect-layer",
@@ -583,7 +580,6 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
         {
             "-i",
             "--input",
-            "--ref-pdb",
             "--parm7",
             "--model-pdb",
             "--detect-layer",
@@ -609,7 +605,6 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
         {
             "-i",
             "--input",
-            "--ref-pdb",
             "--parm7",
             "--model-pdb",
             "--detect-layer",
@@ -632,7 +627,6 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
         {
             "-i",
             "--input",
-            "--ref-pdb",
             "--parm7",
             "--model-pdb",
             "--detect-layer",
@@ -657,7 +651,6 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
         {
             "-i",
             "--input",
-            "--ref-pdb",
             "--parm7",
             "--model-pdb",
             "--detect-layer",
@@ -678,7 +671,6 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
         {
             "-i",
             "--input",
-            "--ref-pdb",
             "--parm7",
             "--model-pdb",
             "--detect-layer",
@@ -754,7 +746,6 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--input",
             "-o",
             "--out",
-            "--inplace", "--no-inplace",
             "--help-advanced",
         }
     ),

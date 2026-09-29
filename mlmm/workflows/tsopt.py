@@ -83,6 +83,7 @@ from mlmm.core.utils import (
     apply_yaml_overrides,
     pretty_block,
     strip_inherited_keys,
+    resolve_shared_optimizer_value,
     filter_calc_for_echo,
     format_freeze_atoms_for_echo,
     emit_dry_run_complete,
@@ -200,7 +201,6 @@ def _set_cartesian_flatten_coords(geom, cart_coords: np.ndarray) -> None:
 # and share the kwargs surface (`_build_rsirfo_kwargs`); each selected class
 # retains its own image-function or partitioned-step mathematics.
 TSOPT_CLASS_MAP = {"rsirfo": RSIRFOptimizer, "trim": TRIM, "rsprfo": RSPRFOptimizer}
-PATH_MODE_RESTART_AMPLITUDES_ANG = (-0.10, 0.10, -0.20, 0.20)
 FLATTEN_RETRY_HIGHER_ORDER_CHECKS = 3
 
 
@@ -208,7 +208,7 @@ def _restart_microiteration_carry(
     outcome: Dict[str, Any],
 ) -> Tuple[Optional[Dict[str, Any]], Optional[int]]:
     """Extract the additive microiteration block + executed micro-cycle total from
-    a ``_run_microiter_tsopt`` outcome so a restart/multistart/flatten selection
+    a ``_run_microiter_tsopt`` outcome so a restart/flatten selection
     can re-anchor the serialized ``microiteration`` object on the run that
     produced the FINAL geometry (never a superseded initial run).
 
@@ -467,89 +467,11 @@ def _transported_path_mode_full(
     return mode / norm
 
 
-def _initial_path_root_mode_full(optimizer, geometry) -> Optional[np.ndarray]:
-    if geometry.coord_type not in ("cart", "cartesian"):
-        return None
-    mode = getattr(optimizer, "_initial_reference_root_mode", None)
-    if isinstance(mode, torch.Tensor):
-        mode = mode.detach().cpu().numpy()
-    if mode is None:
-        return None
-    mode = np.asarray(mode, dtype=float).reshape(-1)
-    if mode.size != geometry.cart_coords.size:
-        try:
-            mode = optimizer.full_from_active(mode)
-        except (AttributeError, IndexError, ValueError):
-            return None
-    norm = float(np.linalg.norm(mode))
-    if mode.size != geometry.cart_coords.size or not np.all(np.isfinite(mode)) or norm <= 0.0:
-        return None
-    return mode / norm
-
-
-def _path_restart_mode_candidates(
-    optimizer,
-    geometry,
-    reference_modes: Sequence[np.ndarray],
-    reference_labels: Optional[Sequence[str]] = None,
-) -> List[Tuple[str, np.ndarray]]:
-    """Return cached MEP candidates plus a distinct initial soft root."""
-    labels = list(reference_labels or ())
-    candidates: List[Tuple[str, np.ndarray]] = []
-    for index, raw in enumerate(reference_modes):
-        mode = np.asarray(raw, dtype=float).reshape(-1)
-        norm = float(np.linalg.norm(mode))
-        if (
-            mode.size != geometry.cart_coords.size
-            or not np.all(np.isfinite(mode))
-            or not np.isfinite(norm)
-            or norm <= 0.0
-        ):
-            continue
-        unit = mode / norm
-        if any(abs(float(np.dot(unit, prior))) >= 1.0 - 1.0e-8 for _, prior in candidates):
-            continue
-        label = labels[index] if index < len(labels) else f"mep-candidate-{index + 1}"
-        candidates.append((f"mep-{label}", unit))
-    primary = candidates[0][1] if candidates else None
-    soft_root = _initial_path_root_mode_full(optimizer, geometry)
-    if soft_root is not None and (
-        primary is None or abs(float(np.dot(primary, soft_root))) < 0.95
-    ):
-        if not any(abs(float(np.dot(soft_root, prior))) >= 1.0 - 1.0e-8 for _, prior in candidates):
-            candidates.append(("initial-soft-root", soft_root))
-    return candidates
-
 def _force_ts_reject_uphill_off(kwargs: Dict[str, Any]) -> Dict[str, Any]:
     """Return TS optimizer kwargs with physical-energy rejection disabled."""
     effective = dict(kwargs)
     effective["reject_uphill"] = False
     return effective
-
-
-def _resolve_shared_optimizer_value(
-    opt_cfg: Dict[str, Any],
-    downstream_cfg: Dict[str, Any],
-    key: str,
-    *,
-    opt_explicit: bool,
-    downstream_explicit: bool,
-    downstream_default: Any,
-    downstream_section: str,
-) -> None:
-    """Resolve one duplicated optimizer setting without silent precedence."""
-    if opt_explicit and downstream_explicit and opt_cfg[key] != downstream_cfg[key]:
-        raise click.BadParameter(
-            f"opt.{key} and {downstream_section}.{key} conflict."
-        )
-    if opt_explicit:
-        value = opt_cfg[key]
-    elif downstream_explicit:
-        value = downstream_cfg[key]
-    else:
-        value = downstream_default
-    opt_cfg[key] = value
-    downstream_cfg[key] = value
 
 
 def _build_rsirfo_kwargs(
@@ -585,10 +507,11 @@ def _build_rsirfo_kwargs(
         args["reference_mode"] = reference_mode
     args["flatten_enabled"] = bool(flatten_enabled)
 
+    if "root" in args:
+        raise click.BadParameter(
+            "rsirfo.root is not supported; set rsirfo.roots to a one-item list."
+        )
     roots = args.get("roots")
-    root_single = args.pop("root", None)
-    if root_single is not None:
-        roots = [int(root_single)]
     if roots is None:
         roots = [0]
     try:
@@ -1843,12 +1766,7 @@ class HessianDimer:
 
         # Geometry & masses (use provided geom kwargs so freeze_atoms etc. apply)
         gkw = dict(geom_kwargs or {})
-        coord_type = str(gkw.pop("coord_type", "cart")).lower()
-        if coord_type != "cart":
-            raise ValueError(
-                "HessianDimer uses Cartesian 3N Hessian, mode, and Bofill kernels; "
-                "coord_type must be 'cart'."
-            )
+        coord_type = gkw.pop("coord_type", GEOM_KW_DEFAULT["coord_type"])
         freeze_geom = list(gkw.get("freeze_atoms", [])) if "freeze_atoms" in gkw else []
         freeze_calc_raw = self.calc_kwargs.get("freeze_atoms") or []
         try:
@@ -2175,12 +2093,7 @@ class HessianDimer:
         )
 
     # ----- Loop dimer segments, updating mode from Hessian every interval -----
-    def _dimer_loop(
-        self,
-        threshold: str,
-        *,
-        reserve_cycles: int = 0,
-    ) -> Tuple[int, bool, bool]:
+    def _dimer_loop(self, threshold: str) -> Tuple[int, bool, bool]:
         """
         Run multiple LBFGS segments separated by periodic Hessian-based mode updates.
         Consumes from a *global* cycle budget self.max_total_cycles.
@@ -2203,16 +2116,15 @@ class HessianDimer:
             remaining_global = (
                 None
                 if self.max_total_cycles is None
-                else max(
-                    0,
-                    self.max_total_cycles
-                    - self._cycles_spent
-                    - int(reserve_cycles),
-                )
+                else max(0, self.max_total_cycles - self._cycles_spent)
             )
             if remaining_global == 0:
                 break
-            steps_this = min(self.update_interval_hessian, remaining_global)
+            steps_this = (
+                self.update_interval_hessian
+                if remaining_global is None
+                else min(self.update_interval_hessian, remaining_global)
+            )
             coords_before = self.geom.cart_coords.copy()
             steps, ok = self._dimer_segment(threshold, steps_this)
             self._cycles_spent += steps
@@ -2412,11 +2324,7 @@ class HessianDimer:
             click.echo("[tsopt] Loose Dimer Loop...")
 
         thresholds_match = self.thresh_loose == self.thresh
-        strict_reserve = 0 if thresholds_match else 1
-        _, zero_step_loose, conv_loose = self._dimer_loop(
-            self.thresh_loose,
-            reserve_cycles=strict_reserve,
-        )
+        _, zero_step_loose, conv_loose = self._dimer_loop(self.thresh_loose)
         # A loose-threshold pass is phase progress, not terminal convergence.
         self.is_converged = bool(conv_loose and thresholds_match)
 
@@ -3401,7 +3309,7 @@ def _tsopt_owned_output_paths(path: Path) -> List[Path]:
 
     resolved = Path(path).resolve()
     vib_dir = resolved / "vib"
-    if vib_dir.is_symlink() or (vib_dir.exists() and not vib_dir.is_dir()):
+    if vib_dir.exists() and not vib_dir.is_dir():
         raise _TSOPTOutputCollisionError(
             f"TSOPT vib output must be a real directory: {vib_dir}."
         )
@@ -3544,7 +3452,7 @@ def _prepare_tsopt_output_dir(
     "-m",
     "--multiplicity",
     "spin",
-    type=int,
+    type=click.IntRange(min=1),
     default=None,
     show_default="1",
     help="Spin multiplicity (2S+1) for the ML region.",
@@ -3697,7 +3605,7 @@ def _prepare_tsopt_output_dir(
 )
 @click.option(
     "-b", "--backend",
-    type=click.Choice(["uma", "orb", "mace", "aimnet2", "dft"], case_sensitive=False),
+    type=click.Choice(["uma", "orb", "mace", "aimnet2", "dft"]),
     default=None,
     show_default="uma",
     help="High-level backend for the ONIOM model region.",
@@ -3746,9 +3654,10 @@ def _prepare_tsopt_output_dir(
     default=False,
     show_default=True,
     help=(
-        "Skip terminal PHVA/frequency analysis and imaginary-mode flattening. "
-        "Standalone tsopt retains the final structure with unverified saddle "
-        "order; mlmm all stops before IRC because no imaginary direction can "
+        "Skip the terminal PHVA/frequency analysis after convergence (a plateau "
+        "stop still runs it); RS-P-RFO/RS-I-RFO/TRIM also skip --flatten, which "
+        "needs it. Standalone tsopt retains the final structure with unverified "
+        "saddle order; all stops before IRC because no imaginary direction can "
         "be validated."
     ),
 )
@@ -4136,7 +4045,7 @@ def cli(
         }
         for key in sorted(OPT_BASE_KW.keys() & RSIRFO_KW.keys()):
             cli_name = cli_shared.get(key)
-            _resolve_shared_optimizer_value(
+            resolve_shared_optimizer_value(
                 opt_cfg,
                 rsirfo_cfg,
                 key,
@@ -4149,7 +4058,7 @@ def cli(
                 downstream_section="rsirfo",
             )
     else:
-        _resolve_shared_optimizer_value(
+        resolve_shared_optimizer_value(
             opt_cfg,
             simple_cfg,
             "thresh",
@@ -4169,7 +4078,7 @@ def cli(
             "energy_plateau_window": "stop_plateau_window",
         }
         for key, cli_name in dimer_shared.items():
-            _resolve_shared_optimizer_value(
+            resolve_shared_optimizer_value(
                 opt_cfg,
                 simple_lbfgs,
                 key,
@@ -4229,12 +4138,6 @@ def cli(
     except ValueError as exc:
         prepared_input.cleanup()
         raise click.ClickException(str(exc)) from exc
-    if not use_heavy and str(geom_cfg.get("coord_type", "cart")).lower() != "cart":
-        click.echo(
-            "[tsopt] Gradient/dimer mode uses Cartesian Hessian and mode kernels; "
-            "using coord_type=cart."
-        )
-        geom_cfg["coord_type"] = "cart"
 
     calc_paths = (("calc",), ("mlmm",))
     partial_explicit = (
@@ -4513,7 +4416,6 @@ def cli(
                 coord_type=coord_type,
                 **coord_kwargs,
             )
-            initial_ts_cart_coords = geometry.cart_coords.copy()
             _initial_hessian = (
                 _load_initial_hessian_file(read_hess, geometry, calc_cfg)
                 if read_hess
@@ -4906,166 +4808,6 @@ def cli(
                 ims = [float(x) for x in freqs_cm if x < -abs(neg_freq_thresh_cm)]
                 emit(f"[Imaginary modes] n={n_imag} ({ims})", narrative=True)
                 _warn_if_leading_imaginary_mode_is_soft(ims)
-
-                saddle_multistart_attempts: List[Dict[str, Any]] = []
-                target_mode_is_negative = getattr(
-                    last_optimizer,
-                    "_last_exact_target_mode_is_negative",
-                    None,
-                )
-                if (
-                    int(rsirfo_args.get("saddle_recovery_max_cycles", 0)) > 0
-                    and not _heavy_optimizer_converged
-                    and not getattr(last_optimizer, "is_stalled", False)
-                    and reference_mode is not None
-                    and (n_imag <= 1 or target_mode_is_negative is False)
-                ):
-                    baseline = {
-                        "coords": geometry.cart_coords.copy(),
-                        "optimizer": last_optimizer,
-                        "freqs": freqs_cm.copy(),
-                        "projection": deepcopy(rigid_projection_info),
-                        "modes": modes.detach().cpu().clone(),
-                        "converged": _heavy_optimizer_converged,
-                        "safeguards": dict(_heavy_safeguards),
-                        "cycles": initial_run_cycles,
-                        # The additive microiteration block that describes the
-                        # initial run (the baseline geometry), carried so a
-                        # baseline selection re-anchors it to the selected mode.
-                        "microiteration_obj": _heavy_microiteration_obj,
-                        "micro_cycles": _heavy_micro_cycles,
-                    }
-                    best_path_negative = None
-                    multistart_success = False
-                    multistart_budget_exhausted = False
-                    for mode_source, restart_unit in _path_restart_mode_candidates(
-                        last_optimizer,
-                        geometry,
-                        reference_modes,
-                        reference_mode_labels,
-                    ):
-                        if mode_source == "initial-soft-root" and best_path_negative is not None:
-                            break
-                        for amplitude_ang in PATH_MODE_RESTART_AMPLITUDES_ANG:
-                            if (
-                                _heavy_cycle_ledger.remaining is not None
-                                and _heavy_cycle_ledger.remaining <= 0
-                            ):
-                                multistart_budget_exhausted = True
-                                click.echo(
-                                    "[tsopt] Reached --max-cycles budget; "
-                                    "stopping path-mode restarts."
-                                )
-                                break
-                            geometry.cart_coords = (
-                                initial_ts_cart_coords
-                                + (amplitude_ang / BOHR2ANG) * restart_unit
-                            )
-                            geometry.set_calculator(None)
-                            emit(
-                                "[path-mode restart] "
-                                f"source={mode_source}, displacement={amplitude_ang:+.2f} Å",
-                                narrative=True,
-                            )
-                            (
-                                restart_optimizer,
-                                restart_converged,
-                                restart_safeguards,
-                                restart_cycles,
-                                restart_micro_obj,
-                                restart_micro_cycles,
-                            ) = _run_path_restart(restart_unit)
-                            last_optimizer = restart_optimizer
-                            _heavy_optimizer_converged = restart_converged
-                            _heavy_safeguards = restart_safeguards
-                            # Re-anchor the additive microiteration block on the run
-                            # that produced the current geometry (the last restart).
-                            _heavy_microiteration_obj = restart_micro_obj
-                            _heavy_micro_cycles = restart_micro_cycles
-                            geometry.set_calculator(None)
-                            restart_freqs, restart_modes = _terminal_freqs_and_modes(restart_optimizer)
-                            restart_n_imag = int(
-                                np.sum(
-                                    restart_freqs
-                                    < -abs(neg_freq_thresh_cm)
-                                )
-                            )
-                            target_negative = getattr(
-                                restart_optimizer,
-                                "_last_exact_target_mode_is_negative",
-                                None,
-                            )
-                            attempt = {
-                                "mode_source": mode_source,
-                                "displacement_ang": amplitude_ang,
-                                "converged": restart_converged,
-                                "n_imaginary": restart_n_imag,
-                                "target_mode_negative": target_negative,
-                            }
-                            saddle_multistart_attempts.append(attempt)
-                            emit(
-                                "[path-mode restart] "
-                                f"converged={restart_converged}, n_imag={restart_n_imag}",
-                                narrative=True,
-                            )
-                            if restart_converged and restart_n_imag == 1:
-                                freqs_cm, modes = restart_freqs, restart_modes
-                                n_imag = restart_n_imag
-                                multistart_success = True
-                                break
-                            if target_negative is True:
-                                force = (
-                                    restart_optimizer.forces[-1]
-                                    if restart_optimizer.forces
-                                    else geometry.cart_forces
-                                )
-                                if isinstance(force, torch.Tensor):
-                                    force = force.detach().cpu().numpy()
-                                score = (
-                                    abs(restart_n_imag - 1),
-                                    float(np.max(np.abs(np.asarray(force, dtype=float)))),
-                                )
-                                if best_path_negative is None or score < best_path_negative["score"]:
-                                    best_path_negative = {
-                                        "score": score,
-                                        "coords": geometry.cart_coords.copy(),
-                                        "optimizer": restart_optimizer,
-                                        "freqs": restart_freqs.copy(),
-                                        "projection": deepcopy(rigid_projection_info),
-                                        "modes": restart_modes.detach().cpu().clone(),
-                                        "converged": restart_converged,
-                                        "safeguards": dict(restart_safeguards),
-                                        "cycles": restart_cycles,
-                                        "microiteration_obj": restart_micro_obj,
-                                        "micro_cycles": restart_micro_cycles,
-                                    }
-                        if multistart_success:
-                            break
-                        if multistart_budget_exhausted:
-                            break
-
-                    if not multistart_success:
-                        selected = best_path_negative or baseline
-                        geometry.cart_coords = selected["coords"]
-                        last_optimizer = selected["optimizer"]
-                        freqs_cm = selected["freqs"]
-                        modes = selected["modes"]
-                        rigid_projection_info.clear()
-                        rigid_projection_info.update(deepcopy(selected["projection"]))
-                        _heavy_optimizer_converged = bool(selected["converged"])
-                        _heavy_safeguards = dict(selected["safeguards"])
-                        # The selected run (best-path-negative or baseline) owns the
-                        # additive microiteration block for the final geometry.
-                        _heavy_microiteration_obj = selected["microiteration_obj"]
-                        _heavy_micro_cycles = selected["micro_cycles"]
-                        n_imag = int(
-                            np.sum(freqs_cm < -abs(neg_freq_thresh_cm))
-                        )
-                    (out_dir_path / "final_geometry.xyz").write_text(
-                        geometry.as_xyz(), encoding="utf-8"
-                    )
-                if saddle_multistart_attempts:
-                    _heavy_safeguards["path_mode_restarts"] = saddle_multistart_attempts
 
                 flatten_max_iter = int(simple_cfg.get("flatten_max_iter", 0))
                 target_mode_is_negative = getattr(
@@ -5463,15 +5205,7 @@ def cli(
             # Restart branches share the Hessian cache. Evaluate the selected
             # final coordinates directly so an unselected branch cannot leak
             # its cached energy into result.json.
-            try:
-                _heavy_energy = _calc_energy(geometry, calc_cfg)
-            except (RuntimeError, ValueError, AttributeError, KeyError) as _ee:
-                logger.warning(
-                    "Hessian TS final energy evaluation failed: %s. "
-                    "Reporting status='energy_missing' with NaN energy.",
-                    _ee,
-                )
-                _heavy_energy = float("nan")
+            _heavy_energy = _calc_energy(geometry, calc_cfg)
 
             if modes is not None:
                 del modes
@@ -5640,7 +5374,6 @@ def cli(
             _tsopt_n_imag: Optional[int] = None
             _tsopt_n_negative: Optional[int] = None
             _tsopt_energy = None
-            _tsopt_status = "unverified"
             _tsopt_saddle_validation = "unavailable"
             _tsopt_hessian_status = "unavailable"
             _tsopt_hessian_error = None
@@ -5718,35 +5451,11 @@ def cli(
                         _tsopt_imag_freqs[0]
                     ) if _tsopt_imag_freqs else None
                 if 'runner' in dir() and hasattr(runner, 'geom'):
-                    try:
-                        _tsopt_energy = _calc_energy(runner.geom, calc_cfg)
-                    except (RuntimeError, ValueError, AttributeError, KeyError) as _ee2:
-                        logger.warning(
-                            "Dimer energy fallback failed: %s. "
-                            "Reporting status='energy_missing' with NaN energy.",
-                            _ee2,
-                        )
-                        _tsopt_energy = float("nan")
-
-            # Both final-energy evaluations above fall back to NaN and log a
-            # promise of `status='energy_missing'` that nothing delivered, so a
-            # converged saddle could ship with an unusable energy under a
-            # `converged` verdict. `optimization_status` keeps the optimizer's
-            # own outcome; only the overall `status` is degraded.
-            _tsopt_optimization_status = _tsopt_status
-            _final_energy_usable = _tsopt_energy is not None and bool(
-                np.isfinite(_tsopt_energy)
-            )
-            if _tsopt_status == "converged" and not _final_energy_usable:
-                logger.warning(
-                    "Final TS energy is unavailable; reporting status='energy_missing' "
-                    "instead of 'converged'."
-                )
-                _tsopt_status = "energy_missing"
+                    _tsopt_energy = _calc_energy(runner.geom, calc_cfg)
 
             result_data = {
                 "status": _tsopt_status,
-                "optimization_status": _tsopt_optimization_status,
+                "optimization_status": _tsopt_status,
                 "saddle_validation": _tsopt_saddle_validation,
                 "saddle_order_verified": _tsopt_saddle_validation == "first_order",
                 "hessian_status": _tsopt_hessian_status,
@@ -5771,7 +5480,7 @@ def cli(
                     frequency_cfg["zero_cutoff_cm"]
                 ),
                 "imaginary_frequencies_cm": _tsopt_imag_freqs,
-                "opt_mode": opt_mode,
+                "opt_mode": mode_resolved,
                 "opt_mode_requested": str(opt_mode).strip().lower(),
                 "optimizer": mode_resolved,
                 "n_atoms": _tsopt_n_atoms,

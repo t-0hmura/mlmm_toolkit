@@ -284,7 +284,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     "-m",
     "--multiplicity",
     "spin",
-    type=int,
+    type=click.IntRange(min=1),
     default=None,
     show_default="1",
     help="Spin multiplicity (2S+1); overrides calc.model_mult from YAML.",
@@ -365,7 +365,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
 )
 @click.option(
     "-b", "--backend",
-    type=click.Choice(["uma", "orb", "mace", "aimnet2", "dft"], case_sensitive=False),
+    type=click.Choice(["uma", "orb", "mace", "aimnet2", "dft"]),
     default=None,
     show_default="uma",
     help="High-level backend for the ONIOM model region.",
@@ -415,7 +415,8 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     default="auto",
     show_default=True,
     help="Device for initial Hessian storage and IRC operations (auto/cuda/cpu). "
-         "Use 'cpu' for large unfrozen systems to avoid VRAM limits.",
+         "Use 'cpu' for large unfrozen systems to avoid VRAM limits. "
+         "Applies when irc.hessian_init is calc (the default).",
 )
 @click.option(
     "--read-hess",
@@ -680,6 +681,26 @@ def cli(
         detect_layer_enabled = bool(calc_cfg.get("use_bfactor_layers", True))
         model_pdb_cfg = calc_cfg.get("model_pdb")
 
+        # calibrated GPU-first IRC Hessian/integration device policy.
+        # ``auto`` keeps the resolved backend device (GPU-first when a CUDA
+        # device is present), so the integration Hessian and large tensors stay
+        # GPU-resident by default. An explicit ``cuda`` request stays on CUDA or
+        # errors -- it is never silently moved to CPU. ``cpu`` is an explicit,
+        # calibrated offload for large unfrozen systems, not a silent fallback.
+        from mlmm.workflows._microiteration import resolve_hessian_device
+        _requested_hess_device = (hess_device or "auto").strip().lower()
+        if _requested_hess_device == "auto":
+            _hess_dev = _torch_device(calc_cfg.get("ml_device", "auto"))
+            _hess_dev_reason = "auto_gpu_first" if _hess_dev.type == "cuda" else "auto_cpu"
+        else:
+            try:
+                _eff_hess_device, _hess_dev_reason = resolve_hessian_device(
+                    _requested_hess_device, torch.cuda.is_available()
+                )
+            except ValueError as exc:
+                raise click.ClickException(str(exc)) from exc
+            _hess_dev = _torch_device(_eff_hess_device)
+
         if show_config:
             click.echo(
                 pretty_block(
@@ -831,39 +852,23 @@ def cli(
 
         echo_resolved_device()
 
-        # Seed the initial Hessian.
+        # Seed the initial Hessian for hessian_init: calc (the default).
         # Priority: --read-hess file > hessian_cache > fresh computation.
+        # Any other hessian_init value is built by EulerPC itself.
+        _seeds_initial_hessian = irc_cfg.get("hessian_init") in (None, "calc")
         from mlmm.io.hessian_cache import (
             discard as _hess_discard,
             load_matching as _hess_load_matching,
             store as _hess_store,
             identity_from_context as _hess_identity,
         )
-        # calibrated GPU-first IRC Hessian/integration device policy.
-        # ``auto`` keeps the resolved backend device (GPU-first when a CUDA
-        # device is present), so the integration Hessian and large tensors stay
-        # GPU-resident by default. An explicit ``cuda`` request stays on CUDA or
-        # errors -- it is never silently moved to CPU. ``cpu`` is an explicit,
-        # calibrated offload for large unfrozen systems, not a silent fallback.
-        from mlmm.workflows._microiteration import resolve_hessian_device
-        _requested_hess_device = (hess_device or "auto").strip().lower()
-        if _requested_hess_device == "auto":
-            _hess_dev = _torch_device(calc_cfg.get("ml_device", "auto"))
-            _hess_dev_reason = "auto_gpu_first" if _hess_dev.type == "cuda" else "auto_cpu"
-        else:
-            try:
-                _eff_hess_device, _hess_dev_reason = resolve_hessian_device(
-                    _requested_hess_device, torch.cuda.is_available()
-                )
-            except ValueError as exc:
-                raise click.ClickException(str(exc)) from exc
-            _hess_dev = _torch_device(_eff_hess_device)
-        click.echo(
-            f"[device] IRC Hessian device: requested={_requested_hess_device}, "
-            f"effective={_hess_dev.type} ({_hess_dev_reason})."
-        )
-        if _hess_dev.type == "cpu":
-            click.echo("[device] Hessian operations will run on CPU.")
+        if _seeds_initial_hessian:
+            click.echo(
+                f"[device] IRC Hessian device: requested={_requested_hess_device}, "
+                f"effective={_hess_dev.type} ({_hess_dev_reason})."
+            )
+            if _hess_dev.type == "cpu":
+                click.echo("[device] Hessian operations will run on CPU.")
 
         if read_hess:
             _initial_hessian_source = "file"
@@ -890,6 +895,9 @@ def cli(
                     "active_atoms": sorted({d // 3 for d in _dofs}),
                 }
             del _loaded_hessian
+        elif not _seeds_initial_hessian:
+            _initial_hessian_source = "fresh"
+            h_init = None
         else:
             # reuse the tsopt TS Hessian only on a full evaluation-identity
             # match; the all workflow may round-trip the TS through a
@@ -952,30 +960,31 @@ def cli(
         # default; `cpu` is a calibrated user offload), never by a silent basis
         # change. We only VALIDATE the seeded matrix against the already-declared
         # ordered basis here; we never reduce it or rebuild its active map.
-        _full_n_dof = int(geometry.cart_coords.size)
-        _seeded_n = int(h_init.shape[0])
-        _within = getattr(geometry, "within_partial_hessian", None)
-        if _within is not None and _within.get("active_dofs") is not None:
-            _declared = np.asarray(_within["active_dofs"], dtype=np.int64).reshape(-1)
-            if set(_declared.tolist()) != set(int(d) for d in _expected_hessian_dofs.tolist()):
+        if h_init is not None:
+            _full_n_dof = int(geometry.cart_coords.size)
+            _seeded_n = int(h_init.shape[0])
+            _within = getattr(geometry, "within_partial_hessian", None)
+            if _within is not None and _within.get("active_dofs") is not None:
+                _declared = np.asarray(_within["active_dofs"], dtype=np.int64).reshape(-1)
+                if set(_declared.tolist()) != set(int(d) for d in _expected_hessian_dofs.tolist()):
+                    raise click.ClickException(
+                        "Seeded Hessian active-DOF basis does not match the declared "
+                        "layer selection; refusing to run IRC on an inconsistent basis."
+                    )
+                _expected_n = int(_declared.size)
+            else:
+                _expected_n = int(_expected_hessian_dofs.size)
+            if _seeded_n not in (_expected_n, _full_n_dof):
                 raise click.ClickException(
-                    "Seeded Hessian active-DOF basis does not match the declared "
-                    "layer selection; refusing to run IRC on an inconsistent basis."
+                    f"Seeded Hessian dimension {_seeded_n} matches neither the "
+                    f"declared active basis ({_expected_n}) nor the full Cartesian "
+                    f"space ({_full_n_dof}); refusing to run IRC on a cropped basis."
                 )
-            _expected_n = int(_declared.size)
-        else:
-            _expected_n = int(_expected_hessian_dofs.size)
-        if _seeded_n not in (_expected_n, _full_n_dof):
-            raise click.ClickException(
-                f"Seeded Hessian dimension {_seeded_n} matches neither the "
-                f"declared active basis ({_expected_n}) nor the full Cartesian "
-                f"space ({_full_n_dof}); refusing to run IRC on a cropped basis."
-            )
-        del _expected_hessian_dofs
 
-        geometry.cart_hessian = h_init
-        click.echo(f"[irc] Initial Hessian seeded (shape={h_init.shape[0]}x{h_init.shape[1]}).")
-        del h_init
+            geometry.cart_hessian = h_init
+            click.echo(f"[irc] Initial Hessian seeded (shape={h_init.shape[0]}x{h_init.shape[1]}).")
+            del h_init
+        del _expected_hessian_dofs
 
         eulerpc = EulerPC(geometry, **irc_cfg)
         from pysisyphus.tr_projection import active_tr_basis
@@ -1185,6 +1194,8 @@ def cli(
                 "backward_integration_stop_reason": getattr(eulerpc, 'backward_integration_stop_reason', None),
                 "forward_downhill_departure_valid": getattr(eulerpc, 'forward_downhill_departure_valid', None),
                 "backward_downhill_departure_valid": getattr(eulerpc, 'backward_downhill_departure_valid', None),
+                "forward_energy_increased": getattr(eulerpc, 'forward_energy_increased', None),
+                "backward_energy_increased": getattr(eulerpc, 'backward_energy_increased', None),
                 **calculator_provenance(calc_cfg),
                 "charge": calc_cfg.get("model_charge"),
                 "spin": calc_cfg.get("model_mult"),

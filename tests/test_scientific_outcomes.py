@@ -95,35 +95,6 @@ def test_scan_point_seed_eligibility_fail_closed() -> None:
     assert nan.seed_eligible is False and nan.reason == "energy_invalid"
 
 
-def test_scan2d_failed_payload_exists_without_usable_plot_point() -> None:
-    from mlmm.workflows.scan2d import _build_scan2d_result_payload
-
-    payload = _build_scan2d_result_payload(
-        records=[
-            {
-                "i": 0,
-                "j": 0,
-                "bias_converged": False,
-                "energy_hartree": float("nan"),
-                "artifact_written": False,
-            }
-        ],
-        calc_cfg={"backend": "uma", "model_charge": 0, "model_mult": 1},
-        pair1={"i": 1, "j": 2, "low": 1.0, "high": 2.0},
-        pair2={"i": 3, "j": 4, "low": 1.0, "high": 2.0},
-        files={"surface_csv": "surface.csv"},
-        status="failed",
-    )
-
-    assert payload["status"] == "failed"
-    assert payload["execution_status"] == "completed"
-    assert payload["scientific_status"] == "failed"
-    assert payload["n_points_attempted"] == 1
-    assert payload["n_points_usable"] == 0
-    assert payload["min_energy_hartree"] is None
-    assert payload["files"] == {"surface_csv": "surface.csv"}
-
-
 def test_scan2d_payload_publishes_explicit_grid_structure_mapping() -> None:
     from mlmm.workflows.scan2d import _build_scan2d_result_payload
 
@@ -134,6 +105,8 @@ def test_scan2d_payload_publishes_explicit_grid_structure_mapping() -> None:
                 "j": 3,
                 "d1_A": 1.234,
                 "d2_A": 2.345,
+                "target_d1_A": 1.25,
+                "target_d2_A": 2.35,
                 "bias_converged": True,
                 "energy_hartree": -10.0,
                 "artifact_written": True,
@@ -154,10 +127,10 @@ def test_scan2d_payload_publishes_explicit_grid_structure_mapping() -> None:
         {
             "index": [2, 3],
             "coordinate_values": [1.234, 2.345],
-            "coordinate_targets": [1.234, 2.345],
+            "coordinate_targets": [1.25, 2.35],
             "coordinate_units": ["angstrom", "angstrom"],
             "distances_angstrom": [1.234, 2.345],
-            "targets_angstrom": [1.234, 2.345],
+            "targets_angstrom": [1.25, 2.35],
             "energy_hartree": -10.0,
             "converged": True,
             "geometry_file": "grid/point_i1234_j2345.xyz",
@@ -1117,8 +1090,8 @@ def test_all_pipeline_tsopt_only_does_not_require_mep_convergence() -> None:
         "irc": {"usable": True, "reason": "ok"},
         "endpoint_assignment": {"connectivity_validated": True},
         "endpoint_opt": {
-            "endpoint_1_converged": True,
-            "endpoint_2_converged": True,
+            "reactant_converged": True,
+            "product_converged": True,
             "connectivity_validated": True,
         },
     }]

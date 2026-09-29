@@ -181,22 +181,63 @@ def test_conflicting_caller_run_id_is_rejected(
     assert list(tmp_path.iterdir()) == []
 
 
-def test_atomic_write_rejects_symlinked_ancestor_without_external_write(
-    tmp_path: Path,
-) -> None:
-    from mlmm.core.result_commit import ResultCommitError, atomic_write_exact
+def test_atomic_write_follows_symlinked_ancestor(tmp_path: Path) -> None:
+    from mlmm.core.result_commit import atomic_write_exact
 
     root = tmp_path / "root"
-    external = tmp_path / "external"
+    scratch = tmp_path / "scratch"
     root.mkdir()
-    external.mkdir()
-    (root / "segments").symlink_to(external, target_is_directory=True)
+    scratch.mkdir()
+    (root / "segments").symlink_to(scratch, target_is_directory=True)
     destination = root / "segments" / "result.json"
 
-    with pytest.raises(ResultCommitError, match="symlinked ancestor"):
-        atomic_write_exact(destination, lambda stream: stream.write(b"new"))
+    written = atomic_write_exact(destination, lambda stream: stream.write(b"new"))
 
-    assert not (external / "result.json").exists()
+    assert written == destination
+    assert (scratch / "result.json").read_bytes() == b"new"
+    _assert_no_staged_files(scratch)
+
+
+def test_result_json_is_written_under_symlinked_out_dir_parent(tmp_path: Path) -> None:
+    # e.g. --out-dir ~/work/run1 where ~/work is a symlink to another disk
+    disk = tmp_path / "disk"
+    disk.mkdir()
+    (tmp_path / "work").symlink_to(disk, target_is_directory=True)
+    out_dir = tmp_path / "work" / "run1"
+
+    write_result_json(out_dir, {"status": "success"}, command="opt")
+
+    payload = json.loads((disk / "run1" / "result.json").read_text(encoding="utf-8"))
+    assert payload["status"] == "success"
+    assert (disk / "run1" / "summary.json").read_bytes() == (
+        disk / "run1" / "result.json"
+    ).read_bytes()
+    _assert_no_staged_files(disk / "run1")
+
+
+def test_stage_exact_preserves_existing_destination_mode(tmp_path: Path) -> None:
+    destination = tmp_path / "result.json"
+    destination.write_text("old")
+    destination.chmod(0o640)
+
+    staged = result_commit.stage_exact(destination, lambda stream: stream.write(b"new"))
+    try:
+        assert os.stat(staged).st_mode & 0o777 == 0o640
+    finally:
+        staged.unlink()
+
+
+def test_stage_exact_uses_ordinary_umask_mode_for_new_destination(tmp_path: Path) -> None:
+    destination = tmp_path / "new-result.json"
+    previous_umask = os.umask(0o027)
+    try:
+        staged = result_commit.stage_exact(destination, lambda stream: stream.write(b"new"))
+    finally:
+        os.umask(previous_umask)
+    try:
+        assert os.stat(staged).st_mode & 0o777 == 0o640
+    finally:
+        staged.unlink()
 
 
 def test_heterogeneous_primary_failure_removes_new_companion(

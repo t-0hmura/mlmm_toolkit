@@ -14,7 +14,7 @@ from collections.abc import Iterable as _Iterable, Mapping, Sequence as _Sequenc
 from dataclasses import dataclass, field
 from numbers import Real, Integral
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Sequence, List, Tuple
+from typing import Any, Callable, Collection, Dict, Optional, Sequence, List, Tuple
 
 import click
 import numpy as np
@@ -464,21 +464,21 @@ def distance_tag(value_A: float, *, digits: int = 2, pad: int = 3) -> str:
     return f"{int(round(value_A * scale)):0{pad}d}"
 
 
-def unique_tag_digits(values, *, digits: int = 2) -> int:
-    """Smallest tag precision that keeps every value in *values* distinct.
-
-    A fine grid can map two neighbouring targets onto the same two-decimal tag,
-    after which the later point overwrites the earlier artifact while both rows
-    report success. Start at the ordinary precision and increase only as far as
-    the current grid requires.
-    """
-    values = [float(v) for v in values]
-    candidate = int(digits)
-    while True:
-        tags = {distance_tag(v, digits=candidate, pad=1) for v in values}
-        if len(tags) == len(set(values)):
-            return candidate
-        candidate += 1
+def claim_unique_scan_stem(
+    base_stem: str,
+    indices: Sequence[int],
+    used_stems: set[str],
+) -> str:
+    """Claim a scan artifact stem, adding grid indices only on a collision."""
+    if base_stem not in used_stems:
+        used_stems.add(base_stem)
+        return base_stem
+    suffix = "_grid_" + "_".join(f"{int(index):03d}" for index in indices)
+    candidate = base_stem + suffix
+    if candidate in used_stems:
+        raise ValueError(f"Duplicate scan grid indices for artifact stem {candidate!r}.")
+    used_stems.add(candidate)
+    return candidate
 
 
 def values_from_bounds(low: float, high: float, h: float) -> "np.ndarray":
@@ -1096,6 +1096,54 @@ def strip_inherited_keys(
     return trimmed
 
 
+def resolve_shared_optimizer_value(
+    opt_cfg: Dict[str, Any],
+    downstream_cfg: Dict[str, Any],
+    key: str,
+    *,
+    opt_explicit: bool,
+    downstream_explicit: bool,
+    downstream_default: Any,
+    downstream_section: str,
+) -> None:
+    """Resolve one duplicated optimizer setting without silent precedence."""
+    if opt_explicit and downstream_explicit and opt_cfg[key] != downstream_cfg[key]:
+        raise click.BadParameter(
+            f"opt.{key} and {downstream_section}.{key} conflict."
+        )
+    if opt_explicit:
+        value = opt_cfg[key]
+    elif downstream_explicit:
+        value = downstream_cfg[key]
+    else:
+        value = downstream_default
+    opt_cfg[key] = value
+    downstream_cfg[key] = value
+
+
+def resolve_shared_optimizer_keys(
+    opt_cfg: Dict[str, Any],
+    downstream_cfg: Dict[str, Any],
+    downstream_defaults: Mapping[str, Any],
+    *,
+    downstream_section: str,
+    opt_explicit: Collection[str],
+    downstream_explicit: Collection[str],
+    skip: Sequence[str] = ("out_dir", "prefix"),
+) -> None:
+    """Apply :func:`resolve_shared_optimizer_value` to every key shared by ``opt`` and one optimizer section."""
+    for key in sorted((opt_cfg.keys() & downstream_defaults.keys()) - set(skip)):
+        resolve_shared_optimizer_value(
+            opt_cfg,
+            downstream_cfg,
+            key,
+            opt_explicit=key in opt_explicit,
+            downstream_explicit=key in downstream_explicit,
+            downstream_default=downstream_defaults[key],
+            downstream_section=downstream_section,
+        )
+
+
 def _summarize_atom_indices(items: Sequence[Any]) -> str:
     """Return a compact single-line summary for atom indices."""
     if not items:
@@ -1499,7 +1547,7 @@ def load_pdb_atom_metadata(pdb_path: Path) -> List[Dict[str, Any]]:
                 resseq = None
 
             if not element_txt:
-                inferred = guess_element(atom_name, res_name, is_hetatm)
+                inferred = guess_element(line[12:16], res_name, is_hetatm)
                 element_txt = inferred or ""
 
             atoms.append(
@@ -2127,14 +2175,34 @@ def normalize_choice(
 
 
 def _get_mapping_section(cfg: Mapping[str, Any], path: _Sequence[str]) -> Optional[Dict[str, Any]]:
+    """Return a YAML section; ``None`` when absent or empty, an error when not a mapping."""
+    path = tuple(path)
     cur: Any = cfg
-    for key in path:
+    for depth, key in enumerate(path):
         if not isinstance(cur, Mapping):
+            raise click.BadParameter(
+                f"YAML section '{'.'.join(path[:depth])}' must be a mapping, "
+                f"got {type(cur).__name__}."
+            )
+        if key not in cur:
             return None
-        cur = cur.get(key)
+        cur = cur[key]
         if cur is None:
             return None
-    return cur if isinstance(cur, dict) else None
+    if not isinstance(cur, dict):
+        raise click.BadParameter(
+            f"YAML section '{'.'.join(path)}' must be a mapping, got "
+            f"{type(cur).__name__}."
+        )
+    return cur
+
+
+# Nested spellings of top-level sections (opt.lbfgs = lbfgs, opt.rfo = rfo,
+# freq.thermo = thermo). They are never keys of the parent section itself.
+_NESTED_YAML_SECTIONS: Dict[Tuple[str, ...], frozenset] = {
+    ("opt",): frozenset({"lbfgs", "rfo"}),
+    ("freq",): frozenset({"thermo"}),
+}
 
 
 def apply_yaml_overrides(
@@ -2149,34 +2217,29 @@ def apply_yaml_overrides(
         Parsed YAML configuration (root-level mapping).
     overrides : Sequence[Tuple[Dict[str, Any], Sequence[Sequence[str]]]]
         Each entry consists of the target dictionary to update followed by one or
-        more candidate key paths. The first existing path is used. For example::
+        more key paths that spell the same section. For example::
 
             apply_yaml_overrides(
                 yaml_cfg,
                 [
                     (geom_cfg, (("geom",),)),
-                    (lbfgs_cfg, (("stopt", "lbfgs"), ("lbfgs",))),
+                    (lbfgs_cfg, (("lbfgs",), ("opt", "lbfgs"))),
                 ],
             )
 
-        Candidate paths are checked in order and the first mapping is applied.
-        When a descendant path is assigned to a separate target, its top-level
-        container is kept out of the parent target. For example, ``opt.lbfgs``
-        updates the L-BFGS target without leaving an unsupported ``lbfgs``
-        keyword in the shared optimizer target.
+        Every present path is applied, and a key set to different values under
+        two of the paths is rejected. The nested sections ``opt.lbfgs``,
+        ``opt.rfo`` and ``freq.thermo`` never reach the ``opt``/``freq`` target.
     """
-    owned_paths = [
-        (owner, tuple(path))
-        for owner, paths in overrides
-        for path in paths
-    ]
     for target, paths in overrides:
-        for path in paths:
-            norm_path = tuple(path)
+        norm_paths = [tuple(path) for path in paths]
+        merged: Dict[str, Any] = {}
+        origin: Dict[str, str] = {}
+        for norm_path in norm_paths:
+            if norm_path == ("mlmm",) and ("calc",) in norm_paths:
+                continue  # merged together with calc below
             section = _get_mapping_section(yaml_cfg, norm_path)
-            if norm_path == ("calc",) and ("mlmm",) in {
-                tuple(candidate) for candidate in paths
-            }:
+            if norm_path == ("calc",) and ("mlmm",) in norm_paths:
                 calc_section = _get_mapping_section(yaml_cfg, ("calc",))
                 mlmm_section = _get_mapping_section(yaml_cfg, ("mlmm",))
                 if calc_section is not None or mlmm_section is not None:
@@ -2187,35 +2250,23 @@ def apply_yaml_overrides(
                                 f"Conflicting YAML values for calc.{key} and mlmm.{key}."
                             )
                         section[key] = deepcopy(value)
-            if section is not None:
-                child_keys = {
-                    other_path[len(norm_path)]
-                    for owner, other_path in owned_paths
-                    if owner is not target
-                    and len(other_path) > len(norm_path)
-                    and other_path[: len(norm_path)] == norm_path
-                }
-                if child_keys:
-                    section = {
-                        key: value
-                        for key, value in section.items()
-                        if key not in child_keys
-                    }
-                if norm_path[-1] in {"calc", "mlmm"}:
-                    section = {
-                        key: value
-                        for key, value in section.items()
-                        if key not in {"model_indices", "model_indices_base"}
-                    }
-                deep_update(target, section)
-                break
-            # A present-but-unusable section is a silent no-op otherwise: the user wrote
-            # `geom:` as a list/scalar/empty and the whole block is dropped.
-            if len(norm_path) == 1 and norm_path[0] in yaml_cfg:
-                click.echo(
-                    f"[config] WARNING: YAML section '{norm_path[0]}' is not a mapping; ignored.",
-                    err=True,
-                )
+            if section is None:
+                continue
+            skipped = _NESTED_YAML_SECTIONS.get(norm_path, frozenset())
+            if norm_path[-1] in {"calc", "mlmm"}:
+                skipped = skipped | {"model_indices", "model_indices_base"}
+            label = ".".join(norm_path)
+            for key, value in section.items():
+                if key in skipped:
+                    continue
+                if key in merged and merged[key] != value:
+                    raise click.BadParameter(
+                        f"{origin[key]}.{key} and {label}.{key} conflict."
+                    )
+                merged[key] = value
+                origin.setdefault(key, label)
+        if merged:
+            deep_update(target, merged)
 
 
 def yaml_section_has_key(
@@ -3121,10 +3172,9 @@ def write_model_pdb_from_indices(
                     raw = line.rstrip("\n")
                     elem_field = raw[76:78].strip() if len(raw) >= 78 else ""
                     if not elem_field:
-                        atom_name = raw[12:16].strip()
                         res_name = raw[17:20].strip()
                         is_hetatm = raw.startswith("HETATM")
-                        elem = guess_element(atom_name, res_name, is_hetatm)
+                        elem = guess_element(raw[12:16], res_name, is_hetatm)
                         if elem:
                             padded = raw.ljust(76) + f"{elem:>2}" + "\n"
                             lines_out.append(padded)
@@ -3626,7 +3676,6 @@ RESULT_JSON_SCHEMA_VERSION = "3.0"
 RESULT_JSON_STATUS_VALUES = (
     "completed",
     "converged",
-    "energy_missing",
     "error",
     "failed",
     "not_converged",
@@ -3635,7 +3684,6 @@ RESULT_JSON_STATUS_VALUES = (
     "stalled",
     "success",
     "unknown",
-    "unverified",
 )
 
 
@@ -3674,6 +3722,7 @@ def write_result_json(
     data.setdefault("command", command)
     data.setdefault("mlmm_version", __version__)
     data.setdefault("schema_version", RESULT_JSON_SCHEMA_VERSION)
+    data.setdefault("status", "unknown")
     mlip_backend = data.get("mlip_backend")
     mlip_model = data.get("mlip_model")
     if mlip_backend is not None and mlip_model is not None:

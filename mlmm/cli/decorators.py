@@ -148,7 +148,7 @@ def _warn_unknown_yaml_sections(merged: Mapping[str, Any]) -> None:
     A misspelled section name (``clac:`` for ``calc:``) is dropped without a word, so the run
     completes on stock defaults while the user believes the file took effect.
     """
-    bad = sorted(k for k in merged if k not in _KNOWN_YAML_SECTIONS)
+    bad = sorted(str(k) for k in merged if k not in _KNOWN_YAML_SECTIONS)
     if bad:
         click.echo(
             f"[config] WARNING: YAML section(s) {', '.join(bad)} are not recognized and were "
@@ -172,9 +172,8 @@ def load_merged_yaml_cfg(
         override_dict = canonicalize_calculator_section(load_yaml_dict(override_yaml))
     except ValueError as exc:
         raise click.BadParameter(str(exc), param_hint="--config/--override") from exc
-    merged: Dict[str, Any] = {}
-    deep_update(merged, config_dict)
-    deep_update(merged, override_dict)
+    merged: Dict[str, Any] = deepcopy(config_dict)
+    deep_update(merged, deepcopy(override_dict))
     merged = canonicalize_calculator_section(merged)
     _warn_unknown_yaml_sections(merged)
     return merged, config_dict, override_dict

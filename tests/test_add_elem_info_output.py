@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from click.testing import CliRunner
+import pytest
 
 from mlmm.domain.add_elem_info import cli
 
@@ -22,12 +23,28 @@ def test_element_inference_disambiguates_inosine_and_numeric_water_hydrogen() ->
     assert guess_element("N9", "I", False) == "N"
     assert guess_element("1HW", "HOH", True) == "H"
     assert guess_element("OW", "HOH", True) == "O"
+    assert guess_element(" EP ", "HOH", True) == "EP"
+    assert guess_element("MW", "SOL", True) == "EP"
+    assert guess_element(" SE ", "SEC", False) == "Se"
+    assert guess_element("NA", "LIG", True) == "Na"
     assert guess_element(" NA ", "LIG", True) == "N"
     assert guess_element("PT  ", "LIG", True) == "Pt"
     assert guess_element(" PT ", "LIG", True) == "P"
 
 
-def test_default_is_non_destructive_and_inplace_is_explicit(tmp_path: Path) -> None:
+def test_element_inference_reads_leap_halogens_and_four_character_hydrogens() -> None:
+    from mlmm.domain.add_elem_info import guess_element
+
+    assert guess_element(" CL1", "LIG", False) == "Cl"
+    assert guess_element(" BR1", "LIG", False) == "Br"
+    assert guess_element(" C1 ", "LIG", False) == "C"
+    assert guess_element("HG11", "LIG", True) == "H"
+    assert guess_element("HO2A", "LIG", True) == "H"
+    assert guess_element("HG  ", "LIG", True) == "Hg"
+    assert guess_element("HG1 ", "LIG", True) == "Hg"
+
+
+def test_default_is_non_destructive_and_overwrite_replaces_input(tmp_path: Path) -> None:
     source = tmp_path / "enzyme.pdb"
     source.write_text(PDB_TEXT, encoding="utf-8")
     before = source.read_bytes()
@@ -37,29 +54,73 @@ def test_default_is_non_destructive_and_inplace_is_explicit(tmp_path: Path) -> N
     assert source.read_bytes() == before
     assert (tmp_path / "enzyme_add_elem.pdb").is_file()
 
-    # --overwrite controls existing element fields; it does not imply file
-    # replacement. Destructive output requires the separate --inplace switch.
-    field_overwrite = CliRunner().invoke(cli, ["-i", str(source), "--overwrite"])
-    assert field_overwrite.exit_code == 0, field_overwrite.output
-    assert source.read_bytes() == before
+    overwrite = CliRunner().invoke(cli, ["-i", str(source), "--overwrite"])
+    assert overwrite.exit_code == 0, overwrite.output
+    assert "Wrote: " + str(source) in overwrite.output
+    assert source.read_bytes()[76:78] == b" C"
+
+
+def test_inplace_remains_a_hidden_alias_of_overwrite(tmp_path: Path) -> None:
+    source = tmp_path / "enzyme.pdb"
+    source.write_text(PDB_TEXT, encoding="utf-8")
 
     inplace = CliRunner().invoke(cli, ["-i", str(source), "--inplace"])
     assert inplace.exit_code == 0, inplace.output
     assert "Wrote: " + str(source) in inplace.output
 
+    conflict = CliRunner().invoke(
+        cli, ["-i", str(source), "--overwrite", "--no-inplace"]
+    )
+    assert conflict.exit_code == 2
+    assert "Conflicting values" in conflict.output
+    assert "--inplace" not in CliRunner().invoke(cli, ["--help"]).output
 
-def test_explicit_output_wins_over_inplace(tmp_path: Path) -> None:
+
+@pytest.mark.parametrize("flag", ["--overwrite", "--inplace"])
+def test_explicit_output_wins_over_overwrite(tmp_path: Path, flag: str) -> None:
     source = tmp_path / "enzyme.pdb"
     target = tmp_path / "fixed.pdb"
     source.write_text(PDB_TEXT, encoding="utf-8")
     before = source.read_bytes()
 
     result = CliRunner().invoke(
-        cli, ["-i", str(source), "-o", str(target), "--inplace"]
+        cli, ["-i", str(source), "-o", str(target), flag]
     )
     assert result.exit_code == 0, result.output
     assert target.is_file()
     assert source.read_bytes() == before
+
+
+def test_existing_element_fields_are_reinferred(tmp_path: Path) -> None:
+    source = tmp_path / "enzyme.pdb"
+    target = tmp_path / "fixed.pdb"
+    source.write_text(PDB_TEXT.replace("              \n", "          CA  \n", 1), encoding="utf-8")
+
+    result = CliRunner().invoke(cli, ["-i", str(source), "-o", str(target)])
+
+    assert result.exit_code == 0, result.output
+    assert target.read_text(encoding="utf-8")[76:78] == " C"
+    assert "assigned/updated            : 1" in result.output
+
+
+def test_output_that_aliases_the_input_requires_overwrite(tmp_path: Path) -> None:
+    source = tmp_path / "enzyme.pdb"
+    source.write_text(PDB_TEXT, encoding="utf-8")
+    before = source.read_bytes()
+    link = tmp_path / "link.pdb"
+    link.symlink_to(source)
+
+    for output in (source, link):
+        refused = CliRunner().invoke(cli, ["-i", str(source), "-o", str(output)])
+        assert refused.exit_code == 2
+        assert "use --overwrite" in refused.output
+        assert source.read_bytes() == before
+
+    accepted = CliRunner().invoke(
+        cli, ["-i", str(source), "-o", str(source), "--overwrite"]
+    )
+    assert accepted.exit_code == 0, accepted.output
+    assert source.read_bytes()[76:78] == b" C"
 
 
 def test_only_element_columns_change_and_other_records_are_preserved(
@@ -92,3 +153,20 @@ def test_only_element_columns_change_and_other_records_are_preserved(
     assert actual[3][:76] == atom[:76]
     assert actual[3][76:78] == "Pt"
     assert actual[3][78:] == atom[78:]
+
+
+def test_decimal_overflow_serial_shifts_the_element_field(tmp_path: Path) -> None:
+    atom = (
+        f"ATOM  {100000:>6}  CA  ALA A   1    "
+        f"{0.0:8.3f}{0.0:8.3f}{0.0:8.3f}{1.0:6.2f}{10.0:6.2f}{'':10}  \n"
+    )
+    source = tmp_path / "overflow.pdb"
+    target = tmp_path / "fixed.pdb"
+    source.write_text(atom + "END\n", encoding="utf-8")
+
+    result = CliRunner().invoke(cli, ["-i", str(source), "-o", str(target)])
+
+    assert result.exit_code == 0, result.output
+    line = target.read_text(encoding="utf-8").splitlines()[0]
+    assert line[:77] == atom[:77]
+    assert line[77:79] == " C"

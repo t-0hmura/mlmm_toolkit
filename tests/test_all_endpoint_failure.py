@@ -34,9 +34,9 @@ def test_failed_ts_only_summary_does_not_invent_a_barrier(tmp_path):
                   "structure_valid": True},
         "irc": {"usable": True, "reason": "ok"}, "irc_traj": "irc.xyz",
         "endpoint_opt": {
-            "endpoint_1_converged": None,
-            "endpoint_2_converged": True,
-            "failures": {"endpoint_1": {"error_type": "ValueError", "error": "boom"}},
+            "reactant_converged": None,
+            "product_converged": True,
+            "failures": {"reactant": {"error_type": "ValueError", "error": "boom"}},
         },
     }]
     workflow._enrich_summary(
@@ -48,7 +48,7 @@ def test_failed_ts_only_summary_does_not_invent_a_barrier(tmp_path):
     assert summary["scientific_status"] == "partial"
     assert summary["execution_status"] == "failed"
     assert any(
-        "endpoint_1_execution_failed" in reason
+        "reactant_execution_failed" in reason
         for reason in summary["scientific_status_reasons"]
     )
     assert "rate_limiting_step" not in summary
@@ -70,8 +70,8 @@ def test_valid_ts1_with_one_nonconverged_endpoint_is_partial_not_failed(tmp_path
             "structure_valid": True,
         },
         "endpoint_opt": {
-            "endpoint_1_converged": True,
-            "endpoint_2_converged": False,
+            "reactant_converged": True,
+            "product_converged": False,
         },
     }]
 
@@ -84,7 +84,7 @@ def test_valid_ts1_with_one_nonconverged_endpoint_is_partial_not_failed(tmp_path
 
     assert truth.scientific_status == "partial"
     assert truth.execution_status == "completed"
-    assert "all:segment_1:endpoint_opt:endpoint_2_not_converged" in truth.status_reasons
+    assert "all:segment_1:endpoint_opt:product_not_converged" in truth.status_reasons
 
 
 class Geometry:
@@ -101,7 +101,7 @@ class Geometry:
         return f"1\nobserved\nH {self.cart_coords[0]} 0 0\n"
 
 
-def endpoint_statements(branch):
+def endpoint_statements(branch, from_energies=False):
     tree = ast.parse(Path(workflow.__file__).read_text())
     owner = "tsroot" if branch == "ts" else "seg_dir"
     save_name = "_save_single_geom_for_tools"
@@ -128,6 +128,14 @@ def endpoint_statements(branch):
         previous = [index for index in saves if index < endpoint_index]
         following = [index for index in saves if index > endpoint_index]
         start, end = previous[-3], following[1]
+        if from_energies:
+            # Start at the IRC endpoint energies so the R/P assignment runs too.
+            start = next(
+                index for index, statement in enumerate(body[:start])
+                if isinstance(statement, ast.Assign)
+                and any(isinstance(target, ast.Name) and target.id == "eL"
+                        for target in statement.targets)
+            )
         guard = next(statement for statement in body[endpoint_index:end]
                      if isinstance(statement, ast.If)
                      and isinstance(statement.test, ast.Name)
@@ -257,7 +265,7 @@ def test_endpoint_boundary_retains_provenance_and_stops_consumers(
                  str(workflow.__file__), "exec"), namespace)
     namespace["exercise"](*(namespace[name] for name in inputs))
 
-    states = ["reactant", "product"] if branch == "seg" else ["endpoint_1", "endpoint_2"]
+    states = ["reactant", "product"]
     assert opt_calls == [0, 1]
     assert "ts" in events
     for index, state in enumerate(states):
@@ -286,6 +294,84 @@ def test_endpoint_boundary_retains_provenance_and_stops_consumers(
         endpoint_record = namespace["post_segment_logs"][0]["endpoint_opt"]
         assert endpoint_record["reactant"]["n_opt_cycles"] == 3
         assert endpoint_record["product"]["n_opt_cycles"] == 4
+
+
+def test_ts_only_higher_energy_irc_endpoint_is_reactant(monkeypatch, tmp_path):
+    statements = endpoint_statements("ts", from_energies=True)
+    loads, checkpoints, opt_dirs, records = [], [], [], []
+    monkeypatch.setattr(hessian_cache, "load", lambda key: loads.append(key))
+    monkeypatch.setattr(hessian_cache, "discard", lambda *_a: None)
+    root = tmp_path / "segment"
+    left, right, ts = Geometry(1), Geometry(2), Geometry(3)
+    left.energy, right.energy, ts.energy = -2.0, -1.5, -1.0
+    lease = SimpleNamespace(release=lambda: None, calculator=object())
+
+    def save(geom, _ref, directory, name):
+        path = directory / f"{name}.xyz"
+        path.write_text(geom.as_xyz())
+        return (path, path)
+
+    def save_checkpoint(_calculator, geometry_path, destination, *, manifest, key):
+        checkpoints.append((key, Path(geometry_path).name))
+        return destination
+
+    def optimize(*args, **kwargs):
+        opt_dirs.append(args[6].name)
+        kwargs["outcome"].update({"status": "converged", "converged": True})
+        if len(opt_dirs) == 2:
+            raise ValueError("product endpoint failure")
+        return Geometry(10), None, True
+
+    def write_record(path, payload, **_kwargs):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(payload))
+        return path
+
+    def enrich(summary, **kwargs):
+        records.append(kwargs["post_segments"][0])
+
+    names = {node.id for statement in statements for node in ast.walk(statement)
+             if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)}
+    namespace = {name: None for name in names if not hasattr(builtins, name)}
+    namespace.update(vars(workflow))
+    namespace.update({
+        "tsroot": root, "out_dir": tmp_path, "dump": False,
+        "irc_res": {"calculator_lease": lease, "scf_checkpoint": tmp_path / "ts.chk"},
+        "_tsopt_record": {}, "_tsopt_payload": {},
+        "resolved_calc_template": SimpleNamespace(materialize=lambda: {}),
+        "_save_single_geom_for_tools": save, "_save_role_scf_checkpoint": save_checkpoint,
+        "_run_opt_for_state": optimize,
+        "commit_json_exact": write_record, "_enrich_summary": enrich,
+        "_finalize_current_summary": write_record,
+        "_persist_run_manifest": lambda *_a: None,
+        "_write_endpoint_failure_summary_log": lambda *_a, **_kw: None,
+        "_all_method_citation_payload": lambda: {},
+        "_emit_final_summary": lambda *_a, **_kw: None,
+    })
+    namespace["__builtins__"] = __builtins__
+    function = ast.parse("def exercise(gL, gR, gT):\n    pass\n").body[0]
+    function.body = statements
+    exec(compile(ast.fix_missing_locations(ast.Module(body=[function], type_ignores=[])),
+                 str(workflow.__file__), "exec"), namespace)
+    namespace["exercise"](left, right, ts)
+
+    structures = root / "structures"
+    assert "H 2.0 0 0" in (structures / "reactant_irc.xyz").read_text()
+    assert "H 1.0 0 0" in (structures / "product_irc.xyz").read_text()
+    assert loads == ["irc_right", "irc_left"]
+    assert opt_dirs == ["R", "P"]
+    assert checkpoints == [
+        ("post.01.scf_checkpoint.R", "reactant_irc.xyz"),
+        ("post.01.scf_checkpoint.P", "product_irc.xyz"),
+    ]
+    failure = json.loads((root / "endpoint_opt" / "failure.json").read_text())
+    assert set(failure["failures"]) == {"product"}
+    (stop_log,) = records
+    assignment = stop_log["endpoint_assignment"]
+    assert assignment["policy"] == "higher_energy_endpoint_as_reactant"
+    assert (assignment["left_role"], assignment["right_role"]) == ("product", "reactant")
+    assert stop_log["endpoint_opt"]["reactant_converged"] is True
+    assert stop_log["endpoint_opt"]["product_converged"] is None
 
 
 @pytest.mark.parametrize(

@@ -19,12 +19,10 @@ from pysisyphus.tsoptimizers.TRIM import TRIM
 from mlmm.workflows.tsopt import (
     FLATTEN_RETRY_HIGHER_ORDER_CHECKS,
     HessianDimer,
-    PATH_MODE_RESTART_AMPLITUDES_ANG,
     _effective_flatten_iterations,
     _flatten_branch_needs_alternate,
     _flatten_once_with_modes_for_geom,
     _mirrored_flatten_start,
-    _path_restart_mode_candidates,
     _select_flatten_targets_for_geom,
     _set_cartesian_flatten_coords,
     _transported_path_mode_full,
@@ -56,10 +54,6 @@ def test_flatten_budget_is_explicit_and_path_safe(
         n_imag=n_imag,
         target_mode_is_negative=target_negative,
     ) == expected
-
-
-def test_path_mode_restarts_use_two_bounded_displacement_shells() -> None:
-    assert PATH_MODE_RESTART_AMPLITUDES_ANG == (-0.10, 0.10, -0.20, 0.20)
 
 
 def test_flatten_retry_keeps_full_higher_order_persistence_window() -> None:
@@ -128,34 +122,6 @@ def test_flatten_restart_carries_full_transported_path_mode() -> None:
     )
 
     np.testing.assert_allclose(mode, [0.0, 0.0, 0.0, 0.6, 0.8, 0.0])
-
-
-def test_path_restart_adds_distinct_initial_soft_root_shell() -> None:
-    class _Geometry:
-        coord_type = "cart"
-        cart_coords = np.zeros(6)
-
-    class _Optimizer:
-        _initial_reference_root_mode = np.array([0.0, 1.0, 0.0])
-
-        @staticmethod
-        def full_from_active(mode):
-            full = np.zeros(6)
-            full[3:] = mode
-            return full
-
-    modes = _path_restart_mode_candidates(
-        _Optimizer(),
-        _Geometry(),
-        [np.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0])],
-        ["tangent"],
-    )
-
-    assert [source for source, _ in modes] == [
-        "mep-tangent",
-        "initial-soft-root",
-    ]
-    np.testing.assert_allclose(modes[1][1], [0.0, 0.0, 0.0, 0.0, 1.0, 0.0])
 
 
 class _QuadraticCalculator(Calculator):

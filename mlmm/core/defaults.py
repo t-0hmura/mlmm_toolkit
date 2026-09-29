@@ -11,6 +11,8 @@ Project-specific overrides are commented with rationale.
 
 from copy import deepcopy
 from typing import Any, Dict, Mapping, Optional
+
+import click
 from pysisyphus.tr_projection import DEFAULT_TR_PROJECTION
 from pysisyphus.normal_modes import DEFAULT_FREQUENCY_ZERO_CUTOFF_CM
 
@@ -275,6 +277,14 @@ DMF_KW: Dict[str, Any] = {
 }
 
 
+# Top-level ``dmf`` keys the path workflows consume; the last three are set by the workflows.
+DMF_TOP_LEVEL_KEYS: frozenset = frozenset(DMF_KW) | {
+    "ipopt_options",
+    "max_cycles",
+    "tol",
+}
+
+
 def fresh_dmf_config(
     overrides: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
@@ -296,6 +306,15 @@ def fresh_dmf_config(
                 dst[key] = deepcopy(value)
 
     if overrides:
+        unknown = sorted(set(overrides) - DMF_TOP_LEVEL_KEYS)
+        if unknown:
+            raise click.BadParameter(
+                "Unknown top-level dmf key(s): "
+                + ", ".join(f"dmf.{name}" for name in unknown)
+                + ". Supported: "
+                + ", ".join(f"dmf.{name}" for name in sorted(DMF_TOP_LEVEL_KEYS))
+                + "."
+            )
         _merge(config, overrides)
     return config
 

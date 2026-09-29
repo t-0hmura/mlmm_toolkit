@@ -57,9 +57,7 @@ def test_sp_rejects_removed_print_every_option() -> None:
         ("opt", "--radius-partial-hessian"),
         ("opt", "--radius-freeze"),
         ("dft", "--freeze-atoms"),
-        ("scan", "--opt-mode"),
         ("scan", "--coord-type"),
-        ("path-search", "--opt-mode"),
         ("scan", "--hess-cutoff"),
         ("scan2d", "--hess-cutoff"),
         ("scan3d", "--hess-cutoff"),
@@ -188,6 +186,41 @@ def test_path_opt_rejects_zero_cycles(
     assert result.exit_code != 0
     dry_run_result = json.loads(stale_result.read_text(encoding="utf-8"))
     assert dry_run_result["status"] == "complete"
+
+
+def test_path_opt_applies_one_ref_pdb_to_both_xyz_endpoints(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from ase.io import read, write
+
+    from mlmm.workflows import path_opt as path_opt_workflow
+
+    smoke = Path(__file__).resolve().parent / "smoke"
+    endpoints = []
+    for name in ("r_complex_layered", "p_complex_layered"):
+        xyz = tmp_path / f"{name}.xyz"
+        write(xyz, read(smoke / f"{name}.pdb"), format="xyz")
+        endpoints.append(str(xyz))
+    applied = []
+    real_apply = path_opt_workflow.apply_ref_pdb_override
+
+    def record(prepared, ref_pdb):
+        applied.append(Path(ref_pdb))
+        return real_apply(prepared, ref_pdb)
+
+    monkeypatch.setattr(path_opt_workflow, "apply_ref_pdb_override", record)
+    ref = smoke / "r_complex_layered.pdb"
+    result = CliRunner().invoke(
+        root_cli,
+        [
+            "path-opt", "-i", *endpoints, "--ref-pdb", str(ref),
+            "--parm", str(smoke / "p_complex.parm7"), "-q", "-1", "-m", "1",
+            "--dry-run", "--out-dir", str(tmp_path / "path-opt"),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert applied == [ref, ref]
 
 
 @pytest.mark.parametrize("command", ["path-opt", "path-search"])
@@ -438,6 +471,113 @@ def test_path_search_dry_run_uses_prepared_layer_source(tmp_path: Path) -> None:
     assert result.output.rstrip().splitlines()[-1] == (
         "[Dry run] --dry-run completed. Input command is valid."
     )
+
+
+def test_path_search_show_config_prints_settings_blocks(tmp_path: Path) -> None:
+    smoke = Path(__file__).resolve().parent / "smoke"
+    base_args = [
+        "path-search",
+        "-i", str(smoke / "r_complex_layered.pdb"),
+        "-i", str(smoke / "p_complex_layered.pdb"),
+        "--parm", str(smoke / "p_complex.parm7"),
+        "-q", "-1", "-m", "1",
+        "--dry-run",
+        "--out-dir", str(tmp_path / "path-search"),
+    ]
+    blocks = ("geom", "calc", "gs", "stopt", "opt.lbfgs", "bond", "search", "run_flags", "yaml_layers")
+
+    shown = CliRunner().invoke(root_cli, [*base_args, "--show-config"])
+    assert shown.exit_code == 0, shown.output
+    for title in blocks:
+        assert f"\n{title}\n{'-' * len(title)}\n" in shown.output, title
+    assert "\ndry_run_plan\n" not in shown.output
+
+    plain = CliRunner().invoke(root_cli, base_args)
+    assert plain.exit_code == 0, plain.output
+    assert "\ngeom\n----\n" not in plain.output
+    assert "\nyaml_layers\n" not in plain.output
+
+
+def test_path_search_routes_opt_lbfgs_to_the_lbfgs_target(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from mlmm.workflows import path_search as path_search_workflow
+
+    real_apply = path_search_workflow.apply_yaml_overrides
+    real_single = path_search_workflow.apply_single_opt_yaml_layer
+    layers = []
+    lbfgs_layers = []
+
+    def record(yaml_cfg, overrides):
+        real_apply(yaml_cfg, overrides)
+        layers.append({tuple(paths[0]): dict(target) for target, paths in overrides})
+
+    def record_single(layer_cfg, **kwargs):
+        real_single(layer_cfg, **kwargs)
+        lbfgs_layers.append(dict(kwargs["lbfgs_cfg"]))
+
+    monkeypatch.setattr(path_search_workflow, "apply_yaml_overrides", record)
+    monkeypatch.setattr(
+        path_search_workflow, "apply_single_opt_yaml_layer", record_single
+    )
+    smoke = Path(__file__).resolve().parent / "smoke"
+    config = tmp_path / "config.yaml"
+    config.write_text(
+        "opt:\n  thresh: gau_tight\n  lbfgs:\n    max_step: 0.1\n",
+        encoding="utf-8",
+    )
+    result = CliRunner().invoke(
+        root_cli,
+        [
+            "path-search",
+            "-i", str(smoke / "r_complex_layered.pdb"),
+            "-i", str(smoke / "p_complex_layered.pdb"),
+            "--parm", str(smoke / "p_complex.parm7"),
+            "-q", "-1", "-m", "1",
+            "--config", str(config),
+            "--dry-run",
+            "--out-dir", str(tmp_path / "path-search"),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert lbfgs_layers[0]["max_step"] == 0.1
+    assert lbfgs_layers[0]["thresh"] == "gau_tight"
+    stopt_after_config = layers[0][("stopt",)]
+    assert stopt_after_config["thresh"] == "gau_loose"
+    assert "lbfgs" not in stopt_after_config
+
+
+def test_path_search_error_record_follows_yaml_out_dir(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from mlmm.workflows import path_search as path_search_workflow
+
+    def fail(*_args, **_kwargs):
+        raise path_search_workflow.OptimizationError("stopped")
+
+    monkeypatch.setattr(path_search_workflow, "resolve_ml_layer_assignment", fail)
+    smoke = Path(__file__).resolve().parent / "smoke"
+    yaml_dir = tmp_path / "from_yaml"
+    config = tmp_path / "config.yaml"
+    config.write_text(f"stopt:\n  out_dir: {yaml_dir}\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    result = CliRunner().invoke(
+        root_cli,
+        [
+            "path-search",
+            "-i", str(smoke / "r_complex_layered.pdb"),
+            "-i", str(smoke / "p_complex_layered.pdb"),
+            "--parm", str(smoke / "p_complex.parm7"),
+            "-q", "-1", "-m", "1",
+            "--config", str(config),
+        ],
+    )
+
+    assert result.exit_code == 3, result.output
+    assert [path.parent for path in tmp_path.rglob("result.json")] == [yaml_dir]
+    payload = json.loads((yaml_dir / "result.json").read_text(encoding="utf-8"))
+    assert payload["error_label"] == "path search"
 
 
 def test_freq_dry_run_resolves_active_dof_mode(tmp_path: Path) -> None:
@@ -1289,29 +1429,6 @@ def test_trj2fig_module_entrypoint_executes(tmp_path: Path) -> None:
     assert "energy_hartree" in out_csv.read_text(encoding="utf-8")
 
 
-def test_coord_type_dlc_falls_back_to_cart_under_lbfgs() -> None:
-    """`--coord-type dlc` is only meaningful with Hessian-based optimization;
-    under `--opt-mode grad` (L-BFGS) it must fall back to Cartesian, while
-    `--opt-mode hess` keeps DLC."""
-    repo = Path(__file__).resolve().parents[1]
-    in_pdb = repo / "examples" / "toy_system" / "p_toy.pdb"
-    parm = repo / "examples" / "toy_system" / "p_toy.parm7"
-    if not (in_pdb.exists() and parm.exists()):
-        pytest.skip("toy_system example inputs not present")
-    runner = CliRunner()
-    base = [
-        "opt", "-i", str(in_pdb), "--parm", str(parm), "-q", "0",
-        "--detect-layer", "--coord-type", "dlc", "--dry-run",
-    ]
-    grad = runner.invoke(root_cli, base + ["--opt-mode", "grad"])
-    assert grad.exit_code == 0, grad.output
-    assert "falling back to cart" in grad.output
-
-    hess = runner.invoke(root_cli, base + ["--opt-mode", "hess"])
-    assert hess.exit_code == 0, hess.output
-    assert "falling back to cart" not in hess.output
-
-
 @pytest.mark.parametrize(
     ("configured", "should_run"),
     [("constrained", True), ("legacy-active", False)],
@@ -1360,9 +1477,14 @@ def test_verbose_is_a_per_subcommand_option() -> None:
         assert res.exit_code == 0, res.output
         assert "-v, --verbose" in res.output, f"{name} --help is missing -v"
 
-    root = runner.invoke(root_cli, ["-v", "2", "opt", "--help"])
-    assert root.exit_code != 0
-    assert "No such option" in root.output
+    for argv in (
+        ["-v", "2", "opt", "--help"],
+        ["-v2", "opt", "--help"],
+        ["--verbose=2", "opt", "--help"],
+    ):
+        root = runner.invoke(root_cli, argv)
+        assert root.exit_code != 0, argv
+        assert "No such option" in root.output, argv
 
     # The level is an IntRange(0, 3); 0/1/2/3 are accepted (default 2) and
     # out-of-range values are rejected, for the injected commands, including the
@@ -1371,3 +1493,32 @@ def test_verbose_is_a_per_subcommand_option() -> None:
         bad = runner.invoke(root_cli, cmd)
         assert bad.exit_code != 0, cmd
         assert "is not in the range" in bad.output, cmd
+
+
+def test_every_multiplicity_option_requires_a_positive_integer() -> None:
+    context = click.Context(root_cli)
+    checked = []
+    for command_name in root_cli.list_commands(context):
+        command = root_cli.get_command(context, command_name)
+        for parameter in getattr(command, "params", ()):
+            if isinstance(parameter, click.Option) and "--multiplicity" in parameter.opts:
+                checked.append(command_name)
+                assert isinstance(parameter.type, click.IntRange), command_name
+                assert parameter.type.min == 1, command_name
+    assert checked
+
+
+def test_shared_choice_options_use_one_case_rule() -> None:
+    expected = {"--backend": True, "--dft-engine": False}
+    context = click.Context(root_cli)
+    checked = set()
+    for command_name in root_cli.list_commands(context):
+        command = root_cli.get_command(context, command_name)
+        for parameter in getattr(command, "params", ()):
+            if not isinstance(parameter, click.Option) or not isinstance(parameter.type, click.Choice):
+                continue
+            for flag, case_sensitive in expected.items():
+                if flag in parameter.opts:
+                    checked.add(flag)
+                    assert parameter.type.case_sensitive is case_sensitive, (command_name, flag)
+    assert checked == set(expected)

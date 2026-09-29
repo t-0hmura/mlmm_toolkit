@@ -382,7 +382,7 @@ def load_structure(path: str, name: str) -> PDB.Structure.Structure:
     if missing_elem:
         raise ValueError(
             f"Element symbols are missing in '{path}'. "
-            f"For PDB input, run `mlmm add-elem-info -i {path} --inplace`, or write "
+            f"For PDB input, run `mlmm add-elem-info -i {path} --overwrite`, or write "
             "a fixed PDB with `-o` and pass that file to extract; "
             "mmCIF must provide _atom_site.type_symbol."
         )

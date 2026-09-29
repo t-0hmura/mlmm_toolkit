@@ -1,7 +1,31 @@
 from __future__ import annotations
 
+import click
 import pytest
 import torch
+from click.testing import CliRunner
+
+from mlmm.cli.common_options import add_deterministic_option
+
+
+def test_environment_determinism_message_distinguishes_omitted_and_negative(
+    monkeypatch,
+) -> None:
+    @click.command()
+    @add_deterministic_option()
+    def command() -> None:
+        click.echo("ok")
+
+    monkeypatch.setenv("MLMM_STRICT_DETERMINISTIC", "1")
+    runner = CliRunner()
+
+    omitted = runner.invoke(command, [])
+    assert omitted.exit_code == 0
+    assert "despite --no-deterministic" not in omitted.output
+
+    negative = runner.invoke(command, ["--no-deterministic"])
+    assert negative.exit_code == 0
+    assert "despite --no-deterministic" in negative.output
 
 
 def test_failed_shim_self_check_does_not_commit_state(monkeypatch) -> None:

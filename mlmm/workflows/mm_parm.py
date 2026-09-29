@@ -127,20 +127,35 @@ def missing_ambertools_commands(paths: Optional[Dict[str, Optional[str]]] = None
     return [cmd for cmd in _AMBERTOOLS_REQUIRED_COMMANDS if not resolved.get(cmd)]
 
 
-def copy_pdb_with_element_fields(source: Path, destination: Path) -> Tuple[int, int]:
+def copy_pdb_with_element_fields(
+    source: Path, destination: Path, topology: Optional[Path] = None
+) -> Tuple[int, int]:
     """Copy a LEaP PDB while filling missing element columns in place.
 
-    LEaP commonly leaves columns 77--78 blank. Preserve every record, line
-    ending, and atom ordering; short atom records are padded only as needed to
-    fill those columns. The exported PDB therefore remains topology-matched to
-    the generated ``parm7``.
+    LEaP commonly leaves columns 77--78 blank. With ``topology`` (the parm7 of
+    the same tleap run), blank elements come from its atomic numbers, which the
+    ML/MM calculator checks the PDB against; atoms without one fall back to the
+    atom name. Preserve every record, line ending, and atom ordering; short atom
+    records are padded only as needed to fill those columns. The exported PDB
+    therefore remains topology-matched to the generated ``parm7``.
 
     Returns ``(assigned, unresolved)``.
     """
+    from ase.data import chemical_symbols
+
     from mlmm.domain.add_elem_info import guess_element
+
+    atomic_numbers: List[int] = []
+    if topology is not None:
+        import parmed as pmd
+
+        atomic_numbers = [
+            int(atom.atomic_number or 0) for atom in pmd.load_file(str(topology)).atoms
+        ]
 
     assigned = 0
     unresolved = 0
+    n_atoms = 0
     output_lines: List[str] = []
     with source.open(encoding="utf-8", errors="replace", newline="") as handle:
         for raw_line in handle:
@@ -154,13 +169,18 @@ def copy_pdb_with_element_fields(source: Path, destination: Path) -> Tuple[int, 
                 newline = ""
             line = raw_line.rstrip("\r\n")
             if line.startswith(("ATOM  ", "HETATM")):
+                z = atomic_numbers[n_atoms] if n_atoms < len(atomic_numbers) else 0
+                n_atoms += 1
                 padded = line.ljust(78)
                 if not padded[76:78].strip():
-                    element = guess_element(
-                        padded[12:16].strip(),
-                        padded[17:20].strip(),
-                        padded.startswith("HETATM"),
-                    )
+                    if 0 < z < len(chemical_symbols):
+                        element = chemical_symbols[z]
+                    else:
+                        element = guess_element(
+                            padded[12:16],
+                            padded[17:20].strip(),
+                            padded.startswith("HETATM"),
+                        )
                     if element:
                         line = padded[:76] + f"{element:>2}" + padded[78:]
                         assigned += 1
@@ -168,6 +188,11 @@ def copy_pdb_with_element_fields(source: Path, destination: Path) -> Tuple[int, 
                         line = padded
                         unresolved += 1
             output_lines.append(line + newline)
+    if topology is not None and n_atoms != len(atomic_numbers):
+        raise ValueError(
+            f"{source} has {n_atoms} atoms, but {topology} has "
+            f"{len(atomic_numbers)}."
+        )
 
     destination = destination.resolve()
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -658,9 +683,8 @@ def antechamber_parametrize(resname: str, res_charge: int, res_mult: int, workdi
                     continue
                 _e = _ln[76:78].strip()
                 if not _e:
-                    _atname = _ln[12:16].strip()
                     _rn = _ln[17:20].strip()
-                    _e = guess_element(_atname, _rn, _ln.startswith("HETATM"))
+                    _e = guess_element(_ln[12:16], _rn, _ln.startswith("HETATM"))
                 if _e:
                     _elems.append(_e)
     except Exception:
@@ -1079,7 +1103,9 @@ def run_pipeline(args: Args) -> None:
         if final_pdb_out is not None:
             src_pdb = tmpdir_path / "complex.pdb"
             if src_pdb.exists():
-                assigned, unresolved = copy_pdb_with_element_fields(src_pdb, final_pdb_out)
+                assigned, unresolved = copy_pdb_with_element_fields(
+                    src_pdb, final_pdb_out, topology=tmpdir_path / "complex.parm7"
+                )
                 click.echo(f"[mm-parm] Wrote: {final_pdb_out}")
                 if assigned:
                     click.echo(f"[mm-parm] Populated element columns for {assigned} atoms.")

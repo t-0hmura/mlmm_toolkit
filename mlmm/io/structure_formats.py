@@ -536,7 +536,9 @@ def read_pdb_atom_sites(
                 line[78 + coord_offset : 80 + coord_offset]
             )
             if not element:
-                element = _guess_pdb_element(atom_name, resname, record_name == "HETATM")
+                element = _guess_pdb_element(
+                    line[12 + offset : 16 + offset], resname, record_name == "HETATM"
+                )
             if not element:
                 raise ValueError(
                     f"Cannot determine element at {path}:{line_number} ({atom_name!r})."

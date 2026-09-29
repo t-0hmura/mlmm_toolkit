@@ -12,7 +12,7 @@ from __future__ import annotations
 import functools
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import gc
 import logging
@@ -43,6 +43,7 @@ from mlmm.workflows.opt import (
     CALC_KW as _OPT_CALC_KW,
     OPT_BASE_KW as _OPT_BASE_KW,
     LBFGS_KW as _OPT_LBFGS_KW,
+    RFO_KW as _OPT_RFO_KW,
     _parse_freeze_atoms,
     _normalize_geom_freeze,
 )
@@ -83,7 +84,7 @@ from mlmm.core.utils import (
     ensure_dir,
     distance_A_from_coords,
     distance_tag,
-    unique_tag_digits,
+    claim_unique_scan_stem,
     values_from_bounds,
     unbiased_energy_hartree,
     snapshot_geometry,
@@ -98,10 +99,18 @@ from mlmm.cli.common_options import (
     add_deterministic_option, add_allow_charge_mult_mismatch_option,
 )
 from mlmm.cli.common_options import add_dft_calculator_options
-from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, render_cli_exception
+from mlmm.cli.decorators import (
+    _write_error_json,
+    load_merged_yaml_cfg,
+    make_is_param_explicit,
+    render_cli_exception,
+    resolve_yaml_sources,
+)
 from mlmm.workflows.scan_common import (
     add_scan_common_options,
     make_scan_lbfgs as _make_lbfgs,
+    make_scan_rfo as _make_rfo,
+    normalize_scan_opt_mode,
     OutputCollisionError,
     prepare_grid_scan_output,
     resolve_scan_optimizer_configs,
@@ -124,11 +133,12 @@ OPT_BASE_KW.update(
     {
         "out_dir": OUT_DIR_SCAN2D,
         "dump": False,        # Keep LBFGS runs light; per-grid TRJs are handled separately via --dump
-        "max_cycles": None,  # Overridden per relaxation through --relax-max-cycles
     }
 )
 LBFGS_KW: Dict[str, Any] = deepcopy(_OPT_LBFGS_KW)
 LBFGS_KW.update({"out_dir": OUT_DIR_SCAN2D})
+RFO_KW: Dict[str, Any] = deepcopy(_OPT_RFO_KW)
+RFO_KW.update({"out_dir": OUT_DIR_SCAN2D})
 BIAS_KW: Dict[str, Any] = deepcopy(_BIAS_KW_DEFAULT)
 
 
@@ -151,6 +161,94 @@ def _rbf_support(points_x: np.ndarray, points_y: np.ndarray) -> tuple[int, int]:
     return len(unique), rank
 
 
+def _contour_line_segments(
+    x_grid: np.ndarray,
+    y_grid: np.ndarray,
+    z_grid: np.ndarray,
+    levels: np.ndarray,
+) -> Tuple[List[Optional[float]], List[Optional[float]]]:
+    """Return marching-squares contour segments separated by ``None``.
+
+    Plotly's ``Surface.contours.z.project`` draws directly on the scene floor.
+    When an opaque coloured floor surface occupies the same depth, the two
+    WebGL layers z-fight and produce camera-dependent white speckle. Explicit
+    line segments let the caller place the contours slightly above that floor.
+    """
+
+    x_arr = np.asarray(x_grid, dtype=float)
+    y_arr = np.asarray(y_grid, dtype=float)
+    z_arr = np.asarray(z_grid, dtype=float)
+    if x_arr.ndim != 2 or x_arr.shape != y_arr.shape or x_arr.shape != z_arr.shape:
+        raise ValueError("Contour grids must be matching two-dimensional arrays.")
+
+    edge_corners = ((0, 1), (1, 2), (2, 3), (3, 0))
+    case_pairs = {
+        1: ((3, 0),), 2: ((0, 1),), 3: ((3, 1),), 4: ((1, 2),),
+        6: ((0, 2),), 7: ((3, 2),), 8: ((2, 3),), 9: ((0, 2),),
+        11: ((1, 2),), 12: ((1, 3),), 13: ((0, 1),), 14: ((3, 0),),
+    }
+    line_x: List[Optional[float]] = []
+    line_y: List[Optional[float]] = []
+
+    for level_raw in np.asarray(levels, dtype=float).ravel():
+        level = float(level_raw)
+        if not np.isfinite(level):
+            continue
+        for row in range(z_arr.shape[0] - 1):
+            for col in range(z_arr.shape[1] - 1):
+                points = (
+                    (x_arr[row, col], y_arr[row, col]),
+                    (x_arr[row, col + 1], y_arr[row, col + 1]),
+                    (x_arr[row + 1, col + 1], y_arr[row + 1, col + 1]),
+                    (x_arr[row + 1, col], y_arr[row + 1, col]),
+                )
+                values = (
+                    z_arr[row, col], z_arr[row, col + 1],
+                    z_arr[row + 1, col + 1], z_arr[row + 1, col],
+                )
+                if not all(np.isfinite(value) for value in values):
+                    continue
+
+                case = sum((1 << index) for index, value in enumerate(values) if value > level)
+                if case in (0, 15):
+                    continue
+                if case == 5:
+                    pairs = (((0, 1), (2, 3)) if float(np.mean(values)) > level
+                             else ((3, 0), (1, 2)))
+                elif case == 10:
+                    pairs = (((3, 0), (1, 2)) if float(np.mean(values)) > level
+                             else ((0, 1), (2, 3)))
+                else:
+                    pairs = case_pairs.get(case, ())
+
+                intersections: Dict[int, Tuple[float, float]] = {}
+                for edge in {edge for pair in pairs for edge in pair}:
+                    first, second = edge_corners[edge]
+                    z_first, z_second = float(values[first]), float(values[second])
+                    if z_first == z_second:
+                        continue
+                    fraction = (level - z_first) / (z_second - z_first)
+                    if fraction < -1.0e-12 or fraction > 1.0 + 1.0e-12:
+                        continue
+                    fraction = min(1.0, max(0.0, fraction))
+                    x_first, y_first = points[first]
+                    x_second, y_second = points[second]
+                    intersections[edge] = (
+                        float(x_first + fraction * (x_second - x_first)),
+                        float(y_first + fraction * (y_second - y_first)),
+                    )
+
+                for first_edge, second_edge in pairs:
+                    if first_edge not in intersections or second_edge not in intersections:
+                        continue
+                    first_point = intersections[first_edge]
+                    second_point = intersections[second_edge]
+                    line_x.extend((first_point[0], second_point[0], None))
+                    line_y.extend((first_point[1], second_point[1], None))
+
+    return line_x, line_y
+
+
 def _build_scan2d_result_payload(
     *,
     records: Sequence[Dict[str, Any]],
@@ -158,7 +256,6 @@ def _build_scan2d_result_payload(
     pair1: Dict[str, Any],
     pair2: Dict[str, Any],
     files: Dict[str, str],
-    status: str = "completed",
 ) -> Dict[str, Any]:
     """Build the machine-readable result from attempted current-run points."""
 
@@ -194,13 +291,14 @@ def _build_scan2d_result_payload(
     for rec in grid_records:
         try:
             distances = [float(rec["d1_A"]), float(rec["d2_A"])]
+            targets = [float(rec["target_d1_A"]), float(rec["target_d2_A"])]
             indices = [int(rec["i"]), int(rec["j"])]
         except (KeyError, TypeError, ValueError):
             continue
         point = {
                 "index": indices,
                 "coordinate_values": distances,
-                "coordinate_targets": list(distances),
+                "coordinate_targets": targets,
                 "coordinate_units": [pair1.get("unit", "angstrom"), pair2.get("unit", "angstrom")],
                 "energy_hartree": rec.get("energy_hartree"),
                 "converged": rec.get("bias_converged"),
@@ -208,10 +306,10 @@ def _build_scan2d_result_payload(
             }
         if pair1.get("kind", "distance") == pair2.get("kind", "distance") == "distance":
             point["distances_angstrom"] = list(distances)
-            point["targets_angstrom"] = list(distances)
+            point["targets_angstrom"] = list(targets)
         grid_points.append(point)
     payload: Dict[str, Any] = {
-        "status": status,
+        "status": "completed",
         "execution_status": "completed",
         "energy_reference": "bare_mlmm_pes",
         "n_grid_points": len(grid_records),
@@ -324,7 +422,7 @@ def _select_closest_state_1d(
     "-m",
     "--multiplicity",
     "spin",
-    type=int,
+    type=click.IntRange(min=1),
     default=None,
     show_default="1",
     help="Spin multiplicity (2S+1) for the ML region.",
@@ -369,7 +467,7 @@ def _select_closest_state_1d(
     "dry_run",
     default=False,
     show_default=True,
-    help="Validate options and print the execution plan without running the scan.",
+    help="Validate options and inputs without running the scan.",
 )
 @click.option(
     "--config",
@@ -388,7 +486,7 @@ def _select_closest_state_1d(
 )
 @click.option(
     "-b", "--backend",
-    type=click.Choice(["uma", "orb", "mace", "aimnet2", "dft"], case_sensitive=False),
+    type=click.Choice(["uma", "orb", "mace", "aimnet2", "dft"]),
     default=None,
     show_default="uma",
     help="High-level backend for the ONIOM model region.",
@@ -475,6 +573,7 @@ def cli(
     max_dihedral_step_size: float,
     bias_k: float,
     relax_max_cycles: int,
+    opt_mode: str,
     dump: bool,
     out_dir: str,
     thresh: Optional[str],
@@ -555,12 +654,16 @@ def cli(
             calc_cfg = dict(CALC_KW)
             bias_cfg = dict(BIAS_KW)
 
-            opt_cfg, lbfgs_cfg = resolve_scan_optimizer_configs(
+            sopt_kind = normalize_scan_opt_mode(opt_mode)
+            opt_cfg, sopt_cfg = resolve_scan_optimizer_configs(
                 yaml_cfg,
                 opt_defaults=OPT_BASE_KW,
                 lbfgs_defaults=LBFGS_KW,
+                rfo_defaults=RFO_KW,
+                kind=sopt_kind,
                 thresh=thresh,
                 relax_max_cycles=relax_max_cycles,
+                print_every=print_every,
                 is_param_explicit=_is_param_explicit,
             )
 
@@ -634,8 +737,6 @@ def cli(
                 calc_cfg["embedcharge"] = bool(embedcharge)
             if _is_param_explicit("embedcharge_cutoff"):
                 calc_cfg["embedcharge_cutoff"] = embedcharge_cutoff
-            if _is_param_explicit("print_every") and print_every is not None:
-                opt_cfg["print_every"] = int(print_every)
             if link_atom_method is not None:
                 calc_cfg["link_atom_method"] = str(link_atom_method).lower()
             if mm_backend is not None:
@@ -698,9 +799,9 @@ def cli(
             click.echo(pretty_block("calc", echo_calc))
             echo_opt = strip_inherited_keys({**opt_cfg, "out_dir": str(out_dir_path)}, OPT_BASE_KW, mode="same")
             click.echo(pretty_block("opt", echo_opt))
-            # Show only lbfgs-specific settings, not inherited from opt_cfg
-            echo_lbfgs = strip_inherited_keys(lbfgs_cfg, opt_cfg)
-            click.echo(pretty_block("lbfgs", echo_lbfgs))
+            # Show only optimizer-specific settings, not inherited from opt_cfg
+            echo_sopt = strip_inherited_keys(sopt_cfg, opt_cfg)
+            click.echo(pretty_block(sopt_kind, echo_sopt))
             click.echo(pretty_block("bias", bias_cfg))
 
             pdb_atom_meta: List[Dict[str, Any]] = []
@@ -804,10 +905,19 @@ def cli(
                             "backend": calc_cfg.get("backend", "uma"),
                             "embedcharge": bool(calc_cfg.get("embedcharge", False)),
                         },
-                        force=True,
                     ),
-                    force=True,
                 )
+                click.echo("[scan2d] --dry-run: input, charge/spin, and --scan-lists parse OK.")
+                click.echo(f"[scan2d] input geometry  : {geom_input_path}")
+                click.echo(f"[scan2d] resolved charge : {int(charge):+d}")
+                click.echo(f"[scan2d] resolved spin   : {int(spin)} (multiplicity)")
+                click.echo(f"[scan2d] out_dir         : {out_dir_path}")
+                click.echo(
+                    f"[scan2d] --scan-lists    : {scan_list_raw} "
+                    f"→ {len(parsed)} axis tuples"
+                )
+                click.echo(f"[scan2d] preopt={bool(preopt)}")
+                click.echo("[scan2d] No 2D scan was executed.")
                 emit_dry_run_complete()
                 return
             click.echo(
@@ -871,6 +981,10 @@ def cli(
 
             base_calc = mlmm(**calc_cfg)
             biased = HarmonicBiasCalculator(base_calc, k=float(bias_cfg["k"]))
+            _make_relax = (
+                _make_lbfgs if sopt_kind == "lbfgs"
+                else functools.partial(_make_rfo, calc_cfg=calc_cfg)
+            )
 
             echo_resolved_device()
 
@@ -879,9 +993,9 @@ def cli(
             if preopt:
                 click.echo("[preopt] Unbiased relaxation of the initial structure ...")
                 geom_outer.set_calculator(base_calc)
-                optimizer0 = _make_lbfgs(
+                optimizer0 = _make_relax(
                     geom_outer,
-                    lbfgs_cfg,
+                    sopt_cfg,
                     opt_cfg,
                     max_step_bohr=float(max_step_size) * ANG2BOHR,
                     out_dir=tmp_opt_dir,
@@ -1011,17 +1125,7 @@ def cli(
             # Build distance grids and reorder so that scanning starts near the reference structure
             d1_values = values_from_bounds(low1, high1, coordinate_step_cap(kind1, max_step_size, max_angle_step_size, max_dihedral_step_size))
             d2_values = values_from_bounds(low2, high2, coordinate_step_cap(kind2, max_step_size, max_angle_step_size, max_dihedral_step_size))
-
-            # One tag precision per axis, so a fine grid cannot map two targets
-            # onto the same point tag and truncate the earlier artifact.
-            d1_digits = unique_tag_digits(d1_values)
-            d2_digits = unique_tag_digits(d2_values)
-
-            def _d1_tag(value: float) -> str:
-                return distance_tag(value, digits=d1_digits, pad=d1_digits + 1)
-
-            def _d2_tag(value: float) -> str:
-                return distance_tag(value, digits=d2_digits, pad=d2_digits + 1)
+            used_grid_stems: set[str] = set()
 
             if math.isfinite(d1_ref):
                 d1_values = np.array(
@@ -1042,7 +1146,7 @@ def cli(
             max_step_bohr = float(max_step_size) * ANG2BOHR
 
             for i_idx, d1_target in enumerate(d1_values):
-                d1_tag = _d1_tag(d1_target)
+                d1_tag = distance_tag(d1_target)
                 click.echo(f"\n--- d1 step {i_idx + 1}/{N1} : target = {d1_target:.3f} {unit1} ---")
 
                 # Choose the closest previously visited structure (in d1) as the
@@ -1056,13 +1160,13 @@ def cli(
                 biased.set_restraints([(*atoms1, float(d1_target))])
                 geom_outer.set_calculator(biased)
 
-                opt1 = _make_lbfgs(
+                opt1 = _make_relax(
                     geom_outer,
-                    lbfgs_cfg,
+                    sopt_cfg,
                     opt_cfg,
                     max_step_bohr=max_step_bohr,
                     out_dir=tmp_opt_dir,
-                    prefix=f"d1_{d1_tag}",
+                    prefix=f"d1_{i_idx:03d}",
                 )
                 _outer_conv: Optional[bool] = None
                 try:
@@ -1093,7 +1197,7 @@ def cli(
                 trj_blocks = [] if dump else None
 
                 for j_idx, d2_target in enumerate(d2_values):
-                    d2_tag = _d2_tag(d2_target)
+                    d2_tag = distance_tag(d2_target)
 
                     # For each (d1, d2) grid point, choose as initial structure the
                     # previously visited geometry whose scanned distances are closest
@@ -1107,13 +1211,13 @@ def cli(
 
                     biased.set_restraints([(*atoms1, float(d1_target)), (*atoms2, float(d2_target))])
 
-                    opt2 = _make_lbfgs(
+                    opt2 = _make_relax(
                         geom_inner,
-                        lbfgs_cfg,
+                        sopt_cfg,
                         opt_cfg,
                         max_step_bohr=max_step_bohr,
                         out_dir=tmp_opt_dir,
-                        prefix=f"d1_{d1_tag}_d2_{d2_tag}",
+                        prefix=f"d1_{i_idx:03d}_d2_{j_idx:03d}",
                     )
                     # a normal (non-raising) run is NOT convergence — read
                     # the optimizer's explicit tri-state bit rather than assume True.
@@ -1137,7 +1241,12 @@ def cli(
                     d2_cur = coordinate_value(np.asarray(geom_inner.coords3d), axis2, is_range=True)
 
                     # Distance-based filenames: e.g., point_i125_j324.xyz for d1=1.25 Å, d2=3.24 Å
-                    xyz_path = grid_dir / f"point_i{d1_tag}_j{d2_tag}.xyz"
+                    point_stem = claim_unique_scan_stem(
+                        f"point_i{d1_tag}_j{d2_tag}",
+                        (i_idx, j_idx),
+                        used_grid_stems,
+                    )
+                    xyz_path = grid_dir / f"{point_stem}.xyz"
                     _artifact_written = False
                     try:
                         xyz = geom_inner.as_xyz()
@@ -1187,8 +1296,10 @@ def cli(
                         {
                             "i": int(i_idx),
                             "j": int(j_idx),
-                            "d1_A": float(d1_target),
-                            "d2_A": float(d2_target),
+                            "d1_A": float(d1_cur),
+                            "d2_A": float(d2_cur),
+                            "target_d1_A": float(d1_target),
+                            "target_d2_A": float(d2_target),
                             "energy_hartree": energy_h,
                             "bias_converged": converged,
                             "artifact_written": bool(_artifact_written),
@@ -1202,8 +1313,7 @@ def cli(
                     )
 
                 if dump and trj_blocks:
-                    # Distance-based filename for inner path as well
-                    trj_path = grid_dir / f"inner_path_d1_{d1_tag}_trj.xyz"
+                    trj_path = grid_dir / f"inner_path_d1_{i_idx:03d}_trj.xyz"
                     try:
                         with open(trj_path, "w") as handle:
                             handle.write("".join(trj_blocks))
@@ -1214,7 +1324,7 @@ def cli(
                             convert_and_annotate_xyz_to_pdb(
                                 trj_path,
                                 ref_pdb_resolve,
-                                trj_path.with_suffix(".pdb"),
+                                grid_dir / f"inner_path_d1_{i_idx:03d}.pdb",
                                 model_pdb_path,
                                 freeze_atoms_final,
                             )
@@ -1262,6 +1372,9 @@ def cli(
             for axis_number, axis_kind in ((1, kind1), (2, kind2)):
                 df[f"q{axis_number}"] = df[f"d{axis_number}_A"]
                 df[f"q{axis_number}_unit"] = coordinate_unit(axis_kind)
+                target_column = f"target_d{axis_number}_A"
+                if target_column in df.columns:
+                    df[f"target_q{axis_number}"] = df[target_column]
 
             surface_csv = final_dir / "surface.csv"
             # Keep internal-only eligibility columns out of the public CSV so a
@@ -1284,10 +1397,11 @@ def cli(
                 & np.isfinite(z_points)
                 & df["seed_eligible"].to_numpy(dtype=bool)
             )
-            n_unique, support_rank = (
-                _rbf_support(d1_points[mask], d2_points[mask])
-                if np.any(mask)
-                else (0, 0)
+            if not np.any(mask):
+                click.echo("[plot] No finite data for plotting.")
+                sys.exit(1)
+            n_unique, support_rank = _rbf_support(
+                d1_points[mask], d2_points[mask]
             )
             if n_unique < 3 or support_rank < 2:
                 message = (
@@ -1297,24 +1411,15 @@ def cli(
                     f"{support_rank}. surface.csv was written, but plots were "
                     "not generated."
                 )
+                error = ValueError(message)
+                _write_error_json(
+                    final_dir,
+                    "scan2d",
+                    error,
+                    "InsufficientPlotData",
+                    time_start,
+                )
                 click.echo(f"[plot] ERROR: {message}", err=True)
-                if out_json:
-                    from mlmm.core.utils import write_result_json
-
-                    result_data = _build_scan2d_result_payload(
-                        records=records,
-                        calc_cfg=calc_cfg,
-                        pair1=_axis_payload(kind1, atoms1, low1, high1),
-                        pair2=_axis_payload(kind2, atoms2, low2, high2),
-                        files={"surface_csv": "surface.csv"},
-                        status="failed",
-                    )
-                    write_result_json(
-                        final_dir,
-                        result_data,
-                        command="scan2d",
-                        elapsed_seconds=time.perf_counter() - time_start,
-                    )
                 sys.exit(1)
             x_min, x_max = float(np.min(d1_points[mask])), float(np.max(d1_points[mask]))
             y_min, y_max = float(np.min(d2_points[mask])), float(np.max(d2_points[mask]))
@@ -1475,7 +1580,6 @@ def cli(
                         "end": c_end,
                         "size": c_step,
                         "color": "black",
-                        "project": {"z": True},
                     }
                 },
                 name="3D Surface",
@@ -1495,10 +1599,26 @@ def cli(
                 name="2D Contour Projection (Bottom)",
             )
 
+            contour_levels = np.arange(
+                c_start, c_end + 0.5 * c_step, c_step, dtype=float
+            )
+            contour_x, contour_y = _contour_line_segments(XI, YI, ZI, contour_levels)
+            contour_z = z_bottom + 0.01
+            bottom_contours = go.Scatter3d(
+                x=contour_x,
+                y=contour_y,
+                z=[contour_z if value is not None else None for value in contour_x],
+                mode="lines",
+                line=dict(color="black", width=3),
+                hoverinfo="skip",
+                showlegend=False,
+                name="2D Contour Lines (Bottom)",
+            )
+
             # The generated artifact keeps the original scientific rendering.
             # Notebook-only white grid controls are injected only into the linked
             # Results card and therefore never modify this authored HTML.
-            fig3d = go.Figure(data=[surface3d, plane_proj])
+            fig3d = go.Figure(data=[surface3d, plane_proj, bottom_contours])
             fig3d.update_layout(
                 title="Energy Landscape with 2D PES Scan",
                 width=800,

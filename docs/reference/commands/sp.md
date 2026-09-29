@@ -42,8 +42,9 @@ Options:
   -q, --charge INTEGER            ML region total charge.
   -l, --ligand-charge TEXT        Per-ligand charge mapping, e.g.
                                   'SAM:1,GPP:-3'.
-  -m, --multiplicity INTEGER      ML region spin multiplicity (2S+1).  [default:
-                                  (1)]
+  -m, --multiplicity INTEGER RANGE
+                                  ML region spin multiplicity (2S+1).  [default:
+                                  (1); x>=1]
   -o, --out-dir TEXT              Output directory.  [default: ./result_sp/]
   --hess / --no-hess              Also compute the active-coordinate ONIOM
                                   Hessian and save to hessian.npy.  [default:

@@ -850,7 +850,7 @@ def _prepare_frequency_output_paths(
 )
 @click.option(
     "-b", "--backend",
-    type=click.Choice(["uma", "orb", "mace", "aimnet2", "dft"], case_sensitive=False),
+    type=click.Choice(["uma", "orb", "mace", "aimnet2", "dft"]),
     default=None,
     show_default="uma",
     help="High-level backend for the ONIOM model region.",
@@ -1269,6 +1269,14 @@ def cli(
             click.echo("[layer] movable_cutoff is set; disabling detect-layer mode.", err=True)
         detect_layer_enabled = False
         calc_cfg["use_bfactor_layers"] = False
+
+    if hess_device.lower() != "auto":
+        # An explicit cuda request without CUDA fails here, also under --dry-run (as in irc).
+        from mlmm.workflows._microiteration import resolve_hessian_device
+        try:
+            resolve_hessian_device(hess_device, torch.cuda.is_available())
+        except ValueError as exc:
+            raise click.ClickException(str(exc)) from exc
 
     if show_config:
         click.echo(
@@ -1889,6 +1897,8 @@ def cli(
                 "spin": calc_cfg.get("model_mult"),
                 "n_atoms": len(geometry.atomic_numbers),
                 "n_freeze_atoms": int(_n_frozen),
+                "temperature_K": thermo_cfg["temperature"],
+                "pressure_atm": thermo_cfg["pressure_atm"],
                 "input_file": str(input_path),
                 "files": {
                     "frequencies_txt": "frequencies_cm-1.txt",

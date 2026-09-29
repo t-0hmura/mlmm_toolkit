@@ -87,6 +87,7 @@ def test_single_optimizer_provenance_and_refined_hei_boundary(
         refine_mode_kind="peak", mep_mode_kind=mep_mode,
         out_dir=tmp_path, ref_pdb_path=None, depth=depth, seg_counter=[0],
         branch_tag="pair_00",
+        single_opt_kind="lbfgs", calc_cfg={}, dmf_cfg={},
     )
 
     assert len(optimizer_calls) == (2 if single_opt_executed else 0)
@@ -163,9 +164,10 @@ def test_terminal_path_keeps_solver_fact_and_diagnostics(
         refine_mode_kind="peak", mep_mode_kind="gsm", out_dir=tmp_path,
         ref_pdb_path=None, depth=1 if route == "depth" else 0,
         seg_counter=[0], branch_tag="pair_00", calc_cfg={}, dmf_cfg={},
+        single_opt_kind="lbfgs",
     )
     if is_p:
-        kwargs.update(single_opt_kind="lbfgs", prepared_inputs=[], prepared_input=None)
+        kwargs.update(prepared_inputs=[], prepared_input=None)
     result = path_search._build_multistep_path(
         primary.images[0], primary.images[-1], None, **kwargs
     )

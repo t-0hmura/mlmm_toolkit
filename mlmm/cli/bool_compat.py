@@ -25,7 +25,10 @@ def normalize_argv_option_names(args: list[str]) -> list[str]:
     Short flags (``-v``) and positional arguments are passed through unchanged.
     """
     result: list[str] = []
-    for token in args:
+    for index, token in enumerate(args):
+        if token == "--":
+            result.extend(args[index:])
+            break
         if token.startswith("--"):
             name, sep, value = token.partition("=")
             result.append(name.lower() + sep + value)

@@ -31,8 +31,9 @@ Options:
                                   per-resname mapping (e.g., GPP:-3,SAM:1), used
                                   to derive the ML-region charge when -q is
                                   omitted (requires PDB input or --ref-pdb).
-  -m, --multiplicity INTEGER      Spin multiplicity (2S+1) for the ML region.
-                                  [default: (1)]
+  -m, --multiplicity INTEGER RANGE
+                                  Spin multiplicity (2S+1) for the ML region.
+                                  [default: (1); x>=1]
   --freeze-atoms TEXT             Comma-separated 1-based atom indices to freeze
                                   (e.g., "1,3,5").
   --movable-cutoff FLOAT          Distance cutoff (Å) from ML region for movable
@@ -47,9 +48,8 @@ Options:
   --print-parsed / --no-print-parsed
                                   Print parsed scan targets after resolving
                                   --scan-lists.  [default: no-print-parsed]
-  --dry-run / --no-dry-run        Validate options and print the execution plan
-                                  without running the scan.  [default: no-dry-
-                                  run]
+  --dry-run / --no-dry-run        Validate options and inputs without running
+                                  the scan.  [default: no-dry-run]
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
   --convert-files / --no-convert-files
@@ -95,9 +95,11 @@ Options:
                                   applies when this option is omitted; explicit
                                   CLI wins.  [default: (300.0)]
   --relax-max-cycles INTEGER RANGE
-                                  Maximum L-BFGS cycles per biased relaxation
+                                  Maximum optimizer cycles per biased relaxation
                                   (also used for preopt).  [default: (100000);
                                   x>=1]
+  --opt-mode [grad|hess]          Relaxation mode: grad (=LBFGS) or hess (=RFO).
+                                  [default: grad]
   --dump / --no-dump              Write inner d2 scan TRJs per d1 slice.
                                   [default: no-dump]
   -o, --out-dir TEXT              Base output directory.  [default:

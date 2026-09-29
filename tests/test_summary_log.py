@@ -209,18 +209,18 @@ def test_write_summary_log_marks_non_successful_results_and_precision(
             "Segment 2: MEP optimization did not converge. Review the MEP trajectory and convergence log.",
         ),
         (
-            "all:segment_2:endpoint_opt:endpoint_2_converged",
-            "Segment 2: the endpoint 2 optimization did not converge or could not be confirmed. "
+            "all:segment_2:endpoint_opt:product_converged",
+            "Segment 2: the product endpoint optimization did not converge or could not be confirmed. "
             "Review the endpoint structure and optimizer log.",
         ),
         (
-            "all:segment_2:endpoint_opt:endpoint_2_not_converged",
-            "Segment 2: the endpoint 2 optimization did not converge. "
+            "all:segment_2:endpoint_opt:product_not_converged",
+            "Segment 2: the product endpoint optimization did not converge. "
             "Review the endpoint structure and optimizer log.",
         ),
         (
-            "all:segment_2:endpoint_opt:endpoint_2_execution_failed",
-            "Segment 2: the endpoint 2 optimization raised an exception. "
+            "all:segment_2:endpoint_opt:product_execution_failed",
+            "Segment 2: the product endpoint optimization raised an exception. "
             "Review failure.json and the optimizer log.",
         ),
         (
@@ -375,21 +375,15 @@ def test_write_summary_log_ts_only_separates_model_dft_from_composite_gibbs(
                 "index": 1,
                 "tag": "seg_01",
                 "kind": "tsopt",
-                "barrier_from_endpoint_1_kcal": 8.0,
-                "barrier_from_endpoint_2_kcal": 9.0,
+                "barrier_kcal": 8.0,
+                "delta_kcal": -1.0,
             }],
             "post_segments": [{
                 "index": 1,
                 "tag": "seg_01",
                 "kind": "tsopt",
-                "dft": {
-                    "barrier_from_endpoint_1_kcal": 7.8,
-                    "barrier_from_endpoint_2_kcal": 8.2,
-                },
-                "gibbs_dft_mlip": {
-                    "barrier_from_endpoint_1_kcal": 9.1,
-                    "barrier_from_endpoint_2_kcal": 9.5,
-                },
+                "dft": {"barrier_kcal": 7.8, "delta_kcal": -1.2},
+                "gibbs_dft_mlip": {"barrier_kcal": 9.1, "delta_kcal": -0.5},
             }],
             "energy_diagrams": [],
         },
@@ -398,12 +392,10 @@ def test_write_summary_log_ts_only_separates_model_dft_from_composite_gibbs(
     text = dest.read_text(encoding="utf-8")
     assert "Number of IRC frames : 5" in text
     assert "Number of segments   : 1" in text
-    assert "chemically unassigned endpoint" in text
+    assert "refined TS − assigned endpoint" in text
     assert "MEP ΔE" not in text
-    assert "model-region DFT ΔE‡ E1->TS" in text
-    assert "model-region DFT ΔE‡ E2->TS" in text
-    assert "DFT//MLIP/MM ΔG‡ E1->TS" in text
-    assert "DFT//MLIP/MM ΔG‡ E2->TS" in text
+    assert "model-region DFT ΔE‡" in text
+    assert "DFT//MLIP/MM ΔG‡" in text
     assert "DFT//MLIP/MM ΔE" not in text
 
 
@@ -829,3 +821,20 @@ def test_path_citations_follow_execution_instead_of_initial_preopt(methods):
         payload["preopt"] = requested
         cited = {reference["method"] for reference in method_references(payload)}
         assert ("Limited-memory BFGS (L-BFGS)" in cited) is bool(methods)
+
+
+@pytest.mark.parametrize("kind", ["lbfgs", "rfo"])
+def test_path_endpoint_optimizer_dirs_are_annotated(tmp_path, kind):
+    from mlmm.io.summary import write_summary_log
+
+    path_dir = tmp_path / "path_search"
+    for name in (f"init00_{kind}_opt", f"seg_000_left_{kind}_opt", f"seg_000_right_{kind}_opt"):
+        (path_dir / name).mkdir(parents=True)
+    dest = tmp_path / "summary.log"
+
+    write_summary_log(dest, {"root_out_dir": str(tmp_path), "path_dir": str(path_dir)})
+    text = dest.read_text(encoding="utf-8")
+
+    assert "Initial optimization of endpoint 00" in text
+    assert "Optimized left (R) endpoint" in text
+    assert "Optimized right (P) endpoint" in text

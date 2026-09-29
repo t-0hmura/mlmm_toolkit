@@ -35,7 +35,9 @@ Options:
                                   per-resname mapping (e.g., GPP:-3,SAM:1), used
                                   to derive the ML-region charge when -q is
                                   omitted (requires PDB input or --ref-pdb).
-  -m, --multiplicity INTEGER      Spin multiplicity (2S+1).  [default: (1)]
+  -m, --multiplicity INTEGER RANGE
+                                  Spin multiplicity (2S+1).  [default: (1);
+                                  x>=1]
   --mep-mode [gsm|dmf]            MEP method: gsm (Growing String) or dmf
                                   (Direct Max Flux).  [default: gsm]
   --dmf-backend [cpu|gpu]         DMF compute backend (--mep-mode dmf only): gpu
@@ -78,14 +80,16 @@ Options:
                                   (3000); x>=1]
   --climb / --no-climb            Enable transition-state search after path
                                   growth.  [default: climb]
+  --opt-mode [grad|hess]          Single-structure optimizer: grad (=LBFGS) or
+                                  hess (=RFO).  [default: grad]
   --dump / --no-dump              Dump GSM/single-optimization trajectories
                                   during the run.  [default: no-dump]
   -o, --out-dir TEXT              Output directory.  [default:
                                   ./result_path_search/]
   --thresh [gau_loose|gau|gau_tight|gau_vtight|baker|never]
-                                  Convergence preset for single L-BFGS runs
-                                  only. The MEP itself keeps --thresh-gsm /
-                                  --dmf-tol.  [default: (gau)]
+                                  Convergence preset for single-structure
+                                  optimizations only. The MEP itself keeps
+                                  --thresh-gsm / --dmf-tol.  [default: (gau)]
   --thresh-gsm [gau_loose|gau|gau_tight|gau_vtight|baker|never]
                                   Convergence preset for the GSM string
                                   optimizer (gau_loose|gau|gau_tight|gau_vtight|
@@ -97,9 +101,9 @@ Options:
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
   --show-config / --no-show-config
-                                  Print the loaded YAML file and its top-level
-                                  keys, then continue.  [default: no-show-
-                                  config]
+                                  Print the resolved configuration blocks and
+                                  the loaded YAML file, then continue.
+                                  [default: no-show-config]
   --dry-run / --no-dry-run        Validate options and inputs without running
                                   path search.  [default: no-dry-run]
   --preopt / --no-preopt          If True, run initial single-structure

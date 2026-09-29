@@ -57,6 +57,9 @@ def parse_atom_name(name):
     org_name = name
     assert len(name) == 4
     name_lower = name.lower()
+    # LEaP writes GAFF chlorine and bromine from column 14 (" CL1", " BR1").
+    if name_lower[0] == " " and name_lower[1:3] in ("cl", "br"):
+        return name_lower[1:3].capitalize()
     # Cases like " SOD" require special handling. Sticking to the PDB specification (!)
     # and using only the first two characters would result in S (sulphur).
     use_full_name = name_lower in FULL_NAME
@@ -156,12 +159,19 @@ def parse_pdb(text):
         name = fields[2]
         # Always derive element from atom name to guard against corrupted
         # element columns (e.g., ASE writing "Nh" for NH1, "N" for ZN).
-        # A valid two-letter field is authoritative only for the PDB-standard
-        # left-aligned two-letter name (e.g. ``HG  ``/HG or ``HE  ``/HE).
-        # Right-aligned `` HG ``/H and `` HE ``/H remain protein hydrogens.
+        # A valid one-letter field is authoritative when it matches the first
+        # alphabetic character of the atom name. A valid two-letter field is
+        # authoritative only for the PDB-standard left-aligned two-letter name
+        # (e.g. ``HG  ``/HG or ``HE  ``/HE). Right-aligned `` HG ``/H and
+        # `` HE ``/H remain protein hydrogens.
         field_lower = atom.lower()
         left_pair = name[:2].lower()
+        first_alpha = STRIP_RE.sub("", name.lower())[:1]
         if (
+            len(atom) == 1
+            and field_lower in KNOWN_ATOMS
+            and first_alpha == field_lower
+        ) or (
             len(atom) == 2
             and field_lower in KNOWN_ATOMS
             and not name.startswith(" ")

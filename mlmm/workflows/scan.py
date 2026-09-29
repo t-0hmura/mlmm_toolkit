@@ -48,11 +48,16 @@ from mlmm.workflows.opt import (
     CALC_KW as _OPT_CALC_KW,
     OPT_BASE_KW as _OPT_BASE_KW,
     LBFGS_KW as _OPT_LBFGS_KW,
+    RFO_KW as _OPT_RFO_KW,
     _parse_freeze_atoms,
     _normalize_geom_freeze,
 )
 from mlmm.workflows.restraints import HarmonicBiasCalculator
-from mlmm.workflows.scan_common import OutputCollisionError
+from mlmm.workflows.scan_common import (
+    OutputCollisionError,
+    make_scan_rfo,
+    normalize_scan_opt_mode,
+)
 from mlmm.workflows.opt import _convert_yaml_layer_atoms_1to0
 from mlmm.workflows._outcomes import optimizer_converged_bit
 from mlmm.workflows.charge_prep import resolve_charge_spin_or_raise
@@ -63,7 +68,9 @@ from mlmm.core.utils import (
     set_convert_file_enabled,
     apply_yaml_overrides,
     pretty_block,
+    resolve_shared_optimizer_keys,
     strip_inherited_keys,
+    yaml_section_has_key,
     filter_calc_for_echo,
     format_freeze_atoms_for_echo,
     emit_dry_run_complete,
@@ -127,6 +134,12 @@ OPT_BASE_KW.update({
 # LBFGS specifics
 LBFGS_KW: Dict[str, Any] = deepcopy(_OPT_LBFGS_KW)
 LBFGS_KW.update({
+    "out_dir": OUT_DIR_SCAN,
+})
+
+# RFO specifics (--opt-mode hess)
+RFO_KW: Dict[str, Any] = deepcopy(_OPT_RFO_KW)
+RFO_KW.update({
     "out_dir": OUT_DIR_SCAN,
 })
 
@@ -306,14 +319,22 @@ def _snapshot_geometry(g) -> Any:
     type=click.IntRange(min=1),
     default=None,
     show_default="100000",
-    help="Maximum L-BFGS cycles per biased step and per (pre|end)opt stage.",
+    hidden=True,
+    help="Alias of --relax-max-cycles.",
 )
 @click.option(
     "--relax-max-cycles",
     type=click.IntRange(min=1),
     default=None,
-    show_default="inherits --max-cycles",
-    help="Compatibility alias of --max-cycles (overrides it when provided).",
+    show_default="100000",
+    help="Maximum optimizer cycles per biased step and per (pre|end)opt stage.",
+)
+@click.option(
+    "--opt-mode",
+    type=click.Choice(["grad", "hess"], case_sensitive=False),
+    default="grad",
+    show_default=True,
+    help="Relaxation mode: grad (=LBFGS) or hess (=RFO).",
 )
 @click.option(
     "--dump/--no-dump",
@@ -365,7 +386,7 @@ def _snapshot_geometry(g) -> Any:
     "dry_run",
     default=False,
     show_default=True,
-    help="Validate options and print the execution plan without running the scan.",
+    help="Validate options and inputs without running the scan.",
 )
 @click.option(
     "--convert-files/--no-convert-files",
@@ -376,7 +397,7 @@ def _snapshot_geometry(g) -> Any:
 )
 @click.option(
     "-b", "--backend",
-    type=click.Choice(["uma", "orb", "mace", "aimnet2", "dft"], case_sensitive=False),
+    type=click.Choice(["uma", "orb", "mace", "aimnet2", "dft"]),
     default=None,
     show_default="uma",
     help="High-level backend for the ONIOM model region.",
@@ -460,6 +481,7 @@ def cli(
     bias_k: Optional[float],
     max_cycles: int,
     relax_max_cycles: Optional[int],
+    opt_mode: str,
     dump: bool,
     out_dir: str,
     thresh: Optional[str],
@@ -515,9 +537,15 @@ def cli(
         ctx, yaml_cfg, model_indices_str, model_indices_one_based
     )
 
+    if (
+        max_cycles is not None
+        and relax_max_cycles is not None
+        and int(max_cycles) != int(relax_max_cycles)
+    ):
+        raise click.BadParameter("--max-cycles and --relax-max-cycles conflict.")
     if relax_max_cycles is not None:
         max_cycles = int(relax_max_cycles)
-    max_cycles = optional_positive_int(max_cycles, "--max-cycles")
+    max_cycles = optional_positive_int(max_cycles, "--relax-max-cycles")
     # Validate input format: PDB/mmCIF directly, or XYZ with --ref-pdb.
     suffix = input_path.suffix.lower()
     if suffix not in (".pdb", ".cif", ".mmcif", ".xyz"):
@@ -554,8 +582,10 @@ def cli(
             calc_cfg = dict(CALC_KW)
             opt_cfg = dict(OPT_BASE_KW)
             lbfgs_cfg = dict(LBFGS_KW)
+            rfo_cfg = dict(RFO_KW)
             bias_cfg = dict(BIAS_KW)
             bond_cfg = dict(BOND_KW)
+            sopt_kind = normalize_scan_opt_mode(opt_mode)
 
             apply_yaml_overrides(
                 yaml_cfg,
@@ -564,6 +594,7 @@ def cli(
                     (calc_cfg, (("calc",), ("mlmm",))),
                     (opt_cfg, (("opt",),)),
                     (lbfgs_cfg, (("lbfgs",), ("opt", "lbfgs"))),
+                    (rfo_cfg, (("rfo",), ("opt", "rfo"))),
                     (bias_cfg, (("bias",),)),
                     (bond_cfg, (("bond",),)),
                 ],
@@ -582,7 +613,7 @@ def cli(
                 yaml_cfg=yaml_cfg,
             )
 
-            # Staged scans run restrained L-BFGS with no microiteration, so DLC
+            # Staged scans run restrained LBFGS/RFO with no microiteration, so DLC
             # over the ML/MM system is meaningless (it crashes poly_line_search
             # with a Cartesian/internal dimension mismatch); force Cartesian,
             # matching path-opt / path-search.
@@ -604,6 +635,7 @@ def cli(
                 opt_cfg["out_dir"] = out_dir
             # Per-step optimizer dumps are off for a scan unless the user asks: an
             # unconditional False made `--dump` a silent no-op on this command.
+            opt_cfg["dump"] = False
             if _is_param_explicit("dump"):
                 opt_cfg["dump"] = bool(dump)
             # Honor the documented precedence defaults < --config YAML < CLI:
@@ -611,11 +643,34 @@ def cli(
             # explicitly passed --max-cycles or --relax-max-cycles. Mirrors
             # opt.py's _is_param_explicit gating; an unconditional assignment
             # here silently clobbered the --config YAML tier.
+            cli_opt_keys = set()
             if _is_param_explicit("max_cycles") or relax_max_cycles is not None:
                 opt_cfg["max_cycles"] = max_cycles
-                lbfgs_cfg["max_cycles"] = max_cycles
+                cli_opt_keys.add("max_cycles")
             if thresh is not None:
                 opt_cfg["thresh"] = str(thresh)
+                cli_opt_keys.add("thresh")
+            if _is_param_explicit("print_every") and print_every is not None:
+                opt_cfg["print_every"] = int(print_every)
+                cli_opt_keys.add("print_every")
+            sopt_cfg = lbfgs_cfg if sopt_kind == "lbfgs" else rfo_cfg
+            sopt_defaults = LBFGS_KW if sopt_kind == "lbfgs" else RFO_KW
+            sopt_paths = ((sopt_kind,), ("opt", sopt_kind))
+            resolve_shared_optimizer_keys(
+                opt_cfg,
+                sopt_cfg,
+                sopt_defaults,
+                downstream_section=sopt_kind,
+                opt_explicit={
+                    key for key in opt_cfg
+                    if yaml_section_has_key(yaml_cfg, (("opt",),), key)
+                } | cli_opt_keys,
+                downstream_explicit={
+                    key for key in sopt_defaults
+                    if yaml_section_has_key(yaml_cfg, sopt_paths, key)
+                },
+                skip=("dump", "out_dir", "prefix"),
+            )
 
             if bias_k is not None:
                 bias_cfg["k"] = float(bias_k)
@@ -654,8 +709,6 @@ def cli(
                 calc_cfg["embedcharge"] = bool(embedcharge)
             if _is_param_explicit("embedcharge_cutoff"):
                 calc_cfg["embedcharge_cutoff"] = embedcharge_cutoff
-            if _is_param_explicit("print_every") and print_every is not None:
-                opt_cfg["print_every"] = int(print_every)
             if link_atom_method is not None:
                 calc_cfg["link_atom_method"] = str(link_atom_method).lower()
             if mm_backend is not None:
@@ -712,12 +765,12 @@ def cli(
             echo_geom = format_freeze_atoms_for_echo(geom_cfg, key="freeze_atoms")
             echo_calc = format_freeze_atoms_for_echo(filter_calc_for_echo(calc_cfg), key="freeze_atoms")
             echo_opt = strip_inherited_keys({**opt_cfg, "out_dir": str(out_dir_path)}, OPT_BASE_KW, mode="same")
-            # Show only lbfgs-specific settings, not inherited from opt_cfg
-            echo_lbfgs = strip_inherited_keys(lbfgs_cfg, opt_cfg)
+            # Show only optimizer-specific settings, not inherited from opt_cfg
+            echo_sopt = strip_inherited_keys(sopt_cfg, opt_cfg)
             click.echo(pretty_block("geom", echo_geom))
             click.echo(pretty_block("calc", echo_calc))
             click.echo(pretty_block("opt", echo_opt))
-            click.echo(pretty_block("lbfgs", echo_lbfgs))
+            click.echo(pretty_block(sopt_kind, echo_sopt))
             click.echo(pretty_block("bias", bias_cfg))
             click.echo(pretty_block("bond", bond_cfg))
 
@@ -858,9 +911,19 @@ def cli(
                             "backend": calc_cfg.get("backend", "uma"),
                             "embedcharge": bool(calc_cfg.get("embedcharge", False)),
                         },
-                        force=True,
                     )
                 )
+                click.echo("[scan] --dry-run: input, charge/spin, and --scan-lists parse OK.")
+                click.echo(f"[scan] input geometry  : {geom_input_path}")
+                click.echo(f"[scan] resolved charge : {int(charge):+d}")
+                click.echo(f"[scan] resolved spin   : {int(spin)} (multiplicity)")
+                click.echo(f"[scan] out_dir         : {out_dir_path}")
+                click.echo(
+                    f"[scan] --scan-lists    : {tuple(cli_scan_values)} "
+                    f"→ {len(stages)} stage(s)"
+                )
+                click.echo(f"[scan] preopt={bool(preopt)}  endopt={bool(endopt)}")
+                click.echo("[scan] No scan / preopt was executed.")
                 emit_dry_run_complete()
                 return
 
@@ -950,10 +1013,20 @@ def cli(
 
             max_step_bohr = float(max_step_size) * ANG2BOHR
 
-            def _make_lbfgs(_out_dir: Path, _prefix: str) -> LBFGS:
+            def _make_optimizer(_out_dir: Path, _prefix: str):
                 common = strip_inherited_keys(
                     dict(opt_cfg), OPT_BASE_KW, mode="same"
                 )
+                if sopt_kind == "rfo":
+                    return make_scan_rfo(
+                        geom,
+                        rfo_cfg,
+                        common,
+                        max_step_bohr=max_step_bohr,
+                        out_dir=_out_dir,
+                        prefix=_prefix,
+                        calc_cfg=calc_cfg,
+                    )
                 common["out_dir"] = str(_out_dir)
                 common["prefix"] = _prefix
                 args = {**lbfgs_cfg, **common}
@@ -966,8 +1039,8 @@ def cli(
                 pre_dir = out_dir_path / "preopt"
                 pre_dir.mkdir(parents=True, exist_ok=True)
                 geom.set_calculator(base_calc)
-                click.echo("[preopt] Unbiased relaxation (LBFGS) ...")
-                optimizer0 = _make_lbfgs(pre_dir, "preopt")
+                click.echo(f"[preopt] Unbiased relaxation ({sopt_kind}) ...")
+                optimizer0 = _make_optimizer(pre_dir, "preopt")
                 try:
                     optimizer0.run()
                     preopt_converged = optimizer_converged_bit(optimizer0)
@@ -1088,7 +1161,7 @@ def cli(
                         emit(f"[stage {k}] endopt (unbiased) ...", narrative=True)
                         end_optimizer = None
                         try:
-                            end_optimizer = _make_lbfgs(stage_dir, "endopt")
+                            end_optimizer = _make_optimizer(stage_dir, "endopt")
                             end_optimizer.run()
                         except ZeroStepLength:
                             click.echo(f"[stage {k}] endopt ZeroStepLength — continuing.", err=True)
@@ -1145,8 +1218,8 @@ def cli(
                     geom.set_calculator(biased)
 
                     prefix = f"scan_s{s:04d}"
-                    optimizer = _make_lbfgs(stage_dir, prefix)
-                    emit(f"\n[stage {k}] step {s}/{Nsteps}: relaxation (LBFGS) ...", narrative=True)
+                    optimizer = _make_optimizer(stage_dir, prefix)
+                    emit(f"\n[stage {k}] step {s}/{Nsteps}: relaxation ({sopt_kind}) ...", narrative=True)
                     try:
                         optimizer.run()
                         srec["step_converged"].append(optimizer_converged_bit(optimizer))
@@ -1171,7 +1244,7 @@ def cli(
                     geom.set_calculator(base_calc)
                     emit(f"[stage {k}] endopt (unbiased) ...", narrative=True)
                     try:
-                        end_optimizer = _make_lbfgs(stage_dir, "endopt")
+                        end_optimizer = _make_optimizer(stage_dir, "endopt")
                         end_optimizer.run()
                     except ZeroStepLength:
                         click.echo(f"[stage {k}] endopt ZeroStepLength — continuing.", err=True)
@@ -1401,8 +1474,8 @@ def cli(
             )
             result_data: Dict[str, Any] = {
                 "status": "completed",
-                "scan_opt_mode": "grad",
-                "scan_optimizer": "lbfgs",
+                "scan_opt_mode": str(opt_mode).lower(),
+                "scan_optimizer": sopt_kind,
                 "energy_reference": "bare_mlmm_pes",
                 "charge": calc_cfg.get("model_charge"),
                 "spin": calc_cfg.get("model_mult"),

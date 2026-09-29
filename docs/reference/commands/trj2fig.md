@@ -24,8 +24,9 @@ Options:
                                   integer index.  [default: init]
   -q, --charge INTEGER            Total charge. Recompute energies when
                                   supplied.
-  -m, --multiplicity INTEGER      Spin multiplicity (2S+1). Recompute energies
-                                  when supplied.  [default: (1)]
+  -m, --multiplicity INTEGER RANGE
+                                  Spin multiplicity (2S+1). Recompute energies
+                                  when supplied.  [default: (1); x>=1]
   --reverse-x / --no-reverse-x    Reverse the x-axis (last frame on the left).
                                   [default: no-reverse-x]
   -b, --backend [uma|orb|mace|aimnet2]

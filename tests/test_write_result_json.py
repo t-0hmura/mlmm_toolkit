@@ -58,6 +58,14 @@ def test_disable_summary_mirror() -> None:
         assert not (Path(d) / "summary.json").exists()
 
 
+def test_missing_status_defaults_to_unknown() -> None:
+    with tempfile.TemporaryDirectory() as d:
+        path = write_result_json(Path(d), {"value": 1}, command="test")
+        assert path is not None
+        payload = json.loads(path.read_text())
+        assert payload["status"] == "unknown"
+
+
 def test_nonfinite_numbers_are_serialized_as_unknown() -> None:
     with tempfile.TemporaryDirectory() as d:
         path = write_result_json(
@@ -80,7 +88,6 @@ def test_status_enum_documented() -> None:
     assert RESULT_JSON_STATUS_VALUES == (
         "completed",
         "converged",
-        "energy_missing",
         "error",
         "failed",
         "not_converged",
@@ -89,5 +96,4 @@ def test_status_enum_documented() -> None:
         "stalled",
         "success",
         "unknown",
-        "unverified",
     )

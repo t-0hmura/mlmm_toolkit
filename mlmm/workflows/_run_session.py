@@ -24,11 +24,7 @@ from uuid import uuid4
 
 import click
 
-from mlmm.core.result_commit import (
-    MLMM_RUN_ID_ENV,
-    commit_json_exact,
-    symlink_ancestor,
-)
+from mlmm.core.result_commit import MLMM_RUN_ID_ENV, commit_json_exact
 from mlmm.core.defaults import SEGMENTS_DIRNAME
 
 
@@ -56,8 +52,6 @@ class ArtifactStamp:
     @classmethod
     def capture(cls, path: Path, *, digest: bool = False) -> "ArtifactStamp":
         candidate = _lexical_absolute(path)
-        if symlink_ancestor(candidate) is not None:
-            return cls(False)
         try:
             stat = candidate.lstat()
         except (FileNotFoundError, NotADirectoryError):
@@ -395,10 +389,6 @@ class InvocationResources:
         """Hold one non-blocking process lock until this resource scope closes."""
 
         lock_path = _lexical_absolute(path)
-        if symlink_ancestor(lock_path) is not None:
-            raise ArtifactClaimError(
-                f"Run lock has a symlinked ancestor: {lock_path}"
-            )
         lock_path.parent.mkdir(parents=True, exist_ok=True)
         flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
         try:
@@ -607,11 +597,6 @@ def public_output_key(root: Path, path: Path) -> str:
 
     public_root = _lexical_absolute(root)
     destination = _lexical_absolute(path)
-    linked = symlink_ancestor(destination)
-    if linked is not None:
-        raise ValueError(
-            f"public output {destination} has symlinked ancestor {linked}"
-        )
     try:
         relative = destination.relative_to(public_root)
     except ValueError as exc:
@@ -624,6 +609,15 @@ def public_output_key(root: Path, path: Path) -> str:
             "public outputs must be root files or descendants of "
             f"{SEGMENTS_DIRNAME!r}: {destination}"
         )
+    effective_root = public_root.resolve(strict=False)
+    effective_destination = destination.resolve(strict=False)
+    try:
+        effective_destination.relative_to(effective_root)
+    except ValueError as exc:
+        raise ValueError(
+            f"public output {destination} resolves outside pipeline root "
+            f"{public_root}"
+        ) from exc
     return f"output.public.{relative.as_posix()}"
 
 

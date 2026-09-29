@@ -53,9 +53,7 @@ Options:
   --one-based / --zero-based      Interpret --distance-restraint indices as
                                   1-based or 0-based.  [default: one-based]
   --restraint-k, --bias-k FLOAT   Harmonic restraint strength k [eV/Å^2] for
-                                  --distance-restraint. YAML bias.k applies when
-                                  this option is omitted; explicit CLI wins.
-                                  [default: (300.0)]
+                                  --distance-restraint.  [default: (300.0)]
   --max-cycles INTEGER RANGE      Maximum number of optimization cycles.
                                   [default: (100000); x>=1]
   --dump / --no-dump              Write optimization trajectories

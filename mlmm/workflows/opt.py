@@ -55,6 +55,7 @@ from mlmm.core.utils import (
     apply_yaml_overrides,
     pretty_block,
     strip_inherited_keys,
+    resolve_shared_optimizer_keys,
     filter_calc_for_echo,
     format_freeze_atoms_for_echo,
     emit_dry_run_complete,
@@ -1267,10 +1268,7 @@ def _run_microiter_opt(
     type=float,
     default=None,
     show_default="300.0",
-    help=(
-        "Harmonic restraint strength k [eV/Å^2] for --distance-restraint. "
-        "YAML bias.k applies when this option is omitted; explicit CLI wins."
-    ),
+    help="Harmonic restraint strength k [eV/Å^2] for --distance-restraint.",
 )
 @click.option("--max-cycles", type=click.IntRange(min=1), default=None, show_default="100000", help="Maximum number of optimization cycles.")
 @click.option(
@@ -1350,7 +1348,7 @@ def _run_microiter_opt(
 )
 @click.option(
     "-b", "--backend",
-    type=click.Choice(["uma", "orb", "mace", "aimnet2", "dft"], case_sensitive=False),
+    type=click.Choice(["uma", "orb", "mace", "aimnet2", "dft"]),
     default=None,
     show_default="uma",
     help="High-level backend for the ONIOM model region.",
@@ -1578,15 +1576,6 @@ def cli(
         prepared_input.cleanup()
         sys.exit(1)
 
-    # Resolve optimizer mode
-    mode_resolved = normalize_choice(
-        opt_mode,
-        param="--opt-mode",
-        alias_groups=OPT_MODE_ALIASES,
-        allowed_hint="grad|hess|lbfgs|rfo",
-    )
-    use_rfo = (mode_resolved == "rfo")
-
     try:
         config_layer_cfg = load_yaml_dict(config_yaml)
         override_layer_cfg = load_yaml_dict(override_yaml)
@@ -1687,6 +1676,43 @@ def cli(
                 (frequency_cfg, (("freq",),)),
             ],
         )
+        opt_mode_effective = opt_cfg.pop("opt_mode", opt_mode)
+        if _is_param_explicit("opt_mode"):
+            opt_mode_effective = opt_mode
+        mode_resolved = normalize_choice(
+            opt_mode_effective,
+            param="--opt-mode",
+            alias_groups=OPT_MODE_ALIASES,
+            allowed_hint="grad|hess|lbfgs|rfo",
+        )
+        use_rfo = (mode_resolved == "rfo")
+        cli_shared = {
+            "max_cycles": "max_cycles",
+            "dump": "dump",
+            "thresh": "thresh",
+            "print_every": "print_every",
+            "energy_plateau": "stop_plateau",
+            "energy_plateau_thresh": "stop_plateau_thresh",
+            "energy_plateau_window": "stop_plateau_window",
+        }
+
+        def _yaml_has(paths: Tuple[Tuple[str, ...], ...], key: str) -> bool:
+            return yaml_section_has_key(config_layer_cfg, paths, key) or yaml_section_has_key(
+                override_layer_cfg, paths, key
+            )
+
+        sopt_name = "rfo" if use_rfo else "lbfgs"
+        sopt_paths = ((sopt_name,), ("opt", sopt_name))
+        resolve_shared_optimizer_keys(
+            opt_cfg,
+            rfo_cfg if use_rfo else lbfgs_cfg,
+            RFO_KW if use_rfo else LBFGS_KW,
+            downstream_section=sopt_name,
+            opt_explicit={key for key in OPT_BASE_KW if _yaml_has((("opt",),), key)} | {
+                key for key, name in cli_shared.items() if _is_param_explicit(name)
+            },
+            downstream_explicit={key for key in OPT_BASE_KW if _yaml_has(sopt_paths, key)},
+        )
         frequency_zero_cutoff_cm = normalize_frequency_zero_cutoff_cm(
             frequency_cfg["zero_cutoff_cm"]
         )
@@ -1701,17 +1727,6 @@ def cli(
         except ValueError as exc:
             prepared_input.cleanup()
             raise click.ClickException(str(exc)) from exc
-
-        # DLC is only meaningful with Hessian-based microiteration (ML region in
-        # internal coordinates, MM as a Cartesian twin). Under plain L-BFGS
-        # (--opt-mode grad) it would build delocalized internals over the whole
-        # ML/MM system, which is needlessly slow with no benefit; fall back to cart.
-        if not use_rfo and str(geom_cfg.get("coord_type", "cart")).lower() == "dlc":
-            click.echo(
-                "[opt] --coord-type dlc needs Hessian-based optimization "
-                "(--opt-mode hess); L-BFGS runs in Cartesian — falling back to cart."
-            )
-            geom_cfg["coord_type"] = "cart"
 
         calc_paths = (("calc",), ("mlmm",))
         partial_explicit = (
@@ -2013,12 +2028,13 @@ def cli(
         common_kwargs = strip_inherited_keys(dict(opt_cfg), OPT_BASE_KW, mode="same")
         common_kwargs["out_dir"] = str(out_dir_path)
 
-        def _build_optimizer(run_kind: str):
+        def _build_optimizer(run_kind: str, max_cycles: Optional[int] = None):
+            budget = {} if max_cycles is None else {"max_cycles": max_cycles}
             if run_kind == "lbfgs":
-                lbfgs_args = {**lbfgs_cfg, **common_kwargs}
+                lbfgs_args = {**lbfgs_cfg, **common_kwargs, **budget}
                 return LBFGS(geometry, **lbfgs_args)
             if run_kind == "rfo":
-                rfo_args = {**rfo_cfg, **common_kwargs}
+                rfo_args = {**rfo_cfg, **common_kwargs, **budget}
                 rfo_args["flatten_enabled"] = bool(flatten)
                 return RFOptimizer(geometry, **rfo_args)
             raise click.BadParameter(f"Unknown optimizer kind '{run_kind}'.")
@@ -2147,10 +2163,8 @@ def cli(
 
         rigid_projection_info: Dict[str, Any] = {}
 
-        # track a real energy-plateau stall from whichever optimizer
-        # ran (standard, microiteration macro/latest-micro, or a flatten retry
-        # below). A stall stops further flatten/retry work and is reported as a
-        # distinct, non-converged outcome (never converged).
+        # Stall state of the last optimization (standard, microiteration, or a
+        # flatten retry below); a stall is never reported as converged.
         _opt_stalled = False
         _opt_stop_reason = ""
         if use_microiter:
@@ -2161,12 +2175,24 @@ def cli(
             _opt_stalled = bool(getattr(optimizer, "is_stalled", False))
             _opt_stop_reason = getattr(optimizer, "stop_reason", "") or ""
 
-        # Flatten loop (all imaginary modes).  A stalled optimization is
-        # precisely when this is wanted: it rebuilds the Hessian and displaces
-        # along the remaining imaginary modes to leave the plateau.  's
-        # no-retry rule belongs inside the loop (a flatten *retry* that stalls
-        # again stops there and sets ``_opt_stalled``), not in front of it.
-        if flatten:
+        # Command-level --max-cycles budget shared with the flatten retries.
+        opt_cycle_limit = opt_cfg.get("max_cycles")
+        if use_microiter:
+            opt_cycles_spent = int((microiter_result or {}).get("cycles") or 0)
+        else:
+            opt_cycles_spent = int(optimizer_cycle_count(optimizer) or 0)
+
+        def _opt_budget_left() -> bool:
+            return (
+                opt_cycle_limit is None
+                or int(opt_cycle_limit) - opt_cycles_spent > 0
+            )
+
+        # Flatten also runs after an energy-plateau stop, since flattening
+        # can still remove the remaining imaginary modes.
+        if flatten and not _opt_budget_left():
+            click.echo("[flatten] Reached --max-cycles budget; skipping flatten loop.")
+        elif flatten:
             from mlmm.workflows.freq import (
                 _torch_device,
                 _calc_full_hessian_torch,
@@ -2243,6 +2269,9 @@ def cli(
             for it in range(OPT_FLATTEN_MAX_ITER):
                 if n_imag == 0:
                     break
+                if not _opt_budget_left():
+                    click.echo("[flatten] Reached --max-cycles budget; stopping flatten loop.")
+                    break
                 click.echo(f"[flatten] iteration {it + 1}/{OPT_FLATTEN_MAX_ITER}")
                 did_flatten = _flatten_all_imag_modes_for_geom(
                     geometry,
@@ -2259,7 +2288,12 @@ def cli(
                     break
 
                 _attach_opt_calc()
-                opt_restart = _build_optimizer(flatten_kind)
+                retry_max_cycles = (
+                    None
+                    if opt_cycle_limit is None
+                    else int(opt_cycle_limit) - opt_cycles_spent
+                )
+                opt_restart = _build_optimizer(flatten_kind, max_cycles=retry_max_cycles)
                 restart_label = "LBFGS" if flatten_kind == "lbfgs" else "RFO"
                 emit(f"\n====== Optimization ({restart_label}, flatten retry) ======\n", narrative=True)
                 opt_restart.run()
@@ -2270,24 +2304,15 @@ def cli(
                     "opt",
                     converged=getattr(opt_restart, "is_converged", None),
                     cycles=optimizer_cycle_count(opt_restart),
-                    max_cycles=opt_cfg.get("max_cycles"),
+                    max_cycles=retry_max_cycles,
                     stalled=getattr(opt_restart, "is_stalled", False),
                     stop_reason=getattr(opt_restart, "stop_reason", None) or None,
                 )
-
-                # Stop retrying a stalled optimization : a flatten
-                # retry that stalled is not making progress, so re-running it
-                # would only repeat the stall.
+                opt_cycles_spent += int(optimizer_cycle_count(opt_restart) or 0)
                 _opt_stalled = bool(getattr(opt_restart, "is_stalled", False))
                 _opt_stop_reason = (
                     getattr(opt_restart, "stop_reason", "") if _opt_stalled else ""
                 )
-                if _opt_stalled:
-                    click.echo(
-                        "[flatten] Optimization stalled (energy plateau); "
-                        "stopping the flatten loop."
-                    )
-                    break
 
                 geometry.set_calculator(None)
                 freqs_cm, modes = _calc_freqs_and_modes()
@@ -2300,7 +2325,7 @@ def cli(
 
             if n_imag > 0:
                 click.echo(
-                    f"[flatten] WARNING: Remaining imaginary modes after {OPT_FLATTEN_MAX_ITER} iterations: {n_imag}",
+                    f"[flatten] WARNING: Remaining imaginary modes after the flatten loop: {n_imag}",
                     err=True,
                 )
             if torch.cuda.is_available():
@@ -2351,20 +2376,6 @@ def cli(
                 terminal_microiter_result,
                 terminal_optimizer,
             )
-            # n_opt_cycles is the EXECUTED macro cycle count, never the
-            # configured budget. On the microiteration path there is no standalone
-            # optimizer in scope, so the executed macro cycles come from the
-            # driver's outcome. Preserve the actual microiteration cycle count.
-            # The ordinary path reports ``cur_cycle + 1`` (executed cycles). A
-            # one-cycle converged optimization
-            # therefore reported n_opt_cycles=0 in JSON but "Total cycles: 1" in the
-            # log. Use ``optimizer_cycle_count`` so JSON == log == tsopt.
-            if terminal_use_microiter and terminal_microiter_result is not None:
-                _opt_cycles = int(terminal_microiter_result.get("cycles", 0))
-            elif terminal_optimizer is not None and hasattr(terminal_optimizer, "cur_cycle"):
-                _opt_cycles = optimizer_cycle_count(terminal_optimizer)
-            else:
-                _opt_cycles = None
             final_energy_hartree = unbiased_energy_hartree(geometry, base_calc)
             # an energy-plateau stall is a distinct, additive outcome
             # that is never reported as converged.  ``converged`` / ``not_converged``
@@ -2383,8 +2394,8 @@ def cli(
             result_data = {
                 "status": "stalled" if _opt_stalled else ("converged" if _opt_converged else "not_converged"),
                 "energy_hartree": final_energy_hartree,
-                "n_opt_cycles": _opt_cycles,
-                "opt_mode": opt_cfg.get("opt_mode", opt_mode),
+                "n_opt_cycles": opt_cycles_spent,
+                "opt_mode": str(opt_mode_effective),
                 **provenance,
                 "charge": calc_cfg.get("model_charge"),
                 "spin": calc_cfg.get("model_mult"),
@@ -2470,11 +2481,11 @@ def cli(
         )
 
     except ZeroStepLength as e:
-        _write_error_json(Path(out_dir).resolve(), "opt", e, "ZeroStepLength", time_start)
+        _write_error_json(error_out_dir, "opt", e, "ZeroStepLength", time_start)
         click.echo("ERROR: Step length fell below the minimum allowed (ZeroStepLength).", err=True)
         sys.exit(2)
     except OptimizationError as e:
-        _write_error_json(Path(out_dir).resolve(), "opt", e, "OptimizationError", time_start)
+        _write_error_json(error_out_dir, "opt", e, "OptimizationError", time_start)
         click.echo(f"ERROR: Optimization failed - {e}", err=True)
         sys.exit(3)
     except KeyboardInterrupt:

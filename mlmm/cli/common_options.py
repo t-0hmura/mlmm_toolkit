@@ -318,6 +318,24 @@ def _deterministic_callback(ctx, param, value):
     if value:
         from mlmm.backends._determinism import setup_deterministic
         setup_deterministic()
+        return value
+    # --no-deterministic cannot switch OFF what the environment turned on: the
+    # env var is read independently downstream. Say so, or the user reads the
+    # run as non-deterministic when it is not.
+    from mlmm.backends._determinism import is_deterministic_requested
+    if is_deterministic_requested():
+        source = ctx.get_parameter_source(param.name)
+        suffix = (
+            " despite --no-deterministic"
+            if source is click.core.ParameterSource.COMMANDLINE
+            else ""
+        )
+        click.echo(
+            "[determinism] NOTE: MLMM_STRICT_DETERMINISTIC=1 is set in "
+            f"the environment, so this run stays strictly deterministic{suffix}. "
+            "Unset the variable to disable it.",
+            err=True,
+        )
     return value
 
 

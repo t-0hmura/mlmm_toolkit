@@ -36,8 +36,10 @@ Options:
                                   'SAM:1,GPP:-3') used to derive ML region
                                   charge when -q is omitted (requires PDB input
                                   or --ref-pdb).
-  -m, --multiplicity INTEGER      Spin multiplicity (2S+1) for the ML region;
-                                  YAML applies when omitted.  [default: (1)]
+  -m, --multiplicity INTEGER RANGE
+                                  Spin multiplicity (2S+1) for the ML region;
+                                  YAML applies when omitted.  [default: (1);
+                                  x>=1]
   --func-basis TEXT               Exchange-correlation functional and basis set
                                   as "FUNC/BASIS".  [default: wb97m-v/def2-svp]
   --scf-max-cycles, --max-cycle INTEGER RANGE

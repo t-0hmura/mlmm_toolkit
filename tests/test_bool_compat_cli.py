@@ -6,7 +6,7 @@ import click
 from click.testing import CliRunner
 
 from mlmm.cli import cli as root_cli
-from mlmm.cli.bool_compat import normalize_bool_argv
+from mlmm.cli.bool_compat import normalize_argv_option_names, normalize_bool_argv
 
 
 def _is_unavailable_command(cmd: click.Command | None) -> bool:
@@ -14,6 +14,16 @@ def _is_unavailable_command(cmd: click.Command | None) -> bool:
         return True
     help_text = (cmd.help or "").strip()
     return help_text.startswith("[Unavailable]")
+
+
+def test_option_name_normalization_stops_at_end_of_options() -> None:
+    argv = ["bond-summary", "--JSON", "--", "--MixedCase.xyz"]
+    assert normalize_argv_option_names(argv) == [
+        "bond-summary",
+        "--json",
+        "--",
+        "--MixedCase.xyz",
+    ]
 
 
 def test_all_bool_options_accept_toggle_and_value_styles() -> None:

@@ -13,7 +13,7 @@ WORKFLOWS = (
     "scan", "scan2d", "scan3d", "sp", "tsopt",
 )
 EXPECTED_CALLS = {name: 1 for name in WORKFLOWS} | {
-    "scan": 2, "scan2d": 2, "scan3d": 2,
+    "scan": 2, "scan2d": 2, "scan3d": 3,
 }
 EXPECTED = "[Dry run] --dry-run completed. Input command is valid."
 
@@ -75,3 +75,29 @@ def test_every_dry_run_workflow_uses_the_canonical_terminal_footer() -> None:
             calls = _call_names(terminal.body)
             assert "format_elapsed" not in calls, name
             assert calls & {"emit_dry_run_complete", "_emit_final_summary"}, name
+
+
+def test_dry_run_plan_block_is_shown_only_at_verbose_three() -> None:
+    workflows = Path(__file__).resolve().parents[1] / "mlmm" / "workflows"
+    seen = set()
+    for name in WORKFLOWS:
+        tree = ast.parse((workflows / f"{name}.py").read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call) or not node.args:
+                continue
+            block = node.args[0]
+            if (
+                isinstance(block, ast.Call)
+                and isinstance(block.func, ast.Name)
+                and block.func.id == "pretty_block"
+                and block.args
+                and isinstance(block.args[0], ast.Constant)
+                and block.args[0].value == "dry_run_plan"
+            ):
+                seen.add(name)
+                keywords = {kw.arg for kw in (*node.keywords, *block.keywords)}
+                assert "force" not in keywords, name
+    assert seen == {
+        "dft", "freq", "irc", "opt", "path_opt", "path_search",
+        "scan", "scan2d", "scan3d", "tsopt",
+    }

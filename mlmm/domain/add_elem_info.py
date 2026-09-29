@@ -11,14 +11,13 @@ For detailed documentation, see: docs/add-elem-info.md
 
 from __future__ import annotations
 
-import argparse
 import collections
 import os
 import re
 import sys
 import time
 from pathlib import Path
-from typing import Optional, Set
+from typing import Optional
 
 import click
 
@@ -28,7 +27,7 @@ import click
 from mlmm.core.residue_data import AMINO_ACIDS, ION, WATER_RES
 
 # Element symbols (IUPAC, 1–118)
-ELEMENTS: Set[str] = {
+ELEMENTS: set[str] = {
     "H","He","Li","Be","B","C","N","O","F","Ne","Na","Mg","Al","Si","P","S","Cl","Ar",
     "K","Ca","Sc","Ti","V","Cr","Mn","Fe","Co","Ni","Cu","Zn","Ga","Ge","As","Se","Br","Kr",
     "Rb","Sr","Y","Zr","Nb","Mo","Tc","Ru","Rh","Pd","Ag","Cd","In","Sn","Sb","Te","I","Xe",
@@ -39,9 +38,9 @@ ELEMENTS: Set[str] = {
 }
 
 # Common residue classes
-PROTEIN_RES = set(AMINO_ACIDS.keys())
+# SEC, PYL, CSO, CSX and LLP are amino acids whether or not the charge table lists them.
+PROTEIN_RES = set(AMINO_ACIDS.keys()) | {"SEC", "PYL", "CSO", "CSX", "LLP"}
 NUCLEIC_RES = {
-    # DNA/RNA (minimum set)
     "DA","DT","DG","DC","DI",
     "A","U","G","C","I",
 }
@@ -78,20 +77,14 @@ def _normalize_symbol(s: str) -> Optional[str]:
     cand1 = letters[0].upper()
     if cand1 in ELEMENTS:
         return cand1
-    # Deuterium -> Hydrogen fallback
     if letters[0].upper() == "D":
         return "H"
     return None
 
 def _symbol_from_resname(resname: str) -> Optional[str]:
-    """
-    Extract an element symbol from an ion residue name (e.g., CA, FE2, Cl-, YB2, IOD).
-    """
+    """Extract an element symbol from an ion residue name (e.g., CA, FE2, Cl-, YB2)."""
     res = resname.strip()
-    sym = _normalize_symbol(res)
-    if sym is None and res.upper().startswith("IOD"):
-        sym = "I"
-    return sym
+    return _normalize_symbol(res)
 
 
 def _symbol_from_aligned_atom_name(atom_name: str) -> Optional[str]:
@@ -100,22 +93,29 @@ def _symbol_from_aligned_atom_name(atom_name: str) -> Optional[str]:
         return None
     raw = atom_name[:4]
     if raw[0].isspace():
+        # LEaP writes GAFF chlorine and bromine from column 14 (" CL1", " BR1").
+        if raw[1:3].upper() in {"CL", "BR"}:
+            return raw[1:3].capitalize()
         return _normalize_symbol(raw.lstrip()[:1])
     if raw[0].isdigit():
         return _normalize_symbol(raw.lstrip("0123456789")[:1])
+    # Four-character hydrogen names start in column 13 (HG11 is H, not Hg).
+    if raw[0] in "Hh" and not any(ch.isspace() for ch in raw):
+        return "H"
     return _normalize_symbol(raw[:2])
 
 
 # Element inference (use residue to disambiguate)
-def guess_element(atom_name: str, resname: str, is_het: bool) -> Optional[str]:
+def guess_element(atom_name: str, resname: str, _is_het: bool = False) -> Optional[str]:
     """
     Infer the element from atom name + residue name.
+    Pass the raw four-character PDB atom-name field (columns 13-16): its column
+    alignment tells `` NA `` (N) from ``NA  `` (Na).
     Priority:
       1) Ion residues: prefer the residue name (NH4 / H3O+ handled per-atom as H/N/O)
       2) Polymers (protein/nucleic acid) and water: follow convention (H/C/N/O/S/P/Se)
-         - e.g., CA = Carbon (Cα), HG = Hydrogen, etc.
-      3) Other ligands: use atom-name prefix; prioritize Carbon for C* (except CL) and P for P*
-      4) Fallback to 2-letter then 1-letter normalization; return None if still ambiguous
+      3) Other ligands: PDB column alignment; shorter names use H/C/P prefixes, then normalization
+      4) Unresolved → None
     """
     name_u = atom_name.strip().upper()
     res_u = resname.strip().upper()
@@ -123,6 +123,7 @@ def guess_element(atom_name: str, resname: str, is_het: bool) -> Optional[str]:
     is_nucl = res_u in NUCLEIC_RES
     is_water = res_u in WATER_RES
 
+    # Residue I is inosine, not iodide.
     if res_u in {k.upper() for k in ION.keys()} and not is_nucl:
         # Genuinely polyatomic ions (NH4, H3O+) contain more than one element,
         # so decide per atom name (treat D* as H). Monatomic metal/halogen ions
@@ -139,18 +140,9 @@ def guess_element(atom_name: str, resname: str, is_het: bool) -> Optional[str]:
         sym = _symbol_from_resname(res_u)
         if sym:
             return sym
-        # If residue is atypical, allow atom-name halogens (CL/BR/I/F)
-        if name_u.startswith("CL"):
-            return "Cl"
-        if name_u.startswith("BR"):
-            return "Br"
-        if name_u.startswith("I"):
-            return "I"
-        if name_u.startswith("F"):
-            return "F"
 
     if is_protein or is_nucl or is_water:
-        # Water: only O and H (treat D* as H)
+        # Water: O and H (D* is H; leading digits as in 1HW are skipped); virtual sites are EP
         if is_water:
             water_name = name_u.lstrip("0123456789")
             if water_name.startswith(("EP", "LP")) or water_name in {"M", "MW"}:
@@ -181,7 +173,7 @@ def guess_element(atom_name: str, resname: str, is_het: bool) -> Optional[str]:
         if name_u.startswith("C"):
             return "C"
 
-        # Rare halogens in polymers: final fallback to normalization
+        # Fallback to normalization (rare halogens or atypical labels)
         sym = _normalize_symbol(name_u)
         if sym:
             return sym
@@ -190,31 +182,49 @@ def guess_element(atom_name: str, resname: str, is_het: bool) -> Optional[str]:
     if aligned is not None:
         return aligned
 
-    # Unaligned programmatic inputs retain the historical prefix fallback.
+    # Names shorter than four characters carry no column alignment.
     if name_u.startswith(("H", "D")):
         return "H"
-    #    Carbon/Phosphorus-like labels (C*, P*) -> C/P (exclude CL)
     if name_u.startswith("C") and not name_u.startswith("CL"):
         return "C"
     if name_u.startswith("P"):
         return "P"
 
-    # Metals and halogens often appear as the atom name (FE, ZN, MG, HG, CL, BR, I, F ...)
+    # Metals and halogens often appear as the atom name (FE, ZN, MG, CL, BR, I, F, ...)
     sym = _normalize_symbol(name_u)
     if sym:
         return sym
 
     return None
 
-def _replace_element_field(line: str, symbol: str) -> str:
+
+def _replace_element_field(line: str, symbol: str, *, field_offset: int = 0) -> str:
     if line.endswith("\r\n"):
         content, ending = line[:-2], "\r\n"
     elif line.endswith(("\n", "\r")):
         content, ending = line[:-1], line[-1:]
     else:
         content, ending = line, ""
-    content = content.ljust(78)
-    return content[:76] + f"{symbol:>2}" + content[78:] + ending
+    start = 76 + int(field_offset)
+    content = content.ljust(start + 2)
+    return content[:start] + f"{symbol:>2}" + content[start + 2:] + ending
+
+
+def pdb_decimal_overflow_shifts(line: str) -> tuple[int, int]:
+    """Return atom-serial and residue-number decimal overflow widths."""
+
+    serial_shift = 0
+    while 11 + serial_shift < len(line) and line[11 + serial_shift].isdigit():
+        serial_shift += 1
+    residue_shift = 0
+    overflow_end = 26 + serial_shift
+    if overflow_end < len(line) and line[overflow_end].isdigit():
+        while overflow_end < len(line) and line[overflow_end].isdigit():
+            overflow_end += 1
+        overflow_value = line[22 + serial_shift : overflow_end].strip()
+        if re.fullmatch(r"[-+]?\d{5,}", overflow_value):
+            residue_shift = overflow_end - (26 + serial_shift)
+    return serial_shift, residue_shift
 
 
 def _default_out_pdb_path(in_pdb: str) -> str:
@@ -224,31 +234,26 @@ def _default_out_pdb_path(in_pdb: str) -> str:
     return str(path) + "_add_elem.pdb"
 
 
-def assign_elements(
-    in_pdb: str,
-    out_pdb: Optional[str],
-    overwrite: bool = False,
-    inplace: bool = False,
-) -> None:
-    out_path = (
-        out_pdb
-        if out_pdb
-        else (in_pdb if inplace else _default_out_pdb_path(in_pdb))
-    )
+def assign_elements(in_pdb: str, out_pdb: Optional[str], overwrite: bool = False) -> None:
+    # If an explicit output path is provided, never overwrite in-place even when --overwrite is
+    # passed. This keeps -o/--out as the higher-priority choice.
+    effective_overwrite = overwrite and out_pdb is None
+    if effective_overwrite:
+        out_path = in_pdb
+    else:
+        out_path = out_pdb if out_pdb else _default_out_pdb_path(in_pdb)
     input_path = Path(in_pdb).expanduser().resolve()
     output_path = Path(out_path).expanduser().resolve()
     aliases_input = input_path == output_path
     if not aliases_input and input_path.exists() and output_path.exists():
         aliases_input = os.path.samefile(input_path, output_path)
-    if aliases_input and not inplace:
+    if aliases_input and not overwrite:
         raise ValueError(
-            "Output physically aliases the input; use --inplace to replace it."
+            "Output physically aliases the input; use --overwrite to replace it."
         )
 
     total = 0
-    assigned_new = 0
-    overwritten = 0
-    kept_existing = 0
+    assigned_or_updated = 0
     unknown = []
     by_element = collections.Counter()
     with open(in_pdb, "r", encoding="utf-8", errors="surrogateescape", newline="") as handle:
@@ -265,25 +270,21 @@ def assign_elements(
             continue
 
         total += 1
-        previous = line[76:78].strip() if len(line.rstrip("\r\n")) >= 78 else ""
-        if previous and not overwrite:
-            kept_existing += 1
-            rewritten.append(line)
-            continue
-
-        atom_name = line[12:16]
-        resname = line[17:20]
+        serial_shift, residue_shift = pdb_decimal_overflow_shifts(line)
+        field_offset = serial_shift + residue_shift
+        atom_name = line[12 + serial_shift : 16 + serial_shift]
+        resname = line[17 + serial_shift : 20 + serial_shift]
         symbol = guess_element(atom_name, resname, line.startswith("HETATM"))
-        serial_text = line[6:11].strip()
+        serial_text = line[6 : 11 + serial_shift].strip()
         serial = int(serial_text) if serial_text.isdigit() else None
         if symbol is None:
             unknown.append(
                 (
                     model_id,
-                    line[21:22].strip(),
+                    line[21 + serial_shift : 22 + serial_shift].strip(),
                     resname.strip(),
-                    line[22:26].strip(),
-                    line[26:27].strip(),
+                    line[22 + serial_shift : 26 + field_offset].strip(),
+                    line[26 + field_offset : 27 + field_offset].strip(),
                     atom_name.strip(),
                     serial,
                 )
@@ -291,13 +292,11 @@ def assign_elements(
             rewritten.append(line)
             continue
 
+        previous = line[76 + field_offset : 78 + field_offset].strip()
         by_element[symbol] += 1
-        if previous:
-            if previous != symbol:
-                overwritten += 1
-        else:
-            assigned_new += 1
-        rewritten.append(_replace_element_field(line, symbol))
+        if previous != symbol:
+            assigned_or_updated += 1
+        rewritten.append(_replace_element_field(line, symbol, field_offset=field_offset))
 
     with open(out_path, "w", encoding="utf-8", errors="surrogateescape", newline="") as handle:
         handle.writelines(rewritten)
@@ -305,9 +304,7 @@ def assign_elements(
     # Summary
     click.echo(f"[add-elem-info] Wrote: {out_path}")
     click.echo(f"  total atoms                 : {total}")
-    click.echo(f"  newly assigned              : {assigned_new}")
-    click.echo(f"  kept existing (no overwrite): {kept_existing}")
-    click.echo(f"  overwritten (--overwrite)   : {overwritten}")
+    click.echo(f"  assigned/updated            : {assigned_or_updated}")
     if by_element:
         top = ", ".join(f"{k}:{v}" for k, v in by_element.most_common())
         click.echo(f"  assignment breakdown        : {top}")
@@ -324,42 +321,6 @@ def assign_elements(
             )
         if len(unknown) > 50:
             click.echo("    ... (truncated) ...")
-
-
-def main():
-    ap = argparse.ArgumentParser(
-        description="Add/repair element columns (77–78) in a PDB."
-    )
-    ap.add_argument("pdb", help="input PDB filepath")
-    ap.add_argument(
-        "-o",
-        "--out",
-        help="output PDB filepath (default: <input>_add_elem.pdb)",
-    )
-    ap.add_argument(
-        "--inplace",
-        action="store_true",
-        help="replace the input file when --out is omitted",
-    )
-    ap.add_argument(
-        "--overwrite",
-        action="store_true",
-        help=(
-            "Re-infer and overwrite element fields even if present "
-            "(by default, existing values are preserved)."
-        ),
-    )
-    args = ap.parse_args()
-
-    if not os.path.isfile(args.pdb):
-        click.echo(f"[add-elem-info] ERROR: Input not found: {args.pdb}", err=True)
-        sys.exit(1)
-
-    try:
-        assign_elements(args.pdb, args.out, overwrite=args.overwrite, inplace=args.inplace)
-    except Exception as e:
-        click.echo(f"[add-elem-info] ERROR: Failed: {e}", err=True)
-        sys.exit(2)
 
 
 # Click subcommand (mlmm add-elem-info)
@@ -379,35 +340,45 @@ def main():
     "out_pdb",
     type=click.Path(path_type=Path, dir_okay=False),
     default=None,
-    help="Output PDB filepath (default: <input>_add_elem.pdb; overrides --inplace)",
-)
-@click.option(
-    "--inplace/--no-inplace",
-    default=False,
-    show_default=True,
-    help="Replace the input file when -o/--out is omitted.",
+    help='Output PDB filepath (default: replace ".pdb" with "_add_elem.pdb"; when provided, --overwrite is ignored unless this is the input file, which requires it).',
 )
 @click.option(
     "--overwrite/--no-overwrite",
-    "overwrite",
     default=False,
     show_default=True,
-    help=(
-        "Re-infer and overwrite element fields even if present "
-        "(by default, existing values are preserved)."
-    ),
+    help="Overwrite the input file in-place when -o/--out is omitted.",
 )
-def cli(in_pdb: Path, out_pdb: Optional[Path], inplace: bool, overwrite: bool) -> None:
+@click.option(
+    "--inplace/--no-inplace",
+    "inplace",
+    default=None,
+    show_default="no-inplace",
+    hidden=True,
+    help="Alias of --overwrite.",
+)
+def cli(
+    in_pdb: Path,
+    out_pdb: Optional[Path],
+    overwrite: bool,
+    inplace: Optional[bool],
+) -> None:
     """
     Click wrapper to run via the `mlmm add-elem-info` subcommand.
     """
+    if inplace is not None:
+        source = click.get_current_context().get_parameter_source("overwrite")
+        if source is click.core.ParameterSource.COMMANDLINE and overwrite != inplace:
+            raise click.UsageError(
+                "Conflicting values were supplied through aliases: "
+                "--overwrite, --inplace."
+            )
+        overwrite = inplace
     time_start = time.perf_counter()
     try:
         assign_elements(
             str(in_pdb),
             (str(out_pdb) if out_pdb else None),
             overwrite=overwrite,
-            inplace=inplace,
         )
     except SystemExit as e:
         # Match argparse-like behavior: propagate SystemExit as-is
@@ -421,6 +392,3 @@ def cli(in_pdb: Path, out_pdb: Optional[Path], inplace: bool, overwrite: bool) -
         _format_elapsed(time_start),
         narrative=True,
     )
-
-if __name__ == "__main__":
-    main()

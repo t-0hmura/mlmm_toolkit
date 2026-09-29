@@ -171,3 +171,24 @@ def test_fresh_dmf_config_isolates_nested_requests_and_template() -> None:
     assert first["fbenm_options"] is not second["fbenm_options"]
     assert first["cfbenm_options"] is not second["cfbenm_options"]
     assert first["dmf_options"] is not second["dmf_options"]
+
+
+def test_fresh_dmf_config_rejects_unknown_top_level_keys() -> None:
+    """A retained but unconsumed top-level dmf key would keep the default."""
+    import click
+    import pytest
+
+    from mlmm.core.defaults import DMF_TOP_LEVEL_KEYS, fresh_dmf_config
+
+    assert fresh_dmf_config({"max_cycles": 5})["max_cycles"] == 5
+    assert fresh_dmf_config({"tol": "baker"})["tol"] == "baker"
+    assert fresh_dmf_config({"ipopt_options": {"tol": 1e-6}})["ipopt_options"] == {
+        "tol": 1e-6
+    }
+    nested = fresh_dmf_config({"dmf_options": {"beta": 3.0, "future_knob": 1}})
+    assert nested["dmf_options"]["beta"] == 3.0
+    assert nested["dmf_options"]["future_knob"] == 1
+
+    with pytest.raises(click.BadParameter, match="dmf.max_cycle"):
+        fresh_dmf_config({"max_cycle": 5})
+    assert "max_cycle" not in DMF_TOP_LEVEL_KEYS

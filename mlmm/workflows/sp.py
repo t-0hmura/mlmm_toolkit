@@ -229,7 +229,7 @@ def _resolve_sp_ml_region(
     help="Per-ligand charge mapping, e.g. 'SAM:1,GPP:-3'.",
 )
 @click.option(
-    "-m", "--multiplicity", "spin", type=int, default=None,
+    "-m", "--multiplicity", "spin", type=click.IntRange(min=1), default=None,
     show_default="1",
     help="ML region spin multiplicity (2S+1).",
 )
@@ -271,7 +271,7 @@ def _resolve_sp_ml_region(
 )
 @click.option(
     "-b", "--backend",
-    type=click.Choice(["uma", "orb", "mace", "aimnet2", "dft"], case_sensitive=False),
+    type=click.Choice(["uma", "orb", "mace", "aimnet2", "dft"]),
     default=None, show_default="uma", help="High-level backend for the ONIOM model region.",
 )
 @click.option(

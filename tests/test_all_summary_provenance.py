@@ -307,18 +307,18 @@ def test_primary_dft_provenance_is_not_overwritten_by_legacy_mlip_values(
     assert summary["mlip_precision"] is None
 
 
-def test_ts_only_summary_does_not_assign_reaction_direction(tmp_path) -> None:
+def test_ts_only_summary_reports_barrier_from_assigned_reactant(tmp_path) -> None:
     summary = {
         "out_dir": str(tmp_path),
         "segments": [{
             "index": 1,
             "kind": "tsopt",
-            "barrier_from_endpoint_1_kcal": 8.0,
-            "barrier_from_endpoint_2_kcal": 9.0,
+            "barrier_kcal": 8.0,
+            "delta_kcal": -1.0,
         }],
         "energy_diagrams": [{
             "name": "energy_diagram_MLIP_all",
-            "labels": ["E1", "TS", "E2"],
+            "labels": ["R", "TS", "P"],
             "energies_kcal": [0.0, 8.0, -1.0],
         }],
     }
@@ -333,6 +333,10 @@ def test_ts_only_summary_does_not_assign_reaction_direction(tmp_path) -> None:
         config={"tsopt": False},
     )
 
-    assert "rate_limiting_step" not in summary
-    assert "overall_reaction_energy_kcal" not in summary
-    assert "overall_reaction_energy_method" not in summary
+    assert summary["rate_limiting_step"] == {
+        "segment": 1,
+        "barrier_kcal": 8.0,
+        "method": "MLIP",
+    }
+    assert summary["overall_reaction_energy_kcal"] == -1.0
+    assert summary["overall_reaction_energy_method"] == "MLIP"

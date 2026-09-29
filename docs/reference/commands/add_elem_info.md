@@ -14,12 +14,11 @@ Options:
   --help-advanced               Show all options (including advanced settings)
                                 and exit.
   -i, --input FILE              Input PDB filepath  [required]
-  -o, --output, --out FILE      Output PDB filepath (default:
-                                <input>_add_elem.pdb; overrides --inplace)
-  --inplace / --no-inplace      Replace the input file when -o/--out is omitted.
-                                [default: no-inplace]
-  --overwrite / --no-overwrite  Re-infer and overwrite element fields even if
-                                present (by default, existing values are
-                                preserved).  [default: no-overwrite]
+  -o, --output, --out FILE      Output PDB filepath (default: replace ".pdb"
+                                with "_add_elem.pdb"; when provided, --overwrite
+                                is ignored unless this is the input file, which
+                                requires it).
+  --overwrite / --no-overwrite  Overwrite the input file in-place when -o/--out
+                                is omitted.  [default: no-overwrite]
   -h, --help                    Show this message and exit.
 ```

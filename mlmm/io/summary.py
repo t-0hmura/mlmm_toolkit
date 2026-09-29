@@ -219,40 +219,24 @@ def format_result_warning(
         endpoint_code = endpoint_match.group(1)
         if endpoint_code.endswith("_execution_failed"):
             label = endpoint_code.removesuffix("_execution_failed").replace("_", " ")
-            subject = (
-                f"{label} optimization"
-                if label.startswith("endpoint ")
-                else f"{label} endpoint optimization"
-            )
+            subject = f"{label} endpoint optimization"
             return scoped(
                 f"the {subject} raised an exception. Review failure.json and the optimizer log."
             )
         if endpoint_code.endswith("_not_converged"):
             label = endpoint_code.removesuffix("_not_converged").replace("_", " ")
-            subject = (
-                f"{label} optimization"
-                if label.startswith("endpoint ")
-                else f"{label} endpoint optimization"
-            )
+            subject = f"{label} endpoint optimization"
             return scoped(
                 f"the {subject} did not converge. Review the endpoint structure and optimizer log."
             )
         if endpoint_code.endswith("_convergence_unknown"):
             label = endpoint_code.removesuffix("_convergence_unknown").replace("_", " ")
-            subject = (
-                f"{label} optimization"
-                if label.startswith("endpoint ")
-                else f"{label} endpoint optimization"
-            )
+            subject = f"{label} endpoint optimization"
             return scoped(
                 f"the {subject} could not be confirmed. Review the endpoint structure and optimizer log."
             )
         label = endpoint_code.removesuffix("_converged").replace("_", " ")
-        subject = (
-            f"{label} optimization"
-            if label.startswith("endpoint ")
-            else f"{label} endpoint optimization"
-        )
+        subject = f"{label} endpoint optimization"
         return scoped(
             f"the {subject} did not converge or could not be confirmed. "
             "Review the endpoint structure and optimizer log."
@@ -735,7 +719,7 @@ def _format_thermo_symmetry(provenance: Any) -> List[str]:
     if not isinstance(provenance, dict):
         return []
     entries: List[str] = []
-    for label in ("R", "TS", "P", "E1", "E2"):
+    for label in ("R", "TS", "P"):
         state = provenance.get(label)
         if not isinstance(state, dict):
             continue
@@ -813,12 +797,6 @@ def _emit_energy_block(
     lines.append(f"    -- {title} --")
     lines.append("       State   Abs [Eh]          Rel [kcal/mol]")
     lines.extend(_format_energy_rows(labels, energies_au, energies_kcal))
-    for endpoint in (1, 2):
-        value = payload.get(f"barrier_from_endpoint_{endpoint}_kcal")
-        if value is not None:
-            lines.append(
-                f"       Barrier E{endpoint}->TS: {float(value):.4f} kcal/mol"
-            )
 
     diagram = payload.get("diagram") or payload.get("image")
     if diagram:
@@ -1292,33 +1270,15 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
             lines.append(f"  - Segment {idx:02d} [{kind}]  tag={tag}")
             barrier = seg.get("barrier_kcal")
             delta_e = seg.get("delta_kcal")
-            if kind == "tsopt" and (
-                seg.get("barrier_from_endpoint_1_kcal") is not None
-                or seg.get("barrier_from_endpoint_2_kcal") is not None
-            ):
-                for endpoint in (1, 2):
-                    value = seg.get(f"barrier_from_endpoint_{endpoint}_kcal")
-                    value_text = (
-                        f"{float(value):7.2f}" if value is not None else "   n/a"
-                    )
-                    lines.append(
-                        f"      {delta}E{dagger}(E{endpoint}->TS) = "
-                        f"{value_text} kcal/mol  [chemically unassigned endpoint]"
-                    )
-            else:
-                b_txt = f"{barrier:7.2f}" if barrier is not None else "   n/a"
-                d_txt = f"{delta_e:7.2f}" if delta_e is not None else "   n/a"
-                # A direct-TS segment has no MEP behind it, so the tag must name
-                # what the numbers actually came from.
-                source = (
-                    "refined TS − assigned endpoint"
-                    if kind == "tsopt"
-                    else "MEP"
-                )
-                lines.append(
-                    f"      {delta}E{dagger} = {b_txt} kcal/mol,  "
-                    f"{delta}E = {d_txt} kcal/mol  [{source}]"
-                )
+            b_txt = f"{barrier:7.2f}" if barrier is not None else "   n/a"
+            d_txt = f"{delta_e:7.2f}" if delta_e is not None else "   n/a"
+            # A direct-TS segment has no MEP behind it, so the tag must name
+            # what the numbers actually came from.
+            source = "refined TS − assigned endpoint" if kind == "tsopt" else "MEP"
+            lines.append(
+                f"      {delta}E{dagger} = {b_txt} kcal/mol,  "
+                f"{delta}E = {d_txt} kcal/mol  [{source}]"
+            )
             lines.append("      Bond changes:")
             lines.extend(_format_bond_changes(str(seg.get("bond_changes", ""))))
     else:
@@ -1340,10 +1300,6 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
             entry[f"{prefix}_barrier"] = seg.get("barrier_kcal")
         if seg.get("delta_kcal") is not None:
             entry[f"{prefix}_delta"] = seg.get("delta_kcal")
-        for endpoint in (1, 2):
-            value = seg.get(f"barrier_from_endpoint_{endpoint}_kcal")
-            if value is not None:
-                entry[f"{prefix}_barrier_e{endpoint}"] = value
     lines.append("")
     lines.append("[3] Per-segment post-processing (TSOPT / Thermo / DFT)")
     if post_segments:
@@ -1405,48 +1361,24 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
                     entry["mlip_barrier"] = mlip_payload.get("barrier_kcal")
                 if mlip_payload.get("delta_kcal") is not None:
                     entry["mlip_delta"] = mlip_payload.get("delta_kcal")
-                for endpoint in (1, 2):
-                    value = mlip_payload.get(
-                        f"barrier_from_endpoint_{endpoint}_kcal"
-                    )
-                    if value is not None:
-                        entry[f"mlip_barrier_e{endpoint}"] = value
             if seg.get("gibbs_mlip"):
                 g_payload = seg.get("gibbs_mlip") or {}
                 if g_payload.get("barrier_kcal") is not None:
                     entry["gibbs_mlip_barrier"] = g_payload.get("barrier_kcal")
                 if g_payload.get("delta_kcal") is not None:
                     entry["gibbs_mlip_delta"] = g_payload.get("delta_kcal")
-                for endpoint in (1, 2):
-                    value = g_payload.get(
-                        f"barrier_from_endpoint_{endpoint}_kcal"
-                    )
-                    if value is not None:
-                        entry[f"gibbs_mlip_barrier_e{endpoint}"] = value
             if not primary_is_dft and seg.get("dft"):
                 dft_payload = seg.get("dft") or {}
                 if dft_payload.get("barrier_kcal") is not None:
                     entry["dft_barrier"] = dft_payload.get("barrier_kcal")
                 if dft_payload.get("delta_kcal") is not None:
                     entry["dft_delta"] = dft_payload.get("delta_kcal")
-                for endpoint in (1, 2):
-                    value = dft_payload.get(
-                        f"barrier_from_endpoint_{endpoint}_kcal"
-                    )
-                    if value is not None:
-                        entry[f"dft_barrier_e{endpoint}"] = value
             if not primary_is_dft and seg.get("gibbs_dft_mlip"):
                 gd_payload = seg.get("gibbs_dft_mlip") or {}
                 if gd_payload.get("barrier_kcal") is not None:
                     entry["gibbs_dft_mlip_barrier"] = gd_payload.get("barrier_kcal")
                 if gd_payload.get("delta_kcal") is not None:
                     entry["gibbs_dft_mlip_delta"] = gd_payload.get("delta_kcal")
-                for endpoint in (1, 2):
-                    value = gd_payload.get(
-                        f"barrier_from_endpoint_{endpoint}_kcal"
-                    )
-                    if value is not None:
-                        entry[f"gibbs_dft_mlip_barrier_e{endpoint}"] = value
     else:
         lines.append("  (no post-processing results)")
 
@@ -1469,18 +1401,8 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
             ])
         if ts_only:
             table_rows = [
-                (f"{primary_label} {delta}E{dagger} E1->TS [kcal/mol]", "mlip_barrier_e1"),
-                (f"{primary_label} {delta}E{dagger} E2->TS [kcal/mol]", "mlip_barrier_e2"),
-                (f"{primary_label} {delta}G{dagger} E1->TS [kcal/mol]", "gibbs_mlip_barrier_e1"),
-                (f"{primary_label} {delta}G{dagger} E2->TS [kcal/mol]", "gibbs_mlip_barrier_e2"),
+                row for row in table_rows if not row[1].startswith("mep_")
             ]
-            if not primary_is_dft:
-                table_rows.extend([
-                    (f"model-region DFT {delta}E{dagger} E1->TS [kcal/mol]", "dft_barrier_e1"),
-                    (f"model-region DFT {delta}E{dagger} E2->TS [kcal/mol]", "dft_barrier_e2"),
-                    (f"DFT//MLIP/MM {delta}G{dagger} E1->TS [kcal/mol]", "gibbs_dft_mlip_barrier_e1"),
-                    (f"DFT//MLIP/MM {delta}G{dagger} E2->TS [kcal/mol]", "gibbs_dft_mlip_barrier_e2"),
-                ])
         sorted_entries = [segment_entries[k] for k in sorted(segment_entries.keys())]
         headers = [f"{int(e.get('index', 0)):d}({e.get('tag', '-')})" for e in sorted_entries]
         label_width = max(len(label) for label, _ in table_rows) + 2
@@ -1577,7 +1499,7 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
     # Annotations follow the systematized `all` layout: user-facing deliverables
     # live at the output root (and under segments/seg_NN/), while all pipeline
     # scratch is confined to _work/ (safe to rm -rf).
-    state_triplet = "E1-TS-E2" if ts_only else "R-TS-P"
+    state_triplet = "R-TS-P"
     default_notes = {
         # Root deliverables — directories
         SEGMENTS_DIRNAME: f"Per-segment deliverables ({state_triplet}, IRC, freq, DFT)",
@@ -1652,14 +1574,10 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
                 "freq/R": "Reactant freq/thermo",
                 "freq/TS": "TS freq/thermo",
                 "freq/P": "Product freq/thermo",
-                "freq/E1": "Endpoint 1 freq/thermo",
-                "freq/E2": "Endpoint 2 freq/thermo",
                 "dft": "Single-point DFT refinement",
                 "dft/R": "Reactant DFT single point",
                 "dft/TS": "TS DFT single point",
                 "dft/P": "Product DFT single point",
-                "dft/E1": "Endpoint 1 DFT single point",
-                "dft/E2": "Endpoint 2 DFT single point",
             }
             for seg_child in sorted(seg_parent.iterdir()):
                 if not (seg_child.is_dir() and _re.match(r"seg_\d+$", seg_child.name)):
@@ -1711,15 +1629,13 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
                                 "freq/R": "Reactant freq/thermo",
                                 "freq/TS": "TS freq/thermo",
                                 "freq/P": "Product freq/thermo",
-                                "freq/E1": "Endpoint 1 freq/thermo",
-                                "freq/E2": "Endpoint 2 freq/thermo",
                             }
                             for subdir_name, desc in _subdir_notes.items():
                                 sub = child / subdir_name
                                 if sub.exists():
                                     annotations.setdefault(f"{crel}/{subdir_name}", desc)
                         # init optimization dirs
-                        elif _re.match(r"init\d+_lbfgs_opt$", child.name):
+                        elif _re.match(r"init\d+_(lbfgs|rfo)_opt$", child.name):
                             idx = _re.search(r"init(\d+)", child.name).group(1)
                             annotations.setdefault(crel, f"Initial optimization of endpoint {idx}")
                         # GSM/NEB path dirs
@@ -1727,9 +1643,9 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
                             annotations.setdefault(crel, "Initial GSM/NEB path")
                         elif _re.match(r"seg_\d+_refine_mep$", child.name):
                             annotations.setdefault(crel, "Refined GSM/NEB path")
-                        elif _re.match(r"seg_\d+_left_lbfgs_opt$", child.name):
+                        elif _re.match(r"seg_\d+_left_(lbfgs|rfo)_opt$", child.name):
                             annotations.setdefault(crel, "Optimized left (R) endpoint")
-                        elif _re.match(r"seg_\d+_right_lbfgs_opt$", child.name):
+                        elif _re.match(r"seg_\d+_right_(lbfgs|rfo)_opt$", child.name):
                             annotations.setdefault(crel, "Optimized right (P) endpoint")
                         elif _re.search(r"_bridge_mep$", child.name):
                             annotations.setdefault(crel, "Bridge MEP (non-reactive conformational change)")

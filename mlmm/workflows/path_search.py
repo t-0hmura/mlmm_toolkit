@@ -5,7 +5,7 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import gc
 import inspect
@@ -28,7 +28,6 @@ import torch
 from pysisyphus.helpers import geom_loader
 from pysisyphus.cos.GrowingString import GrowingString
 from pysisyphus.optimizers.StringOptimizer import StringOptimizer
-from pysisyphus.optimizers.LBFGS import LBFGS
 from pysisyphus.optimizers.exceptions import OptimizationError, ZeroStepLength
 from pysisyphus.constants import AU2KCALPERMOL, BOHR2ANG
 
@@ -37,14 +36,21 @@ from mlmm.backends.mlmm_calc import mlmm, MLMMASECalculator
 from mlmm.core.defaults import (
     BOND_KW as _BOND_KW_DEFAULT,
     fresh_dmf_config,
+    OPT_BASE_KW,
     OUT_DIR_PATH_SEARCH,
+    RFO_KW,
     SEARCH_KW as _SEARCH_KW_DEFAULT,
     THRESH_CHOICES,
+)
+from mlmm.workflows._path_yaml_helpers import (
+    apply_single_opt_yaml_layer,
+    check_single_opt_yaml_conflicts,
 )
 from mlmm.workflows.path_opt import (
     GS_KW as _PATH_GS_KW,
     STOPT_KW as _PATH_STOPT_KW,
     DMF_KW as _PATH_DMF_KW,
+    _make_single_optimizer,
     _select_hei_index,
     _release_dmf_interpolation_cache,
     _torch_dmf_runtime_kwargs,
@@ -59,6 +65,7 @@ from mlmm.workflows.opt import (
     _normalize_geom_freeze as _normalize_geom_freeze_opt,
 )
 from mlmm.workflows.opt import _convert_yaml_layer_atoms_1to0
+from mlmm.workflows.scan_common import normalize_scan_opt_mode
 from mlmm.workflows._outcomes import combine_step_convergence, optimizer_converged_bit
 from mlmm.workflows.charge_prep import resolve_charge_spin_or_raise
 from mlmm.core.utils import (
@@ -69,8 +76,8 @@ from mlmm.core.utils import (
     set_convert_file_enabled,
     load_yaml_dict,
     apply_yaml_overrides,
+    deep_update,
     pretty_block,
-    strip_inherited_keys,
     filter_calc_for_echo,
     format_freeze_atoms_for_echo,
     emit_dry_run_complete,
@@ -801,13 +808,15 @@ def _run_mep_between(
 def _optimize_single(
     g,
     shared_calc,
-    lbfgs_cfg: Dict[str, Any],
+    opt_kind: str,
+    single_opt_cfg: Dict[str, Any],
     out_dir: Path,
     tag: str,
     ref_pdb_path: Optional[Path],  # for PDB conversion
+    calc_cfg: Optional[Mapping[str, Any]] = None,
 ):
     """
-    Run single-structure optimization (LBFGS) and return ``(geometry, converged)``.
+    Run single-structure optimization (LBFGS or RFO) and return ``(geometry, converged)``.
 
     ``converged`` is the optimizer's fail-closed tri-state convergence bit
     (:func:`optimizer_converged_bit`): a non-raising ``run()`` is NOT convergence
@@ -815,15 +824,15 @@ def _optimize_single(
     optimization converged (e.g. so a nonconverged kink-segment single-structure
     opt cannot silently become a usable reactive leaf).
     """
-    emit(f"\n====== [{tag}] Single-structure LBFGS ======\n", narrative=True)
+    emit(f"\n====== [{tag}] Single-structure {opt_kind.upper()} ======\n", narrative=True)
     g.set_calculator(shared_calc)
 
-    seg_dir = out_dir / f"{tag}_lbfgs_opt"
+    seg_dir = out_dir / f"{tag}_{opt_kind}_opt"
     seg_dir.mkdir(parents=True, exist_ok=True)
-    args = dict(lbfgs_cfg)
+    args = dict(single_opt_cfg)
     args["out_dir"] = str(seg_dir)
 
-    opt = LBFGS(g, **args)
+    opt = _make_single_optimizer(g, opt_kind, args, calc_cfg)
 
     opt.run()
     converged = optimizer_converged_bit(opt)
@@ -1286,6 +1295,7 @@ def _build_multistep_path(
     geom_cfg: Dict[str, Any],
     gs_cfg: Dict[str, Any],
     stopt_cfg: Dict[str, Any],
+    single_opt_kind: str,
     single_opt_cfg: Dict[str, Any],
     bond_cfg: Dict[str, Any],
     search_cfg: Dict[str, Any],
@@ -1438,8 +1448,14 @@ def _build_multistep_path(
         emit(f"[{tag0}] Refining HEI±1 (peak mode).", narrative=True)
 
     single_opt_executed = True
-    left_end, left_conv = _optimize_single(left_img, shared_calc, single_opt_cfg, out_dir, tag=f"{tag0}_left", ref_pdb_path=ref_pdb_path)
-    right_end, right_conv = _optimize_single(right_img, shared_calc, single_opt_cfg, out_dir, tag=f"{tag0}_right", ref_pdb_path=ref_pdb_path)
+    left_end, left_conv = _optimize_single(
+        left_img, shared_calc, single_opt_kind, single_opt_cfg, out_dir,
+        tag=f"{tag0}_left", ref_pdb_path=ref_pdb_path, calc_cfg=calc_cfg,
+    )
+    right_end, right_conv = _optimize_single(
+        right_img, shared_calc, single_opt_kind, single_opt_cfg, out_dir,
+        tag=f"{tag0}_right", ref_pdb_path=ref_pdb_path, calc_cfg=calc_cfg,
+    )
 
     try:
         lr_changed, _ = _has_bond_change(left_end, right_end, bond_cfg)
@@ -1458,7 +1474,10 @@ def _build_multistep_path(
         inter_convs: List[Optional[bool]] = []
         for i, g_int in enumerate(inter_geoms, 1):
             g_int.set_calculator(shared_calc)
-            g_opt, _inter_conv = _optimize_single(g_int, shared_calc, single_opt_cfg, out_dir, tag=f"{tag0}_kink_int{i}", ref_pdb_path=ref_pdb_path)
+            g_opt, _inter_conv = _optimize_single(
+                g_int, shared_calc, single_opt_kind, single_opt_cfg, out_dir,
+                tag=f"{tag0}_kink_int{i}", ref_pdb_path=ref_pdb_path, calc_cfg=calc_cfg,
+            )
             opt_inters.append(g_opt)
             inter_convs.append(_inter_conv)
         step_imgs = [left_end] + opt_inters + [right_end]
@@ -1537,7 +1556,7 @@ def _build_multistep_path(
     if left_changed:
         subL = _build_multistep_path(
             gA, left_end, shared_calc, geom_cfg, gs_cfg, stopt_cfg,
-            single_opt_cfg, bond_cfg, search_cfg, refine_mode_kind,
+            single_opt_kind, single_opt_cfg, bond_cfg, search_cfg, refine_mode_kind,
             out_dir, ref_pdb_path, depth + 1, seg_counter, branch_tag=f"{branch_tag}L",
             pair_index=pair_index,
             mep_mode_kind=mep_mode_kind, calc_cfg=calc_cfg, dmf_cfg=dmf_cfg,
@@ -1569,7 +1588,7 @@ def _build_multistep_path(
     if right_changed:
         subR = _build_multistep_path(
             right_end, gB, shared_calc, geom_cfg, gs_cfg, stopt_cfg,
-            single_opt_cfg, bond_cfg, search_cfg, refine_mode_kind,
+            single_opt_kind, single_opt_cfg, bond_cfg, search_cfg, refine_mode_kind,
             out_dir, ref_pdb_path, depth + 1, seg_counter, branch_tag=f"{branch_tag}R",
             pair_index=pair_index,
             mep_mode_kind=mep_mode_kind, calc_cfg=calc_cfg, dmf_cfg=dmf_cfg,
@@ -1588,6 +1607,7 @@ def _build_multistep_path(
             tail_g, head_g,
             shared_calc,
             geom_cfg, gs_cfg, stopt_cfg,
+            single_opt_kind,
             single_opt_cfg,
             bond_cfg, search_cfg, refine_mode_kind,
             out_dir=out_dir,
@@ -1690,7 +1710,7 @@ def _build_multistep_path(
     "-m",
     "--multiplicity",
     "spin",
-    type=int,
+    type=click.IntRange(min=1),
     default=None,
     show_default="1",
     help="Spin multiplicity (2S+1).",
@@ -1798,6 +1818,13 @@ def _build_multistep_path(
     help="Enable transition-state search after path growth.",
 )
 @click.option(
+    "--opt-mode",
+    type=click.Choice(["grad", "hess"], case_sensitive=False),
+    default="grad",
+    show_default=True,
+    help="Single-structure optimizer: grad (=LBFGS) or hess (=RFO).",
+)
+@click.option(
     "--dump/--no-dump",
     default=False,
     show_default=True,
@@ -1810,7 +1837,7 @@ def _build_multistep_path(
     default=None,
     show_default="gau",
     help=(
-        "Convergence preset for single L-BFGS runs only. "
+        "Convergence preset for single-structure optimizations only. "
         "The MEP itself keeps --thresh-gsm / --dmf-tol."
     ),
 )
@@ -1849,7 +1876,7 @@ def _build_multistep_path(
     "show_config",
     default=False,
     show_default=True,
-    help="Print the loaded YAML file and its top-level keys, then continue.",
+    help="Print the resolved configuration blocks and the loaded YAML file, then continue.",
 )
 @click.option(
     "--dry-run/--no-dry-run",
@@ -1903,7 +1930,7 @@ def _build_multistep_path(
 )
 @click.option(
     "-b", "--backend",
-    type=click.Choice(["uma", "orb", "mace", "aimnet2", "dft"], case_sensitive=False),
+    type=click.Choice(["uma", "orb", "mace", "aimnet2", "dft"]),
     default=None,
     show_default="uma",
     help="High-level backend for the ONIOM model region.",
@@ -1977,6 +2004,7 @@ def cli(
     max_cycles_gsm: Optional[int],
     max_cycles_dmf: Optional[int],
     climb: bool,
+    opt_mode: str,
     dump: bool,
     out_dir: str,
     thresh: Optional[str],
@@ -2091,9 +2119,20 @@ def cli(
         gs_cfg = dict(GS_KW)
         stopt_cfg = dict(STOPT_KW)
         lbfgs_cfg = dict(LBFGS_KW)
+        rfo_cfg = dict(RFO_KW)
         bond_cfg = dict(BOND_KW)
         search_cfg = dict(SEARCH_KW)
         dmf_cfg = fresh_dmf_config()
+
+        def _apply_single_opt_yaml_layer(layer_cfg: Dict[str, Any]) -> None:
+            apply_single_opt_yaml_layer(
+                layer_cfg,
+                lbfgs_cfg=lbfgs_cfg,
+                rfo_cfg=rfo_cfg,
+                stopt_cfg=stopt_cfg,
+                opt_base_kw=OPT_BASE_KW,
+                deep_update=deep_update,
+            )
 
         apply_yaml_overrides(
             config_layer_cfg,
@@ -2101,13 +2140,13 @@ def cli(
                 (geom_cfg, (("geom",),)),
                 (calc_cfg, (("calc",), ("mlmm",))),
                 (gs_cfg, (("gs",),)),
-                (stopt_cfg, (("stopt",), ("opt",))),
-                (lbfgs_cfg, (("stopt", "lbfgs"), ("lbfgs",))),
+                (stopt_cfg, (("stopt",),)),
                 (bond_cfg, (("bond",),)),
                 (search_cfg, (("search",),)),
                 (dmf_cfg, (("dmf",),)),
             ],
         )
+        _apply_single_opt_yaml_layer(config_layer_cfg)
 
         # CLI explicit overrides (after config YAML, before override YAML)
         if backend is not None:
@@ -2214,11 +2253,14 @@ def cli(
         if _is_param_explicit("dump"):
             stopt_cfg["dump"] = bool(dump)
             lbfgs_cfg["dump"] = bool(dump)
+            rfo_cfg["dump"] = bool(dump)
         if _is_param_explicit("out_dir"):
             stopt_cfg["out_dir"] = out_dir
             lbfgs_cfg["out_dir"] = out_dir
+            rfo_cfg["out_dir"] = out_dir
         if _is_param_explicit("thresh") and thresh is not None:
             lbfgs_cfg["thresh"] = str(thresh)
+            rfo_cfg["thresh"] = str(thresh)
         if _is_param_explicit("thresh_gsm") and thresh_gsm is not None:
             stopt_cfg["thresh"] = str(thresh_gsm)
         if _is_param_explicit("thresh_dmf") and thresh_dmf is not None:
@@ -2235,13 +2277,20 @@ def cli(
                 (geom_cfg, (("geom",),)),
                 (calc_cfg, (("calc",), ("mlmm",))),
                 (gs_cfg, (("gs",),)),
-                (stopt_cfg, (("stopt",), ("opt",))),
-                (lbfgs_cfg, (("stopt", "lbfgs"), ("lbfgs",))),
+                (stopt_cfg, (("stopt",),)),
                 (bond_cfg, (("bond",),)),
                 (search_cfg, (("search",),)),
                 (dmf_cfg, (("dmf",),)),
             ],
         )
+        _apply_single_opt_yaml_layer(override_layer_cfg)
+        single_opt_kind = normalize_scan_opt_mode(opt_mode)
+        single_opt_cfg = lbfgs_cfg if single_opt_kind == "lbfgs" else rfo_cfg
+        opt_mode_label = "grad" if single_opt_kind == "lbfgs" else "hess"
+        for layer_cfg in (config_layer_cfg, override_layer_cfg):
+            check_single_opt_yaml_conflicts(
+                layer_cfg, kind=single_opt_kind, opt_base_kw=OPT_BASE_KW
+            )
         # The final layer may replace strict method enums or the workers count.
         # Revalidate the fully resolved calculator mapping before dry-run can
         # report success (the constructor repeats this for normal execution).
@@ -2318,6 +2367,54 @@ def cli(
             click.echo("ERROR: --detect-layer requires a PDB input (or --ref-pdb).", err=True)
             sys.exit(1)
 
+        stopt_cfg["stop_in_when_full"] = optional_positive_int(
+            stopt_cfg.get("max_cycles"), "stopt.max_cycles"
+        )
+
+        def _echo_settings_blocks() -> None:
+            echo_geom = format_freeze_atoms_for_echo(geom_cfg, key="freeze_atoms")
+            echo_calc = format_freeze_atoms_for_echo(filter_calc_for_echo(calc_cfg), key="freeze_atoms")
+            echo_gs   = dict(gs_cfg)
+            echo_stopt = {**stopt_cfg, "out_dir": str(out_dir_path)}
+            echo_opt = dict(single_opt_cfg)
+            echo_opt["out_dir"] = str(out_dir_path)
+            echo_opt["out_dir_per_tag"] = f"{out_dir_path}/<tag>_{single_opt_kind}_opt"
+            echo_bond = dict(bond_cfg)
+            echo_search = dict(search_cfg)
+
+            # --show-config exists to print these blocks, so it bypasses the default
+            # verbosity gate; --dry-run shows them only at -v 3.
+            requested = bool(show_config)
+            click.echo(pretty_block("geom", echo_geom, force=requested))
+            click.echo(pretty_block("calc", echo_calc, force=requested))
+            click.echo(pretty_block("gs",   echo_gs, force=requested))
+            click.echo(pretty_block("stopt", echo_stopt, force=requested))
+            if mep_mode_kind == "dmf":
+                click.echo(pretty_block("dmf", dmf_cfg, force=requested))
+            click.echo(pretty_block("opt." + single_opt_kind, echo_opt, force=requested))
+            click.echo(pretty_block("bond", echo_bond, force=requested))
+            click.echo(pretty_block("search", echo_search, force=requested))
+            # Echo pre-optimization and alignment flags
+            click.echo(
+                pretty_block(
+                    "run_flags",
+                    {"preopt": bool(pre_opt), "align": bool(align), "mep_mode": mep_mode_kind},
+                    force=requested,
+                )
+            )
+
+            if show_config:
+                click.echo(
+                    pretty_block(
+                        "yaml_layers",
+                        {
+                            "config": None if config_yaml is None else str(config_yaml),
+                            "override": None if override_yaml is None else str(override_yaml),
+                            "merged_keys": sorted(merged_yaml_cfg.keys()),
+                        },
+                    force=True)
+                )
+
         if dry_run:
             if model_pdb_effective is not None:
                 model_region_source = "model_pdb"
@@ -2345,17 +2442,7 @@ def cli(
                 click.echo(f"ERROR: {exc.message}", err=True)
                 sys.exit(1)
 
-            if show_config:
-                click.echo(
-                    pretty_block(
-                        "yaml_layers",
-                        {
-                            "config": None if config_yaml is None else str(config_yaml),
-                            "override": None if override_yaml is None else str(override_yaml),
-                            "merged_keys": sorted(merged_yaml_cfg.keys()),
-                        },
-                    force=True)
-                )
+            _echo_settings_blocks()
 
             dry_payload: Dict[str, Any] = {
                 "input_count": len(p_list),
@@ -2365,11 +2452,11 @@ def cli(
                 "mep_mode": mep_mode_kind,
                 "gsm_param": str(gs_cfg.get("param", GS_KW["param"])),
                 "refine_mode": refine_mode_kind,
-                "opt_mode": "grad",
+                "opt_mode": opt_mode_label,
                 "detect_layer": bool(detect_layer_effective),
                 "model_region_source": model_region_source,
                 "model_indices_count": 0 if not model_indices else len(model_indices),
-                "pre_opt": bool(pre_opt),
+                "preopt": bool(pre_opt),
                 "align": bool(align),
                 "max_depth": int(search_cfg.get("max_depth", SEARCH_KW["max_depth"])),
                 "max_nodes_segment": int(search_cfg.get("max_nodes_segment", gs_cfg.get("max_nodes", 0))),
@@ -2437,51 +2524,9 @@ def cli(
             if isinstance(val, (str, Path)):
                 calc_cfg[key] = str(Path(val).expanduser().resolve())
 
-        stopt_cfg["stop_in_when_full"] = optional_positive_int(
-            stopt_cfg.get("max_cycles"), "stopt.max_cycles"
-        )
         out_dir_path = Path(stopt_cfg.get("out_dir", out_dir)).resolve()
         error_out_dir = out_dir_path
-        echo_geom = format_freeze_atoms_for_echo(geom_cfg, key="freeze_atoms")
-        echo_calc = format_freeze_atoms_for_echo(filter_calc_for_echo(calc_cfg), key="freeze_atoms")
-        echo_gs   = strip_inherited_keys(gs_cfg, GS_KW, mode="same")
-        echo_stopt = strip_inherited_keys({**stopt_cfg, "out_dir": str(out_dir_path)}, STOPT_KW, mode="same")
-        echo_lbfgs = strip_inherited_keys(lbfgs_cfg, LBFGS_KW, mode="same")
-        echo_bond = strip_inherited_keys(bond_cfg, BOND_KW, mode="same")
-        echo_search = strip_inherited_keys(search_cfg, SEARCH_KW, mode="same")
-
-        click.echo(pretty_block("geom", echo_geom))
-        click.echo(pretty_block("calc", echo_calc))
-        click.echo(pretty_block("gs",   echo_gs))
-        click.echo(pretty_block("stopt", echo_stopt))
-        click.echo(pretty_block("lbfgs", echo_lbfgs))
-        click.echo(pretty_block("bond", echo_bond))
-        click.echo(pretty_block("search", echo_search))
-        # Echo pre-optimization and alignment flags
-        click.echo(
-            pretty_block(
-                "run_flags",
-                {
-                    "pre_opt": bool(pre_opt),
-                    "align": bool(align),
-                    "mep_mode": mep_mode_kind,
-                    "refine_mode": refine_mode_kind,
-                    "opt_mode": "grad",
-                },
-            )
-        )
-
-        if show_config:
-            click.echo(
-                pretty_block(
-                    "yaml_layers",
-                    {
-                        "config": None if config_yaml is None else str(config_yaml),
-                        "override": None if override_yaml is None else str(override_yaml),
-                        "merged_keys": sorted(merged_yaml_cfg.keys()),
-                    },
-                force=True)
-            )
+        _echo_settings_blocks()
 
         effective_max_cycles = (
             dmf_cfg.get("max_cycles")
@@ -2527,10 +2572,12 @@ def cli(
                 g_opt, converged = _optimize_single(
                     g,
                     shared_calc,
-                    lbfgs_cfg,
+                    single_opt_kind,
+                    single_opt_cfg,
                     out_dir_path,
                     tag=tag,
                     ref_pdb_path=ref_pdb_for_segments,
+                    calc_cfg=calc_cfg,
                 )
                 preopt_outcomes.append(
                     {"endpoint": i + 1, "converged": converged}
@@ -2543,12 +2590,12 @@ def cli(
                     )
                 new_geoms.append(g_opt)
             geoms = new_geoms
-            path_optimizers.add("lbfgs")
+            path_optimizers.add(single_opt_kind)
         else:
             click.echo("[init] Skipping endpoint pre-optimization as requested by --no-preopt.")
 
         # Align adjacent inputs in sequence, guided by freeze constraints.
-        align_thresh = str(stopt_cfg.get("thresh", "gau"))
+        align_thresh = str(single_opt_cfg.get("thresh", "gau"))
         if align:
             try:
                 emit("\n====== Aligning adjacent inputs in sequence (freeze-guided scan + relaxation) ======\n", narrative=True)
@@ -2590,7 +2637,8 @@ def cli(
                 tail_g, head_g,
                 shared_calc,
                 geom_cfg, gs_cfg, stopt_cfg,
-                lbfgs_cfg,
+                single_opt_kind,
+                single_opt_cfg,
                 bond_cfg, search_cfg, refine_mode_kind,
                 out_dir=out_dir_path,
                 ref_pdb_path=ref_pdb_for_segments,
@@ -2603,7 +2651,7 @@ def cli(
             )
             required_outcomes_all.extend(sub.required_outcomes)
             if sub.single_opt_executed:
-                path_optimizers.add("lbfgs")
+                path_optimizers.add(single_opt_kind)
             return sub
 
         for i in range(len(geoms) - 1):
@@ -2614,7 +2662,8 @@ def cli(
                 gA, gB,
                 shared_calc,
                 geom_cfg, gs_cfg, stopt_cfg,
-                lbfgs_cfg,
+                single_opt_kind,
+                single_opt_cfg,
                 bond_cfg, search_cfg, refine_mode_kind,
                 out_dir=out_dir_path,
                 ref_pdb_path=ref_pdb_for_segments,
@@ -2627,7 +2676,7 @@ def cli(
 
             required_outcomes_all.extend(pair_path.required_outcomes)
             if pair_path.single_opt_executed:
-                path_optimizers.add("lbfgs")
+                path_optimizers.add(single_opt_kind)
 
             if i == 0:
                 combined_imgs = list(pair_path.images)
@@ -2982,7 +3031,7 @@ def cli(
             {
                 "pipeline_mode": "path-search",
                 "mep_mode": mep_mode_kind,
-                "path_opt_mode": "grad",
+                "path_opt_mode": opt_mode_label,
                 "dmf_correlated": bool(dmf_cfg.get("correlated", False)),
                 "preopt": bool(pre_opt),
                 "path_optimizers": summary["path_optimizers"],
@@ -3029,7 +3078,7 @@ def cli(
                 "tsopt": False,
                 "thermo": False,
                 "dft": False,
-                "opt_mode": "grad",
+                "opt_mode": opt_mode_label,
                 "mep_mode": mep_mode_kind,
                 "dmf_correlated": bool(dmf_cfg.get("correlated", False)),
                 **_summary_log_provenance(summary),
@@ -3051,13 +3100,6 @@ def cli(
 
         from mlmm.core.utils import is_child_mode
 
-        if not is_child_mode() and summary.get("status") != "success":
-            reasons = summary.get("status_reasons") or []
-            detail = f" ({'; '.join(map(str, reasons))})" if reasons else ""
-            emit(
-                f"[path-search] Status: {summary.get('status')}{detail}",
-                narrative=True,
-            )
         if summary_payload_for_citations and not is_child_mode():
             emit_method_citations(summary_payload_for_citations)
         emit(
@@ -3066,11 +3108,11 @@ def cli(
         )
 
     except ZeroStepLength as e:
-        _write_error_json(Path(out_dir).resolve(), "path-search", e, "ZeroStepLength", time_start)
+        _write_error_json(error_out_dir, "path-search", e, "path search", time_start)
         click.echo("ERROR: Proposed step length dropped below the minimum allowed (ZeroStepLength).", err=True)
         sys.exit(2)
     except OptimizationError as e:
-        _write_error_json(Path(out_dir).resolve(), "path-search", e, "OptimizationError", time_start)
+        _write_error_json(error_out_dir, "path-search", e, "path search", time_start)
         click.echo(f"ERROR: Path search failed — {e}", err=True)
         sys.exit(3)
     except KeyboardInterrupt:

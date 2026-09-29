@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import click
 from click.core import ParameterSource
 from click.testing import CliRunner
@@ -79,6 +81,48 @@ def test_canonical_names_keep_compatibility_aliases() -> None:
     assert _option("all", "dft_func_basis").opts == ["--func-basis", "--dft-func-basis"]
     assert _option("tsopt", "hess_cutoff").opts == ["--hessian-cutoff", "--radius-hessian", "--hess-cutoff"]
     assert _option("tsopt", "model_indices_one_based").hidden is True
+
+
+def test_auto_mm_toggles_use_no_form_and_keep_hidden_old_names(
+    tmp_path: Path, monkeypatch
+) -> None:
+    import mlmm.workflows.all as all_workflow
+
+    assert _option("all", "mm_add_ter").secondary_opts == ["--no-auto-mm-add-ter"]
+    assert _option("all", "mm_auto_disulfide").secondary_opts == ["--no-auto-mm-disulfide"]
+    for name, legacy in (
+        ("mm_no_add_ter", "--auto-mm-no-add-ter"),
+        ("mm_no_disulfide", "--auto-mm-no-disulfide"),
+    ):
+        assert _option("all", name).opts == [legacy]
+        assert _option("all", name).hidden is True
+
+    smoke = Path(__file__).resolve().parent / "smoke"
+    inputs = [smoke / "r_complex_layered.pdb", smoke / "p_complex_layered.pdb"]
+    if not all(path.is_file() for path in inputs):
+        pytest.skip("smoke inputs are not present")
+    captured = {}
+
+    class _StopAtMmParm(Exception):
+        pass
+
+    def fake_build_mm_parm7(**kwargs):
+        captured.update(kwargs)
+        raise _StopAtMmParm
+
+    monkeypatch.setattr(all_workflow, "_missing_ambertools_commands", lambda _paths: [])
+    monkeypatch.setattr(all_workflow, "_build_mm_parm7", fake_build_mm_parm7)
+    base = [
+        "all", "-i", str(inputs[0]), str(inputs[1]),
+        "-q", "-1", "-m", "1", "--detect-layer", "--out-dir", str(tmp_path / "out"),
+    ]
+    CliRunner().invoke(root_cli, [*base, "--auto-mm-no-add-ter", "--auto-mm-no-disulfide"])
+    assert captured["add_ter"] is False
+    assert captured["auto_disulfide"] is False
+
+    result = CliRunner().invoke(root_cli, [*base, "--auto-mm-add-ter", "--auto-mm-no-add-ter"])
+    assert result.exit_code == 2
+    assert "Conflicting values were supplied through aliases" in result.output
 
 
 def test_conflicting_alias_values_are_rejected_before_execution() -> None:

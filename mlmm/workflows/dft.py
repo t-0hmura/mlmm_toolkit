@@ -714,7 +714,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     "-m",
     "--multiplicity",
     "spin",
-    type=int,
+    type=click.IntRange(min=1),
     default=None,
     show_default="1",
     help="Spin multiplicity (2S+1) for the ML region; YAML applies when omitted.",

@@ -137,7 +137,7 @@ constrained 処理は、独立したCartesian振動解析と `--flatten` で使�
 
 ### `geom`
 
-- `coord_type`（デフォルト `"cart"`）: デカルト座標 vs `"dlc"` 非局在化内部座標。
+- `coord_type`（デフォルト `"cart"`）: デカルト座標 vs `"dlc"` 非局在化内部座標。ML/MM の系では `dlc` などの内部座標は構築に時間がかかることがあるため、`cart`（デフォルト）を推奨します。
 - `freeze_atoms`（`[]`）: 最適化中に凍結する 1 始まりインデックス。
 - `tr_projection`（`"constrained"`）: 固定の内部 `--flatten` PHVA 処理。
 

@@ -136,12 +136,12 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
     Path("docs/backends.md"): ("mlmm all", "forwards the same factory"),
     Path("docs/ja/backends.md"): ("mlmm all", "同じfactory"),
     Path("docs/add-elem-info.md"): (
-        "`--inplace/--no-inplace`",
+        "`--overwrite/--no-overwrite`",
         "`<input>_add_elem.pdb`",
         "Every input line is preserved byte-for-byte except columns 77–78",
     ),
     Path("docs/ja/add-elem-info.md"): (
-        "`--inplace/--no-inplace`",
+        "`--overwrite/--no-overwrite`",
         "`<input>_add_elem.pdb`",
         "列 77–78 を除き、各入力行はそのまま\n保持されます",
     ),

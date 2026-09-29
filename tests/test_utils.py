@@ -139,11 +139,16 @@ def test_distance_tag():
     assert distance_tag(1.234, digits=3, pad=4) == "1234"  # 1.234 × 1000
 
 
-def test_unique_tag_digits_uses_as_much_precision_as_the_grid_requires():
-    from mlmm.core.utils import unique_tag_digits
+def test_scan_artifact_stem_disambiguates_rounded_distance_collision():
+    from mlmm.core.utils import claim_unique_scan_stem
 
-    assert unique_tag_digits([1.00, 1.01, 1.02]) == 2
-    assert unique_tag_digits([1.0000001, 1.0000002]) == 7
+    used: set[str] = set()
+
+    first = claim_unique_scan_stem("point_i100_j200", (0, 0), used)
+    second = claim_unique_scan_stem("point_i100_j200", (1, 0), used)
+
+    assert first == "point_i100_j200"
+    assert second == "point_i100_j200_grid_001_000"
 
 
 def test_values_from_bounds():
@@ -215,7 +220,9 @@ def test_load_yaml_dict():
 
 
 def test_apply_yaml_overrides():
-    """Test YAML override application (first matching path is used)."""
+    """Test YAML override application (all spellings of a section are combined)."""
+    import click
+
     from mlmm.core.utils import apply_yaml_overrides
 
     base_cfg = {"a": 1, "b": 2, "c": 3}
@@ -235,20 +242,28 @@ def test_apply_yaml_overrides():
     assert base_cfg["c"] == 3   # Unchanged
     assert base_cfg["d"] == 4   # Added from section1
 
-    # Test multiple paths (first matching is used)
+    # Multiple paths: distinct keys are combined, a conflicting key is an error
     base_cfg2 = {"x": 1}
-    yaml_cfg2 = {"fallback": {"x": 99}, "primary": {"x": 42}}
+    yaml_cfg2 = {"fallback": {"y": 99, "x": 42}, "primary": {"x": 42}}
 
     apply_yaml_overrides(
         yaml_cfg2,
-        [(base_cfg2, (("primary",), ("fallback",)))]  # primary first
+        [(base_cfg2, (("primary",), ("fallback",)))]
     )
-    assert base_cfg2["x"] == 42  # primary is used
+    assert base_cfg2 == {"x": 42, "y": 99}
+
+    with pytest.raises(click.BadParameter, match="primary.x and fallback.x conflict"):
+        apply_yaml_overrides(
+            {"fallback": {"x": 99}, "primary": {"x": 42}},
+            [({}, (("primary",), ("fallback",)))],
+        )
 
 
 def test_apply_yaml_overrides_isolates_nested_optimizer_sections():
     """Nested leaf sections must not become parent constructor kwargs."""
     from copy import deepcopy
+
+    import click
 
     from mlmm.core.utils import apply_yaml_overrides
 
@@ -266,16 +281,20 @@ def test_apply_yaml_overrides_isolates_nested_optimizer_sections():
             "lbfgs": {"max_step": 0.20},
             "rfo": {"trust_radius": 0.08},
         },
-        "lbfgs": {"max_step": 0.25},
+        "lbfgs": {"max_step": 0.20, "memory": 7},
     }
     config_before = deepcopy(config)
 
     apply_yaml_overrides(config, override_spec)
 
     assert opt_cfg == {"max_cycles": 20}
-    assert lbfgs_cfg["max_step"] == 0.25  # first existing candidate wins
+    assert lbfgs_cfg == {"max_step": 0.20, "memory": 7}
     assert rfo_cfg["trust_radius"] == 0.08
     assert config == config_before
+
+    config["lbfgs"]["max_step"] = 0.25
+    with pytest.raises(click.BadParameter, match="lbfgs.max_step and opt.lbfgs.max_step conflict"):
+        apply_yaml_overrides(config, override_spec)
 
     override = {
         "opt": {
@@ -291,28 +310,27 @@ def test_apply_yaml_overrides_isolates_nested_optimizer_sections():
     assert rfo_cfg["trust_radius"] == 0.05
 
 
-def test_apply_yaml_overrides_isolates_stopt_lbfgs_alias():
+def test_yaml_section_distinguishes_absent_from_present_invalid() -> None:
+    """A configured section that is not a mapping must not run defaults."""
+    import click
+
     from mlmm.core.utils import apply_yaml_overrides
 
-    stopt_cfg = {"max_cycles": 300}
-    lbfgs_cfg = {"max_step": 0.30}
-    yaml_cfg = {
-        "stopt": {
-            "max_cycles": 40,
-            "lbfgs": {"max_step": 0.12},
-        }
-    }
+    target = {"a": 1}
+    apply_yaml_overrides({"geom": {"a": 2}}, [(target, (("geom",),))])
+    assert target == {"a": 2}
 
-    apply_yaml_overrides(
-        yaml_cfg,
-        [
-            (stopt_cfg, (("stopt",), ("opt",))),
-            (lbfgs_cfg, (("opt", "lbfgs"), ("lbfgs",), ("stopt", "lbfgs"))),
-        ],
-    )
+    for cfg in ({}, {"geom": None}):
+        target = {"a": 1}
+        apply_yaml_overrides(cfg, [(target, (("geom",),))])
+        assert target == {"a": 1}
 
-    assert stopt_cfg == {"max_cycles": 40}
-    assert lbfgs_cfg["max_step"] == 0.12
+    for cfg in ({"geom": 5}, {"geom": [1, 2]}, {"geom": "x"}):
+        with pytest.raises(click.BadParameter, match="geom"):
+            apply_yaml_overrides(cfg, [({}, (("geom",),))])
+
+    with pytest.raises(click.BadParameter, match="opt"):
+        apply_yaml_overrides({"opt": 5}, [({}, (("opt", "lbfgs"), ("lbfgs",)))])
 
 
 def test_ensure_dir():

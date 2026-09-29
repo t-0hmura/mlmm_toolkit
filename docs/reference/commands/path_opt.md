@@ -14,15 +14,16 @@ Options:
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
   -i, --input FILE...             Two endpoint structures in PDB/mmCIF, or XYZ
-                                  with a corresponding --ref-pdb for each
-                                  endpoint.  [required]
+                                  with --ref-pdb.  [required]
   -q, --charge INTEGER            ML region charge. Required unless --ligand-
                                   charge is provided.
   -l, --ligand-charge TEXT        Total charge for unknown ligand residues or a
                                   per-resname mapping (e.g., GPP:-3,SAM:1), used
                                   to derive the ML-region charge when -q is
                                   omitted (requires PDB input or --ref-pdb).
-  -m, --multiplicity INTEGER      Spin multiplicity (2S+1).  [default: (1)]
+  -m, --multiplicity INTEGER RANGE
+                                  Spin multiplicity (2S+1).  [default: (1);
+                                  x>=1]
   --mep-mode [gsm|dmf]            MEP optimizer: Growing String Method (gsm) or
                                   Direct Max Flux (dmf).  [default: gsm]
   --dmf-backend [cpu|gpu]         DMF compute backend (--mep-mode dmf only): gpu
@@ -46,11 +47,15 @@ Options:
                                   (3000); x>=1]
   --climb / --no-climb            Search for a transition state (climbing image)
                                   after path growth.  [default: climb]
+  --opt-mode [grad|hess]          Single-structure optimizer for endpoint
+                                  preoptimization: grad (=LBFGS) or hess (=RFO).
+                                  [default: grad]
   --preopt / --no-preopt          Pre-optimize the two endpoint structures with
-                                  L-BFGS before string growth.  [default:
+                                  the selected single-structure optimizer
+                                  (LBFGS/RFO) before string growth.  [default:
                                   preopt]
   --preopt-max-cycles INTEGER RANGE
-                                  Maximum L-BFGS cycles for endpoint pre-
+                                  Maximum optimizer cycles for endpoint pre-
                                   optimization.  [default: (100000); x>=1]
   --fix-ends / --no-fix-ends      Fix endpoint structures during path growth.
                                   [default: fix-ends]
@@ -60,7 +65,8 @@ Options:
                                   ./result_path_opt/]
   --thresh [gau_loose|gau|gau_tight|gau_vtight|baker|never]
                                   Convergence preset for endpoint
-                                  preoptimization only. The MEP itself keeps
+                                  preoptimization and the post-alignment
+                                  relaxation only. The MEP itself keeps
                                   --thresh-gsm / --dmf-tol.  [default: (gau)]
   --thresh-gsm [gau_loose|gau|gau_tight|gau_vtight|baker|never]
                                   Convergence preset for the GSM string
@@ -123,9 +129,8 @@ Options:
                                   (cmap)]
   --out-json / --no-out-json      Write machine-readable result.json to out_dir.
                                   [default: no-out-json]
-  --ref-pdb FILE                  Full-size template PDBs in the same order as
-                                  --input. Required when using XYZ inputs to
-                                  provide topology and B-factor information.
+  --ref-pdb FILE                  Full-size template PDB for XYZ inputs;
+                                  provides topology and B-factor information.
   --detect-layer / --no-detect-layer
                                   Automatically detect ML/MM layers from input
                                   PDB B-factors (ML=0, MovableMM=10,

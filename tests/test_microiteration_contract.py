@@ -8,7 +8,7 @@ tsopt both consume:
 * a fail-closed macro/micro aggregate where a micro plateau/stall/max-cycle
   (or a missing convergence signal) never reads as macro convergence;
 * one field-isomorphic optimizer outcome across ordinary/micro/restart/
-  multistart/flatten, with executed (never configured) cycle counts.
+  flatten, with executed (never configured) cycle counts.
 """
 
 from __future__ import annotations

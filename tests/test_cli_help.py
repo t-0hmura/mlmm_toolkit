@@ -67,7 +67,6 @@ UTILITY_SUBCOMMANDS = [
 ]
 
 SHARED_PRIMARY_SCIENTIFIC_OPTIONS = [
-    ("add-elem-info", "--inplace"),
     ("fix-altloc", "--inplace"),
     ("all", "--refine-path"),
     ("all", "--scan-max-step-size"),
@@ -81,32 +80,21 @@ SHARED_PRIMARY_SCIENTIFIC_OPTIONS = [
     ("all", "--parm7"),
     ("all", "--model-pdb"),
     ("all", "--detect-layer"),
-    ("all", "--ref-pdb"),
     ("opt", "--thresh"),
     ("opt", "--restraint-k"),
     ("opt", "--distance-restraint"),
     ("opt", "--dump"),
-    ("opt", "--ref-pdb"),
     ("scan", "--restraint-k"),
     ("scan", "--max-step-size"),
     ("scan", "--thresh"),
     ("scan2d", "--restraint-k"),
     ("scan2d", "--max-step-size"),
     ("scan2d", "--thresh"),
-    ("scan2d", "--ref-pdb"),
     ("scan3d", "--restraint-k"),
     ("scan3d", "--max-step-size"),
     ("scan3d", "--thresh"),
-    ("scan3d", "--ref-pdb"),
-    ("sp", "--ref-pdb"),
     ("tsopt", "--thresh"),
     ("tsopt", "--dump"),
-    ("tsopt", "--ref-pdb"),
-    ("freq", "--ref-pdb"),
-    ("irc", "--ref-pdb"),
-    ("dft", "--ref-pdb"),
-    ("path-opt", "--ref-pdb"),
-    ("path-search", "--ref-pdb"),
     ("define-layer", "--movable-cutoff"),
     ("dft", "--dft-engine"),
     ("trj2fig", "--reverse-x"),
@@ -122,7 +110,6 @@ SHARED_ADVANCED_SCIENTIFIC_OPTIONS = [
     ("all", "--dmf-max-iterations"),
     ("all", "--tsopt-max-cycles"),
     ("all", "--hessian-calc-mode"),
-    ("scan", "--max-cycles"),
     ("scan", "--relax-max-cycles"),
     ("scan2d", "--relax-max-cycles"),
     ("scan3d", "--relax-max-cycles"),
@@ -130,6 +117,18 @@ SHARED_ADVANCED_SCIENTIFIC_OPTIONS = [
     ("path-search", "--gsm-param"),
     ("path-search", "--max-depth"),
     ("all", "--max-depth"),
+    ("all", "--ref-pdb"),
+    ("opt", "--ref-pdb"),
+    ("scan", "--ref-pdb"),
+    ("scan2d", "--ref-pdb"),
+    ("scan3d", "--ref-pdb"),
+    ("sp", "--ref-pdb"),
+    ("tsopt", "--ref-pdb"),
+    ("freq", "--ref-pdb"),
+    ("irc", "--ref-pdb"),
+    ("dft", "--ref-pdb"),
+    ("path-opt", "--ref-pdb"),
+    ("path-search", "--ref-pdb"),
 ]
 
 
@@ -147,7 +146,8 @@ def cli_group():
 def _has_option_header(output: str, option_prefix: str) -> bool:
     for line in output.splitlines():
         stripped = line.lstrip()
-        if not stripped.startswith(option_prefix):
+        # Option rows are indented by two spaces; deeper lines are wrapped help text.
+        if len(line) - len(stripped) > 2 or not stripped.startswith(option_prefix):
             continue
         tail = stripped[len(option_prefix):]
         if (not tail) or tail[0].isspace() or tail[0] in {",", "/"}:
@@ -210,10 +210,10 @@ def test_all_help_advanced_shows_hidden_options(runner, cli_group):
     assert "--sopt-mode" not in result.output
 
 
-def test_path_search_help_advanced_omits_fixed_optimizer_selector(runner, cli_group):
+def test_path_search_help_advanced_shows_single_optimizer_selector(runner, cli_group):
     result = runner.invoke(cli_group, ["path-search", "--help-advanced"])
     assert result.exit_code == 0
-    assert "--opt-mode" not in result.output
+    assert "--opt-mode" in result.output
     assert "--sopt-mode" not in result.output
 
 

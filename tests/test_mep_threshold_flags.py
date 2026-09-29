@@ -155,16 +155,17 @@ def test_all_show_config_reports_each_threshold_owner(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    ("mode_args", "expected_post"),
+    ("mode_args", "expected_path", "expected_post"),
     [
-        ([], "hess"),
-        (["--opt-mode", "grad"], "grad"),
-        (["--opt-mode", "hess", "--opt-mode-post", "grad"], "grad"),
+        ([], "grad", "hess"),
+        (["--opt-mode", "grad"], "grad", "grad"),
+        (["--opt-mode", "hess", "--opt-mode-post", "grad"], "hess", "grad"),
     ],
 )
 def test_all_show_config_reports_effective_optimizer_modes(
     tmp_path: Path,
     mode_args: list[str],
+    expected_path: str,
     expected_post: str,
 ) -> None:
     smoke = Path(__file__).resolve().parent / "smoke"
@@ -180,7 +181,7 @@ def test_all_show_config_reports_effective_optimizer_modes(
     )
 
     assert result.exit_code == 0, result.output
-    assert "path_opt_mode: grad" in result.output
+    assert f"path_opt_mode: {expected_path}" in result.output
     assert f"post_opt_mode: {expected_post}" in result.output
     assert f"ts_opt_mode: {expected_post}" in result.output
     assert f"endpoint_opt_mode: {expected_post}" in result.output

@@ -141,7 +141,9 @@ def test_real_terminal_workflow_phva_scope_and_raw_order(tmp_path, monkeypatch, 
         if final_energy == "raises":
             raise RuntimeError("injected final energy failure")
         if final_energy == "nonfinite":
-            return float("nan")
+            # Route a NaN through the real energy helper so its finiteness check runs.
+            nan_calc = SimpleNamespace(get_energy=lambda *_a: {"energy": float("nan")})
+            return actual_energy(*args, calc=nan_calc)
         return actual_energy(*args, **kwargs)
 
     monkeypatch.setattr(tsopt, "_calc_energy", terminal_energy)
@@ -153,19 +155,29 @@ def test_real_terminal_workflow_phva_scope_and_raw_order(tmp_path, monkeypatch, 
         "--no-convert-files", "--no-dump", "--out-json",
         "--freeze-atoms", ",".join(str(atom + 1) for atom in final_frozen),
     ])
+    if final_energy != "finite":
+        # A failed final energy is an error for the whole command, not a converged TS.
+        assert result.exit_code == 1, result.output
+        report = json.loads((output / "result.json").read_text())
+        assert report["status"] == "error"
+        assert report["error_type"] == ("RuntimeError" if final_energy == "raises" else "ValueError")
+        assert "energy_hartree" not in report
+        assert len(energy_calls) == 1
+        return
     assert result.exit_code == 0, result.output
     report = json.loads((output / "result.json").read_text())
     expected_count = 2 if widen and not soft_added_root else 1
     expected_strict = 2 if widen else 1  # independently fixed by diagonal[9,12]
     assert report["hessian_status"] == "completed", (report, result.output)
+    assert (report["opt_mode"], report["opt_mode_requested"]) == ("rsprfo", "hess")
     assert report["hessian_error"] is None
     assert report["n_imaginary_modes"] == expected_count
     assert report["n_negative_modes"] == expected_strict
     assert report["saddle_validation"] == ("higher_order" if expected_count > 1 else "first_order")
     assert report["saddle_order_verified"] is (expected_count == 1)
     assert report["optimization_status"] == "converged"
-    assert report["status"] == ("converged" if final_energy == "finite" else "energy_missing")
-    assert report["energy_hartree"] == (0.0 if final_energy == "finite" else None)
+    assert report["status"] == "converged"
+    assert report["energy_hartree"] == 0.0
     assert len(energy_calls) == 1
     assert report["reaction_mode_index"] == 0
     assert report["reaction_mode_overlap"] == (None if widen else 0.91)

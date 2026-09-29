@@ -1535,3 +1535,10 @@ def test_irc_ordinary_energy_rise_outranks_physical_convergence() -> None:
     # never_stop still bypasses the physical energy stop only.
     irc.never_stop = True
     assert irc._energy_stop_message() == ""
+
+
+def test_irc_resolves_the_requested_hessian_init() -> None:
+    """hessian_init is resolved through get_guess_hessian instead of ignored."""
+    source = inspect.getsource(IRC.run)
+    assert "get_guess_hessian(" in source, source
+    assert "self.init_hessian = self.geometry.hessian" not in source

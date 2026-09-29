@@ -27,7 +27,6 @@ Ownership and reuse semantics
 This is an implementation detail of mlmm_toolkit v0.4.0.
 """
 
-import hashlib
 import os
 from collections.abc import Mapping
 from typing import Any, Dict, Optional, Sequence
@@ -153,19 +152,6 @@ def _norm_int(value: Any) -> Optional[int]:
         return None
 
 
-def _file_digest(path: Any) -> Optional[str]:
-    """Return the SHA-256 of a file's content, or *None* when unreadable."""
-
-    try:
-        hasher = hashlib.sha256()
-        with open(os.fspath(path), "rb") as handle:
-            for block in iter(lambda: handle.read(1 << 20), b""):
-                hasher.update(block)
-        return hasher.hexdigest()
-    except (OSError, TypeError):
-        return None
-
-
 def _effective_model_precision(calc_cfg: Mapping) -> tuple:
     """Resolve the effective ML model + precision from the backend-specific keys.
 
@@ -204,10 +190,9 @@ def _potential_identity(calc_cfg: Mapping) -> Dict[str, Any]:
 
     Captures the QM/MM composition fields whose change makes a stored Hessian an
     invalid substitute: MM backend, link method, embedding, CMAP, the QM-region
-    charge/spin, the region/layer definition, and the *content* of the topology
-    / region files (so replacing a parm7's bytes at the same path rejects
-    reuse. The topology-content identity is hashed here without importing
-    hessian_ff).
+    charge/spin, the region/layer definition, and the paths of the topology /
+    region / calculator files.  Files are matched by path, not content: reuse is
+    limited to one run, in which these inputs do not change.
     """
 
     potential: Dict[str, Any] = {}
@@ -242,18 +227,8 @@ def _potential_identity(calc_cfg: Mapping) -> Dict[str, Any]:
                 pass
         potential[key] = _canon(val)
     backend = str(calc_cfg.get("backend") or "").strip().lower()
-    if backend == "dft":
-        from mlmm.core.dft_settings import resolve_dft_settings
-
-        potential["dft_settings"] = resolve_dft_settings(
-            calc_cfg
-        ).scientific_identity()
     if backend == "uma" and calc_cfg.get("uma_task_name") is not None:
         potential["uma_task_name"] = str(calc_cfg["uma_task_name"])
-    model, _precision = _effective_model_precision(calc_cfg)
-    model_digest = _file_digest(model)
-    if model_digest is not None:
-        potential["model_sha256"] = model_digest
     effective_mm_mode = normalize_mm_hessian_mode(
         calc_cfg.get("mm_hessian_mode"),
         mm_fd=bool(calc_cfg.get("mm_fd", True)),
@@ -261,23 +236,10 @@ def _potential_identity(calc_cfg: Mapping) -> Dict[str, Any]:
     potential["mm_hessian_mode"] = effective_mm_mode
     if effective_mm_mode == "finite_difference":
         potential["mm_fd_delta"] = float(calc_cfg.get("mm_fd_delta", 1.0e-3))
-    # Topology / region source files — identity is the content digest so a
-    # same-path byte replacement rejects reuse (topology content identity).
-    for key in ("real_parm7", "model_pdb", "input_pdb"):
+    for key in ("real_parm7", "model_pdb", "input_pdb", "calc_file"):
         path = calc_cfg.get(key)
         if path:
-            digest = _file_digest(path)
-            if digest is None:
-                # Preserve a fail-closed identity when the file cannot be read.
-                potential[key] = str(path)
-            else:
-                potential[f"{key}_sha256"] = digest
-    calc_file = calc_cfg.get("calc_file")
-    if calc_file:
-        potential["calc_file"] = str(calc_file)
-        digest = _file_digest(calc_file)
-        if digest is not None:
-            potential["calc_file_sha256"] = digest
+            potential[key] = str(path)
     # Explicit ML/MM Hessian region atom list when threaded through the config.
     hess_mm = calc_cfg.get("hess_mm_atoms")
     if hess_mm is not None:

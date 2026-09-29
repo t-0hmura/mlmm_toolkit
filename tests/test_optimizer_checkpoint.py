@@ -395,44 +395,56 @@ def test_missing_subclass_key_rejected_before_any_base_mutation(tmp_path) -> Non
         checkpoint.validate_payload(lbad, opt_lb)
 
 
-def test_backward_tolerant_load_of_pre_adaptive_checkpoint(tmp_path) -> None:
-    """A checkpoint written before the adaptive keys existed (no trust_radius /
-    no _trial_max_step / no rejection counters) still loads: the newly added
-    keys are restored tolerantly, keeping the optimizer at its __init__ state.
-    """
-    # RFO: drop the newly added trust_radius key from an otherwise valid payload.
-    _, opt_a = _rfo(tmp_path / "a", [0.5, 0.0, 0.0], max_cycles=2)
+_RFO_RECORDED_KEYS = (
+    "cart_coords",
+    "H_backend",
+    "trust_radius",
+    "rejections_at_floor",
+    "rejected_uphill_steps",
+    "uphill_rejection_stalled",
+    "_sy_buffer_S",
+    "_sy_buffer_Y",
+    "_sy_buffer_S_backend",
+    "_sy_buffer_Y_backend",
+    "_prev_eigvec_min",
+    "_prev_eigvec_min_backend",
+)
+_LBFGS_RECORDED_KEYS = (
+    "cart_coords",
+    "_trial_max_step",
+    "rejected_uphill_steps",
+    "rejections_at_floor",
+    "mu_reg",
+    "tot_adapt_mu_cycles",
+)
+
+
+@pytest.mark.parametrize(
+    ("factory", "key"),
+    [pytest.param(_rfo, key, id=f"rfo-{key}") for key in _RFO_RECORDED_KEYS]
+    + [pytest.param(_lbfgs, key, id=f"lbfgs-{key}") for key in _LBFGS_RECORDED_KEYS],
+)
+def test_checkpoint_missing_a_recorded_key_is_rejected_before_mutation(
+    tmp_path, factory, key
+) -> None:
+    """Every key the writer records is required on load; none is defaulted."""
+    _, opt_a = factory(tmp_path / "a", [0.5, 0.0, 0.0], max_cycles=3)
     opt_a.run()
     ck = tmp_path / "restart.yaml"
     checkpoint.save_checkpoint(opt_a, ck)
-    payload = checkpoint.load_payload(ck)
-    legacy = copy.deepcopy(payload)
-    legacy["restart_info"].pop("trust_radius", None)
-    legacy_ck = tmp_path / "legacy.yaml"
-    legacy_ck.write_text(yaml.safe_dump(legacy, default_flow_style=False, sort_keys=True))
+    bad = copy.deepcopy(checkpoint.load_payload(ck))
+    del bad["restart_info"][key]
+    bad_ck = checkpoint.atomic_write_yaml(tmp_path / "bad.yaml", bad)
 
-    _, opt_b = _rfo(tmp_path / "b", [9.9, 9.9, 9.9], max_cycles=200)
-    init_trust = opt_b.trust_radius
-    checkpoint.load_and_apply(opt_b, legacy_ck)  # must not raise
-    # Absent key -> the __init__ trust radius is retained.
-    assert opt_b.trust_radius == pytest.approx(init_trust)
+    geom_b, opt_b = factory(tmp_path / "b", [9.9, 9.9, 9.9], max_cycles=200)
+    original_cart = geom_b.cart_coords.copy()
+    with pytest.raises(checkpoint.CheckpointValidationError, match=f"'{key}'"):
+        checkpoint.load_and_apply(opt_b, bad_ck)
 
-    # LBFGS: drop the adaptive-state keys.
-    _, opt_la = _lbfgs(tmp_path / "la", [0.5, 0.0, 0.0], max_cycles=3)
-    opt_la.run()
-    lck = tmp_path / "lbfgs.yaml"
-    checkpoint.save_checkpoint(opt_la, lck)
-    llegacy = copy.deepcopy(checkpoint.load_payload(lck))
-    for key in ("_trial_max_step", "rejected_uphill_steps", "rejections_at_floor"):
-        llegacy["restart_info"].pop(key, None)
-    llegacy_ck = tmp_path / "lbfgs_legacy.yaml"
-    llegacy_ck.write_text(yaml.safe_dump(llegacy, default_flow_style=False, sort_keys=True))
-
-    _, opt_lb = _lbfgs(tmp_path / "lb", [9.9, 9.9, 9.9], max_cycles=200)
-    checkpoint.load_and_apply(opt_lb, llegacy_ck)  # must not raise
-    assert opt_lb._trial_max_step == pytest.approx(float(opt_lb.max_step))
-    assert opt_lb.rejected_uphill_steps == 0
-    assert opt_lb.rejections_at_floor == 0
+    assert opt_b.coords == [] and opt_b.energies == []
+    assert opt_b.forces == [] and opt_b.steps == []
+    assert opt_b.cart_coords == []
+    np.testing.assert_allclose(geom_b.cart_coords, original_cart)
 
 
 # ---------------------------------------------------------------------------
@@ -500,11 +512,10 @@ def _rfo_aniso(out_dir, start, **kwargs):
     return geom, opt
 
 
-def test_hessian_rejection_counters_round_trip_and_are_backward_tolerant(tmp_path) -> None:
+def test_hessian_rejection_counters_round_trip(tmp_path) -> None:
     """The uphill-rejection counters
     ``rejections_at_floor`` / ``rejected_uphill_steps`` / the terminal
-    ``uphill_rejection_stalled`` flag round-trip through the checkpoint, and a
-    checkpoint written before they existed still loads (defaults retained).
+    ``uphill_rejection_stalled`` flag round-trip through the checkpoint.
     """
     geom_a, opt_a = _rfo(
         tmp_path / "a", [0.5, 0.3, 0.1], max_cycles=3,
@@ -533,24 +544,6 @@ def test_hessian_rejection_counters_round_trip_and_are_backward_tolerant(tmp_pat
     assert opt_b.rejections_at_floor == 2
     assert opt_b.rejected_uphill_steps == 5
     assert opt_b.uphill_rejection_stalled is True
-
-    # Backward tolerance: a checkpoint written before these keys existed loads
-    # and keeps the __init__ defaults (the keys are presence-guarded, not
-    # required for validation).
-    legacy = copy.deepcopy(checkpoint.load_payload(ck))
-    for key in ("rejections_at_floor", "rejected_uphill_steps", "uphill_rejection_stalled"):
-        legacy["restart_info"].pop(key, None)
-    legacy_ck = tmp_path / "legacy.yaml"
-    legacy_ck.write_text(yaml.safe_dump(legacy, default_flow_style=False, sort_keys=True))
-
-    geom_c, opt_c = _rfo(
-        tmp_path / "c", [9.9, 9.9, 9.9], max_cycles=200,
-        reject_uphill=True, max_rejections_at_floor=3,
-    )
-    checkpoint.load_and_apply(opt_c, legacy_ck)  # must not raise
-    assert opt_c.rejections_at_floor == 0
-    assert opt_c.rejected_uphill_steps == 0
-    assert opt_c.uphill_rejection_stalled is False
 
 
 def test_supported_rfo_resume_terminates_at_uphill_rejection_floor_boundary(tmp_path) -> None:
@@ -720,72 +713,11 @@ def test_supported_rfo_resume_restores_cart_coords_for_uphill_rejection(tmp_path
     assert len(opt_b.coords) == n_before - 1
 
 
-def test_base_get_restart_info_is_backward_tolerant_without_cart_coords(tmp_path) -> None:
-    """A checkpoint written before ``cart_coords`` was serialized still loads;
-    the presence-guard leaves the fresh optimizer's empty cart_coords in place.
-    """
-    geom_a, opt_a = _rfo(tmp_path / "a", [0.5, 0.3, 0.1], max_cycles=3)
-    opt_a.run()
-    ck = tmp_path / "restart.yaml"
-    checkpoint.save_checkpoint(opt_a, ck)
-
-    legacy = copy.deepcopy(checkpoint.load_payload(ck))
-    legacy["restart_info"].pop("cart_coords", None)
-    legacy_ck = tmp_path / "legacy.yaml"
-    legacy_ck.write_text(yaml.safe_dump(legacy, default_flow_style=False, sort_keys=True))
-
-    geom_b, opt_b = _rfo(tmp_path / "b", [9.9, 9.9, 9.9], max_cycles=200)
-    checkpoint.load_and_apply(opt_b, legacy_ck)  # must not raise
-    assert opt_b.cart_coords == []
-    # The accepted-state coords history is still restored normally.
-    assert len(opt_b.coords) >= 2
-
-
-def test_legacy_checkpoint_without_cart_coords_rejects_uphill_rollback(
-    tmp_path,
-) -> None:
-    _, opt_a = _lbfgs(
-        tmp_path / "a", [0.5, 0.0, 0.0], max_cycles=3, reject_uphill=False
-    )
-    opt_a.run()
-    checkpoint_path = tmp_path / "restart.yaml"
-    checkpoint.save_checkpoint(opt_a, checkpoint_path)
-    legacy = copy.deepcopy(checkpoint.load_payload(checkpoint_path))
-    legacy["restart_info"].pop("cart_coords", None)
-    legacy_path = tmp_path / "legacy.yaml"
-    legacy_path.write_text(
-        yaml.safe_dump(legacy, default_flow_style=False, sort_keys=True)
-    )
-
-    _, tolerant = _lbfgs(
-        tmp_path / "tolerant",
-        [9.9, 9.9, 9.9],
-        max_cycles=200,
-        reject_uphill=False,
-    )
-    checkpoint.load_and_apply(tolerant, legacy_path)
-    assert tolerant.cart_coords == []
-
-    geom_strict, strict = _lbfgs(
-        tmp_path / "strict",
-        [9.9, 9.9, 9.9],
-        max_cycles=200,
-        reject_uphill=True,
-    )
-    original_coords = geom_strict.cart_coords.copy()
-    with pytest.raises(
-        checkpoint.CheckpointValidationError,
-        match="Cartesian history required for uphill-trial rollback",
-    ):
-        checkpoint.load_and_apply(strict, legacy_path)
-    assert strict.coords == []
-    np.testing.assert_allclose(geom_strict.cart_coords, original_coords)
-
-
 def test_supported_lbfgs_round_trips_mu_reg(tmp_path) -> None:
     # Regularized-L-BFGS adaptive state: mu_reg is adapted per cycle and feeds
-    # get_lbfgs_step, so it must round-trip through the checkpoint for a resumed
-    # regularized run to preserve its trajectory.
+    # get_lbfgs_step, so it must round-trip through the checkpoint or a resumed
+    # regularized run diverges. tot_adapt_mu_cycles keeps the reported count
+    # accurate.
     _, opt_a = _lbfgs(tmp_path / "mra", [0.5, 0.0, 0.0], max_cycles=3, mu_reg=0.1)
     opt_a.mu_reg = 0.037
     opt_a.tot_adapt_mu_cycles = 4
@@ -799,136 +731,140 @@ def test_supported_lbfgs_round_trips_mu_reg(tmp_path) -> None:
     assert opt_b.tot_adapt_mu_cycles == 4
 
 
-def test_lbfgs_mu_reg_backward_tolerant_without_key(tmp_path) -> None:
-    _, opt_a = _lbfgs(tmp_path / "bta", [0.5, 0.0, 0.0], max_cycles=3, mu_reg=0.1)
-    info = opt_a._get_opt_restart_info()
-    info.pop("mu_reg", None)
-    info.pop("tot_adapt_mu_cycles", None)
-    _, opt_b = _lbfgs(tmp_path / "btb", [1.0, 0.0, 0.0], max_cycles=3, mu_reg=0.2)
-    opt_b._set_opt_restart_info(info)
-    assert opt_b.mu_reg == 0.2
+@pytest.mark.parametrize(
+    "corrupt",
+    [
+        pytest.param(lambda gi: gi.__setitem__("cart_coords", [0.0, float("nan"), 0.0]),
+                     id="non-finite"),
+        pytest.param(lambda gi: gi.__setitem__("cart_coords", [0.0, 0.0]),
+                     id="wrong-size"),
+        pytest.param(lambda gi: gi.__setitem__("cart_coords", ["x", "y", "z"]),
+                     id="non-numeric"),
+        pytest.param(lambda gi: gi.__setitem__("cart_coords", [[0.0, 0.0, 0.0]]),
+                     id="two-dimensional"),
+        pytest.param(lambda gi: gi.__setitem__("atoms", ["He"]), id="other-atoms"),
+        pytest.param(lambda gi: gi.__setitem__("coord_type", "redund"),
+                     id="other-coord-type"),
+        pytest.param(lambda gi: gi.pop("cart_coords"), id="missing-key"),
+    ],
+)
+def test_corrupt_nested_geom_info_is_rejected_before_mutation(tmp_path, corrupt) -> None:
+    """Nested geometry state is validated before any optimizer history changes.
 
-
-def test_corrupt_nested_geom_info_is_rejected_before_any_mutation(tmp_path) -> None:
+    ``Geometry.set_restart_info`` runs last, so without this validation the
+    optimizer histories were already overwritten when it rejected the payload.
+    """
     _, opt_a = _rfo(tmp_path / "a", [0.5, 0.0, 0.0], max_cycles=2)
     opt_a.run()
     ck = tmp_path / "restart.yaml"
     checkpoint.save_checkpoint(opt_a, ck)
-    payload = checkpoint.load_payload(ck)
 
-    _, opt_b = _rfo(tmp_path / "b", [9.9, 9.9, 9.9], max_cycles=200)
-    reference_energies = list(opt_b.energies)
+    bad = copy.deepcopy(checkpoint.load_payload(ck))
+    corrupt(bad["restart_info"]["geom_info"])
 
-    corruptions = []
-    bad = copy.deepcopy(payload)
-    bad["restart_info"]["geom_info"]["atoms"] = ["He"]
-    corruptions.append(bad)
-    bad = copy.deepcopy(payload)
-    bad["restart_info"]["geom_info"]["coord_type"] = "redund"
-    corruptions.append(bad)
-    bad = copy.deepcopy(payload)
-    bad["restart_info"]["geom_info"]["cart_coords"] = [0.0, 0.0]
-    corruptions.append(bad)
-    bad = copy.deepcopy(payload)
-    bad["restart_info"]["geom_info"]["cart_coords"] = [0.0, float("nan"), 0.0]
-    corruptions.append(bad)
+    geom_b, opt_b = _rfo(tmp_path / "b", [9.9, 9.9, 9.9], max_cycles=200)
+    original_cart = geom_b.cart_coords.copy()
+    bad_ck = tmp_path / "bad.yaml"
+    bad_ck.write_text(yaml.safe_dump(bad, default_flow_style=False, sort_keys=True))
+    with pytest.raises(checkpoint.CheckpointValidationError):
+        checkpoint.load_and_apply(opt_b, bad_ck)
 
-    for corrupt in corruptions:
-        with pytest.raises(checkpoint.CheckpointValidationError):
-            checkpoint.validate_payload(corrupt, opt_b)
-    assert list(opt_b.energies) == reference_energies
+    assert opt_b.coords == [] and opt_b.energies == []
+    assert opt_b.forces == [] and opt_b.steps == []
+    np.testing.assert_allclose(geom_b.cart_coords, original_cart)
 
 
-def test_corrupt_restart_hessian_is_rejected_before_any_mutation(tmp_path) -> None:
+@pytest.mark.parametrize(
+    "hessian",
+    [
+        pytest.param([[1.0, 0.0, 0.0], [0.0, float("inf"), 0.0], [0.0, 0.0, 1.0]],
+                     id="non-finite"),
+        pytest.param([[1.0, 0.0], [0.0, 1.0]], id="wrong-dimension"),
+        pytest.param([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], id="not-square"),
+        pytest.param([1.0, 1.0, 1.0], id="not-a-matrix"),
+    ],
+)
+def test_invalid_restart_hessian_is_rejected_before_mutation(tmp_path, hessian) -> None:
+    """A restart Hessian is validated for finiteness, shape, and dimension."""
     _, opt_a = _rfo(tmp_path / "a", [0.5, 0.0, 0.0], max_cycles=2)
     opt_a.run()
     ck = tmp_path / "restart.yaml"
     checkpoint.save_checkpoint(opt_a, ck)
-    payload = checkpoint.load_payload(ck)
+
+    bad = copy.deepcopy(checkpoint.load_payload(ck))
+    bad["restart_info"]["H"] = hessian
 
     _, opt_b = _rfo(tmp_path / "b", [9.9, 9.9, 9.9], max_cycles=200)
-    # No Hessian is set before prepare_opt, so a rejected payload must leave the
-    # target without one.
-    assert getattr(opt_b, "H", None) is None
-
-    corruptions = []
-    bad = copy.deepcopy(payload)
-    bad["restart_info"]["H"] = [[1.0, 0.0], [0.0, 1.0]]
-    corruptions.append(bad)
-    bad = copy.deepcopy(payload)
-    bad["restart_info"]["H"] = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]
-    corruptions.append(bad)
-    bad = copy.deepcopy(payload)
-    bad["restart_info"]["H"][0][0] = float("inf")
-    corruptions.append(bad)
-
-    for corrupt in corruptions:
-        with pytest.raises(checkpoint.CheckpointValidationError):
-            checkpoint.validate_payload(corrupt, opt_b)
-    assert getattr(opt_b, "H", None) is None
+    with pytest.raises(checkpoint.CheckpointValidationError):
+        checkpoint.validate_payload(bad, opt_b)
+    assert opt_b.coords == [] and opt_b.energies == []
 
 
-def test_torch_hessian_round_trips_while_multistep_buffers_stay_numpy(tmp_path) -> None:
+def test_checkpoint_round_trips_the_hessian_array_backend(tmp_path) -> None:
+    """A torch Hessian and overlap vector survive as tensors, not NumPy arrays."""
     import torch
 
     _, opt_a = _rfo(tmp_path / "a", [0.5, 0.0, 0.0], max_cycles=2)
     opt_a.run()
-    opt_a.H = torch.as_tensor(np.array(opt_a.H), dtype=torch.float64)
-    # The multi-step update stacks these with np.column_stack, so they are and
-    # must stay NumPy-only state even when H lives on another backend.
-    opt_a._sy_buffer_S = [np.ones(3, dtype=np.float64)]
-    opt_a._sy_buffer_Y = [np.full(3, 2.0, dtype=np.float64)]
-    opt_a._prev_eigvec_min = np.zeros(3, dtype=np.float64)
+    opt_a.H = torch.as_tensor(np.asarray(opt_a.H), dtype=torch.float32)
+    opt_a._prev_eigvec_min = torch.zeros(3, dtype=torch.float32)
+    opt_a._sy_buffer_S = [np.ones(3, dtype=np.float32)]
+    opt_a._sy_buffer_Y = [np.full(3, 2.0, dtype=np.float32)]
 
+    ck = tmp_path / "restart.yaml"
+    checkpoint.save_checkpoint(opt_a, ck)
+    assert _only_primitives(yaml.safe_load(ck.read_text()))
+
+    _, opt_b = _rfo(tmp_path / "b", [9.9, 9.9, 9.9], max_cycles=200)
+    checkpoint.load_and_apply(opt_b, ck)
+
+    assert isinstance(opt_b.H, torch.Tensor)
+    assert opt_b.H.dtype == torch.float32
+    assert opt_b.H.device.type == opt_a.H.device.type
+    np.testing.assert_allclose(
+        opt_b.H.detach().cpu().numpy(), opt_a.H.detach().cpu().numpy()
+    )
+    assert isinstance(opt_b._prev_eigvec_min, torch.Tensor)
+    assert opt_b._prev_eigvec_min.dtype == torch.float32
+    assert opt_b._sy_buffer_S[0].dtype == np.float32
+    assert opt_b._sy_buffer_Y[0].dtype == np.float32
+
+    # A NumPy Hessian still restores as a NumPy array.
+    _, opt_c = _rfo(tmp_path / "c", [0.5, 0.0, 0.0], max_cycles=2)
+    opt_c.run()
+    numpy_ck = tmp_path / "numpy.yaml"
+    checkpoint.save_checkpoint(opt_c, numpy_ck)
+    _, opt_d = _rfo(tmp_path / "d", [9.9, 9.9, 9.9], max_cycles=200)
+    checkpoint.load_and_apply(opt_d, numpy_ck)
+    assert isinstance(opt_d.H, np.ndarray)
+
+
+def test_unavailable_checkpoint_device_falls_back_to_the_cpu(tmp_path, monkeypatch) -> None:
+    """A tensor recorded on a GPU this host lacks is restored on the CPU."""
+    import torch
+
+    _, opt_a = _rfo(tmp_path / "a", [0.5, 0.0, 0.0], max_cycles=2)
+    opt_a.run()
     info = opt_a._get_opt_restart_info()
-    assert _only_primitives(info)
-    assert info["H_spec"]["backend"] == "torch"
-    # Every state carries its own spec; none of them inherits H's backend.
-    assert info["_sy_buffer_S_spec"]["backend"] == "numpy"
-    assert info["_sy_buffer_Y_spec"]["backend"] == "numpy"
-    assert info["_prev_eigvec_min_spec"]["backend"] == "numpy"
+    info["H_backend"] = {
+        "backend": "torch",
+        "dtype": "float64",
+        "device": "cuda:31",
+        "shape": [3, 3],
+    }
+    # CUDA reported present, so only the failed placement can trigger the fallback.
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
 
     _, opt_b = _rfo(tmp_path / "b", [0.5, 0.0, 0.0], max_cycles=2)
     opt_b._set_opt_restart_info(info)
 
     assert isinstance(opt_b.H, torch.Tensor)
-    assert opt_b.H.dtype == torch.float64
-    assert isinstance(opt_b._sy_buffer_S[0], np.ndarray)
-    assert isinstance(opt_b._sy_buffer_Y[0], np.ndarray)
-    assert isinstance(opt_b._prev_eigvec_min, np.ndarray)
-    # The NumPy-only consumer of the buffers still works after the resume.
-    assert np.column_stack(opt_b._sy_buffer_S).shape == (3, 1)
-    assert np.column_stack(opt_b._sy_buffer_Y).shape == (3, 1)
-
-
-def test_overlap_vector_keeps_its_own_backend_spec(tmp_path) -> None:
-    import torch
-
-    _, opt_a = _rfo(tmp_path / "a", [0.5, 0.0, 0.0], max_cycles=2)
-    opt_a.run()
-    # H stays NumPy while the overlap eigenvector is a tensor: the two specs
-    # must be independent in both directions.
-    opt_a._prev_eigvec_min = torch.zeros(3, dtype=torch.float32)
-
-    info = opt_a._get_opt_restart_info()
-    assert info["H_spec"]["backend"] == "numpy"
-    assert info["_prev_eigvec_min_spec"]["backend"] == "torch"
-    assert info["_prev_eigvec_min_spec"]["dtype"] == "float32"
-    # The full device string, including any CUDA index, is preserved verbatim.
-    assert info["_prev_eigvec_min_spec"]["device"] == str(
-        opt_a._prev_eigvec_min.device
-    )
-
-    _, opt_b = _rfo(tmp_path / "b", [0.5, 0.0, 0.0], max_cycles=2)
-    opt_b._set_opt_restart_info(info)
-
-    assert isinstance(opt_b.H, np.ndarray)
-    assert isinstance(opt_b._prev_eigvec_min, torch.Tensor)
-    assert opt_b._prev_eigvec_min.dtype == torch.float32
+    assert opt_b.H.device.type == "cpu"
+    np.testing.assert_allclose(opt_b.H.numpy(), np.asarray(opt_a.H))
 
 
 @pytest.mark.gpu
-def test_restart_spec_records_the_full_cuda_device_string(tmp_path) -> None:
+def test_restart_backend_records_the_full_cuda_device_string(tmp_path) -> None:
     import torch
 
     if not torch.cuda.is_available():
@@ -941,8 +877,8 @@ def test_restart_spec_records_the_full_cuda_device_string(tmp_path) -> None:
 
     info = opt_a._get_opt_restart_info()
     # The recorded device keeps its index, not just the device type.
-    assert info["H_spec"]["device"] == str(device)
-    assert ":" in info["H_spec"]["device"]
+    assert info["H_backend"]["device"] == str(device)
+    assert ":" in info["H_backend"]["device"]
     # A CUDA tensor still serializes to plain lists.
     assert _only_primitives(info)
 
@@ -951,165 +887,81 @@ def test_restart_spec_records_the_full_cuda_device_string(tmp_path) -> None:
     assert str(opt_b.H.device) == str(device)
 
 
-def test_unavailable_checkpoint_device_falls_back_to_the_cpu(tmp_path) -> None:
-    import torch
+def test_checkpoint_validates_the_resolved_active_hessian_dimension(tmp_path) -> None:
+    """Calculator/frozen active DOFs constrain the accepted Hessian shape."""
+    _, opt = _rfo(tmp_path / "active", [0.5, 0.0, 0.0], max_cycles=2)
+    opt.run()
+    payload = checkpoint.build_envelope(opt)
+    opt._using_active_dofs = True
+    opt._active_dof_indices = np.array([0, 1], dtype=int)
 
+    with pytest.raises(checkpoint.CheckpointValidationError, match="expected dimension 2"):
+        checkpoint.validate_payload(payload, opt)
+
+
+def test_zero_active_hessian_survives_the_save_load_set_round_trip(tmp_path) -> None:
+    """A ``(0, 0)`` active Hessian keeps its layout through a full round trip.
+
+    Nested lists serialize an empty array to ``[]``, so the recorded shape in
+    the backend spec is what preserves the zero active dimension.
+    """
     _, opt_a = _rfo(tmp_path / "a", [0.5, 0.0, 0.0], max_cycles=2)
     opt_a.run()
-    info = opt_a._get_opt_restart_info()
-    info["H_spec"] = {
-        "backend": "torch",
-        "dtype": "float64",
-        "device": "cuda:31",
-    }
+    opt_a.H = np.zeros((0, 0))
+    # A zero active dimension is the resolved expectation for this payload.
+    opt_a._using_active_dofs = True
+    opt_a._active_dof_indices = np.zeros(0, dtype=int)
 
-    _, opt_b = _rfo(tmp_path / "b", [0.5, 0.0, 0.0], max_cycles=2)
-    opt_b._set_opt_restart_info(info)
+    ck = tmp_path / "restart.yaml"
+    checkpoint.save_checkpoint(opt_a, ck)
+    payload = checkpoint.load_payload(ck)
+    assert _only_primitives(payload)
+    assert payload["restart_info"]["H"] == []
+    assert payload["restart_info"]["H_backend"]["shape"] == [0, 0]
 
-    assert isinstance(opt_b.H, torch.Tensor)
-    assert opt_b.H.device.type == "cpu"
-
-
-def test_buffer_dtype_is_preserved_without_promoting_to_float64(tmp_path) -> None:
-    _, opt_a = _rfo(tmp_path / "a", [0.5, 0.0, 0.0], max_cycles=2)
-    opt_a.run()
-    opt_a._sy_buffer_S = [np.ones(3, dtype=np.float32)]
-    opt_a._sy_buffer_Y = [np.ones(3, dtype=np.float32)]
-
-    info = opt_a._get_opt_restart_info()
-    assert info["_sy_buffer_S_spec"]["dtype"] == "float32"
-
-    _, opt_b = _rfo(tmp_path / "b", [0.5, 0.0, 0.0], max_cycles=2)
-    opt_b._set_opt_restart_info(info)
-    assert opt_b._sy_buffer_S[0].dtype == np.float32
-    assert opt_b._sy_buffer_Y[0].dtype == np.float32
-
-
-def test_numpy_hessian_state_still_restores_without_a_backend_spec(tmp_path) -> None:
-    _, opt_a = _rfo(tmp_path / "a", [0.5, 0.0, 0.0], max_cycles=2)
-    opt_a.run()
-    info = opt_a._get_opt_restart_info()
-    info.pop("H_spec")
-
-    _, opt_b = _rfo(tmp_path / "b", [0.5, 0.0, 0.0], max_cycles=2)
-    opt_b._set_opt_restart_info(info)
+    _, opt_b = _rfo(tmp_path / "b", [9.9, 9.9, 9.9], max_cycles=200)
+    opt_b._using_active_dofs = True
+    opt_b._active_dof_indices = np.zeros(0, dtype=int)
+    # Validation accepts the recorded zero dimension instead of rejecting the
+    # flattened one-dimensional payload.
+    checkpoint.validate_payload(payload, opt_b)
+    checkpoint.load_and_apply(opt_b, ck)
 
     assert isinstance(opt_b.H, np.ndarray)
-
-
-def test_restart_hessian_is_validated_against_the_resolved_active_subset(
-    tmp_path,
-) -> None:
-    _, opt_a = _rfo(tmp_path / "a", [0.5, 0.0, 0.0], max_cycles=2)
-    opt_a.run()
-    ck = tmp_path / "restart.yaml"
-    checkpoint.save_checkpoint(opt_a, ck)
-    payload = checkpoint.load_payload(ck)
-
-    _, opt_b = _rfo(tmp_path / "b", [0.5, 0.0, 0.0], max_cycles=2)
-    # One active atom out of one, but only its first two DOFs are active, so the
-    # full coordinate size would wrongly accept a 3x3 Hessian.
-    opt_b._using_active_dofs = True
-    opt_b._active_dof_indices = np.array([0, 1], dtype=int)
-
-    with pytest.raises(checkpoint.CheckpointValidationError):
-        checkpoint.validate_payload(payload, opt_b)
-
-    active = copy.deepcopy(payload)
-    active["restart_info"]["H"] = [[1.0, 0.0], [0.0, 1.0]]
-    active["restart_info"]["H_spec"]["shape"] = [2, 2]
-    assert checkpoint.validate_payload(active, opt_b)
-
-
-def test_zero_active_dimension_round_trips_an_empty_restart_hessian(tmp_path) -> None:
-    _, opt_a = _rfo(tmp_path / "a", [0.5, 0.0, 0.0], max_cycles=2)
-    opt_a.run()
-    # A zero-dimensional active space: the (0, 0) Hessian is the correct payload.
-    opt_a.H = np.empty((0, 0))
-    opt_a._using_active_dofs = True
-    opt_a._active_dof_indices = np.array([], dtype=int)
-
-    ck = tmp_path / "restart.yaml"
-    checkpoint.save_checkpoint(opt_a, ck)
-    payload = checkpoint.load_payload(ck)
-    # Nested lists cannot carry the shape, so it travels in the spec.
-    assert payload["restart_info"]["H"] == []
-    assert payload["restart_info"]["H_spec"]["shape"] == [0, 0]
-
-    _, opt_b = _rfo(tmp_path / "b", [0.5, 0.0, 0.0], max_cycles=2)
-    opt_b._using_active_dofs = True
-    opt_b._active_dof_indices = np.array([], dtype=int)
-
-    # Full save -> load -> apply round trip, not validation alone.
-    checkpoint.load_and_apply(opt_b, ck)
     assert opt_b.H.shape == (0, 0)
 
-    # A three-dimensional Hessian is rejected against the zero active space.
-    nonempty = copy.deepcopy(payload)
-    nonempty["restart_info"]["H"] = np.eye(3).tolist()
-    nonempty["restart_info"]["H_spec"]["shape"] = [3, 3]
-    with pytest.raises(checkpoint.CheckpointValidationError):
-        checkpoint.validate_payload(nonempty, opt_b)
+    # The same layout survives on the torch backend.
+    import torch
 
-    # A recorded shape that contradicts the payload size is rejected.
-    inconsistent = copy.deepcopy(payload)
-    inconsistent["restart_info"]["H"] = np.eye(3).tolist()
-    inconsistent["restart_info"]["H_spec"]["shape"] = [0, 0]
-    with pytest.raises(checkpoint.CheckpointValidationError):
-        checkpoint.validate_payload(inconsistent, opt_b)
+    _, opt_c = _rfo(tmp_path / "c", [0.5, 0.0, 0.0], max_cycles=2)
+    opt_c.run()
+    opt_c.H = torch.zeros((0, 0), dtype=torch.float64)
+    opt_c._using_active_dofs = True
+    opt_c._active_dof_indices = np.zeros(0, dtype=int)
+    torch_ck = tmp_path / "torch.yaml"
+    checkpoint.save_checkpoint(opt_c, torch_ck)
 
-
-def test_legacy_empty_hessian_without_a_recorded_shape_restores_as_zero_square(
-    tmp_path,
-) -> None:
-    _, opt_a = _rfo(tmp_path / "a", [0.5, 0.0, 0.0], max_cycles=2)
-    opt_a.run()
-    info = opt_a._get_opt_restart_info()
-    # Emulate a checkpoint written before the shape was recorded.
-    info["H"] = []
-    info.pop("H_spec")
-
-    _, opt_b = _rfo(tmp_path / "b", [0.5, 0.0, 0.0], max_cycles=2)
-    opt_b._set_opt_restart_info(info)
-    assert opt_b.H.shape == (0, 0)
+    _, opt_d = _rfo(tmp_path / "d", [9.9, 9.9, 9.9], max_cycles=200)
+    opt_d._using_active_dofs = True
+    opt_d._active_dof_indices = np.zeros(0, dtype=int)
+    checkpoint.load_and_apply(opt_d, torch_ck)
+    assert isinstance(opt_d.H, torch.Tensor)
+    assert tuple(opt_d.H.shape) == (0, 0)
 
 
-def test_restart_shapes_survive_a_full_round_trip_for_every_array(tmp_path) -> None:
-    _, opt_a = _rfo(tmp_path / "a", [0.5, 0.0, 0.0], max_cycles=2)
-    opt_a.run()
-    opt_a._sy_buffer_S = [np.zeros(3)]
-    opt_a._sy_buffer_Y = [np.zeros(3)]
-    opt_a._prev_eigvec_min = np.zeros(3)
-
-    info = opt_a._get_opt_restart_info()
-    assert info["H_spec"]["shape"] == [3, 3]
-    assert info["_sy_buffer_S_spec"]["shape"] == [3]
-    assert info["_prev_eigvec_min_spec"]["shape"] == [3]
-
-    _, opt_b = _rfo(tmp_path / "b", [0.5, 0.0, 0.0], max_cycles=2)
-    opt_b._set_opt_restart_info(info)
-    assert opt_b.H.shape == (3, 3)
-    assert opt_b._sy_buffer_S[0].shape == (3,)
-    assert opt_b._prev_eigvec_min.shape == (3,)
-
-
-def test_nonnumeric_and_two_dimensional_cart_coords_are_typed_errors(
-    tmp_path,
-) -> None:
+def test_hessian_that_contradicts_its_recorded_shape_is_rejected(tmp_path) -> None:
     _, opt_a = _rfo(tmp_path / "a", [0.5, 0.0, 0.0], max_cycles=2)
     opt_a.run()
     ck = tmp_path / "restart.yaml"
     checkpoint.save_checkpoint(opt_a, ck)
-    payload = checkpoint.load_payload(ck)
 
-    _, opt_b = _rfo(tmp_path / "b", [0.5, 0.0, 0.0], max_cycles=2)
+    bad = copy.deepcopy(checkpoint.load_payload(ck))
+    bad["restart_info"]["H_backend"]["shape"] = [4, 4]
 
-    nonnumeric = copy.deepcopy(payload)
-    nonnumeric["restart_info"]["geom_info"]["cart_coords"] = ["a", "b", "c"]
+    _, opt_b = _rfo(tmp_path / "b", [9.9, 9.9, 9.9], max_cycles=200)
     with pytest.raises(checkpoint.CheckpointValidationError):
-        checkpoint.validate_payload(nonnumeric, opt_b)
+        checkpoint.validate_payload(bad, opt_b)
 
-    nested = copy.deepcopy(payload)
-    nested["restart_info"]["geom_info"]["cart_coords"] = [[0.0, 0.0, 0.0]]
+    bad["restart_info"]["H_backend"]["shape"] = ["x", "y"]
     with pytest.raises(checkpoint.CheckpointValidationError):
-        checkpoint.validate_payload(nested, opt_b)
+        checkpoint.validate_payload(bad, opt_b)

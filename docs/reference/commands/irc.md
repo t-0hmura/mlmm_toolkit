@@ -35,8 +35,10 @@ Options:
                                   to derive the ML-region charge when -q is
                                   omitted (requires PDB/mmCIF input or --ref-
                                   pdb).
-  -m, --multiplicity INTEGER      Spin multiplicity (2S+1); overrides
-                                  calc.model_mult from YAML.  [default: (1)]
+  -m, --multiplicity INTEGER RANGE
+                                  Spin multiplicity (2S+1); overrides
+                                  calc.model_mult from YAML.  [default: (1);
+                                  x>=1]
   --max-cycles INTEGER RANGE      Maximum number of IRC steps.  [default: (125);
                                   x>=1]
   --step-size FLOAT               Step length in Bohr (unweighted Cartesian
@@ -103,7 +105,8 @@ Options:
   --hess-device [auto|cuda|cpu]   Device for initial Hessian storage and IRC
                                   operations (auto/cuda/cpu). Use 'cpu' for
                                   large unfrozen systems to avoid VRAM limits.
-                                  [default: auto]
+                                  Applies when irc.hessian_init is calc (the
+                                  default).  [default: auto]
   --read-hess FILE                Start from the Hessian in this .npy file (e.g.
                                   from freq or tsopt --dump-hess): the Cartesian
                                   Hessian of the input geometry in

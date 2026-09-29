@@ -279,10 +279,9 @@ def _read_pdb_geometry(pdb_path: Path) -> Tuple[np.ndarray, List[str]]:
                         elem = elem_inferred
             else:
                 # No element column — use residue-aware inference (add_elem_info.guess_element)
-                atom_name = line[12:16].strip()
                 resname = line[17:20].strip()
                 is_het = line.startswith("HETATM")
-                guessed = _guess_element(atom_name, resname, is_het)
+                guessed = _guess_element(line[12:16], resname, is_het)
                 if guessed:
                     elem = guessed
                 else:
@@ -608,7 +607,7 @@ def _parse_pdb_atoms_with_meta(pdb_path: Path) -> List[Dict[str, Any]]:
                         elem = elem_inferred
             else:
                 is_het = line.startswith("HETATM")
-                guessed = _guess_element(atom_name, res_name, is_het)
+                guessed = _guess_element(line[12:16], res_name, is_het)
                 elem = guessed if guessed else _infer_element_from_pdb_atom_name(line[12:16])
 
             atoms.append(
@@ -1978,7 +1977,7 @@ end
 @click.option(
     "-m",
     "--multiplicity",
-    type=int,
+    type=click.IntRange(min=1),
     default=1,
     show_default=True,
     help="Multiplicity of QM region.",

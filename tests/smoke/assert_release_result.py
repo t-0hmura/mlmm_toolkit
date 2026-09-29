@@ -55,7 +55,7 @@ def check_dft_states(segment_root: Path, segment: dict) -> None:
         and math.isfinite(float(value)) for value in energies
     ):
         raise SystemExit(f"DFT R/TS/P energies are incomplete: {dft!r}")
-    states = ("E1", "TS", "E2") if segment.get("kind") == "tsopt" else ("R", "TS", "P")
+    states = ("R", "TS", "P")
     for state in states:
         path = segment_root / "dft" / state / "result.yaml"
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -129,12 +129,10 @@ def check_all(root: Path, require_thermo: bool, require_dft: bool) -> None:
         if {"usable", "scientific_status", "forward_status", "backward_status"} & irc.keys():
             raise SystemExit(f"all retained an independent IRC acceptance field: {irc!r}")
         endpoint_opt = segment.get("endpoint_opt") or {}
-        endpoint_keys = (
-            ("endpoint_1_converged", "endpoint_2_converged")
-            if segment.get("kind") == "tsopt"
-            else ("reactant_converged", "product_converged")
-        )
-        if any(endpoint_opt.get(key) is not True for key in endpoint_keys):
+        if (
+            endpoint_opt.get("reactant_converged") is not True
+            or endpoint_opt.get("product_converged") is not True
+        ):
             raise SystemExit(f"optimized endpoints did not converge: {endpoint_opt!r}")
         if require_thermo:
             missing = [

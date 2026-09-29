@@ -73,11 +73,14 @@ def test_frequency_cli_retains_soft_modes_and_thermal_input(tmp_path, monkeypatc
             "freq", "-i", str(source), "-q", "0", "-m", "1",
             "--freeze-atoms", "1,2,3", "--max-write", "6", "--n-frames", "4",
             "--sort", sort, "--no-convert-files", "--dump", "--out-json",
+            "--temperature", "310", "--pressure", "2",
             "--config", str(config), "-o", str(output), *extra,
         ])
         assert result.exit_code == 0, result.output + repr(result.exception)
         payload = json.loads((output / "result.json").read_text())
         summary = yaml.safe_load((output / "thermoanalysis.yaml").read_text())
+        assert payload["temperature_K"] == payload["thermochemistry"]["temperature_K"] == 310.
+        assert payload["pressure_atm"] == payload["thermochemistry"]["pressure_atm"] == 2.
         raw = np.asarray(payload["frequencies_cm"])
         assert raw.shape == (6,)
         assert raw[1] < 0. < raw[3] < raw[4] < 5. and raw[2] == 0.

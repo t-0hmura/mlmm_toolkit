@@ -30,7 +30,8 @@ Options:
   --method TEXT                   QM method and basis set. Defaults depend on
                                   mode.  [default: (depends on --mode)]
   -q, --charge INTEGER            Charge of QM region.  [required]
-  -m, --multiplicity INTEGER      Multiplicity of QM region.  [default: 1]
+  -m, --multiplicity INTEGER RANGE
+                                  Multiplicity of QM region.  [default: 1; x>=1]
   --nproc INTEGER                 Number of processors.  [default: 8]
   --mem TEXT                      Memory allocation (g16 mode).  [default: 16GB]
   --total-charge INTEGER          Total charge of full QM+MM system for ORCA

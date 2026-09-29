@@ -98,7 +98,7 @@ def parse_pdb_ordinal_atoms(path: Path | str) -> list[PDBOrdinalAtom]:
             elem = line[76:78].strip().title()
             if not elem:
                 elem = str(
-                    guess_element(atom_name, resname, record_name == "HETATM") or ""
+                    guess_element(line[12:16], resname, record_name == "HETATM") or ""
                 ).title()
             if not elem:
                 raise ValueError(

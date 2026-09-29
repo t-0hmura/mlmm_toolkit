@@ -367,9 +367,11 @@ class DefaultGroup(click.Group):
         # so that --add-linkH, --include-H2O etc. are accepted case-insensitively.
         args = _normalize_argv_option_names(args)
 
-        show_help_or_version = any(a in ("-h", "--help", "--version") for a in args)
+        root_help_or_version = bool(
+            args and args[0] in ("-h", "--help", "--version")
+        )
 
-        if self._default_cmd is not None and not show_help_or_version:
+        if self._default_cmd is not None and not root_help_or_version:
             # Without this guard, `mlmm -v tsopt ...` would prepend the
             # default command and swallow `tsopt` as an argument to it.
             # Collect every spelling of every top-level option declared on
@@ -389,7 +391,17 @@ class DefaultGroup(click.Group):
                 is_top_level = first[:2] in top_level_opts
             else:
                 is_top_level = False
-            if not args or (args[0].startswith("-") and not is_top_level):
+            first_opt = first.split("=", 1)[0]
+            known_commands = set(self.commands) | set(self._lazy_subcommands)
+            command_after_verbose = (
+                (first_opt == "--verbose" or first[:2] == "-v")
+                and any(arg in known_commands for arg in args[1:])
+            )
+            if not args or (
+                args[0].startswith("-")
+                and not is_top_level
+                and not command_after_verbose
+            ):
                 args.insert(0, self._default_cmd)
 
         bool_value_options = self._command_bool_value_options

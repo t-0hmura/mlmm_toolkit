@@ -110,19 +110,68 @@ def test_manifest_rejects_symlink_at_exact_declared_path(tmp_path: Path) -> None
     assert manifest.claim_one("path.summary") == artifact.absolute()
 
 
-def test_public_declaration_rejects_symlinked_ancestor(tmp_path: Path) -> None:
+def test_public_declaration_follows_symlinks_that_stay_inside_root(
+    tmp_path: Path,
+) -> None:
+    # The output root sits below a symlinked directory, and segments/ links
+    # to a real directory inside the same root.
+    disk = tmp_path / "disk"
+    (disk / "out" / "_work" / "segments").mkdir(parents=True)
+    (tmp_path / "work").symlink_to(disk, target_is_directory=True)
+    root = tmp_path / "work" / "out"
+    (root / "segments").symlink_to(
+        root / "_work" / "segments", target_is_directory=True
+    )
+    destination = root / "segments" / "seg_01" / "result.json"
+    manifest = InvocationManifest()
+
+    key = declare_public_output(manifest, root, destination)
+    destination.parent.mkdir()
+    destination.write_text("{}", encoding="utf-8")
+
+    assert key == "output.public.segments/seg_01/result.json"
+    assert manifest.claim_one(key) == destination.absolute()
+    assert (disk / "out" / "_work" / "segments" / "seg_01" / "result.json").is_file()
+
+
+@pytest.mark.parametrize("linked", ["segments", "summary.json"])
+def test_public_declaration_rejects_symlink_resolving_outside_root(
+    tmp_path: Path, linked: str,
+) -> None:
     root = tmp_path / "out"
     external = tmp_path / "external"
     root.mkdir()
     external.mkdir()
-    (root / "segments").symlink_to(external, target_is_directory=True)
+    if linked == "segments":
+        (root / "segments").symlink_to(external, target_is_directory=True)
+        destination = root / "segments" / "seg_01" / "result.json"
+    else:
+        (root / "summary.json").symlink_to(external / "summary.json")
+        destination = root / "summary.json"
+    manifest = InvocationManifest()
 
-    with pytest.raises(ValueError, match="symlinked ancestor"):
-        declare_public_output(
-            InvocationManifest(),
-            root,
-            root / "segments" / "seg_01" / "result.json",
-        )
+    with pytest.raises(ValueError, match="resolves outside pipeline root"):
+        declare_public_output(manifest, root, destination)
+    assert manifest.expected == {}
+
+
+def test_output_lock_follows_symlinked_work_dir(tmp_path: Path) -> None:
+    root = tmp_path / "out"
+    scratch = tmp_path / "scratch"
+    root.mkdir()
+    scratch.mkdir()
+    (root / "_work").symlink_to(scratch, target_is_directory=True)
+    lock_path = root / "_work" / ".run.lock"
+    first = InvocationResources()
+    second = InvocationResources()
+
+    assert first.own_exclusive_lock(lock_path) == lock_path
+    assert (scratch / ".run.lock").is_file()
+    with pytest.raises(ArtifactClaimError, match="already using output directory"):
+        second.own_exclusive_lock(lock_path)
+
+    first.close()
+    second.close()
 
 
 def test_invocation_resources_reject_concurrent_output_lock(tmp_path: Path) -> None:

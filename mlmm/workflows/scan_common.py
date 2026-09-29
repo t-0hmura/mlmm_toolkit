@@ -1,12 +1,12 @@
 """Shared CLI options for scan2d and scan3d commands.
 
 scan.py is intentionally NOT routed through this factory: it has several
-scan-specific quirks (the `--opt-mode` compat option, `--relax-max-cycles`
-acting as an alias for `--max-cycles` with default=None, `--thresh`
-default=None) that the factory cannot express without per-call-site
-branching that would defeat the deduplication purpose.
+scan-specific quirks (`--relax-max-cycles` acting as an alias for
+`--max-cycles` with default=None, `--thresh` default=None) that the factory
+cannot express without per-call-site branching that would defeat the
+deduplication purpose.
 
-The factory below is calibrated to scan2d / scan3d, where the 11 common
+The factory below is calibrated to scan2d / scan3d, where the 12 common
 options share identical types, defaults, and help text. Only the
 per-command help phrasing for `--dump` / `--baseline` / `--out-dir`
 default differs, and that is parameterised.
@@ -22,9 +22,21 @@ from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple
 import click
 
 from pysisyphus.optimizers.LBFGS import LBFGS
+from pysisyphus.optimizers.RFOptimizer import RFOptimizer
 
-from mlmm.core.defaults import LBFGS_KW, OPT_BASE_KW, THRESH_CHOICES
-from mlmm.core.utils import apply_yaml_overrides
+from mlmm.core.defaults import (
+    LBFGS_KW,
+    OPT_BASE_KW,
+    OPT_MODE_ALIASES,
+    RFO_KW,
+    THRESH_CHOICES,
+)
+from mlmm.core.utils import (
+    apply_yaml_overrides,
+    normalize_choice,
+    resolve_shared_optimizer_keys,
+    yaml_section_has_key,
+)
 
 
 SCAN_THRESH_DEFAULT = "baker"
@@ -96,39 +108,81 @@ def prepare_grid_scan_output(
     return resolved, grid_dir
 
 
+def normalize_scan_opt_mode(opt_mode: str) -> str:
+    """Map ``--opt-mode`` (grad|hess) to the relaxation optimizer kind."""
+
+    return normalize_choice(
+        opt_mode,
+        param="--opt-mode",
+        alias_groups=OPT_MODE_ALIASES,
+        allowed_hint="grad|hess",
+    )
+
+
 def resolve_scan_optimizer_configs(
     yaml_cfg: Mapping[str, Any],
     *,
     opt_defaults: Mapping[str, Any] = OPT_BASE_KW,
     lbfgs_defaults: Mapping[str, Any] = LBFGS_KW,
+    rfo_defaults: Mapping[str, Any] = RFO_KW,
+    kind: str = "lbfgs",
     thresh: str,
     relax_max_cycles: int,
+    print_every: Optional[int] = None,
     is_param_explicit: Callable[[str], bool],
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Resolve scan optimizer settings once using Click parameter sources.
 
     The scan-specific ``baker`` threshold is a default layer, YAML is applied
-    next, and only explicitly supplied CLI values replace the result.
+    next, and only explicitly supplied CLI values replace the result. Keys
+    shared by ``opt`` and the ``kind`` section (``lbfgs`` or ``rfo``) are then
+    resolved with :func:`resolve_shared_optimizer_keys`. Returns
+    ``(opt_cfg, sopt_cfg)`` where ``sopt_cfg`` is that section.
     """
 
+    if kind not in ("lbfgs", "rfo"):
+        raise ValueError(f"Unknown scan optimizer kind '{kind}'.")
     opt_cfg = deepcopy(dict(opt_defaults))
     lbfgs_cfg = deepcopy(dict(lbfgs_defaults))
+    rfo_cfg = deepcopy(dict(rfo_defaults))
     opt_cfg["thresh"] = SCAN_THRESH_DEFAULT
     lbfgs_cfg["thresh"] = SCAN_THRESH_DEFAULT
+    rfo_cfg["thresh"] = SCAN_THRESH_DEFAULT
+    sopt_cfg = lbfgs_cfg if kind == "lbfgs" else rfo_cfg
+    sopt_base = deepcopy(sopt_cfg)
+    sopt_paths = ((kind,), ("opt", kind))
     apply_yaml_overrides(
         yaml_cfg,
         [
             (opt_cfg, (("opt",),)),
             (lbfgs_cfg, (("lbfgs",), ("opt", "lbfgs"))),
+            (rfo_cfg, (("rfo",), ("opt", "rfo"))),
         ],
     )
+    cli_keys = set()
     if is_param_explicit("relax_max_cycles"):
         opt_cfg["max_cycles"] = int(relax_max_cycles)
-        lbfgs_cfg["max_cycles"] = int(relax_max_cycles)
+        cli_keys.add("max_cycles")
     if is_param_explicit("thresh"):
         opt_cfg["thresh"] = str(thresh)
-        lbfgs_cfg["thresh"] = str(thresh)
-    return opt_cfg, lbfgs_cfg
+        cli_keys.add("thresh")
+    if is_param_explicit("print_every") and print_every is not None:
+        opt_cfg["print_every"] = int(print_every)
+        cli_keys.add("print_every")
+    resolve_shared_optimizer_keys(
+        opt_cfg,
+        sopt_cfg,
+        sopt_base,
+        downstream_section=kind,
+        opt_explicit={
+            key for key in opt_cfg if yaml_section_has_key(yaml_cfg, (("opt",),), key)
+        } | cli_keys,
+        downstream_explicit={
+            key for key in sopt_base if yaml_section_has_key(yaml_cfg, sopt_paths, key)
+        },
+        skip=("dump", "out_dir", "prefix"),
+    )
+    return opt_cfg, sopt_cfg
 
 
 def build_scan_lbfgs_kwargs(
@@ -172,13 +226,78 @@ def make_scan_lbfgs(
     return LBFGS(geom, **args)
 
 
+def build_scan_rfo_kwargs(
+    rfo_cfg: Mapping[str, Any],
+    opt_cfg: Mapping[str, Any],
+    *,
+    max_step_bohr: float,
+    out_dir: Path,
+    prefix: str,
+) -> Dict[str, Any]:
+    """Build RFO kwargs; the trust radii are capped by the scan step in Bohr."""
+
+    common = dict(opt_cfg)
+    common["out_dir"] = str(out_dir)
+    common["prefix"] = prefix
+    args = {**dict(rfo_cfg), **common}
+    args["trust_radius"] = min(
+        float(rfo_cfg.get("trust_radius", RFO_KW["trust_radius"])), max_step_bohr
+    )
+    args["trust_max"] = min(
+        float(rfo_cfg.get("trust_max", RFO_KW["trust_max"])), max_step_bohr
+    )
+    return args
+
+
+def seed_scan_rfo_hessian(geom, calc_cfg: Mapping[str, Any]) -> None:
+    """Seed the exact ML/MM Hessian of the attached (restrained or bare) PES.
+
+    Uses the same freq-backend Hessian as ``opt --opt-mode hess``.
+    """
+
+    from mlmm.workflows.freq import _calc_full_hessian_torch, _torch_device
+
+    h_init, _ = _calc_full_hessian_torch(
+        geom,
+        dict(calc_cfg),
+        _torch_device(calc_cfg.get("ml_device", "auto")),
+        refresh_geom_meta=True,
+        calculator=geom.calculator,
+    )
+    geom.cart_hessian = h_init
+
+
+def make_scan_rfo(
+    geom,
+    rfo_cfg: Dict[str, Any],
+    opt_cfg: Dict[str, Any],
+    *,
+    max_step_bohr: float,
+    out_dir: Path,
+    prefix: str,
+    calc_cfg: Mapping[str, Any],
+) -> RFOptimizer:
+    """Build a standard RFO for one scan relaxation (no microiteration)."""
+
+    args = build_scan_rfo_kwargs(
+        rfo_cfg,
+        opt_cfg,
+        max_step_bohr=max_step_bohr,
+        out_dir=out_dir,
+        prefix=prefix,
+    )
+    if str(args.get("hessian_init", "calc")).lower() == "calc":
+        seed_scan_rfo_hessian(geom, calc_cfg)
+    return RFOptimizer(geom, **args)
+
+
 def add_scan_common_options(
     *,
     out_dir_default: str,
     baseline_help: str,
     dump_help: str,
     max_step_help: str = "Maximum scanned distance change per step [Å].",
-    relax_max_cycles_help: str = "Maximum L-BFGS cycles per biased relaxation (also used for preopt).",
+    relax_max_cycles_help: str = "Maximum optimizer cycles per biased relaxation (also used for preopt).",
     preopt_help: str = "Run an unbiased pre-optimization.",
     thresh_default: str = "baker",
     max_step_size_default: float = 0.20,
@@ -191,7 +310,7 @@ def add_scan_common_options(
     include_baseline: bool = True,
     include_zmin_zmax: bool = True,
 ) -> Callable[[Callable], Callable]:
-    """Attach the 9–12 shared scan CLI options to a Click command.
+    """Attach the 12–15 shared scan CLI options to a Click command.
 
     Used by `mlmm scan2d` and `mlmm scan3d`. Each common option has the same
     flag form, default, type, and help text in both commands.
@@ -243,6 +362,13 @@ def add_scan_common_options(
             default=relax_max_cycles_default,
             show_default="100000",
             help=relax_max_cycles_help,
+        ),
+        click.option(
+            "--opt-mode",
+            type=click.Choice(["grad", "hess"], case_sensitive=False),
+            default="grad",
+            show_default=True,
+            help="Relaxation mode: grad (=LBFGS) or hess (=RFO).",
         ),
         click.option(
             "--dump/--no-dump",

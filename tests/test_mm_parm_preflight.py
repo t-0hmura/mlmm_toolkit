@@ -4,6 +4,7 @@ input/topology checks."""
 from __future__ import annotations
 
 import stat
+from types import SimpleNamespace
 
 import pytest
 
@@ -169,6 +170,40 @@ def test_leap_pdb_export_preserves_line_endings_and_mode(tmp_path) -> None:
     assert payload.count(b"\n") == 2
     assert payload.endswith(b"END")
     assert stat.S_IMODE(destination.stat().st_mode) == 0o640
+
+
+def test_leap_pdb_export_takes_elements_from_topology(tmp_path, monkeypatch) -> None:
+    import parmed
+
+    source = tmp_path / "complex.pdb"
+    topology = tmp_path / "complex.parm7"
+    # LEaP places mol2 atom names by their first letter, so " FE " alone reads as F.
+    source.write_text(
+        "ATOM      1  C1  LIG     1       0.000   0.000   0.000  1.00  0.00\n"
+        "ATOM      2  FE  LIG     1       2.000   0.000   0.000  1.00  0.00\n"
+        "ATOM      3  NA  HEM     2       4.000   0.000   0.000  1.00  0.00\n"
+        "ATOM      4 ZN1  ZNL     3       6.000   0.000   0.000  1.00  0.00\n"
+        "TER\nEND\n",
+        encoding="utf-8",
+    )
+
+    def fake_topology(*atomic_numbers):
+        atoms = [SimpleNamespace(atomic_number=z) for z in atomic_numbers]
+        return lambda path: SimpleNamespace(atoms=atoms)
+
+    monkeypatch.setattr(parmed, "load_file", fake_topology(6, 26, 7, -1))
+    assert mm_parm.copy_pdb_with_element_fields(
+        source, tmp_path / "system.pdb", topology=topology
+    ) == (4, 0)
+    lines = (tmp_path / "system.pdb").read_text(encoding="utf-8").splitlines()
+    assert [line[76:78] for line in lines[:4]] == [" C", "Fe", " N", "Zn"]
+
+    monkeypatch.setattr(parmed, "load_file", fake_topology(6, 26, 7))
+    with pytest.raises(ValueError, match="has 4 atoms"):
+        mm_parm.copy_pdb_with_element_fields(
+            source, tmp_path / "other.pdb", topology=topology
+        )
+    assert not (tmp_path / "other.pdb").exists()
 
 
 def test_add_ter_keeps_connected_peptide_block(tmp_path) -> None:

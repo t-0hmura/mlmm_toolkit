@@ -53,12 +53,12 @@ Options:
                                   distances; eV/rad^2 for angles]. YAML bias.k
                                   applies when this option is omitted; explicit
                                   CLI wins.  [default: (300.0)]
-  --max-cycles INTEGER RANGE      Maximum L-BFGS cycles per biased step and per
-                                  (pre|end)opt stage.  [default: (100000); x>=1]
   --relax-max-cycles INTEGER RANGE
-                                  Compatibility alias of --max-cycles (overrides
-                                  it when provided).  [default: (inherits --max-
-                                  cycles); x>=1]
+                                  Maximum optimizer cycles per biased step and
+                                  per (pre|end)opt stage.  [default: (100000);
+                                  x>=1]
+  --opt-mode [grad|hess]          Relaxation mode: grad (=LBFGS) or hess (=RFO).
+                                  [default: grad]
   --dump / --no-dump              Write per-step optimizer trajectory files.
                                   scan_trj.xyz is always written per-stage and
                                   as a combined file in out-dir; scan.pdb
@@ -78,9 +78,8 @@ Options:
   --endopt / --no-endopt          After each stage, run an additional unbiased
                                   optimization of the stage result.  [default:
                                   no-endopt]
-  --dry-run / --no-dry-run        Validate options and print the execution plan
-                                  without running the scan.  [default: no-dry-
-                                  run]
+  --dry-run / --no-dry-run        Validate options and inputs without running
+                                  the scan.  [default: no-dry-run]
   --convert-files / --no-convert-files
                                   Convert XYZ/TRJ outputs into PDB companions
                                   based on the input format.  [default: convert-

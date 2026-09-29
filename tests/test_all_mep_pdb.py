@@ -150,9 +150,9 @@ def test_all_path_opt_mep_pdb_publication(tmp_path: Path, monkeypatch, case: str
         assert references == [[], []]  # Native PDB inputs supply their own templates.
     else:
         # ML/MM intentionally keeps the original layered template for preopt.
-        assert [len(refs) for refs in references] == [2, 2]
+        assert [len(refs) for refs in references] == [1, 1]
         assert [[next(line[17:20] for line in ref.read_text().splitlines() if line.startswith("HETATM"))
-                 for ref in refs] for refs in references] == [["RAW", "S01"], ["S01", "S02"]]
+                 for ref in refs] for refs in references] == [["RAW"], ["S01"]]
     for index in (1, 2):
         segment_pdb = path_dir / f"mep_seg_{index:02d}.pdb"
         assert segment_pdb.exists() is convert

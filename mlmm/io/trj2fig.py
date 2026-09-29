@@ -424,7 +424,7 @@ def run_trj2fig(
 @click.option(
     "-m",
     "--multiplicity",
-    type=int,
+    type=click.IntRange(min=1),
     default=None,
     show_default="1",
     help="Spin multiplicity (2S+1). Recompute energies when supplied.",

@@ -30,6 +30,7 @@ SKILLS_DIR = REPO_ROOT / "skills"
 
 sys.path.insert(0, str(REPO_ROOT))
 from mlmm.cli import cli as root_cli  # noqa: E402
+from mlmm.core.utils import RESULT_JSON_STATUS_VALUES  # noqa: E402
 
 
 # Renamed file/key/string literals — (old, new, note).
@@ -53,19 +54,9 @@ RENAMED_STRINGS: list[tuple[str, str, str]] = [
      "skill referenced a log file that is not produced"),
 ]
 
-# CLI status is command-specific: summaries, optimizers, TS validation,
-# completed analysis/integration stages, and exception envelopes each use a
-# deliberately distinct value.
-CANONICAL_STATUS: set[str] = {
-    "success",
-    "partial",
-    "failed",
-    "converged",
-    "not_converged",
-    "unverified",
-    "completed",
-    "error",
-}
+# Status is command-specific; this is the union of public values documented in
+# docs/json-output.md and emitted by the workflows.
+CANONICAL_STATUS: set[str] = set(RESULT_JSON_STATUS_VALUES)
 
 # MCP runner-level status vocabulary (mlmm/mcp/_runner.py): a distinct
 # enum from the CLI summary.json status above, valid only inside the

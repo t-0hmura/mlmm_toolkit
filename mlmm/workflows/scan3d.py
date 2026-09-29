@@ -71,6 +71,7 @@ from mlmm.workflows.opt import (
     CALC_KW as _OPT_CALC_KW,
     OPT_BASE_KW as _OPT_BASE_KW,
     LBFGS_KW as _OPT_LBFGS_KW,
+    RFO_KW as _OPT_RFO_KW,
     _parse_freeze_atoms,
     _normalize_geom_freeze,
 )
@@ -111,7 +112,7 @@ from mlmm.core.utils import (
     ensure_dir,
     distance_A_from_coords,
     distance_tag,
-    unique_tag_digits,
+    claim_unique_scan_stem,
     values_from_bounds,
     unbiased_energy_hartree,
     snapshot_geometry,
@@ -121,6 +122,8 @@ from mlmm.core.utils import (
 from mlmm.workflows.scan_common import (
     add_scan_common_options,
     make_scan_lbfgs as _make_lbfgs,
+    make_scan_rfo as _make_rfo,
+    normalize_scan_opt_mode,
     OutputCollisionError,
     prepare_grid_scan_output,
     prepare_scan_fixed_outputs,
@@ -143,7 +146,13 @@ from mlmm.cli.common_options import (
     add_deterministic_option, add_allow_charge_mult_mismatch_option,
 )
 from mlmm.cli.common_options import add_dft_calculator_options
-from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, render_cli_exception
+from mlmm.cli.decorators import (
+    _write_error_json,
+    load_merged_yaml_cfg,
+    make_is_param_explicit,
+    render_cli_exception,
+    resolve_yaml_sources,
+)
 
 # Shared defaults (copied from opt.py to keep ML/MM behavior consistent)
 GEOM_KW: Dict[str, Any] = deepcopy(_OPT_GEOM_KW)
@@ -153,16 +162,38 @@ OPT_BASE_KW.update(
     {
         "out_dir": OUT_DIR_SCAN3D,
         "dump": False,
-        "max_cycles": None,
     }
 )
 LBFGS_KW: Dict[str, Any] = deepcopy(_OPT_LBFGS_KW)
 LBFGS_KW.update({"out_dir": OUT_DIR_SCAN3D})
+RFO_KW: Dict[str, Any] = deepcopy(_OPT_RFO_KW)
+RFO_KW.update({"out_dir": OUT_DIR_SCAN3D})
 BIAS_KW: Dict[str, Any] = deepcopy(_BIAS_KW_DEFAULT)
 
 _VOLUME_GRID_N = 50  # 50×50×50 RBF interpolation grid
 
 _snapshot_geometry = functools.partial(snapshot_geometry, coord_type_default="cart")
+
+
+def _rbf_support_3d(
+    points_x: np.ndarray,
+    points_y: np.ndarray,
+    points_z: np.ndarray,
+) -> Tuple[int, int]:
+    """Return the unique-point count and geometric rank for 3D interpolation."""
+    points = np.column_stack(
+        (
+            np.asarray(points_x, dtype=float),
+            np.asarray(points_y, dtype=float),
+            np.asarray(points_z, dtype=float),
+        )
+    )
+    if len(points) == 0:
+        return 0, 0
+    unique = np.unique(points, axis=0)
+    if len(unique) <= 1:
+        return len(unique), 0
+    return len(unique), int(np.linalg.matrix_rank(unique - unique[0]))
 
 
 def _extract_axis_label(df: pd.DataFrame, column: str, fallback: Optional[str]) -> Optional[str]:
@@ -192,6 +223,7 @@ def _finalize_surface_and_plot(
     d3_label_csv: Optional[str],
     write_surface_csv: bool,
     time_start: float,
+    coordinate_units: Tuple[str, ...] = (),
 ) -> Dict[str, Any]:
     if df.empty:
         raise ValueError("No grid records were produced.")
@@ -253,35 +285,39 @@ def _finalize_surface_and_plot(
             err=True,
         )
 
-    if not bool(usable_mask.any()):
-        raise ValueError("No usable finite non-preoptimization grid point.")
-
-    if baseline == "first":
-        first_mask = (
-            usable_mask
-            & (df["i"] == 0)
-            & (df["j"] == 0)
-            & (df["k"] == 0)
-        )
-        if not bool(first_mask.any()):
-            click.echo(
-                "[baseline] 'first' requested but usable (i=0,j=0,k=0) "
-                "is missing; using the usable minimum instead.",
-                err=True,
+    ref_energy = float("nan")
+    if bool(usable_mask.any()):
+        if baseline == "first":
+            first_mask = (
+                usable_mask
+                & (df["i"] == 0)
+                & (df["j"] == 0)
+                & (df["k"] == 0)
             )
-            ref_index = df.loc[usable_mask, energy_column].idxmin()
+            if not bool(first_mask.any()):
+                click.echo(
+                    "[baseline] 'first' requested but usable (i=0,j=0,k=0) "
+                    "is missing; using the usable minimum instead.",
+                    err=True,
+                )
+                ref_index = df.loc[usable_mask, energy_column].idxmin()
+            else:
+                ref_index = df.index[first_mask][0]
         else:
-            ref_index = df.index[first_mask][0]
-    else:
-        ref_index = df.loc[usable_mask, energy_column].idxmin()
+            ref_index = df.loc[usable_mask, energy_column].idxmin()
+        ref_energy = float(df.loc[ref_index, energy_column])
+    elif write_surface_csv:
+        click.echo(
+            "No converged finite grid point with a written geometry is "
+            "available; relative energies and interpolation are disabled.",
+            err=True,
+        )
 
     if "energy_hartree" in df.columns:
-        ref_energy = float(df.loc[ref_index, "energy_hartree"])
         df["energy_kcal"] = (
             df["energy_hartree"] - ref_energy
         ) * AU2KCALPERMOL
     else:
-        ref_energy = float(df.loc[ref_index, "energy_kcal"])
         df["energy_kcal"] = df["energy_kcal"] - ref_energy
 
     if write_surface_csv:
@@ -289,6 +325,12 @@ def _finalize_surface_and_plot(
         df["d1_label"] = d1_label_csv
         df["d2_label"] = d2_label_csv
         df["d3_label"] = d3_label_csv
+        for axis_number, unit in enumerate(coordinate_units, start=1):
+            df[f"q{axis_number}"] = df[f"d{axis_number}_A"]
+            df[f"q{axis_number}_unit"] = unit
+            target_column = f"target_d{axis_number}_A"
+            if target_column in df.columns:
+                df[f"target_q{axis_number}"] = df[target_column]
         _csv_drop3 = [
             c
             for c in ("seed_eligible", "artifact_written", "geometry_file")
@@ -311,27 +353,37 @@ def _finalize_surface_and_plot(
         & usable_mask.to_numpy(dtype=bool)
     )
     if not np.any(mask):
-        raise ValueError("No finite data are available for plotting.")
+        click.echo("[plot] No finite data for plotting.")
+        sys.exit(1)
 
-    points = np.column_stack((d1_points[mask], d2_points[mask], d3_points[mask]))
-    unique_points = np.unique(points, axis=0)
-    if len(unique_points) != len(points):
+    n_unique, support_rank = _rbf_support_3d(
+        d1_points[mask],
+        d2_points[mask],
+        d3_points[mask],
+    )
+    if n_unique < 4 or support_rank < 3:
+        message = (
+            "A 3D energy volume requires at least four non-coplanar "
+            "converged finite grid points; found "
+            f"{n_unique} unique point(s) with geometric rank "
+            f"{support_rank}. surface.csv was written, but the volume "
+            "plot was not generated."
+        )
+        error = ValueError(message)
+        _write_error_json(
+            final_dir,
+            "scan3d",
+            error,
+            "InsufficientPlotData",
+            time_start,
+        )
+        click.echo(f"[plot] ERROR: {message}", err=True)
+        sys.exit(1)
+    n_duplicates = int(np.count_nonzero(mask)) - n_unique
+    if n_duplicates:
         raise ValueError(
             "3D interpolation requires unique coordinate triples; found "
-            f"{len(points) - len(unique_points)} duplicate row(s)."
-        )
-    support_rank = (
-        int(np.linalg.matrix_rank(unique_points - unique_points[0]))
-        if len(unique_points) > 1
-        else 0
-    )
-    axis_spans = np.ptp(unique_points, axis=0) if len(unique_points) else np.zeros(3)
-    if len(unique_points) < 4 or support_rank < 3 or np.any(axis_spans <= 0.0):
-        raise ValueError(
-            "3D interpolation requires at least four non-coplanar points "
-            "spanning every axis; found "
-            f"{len(unique_points)} unique point(s), rank {support_rank}, "
-            f"axis spans {axis_spans.tolist()}."
+            f"{n_duplicates} duplicate row(s)."
         )
 
     x_min, x_max = float(np.min(d1_points[mask])), float(np.max(d1_points[mask]))
@@ -439,7 +491,7 @@ def _finalize_surface_and_plot(
 
     fig3d = go.Figure(data=isosurfaces + [colorbar_trace])
     fig3d.update_layout(
-        title="3D Energy Landscape (ML/MM)",
+        title="3D Energy Landscape",
         autosize=True,
         scene=dict(
             bgcolor="rgba(0,0,0,0)",
@@ -562,7 +614,7 @@ def _finalize_surface_and_plot(
     "-m",
     "--multiplicity",
     "spin",
-    type=int,
+    type=click.IntRange(min=1),
     default=None,
     show_default="1",
     help="Spin multiplicity (2S+1) for the ML region.",
@@ -614,7 +666,7 @@ def _finalize_surface_and_plot(
     "dry_run",
     default=False,
     show_default=True,
-    help="Validate options and print the execution plan without running the scan.",
+    help="Validate options and inputs without running the scan.",
 )
 @click.option(
     "--config",
@@ -633,7 +685,7 @@ def _finalize_surface_and_plot(
 )
 @click.option(
     "-b", "--backend",
-    type=click.Choice(["uma", "orb", "mace", "aimnet2", "dft"], case_sensitive=False),
+    type=click.Choice(["uma", "orb", "mace", "aimnet2", "dft"]),
     default=None,
     show_default="uma",
     help="High-level backend for the ONIOM model region.",
@@ -721,6 +773,7 @@ def cli(
     max_dihedral_step_size: float,
     bias_k: float,
     relax_max_cycles: int,
+    opt_mode: str,
     dump: bool,
     out_dir: str,
     thresh: Optional[str],
@@ -767,6 +820,13 @@ def cli(
     if csv_path is not None:
         final_dir = Path(out_dir).resolve()
         resolved_csv = Path(csv_path).resolve()
+        if dry_run:
+            click.echo("[scan3d] --dry-run with --csv: option parsing OK.")
+            click.echo(f"[scan3d] csv input  : {csv_path}")
+            click.echo(f"[scan3d] out_dir    : {final_dir}")
+            click.echo("[scan3d] No 3D scan was executed.")
+            emit_dry_run_complete()
+            return
         try:
             final_dir = prepare_scan_fixed_outputs(
                 final_dir,
@@ -879,12 +939,16 @@ def cli(
             calc_cfg = dict(CALC_KW)
             bias_cfg = dict(BIAS_KW)
 
-            opt_cfg, lbfgs_cfg = resolve_scan_optimizer_configs(
+            sopt_kind = normalize_scan_opt_mode(opt_mode)
+            opt_cfg, sopt_cfg = resolve_scan_optimizer_configs(
                 yaml_cfg,
                 opt_defaults=OPT_BASE_KW,
                 lbfgs_defaults=LBFGS_KW,
+                rfo_defaults=RFO_KW,
+                kind=sopt_kind,
                 thresh=thresh,
                 relax_max_cycles=relax_max_cycles,
+                print_every=print_every,
                 is_param_explicit=_is_param_explicit,
             )
 
@@ -959,8 +1023,6 @@ def cli(
                 calc_cfg["embedcharge"] = bool(embedcharge)
             if _is_param_explicit("embedcharge_cutoff"):
                 calc_cfg["embedcharge_cutoff"] = embedcharge_cutoff
-            if _is_param_explicit("print_every") and print_every is not None:
-                opt_cfg["print_every"] = int(print_every)
             if link_atom_method is not None:
                 calc_cfg["link_atom_method"] = str(link_atom_method).lower()
             if mm_backend is not None:
@@ -1023,8 +1085,8 @@ def cli(
             click.echo(pretty_block("calc", echo_calc))
             echo_opt = strip_inherited_keys({**opt_cfg, "out_dir": str(out_dir_path)}, OPT_BASE_KW, mode="same")
             click.echo(pretty_block("opt", echo_opt))
-            echo_lbfgs = strip_inherited_keys(lbfgs_cfg, opt_cfg)
-            click.echo(pretty_block("lbfgs", echo_lbfgs))
+            echo_sopt = strip_inherited_keys(sopt_cfg, opt_cfg)
+            click.echo(pretty_block(sopt_kind, echo_sopt))
             click.echo(pretty_block("bias", bias_cfg))
 
             pdb_atom_meta: List[Dict[str, Any]] = []
@@ -1129,9 +1191,19 @@ def cli(
                             "backend": calc_cfg.get("backend", "uma"),
                             "embedcharge": bool(calc_cfg.get("embedcharge", False)),
                         },
-                        force=True,
                     )
                 )
+                click.echo("[scan3d] --dry-run: input, charge/spin, and --scan-lists parse OK.")
+                click.echo(f"[scan3d] input geometry  : {geom_input_path}")
+                click.echo(f"[scan3d] resolved charge : {int(charge):+d}")
+                click.echo(f"[scan3d] resolved spin   : {int(spin)} (multiplicity)")
+                click.echo(f"[scan3d] out_dir         : {out_dir_path}")
+                click.echo(
+                    f"[scan3d] --scan-lists    : {scan_list_raw} "
+                    f"→ {len(parsed)} axis tuples"
+                )
+                click.echo(f"[scan3d] preopt={bool(preopt)}")
+                click.echo("[scan3d] No 3D scan was executed.")
                 emit_dry_run_complete()
                 return
             click.echo(
@@ -1198,20 +1270,22 @@ def cli(
 
             base_calc = mlmm(**calc_cfg)
             biased = HarmonicBiasCalculator(base_calc, k=float(bias_cfg["k"]))
+            _make_relax = (
+                _make_lbfgs if sopt_kind == "lbfgs"
+                else functools.partial(_make_rfo, calc_cfg=calc_cfg)
+            )
 
             echo_resolved_device()
 
-            # The reference/anchor structure is usable-by-default when no preopt
-            # is requested; when preopt runs, its reported convergence bit
-            # replaces the default.
-            _preopt_conv: Optional[bool] = True
+            # Optional pre-optimization of the starting structure
+            _preopt_conv: Optional[bool] = None
             if preopt:
                 preopt_input = _snapshot_geometry(geom_outer)
                 click.echo("[preopt] Unbiased relaxation of the initial structure ...")
                 geom_outer.set_calculator(base_calc)
-                optimizer0 = _make_lbfgs(
+                optimizer0 = _make_relax(
                     geom_outer,
-                    lbfgs_cfg,
+                    sopt_cfg,
                     opt_cfg,
                     max_step_bohr=float(max_step_size) * ANG2BOHR,
                     out_dir=tmp_opt_dir,
@@ -1245,6 +1319,7 @@ def cli(
                     geom_outer = _snapshot_geometry(preopt_input)
 
             records: List[Dict[str, Any]] = []
+            preopt_record: Optional[Dict[str, Any]] = None
 
             # Measure reference distances on the (pre)optimized structure
             coords_outer = np.asarray(geom_outer.coords3d)
@@ -1288,20 +1363,18 @@ def cli(
                     )
 
                 preopt_energy_h = unbiased_energy_hartree(geom_outer, base_calc)
-                records.append(
-                    {
-                        "i": -1,
-                        "j": -1,
-                        "k": -1,
-                        "d1_A": float(d1_ref),
-                        "d2_A": float(d2_ref),
-                        "d3_A": float(d3_ref),
-                        "energy_hartree": preopt_energy_h,
-                        "bias_converged": _preopt_conv,
-                        "artifact_written": preopt_artifact_written,
-                        "is_preopt": True,
-                    }
-                )
+                preopt_record = {
+                    "i": -1,
+                    "j": -1,
+                    "k": -1,
+                    "d1_A": float(d1_ref),
+                    "d2_A": float(d2_ref),
+                    "d3_A": float(d3_ref),
+                    "energy_hartree": preopt_energy_h,
+                    "bias_converged": _preopt_conv,
+                    "artifact_written": preopt_artifact_written,
+                    "is_preopt": True,
+                }
             else:
                 click.echo(
                     "[center] WARNING: failed to determine reference distances; using grid order as-is.",
@@ -1312,21 +1385,7 @@ def cli(
             d1_values = values_from_bounds(low1, high1, coordinate_step_cap(kinds[0], max_step_size, max_angle_step_size, max_dihedral_step_size))
             d2_values = values_from_bounds(low2, high2, coordinate_step_cap(kinds[1], max_step_size, max_angle_step_size, max_dihedral_step_size))
             d3_values = values_from_bounds(low3, high3, coordinate_step_cap(kinds[2], max_step_size, max_angle_step_size, max_dihedral_step_size))
-
-            # One tag precision per axis, so a fine grid cannot map two targets
-            # onto the same point tag and truncate the earlier artifact.
-            d1_digits = unique_tag_digits(d1_values)
-            d2_digits = unique_tag_digits(d2_values)
-            d3_digits = unique_tag_digits(d3_values)
-
-            def _d1_tag(value: float) -> str:
-                return distance_tag(value, digits=d1_digits, pad=d1_digits + 1)
-
-            def _d2_tag(value: float) -> str:
-                return distance_tag(value, digits=d2_digits, pad=d2_digits + 1)
-
-            def _d3_tag(value: float) -> str:
-                return distance_tag(value, digits=d3_digits, pad=d3_digits + 1)
+            used_grid_stems: set[str] = set()
 
             if math.isfinite(d1_ref):
                 d1_values = np.array(sorted(d1_values, key=lambda v: abs(v - d1_ref)), dtype=float)
@@ -1352,7 +1411,7 @@ def cli(
 
             # ===== 3D nested scan: d1 (outer) → d2 (middle) → d3 (inner) =====
             for i_idx, d1_target in enumerate(d1_values):
-                d1_tag = _d1_tag(d1_target)
+                d1_tag = distance_tag(d1_target)
                 click.echo(f"\n--- d1 step {i_idx + 1}/{N1} : target = {d1_target:.3f} {units[0]} ---")
 
                 # Choose initial geometry for this d1
@@ -1366,13 +1425,13 @@ def cli(
                 geom_outer_i.set_calculator(biased)
                 geom_outer_start = _snapshot_geometry(geom_outer_i)
 
-                opt1 = _make_lbfgs(
+                opt1 = _make_relax(
                     geom_outer_i,
-                    lbfgs_cfg,
+                    sopt_cfg,
                     opt_cfg,
                     max_step_bohr=max_step_bohr,
                     out_dir=tmp_opt_dir,
-                    prefix=f"d1_{d1_tag}",
+                    prefix=f"d1_{i_idx:03d}",
                 )
                 d1_converged = None
                 try:
@@ -1397,7 +1456,7 @@ def cli(
                     d2_geoms[i_idx] = {}
 
                 for j_idx, d2_target in enumerate(d2_values):
-                    d2_tag = _d2_tag(d2_target)
+                    d2_tag = distance_tag(d2_target)
                     click.echo(
                         f"  [stage] d1/d2 step ({i_idx + 1}/{N1}, {j_idx + 1}/{N2}): "
                         f"targets = ({d1_target:.3f} {units[0]}, {d2_target:.3f} {units[1]})"
@@ -1418,13 +1477,13 @@ def cli(
                     geom_mid.set_calculator(biased)
                     geom_mid_start = _snapshot_geometry(geom_mid)
 
-                    opt2 = _make_lbfgs(
+                    opt2 = _make_relax(
                         geom_mid,
-                        lbfgs_cfg,
+                        sopt_cfg,
                         opt_cfg,
                         max_step_bohr=max_step_bohr,
                         out_dir=tmp_opt_dir,
-                        prefix=f"d1_{d1_tag}_d2_{d2_tag}",
+                        prefix=f"d1_{i_idx:03d}_d2_{j_idx:03d}",
                     )
                     d2_converged = None
                     try:
@@ -1453,7 +1512,7 @@ def cli(
                     trj_blocks = [] if dump else None
 
                     for k_idx, d3_target in enumerate(d3_values):
-                        d3_tag = _d3_tag(d3_target)
+                        d3_tag = distance_tag(d3_target)
 
                         # Choose initial geometry for this (d1,d2,d3)
                         if not d3_store:
@@ -1469,13 +1528,13 @@ def cli(
                         ])
                         geom_inner.set_calculator(biased)
 
-                        opt3 = _make_lbfgs(
+                        opt3 = _make_relax(
                             geom_inner,
-                            lbfgs_cfg,
+                            sopt_cfg,
                             opt_cfg,
                             max_step_bohr=max_step_bohr,
                             out_dir=tmp_opt_dir,
-                            prefix=f"d1_{d1_tag}_d2_{d2_tag}_d3_{d3_tag}",
+                            prefix=f"d1_{i_idx:03d}_d2_{j_idx:03d}_d3_{k_idx:03d}",
                         )
                         # a normal (non-raising) run is NOT convergence —
                         # read the optimizer's explicit tri-state bit.
@@ -1498,7 +1557,12 @@ def cli(
 
                         energy_h = unbiased_energy_hartree(geom_inner, base_calc)
 
-                        xyz_path = grid_dir / f"point_i{d1_tag}_j{d2_tag}_k{d3_tag}.xyz"
+                        point_stem = claim_unique_scan_stem(
+                            f"point_i{d1_tag}_j{d2_tag}_k{d3_tag}",
+                            (i_idx, j_idx, k_idx),
+                            used_grid_stems,
+                        )
+                        xyz_path = grid_dir / f"{point_stem}.xyz"
                         _artifact_written = False
                         try:
                             xyz = geom_inner.as_xyz()
@@ -1541,14 +1605,21 @@ def cli(
                                 block += "\n"
                             trj_blocks.append(block)
 
+                        coords_realized = np.asarray(geom_inner.coords3d, dtype=float)
+                        d1_realized = coordinate_value(coords_realized, axis1, is_range=True)
+                        d2_realized = coordinate_value(coords_realized, axis2, is_range=True)
+                        d3_realized = coordinate_value(coords_realized, axis3, is_range=True)
                         records.append(
                             {
                                 "i": int(i_idx),
                                 "j": int(j_idx),
                                 "k": int(k_idx),
-                                "d1_A": float(d1_target),
-                                "d2_A": float(d2_target),
-                                "d3_A": float(d3_target),
+                                "d1_A": float(d1_realized),
+                                "d2_A": float(d2_realized),
+                                "d3_A": float(d3_realized),
+                                "target_d1_A": float(d1_target),
+                                "target_d2_A": float(d2_target),
+                                "target_d3_A": float(d3_target),
                                 "energy_hartree": energy_h,
                                 "bias_converged": converged,
                                 "artifact_written": bool(_artifact_written),
@@ -1562,7 +1633,7 @@ def cli(
                         )
 
                     if dump and trj_blocks:
-                        trj_path = grid_dir / f"inner_path_d1_{d1_tag}_d2_{d2_tag}_trj.xyz"
+                        trj_path = grid_dir / f"inner_path_d1_{i_idx:03d}_d2_{j_idx:03d}_trj.xyz"
                         try:
                             with open(trj_path, "w") as handle:
                                 handle.write("".join(trj_blocks))
@@ -1572,7 +1643,7 @@ def cli(
                                 convert_and_annotate_xyz_to_pdb(
                                     trj_path,
                                     ref_pdb_resolve,
-                                    trj_path.with_suffix(".pdb"),
+                                    grid_dir / f"inner_path_d1_{i_idx:03d}_d2_{j_idx:03d}.pdb",
                                     model_pdb_path,
                                     freeze_atoms_final,
                                 )
@@ -1582,10 +1653,11 @@ def cli(
                                 err=True,
                             )
 
+            # Add starting structure as an extra record for plotting
+            if preopt_record is not None:
+                records.append(preopt_record)
+
             df = pd.DataFrame.from_records(records)
-            for axis_number, axis_kind in enumerate(kinds, start=1):
-                df[f"q{axis_number}"] = df[f"d{axis_number}_A"]
-                df[f"q{axis_number}_unit"] = coordinate_unit(axis_kind)
             surface_stats = _finalize_surface_and_plot(
                 df=df,
                 final_dir=final_dir,
@@ -1597,6 +1669,7 @@ def cli(
                 d3_label_csv=d3_label_csv,
                 write_surface_csv=True,
                 time_start=time_start,
+                coordinate_units=tuple(coordinate_unit(kind) for kind in kinds),
             )
 
             if out_json:
@@ -1639,9 +1712,9 @@ def cli(
                             float(rec["d3_A"]),
                         ],
                         "coordinate_targets": [
-                            float(rec["d1_A"]),
-                            float(rec["d2_A"]),
-                            float(rec["d3_A"]),
+                            float(rec["target_d1_A"]),
+                            float(rec["target_d2_A"]),
+                            float(rec["target_d3_A"]),
                         ],
                         "coordinate_units": [coordinate_unit(kind) for kind in kinds],
                         "energy_hartree": rec.get("energy_hartree"),

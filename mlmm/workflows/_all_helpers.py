@@ -99,9 +99,6 @@ def build_energy_level_dict(
     if list(labels) == ["R", "TS", "P"]:
         payload["barrier_kcal"] = kcal[1]
         payload["delta_kcal"] = kcal[-1]
-    elif list(labels) == ["E1", "TS", "E2"]:
-        payload["barrier_from_endpoint_1_kcal"] = kcal[1] - kcal[0]
-        payload["barrier_from_endpoint_2_kcal"] = kcal[1] - kcal[2]
     return payload
 
 

@@ -241,7 +241,7 @@ def test_shared_optimizer_value_rejects_explicit_conflict(tsopt_mod):
     opt_cfg = {"max_cycles": 10}
     rsirfo_cfg = {"max_cycles": 20}
     with pytest.raises(tsopt_mod.click.BadParameter, match="opt.max_cycles"):
-        tsopt_mod._resolve_shared_optimizer_value(
+        tsopt_mod.resolve_shared_optimizer_value(
             opt_cfg,
             rsirfo_cfg,
             "max_cycles",
@@ -261,7 +261,7 @@ def test_shared_optimizer_value_precedence(
 ):
     opt_cfg = {"max_cycles": 10}
     rsirfo_cfg = {"max_cycles": 20}
-    tsopt_mod._resolve_shared_optimizer_value(
+    tsopt_mod.resolve_shared_optimizer_value(
         opt_cfg,
         rsirfo_cfg,
         "max_cycles",
@@ -294,6 +294,17 @@ def test_hessian_ts_kwargs_require_one_root(tsopt_mod, tmp_path):
             max_cycles=1,
             out_dir=tmp_path,
             mode="rsprfo",
+        )
+
+
+@pytest.mark.parametrize("mode", ["rsprfo", "rsirfo", "trim"])
+def test_hessian_ts_kwargs_reject_single_root_key(tsopt_mod, mode, tmp_path):
+    with pytest.raises(tsopt_mod.click.BadParameter, match="rsirfo.root is not supported"):
+        tsopt_mod._build_rsirfo_kwargs(
+            {"root": 1},
+            max_cycles=1,
+            out_dir=tmp_path,
+            mode=mode,
         )
 
 

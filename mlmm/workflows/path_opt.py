@@ -36,6 +36,7 @@ from pysisyphus.cos.GrowingString import GrowingString
 from pysisyphus.optimizers.StringOptimizer import StringOptimizer
 from pysisyphus.optimizers.exceptions import OptimizationError
 from pysisyphus.optimizers.LBFGS import LBFGS
+from pysisyphus.optimizers.RFOptimizer import RFOptimizer
 
 from mlmm.backends.mlmm_calc import mlmm, MLMMASECalculator
 from mlmm.workflows.opt import (
@@ -54,6 +55,7 @@ from mlmm.core.utils import (
     is_convert_file_enabled,
     load_yaml_dict,
     apply_yaml_overrides,
+    deep_update,
     pretty_block,
     strip_inherited_keys,
     filter_calc_for_echo,
@@ -84,10 +86,17 @@ from mlmm.core.defaults import (
     DMF_KW as _DMF_KW_DEFAULT,
     fresh_dmf_config,
     GS_KW as _GS_KW_DEFAULT,
+    OPT_BASE_KW,
     OUT_DIR_PATH_OPT,
+    RFO_KW,
     STOPT_KW as _STOPT_KW_DEFAULT,
     THRESH_CHOICES,
 )
+from mlmm.workflows._path_yaml_helpers import (
+    apply_single_opt_yaml_layer,
+    check_single_opt_yaml_conflicts,
+)
+from mlmm.workflows.scan_common import normalize_scan_opt_mode, seed_scan_rfo_hessian
 
 
 # Defaults (overridden by YAML/CLI)
@@ -109,6 +118,29 @@ GS_KW: Dict[str, Any] = deepcopy(_GS_KW_DEFAULT)
 
 # StringOptimizer (optimization control)
 STOPT_KW: Dict[str, Any] = deepcopy(_STOPT_KW_DEFAULT)
+
+
+def _make_single_optimizer(
+    g,
+    opt_kind: str,
+    args: Dict[str, Any],
+    calc_cfg: Optional[Mapping[str, Any]],
+):
+    """Build the LBFGS or RFO used for one path structure (preopt, HEI±1, kinks).
+
+    RFO with ``hessian_init: calc`` starts from the ML/MM Hessian of the attached
+    calculator, as ``opt --opt-mode hess`` does; set the calculator first.
+    """
+    if opt_kind == "lbfgs":
+        return LBFGS(g, **args)
+    if opt_kind != "rfo":
+        raise ValueError(f"Unknown single-structure optimizer kind '{opt_kind}'.")
+    if str(args.get("hessian_init", "calc")).lower() == "calc":
+        if calc_cfg is None:
+            raise ValueError("RFO with hessian_init 'calc' needs the ML/MM calculator settings.")
+        seed_scan_rfo_hessian(g, calc_cfg)
+    return RFOptimizer(g, **args)
+
 
 def _load_two_endpoints(
     inputs: Sequence[PreparedInputStructure],
@@ -876,8 +908,7 @@ def _run_dmf_mep(
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     nargs=2,
     required=True,
-    help=("Two endpoint structures in PDB/mmCIF, or XYZ with a corresponding "
-          "--ref-pdb for each endpoint."),
+    help="Two endpoint structures in PDB/mmCIF, or XYZ with --ref-pdb.",
 )
 @click.option(
     "-q",
@@ -894,7 +925,7 @@ def _run_dmf_mep(
     "-m",
     "--multiplicity",
     "spin",
-    type=int,
+    type=click.IntRange(min=1),
     default=None,
     show_default="1",
     help="Spin multiplicity (2S+1).",
@@ -947,16 +978,26 @@ def _run_dmf_mep(
     help="Search for a transition state (climbing image) after path growth.",
 )
 @click.option(
+    "--opt-mode",
+    type=click.Choice(["grad", "hess"], case_sensitive=False),
+    default="grad",
+    show_default=True,
+    help="Single-structure optimizer for endpoint preoptimization: grad (=LBFGS) or hess (=RFO).",
+)
+@click.option(
     "--preopt/--no-preopt",
     # Default True matches GS_KW.fix_first/fix_last semantics and the
     # mlmm-all.py forwarding: endpoints are typically pre-relaxed before
     # string growth to avoid GSM step inflation.
     default=True,
     show_default=True,
-    help="Pre-optimize the two endpoint structures with L-BFGS before string growth.",
+    help=(
+        "Pre-optimize the two endpoint structures with the selected "
+        "single-structure optimizer (LBFGS/RFO) before string growth."
+    ),
 )
 @click.option("--preopt-max-cycles", "preopt_max_cycles", type=click.IntRange(min=1), default=None, show_default="100000",
-              help="Maximum L-BFGS cycles for endpoint pre-optimization.")
+              help="Maximum optimizer cycles for endpoint pre-optimization.")
 @click.option(
     "--fix-ends/--no-fix-ends",
     default=True,
@@ -977,7 +1018,8 @@ def _run_dmf_mep(
     default=None,
     show_default="gau",
     help=(
-        "Convergence preset for endpoint preoptimization only. "
+        "Convergence preset for endpoint preoptimization and the "
+        "post-alignment relaxation only. "
         "The MEP itself keeps --thresh-gsm / --dmf-tol."
     ),
 )
@@ -1075,7 +1117,7 @@ def _run_dmf_mep(
 )
 @click.option(
     "-b", "--backend",
-    type=click.Choice(["uma", "orb", "mace", "aimnet2", "dft"], case_sensitive=False),
+    type=click.Choice(["uma", "orb", "mace", "aimnet2", "dft"]),
     default=None,
     show_default="uma",
     help="High-level backend for the ONIOM model region.",
@@ -1125,15 +1167,11 @@ def _run_dmf_mep(
     show_default=True,
     help="Write machine-readable result.json to out_dir.",
 )
-# Full template PDBs for XYZ→PDB conversion and topology reference
 @click.option(
     "--ref-pdb",
-    "ref_pdb_paths",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
-    multiple=True,
     default=None,
-    help=("Full-size template PDBs in the same order as --input. "
-          "Required when using XYZ inputs to provide topology and B-factor information."),
+    help="Full-size template PDB for XYZ inputs; provides topology and B-factor information.",
 )
 @add_ml_layer_detection_options()
 @add_precision_option()
@@ -1147,7 +1185,7 @@ def _run_dmf_mep(
 def cli(
     ctx: click.Context,
     input_paths: Sequence[Path],
-    ref_pdb_paths: Sequence[Path],
+    ref_pdb: Optional[Path],
     charge: Optional[int],
     ligand_charge: Optional[str],
     spin: Optional[int],
@@ -1158,6 +1196,7 @@ def cli(
     max_cycles_gsm: Optional[int],
     max_cycles_dmf: Optional[int],
     climb: bool,
+    opt_mode: str,
     preopt: bool,
     preopt_max_cycles: int,
     fix_ends: bool,
@@ -1218,22 +1257,21 @@ def cli(
             click.echo("ERROR: Provide exactly two endpoint structures (-i reactant product).", err=True)
             sys.exit(1)
 
-        # Accept XYZ inputs when a matching --ref-pdb is supplied: overlay the XYZ
+        # Accept XYZ inputs when --ref-pdb is supplied: overlay the XYZ
         # coordinates onto the reference PDB topology so path-opt runs on full
         # ML/MM PDBs (mirrors the --ref-pdb support already in path-search/scan).
-        ref_list = list(ref_pdb_paths) if ref_pdb_paths else []
-        for i, src in enumerate(input_paths):
+        for src in input_paths:
             suffix = src.suffix.lower()
             prepared = prepare_input_structure(src)
             if suffix in {".pdb", ".cif", ".mmcif"}:
                 pass
             elif suffix == ".xyz":
-                if i >= len(ref_list):
+                if ref_pdb is None:
                     raise click.UsageError(
-                        f"XYZ input '{src.name}' requires a corresponding --ref-pdb "
+                        f"XYZ input '{src.name}' requires --ref-pdb "
                         "for topology/B-factor info."
                     )
-                apply_ref_pdb_override(prepared, Path(ref_list[i]))
+                apply_ref_pdb_override(prepared, ref_pdb)
             else:
                 click.echo(
                     f"ERROR: '{src.name}': unsupported format. Use .pdb/.cif/.mmcif or .xyz (with --ref-pdb).",
@@ -1253,7 +1291,18 @@ def cli(
         gs_cfg = dict(GS_KW)
         stopt_cfg = dict(STOPT_KW)
         lbfgs_cfg = dict(LBFGS_KW)
+        rfo_cfg = dict(RFO_KW)
         dmf_cfg = fresh_dmf_config()
+
+        def _apply_single_opt_yaml_layer(layer_cfg: Dict[str, Any]) -> None:
+            apply_single_opt_yaml_layer(
+                layer_cfg,
+                lbfgs_cfg=lbfgs_cfg,
+                rfo_cfg=rfo_cfg,
+                stopt_cfg=stopt_cfg,
+                opt_base_kw=OPT_BASE_KW,
+                deep_update=deep_update,
+            )
 
         apply_yaml_overrides(
             config_layer_cfg,
@@ -1261,11 +1310,11 @@ def cli(
                 (geom_cfg, (("geom",),)),
                 (calc_cfg, (("calc",), ("mlmm",))),
                 (gs_cfg, (("gs",),)),
-                (stopt_cfg, (("stopt",), ("opt",))),
-                (lbfgs_cfg, (("opt", "lbfgs"), ("lbfgs",), ("stopt", "lbfgs"))),
+                (stopt_cfg, (("stopt",),)),
                 (dmf_cfg, (("dmf",),)),
             ],
         )
+        _apply_single_opt_yaml_layer(config_layer_cfg)
 
         # CLI explicit overrides (after config YAML, before override YAML)
         if backend is not None:
@@ -1317,11 +1366,14 @@ def cli(
         if _is_param_explicit("dump"):
             stopt_cfg["dump"] = bool(dump)
             lbfgs_cfg["dump"] = bool(dump)
+            rfo_cfg["dump"] = bool(dump)
         if _is_param_explicit("out_dir"):
             stopt_cfg["out_dir"] = out_dir
             lbfgs_cfg["out_dir"] = out_dir
+            rfo_cfg["out_dir"] = out_dir
         if _is_param_explicit("thresh") and thresh is not None:
             lbfgs_cfg["thresh"] = str(thresh)
+            rfo_cfg["thresh"] = str(thresh)
         if _is_param_explicit("thresh_gsm") and thresh_gsm is not None:
             stopt_cfg["thresh"] = str(thresh_gsm)
         if _is_param_explicit("thresh_dmf") and thresh_dmf is not None:
@@ -1333,6 +1385,7 @@ def cli(
             calc_cfg["use_bfactor_layers"] = False
         if _is_param_explicit("preopt_max_cycles"):
             lbfgs_cfg["max_cycles"] = int(preopt_max_cycles)
+            rfo_cfg["max_cycles"] = int(preopt_max_cycles)
 
         resolved_charge = charge
         resolved_spin = spin
@@ -1365,11 +1418,17 @@ def cli(
                 (geom_cfg, (("geom",),)),
                 (calc_cfg, (("calc",), ("mlmm",))),
                 (gs_cfg, (("gs",),)),
-                (stopt_cfg, (("stopt",), ("opt",))),
-                (lbfgs_cfg, (("opt", "lbfgs"), ("lbfgs",), ("stopt", "lbfgs"))),
+                (stopt_cfg, (("stopt",),)),
                 (dmf_cfg, (("dmf",),)),
             ],
         )
+        _apply_single_opt_yaml_layer(override_layer_cfg)
+        single_opt_kind = normalize_scan_opt_mode(opt_mode)
+        single_opt_cfg = lbfgs_cfg if single_opt_kind == "lbfgs" else rfo_cfg
+        for layer_cfg in (config_layer_cfg, override_layer_cfg):
+            check_single_opt_yaml_conflicts(
+                layer_cfg, kind=single_opt_kind, opt_base_kw=OPT_BASE_KW
+            )
         # The final layer may replace strict method enums or the workers count.
         # Revalidate the fully resolved calculator mapping before dry-run can
         # report success (the constructor repeats this for normal execution).
@@ -1420,7 +1479,7 @@ def cli(
 
         out_dir_path = Path(stopt_cfg["out_dir"]).resolve()
         preopt_max_cycles_effective = optional_positive_int(
-            lbfgs_cfg.get("max_cycles", preopt_max_cycles), "preopt max_cycles"
+            single_opt_cfg.get("max_cycles", preopt_max_cycles), "preopt max_cycles"
         )
 
         # movable_cutoff implies full distance-based layer assignment.
@@ -1436,7 +1495,7 @@ def cli(
         path_protected_inputs = (
             *requested_input_paths,
             *(prep.source_path for prep in prepared_inputs),
-            *ref_list,
+            ref_pdb,
             real_parm7,
             (
                 Path(calc_cfg["input_pdb"])
@@ -1527,6 +1586,7 @@ def cli(
                         "output_dir": str(out_dir_path),
                         "mep_mode": mep_mode_kind,
                         "gsm_param": str(gs_cfg.get("param", GS_KW["param"])),
+                        "opt_mode": ("grad" if single_opt_kind == "lbfgs" else "hess"),
                         "fix_ends": bool(gs_cfg.get("fix_first", False) and gs_cfg.get("fix_last", False)),
                         "detect_layer": bool(detect_layer_enabled),
                         "model_region_source": model_region_source,
@@ -1576,14 +1636,18 @@ def cli(
         echo_calc = format_freeze_atoms_for_echo(filter_calc_for_echo(calc_cfg), key="freeze_atoms")
         echo_gs = strip_inherited_keys(gs_cfg, GS_KW, mode="same")
         echo_stopt = strip_inherited_keys({**stopt_cfg, "out_dir": str(out_dir_path)}, STOPT_KW, mode="same")
-        echo_lbfgs = strip_inherited_keys({**lbfgs_cfg, "out_dir": stopt_cfg.get("out_dir")}, LBFGS_KW, mode="same")
+        echo_single_opt = strip_inherited_keys(
+            {**single_opt_cfg, "out_dir": stopt_cfg.get("out_dir")},
+            LBFGS_KW if single_opt_kind == "lbfgs" else RFO_KW,
+            mode="same",
+        )
 
         click.echo(pretty_block("geom", echo_geom))
         click.echo(pretty_block("calc", echo_calc))
         if mep_mode_kind == "gsm":
             click.echo(pretty_block("gs", echo_gs))
             click.echo(pretty_block("stopt", echo_stopt))
-            click.echo(pretty_block("lbfgs", echo_lbfgs))
+            click.echo(pretty_block("opt." + single_opt_kind, echo_single_opt))
         elif mep_mode_kind == "dmf":
             click.echo(pretty_block("dmf", dmf_cfg))
         click.echo(
@@ -1634,7 +1698,10 @@ def cli(
             preopt_completed = 0
             preopt_errors: List[str] = []
             try:
-                emit("\n====== Pre-optimizing endpoints (LBFGS) ======\n", narrative=True)
+                emit(
+                    "\n====== Preoptimizing endpoints via single-structure optimizer ======\n",
+                    narrative=True,
+                )
                 pre_dir_base = out_dir_path / "preopt"
                 for i, g in enumerate(geoms):
                     try:
@@ -1643,13 +1710,15 @@ def cli(
                         logger.debug("Failed to set calculator on geometry", exc_info=True)
                     subdir = pre_dir_base / f"end{i:02d}"
                     subdir.mkdir(parents=True, exist_ok=True)
-                    lbfgs_args = dict(lbfgs_cfg)
-                    lbfgs_args.update({
+                    single_opt_args = dict(single_opt_cfg)
+                    single_opt_args.update({
                         "out_dir": str(subdir),
                         "max_cycles": preopt_max_cycles_effective,
                     })
-                    optimizer = LBFGS(g, **lbfgs_args)
-                    path_optimizers.add("lbfgs")
+                    optimizer = _make_single_optimizer(
+                        g, single_opt_kind, single_opt_args, calc_cfg
+                    )
+                    path_optimizers.add(single_opt_kind)
                     optimizer.run()
                     from mlmm.workflows._outcomes import optimizer_converged_bit
 
@@ -1749,7 +1818,7 @@ def cli(
             )
 
         # By default, apply external Kabsch alignment (if freeze_atoms exist, use only them)
-        align_thresh = str(stopt_cfg.get("thresh", "gau"))
+        align_thresh = str(single_opt_cfg.get("thresh", "gau"))
         try:
             emit("\n====== Aligning all inputs to the first structure (freeze-guided scan + relaxation) ======\n", narrative=True)
             alignment_results = align_and_refine_sequence_inplace(

@@ -1108,16 +1108,12 @@ class IRC:
             f"\t rms(grad)={ts_grad_rms:.6f}"
         )
 
-        # 'calc' is the documented default for a normal IRC and reproduces the
-        # exact geometry Hessian; any other accepted value is resolved through the
-        # shared guess-Hessian owner before the active space is extracted.
-        if self.hessian_init == "calc":
-            self.init_hessian = self.geometry.hessian
-        else:
-            self.init_hessian, hessian_str = get_guess_hessian(
-                self.geometry, self.hessian_init
-            )
-            self.log(f"Using {hessian_str} Hessian to start the IRC.")
+        # Honor the public hessian_init contract; "calc" (the non-downhill
+        # default) still requests the exact geometry Hessian.
+        self.init_hessian, hess_str = get_guess_hessian(
+            self.geometry, self.hessian_init
+        )
+        self.log(f"Using {hess_str} Hessian to seed the IRC.")
         has_partial = getattr(self.geometry, "within_partial_hessian", None) is not None
         act_n_dof = (
             int(self.geometry.within_partial_hessian.get("active_n_dof", 0))

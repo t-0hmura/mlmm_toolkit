@@ -91,7 +91,7 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | `n_cpus` | int | `<int>` |
 | `ram_gb` | float | `<ram in GB>` |
 
-オプティマイザは `"status": "stalled"` を返すこともあります。これは、設定した force/step の収束基準を満たさないまま、設定ウィンドウにわたってエネルギーが減少しなくなった状態（エネルギープラトー）です。stalled は converged とは別の非収束アウトカムであり、`converged` として報告されることは決してありません。停滞した最適化を繰り返さないよう、以降の flatten/再試行も停止します。存在する場合は `stop_reason` にエネルギー範囲・ウィンドウ・満たせなかった基準が記録されます。stalled は（例えば摂動した構造やより厳しいステップ制御で）再試行し得るものであり、`max_cycles` 枯渇や一般的な失敗のエイリアスではありません。microiteration では、macro ステップの stall と直近の micro（MM）緩和の stall はいずれも真実に報告され、macro 収束として偽装されることはありません。
+オプティマイザは `"status": "stalled"` を返すこともあります。これは、設定した force/step の収束基準を満たさないまま、設定ウィンドウにわたってエネルギーが減少しなくなった状態（エネルギープラトー）です。stalled は converged とは別の非収束アウトカムであり、`converged` として報告されることは決してありません。`--flatten` を指定した `tsopt` と `opt` は、stalled の後も flatten ループを実行します。残った虚振動の方向へ変位すればプラトーから抜けられることがあるためです。`--max-cycles` の残りが 0 のときは実行しません。存在する場合は `stop_reason` にエネルギー範囲・ウィンドウ・満たせなかった基準が記録されます。stalled は（例えば摂動した構造やより厳しいステップ制御で）再試行し得るものであり、`max_cycles` 枯渇や一般的な失敗のエイリアスではありません。microiteration では、macro ステップの stall と直近の micro（MM）緩和の stall はいずれも真実に報告され、macro 収束として偽装されることはありません。
 
 ## サブコマンド別スキーマ
 

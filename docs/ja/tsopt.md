@@ -88,7 +88,7 @@ mlmm tsopt -i ts_guess.pdb --parm7 enzyme.parm7 -l 'LIG:Q' -b uma \
     --precision fp64 --coord-type dlc -o result_ts
 ```
 
-`--coord-type` は最適化の座標系（`cart` | `redund` | `dlc` | `tric`、デフォルト `cart`）を選びます。`dlc`（非局在化内部座標）の計算時間と収束性は系に依存するため、同じ初期構造で `cart` と比較してください。
+`--coord-type` は最適化の座標系（`cart` | `redund` | `dlc` | `tric`、デフォルト `cart`）を選びます。`dlc`（非局在化内部座標）の計算時間と収束性は系に依存するため、同じ初期構造で `cart` と比較してください。ML/MM の系では `dlc` などの内部座標は構築に時間がかかることがあるため、`cart`（デフォルト）を推奨します。
 
 ```{warning}
 `--coord-type dlc` は**Hessianベース**のオプティマイザが必要です。デフォルトの L-BFGS（`--opt-mode grad`）の [`opt`](opt.md) では警告を出して `cart` に戻ります。`tsopt`（RS-P-RFO / RS-I-RFO / TRIM）または `opt --opt-mode hess` で使ってください。`path-opt` / `path-search` は `cart` と `dlc` のみ受け付けます。`DLC + リンク原子` と `DLC + 3 層凍結 MM` は数値的に未検証なため、`cart` がデフォルトです。

@@ -98,6 +98,21 @@ def test_help_does_not_trigger_default_subcommand() -> None:
     assert "Commands:" in result.output
 
 
+def test_help_after_default_command_option_uses_default_subcommand() -> None:
+    cli = _make_group(default="all")
+
+    @cli.command(name="all")
+    @click.option("-i", "input_path")
+    def all_cmd(input_path: str | None) -> None:
+        click.echo(f"input={input_path}")
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["-i", "reactant.pdb", "--help"])
+    assert result.exit_code == 0
+    assert "-i TEXT" in result.output
+    assert "Commands:" not in result.output
+
+
 def test_legacy_bool_syntax_does_not_emit_deprecation_message() -> None:
     cli = _make_group(normalize_bool_argv=_normalize_with_legacy_flag)
 

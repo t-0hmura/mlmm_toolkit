@@ -249,7 +249,7 @@ def _check_command(cmd_text: str, contracts: dict[str, CommandContract]) -> list
     )
     if xyz_positions:
         refs = _option_values(tokens[2:], {"--ref-pdb"})
-        required_refs = max(xyz_positions) + 1 if sub in {"path-opt", "path-search"} else 1
+        required_refs = max(xyz_positions) + 1 if sub == "path-search" else 1
         if len(refs) < required_refs:
             issues.append(
                 f"XYZ input requires {required_refs} corresponding --ref-pdb value(s)"

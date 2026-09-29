@@ -78,7 +78,7 @@ Options:
                                   Force-field set forwarded to mm_parm (ff19SB
                                   uses OPC3; ff14SB uses TIP3P).  [default:
                                   ff19SB]
-  --auto-mm-add-ter / --auto-mm-no-add-ter
+  --auto-mm-add-ter / --no-auto-mm-add-ter
                                   Control mm_parm TER insertion around
                                   ligand/water/ion blocks and disconnected
                                   peptide blocks.  [default: auto-mm-add-ter]
@@ -87,14 +87,15 @@ Options:
   --auto-mm-ligand-mult TEXT      Spin multiplicity mapping forwarded to mm_parm
                                   (e.g., 'GPP:2,SAM:1'). If omitted, mm_parm
                                   defaults to 1 for all ligands.  [default: (1)]
-  --auto-mm-disulfide / --auto-mm-no-disulfide
+  --auto-mm-disulfide / --no-auto-mm-disulfide
                                   Forwarded to mm_parm: detect disulfides from
                                   SG-SG geometry across CYS/CYX and bond them
-                                  (renaming a bonded CYS to CYX). With --auto-
-                                  mm-no-disulfide only residues already named
+                                  (renaming a bonded CYS to CYX). With --no-
+                                  auto-mm-disulfide only residues already named
                                   CYX are bonded and CYS is left untouched.
                                   [default: auto-mm-disulfide]
-  -m, --multiplicity INTEGER      Multiplicity (2S+1).  [default: 1]
+  -m, --multiplicity INTEGER RANGE
+                                  Multiplicity (2S+1).  [default: 1; x>=1]
   --freeze-atoms TEXT             Comma-separated 1-based full-system atom
                                   indices to freeze throughout scan, MEP, TSOPT,
                                   endpoint optimization, IRC, and frequency
@@ -130,10 +131,10 @@ Options:
   --climb / --no-climb            Enable transition-state climbing after growth
                                   for the *first* segment in each pair.
                                   [default: climb]
-  --opt-mode [grad|hess]          Fallback optimizer mode for TSOPT and post-IRC
-                                  endpoint optimization: grad (=L-BFGS/Dimer) or
-                                  hess (=RFO/RS-P-RFO). --opt-mode-post takes
-                                  precedence.  [default: grad]
+  --opt-mode [grad|hess]          Optimizer mode forwarded to scan/tsopt and
+                                  used for single optimizations: grad
+                                  (=LBFGS/Dimer) or hess (=RFO for scan/opt; RS-
+                                  P-RFO for tsopt).  [default: grad]
   --opt-mode-post [grad|hess]     Optimizer mode for TSOPT and post-IRC endpoint
                                   optimizations. Takes precedence over --opt-
                                   mode for these stages.  [default: hess]
@@ -320,7 +321,7 @@ Options:
                                   (inherits --preopt)]
   --scan-endopt / --no-scan-endopt
                                   Override scan --endopt flag.  [default:
-                                  (inherits --endopt)]
+                                  (False)]
   --convert-files / --no-convert-files
                                   Convert XYZ/TRJ outputs to PDB format using
                                   reference topology; forwarded to all
