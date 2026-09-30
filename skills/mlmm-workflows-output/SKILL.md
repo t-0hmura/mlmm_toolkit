@@ -301,18 +301,17 @@ Per-segment keys in the post-processing list (`summary.json["post_segments"][i]`
 | `irc` | Diagnostic propagation record: `traj`, `n_frames_forward`, `n_frames_backward`, `forward_requested`, `backward_requested`, and each direction's `*_integration_converged`, `*_integration_stop_reason`, `*_downhill_departure_valid`, `*_energy_increased`, `*_short_branch`. No independent IRC scientific verdict or direction-status keys. Finite retained endpoints are passed to endpoint optimization. |
 | `endpoint_assignment` | Pre-optimization IRC-to-MEP orientation provenance; diagnostic only. |
 | `tsopt` | TS terminal record. `n_opt_cycles` is the executed optimization-cycle count and `max_cycles` is the configured limit, including normally non-converged runs. |
-| `endpoint_opt` | Actual numerical convergence of both optimized endpoints. Endpoint records (`reactant` / `product`, or `endpoint_1` / `endpoint_2` in TS-only mode) include `optimization_status`, `n_opt_cycles`, `max_cycles`, and any `stop_reason`; connectivity remains a separate diagnostic and does not add a numerical-completion gate. |
+| `endpoint_opt` | Actual numerical convergence of both optimized endpoints. Endpoint records (`reactant` / `product`) include `optimization_status`, `n_opt_cycles`, `max_cycles`, and any `stop_reason`; connectivity remains a separate diagnostic and does not add a numerical-completion gate. |
 | `ts_imag` | `{n_imag}` |
-| `mlip` | R/TS/P runs contain `{energies_au, energies_kcal, barrier_kcal, delta_kcal, ...}`; TS-only E1/TS/E2 runs instead contain one barrier from each endpoint |
+| `mlip` | R/TS/P energies, including TS-only runs: `{energies_au, energies_kcal, barrier_kcal, delta_kcal, ...}` |
 | `gibbs_mlip` | Gibbs analogue of `mlip` (when `--thermo` is on) |
-| `thermo_symmetry` | Per-state map of detected point-group and rotational-symmetry provenance copied from successful frequency children: `R` / `TS` / `P` for MEP runs and `E1` / `TS` / `E2` for TS-only runs. Missing states are omitted. |
-| `dft` | Model-region DFT state energies for R/TS/P in MEP runs or E1/TS/E2 in TS-only runs (when `--dft` is on) |
+| `thermo_symmetry` | Per-state map of detected point-group and rotational-symmetry provenance copied from successful frequency children: `R` / `TS` / `P`. Missing states are omitted. |
+| `dft` | Model-region DFT state energies for R/TS/P (when `--dft` is on) |
 | `gibbs_dft_mlip` | DFT//MLIP/MM Gibbs profile (when both `--dft` and `--thermo` are on) |
 | `mep_barrier_kcal` / `mep_delta_kcal` | Plain-MEP energies (no Gibbs / DFT correction) |
 
 Each `mlip`, `gibbs_mlip`, `dft`, and `gibbs_dft_mlip` energy payload has
-its own `structures` map, keyed R/TS/P for MEP runs or E1/TS/E2 for TS-only
-runs.
+its own `structures` map, keyed R/TS/P.
 
 ## Oriented R/TS/P paths
 
@@ -339,10 +338,12 @@ IRC vs. endpoint-optimization divergence.
 `bond_changes` are computed from `reactant.xyz` / `product.xyz`
 (after endpoint optimization), not from the raw IRC endpoints.
 
-TS-only mode has no MEP/reference orientation. It writes the same number of
-structures as `e1`, `ts`, and `e2`; endpoint energy and IRC direction do not
-assign chemical R/P identity. Its summary reports the TS barrier from each
-endpoint and omits R/P reaction energies.
+TS-only mode labels the higher-energy endpoint `reactant` and the other
+`product`, keeping the left endpoint as reactant on an energy tie. It writes
+R/TS/P structures and reports `barrier_kcal` and `delta_kcal`.
+`endpoint_assignment.policy` records `higher_energy_endpoint_as_reactant`;
+`chemical_direction_known` is false. Inspect the structures to identify the
+chemical states.
 
 ## Programmatic key extraction
 
@@ -402,7 +403,8 @@ The flat `{"formed": [...], "broken": [...]}` dict shape is used in the **`irc` 
 
 ## Failed-run output
 
-When `summary.json["status"] != "success"`, look at:
+When `summary.json["execution_status"] == "failed"` or
+`summary.json["scientific_status"] != "success"`, look at:
 
 1. `summary.log` — human-readable, prints the failure point first.
 2. `segments/seg_NN/{ts,irc,endpoint_opt}/result.json` — per-stage status

@@ -51,10 +51,11 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--refine-mode` | str | mode-dep | `peak` (HEI±1) or `minima` (nearest local minima) |
 | `--max-nodes` | int | 20 | Max internal nodes per segment string |
 | `--max-depth` | int | 10 | Recursive subdivision levels; `0` disables it. A capped interval is tagged `seg_NNN_maxdepth` |
-| `--thresh` | str | `gau` | Single-structure optimization convergence preset |
+| `--thresh` | str | `gau` | Single-structure optimization and input-alignment convergence preset |
 | `--thresh-gsm` | str | `gau_loose` | GSM string-optimizer convergence preset |
 | `--dmf-tol` | str/float | `tight` | DMF IPOPT dual-infeasibility tolerance: `tight`, `middle`, `loose`, or a positive float |
 | `-q, --charge` / `-l` / `-m` | — | — | Charge / multiplicity (see common conventions) |
+| `--opt-mode` | str | `grad` | Single-structure optimizer: L-BFGS (`grad`) or RFO (`hess`) |
 | `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |
 | `-o, --out-dir` | path | `./result_path_search/` | Output directory |
 | `--config` / `--show-config` / `--dry-run` | — | — | YAML config + preview |

@@ -124,7 +124,7 @@ MEPモードの `all` は `summary.log`・`summary.json`、MEP（`mep_trj.pdb` /
 `energy_diagram_MEP.png` を出力します。
 再利用できる準備ファイルは `ml_region.pdb`、`mm_parm/`、`layered/` です。
 `segments/seg_NN/` にR/TS/P構造と指定したTS・IRC・freq・DFT結果、`_work/` に準備・scan・pathの中間出力を保存します。
-TS-onlyモードではE1/TS/E2と表記し、MEPは出力しません。
+TS-only モードではエネルギーの高い端点を反応物として R/TS/P と表記し、MEP は出力しません。
 全体のツリーは [all](all.md#出力)、ファイルの規約は[出力構造](output-layout.md)を参照してください。
 
 ## 引用

@@ -48,6 +48,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `-s, --scan-lists` | str | required (unless `--csv`) | Three distance, angle, or dihedral ranges, inline or in YAML/JSON |
 | `--csv` | path | none | Skip the scan; load a precomputed `surface.csv` for downstream plotting |
 | `-q` / `-l` / `-m` | — | — | Charge / spin |
+| `--opt-mode` | str | `grad` | Single-structure optimizer: L-BFGS (`grad`) or RFO (`hess`) |
 | `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |
 | `-o, --out-dir` | path | `./result_scan3d/` | Output directory |
 | `--ref-pdb` / `--config` / `--help-advanced` | — | — | Standard |

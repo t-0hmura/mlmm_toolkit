@@ -1,6 +1,6 @@
 # `scan3d`
 
-Perform a three-dimensional (d1, d2, d3) grid scan with harmonic restraints and ML/MM relaxations on a layered enzyme structure, mapping a 3D PES across three coupled distances. Input may be PDB/mmCIF, or XYZ with `--ref-pdb`. `mlmm scan3d` nests loops over d1, d2, and d3, relaxing each point with the ML/MM calculator (`mlmm.backends.mlmm_calc.mlmm`) under the appropriate restraints. ML membership comes from `--model-pdb`, `--model-indices`, or B-factor layers via `--detect-layer`; Amber parameters are read from `--parm7`. The MLIP backend is selected via `-b/--backend` (default: `uma`), and the optimizer is PySisyphus L-BFGS. Use `-s/--scan-lists` with a YAML/JSON spec file (recommended) or an inline Python literal. A precomputed surface can be loaded via `--csv` for re-plotting without re-running the scan.
+Perform a three-dimensional (d1, d2, d3) grid scan with harmonic restraints and ML/MM relaxations on a layered enzyme structure, mapping a 3D PES across three coupled distances. Input may be PDB/mmCIF, or XYZ with `--ref-pdb`. `mlmm scan3d` nests loops over d1, d2, and d3, relaxing each point with the ML/MM calculator (`mlmm.backends.mlmm_calc.mlmm`) under the appropriate restraints. ML membership comes from `--model-pdb`, `--model-indices`, or B-factor layers via `--detect-layer`; Amber parameters are read from `--parm7`. The MLIP backend is selected via `-b/--backend` (default: `uma`), and the optimizer is L-BFGS (`grad`) or RFO (`hess`). Use `-s/--scan-lists` with a YAML/JSON spec file (recommended) or an inline Python literal. A precomputed surface can be loaded via `--csv` for re-plotting without re-running the scan.
 
 Any axis may instead be an angle `(i,j,k,low,high)` or dihedral
 `(i,j,k,l,low,high)`. Angular ranges use degrees.
@@ -67,6 +67,13 @@ coordinates and at least four non-coplanar usable points spanning every axis;
 `baseline=first` falls back to the usable minimum if grid point `(0,0,0)` is
 not usable.
 
+The `d1_A` / `d2_A` / `d3_A` columns store measured coordinates after relaxation;
+`target_d1_A` / `target_d2_A` / `target_d3_A` store restraint targets.
+Filename distance tags describe the targets. With usable points but insufficient
+interpolation support, the CSV is retained and the plot is omitted
+(`scientific_status: partial`, exit 0). No usable points gives
+`scientific_status: failed` and exit 1.
+
 ## Outputs
 
 With `--out-json`, a fresh scan records an explicit `grid_points[]` mapping in
@@ -108,6 +115,7 @@ Filename tags `i###_j###_k###` are integer hundredths of an angstrom (d1×100, d
 | `--relax-max-cycles INT` | Optimizer-cycle cap during each biased relaxation. | `100000` |
 | `--dump/--no-dump` | Write inner d3 scan TRJs per (d1, d2) slice. | `False` |
 | `-o, --out-dir TEXT` | Output directory root for grids and plots. | `./result_scan3d/` |
+| `--opt-mode TEXT` | Single-structure optimizer: `grad` = L-BFGS, `hess` = RFO. | `grad` |
 | `--thresh TEXT` | Convergence preset override (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | `baker` |
 | `--config FILE` | Base YAML configuration file (applied first). | _None_ |
 | `--ref-pdb FILE` | Reference PDB topology for XYZ input. | _None_ |
@@ -207,6 +215,9 @@ bias:
 ```
 
 Use the CLI-owned `--dump` and `--out-dir` options for trajectory and output placement.
+
+With `--opt-mode hess`, use `rfo` or `opt.rfo` for optimizer settings;
+`lbfgs` or `opt.lbfgs` applies to `grad`.
 
 ## See Also
 

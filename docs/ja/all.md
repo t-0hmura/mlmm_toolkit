@@ -117,7 +117,7 @@ ML領域PDB pairは別の成果物であり、PDB入力では常に出力され�
 
 6. **TSOPT のみモード**（単一入力、`--tsopt`、`--scan-lists` なし）
    - MEP 探索をスキップし、レイヤード全系 PDB で `tsopt` を実行します。TS 判定を通過した後、EulerPC IRC、両端の極小化、任意の熱化学、DFT、DFT//MLIP/MM ダイアグラムへ進みます。
-   - IRC を実行した場合、経路や参照構造による向きがないため、両端は化学的に未割当の `E1` と `E2` として出力します。サマリーは各端点から TS への障壁を報告し、R/P 反応エネルギーは報告しません。構造を確認してから化学的役割を割り当ててください。
+   - IRC を実行した場合、エネルギーの高い端点を反応物、もう一方を生成物とし、同値なら左端を反応物とします。R/TS/P の構造と `barrier_kcal`・`delta_kcal` を出力します。この規則は `endpoint_assignment.policy: higher_energy_endpoint_as_reactant`、`chemical_direction_known: false` と記録します。化学的な状態は構造を確認して判断してください。
 
 端点最適化の実行エラーや有効な最終構造の欠落がある場合、そのセグメントの
 振動解析・DFT・精密化後のダイアグラムは実行しません。
@@ -151,14 +151,12 @@ ML領域PDB pairは別の成果物であり、PDB入力では常に出力され�
  layered/                              # レイヤード全系 PDB（B 因子アノテーション付き、再利用可能な入力）
  segments/                             # 反応セグメント別の成果物
   seg_NN/                              # 2 桁インデックス (1 始まり)、例: seg_01, seg_02
-   reactant.{pdb,cif} · ts.{pdb,cif} · product.{pdb,cif} # MEP 実行の R/TS/P
-   e1.{pdb,cif} · ts.{pdb,cif} · e2.{pdb,cif}            # TSOPT のみの未割当端点
+   reactant.{pdb,cif} · ts.{pdb,cif} · product.{pdb,cif} # MEP・TSOPT の R/TS/P
    ts/...                              # TS 最適化（--tsopt）
    irc/...                             # TS 判定通過後の EulerPC IRC
    freq/...                            # --thermo の場合
    dft/...                             # --dft の場合
-   structures/{reactant,ts,product}.pdb  # MEP 実行の入れ子コピー
-   structures/{endpoint_1,ts,endpoint_2}.pdb # TSOPT のみの入れ子コピー
+   structures/{reactant,ts,product}.pdb # 入れ子コピー
    energy_diagram_{MLIP,G_MLIP,DFT,G_DFT_plus_MLIP}.png
  _work/                               # パイプライン作業領域（削除可）
   pockets/                             # 入力ごとのポケット PDB（複数構造は統合）
@@ -167,7 +165,7 @@ ML領域PDB pairは別の成果物であり、PDB入力では常に出力され�
    summary.{json,log} · seg_NN_mep/    # セグメント別の生 MEP 軌跡（マージ済み成果物はルートへ移動）
 ```
 
-**TSOPT のみモード**（単一入力 + `--tsopt`、`--scan-lists` なし）では MEP ステージがなく、`ts/` は `segments/seg_01/` 配下に生成されます。TS 判定通過後は E1/TS/E2 と `irc/`、続いて指定した `freq/` と `dft/` が追加されます。`_work/path_opt/` は存在しません。
+**TSOPT のみモード**（単一入力 + `--tsopt`、`--scan-lists` なし）では MEP ステージがなく、`ts/` は `segments/seg_01/` 配下に生成されます。TS 判定通過後は R/TS/P と `irc/`、続いて指定した `freq/` と `dft/` が追加されます。`_work/path_opt/` は存在しません。
 
 `-v 2` ではコンソールに抽出、MM 準備、スキャンステージ、MEP の進捗、ステージごとの所要時間が要約されます。{ref}`ja-verbosity-levels` を参照してください。
 
@@ -264,8 +262,9 @@ stage の `result.json` または `thermoanalysis.yaml` が書き出される場
 | `--max-cycles-gsm INT` | MEP childのGSMストリング最適化サイクル上限。 | `300` |
 | `--dmf-max-iterations INT` | MEP childのDMF IPOPT反復上限。 | `3000` |
 | `--climb/--no-climb` | 選択した最適化法が対応する場合に climbing-image TS 精密化を有効化。 | `True` |
-| `--opt-mode [grad\|hess]` | TSOPT と IRC 後の端点最適化に使う予備プリセット（`grad` → Dimer/L-BFGS、`hess` → RS-P-RFO/RFO）。`--opt-mode-post` が優先されます。 | `grad` |
+| `--opt-mode [grad\|hess]` | scan・path の単一構造最適化（`grad` → L-BFGS、`hess` → RFO）と、TSOPT・IRC 後の端点最適化の予備設定。後者は `--opt-mode-post` を優先。 | `grad` |
 | `--opt-mode-post [grad\|hess]` | TSOPT/IRC 後端点最適化向けのプリセット上書き（`grad` → Dimer/L-BFGS、`hess` → RS-P-RFO/RFO）。 | `hess` |
+| `--print-every INT` | 明示時だけ下流へ渡すログ間隔。下流 YAML でも明示した値と矛盾すればエラー。 | 子の既定値 / YAML |
 | `--thresh TEXT` | 単一構造最適化と scan 緩和の収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | `gau` |
 | `--thresh-gsm TEXT` | MEP 段の GSM ストリング最適化の収束プリセット（`--thresh` と同じプリセット群）。 | `gau_loose` |
 | `--dmf-tol TEXT` | DMF MEP 段の IPOPT dual-infeasibility 許容値。`tight`(0.04)、`middle`(0.10)、`loose`(0.20) または正の float。Gaussian プリセットではない。 | `tight` |
@@ -299,8 +298,8 @@ TSOPT の最適化モード選択順: `--opt-mode-post`（設定時）-> `--opt-
 | --- | --- | --- |
 | `--tsopt/--no-tsopt` | 反応セグメントごとに TS 最適化を行い、TS 判定通過後に EulerPC IRC を実行。 | `False` |
 | `--tsopt-from-mep-tan/--no-tsopt-from-mep-tan` | Hessian TS optimizerでCPU/file cacheしたHEI接線候補から反応root identityを追跡。OFFではcache作成・利用を止め初期Hessian modeから選択。Dimerには適用外 | `True` |
-| `--thermo/--no-thermo` | MEP 実行では R/TS/P、TS-only 実行では E1/TS/E2 で振動解析 (`freq`) を実行。 | `False` |
-| `--dft/--no-dft` | MEP 実行では R/TS/P、TS-only 実行では E1/TS/E2 で DFT 一点計算を実行。 | `False` |
+| `--thermo/--no-thermo` | TS-only を含む R/TS/P で振動解析 (`freq`) を実行。 | `False` |
+| `--dft/--no-dft` | TS-only を含む R/TS/P で DFT 一点計算を実行。 | `False` |
 | `--flatten/--no-flatten` | `tsopt` で余分な虚振動数モードのflatteningを有効化。 | `False` |
 | `--reject-uphill/--no-reject-uphill` | IRC 後の**エンドポイント再最適化のみ**で RFO の上り坂ステップ拒否を明示的に有効化（許容値 `1e-4` Hartree、opt 子へ転送。低エネルギー形状へロールバックして trust radius を縮小）。TS 最適化では拒否を常に無効化し、経路探索には影響しない。emergency floor 到達時は、保持したエンドポイントを通常の収束条件で最終確認。 | `False` |
 | `--irc-step-size FLOAT` | TS 後の各 IRC に EulerPC 最大ステップ（Bohr）を転送。数フレームで停止する場合は `0.05` など小さい値で再試行。 | IRC デフォルト `0.10` |
@@ -352,8 +351,8 @@ mlmm all -i R.pdb P.pdb --parm7 system.parm7 --model-pdb model.pdb \
 
 | サブコマンド | YAML セクション |
 |------------|---------------|
-| [`path-search`](path-search.md) | `geom`, `calc`/`mlmm`, `gs`, `opt`, `lbfgs`, `bond`, `search` |
-| [`scan`](scan.md) | `geom`, `calc`/`mlmm`, `opt`, `lbfgs` |
+| [`path-search`](path-search.md) | `geom`, `calc`/`mlmm`, `gs`, `stopt`, `opt`, `lbfgs`, `rfo`, `bond`, `search` |
+| [`scan`](scan.md) | `geom`, `calc`/`mlmm`, `opt`, `lbfgs`, `rfo` |
 | [`tsopt`](tsopt.md) | `geom`, `calc`/`mlmm`, `opt`, `hessian_dimer`, `rsirfo` |
 | [`freq`](freq.md) | `geom`, `calc`/`mlmm`, `freq`, `thermo` |
 | [`dft`](dft.md) | `dft` |

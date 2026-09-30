@@ -1,6 +1,6 @@
 # `scan3d`
 
-調和拘束と ML/MM 緩和による 3 距離（d1, d2, d3）のグリッドスキャンを実行し、3 つの結合距離を変数とする 3D PES をマッピングします。入力には PDB/mmCIF、または `--ref-pdb` を伴う XYZ を使用できます。`mlmm scan3d` は d1、d2、d3 のネストループを実行し、ML/MM calculator（`mlmm.backends.mlmm_calc.mlmm`）を使用して適切な拘束で各点を緩和します。ML 領域は `--model-pdb`、`--model-indices`、または `--detect-layer` による B-factor layer から解決し、Amber パラメータは `--parm7` から読み取ります。MLIP バックエンドは `-b/--backend` で選択し（デフォルト: `uma`）、オプティマイザは PySisyphus L-BFGS です。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルを使用します。`--csv` で事前計算した surface を読み込めば、スキャンを再実行せずに再描画のみ行えます。
+調和拘束と ML/MM 緩和による 3 距離（d1, d2, d3）のグリッドスキャンを実行し、3 つの結合距離を変数とする 3D PES をマッピングします。入力には PDB/mmCIF、または `--ref-pdb` を伴う XYZ を使用できます。`mlmm scan3d` は d1、d2、d3 のネストループを実行し、ML/MM calculator（`mlmm.backends.mlmm_calc.mlmm`）を使用して適切な拘束で各点を緩和します。ML 領域は `--model-pdb`、`--model-indices`、または `--detect-layer` による B-factor layer から解決し、Amber パラメータは `--parm7` から読み取ります。MLIP バックエンドは `-b/--backend` で選択し（デフォルト: `uma`）、オプティマイザは L-BFGS（`grad`）または RFO（`hess`） です。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルを使用します。`--csv` で事前計算した surface を読み込めば、スキャンを再実行せずに再描画のみ行えます。
 
 各軸には角度`(i,j,k,low,high)`または二面角
 `(i,j,k,l,low,high)`も指定できます。角度値には度を使います。
@@ -53,6 +53,12 @@ mlmm scan3d -i input.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 またぐ 4 点以上の非共面 usable point が必要です。`baseline=first` で
 `(0,0,0)` が usable でなければ usable minimum にフォールバックします。
 
+`d1_A` / `d2_A` / `d3_A` は緩和後の実測値、
+`target_d1_A` / `target_d2_A` / `target_d3_A` は拘束の目標値です。
+ファイル名の距離タグは目標値を表します。使える点があっても補間に足りない
+場合は CSV を保持して図だけを省略します（`scientific_status: partial`、終了コード 0）。
+使える点が 0 個なら `scientific_status: failed`、終了コード 1 です。
+
 ## 出力
 
 ```text
@@ -90,6 +96,7 @@ out_dir/ (デフォルト:./result_scan3d/)
 | `--relax-max-cycles INT` | バイアス緩和ごとのオプティマイザサイクル上限。 | `100000` |
 | `--dump/--no-dump` | (d1, d2) スライスごとの内側 d3 スキャン TRJ を書き出し。 | `False` |
 | `-o, --out-dir TEXT` | グリッドとプロットの出力ディレクトリルート。 | `./result_scan3d/` |
+| `--opt-mode TEXT` | 単一構造オプティマイザ: `grad` = L-BFGS、`hess` = RFO。 | `grad` |
 | `--thresh TEXT` | 収束プリセット上書き（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | `baker` |
 | `--config FILE` | ベース YAML 設定ファイル（最初に適用）。 | _None_ |
 | `--ref-pdb FILE` | XYZ 入力用の参照 PDB トポロジー。 | _None_ |
@@ -189,6 +196,9 @@ bias:
 ```
 
 軌跡保存と出力先は CLI が所有する `--dump` と `--out-dir` を使います。
+
+`--opt-mode hess` は `rfo` または `opt.rfo`、`grad` は
+`lbfgs` または `opt.lbfgs` の設定を使用します。
 
 ## 関連項目
 

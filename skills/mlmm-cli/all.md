@@ -10,7 +10,7 @@ resolves three input modes via flag context (see the three companion
 mds: `all-endpoint-mep.md`, `all-scan-list.md`, `all-ts-only.md`).
 
 Use `all` when you want a **single qsub-able invocation** that
-produces R/TS/P/IM coordinates for MEP runs or unassigned E1/TS/E2
+produces R/TS/P/IM coordinates for MEP runs or R/TS/P
 coordinates for TS-only runs, plus barrier numbers for one or more
 elementary steps.
 
@@ -61,7 +61,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `--tsopt / --no-tsopt` | flag | off | Run TS optimization after MEP, or enter TS-only mode when exactly one input is supplied without `--scan-lists` |
 | `--tsopt-from-mep-tan / --no-tsopt-from-mep-tan` | toggle | on | Select the initial TS root from the HEI MEP tangent; off selects from the initial-structure Hessian modes |
 | `--thermo / --no-thermo` | flag | off | Run freq + thermochemistry |
-| `--dft / --no-dft` | flag | off | Run DFT single points on R/TS/P for MEP runs or E1/TS/E2 for TS-only runs; incompatible with `-b dft` |
+| `--dft / --no-dft` | flag | off | Run DFT single points on R/TS/P, including TS-only runs; incompatible with `-b dft` |
 | `--dump / --no-dump` | toggle | off | Control optional optimizer trajectories/restarts. With `--thermo`, the required child `thermoanalysis.yaml` handoff is retained even under `--no-dump`. |
 | `--func-basis` | str | `wb97m-v/def2-svp` | DFT functional/basis (when `--dft` is enabled) |
 | `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |
@@ -107,11 +107,9 @@ result_all/
 ├── ml_region_with_linkH.{xyz,pdb}         # ML model with parm7-derived link H
 ├── segments/
 │   └── seg_NN/                     # canonical structures + per-stage output
-│       ├── reactant.pdb / .cif / .xyz  # MEP runs
+│       ├── reactant.pdb / .cif / .xyz  # MEP / TS-only runs
 │       ├── ts.pdb / .cif / .xyz
-│       ├── product.pdb / .cif / .xyz   # MEP runs
-│       ├── e1.pdb / .cif / .xyz        # TS-only runs
-│       ├── e2.pdb / .cif / .xyz        # TS-only runs
+│       ├── product.pdb / .cif / .xyz   # MEP / TS-only runs
 │       ├── ts/                     # TS optimization output (--tsopt)
 │       ├── irc/                    # forward/backward IRC trajectories
 │       ├── freq/                   # frequencies + thermo (--thermo)
@@ -124,7 +122,9 @@ result_all/
 ```
 
 `segments/seg_NN/` is the primary place to look for canonical structures:
-R/TS/P/IM for MEP runs or E1/TS/E2 for TS-only runs. Per-stage working
+R/TS/P/IM for MEP runs or R/TS/P for TS-only runs. The higher-energy
+endpoint is reactant in TS-only mode; inspect structures for chemical identity.
+Per-stage working
 files live in its `ts/`, `irc/`, `freq/`, `dft/` subdirectories. See
 `mlmm-workflows-output/SKILL.md` for canonical path conventions and the
 bond-change interpretation.
@@ -134,7 +134,8 @@ bond-change interpretation.
 ```python
 import json
 d = json.load(open("result_all/summary.json"))
-print(d["status"])                    # "success" / "partial" / "failed"
+print(d["execution_status"])          # "completed" / "failed"
+print(d["scientific_status"])         # "success" / "partial" / "failed"
 print(d["mlmm_toolkit_version"])
 print(d["charge"], d["spin"])
 print(d["rate_limiting_step"])        # legacy key: highest local segment barrier

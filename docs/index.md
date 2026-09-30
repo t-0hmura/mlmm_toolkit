@@ -254,7 +254,7 @@ mlmm opt -i layered.pdb --parm7 system.parm7 -q 0 --show-config --dry-run
 In MEP mode, `all` writes `summary.log` and `summary.json`, the MEP (`mep_trj.pdb` / `mep_trj.xyz`, plus `mep_trj.cif` for bridged input), and `energy_diagram_MEP.png`.
 Reusable preparation outputs are `ml_region.pdb`, `mm_parm/`, and `layered/`.
 `segments/seg_NN/` holds R/TS/P structures and requested TS/IRC/freq/DFT results; `_work/` holds intermediate preparation, scan, and path outputs.
-TS-only runs use E1/TS/E2 labels and produce no MEP.
+TS-only runs use R/TS/P labels, assigning the higher-energy endpoint as reactant, and produce no MEP.
 See [all](all.md#outputs) for the full tree and [Output Layout](output-layout.md) for file conventions.
 
 ## Citation

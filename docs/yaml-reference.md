@@ -2,6 +2,14 @@
 
 ## Overview
 
+`opt.lbfgs` and `opt.rfo` are aliases of `lbfgs` and `rfo`;
+`freq.thermo` is an alias of `thermo`, also used by `all --thermo`.
+In path workflows, `stopt.lbfgs` and `stopt.rfo` also configure
+single-structure optimizers. Conflicting explicit values within one YAML
+layer are rejected, including common `opt` keys and the selected optimizer
+section; path-specific output directories and prefixes are assigned per run.
+String optimization reads the outer `stopt` section.
+
 `mlmm all` consumes only the sections for its selected active stages.
 
 | Section | Description | Used by |
@@ -11,7 +19,7 @@
 | [`sp`](#sp-section) | Single-point output settings | sp |
 | [`opt`](#opt) | Shared optimizer settings | all, opt, scan, scan2d, scan3d, tsopt, path-opt, path-search |
 | [`lbfgs`](#lbfgs) | L-BFGS optimizer settings | all, opt, scan, scan2d, scan3d, tsopt (microiteration MM relaxation), path-opt, path-search |
-| [`rfo`](#rfo) | RFO optimizer settings | all, opt |
+| [`rfo`](#rfo) | RFO optimizer settings | all, opt, scan, scan2d, scan3d, path-opt, path-search |
 | [`gs`](#gs) | Growing String Method settings | all, path-opt, path-search |
 | [`dmf`](#dmf) | Direct Max Flux settings | all, path-opt, path-search |
 | [`irc`](#irc-section) | IRC integration settings | all, irc |
@@ -194,7 +202,6 @@ authoritative for the keys you left alone.
 ```yaml
 opt:
  thresh: gau # Convergence preset: gau_loose, gau, gau_tight, gau_vtight, baker, never
- align: false # StringOptimizer-only: alignment toggle
  max_cycles: 100000 # Optimizer cycle cap
  print_every: 100 # Logging stride
  min_step_norm: 1.0e-08 # Minimum step norm for acceptance
@@ -206,14 +213,12 @@ opt:
  converge_to_geom_rms_thresh: 0.05 # RMS threshold when converging to reference geometry
  overachieve_factor: 0.0 # 0.0 = off; >0: converge when forces < thresh/factor, ignoring step (not used by baker)
  check_eigval_structure: false # Validate Hessian eigenstructure
- energy_plateau: false # Opt-in (--stop-plateau): stop the optimizer as stalled (status: "stalled", never converged) when the energy plateaus
+ energy_plateau: false # Opt-in (--stop-plateau): stop the optimizer as stalled (optimization_status: "stalled", never converged) when the energy plateaus
  energy_plateau_thresh: 1.0e-4 # Energy range tolerance in au (~0.06 kcal/mol)
  energy_plateau_window: 50 # Number of trailing steps used for plateau detection
  line_search: true # Enable line search
  dump: false # Dump trajectory/restart data
  dump_restart: false # Dump restart checkpoints
- reparam_thresh: 0.0 # StringOptimizer-only: reparameterization threshold
- coord_diff_thresh: 0.0 # StringOptimizer-only: coordinate difference threshold
  prefix: "" # Filename prefix
  out_dir: ./result_opt/ # Output directory
 ```
@@ -236,7 +241,7 @@ and max and RMS step must all satisfy their thresholds.
 `energy_plateau` is `false` by default; `--stop-plateau` on `opt` / `tsopt` /
 `all` turns it on, and `--stop-plateau-thresh` / `--stop-plateau-window` set the
 two values above. When it is on, a plateau stops the optimizer with
-`status: "stalled"` (a distinct non-converged outcome, never `converged`) if the
+`optimization_status: "stalled"` (a distinct non-converged outcome, never `converged`) if the
 energy range `max(E) - min(E)` over the last `energy_plateau_window` steps (default
 50) falls below `energy_plateau_thresh` (default `1.0e-4` au, ~0.06 kcal/mol).
 
@@ -448,9 +453,8 @@ stopt:
 ```
 
 **Notes:**
-- `stopt.lbfgs` configures the single-structure L-BFGS optimizer used for
-  HEI+/-1 endpoint optimization and kink node optimization within path-search.
-  Only L-BFGS is consumed at this nested level; a `stopt.rfo:` block is not honored.
+- `stopt.lbfgs` / `stopt.rfo` configure the selected single-structure
+  optimizer for endpoint preoptimization, HEI±1 refinement, and kink nodes.
 - The outer `stopt` keys control the string optimizer (GS or DMF wrapper)
 
 ---

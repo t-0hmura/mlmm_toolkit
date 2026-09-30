@@ -135,6 +135,8 @@ An optimizer may also report `"optimization_status": "stalled"`: the energy stop
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `flatten_requested` / `flatten_enabled` | bool | Whether flatten iterations were configured |
+| `flatten_skip_reason` | string \| null | Reason no additional flatten step was performed, when applicable |
 | `optimization_status` | string | Numerical optimizer outcome: `"converged"`, `"not_converged"`, or `"stalled"`; independent of saddle order |
 | `saddle_validation` | string | `"first_order"`, `"higher_order"`, `"no_imaginary"`, or `"unavailable"` from terminal exact PHVA |
 | `saddle_order_verified` | bool | `true` only for `saddle_validation: "first_order"` |
@@ -227,7 +229,7 @@ IRC publishes the common completion fields and retains directional stop reasons 
 | `never_stop` | bool | Whether opt-in physical endpoint-stop bypass mode was enabled |
 | `never_stop_energy_bypasses` | int | Number of energy-rise or one-step energy-change stops actually bypassed |
 | `rigid_projection` | object | Frozen-boundary TR provenance for the initial/updated Hessian |
-| `rigid_projection.hessian_source` | string | Initial Hessian source: `"file"` (`--read-hess`), `"cache"` (earlier stage in the same run), or `"fresh"` |
+| `rigid_projection.hessian_source` | string | Initial Hessian source: `"file"` (`--read-hess`), `"cache"` (earlier stage in the same run), or `"fresh"` (newly computed, including EulerPC initialization when `irc.hessian_init` is not `calc`) |
 | `bond_changes` | object | Directed first→last `{formed: [...], broken: [...]}`; omitted if comparison was unavailable |
 | `bond_changes_direction` | string | `"finished_first_to_finished_last"` when bond changes are present |
 | `files` | object | Trajectory and endpoint files (XYZ plus available PDB/CIF companions) |
@@ -244,8 +246,8 @@ or `source` / `raw_hessian_shape`).
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `scan_opt_mode` | string | Fixed `grad` preset used by the L-BFGS constrained relaxations |
-| `scan_optimizer` | string | Effective optimizer identity (`lbfgs`) |
+| `scan_opt_mode` | string | Requested `grad` or `hess` optimizer preset |
+| `scan_optimizer` | string | Effective optimizer: `lbfgs` or `rfo` |
 | `n_stages` | int | Number of scan stages |
 | `stages` | object[] | Per-stage data |
 | `charge` | int | Model-region charge |
@@ -391,8 +393,8 @@ The `all` command additionally includes:
 | `post_segments` | list | Per-segment TS/IRC/freq/DFT results |
 | `post_segments[].tsopt.energy_valid` / `.structure_valid` | bool | Finite terminal TS checks combined with the existing terminal-Hessian result; status classification runs no extra Hessian or optimization. |
 | `post_segments[].tsopt.n_opt_cycles` / `.max_cycles` | int / int\|null | TS optimization cycles executed and configured limit. These are reported for both converged and normally non-converged runs. |
-| `post_segments[].irc` / `.endpoint_assignment` / `.endpoint_opt` | object | IRC stop diagnostics, endpoint orientation, and endpoint-OPT convergence, respectively. Endpoint records (`reactant` / `product`, or `endpoint_1` / `endpoint_2` in TS-only mode) report `optimization_status`, `n_opt_cycles`, `max_cycles`, and any `stop_reason`. IRC stopping and topology correspondence are not independent success gates; connectivity information remains available for mechanism interpretation. |
-| `post_segments[].thermo_symmetry` | object | Child-reported point-group and rotational-symmetry provenance by state: R/TS/P for MEP runs and E1/TS/E2 for TS-only runs. States with valid symmetry-number provenance are included; missing states are omitted, and the field is absent only when no state has valid provenance. |
+| `post_segments[].irc` / `.endpoint_assignment` / `.endpoint_opt` | object | IRC stop diagnostics, endpoint orientation, and endpoint-OPT convergence, respectively. In TS-only mode, `endpoint_assignment.policy` is `higher_energy_endpoint_as_reactant` and `chemical_direction_known` is false. Endpoint records (`reactant` / `product`) report `optimization_status`, `n_opt_cycles`, `max_cycles`, and any `stop_reason`. IRC stopping and topology correspondence are not independent success gates; connectivity information remains available for mechanism interpretation. |
+| `post_segments[].thermo_symmetry` | object | Child-reported point-group and rotational-symmetry provenance by state: R/TS/P, including TS-only runs. States with valid symmetry-number provenance are included; missing states are omitted, and the field is absent only when no state has valid provenance. |
 | `key_output_files` | object | Current-run output index: root filename → description; each `seg_NN` entry is `{description, files}` with paths relative to that segment directory. |
 | `current_output_paths` | string[] | Sorted paths relative to `--out-dir`, limited to artifacts claimed by the current invocation. |
 

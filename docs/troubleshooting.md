@@ -162,7 +162,7 @@ opt:
   energy_plateau_window: 100        # require a longer flat stretch
 ```
 
-The plateau check is skipped automatically for chain-of-states optimizers (GS / DMF), so `path-opt` / `path-search` are unaffected, and for the MM micro iterations of a `--microiter` run (see [yaml-reference](yaml-reference.md#opt)).
+The plateau check is skipped automatically for chain-of-states optimizers (GS / DMF), but applies to single-structure preoptimization in `path-opt` / `path-search`, and for the MM micro iterations of a `--microiter` run (see [yaml-reference](yaml-reference.md#opt)).
 
 ### IRC does not terminate properly
 

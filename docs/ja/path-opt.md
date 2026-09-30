@@ -34,7 +34,7 @@ mlmm path-opt -i REACTANT.pdb PRODUCT.pdb --parm7 real.parm7 --model-pdb model.p
 
 ## 処理の流れ
 1. **端点の読み込み** -- PDB/mmCIF 構造、または対応する `--ref-pdb` を伴う XYZ 座標を読み込み、CLI またはデフォルトから電荷/スピンを解決します。`--parm7`、`--model-pdb`、電荷/スピンで ML/MM calculatorを構築します。
-2. **任意の事前最適化** -- `--preopt` の場合、各端点はアライメントとストリング成長の前に L-BFGS（同じ ML/MM calculatorを使用）で事前最適化されます。`--preopt-max-cycles` でサイクル上限を設定します（デフォルト: 100000）。
+2. **任意の事前最適化** -- `--preopt` の場合、各端点はアライメントとストリング成長の前に `--opt-mode` で選ぶ L-BFGS または RFO（同じ ML/MM calculatorを使用）で事前最適化されます。`--preopt-max-cycles` でサイクル上限を設定します（デフォルト: 100000）。
 3. **事前アライメント** -- 事前最適化後、最初の構造以降のすべての端点が最初の構造に Kabsch アライメントされます。`freeze_atoms` が定義されている場合、それらの原子のみが RMSD フィットに参加し、結果の変換がすべての原子に適用されます。
 4. **経路最適化** -- `--mep-mode gsm` は PySisyphus `GrowingString`（端点込み `(max_nodes + 2)` イメージ）を使用し、`--mep-mode dmf` は Direct Max Flux を使用します。
 5. **クライミングイメージ（GSM のみ）** -- `--climb` の場合、ストリングが完全に成長した後にクライミングイメージ精密化が適用され、最高エネルギーイメージ（HEI）が報告されます。
@@ -56,7 +56,7 @@ out_dir/ (デフォルト:./result_path_opt/)
 ├─ hei.pdb # PDB 形式の HEI（参照 PDB が利用可能な場合）
 ├─ align_refine/ # 外部アライメント/精密化の成果物
 ├─ preopt/ # 端点事前最適化出力（--preopt 時）
-└─ <optimizer dumps> # --dump または opt.dump_restart > 0 の場合
+└─ <optimizer dumps> # --dump または stopt.dump_restart > 0 の場合
 ```
 
 ## CLI オプション
@@ -83,9 +83,10 @@ out_dir/ (デフォルト:./result_path_opt/)
 | `--max-cycles-gsm INT` | GSMストリング最適化サイクル上限。`stopt.stop_in_when_full`にも設定。 | `300` |
 | `--dmf-max-iterations INT` | DMF IPOPT反復上限。 | `3000` |
 | `--climb/--no-climb` | ストリング完全成長後のクライミングイメージ精密化を有効化。 | `True` |
-| `--preopt/--no-preopt` | アライメント/ストリング成長前に各端点を L-BFGS で事前最適化。 | `True` |
+| `--preopt/--no-preopt` | アライメント/ストリング成長前に各端点を L-BFGS（`grad`）または RFO（`hess`）で事前最適化。 | `True` |
 | `--preopt-max-cycles INT` | 端点事前最適化サイクル上限。 | `100000` |
-| `--thresh TEXT` | 端点事前最適化のみの収束プリセット上書き（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | `gau` |
+| `--opt-mode TEXT` | 単一構造オプティマイザ: `grad` = L-BFGS、`hess` = RFO。 | `grad` |
+| `--thresh TEXT` | 単一構造最適化と入力構造の整列の収束プリセット（`opt.lbfgs/rfo.thresh`）。 | `gau` |
 | `--thresh-gsm TEXT` | GSM ストリング最適化の収束プリセット（`stopt.thresh`; `--thresh` と同じプリセット群）。 | `gau_loose` |
 | `--dmf-tol TEXT` | DMF 最適化の IPOPT dual-infeasibility 許容値（`dmf.tol`）。`tight`(0.04)、`middle`(0.10)、`loose`(0.20) または正の float。Gaussian プリセットは拒否。 | `tight` |
 | `--mm-backend [hessian_ff\|openmm]` | MM バックエンド。Hessian 構築法は `calc.mm_fd` が別に制御します（デフォルト `true`: 有限差分）。 | `hessian_ff` |
@@ -100,7 +101,7 @@ out_dir/ (デフォルト:./result_path_opt/)
 
 ## YAML 設定
 
-マージ順は **defaults < config < 明示指定 CLI** です。関連セクションは `geom`（`coord_type`、`freeze_atoms`）、`calc` / `mlmm`（ML/MM calculatorの設定）、`gs`（Growing String 制御）、`opt`（StringOptimizer 設定）です。
+マージ順は **defaults < config < 明示指定 CLI** です。関連セクションは `geom`（`coord_type`、`freeze_atoms`）、`calc` / `mlmm`（ML/MM calculatorの設定）、`gs`（Growing String 制御）、`stopt`（ストリング最適化）、`opt` / `lbfgs` / `rfo`（単一構造最適化）です。
 
 完全なスキーマ（全キーとデフォルト）: [YAML リファレンス](yaml-reference.md)。
 
@@ -113,6 +114,9 @@ out_dir/ (デフォルト:./result_path_opt/)
 | `130` | キーボード割り込み |
 | `1` | 未収束、利用できる結果なし、実行例外、出力失敗 |
 
+単一構造の設定は `stopt.lbfgs` / `stopt.rfo` でも指定できます。
+別の書き方と矛盾の検査は [YAML リファレンス](yaml-reference.md#stopt) を参照してください。
+
 ## 関連項目
 
 - [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
@@ -120,4 +124,4 @@ out_dir/ (デフォルト:./result_path_opt/)
 - [path-search](path-search.md) -- 自動精密化付き再帰的 MEP 探索（2 つ以上の構造用）
 - [opt](opt.md) -- 単一構造の構造最適化
 - [all](all.md) -- 一気通貫ワークフロー（デフォルトで単一パス path-opt、`--refine-path` で再帰 path-search）
-- [YAML リファレンス](yaml-reference.md) -- `gs`、`opt` の完全な設定オプション
+- [YAML リファレンス](yaml-reference.md) -- `gs`、`stopt`、`opt` の完全な設定オプション

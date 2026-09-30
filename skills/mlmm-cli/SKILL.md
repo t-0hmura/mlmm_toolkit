@@ -60,7 +60,7 @@ These flags appear on most subcommands (canonical list:
 | `--uma-workers` | UMA predictor workers; `>1` is incompatible with an analytical Hessian |
 | `-o, --out-dir` | Output directory, subcommand-specific default |
 | `--config` | YAML configuration file applied before CLI flags |
-| `--show-config` | Print the loaded YAML file and its top-level keys, then continue execution (`all` prints the resolved settings; `sp` prints its merged config and exits before evaluation) |
+| `--show-config` | Print the loaded YAML file and its top-level keys, then continue execution (`all` and `path-search` print the resolved settings; `sp` prints its merged config and exits before evaluation) |
 | `--dry-run` | Validate options and inputs without executing |
 | `--help-advanced` | Reveal hidden / advanced flags |
 | `--ref-pdb` | Reference PDB used to derive residue context for XYZ inputs |
@@ -117,7 +117,7 @@ mlmm bond-summary -i reactant.pdb product.pdb
 | Pitfall | Fix |
 |---|---|
 | `--scan-lists` syntax error | The list is a Python literal-eval expression. Quote with single-quotes outside, double-quotes inside, and watch space- vs backtick-separated atom specs. |
-| Wrong charge silently | Use `--show-config --dry-run` to inspect the resolved charge before a long job. |
+| Wrong charge silently | Use `--dry-run` to inspect the resolved charge before a long job; scan commands do not accept `--show-config`. |
 | Forgetting `-b` falls back to the default (`uma`) | Spell `-b uma` / `-b orb` / `-b mace` / `-b aimnet2` explicitly for production runs. |
 | `--config` YAML ignored | YAML is read **after** built-in defaults but **before** explicit CLI flags. Anything also given on CLI overrides YAML. |
 | `--help-advanced` flags differ between versions | They are subject to change; if a flag isn't in `--help`, check `--help-advanced` and version-pin if the workflow is shared. |

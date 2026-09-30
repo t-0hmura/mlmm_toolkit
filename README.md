@@ -134,7 +134,7 @@ For Gaussian-ONIOM / ORCA-QM/MM input-deck export and import use [`oniom-export`
 
 A run writes its deliverables to `--out-dir` (default `./result_all/`):
 
-- `segments/seg_NN/{reactant,ts,product}.pdb` for MEP-oriented segments; TS-only mode writes chemically unassigned `{e1,ts,e2}.pdb`
+- `segments/seg_NN/{reactant,ts,product}.pdb` for MEP-oriented and TS-only segments; TS-only mode labels the higher-energy endpoint as reactant
 - `mep_trj.pdb` / `mep_trj.xyz` — the merged reaction path; `energy_diagram_MEP.png` — barrier diagram
 - `summary.log` / `summary.json`
 - Reusable inputs for follow-up runs: `ml_region.pdb` (`--model-pdb`), `mm_parm/*.parm7` (`--parm7`), `layered/` (B-factor-annotated full-system PDBs)

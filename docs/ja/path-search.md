@@ -108,9 +108,10 @@ out_dir/ (デフォルト:./result_path_search/)
 | `--max-cycles-gsm INT` | GSMストリング最適化サイクル上限。 | `300` |
 | `--dmf-max-iterations INT` | DMF IPOPT反復上限。 | `3000` |
 | `--climb/--no-climb` | セグメント GSM の TS 精密化を有効化。 | `True` |
-| `--preopt/--no-preopt` | セグメンテーション前に端点を L-BFGS で事前最適化。 | `True` |
+| `--preopt/--no-preopt` | セグメンテーション前に端点を L-BFGS または RFO で事前最適化。 | `True` |
 | `--align / --no-align` | 事前最適化後に入力をアラインし、凍結アンカーがあれば freeze-guided scan/緩和後に凍結原子を再マッチ。 | 有効 |
-| `--thresh TEXT` | 単一構造 L-BFGS のみの収束プリセット（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | `gau` |
+| `--opt-mode TEXT` | 単一構造オプティマイザ: `grad` = L-BFGS、`hess` = RFO。 | `grad` |
+| `--thresh TEXT` | 単一構造最適化と入力構造の整列の収束プリセット（`opt.lbfgs/rfo.thresh`）。 | `gau` |
 | `--thresh-gsm TEXT` | GSM ストリング最適化の収束プリセット（`stopt.thresh`; `--thresh` と同じプリセット群）。 | `gau_loose` |
 | `--dmf-tol TEXT` | DMF 最適化の IPOPT dual-infeasibility 許容値（`dmf.tol`）。`tight`(0.04)、`middle`(0.10)、`loose`(0.20) または正の float。Gaussian プリセットは拒否。 | `tight` |
 | `--mm-backend [hessian_ff\|openmm]` | MM バックエンド。Hessian 構築法は `calc.mm_fd` が別に制御します（デフォルト `true`: 有限差分）。 | `hessian_ff` |
@@ -118,7 +119,7 @@ out_dir/ (デフォルト:./result_path_search/)
 | `-o, --out-dir PATH` | 出力ディレクトリ。 | `./result_path_search/` |
 | `--ref-pdb PATH...` | XYZ→PDB 変換・トポロジー参照用の完全テンプレート PDB。 | _None_ |
 | `--config FILE` | 明示 CLI 指定より前に適用されるベース YAML。 | _None_ |
-| `--show-config/--no-show-config` | 読み込んだ YAML ファイルとその最上位の key を表示して実行を継続。 | `False` |
+| `--show-config/--no-show-config` | 解決済みの設定ブロックと読み込んだ YAML ファイルを表示して実行を継続。 | `False` |
 | `--dry-run/--no-dry-run` | 実行せずにオプションと入力を検証する。`--help-advanced` に表示。 | `False` |
 | `-b, --backend CHOICE` | 高レベルbackend: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`、`dft`。 | `uma` |
 | `--cmap/--no-cmap` | REAL と MODEL の両 MM 層で CMAP を保持します。 | `--cmap` |
@@ -133,14 +134,17 @@ YAML ルートはマッピングでなければなりません。受け付ける
 - **`geom`** -- `coord_type`（デフォルト `"cart"`）、`freeze_atoms`（1 始まりインデックス）。
 - **`calc` / `mlmm`** -- ML/MM calculator設定: `input_pdb`、`real_parm7`、`model_pdb`、`model_charge`、`model_mult`、バックエンド選択（`backend`）、UMA 制御（`uma_model`、`uma_task_name`、`hessian_calc_mode`）、デバイス選択、凍結原子。
 - **`gs`** -- Growing String 設定: `max_nodes`、`climb`、`climb_rms`、`climb_fixed`、`reparam_every_full`、`reparam_check`。
-- **`opt`** -- StringOptimizer 制御: `max_cycles`、`print_every`、`dump`、`dump_restart`、`out_dir`。
-- **`lbfgs`** -- HEI+/-1 精密化用の単一構造オプティマイザ制御: `keep_last`、`beta`、`gamma_mult`、`max_step`、`control_step`、`double_damp`、`mu_reg`、`max_mu_reg_adaptions`。
+- **`stopt`** -- StringOptimizer 制御: `max_cycles`、`print_every`、`dump`、`dump_restart`、`out_dir`。
+- **`opt` / `lbfgs` / `rfo`** -- HEI+/-1 精密化などの単一構造オプティマイザ制御: `keep_last`、`beta`、`gamma_mult`、`max_step`、`control_step`、`double_damp`、`mu_reg`、`max_mu_reg_adaptions`。
 - **`bond`** -- 結合変化検出: `bond_factor`、`margin_fraction`、`delta_fraction`。
 - **`search`** -- 再帰ロジック: `max_depth`、`stitch_rmsd_thresh`、`bridge_rmsd_thresh`、`max_nodes_segment`、`max_nodes_bridge`、`kink_max_nodes`、`max_seq_kink`、`refine_mode`。
 
 ## 注記
 
 - 端点が **2 つ**だけで再帰的精密化が不要な場合は、[path-opt](path-opt.md) がより簡単な選択です。
+
+単一構造の設定は `stopt.lbfgs` / `stopt.rfo` でも指定できます。
+別の書き方と矛盾の検査は [YAML リファレンス](yaml-reference.md#stopt) を参照してください。
 
 ## 関連項目
 

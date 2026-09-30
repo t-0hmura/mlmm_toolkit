@@ -1,6 +1,6 @@
 # `scan`
 
-`mlmm scan` drives one or more interatomic distances from a single layered enzyme structure toward target values under harmonic restraints, relaxing the structure with L-BFGS at each step. This ML/MM scan generates a coarse reaction trajectory and intermediate/product candidates for downstream MEP refinement. Input may be PDB/mmCIF, or XYZ with `--ref-pdb`. Use `-s/--scan-lists` to define target distances in a YAML/JSON spec file (recommended) or as inline Python literals.
+`mlmm scan` drives one or more interatomic distances from a single layered enzyme structure toward target values under harmonic restraints, relaxing the structure with L-BFGS (`grad`) or RFO (`hess`) at each step. This ML/MM scan generates a coarse reaction trajectory and intermediate/product candidates for downstream MEP refinement. Input may be PDB/mmCIF, or XYZ with `--ref-pdb`. Use `-s/--scan-lists` to define target distances in a YAML/JSON spec file (recommended) or as inline Python literals.
 
 Cartesian coordinates (`geom.coord_type: cart`) are the default and recommended for ML/MM scans. You can explicitly select `dlc` in YAML, but it can take substantially longer to converge.
 
@@ -70,7 +70,7 @@ mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  - Each pair's incremental change is `step_k = delta_k / N` (Å). At step `s`, the temporary
   target is `r_k(s) = r_k(0) + s * step_k`.
 5. March through all steps, applying the harmonic wells
-    `E_bias = sum 1/2 * k * (|r_i - r_j| - target_k)^2` and minimizing with L-BFGS.
+    `E_bias = sum 1/2 * k * (|r_i - r_j| - target_k)^2` and minimizing with the selected optimizer.
     `k` comes from `--restraint-k` (eV/Å²) and is converted once to Hartree/Bohr^2.
     Coordinates are stored in Bohr for PySisyphus and converted internally for reporting.
 6. After the last step of each stage, optionally run an unbiased relaxation
@@ -119,12 +119,12 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--max-angle-step-size FLOAT` | Maximum angle change per step (degrees). | `5.0` |
 | `--max-dihedral-step-size FLOAT` | Maximum dihedral change per step (degrees). | `10.0` |
 | `--restraint-k FLOAT` | Harmonic bias strength `k`: eV/Å² for distances and eV/rad² for angles. | `300` |
-| `--max-cycles INT` | L-BFGS cycle cap per biased step and per pre/end optimization stage. | `100000` |
-| `--relax-max-cycles INT` | Compatibility alias of `--max-cycles` (overrides it when provided). | inherits `--max-cycles` |
+| `--relax-max-cycles INT` | Optimizer-cycle cap per biased step and per pre/end optimization stage. Overrides YAML `opt.max_cycles` when explicitly supplied. | `100000` |
 | `--preopt/--no-preopt` | Run an unbiased optimization before scanning. | `False` |
 | `--endopt/--no-endopt` | Run an unbiased optimization after each stage. | `False` |
 | `--dump/--no-dump` | Dump per-step optimizer trajectory files. `scan_trj.xyz` is always written; PDB/CIF companions require `--convert-files` and a reference topology. | `False` |
 | `-o, --out-dir TEXT` | Output directory root. | `./result_scan/` |
+| `--opt-mode TEXT` | Single-structure optimizer: `grad` = L-BFGS, `hess` = RFO. | `grad` |
 | `--thresh TEXT` | Convergence preset (`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`). | _None_ (inherits `gau`) |
 | `--config FILE` | Base YAML configuration file (applied first). | _None_ |
 | `--ref-pdb FILE` | Reference PDB topology when `--input` is XYZ. | _None_ |
@@ -133,7 +133,7 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--mm-backend [hessian_ff\|openmm]` | MM backend. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | Link-atom placement: scaled ($g$-factor) or fixed 1.09/1.01 Å. | `scaled` |
 | `--out-json/--no-out-json` | Write `result.json` to `out_dir`. | `False` |
-| `--dry-run/--no-dry-run` | Validate options and print the execution plan without running the scan. Shown in `--help-advanced`. | `False` |
+| `--dry-run/--no-dry-run` | Validate inputs, charge/spin, and the parsed scan specification without running the scan. Shown in `--help-advanced`. | `False` |
 | `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
 
 ## Scan target syntax
@@ -257,7 +257,7 @@ Assign reactant and product identities by inspecting the optimized IRC endpoints
 
 ## YAML configuration
 
-The scan reads the shared `geom` (`coord_type`, `freeze_atoms`), `calc` / `mlmm` (ML/MM calculator setup), and `opt` / `lbfgs` (optimizer) sections, plus `bias` (`k`, harmonic strength in eV/Å²) and a `bond` section for MLIP-based bond-change detection. After merging, restrained scan optimization normalizes `geom.coord_type` to `cart`; DLC is not effective for this workflow.
+The scan reads the shared `geom` (`coord_type`, `freeze_atoms`), `calc` / `mlmm` (ML/MM calculator setup), and `opt` / `lbfgs` / `rfo` (optimizer) sections, plus `bias` (`k`, harmonic strength in eV/Å²) and a `bond` section for MLIP-based bond-change detection. The scan accepts an explicitly configured `geom.coord_type`; `cart` remains the default and is recommended for ML/MM.
 
 Full schema (every key and default): [YAML Reference](yaml-reference.md).
 

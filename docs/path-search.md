@@ -43,7 +43,7 @@ mlmm path-search -i R.pdb IM1.pdb P.pdb \
 After optional preoptimization, `--align` aligns adjacent inputs in sequence before MEP search. With frozen atoms, their positions are matched stepwise while the remaining atoms relax.
 
 1. **Initial segment per pair (GSM/DMF)** -- Run the selected MEP engine (`--mep-mode`) between each adjacent input (A->B) to obtain a coarse MEP and identify the highest-energy image (HEI).
-2. **Local relaxation around HEI** -- Seed refinement from `--refine-mode` (`peak`: HEI+/-1, `minima`: nearest local minima), then use L-BFGS to recover nearby minima (`End1`, `End2`).
+2. **Local relaxation around HEI** -- Seed refinement from `--refine-mode` (`peak`: HEI+/-1, `minima`: nearest local minima), then use L-BFGS or RFO to recover nearby minima (`End1`, `End2`).
 3. **Decide between kink vs. refinement**:
  - If no covalent bond change is detected between `End1` and `End2`, treat the region as a *kink*: insert `search.kink_max_nodes` linear nodes and optimize each individually.
  - Otherwise, launch a **refinement segment with the selected MEP engine** between `End1` and `End2` to sharpen the barrier.
@@ -92,9 +92,10 @@ out_dir/ (default: ./result_path_search/)
 | `--max-cycles-gsm INT` | GSM string-optimizer cycle cap. | `300` |
 | `--dmf-max-iterations INT` | DMF IPOPT iteration cap. | `3000` |
 | `--climb/--no-climb` | Enable TS refinement for segment GSM. | `True` |
-| `--preopt/--no-preopt` | Pre-optimize endpoints with L-BFGS before segmentation. | `True` |
+| `--preopt/--no-preopt` | Pre-optimize endpoints with L-BFGS or RFO before segmentation. | `True` |
 | `--align/--no-align` | After preoptimization, align inputs and, with frozen anchors, run freeze-guided scan/relaxation before re-matching freeze atoms. | `True` |
-| `--thresh TEXT` | Convergence preset for single-structure L-BFGS runs only (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | `gau` |
+| `--opt-mode TEXT` | Single-structure optimizer: `grad` = L-BFGS, `hess` = RFO. | `grad` |
+| `--thresh TEXT` | Convergence preset for single-structure optimization and input alignment (`opt.lbfgs/rfo.thresh`). | `gau` |
 | `--thresh-gsm TEXT` | Convergence preset for the GSM string optimizer (`stopt.thresh`; same presets as `--thresh`). | `gau_loose` |
 | `--dmf-tol TEXT` | IPOPT dual-infeasibility tolerance of the DMF optimizer (`dmf.tol`): `tight` (0.04), `middle` (0.10), `loose` (0.20), or a positive float. Gaussian presets are rejected. | `tight` |
 | `--mm-backend [hessian_ff\|openmm]` | MM backend. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |
@@ -102,7 +103,7 @@ out_dir/ (default: ./result_path_search/)
 | `-o, --out-dir PATH` | Output directory. | `./result_path_search/` |
 | `--ref-pdb PATH...` | Full template PDB(s) for XYZ→PDB conversion and topology reference. | _None_ |
 | `--config FILE` | Base YAML configuration layer applied before explicit CLI values. | _None_ |
-| `--show-config/--no-show-config` | Print the loaded YAML file and its top-level keys, then continue. | `False` |
+| `--show-config/--no-show-config` | Print the resolved configuration blocks and the loaded YAML file, then continue. | `False` |
 | `--dry-run/--no-dry-run` | Validate options and inputs without running path search. Shown in `--help-advanced`. | `False` |
 | `-b, --backend CHOICE` | High-level backend for the model region: `uma` (default), `orb`, `mace`, `aimnet2`, `dft`. | `uma` |
 | `--cmap/--no-cmap` | Preserve CMAP in both REAL and MODEL MM layers. | `--cmap` |
@@ -110,7 +111,7 @@ out_dir/ (default: ./result_path_search/)
 
 ## YAML configuration
 
-Merge order is **defaults < config < explicit CLI**. The YAML root must be a mapping. The relevant sections are `geom`/`calc`(alias `mlmm`)/`gs`/`opt` (shared with `path-opt`) plus `lbfgs` (HEI+/-1 single-structure refinement), `bond` (bond-change detection), and `search` (recursive segmentation logic, path-search only).
+Merge order is **defaults < config < explicit CLI**. The YAML root must be a mapping. The relevant sections are `geom`/`calc` (alias `mlmm`)/`gs`/`stopt` (shared with `path-opt`) plus `opt` / `lbfgs` / `rfo` (single-structure refinement), `bond` (bond-change detection), and `search` (recursive segmentation logic, path-search only).
 
 ```yaml
 # Minimal path-search YAML (every key and default: see YAML Reference)
@@ -122,6 +123,9 @@ search:
 bond:
   bond_factor: 1.2         # covalent-radius scaling for bond-change cutoff
 ```
+
+Single-structure settings also accept `stopt.lbfgs` / `stopt.rfo`;
+see [YAML Reference](yaml-reference.md#stopt) for aliases and conflict checks.
 
 Full schema (every key and default): [YAML Reference](yaml-reference.md).
 

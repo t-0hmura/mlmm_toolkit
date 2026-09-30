@@ -36,7 +36,7 @@ mlmm path-opt -i REACTANT.pdb PRODUCT.pdb --parm7 real.parm7 --model-pdb model.p
 1. **Load endpoints** -- Read PDB/mmCIF structures, or XYZ coordinates with matching `--ref-pdb` topology, and resolve charge/spin.
     Set up the ML/MM calculator with `--parm7`, `--model-pdb`, and charge/spin.
 2. **Optional pre-optimization** -- With `--preopt`, each endpoint is pre-optimized
-    by L-BFGS (using the same ML/MM calculator) before alignment and string growth.
+    by L-BFGS or RFO selected by `--opt-mode` (using the same ML/MM calculator) before alignment and string growth.
     `--preopt-max-cycles` sets the L-BFGS cycle cap (default: 100000).
 3. **Alignment and freeze-guided refinement** -- Endpoints after the first are rigidly
     aligned to the first. With `freeze_atoms`, the shared owner then performs its
@@ -57,7 +57,7 @@ out_dir/ (default: ./result_path_opt/)
 ├─ hei.pdb # HEI in PDB format (when reference PDB is available)
 ├─ align_refine/ # External alignment/refinement artifacts
 ├─ preopt/ # Endpoint pre-optimization outputs (present when --preopt)
-└─ <optimizer dumps> # Present when --dump or opt.dump_restart > 0
+└─ <optimizer dumps> # Present when --dump or stopt.dump_restart > 0
 ```
 
 ## CLI options
@@ -84,9 +84,10 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--max-cycles-gsm INT` | GSM string-optimizer cycle cap; also sets `stopt.stop_in_when_full`. | `300` |
 | `--dmf-max-iterations INT` | DMF IPOPT iteration cap. | `3000` |
 | `--climb/--no-climb` | Enable climbing-image refinement after full string growth. | `True` |
-| `--preopt/--no-preopt` | Pre-optimize each endpoint with L-BFGS before alignment/string growth. | `True` |
+| `--preopt/--no-preopt` | Pre-optimize each endpoint with L-BFGS (`grad`) or RFO (`hess`) before alignment/string growth. | `True` |
 | `--preopt-max-cycles INT` | Endpoint pre-optimization cycle cap. | `100000` |
-| `--thresh TEXT` | Convergence preset override for endpoint pre-optimization only (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | `gau` |
+| `--opt-mode TEXT` | Single-structure optimizer: `grad` = L-BFGS, `hess` = RFO. | `grad` |
+| `--thresh TEXT` | Convergence preset for single-structure optimization and input alignment (`opt.lbfgs/rfo.thresh`). | `gau` |
 | `--thresh-gsm TEXT` | Convergence preset for the GSM string optimizer (`stopt.thresh`; same presets as `--thresh`). | `gau_loose` |
 | `--dmf-tol TEXT` | IPOPT dual-infeasibility tolerance of the DMF optimizer (`dmf.tol`): `tight` (0.04), `middle` (0.10), `loose` (0.20), or a positive float. Gaussian presets are rejected. | `tight` |
 | `--mm-backend [hessian_ff\|openmm]` | MM backend. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |
@@ -101,7 +102,10 @@ The full flag list is in the generated [command reference](reference/commands/in
 
 ## YAML configuration
 
-Merge order is **defaults < config < explicit CLI**. The relevant sections are `geom` (`coord_type`, `freeze_atoms`), `calc` / `mlmm` (ML/MM calculator setup), `gs` (Growing String controls), and `opt` (StringOptimizer settings).
+Merge order is **defaults < config < explicit CLI**. The relevant sections are `geom` (`coord_type`, `freeze_atoms`), `calc` / `mlmm` (ML/MM calculator setup), `gs` (Growing String controls), `stopt` (string optimization), and `opt` / `lbfgs` / `rfo` (single-structure optimization).
+
+Single-structure settings also accept `stopt.lbfgs` / `stopt.rfo`;
+see [YAML Reference](yaml-reference.md#stopt) for aliases and conflict checks.
 
 Full schema (every key and default): [YAML Reference](yaml-reference.md).
 
@@ -121,4 +125,4 @@ Full schema (every key and default): [YAML Reference](yaml-reference.md).
 - [path-search](path-search.md) — Recursive MEP search with automatic refinement (for 2+ structures)
 - [opt](opt.md) — Single-structure geometry optimization
 - [all](all.md) — End-to-end workflow (uses single-pass path-opt by default; add `--refine-path` for recursive path-search)
-- [YAML Reference](yaml-reference.md) — Full `gs`, `opt` configuration options
+- [YAML Reference](yaml-reference.md) — Full `gs`, `stopt`, `opt` configuration options

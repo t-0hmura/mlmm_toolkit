@@ -22,8 +22,8 @@ mlmm add-elem-info -i in.pdb -o out.pdb
 |---|---|---|---|
 | `-i, --input` | path | required | Input PDB |
 | `-o, --out` | path | optional | Output PDB. If omitted, writes `<input>_add_elem.pdb`. |
-| `--inplace / --no-inplace` | flag | `no-inplace` | Modify the input file directly instead of writing a derived output. |
-| `--overwrite / --no-overwrite` | flag | `no-overwrite` | Re-infer the element column even when it is already populated. |
+| `--overwrite / --no-overwrite` | flag | off | Replace the input file when no output is specified; required when output equals input. |
+| `--overwrite-elem / --no-overwrite-elem` | flag | off | Re-infer valid existing element fields; otherwise repair only blank or invalid fields. |
 
 ## Examples
 
@@ -41,17 +41,18 @@ occupies cols 77–78. Inference follows a fixed priority:
    decided per atom name (H/D→H, N→N, O→O); monatomic metals/halogens
    are taken from the residue name (with CL/BR/I/F atom-name fallback).
 2. **Protein / nucleic-acid / water** polymers: by convention —
-   H/D→H, water→O (non-H), Se→Se, first letter P/N/O/S, then C*→C.
-3. **Other ligands/cofactors**: by atom-name prefix — H/D→H,
-   C*→C (excluding CL), P*→P.
+   H/D→H, water→O/H or EP for virtual sites, Se→Se, first letter P/N/O/S, then C*→C.
+3. **Other ligands/cofactors**: fixed-column alignment distinguishes
+   ` NA ` (N) from `NA  ` (Na). LEaP ` CL1` / ` BR1` are halogens;
+   `HG11` is H.
 4. **Fallback normalization**: 2-letter-then-1-letter match against
    the known-element set (deuterium D→H); returns nothing if still
    ambiguous.
 
 ## Caveats
 
-- Existing element columns are **preserved** by default; pass
-  `--overwrite` to re-infer them. Diff before committing.
+- Valid existing element columns are **preserved** by default; pass
+  `--overwrite-elem` to re-infer them. `--overwrite` controls file replacement. Diff before committing.
 - Only cols 77–78 of repaired ATOM/HETATM records change; all other columns
   and non-atom records are preserved.
 - Atom names that don't follow the standard convention (e.g.

@@ -90,7 +90,7 @@ For full details, keep [Troubleshooting](troubleshooting.md) open in parallel.
 - IRC: reduce `--step-size` and increase `--max-cycles` for standalone `irc`, or `--irc-step-size` / `--irc-max-cycles` for `all`.
 - Check whether the configured energy-plateau window is flat while force/step
   criteria remain unmet. Plateau stopping is off by default; `--stop-plateau`
-  enables it and reports `status: stalled`, not convergence (see
+  enables it and reports `optimization_status: stalled`, not convergence (see
   [Troubleshooting](troubleshooting.md#optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor)).
 
 **Typical fix path:**

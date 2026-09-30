@@ -44,6 +44,8 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `-i, --input` | path | required | Reactant `.pdb` / `.xyz` (XYZ requires `--ref-pdb`) |
 | `-s, --scan-lists` | str | required | Distance target/range, angle range, or dihedral range in an inline Python literal or YAML/JSON spec. Supply multiple stage literals after a single `-s` flag (do not repeat the flag). |
 | `-q` / `-l` / `-m` | — | — | Charge / spin (common conventions) |
+| `--relax-max-cycles` | int | 100000 | Optimizer-cycle limit; an explicit value overrides YAML `opt.max_cycles` |
+| `--opt-mode` | str | `grad` | Single-structure optimizer: L-BFGS (`grad`) or RFO (`hess`) |
 | `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |
 | `-o, --out-dir` | path | `./result_scan/` | Output directory |
 | `--ref-pdb` | path | none | Residue context for XYZ inputs |

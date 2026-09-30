@@ -85,13 +85,13 @@ result_ts_only/
 ├── summary.log
 └── segments/
     └── seg_01/
-        ├── e1.pdb         chemically unassigned IRC endpoint 1
+        ├── reactant.pdb   higher-energy endpoint, then optimized
         ├── ts.pdb         optimized TS
-        ├── e2.pdb         chemically unassigned IRC endpoint 2
+        ├── product.pdb    other endpoint, then optimized
         ├── ts/            final_geometry.{xyz,pdb}, result.json (requested by all)
         ├── irc/           forward_irc_trj.xyz, backward_irc_trj.xyz, finished_irc_trj.xyz
         ├── freq/          frequencies_cm-1.txt, thermoanalysis.yaml
-        ├── structures/    nested copies + raw IRC endpoints ({endpoint_1_irc,ts,endpoint_2_irc}.{xyz,pdb})
+        ├── structures/    nested copies + raw IRC endpoints ({reactant_irc,ts,product_irc}.{xyz,pdb})
         └── (dft/)
 ```
 
@@ -112,15 +112,18 @@ print(ts["n_imaginary_modes"])         # should be 1
 irc_path = Path("result_ts_only/segments/seg_01/irc/result.json")
 if irc_path.exists():
     irc = json.load(open(irc_path))
-    print(seg["barrier_from_endpoint_1_kcal"])
-    print(seg["barrier_from_endpoint_2_kcal"])
+    print(seg["barrier_kcal"])
+    print(seg["delta_kcal"])
     print(seg["bond_changes"])         # bonds broken/formed along the IRC
     print(irc["energy_first_hartree"], irc["energy_ts_hartree"], irc["energy_last_hartree"])
 ```
 
-The child IRC result reports directional first/last endpoints only. TS-only
-mode preserves them as `E1`/`E2`; inspect the structures before attaching
-chemical R/P identity.
+The child IRC result reports directional first/last endpoints. TS-only mode
+labels the higher-energy endpoint `reactant` and the other `product`; an
+energy tie keeps the left endpoint as reactant. This convention is recorded
+as `endpoint_assignment.policy = "higher_energy_endpoint_as_reactant"`, with
+`chemical_direction_known = false`. Inspect the structures to identify the
+chemical states.
 
 If `n_imaginary_modes != 1`, the geometry is **not a true first-order
 saddle**; see "Distinctive failure modes" below.
@@ -154,8 +157,8 @@ IRC and remains uncertified.
   a single PDB triggers a validation error.
 - For an XYZ TS candidate, supply `--ref-pdb` for topology and B-factor
   layers, plus `-q` and `-m` because XYZ has no charge or spin metadata.
-- Inspect `segments/seg_01/{e1,e2}.pdb` to determine which chemical states the
-  IRC reached. IRC direction and endpoint energy do not assign R/P identity.
+- Inspect `segments/seg_01/{reactant,product}.pdb` to determine which chemical
+  states the IRC reached. The R/P labels follow the energy convention above.
 
 ## See also
 

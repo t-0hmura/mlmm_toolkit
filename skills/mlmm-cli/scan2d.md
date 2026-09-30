@@ -43,6 +43,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `-i, --input` | path | required | Reactant `.pdb` / `.xyz` |
 | `-s, --scan-lists` | str | required | Two distance `(i,j,low,high)`, angle `(i,j,k,low,high)`, or dihedral `(i,j,k,l,low,high)` ranges, inline or in YAML/JSON. |
 | `-q` / `-l` / `-m` | — | — | Charge / spin |
+| `--opt-mode` | str | `grad` | Single-structure optimizer: L-BFGS (`grad`) or RFO (`hess`) |
 | `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |
 | `-o, --out-dir` | path | `./result_scan2d/` | Output directory |
 | `--ref-pdb` | path | none | Topology reference required when `--input` is XYZ |

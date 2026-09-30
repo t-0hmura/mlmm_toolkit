@@ -101,7 +101,7 @@ internal coordinates such as `dlc` can be slow to build; `cart` (the default)
 is recommended.
 
 ```{warning}
-`--coord-type dlc` needs a **Hessian-based** optimizer. On [`opt`](opt.md) with the default L-BFGS (`--opt-mode grad`) the CLI warns and falls back to `cart`; use it on `tsopt` (RS-P-RFO / RS-I-RFO / TRIM) or `opt --opt-mode hess`. `path-opt` / `path-search` accept only `cart` and `dlc`. `DLC + link atom` and `DLC + 3-layer frozen MM` are numerically unverified, so `cart` remains the default.
+`opt` accepts `dlc` with either L-BFGS (`--opt-mode grad`) or RFO (`--opt-mode hess`). `path-opt` / `path-search` accept `cart` and `dlc`. Internal coordinates can be slow to build for ML/MM systems; `cart` remains the recommended default.
 ```
 
 See [Common Error Recipes — Recipe 4](recipes-common-errors.md#recipe-4-convergence-and-post-processing-failures) for symptom-first routing of the same failure.

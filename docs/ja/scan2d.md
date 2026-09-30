@@ -64,6 +64,12 @@ mlmm scan2d -i input.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 5. **エネルギー評価** -- 各 (i, j) ペアで ML/MM エネルギーをバイアスなしで評価し `surface.csv` に記録。開始／事前最適化構造は常に `i = j = -1`、`is_preopt = true` の参照行として表に残す。
 6. **可視化** -- `-1` の参照行を基準エネルギー、補間、plot から除外し、`scan2d_map.png`（2D コンター）と `scan2d_landscape.html`（3D サーフェス）を書き出し。`--zmin/--zmax` でカラースケールをクランプ。ベースライン: `--baseline min` は最小エネルギーをゼロに; `--baseline first` は (i=0, j=0) グリッド点をゼロに。
 
+`d1_A` / `d2_A` は緩和後の実測値、
+`target_d1_A` / `target_d2_A` は拘束の目標値です。
+ファイル名の距離タグは目標値を表します。使える点があっても補間に足りない
+場合は CSV を保持して図だけを省略します（`scientific_status: partial`、終了コード 0）。
+使える点が 0 個なら `scientific_status: failed`、終了コード 1 です。
+
 ## 出力
 
 まず `surface.csv`（PES グリッド）を確認してください。`scan2d_map.png`（2D コンター）と `scan2d_landscape.html`（3D ランドスケープ）は、有限かつ収束した一意な非共線点が 3 点以上ある場合だけ生成されます。条件を満たさない場合は `surface.csv` を保持して診断付きで終了します。グリッド点ごとのジオメトリは `grid/` 配下に出力されます（ファイル名タグ `i###` / `j###` は Å の 100 分の 1 の整数で、ステップ番号ではありません）。
@@ -103,9 +109,10 @@ out_dir/ (デフォルト:./result_scan2d/)
 | `--max-angle-step-size FLOAT` | 角度の1stepあたりの最大変化量（度）。 | `5.0` |
 | `--max-dihedral-step-size FLOAT` | 二面角の1stepあたりの最大変化量（度）。 | `10.0` |
 | `--restraint-k FLOAT` | 調和拘束強度。距離はeV/Å²、角度はeV/rad²。 | `300.0` |
-| `--relax-max-cycles INT` | バイアス緩和ごとの L-BFGS サイクル上限。 | `100000` |
+| `--relax-max-cycles INT` | バイアス緩和ごとの オプティマイザのサイクル上限。 | `100000` |
 | `--dump/--no-dump` | d1 スライスごとの内側 d2 スキャン TRJ を書き出し。 | `False` |
 | `-o, --out-dir TEXT` | 基本出力ディレクトリ。 | `./result_scan2d/` |
+| `--opt-mode TEXT` | 単一構造オプティマイザ: `grad` = L-BFGS、`hess` = RFO。 | `grad` |
 | `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | `baker` |
 | `--config FILE` | ベース YAML 設定ファイル（最初に適用）。 | _None_ |
 | `--ref-pdb FILE` | `--input` が XYZ の場合の参照 PDB トポロジー。 | _None_ |
@@ -204,6 +211,9 @@ bias:
 軌跡保存と出力先は CLI が所有する `--dump` と `--out-dir` を使います。
 
 全スキーマ（すべてのキーとデフォルト）: [YAML リファレンス](yaml-reference.md)。
+
+`--opt-mode hess` は `rfo` または `opt.rfo`、`grad` は
+`lbfgs` または `opt.lbfgs` の設定を使用します。
 
 ## 関連項目
 

@@ -86,7 +86,7 @@ Same as the base `all.md`. Specifically for endpoint-MEP mode:
 
 | Symptom in `summary.json` | Likely cause | Fix |
 |---|---|---|
-| `status == "partial"`, or `bond-summary` reports extra changes vs the optimized MEP | Bond-change detector found extra changes; the reaction in the inputs and the reaction the optimizer found don't match. | Check which bonds changed via `bond-summary -i 1.R.pdb 3.P.pdb`; rerun standalone `path-search` with `--refine-mode minima`, or supply IM explicitly. |
+| `bond-summary` reports extra changes between inputs and the optimized MEP | Bond-change detector found extra changes; the reaction in the inputs and the reaction the optimizer found don't match. | Check which bonds changed via `bond-summary -i 1.R.pdb 3.P.pdb`; rerun standalone `path-search` with `--refine-mode minima`, or supply IM explicitly. |
 | `post_segments[].tsopt.n_imaginary_modes > 1` | Higher-order saddle or unresolved soft modes | Compare a Hessian-based mode and Dimer on the same seed/backend, then rerun frequency analysis and IRC connectivity checks. |
 | Different atoms/order across `-i` inputs | Inconsistent input series | Compare ordered atom identities first, then apply one common extraction. |
 

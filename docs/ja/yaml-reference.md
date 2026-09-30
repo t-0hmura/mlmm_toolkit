@@ -2,6 +2,13 @@
 
 ## 概要
 
+`opt.lbfgs` / `opt.rfo` は `lbfgs` / `rfo`、`freq.thermo` は
+`thermo` の別の書き方です。熱化学設定は `all --thermo` でも使用します。
+path 系では `stopt.lbfgs` / `stopt.rfo` も単一構造最適化を設定します。
+同じ YAML 層で別の場所に明示した値が矛盾するとエラーになり、共通の
+`opt` キーと選択したオプティマイザの設定も照合します。path の出力先と
+prefix は実行ごとに設定します。ストリング最適化は外側の `stopt` を読みます。
+
 `mlmm all` は、選択して有効化した stage の section だけを使用します。
 
 | セクション | 説明 | 使用されるコマンド |
@@ -10,7 +17,7 @@
 | [`calc`](#calc) | ML/MM calculatorの設定（別名: `mlmm:`） | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |
 | [`opt`](#opt) | 最適化の共通設定 | all, opt, scan, scan2d, scan3d, tsopt, path-opt, path-search |
 | [`lbfgs`](#lbfgs) | L-BFGSの設定 | all, opt, scan, scan2d, scan3d, tsopt（マイクロイテレーションの MM 緩和）, path-opt, path-search |
-| [`rfo`](#rfo) | RFOの設定 | all, opt |
+| [`rfo`](#rfo) | RFOの設定 | all, opt, scan, scan2d, scan3d, path-opt, path-search |
 | [`gs`](#gs) | GSM（Growing String Method）設定 | all, path-opt, path-search |
 | [`dmf`](#dmf) | DMF（Direct Max Flux）設定 | all, path-opt, path-search |
 | [`irc`](#ja-irc-section) | IRC 積分設定 | all, irc |
@@ -172,7 +179,6 @@ optimizer 固有セクションが優先されます。
 ```yaml
 opt:
  thresh: gau # 収束プリセット: gau_loose, gau, gau_tight, gau_vtight, baker, never
- align: false # StringOptimizer 専用: alignment の有効/無効
  max_cycles: 100000 # オプティマイザサイクル上限
  print_every: 100 # ログ出力間隔
  min_step_norm: 1.0e-08 # 最小ステップノルム
@@ -190,8 +196,6 @@ opt:
  line_search: true # ラインサーチを有効化
  dump: false # 軌跡/リスタートデータの出力
  dump_restart: false # リスタートチェックポイントの出力
- reparam_thresh: 0.0 # StringOptimizer 専用: 再パラメータ化閾値
- coord_diff_thresh: 0.0 # StringOptimizer 専用: 座標差分閾値
  prefix: "" # ファイル名プレフィックス
  out_dir: ./result_opt/ # 出力ディレクトリ
 ```
@@ -214,7 +218,7 @@ opt:
 `--stop-plateau` で有効化し、`--stop-plateau-thresh` / `--stop-plateau-window` が
 上記の 2 つの値を設定します。有効時、直近 `energy_plateau_window` ステップ
 （デフォルト 50）のエネルギー範囲 `max(E) - min(E)` が `energy_plateau_thresh`
-（デフォルト `1.0e-4` au、約 0.06 kcal/mol）を下回ると、オプティマイザを `status: "stalled"` で停止します（`converged` とは
+（デフォルト `1.0e-4` au、約 0.06 kcal/mol）を下回ると、オプティマイザを `optimization_status: "stalled"` で停止します（`converged` とは
 区別される非収束の結果で、決して `converged` にはなりません）。
 
 これは ML/MM 最適化で cycle を節約するための機構です。MLIP の力には数値精度に起因する
@@ -419,7 +423,7 @@ stopt:
 ```
 
 **注意:**
-- `stopt.lbfgs` は HEI±1 端点最適化およびねじれノード最適化に使用される単一構造最適化（L-BFGS）の設定です。この入れ子レベルでは L-BFGS のみが参照されるため、`stopt.rfo:` ブロックは無視されます。
+- `stopt.lbfgs` / `stopt.rfo` は端点の事前最適化、HEI±1 精密化、ねじれノードに使う単一構造オプティマイザを設定します。
 - 外側の `stopt` キーはストリング最適化（GS または DMF ラッパー）を制御します。
 
 ---

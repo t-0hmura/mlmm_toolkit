@@ -124,7 +124,7 @@ artifact and is always written for PDB input.
    - `--hessian-calc-mode` selects analytical or finite-difference Hessians where supported. Compare both on a target-system pilot because speed and memory depend on the backend and system.
 6. **TSOPT-only mode** (single input, `--tsopt`, no `--scan-lists`)
    - Skips the MEP search and runs `tsopt` on the layered full-system PDB. After the TS gate, it performs EulerPC IRC, minimizes both ends, and optionally adds thermochemistry, DFT, and DFT//MLIP/MM diagrams.
-   - When IRC runs, its ends are emitted as chemically unassigned `E1` and `E2` because no path/reference orientation is available. The summary reports the barrier from each endpoint to TS and does not emit R/P reaction energies. Inspect the structures before assigning chemical identities.
+   - When IRC runs, the higher-energy endpoint is labelled reactant and the other product; an energy tie keeps the left endpoint as reactant. Outputs use R/TS/P and report `barrier_kcal` and `delta_kcal`. This convention is recorded in `endpoint_assignment.policy` as `higher_energy_endpoint_as_reactant`, with `chemical_direction_known: false`. Inspect the structures to identify the chemical states.
 
 An endpoint execution error or missing valid final structure stops that segment
 before frequency/DFT and refined diagrams. `endpoint_opt/failure.json` records
@@ -158,14 +158,12 @@ The tree has three zones: **deliverables at the root**, **per-segment deliverabl
   layered/                       # Layered full-system PDBs (B-factor annotated; reusable inputs)
   segments/                      # per-reactive-segment deliverables
     seg_NN/                      # 1-based 2-digit index, e.g. seg_01, seg_02
-      reactant.pdb · ts.pdb · product.pdb   # canonical R/TS/P for MEP runs
-      e1.pdb · ts.pdb · e2.pdb              # unassigned endpoints for TSOPT-only
+      reactant.pdb · ts.pdb · product.pdb   # canonical R/TS/P for MEP and TSOPT-only
       *.cif                                 # bridged-input companions with original IDs
       ts/                        # TS optimization (--tsopt)
       irc/                       # EulerPC IRC after the TS gate
       freq/ (--thermo), dft/ (--dft)
-      structures/{reactant,ts,product}.pdb  # MEP run nested copy
-      structures/{endpoint_1,ts,endpoint_2}.pdb # TSOPT-only nested copy
+      structures/{reactant,ts,product}.pdb  # nested copy
       energy_diagram_{MLIP,G_MLIP,DFT,G_DFT_plus_MLIP}.png
   _work/                         # pipeline scratch (safe to delete)
     pockets/                     # Per-input pocket PDBs (multi-structure union)
@@ -174,7 +172,7 @@ The tree has three zones: **deliverables at the root**, **per-segment deliverabl
       summary.{json,log} · seg_NN_mep/    # raw per-segment MEP trajectories (merged products are moved to the root)
 ```
 
-In **TSOPT-only mode** (single input + `--tsopt`, no `--scan-lists`) there is no MEP stage. `ts/` is written under `segments/seg_01/`; after the TS gate, the E1/TS/E2 structures and `irc/` are added there, followed by requested `freq/` and `dft/` outputs. `_work/path_opt/` is absent.
+In **TSOPT-only mode** (single input + `--tsopt`, no `--scan-lists`) there is no MEP stage. `ts/` is written under `segments/seg_01/`; after the TS gate, the R/TS/P structures and `irc/` are added there, followed by requested `freq/` and `dft/` outputs. `_work/path_opt/` is absent.
 
 At `-v 2` the console summarizes extraction, MM preparation, scan stages, MEP progress, and per-stage timing; see {ref}`verbosity-levels`.
 
@@ -269,8 +267,9 @@ and defaults.
 | `--max-cycles-gsm INT` | GSM string-optimizer cycle cap for the MEP child. | `300` |
 | `--dmf-max-iterations INT` | DMF IPOPT iteration cap for the MEP child. | `3000` |
 | `--climb / --no-climb` | Enable climbing-image TS refinement where supported by the selected optimizer. | `True` |
-| `--opt-mode [grad\|hess]` | Fallback preset for TSOPT and post-IRC endpoint optimization (`grad` → Dimer / L-BFGS, `hess` → RS-P-RFO / RFO). `--opt-mode-post` takes precedence. | `grad` |
+| `--opt-mode [grad\|hess]` | Single-structure preset for scan and path stages (`grad` → L-BFGS, `hess` → RFO), and fallback for TSOPT and post-IRC endpoint optimization (`grad` → Dimer / L-BFGS, `hess` → RS-P-RFO / RFO). `--opt-mode-post` takes precedence. | `grad` |
 | `--opt-mode-post [grad\|hess]` | Optimizer preset override for TSOPT / post-IRC endpoint optimizations (`grad` → Dimer / L-BFGS, `hess` → RS-P-RFO / RFO). | `hess` |
+| `--print-every INT` | Explicit CLI logging stride forwarded to child commands. Conflicting explicitly set downstream YAML values raise an error. | Child defaults / YAML |
 | `--thresh TEXT` | Convergence preset for single-structure optimizations and scan relaxations (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | `gau` |
 | `--thresh-gsm TEXT` | Convergence preset for the GSM string optimizer of the MEP stage (same presets as `--thresh`). | `gau_loose` |
 | `--dmf-tol TEXT` | IPOPT dual-infeasibility tolerance of the DMF MEP stage: `tight` (0.04), `middle` (0.10), `loose` (0.20), or a positive float. Not a Gaussian preset. | `tight` |
@@ -306,8 +305,8 @@ TSOPT optimizer selection order: `--opt-mode-post` (if set) → `--opt-mode` (on
 | --- | --- | --- |
 | `--tsopt / --no-tsopt` | Run TS optimization and, after the TS gate, EulerPC IRC per reactive segment. | `False` |
 | `--tsopt-from-mep-tan / --no-tsopt-from-mep-tan` | For Hessian TS optimizers, guide reaction-root identity with CPU/file-cached HEI tangent candidates. Turning it off disables cache creation/use and selects from initial Hessian modes. Not applicable to Dimer. | `True` |
-| `--thermo / --no-thermo` | Run vibrational analysis (`freq`) on R/TS/P for MEP runs or E1/TS/E2 for TS-only runs. | `False` |
-| `--dft / --no-dft` | Run single-point DFT on R/TS/P for MEP runs or E1/TS/E2 for TS-only runs. | `False` |
+| `--thermo / --no-thermo` | Run vibrational analysis (`freq`) on R/TS/P, including TS-only runs. | `False` |
+| `--dft / --no-dft` | Run single-point DFT on R/TS/P, including TS-only runs. | `False` |
 | `--flatten / --no-flatten` | Surplus-imaginary-mode flattening in `tsopt`. | `False` |
 | `--reject-uphill / --no-reject-uphill` | Opt in to rejecting energy-raising RFO steps during post-IRC **endpoint re-optimization only**, using a `1e-4` Hartree tolerance (forwarded to the opt child); TS optimization forces rejection off, and path search is unaffected. At the emergency floor, the retained endpoint receives a final normal convergence check. | `False` |
 | `--irc-step-size FLOAT` | Override the EulerPC maximum step (Bohr) for every post-TS IRC. If a branch stops after only a few frames, retry with a smaller value such as `0.05`. | IRC default `0.10` |
@@ -355,8 +354,8 @@ resume metadata from an earlier `all` run.
 
 | Subcommand | YAML sections |
 |---|---|
-| [`path-search`](path-search.md) | `geom`, `calc` / `mlmm`, `gs`, `opt`, `lbfgs`, `bond`, `search` |
-| [`scan`](scan.md) | `geom`, `calc` / `mlmm`, `opt`, `lbfgs` |
+| [`path-search`](path-search.md) | `geom`, `calc` / `mlmm`, `gs`, `stopt`, `opt`, `lbfgs`, `rfo`, `bond`, `search` |
+| [`scan`](scan.md) | `geom`, `calc` / `mlmm`, `opt`, `lbfgs`, `rfo` |
 | [`tsopt`](tsopt.md) | `geom`, `calc` / `mlmm`, `opt`, `hessian_dimer`, `rsirfo` |
 | [`freq`](freq.md) | `geom`, `calc` / `mlmm`, `freq`, `thermo` |
 | [`dft`](dft.md) | `dft` |

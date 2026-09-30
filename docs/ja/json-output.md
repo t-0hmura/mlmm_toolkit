@@ -137,6 +137,8 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
+| `flatten_requested` / `flatten_enabled` | bool | flatten 反復を設定したかどうか |
+| `flatten_skip_reason` | string \| null | 追加の flatten step を行わなかった理由（該当時） |
 | `optimization_status` | string | 数値 optimizer の結果: `"converged"` / `"not_converged"` / `"stalled"`。鞍点次数とは独立 |
 | `saddle_validation` | string | 終端 exact PHVA による `"first_order"` / `"higher_order"` / `"no_imaginary"` / `"unavailable"` |
 | `saddle_order_verified` | bool | `saddle_validation: "first_order"` の場合だけ `true` |
@@ -207,7 +209,7 @@ IRC は共通の2欄に加え、方向ごとの停止理由と軌跡を残しま
 | `never_stop` | bool | 任意指定の物理的端点停止回避モードを有効にしたか |
 | `never_stop_energy_bypasses` | int | 実際に回避したenergy上昇・1 step energy変化量停止event数 |
 | `rigid_projection` | object | 初期/更新 Hessian の凍結境界 TR provenance |
-| `rigid_projection.hessian_source` | string | 初期 Hessian の出所。`"file"`（`--read-hess`）、`"cache"`（同じ実行の前の stage）、`"fresh"`（新規計算） |
+| `rigid_projection.hessian_source` | string | 初期 Hessian の出所。`"file"`（`--read-hess`）、`"cache"`（同じ実行の前の stage）、`"fresh"`（新規計算。`irc.hessian_init` が `calc` 以外の場合に EulerPC が作る Hessian も含む） |
 | `bond_changes` | object | 最初→最後の方向の `{formed: [...], broken: [...]}`。比較できない場合は省略 |
 | `bond_changes_direction` | string | 結合変化がある場合は `"finished_first_to_finished_last"` |
 | `files` | object | 軌跡と端点ファイル（XYZと、利用可能なPDB/CIF companion） |
@@ -223,8 +225,8 @@ IRC は共通の2欄に加え、方向ごとの停止理由と軌跡を残しま
 
 | フィールド | 型 | 説明 |
 |---|---|---|
-| `scan_opt_mode` | string | 拘束付きL-BFGS緩和で使う固定の `grad` |
-| `scan_optimizer` | string | 使用した最適化法（`lbfgs`） |
+| `scan_opt_mode` | string | 指定した `grad` または `hess` のプリセット |
+| `scan_optimizer` | string | 実際のオプティマイザ: `lbfgs` または `rfo` |
 | `n_stages` | int | スキャンステージ数 |
 | `stages` | object[] | ステージごとの結果 |
 | `charge` | int | ML領域の電荷 |
@@ -371,8 +373,8 @@ IRC は共通の2欄に加え、方向ごとの停止理由と軌跡を残しま
 | `post_segments` | list | セグメントごとの TS/IRC/freq/DFT 結果。 |
 | `post_segments[].tsopt.energy_valid` / `.structure_valid` | bool | 既存の終端Hessian結果と組み合わせる有限TSの確認。status判定のための追加Hessian・最適化は実行しません。 |
 | `post_segments[].tsopt.n_opt_cycles` / `.max_cycles` | int / int\|null | TS 最適化で実行したサイクル数と設定上限。通常の非収束時にも記録します。 |
-| `post_segments[].irc` / `.endpoint_assignment` / `.endpoint_opt` | object | 順に IRC 停止診断、端点の向き付け、端点 OPT の収束記録。端点別の record（通常は `reactant` / `product`、TS-onlyでは `endpoint_1` / `endpoint_2`）に `optimization_status`, `n_opt_cycles`, `max_cycles`, `stop_reason`（存在する場合）を記録します。IRC 停止・結合対応は独立した成功条件にせず、connectivity 情報は機構解釈用に保持します。 |
-| `post_segments[].thermo_symmetry` | object | 子 freq が報告した状態別の点群・回転対称 provenance。MEP 実行では R/TS/P、TS-only 実行では E1/TS/E2 を対象とし、有効な対称数 provenance を持つ状態だけを含む。欠けた状態は省略し、どの状態にも有効な provenance が無い場合だけフィールド全体を省略する。 |
+| `post_segments[].irc` / `.endpoint_assignment` / `.endpoint_opt` | object | 順に IRC 停止診断、端点の向き付け、端点 OPT の収束記録。TS-only では `endpoint_assignment.policy` は `higher_energy_endpoint_as_reactant`、`chemical_direction_known` は false。端点別の record（`reactant` / `product`）に `optimization_status`, `n_opt_cycles`, `max_cycles`, `stop_reason`（存在する場合）を記録します。IRC 停止・結合対応は独立した成功条件にせず、connectivity 情報は機構解釈用に保持します。 |
+| `post_segments[].thermo_symmetry` | object | 子 freq が報告した状態別の点群・回転対称 provenance。TS-only を含む R/TS/P を対象とし、有効な対称数 provenance を持つ状態だけを含む。欠けた状態は省略し、どの状態にも有効な provenance が無い場合だけフィールド全体を省略する。 |
 | `key_output_files` | object | 現在の呼び出しの出力索引。ルートファイルはファイル名 → 説明、各 `seg_NN` は `{description, files}` で、`files` はそのセグメントディレクトリからの相対パス。 |
 | `current_output_paths` | string[] | `--out-dir` からの相対パスを並べたリスト。現在の呼び出しが記録した成果物だけを含みます。 |
 

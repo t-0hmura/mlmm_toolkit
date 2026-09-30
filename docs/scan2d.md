@@ -64,6 +64,13 @@ Add `--dry-run` to validate the input and scan spec without calculating.
 5. **Energy evaluation** -- At each (i, j) pair, evaluate the ML/MM energy without bias and record to `surface.csv`. Always retain the starting/preoptimized reference as `i = j = -1` and `is_preopt = true`.
 6. **Visualization** -- Exclude the `-1` reference from the baseline, interpolation, and plots. With at least three unique, non-collinear finite and converged grid points, write `scan2d_map.png` (2D contour) and `scan2d_landscape.html` (3D surface). Otherwise retain `surface.csv` and exit with the support diagnostic. Use `--zmin/--zmax` to clamp the color scale. Baselines: `--baseline min` zeroes the minimum energy; `--baseline first` zeroes the (i=0, j=0) grid point.
 
+The `d1_A` / `d2_A` columns store measured coordinates after relaxation;
+`target_d1_A` / `target_d2_A` store restraint targets.
+Filename distance tags describe the targets. With usable points but insufficient
+interpolation support, the CSV is retained and the plot is omitted
+(`scientific_status: partial`, exit 0). No usable points gives
+`scientific_status: failed` and exit 1.
+
 ## Outputs
 
 Check `surface.csv` first. `scan2d_map.png` and `scan2d_landscape.html` are present only when at least three unique, non-collinear finite and converged points support interpolation. Per-point geometries land under `grid/` (the `i###` / `j###` filename tags are integer hundredths of an ångström, not step indices).
@@ -106,9 +113,10 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--max-angle-step-size FLOAT` | Maximum angle change per step (degrees). | `5.0` |
 | `--max-dihedral-step-size FLOAT` | Maximum dihedral change per step (degrees). | `10.0` |
 | `--restraint-k FLOAT` | Harmonic well strength: eV/Å² for distances and eV/rad² for angles. | `300.0` |
-| `--relax-max-cycles INT` | L-BFGS cycle cap per biased relaxation. | `100000` |
+| `--relax-max-cycles INT` | Optimizer-cycle cap per biased relaxation. | `100000` |
 | `--dump/--no-dump` | Write inner d2 scan TRJs per d1 slice. | `False` |
 | `-o, --out-dir TEXT` | Base output directory. | `./result_scan2d/` |
+| `--opt-mode TEXT` | Single-structure optimizer: `grad` = L-BFGS, `hess` = RFO. | `grad` |
 | `--thresh TEXT` | Convergence preset (`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`). | `baker` |
 | `--config FILE` | Base YAML configuration file (applied first). | _None_ |
 | `--ref-pdb FILE` | Reference PDB topology when `--input` is XYZ. | _None_ |
@@ -205,6 +213,9 @@ bias:
 ```
 
 Use the CLI-owned `--dump` and `--out-dir` options for trajectory and output placement.
+
+With `--opt-mode hess`, use `rfo` or `opt.rfo` for optimizer settings;
+`lbfgs` or `opt.lbfgs` applies to `grad`.
 
 Full schema (every key and default): [YAML Reference](yaml-reference.md).
 

@@ -135,7 +135,7 @@ Settings are applied with **defaults < config < explicit CLI**. The accepted sec
 
 ```yaml
 geom:
- coord_type: cart               # cartesian vs dlc internals (dlc needs --opt-mode hess; grad/L-BFGS falls back to cart)
+ coord_type: cart               # cart or dlc; cart is recommended for ML/MM
  freeze_atoms: []               # 1-based frozen atoms
  tr_projection: constrained     # fixed internal PHVA treatment
 calc:

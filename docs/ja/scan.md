@@ -1,6 +1,6 @@
 # `scan`
 
-`mlmm scan` は、レイヤー分けした単一の酵素構造から、調和拘束によって1つ以上の原子間距離を目標値へ駆動し、各ステップで L-BFGS により構造を緩和します。この ML/MM スキャンで粗い反応軌跡と、下流の MEP 精密化用の中間体・生成物候補を生成します。入力には PDB/mmCIF、または `--ref-pdb` を伴う XYZ を使用できます。`-s/--scan-lists` で、YAML/JSON スペックファイル（推奨）またはインライン Python リテラルとして目標距離を定義します。
+`mlmm scan` は、レイヤー分けした単一の酵素構造から、調和拘束によって1つ以上の原子間距離を目標値へ駆動し、各ステップで L-BFGS（`grad`）または RFO（`hess`）により構造を緩和します。この ML/MM スキャンで粗い反応軌跡と、下流の MEP 精密化用の中間体・生成物候補を生成します。入力には PDB/mmCIF、または `--ref-pdb` を伴う XYZ を使用できます。`-s/--scan-lists` で、YAML/JSON スペックファイル（推奨）またはインライン Python リテラルとして目標距離を定義します。
 
 ML/MM scan は Cartesian 座標（`geom.coord_type: cart`）が既定で、推奨です。YAML で `dlc` を明示することもできますが、収束まで大幅に時間がかかる場合があります。
 
@@ -59,7 +59,7 @@ mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  - スキャンタプル `[(i, j, target_A)]` に対し、`delta = target - current_distance_A` を計算。
  - `--max-step-size = h` の場合、ステージは `N = ceil(max(|delta|) / h)` 回のバイアス付き緩和を実行。
  - 各ペアの増分変化は `step_k = delta / N` (Å)。ステップ `s` での一時ターゲットは `r_k(s) = r_k(0) + s * step_k`。
-5. すべてのステップを進み、調和拘束ポテンシャル `E_bias = sum 1/2 * k * (|r_i - r_j| - target_k)^2` を適用して L-BFGS で極小化。`k` は `--restraint-k`（eV/Å²）から取得され、Hartree/Bohr^2 に一度だけ変換されます。座標は PySisyphus 用に Bohr で保存され、レポート時に内部変換されます。
+5. すべてのステップを進み、調和拘束ポテンシャル `E_bias = sum 1/2 * k * (|r_i - r_j| - target_k)^2` を適用して選択したオプティマイザで極小化。`k` は `--restraint-k`（eV/Å²）から取得され、Hartree/Bohr^2 に一度だけ変換されます。座標は PySisyphus 用に Bohr で保存され、レポート時に内部変換されます。
 6. 各ステージの最後のステップ後、任意でバイアスなし緩和（`--endopt`）を実行してから共有結合変化を報告し `result.*` ファイルを書き出します。
 7. すべてのステージで繰り返します。
 
@@ -103,12 +103,12 @@ out_dir/ (デフォルト:./result_scan/)
 | `--max-angle-step-size FLOAT` | 角度の1stepあたりの最大変化量（度）。 | `5.0` |
 | `--max-dihedral-step-size FLOAT` | 二面角の1stepあたりの最大変化量（度）。 | `10.0` |
 | `--restraint-k FLOAT` | 調和バイアス強度。距離はeV/Å²、角度はeV/rad²。 | `300` |
-| `--max-cycles INT` | 各バイアスステップおよび pre/end 最適化ステージの L-BFGS サイクル上限。 | `100000` |
-| `--relax-max-cycles INT` | `--max-cycles` の互換エイリアス（指定時は上書き）。 | `--max-cycles`を継承 |
+| `--relax-max-cycles INT` | 各バイアスステップおよび pre/end 最適化ステージのサイクル上限。明示時は YAML `opt.max_cycles` を上書き。 | `100000` |
 | `--preopt/--no-preopt` | スキャン前にバイアスなし最適化を実行。 | `False` |
 | `--endopt/--no-endopt` | 各ステージ後にバイアスなし最適化を実行。 | `False` |
 | `--dump/--no-dump` | ステップごとのオプティマイザ軌跡ファイルをダンプ。`scan_trj.xyz` は常に書き出され、PDB/CIF companion には `--convert-files` と参照トポロジーが必要です。 | `False` |
 | `-o, --out-dir TEXT` | 出力ディレクトリルート。 | `./result_scan/` |
+| `--opt-mode TEXT` | 単一構造オプティマイザ: `grad` = L-BFGS、`hess` = RFO。 | `grad` |
 | `--thresh TEXT` | 収束プリセット（`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`）。 | _None_（`gau` を継承） |
 | `--config FILE` | ベース YAML 設定ファイル（最初に適用）。 | _None_ |
 | `--ref-pdb FILE` | `--input` が XYZ の場合の参照 PDB トポロジー。 | _None_ |
@@ -117,7 +117,7 @@ out_dir/ (デフォルト:./result_scan/)
 | `--mm-backend [hessian_ff\|openmm]` | MM バックエンド。Hessian 構築法は `calc.mm_fd` が別に制御します（デフォルト `true`: 有限差分）。 | `hessian_ff` |
 | `--link-atom-method [scaled\|fixed]` | リンク原子の配置: scaled（$g$ 因子）または固定 1.09/1.01 Å。 | `scaled` |
 | `--out-json/--no-out-json` | `result.json` を `out_dir` に書き出す。 | `False` |
-| `--dry-run/--no-dry-run` | オプションの検証と実行計画の表示のみ行い、スキャンは実行しない。`--help-advanced` に表示。 | `False` |
+| `--dry-run/--no-dry-run` | 入力・電荷とスピン・解釈したスキャン仕様を検証し、スキャンは実行しない。`--help-advanced` に表示。 | `False` |
 | `--convert-files/--no-convert-files` | PDB テンプレートが利用可能な場合に、XYZ/TRJ から対応する PDB を生成するかどうかを切り替え。 | `True` |
 
 ## スキャン対象の構文
@@ -241,15 +241,15 @@ mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ## YAML 設定
 
-スキャンは共有の `geom`（`coord_type`、`freeze_atoms`）、`calc` / `mlmm`（ML/MM calculator設定）、`opt` / `lbfgs`（オプティマイザ）の各セクションに加え、`bias`（`k`、調和強度（eV/Å²））と MLIP ベースの結合変化検出用 `bond` セクションを読み込みます。
+スキャンは共有の `geom`（`coord_type`、`freeze_atoms`）、`calc` / `mlmm`（ML/MM calculator設定）、`opt` / `lbfgs` / `rfo`（オプティマイザ）の各セクションに加え、`bias`（`k`、調和強度（eV/Å²））と MLIP ベースの結合変化検出用 `bond` セクションを読み込みます。
 
-- `coord_type`: 共有キーですが、拘束付き scan はマージ後に `cart` へ正規化するため DLC は有効になりません。
+- `coord_type`: YAML で明示した座標系を受け付けます。ML/MM では既定の `cart` を推奨します。
 - `freeze_atoms`: CLI `--freeze-atoms` とマージされる 1 始まり凍結原子。
 
 ### セクション `calc` / `mlmm`
 - ML/MM calculatorの設定: `model_charge`、`model_mult`、`backend`、MLIP モデル設定、`device`、近傍半径、Hessian オプション等。
 
-### セクション `opt` / `lbfgs`
+### セクション `opt` / `lbfgs` / `rfo`
 - オプティマイザ設定: `thresh`、`max_cycles`、`print_every`、ステップ制御、ラインサーチ、ダンプフラグ。
 
 ### セクション `bias`

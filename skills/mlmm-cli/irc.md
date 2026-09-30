@@ -104,7 +104,8 @@ d = json.load(open("result_irc/result.json"))
 print(d["n_frames_forward"], d["n_frames_backward"])
 print(d["energy_first_hartree"], d["energy_ts_hartree"], d["energy_last_hartree"])
 print(d.get("bond_changes"))       # directed first -> last; may be omitted
-print(d["status"])                  # "completed" (success path only; errors emit a separate error JSON)
+print(d["execution_status"])        # "completed" / "failed"
+print(d["scientific_status"])       # "success" / "partial" / "failed"
 print(d["forward_requested"], d["backward_requested"])
 print(d["forward_integration_converged"], d["backward_integration_converged"])
 print(d["forward_integration_stop_reason"], d["backward_integration_stop_reason"])
