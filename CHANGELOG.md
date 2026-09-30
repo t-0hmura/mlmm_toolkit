@@ -26,6 +26,7 @@ Target release: **0.4.0**.
 
 ### Changed
 
+- Write static figures with private browser configuration instead of shared home-directory state.
 - Align English/Japanese docs and CLI skills with result-status fields, optimizer selection, element repair, and Hessian output behavior.
 - **Breaking:** Result JSON uses `execution_status` and `scientific_status`; optimizer diagnostics remain in `optimization_status`. Generic `status` and duplicate reason fields are removed (JSON schema 4.0; MCP schema 2.0). Exit codes are 0 for success or usable partial results, 1 for non-convergence/no usable result/runtime failure, 2 for invalid input/configuration, and 130 for interruption.
 - **Breaking:** Remove `--print-parsed/--no-print-parsed` from `scan`, `scan2d`, and `scan3d`; use `--dry-run` to validate the input and scan spec without calculating.

@@ -5,6 +5,7 @@ from __future__ import annotations
 import multiprocessing as mp
 import os
 import signal
+import tempfile
 import uuid
 from pathlib import Path
 from typing import Any, Mapping
@@ -37,11 +38,23 @@ def _plotly_image_worker(
         from plotly import io as pio
 
         figure = pio.from_json(figure_json)
-        figure.write_image(
-            temporary_path,
-            format=image_format,
-            **dict(kwargs),
-        )
+        # Keep Chrome's configuration locks off shared home directories.
+        previous_config = os.environ.get("XDG_CONFIG_HOME")
+        with tempfile.TemporaryDirectory(
+            prefix="plotly-config-", dir="/tmp" if os.name == "posix" else None
+        ) as browser_config:
+            os.environ["XDG_CONFIG_HOME"] = browser_config
+            try:
+                figure.write_image(
+                    temporary_path,
+                    format=image_format,
+                    **dict(kwargs),
+                )
+            finally:
+                if previous_config is None:
+                    os.environ.pop("XDG_CONFIG_HOME", None)
+                else:
+                    os.environ["XDG_CONFIG_HOME"] = previous_config
         os.replace(temporary_path, output_path)
         result_connection.send(("ok", ""))
     except BaseException as exc:

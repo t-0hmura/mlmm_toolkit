@@ -113,3 +113,61 @@ def test_terminate_process_tree_signals_renderer_group(
 
     assert signals == [(process.pid, signal.SIGTERM)]
     assert process.join_timeouts == [5.0]
+
+
+@pytest.mark.parametrize("configured", [False, True])
+@pytest.mark.parametrize("render_error", [False, True])
+def test_worker_avoids_shared_browser_configuration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, configured: bool, render_error: bool,
+) -> None:
+    import os
+    import plotly.io as pio
+
+    shared_config = str(tmp_path / "shared-config")
+    if configured:
+        monkeypatch.setenv("XDG_CONFIG_HOME", shared_config)
+    else:
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    caller_home = os.environ.get("HOME")
+    seen_config: list[Path] = []
+
+    class Figure:
+        def write_image(self, path, **kwargs):
+            config = os.environ.get("XDG_CONFIG_HOME")
+            if config is None or config == shared_config:
+                raise TimeoutError("browser configuration lock is held")
+            seen_config.append(Path(config))
+            assert Path(config).is_dir()
+            if render_error:
+                raise ValueError("render failed")
+            Path(path).write_bytes(b"rendered")
+
+    class Connection:
+        def __init__(self):
+            self.responses = []
+            self.closed = False
+
+        def send(self, value):
+            self.responses.append(value)
+
+        def close(self):
+            self.closed = True
+
+    monkeypatch.setattr(pio, "from_json", lambda value: Figure())
+    monkeypatch.setattr(plotly_image.os, "setsid", lambda: None)
+    connection = Connection()
+    output = tmp_path / "figure.png"
+    plotly_image._plotly_image_worker(
+        "{}", str(tmp_path / "temporary.png"), str(output), "png", {}, connection,
+    )
+    expected = ("error", "ValueError: render failed") if render_error else ("ok", "")
+    assert connection.responses == [expected]
+    assert connection.closed
+    assert bool(seen_config)
+    assert all(not path.exists() for path in seen_config)
+    if os.name == "posix":
+        assert seen_config[0].parent == Path("/tmp")
+    assert os.environ.get("XDG_CONFIG_HOME") == (shared_config if configured else None)
+    assert os.environ.get("HOME") == caller_home
+    if not render_error:
+        assert output.read_bytes() == b"rendered"
