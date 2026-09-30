@@ -184,6 +184,41 @@ def test_parent_propagates_child_usage_error_and_interrupt(kind):
     assert result.exit_code == (2 if kind == "usage" else 130), result.output
 
 
+@pytest.mark.parametrize("kind,expected", [
+    ("nonconvergence", 0), ("execution_failure", 1), ("untyped", 1),
+    ("exception", 1), ("usage", 2), ("interrupt", 130),
+])
+def test_result_dispatch_only_accepts_completed_scientific_failure(kind, expected):
+    from mlmm.workflows.all import _run_cli_main
+
+    continued = []
+
+    @click.command()
+    def child():
+        if kind == "exception":
+            raise RuntimeError("calculator failed")
+        if kind == "usage":
+            raise click.BadParameter("invalid configuration")
+        if kind == "interrupt":
+            raise SystemExit(130)
+        if kind != "untyped":
+            record_completion({
+                "execution_status": "completed" if kind == "nonconvergence" else "failed",
+                "scientific_status": "failed",
+            }, command="tsopt")
+        raise SystemExit(1)
+
+    child.callback = completion_guard(child.callback)
+
+    @click.command()
+    def parent():
+        continued.append(_run_cli_main("tsopt", child, [], on_nonzero="result"))
+
+    result = CliRunner().invoke(parent)
+    assert result.exit_code == expected, result.output
+    assert continued == ([1] if kind == "nonconvergence" else [])
+
+
 @pytest.mark.parametrize("segments", [[], [{"index": 1, "kind": "seg", "converged": False}]])
 def test_all_unusable_results_do_not_imply_an_execution_exception(tmp_path, segments):
     from mlmm.workflows.all import _apply_pipeline_truth

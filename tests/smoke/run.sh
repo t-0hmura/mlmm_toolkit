@@ -247,7 +247,7 @@ mlmm oniom-import -i test31.gjf -o test34 > test34.out 2>&1
 python run_limited.py mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q -1 -m 1 --refine-path --max-cycles-gsm 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test35 > test35.out 2>&1
 
 # test36: MLIP/MM embedding remains accepted by the CLI.
-python run_limited.py mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode grad --max-cycles 3 --thresh gau_loose --embedcharge --embedcharge-cutoff 6.0 --dry-run --out-dir test36 > test36.out 2>&1
+mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode grad --max-cycles 3 --thresh gau_loose --embedcharge --embedcharge-cutoff 6.0 --dry-run --out-dir test36 > test36.out 2>&1
 
 # --- Opt-in TS and IRC methods ---
 

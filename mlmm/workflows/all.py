@@ -588,6 +588,8 @@ def _run_cli_main(
     Returns the child's exit code (``0`` on success). A caller that must gate a
     downstream artifact on the child's success (for example, FREQ thermochemistry
     parsing) reads this instead of inferring success from a written file.
+    ``on_nonzero="result"`` lets completed scientific failures reach the caller's
+    result checks, while execution errors still raise.
     """
     saved = list(sys.argv)
     label = prefix or cmd_name
@@ -608,8 +610,14 @@ def _run_cli_main(
             if code in {2, 130}:
                 raise
             from mlmm.cli.completion import record_child_failure
-            record_child_failure(getattr(e, "completion_result", None))
-            if on_nonzero == "raise":
+            verdict = getattr(e, "completion_result", None)
+            record_child_failure(verdict)
+            completed_failure = (
+                code == 1 and isinstance(verdict, dict)
+                and verdict.get("execution_status") == "completed"
+                and verdict.get("scientific_status") == "failed"
+            )
+            if on_nonzero == "raise" or (on_nonzero == "result" and not completed_failure):
                 raise click.ClickException(f"[{label}] {cmd_name} exit code {code}.")
             _echo(f"[{label}] WARNING: {cmd_name} exited with code {code}")
     except Exception as e:
@@ -3360,7 +3368,7 @@ def _run_tsopt_on_hei(hei_pdb: Path,
         ts_args.append("--out-json")
 
         _echo_detail(f"[tsopt] Running tsopt on HEI → out={ts_dir}")
-        _run_cli_main("tsopt", _ts_opt.cli, ts_args, on_nonzero="raise", prefix="tsopt")
+        _run_cli_main("tsopt", _ts_opt.cli, ts_args, on_nonzero="result", prefix="tsopt")
 
         result_path = ts_dir / "result.json"
         if not result_path.exists():
