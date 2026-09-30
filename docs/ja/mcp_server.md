@@ -15,7 +15,9 @@ pip install "mlmm-toolkit[mcp]"
 22 個のツールがあり、CLI サブコマンドごとに 1 つ対応します。各ツールは、以下を含む構造化された dict（`mlmm.mcp._runner` の `SubcmdResultDict`）を返します:
 
 - `schema_version`: エンベロープのバージョン。実際の値: `mlmm.mcp._runner.MCP_SUBCMD_RESULT_SCHEMA_VERSION`。値の上昇はフィールドセットや値の型の変更を示します。リテラル値をハードコードせず、定数を参照してください。
-- `status`: `ok` | `failed` | `summary_missing` | `summary_parse_error` | `summary_run_mismatch`
+- `execution_status`: `completed` | `failed`
+- `scientific_status`: `success` | `partial` | `failed`
+- `summary_status`: `ok` | `not_required` | `summary_missing` | `summary_parse_error` | `summary_run_mismatch`
 - `exit_code`: サブプロセスの終了コード
 - `out_dir`: CLI が書き込んだ作業ディレクトリ
 - `summary`: パースされた `summary.json`（CLI 出力スキーマ。ステージごとの形状は [JSON 出力リファレンス](json-output.md) を参照）

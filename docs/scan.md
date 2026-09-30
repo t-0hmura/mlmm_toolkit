@@ -2,6 +2,8 @@
 
 `mlmm scan` drives one or more interatomic distances from a single layered enzyme structure toward target values under harmonic restraints, relaxing the structure with L-BFGS at each step. This ML/MM scan generates a coarse reaction trajectory and intermediate/product candidates for downstream MEP refinement. Input may be PDB/mmCIF, or XYZ with `--ref-pdb`. Use `-s/--scan-lists` to define target distances in a YAML/JSON spec file (recommended) or as inline Python literals.
 
+Cartesian coordinates (`geom.coord_type: cart`) are the default and recommended for ML/MM scans. You can explicitly select `dlc` in YAML, but it can take substantially longer to converge.
+
 ## Scan-coordinate staging
 
 For 3-tuple input, one literal or YAML `stages` entry defines one stage. Several distance tuples
@@ -26,7 +28,7 @@ mlmm scan -i INPUT.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  (-s scan.yaml | -s "[(I,J,TARGET_ANG)]") [options]
 ```
 
-Spec-file scan (add `--print-parsed` to validate the parsed scan spec and exit without running the GPU calculation):
+Spec-file scan (add `--dry-run` to validate the input and scan spec without calculating):
 
 ```bash
 mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
@@ -113,7 +115,6 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--movable-cutoff FLOAT` | Movable-MM distance cutoff (Å); providing this disables `--detect-layer`. | _None_ |
 | `-s, --scan-lists TEXT` | Scan targets: a YAML/JSON spec file path (auto-detected) or inline Python literal(s) with `(i, j, target_A)` triples or `(i, j, start, end)` 4-tuples for bidirectional scans. Supply multiple literals after a single flag. `i`/`j` can be integer indices or PDB atom selectors like `"SAM,320,CS1"`. | Required |
 | `--one-based/--zero-based` | Interpret atom indices as 1-based (default) or 0-based. | `True` (1-based) |
-| `--print-parsed/--no-print-parsed` | Print parsed scan targets and exit without running the scan. | `False` |
 | `--max-step-size FLOAT` | Maximum change in any scanned bond per step (Å). Controls the number of biased relaxation steps. | `0.20` |
 | `--max-angle-step-size FLOAT` | Maximum angle change per step (degrees). | `5.0` |
 | `--max-dihedral-step-size FLOAT` | Maximum dihedral change per step (degrees). | `10.0` |

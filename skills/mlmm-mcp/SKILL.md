@@ -81,13 +81,15 @@ See [`examples/mcp_client_config.json`](../../examples/mcp_client_config.json) f
 
 ## `SubcmdResult` return schema
 
-Every tool returns the same structured dict so the calling agent can dispatch on `status` without parsing stderr:
+Every tool returns the same structured dict so the calling agent can read `execution_status` and `scientific_status` without parsing stderr:
 
 ```python
 {
-    "schema_version": "1.1",         # pin to MCP_SUBCMD_RESULT_SCHEMA_VERSION
-    "run_id": str,                   # unique id for this run (added in schema 1.1)
-    "status": "ok" | "failed" | "summary_missing" | "summary_parse_error" | "summary_run_mismatch",
+    "schema_version": "2.0",         # pin to MCP_SUBCMD_RESULT_SCHEMA_VERSION
+    "run_id": str,                   # unique id for this run
+    "execution_status": "completed" | "failed",
+    "scientific_status": "success" | "partial" | "failed",
+    "summary_status": "ok" | "not_required" | "summary_missing" | "summary_parse_error" | "summary_run_mismatch",
     "exit_code": int,                # subprocess exit code
     "out_dir": str | None,           # working directory the CLI wrote to
     "summary": dict,                 # parsed summary.json (CLI output schema)
@@ -104,7 +106,7 @@ Stage-command failures may surface a structured exception envelope inside `summa
 - `error_module` — module path of the originating exception class
 - `error_label` — the high-level CLI stage label (e.g. `"optimization"`, `"TS optimization"`, `"IRC"`, `"single-point"`, or the fallback `"UnhandledError"`). This is a coarse stage label; conditions such as OOM must be read from `error_class_chain` (e.g. a CUDA out-of-memory class), not from `error_label`
 
-For utility failures, inspect `status`, `hint`, and the stderr/stdout tails;
+For utility failures, inspect `execution_status`, `summary_status`, `hint`, and the stderr/stdout tails;
 their empty `summary` has no exception-envelope guarantee.
 
 ## Opt-in IRC convergence guard

@@ -88,7 +88,7 @@ def test_tsopt_dimer_keeps_explicit_internal_coord_type(dimer_cli, monkeypatch, 
     result, report, captured = dimer_cli("--coord-type", coord_type)
     assert result.exit_code == 0, result.output
     assert captured["geom_kwargs"]["coord_type"] == coord_type
-    assert report["status"] == "converged"
+    assert report["optimization_status"] == "converged"
 
 
 def test_tsopt_dimer_default_coord_type_is_cart(dimer_cli, monkeypatch):
@@ -107,7 +107,7 @@ def test_tsopt_dimer_final_energy_failure_is_a_command_error(dimer_cli, monkeypa
     result, report, _ = dimer_cli()
     # A converged optimizer without a final energy must not be reported as a usable TS.
     assert result.exit_code == 1, result.output
-    assert report["status"] == "error"
+    assert report["execution_status"] == "failed"
     assert report["error_type"] == "RuntimeError"
 
 
@@ -161,4 +161,4 @@ def test_opt_lbfgs_runs_in_explicit_dlc(tmp_path, monkeypatch):
     ])
     assert result.exit_code == 0, result.output
     assert [geom.coord_type for geom in loaded] == ["dlc"]
-    assert json.loads((out_dir / "result.json").read_text())["status"] == "converged"
+    assert json.loads((out_dir / "result.json").read_text())["optimization_status"] == "converged"

@@ -16,10 +16,6 @@ are diagnostics only; retained coordinate and energy samples are validated as
 data before endpoint optimization.
 Artifacts remain reportable even when the leaf that produced them is unusable.
 
-These types are additive.  They never replace or rename the legacy public
-``status``/``schema_version`` fields; they are serialized alongside them so a
-forward-compatible consumers can read explicit outcomes while legacy
-consumers that read only ``status`` are unaffected.
 """
 
 from __future__ import annotations
@@ -492,11 +488,9 @@ def attach_outcomes(
 ) -> dict:
     """Add the outcome fields to a result/summary dict in place.
 
-    This never touches the legacy ``status`` / ``schema_version`` keys.  It adds
-    ``execution_status``, ``scientific_status``, expected/observed ID lists, and
+    Add     ``execution_status``, ``scientific_status``, expected/observed ID lists, and
     serialized ``stage_outcomes`` / ``point_outcomes``.  Reasons are written to a
-    distinct key (default ``scientific_status_reasons``) so a workflow that
-    already owns a ``status_reasons`` field is not clobbered.
+    diagnostic key (default ``scientific_status_reasons``).
     """
 
     if truth is not None:

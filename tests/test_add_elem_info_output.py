@@ -91,12 +91,19 @@ def test_explicit_output_wins_over_overwrite(tmp_path: Path, flag: str) -> None:
     assert source.read_bytes() == before
 
 
-def test_existing_element_fields_are_reinferred(tmp_path: Path) -> None:
+def test_existing_element_fields_are_kept_unless_overwrite_elem(tmp_path: Path) -> None:
     source = tmp_path / "enzyme.pdb"
     target = tmp_path / "fixed.pdb"
     source.write_text(PDB_TEXT.replace("              \n", "          CA  \n", 1), encoding="utf-8")
 
-    result = CliRunner().invoke(cli, ["-i", str(source), "-o", str(target)])
+    kept = CliRunner().invoke(cli, ["-i", str(source), "-o", str(target)])
+    assert kept.exit_code == 0, kept.output
+    assert target.read_text(encoding="utf-8")[76:78] == "CA"
+    assert "kept existing               : 1" in kept.output
+
+    result = CliRunner().invoke(
+        cli, ["-i", str(source), "-o", str(target), "--overwrite-elem"]
+    )
 
     assert result.exit_code == 0, result.output
     assert target.read_text(encoding="utf-8")[76:78] == " C"

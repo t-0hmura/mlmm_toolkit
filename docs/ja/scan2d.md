@@ -32,7 +32,7 @@ pairs:
  - [10, 55, 1.20, 3.20]
 YAML
 mlmm scan2d -i input.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 -s scan2d.yaml --print-parsed
+ -q 0 -s scan2d.yaml --dry-run
 ```
 
 代替: インライン Python リテラル。
@@ -53,7 +53,7 @@ mlmm scan2d -i input.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  --zmin 0.0 --zmax 40.0
 ```
 
-`-s/--scan-lists` の解釈結果を確認したい場合は `--print-parsed` を追加してください。GPU 計算を実行せずに解析されたスキャンスペックを検証して終了します。
+`--dry-run` で、計算せずに入力とスキャン仕様を検証できます。
 
 ## 処理の流れ
 
@@ -99,7 +99,6 @@ out_dir/ (デフォルト:./result_scan2d/)
 | `--movable-cutoff FLOAT` | ML 領域からの可動 MM 原子の距離カットオフ (Å)。指定すると `--detect-layer` が無効化されます。 | _None_ |
 | `-s, --scan-lists TEXT` | YAML/JSONまたは単一inline literalで2つの距離・角度・二面角rangeを指定。原子は整数indexまたはPDB selector。 | 必須 |
 | `--one-based / --zero-based` | `-s/--scan-lists` の `(i,j)` インデックスを 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
-| `--print-parsed/--no-print-parsed` | `-s/--scan-lists` 解釈後のペア情報を表示。 | `False` |
 | `--max-step-size FLOAT` | ステップごとの最大距離増分 (Å)。グリッド密度を決定。 | `0.20` |
 | `--max-angle-step-size FLOAT` | 角度の1stepあたりの最大変化量（度）。 | `5.0` |
 | `--max-dihedral-step-size FLOAT` | 二面角の1stepあたりの最大変化量（度）。 | `10.0` |

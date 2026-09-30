@@ -94,20 +94,20 @@ mlmm define-layer -i r_complex.pdb --model-pdb pocket_r.pdb --movable-cutoff 8.0
 mlmm mm-parm -i r_complex.pdb --ligand-charge 'PRE:0' > test3.out 2>&1
 
 # test4: opt (grad)
-mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode grad --max-cycles 5 --thresh gau_loose --dump --out-dir test4 > test4.out 2>&1
+python run_limited.py mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode grad --max-cycles 5 --thresh gau_loose --dump --out-dir test4 > test4.out 2>&1
 
 # test5: opt (hess)
-mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode hess --max-cycles 3 --thresh gau_loose --out-dir test5 > test5.out 2>&1
+python run_limited.py mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode hess --max-cycles 3 --thresh gau_loose --out-dir test5 > test5.out 2>&1
 
 # test6: opt (hess, microiter)
-mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode hess --microiter --max-cycles 2 --thresh gau_loose --out-dir test6 > test6.out 2>&1
+python run_limited.py mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode hess --microiter --max-cycles 2 --thresh gau_loose --out-dir test6 > test6.out 2>&1
 
 # test7: tsopt (grad / dimer)
 mlmm tsopt -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode grad --max-cycles 100 --thresh gau --out-json --out-dir test7 > test7.out 2>&1
 python assert_release_result.py tsopt-optimizer test7 --expected-mode grad --expected-optimizer dimer >> test7.out 2>&1
 
 # test8: tsopt (hess / rsprfo, microiteration default)
-mlmm tsopt -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode hess --max-cycles 5 --thresh gau --out-dir test8 > test8.out 2>&1
+python run_limited.py mlmm tsopt -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode hess --max-cycles 5 --thresh gau --out-dir test8 > test8.out 2>&1
 
 # test9: freq
 mlmm freq -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --out-dir test9 > test9.out 2>&1
@@ -119,8 +119,12 @@ mlmm irc -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --max-cycle
 mlmm dft -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --func-basis 'hf/sto-3g' --grid-level 0 --scf-tol 1e-5 --scf-max-cycles 40 --dft-engine cpu --out-dir test11 > test11.out 2>&1
 
 # test12: scan (1D)
-mlmm scan -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',3.5),('PRE 8 C1','PRE 8 C8',1.5)]" --max-step-size 2.0 --max-cycles 3 --no-preopt --no-endopt --out-json --out-dir test12 > test12.out 2>&1
+python run_limited.py mlmm scan -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',3.5),('PRE 8 C1','PRE 8 C8',1.5)]" --max-step-size 2.0 --max-cycles 3 --no-preopt --no-endopt --out-json --out-dir test12 > test12.out 2>&1
 python assert_release_result.py scan-optimizer test12 --expected-mode grad --expected-optimizer lbfgs >> test12.out 2>&1
+
+# test12b: scan (1D) --opt-mode hess (RFO relaxation seeded with the ML/MM Hessian)
+python run_limited.py mlmm scan -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode hess --scan-lists "[('PRE 8 O1\'','PRE 8 C3',3.5),('PRE 8 C1','PRE 8 C8',1.5)]" --max-step-size 2.0 --max-cycles 2 --no-preopt --no-endopt --out-json --out-dir test12b_scan_hess > test12b_scan_hess.out 2>&1
+python assert_release_result.py scan-optimizer test12b_scan_hess --expected-mode hess --expected-optimizer rfo >> test12b_scan_hess.out 2>&1
 
 # test13: scan2d
 mlmm scan2d -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',1.4,1.8),('PRE 8 C1','PRE 8 C8',3.2,3.6)]" --max-step-size 0.4 --relax-max-cycles 100 --thresh gau_loose --out-dir test13 > test13.out 2>&1
@@ -129,7 +133,7 @@ mlmm scan2d -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --scan-l
 mlmm scan3d -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',1.4,1.8),('PRE 8 C1','PRE 8 C8',3.2,3.6),('PRE 8 C1','PRE 8 C7',1.4,1.8)]" --max-step-size 0.4 --relax-max-cycles 100 --thresh gau_loose --out-dir test14 > test14.out 2>&1
 
 # test15: path-opt (gsm)
-mlmm path-opt -i r_complex_layered.pdb p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --max-nodes 5 --max-cycles-gsm 5 --thresh-gsm gau_loose --no-preopt --no-climb --out-dir test15 > test15.out 2>&1
+python run_limited.py mlmm path-opt -i r_complex_layered.pdb p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --max-nodes 5 --max-cycles-gsm 5 --thresh-gsm gau_loose --no-preopt --no-climb --out-dir test15 > test15.out 2>&1
 grep -Fq "====== Growing String optimization ======" test15.out || { echo "[smoke] FAIL: path-opt GSM section heading missing" >&2; exit 1; }
 
 # test16: path-opt (dmf)
@@ -142,17 +146,17 @@ mlmm path-opt -i r_complex_layered.pdb p_complex_layered.pdb --parm7 p_complex.p
 python assert_release_result.py dmf-freeze test16b_dmf_freeze --frozen-atoms 1,2,3 >> test16b_dmf_freeze.out 2>&1
 
 # test17: path-search
-mlmm path-search -i r_complex_layered.pdb p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --max-cycles-gsm 5 --out-dir test17 > test17.out 2>&1
+python run_limited.py mlmm path-search -i r_complex_layered.pdb p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --max-cycles-gsm 5 --out-dir test17 > test17.out 2>&1
 grep -Fq "====== [seg_000_refine] GSM ======" test17.out || { echo "[smoke] FAIL: tagged recursive GSM section heading missing" >&2; exit 1; }
 
 # test18: all (no tsopt/thermo/dft)
-mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q -1 -m 1 --no-refine-path --max-cycles-gsm 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test18 > test18.out 2>&1
+python run_limited.py mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q -1 -m 1 --no-refine-path --max-cycles-gsm 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test18 > test18.out 2>&1
 
 # test19: tsopt (radius-hessian 0.0)
-mlmm tsopt -i p_complex.pdb --parm7 p_complex.parm7 --model-pdb pocket_r.pdb -q -1 -m 1 --opt-mode grad --max-cycles 5 --hessian-cutoff 0.0 --active-dof-mode ml-only --thresh gau_loose --out-dir test19 > test19.out 2>&1
+python run_limited.py mlmm tsopt -i p_complex.pdb --parm7 p_complex.parm7 --model-pdb pocket_r.pdb -q -1 -m 1 --opt-mode grad --max-cycles 5 --hessian-cutoff 0.0 --active-dof-mode ml-only --thresh gau_loose --out-dir test19 > test19.out 2>&1
 
 # test20: tsopt (radius-hessian 3.6)
-mlmm tsopt -i p_complex.pdb --parm7 p_complex.parm7 --model-pdb pocket_r.pdb -q -1 -m 1 --opt-mode grad --max-cycles 5 --hessian-cutoff 3.6 --active-dof-mode ml-only --thresh gau_loose --out-dir test20 > test20.out 2>&1
+python run_limited.py mlmm tsopt -i p_complex.pdb --parm7 p_complex.parm7 --model-pdb pocket_r.pdb -q -1 -m 1 --opt-mode grad --max-cycles 5 --hessian-cutoff 3.6 --active-dof-mode ml-only --thresh gau_loose --out-dir test20 > test20.out 2>&1
 python - <<'PY'
 import re
 from pathlib import Path
@@ -240,24 +244,24 @@ mlmm oniom-import -i test31.gjf -o test34 > test34.out 2>&1
 # --- refine-path ---
 
 # test35: all (--refine-path)
-mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q -1 -m 1 --refine-path --max-cycles-gsm 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test35 > test35.out 2>&1
+python run_limited.py mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q -1 -m 1 --refine-path --max-cycles-gsm 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test35 > test35.out 2>&1
 
 # test36: MLIP/MM embedding remains accepted by the CLI.
-mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode grad --max-cycles 3 --thresh gau_loose --embedcharge --embedcharge-cutoff 6.0 --dry-run --out-dir test36 > test36.out 2>&1
+python run_limited.py mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode grad --max-cycles 3 --thresh gau_loose --embedcharge --embedcharge-cutoff 6.0 --dry-run --out-dir test36 > test36.out 2>&1
 
 # --- Opt-in TS and IRC methods ---
 
 # test37: tsopt --opt-mode trim (Helgaker trust-region image-min; non-microiter)
-mlmm tsopt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode trim --no-microiter --max-cycles 5 --thresh gau_loose --out-dir test37 > test37.out 2>&1
+python run_limited.py mlmm tsopt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode trim --no-microiter --max-cycles 5 --thresh gau_loose --out-dir test37 > test37.out 2>&1
 
 # test38: explicit RS-I-RFO (non-microiter); default hess/RS-P-RFO is covered by test8
-mlmm tsopt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode rsirfo --no-microiter --max-cycles 5 --thresh gau_loose --out-dir test38 > test38.out 2>&1
+python run_limited.py mlmm tsopt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode rsirfo --no-microiter --max-cycles 5 --thresh gau_loose --out-dir test38 > test38.out 2>&1
 
 # test39: irc --irc-pos-def (PSD-Hessian convergence guard)
 mlmm irc -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --max-cycles 3 --irc-pos-def --out-dir test39 > test39.out 2>&1
 
 # test40: opt --print-every 3 (diagnostic output throttle)
-mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode hess --max-cycles 5 --thresh gau_loose --print-every 3 --out-dir test40 > test40.out 2>&1
+python run_limited.py mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode hess --max-cycles 5 --thresh gau_loose --print-every 3 --out-dir test40 > test40.out 2>&1
 
 # --- Determinism gate ---
 
@@ -307,7 +311,7 @@ fi
 # --- --coord-type CLI plumbing (throttled, fast) ---
 
 # test42: `all --coord-type cart` — explicit cart (== default), verifies CLI plumbing.
-mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --coord-type cart --no-refine-path --max-cycles-gsm 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test42 > test42.out 2>&1
+python run_limited.py mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --coord-type cart --no-refine-path --max-cycles-gsm 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test42 > test42.out 2>&1
 
 # test43: `sp` (single-point ONIOM) — energy + forces.
 mlmm sp -i r_complex_layered.pdb --real-parm7 p_complex.parm7 -q -1 -m 1 --out-dir test43 > test43.out 2>&1
@@ -327,7 +331,7 @@ mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -
 # Capped at max-cycles 5 + thresh gau_loose + --no-tsopt/thermo/dft so this
 # lane exercises DLC setup and trajectory handling without requiring a
 # converged HEI. test45 keeps the no-cap default-behaviour check.
-mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --coord-type dlc --no-refine-path --max-cycles-gsm 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test46 > test46.out 2>&1
+python run_limited.py mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --coord-type dlc --no-refine-path --max-cycles-gsm 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test46 > test46.out 2>&1
 
 # --- Per-stage internal-coordinate code-path verification ---
 # Each test is scoped at a 2-3 cycle cap (plus gau_loose where the stage
@@ -336,38 +340,38 @@ mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -
 # Cartesian because its PHVA contract consumes a Cartesian Hessian directly.
 
 # test46a: opt --coord-type dlc
-mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --coord-type dlc --max-cycles 3 --thresh gau_loose --out-dir test46a_opt_dlc > test46a_opt_dlc.out 2>&1
+python run_limited.py mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --coord-type dlc --max-cycles 3 --thresh gau_loose --out-dir test46a_opt_dlc > test46a_opt_dlc.out 2>&1
 
 # test46b: opt --opt-mode hess --coord-type dlc (microiter+DLC regression: ML internals, MM cart twin)
-mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode hess --coord-type dlc --max-cycles 3 --thresh gau_loose --out-dir test46b_opt_hess_dlc > test46b_opt_hess_dlc.out 2>&1
+python run_limited.py mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode hess --coord-type dlc --max-cycles 3 --thresh gau_loose --out-dir test46b_opt_hess_dlc > test46b_opt_hess_dlc.out 2>&1
 
 # test46c: opt --coord-type dlc with explicit frozen atoms
-mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --coord-type dlc --freeze-atoms "$MLMM_COMPLEX_FREEZE_ATOMS" --max-cycles 3 --thresh gau_loose --out-dir test46c_opt_freeze_dlc > test46c_opt_freeze_dlc.out 2>&1
+python run_limited.py mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --coord-type dlc --freeze-atoms "$MLMM_COMPLEX_FREEZE_ATOMS" --max-cycles 3 --thresh gau_loose --out-dir test46c_opt_freeze_dlc > test46c_opt_freeze_dlc.out 2>&1
 python check_frozen_atoms.py r_complex_layered.pdb test46c_opt_freeze_dlc/final_geometry.pdb "$MLMM_COMPLEX_FREEZE_ATOMS" test46c >> test46c_opt_freeze_dlc.out 2>&1
 
 # test46e: Hessian TS microiteration with DLC and frozen atoms. This is the
 # partial-Cartesian-Hessian -> internal-coordinate handoff regression.
-mlmm tsopt -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode hess --coord-type dlc --freeze-atoms "$MLMM_COMPLEX_FREEZE_ATOMS" --microiter --max-cycles 2 --thresh gau_loose --out-dir test46e_ts_hess_dlc > test46e_ts_hess_dlc.out 2>&1
+python run_limited.py mlmm tsopt -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode hess --coord-type dlc --freeze-atoms "$MLMM_COMPLEX_FREEZE_ATOMS" --microiter --max-cycles 2 --thresh gau_loose --out-dir test46e_ts_hess_dlc > test46e_ts_hess_dlc.out 2>&1
 
 # test46g: opt --coord-type redund
-mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --coord-type redund --max-cycles 3 --thresh gau_loose --out-dir test46g_opt_redund > test46g_opt_redund.out 2>&1
+python run_limited.py mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --coord-type redund --max-cycles 3 --thresh gau_loose --out-dir test46g_opt_redund > test46g_opt_redund.out 2>&1
 
 # test46k: opt --coord-type tric
-mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --coord-type tric --max-cycles 3 --thresh gau_loose --out-dir test46k_opt_tric > test46k_opt_tric.out 2>&1
+python run_limited.py mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --coord-type tric --max-cycles 3 --thresh gau_loose --out-dir test46k_opt_tric > test46k_opt_tric.out 2>&1
 
 # --- Multi-mode flag code-path verify (single-stage) ---
 
 # test46m: opt --precision fp64 (UMA backend, alternate precision)
-mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --precision fp64 --max-cycles 3 --thresh gau_loose --out-dir test46m_opt_fp64 > test46m_opt_fp64.out 2>&1
+python run_limited.py mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --precision fp64 --max-cycles 3 --thresh gau_loose --out-dir test46m_opt_fp64 > test46m_opt_fp64.out 2>&1
 
 # test46n: opt --precision fp32 (explicit UMA fp32 dispatch alongside test46m fp64)
-mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --precision fp32 --max-cycles 3 --thresh gau_loose --out-dir test46n_opt_fp32 > test46n_opt_fp32.out 2>&1
+python run_limited.py mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --precision fp32 --max-cycles 3 --thresh gau_loose --out-dir test46n_opt_fp32 > test46n_opt_fp32.out 2>&1
 
 # test46p: opt --mm-backend openmm (alternate MM backend; analytical Hessian path → FD)
-mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --mm-backend openmm --max-cycles 3 --thresh gau_loose --out-dir test46p_opt_openmm > test46p_opt_openmm.out 2>&1
+python run_limited.py mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --mm-backend openmm --max-cycles 3 --thresh gau_loose --out-dir test46p_opt_openmm > test46p_opt_openmm.out 2>&1
 
 # test46q: opt --link-atom-method fixed (legacy 1.09/1.01 Å placement)
-mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --link-atom-method fixed --max-cycles 3 --thresh gau_loose --out-dir test46q_opt_linkfixed > test46q_opt_linkfixed.out 2>&1
+python run_limited.py mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --link-atom-method fixed --max-cycles 3 --thresh gau_loose --out-dir test46q_opt_linkfixed > test46q_opt_linkfixed.out 2>&1
 
 # --- Non-default MLIP backend, full pipeline ---
 
@@ -377,7 +381,7 @@ python assert_release_result.py provenance test47 --expected-backend orb --expec
 
 # ---- Subcommand-specific regression coverage ----
 # test48: opt --mm-only (MM-only minimization; skips the MLIP component entirely)
-mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --mm-only --opt-mode grad --max-cycles 3 --thresh gau_loose --out-dir test48_opt_mmonly > test48_opt_mmonly.out 2>&1
+python run_limited.py mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --mm-only --opt-mode grad --max-cycles 3 --thresh gau_loose --out-dir test48_opt_mmonly > test48_opt_mmonly.out 2>&1
 
 # test49: freq --active-dof-mode ml-only (alternate PHVA active-DOF subspace)
 mlmm freq -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --active-dof-mode ml-only --max-write 5 --out-dir test49_freq_mlonly > test49_freq_mlonly.out 2>&1
@@ -404,7 +408,7 @@ mlmm dft -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --func-basi
 mlmm path-search -i r_complex_layered.pdb p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --mep-mode dmf --dmf-max-iterations 3 --no-preopt --out-dir test56_psdmf > test56_psdmf.out 2>&1
 
 # test57: all --scan-lists (single-PDB scan->path mode of `all`, distinct from the multi-PDB MEP branch)
-mlmm all -i r_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',3.5),('PRE 8 C1','PRE 8 C8',1.5)]" --no-refine-path --max-cycles-gsm 3 --thresh gau_loose --no-tsopt --no-thermo --no-dft --out-dir test57_all_scan > test57_all_scan.out 2>&1
+python run_limited.py mlmm all -i r_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',3.5),('PRE 8 C1','PRE 8 C8',1.5)]" --no-refine-path --max-cycles-gsm 3 --thresh gau_loose --no-tsopt --no-thermo --no-dft --out-dir test57_all_scan > test57_all_scan.out 2>&1
 
 # --- refine-path opt-in (recursive path_search) extra coverage ---
 # The `all` default is now single-pass path-opt; exercise the recursive
@@ -422,7 +426,7 @@ if [ "${n_models:-0}" -ne 2 ]; then
 fi
 
 # test59: all --scan-lists --refine-path (single-PDB scan -> recursive path_search)
-mlmm all -i r_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',3.5),('PRE 8 C1','PRE 8 C8',1.5)]" --refine-path --max-cycles-gsm 3 --thresh gau_loose --no-tsopt --no-thermo --no-dft --out-dir test59_rp_scan > test59_rp_scan.out 2>&1
+python run_limited.py mlmm all -i r_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',3.5),('PRE 8 C1','PRE 8 C8',1.5)]" --refine-path --max-cycles-gsm 3 --thresh gau_loose --no-tsopt --no-thermo --no-dft --out-dir test59_rp_scan > test59_rp_scan.out 2>&1
 
 # test60: --backend-model routing — a non-default model must reach the resolved
 # runtime header. Dry-run avoids downloading the alternate model.
@@ -450,7 +454,7 @@ PY
 
 # test61: a real ML/MM optimization crosses the mmCIF bridge and restores the
 # original long chain and five-digit residue identifier in its public output.
-mlmm opt -i r_complex_layered.cif --parm7 p_complex.parm7 -q -1 -m 1 --max-cycles 1 --thresh gau_loose --out-dir test61_opt_cif > test61_opt_cif.out 2>&1
+python run_limited.py mlmm opt -i r_complex_layered.cif --parm7 p_complex.parm7 -q -1 -m 1 --max-cycles 1 --thresh gau_loose --out-dir test61_opt_cif > test61_opt_cif.out 2>&1
 test -s test61_opt_cif/final_geometry.pdb || { echo "[smoke] FAIL test61: final PDB missing" >> test61_opt_cif.out; exit 1; }
 test -s test61_opt_cif/final_geometry.cif || { echo "[smoke] FAIL test61: final CIF missing" >> test61_opt_cif.out; exit 1; }
 grep -q 'LONG_CHAIN' test61_opt_cif/final_geometry.cif || { echo "[smoke] FAIL test61: auth chain was not restored" >> test61_opt_cif.out; exit 1; }
@@ -487,15 +491,15 @@ if [ "$rc" -eq 0 ] || ! grep -Fq 'is 6x6; expected' test64_wrong.out; then
 fi
 
 # test64b-d: tsopt starts from the same freq Hessian in each TS path.
-mlmm tsopt -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --freeze-atoms 1,2,3 --opt-mode hess --read-hess test63_freq/hessian.npy --max-cycles 2 --out-dir test64b_tsopt_microiter > test64b_tsopt_microiter.out 2>&1
+python run_limited.py mlmm tsopt -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --freeze-atoms 1,2,3 --opt-mode hess --read-hess test63_freq/hessian.npy --max-cycles 2 --out-dir test64b_tsopt_microiter > test64b_tsopt_microiter.out 2>&1
 grep -Fq '[microiter] Initial Hessian seeded from file' test64b_tsopt_microiter.out || { echo "[smoke] FAIL test64b: microiteration TS did not start from --read-hess" >> test64b_tsopt_microiter.out; exit 1; }
-mlmm tsopt -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --freeze-atoms 1,2,3 --opt-mode hess --no-microiter --read-hess test63_freq/hessian.npy --max-cycles 2 --out-dir test64c_tsopt_hess > test64c_tsopt_hess.out 2>&1
+python run_limited.py mlmm tsopt -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --freeze-atoms 1,2,3 --opt-mode hess --no-microiter --read-hess test63_freq/hessian.npy --max-cycles 2 --out-dir test64c_tsopt_hess > test64c_tsopt_hess.out 2>&1
 grep -Fq '[tsopt] Initial Hessian read from test63_freq/hessian.npy' test64c_tsopt_hess.out || { echo "[smoke] FAIL test64c: Hessian TS did not start from --read-hess" >> test64c_tsopt_hess.out; exit 1; }
 if grep -Fq 'Seeding initial Hessian via shared freq backend' test64c_tsopt_hess.out; then
   echo "[smoke] FAIL test64c: --read-hess Hessian was recomputed" >> test64c_tsopt_hess.out
   exit 1
 fi
-mlmm tsopt -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --freeze-atoms 1,2,3 --opt-mode grad --read-hess test63_freq/hessian.npy --max-cycles 2 --out-dir test64d_tsopt_dimer > test64d_tsopt_dimer.out 2>&1
+python run_limited.py mlmm tsopt -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --freeze-atoms 1,2,3 --opt-mode grad --read-hess test63_freq/hessian.npy --max-cycles 2 --out-dir test64d_tsopt_dimer > test64d_tsopt_dimer.out 2>&1
 grep -Fq '[tsopt] Initial Hessian read from test63_freq/hessian.npy' test64d_tsopt_dimer.out || { echo "[smoke] FAIL test64d: Dimer TS did not start from --read-hess" >> test64d_tsopt_dimer.out; exit 1; }
 if sed '/^Spent /q' test64d_tsopt_dimer.out | grep -Fq '[hessian] Completed'; then
   echo "[smoke] FAIL test64d: --read-hess Hessian was recomputed" >> test64d_tsopt_dimer.out
@@ -525,12 +529,12 @@ if np.linalg.norm(mode[active]) <= 1.0e-8:
     raise SystemExit("reference path tangent is zero in the active ML Hessian space")
 np.savetxt("test65_reference_mode.txt", mode)
 PY
-mlmm tsopt -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode hess --ref-mode test65_reference_mode.txt --max-cycles 2 --thresh gau_loose --out-json --out-dir test65_ref_mode > test65_ref_mode.out 2>&1
+python run_limited.py mlmm tsopt -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode hess --ref-mode test65_reference_mode.txt --max-cycles 2 --thresh gau_loose --out-json --out-dir test65_ref_mode > test65_ref_mode.out 2>&1
 python assert_release_result.py tsopt-reference test65_ref_mode >> test65_ref_mode.out 2>&1
 
 # test66: YAML backend-model/precision settings reach a real calculation while
 # an explicit CLI max-cycles value retains precedence.
-mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --config runtime_config.yaml --max-cycles 1 --out-json --out-dir test66_config > test66_config.out 2>&1
+python run_limited.py mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --config runtime_config.yaml --max-cycles 1 --out-json --out-dir test66_config > test66_config.out 2>&1
 python assert_release_result.py opt-config test66_config --expected-model uma-s-1p2 --expected-max-cycles 1 --expected-precision fp64 --expected-link-atom-method fixed --expected-thresh gau_loose >> test66_config.out 2>&1
 
 # test67: a user ASE calculator with only energy/forces supports the ML-region
@@ -630,11 +634,11 @@ if [[ "${#test72_parms[@]}" -ne 1 ]]; then
   echo "[smoke] FAIL test73: expected exactly one reusable test72 parm7, found ${#test72_parms[@]}" >&2
   exit 1
 fi
-mlmm all -i test72/layered/test72_r_complex_layered.pdb test72/layered/test72_p_complex_layered.pdb --parm7 "${test72_parms[0]}" --model-pdb test72/ml_region.pdb -q -1 -m 1 --no-refine-path --max-cycles-gsm 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test73 > test73.out 2>&1
+python run_limited.py mlmm all -i test72/layered/test72_r_complex_layered.pdb test72/layered/test72_p_complex_layered.pdb --parm7 "${test72_parms[0]}" --model-pdb test72/ml_region.pdb -q -1 -m 1 --no-refine-path --max-cycles-gsm 5 --thresh gau_loose --thresh-post gau_loose --no-tsopt --no-thermo --no-dft --out-dir test73 > test73.out 2>&1
 
 # test74: explicit zero cap retains the initial refinement and records the
 # effective depth limit and any capped child intervals.
-mlmm path-search -i r_complex_layered.pdb p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --max-depth 0 --max-cycles-gsm 5 --no-preopt --out-dir test74_ps_max_depth0 > test74_ps_max_depth0.out 2>&1
+python run_limited.py mlmm path-search -i r_complex_layered.pdb p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --max-depth 0 --max-cycles-gsm 5 --no-preopt --out-dir test74_ps_max_depth0 > test74_ps_max_depth0.out 2>&1
 python assert_release_result.py path-search-max-depth test74_ps_max_depth0 >> test74_ps_max_depth0.out 2>&1
 
 # test75: standalone scan accepts angle and dihedral ranges.
@@ -647,7 +651,7 @@ mlmm all -i r_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q -1 -m 1 --sca
 test77_path_summary="test18/_work/path_opt/summary.json"
 test -s "$test77_path_summary" || { echo "[smoke] FAIL test77: source MEP summary missing" > test77_resume.out; exit 1; }
 test77_before=$(sha256sum "$test77_path_summary" | awk '{print $1}')
-mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q -1 -m 1 --no-refine-path --max-cycles-gsm 5 --thresh gau_loose --thresh-post gau_loose --tsopt --tsopt-max-cycles 1 --resume-segment 1 --out-dir test18 > test77_resume.out 2>&1
+python run_limited.py mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge 'PRE:0' -q -1 -m 1 --no-refine-path --max-cycles-gsm 5 --thresh gau_loose --thresh-post gau_loose --tsopt --tsopt-max-cycles 1 --resume-segment 1 --out-dir test18 > test77_resume.out 2>&1
 test77_after=$(sha256sum "$test77_path_summary" | awk '{print $1}')
 test "$test77_before" = "$test77_after" || { echo "[smoke] FAIL test77: resume changed the saved MEP summary" >> test77_resume.out; exit 1; }
 python - <<'PY'

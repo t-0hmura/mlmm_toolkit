@@ -214,8 +214,6 @@ def build_pipeline_summary_payload(
         "mlip_model_label": mlip_model_label,
         "mlip_task": mlip_task,
         "mlip_precision": mlip_precision,
-        "status": summary.get("status"),
-        "status_reasons": summary.get("status_reasons", []),
         "execution_status": summary.get("execution_status"),
         "scientific_status": summary.get("scientific_status"),
         "scientific_status_reasons": summary.get(

@@ -969,6 +969,7 @@ def register_all(mcp) -> None:
         output_pdb: str,
         *,
         overwrite: bool = False,
+        overwrite_elem: bool = False,
         extra_args: Optional[list[str]] = None,
         timeout_seconds: Optional[float] = None,
     ) -> dict[str, Any]:
@@ -976,6 +977,8 @@ def register_all(mcp) -> None:
         argv: list[str] = ["mlmm", "add-elem-info", "-i", input_pdb, "-o", output_pdb]
         if overwrite:
             argv.append("--overwrite")
+        if overwrite_elem:
+            argv.append("--overwrite-elem")
         _append_extra_args(argv, extra_args, reserved=_UTILITY_RESERVED_OUTPUTS)
         return (await _run_subcmd_async(argv, out_dir=None, timeout=timeout_seconds)).to_dict()
 

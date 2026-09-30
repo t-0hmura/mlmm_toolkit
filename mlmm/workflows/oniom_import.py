@@ -12,6 +12,8 @@ Layer encoding in output PDB B-factor:
 
 from __future__ import annotations
 
+from mlmm.cli.completion import completion_guard
+
 import re
 import tempfile
 import time
@@ -584,3 +586,5 @@ def cli(
         format_elapsed("[time] Elapsed Time for ONIOM Import", time_start),
         narrative=True,
     )
+
+cli.callback = completion_guard(cli.callback)

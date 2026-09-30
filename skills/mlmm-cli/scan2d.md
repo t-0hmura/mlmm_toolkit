@@ -46,7 +46,7 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |
 | `-o, --out-dir` | path | `./result_scan2d/` | Output directory |
 | `--ref-pdb` | path | none | Topology reference required when `--input` is XYZ |
-| `--config` / `--help-advanced` | — | — | Standard (use `--print-parsed` for spec validation without GPU) |
+| `--config` / `--help-advanced` | — | — | Standard configuration and help |
 
 The two tuples in the `-s` literal define the two scan axes; both coordinates
 are driven simultaneously, generating the grid.

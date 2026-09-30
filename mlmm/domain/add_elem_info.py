@@ -11,6 +11,8 @@ For detailed documentation, see: docs/add-elem-info.md
 
 from __future__ import annotations
 
+from mlmm.cli.completion import completion_guard
+
 import collections
 import os
 import re
@@ -234,9 +236,20 @@ def _default_out_pdb_path(in_pdb: str) -> str:
     return str(path) + "_add_elem.pdb"
 
 
-def assign_elements(in_pdb: str, out_pdb: Optional[str], overwrite: bool = False) -> None:
+def _is_valid_element_field(value: str) -> bool:
+    """True for an element symbol (any case) or the EP virtual-site label written by this tool."""
+    return value.capitalize() in ELEMENTS or value.upper() == "EP"
+
+
+def assign_elements(
+    in_pdb: str,
+    out_pdb: Optional[str],
+    overwrite: bool = False,
+    overwrite_elem: bool = False,
+) -> None:
     # If an explicit output path is provided, never overwrite in-place even when --overwrite is
     # passed. This keeps -o/--out as the higher-priority choice.
+    # Valid element columns are kept unless overwrite_elem re-infers every column from atom names.
     effective_overwrite = overwrite and out_pdb is None
     if effective_overwrite:
         out_path = in_pdb
@@ -254,6 +267,7 @@ def assign_elements(in_pdb: str, out_pdb: Optional[str], overwrite: bool = False
 
     total = 0
     assigned_or_updated = 0
+    kept_existing = 0
     unknown = []
     by_element = collections.Counter()
     with open(in_pdb, "r", encoding="utf-8", errors="surrogateescape", newline="") as handle:
@@ -272,6 +286,11 @@ def assign_elements(in_pdb: str, out_pdb: Optional[str], overwrite: bool = False
         total += 1
         serial_shift, residue_shift = pdb_decimal_overflow_shifts(line)
         field_offset = serial_shift + residue_shift
+        previous = line[76 + field_offset : 78 + field_offset].strip()
+        if not overwrite_elem and _is_valid_element_field(previous):
+            kept_existing += 1
+            rewritten.append(line)
+            continue
         atom_name = line[12 + serial_shift : 16 + serial_shift]
         resname = line[17 + serial_shift : 20 + serial_shift]
         symbol = guess_element(atom_name, resname, line.startswith("HETATM"))
@@ -292,7 +311,6 @@ def assign_elements(in_pdb: str, out_pdb: Optional[str], overwrite: bool = False
             rewritten.append(line)
             continue
 
-        previous = line[76 + field_offset : 78 + field_offset].strip()
         by_element[symbol] += 1
         if previous != symbol:
             assigned_or_updated += 1
@@ -305,6 +323,7 @@ def assign_elements(in_pdb: str, out_pdb: Optional[str], overwrite: bool = False
     click.echo(f"[add-elem-info] Wrote: {out_path}")
     click.echo(f"  total atoms                 : {total}")
     click.echo(f"  assigned/updated            : {assigned_or_updated}")
+    click.echo(f"  kept existing               : {kept_existing}")
     if by_element:
         top = ", ".join(f"{k}:{v}" for k, v in by_element.most_common())
         click.echo(f"  assignment breakdown        : {top}")
@@ -356,11 +375,19 @@ def assign_elements(in_pdb: str, out_pdb: Optional[str], overwrite: bool = False
     hidden=True,
     help="Alias of --overwrite.",
 )
+@click.option(
+    "--overwrite-elem/--no-overwrite-elem",
+    "overwrite_elem",
+    default=False,
+    show_default=True,
+    help="Also re-infer element columns that already hold a valid element (off: only empty or invalid columns are filled).",
+)
 def cli(
     in_pdb: Path,
     out_pdb: Optional[Path],
     overwrite: bool,
     inplace: Optional[bool],
+    overwrite_elem: bool,
 ) -> None:
     """
     Click wrapper to run via the `mlmm add-elem-info` subcommand.
@@ -379,16 +406,23 @@ def cli(
             str(in_pdb),
             (str(out_pdb) if out_pdb else None),
             overwrite=overwrite,
+            overwrite_elem=overwrite_elem,
         )
     except SystemExit as e:
         # Match argparse-like behavior: propagate SystemExit as-is
         raise e
-    except Exception as e:
+    except ValueError as e:
         click.echo(f"[ERR] Failed: {e}", err=True)
         sys.exit(2)
+    except Exception as e:
+        click.echo(f"[ERR] Failed: {e}", err=True)
+        sys.exit(1)
     from mlmm.core.output import emit
 
     emit(
         _format_elapsed(time_start),
         narrative=True,
     )
+
+
+cli.callback = completion_guard(cli.callback)

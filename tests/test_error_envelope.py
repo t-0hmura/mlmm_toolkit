@@ -23,7 +23,7 @@ def test_error_envelope_includes_class_chain() -> None:
             time_start=None,
         )
         r = json.loads((Path(d) / "result.json").read_text())
-        assert r["status"] == "error"
+        assert r["execution_status"] == "failed"
         assert r["error"] == "optimization diverged"
         assert r["error_type"] == "_CustomOptError"
         chain = r["error_class_chain"]

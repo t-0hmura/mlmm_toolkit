@@ -2,6 +2,8 @@
 
 `mlmm scan` は、レイヤー分けした単一の酵素構造から、調和拘束によって1つ以上の原子間距離を目標値へ駆動し、各ステップで L-BFGS により構造を緩和します。この ML/MM スキャンで粗い反応軌跡と、下流の MEP 精密化用の中間体・生成物候補を生成します。入力には PDB/mmCIF、または `--ref-pdb` を伴う XYZ を使用できます。`-s/--scan-lists` で、YAML/JSON スペックファイル（推奨）またはインライン Python リテラルとして目標距離を定義します。
 
+ML/MM scan は Cartesian 座標（`geom.coord_type: cart`）が既定で、推奨です。YAML で `dlc` を明示することもできますが、収束まで大幅に時間がかかる場合があります。
+
 ## スキャン座標のステージ構成
 
 3 要素タプルの入力では、1 リテラルまたは YAML の 1 つの `stages` 要素が 1 ステージを定義します。
@@ -25,7 +27,7 @@ mlmm scan -i INPUT.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  (-s scan.yaml | -s "[(I,J,TARGET_ANG)]") [options]
 ```
 
-スペックファイルによるスキャン（`--print-parsed` を追加すると、解釈したスキャンスペックを検証し GPU 計算を実行せずに終了します）:
+スペックファイルによるスキャン（`--dry-run` を追加すると、計算せずに入力とスキャン仕様を検証できます）:
 
 ```bash
 mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
@@ -97,7 +99,6 @@ out_dir/ (デフォルト:./result_scan/)
 | `--movable-cutoff FLOAT` | 可動 MM 距離カットオフ (Å)。指定すると `--detect-layer` を無効化。 | _None_ |
 | `-s, --scan-lists TEXT` | スキャンターゲット: YAML/JSON スペックファイルパス（自動検出）または `(i, j, target_A)` 3 要素タプルもしくは `(i, j, start, end)` 4 要素タプル（双方向スキャン）を含むインライン Python リテラル。単一フラグの後に複数リテラルを供給可能。`i`/`j` は整数インデックスまたは `"SAM,320,CS1"` のような PDB 原子セレクターが使用可能。 | 必須 |
 | `--one-based/--zero-based` | 原子インデックスを 1 始まり（デフォルト）または 0 始まりとして解釈。 | `True`（1 始まり） |
-| `--print-parsed/--no-print-parsed` | 解釈したスキャン対象を表示し、計算せず終了。 | `False` |
 | `--max-step-size FLOAT` | ステップごとのスキャン結合の最大変化量 (Å)。積分ステップ数を制御。 | `0.20` |
 | `--max-angle-step-size FLOAT` | 角度の1stepあたりの最大変化量（度）。 | `5.0` |
 | `--max-dihedral-step-size FLOAT` | 二面角の1stepあたりの最大変化量（度）。 | `10.0` |

@@ -9,6 +9,8 @@ For detailed documentation, see: docs/irc.md
 
 from __future__ import annotations
 
+from mlmm.cli.completion import completion_guard
+
 from pathlib import Path
 from typing import Any, Dict, Optional, List, Tuple
 
@@ -519,7 +521,7 @@ def cli(
     except click.BadParameter as e:
         click.echo(f"ERROR: {e}", err=True)
         prepared_input.cleanup()
-        sys.exit(1)
+        sys.exit(2)
     geom_input_path = prepared_input.geom_path
     source_path = prepared_input.source_path
     charge, spin = resolve_charge_spin_or_raise(
@@ -538,7 +540,7 @@ def cli(
         except click.BadParameter as e:
             click.echo(f"ERROR: {e}", err=True)
             prepared_input.cleanup()
-            sys.exit(1)
+            sys.exit(2)
     calc = eulerpc = geometry = None
     error_out_dir = Path(out_dir).resolve()
     try:
@@ -822,6 +824,8 @@ def cli(
 
         geom_cfg["coord_type"] = "cart"  # IRC requires Cartesian coordinates
         coord_type = "cart"
+        from mlmm.core.utils import validate_geometry_config
+        validate_geometry_config(geom_cfg)
         coord_kwargs = dict(geom_cfg)
         coord_kwargs.pop("coord_type", None)
 
@@ -1287,5 +1291,8 @@ def cli(
 
 
 # Script entry point
+
+cli.callback = completion_guard(cli.callback)
+
 if __name__ == "__main__":
     cli()

@@ -156,6 +156,7 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
         {
             "--inplace",
             "--overwrite",
+            "--overwrite-elem",
         }
     ),
     "all": frozenset(
@@ -323,7 +324,6 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
             "--one-based",
             "--out-json",
             "--preopt",
-            "--print-parsed",
         }
     ),
     "scan2d": frozenset(
@@ -337,7 +337,6 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
             "--one-based",
             "--out-json",
             "--preopt",
-            "--print-parsed",
         }
     ),
     "scan3d": frozenset(
@@ -351,7 +350,6 @@ _COMMAND_BOOL_TOGGLE_OPTIONS: dict[str, frozenset[str]] = {
             "--one-based",
             "--out-json",
             "--preopt",
-            "--print-parsed",
         }
     ),
     "trj2fig": frozenset(

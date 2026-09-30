@@ -211,6 +211,8 @@ def _commands_from_block(block: list[tuple[int, str]]) -> list[tuple[int, str]]:
 def _authored_from_pairs(path: Path, pairs: list[tuple[int, str]]) -> list[AuthoredCommand]:
     out: list[AuthoredCommand] = []
     for lineno, text in pairs:
+        if text.startswith("python run_limited.py mlmm "):
+            text = text.removeprefix("python run_limited.py ")
         if not text.startswith(TOOL_NAME):
             continue
         out.append(AuthoredCommand(path, lineno, text, _classify_executable(text)))

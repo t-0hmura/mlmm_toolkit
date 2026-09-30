@@ -34,7 +34,8 @@ Rows marked optional are present only when the producer supplies that data:
 | `schema_version` | string | Envelope schema version; current value comes from `mlmm.core.utils.RESULT_JSON_SCHEMA_VERSION` — pin against that constant rather than the literal in this doc. Bumps signal a structural change. |
 | `command` | string | Leaf envelopes use the subcommand name (e.g. `"opt"`); aggregate `all` / `path-search` summaries record the full invocation. |
 | `mlmm_version` / `mlmm_toolkit_version` | string | Package version (`mlmm_version` in leaf envelopes; `mlmm_toolkit_version` in aggregate summaries). |
-| `status` | string | Command-specific: `all` uses `success`/`partial`/`failed`; `path-search` uses `success`/`partial`; `opt` and `tsopt` use the numerical outcomes `converged`/`not_converged`/`stalled`; completed analysis/integration stages use `completed`; exception envelopes use `error`. TS saddle order is reported separately in `saddle_validation` / `hessian_status`. |
+| `execution_status` | string | Execution completion: `completed` / `failed`. |
+| `scientific_status` | string | Result usability: `success` / `partial` / `failed`. |
 | `elapsed_seconds` | float | Optional wall-clock time; omitted when the producer does not pass timing to the shared writer. |
 | `environment` | object | Hardware info (see below) |
 | `run_id` | string | Optional. Present when an orchestrator (including MCP) assigns a current invocation identity; conflicting caller values are rejected. |
@@ -52,13 +53,13 @@ MLIP/ML/MM calculator stages additionally record:
 
 ### Execution and requested-stage completion
 
-Multi-stage and scan producers add the fields below when they can evaluate constituent work. These fields are additive and producer-dependent; the command-specific `status` remains in place. Consumers can inspect requested-stage completion using `scientific_status` and the leaf outcomes. Missing required optimization or calculation results remain incomplete. IRC stop conditions and stationarity are diagnostics. IRC does not publish an independent `scientific_status`; `all` uses TSOPT and endpoint-OPT numerical outcomes.
+Every result reports `execution_status` and `scientific_status`. Multi-stage and scan results also retain the constituent outcomes below. Missing required optimizations or calculations remain incomplete. IRC stop conditions are diagnostics; a normal integration return reports `completed` / `success`, and `all` judges the TS and endpoint optimizations separately.
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `execution_status` | string | Normally `completed` or `failed`; endpoint nonconvergence is completed execution, while a captured endpoint exception is failed execution. |
 | `scientific_status` | string | `success`, `partial`, or `failed`. A valid TS1 plus one failed endpoint OPT is partial; a converged higher-order saddle is also partial. |
-| `scientific_status_reasons` | string[] | Reasons for unusable or missing leaves; omitted on clean success. This is distinct from an aggregate workflow's legacy `status_reasons`. |
+| `scientific_status_reasons` | string[] | Reasons for unusable or missing leaves; omitted on clean success. |
 | `expected_item_ids` / `observed_item_ids` | string[] | Expected and observed leaf identifiers used to detect missing aggregate work. |
 | `stage_outcomes` | object[] | Stage leaves with `stage`, `item_id`, `required`, `executed`, `converged`, `usable`, `reason`, and `artifacts`. |
 | `point_outcomes` | object[] | Scan points with `point_id`, `executed`, `converged`, `energy_valid`, `artifact_written`, `seed_eligible`, and `reason`. |
@@ -67,7 +68,7 @@ When present, `run_id` identifies the current invocation. The `all` aggregate
 rebuilds `current_output_paths` and `key_output_files` from that invocation's
 manifest, so stale files in a reused output tree are excluded.
 
-### Error envelope (when `status == "error"`)
+### Error envelope (when `execution_status == "failed"`)
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -89,7 +90,7 @@ manifest, so stale files in a reused output tree are excluded.
 | `n_cpus` | int | `<int>` |
 | `ram_gb` | float | `<ram in GB>` |
 
-An optimizer may also report `"status": "stalled"`: the energy stopped decreasing over the configured window (an energy plateau) while the configured force/step convergence criteria remained unmet. A stall is a distinct, non-converged outcome — it is never reported as `converged`. With `--flatten`, `tsopt` and `opt` still run the flatten loop after a stall, since displacing along the remaining imaginary modes can leave the plateau; the loop is skipped once no `--max-cycles` budget remains. When present, a `stop_reason` string records the energy range, window, and the failed criteria. A stall may be retried (e.g. from a perturbed geometry or with tighter step control); it is not an alias for `max_cycles` exhaustion or a generic failure. In microiteration, a stalled macro step or latest micro (MM) relaxation remains a stalled result and cannot satisfy macro convergence.
+An optimizer may also report `"optimization_status": "stalled"`: the energy stopped decreasing over the configured window (an energy plateau) while the configured force/step convergence criteria remained unmet. A stall is a distinct, non-converged outcome — it is never reported as `converged`. With `--flatten`, `tsopt` and `opt` still run the flatten loop after a stall, since displacing along the remaining imaginary modes can leave the plateau; the loop is skipped once no `--max-cycles` budget remains. When present, a `stop_reason` string records the energy range, window, and the failed criteria. A stall may be retried (e.g. from a perturbed geometry or with tighter step control); it is not an alias for `max_cycles` exhaustion or a generic failure. In microiteration, a stalled macro step or latest micro (MM) relaxation remains a stalled result and cannot satisfy macro convergence.
 
 ## Subcommand schemas
 
@@ -97,7 +98,7 @@ An optimizer may also report `"status": "stalled"`: the energy stopped decreasin
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `status` / `stage` | string / string | `"ok"` / `"sp"` |
+| `stage` | string | `"sp"` |
 | `input` | string | Input structure path |
 | `real_parm7` | string | Full-system Amber topology path |
 | `charge` / `spin` | int / int | Model-region charge and multiplicity |
@@ -110,7 +111,7 @@ An optimizer may also report `"status": "stalled"`: the energy stopped decreasin
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `status` | string | `"converged"`, `"not_converged"`, or `"stalled"` (energy plateau; see above) |
+| `optimization_status` | string | `"converged"`, `"not_converged"`, or `"stalled"` (energy plateau; see above) |
 | `stop_reason` | string | Present only for a non-converged stop (stalled/stopped); records the energy plateau range/window and failed criteria |
 | `energy_hartree` | float | Final ONIOM energy (Hartree) |
 | `n_opt_cycles` | int | Optimization cycles completed |
@@ -134,7 +135,6 @@ An optimizer may also report `"status": "stalled"`: the energy stopped decreasin
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `status` | string | Overall outcome. It mirrors `optimization_status` except that a converged run whose final TS energy could not be evaluated is degraded to `"energy_missing"`; use `optimization_status` and `saddle_validation` for the numerical and saddle-order verdicts separately |
 | `optimization_status` | string | Numerical optimizer outcome: `"converged"`, `"not_converged"`, or `"stalled"`; independent of saddle order |
 | `saddle_validation` | string | `"first_order"`, `"higher_order"`, `"no_imaginary"`, or `"unavailable"` from terminal exact PHVA |
 | `saddle_order_verified` | bool | `true` only for `saddle_validation: "first_order"` |
@@ -142,7 +142,7 @@ An optimizer may also report `"status": "stalled"`: the energy stopped decreasin
 | `reaction_mode_index` | int\|null | Selected negative exact-PHVA root for downstream IRC; fallback root 0 is explicitly labelled and does not verify reaction identity |
 | `reaction_mode_frequency_cm` | float\|null | Frequency of the selected negative root |
 | `reaction_mode_source` | string\|null | Reference-aligned or explicit fallback source used for root selection |
-| `energy_hartree` | float \| null | TS energy (Hartree); `null` when the final energy evaluation failed (the writer replaces every non-finite float with `null`), in which case `status` is `"energy_missing"` |
+| `energy_hartree` | float \| null | TS energy (Hartree); `null` when the final energy evaluation failed (the writer replaces every non-finite float with `null`), in which case execution and scientific status are `failed` |
 | `n_imaginary_modes` | int\|null | Number of imaginary frequencies; `null` if PHVA was not run |
 | `imaginary_frequencies_cm` | float[]\|null | Imaginary frequencies (cm⁻¹, negative); no PHVA: `[]` with `--skip-final-freq`, otherwise `null` |
 | `frequency_zero_cutoff_cm` / `imaginary_mode_criterion` / `imaginary_frequency_threshold_cm` | float / string / float | The default is `5.0`, `"frequency_cutoff_cm"`, and `-5.0`: only ν < −5.00 cm⁻¹ counts as imaginary. |
@@ -174,7 +174,6 @@ IRC. Explicit `--skip-final-freq` retains the final structure with
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `status` | string | `"completed"` |
 | `n_modes` | int | Total normal modes |
 | `n_imaginary` | int | Imaginary frequency count |
 | `frequencies_cm` | float[] | All frequencies (cm⁻¹) |
@@ -211,11 +210,10 @@ IRC. Explicit `--skip-final-freq` retains the final structure with
 
 ### `irc`
 
-`status: "completed"` records return from execution. IRC does not publish its own `scientific_status`, `stage_outcomes`, or `forward_status` / `backward_status`. Directional stop reasons and trajectories are retained; `all` reports subsequent endpoint optimization under `endpoint_opt`.
+IRC publishes the common completion fields and retains directional stop reasons and trajectories; `all` reports subsequent endpoint optimization under `endpoint_opt`.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `status` | string | `"completed"` |
 | `n_frames_forward` / `n_frames_backward` / `n_frames_total` | int | IRC frames |
 | `forward_short_branch` / `backward_short_branch` | bool | Branch produced at most three frames without reaching the cycle cap; diagnostic only |
 | `energy_first_hartree` | float | First stitched-path endpoint; standalone IRC assigns no chemical identity |
@@ -246,7 +244,6 @@ or `source` / `raw_hessian_shape`).
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `status` | string | `"completed"` |
 | `scan_opt_mode` | string | Fixed `grad` preset used by the L-BFGS constrained relaxations |
 | `scan_optimizer` | string | Effective optimizer identity (`lbfgs`) |
 | `n_stages` | int | Number of scan stages |
@@ -282,7 +279,7 @@ only when the imported CSV has complete convergence and artifact provenance.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `converged` | bool \| null | Convergence flag: `true` / `false` from the engine's own convergence signal, `null` when it exposed none (`status` is then `"completed"`, never a success claim) |
+| `converged` | bool \| null | Convergence flag: `true` / `false` from the engine's own convergence signal, `null` when it exposed none (`optimization_status` is then `"completed"`, never a success claim) |
 | `mep_mode` | string | `"dmf"` or `"gsm"` |
 | `image_energies_hartree` | float[] | All image energies |
 | `n_images` | int | Image count |
@@ -296,7 +293,6 @@ only when the imported CSV has complete convergence and artifact provenance.
 | Field | Type | Description |
 |-------|------|-------------|
 | `converged` | bool | SCF converged? |
-| `status` | string | `"converged"` or `"not_converged"`; the latter is committed before exit code 3. |
 | `energy_hartree` / `energy_kcal_per_mol` | float | Legacy model-region DFT energy |
 | `model_dft_energy_hartree` / `model_dft_energy_kcal_per_mol` | float | Model-region DFT energy |
 | `total_dft_mm_energy_hartree` / `total_dft_mm_energy_kcal_per_mol` | float | Recombined DFT/MM energy |
@@ -322,7 +318,6 @@ only when the imported CSV has complete convergence and artifact provenance.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `status` | string | `"ok"` |
 | `n_frames` | int | Number of trajectory frames. |
 | `min_energy_hartree` / `max_energy_hartree` | float | Minimum and maximum frame energies. |
 | `energy_source` | string | `"trajectory_comment"` or `"mlip_recomputed"`. |
@@ -337,7 +332,6 @@ Supplying either `-q/--charge` or `-m/--multiplicity` recomputes every frame wit
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `status` | string | `"ok"` |
 | `n_atoms_extracted` | int | Atoms after extraction |
 | `total_charge` | float | Computed total charge |
 | `protein_charge` | float | Protein charge |
@@ -359,7 +353,6 @@ Supplying either `-q/--charge` or `-m/--multiplicity` recomputes every frame wit
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `status` | string | `"ok"` |
 | `n_points` | int | Number of energy data points |
 | `files` | object | Output diagram filename-to-path map |
 
@@ -369,7 +362,6 @@ The `all` and `path-search` commands write `summary.json`:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `status` | string | `"success"` / `"partial"` / `"failed"` for `all`; `"success"` / `"partial"` for `path-search`. |
 | `execution_status` / `scientific_status` | string / string | Execution completeness and completion of requested numerical/calculation stages. |
 | `scientific_status_reasons` | string[] | Reasons for missing or unusable requested results; omitted on success. |
 | `pipeline_stop` | object \| absent | Present only on an early stop. `stage` is `post` (`reason` `no_segments` / `no_reactive_segment`), `before_irc` (a TSOPT reason, plus `segment` and `tsopt_result`), or `endpoint_opt` (`endpoint_execution_failed` and endpoint-specific `failures`). Rendered in `summary.log` as `Pipeline stop`. |
@@ -399,7 +391,7 @@ The `all` command additionally includes:
 | `post_segments` | list | Per-segment TS/IRC/freq/DFT results |
 | `post_segments[].tsopt.energy_valid` / `.structure_valid` | bool | Finite terminal TS checks combined with the existing terminal-Hessian result; status classification runs no extra Hessian or optimization. |
 | `post_segments[].tsopt.n_opt_cycles` / `.max_cycles` | int / int\|null | TS optimization cycles executed and configured limit. These are reported for both converged and normally non-converged runs. |
-| `post_segments[].irc` / `.endpoint_assignment` / `.endpoint_opt` | object | IRC stop diagnostics, endpoint orientation, and endpoint-OPT convergence, respectively. Endpoint records (`reactant` / `product`, or `endpoint_1` / `endpoint_2` in TS-only mode) report `status`, `n_opt_cycles`, `max_cycles`, and any `stop_reason`. IRC stopping and topology correspondence are not independent success gates; connectivity information remains available for mechanism interpretation. |
+| `post_segments[].irc` / `.endpoint_assignment` / `.endpoint_opt` | object | IRC stop diagnostics, endpoint orientation, and endpoint-OPT convergence, respectively. Endpoint records (`reactant` / `product`, or `endpoint_1` / `endpoint_2` in TS-only mode) report `optimization_status`, `n_opt_cycles`, `max_cycles`, and any `stop_reason`. IRC stopping and topology correspondence are not independent success gates; connectivity information remains available for mechanism interpretation. |
 | `post_segments[].thermo_symmetry` | object | Child-reported point-group and rotational-symmetry provenance by state: R/TS/P for MEP runs and E1/TS/E2 for TS-only runs. States with valid symmetry-number provenance are included; missing states are omitted, and the field is absent only when no state has valid provenance. |
 | `key_output_files` | object | Current-run output index: root filename → description; each `seg_NN` entry is `{description, files}` with paths relative to that segment directory. |
 | `current_output_paths` | string[] | Sorted paths relative to `--out-dir`, limited to artifacts claimed by the current invocation. |
@@ -414,7 +406,7 @@ import json
 with open("result_opt/result.json") as f:
     result = json.load(f)
 
-if result["status"] == "converged":
+if result["scientific_status"] == "success":
     print(f"Energy: {result['energy_hartree']:.6f} Hartree")
 else:
     print(f"Not converged after {result['n_opt_cycles']} cycles")
@@ -425,7 +417,7 @@ else:
 
 ```bash
 # Check convergence
-jq '.status' result.json
+jq '{execution_status, scientific_status}' result.json
 
 # Get barrier from path-opt
 jq '.barrier_kcal' result.json

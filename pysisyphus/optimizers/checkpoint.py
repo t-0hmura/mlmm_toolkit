@@ -345,6 +345,35 @@ def _recorded_array_shape(spec: Any) -> tuple[int, ...] | None:
         ) from exc
 
 
+def _validate_backend_specs(restart_info: Mapping) -> None:
+    """Reject malformed array backend specs before any optimizer state is applied."""
+
+    def check(spec: Any, key: str) -> None:
+        if not isinstance(spec, Mapping):
+            raise CheckpointValidationError(
+                f"checkpoint restart_info {key} must be a mapping with backend, "
+                f"dtype and shape, got {type(spec).__name__}"
+            )
+
+    if "H_backend" in restart_info:
+        check(restart_info["H_backend"], "H_backend")
+    for name in ("_sy_buffer_S", "_sy_buffer_Y"):
+        key = f"{name}_backend"
+        if key not in restart_info:
+            continue
+        specs = restart_info[key]
+        if not isinstance(specs, list) or len(specs) != len(restart_info.get(name) or []):
+            raise CheckpointValidationError(
+                f"checkpoint restart_info {key} must hold one spec per {name} entry"
+            )
+        for index, spec in enumerate(specs):
+            check(spec, f"{key}[{index}]")
+    if restart_info.get("_prev_eigvec_min") is not None and (
+        "_prev_eigvec_min_backend" in restart_info
+    ):
+        check(restart_info["_prev_eigvec_min_backend"], "_prev_eigvec_min_backend")
+
+
 def _validate_hessian(restart_info: Mapping, optimizer: Any) -> None:
     """Validate a restart Hessian before any optimizer state is applied."""
 
@@ -441,6 +470,7 @@ def validate_payload(payload: Any, optimizer: Any) -> dict[str, Any]:
     _validate_history_lengths(restart_info)
     _validate_finite(restart_info)
     _validate_geom_info(payload, restart_info)
+    _validate_backend_specs(restart_info)
     _validate_hessian(restart_info, optimizer)
     return dict(restart_info)
 

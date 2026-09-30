@@ -8,6 +8,8 @@ For detailed documentation, see: docs/dft.md
 
 from __future__ import annotations
 
+from mlmm.cli.completion import completion_guard
+
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
@@ -413,7 +415,7 @@ def _finalize_dft_result(
             elapsed_seconds=elapsed_seconds,
         )
     if not bool(payload["converged"]):
-        raise SystemExit(3)
+        raise SystemExit(1)
 
 
 def _prepare_dft_output_dir(
@@ -1647,6 +1649,7 @@ def cli(
         if workspace is not None:
             workspace.cleanup()
 
+cli.callback = completion_guard(cli.callback)
 
 if __name__ == "__main__":
     cli()

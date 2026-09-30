@@ -335,7 +335,7 @@ def test_payload_preserves_legacy_keys_and_records_effective_values(
     assert payload["dft_settings"]["functional"] == "hf"
 
 
-def test_nonconverged_payload_commits_before_exit_three(
+def test_nonconverged_payload_commits_before_exit_one(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     events = []
@@ -352,7 +352,7 @@ def test_nonconverged_payload_commits_before_exit_three(
             payload=_payload(converged=False),
             elapsed_seconds=1.0,
         )
-    assert exc_info.value.code == 3
+    assert exc_info.value.code == 1
     assert events == [("write", "not_converged", tmp_path)]
 
 

@@ -30,7 +30,7 @@ SKILLS_DIR = REPO_ROOT / "skills"
 
 sys.path.insert(0, str(REPO_ROOT))
 from mlmm.cli import cli as root_cli  # noqa: E402
-from mlmm.core.utils import RESULT_JSON_STATUS_VALUES  # noqa: E402
+from mlmm.core.utils import RESULT_JSON_EXECUTION_STATUS_VALUES, RESULT_JSON_SCIENTIFIC_STATUS_VALUES  # noqa: E402
 
 
 # Renamed file/key/string literals — (old, new, note).
@@ -54,15 +54,16 @@ RENAMED_STRINGS: list[tuple[str, str, str]] = [
      "skill referenced a log file that is not produced"),
 ]
 
-# Status is command-specific; this is the union of public values documented in
-# docs/json-output.md and emitted by the workflows.
-CANONICAL_STATUS: set[str] = set(RESULT_JSON_STATUS_VALUES)
+from mlmm.mcp._runner import MCP_SUMMARY_STATUS_VALUES
 
-# MCP runner-level status vocabulary (mlmm/mcp/_runner.py): a distinct
-# enum from the CLI summary.json status above, valid only inside the
-# mlmm-mcp skill.
-MCP_STATUS: set[str] = {"ok", "failed", "summary_missing", "summary_parse_error"}
-MCP_SKILL_DIRS: set[str] = {"mlmm-mcp"}
+STATUS_VALUES = {
+    "execution_status": set(RESULT_JSON_EXECUTION_STATUS_VALUES),
+    "scientific_status": set(RESULT_JSON_SCIENTIFIC_STATUS_VALUES),
+    "optimization_status": {"converged", "not_converged", "stalled", "unknown", "completed", "error"},
+    "summary_status": set(MCP_SUMMARY_STATUS_VALUES),
+    "status": set(),
+}
+MCP_SKILL_DIRS = {"mlmm-mcp"}
 
 # Match a backtick-quoted flag in prose (`--foo`) — the typical
 # "documented CLI option" callout in skill markdown tables. Bash
@@ -70,7 +71,7 @@ MCP_SKILL_DIRS: set[str] = {"mlmm-mcp"}
 # .github/scripts/check_skill_commands.py; this script targets prose where
 # bare ``--xxx`` could be a non-mlmm system tool.
 FLAG_TOKEN_RE = re.compile(r"`(--[a-z][a-z0-9-]*)`")
-STATUS_RE = re.compile(r'"status"\s*:\s*"([a-zA-Z_]+)"')
+STATUS_RE = re.compile(r'"(status|execution_status|scientific_status|optimization_status|summary_status)"\s*:\s*"([a-zA-Z_]+)"')
 
 # Skill subdirs that document the mlmm CLI (not external tools like pip /
 # conda / nvidia-smi / sbatch). Unknown-flag check is restricted to these
@@ -135,15 +136,12 @@ def _scan_file(path: Path, flag_union: set[str]) -> list[str]:
                     f"(not registered on any subcommand)"
                 )
 
-        # 2. Status enum literals
-        allowed_status = CANONICAL_STATUS | (MCP_STATUS if in_mcp_dir else set())
+        # Result fields have independent value sets.
         for m in STATUS_RE.finditer(line):
-            v = m.group(1)
-            if v not in allowed_status:
-                warnings.append(
-                    f"{rel}:{lineno}: status {v!r} not in canonical "
-                    f"{{{', '.join(sorted(allowed_status))}}}"
-                )
+            name, value = m.groups()
+            allowed = STATUS_VALUES[name] if name != "summary_status" or in_mcp_dir else set()
+            if value not in allowed:
+                warnings.append(f"{rel}:{lineno}: {name} {value!r} is not a public result value")
 
         # 3. Renamed strings
         for old, new, note in RENAMED_STRINGS:

@@ -244,3 +244,14 @@ Three tiers; `--config` is the only YAML layer (no separate "override YAML"). Fu
 ## See Also
 
 [Getting Started](getting-started.md) · [Concepts & Workflow](concepts.md) · [Common Error Recipes](recipes-common-errors.md) · [Troubleshooting](troubleshooting.md) · [YAML Reference](yaml-reference.md).
+
+## Exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | Success or usable partial results |
+| `1` | Non-convergence, no usable result, runtime exception, or output failure |
+| `2` | Invalid input, CLI arguments, or configuration |
+| `130` | User interruption (SIGINT) |
+
+Exit codes do not depend on JSON output. An IRC cycle limit alone is not a failure; all judges the TS and endpoint optimizations.

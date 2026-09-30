@@ -80,7 +80,7 @@ result_sp/
 └── hessian.npy      # active-coordinate ONIOM Hessian block (a.u.) — only with --hess
 ```
 
-`result.json` reports `stage`, `status`, `mlip_backend`, `mlip_model`,
+`result.json` reports `stage`, `execution_status`, `scientific_status`, `mlip_backend`, `mlip_model`,
 `mlip_precision`, `mm_backend`, `link_atom_method`, `use_cmap`, `charge`,
 `spin`, `energy_au`, `forces_path`, and `hessian_path` (null without
 `--hess`). For `--calc-file`, `mlip_backend` is `custom`, `mlip_model` is

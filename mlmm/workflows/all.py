@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from mlmm.cli.completion import completion_guard, record_completion
+
 from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import dataclass
@@ -603,12 +605,18 @@ def _run_cli_main(
         code = getattr(e, "code", 1)
         if code not in (None, 0):
             rc = code
-            if code == 130:
+            if code in {2, 130}:
                 raise
+            from mlmm.cli.completion import record_child_failure
+            record_child_failure(getattr(e, "completion_result", None))
             if on_nonzero == "raise":
                 raise click.ClickException(f"[{label}] {cmd_name} exit code {code}.")
             _echo(f"[{label}] WARNING: {cmd_name} exited with code {code}")
     except Exception as e:
+        if isinstance(e, click.ClickException) and e.exit_code == 2:
+            raise SystemExit(2) from e
+        from mlmm.cli.completion import record_child_failure
+        record_child_failure()
         rc = 1
         if on_exception == "raise":
             raise click.ClickException(f"[{label}] {cmd_name} failed: {e}")
@@ -704,14 +712,13 @@ def _inject_coord_type_into_args_yaml(
     backend_model: Optional[str] = None,
     calc_file: Optional[str] = None,
     calc_factory: Optional[str] = None,
-    print_every: Optional[int] = None,
     freeze_atoms: Optional[Sequence[int]] = None,
     dft_settings: Optional[Mapping[str, Any]] = None,
 ) -> Optional[Path]:
     """Inject geometry and backend-native calculator overrides into args YAML.
 
-    Used by ``mlmm all --coord-type cart|dlc`` and the backend/model/precision/
-    print-every options to propagate the choice through the all-pipeline args YAML. Only the opt/tsopt
+    Used by ``mlmm all --coord-type cart|dlc`` and the backend/model/precision
+    options to propagate the choice through the all-pipeline args YAML. Only the opt/tsopt
     stages honour ``coord_type`` (DLC is meaningful there via microiteration);
     freq/scan/path stages are fixed to cartesian and ignore it. Returns the
     original ``args_yaml`` unchanged when there are no injected values.
@@ -733,7 +740,6 @@ def _inject_coord_type_into_args_yaml(
         and workers_per_node is None
         and backend_model is None
         and calc_file is None
-        and print_every is None
         and freeze_atoms is None
         and dft_settings is None
         and not has_generic_calc_alias
@@ -789,14 +795,6 @@ def _inject_coord_type_into_args_yaml(
         apply_calc_file_to_calc_cfg(calc_cfg, calc_file, calc_factory)
         apply_precision_to_calc_cfg(calc_cfg, precision)
         cfg["calc"] = calc_cfg
-
-    if print_every is not None:
-        opt_cfg = cfg.get("opt")
-        if not isinstance(opt_cfg, dict):
-            opt_cfg = {}
-        opt_cfg = dict(opt_cfg)
-        opt_cfg["print_every"] = int(print_every)
-        cfg["opt"] = opt_cfg
 
     with tempfile.NamedTemporaryFile(
         mode="w",
@@ -1558,7 +1556,7 @@ def _read_opt_endpoint_converged(opt_dir: Path) -> Optional[bool]:
         data = json.loads(rj.read_text(encoding="utf-8")) or {}
         if not isinstance(data, dict):
             return None
-        status = data.get("status")
+        status = data.get("optimization_status")
         if status == "converged":
             return True
         if status in {"not_converged", "stalled"}:
@@ -1841,7 +1839,7 @@ def _pipeline_aggregate_truth(
         # summary): mirror the legacy completeness axis rather than manufacture a
         # spurious failure.
         agg_sci = legacy_status
-        agg_exec = "failed" if legacy_status == "failed" else "completed"
+        agg_exec = "completed"
         agg_reasons = []
         observed = list(expected)
         preopt_leaf = next(
@@ -1868,7 +1866,7 @@ def _pipeline_aggregate_truth(
         scientific = "partial"
     execution = (
         "failed"
-        if legacy_status == "failed" or agg_exec == "failed" or endpoint_execution_failed
+        if agg_exec == "failed" or endpoint_execution_failed
         else "completed"
     )
     reasons = legacy_reasons + [r for r in agg_reasons if r not in legacy_reasons]
@@ -1896,9 +1894,7 @@ def _apply_pipeline_truth(
 ) -> None:
     """Write the outcome axes onto ``summary`` in place.
 
-    Never touches the legacy overloaded ``status`` field; only adds
-    ``execution_status`` / ``scientific_status`` / expected+observed IDs and the
-    distinct ``scientific_status_reasons`` key.
+    Publish execution/scientific outcomes and retain stage diagnostics.
     """
 
     truth = _pipeline_aggregate_truth(
@@ -1917,6 +1913,11 @@ def _apply_pipeline_truth(
         summary["scientific_status_reasons"] = list(truth.status_reasons)
     else:
         summary.pop("scientific_status_reasons", None)
+
+    from mlmm.cli.completion import record_completion
+    summary.pop("status", None)
+    summary.pop("status_reasons", None)
+    summary.update(record_completion(summary, command="all"))
 
 
 def _derive_pipeline_status(
@@ -1996,7 +1997,7 @@ def _derive_pipeline_status(
                 dft = item.get("dft")
                 if not isinstance(dft, dict):
                     reasons.append(f"{prefix}: DFT result is missing")
-                elif dft.get("status") == "failed":
+                elif dft.get("scientific_status") == "failed":
                     failed_states = dft.get("failed_states") or []
                     detail = (
                         f" ({', '.join(map(str, failed_states))})"
@@ -2783,7 +2784,8 @@ def _irc_and_match(seg_idx: int,
                    args_yaml: Optional[Path] = None,
                    manifest: Optional[InvocationManifest] = None,
                    artifact_prefix: str = "irc",
-                   public_root: Optional[Path] = None) -> Dict[str, Any]:
+                   public_root: Optional[Path] = None,
+                   hessian_calc_mode: Optional[str] = None) -> Dict[str, Any]:
     """
     Run EulerPC IRC from a TS geometry, then map the IRC endpoints to (left, right)
     by comparing bond states with the MEP segment endpoints (when ``mep_dir`` is given).
@@ -2829,9 +2831,12 @@ def _irc_and_match(seg_idx: int,
 
     # Build irc CLI arguments
     if ts_xyz_path is not None and Path(ts_xyz_path).is_file():
+        # The cached TS Hessian is matched by topology-PDB path, so IRC reads
+        # the same topology file as tsopt.
+        topology_pdb = getattr(g_ts, "_tsopt_topology_pdb", None) or ref_pdb_for_seg
         irc_args: List[str] = [
             "-i", str(ts_xyz_path),
-            "--ref-pdb", str(ref_pdb_for_seg),
+            "--ref-pdb", str(topology_pdb),
         ]
     else:
         irc_args = ["-i", str(ref_pdb_for_seg)]
@@ -2853,6 +2858,8 @@ def _irc_and_match(seg_idx: int,
         )
     if irc_root is not None:
         irc_args.extend(["--root", str(int(irc_root))])
+    if hessian_calc_mode:
+        irc_args.extend(["--hessian-calc-mode", str(hessian_calc_mode)])
     from mlmm.workflows._all_helpers import append_backend_forwarding_args
     append_backend_forwarding_args(
         irc_args,
@@ -3078,7 +3085,7 @@ def _tsopt_continuation_decision(
     """Return normal-control-flow ownership for the TS-to-IRC boundary."""
 
     optimization_status = str(
-        payload.get("optimization_status") or payload.get("status") or "unknown"
+        payload.get("optimization_status") or "unknown"
     )
     hessian_status = str(payload.get("hessian_status") or "unknown")
     saddle_validation = str(payload.get("saddle_validation") or "unavailable")
@@ -3308,6 +3315,7 @@ def _run_tsopt_on_hei(hei_pdb: Path,
             )
 
         _append_cli_arg(ts_args, "--max-cycles", overrides.get("max_cycles"))
+        _append_cli_arg(ts_args, "--print-every", overrides.get("print_every"))
         _append_toggle_arg(ts_args, "--dump", overrides.get("dump"))
         _append_toggle_arg(ts_args, "--convert-files", overrides.get("convert_files"))
         _append_cli_arg(ts_args, "--thresh", overrides.get("thresh"))
@@ -3382,6 +3390,7 @@ def _run_tsopt_on_hei(hei_pdb: Path,
         g_ts._tsopt_result = tsopt_result
         g_ts._tsopt_result_path = result_path
         g_ts._tsopt_continuation = tsopt_continuation
+        g_ts._tsopt_topology_pdb = Path(topology_pdb)
 
         # Ensure calculator to have energy on g_ts
         _ts_calc_kwargs = _stage_calc_kwargs(
@@ -3731,11 +3740,12 @@ def _run_freq_for_state(pdb_path: Path,
                         mm_backend: Optional[str] = None,
                         use_cmap: Optional[bool] = None,
                         xyz_path: Optional[Path] = None,
-                        scf_checkpoint: Optional[Path] = None) -> Dict[str, Any]:
+                        scf_checkpoint: Optional[Path] = None,
+                        topology_pdb: Optional[Path] = None) -> Dict[str, Any]:
     """
     Run freq CLI; return parsed thermo dict (may be empty).
     When *xyz_path* is given, use it for full-precision coordinates with
-    *pdb_path* as topology reference (--ref-pdb).
+    *topology_pdb* (default *pdb_path*) as topology reference (--ref-pdb).
     """
     fdir = out_dir
     ensure_dir(fdir)
@@ -3751,7 +3761,7 @@ def _run_freq_for_state(pdb_path: Path,
 
     # Prefer XYZ (full precision) with --ref-pdb for topology
     if xyz_path is not None and xyz_path.exists():
-        args = ["-i", str(xyz_path), "--ref-pdb", str(pdb_path)]
+        args = ["-i", str(xyz_path), "--ref-pdb", str(topology_pdb or pdb_path)]
     else:
         args = ["-i", str(pdb_path)]
     args.extend([
@@ -3877,6 +3887,7 @@ def _run_opt_for_state(
     mm_backend: Optional[str] = None,
     use_cmap: Optional[bool] = None,
     thresh: Optional[str] = None,
+    print_every: Optional[int] = None,
     reject_uphill: Optional[bool] = None,
     stop_plateau: Optional[bool] = None,
     stop_plateau_thresh: Optional[float] = None,
@@ -3884,6 +3895,7 @@ def _run_opt_for_state(
     xyz_path: Optional[Path] = None,
     scf_checkpoint: Optional[Path] = None,
     outcome: Optional[Dict[str, Any]] = None,
+    topology_pdb: Optional[Path] = None,
 ) -> Tuple[Any, Path, Optional[bool]]:
     """
     Run opt CLI for a single endpoint and return
@@ -3910,7 +3922,7 @@ def _run_opt_for_state(
     # Use XYZ (full precision) when available; fall back to PDB
     if xyz_path is not None and xyz_path.exists():
         prepared_input = prepare_input_structure(xyz_path)
-        apply_ref_pdb_override(prepared_input, pdb_path)
+        apply_ref_pdb_override(prepared_input, topology_pdb or pdb_path)
         input_label = xyz_path.name
     else:
         prepared_input = prepare_input_structure(pdb_path)
@@ -3938,6 +3950,7 @@ def _run_opt_for_state(
         _append_toggle_arg(args, "--convert-files", convert_files)
         _append_toggle_arg(args, "--dump", dump)
         _append_cli_arg(args, "--thresh", thresh)
+        _append_cli_arg(args, "--print-every", print_every)
         _append_toggle_arg(args, "--reject-uphill", reject_uphill)
         _append_toggle_arg(args, "--stop-plateau", stop_plateau)
         _append_cli_arg(args, "--stop-plateau-thresh", stop_plateau_thresh)
@@ -3981,7 +3994,7 @@ def _run_opt_for_state(
             endpoint_payload = json.loads(result_path.read_text(encoding="utf-8"))
             outcome.update(
                 {
-                    "status": endpoint_payload.get("status"),
+                    "optimization_status": endpoint_payload.get("optimization_status"),
                     "converged": endpoint_converged,
                     "n_opt_cycles": endpoint_payload.get("n_opt_cycles"),
                     "max_cycles": endpoint_payload.get("max_cycles"),
@@ -4567,7 +4580,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @click.option("--hessian-calc-mode",
               type=click.Choice(["Analytical", "FiniteDifference"], case_sensitive=False),
               default=None, show_default="FiniteDifference",
-              help=("Common MLIP Hessian mode forwarded to tsopt and freq. "
+              help=("Common MLIP Hessian mode forwarded to tsopt, irc and freq. "
                     "Runtime and memory depend on "
                     "the backend and system; compare both modes on a representative pilot."))
 @click.option(
@@ -5083,7 +5096,6 @@ def cli(
         or workers_per_node is not None
         or backend_model is not None
         or calc_file is not None
-        or print_every_override is not None
         or freeze_atoms_cli_explicit
     ):
         prior_args_yaml = args_yaml
@@ -5092,7 +5104,6 @@ def cli(
             backend=backend,
             precision=precision, workers=workers, workers_per_node=workers_per_node, backend_model=backend_model,
             calc_file=(str(Path(calc_file).resolve()) if calc_file else None), calc_factory=calc_factory,
-            print_every=print_every_override,
             freeze_atoms=(effective_freeze_atoms if freeze_atoms_cli_explicit else None),
         )
         if args_yaml is not None and args_yaml != prior_args_yaml:
@@ -5391,6 +5402,8 @@ def cli(
         stop_plateau_thresh=stop_plateau_thresh,
         stop_plateau_window=stop_plateau_window,
     )
+    if print_every_override is not None:
+        tsopt_overrides["print_every"] = print_every_override
     tsopt_reference_mode_applicable = _tsopt_reference_mode_is_applicable(
         tsopt_overrides.get("opt_mode", tsopt_opt_mode_default)
     )
@@ -6572,7 +6585,7 @@ def cli(
             pocket_ref = (
                 ref_pdb_for_topology
                 if ref_pdb_for_topology is not None
-                else first_pocket
+                else layered_pdb
             )
             try:
                 _ts_xyz, _ts_vis = _save_single_geom_for_tools(
@@ -6685,8 +6698,6 @@ def cli(
                 "mlip_model_label": _mlip_model_label_resolved,
                 "mlip_task": _mlip_task_resolved,
                 "mlip_precision": mlip_precision_resolved,
-                "status": summary.get("status"),
-                "status_reasons": summary.get("status_reasons", []),
                 "execution_status": summary.get("execution_status"),
                 "scientific_status": summary.get("scientific_status"),
                 "scientific_status_reasons": summary.get(
@@ -6772,7 +6783,7 @@ def cli(
             )
 
         # EulerPC IRC & map endpoints (no segment endpoints exist → fallback mapping)
-        irc_pocket_ref = ref_pdb_for_topology if ref_pdb_for_topology is not None else first_pocket
+        irc_pocket_ref = ref_pdb_for_topology if ref_pdb_for_topology is not None else layered_pdb
         irc_res = _irc_and_match(seg_idx=1,
                                  seg_dir=tsroot,
                                  ref_pdb_for_seg=ts_pdb,
@@ -6800,7 +6811,8 @@ def cli(
                                  args_yaml=args_yaml,
                                  manifest=manifest,
                                  artifact_prefix="post.01.irc",
-                                 public_root=out_dir)
+                                 public_root=out_dir,
+                                 hessian_calc_mode=hessian_calc_mode)
         _persist_run_manifest(manifest, out_dir)
         gL = irc_res["left_min_geom"]
         gR = irc_res["right_min_geom"]
@@ -6844,7 +6856,7 @@ def cli(
         # Save XYZ (full precision) + PDB (companion) and run endpoint-opt
         struct_dir = tsroot / "structures"
         ensure_dir(struct_dir)
-        pocket_ref = ref_pdb_for_topology if ref_pdb_for_topology is not None else first_pocket
+        pocket_ref = ref_pdb_for_topology if ref_pdb_for_topology is not None else layered_pdb
         xR_irc, pR_irc = _save_single_geom_for_tools(g_react, pocket_ref, struct_dir, "reactant_irc")
         xT, pT         = _save_single_geom_for_tools(gT,       pocket_ref, struct_dir, "ts")
         xP_irc, pP_irc = _save_single_geom_for_tools(g_prod,   pocket_ref, struct_dir, "product_irc")
@@ -6899,6 +6911,7 @@ def cli(
                 mm_backend=mm_backend,
                 use_cmap=use_cmap,
                 thresh=post_thresh_forward,
+                print_every=print_every_override,
                 reject_uphill=_reject_uphill_eff,
                 stop_plateau=_stop_plateau_eff,
                 stop_plateau_thresh=stop_plateau_thresh,
@@ -6906,6 +6919,7 @@ def cli(
                 xyz_path=xR_irc,
                 scf_checkpoint=scf_checkpoints.get("R"),
                 outcome=_react_opt_outcome,
+                topology_pdb=getattr(gT, "_tsopt_topology_pdb", None),
             )
         except Exception as e:
             _echo(
@@ -6915,7 +6929,7 @@ def cli(
             _react_opt_conv = None
             _react_opt_outcome.update(
                 {
-                    "status": "error",
+                    "optimization_status": "error",
                     "converged": None,
                     "error_type": type(e).__name__,
                     "error": str(e),
@@ -6946,6 +6960,7 @@ def cli(
                 mm_backend=mm_backend,
                 use_cmap=use_cmap,
                 thresh=post_thresh_forward,
+                print_every=print_every_override,
                 reject_uphill=_reject_uphill_eff,
                 stop_plateau=_stop_plateau_eff,
                 stop_plateau_thresh=stop_plateau_thresh,
@@ -6953,6 +6968,7 @@ def cli(
                 xyz_path=xP_irc,
                 scf_checkpoint=scf_checkpoints.get("P"),
                 outcome=_prod_opt_outcome,
+                topology_pdb=getattr(gT, "_tsopt_topology_pdb", None),
             )
         except Exception as e:
             _echo(
@@ -6962,7 +6978,7 @@ def cli(
             _prod_opt_conv = None
             _prod_opt_outcome.update(
                 {
-                    "status": "error",
+                    "optimization_status": "error",
                     "converged": None,
                     "error_type": type(e).__name__,
                     "error": str(e),
@@ -7127,7 +7143,8 @@ def cli(
                                      embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
                                      embedcharge_explicit=embedcharge_explicit,
                                      link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xT,
-                                     scf_checkpoint=scf_checkpoints.get("TS"))
+                                     scf_checkpoint=scf_checkpoints.get("TS"),
+                                     topology_pdb=getattr(gT, "_tsopt_topology_pdb", None))
             _clear_hess_cache()  # TS Hessian consumed; R/P need exact computation
             tR = _run_freq_for_state(pR, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      freq_root / "R", args_yaml, overrides=freq_overrides,
@@ -7507,8 +7524,6 @@ def cli(
             "mlip_model_label": _mlip_model_label_resolved,
             "mlip_task": _mlip_task_resolved,
             "mlip_precision": mlip_precision_resolved,
-            "status": summary.get("status"),
-            "status_reasons": summary.get("status_reasons", []),
             "execution_status": summary.get("execution_status"),
             "scientific_status": summary.get("scientific_status"),
             "scientific_status_reasons": summary.get(
@@ -7685,6 +7700,7 @@ def cli(
                 thresh=thresh,
             )
         )
+        _append_cli_arg(scan_args, "--print-every", print_every_override)
         if args_yaml is not None:
             scan_args.extend(["--config", str(args_yaml)])
         # Forward all converted --scan-lists (aligned to the pocket atom order)
@@ -7887,6 +7903,7 @@ def cli(
         )
         # The single-structure optimizer is a CLI selector without a YAML key.
         ps_args.extend(["--opt-mode", str(opt_mode_norm)])
+        _append_cli_arg(ps_args, "--print-every", print_every_override)
         # path-search only: the recursive splitter is the sole consumer, so this
         # stays out of the argv builder shared with the path-opt child.
         if "max_depth" in explicit_params and max_depth is not None:
@@ -7995,6 +8012,7 @@ def cli(
                 )
             )
             po_args.extend(["--opt-mode", str(opt_mode_norm)])
+            _append_cli_arg(po_args, "--print-every", print_every_override)
             po_args.extend(["--out-dir", str(seg_out)])
             # Pipeline-owned machine contract: the aggregate reads this child's
             # real MEP convergence from result.json.
@@ -8767,7 +8785,8 @@ def cli(
                                  args_yaml=args_yaml,
                                  manifest=manifest,
                                  artifact_prefix=f"post.{seg_idx:02d}.irc",
-                                 public_root=out_dir)
+                                 public_root=out_dir,
+                                 hessian_calc_mode=hessian_calc_mode)
         _persist_run_manifest(manifest, out_dir)
         irc_plot_path = irc_res.get("irc_plot")
         irc_trj_path = irc_res.get("irc_trj")
@@ -8840,6 +8859,7 @@ def cli(
                 mm_backend=mm_backend,
                 use_cmap=use_cmap,
                 thresh=post_thresh_forward,
+                print_every=print_every_override,
                 reject_uphill=_reject_uphill_eff,
                 stop_plateau=_stop_plateau_eff,
                 stop_plateau_thresh=stop_plateau_thresh,
@@ -8847,6 +8867,7 @@ def cli(
                 xyz_path=xL_irc,
                 scf_checkpoint=scf_checkpoints.get("R"),
                 outcome=_react_opt_outcome,
+                topology_pdb=getattr(gT, "_tsopt_topology_pdb", None),
             )
         except Exception as e:
             _echo(
@@ -8856,7 +8877,7 @@ def cli(
             _react_opt_conv = None
             _react_opt_outcome.update(
                 {
-                    "status": "error",
+                    "optimization_status": "error",
                     "converged": None,
                     "error_type": type(e).__name__,
                     "error": str(e),
@@ -8887,6 +8908,7 @@ def cli(
                 mm_backend=mm_backend,
                 use_cmap=use_cmap,
                 thresh=post_thresh_forward,
+                print_every=print_every_override,
                 reject_uphill=_reject_uphill_eff,
                 stop_plateau=_stop_plateau_eff,
                 stop_plateau_thresh=stop_plateau_thresh,
@@ -8894,6 +8916,7 @@ def cli(
                 xyz_path=xR_irc,
                 scf_checkpoint=scf_checkpoints.get("P"),
                 outcome=_prod_opt_outcome,
+                topology_pdb=getattr(gT, "_tsopt_topology_pdb", None),
             )
         except Exception as e:
             _echo(
@@ -8903,7 +8926,7 @@ def cli(
             _prod_opt_conv = None
             _prod_opt_outcome.update(
                 {
-                    "status": "error",
+                    "optimization_status": "error",
                     "converged": None,
                     "error_type": type(e).__name__,
                     "error": str(e),
@@ -9057,6 +9080,7 @@ def cli(
                 embedcharge_explicit=embedcharge_explicit,
                 link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=xT,
                 scf_checkpoint=scf_checkpoints.get("TS"),
+                topology_pdb=getattr(gT, "_tsopt_topology_pdb", None),
             )
             _clear_hess_cache()  # TS Hessian consumed; R/P need exact computation
             tR = _run_freq_for_state(
@@ -9522,6 +9546,7 @@ def cli(
 
 _configure_all_help_visibility(cli)
 
+cli.callback = completion_guard(cli.callback)
 
 if __name__ == "__main__":
     cli()

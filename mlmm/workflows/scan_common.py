@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple
 
 import click
+import numpy as np
 
 from pysisyphus.optimizers.LBFGS import LBFGS
 from pysisyphus.optimizers.RFOptimizer import RFOptimizer
@@ -40,6 +41,29 @@ from mlmm.core.utils import (
 
 
 SCAN_THRESH_DEFAULT = "baker"
+
+
+def scan_point_support(points: Any) -> tuple[int, int]:
+    """Return the unique-point count and geometric rank of scan points (one per row).
+
+    The rank tolerance also covers rounding of the coordinate values themselves,
+    which scales with their magnitude rather than with the grid spacing.
+    """
+
+    pts = np.asarray(points, dtype=float)
+    if pts.ndim != 2 or len(pts) == 0:
+        return 0, 0
+    unique = np.unique(pts, axis=0)
+    if len(unique) < 2:
+        return len(unique), 0
+    centered = unique - unique[0]
+    singular = np.linalg.svd(centered, compute_uv=False)
+    eps = np.finfo(float).eps
+    tol = max(
+        float(singular.max()) * max(centered.shape) * eps,  # NumPy matrix_rank default
+        16.0 * np.sqrt(centered.size) * eps * float(np.abs(unique).max()),
+    )
+    return len(unique), int(np.count_nonzero(singular > tol))
 
 
 class OutputCollisionError(click.UsageError):

@@ -169,7 +169,7 @@ def dispatch_cli(tmp_path, monkeypatch):
         if complete:
             args.append("--out-json")
         result = CliRunner().invoke(module.cli, args)
-        assert result.exit_code == (0 if complete else _SENTINEL_EXIT), result.output
+        assert result.exit_code == (1 if complete else _SENTINEL_EXIT), result.output
         assert len(events) == 1, (events, result.output)
         if complete:
             assert energy_calls == [_MOCK_FINAL_ENERGY]
@@ -240,7 +240,7 @@ def test_embedded_fallback_serializes_nonconverged_completion(
     assert observed[0]["optimizer_kwargs"]["flatten_enabled"] is False
     report = observed[0]["result_json"]
     assert report["command"] == command
-    assert report["status"] == "not_converged"
+    assert report["optimization_status"] == "not_converged"
     assert report["stop_reason"] == _MOCK_STOP_REASON
     assert report["energy_hartree"] == _MOCK_FINAL_ENERGY
     assert report["n_opt_cycles"] == 0

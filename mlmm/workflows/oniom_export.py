@@ -9,6 +9,8 @@ For detailed documentation, see: docs/oniom_export.md
 
 from __future__ import annotations
 
+from mlmm.cli.completion import completion_guard
+
 import re
 import shlex
 import shutil
@@ -2103,3 +2105,5 @@ def cli(
         format_elapsed("[time] Elapsed Time for ONIOM Export", time_start),
         narrative=True,
     )
+
+cli.callback = completion_guard(cli.callback)

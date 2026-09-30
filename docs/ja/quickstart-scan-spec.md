@@ -36,7 +36,7 @@ mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ## 補足
 
-- 実行せずに（GPU 不要で）スペックを検証したい場合は `--print-parsed` を付けます。解析されたターゲットを表示して計算を実行する前に終了するため、上記のスキャン出力は生成されません。
+- 実行せずに入力とスキャンスペックを検証するには `--dry-run` を付けます。
 - 詳細オプションは `mlmm scan --help-advanced` で確認できます。
 
 ## インラインリテラル入力（YAML ファイルなし）

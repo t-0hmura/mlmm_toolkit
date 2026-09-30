@@ -50,7 +50,7 @@ def check_dft_states(segment_root: Path, segment: dict) -> None:
 
     dft = segment.get("dft") or {}
     energies = dft.get("energies_au") or []
-    if dft.get("status") == "failed" or len(energies) != 3 or not all(
+    if dft.get("scientific_status") == "failed" or len(energies) != 3 or not all(
         isinstance(value, (int, float)) and not isinstance(value, bool)
         and math.isfinite(float(value)) for value in energies
     ):
@@ -88,12 +88,12 @@ def check_all(root: Path, require_thermo: bool, require_dft: bool) -> None:
     # A silent degradation, a `failed`, or a `partial` with no stated reason will
     # fail the lane -- this ensures the reported results accurately reflect the
     # actual computed state.
-    status = summary.get("status")
+    execution = summary.get("execution_status")
     scientific = summary.get("scientific_status")
-    if status not in ("success", "partial") or scientific not in ("success", "partial"):
+    if execution != "completed" or scientific not in ("success", "partial"):
         raise SystemExit(
             f"all summary is neither success nor an explained partial: "
-            f"status={status!r} scientific_status={scientific!r}"
+            f"execution_status={execution!r} scientific_status={scientific!r}"
         )
     reasons = summary.get("scientific_status_reasons") or []
     if scientific == "partial" and not reasons:
@@ -182,7 +182,7 @@ def check_opt_config(
 def check_sp_hessian(root: Path) -> None:
     payload = json.loads((root / "result.json").read_text(encoding="utf-8"))
     require_finite(payload)
-    if payload.get("status") != "ok" or payload.get("mlip_backend") != "custom":
+    if payload.get("scientific_status") != "success" or payload.get("mlip_backend") != "custom":
         raise SystemExit("custom calculator SP did not complete successfully")
     if payload.get("mlip_model") != "harmonic_calc.py:get_calculator":
         raise SystemExit(f"custom calculator provenance is wrong: {payload.get('mlip_model')!r}")
@@ -286,10 +286,10 @@ def check_dmf_frozen_atoms(root: Path, frozen_1based: str) -> None:
 
 
 def check_irc_direction_status_contract(payload: dict) -> None:
-    """IRC retains stop diagnostics and candidates, not a scientific verdict."""
+    """IRC retains directional diagnostics alongside the common result fields."""
     for removed in ("forward_converged", "backward_converged",
                     "forward_endpoint_stationary", "backward_endpoint_stationary",
-                    "forward_status", "backward_status", "scientific_status", "stage_outcomes"):
+                    "forward_status", "backward_status", "stage_outcomes"):
         if removed in payload:
             raise SystemExit(f"IRC still publishes an independent acceptance field: {removed}")
     requested = [d for d in ("forward", "backward") if payload.get(f"{d}_requested") is True]
@@ -306,8 +306,8 @@ def check_irc_handoff(root: Path, hessian_file: Path) -> None:
     payload = json.loads((root / "result.json").read_text(encoding="utf-8"))
     require_finite(payload)
     projection = payload.get("rigid_projection") or {}
-    if payload.get("status") != "completed":
-        raise SystemExit(f"IRC did not complete: {payload.get('status')!r}")
+    if payload.get("execution_status") != "completed":
+        raise SystemExit(f"IRC did not complete: {payload.get('optimization_status')!r}")
     if projection.get("hessian_source") != "file":
         raise SystemExit(f"IRC did not consume --read-hess: {projection.get('hessian_source')!r}")
     if payload.get("never_stop") is not True:
@@ -341,8 +341,8 @@ def check_irc_handoff(root: Path, hessian_file: Path) -> None:
 def check_hessian_dump(root: Path, hessian_file: Path) -> None:
     """A converged tsopt run names its --dump-hess file in result.json."""
     payload = json.loads((root / "result.json").read_text(encoding="utf-8"))
-    if payload.get("status") != "converged":
-        raise SystemExit(f"TS optimization did not converge: {payload.get('status')!r}")
+    if payload.get("optimization_status") != "converged":
+        raise SystemExit(f"TS optimization did not converge: {payload.get('optimization_status')!r}")
     reported = (payload.get("files") or {}).get("hessian_npy")
     if reported is None or Path(str(reported)).resolve() != hessian_file.resolve():
         raise SystemExit(f"tsopt result does not identify its Hessian dump: {reported!r}")

@@ -10,6 +10,8 @@ For detailed documentation, see: docs/scan3d.md
 
 from __future__ import annotations
 
+from mlmm.cli.completion import completion_guard, record_completion
+
 import functools
 from copy import deepcopy
 from pathlib import Path
@@ -128,6 +130,7 @@ from mlmm.workflows.scan_common import (
     prepare_grid_scan_output,
     prepare_scan_fixed_outputs,
     resolve_scan_optimizer_configs,
+    scan_point_support,
 )
 from mlmm.domain.scan_coordinates import (
     coordinate_atoms,
@@ -147,7 +150,6 @@ from mlmm.cli.common_options import (
 )
 from mlmm.cli.common_options import add_dft_calculator_options
 from mlmm.cli.decorators import (
-    _write_error_json,
     load_merged_yaml_cfg,
     make_is_param_explicit,
     render_cli_exception,
@@ -181,19 +183,15 @@ def _rbf_support_3d(
     points_z: np.ndarray,
 ) -> Tuple[int, int]:
     """Return the unique-point count and geometric rank for 3D interpolation."""
-    points = np.column_stack(
-        (
-            np.asarray(points_x, dtype=float),
-            np.asarray(points_y, dtype=float),
-            np.asarray(points_z, dtype=float),
+    return scan_point_support(
+        np.column_stack(
+            (
+                np.asarray(points_x, dtype=float),
+                np.asarray(points_y, dtype=float),
+                np.asarray(points_z, dtype=float),
+            )
         )
     )
-    if len(points) == 0:
-        return 0, 0
-    unique = np.unique(points, axis=0)
-    if len(unique) <= 1:
-        return len(unique), 0
-    return len(unique), int(np.linalg.matrix_rank(unique - unique[0]))
 
 
 def _extract_axis_label(df: pd.DataFrame, column: str, fallback: Optional[str]) -> Optional[str]:
@@ -222,7 +220,6 @@ def _finalize_surface_and_plot(
     d2_label_csv: Optional[str],
     d3_label_csv: Optional[str],
     write_surface_csv: bool,
-    time_start: float,
     coordinate_units: Tuple[str, ...] = (),
 ) -> Dict[str, Any]:
     if df.empty:
@@ -354,31 +351,33 @@ def _finalize_surface_and_plot(
     )
     if not np.any(mask):
         click.echo("[plot] No finite data for plotting.")
-        sys.exit(1)
 
+    summary: Dict[str, Any] = {
+        "complete_provenance": bool(complete_provenance),
+        "n_grid_points": int(np.count_nonzero(grid_mask)),
+        "n_points_usable": int(np.count_nonzero(usable_mask)),
+        "min_energy_hartree": (
+            float(df.loc[usable_mask, "energy_hartree"].min())
+            if "energy_hartree" in df.columns and usable_mask.any()
+            else None
+        ),
+    }
     n_unique, support_rank = _rbf_support_3d(
         d1_points[mask],
         d2_points[mask],
         d3_points[mask],
     )
     if n_unique < 4 or support_rank < 3:
-        message = (
-            "A 3D energy volume requires at least four non-coplanar "
-            "converged finite grid points; found "
-            f"{n_unique} unique point(s) with geometric rank "
-            f"{support_rank}. surface.csv was written, but the volume "
-            "plot was not generated."
-        )
-        error = ValueError(message)
-        _write_error_json(
-            final_dir,
-            "scan3d",
-            error,
-            "InsufficientPlotData",
-            time_start,
-        )
-        click.echo(f"[plot] ERROR: {message}", err=True)
-        sys.exit(1)
+        # Too few or coplanar usable points: keep the data, skip only the volume plot.
+        if n_unique:
+            click.echo(
+                "[plot] NOTE: Volume plot skipped: a 3D energy volume needs at least "
+                "four non-coplanar converged finite grid points; found "
+                f"{n_unique} unique point(s) with geometric rank {support_rank}.",
+                err=True,
+            )
+        emit("\n====== 3D Scan finished ======\n", narrative=True)
+        return {**summary, "plot_written": False}
     n_duplicates = int(np.count_nonzero(mask)) - n_unique
     if n_duplicates:
         raise ValueError(
@@ -553,17 +552,7 @@ def _finalize_surface_and_plot(
     click.echo(f"[plot] Wrote '{html3d}'.")
 
     emit("\n====== 3D Scan finished ======\n", narrative=True)
-    min_energy_hartree = (
-        float(df.loc[usable_mask, "energy_hartree"].min())
-        if "energy_hartree" in df.columns
-        else None
-    )
-    return {
-        "complete_provenance": bool(complete_provenance),
-        "n_grid_points": int(np.count_nonzero(grid_mask)),
-        "n_points_usable": int(np.count_nonzero(usable_mask)),
-        "min_energy_hartree": min_energy_hartree,
-    }
+    return {**summary, "plot_written": True}
 
 
 @click.command(
@@ -655,18 +644,15 @@ def _finalize_surface_and_plot(
     help="Plot-only mode: load a precomputed surface.csv and skip the 3D scan.",
 )
 @click.option(
-    "--print-parsed/--no-print-parsed",
-    "print_parsed",
-    default=False,
-    show_default=True,
-    help="Print parsed scan targets after resolving --scan-lists.",
-)
-@click.option(
     "--dry-run/--no-dry-run",
     "dry_run",
     default=False,
     show_default=True,
-    help="Validate options and inputs without running the scan.",
+    help=(
+        "Resolve and validate options (input, charge/spin, "
+        "--scan-lists parse) and print the planned scan, then exit "
+        "without running any optimization."
+    ),
 )
 @click.option(
     "--config",
@@ -766,7 +752,6 @@ def cli(
     scan_list_raw: Optional[str],
     csv_path: Optional[Path],
     one_based: bool,
-    print_parsed: bool,
     dry_run: bool,
     max_step_size: float,
     max_angle_step_size: float,
@@ -853,25 +838,29 @@ def cli(
                 d2_label_csv=None,
                 d3_label_csv=None,
                 write_surface_csv=False,
-                time_start=time_start,
             )
+            from mlmm.core.utils import write_result_json
+            plot_files = (
+                {"scan3d_density_html": "scan3d_density.html"}
+                if surface_stats["plot_written"]
+                else {}
+            )
+            result_data: Dict[str, Any] = {
+                "status": "completed",
+                "scientific_status": "success" if surface_stats["n_points_usable"] else "failed",
+                "energy_reference": "bare_mlmm_pes",
+                "n_grid_points": surface_stats["n_grid_points"],
+                **_result_calculator_fields(None),
+                "min_energy_hartree": surface_stats["min_energy_hartree"],
+                "files": dict(plot_files),
+                "current_output_paths": list(plot_files.values()),
+            }
+            if surface_stats["complete_provenance"]:
+                result_data["n_points_usable"] = surface_stats[
+                    "n_points_usable"
+                ]
+            record_completion(result_data, command="scan3d")
             if out_json:
-                from mlmm.core.utils import write_result_json
-                result_data: Dict[str, Any] = {
-                    "status": "completed",
-                    "energy_reference": "bare_mlmm_pes",
-                    "n_grid_points": surface_stats["n_grid_points"],
-                    **_result_calculator_fields(None),
-                    "min_energy_hartree": surface_stats["min_energy_hartree"],
-                    "files": {
-                        "scan3d_density_html": "scan3d_density.html",
-                    },
-                    "current_output_paths": ["scan3d_density.html"],
-                }
-                if surface_stats["complete_provenance"]:
-                    result_data["n_points_usable"] = surface_stats[
-                        "n_points_usable"
-                    ]
                 write_result_json(
                     final_dir, result_data,
                     command="scan3d",
@@ -898,18 +887,18 @@ def cli(
 
     if input_path is None:
         click.echo("ERROR: -i/--input is required unless --csv is provided.", err=True)
-        sys.exit(1)
+        sys.exit(2)
     if real_parm7 is None:
         click.echo("ERROR: --parm is required unless --csv is provided.", err=True)
-        sys.exit(1)
+        sys.exit(2)
 
     suffix = input_path.suffix.lower()
     if suffix not in (".pdb", ".cif", ".mmcif", ".xyz"):
         click.echo("ERROR: --input must be a PDB, mmCIF, or XYZ file.", err=True)
-        sys.exit(1)
+        sys.exit(2)
     if suffix == ".xyz" and ref_pdb is None:
         click.echo("ERROR: --ref-pdb is required when --input is an XYZ file.", err=True)
-        sys.exit(1)
+        sys.exit(2)
 
     tmp_root = None
     try:
@@ -918,14 +907,14 @@ def cli(
                 apply_ref_pdb_override(prepared_input, ref_pdb)
             except click.BadParameter as e:
                 click.echo(f"ERROR: {e}", err=True)
-                sys.exit(1)
+                sys.exit(2)
             geom_input_path = prepared_input.geom_path
             source_path = prepared_input.source_path
             try:
                 freeze_atoms_list = _parse_freeze_atoms(freeze_atoms_cli)
             except click.BadParameter as exc:
                 click.echo(f"ERROR: {exc}", err=True)
-                sys.exit(1)
+                sys.exit(2)
 
             model_indices: Optional[List[int]] = None
             if model_indices_str:
@@ -933,7 +922,7 @@ def cli(
                     model_indices = parse_indices_string(model_indices_str, one_based=model_indices_one_based)
                 except click.BadParameter as exc:
                     click.echo(f"ERROR: {exc}", err=True)
-                    sys.exit(1)
+                    sys.exit(2)
 
             geom_cfg = dict(GEOM_KW)
             calc_cfg = dict(CALC_KW)
@@ -978,7 +967,7 @@ def cli(
                 geom_freeze = _normalize_geom_freeze(geom_cfg.get("freeze_atoms"))
             except click.BadParameter as exc:
                 click.echo(f"ERROR: {exc}", err=True)
-                sys.exit(1)
+                sys.exit(2)
             geom_cfg["freeze_atoms"] = geom_freeze
             _convert_yaml_layer_atoms_1to0(calc_cfg)
             if freeze_atoms_list:
@@ -1034,10 +1023,21 @@ def cli(
                 ctx, calc_cfg, output_dir=out_dir_path
             )
 
+            # --dry-run writes nothing under out_dir, so layer files go to a scratch dir.
+            layer_scratch = (
+                tempfile.TemporaryDirectory(prefix="mlmm_scan3d_dry_run_")
+                if dry_run
+                else None
+            )
             try:
                 model_pdb_path, layer_info = resolve_ml_layer_assignment(
                     source_path=source_path,
-                    out_dir_path=out_dir_path,
+                    out_dir_path=(
+                        Path(layer_scratch.name)
+                        if layer_scratch is not None
+                        else out_dir_path
+                    ),
+                    collision_out_dir=out_dir_path,
                     model_pdb=model_pdb,
                     model_indices=model_indices,
                     detect_layer=detect_layer_effective,
@@ -1063,7 +1063,7 @@ def cli(
                 )
             except click.ClickException as e:
                 click.echo(f"ERROR: {e.message}", err=True)
-                sys.exit(1)
+                sys.exit(e.exit_code)
 
             freeze_atoms_final = apply_layer_freeze_constraints(
                 geom_cfg,
@@ -1076,7 +1076,6 @@ def cli(
                 val = calc_cfg.get(key)
                 if val:
                     calc_cfg[key] = str(Path(val).expanduser().resolve())
-            ensure_dir(out_dir_path)
 
             ref_pdb_resolve = source_path.resolve()
 
@@ -1142,37 +1141,6 @@ def cli(
                 labels.append(axis_label_csv(name, *atoms_axis, scan_one_based, pdb_atom_meta, raw_axis)
                               if kind_axis == "distance" else f"{name}_{kind_axis}_{'_'.join(str(i + 1) for i in atoms_axis)}_deg")
             d1_label_csv, d2_label_csv, d3_label_csv = labels
-            if print_parsed:
-                click.echo(
-                    pretty_block(
-                        "scan-parsed",
-                        {
-                            "source": scan_source,
-                            "one_based": bool(scan_one_based),
-                            "pairs_0based": parsed,
-                        },
-                    force=True)
-                )
-                click.echo(
-                    pretty_block(
-                        "scan-list",
-                        {
-                            "d1": format_coordinate(axis1, is_range=True),
-                            "d2": format_coordinate(axis2, is_range=True),
-                            "d3": format_coordinate(axis3, is_range=True),
-                        },
-                    force=True)
-                )
-                # --print-parsed = "just show the parsed spec": exit before
-                # any GPU calculation.
-                if dry_run:
-                    emit_dry_run_complete()
-                else:
-                    emit(
-                        format_elapsed("[time] Elapsed Time for 3D Scan", time_start),
-                        narrative=True,
-                    )
-                sys.exit(0)
             if dry_run:
                 click.echo(
                     pretty_block(
@@ -1204,6 +1172,7 @@ def cli(
                 )
                 click.echo(f"[scan3d] preopt={bool(preopt)}")
                 click.echo("[scan3d] No 3D scan was executed.")
+                layer_scratch.cleanup()
                 emit_dry_run_complete()
                 return
             click.echo(
@@ -1668,92 +1637,97 @@ def cli(
                 d2_label_csv=d2_label_csv,
                 d3_label_csv=d3_label_csv,
                 write_surface_csv=True,
-                time_start=time_start,
                 coordinate_units=tuple(coordinate_unit(kind) for kind in kinds),
             )
 
-            if out_json:
-                from mlmm.core.utils import write_result_json
-                grid_records = (
-                    [
-                        rec
-                        for rec in records
-                        if not bool(rec.get("is_preopt", False))
-                    ]
-                    if csv_path is None
-                    else []
-                )
-                result_data_main: Dict[str, Any] = {
-                    "status": "completed",
-                    "energy_reference": "bare_mlmm_pes",
-                    "n_grid_points": surface_stats["n_grid_points"],
-                    "pair1": _axis_payload(kinds[0], atoms1, low1, high1),
-                    "pair2": _axis_payload(kinds[1], atoms2, low2, high2),
-                    "pair3": _axis_payload(kinds[2], atoms3, low3, high3),
-                    **_result_calculator_fields(calc_cfg),
-                    "min_energy_hartree": surface_stats["min_energy_hartree"],
-                    "files": {
-                        "surface_csv": "surface.csv",
-                        "scan3d_density_html": "scan3d_density.html",
-                    },
+            from mlmm.core.utils import write_result_json
+            grid_records = (
+                [
+                    rec
+                    for rec in records
+                    if not bool(rec.get("is_preopt", False))
+                ]
+                if csv_path is None
+                else []
+            )
+            plot_files = (
+                {"scan3d_density_html": "scan3d_density.html"}
+                if surface_stats["plot_written"]
+                else {}
+            )
+            result_data_main: Dict[str, Any] = {
+                "status": "completed",
+                "energy_reference": "bare_mlmm_pes",
+                "n_grid_points": surface_stats["n_grid_points"],
+                "pair1": _axis_payload(kinds[0], atoms1, low1, high1),
+                "pair2": _axis_payload(kinds[1], atoms2, low2, high2),
+                "pair3": _axis_payload(kinds[2], atoms3, low3, high3),
+                **_result_calculator_fields(calc_cfg),
+                "min_energy_hartree": surface_stats["min_energy_hartree"],
+                "files": {
+                    "surface_csv": "surface.csv",
+                    **plot_files,
+                },
+            }
+            grid_geometry_files = [
+                str(rec["geometry_file"])
+                for rec in grid_records
+                if rec.get("geometry_file")
+            ]
+            result_data_main["grid_points"] = []
+            for rec in grid_records:
+                point = {
+                    "index": [int(rec["i"]), int(rec["j"]), int(rec["k"])],
+                    "coordinate_values": [
+                        float(rec["d1_A"]),
+                        float(rec["d2_A"]),
+                        float(rec["d3_A"]),
+                    ],
+                    "coordinate_targets": [
+                        float(rec["target_d1_A"]),
+                        float(rec["target_d2_A"]),
+                        float(rec["target_d3_A"]),
+                    ],
+                    "coordinate_units": [coordinate_unit(kind) for kind in kinds],
+                    "energy_hartree": rec.get("energy_hartree"),
+                    "converged": rec.get("bias_converged"),
+                    "geometry_file": rec.get("geometry_file"),
                 }
-                grid_geometry_files = [
-                    str(rec["geometry_file"])
-                    for rec in grid_records
-                    if rec.get("geometry_file")
-                ]
-                result_data_main["grid_points"] = []
-                for rec in grid_records:
-                    point = {
-                        "index": [int(rec["i"]), int(rec["j"]), int(rec["k"])],
-                        "coordinate_values": [
-                            float(rec["d1_A"]),
-                            float(rec["d2_A"]),
-                            float(rec["d3_A"]),
-                        ],
-                        "coordinate_targets": [
-                            float(rec["target_d1_A"]),
-                            float(rec["target_d2_A"]),
-                            float(rec["target_d3_A"]),
-                        ],
-                        "coordinate_units": [coordinate_unit(kind) for kind in kinds],
-                        "energy_hartree": rec.get("energy_hartree"),
-                        "converged": rec.get("bias_converged"),
-                        "geometry_file": rec.get("geometry_file"),
-                    }
-                    if all(kind == "distance" for kind in kinds):
-                        point["distances_angstrom"] = list(point["coordinate_values"])
-                        point["targets_angstrom"] = list(point["coordinate_targets"])
-                    result_data_main["grid_points"].append(point)
-                result_data_main["current_output_paths"] = [
-                    "surface.csv",
-                    "scan3d_density.html",
-                    *grid_geometry_files,
-                ]
-                # Additive outcome fields: every attempted point and aggregate
-                # scientific_status. Legacy ``status`` stays "completed".
-                _point_outcomes3 = [
-                    make_scan_point(
-                        f"i{rec.get('i')}_j{rec.get('j')}_k{rec.get('k')}",
-                        executed=True,
-                        converged=rec.get("bias_converged"),
-                        energy=rec.get("energy_hartree"),
-                        artifact_written=bool(rec.get("artifact_written", False)),
-                    )
-                    for rec in grid_records
-                ]
-                _sci3, _sci3_reasons = scan_scientific_status(_point_outcomes3)
-                result_data_main["execution_status"] = "completed"
-                result_data_main["n_points_attempted"] = len(_point_outcomes3)
-                result_data_main["n_points_usable"] = sum(
-                    1 for p in _point_outcomes3 if p.seed_eligible
+                if all(kind == "distance" for kind in kinds):
+                    point["distances_angstrom"] = list(point["coordinate_values"])
+                    point["targets_angstrom"] = list(point["coordinate_targets"])
+                result_data_main["grid_points"].append(point)
+            result_data_main["current_output_paths"] = [
+                "surface.csv",
+                *plot_files.values(),
+                *grid_geometry_files,
+            ]
+            # Additive outcome fields: every attempted point and aggregate
+            # scientific_status. Legacy ``status`` stays "completed".
+            _point_outcomes3 = [
+                make_scan_point(
+                    f"i{rec.get('i')}_j{rec.get('j')}_k{rec.get('k')}",
+                    executed=True,
+                    converged=rec.get("bias_converged"),
+                    energy=rec.get("energy_hartree"),
+                    artifact_written=bool(rec.get("artifact_written", False)),
                 )
-                attach_outcomes(
-                    result_data_main,
-                    point_outcomes=_point_outcomes3,
-                    scientific_status=_sci3,
-                    scientific_status_reasons=_sci3_reasons,
-                )
+                for rec in grid_records
+            ]
+            _sci3, _sci3_reasons = scan_scientific_status(_point_outcomes3)
+            result_data_main["execution_status"] = "completed"
+            result_data_main["n_points_attempted"] = len(_point_outcomes3)
+            result_data_main["n_points_usable"] = sum(
+                1 for p in _point_outcomes3 if p.seed_eligible
+            )
+            attach_outcomes(
+                result_data_main,
+                point_outcomes=_point_outcomes3,
+                scientific_status=_sci3,
+                scientific_status_reasons=_sci3_reasons,
+            )
+            record_completion(result_data_main, command="scan3d")
+            if out_json:
                 write_result_json(
                     final_dir, result_data_main,
                     command="scan3d",
@@ -1779,3 +1753,5 @@ def cli(
         gc.collect()  # break cyclic refs inside torch.nn.Module
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
+
+cli.callback = completion_guard(cli.callback)

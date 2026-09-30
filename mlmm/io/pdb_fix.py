@@ -33,6 +33,8 @@ Usage
   mlmm fix-altloc -i ./dir --inplace --recursive
 """
 
+from mlmm.cli.completion import completion_guard
+
 import shutil
 import time
 from pathlib import Path
@@ -344,7 +346,7 @@ def _run_fix_altloc(
     """Core business logic for fix-altloc (called from Click CLI)."""
     pdb_files = collect_pdb_files(input_path, recursive)
     if not pdb_files:
-        raise click.ClickException(f"No .pdb files found in: {input_path}")
+        raise click.BadParameter(f"No .pdb files found in: {input_path}")
 
     skip_if_no_altloc = not force
     processed_count = 0
@@ -390,7 +392,7 @@ def _run_fix_altloc(
                 out_path = out / in_path.name
 
         if out_path.exists() and not overwrite:
-            raise click.ClickException(f"Output exists: {out_path} (use --overwrite to overwrite)")
+            raise click.BadParameter(f"Output exists: {out_path} (use --overwrite to overwrite)")
 
         clean_pdb_file(in_path, out_path)
         click.echo(f"[fix-altloc] Fixed altLoc → {out_path}")
@@ -410,7 +412,7 @@ def _run_fix_altloc(
         out_path = out_dir / rel
 
         if out_path.exists() and not overwrite:
-            raise click.ClickException(f"Output exists: {out_path} (use --overwrite to overwrite)")
+            raise click.BadParameter(f"Output exists: {out_path} (use --overwrite to overwrite)")
 
         clean_pdb_file(in_path, out_path)
         processed_count += 1
@@ -479,6 +481,11 @@ def cli(
         narrative=True,
     )
 
+
+
+
+
+cli.callback = completion_guard(cli.callback)
 
 if __name__ == "__main__":
     cli()

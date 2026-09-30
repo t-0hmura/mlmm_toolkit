@@ -140,7 +140,7 @@ def test_higher_order_saddle_is_partial_in_summary_json(tmp_path):
         config={"tsopt": True},
     )
 
-    assert result["status"] == "success"
+    assert result["scientific_status"] == "partial"
     assert result["execution_status"] == "completed"
     assert result["scientific_status"] == "partial"
     assert any("n_imag=2" in reason for reason in result["scientific_status_reasons"])

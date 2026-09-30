@@ -109,13 +109,10 @@ Full schema (every key and default): [YAML Reference](yaml-reference.md).
 
 | Code | Meaning |
 | --- | --- |
-| `0` | Success |
+| `0` | Success or usable partial results |
 | `2` | CLI usage or configuration failure |
-| `3` | Optimization failure |
-| `4` | Final trajectory write error |
-| `5` | HEI dump error |
 | `130` | Keyboard interrupt |
-| `1` | Unhandled exception |
+| `1` | Non-convergence, no usable result, runtime exception, or output failure |
 
 ## See Also
 

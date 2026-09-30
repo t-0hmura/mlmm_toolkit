@@ -208,7 +208,7 @@ def test_result_json_is_written_under_symlinked_out_dir_parent(tmp_path: Path) -
     write_result_json(out_dir, {"status": "success"}, command="opt")
 
     payload = json.loads((disk / "run1" / "result.json").read_text(encoding="utf-8"))
-    assert payload["status"] == "success"
+    assert payload["scientific_status"] == "success"
     assert (disk / "run1" / "summary.json").read_bytes() == (
         disk / "run1" / "result.json"
     ).read_bytes()

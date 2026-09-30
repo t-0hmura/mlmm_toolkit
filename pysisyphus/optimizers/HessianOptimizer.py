@@ -562,9 +562,13 @@ class HessianOptimizer(Optimizer):
             "shape": [int(size) for size in array.shape],
         }
 
-    def _restore_array(self, values, backend):
+    def _restore_array(self, values, backend, key):
         """Rebuild a serialized array in its recorded backend/dtype/device."""
-        backend = backend if isinstance(backend, dict) else {}
+        if not isinstance(backend, dict):
+            raise ValueError(
+                f"Corrupt checkpoint: {key} must be a mapping with backend, "
+                f"dtype and shape, got {type(backend).__name__}."
+            )
         shape = backend.get("shape")
         shape = None if shape is None else tuple(int(size) for size in shape)
         if backend.get("backend") != "torch":
@@ -648,7 +652,7 @@ class HessianOptimizer(Optimizer):
         self._check_restart_trust_norm(opt_restart_info)
         self.adapt_norm = opt_restart_info["adapt_norm"]
         self.H = self._restore_array(
-            opt_restart_info["H"], opt_restart_info["H_backend"]
+            opt_restart_info["H"], opt_restart_info["H_backend"], "H_backend"
         )
         self.hessian_recalc_in = opt_restart_info["hessian_recalc_in"]
         self.predicted_energy_changes = opt_restart_info["predicted_energy_changes"]
@@ -660,12 +664,12 @@ class HessianOptimizer(Optimizer):
         )
         backends = opt_restart_info["_sy_buffer_S_backend"]
         self._sy_buffer_S = [
-            self._restore_array(s, backends[i])
+            self._restore_array(s, backends[i], f"_sy_buffer_S_backend[{i}]")
             for i, s in enumerate(opt_restart_info["_sy_buffer_S"])
         ]
         backends = opt_restart_info["_sy_buffer_Y_backend"]
         self._sy_buffer_Y = [
-            self._restore_array(y, backends[i])
+            self._restore_array(y, backends[i], f"_sy_buffer_Y_backend[{i}]")
             for i, y in enumerate(opt_restart_info["_sy_buffer_Y"])
         ]
         stored = opt_restart_info["_prev_eigvec_min"]
@@ -673,7 +677,9 @@ class HessianOptimizer(Optimizer):
             None
             if stored is None
             else self._restore_array(
-                stored, opt_restart_info["_prev_eigvec_min_backend"]
+                stored,
+                opt_restart_info["_prev_eigvec_min_backend"],
+                "_prev_eigvec_min_backend",
             )
         )
 

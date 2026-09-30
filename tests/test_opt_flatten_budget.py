@@ -86,8 +86,8 @@ def _run_opt(tmp_path, monkeypatch, *, max_cycles, runs, imag_counts):
         "--opt-mode", "grad", "--max-cycles", str(max_cycles), "--flatten",
         "--no-convert-files", "--out-json", "--out-dir", str(out_dir),
     ])
-    assert result.exit_code == 0, result.output
     report = json.loads((out_dir / "result.json").read_text())
+    assert result.exit_code == (0 if report["scientific_status"] == "success" else 1), result.output
     return result, report, budgets, hessians
 
 
@@ -100,7 +100,7 @@ def test_stalled_flatten_retry_continues_on_the_remaining_budget(tmp_path, monke
     assert budgets == [10, 7, 5]
     assert len(hessians) == 3
     assert report["n_opt_cycles"] == 7
-    assert report["status"] == "converged"
+    assert report["optimization_status"] == "converged"
     assert "Remaining imaginary modes" not in result.output
 
 
@@ -123,4 +123,4 @@ def test_flatten_stops_when_the_budget_is_spent(
     assert len(hessians) == len(imag_counts)
     assert f"Reached --max-cycles budget; {message}." in result.output
     assert report["n_opt_cycles"] == 4
-    assert report["status"] == "not_converged"
+    assert report["optimization_status"] == "not_converged"

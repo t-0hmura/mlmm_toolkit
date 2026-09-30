@@ -9,12 +9,13 @@ from pathlib import Path
 from mlmm.core.utils import (
     write_result_json,
     RESULT_JSON_SCHEMA_VERSION,
-    RESULT_JSON_STATUS_VALUES,
+    RESULT_JSON_EXECUTION_STATUS_VALUES,
+    RESULT_JSON_SCIENTIFIC_STATUS_VALUES,
 )
 
 
 def test_writes_result_and_summary_mirror() -> None:
-    assert RESULT_JSON_SCHEMA_VERSION == "3.0"
+    assert RESULT_JSON_SCHEMA_VERSION == "4.0"
     with tempfile.TemporaryDirectory() as d:
         path = write_result_json(
             Path(d),
@@ -28,7 +29,7 @@ def test_writes_result_and_summary_mirror() -> None:
         r = json.loads((Path(d) / "result.json").read_text())
         s = json.loads((Path(d) / "summary.json").read_text())
         assert r == s
-        assert r["status"] == "success"
+        assert r["scientific_status"] == "success"
         assert r["schema_version"] == RESULT_JSON_SCHEMA_VERSION
         assert r["command"] == "opt"
         assert r["elapsed_seconds"] == 1.234
@@ -58,12 +59,14 @@ def test_disable_summary_mirror() -> None:
         assert not (Path(d) / "summary.json").exists()
 
 
-def test_missing_status_defaults_to_unknown() -> None:
+def test_missing_scientific_outcome_fails_closed() -> None:
     with tempfile.TemporaryDirectory() as d:
         path = write_result_json(Path(d), {"value": 1}, command="test")
         assert path is not None
         payload = json.loads(path.read_text())
-        assert payload["status"] == "unknown"
+        assert payload["execution_status"] == "completed"
+        assert payload["scientific_status"] == "failed"
+        assert "status" not in payload
 
 
 def test_nonfinite_numbers_are_serialized_as_unknown() -> None:
@@ -83,17 +86,6 @@ def test_nonfinite_numbers_are_serialized_as_unknown() -> None:
     assert payload["energies"] == [None, None, None, -1.0]
 
 
-def test_status_enum_documented() -> None:
-    # Catch typo regressions in the documented status values.
-    assert RESULT_JSON_STATUS_VALUES == (
-        "completed",
-        "converged",
-        "error",
-        "failed",
-        "not_converged",
-        "ok",
-        "partial",
-        "stalled",
-        "success",
-        "unknown",
-    )
+def test_status_enums_documented() -> None:
+    assert RESULT_JSON_EXECUTION_STATUS_VALUES == ("completed", "failed")
+    assert RESULT_JSON_SCIENTIFIC_STATUS_VALUES == ("success", "partial", "failed")

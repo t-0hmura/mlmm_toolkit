@@ -90,7 +90,7 @@ def test_scan_zero_step_cli_outcome(
         "--no-convert-files", "--out-json", "--one-based",
         "--scan-lists", f"[(1,2,{target!r})]", "-o", str(output),
     ])
-    assert result.exit_code == 0, result.output + repr(result.exception)
+    assert result.exit_code == (0 if expected_usable else 1), result.output + repr(result.exception)
     assert source.read_bytes() == original_bytes
     assert optimizer_calls == (["endopt"] if endopt_requested else [])
     assert len(optimizer_runs) == int(endopt_requested)
@@ -103,7 +103,7 @@ def test_scan_zero_step_cli_outcome(
     final_geom = geom_loader(final_xyz, coord_type="cart")
     np.testing.assert_allclose(final_geom.cart_coords.reshape(-1, 3), initial_bohr, atol=1e-6)
     payload = json.loads((output / "result.json").read_text())
-    assert payload["status"] == "completed"
+    assert payload["execution_status"] == "completed"
     assert payload["n_stages"] == 1
     stage, = payload["stages"]
     leaf, = payload["stage_outcomes"]

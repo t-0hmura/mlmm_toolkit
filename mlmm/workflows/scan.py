@@ -9,6 +9,8 @@ For detailed documentation, see: docs/scan.md
 
 from __future__ import annotations
 
+from mlmm.cli.completion import completion_guard, record_completion
+
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
@@ -20,6 +22,7 @@ import math
 import re
 import shutil
 import sys
+import tempfile
 import textwrap
 
 logger = logging.getLogger(__name__)
@@ -296,13 +299,6 @@ def _snapshot_geometry(g) -> Any:
 )
 @click.option("--one-based/--zero-based", "one_based", default=True, show_default=True,
               help="Interpret atom indices in --scan-lists as 1-based or 0-based.")
-@click.option(
-    "--print-parsed/--no-print-parsed",
-    "print_parsed",
-    default=False,
-    show_default=True,
-    help="Print parsed scan targets and exit without running the scan.",
-)
 @click.option("--max-step-size", type=float, default=0.20, show_default=True,
               help="Maximum scanned distance change per step [Å].")
 @click.option("--max-angle-step-size", type=click.FloatRange(min=0.0, min_open=True), default=5.0, show_default=True,
@@ -386,7 +382,11 @@ def _snapshot_geometry(g) -> Any:
     "dry_run",
     default=False,
     show_default=True,
-    help="Validate options and inputs without running the scan.",
+    help=(
+        "Resolve and validate options (input, charge/spin, "
+        "--scan-lists parse) and print the planned scan, then exit "
+        "without running any optimization."
+    ),
 )
 @click.option(
     "--convert-files/--no-convert-files",
@@ -474,7 +474,6 @@ def cli(
     scan_lists_raw: Sequence[str],
     target_mode: bool,
     one_based: bool,
-    print_parsed: bool,
     max_step_size: float,
     max_angle_step_size: float,
     max_dihedral_step_size: float,
@@ -550,10 +549,10 @@ def cli(
     suffix = input_path.suffix.lower()
     if suffix not in (".pdb", ".cif", ".mmcif", ".xyz"):
         click.echo("ERROR: --input must be a PDB, mmCIF, or XYZ file.", err=True)
-        sys.exit(1)
+        sys.exit(2)
     if suffix == ".xyz" and ref_pdb is None:
         click.echo("ERROR: --ref-pdb is required when --input is an XYZ file.", err=True)
-        sys.exit(1)
+        sys.exit(2)
 
     try:
         with prepare_input_structure(input_path) as prepared_input:
@@ -561,14 +560,14 @@ def cli(
                 apply_ref_pdb_override(prepared_input, ref_pdb)
             except click.BadParameter as e:
                 click.echo(f"ERROR: {e}", err=True)
-                sys.exit(1)
+                sys.exit(2)
             geom_input_path = prepared_input.geom_path
             source_path = prepared_input.source_path
             try:
                 freeze_atoms_list = _parse_freeze_atoms(freeze_atoms_cli)
             except click.BadParameter as e:
                 click.echo(f"ERROR: {e}", err=True)
-                sys.exit(1)
+                sys.exit(2)
 
             model_indices: Optional[List[int]] = None
             if model_indices_str:
@@ -576,7 +575,7 @@ def cli(
                     model_indices = parse_indices_string(model_indices_str, one_based=model_indices_one_based)
                 except click.BadParameter as e:
                     click.echo(f"ERROR: {e}", err=True)
-                    sys.exit(1)
+                    sys.exit(2)
 
             geom_cfg = dict(GEOM_KW)
             calc_cfg = dict(CALC_KW)
@@ -613,17 +612,11 @@ def cli(
                 yaml_cfg=yaml_cfg,
             )
 
-            # Staged scans run restrained LBFGS/RFO with no microiteration, so DLC
-            # over the ML/MM system is meaningless (it crashes poly_line_search
-            # with a Cartesian/internal dimension mismatch); force Cartesian,
-            # matching path-opt / path-search.
-            geom_cfg["coord_type"] = "cart"
-
             try:
                 geom_freeze = _normalize_geom_freeze(geom_cfg.get("freeze_atoms"))
             except click.BadParameter as e:
                 click.echo(f"ERROR: {e}", err=True)
-                sys.exit(1)
+                sys.exit(2)
             geom_cfg["freeze_atoms"] = geom_freeze
             _convert_yaml_layer_atoms_1to0(calc_cfg)
             if freeze_atoms_list:
@@ -720,10 +713,21 @@ def cli(
                 ctx, calc_cfg, output_dir=out_dir_path
             )
 
+            # --dry-run writes nothing under out_dir, so layer files go to a scratch dir.
+            layer_scratch = (
+                tempfile.TemporaryDirectory(prefix="mlmm_scan_dry_run_")
+                if dry_run
+                else None
+            )
             try:
                 model_pdb_path, layer_info = resolve_ml_layer_assignment(
                     source_path=source_path,
-                    out_dir_path=out_dir_path,
+                    out_dir_path=(
+                        Path(layer_scratch.name)
+                        if layer_scratch is not None
+                        else out_dir_path
+                    ),
+                    collision_out_dir=out_dir_path,
                     model_pdb=model_pdb,
                     model_indices=model_indices,
                     detect_layer=detect_layer_effective,
@@ -749,7 +753,7 @@ def cli(
                 )
             except click.ClickException as e:
                 click.echo(f"ERROR: {e.message}", err=True)
-                sys.exit(1)
+                sys.exit(e.exit_code)
 
             freeze_atoms_final = apply_layer_freeze_constraints(
                 geom_cfg,
@@ -863,28 +867,6 @@ def cli(
                             "A scan restraint cannot contain only frozen atoms: "
                             f"stage {stage_index}, atoms {[int(atom) + 1 for atom in atoms]}."
                         )
-            if print_parsed:
-                click.echo(
-                    pretty_block(
-                        "scan-parsed",
-                        {
-                            "source": scan_source,
-                            "one_based": bool(scan_one_based),
-                            "stages_0based": stages,
-                        },
-                    force=True)
-                )
-                # --print-parsed means "just show the parsed spec": exit
-                # before any GPU calculation. (Also gives scan a GPU-free
-                # spec-validation path.)
-                if dry_run:
-                    emit_dry_run_complete()
-                else:
-                    emit(
-                        format_elapsed("[time] Elapsed Time for Scan", time_start),
-                        narrative=True,
-                    )
-                sys.exit(0)
 
             if dry_run:
                 if model_pdb is not None:
@@ -924,6 +906,7 @@ def cli(
                 )
                 click.echo(f"[scan] preopt={bool(preopt)}  endopt={bool(endopt)}")
                 click.echo("[scan] No scan / preopt was executed.")
+                layer_scratch.cleanup()
                 emit_dry_run_complete()
                 return
 
@@ -1397,124 +1380,125 @@ def cli(
 
         emit("\n====== Scan finished ======\n", narrative=True)
 
-        if out_json:
-            from mlmm.core.utils import calculator_provenance, write_result_json
-            from mlmm.workflows._outcomes import (
-                LeafOutcome,
-                aggregate_workflow_truth,
-                attach_outcomes,
-                combine_step_convergence as _combine_step_convergence,
-                make_leaf,
-            )
-            json_stages = []
-            _stage_leaves = []
-            for srec in stages_summary:
-                stage_entry: Dict[str, Any] = {
-                    "index": srec["index"],
-                    "n_steps": srec["num_steps"],
-                    "converged": srec.get("converged"),
-                    "bond_changes": srec.get("bond_change", {}),
-                    "coordinates": srec.get("coordinates", []),
-                    "pairs_1based": srec.get("pairs_1based"),
-                    "initial_distances_angstrom": srec.get("initial_distances_A"),
-                    "target_distances_angstrom": srec.get("target_distances_A"),
-                }
-                # Final energy: use value captured directly from geometry object
-                stage_entry["final_energy_hartree"] = srec.get("final_energy_hartree")
-                # Per-step energy trajectory
-                stage_entry["energies_hartree"] = srec.get("energies_hartree", [])
-                # Surface the optimizer terminal status and stall
-                # reason so a stalled scan stage is not silently dropped from
-                # result.json (additive; absent for stages that never set it).
-                if srec.get("optimizer_status"):
-                    stage_entry["optimizer_status"] = srec["optimizer_status"]
-                if srec.get("stop_reason"):
-                    stage_entry["stop_reason"] = srec["stop_reason"]
-                json_stages.append(stage_entry)
+        from mlmm.core.utils import calculator_provenance, write_result_json
+        from mlmm.workflows._outcomes import (
+            LeafOutcome,
+            aggregate_workflow_truth,
+            attach_outcomes,
+            combine_step_convergence as _combine_step_convergence,
+            make_leaf,
+        )
+        json_stages = []
+        _stage_leaves = []
+        for srec in stages_summary:
+            stage_entry: Dict[str, Any] = {
+                "index": srec["index"],
+                "n_steps": srec["num_steps"],
+                "converged": srec.get("converged"),
+                "bond_changes": srec.get("bond_change", {}),
+                "coordinates": srec.get("coordinates", []),
+                "pairs_1based": srec.get("pairs_1based"),
+                "initial_distances_angstrom": srec.get("initial_distances_A"),
+                "target_distances_angstrom": srec.get("target_distances_A"),
+            }
+            # Final energy: use value captured directly from geometry object
+            stage_entry["final_energy_hartree"] = srec.get("final_energy_hartree")
+            # Per-step energy trajectory
+            stage_entry["energies_hartree"] = srec.get("energies_hartree", [])
+            # Surface the optimizer terminal status and stall
+            # reason so a stalled scan stage is not silently dropped from
+            # result.json (additive; absent for stages that never set it).
+            if srec.get("optimizer_status"):
+                stage_entry["optimizer_status"] = srec["optimizer_status"]
+            if srec.get("stop_reason"):
+                stage_entry["stop_reason"] = srec["stop_reason"]
+            json_stages.append(stage_entry)
 
-                # the stage leaf is usable only when EVERY step converged
-                # and (when requested) the endopt converged. A converged final step
-                # must not hide an earlier failed step.
-                _steps = list(srec.get("step_converged") or [])
-                _stage_conv = _combine_step_convergence(_steps)
-                if srec.get("endopt_requested"):
-                    _eo = srec.get("endopt_converged")
-                    _stage_conv = _combine_step_convergence(
-                        _steps + [_eo if isinstance(_eo, bool) else None]
-                    )
-                _fe = srec.get("final_energy_hartree")
-                _energy_valid = (
-                    isinstance(_fe, (int, float, np.integer, np.floating))
-                    and np.isfinite(float(_fe))
+            # the stage leaf is usable only when EVERY step converged
+            # and (when requested) the endopt converged. A converged final step
+            # must not hide an earlier failed step.
+            _steps = list(srec.get("step_converged") or [])
+            _stage_conv = _combine_step_convergence(_steps)
+            if srec.get("endopt_requested"):
+                _eo = srec.get("endopt_converged")
+                _stage_conv = _combine_step_convergence(
+                    _steps + [_eo if isinstance(_eo, bool) else None]
                 )
-                if srec["num_steps"] == 0 and not srec.get("endopt_requested"):
-                    _artifact_valid = (srec.get("coordinates_valid") is True
-                                       and Path(srec["result_xyz"]).is_file())
-                    _stage_leaves.append(LeafOutcome(
-                        stage="scan", item_id=f"stage_{srec['index']}",
-                        executed=True, converged=None,
-                        usable=bool(_energy_valid and _artifact_valid),
-                        reason=("energy_invalid" if not _energy_valid else
-                                "artifact_invalid" if not _artifact_valid else
-                                "no_optimization_requested"),
-                    ))
-                    continue
-                _stage_leaves.append(
-                    make_leaf(
-                        "scan",
-                        f"stage_{srec['index']}",
-                        executed=True,
-                        converged=_stage_conv,
-                        energy_valid=_energy_valid,
-                    )
+            _fe = srec.get("final_energy_hartree")
+            _energy_valid = (
+                isinstance(_fe, (int, float, np.integer, np.floating))
+                and np.isfinite(float(_fe))
+            )
+            if srec["num_steps"] == 0 and not srec.get("endopt_requested"):
+                _artifact_valid = (srec.get("coordinates_valid") is True
+                                   and Path(srec["result_xyz"]).is_file())
+                _stage_leaves.append(LeafOutcome(
+                    stage="scan", item_id=f"stage_{srec['index']}",
+                    executed=True, converged=None,
+                    usable=bool(_energy_valid and _artifact_valid),
+                    reason=("energy_invalid" if not _energy_valid else
+                            "artifact_invalid" if not _artifact_valid else
+                            "no_optimization_requested"),
+                ))
+                continue
+            _stage_leaves.append(
+                make_leaf(
+                    "scan",
+                    f"stage_{srec['index']}",
+                    executed=True,
+                    converged=_stage_conv,
+                    energy_valid=_energy_valid,
                 )
+            )
+        _truth = aggregate_workflow_truth(
+            _stage_leaves,
+            [f"stage_{srec['index']}" for srec in stages_summary],
+        )
+        result_data: Dict[str, Any] = {
+            "status": "completed",
+            "scan_opt_mode": str(opt_mode).lower(),
+            "scan_optimizer": sopt_kind,
+            "energy_reference": "bare_mlmm_pes",
+            "charge": calc_cfg.get("model_charge"),
+            "spin": calc_cfg.get("model_mult"),
+            **calculator_provenance(calc_cfg),
+            "max_step_size_angstrom": float(max_step_size),
+            "max_angle_step_size_degree": float(max_angle_step_size),
+            "max_dihedral_step_size_degree": float(max_dihedral_step_size),
+            "n_stages": len(stages_summary),
+            "stages": json_stages,
+            "files": {},
+        }
+        combined_trj_path = out_dir_path / "scan_trj.xyz"
+        if combined_trj_path.exists():
+            result_data["files"]["scan_trj_xyz"] = combined_trj_path.name
+        if preopt:
+            result_data["preopt"] = {
+                "requested": True,
+                "converged": preopt_converged,
+            }
+            preopt_leaf = make_leaf(
+                "scan",
+                "preopt",
+                executed=True,
+                converged=preopt_converged,
+                energy_valid=preopt_converged is True,
+            )
+            _stage_leaves.insert(0, preopt_leaf)
             _truth = aggregate_workflow_truth(
                 _stage_leaves,
-                [f"stage_{srec['index']}" for srec in stages_summary],
+                ["preopt", *[
+                    f"stage_{srec['index']}" for srec in stages_summary
+                ]],
             )
-            result_data: Dict[str, Any] = {
-                "status": "completed",
-                "scan_opt_mode": str(opt_mode).lower(),
-                "scan_optimizer": sopt_kind,
-                "energy_reference": "bare_mlmm_pes",
-                "charge": calc_cfg.get("model_charge"),
-                "spin": calc_cfg.get("model_mult"),
-                **calculator_provenance(calc_cfg),
-                "max_step_size_angstrom": float(max_step_size),
-                "max_angle_step_size_degree": float(max_angle_step_size),
-                "max_dihedral_step_size_degree": float(max_dihedral_step_size),
-                "n_stages": len(stages_summary),
-                "stages": json_stages,
-                "files": {},
-            }
-            combined_trj_path = out_dir_path / "scan_trj.xyz"
-            if combined_trj_path.exists():
-                result_data["files"]["scan_trj_xyz"] = combined_trj_path.name
-            if preopt:
-                result_data["preopt"] = {
-                    "requested": True,
-                    "converged": preopt_converged,
-                }
-                preopt_leaf = make_leaf(
-                    "scan",
-                    "preopt",
-                    executed=True,
-                    converged=preopt_converged,
-                    energy_valid=preopt_converged is True,
-                )
-                _stage_leaves.insert(0, preopt_leaf)
-                _truth = aggregate_workflow_truth(
-                    _stage_leaves,
-                    ["preopt", *[
-                        f"stage_{srec['index']}" for srec in stages_summary
-                    ]],
-                )
-            for ext in (".pdb",):
-                f = out_dir_path / f"scan{ext}"
-                if f.exists():
-                    result_data["files"][f"scan_{ext[1:]}"] = f.name
-            # Additive outcome fields; legacy ``status`` stays "completed".
-            attach_outcomes(result_data, truth=_truth, stage_outcomes=_stage_leaves)
+        for ext in (".pdb",):
+            f = out_dir_path / f"scan{ext}"
+            if f.exists():
+                result_data["files"][f"scan_{ext[1:]}"] = f.name
+        # Preserve stage and point diagnostics alongside the aggregate outcome.
+        attach_outcomes(result_data, truth=_truth, stage_outcomes=_stage_leaves)
+        record_completion(result_data, command='scan')
+        if out_json:
             write_result_json(
                 out_dir_path, result_data,
                 command="scan",
@@ -1543,6 +1527,7 @@ def cli(
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
+cli.callback = completion_guard(cli.callback)
 
 if __name__ == "__main__":
     cli()

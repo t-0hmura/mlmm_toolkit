@@ -32,7 +32,7 @@ mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 ```
 
 ```{note}
-To validate the spec without running (GPU-free), add `--print-parsed`. This prints the parsed targets and exits before any calculation, so it does **not** produce the scan outputs listed below.
+To validate the input and scan spec without calculating, add `--dry-run`.
 ```
 
 ## Output validation

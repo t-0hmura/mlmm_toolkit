@@ -692,7 +692,7 @@ def pretty_block(title: str, content: Dict[str, Any], *, force: bool = False) ->
     full config dump is restored under `-v 3` for debugging.
 
     ``force=True`` bypasses that gate. Use it for output the user asked for
-    explicitly (``--print-parsed``, ``--show-config``): a flag whose whole purpose is
+    explicitly (``--show-config``): a flag whose whole purpose is
     to print something must not render nothing at the default verbosity.
     """
     if not force and verbose_level() < 3:
@@ -2269,6 +2269,27 @@ def apply_yaml_overrides(
             deep_update(target, merged)
 
 
+def unused_nested_yaml_sections(
+    yaml_cfg: Mapping[str, Any],
+    read: _Sequence[_Sequence[str]] = (),
+) -> List[str]:
+    """Return the nested sections (``opt.lbfgs`` ...) in *yaml_cfg* that are not
+    in *read*; ``apply_yaml_overrides`` skips them under their parent, so a
+    command that does not read them can report them instead of ignoring them.
+    """
+    read_paths = {tuple(path) for path in read}
+    unused: List[str] = []
+    for parent, children in _NESTED_YAML_SECTIONS.items():
+        section = _get_mapping_section(yaml_cfg, parent)
+        if section is None:
+            continue
+        for child in sorted(children):
+            path = parent + (child,)
+            if section.get(child) not in (None, {}) and path not in read_paths:
+                unused.append(".".join(path))
+    return unused
+
+
 def yaml_section_has_key(
     yaml_cfg: Mapping[str, Any],
     paths: _Sequence[_Sequence[str]],
@@ -3315,6 +3336,7 @@ def resolve_ml_layer_assignment(
     calc_cfg: Dict[str, Any],
     protected_inputs: Sequence[Optional[Path]],
     echo_fn=None,
+    collision_out_dir: Optional[Path] = None,
 ) -> Tuple[Path, Optional[Dict[str, List[int]]]]:
     """Resolve the ML-region model PDB path + layer_info dict.
 
@@ -3330,6 +3352,10 @@ def resolve_ml_layer_assignment(
         (model_pdb_path, layer_info) — layer_info is present when valid
         B-factor movable/frozen layers were read, including with explicit ML
         membership.
+
+    ``collision_out_dir`` is the directory a real run would write to; a dry run
+    that writes layer files elsewhere passes it so the input-collision check
+    is the same as in the real run.
     """
     import click as _click  # local import to keep core.utils click-light
 
@@ -3436,7 +3462,7 @@ def resolve_ml_layer_assignment(
     elif detect_layer_eff:
         try:
             generated_model = (
-                Path(out_dir_path) / "model_from_bfactor.pdb"
+                Path(collision_out_dir or out_dir_path) / "model_from_bfactor.pdb"
             ).resolve()
             calc_inputs = (
                 calc_cfg.get("input_pdb"),
@@ -3669,22 +3695,19 @@ def _collect_environment_info() -> dict:
 # IRC now retains stop diagnostics without independent scientific verdicts.
 # Version 2.0 had removed the
 # UMA-specific all-workflow energy keys in favor of backend-neutral MLIP keys.
-RESULT_JSON_SCHEMA_VERSION = "3.0"
+RESULT_JSON_SCHEMA_VERSION = "4.0"
 
-# Union of public command-specific values for ``status``. Each command exposes
-# a narrower enum documented in docs/json-output.md.
-RESULT_JSON_STATUS_VALUES = (
-    "completed",
-    "converged",
-    "error",
-    "failed",
-    "not_converged",
-    "ok",
-    "partial",
-    "stalled",
-    "success",
-    "unknown",
+
+from mlmm.cli.completion import (
+    EXECUTION_STATUS_VALUES as RESULT_JSON_EXECUTION_STATUS_VALUES,
+    SCIENTIFIC_STATUS_VALUES as RESULT_JSON_SCIENTIFIC_STATUS_VALUES,
 )
+
+
+def validate_geometry_config(geom_cfg):
+    """Reject coordinate settings that Cartesian geometry cannot accept."""
+    if str(geom_cfg.get("coord_type", "cart")).lower() == "cart" and geom_cfg.get("coord_kwargs"):
+        raise click.BadParameter("coord_type is set to 'cart' but coord_kwargs were given. Use an internal coordinate type or remove geom.coord_kwargs.")
 
 
 def write_result_json(
@@ -3699,7 +3722,7 @@ def write_result_json(
     """Write a machine-readable result.json for a subcommand.
 
     The ``data`` dict is augmented with common envelope fields
-    (``command``, ``mlmm_version``, ``schema_version``, ``status``,
+    (``command``, ``mlmm_version``, ``schema_version``, ``execution_status`` / ``scientific_status``,
     ``elapsed_seconds``, ``files``, ``environment``) and serialized as
     indented JSON.
 
@@ -3722,7 +3745,8 @@ def write_result_json(
     data.setdefault("command", command)
     data.setdefault("mlmm_version", __version__)
     data.setdefault("schema_version", RESULT_JSON_SCHEMA_VERSION)
-    data.setdefault("status", "unknown")
+    from mlmm.cli.completion import record_completion
+    data = record_completion(data, command=command)
     mlip_backend = data.get("mlip_backend")
     mlip_model = data.get("mlip_model")
     if mlip_backend is not None and mlip_model is not None:

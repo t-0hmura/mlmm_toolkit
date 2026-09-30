@@ -162,10 +162,10 @@ def test_enriched_rate_limit_uses_refined_barrier(tmp_path) -> None:
             "index": 1,
             "mlip": {"barrier_kcal": 12.0},
             "irc_traj": "irc.xyz",
-            "tsopt": {"continue_irc": True},
+            "tsopt": {"continue_irc": True, "optimization_status": "converged"},
             "irc": {"forward_status": "stopped"},
             "ts_imag": {"n_imag": 1},
-            "endpoint_opt": {"reactant_converged": True},
+            "endpoint_opt": {"reactant_converged": True, "product_converged": True},
         }
     ]
     _enrich_summary(
@@ -191,7 +191,7 @@ def test_enriched_rate_limit_uses_refined_barrier(tmp_path) -> None:
         out_dir=tmp_path,
     )
 
-    assert summary["status"] == "success"
+    assert summary["scientific_status"] == "success"
     assert summary["mlip_precision"] == "fp64"
     assert summary["rate_limiting_step"] == {
         "segment": 1,

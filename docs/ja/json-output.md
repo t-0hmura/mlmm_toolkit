@@ -36,7 +36,8 @@ cat result_opt/result.json | python -m json.tool
 | `schema_version` | string | エンベロープのスキーマバージョン。現在値は `mlmm.core.utils.RESULT_JSON_SCHEMA_VERSION` に由来する（この文書のリテラルではなく定数を参照すること）。値の更新は構造変更を示す。 |
 | `command` | string | leaf envelope はサブコマンド名（例: `"opt"`）、aggregate `all` / `path-search` summary は完全な invocation string。 |
 | `mlmm_version` / `mlmm_toolkit_version` | string | パッケージバージョン（leaf は `mlmm_version`、aggregate summary は `mlmm_toolkit_version`）。 |
-| `status` | string | コマンド固有。`all` は success/partial/failed、`path-search` は success/partial、`opt` と `tsopt` は数値outcomeの converged/not_converged/stalled、完了した解析/積分 stage は completed、例外 envelope は error。TSの鞍点次数は `saddle_validation` / `hessian_status` に分離して記録します。 |
+| `execution_status` | string | 実行の完了状況: `completed` / `failed`。 |
+| `scientific_status` | string | 結果の利用可否: `success` / `partial` / `failed`。 |
 | `elapsed_seconds` | float | 任意の実行時間（秒）。shared writer に時間を渡さない producer では省略。 |
 | `environment` | object | ハードウェア情報（下表参照） |
 | `run_id` | string | 任意。MCP などの orchestrator が現在の呼び出し identity を割り当てた場合に含まれる。矛盾する caller 値は拒否される。 |
@@ -54,13 +55,13 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 
 ### 実行と要求段階の完了状況
 
-複数段階のワークフローと scan の出力処理は、構成要素を評価できる場合に以下のフィールドを追加します。出力されるフィールドはコマンドによって異なり、各コマンド固有の `status` も互換性のため維持されます。要求段階の完了状況は `scientific_status` と各 outcome で確認できます。必須の最適化・計算結果が欠ける場合は未完了として記録します。IRC の停止理由・端点 stationary 判定は診断情報です。IRC 独立の `scientific_status` は出力せず、all は TSOPT と両端点 OPT の数値収束を集約します。
+すべての結果に `execution_status` と `scientific_status` を出します。複数段階の計算と scan は、以下の個別の結果も保持します。必要な最適化や計算が欠けていれば未完了です。IRC の停止理由は診断として残し、通常の積分終了は `completed` / `success`、all の判定は TS と端点の最適化から行います。
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
 | `execution_status` | string | 通常は `completed` または `failed`。端点未収束は実行完了、捕捉した端点例外は実行失敗です。 |
 | `scientific_status` | string | `success`、`partial`、`failed`。有効なTS1と片端OPT失敗の組合せ、および収束済みHOSPは`partial`です。 |
-| `scientific_status_reasons` | string[] | 利用できない、または欠落した個別結果の理由。正常終了時は省略されます。集約ワークフローの従来の `status_reasons` とは別です。 |
+| `scientific_status_reasons` | string[] | 利用できない、または欠落した個別結果の理由。正常終了時は省略されます。 |
 | `expected_item_ids` / `observed_item_ids` | string[] | 集約結果の欠落を検出するための、期待された項目と観測された項目の ID。 |
 | `stage_outcomes` | object[] | `stage`、`item_id`、`required`、`executed`、`converged`、`usable`、`reason`、`artifacts` を持つ段階別 outcome。 |
 | `point_outcomes` | object[] | `point_id`、`executed`、`converged`、`energy_valid`、`artifact_written`、`seed_eligible`、`reason` を持つ scan 点別 outcome。 |
@@ -69,7 +70,7 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 `current_output_paths` と `key_output_files` をその呼び出しの manifest から
 再構築するため、再利用した出力ディレクトリに残る既存ファイルは除外されます。
 
-### エラーエンベロープ（`status == "error"` のとき）
+### エラーエンベロープ（`execution_status == "failed"` のとき）
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
@@ -91,7 +92,7 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | `n_cpus` | int | `<int>` |
 | `ram_gb` | float | `<ram in GB>` |
 
-オプティマイザは `"status": "stalled"` を返すこともあります。これは、設定した force/step の収束基準を満たさないまま、設定ウィンドウにわたってエネルギーが減少しなくなった状態（エネルギープラトー）です。stalled は converged とは別の非収束アウトカムであり、`converged` として報告されることは決してありません。`--flatten` を指定した `tsopt` と `opt` は、stalled の後も flatten ループを実行します。残った虚振動の方向へ変位すればプラトーから抜けられることがあるためです。`--max-cycles` の残りが 0 のときは実行しません。存在する場合は `stop_reason` にエネルギー範囲・ウィンドウ・満たせなかった基準が記録されます。stalled は（例えば摂動した構造やより厳しいステップ制御で）再試行し得るものであり、`max_cycles` 枯渇や一般的な失敗のエイリアスではありません。microiteration では、macro ステップの stall と直近の micro（MM）緩和の stall はいずれも真実に報告され、macro 収束として偽装されることはありません。
+オプティマイザは `"optimization_status": "stalled"` を返すこともあります。これは、設定した force/step の収束基準を満たさないまま、設定ウィンドウにわたってエネルギーが減少しなくなった状態（エネルギープラトー）です。stalled は converged とは別の非収束アウトカムであり、`converged` として報告されることは決してありません。`--flatten` を指定した `tsopt` と `opt` は、stalled の後も flatten ループを実行します。残った虚振動の方向へ変位すればプラトーから抜けられることがあるためです。`--max-cycles` の残りが 0 のときは実行しません。存在する場合は `stop_reason` にエネルギー範囲・ウィンドウ・満たせなかった基準が記録されます。stalled は（例えば摂動した構造やより厳しいステップ制御で）再試行し得るものであり、`max_cycles` 枯渇や一般的な失敗のエイリアスではありません。microiteration では、macro ステップの stall と直近の micro（MM）緩和の stall はいずれも真実に報告され、macro 収束として偽装されることはありません。
 
 ## サブコマンド別スキーマ
 
@@ -99,7 +100,7 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
-| `status` / `stage` | string / string | `"ok"` / `"sp"` |
+| `stage` | string | `"sp"` |
 | `input` | string | 入力構造path |
 | `real_parm7` | string | 全系Amber topology path |
 | `charge` / `spin` | int / int | model領域の電荷とspin多重度 |
@@ -112,7 +113,7 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
-| `status` | string | `"converged"` / `"not_converged"` / `"stalled"`（エネルギープラトー、上記参照） |
+| `optimization_status` | string | `"converged"` / `"not_converged"` / `"stalled"`（エネルギープラトー、上記参照） |
 | `stop_reason` | string | 非収束停止（stalled/stopped）時のみ出力。エネルギープラトーの範囲・ウィンドウと満たせなかった基準を記録 |
 | `energy_hartree` | float | 最終 ONIOM エネルギー (Hartree) |
 | `n_opt_cycles` | int | 最適化サイクル数 |
@@ -136,7 +137,6 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
-| `status` | string | 全体の outcome。`optimization_status` と一致するが、収束したのに最終 TS エネルギーを評価できなかった場合は `"energy_missing"` に降格する。数値収束と鞍点次数は `optimization_status` / `saddle_validation` を個別に参照 |
 | `optimization_status` | string | 数値 optimizer の結果: `"converged"` / `"not_converged"` / `"stalled"`。鞍点次数とは独立 |
 | `saddle_validation` | string | 終端 exact PHVA による `"first_order"` / `"higher_order"` / `"no_imaginary"` / `"unavailable"` |
 | `saddle_order_verified` | bool | `saddle_validation: "first_order"` の場合だけ `true` |
@@ -144,7 +144,7 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | `reaction_mode_index` | int\|null | downstream IRC に使う負の exact-PHVA root。root 0 fallback は明示され、反応 identity を保証しない |
 | `reaction_mode_frequency_cm` | float\|null | 選択した負 root の振動数 |
 | `reaction_mode_source` | string\|null | 参照方向整合または明示 fallback による root 選択元 |
-| `energy_hartree` | float \| null | TS エネルギー (Hartree)。最終エネルギー評価に失敗した場合は `null`（writer が非有限 float をすべて `null` に置換する）で、そのとき `status` は `"energy_missing"` |
+| `energy_hartree` | float \| null | TS エネルギー (Hartree)。最終エネルギー評価に失敗した場合は `null`（writer が非有限 float をすべて `null` に置換する）で、そのとき実行と結果の状態は `failed` |
 | `n_imaginary_modes` | int\|null | 虚振動モードの数。PHVA を実行しなかった場合は `null` |
 | `imaginary_frequencies_cm` | float[]\|null | 虚振動数 (cm$^{-1}$, 負の値)。PHVA 未実行時は `null` |
 | `frequency_zero_cutoff_cm` / `imaginary_mode_criterion` / `imaginary_frequency_threshold_cm` | float / string / float | 既定値は`5.0`、`"frequency_cutoff_cm"`、`-5.0`で、ν < −5.00 cm⁻¹だけを虚振動として数えます。 |
@@ -173,7 +173,6 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
-| `status` | string | `"completed"` |
 | `n_modes` | int | 基準振動モードの総数 |
 | `n_imaginary` | int | 虚振動モードの数 |
 | `frequencies_cm` | float[] | 全振動数 (cm$^{-1}$) |
@@ -191,11 +190,10 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 
 ### `irc`
 
-`status: "completed"` は実行が戻ったことを示します。IRC 独自の `scientific_status`、`stage_outcomes`、`forward_status` / `backward_status` は出力しません。方向ごとの停止理由と軌跡を保持し、端点最適化の結果は `all` の `endpoint_opt` に記録します。
+IRC は共通の2欄に加え、方向ごとの停止理由と軌跡を残します。all は、その後の端点最適化を `endpoint_opt` に記録します。
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
-| `status` | string | `"completed"` |
 | `n_frames_forward` / `n_frames_backward` / `n_frames_total` | int | IRC フレーム数 |
 | `forward_short_branch` / `backward_short_branch` | bool | cycle 上限前に3フレーム以内で停止した分岐。診断用のみ |
 | `energy_first_hartree` | float | 連結経路の最初の端点。単独 IRC は反応物/生成物の化学的な同一性を割り当てない |
@@ -225,7 +223,6 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 
 | フィールド | 型 | 説明 |
 |---|---|---|
-| `status` | string | `"completed"` |
 | `scan_opt_mode` | string | 拘束付きL-BFGS緩和で使う固定の `grad` |
 | `scan_optimizer` | string | 使用した最適化法（`lbfgs`） |
 | `n_stages` | int | スキャンステージ数 |
@@ -265,7 +262,7 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
-| `converged` | bool \| null | 収束判定: エンジン自身の収束シグナルによる `true` / `false`。読み取れない場合は `null`（`status` は `"completed"` となり、収束を主張しない） |
+| `converged` | bool \| null | 収束判定: エンジン自身の収束シグナルによる `true` / `false`。読み取れない場合は `null`（`optimization_status` は `"completed"` となり、収束を主張しない） |
 | `mep_mode` | string | `"dmf"` / `"gsm"` |
 | `image_energies_hartree` | float[] | 全イメージエネルギー |
 | `n_images` | int | イメージ数 |
@@ -279,7 +276,6 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | フィールド | 型 | 説明 |
 |-----------|------|------|
 | `converged` | bool | SCF 収束? |
-| `status` | string | `"converged"` または `"not_converged"`。後者は exit code 3 より前に書き込まれる。 |
 | `energy_hartree` / `energy_kcal_per_mol` | float | 後方互換の model 領域 DFT energy |
 | `model_dft_energy_hartree` / `model_dft_energy_kcal_per_mol` | float | model 領域の DFT energy |
 | `total_dft_mm_energy_hartree` / `total_dft_mm_energy_kcal_per_mol` | float | 再結合した DFT/MM energy |
@@ -304,7 +300,6 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
-| `status` | string | `"ok"` |
 | `n_frames` | int | 軌跡のフレーム数。 |
 | `min_energy_hartree` / `max_energy_hartree` | float | フレームエネルギーの最小値と最大値。 |
 | `energy_source` | string | `"trajectory_comment"` または `"mlip_recomputed"`。 |
@@ -326,7 +321,6 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | `unknown_residue_charges` | object | `{残基名: 電荷}` |
 | `center` | string | 基質指定（生の `-c` 値）: PDB パス、残基ID リスト（例 `'A:123,B:456'`）、または残基名リスト（例 `'GPP,MMT'`） |
 | `radius` | float | 抽出半径 (Å) |
-| `status` | string | `"ok"` |
 | `ion_total_charge` | float | イオン電荷合計 |
 | `input_files` | string[] | 入力 PDB パス |
 | `n_atoms_raw` | int | 抽出前の生入力の原子数 |
@@ -341,7 +335,6 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
-| `status` | string | `"ok"` |
 | `n_points` | int | エネルギーデータ点の数 |
 | `files` | object | 出力ダイアグラムのファイル名からパスへの対応表 |
 
@@ -349,7 +342,6 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
-| `status` | string | `"success"` / `"partial"` / `"failed"`（all。path-search は success/partial） |
 | `execution_status` / `scientific_status` | string / string | 実行の完了度と、要求した数値最適化・計算段階の完了度。 |
 | `scientific_status_reasons` | string[] | 要求した結果の欠損・未収束などの理由。正常終了時は省略されます。 |
 | `pipeline_stop` | object \| 不在 | 早期停止時のみ存在。`stage` は `post`（`reason` は `no_segments` / `no_reactive_segment`）、`before_irc`（TSOPT の理由と `segment`・`tsopt_result`）、または `endpoint_opt`（`endpoint_execution_failed` と端点別 `failures`）。`summary.log` では `Pipeline stop` |
@@ -379,7 +371,7 @@ MLIP/ML/MM calculator stageでは、さらに以下を記録します:
 | `post_segments` | list | セグメントごとの TS/IRC/freq/DFT 結果。 |
 | `post_segments[].tsopt.energy_valid` / `.structure_valid` | bool | 既存の終端Hessian結果と組み合わせる有限TSの確認。status判定のための追加Hessian・最適化は実行しません。 |
 | `post_segments[].tsopt.n_opt_cycles` / `.max_cycles` | int / int\|null | TS 最適化で実行したサイクル数と設定上限。通常の非収束時にも記録します。 |
-| `post_segments[].irc` / `.endpoint_assignment` / `.endpoint_opt` | object | 順に IRC 停止診断、端点の向き付け、端点 OPT の収束記録。端点別の record（通常は `reactant` / `product`、TS-onlyでは `endpoint_1` / `endpoint_2`）に `status`, `n_opt_cycles`, `max_cycles`, `stop_reason`（存在する場合）を記録します。IRC 停止・結合対応は独立した成功条件にせず、connectivity 情報は機構解釈用に保持します。 |
+| `post_segments[].irc` / `.endpoint_assignment` / `.endpoint_opt` | object | 順に IRC 停止診断、端点の向き付け、端点 OPT の収束記録。端点別の record（通常は `reactant` / `product`、TS-onlyでは `endpoint_1` / `endpoint_2`）に `optimization_status`, `n_opt_cycles`, `max_cycles`, `stop_reason`（存在する場合）を記録します。IRC 停止・結合対応は独立した成功条件にせず、connectivity 情報は機構解釈用に保持します。 |
 | `post_segments[].thermo_symmetry` | object | 子 freq が報告した状態別の点群・回転対称 provenance。MEP 実行では R/TS/P、TS-only 実行では E1/TS/E2 を対象とし、有効な対称数 provenance を持つ状態だけを含む。欠けた状態は省略し、どの状態にも有効な provenance が無い場合だけフィールド全体を省略する。 |
 | `key_output_files` | object | 現在の呼び出しの出力索引。ルートファイルはファイル名 → 説明、各 `seg_NN` は `{description, files}` で、`files` はそのセグメントディレクトリからの相対パス。 |
 | `current_output_paths` | string[] | `--out-dir` からの相対パスを並べたリスト。現在の呼び出しが記録した成果物だけを含みます。 |
@@ -394,7 +386,7 @@ import json
 with open("result_opt/result.json") as f:
     result = json.load(f)
 
-if result["status"] == "converged":
+if result["scientific_status"] == "success":
     print(f"Energy: {result['energy_hartree']:.6f} Hartree")
 else:
     print(f"Not converged after {result['n_opt_cycles']} cycles")
@@ -403,7 +395,7 @@ else:
 ### jq
 
 ```bash
-jq '.status' result.json                    # 収束確認
+jq '{execution_status, scientific_status}' result.json                    # 収束確認
 jq '.barrier_kcal' result.json               # 障壁エネルギー
 jq '.imaginary_frequencies_cm' result.json   # 虚振動数
 jq '.thermochemistry.sum_EE_and_thermal_free_energy_ha' result.json  # 自由エネルギー

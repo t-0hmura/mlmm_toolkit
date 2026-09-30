@@ -77,7 +77,7 @@ def test_scan2d_rejects_non_pdb_xyz_input(tmp_path: Path) -> None:
         catch_exceptions=False,
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "--input must be a PDB, mmCIF, or XYZ file" in result.output
 
 
@@ -102,7 +102,7 @@ def test_scan3d_rejects_non_pdb_xyz_input(tmp_path: Path) -> None:
         catch_exceptions=False,
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "--input must be a PDB, mmCIF, or XYZ file" in result.output
 
 

@@ -1140,7 +1140,7 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
         lines.append(f"MLIP model          : {model_label}")
         lines.append(f"MLIP precision      : {mlip_precision}")
     execution_status = payload.get("execution_status")
-    scientific_status = payload.get("scientific_status") or payload.get("status")
+    scientific_status = payload.get("scientific_status")
     if execution_status is not None:
         lines.append(f"Execution status    : {execution_status}")
     if scientific_status is not None:
@@ -1161,7 +1161,7 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
     status_reasons = (
         payload.get("scientific_status_reasons") or []
         if payload.get("scientific_status") is not None
-        else payload.get("status_reasons") or []
+        else []
     )
     if scientific_status not in (None, "success"):
         reasons = list(status_reasons) or [None]

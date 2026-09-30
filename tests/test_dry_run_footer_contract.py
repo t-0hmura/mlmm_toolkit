@@ -12,9 +12,7 @@ WORKFLOWS = (
     "all", "dft", "freq", "irc", "opt", "path_opt", "path_search",
     "scan", "scan2d", "scan3d", "sp", "tsopt",
 )
-EXPECTED_CALLS = {name: 1 for name in WORKFLOWS} | {
-    "scan": 2, "scan2d": 2, "scan3d": 3,
-}
+EXPECTED_CALLS = {name: 1 for name in WORKFLOWS} | {"scan3d": 2}
 EXPECTED = "[Dry run] --dry-run completed. Input command is valid."
 
 

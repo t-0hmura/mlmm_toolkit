@@ -20,9 +20,14 @@ Target release: **0.4.0**.
 - Print a note on stderr when `MLMM_STRICT_DETERMINISTIC=1` keeps a run strictly deterministic without `--deterministic`, since `--no-deterministic` cannot turn it off.
 - `scan`, `scan2d`, and `scan3d` accept `--opt-mode grad|hess` (listed under `--help-advanced`). `hess` relaxes every scan step and the optional pre/end optimizations with RFO started from the exact ML/MM Hessian of the restrained PES; the default `grad` keeps L-BFGS. RFO settings come from the `rfo` (or `opt.rfo`) YAML section, the RFO trust radius is capped by `--max-step-size`, and `scan` records the choice in `result.json` (`scan_opt_mode`, `scan_optimizer`).
 - `path-opt` and `path-search` accept `--opt-mode grad|hess` (default `grad`, listed under `--help-advanced`) to choose L-BFGS or RFO for single-structure optimizations: endpoint pre-optimization and, in `path-search`, the HEI±1 and kink-node relaxations. RFO starts from the ML/MM Hessian when `hessian_init: calc` and reads the `rfo`, `opt.rfo`, and `stopt.rfo` YAML sections; `--dry-run`, `--show-config`, and `result.json` report the mode.
+- `path-opt` and `path-search` accept a hidden `--print-every N` that sets the logging interval of the single-structure optimizers (LBFGS/RFO); conflicting explicit YAML values are rejected, and GSM/DMF logging is unchanged.
+- `add-elem-info --overwrite-elem/--no-overwrite-elem` (default off), the matching `overwrite_elem` argument of `assign_elements` and of the MCP `add_element_info` tool; the summary also prints how many element columns were left unchanged (`kept existing`).
+- `tsopt` prints a one-line NOTE naming the nested YAML sections it does not read (`opt.rfo`, `freq.thermo`), then keeps running; `opt.lbfgs` is still used for the microiteration MM relaxation.
 
 ### Changed
 
+- **Breaking:** Result JSON uses `execution_status` and `scientific_status`; optimizer diagnostics remain in `optimization_status`. Generic `status` and duplicate reason fields are removed (JSON schema 4.0; MCP schema 2.0). Exit codes are 0 for success or usable partial results, 1 for non-convergence/no usable result/runtime failure, 2 for invalid input/configuration, and 130 for interruption.
+- **Breaking:** Remove `--print-parsed/--no-print-parsed` from `scan`, `scan2d`, and `scan3d`; use `--dry-run` to validate the input and scan spec without calculating.
 - Use the low-memory direct-JK GPU route by default for closed-shell DFT/MM calculations.
 - Use the current FAIR-Chem/Torch stack and native CUDA 13 DFT/OpenMM wheels; retain CUDA 12 DFT through the `dft-cuda12` extra.
 - Classify imaginary modes with the strict ν < −5.00 cm⁻¹ criterion and include optimization cycle counts in `all` summaries.
@@ -30,14 +35,19 @@ Target release: **0.4.0**.
 - Name the aggregate MEP trajectory `mep_trj.pdb` and its bridged-input CIF companion `mep_trj.cif`.
 - Use the TS-BFGS Hessian update by default for RFO minimizations (`rfo.hessian_update: ts_bfgs`).
 - Run terminal PHVA after an energy-plateau stop (`stalled`) in `tsopt` and report n_imag; runs that end at the cycle limit still skip it.
+- `tsopt` fills in `flatten_skip_reason` in `result.json` when `--flatten` could not run: a Hessian-based run (rsprfo, rsirfo, trim) that stops at `--max-cycles` without converging ("max-cycles budget exhausted before flattening"), a flatten retry that runs out of cycles ("max-cycles budget exhausted during flattening"), and `--skip-final-freq` ("final Hessian skipped (--skip-final-freq)"). An unconverged run still computes no Hessian.
 - Keep running `opt --flatten` and `tsopt --flatten` after an energy-plateau stop, since flattening can still remove extra imaginary modes; the retries stop when the `--max-cycles` budget is used up, and `n_opt_cycles` in `result.json` counts every cycle.
 - Warn and fall back to `false` when `rsirfo.min_line_search` or `rsirfo.max_line_search` is `true` for RS-P-RFO.
 - Describe `--show-config` as printing the loaded YAML file and its top-level keys, and `--dry-run` as validating options and inputs, matching what they print at the default verbosity.
 - `define-layer` uses `--model-pdb` when both `--model-pdb` and `--model-indices` are given, matching the calculation commands.
 - `scan` shows `--relax-max-cycles` for the relaxation cycle limit and keeps `--max-cycles` as a hidden alias; different values for both are an error.
 - `scan` writes per-step optimizer dumps only with `--dump`; `opt.dump` in YAML no longer turns them on.
+- `scan` uses `geom.coord_type` from `--config` instead of always switching to Cartesian coordinates; the default stays `cart`, and `dlc` runs but is much slower for ML/MM systems.
 - The auto-MM toggles of `all` are `--auto-mm-add-ter/--no-auto-mm-add-ter` and `--auto-mm-disulfide/--no-auto-mm-disulfide`; `--auto-mm-no-add-ter` and `--auto-mm-no-disulfide` still work, and conflicting values are an error.
 - `all --dry-run` lists only the stages the run would execute.
+- `all --print-every` is passed to the optimizing child commands (`path-opt`, `path-search`, `scan`, `tsopt`, and the endpoint `opt` of the TS-only route) as `--print-every` instead of being written to the generated YAML as `opt.print_every`.
+- `all --hessian-calc-mode` is also passed to `irc`, so IRC uses the same Hessian mode as `tsopt` and `freq` and can reuse the TS Hessian.
+- The `--dry-run` help of `scan`, `scan2d`, and `scan3d` describes what the dry run checks and prints.
 - `scan`, `scan2d`, and `scan3d` `--dry-run` print a short summary (input, charge, multiplicity, output directory, and parsed `--scan-lists`) at the default verbosity; the full plan block is shown only at `-v 3`.
 - Outputs can be written through symbolic links, for example when the output directory or one of its parents links to another disk; `all` still rejects an output whose real location is outside its output directory.
 - `all --dft-engine` ignores case, like `dft --engine`.
@@ -54,9 +64,9 @@ Target release: **0.4.0**.
 - `tsopt` fails with `status: "error"` and exit status 1 when the final TS energy cannot be evaluated (calculator error or non-finite energy), and `all` stops at the TS stage instead of going on to IRC.
 - `tsopt --opt-mode grad|dimer` and `opt --opt-mode grad` use an explicit `--coord-type` (for example `dlc`) as given instead of switching to `cart`. The default stays `cart`, which is recommended for ML/MM systems because internal coordinates are slow to build.
 - The in-run Hessian cache matches the topology (`real_parm7`), region (`model_pdb`), input PDB, and custom calculator (`calc_file`) files by path instead of by SHA-256 content hash; the DFT settings and the model file hash are no longer part of its match key.
-- Optimizer restart data use the `*_backend` keys of pdb2reaction (`H_backend`, `_sy_buffer_S_backend`, `_sy_buffer_Y_backend`, `_prev_eigvec_min_backend`); data with the former `*_spec` keys, or missing a key that the optimizer records, are rejected before any optimizer state changes.
+- Optimizer restart data use the `*_backend` keys of pdb2reaction (`H_backend`, `_sy_buffer_S_backend`, `_sy_buffer_Y_backend`, `_prev_eigvec_min_backend`); data with the former `*_spec` keys, missing a key that the optimizer records, or with a `*_backend` entry that is not a mapping, are rejected before any optimizer state changes.
 - **Breaking:** `--dump-hess` / `--read-hess` files are now one plain NumPy `.npy` array (Cartesian Hessian in Hartree/bohr², all atoms or only the atoms in the Hessian calculation) instead of `.npz`, so other programs can read and write them; `--read-hess` checks only size, symmetry, and finiteness. `result.json` names the file in `files.hessian_npy` (absolute path). Convert an older file with `numpy.save("hessian.npy", numpy.load("old.npz")["hessian"])`.
-- **Breaking:** `add-elem-info` re-infers every element field; `--overwrite` now replaces the input file when `-o` is omitted (`--inplace` is still accepted), and `-o` naming the input file requires `--overwrite`.
+- **Breaking:** `add-elem-info --overwrite` now replaces the input file when `-o` is omitted (`--inplace` is still accepted), and `-o` naming the input file requires `--overwrite`. Re-inferring element columns that already hold a valid element moves to `--overwrite-elem`; by default, and in the `all` preflight, only empty or unrecognized columns are filled.
 - **Breaking:** `-b/--backend` is case-sensitive (`-b UMA` is rejected; use `-b uma`).
 - **Breaking:** An unknown top-level `dmf` key in YAML is an error that lists the supported keys.
 - **Breaking:** A YAML section that is not a mapping (for example `geom: 3`) is an error instead of being ignored; an empty section is still ignored.
@@ -65,7 +75,7 @@ Target release: **0.4.0**.
 - **Breaking:** The `d1_A`–`d3_A` and `q1`–`q3` columns of the `scan2d` and `scan3d` `surface.csv` hold the values measured after each relaxation instead of the targets; the targets are in the new `target_d1_A`–`target_d3_A` and `target_q1`–`target_q3` columns and in `coordinate_targets` of `result.json`.
 - `scan3d` lists the reference structure last in `surface.csv`, puts the `q1`–`q3` columns after the label columns, and leaves `bias_converged` of the reference row empty without `--preopt`.
 - `scan2d` draws the contour lines under its 3D landscape as lines just above the floor, which removes white speckles that changed with the viewing angle, and the `scan3d` plot title is `3D Energy Landscape`.
-- When too few converged grid points remain for a plot, `scan2d` and `scan3d` write an error `result.json` (`InsufficientPlotData`) with or without `--out-json` and exit with status 1; when no point is usable at all, they print `[plot] No finite data for plotting.` and exit with status 1 without it.
+- When too few usable grid points remain for a plot, or they lie on one line (`scan2d`) or one plane (`scan3d`), `scan2d` and `scan3d` print a `[plot] NOTE:` line, skip only the plots, write `surface.csv` (and `result.json` with `--out-json`, listing no plot files), and exit with status 0, as pdb2reaction does; when no point is usable at all, they print `[plot] No finite data for plotting.` and exit with status 1.
 - **Breaking:** `rsirfo.root` in YAML is an error; set `rsirfo.roots` to a one-item list instead.
 - **Breaking:** `tsopt` records the optimizer that ran in `result.json` `opt_mode` (`dimer`, `rsprfo`, `rsirfo`, or `trim`); the requested value stays in `opt_mode_requested`.
 - **Breaking:** `all` in TS-only mode (one input with `--tsopt` and no `--scan-lists`) names the IRC endpoints as pdb2reaction does: the higher-energy endpoint is the reactant (the left one on a tie). Structures are `reactant_irc`/`product_irc` and `reactant`/`product`, states are R/TS/P in `freq/`, `dft/`, energy diagrams, and `segments/seg_01/`, segments report `barrier_kcal`/`delta_kcal`, `endpoint_opt` uses `reactant_converged`/`product_converged`, and `summary.json` includes `rate_limiting_step` and `overall_reaction_energy_kcal`. `endpoint_assignment` records `policy = "higher_energy_endpoint_as_reactant"` and `chemical_direction_known = false`; the `E1`/`E2` labels, `endpoint_1`/`endpoint_2` records, and `barrier_from_endpoint_*_kcal` fields are removed.
@@ -98,6 +108,11 @@ Target release: **0.4.0**.
 - `rate_limiting_step` skips segments without a finite barrier instead of counting them as 0 kcal/mol.
 - `irc` honors `irc.hessian_init`: only `calc` (the default) computes, reuses, or reads (`--read-hess`) the initial Hessian; any other value (`unit`, a guess model, or a Hessian file) is passed to the EulerPC integrator, which builds the initial Hessian itself. The `[device] IRC Hessian device` line is printed only when `irc` builds the initial Hessian.
 - `freq --hess-device cuda` stops with a clear error when no CUDA device is available, and `freq` and `irc` report it also with `--dry-run`.
+- PDB geometries take the element from columns 77–78 when the atom name only gives the dummy atom X, so ` X1 ` with `CL` is read as Cl; atoms whose names give an element still follow the name.
+- `scan2d` and `scan3d` no longer count floating-point rounding in the coordinate values as an extra dimension when they check whether the usable grid points lie on one line or one plane.
+- `scan`, `scan2d`, and `scan3d` `--dry-run` no longer create the output directory or write ML-region files such as `model_from_bfactor.pdb` into it.
+- TS-only `all` with `-c/--center` now converts the TS, IRC and endpoint geometries to PDB with the full-system layered template instead of the extracted pocket, whose atom count does not match.
+- `all` no longer recomputes the TS Hessian in `irc` and in the TS `freq`: they now read the same layered PDB as `tsopt`, so the cached Hessian matches.
 
 ### Removed
 

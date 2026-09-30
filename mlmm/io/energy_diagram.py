@@ -8,6 +8,8 @@ Examples:
 
 from __future__ import annotations
 
+from mlmm.cli.completion import completion_guard
+
 import ast
 import sys
 import time
@@ -321,3 +323,6 @@ def cli(
         format_elapsed("[time] Elapsed Time for Energy Diagram", time_start),
         narrative=True,
     )
+
+
+cli.callback = completion_guard(cli.callback)

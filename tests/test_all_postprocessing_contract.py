@@ -227,7 +227,7 @@ def test_failed_segment_dft_is_partial() -> None:
         "mlip": {},
         "irc_traj": "seg_01/irc.trj",
         "ts_imag": {"n_imag": 1},
-        "dft": {"status": "failed", "failed_states": ["TS"]},
+        "dft": {"scientific_status": "failed", "failed_states": ["TS"]},
     }]
 
     status, reasons = _derive_pipeline_status(

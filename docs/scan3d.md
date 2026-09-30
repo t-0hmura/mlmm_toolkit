@@ -12,7 +12,7 @@ Any axis may instead be an angle `(i,j,k,low,high)` or dihedral
 mlmm scan3d -i input.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s scan3d.yaml -o ./result_scan3d/
 ```
-(Add `--print-parsed` to validate the parsed scan spec and exit without running the GPU calculation.)
+(Add `--dry-run` to validate the input and scan spec without calculating.)
 
 ```bash
 # Recommended: YAML/JSON spec
@@ -24,7 +24,7 @@ pairs:
  - [15, 60, 1.10, 3.00]
 YAML
 mlmm scan3d -i input.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 -s scan3d.yaml --print-parsed
+ -q 0 -s scan3d.yaml --dry-run
 ```
 
 ```bash
@@ -101,7 +101,6 @@ Filename tags `i###_j###_k###` are integer hundredths of an angstrom (d1×100, d
 | `-s, --scan-lists TEXT` | Three distance, angle, or dihedral ranges in YAML/JSON or one inline Python literal. Atom entries can be integer indices or PDB selectors. | Required unless `--csv` is used |
 | `--csv FILE` | Load precomputed `surface.csv` and generate plot without running a scan. | _None_ |
 | `--one-based / --zero-based` | Interpret `(i, j)` indices as 1- or 0-based. | `True` (1-based) |
-| `--print-parsed/--no-print-parsed` | Print parsed pair tuples after `-s/--scan-lists` resolution. | `False` |
 | `--max-step-size FLOAT` | Maximum distance increment per step (Å). Controls grid density. | `0.20` |
 | `--max-angle-step-size FLOAT` | Maximum angle change per step (degrees). | `5.0` |
 | `--max-dihedral-step-size FLOAT` | Maximum dihedral change per step (degrees). | `10.0` |

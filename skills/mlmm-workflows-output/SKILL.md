@@ -150,7 +150,7 @@ extract → [mm-parm] → path-opt → [--tsopt: TS → IRC → endpoint opt] �
 explicit ML membership (`--model-pdb` / `--model-indices`) or B-factor fallback,
 and the same `--detect-layer` policy for MM sublayers. It also needs the *same*
 `-l` / `-q` / `-m`. Pass them on every command. After each stage, read its
-`result.json` / `summary.json` `status` and gate before continuing.
+`result.json` / `summary.json` `execution_status` and `scientific_status` and gate before continuing.
 
 **Stage 0 — prep** (only from a full enzyme PDB; most staged campaigns start from
 already-prepared full-system R/P PDBs + parm7): generate topology, select ML atoms, encode
@@ -246,7 +246,6 @@ Top-level keys:
 |---|---|
 | `command` | Full recorded invocation string for this `all` run |
 | `mlmm_toolkit_version` | Toolkit version that produced this aggregate output |
-| `status` | `"success"` (requested stages completed), `"partial"` (some required results are missing or unusable), or `"failed"`; inspect reasons and stage outcomes |
 | `execution_status` / `scientific_status` | Whether requested stages executed / met their numerical completion criteria |
 | `scientific_status_reasons` | Reasons for missing or unusable leaves; omitted on clean success |
 | `expected_item_ids` / `observed_item_ids` | Expected vs observed leaf IDs; compare before accepting the aggregate |
@@ -302,7 +301,7 @@ Per-segment keys in the post-processing list (`summary.json["post_segments"][i]`
 | `irc` | Diagnostic propagation record: `traj`, `n_frames_forward`, `n_frames_backward`, `forward_requested`, `backward_requested`, and each direction's `*_integration_converged`, `*_integration_stop_reason`, `*_downhill_departure_valid`, `*_energy_increased`, `*_short_branch`. No independent IRC scientific verdict or direction-status keys. Finite retained endpoints are passed to endpoint optimization. |
 | `endpoint_assignment` | Pre-optimization IRC-to-MEP orientation provenance; diagnostic only. |
 | `tsopt` | TS terminal record. `n_opt_cycles` is the executed optimization-cycle count and `max_cycles` is the configured limit, including normally non-converged runs. |
-| `endpoint_opt` | Actual numerical convergence of both optimized endpoints. Endpoint records (`reactant` / `product`, or `endpoint_1` / `endpoint_2` in TS-only mode) include `status`, `n_opt_cycles`, `max_cycles`, and any `stop_reason`; connectivity remains a separate diagnostic and does not add a numerical-completion gate. |
+| `endpoint_opt` | Actual numerical convergence of both optimized endpoints. Endpoint records (`reactant` / `product`, or `endpoint_1` / `endpoint_2` in TS-only mode) include `optimization_status`, `n_opt_cycles`, `max_cycles`, and any `stop_reason`; connectivity remains a separate diagnostic and does not add a numerical-completion gate. |
 | `ts_imag` | `{n_imag}` |
 | `mlip` | R/TS/P runs contain `{energies_au, energies_kcal, barrier_kcal, delta_kcal, ...}`; TS-only E1/TS/E2 runs instead contain one barrier from each endpoint |
 | `gibbs_mlip` | Gibbs analogue of `mlip` (when `--thermo` is on) |

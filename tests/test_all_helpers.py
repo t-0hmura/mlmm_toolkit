@@ -1197,8 +1197,8 @@ def test_build_pipeline_summary_payload_shape(path_optimizers) -> None:
     assert payload["mlip_backend"] == "uma"
     assert payload["mlip_model"] is None
     assert payload["mlip_precision"] is None
-    assert payload["status"] == "partial"
-    assert payload["status_reasons"] == ["legacy incomplete"]
+    assert "status" not in payload
+    assert "status_reasons" not in payload
     assert payload["execution_status"] == "completed"
     assert payload["scientific_status"] == "failed"
     assert payload["scientific_status_reasons"] == [

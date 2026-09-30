@@ -227,7 +227,7 @@ def test_optimizer_converged_bit_normalizes_numpy_boolean() -> None:
     assert combine_step_convergence([np.bool_(True), np.bool_(False)]) is False
 
 
-def test_serializer_roundtrip_and_additive_only(tmp_path: Path) -> None:
+def test_serializer_roundtrip_retains_diagnostics(tmp_path: Path) -> None:
     from mlmm.core.utils import write_result_json, RESULT_JSON_SCHEMA_VERSION
 
     leaf = make_leaf("scan", "stage_1", executed=True, converged=True)
@@ -239,7 +239,7 @@ def test_serializer_roundtrip_and_additive_only(tmp_path: Path) -> None:
     r = json.loads((tmp_path / "result.json").read_text())
 
     # Legacy contract preserved.
-    assert r["status"] == "completed"
+    assert r["execution_status"] == "completed"
     assert r["schema_version"] == RESULT_JSON_SCHEMA_VERSION
     assert r["min_energy_hartree"] == -1.5
     # Additive outcome fields contain the observed values.
@@ -250,7 +250,7 @@ def test_serializer_roundtrip_and_additive_only(tmp_path: Path) -> None:
 
     # An old reader that only knows `status` obtains the same type/value and is
     # unaffected by the additive fields.
-    assert isinstance(r["status"], str) and r["status"] == "completed"
+    assert "status" not in r
 
 
 def test_unknown_execution_fails_closed_and_is_not_seed_eligible() -> None:
@@ -489,7 +489,7 @@ def test_path_summary_contract_is_versioned_and_endpoint_fail_closed(tmp_path: P
     )
 
     assert summary["schema_version"] == RESULT_JSON_SCHEMA_VERSION
-    assert summary["status"] == "partial"
+    assert "status" not in summary
     # The raw endpoint path is the only required leaf and it is unusable, so
     # nothing scientifically usable exists; the run still completed.
     assert summary["execution_status"] == "completed"
@@ -888,7 +888,7 @@ def test_dft_mlmm_gibbs_components_use_subtractive_total() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_legacy_converged_output_is_byte_compatible(tmp_path: Path) -> None:
+def test_converged_output_retains_scientific_data(tmp_path: Path) -> None:
     from mlmm.core.utils import write_result_json
 
     # A representative subset of the legacy scan2d result payload for a fully
@@ -920,6 +920,9 @@ def test_legacy_converged_output_is_byte_compatible(tmp_path: Path) -> None:
     r = json.loads((tmp_path / "result.json").read_text())
 
     for key, value in legacy.items():
+        if key == "status":
+            assert key not in r
+            continue
         assert r[key] == value, f"legacy key {key} changed"
     # Only additive keys are new; scientific_status reports success.
     assert r["scientific_status"] == "success"
@@ -1128,7 +1131,7 @@ def test_all_pipeline_preserves_tsopt_stop_reason_before_missing_irc() -> None:
     assert not any("imaginary-mode validation is missing" in reason for reason in truth.status_reasons)
 
 
-def test_read_opt_endpoint_converged_gates_on_status(tmp_path: Path) -> None:
+def test_read_opt_endpoint_converged_gates_on_optimization_status(tmp_path: Path) -> None:
     # The endpoint-opt child's convergence is read from the SAME real result.json
     # the `opt` subcommand writes (status="converged"/"not_converged"); a
     # missing/unreadable result fails closed to unknown (None) — never a silent
@@ -1140,10 +1143,10 @@ def test_read_opt_endpoint_converged_gates_on_status(tmp_path: Path) -> None:
     # A missing result.json fails closed.
     assert _read_opt_endpoint_converged(opt_dir) is None
     # A converged endpoint opt child.
-    (opt_dir / "result.json").write_text(json.dumps({"status": "converged"}))
+    (opt_dir / "result.json").write_text(json.dumps({"optimization_status": "converged"}))
     assert _read_opt_endpoint_converged(opt_dir) is True
     # A nonconverged endpoint opt child (max-cycle / early stop).
-    (opt_dir / "result.json").write_text(json.dumps({"status": "not_converged"}))
+    (opt_dir / "result.json").write_text(json.dumps({"optimization_status": "not_converged"}))
     assert _read_opt_endpoint_converged(opt_dir) is False
     # An unreadable / status-less result fails closed to unknown.
     (opt_dir / "result.json").write_text("{ not json")
@@ -1165,8 +1168,8 @@ def test_all_pipeline_aggregate_gates_on_endpoint_opt(tmp_path: Path) -> None:
     prod_dir = tmp_path / "P"
     react_dir.mkdir()
     prod_dir.mkdir()
-    (react_dir / "result.json").write_text(json.dumps({"status": "converged"}))
-    (prod_dir / "result.json").write_text(json.dumps({"status": "not_converged"}))
+    (react_dir / "result.json").write_text(json.dumps({"optimization_status": "converged"}))
+    (prod_dir / "result.json").write_text(json.dumps({"optimization_status": "not_converged"}))
 
     summary = {"segments": [{
         "index": 1, "kind": "seg", "barrier_kcal": 10.0, "converged": True,

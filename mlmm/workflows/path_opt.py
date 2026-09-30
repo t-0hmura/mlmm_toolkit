@@ -10,6 +10,8 @@ For detailed documentation, see: docs/path_opt.md
 
 from __future__ import annotations
 
+from mlmm.cli.completion import completion_guard, record_completion
+
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
@@ -999,6 +1001,15 @@ def _run_dmf_mep(
 @click.option("--preopt-max-cycles", "preopt_max_cycles", type=click.IntRange(min=1), default=None, show_default="100000",
               help="Maximum optimizer cycles for endpoint pre-optimization.")
 @click.option(
+    "--print-every",
+    "print_every",
+    type=click.IntRange(min=1),
+    default=None,
+    show_default="100",
+    hidden=True,
+    help="Print single-structure optimizer status every N cycles (not GSM/DMF).",
+)
+@click.option(
     "--fix-ends/--no-fix-ends",
     default=True,
     show_default=True,
@@ -1199,6 +1210,7 @@ def cli(
     opt_mode: str,
     preopt: bool,
     preopt_max_cycles: int,
+    print_every: Optional[int],
     fix_ends: bool,
     dump: bool,
     out_dir: str,
@@ -1255,7 +1267,7 @@ def cli(
     try:
         if len(input_paths) != 2:
             click.echo("ERROR: Provide exactly two endpoint structures (-i reactant product).", err=True)
-            sys.exit(1)
+            sys.exit(2)
 
         # Accept XYZ inputs when --ref-pdb is supplied: overlay the XYZ
         # coordinates onto the reference PDB topology so path-opt runs on full
@@ -1277,7 +1289,7 @@ def cli(
                     f"ERROR: '{src.name}': unsupported format. Use .pdb/.cif/.mmcif or .xyz (with --ref-pdb).",
                     err=True,
                 )
-                sys.exit(1)
+                sys.exit(2)
             prepared_inputs.append(prepared)
         input_paths = tuple(prep.source_path for prep in prepared_inputs)
 
@@ -1386,6 +1398,9 @@ def cli(
         if _is_param_explicit("preopt_max_cycles"):
             lbfgs_cfg["max_cycles"] = int(preopt_max_cycles)
             rfo_cfg["max_cycles"] = int(preopt_max_cycles)
+        if _is_param_explicit("print_every") and print_every is not None:
+            lbfgs_cfg["print_every"] = int(print_every)
+            rfo_cfg["print_every"] = int(print_every)
 
         resolved_charge = charge
         resolved_spin = spin
@@ -1447,7 +1462,7 @@ def cli(
             geom_freeze = _normalize_geom_freeze(geom_cfg.get("freeze_atoms"))
         except click.BadParameter as e:
             click.echo(f"ERROR: {e}", err=True)
-            sys.exit(1)
+            sys.exit(2)
         geom_cfg["freeze_atoms"] = geom_freeze
         _convert_yaml_layer_atoms_1to0(calc_cfg)
 
@@ -1455,7 +1470,7 @@ def cli(
             cli_freeze = _parse_freeze_atoms(freeze_atoms_cli)
         except click.BadParameter as e:
             click.echo(f"ERROR: {e}", err=True)
-            sys.exit(1)
+            sys.exit(2)
 
         model_indices: Optional[List[int]] = None
         if model_indices_str:
@@ -1463,7 +1478,7 @@ def cli(
                 model_indices = parse_indices_string(model_indices_str, one_based=model_indices_one_based)
             except click.BadParameter as e:
                 click.echo(f"ERROR: {e}", err=True)
-                sys.exit(1)
+                sys.exit(2)
         if cli_freeze:
             merge_freeze_atom_indices(geom_cfg, cli_freeze)
 
@@ -1532,7 +1547,7 @@ def cli(
 
         if detect_layer_enabled and layer_source_pdb.suffix.lower() != ".pdb":
             click.echo("ERROR: --detect-layer requires a PDB input.", err=True)
-            sys.exit(1)
+            sys.exit(2)
 
         if show_config:
             click.echo(
@@ -1569,7 +1584,7 @@ def cli(
                 model_region_source = "bfactor"
             else:
                 click.echo("ERROR: Provide --model-pdb or --model-indices when B-factor layer detection is disabled in the configuration.", err=True)
-                sys.exit(1)
+                sys.exit(2)
             if (
                 not detect_layer_enabled
                 and model_pdb_cfg is None
@@ -1577,7 +1592,7 @@ def cli(
                 and layer_source_pdb.suffix.lower() != ".pdb"
             ):
                 click.echo("ERROR: --model-indices requires a PDB input.", err=True)
-                sys.exit(1)
+                sys.exit(2)
             click.echo(
                 pretty_block(
                     "dry_run_plan",
@@ -1618,7 +1633,7 @@ def cli(
             )
         except click.ClickException as exc:
             click.echo(f"ERROR: {exc.message}", err=True)
-            sys.exit(1)
+            sys.exit(exc.exit_code)
         freeze_atoms_final = apply_layer_freeze_constraints(
             geom_cfg,
             calc_cfg,
@@ -1878,36 +1893,37 @@ def cli(
                     "DMFError",
                     time_start,
                 )
-                sys.exit(3)
-            if out_json:
-                from mlmm.core.utils import write_result_json
+                sys.exit(1)
+            from mlmm.core.utils import write_result_json
 
-                result_data_dmf = _build_dmf_result_data(dmf_res, calc_cfg)
-                for ext in (".pdb", ".gjf"):
-                    f = out_dir_path / f"hei{ext}"
-                    if f.exists():
-                        result_data_dmf["files"][f"hei_{ext[1:]}"] = f.name
-                # The DMF path is a required
-                # leaf usable only when the IPOPT solve explicitly converged. The
-                # scientific_status path routes convergence through the
-                # canonical criterion (IPOPT status 0 or 1), matching path_search,
-                # so the additive axis is consistent across both DMF producers.
-                # The status/converged fields use the same canonical criterion.
-                # Code 1 means IPOPT's acceptable level, not its strict optimum.
-                from mlmm.workflows._outcomes import (
-                    ipopt_status_to_converged,
-                    make_leaf as _mk_leaf,
-                )
-                _dmf_leaf_conv, _dmf_leaf_reason = ipopt_status_to_converged(dmf_res.ipopt_status)
-                _dmf_leaf = _mk_leaf(
-                    "path-opt",
-                    "dmf_mep",
-                    executed=True,
-                    converged=_dmf_leaf_conv,
-                    artifacts=["final_geometries_trj.xyz"],
-                    reason=_dmf_leaf_reason or dmf_res.reason or "",
-                )
-                _attach_preopt_leaf(result_data_dmf, _dmf_leaf)
+            result_data_dmf = _build_dmf_result_data(dmf_res, calc_cfg)
+            for ext in (".pdb", ".gjf"):
+                f = out_dir_path / f"hei{ext}"
+                if f.exists():
+                    result_data_dmf["files"][f"hei_{ext[1:]}"] = f.name
+            # The DMF path is a required
+            # leaf usable only when the IPOPT solve explicitly converged. The
+            # scientific_status path routes convergence through the
+            # canonical criterion (IPOPT status 0 or 1), matching path_search,
+            # so the additive axis is consistent across both DMF producers.
+            # The status/converged fields use the same canonical criterion.
+            # Code 1 means IPOPT's acceptable level, not its strict optimum.
+            from mlmm.workflows._outcomes import (
+                ipopt_status_to_converged,
+                make_leaf as _mk_leaf,
+            )
+            _dmf_leaf_conv, _dmf_leaf_reason = ipopt_status_to_converged(dmf_res.ipopt_status)
+            _dmf_leaf = _mk_leaf(
+                "path-opt",
+                "dmf_mep",
+                executed=True,
+                converged=_dmf_leaf_conv,
+                artifacts=["final_geometries_trj.xyz"],
+                reason=_dmf_leaf_reason or dmf_res.reason or "",
+            )
+            _attach_preopt_leaf(result_data_dmf, _dmf_leaf)
+            record_completion(result_data_dmf, command='path-opt')
+            if out_json:
                 write_result_json(
                     out_dir_path, result_data_dmf,
                     command="path-opt",
@@ -1986,7 +2002,7 @@ def cli(
 
         except Exception as e:
             click.echo(f"[write] ERROR: Failed to write final trajectory: {e}", err=True)
-            sys.exit(4)
+            sys.exit(1)
 
         try:
             energies = np.array(gs.energy, dtype=float)
@@ -2023,62 +2039,63 @@ def cli(
 
         except Exception as e:
             click.echo(f"[HEI] ERROR: Failed to dump HEI: {e}", err=True)
-            sys.exit(5)
+            sys.exit(1)
 
+        from mlmm.core.utils import calculator_provenance, write_result_json
+        from pysisyphus.constants import AU2KCALPERMOL as _AU2KCAL
+        _gsm_energies = list(map(float, energies))
+        _gsm_hei = int(hei_idx)
+        _gsm_hei_E = float(_gsm_energies[_gsm_hei])
+        _gsm_e0 = float(_gsm_energies[0])
+        _gsm_eN = float(_gsm_energies[-1])
+        _barrier = (_gsm_hei_E - _gsm_e0) * _AU2KCAL
+        _delta = (_gsm_eN - _gsm_e0) * _AU2KCAL
+        result_data_gsm: Dict[str, Any] = {
+            "mep_mode": "gsm",
+            **calculator_provenance(calc_cfg),
+            "charge": calc_cfg.get("model_charge"),
+            "spin": calc_cfg.get("model_mult"),
+            "reactant_energy_hartree": float(_gsm_e0),
+            "product_energy_hartree": float(_gsm_eN),
+            "image_energies_hartree": [float(e) for e in _gsm_energies],
+            "n_images": len(_gsm_energies),
+            "hei_index": _gsm_hei,
+            "hei_energy_hartree": _gsm_hei_E,
+            "barrier_kcal": round(_barrier, 6),
+            "delta_kcal": round(_delta, 6),
+            "files": {
+                "final_geometries_trj_xyz": "final_geometries_trj.xyz",
+                "hei_xyz": "hei.xyz",
+            },
+        }
+        for ext in (".pdb",):
+            f = out_dir_path / f"hei{ext}"
+            if f.exists():
+                result_data_gsm["files"][f"hei_{ext[1:]}"] = f.name
+        # The GSM path is a required leaf
+        # usable only when the StringOptimizer explicitly converged. The legacy
+        # convergence-aware ``status``/``converged`` fields are left untouched.
+        from mlmm.workflows._outcomes import (
+            make_leaf as _mk_leaf,
+            optimizer_converged_bit as _optimizer_converged_bit,
+        )
+        _converged = _optimizer_converged_bit(optimizer)
+        result_data_gsm["status"] = (
+            "converged"
+            if _converged is True
+            else ("not_converged" if _converged is False else "completed")
+        )
+        result_data_gsm["converged"] = _converged
+        _gsm_leaf = _mk_leaf(
+            "path-opt",
+            "gsm_mep",
+            executed=True,
+            converged=_converged,
+            artifacts=["final_geometries_trj.xyz"],
+        )
+        _attach_preopt_leaf(result_data_gsm, _gsm_leaf)
+        record_completion(result_data_gsm, command='path-opt')
         if out_json:
-            from mlmm.core.utils import calculator_provenance, write_result_json
-            from pysisyphus.constants import AU2KCALPERMOL as _AU2KCAL
-            _gsm_energies = list(map(float, energies))
-            _gsm_hei = int(hei_idx)
-            _gsm_hei_E = float(_gsm_energies[_gsm_hei])
-            _gsm_e0 = float(_gsm_energies[0])
-            _gsm_eN = float(_gsm_energies[-1])
-            _barrier = (_gsm_hei_E - _gsm_e0) * _AU2KCAL
-            _delta = (_gsm_eN - _gsm_e0) * _AU2KCAL
-            result_data_gsm: Dict[str, Any] = {
-                "mep_mode": "gsm",
-                **calculator_provenance(calc_cfg),
-                "charge": calc_cfg.get("model_charge"),
-                "spin": calc_cfg.get("model_mult"),
-                "reactant_energy_hartree": float(_gsm_e0),
-                "product_energy_hartree": float(_gsm_eN),
-                "image_energies_hartree": [float(e) for e in _gsm_energies],
-                "n_images": len(_gsm_energies),
-                "hei_index": _gsm_hei,
-                "hei_energy_hartree": _gsm_hei_E,
-                "barrier_kcal": round(_barrier, 6),
-                "delta_kcal": round(_delta, 6),
-                "files": {
-                    "final_geometries_trj_xyz": "final_geometries_trj.xyz",
-                    "hei_xyz": "hei.xyz",
-                },
-            }
-            for ext in (".pdb",):
-                f = out_dir_path / f"hei{ext}"
-                if f.exists():
-                    result_data_gsm["files"][f"hei_{ext[1:]}"] = f.name
-            # The GSM path is a required leaf
-            # usable only when the StringOptimizer explicitly converged. The legacy
-            # convergence-aware ``status``/``converged`` fields are left untouched.
-            from mlmm.workflows._outcomes import (
-                make_leaf as _mk_leaf,
-                optimizer_converged_bit as _optimizer_converged_bit,
-            )
-            _converged = _optimizer_converged_bit(optimizer)
-            result_data_gsm["status"] = (
-                "converged"
-                if _converged is True
-                else ("not_converged" if _converged is False else "completed")
-            )
-            result_data_gsm["converged"] = _converged
-            _gsm_leaf = _mk_leaf(
-                "path-opt",
-                "gsm_mep",
-                executed=True,
-                converged=_converged,
-                artifacts=["final_geometries_trj.xyz"],
-            )
-            _attach_preopt_leaf(result_data_gsm, _gsm_leaf)
             write_result_json(
                 out_dir_path, result_data_gsm,
                 command="path-opt",
@@ -2096,7 +2113,7 @@ def cli(
             out_dir_path, "path-opt", e, "OptimizationError", time_start
         )
         click.echo(f"ERROR: Path optimization failed — {e}", err=True)
-        sys.exit(3)
+        sys.exit(1)
     except KeyboardInterrupt:
         click.echo("\nInterrupted by user.", err=True)
         sys.exit(130)
@@ -2122,6 +2139,7 @@ def cli(
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
+cli.callback = completion_guard(cli.callback)
 
 if __name__ == "__main__":
     cli()

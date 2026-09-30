@@ -195,7 +195,7 @@ def test_endpoint_boundary_retains_provenance_and_stops_consumers(
         metadata = kwargs.get("outcome")
         if metadata is not None:
             metadata.update({
-                "status": "converged",
+                "optimization_status": "converged",
                 "converged": True,
                 "n_opt_cycles": index + 3,
                 "max_cycles": 3000,
@@ -317,7 +317,7 @@ def test_ts_only_higher_energy_irc_endpoint_is_reactant(monkeypatch, tmp_path):
 
     def optimize(*args, **kwargs):
         opt_dirs.append(args[6].name)
-        kwargs["outcome"].update({"status": "converged", "converged": True})
+        kwargs["outcome"].update({"optimization_status": "converged", "converged": True})
         if len(opt_dirs) == 2:
             raise ValueError("product endpoint failure")
         return Geometry(10), None, True
@@ -390,7 +390,7 @@ def test_endpoint_child_requires_current_finite_output(monkeypatch, tmp_path, ou
     result_path = output / "result.json"
     final_path = output / "final_geometry.xyz"
     if outcome == "stale":
-        result_path.write_text('{"status": "converged"}')
+        result_path.write_text('{"optimization_status": "converged"}')
         final_path.write_text("prior invocation")
     prepared = SimpleNamespace(
         geom_path=source, source_path=source, cleanup=lambda: None,
@@ -403,7 +403,7 @@ def test_endpoint_child_requires_current_finite_output(monkeypatch, tmp_path, ou
         if outcome != "missing_result":
             status = outcome if outcome in {"converged", "not_converged", "stalled", "failed"} else "converged"
             result_path.write_text("{" if outcome == "malformed_result" else json.dumps({
-                "status": status, "stop_reason": "plateau" if outcome == "stalled" else None,
+                "optimization_status": status, "stop_reason": "plateau" if outcome == "stalled" else None,
                 "n_opt_cycles": 7, "max_cycles": 12,
             }))
         if outcome != "missing_geometry":
@@ -435,7 +435,7 @@ def test_endpoint_child_requires_current_finite_output(monkeypatch, tmp_path, ou
         result, path, converged = run()
         assert result is terminal and path == final_path
         assert converged is (outcome == "converged")
-        assert endpoint_outcome["status"] == outcome
+        assert endpoint_outcome["optimization_status"] == outcome
         assert endpoint_outcome["n_opt_cycles"] == 7
         assert endpoint_outcome["max_cycles"] == 12
         if outcome == "stalled":

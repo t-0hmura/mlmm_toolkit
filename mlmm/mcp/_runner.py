@@ -23,20 +23,20 @@ from pathlib import Path
 from typing import Any, Optional, Sequence, TypedDict
 
 
-# Schema version for the MCP tool return envelope. Bump when the field
-# set / value types in `SubcmdResultDict` change. 1.0 matched the
-# baseline (status / exit_code / out_dir / summary / stderr_tail /
-# stdout_tail / hint / argv / schema_version); 1.1 adds ``run_id`` and
-# current-run summary validation.
-MCP_SUBCMD_RESULT_SCHEMA_VERSION = "1.1"
+# Version of the public MCP result envelope; see docs/mcp_server.md.
+MCP_SUBCMD_RESULT_SCHEMA_VERSION = "2.0"
 
-# Allowed values for the `status` field. Documented in docs/mcp_server.md.
+# Internal subprocess and summary-reader outcomes.
 MCP_SUBCMD_RESULT_STATUSES = (
     "ok",
     "failed",
     "summary_missing",
     "summary_parse_error",
     "summary_run_mismatch",
+)
+
+MCP_SUMMARY_STATUS_VALUES = (
+    "ok", "not_required", "summary_missing", "summary_parse_error", "summary_run_mismatch",
 )
 
 _SUMMARY_ONLY_COMMANDS = frozenset({"all", "path-search"})
@@ -50,7 +50,9 @@ class SubcmdResultDict(TypedDict, total=False):
     """
 
     schema_version: str
-    status: str
+    execution_status: str
+    scientific_status: str
+    summary_status: str
     exit_code: int
     out_dir: Optional[str]
     summary: dict[str, Any]
@@ -82,9 +84,23 @@ class SubcmdResult:
 
     def to_dict(self) -> SubcmdResultDict:
         """Serialise to a plain dict the MCP framework can ship over JSON-RPC."""
+        execution = self.summary.get("execution_status") or (
+            "completed" if self.status == "ok" and self.exit_code == 0 else "failed"
+        )
+        if self.exit_code in {2, 130}:
+            execution = "failed"
+        scientific = self.summary.get("scientific_status") or (
+            "success" if self.status == "ok" and self.exit_code == 0 else "failed"
+        )
+        summary_status = (
+            self.status if self.status not in {"ok", "failed"}
+            else "ok" if self.summary else ("not_required" if self.out_dir is None else "summary_missing")
+        )
         return {
             "schema_version": MCP_SUBCMD_RESULT_SCHEMA_VERSION,
-            "status": self.status,
+            "execution_status": execution,
+            "scientific_status": scientific,
+            "summary_status": summary_status,
             "exit_code": self.exit_code,
             "out_dir": self.out_dir,
             "summary": self.summary,

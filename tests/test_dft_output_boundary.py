@@ -226,6 +226,6 @@ def test_dft_error_json_uses_yaml_effective_output_dir(
 
     assert result.exit_code != 0
     payload = json.loads((effective / "result.json").read_text())
-    assert payload["status"] == "error"
+    assert payload["execution_status"] == "failed"
     assert payload["error"] == "probe failure"
     assert not (tmp_path / "result_dft" / "result.json").exists()

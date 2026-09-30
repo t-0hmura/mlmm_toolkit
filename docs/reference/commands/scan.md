@@ -38,9 +38,6 @@ Options:
                                   define sequential stages.
   --one-based / --zero-based      Interpret atom indices in --scan-lists as
                                   1-based or 0-based.  [default: one-based]
-  --print-parsed / --no-print-parsed
-                                  Print parsed scan targets and exit without
-                                  running the scan.  [default: no-print-parsed]
   --max-step-size FLOAT           Maximum scanned distance change per step [Å].
                                   [default: 0.2]
   --max-angle-step-size FLOAT RANGE
@@ -78,8 +75,10 @@ Options:
   --endopt / --no-endopt          After each stage, run an additional unbiased
                                   optimization of the stage result.  [default:
                                   no-endopt]
-  --dry-run / --no-dry-run        Validate options and inputs without running
-                                  the scan.  [default: no-dry-run]
+  --dry-run / --no-dry-run        Resolve and validate options (input,
+                                  charge/spin, --scan-lists parse) and print the
+                                  planned scan, then exit without running any
+                                  optimization.  [default: no-dry-run]
   --convert-files / --no-convert-files
                                   Convert XYZ/TRJ outputs into PDB companions
                                   based on the input format.  [default: convert-

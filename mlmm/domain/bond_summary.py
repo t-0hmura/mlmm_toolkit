@@ -11,6 +11,8 @@ covalent bonds formed and broken. Supports XYZ, PDB, and GJF formats.
 
 from __future__ import annotations
 
+from mlmm.cli.completion import completion_guard, record_completion
+
 import time
 from pathlib import Path
 from typing import List
@@ -109,11 +111,11 @@ def cli(inputs: tuple, extra_inputs: tuple, device: str, bond_factor: float, one
     for f in files:
         p = Path(f)
         if not p.exists():
-            raise click.FileError(f, hint="File not found.")
+            raise click.BadParameter(f"File not found: {f}", param_hint="-i/--input")
         try:
             geometry = _load_geom(f)
         except Exception as exc:
-            raise click.ClickException(
+            raise click.BadParameter(
                 f"Could not read structure {str(p)!r}: {exc}"
             ) from exc
         geoms.append((p.name, geometry))
@@ -168,24 +170,23 @@ def cli(inputs: tuple, extra_inputs: tuple, device: str, bond_factor: float, one
         if not out_json:
             click.echo()
 
+    payload = record_completion(
+        {
+            "status": "ok" if n_failed == 0 else "partial" if n_ok > 0 else "failed",
+            "execution_status": "failed" if n_failed else "completed",
+            "comparisons": comparisons_json,
+        },
+        command="bond-summary",
+    )
     if out_json:
         import json as _json
-        # Honest status: every pair ok → "ok"; some ok, some failed → "partial";
-        # no pair ok → "failed". The exit code mirrors the status so non-JSON
-        # callers and CI also see the failure.
-        if n_failed == 0:
-            status = "ok"
-        elif n_ok > 0:
-            status = "partial"
-        else:
-            status = "failed"
         # `--json` is an explicit machine-readable deliverable: it must always
         # reach stdout, even at default verbosity (which otherwise drops DETAIL
         # console output via the core.utils click.echo chokepoint). `force=True`
         # bypasses the narrative gate; see mlmm.core.utils._patch_click_echo.
         emit(
             _json.dumps(
-                {"status": status, "comparisons": comparisons_json},
+                payload,
                 indent=2, ensure_ascii=False,
             ),
             force=True,
@@ -193,7 +194,7 @@ def cli(inputs: tuple, extra_inputs: tuple, device: str, bond_factor: float, one
 
     if n_failed > 0:
         # Surface the failure via the process exit code (the JSON envelope above
-        # already carries status=partial/failed for machine consumers).
+        # already carries the execution/scientific verdict for consumers).
         raise SystemExit(1)
     if not out_json:
         from mlmm.core.utils import format_elapsed
@@ -202,3 +203,6 @@ def cli(inputs: tuple, extra_inputs: tuple, device: str, bond_factor: float, one
             format_elapsed("[time] Elapsed Time for Bond Summary", time_start),
             narrative=True,
         )
+
+
+cli.callback = completion_guard(cli.callback)

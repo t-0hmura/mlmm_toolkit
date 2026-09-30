@@ -163,7 +163,8 @@ def parse_pdb(text):
         # alphabetic character of the atom name. A valid two-letter field is
         # authoritative only for the PDB-standard left-aligned two-letter name
         # (e.g. ``HG  ``/HG or ``HE  ``/HE). Right-aligned `` HG ``/H and
-        # `` HE ``/H remain protein hydrogens.
+        # `` HE ``/H remain protein hydrogens. A name that only yields the dummy
+        # atom X (e.g. `` X1 ``) takes a real element from the element column.
         field_lower = atom.lower()
         left_pair = name[:2].lower()
         first_alpha = STRIP_RE.sub("", name.lower())[:1]
@@ -187,6 +188,13 @@ def parse_pdb(text):
                         f"Cannot determine element for PDB atom name '{name.strip()}' "
                         f"(element column: '{atom}')."
                     )
+            else:
+                if (
+                    atom == "X"
+                    and field_lower in KNOWN_ATOMS
+                    and field_lower not in ("x", "ep")
+                ):
+                    atom = field_lower.capitalize()
         atoms.append(atom)
         coords.append(xyz)
         id_ = int(fields[1])

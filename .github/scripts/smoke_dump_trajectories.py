@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+import json
 import subprocess
 import sys
 import tempfile
@@ -130,19 +131,15 @@ def _resolve_fixture() -> Fixture | None:
 
 def _validate_case(case: Case, base_dir: Path, timeout_sec: float | None = None) -> None:
     out_dir = base_dir / case.name
-    args = [*case.args, "--out-dir", str(out_dir)]
+    args = [*case.args, "--out-dir", str(out_dir), "--out-json"]
     returncode, output = _run_cli(args, timeout_sec=timeout_sec)
 
-    # Any non-zero exit is a failure — the optimizer must run cleanly (a
-    # ZeroStepLength / no-progress stop is a real failure, never tolerated).
-    # The layered fixture keeps Hessian-based TS searches well-conditioned so
-    # they take a valid first step.
-    if returncode != 0:
+    from mlmm.cli.completion import completion_code
+    payload = json.loads((out_dir / "result.json").read_text())
+    # These one-cycle cases verify dumps, including controlled non-convergence.
+    if payload.get("execution_status") != "completed" or returncode != completion_code(payload):
         tail = output[-5000:]
-        raise RuntimeError(
-            f"[{case.name}] command failed (exit {returncode}): "
-            f"{' '.join([CLI_MODULE, *case.args])}\n{tail}"
-        )
+        raise RuntimeError(f"[{case.name}] command failed or returned an inconsistent exit code ({returncode}):\n{tail}")
 
     for rel in case.expect_present:
         p = out_dir / rel

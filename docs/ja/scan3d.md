@@ -12,7 +12,7 @@
 mlmm scan3d -i input.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  -q 0 -s scan3d.yaml -o ./result_scan3d/
 ```
-（`--print-parsed` を追加すると、解釈されたスキャンスペックを検証し、GPU 計算を実行せずに終了します。）
+（`--dry-run` を追加すると、計算せずに入力とスキャン仕様を検証できます。）
 
 ```bash
 # 推奨: YAML/JSON spec
@@ -24,7 +24,7 @@ pairs:
  - [15, 60, 1.10, 3.00]
 YAML
 mlmm scan3d -i input.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 -s scan3d.yaml --print-parsed
+ -q 0 -s scan3d.yaml --dry-run
 ```
 
 ```bash
@@ -83,7 +83,6 @@ out_dir/ (デフォルト:./result_scan3d/)
 | `-s, --scan-lists TEXT` | YAML/JSONまたは単一inline literalで3つの距離・角度・二面角rangeを指定。原子は整数indexまたはPDB selector。 | `--csv` 指定時を除き必須 |
 | `--csv FILE` | 事前計算済み `surface.csv` を読み込みスキャンなしでプロット生成。 | _None_ |
 | `--one-based / --zero-based` | `(i, j)` インデックスを 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
-| `--print-parsed/--no-print-parsed` | `-s/--scan-lists` 解釈後のペア情報を表示。 | `False` |
 | `--max-step-size FLOAT` | ステップごとの最大距離増分 (Å)。グリッド密度を制御。 | `0.20` |
 | `--max-angle-step-size FLOAT` | 角度の1stepあたりの最大変化量（度）。 | `5.0` |
 | `--max-dihedral-step-size FLOAT` | 二面角の1stepあたりの最大変化量（度）。 | `10.0` |

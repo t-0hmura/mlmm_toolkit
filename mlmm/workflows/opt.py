@@ -1,5 +1,7 @@
 """ML/MM geometry optimization with L-BFGS or RFO."""
 
+from mlmm.cli.completion import completion_guard, record_completion
+
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -1535,7 +1537,7 @@ def cli(
         click.echo(f"[input] Using XYZ coordinates from {input_path.name}, PDB topology from {ref_pdb.name}")
     else:
         click.echo(f"ERROR: Unsupported input format: {suffix}. Use .pdb/.cif/.mmcif or .xyz (with --ref-pdb).", err=True)
-        sys.exit(1)
+        sys.exit(2)
 
     geom_input_path = prepared_input.geom_path
     charge, spin = resolve_charge_spin_or_raise(
@@ -1552,7 +1554,7 @@ def cli(
     except click.BadParameter as e:
         click.echo(f"ERROR: {e}", err=True)
         prepared_input.cleanup()
-        sys.exit(1)
+        sys.exit(2)
 
     model_indices: Optional[List[int]] = None
     if model_indices_str:
@@ -1561,7 +1563,7 @@ def cli(
         except click.BadParameter as e:
             click.echo(f"ERROR: {e}", err=True)
             prepared_input.cleanup()
-            sys.exit(1)
+            sys.exit(2)
 
     pdb_atom_meta: List[Dict[str, Any]] = []
     if prepared_input.source_path.suffix.lower() == ".pdb":
@@ -1574,7 +1576,7 @@ def cli(
     except click.BadParameter as e:
         click.echo(f"ERROR: {e}", err=True)
         prepared_input.cleanup()
-        sys.exit(1)
+        sys.exit(2)
 
     try:
         config_layer_cfg = load_yaml_dict(config_yaml)
@@ -1726,7 +1728,7 @@ def cli(
             )
         except ValueError as exc:
             prepared_input.cleanup()
-            raise click.ClickException(str(exc)) from exc
+            raise click.BadParameter(str(exc)) from exc
 
         calc_paths = (("calc",), ("mlmm",))
         partial_explicit = (
@@ -1741,7 +1743,7 @@ def cli(
         except click.BadParameter as e:
             click.echo(f"ERROR: {e}", err=True)
             prepared_input.cleanup()
-            sys.exit(1)
+            sys.exit(2)
         geom_cfg["freeze_atoms"] = geom_freeze
         _convert_yaml_layer_atoms_1to0(calc_cfg)
         if freeze_atoms_cli:
@@ -1784,7 +1786,7 @@ def cli(
         if detect_layer_enabled and layer_source_pdb.suffix.lower() != ".pdb":
             click.echo("ERROR: --detect-layer requires a PDB input (or --ref-pdb).", err=True)
             prepared_input.cleanup()
-            sys.exit(1)
+            sys.exit(2)
 
         if show_config:
             click.echo(
@@ -1817,7 +1819,7 @@ def cli(
             else:
                 click.echo("ERROR: Provide --model-pdb or --model-indices when B-factor layer detection is disabled in the configuration.", err=True)
                 prepared_input.cleanup()
-                sys.exit(1)
+                sys.exit(2)
             if (
                 not detect_layer_enabled
                 and model_pdb_cfg is None
@@ -1826,7 +1828,7 @@ def cli(
             ):
                 click.echo("ERROR: --model-indices requires a PDB input (or --ref-pdb).", err=True)
                 prepared_input.cleanup()
-                sys.exit(1)
+                sys.exit(2)
             click.echo(
                 pretty_block(
                     "dry_run_plan",
@@ -1881,7 +1883,7 @@ def cli(
         except click.ClickException as exc:
             click.echo(f"ERROR: {exc.message}", err=True)
             prepared_input.cleanup()
-            sys.exit(1)
+            sys.exit(exc.exit_code)
 
         # When layer detection is enabled, also freeze frozen-layer atoms at the
         # optimizer geometry level (not only inside the calculator).
@@ -1963,6 +1965,8 @@ def cli(
 
         out_dir_path.mkdir(parents=True, exist_ok=True)
         coord_type = geom_cfg.get("coord_type", "cart")
+        from mlmm.core.utils import validate_geometry_config
+        validate_geometry_config(geom_cfg)
         coord_kwargs = dict(geom_cfg)
         coord_kwargs.pop("coord_type", None)
         geometry = geom_loader(
@@ -1978,7 +1982,7 @@ def cli(
                     "but the MM-only calculator does not provide one). Use --opt-mode grad.",
                     err=True,
                 )
-                sys.exit(1)
+                sys.exit(2)
             if microiter:
                 click.echo("[opt] --mm-only: microiteration disabled (no ML component to alternate with).")
                 microiter = False
@@ -2004,7 +2008,7 @@ def cli(
                 resolved_dist_freeze = _resolve_dist_freeze_targets(geometry, dist_freeze)
             except click.BadParameter as e:
                 click.echo(f"ERROR: {e}", err=True)
-                sys.exit(1)
+                sys.exit(2)
             click.echo(
                 pretty_block(
                     "dist_freeze (active)",
@@ -2369,106 +2373,107 @@ def cli(
             frozen_layer_indices=frozen_layer_indices,
         )
 
-        if out_json:
-            from mlmm.core.utils import calculator_provenance, write_result_json
-            _opt_converged = _opt_terminal_converged(
-                terminal_use_microiter,
-                terminal_microiter_result,
-                terminal_optimizer,
+        from mlmm.core.utils import calculator_provenance, write_result_json
+        _opt_converged = _opt_terminal_converged(
+            terminal_use_microiter,
+            terminal_microiter_result,
+            terminal_optimizer,
+        )
+        final_energy_hartree = unbiased_energy_hartree(geometry, base_calc)
+        # an energy-plateau stall is a distinct, additive outcome
+        # that is never reported as converged.  ``converged`` / ``not_converged``
+        # remain byte-compatible; only ``stalled`` is new.
+        provenance = calculator_provenance(calc_cfg)
+        if mm_only:
+            provenance.update(
+                {
+                    "mlip_backend": None,
+                    "mlip_model": None,
+                    "mlip_model_label": None,
+                    "mlip_task": None,
+                    "mlip_precision": None,
+                }
             )
-            final_energy_hartree = unbiased_energy_hartree(geometry, base_calc)
-            # an energy-plateau stall is a distinct, additive outcome
-            # that is never reported as converged.  ``converged`` / ``not_converged``
-            # remain byte-compatible; only ``stalled`` is new.
-            provenance = calculator_provenance(calc_cfg)
-            if mm_only:
-                provenance.update(
-                    {
-                        "mlip_backend": None,
-                        "mlip_model": None,
-                        "mlip_model_label": None,
-                        "mlip_task": None,
-                        "mlip_precision": None,
-                    }
+        result_data = {
+            "status": "stalled" if _opt_stalled else ("converged" if _opt_converged else "not_converged"),
+            "energy_hartree": final_energy_hartree,
+            "n_opt_cycles": opt_cycles_spent,
+            "opt_mode": str(opt_mode_effective),
+            **provenance,
+            "charge": calc_cfg.get("model_charge"),
+            "spin": calc_cfg.get("model_mult"),
+            "n_atoms": len(geometry.atoms),
+            "n_freeze_atoms": len(geom_cfg.get("freeze_atoms", [])),
+            "thresh": opt_cfg.get("thresh", "gau"),
+            "max_cycles": opt_cfg.get("max_cycles"),
+            "input_file": str(prepared_input.source_path),
+            "files": {
+                "final_geometry_xyz": str(final_xyz_path.name),
+            },
+        }
+        # Additive stop_reason, present only for a non-converged stop
+        # (stalled/stopped) so a genuinely converged run's JSON stays
+        # byte-compatible.
+        if _opt_stop_reason:
+            result_data["stop_reason"] = _opt_stop_reason
+        # additive microiteration serialization. Executed macro cycles
+        # already populate n_opt_cycles; n_micro_cycles and the microiteration
+        # object carry the separate micro totals + macro/micro leaf outcomes.
+        # These are additive: a converged run's legacy keys are unchanged.
+        if terminal_use_microiter and terminal_microiter_result is not None:
+            _mi_outcome = terminal_microiter_result.get("outcome")
+            if _mi_outcome is not None:
+                result_data["n_micro_cycles"] = int(
+                    terminal_microiter_result.get("micro_cycles", 0)
                 )
-            result_data = {
-                "status": "stalled" if _opt_stalled else ("converged" if _opt_converged else "not_converged"),
-                "energy_hartree": final_energy_hartree,
-                "n_opt_cycles": opt_cycles_spent,
-                "opt_mode": str(opt_mode_effective),
-                **provenance,
-                "charge": calc_cfg.get("model_charge"),
-                "spin": calc_cfg.get("model_mult"),
-                "n_atoms": len(geometry.atoms),
-                "n_freeze_atoms": len(geom_cfg.get("freeze_atoms", [])),
-                "thresh": opt_cfg.get("thresh", "gau"),
-                "max_cycles": opt_cfg.get("max_cycles"),
-                "input_file": str(prepared_input.source_path),
-                "files": {
-                    "final_geometry_xyz": str(final_xyz_path.name),
-                },
+                result_data["microiteration"] = _mi_outcome.to_result_object()
+        elif bool(microiter) and microiter_fallback_reason:
+            result_data["microiteration"] = {
+                "requested": True,
+                "used": False,
+                "fallback_reason": microiter_fallback_reason,
             }
-            # Additive stop_reason, present only for a non-converged stop
-            # (stalled/stopped) so a genuinely converged run's JSON stays
-            # byte-compatible.
-            if _opt_stop_reason:
-                result_data["stop_reason"] = _opt_stop_reason
-            # additive microiteration serialization. Executed macro cycles
-            # already populate n_opt_cycles; n_micro_cycles and the microiteration
-            # object carry the separate micro totals + macro/micro leaf outcomes.
-            # These are additive: a converged run's legacy keys are unchanged.
-            if terminal_use_microiter and terminal_microiter_result is not None:
-                _mi_outcome = terminal_microiter_result.get("outcome")
-                if _mi_outcome is not None:
-                    result_data["n_micro_cycles"] = int(
-                        terminal_microiter_result.get("micro_cycles", 0)
-                    )
-                    result_data["microiteration"] = _mi_outcome.to_result_object()
-            elif bool(microiter) and microiter_fallback_reason:
-                result_data["microiteration"] = {
-                    "requested": True,
-                    "used": False,
-                    "fallback_reason": microiter_fallback_reason,
-                }
-            if rigid_projection_info:
-                result_data["rigid_projection"] = dict(rigid_projection_info)
-            # Final force convergence values
-            if (
-                terminal_optimizer is not None
-                and hasattr(terminal_optimizer, "max_forces")
-                and terminal_optimizer.max_forces
-            ):
-                result_data["final_max_force"] = float(terminal_optimizer.max_forces[-1])
-                result_data["final_rms_force"] = float(terminal_optimizer.rms_forces[-1])
-            # Convergence thresholds (numeric values for the named preset)
-            if (
-                terminal_optimizer is not None
-                and hasattr(terminal_optimizer, "convergence")
-                and terminal_optimizer.convergence
-            ):
-                result_data["convergence_thresholds"] = {
-                    k: float(v)
-                    for k, v in terminal_optimizer.convergence.items()
-                }
-            # Final step convergence values
-            if (
-                terminal_optimizer is not None
-                and hasattr(terminal_optimizer, "max_steps")
-                and terminal_optimizer.max_steps
-            ):
-                result_data["final_max_step"] = float(terminal_optimizer.max_steps[-1])
-                result_data["final_rms_step"] = float(terminal_optimizer.rms_steps[-1])
-            # Add PDB/GJF if generated
-            for ext in (".pdb", ".gjf"):
-                f = out_dir_path / f"final_geometry{ext}"
-                if f.exists():
-                    result_data["files"][f"final_geometry_{ext[1:]}"] = f.name
-            # Add trajectory files if they exist
-            for name in ("optimization_trj.xyz", "optimization.pdb"):
-                _tf = out_dir_path / name
-                if _tf.exists():
-                    key = name.replace(".", "_").replace("-", "_")
-                    result_data["files"][key] = name
+        if rigid_projection_info:
+            result_data["rigid_projection"] = dict(rigid_projection_info)
+        # Final force convergence values
+        if (
+            terminal_optimizer is not None
+            and hasattr(terminal_optimizer, "max_forces")
+            and terminal_optimizer.max_forces
+        ):
+            result_data["final_max_force"] = float(terminal_optimizer.max_forces[-1])
+            result_data["final_rms_force"] = float(terminal_optimizer.rms_forces[-1])
+        # Convergence thresholds (numeric values for the named preset)
+        if (
+            terminal_optimizer is not None
+            and hasattr(terminal_optimizer, "convergence")
+            and terminal_optimizer.convergence
+        ):
+            result_data["convergence_thresholds"] = {
+                k: float(v)
+                for k, v in terminal_optimizer.convergence.items()
+            }
+        # Final step convergence values
+        if (
+            terminal_optimizer is not None
+            and hasattr(terminal_optimizer, "max_steps")
+            and terminal_optimizer.max_steps
+        ):
+            result_data["final_max_step"] = float(terminal_optimizer.max_steps[-1])
+            result_data["final_rms_step"] = float(terminal_optimizer.rms_steps[-1])
+        # Add PDB/GJF if generated
+        for ext in (".pdb", ".gjf"):
+            f = out_dir_path / f"final_geometry{ext}"
+            if f.exists():
+                result_data["files"][f"final_geometry_{ext[1:]}"] = f.name
+        # Add trajectory files if they exist
+        for name in ("optimization_trj.xyz", "optimization.pdb"):
+            _tf = out_dir_path / name
+            if _tf.exists():
+                key = name.replace(".", "_").replace("-", "_")
+                result_data["files"][key] = name
+        record_completion(result_data, command='opt')
+        if out_json:
             write_result_json(
                 out_dir_path, result_data,
                 command="opt",
@@ -2483,11 +2488,11 @@ def cli(
     except ZeroStepLength as e:
         _write_error_json(error_out_dir, "opt", e, "ZeroStepLength", time_start)
         click.echo("ERROR: Step length fell below the minimum allowed (ZeroStepLength).", err=True)
-        sys.exit(2)
+        sys.exit(1)
     except OptimizationError as e:
         _write_error_json(error_out_dir, "opt", e, "OptimizationError", time_start)
         click.echo(f"ERROR: Optimization failed - {e}", err=True)
-        sys.exit(3)
+        sys.exit(1)
     except KeyboardInterrupt:
         click.echo("\nInterrupted by user.", err=True)
         sys.exit(130)
@@ -2509,5 +2514,8 @@ def cli(
 
 
 # Allow `python -m mlmm.opt` direct execution
+
+cli.callback = completion_guard(cli.callback)
+
 if __name__ == "__main__":
     cli()

@@ -32,7 +32,7 @@ pairs:
  - [10, 55, 1.20, 3.20]
 YAML
 mlmm scan2d -i input.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 -s scan2d.yaml --print-parsed
+ -q 0 -s scan2d.yaml --dry-run
 ```
 
 Alternative: inline Python literal.
@@ -53,7 +53,7 @@ mlmm scan2d -i input.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
  --zmin 0.0 --zmax 40.0
 ```
 
-Add `--print-parsed` to validate the parsed scan spec and exit without running the GPU calculation.
+Add `--dry-run` to validate the input and scan spec without calculating.
 
 ## Workflow
 
@@ -102,7 +102,6 @@ The full flag list is in the generated [command reference](reference/commands/in
 | `--movable-cutoff FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. Providing this disables `--detect-layer`. | _None_ |
 | `-s, --scan-lists TEXT` | Two distance, angle, or dihedral ranges in YAML/JSON or one inline Python literal. Indices can be integers or PDB atom selectors. | Required |
 | `--one-based / --zero-based` | Interpret `(i,j)` indices in `-s/--scan-lists` as 1-based or 0-based. | `True` (1-based) |
-| `--print-parsed/--no-print-parsed` | Print parsed pair tuples after `-s/--scan-lists` resolution. | `False` |
 | `--max-step-size FLOAT` | Maximum distance increment per step (Å). Determines grid density. | `0.20` |
 | `--max-angle-step-size FLOAT` | Maximum angle change per step (degrees). | `5.0` |
 | `--max-dihedral-step-size FLOAT` | Maximum dihedral change per step (degrees). | `10.0` |

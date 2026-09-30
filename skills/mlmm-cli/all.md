@@ -173,7 +173,7 @@ summary.
 
 - `--scan-lists` is a Python literal-eval expression. Most
   shell-quoting trouble traces back to single vs double quotes.
-- If the top-level `status` in `summary.json` is `"partial"` or `"failed"`,
+- If the top-level `scientific_status` in `summary.json` is `"partial"` or `"failed"`,
   read `status_reasons` and the matching `summary.log` block. Per-stage
   `result.json` exists only for `ts/` and `irc/` (and endpoint-opt and
   path-opt), not for `freq/` or `dft/`.

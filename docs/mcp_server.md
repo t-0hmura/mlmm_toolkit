@@ -19,7 +19,9 @@ script.
 22 tools, one per CLI subcommand. Each tool returns a structured dict (`SubcmdResultDict` in `mlmm.mcp._runner`) with:
 
 - `schema_version`: envelope version. Live value: `mlmm.mcp._runner.MCP_SUBCMD_RESULT_SCHEMA_VERSION`. A version bump signals a field-set or value-type change; pin to the constant rather than the literal value in this doc.
-- `status`: `ok` | `failed` | `summary_missing` | `summary_parse_error` | `summary_run_mismatch`
+- `execution_status`: `completed` | `failed`
+- `scientific_status`: `success` | `partial` | `failed`
+- `summary_status`: `ok` | `not_required` | `summary_missing` | `summary_parse_error` | `summary_run_mismatch`
 - `exit_code`: subprocess exit code
 - `out_dir`: working directory the CLI wrote to
 - `summary`: parsed `summary.json` (CLI output schema; see [JSON Output Reference](json-output.md) for the per-stage shape)
@@ -28,7 +30,7 @@ script.
 - `argv`: the full argv that was executed (for reproducibility)
 - `run_id`: UUID assigned to this subprocess invocation
 
-For typed-Python consumers, `mlmm.mcp._runner` also exposes `SubcmdResultDict` (a `TypedDict` mirroring the runtime payload) and `MCP_SUBCMD_RESULT_STATUSES` (the enum tuple of allowed `status` strings).
+For typed-Python consumers, `mlmm.mcp._runner` also exposes `SubcmdResultDict` (a `TypedDict` mirroring the runtime payload) and `MCP_SUMMARY_STATUS_VALUES` (the allowed summary-reading diagnostics).
 
 The server binds `mlmm` to the Python interpreter and imported module that
 host the MCP server (`python -m mlmm`), prepends that source root to the child

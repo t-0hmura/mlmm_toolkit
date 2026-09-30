@@ -633,7 +633,7 @@ def test_grid_scan_surface_records_measured_and_target_coordinates(
         ("scan3d", "[(1,2,1.000,1.000),(2,3,1.000,1.000),(3,4,1.000,1.000)]"),
     ],
 )
-def test_grid_scan_insufficient_plot_data_writes_error_json_without_out_json(
+def test_grid_scan_insufficient_plot_data_skips_plots_without_error_json(
     tmp_path: Path, monkeypatch, command: str, scan_lists: str,
 ) -> None:
     from mlmm.workflows import scan2d, scan3d
@@ -645,11 +645,10 @@ def test_grid_scan_insufficient_plot_data_writes_error_json_without_out_json(
         tmp_path, monkeypatch, command, scan_lists, "--no-out-json"
     )
 
-    assert result.exit_code == 1, result.output
-    assert "[plot] ERROR:" in result.output
+    assert result.exit_code == 0, result.output
+    assert "[plot] NOTE:" in result.output
+    assert "[plot] ERROR:" not in result.output
     assert "Traceback" not in result.output
     assert (out_dir / "surface.csv").exists()
-    payload = json.loads((out_dir / "result.json").read_text(encoding="utf-8"))
-    assert payload["status"] == "error"
-    assert payload["error_label"] == "InsufficientPlotData"
-    assert payload["error_type"] == "ValueError"
+    assert not (out_dir / "result.json").exists()
+    assert not list(out_dir.glob("*.html"))

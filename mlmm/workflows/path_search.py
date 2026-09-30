@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from mlmm.cli.completion import completion_guard, record_completion
+
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -1245,6 +1247,9 @@ def _enrich_path_summary_contract(
         legacy_status = "partial"
     summary["status"] = legacy_status
     attach_outcomes(summary, truth=path_truth, stage_outcomes=path_leaves)
+    summary.pop("status", None)
+    summary.pop("status_reasons", None)
+    record_completion(summary, command="path-search")
     summary.update(calculator_provenance(calc_cfg))
     summary["charge"] = calc_cfg.get("model_charge")
     summary["spin"] = calc_cfg.get("model_mult")
@@ -1825,6 +1830,15 @@ def _build_multistep_path(
     help="Single-structure optimizer: grad (=LBFGS) or hess (=RFO).",
 )
 @click.option(
+    "--print-every",
+    "print_every",
+    type=click.IntRange(min=1),
+    default=None,
+    show_default="100",
+    hidden=True,
+    help="Print single-structure optimizer status every N cycles (not GSM/DMF).",
+)
+@click.option(
     "--dump/--no-dump",
     default=False,
     show_default=True,
@@ -2005,6 +2019,7 @@ def cli(
     max_cycles_dmf: Optional[int],
     climb: bool,
     opt_mode: str,
+    print_every: Optional[int],
     dump: bool,
     out_dir: str,
     thresh: Optional[str],
@@ -2180,7 +2195,7 @@ def cli(
             geom_freeze = _normalize_geom_freeze(geom_cfg.get("freeze_atoms"))
         except click.BadParameter as e:
             click.echo(f"ERROR: {e}", err=True)
-            sys.exit(1)
+            sys.exit(2)
         geom_cfg["freeze_atoms"] = geom_freeze
         _convert_yaml_layer_atoms_1to0(calc_cfg)
 
@@ -2188,7 +2203,7 @@ def cli(
             cli_freeze = _parse_freeze_atoms(freeze_atoms_text)
         except click.BadParameter as e:
             click.echo(f"ERROR: {e}", err=True)
-            sys.exit(1)
+            sys.exit(2)
 
         model_indices: Optional[List[int]] = None
         if model_indices_str:
@@ -2196,7 +2211,7 @@ def cli(
                 model_indices = parse_indices_string(model_indices_str, one_based=model_indices_one_based)
             except click.BadParameter as e:
                 click.echo(f"ERROR: {e}", err=True)
-                sys.exit(1)
+                sys.exit(2)
         if cli_freeze:
             merge_freeze_atom_indices(geom_cfg, cli_freeze)
 
@@ -2265,6 +2280,9 @@ def cli(
             stopt_cfg["thresh"] = str(thresh_gsm)
         if _is_param_explicit("thresh_dmf") and thresh_dmf is not None:
             dmf_cfg["tol"] = str(thresh_dmf)
+        if _is_param_explicit("print_every") and print_every is not None:
+            lbfgs_cfg["print_every"] = int(print_every)
+            rfo_cfg["print_every"] = int(print_every)
         if _is_param_explicit("movable_cutoff") and movable_cutoff is not None:
             calc_cfg["movable_cutoff"] = float(movable_cutoff)
             detect_layer_effective = False
@@ -2365,7 +2383,7 @@ def cli(
             layer_source_pdb = prepared_inputs[0].source_path.resolve()
         if detect_layer_effective and layer_source_pdb.suffix.lower() != ".pdb":
             click.echo("ERROR: --detect-layer requires a PDB input (or --ref-pdb).", err=True)
-            sys.exit(1)
+            sys.exit(2)
 
         stopt_cfg["stop_in_when_full"] = optional_positive_int(
             stopt_cfg.get("max_cycles"), "stopt.max_cycles"
@@ -2440,7 +2458,7 @@ def cli(
                     )
             except click.ClickException as exc:
                 click.echo(f"ERROR: {exc.message}", err=True)
-                sys.exit(1)
+                sys.exit(exc.exit_code)
 
             _echo_settings_blocks()
 
@@ -2504,7 +2522,7 @@ def cli(
             )
         except click.ClickException as exc:
             click.echo(f"ERROR: {exc.message}", err=True)
-            sys.exit(1)
+            sys.exit(exc.exit_code)
         freeze_atoms_final = apply_layer_freeze_constraints(
             geom_cfg,
             calc_cfg,
@@ -3110,11 +3128,11 @@ def cli(
     except ZeroStepLength as e:
         _write_error_json(error_out_dir, "path-search", e, "path search", time_start)
         click.echo("ERROR: Proposed step length dropped below the minimum allowed (ZeroStepLength).", err=True)
-        sys.exit(2)
+        sys.exit(1)
     except OptimizationError as e:
         _write_error_json(error_out_dir, "path-search", e, "path search", time_start)
         click.echo(f"ERROR: Path search failed — {e}", err=True)
-        sys.exit(3)
+        sys.exit(1)
     except KeyboardInterrupt:
         click.echo("\nInterrupted by user.", err=True)
         sys.exit(130)
@@ -3133,3 +3151,5 @@ def cli(
         gc.collect()  # break cyclic refs inside torch.nn.Module
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
+
+cli.callback = completion_guard(cli.callback)

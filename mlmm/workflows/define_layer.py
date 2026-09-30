@@ -6,6 +6,8 @@ Example:
 For detailed documentation, see: docs/define_layer.md
 """
 
+from mlmm.cli.completion import completion_guard
+
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import sys
@@ -596,7 +598,7 @@ def cli(
             'recover: pass --model-pdb /path/to/ml_region.pdb OR --model-indices "1,5,8-12"',
             err=True,
         )
-        sys.exit(1)
+        sys.exit(2)
 
     # Validate radii
     if radius_freeze < 0:
@@ -605,7 +607,7 @@ def cli(
             "recover: use a value >= 0 (e.g., --radius-freeze 10.0). Pass 0 to disable.",
             err=True,
         )
-        sys.exit(1)
+        sys.exit(2)
 
     # Parse model indices if provided
     model_indices = None
@@ -614,7 +616,7 @@ def cli(
             model_indices = _parse_indices_string(model_indices_str, one_based)
         except click.BadParameter as e:
             click.echo(f"ERROR: {e}", err=True)
-            sys.exit(1)
+            sys.exit(2)
 
     # Default output path
     if output_pdb is None:
@@ -661,7 +663,7 @@ def cli(
 
     except ValueError as e:
         click.echo(f"ERROR: {e}", err=True)
-        sys.exit(1)
+        sys.exit(2)
     except Exception as e:
         click.echo(f"ERROR: Unexpected error: {e}", err=True)
         sys.exit(1)
@@ -672,6 +674,7 @@ def cli(
         narrative=True,
     )
 
+cli.callback = completion_guard(cli.callback)
 
 if __name__ == "__main__":
     cli()

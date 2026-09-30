@@ -187,8 +187,8 @@ Options:
   --preopt / --no-preopt          Run initial single-structure optimizations of
                                   the pocket inputs.  [default: preopt]
   --hessian-calc-mode [analytical|finitedifference]
-                                  Common MLIP Hessian mode forwarded to tsopt
-                                  and freq. Runtime and memory depend on the
+                                  Common MLIP Hessian mode forwarded to tsopt,
+                                  irc and freq. Runtime and memory depend on the
                                   backend and system; compare both modes on a
                                   representative pilot.  [default:
                                   (FiniteDifference)]

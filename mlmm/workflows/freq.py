@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from mlmm.cli.completion import completion_guard
+
 import gc
 import logging
 import sys
@@ -1000,10 +1002,10 @@ def cli(
     suffix = input_path.suffix.lower()
     if suffix not in (".pdb", ".cif", ".mmcif", ".xyz"):
         click.echo("ERROR: --input must be a PDB, mmCIF, or XYZ file.", err=True)
-        sys.exit(1)
+        sys.exit(2)
     if suffix == ".xyz" and ref_pdb is None:
         click.echo("ERROR: --ref-pdb is required when --input is an XYZ file.", err=True)
-        sys.exit(1)
+        sys.exit(2)
 
     prepared_input = prepare_input_structure(input_path)
     try:
@@ -1011,7 +1013,7 @@ def cli(
     except click.BadParameter as e:
         click.echo(f"ERROR: {e}", err=True)
         prepared_input.cleanup()
-        sys.exit(1)
+        sys.exit(2)
 
     geom_input_path = prepared_input.geom_path
     source_path = prepared_input.source_path  # PDB topology for output conversion
@@ -1029,7 +1031,7 @@ def cli(
     except click.BadParameter as e:
         click.echo(f"ERROR: {e}", err=True)
         prepared_input.cleanup()
-        sys.exit(1)
+        sys.exit(2)
 
     model_indices: Optional[List[int]] = None
     if model_indices_str:
@@ -1038,7 +1040,7 @@ def cli(
         except click.BadParameter as e:
             click.echo(f"ERROR: {e}", err=True)
             prepared_input.cleanup()
-            sys.exit(1)
+            sys.exit(2)
 
     try:
         config_layer_cfg = load_yaml_dict(config_yaml)
@@ -1046,7 +1048,7 @@ def cli(
     except ValueError as e:
         click.echo(f"ERROR: {e}", err=True)
         prepared_input.cleanup()
-        sys.exit(1)
+        sys.exit(2)
 
     geom_cfg = deepcopy(GEOM_KW)
     calc_cfg = deepcopy(CALC_KW)
@@ -1246,7 +1248,7 @@ def cli(
     except click.BadParameter as e:
         click.echo(f"ERROR: {e}", err=True)
         prepared_input.cleanup()
-        sys.exit(1)
+        sys.exit(2)
     geom_cfg["freeze_atoms"] = geom_freeze
     _convert_yaml_layer_atoms_1to0(calc_cfg)
     if freeze_atoms_cli:
@@ -1300,11 +1302,11 @@ def cli(
         else:
             click.echo("ERROR: Provide --model-pdb or --model-indices when B-factor layer detection is disabled in the configuration.", err=True)
             prepared_input.cleanup()
-            sys.exit(1)
+            sys.exit(2)
         if detect_layer_enabled and layer_source_pdb.suffix.lower() != ".pdb":
             click.echo("ERROR: --detect-layer requires a PDB input (or --ref-pdb).", err=True)
             prepared_input.cleanup()
-            sys.exit(1)
+            sys.exit(2)
         if (
             not detect_layer_enabled
             and model_pdb_cfg is None
@@ -1313,7 +1315,7 @@ def cli(
         ):
             click.echo("ERROR: --model-indices requires a PDB input (or --ref-pdb).", err=True)
             prepared_input.cleanup()
-            sys.exit(1)
+            sys.exit(2)
         click.echo(
             pretty_block(
                 "dry_run_plan",
@@ -1380,7 +1382,7 @@ def cli(
     if detect_layer_enabled and layer_source_pdb.suffix.lower() != ".pdb":
         click.echo("ERROR: --detect-layer requires a PDB input (or --ref-pdb).", err=True)
         prepared_input.cleanup()
-        sys.exit(1)
+        sys.exit(2)
 
     try:
         model_pdb_path, layer_info = resolve_ml_layer_assignment(
@@ -1398,7 +1400,7 @@ def cli(
     except click.ClickException as exc:
         click.echo(f"ERROR: {exc.message}", err=True)
         prepared_input.cleanup()
-        sys.exit(1)
+        sys.exit(exc.exit_code)
     freeze_atoms_final = apply_layer_freeze_constraints(
         geom_cfg,
         calc_cfg,
@@ -1432,6 +1434,8 @@ def cli(
     # coordinates (dlc/redund/tric) give no benefit and the result is identical.
     # Fixed to cartesian (also ignores any coord_type injected by `mlmm all`).
     coord_type = "cart"
+    from mlmm.core.utils import validate_geometry_config
+    validate_geometry_config(geom_cfg)
     coord_kwargs = dict(geom_cfg)
     coord_kwargs.pop("coord_type", None)
     geometry = geom_loader(geom_input_path, coord_type=coord_type, **coord_kwargs)
@@ -1939,5 +1943,8 @@ def cli(
 
 
 # Allow `python -m mlmm.freq` direct execution
+
+cli.callback = completion_guard(cli.callback)
+
 if __name__ == "__main__":
     cli()

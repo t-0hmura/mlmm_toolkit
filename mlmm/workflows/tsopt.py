@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from mlmm.cli.completion import completion_guard, record_completion
+
 import contextlib
 import gc
 import io
@@ -81,6 +83,7 @@ from mlmm.core.utils import (
     is_convert_file_enabled,
     load_yaml_dict,
     apply_yaml_overrides,
+    unused_nested_yaml_sections,
     pretty_block,
     strip_inherited_keys,
     resolve_shared_optimizer_value,
@@ -567,7 +570,7 @@ def _load_initial_hessian_file(path, geom, calc_kwargs: Dict[str, Any]) -> Dict[
     try:
         hessian = load_hessian_file(path, n_atoms=len(geom.atomic_numbers), active_dofs=dofs)
     except ValueError as exc:
-        raise click.ClickException(str(exc)) from exc
+        raise click.BadParameter(str(exc)) from exc
     emit(f"[tsopt] Initial Hessian read from {path}.", narrative=True)
     return {"hessian": hessian, "active_dofs": dofs}
 
@@ -3811,13 +3814,13 @@ def cli(
         # XYZ input: require --ref-pdb for topology
         if ref_pdb is None:
             click.echo("ERROR: XYZ/TRJ input requires --ref-pdb to specify PDB topology.", err=True)
-            sys.exit(1)
+            sys.exit(2)
         prepared_input = prepare_input_structure(input_path)
         apply_ref_pdb_override(prepared_input, ref_pdb)
         click.echo(f"[input] Using XYZ coordinates from {input_path.name}, PDB topology from {ref_pdb.name}")
     else:
         click.echo(f"ERROR: Unsupported input format: {suffix}. Use .pdb/.cif/.mmcif or .xyz (with --ref-pdb).", err=True)
-        sys.exit(1)
+        sys.exit(2)
 
     geom_input_path = prepared_input.geom_path
     source_path = prepared_input.source_path
@@ -3852,7 +3855,7 @@ def cli(
     except click.BadParameter as e:
         click.echo(f"ERROR: {e}", err=True)
         prepared_input.cleanup()
-        sys.exit(1)
+        sys.exit(2)
 
     model_indices: Optional[List[int]] = None
     if model_indices_str:
@@ -3861,7 +3864,7 @@ def cli(
         except click.BadParameter as e:
             click.echo(f"ERROR: {e}", err=True)
             prepared_input.cleanup()
-            sys.exit(1)
+            sys.exit(2)
 
     time_start = time.perf_counter()
 
@@ -4001,6 +4004,15 @@ def cli(
             (frequency_cfg, (("freq",),)),
         ],
     )
+    # opt.lbfgs is read above for the microiteration MM relaxation.
+    _unused_yaml = unused_nested_yaml_sections(
+        merged_yaml_cfg, read=(("opt", "lbfgs"),)
+    )
+    if _unused_yaml:
+        click.echo(
+            "[tsopt] NOTE: Ignoring YAML sections that tsopt does not use: "
+            f"{', '.join(_unused_yaml)}."
+        )
     def _yaml_has(paths: Tuple[Tuple[str, ...], ...], key: str) -> bool:
         return yaml_section_has_key(config_layer_cfg, paths, key) or yaml_section_has_key(
             override_layer_cfg, paths, key
@@ -4137,7 +4149,7 @@ def cli(
         )
     except ValueError as exc:
         prepared_input.cleanup()
-        raise click.ClickException(str(exc)) from exc
+        raise click.BadParameter(str(exc)) from exc
 
     calc_paths = (("calc",), ("mlmm",))
     partial_explicit = (
@@ -4178,7 +4190,7 @@ def cli(
     except click.BadParameter as e:
         click.echo(f"ERROR: {e}", err=True)
         prepared_input.cleanup()
-        sys.exit(1)
+        sys.exit(2)
     geom_cfg["freeze_atoms"] = geom_freeze
     _convert_yaml_layer_atoms_1to0(calc_cfg)
     if freeze_atoms_cli:
@@ -4220,7 +4232,7 @@ def cli(
     if detect_layer_enabled and layer_source_pdb.suffix.lower() != ".pdb":
         click.echo("ERROR: --detect-layer requires a PDB input (or --ref-pdb).", err=True)
         prepared_input.cleanup()
-        sys.exit(1)
+        sys.exit(2)
 
     if use_heavy and read_hess and rsirfo_cfg.get("hessian_init", "calc") != "calc":
         prepared_input.cleanup()
@@ -4250,7 +4262,7 @@ def cli(
         else:
             click.echo("ERROR: Provide --model-pdb or --model-indices when B-factor layer detection is disabled in the configuration.", err=True)
             prepared_input.cleanup()
-            sys.exit(1)
+            sys.exit(2)
         if (
             not detect_layer_enabled
             and model_pdb_cfg is None
@@ -4259,7 +4271,7 @@ def cli(
         ):
             click.echo("ERROR: --model-indices requires a PDB input (or --ref-pdb).", err=True)
             prepared_input.cleanup()
-            sys.exit(1)
+            sys.exit(2)
         click.echo(
             pretty_block(
                 "dry_run_plan",
@@ -4346,7 +4358,7 @@ def cli(
     except click.ClickException as exc:
         click.echo(f"ERROR: {exc.message}", err=True)
         prepared_input.cleanup()
-        sys.exit(1)
+        sys.exit(exc.exit_code)
     freeze_atoms_final = apply_layer_freeze_constraints(
         geom_cfg,
         calc_cfg,
@@ -4409,6 +4421,8 @@ def cli(
                 optim_all_path.unlink()
 
             coord_type = geom_cfg.get("coord_type", "cart")
+            from mlmm.core.utils import validate_geometry_config
+            validate_geometry_config(geom_cfg)
             coord_kwargs = dict(geom_cfg)
             coord_kwargs.pop("coord_type", None)
             geometry = geom_loader(
@@ -4557,6 +4571,21 @@ def cli(
                     "(--skip-final-freq).",
                     err=True,
                 )
+            # Flattening starts from the terminal Hessian; say why it is absent.
+            _flatten_configured = int(simple_cfg.get("flatten_max_iter", 0)) > 0
+            if _flatten_configured and hessian_postprocessing_ready and not _do_final_freq:
+                _flatten_skip_reason = "final Hessian skipped (--skip-final-freq)"
+            elif (
+                _flatten_configured
+                and not getattr(last_optimizer, "is_converged", False)
+                and not getattr(last_optimizer, "is_stalled", False)
+                and _heavy_cycle_ledger.remaining is not None
+                and _heavy_cycle_ledger.remaining <= 0
+            ):
+                _flatten_skip_reason = (
+                    "max-cycles budget exhausted before flattening"
+                )
+                click.echo("[tsopt] Reached --max-cycles budget; skipping flatten loop.")
             mlmm_kwargs_for_heavy = _post_analysis_hessian_config(
                 calc_cfg,
                 partial=partial_hessian_flatten_effective,
@@ -5082,6 +5111,15 @@ def cli(
                             geometry.as_xyz(), encoding="utf-8"
                         )
                         if not hessian_postprocessing_ready:
+                            if (
+                                not getattr(last_optimizer, "is_converged", False)
+                                and not getattr(last_optimizer, "is_stalled", False)
+                                and _heavy_cycle_ledger.remaining is not None
+                                and _heavy_cycle_ledger.remaining <= 0
+                            ):
+                                _flatten_skip_reason = (
+                                    "max-cycles budget exhausted during flattening"
+                                )
                             freqs_cm, modes = None, None
                             break
                         if (
@@ -5368,199 +5406,200 @@ def cli(
         else:
             final_xyz = out_dir_path / "final_geometry.xyz"
 
+        from mlmm.core.utils import calculator_provenance, write_result_json
+        _tsopt_imag_freqs: Optional[list] = []
+        _tsopt_n_imag: Optional[int] = None
+        _tsopt_n_negative: Optional[int] = None
+        _tsopt_energy = None
+        _tsopt_saddle_validation = "unavailable"
+        _tsopt_hessian_status = "unavailable"
+        _tsopt_hessian_error = None
+        _tsopt_reaction_mode_index = None
+        _tsopt_reaction_mode_frequency = None
+        _tsopt_reaction_mode_overlap = None
+
+        if use_heavy:
+            # Hessian path: use data captured before optimizer release.
+            _tsopt_status = _heavy_status
+            _tsopt_imag_freqs = _heavy_imag_freqs
+            _tsopt_n_imag = _heavy_n_imag
+            _tsopt_n_negative = _heavy_n_negative
+            _tsopt_energy = _heavy_energy
+            _tsopt_saddle_validation = _heavy_saddle_validation
+            _tsopt_hessian_status = _hessian_result_status(
+                n_imaginary=_heavy_n_imag,
+                hessian_error=hessian_error,
+                postprocessing_ready=hessian_postprocessing_ready,
+                explicitly_skipped=bool(skip_final_freq),
+            )
+            _tsopt_hessian_error = hessian_error
+            _tsopt_reaction_mode_index = _heavy_reaction_mode_index
+            _tsopt_reaction_mode_frequency = _heavy_reaction_mode_frequency
+            _tsopt_reaction_mode_overlap = _heavy_reaction_mode_overlap
+            _tsopt_n_atoms = len(geometry.atomic_numbers) if 'geometry' in dir() and geometry is not None else None
+            _tsopt_n_opt_cycles = (
+                _heavy_cycle_ledger.spent
+                if "_heavy_cycle_ledger" in dir()
+                else None
+            )
+        else:
+            # Dimer path: compute frequency and energy from the runner.
+            _light_optimizer_converged = bool(
+                'runner' in dir()
+                and hasattr(runner, 'is_converged')
+                and runner.is_converged
+            )
+            # a dimer runner stall (energy-plateau child) wins over
+            # every convergence/saddle-order verdict — even under
+            # --skip-final-freq — and is never a converged saddle.
+            _light_stalled = bool(
+                'runner' in dir() and getattr(runner, "is_stalled", False)
+            )
+            _tsopt_n_atoms = len(runner.geom.atomic_numbers) if 'runner' in dir() and hasattr(runner, 'geom') else None
+            _tsopt_n_opt_cycles = runner._cycles_spent if 'runner' in dir() and hasattr(runner, '_cycles_spent') else None
+            _tsopt_status = (
+                "stalled"
+                if _light_stalled
+                else "converged" if _light_optimizer_converged
+                else "not_converged"
+            )
+            if 'runner' in dir() and (not skip_final_freq or _light_stalled):
+                _tsopt_n_imag = getattr(runner, "n_imaginary_modes", None)
+                _tsopt_n_negative = getattr(runner, "n_negative_modes", None)
+                _tsopt_imag_freqs = list(
+                    getattr(runner, "imaginary_frequencies_cm", [])
+                )
+            _tsopt_saddle_validation = _saddle_validation_from_count(
+                _tsopt_n_imag, _tsopt_n_negative
+            )
+            _tsopt_hessian_status = (
+                getattr(runner, "hessian_status", "unavailable")
+                if 'runner' in dir()
+                else "unavailable"
+            )
+            _tsopt_hessian_error = (
+                getattr(runner, "hessian_error", None)
+                if 'runner' in dir()
+                else None
+            )
+            if _tsopt_n_imag and _tsopt_n_imag > 0:
+                _tsopt_reaction_mode_index = 0
+                _tsopt_reaction_mode_frequency = float(
+                    _tsopt_imag_freqs[0]
+                ) if _tsopt_imag_freqs else None
+            if 'runner' in dir() and hasattr(runner, 'geom'):
+                _tsopt_energy = _calc_energy(runner.geom, calc_cfg)
+
+        result_data = {
+            "status": _tsopt_status,
+            "optimization_status": _tsopt_status,
+            "saddle_validation": _tsopt_saddle_validation,
+            "saddle_order_verified": _tsopt_saddle_validation == "first_order",
+            "hessian_status": _tsopt_hessian_status,
+            "hessian_error": _tsopt_hessian_error,
+            "reaction_mode_index": _tsopt_reaction_mode_index,
+            "reaction_mode_frequency_cm": _tsopt_reaction_mode_frequency,
+            "reaction_mode_overlap": _tsopt_reaction_mode_overlap,
+            "reaction_mode_source": (
+                "mep-reference-overlap"
+                if _tsopt_reaction_mode_overlap is not None
+                else "lowest-imaginary" if _tsopt_reaction_mode_index is not None
+                else None
+            ),
+            "flatten_requested": bool(simple_cfg.get("flatten_max_iter", 0)),
+            "flatten_enabled": bool(simple_cfg.get("flatten_max_iter", 0)),
+            "flatten_skip_reason": _flatten_skip_reason,
+            "energy_hartree": _tsopt_energy,
+            "n_imaginary_modes": _tsopt_n_imag,
+            "n_negative_modes": _tsopt_n_negative,
+            **frequency_criterion_info(frequency_cfg["zero_cutoff_cm"]),
+            "frequency_zero_cutoff_cm": float(
+                frequency_cfg["zero_cutoff_cm"]
+            ),
+            "imaginary_frequencies_cm": _tsopt_imag_freqs,
+            "opt_mode": mode_resolved,
+            "opt_mode_requested": str(opt_mode).strip().lower(),
+            "optimizer": mode_resolved,
+            "n_atoms": _tsopt_n_atoms,
+            "n_opt_cycles": _tsopt_n_opt_cycles,
+            **calculator_provenance(calc_cfg),
+            "charge": calc_cfg.get("model_charge"),
+            "spin": calc_cfg.get("model_mult"),
+            "n_freeze_atoms": len(geom_cfg.get("freeze_atoms", [])),
+            "thresh": (
+                rsirfo_cfg.get("thresh", simple_cfg.get("thresh"))
+                if use_heavy
+                else simple_cfg.get("thresh")
+            ),
+            "max_cycles": opt_cfg.get("max_cycles"),
+            "input_file": str(input_path),
+            "reference_mode_file": (
+                None if reference_mode_path is None else str(reference_mode_path)
+            ),
+            "reference_mode_candidate_count": len(reference_modes),
+            "reference_mode_candidate_labels": list(reference_mode_labels),
+            "reference_mode_cache": dict(reference_mode_metadata),
+            "files": {"final_geometry_xyz": "final_geometry.xyz"},
+            "rigid_projection": dict(
+                rigid_projection_info
+                if use_heavy
+                else getattr(runner, "rigid_projection_info", {})
+            ),
+        }
+        if use_heavy:
+            result_data["safeguards"] = _heavy_safeguards
+            # additive microiteration serialization (present only when the
+            # microiteration path ran). Legacy keys are unchanged.
+            if _heavy_microiteration_obj is not None:
+                if _heavy_micro_cycles is not None:
+                    result_data["n_micro_cycles"] = int(_heavy_micro_cycles)
+                result_data["microiteration"] = _heavy_microiteration_obj
+            elif microiter_fallback_reason:
+                result_data["microiteration"] = {
+                    "requested": True,
+                    "used": False,
+                    "fallback_reason": microiter_fallback_reason,
+                }
+        # Additive stop_reason, present only for a non-converged stop
+        # (stalled/stopped) so a converged TS run's JSON stays
+        # byte-compatible.
+        if use_heavy:
+            _tsopt_stop_reason = (
+                getattr(last_optimizer, "stop_reason", "") or ""
+                if 'last_optimizer' in dir()
+                else ""
+            )
+        else:
+            _tsopt_stop_reason = (
+                getattr(runner, "stop_reason", "") or ""
+                if 'runner' in dir()
+                else ""
+            )
+        if _tsopt_stop_reason:
+            result_data["stop_reason"] = _tsopt_stop_reason
+        for ext in (".pdb", ".gjf"):
+            f = out_dir_path / f"final_geometry{ext}"
+            if f.exists():
+                result_data["files"][f"final_geometry_{ext[1:]}"] = f.name
+        # Add trajectory files if they exist
+        for _trj_name in ("optimization_all_trj.xyz", "optimization_all.pdb", "optimization_trj.xyz", "optimization.pdb"):
+            _tf = out_dir_path / _trj_name
+            if _tf.exists():
+                _key = _trj_name.replace(".", "_").replace("-", "_")
+                result_data["files"][_key] = _trj_name
+        # List imaginary mode vib files
+        _vib_dir = out_dir_path / "vib"
+        if _vib_dir.exists():
+            result_data["files"]["imaginary_mode_files"] = sorted([
+                f"vib/{f.name}"
+                for pattern in ("imag_*.pdb", "imag_*_trj.xyz")
+                for f in _vib_dir.glob(pattern)
+                if f.is_file()
+            ])
+        if _dump_hess_path is not None:
+            _record_hessian_result_path(result_data["files"], _dump_hess_path)
+        record_completion(result_data, command='tsopt')
         if out_json:
-            from mlmm.core.utils import calculator_provenance, write_result_json
-            _tsopt_imag_freqs: Optional[list] = []
-            _tsopt_n_imag: Optional[int] = None
-            _tsopt_n_negative: Optional[int] = None
-            _tsopt_energy = None
-            _tsopt_saddle_validation = "unavailable"
-            _tsopt_hessian_status = "unavailable"
-            _tsopt_hessian_error = None
-            _tsopt_reaction_mode_index = None
-            _tsopt_reaction_mode_frequency = None
-            _tsopt_reaction_mode_overlap = None
-
-            if use_heavy:
-                # Hessian path: use data captured before optimizer release.
-                _tsopt_status = _heavy_status
-                _tsopt_imag_freqs = _heavy_imag_freqs
-                _tsopt_n_imag = _heavy_n_imag
-                _tsopt_n_negative = _heavy_n_negative
-                _tsopt_energy = _heavy_energy
-                _tsopt_saddle_validation = _heavy_saddle_validation
-                _tsopt_hessian_status = _hessian_result_status(
-                    n_imaginary=_heavy_n_imag,
-                    hessian_error=hessian_error,
-                    postprocessing_ready=hessian_postprocessing_ready,
-                    explicitly_skipped=bool(skip_final_freq),
-                )
-                _tsopt_hessian_error = hessian_error
-                _tsopt_reaction_mode_index = _heavy_reaction_mode_index
-                _tsopt_reaction_mode_frequency = _heavy_reaction_mode_frequency
-                _tsopt_reaction_mode_overlap = _heavy_reaction_mode_overlap
-                _tsopt_n_atoms = len(geometry.atomic_numbers) if 'geometry' in dir() and geometry is not None else None
-                _tsopt_n_opt_cycles = (
-                    _heavy_cycle_ledger.spent
-                    if "_heavy_cycle_ledger" in dir()
-                    else None
-                )
-            else:
-                # Dimer path: compute frequency and energy from the runner.
-                _light_optimizer_converged = bool(
-                    'runner' in dir()
-                    and hasattr(runner, 'is_converged')
-                    and runner.is_converged
-                )
-                # a dimer runner stall (energy-plateau child) wins over
-                # every convergence/saddle-order verdict — even under
-                # --skip-final-freq — and is never a converged saddle.
-                _light_stalled = bool(
-                    'runner' in dir() and getattr(runner, "is_stalled", False)
-                )
-                _tsopt_n_atoms = len(runner.geom.atomic_numbers) if 'runner' in dir() and hasattr(runner, 'geom') else None
-                _tsopt_n_opt_cycles = runner._cycles_spent if 'runner' in dir() and hasattr(runner, '_cycles_spent') else None
-                _tsopt_status = (
-                    "stalled"
-                    if _light_stalled
-                    else "converged" if _light_optimizer_converged
-                    else "not_converged"
-                )
-                if 'runner' in dir() and (not skip_final_freq or _light_stalled):
-                    _tsopt_n_imag = getattr(runner, "n_imaginary_modes", None)
-                    _tsopt_n_negative = getattr(runner, "n_negative_modes", None)
-                    _tsopt_imag_freqs = list(
-                        getattr(runner, "imaginary_frequencies_cm", [])
-                    )
-                _tsopt_saddle_validation = _saddle_validation_from_count(
-                    _tsopt_n_imag, _tsopt_n_negative
-                )
-                _tsopt_hessian_status = (
-                    getattr(runner, "hessian_status", "unavailable")
-                    if 'runner' in dir()
-                    else "unavailable"
-                )
-                _tsopt_hessian_error = (
-                    getattr(runner, "hessian_error", None)
-                    if 'runner' in dir()
-                    else None
-                )
-                if _tsopt_n_imag and _tsopt_n_imag > 0:
-                    _tsopt_reaction_mode_index = 0
-                    _tsopt_reaction_mode_frequency = float(
-                        _tsopt_imag_freqs[0]
-                    ) if _tsopt_imag_freqs else None
-                if 'runner' in dir() and hasattr(runner, 'geom'):
-                    _tsopt_energy = _calc_energy(runner.geom, calc_cfg)
-
-            result_data = {
-                "status": _tsopt_status,
-                "optimization_status": _tsopt_status,
-                "saddle_validation": _tsopt_saddle_validation,
-                "saddle_order_verified": _tsopt_saddle_validation == "first_order",
-                "hessian_status": _tsopt_hessian_status,
-                "hessian_error": _tsopt_hessian_error,
-                "reaction_mode_index": _tsopt_reaction_mode_index,
-                "reaction_mode_frequency_cm": _tsopt_reaction_mode_frequency,
-                "reaction_mode_overlap": _tsopt_reaction_mode_overlap,
-                "reaction_mode_source": (
-                    "mep-reference-overlap"
-                    if _tsopt_reaction_mode_overlap is not None
-                    else "lowest-imaginary" if _tsopt_reaction_mode_index is not None
-                    else None
-                ),
-                "flatten_requested": bool(simple_cfg.get("flatten_max_iter", 0)),
-                "flatten_enabled": bool(simple_cfg.get("flatten_max_iter", 0)),
-                "flatten_skip_reason": _flatten_skip_reason,
-                "energy_hartree": _tsopt_energy,
-                "n_imaginary_modes": _tsopt_n_imag,
-                "n_negative_modes": _tsopt_n_negative,
-                **frequency_criterion_info(frequency_cfg["zero_cutoff_cm"]),
-                "frequency_zero_cutoff_cm": float(
-                    frequency_cfg["zero_cutoff_cm"]
-                ),
-                "imaginary_frequencies_cm": _tsopt_imag_freqs,
-                "opt_mode": mode_resolved,
-                "opt_mode_requested": str(opt_mode).strip().lower(),
-                "optimizer": mode_resolved,
-                "n_atoms": _tsopt_n_atoms,
-                "n_opt_cycles": _tsopt_n_opt_cycles,
-                **calculator_provenance(calc_cfg),
-                "charge": calc_cfg.get("model_charge"),
-                "spin": calc_cfg.get("model_mult"),
-                "n_freeze_atoms": len(geom_cfg.get("freeze_atoms", [])),
-                "thresh": (
-                    rsirfo_cfg.get("thresh", simple_cfg.get("thresh"))
-                    if use_heavy
-                    else simple_cfg.get("thresh")
-                ),
-                "max_cycles": opt_cfg.get("max_cycles"),
-                "input_file": str(input_path),
-                "reference_mode_file": (
-                    None if reference_mode_path is None else str(reference_mode_path)
-                ),
-                "reference_mode_candidate_count": len(reference_modes),
-                "reference_mode_candidate_labels": list(reference_mode_labels),
-                "reference_mode_cache": dict(reference_mode_metadata),
-                "files": {"final_geometry_xyz": "final_geometry.xyz"},
-                "rigid_projection": dict(
-                    rigid_projection_info
-                    if use_heavy
-                    else getattr(runner, "rigid_projection_info", {})
-                ),
-            }
-            if use_heavy:
-                result_data["safeguards"] = _heavy_safeguards
-                # additive microiteration serialization (present only when the
-                # microiteration path ran). Legacy keys are unchanged.
-                if _heavy_microiteration_obj is not None:
-                    if _heavy_micro_cycles is not None:
-                        result_data["n_micro_cycles"] = int(_heavy_micro_cycles)
-                    result_data["microiteration"] = _heavy_microiteration_obj
-                elif microiter_fallback_reason:
-                    result_data["microiteration"] = {
-                        "requested": True,
-                        "used": False,
-                        "fallback_reason": microiter_fallback_reason,
-                    }
-            # Additive stop_reason, present only for a non-converged stop
-            # (stalled/stopped) so a converged TS run's JSON stays
-            # byte-compatible.
-            if use_heavy:
-                _tsopt_stop_reason = (
-                    getattr(last_optimizer, "stop_reason", "") or ""
-                    if 'last_optimizer' in dir()
-                    else ""
-                )
-            else:
-                _tsopt_stop_reason = (
-                    getattr(runner, "stop_reason", "") or ""
-                    if 'runner' in dir()
-                    else ""
-                )
-            if _tsopt_stop_reason:
-                result_data["stop_reason"] = _tsopt_stop_reason
-            for ext in (".pdb", ".gjf"):
-                f = out_dir_path / f"final_geometry{ext}"
-                if f.exists():
-                    result_data["files"][f"final_geometry_{ext[1:]}"] = f.name
-            # Add trajectory files if they exist
-            for _trj_name in ("optimization_all_trj.xyz", "optimization_all.pdb", "optimization_trj.xyz", "optimization.pdb"):
-                _tf = out_dir_path / _trj_name
-                if _tf.exists():
-                    _key = _trj_name.replace(".", "_").replace("-", "_")
-                    result_data["files"][_key] = _trj_name
-            # List imaginary mode vib files
-            _vib_dir = out_dir_path / "vib"
-            if _vib_dir.exists():
-                result_data["files"]["imaginary_mode_files"] = sorted([
-                    f"vib/{f.name}"
-                    for pattern in ("imag_*.pdb", "imag_*_trj.xyz")
-                    for f in _vib_dir.glob(pattern)
-                    if f.is_file()
-                ])
-            if _dump_hess_path is not None:
-                _record_hessian_result_path(result_data["files"], _dump_hess_path)
             write_result_json(
                 out_dir_path, result_data,
                 command="tsopt",
@@ -5576,11 +5615,11 @@ def cli(
     except ZeroStepLength as e:
         _write_error_json(out_dir_path, "tsopt", e, "ZeroStepLength", time_start)
         click.echo("ERROR: Proposed step length dropped below the minimum allowed (ZeroStepLength).", err=True)
-        sys.exit(2)
+        sys.exit(1)
     except OptimizationError as e:
         _write_error_json(out_dir_path, "tsopt", e, "OptimizationError", time_start)
         click.echo(f"ERROR: Optimization failed — {e}", err=True)
-        sys.exit(3)
+        sys.exit(1)
     except KeyboardInterrupt:
         click.echo("\nInterrupted by user.", err=True)
         sys.exit(130)
@@ -5604,5 +5643,8 @@ def cli(
 
 
 # Allow `python -m mlmm.tsopt` direct execution
+
+cli.callback = completion_guard(cli.callback)
+
 if __name__ == "__main__":
     cli()

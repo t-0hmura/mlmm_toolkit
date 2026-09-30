@@ -9,6 +9,8 @@ For detailed documentation, see: docs/mm_parm.md
 
 from __future__ import annotations
 
+from mlmm.cli.completion import completion_guard
+
 import logging
 import os
 import re
@@ -1265,3 +1267,5 @@ def cli(
         format_elapsed("[time] Elapsed Time for MM Parameters", time_start),
         narrative=True,
     )
+
+cli.callback = completion_guard(cli.callback)

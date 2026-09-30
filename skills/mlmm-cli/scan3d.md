@@ -51,7 +51,6 @@ Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
 | `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |
 | `-o, --out-dir` | path | `./result_scan3d/` | Output directory |
 | `--ref-pdb` / `--config` / `--help-advanced` | — | — | Standard |
-| `--print-parsed` | — | — | Validate the parsed scan spec without GPU compute |
 
 ## Caveats
 

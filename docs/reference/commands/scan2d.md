@@ -45,11 +45,10 @@ Options:
                                   (i,j,k,low,high), or dihedral
                                   (i,j,k,l,low,high). Distances use Å; angles
                                   and dihedrals use degrees.  [required]
-  --print-parsed / --no-print-parsed
-                                  Print parsed scan targets after resolving
-                                  --scan-lists.  [default: no-print-parsed]
-  --dry-run / --no-dry-run        Validate options and inputs without running
-                                  the scan.  [default: no-dry-run]
+  --dry-run / --no-dry-run        Resolve and validate options (input,
+                                  charge/spin, --scan-lists parse) and print the
+                                  planned scan, then exit without running any
+                                  optimization.  [default: no-dry-run]
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
   --convert-files / --no-convert-files

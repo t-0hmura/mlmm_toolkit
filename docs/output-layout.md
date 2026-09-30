@@ -78,7 +78,7 @@ subcommand = "opt"  # replace with the command you ran
 primary = "summary.json" if subcommand in {"all", "path-search"} else "result.json"
 summary = json.loads((out_dir / primary).read_text())
 
-if summary["status"] == "error":
+if summary["execution_status"] == "failed":
     chain = summary.get("error_class_chain", [])
     if "OptimizationError" in chain:
         # retry with looser convergence threshold

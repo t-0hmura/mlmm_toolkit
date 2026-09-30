@@ -172,7 +172,8 @@ def _effective_model_precision(calc_cfg: Mapping) -> tuple:
         calc_file = calc_cfg.get("calc_file")
         factory = calc_cfg.get("calc_factory") or "get_calculator"
         if calc_file:
-            model = f"{calc_file}:{factory}"
+            from pathlib import Path
+            model = f"{Path(calc_file).expanduser().resolve()}:{factory}"
         else:
             model = str(factory)
         return model, None
@@ -239,7 +240,14 @@ def _potential_identity(calc_cfg: Mapping) -> Dict[str, Any]:
     for key in ("real_parm7", "model_pdb", "input_pdb", "calc_file"):
         path = calc_cfg.get(key)
         if path:
-            potential[key] = str(path)
+            from pathlib import Path
+            from mlmm.io.structure_formats import coordinate_template_for
+
+            resolved = Path(path).expanduser().resolve()
+            template = coordinate_template_for(resolved)
+            if template is not None:
+                resolved = template.source_path.resolve()
+            potential[key] = str(resolved)
     # Explicit ML/MM Hessian region atom list when threaded through the config.
     hess_mm = calc_cfg.get("hess_mm_atoms")
     if hess_mm is not None:

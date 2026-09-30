@@ -9,6 +9,8 @@ For detailed documentation, see: docs/trj2fig.md
 
 from __future__ import annotations
 
+from mlmm.cli.completion import completion_guard
+
 import csv
 import os
 import time
@@ -533,6 +535,11 @@ def cli(
         narrative=True,
     )
 
+
+
+
+
+cli.callback = completion_guard(cli.callback)
 
 if __name__ == "__main__":
     cli()

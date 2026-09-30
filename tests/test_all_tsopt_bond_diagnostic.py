@@ -93,7 +93,7 @@ def test_all_tsopt_dispatch_ignores_bond_diagnostic(tmp_path, monkeypatch, bond_
         _write(child_out / "hei.xyz", _frame(1))
         _write(child_out / "hei.pdb", _pdb(1))
         payload = {
-            "status": "converged", "converged": True,
+            "optimization_status": "converged", "converged": True,
             "preopt_requested": False, "preopt_converged": None,
             "path_optimizers": [],
             "stage_outcomes": [{"stage": "path-opt", "item_id": "gsm_mep",

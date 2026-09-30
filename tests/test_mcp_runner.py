@@ -24,11 +24,13 @@ from mlmm.mcp._runner import (
 
 
 def test_subcmd_result_to_dict_carries_schema_version() -> None:
-    assert MCP_SUBCMD_RESULT_SCHEMA_VERSION == "1.1"
+    assert MCP_SUBCMD_RESULT_SCHEMA_VERSION == "2.0"
     r = SubcmdResult(status="ok", exit_code=0, argv=["mlmm", "opt"])
     d = r.to_dict()
     assert d["schema_version"] == MCP_SUBCMD_RESULT_SCHEMA_VERSION
-    assert d["status"] == "ok"
+    assert d["execution_status"] == "completed"
+    assert d["scientific_status"] == "success"
+    assert "status" not in d
     assert d["exit_code"] == 0
     assert d["argv"] == ["mlmm", "opt"]
 
