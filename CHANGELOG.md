@@ -82,6 +82,7 @@ Target release: **0.4.0**.
 
 ### Fixed
 
+- Scope endpoint-maximum warnings to the affected path-search interval and state that its highest-energy image is an endpoint.
 - When both `--model-pdb` and `--model-indices` are given, B-factor MM layers now exclude the `--model-pdb` atoms, matching the calculator's ML region.
 - `freq` no longer fails with `AttributeError` when it reuses a TS Hessian from an earlier stage that was stored without its energy.
 - When `tsopt --flatten` also tries the displacement in the opposite direction and keeps the first result, `--dump-hess` and IRC now use the Hessian of that result.

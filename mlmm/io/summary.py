@@ -45,8 +45,14 @@ def format_result_warning(
     human_detail = (
         human_segment_match.group(2) if human_segment_match is not None else lowered
     )
+    raw_interval_match = re.search(
+        r"(?:^|:)raw_(seg_(\d+)(?:_[a-z0-9]+)*)(?::|$)", lowered
+    )
 
     def scoped(message: str) -> str:
+        if raw_interval_match is not None:
+            number = int(raw_interval_match.group(2)) + 1
+            return f"Path-search interval {number} ({raw_interval_match.group(1)}): {message}"
         if segment is None:
             return message[0].upper() + message[1:]
         return f"Segment {segment}: {message}"
@@ -173,6 +179,21 @@ def format_result_warning(
             "segment's assigned MEP endpoints could not be validated. Review both "
             "optimized endpoint structures before using this result."
         )
+    if "endpoint_hei" in lowered:
+        message = "the highest-energy image is at an endpoint"
+        if "engine_nonconverged" in lowered:
+            message += " and the path-search engine did not converge. "
+            message += (
+                "Review this interval and its path-search log."
+                if raw_interval_match is not None else "Review the path and path-search log."
+            )
+        else:
+            message += ". "
+            message += (
+                "Review this interval before using its barrier."
+                if raw_interval_match is not None else "Review the path before using its barrier."
+            )
+        return scoped(message)
     priority_messages = {
         "preopt_not_converged": (
             "endpoint preoptimization did not converge. Review the preoptimized "
@@ -196,10 +217,6 @@ def format_result_warning(
         "post_missing": "requested post-processing is incomplete. Review the post-processing log.",
         "not_converged": "the calculation did not converge. Review the trajectory and convergence log.",
         "convergence_unknown": "convergence could not be confirmed. Review the result and log.",
-        "endpoint_hei": (
-            "no reactive segment was identified; only an endpoint/HEI path is available. "
-            "Review the path before using its barrier."
-        ),
         "engine_nonconverged": "the path-search engine did not converge. Review the path-search log.",
         "irc_result_missing": "IRC result metadata are missing. Confirm that IRC completed and wrote result.json.",
         "irc_result_unreadable": "IRC result metadata could not be read. Review result.json and the IRC log.",
@@ -209,11 +226,6 @@ def format_result_warning(
         "irc_partial": "IRC completed only partially. Review both directional trajectories and the IRC log.",
         "irc_failed": "IRC failed. Review the IRC log and generated trajectories.",
     }
-    if "endpoint_hei" in lowered and "engine_nonconverged" in lowered:
-        return (
-            "No reactive segment was identified and the path-search engine did not converge. "
-            "Review the path and path-search log."
-        )
     endpoint_match = re.search(r":endpoint_opt:([a-z0-9_]+)$", lowered)
     if endpoint_match:
         endpoint_code = endpoint_match.group(1)

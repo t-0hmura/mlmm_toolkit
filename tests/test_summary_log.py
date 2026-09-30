@@ -231,8 +231,22 @@ def test_write_summary_log_marks_non_successful_results_and_precision(
         ),
         (
             "path-search:endpoint_hei;engine_nonconverged",
-            "No reactive segment was identified and the path-search engine did not converge. "
+            "The highest-energy image is at an endpoint and the path-search engine did not converge. "
             "Review the path and path-search log.",
+        ),
+        (
+            "path:raw_seg_001:endpoint_hei",
+            "Path-search interval 2 (seg_001): the highest-energy image is at an endpoint. "
+            "Review this interval before using its barrier.",
+        ),
+        (
+            "path:raw_seg_010_refine:endpoint_hei;engine_nonconverged",
+            "Path-search interval 11 (seg_010_refine): the highest-energy image is at an endpoint "
+            "and the path-search engine did not converge. Review this interval and its path-search log.",
+        ),
+        (
+            "path:raw_path:endpoint_hei",
+            "The highest-energy image is at an endpoint. Review the path before using its barrier.",
         ),
         (
             "missing:segment_4",
