@@ -212,4 +212,3 @@ def test_grid_scan_without_usable_points_still_exits_1(
     assert payload["min_energy_hartree"] is None
     assert "status" not in payload
     assert (out_dir / "result.json").read_bytes() == (out_dir / "summary.json").read_bytes()
-
