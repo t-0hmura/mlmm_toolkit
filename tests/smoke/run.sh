@@ -103,7 +103,7 @@ python run_limited.py mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 
 python run_limited.py mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode hess --microiter --max-cycles 2 --thresh gau_loose --out-dir test6 > test6.out 2>&1
 
 # test7: tsopt (grad / dimer)
-mlmm tsopt -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode grad --max-cycles 100 --thresh gau --out-json --out-dir test7 > test7.out 2>&1
+python run_limited.py mlmm tsopt -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mode grad --max-cycles 100 --thresh gau --out-json --out-dir test7 > test7.out 2>&1
 python assert_release_result.py tsopt-optimizer test7 --expected-mode grad --expected-optimizer dimer >> test7.out 2>&1
 
 # test8: tsopt (hess / rsprfo, microiteration default)
@@ -137,12 +137,12 @@ python run_limited.py mlmm path-opt -i r_complex_layered.pdb p_complex_layered.p
 grep -Fq "====== Growing String optimization ======" test15.out || { echo "[smoke] FAIL: path-opt GSM section heading missing" >&2; exit 1; }
 
 # test16: path-opt (dmf)
-mlmm path-opt -i r_complex_layered.pdb p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --mep-mode dmf --dmf-max-iterations 3 --dmf-tol middle --no-preopt --out-dir test16 > test16.out 2>&1
+python run_limited.py mlmm path-opt -i r_complex_layered.pdb p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --mep-mode dmf --dmf-max-iterations 3 --dmf-tol middle --no-preopt --out-dir test16 > test16.out 2>&1
 
 # test16b: path-opt --mep-mode dmf WITH frozen atoms. No other lane enters the DMF
 # harmonic-restraint branch, so this is its only coverage. The checker compares the
 # optimized path against the FB-ENM interpolation the per-image restraint references.
-mlmm path-opt -i r_complex_layered.pdb p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --mep-mode dmf --dmf-max-iterations 40 --dmf-tol middle --freeze-atoms 1,2,3 --no-preopt --out-json --out-dir test16b_dmf_freeze > test16b_dmf_freeze.out 2>&1
+python run_limited.py mlmm path-opt -i r_complex_layered.pdb p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --mep-mode dmf --dmf-max-iterations 40 --dmf-tol middle --freeze-atoms 1,2,3 --no-preopt --out-json --out-dir test16b_dmf_freeze > test16b_dmf_freeze.out 2>&1
 python assert_release_result.py dmf-freeze test16b_dmf_freeze --frozen-atoms 1,2,3 >> test16b_dmf_freeze.out 2>&1
 
 # test17: path-search
@@ -405,7 +405,7 @@ mlmm dft -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --func-basi
 mlmm dft -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --func-basis 'hf/sto-3g' --grid-level 0 --scf-tol 1e-5 --scf-max-cycles 40 --dft-engine cpu --link-atom-method fixed --out-dir test55_dft_linkfixed > test55_dft_linkfixed.out 2>&1
 
 # test56: path-search --mep-mode dmf (Direct Max Flux vs GrowingString)
-mlmm path-search -i r_complex_layered.pdb p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --mep-mode dmf --dmf-max-iterations 3 --no-preopt --out-dir test56_psdmf > test56_psdmf.out 2>&1
+python run_limited.py mlmm path-search -i r_complex_layered.pdb p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --mep-mode dmf --dmf-max-iterations 3 --no-preopt --out-dir test56_psdmf > test56_psdmf.out 2>&1
 
 # test57: all --scan-lists (single-PDB scan->path mode of `all`, distinct from the multi-PDB MEP branch)
 python run_limited.py mlmm all -i r_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --scan-lists "[('PRE 8 O1\'','PRE 8 C3',3.5),('PRE 8 C1','PRE 8 C8',1.5)]" --no-refine-path --max-cycles-gsm 3 --thresh gau_loose --no-tsopt --no-thermo --no-dft --out-dir test57_all_scan > test57_all_scan.out 2>&1
