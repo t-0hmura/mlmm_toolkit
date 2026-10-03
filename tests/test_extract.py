@@ -109,7 +109,7 @@ def test_amino_acid_centers_preserve_contiguous_peptide(tmp_path, n_inputs):
 
 
 @pytest.mark.parametrize("exclude_backbone", [False, True])
-def test_zero_radius_keeps_only_untruncated_amino_acid_center(
+def test_zero_radius_cuts_isolated_amino_acid_center_like_other_residues(
     tmp_path, exclude_backbone
 ):
     from mlmm.workflows.extract import extract_api
@@ -117,22 +117,25 @@ def test_zero_radius_keeps_only_untruncated_amino_acid_center(
     source = tmp_path / "complex.pdb"
     output = tmp_path / "model.pdb"
     source.write_text(_linear_peptide_pdb(), encoding="utf-8")
-    extract_api(
+    result = extract_api(
         [str(source)], center="A:CYS:112", output=[str(output)],
-        radius=0.0, exclude_backbone=exclude_backbone,
+        radius=0.0, exclude_backbone=exclude_backbone, add_linkh=True,
     )
 
     atoms = _residue_atoms(output)
     assert set(atoms) == {112}
-    assert {"N", "CA", "C", "O", "CB"} <= atoms[112]
+    assert atoms[112] == {"CB"}
+    assert result["n_link_hydrogens"] == 1
+    assert result["uncapped_boundaries"] == []
 
 
+@pytest.mark.parametrize("add_linkh", [True, False])
 @pytest.mark.parametrize(
     ("kept_element", "other_element", "expect_warning"),
-    [("C", "N", True), ("C", "C", False), ("N", "ZN", False)],
+    [("C", "N", True), ("C", "C", True), ("N", "ZN", False)],
 )
-def test_model_boundary_warns_only_for_non_cc_covalent_cut(
-    tmp_path, capsys, kept_element, other_element, expect_warning
+def test_model_boundary_warns_for_covalent_cut_outside_link_positions(
+    tmp_path, capsys, kept_element, other_element, expect_warning, add_linkh
 ):
     from mlmm.workflows.extract import extract_api
 
@@ -149,18 +152,19 @@ def test_model_boundary_warns_only_for_non_cc_covalent_cut(
         + "END\n",
         encoding="utf-8",
     )
-    extract_api(
+    result = extract_api(
         [str(source)],
         center="A:ONE:1",
         output=[str(tmp_path / "model.pdb")],
         radius=0.0,
-        add_linkh=False,
+        add_linkh=add_linkh,
     )
 
     warning = capsys.readouterr().err
-    assert ("non-C-C covalent bond" in warning) is expect_warning
+    assert ("outside the carbon cut positions" in warning) is expect_warning
+    assert len(result["uncapped_boundaries"]) == int(expect_warning)
     if expect_warning:
-        assert "--selected-resn 'CATALYTIC_RESIDUES' -r 0" in warning
+        assert result["uncapped_boundaries"][0]["kept"] == f"A:ONE:1:{kept_element}"
 
 
 def _parse_structure(pdb_text: str, name: str):

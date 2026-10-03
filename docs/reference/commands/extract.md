@@ -48,8 +48,9 @@ Options:
                                   Include waters (HOH/WAT/H2O/DOD/TIP/TIP3/SOL).
                                   [default: include-h2o]
   --exclude-backbone / --no-exclude-backbone
-                                  Delete main-chain atoms from amino acids
-                                  outside the extraction centers.  [default: no-
+                                  Delete main-chain atoms from amino acids; only
+                                  the main chain between peptide-bonded
+                                  extraction centers is kept.  [default: no-
                                   exclude-backbone]
   --add-linkh / --no-add-linkh    Add link hydrogens (carbon boundaries only) at
                                   1.09 Å along cut-bond directions.  [default:

@@ -22,7 +22,7 @@ Before a long run, check: `[all] define-layer [i]: … (ML=…, MovableMM=…, F
 ## Build the ML region
 
 - Give `-c` the substrate, cofactors, metals, and catalytic residues; with chain IDs, write `A:SAM:44`. The bundled examples lack chain IDs and use names.
-- A residue joins when any of its atoms lies within `-r` of a `-c` atom; waters join by default. Consecutive amino acids keep their internal main chain; `--exclude-backbone` moves the main chain of non-center amino acids to MM. `--selected-resn` adds residues without a radius.
+- A residue joins when any of its atoms lies within `-r` of a `-c` atom; waters join by default. Consecutive amino acids keep their internal main chain; `--exclude-backbone` moves the main chain of amino acids to MM, except between peptide-bonded centers. `--selected-resn` adds residues without a radius.
 - `all` writes the first input's ML region to `<out-dir>/ml_region.pdb`; reuse it with `--model-pdb`.
 - By hand: cut a link-H-free `model.pdb` from the PDB that `mm-parm` writes (order in [cli/extract.md](../mlmm-cli/extract.md)) and pass `--model-pdb`, `--parm7`, and `-q`. `--model-pdb` overrides `-c` and input B-factors; `--parm7` skips `mm-parm`.
 - Automatic extraction derives the charge from residue names, `-l`, and `--modified-residue`; after hand edits to atoms, protonation, or the cut, give `-q`.

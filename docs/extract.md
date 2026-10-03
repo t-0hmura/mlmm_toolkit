@@ -76,7 +76,7 @@ mlmm extract -i complex.pdb -c 'A:SUB:301' -o pocket.pdb \
 
 1. **Centers**: `-c` lists the substrate, cofactors, and metals. Each entry is a [residue selector](cli-conventions.md#residue-selectors); the recommended form is `A:TYR:44` (chain:name:number), and `A:SAM`, a name such as `SAM`, a number, or a PDB/mmCIF file of the substrate also work. `--selected-resn` adds residues in the same forms without starting a distance search.
 2. **Neighbors**: a residue joins the region when one of its atoms lies within `-r` (default 2.6 Å) of a center atom, or within `--radius-het2het` when both atoms are other than C and H; either cutoff is enough. Waters count unless `--no-include-h2o` is given, and with `--exclude-backbone` contacts through main-chain atoms of amino acids do not count. Three kinds of residues are then added: the disulfide partner of a selected cysteine (S–S ≤ 2.5 Å), the N-side neighbor of a selected proline, and, without `--exclude-backbone`, the two residues peptide-bonded to an amino acid whose main-chain atom touches a center.
-3. **Main-chain cuts**: a run of consecutive amino acids keeps its internal main chain and is cut at both ends so that each end stops at CA; a residue that comes in alone keeps only its side chain. Amino acids in `-c` keep all their atoms, and prolines keep their ring. With `--exclude-backbone`, the other amino acids lose all main-chain atoms. Waters and non-amino-acid residues are never cut.
+3. **Main-chain cuts**: a run of consecutive amino acids keeps its internal main chain and is cut at both ends so that each end stops at CA; a residue that comes in alone keeps only its side chain. Amino acids in `-c` follow the same rule; the residues peptide-bonded to them lie within `-r` and join, so they keep all their atoms. Prolines keep their ring. With `--exclude-backbone`, amino acids lose all main-chain atoms, except between amino acids in `-c` that are peptide-bonded to each other. Waters and non-amino-acid residues are never cut.
 4. **Charge**: amino acids and ions take their charges from built-in tables, waters are 0, and other residues are 0 unless `-l` gives them a charge (see below).
 5. **Cap hydrogens (only with `--add-linkh`)**: where a cut leaves CA or CB without its bonded partner (CB–CA, CA–N, CA–C; only CA–C for proline), a hydrogen is placed 1.09 Å from that carbon along the old bond. The caps are written after a `TER` record as `HETATM` atoms `HL` in residue `LKH`, chain `L`. A `--model-pdb` file must not contain them: the ML/MM calculator adds its own link hydrogens on the `parm7` bonds that cross the ML/MM boundary, so leave `--add-linkh` off unless you want a capped pocket on its own.
 
@@ -124,7 +124,7 @@ Any other number of `-o` paths stops with an error, and so does an output path t
 | `--radius-het2het` | float | `0` (off) | Second cutoff (Å) between atoms other than C and H |
 | `--selected-resn` | text | `""` | Residues to add without a distance search, in the same forms as `-c` |
 | `--include-h2o/--no-include-h2o` | flag | `True` | Include waters (HOH, WAT, H2O, DOD, TIP, TIP3, SOL) |
-| `--exclude-backbone/--no-exclude-backbone` | flag | `False` | Remove main-chain atoms from amino acids outside `-c` |
+| `--exclude-backbone/--no-exclude-backbone` | flag | `False` | Remove main-chain atoms from amino acids, except between peptide-bonded `-c` residues |
 | `--add-linkh/--no-add-linkh` | flag | `False` | Add cap hydrogens where a cut leaves CA or CB without its partner. Leave off for a `--model-pdb` file |
 | `--modified-residue` | text | `""` | Residue names to treat as amino acids, as `NAME:charge` (bare `NAME` only for names in the built-in table) |
 | `-l, --ligand-charge` | text | `None` | Total charge, or charge per residue name (e.g. `'GPP:-3,SAM:1'`) |
@@ -142,7 +142,7 @@ See the [generated CLI reference](reference/commands/extract.md) for every optio
 * **Names match everywhere**: a name such as `TYR` selects every TYR in every chain, with a warning when there is more than one.
 * **`TYR:44` means chain TYR**: with two fields the first is always the chain, and the second is a number (`TYR:44`) or a name (`A:SAM`), so write `A:TYR:44`. In a PDB with an empty chain column, such as the bundled examples, use the name or the number alone.
 * **One form per list**: a list that mixes names and numbers, such as `'SAM,44'`, stops with an error.
-* **Boundary warnings**: `extract` warns when a bond other than C–C crosses the boundary. Check the boundary, the charge, and the multiplicity before a calculation; how to choose the boundary is in [Building the ML region and layers](model-setup.md).
+* **Boundary warnings**: `extract` warns when a bond between nonmetal atoms is cut anywhere other than the CA and CB cuts of step 5. Check the boundary, the charge, and the multiplicity before a calculation; how to choose the boundary is in [Building the ML region and layers](model-setup.md).
 * **Same atoms in every input**: inputs with different atom counts or order stop with `[multi] Atom count mismatch` or `[multi] Atom order mismatch`; see [Troubleshooting](troubleshooting.md).
 * **Multi-MODEL input** uses only the first MODEL and prints a warning.
 * **Alternate locations (altLoc)**: `extract` keeps one altLoc per residue, the one with the highest mean occupancy; use [fix-altloc](fix-altloc.md) when you need the cleaned file itself.
@@ -200,7 +200,7 @@ Residue names treated as amino acids, with their nominal charges. Only these res
 
 ### Main-chain atoms
 
-Atom names treated as the main chain of an amino acid; under `--exclude-backbone` they are removed from amino acids outside `-c`:
+Atom names treated as the main chain of an amino acid; under `--exclude-backbone` they are removed, except between peptide-bonded amino acids in `-c`:
 
 ```
 N, C, O, CA, OXT, H, H1, H2, H3, HN, HA, HA2, HA3

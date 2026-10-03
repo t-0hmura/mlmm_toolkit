@@ -44,9 +44,10 @@ Options:
                                   Include waters (HOH/WAT/H2O/DOD/TIP/TIP3/SOL)
                                   in the pocket.  [default: include-h2o]
   --exclude-backbone / --no-exclude-backbone
-                                  Remove backbone atoms on non‑substrate amino
-                                  acids (with PRO/HYP safeguards).  [default:
-                                  no-exclude-backbone]
+                                  Delete main-chain atoms from amino acids; only
+                                  the main chain between peptide-bonded
+                                  extraction centers is kept.  [default: no-
+                                  exclude-backbone]
   --add-linkh / --no-add-linkh    Add extractor-only link H to scratch pocket
                                   PDBs. The ML/MM model selection remains link-
                                   free; runtime link H are generated from parm7

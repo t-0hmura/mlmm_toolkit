@@ -4350,7 +4350,8 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @click.option("--include-h2o/--no-include-h2o", "include_h2o", default=True, show_default=True,
               help="Include waters (HOH/WAT/H2O/DOD/TIP/TIP3/SOL) in the pocket.")
 @click.option("--exclude-backbone/--no-exclude-backbone", "exclude_backbone", default=False, show_default=True,
-              help="Remove backbone atoms on non‑substrate amino acids (with PRO/HYP safeguards).")
+              help=("Delete main-chain atoms from amino acids; only the main chain between "
+                    "peptide-bonded extraction centers is kept."))
 @click.option("--add-linkh/--no-add-linkh", "add_linkh", default=False, show_default=True,
               help=("Add extractor-only link H to scratch pocket PDBs. The ML/MM "
                     "model selection remains link-free; runtime link H are generated "
