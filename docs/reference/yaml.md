@@ -3,7 +3,7 @@
 This page is a **curated, non-exhaustive** starter snapshot for `mlmm all`. It shows a common subset of keys whose values are pinned to (and equal) their runtime owners; it is **not** the full configuration schema. For every configurable section and option, see the [YAML Reference](../yaml-reference.md).
 
 - Source template: `.github/scripts/generate_reference.py::_ALL_TEMPLATE`
-- Template digest: `57c2fa499c39`
+- Template digest: `0ff923524893`
 
 ## Included Sections
 
@@ -22,7 +22,7 @@ This page is a **curated, non-exhaustive** starter snapshot for `mlmm all`. It s
 calc:
   backend: uma              # High-level backend: uma, orb, mace, aimnet2, or dft
   orb_model: orb_v3_conservative_omol  # ORB model name (when backend=orb)
-  orb_precision: float64    # ORB precision default (when backend=orb; "float32-high" = TF32 matmul, also via --precision fp32; legacy "float32" alias accepted)
+  orb_precision: float64    # ORB precision default (when backend=orb; "float32-high" = TF32 matmul, also via --precision fp32; "float32" is also accepted)
   mace_model: MACE-OMOL-0   # MACE model path or name (when backend=mace)
   mace_dtype: float64       # MACE dtype, e.g. float32 / float64 (when backend=mace)
   aimnet2_model: aimnet2    # AIMNet2 model name (when backend=aimnet2)

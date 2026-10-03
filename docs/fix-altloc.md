@@ -1,124 +1,132 @@
-# `fix-altloc`
+# `fix-altloc` (resolve PDB alternate locations)
 
-Remove alternate locations by selecting one coherent non-blank altLoc label per
-residue. The label with the highest mean occupancy across that residue's
-labeled atoms is selected; ties are broken by first appearance. Blank/shared
-atoms are retained, atoms from other labels are dropped, and column 17 is
-blanked on surviving records. This prevents a per-atom selection from creating
-an A/B hybrid that corresponds to no deposited conformer.
+## Overview
+
+`fix-altloc` **removes alternate locations (altLoc)** from PDB files. For each residue it keeps one altLoc label, the one with the highest mean occupancy, so each residue is one conformer that was actually deposited. `extract`, `define-layer`, and the ML/MM calculation commands apply the same rule on their own when they read a PDB. Use `fix-altloc` when you need the cleaned file itself.
+
+### What it is for
+
+* **A clean PDB file to keep**: one conformer per residue, for other programs or for your records.
+* **Input for `mm-parm`**: `mm-parm` does not resolve altLoc, so clean it first.
+* **Many files at once**: every `.pdb` in a directory, optionally with its subdirectories.
+* **Inspecting the choice**: see which conformer is kept before you run a calculation.
+
+---
 
 ## Examples
 
-Command form:
+### 1. One file
 
-```bash
-mlmm fix-altloc -i INPUT [-o OUTPUT] [options]
-```
-
-Resolve altLocs in a single file (writes `<input>_clean.pdb`):
+Clean one file and write `1abc_clean.pdb`.
 
 ```bash
 mlmm fix-altloc -i 1abc.pdb
 ```
 
-Resolve altLocs in a single file with an explicit output name:
+The console prints `[fix-altloc] Fixed altLoc → 1abc_clean.pdb`, or `[fix-altloc] Skipped 1abc.pdb (no altLoc detected).` when the file has no altLoc.
+
+### 2. Choose the output file
 
 ```bash
 mlmm fix-altloc -i 1abc.pdb -o 1abc_fixed.pdb
 ```
 
-Process a directory recursively into a new output directory:
+### 3. A directory, recursively
+
+Clean every `.pdb` under `./structures` and write the results to `./cleaned` with the same subdirectories.
 
 ```bash
 mlmm fix-altloc -i ./structures -o ./cleaned --recursive
 ```
 
-Process a directory recursively, overwriting files in place:
+### 4. In place, with a backup
+
+Overwrite the input files and keep each original as `<name>.pdb.bak`.
 
 ```bash
 mlmm fix-altloc -i ./structures --inplace --recursive
 ```
 
-## Workflow
+---
 
-1. Check if the input file contains any non-blank altLoc characters (column 17).
- - If no altLoc is found and `--force` is not set, skip the file (left unchanged).
-2. Group labeled ATOM/HETATM records by site (chain ID,
-   residue sequence, insertion code, and segID).
-3. Select one non-blank label per residue using the highest mean parsed
-   occupancy (columns 55–60). A label with no parsed occupancy ranks below any
-   label with a parsed mean; earliest appearance breaks equal scores, including
-   the case where every label lacks parsed occupancy.
-4. Keep blank/shared atoms and atoms from the selected label. Resolve malformed
-   duplicates that remain by occupancy and file order.
-5. Write output with:
- - Only blank/shared atoms and the selected residue conformer retained
- - altLoc column (17) blanked to a single space
- - ANISOU records filtered to match retained atoms
+## How it works
 
-### Handling different atom counts between altLoc states
+1. **Detecting altLoc**:
+`fix-altloc` looks for non-blank altLoc characters (column 17) in each file.
+2. **Grouping by residue**:
+Labeled ATOM and HETATM records are grouped by residue: chain ID, residue number, insertion code, and segID. The residue name is not part of the key.
+3. **Choosing one label per residue**:
+The label whose atoms have the highest mean occupancy (columns 55–60) is chosen; a tie goes to the label that appears first.
+4. **Writing**:
+Blank (shared) atoms and the atoms of the chosen label are kept, and column 17 is blanked. A blank atom is dropped when the chosen label has the same atom.
 
-When different altLoc states contain different atoms (e.g., altLoc A has atoms
-N, CA, CB, CG while altLoc B has N, CA, CB, CD), `fix-altloc` processes them as follows:
+ANISOU records are kept only for the atoms that remain (same serial number); every other record is written unchanged.
 
-Only atoms belonging to the selected residue label are retained. An atom unique
-to an unselected label is dropped.
+### Different atom counts between altLoc states
 
-**Example:**
-```
+When the altLoc states contain different atoms, only the atoms of the chosen label remain, and an atom found only in the other label is dropped. A residue never mixes atoms of A and B.
+
+```text
 Input:
- ATOM 1 N AALA A 1... 0.50 # altLoc A
- ATOM 2 CA AALA A 1... 0.50 # altLoc A
- ATOM 3 CG AALA A 1... 0.50 # altLoc A only
- ATOM 4 N BALA A 1... 0.40 # altLoc B
- ATOM 5 CA BALA A 1... 0.40 # altLoc B
- ATOM 6 CD BALA A 1... 0.40 # altLoc B only
+ ATOM 1 N ALYS A 1... 0.50 # altLoc A
+ ATOM 2 CA ALYS A 1... 0.50 # altLoc A
+ ATOM 3 CB ALYS A 1... 0.50 # altLoc A
+ ATOM 4 CG ALYS A 1... 0.50 # altLoc A
+ ATOM 5 N BLYS A 1... 0.40 # altLoc B
+ ATOM 6 CA BLYS A 1... 0.40 # altLoc B
+ ATOM 7 CB BLYS A 1... 0.40 # altLoc B
+ ATOM 8 CG BLYS A 1... 0.40 # altLoc B
+ ATOM 9 CD BLYS A 1... 0.40 # altLoc B only
 
 Output:
- ATOM 1 N ALA A 1... 0.50 # from A (higher occ)
- ATOM 2 CA ALA A 1... 0.50 # from A (higher occ)
- ATOM 3 CG ALA A 1... 0.50 # kept (A only)
+ ATOM 1 N LYS A 1... 0.50 # from A (higher occupancy)
+ ATOM 2 CA LYS A 1... 0.50 # from A
+ ATOM 3 CB LYS A 1... 0.50 # from A
+ ATOM 4 CG LYS A 1... 0.50 # from A
+ (CD, in altLoc B only, is dropped)
 ```
 
-## Outputs
+---
 
-- A PDB file with alternate locations removed:
- - File input: `<input>_clean.pdb` by default (when `-o/--out` is omitted)
- - Directory input: `<input>_clean/` directory by default (mirrors subpaths)
- - `OUTPUT.pdb` if `-o/--out` is provided
- - Original file overwritten if `--inplace` is set (backup saved as `<input>.pdb.bak`)
+## Output files
 
-## Python API
+* **File input**: `<input>_clean.pdb` by default, or the path given with `-o`. When `-o` does not end in `.pdb`, it is treated as a directory and the file keeps its input name there.
+* **Directory input**: `<input>_clean/` by default, or the directory given with `-o`, with the same relative paths as the input. The console prints `[fix-altloc] Processed N file(s) → …` and, for files without altLoc, `Skipped N file(s)`.
+* **`--inplace`**: the input files are overwritten, and each original is saved as `<name>.pdb.bak`.
 
-For programmatic use, the module exports:
-```python
-from pathlib import Path
-from mlmm.io.pdb_fix import has_altloc, clean_pdb_file
+---
 
-# Check if a file has altLoc
-if has_altloc(Path("input.pdb")):
-    # Resolve altLoc into a cleaned PDB (always overwrites output)
-    clean_pdb_file(Path("input.pdb"), Path("output.pdb"))
-```
+## Main options
 
-## CLI options
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `-i, --input` | path | (required) | Input PDB file or directory |
+| `-o, --output` | path | `None` | Output file (file input) or directory (directory input); without it, `<input>_clean.pdb` or `<input>_clean/` |
+| `--recursive/--no-recursive` | flag | `False` | For a directory, also process `.pdb` files in subdirectories |
+| `--inplace/--no-inplace` | flag | `False` | Overwrite the input files, keeping `.bak` backups |
+| `--overwrite/--no-overwrite` | flag | `False` | Allow overwriting existing output files; without it, an existing output stops the run with `Output exists: <path> (use --overwrite to overwrite)` |
+| `--force/--no-force` | flag | `False` | Process files even when no altLoc is found |
 
-| Option | Description | Default |
-| --- | --- | --- |
-| `-i, --input PATH` | Input PDB file or directory. | Required |
-| `-o, --out PATH` | Output file (if input is a file) or directory (if input is a directory). | File input: `<input>_clean.pdb`; directory input: `<input>_clean/` |
-| `--recursive/--no-recursive` | Process `*.pdb` files recursively when input is a directory. | `False` |
-| `--inplace/--no-inplace` | Overwrite input file(s) in-place (creates `.bak` backup). | `False` |
-| `--overwrite/--no-overwrite` | Allow overwriting existing output files. | `False` |
-| `--force/--no-force` | Process files even if no altLoc is detected. | `False` |
+See the [generated CLI reference](reference/commands/fix_altloc.md) for every option.
 
-The full flag list is in the generated [command reference](reference/commands/index.md).
+---
 
-## See Also
+## Notes
 
-- [Common Error Recipes](recipes-common-errors.md) — Symptom-first failure routing
-- [Troubleshooting](troubleshooting.md) — Detailed troubleshooting guide
+* **Files without altLoc**: a file whose column 17 is blank everywhere is skipped and nothing is written. `--force` processes it anyway.
+* **`--inplace` and `-o`**: with `--inplace`, `-o` is ignored. An existing `.bak` file is not replaced, so it keeps the file from before the first in-place run.
+* **Serial numbers** are not renumbered, so gaps can remain where atoms were removed. `CONECT` and other connectivity or annotation records are not updated.
+* **Kept records** are written unchanged except for column 17, so coordinates, occupancies, B-factors, charges, insertion codes, and order stay as they were.
+* **MODEL/ENDMDL blocks** are processed one by one.
+* **The occupancy rule is a heuristic**: when the active-site conformer must be chosen by chemical contacts or by how the deposited ensemble is interpreted, choose it yourself in a structure editor and check it.
+* **Exit codes**: see {ref}`Exit codes <exit-codes>`.
 
-- [add-elem-info](add-elem-info.md) — Repair PDB element columns before altLoc fixing
-- [extract](extract.md) — Extract active-site pocket after altLoc resolution
-- [all](all.md) — End-to-end ML/MM workflow (run `fix-altloc` beforehand if your inputs carry altLocs)
+---
+
+## See also
+
+* [extract](extract.md) — active-site model extraction, which applies the same altLoc rule when it reads a PDB
+* [mm-parm](mm-parm.md) — Amber topology from the cleaned PDB
+* [add-elem-info](add-elem-info.md) — fill the element columns (77–78) of a PDB
+* [all](all.md) — the full workflow
+* [Troubleshooting](troubleshooting.md) — what to do when a run fails

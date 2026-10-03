@@ -1,190 +1,179 @@
-# `extract`
+# `extract` (cut out the ML region)
 
-`mlmm extract` carves an active-site pocket from a protein–ligand PDB or mmCIF to define the ML region (and the surrounding MM environment for downstream stages). In `mlmm all`, this selection stage is managed internally. For reusable manual files, first run `mm-parm --out-prefix system`, then extract from its topology-matched `system.pdb`. The command selects residues near the substrate, truncates the model according to backbone / side-chain rules, optionally caps severed bonds with link hydrogens, and accepts either a single structure or a multi-structure ensemble (details under [Multi-structure ensembles](#multi-structure-ensembles)). Select the substrate-identification form (residue IDs, a substrate PDB/mmCIF, or residue names) according to the available structural metadata; see [Input syntax](#input-syntax) for the exact grammar.
+## Overview
 
-If you run into misclassification (e.g. unusual residue / atom naming), see the appendix below on naming requirements and the internal reference lists.
+`extract` cuts the residues around a substrate out of a protein–ligand PDB/mmCIF file, cuts the main chain by fixed rules, and counts the charge of the cut-out region. In mlmm-toolkit this region becomes the ML region; the rest of the protein stays in the calculation as MM.
+
+### What it is for
+
+* **Defining the ML region**: write the atom selection that `define-layer` and the calculation commands take as `--model-pdb`.
+* **Checking the ML region before a run**: see which residues fall in the region, how many atoms it has, and its charge.
+* **Cutting several states the same way**: give reactant and product structures with the same atom order in one run, and every output gets the same residues.
+* **Handling non-standard residues**: register residue names from MCPB.py or similar tools as amino acids with `--modified-residue`.
+
+`all` runs `extract` for you when you pass `-c`. To choose how large the ML region should be, see [Building the ML region and layers](model-setup.md).
+
+---
 
 ## Examples
 
-Minimal run with an ID-based substrate and an explicit total ligand charge:
+### 1. Select by residue ID with a total ligand charge
+
+Give the substrate as chain:name:number and its total charge as one number.
 
 ```bash
-# Minimal (ID-based substrate) with explicit total ligand charge
-mlmm extract -i complex.pdb -c A:123 -o pocket.pdb -l -3
+mlmm extract -i complex.pdb -c 'A:GPP:301' -o pocket.pdb -l -3 --out-json
 ```
 
-Substrate supplied as a PDB, with a per-resname charge mapping:
+The console prints `[extract] Atoms after truncation: N`; the region has N atoms. The charge is on the line `[extract] Total active site model charge`. `result.json` has the same numbers in `n_atoms_extracted` and `total_charge`. Open `pocket.pdb` in a viewer and check that the residues of the reaction are in the region.
+
+### 2. Substrate given as a PDB file
+
+Pass a PDB file of the substrate as the center, with a charge for each residue name.
 
 ```bash
-# Substrate provided as a PDB; per-resname charge mapping (others remain 0)
-mlmm extract -i complex.pdb -c substrate.pdb -o pocket.pdb -l "GPP:-3,MMT:-1"
-# name-based selection includes all matches (WARNING logged): -c 'GPP,SAM'
+mlmm extract -i complex.pdb -c substrate.pdb -o pocket.pdb -l 'GPP:-3,SAM:1'
 ```
 
-Multi-structure ensemble collapsed into one multi-MODEL output, using hetero-hetero proximity:
+The substrate file must have the same coordinates as the complex (within 0.001 Å).
+
+### 3. Select by residue name
+
+Name the residues; every residue with that name is a center.
 
 ```bash
-# Multi-structure → single multi-MODEL output with hetero-hetero proximity
-mlmm extract -i complex1.pdb complex2.pdb -c A:123 \
-    -o pocket_multi.pdb --radius-het2het 2.6 -l -3 --verbose 3
+mlmm extract -i complex.pdb -c 'GPP,SAM' -o pocket.pdb -l 'GPP:-3,SAM:1'
 ```
 
-## Workflow
+### 4. Several structures in one run
 
-### Residue inclusion
+List the reactant and product after one `-i`; both get the same residues, written as one multi-MODEL PDB.
 
-- `-c/--center` normally lists the substrate and catalytic residues; every match is included and starts radius expansion.
-- **Standard cutoff (`--radius`, default 2.6 Å)**: with `--no-exclude-backbone` (default), any atom within the cutoff qualifies a residue. With `--exclude-backbone`, amino-acid residues must contact a center with a **non-backbone** atom (not N / H* / CA / HA* / C / O / OXT). Non-amino acids always use any atom.
-- **Independent hetero-hetero cutoff (`--radius-het2het`)**: adds residues when a center hetero atom (non C / H) lies within the specified Å of a protein hetero atom. With backbone exclusion enabled, the protein atom must be non-backbone.
-- **Water handling**: HOH / WAT / H2O / DOD / TIP / TIP3 / SOL are included by default (`--include-h2o`).
-- **Forced inclusion**: `--selected-resn` accepts the same selectors as `--center` without starting radius expansion.
-- **Neighbor safeguards**:
-  - When backbone exclusion is off and a residue contacts a center with a backbone atom, the peptide-adjacent N / C neighbors (C–N ≤ 1.9 Å) are auto-included; termini keep caps (N/H* or C/O/OXT).
-  - Disulfide bonds (SG–SG ≤ 2.5 Å) bring both cysteines.
-  - Non-terminal PRO residues always pull in the N-side amino acid; CA is preserved even when backbone atoms are removed, and under `--exclude-backbone` the neighbor's C / O / OXT remain to maintain the peptide bond.
+```bash
+mlmm extract -i complex_R.pdb complex_P.pdb -c 'A:GPP:301,A:SAM:302' \
+    -o pocket_multi.pdb -l 'GPP:-3,SAM:1'
+```
 
-### Truncation and capping
+(extract-modified-residue)=
+### 5. Non-standard residues (`--modified-residue`)
 
-- Isolated residues retain only side-chain atoms; amino-acid backbone atoms (N, CA, C, O, OXT plus N/CA hydrogens) are removed except for PRO / HYP safeguards.
-- Continuous peptide stretches keep internal backbone atoms; only terminal caps (N/H* or C/O/OXT) are removed. TER awareness prevents capping across chain breaks.
-- With `--exclude-backbone`, main-chain atoms on amino acids outside the **extraction centers** are stripped (subject to PRO / HYP safeguards and PRO neighbor retention).
-- Non-amino-acid residues never lose atoms named like backbone (N / CA / HA / H / H1 / H2 / H3).
-
-### Link hydrogens (`--add-linkh`)
-
-- Carbon-only link hydrogens are placed at 1.09 Å along severed bond vectors (CB–CA, CA–N, CA–C; PRO / HYP use CA–C only).
-- Inserted after a `TER` as contiguous `HETATM` records named `HL` in residue `LKH` (chain `L`). Serial numbers continue from the main block.
-- In multi-structure mode the same bonds are capped across all models; coordinates remain model-specific.
-
-### Model boundaries
-
-- Prefer non-polar C–C single-bond boundaries; the extractor warns when an inferred non-C–C covalent bond crosses the boundary.
-- Inspect boundary valences, link atoms, charge, and multiplicity before calculation.
-- For a deliberately minimal model, use `-c 'SUBSTRATE' --selected-resn 'CATALYTIC_RESIDUES' -r 0`.
-- Use the same atoms and ordering for all reaction states.
-
-### Charge summary (`--ligand-charge`)
-
-Amino acids and common ions draw charges from internal dictionaries; waters are zero. Unknown residues default to 0 unless `--ligand-charge` supplies either a total charge (distributed across unknown substrate residues, or all unknowns when no unknown substrate) or a per-resname mapping like `GPP:-3,SAM:1`. Summaries (protein / ligand / ion / total) are logged for the first input when verbose mode is enabled.
-
-### Multi-structure ensembles
-
-`extract` accepts multiple input PDBs and compares the complete ordered atom-identity sequence across every file. Each structure is processed independently and the **union** of selected residues is applied to every model so outputs stay consistent.
-
-| Output policy | Layout |
-|---|---|
-| No `-o`, multiple inputs | per-file `pocket_<original_basename>.pdb` |
-| One `-o` path | single multi-MODEL PDB |
-| N outputs matching N inputs | N individual PDBs |
-
-Diagnostics echo raw vs. kept atom counts per model along with residue IDs.
-
-## Outputs
+Tools such as Amber's MCPB.py give metal-coordinating residues non-standard names (`HD1`, `HE1`, `CM1`, `AP1`). `extract` does not know these names, so it does not cut their main chain, and it prints:
 
 ```text
-<output>.pdb        # Pocket PDB(s) with optional link hydrogens after a TER record.
-                    # See the "Multi-structure ensembles" output-policy table above
-                    # for the -o / multi-input naming rules.
-                    # Parent directories of -o are created automatically if missing.
+[extract] WARNING: Residue HD1 83 may be an amino acid (has N, CA, C, O) but is not recognized as a standard residue name. Backbone truncation was not applied. Consider preparing the active site model manually.
 ```
 
-Programmatic use (`extract_api`) returns `{"outputs": [...], "counts": [...], "charge_summary": {...}}` (the verbose-mode charge summary is described under Workflow > Charge summary).
-
-For mmCIF or oversized-PDB input, extraction also writes a `.cif` companion
-that restores the original identifiers.
-
-## CLI options
-
-Command form:
+Register the names as amino acids with their charges as `NAME:charge`.
 
 ```bash
-mlmm extract -i COMPLEX.pdb [COMPLEX2.pdb ...]
-    -c CENTER_SPEC
-    [-o POCKET.pdb [POCKET2.pdb ...]]
-    [--radius Å] [--radius-het2het Å]
-    [--include-h2o / --no-include-h2o]
-    [--exclude-backbone / --no-exclude-backbone]
-    [--add-linkh / --no-add-linkh]
-    [--selected-resn LIST]
-    [-l, --ligand-charge MAP_OR_NUMBER]
-    [-v LEVEL]
+mlmm extract -i complex.pdb -c 'A:SUB:301' -o pocket.pdb \
+    --modified-residue 'HD1:0,HE1:0,CM1:0,AP1:0'
 ```
 
-The full flag list is in the generated [command reference](reference/commands/index.md); the table below covers the options that need explanation.
+---
 
-| Option | Description | Default |
+## How it works
+
+1. **Centers**: `-c` lists the substrate, cofactors, and metals. Each entry is a [residue selector](cli-conventions.md#residue-selectors); the recommended form is `A:TYR:44` (chain:name:number), and `A:SAM`, a name such as `SAM`, a number, or a PDB/mmCIF file of the substrate also work. `--selected-resn` adds residues in the same forms without starting a distance search.
+2. **Neighbors**: a residue joins the region when one of its atoms lies within `-r` (default 2.6 Å) of a center atom, or within `--radius-het2het` when both atoms are other than C and H; either cutoff is enough. Waters count unless `--no-include-h2o` is given, and with `--exclude-backbone` contacts through main-chain atoms of amino acids do not count. Three kinds of residues are then added: the disulfide partner of a selected cysteine (S–S ≤ 2.5 Å), the N-side neighbor of a selected proline, and, without `--exclude-backbone`, the two residues peptide-bonded to an amino acid whose main-chain atom touches a center.
+3. **Main-chain cuts**: a run of consecutive amino acids keeps its internal main chain and is cut at both ends so that each end stops at CA; a residue that comes in alone keeps only its side chain. Amino acids in `-c` keep all their atoms, and prolines keep their ring. With `--exclude-backbone`, the other amino acids lose all main-chain atoms. Waters and non-amino-acid residues are never cut.
+4. **Charge**: amino acids and ions take their charges from built-in tables, waters are 0, and other residues are 0 unless `-l` gives them a charge (see below).
+5. **Cap hydrogens (only with `--add-linkh`)**: where a cut leaves CA or CB without its bonded partner (CB–CA, CA–N, CA–C; only CA–C for proline), a hydrogen is placed 1.09 Å from that carbon along the old bond. The caps are written after a `TER` record as `HETATM` atoms `HL` in residue `LKH`, chain `L`. A `--model-pdb` file must not contain them: the ML/MM calculator adds its own link hydrogens on the `parm7` bonds that cross the ML/MM boundary, so leave `--add-linkh` off unless you want a capped pocket on its own.
+
+To decide the boundary yourself and check it, see {ref}`How to construct a reliable model.pdb <model-pdb-selection>`.
+
+### Charge summary
+
+`-l` takes either a mapping such as `'GPP:-3,SAM:1'` or one number. Unknown residues are those that the appendix does not list as amino acids, ions, or waters. A number is split evenly over the unknown residues in `-c`, or over all unknown residues when `-c` has none; `-l -3` over two residues gives −1.5 each, and the total stays −3. With a mapping, unknown residues that are not listed stay 0. At the default verbosity the console prints the protein, ligand, and ion charges and then `Total active site model charge`. With several inputs, the summary is for the first one.
+
+### Several structures
+
+With several inputs, each structure selects its residues, and the union of the selections is applied to every structure, so all outputs have the same atoms. Each output keeps its own coordinates. The console prints `[extract:multi] Atoms after truncation (model k): N` for each model.
+
+---
+
+## Output files
+
+```text
+./
+├─ pocket.pdb    # the cut-out region (cap hydrogens after a TER record only with --add-linkh)
+├─ pocket.cif    # mmCIF input, or PDB input too large for the PDB columns
+├─ result.json   # with --out-json, next to the first output file
+└─ summary.json  # copy of result.json; read result.json (with --out-json)
+```
+
+| Inputs | `-o` | Output |
 | --- | --- | --- |
-| `-i, --input PATH...` | One or more protein–ligand PDB files (identical atom ordering required). | Required |
-| `-c, --center SPEC` | Substrate + catalytic residues; every match starts radius expansion. | Required |
-| `-o, --output PATH...` | Pocket PDB output(s). One path ⇒ multi-MODEL; N paths ⇒ per input. | Auto (`pocket.pdb` or `pocket_<input>.pdb`) |
-| `-r, --radius FLOAT` | Non-negative atom-atom distance cutoff (Å) for inclusion. `0` is accepted and retained on the command line; the extractor evaluates it internally as `0.001 Å`. | `2.6` |
-| `--radius-het2het FLOAT` | Independent hetero-hetero cutoff (Å, non C / H). | `0.0` |
-| `--include-h2o / --no-include-h2o` | Include HOH / WAT / H2O / DOD / TIP / TIP3 / SOL waters. | `True` |
-| `--exclude-backbone / --no-exclude-backbone` | Remove backbone atoms from amino acids outside the extraction centers (PRO / HYP safeguards). | `False` |
-| `--add-linkh / --no-add-linkh` | Add carbon-only link hydrogens at 1.09 Å along severed bonds (distance-based). Not needed for an mlmm `--model-pdb` (the ML/MM calculator caps the boundary from the `--parm7` topology); use for standalone pocket models only. | `False` |
-| `--selected-resn TEXT` | Force-include residues by number/name and optional chain, e.g. `123`, `A:123A`, `SAM`, `A:SAM`, `A:SAM:123` (comma-separated). | `""` |
-| `--modified-residue TEXT` | Comma-separated modified-residue names and integer charges for backbone truncation and charge assignment (e.g. `HD1:0,HD2:-1`). A known catalog residue may omit its charge (e.g. `SEP`). | `""` |
-| `-l, --ligand-charge TEXT` | Total charge or per-resname mapping (e.g. `GPP:-3,SAM:1`). | _None_ |
+| One | not given | `pocket.pdb` |
+| Several | not given | `pocket_<input name>.pdb` for each input |
+| Several | one path | one multi-MODEL PDB |
+| Several | one path per input | one PDB per input |
 
-### Input syntax
+Any other number of `-o` paths stops with an error, and so does an output path that is the input file itself. Missing parent directories are created. `result.json` holds the atom counts (`n_atoms_raw`, `n_atoms_extracted`, `n_link_hydrogens`), the charges (`total_charge`, `protein_charge`, `ligand_total_charge`, `ion_total_charge`), and the settings used; see [JSON Output Reference](json-output.md). mmCIF input, and PDB input too large for the PDB columns, also get `.cif` files that keep the original identifiers (see {ref}`mmCIF input <mmcif-input>`).
 
-Center specification (`-c/--center`):
+---
 
-- **PDB path**: coordinates must match the first input exactly (tolerance 1e-3 Å); residue IDs propagate to other structures.
-- **Residue IDs**: `'123,124'`, `'A:123,B:456'`, `'123A'`, `'A:123A'` (insertion codes supported).
-- **Residue names**: comma-separated, case-insensitive. If multiple residues share a name, **all** matches are included and a warning is logged.
+## Main options
 
-```{tip}
-Test the extraction radius as a model-size convergence parameter. A larger
-region includes more environment but does not guarantee monotonic improvement;
-compare the target energies, forces, and barriers across chemically sensible
-region definitions.
-```
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `-i, --input` | path(s) | (required) | Protein–ligand PDB/mmCIF files. List several after one `-i`, or repeat `-i`; they must have the same atoms in the same order |
+| `-c, --center` | text | (required) | Center residues or a PDB/mmCIF file of the substrate (e.g. `'A:TYR:44,A:SAM:301'`) |
+| `-o, --output` | path(s) | see [Output files](#output-files) | Output PDB path(s) |
+| `-r, --radius` | float | `2.6` | Distance cutoff (Å) around center atoms. `0` adds no neighbors by distance (see [Notes](#notes)) |
+| `--radius-het2het` | float | `0` (off) | Second cutoff (Å) between atoms other than C and H |
+| `--selected-resn` | text | `""` | Residues to add without a distance search, in the same forms as `-c` |
+| `--include-h2o/--no-include-h2o` | flag | `True` | Include waters (HOH, WAT, H2O, DOD, TIP, TIP3, SOL) |
+| `--exclude-backbone/--no-exclude-backbone` | flag | `False` | Remove main-chain atoms from amino acids outside `-c` |
+| `--add-linkh/--no-add-linkh` | flag | `False` | Add cap hydrogens where a cut leaves CA or CB without its partner. Leave off for a `--model-pdb` file |
+| `--modified-residue` | text | `""` | Residue names to treat as amino acids, as `NAME:charge` (bare `NAME` only for names in the built-in table) |
+| `-l, --ligand-charge` | text | `None` | Total charge, or charge per residue name (e.g. `'GPP:-3,SAM:1'`) |
+| `--out-json/--no-out-json` | flag | `False` | Write `result.json` and `summary.json` |
+
+See the [generated CLI reference](reference/commands/extract.md) for every option.
+
+---
 
 ## Notes
 
-### Systems with non-standard residues (MCPB, etc.)
+* **`-r 0`** adds no neighbors by distance (the cutoff is evaluated as 0.001 Å): the region is built from the `-c` and `--selected-resn` residues, plus the disulfide partners and the N-side neighbor of a proline that step 2 adds. The same holds for `--radius-het2het 0`.
+* **Region size**: check for your system that the result does not change when the ML region grows; a larger `-r` costs more and does not always improve accuracy. See [Make the model larger](model-setup.md#make-the-model-larger).
+* **To build a reusable `--model-pdb` by hand**, extract from the PDB that `mm-parm` writes, so that the atoms match the `parm7` ([mm-parm example 4](mm-parm.md#examples)).
+* **Names match everywhere**: a name such as `TYR` selects every TYR in every chain, with a warning when there is more than one.
+* **`TYR:44` means chain TYR**: with two fields the first is always the chain, and the second is a number (`TYR:44`) or a name (`A:SAM`), so write `A:TYR:44`. In a PDB with an empty chain column, such as the bundled examples, use the name or the number alone.
+* **One form per list**: a list that mixes names and numbers, such as `'SAM,44'`, stops with an error.
+* **Boundary warnings**: `extract` warns when a bond other than C–C crosses the boundary. Check the boundary, the charge, and the multiplicity before a calculation; how to choose the boundary is in [Building the ML region and layers](model-setup.md).
+* **Same atoms in every input**: inputs with different atom counts or order stop with `[multi] Atom count mismatch` or `[multi] Atom order mismatch`; see [Troubleshooting](troubleshooting.md).
+* **Multi-MODEL input** uses only the first MODEL and prints a warning.
+* **Alternate locations (altLoc)**: `extract` keeps one altLoc per residue, the one with the highest mean occupancy; use [fix-altloc](fix-altloc.md) when you need the cleaned file itself.
+* **`--modified-residue`**: a bare `NAME` is accepted only for names already in the built-in table (see the appendix) and keeps the table's charge, such as −2 for `SEP`; any other bare name stops with an error that asks for `NAME:charge`. `NAME:charge` also overrides a built-in charge for this run (`LYS:0` for a neutral lysine). When `--modified-residue` is not enough, select the ML atoms by hand.
+* **Built-in residue names** follow Amber/CHARMM. If a PDB residue shares a name with a different chemical component, give the intended charge with `--modified-residue NAME:charge`.
 
-When metal-coordinating amino-acid parameters are generated by tools such as Amber's `MCPB.py` (Metal Center Parameter Builder), the coordinating residues are assigned non-standard names (e.g. `HD1`, `HE1`, `CM1`, `AP1`). These are not in `extract`'s internal `AMINO_ACIDS` dictionary, so **backbone truncation and link-hydrogen capping will not be applied correctly**, and a warning is emitted:
+---
 
-```text
-[extract] WARNING: Residue HD1 83 may be an amino acid (has N, CA, C, O)
-but is not recognized as a standard residue name.
-Backbone truncation was not applied.
-Consider preparing the pocket model manually.
-```
+## See also
 
-```{tip}
-Register each unlisted name with its integer charge, for example
-`--modified-residue HD1:0,HE1:0,CM1:0,AP1:0`. A residue already in the
-catalog may omit `:charge` and keeps its catalog charge (for example, `SEP`
-remains −2). `extract` then treats the names as amino acids and applies
-backbone truncation and charge assignment
-automatically, and the warning above is suppressed.
-```
-
-```{important}
-If `--modified-residue` cannot cover your case (e.g. unusual backbone topology), follow the {ref}`manual ML-selection recipe <model-pdb-selection>` to prepare `--model-pdb` without adding atoms.
-
-For a **standalone capped pocket**, not an ML-selection file:
-
-1. Select residues around the active site and determine truncation points.
-2. Add a link hydrogen on the parent atom (the atom that remains) of each severed covalent bond.
-3. Use residue name `LKH` (chain `L`) and atom name `HL` for the link hydrogen.
-4. Place it at **1.09 Å** along the original bond direction.
-```
+* [Building the ML region and layers](model-setup.md) — make the ML region smaller or larger, set the MM layers, and freeze atoms
+* [all](all.md) — the full workflow; runs `extract` with `-c`
+* [mm-parm](mm-parm.md) — build the Amber topology and the matching PDB to extract from
+* [define-layer](define-layer.md) — assign the ML, Movable-MM, and Frozen-MM layers from the extracted region
+* [fix-altloc](fix-altloc.md) — write a PDB with one alternate location per residue
+* [add-elem-info](add-elem-info.md) — fill missing element columns before extraction
+* [Common options and selectors](cli-conventions.md) — residue selectors and charge
+* [Troubleshooting](troubleshooting.md) — extraction errors
+* [Glossary](glossary.md) — ML region, link atom
 
 ## Appendix: PDB naming requirements and reference lists
 
-This appendix exists mainly for debugging cases where `extract` misclassifies residues due to **non-standard residue or atom naming**. If your inputs follow standard PDB conventions, you can usually skip it.
+Use this appendix when `extract` classifies a residue or assigns a charge wrongly because of non-standard residue or atom names. With standard PDB names you can skip it.
 
 ```{important}
-For `extract` to work correctly, **residue and atom names in the input PDB must conform to standard PDB naming conventions**. The tool relies on internal dictionaries to recognize amino acids, ions, water molecules, and backbone atoms. Non-standard naming will cause residues to be misclassified or charges to be incorrectly assigned.
+`extract` recognizes amino acids, ions, waters, and main-chain atoms by their PDB residue and atom names. Inputs must follow the standard PDB chemical-component names; other names can misclassify residues or give wrong charges.
 ```
 
-### `AMINO_ACIDS`
+### Amino acids
 
-A dictionary mapping residue names to their nominal integer charges. Membership determines whether a residue is treated as an amino acid for backbone handling, truncation, and charge calculation.
+Residue names treated as amino acids, with their nominal charges. Only these residues get main-chain cuts and amino-acid charges.
 
 **Standard 20** (charges reflect physiological pH):
 
@@ -194,56 +183,45 @@ A dictionary mapping residue names to their nominal integer charges. Membership 
 
 **Canonical extras:** `SEC` (selenocysteine, 0), `PYL` (pyrrolysine, 0).
 
-**Protonation / tautomer variants** (Amber / CHARMM): `HIP` (+1, fully protonated His), `HID` (0, Nδ-protonated His), `HIE` (0, Nε-protonated His), `ASH` (0, neutral Asp), `GLH` (0, neutral Glu), `LYN` (0, neutral Lys), `ARN` (0, neutral Arg), `TYM` (−1, deprotonated Tyr phenolate).
+**Protonation / tautomer variants** (Amber / CHARMM style): `HIP` (+1, fully protonated His), `HID` (0, Nδ-protonated His), `HIE` (0, Nε-protonated His), `ASH` (0, neutral Asp), `GLH` (0, neutral Glu), `LYN` (0, neutral Lys), `ARN` (0, neutral Arg), `TYM` (−1, deprotonated Tyr phenolate).
 
 **Phosphorylated:** dianionic (−2) `SEP`, `TPO`, `PTR`; monoanionic (−1) `S1P`, `T1P`, `Y1P`; phospho-His (phosaa19SB) `H1D` (0), `H2D` (−1), `H1E` (0), `H2E` (−1).
 
 **Cysteine variants:** `CYX` (0, disulfide), `CSO` (0, sulfenic acid), `CSD` (−1, sulfinic acid), `CSX` (0, generic), `OCS` (−1, cysteic acid), `CYM` (−1, deprotonated Cys).
 
-**Lysine variants / carboxylation:** `MLY` (+1), `LLP` (0), `DLY` (+1), `KCX` (−1, Nz-carboxylic acid).
+**Lysine variants / carboxylation:** `MLY` (+1), `LLP` (0), `KCX` (−1, Nz-carboxylic acid).
 
 **D-amino acids** (19): `DAL`, `DAR`, `DSG`, `DAS`, `DCY`, `DGN`, `DGL`, `DHI`, `DIL`, `DLE`, `DLY`, `MED`, `DPN`, `DPR`, `DSN`, `DTH`, `DTR`, `DTY`, `DVA`.
 
-**Other modified:** `CGU` (−2, γ-carboxy-glutamate), `CGA` (−1), `PCA` (0, pyroglutamate), `MSE` (0, selenomethionine), `OMT` (0, methionine sulfone), `HYP` (0, hydroxyproline); also `ASA`, `CIR`, `FOR`, `MVA`, `IIL`, `AIB`, `HTN`, `SAR`, `NMC`, `PFF`, `NFA`, `ALY`, `AZF`, `CNX`, `CYF`.
+**Other modified:** `CGU` (−2, γ-carboxy-glutamate), `CGA` (−1), `PCA` (0, pyroglutamate), `MSE` (0, selenomethionine), `OMT` (0, methionine sulfone), `HYP` (0, hydroxyproline); also `ASA`, `CIR`, `FOR`, `MVA`, `IIL`, `AIB`, `HTN`, `SAR`, `NMC`, `PFF`, `NFA`, `ALY`, `AZF`, `CNX`, `CYF` (all 0).
 
 **N-terminal variants** (`N` prefix): `NALA` (+1), `NARG` (+2), `NASP` (0), `NGLU` (0), `NLYS` (+2), … plus `ACE` (0), `NTER` (+1, generic).
 **C-terminal variants** (`C` prefix): `CALA` (−1), `CARG` (0), `CASP` (−2), `CGLU` (−2), `CLYS` (0), … plus `NHE` (0), `NME` (0), `CTER` (−1, generic).
 
-### `BACKBONE_ATOMS`
+### Main-chain atoms
 
-Atom names treated as backbone for amino acids; under `--exclude-backbone` these are removed from amino acids outside the extraction centers:
+Atom names treated as the main chain of an amino acid; under `--exclude-backbone` they are removed from amino acids outside `-c`:
 
 ```
 N, C, O, CA, OXT, H, H1, H2, H3, HN, HA, HA2, HA3
 ```
 
-### `ION`
+### Ions
 
-Recognized ion residue names with formal charges:
+Ion residue names and their formal charges:
 
 | Charge | Residue names |
 |---|---|
-| +1 | `LI`, `NA`, `K`, `RB`, `CS`, `TL`, `AG`, `CU1`, `K+`, `NA+`, `NH4`, `H3O+`, `HE+`, `HZ+` |
+| +1 | `LI`, `NA`, `K`, `RB`, `CS`, `TL`, `AG`, `CU1`, `K+`, `NA+`, `NH4`, `H3O+`, `H3O`, `HE+`, `HZ+` |
 | +2 | `MG`, `CA`, `SR`, `BA`, `MN`, `FE2`, `CO`, `NI`, `CU`, `ZN`, `CD`, `HG`, `PB`, `BE`, `PD`, `PT`, `SN`, `RA`, `YB2`, `V2+` |
 | +3 | `FE`, `AU3`, `AL`, `GA`, `IN`, `CE`, `CR`, `DY`, `EU`, `EU3`, `ER`, `GD3`, `LA`, `LU`, `ND`, `PR`, `SM`, `TB`, `TM`, `Y`, `PU` |
 | +4 | `U4+`, `TH`, `HF`, `ZR` |
 | −1 | `F`, `CL`, `BR`, `I`, `CL-`, `IOD` |
 
-### `WATER_RES`
+### Waters
 
-Recognized water residue names (included by default with `--include-h2o`, assigned zero charge):
+Water residue names (included by default with `--include-h2o`, charge 0):
 
 ```
 HOH, WAT, H2O, DOD, TIP, TIP3, SOL
 ```
-
-## See Also
-
-- [Common Error Recipes](recipes-common-errors.md) — Symptom-first failure routing
-- [Troubleshooting](troubleshooting.md) — Detailed troubleshooting guide
-- [Getting Started](getting-started.md) — Installation and first run
-- [Concepts](concepts.md) — Full system vs. ML region
-- [CLI Conventions](cli-conventions.md) — Residue selectors and charge specification
-- [mm-parm](mm-parm.md) — Generate the full-system Amber topology and the
-  topology-matched PDB to use for standalone extraction/layering
-- [define-layer](define-layer.md) — Assign 3-layer ML/MM partitioning

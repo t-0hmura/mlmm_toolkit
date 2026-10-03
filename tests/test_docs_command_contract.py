@@ -120,7 +120,8 @@ def test_detect_layer_rows_show_both_live_toggle_names() -> None:
                 if not line.startswith("| `--detect-layer"):
                     continue
                 rows.append((path, line))
-                command = root.get_command(ctx, path.stem)
+                # Shared pages (cli-conventions) document the toggle as `opt` has it.
+                command = root.get_command(ctx, path.stem) or root.get_command(ctx, "opt")
                 assert command is not None, path
                 option = next(
                     parameter
@@ -128,9 +129,7 @@ def test_detect_layer_rows_show_both_live_toggle_names() -> None:
                     if "--detect-layer" in getattr(parameter, "opts", ())
                 )
                 assert "--no-detect-layer" in option.secondary_opts
-                assert line.startswith(
-                    "| `--detect-layer / --no-detect-layer` |"
-                ), path
+                assert line.startswith("| `--detect-layer/--no-detect-layer` |"), path
     finally:
         ctx.close()
     assert rows

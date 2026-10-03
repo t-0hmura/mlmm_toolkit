@@ -1,88 +1,140 @@
-# `oniom-export`
+# `oniom-export` (Gaussian ONIOM / ORCA QM/MM input)
 
-Export an Amber-topology ML/MM system into an external QM/MM input file — Gaussian ONIOM (`--mode g16`, with link-atom annotations) or ORCA QM/MM (`--mode orca`, with ORCAFF handling). It combines an Amber `parm7` topology and an MLMM layered PDB into a single ready-to-run input file. The layered PDB B-factors define the movable/frozen partition; `--model-pdb`, when supplied, overrides its QM-region membership.
+## Overview
 
-Both export modes require a CMAP-free `parm7`. Gaussian ONIOM cannot
-represent these terms faithfully, and ORCA's MM engine does not apply them;
-the exporter therefore fails before writing when the topology contains CMAP.
-This is an export-format limitation—normal mlmm calculations may keep CMAP
-enabled in both MM layers. See [CMAP-free preparation](mm-parm.md#cmap-free-topology-for-oniom-export).
+`oniom-export` **writes an mlmm ML/MM system as an input file for Gaussian ONIOM (`--mode g16`) or ORCA QM/MM (`--mode orca`)**. It reads the Amber topology (`--parm7`) and a PDB whose B-factors hold the layers. It uses the ML region as the QM region and writes the coordinates, the QM and movable atoms, and the MM parameters into one input file. The topology must be free of CMAP terms; [mm-parm](mm-parm.md#cmap-free-topology-for-oniom-export) shows how to build one.
+
+### What it is for
+
+* **Gaussian ONIOM**: take a structure from mlmm, such as a TS candidate, into a Gaussian ONIOM calculation with a DFT high layer
+* **ORCA QM/MM**: run the same system with the QM/MM module of ORCA
+* **Round trip**: edit the exported input outside mlmm and bring it back with its atom and residue names through [`oniom-import`](oniom-import.md) `--ref-pdb`
+
+---
 
 ## Examples
 
-```bash
-# Gaussian ONIOM input
-mlmm oniom-export --parm7 real.parm7 -i pocket_layered.pdb --model-pdb ml.pdb \
- -o out.gjf --mode g16 -q 0 -m 1
-```
+### 1. Gaussian ONIOM (--mode g16)
+
+Write the TS candidate from `mlmm tsopt` as a Gaussian ONIOM input. Here `result_tsopt/final_geometry.pdb` is the full system with the layers in its B-factors, `real.parm7` is the topology of the same system, and `ml_region.pdb` selects the QM atoms.
 
 ```bash
-# ORCA QM/MM input (mode inferred from the .inp suffix)
-mlmm oniom-export --parm7 real.parm7 -i pocket_layered.pdb --model-pdb ml.pdb \
- -o out.inp -q 0 -m 1
+mlmm oniom-export --mode g16 --parm7 real.parm7 -i result_tsopt/final_geometry.pdb \
+    --model-pdb ml_region.pdb -o ts_refine.com -q 0 -m 1
+g16 < ts_refine.com > ts_refine.log
 ```
+
+The console prints `[oniom-gaussian] Wrote 'ts_refine.com'` followed by the numbers of QM atoms, movable atoms, and link boundaries.
+
+When you already trust the atom order, `--no-element-check` skips the atom-by-atom element comparison with the topology.
 
 ```bash
-# Gaussian input with a custom method/basis and resources
-mlmm oniom-export --parm7 real.parm7 -i pocket_layered.pdb --model-pdb ml.pdb \
- -o out.gjf --mode g16 --method 'wb97xd/def2-svp' --nproc 16 --mem 32GB -q 0 -m 1
+mlmm oniom-export --mode g16 --parm7 real.parm7 -i result_tsopt/final_geometry.pdb \
+    --model-pdb ml_region.pdb -o ts_refine.gjf -q 0 -m 1 --no-element-check
 ```
 
-## Workflow
+### 2. ORCA QM/MM (--mode orca)
 
-1. **Topology + layers** — read the `parm7` and the layered PDB passed to `-i` (atom order must match the topology; `--element-check` validates the element sequence). B-factors near 0/10/20 define ML, movable MM, and frozen MM atoms.
-2. **QM region** — use the B-factor ML layer unless `--model-pdb` explicitly defines the QM atoms. Movable/frozen membership always comes from the layered PDB.
-3. **QM/MM boundary** — Gaussian uses `--link-atom-method scaled` (the default Morokuma/Dapprich g-factor) or `fixed` (1.09/1.01 Å) to place link H atoms. ORCA uses `QMAtoms`/`ORCAFF` for capping; exported link coordinates are diagnostic comments only.
-4. **Write** — emit the target-format input file at `-o`. ORCA mode additionally resolves `ORCAFF.prms`. With `--convert-orcaff`, conversion is attempted through `orca_mm -convff -AMBER`; if conversion is disabled or unavailable, the `.inp` is still written and reports the parameter file that must be supplied before ORCA is run.
+Write the same structure as an ORCA QM/MM input. The `.inp` suffix selects ORCA mode, so `--mode orca` can be left out.
 
-## Outputs
+```bash
+mlmm oniom-export --parm7 real.parm7 -i result_tsopt/final_geometry.pdb \
+    --model-pdb ml_region.pdb -o ts_refine.inp -q 0 -m 1
+```
 
-- `<output>.{gjf,com}` (g16) or `<output>.inp` (ORCA) — the QM/MM input file
-- ORCA mode references `<parm7_stem>.ORCAFF.prms`; it reuses an existing file or creates one only when automatic conversion is enabled and available
+The console prints `[oniom-orca] Wrote 'ts_refine.inp'` and then `[oniom-orca] ORCAFF.prms: <path>` when the force-field file for ORCA is ready.
 
-## CLI options
+Set the charge and multiplicity of the whole QM+MM system (`Charge_Total`, `Mult_Total`) yourself:
 
-The full flag list is in the generated [command reference](reference/commands/index.md); the table below covers the options that need explanation.
+```bash
+mlmm oniom-export --mode orca --parm7 real.parm7 -i result_tsopt/final_geometry.pdb \
+    --model-pdb ml_region.pdb -o ts_refine.inp -q 0 -m 1 --total-charge -1 --total-mult 1
+```
 
-| Option | Description | Default |
-| --- | --- | --- |
-| `--parm7 PATH` | Amber parm7 topology file. | Required |
-| `-i, --input PATH` | MLMM layered PDB; atom order must match the parm7 and B-factors define movable/frozen atoms. | Required |
-| `--model-pdb PATH` | PDB defining the QM-region atoms. | _None_ |
-| `-o, --output PATH` | Output file path (`.gjf` / `.com` for g16, `.inp` for ORCA). | Required |
-| `--mode [g16\|orca]` | Export mode; inferred from the `-o` suffix when omitted. | _inferred_ |
-| `--method TEXT` | QM method and basis set. | mode-dependent |
-| `-q, --charge INT` | Charge of the QM region. | Required |
-| `-m, --multiplicity INT` | Multiplicity of the QM region. | `1` |
-| `--nproc INT` | Number of processors. | `8` |
-| `--mem TEXT` | Memory allocation (g16 mode). | `16GB` |
-| `--total-charge INT` / `--total-mult INT` | Total charge / multiplicity of the full QM+MM system (ORCA `Charge_Total` / `Mult_Total`). | topology-derived / same as `--multiplicity` |
-| `--orcaff PATH` | Path to `ORCAFF.prms` (ORCA mode). If omitted, a derived path is referenced and automatic creation is attempted conditionally. | _None_ |
-| `--convert-orcaff / --no-convert-orcaff` | Auto-convert a missing `ORCAFF.prms` via `orca_mm -convff -AMBER` (ORCA mode). | `True` |
-| `--element-check / --no-element-check` | Validate the `--input` element sequence against the parm7 topology. | `True` |
-| `--link-atom-method [scaled\|fixed]` | Gaussian link-H placement; ORCA records the corresponding coordinates only as diagnostics and creates caps from `QMAtoms`/`ORCAFF`. | `scaled` |
+Reuse an `ORCAFF.prms` you already have and skip the conversion step:
 
-`mlmm oniom-export --help` shows core options; `mlmm oniom-export --help-advanced` shows the full list.
+```bash
+mlmm oniom-export --mode orca --parm7 real.parm7 -i result_tsopt/final_geometry.pdb \
+    --model-pdb ml_region.pdb -o ts_refine.inp -q 0 -m 1 \
+    --orcaff ./ORCAFF.prms --no-convert-orcaff
+```
+
+### 3. Method, processors, and memory
+
+Change the QM method and the resources written into the Gaussian input (`%nprocshared`, `%mem`).
+
+```bash
+mlmm oniom-export --mode g16 --parm7 real.parm7 -i result_tsopt/final_geometry.pdb \
+    --model-pdb ml_region.pdb -o ts_refine.com -q 0 -m 1 \
+    --method 'wb97xd/def2-svp' --nproc 16 --mem 32GB
+```
+
+---
+
+## How it works
+
+1. **Topology and layers**:
+`oniom-export` reads the atoms, bonds, charges, and Amber parameters from the parm7, and the coordinates and B-factors from the PDB at `-i`. The PDB must list the same atoms in the parm7 order; `--element-check` compares their elements one by one. B-factors of 0, 10, and 20 (within ±1.0) mark the ML, movable MM, and frozen MM atoms.
+2. **QM region**:
+With `--model-pdb`, its atoms form the QM region; they are matched to `-i` by atom name, residue name, chain, residue number, and insertion code. Without it, the atoms with B-factor 0 form the QM region. Every atom except the frozen MM atoms is movable, and the QM atoms are always movable.
+3. **QM/MM boundary**:
+For Gaussian, a link H replaces the MM atom of each cut QM–MM bond: `--link-atom-method scaled` (the default) places it with the Morokuma/Dapprich g-factor, and `fixed` places it 1.09 Å (QM carbon) or 1.01 Å (QM nitrogen) from the QM atom. ORCA builds the caps itself from `QMAtoms` and `ORCAFF.prms`, and the input lists the estimated cap positions only as comments.
+4. **Writing the input**:
+The Gaussian input has the route `#p oniom(<method>:amber=softonly)`, the coordinates with the movable flag (`0` movable, `-1` frozen) and the layer (`H` or `L`), the connectivity, and the Amber parameters. Its charge and multiplicity line has three pairs: the whole system (the topology total charge and `-m`), then the QM region twice (`-q` and `-m`). The ORCA input has `! <method>` and `! QMMM`, a `%qmmm` block with `ORCAFFFilename`, `QMAtoms`, `ActiveAtoms`, `Charge_Total`, and `Mult_Total`, and the coordinates under `* xyz` with the QM charge and multiplicity (`-q`, `-m`). In ORCA mode, `oniom-export` also finds or creates `ORCAFF.prms`. The `%qmmm` keywords are described in the [ORCA 6.0 manual (QM/MM)](https://www.faccts.de/docs/orca/6.0/manual/contents/typical/qmmm.html).
+
+---
+
+## Output files
+
+* **Gaussian input** (`--mode g16`): the `-o` file (`.com` or `.gjf`). The console prints `[oniom-gaussian] Wrote '<file>'`, `QM atoms: N, Movable atoms: M`, and `Link boundaries: K`.
+* **ORCA input** (`--mode orca`): the `-o` file (`.inp`). The console prints `[oniom-orca] Wrote '<file>'`, `QM atoms: N, Active atoms: M`, and `Link boundaries (auto-capped by ORCA): K`.
+* **`ORCAFF.prms`** (ORCA): the `--orcaff` file, or `<parm7 stem>.ORCAFF.prms` in the directory of `-o`. An existing file is reused; a missing one is created with `orca_mm -convff -AMBER <parm7>` when `--convert-orcaff` is on and `orca_mm` is on `PATH`. If the file still does not exist, the console prints `[oniom-orca] NOTE: ORCAFF.prms not found at '<path>'. Run manually: cd <dir> && orca_mm -convff -AMBER <parm7>`, and the `.inp` is complete only after you run that command.
+
+---
+
+## Main options
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `--parm7` | path | (required) | Amber topology of the full system, free of CMAP terms |
+| `-i, --input` | path | (required) | PDB of the full system in the parm7 atom order, with the layers in the B-factors (0, 10, 20) |
+| `--model-pdb` | path | `None` | PDB of the QM atoms; without it, the atoms with B-factor 0 in `-i` |
+| `-o, --output` | path | (required) | Input file to write: `.com` / `.gjf` (g16) or `.inp` (ORCA) |
+| `--mode` | `g16` / `orca` | from the `-o` suffix | Program to write the input for |
+| `--method` | text | `wB97XD/def2-TZVPD` (g16), `B3LYP D3BJ def2-SVP` (ORCA) | QM method and basis set, written into `oniom(<method>:amber=softonly)` (g16) or the `!` line (ORCA) |
+| `-q, --charge` | integer | (required) | Charge of the QM region |
+| `-m, --multiplicity` | integer | `1` | Spin multiplicity of the QM region |
+| `--nproc` | integer | `8` | Number of processors (`%nprocshared` for g16, `%pal nprocs` for ORCA) |
+| `--mem` | text | `16GB` | g16: memory (`%mem`) |
+| `--total-charge`, `--total-mult` | integer | topology total charge, `-m` | ORCA: charge and multiplicity of the whole QM+MM system (`Charge_Total`, `Mult_Total`) |
+| `--orcaff` | path | `<parm7 stem>.ORCAFF.prms` in the directory of `-o` | ORCA: an existing `ORCAFF.prms` to use |
+| `--convert-orcaff/--no-convert-orcaff` | flag | `True` | ORCA: when `--orcaff` is not given and the default file is missing, create it with `orca_mm -convff -AMBER` |
+| `--element-check/--no-element-check` | flag | `True` | Compare the elements of `-i` with the topology atom by atom |
+| `--link-atom-method` | `scaled` / `fixed` | `scaled` | g16: place link H atoms with the g-factor (`scaled`) or at a fixed bond length (`fixed`) |
+
+See the [generated CLI reference](reference/commands/oniom_export.md) for every option.
+
+---
 
 ## Notes
 
-- Mode selection: `--mode` is highest priority. If `--mode` is omitted, the mode is inferred from `-o`:
-  - `.gjf` / `.com` → `g16`
-  - `.inp` → `orca`
-- If `--mode` is omitted and the `-o` suffix is unknown, the command fails.
-- For PDB/ENT input, the exported file embeds
-  `MLMM_REF_PDB_ORDER_V1_SHA256=<digest>`. Coordinates, occupancy, and B-factor
-  are excluded, while fixed atom/residue/chain/insertion/element identity is
-  covered. `oniom-import --ref-pdb` verifies this marker before positional
-  metadata restoration.
+* **CMAP**: Gaussian ONIOM cannot represent the CMAP terms of a parm7, and the MM engine of ORCA does not apply them, so a topology with CMAP stops the export before any file is written. Build a CMAP-free topology for the export; the ML/MM calculations in mlmm can keep CMAP, which they apply in both MM layers.
+* **Choosing the mode**: `--mode` takes precedence over the suffix; without it, a suffix other than `.gjf`, `.com`, or `.inp` is an error.
+* **Atom order**: `-i` must be a PDB (`.pdb` or `.ent`) with the same number of atoms as the parm7. A different atom count stops the export even with `--no-element-check`; with the check on, the first different element stops it with `Element sequence mismatch at atom index …` (counted from 0).
+* **Whole-system charge**: the charge of the Gaussian real system, and the default ORCA `Charge_Total`, is the sum of the parm7 partial charges rounded to an integer. If the sum is more than 0.05 from an integer, the export stops; in ORCA mode, give `--total-charge` instead.
+* **Gaussian boundaries**: each cut QM–MM bond needs its own MM atom. If two QM atoms are bonded to the same MM atom, the Gaussian export stops.
+* **Job type**: the exported input has no job keyword (such as `opt` or `freq`) on the Gaussian route line or the ORCA `!` line, so as written it is a single-point calculation. Add the keywords for the job you want before running it.
+* **`ORCAFF.prms` before running ORCA**: the `.inp` refers to `ORCAFF.prms` by its absolute path. Check that this file exists before you run the `.inp`, also after moving the input to another machine.
+* **Atom-order marker**: the exported file carries `MLMM_REF_PDB_ORDER_V1_SHA256=<digest>`, a hash of the names, numbers, and other identity fields of every atom in `-i`; coordinates, occupancy, and B-factors are left out. [`oniom-import`](oniom-import.md) `--ref-pdb` checks this marker before it copies the names back.
+* **Multiplicity**: a value of `-m` below 1 is rejected on the command line.
+* **Requirements**: Gaussian and ORCA are not part of mlmm-toolkit; install and license them separately.
+* **Exit codes**: see {ref}`Exit codes <exit-codes>`.
 
-## See Also
+---
 
-- [Common Error Recipes](recipes-common-errors.md) — Symptom-first failure routing
-- [Troubleshooting](troubleshooting.md) — Detailed troubleshooting guide
+## See also
 
-- [oniom-gaussian](oniom-gaussian.md) — Gaussian-mode details (`--mode g16`)
-- [oniom-orca](oniom-orca.md) — ORCA-mode details (`--mode orca`)
-- [oniom-import](oniom-import.md) — Reconstruct XYZ/layered PDB from ONIOM inputs
-- [mm-parm](mm-parm.md) — Build Amber topology
-- [define-layer](define-layer.md) — Build/check layer annotations
+* [oniom-import](oniom-import.md) — bring an edited ONIOM input back as XYZ and a layered PDB
+* [mm-parm](mm-parm.md) — build the Amber topology, including a CMAP-free one
+* [define-layer](define-layer.md) — write the layer B-factors into the full-system PDB
+* [Troubleshooting](troubleshooting.md) — what to do when a run fails

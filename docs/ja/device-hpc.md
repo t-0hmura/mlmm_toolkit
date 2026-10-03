@@ -1,29 +1,19 @@
 # デバイス設定 & HPC セットアップ
 
-## 概要
-
-ML/MM calculatorの GPU/CPU デバイス設定と、HPC クラスタでのジョブ投入方法を説明します。
-
-### 要点
-- **ML バックエンド (UMA):** デフォルトで CUDA を使用（`ml_device: auto` → CUDA が利用可能なら CUDA）。
-- **MM バックエンド (hessian_ff):** CPU のみ。OpenMM バックエンドは CUDA を使用可能。
-- **Hessian 後処理:** `--hess-device cpu` で、計算済み Hessian の配置と対角化を CPU へ移せます。
-- **マルチ GPU:** ML 推論は単一 GPU（モデル並列は非対応）。OpenMM MM バックエンドは別の CUDA デバイス（`mm_device: cuda`, `mm_cuda_idx: 1`）に配置可能。
-
----
+ML/MM 計算機の ML と MM の部分をどのデバイス（GPU か CPU）で動かすかの設定と、PBS・Slurm のジョブスクリプトをまとめたページです。デフォルトでは、ML の推論は CUDA が使えれば GPU で、MM の力場（`hessian_ff`）は CPU で動きます。
 
 ## デバイスパラメータ
 
-ML/MM calculator（`mlmm_calc.mlmm`）は ML と MM で別々のデバイス設定を使用します:
+デバイスは YAML ファイル（`--config`）の `calc` セクションで指定します。
 
 | パラメータ | デフォルト | 説明 |
 | --- | --- | --- |
-| `ml_device` | `auto` | UMA 推論のデバイス。`auto` は CUDA が利用可能なら CUDA、なければ CPU。 |
-| `ml_cuda_idx` | `0` | `ml_device=cuda` 時の CUDA デバイスインデックス。 |
-| `mm_backend` | `hessian_ff` | MM 力場エンジン。`hessian_ff`（解析的、CPU のみ）または `openmm`（CUDA 対応）。 |
-| `mm_device` | `cpu` | MM バックエンドのデバイス。hessian_ff は `cpu` 必須。openmm は `cuda` 使用可能。 |
-| `mm_cuda_idx` | `0` | `mm_device=cuda` 時の CUDA デバイスインデックス（openmm のみ）。 |
-| `mm_threads` | `16` | MM バックエンドの CPU スレッド数。 |
+| `ml_device` | `auto` | ML 推論のデバイス：`auto`、`cuda`、`cpu`。`auto` は CUDA が使えれば CUDA、なければ CPU を選びます。`--backend dft` では、代わりに `--dft-engine`（`calc.dft.engine`）がデバイスを決めます。 |
+| `ml_cuda_idx` | `0` | CUDA で ML 推論を行うときの CUDA デバイス番号。 |
+| `mm_backend` | `hessian_ff` | MM のエンジン：`hessian_ff`（CPU のみ）か `openmm`（CPU か CUDA）。 |
+| `mm_device` | `cpu` | MM のエンジンのデバイス。`hessian_ff` は `cpu` か `auto` を受け、CPU で動きます。`openmm` は `cuda` も受け、`auto` は OpenMM に CUDA プラットフォームがあれば CUDA を選びます。 |
+| `mm_cuda_idx` | `0` | OpenMM を CUDA で動かすときの CUDA デバイス番号。 |
+| `mm_threads` | `16` | MM のエンジンの CPU スレッド数。 |
 
 ### YAML 設定例
 
@@ -47,66 +37,36 @@ calc:
   mm_cuda_idx: 0
 ```
 
-> **注意:** ML と MM の両方が CUDA を使用する場合、GPU メモリを共有します。大きな系では `mm_device: cpu` を使用して VRAM 消費を抑えることを推奨します。
-
 ---
 
 ## VRAM 管理
 
-### 計算後の Hessian デバイス（`--hess-device`）
+### Hessian のデバイス（`--hess-device`）
 
-`freq` コマンドは `--hess-device` で、計算済み Hessian の配置と対角化のデバイスを制御できます。calculator が Hessian を計算するデバイスは変更しません：
+`freq` と `irc` の `--hess-device` は `cuda`・`cpu`・`auto` を受け、デフォルトの `auto` は `ml_device` に従います。`freq` では、計算済みの Hessian を置いて対角化するデバイスを決めます。`irc` では、初期 Hessian を置くデバイスと IRC の演算を行うデバイスを決めます。
 
 ```bash
-# デフォルト: 解決済みの ML デバイス
-mlmm freq -i input.pdb --parm7 real.parm7 -q -1
+# デフォルト: ML のデバイス
+mlmm freq -i r_complex_layered.pdb --parm7 real.parm7 -q -1
 
 # 計算済み Hessian を CPU へ移して対角化
-mlmm freq -i input.pdb --parm7 real.parm7 -q -1 --hess-device cpu
+mlmm freq -i r_complex_layered.pdb --parm7 real.parm7 -q -1 --hess-device cpu
 ```
 
-`--hess-device cpu` を使用する場面：
-- 計算済み Hessian を CPU で対角化したい場合
-- 計算済み Hessian の保持と対角化による追加 VRAM 使用を避けたい場合
-
-backend 内部の Hessian 計算中に発生する out-of-memory は、このオプションでは回避できません。その場合は活性領域を小さくするか、より省メモリな Hessian/backend 設定を選択してください。
+`--hess-device cpu` を使う場面：
+- Hessian を GPU に置いて対角化すると、計算に要る VRAM を使ってしまう場合
 
 ### VRAM 節約のヒント
 
-1. **ML 領域を小さくする:** `mlmm extract` で小さい `--radius` を使用します。独立に、`define-layer --movable-cutoff` を絞ると movable-MM shell が小さくなり frozen 環境が広がります。
-2. **hessian_ff（デフォルト）を使用:** hessian_ff は CPU で実行されるため、GPU 上の追加 MM 割り当てを避けられます。
-3. **MM デバイスを明示的に選ぶ:** ML と MM の両方で CUDA を使う場合は代表的な小規模実行でメモリ使用量を測り、必要に応じて `mm_device: cpu` を使用します。
-4. **VRAM を監視:** `print_vram` はデフォルトで true（Hessian 計算中に VRAM 使用量（ピーク）を表示）。抑制するには YAML で `print_vram: False` を設定。
+1. **ML 領域を小さくする:** `mlmm extract` で小さい `--radius` を使います。詳しくは [モデルを削る](model-setup.md#モデルを削る) を参照してください。
+2. **hessian_ff（デフォルト）を使う:** hessian_ff は CPU で動くため、GPU に MM の分のメモリを取りません。
+3. **VRAM を監視する:** `print_vram` はデフォルトで `true` で、Hessian の計算中に VRAM 使用量のピークを表示します。
 
 ---
 
-## バックエンドごとの精度デフォルト値
+## ジョブでの精度
 
-`--precision` は `fp32` または `fp64`（大文字小文字無視）を選びます。
-未指定時の有効なデフォルト値はバックエンドごとに異なります。
-
-| backend | デフォルト | 理由 |
-|---|---|---|
-| UMA | fp32 | 上流 fairchem の baseline。 |
-| ORB | fp64 | backend default。 |
-| MACE | fp64 | 上流の `default_dtype="float64"` と一致。 |
-| AIMNet2 | fp32 | 精度切替を持たず、明示的 fp64 は拒否。 |
-
-両精度に対応する場合は、使用するバックエンド・モデル・対象系で、エネルギー、力、振動数、実行時間、メモリ使用量を比較してください。どの精度でも振動解析と IRC による独立した検証が必要です。
-
-```bash
-# データセンター H200 — フル精度のベース推論
-mlmm tsopt -i ts.pdb --parm7 enzyme.parm7 -q 0 -m 1 -b uma --precision fp64 -o result_ts
-
-# ORB の縮約精度を明示した screening
-mlmm scan -i r.pdb --parm7 enzyme.parm7 -q 0 -b orb --precision fp32 --scan-lists '[(1,5,1.4)]' -o result_scan
-```
-
-`--precision` はすべての計算系サブコマンド（`sp`、`opt`、`tsopt`、`freq`、`irc`、`scan` / `scan2d` / `scan3d`、`path-opt`、`path-search`、`all`）で受け付けられ、バックエンドごとにルーティングされます（UMA precision、ORB precision、MACE `default_dtype`）。
-
-```{note}
-`-b aimnet2` では model 入力が上流で float32 に cast されるため、`fp32` は no-op、`fp64` は拒否されます。UMA、Orb、MACE は fp64 を受理します。`--deterministic` は決定論的 algorithm を要求しますが、end-to-end のビット単位同一性を単独では保証しません。対象 backend/model/SDK と stack で検証してください — [再現性](reproducibility.md) を参照。
-```
+精度はバックエンドと用途で選び、割り当てられた GPU で計算時間を測ってください。詳しくは {ref}`MLIP バックエンド › 精度 <ja-precision>` を参照してください。
 
 ---
 
@@ -143,7 +103,7 @@ command -v ninja >/dev/null || { echo "hessian_ff には ninja が必要です" 
 # 最適化の実行
 mlmm opt \
   -i r_complex_layered.pdb \
-  --parm7 p_complex.parm7 \
+  --parm7 real.parm7 \
   -q -1 -m 1 \
   --opt-mode grad \
   --out-dir opt_result
@@ -178,7 +138,7 @@ command -v ninja >/dev/null || { echo "hessian_ff には ninja が必要です" 
 
 mlmm opt \
   -i r_complex_layered.pdb \
-  --parm7 p_complex.parm7 \
+  --parm7 real.parm7 \
   -q -1 -m 1 \
   --opt-mode grad \
   --out-dir opt_result
@@ -186,15 +146,14 @@ mlmm opt \
 
 ### 重要なポイント
 
-- **ML 用 GPU:** ML inference は GPU 1 基を使用します。OpenMM MM backend を別 CUDA device に置く場合だけ追加 GPU を検討します。
-- **CPU thread:** MM backend の `mm_threads` と対象系の pilot に合わせて要求します。
-- **メモリ:** 代表的な pilot と scheduler の peak-memory log から RAM を設定。
-- **CUDA ランタイム:** 公式 PyTorch wheel には CUDA のユーザー空間ライブラリが含まれるため、通常は互換性のある NVIDIA ドライバーだけで十分です。必要な拡張をソースビルドする場合だけ CUDA toolkit module を読み込みます。
-- **C++ コンパイラ:** デフォルトの `hessian_ff` MM バックエンドは初回利用時に C++ カーネルを JIT ビルドします。CUDA とは独立に、各計算ノードで C++20 対応コンパイラと Ninja が必要です（GCC 13.3 で検証済み）。システムの `g++` がない、または古い場合はコンパイラモジュールを読み込みます。
+- **GPU:** ML 推論用に GPU を 1 基要求します（PBS は `gpus=1`、Slurm は `--gres=gpu:1`）。2 基目を要求するのは、OpenMM の MM バックエンドを別の CUDA デバイス（`mm_device: cuda`、`mm_cuda_idx: 1`）に置く場合だけです。
+- **CPU スレッド:** MM バックエンドのスレッド数（`mm_threads`、デフォルト 16）に足りる CPU を要求します。上の例は余裕を見て 32（`ppn=32`、`--cpus-per-task=32`）を要求しています。
+- **メモリ:** 代表的な試験計算と scheduler のピークメモリの記録から RAM を決めます。
+- **CUDA ランタイム:** 公式 PyTorch wheel には CUDA のユーザー空間ライブラリが含まれるため、通常は対応する NVIDIA ドライバーだけで足ります。CUDA toolkit のモジュールを読み込むのは、それを必要とする拡張を使う場合だけです。
 
 ### GPU インデックスの指定
 
-マルチ GPU ノードで特定の GPU を使用する場合：
+マルチ GPU ノードで特定の GPU を使う場合：
 
 ```bash
 # 方法 A: 環境変数（全 CUDA プログラムに影響）
@@ -205,23 +164,26 @@ export CUDA_VISIBLE_DEVICES=0
 # config.yaml に記述:
 # calc:
 #   ml_cuda_idx: 0
-mlmm opt -i input.pdb --parm7 real.parm7 -q -1 --config config.yaml
+mlmm opt -i r_complex_layered.pdb --parm7 real.parm7 -q -1 --config config.yaml
 ```
 
 ---
 
-## 制限事項
+## 使用上の注意点
 
-- **ML モデル並列は非対応:** ML 推論は単一 GPU で動作する。OpenMM MM バックエンドは別の CUDA デバイス（`mm_device: cuda`, `mm_cuda_idx`）を使用可能だが、デフォルトの hessian_ff MM バックエンドは CPU のみ。
-- **単一ノード実行:** 通常は単一プロセスで、対応する UMA 設定では `workers > 1` によりローカル worker process を生成できます。複数ノード分散は行いません。
-- **hessian_ff は CPU のみ:** デフォルトの MM バックエンドでは `mm_device` は `cpu`/`auto` のみ可。`mm_device: cuda` を指定すると ValueError を送出（暗黙の CPU フォールバックはしない）。
+* **hessian_ff は CPU でだけ動く**: デフォルトの `mm_backend: hessian_ff` では、`mm_device` は `cpu` か `auto` だけを受け、`mm_device: cuda` はエラーで止まります。MM を CUDA で動かすには `mm_backend: openmm` を使ってください。
+* **ML 推論は GPU 1 基**: デフォルトの `--uma-workers 1` では、ML 推論は `ml_cuda_idx` の GPU 1 基で動きます。`--uma-workers` を 2 以上にする場合は [MLIP バックエンド › ワーカーと Hessian の計算方式](backends.md#ワーカーと-hessian-の計算方式) を参照してください。
+* **ML と MM を同じ GPU に置くとメモリを共有する**: 両方を同じ CUDA デバイスで動かすときは、代表的な試験計算でピークメモリを測り、大きな系では `mm_device: cpu` を使ってください。
+* **`--hess-device cpu` でもすべての out-of-memory は防げない**: Hessian の計算中にバックエンドの中で起きる out-of-memory は、Hessian を移す前に起きます。モデルを小さくするか、メモリの少ない Hessian やバックエンドの設定を選んでください。
+* **各計算ノードに C++ コンパイラが要る**: デフォルトの `hessian_ff` MM バックエンドは、初回利用時に C++ カーネルを JIT ビルドします。これは CUDA とは関係なく行われます。各計算ノードに C++20 対応のコンパイラと Ninja が必要です（GCC 13.3 で検証済み）。システムの `g++` がない、または古い場合はコンパイラモジュールを読み込んでください。上のジョブスクリプトは両方を確かめます。
 
 ---
 
-## 関連項目
+## 関連ドキュメント
 
-- [はじめに](getting-started.md) -- インストールと CUDA セットアップ
-- [ML/MM calculator](mlmm-calc.md) -- 計算機のアーキテクチャとパラメータ
-- [YAML リファレンス](yaml-reference.md) -- 設定リファレンス
-- [freq](freq.md) -- `--hess-device` オプションの詳細
-- [トラブルシューティング](troubleshooting.md) -- よくあるエラーの修正
+- [インストール](installation.md) — インストール、CUDA、C++ コンパイラ
+- [ML/MM 計算機](mlmm-calc.md) — 計算機の構成とパラメータ
+- [MLIP バックエンド](backends.md) — 精度、ワーカー、Hessian の計算方式
+- [YAML 設定リファレンス](yaml-reference.md) — 設定の全体
+- [freq](freq.md) · [irc](irc.md) — `--hess-device`
+- [トラブルシューティング](troubleshooting.md) — よくあるエラーと対処法

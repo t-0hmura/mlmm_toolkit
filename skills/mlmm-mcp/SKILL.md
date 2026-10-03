@@ -111,7 +111,7 @@ their empty `summary` has no exception-envelope guarantee.
 
 ## Opt-in IRC convergence guard
 
-`run_irc` accepts `irc_pos_def: bool` — IRC convergence then additionally requires a positive-definite mass-weighted Hessian, blocking the IRC "shoulder" false-convergence where the rms-only criterion calls success before reaching the local minimum. Defaults to `None` (rms-only, legacy).
+`run_irc` accepts `irc_pos_def: bool` — IRC convergence then additionally requires a positive-definite mass-weighted Hessian, blocking the IRC "shoulder" false-convergence where the rms-only criterion calls success before reaching the local minimum. Defaults to `None` (rms-only).
 
 The default `find_transition_state` value, `opt_mode="hess"`, selects RS-P-RFO. The explicit `rsprfo`, `rsirfo`, and `trim` tokens select a Hessian TS optimizer; all three are microiter-capable and microiteration is on by default. The server forwards `--no-microiter` only when the caller passes `microiter=False`.
 

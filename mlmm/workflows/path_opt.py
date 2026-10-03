@@ -1154,7 +1154,7 @@ def _run_dmf_mep(
     type=click.Choice(["scaled", "fixed"], case_sensitive=False),
     default=None,
     show_default="scaled",
-    help="Link-atom position mode: scaled (g-factor) or fixed (legacy 1.09/1.01 Å).",
+    help="Link-atom position mode: scaled (g-factor) or fixed (1.09/1.01 Å).",
 )
 @click.option(
     "--mm-backend",

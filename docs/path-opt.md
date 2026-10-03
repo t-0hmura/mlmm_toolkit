@@ -1,128 +1,156 @@
-# `path-opt`
+# `path-opt` (MEP between two structures)
 
-`mlmm path-opt` finds a minimum-energy path (MEP) between **exactly two** layered enzyme structures with GSM (default) or DMF (`--mep-mode dmf`), using the ML/MM calculator on the full enzyme complex. It writes the path trajectory and exports the highest-energy image (HEI) as a TS candidate. Use it when two layered endpoints are well defined and no intermediates are expected. It is the simpler MEP-only sibling of `path-search` (no recursive segmentation, no bond-change-driven decomposition). For workflows that start from **two or more** structures and automatically refine only the reactive region, use [path-search](path-search.md) instead.
+## Overview
+
+`path-opt` finds a minimum-energy path (MEP) between **exactly two** layered enzyme structures, a reactant and a product, in one pass with GSM (growing string method, the default) or DMF (direct max flux), using the ML/MM calculator on the whole system. It writes the highest-energy image (HEI) as a TS candidate.
+
+### What it is for
+
+* **A first MEP from R and P**: get a path and its energy profile from two endpoint structures, without recursive refinement.
+* **A TS candidate for `tsopt`**: `hei.pdb` (or `hei.xyz`) is the starting structure for [`tsopt`](tsopt.md).
+* **Comparing GSM and DMF**: run the same pair with `--mep-mode gsm` and `--mep-mode dmf` and compare the paths.
+
+The ML region is computed with **UMA** (Meta) by default, and the rest of the system is computed with the Amber force field of `--parm7`. For two or more structures with automatic refinement of the reactive region, use [`path-search`](path-search.md).
+
+---
 
 ## Examples
 
-```bash
-# Minimal invocation
-mlmm path-opt -i reac.pdb prod.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 --out-dir ./result_path_opt
-```
+### 1. Two endpoints
+
+Give the reactant and the product after one `-i`, with the charge of the ML region and the spin multiplicity. `reactant.pdb` and `product.pdb` hold the whole system that matches `real.parm7` (the Amber topology), and `ml_region.pdb` selects its ML region.
 
 ```bash
-# Pre-optimize both endpoints before path growth
-mlmm path-opt -i reac.pdb prod.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 --preopt --preopt-max-cycles 20000 --out-dir ./result_path_opt_preopt
+mlmm path-opt -i reactant.pdb product.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
+  -q 0 -m 1 --out-json --out-dir ./result_path_opt
 ```
+
+A console line that starts with `[write] Wrote '…/hei.xyz'` shows that the TS candidate was written. In `result.json`, `scientific_status` is `success` when every requested stage (endpoint pre-optimization and the MEP) converged, otherwise `partial` or `failed`. `barrier_kcal` is the HEI energy relative to the first image, and `hei_index` tells you where the HEI sits on the path (see [Reading the HEI](#reading-the-hei)).
+
+### 2. Set the endpoint pre-optimization limit
+
+Both endpoints are pre-optimized by default; `--preopt-max-cycles` caps each pass. Use `--no-preopt` when the endpoints are already optimized.
 
 ```bash
-# Disable climbing-image refinement for a quick first pass
-mlmm path-opt -i reac.pdb prod.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 --no-climb --max-nodes 8 --out-dir ./result_path_opt_fast
-# freeze selected atoms and keep optimizer dumps: --freeze-atoms "1,3,5,7" --dump
+mlmm path-opt -i reactant.pdb product.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
+  -q 0 -m 1 --preopt-max-cycles 20000 --out-dir ./result_path_opt_preopt
 ```
 
-General command form:
+### 3. DMF instead of GSM
+
+DMF needs `cyipopt` and `pydmf` (see [Notes](#notes)); here we also use fewer movable images.
 
 ```bash
-mlmm path-opt -i REACTANT.pdb PRODUCT.pdb --parm7 real.parm7 --model-pdb model.pdb \
- -q CHARGE [-m MULT] [--mep-mode gsm|dmf] [--fix-ends/--no-fix-ends] [options]
+mlmm path-opt -i reactant.pdb product.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
+  -q 0 -m 1 --mep-mode dmf --max-nodes 12 --out-dir ./result_path_opt_dmf
 ```
 
-`mlmm path-opt --help` shows core options; `mlmm path-opt --help-advanced` shows the full option list.
+### 4. Quick pass: no climbing, fewer nodes
 
-## Workflow
-1. **Load endpoints** -- Read PDB/mmCIF structures, or XYZ coordinates with matching `--ref-pdb` topology, and resolve charge/spin.
-    Set up the ML/MM calculator with `--parm7`, `--model-pdb`, and charge/spin.
-2. **Optional pre-optimization** -- With `--preopt`, each endpoint is pre-optimized
-    by L-BFGS or RFO selected by `--opt-mode` (using the same ML/MM calculator) before alignment and string growth.
-    `--preopt-max-cycles` sets the L-BFGS cycle cap (default: 100000).
-3. **Alignment and freeze-guided refinement** -- Endpoints after the first are rigidly
-    aligned to the first. With `freeze_atoms`, the shared owner then performs its
-    freeze-guided scan and L-BFGS relaxation toward the reference before string growth.
-4. **Path optimization** -- `--mep-mode gsm` uses pysisyphus `GrowingString` with `(max_nodes + 2)` images including endpoints; `--mep-mode dmf` uses Direct Max Flux.
-5. **Climbing image (GSM only)** -- With `--climb`, a climbing-image refinement is applied after string growth, and the highest-energy image (HEI) is reported.
-6. **Output** -- Final path trajectory and HEI are written as XYZ files.
-    PDB/CIF companions are written when conversion is enabled and a reference
-    topology is available.
+Skip the climbing-image search and use fewer movable images for a fast first look at the path.
 
-## Outputs
+```bash
+mlmm path-opt -i reactant.pdb product.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
+  -q 0 -m 1 --no-climb --max-nodes 8 --out-dir ./result_path_opt_quick
+```
+
+---
+
+## How it works
+
+1. **Preparing the endpoints**:
+Each endpoint is pre-optimized (L-BFGS by default). The product is then rigidly aligned to the reactant by a Kabsch fit on the frozen atoms (on all atoms if there are none), and the frozen atoms are moved step by step onto their reactant positions while the other atoms relax. The frozen atoms are the Frozen-MM layer together with any `--freeze-atoms`.
+2. **Growing and refining the path**:
+GSM grows a string of `--max-nodes` movable images between the two endpoints and optimizes it to `--thresh-gsm`. With `--climb` (on by default), a climbing-image search then pushes the highest image toward the saddle. DMF instead builds an interpolated path and optimizes it with IPOPT (an interior-point optimizer) to `--dmf-tol`.
+3. **Writing the HEI**:
+The image with the highest energy on the final path becomes the HEI. `hei.xyz` holds it with its energy on the comment line.
+
+---
+
+## Reading the HEI
+
+| Where the HEI is | Meaning | Next step |
+| --- | --- | --- |
+| Inside the path (`hei_index` between `1` and `n_images − 2`) | A TS candidate | Optimize it with [`tsopt`](tsopt.md), then run [`irc`](irc.md) |
+| At an endpoint (`hei_index` is `0` or `n_images − 1`) | Not a TS candidate: no image between the endpoints lies above the higher endpoint | Check the endpoints, or get a candidate another way (see {ref}`When a TS search fails <ts-search-fails>`) |
+
+The HEI is the top of an approximate path, not a TS. A successful TS optimization gives one imaginary mode along the reaction coordinate. The HEI becomes a TS once `tsopt` gives n_imag = 1 and IRC from that TS reaches the intended R and P.
+
+---
+
+## Output files
+
+`path-opt` writes these files to `--out-dir` (default `./result_path_opt/`):
 
 ```text
-out_dir/ (default: ./result_path_opt/)
-├─ final_geometries_trj.xyz # XYZ trajectory with per-image energies in the comment line
-├─ final_geometries.pdb # Same path as final_geometries_trj.xyz, mapped back to the reference PDB ordering
-├─ hei.xyz # Highest-energy image (XYZ, always written)
-├─ hei.pdb # HEI in PDB format (when reference PDB is available)
-├─ align_refine/ # External alignment/refinement artifacts
-├─ preopt/ # Endpoint pre-optimization outputs (present when --preopt)
-└─ <optimizer dumps> # Present when --dump or stopt.dump_restart > 0
+result_path_opt/
+├─ final_geometries_trj.xyz   # Final path, every image, energies on the comment lines
+├─ final_geometries.pdb       # Same path as PDB
+├─ hei.xyz                    # HEI, the TS candidate, with its energy on the comment line
+├─ hei.pdb                    # Same HEI as PDB
+├─ preopt/endNN/              # Endpoint pre-optimization files (--preopt)
+├─ align_refine/              # Endpoint alignment and relaxation files
+├─ dmf_initial_trj.xyz        # Interpolated starting path (DMF only)
+├─ result.json                # Summary (--out-json)
+└─ summary.json               # Same content as result.json (--out-json)
 ```
 
-## CLI options
+Open `final_geometries_trj.xyz` to watch the path. The PDB files mark the layers in the B-factor column (ML 0, Movable-MM 10, Frozen-MM 20), so pass `hei.pdb` to `tsopt` with the same `--parm7` and `--model-pdb`; with `hei.xyz`, add `--ref-pdb`. mmCIF input, and PDB input too large for the PDB columns, also get `.cif` files that keep the original identifiers (see {ref}`mmCIF input <mmcif-input>`); `--no-convert-files` writes only the `.xyz` files. With DMF, the IPOPT logs `dmf_fbenm_ipopt.out` and `dmf_ipopt.out` are also written. `--dump` also keeps the optimizer trajectories.
 
-The full flag list is in the generated [command reference](reference/commands/index.md); the table below covers the options that need explanation.
+The console prints the MEP progress cycle by cycle, with timings.
 
-| Option | Description | Default |
-| --- | --- | --- |
-| `-i, --input PATH PATH` | Reactant and product PDB/mmCIF structures, or XYZ coordinates with corresponding `--ref-pdb` entries. | Required |
-| `--parm7 PATH` | Amber prmtop for the full REAL system. | Required |
-| `--model-pdb PATH` | PDB defining the ML region (atom IDs). Optional when `--detect-layer` or `--model-indices` is used. | _None_ |
-| `--model-indices TEXT` | Comma-separated atom indices for the ML region (ranges allowed like `1-5`). Used when `--model-pdb` is omitted. | _None_ |
-| `--detect-layer / --no-detect-layer` | Automatically read B-factor layers (B=0/10/20). With explicit ML membership, only the MM sublayers are retained; otherwise B-factors also define ML membership. | Enabled |
-| `-q, --charge INT` | Net ML-region charge. | _None_ (required unless `-l` is given) |
-| `-l, --ligand-charge TEXT` | Per-residue charge map, e.g. `SAM:1,PHN:-1`. Derives total charge when `-q` is omitted. Requires PDB input or `--ref-pdb`. | _None_ |
-| `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
-| `--mep-mode [gsm\|dmf]` | MEP backend. | `gsm` |
-| `--dmf-backend [cpu\|gpu]` | DMF compute backend (`--mep-mode dmf` only): `gpu` (`dmf.torch`/CUDA) or `cpu` (`dmf`/NumPy). Retry `cpu` on a GPU out-of-memory error. Requires `pydmf>=1.2`. | `gpu` |
-| `--freeze-atoms TEXT` | Comma-separated 1-based atom indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
-| `--movable-cutoff FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. MM atoms beyond this are frozen. Providing `--movable-cutoff` disables `--detect-layer`. | _None_ |
-| `--fix-ends/--no-fix-ends` | Fix endpoint structures during GSM growth (`gs.fix_first/fix_last`). | `True` |
-| `--max-nodes INT` | Number of internal string nodes (total images = `max_nodes + 2`). | `20` |
-| `--gsm-param [equi\|energy]` | GSM node parameterization after string growth. `energy` concentrates nodes in high-energy regions and may be tried when an equidistant path skips the reaction-coordinate region near the HEI; it does not identify a TS. | `equi` |
-| `--max-cycles-gsm INT` | GSM string-optimizer cycle cap; also sets `stopt.stop_in_when_full`. | `300` |
-| `--dmf-max-iterations INT` | DMF IPOPT iteration cap. | `3000` |
-| `--climb/--no-climb` | Enable climbing-image refinement after full string growth. | `True` |
-| `--preopt/--no-preopt` | Pre-optimize each endpoint with L-BFGS (`grad`) or RFO (`hess`) before alignment/string growth. | `True` |
-| `--preopt-max-cycles INT` | Endpoint pre-optimization cycle cap. | `100000` |
-| `--opt-mode TEXT` | Single-structure optimizer: `grad` = L-BFGS, `hess` = RFO. | `grad` |
-| `--thresh TEXT` | Convergence preset for single-structure optimization and input alignment (`opt.lbfgs/rfo.thresh`). | `gau` |
-| `--thresh-gsm TEXT` | Convergence preset for the GSM string optimizer (`stopt.thresh`; same presets as `--thresh`). | `gau_loose` |
-| `--dmf-tol TEXT` | IPOPT dual-infeasibility tolerance of the DMF optimizer (`dmf.tol`): `tight` (0.04), `middle` (0.10), `loose` (0.20), or a positive float. Gaussian presets are rejected. | `tight` |
-| `--mm-backend [hessian_ff\|openmm]` | MM backend. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |
-| `--dump/--no-dump` | Dump optimizer trajectories and restarts inside `out_dir`. | `False` |
-| `-o, --out-dir TEXT` | Output directory. | `./result_path_opt/` |
-| `--config FILE` | Base YAML configuration layer applied before explicit CLI values. | _None_ |
-| `--show-config/--no-show-config` | Print the loaded YAML file and its top-level keys, then continue. | `False` |
-| `--dry-run/--no-dry-run` | Validate options and inputs without running optimization. Shown in `--help-advanced`. | `False` |
-| `-b, --backend CHOICE` | High-level backend for the model region: `uma` (default), `orb`, `mace`, `aimnet2`, `dft`. | `uma` |
-| `--cmap/--no-cmap` | Preserve CMAP in both REAL and MODEL MM layers. | `--cmap` |
-| `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
+---
 
-## YAML configuration
+## Main options
 
-Merge order is **defaults < config < explicit CLI**. The relevant sections are `geom` (`coord_type`, `freeze_atoms`), `calc` / `mlmm` (ML/MM calculator setup), `gs` (Growing String controls), `stopt` (string optimization), and `opt` / `lbfgs` / `rfo` (single-structure optimization).
+The options shared by every ML/MM calculation command are explained once in {ref}`ML/MM options <mlmm-options>`; the table below lists only the options specific to `path-opt`.
 
-Single-structure settings also accept `stopt.lbfgs` / `stopt.rfo`;
-see [YAML Reference](yaml-reference.md#stopt) for aliases and conflict checks.
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `-i, --input` | 2 paths | (required) | Reactant and product, in that order, after one `-i` (`.pdb`, `.cif`, `.mmcif`, or `.xyz` with `--ref-pdb`) |
+| `-q, --charge` | integer | `None` | Charge of the ML region. Required unless `-l` is given |
+| `-m, --multiplicity` | integer | `1` | Spin multiplicity (2S+1) |
+| `-l, --ligand-charge` | text | `None` | Total ligand charge (for example `-1`) or a charge per residue name (for example `'GPP:-3,SAM:1'`), used to derive the ML-region charge when `-q` is omitted (PDB/mmCIF input or `--ref-pdb`) |
+| `-b, --backend` | text | `uma` | Backend of the ML region (`uma`, `orb`, `mace`, `aimnet2`, `dft`) |
+| `-o, --out-dir` | path | `./result_path_opt/` | Output directory |
+| `--mep-mode` | `gsm` / `dmf` | `gsm` | Path method: growing string method / direct max flux |
+| `--dmf-backend` | `gpu` / `cpu` | `gpu` | DMF compute backend (`--mep-mode dmf` only): PyTorch on CUDA / NumPy |
+| `--max-nodes` | integer | `20` | Movable images between the endpoints; the path has `max_nodes + 2` images |
+| `--preopt/--no-preopt` | flag | `True` | Pre-optimize each endpoint before alignment |
+| `--preopt-max-cycles` | integer | `100000` | Maximum cycles of each endpoint pre-optimization |
+| `--opt-mode` | `grad` / `hess` | `grad` | Optimizer of the endpoint pre-optimization: L-BFGS / RFO |
+| `--thresh-gsm` | preset | `gau_loose` | Convergence criteria of the GSM string (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`) |
+| `--dmf-tol` | text | `tight` | IPOPT tolerance of the DMF path: `tight` (0.04), `middle` (0.10), `loose` (0.20), or a positive number; alias `--thresh-dmf` |
+| `--fix-ends/--no-fix-ends` | flag | `True` | Keep the endpoints fixed while the GSM string is optimized (not used by DMF) |
+| `--climb/--no-climb` | flag | `True` | Run the GSM climbing-image search after the path is grown (not used by DMF) |
+| `--freeze-atoms` | text | `None` | Comma-separated 1-based atom indices to freeze in every image, added to YAML `geom.freeze_atoms` and the Frozen-MM layer (see {ref}`Freeze atoms and restrain distances <freeze-atoms-and-restraints>`) |
+| `--out-json/--no-out-json` | flag | `False` | Write a summary to `result.json` ([JSON Output Reference](json-output.md)) |
 
-Full schema (every key and default): [YAML Reference](yaml-reference.md).
+See the [generated CLI reference](reference/commands/path_opt.md) for every option.
 
-## Exit codes
+> **Note:** In YAML (`--config`), the [`gs`](yaml-reference.md#gs) section sets the GSM string, [`dmf`](yaml-reference.md#dmf) the DMF path, and [`stopt`](yaml-reference.md#stopt) the string optimizer. `stopt.lbfgs` and `stopt.rfo` also set the endpoint optimizers, as `opt.lbfgs` and `opt.rfo` do.
 
-| Code | Meaning |
-| --- | --- |
-| `0` | Success or usable partial results |
-| `2` | CLI usage or configuration failure |
-| `130` | Keyboard interrupt |
-| `1` | Non-convergence, no usable result, runtime exception, or output failure |
+---
 
-## See Also
+## Notes
 
-- [Common Error Recipes](recipes-common-errors.md) — Symptom-first failure routing
-- [Troubleshooting](troubleshooting.md) — Detailed troubleshooting guide
-- [path-search](path-search.md) — Recursive MEP search with automatic refinement (for 2+ structures)
-- [opt](opt.md) — Single-structure geometry optimization
-- [all](all.md) — End-to-end workflow (uses single-pass path-opt by default; add `--refine-path` for recursive path-search)
-- [YAML Reference](yaml-reference.md) — Full `gs`, `stopt`, `opt` configuration options
+* **Frozen atoms move slightly with DMF**: DMF holds frozen atoms with a harmonic restraint (k = 300 eV/Å², YAML `dmf.k_fix`) instead of fixing them, so they can drift a little from their reference positions; GSM keeps them fixed. See {ref}`Freeze atoms and restrain distances <freeze-atoms-and-restraints>`.
+* **DMF needs `cyipopt` and `pydmf`**: neither is installed with `mlmm-toolkit`. Install them before you run `--mep-mode dmf`: `conda install -c conda-forge cyipopt -y`, then `pip install 'pydmf[torch]>=1.2'` for the GPU backend or `pip install 'pydmf>=1.2'` for the CPU backend. The default `--dmf-backend gpu` stops with an error when CUDA is unavailable; use `--dmf-backend cpu` then, or after a GPU out-of-memory error.
+* **Options DMF ignores**: `--climb` and `--fix-ends` are accepted but not used by DMF.
+* **One template for XYZ endpoints**: `--ref-pdb` takes a single full-system PDB, applied to both `.xyz` endpoints.
+* **Conflicting optimizer settings in YAML**: setting the same key to different values in `opt:` and in the section of the optimizer that runs (`lbfgs:`, `opt.lbfgs:`, `stopt.lbfgs:`, or the `rfo` equivalents) stops the run with an error.
+* **Option priority**: default < YAML < command line (see {ref}`Configuration precedence <configuration-precedence>`).
+* **Exit status**: see {ref}`Exit codes <exit-codes>`.
+
+---
+
+## See also
+
+* [path-search](path-search.md) — MEP through two or more structures, refined where bonds change
+* [tsopt](tsopt.md) — optimize the HEI into a TS
+* [irc](irc.md) — check that the TS connects the intended R and P
+* [all](all.md) — the full workflow; its MEP step uses `path-opt`, and `--refine-path` switches it to `path-search` (see [Main options](all.md#main-options))
+* [YAML Reference](yaml-reference.md) — every `gs`, `dmf`, and `stopt` setting
+* [Glossary](glossary.md) — MEP, GSM, DMF, HEI, and other terms
+* [Troubleshooting](troubleshooting.md) — when a run fails
+* {ref}`Exit codes <exit-codes>` — what each exit status means

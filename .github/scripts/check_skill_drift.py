@@ -80,7 +80,7 @@ STATUS_RE = re.compile(r'"(status|execution_status|scientific_status|optimizatio
 MLMM_CLI_DIRS = {
     "mlmm-cli",
     "mlmm-overview",
-    "mlmm-workflows-output",
+    "mlmm-model-setup",
     "mlmm-structure-io",
 }
 

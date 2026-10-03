@@ -477,7 +477,7 @@ def _write_layered_pdb_with_ref(
     "--allow-unverified-ref-order/--no-allow-unverified-ref-order",
     default=False,
     show_default=True,
-    help="Allow legacy positional --ref-pdb mapping when repeated elements make "
+    help="Allow positional --ref-pdb mapping when repeated elements make "
          "atom identity unverifiable. Use only after independently checking order.",
 )
 def cli(

@@ -27,6 +27,7 @@ def test_public_roots_include_readme_docs_and_skills() -> None:
     pages = cml.public_markdown_paths()
     rels = {str(p.relative_to(REPO_ROOT)) for p in pages}
     assert "README.md" in rels
+    assert "AGENTS.md" in rels
     assert any(r.startswith("docs/") for r in rels)
     assert any(r.startswith("skills/") for r in rels)
 

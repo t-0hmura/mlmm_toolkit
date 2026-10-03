@@ -1,75 +1,107 @@
-# `define-layer`
+# `define-layer` (assign the ML and MM layers)
 
-`mlmm define-layer` partitions a PDB/mmCIF enzyme system into three layers around the ML region and writes the assignments as PDB B-factors, with a CIF companion for bridged input. The ML region can be specified via a model PDB/mmCIF or explicit atom indices; when both are given, the explicit indices take precedence. Use it to define the three-layer ML/MM system before single-structure optimization or end-to-end runs.
+## Overview
 
-The three layers and their B-factor encodings:
+`define-layer` divides the full system into three layers around the ML region and writes the layer of each atom into the B-factor column of a PDB. The calculation commands read the layers back from the B-factors.
 
-| Layer | Name | B-factor | Description |
+| Layer | B-factor | Atoms | In the calculation |
 | --- | --- | --- | --- |
-| 1 | ML | 0.0 | Atoms in the ML region |
-| 2 | Movable-MM | 10.0 | MM atoms/residues within `--movable-cutoff` of ML |
-| 3 | Frozen | 20.0 | MM atoms/residues beyond `--movable-cutoff` |
+| ML | 0.0 | the ML region | MLIP energy, forces, and Hessian |
+| Movable-MM | 10.0 | MM atoms within `--movable-cutoff` (default 8.0 Å) of the ML region | MM, free to move |
+| Frozen-MM | 20.0 | MM atoms farther away | MM, coordinates fixed; still part of the MM energy |
 
-Layer assignment strategy:
+### What it is for
 
-- **Residues without ML atoms:** the entire residue is assigned to a single layer based on the minimum distance from any ML atom to any atom in the residue.
-- **Residues with ML atoms:** non-ML atoms in the same residue are classified individually by distance.
+* **Preparing the input of the calculation commands**: write the layered full-system PDB that `opt`, `tsopt`, `freq`, and the other commands take with `--parm7`.
+* **Changing the movable shell**: widen or narrow the Movable-MM layer with `--movable-cutoff`.
+* **Checking the layer sizes**: read the atom count of each layer before a calculation.
+
+`all` runs `define-layer` for you when you pass `-c`.
+
+---
 
 ## Examples
 
-Command form (provide at least one of `--model-pdb` or `--model-indices`):
+### 1. ML region from a model PDB
 
-```bash
-mlmm define-layer -i INPUT.pdb (--model-pdb PDB | --model-indices TEXT) [options]
-```
-
-Define the ML region from a model PDB:
+Give the full system and an ML-region PDB written by `extract` or `all`.
 
 ```bash
 mlmm define-layer -i system.pdb --model-pdb ml_region.pdb -o labeled.pdb
 ```
 
-Define the ML region from 0-based atom indices:
+The console prints the atom count of each layer under `Layer Summary`.
+
+### 2. ML region from atom indices
+
+List the ML atoms by index.
 
 ```bash
 mlmm define-layer -i system.pdb --model-indices "0,1,2,3,4" --zero-based -o labeled.pdb
 ```
 
-Widen the Movable-MM cutoff to 10.0 Å:
+### 3. A wider movable shell
+
+Make every MM residue within 10.0 Å of the ML region movable.
 
 ```bash
 mlmm define-layer -i system.pdb --model-pdb ml_region.pdb \
- --movable-cutoff 10.0 -o labeled.pdb
+    --movable-cutoff 10.0 -o labeled.pdb
 ```
 
-## Workflow
-1. **ML region identification** -- The ML region is defined by `--model-pdb` (atom matching against the input PDB) or `--model-indices` (explicit atom indices). If both are given, `--model-pdb` is used, as in the calculation commands.
-2. **Distance computation** -- For each non-ML atom (or residue), the minimum distance from any ML atom is computed.
-3. **Layer assignment** -- Non-ML atoms/residues are assigned to Movable-MM or Frozen by `--movable-cutoff`.
-4. **Output** -- The output PDB has B-factors set to layer values (0, 10, 20). A summary of layer assignments is printed to the console.
+---
 
-## Outputs
+## How it works
 
-- `<output>.pdb` -- PDB with B-factors set to 0 / 10 / 20
-- Console summary table of layer assignments and atom counts
+1. **ML region**: the atoms of `--model-pdb` are matched to the input by chain, residue number, insertion code, residue name, and atom name; a model atom with a blank chain matches by the other fields and stops with an error when they fit atoms in more than one chain. Without `--model-pdb`, the atoms listed in `--model-indices` form the ML region.
+2. **Distances**: for every atom outside the ML region, the shortest distance to an ML atom is computed.
+3. **Assignment**: a residue without ML atoms goes into one layer as a whole, by the distance of its closest atom: Movable-MM within `--movable-cutoff`, Frozen-MM beyond. In a residue that contains ML atoms, each non-ML atom is assigned on its own by its distance.
+4. **Output**: the input is written again with only the B-factor column changed to 0, 10, or 20, and a Layer Summary is printed.
 
-## CLI options
-| Option | Description | Default |
-| --- | --- | --- |
-| `-i, --input PATH` | Input PDB or mmCIF file containing the full system. | Required |
-| `--model-pdb PATH` | PDB or mmCIF file defining atoms in the ML region. | _None_ |
-| `--model-indices TEXT` | Comma-separated atom indices for the ML region (e.g. `"1,2,3,4"` or `"1-10,15,20-25"`); 1-based by default, use `--zero-based` for 0-based. Used when `--model-pdb` is omitted. | _None_ |
-| `--movable-cutoff FLOAT` | Distance cutoff (Å) from ML region for Movable-MM. Atoms beyond this are Frozen. | `8.0` |
-| `-o, --output PATH` | Output PDB file with B-factors set to layer values. | `<input>_layered.pdb` |
-| `--one-based / --zero-based` | Interpret `--model-indices` as 1-based or 0-based. | `True` (1-based) |
+---
 
-The full flag list is in the generated [command reference](reference/commands/index.md).
+## Output files
 
-## See Also
+```text
+./
+├─ <input>_layered.pdb   # next to the input when -o is not given
+└─ <input>_layered.cif   # mmCIF input, or PDB input too large for the PDB columns
+```
 
-- [Common Error Recipes](recipes-common-errors.md) — Symptom-first failure routing
-- [Troubleshooting](troubleshooting.md) — Detailed troubleshooting guide
+The PDB keeps every record of the input and changes only the B-factors. An `-o` path that ends in `.cif` or `.mmcif` is written as a PDB with the same name and `.pdb`. Under `Layer Summary`, the console prints the atom count of each layer on the lines `Layer 1 (ML, B=0):`, `Layer 2 (Movable MM, B=10):`, and `Layer 3 (Frozen MM, B=20):`, and then `Total atoms:`. Color the output by B-factor in a viewer to see the three layers.
 
-- [mm-parm](mm-parm.md) — Build AMBER topology (parm7/rst7) before layer definition
-- [opt](opt.md) — Single-structure optimization using the layered system
-- [all](all.md) — End-to-end workflow that includes automatic layer definition
+---
+
+## Main options
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `-i, --input` | path | (required) | Full-system PDB or mmCIF |
+| `--model-pdb` | path | `None` | PDB or mmCIF of the ML-region atoms |
+| `--model-indices` | text | `None` | ML atom indices, such as `'1,2,3,4'` or `'1-10,15,20-25'`; 1-based unless `--zero-based`. Used when `--model-pdb` is not given |
+| `--movable-cutoff` | float | `8.0` | Distance (Å) from the ML region within which MM atoms are Movable-MM; farther atoms are Frozen-MM |
+| `-o, --output` | path | `<input>_layered.pdb` | Output PDB |
+| `--one-based/--zero-based` | flag | `--one-based` | How to read `--model-indices` |
+
+See the [generated CLI reference](reference/commands/define_layer.md) for every option.
+
+---
+
+## Notes
+
+* **The ML region is required**: without `--model-pdb` or `--model-indices`, the command stops with exit code 2 and `ERROR: Either --model-pdb or --model-indices must be provided.`
+* **`--model-pdb` wins**: when both are given, `--model-pdb` is used, as in the calculation commands.
+* **Use the topology-matched PDB**: give the PDB that `mm-parm` writes as `-i`, so that the layered PDB has the same atoms in the same order as the `parm7` ([mm-parm example 4](mm-parm.md#examples)). An atom of `--model-pdb` that is not in the input stops the command with an error.
+* **Multi-MODEL input**: only the first MODEL is used, with a warning.
+* **Choosing the cutoff**: a smaller `--movable-cutoff` makes the calculation cheaper, and a larger one lets more of the environment relax. A `--movable-cutoff` given to a calculation command replaces the B-factor layers. See [Building the ML region and layers](model-setup.md).
+
+---
+
+## See also
+
+* [Building the ML region and layers](model-setup.md) — choose the ML region, the movable shell, and the Hessian range
+* [extract](extract.md) — cut the ML region that `--model-pdb` takes
+* [mm-parm](mm-parm.md) — build the topology and the matching PDB to layer
+* [all](all.md) — the full workflow; runs `define-layer` with `-c`
+* [opt](opt.md) — optimize the layered system
+* [Troubleshooting](troubleshooting.md) — layer and atom-order errors

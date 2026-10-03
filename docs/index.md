@@ -1,10 +1,16 @@
 # mlmm-toolkit Documentation
 
+[GitHub](https://github.com/t-0hmura/mlmm_toolkit) · [ChemRxiv preprint](https://doi.org/10.26434/chemrxiv-2025-jft1k) · [Open in Google Colab](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb)
+
 *Version: v{{ release }}*
+
+---
+
+<img src="./mlmm_toolkit_overview.png" alt="mlmm-toolkit workflow overview" width="90%">
 
 **mlmm-toolkit** is a Python CLI for modeling enzymatic reaction paths from PDB structures using ML/MM, combining machine-learning interatomic potentials and molecular mechanics through ONIOM.
 
-<img src="./mlmm_toolkit_overview.png" alt="mlmm-toolkit workflow overview" width="90%">
+New to mlmm-toolkit? Start with [Getting Started](getting-started.md).
 
 ```{toctree}
 :maxdepth: 2
@@ -12,12 +18,13 @@
 :hidden:
 
 getting-started
-concepts
+installation
 quickstart-all
-quickstart-scan-spec
-quickstart-tsopt-freq
-cif
-recipes-common-errors
+quickstart-scan
+quickstart-tsopt
+model-setup
+mechanism-tips
+dft-backend
 troubleshooting
 ```
 
@@ -32,23 +39,21 @@ add-elem-info
 mm-parm
 extract
 define-layer
-sp
 opt
-path-opt
-path-search
 scan
 scan2d
 scan3d
+path-opt
+path-search
 tsopt
 irc
 freq
 dft
-energy-diagram
-trj2fig
+sp
 bond-summary
+trj2fig
+energy-diagram
 oniom-export
-oniom-gaussian
-oniom-orca
 oniom-import
 ```
 
@@ -57,20 +62,18 @@ oniom-import
 :caption: Reference
 :hidden:
 
+cli-conventions
 reference/commands/index
 reference/yaml
-cli-conventions
 yaml-reference
 json-output
 output-layout
 backends
-device-hpc
-reproducibility
 mlmm-calc
-python-api
+device-hpc
 mcp_server
-architecture
 glossary
+architecture
 ```
 
 ```{toctree}
@@ -80,12 +83,13 @@ glossary
 
 ja/index
 ja/getting-started
-ja/concepts
+ja/installation
 ja/quickstart-all
-ja/quickstart-scan-spec
-ja/quickstart-tsopt-freq
-ja/cif
-ja/recipes-common-errors
+ja/quickstart-scan
+ja/quickstart-tsopt
+ja/model-setup
+ja/mechanism-tips
+ja/dft-backend
 ja/troubleshooting
 ```
 
@@ -100,23 +104,21 @@ ja/add-elem-info
 ja/mm-parm
 ja/extract
 ja/define-layer
-ja/sp
 ja/opt
-ja/path-opt
-ja/path-search
 ja/scan
 ja/scan2d
 ja/scan3d
+ja/path-opt
+ja/path-search
 ja/tsopt
 ja/irc
 ja/freq
 ja/dft
-ja/energy-diagram
-ja/trj2fig
+ja/sp
 ja/bond-summary
+ja/trj2fig
+ja/energy-diagram
 ja/oniom-export
-ja/oniom-gaussian
-ja/oniom-orca
 ja/oniom-import
 ```
 
@@ -130,88 +132,51 @@ ja/yaml-reference
 ja/json-output
 ja/output-layout
 ja/backends
-ja/device-hpc
-ja/reproducibility
 ja/mlmm-calc
-ja/python-api
+ja/device-hpc
 ja/mcp_server
-ja/architecture
 ja/glossary
+ja/architecture
 ```
 
 ## Quick start
 
-See [Getting Started](getting-started.md) for installation and input preparation.
-
 | Goal | Guide |
 |---|---|
-| First end-to-end run | [Quickstart: all](quickstart-all.md) |
-| Start from a single structure and bond scans | [Quickstart: scan](quickstart-scan-spec.md) |
-| Validate an existing TS candidate | [Quickstart: tsopt](quickstart-tsopt-freq.md) |
-| Use the interactive GPU GUI | [Open Colab](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb) |
-| Diagnose a failed run | [Common error recipes](recipes-common-errors.md) |
+| Run the whole pathway from R and P | [Quickstart: all](quickstart-all.md) |
+| Start from one structure (no product structure) | [Quickstart: scan](quickstart-scan.md) |
+| Optimize and check a TS candidate | [Quickstart: TS-only mode](quickstart-tsopt.md) |
+| Choose the ML region and layers, or make a run lighter | [Building the ML region and layers](model-setup.md) |
+| Study a mechanism, or the TS search fails | [Tips for studying reaction mechanisms](mechanism-tips.md) |
+| Check the TS with DFT | [Refine an MLIP TS with DFT](dft-backend.md) |
+| A run failed | [Troubleshooting](troubleshooting.md) |
+
+See [Installation](installation.md) for prerequisites.
 
 ## CLI subcommands
-
-### Main workflow
 
 | Subcommand | Description |
 |---|---|
 | [`all`](all.md) | ML/MM model setup and MEP search; optional TS, IRC, thermochemistry, and DFT |
-
-### Structure preparation
-
-| Subcommand | Description |
-|---|---|
-| [`extract`](extract.md) | Define the ML region from a protein–ligand complex |
+| [`fix-altloc`](fix-altloc.md) | Resolve PDB alternate conformations |
 | [`add-elem-info`](add-elem-info.md) | Fill PDB element columns 77–78 |
 | [`mm-parm`](mm-parm.md) | Build Amber parm7/rst7 topology and coordinates |
+| [`extract`](extract.md) | Define the ML region from a protein–ligand complex |
 | [`define-layer`](define-layer.md) | Assign ML / movable-MM / frozen-MM B-factor layers |
-
-### Geometry optimization
-
-| Subcommand | Description |
-|---|---|
 | [`opt`](opt.md) | Optimize a geometry with L-BFGS or RFO |
-| [`tsopt`](tsopt.md) | Optimize a TS candidate with RS-P-RFO, Dimer, or another supported TS optimizer |
-
-### Path search and optimization
-
-| Subcommand | Description |
-|---|---|
-| [`path-opt`](path-opt.md) | Optimize a two-endpoint MEP with GSM or DMF |
-| [`path-search`](path-search.md) | Search and recursively refine an MEP |
-
-### Scans
-
-| Subcommand | Description |
-|---|---|
 | [`scan`](scan.md) | Restrained distance scans; concerted coordinates and sequential stages |
 | [`scan2d`](scan2d.md) | Two-dimensional energy landscapes |
 | [`scan3d`](scan3d.md) | Three-dimensional energy landscapes |
-
-### Analysis and post-processing
-
-| Subcommand | Description |
-|---|---|
+| [`path-opt`](path-opt.md) | Optimize a two-endpoint MEP with GSM or DMF |
+| [`path-search`](path-search.md) | Search and recursively refine an MEP |
+| [`tsopt`](tsopt.md) | Optimize a TS candidate with RS-P-RFO, Dimer, or another supported TS optimizer |
 | [`irc`](irc.md) | Trace the intrinsic reaction coordinate |
 | [`freq`](freq.md) | Vibrational analysis and thermochemistry |
 | [`dft`](dft.md) | Single-point DFT with GPU4PySCF or PySCF |
 | [`sp`](sp.md) | ML/MM ONIOM energy and forces; optional Hessian |
+| [`bond-summary`](bond-summary.md) | Report covalent bond changes between structures |
 | [`trj2fig`](trj2fig.md) | Plot an XYZ trajectory's energy profile |
 | [`energy-diagram`](energy-diagram.md) | Draw a state-energy diagram from numeric values |
-| [`bond-summary`](bond-summary.md) | Report covalent bond changes between structures |
-
-### Utilities
-
-| Subcommand | Description |
-|---|---|
-| [`fix-altloc`](fix-altloc.md) | Resolve PDB alternate conformations |
-
-### Export and import
-
-| Subcommand | Description |
-|---|---|
 | [`oniom-export`](oniom-export.md) | Generate Gaussian ONIOM or ORCA QM/MM input |
 | [`oniom-import`](oniom-import.md) | Read an ONIOM input into XYZ / layered PDB |
 
@@ -219,13 +184,14 @@ See [Getting Started](getting-started.md) for installation and input preparation
 
 | Topic | Page |
 |---|---|
-| CLI conventions and input formats | [CLI conventions](cli-conventions.md) · [mmCIF](cif.md) |
-| Concepts and terminology | [Concepts](concepts.md) · [Glossary](glossary.md) |
+| CLI conventions and input formats | [Common options and selectors](cli-conventions.md) |
+| Frozen atoms and distance restraints (`--freeze-atoms`, `--distance-restraint`) | {ref}`Freeze atoms and restrain distances <freeze-atoms-and-restraints>` |
+| Terminology | [Glossary](glossary.md) |
 | YAML options | [YAML reference](yaml-reference.md) |
 | Output files and JSON | [Output layout](output-layout.md) · [JSON schema](json-output.md) |
-| Backends and reproducibility | [Backends](backends.md) · [Reproducibility](reproducibility.md) |
+| Backends and reproducibility | [Backends](backends.md) |
 | Devices and HPC | [Device and HPC setup](device-hpc.md) |
-| Python API and architecture | [Python API](python-api.md) · [ML/MM calculator](mlmm-calc.md) · [Architecture](architecture.md) |
+| Python API and architecture | [ML/MM calculator](mlmm-calc.md) · [Architecture](architecture.md) |
 | MCP server | [MCP server](mcp_server.md) |
 | Troubleshooting | [Troubleshooting](troubleshooting.md) |
 | Generated CLI reference (English) | [Command reference](reference/commands/index.md) |
@@ -233,29 +199,19 @@ See [Getting Started](getting-started.md) for installation and input preparation
 
 ## System requirements
 
-See [Getting Started](getting-started.md#installation) for installation and backend compatibility.
+See [Installation](installation.md) for installation and backend compatibility.
 The GPU and driver must meet the selected backend's requirements.
 Estimate VRAM, RAM, and runtime with a representative calculation.
 `mm-parm` requires AmberTools.
 
 ## Key concepts
 
-- **Layers:** B=0 marks ML, B=10 movable MM, and B=20 frozen MM. Frozen coordinates still contribute MM nonbonded interactions. `hess_cutoff` / `hess_mm_atoms` separately select MM atoms for the Hessian.
-- **Charge and spin:** `--ligand-charge` assigns residue charges (for example `'SAM:1,GPP:-3'`); `-q/--charge` overrides the ML-region net charge; `-m/--multiplicity` sets multiplicity (default 1).
-- **Boolean options:** use `--flag` / `--no-flag`, for example `--tsopt --thermo --no-dft`.
-- **Configuration:** see [YAML Reference](yaml-reference.md). Preview the resolved settings without optimization:
+The three layers (ML, movable MM, frozen MM) and how ONIOM combines them are explained in [Getting Started](getting-started.md#overview); how to choose the ML region and layers is in [Building the ML region and layers](model-setup.md).
 
-```bash
-mlmm opt -i layered.pdb --parm7 system.parm7 -q 0 --show-config --dry-run
-```
+## Agent skills
 
-## Output layout
-
-In MEP mode, `all` writes `summary.log` and `summary.json`, the MEP (`mep_trj.pdb` / `mep_trj.xyz`, plus `mep_trj.cif` for bridged input), and `energy_diagram_MEP.png`.
-Reusable preparation outputs are `ml_region.pdb`, `mm_parm/`, and `layered/`.
-`segments/seg_NN/` holds R/TS/P structures and requested TS/IRC/freq/DFT results; `_work/` holds intermediate preparation, scan, and path outputs.
-TS-only runs use R/TS/P labels, assigning the higher-energy endpoint as reactant, and produce no MEP.
-See [all](all.md#outputs) for the full tree and [Output Layout](output-layout.md) for file conventions.
+`skills/` contains guides for AI agents on the CLI commands, structure I/O, backends, workflows and outputs, and HPC use.
+See the [Skills index](https://github.com/t-0hmura/mlmm_toolkit/blob/main/skills/README.md) for installation and the full list.
 
 ## Citation
 
@@ -270,4 +226,7 @@ GNU General Public License version 3 or later (GPL-3.0-or-later).
 ```bash
 mlmm --help
 mlmm <command> --help
+mlmm <command> --help-advanced
 ```
+
+Report problems and feature requests on [GitHub Issues](https://github.com/t-0hmura/mlmm_toolkit/issues).

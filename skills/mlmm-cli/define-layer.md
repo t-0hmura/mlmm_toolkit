@@ -1,107 +1,82 @@
 # `mlmm define-layer`
 
-## Purpose
+Writes the three ML/MM layers into the B-factor column of a full-system PDB:
+0 for the ML region, 10 for Movable-MM, 20 for Frozen-MM. Run
+`mlmm define-layer -i system.pdb --model-pdb ml_region.pdb -o labeled.pdb`.
+Success is a `Layer Summary` with the atom count you expect in each layer.
 
-Assign 3-layer ML / movable-MM / frozen labels by writing the
-appropriate B-factor values (0.0 / 10.0 / 20.0) to a PDB. The ML
-region is supplied either as a separate PDB or as an atom-index list;
-movable-MM is everything within `--movable-cutoff` of the ML region
-(non-ML atoms inside the radius), and the rest becomes frozen.
+## When to use
 
-Use it before any ML/MM-evaluating subcommand if you want explicit
-layer control.
+- Before any ML/MM calculation command, when you want explicit control of
+  the layers.
+- The ML region comes from a model PDB (`--model-pdb`) or an atom-index list
+  (`--model-indices`). Non-ML atoms within `--movable-cutoff` (default
+  8.0 Å) of the ML region become Movable-MM; the rest become Frozen-MM.
 
-## Synopsis
+## Minimal run
 
-```bash
-mlmm define-layer -i full_system.pdb \
-    (--model-pdb model.pdb | --model-indices '1-50,75,100-110') \
-    [--movable-cutoff 8.0] \
-    [-o full_system_layered.pdb]
-```
-
-## Key flags
-
-| flag | type | default | description |
-|---|---|---|---|
-| `-i, --input` | path | required | Full-system PDB |
-| `--model-pdb` | path | none | PDB defining the ML-region atoms |
-| `--model-indices` | str | none | Comma/range-separated atom indices, e.g. `'1,2,3'` or `'1-10,15,20-25'`. Used when `--model-pdb` is omitted. |
-| `--movable-cutoff` | float | `8.0` | Distance cutoff (Å) from ML region. Atoms beyond are **frozen** (B-factor 20.0); inside but not ML are **movable-MM** (10.0). |
-| `--one-based / --zero-based` | flag | `--one-based` | Interpret `--model-indices` (1- vs 0-based) |
-| `-o, --output` | path | `<input>_layered.pdb` | Output PDB with B-factor layer encoding |
-
-Supply at least one of `--model-pdb` and `--model-indices`. When both are
-given, `--model-pdb` is used.
-
-The model PDB must be an unchanged atom subset of the full input/topology:
-preserve original order and identifiers, do not include explicit link H, and
-reuse the same selection across R/IM/P. Prefer Cα-terminated backbone fragments
-and aliphatic C–C single-bond ML/MM boundaries; avoid peptide, polar,
-conjugated, disulfide, and metal-coordination cuts. See
-`mlmm-structure-io/pdb.md` for the boundary checklist.
-
-## Examples
-
-### Auto-expand around an ML model PDB
+Around an ML model PDB:
 
 ```bash
-mlmm define-layer -i complex.pdb --model-pdb ml_model.pdb \
-    --movable-cutoff 8.0 \
-    -o complex_layered.pdb
+mlmm define-layer -i complex.pdb --model-pdb ml_region.pdb \
+    --movable-cutoff 8.0 -o complex_layered.pdb
 ```
 
-### Atom-index list (1-based)
+From an atom-index list, 1-based by default (`--zero-based` for 0-based):
 
 ```bash
 mlmm define-layer -i complex.pdb --model-indices '1-50,75,100-110' \
-    --movable-cutoff 6.0 \
-    -o complex_layered.pdb
-```
-
-### Atom-index list (0-based)
-
-```bash
+    --movable-cutoff 6.0 -o complex_layered.pdb
 mlmm define-layer -i complex.pdb --model-indices '0-49,74,99-109' \
     --zero-based -o complex_layered.pdb
 ```
 
-## Output
+Without `-o`, the output is `<input>_layered.pdb` next to the input.
 
-A single PDB with the B-factor field set per layer:
+## Judge success
 
-```
-ATOM      1  CB  TYR A  44       4.050  -8.106   6.935  1.00  0.00           C
-                                                              ▲     ▲
-                                                              │     └── B-factor: 0.00 (ML)
-                                                              └── occupancy unchanged
-```
+- The console prints `Layer Summary` with `Layer 1 (ML, B=0):`,
+  `Layer 2 (Movable MM, B=10):`, `Layer 3 (Frozen MM, B=20):`, and
+  `Total atoms:`. Check the ML count against the region you meant.
+- The output keeps every record of the input and changes only the B-factor:
+  `0.00` for ML atoms, `10.00` for Movable-MM, `20.00` for the rest. The
+  occupancy is unchanged:
 
-ML atoms get `0.00`, movable-MM (within `--movable-cutoff` of any ML
-atom) get `10.00`, the rest get `20.00`.
+  ```
+  ATOM      1  CB  TYR A  44       4.050  -8.106   6.935  1.00  0.00           C
+  ```
 
-## Caveats
+- Color the output by B-factor in a viewer to see the three layers.
 
-- The radius logic is a **freezing threshold**, not an expansion radius.
-  Atoms **beyond** `--movable-cutoff` of any ML atom are frozen; atoms
-  **inside** but not ML are movable-MM. Increase the radius to free
-  more of the environment; decrease it to lock more.
-- Layer assignment lives in the **PDB B-factor**, not the parm7. The
-  parm7 / rst7 pair is unaffected; downstream subcommands pair the
-  layer-encoded PDB with parm7 via `--detect-layer` (default).
-- `mlmm extract` does **not** auto-call `define-layer`; if you only
-  ran `extract`, run `define-layer` afterwards or pass
-  `--model-pdb` / `--model-indices` directly to the consuming
-  subcommand.
-  it in 3-layer mode.
+## Pitfalls and recovery
 
-## See also
+- Give at least one of `--model-pdb` and `--model-indices`; without either,
+  the command exits with code 2 and
+  `ERROR: Either --model-pdb or --model-indices must be provided.` When both
+  are given, `--model-pdb` is used.
+- A residue without ML atoms goes into one layer as a whole, by its closest
+  atom; in a residue that holds ML atoms, each non-ML atom is assigned on its
+  own. Only the first MODEL of a multi-MODEL PDB is used.
+- The layers live in the PDB B-factors, not in the `parm7`; the calculation
+  commands read them from the PDB (`--detect-layer`, on by default). Use the
+  PDB written by `mm-parm` as `-i` so that the atoms match the `parm7`.
+- `mlmm extract` does not call `define-layer`. After `extract`, run
+  `define-layer`, or pass `--model-pdb` or `--model-indices` directly to the
+  calculation command, with `--movable-cutoff` to set the movable shell by
+  distance (this replaces the B-factor layers).
+- What the model PDB must contain, where to cut the ML/MM boundary, and how
+  to choose the cutoff:
+  [Set the layers](../mlmm-model-setup/SKILL.md#set-the-layers) and
+  [Check the boundary and the charge](../mlmm-model-setup/SKILL.md#check-the-boundary-and-the-charge).
 
-- `../mlmm-structure-io/pdb.md` § "B-factor layer encoding" — the
-  semantics this command writes.
-- `mm-parm.md` — typically run before `define-layer` (parm7 is
-  layer-agnostic).
-- `extract.md` — extraction of a binding pocket; orthogonal to
-  layer assignment.
-- Related YAML: `bfactor_ml`, `bfactor_movable_mm`, `bfactor_frozen`,
-  `bfactor_tolerance` (live: `import mlmm.core.defaults as d; print(d.BFACTOR_ML, d.BFACTOR_MOVABLE_MM, d.BFACTOR_FROZEN, d.BFACTOR_TOLERANCE)`).
+## Next step
+
+- [ML region and layers](../mlmm-structure-io/SKILL.md#ml-region-and-layers):
+  what the B-factor values mean to the other commands.
+- [mlmm-model-setup](../mlmm-model-setup/SKILL.md): grow or trim the ML
+  region and the movable shell.
+- [mm-parm.md](mm-parm.md): usually run before `define-layer`; the `parm7`
+  holds no layers.
+- [extract.md](extract.md): cut a binding pocket.
+- The YAML keys `bfactor_ml`, `bfactor_movable_mm`, `bfactor_frozen`, and
+  `bfactor_tolerance` set the B-factor values.

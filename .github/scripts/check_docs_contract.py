@@ -56,7 +56,7 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
         "`rigid_projection.hessian_source`",
         "`references`",
         "{method, citation, doi}",
-        "The treatment is always\n`constrained`",
+        'Fixed rigid-mode treatment: `"constrained"`',
     ),
     Path("docs/ja/json-output.md"): (
         "`mlip_precision`",
@@ -67,9 +67,9 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
         "`rigid_projection.hessian_source`",
         "`references`",
         "{method, citation, doi}",
-        "処理は常に `constrained`",
+        '固定の剛体モード処理: `"constrained"`',
     ),
-    Path("skills/mlmm-cli/sp.md"): (
+    Path("skills/mlmm-cli/utilities.md"): (
         "`mlip_backend`",
         "`mlip_model`",
         "`mlip_precision`",
@@ -79,10 +79,9 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
         "`never_stop_energy_bypasses`",
         "checks only the size, symmetry, and finiteness",
         "inserts one underscore",
-        'd["rigid_projection"]["hessian_source"]',
         "IRC has no independent scientific success verdict",
     ),
-    Path("skills/mlmm-workflows-output/SKILL.md"): (
+    Path("skills/mlmm-overview/outputs.md"): (
         "`mlip_model`",
         "`mlip_precision`",
         "`references`",
@@ -107,7 +106,7 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
         "inspection-only pocket caps",
     ),
     Path("docs/ja/glossary.md"): (
-        "実在原子のML選択を横切るparm7結合",
+        "ML/MM 境界を横切る parm7 の結合",
         "抽出用リンク水素",
     ),
     Path("skills/mlmm-cli/dft.md"): (
@@ -117,7 +116,7 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
         "ml_region_with_linkH.pdb",
     ),
     Path("skills/mlmm-cli/all.md"): (
-        "the required child `thermoanalysis.yaml` handoff is retained even under `--no-dump`",
+        "`thermoanalysis.yaml` is kept even under `--no-dump`",
     ),
     Path("skills/mlmm-cli/tsopt.md"): (
         "`tsopt` always forces `reject_uphill=False`",
@@ -134,7 +133,7 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
         "Raw negative counts are diagnostic",
     ),
     Path("docs/backends.md"): ("mlmm all", "forwards the same factory"),
-    Path("docs/ja/backends.md"): ("mlmm all", "同じfactory"),
+    Path("docs/ja/backends.md"): ("mlmm all", "同じ factory"),
     Path("docs/add-elem-info.md"): (
         "`--overwrite/--no-overwrite`",
         "`<input>_add_elem.pdb`",
@@ -143,18 +142,17 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
     Path("docs/ja/add-elem-info.md"): (
         "`--overwrite/--no-overwrite`",
         "`<input>_add_elem.pdb`",
-        "列 77–78 を除き、各入力行はそのまま\n保持されます",
+        "列 77–78 を除き、各入力行はそのまま保持されます",
     ),
     Path("skills/mlmm-install-backends/SKILL.md"): (
         "torch==2.13.0",
         "`cpu`, `cu126`, `cu130`, `cu132`",
     ),
-    Path("skills/mlmm-install-backends/env-cuda.md"): (
+    Path("skills/mlmm-install-backends/backends.md"): (
         "torch==2.13.0",
         "`cu126`, `cu130`, `cu132`, and `cpu`",
         "does not require a\nmatching local CUDA toolkit",
     ),
-    Path("skills/mlmm-install-backends/mace.md"): ("torch==2.13.0",),
     Path("docs/device-hpc.md"): (
         "g++ -std=c++20 -x c++ -fsyntax-only /dev/null",
         "command -v ninja",
@@ -170,11 +168,11 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
         "`ref_order=identity-verified` / `element-verified` / `unverified-opt-in`",
     ),
     Path("docs/irc.md"): (
-        "Net charge of the ML region/model system",
+        "Charge of the ML region. Required unless `-l` is given",
         '`result.json["rigid_projection"]["hessian_source"]`',
     ),
     Path("docs/ja/irc.md"): (
-        "ML 領域/model system の正味電荷",
+        "ML 領域の電荷。`-l` を使う場合のほかは必須",
         '`result.json["rigid_projection"]["hessian_source"]`',
     ),
     Path("skills/mlmm-hpc/SKILL.md"): (
@@ -193,13 +191,8 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
 }
 
 ORDERED_SNIPPETS: dict[Path, tuple[str, ...]] = {
-    Path("skills/mlmm-install-backends/SKILL.md"): (
-        "      - mlmm-toolkit  # install core first",
-        "pip uninstall -y fairchem-core",
-        "pip install mace-torch",
-    ),
-    Path("skills/mlmm-install-backends/mace.md"): (
-        "pip install mlmm-toolkit",
+    Path("skills/mlmm-install-backends/backends.md"): (
+        "Install mlmm first, then replace its incompatible UMA dependency with MACE.",
         "pip uninstall -y fairchem-core",
         "pip install mace-torch",
     ),

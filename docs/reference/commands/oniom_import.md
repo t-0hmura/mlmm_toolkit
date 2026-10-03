@@ -24,7 +24,7 @@ Options:
   --ref-pdb FILE                  Reference PDB to preserve atom naming/residue
                                   metadata (atom count must match).
   --allow-unverified-ref-order / --no-allow-unverified-ref-order
-                                  Allow legacy positional --ref-pdb mapping when
+                                  Allow positional --ref-pdb mapping when
                                   repeated elements make atom identity
                                   unverifiable. Use only after independently
                                   checking order.  [default: no-allow-

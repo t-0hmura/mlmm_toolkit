@@ -1,129 +1,36 @@
-# CLI 規約
+# 共通オプションと残基・原子の指定
 
-このページでは、`mlmm-toolkit` の全コマンドで使用される規約を説明します。
-
----
+全コマンドに共通するフラグ、ML/MM の共通オプション、残基と原子の指定、電荷と多重度、終了コード、設定の優先順位をまとめたページです。
 
 ## ブール値オプション
 
-オン・オフは `--flag` / `--no-flag` で指定します。
+段階や動作のオン・オフは、対になったフラグで指定します。
 
-| 記法 | 例 |
+| 形 | 例 |
 |---|---|
-| 肯定フラグ | `--tsopt` |
-| 否定フラグ | `--no-tsopt` |
+| 有効にする | `--tsopt` |
+| 無効にする | `--no-tsopt` |
 
 ```bash
---tsopt --thermo --no-dft                        # トグル記法
+--tsopt --thermo --no-dft
 ```
 
-新しいコマンドには `--tsopt` / `--no-tsopt` を使ってください。値指定も、互換性のため受け付けます。
-
-### 新しいブールフラグの追加
-
-正規 interface は `@click.option("--foo/--no-foo", ...)` または共通 `add_*_option()` factory で定義します。通常の Click toggle は runtime の parameter introspection が検出します。lazy command の import 前に正規化する必要がある場合、または parser wrapper により introspection できない場合だけ `mlmm/cli/app.py` に手動 hint を追加し、どちらの経路も `tests/test_bool_compat_cli.py` へ追加してください。
-
-よく使うブール値オプション:
-- `--tsopt`, `--thermo`, `--dft` -- 後処理ステージの有効化
-- `--dump` -- 軌跡ファイルの出力
-- `--preopt`, `--endopt` -- 前処理/後処理最適化の切り替え
-- `--climb` -- MEP 探索でクライミングイメージを有効化
-
----
-
-## 段階的ヘルプ (progressive help)
-
-計算系サブコマンドと `all` は 2 段階ヘルプです:
+## 段階的ヘルプ
 
 ```bash
-mlmm all --help           # 主要オプションのみ
-mlmm all --help-advanced  # 全オプション
+mlmm <subcmd> --help               # 主要オプションのみ
+mlmm <subcmd> --help-advanced      # 全オプション
 ```
 
-`scan` / `scan2d` / `scan3d` と計算系サブコマンド（`opt` / `sp` / `path-opt` / `path-search` / `tsopt` / `freq` / `irc` / `dft`）に加え、ユーティリティ系（`mm-parm` / `define-layer` / `add-elem-info` / `trj2fig` / `energy-diagram` / `oniom-export`）も同様に段階的 help に対応します。いずれも `--help` は主要オプションのみ、`--help-advanced` で全オプションを表示します。`extract` と `fix-altloc` も段階的 help に対応し、`--help-advanced` で parser の全オプションを示します。
+どのサブコマンドも両方を受け付けます。
 
----
-
-## 設定の確認
-
-現在の設定を確認できます（YAML オーバーライドの検証に便利）：
+実行の前に設定を確かめるときは、`--show-config` で `--config` に渡した YAML とその最上位のキーを表示し、`--dry-run` で計算をせずにオプションと入力を検査できます。
 
 ```bash
-mlmm opt -i input.pdb --parm7 real.parm7 -q -1 --show-config --dry-run
+mlmm opt -i input.pdb --parm7 real.parm7 -q -1 --config my_settings.yaml --show-config --dry-run
 ```
 
----
-
-## ML/MM 必須オプション
-
-ML/MM 計算を行う大半のサブコマンド（`all`、`extract`、`mm-parm`、`define-layer` を除く）では、以下のトポロジー指定が常に必要です:
-
-```bash
---parm7 real.parm7      # 全系（real system）の Amber parm7 トポロジーファイル
-```
-
-`all` ワークフローでは、`--parm7` を省略するとトポロジーを自動生成します。
-個別サブコマンドの ML 原子集合は、次の順で決まります。
-
-1. `--model-pdb` を指定した場合はその原子集合
-2. `--model-pdb` を省略し、`--model-indices` を指定した場合はその原子番号
-3. どちらも指定せず、デフォルトの `--detect-layer` が有効な場合は入力 PDB の B-factor が示す ML 原子
-
-明示的な ML 原子集合を指定した場合も、有効な B-factor は自動的に
-Movable-MM/Frozen-MM の割り当てに引き続き使われますが、明示した ML 原子集合を
-置き換えません。B-factor の分割には ML 原子と MM 原子がそれぞれ 1 個以上必要で、
-全原子が B=0 の PDB は layer 指定として扱いません。
-
-```bash
-# 個別サブコマンドの例
-mlmm path-search -i R.pdb P.pdb --parm7 real.parm7 --model-pdb model.pdb -q 0 -m 1
-```
-
----
-
-## B-factor 層エンコーディング
-
-`mlmm-toolkit` は PDB の B-factor 列（列 61-66）を使用して、3 層 ML/MM 分割をエンコードします:
-
-| 層 | B-factor | 説明 |
-|-----|----------|------|
-| ML | 0.0 | MLIP によるエネルギー・力・Hessian 計算（デフォルトバックエンド: UMA） |
-| Movable-MM | 10.0 | 最適化時に移動可能な MM 原子 |
-| Frozen-MM | 20.0 | 座標固定 |
-
-`define-layer` サブコマンドがこれらの B-factor を PDB に書き込みます。B-factor カラーリングに対応した分子ビューアで層割り当てを確認できます。
-
-B-factor の読み取り時には許容差 1.0 が使用され、0/10/20 に近い値はそれぞれ ML/Movable-MM/Frozen-MM にマッピングされます。
-
-### 層の定義方法
-
-1. **`define-layer` サブコマンド**（推奨）:
-    ```bash
-    mlmm define-layer -i system.pdb --model-pdb ml_region.pdb -o labeled.pdb
-    ```
-
-2. **距離カットオフ**（YAML/CLI）:
-    ```yaml
-    calc:
-     hess_cutoff: 3.6       # Hessian 対象 MM の距離カットオフ
-     movable_cutoff: 8.0    # Movable-MM の距離カットオフ（それ以外は Frozen-MM）
-    ```
-
-3. **B-factor からの読み取り**:
-    ```yaml
-    calc:
-     use_bfactor_layers: true   # 入力 PDB の B-factor から層を読み取り
-    ```
-
-4. **明示的インデックス指定**（YAML）:
-    ```yaml
-    calc:
-     hess_mm_atoms: [100, 101, 102, ...]
-     movable_mm_atoms: [200, 201, 202, ...]
-     frozen_mm_atoms: [300, 301, 302, ...]
-    ```
-
----
+確認が通ると、最後に `[Dry run] --dry-run completed. Input command is valid.` と出ます。
 
 (ja-verbosity-levels)=
 
@@ -133,245 +40,206 @@ B-factor の読み取り時には許容差 1.0 が使用され、0/10/20 に近�
 
 | レベル | 表示内容 |
 |---|---|
-| `-v 0` | 無出力。成功は終了コードと出力成果物で確認します。 |
-| `-v 1` | マイルストーンのみ: バージョン、入力要約、主要設定、出力先、dry-run / 最終ステータス。banner・`[command]`・`[mode]`・config dump は出ません。 |
-| `-v 2` | デフォルト。banner、`[command]`、`[mode]`、ステージ進捗、主要なオプティマイザのサイクル表、終了ステータス、Hessian 1 行要約、thermo / DFT 要約、経過時間を追加します。 |
-| `-v 3` | デバッグ: resolved config、backend DEBUG、オプティマイザ・内部座標の詳細、`[HessianTiming]`、`[HessianVRAM]`。 |
+| `-v 0` | 無出力。成功は終了コードと出力ファイルで確認します。 |
+| `-v 1` | マイルストーンのみ: バージョン、入力要約、主要設定、出力先、dry-run / 最終ステータス。バナー・`[command]`・`[mode]`・設定の一覧は出ません。 |
+| `-v 2` | デフォルト。バナー、`[command]`、`[mode]`、ステージ進捗、主要なオプティマイザのサイクル表、終了ステータス、Hessian 1 行要約、熱化学 / DFT 要約、経過時間を追加します。 |
+| `-v 3` | デバッグ: 実際に使う設定の全体、バックエンドの DEBUG、オプティマイザ・内部座標の詳細、`[HessianTiming]`、`[HessianVRAM]`。 |
 
-意味的な失敗はどのレベルでも失敗です。`-v 3` でのみ現れる `Traceback` も実行失敗を意味します。
+レベルで変わるのは表示だけで、終了コードは変わりません。成否は {ref}`終了コード <ja-exit-codes>` で判断してください。
+
+(ja-mlmm-options)=
+
+## ML/MM の共通オプション
+
+`-q` は系全体ではなく ML 領域の電荷です。ML/MM の個別のコマンドには、全系のトポロジー（`--parm7`）と ML 領域が要ります。`all` はどちらも自分で作ります。
+
+各コマンドは、次のうち最初に与えられたものから ML 領域を決めます：`--model-pdb`、次に `--model-indices`、次に `--detect-layer` での入力 PDB の ML 原子（B-factor 0）。ML 領域を明示したときも、`--detect-layer` は B-factor から Movable-MM と Frozen-MM の層を読みます。
+
+| オプション | 意味 | デフォルト |
+|---|---|---|
+| `--parm7` | 酵素複合体全体（全系）の Amber parm7 トポロジー。 | 必須（`all` は自分で作る） |
+| `--model-pdb` | ML 領域だけの PDB（リンク水素を含まない）。原子の名前と順序は全系の PDB・parm7 と同じにします。与えると、これで ML 領域が決まります。 | なし |
+| `--model-indices` | ML 領域の原子番号（1 始まり、カンマ区切り。`1-5` のような範囲も可）。`--model-pdb` が無いときに使います。 | なし |
+| `--detect-layer/--no-detect-layer` | B-factor 0 / 10 / 20 を ML・Movable-MM・Frozen-MM の層として読みます（{ref}`MM の層 <ja-mm-layers>`）。ML 領域を明示したときは MM の層だけを読みます。 | `--detect-layer` |
+| `--ref-pdb` | XYZ 入力のときに、原子の順序と残基の情報を与える PDB。 | なし |
+| `--movable-cutoff` | ML 領域からの距離（Å）。この内側の MM 原子は動き、外側は固定されます。 | なし（層は B-factor か `--freeze-atoms` から） |
+| `--mm-backend` | MM の計算エンジン：`hessian_ff` か `openmm`。MM の Hessian はデフォルトで有限差分です。 | `hessian_ff` |
+| `--link-atom-method` | リンク原子の置き方：`scaled`（g-factor）か `fixed`（1.09 / 1.01 Å）。 | `scaled` |
+| `--cmap/--no-cmap` | parm7 に CMAP 項があれば、real system と model system の両方の MM 計算に残します。 | `--cmap` |
+
+`mlmm all` は、`--parm7` を省くとトポロジーを作り、`-c` で抽出したモデルから ML 領域を決めます。
+
+```bash
+mlmm path-search -i R.pdb P.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m 1
+```
+
+MLIP バックエンドの選び方、精度、`--uma-workers` は [MLIP バックエンド](backends.md) にあります。
 
 ## 残基セレクタ
 
-残基セレクタは、基質や抽出中心として使用する残基を指定します。
+`extract` と `all` の `-c/--center` は、モデルの中心にする残基を指定します。下の表は、範囲の狭い形から順に並べています。
 
-### 残基名による指定
+| 形 | 例 | 選ばれる残基 |
+|---|---|---|
+| chain＋残基名＋番号（推奨） | `-c 'A:TYR:44'` / `-c 'A:TYR:44,A:SAM:123'` | 1 項目につき 1 残基だけを確実に選べます。 |
+| chain＋残基名 | `-c 'A:SAM'` | chain A の SAM をすべて選びます。複数あるときは警告をログに出します。 |
+| chain＋番号 | `-c 'A:123'` / `-c 'A:123,B:456'` / `-c 'A:123A'` | chain A の残基 123 を選びます。末尾の英字は挿入コードです。 |
+| 残基名だけ | `-c 'SAM,GPP'` / `-c 'LIG'` | どの chain でも、同じ名前の残基をすべて選びます。複数あるときは警告をログに出します。 |
+| 番号だけ | `-c '123,456'` / `-c '123A'` | すべての chain から同じ番号の残基を選びます。 |
+| 構造ファイル | `-c substrate.pdb` / `-c substrate.cif` | 別の PDB / mmCIF ファイルの座標と一致する残基を選びます。 |
+
+mmCIF の長い chain ID や 9999 を超える残基番号も、同じ形で指定できます。chain ID は大文字と小文字を区別します。残基名は区別しません。同梱の例の PDB のように chain 欄が空の PDB では、残基名か番号の形だけを使えます（`-c 'SAM,GPP,MG'`、`--selected-resn '44,63,186'`）。
+
 ```bash
--c 'SAM,GPP'   # SAM または GPP という名前の残基をすべて選択
--c 'LIG'       # LIG という名前の残基をすべて選択
+mlmm extract -i complex.cif -c 'LONG_CHAIN:SAM' -o pocket.pdb        # chain LONG_CHAIN の SAM をすべて
+mlmm extract -i complex.cif -c 'LONG_CHAIN:SAM:10001' -o pocket.pdb  # SAM を 1 つだけ
+mlmm extract -i complex.cif -c 'LONG_CHAIN:10001' -o pocket.pdb      # chain＋番号
 ```
 
-### 残基IDによる指定
-```bash
--c '123,456'       # 残基 123 と 456
--c 'A:123,B:456'   # チェーン A の残基 123、チェーン B の残基 456
--c '123A'          # 挿入コード A を持つ残基 123
--c 'A:123A'        # チェーン A、残基 123、挿入コード A
-```
+(ja-selected-resn-takes-ids)=
+### `--selected-resn` も同じ残基セレクタを使う
 
-### PDB ファイルによる指定
-```bash
--c substrate.pdb   # 別の PDB から座標を使用して基質を特定
-```
+`extract` と `all` の `--selected-resn` は、指定した残基をモデルに必ず含めます。指定の形は上の表と同じです。たとえば `A:TYR:44` は 1 残基、`A:SAM` は chain A の SAM すべて、`A:123A` は挿入コード付きの 1 残基を含めます。chain を付けない `TYR` は一致する残基をすべて含め、複数あるときは警告を出します。
 
-```{note}
-残基名で選択する場合、同名の残基が複数あれば**すべて**が含まれ、警告がログに出力されます。
-```
-
----
-
+(ja-charge-specification)=
 ## 電荷の指定
 
-PDB 入力の場合、`--ligand-charge` で非標準残基（基質、補因子）の電荷を指定します。内部の `ION` 表にあるイオン（`MG` は +2 など）の電荷は自動で入り、`-l` に同じ値で書いても構いません（違う値は警告を出して無視します）。選択した ML 領域/model system の正味電荷は、標準アミノ酸の電荷、イオン電荷、指定したリガンド電荷を合計して**自動算出**されるため、ML 領域内の原子を手動で数える必要がありません。
-
-### 残基別マッピング（推奨）
-
-`--ligand-charge` はコロン（`:`）区切りを使います（`mm-parm` は `=` も受け付けますが、`extract`/`all` の ML 領域抽出経路は `:` のみ対応するため、`:` を推奨します）:
+`-q/--charge` は ML 領域の電荷です。PDB/mmCIF 入力では、`--ligand-charge/-l` を使うと**非標準残基（基質・補因子など）の電荷だけ**を指定すれば、標準アミノ酸やイオンの電荷と合算して ML 領域の電荷が自動計算されます。組み込みの表にあるイオンは表の電荷を使います（`MG` は +2）。`-l` に同じ値で書いても構わず、違う値は警告を出して無視します。
 
 ```bash
--l 'SAM:1,GPP:-3'   # SAM は +1、GPP は -3
--l 'LIG:-2'         # LIG は -2
+-l 'SAM:1,GPP:-3'        # 残基ごとの指定（推奨）
+-l 'LIG:-2'              # 1 残基の指定
+-l -3                    # 整数 1 つ = リガンドの総電荷
+-q 0                     # ML 領域の電荷を明示
 ```
 
-整数形式（全未知残基へ合計電荷をまとめて割り当て）も使えます:
+**電荷の決まり方**（上ほど優先）:
 
-```bash
--l -3   # 全未知残基の合計電荷
-```
+1. 明示的な `-q/--charge`
+2. `--ligand-charge/-l` があるとき：ML 領域の標準残基・イオン・指定したリガンドの電荷の合計
+3. `--config` 内の `calc.model_charge`
+4. どれでも決まらなければ実行を中断
 
-残基名の大文字小文字は区別しません。マッピングされていない非標準残基はデフォルトで電荷 0 となります。
-
-### ML 領域電荷の明示的上書き
-```bash
--q 0    # ML 領域/model system の正味電荷を 0 に強制
--q -1   # ML 領域/model system の正味電荷を -1 に強制
-```
-
-### 電荷の解決順序
-1. `-q/--charge`（明示的な CLI 上書き）-- 最優先。
-2. ML 領域決定の電荷サマリー（アミノ酸、イオン、`--ligand-charge` の合計。`-c` 指定かつ抽出が走る場合のみ）。
-3. 抽出をスキップした場合の `--ligand-charge` フォールバック（PDB 入力または `--ref-pdb` が必要）。
-4. `.gjf` の電荷/スピンヘッダ（Gaussian 形式）。このヘッダを読むのは `oniom-import` のみです（`bond-summary` も `.gjf` のジオメトリを読みますが、最適化/MEP パイプラインは PDB/XYZ を入力とします）。
-5. デフォルト: なし（未解決なら中断）。
+導出した電荷は、端末の `Total active site model charge` の行に出ます。`extract` の後に読む行は [モデルを確かめる](model-setup.md#モデルを確かめる) にあります。
 
 ```{tip}
-非標準の残基（基質、補因子、特殊なリガンド）には必ず `--ligand-charge` を指定し、正しい電荷伝播を確保してください。
+非標準の残基（基質、補因子、特殊なリガンド）には必ず `--ligand-charge/-l` を指定し、電荷が正しく伝播するようにしてください。
 ```
-
----
 
 ## スピン多重度
 
 ```bash
--m 1   # 一重項（デフォルト）
--m 2   # 二重項
--m 3   # 三重項
+-m 1    # 一重項 (singlet)（デフォルト）
+-m 2    # 二重項 (doublet)
+-m 3    # 三重項 (triplet)
 ```
 
-```{note}
-`all` と計算系サブコマンドでは `-m/--multiplicity` を使います。`mm-parm` の `--ligand-mult` は残基メタデータ用の別オプションです。
-```
-
----
+`-m/--multiplicity` は ML 領域の多重度です。指定しないときは `--config` 内の `calc.model_mult`、それも無ければ 1 を使います。`all` と各サブコマンドで同じ値を指定してください。`mm-parm` は、パラメータ化に使う残基ごとの多重度を別の `--ligand-mult` で受け取ります。
 
 ## 原子セレクタ
 
-原子セレクタは、スキャンや拘束に使用する特定の原子を指定します。
+原子セレクタは `--scan-lists` と `opt` の `--distance-restraint` で 1 つの原子を指します。`--freeze-atoms` は 1 始まりの原子番号だけを受け付けます（{ref}`原子の固定と距離の拘束 <ja-freeze-atoms-and-restraints>`）。
 
-### 整数インデックス（デフォルトは1始まり）
 ```bash
---scan-lists '[(1, 5, 2.0)]'   # 原子 1 と 5、ターゲット距離 2.0 Å
+--scan-lists '[(1, 5, 2.0)]'                                          # 1 始まりの整数インデックス
+--scan-lists '[("SAM,320,CS1", "GPP,321,C7", 1.60)]'                  # 残基名、残基番号、原子名
+--scan-lists '[("A:SAM:320:CS1", "A:GPP:321:C7", 1.60)]'              # chain ID 付き
 ```
 
-### PDB形式のセレクタ文字列
-```bash
---scan-lists '[("SAM,320,CS1", "GPP,321,C7", 1.60)]'
---scan-lists '[("A:SAM:320:CS1", "A:GPP:321:C7", 1.60)]'  # chain を含む一意形式
+3 項目のセレクタは、残基名・残基番号・原子名を任意の順序で並べ、空白・カンマ・コロン・スラッシュ・バッククォート・バックスラッシュのどれでも区切れます（`"SAM,320,CS1"`、`"SAM 320 CS1"`、`"320,SAM,CS1"` は同じ原子）。3 項目に chain は入りません。chain を指定するときは、4 項目の形 `CHAIN:RESNAME:RESSEQ[ICODE]:ATOM` をこの順で書き、挿入コードは残基番号に続けます（`A:SAM:12B:C1`）。
+
+(ja-scan-list-spec)=
+### スキャンリスト仕様
+
+`-s/--scan-lists`（`scan` / `scan2d` / `scan3d` / `all` で使用）は 1 個以上のインライン Python リテラルを受け付けます。スタンドアロンの `scan` / `scan2d` / `scan3d` はこれに加えて YAML/JSON スペックファイルパスも受け付けます。複数ステージの実行にはファイルが、短い指定にはインラインリテラルが適しています。
+
+**YAML/JSON スペックファイル**（ルートはマッピング。キーは `scan` では `stages`、`scan2d` / `scan3d` では `pairs`）:
+
+```yaml
+one_based: true            # 任意。未指定時はコマンドの --one-based/--zero-based（デフォルトは 1 始まり）に従う
+stages:                    # scan 用
+  - [[1, 5, 1.35]]
+  - [[1, 5, 2.20], [2, 8, 1.80]]
 ```
 
-識別子が繰り返される系や mmCIF では、厳密な
-`CHAIN:RESNAME:RESSEQ[ICODE]:ATOM` 形式を優先してください。複数文字 chain
-と 10,000 以上の残基番号にも対応し、heuristic matching を避けられます。
+```yaml
+one_based: true
+pairs:                     # scan2d（要素は 2 つちょうど） / scan3d（要素は 3 つちょうど）
+  - [1, 5, 1.30, 3.10]
+  - [2, 8, 1.20, 3.20]
+```
 
-セレクタのフィールドは以下で区切れます:
-- 空白: `'SAM 320 CS1'`
-- カンマ: `'SAM,320,CS1'`
-- スラッシュ: `'SAM/320/CS1'`
-- バッククォート: `` 'SAM`320`CS1' ``
-- バックスラッシュ: `'SAM\320\CS1'`
+YAML スペックでは、`scan` の 1 ステージに距離の目標値と、距離・角度・二面角の範囲を混ぜられます。`scan2d` / `scan3d` の各軸は `(i,j,low,high)`、`(i,j,k,low,high)`、`(i,j,k,l,low,high)` のいずれかです。インデックスは整数、3 項目のセレクタ、または位置固定の `CHAIN:RESNAME:RESSEQ[ICODE]:ATOM` で指定できます。距離の単位は Å、角度と二面角は度です。
 
-3 つのトークン（残基名、残基番号、原子名）は任意の順序で指定できます。パーサーは非標準の順序でもフォールバックヒューリスティックで解釈します。
+**インラインリテラル**: シェルがカッコや空白を解釈しないように、リスト全体を**シングルクォート**で囲み、中の PDB セレクタはダブルクォートで書いてください。
 
----
+```bash
+-s '[(atom1, atom2, target_Å), ...]'             # scan: 3 要素タプル
+-s '[(atom1, atom2, low_Å, high_Å), ...]'        # 距離の range
+-s '[(atom1, atom2, atom3, low_deg, high_deg)]'  # 角度の range
+-s '[("SAM,320,CS1","GPP,321,C7",1.60)]'         # クォートしたセレクタ
+-s "[(\"SAM,320,CS1\",\"GPP,321,C7\",1.60)]"       # 非推奨: 外側をダブルクォートで囲むと内側のエスケープが必要
+```
+
+`scan` では **1 リテラル = 1 ステージ**です。複数ステージを実行するには、**1 つの `--scan-lists` フラグの後に複数リテラル**を並べます。`scan2d` / `scan3d` ではリテラルは **1 つだけ** を受け付けます（複数ステージは非対応）。結合を 1 つ作ってからプロトンを動かす 2 ステージの `scan` は次のとおりです。
+
+```bash
+mlmm scan -i r.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
+    -s '[("SAM,320,CS1","GPP,321,C7",1.60)]' '[("GPP,321,H11","GLU,186,OE2",0.90)]'
+```
+
+| コマンド | 受け付けるスキャン仕様 |
+| --- | --- |
+| `scan` | インラインの距離の目標値 `(i,j,target)`、または入力構造から両方向にスキャンする範囲 `(i,j,low,high)`・`(i,j,k,low,high)`・`(i,j,k,l,low,high)`（[双方向スキャン](scan.md#双方向スキャン4-tuple)）。YAML/JSON にも対応 |
+| `all --scan-lists` | インラインの目標値のみ：距離 `(i,j,target)`、角度 `(i,j,k,deg)`、二面角 `(i,j,k,l,deg)`（範囲と YAML/JSON は不可） |
+| `scan2d` | 距離・角度・二面角の軸を 2 本含む 1 リテラル/ファイル |
+| `scan3d` | 距離・角度・二面角の軸を 3 本含む 1 リテラル/ファイル |
+
+したがって 4 要素のタプルは、`scan` では距離の範囲、`all` では角度の目標値です。
 
 ## 入力ファイル要件
 
-### PDB ファイル
-- **水素原子**を含む必要があります（`reduce`、`pdb2pqr`、`mm-parm --add-h` 等で追加）
-- 列 77-78 に**元素記号**が必要（欠けている場合は `mlmm add-elem-info` を使用）
-- 複数の PDB は**同じ原子を同じ順序**で持つ必要があります（座標のみ異なる）
+- **PDB** — 水素原子を含み（`reduce`、`pdb2pqr`、Open Babel、`mlmm mm-parm --add-h` で追加）、列 77–78 に元素記号が必要です（欠けている場合は `mlmm add-elem-info`）。複数の PDB は同じ原子を同じ順序で持つ必要があります。
+- **mmCIF** — 下の {ref}`mmCIF と大きな構造 <ja-mmcif-input>` に挙げた 14 のコマンドが受け付けます。
+- **XYZ** — 計算コマンド（`all` を含む）は、XYZ を `--ref-pdb` と一緒に受け付けます。`--ref-pdb` が原子の順序と残基の情報を与えます。
+- **Amber parm7（`--parm7`）** — 全系の力場パラメータです。原子は、どの座標入力とも同じものが同じ順序で並んでいる必要があります。
 
-### XYZ ファイル
-- ML 領域決定をスキップする場合（`-c/--center` を省略）に使用可能
+(ja-mmcif-input)=
+### mmCIF と大きな構造
 
-### Amber トポロジー
-- `--parm7`: 全系の力場トポロジー（`mm-parm` で自動生成可能）
-- parm7 は入力 PDB の原子順序と正確に一致する必要があります
+`all`、`extract`、`define-layer`、`sp`、`opt`、`tsopt`、`freq`、`irc`、`dft`、`scan`、`scan2d`、`scan3d`、`path-opt`、`path-search` は `.cif` と `.mmcif` を受け付け、`--ref-pdb` も同じです。単独の `mm-parm` は PDB だけを読みます。`all` は mmCIF の入力を変換してからパラメータを作ります。2 文字以上の chain ID、4 桁を超える残基番号、5 桁を超える原子番号を持つ構造や、残基が 10,000 以上の構造には mmCIF を使ってください。
 
----
-
-## バックエンド選択
-
-ML/MM calculator を使うサブコマンド（`opt`、`sp`、`tsopt`、`freq`、
-`irc`、`scan`、`scan2d`、`scan3d`、`path-opt`、`path-search`、`all`）で
-以下を指定できます:
-
-| オプション | 説明 | デフォルト |
-|----------|------|----------|
-| `-b, --backend` | model領域の高レベルbackend: `uma`、`orb`、`mace`、`aimnet2`、`dft`。 | `uma` |
-
-代替バックエンドはオプション依存グループでインストールします:
+`mlmm` は最初の座標モデルを読み、altLoc（別位置の配座）は残基ごとに平均占有率の最も高いものを 1 つ残します。計算の間は一時的な chain ID と残基番号を使い、出力の CIF で元の chain ID・残基番号・挿入コードに戻します。大きな PDB や標準の欄に収まらない PDB（残基が 10,000 以上、原子が 99,999 以上、hybrid-36 の番号、桁あふれした数字の欄など）も同じように扱います。
 
 ```bash
-pip install "mlmm-toolkit[orb]"       # ORB バックエンド
-pip install "mlmm-toolkit[aimnet]"   # AIMNet2 バックエンド
-pip uninstall -y fairchem-core && pip install mace-torch  # MACE は別 env で（e3nn ピンが UMA と競合）
+mlmm all -i reactant.cif product.cif -c 'enzyme_A:SAM:10001,enzyme_A:GPP:10002' \
+    -l 'SAM:1,GPP:-3' --tsopt --thermo -o result
+mlmm tsopt -i hei.xyz --ref-pdb full_system.mmcif --parm7 full_system.parm7 -q -2 -o result_tsopt
 ```
 
----
+2 つ目のコマンドは、座標を XYZ ファイルから、トポロジーを mmCIF ファイルから取ります。残基と原子のセレクタには、元の chain ID と残基番号を使います。
 
-## 精度、workers、解析 Hessian
+| 場面 | 形 | 例 |
+|---|---|---|
+| `extract` / `all -c` の番号指定 | `CHAIN:RESSEQ[ICODE]` | `enzyme_A:10001B` |
+| `extract` / `all -c` の残基名＋番号指定 | `CHAIN:RESNAME:RESSEQ[ICODE]` | `enzyme_A:SAM:10001B` |
+| スキャンの原子 | `CHAIN:RESNAME:RESSEQ[ICODE]:ATOM` | `enzyme_A:SAM:10001B:CS1` |
 
-`--precision` を省略した場合、UMA と AIMNet2 は fp32、ORB と MACE は
-fp64 を使用します。AIMNet2 は fp64 を受け付けません。ORB/MACE の fp32
-明示指定は、曲率の低ノイズ性よりスクリーニング速度を優先する場合に限ります。
+出力の横に書かれる `.cif` については [出力ディレクトリのレイアウト](output-layout.md) を参照してください。
 
-`--uma-workers` は一般的な CPU スレッド数ではなく、UMA の並列 predictor
-（`fairchem-core[extras]`）を制御します。デフォルトは 1 です。
-`--uma-workers > 1` は解析 Hessian に必要な autograd model を公開しないため、
-`--hessian-calc-mode Analytical` との併用はエラーになります。
+(ja-trajectory-one-frame)=
+### 軌跡から 1 フレームを取り出す
+
+`_trj.xyz` はふつうの複数フレームの XYZ（各フレームは原子数の行・コメントの行・原子の行）なので、k 番目（1 から数える）のフレームは次のように取り出せます。
 
 ```bash
---uma-workers 1 --hessian-calc-mode Analytical       # 解析 Hessian
---uma-workers 4 --hessian-calc-mode FiniteDifference # UMA 並列 predictor + FD
+N=$(head -1 scan_trj.xyz); k=12
+sed -n "$(( (k-1)*(N+2)+1 )),$(( k*(N+2) ))p" scan_trj.xyz > frame_12.xyz
 ```
 
-ORB、MACE、AIMNet2 はこの UMA worker pool を使用しません。互換性のある
-バックエンド版では 4 種すべてが解析/native Hessian に対応し、必要な API が
-無い場合は有限差分へ暗黙に切り替えずエラーになります。
+PDB のトポロジーを使って続けるときは、元の PDB を次の計算コマンドの `--ref-pdb` に渡してください。座標はフレームのものを使います。
 
----
-
-## `--opt-mode`（サブコマンド依存）
-
-```{warning}
-選択肢とデフォルトはサブコマンドごとに異なります。
-```
-
-| サブコマンド | 勾配のみ別名 | Hessian ベース別名 | デフォルト | エンジン |
-|---|---|---|---|---|
-| `opt` | `grad`（`lbfgs`） | `hess`（`rfo`） | `grad` | L-BFGS / RFO（任意で `--microiter`）。 |
-| `tsopt` | `grad`（`dimer`） | `hess`（`rsprfo`） | `hess` | Dimer / RS-P-RFO（RS-I-RFO / TRIM も明示選択可）。 |
-| `all` | `grad` | `hess` | `grad` | TSOPT と IRC 後の端点最適化の fallback。`--opt-mode-post` が優先されます。 |
-
-スキャンと path-search は固定の L-BFGS を使い、`--opt-mode` を受け付けません。
-
----
-
-## YAML 設定
-
-詳細設定は `--config` の YAML 1 つで渡します（別の上書き用 YAML はありません）。適用順序:
-```
-デフォルト < config < CLI オプション
-```
-
-利用可能なすべてのオプションは [YAML リファレンス](yaml-reference.md) を参照してください。
-
----
-
-## 出力ディレクトリ
-
-`--out-dir` で結果の保存先を指定します:
-
-```bash
---out-dir ./my_results/   # カスタム出力ディレクトリ
-```
-
-デフォルトの出力ディレクトリ:
-- `all`: `./result_all/`
-- `extract`: カレントディレクトリまたは `-o` で指定
-- `mm-parm`: カレントディレクトリまたは `--out-prefix` で指定
-- `define-layer`: カレントディレクトリまたは `-o` で指定
-- `opt`: `./result_opt/`
-- `tsopt`: `./result_tsopt/`
-- `path-opt`: `./result_path_opt/`
-- `path-search`: `./result_path_search/`
-- `scan`: `./result_scan/`
-- `scan2d`: `./result_scan2d/`
-- `scan3d`: `./result_scan3d/`
-- `freq`: `./result_freq/`
-- `irc`: `./result_irc/`
-- `dft`: `./result_dft/`
-
----
-
-## 関連項目
-
-- [はじめに](getting-started.md) -- インストールと初回実行
-- [概念とワークフロー](concepts.md) -- ML/MM 3層システム、ONIOM 分解の全体像
-- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
-- [トラブルシューティング](troubleshooting.md) -- よくあるエラーと対処法
-- [YAML リファレンス](yaml-reference.md) -- 全設定オプション
-
+(ja-exit-codes)=
 ## 終了コード
 
 | コード | 意味 |
@@ -381,4 +249,83 @@ ORB、MACE、AIMNet2 はこの UMA worker pool を使用しません。互換性
 | `2` | 入力・CLI 引数・設定の指定ミス |
 | `130` | ユーザー中断（SIGINT） |
 
-JSON の有無で終了コードは変わりません。IRC の上限停止だけでは失敗とせず、all は TS と端点の最適化を判定します。
+JSON の有無で終了コードは変わりません。終了コード `0` には `success` と `partial` の両方が入るので、`scientific_status` で見分けます。`all` と `path-search` はこれを `summary.log` に書き（`all` は端末にも `Scientific status:` として出します）、ほかのコマンドは `--out-json` を付けたときに `result.json` に記録します（[実行と要求段階の完了状況](json-output.md#実行と要求段階の完了状況)）。`--out-json` を付けないときは、そのコマンドのページにある端末の行で見分けてください（例：`irc`（固有反応座標）では [IRC の成否の判定](irc.md#irc-の成否の判定)）。
+
+(ja-opt-mode-semantics)=
+
+## `--opt-mode`（サブコマンド依存）
+
+`--opt-mode` は最適化法を選びます。L-BFGS（記憶制限 BFGS）と RFO（有理関数最適化）は極小を探し、Dimer、RS-P-RFO（制限ステップ分割 RFO）、RS-I-RFO（制限ステップイメージ RFO）、TRIM（信頼領域イメージ最小化）は TS（遷移状態）を探します。
+
+| サブコマンド | `grad` エイリアス | `hess` エイリアス | デフォルト |
+|------------|------------------|------------------|-----------|
+| `opt` | L-BFGS (`lbfgs`) | RFO (`rfo`) | `grad` (L-BFGS) |
+| `tsopt` | Dimer (`dimer`) | RS-P-RFO (`rsprfo`) | `hess` (RS-P-RFO) |
+| `path-opt`（端点の事前最適化） | L-BFGS | RFO | `grad` |
+| `path-search`（1 構造ずつの最適化） | L-BFGS | RFO | `grad` |
+| `scan` / `scan2d` / `scan3d`（格子の各点の緩和） | L-BFGS | RFO | `grad` |
+| `all`（前処理の最適化・スキャン・MEP 探索、`--opt-mode`） | L-BFGS | RFO | `grad` |
+| `all`（TS 最適化、`--opt-mode-post`） | Dimer | RS-P-RFO | `hess` |
+| `all`（IRC 後の端点の最適化、`--opt-mode-post`） | L-BFGS | RFO | `hess` |
+
+`--opt-mode-post` を省いて `--opt-mode` を明示すると、`all` はその値を TS 最適化と端点の最適化にも使います。
+
+同じ `--opt-mode` の値でも、サブコマンドによって**選ばれる最適化法が異なり**、デフォルトも異なります。レシピをコピーする前に表を確認してください。アルゴリズム名を受け付けるのは `opt`（`lbfgs` / `rfo`）と `tsopt`（`dimer` / `rsirfo` / `trim` / `rsprfo`）だけで、ほかのサブコマンドは `grad` / `hess` だけを受け付けます。したがって `tsopt` の `--opt-mode grad` は L-BFGS 最小化ではなく **Dimer TS 探索**で、この Dimer は Hessian を周期的に計算してダイマーの方向を更新します。曖昧さを避けるには、`tsopt` では `--opt-mode dimer` か `rsirfo`、`opt` では `--opt-mode lbfgs` か `rfo` と書いてください。
+
+`--microiter/--no-microiter`（デフォルトで有効）は、ML 領域の Hessian を使う 1 ステップと、MM 原子の L-BFGS 緩和を交互に行います。`opt` では RFO、`tsopt` では RS-P-RFO・RS-I-RFO・TRIM のときに使います。Dimer と静電埋め込み（`--embedcharge`）では使いません。
+
+## CLI ↔ YAML 名称の不一致
+
+一部の CLI フラグは YAML の対応キーと微妙に名前が異なり、`all` でラップされたときにリネームされるものもあります。主なフラグと YAML キーの対応は {ref}`YAML リファレンスの主要な CLI→YAML マッピング <ja-common-cli-to-yaml-mapping>` にあります。特によく聞かれるケースを以下に示します:
+
+(ja-pressure-vs-pressure-atm)=
+- **`--pressure` (CLI) と `pressure_atm` (YAML)** — `freq` のフラグは `--pressure FLOAT`、`all` では `--freq-pressure` です。YAML キーは `thermo.pressure_atm` です。どちらも値は **atm** 単位です（デフォルト 1.0）。
+
+- **`--step-size` (CLI) と `step_length` (YAML)** — `irc` のフラグは `--step-size FLOAT`（bohr、デフォルト 0.10）、`all` では `--irc-step-size` です。YAML キーは `irc.step_length` です。
+
+(ja-engine-vs-dft-engine)=
+- **`--dft-engine` (CLI) と `engine` (YAML)** — `--dft-engine`（別名 `--engine`）は `gpu`（GPU4PySCF、デフォルト）か `cpu`（PySCF）を選びます。YAML キーは、`dft` と `all` の DFT 段では `dft.engine`、`--backend dft` で実行するほかの計算コマンドでは `calc.dft.engine` です。
+
+```bash
+mlmm irc -i ts.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 --step-size 0.05
+mlmm all -i r.pdb p.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --irc-step-size 0.05
+```
+
+## YAML 設定
+
+```bash
+mlmm all -i r.pdb p.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --config my_settings.yaml --out-dir result/
+```
+
+(ja-configuration-precedence)=
+
+```
+組み込みデフォルト  <  --config (YAML)  <  CLI オプション
+```
+
+各オプションの組み込みデフォルトは、`mlmm <subcmd> --help-advanced` と [コマンドリファレンス（英語のみ）](../reference/commands/index.md) の `[default: …]` で確かめられます。YAML を上書きするのは*明示的に指定した* CLI の値だけで、CLI のデフォルトのままのオプションは YAML の値を隠しません。この順序は `--config` を受け付けるすべてのコマンドに共通です。全設定は [YAML リファレンス](yaml-reference.md) を参照してください。
+
+## 出力ディレクトリ
+
+`-o/--out-dir ./my_results/` で計算コマンドの出力先を指定します。コマンドごとのデフォルトは [出力ディレクトリのレイアウト](output-layout.md) にあります。準備のコマンドはファイルパスを取ります：`extract` は `-o/--output` に 1 つ以上のパス、`mm-parm` は `-o/--out-prefix`、`define-layer` は `-o/--output` に 1 つのパスです。
+
+## 使用上の注意点
+
+* **残基名と番号には chain を付けてください**: `TYR:44` は「chain `TYR` の残基 44」と読まれ、「見つからない」というエラーで止まります。`A:TYR:44` と書いてください。
+* **1 つのリストには 1 種類の残基セレクタだけを使ってください**: 表の形は、残基名だけ（`SAM`）、chain＋残基名（番号の有無を問わない。`A:SAM`・`A:TYR:44`）、番号（chain の有無を問わない。`A:123`・`123`）の 3 種類に分かれ、種類の違う形は 1 つのリストに混ぜられません。`A:TYR:44,A:SAM` は通りますが、`A:SAM,SAM`・`A:44,A:SAM`・`SAM,TYR:44` はエラーで止まります。
+* **chain 欄が空の PDB での原子セレクタ**: `'SER:11:HG'` や `'SER 11 HG'` のように 3 項目で書きます。`_` は空の chain の意味にならないので、`'_:SER:11:HG'` はどの原子にも一致せず、エラーで止まります。
+* **`--model-indices` と電荷の導出**: `--model-indices` では `--ligand-charge` から電荷を導出できません。`-q` を指定するか、`--model-pdb` か B-factor の層（`--detect-layer`）で ML 領域を決めてください。
+* **`--movable-cutoff` は `--detect-layer` を無効にします**: `--movable-cutoff` を指定すると、MM の層は距離で決まり、入力の B-factor の層は読みません。
+* **B-factor の層には ML 原子と MM 原子の両方が要ります**: B-factor を層として読むのは、ML（0）の原子と MM（10 か 20）の原子がそれぞれ 1 個以上あり、原子の 80% 以上がこれらの値（±1.0）を持つときだけです。全原子が 0 の PDB は層の指定になりません。
+* **インラインのスキャンリテラル**: 1 つのインラインリテラルと、1 回の実行のすべてのリテラルは、距離の目標値か範囲のどちらか一方だけを持ちます。両方を使うときは、YAML/JSON スペックの `stages:` に並べてください。
+* **mmCIF と大きな構造の制限**: 扱える残基は 619,938 個までです（計算の間に使う内部の PDB の、1 文字の chain ID 62 種 × 残基番号 9,999）。`fix-altloc` と `add-elem-info` は PDB だけを読みます。mmCIF では、読み込みのときに altLoc を選び、元素記号を `_atom_site.type_symbol` から取ります。`_atom_site.type_symbol` の無い行、有限でない座標、反応の状態の間で原子数が違う入力はエラーで止まります。座標は PDB の固定幅の欄に収まる必要があるので、原点から遠い構造は原点の近くに移してください。
+
+## 関連ドキュメント
+
+- [インストール](installation.md) — セットアップと依存関係
+- [はじめに](getting-started.md) — 最短の実行と次に読むページ
+- [出力ディレクトリのレイアウト](output-layout.md) — ファイル名とデフォルトの出力ディレクトリ
+- [トラブルシューティング](troubleshooting.md) — よくあるエラーと対処法
+- [YAML リファレンス](yaml-reference.md) — 全設定オプション
+- [MLIP バックエンド](backends.md) — バックエンドの選び方、精度、workers
+- [ML/MM 計算機](mlmm-calc.md) — ML/MM のエネルギー・力・Hessian の計算方法

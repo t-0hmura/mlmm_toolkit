@@ -1,48 +1,52 @@
-# `mm-parm`
+# `mm-parm`（Amber トポロジーの作成）
 
-`mlmm mm-parm` は PDB から Amber トポロジー/座標ファイル（parm7/rst7/pdb）を生成します。不明な残基は GAFF2（AM1-BCC 電荷）で自動的にパラメータ化され、ジスルフィド結合検出や PDBFixer による任意の水素付加にも対応します。パイプライン全体については「処理の流れ」を、力場や水素付加のフラグは「CLI オプション」を参照してください。金属酵素、糖鎖、非標準アミノ酸・翻訳後修飾、MD スナップショット入力には不向きで、これらは外部で用意したトポロジーを `--parm7` で指定します（[注記](#注記)を参照）。
+## 概要
 
-## 実行例
+`mm-parm` は、酵素–基質複合体の全系の PDB から、AmberTools の tleap で Amber のトポロジー（`parm7`）・座標（`rst7`）と、それに対応する PDB を作ります。基質や補因子のように力場が知らない残基には、GAFF2 のパラメータと AM1-BCC 電荷を付けます。ML/MM の計算コマンドは、どれもこの `parm7` を `--parm7` で読みます。
 
-基本的なトポロジー構築（リガンドの電荷・多重度を指定）。
+### 主な用途
 
-```bash
-mlmm mm-parm -i input.pdb --out-prefix complex \
- -l "GPP:-3,MMT:-1" --ligand-mult "GPP:1,MMT:1"
-```
+* **MM のトポロジーを作る**: 全系の `parm7`・`rst7`・PDB を書き出します。
+* **リガンドのパラメータを作る**: 未知の残基に、`-l` と `--ligand-mult` の形式電荷と多重度で GAFF2 のパラメータを付けます。
+* **モデルを手で組む**: `mm-parm` が書く PDB を `extract` と `define-layer` に渡します。この PDB の原子は `parm7` と同じ順に並んでいます。
 
-TER レコード追加、ff19SB、pH 7 での水素付加。
+---
 
-```bash
-mlmm mm-parm -i input.pdb --out-prefix complex \
- -l "GPP:-3,MMT:-1" --ligand-mult "GPP:1,MMT:1" \
- --add-ter --ff-set ff19SB --add-h --ph 7.0
-```
+## 基本的な実行例
 
-水素付加をスキップ（入力がすでにプロトン化済み）。
+### 1. リガンドの電荷と多重度を渡す
+
+リガンドごとの形式電荷とスピン多重度を残基名で渡します。
 
 ```bash
 mlmm mm-parm -i input.pdb --out-prefix complex \
- -l "GPP:-3" --no-add-h
+    -l 'GPP:-3,MMT:-1' --ligand-mult 'GPP:1,MMT:1'
 ```
 
-## 処理の流れ
+端末に `complex.pdb`・`complex.parm7`・`complex.rst7` の `[mm-parm] Wrote:` が出れば成功です。
 
-1. **入力準備** -- 入力 PDB はそのまま読み込まれます（構造修正なし）。`--add-h` が設定されている場合、PDBFixer により、指定した `--ph` で水素が付加されます。
-2. **TER 挿入** -- `--add-ter`（デフォルト）の場合、リガンド/水/イオン残基の連続ブロックの前後に TER レコードが挿入されます。
-3. **不明残基のパラメータ化** -- 力場で認識されない残基は antechamber（GAFF2、AM1-BCC）と parmchk2 で自動パラメータ化されます。`--ligand-charge` に名前を列挙した残基はこの経路が最優先されます。形式電荷とスピン多重度は `--ligand-charge` と `--ligand-mult` で制御されます。
-4. **ジスルフィド検出** -- CYS/CYM/CYX ペアで SG-SG（または S-S）距離が 2.5 Å 以下のものが自動的に結合され、結合された CYS は CYX にリネームされます（LEaP が HG を外すため）。`--no-auto-disulfide` を指定した場合は、既に CYX と名付けられた残基のみが結合され、CYS は変更されません。
-5. **トポロジー構築** -- tleap が選択された力場セットを使用して parm7/rst7/pdb ファイルを生成します。PDB を公開する前に、`mlmm` がレコード順と原子の同一性を変えず、空の元素記号列を補完します。
+### 2. pH 7.0 で水素を付ける
 
-## 出力
+作成の前に PDBFixer で水素を付けます。
 
-- `<prefix>.parm7` -- Amber prmtop トポロジー
-- `<prefix>.rst7` -- Amber ASCII inpcrd 座標
-- `<prefix>.pdb` -- 元素記号列を補完した LEaP savepdb 出力。`--add-h` を使い prefix を省略した場合は `<input_stem>_parm.pdb`、それ以外は `--out-prefix` 指定時に出力（両方省略時は parm7/rst7 のみ）。
+```bash
+mlmm mm-parm -i input.pdb --out-prefix complex \
+    -l 'GPP:-3,MMT:-1' --ligand-mult 'GPP:1,MMT:1' \
+    --add-ter --ff-set ff19SB --add-h --ph 7.0
+```
 
-再利用可能なファイルを手作業で準備する場合は、入力とは異なる接頭辞を指定し、
-出力 PDB を抽出とレイヤー割り当ての両方に使います。この PDB は生成された
-`parm7` と原子の同一性・順序が一致します。
+### 3. 水素が付いている入力
+
+入力をそのまま使います。
+
+```bash
+mlmm mm-parm -i input.pdb --out-prefix complex \
+    -l 'GPP:-3' --no-add-h
+```
+
+### 4. モデルを手で組む
+
+トポロジーを作り、`mm-parm` が書いた PDB から ML 領域を切り出し、同じ PDB に層を付けます。
 
 ```bash
 mlmm mm-parm -i input.pdb -l 'LIG:0' --out-prefix system
@@ -50,54 +54,103 @@ mlmm extract -i system.pdb -c LIG -l 'LIG:0' -o model.pdb
 mlmm define-layer -i system.pdb --model-pdb model.pdb -o system_layered.pdb
 ```
 
-## CLI オプション
+計算コマンドには `system_layered.pdb` と `--parm7 system.parm7` を渡します。
 
-| オプション | 説明 | デフォルト |
-| --- | --- | --- |
-| `-i, --input PATH` | 入力 PDB（`--add-h` でない限りそのまま使用）。 | 必須 |
-| `-o, --out-prefix TEXT` | parm7/rst7/pdb ファイルの出力接頭辞。 | 入力 PDB のファイル名（拡張子なし） |
-| `-l, --ligand-charge TEXT` | 残基名と形式電荷のマッピング（例: `"GPP:-3,MMT:-1"`）。 | _None_ |
-| `--ligand-mult TEXT` | 残基名とスピン多重度のマッピング（例: `"HEM:1,NO:2"`）。未指定の残基はデフォルトで一重項（1）。 | _None_ |
-| `--keep-temp/--no-keep-temp` | 作業ディレクトリの中間ファイル/ログを保持（デバッグ用）。 | `False` |
-| `--add-ter/--no-add-ter` | リガンド/水/イオンブロックの前後に TER を挿入。 | `True` |
-| `--auto-disulfide/--no-auto-disulfide` | CYS/CYM/CYX にわたり SG-SG 幾何からジスルフィドを検出して結合し、結合された CYS を CYX にリネーム。`--no-auto-disulfide` では既に CYX の残基のみを結合。 | `True` |
-| `--add-h/--no-add-h` | PDBFixer で `--ph` に基づいて水素を付加。 | `False` |
-| `--ph FLOAT` | PDBFixer の水素付加用 pH（`--add-h` の場合のみ使用）。 | `7.0` |
-| `--ff-set {ff19SB\|ff14SB}` | 力場セット: ff19SB（デフォルト）または ff14SB。 | `ff19SB` |
+### 5. mmCIF の入力に使うトポロジー
 
-全フラグの一覧は生成された[コマンドリファレンス](../reference/commands/index.md)にあります。
+`mm-parm` が読むのは PDB だけです。mmCIF の入力では、全系を原子の並びと元素を変えずに PDB に書き出し、そこからトポロジーを作って、その `parm7` を mmCIF の構造と一緒に `all` に渡します。
 
-## `oniom-export` 用のCMAPを含まないトポロジー
+```bash
+mlmm mm-parm -i reactant_topology.pdb -l 'SAM:1,GPP:-3' \
+    --out-prefix full_system
+mlmm all -i reactant.cif product.cif --parm7 full_system.parm7 \
+    -c 'enzyme_A:SAM:10001,enzyme_A:GPP:10002' \
+    -l 'SAM:1,GPP:-3' --tsopt --thermo -o result
+```
 
-ff14SBで作成し、CMAP項がないことを確認します。
+---
+
+## 処理の仕組みと計算仕様
+
+1. **入力**: PDB をそのまま使います。`--add-h` では、PDBFixer が `--ph` で水素を付けます。欠けた重原子や残基は足しません。
+2. **TER レコード**: `--add-ter`（既定）では、`-l` に書いた残基・水・イオンのまとまりの前後に `TER` を入れます。こうした残基が続く所は分けません。ペプチドの C–N 結合でつながっていない隣のアミノ酸の間（別の chain か、C–N > 1.9 Å）にも `TER` を入れます。
+3. **ジスルフィド結合**: SG 原子どうしが 2.5 Å 以内の CYS/CYX の組を結合し、結合した CYS の名前を CYX に変えて、tleap が HG を外すようにします。`--no-auto-disulfide` では、もとから CYX という名前の残基だけを結合します。
+4. **未知の残基**: まず力場だけで tleap を実行します。tleap が未知と報告した残基名ごとに、ファイルの中でその名前の最初の残基から、antechamber（GAFF2、AM1-BCC）と parmchk2 でパラメータを作ります。電荷は `-l`（無ければ 0）、多重度は `--ligand-mult`（無ければ 1）です。antechamber の前に、残基の電子数がこの電荷・多重度と合うかを確かめます。
+5. **トポロジー**: 新しいパラメータを読んで tleap をもう一度実行し、トポロジー・座標・PDB を書きます。`mm-parm` は PDB の空の元素の欄を `parm7` から埋め、ほかのレコードと原子の順は変えません。
+
+---
+
+## 主な出力ファイル
+
+```text
+./
+├─ <prefix>.parm7   # Amber のトポロジー
+├─ <prefix>.rst7    # Amber の座標（ASCII）
+└─ <prefix>.pdb     # 元素の欄を埋めた tleap の PDB。原子と順序は parm7 と同じ
+```
+
+`<prefix>` の既定値は入力のファイル名から拡張子を除いたもので、現在のディレクトリに書かれます。`<prefix>.pdb` が入力を置き換えないよう、接頭辞には入力と違う名前を指定してください。PDB は `--out-prefix` を指定したときに書かれ、`--out-prefix` なしで `--add-h` を指定したときは `<入力の名前>_parm.pdb` になります。どちらでもなければ `parm7` と `rst7` だけです。`--add-h` の後で作成が失敗したときは、その PDB のパスにまだファイルが無ければ、水素を付けた構造をそこに書きます。`--keep-temp` では、tleap のログを含む作業ディレクトリ `parm7build_*` が現在のディレクトリに残ります。
+
+---
+
+## 主な CLI オプション
+
+| オプション | 引数の型 | デフォルト | 説明 |
+| --- | --- | --- | --- |
+| `-i, --input` | パス | （必須） | 入力 PDB。`--add-h` が無ければそのまま使う |
+| `-o, --out-prefix` | 文字列 | 入力の名前（拡張子なし） | 出力ファイルの接頭辞 |
+| `-l, --ligand-charge` | 文字列 | `None` | 残基名ごとの形式電荷（例: `'GPP:-3,MMT:-1'`） |
+| `--ligand-mult` | 文字列 | `1` | 残基名ごとのスピン多重度（例: `'HEM:1,NO:2'`） |
+| `--keep-temp/--no-keep-temp` | フラグ | `False` | 作業ディレクトリと tleap のログを残す |
+| `--add-ter/--no-add-ter` | フラグ | `True` | リガンド・水・イオンのまとまりの前後と、ペプチド結合でつながらないアミノ酸の間に `TER` を入れる |
+| `--auto-disulfide/--no-auto-disulfide` | フラグ | `True` | SG–SG ≤ 2.5 Å の CYS/CYX の組を結合し、結合した CYS の名前を CYX に変える。オフでは、もとから CYX の残基だけを結合する |
+| `--add-h/--no-add-h` | フラグ | `False` | PDBFixer で `--ph` の水素を付ける |
+| `--ph` | 浮動小数点数 | `7.0` | `--add-h` の pH |
+| `--ff-set` | `ff19SB` か `ff14SB` | `ff19SB` | 力場の組（[使用上の注意点](#使用上の注意点)） |
+
+全オプションの一覧は [自動生成 CLI リファレンス](../reference/commands/mm_parm.md) を参照してください。
+
+---
+
+## `oniom-export` 用の CMAP を含まないトポロジー
+
+ff14SB で作成し、CMAP 項がないことを確認します。
 
 ```bash
 mlmm mm-parm -i input.pdb -l 'LIG:0' --ff-set ff14SB --out-prefix system
 python -c "import parmed as pmd; p=pmd.load_file('system.parm7'); assert not p.cmaps"
 ```
 
-## 注記
+---
 
-`mm-parm` は AmberTools の tleap と GAFF2 自動パラメータ化に依存しており、基質が**典型的な有機分子**である場合にうまく機能します。以下のケースでは、外部でトポロジーを自作し（例: tleap, MCPB.py, glycam.org ツール）、各サブコマンドの `--parm7` フラグから入力することを強く推奨します。
+## 使用上の注意点
 
-- **金属酵素** -- 金属中心には専用の結合/非結合パラメータが必要です（例: MCPB.py, bonded model, ZAFF）。GAFF2 の自動パラメータ化では金属-配位子の配位を扱えません。
-- **糖鎖（Glycan）を含む系** -- 糖鎖結合には GLYCAM 力場パラメータが必要であり、標準の GAFF2/ff19SB セットアップには含まれていません。
-- **非標準アミノ酸・翻訳後修飾** -- リン酸化、メチル化などの修飾残基にはカスタム `frcmod`/`lib` ファイルが必要な場合があります。
-- **MD スナップショットからの初期構造** -- MD トラジェクトリのスナップショットから出発する場合、MD シミュレーションで使用した同じ `.parm7` ファイルを再利用するのが最も妥当です。これにより、ML/MM で使用する MM エネルギー面と前段の MD で使用したものとの間の整合性が保たれ、再パラメータ化による人工的な差異（例: 部分電荷や原子タイプの割り当ての違い）を回避できます。
-- `AMINO_ACIDS` に載っているアミノ酸系残基で、選択された力場に認識されないものは自動処理されません。手動でパラメータ化するようメッセージを表示してビルドを中断します。
-- `--ff-set ff14SB` を使用すると、力場は ff14SB（タンパク質）+ TIP3P（水）（+ phosaa14SB）に切り替わります。それ以外の場合はデフォルトの `ff19SB` セットが使用されます。
-- **仮想サイトを持つ4点モデルの水（OPC、TIP4P/-Ew、TIP5P）は、mlmm-toolkitのデフォルト`hessian_ff` backendでは対応していません。** Topology読込時にAmberの従属virtual siteを拒否し、該当する原子番号を件数制限付きで表示します。**3点モデルの水**を使用してください。デフォルトの`ff19SB` setは推奨3点モデルの**OPC3**を、`--ff-set ff14SB`はTIP3Pを構築します。4点モデルの水を保持する場合は`--mm-backend openmm`を指定するとvirtual siteが正しく配置されますが、有限差分MM Hessianのため低速です。
+* **外でトポロジーを作る系**: `mm-parm` は、基質が典型的な有機分子のときに向いています。次の系では、トポロジーを自分で作り、`--parm7` で渡してください。
+  * **金属酵素**: 金属中心には専用の結合・非結合パラメータ（MCPB.py、bonded model、ZAFF）が要ります。GAFF2 では金属–配位子の配位を表せません。
+  * **糖鎖**: 力場の組は GLYCAM_06j-1 を読み込みますが、`mm-parm` はジスルフィド以外の結合を作りません。グリコシド結合など残基の間の共有結合には、tleap の `bond` コマンドを自分で書く必要があります。
+  * **非標準アミノ酸・翻訳後修飾**: 修飾残基には専用の `frcmod`/`lib` ファイルが要ることがあります。
+  * **MD から取った構造**: MD の `parm7` を使い回してください。ML/MM の計算が MD と同じ MM のエネルギー面を使い、部分電荷や原子タイプが変わりません。
 
-```bash
-# 例: MD で構築済みのトポロジーを供給
-mlmm opt -i snapshot_layered.pdb --parm7 md_system.parm7 -q -1 -m 1 \
-  --opt-mode grad --out-dir result
-```
+  ```bash
+  # MD で作ったトポロジーを使う
+  mlmm opt -i snapshot_layered.pdb --parm7 md_system.parm7 -q -1 -m 1 \
+    --opt-mode grad --out-dir result
+  ```
+* **`parm7` は原子の順で対応づける**: どの座標の入力も、全系の原子を `parm7` と同じ順に持っている必要があります。ML/MM 計算機は計算の前に、原子数と、原子ごとの元素・原子名（`1HB` と `HB1` は同じ）・残基名・残基の順番を比べ、最初に食い違った所で止まります。反応物・中間体・生成物の構造を作るときは、原子名・残基名・原子の順を保ってください。`--model-pdb` のファイルは、全系から変えずに取り出した部分集合で、ML 領域の原子を選ぶためだけに使います。
+* **出力 PDB の残基番号**: tleap は残基を出てくる順に 1, 2, … と数えるので、`mm-parm` が書く PDB の残基番号は入力と違うことがあります。`examples/beza/1.R.pdb` では、ARG 38 が 1 番目、SAM 320 が 283 番目の残基です。この PDB を手で切るときは、残基を名前で選ぶか、番号をファイルで確かめてください。`all` は元の入力を切るので、元の番号のまま指定できます。
+* **力場が知らないアミノ酸**: `extract` がアミノ酸として扱う残基（`extract` の付録）を tleap が知らないと、作成は止まります。メッセージは 3 つの対処を示します。`-l` に書いて GAFF2 のパラメータを付ける、入力の残基を変える、tleap でトポロジーを自分で作る、です。
+* **リガンドの電荷と水素**: 残基の水素の数が電荷・多重度と合わないと、電子数の確認で止まります（SAM では水素 22 個が電荷 0、23 個が +1）。tleap がもう知っている残基への `-l`・`--ligand-mult` は使われず、警告が出ます。
+* **力場の組**: `ff19SB` は ff19SB と phosaa19SB・ff19SB_modAA、OPC3 の水とそのイオンのパラメータを読み込みます。`ff14SB` は ff14SB と phosaa14SB・ff14SB_modAA、TIP3P の水とそのイオンのパラメータを読み込みます。どちらも lipid21・RNA.OL3・DNA.OL21・GLYCAM_06j-1・GAFF2 を読み込みます。
+* **仮想サイトを持つ水**: 既定の MM バックエンド `hessian_ff` は、質量の無い仮想サイトを持つ水（OPC・TIP4P/-Ew・TIP5P）のトポロジーを拒み、その数と原子番号を表示します。3 点の水を使うか、計算を `--mm-backend openmm` で実行してください。
+* **必要なもの**: AmberTools の tleap・antechamber・parmchk2 が `PATH` にあることが必要で、`--add-h` には PDBFixer も要ります（[インストール](installation.md)）。
 
-## 関連項目
+---
 
-- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
-- [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
-- [all](all.md) -- 一気通貫ワークフロー（内部で mm-parm を呼び出し）
-- [extract](extract.md) -- トポロジーと対応する PDB から活性部位モデルを抽出
-- [define-layer](define-layer.md) -- トポロジーと対応する PDB に ML/MM レイヤーを割り当て
+## 関連ドキュメント
+
+* [ML 領域と層の組み方](model-setup.md) — `mm-parm` が書く PDB で ML 領域と MM の層を決める
+* [all](all.md) — 一括のワークフロー。`--parm7` が無いと `mm-parm` を実行する
+* [extract](extract.md) — トポロジーと対応した PDB から ML 領域を切り出す
+* [define-layer](define-layer.md) — トポロジーと対応した PDB に ML・Movable-MM・Frozen-MM の層を付ける
+* [oniom-export](oniom-export.md) — Gaussian ONIOM・ORCA QM/MM の入力を書き出す。上の CMAP を含まないトポロジーが要る
+* [トラブルシューティング](troubleshooting.md) — トポロジーと原子の順のエラー

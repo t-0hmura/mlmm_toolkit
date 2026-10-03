@@ -1,23 +1,25 @@
 # Output Directory Layout
 
-Each `mlmm` subcommand writes to its output directory following the filename conventions below, which agents and downstream scripts can rely on.
+This page lists the main files that the commands write, the default output directories, and where each file goes inside `all`. Each command page lists all of its files under **Output files**.
 
 ## Filename conventions
 
 | Filename | Written by | Purpose |
 |---|---|---|
-| `summary.json` | `all` and `path-search` after their summary writer is reached | Authoritative aggregate JSON envelope (see [JSON Output Reference](json-output.md)). Early CLI/input validation may fail before it exists. |
-| `summary.json` | successful per-stage/report runs with `--out-json` (default `--no-out-json`); caught runtime errors may write a best-effort envelope without the flag | Compatibility mirror of leaf `result.json`. A successful writer return guarantees identical bytes. Pure utilities such as `fix-altloc`, `add-elem-info`, and `bond-summary` never emit it. |
-| `result.json` | same conditions as the per-stage `summary.json` (`opt`, `tsopt`, `freq`, `irc`, `sp`, scan variants, `path-opt`, `dft`, `extract`, `trj2fig`, `energy-diagram`) | Authoritative leaf/report envelope, published after its compatibility mirror. Consume this file when distinguishing interrupted generations. |
-| `run.log` | dispatched CLI and Colab runs once their output directory exists | Shell-safe command plus stdout/stderr emitted during command execution. Early Click validation, help, version, dry-run, and file-only utilities do not create it. |
-| `summary.log` | `path-search`, `all` | Human-readable run log (one row per segment / stage). |
-| `final_geometry.xyz` | `opt`, `tsopt` | Optimized geometry (XYZ, full precision). |
-| `mep_trj.pdb` / `mep_trj.cif` / `mep_trj.xyz` | `path-search`, `all` | Reaction path frames; `mep_trj.cif` restores original IDs for bridged input. Standalone `path-opt` writes `final_geometries_trj.xyz` / `final_geometries.pdb` instead. |
-| `mep_plot.png` | `path-search`, `all` | Raw MEP energy profile (PNG). `all` copies it to the root from the engine output. |
-| `forward_irc_trj.xyz` / `backward_irc_trj.xyz` (and `finished_irc_trj.xyz`) | `irc` | IRC trajectories (XYZ); companion `*_irc.pdb` files carry the same frames in PDB form. |
-| `frequencies_cm-1.txt` | `freq` | Vibrational frequency listing (cm⁻¹). |
-| `*.gjf` | various (when `--convert-files`) | Gaussian-format companion structure. |
-| `ml_region_without_linkH.{xyz,pdb}` / `ml_region_with_linkH.{xyz,pdb}` | `all`, `dft` | Directly inspectable ML model before/after parm7-derived link-H insertion. PDB companions are written for PDB input. |
+| `summary.json` | `all` and `path-search` | The aggregate JSON result (see [JSON Output Reference](json-output.md)). |
+| `summary.json` | per-stage and report commands with `--out-json` (default `--no-out-json`) | A copy of the command's `result.json`; the two files are identical when the write completes. `mm-parm`, `define-layer`, `fix-altloc`, `add-elem-info`, `bond-summary`, `oniom-export`, and `oniom-import` do not write it. |
+| `result.json` | With `--out-json`: `opt`, `tsopt`, `freq`, `irc`, `sp`, `scan` / `scan2d` / `scan3d`, `path-opt`, `dft`, `extract`, `trj2fig`, `energy-diagram` | The JSON result of one command or report, also written when the run ends without converging. `extract`, `trj2fig`, and `energy-diagram` write it next to their first output file. |
+| `run.log` | CLI and Colab runs, once the output directory exists | The command line (quoted for the shell) and the stdout/stderr printed while the command runs, including the lines that show how the run ended; the command's page lists them (for example [opt → Checking convergence](opt.md#checking-convergence)). Help, version, and dry-run calls do not create it, nor do the commands without an output directory (`extract`, `mm-parm`, `define-layer`, `add-elem-info`, `fix-altloc`, `bond-summary`, `trj2fig`, `energy-diagram`, `oniom-export`, `oniom-import`). |
+| `summary.log` | `path-search`, `all` | Text summary. The header gives `Scientific status`; the numbered sections give the barrier and bond changes of each segment and the output tree (see [all → Reading the run status](all.md#reading-the-run-status)). |
+| `final_geometry.xyz` / `final_geometry.pdb` | `opt`, `tsopt` | Optimized geometry, the structure to pass to the next command; also written when the optimization does not converge. The `.xyz` is always written; the `.pdb` is for PDB/mmCIF input and carries the layers in its B-factors. |
+| `mep_trj.pdb` / `mep_trj.cif` / `mep_trj.xyz` | `path-search` | Reaction path frames. The `.cif` is added for mmCIF or large-PDB input when file conversion is on. |
+| `final_geometries_trj.xyz` / `hei.xyz` | `path-opt` | Reaction path frames (all images) and the highest-energy image (HEI), with `.pdb` copies (`final_geometries.pdb`, `hei.pdb`) and `.cif` copies for mmCIF or large-PDB input when file conversion is on. |
+| `mep_plot.png` / `energy_diagram_MEP.png` | `path-search` | Energy profile of the minimum energy path (MEP): `mep_plot.png` along the path, `energy_diagram_MEP.png` as a state-energy diagram. `all` places both at its root. |
+| `finished_irc_trj.xyz` / `forward_irc_trj.xyz` / `backward_irc_trj.xyz` | `irc` | IRC (intrinsic reaction coordinate) trajectories (full path plus each branch), with a `.pdb` copy when a reference topology is available and a `.cif` copy for mmCIF or large-PDB input. |
+| `forward_first.xyz` / `backward_last.xyz` | `irc` | Ends of the two branches: the endpoint candidates to optimize with [`opt`](opt.md). |
+| `frequencies_cm-1.txt` | `freq` | Vibrational mode listing. |
+| `ml_region_without_linkH.xyz` / `ml_region_with_linkH.xyz` | `dft` | The ML region without and with the link hydrogens, as the DFT calculation sees it; `.pdb` copies are written for PDB input. Inside `all`, they are in each `segments/seg_NN/dft/{R,TS,P}/`. |
+| `*.pdb` / `*.cif` | commands with `--convert-files` (the default; `--no-convert-files` turns it off), and `extract` | Copies of the outputs in the input format, written next to them: PDB for PDB/mmCIF input, plus a `.cif` that keeps the original chain IDs, residue numbers, and insertion codes for mmCIF or large-PDB input. A multi-frame trajectory becomes a multi-model CIF. `extract` has no toggle and always writes the `.cif` for mmCIF or large-PDB input. |
 
 ## Default `--out-dir`
 
@@ -29,62 +31,53 @@ Each `mlmm` subcommand writes to its output directory following the filename con
 | `freq` | `./result_freq/` |
 | `irc` | `./result_irc/` |
 | `dft` | `./result_dft/` |
-| `scan` / `scan2d` / `scan3d` | `./result_scan*/` |
-| `path-opt` / `path-search` | `./result_path_*/` |
+| `scan` | `./result_scan/` |
+| `scan2d` | `./result_scan2d/` |
+| `scan3d` | `./result_scan3d/` |
+| `path-opt` | `./result_path_opt/` |
+| `path-search` | `./result_path_search/` |
 | `sp` | `./result_sp/` |
-| `extract` | `./` (writes `pocket.pdb`, or `pocket_<input>.pdb` for multiple inputs, in the working directory) |
-| `mm-parm` | `./` (writes `<prefix>.parm7` / `<prefix>.rst7`) |
+| `extract` | `./` (writes `pocket.pdb`, or `pocket_<input>.pdb` for multiple inputs) |
+| `mm-parm` | `./` (writes `<prefix>.parm7` and `<prefix>.rst7`; the prefix defaults to the input file name without `.pdb`) |
 | `define-layer` | `./` (writes `<input>_layered.pdb`) |
 
-Override with `--out-dir <path>` (or `-o`); explicit paths take precedence over both per-stage defaults and YAML.
+Set another directory with `-o/--out-dir <path>`. The preparation commands take file paths instead: `extract` takes one or more `-o/--output <file>` paths, `mm-parm` an `-o/--out-prefix <prefix>`, and `define-layer` an `-o/--output <file>`.
 
 ## Standalone vs `all`
 
-Standalone subcommands write to `result_<subcmd>/`. Inside `all`, per-segment stage results use the same layout under `segments/seg_NN/` in `ts/`, `irc/`, `freq/`, and `dft/`.
+A standalone subcommand writes a flat `result_<subcmd>/` directory, without `segments/` or `_work/`. Inside `all`, each post-processing stage uses the same file layout under `segments/seg_NN/` in `ts/`, `irc/`, `freq/`, and `dft/`.
 
-- **`path-search` / `path-opt` are the engine exception.** Run standalone, `path-search` is itself a deliverable (`result_path_search/` with its own `summary.log`, `mep_trj.pdb`, optional `mep_trj.cif`, `mep_trj.xyz`, `mep_plot.png`, `energy_diagram_MEP.png`). Inside `all`, its raw output is engine scratch under `_work/path_opt/` (`_work/path_search/` only with `--refine-path`); the merged products (`mep_trj.pdb`, optional `mep_trj.cif`, `mep_trj.xyz`, `mep_plot.png`, `energy_diagram_MEP.png`) are moved to the pipeline root and `summary.{json,log}` copied there. This asymmetry is intentional.
+- **`path-search` / `path-opt` are laid out differently.** Run standalone, they write the files in the table above to `result_path_search/` or `result_path_opt/`. Inside `all`, the MEP search runs `path-opt` by default and the recursive `path-search` with `--refine-path`; the raw output stays in `_work/path_opt/` or `_work/path_search/`, and only the MEP files (`mep_trj.*`, `mep_plot.png`, `energy_diagram_MEP.png`) are moved to the root.
 
-The `all` tree therefore has three zones:
+The `all` tree therefore has three zones. The tree below shows the main entries; [all → Output files](all.md#output-files) lists every file, including those inside `seg_NN/`, and the names of the energy diagrams:
 
 ```text
 result_all/
-├─ summary.log · summary.json                 # copied to the root
-├─ mep_trj.pdb · mep_trj.cif · mep_trj.xyz · mep_plot.png · energy_diagram_MEP.png
-├─ energy_diagram_*_all.png · irc_plot_all.png
-├─ ml_region.pdb                              # ML-region definition (reusable as --model-pdb)
-├─ ml_region_without_linkH.{xyz,pdb} · ml_region_with_linkH.{xyz,pdb}
-├─ mm_parm/                                   # MM topology <input>.parm7 / .rst7 (reusable as --parm7)
-├─ layered/                                   # layered full-system PDBs (B-factor annotated; reusable inputs)
+├─ summary.log · summary.json                        # run summary
+├─ mep_trj.pdb · mep_trj.cif · mep_trj.xyz           # MEP coordinates
+├─ mep_plot.png · energy_diagram_MEP.png · energy_diagram_*_all.png · irc_plot_all.png
+├─ ml_region.pdb                                     # ML region (reusable with --model-pdb)
+├─ mm_parm/                                          # Amber topology <input>.parm7 / .rst7 (reusable with --parm7)
+├─ layered/                                          # full structures with the layers in the B-factors
 ├─ segments/
-│  └─ seg_NN/                                  # 2-digit per-reactive-segment deliverables
-│     ├─ reactant.{pdb,cif} · ts.{pdb,cif} · product.{pdb,cif} # CIF for bridged input
-│     └─ ts/ · irc/ · freq/ · dft/ · structures/    # per-stage working files (--tsopt / --thermo / --dft)
-└─ _work/                                      # pipeline scratch (safe to remove)
+│  └─ seg_NN/                                        # one reaction step: seg_01, seg_02, ...
+│     ├─ reactant.{pdb,cif} · ts.* · product.*       # optimized R, TS, and P (--tsopt)
+│     └─ ts/ · irc/ · endpoint_opt/ · freq/{R,TS,P}/ · dft/{R,TS,P}/  # per-stage working files (--tsopt / --thermo / --dft)
+└─ _work/                                            # intermediate files, including the TS candidates (HEI)
    ├─ pockets/ · scan/
-   └─ path_opt/                                # raw MEP-engine output (path_search/ with --refine-path)
+   └─ path_opt/                                      # MEP search and hei_seg_NN.* (path_search/ with --refine-path)
 ```
 
-In TSOPT-only mode there is no MEP stage, so `_work/path_opt/` is absent and the deliverables live under `segments/seg_01/`. See [all](all.md) for the full per-mode breakdown.
+In TS-only mode (one transition-state (TS) candidate given with `--tsopt` and no `-s/--scan-lists`) there is no MEP stage, so `_work/path_opt/` is absent and the deliverables live under `segments/seg_01/`.
 
-## Agent recipe
+## Notes
 
-```python
-# Select the authoritative name for the command that produced out_dir.
-import json
-from pathlib import Path
+* **Runs that stop early**: a run that stops at the argument or input checks, before its output directory is set up, may write none of the files above.
+* **`summary.json` / `result.json` without `--out-json`**: a successful per-stage run writes them only with `--out-json`. When a run stops on an exception after the output directory is set up, both are written even without the flag, with `"execution_status": "failed"` and an `"error_type"`.
 
-out_dir = Path("result_opt")
-subcommand = "opt"  # replace with the command you ran
-primary = "summary.json" if subcommand in {"all", "path-search"} else "result.json"
-summary = json.loads((out_dir / primary).read_text())
+## See Also
 
-if summary["execution_status"] == "failed":
-    chain = summary.get("error_class_chain", [])
-    if "OptimizationError" in chain:
-        # retry with looser convergence threshold
-        ...
-    else:
-        raise RuntimeError(summary["error"])
-```
-
-`all` / `path-search` write aggregate `summary.json` after reaching their summary writer. Per-stage/report commands write `result.json` plus the mirror on a successful `--out-json` run; caught runtime exceptions may write a best-effort error envelope even without the flag. Do not assume a per-stage JSON file exists after usage validation or before its output directory is resolved.
+- [all](all.md#output-files) — the full `result_all/` tree and the energy diagrams
+- [JSON Output Reference](json-output.md) — keys of `summary.json` and `result.json`, with Python and jq examples
+- [Common options and selectors](cli-conventions.md) — `--out-dir`, `--convert-files`, and exit codes
+- [Troubleshooting](troubleshooting.md) — common errors and fixes

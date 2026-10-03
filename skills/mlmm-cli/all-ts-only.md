@@ -1,24 +1,33 @@
-# `mlmm all` — TS-only mode
+# `mlmm all`: TS-only mode
 
-## When to use
+Give one full-system TS candidate with `--tsopt` and no `-s`; `all` optimizes
+the TS, runs IRC, and optimizes both IRC ends (`--thermo` and `--dft` add R/TS/P
+frequencies and DFT). It succeeded when the console prints
+`[Imaginary modes] n=1 (...)` and `Scientific status: success` under the last
+`====== Pipeline summary ======`; then check that the IRC ends are the intended
+R and P.
 
-You already have a **TS candidate** (typically from another QM code, an
-older `mlmm-toolkit` run, or a manual guess) and want to run only the
-TS validation stages — `tsopt`, then IRC after saddle validation, plus `freq`
-with `--thermo` and DFT with `--dft` —
-without an MEP search.
+## When to use, and when not
 
-## Synopsis
+Use it when you already have a TS candidate (from another QM code, an earlier
+run such as `result_all/_work/path_opt/hei_seg_01.pdb`, or a manual guess) and
+want only the validation stages, without an MEP search.
+
+Without a TS candidate, use the [Multi-structure MEP search](all-endpoint-mep.md)
+or [Single structure + scan](all-scan-list.md) mode, or `path-search`
+([path.md](path.md)). If you suspect the candidate does not sit between the
+right reactant and product, find the connectivity with `path-search` first.
+
+## Minimal run
 
 ```bash
 mlmm all --parm7 enzyme.parm7 -i ts_candidate.xyz --ref-pdb enzyme_layered.pdb \
     -q -1 -m 1 -b uma \
     --tsopt --thermo \
-    [--dft --func-basis 'wb97m-v/def2-svp'] \
     -o result_ts_only
 ```
 
-Or with a PDB that carries residue / charge info:
+With a PDB that carries the layers in its B-factors, `-l` derives the charge:
 
 ```bash
 mlmm all --parm7 enzyme.parm7 -i ts_candidate.pdb \
@@ -27,27 +36,59 @@ mlmm all --parm7 enzyme.parm7 -i ts_candidate.pdb \
     -o result_ts_only
 ```
 
-## How it differs from the other two modes
+Add `--dft` (and `--func-basis 'wb97m-v/def2-svp'`) for DFT single points of
+the ML region on R, TS, and P. With `-c`, the ML region is cut out around the
+given residues; without it, it comes from the B-factor layers or `--model-pdb`.
 
-`mlmm all` falls into TS-only mode when:
+## How the mode is chosen
 
-- exactly **one** `-i` input is given,
-- `--tsopt` is enabled,
-- **no** `--scan-lists` is provided.
+`all` runs TS-only mode for exactly one `-i` input with `--tsopt` and no `-s`;
+there is no flag that forces it, and `summary.log` shows `Pipeline mode` as
+`TS-only`. After the preparation, the MEP search is skipped and the run starts
+at the TS optimization. One input without `-s` or `--tsopt` stops with
+`BadParameter`. One input with both `-s` and `--tsopt` runs the scan mode.
 
-After system preparation, the orchestrator skips the MEP and starts at
-`tsopt`. There is **no explicit "force TS-only" flag** — the
-mode is selected purely from the input shape. TS-only mode requires
-`--tsopt`; passing `--no-tsopt` with a single input raises a
-validation error.
+IRC starts only when the TS optimization converged, its final Hessian was
+computed, and n_imag ≥ 1. With n_imag ≥ 2, IRC runs with a warning as a
+diagnostic, not as a first-order TS. `--skip-final-freq` keeps the TS but leaves
+n_imag unknown, so the run stops before IRC.
 
-IRC starts only after numerical TS convergence, completed terminal PHVA,
-and selection of a valid negative root. A converged higher-order result can
-continue only as warning-labelled diagnostic IRC and is not a certified
-first-order TS. `--skip-final-freq` retains the TS structure but leaves the
-reaction direction unverified, so `all` stops before IRC.
+## Judge success
 
-For finer control, check the TS result before running the downstream commands:
+- **TS**: a successful TS optimization gives one imaginary mode along the reaction coordinate. `post_segments[0].tsopt.n_imaginary_modes` should be 1 and `.imaginary_frequencies_cm` gives its wavenumber; `segments/seg_01/ts/result.json` has the same `n_imaginary_modes`. Play `segments/seg_01/ts/vib/imag_*_trj.xyz` to see that the mode moves the bonds that form or break.
+- **Stopped before IRC**: `summary.json` has `pipeline_stop` with `stage` `before_irc` and the reason; the TS files stay in `segments/seg_01/ts/` with a copy in `structures/ts.*`. n_imag is computed after a `--stop-plateau` stop but not at the cycle limit.
+- **Status**: `scientific_status` is `success` only when every requested stage converged and n_imag = 1; otherwise read `scientific_status_reasons`.
+- **Endpoints**: open `segments/seg_01/irc/finished_irc_trj.xyz` and `segments/seg_01/reactant.*` and `product.*`, and read `segments[0].bond_changes`. Even if the IRC does not converge, the result is usable when the endpoint optimizations reach the intended R and P.
+- **R and P names**: with no MEP, the higher-energy IRC end is named the reactant (on an exact tie, the left end). The names and the barrier follow this energy order, not a known chemical direction; `post_segments[0].endpoint_assignment` records the rule as `policy` `higher_energy_endpoint_as_reactant` with `chemical_direction_known: false`. The barrier from P is `barrier_kcal − delta_kcal`. Compare both ends with the intended states before reporting a forward barrier.
+- **Energies**: `post_segments[0].mlip.barrier_kcal` and `.delta_kcal` (same values in `segments[0]`); `gibbs_mlip` (`--thermo`) and `dft` (`--dft`) carry the same keys. `irc/result.json` gives the raw IRC energies.
+
+```python
+import json
+d = json.load(open("result_ts_only/summary.json"))
+seg, post = d["segments"][0], d["post_segments"][0]
+print(d["scientific_status"], d.get("scientific_status_reasons"), d.get("pipeline_stop"))
+print(post["tsopt"].get("n_imaginary_modes"), post["tsopt"].get("imaginary_frequencies_cm"))
+# the rest exists only when IRC ran
+print(seg["barrier_kcal"], seg["delta_kcal"], seg["bond_changes"])
+print(post["endpoint_assignment"], post["mlip"]["energies_kcal"])
+irc = json.load(open("result_ts_only/segments/seg_01/irc/result.json"))
+print(irc["energy_first_hartree"], irc["energy_ts_hartree"], irc["energy_last_hartree"])
+```
+
+## Pitfalls and recovery
+
+- **TS optimization not converged.** The last structure is kept and no final Hessian is computed. Read the stop reason in `summary.log` and `segments/seg_01/ts/`, then retry from a better seed or with another optimizer setting (`--opt-mode-post grad` for Dimer).
+- **n_imag = 0.** The geometry fell to a minimum; the candidate was not a saddle. The run stops before IRC and is not `success`. Start from a better seed, such as the HEI of an MEP or the top of a scan.
+- **n_imag ≥ 2.** The result is `partial`; IRC follows one mode only as a diagnostic. Inspect every mode, check the frozen boundary, then re-optimize with `--flatten` or tighten convergence with `--thresh-post gau_tight`. A first-order TS needs exactly one imaginary mode along the intended displacement and an IRC that connects the intended states. See [Wrong n_imag](../mlmm-overview/ts-strategy.md#3-wrong-n_imag-after-ts-optimization).
+- **`bond_changes` is `(no covalent changes detected)`, or an end is not the intended state.** The TS may connect two nearly identical wells or other minima. Watch the imaginary mode and the IRC before trusting the TS.
+- **`--no-tsopt` with one input.** It stops with `BadParameter`; TS-only mode needs `--tsopt`.
+- **XYZ candidate.** Give `--ref-pdb` for the topology and the B-factor layers, and `-q` and `-m`, because XYZ carries no charge or multiplicity.
+- **R and P labels.** See R and P names above; inspect `reactant.*` and `product.*` to tell which chemical states the IRC reached.
+- **TS still not found.** See [When the TS does not come out](../mlmm-overview/ts-strategy.md#6-when-the-ts-does-not-come-out).
+
+## Run the stages yourself
+
+For finer control, check the TS before running the next commands:
 
 ```bash
 mlmm tsopt -i ts.xyz --parm7 enzyme.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 -o result_tsopt -b uma
@@ -55,150 +96,30 @@ mlmm irc   -i result_tsopt/final_geometry.xyz --parm7 enzyme.parm7 --ref-pdb enz
 mlmm freq  -i result_tsopt/final_geometry.xyz --parm7 enzyme.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 -o result_freq -b uma
 ```
 
-## Pipeline collapses to
+## Outputs
 
-```
-ts_candidate.{xyz,pdb,cif,mmcif}
-       │
-       ▼
-   [tsopt]            (Dimer or Hessian TS optimizer; default RS-P-RFO)
-       │  optimization_status=converged
-       │  hessian_status=completed, valid negative root
-       │  first_order OR warning-labelled higher_order diagnostic
-       ▼
-   [irc]              (forward + backward; RFO endpoint refinement by default, via --opt-mode-post hess)
-       │
-       ▼
-   [freq]             (with --thermo)
-       │
-       ▼
-   [dft]              (with --dft)
+```text
+ts_candidate (PDB, mmCIF, or XYZ with --ref-pdb)
+  └─ tsopt (RS-P-RFO by default; Dimer with --opt-mode-post grad)
+       └─ converged, final Hessian, n_imag ≥ 1
+            └─ irc (forward and backward) → endpoint optimization (RFO by default)
+                 ├─ freq (--thermo)
+                 └─ dft (--dft)
 ```
 
-MEP search is skipped; model preparation follows the supplied inputs/options.
-The TS child outputs are kept when written;
-IRC-derived entries below appear only when the IRC gate passes:
+`summary.json` and `summary.log` sit at the top of `--out-dir` with
+`ml_region.pdb`, `mm_parm/` (without `--parm7`), and `layered/`. Cite
+`segments/seg_01/reactant.*`, `ts.*`, and `product.*` (in the input format).
+`seg_01/` also has `ts/` (`final_geometry.*`, `vib/imag_*_trj.xyz`,
+`result.json`), `irc/` (`{forward,backward,finished}_irc_trj.xyz`,
+`result.json`), `structures/` (the raw IRC ends `reactant_irc.*` and
+`product_irc.*`, and `ts.*`), `freq/{R,TS,P}/` with `frequencies_cm-1.txt` and
+`thermoanalysis.yaml` (`--thermo`), `dft/{R,TS,P}/result.yaml` (`--dft`), and
+the energy diagrams. The IRC-derived files appear only when IRC ran. There are
+no MEP files and no `_work/path_opt/`.
 
-```
-result_ts_only/
-├── summary.json
-├── summary.log
-└── segments/
-    └── seg_01/
-        ├── reactant.pdb   higher-energy endpoint, then optimized
-        ├── ts.pdb         optimized TS
-        ├── product.pdb    other endpoint, then optimized
-        ├── ts/            final_geometry.{xyz,pdb}, result.json (requested by all)
-        ├── irc/           forward_irc_trj.xyz, backward_irc_trj.xyz, finished_irc_trj.xyz
-        ├── freq/          frequencies_cm-1.txt, thermoanalysis.yaml
-        ├── structures/    nested copies + raw IRC endpoints ({reactant_irc,ts,product_irc}.{xyz,pdb})
-        └── (dft/)
-```
+## Next step
 
-## Output keys
-
-```python
-import json
-from pathlib import Path
-d = json.load(open("result_ts_only/summary.json"))
-seg = d["segments"][0]
-
-# n_imaginary and IRC endpoint energies are not on the summary segment.
-# When the TS child reaches its result writer:
-ts = json.load(open("result_ts_only/segments/seg_01/ts/result.json"))
-print(ts["n_imaginary_modes"])         # should be 1
-
-# The IRC child exists only when IRC was started:
-irc_path = Path("result_ts_only/segments/seg_01/irc/result.json")
-if irc_path.exists():
-    irc = json.load(open(irc_path))
-    print(seg["barrier_kcal"])
-    print(seg["delta_kcal"])
-    print(seg["bond_changes"])         # bonds broken/formed along the IRC
-    print(irc["energy_first_hartree"], irc["energy_ts_hartree"], irc["energy_last_hartree"])
-```
-
-The child IRC result reports directional first/last endpoints. TS-only mode
-labels the higher-energy endpoint `reactant` and the other `product`; an
-energy tie keeps the left endpoint as reactant. This convention is recorded
-as `endpoint_assignment.policy = "higher_energy_endpoint_as_reactant"`, with
-`chemical_direction_known = false`. Inspect the structures to identify the
-chemical states.
-
-If `n_imaginary_modes != 1`, the geometry is **not a true first-order
-saddle**; see "Distinctive failure modes" below.
-
-`all` preserves the TS child result before deciding whether to continue. It
-stops before IRC for numerical non-convergence, zero imaginary modes,
-failed/skipped PHVA, or no valid negative root. A numerically converged
-higher-order stationary point may continue only as warning-labelled diagnostic
-IRC and remains uncertified.
-
-## Distinctive failure modes
-
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| `tsopt.optimization_status == "not_converged"` | Numerical optimizer did not converge; the terminal structure is retained and PHVA is skipped | Inspect the stop reason, then retry from a better seed or with an appropriate optimizer/coordinate setting |
-| `tsopt.n_imaginary_modes == 0` | Geometry collapsed to a minimum during refinement | TS guess was not a real saddle; re-do `path-search` instead |
-| `tsopt.n_imaginary_modes >= 2` | Higher-order saddle or unresolved constrained mode; first-order certification failed | Inspect the modes, tighten convergence/frozen-boundary setup, then flatten or reoptimize from a better TS seed. Certification requires exactly one imaginary mode plus the intended displacement and IRC connectivity. |
-| `formed` and `broken` both empty in `irc/result.json` `bond_changes` (summary: `segments[0].bond_changes == "(no covalent changes detected)"`) | TS connects two essentially identical wells (numerical ringing) | Verify the imaginary mode visualization in `freq/`; this is sometimes a non-physical TS |
-
-## When *not* to use TS-only mode
-
-- You do not yet have a TS candidate. Run `path-search` (or the
-  full `all` in endpoint-MEP / scan-list mode) instead.
-- You have a candidate but suspect the connectivity is wrong (i.e.
-  you're not sure whether your "TS" sits between the right reactant
-  and product). Use `path-search` to discover the connectivity.
-
-## Caveats
-
-- `--tsopt` is mandatory in TS-only mode; `--no-tsopt` with
-  a single PDB triggers a validation error.
-- For an XYZ TS candidate, supply `--ref-pdb` for topology and B-factor
-  layers, plus `-q` and `-m` because XYZ has no charge or spin metadata.
-- Inspect `segments/seg_01/{reactant,product}.pdb` to determine which chemical
-  states the IRC reached. The R/P labels follow the energy convention above.
-
-## See also
-
-- `all.md` — base orientation.
-- `tsopt.md`, `irc.md`, `freq.md`, `dft.md` — the underlying
-  subcommands (which you can also run standalone if you want
-  fine-grained control).
-- `mlmm-workflows-output/SKILL.md` — IRC interpretation
-  and bond-change conventions.
-
-## ML/MM-aware flags (mlmm-toolkit specific)
-
-In addition to the common flags below,
-**`mlmm-toolkit` requires an Amber topology** and supports layer-aware
-selection. Most subcommands accept:
-
-| flag | purpose |
-|---|---|
-| `--parm7 FILE` | Amber `parm7` topology of the whole enzyme — optional; when omitted, `mm_parm` generates a parm7 from the input PDB |
-| `--model-pdb FILE` | Explicit ML-region PDB; takes precedence over extraction- or B-factor-derived ML membership |
-| `--detect-layer` | Automatically read valid B-factor MM sublayers; without explicit or extraction-derived ML membership, B-factors also define ML membership. Enabled by default. |
-| `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |
-| `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
-| `-q, --charge` | Override the net ML-region/model charge (highest priority) |
-| `-l, --ligand-charge` | Per-residue charge mapping for ML region |
-
-Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
-
-## Mutant-vs-WT barrier comparison (preserve the WT ML region)
-
-Compare barriers formed within each system, then compare those barriers. Do
-not subtract mutant and WT absolute energies when their compositions differ.
-
-1. Build and parameterize each complete structure independently.
-2. Define chemically corresponding ML and movable regions. Transfer layer
-   labels only for atoms with an unambiguous correspondence, and assign every
-   added or deleted atom explicitly.
-3. Determine charge and multiplicity independently for each system.
-4. Use matched backend/method, force field, convergence, and thermochemistry
-   settings.
-5. Validate each TS with exactly one imaginary mode and inspect the
-   displacement. Inspect both IRC endpoints before assigning chemical R/P
-   labels.
+- [all.md](all.md): mode choice, success criteria, resume.
+- [tsopt.md](tsopt.md), [irc.md](irc.md), [freq.md](freq.md), [dft.md](dft.md): each stage on its own.
+- [Reading outputs](../mlmm-overview/outputs.md#bond-changes): IRC ends and bond changes.

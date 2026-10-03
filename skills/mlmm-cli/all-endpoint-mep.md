@@ -1,125 +1,81 @@
-# `mlmm all` — endpoint-MEP mode
+# `mlmm all`: Multi-structure MEP search
+
+Give two or more full-system structures in reaction order; `all` finds the MEP
+between each neighbouring pair and, with `--tsopt`, optimizes each TS candidate
+and runs IRC. It succeeded when the console prints `[Imaginary modes] n=1 (...)`
+for each TS and `Scientific status: success` under the last
+`====== Pipeline summary ======`.
 
 ## When to use
 
-You have **two or more reaction-ordered structures** (reactant, optional
-intermediate(s), product), all with the **same atom count and atom
-ordering**. By default, the pipeline optimizes one MEP per adjacent pair;
-`--refine-path` enables recursive segmentation.
+You have two or more structures in reaction order (reactant, optional
+intermediates, product) with the same atoms in the same order, typically R and
+P (sometimes IM) from a published QM or QM/MM study. By default `all` runs one
+single-pass `path-opt` per neighbouring pair, so the structures you pass are
+taken as the steps. With `--refine-path`, the recursive `path-search` splits a
+pair further where bonds change, so you need to give only the steps you already
+know.
 
-This is the most common mode for a published-mechanism reproduction
-where you have R and P (and sometimes IM) coordinates from a prior QM
-or QM/MM study.
-
-## Synopsis
+## Minimal run
 
 ```bash
 mlmm all --parm7 enzyme.parm7 -i 1.R.pdb 3.P.pdb \
     -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
-    --tsopt --thermo \
-    [--dft --func-basis 'wb97m-v/def2-svp'] \
-    -o result_mep
+    --tsopt --thermo -o result_mep
 ```
 
-For a known multistep mechanism, supply each intermediate explicitly:
+Add `--dft` (and `--func-basis 'wb97m-v/def2-svp'`) for DFT single points of
+the ML region on R, TS, and P. Leave out `--parm7` to build the topology from
+the first input with AmberTools. For a known multistep mechanism, give each
+intermediate:
 
 ```bash
 mlmm all --parm7 enzyme.parm7 -i 1.R.pdb 2.IM.pdb 3.P.pdb \
     -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
-    --tsopt --thermo \
-    -o result_mep_3pt
+    --tsopt --thermo -o result_mep_3pt
 ```
 
-By default each adjacent pair is connected with a single-pass `path-opt`,
-so the endpoints you pass are taken as the elementary steps. Add
-`--refine-path` to enable the recursive bond-change segmentation in
-`path-search`, which splits a pair further when it detects intermediate
-bond changes — then you don't have to provide every elementary step,
-just the "obvious" ones from the literature.
+## Same atoms in the same order
 
-## Mode-specific flags
-
-| Flag | Default | Meaning |
-|---|---|---|
-| `--max-nodes` | 20 | Maximum string nodes per segment (final string ≤ `max-nodes + 2`) |
-| `--mep-mode gsm\|dmf` | `gsm` | MEP optimizer for both the default and recursive path routes |
-| `--dmf-backend gpu\|cpu` | `gpu` | DMF implementation; set `cpu` after a GPU out-of-memory error |
-
-By default `mlmm all` runs single-pass `path-opt` between adjacent pairs;
-`--refine-path` selects recursive `path-search`. `--mep-mode` controls the
-optimizer in either route. The finer-grained `--refine-mode` remains a
-standalone `path-search` option.
-
-`--scan-lists` is **not** allowed in this mode — it triggers
-`all-scan-list.md` instead.
-
-## Atom-count consistency requirement
-
-All `-i` inputs must have:
-
-- the same number of atoms,
-- the same element sequence (atom ordering),
-- the same residue assignments.
-
-Align atom identities and ordering before extraction; `extract` checks them
-but does not repair mismatches. Then apply the same selection to all inputs:
+Every input, and the parm7, needs the same number of atoms, the same element
+sequence, and the same residue assignments. `all` builds the ML region from the
+first input and applies it to every input. The extraction checks the series and
+stops with `[multi] Atom count mismatch between input #1 and input #2: ...` or
+`[multi] Atom order mismatch between input #1 and input #2.`, but it does not
+map or repair a mismatched series. To check a series before a long job, cut all
+inputs in one `extract` run:
 
 ```bash
-mlmm extract -i 1.R_raw.pdb 3.P_raw.pdb \
-    -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
-    -o "1.R.pdb" "3.P.pdb"
+mlmm extract -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
+    -o pocket_R.pdb pocket_P.pdb
 ```
 
-## Output
+If they do not match, regenerate every structure with the same protonation
+tool and settings (for MD snapshots, the same trajectory and topology), or
+start from one structure with `-s` ([all-scan-list.md](all-scan-list.md)).
+Rules for states and variants: [model-setup](../mlmm-model-setup/SKILL.md#same-atoms-across-states-and-variants).
 
-Same as the base `all.md`. Specifically for endpoint-MEP mode:
+## Judge success
 
-- `mep_trj.pdb` (and `mep_trj.cif` for bridged input) at the output root — the full MEP across all segments
-  (raw engine copy under `_work/path_opt/`, or `_work/path_search/` with `--refine-path`)
-- `segments/seg_01/ … seg_NN/` — per-segment string of nodes
-- `segments/seg_NN/{reactant,ts,product}.pdb` (plus CIF companions for bridged input) — canonical R/TS/P per
-  segment after IRC + RFO endpoint optimization (`--opt-mode-post hess` default; `grad` selects L-BFGS)
-- `summary.json["segments"]` — list of `{index, barrier_kcal,
-  delta_kcal, bond_changes, ...}` entries
+Read the console, `summary.json`, and the endpoints as in
+[all.md](all.md#judge-success). For this mode also check:
 
-## Distinctive failure modes
+- **MEP**: open `mep_trj.pdb` (or `.xyz`) and `energy_diagram_MEP.png`; the TS candidates are `_work/path_opt/hei_seg_NN.*` (`_work/path_search/` with `--refine-path`).
+- **Segments**: `summary.json["segments"]` lists `index`, `kind`, `barrier_kcal`, `delta_kcal`, and `bond_changes` for each segment. The default gives one segment per neighbouring pair. With `--refine-path`, compare `n_segments_reactive` with the number of inputs minus one; `n_segments` also counts bridge segments.
+- **R/TS/P**: with `--tsopt`, `segments/seg_NN/{reactant,ts,product}.*` are written after IRC and the endpoint optimizations (RFO by default, L-BFGS with `--opt-mode-post grad`).
 
-| Symptom in `summary.json` | Likely cause | Fix |
-|---|---|---|
-| `bond-summary` reports extra changes between inputs and the optimized MEP | Bond-change detector found extra changes; the reaction in the inputs and the reaction the optimizer found don't match. | Check which bonds changed via `bond-summary -i 1.R.pdb 3.P.pdb`; rerun standalone `path-search` with `--refine-mode minima`, or supply IM explicitly. |
-| `post_segments[].tsopt.n_imaginary_modes > 1` | Higher-order saddle or unresolved soft modes | Compare a Hessian-based mode and Dimer on the same seed/backend, then rerun frequency analysis and IRC connectivity checks. |
-| Different atoms/order across `-i` inputs | Inconsistent input series | Compare ordered atom identities first, then apply one common extraction. |
+## Pitfalls and recovery
 
-## Caveats
+- **More bond changes than the inputs imply.** The reaction encoded by the inputs and the path the optimizer found differ. Check which bonds changed with `mlmm bond-summary -i 1.R.pdb 3.P.pdb`, then supply the intermediate yourself or rerun the standalone `path-search` with `--refine-mode minima`. `all` has no `--refine-mode`; with `--refine-path`, set `search.refine_mode` in the `--config` YAML.
+- **More reactive segments than input pairs** (`--refine-path` only). This is a candidate decomposition, not proof that the hidden intermediates are real; validate each IM and its TS and IRC.
+- **n_imag ≥ 2.** A higher-order saddle or unresolved soft modes, not a validated TS. Compare a Hessian-based optimizer with Dimer (`--opt-mode-post grad`) on the same seed and backend, or try `--flatten`, then rerun the frequency analysis and check the IRC connects the intended states. See [Wrong n_imag](../mlmm-overview/ts-strategy.md#3-wrong-n_imag-after-ts-optimization).
+- **Different atoms or order across inputs.** Compare the ordered atom identities, then regenerate the series as above; equal PDB line counts are not enough.
+- **GSM or DMF.** GSM is the default. `--mep-mode dmf` selects DMF in either route; set `--dmf-backend cpu` when the GPU implementation runs out of memory. Inspect and validate either MEP.
+- **`-s` with several inputs.** It stops with an error; `-s` takes exactly one structure ([all-scan-list.md](all-scan-list.md)).
 
-- GSM is the default. Use `--mep-mode dmf`; choose `--dmf-backend cpu`
-  when the GPU implementation runs out of memory.
-- Under `--refine-path`, `summary.json["n_segments"]` may exceed
-  `len(inputs) - 1`; the count includes bridge segments. Validate proposed
-  intermediates with TS/IRC. Default single-pass `path-opt` yields one
-  segment per adjacent input pair.
+## Next step
 
-## See also
-
-- `all.md` — base orientation (output tree, summary.json schema).
-- `path-search.md` — recursive MEP search internals.
-- `bond-summary.md` — what bond-change detection looks like.
-- `mlmm-workflows-output/SKILL.md` — interpreting multi-segment
-  results.
-## ML/MM-aware flags (mlmm-toolkit specific)
-
-In addition to the common flags below,
-**`mlmm-toolkit` requires an Amber topology** and supports layer-aware
-selection. Most subcommands accept:
-
-| flag | purpose |
-|---|---|
-| `--parm7 FILE` | Amber `parm7` topology of the whole enzyme — optional; when omitted, `mm_parm` generates a parm7 from the input PDB |
-| `--model-pdb FILE` | Explicit ML-region PDB; takes precedence over extraction- or B-factor-derived ML membership |
-| `--detect-layer` | Automatically read valid B-factor MM sublayers; without explicit or extraction-derived ML membership, B-factors also define ML membership. Enabled by default. |
-| `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |
-| `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
-| `-q, --charge` | Override the net ML-region/model charge (highest priority) |
-| `-l, --ligand-charge` | Per-residue charge mapping for ML region |
-
-Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
+- [all.md](all.md): mode choice, success criteria, resume, outputs.
+- [path.md](path.md): what `path-opt` and `path-search` do.
+- [bond-summary](utilities.md#bond-summary): what bond-change detection reports.
+- [Reading outputs](../mlmm-overview/outputs.md#summaryjson): multi-segment results.

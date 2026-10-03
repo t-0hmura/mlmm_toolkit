@@ -1,212 +1,185 @@
-# `scan3d`
+# `scan3d`（3 次元の拘束付きグリッドスキャン）
 
-調和拘束と ML/MM 緩和による 3 距離（d1, d2, d3）のグリッドスキャンを実行し、3 つの結合距離を変数とする 3D PES をマッピングします。入力には PDB/mmCIF、または `--ref-pdb` を伴う XYZ を使用できます。`mlmm scan3d` は d1、d2、d3 のネストループを実行し、ML/MM calculator（`mlmm.backends.mlmm_calc.mlmm`）を使用して適切な拘束で各点を緩和します。ML 領域は `--model-pdb`、`--model-indices`、または `--detect-layer` による B-factor layer から解決し、Amber パラメータは `--parm7` から読み取ります。MLIP バックエンドは `-b/--backend` で選択し（デフォルト: `uma`）、オプティマイザは L-BFGS（`grad`）または RFO（`hess`） です。`-s/--scan-lists` で YAML/JSON スペックファイル（推奨）またはインライン Python リテラルを使用します。`--csv` で事前計算した surface を読み込めば、スキャンを再実行せずに再描画のみ行えます。
+## 概要
 
-各軸には角度`(i,j,k,low,high)`または二面角
-`(i,j,k,l,low,high)`も指定できます。角度値には度を使います。
+`scan3d` サブコマンドは、層付き酵素構造の 3 つの座標の格子の各点を調和拘束で保って ML/MM 計算機で緩和し、拘束を外したエネルギーを記録して、エネルギーの分布を等値面の HTML に描きます。各軸は範囲で指定し、距離 `(i,j,low,high)`（Å）、角度 `(i,j,k,low,high)`、二面角 `(i,j,k,l,low,high)`（度）を使えます。
 
-## 実行例
+### 主な用途
 
-```bash
-# 最小: YAML spec から 3D スキャンを実行
-mlmm scan3d -i input.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 -s scan3d.yaml -o ./result_scan3d/
-```
-（`--dry-run` を追加すると、計算せずに入力とスキャン仕様を検証できます。）
+* **3 つの座標が同時に関わる反応**: 結合の形成・別の結合の切断・プロトン移動が 1 つの段階で起きるような反応で、エネルギーの地形を調べる
+* **計算済みの格子の描き直し**: 既存の `surface.csv` を、別のエネルギーの範囲で描き直す（`--csv`）
+* **結果の判定**: `surface.csv` に各点の収束の可否が入り、`result.json` には `scientific_status` が入る（下の「surface.csv の読み方と判定」を参照）
 
-```bash
-# 推奨: YAML/JSON spec
-cat > scan3d.yaml << 'YAML'
-one_based: true
+ML 領域の計算バックエンドにはデフォルトの **UMA**（Meta）のほか、`-b/--backend` オプションで **ORB**、**MACE**、**AIMNet2**、DFT（`dft`）も選択可能です。1 つ以上の座標を動かして 1 本の経路を作るには [`scan`](scan.md) を、2 つの座標の格子には [`scan2d`](scan2d.md) を使います。
+
+---
+
+## 基本的な実行例
+
+例の `pocket.pdb` は `real.parm7` に対応する全系の構造で、`ml_region.pdb` はそのうちの ML 領域（リンク水素なし）を選びます。
+
+原子は同梱の酵素の例（`examples/beza/1.R.pdb`）のもので、この PDB は chain の欄が空です。そのため、原子は chain を省いた 3 項目（残基名・残基番号・原子名）を任意の順序で、カンマか空白で区切って書きます（`"SAM,320,CS1"`）。
+
+### 1. YAML スペックファイルからの実行
+
+3 つの範囲を `pairs:` に書き、`--out-json` を付けて `result.json` も出力します。デフォルトの刻み幅 0.2 Å では、このファイルから 9 × 9 × 7 の格子（567 点）ができます。
+
+```yaml
+# scan3d.yaml
 pairs:
- - [12, 45, 1.30, 3.10]
- - [10, 55, 1.20, 3.20]
- - [15, 60, 1.10, 3.00]
-YAML
-mlmm scan3d -i input.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 -s scan3d.yaml --dry-run
+  - ["SAM,320,CS1", "GPP,321,C7", 1.50, 3.00]
+  - ["GPP,321,H11", "GLU,186,OE2", 0.90, 2.50]
+  - ["SAM,320,SD", "SAM,320,CS1", 1.80, 3.00]
 ```
 
 ```bash
-# インライン Python リテラル、事前最適化・--dump・カスタム出力ディレクトリ付き
-mlmm scan3d -i input.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 -s "[(12,45,1.30,3.10),(10,55,1.20,3.20),(15,60,1.10,3.00)]" \
- --max-step-size 0.20 --dump -o ./result_scan3d/ \
- --preopt --baseline min
+mlmm scan3d -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
+    -s scan3d.yaml --out-json -o ./result_scan3d/
 ```
 
-## 処理の流れ
-1. `geom_loader` で構造を読み込み、CLI から電荷/スピンを解決し、`--preopt` の場合は任意でバイアスなし事前最適化を実行。
-2. `-s/--scan-lists`（YAML/JSON スペックファイルまたはインラインリテラル）からターゲットを解析して 3 つの 4 要素タプルにします（デフォルト 1 始まりインデックス、`--zero-based` 指定時は 0 始まり）。PDB メタデータを利用できる場合、各原子エントリは整数インデックスまたは `"SAM,320,CS1"` のようなセレクター文字列が使用可能。区切り文字はスペース、カンマ、スラッシュ、バッククォート、バックスラッシュ。
-3. 外側ループ `d1[i]`: d1 拘束のみで緩和。d1 値が最も近い以前のスキャン済みジオメトリから開始。
-4. 中間ループ `d2[j]`: d1 と d2 の拘束で緩和。最も近い (d1, d2) ジオメトリから開始。
-5. 内側ループ `d3[k]`: 3 つの拘束すべてで緩和。バイアスなしエネルギーを測定（評価時にバイアス除去）し、拘束ジオメトリと収束フラグを書き出し。
-6. スキャン完了後、`surface.csv` を組み立て、開始／事前最適化構造を常に `i = j = k = -1` の参照行として残し、kcal/mol ベースラインシフト（`--baseline {min|first}`）を適用し、3D RBF 補間アイソサーフェスプロット（`scan3d_density.html`）を生成（`--zmin/--zmax` を尊重）。参照行は基準エネルギー、補間、plot から除外します。
+等値面は `result_scan3d/scan3d_density.html` をブラウザで開いて確認できます。`result.json` には `scientific_status` と使える点の数（`n_points_usable`）が入ります。
 
-プロット専用 CSV には `d1_A`、`d2_A`、`d3_A` と
-`energy_hartree` または `energy_kcal` が必要です。新規出力は
-`baseline=first` の場合は grid index 列 `i`、`j`、`k` も必要です。
-新規出力は
-`bias_converged`、`artifact_written`、`is_preopt` も記録し、事前最適化行、
-明示的な非収束行、構造ファイル未作成行、非有限値を除外します。provenance が
-不完全な旧形式は警告付きで読み込み、全 index が `-1` の行も参照行として除外します。補間には座標重複がなく、全 3 軸を
-またぐ 4 点以上の非共面 usable point が必要です。`baseline=first` で
-`(0,0,0)` が usable でなければ usable minimum にフォールバックします。
+### 2. インラインリテラルでの指定
 
-`d1_A` / `d2_A` / `d3_A` は緩和後の実測値、
-`target_d1_A` / `target_d2_A` / `target_d3_A` は拘束の目標値です。
-ファイル名の距離タグは目標値を表します。使える点があっても補間に足りない
-場合は CSV を保持して図だけを省略します（`scientific_status: partial`、終了コード 0）。
-使える点が 0 個なら `scientific_status: failed`、終了コード 1 です。
+同じ 3 つの範囲を、1 つのリテラルとしてコマンドラインに書けます。
 
-## 出力
+```bash
+mlmm scan3d -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
+    -s '[("SAM,320,CS1","GPP,321,C7",1.50,3.00),("GPP,321,H11","GLU,186,OE2",0.90,2.50),("SAM,320,SD","SAM,320,CS1",1.80,3.00)]'
+```
+
+### 3. L-BFGS・軌跡の保存・事前最適化
+
+スキャンの前に入力構造を最適化し、各点を L-BFGS で緩和して、内側ループの軌跡を保存し、相対エネルギーを使える点の最小値から測ります。`--max-step-size 0.20`・`--opt-mode grad`・`--baseline min` はデフォルトで、ここでは明示しています。
+
+```bash
+mlmm scan3d -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
+    -s '[("SAM,320,CS1","GPP,321,C7",1.50,3.00),("GPP,321,H11","GLU,186,OE2",0.90,2.50),("SAM,320,SD","SAM,320,CS1",1.80,3.00)]' \
+    --max-step-size 0.20 --dump -o ./result_scan3d/ --opt-mode grad \
+    --preopt --baseline min
+```
+
+### 4. 既存の surface.csv からの描き直し
+
+計算済みの格子の等値面を、−10〜40 kcal/mol の範囲で描き直します。エネルギーは計算しません。別の `-o` を指定すると、元のスキャンのファイルが残ります（「使用上の注意点」を参照）。
+
+```bash
+mlmm scan3d --csv ./result_scan3d/surface.csv --zmin -10 --zmax 40 -o ./result_scan3d_replot/
+```
+
+---
+
+## 処理の仕組みと計算仕様
+
+1. **開始構造と格子**:
+ML 領域の電荷は `-q` または `-l` から決まります（{ref}`電荷の指定 <ja-charge-specification>` を参照）。`--preopt` を付けると、まず拘束なしで入力構造を最適化します。収束しなかった場合は入力構造を使います。各軸には両端を含めて ceil(|high − low| / h) + 1 個の等間隔の値ができます。h は距離では `--max-step-size`（Å）、角度と二面角では `--max-angle-step-size` と `--max-dihedral-step-size`（度）です。値は開始構造に近いものから順に計算します。
+2. **3 重のループ**:
+d₁ の各値で d₁ の拘束だけをかけて構造を緩和し、d₂ の各値で d₁ と d₂ の拘束をかけて緩和します。続く内側ループで、3 つの拘束をかけて d₃ を走査します。各緩和は、同じループですでに収束した最も近い構造から始めます。まだ収束した構造が無いときは、外側のループで得た構造（d₁ では開始構造）から始めます。
+3. **各点の緩和**:
+調和拘束 E = ½ k (q − q_target)² が各座標 q を目標値に保ち（k は `--restraint-k`）、残りの構造を ML/MM 計算機で L-BFGS（`--opt-mode grad`、デフォルト）または RFO（有理関数最適化、`--opt-mode hess`）により緩和します。凍結 MM 層の原子は動きません。そのあと拘束を外してエネルギーを計算し、構造を `grid/` に書き出します。
+4. **表と図**:
+最後の点のあと、全点を `surface.csv` にまとめます。使える点を 50 × 50 × 50 の格子上で動径基底関数（RBF）で補間し、段階的な色の半透明の等値面 8 枚を `scan3d_density.html` に描きます。`--csv` を付けたときは、与えた表についてこの段階だけを行います。
+
+---
+
+## surface.csv の読み方と判定
+
+`surface.csv` には格子点ごとの行と、基準の行が 1 つ入ります。
+
+| 列 | 内容 |
+| --- | --- |
+| `i`, `j`, `k` | 格子の番号。開始構造に最も近い値が 0 なので、値の昇順ではなく計算した順の番号 |
+| `d1_A`, `d2_A`, `d3_A`（`q1`, `q2`, `q3` も同じ値） | 緩和の後に測った座標の値。どの軸でも列名は `_A` のままで、角度の軸には度が入る。単位は `q1_unit`, `q2_unit`, `q3_unit`（`angstrom` か `degree`） |
+| `target_d1_A`, `target_d2_A`, `target_d3_A`（`target_q1`, `target_q2`, `target_q3` も同じ値） | その点の拘束の目標値 |
+| `energy_hartree` | 拘束を外したエネルギー（Hartree） |
+| `bias_converged` | 拘束付きの緩和が収束したか |
+| `is_preopt` | 基準の行だけ `true` |
+| `energy_kcal` | 基準からの相対エネルギー（kcal/mol） |
+| `d1_label`, `d2_label`, `d3_label` | 図に使う軸の名前 |
+
+* **基準の行**: `i = j = k = -1`、`is_preopt = true` の行は開始構造です。表には残りますが、格子点・エネルギーの基準・図の点には使いません。
+* **使える点**: 緩和が収束し、エネルギーが有限で、構造ファイルが書けた点を「使える点」とします。エネルギーの基準と図には、使える点だけを使います。
+* **判定**: `result.json`（`--out-json`）の `scientific_status` は、すべての格子点が使える点なら `success`、一部だけなら `partial`（終了コード 0）、1 つも無ければ `failed`（終了コード 1）です。点の数は `n_points_attempted` と `n_points_usable` に入ります（{ref}`終了コード <ja-exit-codes>` を参照）。
+* **次の段階**: 等値面は補間なので、鞍点に近い計算点の構造 `grid/point_*.pdb` を [`tsopt`](tsopt.md) に渡します。反応物側と生成物側の谷の点は [`path-search`](path-search.md) の入力にできます。
+* **表からの描き直し（`--csv`）**: 表には `d1_A`, `d2_A`, `d3_A` と、`energy_hartree` か `energy_kcal` の列が要ります。基準の行と、`bias_converged = false` かエネルギーが有限でない行は除きます。
+
+---
+
+## 主な出力ファイル
+
+実行完了後、`--out-dir`（デフォルト: `./result_scan3d/`）内に以下のファイル群が生成されます。
 
 ```text
-out_dir/ (デフォルト:./result_scan3d/)
- surface.csv # グリッドメタデータ（座標、energy、convergence、artifact status）
- scan3d_density.html # 3D エネルギーアイソサーフェス可視化
- grid/point_i###_j###_k###.xyz # 各グリッド点の緩和ジオメトリ
- grid/point_i###_j###_k###.pdb # 対応する PDB（B 因子: ML=0, Movable-MM=10, Frozen=20）
- grid/inner_path_d1_###_d2_###_trj.xyz # --dump が True の場合のみ
+result_scan3d/
+├─ surface.csv                          # 基準の行を含む格子の表
+├─ scan3d_density.html                  # 3D 等値面（ブラウザで開く）
+├─ grid/
+│  ├─ point_i150_j090_k180.xyz          # 各格子点の緩和後の構造
+│  ├─ preopt_iDDD_jDDD_kDDD.xyz         # 開始構造（基準の行）
+│  └─ inner_path_d1_000_d2_000_trj.xyz  # (d₁, d₂) の組ごとの内側ループの軌跡（--dump 指定時）
+└─ result.json                          # 結果の要約（--out-json 指定時）。summary.json も同じ内容
 ```
 
-ファイル名タグ `i###_j###_k###` は Å の 100 分の 1 の整数（d1×100, d2×100, d3×100）であり、ステップ番号ではありません。
+まず `scan3d_density.html` と `surface.csv` を確認し、各点の構造は `grid/` を見てください。`result.json` の `grid_points[]` には、各格子点の番号・値・目標値・エネルギー・収束の可否・構造ファイルが入ります。
 
-## CLI オプション
+* **ファイル名**: `i`・`j`・`k` の後の数字（タグ `DDD`）は目標値の 100 倍（Å、角度では度）を 3 桁以上に 0 で埋めた数で、`surface.csv` の格子の番号ではありません。`d1 = 1.50 Å, d2 = 0.90 Å, d3 = 1.80 Å` なら `point_i150_j090_k180.xyz`、角度 120° なら `12000` です。丸めたタグが別の点と重なると、後のファイル名には 0 始まりの番号 `_grid_III_JJJ_KKK` が付きます。`inner_path_d1_000_d2_000` の数字も 0 始まりの番号です。
+* **ほかの形式**: 各構造は `.pdb` でも書き、B-factor の欄に各原子の層を入れます：ML 領域 0、可動 MM 10、凍結 MM 20。`--no-convert-files` で止められます。mmCIF の入力と、PDB の欄に入りきらない大きな PDB の入力では、元の識別子を保った `.cif` も書きます（{ref}`mmCIF の入力 <ja-mmcif-input>` を参照）。
+* **`--csv` を付けたとき**: `scan3d_density.html` だけを書きます。`--out-json` を付けると、`grid_points` の無い `result.json` も書きます。`scientific_status` は、表に使える点があれば `success`、無ければ `failed` です。
 
-| オプション | 説明 | デフォルト |
-| --- | --- | --- |
-| `-i, --input PATH` | 全系 PDB/mmCIF、または `--ref-pdb` を伴う XYZ（リンク原子なし）。 | `--csv` 指定時を除き必須 |
-| `--parm7 PATH` | 完全酵素の Amber parm7 トポロジー。 | `--csv` 指定時を除き必須 |
-| `--model-pdb PATH` | ML 領域を定義する PDB。 | _None_ |
-| `--model-indices TEXT` | 明示的な ML 領域原子インデックス（`--model-pdb` の代替）。 | _None_ |
-| `--detect-layer / --no-detect-layer` | B 因子から ML/MM レイヤーを自動検出。 | 有効 |
-| `-q, --charge INT` | ML 領域の総電荷。 | _None_（`-l` または `--csv` 未指定時は必須） |
-| `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。 | _None_ |
-| `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
-| `--freeze-atoms TEXT` | 1 始まりカンマ区切りの凍結原子インデックス。 | _None_ |
-| `--movable-cutoff FLOAT` | ML 領域からの可動 MM 原子の距離カットオフ (Å)。指定すると `--detect-layer` が無効化されます。 | _None_ |
-| `-s, --scan-lists TEXT` | YAML/JSONまたは単一inline literalで3つの距離・角度・二面角rangeを指定。原子は整数indexまたはPDB selector。 | `--csv` 指定時を除き必須 |
-| `--csv FILE` | 事前計算済み `surface.csv` を読み込みスキャンなしでプロット生成。 | _None_ |
-| `--one-based / --zero-based` | `(i, j)` インデックスを 1 始まりまたは 0 始まりとして解釈。 | `True`（1 始まり） |
-| `--max-step-size FLOAT` | ステップごとの最大距離増分 (Å)。グリッド密度を制御。 | `0.20` |
-| `--max-angle-step-size FLOAT` | 角度の1stepあたりの最大変化量（度）。 | `5.0` |
-| `--max-dihedral-step-size FLOAT` | 二面角の1stepあたりの最大変化量（度）。 | `10.0` |
-| `--restraint-k FLOAT` | 調和拘束強度。距離はeV/Å²、角度はeV/rad²。 | `300.0` |
-| `--relax-max-cycles INT` | バイアス緩和ごとのオプティマイザサイクル上限。 | `100000` |
-| `--dump/--no-dump` | (d1, d2) スライスごとの内側 d3 スキャン TRJ を書き出し。 | `False` |
-| `-o, --out-dir TEXT` | グリッドとプロットの出力ディレクトリルート。 | `./result_scan3d/` |
-| `--opt-mode TEXT` | 単一構造オプティマイザ: `grad` = L-BFGS、`hess` = RFO。 | `grad` |
-| `--thresh TEXT` | 収束プリセット上書き（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | `baker` |
-| `--config FILE` | ベース YAML 設定ファイル（最初に適用）。 | _None_ |
-| `--ref-pdb FILE` | XYZ 入力用の参照 PDB トポロジー。 | _None_ |
-| `--preopt/--no-preopt` | スキャン前にバイアスなし最適化を実行。 | `False` |
-| `--baseline {min,first}` | kcal/mol エネルギーをグローバル最小値または `(i,j,k)=(0,0,0)` がゼロになるようシフト。 | `min` |
-| `--zmin FLOAT` | アイソサーフェスカラーバンドの手動下限（kcal/mol）。 | 自動スケール |
-| `--zmax FLOAT` | アイソサーフェスカラーバンドの手動上限（kcal/mol）。 | 自動スケール |
-| `-b, --backend CHOICE` | model領域の高レベルbackend: `uma`、`orb`、`mace`、`aimnet2`、`dft`。 | `uma` |
-| `--cmap/--no-cmap` | REAL と MODEL の両 MM 層で CMAP を保持します。 | `--cmap` |
-| `--mm-backend [hessian_ff\|openmm]` | MM バックエンド。Hessian 構築法は `calc.mm_fd` が別に制御します（デフォルト `true`: 有限差分）。 | `hessian_ff` |
-| `--link-atom-method [scaled\|fixed]` | リンク原子の配置法: scaled（$g$ 因子）または固定 1.09/1.01 Å。 | `scaled` |
-| `--out-json/--no-out-json` | 機械可読な `result.json` を `out_dir` に書き出し。 | `False` |
-| `--convert-files/--no-convert-files` | PDB テンプレート利用可能時の XYZ/TRJ から対応する PDB の生成を切り替え。 | `True` |
+---
 
-全フラグの一覧は自動生成された[コマンドリファレンス](../reference/commands/index.md)にあります。ここに手動で複製しないでください。
+## 主な CLI オプション
 
-## スキャンリスト構文
+ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通オプション <ja-mlmm-options>` に 1 か所でまとめてあります。下の表は `scan3d` に固有のものだけです。
 
-### YAML/JSON スペックフォーマット（推奨）
+| オプション | 引数の型 | デフォルト | 説明 |
+| --- | --- | --- | --- |
+| `-i, --input` | パス | `None` | 全系の構造ファイル（`.pdb`, `.cif`, `.mmcif`、または `--ref-pdb` を付けた `.xyz`）。`--csv` を使う場合のほかは必須 |
+| `-q, --charge` | 整数 | `None` | ML 領域の電荷。`-l` か `--csv` を使う場合のほかは必須 |
+| `-m, --multiplicity` | 整数 | `1` | ML 領域のスピン多重度（2S+1） |
+| `-l, --ligand-charge` | 文字列 | `None` | 未知のリガンド残基の総電荷（例: `-1`）または残基名ごとの電荷（例: `'GPP:-3,SAM:1'`）。`-q` を省いたときに ML 領域の電荷を求めるのに使用（PDB/mmCIF 入力または `--ref-pdb`） |
+| `-s, --scan-lists` | 文字列 | `None` | YAML/JSON スペックファイルまたは 1 つのインラインリテラルで 3 つの範囲を指定。距離 `(i,j,low,high)`、角度 `(i,j,k,low,high)`、二面角 `(i,j,k,l,low,high)`。`--csv` を使う場合のほかは必須 |
+| `-o, --out-dir` | パス | `./result_scan3d/` | 出力先ディレクトリ |
+| `--max-step-size` | 浮動小数点数 | `0.2` | 距離の軸の格子間隔の上限（Å） |
+| `--max-angle-step-size` | 浮動小数点数 | `5.0` | 角度の軸の格子間隔の上限（度） |
+| `--max-dihedral-step-size` | 浮動小数点数 | `10.0` | 二面角の軸の格子間隔の上限（度） |
+| `--restraint-k` | 浮動小数点数 | `300.0` | 拘束の強さ k（距離は eV/Å²、角度は eV/rad²）。別名 `--bias-k`。省くと YAML の `bias.k` を使用 |
+| `--opt-mode` | `grad` / `hess` | `grad` | 各点の緩和の方法：L-BFGS / RFO |
+| `--preopt/--no-preopt` | フラグ | `False` | スキャンの前に入力構造を拘束なしで最適化 |
+| `--dump/--no-dump` | フラグ | `False` | (d₁, d₂) の組ごとの内側ループ（d₃）の軌跡を `grid/` に出力 |
+| `--baseline` | `min` / `first` | `min` | `energy_kcal` の 0 点：使える点の最小値、または点 `(0, 0, 0)` |
+| `--zmin`, `--zmax` | 浮動小数点数 | 補間した値の最小値 / 最大値 | 8 枚の等値面を置くエネルギーの範囲の下限と上限（kcal/mol） |
+| `--thresh` | 文字列 | `baker` | 各緩和の収束プリセット（`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`） |
+| `--csv` | パス | `None` | 計算済みの `surface.csv` を読み、図だけを描く。`-i`・`--parm7`・`-s`・`-q` は不要 |
+| `--out-json/--no-out-json` | フラグ | `False` | 結果の要約を `result.json` に出力（[JSON 出力リファレンス](json-output.md)） |
 
-`-s/--scan-lists` は YAML/JSON ファイルを自動検出します。ファイルパスを渡すとスペックモードになります:
+全オプションの一覧は [自動生成 CLI リファレンス](../reference/commands/scan3d.md) を参照してください。
 
-```yaml
-one_based: true # 任意; デフォルトは CLI の --one-based/--zero-based
-pairs:
- - [12, 45, 1.30, 3.10]
- - [10, 55, 1.20, 3.20]
- - [15, 60, 1.10, 3.00]
-```
+> **補足:** YAML（`--config`）では、`--opt-mode grad` のとき `lbfgs` か `opt.lbfgs` の節が、`--opt-mode hess` のとき `rfo` か `opt.rfo` の節が効きます。軌跡を書くかどうかは `--dump` だけで決まり、YAML の `opt.dump` は使いません。
 
-- `pairs` は必須で、正確に 3 つの 4 要素タプルを含む必要があります。
-- 各軸は距離`(i,j,low,high)`、角度`(i,j,k,low,high)`、二面角`(i,j,k,l,low,high)`のいずれかです。
-- インデックスは整数または PDB セレクター（`--scan-lists` と同じ）が使用可能です。
+---
 
-### インラインリテラルフォーマット
+## 使用上の注意点
 
-`-s/--scan-lists` がファイルパスでない値を受け取ると、**単一の Python リテラル**文字列として評価されます。シェルクォートに注意してください。
+* **範囲は 1 つのリテラルに 3 つ**: `-s` には、1 つのインラインリテラル、または YAML/JSON ファイルの `pairs:` で、ちょうど 3 つの範囲を渡します。複数ステージのスキャンには [`scan`](scan.md) を使ってください。
+* **chain のある PDB では**、位置固定の 4 項目の形 `A:SAM:320:CS1` を使うと原子を一意に指定できます（{ref}`スキャンリスト仕様 <ja-scan-list-spec>` を参照）。
+* **格子の大きさ**: 緩和の回数は 3 つの軸の値の数の積で、すぐに大きくなります（例 1 では 567 回）。最初は `--max-step-size` を大きくするか、範囲を狭めてください。
+* **`--baseline first`**: 点 `(i, j, k) = (0, 0, 0)` が使える点ならそこを 0 にします。使える点でなければ `[baseline] 'first' requested but usable (i=0,j=0,k=0) is missing; using the usable minimum instead.` を表示し、使える点の最小値を使います。
+* **凍結原子**: `--freeze-atoms` か YAML の `geom.freeze_atoms` で指定した原子と、凍結 MM 層の原子は、どの緩和でも固定されます。スキャンする座標の原子がすべて凍結原子だとエラーになります（{ref}`凍結原子と拘束 <ja-freeze-atoms-and-restraints>` を参照）。
+* **計算せずに指定を確かめる**: `--dry-run` は入力・電荷とスピン・`-s` を読み、計画を表示して、最適化をせずに終わります。`--csv` を付けたときは、オプションだけを確かめます。
+* **サイクル数の上限**: `--relax-max-cycles`（デフォルト `100000`）が各緩和のサイクル数を制限します。指定すると YAML の `opt.max_cycles` より優先され、省くと YAML の値が使われます。
+* **使える点が少ないとき**: 使える点が 4 つ未満か、すべて 1 つの平面上にあるときは、図だけを省きます。`[plot] NOTE: Volume plot skipped: …` を表示し、`surface.csv`（`--out-json` 指定時は図を載せない `result.json` も）を書いて、終了コード 0 で終わります。使える点が 1 つも無いときは `[plot] No finite data for plotting.` を表示し、終了コード 1 で終わります。
+* **描き直しの警告**: `bias_converged` か `artifact_written` の列が無い表も、`[plot] WARNING: CSV lacks complete point provenance; …` を表示して読みます。`scan3d` が書く `surface.csv` には `artifact_written` の列が無いので、これを描き直すとこの警告が出て、`result.json` には `n_points_usable` が入りません。
+* **スキャンのディレクトリへの描き直し**: `--csv` の有無によらず、`--out-json` を付けない実行は `--out-dir` の `result.json` と `summary.json` を消し、付けた実行はこれらを上書きします。また、どの実行も `scan3d_density.html` を置き換えます。元のスキャンのファイルを残すには、例 4 のように `--csv` に別の `-o` を指定してください。
 
-リテラルは正確に **3 つ**の 4 要素タプル `(atom1, atom2, low_A, high_A)` の Python リストです:
+---
 
-```
--s '[(atom1, atom2, low_A, high_A), (atom3, atom4, low_A, high_A), (atom5, atom6, low_A, high_A)]'
-```
+## 関連ドキュメント
 
-- シェルが括弧やスペースを解釈しないよう、リテラル全体を**シングルクォート**で囲んでください。
-- 各 4 要素タプルは 1 つのスキャン軸を定義します: `atom1`--`atom2` 間の距離を `low_A` から `high_A` までスキャンします。
-- `scan` と異なり、**1 つのリテラル**のみ受け付けます（マルチステージ非対応）。
-
-原子は**整数インデックス**または **PDB セレクター文字列**で指定できます:
-
-| 方法 | 例 | 備考 |
-| --- | --- | --- |
-| 整数インデックス | `(1, 5, 1.30, 3.10)` | デフォルトは 1 始まり（`--one-based`） |
-| PDB セレクター | `("SAM,320,CS1", "GPP,321,C7", 1.50, 3.00)` | 残基名、残基番号、原子名 |
-
-PDB セレクターのトークンは、カンマ `,`、スペース、スラッシュ `/`、バッククォート `` ` ``、バックスラッシュ `\` のいずれかで区切れます。トークンの順序は自由です。
-
-```bash
-# 以下はすべて同じ原子を指定:
-"SAM,320,CS1"
-"SAM 320 CS1"
-"SAM/320/CS1"
-"320,SAM,CS1" # 順序は自由
-```
-
-クォート規則:
-
-```bash
-# 正しい: リスト全体をシングルクォート、内側のセレクター文字列をダブルクォート
--s '[("SAM,320,CS1","GPP,321,C7",1.50,3.00),("GPP,321,H11","GLU,186,OE2",0.90,2.50),("SAM,320,SD","SAM,320,CS1",1.80,3.00)]'
-
-# 正しい: 整数インデックスは内側のクォート不要
--s '[(1, 5, 1.30, 3.10), (2, 8, 1.20, 3.20), (3, 12, 1.10, 3.00)]'
-
-# 非推奨: 外側をダブルクォートにすると内側のクォートをエスケープする必要あり
--s "[(\"SAM,320,CS1\",\"GPP,321,C7\",1.50,3.00),...]"
-```
-
-## YAML 設定
-
-```yaml
-geom:
- coord_type: cart
- freeze_atoms: []
-calc:
- model_charge: 0
- model_mult: 1
- real_parm7: real.parm7
- model_pdb: ml_region.pdb
-opt:
- thresh: baker
- # max_cycles: 100000 # 任意の有限上限
-lbfgs:
- max_step: 0.3
-bias:
- k: 300.0
-```
-
-軌跡保存と出力先は CLI が所有する `--dump` と `--out-dir` を使います。
-
-`--opt-mode hess` は `rfo` または `opt.rfo`、`grad` は
-`lbfgs` または `opt.lbfgs` の設定を使用します。
-
-## 関連項目
-
-- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
-- [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
-
-- [scan](scan.md) -- 1D 結合距離駆動スキャン
-- [scan2d](scan2d.md) -- 2D 距離グリッドスキャン
-- [opt](opt.md) -- 構造最適化（スキャン前に実行する場合が多い）
-- [all](all.md) -- 一気通貫ワークフロー
-- [YAML リファレンス](yaml-reference.md) -- スキャンの完全な設定オプション
+* [scan](scan.md) — 1 つの構造からの、1 つ以上の座標の段階的スキャン
+* [scan2d](scan2d.md) — 2 つの座標のエネルギーマップ
+* [opt](opt.md) — スキャンの前後の単一構造の最適化
+* [tsopt](tsopt.md) — 鞍点に近い構造からの TS 最適化
+* [path-search](path-search.md) — 格子から取った構造を通る MEP 探索
+* [all](all.md) — 一貫ワークフロー
+* [トラブルシューティング](troubleshooting.md) — 異常終了時の原因切り分けと対処法

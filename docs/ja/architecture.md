@@ -2,19 +2,13 @@
 
 ## 1. 概要
 
-`mlmm-toolkit` は、完全なタンパク質環境に対して **ML/MM (ONIOM) 酵素反応経路解析** を実行する Python 製 CLI です。ここでの ML/MM とは、小さな反応コアを機械学習原子間ポテンシャル (ML) で、周囲のタンパク質を分子力学 (MM) 力場で扱い、両者を subtractive ONIOM (Our own N-layered Integrated molecular Orbital and molecular Mechanics) エネルギースキームで結合したハイブリッドモデルを指します。
+mlmm-toolkit のコードを直す人向けに、パッケージの層、ファイルの置き場、直す前に守る制約をまとめたページです。直したあとは、CONTRIBUTING の [Required validation](https://github.com/t-0hmura/mlmm_toolkit/blob/main/CONTRIBUTING.md#11-required-validation) の検査を走らせてください。計算を実行するだけなら、[はじめに](getting-started.md)から読んでください。
 
-`all` workflow は構造と領域入力から parm7 topology を生成し、ONIOM
-領域（ML / Movable-MM / Frozen）を B-factor channel に encode できます。
-複数入力では path を探索し、単一入力では `--scan-lists` または
-`--tsopt` が必要です。
+`mlmm-toolkit` は、完全なタンパク質環境に対して **ML/MM (ONIOM) 酵素反応経路解析** を実行する Python 製 CLI です。小さな反応コアを機械学習原子間ポテンシャル (MLIP) で、周囲のタンパク質を分子力学 (MM) 力場で計算し、両者を subtractive ONIOM で合わせます。
 
-mode と flag に応じて `extract`、`mm-parm`、MEP 探索、TS 最適化、IRC、
-振動解析、DFT 一点計算を構成します。TS、熱化学、DFT は任意 stage です。
+`all` workflow は `extract`、`mm-parm`、MEP 探索、TS 最適化、IRC、振動解析、DFT 一点計算をつなぎます。TS、熱化学、DFT は任意の段です。
 
-このパッケージは **6 つの物理レイヤーディレクトリ** (`cli/`、`workflows/`、`domain/`、`backends/`、`io/`、`core/`) として構成されており、それぞれの役割と依存方向は後述の §2.1 レイヤー表にまとめています。外部コードはレイヤーディレクトリから直接インポートします (`from mlmm.backends.mlmm_calc import MLMMCore`、`from mlmm.core.utils import …`、`import mlmm.io.trj2fig` など)。サポートされる 2 つのインポート方法は §2.4 に示します。
-
-3 つの内蔵フォーク (`pysisyphus/`、`thermoanalysis/`、`hessian_ff/`) はリポジトリ内モジュールとしてトップ階層に置かれています。これらは意図的に上流の PyPI 配布物を使用しておらず、`hessian_ff/` には上流配布物自体がないため同梱が必須です。§6 を参照してください。
+同梱のフォーク `pysisyphus/`、`thermoanalysis/`、`hessian_ff/` はリポジトリ最上位にあります（§5.3、§6）。
 
 ---
 
@@ -29,15 +23,15 @@ mode と flag に応じて `extract`、`mm-parm`、MEP 探索、TS 最適化、I
 | **L3 Domain** | `mlmm/domain/` | 化学を意識したヘルパーロジック (結合変化検出、結合サマリー、元素情報伝播) | `core/` |
 | **L4a Infra (MLIP + ONIOM)** | `mlmm/backends/` | MLIP バックエンドのディスパッチ、インライン実装、および ML/MM ONIOM 計算コア | `core/` |
 | **L4b Infra (I/O)** | `mlmm/io/` | 出力レイアウト、サマリー、軌跡、PDB 修正、エネルギー図、Hessian キャッシュ、解析的 Hessian glue | `core/` |
-| **L5 Foundation** | `mlmm/core/` | 共有デフォルト、PDB/XYZ/プロットヘルパー、出力・結果確定処理、残基テーブル | `backends/`、`domain/`、`io/` (後述の互換 back-edge) |
+| **L5 Foundation** | `mlmm/core/` | 共有デフォルト、PDB/XYZ/プロットヘルパー、出力・結果確定処理、残基テーブル | `backends/`、`domain/`、`io/` (後述の一部の上向きの import) |
 | （レイヤー外の同梱物） | `<repo>/pysisyphus/`、`<repo>/thermoanalysis/`、`<repo>/hessian_ff/` | リポジトリ内フォーク（オプティマイザ / 熱化学 / 解析的 MM Hessian） | （同階層、レイヤー外） |
 
-**依存方向**: *設計意図* は一方向 `L1 → L2 → {L3, L4} → L5` です。実際に **強制されている** 内容と、その担当チェッカーは次のとおりです:
+**依存の向き（設計目標）**: `L1 → L2 → {L3, L4} → L5`。共有の charge/spin 準備とレイヤーヘルパーは `workflows/charge_prep.py` と `workflows/_opt_freq_common.py` にあります。内蔵フォークは層の外にあり、どの層からも `from pysisyphus.X import Y` の形で import できます。
 
-- `.github/scripts/check_import_graph.py` (AST インポートグラフゲート) が、現時点で真である部分を強制します: (a) `mlmm` パッケージに **インポート循環がないこと** (モジュール間の強連結成分が存在しないこと)、(b) `core` と `domain` は **`workflows` を決してインポートしないこと**、(c) 内蔵フォーク (`pysisyphus` / `hessian_ff` / `thermoanalysis`) が `mlmm` をインポートしないこと。
-- `.github/scripts/check_engineering_markers.py` は *別の* 関心事 — 化学ルール / `DOMAIN_PURE` マーカーの網羅性と MLIP ランタイムのインポートスコープ — を扱います。レイヤーのインポートエッジは解析しないため、方向自体は強制しません。
+CI が検査するのはこの向きの一部だけです。
 
-現在の循環しない back-edge は、一部の `core.utils` ヘルパーから `domain.add_elem_info` と `io.structure_formats` への依存、および `core.calc_eval` から `backends.mlmm_calc` への依存に限られます。`core.utils` は `workflows` をインポートしません。共有の charge/spin 準備とレイヤーヘルパーは `workflows/charge_prep.py` と `workflows/_opt_freq_common.py` にあります。内蔵フォークはレイヤーグラフの外側に位置し、絶対パッケージパス (`from pysisyphus.X import Y`、`from hessian_ff.analytical_hessian import …`) を通じて任意のレイヤーからインポートできます。
+- `.github/scripts/check_import_graph.py` は、`mlmm` のモジュール間の import の循環、`core` と `domain` から `workflows` への import、内蔵フォークから `mlmm` への import を禁止します。
+- `.github/scripts/check_engineering_markers.py` は、`# CHEMISTRY-RULE` と `# DOMAIN_PURE` のマーカー（§5.1）と、MLIP ランタイムを `backends/` の下でだけ import していることを検査します。
 
 ### 2.2 パッケージツリーの ASCII マップ
 
@@ -116,24 +110,24 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 ├── tests/ smoke / unit
 ├── .github/ workflows/ + scripts/ (CI、リリース、設計、文書チェック)
 └── (repo-top sibling, layer-external bundled forks)
- pysisyphus/ リポジトリ内フォーク（軽量化済み）
+ pysisyphus/ リポジトリ内のオプティマイザ、TS、IRC、COS、calculator のフォーク
  thermoanalysis/ リポジトリ内フォーク
  hessian_ff/ リポジトリ内のネイティブ Hessian/MM 支援、上流 PyPI 配布なし、同梱必須
 ```
 
 ### 2.3 レイヤーごとの責務詳細
 
-**L1 `cli/`**。このレイヤーはルートディスパッチと共通の argv 解析を担当し、各リーフの Click コマンドは登録先の `workflows/`、`domain/`、`io/` モジュールで定義されます。`app.py` はルートの `Click.Group` と `_LAZY_SUBCOMMANDS` レジストリを保持します — すべてのエントリが **絶対モジュールパス** (`mlmm.workflows.all`、`mlmm.io.trj2fig`、…) を使用するため、リゾルバは `default_group.py` 自体の置き場所に依存しません。`mlmm` 固有の `preflight.py` (AmberTools / conda env / GPU preflight) がここにあるのは、CLI 起動時、いかなる L2 ワークフローが呼び出されるよりも前に実行されるためです。
+**L1 `cli/`** は、ルートディスパッチと共通の argv 解析を受け持ちます。各サブコマンドの Click コマンドは、登録先の `workflows/`、`domain/`、`io/` のモジュールで定義されます。`app.py` はルートの `Click.Group` と `_LAZY_SUBCOMMANDS` レジストリを持ち、各エントリは **絶対モジュールパス** を使います (§5.5)。`preflight.py` (AmberTools / conda env / GPU preflight) がここにあるのは、CLI の起動時、L2 のワークフローより前に実行されるためです。
 
-**L2 `workflows/`** にはコマンドモジュールと共有ワークフローヘルパーがあります。`cli/app.py:_LAZY_SUBCOMMANDS` に登録されたモジュールが `cli` という `@click.command()` を所有します。`_all_helpers.py`、`_opt_freq_common.py`、`_run_session.py`、`scan_common.py`、`restraints.py` などは独立したコマンドを持たない共有ヘルパーです。大きなステージランナーは現在も単一モジュールです。
+**L2 `workflows/`** にはコマンドモジュールと共有ワークフローヘルパーがあります。`cli/app.py:_LAZY_SUBCOMMANDS` に登録されたモジュールが `cli` という `@click.command()` を所有します。`_all_helpers.py`、`_opt_freq_common.py`、`_run_session.py`、`scan_common.py`、`restraints.py` などは独立したコマンドを持たない共有ヘルパーです。
 
-**L3 `domain/`**。化学を意識したヘルパーロジックで、`torch` / `numpy` / `pysisyphus.constants` (数値バックエンド) はインポートしてよいですが、MLIP ランタイム (`fairchem`、`orb_models`、`mace`、`aimnet`) は **インポートできません**。この deny list は `.github/scripts/check_engineering_markers.py` (`_check_external_library_scope`) によってリポジトリ全体で強制されており、`backends/` 以外のモジュールでこれらのインポートを禁止します。別個の `# DOMAIN_PURE` モジュール docstring マーカーは、これとは異なる CI ゲート (`_check_domain_pure`) です。このゲートは `backends/mlmm_calc.py`、`workflows/tsopt.py`、`workflows/freq.py` にマーカーがあることだけを確かめ（`workflows/sp.py` にも付いています）、import は制限しません。これ自体は deny-list 機構ではなく、`domain/` のファイルはどれもこのマーカーを持ちません。Domain ヘルパーは任意の L2 ステージランナーから再利用できます。
+**L3 `domain/`**。化学を意識したヘルパーロジックで、`torch` / `numpy` / `pysisyphus.constants` (数値バックエンド) はインポートしてよいですが、MLIP ランタイム (`fairchem`、`orb_models`、`mace`、`aimnet`) は **インポートできません**。Domain ヘルパーは任意の L2 ステージランナーから再利用できます。
 
-**L4a `backends/`**。ML/MM ONIOM 計算コア (`mlmm_calc.py`) とバックエンドディスパッチ (`__init__.py`) はここにあります。ML 領域の UMA / ORB / MACE / AIMNet2 と OpenMM / hessian_ff の連携はこのレイヤーからディスパッチされます。`mlmm_calc.py` は化学ルール **#1 (subtractive ONIOM)**、**#2 (link-atom Hessian B-matrix)**、**#8 (3-layer 5-pass partial Hessian)** を保持し、ルール **#9 (parm7 atom indexing)** は `io/pdb_indexing.py` にあります — §5.1 を参照してください。
+**L4a `backends/`**。ML/MM ONIOM 計算コア (`mlmm_calc.py`) とバックエンドディスパッチ (`__init__.py`) はここにあります。ML 領域の UMA / ORB / MACE / AIMNet2 と OpenMM / hessian_ff の連携はこのレイヤーからディスパッチされます。`mlmm_calc.py` は化学ルール #1、#2、#8 を持ちます (§5.1)。
 
 **L4b `io/`**。出力側の I/O には、ステージごとのサマリーライター、エネルギー図、軌跡レンダリング、PDB/altloc 処理、Hessian キャッシュ、数値 Hessian 構築、および振動数・振動 I/O (`hessian_calc.py`) が含まれます。`io/` は `workflows/` に依存しません。出力形式はここで管理され、ステージランナーから使用されます。
 
-**L5 `core/`**。最下層です。`defaults.py` は共有デフォルトの **ソース** です。まずここを確認し、その後で正当なコマンド固有デフォルトを確認します。`utils.py` は共有 PDB / XYZ / プロットヘルパーを保持し、`logging.py`（サブコマンドごとの `-v/--verbose LEVEL`、0–3）、`calc_eval.py` (ステージごとの計算評価)、`residue_data.py` (残基テーブル) もここにあります。
+**L5 `core/`**。最下層です。`defaults.py` は共有デフォルトの **唯一の出典** です。まずここを確認し、その後で正当なコマンド固有デフォルトを確認します。`utils.py` は共有 PDB / XYZ / プロットヘルパーを保持します。
 
 ### 2.4 遅延インポート機構 (概念図)
 
@@ -164,10 +158,8 @@ mlmm myaction ─────────────────► mlmm/cli/ap
 
 2 つのインポートサーフェスをサポートします:
 
-1. **レイヤー化インポートパス**: 外部コードはレイヤーディレクトリから直接インポートします (`from mlmm.backends.mlmm_calc import MLMMCore`、`from mlmm.core.utils import …`、`import mlmm.io.trj2fig` など)。
-2. **ルートシンボル属性** (`from mlmm import MLMMCore`) — `mlmm/__init__.py:_LAZY_IMPORTS` + PEP 562 `__getattr__` によって処理されます。再エクスポートされる 4 つのシンボル (`MLMMCore`、`MLMMASECalculator`、`mlmm`、`mlmm_mm_only`) はすべて `mlmm.backends.mlmm_calc` に解決され、初回アクセス時にロードされるため、`import mlmm` は安価なまま保たれます (eager なのは `__version__` のみ)。ルートのモジュール属性サーフェスは **存在しません** — サブモジュールはトップレベルパッケージの属性としてではなく、フルパス (`import mlmm.io.trj2fig`) で到達します。
-
-CLI サブコマンドリゾルバ (`cli/app.py:_LAZY_SUBCOMMANDS`) は **絶対** モジュールパス (例: `"mlmm.workflows.all"`) を使用するため、サブコマンド発見はリゾルバモジュールの `__package__` に依存しません。
+1. **レイヤー化インポートパス**: 外部コードはレイヤーディレクトリから直接インポートします。例: `from mlmm.backends.mlmm_calc import MLMMCore`。
+2. **ルートシンボル属性** (`from mlmm import MLMMCore`) — `mlmm/__init__.py:_LAZY_IMPORTS` + PEP 562 `__getattr__` によって処理されます。再エクスポートされる 4 つのシンボル `MLMMCore`、`MLMMASECalculator`、`mlmm`、`mlmm_mm_only` はすべて `mlmm.backends.mlmm_calc` に解決され、初回アクセス時にロードされるため、`import mlmm` は安価なまま保たれます (eager なのは `__version__` のみ)。サブモジュールはトップレベルパッケージの属性としてではなく、フルパス (`import mlmm.io.trj2fig`) で到達します。
 
 ---
 
@@ -177,13 +169,13 @@ CLI サブコマンドリゾルバ (`cli/app.py:_LAZY_SUBCOMMANDS`) は **絶対
 
 | step | minutes | open | what you learn |
 |------|---------|------|-----------------|
-| 1 | 3 | [`README.md`](https://github.com/t-0hmura/mlmm_toolkit/blob/main/README.md) | 1 段落のエレベーターピッチ + 単一コマンドの使用法 |
+| 1 | 3 | [`README.md`](https://github.com/t-0hmura/mlmm_toolkit/blob/main/README.md) | パッケージを 1 段落で説明した概要 + 単一コマンドの使用法 |
 | 2 | 5 | このファイル (`docs/architecture.md`) §2 + §4 | 6 レイヤーのディレクトリツリー、依存方向、各関心事の所在 |
 | 3 | 5 | [`mlmm/cli/app.py`](../../mlmm/cli/app.py) | Click ルートグループ、`_LAZY_SUBCOMMANDS` レジストリ (≈ 22 エントリ)、絶対パス解決 |
 | 4 | 20 | [`mlmm/workflows/all.py`](../../mlmm/workflows/all.py) (skim) | 1 つの完全なサブコマンドを上から下まで。`extract → mm-parm → ONIOM model → MEP → tsopt → IRC → freq → dft` をトレース |
 | 5 | 7 | [`CONTRIBUTING.md`](https://github.com/t-0hmura/mlmm_toolkit/blob/main/CONTRIBUTING.md) §3 + §4 | 5 つの add-a-X レシピ + 「触るな」の隠れた制約 |
 
-ステップ 5 のあとは、§4 のファイルインデックスをたどることで他のファイルも読めます。このパッケージは意図的に **各レイヤー内でフラット** で、`mlmm/<layer>/` 配下にネストしたパッケージはありません。主要モジュールは `mlmm/` から 2 ディレクトリ以内にあります。
+ステップ 5 のあとは、§4 のファイルインデックスをたどることで他のファイルも読めます。このパッケージは **各レイヤー内でフラット** で、`mlmm/<layer>/` 配下にネストしたパッケージはありません。主要モジュールは `mlmm/` から 2 ディレクトリ以内にあります。
 
 ---
 
@@ -197,25 +189,26 @@ CLI サブコマンドリゾルバ (`cli/app.py:_LAZY_SUBCOMMANDS`) は **絶対
 | サブコマンドリゾルバ (遅延インポート) | `mlmm/cli/default_group.py` |
 | `python -m mlmm` shim | `mlmm/__main__.py` |
 | 共有オプションデコレータファクトリ | `mlmm/cli/common_options.py` |
+| Bool/YAML/例外の CLI ヘルパー | `mlmm/cli/decorators.py` |
 | `--help-advanced` pager | `mlmm/cli/help_pages.py` |
-| Bool フラグ互換 (`--flag` / `--no-flag` + 値スタイル) | `mlmm/cli/bool_compat.py` |
+| Bool フラグの解釈 (`--flag` / `--no-flag` + 値スタイル) | `mlmm/cli/bool_compat.py` |
 | AmberTools / conda env / GPU preflight | `mlmm/cli/preflight.py` |
 
 ### 4.2 ワークフローステージランナー (L2 `workflows/`)
 
-以下で用いる略語: MEP = 最小エネルギー経路、GSM = growing-string method、COS = chain-of-states、RS-P-RFO = restricted-step partitioned rational-function optimization、RS-I-RFO = restricted-step image-function rational-function optimization、Bofill = Bofill Hessian 更新式、PHVA = partial Hessian vibrational analysis、IRC = 固有反応座標、Kabsch = Kabsch 剛体アラインメントアルゴリズム。
+以下で用いる略語: GSM = growing-string method、COS = chain-of-states、RS-P-RFO = restricted-step partitioned rational-function optimization、RS-I-RFO = restricted-step image-function rational-function optimization、PHVA = partial Hessian vibrational analysis。
 
 | concern | file |
 |---|---|
 | 完全パイプラインオーケストレータ | `mlmm/workflows/all.py` |
 | 構造最適化 (ONIOM マクロ/マイクロ pre-opt) | `mlmm/workflows/opt.py` |
-| Scanと2D/3D energy-landscape grid + 共有 | `mlmm/workflows/scan{,2d,3d,_common}.py` |
+| Scan と 2D/3D energy-landscape grid + 共有 | `mlmm/workflows/scan{,2d,3d,_common}.py` |
 | MEP 探索 (GSM) | `mlmm/workflows/path_search.py` |
 | MEP オプティマイザコア (pysisyphus COS) | `mlmm/workflows/path_opt.py` |
 | TS 最適化 (RS-P-RFO / RS-I-RFO / TRIM + Bofill + マクロ/マイクロ) | `mlmm/workflows/tsopt.py` |
 | 振動解析 (PHVA + MLIP active block) | `mlmm/workflows/freq.py` |
 | IRC 積分 (マクロ / マイクロ) | `mlmm/workflows/irc.py` |
-| 単一点 DFT (gpu4pyscf サブプロセス、ONIOM 埋め込み) | `mlmm/workflows/dft.py` |
+| 単一点 DFT (ONIOM 埋め込み) | `mlmm/workflows/dft.py` |
 | 活性部位抽出 (クラスター切り出し + リンク原子キャップ) | `mlmm/workflows/extract.py` |
 | ML / Movable-MM / Frozen 領域割り当て | `mlmm/workflows/define_layer.py` |
 | AmberTools 駆動の MM パラメータ生成 | `mlmm/workflows/mm_parm.py` |
@@ -277,8 +270,6 @@ CLI サブコマンドリゾルバ (`cli/app.py:_LAZY_SUBCOMMANDS`) は **絶対
 | `thermoanalysis/` | 熱化学 (ΔG, ZPE, 分配関数) | `QCData.py` (upstream とのブランディング差分) |
 | `hessian_ff/` | MM 力場上の解析的 Hessian — **PyPI 404、バンドルは必須** | `analytical_hessian.py` (`mlmm/backends/mlmm_calc.py` が消費する唯一のエントリ) |
 
-各ディレクトリの `README.md` で触るべきでない境界 (touch-restriction boundary) を確認してください。
-
 ---
 
 ## 5. 科学的な不変条件
@@ -304,7 +295,7 @@ grep -rn '# DOMAIN_PURE' mlmm/
 | 1 | Subtractive ONIOM エネルギー式 (`E = mm_real + ml_model − mm_model`) | `mlmm/backends/mlmm_calc.py` |
 | 2 | Link-atom Hessian B-matrix 投影 | `mlmm/backends/mlmm_calc.py` |
 | 3 | Hessian TS オプティマイザのマクロ / マイクロ交互（RS-P-RFO がデフォルト） | `mlmm/workflows/tsopt.py` |
-| 4 | gpu4pyscf `rks_lowmem` のclosed-shell/GPU/lowmem guard | `mlmm/core/dft_settings.py` |
+| 4 | gpu4pyscf `rks_lowmem` の closed-shell/GPU/lowmem guard | `mlmm/core/dft_settings.py` |
 | 5 | def2 ファミリーの自動 ECP 注入 | `mlmm/workflows/dft.py` |
 | 6 | PHVA + MLIP active-block partial Hessian | `mlmm/workflows/freq.py` |
 | 7 | `bofill_update` advanced-indexing scatter | `mlmm/workflows/tsopt.py` |
@@ -320,9 +311,9 @@ grep -rn '# DOMAIN_PURE' mlmm/
 | 5-pass Hessian セット | #1, #2, #8, #9 | subtractive ONIOM + link-atom B-matrix + 3-layer アセンブリ + parm7 インデックス | `mlmm/backends/mlmm_calc.py` (9 ルールのうち 3 つのホスト: #1/#2/#8; #9 は `mlmm/io/pdb_indexing.py`) |
 | TS 最適化セット | #3, #7 | マクロ / マイクロ交互 + Bofill scatter | `mlmm/workflows/tsopt.py` |
 | 振動セット | #6 | PHVA + MLIP active-block partial Hessian | `mlmm/workflows/freq.py` |
-| DFT セット | #4, #5 | gpu4pyscf 低メモリ + def2 ECP 注入 | `mlmm/workflows/dft.py` |
+| DFT セット | #4, #5 | gpu4pyscf 低メモリ + def2 ECP 注入 | `mlmm/core/dft_settings.py` (#4)、`mlmm/workflows/dft.py` (#5) |
 
-mlmm における実践的なカリキュラムは、まず 5-pass Hessian セット (#1, #2, #8 は `mlmm_calc.py` 内、#9 は `io/pdb_indexing.py`)、次に TS セット (#3, #7)、次に DFT (#4, #5)、最後に振動 (#6) です。
+mlmm における実践的なカリキュラムは、まず 5-pass Hessian セット、次に TS セット (#3, #7)、次に DFT (#4, #5)、最後に振動 (#6) です。
 
 ### 5.2 VRAM 管理の不変条件 (`del` チェーンをリファクタしないこと)
 
@@ -330,7 +321,7 @@ IRC / TSopt / Freq ステージは、CUDA メモリを解放するためにス�
 
 ### 5.3 内蔵フォーク: upstream を併存インストールしないこと
 
-内蔵された `pysisyphus/`、`thermoanalysis/`、`hessian_ff/` パッケージは **フォーク** です (そして `hessian_ff/` の場合は、入手可能な **唯一** の配布物です — PyPI は 404 を返します)。このパッケージの隣に `pip install pysisyphus` や `pip install thermoanalysis` を再インストールすると、次が静かに壊れます:
+内蔵された `pysisyphus/`、`thermoanalysis/`、`hessian_ff/` パッケージは **フォーク** です。`hessian_ff/` には PyPI 版がありません。このパッケージの隣に `pip install pysisyphus` や `pip install thermoanalysis` を再インストールすると、次が静かに壊れます:
 
 - `pysisyphus/irc/IRC.py` — 初期変位のメモリ管理
 - `pysisyphus/optimizers/hessian_updates.py` — GPU 常駐の in-place rank-two Bofill 更新、オプトインの `PYSIS_BOFILL_CPU_OFFLOAD=1` フォールバック
@@ -356,24 +347,24 @@ IRC / TSopt / Freq ステージは、CUDA メモリを解放するためにス�
 | dir | upstream PyPI? | purpose | scope of edits allowed |
 |---|---|---|---|
 | `pysisyphus/` | NO — フォーク、`pip install pysisyphus` を併存させない | オプティマイザ、TS、IRC、COS、calculators | 記載された差分を維持し、数値変更は focused test と scheduled numerical test で検証 |
-| `thermoanalysis/` | NO — フォーク (ブランディング差分) | ΔG, ZPE, 分配関数, `QCData` | `QCData` の利用側契約を維持。README参照 |
-| `hessian_ff/` | **NO — PyPI 404、バンドル必須** | MM 力場上の解析的 Hessian | 導関数と公開 API の契約を維持。README参照 |
+| `thermoanalysis/` | NO — フォーク (ブランディング差分) | ΔG, ZPE, 分配関数, `QCData` | `QCData` の利用側契約を維持。README 参照 |
+| `hessian_ff/` | **NO — PyPI 404、バンドル必須** | MM 力場上の解析的 Hessian | 導関数と公開 API の契約を維持。README 参照 |
 
-各ディレクトリの `README.md` は、上流との差分と利用側の契約を列挙します。レイヤーモデルから見ると、これらのフォークは L1..L5 グラフの **外側** に位置します。任意のレイヤーが絶対パッケージパス (`from pysisyphus.X import Y`、`from hessian_ff.analytical_hessian import …`) を通じてこれらをインポートでき、`L1 → L2 → {L3, L4} → L5` の方向を壊しません。
+各ディレクトリの `README.md` は、上流との差分と利用側の契約を列挙します。
 
 
 ---
 
 ## 7. 推奨される深掘り読書順序 (5〜10 ファイル)
 
-初見者向けツアー (§3) のあとは、この深さ優先の読書順序に従ってください:
+初見者向け 5 ステップナビゲーション (§3) のあとは、この深さ優先の読書順序に従ってください:
 
-1. `mlmm/core/defaults.py` — デフォルト値テーブルを取り込む。下流のすべてがここから読み取る。
+1. `mlmm/core/defaults.py` — デフォルト値のテーブルです。下流のすべてがここから読み取ります。
 2. `mlmm/cli/app.py` — Click ルート + `_LAZY_SUBCOMMANDS` レジストリ。
 3. `mlmm/workflows/all.py` — 1 つの完全なパイプラインを上から下まで。
-4. `mlmm/workflows/extract.py` + `define_layer.py` — クラスター切り出し + リンク原子キャップ + ONIOM レイヤー割り当て。
+4. `mlmm/workflows/extract.py` + `define_layer.py` — クラスター切り出し + リンク原子キャップ + ONIOM の層の割り当て。
 5. `mlmm/workflows/mm_parm.py` — AmberTools parm7 生成。
-6. `mlmm/backends/mlmm_calc.py` — ML/MM の心臓部 (化学ルール #1, #2, #8 がここにある。#9 は `mlmm/io/pdb_indexing.py`)。
+6. `mlmm/backends/mlmm_calc.py` — ML/MM の心臓部 (CHEMISTRY-RULE:1, 2, 8)。
 7. `mlmm/workflows/tsopt.py` — Hessian TS オプティマイザ + Bofill (CHEMISTRY-RULE:7) + マクロ / マイクロ交互 (CHEMISTRY-RULE:3)。
 8. `mlmm/workflows/freq.py` — PHVA + MLIP active-block (CHEMISTRY-RULE:6)。
 9. `mlmm/workflows/irc.py` — VRAM 管理 + マクロ / マイクロ IRC。
@@ -390,3 +381,8 @@ IRC / TSopt / Freq ステージは、CUDA メモリを解放するためにス�
 - **Frozen 領域**: タンパク質の残りの部分で、剛体として保持されます
 
 この分割は入力 PDB の B-factor チャネルにエンコードされ、`extract → mm-parm → ONIOM model → MEP → tsopt → IRC → freq → dft` を通じて伝播されます。
+
+## 使用上の注意点
+
+- 今は依存の向きを破る `core/` の import がいくつかあります: `core.utils` → `domain.add_elem_info`・`io.structure_formats`、`core.calc_eval` → `backends.mlmm_calc`。どれも循環は作りません。
+- `_check_domain_pure` ゲートは、`backends/mlmm_calc.py`、`workflows/tsopt.py`、`workflows/freq.py` に `# DOMAIN_PURE` マーカーがあることだけを確かめます。`workflows/sp.py` にも付いていて、`domain/` のファイルには付いていません。

@@ -1,232 +1,187 @@
-# `irc`
+# `irc`（固有反応座標）
 
-`mlmm irc` は ML/MM calculator を用いた EulerPC ベースの IRC（固有反応座標）積分により、遷移状態から両方向へ経路を追跡します。standalone 出力は生の端点候補です。端点の最適化結果と、目的の反応物・生成物への対応は別々に記録します。`mlmm all` はこの端点 refinement を自動実行します。典型的には `tsopt` -> `freq`（**1 つ**の虚振動数モードを確認）-> `irc` というワークフローで実行します。共通input bridgeはPDB/mmCIFと`geom_loader`対応形式を受け入れます。直接入力または`--ref-pdb`でPDB/mmCIF topologyがあり、変換が有効ならPDB companionを生成し、mmCIF/oversized-PDB bridge入力では元IDを復元したCIF companionも生成します。
+## 概要
 
-IRC 単独の `scientific_status` や方向別の成功判定は出力しません。予測子の内部積分予算による停止でも、有限の保存端点は端点 OPT に渡します。軌跡・停止理由は保持し、欠損構造、非有限の座標・エネルギー、実行例外はエラーとして報告します。目的の R/P との対応は機構検討の情報であり、最適化収束とは別です。
+`irc` サブコマンドは、ML/MM の系で最適化した遷移状態（TS）から、EulerPC（Euler 予測子–修正子法）で固有反応座標（IRC）を両方向へたどります。各分岐の軌跡と、2 つの端点の候補を書き出します。この端点を [`opt`](opt.md) で最適化すると、TS がどの反応物（R）と生成物（P）をつなぐかが分かります。
 
-## 実行例
+### 主な用途
 
-最小構成で TS の PDB から実行:
+* **TS の確認**: [`tsopt`](tsopt.md) と [`freq`](freq.md)（n_imag = 1）の後に、TS が意図した R と P をつなぐかを確かめる
+* **R と P の取得**: 端点を [`opt`](opt.md) で最適化し、この TS の R と P の構造を得る
+* **`all` の IRC 段のやり直し**: [`all`](all.md) の IRC を、設定を変えて単独でたどり直す
 
-```bash
-mlmm irc -i ts.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 -m 1 --max-cycles 50 --out-dir ./result_irc
-```
+ML 領域の計算バックエンドにはデフォルトの **UMA**（Meta）のほか、`-b/--backend` で **ORB**、**MACE**、**AIMNet2**、**DFT** も選べます。MM 原子には `--parm7` の Amber 力場を使います。
 
-正方向のみ実行:
+---
 
-```bash
-mlmm irc -i ts.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 --no-backward --out-dir ./result_irc_forward
-```
+## 基本的な実行例
 
-ステップサイズを小さくして解析 Hessian を使用:
+### 1. 両方向の IRC
+
+TS の構造 `ts.pdb` から両方向へたどり、`--out-json` で結果の要約も書き出します。
 
 ```bash
 mlmm irc -i ts.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 -m 1 --step-size 0.05 \
- --hessian-calc-mode Analytical --out-dir ./result_irc_analytical
+    -q 0 -m 1 --out-json --out-dir ./result_irc
 ```
 
-IRC がほぼ直ちに停止する場合は、まず `--step-size` を小さくします（例:
-0.10 から 0.05 Bohr）。すべての物理的端点判定を無視して追跡する場合は、
-`--never-stop` を明示的に指定できます:
+### 2. 順方向だけ
 
-```bash
-mlmm irc -i ts.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
- --step-size 0.05 --never-stop --max-cycles 250 -o result_irc_continue
-```
-
-このモードでも数値／integration失敗、外部中断、サイクル上限では停止します。
-方向ごとの停止理由と端点 stationary 判定を診断情報として記録します。
-両方向の軌跡を確認し、端点を最適化・検証してから採用してください。
-
-両ブランチを保持してステップ上限を引き上げ:
+順方向の分岐だけをたどります。
 
 ```bash
 mlmm irc -i ts.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 -m 1 --max-cycles 150 \
- --out-dir ./result_irc_long
+    -q 0 -m 1 --no-backward --out-dir ./result_irc_forward
 ```
 
-コマンド形式:
+### 3. 解析 Hessian
+
+最初の Hessian を、ML バックエンドに有限差分ではなく解析的に計算させます。
 
 ```bash
-mlmm irc -i TS_STRUCTURE --parm7 PARM7 --model-pdb ML_REGION [options]
+mlmm irc -i ts.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
+    -q 0 -m 1 --hessian-calc-mode Analytical --out-dir ./result_irc_analytical
 ```
 
-`mlmm irc --help` でコアオプションを、`mlmm irc --help-advanced` で全オプション一覧を表示します。
+### 4. 小さいステップでの再試行
 
-## 処理の流れ
+分岐が数フレームで止まるときは、最大ステップを 0.05 bohr にして再試行します。
 
-1. **入力準備** -- TS 構造、Amber トポロジー（`--parm7`）、ML 領域定義（`--model-pdb` / `--model-indices`）を読み込み、電荷とスピンを確定します。直接PDB/mmCIF入力または`--ref-pdb`がcompanion出力用topologyを提供します。
-2. **ML/MM calculatorの構築** -- `--parm7` と `--model-pdb` から ML/MM calculatorを構築します。`-b/--backend` で ML バックエンドを選択し（デフォルト: `uma`）、`--hessian-calc-mode` は MLIP Hessian 評価を制御します。
-3. **凍結境界の TR 処理** -- 固定の constrained 処理は、凍結 anchor をすべて動かさない全系剛体運動だけを除去します。一般的な有効 rank は anchor が 0/1/2/非共線の 3 個以上のとき 6/3/1/0 で、実用的な ML/MM 境界では通常 0 です。
-4. **IRC 積分** -- EulerPC 積分器が両方向に沿って IRC を伝播します（`--no-forward` または `--no-backward` でブランチを無効化可能）。ステップサイズとサイクル数で積分長を制御します。
-5. **出力と変換** -- 軌跡はXYZで書き出されます。PDB/mmCIF topologyが利用可能で`--convert-files`が有効ならPDB companionを生成し、bridge入力では元ID付きCIF companionも生成します。
-
-## 出力
-
-```
-out_dir/ (デフォルト: ./result_irc/)
-├─ result.json                      # --out-json 時。rigid_projection provenance を含む
-├─ <prefix>irc_data.h5              # 低レベルの周期 checkpoint。YAML でのみ opt-in
-├─ <prefix>finished_irc_trj.xyz     # 完全 IRC 軌跡（XYZ/TRJ）
-├─ <prefix>forward_irc_trj.xyz      # 正方向パスセグメント
-├─ <prefix>backward_irc_trj.xyz     # 逆方向パスセグメント
-├─ <prefix>finished_irc.pdb         # PDB 変換（入力が .pdb または --ref-pdb 指定時）
-├─ <prefix>finished_irc.cif         # bridge入力。元IDを復元
-├─ <prefix>forward_irc.pdb          # PDB 変換（入力が .pdb または --ref-pdb 指定時）
-├─ <prefix>forward_irc.cif          # bridge入力の順方向CIF
-├─ <prefix>backward_irc.pdb         # PDB 変換（入力が .pdb または --ref-pdb 指定時）
-├─ <prefix>backward_irc.cif         # bridge入力の逆方向CIF
-├─ <prefix>forward_first.xyz        # 正方向 IRC 終点（XYZ、単一フレーム）
-├─ <prefix>forward_first.pdb/.cif   # 正方向IRC終点companion（利用可能時）
-├─ <prefix>backward_last.xyz        # 逆方向 IRC 終点（XYZ、単一フレーム）
-└─ <prefix>backward_last.pdb/.cif   # 逆方向IRC終点companion（利用可能時）
+```bash
+mlmm irc -i ts.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
+    -q 0 -m 1 --step-size 0.05 --out-dir ./result_irc_small_step
 ```
 
-`irc.prefix`が空でない場合、EulerPCはファイル名との間に`_`を1つ補います。たとえば
-`prefix: trial`は`trial_finished_irc_trj.xyz`を生成し、`result.json.files`にも
-正規化後の名前を記録します。
+### 5. サイクルの上限までたどる
 
-`irc.dump_every` のデフォルトは `null` なので、HDF5 checkpoint は作成されません。
-YAML で正の値を指定した場合のみ、現在方向の座標・エネルギー・勾配で周期的に
-上書きされます。最終的な双方向 IRC 成果物ではなく、Hessian は含まず、
-`result.json.files` にも登録しません。
+`--never-stop` を付けると、勾配とエネルギーによる停止の条件を無視し、各分岐を `--max-cycles` までたどります。
 
-standalone IRC はstitched pathの`first` / `last`端点と、その方向のbond changesを
-記録します。化学的なreactant/product identityは割り当てないため、R/Pの命名前に
-端点構造を確認または参照構造と対応付けてください。
-
-主に確認するファイル:
-
-- `result_irc/finished_irc_trj.xyz`
-- `result_irc/forward_irc_trj.xyz`
-
-## CLI オプション
-
-| オプション | 説明 | デフォルト |
-| --- | --- | --- |
-| `-b, --backend CHOICE` | 高レベルbackend: `uma`（デフォルト）、`orb`、`mace`、`aimnet2`、`dft`。 | `uma` |
-| `--cmap/--no-cmap` | REAL と MODEL の両 MM 層で CMAP を保持します。 | `--cmap` |
-| `--hess-device CHOICE` | 初期 Hessian の格納・IRC 演算のデバイス: `auto`、`cuda`、`cpu`。大規模非凍結系では `cpu` を推奨。 | `auto` |
-| `--read-hess PATH` | Hessian を計算せず、また前の stage の Hessian も使わず、NumPy の `.npy` ファイル（`freq`・`tsopt` の `--dump-hess` で書いたものなど）から初期 Hessian を読む。`irc.hessian_init: calc`（デフォルト）が必要。 | _None_ |
-| `-i, --input PATH` | 構造ファイル（`.pdb`/`.xyz`/`_trj.xyz`/...）。`geom_loader` で読み取り可能な任意の形式。 | 必須 |
-| `--parm7 PATH` | 全酵素/MM 領域の Amber トポロジー。YAML の `calc.real_parm7` が無い場合は必須。 | _None_ |
-| `--model-pdb PATH` | ML 領域を定義する PDB。有効な B-factor layer または `--model-indices` で定義する場合は省略可能。 | _None_ |
-| `--model-indices TEXT` | ML 領域原子インデックス（カンマ区切り、範囲指定可: `1-10,15`）。`--model-pdb` 省略時に使用。 | _None_ |
-| `--detect-layer / --no-detect-layer` | 入力 PDB の B 因子（`B=0/10/20`）から ML/MM レイヤーを自動検出。 | 有効 |
-| `--freeze-atoms TEXT` | 1 始まりの凍結原子インデックスをカンマ区切りで指定。 | _None_ |
-| `-q, --charge INT` | ML 領域/model system の正味電荷。YAML の `calc.model_charge` を上書き。 | _None_（`-l` 未指定時は必須） |
-| `-l, --ligand-charge TEXT` | 未知リガンド残基の合計電荷または残基別マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に ML 領域の正味電荷を導出。 | _None_ |
-| `-m, --multiplicity INT` | スピン多重度 (2S+1)。`calc.model_mult` を上書き。 | `1` |
-| `--max-cycles INT` | IRCステップ上限。`irc.max_cycles`を上書き。 | `125` |
-| `--step-size FLOAT` | ステップ長（Bohr、非質量加重デカルト座標）。`irc.step_length` を上書き。 | `0.10` |
-| `--root INT` | 初期変位の虚振動数モードインデックス。`irc.root` を上書き。 | `0` |
-| `--forward/--no-forward` | 正方向 IRC を実行。`irc.forward` を上書き。 | `True` |
-| `--backward/--no-backward` | 逆方向 IRC を実行。`irc.backward` を上書き。 | `True` |
-| `--never-stop/--no-never-stop` | RMS-gradient、hard-gradient、energy上昇、1 stepのenergy変化量停止（`abs(E_n-E_{n-1}) <= energy_thresh`、デフォルト`1e-6` Hartree）を無視して最大サイクルまで追跡。数値／integration失敗や外部中断では停止。 | `False` |
-| `-o, --out-dir PATH` | 出力ディレクトリ。`irc.out_dir` を上書き。 | `./result_irc/` |
-| `--ref-pdb FILE` | `--input`がXYZの場合に使用する参照PDB/mmCIF topology（XYZ座標を保持）。 | _None_ |
-| `--convert-files/--no-convert-files` | 参照topologyがある場合のXYZ/TRJ→PDB/CIF companionを切り替え。 | `True` |
-| `--hessian-calc-mode CHOICE` | MLIP が Hessian を構築する方法（`Analytical` または `FiniteDifference`）。`calc.hessian_calc_mode` を上書き。 | `FiniteDifference` |
-| `--uma-workers INT` | UMA predictor worker 数。2 以上は `fairchem-core[extras]` が必要で、解析 Hessian と併用不可。 | `1` |
-| `--uma-workers-per-node INT` | UMA 並列 predictor のノード当たり worker 数。 | _None_ |
-| `--config FILE` | 明示 CLI 適用前に読み込むベース YAML。 | _None_ |
-| `--show-config/--no-show-config` | 読み込んだ YAML ファイルとその最上位の key を表示して実行を継続。 | `False` |
-| `--mm-backend [hessian_ff\|openmm]` | MM バックエンド。Hessian 構築法は `calc.mm_fd` が別に制御します（デフォルト `true`: 有限差分）。 | `hessian_ff` |
-| `--link-atom-method [scaled\|fixed]` | リンク原子配置: scaled（$g$ 係数）または fixed（1.09/1.01 Å）。 | `scaled` |
-| `--out-json/--no-out-json` | 機械可読な `result.json` を `out_dir` に書き出し。 | `False` |
-| `--dry-run/--no-dry-run` | 実行せずにオプションと入力を検証する。`--help-advanced` に表示。 | `False` |
-
-`--read-hess` は [`freq`](freq.md) と同じ `.npy` ファイル（全原子か、Hessian を計算した
-原子だけ）を受け、確かめるのは大きさ・対称・有限だけです。ファイルから読んだときの
-`result.json["rigid_projection"]["hessian_source"]` は `"file"` です。
-
-## YAML 設定
-
-マージ順 **デフォルト < config < 明示 CLI** でマッピングを提供します。
-共有セクションはジオメトリ/計算機キーについて [YAML リファレンス](yaml-reference.md) を再利用します。`irc` では YAML/CLI マージ後に `geom.coord_type` が `cart` に強制されます。`calc.return_partial_hessian` は明示的な YAML 指定が無い場合に `true` がデフォルト適用され（active-DOF 処理を伴う partial Hessian）、明示的な `false` は full Hessian を要求します。
-
-### CLI から YAML へのマッピング
-
-| CLI オプション | YAML キー |
-|------------|----------|
-| `--charge` | `calc.model_charge` |
-| `--multiplicity` | `calc.model_mult` |
-| `--step-size` | `irc.step_length` |
-| `--max-cycles` | `irc.max_cycles` |
-| `--root` | `irc.root` |
-| `--forward` | `irc.forward` |
-| `--backward` | `irc.backward` |
-| `--never-stop` | `irc.never_stop` |
-| `--out-dir` | `irc.out_dir` |
-| `--hessian-calc-mode` | `calc.hessian_calc_mode` |
-
-### YAML 例
-
-```yaml
-geom:
- coord_type: cart                  # irc では cart に強制（YAML 値は無視）
- freeze_atoms: []                  # 1 始まり凍結原子（CLI/リンク検出とマージ）
- tr_projection: constrained        # 固定の内部 PHVA 処理
-calc:
- model_charge: 0                   # ML 領域/model system の正味電荷
- model_mult: 1                     # スピン多重度 2S+1
- real_parm7: real.parm7            # Amber parm7 トポロジー
- model_pdb: ml_region.pdb          # ML 領域定義
- backend: uma                      # 高レベルbackend (uma/orb/mace/aimnet2/dft)
- uma_model: uma-s-1p2              # uma-s-1p2 | uma-m-1p1
- uma_task_name: omol                # UMA タスク名 (backend=uma 時)
- ml_device: auto                   # ML デバイス選択
- hessian_calc_mode: Analytical         # Hessianモード選択
- return_partial_hessian: true      # 省略時の既定。false なら full Hessian を要求
-irc:
- step_length: 0.1                  # 積分ステップ長
- max_cycles: 125                   # IRCステップ上限
- forward: true                     # 正方向に伝播
- backward: true                    # 逆方向に伝播
- never_stop: false                 # 物理的端点判定を無視してmax_cyclesまで追跡
- energy_increase_thresh: 0.0       # 通常modeでは1 stepでもenergyが上昇すれば停止
- root: 0                           # 基準振動ルートインデックス
- hessian_init: calc                # Hessian初期化ソース
- displ: energy                     # 変位構築方法
- displ_energy: 0.001               # エネルギーベースの変位スケーリング
- displ_length: 0.1                 # 長さベースの変位フォールバック
- rms_grad_thresh: 0.001            # RMS 勾配収束閾値
- hard_rms_grad_thresh: null        # ハード RMS 勾配停止
- energy_thresh: 0.000001           # エネルギー変化閾値
- imag_below: 0.0                   # 虚振動数カットオフ
- force_inflection: true            # 変曲点検出を強制
- check_bonds: false                # 伝播中の結合チェック
- out_dir: ./result_irc/            # 出力ディレクトリ
- prefix: ""                        # ファイル名プレフィックス
- hessian_update: bofill            # Hessian更新方式
- hessian_recalc: null              # Hessian再構築間隔
- max_pred_steps: 500               # 予測子-補正子の最大ステップ数
- loose_cycles: 3                   # 厳密化前のゆるいサイクル数
- corr_func: mbs                    # EulerPC の修正子関数
+```bash
+mlmm irc -i ts.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
+    -q 0 -m 1 --step-size 0.05 --never-stop --max-cycles 250 \
+    --out-dir ./result_irc_continue
 ```
 
-完全なスキーマ（すべての `irc` キーとデフォルト）: [YAML リファレンス](yaml-reference.md#irc-section)。
+---
 
-## 注記
+## 処理の仕組みと計算仕様
 
-- デフォルトでは両方のブランチを実行します。片方向のみが必要な場合は `--no-forward` または `--no-backward` で一方を無効化します。
-- 早期停止時はまず `--step-size` を小さくし、cycle上限まで追跡する意図がある場合だけ`--never-stop`を指定してください。
-- 全原子凍結では IRC 方向が無いため、明示的なエラーになります。
-- `--out-json` 時は `result.json.rigid_projection` に treatment、有効 rank、
-  初期 Hessian source、Hessian shape を記録します。
-- `geom.tr_projection` の古い非constrained値は明示的に拒否されます。
+1. **ML/MM の系の組み立て**: `-i` から TS の構造を、`--parm7` から Amber のトポロジーを、`--model-pdb` から ML 領域を読みます（{ref}`ML/MM の共通オプション <ja-mlmm-options>` を参照）。`-q` と `-m` は ML 領域の電荷とスピン多重度です。
+2. **出発の方向**: TS で Hessian を計算するか `--read-hess` のファイルから読み、剛体運動を [`freq`](freq.md#凍結境界での剛体モード) と同じように除いてから、`--root` 番目（デフォルト `0`）の固有ベクトルを反応モードとします。そのモードが虚振動でなければ、エラーで止まります。
+3. **EulerPC による積分**: 各分岐（順方向、次に逆方向）は TS から始まります。各ステップでは、質量加重の最急降下方向に沿って Euler 予測子で進み、続いて DWI（距離加重補間）面の上で修正 Bulirsch–Stoer 修正子をかけます。予測子の勾配は、Bofill 式で更新する現在の Hessian を使った 2 次の Taylor 展開で見積もります。分岐は、TS の近くを出た後に RMS 勾配が 1 × 10⁻³ hartree/bohr を下回ったとき、エネルギーが上がったとき、1 ステップのエネルギー変化が 1 × 10⁻⁶ hartree 以下になったとき、または `--max-cycles`（デフォルト 125）に達したときに止まります。
+4. **経路の書き出し**: 各分岐、TS を通る経路全体、端の構造を書き出します。PDB/mmCIF の入力か `--ref-pdb` があるときは、軌跡と 2 つの端点の候補を PDB にも変換します。
 
-## 関連項目
+---
 
-- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
-- [トラブルシューティング](troubleshooting.md) -- 詳細なトラブルシューティングガイド
-- [tsopt](tsopt.md) -- IRC 実行前に TS を最適化
-- [freq](freq.md) -- TS 候補が 1 つの虚振動数を持つことを検証; IRC 端点を解析
-- [opt](opt.md) -- IRC 端点を真の極小に最適化
-- [all](all.md) -- tsopt の後に IRC を実行する一気通貫ワークフロー
-- [YAML リファレンス](yaml-reference.md) -- `irc` の完全な設定オプション
-- [用語集](glossary.md) -- IRC（固有反応座標）の定義
+## IRC の成否の判定
+
+IRC が収束しなくても、端点の最適化で狙った R と P に着けば、その結果は使えます。
+
+| 確かめること | 見る場所 |
+| --- | --- |
+| 出発点が TS か | 端末の `Transition vector is mode 0 with wavenumber … cm⁻¹.` の行の波数が負 |
+| 各分岐の止まり方 | `result.json` の `forward_integration_converged` / `backward_integration_converged`。RMS 勾配が閾値を下回ったときは `true`、エネルギーで止まったときやサイクルの上限では `false`。理由は `forward_integration_stop_reason` / `backward_integration_stop_reason` に出る |
+| 経路に沿って変わる結合 | `result.json` の `bond_changes`（`finished_first` から `finished_last` への `formed` と `broken`） |
+| どちらの端が R でどちらが P か | `forward_first.xyz` と `backward_last.xyz` を [`opt`](opt.md) で最適化し、意図した R と P と比べる。順方向 / 逆方向の別では決まらない |
+
+`irc` は端点を判定しないので、端点が狙った R と P かは自分で確かめてください。
+
+端点は `.xyz` なので、原子の順と層を与える TS の PDB を `--ref-pdb` で渡して、両方の端点を `opt` で最適化してください。
+
+```bash
+mlmm opt -i result_irc/forward_first.xyz --ref-pdb ts.pdb --parm7 real.parm7 \
+    --model-pdb ml_region.pdb -q 0 -m 1 --out-dir ./result_opt_forward
+mlmm opt -i result_irc/backward_last.xyz --ref-pdb ts.pdb --parm7 real.parm7 \
+    --model-pdb ml_region.pdb -q 0 -m 1 --out-dir ./result_opt_backward
+```
+
+端点が意図した R と P でないときは、{ref}`TS が取れないとき <ja-ts-search-fails>` を参照してください。
+
+---
+
+## 主な出力ファイル
+
+実行が終わると、`--out-dir`（デフォルト: `./result_irc/`）に次のファイルができます。
+
+```text
+result_irc/
+├─ finished_irc_trj.xyz    # TS を通る IRC 経路全体
+├─ finished_irc.pdb        # 同じ経路の PDB
+├─ finished_first.xyz      # 経路全体の最初のフレーム（順方向を実行したときは forward_first.xyz と同じ構造）
+├─ finished_last.xyz       # 経路全体の最後のフレーム（逆方向を実行したときは backward_last.xyz と同じ構造）
+├─ forward_irc_trj.xyz     # TS から順方向の分岐（実行したとき）
+├─ forward_irc.pdb         # 同じ分岐の PDB
+├─ forward_first.xyz       # 順方向の分岐の端（端点の候補）
+├─ forward_first.pdb       # 同じ構造の PDB
+├─ backward_irc_trj.xyz    # TS から逆方向の分岐（実行したとき）
+├─ backward_irc.pdb        # 同じ分岐の PDB
+├─ backward_last.xyz       # 逆方向の分岐の端（端点の候補）
+├─ backward_last.pdb       # 同じ構造の PDB
+└─ result.json             # 結果の要約（--out-json）
+```
+
+`.pdb` は、PDB/mmCIF の入力か `--ref-pdb` があるときに書きます。mmCIF の入力と、PDB の欄に入りきらない大きな PDB の入力では、元の識別子を保った `.cif` も書きます（{ref}`mmCIF の入力 <ja-mmcif-input>` を参照）。
+
+* **端点の候補**: `forward_first.xyz` と `backward_last.xyz` を [`opt`](opt.md) で最適化します。各分岐は TS 側のもう一方の端（`forward_last.xyz`、`backward_first.xyz`）も書きます。
+* **経路**: `finished_irc_trj.xyz` か `finished_irc.pdb` を PyMOL や VMD で開くと、反応の動きを見られます。
+* **要約**: `--out-json` を付けると、`result.json` に各分岐のフレーム数（`n_frames_forward`、`n_frames_backward`）、各分岐の止まり方、`bond_changes`、両端と TS のエネルギー（`energy_first_hartree`、`energy_ts_hartree`、`energy_last_hartree`）、`rigid_projection` に除いた剛体運動と最初の Hessian の情報が記録されます（[JSON 出力リファレンス](json-output.md) を参照）。
+* **端末**: 各分岐のステップの表と実行時間が出ます。
+
+> **補足:** YAML で `irc.prefix: trial` とすると、`result.json` 以外のファイルの名前が `trial_finished_irc_trj.xyz` のように `trial_` で始まり、`result.json` の `files` にも接頭辞つきの名前が記録されます。YAML の `irc.dump_every` に正の整数を指定すると、実行中に HDF5 のチェックポイント `irc_data.h5` も書きます（デフォルトは書きません）。
+
+---
+
+## 主な CLI オプション
+
+ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通オプション <ja-mlmm-options>` に 1 か所でまとめてあります。下の表は `irc` に固有のものだけです。
+
+| オプション | 引数の型 | デフォルト | 説明 |
+| --- | --- | --- | --- |
+| `-i, --input` | パス | （必須） | TS の構造（`.pdb`, `.cif`, `.mmcif`、または `--ref-pdb` と組み合わせた `.xyz`） |
+| `-q, --charge` | 整数 | `None` | ML 領域の電荷。`-l` を使う場合のほかは必須 |
+| `-l, --ligand-charge` | 文字列 | `None` | 未知のリガンド残基の総電荷（例: `-1`）または残基名ごとの電荷（例: `'GPP:-3,SAM:1'`）。`-q` を省いたときに ML 領域の電荷を求めるのに使用（PDB/mmCIF 入力または `--ref-pdb`） |
+| `-m, --multiplicity` | 整数 | `1` | ML 領域のスピン多重度（2S+1） |
+| `--max-cycles` | 整数 | `125` | 分岐ごとの IRC ステップの上限 |
+| `--step-size` | 実数 | `0.10` | 最大ステップ長（bohr、質量加重しない Cartesian 座標） |
+| `--root` | 整数 | `0` | 反応モードとする Hessian の固有ベクトル。固有値の昇順に 0 から数える |
+| `--forward/--no-forward` | フラグ | `True` | 順方向の分岐を実行 |
+| `--backward/--no-backward` | フラグ | `True` | 逆方向の分岐を実行 |
+| `--never-stop/--no-never-stop` | フラグ | `False` | 勾配とエネルギーによる停止の条件を無視し、`--max-cycles` までたどる |
+| `-o, --out-dir` | パス | `./result_irc/` | 出力先ディレクトリ |
+| `--hessian-calc-mode` | `FiniteDifference` / `Analytical` | `FiniteDifference` | ML バックエンドが最初の Hessian を計算する方法 |
+| `-b, --backend` | 文字列 | `uma` | ML 領域のバックエンド（`uma`, `orb`, `mace`, `aimnet2`, `dft`） |
+| `--read-hess` | パス | `None` | Hessian を計算せず、`.npy` ファイル（`freq` や `tsopt --dump-hess` で書いたものなど）から読んで始める |
+| `--out-json/--no-out-json` | フラグ | `False` | 結果の要約を `result.json` に出力（[JSON 出力リファレンス](json-output.md)） |
+
+全オプションの一覧は [自動生成 CLI リファレンス](../reference/commands/irc.md) を参照してください。
+
+> **補足:** YAML（`--config`）の `irc` ブロックのキーは、YAML リファレンスの {ref}`irc <ja-irc-section>` にすべて載っています。
+
+---
+
+## 使用上の注意点
+
+* **すぐ止まる分岐**: 分岐がサイクルの上限より前に 3 フレーム以下で終わると、端末に `[irc] IRC stopped after only a few frames in …` の警告が出ます。ステップが大きすぎると EulerPC が不安定になることがあるので、ほかの設定を変える前に、小さい `--step-size`（例: `0.05`）で再試行してください。
+* **`--never-stop` はデフォルト無効**: 有効にすると、物理的な端点を過ぎてもサイクルの上限まで進みます。数値的な失敗や外部からの中断では止まります。軌跡を確かめて端点を最適化し、先の経路が役に立つときだけ `--max-cycles` を増やしてください。
+* **`--root` は 0 から数える**: TS 最適化が成功すると、反応モードの虚振動が 1 つ出るので、n_imag = 1 の TS では `--root 0`（ただ 1 つの負の固有値）のままにしてください。`1`、`2` などは、反応モードより固有値の小さい（より負の）疑似モードがあると分かっているときだけ使います。
+* **Cartesian 座標**: YAML の `geom.coord_type` にかかわらず、`irc` は Cartesian 座標を使います。
+* **`--read-hess` のファイル**: [`freq`](freq.md) と同じ `.npy` ファイルで、単位は Hartree/bohr²、全原子か Hessian の計算に入る原子だけの分を持ちます。同じ構造・電荷・多重度・計算機で計算した Hessian を渡してください。`irc.hessian_init: calc`（デフォルト）が必要です。ファイルを使ったときは、`result.json["rigid_projection"]["hessian_source"]` が `"file"` になります。
+* **解析 Hessian と `--uma-workers`**: UMA では、`--hessian-calc-mode Analytical` は 1 より大きい `--uma-workers` と併用できず、エラーで止まります。解析 Hessian には `--uma-workers 1` を使ってください（[バックエンド](backends.md) を参照）。速度とメモリ量はバックエンドと系によって変わるので、先に対象の系で両方を比べてください。
+* **凍結原子**: 凍結 MM 層のほかに、`--freeze-atoms` でほかの原子（1 始まり）も凍結できます。選び方は {ref}`原子の固定と距離の拘束 <ja-freeze-atoms-and-restraints>` を参照してください。
+* **大きな系**: `--hess-device cpu` を付けると、最初の Hessian と IRC の Hessian の演算を CPU で行い、GPU のメモリに収めます。
+* **分岐は少なくとも 1 つ**: `--no-forward` と `--no-backward` を両方付けると、エラーで止まります。
+* **1 回に 1 構造**: `-i` には 1 つの構造を指定します。軌跡からは、使うフレームを先に `.xyz` に切り出し、`--ref-pdb` と一緒に渡してください。
+* **設定の優先順位**: デフォルト < YAML < コマンドライン（[CLI 規約](cli-conventions.md) を参照）。
+
+---
+
+## 関連ドキュメント
+
+* [tsopt](tsopt.md) — IRC の前に TS を最適化する
+* [freq](freq.md) — TS の虚振動が 1 つ（n_imag = 1）であることを確かめる
+* [opt](opt.md) — IRC の端点を R と P へ最適化する
+* [all](all.md) — `tsopt` の後に IRC を実行し、端点まで最適化する一連のワークフロー
+* [トラブルシューティング](troubleshooting.md) — 実行が失敗したときの切り分け
+* [YAML リファレンス](yaml-reference.md) — `irc` のすべての設定
+* [用語集](glossary.md) — IRC などの用語
+* [終了コード](cli-conventions.md#終了コード) — 終了ステータスの意味

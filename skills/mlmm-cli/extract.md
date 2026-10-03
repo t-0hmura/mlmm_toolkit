@@ -1,118 +1,87 @@
 # `mlmm extract`
 
-## Purpose
+Cuts a binding pocket around the `-c` residues out of a protein-substrate
+complex, with residue-aware truncation and optional carbon-only link H. Run
+`mlmm extract -i complex.pdb -c 'A:SAM:44' -l 'SAM:1' -o pocket.pdb`. Success
+is `pocket.pdb` and a `Total active site model charge` line with the charge
+you expect.
 
-Extracts a **binding pocket** from a protein-substrate complex PDB
-around the specified extraction centers, with biochemically aware
-truncation and optional carbon-only link-H. Default output is
-`pocket.pdb`. Multi-input mode produces one PDB per file (or one
-multi-MODEL PDB) for use with `path-search`-style workflows.
+## When to use
 
-This is mlmm-toolkit's pocket extractor; for layer assignment use
-`define-layer.md` (extract does not write B-factor labels).
+- Build the active-site model, or check what `all -c` would put in the ML
+  region, before a long run.
+- Several inputs with the same atoms give one pocket per file (or one
+  multi-MODEL PDB) with the same atoms, for `path-search`-style runs.
+- `extract` writes no B-factor layers; assign them with
+  [define-layer.md](define-layer.md).
 
-## Synopsis
-
-```bash
-mlmm extract -i complex.pdb -c <center-spec> [-l 'RES:Q,...'] \
-    [-r 2.6] [-o pocket.pdb] [--add-linkh] [--include-h2o] \
-    [--exclude-backbone] [--out-json]
-```
-
-## Key flags
-
-| flag | type | default | description |
-|---|---|---|---|
-| `-i, --input` | path(s) | required | Protein-substrate complex PDB(s); multi-input requires identical atom count + ordering |
-| `-c, --center` | str | required | Substrate + catalytic residues; every match starts radius expansion; accepts a PDB path, IDs (`'A:44,B:321'`), or names (`'GPP,SAM'`) |
-| `-r, --radius` | float | `2.6` | Cutoff (Å) around center atoms for pocket inclusion |
-| `--radius-het2het` | float | `0` | Cutoff (Å) for center-protein hetero-atom proximity (non-C/H); 0 disables |
-| `-l, --ligand-charge` | str | none | Per-residue charges, e.g. `'GPP:-3,SAM:1'` |
-| `-o, --output` | path(s) | `pocket.pdb` (single) / `pocket_<filename>.pdb` (multi) | Output PDB(s) |
-| `--include-h2o / --no-include-h2o` | flag | `--include-h2o` | Include waters (HOH/WAT/H2O/DOD/TIP/TIP3/SOL) |
-| `--exclude-backbone / --no-exclude-backbone` | flag | `--no-exclude-backbone` | Delete main-chain atoms from amino acids outside the extraction centers |
-| `--add-linkh / --no-add-linkh` | flag | `--no-add-linkh` | Add carbon-only link-H at 1.09 Å along cut-bond directions |
-| `--selected-resn` | str | none | Force-include residues without radius expansion (`'A:123,B:456'`, `'A:SAM'`) |
-| `--modified-residue` | str | none | Unregistered residue names with integer charges, e.g. `'HD1:0'`; known catalog residues may omit the charge, e.g. `'SEP'` |
-| `--out-json / --no-out-json` | flag | `--no-out-json` | Write `result.json` next to the output PDB |
-| `--help-advanced` | flag | — | Reveal advanced flags |
-
-Total charge is supplied via `-l` (total integer or per-resname mapping).
-
-## Examples
-
-### Minimal — extract around two residues
+## Minimal run
 
 ```bash
 mlmm extract -i 1abc.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' -r 4.0 -o pocket.pdb
 ```
 
-### With link-H and JSON metadata
+`-c` takes a PDB path, residue IDs (`'A:44,B:321'`), or names (`'GPP,SAM'`);
+with chain IDs, `A:SAM:44` is the safest form. `-l` takes the total charge or
+a per-residue mapping. With link H and `result.json`:
 
 ```bash
 mlmm extract -i complex.pdb -c 'A:123,A:124' -l 'GPP:-3' -r 3.5 \
     --add-linkh --out-json -o pocket.pdb
-# → pocket.pdb + result.json (when --out-json)
 ```
 
-### Multi-input (atom-ordering must match)
+Several inputs (same atom count and order):
 
 ```bash
 mlmm extract -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
-    -o "1.R_pocket.pdb" "3.P_pocket.pdb"
+    -o 1.R_pocket.pdb 3.P_pocket.pdb
 ```
 
-## Output
+## Judge success
 
-```
-pocket.pdb                  # extracted pocket (default name)
-result.json (if --out-json) # extraction stats: total_charge, n_atoms_extracted, n_link_hydrogens, ...
-```
-
-The PDB does **not** contain B-factor layer encoding by default — run
-`define-layer` afterwards to assign ML / movable-MM / frozen labels.
+- The console prints `[extract] Atoms after truncation: N` and
+  `Total active site model charge: …`. N excludes the cap H. With several
+  inputs, the line is `[extract:multi] Atoms after truncation (model k): N`
+  for each model.
+- `pocket.pdb` exists (default name; `pocket_<filename>.pdb` for several
+  inputs without `-o`).
+- With `--out-json`, `result.json` has `total_charge`, `n_atoms_extracted`
+  (N, without cap H), and `n_link_hydrogens` (M). The model computes N + M
+  atoms.
 
 ```python
 import json
 d = json.load(open("result.json"))
-print(d["total_charge"], d["n_atoms_extracted"])
+print(d["total_charge"], d["n_atoms_extracted"], d["n_link_hydrogens"])
 ```
 
-## Caveats
+## Pitfalls and recovery
 
-- `--add-linkh` is **off by default**.
-- `--include-h2o` is **on by default**; turn off with `--no-include-h2o`
-  for dry pockets.
-- `--exclude-backbone` is **off by default**; turn on for cluster-style
-  truncated backbones.
+- Defaults: `--add-linkh` off, `--include-h2o` on (`--no-include-h2o` for a
+  dry pocket), `--exclude-backbone` off (on for cluster-style truncated
+  backbones).
 - For a reusable standalone ML/MM workflow, follow `mm-parm → extract →
   define-layer → opt/tsopt/...`. Request that PDB with a distinct prefix, for
   example `mlmm mm-parm -i input.pdb --out-prefix system`, then run the latter
   two commands on `system.pdb`. LEaP may change hydrogens; the exported PDB has
   the same atom identity/order as `system.parm7`, and `mm-parm` fills missing
   element columns.
-- Atom names must match exactly (case-sensitive). Run
-  `mlmm add-elem-info` / `fix-altloc` first if the PDB came out of
-  PyMOL or Maestro.
-- **`--add-linkh` is for standalone pockets, not for an mlmm `--model-pdb`.**
-  In the ML/MM workflow the calculator caps the ML/MM boundary with link-H from
-  the `--parm7` topology, so a `--model-pdb` fed to `opt`/`tsopt`/`all` does not
-  need `--add-linkh`. (extract's link-H detection is distance-based and can
-  misfire on unusual topologies; the topology-based calc path is authoritative.)
-- **ML region: automatic vs manual (know-how).** Automatic extraction here
-  (`-c` + `--exclude-backbone`) truncates the backbone, caps with link-H, and
-  **derives** the charge from residues + `--modified-residue` + `-l`; so
-  `--modified-residue` / `-l` belong to this automatic path. If instead you
-  hand-build the ML selection (e.g. edit atoms / protonation / custom
-  truncation), give it to the downstream command as `--model-pdb` + `--parm7`
-  and set the charge explicitly with `-q` — that is the safer route when the
-  derived charge can't be trusted; `--modified-residue` / `-l` do not apply
-  there.
+- Atom names match exactly (case-sensitive). Run `mlmm add-elem-info` first
+  on a PDB from PyMOL or Maestro. `extract` keeps one altLoc per residue
+  itself; run `fix-altloc` only when you need the cleaned file.
+- `--add-linkh` is for standalone pockets, not for an mlmm `--model-pdb`. The
+  calculator caps the ML/MM boundary with link H from the `--parm7`
+  topology; extract's link H is distance-based and can misfire on unusual
+  topologies.
+- Automatic extraction versus a hand-built ML region, and which charge
+  options apply to each: [Build the ML region](../mlmm-model-setup/SKILL.md#build-the-ml-region).
 
-## See also
+## Next step
 
-- `../mlmm-structure-io/pdb.md` — PDB column layout, residue selectors.
-- `mm-parm.md` — parm7 generation and the topology-matched PDB used as the
-  input to a standalone extraction.
-- `define-layer.md` — assign ML / movable-MM / frozen labels (B-factor).
-- `add-elem-info.md`, `fix-altloc.md` — pre-clean a raw PDB.
+- [define-layer.md](define-layer.md): assign ML, Movable-MM, and Frozen-MM.
+- [mm-parm.md](mm-parm.md): the topology and the matching PDB to extract from.
+- [mlmm-model-setup](../mlmm-model-setup/SKILL.md): grow or trim the ML region.
+- [Selecting residues and atoms](../mlmm-structure-io/SKILL.md#selecting-residues-and-atoms)
+  and [PDB](../mlmm-structure-io/formats.md#pdb).
+- [add-elem-info](utilities.md#add-elem-info) and
+  [fix-altloc](utilities.md#fix-altloc): pre-clean a raw PDB.

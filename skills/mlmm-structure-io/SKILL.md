@@ -1,146 +1,256 @@
 ---
 name: mlmm-structure-io
-description: PDB, mmCIF, XYZ, GJF, and Amber parm7/rst7 input guidance for mlmm-toolkit, including large residue IDs, exact chain/residue/insertion selectors, topology atom-order checks, charge/multiplicity decisions, and B-factor layer encoding (ML=0 / movable-MM=10 / frozen=20). Use when inspecting or preparing structures, choosing `-q` / `-l` / `-m`, building a `model.pdb`, assigning layers, or diagnosing coordinate/topology identity mismatches. Skip for subcommand syntax, output parsing, installation, or HPC questions.
+description: "Input structures for mlmm-toolkit: PDB, mmCIF, XYZ, Gaussian gjf, and Amber parm7/rst7, with residue selectors, ML-region and layer encoding (B-factor 0/10/20 and `model.pdb`), atom-order checks between the PDB and parm7, and the charge/multiplicity decision. `formats.md` holds per-format details. TRIGGER on inspecting or editing a structure, choosing `-q` / `-l` / `-m`, reading or checking B-factor layers, or a coordinate/topology mismatch. SKIP for choosing which atoms go into the ML region or layers (mlmm-model-setup), subcommand syntax, output parsing, install, or HPC questions."
 ---
 
-# mlmm-toolkit Structure I/O
+# mlmm-toolkit structure input
 
-## Purpose
+Give `-i` the whole system as PDB (or XYZ with `--ref-pdb`), `--parm7` from `mm-parm`, the ML region by B-factor or `--model-pdb`, and the ML-region charge with `-q` or `-l`.
 
-`mlmm-toolkit` reads five structure/topology formats; each carries different information
-and is preferred for different stages:
-
-| Format | Carries | Preferred for |
-|---|---|---|
-| **PDB** | atom name, residue, chain, occupancy, **B-factor (layer label)**, element | Initial input; B-factor encodes ML / movable-MM / frozen layer |
-| **mmCIF** | PDB metadata without one-character/four-digit identifier limits | Multi-character chains, residue IDs ≥10,000, oversized PDB round-trip |
-| **XYZ** | element + Cartesian coordinates only | Trajectories, post-IRC outputs, single-stage exchange between subcommands |
-| **GJF** | element + coords + charge / spin / route line | Gaussian input-deck exchange with `mlmm oniom-{export,import}` |
-| **parm7 / rst7** | Amber topology + coordinate pair | MM region force-field parameters; output of `mlmm mm-parm` |
-
-PDB / mmCIF / XYZ / GJF use Å for coordinates and conventional element symbols.
-`parm7` is the Amber topology format (text but byte-aligned).
-
-Per-format details:
-
-| File | Topic |
-|---|---|
-| `pdb.md` | PDB column-by-column layout, residue selectors, **B-factor layer encoding (0.0=ML / 10.0=movable-MM / 20.0=frozen)**, link-H placement |
-| `cif.md` | mmCIF/oversized-PDB bridge, original-ID restoration, exact selectors, limits |
-| `xyz.md` | XYZ format, ASE extension comment line |
-| `gjf.md` | Gaussian gjf header (`%link0 → route → charge spin → coords`) |
-| `parm7.md` | Amber `parm7` topology + `rst7` coordinates (mlmm-specific) |
-| `charge-multiplicity.md` | Deciding `-q` and `-m` for an unfamiliar substrate (literature lookup workflow) |
-
-## Decision tree: which format to feed `mlmm-toolkit`
-
+```bash
+mlmm opt -i complex_layered.pdb --parm7 real.parm7 -l 'SAM:1,GPP:-3' -m 1 -o result_opt
 ```
-Is the input the full enzyme + parm7 you'll run ML/MM on?
-  └── PDB or mmCIF (full enzyme, with B-factor layer assignment) + parm7
+
+A structure is ready when a calculation starts without an atom-count or
+`Atom-order mismatch` error and the ML-region charge, given with `-q` or
+derived from `-l`, matches your own count. Byte-level layouts are in
+[formats.md](formats.md).
+
+## Which format
+
+| Format | Carries | Use for |
+|---|---|---|
+| PDB | Atom and residue names, chain, occupancy, B-factor (layer), element | The normal input; the B-factor holds the ML, Movable-MM, and Frozen-MM layers |
+| mmCIF | The same, without the one-character chain and four-digit residue limits | Long chain IDs, residue numbers of 10,000 or more, oversized structures |
+| XYZ | Element and Cartesian coordinates only | Trajectories, single TS candidates, exchange between subcommands |
+| GJF | Coordinates with charge, spin, and route line | Gaussian ONIOM exchange through `oniom-export` and `oniom-import` |
+| parm7 / rst7 | Amber topology and coordinates | MM parameters of the full system, written by `mm-parm` |
+
+PDB, mmCIF, XYZ, and GJF use Å and ordinary element symbols.
+
+```text
+Full enzyme you will run ML/MM on?
+  └── PDB or mmCIF with B-factor layers + parm7
       → opt / tsopt / scans / path commands / freq / irc / dft / all
 
-Is the input a single TS candidate to validate?
-  └── XYZ + --ref-pdb (full enzyme PDB/mmCIF) + --parm7
+A single TS candidate to validate?
+  └── XYZ + --ref-pdb (full-system PDB/mmCIF) + --parm7
       → tsopt / freq / irc / all (TS-only mode)
 
-Is the input a Gaussian g16 ONIOM input you want to import?
-  └── GJF → mlmm oniom-import → reconstructs PDB + extracts layer info
+A Gaussian or ORCA ONIOM input to bring in?
+  └── GJF/INP → mlmm oniom-import → XYZ + layer-encoded PDB
 
-Do you need a parm7 / rst7 from a raw enzyme PDB?
-  └── mlmm mm-parm → PDB + AmberTools tleap → parm7 + rst7
+A raw enzyme PDB that needs a parm7?
+  └── mlmm mm-parm → parm7 + rst7 (AmberTools tleap)
 ```
 
-## ML/MM-aware CLI conventions
-
-Most subcommands take `--parm7 FILE` (the parm7). ML membership resolves in
-this order:
-
-1. `--model-pdb FILE`
-2. `--model-indices '1-50,75,100-110'` when no model PDB is supplied
-3. input PDB B-factor ML atoms under the default `--detect-layer`
-
-With explicit ML membership, automatic detection still reads valid
-movable/frozen MM B-factor layers without replacing the explicit ML atoms.
-A B-factor partition must contain both ML and MM atoms; all-zero B-factors are
-not treated as a layer assignment.
-
-When `-i` is XYZ, also pass a PDB/mmCIF to `--ref-pdb` so atom ordering and residue
-context are recoverable.
-
-## Editing approach (agent-side)
-
-When an agent must edit a structure file:
-
-1. **Read the file first** to understand current layout (residues,
-   atom counts, B-factor layer assignment, charge/multiplicity if
-   present).
-2. **Identify the change** and confirm it does not violate format
-   conventions (PDB column widths, XYZ first-line atom count,
-   parm7 byte alignment).
-3. For unknown charge / multiplicity values, **confirm with the user
-   or do a literature lookup** before guessing — see
-   `charge-multiplicity.md` for the workflow.
-4. For layer-assignment changes (B-factor edits), use
-   `mlmm define-layer` rather than hand-editing if possible.
-
-## Subcommand × format compatibility
+## Which subcommand reads which format
 
 | Subcommand | PDB/mmCIF | XYZ | GJF | parm7 |
 |---|---|---|---|---|
-| `extract` | ✓ (in/out; CIF companion) | — | — | — |
-| `mm-parm` | PDB input | — | — | ✓ (out) |
-| `define-layer` | ✓ (in/out; CIF companion) | — | — | — |
+| `extract` | ✓ in/out | — | — | — |
+| `mm-parm` | PDB in | — | — | ✓ out |
+| `define-layer` | ✓ in/out | — | — | — |
 | `path-search` / `path-opt` | ✓ | ✓ with `--ref-pdb` | — | required |
 | `sp` / `opt` / `tsopt` / `freq` / `irc` / `dft` | ✓ | ✓ with `--ref-pdb` | — | required |
 | `scan` / `scan2d` / `scan3d` | ✓ | ✓ with `--ref-pdb` | — | required |
-| `oniom-export` | PDB input | ✓ (in) | ✓ (out) | required |
-| `oniom-import` | PDB (out) | XYZ (out) | ✓ (in) | — |
+| `oniom-export` | PDB in | ✓ in | ✓ out | required |
+| `oniom-import` | PDB out | XYZ out | ✓ in | — |
 
-## Quick reference
+For an mmCIF input, `extract` and `define-layer` also write `.cif` files that
+restore the original chain IDs and residue numbers.
 
-```
-PDB ATOM/HETATM record (cols 1-based, inclusive)
-     name(13-16) altloc(17) resName(18-20) chainID(22)
-     resSeq(23-26)  X(31-38)  Y(39-46)  Z(47-54)
-     occupancy(55-60)  bfactor(61-66, used as layer: 0.0/10.0/20.0)
-     element(77-78)
+## Selecting residues and atoms
 
-XYZ  line 1: <natoms>
-     line 2: <comment, optional ASE Properties=…>
-     line 3+: <element>  <x>  <y>  <z>
+`-c/--center` on `extract` and `all` names the residues at the center of the
+model. Write the chain first:
 
-GJF  %nproc=...  %mem=...
-     # <route line:  functional/basis  options>
-
-     <title>
-
-     <charge> <spin>
-     <element>  <x>  <y>  <z>
-     ...
-
-parm7  Amber topology — generate with `mlmm mm-parm`; do not hand-edit.
-       Pair with rst7 (coordinate snapshot).
+```bash
+mlmm extract -i complex.pdb -c 'A:SAM:44' -o cluster.pdb     # chain + name + number: one residue
+mlmm extract -i complex.pdb -c 'A:44' -o cluster.pdb         # chain + number (a trailing letter is the insertion code)
+mlmm extract -i complex.pdb -c 'SAM,GPP,MG' -o cluster.pdb   # names: every residue with that name
+mlmm extract -i complex.pdb -c substrate.pdb -o cluster.pdb  # residues matching a separate PDB
 ```
 
-Full byte-by-byte / per-keyword detail in the per-format mds.
+`A:SAM` selects every SAM in chain A and logs a warning when more than one
+matches; add the number (`A:SAM:44`) when the match must be unique. Names or
+numbers without a chain can match several residues, so use the exact forms
+for production runs. A PDB with an empty chain column, such as the bundled
+examples, takes only the name or number forms (`-c 'SAM,GPP,MG'`).
 
-## Charge / multiplicity defaults
+Long chain IDs and residue numbers of 10,000 or more use the same forms through
+mmCIF, for example `enzyme_A:SAM:10001B`
+([mmCIF](formats.md#mmcif-and-very-large-structures)).
 
-- The CLI default is `-m 1`; this is an input default, not a scientific
-  assignment.
-- Determine multiplicity from composition, oxidation states, experimental
-  context, or explicit state comparisons. Metal-containing systems and
-  radicals require particular care.
-- `-q` is the **ML region** charge. `-l 'RES:Q'` derives it from
-  per-residue charges + `mlmm`'s internal amino-acid table.
-- XYZ uses `--ref-pdb` for residue context; charge and spin follow the same CLI / residue-derivation / YAML rules (see `charge-multiplicity.md`).
+Single atoms, as in scan lists, take four fields
+`CHAIN:RESNAME:RESSEQ[ICODE]:ATOM` (`A:SAM:320:CS1`). On a PDB with an empty
+chain column, use three fields without the chain (`SAM,320,CS1`).
 
-If unsure about charge or spin, do **not** guess silently — follow
-`charge-multiplicity.md`.
+## ML region and layers
 
-## See also
+The B-factor column carries the layers:
 
-- `mlmm-cli/extract.md`, `mm-parm.md`, `define-layer.md` — pre-pipeline.
-- `mlmm-cli/SKILL.md` — common flag conventions across subcommands.
-- `mlmm-workflows-output/SKILL.md` — what comes out of the pipeline
-  (XYZ / PDB / CIF).
+| B-factor | Layer |
+|---|---|
+| 0 | ML |
+| 10 | Movable-MM |
+| 20 | Frozen-MM |
+
+Values within ±1.0 count. Each command takes the ML region from the first of:
+
+1. `--model-pdb FILE`
+2. `--model-indices '1-50,75,100-110'`
+3. the B-factor-0 atoms of the input PDB under `--detect-layer` (on by default)
+
+With an explicit ML region, `--detect-layer` still reads the Movable-MM and
+Frozen-MM layers from the B-factors. The B-factors count as layers only when at
+least one atom is ML, at least one is MM, and at least 80% of the atoms carry
+0, 10, or 20; an all-zero PDB is not a layer assignment. `--movable-cutoff`
+turns off `--detect-layer` and sets the MM layers by distance instead.
+
+The parm7 carries only MM parameters, never the layers. A command reads the
+layered structure from `-i` and the topology from `--parm7`:
+
+```bash
+mlmm opt -i complex.pdb --parm7 complex.parm7 -q 0 -m 1 -b uma -o result_opt
+```
+
+When `-i` is XYZ, also pass the full-system PDB or mmCIF to `--ref-pdb`; it
+supplies the atom order and residue context and nothing else. To change
+layers, run `mlmm define-layer` ([define-layer](../mlmm-cli/define-layer.md));
+a one-residue edit is in [formats.md](formats.md#amber-parm7-and-rst7). Which
+atoms belong in the ML region and in each layer is in
+[mlmm-model-setup](../mlmm-model-setup/SKILL.md).
+
+## Charge and multiplicity
+
+`-q` is the charge of the ML region, not of the whole system. A wrong charge or
+multiplicity can silently give a chemically wrong trajectory.
+
+For PDB/mmCIF input, give `-l 'RES:Q'` for unknown or non-standard residues
+only and let mlmm sum the ML-region total. Standard amino acids and recognized
+ions come from internal tables; waters and link atoms are neutral. Recheck the
+reported breakdown whenever the ML region, residue naming, protonation state,
+or oxidation state changes.
+
+The charge is taken from the first of:
+
+1. `-q/--charge`
+2. with `-l/--ligand-charge`, the sum of standard residues, ions, and your ligand charges in the ML region
+3. `calc.model_charge` from `--config`
+4. otherwise, the run stops with an error
+
+Use `-q` when the input has no residue metadata or to override the derived
+value; in `mlmm all`, `-q` wins and the workflow reports the value it would
+have derived. With `--model-indices`, `-l` cannot derive the charge: give `-q`,
+or define the ML region with `--model-pdb` or B-factor layers. XYZ input gets
+its residue context from `--ref-pdb` and follows the same rules.
+
+Recognized monatomic ions keep their table value. Listing one in `-l` with the
+same value is accepted (`MG:2`); a different value (`MG:3`) is ignored with a
+warning. For another oxidation state, use the matching residue name in the
+model or give the verified total with `-q`. To see the tables:
+
+```bash
+python -c "from mlmm.core.residue_data import AMINO_ACIDS, ION; print(dict(AMINO_ACIDS)); print(dict(ION))"
+```
+
+Without `-m`, mlmm uses `calc.model_mult` and then 1. The default 1 is an input
+default, not a scientific assignment: use it only when the modeled electron
+count and state are known to be closed-shell, not merely because the system is
+biological or metal-bound. Determine the multiplicity from composition,
+oxidation states, experiment, or explicit state comparisons; metals and
+radicals need particular care.
+
+| `-m` | Examples |
+|---|---|
+| 1 | Closed shell |
+| 2 | Radicals, unpaired-electron TSs (radical SAM enzymes, low-spin Fe(III)) |
+| 3 | O₂, some carbenes, high-spin Ni(II) (d⁸) in tetrahedral or weak-field octahedral sites |
+| 4 | High-spin Co²⁺ (d⁷), Cr³⁺ / V²⁺ (d³) |
+| 5 | Mn(III), high-spin Fe(II) |
+| 6 | High-spin Mn(II), S=5/2 ferric |
+
+These are examples, not a spin-state calculator. For metals, radicals,
+antiferromagnetically coupled centers, or uncertain protonation or oxidation
+states, derive charge and multiplicity from the modeled mechanism and primary
+literature. Common ligand, ion, and metal values are in
+[formats.md](formats.md#ligand-ion-and-metal-charges).
+
+## Unknown substrate charge
+
+When a ligand's formal charge is unknown:
+
+1. Check the primary paper. Most mechanism papers state the substrate charge
+   state in the Methods; the PDB entry page links to the reference.
+2. Look it up. [PubChem](https://pubchem.ncbi.nlm.nih.gov) lists `Formal Charge`
+   under Computed Properties (search by three-letter code or name);
+   [ChEBI](https://www.ebi.ac.uk/chebi) often has the state used in published
+   mechanisms; the RCSB ligand page (`https://www.rcsb.org/ligand/SAM`) shows
+   the SMILES and charge of the deposited model.
+3. Derive it from the SMILES:
+
+   ```python
+   from rdkit import Chem
+   mol = Chem.MolFromSmiles("CC(=O)[O-]")     # acetate
+   print(sum(a.GetFormalCharge() for a in mol.GetAtoms()))    # → -1
+   ```
+
+4. Check the protonation state at pH 7. Typical contributions:
+
+   | Group | At pH 7 | Charge |
+   |---|---|---|
+   | Carboxylate | deprotonated | −1 each |
+   | Phosphate monoester | mostly `-OPO₃²⁻` | −2 |
+   | Phosphate diester | mostly `-OPO₂⁻` | −1 |
+   | Triphosphate (ATP) | fully deprotonated | −4 |
+   | Sulfonium (SAM) | quaternary | +1 |
+   | Lys / Arg side chain | protonated | +1 |
+   | Asp / Glu side chain | deprotonated | −1 |
+   | His | mostly neutral | 0 or +1 |
+
+   Mechanisms sometimes invoke an unusual protonation state; check the
+   literature for the model you build.
+
+5. Check the total that mlmm reads. `extract --out-json` writes `result.json`
+   next to the output PDB with `total_charge` and its breakdown
+   (`protein_charge`, `ligand_total_charge`, `ion_total_charge`); the terminal
+   prints `Total active site model charge`.
+
+   ```bash
+   mlmm extract -i complex.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' -o cluster.pdb --out-json
+   python -c "import json; print(json.load(open('result.json'))['total_charge'])"
+   ```
+
+   For a layered full system, a one-cycle optimization records the charge it
+   used:
+
+   ```bash
+   mlmm opt -i complex_layered.pdb --parm7 real.parm7 -l 'SAM:1,GPP:-3' -m 1 --max-cycles 1 -o check_opt --out-json
+   python -c "import json; print(json.load(open('check_opt/result.json'))['charge'])"
+   ```
+
+Use sources in this order: the mechanism's primary paper or deposited structure
+documentation, then PubChem, ChEBI, or the RCSB CCD. Cite the source and state
+the modeled protonation and oxidation state. If the sources do not settle one
+state, ask rather than defaulting a metal or radical model to `-q 0 -m 1`.
+
+## Editing approach
+
+When you edit a structure file:
+
+1. Read it first: residues, atom counts, B-factor layers, and any charge or
+   multiplicity.
+2. Confirm the change keeps the format: PDB column widths, the XYZ atom-count
+   line, the parm7 layout.
+3. For an unknown charge or multiplicity, confirm with the user or follow
+   [Unknown substrate charge](#unknown-substrate-charge) before guessing.
+4. For layer changes, prefer `mlmm define-layer` over editing B-factors by hand.
+
+## Next step
+
+- [extract](../mlmm-cli/extract.md), [mm-parm](../mlmm-cli/mm-parm.md), and
+  [define-layer](../mlmm-cli/define-layer.md): the preparation commands.
+- [mlmm-model-setup](../mlmm-model-setup/SKILL.md): choosing the ML region and layers.
+- [Outputs](../mlmm-overview/outputs.md): the XYZ, PDB, and CIF files a run writes.
+- [formats.md](formats.md): per-format layouts, edits, and checks.

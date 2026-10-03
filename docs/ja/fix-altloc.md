@@ -1,134 +1,132 @@
-# `fix-altloc`
+# `fix-altloc`（PDB の代替位置の解決）
 
-PDB ファイルの代替位置（altLoc）を、原子単位ではなく残基単位で
-解決します。各残基について、ラベル付き原子の平均 occupancy が最大の
-非空白ラベルを一つ選び、同値の場合は最初に現れるラベルを選びます。
-空白（共通）原子は残し、非選択ラベルの原子は削除します。これにより、
-実在しない A/B 混合残基の生成を防ぎます。
+## 概要
 
-## 実行例
+`fix-altloc` サブコマンドは、PDB ファイルから**代替位置（altLoc）を取り除きます**。残基ごとに平均占有率が最も高い altLoc ラベルを 1 つ選ぶので、各残基は実際に登録された 1 つのコンフォマーになります。`extract`・`define-layer` と ML/MM の計算コマンドも、PDB を読み込むときに同じ規則を自動で適用します。整理した PDB ファイルそのものが必要なときに `fix-altloc` を使ってください。
 
-コマンド形式:
+### 主な用途
 
-```bash
-mlmm fix-altloc -i INPUT [-o OUTPUT] [options]
-```
+* **保存用の整理した PDB**: 残基ごとに 1 つのコンフォマーにしたファイルを、ほかのプログラムや記録に使う
+* **`mm-parm` の入力**: `mm-parm` は altLoc を解決しないので、先に整理する
+* **多数のファイルの一括処理**: ディレクトリ内のすべての `.pdb`（必要ならサブディレクトリも）
+* **選択の確認**: 計算の前に、どのコンフォマーが残るかを確かめる
 
-単一ファイルの altLoc を解決する（`<input>_clean.pdb` を出力）:
+---
+
+## 基本的な実行例
+
+### 1. 1 つのファイル
+
+1 つのファイルを整理し、`1abc_clean.pdb` に書き出します。
 
 ```bash
 mlmm fix-altloc -i 1abc.pdb
 ```
 
-出力名を明示して単一ファイルの altLoc を解決する:
+端末に `[fix-altloc] Fixed altLoc → 1abc_clean.pdb` が出れば成功です。altLoc の無いファイルでは `[fix-altloc] Skipped 1abc.pdb (no altLoc detected).` が出ます。
+
+### 2. 出力ファイルを指定する
 
 ```bash
 mlmm fix-altloc -i 1abc.pdb -o 1abc_fixed.pdb
 ```
 
-ディレクトリを再帰的に処理して新しい出力ディレクトリへ書き出す:
+### 3. ディレクトリを再帰的に処理する
+
+`./structures` 以下のすべての `.pdb` を整理し、同じサブディレクトリ構成で `./cleaned` に書き出します。
 
 ```bash
 mlmm fix-altloc -i ./structures -o ./cleaned --recursive
 ```
 
-ディレクトリを再帰的に処理してファイルをその場で上書きする:
+### 4. バックアップを残して上書きする
+
+入力ファイルを上書きし、元のファイルを `<name>.pdb.bak` として残します。
 
 ```bash
 mlmm fix-altloc -i ./structures --inplace --recursive
 ```
 
-altLoc が検出されなくても強制的に処理するには `--force` を使用します。
+---
 
-```bash
-mlmm fix-altloc -i 1abc.pdb -o 1abc_fixed.pdb --force
-```
+## 処理の仕組みと計算仕様
 
-## 処理の流れ
+1. **altLoc の検出**:
+各ファイルで、空白でない altLoc の文字（17 列目）を探します。
+2. **残基ごとのまとめ**:
+ラベルの付いた ATOM・HETATM レコードを、chain ID・残基番号・挿入コード・segID で残基ごとにまとめます。残基名はキーに含めません。
+3. **残基ごとに 1 つのラベルを選ぶ**:
+原子の平均占有率（55–60 列）が最も高いラベルを選びます。同点ならファイル内で先に出たラベルを選びます。
+4. **書き出し**:
+空白（共通）の原子と、選んだラベルの原子を残し、17 列目を空白にします。選んだラベルに同じ原子があるときは、空白の原子のほうを除きます。
 
-1. 入力ファイルに非空白の altLoc 文字（列 17）が含まれているかチェック。
- - altLoc が見つからず `--force` が設定されていない場合、ファイルをスキップ。
-2. ラベル付き ATOM/HETATM レコードを site（chain ID、残基番号、
-   insertion code、segID）ごとにまとめる。
-3. 各残基で、解析可能なoccupancy（列55–60）の平均が最大のラベルを選ぶ。
-   occupancyを1件も解析できないラベルは、解析可能な平均を持つラベルより下位になる。
-   scoreが同じ場合（全ラベルでoccupancy欠損の場合を含む）は最初の出現順で決める。
-4. 空白（共通）原子と選択ラベルの原子を残し、残る不正な重複は occupancy
-   と出現順で解決する。
-5. 出力を書き込み:
- - 空白（共通）原子と選択した残基 conformer のみを保持
- - altLoc 列（17）を空白（スペース 1 文字）に置換
- - ANISOU レコードは保持された原子に一致するもののみフィルタリング
+ANISOU レコードは、残った原子（同じシリアル番号）の分だけを残し、そのほかのレコードはそのまま書き出します。
 
-### altLoc 状態間で原子数が異なる場合の処理
+### altLoc の間で原子数が違う場合
 
-異なる altLoc 状態で異なる原子が含まれている場合（例：altLoc A には N, CA, CB, CG、
-altLoc B には N, CA, CB, CD がある場合）、`fix-altloc` は以下のように処理します：
+altLoc の状態ごとに原子が違う場合も、選んだラベルの原子だけを残し、選ばなかったラベルにしか無い原子は削除します。1 つの残基の中で A と B の原子が混ざることはありません。
 
-選択した残基ラベルに属する原子だけを残します。非選択ラベルにしかない
-原子は削除します。
-
-**例:**
-```
+```text
 入力:
- ATOM 1 N AALA A 1... 0.50 # altLoc A
- ATOM 2 CA AALA A 1... 0.50 # altLoc A
- ATOM 3 CG AALA A 1... 0.50 # altLoc A のみ
- ATOM 4 N BALA A 1... 0.40 # altLoc B
- ATOM 5 CA BALA A 1... 0.40 # altLoc B
- ATOM 6 CD BALA A 1... 0.40 # altLoc B のみ
+ ATOM 1 N ALYS A 1... 0.50 # altLoc A
+ ATOM 2 CA ALYS A 1... 0.50 # altLoc A
+ ATOM 3 CB ALYS A 1... 0.50 # altLoc A
+ ATOM 4 CG ALYS A 1... 0.50 # altLoc A
+ ATOM 5 N BLYS A 1... 0.40 # altLoc B
+ ATOM 6 CA BLYS A 1... 0.40 # altLoc B
+ ATOM 7 CB BLYS A 1... 0.40 # altLoc B
+ ATOM 8 CG BLYS A 1... 0.40 # altLoc B
+ ATOM 9 CD BLYS A 1... 0.40 # altLoc B のみ
 
 出力:
- ATOM 1 N ALA A 1... 0.50 # A から（占有率が高い）
- ATOM 2 CA ALA A 1... 0.50 # A から（占有率が高い）
- ATOM 3 CG ALA A 1... 0.50 # 保持（A のみ）
+ ATOM 1 N LYS A 1... 0.50 # A から（占有率が高い）
+ ATOM 2 CA LYS A 1... 0.50 # A から
+ ATOM 3 CB LYS A 1... 0.50 # A から
+ ATOM 4 CG LYS A 1... 0.50 # A から
+ （altLoc B にしか無い CD は削除）
 ```
 
-## 出力
+---
 
-- 代替位置が削除された PDB ファイル:
- - 入力がファイル: デフォルトは `<input>_clean.pdb`（`-o/--out` が省略された場合）
- - 入力がディレクトリ: デフォルトは `<input>_clean/`（サブパスを保持）
- - `-o/--out` 指定時: `OUTPUT.pdb`
- - `--inplace` 設定時: 元のファイルを上書き（バックアップは `<input>.pdb.bak` として保存）
+## 主な出力ファイル
 
-元のファイルは変更されません（`--inplace` が設定されていない限り）。
+* **ファイル入力**: デフォルトは `<input>_clean.pdb`。`-o` を指定するとそのパスです。`-o` が `.pdb` で終わらないときはディレクトリとして扱い、その中に入力と同じ名前で書き出します。
+* **ディレクトリ入力**: デフォルトは `<input>_clean/`。`-o` を指定するとそのディレクトリで、入力と同じ相対パスに書き出します。端末に `[fix-altloc] Processed N file(s) → …` と、altLoc の無いファイルについて `Skipped N file(s)` が出ます。
+* **`--inplace`**: 入力ファイルを上書きし、元のファイルを `<name>.pdb.bak` として保存します。
 
-## Python API
+---
 
-プログラムから利用する場合、モジュールは以下をエクスポートします:
-```python
-from pathlib import Path
-from mlmm.io.pdb_fix import has_altloc, clean_pdb_file
+## 主な CLI オプション
 
-# ファイルに altLoc があるかチェック
-if has_altloc(Path("input.pdb")):
-    # altLoc を解決した PDB を書き出す (出力は常に上書き)
-    clean_pdb_file(Path("input.pdb"), Path("output.pdb"))
-```
+| オプション | 引数の型 | デフォルト | 説明 |
+| --- | --- | --- | --- |
+| `-i, --input` | パス | （必須） | 入力 PDB ファイルまたはディレクトリ |
+| `-o, --output` | パス | `None` | 出力ファイル（ファイル入力）またはディレクトリ（ディレクトリ入力）。省略時は `<input>_clean.pdb` または `<input>_clean/` |
+| `--recursive/--no-recursive` | フラグ | `False` | ディレクトリ入力で、サブディレクトリの `.pdb` も処理 |
+| `--inplace/--no-inplace` | フラグ | `False` | 入力ファイルを上書き（`.bak` のバックアップを作成） |
+| `--overwrite/--no-overwrite` | フラグ | `False` | 既存の出力ファイルの上書きを許可。無いときに出力がすでにあると `Output exists: <path> (use --overwrite to overwrite)` で止まる |
+| `--force/--no-force` | フラグ | `False` | altLoc が見つからないファイルも処理 |
 
-## CLI オプション
+全オプションの一覧は [自動生成 CLI リファレンス](../reference/commands/fix_altloc.md) を参照してください。
 
-| オプション | 説明 | デフォルト |
-| --- | --- | --- |
-| `-i, --input PATH` | 入力 PDB ファイルまたはディレクトリ | 必須 |
-| `-o, --out PATH` | 出力ファイル（入力がファイルの場合）またはディレクトリ（入力がディレクトリの場合） | 入力がファイル: `<input>_clean.pdb`、入力がディレクトリ: `<input>_clean/` |
-| `--recursive/--no-recursive` | 入力がディレクトリの場合、`*.pdb` ファイルを再帰的に処理 | `False` |
-| `--inplace/--no-inplace` | 入力ファイルをその場で上書き（`.bak` バックアップを作成） | `False` |
-| `--overwrite/--no-overwrite` | 既存の出力ファイルの上書きを許可 | `False` |
-| `--force/--no-force` | altLoc が検出されなくてもファイルを処理 | `False` |
+---
 
-全フラグの一覧は生成された[コマンドリファレンス](../reference/commands/index.md)を参照してください。
+## 使用上の注意点
 
-## 注記
+* **altLoc の無いファイル**: 17 列目がすべて空白のファイルはスキップし、何も書き出しません。`--force` を付けると処理します。
+* **`--inplace` と `-o`**: `--inplace` のときは `-o` を無視します。`.bak` がすでにあれば置き換えないので、最初に上書きする前のファイルが残ります。
+* **シリアル番号**は振り直さないので、原子を削除した箇所に欠番が残ることがあります。`CONECT` などの結合・注釈のレコードも更新しません。
+* **残したレコード**は 17 列目のほかは書き換えないので、座標・占有率・B-factor・電荷・挿入コード・並び順はそのままです。
+* **MODEL/ENDMDL ブロック**はブロックごとに別々に処理します。
+* **占有率の規則は経験則です**: 化学的な接触や登録されたアンサンブルの解釈で活性部位のコンフォマーを選ぶ必要があるときは、構造エディタで自分で選び、目で確かめてください。
+* **終了コード**: {ref}`終了コード <ja-exit-codes>`を参照してください。
 
-- altLoc 文字を含まないファイルは `--force` を設定しない限りスキップされます。
+---
 
-## 関連項目
+## 関連ドキュメント
 
-- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
-- [トラブルシューティング](troubleshooting.md) -- 詳細な対処ガイド
-
-- [add-elem-info](add-elem-info.md) -- altLoc 修正前に PDB 元素列を修復
-- [extract](extract.md) -- altLoc 解決後に活性部位ポケットを抽出
-- [all](all.md) -- ML/MM 一気通貫ワークフロー（入力に altLoc がある場合は事前に `fix-altloc` を実行）
+* [extract](extract.md) — PDB の読み込み時に同じ altLoc の規則を適用する活性部位モデルの抽出
+* [mm-parm](mm-parm.md) — 整理した PDB から Amber のトポロジーを作る
+* [add-elem-info](add-elem-info.md) — PDB の元素列（77–78 列）を埋める
+* [all](all.md) — 全工程のワークフロー
+* [トラブルシューティング](troubleshooting.md) — 実行に失敗したときの対処

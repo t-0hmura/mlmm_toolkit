@@ -1,229 +1,176 @@
-# `scan2d`
+# `scan2d` (2D restrained grid scan)
 
-The calculator uses the selected MM backend: `hessian_ff` by default, or OpenMM.
+## Overview
 
-Perform a two-distance (d1, d2) grid scan with harmonic restraints and ML/MM relaxations on a layered enzyme structure. Input may be PDB/mmCIF, or XYZ with `--ref-pdb`. It maps a 2D potential-energy surface across two reactive distances (e.g., bond formation and cleavage) and can identify candidate saddle regions or bifurcation features for subsequent TS optimization. `mlmm scan2d` constructs linear grids for two bond distances using `--max-step-size`, relaxes each grid point with the appropriate restraints active, and records unbiased ML/MM energies for visualization. Pass `-s/--scan-lists` a YAML/JSON spec file (recommended) or an inline Python literal; both forms accept exactly two scan axes. The 3D `scan2d_landscape.html` includes a bottom contour projection.
+`scan2d` relaxes every point of a grid over two coordinates of a layered enzyme structure with harmonic restraints and the ML/MM calculator, and records the energy without the restraints, giving a 2D energy map of the reaction. Each axis is a range: a distance `(i,j,low,high)` in Å, an angle `(i,j,k,low,high)`, or a dihedral `(i,j,k,l,low,high)` in degrees.
 
-Either axis may instead be an angle `(i,j,k,low,high)` or dihedral
-`(i,j,k,l,low,high)`. Angular ranges use degrees.
+### What it is for
+
+* **Locating the TS region**: see where the saddle between the reactant and product basins lies before a path search or TS optimization.
+* **Viewing the landscape before the MEP**: check whether two events, such as bond formation and proton transfer, happen together or one after the other, before refining the minimum-energy path (MEP).
+* **Judging the result**: `surface.csv` marks every point as converged or not, and `result.json` gives `scientific_status` (see *Reading surface.csv* below).
+
+The ML region uses **UMA** (Meta) by default; `-b/--backend` also selects **ORB**, **MACE**, **AIMNet2**, or DFT (`dft`). For a single path driven by one or more coordinates, use [`scan`](scan.md); for three coordinates, use [`scan3d`](scan3d.md).
+
+---
 
 ## Examples
 
-Command form:
+Here `pocket.pdb` contains the full system matching `real.parm7`, and `ml_region.pdb` selects its ML region without link hydrogens.
 
-```bash
-mlmm scan2d -i INPUT.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
- -q CHARGE [-m MULT] \
- (-s scan2d.yaml | -s "[(I1,J1,LOW1,HIGH1),(I2,J2,LOW2,HIGH2)]") \
- [--one-based|--zero-based] [--max-step-size FLOAT] [--restraint-k FLOAT] \
- [--freeze-atoms "1,3,5"] [--relax-max-cycles INT] [--thresh PRESET] \
- [--dump/--no-dump] [--out-dir DIR] \
- [--preopt/--no-preopt] [--baseline {min|first}] [--zmin FLOAT] [--zmax FLOAT]
-```
+The atoms are those of the bundled enzyme example (`examples/beza/1.R.pdb`), whose PDB has an empty chain column. Each atom is therefore written with three fields, residue name, residue number, and atom name, in any order and separated by commas or spaces (`"SAM,320,CS1"`).
 
-Recommended: YAML/JSON spec.
+### 1. From a YAML spec
 
-```bash
-# Recommended: YAML/JSON spec
-cat > scan2d.yaml << 'YAML'
-one_based: true
-pairs:
- - [12, 45, 1.30, 3.10]
- - [10, 55, 1.20, 3.20]
-YAML
-mlmm scan2d -i input.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 -s scan2d.yaml --dry-run
-```
-
-Alternative: inline Python literal.
-
-```bash
-# Alternative: inline Python literal
-mlmm scan2d -i input.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 -s "[(12,45,1.30,3.10),(10,55,1.20,3.20)]"
-```
-
-L-BFGS scan with TRJ dumps and fixed color scale for the contour plot.
-
-```bash
-# L-BFGS scan with TRJ dumps and fixed color scale for the contour plot
-mlmm scan2d -i input.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 -s "[(12,45,1.30,3.10),(10,55,1.20,3.20)]" \
- --max-step-size 0.20 --dump -o ./result_scan2d/ --preopt --baseline min \
- --zmin 0.0 --zmax 40.0
-```
-
-Add `--dry-run` to validate the input and scan spec without calculating.
-
-## Workflow
-
-1. **Input & preoptimization** -- Load PDB/mmCIF, or XYZ with `--ref-pdb`; resolve charge/spin, build the ML/MM calculator (MLIP backend + hessian_ff; backend selected via `-b/--backend`, default `uma`), and optionally run an unbiased pre-optimization when `--preopt`.
-2. **Grid construction** -- Parse targets from `-s/--scan-lists` (YAML/JSON spec file or inline literal) into two quadruples, normalize indices (1-based by default or PDB atom selectors like `"SAM,320,CS1"`). Build linear grids with `ceil(|high - low| / h) + 1` points where `h = --max-step-size`.
-3. **Outer loop (d1)** -- For each d1 value, relax the system with **only the d1 restraint** active.
-4. **Inner loop (d2)** -- For each d2 value at the current d1, relax with **both restraints** active starting from the nearest previously converged structure.
-5. **Energy evaluation** -- At each (i, j) pair, evaluate the ML/MM energy without bias and record to `surface.csv`. Always retain the starting/preoptimized reference as `i = j = -1` and `is_preopt = true`.
-6. **Visualization** -- Exclude the `-1` reference from the baseline, interpolation, and plots. With at least three unique, non-collinear finite and converged grid points, write `scan2d_map.png` (2D contour) and `scan2d_landscape.html` (3D surface). Otherwise retain `surface.csv` and exit with the support diagnostic. Use `--zmin/--zmax` to clamp the color scale. Baselines: `--baseline min` zeroes the minimum energy; `--baseline first` zeroes the (i=0, j=0) grid point.
-
-The `d1_A` / `d2_A` columns store measured coordinates after relaxation;
-`target_d1_A` / `target_d2_A` store restraint targets.
-Filename distance tags describe the targets. With usable points but insufficient
-interpolation support, the CSV is retained and the plot is omitted
-(`scientific_status: partial`, exit 0). No usable points gives
-`scientific_status: failed` and exit 1.
-
-## Outputs
-
-Check `surface.csv` first. `scan2d_map.png` and `scan2d_landscape.html` are present only when at least three unique, non-collinear finite and converged points support interpolation. Per-point geometries land under `grid/` (the `i###` / `j###` filename tags are integer hundredths of an ångström, not step indices).
-With `--out-json`, `result.json` also records an explicit `grid_points[]`
-mapping from each grid index to its written XYZ geometry. Notebook and other
-interactive clients should use this mapping instead of inferring filenames.
-
-```
-out_dir/ (default: ./result_scan2d/)
-├── surface.csv # PES grid: i, j, d1_A, d2_A, energy_hartree, bias_converged, is_preopt, energy_kcal, d1_label, d2_label
-├── scan2d_map.png # 2D contour map
-├── scan2d_landscape.html # 3D surface visualization (Plotly)
-├── grid/
-│ ├── point_i###_j###.xyz # Relaxed geometry for every (i, j) pair
-│ ├── point_i###_j###.pdb # PDB companion (when input is PDB)
-│ ├── preopt_i###_j###.xyz # reference / pre-optimized structure (written whenever reference distances are finite)
-│ └── inner_path_d1_###_trj.xyz # Inner d2 trajectory per d1 slice (when --dump)
-└── (stdout) # Progress and energy summaries
-```
-
-## CLI options
-
-The full flag list is in the generated [command reference](reference/commands/index.md). The table below covers the options that need explanation.
-
-| Option | Description | Default |
-| --- | --- | --- |
-| `-i, --input PATH` | Input PDB/mmCIF, or XYZ with `--ref-pdb`. | Required |
-| `--parm7 PATH` | Amber parm7 topology for the enzyme (required). | Required |
-| `--model-pdb PATH` | PDB defining the ML region. Optional when `--detect-layer` is enabled. | _None_ |
-| `--model-indices TEXT` | Comma-separated atom indices for the ML region (ranges allowed). | _None_ |
-| `--detect-layer / --no-detect-layer` | Automatically detect ML/MM layers from input PDB B-factors. | Enabled |
-| `-q, --charge INT` | ML-region net charge. | _None_ (required unless `-l` is given) |
-| `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives total charge when `-q` is omitted. | _None_ |
-| `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
-| `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze. | _None_ |
-| `--movable-cutoff FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. Providing this disables `--detect-layer`. | _None_ |
-| `-s, --scan-lists TEXT` | Two distance, angle, or dihedral ranges in YAML/JSON or one inline Python literal. Indices can be integers or PDB atom selectors. | Required |
-| `--one-based / --zero-based` | Interpret `(i,j)` indices in `-s/--scan-lists` as 1-based or 0-based. | `True` (1-based) |
-| `--max-step-size FLOAT` | Maximum distance increment per step (Å). Determines grid density. | `0.20` |
-| `--max-angle-step-size FLOAT` | Maximum angle change per step (degrees). | `5.0` |
-| `--max-dihedral-step-size FLOAT` | Maximum dihedral change per step (degrees). | `10.0` |
-| `--restraint-k FLOAT` | Harmonic well strength: eV/Å² for distances and eV/rad² for angles. | `300.0` |
-| `--relax-max-cycles INT` | Optimizer-cycle cap per biased relaxation. | `100000` |
-| `--dump/--no-dump` | Write inner d2 scan TRJs per d1 slice. | `False` |
-| `-o, --out-dir TEXT` | Base output directory. | `./result_scan2d/` |
-| `--opt-mode TEXT` | Single-structure optimizer: `grad` = L-BFGS, `hess` = RFO. | `grad` |
-| `--thresh TEXT` | Convergence preset (`gau_loose\|gau\|gau_tight\|gau_vtight\|baker\|never`). | `baker` |
-| `--config FILE` | Base YAML configuration file (applied first). | _None_ |
-| `--ref-pdb FILE` | Reference PDB topology when `--input` is XYZ. | _None_ |
-| `--preopt/--no-preopt` | Run an unbiased pre-optimization before scanning. | `False` |
-| `--baseline {min,first}` | Reference for relative energy (kcal/mol). | `min` |
-| `--zmin FLOAT` | Lower bound of the contour color scale (kcal/mol). | Autoscaled |
-| `--zmax FLOAT` | Upper bound of the contour color scale (kcal/mol). | Autoscaled |
-| `-b, --backend CHOICE` | High-level backend for the model region: `uma`, `orb`, `mace`, `aimnet2`, `dft`. | `uma` |
-| `--cmap/--no-cmap` | Preserve CMAP in both REAL and MODEL MM layers. | `--cmap` |
-| `--mm-backend [hessian_ff\|openmm]` | MM backend. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |
-| `--link-atom-method [scaled\|fixed]` | Link-atom placement: scaled ($g$-factor) or fixed 1.09/1.01 Å. | `scaled` |
-| `--out-json/--no-out-json` | Write machine-readable `result.json` to `out_dir`. | `False` |
-| `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
-
-## Scan spec formats
-
-### YAML/JSON spec format (recommended)
-
-`-s/--scan-lists` auto-detects YAML/JSON files. Pass a file path to use the spec format:
+Write the two ranges under `pairs:`. With the default step of 0.2 Å, this file gives a 9 × 9 grid.
 
 ```yaml
-one_based: true # optional; defaults to CLI --one-based/--zero-based
+# scan2d.yaml
 pairs:
- - [12, 45, 1.30, 3.10]
- - [10, 55, 1.20, 3.20]
+  - ["SAM,320,CS1", "GPP,321,C7", 1.50, 3.00]
+  - ["GPP,321,H11", "GLU,186,OE2", 0.90, 2.50]
 ```
 
-- `pairs` is required and must contain exactly 2 coordinate ranges.
-- A range is distance `(i,j,low,high)`, angle `(i,j,k,low,high)`, or dihedral `(i,j,k,l,low,high)`.
-- Indices may be integers or PDB selectors (same as inline literals).
-
-### Inline literal format
-
-When `-s/--scan-lists` receives a value that is not a file path, it is treated as a **single Python literal** string. Shell quoting matters.
-
-The literal is a Python list of exactly **two** coordinate ranges:
-
-```
--s '[(atom1, atom2, low_A, high_A), (atom3, atom4, low_A, high_A)]'
-```
-
-- Wrap the entire literal in **single quotes** so the shell does not interpret parentheses or spaces.
-- Each quadruple defines one scan axis: the distance between `atom1`--`atom2` is scanned from `low_A` to `high_A`.
-- Unlike `scan`, only **one literal** is accepted (no multi-stage support).
-
-Atoms can be given as **integer indices** or **PDB selector strings**:
-
-| Method | Example | Notes |
-| --- | --- | --- |
-| Integer index | `(1, 5, 1.30, 3.10)` | 1-based by default (`--one-based`) |
-| PDB selector | `("SAM,320,CS1", "GPP,321,C7", 1.50, 3.00)` | Residue name, residue number, atom name |
-
-PDB selector tokens can be separated by any of: comma `,`, space, slash `/`, backtick `` ` ``, or backslash `\`. Token order is flexible.
+Give the structure, the charge, and the file; add `--out-json` to also get `result.json`.
 
 ```bash
-# All of these specify the same atom:
-"SAM,320,CS1"
-"SAM 320 CS1"
-"SAM/320/CS1"
-"320,SAM,CS1" # order is flexible
+mlmm scan2d -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
+    -s scan2d.yaml --out-json -o ./result_scan2d/
 ```
 
-Quoting rules:
+Open `result_scan2d/scan2d_map.png` for the contour map and `scan2d_landscape.html` for the 3D surface; `result.json` gives `scientific_status` and the number of usable points.
+
+### 2. Inline literal
+
+The same two ranges can be written on the command line as one literal.
 
 ```bash
-# Correct: single-quote the list, double-quote selector strings inside
--s '[("SAM,320,CS1","GPP,321,C7",1.50,3.00),("GPP,321,H11","GLU,186,OE2",0.90,2.50)]'
-
-# Correct: integer indices need no inner quotes
--s '[(1, 5, 1.30, 3.10), (2, 8, 1.20, 3.20)]'
-
-# Avoid: double-quoting the outer literal requires escaping inner quotes
--s "[(\"SAM,320,CS1\",\"GPP,321,C7\",1.50,3.00),...]"
+mlmm scan2d -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
+    -s '[("SAM,320,CS1","GPP,321,C7",1.50,3.00),("GPP,321,H11","GLU,186,OE2",0.90,2.50)]'
 ```
 
-## YAML configuration
+### 3. Pre-optimize, dump, and set the baseline
 
-```yaml
-geom:
- coord_type: cart
- freeze_atoms: []
-calc:
- model_charge: 0
- model_mult: 1
- real_parm7: real.parm7
- model_pdb: ml_region.pdb
-opt:
- thresh: baker
- # max_cycles: 100000 # optional finite override
-lbfgs:
- max_step: 0.3
-bias:
- k: 300.0
+Optimize the input before the scan, keep the inner-loop trajectories, and measure the relative energies from the lowest usable point. `--max-step-size 0.20`, `--opt-mode grad`, and `--baseline min` are the defaults, written out here.
+
+```bash
+mlmm scan2d -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
+    -s '[("SAM,320,CS1","GPP,321,C7",1.50,3.00),("GPP,321,H11","GLU,186,OE2",0.90,2.50)]' \
+    --max-step-size 0.20 --dump -o ./result_scan2d/ --opt-mode grad \
+    --preopt --baseline min
 ```
 
-Use the CLI-owned `--dump` and `--out-dir` options for trajectory and output placement.
+---
 
-With `--opt-mode hess`, use `rfo` or `opt.rfo` for optimizer settings;
-`lbfgs` or `opt.lbfgs` applies to `grad`.
+## How it works
 
-Full schema (every key and default): [YAML Reference](yaml-reference.md).
+1. **Starting structure and grid**:
+The ML-region charge comes from `-q` or `-l` (see {ref}`Charge specification <charge-specification>`). With `--preopt`, the input is first optimized without restraints; if that does not converge, the input geometry is used. Each axis gets ceil(|high − low| / h) + 1 evenly spaced values, both ends included, where h is `--max-step-size` (Å) for a distance and `--max-angle-step-size` or `--max-dihedral-step-size` (degrees) for an angle or dihedral. The values are visited from the one closest to the starting structure.
+2. **Outer and inner loops**:
+For each d₁ value, the structure is relaxed with only the d₁ restraint. The inner loop then scans d₂ with both restraints, starting each point from the nearest point that has already converged.
+3. **Relaxation at each point**:
+A harmonic restraint E = ½ k (q − q_target)² holds each coordinate q at its target (k is `--restraint-k`), and L-BFGS (`--opt-mode grad`, default) or RFO (rational function optimization, `--opt-mode hess`) relaxes the rest with the ML/MM calculator; the atoms of the frozen MM layer stay fixed. The energy is then computed without the restraints, and the structure is written under `grid/`.
+4. **Table and plots**:
+After the last point, all points go into `surface.csv`. The usable points are interpolated with radial basis functions (RBF) on a 50 × 50 grid and drawn as a contour map (`scan2d_map.png`) and a 3D surface (`scan2d_landscape.html`).
 
-## See Also
+---
 
-- [Common Error Recipes](recipes-common-errors.md) — Symptom-first failure routing
-- [Troubleshooting](troubleshooting.md) — Detailed troubleshooting guide
-- [scan](scan.md) — Concerted multi-distance and multistage restrained scans
-- [scan3d](scan3d.md) — 3D distance grid scan
-- [opt](opt.md) — Single-structure geometry optimization
-- [all](all.md) — End-to-end workflow
+## Reading surface.csv
+
+`surface.csv` has one row per grid point and one reference row.
+
+| Column | Meaning |
+| --- | --- |
+| `i`, `j` | Grid indices. Index 0 is the value closest to the starting structure, so the indices follow the visiting order, not ascending values |
+| `d1_A`, `d2_A` (also `q1`, `q2`) | Coordinate values measured after the relaxation. The `_A` names are kept for every axis, so an angle axis holds degrees; `q1_unit` and `q2_unit` give the unit (`angstrom` or `degree`) |
+| `target_d1_A`, `target_d2_A` (also `target_q1`, `target_q2`) | Restraint targets of the point |
+| `energy_hartree` | Energy without the restraints (Hartree) |
+| `energy_kcal` | Energy relative to the baseline (kcal/mol) |
+| `bias_converged` | Whether the restrained relaxation converged |
+| `is_preopt` | `true` only for the reference row |
+| `d1_label`, `d2_label` | Axis labels used in the plots |
+
+* **Reference row**: `i = j = -1` and `is_preopt = true` hold the starting structure. The row stays in the table but is never a grid point, a baseline, or a plotted point.
+* **Usable points**: a point is usable when its relaxation converged, its energy is finite, and its structure was written. Only usable points set the baseline and enter the plots.
+* **Verdict**: in `result.json` (`--out-json`), `scientific_status` is `success` when every grid point is usable, `partial` when only some are (exit status 0), and `failed` when none is (exit status 1); `n_points_attempted` and `n_points_usable` give the counts (see {ref}`Exit codes <exit-codes>`).
+* **Next step**: the plots are interpolated, so take a structure from a computed point near the saddle, `grid/point_*.pdb`, and pass it to [`tsopt`](tsopt.md); points in the two basins can be inputs for [`path-search`](path-search.md).
+
+---
+
+## Output files
+
+After a run, `--out-dir` (default: `./result_scan2d/`) contains the following files.
+
+```text
+result_scan2d/
+├─ surface.csv                   # grid table with the reference row
+├─ scan2d_map.png                # 2D contour map
+├─ scan2d_landscape.html         # 3D surface (open in a browser)
+├─ grid/
+│  ├─ point_i150_j090.xyz        # relaxed structure of each grid point
+│  ├─ preopt_iDDD_jDDD.xyz       # starting structure (the reference row)
+│  └─ inner_path_d1_000_trj.xyz  # inner-loop trajectory for each d₁ value (--dump)
+└─ result.json                   # summary (--out-json); summary.json holds the same content
+```
+
+Start with `surface.csv` and the two plots; the structure of each point is under `grid/`. In `result.json`, `grid_points[]` maps each grid index to its values, targets, energy, convergence, and structure file; use it instead of reading values back from file names.
+
+* **File names**: the number after `i` or `j` (the tag `DDD`) is the target × 100 (Å, or degrees for an angle), padded to at least three digits, not the grid index of `surface.csv`: `d1 = 1.50 Å, d2 = 0.90 Å` gives `point_i150_j090.xyz`, and an angle of 120° gives `12000`. When two points round to the same tag, the later file name gets `_grid_III_JJJ` with the zero-based indices.
+* **Other formats**: each structure is also written as `.pdb` (`--no-convert-files` turns this off), with the layer of each atom in the B-factor column: 0 for the ML region, 10 for movable MM, and 20 for frozen MM. mmCIF input, and PDB input too large for the PDB columns, also get `.cif` files with the original identifiers (see {ref}`mmCIF input <mmcif-input>`).
+
+---
+
+## Main options
+
+The options shared by every ML/MM calculation command are explained once in {ref}`ML/MM options <mlmm-options>`; the table below lists only the options specific to `scan2d`.
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `-i, --input` | path | (required) | Full-system structure (`.pdb`, `.cif`, `.mmcif`, or `.xyz` with `--ref-pdb`) |
+| `-q, --charge` | integer | `None` | Charge of the ML region. Required unless `-l` is given |
+| `-m, --multiplicity` | integer | `1` | Spin multiplicity (2S+1) of the ML region |
+| `-l, --ligand-charge` | text | `None` | Total charge of the unknown ligand residues (e.g. `-1`) or per-residue charges (e.g. `'GPP:-3,SAM:1'`), used to derive the ML-region charge when `-q` is omitted (PDB/mmCIF input or `--ref-pdb`) |
+| `-s, --scan-lists` | text | (required) | Two ranges as a YAML/JSON spec file or one inline literal: distance `(i,j,low,high)`, angle `(i,j,k,low,high)`, or dihedral `(i,j,k,l,low,high)` |
+| `-o, --out-dir` | path | `./result_scan2d/` | Output directory |
+| `--max-step-size` | float | `0.2` | Largest grid spacing of a distance axis (Å) |
+| `--max-angle-step-size` | float | `5.0` | Largest grid spacing of an angle axis (degrees) |
+| `--max-dihedral-step-size` | float | `10.0` | Largest grid spacing of a dihedral axis (degrees) |
+| `--restraint-k` | float | `300.0` | Restraint strength k (eV/Å² for distances, eV/rad² for angles); alias `--bias-k` |
+| `--preopt/--no-preopt` | flag | `False` | Optimize the input without restraints before the scan |
+| `--opt-mode` | `grad` / `hess` | `grad` | Relaxation of each point: L-BFGS / RFO |
+| `--dump/--no-dump` | flag | `False` | Write the inner-loop trajectory for each d₁ value under `grid/` |
+| `--baseline` | `min` / `first` | `min` | Zero of `energy_kcal`: lowest usable point, or point `(0, 0)` |
+| `--zmin`, `--zmax` | float | surface min / max | Lower and upper ends of the color scale (kcal/mol) |
+| `--thresh` | text | `baker` | Convergence preset of each relaxation (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`) |
+| `--out-json/--no-out-json` | flag | `False` | Write a summary to `result.json` ([JSON Output Reference](json-output.md)) |
+
+See the [generated CLI reference](reference/commands/scan2d.md) for every option.
+
+> **Note:** In YAML (`--config`), the `lbfgs` (or `opt.lbfgs`) section applies with `--opt-mode grad` and the `rfo` (or `opt.rfo`) section with `--opt-mode hess`. Trajectories are written only with `--dump`; YAML `opt.dump` is not used.
+
+---
+
+## Notes
+
+* **Two ranges in one literal**: `-s` takes exactly two ranges, in one inline literal or under `pairs:` in a YAML/JSON file. For staged scans, use [`scan`](scan.md).
+* **For a PDB with chains**, the positional form `A:SAM:320:CS1` picks one atom without ambiguity (see {ref}`Scan-list spec <scan-list-spec>`).
+* **Restraint units**: `--restraint-k` is in eV/Å² for distances and eV/rad² for angles and dihedrals. When the option is omitted, YAML `bias.k` applies.
+* **Energies without restraints**: every recorded energy is computed after the restraints are removed, so `surface.csv` can go straight into fitting or plotting scripts.
+* **Baseline**: `--baseline min` (default) puts zero at the lowest usable point; `--baseline first` puts it at point `(i, j) = (0, 0)`, or at the lowest usable point when `(0, 0)` is not usable.
+* **Frozen atoms**: the atoms given by `--freeze-atoms` or YAML `geom.freeze_atoms`, and the atoms of the frozen MM layer, stay fixed in every relaxation. A scanned coordinate whose atoms are all frozen is an error (see {ref}`Frozen atoms and restraints <freeze-atoms-and-restraints>`).
+* **Check the spec without computing**: `--dry-run` reads the input, the charge and spin, and `-s`, prints the plan, and exits without any optimization.
+* **Cycle limit**: `--relax-max-cycles` (default `100000`) limits each relaxation; an explicit value overrides YAML `opt.max_cycles`.
+* **Too few usable points**: with fewer than three usable points, or with all of them on one line, only the plots are skipped. The run prints `[plot] NOTE: Plots skipped: …`, still writes `surface.csv` (and `result.json` with `--out-json`), and exits with status 0. With no usable point it prints `[plot] No finite data for plotting.` and exits with status 1.
+* **PNG export**: the PNG is written with Plotly and Kaleido. If the export fails, the run prints `[plot] NOTE: PNG export skipped: …`, still writes the HTML surface, and leaves the PNG out of `result.json`.
+
+---
+
+## See also
+
+* [scan](scan.md) — staged scans of one or more coordinates from one structure
+* [scan3d](scan3d.md) — energy grid over three coordinates
+* [opt](opt.md) — single-structure optimization before or after a scan
+* [tsopt](tsopt.md) — optimize a structure near the saddle into a TS
+* [path-search](path-search.md) — MEP through structures taken from the map
+* [all](all.md) — end-to-end workflow
+* [Troubleshooting](troubleshooting.md) — diagnosing failed runs

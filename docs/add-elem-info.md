@@ -1,86 +1,91 @@
-# `add-elem-info`
+# `add-elem-info` (repair PDB element columns)
 
-`mlmm add-elem-info` adds or repairs PDB element symbols (columns 77-78). It infers elements from fixed-column atom names and residue context, and replaces only the element field on ATOM/HETATM records. Use it before downstream tools when element columns are missing or unreliable; valid existing fields are kept unless `--overwrite-elem` is requested.
+## Overview
+
+`add-elem-info` **fills in or corrects the element symbols** (columns 77–78) of the ATOM and HETATM records in a PDB file. It infers each element from the atom name and the residue name, keeps element fields that already hold a valid symbol, and changes nothing else in the file.
+
+### What it is for
+
+* **PDB files without element columns**: structures from modeling tools or molecular dynamics (MD) that leave columns 77–78 blank.
+* **Wrong element symbols**: re-infer every column with `--overwrite-elem`.
+* **Preparing input for other commands**: `all` repairs blank element fields by itself with the same rules. Run `add-elem-info` before a standalone command such as `extract`, or when a symbol is wrong rather than blank.
+
+---
 
 ## Examples
 
-Command form:
+### 1. Write `<input>_add_elem.pdb`
 
-```bash
-mlmm add-elem-info -i INPUT [-o OUTPUT] [--overwrite] [--overwrite-elem]
-```
-
-Add or repair element columns into the non-destructive default output:
+Fill the element columns and write the result next to the input.
 
 ```bash
 mlmm add-elem-info -i 1abc.pdb
 ```
 
-This writes `1abc_add_elem.pdb`. To replace the input explicitly:
+The console prints `[add-elem-info] Wrote: 1abc_add_elem.pdb` and the counts `total atoms`, `assigned/updated`, and `kept existing`. With no `WARNING` line, every atom has an element.
 
-```bash
-mlmm add-elem-info -i 1abc.pdb --overwrite
-```
-
-Write the result to a separate output file:
+### 2. Choose the output file
 
 ```bash
 mlmm add-elem-info -i 1abc.pdb -o 1abc_fixed.pdb
 ```
 
-Re-infer and overwrite existing element fields:
+### 3. Overwrite the input
+
+Replace the input file itself.
 
 ```bash
-mlmm add-elem-info -i 1abc.pdb --overwrite-elem
+mlmm add-elem-info -i 1abc.pdb --overwrite
 ```
 
-## Workflow
+---
 
-1. Read raw PDB records and classify atoms with the residue definitions used
-   in `extract.py` (`AMINO_ACIDS`, `WATER_RES`, `ION`).
-2. For each atom, guess the element by combining the atom name, residue name,
-    and whether the record is HETATM:
- - **Ion residues:** Prefers residue-derived elements; polyatomic ions
-  (e.g., NH4, H3O+) are assigned per atom (H/N/O).
- - **Proteins, nucleic acids, water:** Maps H/D to H; water atoms to O/H and virtual sites to EP;
-  first-letter mapping for P/N/O/S; recognizes Se; carbon labels
-  (CA/CB/CG/...) to C.
- - **Ligands/cofactors:** Follows fixed-column atom-name alignment (` NA ` → N,
-  `NA  ` → Na), LEaP halogens (` CL1` / ` BR1`), and hydrogen
-  labels such as `HG11`.
-3. Replace only columns 77–78 on ATOM/HETATM records and preserve all other
-   columns and records:
- - No `-o/--out` given: writes `<input>_add_elem.pdb`.
- - `--overwrite` without `-o/--out`: replaces the input file.
- - `-o/--out` given: writes to the specified path; targeting the input requires `--overwrite`.
-4. Print a summary reporting total atoms, newly assigned, kept existing,
-    overwritten (when `--overwrite-elem`), per-element counts, and up to 50
-    unresolved atoms (model/chain/residue/atom/serial).
+## How it works
 
-## Outputs
+1. **Reading the records**:
+`add-elem-info` reads every line, follows MODEL blocks, and looks only at ATOM and HETATM records.
+2. **Keeping valid symbols**:
+An element field that already holds a valid symbol (or `EP` for a water virtual site) is kept. Blank or unrecognized fields are repaired; `--overwrite-elem` re-infers every field.
+3. **Inferring the element**:
+The element comes from the four-character atom name (columns 13–16) and the residue name. Ion residues give the element of the ion; amino acids, nucleic acids, and water follow the usual naming (H/D, C, N, O, P, S, Se); other ligands use the column alignment of the atom name (` NA ` is N, `NA  ` is Na), including LEaP halogens such as ` CL1` and hydrogen names such as `HG11`.
+4. **Writing and the summary**:
+Only columns 77–78 of the repaired records change. The console reports the totals, the counts per element, and the atoms that could not be assigned.
 
-- PDB file with element columns (77-78) populated or corrected
-- Console report with totals for processed/assigned atoms, per-element counts, and up to 50 unresolved atoms
+---
 
-## CLI options
+## Output files
 
-| Option | Description | Default |
-| --- | --- | --- |
-| `-i, --input PATH` | Input PDB file. | Required |
-| `-o, --out PATH` | Output PDB path; a separate path takes precedence, while targeting the input requires `--overwrite`. | _None_ → `<input>_add_elem.pdb` |
-| `--overwrite/--no-overwrite` | Replace the input file when `-o/--out` is omitted. | `False` |
-| `--overwrite-elem/--no-overwrite-elem` | Re-infer valid existing element fields; otherwise only blank or invalid fields are repaired. | `False` |
+* **The repaired PDB**: `<input>_add_elem.pdb` by default, the path given with `-o`, or the input file itself with `--overwrite` and no `-o`.
+* **Console summary**: `total atoms`, `assigned/updated` (atoms whose element column changed), `kept existing`, and `assignment breakdown` (counts per element). Atoms that could not be assigned are left unchanged and listed after `[add-elem-info] WARNING: Could not confidently assign N atoms; left unchanged.`, up to 50 of them. Type the element symbol of each listed atom into columns 77–78 by hand, right-aligned; `--overwrite-elem` uses the same rules and will not assign them.
 
-Every input line is preserved byte-for-byte except columns 77–78 of
-ATOM/HETATM records selected for repair. HEADER, REMARK, CONECT, ANISOU, and
-legacy charge columns are retained.
+---
 
-The full flag list is in the generated [command reference](reference/commands/index.md).
+## Main options
 
-## See Also
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `-i, --input` | path | (required) | Input PDB file |
+| `-o, --output` | path | `None` | Output PDB file; without it, `<input>_add_elem.pdb` |
+| `--overwrite/--no-overwrite` | flag | `False` | Overwrite the input file when `-o` is not given |
+| `--overwrite-elem/--no-overwrite-elem` | flag | `False` | Re-infer element columns that already hold a valid symbol |
 
-- [Common Error Recipes](recipes-common-errors.md) — Symptom-first failure routing
-- [Troubleshooting](troubleshooting.md) — Detailed troubleshooting guide
+See the [generated CLI reference](reference/commands/add_elem_info.md) for every option.
 
-- [mm-parm](mm-parm.md) — Build AMBER topology (requires correct element columns)
-- [extract](extract.md) — Extract active-site pocket from protein-ligand complex
+---
+
+## Notes
+
+* **What changes**: Every input line is preserved byte-for-byte except columns 77–78 of the ATOM and HETATM records being repaired. HEADER, REMARK, CONECT, ANISOU, and the charge columns (79–80) are written unchanged.
+* **Models and chains**: ATOM and HETATM records in every model, chain, and residue are processed.
+* **Special names**: deuterium labels become H, selenium (`SE*`) is recognized as Se, and halogens are recognized automatically.
+* **Two different flags**: `--overwrite-elem` decides which element columns are re-inferred; `--overwrite` decides only where the file is written.
+* **Writing to the input path**: when `-o` names the input file, including through a symbolic link, `--overwrite` is required; without it the run stops with an error.
+* **Exit codes**: see {ref}`Exit codes <exit-codes>`.
+
+---
+
+## See also
+
+* [extract](extract.md) — extract the active-site model from the repaired PDB
+* [all](all.md) — the full workflow, which repairs blank element fields on its own
+* [Troubleshooting](troubleshooting.md) — what to do when a run fails

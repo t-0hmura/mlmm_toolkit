@@ -46,6 +46,7 @@ def _prepare_fixture_files(tmp: Path) -> dict[str, Path]:
     gjf = tmp / "input.gjf"
     cfg = tmp / "config.yaml"
     parm7 = tmp / "fixture.parm7"
+    calc_file = tmp / "my_calc.py"
     out_dir = tmp / "result_all"
 
     r_pdb.write_text(pdb_text, encoding="utf-8")
@@ -53,6 +54,12 @@ def _prepare_fixture_files(tmp: Path) -> dict[str, Path]:
     xyz.write_text("1\n\nC 0.0 0.0 0.0\n", encoding="utf-8")
     gjf.write_text("%chk=test\n#p hf/3-21g\n\nTitle\n\n0 1\nC 0.0 0.0 0.0\n\n", encoding="utf-8")
     cfg.write_text("extract:\n  radius: 2.6\n", encoding="utf-8")
+    calc_file.write_text(
+        "from ase.calculators.emt import EMT\n\n"
+        "def get_calculator(**kwargs):\n"
+        "    return EMT()\n",
+        encoding="utf-8",
+    )
     # all --dry-run now performs the real topology atom-count/order check.
     # Build a minimal, parameterized two-atom Amber topology so staged scans
     # can name a real pair without requiring AmberTools executables. PDB bond
@@ -78,6 +85,7 @@ def _prepare_fixture_files(tmp: Path) -> dict[str, Path]:
         "gjf": gjf,
         "config": cfg,
         "parm7": parm7,
+        "calc_file": calc_file,
         "out_dir": out_dir,
     }
 
@@ -105,6 +113,10 @@ def _sanitize_all_args(args: list[str], fixture: dict[str, Path]) -> list[str]:
             # that the command parses and plans.
             saw_center = True
             out.extend([tok, "LIG"])
+            i += 2
+            continue
+        if tok == "--selected-resn":
+            # Named residues in doc examples do not exist in the LIG fixture.
             i += 2
             continue
         if tok in {"-l", "--ligand-charge", "-q", "--charge"}:
@@ -135,6 +147,10 @@ def _sanitize_all_args(args: list[str], fixture: dict[str, Path]) -> list[str]:
             continue
         if tok == "--config":
             out.extend([tok, str(fixture["config"])])
+            i += 2
+            continue
+        if tok == "--calc-file":
+            out.extend([tok, str(fixture["calc_file"])])
             i += 2
             continue
         if tok == "--out-dir":

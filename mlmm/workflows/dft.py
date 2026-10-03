@@ -828,7 +828,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     default=None,
     show_default="scaled",
     help="Link-atom placement: 'scaled' (g-factor, Gaussian ONIOM standard) or "
-         "'fixed' (legacy 1.09 Å for C, 1.01 Å for N).",
+         "'fixed' (1.09 Å for C, 1.01 Å for N).",
 )
 @click.option(
     "--mm-backend",

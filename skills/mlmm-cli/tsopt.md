@@ -1,84 +1,39 @@
 # `mlmm tsopt`
 
-## Purpose
+Optimizes a TS candidate on the ML/MM model, then computes the Hessian at the
+final geometry and counts its imaginary modes (n_imag). Run
+`mlmm tsopt -i <candidate> --parm7 <real.parm7> -q <charge> --out-json`.
+A successful TS optimization gives one imaginary mode along the reaction
+coordinate: `optimization_status` is `converged` and `saddle_validation` is
+`first_order`.
 
-Transition-state optimization. The default is Hessian-based RS-P-RFO
-(`--opt-mode hess`/`rsprfo`). RS-I-RFO (`rsirfo`), TRIM (`trim`), and
-Hessian-Guided Dimer (`grad`/`dimer`) remain explicit alternatives. Use after
-`path-search` or `scan` to refine
-a HEI to a true first-order saddle, or as a standalone validator on an
-externally-generated TS guess.
+## When to use
 
-## Synopsis
+- Refine a HEI candidate from `path-opt` / `path-search` ([path.md](path.md))
+  or from a [scan](scan.md) into a TS candidate.
+- Check a TS candidate built elsewhere.
 
-```bash
-mlmm tsopt -i ts_guess.{pdb,xyz} --parm7 real.parm7 \
-    [-q 0 -m 1] [-l 'RES:Q,...'] \
-    [--opt-mode grad|hess|dimer|rsprfo|rsirfo|trim] \
-    [--max-cycles 100000] \
-    [-b uma|orb|mace|aimnet2|dft] [-o ./result_tsopt/]
-```
+The default optimizer is RS-P-RFO (`--opt-mode hess`); RS-I-RFO, TRIM, and
+the Hessian-guided Dimer are alternatives.
 
-
-## ML/MM-aware flags (mlmm-toolkit specific)
-
-In addition to the common flags below,
-**`mlmm-toolkit` requires an Amber topology** and supports layer-aware
-selection. Most subcommands accept:
-
-| flag | purpose |
-|---|---|
-| `--parm7 FILE` | Amber `parm7` topology of the whole enzyme — **required** |
-| `--model-pdb FILE` | Explicit ML-region PDB; takes precedence over B-factor ML membership |
-| `--detect-layer` | Automatically read B-factor layers; explicit ML membership retains valid movable/frozen MM layers. Enabled by default. |
-| `--model-indices` | Explicit ML atom indices used when `--model-pdb` is omitted; takes precedence over B-factor ML membership |
-| `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |
-| `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
-| `-q, --charge` | **ML-region** charge (not whole-system) |
-| `-l, --ligand-charge` | Per-residue charge mapping for ML region |
-
-Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
-
-## Key flags
-
-| flag | type | default | description |
-|---|---|---|---|
-| `-i, --input` | path | required | TS candidate; `.pdb` / `.xyz` (XYZ requires `--ref-pdb`) |
-| `-q` / `-l` / `-m` | — | — | Charge / spin (common conventions) |
-| `--opt-mode` | str | `hess` | `grad`/`dimer` (Hessian-Guided Dimer), `hess`/`rsprfo` (RS-P-RFO), `rsirfo` (RS-I-RFO), or `trim` (TRIM) |
-| `--max-cycles` | int | 100000 | Optimization step cap |
-| `--hessian-calc-mode` | str | `FiniteDifference` | `Analytical` or `FiniteDifference`; check `RSIRFO_KW` / `DIMER_KW` |
-| `--ref-mode` | path | none | Advanced Cartesian 3N MEP tangent for initial-root selection and overlap tracking. `all` supplies it by default; with `all --no-tsopt-from-mep-tan`, TSOPT selects from the initial-structure Hessian modes. Ordinary standalone runs omit it. |
-| `--precision` | str | backend-specific | UMA/AIMNet2 fp32; ORB/MACE fp64; AIMNet2 rejects fp64 |
-| `--uma-workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
-| `--allow-charge-mult-mismatch` | flag | off | Warn and skip ML-region charge/multiplicity electron-parity validation for an intentional mismatch |
-| `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |
-| `--read-hess` / `--dump-hess` | path | — | Initial Hessian from / final Hessian to a NumPy `.npy` array (shared with `freq`, `irc`); `--dump-hess` needs the final Hessian |
-| `-o, --out-dir` | path | `./result_tsopt/` | Output directory |
-| `--config` / `--show-config` / `--dry-run` / `--help-advanced` | — | — | Standard |
-
-`tsopt` always forces `reject_uphill=False`, regardless of optimizer mode or
-YAML. Uphill trial steps can be part of saddle-point mode following. The
-`--reject-uphill/--no-reject-uphill` toggle belongs only to minimum
-optimization (`opt`) and post-IRC endpoint refinement (`all`).
-
-## Examples
-
-### Default RS-P-RFO
+## Minimal run
 
 ```bash
 mlmm tsopt -i hei.xyz --parm7 real.parm7 --ref-pdb enzyme_layered.pdb \
-    -q 0 -m 1 -b uma -o result_tsopt
+    -q 0 -m 1 -b uma --out-json -o result_tsopt
 ```
 
-### Dimer mode
+An XYZ candidate needs `--ref-pdb`; the other ML/MM flags are in
+[SKILL.md](SKILL.md#shared-mlmm-conventions).
+
+Dimer:
 
 ```bash
 mlmm tsopt -i hei.xyz --parm7 real.parm7 --ref-pdb enzyme_layered.pdb -q 0 -m 1 \
     --opt-mode dimer -b uma -o result_tsopt_dimer
 ```
 
-### Tighter convergence on an ill-conditioned saddle
+RS-I-RFO on MACE, with the ML-region charge from residue charges:
 
 ```bash
 mlmm tsopt -i hei.xyz --parm7 real.parm7 --ref-pdb enzyme_layered.pdb \
@@ -87,100 +42,105 @@ mlmm tsopt -i hei.xyz --parm7 real.parm7 --ref-pdb enzyme_layered.pdb \
     -o result_tsopt_rsirfo
 ```
 
-## Output
+## Judge success
 
-```
-result_tsopt/
-├── result.json                     # when --out-json
-├── final_geometry.{xyz,pdb}        # final geometry; check result.json status
-├── optimization_trj.xyz            # macro-cycle trajectory
-├── optimization_all_trj.xyz        # full per-step trajectory (when --dump)
-└── vib/                            # imaginary-mode vibrations
-    └── imag_*.{pdb,xyz}            # mode displacement visualization
-```
+How the run ended decides whether n_imag exists:
 
-`result.json` keys:
+- `converged`: the console prints `[microiter] Converged!` or
+  `[tsopt] Numerical optimization converged.`, then
+  `[tsopt] Wrote N final imaginary mode(s).`. The final Hessian is computed.
+- `stalled`: the energy-plateau stop of `--stop-plateau` (off by default)
+  fired, and the console prints `Stalled (energy plateau; not converged)`. The
+  Hessian is still computed, so n_imag is reported for an unconverged geometry.
+- `not_converged`: `--max-cycles` was reached
+  (`[microiter] Reached max macro iterations (M).` or
+  `[tsopt] Reached max cycles (N/M).`). No Hessian is computed, so
+  `hessian_status` is `skipped`, `n_imaginary_modes` is null, and the saddle
+  order is unknown.
 
-```python
-import json
-d = json.load(open("result_tsopt/result.json"))
-print(d["execution_status"])           # "completed" / "failed"
-print(d["scientific_status"])          # "success" / "partial" / "failed"
-print(d["optimization_status"])        # "converged" / "stalled" / "not_converged"
-print(d["energy_hartree"])
-print(d["n_imaginary_modes"])           # should be 1 for a real TS
-print(d["imaginary_frequencies_cm"])    # list of cm⁻¹
-print(d["files"]["final_geometry_xyz"]) # final_geometry.xyz
-print(d["rigid_projection"]["treatment"], d["rigid_projection"]["effective_rank"])
-```
-
-## `--opt-mode` choice
-
-| Mode | Algorithm | When |
-|---|---|---|
-| `hess` / `rsprfo` (default) | RS-P-RFO | Partitioned restricted-step treatment; memory and runtime depend on active DOFs and backend |
-| `rsirfo` | RS-I-RFO | Explicit image-function alternative using the same microiteration driver |
-| `grad` / `dimer` | Hessian-Guided Dimer | Uses initial and periodic orientation Hessians, which is more robust than a random initial direction for large systems; convergence remains seed- and system-dependent |
-
-If Dimer stalls, inspect the followed mode and step diagnostics, then compare
-RS-P-RFO or RS-I-RFO on the same seed rather than using a universal cycle threshold.
-
-## Validation: imaginary modes
-
-A real TS has exactly one imaginary frequency that corresponds to the
-reaction coordinate.
+`saddle_validation` is `first_order` for n_imag = 1, `higher_order` for 2 or
+more, `no_imaginary` for 0, and `unavailable` without a Hessian. A mode counts
+as imaginary when ν < −5.00 cm⁻¹. Standalone `tsopt` judges convergence only:
+`converged` gives `scientific_status` `success` and exit 0 whatever n_imag is,
+and `stalled` or `not_converged` gives `failed` and exit 1. A failed final
+Hessian (`[tsopt] ERROR: Terminal PHVA failed.`) sets `hessian_status` to
+`failed` and exits 1. Read n_imag yourself:
 
 ```python
 import json
 d = json.load(open("result_tsopt/result.json"))
-if d["optimization_status"] != "converged":
-    print("NOT CONVERGED:", d["optimization_status"])
-elif d["n_imaginary_modes"] == 1:
-    print("OK: single imaginary mode at", d["imaginary_frequencies_cm"][0], "cm-1")
-elif d["n_imaginary_modes"] == 0:
-    print("BAD: collapsed to a minimum during refinement")
-elif d["n_imaginary_modes"] is not None and d["n_imaginary_modes"] > 1:
-    print("AMBIGUOUS: multiple imaginary modes; inspect vib/imag_*.pdb")
+status = d["optimization_status"]        # converged / stalled / not_converged
+n = d["n_imaginary_modes"]
+if d["hessian_status"] != "completed":
+    print(status, "no n_imag:", d["hessian_status"], d["hessian_error"])
+elif n == 1:
+    print(status, "single imaginary mode at", d["imaginary_frequencies_cm"][0], "cm-1")
+elif n == 0:
+    print(status, "no imaginary mode: collapsed to a minimum")
+else:
+    print(status, "multiple imaginary modes; inspect vib/imag_*")
+print(d["energy_hartree"], d["files"]["final_geometry_xyz"])
 ```
 
-For multi-imaginary cases, visualize the modes (`pymol vib/imag_*.pdb`)
-to decide whether the extra modes are spurious (translation/rotation
-of frozen residues) or real chemical second-order saddle points.
+A converged run with n_imag = 1 is still a candidate until [IRC](irc.md)
+shows that it connects the expected R and P.
 
-`n_imaginary_modes == 0` is a failed TS optimization, even when the force
-optimizer stopped normally. `--flatten` can remove surplus negative modes but
-cannot create a missing reaction direction. Improve the MEP/starting guess;
-`all --refine-path` is opt-in because recursive refinement can split a poor
-path into several costly segments.
+## Choosing --opt-mode
 
-`--ref-mode` is an advanced `all`-workflow handoff, not a routine standalone
-requirement. Supply it manually only when the non-zero 3N vector uses exactly
-the same atom ordering as the TS input.
+- `hess` / `rsprfo` (default): RS-P-RFO, a partitioned restricted-step
+  treatment. Memory and runtime depend on the active DOFs and the backend.
+- `rsirfo`: RS-I-RFO, an image-function alternative on the same
+  microiteration driver. `trim` selects TRIM.
+- `grad` / `dimer`: Hessian-guided Dimer. Its initial and periodic orientation
+  Hessians make it more robust than a random initial direction for large
+  systems; convergence still depends on the seed and the system.
 
-Do not confuse `--ref-mode` with the fixed constrained rigid-mode treatment.
-`--ref-mode` supplies an MEP tangent; the constrained treatment removes only
-full-system rigid motions that leave
-frozen anchors fixed (generic rank 6/3/1/0 for 0/1/2/3+ non-collinear
-anchors; realistic boundaries normally rank 0). All-frozen input is an
-explicit error. A stale non-constrained YAML value fails explicitly.
-`result.json.rigid_projection` records treatment, rank, Hessian source, and
-shape.
+If Dimer stalls, inspect the followed mode and the step diagnostics, then
+compare RS-P-RFO or RS-I-RFO on the same seed rather than using a universal
+cycle threshold.
 
-## Caveats
+## Pitfalls and recovery
 
-- A converged `tsopt` is **not** a complete validation; always follow
-  with `irc.md` to confirm the TS connects the expected R and P.
+- `tsopt` always forces `reject_uphill=False`, regardless of optimizer mode or
+  YAML. Uphill trial steps can be part of saddle-point mode following. The
+  `--reject-uphill/--no-reject-uphill` toggle belongs only to `opt` and to the
+  endpoint optimization after IRC in `all`.
+- n_imag = 0 is a failed TS optimization, even when the optimizer stopped
+  normally. `--flatten` can remove surplus imaginary modes but cannot create a
+  missing reaction direction. Improve the MEP or the starting guess;
+  `all --refine-path` is opt-in because recursive refinement can split a poor
+  path into several costly segments.
+- n_imag of 2 or more: watch each `vib/imag_*_trj.xyz` to decide whether the
+  extra modes are spurious or a real higher-order saddle point, and re-optimize
+  with `--flatten`; see
+  [ts-strategy.md](../mlmm-overview/ts-strategy.md#3-wrong-n_imag-after-ts-optimization).
+- `--ref-mode` is an advanced input; `all` supplies the MEP tangent this way
+  by default; with `all --no-tsopt-from-mep-tan`, the root comes from
+  the Hessian modes of the starting structure. Standalone runs omit it. Supply
+  it by hand only when the non-zero 3N vector uses exactly the same atom order
+  as the TS input.
 - `--max-cycles` is a safety cap, not evidence of correctness. On repeated
-  nonconvergence, inspect the TS seed, followed mode, optimizer diagnostics,
-  and backend/model behavior.
-- Backend/model choice changes the curvature surface. Validate every candidate
+  non-convergence, inspect the TS seed, the followed mode, the optimizer
+  diagnostics, and the backend and model behavior; see
+  [ts-strategy.md](../mlmm-overview/ts-strategy.md#6-when-the-ts-does-not-come-out).
+- The backend and model change the curvature surface. Validate every candidate
   by exactly one imaginary mode, its displacement, and the intended IRC
   connectivity.
 
-## See also
+## Outputs
 
-- `path-search.md` — produces TS candidates for `tsopt`.
-- `irc.md`, `freq.md` — downstream validation.
-- `mlmm-install-backends/uma.md` / `mace.md` — TS-accurate
-  backends.
-- Defaults: `import mlmm.core.defaults as d; print(d.RSIRFO_KW, d.DIMER_KW, d.HESSIAN_DIMER_KW)`
+```
+result_tsopt/
+├── final_geometry.{xyz,pdb}    # final geometry; check result.json status
+├── vib/imag_*_trj.xyz, .pdb    # animation of each imaginary mode
+├── optimization_all_trj.xyz    # with --dump
+└── result.json                 # with --out-json
+```
+
+## Next step
+
+- n_imag = 1: run [irc.md](irc.md); [freq.md](freq.md) for thermochemistry.
+- A new candidate: [path.md](path.md) or [scan.md](scan.md).
+- Backends for the TS step:
+  [UMA](../mlmm-install-backends/backends.md#uma),
+  [MACE](../mlmm-install-backends/backends.md#mace-separate-environment).

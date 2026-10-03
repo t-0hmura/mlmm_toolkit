@@ -1,20 +1,23 @@
-# `mlmm all` — scan-list mode
+# `mlmm all`: Single structure + scan
+
+Give one full-system reactant and the coordinates to drive with `-s`; `all`
+runs the scan stages in order, searches the MEP through the stage ends, and,
+with `--tsopt`, optimizes each TS candidate and runs IRC. It succeeded when the
+console prints `Scientific status: success` under the last
+`====== Pipeline summary ======` (and `[Imaginary modes] n=1 (...)` for each
+TS).
 
 ## When to use
 
-You have **only the reactant** (no product structure) and you can
-articulate the chemistry as a sequence of staged internal-coordinate scans —
-e.g. "first push the methyl from S of SAM to C7 of GPP, then snap H11
-to OE2 of GLU186". `mlmm all` runs each stage in order, then ties
-the resulting trajectories into an MEP with single-pass `path-opt`. With
-`--refine-path`, the recursive bond-change segmentation inserts any
-intermediates it finds.
+You have only the reactant and can write the chemistry as a sequence of scans
+of distances, angles, or dihedrals, for example "first move the methyl from S
+of SAM to C7 of GPP, then move H11 of GPP onto OE2 of Glu186" in a
+methyltransferase. The start and the stage ends become the inputs of the MEP
+search: single-pass `path-opt` by default, or the recursive `path-search` with
+`--refine-path`, which can add intermediates it finds. `--mep-mode dmf` selects
+DMF in either route.
 
-Typical use: multistep methyltransferase mechanisms where the user
-encodes successive distance scans (methyl transfer → proton abstraction,
-etc.) as separate stages.
-
-## Synopsis
+## Minimal run
 
 ```bash
 mlmm all --parm7 enzyme.parm7 -i 1.R.pdb \
@@ -26,126 +29,62 @@ mlmm all --parm7 enzyme.parm7 -i 1.R.pdb \
     -o result_scan
 ```
 
-Each literal after `--scan-lists` is **one stage**. Stages run
-sequentially; the final geometry of stage *k* is the input geometry of
-stage *k+1*.
+Give `-s` once and list every literal after it. Each literal is one stage.
+Stages run in order; the final geometry of stage k is the input geometry of
+stage k+1. Check the input first with `--dry-run`; it has passed when the
+console ends with `[Dry run] --dry-run completed. Input command is valid.`
 
-## `--scan-lists` syntax
+## Writing --scan-lists
 
-Each argument is a Python literal-eval expression containing distance
-`(i,j,target_Å)`, angle `(i,j,k,target_deg)`, or dihedral
-`(i,j,k,l,target_deg)` tuples.
+Each literal is a list of target tuples: distance `(i, j, target_Å)`, angle
+`(i, j, k, target_deg)`, or dihedral `(i, j, k, l, target_deg)`. `all` takes
+target values only; ranges and YAML or JSON spec files belong to the standalone
+`scan`. A four-element tuple is an angle target here and a distance range in
+`scan`.
 
-```
-[ ("<atom-spec>", "<atom-spec>", <float>) , ... ]
-```
+An atom is either a 1-based atom number in the full input (`--scan-zero-based`
+for 0-based) or a selector in double quotes. A three-field selector gives the
+atom name, residue name, and residue number in any order, separated by spaces,
+commas, colons, slashes, backticks, or backslashes (`"CS1 SAM 320"`,
+`"SAM,320,CS1"`). To name the chain, use the four-field form
+`CHAIN:RESNAME:RESSEQ[ICODE]:ATOM` in this order (`"A:SAM:320:CS1"`). In a PDB
+with an empty chain column (the bundled examples), use three fields; `_` does
+not mean an empty chain.
 
-`<atom-spec>` formats:
+Several tuples in one literal move together in one stage; to drive them one
+after another, put them in separate literals. Which to choose for your
+reaction: [Staged vs concerted scan](../mlmm-overview/ts-strategy.md#5-staged-vs-concerted-scan).
 
-| Form | Meaning |
-|---|---|
-| `"RESNAME RESID NAME"` | Atom by residue name + residue index + PDB name; the three fields may appear in any order (e.g. `"CS1 SAM 320"`) and may be separated by spaces, commas, slashes, backticks, or backslashes |
-| `"RESNAME\`RESID/NAME"` | Compact form with backticks and slash; same three fields, different separators |
-| `"CHAIN:RESNAME:RESID[ICODE]:NAME"` | Exact chain-qualified form for repeated or mmCIF identifiers |
+## Judge success
 
-All bonds in a stage are driven simultaneously. If you want them done
-**sequentially**, split them into separate `--scan-lists` arguments.
+Read the console, `summary.json`, and the endpoints as in
+[all.md](all.md#judge-success). For the scan itself:
 
-Examples:
-
-```bash
-# One stage, two bonds driven together (concerted SN2):
---scan-lists '[("CS1 SAM 320","GPP 321 C7",1.60),("CS1 SAM 320","SD SAM 320",3.0)]'
-
-# Two stages, one bond each (stepwise mechanism):
---scan-lists '[("CS1 SAM 320","GPP 321 C7",1.60)]' \
-             '[("GPP`321/H11","GLU`186/OE2",0.90)]'
-```
-
-## Mode-specific flags
-
-| Flag | Default | Meaning |
-|---|---|---|
-| `--scan-lists` | required | One or more distance, angle, or dihedral restraint stages |
-
-After scans complete, `mlmm all` stitches the scan trajectories with
-single-pass `path-opt` (GSM) by default; pass `--refine-path` to run the
-recursive `path-search` instead. `--mep-mode dmf` selects DMF for either
-route.
-
-Unlike endpoint-MEP mode, `-i` is **a single reactant structure**. The
-toolkit synthesizes intermediate / product geometries from the scan
-trajectories.
-
-## Output
-
-Same overall tree as in `all.md`, plus per-stage scan output:
-
-```
-result_scan/
-├── mep_trj.pdb / mep_trj.cif / mep_trj.xyz # CIF companion for bridged input
-├── segments/
-│   └── seg_NN/                     # canonical R/TS/P + post-processing per segment
-└── _work/                          # pipeline scratch
-    ├── scan/
-    │   ├── stage_01/  scan_*.xyz   # raw distance-restraint scan trajectory
-    │   ├── stage_02/  scan_*.xyz
-    │   └── ...
-    └── path_opt/                   # raw MEP-engine output (path_search/ with --refine-path)
-        └── seg_NN_mep/             # one MEP per stitched pair (recursive bond-change splitting only with --refine-path)
-```
-
-The `all` pipeline runs the scan in `_work/scan/` and does **not** emit a JSON
-record (the top-level `summary.json` is the `all` envelope and carries no scan
-stages). To get the stage-by-stage record as JSON, run the scan standalone with
-`--out-json`; its `summary.json` then holds the record under the top-level
-`stages` key:
+- **Stages**: open `_work/scan/stage_NN/scan_trj.xyz` and check that the coordinates change as intended. Each stage prints `[stage 1] Covalent-bond changes (start vs final): Yes` or `No`.
+- **Scan record**: `all` runs the scan with `--out-json`, so `_work/scan/result.json` holds the stages; the top-level `summary.json` has no scan stages.
+- **Stage ends**: `_work/scan/stage_NN/result.*` are restrained structures, not minima or TS until an unrestrained optimization, or a TS optimization and IRC, confirms them.
+- **MEP**: open `mep_trj.pdb` and the TS candidate `_work/path_opt/hei_seg_01.pdb`, and check that `energy_diagram_MEP.png` shows a clear barrier.
 
 ```python
 import json
-d = json.load(open("result_scan/summary.json"))  # from `mlmm scan ... --out-json`
+d = json.load(open("result_scan/_work/scan/result.json"))
 for stage in d["stages"]:
     print(stage["index"], stage["converged"], stage["bond_changes"], stage["target_distances_angstrom"])
 ```
 
-## Distinctive failure modes
+## Pitfalls and recovery
 
-| Symptom | Cause | Fix |
-|---|---|---|
-| Stage k goes to a different geometry than expected | Distance restraint not strong enough; SCF found a side product | Tighten the target distance, or split a complex stage into two simpler ones |
-| `--scan-lists` triggers a Python literal-eval error | Quoting mistake | Wrap each stage in single quotes outside, double quotes inside; backticks survive bash without escaping |
-| Path search reports more segments than expected | Recursion proposed additional intervals | Check candidate intermediates and their adjacent TS/IRC results. |
+- **A stage reaches an unexpected geometry.** The restraint was not strong enough, or the stage relaxed into a side product. Inspect the trajectory, tighten the target, or split a complex stage into two simpler ones; do not assume the side product is valid.
+- **Python literal error.** Wrap each stage in single quotes outside and double quotes inside; backticks survive bash inside the outer single quotes.
+- **Atom not found or matched twice.** Atom names must match those in the input PDB (case is ignored); editing tools such as PyMOL and Maestro sometimes rename `CB` to `CB1`. If a three-field selector matches more than one atom, the run stops; add the chain with `CHAIN:RESNAME:RESSEQ[ICODE]:ATOM` or use the atom number.
+- **Several `-i` inputs.** `-s` takes exactly one structure; with two or more, the run stops with an error ([all-endpoint-mep.md](all-endpoint-mep.md)).
+- **`-s` with `--tsopt`.** This is the scan mode with TS optimization, not TS-only mode.
+- **More segments than expected** (`--refine-path` only). Bond-change splitting proposed another candidate intermediate; check it and the neighbouring TS and IRC. The default `path-opt` adds no segments.
+- **Walltime.** One stage can take longer than the MEP search; time a pilot stage and budget from it.
 
-## Caveats
+## Next step
 
-- The atom specs must match the **exact** atom names in the input PDB
-  (case sensitive). PyMOL/Maestro sometimes rename `CB` ↔ `CB1`.
-- `--scan-lists` is incompatible with multiple `-i` inputs (the latter
-  triggers `all-endpoint-mep.md`).
-- Each stage can take longer than path-search itself; budget walltime
-  accordingly.
-
-## See also
-
-- `all.md` — base orientation.
-- `scan.md`, `scan2d.md`, `scan3d.md` — standalone scan
-  subcommands (without the surrounding pipeline).
-- `path-search.md` — what happens after all scans complete.
-- Defaults: `import mlmm.core.defaults as d; print(d.SEARCH_KW, d.STOPT_KW)`.
-## ML/MM-aware flags (mlmm-toolkit specific)
-
-In addition to the common flags below,
-**`mlmm-toolkit` requires an Amber topology** and supports layer-aware
-selection. Most subcommands accept:
-
-| flag | purpose |
-|---|---|
-| `--parm7 FILE` | Amber `parm7` topology of the whole enzyme — optional; when omitted, `mm_parm` generates a parm7 from the input PDB |
-| `--model-pdb FILE` | Explicit ML-region PDB; takes precedence over extraction- or B-factor-derived ML membership |
-| `--detect-layer` | Automatically read valid B-factor MM sublayers; without explicit or extraction-derived ML membership, B-factors also define ML membership. Enabled by default. |
-| `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |
-| `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
-| `-q, --charge` | Override the net ML-region/model charge (highest priority) |
-| `-l, --ligand-charge` | Per-residue charge mapping for ML region |
-
-Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
+- [all.md](all.md): mode choice, success criteria, resume, outputs.
+- [scan.md](scan.md): `scan`, `scan2d`, and `scan3d` on their own.
+- [path.md](path.md): the MEP search after the scans.
+- Defaults: `python -c "import mlmm.core.defaults as d; print(d.SEARCH_KW, d.STOPT_KW)"`.

@@ -2031,7 +2031,7 @@ end
     default="scaled",
     show_default=True,
     help="Link-H placement rule. 'scaled' uses the Morokuma/Dapprich g-factor (matches MLMMCore runtime). "
-         "'fixed' uses the legacy 1.09/1.01 Å bond length.",
+         "'fixed' uses a fixed 1.09/1.01 Å bond length.",
 )
 def cli(
     parm7: Path,

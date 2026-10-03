@@ -1,168 +1,184 @@
-# `opt`
+# `opt` (geometry optimization)
 
-The structure input may be PDB/mmCIF directly, or XYZ with `--ref-pdb`.
+## Overview
 
-Optimizes a single layered enzyme PDB (or XYZ + `--ref-pdb`) to a local minimum using the ML/MM calculator (MLIP region + movable MM shell + frozen outer environment). Use it to relax a full-system layered structure. `--opt-mode grad` (default) runs L-BFGS, `--opt-mode hess` runs RFOptimizer (RFO), `--flatten` flattens imaginary modes after optimization, and `--mm-only` minimizes the full system on the MM force field only, skipping the MLIP component (grad/L-BFGS only; microiteration auto-disabled). Microiteration (`--microiter`, default on) relaxes the movable-MM shell in `hess` mode.
+`opt` optimizes one structure of a layered ML/MM enzyme model to a local minimum. It uses L-BFGS (`--opt-mode grad`, the default) or RFO (`--opt-mode hess`).
+
+### What it is for
+
+* **Preparing R, P, and intermediates**: relax the reactant, product, and intermediate structures before a path search or a frequency calculation, and confirm each minimum (n_imag = 0) with [`freq`](freq.md).
+* **Relaxing with fixed distances**: keep chosen atom pairs at a set distance while everything else relaxes.
+* **Turning IRC endpoints into R and P**: optimize the endpoints of an [`irc`](irc.md) run to the minima they lead to.
+* **MM pre-relaxation**: relax the whole system on the MM force field alone (`--mm-only`) before the ML/MM optimization.
+
+The ML region uses **UMA** (Meta) by default; `-b/--backend` also selects **ORB**, **MACE**, **AIMNet2**, or **DFT**. The MM atoms use the Amber force field of `--parm7`.
+
+---
 
 ## Examples
 
-Command form:
+### 1. Basic minimization
+
+Optimize the full system `system_layered.pdb` with its Amber topology `real.parm7` and the ML region `ml_region.pdb`, and write a summary with `--out-json`.
 
 ```bash
-mlmm opt -i INPUT --parm7 PARM7 --model-pdb ML_REGION -q CHARGE [options]
-```
-
-`mlmm opt --help` shows core options; `mlmm opt --help-advanced` shows the full option list.
-
-Minimal L-BFGS optimization (grad mode, default):
-
-```bash
-# Minimal L-BFGS optimization (grad mode, default)
 mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 --out-dir ./result_opt
+    -q 0 -m 1 --out-json --out-dir ./result_opt
 ```
 
-Tighten convergence and keep an optimization trajectory:
+The run converged when the console prints `[opt] Converged!` and `result_opt/result.json` has `"optimization_status": "converged"`.
+
+### 2. Tighter threshold with trajectory
+
+Use the `gau_tight` criteria and keep the optimization trajectory.
 
 ```bash
-# Tighten convergence and keep an optimization trajectory
 mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 --thresh gau_tight --dump --out-dir ./result_opt_tight
-# add one harmonic distance restraint: --distance-restraint "[(12,45,2.20)]" --restraint-k 20.0
+    -q 0 -m 1 --thresh gau_tight --dump --out-dir ./result_opt_tight
 ```
 
-Select RFO optimization:
+### 3. Distance restraint
+
+Pull atoms 12 and 45 toward 2.20 Å with a weak harmonic restraint (20 eV·Å⁻²).
 
 ```bash
-# Select RFO optimization
 mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 --opt-mode hess --out-dir ./result_opt_rfo
-# use the ORB backend instead of the default: --backend orb
+    -q 0 -m 1 --distance-restraint '[(12,45,2.20)]' --restraint-k 20.0 \
+    --out-dir ./result_opt_rest
 ```
 
-## Workflow
+### 4. RFO with microiteration
 
-1. **Input handling** -- The tool accepts `-i/--input` as a PDB or XYZ file (use `--ref-pdb` with XYZ inputs). The optimizer reads coordinates from this PDB via `pysisyphus.helpers.geom_loader`. ML/MM layer definitions come from `--model-pdb`, `--model-indices`, or `--detect-layer` (B-factor encoding: B=0 ML, B=10 Movable-MM, B=20 Frozen).
-2. **ML/MM calculator setup** -- Build the ML/MM calculator (MLIP backend + hessian_ff). The `-b/--backend` option selects the high-level backend (`uma`, `orb`, `mace`, `aimnet2`, or `dft`; default `uma`). `--parm7` provides Amber MM topology; `--model-pdb` defines the ML region.
-3. **Optimization** -- The optimizer runs in the selected `--opt-mode` (`grad`/`lbfgs` = L-BFGS, `hess`/`rfo` = RFOptimizer).
-   - RFO reports numerical convergence without an additional minimum-certification Hessian or implicit curvature-recovery loop. With microiteration, the macro and MM relaxation criteria remain distinct. Use [`freq`](freq.md) for separate analysis of the selected ML/MM space.
-   - `--flatten` enables post-optimization flattening of imaginary modes. All detected imaginary modes are flattened each iteration until none remain or the internal loop cap is reached.
-4. **Restraints** -- Optional harmonic distance restraints via `--distance-restraint` / `--restraint-k` (see CLI options).
-5. **Dumping & conversion** -- `--dump` writes `optimization_trj.xyz`; when conversion is enabled, trajectories are mirrored to `.pdb` for PDB inputs (with B-factor annotations). `opt.dump_restart` can emit restart YAML snapshots.
-6. **Exit codes** -- `0` success, `2` CLI usage/configuration failure or optimizer zero step (step norm < `min_step_norm`), `3` optimizer failure, `130` keyboard interrupt, `1` unexpected error.
+Switch to RFO, which starts from an exact Hessian, with `--opt-mode hess`; microiteration is on by default.
 
-## Outputs
+```bash
+mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
+    -q 0 -m 1 --opt-mode hess --out-dir ./result_opt_rfo
+```
+
+---
+
+## How it works
+
+1. **Building the ML/MM system**: `opt` reads the full system from `-i`, the Amber topology from `--parm7`, and the ML region from `--model-pdb`; the other atoms are movable or frozen MM atoms (see {ref}`ML/MM options <mlmm-options>`). `-q` and `-m` are the charge and the spin multiplicity of the ML region, and `--freeze-atoms` freezes more atoms.
+2. **Choosing the optimizer** (`--opt-mode`): `grad` (alias `lbfgs`) runs **L-BFGS**, which uses gradients only; `hess` (alias `rfo`) runs **RFO**, which starts from an exact Hessian, updates it with TS-BFGS (the default of YAML [`rfo.hessian_update`](yaml-reference.md#rfo)), and recomputes it every 500 cycles. With `hess`, microiteration alternates one RFO step of the ML atoms and the MM parent atoms of the link atoms with an L-BFGS relaxation of the other movable MM atoms on MM forces only, as in Gaussian's microiteration.
+3. **Adding distance restraints** (`--distance-restraint`): each `(i, j, target)` adds a harmonic term with force constant `--restraint-k` (eV·Å⁻²) that pulls atoms i and j toward `target` in Å; `(i, j)` keeps their starting distance. Indices are 1-based unless `--zero-based` is given.
+4. **Minimizing**: the optimizer moves the structure until the convergence criteria are met or `--max-cycles` is reached. The default `--thresh gau` asks for a max force below 4.5 × 10⁻⁴ and an RMS force below 3.0 × 10⁻⁴ hartree/bohr, and a max step below 1.8 × 10⁻³ and an RMS step below 1.2 × 10⁻³ bohr, the same as Gaussian's default.
+5. **Removing imaginary modes (only with `--flatten`)**: after the optimization, `opt` computes the Hessian, displaces the structure by 0.10 Å along every imaginary mode (ν < −5.00 cm⁻¹), and optimizes again, for up to 50 rounds or until no imaginary mode is left. With `--flatten`, the console prints n_imag in the line `[Imaginary modes] n=…` after each round, and `[flatten] WARNING: Remaining imaginary modes after the flatten loop: N` when modes are left after the last round.
+
+---
+
+## Checking convergence
+
+How the run ended is printed on the console and recorded in `result.json` (`--out-json`):
+
+| How it ended | `optimization_status` | Console line | `scientific_status` / exit code |
+| --- | --- | --- | --- |
+| Converged | `converged` | `[opt] Converged!` | `success` / 0 |
+| Reached `--max-cycles` without converging | `not_converged` | `[opt] Reached max cycles (N/M).` | `failed` / 1 |
+| Stopped on an energy plateau (`--stop-plateau`) | `stalled` | `[opt] Stalled (energy plateau; not converged)` | `failed` / 1 |
+
+Each of these lines is followed by `[opt] Total cycles: N`. A `stalled` run is not converged: the energy stopped changing while the force criteria were still unmet.
+
+Convergence gives a stationary point, not necessarily a minimum. `opt` computes no final Hessian unless `--flatten` is on, so run [`freq`](freq.md) on the final geometry and check that n_imag = 0.
+
+---
+
+## Output files
+
+When the run finishes, `--out-dir` (default `./result_opt/`) contains:
 
 ```text
-out_dir/ (default: ./result_opt/)
-├─ final_geometry.xyz          # Always written
-├─ final_geometry.pdb          # Only when the input was a PDB and conversion is enabled (B-factors annotated)
-├─ optimization_trj.xyz        # Only if dumping is enabled
-├─ optimization.pdb            # PDB conversion of the trajectory (PDB inputs, conversion enabled)
-├─ optimization_all_trj.xyz    # Concatenated full trajectory (when --dump)
-├─ optimization_all.pdb        # PDB companion of the full trajectory (PDB inputs, when --dump)
-└─ restart_*.yaml              # Optional restarts when opt.dump_restart is set
+result_opt/
+├─ final_geometry.xyz        # Final geometry (always written)
+├─ final_geometry.pdb        # Same, for PDB/mmCIF input or --ref-pdb
+├─ optimization_trj.xyz      # Optimization trajectory (--dump)
+├─ optimization.pdb          # Same trajectory as PDB (--dump)
+├─ optimization_all_trj.xyz  # All optimization steps in one trajectory (--dump)
+├─ optimization_all.pdb      # Same trajectory as PDB (--dump)
+├─ restart_NNN.yaml          # Optimizer state (--dump with YAML opt.dump_restart)
+└─ result.json               # Summary (--out-json)
 ```
 
-Console output prints progress every `print_every` cycles and a final wall-clock time summary; `-v 3` also prints the resolved configuration blocks (`geom`, `calc`, `opt`, `lbfgs`).
+mmCIF input, and PDB input too large for the PDB columns, also get `.cif` files that keep the original identifiers (see {ref}`mmCIF input <mmcif-input>`).
 
-## CLI options
+* **Final geometry**: `final_geometry.*` is the optimized structure to pass to [`freq`](freq.md) or to a path search.
+* **Summary**: with `--out-json`, `result.json` records `optimization_status`, the final energy `energy_hartree` (without the restraint energy), and the number of cycles `n_opt_cycles`; with microiteration, also the number of MM relaxation cycles `n_micro_cycles` (see [JSON Output Reference](json-output.md)).
+* **Console**: the cycle table and the elapsed time.
 
-The full flag list is in the generated [command reference](reference/commands/index.md); the table below covers the options that need explanation. Default values shown are used when the option is not specified.
+---
 
-| Option | Description | Default |
-| --- | --- | --- |
-| `-i, --input PATH` | Input structure accepted by `geom_loader` (`.pdb`, `.cif`, `.mmcif`, `.xyz`, `_trj.xyz`). | Required |
-| `--ref-pdb PATH` | Reference PDB topology when input is XYZ. | _None_ |
-| `--parm7 PATH` | Amber parm7 topology for the full enzyme. | Required |
-| `--model-pdb PATH` | PDB defining the ML region atoms. Optional when `--detect-layer` is enabled. | _None_ |
-| `--model-indices TEXT` | Comma-separated atom indices for the ML region (ranges allowed, e.g. `1-5`). Alternative to `--model-pdb`. | _None_ |
-| `--detect-layer / --no-detect-layer` | Automatically detect ML/MM layers from B-factors (B=0 ML, B=10 Movable-MM, B=20 Frozen). | Enabled |
-| `-q, --charge INT` | Charge of the ML region. | _None_ (required unless `-l` is given) |
-| `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives net charge when `-q` is omitted. Requires PDB input or `--ref-pdb`. | _None_ |
-| `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
-| `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze. | _None_ |
-| `--movable-cutoff FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. Atoms beyond this are frozen. Providing this disables `--detect-layer`. | _None_ |
-| `--hessian-cutoff FLOAT` | Distance cutoff (Å) from ML region for MM atoms included in Hessian calculation. Combinable with `--detect-layer`. | _None_ |
-| `--mm-backend [hessian_ff\|openmm]` | MM backend. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |
-| `--mm-only / --no-mm-only` | Skip the MLIP component and minimize on the MM force field only. Layers are still honored via B-factor / `--movable-cutoff`; only `--opt-mode grad` is supported in this mode and microiteration is disabled automatically. Suited to fast MM pre-relaxation before ML/MM ONIOM optimization. | `False` |
-| `--link-atom-method [scaled\|fixed]` | Link-atom placement: scaled ($g$-factor) or fixed 1.09/1.01 Å. | `scaled` |
-| `--out-json/--no-out-json` | Write machine-readable `result.json` to `out_dir`. | `False` |
-| `--distance-restraint TEXT` | Python-literal `(i, j, target_A)` tuples for harmonic restraints (inline literal or YAML/JSON file path); omit `target_A` to restrain the starting distance. | _None_ |
-| `--one-based / --zero-based` | Index convention for `--distance-restraint`. | 1-based |
-| `--restraint-k FLOAT` | Harmonic bias strength (eV/Å²). | `300.0` |
-| `--max-cycles INT` | Hard limit on optimization iterations. | `100000` |
-| `--opt-mode [grad\|hess\|lbfgs\|rfo]` | Optimizer mode: `grad`/`lbfgs` (L-BFGS) or `hess`/`rfo` (RFO). | `grad` |
-| `--microiter/--no-microiter` | Alternate one ML RFO step with MM L-BFGS relaxation in `hess` mode. With `--embedcharge`, use standard optimization instead. | `True` |
-| `--flatten/--no-flatten` | Enable/disable the post-optimization imaginary-mode flatten loop. | `False` |
-| `--reject-uphill/--no-reject-uphill` | Opt in to rejecting energy-raising RFO trial steps in `hess` mode with a `1e-4` Hartree tolerance (roll back to the lower-energy geometry and shrink the trust radius); ignored in `grad`/`lbfgs` mode. At the emergency trust floor, the retained geometry receives a final normal convergence check before a non-converged stop is reported. | `False` |
-| `--dump/--no-dump` | Emit trajectory dumps (`optimization_trj.xyz`, `optimization_all_trj.xyz`). | `False` |
-| `--convert-files/--no-convert-files` | Enable or disable XYZ/TRJ to PDB companions for PDB inputs. | `True` |
-| `-o, --out-dir TEXT` | Output directory for all files. | `./result_opt/` |
-| `--thresh TEXT` | Override convergence preset (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`). | _None_ (`gau` applied internally) |
-| `--config FILE` | Base YAML configuration file. | _None_ |
-| `--show-config/--no-show-config` | Print the loaded YAML file and its top-level keys, then continue. | `False` |
-| `-b, --backend CHOICE` | High-level backend for the model region: `uma`, `orb`, `mace`, `aimnet2`, `dft`. | `uma` |
-| `--cmap/--no-cmap` | Preserve CMAP in both REAL and MODEL MM layers. | `--cmap` |
-| `--dry-run/--no-dry-run` | Validate options and inputs without running optimization. Shown in `--help-advanced`. | `False` |
+## Main options
 
-### Convergence threshold presets
+The options shared by every ML/MM calculation command are explained once in {ref}`ML/MM options <mlmm-options>`; the table below lists only the options specific to `opt`.
 
-Forces in Hartree/bohr, steps in bohr.
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `-i, --input` | path | (required) | Full-system structure (`.pdb`, `.cif`, `.mmcif`, or `.xyz` with `--ref-pdb`) |
+| `-q, --charge` | integer | `None` | Charge of the ML region. Required unless `-l` is given |
+| `-l, --ligand-charge` | text | `None` | Total charge of unknown ligand residues (for example `-1`) or a charge per residue name (for example `'GPP:-3,SAM:1'`), used to derive the ML-region charge when `-q` is omitted (PDB/mmCIF input or `--ref-pdb`) |
+| `-m, --multiplicity` | integer | `1` | Spin multiplicity (2S+1) of the ML region |
+| `-b, --backend` | text | `uma` | ML-region backend (`uma`, `orb`, `mace`, `aimnet2`, `dft`) |
+| `--opt-mode` | `grad` / `hess` | `grad` | Optimizer: L-BFGS / RFO (`lbfgs` and `rfo` are aliases) |
+| `--microiter/--no-microiter` | flag | `True` | With `hess`, alternate RFO steps of the ML region with L-BFGS relaxations of the movable MM atoms |
+| `--mm-only/--no-mm-only` | flag | `False` | Minimize the whole system on the MM force field only (`grad` only) |
+| `--thresh` | preset | `gau` | Convergence criteria (`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`; see below) |
+| `--max-cycles` | integer | `100000` | Maximum number of optimization cycles, shared with the `--flatten` rounds |
+| `--coord-type` | `cart` / `redund` / `dlc` / `tric` | `cart` | Optimization coordinates; keep `cart` for ML/MM |
+| `--dump/--no-dump` | flag | `False` | Write the trajectories `optimization_trj.xyz` and `optimization_all_trj.xyz` |
+| `--distance-restraint` | text | `None` | Harmonic distance restraints, inline (`'[(i,j,target_Å),...]'`) or as a YAML/JSON file; `(i,j)` keeps the starting distance |
+| `--restraint-k` | float | `300` | Force constant of the distance restraints (eV·Å⁻²) |
+| `--one-based/--zero-based` | flag | `--one-based` | Count `--distance-restraint` indices from 1 or from 0 |
+| `--freeze-atoms` | text | `None` | Atoms to freeze (1-based, comma-separated, for example `'1,3,5'`) |
+| `--hessian-cutoff` | float | `None` | Put only the movable MM atoms within this distance (Å) of the ML region into the Hessian; by default all movable MM atoms |
+| `--flatten/--no-flatten` | flag | `False` | Remove imaginary modes after the optimization |
+| `--reject-uphill/--no-reject-uphill` | flag | `False` | With `hess`, reject RFO steps that raise the energy by more than 1e-4 hartree and shrink the trust radius |
+| `--stop-plateau/--no-stop-plateau` | flag | `False` | Stop when the energy stops changing (range below 1e-4 hartree over 50 cycles) and report `stalled` |
+| `-o, --out-dir` | path | `./result_opt/` | Output directory |
 
-| Preset | Purpose | max\|F\| | RMS(F) | max\|step\| | RMS(step) |
-| --- | --- | --- | --- | --- | --- |
-| `gau_loose` | Loose/quick pre-optimization; rough path searches | 2.5e-3 | 1.7e-3 | 1.0e-2 | 6.7e-3 |
-| `gau` | Standard Gaussian-like tightness for routine work | 4.5e-4 | 3.0e-4 | 1.8e-3 | 1.2e-3 |
-| `gau_tight` | Tighter; better structures / freq / TS refinement | 1.5e-5 | 1.0e-5 | 6.0e-5 | 4.0e-5 |
-| `gau_vtight` | Very tight; benchmarking/high-precision final structures | 2.0e-6 | 1.0e-6 | 6.0e-6 | 4.0e-6 |
-| `baker` | Stricter than the published rule: the four columns **and** `\|dE\| < 1e-6` must all hold | 3.0e-4 | 2.0e-4 | 3.0e-4 | 2.0e-4 |
+See the [generated CLI reference](reference/commands/opt.md) for every option.
 
-### Frozen-boundary TR projection
+The `--thresh` presets set these limits (forces in hartree/bohr, steps in bohr):
 
-The constrained treatment is used by independent Cartesian frequency analysis and by
-`--flatten`. It removes only full-system rigid motions that do
-not move frozen anchors; its generic effective rank is 6/3/1/0 for
-zero/one/two/at least three non-collinear anchors. Realistic ML/MM boundaries
-normally have rank 0, and an all-frozen selection raises an explicit error.
-A stale non-constrained `geom.tr_projection` value fails explicitly. With
-`--out-json`, flatten runs record treatment, effective rank, Hessian source, and
-Hessian shape under `result.json.rigid_projection`.
+| Preset | Max force | RMS force | Max step | RMS step |
+| --- | --- | --- | --- | --- |
+| `gau_loose` | 2.5e-3 | 1.7e-3 | 1.0e-2 | 6.7e-3 |
+| `gau` | 4.5e-4 | 3.0e-4 | 1.8e-3 | 1.2e-3 |
+| `gau_tight` | 1.5e-5 | 1.0e-5 | 6.0e-5 | 4.0e-5 |
+| `gau_vtight` | 2.0e-6 | 1.0e-6 | 6.0e-6 | 4.0e-6 |
+| `baker` | 3.0e-4 | 2.0e-4 | 3.0e-4 | 2.0e-4 |
 
-## YAML configuration
+`baker` also requires an energy change below 1e-6 hartree between cycles. `never` never reports convergence, so the run continues to `--max-cycles`.
 
-Settings are applied with **defaults < config < explicit CLI**. The accepted sections are `geom` (`coord_type`, `freeze_atoms`), `calc` / `mlmm` (ML/MM calculator: backends, devices, Hessian mode, embedding), `opt` (shared optimizer controls), and the optimizer-specific `lbfgs` / `rfo` sections. For ML/MM systems, internal coordinates such as `dlc` can be slow to build; `cart` (the default) is recommended.
+> **Note:** in YAML (`--config`), every key is listed under [`geom`](yaml-reference.md#geom), [`opt`](yaml-reference.md#opt), [`lbfgs`](yaml-reference.md#lbfgs), [`rfo`](yaml-reference.md#rfo), and [`microiter`](yaml-reference.md#microiter) in the YAML Reference.
 
-```yaml
-geom:
- coord_type: cart               # cart or dlc; cart is recommended for ML/MM
- freeze_atoms: []               # 1-based frozen atoms
- tr_projection: constrained     # fixed internal PHVA treatment
-calc:
- model_charge: 0                # net charge
- model_mult: 1                  # spin multiplicity 2S+1
- real_parm7: real.parm7         # Amber parm7 topology
- model_pdb: ml_region.pdb       # ML region definition
- backend: uma                   # uma | orb | mace | aimnet2 | dft
- hessian_calc_mode: Analytical  # or FiniteDifference
-opt:
- thresh: gau                    # convergence preset
- max_cycles: 100000              # optimizer cycle cap
- out_dir: ./result_opt/         # output directory
-```
+---
 
-### `microiter`
+## Notes
 
-Used only when `--microiter` is active with `--opt-mode hess`. `micro_thresh` sets the L-BFGS convergence preset for the MM relaxation step. When `null` or omitted, the micro step uses the same preset as the macro optimizer (`--thresh` / `opt.thresh`). There is no `--micro-thresh` CLI flag; set this in YAML.
+* **Microiteration**: with `--distance-restraint`, `opt` uses plain RFO instead, and with `--embedcharge` the standard optimization, because the MM-only steps leave out the embedding forces. The MM relaxation converges to the same preset as `--thresh`; YAML `microiter.micro_thresh` sets another preset.
+* **`--mm-only` works only with `grad`**: with `--opt-mode hess` it stops with an error (exit code 2). The movable and frozen MM layers still apply.
+* **Plateau stop**: `--stop-plateau` saves cycles when force noise keeps the force criteria out of reach, but a flat energy is no evidence of a stationary point. `--max-cycles` remains the real limit, and the MM relaxation of microiteration is never stopped this way. `--stop-plateau-thresh` and `--stop-plateau-window` set the energy range and the number of cycles.
+* **Restraint strength**: the default force constant, 300 eV·Å⁻², holds the distance firmly; the 20 eV·Å⁻² of the example guides the structure gently toward the target.
+* **`--reject-uphill` works only with `hess`**: with `grad` (L-BFGS) it is ignored.
+* **One structure per run**: `-i` takes a single structure, and `.xyz` input needs `--ref-pdb` for the atom order and the layers. Extract the frame you need from a trajectory to `.xyz` first.
+* **`--flatten` needs a nearly converged structure**: with more than 25 imaginary modes, `opt` skips the flatten loop and prints a warning; optimize the structure first and rerun with `--flatten`.
+* **Rigid motions with frozen atoms**: `--flatten` treats rigid motions as [`freq`](freq.md#rigid-modes-with-frozen-boundaries) does, and `result.json` records them under `rigid_projection`.
+* **Frozen atoms and restraints in general**: how to choose frozen atoms and restraints is described in {ref}`Frozen atoms and distance restraints <freeze-atoms-and-restraints>`.
+* **Optimizer state dumps**: with `--dump`, set YAML `opt.dump_restart` to a positive integer N to write `restart_NNN.yaml` every N cycles. mlmm-toolkit does not read this file back, so rerun `opt` from the final geometry to continue a stopped calculation.
+* **Model and precision**: `--backend-model` selects the model of the backend and `--precision` its precision; see the generated reference.
+* **Option priority**: default < YAML < command line (see [CLI Conventions](cli-conventions.md)).
 
-Full schema (every section, key, and default): [YAML Reference](yaml-reference.md).
+---
 
-## See Also
+## See also
 
-- [Common Error Recipes](recipes-common-errors.md) — Symptom-first failure routing
-- [Troubleshooting](troubleshooting.md) — Detailed troubleshooting guide
-- [tsopt](tsopt.md) — Optimize transition states (saddle points) instead of minima
-- [freq](freq.md) — Vibrational analysis to confirm a minimum was reached
-- [all](all.md) — End-to-end workflow that pre-optimizes endpoints
-- [YAML Reference](yaml-reference.md) — Full `opt`, `lbfgs`, `rfo` configuration options
-- [Glossary](glossary.md) — Definitions of L-BFGS, RFO
+* [freq](freq.md) — check that the optimized structure is a minimum (n_imag = 0)
+* [tsopt](tsopt.md) — optimize a TS (saddle point) instead of a minimum
+* [irc](irc.md) — trace the reaction path from a TS to the endpoints to optimize
+* [define-layer](define-layer.md) — write the ML and MM layers into the B-factors before optimizing
+* [all](all.md) — the full workflow, which also optimizes the IRC endpoints
+* [Troubleshooting](troubleshooting.md) — when a run fails
+* [YAML Reference](yaml-reference.md) — every `opt`, `lbfgs`, `rfo`, and `microiter` setting
+* [Glossary](glossary.md) — L-BFGS, RFO, and other terms
+* [Exit codes](cli-conventions.md#exit-codes) — what each exit status means

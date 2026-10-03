@@ -1,155 +1,200 @@
 ---
 name: mlmm-overview
-description: Orientation for mlmm-toolkit — what it is, when to use it, and how it differs from generic ML/MM MD packages (three-layer ML/movable-MM/frozen ONIOM via PDB B-factor encoding, finite-difference MM Hessians with an optional analytical hessian_ff path, microiteration with link-atom Jacobian coupling, AmberTools-driven MM parameterization). TRIGGER on first-touch / "what is mlmm-toolkit" / "should I use it" / "how does it compare to OpenMM / GROMACS / Sire" questions. SKIP when the user has already named a subcommand, an install issue, an output file, a structure format, or a cluster — sibling skills cover those.
+description: "Orientation for mlmm-toolkit: which `all` mode fits the available structures (endpoint MEP for two or more full-system structures, scan for one structure with -s, TS-only for one TS candidate), when to run stage by stage instead, and how to judge each stage. Covers the three-layer ML/MM model (ML, movable MM, and frozen MM, set by PDB B-factors 0/10/20), TS-candidate strategy and retries (`ts-strategy.md`), reading `summary.json`, `result.json`, and the output tree (`outputs.md`), and where the source code lives. TRIGGER on first-touch questions, choosing an all mode or workflow, barrier or imaginary-frequency questions, mutant comparisons, extracting numbers for a paper, or locating code. SKIP when the user already named a subcommand, an install issue, a structure format, ML-region or layer design (mlmm-model-setup), or a cluster job; sibling skills cover those."
 ---
 
-# mlmm-toolkit Overview
+# mlmm-toolkit overview
 
-## Purpose
+`mlmm all` picks its mode from the inputs: two or more full-system structures in reaction order → endpoint MEP (`all-endpoint-mep.md`); one structure with `-s` → scan (`all-scan-list.md`); one TS candidate with `--tsopt` → TS-only (`all-ts-only.md`). `-c` sets the ML region, and `all` builds the parm7 and layers unless you pass them; run the stages one by one when you want to check each result first.
 
-`mlmm-toolkit` is a command-line toolkit for ML/MM ONIOM workflows on
-solvated enzyme systems. It chains active-site definition, ML region
-optimization with MM-environment relaxation, MEP search, TS
-optimization, IRC validation, vibrational analysis, and an optional
-DFT single-point, using an MLIP backend together with an MM force-field layer.
+## Pick an all mode
 
-The design choices that make it distinct:
+| Structures you have | Mode | Read |
+|---|---|---|
+| R and P, with any intermediates between them, in reaction order | endpoint MEP | [all-endpoint-mep.md](../mlmm-cli/all-endpoint-mep.md) |
+| R only, plus the bonds to drive, given with `-s` | scan | [all-scan-list.md](../mlmm-cli/all-scan-list.md) |
+| One TS candidate, given with `--tsopt` | TS-only | [all-ts-only.md](../mlmm-cli/all-ts-only.md) |
 
-1. **3-layer ONIOM via PDB B-factor encoding.** The B-factor field
-   classifies every atom into ML (0.0), movable-MM (10.0), or frozen
-   (20.0). One PDB → one defined system, no separate topology files
-   for the partitioning.
-2. **MM Hessian choice.** Finite differences are the default; set
-   `calc.mm_fd: false` to use the analytical `hessian_ff` path.
-3. **Microiteration outer/inner loop.** ML region geometry update
-   alternates with MM relaxation; outer ML steps see a relaxed MM
-   environment.
-4. **Bundled GPU pysisyphus fork.** Supports GPU geometry optimization,
-   TS search, and IRC integration.
-5. **AmberTools-driven MM parameterization.** `mlmm mm-parm` builds
-   `parm7`/`rst7` from a PDB; `define-layer` assigns the ML / movable
-   / frozen labels.
+```bash
+mlmm all -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' --tsopt --thermo -o result_mep
+mlmm all -i 1.R.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
+    -s '[("CS1 SAM 320","C7 GPP 321",1.50),("CS1 SAM 320","SD SAM 320",3.30)]' \
+       '[("C7 GPP 321","H11 GPP 321",2.90),("OE2 GLU 186","H11 GPP 321",1.00)]' \
+    --tsopt --thermo -o result_scan
+mlmm all -i TS_candidate.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' --tsopt --thermo -o result_ts
+```
+
+A run finished every requested stage when each TS prints `[Imaginary modes] n=1 (...)` and the console ends with `Scientific status: success` under `====== Pipeline summary ======`. Then check that `segments/seg_NN/reactant.*` and `product.*` are the R and P you intended ([outputs.md](outputs.md)).
+
+- **Endpoint MEP**: `path-opt` finds one MEP per neighbouring pair of inputs. `--refine-path` runs the recursive `path-search` instead, which splits a multistep reaction where bonds change, so `n_segments` can exceed the number of pairs. Either way, a segment is a candidate step until its TS and IRC are checked.
+- **Scan**: each literal after `-s` is one stage; the stage ends become the inputs of the MEP search.
+- **TS-only**: for a candidate from another code or an earlier run, `all` runs `tsopt`, the IRC, and both endpoint optimizations, with no extraction of a path. The same chain can be run by hand ([Run stage by stage](#run-stage-by-stage)).
+- **DFT//MLIP/MM**: `--dft` (with `--tsopt`) adds DFT single points on the ML region of R, TS, and P; for standalone runs see [DFT//MLIP/MM on the TS candidate](../mlmm-cli/dft.md#dftmlipmm-on-the-ts-candidate).
+
+Inputs are full-system `.pdb`, `.cif`, `.mmcif`, or `.xyz` files; an XYZ needs `--ref-pdb`. With `-c`, `all` cuts the ML region around the given residues; without `-c`, it uses the layers in the input B-factors. `--parm7` skips `mm-parm`, and `--model-pdb` takes priority over `-c` and the B-factors. The bundled `1.R.pdb` has an empty chain column, so atoms are written as residue name, number, and atom name; with chains, write `A:SAM:320:CS1`. What to put in the ML region and the layers is in [mlmm-model-setup](../mlmm-model-setup/SKILL.md).
+
+Pitfalls: two or more structures with `-s` is an error, and so is one structure with neither `-s` nor `--tsopt`. One structure with both `-s` and `--tsopt` runs the scan. `--thermo` and `--dft` need `--tsopt`. Without `-c`, `--no-detect-layer` with no `--model-pdb` stops with an error.
+
+## Pipeline at a glance
+
+```text
+full-system structure(s)   B-factor layers optional: 0 = ML, 10 = movable MM, 20 = frozen MM
+  │
+[extract]        ML region around -c (skipped without -c: B-factor layers or --model-pdb)
+[mm-parm]        AmberTools tleap → parm7 / rst7 (skipped with --parm7)
+[define-layer]   ML / movable MM / frozen MM written into the B-factors
+[scan]           one structure with -s: staged restrained scan
+[path-opt]       MEP with ONIOM gradients; recursive [path-search] with --refine-path
+[tsopt]          TS optimization of each segment's HEI (--tsopt)
+[irc]            IRC in both directions, then optimization of both ends (--tsopt)
+[freq]           partial-Hessian (PHVA) frequencies and QRRHO thermochemistry (--thermo)
+[dft]            DFT single points on the ML region only (--dft)
+```
+
+TS-only mode skips the scan and the MEP. Each step is also its own subcommand. Run alone, the setup order is `mm-parm → extract → define-layer`, so the ML region is cut from the PDB that matches the parm7 ([cli/extract.md](../mlmm-cli/extract.md)).
+
+## Run stage by stage
+
+Run the subcommands one by one instead of a single `mlmm all` when you want to judge each stage before spending GPU time on the next: confirm the MEP found the right bond changes before optimizing a TS, and confirm the TS before thermochemistry or DFT. Every ML/MM stage needs the same `--parm7`, the same ML region (`--model-pdb`, or the B-factor layers), and the same `-l` / `-q` / `-m`; pass them on every command. After each stage, read `execution_status` and `scientific_status` in its `result.json` or `summary.json`.
+
+**Stage 0, setup** (only when starting from a raw full-system PDB; most campaigns start from prepared, layered R and P PDBs and a parm7):
+
+```bash
+mlmm mm-parm -i input.pdb -l 'SAM:1,GPP:-3' --out-prefix real
+mlmm extract -i real.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' -o ml_region.pdb
+mlmm define-layer -i real.pdb --model-pdb ml_region.pdb -o real_layered.pdb
+```
+
+GATE: `[mm-parm] Wrote:` lists `real.pdb` and `real.parm7`; `real.pdb` has filled element columns and the same atoms in the same order as `real.parm7`; the layered PDB carries 0/10/20 on the intended atoms.
+
+**Stage 1, MEP**:
+
+```bash
+mlmm path-search -i R_layered.pdb P_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
+    -l 'SAM:1,GPP:-3' -o ps
+```
+
+GATE: `ps/summary.json` has `"scientific_status": "success"`, and every required `stage_outcomes[]` entry is usable. Read `n_segments` and each segment's `bond_changes`: the intended bonds must form and break on the right atoms. Fix the chemistry or the inputs before any TS work if the segmentation or the bond changes are wrong.
+
+**Stage 2, TS and IRC** for each reactive segment, starting from `ps/hei_seg_NN.xyz`:
+
+```bash
+mlmm tsopt -i ps/hei_seg_NN.xyz --ref-pdb R_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
+    -l 'SAM:1,GPP:-3' --out-json -o seg_NN/tsopt
+mlmm irc -i seg_NN/tsopt/final_geometry.xyz --ref-pdb R_layered.pdb --parm7 real.parm7 \
+    --model-pdb ml_region.pdb -l 'SAM:1,GPP:-3' --out-json -o seg_NN/irc
+```
+
+GATE for the TS: in `seg_NN/tsopt/result.json`, `optimization_status` is `converged`, `hessian_status` is `completed`, `saddle_validation` is `first_order` (`n_imaginary_modes` 1), and the imaginary mode in `vib/imag_*_trj.xyz` moves the reacting atoms. Standalone `tsopt` sets `scientific_status` from convergence alone, so read n_imag yourself. A run that stops at max cycles without converging computes no Hessian and reports no n_imag; a run stopped on an energy plateau (`--stop-plateau`, `stalled`) computes the Hessian and reports n_imag. If n_imag is not 1, see [ts-strategy.md](ts-strategy.md).
+
+GATE for the IRC: the console line `Transition vector is mode 0 with wavenumber … cm⁻¹.` shows a negative wavenumber. The IRC has no success verdict of its own: read the frame counts and the stop reason of each branch in its `result.json`, then optimize both ends:
+
+```bash
+mlmm opt -i seg_NN/irc/forward_first.xyz --ref-pdb R_layered.pdb --parm7 real.parm7 \
+    --model-pdb ml_region.pdb -l 'SAM:1,GPP:-3' --out-json -o seg_NN/end_forward
+mlmm opt -i seg_NN/irc/backward_last.xyz --ref-pdb R_layered.pdb --parm7 real.parm7 \
+    --model-pdb ml_region.pdb -l 'SAM:1,GPP:-3' --out-json -o seg_NN/end_backward
+```
+
+Both optimizations must converge. Even if the IRC did not converge, the result is usable when the optimized ends are the intended R and P; forward and backward do not tell which is which, so compare the bonds and the moving H atoms. Use each `final_geometry.xyz` downstream; standalone commands do not write the `segments/seg_NN/reactant.*` and `product.*` that `all` writes. A TS with n_imag = 1 does not by itself establish the elementary step.
+
+**Stage 3, thermochemistry** (optional, as `all --thermo`): run `freq` on R, TS, and P for the Gibbs profile.
+
+```bash
+mlmm freq -i seg_NN/tsopt/final_geometry.xyz --ref-pdb R_layered.pdb --parm7 real.parm7 \
+    --model-pdb ml_region.pdb -l 'SAM:1,GPP:-3' --out-json -o seg_NN/freq_TS
+```
+
+**Stage 4, DFT//MLIP/MM** (optional, as `all --dft`): repeat for both optimized ends with the same settings.
+
+```bash
+mlmm dft -i seg_NN/tsopt/final_geometry.xyz --ref-pdb R_layered.pdb --parm7 real.parm7 \
+    --model-pdb ml_region.pdb -l 'SAM:1,GPP:-3' --func-basis 'wb97m-v/def2-tzvpd' --out-json -o seg_NN/dft_TS
+```
+
+GATE: each `result.json` has `"converged": true`; an SCF that does not converge exits with code 1.
+
+**Stage 5, energy diagram**:
+
+```bash
+mlmm energy-diagram -i 0.0 -i 21.5 -i -0.7 --label-x R --label-x TS --label-x P -o diagram.png
+```
+
+Pitfalls and recovery:
+
+- After a walltime stop, rerun the same commands; for `all`, repeat the original command with `--resume-segment N` ([all.md](../mlmm-cli/all.md)).
+- On any status other than `success`, read `summary.log`, then the `result.json` of the failed stage. Inside an `all` run these exist under `ts/`, `irc/`, and `endpoint_opt/`, not under `freq/` or `dft/`.
+- If the Bofill Hessian update of an IRC runs out of GPU memory, rerun with `PYSIS_BOFILL_CPU_OFFLOAD=1`. It does the update on the CPU at the cost of host memory and two full-matrix transfers, and does not help a frequency Hessian that runs out of memory.
+
+## What it does
+
+`mlmm-toolkit` runs ML/MM ONIOM reaction studies on solvated enzymes: ML-region selection, MEP search, TS optimization, IRC, vibrational analysis, and optional DFT single points, with an MLIP for the ML region and an Amber force field for the rest.
+
+1. **Three layers in the PDB B-factors**: every atom is ML (0), movable MM (10), or frozen MM (20), so one PDB and one parm7 define the system. The energy is `E_MM(real) + E_ML(model) − E_MM(model)`, and link hydrogens cap each parm7 bond that crosses the ML/MM boundary.
+2. **Microiteration**: an optimizer step on the ML atoms (with the MM atoms bonded to them) alternates with an L-BFGS relaxation of the other movable MM atoms under the force field alone. It is on by default in `opt --opt-mode hess` and in the Hessian TS optimizers of `tsopt`; `--no-microiter` turns it off.
+3. **MM Hessian**: the MM engine is `hessian_ff` on the CPU by default (`--mm-backend openmm` for OpenMM). The MM Hessian uses finite differences by default; YAML `calc.mm_fd: false` switches to the analytical `hessian_ff` Hessian.
+4. **Bundled pysisyphus**: a GPU-capable copy of pysisyphus runs the geometry optimizations, TS searches, and IRC integrations.
+5. **AmberTools topology**: `mm-parm` builds the parm7 and rst7 from a PDB with tleap, and `define-layer` writes the three layers.
 
 ## When to use it
 
-| Goal | Fit |
-|---|---|
-| Solvated enzyme reaction with explicit MM environment | Primary use case |
-| Need link-atom + microiteration coupling | This toolkit |
-| Need recursive multistep path search | `path-search` engine |
-| Reuse a Gaussian g16 ONIOM input | `mlmm oniom-import` (then run downstream stages) |
+- A reaction in a solvated enzyme with an explicit MM environment: this is the main use.
+- A study that needs link atoms and microiteration between the ML and MM regions.
+- A multistep reaction whose steps must be found by a recursive path search (`--refine-path`).
+- An existing Gaussian or ORCA ONIOM input to continue from: `mlmm oniom-import`, then the later stages ([cli/oniom.md](../mlmm-cli/oniom.md)).
 
-## When *not* to use it
+## When not to use it
 
-- Pure QM (DFT-only) cluster: a direct ORCA / Gaussian / Q-Chem
-  workflow is leaner.
-- Free-energy simulations (umbrella sampling, metadynamics): out of
-  scope.
+- A pure QM cluster model with DFT only: an ORCA or Gaussian workflow on its own is leaner.
+- Free-energy sampling (umbrella sampling, metadynamics): out of scope.
 
 ## Quick check
 
 ```bash
 mlmm --version
-mlmm --help              # lists the available subcommands
-mlmm all --help          # end-to-end pipeline
+mlmm --help              # lists the subcommands
+mlmm all --help          # the end-to-end pipeline
 ```
 
-If `mlmm` is not on PATH or imports fail, see
-`mlmm-install-backends/SKILL.md`.
+If `mlmm` is not on PATH or an import fails, see [Verify the install](../mlmm-install-backends/SKILL.md#verify-the-install).
 
-## Pipeline at a glance
+## ML/MM layers in one paragraph
 
-```
-PDB(s)          full system (B-factor layers optional: 0.0=ML, 10.0=movable-MM, 20.0=frozen)
-  │
-  ▼
-[extract]       ML region around -c (skipped without -c: B-factor layers or --model-pdb)
-  │
-  ▼
-[mm-parm]       AmberTools tleap → parm7 / rst7
-  │
-  ▼
-[define-layer]  expand / refine / verify the ML/MM/Frozen labels
-  │
-  ▼
-[path-opt]      single-pass MEP with ONIOM gradients (ML + MM coupling);
-                recursive [path-search] with --refine-path
-  │
-  ▼
-[tsopt]         TS refinement per segment (--tsopt)
-  │
-  ▼
-[irc]           forward/backward IRC + endpoint optimization (--tsopt)
-  │
-  ▼
-[freq]          PHVA frequencies + QRRHO thermo (--thermo)
-  │
-  ▼
-[dft]           (optional) single-point DFT on ML region only
-```
+Every ML/MM command takes the full system with `-i`, the topology with `--parm7`, and the ML region from `--model-pdb` or the B-factors; the shared options are in [Shared ML/MM conventions](../mlmm-cli/SKILL.md#shared-mlmm-conventions), the B-factor encoding in [ML region and layers](../mlmm-structure-io/SKILL.md#ml-region-and-layers), and how to choose, trim, and enlarge the region in [mlmm-model-setup](../mlmm-model-setup/SKILL.md).
 
-Each step is also available as its own subcommand. `mlmm all` runs through
-MEP by default; `--tsopt` adds TS/IRC and endpoint optimization. Add
-`--thermo` or `--dft` for the corresponding post-processing.
+## Backends
 
-## Backend choices
-
-Supported MLIP backends:
-
-| `-b` | Model | Notes |
-|---|---|---|
-| `uma` (default) | UMA-s-1.2 (default) / UMA-s-1.1 / UMA-m-1.1 (`uma-s-1p2` / `uma-s-1p1` / `uma-m-1p1`) | Default ML-region backend; fp32 default |
-| `mace` | MACE-OMOL-0 | Separate env (e3nn conflict); fp64 default |
-| `orb` | `orb_v3_conservative_omol` | fp64 default; explicit fp32 uses TF32 and needs Hessian validation |
-| `aimnet2` | AIMNet2 | fp32 only; explicit fp64 is rejected |
-
-MM backend defaults to `hessian_ff` on CPU. MM Hessians use finite differences
-by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path.
-`openmm` is selectable via `--mm-backend openmm`.
-Optional `-b dft` uses PySCF/GPU4PySCF; see `mlmm-cli/dft.md`.
-
-## ML/MM-aware CLI conventions
-
-Every ML/MM-evaluating subcommand (`opt`, `tsopt`, `path-search`,
-`scan`, `freq`, `irc`, `dft`, `all`, …) takes:
-
-| flag | purpose |
-|---|---|
-| `-i, --input` | Full-enzyme PDB (or XYZ + `--ref-pdb`) |
-| `--parm7 FILE` | Amber `parm7` topology of the whole enzyme — required for standalone compute commands; `all` can generate it through `mm-parm` when omitted |
-| `--model-pdb FILE` | Explicit ML-region PDB; highest-priority ML membership source |
-| `--detect-layer` | Automatically read B-factor layers; with explicit membership, retain valid movable/frozen MM layers. Enabled by default |
-| `--model-indices` | Explicit ML atom indices used when `--model-pdb` is omitted; higher priority than B-factor ML membership |
-| `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
-| `-q, --charge` / `-l, --ligand-charge` / `-m, --multiplicity` | ML region charge / spin |
-| `-b, --backend` | High-level backend (uma / orb / mace / aimnet2 / dft) |
-
-See `mlmm-cli/SKILL.md` for per-subcommand specifics.
+`-b` selects the ML backend (`uma` by default, `orb`, `mace`, `aimnet2`, or `dft`); the table and the install steps are in [Choose a backend](../mlmm-install-backends/SKILL.md#choose-a-backend), and DFT single points in [cli/dft.md](../mlmm-cli/dft.md).
 
 ## Where the code lives
 
-| File | What's there |
-|---|---|
-| `mlmm/cli/app.py` | Click entry point, subcommand registry |
-| `mlmm/core/defaults.py` | All default kwarg dicts (MLMM_CALC_KW, MICROITER_KW, BFACTOR_*, IRC_KW, …) |
-| `mlmm/backends/mlmm_calc.py` | The ONIOM ASE calculator (ML + MM gradient assembly, link-atom math) |
-| `mlmm/workflows/extract.py` | Active-site extraction with layer assignment |
-| `mlmm/workflows/define_layer.py` | B-factor → layer mapping helpers |
-| `mlmm/workflows/mm_parm.py` | AmberTools tleap driver (parm7 / rst7) |
-| `mlmm/workflows/oniom_export.py` / `oniom_import.py` | Gaussian g16 / ORCA ONIOM input-deck exchange |
-| `mlmm/workflows/all.py` | End-to-end pipeline |
-| bundled `hessian_ff/` | Analytical-Hessian MM force field |
-| bundled `pysisyphus/` | GPU-tensor pysisyphus fork |
-| bundled `thermoanalysis/` | QRRHO thermochemistry |
+The package body `mlmm/` has one directory per layer; `pysisyphus/`, `thermoanalysis/`, and `hessian_ff/` install as separate top-level packages next to it.
 
-## Navigation map of the skill set
-
-| You want to … | Read |
+| Concern | Open |
 |---|---|
-| Pick a subcommand and run it | `mlmm-cli/SKILL.md` then the per-subcommand md |
-| Read or edit a `.pdb` / `.xyz` / `.gjf` / `.parm7` | `mlmm-structure-io/{SKILL,pdb,xyz,gjf,parm7}.md` |
-| Decide charge / multiplicity for a substrate | `mlmm-structure-io/charge-multiplicity.md` |
-| Install the toolkit, an MLIP backend, AmberTools, or DFT | `mlmm-install-backends/` |
-| Build an analytical recipe (full ONIOM / scan-list / ts-only) | `mlmm-workflows-output/SKILL.md` |
-| Submit on PBS / SLURM | `mlmm-hpc/SKILL.md` |
-| Detect the cluster / GPU / scheduler you're on | `mlmm-env-detect/SKILL.md` |
+| Subcommand list and entry point | `mlmm/cli/app.py` |
+| Shared option decorators | `mlmm/cli/common_options.py`, or the subcommand file itself |
+| Default of a flag | its Click definition, and shared values in `mlmm/core/defaults.py` |
+| Body of a subcommand | `mlmm/workflows/<subcommand>.py` (`all.py`, `extract.py`, `mm_parm.py`, `define_layer.py`, `oniom_export.py`, `oniom_import.py`, …) |
+| ONIOM calculator, link atoms, MLIP backends | `mlmm/backends/mlmm_calc.py` |
+| Bond changes and other chemistry helpers | `mlmm/domain/` |
+| `summary.json`, energy diagrams, trajectories | `mlmm/io/` |
+| Analytical MM Hessian | `hessian_ff/` |
+| Optimizer, TS, and IRC internals | `pysisyphus/` |
+| QRRHO thermochemistry | `thermoanalysis/` |
+| MCP server | `mlmm/mcp/` ([mlmm-mcp](../mlmm-mcp/SKILL.md)) |
+| Chemistry rules | search for `# CHEMISTRY-RULE:` markers |
+
+The layer map, the import rules, and the invariants to keep are in [`docs/architecture.md`](../../docs/architecture.md); contributor recipes in [`CONTRIBUTING.md`](../../CONTRIBUTING.md). The import graph is checked by [`check_import_graph.py`](../../.github/scripts/check_import_graph.py), and the chemistry markers by [`check_engineering_markers.py`](../../.github/scripts/check_engineering_markers.py).
+
+## Where to go next
+
+- [ts-strategy.md](ts-strategy.md): studying a mechanism (hypothesis, TS precision, routes to a candidate, splitting the reaction, wrong n_imag, a TS that does not come out, comparisons, barriers).
+- [outputs.md](outputs.md): `summary.json`, `result.json`, and the output tree.
+- [mlmm-cli](../mlmm-cli/SKILL.md): running and judging each subcommand.
+- [mlmm-model-setup](../mlmm-model-setup/SKILL.md): building, trimming, and enlarging the ML region and the layers.
+- [mlmm-structure-io](../mlmm-structure-io/SKILL.md): formats, residue and atom selection, layer encoding, charge and multiplicity.
+- [mlmm-install-backends](../mlmm-install-backends/SKILL.md): the core, backends, AmberTools, CUDA, and checking an unknown environment.
+- [mlmm-hpc](../mlmm-hpc/SKILL.md): job scripts.
+- [mlmm-mcp](../mlmm-mcp/SKILL.md): the MCP tools.
+- [colab-local-gpu-runtime](../colab-local-gpu-runtime/SKILL.md): a Colab local runtime.

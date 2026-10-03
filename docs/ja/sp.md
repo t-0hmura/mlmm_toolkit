@@ -1,94 +1,104 @@
-# `sp`
+# `sp`（一点計算）
 
-`mlmm sp` は、単一構造における ML/MM ONIOM エネルギーと原子に働く力（任意で active-coordinate Hessian block）を評価します。次のような用途に使います。
+## 概要
 
-- 最適化を実行する前に層構造を高速に確認する
-- 同一の ONIOM 分割上でバックエンドどうしを直接比較する
-- オプティマイザのループ外で参照用 Hessian を生成する
+`sp` サブコマンドは、1 つの構造の **ML/MM ONIOM エネルギーと原子に働く力**を計算し、`--hess` を付けると動ける原子の **Hessian** も計算します。ML 領域は選んだバックエンドで、酵素の残りは `--parm7` の Amber 力場で計算します。構造最適化は行わず、入力の構造のまま評価します。
 
-## 実行例
+### 主な用途
 
-層構造 PDB 上のエネルギーと力（B-factor が ML / movable-MM / frozen をエンコード）:
+* **最適化の前の確認**: ML 領域・電荷・多重度が受け付けられ、バックエンドが有限のエネルギーと力を返すかを確かめる
+* **バックエンドの比較**: 同じ構造と ML 領域を UMA・ORB・MACE・AIMNet2・DFT（`-b dft`）で評価する
+* **参照値の作成**: 力と Hessian を `.npy` ファイルとして、エネルギーを端末か `result.json` から得て、自分の解析に使う
 
-```bash
-mlmm sp -i layered.pdb --parm7 real.parm7 -q 0 -m 1
-```
+---
 
-active-coordinate Hessian block も計算する（デフォルトは FiniteDifference。バックエンドのネイティブ Hessian を使うには `--hessian-calc-mode Analytical` を指定）:
+## 基本的な実行例
 
-```bash
-mlmm sp -i layered.pdb --parm7 real.parm7 -q 0 -m 1 --hess
-```
+### 1. エネルギーと力
 
-## 出力
-
-`sp` はデフォルトで `result_sp/` 以下に出力を書き込みます。ONIOM エネルギーは stdout にも出力されます。JSON ファイル（同一内容を両方のファイル名（result.json / summary.json）に出力）は `--out-json` を指定したときのみ出力されます。
-
-| ファイル | 内容 | 出力 |
-|---|---|---|
-| `forces.npy` | 原子単位（Hartree / Bohr）の ONIOM 力の `(N, 3)` 配列 | 常時 |
-| `hessian.npy` | 質量で重み付けしていない active-coordinate ONIOM Hessian block（Hartree / Bohr²） | `--hess` 指定時のみ |
-| `result.json` / `summary.json` | ONIOM エネルギー（a.u.）、バックエンド、電荷/スピン、npy 出力へのパス、経過時間 | `--out-json` 指定時のみ |
-
-`sp` は `summary.log` を書き込みません。
-
-## CLI オプション
-
-コマンド形式:
+デフォルトのバックエンド（UMA）で、中性の一重項の ML 領域を評価します。`enzyme.pdb` は全系、`real.parm7` はその Amber トポロジー、`ml_region.pdb` は ML 領域の原子です。`-q` と `-m` は ML 領域の電荷と多重度です。
 
 ```bash
-mlmm sp -i INPUT --parm7 PARM7 -q CHARGE [options]
+mlmm sp -i enzyme.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m 1 --out-json
 ```
 
-| 入力 | 必須 | 備考 |
-|---|---|---|
-| `-i, --input FILE` | はい | 層構造 PDB/mmCIF、または `--ref-pdb` を伴う XYZ 座標 |
-| `--ref-pdb FILE` | XYZ の場合 | 原子順序が一致する全系 PDB/mmCIF（トポロジーと層情報を供給） |
-| `--parm7 FILE` | はい | 全系の Amber `parm7` トポロジー（`--real-parm7` をエイリアスとして保持） |
-| `-q, --charge INT` | はい（`-l` を指定する場合は不要） | ML 領域の総電荷 |
-| `-l, --ligand-charge TEXT` | いいえ | リガンドごとの電荷マッピング（例: `SAM:1,GPP:-3`）。`-q` を省略した場合に正味電荷を導出 |
-| `-m, --multiplicity INT` | いいえ | ML 領域のスピン多重度、2S+1（デフォルト `1`） |
+端末に `[sp] energy = … a.u.  |force|_max = … a.u./bohr` が出て、`result_sp/` に `forces.npy` と、`energy_au` を持つ `result.json` があれば成功です。
 
-### ML 領域の選択
+### 2. Hessian も計算する
 
-分割を入力 PDB の B-factor に埋め込む（ML=0.0、movable-MM=10.0、frozen=20.0）方法を `--detect-layer`（デフォルト）で使うか、明示的に渡します:
+`--hess` を付けると、動ける原子の Hessian も計算します。
 
-| フラグ | 意味 |
-|---|---|
-| `--detect-layer / --no-detect-layer` | B-factor レイヤーを自動検出（既定で有効） |
-| `--model-pdb FILE` | ML 原子を定義する代替 PDB |
-| `--model-indices TEXT` | カンマ区切りの 1-based 原子インデックス（例: `1-50,75,100-110`） |
+```bash
+mlmm sp -i enzyme.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m 1 --hess
+```
 
-### Hessian バックエンド
+---
 
-`--hess` と `--hessian-calc-mode Analytical` を指定すると、選択した
-バックエンド（UMA、ORB、MACE、AIMNet2）の解析/native Hessian 経路を使います。
-`FiniteDifference` は全バックエンドで利用できます。MM バックエンドは
-`hessian_ff` がデフォルトですが、MM Hessian はデフォルトでは有限差分です。
-`calc.mm_fd: false` で `hessian_ff` の解析 MM Hessian を選択できます。
-要求した backend API が無い場合はエラーになります。
+## 処理の仕組みと計算仕様
 
-### その他のオプション
+1. **ML/MM の系を組む**:
+`-i` から全系を、`--parm7` から Amber トポロジーを、`--model-pdb`・`--model-indices`・入力の B-factor のどれかから ML 領域を読みます。電荷は `-q`、または PDB/mmCIF 入力での `-l` から決まります。Frozen-MM 層と `--freeze-atoms` で指定した原子を凍結します。
+2. **エネルギーと力**:
+入力の構造で、ML 領域をバックエンドで、MM 原子を力場で 1 回ずつ計算し、ONIOM のエネルギーと力に組み合わせます。エネルギーと力の最大成分を端末に表示し、力を `forces.npy` に保存します。凍結原子に働く力は 0 です。
+3. **Hessian（`--hess` 指定時）**:
+Hessian に入るのは ML 領域と可動 MM 原子で、凍結原子は入りません。`--hessian-calc-mode FiniteDifference`（デフォルト）は力を数値微分し、`Analytical` は ML 領域に UMA・ORB・MACE・AIMNet2 の解析 Hessian を使います。`Analytical` は `--uma-workers`（MLIP の並列ワーカー数）を 2 以上にすると使えません。MM の部分はデフォルトで有限差分で、YAML の `calc.mm_fd: false` で `hessian_ff` の解析 Hessian になります。
 
-フラグの完全な一覧は自動生成された[コマンドリファレンス](../reference/commands/index.md)にあります。以下の表は説明が必要なオプションを扱います。
+---
 
-| フラグ | デフォルト | 意味 |
-|---|---|---|
-| `-b, --backend [uma\|orb\|mace\|aimnet2\|dft]` | `uma` | 高レベル backend（MLIP または任意の DFT） |
-| `--hess / --no-hess` | `--no-hess` | `hessian.npy` も計算して書き込む |
-| `--hessian-calc-mode [Analytical\|FiniteDifference]` | `FiniteDifference` | `--hess` 指定時の Hessian モード。`Analytical` はバックエンドのネイティブ経路を使用 |
-| `--link-atom-method [scaled\|fixed]` | `scaled` | リンク原子の配置 |
-| `--mm-backend [hessian_ff\|openmm]` | `hessian_ff` | MM バックエンド。Hessian 法は `calc.mm_fd` で別に選択 |
-| `-o, --out-dir PATH` | `./result_sp/` | 出力ディレクトリ |
-| `--precision [fp32\|fp64]` | バックエンド依存 | バックエンドに渡す数値精度（未指定: UMA/AIMNet2 は fp32、ORB/MACE は fp64） |
-| `--config PATH` | — | `calc.*`、`geom.*` のデフォルトを与える YAML 設定 |
-| `--show-config / --dry-run` | off | 有効なマージ済み設定を表示 / 実行せずに検証 |
+## 主な出力ファイル
 
-Hessian の cutoff 上書き、MCP 形式の result.json などを含む完全な一覧は `mlmm sp --help-advanced` を実行してください。
+`--out-dir` に以下のファイルを書き出します。
 
-## 関連項目
+| ファイル | 内容 | 書き出す条件 |
+| --- | --- | --- |
+| `forces.npy` | 全系の全原子についての ONIOM の力の `(N, 3)` 配列（Hartree/bohr） | 常に |
+| `hessian.npy` | 質量重み付けなしの ONIOM Hessian（Hartree/bohr²）。Hessian に入る M 原子（入力の順）の `(3M, 3M)` | `--hess` 指定時 |
+| `result.json` | エネルギー（`energy_au`）、バックエンド、モデル、電荷、多重度、ML 領域（指定元と原子数）、`.npy` ファイルのパス、経過時間 | `--out-json` 指定時 |
+| `summary.json` | `result.json` の写し。`result.json` を読む | `--out-json` 指定時 |
 
-- [`opt`](opt.md) — 層構造を最適化（マイクロイテレーション）
-- [`tsopt`](tsopt.md) — TS 候補を精密化（ML/MM ONIOM）
-- [`freq`](freq.md) — ONIOM 振動解析 + QRRHO 熱化学
-- [`dft`](dft.md) — ML 領域上の DFT 一点計算に相当する処理
+---
+
+## 主な CLI オプション
+
+ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通オプション <ja-mlmm-options>` に 1 か所でまとめてあります。下の表は `sp` に固有のものだけです。
+
+| オプション | 引数の型 | デフォルト | 説明 |
+| --- | --- | --- | --- |
+| `-i, --input` | パス | （必須） | 全系の入力構造ファイル（`.pdb`, `.cif`、または `--ref-pdb` と組み合わせた `.xyz`） |
+| `-q, --charge` | 整数 | `None` | ML 領域の電荷。`-l` を使う場合のほかは必須 |
+| `-m, --multiplicity` | 整数 | `1` | ML 領域のスピン多重度（2S+1） |
+| `-l, --ligand-charge` | 文字列 | `None` | 残基ごとの形式電荷（例: `'SAM:1,GPP:-3'`）またはリガンドの総電荷。`-q` を省いたときに ML 領域の電荷を求めるのに使用（PDB/mmCIF 入力または `--ref-pdb`） |
+| `-b, --backend` | 文字列 | `uma` | ML 領域のバックエンド（`uma`, `orb`, `mace`, `aimnet2`, `dft`）。`-b dft` の設定は [MLIP の TS を DFT で確かめる](dft-backend.md) を参照 |
+| `--hess/--no-hess` | フラグ | `False` | Hessian も計算して `hessian.npy` に書き出す |
+| `--hessian-calc-mode` | `FiniteDifference` / `Analytical` | `FiniteDifference` | Hessian の計算法（有限差分 / 解析的）。`--hess` と併用 |
+| `--hessian-cutoff` | 浮動小数点数 | `None` | ML 領域からこの距離（Å）以内の可動 MM 原子だけを Hessian に入れる。デフォルトでは可動 MM 原子すべて |
+| `--freeze-atoms` | 文字列 | `None` | 凍結する原子インデックス（1 始まり、カンマ区切り: 例 `'1,3,5'`） |
+| `--embedcharge/--no-embedcharge` | フラグ | `False` | MM の点電荷による静電埋め込み（MLIP では xTB の補正、`-b dft` では PySCF の点電荷） |
+| `-o, --out-dir` | パス | `./result_sp/` | 出力先ディレクトリ |
+| `--out-json/--no-out-json` | フラグ | `False` | `result.json` と `summary.json` を出力 |
+
+全オプションの一覧は [自動生成 CLI リファレンス](../reference/commands/sp.md) を参照してください。
+
+> **補足:** YAML（`--config`）では、`calc` でバックエンドを設定し、`geom.freeze_atoms`（1 始まり）で凍結原子を追加できます。`geom.freeze_atoms` は `--freeze-atoms` と合わせて使われます。
+
+---
+
+## 使用上の注意点
+
+* **失敗したとき**: `ML region electron count inconsistent` のような 1 行の `Error: …` か、トレースバック付きの `Unhandled error during single-point:` が出て、0 以外の終了コードで終わります。
+* **エネルギーがおかしいとき**: 有限の値でもおかしいときは、ML 領域とその電荷・多重度を見直してください（{ref}`電荷 / スピンの問題 <ja-charge--spin>`）。
+* **凍結原子**: インデックスは 1 始まりで、凍結原子に働く力は 0 になります。Frozen-MM 層も凍結されます。
+* **原子電荷**: `sp -b dft` が出すのは ML(DFT)/MM のエネルギーと力だけです。ML 領域の Mulliken・meta-Löwdin・IAO の電荷が必要なときは [`dft`](dft.md) を使ってください。
+* **終了コード**: {ref}`終了コード <ja-exit-codes>`を参照してください。
+
+---
+
+## 関連ドキュメント
+
+* [opt](opt.md) — 構造最適化
+* [tsopt](tsopt.md) — 遷移状態（TS）候補の構造最適化
+* [freq](freq.md) — 振動解析と熱化学
+* [dft](dft.md) — 原子電荷も出す ML 領域の DFT 一点計算
+* [MLIP の TS を DFT で確かめる](dft-backend.md) — `-b dft` の設定（`--func-basis`・`--dft-engine`）と GPU メモリ
+* [MLIP バックエンド](backends.md) — バックエンド・精度・ワーカーの選び方
+* [トラブルシューティング](troubleshooting.md) — 実行に失敗したときの対処

@@ -1,211 +1,150 @@
-# `freq`
+# `freq` (vibrational analysis and thermochemistry)
 
-`frequencies_cm-1.txt`, JSON `frequencies_cm`, and `n_modes` retain the complete signed physical spectrum after the existing frozen-atom and rigid-mode projection. `--max-write` and `--sort` control only which mode files are written and their order. `n_imaginary` (YAML `num_imag_freq`) is the resolved negative count below the reporting threshold; `n_negative_modes` also includes weak negative modes. With `frequency_representation: complete`, `near_zero_frequencies_cm` is a subset of the complete array; do not append it and count modes twice.
+## Overview
 
-The default imaginary-mode criterion is ν < −5.00 cm⁻¹. `frequency_zero_cutoff_cm: 5.0`, `imaginary_mode_criterion: "frequency_cutoff_cm"`, and `imaginary_frequency_threshold_cm: -5.0` record the rule. `freq.zero_cutoff_cm` can set another magnitude explicitly. This reporting criterion is separate from the optimizer-coordinate `small_eigval_thresh` of 10⁻⁸. No sign is changed and no physical mode is removed.
+`freq` computes **harmonic vibrational frequencies** and **thermochemical corrections** such as the zero-point energy (ZPE), enthalpy, and Gibbs free energy for a layered ML/MM enzyme model.
 
-Thermochemistry retains the existing QRRHO policy (100 cm⁻¹ rotor cutoff, no imaginary inversion and no positive-frequency floor), including positive low-frequency modes. Changing `freq.zero_cutoff_cm` does not change thermal values computed from the same complete spectrum.
+### What it is for
 
+* **Checking a stationary point**: confirm that an optimized structure is a minimum (no imaginary frequency, n_imag = 0) or a transition state (TS: exactly one, n_imag = 1).
+* **Thermochemistry**: free energies and other thermodynamic quantities from the QRRHO (quasi-rigid-rotor harmonic oscillator) model.
+* **Seeing the modes**: atomic-displacement animations of the imaginary mode or any other mode, as `.xyz` / `.pdb` / `.cif` files of the whole enzyme.
 
-Compute ML/MM vibrational frequencies and thermochemistry (zero-point energy (ZPE), Gibbs energy, etc.) on a layered enzyme PDB, with partial-Hessian vibrational analysis (PHVA) support.
+The ML region uses **UMA**, Meta's pretrained [machine-learning interatomic potential (MLIP)](backends.md), by default; `-b/--backend` also selects **ORB**, **MACE**, **AIMNet2**, or DFT. The MM region uses the Amber parameters in `--parm7`.
 
-**When to use `mlmm freq`:**
-
-- Validate stationary-point character of an optimized minimum, transition state, or IRC endpoint (a minimum has no imaginary frequencies; a transition state has exactly one).
-- Compute quasi-rigid-rotor-harmonic-oscillator (QRRHO) thermochemistry.
-
-The command runs vibrational analysis with the ML/MM calculator, honoring frozen atoms via PHVA. It exports normal-mode trajectories as `_trj.xyz` and `.pdb` (mapped back onto the enzyme ordering), and prints a Gaussian-style thermochemistry summary with the bundled `thermoanalysis` package.
-
-Imaginary frequencies appear as negative values. Runtime and memory depend on
-the backend and system; compare `Analytical` and `FiniteDifference` on a
-representative pilot.
+---
 
 ## Examples
 
-Here, `pocket.pdb` contains the full system matching `real.parm7`; `ml_region.pdb` selects the ML atoms.
+In these examples, `pocket.pdb` is the full system that matches `real.parm7`, and `ml_region.pdb` defines the ML region (see [Building the ML region and layers](model-setup.md)).
 
-Basic frequency analysis:
+### 1. Minimal run (explicit charge and multiplicity)
 
 ```bash
 mlmm freq -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 -m 1 --out-dir ./result_freq
+  -q 0 -m 1 --out-dir ./result_freq
 ```
 
-Limit the number of exported modes for quick inspection:
+### 2. Extra frozen atoms and the detailed thermochemistry file
+
+`--freeze-atoms` freezes more atoms on top of the frozen MM layer, and `--dump` also writes the detailed thermochemistry file `thermoanalysis.yaml`.
 
 ```bash
-# Limit the number of exported modes for quick inspection
 mlmm freq -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 -m 1 --max-write 6 --out-dir ./result_freq_quick
+  -q 0 -m 1 --freeze-atoms "1,3,5,7" --dump --out-dir ./result_freq_phva
 ```
 
-PHVA with explicit frozen atoms and dump thermo payload:
+### 3. Analytical Hessian
+
+Use this to avoid the step-size error of finite differences. It uses more GPU memory, so test it on your system first.
 
 ```bash
-# PHVA with explicit frozen atoms and dump thermo payload
 mlmm freq -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 -m 1 --freeze-atoms "1,3,5,7" --dump --out-dir ./result_freq_phva
+  -q 0 -m 1 --hessian-calc-mode Analytical --out-dir ./result_freq_analytical
 ```
 
-Analytical Hessian mode on VRAM-rich nodes:
+---
 
-```bash
-# Analytical Hessian mode on VRAM-rich nodes
-mlmm freq -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 -m 1 --hessian-calc-mode Analytical --out-dir ./result_freq_analytical
-```
+## How it works
 
-## Workflow
+1. **Reading the layers and freezing (PHVA)**:
+`freq` takes the ML region from `--model-pdb` and the movable and frozen MM layers from the B-factors of the input PDB. `--active-dof-mode` chooses the atoms in the vibrational analysis; the default `partial` takes the ML region and the movable MM atoms. The frozen MM layer and the atoms given with `--freeze-atoms` stay fixed.
+2. **Hessian**:
+`--hessian-calc-mode` selects `FiniteDifference` (finite differences, the default) or `Analytical` for the ML region. `--hess-device` chooses where the computed Hessian is held and diagonalized.
+3. **Thermochemistry (QRRHO)**:
+From the frequencies, the QRRHO model with a rotor cutoff of 100 cm⁻¹ gives the Gibbs free-energy correction `G_corr`. The thermochemistry summary on the console prints `G_corr` and the Gibbs energy `E + G_corr = G` in Hartree (E: electronic energy); `--dump` also writes them to `thermoanalysis.yaml`, and `--out-json` to `thermochemistry` in `result.json`. With frozen atoms, the vibrational terms come from the PHVA frequencies. Besides the vibrational terms from the positive frequencies, G always includes the translational and rotational terms of the whole structure; the point group and rotational symmetry number are detected from the structure, and YAML `thermo.symmetry_number` overrides the detected number.
+4. **Writing the modes**:
+Mode animations (trajectory files) are written starting from the imaginary or lowest modes; `--max-write` sets how many and `--sort` the order.
 
-1. **ML/MM calculator setup** — The ML region is supplied via `--model-pdb`; Amber parameters are read from `--parm7`. `--hessian-calc-mode` selects analytical or finite-difference Hessians. The calculator may return either the full 3N x 3N Hessian or an active degree-of-freedom (DOF) sub-block.
-2. **PHVA & translation/rotation (TR) projection** — With frozen atoms, eigenanalysis occurs inside the active subspace. The default constrained projector removes only full-system rigid motions that leave every frozen anchor fixed; it does not treat the active fragment as an isolated molecule. Both 3N x 3N and active-block Hessians are accepted, and frequencies are reported in cm^-1 (negatives = imaginary).
-3. **Active DOF mode** — `--active-dof-mode` selects which atoms enter the analysis (default `partial`); see the CLI options table for the four modes.
-4. **Mode export** — `--max-write` limits how many mode trajectories are written. Modes are sorted by value (or absolute value with `--sort abs`). Each exported mode writes `_trj.xyz` and `.pdb` trajectories mapped back onto the enzyme ordering. The sinusoidal trajectory amplitude (`--amplitude-ang`) and frame count (`--n-frames`) match the YAML defaults.
-5. **Thermochemistry** — A QRRHO-like summary (E, ZPE, E/H/G corrections, heat capacities, entropies) is printed using PHVA frequencies. The structure energy is labeled in Hartree as `E + G_corr = G` (electronic energy + Gibbs free-energy correction = Gibbs free energy). CLI pressure in atm is converted internally to Pa. The molecular point group and external rotational symmetry number are detected independently for each analyzed structure, and the resulting `1/sigma` correction is always included. An expert can override the detected number with `thermo.symmetry_number` in YAML. When `--dump`, a `thermoanalysis.yaml` snapshot is also written. **Frequency-treatment policy**: `freq` applies the **standalone-freq policy** — QRRHO with a 100 cm⁻¹ rotor cutoff, unit frequency/ZPE scaling, **no** imaginary-frequency inversion, and **no** positive-frequency floor. This is deliberately different from the internal `Geometry.get_thermoanalysis` policy used by some bundled-engine paths, which additionally inverts small imaginaries (from −15 cm⁻¹) and floors positive frequencies below 25 cm⁻¹. Neither is a universal scientific default; each is tied to its entry point. The effective policy (`kind`, `rotor_cutoff_cm`, `frequency_scale`, `zpe_scale`, `invert_imag_from_cm`, `positive_frequency_floor_cm`) is serialized under `thermo_policy` in `thermoanalysis.yaml` and in `result.json`.
-6. **Device selection** — `ml_device="auto"` triggers CUDA when available, otherwise CPU. The internal TR projection/mode assembly runs on the same device to minimize transfers.
-7. **Exit behavior** — Keyboard interrupts exit with code 130; other failures print a traceback and exit with code 1.
+### Rigid modes with frozen boundaries
 
-### Frozen-boundary TR projection
+Without frozen atoms, `freq` removes the six rigid motions (three translations and three rotations), which are not vibrations, before reporting frequencies. With frozen atoms, it removes only the rigid motions that keep every frozen atom in place. With three or more frozen atoms that do not lie on one line, the normal case for an ML/MM model with a frozen MM layer, nothing is removed and every vibrational mode of the movable atoms is kept. With one frozen atom, three motions are removed (rotations about that atom); with two, one is removed (rotation about the axis through them).
 
-The fixed constrained treatment is used for PHVA. It starts from
-the full system's rigid translations and rotations, then retains only
-components that do not move any frozen anchor. The generic effective ranks are:
+`irc`, the TS frequency check and the Dimer direction in `tsopt`, and `--flatten` (removing extra imaginary modes) in `opt` and `tsopt` treat rigid motions the same way. With `--out-json`, `result.json` records the number of removed motions and the Hessian used under `rigid_projection`; see [JSON Output Reference](json-output.md#rigid-projection-provenance).
 
-| Frozen-anchor geometry | Effective rank removed |
-| --- | ---: |
-| none | 6 |
-| one anchor | 3 |
-| two distinct anchors | 1 |
-| at least three non-collinear anchors | 0 |
+---
 
-Realistic ML/MM boundaries normally have several non-collinear anchors, so the
-effective rank is usually zero and no active-space direction is removed. An
-all-frozen selection has no active DOF and raises an explicit error.
+## Reading the frequencies
 
-A stale non-constrained `geom.tr_projection` value fails explicitly.
+How `frequencies_cm-1.txt` and the JSON record treat each case:
 
-With `--out-json`, `result.json.rigid_projection` records the treatment,
-effective rank, Hessian source, and Hessian shape. `--dump` records the same
-provenance in `thermoanalysis.yaml`.
+| Item | Value / behavior | Meaning |
+| --- | --- | --- |
+| **Imaginary modes** | Negative values (ν < 0 cm⁻¹) | An imaginary mode is listed as a negative frequency. |
+| **Imaginary threshold** | ν < −5.00 cm⁻¹ | Such a mode counts as imaginary (n_imag; the JSON field is `n_imaginary`). The cutoff is YAML `freq.zero_cutoff_cm` (default `5.0`). |
+| **Tiny negative modes** | −5.00 ≤ ν < 0 cm⁻¹ | Small negative modes from numerical noise do not count toward n_imag. `n_negative_modes` counts every negative frequency, including these. |
+| **Thermochemistry** | No inversion, no floor | Imaginary modes are not flipped and small positive modes are not raised. QRRHO uses only the positive modes, so imaginary modes are left out of ZPE and G. |
 
-## Outputs
+---
+
+## Output files
+
+`freq` writes these files to `--out-dir` (default `./result_freq/`):
 
 ```text
-out_dir/ (default: ./result_freq/)
-├─ result.json                      # Present with --out-json; includes rigid_projection provenance
-├─ mode_XXXX_±freqcm-1_trj.xyz   # Per-mode trajectory
-├─ mode_XXXX_±freqcm-1.pdb       # PDB trajectory mapped back onto the enzyme ordering
-├─ frequencies_cm-1.txt           # Full frequency list using the selected sort order
-└─ thermoanalysis.yaml            # Present when --dump is True
-```
-- Console blocks summarizing resolved `geom`, `calc`, `freq`, and thermochemistry settings.
-
-## CLI options
-
-`mlmm freq --help` shows core options; `mlmm freq --help-advanced` shows the full option list. The full flag list is in the generated [command reference](reference/commands/index.md); the table below covers the options that need explanation.
-
-| Option | Description | Default |
-| --- | --- | --- |
-| **Input & charge** | | |
-| `-i, --input PATH` | Full enzyme PDB (no link atoms). | Required |
-| `--parm7 PATH` | Amber parm7 topology for the full enzyme. | Required |
-| `--model-pdb PATH` | PDB defining the ML region. Optional when `--detect-layer` is enabled. | _None_ |
-| `--model-indices TEXT` | Explicit ML-region atom indices (alternative to `--model-pdb`). | _None_ |
-| `--detect-layer / --no-detect-layer` | Automatically detect ML/MM layers from B-factors. | Enabled |
-| `-q, --charge INT` | ML region charge. | _None_ (required unless `-l` is given) |
-| `-l, --ligand-charge TEXT` | Per-resname charge mapping (e.g., `GPP:-3,SAM:1`). Derives net charge when `-q` is omitted. | _None_ |
-| `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
-| `--ref-pdb FILE` | Reference PDB topology for non-PDB inputs. | _None_ |
-| **Backend & compute** | | |
-| `-b, --backend CHOICE` | High-level backend for the model region: `uma` (default), `orb`, `mace`, `aimnet2`, `dft`. | `uma` |
-| `--precision [fp32\|fp64]` | MLIP backend precision; unset uses UMA/AIMNet2 fp32 and ORB/MACE fp64. AIMNet2 rejects fp64. | backend-specific |
-| `--uma-workers INT` | UMA predictor workers. Values greater than 1 require `fairchem-core[extras]` and cannot be combined with `Analytical`. | `1` |
-| `--uma-workers-per-node INT` | Workers per node for the parallel UMA predictor. | _None_ |
-| `--mm-backend [hessian_ff\|openmm]` | MM backend. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |
-| `--link-atom-method [scaled\|fixed]` | Link-atom placement: scaled ($g$-factor) or fixed 1.09/1.01 Å. | `scaled` |
-| `--cmap/--no-cmap` | Preserve CMAP in both REAL and MODEL MM layers. | `--cmap` |
-| `--hess-device CHOICE` | Device for post-evaluation Hessian placement and diagonalization: `auto`, `cuda`, `cpu`. It does not move Hessian evaluation/assembly; `cpu` moves the evaluated matrix before diagonalization. | `auto` |
-| **Active-region freezing & Hessian** | | |
-| `--freeze-atoms TEXT` | 1-based comma-separated frozen atom indices. | _None_ |
-| `--active-dof-mode CHOICE` | Active DOF selection: `all`, `ml-only`, `partial`, `unfrozen`. | `partial` |
-| `--hessian-cutoff FLOAT` | Cutoff distance for Hessian-target MM atoms. | _None_ |
-| `--movable-cutoff FLOAT` | Cutoff distance for movable-MM layer. | _None_ |
-| `--hessian-calc-mode CHOICE` | Hessian mode (`Analytical` or `FiniteDifference`). | `FiniteDifference` |
-| `--read-hess PATH` | Use the Hessian in a NumPy `.npy` file instead of computing it (for example one written by `freq` or `tsopt --dump-hess`). | _None_ |
-| `--dump-hess PATH` | Save the Hessian as a NumPy `.npy` array for `--read-hess` in `freq`, `tsopt`, or `irc`, or for other programs. | _None_ |
-| **Mode export** | | |
-| `--max-write INT` | Number of modes to export. | `10` |
-| `--sort CHOICE` | Mode ordering: `value` (cm^-1) or `abs`. | `value` |
-| `--amplitude-ang FLOAT` | Mode-trajectory amplitude (angstrom). | `0.8` |
-| `--n-frames INT` | Frames per mode trajectory. | `20` |
-| `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
-| **Thermochemistry** | | |
-| `--temperature FLOAT` | Thermochemistry temperature (K). | `298.15` |
-| `--pressure FLOAT` | Thermochemistry pressure (atm). | `1.0` |
-| `--dump/--no-dump` | Write `thermoanalysis.yaml`. | `False` |
-| **Output & config** | | |
-| `-o, --out-dir TEXT` | Output directory. | `./result_freq/` |
-| `--out-json/--no-out-json` | Write machine-readable `result.json` to `out_dir`. | `False` |
-| `--config FILE` | Base YAML configuration applied before explicit CLI options. | _None_ |
-| `--show-config/--no-show-config` | Print the loaded YAML file and its top-level keys, then continue. | `False` |
-| `--dry-run/--no-dry-run` | Validate options and inputs without running frequency analysis. Shown in `--help-advanced`. | `False` |
-
-A `--read-hess` / `--dump-hess` file is one plain NumPy array (`numpy.save`):
-the Cartesian Hessian in Hartree/bohr², not mass-weighted, with atoms in input
-order. It covers all atoms (3N × 3N) or only the atoms in the Hessian
-calculation (for `freq`, those selected by `--active-dof-mode`). `--read-hess`
-checks only that the matrix is square, finite, symmetric, and one of these two
-sizes, so pass a Hessian computed for the same geometry, charge, multiplicity,
-layers, and calculator.
-
-## YAML configuration
-
-An explicit analytical Hessian with `workers > 1` is rejected. Use one worker
-for analytical curvature, or select `FiniteDifference` before enabling the UMA
-parallel predictor.
-
-Provide mappings with merge order **defaults < config < explicit CLI**.
-Shared sections reuse [YAML Reference](yaml-reference.md).
-An additional `thermo` section is supported for thermochemistry controls.
-
-```yaml
-geom:
- coord_type: cart                  # coordinate type: cartesian vs dlc internals
- freeze_atoms: []                  # 1-based frozen atoms merged with CLI/link detection
- tr_projection: constrained        # fixed internal PHVA treatment
-calc:
- model_charge: 0                   # net charge (CLI override)
- model_mult: 1                     # spin multiplicity 2S+1
- real_parm7: real.parm7            # Amber parm7 topology
- model_pdb: ml_region.pdb          # ML-region definition
- backend: uma                      # High-level backend: uma | orb | mace | aimnet2 | dft
- uma_model: uma-s-1p2              # uma-s-1p2 | uma-m-1p1
- uma_task_name: omol                # UMA task name (UMA backend only)
- ml_device: auto                   # ML backend device selection
- hessian_calc_mode: FiniteDifference   # Compare both modes on a representative pilot
- out_hess_torch: true              # request torch-form Hessian
- mm_fd: true                       # MM finite-difference toggle
- return_partial_hessian: true      # allow partial Hessians (PHVA default)
-freq:
- zero_cutoff_cm: 5.0            # imaginary modes satisfy nu < -zero_cutoff_cm
- amplitude_ang: 0.8                # displacement amplitude for modes (Å)
- n_frames: 20                      # number of frames per mode
- max_write: 10                     # maximum number of modes to write
- sort: value                       # sort order: value vs abs
-thermo:
- temperature: 298.15               # thermochemistry temperature (K)
- pressure_atm: 1.0                 # thermochemistry pressure (atm)
- symmetry_number: null             # auto-detect; positive integer overrides
- dump: false                       # write thermoanalysis.yaml when true
+result_freq/
+├─ frequencies_cm-1.txt          # All frequencies (cm⁻¹)
+├─ mode_0001_-385.20cm-1_trj.xyz # Animation of each mode (XYZ)
+├─ mode_0001_-385.20cm-1.pdb     # Same animation as PDB
+├─ mode_0001_-385.20cm-1.cif     # Same animation as mmCIF (mmCIF or very large PDB input)
+├─ thermoanalysis.yaml           # Detailed thermochemistry (with --dump)
+└─ result.json                   # Summary (with --out-json)
 ```
 
-## See Also
+* **Minimum or TS?** The thermochemistry summary on the console prints n_imag as `Number of Imaginary Freq = N`; `freq` does not judge it, so `scientific_status` in `result.json` is `success` whatever n_imag is. A minimum has n_imag = 0. A successful TS optimization gives one imaginary mode along the reaction coordinate: the top of `frequencies_cm-1.txt` should hold **exactly one** clear imaginary frequency (a negative value), and every value after it should be positive or within the tolerance. A TS then goes to [`irc`](irc.md). If a structure meant to be a minimum has imaginary modes, optimize it again with [`opt`](opt.md) `--flatten`; if a TS has none or several, see {ref}`When the TS search fails <ts-search-fails>`.
+* **Watching the motion**: open `mode_*_trj.xyz` or `.pdb` in PyMOL, VMD, or another viewer to animate the vibration.
 
-- [tsopt](tsopt.md) — Optimize TS candidates (validate with freq/IRC; expected: one imaginary frequency)
-- [opt](opt.md) — Geometry optimization (often precedes freq)
-- [dft](dft.md) — Single-point DFT for higher-level energy evaluation
-- [all](all.md) — End-to-end workflow with `--thermo`
-- [Common Error Recipes](recipes-common-errors.md) — Symptom-first failure routing
-- [Troubleshooting](troubleshooting.md) — Detailed troubleshooting guide
-- [YAML Reference](yaml-reference.md) — Full `freq` and `thermo` configuration options
-- [Glossary](glossary.md) — Definitions of ZPE, Gibbs Energy, Enthalpy, Entropy
+---
+
+## Main options
+
+The options shared by every ML/MM calculation command are explained once in {ref}`ML/MM options <mlmm-options>`; the table below lists only the options specific to `freq`.
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `-i, --input` | path | (required) | Full-system structure matching `--parm7` (`.pdb`, `.cif`, `.mmcif`, or `.xyz` with `--ref-pdb`) |
+| `-q, --charge` | integer | `None` | Charge of the ML region. Required unless `-l` is given |
+| `-m, --multiplicity` | integer | `1` | Spin multiplicity (2S+1) of the ML region |
+| `-l, --ligand-charge` | text | `None` | Total charge of unknown ligands or a charge per residue name (e.g. `'GPP:-3,SAM:1'`), used to derive the ML-region charge when `-q` is omitted (PDB input or `--ref-pdb`) |
+| `-o, --out-dir` | path | `./result_freq/` | Output directory |
+| `-b, --backend` | text | `uma` | Backend for the ML region (`uma`, `orb`, `mace`, `aimnet2`, `dft`) |
+| `--hessian-calc-mode` | `FiniteDifference` / `Analytical` | `FiniteDifference` | How the ML-region Hessian is computed (finite differences / analytical) |
+| `--hess-device` | `auto` / `cuda` / `cpu` | `auto` | Device that holds and diagonalizes the computed Hessian; `cpu` moves it off the GPU first |
+| `--active-dof-mode` | `all` / `ml-only` / `partial` / `unfrozen` | `partial` | Atoms in the analysis: all atoms / ML region only / ML region and movable MM atoms / every atom outside the frozen layer |
+| `--freeze-atoms` | text | `None` | Extra atoms to freeze (1-based, comma-separated, e.g. `'1,3,5'`) |
+| `--read-hess` | path | `None` | Read the Hessian from a `.npy` file (for example one saved by `freq` or `tsopt --dump-hess`) instead of computing it |
+| `--dump-hess` | path | `None` | Save the Hessian as a `.npy` file for `--read-hess` in `freq`, `tsopt`, or `irc` |
+| `--max-write` | integer | `10` | Maximum number of mode animations to write |
+| `--sort` | `value` / `abs` | `value` | Order of the modes (by value / by absolute value) |
+| `--temperature` | float | `298.15` | Temperature for thermochemistry (K) |
+| `--pressure` | float | `1.0` | Pressure for thermochemistry (atm) |
+| `--dump/--no-dump` | flag | `False` | Write the detailed thermochemistry file `thermoanalysis.yaml` |
+| `--out-json/--no-out-json` | flag | `False` | Write a summary to `result.json` |
+
+See the [generated CLI reference](reference/commands/freq.md) for every option.
+
+> **Note:** In YAML (`--config`), the {ref}`freq <freq-section>` section sets the imaginary threshold `zero_cutoff_cm` and the number and amplitude of the written modes, and the [`thermo`](yaml-reference.md#thermo) section sets temperature and pressure.
+
+---
+
+## Notes
+
+* **`freq` or `tsopt`?** `tsopt` already checks the imaginary frequencies. Run `freq` on its own when you need detailed thermochemistry (ZPE, Gibbs energy) or mode animations.
+* **At least one atom must move.** If every atom is frozen there is no vibration to analyze, and `freq` stops with an error.
+* **Hessian mode priority**: `--hessian-calc-mode` follows the priority default < YAML config < command line.
+* **Analytical Hessian and `--uma-workers`**: with UMA, `--hessian-calc-mode Analytical` cannot run with `--uma-workers` (parallel MLIP predictor workers) above 1 and stops with an error. Use `--uma-workers 1` for an analytical Hessian ([details](backends.md#workers-and-hessian-mode)).
+* **`all --thermo` keeps the thermochemistry file**: `all` builds its Gibbs energy diagram from `thermoanalysis.yaml`, so with `--thermo` its `freq` step writes this file even under `--no-dump`.
+* **The `--read-hess` / `--dump-hess` file** is one NumPy array (`numpy.save`): the Cartesian Hessian in Hartree/bohr², not mass-weighted, with atoms in input order. It covers all atoms (3N × 3N) or only the atoms selected by `--active-dof-mode`. `--read-hess` checks only that the matrix is square, finite, symmetric, and one of these two sizes, so pass a Hessian computed for the same geometry, charge, multiplicity, layers, and calculator settings.
+
+---
+
+## See also
+
+* [opt](opt.md) — geometry optimization to a minimum
+* [tsopt](tsopt.md) — TS optimization
+* [irc](irc.md) — IRC from a TS
+* [dft](dft.md) — DFT single-point energies
+* [all](all.md) — the full workflow: model building, path search, TS optimization, and vibrational analysis
+* [YAML Reference](yaml-reference.md) — configuration file format
+* [Troubleshooting](troubleshooting.md) — what to do when a run fails
+* {ref}`Exit codes <exit-codes>` — what each exit status means

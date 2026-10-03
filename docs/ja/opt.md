@@ -1,304 +1,184 @@
-# `opt`
+# `opt`（構造最適化）
 
-構造入力は PDB/mmCIF、または `--ref-pdb` を伴う XYZ を使用できます。
+## 概要
 
-`mlmm opt` は、ML/MM calculator（MLIP 領域 + 可動 MM 殻 + 凍結外殻）を用いて、層分割された全系の酵素 PDB（または XYZ + `--ref-pdb`）を局所極小に最適化します。層付き全系構造を緩和したいときに使います。`--opt-mode grad`（デフォルト）は L-BFGS、`--opt-mode hess` は RFOptimizer（RFO）を実行し、`--flatten` は最適化後に虚振動数モードをフラット化、`--mm-only` は MLIP を使わず全系を MM 力場のみで最適化します（grad/L-BFGS のみ、マイクロイテレーションは自動無効）。マイクロイテレーション（`--microiter`、デフォルト有効）は `hess` モードで可動 MM 殻を緩和します。
+`opt` サブコマンドは、層を定義した ML/MM の酵素モデルの構造 1 つを、局所極小点へ最適化します。最適化法は L-BFGS（`--opt-mode grad`、デフォルト）と RFO（`--opt-mode hess`）から選べます。
 
-## 実行例
+### 主な用途
 
-コマンド形式:
+* **R・P・中間体の準備**: 経路探索や振動解析の前に、反応物・生成物・中間体の構造を緩和し、[`freq`](freq.md) で極小点（n_imag = 0）であることを確かめる
+* **距離を保った緩和**: 選んだ原子の組の距離を保ったまま、ほかの自由度を緩和する
+* **IRC の端点から R と P へ**: [`irc`](irc.md) の端点を、それぞれがつながる極小点まで最適化する
+* **MM による事前緩和**: ML/MM の最適化の前に、MM 力場だけで全系を緩和する（`--mm-only`）
 
-```bash
-mlmm opt -i INPUT --parm7 PARM7 --model-pdb ML_REGION -q CHARGE [options]
-```
-
-`mlmm opt --help` でコアオプション、`mlmm opt --help-advanced` で全オプションリストが表示されます。
-
-最小構成の L-BFGS 最適化（grad モード、デフォルト）:
-
-```bash
-mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 --out-dir ./result_opt
-```
-
-収束を厳しくして軌跡を保存する:
-
-```bash
-mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 --thresh gau_tight --dump --out-dir ./result_opt_tight
-# 調和距離拘束を1つ追加する: --distance-restraint "[(12,45,2.20)]" --restraint-k 20.0
-```
-
-RFO 最適化を選択する:
-
-```bash
-mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 --opt-mode hess --out-dir ./result_opt_rfo
-# デフォルトの代わりに ORB バックエンドを使う: --backend orb
-```
-
-## 処理の流れ
-
-1. **入力処理** -- `-i/--input` は PDB または XYZ ファイルを受け付けます（XYZ 入力時は `--ref-pdb` を使用）。オプティマイザは `pysisyphus.helpers.geom_loader` を介してこの PDB から座標を読み取ります。ML/MM レイヤー定義は `--model-pdb`、`--model-indices`、または `--detect-layer`（B 因子エンコーディング: B=0 ML、B=10 Movable-MM、B=20 Frozen）から取得されます。
-2. **ML/MM calculatorの構築** -- ML/MM calculator（MLIP バックエンド + hessian_ff）を構築します。`--parm7` で Amber MM トポロジーを提供し、`--model-pdb` で ML 領域を定義します。`-b/--backend` で ML バックエンドを選択します（デフォルト: `uma`）。
-3. **最適化** -- `--opt-mode grad`/`lbfgs` は L-BFGS、`--opt-mode hess`/`rfo` は RFOptimizer（RFO）を実行します。
-   - RFO は数値収束を報告し、極小点の判定だけのために追加Hessian計算や曲率回復ループを実行しません。macroとMM緩和の収束条件は区別します。選択したML/MM空間の振動解析には [`freq`](freq.md) を使います。
-   - `--flatten` は最適化後の虚振動数モードのフラット化を有効にします。検出されたすべての虚振動数モードが各反復でフラット化され、虚振動数モードがなくなるか内部ループ上限に達するまで続きます。
-4. **拘束** -- `--distance-restraint` は Python リテラルタプル `(i, j, target_A)` を受け付けます。`target_A` は目標距離（Å）で、第 3 要素を省略すると開始距離が拘束されます。`--restraint-k` はグローバル調和強度（eV/Å²）を設定します。インデックスはデフォルトで 1 始まりですが、`--zero-based` で 0 始まりに変更可能です。
-5. **ダンプと変換** -- `--dump` は `optimization_trj.xyz` を書き出します。変換が有効な場合、PDB 入力では軌跡も `.pdb` に変換されます（B 因子アノテーション付き）。`opt.dump_restart` はリスタート YAML スナップショットを出力できます。
-6. **終了コード** -- `0` 成功、`2` CLI 使用法・設定エラーまたはオプティマイザのゼロステップ（ステップノルム < `min_step_norm`）、`3` オプティマイザエラー、`130` キーボード割り込み、`1` 予期しないエラー。
-
-## 出力
-
-```
-out_dir/ (デフォルト: ./result_opt/)
-├─ final_geometry.xyz          # 常に書き出し
-├─ final_geometry.pdb          # 入力が PDB で変換有効時のみ（B 因子アノテーション付き）
-├─ optimization_trj.xyz        # ダンプ有効時のみ
-├─ optimization.pdb            # PDB 入力で変換有効時の軌跡 PDB 変換
-├─ optimization_all_trj.xyz    # 連結フル軌跡（--dump 時）
-├─ optimization_all.pdb        # フル軌跡に対応する PDB（PDB 入力、--dump 時）
-└─ restart_*.yaml              # opt.dump_restart 設定時のオプションリスタート
-```
-
-コンソールには `print_every` サイクルごとの進捗と最終的な実行時間サマリーが出力されます。`-v 3` では解決済みの設定ブロック（`geom`、`calc`、`opt`、`lbfgs`）も出力されます。
-
-出力の見方:
-- `result_opt/final_geometry.xyz`
-- `result_opt/final_geometry.pdb`（入力が PDB で変換が有効な場合）
-- `result_opt/optimization_trj.xyz`（`--dump` 有効時）
-- `result_opt/optimization_all_trj.xyz`（`--dump` 有効時）
-- `result_opt/optimization_all.pdb`（`--dump` 有効時、入力が PDB の場合）
-
-## CLI オプション
-
-全フラグの一覧は生成された[コマンドリファレンス](../reference/commands/index.md)にあります。以下の表では、説明が必要なオプションをまとめています。表示されているデフォルト値はオプションが指定されない場合に使用されます。
-
-| オプション | 説明 | デフォルト |
-| --- | --- | --- |
-| `-i, --input PATH` | `geom_loader` が受け付ける入力構造（`.pdb`、`.cif`、`.mmcif`、`.xyz`、`_trj.xyz`）。XYZ 入力時は `--ref-pdb` を併用。 | 必須 |
-| `--ref-pdb PATH` | 入力が XYZ の場合の参照 PDB トポロジー。 | _None_ |
-| `--parm7 PATH` | 全酵素の Amber parm7 トポロジー。 | 必須 |
-| `--model-pdb PATH` | ML 領域原子を定義する PDB。`--detect-layer` 有効時は省略可。 | _None_ |
-| `--model-indices TEXT` | ML 領域のカンマ区切り原子インデックス（範囲指定可、例: `1-5`）。`--model-pdb` の代替。 | _None_ |
-| `--detect-layer / --no-detect-layer` | B 因子（0/10/20）から ML/MM レイヤーを自動検出。 | 有効 |
-| `-q, --charge INT` | ML 領域の電荷。 | _None_（`-l` 未指定時は必須） |
-| `-l, --ligand-charge TEXT` | 残基ごとの電荷マッピング（例: `GPP:-3,SAM:1`）。`-q` 省略時に合計電荷を導出。PDB 入力または `--ref-pdb` が必要。 | _None_ |
-| `-m, --multiplicity INT` | スピン多重度 (2S+1)。 | `1` |
-| `--freeze-atoms TEXT` | 凍結する 1 始まりカンマ区切りインデックス。 | _None_ |
-| `--movable-cutoff FLOAT` | ML 領域からの可動 MM 原子の距離カットオフ (Å)。これを超える原子は凍結。指定時は `--detect-layer` が無効化。 | _None_ |
-| `--hessian-cutoff FLOAT` | Hessian に含める可動 MM 原子の ML 領域からの距離カットオフ (Å)。`--detect-layer` と併用可能。 | _None_ |
-| `--distance-restraint TEXT` | 調和拘束用の Python リテラル `(i, j, target_A)` タプル。 | _None_ |
-| `--one-based / --zero-based` | `--distance-restraint` のインデックス規約。 | 1 始まり |
-| `--restraint-k FLOAT` | 調和バイアス強度 (eV/Å²)。 | `300.0` |
-| `--max-cycles INT` | 最適化反復上限。 | `100000` |
-| `--opt-mode [grad\|hess\|lbfgs\|rfo]` | オプティマイザモード: `grad`/`lbfgs`（L-BFGS）または `hess`/`rfo`（RFO）。 | `grad` |
-| `--microiter/--no-microiter` | `hess` モードで ML の RFO 1 ステップと MM の L-BFGS 緩和を交互に実行。`--embedcharge` 有効時は通常の最適化に切り替えます。 | `True` |
-| `--flatten/--no-flatten` | 最適化後の虚振動数モードフラット化ループの有効化/無効化。 | `False` |
-| `--reject-uphill/--no-reject-uphill` | `hess` モードで RFO の上り坂試行ステップ拒否を明示的に有効化（許容値 `1e-4` Hartree、低エネルギー形状へロールバックして trust radius を縮小）。`grad`/`lbfgs` モードでは無効。emergency trust floor 到達時は、非収束停止を報告する前に保持構造を通常の収束条件で最終確認。 | `False` |
-| `--dump/--no-dump` | 軌跡ダンプ（`optimization_trj.xyz`、`optimization_all_trj.xyz`）を出力。 | `False` |
-| `--convert-files/--no-convert-files` | PDB 入力時の XYZ/TRJ から対応する PDB 生成の有効化/無効化。 | `True` |
-| `-o, --out-dir TEXT` | 出力ディレクトリ。 | `./result_opt/` |
-| `--thresh TEXT` | 収束プリセットの上書き（`gau_loose`、`gau`、`gau_tight`、`gau_vtight`、`baker`、`never`）。 | _None_（内部的に `gau` を適用） |
-| `--config FILE` | ベース YAML 設定ファイル。 | _None_ |
-| `--show-config/--no-show-config` | 読み込んだ YAML ファイルとその最上位の key を表示して実行を継続。 | `False` |
-| `-b, --backend CHOICE` | model領域の高レベルbackend: `uma`、`orb`、`mace`、`aimnet2`、`dft`。 | `uma` |
-| `--cmap/--no-cmap` | REAL と MODEL の両 MM 層で CMAP を保持します。 | `--cmap` |
-| `--mm-backend [hessian_ff\|openmm]` | MM backend。 | `hessian_ff` |
-| `--link-atom-method [scaled\|fixed]` | link atom 配置方式。 | `scaled` |
-| `--out-json/--no-out-json` | machine-readable `result.json` を出力。 | `False` |
-| `--dry-run/--no-dry-run` | 実行せずにオプションと入力を検証する。`--help-advanced` に表示。 | `False` |
-
-### 収束閾値プリセット
-
-力は Hartree/bohr、ステップは bohr 単位。
-
-| プリセット | 用途 | max\|F\| | RMS(F) | max\|step\| | RMS(step) |
-| --- | --- | --- | --- | --- | --- |
-| `gau_loose` | 粗い事前最適化、ラフな経路探索 | 2.5e-3 | 1.7e-3 | 1.0e-2 | 6.7e-3 |
-| `gau` | 標準的な Gaussian 相当の厳密さ | 4.5e-4 | 3.0e-4 | 1.8e-3 | 1.2e-3 |
-| `gau_tight` | より厳密; 良好な構造 / freq / TS 精密化向け | 1.5e-5 | 1.0e-5 | 6.0e-5 | 4.0e-5 |
-| `gau_vtight` | 非常に厳密; ベンチマーク/高精度最終構造 | 2.0e-6 | 1.0e-6 | 6.0e-6 | 4.0e-6 |
-| `baker` | 文献形より厳しい設定：4列 **かつ** `\|dE\| < 1e-6` をすべて満たすこと | 3.0e-4 | 2.0e-4 | 3.0e-4 | 2.0e-4 |
-
-### 凍結境界の TR 射影
-
-constrained 処理は、独立したCartesian振動解析と `--flatten` で使用します。
-これは凍結 anchor を動かさない全系剛体運動だけを除去します。
-一般的な有効 rank は anchor が 0/1/2/非共線の 3 個以上のとき 6/3/1/0 で、
-実用的な ML/MM 境界では通常 0 です。全原子凍結は明示的なエラーになります。
-`geom.tr_projection` の古い非constrained値は明示的に拒否されます。
-`--out-json` 時、flatten 実行は treatment、有効 rank、Hessian source、Hessian shape を
-`result.json.rigid_projection` に記録します。
-
-## YAML 設定
-
-設定は **デフォルト < config < 明示 CLI** の順で適用されます。受け付けるセクション:
-
-### `geom`
-
-- `coord_type`（デフォルト `"cart"`）: デカルト座標 vs `"dlc"` 非局在化内部座標。ML/MM の系では `dlc` などの内部座標は構築に時間がかかることがあるため、`cart`（デフォルト）を推奨します。
-- `freeze_atoms`（`[]`）: 最適化中に凍結する 1 始まりインデックス。
-- `tr_projection`（`"constrained"`）: 固定の内部 `--flatten` PHVA 処理。
-
-### `calc` / `mlmm`
-
-- 入力構造と `real_parm7` は CLI で指定します。ML 領域は `model_pdb`、明示的な model index、または有効な B-factor layer から指定できます。
-- `model_charge`（`-q/--charge`、必須）と `model_mult`（`-m/--multiplicity`、デフォルト 1）。
-- `link_mlmm`: ML/MM 境界ペアを明示する `(ML_atom_id, MM_atom_id)` リスト。各ペアから link H を 1 個生成し、配置は `link_atom_method` が制御します。
-- バックエンド選択: `backend`（デフォルト `"uma"`、選択肢: `uma`/`orb`/`mace`/`aimnet2`/`dft`）。
-- UMA 制御: `uma_model`（デフォルト `"uma-s-1p2"`）、`uma_task_name`（デフォルト `"omol"`）。
-- 共通制御（全バックエンド）: `hessian_calc_mode`（`"Analytical"` または `"FiniteDifference"`）、`out_hess_torch`（bool）、`H_double`（bool）。
-- デバイス選択: `ml_device`（`"auto"`/`"cuda"`/`"cpu"`）、`ml_cuda_idx`、`mm_device`、`mm_cuda_idx`、`mm_threads`。
-- MM 有限差分: `mm_fd`（bool）、`mm_fd_dir`（FD 情報の出力ディレクトリ）、`return_partial_hessian`。
-- `return_partial_hessian`: `opt` では YAML で明示指定されない限り部分 Hessian をデフォルトで使用します。完全 Hessian を強制する場合は `calc.return_partial_hessian: false` を明示してください。
-- `freeze_atoms`: `geom.freeze_atoms` から伝播され、ML/MM とオプティマイザが同じ凍結原子を共有します。
-
-### `opt`
-
-共有オプティマイザ制御:
-- `thresh` プリセット（上記の収束テーブルを参照）。
-- 共通制御: `max_cycles`（デフォルト100000）、`print_every`（100）、`min_step_norm`（1e-8）、`assert_min_step` True。
-- 収束トグル: `rms_force`、`rms_force_only`、`max_force_only`、`force_only`。
-- その他: `converge_to_geom_rms_thresh`、`overachieve_factor`、`check_eigval_structure`。
-- エネルギープラトー停止（opt-in、デフォルト無効）: `energy_plateau`（bool、デフォルト False、`--stop-plateau` で有効化）、`energy_plateau_thresh`（1e-4 au、約 0.06 kcal/mol、`--stop-plateau-thresh`）、`energy_plateau_window`（50 ステップ、`--stop-plateau-window`）。有効時、直近ウィンドウのエネルギー範囲が閾値を下回ったら`stalled`（未収束）として停止します。MLIP の力ノイズフロアが勾配ベースの `thresh` プリセットを上回る場合に cycle を節約できますが、収束扱いにはならず、実質的な上限は常に `max_cycles` です。Chain-of-states オプティマイザと `--microiter` の MM micro 反復では自動的にスキップされます。
-- ラインサーチ: `line_search`（bool、デフォルト True）。
-- 管理項目: `dump`、`dump_restart`、`prefix`、`out_dir`（デフォルト `./result_opt/`）。
-
-### `lbfgs`
-
-L-BFGS 固有の拡張: `keep_last`、`beta`、`gamma_mult`、`max_step`、`control_step`、`double_damp`、`mu_reg`、`max_mu_reg_adaptions`。
-
-### `rfo`
-
-RFOptimizer 固有の拡張: 信頼領域サイジング（`trust_radius`、`trust_min`、`trust_max`、`trust_update`）、`max_energy_incr`、Hessian 管理（`hessian_update`、`hessian_init`、`hessian_recalc`、`hessian_recalc_adapt`、`small_eigval_thresh`）、RS 反復の制御（`alpha0`、`max_micro_cycles`、`rfo_overlaps`）、DIIS ヘルパー（`gdiis`、`gediis`、閾値、`gdiis_test_direction`）、`adapt_step_func`。
-
-### `microiter`
-
-`--microiter` が `--opt-mode hess` で有効な場合にのみ使用されます。`micro_thresh` は MM 緩和ステップの L-BFGS 収束プリセットを設定します。`null` または省略時は、マイクロステップは macro オプティマイザと同じプリセット（`--thresh` / `opt.thresh`）を使用します。`--micro-thresh` CLI フラグは存在せず、YAML で設定します。
-
-### YAML 例
-```yaml
-geom:
- coord_type: cart               # 座標タイプ: デカルト vs dlc 内部座標
- freeze_atoms: []               # 1 始まり凍結原子（CLI/リンク検出とマージ）
- tr_projection: constrained     # 固定の内部 PHVA 処理
-calc:                           # calc 計算機キーは単一セクションにまとめる
- model_charge: 0                # 総電荷（キーは charge ではなく model_charge。CLI 上書き）
- model_mult: 1                  # スピン多重度 2S+1（キーは spin ではなく model_mult）
- real_parm7: real.parm7         # 全酵素の Amber parm7 トポロジー
- model_pdb: ml_region.pdb       # ML 領域を定義する PDB
- backend: uma                   # 高レベルbackend (uma/orb/mace/aimnet2/dft)
- uma_model: uma-s-1p2           # uma-s-1p2 | uma-m-1p1
- uma_task_name: omol            # UMA タスク名 (backend=uma 時)
- ml_device: auto                # ML デバイス選択
- hessian_calc_mode: Analytical  # Hessianモード選択
- out_hess_torch: true           # torch 形式Hessianを要求
- mm_fd: true                    # MM 有限差分トグル
- return_partial_hessian: true   # 部分Hessianを許可（opt のデフォルト）
-opt:
- thresh: gau                    # 収束プリセット（Gaussian/Baker 式）
- max_cycles: 100000              # オプティマイザサイクル上限
- print_every: 100               # ログ出力間隔
- min_step_norm: 1.0e-08         # ステップ受け入れの最小ノルム
- assert_min_step: true          # ステップが閾値以下で停止
- rms_force: null                # 明示的 RMS 力目標
- rms_force_only: false          # RMS 力収束のみに依存
- max_force_only: false          # 最大力収束のみに依存
- force_only: false              # 変位チェックをスキップ
- converge_to_geom_rms_thresh: 0.05  # 参照への収束時の geom RMS 閾値
- overachieve_factor: 0.0        # 0.0 で無効。正の値では力が閾値/係数を下回ると step 基準なしで収束（baker では不使用）
- check_eigval_structure: false  # Hessian固有値構造の検証
- energy_plateau: false          # opt-in（--stop-plateau）: エネルギー停滞時にstalled（未収束）で停止（COS/MM micro では自動スキップ）
- energy_plateau_thresh: 1.0e-04 # プラトー許容幅 au（約 0.06 kcal/mol）
- energy_plateau_window: 50      # プラトー判定に用いる直近ステップ数
- line_search: true              # ラインサーチを有効化
- dump: false                    # 軌跡/リスタートデータのダンプ
- dump_restart: false            # リスタートチェックポイントのダンプ
- prefix: ""                     # ファイル名プレフィックス
- out_dir: ./result_opt/         # 出力ディレクトリ
-lbfgs:
- thresh: gau                    # L-BFGS 収束プリセット
- max_cycles: 100000              # 反復上限
- print_every: 100               # ログ出力間隔
- min_step_norm: 1.0e-08         # 受け入れ最小ステップノルム
- assert_min_step: true          # ステップ停滞時にアサート
- rms_force: null                # 明示的 RMS 力目標
- rms_force_only: false          # RMS 力収束のみに依存
- max_force_only: false          # 最大力収束のみに依存
- force_only: false              # 変位チェックをスキップ
- converge_to_geom_rms_thresh: 0.05  # ジオメトリ収束時の RMS 閾値
- overachieve_factor: 0.0        # 0.0 で無効。正の値では力が閾値/係数を下回ると step 基準なしで収束（baker では不使用）
- check_eigval_structure: false  # Hessian固有値構造の検証
- energy_plateau: false          # opt-in（--stop-plateau）: エネルギー停滞時にstalled（未収束）で停止
- energy_plateau_thresh: 1.0e-04 # プラトー許容幅 au（約 0.06 kcal/mol）
- energy_plateau_window: 50      # プラトー判定に用いる直近ステップ数
- line_search: true              # ラインサーチを有効化
- dump: false                    # 軌跡/リスタートデータのダンプ
- dump_restart: false            # リスタートチェックポイントのダンプ
- prefix: ""                     # ファイル名プレフィックス
- out_dir: ./result_opt/         # 出力ディレクトリ
- keep_last: 7                   # L-BFGS バッファの履歴サイズ
- beta: 1.0                      # 初期ダンピングベータ
- gamma_mult: false              # 乗算ガンマ更新トグル
- max_step: 0.3                  # 最大ステップ長
- control_step: true             # 適応的ステップ長制御
- double_damp: true              # ダブルダンピングセーフガード
- mu_reg: null                   # 正則化強度
- max_mu_reg_adaptions: 10       # mu 適応の上限
-rfo:
- thresh: gau                    # RFOptimizer 収束プリセット
- max_cycles: 100000              # 反復上限
- print_every: 100               # ログ出力間隔
- min_step_norm: 1.0e-08         # 受け入れ最小ステップノルム
- assert_min_step: true          # ステップ停滞時にアサート
- rms_force: null                # 明示的 RMS 力目標
- rms_force_only: false          # RMS 力収束のみに依存
- max_force_only: false          # 最大力収束のみに依存
- force_only: false              # 変位チェックをスキップ
- converge_to_geom_rms_thresh: 0.05  # ジオメトリ収束時の RMS 閾値
- overachieve_factor: 0.0        # 0.0 で無効。正の値では力が閾値/係数を下回ると step 基準なしで収束（baker では不使用）
- check_eigval_structure: false  # Hessian固有値構造の検証
- energy_plateau: false          # opt-in（--stop-plateau）: エネルギー停滞時にstalled（未収束）で停止
- energy_plateau_thresh: 1.0e-04 # プラトー許容幅 au（約 0.06 kcal/mol）
- energy_plateau_window: 50      # プラトー判定に用いる直近ステップ数
- line_search: true              # ラインサーチを有効化
- dump: false                    # 軌跡/リスタートデータのダンプ
- dump_restart: false            # リスタートチェックポイントのダンプ
- prefix: ""                     # ファイル名プレフィックス
- out_dir: ./result_opt/         # 出力ディレクトリ
- trust_radius: 0.10             # 信頼領域半径
- trust_update: true             # 信頼領域更新を有効化
- trust_min: 0.0001              # 最小信頼半径
- trust_max: 0.10                # 最大信頼半径（ML/MM 安定性のため調整）
- max_energy_incr: null          # ステップごとの許容エネルギー増加
- hessian_update: ts_bfgs        # Hessian更新方式
- hessian_init: calc             # Hessian初期化ソース
- hessian_recalc: 500            # N ステップごとにHessianを再構築
- hessian_recalc_adapt: null     # 適応的Hessian再構築上限
- small_eigval_thresh: 1.0e-08   # 安定性のための固有値閾値
- alpha0: 1.0                    # 初期マイクロステップ
- max_micro_cycles: 50           # 1 step 内の RS 反復の上限（ML/MM のマイクロイテレーションとは別）
- rfo_overlaps: false            # RFO オーバーラップを有効化
- gediis: false                  # GEDIIS を有効化
- gdiis: true                    # GDIIS を有効化
- gdiis_thresh: 0.0025           # GDIIS 受け入れ閾値
- gediis_thresh: 0.01            # GEDIIS 受け入れ閾値
- gdiis_test_direction: true     # DIIS 前に降下方向をテスト
- adapt_step_func: true          # 適応的ステップスケーリング
-```
-
-完全なスキーマ（全セクション、キー、デフォルト）: [YAML リファレンス](yaml-reference.md)。
+ML 領域の計算バックエンドにはデフォルトの **UMA**（Meta）のほか、`-b/--backend` で **ORB**、**MACE**、**AIMNet2**、**DFT** も選べます。MM 原子には `--parm7` の Amber 力場を使います。
 
 ---
 
-## 関連項目
+## 基本的な実行例
 
-- [典型エラー別レシピ](recipes-common-errors.md) -- 症状起点の切り分け
-- [トラブルシューティング](troubleshooting.md) -- 詳細なトラブルシューティングガイド
+### 1. 標準の最小化
 
-- [tsopt](tsopt.md) -- 極小ではなく遷移状態（鞍点）を最適化
-- [freq](freq.md) -- 最適化が極小に達したことを確認する振動解析
-- [all](all.md) -- 端点を事前最適化する一気通貫ワークフロー
-- [YAML リファレンス](yaml-reference.md) -- `opt`、`lbfgs`、`rfo` の完全な設定オプション
-- [用語集](glossary.md) -- L-BFGS、RFO の定義
+全系 `system_layered.pdb` を、Amber のトポロジー `real.parm7` と ML 領域 `ml_region.pdb` で最適化し、`--out-json` で結果の要約も書き出します。
+
+```bash
+mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
+    -q 0 -m 1 --out-json --out-dir ./result_opt
+```
+
+端末に `[opt] Converged!` が出て、`result_opt/result.json` の `"optimization_status"` が `"converged"` であれば収束しています。
+
+### 2. 厳しい収束条件と軌跡の保存
+
+収束条件を `gau_tight` にし、最適化の軌跡を残します。
+
+```bash
+mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
+    -q 0 -m 1 --thresh gau_tight --dump --out-dir ./result_opt_tight
+```
+
+### 3. 距離拘束
+
+弱い調和拘束（20 eV·Å⁻²）で、原子 12 と 45 の距離を 2.20 Å へ近づけます。
+
+```bash
+mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
+    -q 0 -m 1 --distance-restraint '[(12,45,2.20)]' --restraint-k 20.0 \
+    --out-dir ./result_opt_rest
+```
+
+### 4. RFO とマイクロイテレーション
+
+`--opt-mode hess` で、厳密な Hessian から始める RFO に切り替えます。マイクロイテレーションはデフォルトで有効です。
+
+```bash
+mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
+    -q 0 -m 1 --opt-mode hess --out-dir ./result_opt_rfo
+```
+
+---
+
+## 処理の仕組みと計算仕様
+
+1. **ML/MM の系の組み立て**: `-i` から全系の構造を、`--parm7` から Amber のトポロジーを、`--model-pdb` から ML 領域を読みます。残りの原子は可動 MM 原子か凍結 MM 原子になります（{ref}`ML/MM の共通オプション <ja-mlmm-options>` を参照）。`-q` と `-m` は ML 領域の電荷とスピン多重度です。`--freeze-atoms` でほかの原子も凍結できます。
+2. **最適化法の選択**（`--opt-mode`）: `grad`（別名 `lbfgs`）は勾配だけを使う **L-BFGS** を実行します。`hess`（別名 `rfo`）は **RFO** を実行し、厳密な Hessian から始めて TS-BFGS 式で更新し（YAML の [`rfo.hessian_update`](yaml-reference.md#rfo) のデフォルト）、500 サイクルごとに計算し直します。`hess` のマイクロイテレーションでは、ML 原子とリンク原子の MM 側の親原子を動かす RFO の 1 ステップと、ほかの可動 MM 原子を MM の力だけで動かす L-BFGS の緩和とを交互に行います。Gaussian のマイクロイテレーションと同じ方式です。
+3. **距離拘束の追加**（`--distance-restraint`）: `(i, j, target)` のそれぞれが、力の定数 `--restraint-k`（eV·Å⁻²）の調和項を加え、原子 i と j の距離を `target`（Å）へ引き寄せます。`(i, j)` は最初の距離を保ちます。番号は 1 始まりで、`--zero-based` を付けると 0 始まりになります。
+4. **最小化**: 収束条件を満たすか `--max-cycles` に達するまで構造を動かします。デフォルトの `--thresh gau` は、力の最大値が 4.5 × 10⁻⁴、RMS が 3.0 × 10⁻⁴ hartree/bohr 未満、ステップの最大値が 1.8 × 10⁻³、RMS が 1.2 × 10⁻³ bohr 未満を求め、Gaussian の既定と同じ条件です。
+5. **`--flatten` による虚振動の除去**: 最適化の後に Hessian を計算し、すべての虚振動モード（ν < −5.00 cm⁻¹）に沿って構造を 0.10 Å ずらして最適化し直します。虚振動が無くなるか 50 回に達するまで繰り返します。`--flatten` では、各回の後に端末の `[Imaginary modes] n=…` の行に n_imag が出て、最後の回の後にも虚振動が残ると `[flatten] WARNING: Remaining imaginary modes after the flatten loop: N` が出ます。
+
+---
+
+## 収束の判定
+
+実行の終わり方は、端末と `result.json`（`--out-json`）に出ます。
+
+| 終わり方 | `optimization_status` | 端末の行 | `scientific_status` / 終了コード |
+| --- | --- | --- | --- |
+| 収束 | `converged` | `[opt] Converged!` | `success` / 0 |
+| `--max-cycles` に達して未収束 | `not_converged` | `[opt] Reached max cycles (N/M).` | `failed` / 1 |
+| エネルギーが変わらなくなって停止（`--stop-plateau`） | `stalled` | `[opt] Stalled (energy plateau; not converged)` | `failed` / 1 |
+
+どの行の後にも `[opt] Total cycles: N` が出ます。`stalled` は収束ではありません。力の収束条件を満たさないまま、エネルギーが変わらなくなった状態です。
+
+収束して得られるのは停留点で、極小点とは限りません。`opt` は `--flatten` のとき以外は最後の Hessian を計算しないので、final geometry に [`freq`](freq.md) を実行し、n_imag = 0 を確かめてください。
+
+---
+
+## 主な出力ファイル
+
+実行が終わると、`--out-dir`（デフォルト: `./result_opt/`）に次のファイルができます。
+
+```text
+result_opt/
+├─ final_geometry.xyz        # final geometry（常に出力）
+├─ final_geometry.pdb        # 同じ構造の PDB（PDB/mmCIF 入力または --ref-pdb）
+├─ optimization_trj.xyz      # 最適化の軌跡（--dump）
+├─ optimization.pdb          # 同じ軌跡の PDB（--dump）
+├─ optimization_all_trj.xyz  # 最適化の全ステップをつないだ軌跡（--dump）
+├─ optimization_all.pdb      # 同じ軌跡の PDB（--dump）
+├─ restart_NNN.yaml          # オプティマイザの状態（--dump と YAML の opt.dump_restart）
+└─ result.json               # 結果の要約（--out-json）
+```
+
+mmCIF の入力と、PDB の欄に入りきらない大きな PDB の入力では、元の識別子を保った `.cif` も書きます（{ref}`mmCIF の入力 <ja-mmcif-input>` を参照）。
+
+* **final geometry**: `final_geometry.*` が最適化した構造です。[`freq`](freq.md) や経路探索に渡してください。
+* **要約**: `--out-json` を付けると、`result.json` に `optimization_status`、最後のエネルギー `energy_hartree`（拘束のエネルギーを除いた値）、サイクル数 `n_opt_cycles` が記録されます。マイクロイテレーションでは、MM の緩和のサイクル数 `n_micro_cycles` も記録されます（[JSON 出力リファレンス](json-output.md) を参照）。
+* **端末**: サイクルごとの表と実行時間が出ます。
+
+---
+
+## 主な CLI オプション
+
+ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通オプション <ja-mlmm-options>` に 1 か所でまとめてあります。下の表は `opt` に固有のものだけです。
+
+| オプション | 引数の型 | デフォルト | 説明 |
+| --- | --- | --- | --- |
+| `-i, --input` | パス | （必須） | 全系の入力構造ファイル（`.pdb`, `.cif`, `.mmcif`、または `--ref-pdb` と組み合わせた `.xyz`） |
+| `-q, --charge` | 整数 | `None` | ML 領域の電荷。`-l` を使う場合のほかは必須 |
+| `-l, --ligand-charge` | 文字列 | `None` | 未知のリガンド残基の総電荷（例: `-1`）または残基名ごとの電荷（例: `'GPP:-3,SAM:1'`）。`-q` を省いたときに ML 領域の電荷を求めるのに使用（PDB/mmCIF 入力または `--ref-pdb`） |
+| `-m, --multiplicity` | 整数 | `1` | ML 領域のスピン多重度（2S+1） |
+| `-b, --backend` | 文字列 | `uma` | ML 領域のバックエンド（`uma`, `orb`, `mace`, `aimnet2`, `dft`） |
+| `--opt-mode` | `grad` / `hess` | `grad` | 最適化法: L-BFGS / RFO（`lbfgs` と `rfo` は別名） |
+| `--microiter/--no-microiter` | フラグ | `True` | `hess` で、ML 領域の RFO のステップと可動 MM 原子の L-BFGS の緩和とを交互に行う |
+| `--mm-only/--no-mm-only` | フラグ | `False` | MM 力場だけで全系を最小化する（`grad` のときだけ） |
+| `--thresh` | プリセット | `gau` | 収束条件（`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`。下の表を参照） |
+| `--max-cycles` | 整数 | `100000` | 最適化サイクルの上限。`--flatten` の各回と共有 |
+| `--coord-type` | `cart` / `redund` / `dlc` / `tric` | `cart` | 最適化の座標系。ML/MM では `cart` のままにする |
+| `--dump/--no-dump` | フラグ | `False` | 軌跡 `optimization_trj.xyz` と `optimization_all_trj.xyz` を書き出す |
+| `--distance-restraint` | 文字列 | `None` | 調和の距離拘束。直接書く（`'[(i,j,target_Å),...]'`）か、YAML/JSON ファイルで指定。`(i,j)` は最初の距離を保つ |
+| `--restraint-k` | 実数 | `300` | 距離拘束の力の定数（eV·Å⁻²） |
+| `--one-based/--zero-based` | フラグ | `--one-based` | `--distance-restraint` の番号を 1 から数えるか 0 から数えるか |
+| `--freeze-atoms` | 文字列 | `None` | 凍結する原子（1 始まり、カンマ区切り: 例 `'1,3,5'`） |
+| `--hessian-cutoff` | 実数 | `None` | ML 領域からこの距離（Å）以内の可動 MM 原子だけを Hessian に入れる。デフォルトでは可動 MM 原子すべて |
+| `--flatten/--no-flatten` | フラグ | `False` | 最適化の後に虚振動を除く |
+| `--reject-uphill/--no-reject-uphill` | フラグ | `False` | `hess` で、エネルギーが 1e-4 hartree を超えて上がる RFO のステップを捨て、信頼半径を縮める |
+| `--stop-plateau/--no-stop-plateau` | フラグ | `False` | エネルギーが変わらなくなったら（直近 50 サイクルの幅が 1e-4 hartree 未満）止め、`stalled` と報告 |
+| `-o, --out-dir` | パス | `./result_opt/` | 出力先ディレクトリ |
+
+全オプションの一覧は [自動生成 CLI リファレンス](../reference/commands/opt.md) を参照してください。
+
+`--thresh` のプリセットは次の上限を決めます（力は hartree/bohr、ステップは bohr）。
+
+| プリセット | 力の最大値 | 力の RMS | ステップの最大値 | ステップの RMS |
+| --- | --- | --- | --- | --- |
+| `gau_loose` | 2.5e-3 | 1.7e-3 | 1.0e-2 | 6.7e-3 |
+| `gau` | 4.5e-4 | 3.0e-4 | 1.8e-3 | 1.2e-3 |
+| `gau_tight` | 1.5e-5 | 1.0e-5 | 6.0e-5 | 4.0e-5 |
+| `gau_vtight` | 2.0e-6 | 1.0e-6 | 6.0e-6 | 4.0e-6 |
+| `baker` | 3.0e-4 | 2.0e-4 | 3.0e-4 | 2.0e-4 |
+
+`baker` では、サイクル間のエネルギー変化が 1e-6 hartree 未満であることも求めます。`never` は収束を報告しないので、`--max-cycles` まで続きます。
+
+> **補足:** YAML（`--config`）のキーの一覧は、YAML リファレンスの [`geom`](yaml-reference.md#geom)、[`opt`](yaml-reference.md#opt)、[`lbfgs`](yaml-reference.md#lbfgs)、[`rfo`](yaml-reference.md#rfo)、[`microiter`](yaml-reference.md#microiter) にあります。
+
+---
+
+## 使用上の注意点
+
+* **マイクロイテレーション**: `--distance-restraint` があると通常の RFO を、`--embedcharge` では標準の最適化を使います。MM だけのステップには電荷埋め込みの力が入らないためです。MM の緩和は `--thresh` と同じプリセットで収束を判定します。別のプリセットは YAML の `microiter.micro_thresh` で指定できます。
+* **`--mm-only` は `grad` だけ**: `--opt-mode hess` と組み合わせるとエラーで止まります（終了コード 2）。可動 MM 層と凍結 MM 層の区別はそのまま使います。
+* **プラトーでの停止**: `--stop-plateau` は、力のノイズで力の収束条件に届かないときにサイクルを節約できますが、エネルギーが平坦であることは停留点の証拠になりません。実質的な上限は `--max-cycles` です。マイクロイテレーションの MM の緩和はこの判定では止めません。エネルギーの幅とサイクル数は `--stop-plateau-thresh` と `--stop-plateau-window` で指定できます。
+* **拘束の強さ**: デフォルトの力の定数 300 eV·Å⁻² は距離を強く保ちます。実行例の 20 eV·Å⁻² は、目標の距離へゆるやかに導きます。
+* **`--reject-uphill` は `hess` だけで有効**: `grad`（L-BFGS）では無視されます。
+* **1 回に 1 構造**: `-i` には 1 つの構造を指定します。`.xyz` の入力には、原子の順と層を与える `--ref-pdb` が要ります。軌跡からは、使うフレームを先に `.xyz` に切り出してください。
+* **`--flatten` はほぼ収束した構造に使う**: 虚振動が 25 本を超えると、`opt` は虚振動の除去を飛ばして警告を出します。先に構造を最適化してから、`--flatten` を付けて実行し直してください。
+* **凍結原子があるときの剛体運動**: `--flatten` は、剛体運動を [`freq`](freq.md#凍結境界での剛体モード) と同じように扱い、`result.json` の `rigid_projection` に記録します。
+* **凍結原子と拘束の全体**: 凍結する原子や拘束の選び方は、{ref}`原子の固定と距離の拘束 <ja-freeze-atoms-and-restraints>` を参照してください。
+* **オプティマイザの状態の書き出し**: `--dump` を付け、YAML の `opt.dump_restart` に正の整数 N を指定すると、N サイクルごとに `restart_NNN.yaml` を書きます。mlmm-toolkit はこのファイルを読み戻さないので、止まった計算は final geometry から `opt` をやり直してください。
+* **モデルと精度**: `--backend-model` でバックエンドのモデルを、`--precision` で精度を選べます。詳しくは自動生成 CLI リファレンスを参照してください。
+* **設定の優先順位**: デフォルト < YAML < コマンドライン（[CLI 規約](cli-conventions.md) を参照）。
+
+---
+
+## 関連ドキュメント
+
+* [freq](freq.md) — 最適化した構造が極小点（n_imag = 0）かの確認
+* [tsopt](tsopt.md) — 極小点ではなく TS（鞍点）の最適化
+* [irc](irc.md) — TS から反応経路をたどり、最適化する端点を得る
+* [define-layer](define-layer.md) — 最適化の前に ML 層と MM 層を B-factor に書き込む
+* [all](all.md) — IRC の端点の最適化まで含む一連のワークフロー
+* [トラブルシューティング](troubleshooting.md) — 実行が失敗したときの切り分け
+* [YAML リファレンス](yaml-reference.md) — `opt`、`lbfgs`、`rfo`、`microiter` のすべての設定
+* [用語集](glossary.md) — L-BFGS、RFO などの用語
+* [終了コード](cli-conventions.md#終了コード) — 終了ステータスの意味

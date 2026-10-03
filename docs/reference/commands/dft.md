@@ -86,9 +86,8 @@ Options:
                                   enabled.  [default: (12.0)]
   --link-atom-method [scaled|fixed]
                                   Link-atom placement: 'scaled' (g-factor,
-                                  Gaussian ONIOM standard) or 'fixed' (legacy
-                                  1.09 Å for C, 1.01 Å for N).  [default:
-                                  (scaled)]
+                                  Gaussian ONIOM standard) or 'fixed' (1.09 Å
+                                  for C, 1.01 Å for N).  [default: (scaled)]
   --mm-backend [hessian_ff|openmm]
                                   MM backend for the low-level ONIOM evaluation:
                                   'hessian_ff' or 'openmm'.  [default:

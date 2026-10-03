@@ -1,147 +1,121 @@
-# MLIP Backends
+# MLIP バックエンド
 
-mlmm-toolkit は、あらゆる ML/MM ワークフローステージ（`opt`、`scan`、`tsopt`、`freq`、`irc`、`path-search`,...）を単一の `MLMMCore` ONIOM 結合オブジェクトを通じて実行します。`MLMMCore` は ML 領域を、private な `_create_ml_backend` ファクトリ経由でバックエンドごとのアダプタ（`_UMABackend` / `_OrbBackend` / `_MACEBackend` / `_AIMNet2Backend`、`backend="dft"` では PySCF/GPU4PySCF の DFT backend）にディスパッチします。このページでは、バックエンドの選択方法、バックエンドごとの kwargs、新しいバックエンドの追加方法を説明します。
+ML 領域を計算するバックエンドの選び方と、バックエンドごとのインストール、モデル名、精度、再現性の設定、Hessian の計算方式をまとめたページです。既定のバックエンドは **UMA**（Meta の Universal Models for Atoms）で、`-b/--backend` で **ORB**、**MACE**、**AIMNet2** も選べます。4 つとも機械学習原子間ポテンシャル（MLIP）です。どのバックエンドを選んでも、MM 領域は Amber のトポロジー（`--parm7`）で計算し、2 つを ONIOM で合わせます。
 
-## 公開インターフェース
+## バックエンドごとの特性
 
-```python
-from mlmm.backends.mlmm_calc import MLMMCore, MLMMASECalculator, mlmm
-
-# Primary entry: ML/MM ONIOM core. Takes parm7 + layered PDB + model-PDB and
-# returns energy / forces / (partial) Hessian on the full system.
-core = MLMMCore(
-    input_pdb="layered.pdb",
-    real_parm7="real.parm7",
-    model_pdb="model.pdb",
-    backend="uma",          # "uma", "orb", "mace", "aimnet2", or "dft" (dft also needs dft_settings)
-    model_charge=0, model_mult=1,
-    uma_model="uma-s-1p2",
-    uma_precision="fp32",   # or "fp64" (full-precision base inference)
-)
-
-# ASE adapter (DMF and other ASE-based stages)
-ase_calc = MLMMASECalculator(core)
-
-# pysisyphus Calculator adapter (opt / tsopt / freq / irc / path-search stages)
-pysis_calc = mlmm(
-    input_pdb="layered.pdb",
-    real_parm7="real.parm7",
-    model_pdb="model.pdb",
-    backend="uma",
-    model_charge=0, model_mult=1,
-)
-```
-
-内部的には、`MLMMCore.__init__` が `_create_ml_backend(backend, ...)`（`mlmm/backends/mlmm_calc.py` 内の
-private なファクトリ）を呼び出して適切なアダプタをインスタンス化します。このファクトリは未知のバックエンドに対して
-`ValueError` を送出します。mlmm には `'auto'` フォールバックはありません。ワークフローコードが CLI で解決されたバックエンド名を渡します。
-
-## ファイルマップ
-
-| file | role |
-|------|------|
-| `mlmm/backends/__init__.py` | `apply_precision_to_calc_cfg()` — 統一された `--precision fp32\|fp64` CLI フラグを各バックエンドのネイティブ kwarg（`uma_precision` / `orb_precision` / `mace_dtype`）にルーティングします |
-| `mlmm/backends/mlmm_calc.py` | `MLMMCore`（ML/MM ONIOM 結合）+ `MLMMASECalculator`（ASE）+ `mlmm`（pysisyphus Calculator）+ バックエンドごとのアダプタ（`_UMABackend`、`_OrbBackend`、`_MACEBackend`、`_AIMNet2Backend`）+ private な `_create_ml_backend` ファクトリ + FD-Hessian の組み立て + 単位変換 |
-| `mlmm/backends/pyscf_dft.py` | stateful PySCF/GPU4PySCF高レベルbackend、静電埋込み |
-
-## バックエンド別の特性
-
-| backend | install | model identifier | precision option |
-|---------|---------|------------------|------------------|
-| `uma` | `pip install fairchem-core` + HF auth | `uma-s-1p2` / `uma-s-1p1` / `uma-m-1p1` | `uma_precision="fp32" \| "fp64"` |
-| `orb` | `pip install orb-models` | `orb_v3_conservative_omol` | `orb_precision="float32-high" \| "float32-highest" \| "float64"`（`fp32` / `float32` は正規化される別名） |
-| `mace` | 専用環境: `pip uninstall -y fairchem-core && pip install mace-torch`（`e3nn` の pin が UMA と競合） | `MACE-OMOL-0` | `mace_dtype="float32" \| "float64"` |
-| `aimnet2` | `pip install aimnet` | `aimnet2` | n/a |
-
-### UMA fp64
-
-OMol で訓練された UMA をデフォルトの fp32 から fp64 に切り替えると、TSopt + Hessian に
-無視できない影響を与える場合があります。次のように有効化します:
+バックエンドは、ML/MM の計算を行うどのコマンドでも `-b/--backend` で選ぶか、YAML の `calc.backend` で設定します。
 
 ```bash
-mlmm tsopt -i ts.pdb --parm7 real.parm7 -q 0 -m 1 --precision fp64
-mlmm freq -i opt.pdb --parm7 real.parm7 -q 0 -m 1 --precision fp64
-mlmm irc -i ts.pdb --parm7 real.parm7 -q 0 -m 1 --precision fp64
+# UMA（既定）
+mlmm opt -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0
+
+# ORB
+mlmm opt -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b orb
+
+# MACE
+mlmm opt -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b mace
+
+# AIMNet2
+mlmm opt -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b aimnet2
 ```
 
-統一された `--precision` フラグは、`mlmm/backends/__init__.py` の `apply_precision_to_calc_cfg`
-によって各バックエンドのネイティブ kwarg（UMA は `uma_precision`、ORB は `orb_precision`、MACE は
-`mace_dtype`）へルーティングされます。
+| バックエンド | インストール | モデル名 | 精度の設定 |
+|---------|---------|------------------|------------------|
+| `uma` | `pip install mlmm-toolkit`（`fairchem-core` は本体の依存）＋ [Hugging Face へのログイン](installation.md) | `uma-s-1p2`（既定）/ `uma-m-1p1` | `uma_precision="fp32" \| "fp64"` |
+| `orb` | `pip install "mlmm-toolkit[orb]"` | `orb_v3_conservative_omol` | `orb_precision="float32-high" \| "float32-highest" \| "float64"`（`fp32`・`float32` の名前でも受け付けます） |
+| `mace` | 専用の環境で `pip uninstall -y fairchem-core && pip install mace-torch`（`mace-torch` が固定する `e3nn` の版が UMA とぶつかるため、この環境では UMA は動きません） | `MACE-OMOL-0` | `mace_dtype="float32" \| "float64"` |
+| `aimnet2` | `pip install "mlmm-toolkit[aimnet]"` | `aimnet2` | なし |
 
-`--precision` を指定しない場合、デフォルト値はバックエンドごとに決まります。
+`--backend-model NAME` は、選んだ `--backend` のモデルを替えます（例：`--backend uma --backend-model uma-m-1p1`）。`-b dft` を付けると ML 領域を DFT で計算でき（[DFT/MM バックエンド](#dftmm-バックエンド)）、`--calc-file` で任意の ASE calculator を使えます（{ref}`カスタムバックエンド <ja-backends-custom-calculator>`）。
 
-| backend | デフォルト | 理由 |
+実行時には、読み込むバックエンドとモデルが `[backend] Preparing MLIP model (UMA / UMA-S-1.2 (OMol))...` のように表示され、JSON の出力の `mlip_backend`・`mlip_model`・`mlip_precision` に記録されます（[JSON 出力リファレンス](json-output.md#共通エンベロープ)）。
+
+(ja-precision)=
+### 精度（precision）
+
+`--precision fp32|fp64` は MLIP の推論の浮動小数点精度を決めます。`--precision` を指定しないときは、バックエンドごとの既定値を使います。
+
+| バックエンド | `--precision` なし | `--precision fp64` |
 |---------|------|------|
-| `uma` | fp32 | 上流 fairchem のベースライン。 |
-| `orb` | fp64 | backend default。 |
-| `mace` | fp64 | MACE は上流で `default_dtype="float64"` をデフォルトとする。 |
-| `aimnet2` | fp32 | 精度の切り替えを持たない。 |
+| `uma` | fp32 | 使えます |
+| `orb` | fp64 | 使えます |
+| `mace` | fp64 | 使えます |
+| `aimnet2` | fp32（精度の設定がなく、`--precision fp32` を指定しても何も変わりません） | エラー |
+| `custom`（`--calc-file`） | calculator 自身の設定 | エラー（`--precision fp32` もエラー） |
 
-両精度に対応する場合は、使用するバックエンド・モデル・対象系で、エネルギー、力、振動数、実行時間、メモリ使用量を比較してください。精度の選択にかかわらず、振動解析と IRC による独立した検証が必要です。
+どの値を選ぶかは目的で決めます。
 
-統一された `--backend-model NAME` フラグも同様に、選択中の `--backend` のモデル変種を
-上書きし、`apply_backend_model_to_calc_cfg` によってバックエンドのモデル kwarg
-（`uma_model` / `orb_model` / `mace_model` / `aimnet2_model`）へルーティングされます。
-未指定ならバックエンドデフォルトのモデルを使用します。
+| 目的 | 推奨 | 理由 |
+| --- | --- | --- |
+| 通常の計算 | 指定しない | 上の既定値（UMA・AIMNet2 は fp32、ORB・MACE は fp64）のままにします。 |
+| 速さを優先するスクリーニング | 必要なときだけ `--precision fp32` | ORB・MACE の精度が下がります（[使用上の注意点](#使用上の注意点)）。 |
+| 最終の TS と Hessian | 指定しない。UMA で n_imag ≥ 2 のときは `--precision fp64` と比べる（[tsopt](tsopt.md)） | 精度によらず、`tsopt` の最後の Hessian で n_imag を確かめ、IRC と端点の最適化で TS が狙った R と P をつなぐことを確かめます。 |
 
-または YAML 設定経由（バックエンドごとの kwarg 名）:
+fp64 は次のように指定します。
+
+```bash
+mlmm tsopt -i ts.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m 1 --precision fp64
+mlmm freq  -i opt.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m 1 --precision fp64
+mlmm irc   -i ts.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m 1 --precision fp64
+```
+
+YAML では次のように書きます。
 
 ```yaml
 calc:
- uma_precision: fp64
+ precision: fp64
 ```
 
-## xTB静電補正
+## 決定論的実行と再現性
 
-MLIP/MM workflowでは、`--embedcharge`により
-`E_xTB(ML + MM point charges) - E_xTB(ML)`と対応するforce/Hessian差分を加えます。
-補正の各評価でMM点電荷あり・なしのxTB計算を行います。ML領域は200–300原子程度以下を
-実用上の目安とし、実際の系、点電荷数、hardwareで事前にbenchmarkしてください。
-これはハード上限ではなく、Hessianの反復評価ではさらに小さい系でも高コストになります。
+`--deterministic` を付けると、同じソフトウェアと GPU で、同じ入力から同じ結果が得られます。付けないと、同じ入力の 2 回の GPU の計算でも最後の桁が違うことがあります。
 
-`--backend dft`では、`--embedcharge`はMM点電荷をPySCF Hamiltonianへ直接入れます。
-この経路はxTB補正を使わず、選択したDFT手法側の計算コスト制約を受けます。
+```bash
+mlmm opt -i complex.pdb --parm7 enzyme.parm7 --model-pdb ml_region.pdb -q 0 --deterministic
+mlmm all -i r_complex.pdb p_complex.pdb -c PRE -q -1 --deterministic
+```
 
-## Stateful DFT/MM backend
+| ML バックエンド | `--deterministic` |
+|---|---|
+| `uma` | 対応。入れたモデルの版で 2 回の計算が一致するか確かめてください |
+| `orb` / `mace` | PyTorch の決定論的モードは有効になります。入れた版で 2 回の計算が一致するか確かめてください |
+| `aimnet2` | **非対応**：エラーで止まります（[使用上の注意点](#使用上の注意点)） |
+| `custom`（`--calc-file`） | **非対応**：エラーで止まります。渡された calculator は mlmm-toolkit の制御の外にあるためです |
 
-calculatorを使う全workflowで
-`--backend dft --func-basis FUNCTIONAL/BASIS --dft-engine gpu|cpu`を選択できます。既存の
-energy/post-processing用`mlmm dft` subcommandは独立して維持されています。
+## ワーカーと Hessian の計算方式
 
-closed-shell GPU lowmem経路ではgeometryごとに`rks_lowmem.RKS`を再構築し、直前に収束した
-GPU densityを`dm0`として渡します。それ以外の経路は1個のPySCF scannerを保持します。
-両経路とも電子状態を再利用し、同一座標でenergyとforceを要求した場合はexact-coordinate
-cacheによりSCFを重複実行しません。`--embedcharge`
-ではMM点電荷をPySCF Hamiltonianへ直接入れ、点電荷に働く力もreal systemへ加えます。
-埋込みHessianは完成した保存的ML/MM forceの中心差分なので、QM–MMとMM–MM応答blockを
-保持します。外部環境は明示的なMM原子と点電荷で表現し、MLMM DFT backendでは重複する
-PCM/SMD連続溶媒を追加しません。
+`--uma-workers N`（既定 1）は UMA の予測器を N 個並列に動かし（`fairchem-core[extras]` が要ります）、`--uma-workers-per-node`（既定 1）はそのうち 1 ノードで動かす数を決めます。どちらのフラグも `opt`、`tsopt`、`freq`、`irc`、`sp`、`all`、`path-opt`、`path-search`、`scan`、`scan2d`、`scan3d` にあります。ほかのバックエンドはこれらを警告を出して無視します。HPC のジョブのテンプレートは [デバイス設定と HPC](device-hpc.md) にあります。
 
-`--dft-low-memory`が既定です。electrostatic embeddingを含むclosed-shell GPUのenergy・gradient・
-Hessian計算には`gpu4pyscf.dft.rks_lowmem.RKS`を使います。open-shell GPUとCPUではDF tensorを
-保持しない標準direct-JKを使います。十分なmemoryがある場合は`--no-dft-low-memory`でdensity fittingを
-有効にすると難しいSCFの収束が改善することがあります。PySCF thread数とhost RAMはscheduler、process affinity、host/cgroup制約から
-自動検出し、`--dft-nprocs`と`--dft-memory`で上書きできます。memory指定はGPU VRAMではなく
-host RAMです。
+### Hessian の計算方式
 
-SCF checkpointは数十GBになり得るため既定OFFです。`--save-scf-checkpoint`で有効にし、必要なら
-`--scf-checkpoint PATH`を指定します。PATHを省略したleaf workflowでは
-`<out-dir>/_work/dft_scf/state.chk`を使います。`calc.dft.pyscf`はPySCF object名ごとのattributeを
-渡します。native `.pyscf_conf.py`、`PYSCF_CONFIG_FILE`、`PYSCF_MAX_MEMORY`、
-`PYSCF_TMPDIR`もそのまま有効です。
-calculator再生成後のstage間再利用は、このopt-inのstructure-bound checkpoint handoffを
-有効にした場合だけ行われます。
+`--hessian-calc-mode` で、ML 領域の Hessian の計算方式を選びます。このフラグは `freq`、`irc`、`tsopt`、`sp`、`all` にあり、YAML では `calc.hessian_calc_mode` です。`FiniteDifference`（既定）は力の中心差分を取り、`Analytical` はバックエンドの自動微分またはネイティブの Hessian を使います。UMA（ワーカー 1 つのとき）、ORB、MACE、AIMNet2 は入れた版が対応していれば解析 Hessian を計算でき、DFT のバックエンドも `--embedcharge` なしなら計算できます。自作の calculator は `FiniteDifference` だけに対応します。選んだバックエンドで解析 Hessian が使えないときは、エラーで止まります。Hessian の MM の部分は別に設定します（[ML/MM 計算機](mlmm-calc.md)）。
 
-## カスタムバックエンド — 独自の ASE Calculator を使う (`--calc-file`)
+UMA では次の 2 つのどちらかを選んでください。
 
-組み込みの MLIP バックエンドに加えて、**ML 領域**を実行時に `--calc-file` で指定した
-任意の [ASE](https://wiki.fysik.dtu.dk/ase/) Calculator で駆動できます（`mlmm_toolkit`
-本体の変更は不要）。これにより ML/MM ONIOM の ML 側を GFN-xTB（`tblite` / `xtb-python`
-経由）、DFTB+、ORCA、Psi4 など ASE 互換の任意エンジンと結合できます。境界は標準の
-ASE Calculator インターフェース（エネルギー eV、力 eV/Å）で、既存の `_ASEMLBackend`
-アダプタがラップします。
+```bash
+--uma-workers 1 --hessian-calc-mode Analytical       # 解析 Hessian
+--uma-workers 4 --hessian-calc-mode FiniteDifference # 並列の UMA 予測器 + 有限差分
+```
 
-ASE Calculator を返す `get_calculator` ファクトリを持つ Python ファイルを用意します:
+モデルの精度と Hessian の精度は別の設定です。Hessian は既定（`calc.H_double: true`）では float64 で組み立て、`H_double: false` にすると float32 で返します。`--precision fp64` のときは Hessian も常に float64 になり、設定ファイルの `H_double: false` は警告を出して上書きされます。
+
+## xTB 静電補正
+
+MLIP/MM の計算では、`--embedcharge/--no-embedcharge`（既定はオフ）で `E_xTB(ML + MM point charges) - E_xTB(ML)` と、それに対応する力と Hessian の差を足し、ML 領域に MM の点電荷の影響を入れます。
+
+`-b dft` では、`--embedcharge` は xTB の補正を使わず、MM の点電荷を PySCF のハミルトニアンに直接入れます。
+
+## DFT/MM バックエンド
+
+計算を行うどのコマンドも `-b dft --func-basis FUNCTIONAL/BASIS --dft-engine gpu|cpu`（既定は `wb97m-v/def2-svp` と `gpu`）を受け付け、MM 領域は Amber の力場のまま、ML 領域を PySCF/GPU4PySCF で計算します。ポピュレーション解析付きの一点計算には、別の `mlmm dft` コマンドがあります。省メモリのモード、CPU のスレッド数とホスト RAM、SCF のチェックポイントは [MLIP の TS を DFT で確かめる](dft-backend.md) にあります。
+
+(ja-backends-custom-calculator)=
+## カスタムバックエンド — 任意の ASE Calculator を使う（`--calc-file`）
+
+組み込みの MLIP バックエンドのほかに、`--calc-file` で渡した任意の [ASE](https://wiki.fysik.dtu.dk/ase/) Calculator で **ML 領域**を計算できます。mlmm-toolkit 本体を変える必要はありません。ML/MM の ONIOM の ML 側に、GFN-xTB（`tblite` か `xtb-python` 経由）、DFTB+、ORCA、Psi4 など、ASE に対応した計算エンジンをつなげます。受け渡しは標準の ASE Calculator の形（エネルギーは eV、力は eV/Å）です。
+
+ASE Calculator を返す `get_calculator` 関数を持つ Python ファイルを書きます。
 
 ```python
 # my_calc.py（最小の例）
@@ -151,82 +125,68 @@ def get_calculator(charge=0, spin=1, device="auto", **kwargs):
     return EMT()
 ```
 
-`EMT()` を使いたいエンジンに差し替えてください — 例えば GFN-xTB なら
-`tblite.ase.TBLite(...)`、DFTB+ の ASE calculator、`ase.calculators.orca.ORCA(...)`
-など。このファイルを各stageまたは`all`に渡すと、`custom` ML backendが選択され
-`--backend` を上書きします。以下の例では、有効な B-factor 層定義を持つ全系 PDB を使います:
+`EMT()` を使いたいエンジンに替えてください（GFN-xTB なら `tblite.ase.TBLite(...)`、DFTB+ の ASE calculator、`ase.calculators.orca.ORCA(...)` など）。このファイルを各コマンドか `all` に渡すと `custom` の ML バックエンドが選ばれ、`--backend` の指定より優先されます。
 
-    mlmm sp    -i complex.pdb --parm7 system.parm7 --calc-file my_calc.py -q 0 -m 1
-    mlmm opt   -i complex.pdb --parm7 system.parm7 --calc-file my_calc.py -q 0 -m 1
-    mlmm freq  -i complex.pdb --parm7 system.parm7 --calc-file my_calc.py -q 0 -m 1
-    mlmm all   -i R.pdb P.pdb --parm7 system.parm7 --calc-file my_calc.py -q 0 -m 1
+```bash
+mlmm sp    -i complex.pdb --parm7 system.parm7 --model-pdb ml_region.pdb --calc-file my_calc.py -q 0 -m 1
+mlmm opt   -i complex.pdb --parm7 system.parm7 --model-pdb ml_region.pdb --calc-file my_calc.py -q 0 -m 1
+mlmm freq  -i complex.pdb --parm7 system.parm7 --model-pdb ml_region.pdb --calc-file my_calc.py -q 0 -m 1
+mlmm all   -i R.pdb P.pdb --parm7 system.parm7 --model-pdb ml_region.pdb --calc-file my_calc.py -q 0 -m 1
+```
 
-補足:
+- 関数の引数で受け取る形か `**kwargs` があれば、`charge`、`spin`（多重度。`mult`・`multiplicity` の名前でも渡します）、`device` が渡されるので、全電荷が要るエンジン（xTB など）も設定できます。関数の名前は `--calc-file-func-name NAME` で変えられ、その名前に Calculator のインスタンスを置いてもかまいません。
+- 自作の calculator が計算するのは **ML 領域だけ**です。MM 側はふつうどおり `hessian_ff` か OpenMM で計算し、ONIOM の結合も変わりません。Hessian は有限差分で求めるので、`freq` と `tsopt --opt-mode hess` はどのエンジンでも動きます。凍結原子もふつうどおり効きます。
+- `all` と、ML/MM の計算を行う各サブコマンドで使えます。`all` は、calculator を使うすべての段に同じ factory を渡します。独自の `--backend` 名を持つ、インストールできるバックエンドにするときは [開発者向け](#開発者向け) を見てください。
 
-- ファクトリには、シグネチャが受け取る場合（または `**kwargs` を宣言している場合）に
-  `charge`・`spin`（多重度。`mult` / `multiplicity` でも渡されます）・`device` が
-  渡されるため、全電荷が必要なエンジン（xTB など）も設定できます。ファクトリ名を
-  変える場合は `--calc-file-func-name NAME`、モジュール直下の Calculator インスタンスも
-  受け付けます。
-- カスタム calculator が駆動するのは **ML 領域のみ**で、MM 側は通常どおり
-  `hessian_ff` / OpenMM バックエンドを使い、ONIOM カップリングも変わりません。
-  Hessian は有限差分経路を使うため、`freq` や `tsopt --opt-mode hess` も任意エンジンで
-  動作します。凍結原子も通常どおり尊重されます。
-- `all`および単独subcommand（`sp`・`opt`・`tsopt`・`freq`・`irc`・`scan` /
-  `scan2d` / `scan3d`・`path-opt`・`path-search`）で利用できます。`all`は同じfactoryを
-  calculatorを使う子stageへ転送します。独自の`--backend`名を持つ恒久的なbackendに
-  する場合は、以下のレシピを参照してください。
+## Python API
 
-## バックエンド追加レシピ（5 ステップ）
+Python では、`MLMMCore` か pysisyphus 用の calculator `mlmm` の `backend` 引数でバックエンドを選びます。クラスと引数、動かせる例は [ML/MM 計算機 › Python API](mlmm-calc.md#python-api) にあります。
 
-`--backend xyz` として公開する新しいバックエンド `XYZModel` を追加するには:
+## 開発者向け
 
-1. **バックエンドアダプタを作成** — `mlmm/backends/mlmm_calc.py`（あるいは大きくなる場合は
- `mlmm/backends/xyz.py` のような新規ファイル）に、`_MLBackend`（ABC）を継承する
- `_XYZBackend(_MLBackend)` を実装します。ASE 経路が必要な場合は並行して `_XYZASEBackend` も実装します。
- factory は共通 adapter 引数 `model_charge`、`model_mult`、`ml_device` と、
-`uma_model`/`uma_precision` や `mace_model`/`mace_dtype` のような model/backend
-固有引数を渡します。Hessian assembly precision は backend adapter ではなく
-`MLMMCore` が所有します。
-2. **`_MLBackend` に準拠** — 抽象メソッド
- `eval(atoms, need_grad=True) -> (E_eV, F_eV, opaque)`（エネルギーは eV、力は
- eV/Å、加えてバックエンド固有の opaque オブジェクト）、`hessian_analytical(opaque, n_atoms,
- *, dtype) -> torch.Tensor`（Hessian を eV/Å² で返す）、および
- `supports_analytical_hessian` と `device` プロパティを実装します。`_MLBackend` を継承すると、
- 汎用の有限差分 `hessian_fd(...)`（バックエンドが解析的 Hessian を持たない場合に使用）を
- そのまま利用できます。
-3. **`_create_ml_backend` に登録** — `mlmm/backends/mlmm_calc.py` のファクトリを拡張して、
- `backend == "xyz"` を `_XYZBackend(...)` にディスパッチします。
- `MLMMCore` が転送できるよう、新しいバックエンドの kwargs を `_create_ml_backend(...)` の
- シグネチャに追加します。
-4. **統一された `--precision` フラグを配線**（任意） — バックエンドが精度の設定項目を公開する場合は、
- `mlmm/backends/__init__.py` の `_PRECISION_DISPATCH` 内の `"fp32"`
- と `"fp64"` の両方に `"xyz": (kw_name, kw_value)` エントリを追加し、
- ユーザー向けの `--precision fp32|fp64` CLI フラグが正しくルーティングされるようにします。
-5. **ドキュメント化 + smoke** — このページの file map / バックエンドごとのテーブルにエントリを追加し、
- model identifier + インストールコマンドを記載し、新しいバックエンドが end-to-end で
- 動作確認されるよう `tests/smoke/run.sh` に `xyz` 行を追加します。
+### バックエンドディスパッチャのパターン
 
-## VRAM 不変条件（ML/MM 固有）
+`MLMMCore` は、ML 領域の計算を選んだバックエンドのアダプタに渡し、MM の計算と ONIOM の結合は自分で行います。知らないバックエンド名は `ValueError` になります。mlmm-toolkit に `auto` のバックエンドは無く、各ワークフローはコマンドラインで選んだバックエンドを渡します。
 
-ML/MM stage では、選択した ML backend と Hessian intermediate が GPU
-memory を使用します。topology 処理と解析 MM force field は CPU 側で、
-standalone DFT は別 stage です。`mlmm/backends/mlmm_calc.py` の方向ごとの
-FD-Hessian loop は同時 displacement 評価数を制限します。この loop を変更する
-場合は GPU smoke suite を再実行し、peak VRAM を確認してください。stage 間では
-calculator を解放します。
+### ファイルマップ
 
-## ONIOM 結合と生の MLIP
+| ファイル | 役割 |
+|------|------|
+| `mlmm/backends/__init__.py` | `--precision`、`--backend-model`、`--calc-file`、`--uma-workers` を、選んだバックエンドの calculator の設定に変えます |
+| `mlmm/backends/mlmm_calc.py` | `MLMMCore`（ML/MM の ONIOM の結合）、`MLMMASECalculator`（ASE）、`mlmm`（pysisyphus の Calculator）、バックエンドごとのアダプタ、有限差分 Hessian の組み立て、単位の変換 |
+| `mlmm/backends/pyscf_dft.py` | ML 領域を計算する PySCF/GPU4PySCF の DFT バックエンド。静電埋め込みに対応し、計算のステップの間で SCF の状態を引き継ぎます |
 
-`mlmm/backends/mlmm_calc.py` の MLIP アダプタは、**ML 領域のみ**を評価します。
-減算的 ONIOM エネルギー式（`# CHEMISTRY-RULE:1`）、リンク原子 Hessian の
-B 行列射影（`# CHEMISTRY-RULE:2`）、3 層 5 パスの partial Hessian
-組み立て（`# CHEMISTRY-RULE:8`）は、同じファイル内に存在します。新しい MLIP を追加する
-バックエンドの作成者は ONIOM 結合を知る必要はありません。ML 領域のエネルギー / 力 / Hessian を
-正しい単位で返す Calculator を公開するだけで十分です。
+組み込みのバックエンドを独自の `--backend` 名で足すときは、[CONTRIBUTING](https://github.com/t-0hmura/mlmm_toolkit/blob/main/CONTRIBUTING.md) のレシピ 3.2「Add an MLIP backend」に従ってください。
 
-## 関連項目
+### ML/MM の段での GPU メモリ
 
-- [Python API](python-api.md) — `MLMMCore` / `MLMMASECalculator` / `mlmm`（pysisyphus Calculator）の public surface。
-- [Architecture](architecture.md) — 6 層ディレクトリマップ + 依存方向。
-- [CONTRIBUTING](https://github.com/t-0hmura/mlmm_toolkit/blob/main/CONTRIBUTING.md) — Recipe 3.2「Add an MLIP backend」（完全なゲートサイクル参照付き）。
+ML/MM の段では、選んだ ML バックエンドと Hessian の途中の配列が GPU のメモリを使い、トポロジーの処理と解析的な MM の力場は CPU で動きます。単独の DFT は別の段です。`mlmm/backends/mlmm_calc.py` の有限差分 Hessian のループは、変位の方向を 1 つずつ評価して、同時に行う評価の数を抑えます。まとめて評価する実装に変えるときは、GPU の smoke テストを流し直して VRAM のピークを確かめてください。各段の実行のあとで calculator を解放するので、後の段が前の段のモデルをメモリに残すことはありません。
+
+### ONIOM の結合と MLIP 単体の違い
+
+`mlmm/backends/mlmm_calc.py` の MLIP のアダプタは **ML 領域だけ**を計算します。減算型の ONIOM のエネルギーの式（`# CHEMISTRY-RULE:1`）、リンク原子の Hessian の射影（`# CHEMISTRY-RULE:2`）、3 層の部分 Hessian の組み立て（`# CHEMISTRY-RULE:8`）は同じファイルにあります。新しい MLIP のバックエンドは ONIOM の結合を知らなくてよく、ML 領域のエネルギー、力、Hessian を正しい単位で返せば足ります。
+
+## 使用上の注意点
+
+- ORB と MACE の `--precision fp32` はスクリーニング専用です。結果を使う前に n_imag を確かめてください。
+- ORB で `--precision fp32` を指定すると、精度を下げた `float32-high` のモードになります。
+- AIMNet2 は `--precision fp64` にも `--deterministic` にも対応せず、どちらもエラーで止まります。AIMNet2 はモデルへの入力を float32 にし、力を PyTorch の決定論的モードの外にある独自の CUDA のコードで計算します。繰り返しの計算を一致させたいときは、UMA、ORB、MACE のいずれかで `--deterministic` を付け、同じ環境で 2 回実行して比べてください。
+- `--calc-file` は `--precision`（`fp32` も `fp64` も）と `--deterministic` のどちらも受け付けず、エラーで止まります。精度は自作の calculator の中で設定してください。
+- `--deterministic` は PyTorch の決定論的アルゴリズム（`torch.use_deterministic_algorithms`）を有効にし、GPU で決定論的に動く版の無い PyTorch の演算 1 つを置き換えます。
+- `--deterministic` はプロセス全体に効きます。`all` に付ければ `all` が実行する段すべてに効くので、段ごとに付ける必要はありません。
+- `--deterministic` を付けると遅くなることがあります。決定論的な GPU の演算は別の遅い実装を使うことがあるので、繰り返しの計算を一致させる必要があるときだけ使ってください。
+- `--deterministic` では、実行する演算に PyTorch の決定論的な版が無いときは、再現しない結果を黙って出さずに、エラーで止まります。
+- 環境変数 `MLMM_STRICT_DETERMINISTIC=1` でも、CI のジョブや Python API で同じモードになります。この変数があると、`--no-deterministic` を付けてもモードは切れません。
+- `--deterministic` だけでは、別の計算機やソフトウェアの版でのビット単位の一致は保証されません。使う環境で 2 回実行して比べてください。
+- UMA で `--uma-workers` を 2 以上にすると、`--hessian-calc-mode Analytical` とは併用できず、エラーで止まります。並列の予測器は autograd のモデルを持たないためです。解析 Hessian には `--uma-workers 1` を、複数のワーカーには `FiniteDifference` を使ってください。
+- MACE は UMA と同じ環境に入りません。専用の conda 環境に入れてください。
+- パッケージを入れていないバックエンドを選ぶと、``orb-models is required for the ORB backend. Install with `pip install orb-models`.`` のようなエラーで止まります。
+- `--embedcharge` はエネルギー、力、Hessian を求めるたびに、MM の点電荷あり・なしで xTB を実行します。ML 領域は 200〜300 原子くらいまでにし、実際の系で先に計算時間を測ってください。
+
+## 関連ドキュメント
+
+- [ML/MM 計算機](mlmm-calc.md)：ONIOM の結合、MM の Hessian、Python API（`MLMMCore`、`MLMMASECalculator`、`mlmm`）
+- [アーキテクチャ](architecture.md)：ディレクトリの構成と依存の向き
+- [デバイス設定と HPC](device-hpc.md)：GPU と CPU の割り当てとジョブのテンプレート
+- [MLIP の TS を DFT で確かめる](dft-backend.md)：DFT の設定、メモリ、チェックポイント
+- [トラブルシューティング](troubleshooting.md)：計算が失敗したとき

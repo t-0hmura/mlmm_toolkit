@@ -51,7 +51,7 @@ Options:
   --link-atom-method [scaled|fixed]
                                   Link-H placement rule. 'scaled' uses the
                                   Morokuma/Dapprich g-factor (matches MLMMCore
-                                  runtime). 'fixed' uses the legacy 1.09/1.01 Å
+                                  runtime). 'fixed' uses a fixed 1.09/1.01 Å
                                   bond length.  [default: scaled]
   -h, --help                      Show this message and exit.
 ```

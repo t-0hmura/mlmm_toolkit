@@ -16,10 +16,10 @@ EXTERNAL_PREFIXES = ("http://", "https://", "mailto:", "tel:")
 def public_markdown_paths() -> list[Path]:
     """Every public Markdown page whose local links must resolve.
 
-    The public roots include README, CONTRIBUTING, docs, skills, and examples.
+    The public roots include README, CONTRIBUTING, AGENTS, docs, skills, and examples.
     """
     paths: list[Path] = []
-    for name in ("README.md", "CONTRIBUTING.md"):
+    for name in ("README.md", "CONTRIBUTING.md", "AGENTS.md"):
         candidate = REPO_ROOT / name
         if candidate.exists():
             paths.append(candidate)

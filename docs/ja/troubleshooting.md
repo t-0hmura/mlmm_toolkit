@@ -1,547 +1,314 @@
 # トラブルシューティング
 
-このページでは、`mlmm` でよく遭遇するエラーと対処法をまとめます。
-エラーメッセージでページ内検索すると、該当するセクションを素早く見つけられます。
-症状から当たりを付けたい場合は、[典型エラー別レシピ](recipes-common-errors.md) を見てからこのページに戻ってください。
+症状を早見表で探し、示された節で対処を読んでください。
 
----
+(ja-troubleshooting-quick-table)=
+## 早見表
+
+| 症状 | 最初にやること | 詳細（節） |
+| --- | --- | --- |
+| **入力 / 抽出** | | |
+| 元素列が空で `extract` が止まる（`Element symbols are missing in '...'`）。`all` は空の元素列を自分で埋め、割り当てられない原子が残ると止まる | 元の PDB に `add-elem-info` を適用してください | {ref}`入力 / 抽出の問題 <ja-input--extraction>` |
+| `[multi] Atom count mismatch` / `Coordinate shape mismatch` / `Element sequence mismatch` | 同じ前処理ツール・同じ設定で全 PDB を作り直し、計算に使う構造からトポロジーを作り直してください。`mm-parm` の後は原子を並べ替えません | {ref}`入力 / 抽出の問題 <ja-input--extraction>`、{ref}`AmberTools / mm-parm の問題 <ja-ambertools--mm-parm>` |
+| **電荷 / スピン** | | |
+| `ML-region charge is unresolved` / `[all] ML-region charge could not be resolved` | `-q/--charge` または `-l/--ligand-charge` を明示してください | {ref}`電荷 / スピンの問題 <ja-charge--spin>` |
+| 計算は通るが状態やエネルギーが不自然 | ML 領域の電荷と多重度を見直してください | {ref}`電荷 / スピンの問題 <ja-charge--spin>` |
+| **インストール / 環境** | | |
+| UMA モデルで 401 / 403 / アクセス制限付きリポジトリのエラー（`huggingface_hub.errors.GatedRepoError`） | `hf auth login` でログインし、UMA モデルのライセンスに同意してください | {ref}`インストール / 環境の問題 <ja-installation--environment>` |
+| `orb-models is required for the ORB backend`（AIMNet2 / MACE も同様） | バックエンドの追加パッケージを入れてください：`pip install "mlmm-toolkit[orb]"` または `"mlmm-toolkit[aimnet]"`。MACE は別の環境に入れます | {ref}`バックエンド固有の問題 <ja-troubleshooting-backends>` |
+| `mm-parm` が実行できない（`AmberTools preflight failed`。`tleap` / `antechamber` / `parmchk2` が無い） | 先に AmberTools を使えるようにしてください | {ref}`AmberTools / mm-parm の問題 <ja-ambertools--mm-parm>` |
+| `hessian_ff` のビルドや import のエラー（`hessian_ff build attempts failed`） | C++20 のコンパイラを確かめ、ネイティブ拡張を作り直してください | {ref}`hessian_ff ビルドの問題 <ja-hessian_ff-build--import>` |
+| DMF モードの import エラー（`DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2`） | `cyipopt`（conda-forge）と `pydmf[torch]>=1.2`（PyPI）を入れてください | {ref}`DMF モードが動かない <ja-dmf-mode-fails-cyipopt--pydmf--ase-missing>` |
+| **GPU / CUDA** | | |
+| 実行時に CUDA のメモリ不足（`torch.cuda.OutOfMemoryError`） | Frozen-MM の層を確かめる、ML 領域を小さくする（`--radius`）、Hessian の範囲を絞る（`--hessian-cutoff`）、`Analytical` を選んでいたら既定の `FiniteDifference` に戻す、VRAM の大きい GPU に移る | {ref}`CUDA メモリ不足 <ja-cuda-oom>` |
+| CUDA / GPU の実行時エラー | GPU、PyTorch のビルド、ドライバをまとめて確かめてください | {ref}`CUDA / PyTorch の不整合 <ja-cuda--pytorch-mismatch>` |
+| **収束** | | |
+| TS 最適化が収束しない（`TS optimization did not converge`）、または収束後の n_imag が 1 でない | まず TS 候補を確かめ、次にオプティマイザを切り替えてください（`tsopt --opt-mode` / `all --opt-mode-post`）。n_imag ≥ 2 なら `--flatten` を付けます | {ref}`TS 最適化 <ja-troubleshooting-ts>`、{ref}`TS が取れないとき <ja-ts-search-fails>` |
+| IRC が正常に終了しない | まず最適化後の端点を確かめ、次にステップを小さくしてください：`irc --step-size` または `all --irc-step-size` | {ref}`IRC <ja-troubleshooting-irc>` |
+| エネルギーが平坦なのに最適化が停滞する（MLIP のノイズフロアの可能性） | `--max-cycles` に任せるか、`--stop-plateau` で早期停止を有効にしてください。止まるのが早すぎる・遅すぎるときは `--stop-plateau-thresh` / `--stop-plateau-window` を調整します | {ref}`プラトーでの停止 <ja-optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor>` |
+| **プロット** | | |
+| 図の出力に失敗する | `plotly_get_chrome -y` でヘッドレス Chrome を入れてください | {ref}`図のエクスポート <ja-plot-export-fails-chrome-missing>` |
 
 ## 実行前チェックリスト
 
-長時間の計算を実行する前に、以下を確認してください。
+長い計算を回す前に、次を確かめてください。
 
-- `mlmm -h` でヘルプが表示される
-- MLIP モデルの重みがダウンロードできる（デフォルトの UMA バックエンドの場合、Hugging Face のログイン/トークンが必要。他のバックエンドは別のソースからダウンロードする場合がある）
-- 酵素系ワークフローでは、入力 PDB に **水素** と **元素記号（element column）** が入っている
-- 複数の PDB を与える場合、**同じ原子が同じ順序** で並んでいる（座標だけが異なる）
-- **AmberTools** が conda チャンネル（またはソースビルド）で正しくインストールされ、`tleap` が利用可能（`mm-parm` を使う場合）
-- hessian_ff の C++ ネイティブ拡張が正しくビルド済み（自動ビルドが失敗した場合は `cd hessian_ff/native && make` を実行）
+- `mlmm -h` でヘルプが表示される。
+- 既定の UMA バックエンドのために、このマシンで Hugging Face にログインできている。
+- 入力の PDB/mmCIF に **水素** と **元素記号** が入っている。
+- 複数の PDB を与える場合、**同じ原子が同じ順序** で並んでいる。
+- `tleap`、`antechamber`、`parmchk2` が `$PATH` にある。
+- `hessian_ff` の C++ 拡張が初回の使用時にビルドできる。{ref}`hessian_ff ビルドの問題 <ja-hessian_ff-build--import>` を参照してください。
 
 ---
 
+(ja-input--extraction)=
 ## 入力 / 抽出の問題
 
-### 「Element symbols are missing... add-elem-info を実行してください」
+### `Element symbols are missing in '...'`
 
-典型的なメッセージ:
-
-```text
-Element symbols are missing in '...'.
-Please run `mlmm add-elem-info -i...` to populate element columns before running extract.
-```
-
-対処:
-- 次を実行して element 列（元素記号列）を補完します:
+- **症状**：`extract` が ``Element symbols are missing in '...'. For PDB input, run `mlmm add-elem-info -i ... --overwrite`, or write a fixed PDB with `-o` and pass that file to extract; ...`` で止まる。`all` は抽出の前に空の元素列を自分で埋め、割り当てられない原子が残ると同じメッセージで止まる。
+- **原因**：PDB の元素列（77–78 桁）が空のことが多く、`extract` は原子の種類を決めるために元素記号を使います。mmCIF の入力では `_atom_site.type_symbol` が必要です。
+- **対処**：`add-elem-info` で元素列を埋め、新しいファイルで再実行してください。`[add-elem-info] WARNING: Could not confidently assign N atoms; left unchanged.` の後に並んだ原子は、元素記号を手で 77–78 桁に右詰めで書いてください。
 
   ```bash
   mlmm add-elem-info -i input.pdb -o input_with_elem.pdb
   ```
 
-- その後、`extract` / `all` を補完後の PDB で再実行します。
+### `[multi] Atom count mismatch` / `[multi] Atom order mismatch`
 
-なぜ発生するか:
-- PDB によっては元素列が一貫して埋められていないことがあります。`extract` は正確な原子型判定のために元素記号を必要とします。
+- **症状**：複数の入力を与えた実行が `[multi] Atom count mismatch between input #1 and input #2: ...` や `[multi] Atom order mismatch between input #1 and input #2.` で止まる。
+- **原因**：構造ごとに別のツールや設定で前処理した、またはプロトン化をやり直した後に原子の順序が変わった。
+- **対処**：**すべて** の構造を、同じプロトン化ツール・同じ設定で作り直してください。MD のスナップショットなら、同じトポロジーと軌跡からフレームを取り出します。複数の入力をそろえるのが難しい場合は、1 つの PDB から [`--scan-lists`](quickstart-scan.md) で経路を作れます。
 
----
+### ML 領域が小さい・触媒残基が入らない
 
-### 「Atom count mismatch」「Atom order mismatch」
+- **症状**：切り出した ML 領域が想定より小さい、または触媒残基が含まれない。
+- **原因**：この部位には半径（`-r/--radius`、既定 2.6 Å）が小さすぎる。
+- **対処**：`--radius` を大きくするか（例：2.6 → 3.5 Å）、`--selected-resn 'A:TYR:44'` で残基を足してください。この残基からは距離の探索を始めません。`-c` に足すと残基が丸ごと残ります（{ref}`モデルを広げる <ja-model-setup-larger>`）。指定できる形は {ref}`残基の指定 <ja-selected-resn-takes-ids>` にあります。chain の欄が空の PDB では、`'44'` のように名前か番号だけを使います。ML 領域の原子を自分で選び、その PDB を `--model-pdb` で渡すこともできます（[自分で組んだモデルを使う](model-setup.md#自分で組んだモデルを使う)）。
 
-典型的なメッセージ:
+### エネルギーや障壁が ML 領域の大きさで変わる
 
-```text
-[multi] Atom count mismatch between input #1 and input #2:...
-[multi] Atom order mismatch between input #1 and input #2.
-```
+[ML 領域が小さい・触媒残基が入らない](#ml-領域が小さい触媒残基が入らない) のとおりに ML 領域を広げ、結果が ML 領域の大きさと境界の位置でどう変わるかを確かめてください。
 
-対処:
-- **すべて** の構造を同じ前処理ワークフロー（同じプロトン化ツール、同じ設定）で作り直します。
-- 水素付加を行う場合は、全フレームで一貫した原子順序になる方法を使用してください。
+### 修飾残基が切断されない
 
-ヒント:
-- MD 由来のアンサンブルでは、異なるツールで作った PDB を混在させるのではなく、**同一のトポロジー/軌跡** からフレーム抽出する方が安全です。
-
-代替手段:
-- 複数構造の入力を揃えることが困難な場合は、**単一構造スキャンワークフロー** を使用してください。1 つの PDB と `--scan-lists` を指定し、距離スキャンで端点を生成します。
+- **症状**：`extract` が `[extract] WARNING: Residue ... may be an amino acid (has N, CA, C, O) but is not recognized as a standard residue name. Backbone truncation was not applied. ...` を出し、その残基の主鎖が切られない。
+- **原因**：主鎖の切断とリンク水素の付加には、残基の表への登録が必要です。SEP、TPO、MLY などは登録済みです。
+- **対処**：`--modified-residue "HD1:0"` のように、残基を整数の電荷とともに登録してください（`mlmm all` でも使えます）。名前だけで書くときの決まりは [extract](extract.md#5-非標準残基--modified-residue) にあります。主鎖のトポロジーが特殊な場合は、ML 領域を手で組み、`--parm7` と `--model-pdb` で下流のコマンドに直接渡してください。
 
 ---
 
-### ML 領域に重要な残基が含まれない
-
-症状:
-- 抽出ポケットが想定より小さい
-- 触媒残基が含まれない
-
-対処の例:
-- `--radius` を増やす（例: 2.6 → 3.5 Å）
-- `--selected-resn` で残基を強制包含する（例: `--selected-resn 'A:123,B:456'`）
-- PyMOL 等の分子ビューアで活性部位の原子を選択・エクスポートし、ML 領域の PDB を手動で作成することもできます。`--model-pdb` でこの PDB を指定してください。
-
----
-
-### エネルギー・障壁の計算値が不正確
-
-症状:
-- 計算されたエネルギーや反応障壁が不合理に見える
-- モデルサイズを大きくすると結果が大幅に変わる
-
-対処:
-- 抽出されたポケットが小さすぎると、エネルギーや障壁の計算値が不正確になることがあります。ML 領域を広げる（例: `-r 4.0`）などして、領域サイズと境界位置への感度を確認してください:
-
-  ```bash
-  mlmm extract -i complex.pdb -c 'SUB' -o pocket.pdb -r 4.0
-  ```
-
----
-
-### 非標準残基が正しく切断されない
-
-抽出されたポケットにカタログ未登録の修飾アミノ酸残基が含まれる場合は、整数電荷を付けて `--modified-residue` に登録してください:
-
-```bash
-mlmm extract -i complex.pdb -c PRE --modified-residue "HD1:0" -o pocket.pdb
-```
-
-同じフラグは `all` コマンドでも使用可能で、抽出ステージに転送されます。SEP、TPO、MLY などカタログ登録済みの残基は、電荷を省略して指定してもカタログ電荷を保持します。
-
-`--modified-residue` で対応できない場合は、全系 PDB から実在原子を選んで ML 領域の PDB を作成し、`--parm7` と `--model-pdb` を使って下流コマンドに直接渡してください。
-
----
-
+(ja-charge--spin)=
 ## 電荷 / スピンの問題
 
-### 電荷解決の問題
+`-q` は系全体ではなく ML 領域の電荷です。`-l/--ligand-charge` の各残基名が構造にあるかを確かめてください。決まりは {ref}`電荷の指定 <ja-charge-specification>` にあります。
 
-計算系サブコマンドの電荷は、明示的 `-q`、calculator 設定、対応する ligand/extraction 導出の順で解決し、未解決の場合だけ `-q` が必要です。多重度は 1 がデフォルトで、`-m` で上書きできます。
-`all` では電荷は `-q/--charge` 上書き -> 抽出サマリー -> （抽出スキップ時）`--ligand-charge` フォールバック の順で解決されます。
+### `ML-region charge is unresolved` / `ML-region charge could not be resolved`
 
-対処:
-- 電荷と多重度を明示的に指定します:
+- **症状**：個別のコマンドが `ML-region charge is unresolved. Provide -q/--charge or --ligand-charge.` で、`all` が `[all] ML-region charge could not be resolved. Provide -q/--charge, --ligand-charge, or calc.model_charge in YAML.` で止まる。
+- **原因**：`-q/--charge` を省くと、電荷は ML 領域にある標準残基・イオン・`-l/--ligand-charge` の値の合計から、次に YAML の `calc.model_charge` から決まります。そのどれも使えなかった。`--model-indices` では `-l` から電荷を出せません。
+- **対処**：電荷と多重度を明示するか、抽出ありの場合は残基ごとの電荷を与えてください。導いた電荷は端末に `Total active site model charge` として出ます。
 
   ```bash
   mlmm path-search -i R.pdb P.pdb --parm7 real.parm7 --model-pdb model.pdb -q 0 -m 1
-  ```
-
-- あるいは、抽出経由で自動導出させるため `all` を使い、残基名ごとの電荷マッピングを与えます:
-
-  ```bash
-  mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'
+  mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'
   ```
 
 ---
 
+(ja-ambertools--mm-parm)=
 ## AmberTools / mm-parm の問題
 
-### tleap が見つからない
+### `AmberTools preflight failed`
 
-典型的なメッセージ:
+- **症状**：`mm-parm` が `AmberTools preflight failed. Missing required command(s): ... Required: tleap, antechamber, parmchk2` で、`all` が `[preflight] Missing required command(s) for mm_parm (AmberTools): ...` で止まる。
+- **対処**：`conda install -c conda-forge ambertools=24.8 "numpy>=2,<2.5" -y` で AmberTools を入れるか、HPC では `module load ambertools` で読み込むか、ソースからビルドしてください（<https://ambermd.org/AmberTools.php>）。`which tleap antechamber parmchk2` で確かめます。AmberTools が無くても、別に作ったトポロジーを `--parm7` で渡せば個別のコマンドは動きます。
 
-```text
-FileNotFoundError: tleap not found on PATH
-```
+### リガンドで `antechamber` が失敗する
 
-または
+- **症状**：`mm-parm` が `[<RES>] antechamber failed (see log).` で止まる、または antechamber の前に `[<RES>] electron-count check failed before antechamber: ...` で止まる。
+- **原因**：電荷や多重度がリガンドの水素の数と合っていない、または元素記号・結合・TER レコードが正しくない。
+- **対処**：
+  - リガンドの元素記号、水素、結合、TER レコードを確かめてください。
+  - 形式電荷を `-l 'LIG:-1'` で、一重項でないリガンドの多重度を `--ligand-mult 'HEM:1,NO:2'`（`all` では `--auto-mm-ligand-mult`）で与えてください。
+  - `--keep-temp`（`all` では `--auto-mm-keep-temp`）を付けて再実行すると作業ディレクトリ `parm7build_*` が残るので、その中の `<resname>.antechamber.log` を読んでください。
+  - リガンドに antechamber を手で実行して切り分けてください：`antechamber -i ligand.pdb -fi pdb -o ligand.mol2 -fo mol2 -c bcc -nc -3 -at gaff2`。
+  - RESP 電荷やほかの独自パラメータを使うときは、tleap と自分の `frcmod` / `lib` ファイルでトポロジーを作り、`--parm7` で渡してください（[mm-parm](mm-parm.md#使用上の注意点) を参照）。
 
-```text
-mm-parm requires AmberTools (tleap, antechamber, parmchk2).
-```
+### `Coordinate shape mismatch for '...': got (N, 3), expected (M, 3)`
 
-対処:
-- conda で AmberTools をインストールします:
+- **症状**：計算がこのメッセージで止まる。
+- **原因**：構造の原子が `parm7` のトポロジーと一致していない。
+- **対処**：計算に使う構造から `mm-parm` でトポロジーを作り直すか、`-o` か `--add-h` で `mm-parm` が書き出す PDB で計算してください。`mm-parm` の後は PDB の原子を並べ替えません。
+
+### `oniom-export` の `Element sequence mismatch at atom index ...`
+
+- **対処**：`parm7` を作ったときと同じ PDB を `-i` に渡してください。`--no-element-check` でこの確認を外せます（結果は手で確かめます）。原子の数が違うときは、確認を外しても止まります（[oniom-export](oniom-export.md#使用上の注意点) を参照）。
+
+---
+
+(ja-hessian_ff-build--import)=
+## `hessian_ff` ビルドの問題
+
+- **症状**：`hessian_ff build attempts failed: ...` が出る、または計算が `native bonded extension is unavailable.`、`native nonbonded extension is unavailable; torch fallback is disabled.`、`analytical Hessian native extension is unavailable.` で止まる。
+- **原因**：C++ 拡張は初回の使用時に `torch.utils.cpp_extension` でコンパイルされます。C++20 対応のコンパイラ（GCC 13.3 で検証済み）と `ninja` が必要です。`ninja` は `mlmm-toolkit` と一緒に入ります。
+- **対処**：
+  - `g++ -std=c++20 -x c++ -fsyntax-only /dev/null` で C++20 に対応しているか確かめてください。コンパイラは `conda install -c conda-forge gxx_linux-64` で入れるか、HPC では計算機の C++20 対応のコンパイラのモジュールを読み込みます。
+  - PyTorch のヘッダが見つかるかを `python -c "import torch; print(torch.utils.cmake_prefix_path)"` で確かめてください。
+  - ビルドは既定でローカルの一時ディレクトリを使います。ネットワーク上のディレクトリ（NFS/Lustre）では PyTorch のビルドロックで止まることがあるためです。別のローカルのパスを使うときは `TORCH_EXTENSIONS_DIR` を指定してください。
+  - `mlmm` を実行する Python 環境から `hessian_ff` を import できるかを確かめてください。
+  - 手動でクリーンビルドするときは次を使います。
 
   ```bash
-  conda install -c conda-forge ambertools=24.8 "numpy>=2,<2.5" -y
+  cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make clean && make
   ```
 
-- ソースからビルド（<https://ambermd.org/AmberTools.php>）するか、HPC クラスターでは環境モジュールでロードします:
-
-  ```bash
-  module load ambertools
-  ```
-
-- 利用可能か確認します:
-
-  ```bash
-  which tleap
-  which antechamber
-  which parmchk2
-  ```
-
-- AmberTools なしでも、`--parm7` を手動で用意すれば `opt`、`tsopt`、`path-search` 等は動作します。
-
 ---
 
-### antechamber が失敗する
+## B-factor による層の割り当ての問題
 
-症状:
-- `mm-parm` 実行中にリガンドパラメータ化が失敗する
-- 原子型割り当てや電荷計算に関するエラーが出る
+層は B-factor に入っています：ML = 0.0、Movable-MM = 10.0、Frozen-MM = 20.0（許容差 ±1.0）。`--detect-layer`（既定で有効）がこれを読みます。
 
-対処の例:
-- リガンドの PDB で元素記号と結合構造が正しいか確認する
-- `--ligand-charge` が正しく指定されていることを確認: `-l 'GPP:-3,SAM:1'`
-- `--keep-temp` を付けて再実行し、`<resname>.antechamber.log` を確認する:
+### 層の割り当てが想定と異なる・ML 領域が小さすぎる・大きすぎる
 
-  ```bash
-  mlmm mm-parm -i input.pdb -l 'LIG:-1' --keep-temp
-  ```
+- 層を付けた PDB を分子ビューアで開き、B-factor で色分けしてください。
+- `--model-pdb` が狙った原子を選んでいるか確かめてください。
+- Movable-MM と Frozen-MM の境界は `define-layer --movable-cutoff`（既定 8.0 Å）で調整します。
+- Hessian に入れる原子は別に、`--hessian-cutoff` か YAML の `calc.hess_cutoff` / `calc.hess_mm_atoms` で決めます。
 
-- 水素が正しく付加されているか、TER レコードが適切か確認する
-- 非一重項リガンドには `--ligand-mult` を指定する（例: `--ligand-mult 'HEM:1,NO:2'`）。デフォルトのスピン多重度は 1（一重項）
-- 抽出されたリガンド PDB に対して antechamber を手動実行して原因を切り分ける:
+### B-factor が層として読まれない
 
-  ```bash
-  antechamber -i ligand.pdb -fi pdb -o ligand.mol2 -fo mol2 -c bcc -nc -3 -at gaff2
-  ```
-
-- より高精度の部分電荷が必要な場合は、HF/6-31G* 計算から RESP 電荷を算出し、カスタム `frcmod`/`lib` ファイルを用意することを検討してください（AM1-BCC に頼らない方法）。
-
----
-
-### parm7/rst7 の不整合エラー
-
-典型的なメッセージ:
-
-```text
-Atom count in parm7 (...) does not match input PDB (...)
-```
-
-または
-
-```text
-RuntimeError: parm7 topology does not match the input structure
-```
-
-または
-
-```text
-Coordinate shape mismatch for... got (N, 3), expected (M, 3)
-```
-
-対処:
-- parm7 を生成した PDB と、計算に使う PDB が同一の原子セット（同じ順序）であることを確認します。
-- `mm-parm` で parm7 を再生成してください。
-- `mm-parm` 実行後に PDB の原子を編集・並べ替え **しない** でください。
-- tleap が水素を追加/削除している可能性があるため、`mm-parm` 出力の PDB（`<prefix>.pdb`）を計算入力として使用してください。
-
----
-
-### parm7 の元素順序が PDB と一致しない
-
-症状:
-- `oniom-export` で「Element sequence mismatch at atom index...」
-
-対処:
-- `--no-element-check` で元素チェックを無効化（結果を手動で検証すること）
-- 正しい対処は、parm7 生成時と同じ PDB を `-i` に指定することです。
-
----
-
-## hessian_ff ビルドの問題
-
-### ビルドが失敗する（"make" エラー）
-
-ネイティブ拡張は通常、初回使用時に自動ビルドされます。`hessian_ff/native/` でのコンパイルエラーや、次のエラーが出る場合は以下を確認してください。
-
-```text
-ImportError: cannot import name 'ForceFieldTorch' from 'hessian_ff'
-RuntimeError: hessian_ff build attempts failed: ...
-```
-
-- C++20 対応コンパイラと Ninja が必要です（GCC 13.3 で検証済み）。`g++ --version` で確認し、conda では `conda install -c conda-forge gxx_linux-64`、HPC では `module load <COMPILER_MODULE>` で対応コンパイラを導入します。
-- PyTorch ヘッダの場所は `python -c "import torch; print(torch.utils.cmake_prefix_path)"` で確認できます。
-- ビルド先は通常ローカルの一時ディレクトリです。ネットワーク FS（NFS/Lustre）でビルドロック待ちが起きる場合は、`TORCH_EXTENSIONS_DIR` でローカルパスを指定してください。
-
-原因を修正した後、元のコマンドを再実行してください。手動でクリーンビルドする場合は次を使います。
-
-```bash
-conda install -c conda-forge ninja -y
-cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make clean && make
-```
-
-### hessian_ff の import エラー
-
-上記のビルド確認に加え、`hessian_ff` が使用中の Python 環境から見えることを確認してください。手動での事前ビルドは通常不要です。
-
----
-
-## B-factor レイヤー割り当ての問題
-
-### レイヤー割り当てが想定と異なる
-
-症状:
-- 原子が想定外のレイヤーに割り当てられる
-- ML 領域が小さすぎる、または大きすぎる
-
-対処の例:
-- B-factor エンコーディング: ML = 0.0、Movable-MM = 10.0、Frozen = 20.0。
-- レイヤーが割り当てられた PDB を分子ビューアで可視化（B-factor で色分け）する
-- `--model-pdb` が正しく ML 領域の原子を定義しているか確認する
-- `define-layer` の距離カットオフを調整する:
- - `--movable-cutoff`（デフォルト 8.0 Å）: Movable-MM/Frozen の境界を制御
-- 必要に応じて、計算オプション（`hess_cutoff`, `hess_mm_atoms`）で Hessian 対象 MM を別途制御する
-- YAML で `use_bfactor_layers: true` を使う場合、B-factor 値が期待されるエンコーディング（0.0, 10.0, 20.0; 許容差 1.0）と一致するか確認する
-
----
-
-### B-factor 値が認識されない
-
-典型的な症状:
-- 計算機がすべての原子を Frozen または ML として扱う
-- B-factor 値が {0.0, 10.0, 20.0} のいずれでもない
-
-対処:
-- `define-layer` を再実行して正しい B-factor エンコーディングを確保してください。
-- 許容差 1.0 が適用されます: 0/10/20 に近い B-factor が ML/Movable/Frozen にマッピングされます。
-- B-factor を任意の値に手動編集しないでください。
-
----
+- **症状**：`all` が `[all] ... does not contain a valid ML/MM B-factor partition (both ML and MM atoms are required). ...` や `[all] Automatic layer detection requires a valid 0/10/20 B-factor partition with both ML and MM atoms when extraction is skipped and --model-pdb is absent.` で止まる。
+- **原因**：B-factor が層として読まれるのは、ML（0）の原子と MM（10 か 20）の原子がそれぞれ 1 つ以上あり、原子の 80% 以上がこのどれかの値を持つときだけです。
+- **対処**：`define-layer` をもう一度実行し、書き出された PDB を使ってください。B-factor を任意の値に手で書き換えないでください。
 
 ### `--detect-layer` が想定どおりに働かない
 
-症状:
-- B-factor からのレイヤー自動判定で、ML / Movable / Frozen の分割が想定と異なる
-- `--detect-layer` が、入力 PDB に有効な B-factor レイヤーが無い（かつ `--model-pdb` も未指定の）状態で失敗する
-
-対処の例:
-- 入力が PDB（または `--ref-pdb` 付き XYZ）であることを確認する
-- `define-layer` で B-factor を明示的に再付与し、生成された PDB を使う
-- 距離ベース制御を使う場合は `hess_cutoff` / `movable_cutoff` を指定する（`--movable-cutoff` は B-factor layer より自動的に優先されます）
-- `--movable-cutoff` を与えると `--detect-layer` が無効化される点に注意する
+- **症状**：自動で読んだ層の分け方が想定と異なる、または `-c` を付けない `all` が `[all] Skipping extraction (no -c/--center) with B-factor layer detection disabled requires --model-pdb. ...` で止まる。
+- **対処**：
+  - 入力は PDB か、`--ref-pdb` 付きの XYZ にしてください。
+  - `define-layer` で層を付け、書き出された PDB を使ってください。
+  - 計算のコマンドに `--movable-cutoff` を与えると `--detect-layer` は無効になり、MM の層は B-factor ではなく距離で決まります。
 
 ---
 
+(ja-installation--environment)=
 ## インストール / 環境の問題
 
-### MLIP モデルのダウンロードエラー
+直した後は `mlmm --version` と `python -c "import torch; print(torch.cuda.is_available())"` で確かめ、`--help-advanced` で使えるオプションを確かめてから、本番の前に一度 `--dry-run` を付けて実行します。
 
-症状:
-- MLIP モデルの重みをダウンロードできない、認証が必要、といったエラー。デフォルトの UMA バックエンドでは、Hugging Face のログイン/トークンが不足していることが原因です。
+### MLIP モデルのダウンロードに失敗する
 
-対処:
-- 環境/マシンごとに一度ログインし、HF のモデルページでライセンスに同意します:
+- **症状**：UMA モデルをダウンロードできない（`huggingface_hub.errors.GatedRepoError`、`401`、`403`）。
+- **原因**：Hugging Face にログインしていない、または UMA モデルのライセンスに同意していない。
+- **対処**：環境・マシンごとに一度 `hf auth login` を実行し、Hugging Face のモデルのページでライセンスに同意してください。HPC では、計算ノードから Hugging Face のキャッシュディレクトリに書き込めるかを確かめます。
 
-  ```bash
-  hf auth login
-  ```
-
-- HPC では、計算ノードから HF キャッシュ（ホームディレクトリ等）に書き込み可能か確認してください。
-
----
-
+(ja-cuda--pytorch-mismatch)=
 ### CUDA / PyTorch の不整合
 
-症状:
-- GPU があるのに `torch.cuda.is_available()` が False
-- import 時に CUDA runtime error が出る
+- **症状**：GPU のあるノードで `torch.cuda.is_available()` が `False` になる、または import 時に CUDA の実行時エラーが出る。
+- **原因**：PyTorch のビルドが計算ノードの GPU・ドライバに合っていない。
+- **対処**：`nvidia-smi`、`python -m torch.utils.collect_env`、`python -m pip check` で、割り当てられた GPU、入っている wheel、ドライバを確かめてください。`nvidia-smi` が示す `CUDA Version` はドライバが扱える最も新しい CUDA です。それ以下の CUDA の PyTorch wheel（`cu126`、`cu130`、`cu132`）を入れてください。
 
-対処:
-- クラスタの CUDA バージョンに適合する PyTorch をインストールしてください。
-- GPU が見えているか確認します:
+(ja-dmf-mode-fails-cyipopt--pydmf--ase-missing)=
+### DMF モードが動かない（cyipopt / pydmf / ase が無い）
 
-  ```bash
-  nvidia-smi
-  python -c "import torch; print(torch.version.cuda, torch.cuda.is_available())"
-  ```
-
----
-
-### DMF モードが動かない（cyipopt がない）
-
-DMF（`--mep-mode dmf`）を使うときに `ase`、`cyipopt`、`pydmf` のいずれかが見つからず import エラーが出る場合:
-
-対処:
-- `ase` と `cyipopt` を conda-forge から、`pydmf>=1.2` を pip からインストールしてください（`pydmf>=1.2` はデフォルトの `--dmf-backend gpu` が使う `dmf.torch` バックエンドを同梱）:
+- **症状**：`--mep-mode dmf` が `DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2 (...). Import error: ...` で止まる。
+- **原因**：`cyipopt` と `pydmf` は `mlmm-toolkit` と一緒には入りません（`ase` は入ります）。
+- **対処**：{ref}`インストールの手順 3 <ja-step-by-step-installation>` のとおりに入れてください。
 
   ```bash
-  conda install -c conda-forge ase cyipopt -y && pip install 'pydmf>=1.2'
+  conda install -c conda-forge cyipopt -y
+  pip install 'pydmf[torch]>=1.2'   # --dmf-backend cpu だけなら: pip install 'pydmf>=1.2'
   ```
-
----
 
 ### DMF が IPOPT 内で極端に遅い
 
-IPOPT/MUMPS が並列版 BLIS を使う環境では、入れ子の並列化で長い待ちが
-生じることがあります。ジョブスクリプトなどで、Python や CLI の起動前に
-`BLIS_NUM_THREADS=1` を設定してください。外側の OpenMP/MM のスレッド数は
-変更不要です。`BLIS_JC_NT`、`BLIS_PC_NT`、`BLIS_IC_NT`、`BLIS_JR_NT`、
-`BLIS_IR_NT` の手動設定はこの制限より優先されるため、そのジョブの設定から
-外してください。起動済みの Notebook は、設定変更後にカーネルを再起動します。
-詳しくは [BLIS のスレッド設定](https://github.com/flame/blis/blob/2.0/docs/Multithreading.md)を参照してください。
+IPOPT/MUMPS が並列版 BLIS を使う環境では、入れ子の並列化で長い待ちが生じることがあります。ジョブスクリプトなどで、Python や CLI の起動前に `BLIS_NUM_THREADS=1` を設定してください。外側の OpenMP/MM のスレッド数は変更不要です。`BLIS_JC_NT`、`BLIS_PC_NT`、`BLIS_IC_NT`、`BLIS_JR_NT`、`BLIS_IR_NT` の手動設定はこの制限より優先されるため、そのジョブの設定から外してください。起動済みの Notebook は、設定変更後にカーネルを再起動します。詳しくは [BLIS のスレッド設定](https://github.com/flame/blis/blob/2.0/docs/Multithreading.md)を参照してください。
 
+(ja-plot-export-fails-chrome-missing)=
 ### 図のエクスポートが失敗する（Chrome がない）
 
-Plotly/Chrome 系のエラーで静的画像が出ない場合:
-
-対処:
-- headless Chrome をインストールしてください:
-
-  ```bash
-  plotly_get_chrome -y
-  ```
+- **症状**：Plotly の図の静止画（PNG）が書き出されない。
+- **原因**：Plotly が画像の書き出しに使うヘッドレス Chrome が無い。
+- **対処**：`plotly_get_chrome -y` を一度実行してください。Chromium のバイナリをダウンロードするので、インターネット接続が必要です。
 
 ---
 
+(ja-calculation--convergence)=
 ## 計算 / 収束の問題
+
+まず TS 候補を確かめてください。TS 最適化が成功すると、反応モードの虚振動が 1 つ出ます。ν < −5.00 cm⁻¹ のモードを虚振動として数えます（YAML の `freq.zero_cutoff_cm` で変更）。その変位と IRC の端点を確かめてください。
 
 (ja-cuda-oom)=
 ### CUDA メモリ不足（OOM）
 
-症状:
-- `torch.cuda.OutOfMemoryError: CUDA out of memory`
-- 「CUDA out of memory」メッセージ
-- Hessian 計算中にシステムがハングまたはクラッシュする
+次を順に試してください。
 
-ML/MM 系は MLIP 単体の計算よりも一般的に大きいため、VRAM の負荷が高くなります。
+1. **Frozen-MM を確かめる**：`define-layer` で遠い原子が B = 20.0 になっているか確かめてください。Frozen-MM が小さすぎると、Movable-MM とその Hessian が大きくなります。`--movable-cutoff` を小さくすると Frozen-MM が広がります（[動く MM の殻を薄くする](model-setup.md#動く-mm-の殻を薄くする)）。
+2. **ML 領域を小さくする**：`extract` の `--radius` を小さくするか、`--model-pdb` で小さい ML 領域を渡します（[ML 領域を小さくする](model-setup.md#ml-領域を小さくする)）。
+3. **Hessian の範囲を絞る**：`opt`、`tsopt`、`freq`、`sp` の `--hessian-cutoff` で、Hessian に入る Movable-MM の原子を減らします（[Hessian の範囲を絞る](model-setup.md#hessian-の範囲を絞る)）。
+4. **Hessian の計算方式を比べる**：有限差分は ML の自動微分のメモリを抑えることが多いものの、どちらの方式も動く原子の密な Hessian を作ります。対象の系で実行時間とピークメモリを比べ、`Analytical` を選んでいたら既定の `FiniteDifference` に戻してください。
+5. **メモリの大きい GPU に移る**：同じモデル、Hessian の方式、動く範囲で、移る先の GPU で先に試してください。
 
-対処の例（優先度順）:
-- **Frozen 層を確認**: `define-layer` で Frozen 原子（B=20.0）が正しく割り当てられているか確認する。Frozen 領域が小さすぎると、Movable-MM 領域（ひいては Hessian）が不必要に大きくなる。`--movable-cutoff` を小さくして Frozen 領域を拡大する。
-- **ML 領域サイズを縮小**: `extract` の `--radius` を小さくするか、`--model-pdb` で手動定義した小さい ML 領域 PDB を指定する。
-- **Hessian モードを比較**: 有限差分は ML autograd メモリを抑える場合がありますが、どちらも密な active-space Hessian を形成します。対象系で実行時間とピークメモリを比較してください。
-- **`define-layer` で事前に層を定義** し、`use_bfactor_layers: true` で読み取る。
-- **GPU メモリが大きいカードに変更**: 同じモデル、Hessian モード、
-  active region を対象デバイスで試行し、必要メモリを確認してください。
-
----
-
-### TS 最適化が収束しない
-
-症状:
-- TS 最適化が多くのサイクルを回しても収束しない
-- 最適化後も複数の虚振動数が残る
-
-対処の例:
-- `grad`（Dimer）と `hess`（RS-P-RFO）を切り替える: 単独では `tsopt --opt-mode`、`all` では `--opt-mode-post`
-- 余分な虚モードのフラット化を有効にする: `--flatten`
-- 停止理由と計算予算を確認してサイクル上限を増やす: 単独では `tsopt --max-cycles`、`all` では `--tsopt-max-cycles`
-- 収束プリセットを `baker` または `gau_tight` にする: 単独では `tsopt --thresh`、`all` では `--thresh-post`
-
-`n_imag >= 2` の結果は、余分なモードの大きさにかかわらず一次鞍点として未認定です。より厳しい収束プリセット（`gau_tight` など）で再計算し、各モードの変位を確認してください。認定には再計算結果自体が虚振動ちょうど1本であり、その変位と IRC 接続性が意図した反応に対応する必要があります。
-- `hess_cutoff` を調整して、Hessian 計算に含む原子の範囲を広げる
-
----
-
+(ja-optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor)=
 ### 最適化が停滞するがエネルギーはもう変わっていない（MLIP の力ノイズフロア）
 
-症状:
-- `opt`/`tsopt` が延々と回り続けるが、直近数十サイクルでエネルギーが
-  ほぼ平坦（`|dE| < 1e-4` au）
-- Max/RMS 力が `gau`/`baker` 閾値のわずか上で飽和してしまい、数千サイクル
-  回してもそれ以上下がらない
-- サマリログで最終的に **エネルギープラトー** による`stalled`
-  （未収束）として終了する
+- **症状**：`opt` / `tsopt` が回り続けるが、直近のサイクルでエネルギーがほぼ平坦になり、最大・RMS の力が `gau` / `baker` の閾値のわずか上で下がらなくなる。
+- **原因**：MLIP の力には数値精度によるノイズフロアがあります。大きな ML/MM 系では、これが標準の力の閾値を上回り、構造がほぼ止まっていても力が閾値を下回りません。
+- **対処**：
+  - 実行の上限は `--max-cycles`（既定 100000）です。エネルギーが平坦になった時点で早く止めたいときは、`--stop-plateau`（`opt`、`tsopt`、`all`）を付けてください。`stalled`（未収束）として止まります。
+  - 判定の調整は [YAML リファレンス](yaml-reference.md#opt) を参照してください。
+  - この判定は GSM / DMF では行いません。`path-opt` / `path-search` の単一構造の事前最適化には使われます。
 
-なぜ発生するか:
-- MLIP の力には数値精度由来のノイズフロアがあります。大規模な ML/MM 系
-  ではこのノイズフロアが標準的な勾配ベース収束閾値（`gau`、`baker` 等）
-  を上回ることがあり、ジオメトリが実質的に停止していても力が閾値を
-  下回らず、最適化が終わりません。
+(ja-troubleshooting-ts)=
+### TS 最適化が収束しない・虚振動が複数残る
 
-対処:
-- 実行の上限は常に `--max-cycles` です。エネルギーが平坦化した時点で早く
-  止めたい場合は、`--stop-plateau` で opt-in してください。直近 50 ステップの
-  エネルギー範囲が `1.0e-4` au（約 0.06 kcal/mol）を下回ると、
-  オプティマイザは `stalled`（収束とは決して再ラベルされない）としてクリーンに終了します。
-- 動きが明らかに残っている系で早すぎるプラトー判定が発生する場合は、
-  YAML で閾値を厳格化してください:
-  ```yaml
-  opt:
-   energy_plateau: true            # --stop-plateau と同じ（opt-in）
-   energy_plateau_thresh: 1.0e-05  # プラトー許容幅を厳格化 (au)
-   energy_plateau_window: 100      # より長い平坦区間を要求
-  ```
-- ベンチマーク等ではデフォルトどおり無効のままにしてください（`thresh` プリセットのみ
-  で収束判定され、`max_cycles` が上限になります）。
-- プラトー判定は chain-of-states（COS）オプティマイザ（GS/DMF
-  ストリング最適化）では自動的にスキップされます。`path-opt` /
-  `path-search` の単一構造の事前最適化には適用されます。
+- **症状**：TS 最適化が多くのサイクルを回しても収束しない（`summary.log` に `TS optimization did not converge. Review the TS trajectory.`）、または収束後に n_imag が 2 以上（`TS imaginary-mode validation found n_imag=N.`）や 0（`[tsopt] No imaginary mode detected. Try all --refine-path.`）になる（[TS の判定](tsopt.md#ts-の判定)）。
+- **最適化が収束しないときの対処**：止まった理由とモードの変位を確かめてから、次を順に試してください。
+  1. オプティマイザを RS-P-RFO（既定）と Dimer 法の間で切り替える：単独では `tsopt --opt-mode hess` / `dimer`、`all` では `--opt-mode-post hess` / `grad`（Dimer）。
+  2. YAML でステップサイズを小さくする。[YAML リファレンス](yaml-reference.md#ts-最適化セクション) を参照してください。
+  3. 経路のよりよい HEI（最高エネルギーのイメージ）など、別の候補から始める。{ref}`TS が取れないとき <ja-ts-search-fails>` を参照してください。
+- **n_imag ≥ 2 が残るときの対処**：`--flatten` を付けて最適化し直すか、収束の基準を既定の `baker` から `gau_tight` か `gau_vtight` に締めてください（単独では `tsopt --thresh`、`all` では `--thresh-post`）。Hessian の範囲を広げる、`--refine-path` などのほかの手は {ref}`TS が取れないとき <ja-ts-search-fails>` にまとめてあります。
 
----
-
+(ja-troubleshooting-irc)=
 ### IRC が正常に終了しない
 
-症状:
-- IRC が明確な極小に到達する前に停止
-- エネルギーが振動したり勾配が大きいまま
+IRC が収束せずに止まっても、端点の最適化で狙った R と P に着けば使えます。まず最適化後の端点を確かめてください（[IRC の成否の判定](irc.md#irc-の成否の判定)）。
 
-対処の例:
-- ステップサイズを減らす: 単独の `irc` は `--step-size 0.05`（デフォルトは 0.10 bohr）、`all` は `--irc-step-size 0.05`
-- 最大サイクル数を増やす: 単独の `irc` は `--max-cycles 200`、`all` は `--irc-max-cycles 200`
-- IRC 実行前に TS 候補で虚振動数が 1 本であることを確認
+- **症状**：IRC が明確な極小構造に着く前に止まる、またはエネルギーが振動し勾配が大きいままになる。
+- **原因**：この曲面にはステップが大きすぎる、または開始構造に虚振動が 2 つ以上ある。
+- **対処**：
+  - 単独の `irc`：`--step-size 0.05`（既定 0.10 bohr）。[irc の例 4](irc.md#4-小さいステップでの再試行) を参照してください。
+  - `all`：`--irc-step-size 0.05`。
+  - 開始構造が n_imag = 1 であることを確かめてください。
+  - 物理的な停止条件を無視してサイクルの上限まで追うには、単独で `irc --never-stop`、`all` で `--irc-never-stop` を指定し、軌跡と端点を確かめてください。
 
----
+(ja-troubleshooting-mep)=
+### MEP 探索（GSM / DMF）が失敗する・結合変化を取りこぼす
 
-### MEP 探索（GSM/DMF）が失敗または予期しない結果
-
-症状:
-- 経路探索が有効な MEP なしで終了
-- 結合変化が正しく検出されない
-
-対処の例:
-- `--max-nodes` を解決済みの値より増やす（デフォルト 20 なら 30 など）
-- 端点の事前最適化を有効にする: `--preopt`
-- 別の MEP 手法を試す: `--mep-mode dmf`（GSM が失敗した場合）またはその逆
-- YAML で結合検出パラメータを調整（`bond.bond_factor`、`bond.delta_fraction`）
+- **症状**：最小エネルギー経路（MEP）の探索が使える経路を作らずに終わる（`MEP optimization did not converge. Review the MEP trajectory and convergence log.`）、または予想した結合変化が出ない。
+- **対処**：
+  - 複雑な反応では `--max-nodes`（既定 20）を 30 や 40 に増やしてください。
+  - 端点の事前最適化は有効のままにしてください（既定）。`--no-preopt` を付けていたら外します。
+  - 別の手法を試してください：`--mep-mode dmf` ↔ `gsm`。
+  - YAML の `bond.bond_factor` と `bond.delta_fraction` で結合変化の検出を調整してください。
 
 ---
 
+(ja-troubleshooting-performance)=
 ## パフォーマンス / 安定性のヒント
 
-- **VRAM 不足**: ML 領域サイズを縮小、Hessian 対象 MM 領域を縮小、ノード数を削減（`--max-nodes`）、または軽量なオプティマイザ設定（`--opt-mode grad`）を使用。
-- **解析 Hessian が遅いまたは OOM**: `--hessian-calc-mode FiniteDifference`
-  と比較してください。`Analytical` の必要メモリは backend、model、
-  active region に依存するため、対象系で確認してください。
-- **MM Hessian**: `mm_fd: true`（デフォルト）は MM Hessian に有限差分を使用。解析 MM Hessian（`mm_fd: false`）は小規模系では高速だがメモリ消費が増える場合がある
-- **MM Hessian 計算が遅い**: `hess_cutoff` を設定して Hessian-MM 原子数を制限する
-- **大規模系**: `define-layer` の `--movable-cutoff` を調整して可動自由度数を制御し、対象系の pilot で科学的妥当性と資源使用量を確認する
-- **GPU 配置**: 既定の hessian_ff MM backend は CPU 専用です。MM を別の GPU に置く場合は `mm_backend: openmm`、`mm_device: cuda`、`mm_cuda_idx: 1` を指定します
-- **ML と MM の並列実行**: デフォルトで ML（GPU）と MM（CPU）は並列実行されます。`mm_threads` で CPU スレッド数を調整可能
+- **メモリ不足**：{ref}`CUDA メモリ不足 <ja-cuda-oom>` の手を試すか、`--max-nodes` を減らします。`opt` と `scan` では {ref}`--opt-mode grad <ja-opt-mode-semantics>`（L-BFGS、Hessian なし）のままにします。
+- **解析的な ML Hessian**：評価の回数を減らせることがありますが、メモリはバックエンドと系で変わります。試しの計算で `FiniteDifference` と比べてください。
+- **MM Hessian**：既定の `mm_fd: true`（有限差分）は速さよりメモリを優先します。`mm_fd: false` は小さな系では速いものの、メモリを多く使います。
+- **複数の GPU**：ML は 1 つのデバイス（`ml_cuda_idx: 0`）を使います。既定の `hessian_ff` の MM バックエンドは CPU で動きます。MM を別の GPU に置くときは、`mm_backend: openmm`、`mm_device: cuda`、`mm_cuda_idx: 1` を指定します。
+- **ML と MM の並列実行**：既定で ML（GPU）と MM（CPU）は並列に動きます。CPU のスレッド数は `mm_threads` で指定します。
 
----
-
+(ja-troubleshooting-backends)=
 ## バックエンド固有の問題
 
-### --backend orb/mace/aimnet2 で ImportError が出る
+### バックエンドのパッケージが無い
 
-**症状:** `ImportError: orb-models is required for the ORB backend` のようなエラーが表示される
+- **症状**：`orb-models is required for the ORB backend. ...`、`aimnet is required for the AIMNet2 backend. ...`、`mace-torch is required for the MACE backend. ...` が出る。
+- **対処**：
+  - ORB：`pip install "mlmm-toolkit[orb]"`。AIMNet2：`pip install "mlmm-toolkit[aimnet]"`。
+  - MACE：専用の環境で `pip uninstall -y fairchem-core && pip install mace-torch` を実行してください。`mace-torch` は `e3nn==0.4.4` に固定し、UMA（`fairchem-core`）は `e3nn>=0.5` を必要とします。
+  - 追加パッケージを入れても ORB を import できないときは、`python -m pip check` を実行し、依存関係の解決か import のエラーが名指ししたパッケージを直してください。関係のない PyG のパッケージは入れません。
 
-**対処:** 使用するバックエンドに対応するオプション依存パッケージをインストールします:
-```bash
-pip install "mlmm-toolkit[orb]"      # ORB バックエンド
-pip install "mlmm-toolkit[aimnet]"  # AIMNet2 バックエンド
-pip uninstall -y fairchem-core && pip install mace-torch  # MACE は別 conda env で（e3nn ピンが UMA/fairchem-core と競合）
-```
+### Hessian の計算中に CUDA のメモリが足りない
 
----
-
-### ORB バックエンドを import できない
-
-**対処:** 現行の追加依存関係をインストールし、依存関係を確認します:
-
-```bash
-pip install "mlmm-toolkit[orb]"
-python -m pip check
-```
-
-依存関係の解決または import エラーが示したパッケージを確認し、無関係な PyG
-パッケージは追加しないでください。
+`--hessian-cutoff` か、Hessian の計算方式 `FiniteDifference` を使ってください。YAML で `ml_device: cpu` を指定すると、時間はかかりますが GPU のメモリの制限を避けられます。
 
 ---
 
-### 非 UMA バックエンドで CUDA メモリ不足になる
+## 不具合を報告するとき
 
-**症状:** ORB、MACE、AIMNet2 の使用時に `RuntimeError: CUDA out of memory` が発生する
+実行したコマンド、`summary.log`（または端末の出力）、再現できる最小の入力、環境（OS / Python / CUDA / PyTorch）、AmberTools と `hessian_ff` が入って動くかどうかを添えてください。
 
-**対処:** ORB/MACE/AIMNet2 の解析的/ネイティブ Hessian もモデルサイズに応じて
-大きな VRAM を使用します。以下を試してください:
-- `--hessian-calc-mode FiniteDifference` を明示し、`hess_cutoff` を小さくする
-- YAML で `ml_device: cpu` を指定する（遅くなるが VRAM 制限を回避できる）
+## 関連ドキュメント
 
----
-
-## 不具合報告のときに添えると助かる情報
-
-- 実行したコマンド（コピペ可能な形）
-- `summary.log`（またはコンソール出力）
-- 再現する最小入力（可能なら）
-- OS / Python / CUDA / PyTorch バージョン
-- AmberTools / hessian_ff のバージョン
+- [反応機構を調べるコツ](mechanism-tips.md)：TS が取れないときに試すこと
+- [インストール](installation.md)：環境の用意とオプションのバックエンド
+- [ML 領域と層の組み方](model-setup.md)：ML 領域と層を確かめる・削る・広げる

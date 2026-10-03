@@ -4,317 +4,226 @@
 
 <img src="../mlmm_toolkit_overview.png" alt="mlmm-toolkit workflow overview" width="90%">
 
-`mlmm-toolkit` は、機械学習原子間ポテンシャル（MLIP）と内蔵 MM 力場エンジンを ONIOM 的に結合した **ML/MM 法** を用いて、**PDB 構造** から **酵素反応経路** を自動的に構築する Python 製の CLI ツールキットです。デフォルトの MLIP バックエンドは **UMA**（Meta の FAIR-Chem）で、`--backend` オプションにより **ORB**、**MACE**、**AIMNet2** も選択できます。
+`mlmm-toolkit` は、ML/MM（機械学習 / 分子力学）法を活用し、**PDB / mmCIF 構造から酵素の反応経路候補を自動探索する** Python 製 CLI ツールキットです。
 
-多くのワークフローで、**1 コマンド**で反応経路の**初期推定**を得られます。
-```bash
-mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3'
-```
+ML/MM は、QM/MM の QM を機械学習原子間ポテンシャル（MLIP）に置き換えた方法です。MLIP は DFT（密度汎関数法）の計算データを学習したニューラルネットワークで、DFT レベルのポテンシャルエネルギー曲面をごくわずかな計算コストで近似します。酵素のうち反応する部分（ML 領域）を MLIP で、その周りのタンパク質を Amber 力場（MM）で計算し、両者を ONIOM の差し引きで合わせます。
 
----
-さらに `--tsopt --thermo --dft` を追加すると、**ML/MM モデル構築 → MEP 探索 → TS 最適化 → IRC → 熱化学補正 → DFT 一点計算** までまとめて実行できます。
-```bash
-mlmm -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft
-```
----
-
-入力として、(i) 反応順に並べたタンパク質-リガンド複合体の PDB を 2 つ以上（R →... → P）、(ii) `--scan-lists` を指定した 1 つの PDB、または (iii) TS 候補 1 構造 + `--tsopt` を与えると、`mlmm-toolkit` が次の処理を自動化します。
-
-- ユーザーが指定した基質の周辺から **活性部位ポケット** を抽出し、**ML 領域** を定義
-- AmberTools を用いて **Amber トポロジー（parm7/rst7）** を自動生成し、**hessian_ff** の MM エンジンに渡す
-- ML 領域を MLIP バックエンド（デフォルト: UMA）で、MM 領域を hessian_ff で扱う **ONIOM 的 ML/MM** のエネルギー・力・Hessian を構築
-- Growing String Method (GSM) や Direct Max Flux (DMF) などの経路最適化手法で **最小エネルギー経路 (MEP)** を探索
-- 必要に応じて **遷移状態** を最適化し、**振動解析**・**IRC 計算**・**DFT 一点計算** を実行
-
-```{important}
-TSOPT 終端の振動解析で虚振動がちょうど 1 つあることを確認し、IRC と端点最適化で目的の反応物・生成物につながるか検証してください。追加の `freq` は、全振動モードや熱化学量が必要な場合に実行します。
-```
-
-MM 領域の計算には hessian_ff（内蔵の C++ ネイティブ MM 力場エンジン）を用います。全エネルギーは ONIOM 的な減算分解に従います:
-
-```
+```text
 E_total = E_REAL_low + E_MODEL_high - E_MODEL_low
 ```
 
-ここで REAL は全系、MODEL は ML 領域、"high" は MLIP バックエンド、"low" は hessian_ff です。
+REAL は全系、MODEL は ML 領域、high は MLIP、low は MM のバックエンドです。全系を MM で、ML 領域を MLIP と MM の両方で計算し、ML 領域の MM のエネルギーを差し引くことで二重に数えないようにします。ML 領域が共有結合を切る所は、リンク水素でふさぎます。
 
-一連の処理は CLI から呼び出せるように統一されており、手作業を最小化して **多段階の酵素反応メカニズム** を組み立てられるように設計されています。同じワークフローは小分子系にも適用可能です。`.xyz` 入力を個別計算で使う場合は、対応する全系トポロジーを `--parm7`、構造テンプレートを `--ref-pdb`、ML 領域を `--model-pdb`、`--model-indices`、または有効な B-factor layer で指定します。
+MM の原子は 2 つの層に分かれます。Movable-MM は最適化で動き、その外の Frozen-MM は固定されます。層は PDB の B-factor 欄に書きます。層の詳細は [ML 領域と層の組み方](model-setup.md)、エネルギー・力・Hessian の計算は [ML/MM 計算機](mlmm-calc.md) を参照してください。
 
-```{important}
-- 入力 PDB ファイルには**水素原子**が含まれている必要があります。
-- 複数の PDB を提供する場合、**同じ原子が同じ順序**で含まれている必要があります（座標のみ異なる可能性があります）。そうでない場合はエラーが発生します。
-- 個別の ML/MM 計算には **`--parm7`**（全系の Amber トポロジー）と、`--model-pdb`、`--model-indices`、または有効な B-factor layer のいずれかによる ML 領域指定が必要です。`all` ワークフローではトポロジーと ML 領域を自動生成できます。
-- `mlmm all` と個別コマンドのどちらでも、`-q/--charge` は全系ではなく ML 領域（ONIOM モデル系）の正味電荷です。
-- MD スナップショットには、MD 計算で用いた全系の `.parm7` を再利用してください。
-```
+多くのケースでは、次のような **1 コマンド** で反応経路の初期案を得られます。
 
-```{tip}
-初めて使う場合は、まず [概念とワークフロー](concepts.md) を参照してください。
-症状から切り分ける場合は、まず [典型エラー別レシピ](recipes-common-errors.md) を参照してください。
-セットアップや実行中にエラーが発生した場合は [トラブルシューティング](troubleshooting.md) を参照してください。
-```
-
-### 対話型 Colab GUI
-
-[mlmm Colab ノートブック](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb)では、PDB/mmCIF 構造と対応する全系 `parm7` のアップロード、3D での ML 領域選択、生成コマンドの検証と実行、現在の呼び出しで生成された結果だけの確認ができます。各ユーザーは専用の GPU ランタイムで実行します。MACE と ORB はモデル利用のログインが不要ですが、UMA には Hugging Face のアクセス許可が必要です。互換性のないバックエンドへ切り替える場合は、ランタイムを再起動してください。DFT の操作項目は、Setup で DFT の追加依存関係を選択した場合だけ表示されます。Setup は指定バージョンの PyPI wheel をインストールし、対応する Git tag からサンプルを取得します。このため、本番ノートブックを実行できるのは対象 wheel の公開後です。
-
-### CLI の慣習
-
-| 慣習 | 例 | 備考 |
-|-----|-----|------|
-| **残基セレクタ** | `'SAM,GPP'`, `'A:123,B:456'` | 複数値はシェル展開防止のためクォート |
-| **電荷マッピング** | `-l 'SAM:1,GPP:-3'` | `all` / `extract` などではコロン（`:`）で名前と電荷を区切る。`mm-parm` は互換用に `=` も受理 |
-| **原子セレクタ** | `'SAM,320,CS1'` または `'SAM 320 CS1'` | 区切り文字: 空白、カンマ、スラッシュ、バッククォート、バックスラッシュ |
-
-詳細は [CLI 規約](cli-conventions.md) を参照してください。
-
-### 水素原子付与の推奨ツール
-
-PDB に水素原子がない場合は、mlmm を実行する前に次のいずれかを使ってください。
-
-| ツール | コマンド例 | 備考 |
-|--------|------------|------|
-| **reduce** (Richardson Lab) | `reduce input.pdb > output.pdb` | 高速、結晶構造に広く使用 |
-| **pdb2pqr** | `pdb2pqr --ff=AMBER input.pdb output.pqr` | 水素を追加し部分電荷を割り当て |
-| **Open Babel** | `obabel input.pdb -O output.pdb -h` | 汎用ケモインフォマティクスツールキット |
-| **mm-parm --add-h** | `mlmm mm-parm -i input.pdb --add-h` | PDBFixer が必要（`pip install "mlmm-toolkit[pdbfixer]"` または `conda install -c conda-forge pdbfixer`） |
-
-複数の PDB 入力で同一の原子順序を確保するには、すべての構造に同じ水素付与ツールを一貫した設定で適用してください。
-
-```{warning}
-このソフトウェアはまだ開発中です。自己責任でご使用ください。
+```bash
+mlmm -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3'
 ```
 
 ---
 
-## インストール
-
-Linux の CPU/GPU 環境で利用できます。GPU 実行には対応する NVIDIA ドライバーが必要です。公式 PyTorch wheel には CUDA ランタイムが含まれるため、通常は CUDA toolkit を別途インストールする必要はありません。
-
-以下は PyTorch 2.13 の `cu130` wheel を使う例です。CPU 実行や別の GPU 環境では、対応する PyTorch wheel を選んでください。MM 計算には C++20 対応コンパイラー、トポロジー生成には AmberTools が必要です。
+さらに `--tsopt --thermo --dft` を追加すると、**最小エネルギー経路（MEP）探索 → 遷移状態（TS）最適化 → 固有反応座標（IRC） → 振動解析・熱化学補正 → DFT 一点計算** までを一貫して自動実行できます。
 
 ```bash
-conda create -n mlmm-toolkit python=3.12 -y
-conda activate mlmm-toolkit
-conda install -c conda-forge ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler -y
-pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cu130
-pip install mlmm-toolkit
-
-# UMA の利用許諾を取得した後、Hugging Face にログイン
-hf auth login
-mlmm --version
-```
-
-UMA を使う場合は、[モデルページ](https://huggingface.co/facebook/UMA)で FAIR Chemistry License v1 に同意してください。ログインは環境ごとに一度行います。
-
-### 追加コンポーネント
-
-| 用途 | インストール・設定 |
-| --- | --- |
-| ORB / AIMNet2 | ORB は Python 3.11／3.12 が必要です（3.12 推奨）。`pip install --only-binary=dm-tree "mlmm-toolkit[orb]"` / `pip install "mlmm-toolkit[aimnet]"` |
-| MACE | UMA と `e3nn` の依存バージョンが競合するため、専用環境で使用します。 |
-| DMF 経路探索 | `conda install -c conda-forge cyipopt -y` と `pip install 'pydmf>=1.2'` |
-| Plotly の PNG 出力 | `plotly_get_chrome -y` |
-| hessian_ff の手動ビルド | 初回使用時に JIT コンパイルされます。ネイティブ拡張を利用できない場合は、下記を実行してください。 |
-
-```bash
-conda install -c conda-forge ninja -y
-cd $(python -c "import hessian_ff; print(hessian_ff.__path__[0])")/native && make
-```
-
-`hessian_ff` はビルド済みキャッシュを確認し、必要な場合は自動ビルドします。失敗時の確認事項と手動再ビルドは、[トラブルシューティング](troubleshooting.md)を参照してください。C/CUDA 拡張をソースからビルドする場合の toolkit/compiler 設定やジョブスクリプトは、[デバイスと HPC](device-hpc.md)を参照してください。
-
----
-
-## マルチバックエンドの使用例
-
-デフォルトの MLIP バックエンドは UMA です。`-b/--backend` で代替バックエンドに切り替えます:
-
-この例では、`system_layered.pdb` は `real.parm7` に対応する全系の構造で、`ml_region.pdb` が ML 領域を指定します。
-
-```bash
-# ORB バックエンドを使用
-mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b orb
-
-# MACE バックエンドを使用
-mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b mace
-
+mlmm -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft
 ```
 
 ---
 
-## 推奨クイックスタート
+> **実行例:** [`examples/beza/`](https://github.com/t-0hmura/mlmm_toolkit/tree/main/examples/beza) ディレクトリに、上のコマンドで使う構造（`1.R.pdb`、`3.P.pdb`）と、GPP C6-メチル基転移酵素 BezA（[Tsutsumi et al., *Angew. Chem. Int. Ed.* 2022, 61, e202111217](https://doi.org/10.1002/anie.202111217)）を題材としたワークフロースクリプト（MEP 探索とスキャン）を用意しています。[インストール](installation.md)の後、`git clone https://github.com/t-0hmura/mlmm_toolkit && cd mlmm_toolkit/examples/beza` で取得し、その中で上のコマンドを実行してください。
 
-- [クイックスタート: `mlmm all`](quickstart-all.md)
-- [クイックスタート: `mlmm scan`](quickstart-scan-spec.md)
-- [クイックスタート: `mlmm tsopt`](quickstart-tsopt-freq.md)
+### 主な用途
+
+* **反応機構解析の試行錯誤**: DFT の QM/MM では時間がかかりすぎる系で、酵素全体を含めたまま機構をスクリーニング
+* **QM/MM 計算の初期構造作成**: 全系の反応物（R）・遷移状態（TS）・生成物（P）を作り、[`oniom-export`](oniom-export.md) で Gaussian ONIOM や ORCA QM/MM の入力を書き出し
+* **多検体のハイスループット計算**: 基質バリアントや酵素変異体にわたる反応経路の網羅的探索
+
+### 主な自動化機能
+
+入力として「(1) 反応順に並べた複数の PDB 構造（R → … → P）」「(2) 単一構造 ＋ スキャン指定」「(3) 単一構造 ＋ TS 最適化指定」のいずれかを与えることで、以下を自動処理します。
+
+1. **ML 領域**: 指定した基質周辺から活性部位（バインディングポケット）を切り出し、ML 領域とする
+2. **MM のトポロジーと層**: `mm-parm`（AmberTools）で全系の Amber トポロジーを作り、`define-layer` で ML・Movable-MM・Frozen-MM の層を割り当てる
+3. **最小エネルギー経路（MEP）探索**: Growing String Method (GSM) や Direct Max Flux (DMF) による経路探索
+4. **高精度検証**: 遷移状態（TS）の構造最適化、IRC 計算、振動解析、DFT 一点計算
+
+ML 領域の計算にはデフォルトの **UMA**（Meta）のほか、`-b/--backend` オプションで **ORB**、**MACE**、**AIMNet2** も選択可能です（[MLIP バックエンド](backends.md) を参照）。
+
+MLIP/MM で妥当な経路が見つかったら、その TS をそのまま DFT/MM での TS 構造最適化にもっていくことにも `mlmm-toolkit` は対応しています。TS 最適化 → IRC → 端点の最適化 → 振動数計算のワークフローを、GPU4PySCF を用いることで GPU で高速化された DFT 計算により実行可能です。詳しくは [MLIP の TS を DFT で確かめる](dft-backend.md) を参照してください。
+
+> 自分で組んだモデルをそのまま使うときは、`-c` を省きます（[ML 領域と層の組み方](model-setup.md#自分で組んだモデルを使う)）。
 
 ---
 
-## 典型的な手動ワークフロー
+## ワークフローとパイプライン
 
-再利用可能なトポロジーと PDB を個別サブコマンドで準備する場合は、まず次を実行します。
+### パイプラインの流れ
 
-```bash
-mlmm mm-parm -i input.pdb -l 'LIG:0' --out-prefix system
-mlmm extract -i system.pdb -c LIG -l 'LIG:0' -o model.pdb
-mlmm define-layer -i system.pdb --model-pdb model.pdb -o system_layered.pdb
-```
+全工程を一括実行する `all` サブコマンド（デフォルト動作）は、以下のステージを順次実行します。
 
 ```text
-1. mm-parm - parm7/rst7 と LEaP のトポロジー対応 PDB を生成
-2. extract - その生成 PDB から活性部位ポケットを抽出
-3. define-layer - 同じ生成 PDB に 3 層 ML/MM 分割を付与（B-factor エンコード）
-4. all の MEP stage - 単一パス path-opt がデフォルト。`mlmm all --refine-path` で再帰 path-search に切替
-5. tsopt - 遷移状態最適化
-6. irc - TS から反応物側・生成物側へ IRC をたどる
-7. freq - 振動解析と熱化学
-8. dft - DFT 一点計算
+入力構造（PDB / mmCIF）
+  │
+  ▼
+[extract] 抽出ステージ: -c 指定時のみ基質周辺から ML 領域を切り出し
+  │
+  ▼
+[mm-parm] MM トポロジー: 全系の Amber parm7/rst7 を作成（--parm7 指定時は省略）
+  │
+  ▼
+[define-layer] 層の割り当て: ML / Movable-MM / Frozen-MM の層を B-factor 欄に記入
+  │
+  ▼
+[scan] スキャンステージ: -s 指定時のみ距離・角度・二面角の段階的スキャンを実施
+  │
+  ▼
+[path-opt / path-search] 経路探索: TS-only モード以外で MEP（最小エネルギー経路）を探索
+  │
+  ▼
+[tsopt] TS 最適化: --tsopt 指定時のみ遷移状態を精密化
+  │
+  ▼
+[irc] IRC 計算: --tsopt 指定時のみ固有反応座標を追跡し、端点を最適化
+  │
+  ▼
+[freq] 振動解析: --tsopt --thermo 指定時のみ熱化学補正を計算
+  │
+  ▼
+[dft] DFT 一点計算: --tsopt --dft 指定時のみ DFT/MM エネルギーを算出
 ```
 
-LEaP が水素を変更する場合があるため、2 以降では `mm-parm` が出力した
-PDB を使用します。明示的な `--out-prefix` でこの PDB を出力でき、空の元素記号列は
-原子レコードと順序を保ったまま補完されます。`all` は同等の準備を内部管理し、内部では
-`extract → mm-parm → define-layer` の順に処理します。この内部順序は、単独ファイルを
-手動で再利用するための手順ではありません。各ステップは単独でも実行できます。
+各ステージは単独のサブコマンドとしても実行可能です。
+
+実行の最後に端末に `Scientific status: success` と出れば、求めた段はすべて収束しています。TS 最適化が成功すると、反応モードの虚振動が 1 つ出ます。IRC が収束しなくても、端点の最適化で狙った R と P に着けば、その結果は使えます。
 
 ---
 
-## Gaussian / ORCAへのエクスポート
+## クイックスタート導線
 
-Gaussian / ORCAの入力を生成できます。実行には各ソフトウェアの別途インストールとライセンスが必要です。
-CMAPを含まないトポロジーを使ってください（[準備例](mm-parm.md#oniom-export-用のcmapを含まないトポロジー)）。
+環境構築の詳細は [インストールガイド](installation.md) を参照してください。
 
-```bash
-# 1. ML/MMでTSを精密化
-mlmm tsopt -i ts_guess.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m 1
+* **Web ブラウザで手軽に試す**: [Colab GUI ノートブック](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb)（3D で ML 領域を選択）
+* **複数の PDB 構造から始める**: [クイックスタート: `mlmm all`](quickstart-all.md)
+* **1 つの PDB 構造からスキャンで探索する**: [クイックスタート: `mlmm all --scan-lists`](quickstart-scan.md)
+* **TS 候補構造を最適化・検証する**: [クイックスタート: TS-only モード](quickstart-tsopt.md)
 
-# 2. Gaussian ONIOM入力を生成
-mlmm oniom-export --mode g16 --parm7 real.parm7 -i result_tsopt/final_geometry.pdb \
-     --model-pdb ml_region.pdb -o ts_refine.com -q 0 -m 1 --method "wB97XD/def2-TZVPD"
+---
 
-# 3. 外部ソフトウェアで実行（ORCAは --mode orca で生成）
-g16 < ts_refine.com > ts_refine.log
-```
+## コマンドの基本構成
 
-`oniom-import` が読むのはGaussian/ORCAの**入力ファイル**です。出力ログから最適化構造を抽出する機能ではありません。
-mlmmで計算を続けるには、原子順を保った最終構造を外部ソフトウェアから出力し、元のparm7とML領域を使います。
-
-詳細: [oniom-export](oniom-export.md) · [oniom-import](oniom-import.md) · [Gaussian](oniom-gaussian.md) · [ORCA](oniom-orca.md)。
-
-## コマンドラインの基本
-
-`mlmm` のデフォルトのサブコマンドは `all` です。
+インストール後は `mlmm` コマンドが利用できます。サブコマンドを省略した場合、自動的に `all` が呼び出されます。
 
 ```bash
+# 以下の 2 つは同一の処理を行います
 mlmm [OPTIONS]...
-# は以下と同等
 mlmm all [OPTIONS]...
 ```
 
-`all` ワークフローは、ML 領域抽出、MM パラメータ化、レイヤー定義、MEP 探索、TS 最適化、振動解析、DFT 一点計算（任意）を 1 つのコマンドで連続実行する**統合コマンド**です。
+### 入力モードの選び方
 
-ML 領域抽出を使用する場合、すべての上位ワークフローで共通する重要なオプションが 2 つあります:
+| 実行モード | 入力条件 | 主な動作 |
+| --- | --- | --- |
+| **複数構造 MEP 探索** | 2 つ以上の PDB（`-i R.pdb P.pdb`） | 各構造から ML 領域と層を作り、その間の MEP を探索 |
+| **単一構造 ＋ スキャン** | 1 つの PDB ＋ `--scan-lists`（`-s`） | 指定した距離・角度・二面角を段階的に変化させて経路を生成 |
+| **TS-only モード** | 1 つの PDB ＋ `--tsopt` | MEP 探索をスキップし、TS 候補の最適化・IRC を直接実行 |
 
-- `-i/--input`: 1 つ以上の**完全系構造**（反応物、中間体、生成物）。
-- `-c/--center`: **基質/抽出中心**の定義方法（例: 残基名や残基 ID）。
+> **注意:** 単一構造のみを入力する場合、`--scan-lists/-s` または `--tsopt` のいずれかの指定が必須です。
 
-`--center/-c` を省略すると抽出はスキップされ、入力構造の全体を全系として使います。ML 領域は入力 PDB の B-factor レイヤー（既定の `--detect-layer`）か `--model-pdb` で与える必要があり、どちらも無いとエラーになります。
+### all と個別のコマンドの使い分け
 
----
+* **`all` を使う場面**: モデルの構築 → MEP 探索 → TS 最適化と IRC → 振動数と DFT までを 1 コマンドで実行したいとき、または手探りの段階で出力の管理を 1 コマンドに任せたいとき。
+* **個別のコマンドを使う場面**: 各ステージを 1 つずつ実行し、結果を確かめてから次に進みたいとき。複雑な反応では、一括実行よりもステップごとの実行が有効なことが多くあります。独自の手順や、前の計算の parm7 と層付き PDB を使い回す計算にも向きます。
 
-## メインワークフローモード
-
-### 複数構造からの MEP 探索
-
-反応順に並べた、同じ原子・原子順序の全系構造を 2 つ以上指定します。
-
-```bash
-mlmm -i R.pdb I1.pdb I2.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
-     --out-dir ./result_all --tsopt --thermo --dft
-```
-
-デフォルトは隣接ペアごとの単一パス `path-opt` です。`--refine-path` を指定すると再帰的な `path-search` に切り替わります。どちらも GSM/DMF を選択できます。
-
-### 単一構造とスキャン定義
-
-変化させる原子間距離が分かっている場合は、1 構造に `--scan-lists` を併用します。
-
-```bash
-mlmm -i R.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' \
-     --scan-lists '[("CS1 SAM 320","C7 GPP 321",1.50),("CS1 SAM 320","SD SAM 320",3.30)]' \
-                  '[("C7 GPP 321","H11 GPP 321",2.90),("OE2 GLU 186","H11 GPP 321",1.00)]'
-```
-
-各タプル `(i, j, target_Å)` には PDB 原子セレクタまたは 1 始まりの原子番号を指定します。1 リテラル内の距離は同時に変化させ、複数のリテラルは順に実行します。複数リテラルは、1 つの `--scan-lists` の後に続けてください。
-
-### TS 候補からの最適化と IRC
-
-TS 候補を 1 つ指定して `--tsopt` を有効にすると、MEP 探索を省略します。
-
-```bash
-mlmm -i TS_CANDIDATE.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo
-```
-
-IRC 後はエネルギーの高い端点を反応物、もう一方を生成物として R/P と表記します。化学的な状態は最適化した構造を確認して判断してください。各モードの処理と出力は [all](all.md) を参照してください。
-
-```{important}
-単一入力には `--scan-lists` または `--tsopt` が必要です。
-```
+個別の ML/MM のコマンドには、全系のトポロジー（`--parm7`）と ML 領域（`--model-pdb`、`--model-indices`、入力の B-factor の層のいずれか）が必要です。`all` はどちらも自動で作ります。`-q` は全系ではなく ML 領域の電荷です。詳しくは {ref}`ML/MM の共通オプション <ja-mlmm-options>` を参照してください。
 
 ---
 
-## 重要な CLI オプションと動作
+## 基本的な CLI オプション
 
-| オプション | 説明 |
-|----------|------|
-| `-i, --input PATH...` | 入力構造。**2 つ以上の PDB** → MEP 探索; **1 つの PDB + `--scan-lists`** → 段階的スキャン; **1 つの PDB + `--tsopt`** → TSOPT のみ |
-| `-c, --center TEXT` | 基質/抽出中心を定義。残基名（`'SAM,GPP'`）、残基ID（`A:123,B:456`）、または PDB パスをサポート |
-| `-l, --ligand-charge TEXT` | 電荷情報: マッピング（`'SAM:1,GPP:-3'`）または単一整数 |
-| `-q, --charge INT` | ML 領域の総電荷の強制上書き |
-| `-m, --multiplicity INT` | スピン多重度（例: 一重項は `1`） |
-| `-s, --scan-lists TEXT...` | `all`の単一入力経路ではインライン`(i,j,target)`リテラル。YAML/JSONと双方向4-tupleはstandalone `scan`で使用 |
-| `--parm7 PATH` | 全系の Amber parm7 トポロジー（`all` では自動生成） |
-| `--model-pdb PATH` | ML 領域を定義する PDB ファイル。個別計算では `--model-indices` または有効な B-factor layer も選択可能（`all` では自動生成可） |
-| `--tsopt/--no-tsopt` | TS 最適化と IRC を有効化 |
-| `--thermo/--no-thermo` | 振動解析と熱化学を実行 |
-| `--dft/--no-dft` | DFT 一点計算を実行 |
-| `--refine-path/--no-refine-path` | `mlmm all` で単一パス `path-opt`（デフォルト）または再帰 `path-search` を選択 |
-| `--mep-mode gsm\|dmf` | どちらの経路探索にも用いる MEP 最適化法（デフォルト: `gsm`） |
-| `--dmf-backend gpu\|cpu` | DMF 実装。GPU メモリ不足時は `cpu` を選択 |
-| `-o, --out-dir PATH` | トップレベル出力ディレクトリ |
-| `-b, --backend uma\|orb\|mace\|aimnet2\|dft` | 高レベルbackend選択（デフォルト: `uma`、`dft`も選択可） |
-| `--opt-mode grad\|hess` | TSOPT と IRC 後の端点最適化の fallback。`--opt-mode-post` が優先されます。 |
-| `--hessian-calc-mode Analytical\|FiniteDifference` | ML Hessian 計算モード。全 MLIP バックエンドで `Analytical` を利用可能。`--uma-workers > 1` とは併用不可。 |
+| オプション | 引数の例 | 説明 |
+| --- | --- | --- |
+| `-i, --input` | `1.R.pdb 3.P.pdb` | 入力構造ファイル（PDB / mmCIF）。複数指定可能 |
+| `-c, --center` | `'SAM,GPP'` / `'A:SAM:123'` | 抽出中心（基質残基名・残基 ID・PDB ファイル）。その周りを ML 領域として切り出す。省略時は切り出しを行わずに構造全体を使い、ML 領域は B-factor の層か `--model-pdb` から取る（どちらも無いとエラー） |
+| `-l, --ligand-charge` | `'SAM:1,GPP:-3'` | リガンドごとの形式電荷マッピング（標準残基とイオンの電荷は自動で数えます） |
+| `-q, --charge` | `-2` | 全系ではなく ML 領域の総電荷（自動判定を上書きする場合に指定） |
+| `-m, --multiplicity` | `1` | スピン多重度（デフォルト: `1`、一重項） |
+| `--parm7` | `real.parm7` | 使い回す全系の Amber トポロジー（前の計算や、入力のスナップショットを作った MD のもの）。指定すると `mm-parm` を省略 |
+| `--model-pdb` | `ml_region.pdb` | ML 領域を表す PDB。`-c` や B-factor の層より優先 |
+| `--tsopt/--no-tsopt` | （フラグ） | TS 最適化と IRC 計算を有効化 |
+| `--thermo/--no-thermo` | （フラグ） | 振動解析と QRRHO（準剛体ローター・調和振動子）モデルによる熱化学補正を実行（`--tsopt` と併用） |
+| `--dft/--no-dft` | （フラグ） | 得られた構造に対して一点 DFT 計算を実行（`--tsopt` と併用） |
+| `-b, --backend` | `uma` / `orb` / `mace` | ML 領域に使うバックエンドを指定（デフォルト: `uma`。`dft` も選択可能） |
 
-`mlmm all --mep-mode dmf` は、デフォルトの単一パス `path-opt` と
-`--refine-path` で選択する再帰的 `path-search` のどちらにも Direct Max Flux
-を適用します。デフォルトは GSM です。
-
-すべてのオプションと YAML スキーマについては [all](all.md) および [YAML リファレンス](yaml-reference.md) を参照してください。
+構文ルールの詳細は [共通オプションと残基・原子の指定](cli-conventions.md)、全オプションの一覧は [`all` の CLI リファレンス](../reference/commands/all.md) を参照してください。
 
 ---
 
-## 実行サマリー
+## 入力構造に関する重要事項
 
-出力ディレクトリの `summary.log` と `summary.json` に、実行コマンド、セグメントごとの障壁高、MEP 統計、後処理結果がまとまります。入力検証で早期に終了した場合は、作られないことがあります。
+### 1. 水素原子の付加（必須）
 
-`segments/seg_NN/` には各段階の計算結果が置かれます。段階別 JSON の出力条件は、[出力ディレクトリ構成](output-layout.md)を参照してください。
+入力構造には**全原子の水素が含まれている必要があります**。`all` は水素を付加しません。結晶構造など水素が欠落している構造を使用する場合は、事前に以下のツール等で付加してください。
+
+| 推奨ツール | コマンド例 | 特徴 |
+| --- | --- | --- |
+| **reduce** (Richardson Lab) | `reduce input.pdb > output.pdb` | 高速で結晶構造の水素付加に広く使われる |
+| **pdb2pqr** | `pdb2pqr --ff=AMBER input.pdb output.pqr` | 水素を付加し、部分電荷を割り当てる |
+| **Open Babel** | `obabel input.pdb -O output.pdb -h` | 汎用的な化学情報処理ツール |
+| **mm-parm --add-h** | `mlmm mm-parm -i input.pdb --add-h` | PDBFixer で `--ph`（既定 7.0）に合わせて水素を付加 |
+
+`all` は空の元素欄（77–78 列）を自分で埋めます。`extract` などのコマンドを単独で使う前には、[`add-elem-info`](add-elem-info.md) で埋めてください。PDB に代替位置（altLoc）があるときは、[`fix-altloc`](fix-altloc.md) で残基ごとに 1 つを残してください。
+
+### 2. 原子の並び順の一致（複数構造入力時）
+
+反応物（R）や生成物（P）など複数の構造を入力する場合、**すべての構造で同一の原子が同じ順序で並んでいる必要があります**（座標値のみが異なる状態）。水素付加ツールはすべての構造に対して同一の設定で使い、PyMOL で保存するときは *Original atom order* にチェックを入れてください。反応で別の残基に移る原子も、R での残基名と原子名のままにします。同梱例では、GPP から Glu186 に移る水素は `3.P.pdb` でも `GPP 321` の `H11` です。
+
+### 3. 電荷を水素の数に合わせる
+
+各リガンドには、ファイルの中の水素の数に合う電荷を与えてください。同梱例の SAM は水素が 23 個なので `SAM:1` です。22 個なら `SAM:0` になります。電荷と水素の数が合わないと、`mm-parm` は `antechamber` を実行する前に電子数のエラーで止まります。
+
+mmCIF（`.cif`・`.mmcif`）と、PDB 形式の固定列に収まらない大きな PDB も、`all` と計算のコマンドで扱えます。単独の `mm-parm` が読むのは PDB だけです。詳しくは {ref}`mmCIF の入力 <ja-mmcif-input>` を参照してください。
 
 ---
 
-## ヘルプ
+## 出力ファイルの構成
 
-`--help` は主要オプション、`--help-advanced` は全オプションを表示します。
+実行完了後、出力ディレクトリ（既定は `./result_all/`、`-o` で変更）に以下のファイル群が生成されます。主なファイルは [出力ディレクトリのレイアウト](output-layout.md)、`summary.json` の欄は [JSON 出力リファレンス](json-output.md) にあります。
+
+| 出力ファイル / フォルダ | 内容 |
+| --- | --- |
+| `summary.log` | テキスト形式のサマリー（ディレクトリ構成、各段階の進行状況） |
+| `summary.json` | 機械可読形式の結果（反応障壁、各状態のエネルギー、結合変化） |
+| `energy_diagram_*.png` | 生成されたエネルギープロファイル図（電子エネルギー / Gibbs 補正） |
+| `mep_trj.pdb` / `mep_trj.cif` | 最小エネルギー経路（MEP）のアニメーション軌跡ファイル |
+| `ml_region.pdb`、`mm_parm/`、`layered/` | ML 領域、全系の Amber トポロジー、層を書き込んだ全系の PDB。`--model-pdb` と `--parm7` で使い回せる |
+| `segments/seg_NN/` | 反応セグメントごとの詳細結果（最適化された R/TS/P 構造、IRC 軌跡など。`--tsopt` のとき） |
+
+端末の出力の最後のほうにある `====== Pipeline summary ======` の下の `Scientific status:` の行（`summary.json` の `scientific_status`）は、求めた段がすべて収束すると `success`、そうでなければ `partial` か `failed` になり、理由は `scientific_status_reasons` に出ます。TS の n_imag が 1 か、端点が狙った R と P かは自分で確かめてください。開くファイルは各クイックスタートにあります。
+
+---
+
+## AI エージェント連携（Skills）
+
+`mlmm-toolkit` には、AI エージェント（Claude Code、Codex、Cursor など）向けの設定指示書が `skills/` ディレクトリに同梱されています。
+
+CLI サブコマンド、構造の入出力、バックエンドの導入、TS 探索の方針、HPC での実行が書かれています。`skills/` をエージェントに読み込ませることで、エージェントを通じた自然言語指示による計算実行・解析が可能になります。配置場所とスキルの一覧は [`skills/README.md`](https://github.com/t-0hmura/mlmm_toolkit/blob/main/skills/README.md) を参照してください。MCP のクライアントからコマンドをツールとして呼ぶ方法は [mlmm MCP サーバー](mcp_server.md) にあります。
+
+---
+
+## トラブルシューティングとサポート
+
+実行中にエラーが発生した場合は、以下のドキュメントを参照してください。
+
+* [トラブルシューティング](troubleshooting.md): エラー症状別の対処法と、インストールや環境起因の不具合の解決手順
+* [MLIP バックエンド](backends.md): バックエンドの選び方と並列ワーカーの使い方。GPU メモリ、デバイスの設定、クラスターのジョブスクリプトは [デバイス設定 & HPC セットアップ](device-hpc.md)
+
+コマンドの全オプションを確認したい場合は、ヘルプオプションを利用してください。
 
 ```bash
-mlmm all --help
+mlmm <subcommand> --help
 mlmm all --help-advanced
 ```
 
-個別計算については、[コマンド一覧](index.md#cli-サブコマンド)から各ページを参照してください。
-
-## AIエージェントからの利用
-
-`skills/` にCLIワークフロー、構造I/O、インストール、HPC運用の手順書を同梱しています。
-利用できる手順書と導入方法は[Skills索引](https://github.com/t-0hmura/mlmm_toolkit/blob/main/skills/README.md)を参照してください。
+解決しない問題やバグの報告は、[GitHub Issues](https://github.com/t-0hmura/mlmm_toolkit/issues) にて受け付けています。

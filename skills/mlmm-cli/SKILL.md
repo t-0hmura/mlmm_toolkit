@@ -1,154 +1,78 @@
 ---
 name: mlmm-cli
-description: Per-subcommand reference for mlmm-toolkit's 22 CLI subcommands (extract / mm-parm / define-layer / opt / tsopt / freq / irc / dft / scan / path-search / all / …). SKILL.md is the orientation + cross-cutting flag conventions + canonical recipes; each subcommand has its own md (extract.md / mm-parm.md / tsopt.md / …) for flags, validation, and caveats. TRIGGER on questions about a specific subcommand, flag, or shell invocation. SKIP for install / HPC / output-parsing / structure-format-editing / overview questions.
+description: "Per-subcommand guidance for mlmm-toolkit's 22 CLI subcommands: when to use each, a minimal run, how to judge success, pitfalls and recovery, and the next step. SKILL.md is a one-line input-to-output cheatsheet plus the shared ML/MM conventions; heavy commands have their own file (`all.md`, `all-*.md`, `tsopt.md`, `irc.md`, `freq.md`, and others), and `path.md`, `scan.md`, `oniom.md`, and `utilities.md` group related commands. Full flag lists come from `--help-advanced` and the generated reference. TRIGGER on questions about a specific subcommand or shell invocation. SKIP for install, HPC, output-parsing, or structure-format questions, and for choosing the ML region or layers (mlmm-model-setup)."
 ---
 
 # mlmm CLI
 
-## Subcommand index
+One line per subcommand: what goes in, what comes out, and which file to read.
 
-Each row points to the full per-subcommand md in this skill directory.
+## Cheatsheet
 
-| md | subcommand | role (2 lines) |
+| Command | In → out | File |
 |---|---|---|
-| `all.md` | `all` | Run selected preparation, MEP, TS/IRC, frequency and DFT stages.<br>Specific modes are in `all-{endpoint-mep,scan-list,ts-only}.md`. |
-| `all-endpoint-mep.md` | `all` (mode 1) | Runs from N reaction-ordered structures (R, optionally IM₁ … IMₙ, P).<br>Single-pass GSM/DMF between adjacent endpoints; `--refine-path` requests recursion. |
-| `all-scan-list.md` | `all` (mode 2) | Runs from a single reactant + staged distance scans.<br>The scan endpoints seed the MEP; `--refine-path` requests recursion. |
-| `all-ts-only.md` | `all` (mode 3) | Skips path search and starts from a TS candidate; runs `tsopt → irc`, with freq/DFT enabled by their flags.<br>Use when you already have a transition-state guess (from a different code or a prior run). |
-| `extract.md` | `extract` | Selects and writes an active-site/model pocket around the substrate residues.<br>`define-layer` separately assigns B-factor layers and frozen atoms. |
-| `mm-parm.md` | `mm-parm` | Generate Amber `parm7` + `rst7` from a PDB via tleap (and antechamber for non-standard ligands).<br>Required for any subcommand that needs MM gradients. |
-| `define-layer.md` | `define-layer` | Assign / refine ML / movable-MM / frozen layers via the PDB B-factor field.<br>Standalone or post-`extract` adjustment without rebuilding parm7. |
-| `oniom-export.md` | `oniom-export` | Export the layered system as a Gaussian g16 ONIOM input (or ORCA).<br>Useful for input-deck exchange or hand-comparing setup with a third-party DFT/MM run. |
-| `oniom-import.md` | `oniom-import` | Reverse direction: read a g16 / ORCA ONIOM input and reconstruct an `mlmm-toolkit` PDB.<br>Use when adopting an existing Gaussian ONIOM workflow. |
-| `path-search.md` | `path-search` | Recursive MEP search (GSM or DMF) across N endpoints with bond-change segmentation.<br>Returns segment and HEI candidates for TS/IRC validation. |
-| `path-opt.md` | `path-opt` | MEP optimization for a **single** segment between two endpoints.<br>Building block of `path-search`; also useful for refining one segment without re-running the whole search. |
-| `opt.md` | `opt` | Single-structure geometry optimization with L-BFGS or RFO.<br>`--opt-mode grad` (L-BFGS, default) is fast; `--opt-mode hess` (RFO) is robust on tricky surfaces. |
-| `tsopt.md` | `tsopt` | TS optimization: default RS-P-RFO (`--opt-mode hess/rsprfo`); RS-I-RFO, TRIM, and Hessian-Guided Dimer remain explicit alternatives. |
-| `freq.md` | `freq` | Vibrational analysis: Hessian, frequencies, normal-mode visualization, QRRHO thermochemistry.<br>Default temperature/pressure 298.15 K / 1 atm; partial-Hessian variant when `freeze_atoms` is non-empty. |
-| `sp.md` | `sp` | ONIOM single-point energy + forces (and optional Hessian).<br>Cheapest stage; useful for spot-checking a geometry without running an optimization. |
-| `irc.md` | `irc` | IRC integration with EulerPC in mass-weighted Cartesians.<br>Writes raw forward/backward endpoints; optimize them separately with `opt` or through `all`. |
-| `dft.md` | `dft` | Single-point DFT through PySCF (CPU) or GPU4PySCF (CUDA, x86_64).<br>`--dft-engine gpu` is the default; if the GPU backend is unavailable it raises an error — select CPU explicitly with `--dft-engine cpu`. |
-| `scan.md` | `scan` | 1D distance scan with harmonic restraints to seed a path search.<br>Useful when neither endpoint nor TS guess is available — drives the bond manually. |
-| `scan2d.md` | `scan2d` | Restrained optimization on a two-distance grid.<br>Maps and visualizes the PES. |
-| `scan3d.md` | `scan3d` | 3D analog with three restrained distances.<br>Rare but supported; output volume grows quickly, plan resources. |
-| `trj2fig.md` | `trj2fig` | Plot an energy profile from an XYZ trajectory.<br>Reads ASE-style energies in the comment line and writes a figure or CSV (PNG/JPEG/HTML/SVG/PDF/CSV). |
-| `energy-diagram.md` | `energy-diagram` | Build an ad-hoc energy diagram from a list of state names + energies.<br>For composing diagrams that combine multiple `mlmm-toolkit` runs. |
-| `add-elem-info.md` | `add-elem-info` | Repair / add the element column (PDB cols 77-78).<br>Run before `extract` if your PDB came out of PyMOL or Maestro and elements are missing. |
-| `fix-altloc.md` | `fix-altloc` | Resolve PDB alternate locations (`altloc` field).<br>Pick a single conformation per residue; needed before `extract` on raw RCSB downloads. |
-| `bond-summary.md` | `bond-summary` | Detect bond changes between two structures (e.g. R vs P).<br>Uses the same bond-change algorithm `path-search` invokes for segmentation. |
+| `all` | full-system structures → R/TS/P of each step, `summary.json`, energy diagrams | [all.md](all.md); modes in [all-endpoint-mep.md](all-endpoint-mep.md), [all-scan-list.md](all-scan-list.md), [all-ts-only.md](all-ts-only.md) |
+| `extract` | full PDB/mmCIF + `-c` residues → active-site model `pocket.pdb` | [extract.md](extract.md) |
+| `mm-parm` | full PDB → Amber `<prefix>.parm7` and `.rst7` | [mm-parm.md](mm-parm.md) |
+| `define-layer` | full PDB + ML region → `<input>_layered.pdb` with B-factor layers 0/10/20 | [define-layer.md](define-layer.md) |
+| `opt` | one structure → minimum `final_geometry.{xyz,pdb}` | [opt.md](opt.md) |
+| `tsopt` | TS candidate → `final_geometry.*`, imaginary-mode animations `vib/imag_*` | [tsopt.md](tsopt.md) |
+| `irc` | TS → `finished_irc_trj.xyz`, branch ends `forward_first.*` and `backward_last.*` | [irc.md](irc.md) |
+| `freq` | structure → `frequencies_cm-1.txt`, mode animations, thermochemistry | [freq.md](freq.md) |
+| `dft` | structure → DFT single point of the ML region in `result.yaml` | [dft.md](dft.md) |
+| `path-opt` | two endpoints → one MEP, HEI `hei.pdb` (TS candidate) | [path.md](path.md) |
+| `path-search` | two or more structures → MEP split where bonds change, `hei_seg_NN.*`, `summary.json` | [path.md](path.md) |
+| `scan` | one structure + `-s` stages → restrained scan, `stage_NN/result.*` | [scan.md](scan.md) |
+| `scan2d` | one structure + two coordinates → `surface.csv`, `scan2d_map.png` | [scan.md](scan.md) |
+| `scan3d` | one structure + three coordinates → `surface.csv`, `scan3d_density.html` | [scan.md](scan.md) |
+| `oniom-export` | full PDB + parm7 + ML region → Gaussian or ORCA ONIOM input | [oniom.md](oniom.md) |
+| `oniom-import` | Gaussian or ORCA ONIOM input → `<prefix>.xyz`, `<prefix>_layered.pdb` | [oniom.md](oniom.md) |
+| `sp` | structure → ML/MM energy and `forces.npy` (`hessian.npy` with `--hess`) | [utilities.md](utilities.md) |
+| `fix-altloc` | PDB with alternate locations → `<input>_clean.pdb` | [utilities.md](utilities.md) |
+| `add-elem-info` | PDB with blank element columns → `<input>_add_elem.pdb` | [utilities.md](utilities.md) |
+| `bond-summary` | two or more structures → bond changes on stdout | [utilities.md](utilities.md) |
+| `trj2fig` | XYZ trajectory with energies → `energy.png` or CSV | [utilities.md](utilities.md) |
+| `energy-diagram` | state energies → `energy_diagram.png` | [utilities.md](utilities.md) |
 
 ## Pipeline at a glance
 
-`all` prepares the system and runs single-pass `path-opt` by default;
-`--refine-path` selects recursive `path-search`. `--tsopt` adds TS/IRC and
-endpoint optimization; `--thermo` and `--dft` add frequency/thermochemistry
-and DFT single points. Each stage is also available as its own subcommand.
+`all` prepares the system (extract → mm-parm → define-layer), runs single-pass `path-opt` by default, and runs recursive `path-search` with `--refine-path`. `--tsopt` adds TS optimization, IRC, and endpoint optimization; `--thermo` and `--dft` add frequencies with thermochemistry and DFT single points. Each stage is also its own subcommand. The stage diagram is in [Pipeline at a glance](../mlmm-overview/SKILL.md#pipeline-at-a-glance).
 
-## Common flag conventions
+## Shared ML/MM conventions
 
-These flags appear on most subcommands (canonical list:
-`mlmm <subcommand> --help`):
+`-i` takes the full system, not a cut-out model: PDB, mmCIF, or XYZ with `--ref-pdb` (a PDB with the same atoms). Every structure of one run, and the parm7, has the same atoms in the same order. Gaussian and ORCA ONIOM inputs go through `oniom-import`.
 
-| Flag | Meaning |
-|---|---|
-| `-i, --input` | Input file(s); calculation workflows use `.pdb` / `.cif` / `.mmcif` / `.xyz` (Gaussian/ORCA input belongs to `oniom-import`) |
-| `-q, --charge` | Net ML-region/model-system charge (integer) |
-| `-l, --ligand-charge` | Unknown-ligand total or `'RES1:Q1,RES2:Q2'` mapping used to derive the ML-region charge |
-| `-m, --multiplicity` | Spin multiplicity (2S+1), default 1 |
-| `-b, --backend` | High-level backend: `uma` / `orb` / `mace` / `aimnet2` / `dft` |
-| `--precision` | Unset defaults by backend: UMA/AIMNet2 fp32; ORB/MACE fp64 |
-| `--uma-workers` | UMA predictor workers; `>1` is incompatible with an analytical Hessian |
-| `-o, --out-dir` | Output directory, subcommand-specific default |
-| `--config` | YAML configuration file applied before CLI flags |
-| `--show-config` | Print the loaded YAML file and its top-level keys, then continue execution (`all` and `path-search` print the resolved settings; `sp` prints its merged config and exits before evaluation) |
-| `--dry-run` | Validate options and inputs without executing |
-| `--help-advanced` | Reveal hidden / advanced flags |
-| `--ref-pdb` | Reference PDB used to derive residue context for XYZ inputs |
-| `--embedcharge` | Computationally expensive xTB correction for MLIP/MM: `E_xTB(ML + MM charges) - E_xTB(ML)`. Keep the ML region to roughly a few hundred atoms; on `dft`, the flag instead adds Amber MM charges to the PySCF Hamiltonian. |
-Charge precedence: explicit `-q` > `-l 'RES:Q'` derivation > `--config` YAML > `defaults.py`.
+The calculation commands other than `all` need the full-system Amber topology (`--parm7`) and an ML region; `all` builds both. The ML region comes from `--model-pdb`, `--model-indices`, or the B-factor layers read by `--detect-layer` (on by default); which one wins, and the 0/10/20 encoding, are in [ML region and layers](../mlmm-structure-io/SKILL.md#ml-region-and-layers). `--link-atom-method` places the link atoms: `scaled` (g-factor, the default) or `fixed` (1.09/1.01 Å).
 
-## Canonical recipes
+`-q` is the charge of the ML region, not of the whole system. `-l 'SAM:1,GPP:-3'` gives the charges of non-standard residues, and the ML-region charge is derived from them. The charge comes from explicit `-q`, then the `-l` derivation, then `calc.model_charge` in the `--config` YAML; otherwise the run stops with an error. `-m` is the ML-region multiplicity, otherwise `calc.model_mult`, otherwise 1.
 
-### Multi-input MEP for a 1-step reaction
+`-b` selects the ML-region backend: `uma` (default), `orb`, `mace`, `aimnet2`, or `dft`. Without `--precision`, UMA and AIMNet2 run in fp32 and ORB and MACE in fp64; AIMNet2 rejects fp64.
 
-```bash
-mlmm all -i 1.R.pdb 3.P.pdb \
-    -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
-    --tsopt --thermo \
-    --out-dir result_mep
-```
+Settings apply in the order built-in defaults < `--config` YAML < explicit CLI options. The calculation commands write to `./result_<subcommand>/` by default (for example `./result_all/`, `./result_path_opt/`); change it with `-o/--out-dir`. `extract`, `mm-parm`, and `define-layer` write into `./` and take output file paths instead.
 
-### Single-input scan-list (when only the reactant is available)
+## Cross-cutting pitfalls
 
-```bash
-mlmm all -i 1.R.pdb \
-    -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
-    --scan-lists '[("SAM 320 CS1","GPP 321 C7",1.60)]' \
-                 '[("GPP`321/H11","GLU`186/OE2",0.90)]' \
-    --tsopt --thermo \
-    --out-dir result_scan
-```
+- **Wrong charge**: check it before a long job. `extract` prints `Total active site model charge`, and `all --dry-run` runs the preparation and the charge and electron-parity checks in a temporary directory, prints the plan, and skips the calculations. `scan`, `scan2d`, and `scan3d` do not accept `--show-config`. With `--model-indices`, the charge cannot be derived from `-l`; give `-q`.
+- **Default backend**: without `-b`, the run uses `uma`. Spell the backend out for production runs.
+- **YAML ignored**: explicit CLI values override `--config`; options left at their CLI default do not mask YAML values.
+- **Scan literals**: `-s/--scan-lists` takes Python literals. Quote each with single quotes outside and double quotes inside, and watch space- vs backtick-separated atom specs.
+- **Hidden options**: an option missing from `--help` may be listed by `--help-advanced`.
+- **Out of memory on a Hessian**: narrow the Hessian region with `--hessian-cutoff` (`opt`, `tsopt`, `freq`, `sp`), and keep the default `FiniteDifference` unless a pilot shows `Analytical` is better.
+- **`--uma-workers` above 1 with `--hessian-calc-mode Analytical`**: this stops with an error. Use one worker for an analytical Hessian, or `FiniteDifference` with several workers.
+- **`--embedcharge`**: the xTB correction runs xTB with and without the MM point charges at every evaluation; keep the ML region to about 200–300 atoms and benchmark first ([backends.md](../mlmm-install-backends/backends.md)). With `-b dft`, it places the MM point charges in the PySCF Hamiltonian instead.
 
-### Validate a TS candidate without re-running path search
+## Where flags and defaults live
 
-```bash
-mlmm tsopt -i ts_guess.xyz --parm7 real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_tsopt
-mlmm freq  -i result_tsopt/final_geometry.xyz --parm7 real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_freq  # optional: full modes / thermochemistry
-mlmm irc   -i result_tsopt/final_geometry.xyz --parm7 real.parm7 --ref-pdb enzyme.pdb -q -1 -m 1 -b uma -o result_irc
-```
-
-### DFT//MLIP/MM single point on the highest-local-barrier TS candidate
-
-```bash
-mlmm dft -i seg_01/ts.pdb --parm7 real.parm7 \
-    -l 'SAM:1,GPP:-3' \
-    --func-basis 'wb97m-v/def2-tzvpd' \
-    --dft-engine gpu
-```
-
-### Bond-change report between R and P
-
-```bash
-mlmm bond-summary -i reactant.pdb product.pdb
-```
-
-## Cross-cutting caveats
-
-| Pitfall | Fix |
-|---|---|
-| `--scan-lists` syntax error | The list is a Python literal-eval expression. Quote with single-quotes outside, double-quotes inside, and watch space- vs backtick-separated atom specs. |
-| Wrong charge silently | Use `--dry-run` to inspect the resolved charge before a long job; scan commands do not accept `--show-config`. |
-| Forgetting `-b` falls back to the default (`uma`) | Spell `-b uma` / `-b orb` / `-b mace` / `-b aimnet2` explicitly for production runs. |
-| `--config` YAML ignored | YAML is read **after** built-in defaults but **before** explicit CLI flags. Anything also given on CLI overrides YAML. |
-| `--help-advanced` flags differ between versions | They are subject to change; if a flag isn't in `--help`, check `--help-advanced` and version-pin if the workflow is shared. |
-| OOM on the Hessian step | Reduce the active Hessian region and compare `Analytical` with `FiniteDifference` on the target backend/system; also keep `return_partial_hessian=True` where applicable. |
-| `workers > 1` with `Analytical` | This is an intentional hard error. Use one UMA worker for an analytical Hessian, or request `FiniteDifference` before enabling the parallel predictor. |
-
-## Defaults
-
-Every default value is exported from `mlmm.core.defaults` (read with
-`import` — the skill does not transcribe values that change between
-releases):
-
-```bash
-python -c "import mlmm.core.defaults as d; print([n for n in dir(d) if n.endswith('_KW') or n.startswith('OUT_DIR')])"
-
-# Examples:
-python -c "import mlmm.core.defaults as d; print(d.LBFGS_KW)"
-python -c "import mlmm.core.defaults as d; print(d.RSIRFO_KW)"
-python -c "import mlmm.core.defaults as d; print(d.IRC_KW)"
-python -c "import mlmm.core.defaults as d; print(d.MLMM_CALC_KW)"
-```
-
-Each per-subcommand md points at the relevant `_KW` dict in the
-"See also" section.
+- `mlmm <subcommand> --help-advanced` lists every option with its default; the generated reference is `docs/reference/commands/`.
+- `--show-config` prints the YAML given with `--config` and its top-level keys, then continues; `all` and `path-search` print the settings after merging defaults, YAML, and CLI, and `sp` prints its merged config and exits.
+- `mlmm.core.defaults` holds the built-in defaults, for example `python -c "import mlmm.core.defaults as d; print(d.IRC_KW)"`.
 
 ## See also
 
-- `mlmm-overview/SKILL.md` — what `mlmm-toolkit` is and when to
-  use it.
-- `mlmm-structure-io/` — input file formats and charge / spin.
-- `mlmm-install-backends/` — AmberTools / backend installation.
-- `mlmm-workflows-output/SKILL.md` — what comes out of each
-  invocation, summary.json schema, R/TS/P canonical paths.
-- `mlmm-hpc/SKILL.md` — running these recipes on PBS / SLURM.
+- [mlmm-overview](../mlmm-overview/SKILL.md) — pick an `all` mode, or run stage by stage.
+- [outputs.md](../mlmm-overview/outputs.md) — `summary.json`, `result.json`, and the output tree.
+- [ts-strategy.md](../mlmm-overview/ts-strategy.md) — TS candidates, wrong n_imag, and a TS that does not come out.
+- [mlmm-model-setup](../mlmm-model-setup/SKILL.md) — what goes into the ML region and the layers.
+- [mlmm-structure-io](../mlmm-structure-io/SKILL.md) — formats, residue and atom selectors, charge and multiplicity.
+- [mlmm-install-backends](../mlmm-install-backends/SKILL.md) — install, AmberTools, and backends.
+- [mlmm-hpc](../mlmm-hpc/SKILL.md) — job scripts for PBS and SLURM.

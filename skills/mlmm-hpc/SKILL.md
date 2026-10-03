@@ -1,11 +1,6 @@
 ---
 name: mlmm-hpc
-description: >-
-  PBS and SLURM submission guidance for mlmm-toolkit, including generic
-  placeholder-based job templates, resource budgeting, monitoring, UMA
-  predictor workers, and dynamic dispatch for many independent systems. Use
-  for qsub, sbatch, walltime, GPU/CPU resources, workers, pbsdsh, flock, or
-  batch-campaign questions. Skip local runs, installation, and output parsing.
+description: "PBS and SLURM submission for mlmm-toolkit: placeholder-based job templates, resource budgeting, job monitoring, UMA predictor workers, and the dynamic-dispatch recipe for many independent systems in `dynamic-dispatch.md`. TRIGGER on `qsub` / `sbatch` / walltime / GPU or CPU resources / workers / `pbsdsh` / `flock` / batch-campaign questions. SKIP for local runs, installation, or output parsing."
 ---
 
 # mlmm HPC
@@ -15,12 +10,12 @@ description: >-
 `mlmm-toolkit` is a CPU+GPU Python program; on HPC clusters you typically
 submit it as a PBS or SLURM job that requests one node with one GPU by default.
 This skill provides **generic templates** with placeholders — fill in
-your queue / module / env names from `mlmm-env-detect/SKILL.md`.
+your queue / module / env names from [`mlmm-install-backends/backends.md`](../mlmm-install-backends/backends.md#probe-the-compute-environment).
 
 ## When the env is unknown
 
 If you don't know the cluster's queue / GPU / module configuration,
-read `mlmm-env-detect/SKILL.md` first. It walks through the
+read [`mlmm-install-backends/backends.md`](../mlmm-install-backends/backends.md#probe-the-compute-environment) first. It walks through the
 discovery commands (`qstat -Q`, `pbsnodes -a`, `nvidia-smi`,
 `module avail cuda`, `conda env list`) and tells you how to fill the
 placeholders this skill uses.
@@ -47,7 +42,7 @@ nvidia-smi -L >/dev/null     || { echo "no GPU visible"; exit 1; }
 # Load <CUDA_MODULE> separately only for an extension that needs that toolkit.
 # The default workers=1 run needs no MPI launcher.
 
-# Conda env (env-detect outputs <YOUR_ENV>)
+# Conda env (<YOUR_ENV> from backends.md, Probe the compute environment)
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate <YOUR_ENV>
 command -v g++ >/dev/null || { echo "g++ is required for hessian_ff" >&2; exit 1; }
@@ -123,7 +118,7 @@ engine. Add margin for retries and first-use compilation.
 | `mlmm dft` | Supported | Supported with a compatible GPU4PySCF stack |
 | Analytical MLIP Hessian | Supported by selected backends | Runtime and memory are backend/model/system dependent; compare with finite difference on a pilot |
 
-Check `mlmm-install-backends/dft.md` for `--dft-engine gpu` / `cpu`
+Check [`mlmm-install-backends/backends.md`](../mlmm-install-backends/backends.md#dft-pyscf-gpu4pyscf) for `--dft-engine gpu` / `cpu`
 specifics, including the aarch64 caveat (CPU PySCF only).
 
 ## Monitoring and control
@@ -207,7 +202,7 @@ shared list with file-lock-protected counter increment.
 | `CUDA_VISIBLE_DEVICES` | Normally leave the scheduler-provided mapping unchanged. Set it manually only outside scheduler isolation or as part of a tested worker-launch scheme; device indices inside a job are local to that mapping. |
 | `OMP_NUM_THREADS=<NCPU>` | Limit OpenMP threads (avoid oversubscription) |
 | `MKL_NUM_THREADS=<NCPU>` | Intel MKL thread cap |
-| `LD_LIBRARY_PATH=<torch lib>:...` | Override system CUDA libs (see env-cuda.md) |
+| `LD_LIBRARY_PATH=<torch lib>:...` | Override system CUDA libs (see backends.md, CUDA and PyTorch) |
 
 ## ssh-based remote submission
 
@@ -219,8 +214,8 @@ embed it inside the skill template.
 ## See also
 
 - `dynamic-dispatch.md` — flock + pbsdsh template for many short tasks.
-- `mlmm-env-detect/SKILL.md` — discover queue / module / env
+- [`mlmm-install-backends/backends.md`](../mlmm-install-backends/backends.md#probe-the-compute-environment) — discover queue / module / env
   values for the placeholders above.
-- `mlmm-install-backends/env-cuda.md` — driver / torch CUDA
+- [`mlmm-install-backends/backends.md`](../mlmm-install-backends/backends.md#cuda-and-pytorch) — driver / torch CUDA
   pairing.
 - `mlmm-cli/all.md` — the typical workload submitted to HPC.

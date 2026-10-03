@@ -1,68 +1,27 @@
 # `mlmm irc`
 
-## Purpose
+Integrates the intrinsic reaction coordinate (IRC) from a TS candidate in both
+directions with EulerPC in mass-weighted Cartesians, and writes the path and
+its two endpoint candidates. Run
+`mlmm irc -i <ts> --parm7 <real.parm7> -q <charge> --out-json`.
+The result is usable when both endpoint candidates, optimized with `opt`,
+reach the intended R and P.
 
-Intrinsic Reaction Coordinate (IRC) integration from a TS geometry.
-Default integrator: **EulerPC** (mass-weighted Cartesians). Forward
-and backward branches are run; `forward_last` / `backward_last` are the
-last raw IRC frames (the IRC endpoints), not optimized minima. Output:
-a stitched IRC trajectory plus the forward/backward endpoint geometries.
-Run `mlmm opt` separately to relax the endpoints to true minima.
+## When to use
 
-## Synopsis
+- After `tsopt` gives n_imag = 1, to check which minima the TS candidate
+  connects.
+- The endpoints are raw IRC frames, not optimized minima. Run `mlmm opt` on
+  them separately.
 
-```bash
-mlmm irc -i ts.{pdb,cif,mmcif,xyz} --parm7 real.parm7 \
-    [-q 0 -m 1] [-l 'RES:Q,...'] \
-    [--max-cycles 125] [--step-size 0.1] \
-    [-b uma|orb|mace|aimnet2|dft] [-o ./result_irc/]
-```
-
-
-## ML/MM-aware flags (mlmm-toolkit specific)
-
-In addition to the common flags below,
-**`mlmm-toolkit` requires an Amber topology** and supports layer-aware
-selection. Most subcommands accept:
-
-| flag | purpose |
-|---|---|
-| `--parm7 FILE` | Amber `parm7` topology of the whole enzyme — required unless provided in YAML as `calc.real_parm7` |
-| `--model-pdb FILE` | Explicit ML-region PDB; takes precedence over B-factor ML membership |
-| `--detect-layer` | Automatically read B-factor layers; explicit ML membership retains valid movable/frozen MM layers. Enabled by default. |
-| `--model-indices` | Explicit ML atom indices used when `--model-pdb` is omitted; takes precedence over B-factor ML membership |
-| `--ref-pdb FILE` | Full-enzyme PDB/mmCIF used as topology reference for XYZ inputs |
-| `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
-| `-q, --charge` | Net charge; overrides `calc.model_charge` from YAML |
-| `-l, --ligand-charge` | Per-residue charge mapping for ML region |
-
-Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
-
-## Key flags
-
-| flag | type | default | description |
-|---|---|---|---|
-| `-i, --input` | path | required | Optimized TS geometry |
-| `-q` / `-l` / `-m` | — | — | Charge / spin (common conventions) |
-| `--max-cycles` | int | 125 | Max IRC steps per branch (forward + backward) |
-| `--step-size` | float | 0.10 (Bohr) | Step in Bohr; maps to `IRC_KW['step_length']` |
-| `--never-stop / --no-never-stop` | bool | off | Ignore gradient and energy endpoint criteria and trace to max cycles; propagation failures still stop |
-| `--read-hess` | path | — | `.npy` Hessian from `freq --dump-hess` or `tsopt --dump-hess` (all atoms or only the Hessian atoms); needs `irc.hessian_init: calc` |
-| `--uma-workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
-| `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |
-| `-o, --out-dir` | path | `./result_irc/` | Output directory |
-| `--config` / `--show-config` / `--dry-run` / `--help-advanced` | — | — | Standard |
-
-## Examples
-
-### Default IRC from a tsopt'd geometry
+## Minimal run
 
 ```bash
 mlmm irc -i result_tsopt/final_geometry.xyz --parm7 real.parm7 \
-    --ref-pdb enzyme_layered.pdb -q 0 -m 1 -b uma -o result_irc
+    --ref-pdb enzyme_layered.pdb -q 0 -m 1 -b uma --out-json -o result_irc
 ```
 
-### Tighter step / longer integration for shallow surfaces
+A smaller step and a longer trace for a shallow surface:
 
 ```bash
 mlmm irc -i ts.xyz --parm7 real.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 \
@@ -70,94 +29,82 @@ mlmm irc -i ts.xyz --parm7 real.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 \
     -b uma -o result_irc_long
 ```
 
-If a branch stops immediately, reduce `--step-size` first. Use
-`--never-stop` when tracing to the maximum-cycle guard is intended. Numerical
-or integration failure can still stop the branch.
+## Judge success
 
-## Output
+IRC has no independent scientific success verdict. A standalone `irc` does
+not know which end is the reactant or the product. Judge it in three steps:
+
+1. The start was a TS: the console line
+   `Transition vector is mode 0 with wavenumber … cm⁻¹.` shows a negative
+   wavenumber.
+2. Each requested direction records its frame count (`n_frames_forward`,
+   `n_frames_backward`) and `*_integration_stop_reason`.
+   `*_integration_converged` describes whether the RMS-gradient stationarity
+   criterion fired, so `--never-stop` leaves it false. This field and
+   `*_downhill_departure_valid` are diagnostics, not endpoint-optimization
+   gates. Finite retained endpoints can proceed to optimization after a
+   predictor-budget or max-cycle stop. Missing or non-finite coordinates and
+   execution errors must still be reported.
+3. Optimize both endpoint candidates and compare them with the intended R and
+   P. Even if the IRC does not converge, the result is usable when the
+   optimized endpoints reach the intended R and P. The direction forward or
+   backward does not decide which one is R.
+
+```bash
+mlmm opt -i result_irc/forward_first.xyz --ref-pdb enzyme_layered.pdb \
+    --parm7 real.parm7 -q 0 -m 1 -o result_opt_forward
+mlmm opt -i result_irc/backward_last.xyz --ref-pdb enzyme_layered.pdb \
+    --parm7 real.parm7 -q 0 -m 1 -o result_opt_backward
+```
+
+Files in `result_irc/`:
 
 ```
-result_irc/
-├── result.json                     # written when --out-json
-├── forward_irc_trj.xyz             # raw IRC forward trajectory
-├── forward_irc.pdb                 # PDB companion when topology + conversion are available
-├── forward_irc.cif                 # bridge-input companion with restored IDs
-├── backward_irc_trj.xyz            # raw IRC backward trajectory
-├── backward_irc.pdb                # PDB companion (same gating)
-├── backward_irc.cif                # bridge-input companion with restored IDs
-├── finished_irc_trj.xyz            # full stitched path (first endpoint -> TS -> last endpoint)
-├── finished_irc.pdb                # PDB companion (same gating)
-├── finished_irc.cif                # bridge-input companion with restored IDs
-├── forward_last.{xyz,pdb,cif}      # single-frame forward IRC endpoint/companions
-└── backward_last.{xyz,pdb,cif}     # single-frame backward IRC endpoint/companions
+finished_irc_trj.xyz      # whole path: first frame -> TS -> last frame
+finished_first.xyz        # first frame of the whole path
+finished_last.xyz         # last frame of the whole path
+forward_irc_trj.xyz       # forward branch, from the TS
+backward_irc_trj.xyz      # backward branch, from the TS
+forward_first.xyz         # end of the forward branch (endpoint candidate)
+backward_last.xyz         # end of the backward branch (endpoint candidate)
+result.json               # with --out-json
 ```
 
-With a non-empty YAML `irc.prefix`, EulerPC inserts one underscore before each
+The `.pdb` copies are written for PDB/mmCIF input or with `--ref-pdb`. With a
+non-empty YAML `irc.prefix`, EulerPC inserts one underscore before each
 filename (`prefix: trial` → `trial_finished_irc_trj.xyz`); read the normalized
-names from `result.json.files`.
+names from `files` in `result.json`.
 
-`result.json` keys:
+Read `energy_first_hartree` / `energy_last_hartree` and assign R and P after
+inspecting or matching the endpoint structures. `never_stop` records whether
+the opt-in mode was enabled; `never_stop_energy_bypasses` is the observed
+bypass count.
 
 ```python
 import json
 d = json.load(open("result_irc/result.json"))
 print(d["n_frames_forward"], d["n_frames_backward"])
 print(d["energy_first_hartree"], d["energy_ts_hartree"], d["energy_last_hartree"])
-print(d.get("bond_changes"))       # directed first -> last; may be omitted
-print(d["execution_status"])        # "completed" / "failed"
-print(d["scientific_status"])       # "success" / "partial" / "failed"
+print(d["execution_status"], d["scientific_status"])
 print(d["forward_requested"], d["backward_requested"])
 print(d["forward_integration_converged"], d["backward_integration_converged"])
 print(d["forward_integration_stop_reason"], d["backward_integration_stop_reason"])
 print(d["never_stop"], d["never_stop_energy_bypasses"])
-print(d["rigid_projection"]["hessian_source"])  # "file", "cache", or "fresh"
-print(d["rigid_projection"]["treatment"], d["rigid_projection"]["effective_rank"])
 ```
 
 `--read-hess` checks only the size, symmetry, and finiteness of the `.npy`
 file, so pass a Hessian computed for the same geometry, charge,
-multiplicity, layers, and calculator.
+multiplicity, layers, and calculator. Frozen atoms are treated as in
+[freq.md](freq.md#phva).
 
-Standalone IRC does not know which endpoint is the chemical reactant or
-product. Read `energy_first_hartree` / `energy_last_hartree` and assign R/P after inspecting or matching the
-endpoint structures. `never_stop` records whether the opt-in mode was enabled;
-`never_stop_energy_bypasses` is the observed bypass count.
+## Bond changes
 
-IRC has no independent scientific success verdict. Each requested direction
-records its frame count and `*_integration_stop_reason`.
-`*_integration_converged` describes whether the RMS-gradient stationarity
-criterion fired, so `--never-stop` leaves it false. This field and
-`*_downhill_departure_valid` are diagnostics, not endpoint-optimization gates.
-Finite retained endpoints can proceed to optimization after a predictor-budget
-or max-cycle stop. Missing or non-finite coordinates and execution errors must
-still be reported.
-
-The default `constrained` treatment removes only full-system rigid motions
-that leave frozen anchors fixed. Generic ranks are 6/3/1/0 for
-zero/one/two/at least three non-collinear anchors, and realistic ML/MM
-boundaries normally have rank 0. All-frozen input is an explicit error.
-A stale non-constrained YAML value fails explicitly. `result.json` records the
-treatment, effective rank, initial-Hessian source, and Hessian shape.
-
-## Forward / backward endpoints
-
-Two forms of endpoint geometry are written:
-
-| File | What |
-|---|---|
-| `forward_last.{xyz,pdb,cif}` / `backward_last.{xyz,pdb,cif}` | Single-frame raw IRC endpoints — canonical inputs to downstream endpoint refinement; companions depend on topology/bridge metadata |
-| Last frame of `forward_irc_trj.xyz` / `backward_irc_trj.xyz` | Identical to `forward_last` / `backward_last` (same final IRC frame) |
-
-The validator and bond-change detector use `forward_last` / `backward_last`
-when present. Their direction is not a chemical R→P assignment. See
-`mlmm-workflows-output/SKILL.md`.
-
-## Bond-change check
-
-`bond_changes` records the directed difference between the first and last
-standalone IRC endpoints
-according to a 1.20× covalent-radius cutoff (`bond_factor` default). This is the same algorithm
-used by `bond-summary` and `path-search` segmentation.
+`bond_changes` records the directed difference from `finished_first.xyz` to
+`finished_last.xyz` according to a 1.20× covalent-radius cutoff. This is the
+same algorithm used by [bond-summary](utilities.md#bond-summary) and the
+`path-search` segmentation. The direction is not a chemical R→P assignment;
+for the R/TS/P conventions of `all`, see
+[outputs.md](../mlmm-overview/outputs.md#oriented-rtsp-paths).
 
 ```python
 import json
@@ -168,22 +115,25 @@ for b in bc["formed"]: print("FORMED ", b)
 for b in bc["broken"]: print("BROKEN ", b)
 ```
 
-## Caveats
+## Pitfalls and recovery
 
-- IRC starts from a **single imaginary mode** TS. If `tsopt` produced
-  multiple imaginary modes, IRC may follow the wrong one — re-tsopt
-  first.
-- `--max-cycles 125` is enough for most clusters. A branch that hits the
-  cap still leaves a finite endpoint that goes on to endpoint `opt`; raise
-  `--max-cycles` only when the branch must be followed further (lower
-  `--step-size` when a branch stops almost immediately).
-- The bond-change detector is geometry-based (covalent-radius cutoff),
-  not physics-based. Metal–ligand bonds may flicker on the borderline.
+- IRC starts from a TS with a single imaginary mode. If `tsopt` left several,
+  IRC may follow the wrong one, so re-optimize the TS first.
+- A branch that stops almost at once prints
+  `[irc] IRC stopped after only a few frames in …`. Reduce `--step-size`
+  first, for example to 0.05. Use `--never-stop` (or `all --irc-never-stop`)
+  when tracing to the cycle cap is intended. It ignores the gradient and
+  energy endpoint criteria; numerical or integration failures still stop the
+  branch. It is off by default. Always inspect both branches and the bond
+  connectivity.
+- `--max-cycles 125` is enough for most systems. A branch that hits the cap
+  still leaves a finite endpoint that goes on to endpoint `opt`; raise
+  `--max-cycles` only when the branch must be followed further.
+- The bond-change detector is geometry-based (covalent-radius cutoff), not
+  physics-based. Metal–ligand bonds may flicker on the borderline.
 
-## See also
+## Next step
 
-- `tsopt.md` — produces the IRC starting geometry.
-- `freq.md`, `dft.md` — downstream.
-- `bond-summary.md` — same bond-change algorithm, standalone.
-- `mlmm-workflows-output/SKILL.md` — R/TS/P path conventions.
-- Defaults: `import mlmm.core.defaults as d; print(d.IRC_KW)`
+- Optimize the endpoints with [opt.md](opt.md); then [freq.md](freq.md) and
+  [dft.md](dft.md).
+- The IRC start comes from [tsopt.md](tsopt.md).

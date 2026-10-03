@@ -1,144 +1,157 @@
-# `path-search`
+# `path-search` (recursive MEP through two or more structures)
 
-`mlmm path-search` builds a continuous minimum-energy path (MEP) across two or more structures using the selected MEP engine (GSM by default, or DMF). It selectively refines only those regions where covalent bond changes are detected, then stitches the resolved subpaths into a single trajectory. Use it to drive a multistep mechanism from R + (optional intermediates) + P, where recursive segmentation proposes reactive segments for TS/IRC validation. Complex multistep mechanisms may require manual trial-and-error—adjusting input intermediates, MEP-engine settings, or convergence thresholds—to obtain a satisfactory pathway.
+## Overview
+
+`path-search` builds one continuous minimum-energy path (MEP) through **two or more** layered enzyme structures given in reaction order (R → … → P), using the ML/MM calculator on the whole system. It refines the path recursively, only in the regions where covalent bonds change, and builds each piece with GSM (growing string method, the default) or DMF (direct max flux).
+
+### What it is for
+
+* **Splitting R → P into reactive segments**: when you do not know whether the reaction has one step or several, find the regions where bonds change.
+* **A multistep path through intermediates**: give known intermediates between R and P and get one stitched path.
+* **TS candidates per segment**: each reactive segment gets its own HEI (highest-energy image), `hei_seg_NN.xyz`, to optimize with [`tsopt`](tsopt.md).
+
+The ML region is computed with **UMA** (Meta) by default, and the rest of the system is computed with the Amber force field of `--parm7`. For exactly two endpoints without recursive refinement, [`path-opt`](path-opt.md) is simpler.
+
+---
 
 ## Examples
 
-```bash
-mlmm path-search -i reactant.pdb product.pdb --parm7 real.parm7 \
- --model-pdb ml_region.pdb -q 0 --out-dir ./result_path_search
-```
+### 1. Two endpoints
 
-Build a multistep path with explicit intermediates:
+Give the reactant and the product after one `-i`, with the charge of the ML region and the spin multiplicity. `reactant.pdb` and `product.pdb` hold the whole system that matches `real.parm7` (the Amber topology), and `ml_region.pdb` selects its ML region.
 
 ```bash
-# Build a multistep path with explicit intermediates
-mlmm path-search -i R.pdb IM1.pdb IM2.pdb P.pdb --parm7 real.parm7 \
- --model-pdb ml_region.pdb -q -1 --out-dir ./result_path_search_multi
+mlmm path-search -i reactant.pdb product.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
+  -q 0 -m 1 --out-dir ./result_path_search
 ```
 
-Lighter pass without pre-optimization or alignment:
+When the run finishes, open `summary.log` (section `[2] Segment-level MEP summary`), or read `summary.json`. `scientific_status` is `success` when the pre-optimizations and every path run converged, otherwise `partial` or `failed`. `segments` lists each segment with its `index`, `tag`, `kind`, `bond_changes`, `converged`, and `barrier_kcal`. Each reactive segment also has its TS candidate, `hei_seg_NN.xyz`.
+
+### 2. Add intermediates for a multistep path
+
+List the structures in reaction order after one `-i`; each adjacent pair is searched and the pieces are stitched into one path.
 
 ```bash
-# Lighter pass without pre-optimization or alignment
-mlmm path-search -i reactant.pdb product.pdb --parm7 real.parm7 \
- --model-pdb ml_region.pdb -q 0 --no-preopt --no-align --max-nodes 8 \
- --out-dir ./result_path_search_fast
+mlmm path-search -i R.pdb IM1.pdb IM2.pdb P.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
+  -q -1 -m 1 --out-dir ./result_path_search_multi
 ```
 
-General command form:
+### 3. Lighter pass without pre-optimization or alignment
+
+Skip the pre-optimization and the alignment of the inputs and use fewer movable images, for inputs that are already optimized and superimposed.
 
 ```bash
-mlmm path-search -i R.pdb IM1.pdb P.pdb \
- --parm7 real.parm7 --model-pdb ml_region.pdb -q CHARGE [-m MULT]
- [--mep-mode gsm|dmf] [--refine-mode peak|minima]
- [--freeze-atoms "1,3,5"] [--max-nodes N]
- [--max-cycles-gsm N] [--dmf-max-iterations N] [--climb/--no-climb]
- [--thresh PRESET] [--dump/--no-dump] [--out-dir DIR]
- [--show-config/--no-show-config] [--dry-run/--no-dry-run]
+mlmm path-search -i reactant.pdb product.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
+  -q 0 -m 1 --no-preopt --no-align --max-nodes 8 --out-dir ./result_path_search_fast
 ```
 
-## Workflow
+---
 
-After optional preoptimization, `--align` aligns adjacent inputs in sequence before MEP search. With frozen atoms, their positions are matched stepwise while the remaining atoms relax.
+## How it works
 
-1. **Initial segment per pair (GSM/DMF)** -- Run the selected MEP engine (`--mep-mode`) between each adjacent input (A->B) to obtain a coarse MEP and identify the highest-energy image (HEI).
-2. **Local relaxation around HEI** -- Seed refinement from `--refine-mode` (`peak`: HEI+/-1, `minima`: nearest local minima), then use L-BFGS or RFO to recover nearby minima (`End1`, `End2`).
-3. **Decide between kink vs. refinement**:
- - If no covalent bond change is detected between `End1` and `End2`, treat the region as a *kink*: insert `search.kink_max_nodes` linear nodes and optimize each individually.
- - Otherwise, launch a **refinement segment with the selected MEP engine** between `End1` and `End2` to sharpen the barrier.
-4. **Selective recursion** -- Compare bond changes for `(A->End1)` and `(End2->B)` using the `bond` thresholds. Recurse only on sub-intervals that still contain covalent bond changes. `search.max_depth` sets how many levels of recursive subdivision are allowed; `0` performs no subdivision. Reaching the limit is not an error. Any segment retained at a positive cap is tagged `seg_NNN_maxdepth` and is not guaranteed to be a single elementary step.
-5. **Stitching & bridging** -- Concatenate resolved subpaths, dropping duplicate endpoints when RMSD <= `search.stitch_rmsd_thresh`. If the RMSD gap between two stitched pieces exceeds `search.bridge_rmsd_thresh`, insert a bridge MEP segment using the selected `--mep-mode`. When the interface itself shows a bond change, a new recursive segment replaces the bridge.
+Before the search, each input is pre-optimized (`--preopt`) and aligned to the one before it (`--align`), both by default, with frozen atoms matched step by step while the other atoms relax.
 
-Bond-change detection relies on `bond_changes.compare_structures` with thresholds surfaced under the `bond` YAML section.
+1. **A coarse MEP for each pair**:
+Between each pair of adjacent inputs (A → B), GSM or DMF builds a coarse MEP and finds its HEI.
+2. **Relaxing around the HEI**:
+`--refine-mode peak` optimizes the images on either side of the HEI (HEI ± 1); `minima` searches outward from the HEI for the nearest local minimum on each side. The result is two nearby minima, End1 and End2. When `--refine-mode` is omitted, GSM uses `peak` and DMF uses `minima`.
+3. **Kink or reactive segment**:
+If no covalent bond changes between End1 and End2, the region is a *kink*: `path-search` inserts a few linear nodes and optimizes each one. Otherwise the region is a *reactive segment*, and a new GSM or DMF path between End1 and End2 sharpens its barrier.
+4. **Recursing where bonds still change**:
+The parts A → End1 and End2 → B are checked for bond changes, and only parts that still have them are searched again, down to `--max-depth` levels.
+5. **Stitching**:
+The pieces are joined into one path. Duplicate endpoints are dropped; where the ends of two neighboring pieces still differ in bonds, that gap is searched as a new segment, and any other gap is filled with a short connecting path.
 
-## Outputs
+Bond changes are judged with the thresholds in the YAML `bond` section, by the same rules as in {ref}`scan <section-bond>`.
+
+---
+
+## Reading the segments
+
+| What you see | Meaning | Next step |
+| --- | --- | --- |
+| A segment with bond changes, with its `hei_seg_NN.xyz` | A TS candidate for that step | Optimize it with [`tsopt`](tsopt.md), check for one imaginary mode, then run [`irc`](irc.md) |
+| A segment whose `tag` is `seg_NNN_maxdepth` or `seg_NNN_kinklimit` | Splitting stopped there, at the depth limit (`_maxdepth`) or after consecutive kinks (`_kinklimit`) | It may hold more than one step; check it as above, raise `--max-depth`, or give intermediates |
+| Only segments whose `tag` ends in `_kink`, or the warning `HEI is at an endpoint` | No bond change was found, or the path has no peak between its ends | Check the inputs, or give intermediates (example 2) |
+
+The segmentation is a guide based on bond-distance criteria. One segment is not guaranteed to be one elementary step or to contain exactly one TS. A successful TS optimization gives one imaginary mode along the reaction coordinate. Confirm every HEI with `tsopt` (n_imag = 1) and IRC before you read it as a step of the mechanism.
+
+---
+
+## Output files
+
+`path-search` writes these files to `--out-dir` (default `./result_path_search/`):
 
 ```text
-out_dir/ (default: ./result_path_search/)
- summary.json # MEP-level run summary (no full settings dump)
- summary.log # Human-readable summary
- mep_trj.xyz # Final MEP (always written)
- mep_trj.pdb # Final MEP (PDB when ref template available)
- mep_seg_XX_trj.xyz / mep_seg_XX.pdb # Per-segment paths
- hei_seg_XX.xyz / hei_seg_XX.pdb # HEI per bond-change segment
- mep_plot.png # Delta-E profile vs image index (from trj2fig)
- energy_diagram_MEP.png # State-level energy diagram relative to the reactant (kcal/mol)
- seg_000_*/ # Segment-level GSM and refinement artifacts
+result_path_search/
+├─ mep_trj.xyz               # The whole stitched MEP, energies on the comment lines
+├─ mep_trj.pdb               # Same path as PDB
+├─ mep_plot.png              # ΔE profile along the path (kcal/mol, relative to the reactant)
+├─ energy_diagram_MEP.png    # State-energy diagram of the MEP (relative to the reactant)
+├─ summary.json              # Barrier and classification summary for every segment
+├─ summary.log               # The same summary as text
+├─ mep_seg_NN_trj.xyz        # Path of reactive segment NN (PDB: mep_seg_NN.pdb)
+├─ hei_seg_NN.xyz            # HEI of reactive segment NN, the TS candidate (PDB: hei_seg_NN.pdb)
+├─ hei_mode_seg_NN.*         # Reaction-direction guess at that HEI; all passes it to tsopt
+├─ align_refine/             # Alignment and relaxation files of the inputs (--align)
+├─ initNN_*_opt/             # Pre-optimization of each input (--preopt)
+└─ seg_NNN_*/                # Working files of each GSM/DMF run and HEI-side optimization
 ```
 
-## CLI options
+`summary.json` is always written and has its own structure, unlike the `result.json` of the other commands; see the section `summary.json (path-search / all)` of the [JSON Output Reference](json-output.md). Only segments with bond changes get `mep_seg_NN_*` and `hei_seg_NN.*` files. NN is the segment's `index` in `summary.json` (counted from 01 along the final path), while NNN in a `seg_NNN` tag or directory counts the GSM/DMF runs from 000, so the two numbers differ. mmCIF input, and PDB input too large for the PDB columns, also get `.cif` files that keep the original identifiers (see {ref}`mmCIF input <mmcif-input>`); `--no-convert-files` writes only the `.xyz` files.
 
-`mlmm path-search --help` shows core options; `mlmm path-search --help-advanced` shows the full option list. The full flag list is also in the generated [command reference](reference/commands/index.md); the table below covers the options that need explanation.
+---
 
-| Option | Description | Default |
-| --- | --- | --- |
-| `-i, --input PATH...` | Two or more PDB/mmCIF structures, or XYZ files with corresponding `--ref-pdb` entries, in reaction order. Repeat `-i` or pass multiple paths after one flag. | Required |
-| `--parm7 PATH` | Amber parm7 topology for the full enzyme complex. | Required |
-| `--model-pdb PATH` | PDB defining the ML (high-level) region atoms for ML/MM. Optional when `--detect-layer` or `--model-indices` is used. | _None_ |
-| `--model-indices TEXT` | Comma-separated atom indices for the ML region (ranges allowed like `1-5`). Used when `--model-pdb` is omitted. | _None_ |
-| `--detect-layer / --no-detect-layer` | Automatically read B-factor layers (B=0/10/20). With explicit ML membership, only the MM sublayers are retained; otherwise B-factors also define ML membership. | Enabled |
-| `-q, --charge INT` | Net charge of the ML region (integer). Required unless `--ligand-charge` is provided. | _None_ |
-| `-l, --ligand-charge TEXT` | Per-residue charge map, e.g. `SAM:1,PHN:-1`. Derives total charge when `-q` is omitted. Requires PDB input or `--ref-pdb`. | _None_ |
-| `-m, --multiplicity INT` | Spin multiplicity (2S+1). | `1` |
-| `--mep-mode [gsm\|dmf]` | MEP backend for segment/bridge searches. | `gsm` |
-| `--dmf-backend [cpu\|gpu]` | DMF compute backend (`--mep-mode dmf` only): `gpu` (`dmf.torch`/CUDA) or `cpu` (`dmf`/NumPy). Retry `cpu` on a GPU out-of-memory error. Requires `pydmf>=1.2`. | `gpu` |
-| `--refine-mode [peak\|minima]` | HEI refinement seed rule. | `peak` for `gsm`, `minima` for `dmf` |
-| `--freeze-atoms TEXT` | Comma-separated 1-based indices to freeze (merged with YAML `geom.freeze_atoms`). | _None_ |
-| `--movable-cutoff FLOAT` | Distance cutoff (Å) from ML region for movable MM atoms. MM atoms beyond this are frozen. Providing `--movable-cutoff` disables `--detect-layer`. | _None_ |
-| `--max-nodes INT` | Movable internal images per GSM or DMF segment (`max_nodes + 2` total images). | `20` |
-| `--max-depth INT` | Recursive subdivision levels allowed. `0` disables subdivision, returning each input pair as one MEP segment (none when its HEI sits at an endpoint). A capped interval is tagged `seg_NNN_maxdepth` and may hold more than one step. | `10` |
-| `--gsm-param [equi\|energy]` | GSM node parameterization after string growth. `energy` concentrates nodes in high-energy regions and may be tried when an equidistant path skips the reaction-coordinate region near the HEI; it does not identify a TS. | `equi` |
-| `--max-cycles-gsm INT` | GSM string-optimizer cycle cap. | `300` |
-| `--dmf-max-iterations INT` | DMF IPOPT iteration cap. | `3000` |
-| `--climb/--no-climb` | Enable TS refinement for segment GSM. | `True` |
-| `--preopt/--no-preopt` | Pre-optimize endpoints with L-BFGS or RFO before segmentation. | `True` |
-| `--align/--no-align` | After preoptimization, align inputs and, with frozen anchors, run freeze-guided scan/relaxation before re-matching freeze atoms. | `True` |
-| `--opt-mode TEXT` | Single-structure optimizer: `grad` = L-BFGS, `hess` = RFO. | `grad` |
-| `--thresh TEXT` | Convergence preset for single-structure optimization and input alignment (`opt.lbfgs/rfo.thresh`). | `gau` |
-| `--thresh-gsm TEXT` | Convergence preset for the GSM string optimizer (`stopt.thresh`; same presets as `--thresh`). | `gau_loose` |
-| `--dmf-tol TEXT` | IPOPT dual-infeasibility tolerance of the DMF optimizer (`dmf.tol`): `tight` (0.04), `middle` (0.10), `loose` (0.20), or a positive float. Gaussian presets are rejected. | `tight` |
-| `--mm-backend [hessian_ff\|openmm]` | MM backend. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |
-| `--dump/--no-dump` | Save optimizer dumps. | `False` |
-| `-o, --out-dir PATH` | Output directory. | `./result_path_search/` |
-| `--ref-pdb PATH...` | Full template PDB(s) for XYZ→PDB conversion and topology reference. | _None_ |
-| `--config FILE` | Base YAML configuration layer applied before explicit CLI values. | _None_ |
-| `--show-config/--no-show-config` | Print the resolved configuration blocks and the loaded YAML file, then continue. | `False` |
-| `--dry-run/--no-dry-run` | Validate options and inputs without running path search. Shown in `--help-advanced`. | `False` |
-| `-b, --backend CHOICE` | High-level backend for the model region: `uma` (default), `orb`, `mace`, `aimnet2`, `dft`. | `uma` |
-| `--cmap/--no-cmap` | Preserve CMAP in both REAL and MODEL MM layers. | `--cmap` |
-| `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
+## Main options
 
-## YAML configuration
+The options shared by every ML/MM calculation command are explained once in {ref}`ML/MM options <mlmm-options>`; the table below lists only the options specific to `path-search`.
 
-Merge order is **defaults < config < explicit CLI**. The YAML root must be a mapping. The relevant sections are `geom`/`calc` (alias `mlmm`)/`gs`/`stopt` (shared with `path-opt`) plus `opt` / `lbfgs` / `rfo` (single-structure refinement), `bond` (bond-change detection), and `search` (recursive segmentation logic, path-search only).
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `-i, --input` | paths | (required) | Two or more structures in reaction order (`.pdb`, `.cif`, `.mmcif`, or `.xyz` with `--ref-pdb`), after one `-i` (`-i` may also be repeated for each file) |
+| `-q, --charge` | integer | `None` | Charge of the ML region. Required unless `-l` is given |
+| `-m, --multiplicity` | integer | `1` | Spin multiplicity (2S+1) |
+| `-l, --ligand-charge` | text | `None` | Total ligand charge (for example `-1`) or a charge per residue name (for example `'GPP:-3,SAM:1'`), used to derive the ML-region charge when `-q` is omitted (PDB/mmCIF input or `--ref-pdb`) |
+| `-b, --backend` | text | `uma` | Backend of the ML region (`uma`, `orb`, `mace`, `aimnet2`, `dft`) |
+| `-o, --out-dir` | path | `./result_path_search/` | Output directory |
+| `--mep-mode` | `gsm` / `dmf` | `gsm` | Path method: growing string method / direct max flux |
+| `--dmf-backend` | `gpu` / `cpu` | `gpu` | DMF compute backend (`--mep-mode dmf` only): PyTorch on CUDA / NumPy |
+| `--refine-mode` | `peak` / `minima` | `peak` for GSM, `minima` for DMF | How the region around each HEI is relaxed: HEI ± 1 / nearest local minima |
+| `--max-depth` | integer | `10` | Maximum levels of recursive subdivision; `0` turns subdivision off |
+| `--max-nodes` | integer | `20` | Movable images per segment; a segment has `max_nodes + 2` images |
+| `--preopt/--no-preopt` | flag | `True` | Pre-optimize each input before the search |
+| `--align/--no-align` | flag | `True` | Align each input to the one before it before the search |
+| `--freeze-atoms` | text | `None` | Comma-separated 1-based atom indices to freeze, added to YAML `geom.freeze_atoms` and the Frozen-MM layer (see {ref}`Freeze atoms and restrain distances <freeze-atoms-and-restraints>`) |
+| `--climb/--no-climb` | flag | `True` | Run the GSM climbing-image search on the reactive segments; connecting paths never climb |
 
-```yaml
-# Minimal path-search YAML (every key and default: see YAML Reference)
-calc:
-  backend: uma
-search:
-  max_depth: 10            # recursive subdivision levels allowed (0 = no subdivision)
-  refine_mode: null        # peak | minima | null (auto)
-bond:
-  bond_factor: 1.2         # covalent-radius scaling for bond-change cutoff
-```
+See the [generated CLI reference](reference/commands/path_search.md) for every option.
 
-Single-structure settings also accept `stopt.lbfgs` / `stopt.rfo`;
-see [YAML Reference](yaml-reference.md#stopt) for aliases and conflict checks.
+> **Note:** In YAML (`--config`), `search.max_depth` sets the depth limit when `--max-depth` is not given, `search.kink_max_nodes` (default `3`) sets the number of nodes inserted in a kink, and `bond.bond_factor` (default `1.20`) scales the covalent radii used to decide whether a bond has changed. Every key is listed under [`search`](yaml-reference.md#search) and [`bond`](yaml-reference.md#bond) in the YAML Reference; [`stopt`](yaml-reference.md#stopt) also lists `stopt.lbfgs` and `stopt.rfo`, which set the single-structure optimizers as `opt.lbfgs` and `opt.rfo` do.
 
-Full schema (every key and default): [YAML Reference](yaml-reference.md).
+---
 
 ## Notes
 
-- If you only have **two** endpoints and do not need recursive refinement, prefer [path-opt](path-opt.md).
+* **Inputs**: give at least two structures, all with the same atoms in the same order as `--parm7`; fewer than two stops with an error.
+* **Templates for XYZ inputs**: `--ref-pdb` takes one full-system PDB per input, in the same order as `-i`; an `.xyz` input without its template stops with an error.
+* **No climbing between segments**: `--climb` applies to the reactive segments; the short paths that connect neighboring pieces always run without climbing.
+* **Inputs are protected**: if a fixed output name (`mep_trj.*`, `mep_plot.png`, `energy_diagram_MEP.png`, `summary.json`, `summary.log`) would replace an input file, `path-search` stops before writing anything.
+* **Conflicting optimizer settings in YAML**: setting the same key to different values in `opt:` and in the section of the optimizer that runs (`lbfgs:`, `opt.lbfgs:`, `stopt.lbfgs:`, or the `rfo` equivalents) stops the run with an error.
+* **Frozen atoms move slightly with DMF**: DMF holds frozen atoms with a harmonic restraint (k = 300 eV/Å², YAML `dmf.k_fix`), so they can drift a little; see [path-opt](path-opt.md#notes) and {ref}`Freeze atoms and restrain distances <freeze-atoms-and-restraints>`.
+* **DMF needs `cyipopt` and `pydmf`**: neither is installed with `mlmm-toolkit`; install them before you run `--mep-mode dmf` (see [path-opt](path-opt.md#notes)).
+* **Complex mechanisms** may need adjusted intermediates, scan settings, or convergence thresholds.
+* **Option priority**: default < YAML < command line (see {ref}`Configuration precedence <configuration-precedence>`).
 
-## See Also
+---
 
-- [Common Error Recipes](recipes-common-errors.md) — Symptom-first failure routing
-- [Troubleshooting](troubleshooting.md) — Detailed troubleshooting guide
-- [path-opt](path-opt.md) — Single-pass MEP optimization (no recursive refinement)
-- [opt](opt.md) — Single-structure geometry optimization
-- [all](all.md) — End-to-end workflow (uses single-pass path-opt by default; `--refine-path` for recursive path-search)
-- [trj2fig](trj2fig.md) — Plot energy profiles from MEP trajectories
-- [YAML Reference](yaml-reference.md) — Full `gs`, `bond`, `search` configuration options
+## See also
+
+* [path-opt](path-opt.md) — single-pass MEP between two structures
+* [scan](scan.md) — drive a bond step by step to make a path or a TS candidate
+* [tsopt](tsopt.md) — optimize each segment HEI into a TS
+* [Building the ML region and layers](model-setup.md) — make the full-system PDB, `real.parm7`, and the ML region used as inputs
+* [all](all.md) — the full workflow; `all --refine-path` runs `path-search` for its MEP step
+* [YAML Reference](yaml-reference.md) — every `search`, `bond`, `gs`, and `dmf` setting
+* [Glossary](glossary.md) — MEP, GSM, DMF, HEI, kink, and other terms
+* [Troubleshooting](troubleshooting.md) — when a run fails
+* {ref}`Exit codes <exit-codes>` — what each exit status means

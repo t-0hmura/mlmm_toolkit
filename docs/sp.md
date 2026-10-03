@@ -1,92 +1,104 @@
-# `sp`
+# `sp` (single point)
 
-`mlmm sp` evaluates the ML/MM ONIOM energy + atomic forces (optionally the active-coordinate ONIOM Hessian) at a single geometry. Use it for fast inspection of a layered structure before running an optimization, for comparing backends directly on the same ONIOM partition, or for generating reference Hessians outside the optimizer loop.
+## Overview
+
+`sp` computes the **ML/MM ONIOM energy and atomic forces** of one structure, and with `--hess` also the **Hessian** of the atoms that move. The ML region is computed with the selected backend and the rest of the enzyme with the Amber force field of `--parm7`. It runs no optimization: the geometry stays as given.
+
+### What it is for
+
+* **Check before an optimization**: confirm that the ML region, charge, and multiplicity are accepted and that the backend returns a finite energy and forces.
+* **Compare backends**: evaluate the same structure and ML region with UMA, ORB, MACE, AIMNet2, or DFT (`-b dft`).
+* **Reference values**: forces and Hessians as `.npy` files, and the energy in the console or `result.json`, for your own analysis.
+
+---
 
 ## Examples
 
-Energy + forces on a layered PDB (B-factor encodes ML / movable-MM / frozen):
+### 1. Energy and forces
+
+Evaluate a neutral singlet ML region with the default backend (UMA). `enzyme.pdb` is the full system, `real.parm7` its Amber topology, and `ml_region.pdb` the atoms of the ML region. `-q` and `-m` are the charge and multiplicity of the ML region.
 
 ```bash
-# energy + forces on a layered PDB (B-factor encodes ML / movable-MM / frozen)
-mlmm sp -i layered.pdb --parm7 real.parm7 -q 0 -m 1
+mlmm sp -i enzyme.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m 1 --out-json
 ```
 
-Also compute the active-coordinate ONIOM Hessian:
+The console prints `[sp] energy = … a.u.  |force|_max = … a.u./bohr`, and `result_sp/` has `forces.npy` and `result.json` with `energy_au`.
+
+### 2. Add the Hessian
+
+`--hess` also computes the Hessian of the moving atoms.
 
 ```bash
-# finite differences are used by default; select Analytical only for a backend that supports it
-mlmm sp -i layered.pdb --parm7 real.parm7 -q 0 -m 1 --hess
+mlmm sp -i enzyme.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m 1 --hess
 ```
 
-## Outputs
+---
 
-`sp` writes outputs under `result_sp/` by default. The ONIOM energy is also printed to stdout; the JSON files (written to both `result.json` and `summary.json` with identical content) are emitted only when `--out-json` is passed.
+## How it works
 
-| file | contents | written |
-|---|---|---|
-| `forces.npy` | `(N, 3)` array of ONIOM forces in atomic units (Hartree / Bohr) | always |
-| `hessian.npy` | Mass-unweighted ONIOM Hessian for the calculator's active coordinates (Hartree / Bohr²); inspect the saved array shape | only with `--hess` |
-| `result.json` / `summary.json` | ONIOM energy (a.u.), backend, charge/spin, paths to npy outputs, elapsed time | only with `--out-json` |
+1. **Building the ML/MM system**:
+`sp` reads the full system from `-i`, the Amber topology from `--parm7`, and the ML region from `--model-pdb`, `--model-indices`, or the B-factors of the input. The charge comes from `-q`, or from `-l` with PDB/mmCIF input. The Frozen-MM layer and the atoms given with `--freeze-atoms` are frozen.
+2. **Energy and forces**:
+The backend computes the ML region and the force field the MM atoms, once at the input geometry, and the two are combined into the ONIOM energy and forces. `sp` prints the energy and the largest force component and saves the forces to `forces.npy`; frozen atoms get zero force.
+3. **Hessian (with `--hess`)**:
+The Hessian covers the ML region and the movable MM atoms, without frozen atoms. `--hessian-calc-mode FiniteDifference` (the default) differentiates the forces numerically; `Analytical` uses the analytical Hessian of UMA, ORB, MACE, or AIMNet2 for the ML region and cannot run with `--uma-workers` (parallel MLIP predictor workers) above 1. The MM part uses finite differences by default; YAML `calc.mm_fd: false` selects the analytical MM Hessian of `hessian_ff`.
 
-`sp` does not write a `summary.log`.
+---
 
-## CLI options
+## Output files
 
-Command form:
+`sp` writes these files to `--out-dir`:
 
-```bash
-mlmm sp -i INPUT --parm7 PARM7 -q CHARGE [options]
-```
+| File | Contents | Written |
+| --- | --- | --- |
+| `forces.npy` | ONIOM forces as an `(N, 3)` array over all atoms of the full system, in Hartree/bohr | Always |
+| `hessian.npy` | ONIOM Hessian without mass weighting (Hartree/bohr²): `(3M, 3M)` for the M atoms of the Hessian, in input order | With `--hess` |
+| `result.json` | Energy (`energy_au`), backend, model, charge, multiplicity, ML region (source and atom count), paths to the `.npy` files, elapsed time | With `--out-json` |
+| `summary.json` | Copy of `result.json`; read `result.json` | With `--out-json` |
 
-| Input | Required | Notes |
-|---|---|---|
-| `-i, --input FILE` | yes | layered PDB/mmCIF, or XYZ coordinates accompanied by `--ref-pdb` |
-| `--ref-pdb FILE` | for XYZ | atom-order-identical full-system PDB/mmCIF supplying topology and layer metadata |
-| `--parm7 FILE` | yes | Amber `parm7` topology of the full enzyme (`--real-parm7` retained as alias) |
-| `-q, --charge INT` | yes (unless `-l` is given) | ML region total charge |
-| `-l, --ligand-charge TEXT` | no | per-ligand charge mapping (e.g. `SAM:1,GPP:-3`); derives the net charge when `-q` is omitted |
-| `-m, --multiplicity INT` | no | ML region spin multiplicity, 2S+1 (default `1`) |
+---
 
-### ML region selection
+## Main options
 
-Either embed the partition in the input PDB's B-factor (ML=0.0, movable-MM=10.0, frozen=20.0) with `--detect-layer` (the default), or pass it explicitly:
+The options shared by every ML/MM calculation command are explained once in {ref}`ML/MM options <mlmm-options>`; the table below lists only the options specific to `sp`.
 
-| flag | meaning |
-|---|---|
-| `--detect-layer / --no-detect-layer` | automatic B-factor layer detection (enabled by default) |
-| `--model-pdb FILE` | alternative PDB defining ML atoms |
-| `--model-indices TEXT` | comma-separated 1-based atom indices (e.g. `1-50,75,100-110`) |
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `-i, --input` | path | (required) | Full-system structure (`.pdb`, `.cif`, or `.xyz` with `--ref-pdb`) |
+| `-q, --charge` | integer | `None` | Charge of the ML region. Required unless `-l` is given |
+| `-m, --multiplicity` | integer | `1` | Spin multiplicity (2S+1) of the ML region |
+| `-l, --ligand-charge` | text | `None` | Per-residue formal charges (e.g. `'SAM:1,GPP:-3'`) or one total ligand charge, used to derive the ML-region charge when `-q` is omitted (PDB/mmCIF input or `--ref-pdb`) |
+| `-b, --backend` | text | `uma` | ML-region backend (`uma`, `orb`, `mace`, `aimnet2`, `dft`); for the `-b dft` settings see [Refine an MLIP TS with DFT](dft-backend.md) |
+| `--hess/--no-hess` | flag | `False` | Also compute the Hessian and write `hessian.npy` |
+| `--hessian-calc-mode` | `FiniteDifference` / `Analytical` | `FiniteDifference` | Hessian method (finite difference / analytical); used with `--hess` |
+| `--hessian-cutoff` | float | `None` | Put only the movable MM atoms within this distance (Å) of the ML region into the Hessian; by default all movable MM atoms |
+| `--freeze-atoms` | text | `None` | Atoms to freeze (1-based, comma-separated, e.g. `'1,3,5'`) |
+| `--embedcharge/--no-embedcharge` | flag | `False` | Electrostatic embedding of the MM point charges (xTB correction for an MLIP, PySCF point charges for `-b dft`) |
+| `-o, --out-dir` | path | `./result_sp/` | Output directory |
+| `--out-json/--no-out-json` | flag | `False` | Write `result.json` and `summary.json` |
 
-### Hessian backend
+See the [generated CLI reference](reference/commands/sp.md) for every option.
 
-When `--hess` is set, `--hessian-calc-mode Analytical` uses the selected
-backend's analytical/native Hessian path (UMA, ORB, MACE, or AIMNet2), while
-`FiniteDifference` uses central differences of forces. The MM backend defaults
-to `hessian_ff`, but MM Hessians use finite differences by default. Set
-`calc.mm_fd: false` for the `hessian_ff` analytical MM Hessian. An unavailable
-requested path is an error.
+> **Note:** In YAML (`--config`), `calc` sets the backend and `geom.freeze_atoms` adds frozen atoms (1-based), merged with `--freeze-atoms`.
 
-### Other options
+---
 
-The full flag list is in the generated [command reference](reference/commands/index.md); the table below covers the options that need explanation.
+## Notes
 
-| flag | default | meaning |
-|---|---|---|
-| `-b, --backend [uma\|orb\|mace\|aimnet2\|dft]` | `uma` | MLIP backend or optional DFT high-level calculator |
-| `--hess / --no-hess` | `--no-hess` | also compute and write `hessian.npy` |
-| `--hessian-calc-mode [Analytical\|FiniteDifference]` | `FiniteDifference` | Hessian mode when `--hess` is set; `Analytical` uses the backend's native path |
-| `--link-atom-method [scaled\|fixed]` | `scaled` | link-atom positioning |
-| `--mm-backend [hessian_ff\|openmm]` | `hessian_ff` | MM backend; Hessian method is controlled separately by `calc.mm_fd` |
-| `-o, --out-dir PATH` | `./result_sp/` | output directory |
-| `--precision [fp32\|fp64]` | backend-specific | numeric precision passed to the backend (unset: UMA/AIMNet2 fp32, ORB/MACE fp64) |
-| `--config PATH` | — | YAML config providing `calc.*`, `geom.*` defaults |
-| `--show-config / --dry-run` | off | print effective merged config / validate without running |
+* **Failed run**: a failed run prints a one-line `Error: …`, such as `ML region electron count inconsistent`, or `Unhandled error during single-point:` with a traceback, and exits with a nonzero code.
+* **Energy looks wrong**: if the energy is finite but looks wrong, re-check the ML region and its charge and multiplicity ({ref}`Charge / spin <charge--spin>`).
+* **Frozen atoms**: indices are 1-based, and frozen atoms get zero force. The Frozen-MM layer is frozen as well.
+* **Atomic charges**: `sp -b dft` gives the ML(DFT)/MM energy and forces only. For Mulliken, meta-Löwdin, and IAO charges of the ML region, use [`dft`](dft.md).
+* **Exit codes**: see {ref}`Exit codes <exit-codes>`.
 
-Run `mlmm sp --help-advanced` for the full list (hess-cutoff override, MCP-style result.json, etc.).
+---
 
-## See Also
+## See also
 
-- [`opt`](opt.md) — optimize the layered structure (microiteration)
-- [`tsopt`](tsopt.md) — refine a TS candidate (ML/MM ONIOM)
-- [`freq`](freq.md) — ONIOM vibrational analysis + QRRHO thermochemistry
-- [`dft`](dft.md) — single-point DFT counterpart on the ML region
+* [opt](opt.md) — optimize the structure
+* [tsopt](tsopt.md) — optimize a transition-state (TS) candidate
+* [freq](freq.md) — vibrational analysis and thermochemistry
+* [dft](dft.md) — DFT single point of the ML region with atomic charges
+* [Refine an MLIP TS with DFT](dft-backend.md) — `-b dft` settings (`--func-basis`, `--dft-engine`) and GPU memory
+* [MLIP Backends](backends.md) — choosing a backend, precision, and workers
+* [Troubleshooting](troubleshooting.md) — what to do when a run fails

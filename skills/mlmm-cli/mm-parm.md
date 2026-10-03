@@ -1,144 +1,90 @@
 # `mlmm mm-parm`
 
-## Purpose
+Builds the Amber topology of the full system with AmberTools (tleap, plus
+antechamber and parmchk2 for unknown residues). Run
+`mlmm mm-parm -i complex.pdb -l 'GPP:-3,SAM:1' --out-prefix system`. Success
+is `[mm-parm] Wrote: …` for `system.parm7`, `system.rst7`, and `system.pdb`.
 
-Generate Amber `parm7` (topology) + `rst7` (coordinates) + a LEaP-
-exported PDB from an input PDB by driving AmberTools (`tleap`,
-`antechamber`/`parmchk2` for non-standard ligands). The
-output is consumed by every downstream subcommand that needs MM
-gradients (`opt`, `tsopt`, `freq`, …).
+## When to use
 
-## Synopsis
+- Every calculation command except `all` needs `--parm7`; `all` runs
+  `mm-parm` itself unless you pass one.
+- Build it once per system and reuse it for R, intermediates, and P, which
+  have the same atoms in the same order.
 
-```bash
-mlmm mm-parm -i complex.pdb \
-    [-l 'GPP=-3,SAM:1'] \
-    [--ligand-mult 'HEM=1'] \
-    [--ff-set ff19SB|ff14SB] \
-    [--add-h --ph 7.0] \
-    [--add-ter / --no-add-ter] \
-    [--keep-temp] \
-    [--out-prefix system]
-```
+## Minimal run
 
-## Key flags
-
-| flag | type | default | description |
-|---|---|---|---|
-| `-i, --input` | path | required | Input PDB |
-| `-l, --ligand-charge` | str | none | Per-residue charges, e.g. `'GPP=-3,SAM:1'`. Both `=` and `:` separators accepted. |
-| `--ligand-mult` | str | none | Per-residue multiplicities, e.g. `'HEM=1,NO:2'` |
-| `--ff-set` | choice | `ff19SB` | Force-field set: `ff19SB` (with OPC3 water) or `ff14SB` (with TIP3P) |
-| `--add-h / --no-add-h` | flag | `--no-add-h` | Add hydrogens via PDBFixer at `--ph` |
-| `--ph` | float | `7.0` | pH for PDBFixer hydrogen placement |
-| `--add-ter / --no-add-ter` | flag | `--add-ter` | Insert TER records before/after target residues |
-| `--keep-temp / --no-keep-temp` | flag | `--no-keep-temp` | Keep the LEaP temp directory for debugging |
-| `--out-prefix` | str | input PDB stem | Output prefix (`<prefix>.parm7`, `<prefix>.rst7`, `<prefix>.pdb` when a prefix is set; `<stem>_parm.pdb` only when `--out-prefix` is omitted with `--add-h`) |
-| `--help-advanced` | flag | — | Reveal advanced flags |
-
-Force field selection is a single `--ff-set` choice; antechamber/GAFF2
-invocation for non-standard residues is automatic when needed.
-
-## Examples
-
-### Standard residues only
+Standard residues only:
 
 ```bash
 mlmm mm-parm -i complex.pdb --out-prefix system
-# → system.parm7, system.rst7, system.pdb in CWD
 ```
 
-### Non-standard ligand requiring antechamber/GAFF2
+A non-standard ligand, with hydrogens added at pH 7 and ff14SB:
 
 ```bash
-mlmm mm-parm -i complex.pdb \
-    --ligand-charge 'GPP:-3,SAM:1' \
-    --ff-set ff14SB \
-    --add-h --ph 7.0 \
-    --out-prefix system
+mlmm mm-parm -i complex.pdb --ligand-charge 'GPP:-3,SAM:1' \
+    --ff-set ff14SB --add-h --ph 7.0 --out-prefix system
 ```
 
-`mm-parm` invokes `antechamber -at gaff2 -c bcc` and `parmchk2`
-automatically for residues in `--ligand-charge` whose names are not in
-the Amber library, producing GAFF2-typed parameters in the temp dir.
-With `--keep-temp` you can inspect the generated `.frcmod` and
-`tleap.in` afterwards.
+Each residue that tleap does not know is parameterized with
+`antechamber -at gaff2 -c bcc` and `parmchk2`, using its charge from `-l` (0
+if not given) and its multiplicity from `--ligand-mult` (1 if not given).
+`--ff-set` is `ff19SB` (default, OPC3 water) or `ff14SB` (TIP3P water).
+`--keep-temp` keeps the working directory `parm7build_*`, with the `.frcmod`
+and the tleap logs.
 
-## Output
+## Judge success
 
-Files are written **directly to the current working directory** (no
-`mm_parm/` subdirectory):
+- The files are written to the current directory, with no subdirectory and no
+  `result.json`: `<prefix>.parm7` (topology), `<prefix>.rst7` (coordinates,
+  and the box if there is water), and `<prefix>.pdb`.
+- `<prefix>.pdb` has the same atoms in the same order as the `parm7`, with
+  element columns filled. It is written when `--out-prefix` is given, or as
+  `<input>_parm.pdb` with `--add-h` and no prefix; otherwise only `parm7` and
+  `rst7` are written.
+- `<prefix>` defaults to the input name; choose another so that `<prefix>.pdb`
+  does not replace the input.
+- To check the topology:
 
-```
-system.parm7              # Amber topology
-system.rst7               # Coordinates (and box if water)
-system.pdb                # Topology-matched PDB with element columns filled
-```
+  ```bash
+  parmed -p system.parm7 -i <(echo "summary"; echo "go")
+  ```
 
-There is **no `result.json` output**. To verify the parm:
+## Pitfalls and recovery
 
-```bash
-parmed -p system.parm7 -i <(echo "summary"; echo "go")
-```
+- AmberTools must be on `PATH`: [ambertools.md](../mlmm-install-backends/ambertools.md).
+- `-l` accepts both `=` and `:` (`'GPP=-3,SAM:1'`). Use `:` to match the rest
+  of the toolkit.
+- Use `--add-h` only when the PDB lacks hydrogens at the protonation you want;
+  otherwise the PDB goes to tleap as it is.
+- The `parm7` holds no layers. Downstream commands read the ML, Movable-MM,
+  and Frozen-MM layers from the PDB B-factors written by `define-layer`.
+- Charge and hydrogens must agree. AM1-BCC runs `sqm`, which needs a
+  closed-shell electron count at multiplicity 1. `mm-parm` and `all` check
+  this before antechamber and stop with
+  `[<RES>] electron-count check failed before antechamber`, naming the residue.
+  Without that check, `sqm` aborts with `The number of electrons is odd`.
+- Count the hydrogens before a run (Σ Z − q must be even for closed shell):
 
-## Caveats
+  ```bash
+  awk '$4=="<RES>" && substr($0,77,2)~/H/' input.pdb | wc -l
+  ```
 
-- AmberTools must be on PATH (see `../mlmm-install-backends/ambertools.md`).
-- The `--ligand-charge` syntax accepts both `=` and `:` (`'GPP=-3,SAM:1'`
-  is fine). For consistency with the rest of the toolkit's `-l` flags,
-  use `:`.
-- Use `--add-h` only if your input PDB lacks hydrogens at the desired
-  protonation. Otherwise the PDB is fed to LEaP as-is.
-- The B-factor layer encoding (ML / movable-MM / frozen) is **not**
-  carried into `parm7`; downstream subcommands pair `parm7` + `rst7`
-  with the layer-encoded PDB via `--ref-pdb` or `--detect-layer`.
+- SAM has 22 H at charge 0 (NH2/COO⁻/S⁺ zwitterion) and 23 H at +1
+  (NH3⁺/COO⁻/S⁺, the usual biological form). A −3 diphosphate such as DMAPP
+  has 9 H. ATP / ADP: 12–13 H for the usual −4 / −3, depending on the
+  dataset; count the H in your file. Do not add or remove
+  protons to fix the parity; keep the dataset's protonation and change `-l`:
 
-## Antechamber pitfalls (sulfonium / phosphate / odd-electron residues)
+  ```bash
+  mlmm mm-parm -i in.pdb -l 'SAM:0,...' --out-prefix system   # 22 H
+  mlmm mm-parm -i in.pdb -l 'SAM:1,...' --out-prefix system   # 23 H
+  ```
 
-`antechamber -c bcc` calls `sqm` for AM1-BCC charge fitting. `sqm` requires
-**closed-shell** electron count for `--ligand-mult 1`. If your `-l` value
-disagrees with the actual protonation H-count, `sqm` aborts with:
+## Next step
 
-```
-Info: Total number of electrons: <N>; net charge: <q>
-Info: The number of electrons is odd (<N>).
-... Fatal Error! Cannot properly run "sqm".
-```
-
-Pre-flight (≤ 30 s, login node):
-
-```bash
-awk '$4=="<RES>" && substr($0,77,2)~/H/' input.pdb | wc -l   # H count
-# Σ(Z_atoms) - q must be even for closed-shell sqm
-```
-
-Common collisions:
-
-| Residue | H count → likely net charge |
-|---|---|
-| SAM (sulfonium S+) | 22 H → 0 (NH2/COO⁻/S⁺ zwitterion); 23 H → +1 (NH3⁺/COO⁻/S⁺ canonical biological) |
-| DMAPP (diphosphate −3) | 9 H → −3 closed-shell; otherwise odd |
-| ATP / ADP | 12-13 H → −4 / −3 canonical; verify per dataset |
-
-Do not auto-protonate to "fix" parity — respect the dataset's protonation choice and adjust `-l`.
-
-Copy-paste recovery (match `-l` to the PDB's actual SAM H count):
-
-```bash
-# 22 H (neutral zwitterion; e.g. Kulik 2016 COMT model):
-mlmm mm-parm -i in.pdb -l 'SAM:0,...' --out-prefix system
-# 23 H (canonical biological cation; e.g. bezA / Tsutsumi 2022):
-mlmm mm-parm -i in.pdb -l 'SAM:1,...' --out-prefix system
-```
-
-(`mlmm mm-parm` / `mlmm all` now run an electron-count preflight that names
-the residue and the SAM 22 H = 0 / 23 H = +1 rule before antechamber.)
-
-## See also
-
-- `../mlmm-structure-io/parm7.md` — what `parm7` / `rst7` actually contain.
-- `../mlmm-install-backends/ambertools.md` — install AmberTools.
-- `define-layer.md` — assign ML / movable-MM / frozen labels on the
-  PDB after `mm-parm` (the parm7 itself is layer-agnostic).
-- `extract.md` — extracts a binding pocket; orthogonal to parm
-  generation.
+- [define-layer.md](define-layer.md): assign layers on `system.pdb`.
+- [extract.md](extract.md): cut the ML region from `system.pdb`.
+- [Amber parm7 and rst7](../mlmm-structure-io/formats.md#amber-parm7-and-rst7):
+  what the two files contain.

@@ -49,6 +49,9 @@ myst_enable_extensions = [
 
 myst_heading_anchors = 3
 
+# Keep "--flag" in link text as typed (no en/em-dash conversion).
+smartquotes_action = 'qe'
+
 # MyST substitutions for version display in Markdown files
 # Use {{ version }} or {{ release }} in .md files
 myst_substitutions = {

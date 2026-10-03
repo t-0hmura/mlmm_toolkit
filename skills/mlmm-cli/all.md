@@ -1,195 +1,112 @@
-# `mlmm all` — base orientation
+# `mlmm all`
 
-## Purpose
+`all` builds the ML region, the Amber topology, and the layers of the full
+system, runs the MEP search or a staged scan, and, when asked, TS optimization,
+IRC, frequencies, and DFT in one command. It succeeded when the console prints
+`[Imaginary modes] n=1 (...)` for each TS and `Scientific status: success`
+under the last `====== Pipeline summary ======`.
 
-`all` prepares the system and runs an MEP by default. `--tsopt` adds TS/IRC
-and endpoint optimization; `--thermo` and `--dft` add frequency/thermochemistry
-and DFT single points (both require `--tsopt`). The MEP stage is single-pass `path-opt` by default;
-recursive `path-search` runs only with `--refine-path`. It
-resolves three input modes via flag context (see the three companion
-mds: `all-endpoint-mep.md`, `all-scan-list.md`, `all-ts-only.md`).
+## When to use
 
-Use `all` when you want a **single qsub-able invocation** that
-produces R/TS/P/IM coordinates for MEP runs or R/TS/P
-coordinates for TS-only runs, plus barrier numbers for one or more
-elementary steps.
+Use `all` when one job should produce R, TS, P (and IM) structures and barrier
+candidates for one or more steps. The MEP stage runs single-pass `path-opt` by
+default; `--refine-path` runs the recursive `path-search` instead. `--thermo`
+and `--dft` add frequencies with thermochemistry and DFT single points on R,
+TS, and P; both need `--tsopt`. To inspect each stage before the next, run the
+stages one by one ([overview](../mlmm-overview/SKILL.md#run-stage-by-stage)).
 
-## Synopsis
+## Pick the mode
+
+| Input | Mode (`Pipeline mode` in `summary.log`) | Page |
+|---|---|---|
+| Two or more structures in reaction order | Multi-structure MEP search (`MEP`) | [all-endpoint-mep.md](all-endpoint-mep.md) |
+| One structure with `-s` | Single structure + scan (`Scan`) | [all-scan-list.md](all-scan-list.md) |
+| One structure with `--tsopt` and no `-s` | TS-only mode (`TS-only`) | [all-ts-only.md](all-ts-only.md) |
+
+One structure without `-s` or `--tsopt` stops with `BadParameter` ("Provide at
+least two structures with -i/--input in reaction order, or use one structure
+with --scan-lists or --tsopt."). `-s` with two or more structures also stops
+("--scan-lists requires exactly one input structure"). One structure with both
+`-s` and `--tsopt` runs the scan mode.
+
+## Minimal run
 
 ```bash
-mlmm all [--parm7 enzyme.parm7] -i <input(s)> [-c <centers>] [-l 'RES:Q,...'] \
-    [--scan-lists '...'] [--tsopt] [--thermo] [--dft] \
-    [-b uma|orb|mace|aimnet2|dft] [-o result_all/]
+mlmm all -i <inputs> [-c <centers>] [-l 'RES:Q,...'] [-s '...'] \
+    [--tsopt] [--thermo] [--dft] [-b uma|orb|mace|aimnet2|dft] [-o result_all/]
 ```
 
+`-i` takes full-system structures. Without `--parm7`, `all` builds the topology
+with AmberTools; without `-c`, the ML region comes from the B-factor layers of
+the input or from `--model-pdb`. Add `--dry-run` first: it runs the preparation
+and the charge and electron-parity checks in a temporary directory, prints the
+plan, and skips the calculations. Each mode page has a complete command.
 
-## ML/MM-aware flags (mlmm-toolkit specific)
+## Judge success
 
-In addition to the common flags below,
-**`mlmm-toolkit` requires an Amber topology** and supports layer-aware
-selection. Most subcommands accept:
-
-| flag | purpose |
-|---|---|
-| `--parm7 FILE` | Amber `parm7` topology — optional; when omitted, `mm_parm` generates a parm7 from the input PDB |
-| `--model-pdb FILE` | Explicit ML-region PDB; takes precedence over extraction- or B-factor-derived ML membership |
-| `--detect-layer` | Automatically read valid B-factor MM sublayers; without explicit or extraction-derived ML membership, B-factors also define ML membership. Enabled by default. |
-| `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |
-| `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
-| `-q, --charge` | Override the net ML-region/model charge (highest priority) |
-| `-l, --ligand-charge` | Per-residue charge mapping for ML region |
-
-Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
-
-## Key flags (cross-mode)
-
-> **Note:** `--max-cycles-gsm` / `--dmf-max-iterations` control only the selected MEP child; neither is a shared
-> all-stage budget. Other stages retain their dedicated options or defaults.
-
-| Flag | Type | Default | Description |
-|---|---|---|---|
-| `-i, --input` | path(s) | required | One or more reaction-ordered structures, or a TS-candidate alone |
-| `-c, --center` | str | (uses input as-is) | Substrate + catalytic residues; every match starts radius expansion |
-| `-l, --ligand-charge` | str | none | Per-residue charges, e.g. `'SAM:1,GPP:-3'` |
-| `-q, --charge` | int | derived from `-l` | Net ML-region/model charge override |
-| `-m, --multiplicity` | int | 1 | Spin multiplicity (2S+1) |
-| `-r, --radius` | float | 2.6 | Pocket radius (Å) when `-c` triggers extraction |
-| `--scan-lists` | repeated | none | Staged distance, angle, or dihedral targets (mode 2 — `all-scan-list.md`) |
-| `--thresh` | str | `gau` | Convergence preset for single-structure optimization and scan relaxation |
-| `--thresh-gsm` | str | `gau_loose` | Convergence preset for the GSM string optimizer |
-| `--dmf-tol` | str/float | `tight` | DMF IPOPT dual-infeasibility tolerance: `tight`, `middle`, `loose`, or a positive float |
-| `--tsopt / --no-tsopt` | flag | off | Run TS optimization after MEP, or enter TS-only mode when exactly one input is supplied without `--scan-lists` |
-| `--tsopt-from-mep-tan / --no-tsopt-from-mep-tan` | toggle | on | Select the initial TS root from the HEI MEP tangent; off selects from the initial-structure Hessian modes |
-| `--thermo / --no-thermo` | flag | off | Run freq + thermochemistry |
-| `--dft / --no-dft` | flag | off | Run DFT single points on R/TS/P, including TS-only runs; incompatible with `-b dft` |
-| `--dump / --no-dump` | toggle | off | Control optional optimizer trajectories/restarts. With `--thermo`, the required child `thermoanalysis.yaml` handoff is retained even under `--no-dump`. |
-| `--func-basis` | str | `wb97m-v/def2-svp` | DFT functional/basis (when `--dft` is enabled) |
-| `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |
-| `--precision` | str | backend-specific | Unset uses UMA/AIMNet2 fp32 and ORB/MACE fp64 |
-| `--uma-workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
-| `--irc-step-size` | float | IRC default `0.10` | Forward a smaller EulerPC maximum step; try `0.05` when an IRC branch stops after only a few frames |
-| `--irc-never-stop / --no-irc-never-stop` | flag | off | Ignore IRC gradient and energy endpoint criteria and trace to the cycle cap; propagation failures still stop |
-| `--reject-uphill / --no-reject-uphill` | toggle | off | Opt in to rejection above `1e-4` Hartree during Hessian/RFO post-IRC endpoint re-optimization only. At the emergency floor, the retained endpoint receives a final convergence check. It never affects TS optimization or path search. |
-| `-o, --out-dir` | path | `./result_all/` | Top-level output directory |
-| `--config` | path | none | YAML config applied before CLI flags |
-| `--show-config` | flag | off | Print resolved config and continue execution |
-| `--dry-run` | flag | off | Run extraction/setup and charge/parity validation in a temporary directory, print the plan, and skip compute stages |
-| `--help-advanced` | flag | — | Reveal advanced flags (extraction / `mm_parm` / freeze-atom / stage-specific overrides) |
-
-Run `mlmm all --help-advanced` for the full list (it changes
-between versions).
-
-## Mode selection cheatsheet
-
-```
-Single -i input.{xyz,pdb,cif,mmcif} + --tsopt (no --scan-lists)
-    └── all-ts-only.md     (TS candidate; tsopt+IRC, plus freq with --thermo)
-
-Single -i input.pdb + --scan-lists '...'
-    └── all-scan-list.md   (single reactant + staged internal-coordinate scans)
-
-Multiple -i 1.R.pdb [2.IM.pdb ...] N.P.pdb (reaction-ordered)
-    └── all-endpoint-mep.md (multi-endpoint MEP)
-```
-
-A single input without either `--scan-lists` or `--tsopt` is rejected.
-
-## Output tree (typical)
-
-```
-result_all/
-├── summary.json                    # machine-readable per-stage results
-├── summary.log                     # human-readable text + dir tree
-├── mep_trj.pdb / mep_trj.cif / mep_trj.xyz # CIF companion for bridged input
-├── mep_plot.png / energy_diagram_MEP.png
-├── ml_region.pdb / mm_parm/ / layered/   # reusable ONIOM setup (--model-pdb / --parm7 inputs)
-├── ml_region_without_linkH.{xyz,pdb}      # exact ML selection; PDB companion for PDB input
-├── ml_region_with_linkH.{xyz,pdb}         # ML model with parm7-derived link H
-├── segments/
-│   └── seg_NN/                     # canonical structures + per-stage output
-│       ├── reactant.pdb / .cif / .xyz  # MEP / TS-only runs
-│       ├── ts.pdb / .cif / .xyz
-│       ├── product.pdb / .cif / .xyz   # MEP / TS-only runs
-│       ├── ts/                     # TS optimization output (--tsopt)
-│       ├── irc/                    # forward/backward IRC trajectories
-│       ├── freq/                   # frequencies + thermo (--thermo)
-│       └── dft/                    # single-point DFT (--dft)
-└── _work/                          # pipeline scratch (safe to delete)
-    ├── pockets/ / scan/ / add_elem_info/
-    └── path_opt/                   # raw MEP-engine output; absent in TS-only mode
-        ├── seg_NN_mep/ / hei_seg_NN.* / mep_trj.xyz / mep_trj.pdb
-        └── energy_diagram_*.png
-```
-
-`segments/seg_NN/` is the primary place to look for canonical structures:
-R/TS/P/IM for MEP runs or R/TS/P for TS-only runs. The higher-energy
-endpoint is reactant in TS-only mode; inspect structures for chemical identity.
-Per-stage working
-files live in its `ts/`, `irc/`, `freq/`, `dft/` subdirectories. See
-`mlmm-workflows-output/SKILL.md` for canonical path conventions and the
-bond-change interpretation.
-
-## Output keys (summary.json — top level)
+- **Console**: `[Imaginary modes] n=1 (...)` per TS, and `Execution status:` and `Scientific status:` under the last `====== Pipeline summary ======`. When the result is not `success`, `RESULT WARNING:` lines give the reasons.
+- **`summary.json`**: `scientific_status` is `success`, `partial`, or `failed`, with `scientific_status_reasons`. `success` means every requested stage converged. A TS with n_imag ≥ 2 gives `partial`; n_imag = 0 stops before IRC and is never `success`.
+- **TS**: a successful TS optimization gives one imaginary mode along the reaction coordinate. Read `post_segments[].tsopt.n_imaginary_modes` and `.imaginary_frequencies_cm`, and play `segments/seg_NN/ts/vib/imag_*_trj.xyz` to see that the mode moves the bonds that form or break. n_imag comes from the final Hessian of the ML and movable MM atoms (PHVA); only the rigid motions that leave the frozen atoms in place are projected out, so with a frozen MM layer usually none are.
+- **Endpoints**: whether they are the intended R and P is for you to check. Compare `segments/seg_NN/reactant.*` and `product.*`, and the bond changes in section [2] of `summary.log`, with the intended states. Even if the IRC does not converge, the result is usable when the endpoint optimizations reach the intended R and P.
+- **Barriers**: `segments[].barrier_kcal` is the barrier on the MEP before TS optimization (TS − R in TS-only mode). After `--tsopt`, read `post_segments[].mlip.barrier_kcal`; `gibbs_mlip` (`--thermo`), `dft` (`--dft`), and `gibbs_dft_mlip` (both) carry the same keys. `rate_limiting_step` is the highest local barrier at the highest method available for every segment, not a microkinetic assignment.
 
 ```python
 import json
 d = json.load(open("result_all/summary.json"))
-print(d["execution_status"])          # "completed" / "failed"
-print(d["scientific_status"])         # "success" / "partial" / "failed"
-print(d["mlmm_toolkit_version"])
-print(d["charge"], d["spin"])
-print(d["rate_limiting_step"])        # legacy key: highest local segment barrier
-print(len(d["segments"]))             # number of elementary steps
+print(d["execution_status"], d["scientific_status"], d.get("scientific_status_reasons"))
+print(d["mlmm_toolkit_version"], d["charge"], d["spin"], d["rate_limiting_step"])
 for seg in d["segments"]:
-    print(seg["index"], seg["barrier_kcal"], seg["delta_kcal"])
+    print(seg["index"], seg["kind"], seg["barrier_kcal"], seg["delta_kcal"], seg["bond_changes"])
+for post in d.get("post_segments", []):   # match to segments by "index"
+    print(post["index"], post.get("tsopt", {}).get("n_imaginary_modes"))
 ```
 
-Per-segment fields are `index`, `tag`, `kind`, `barrier_kcal`, `delta_kcal`,
-and `bond_changes` — the segment record has no `structures` / `tsopt` / `irc` /
-`freq` / `dft` sub-objects. The geometries live on disk directly under
-`segments/seg_NN/`, and each stage's working files under the
-`segments/seg_NN/` stage subdirs (`ts/`, `irc/`, `freq/`, `dft/`); a per-stage
-`result.json` is written for the `ts` and `irc` stages (and for endpoint-opt and
-path-opt), because `all` passes `--out-json` to those children itself. `freq` and
-`dft` are not given it — rerun those standalone with `--out-json` if you need one.
-
-The fixed constrained treatment removes only full-system rigid motions that leave
-frozen anchors fixed. Its generic rank is 6/3/1/0 for 0/1/2/3+
-non-collinear anchors; realistic ML/MM boundaries normally rank 0, and
-all-frozen input is an error. A stale non-constrained YAML value fails
-explicitly. When
-stage `result.json`/`thermoanalysis.yaml` artifacts are written, their
-`rigid_projection` block records treatment, rank, Hessian source, and shape.
-This treatment is unrelated to the internal `tsopt --ref-mode` MEP tangent.
+Each `segments` record has `index`, `tag`, `kind`, `barrier_kcal`,
+`delta_kcal`, and `bond_changes`, and no stage sub-objects; requested
+post-processing is in `post_segments`. Key details:
+[summary.json](../mlmm-overview/outputs.md#summaryjson).
 
 ## Resume a failed segment
 
-Repeat the original `all` command with the same MEP-defining settings and
-`--out-dir`, add `--resume-segment N`, and change only post-processing options.
-The command verifies the saved artifacts, preserves earlier completed
-segments, reruns segment `N` and later segments, and rebuilds the aggregate
-summary.
+Repeat the original command with the same inputs, extraction, layer, path, and
+calculator options and the same `--out-dir`, add `--resume-segment N`, and
+change only post-processing options (for example `--tsopt-max-cycles`). The
+saved artifacts are checked, earlier segments are kept, and segment N onward,
+the summary, and the diagrams are written again. `--resume-segment` needs
+`--tsopt`, `--thermo`, or `--dft`, cannot be combined with `--dry-run`, and
+stops with an error when the saved inputs, ML region, topology, layered
+structures, or MEP do not match the command.
 
-## Caveats
+## Pitfalls and recovery
 
-- `--scan-lists` is a Python literal-eval expression. Most
-  shell-quoting trouble traces back to single vs double quotes.
-- If the top-level `scientific_status` in `summary.json` is `"partial"` or `"failed"`,
-  read `status_reasons` and the matching `summary.log` block. Per-stage
-  `result.json` exists only for `ts/` and `irc/` (and endpoint-opt and
-  path-opt), not for `freq/` or `dft/`.
-- `segments/seg_NN/` may contain current-run partial artifacts after a
-  later-stage failure; trust leaf outcomes and current-output claims, not
-  directory existence. Failed segments can also leave engine scratch under
-  `_work/path_opt/` (`_work/path_search/` with `--refine-path`).
+- **`-s` quoting.** Give `-s` once and list every literal after it; each literal is one stage. Each literal is a Python literal: single quotes outside, double quotes inside. Most quoting trouble comes from mixing the two.
+- **Cycle limits.** `--max-cycles-gsm` and `--dmf-max-iterations` bound only the selected MEP stage; scan, TS, IRC, freq, and DFT keep their own limits (for example `--tsopt-max-cycles`, `--irc-max-cycles`).
+- **Status is not `success`.** Read `scientific_status_reasons`, then the matching block of `summary.log`. The TS and IRC stages (and endpoint and path optimization) write `result.json`; `freq/` and `dft/` do not, so rerun those standalone with `--out-json` when you need one.
+- **A segment directory exists but the stage failed.** `segments/seg_NN/` can hold partial files from this run after a later stage failed; check `summary.json` and the stage `result.json`, not the directory. A failed segment can also leave MEP scratch in `_work/path_opt/` (`_work/path_search/` with `--refine-path`).
+- **TS stops before IRC.** IRC starts only when the TS optimization converged, its final Hessian was computed, and n_imag ≥ 1. With n_imag ≥ 2, IRC runs with a warning along the mode closest to the MEP direction; it is a diagnostic, not a first-order TS. With n_imag = 0, a cycle limit (no final Hessian), a plateau stop (`--stop-plateau`, the Hessian still gives n_imag), `--skip-final-freq`, or a failed Hessian, the run stops before IRC, keeps the TS files in `segments/seg_NN/ts/`, and does not post-process later segments. Next: [Wrong n_imag](../mlmm-overview/ts-strategy.md#3-wrong-n_imag-after-ts-optimization) and [When the TS does not come out](../mlmm-overview/ts-strategy.md#6-when-the-ts-does-not-come-out).
+- **Endpoint optimization trouble.** A non-converged endpoint gives `partial` and keeps `segments/seg_NN/endpoint_opt/`; an endpoint error is written to `endpoint_opt/failure.json`, and that segment skips freq and DFT.
+- **`--dft` with `-b dft`.** The run stops at startup. Run `mlmm sp -b dft` as a separate job.
+- **No AmberTools.** Without `--parm7`, the run stops when AmberTools is not found; pass a topology built elsewhere with `--parm7`.
+- **No ML region.** Without `-c`, `--no-detect-layer` and no `--model-pdb` stop with an error.
 
-## See also
+## Outputs
 
-- `all-endpoint-mep.md`, `all-scan-list.md`, `all-ts-only.md` — three
-  invocation modes.
-- `extract.md`, `path-search.md`, `tsopt.md`, `irc.md`, `freq.md`,
-  `dft.md` — the underlying subcommands.
-- `mlmm-workflows-output/SKILL.md` — output schema and
-  R/TS/P coordinate conventions.
-- Defaults: `import mlmm.core.defaults` (`OUT_DIR_ALL`, plus the
-  per-stage `*_KW` dicts).
+Cite `segments/seg_NN/reactant.*`, `ts.*`, and `product.*` (written with
+`--tsopt`). The top of `--out-dir` has `summary.json`, `summary.log`,
+`mep_trj.xyz` (and `.pdb`), `energy_diagram_MEP.png`,
+`energy_diagram_*_all.png`, and the reusable setup: `ml_region.pdb` (for
+`--model-pdb`), `mm_parm/` (for `--parm7`), `layered/`, and
+`ml_region_{without,with}_linkH.xyz`. Each `seg_NN/` has `ts/`, `irc/`,
+`endpoint_opt/`, `freq/{R,TS,P}/` (`--thermo`), and `dft/{R,TS,P}/` (`--dft`).
+With `--thermo`, `thermoanalysis.yaml` is kept even under `--no-dump`.
+`_work/` holds intermediate files, including the TS candidates (HEI): `pockets/`
+(with `-c`), `scan/` (with `-s`), and `path_opt/` (`path_search/` with
+`--refine-path`) with `hei_seg_NN.*`; keep it while you use them. Full tree:
+[Output tree](../mlmm-overview/outputs.md#output-tree).
+
+## Next step
+
+- Mode pages: [all-endpoint-mep.md](all-endpoint-mep.md), [all-scan-list.md](all-scan-list.md), [all-ts-only.md](all-ts-only.md).
+- The stages it runs: [extract.md](extract.md), [mm-parm.md](mm-parm.md), [define-layer.md](define-layer.md), [path.md](path.md), [tsopt.md](tsopt.md), [irc.md](irc.md), [freq.md](freq.md), [dft.md](dft.md).
+- [Reading outputs](../mlmm-overview/outputs.md): `summary.json` keys and R/TS/P paths.
+- Defaults (`OUT_DIR_ALL` and the per-stage `*_KW`): [Where flags and defaults live](SKILL.md#where-flags-and-defaults-live).

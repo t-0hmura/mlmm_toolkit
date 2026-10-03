@@ -1,152 +1,145 @@
-# `dft`
+# `dft` (DFT single point)
 
-Run an energy-only single-point DFT calculation on the ML region using GPU4PySCF (or CPU PySCF), then recombine the high-level energy with MM evaluations to obtain the ML(dft)/MM total energy. DFT gradients and forces are not requested. Use it to evaluate stationary-point energies (R / TS / P / IM) at the DFT level after an MLIP path search, or to sanity-check an MLIP barrier against a benchmark functional / basis. The default functional/basis is `wb97m-v/def2-svp`. Results include energy and population analysis (Mulliken, meta-Lowdin, IAO charges).
+## Overview
 
-```
-E_total = E_REAL_low + E_ML(DFT) - E_MODEL_low
-```
+`dft` runs a **DFT (density functional theory) single point on the ML region** of one ML/MM structure with GPU4PySCF (GPU) or PySCF (CPU), and combines it with the MM energies into the **ML(DFT)/MM total energy**, `E_total = E_REAL_low + E_ML(DFT) - E_MODEL_low`. It also reports the **atomic charges** of the ML region. It computes energies only, no forces.
+
+### What it is for
+
+* **DFT energies on ML/MM geometries**: single points on the reactant (R), transition state (TS), and product (P) optimized with an MLIP for the ML region.
+* **Charge distribution**: per-atom charges of the ML region, and spin densities for open shells.
+* **Electrostatics of the protein**: `--embedcharge` puts the MM point charges into the DFT Hamiltonian.
+
+---
 
 ## Examples
 
-Install `mlmm-toolkit[dft]` for native CUDA 13 GPU4PySCF, or `mlmm-toolkit[dft-cuda12]` on a CUDA 12 site.
+### 1. GPU single point
 
-Minimal single-point DFT on the ML region:
-
-```bash
-# Minimal single-point DFT on the ML region
-mlmm dft -i enzyme.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 -m 1 --out-dir ./result_dft
-```
-
-Change functional/basis for a higher-level single point:
+Compute the energy and charges of a neutral singlet ML region on the GPU. `enzyme.pdb` is the full system, `real.parm7` its Amber topology, and `ml_region.pdb` the atoms computed with DFT. `-q` and `-m` are the charge and multiplicity of the ML region.
 
 ```bash
-# Change functional/basis for a higher-level single point
-mlmm dft -i enzyme.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 -m 1 --func-basis "wb97m-v/def2-tzvpd" --out-dir ./result_dft_tz
+mlmm dft -i enzyme.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m 1 \
+    --out-dir ./result_dft
 ```
 
-Tighten the SCF convergence if needed:
+The console prints `E_DFT (Hartree): …` and `E_total ML(dft)/MM (Hartree): …`, and `result_dft/result.yaml` has `energy.converged: true`.
+
+### 2. Tighter SCF and a larger basis
+
+Tighten the SCF (self-consistent field) and use a larger basis.
+
+```bash
+mlmm dft -i enzyme.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m 1 \
+    --func-basis 'wb97m-v/def2-tzvpd' --scf-tol 1e-10 --scf-max-cycles 200 \
+    --out-dir ./result_dft_tight
+```
+
+### 3. CPU only
+
+Run with CPU PySCF on a machine without a GPU.
+
+```bash
+mlmm dft -i enzyme.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m 1 \
+    --dft-engine cpu --out-dir ./result_dft_cpu
+```
+
+### 4. ML-region charge from ligand charges
+
+Without `-q`, `-l` gives the formal charges of the ligands, and `dft` adds the charges of the amino-acid residues and ions in the ML region to get its charge; the console prints the breakdown.
 
 ```bash
 mlmm dft -i enzyme.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
- -q 0 -m 1 --scf-tol 1e-10 --scf-max-cycles 200 --out-dir ./result_dft_tight
+    -l 'SAM:1,GPP:-3' -m 1 --out-dir ./result_dft_ligand
 ```
 
-## Workflow
+---
 
-1. **Input handling** -- `MLMMCore` loads the full enzyme PDB (`-i`), Amber topology (`--parm7`), and ML-region definition (`--model-pdb` or `--model-indices` or B-factor detection via `--detect-layer`). Unless YAML supplies explicit `link_mlmm` pairs, it appends link hydrogens at parm7 bonds that cross the ML/MM selection; distance is not used to perceive those bonds.
-2. **SCF build** -- `--func-basis` is parsed into functional and basis. Low-memory mode is on by default: closed-shell GPU calculations, including electrostatic embedding, use `gpu4pyscf.dft.rks_lowmem.RKS`; open-shell GPU and CPU use standard direct-JK RKS/UKS without retaining a density-fitting tensor. Embedded `rks_lowmem` calculations keep both the QM and MM one-electron terms in packed lower-triangle host storage. Calculator workflows rebuild the geometry-bound low-memory method and reuse the previous GPU density as `dm0`. `--no-dft-low-memory` enables density fitting and can improve difficult SCF convergence when sufficient memory is available. PySCF threads and host RAM are detected from scheduler/process limits; `--dft-nprocs` and `--dft-memory` override them. The `--embedcharge` option embeds MM point charges directly in the PySCF Hamiltonian; the DFT workflow does not apply the optional xTB correction used by MLIP workflows.
-3. **ML(dft)/MM recombination** -- DFT replaces only `MLMMCore`'s high-level MODEL energy. `MLMMCore` evaluates REAL-low and MODEL-low with the selected MM backend and applies the subtractive expression. This workflow has no separate topology builder, MM calculator path, or DFT force evaluation.
-4. **Population analysis & outputs** -- Mulliken, meta-Lowdin, and IAO charges and spin densities (UKS only) are written alongside the combined energy block in `result.yaml`.
+## How it works
 
-## Outputs
+1. **Building the ML region**:
+`dft` reads the full system from `-i`, the Amber topology from `--parm7`, and the ML region from `--model-pdb`, `--model-indices`, or the B-factors of the input. For an XYZ input, `--ref-pdb` gives the PDB/mmCIF topology. Link hydrogens cap the bonds of `--parm7` that the ML/MM boundary cuts, and the ML region is saved without and with them.
+2. **SCF**:
+`--func-basis` sets the functional and basis; a basis whose name begins with `def2` gets the matching def2 effective core potential (ECP). `--dft-engine` selects GPU4PySCF (`gpu`, the default) or PySCF (`cpu`). A closed shell runs RKS and an open shell UKS. Low-memory mode, on by default, builds J and K directly without density fitting; on the GPU, a closed shell then uses GPU4PySCF's low-memory RKS. `--no-dft-low-memory` uses density fitting instead. With `--embedcharge`, the MM point charges of `--parm7` within `--embedcharge-cutoff` of the ML region enter the DFT Hamiltonian.
+3. **ML(DFT)/MM energy**:
+The DFT energy of the ML region with link hydrogens takes the place of the ML energy in the ONIOM sum: `E_REAL_low` and `E_MODEL_low` are the MM energies of the full system and of the ML region.
+4. **Charges and the result file**:
+After the SCF, `dft` computes Mulliken, meta-Löwdin, and IAO (intrinsic atomic orbital) charges and spin densities of the ML region and writes them with the energies (Hartree and kcal/mol) to `result.yaml`. An analysis that fails gives `null` in its column.
 
-```
-out_dir/ (default: ./result_dft/)
-├── ml_region_without_linkH.xyz # Exact ML selection before generated link-H
-├── ml_region_with_linkH.xyz    # PySCF input snapshot after generated link-H
-├── ml_region_without_linkH.pdb # PDB input with --convert-files; topology-bearing companion
-├── ml_region_with_linkH.pdb    # PDB input with --convert-files; generated link-H as HL/LKH
-├── result.yaml                 # DFT + ML(dft)/MM energy summary, charges, spin densities
-├── result.json                 # only when --out-json is passed
-└── (stdout)                    # Energies (configuration blocks at `-v 3`)
-```
+---
 
-- `result.yaml` expands to:
-  - `energy`: Hartree/kcal/mol values, convergence flag, wall time, backend info (`engine`: `gpu4pyscf(rks_lowmem)` / `gpu4pyscf` / `pyscf(cpu)`; `used_gpu`; `used_lowmem`).
-  - `mlmm_energy`: REAL-low / MODEL-low MM evaluations and the recombined `E_total = E_REAL_low + E_ML(DFT) - E_MODEL_low` in Hartree and kcal/mol.
-  - `charges [index, element, mulliken, lowdin, iao]`: Mulliken, meta-Lowdin, and IAO atomic charges (`null` when a method fails).
-  - `spin_densities [index, element, mulliken, lowdin, iao]`: Mulliken, meta-Lowdin, and IAO spin densities (UKS-only for spins).
-- It also summarizes charge, multiplicity, functional, basis, convergence knobs, and resolved output directory.
+## Output files
 
-## CLI options
+`dft` writes these files to `--out-dir`:
 
-`mlmm dft --help` shows core options; `mlmm dft --help-advanced` shows the full option list. The full flag list is in the generated [command reference](reference/commands/index.md); the table below covers the options that need explanation.
-
-| Option | Description | Default |
-| --- | --- | --- |
-| `-i, --input PATH` | Full enzyme structure (PDB/mmCIF, or XYZ with `--ref-pdb` topology). | Required |
-| `--ref-pdb FILE` | Reference PDB topology when input is XYZ. | _None_ |
-| `--parm7 PATH` | Amber parm7 topology for the full system. | Required |
-| `--model-pdb PATH` | PDB defining the ML region (atom IDs must match the enzyme PDB). Optional when `--detect-layer` is enabled. | _None_ |
-| `--model-indices TEXT` | Comma-separated atom indices for the ML region (ranges allowed, e.g. `1-5`). Used when `--model-pdb` is omitted. | _None_ |
-| `--detect-layer / --no-detect-layer` | Automatically detect ML/MM layers from input PDB B-factors (B=0/10/20). | Enabled |
-| `-q, --charge INT` | Charge of the ML region. Required unless `-l/--ligand-charge` is given (PDB input or XYZ with `--ref-pdb`). | Required unless `-l/--ligand-charge` is provided |
-| `-l, --ligand-charge TEXT` | Total charge or per-resname mapping (e.g. `SAM:1,GPP:-3`) used to derive the ML-region charge when `-q` is omitted (requires PDB input or `--ref-pdb`). | _None_ |
-| `-m, --multiplicity INT` | Spin multiplicity (2S+1) for the ML region. | `1` |
-| `--func-basis TEXT` | Functional/basis pair as `"FUNC/BASIS"`. | `wb97m-v/def2-svp` |
-| `--scf-max-cycles INT` | SCF-iteration cap. | `100` |
-| `--scf-tol FLOAT` | SCF convergence tolerance (Hartree). | `1e-9` |
-| `--grid-level INT` | DFT integration grid level (0=coarse, 3=default, 5=fine, 9=very fine). | `3` |
-| `--dft-engine {gpu,cpu}` | Force GPU4PySCF (`gpu`) or CPU PySCF (`cpu`); `gpu` raises an error if GPU4PySCF is unavailable. | `gpu` |
-| `--dft-low-memory/--no-dft-low-memory` | Use `rks_lowmem.RKS` for closed-shell GPU calculations, including electrostatic embedding. Open-shell GPU and CPU use standard direct JK; `--no-dft-low-memory` enables density fitting. | `True` |
-| `--dft-nprocs INT` | PySCF/OpenMP CPU threads. Omission uses scheduler/affinity/host detection. | `auto` |
-| `--dft-memory SIZE` | PySCF host-RAM limit, for example `64GB` or `120000MB`; this is not GPU VRAM. | `auto` |
-| `--embedcharge/--no-embedcharge` | direct PySCF electrostatic embedding of MM point charges. No xTB correction is used in `dft`. | `False` |
-| `--embedcharge-cutoff FLOAT` | Include MM point charges within this distance of the ML region. | `12.0` Å |
-| `-o, --out-dir DIR` | Output directory. | `./result_dft/` |
-| `--config FILE` | Base YAML configuration file applied before explicit CLI options. | _None_ |
-| `--show-config/--no-show-config` | Print the loaded YAML file and its top-level keys, then continue. | `False` |
-| `--link-atom-method {scaled,fixed}` | Link-atom placement: `scaled` (g-factor, Gaussian ONIOM standard) or `fixed` (legacy 1.09 Å for C, 1.01 Å for N). | `scaled` |
-| `--mm-backend {hessian_ff,openmm}` | MM backend for the low-level ONIOM evaluation. Hessians use finite differences by default; set `calc.mm_fd: false` for the `hessian_ff` analytical path. | `hessian_ff` |
-| `--cmap/--no-cmap` | Preserve CMAP in both REAL and MODEL MM layers. | `--cmap` |
-| `--out-json/--no-out-json` | Write a machine-readable `result.json` to `out_dir`. | `False` |
-| `--dry-run/--no-dry-run` | Validate options and inputs without running DFT. Shown in `--help-advanced`. | `False` |
-| `--convert-files/--no-convert-files` | Toggle XYZ/TRJ to PDB companions when a PDB template is available. | `True` |
-
-## YAML configuration
-
-Accepts a mapping root; the `dft` section (and optional `geom`, `calc`/`mlmm`) is applied when present. Merge order is:
-- defaults
-- `--config`
-- explicit CLI options
-
-```yaml
-geom:
- coord_type: cart                  # optional geom_loader settings
-calc:
- model_charge: 0                   # ML region charge
- model_mult: 1                     # spin multiplicity 2S+1
- real_parm7: real.parm7            # Amber parm7 topology
- model_pdb: ml_region.pdb          # ML-region definition
- embedcharge: false                # PySCF electrostatic embedding; no xTB in dft
- embedcharge_cutoff: 12.0          # MM point-charge cutoff from ML region (Å)
-dft:
- func_basis: wb97m-v/def2-svp        # exchange-correlation functional / basis set
- lowmem: true                        # direct JK; false enables density fitting
- nprocs: auto                        # optional explicit CPU thread count
- memory: auto                        # optional host-RAM limit such as 64GB
- conv_tol: 1.0e-09                # SCF convergence tolerance (Hartree)
- max_cycle: 100                    # SCF iteration cap
- grid_level: 3                     # PySCF grid level
- pyscf: {mf: {level_shift: 0.2}}   # optional PySCF object attributes
- verbose: 0                        # PySCF verbosity (0-9); CLI -v 2/3 raises runtime PySCF verbosity to >=4
- out_dir: ./result_dft/            # output directory root
+```text
+result_dft/
+├─ ml_region_without_linkH.xyz   # ML region as selected, without link hydrogens
+├─ ml_region_with_linkH.xyz      # ML region with link hydrogens, as passed to PySCF
+├─ ml_region_without_linkH.pdb   # Same as PDB (PDB input with --convert-files)
+├─ ml_region_with_linkH.pdb      # Same as PDB (PDB input with --convert-files)
+├─ result.yaml                   # Energies, convergence, engine, per-atom charges and spin densities
+├─ result.json                   # Machine-readable summary (with --out-json)
+└─ summary.json                  # Copy of result.json; read result.json (with --out-json)
 ```
 
-Standalone `dft` reads `dft.pyscf`; calculator workflows selected with `-b dft` use the same object-name mapping under `calc.dft.pyscf`.
+* **`energy`** in `result.yaml`: the DFT energy of the ML region (`hartree`, `kcal_per_mol`), `converged`, and the engine used (`engine`: `gpu4pyscf(rks_lowmem)`, `gpu4pyscf`, or `pyscf(cpu)`; `used_gpu`; `used_lowmem`).
+* **`mlmm_energy`** in `result.yaml`: the MM energies `E_real_low_hartree` and `E_model_low_hartree` and the total `E_total_ml_dft_mm_hartree` (also in kcal/mol).
+* **`charges [index, element, mulliken, lowdin, iao]`**: one row per atom of the ML region with link hydrogens; `index` starts at 0. The console prints the same table.
+* **`spin_densities [index, element, mulliken, lowdin, iao]`**: the same layout. It is always written to `result.yaml`, and the console prints it only for an open shell.
+* **`result.json`** holds the energies, the charges and spin densities as `mulliken`, `lowdin`, and `iao` arrays, the charge, multiplicity, functional, basis, and SCF settings; see [JSON Output Reference](json-output.md#dft).
 
-Full schema (every key and default): [YAML Reference](yaml-reference.md).
+---
+
+## Main options
+
+The options shared by every ML/MM calculation command are explained once in {ref}`ML/MM options <mlmm-options>`; the table below lists only the options specific to `dft`.
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `-i, --input` | path | (required) | Full-system structure (`.pdb`, `.cif`, or `.xyz` with `--ref-pdb`) |
+| `-q, --charge` | integer | `None` | Charge of the ML region. Required unless `-l` or YAML `calc.model_charge` gives it |
+| `-m, --multiplicity` | integer | `1` | Spin multiplicity (2S+1) of the ML region |
+| `-l, --ligand-charge` | text | `None` | Per-residue formal charges (e.g. `'SAM:1,GPP:-3'`) or one total ligand charge, used to derive the ML-region charge when `-q` is omitted (PDB/mmCIF input or `--ref-pdb`) |
+| `--func-basis` | text | `wb97m-v/def2-svp` | Functional and basis as `FUNCTIONAL/BASIS` |
+| `--scf-tol` | float | `1e-9` | SCF convergence threshold (Hartree) |
+| `--scf-max-cycles` | integer | `100` | Maximum number of SCF iterations |
+| `--dft-grid-level` | integer | `3` | Integration grid level (PySCF `grids.level`) |
+| `--dft-engine` | `gpu` / `cpu` | `gpu` | GPU4PySCF or CPU PySCF |
+| `--dft-low-memory/--no-dft-low-memory` | flag | `True` | Build J and K directly; `--no-dft-low-memory` uses density fitting |
+| `--dft-nprocs` | integer | auto | PySCF CPU threads (detected from the scheduler and the host) |
+| `--dft-memory` | text | auto | PySCF host RAM limit (e.g. `64GB`); this is not GPU memory |
+| `--embedcharge/--no-embedcharge` | flag | `False` | Put the MM point charges into the DFT Hamiltonian |
+| `--embedcharge-cutoff` | float | `12.0` | Distance (Å) from the ML region within which MM point charges are embedded |
+| `--convert-files/--no-convert-files` | flag | `True` | Also write the ML region as PDB (PDB input only) |
+| `-o, --out-dir` | path | `./result_dft/` | Output directory |
+
+See the [generated CLI reference](reference/commands/dft.md) for every option.
+
+> **Note:** In YAML (`--config`), the [`dft`](yaml-reference.md#dft-section) section holds the same settings. `dft.pyscf` passes attributes to PySCF objects by name, for example `pyscf: {mf: {level_shift: 0.2}}` for a hard-to-converge SCF. The charge and multiplicity of the ML region go in `calc.model_charge` and `calc.model_mult`; `-q`, `-l`, and `-m` come first, then YAML.
+
+---
 
 ## Notes
 
-- A matching def2 effective core potential is auto-attached whenever the basis name begins with `def2` (no element-presence check).
-- **Blackwell-architecture GPUs** (RTX 50xx): verify that the installed
-  GPU4PySCF/CuPy stack supports the device. If the GPU path fails, use
-  `--dft-engine cpu` or an external DFT program.
-- **Out-of-memory with def2-TZVPD**: memory depends on atom types, basis,
-  functional, grid, and software stack. Pilot the target system and, if
-  necessary, choose a smaller basis only after validating its effect on the
-  quantities of interest.
-- Compiled GPU4PySCF wheels may not support non-x86 systems; build from source in that case (see https://github.com/pyscf/gpu4pyscf).
+* **Requirements**: `dft` needs the DFT extra: `pip install "mlmm-toolkit[dft]"` with the `cu130` or `cu132` PyTorch wheel, or `pip install "mlmm-toolkit[dft-cuda12]"` with `cu126`.
+* **Basis cost**: `def2-tzvpd` costs much more than `def2-svp`. There is no fixed limit on atoms or GPU memory; the cost depends on the number of basis functions, the elements, the functional, the grid (`--dft-grid-level`), and the GPU. Run one representative structure first and watch the peak memory; if it runs out, use a smaller basis or a GPU with more memory.
+* **GPU**: if GPU4PySCF cannot run, `dft` stops with an error that suggests the CPU engine; it does not switch to the CPU by itself. On a new GPU generation such as Blackwell (RTX 50xx), an out-of-memory or unsupported-kernel error can come from the GPU4PySCF and CuPy versions rather than from memory, so check the versions and the traceback first.
+* **CPU**: `--dft-engine cpu` needs no GPU. How large an ML region is practical depends on the method and the machine, so time one representative single point.
+* **Machines other than x86**: prebuilt GPU4PySCF wheels may not support them; build GPU4PySCF from source (https://github.com/pyscf/gpu4pyscf).
+* **ECP**: the def2 ECP is attached for any basis whose name begins with `def2`, whatever the elements; the console prints `[dft] Using ECP: …`.
+* **IAO analysis** can fail on difficult systems; its column in `result.yaml` is then `null`.
+* **SCF not converged**: `dft` prints `WARNING: SCF did not converge.`, still writes `result.yaml` (and `result.json` with `--out-json`) with `converged: false`, and exits with code 1. In low-memory mode it suggests retrying with density fitting, `--no-dft-low-memory` (alias `--no-lowmem`), when memory allows.
+* **Multiplicity** below 1 is rejected.
+* **Earlier results**: a new run first removes `result.yaml`, `result.json`, `summary.json`, and the four `ml_region_*` files left in the output directory.
+* **Exit codes**: see {ref}`Exit codes <exit-codes>`.
 
-## See Also
+---
 
-- [Common Error Recipes](recipes-common-errors.md) — Symptom-first failure routing
-- [Troubleshooting](troubleshooting.md) — Detailed troubleshooting guide
-- [freq](freq.md) — Vibrational frequency analysis (often precedes DFT single-point evaluation)
-- [opt](opt.md) — Single-structure geometry optimization
-- [all](all.md) — End-to-end workflow with `--dft`
-- [YAML Reference](yaml-reference.md) — Full `dft` configuration options
-- [Glossary](glossary.md) — Definitions of DFT, SP (Single Point)
+## See also
+
+* [Refine an MLIP TS with DFT](dft-backend.md) — `-b dft` and `--dft` in a workflow, DFT settings, and GPU memory
+* [sp](sp.md) — single-point ML/MM energy and forces with any backend, including `-b dft`
+* [all](all.md) — the full workflow; `--dft` adds DFT single points on R, TS, and P
+* [MLIP Backends](backends.md) — choosing a backend
+* [Troubleshooting](troubleshooting.md) — what to do when a run fails

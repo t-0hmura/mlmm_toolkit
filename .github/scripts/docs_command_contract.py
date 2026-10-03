@@ -44,8 +44,6 @@ _LEGACY_BOOL_PAGES = frozenset(
     {
         Path("docs/cli-conventions.md"),
         Path("docs/ja/cli-conventions.md"),
-        Path("docs/concepts.md"),
-        Path("docs/ja/concepts.md"),
         Path("docs/glossary.md"),
         Path("docs/ja/glossary.md"),
     }
@@ -99,7 +97,7 @@ def public_shell_examples() -> list[Path]:
 def bool_style_sources() -> list[Path]:
     """Authored surfaces whose command guidance must use canonical bool syntax."""
     paths: list[Path] = []
-    for name in ("README.md", "CONTRIBUTING.md"):
+    for name in ("README.md", "CONTRIBUTING.md", "AGENTS.md"):
         candidate = REPO_ROOT / name
         if candidate.exists():
             paths.append(candidate)

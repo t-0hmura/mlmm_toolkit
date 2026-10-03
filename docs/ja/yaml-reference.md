@@ -1,23 +1,17 @@
 # YAML 設定リファレンス
 
+YAML 設定ファイル（`--config`）に書けるキーと既定値を、セクションごとに引くページです。セクションの一覧、優先順位、CLI フラグと YAML キーの対応も最初にまとめています。
+
 ## 概要
-
-`opt.lbfgs` / `opt.rfo` は `lbfgs` / `rfo`、`freq.thermo` は
-`thermo` の別の書き方です。熱化学設定は `all --thermo` でも使用します。
-path 系では `stopt.lbfgs` / `stopt.rfo` も単一構造最適化を設定します。
-同じ YAML 層で別の場所に明示した値が矛盾するとエラーになり、共通の
-`opt` キーと選択したオプティマイザの設定も照合します。path の出力先と
-prefix は実行ごとに設定します。ストリング最適化は外側の `stopt` を読みます。
-
-`mlmm all` は、選択して有効化した stage の section だけを使用します。
 
 | セクション | 説明 | 使用されるコマンド |
 |---------|-------------|---------|
 | [`geom`](#geom) | ジオメトリと座標設定 | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |
-| [`calc`](#calc) | ML/MM calculatorの設定（別名: `mlmm:`） | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |
+| [`calc`](#calc) | ML/MM 計算機の設定（別名: `mlmm:`） | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |
+| [`sp`](#sp-セクション) | 一点計算の出力設定 | sp |
 | [`opt`](#opt) | 最適化の共通設定 | all, opt, scan, scan2d, scan3d, tsopt, path-opt, path-search |
-| [`lbfgs`](#lbfgs) | L-BFGSの設定 | all, opt, scan, scan2d, scan3d, tsopt（マイクロイテレーションの MM 緩和）, path-opt, path-search |
-| [`rfo`](#rfo) | RFOの設定 | all, opt, scan, scan2d, scan3d, path-opt, path-search |
+| [`lbfgs`](#lbfgs) | L-BFGS の設定 | all, opt, scan, scan2d, scan3d, tsopt（マイクロイテレーションの MM 緩和）, path-opt, path-search |
+| [`rfo`](#rfo) | RFO の設定 | all, opt, scan, scan2d, scan3d, path-opt, path-search |
 | [`gs`](#gs) | GSM（Growing String Method）設定 | all, path-opt, path-search |
 | [`dmf`](#dmf) | DMF（Direct Max Flux）設定 | all, path-opt, path-search |
 | [`irc`](#ja-irc-section) | IRC 積分設定 | all, irc |
@@ -27,12 +21,105 @@ prefix は実行ごとに設定します。ストリング最適化は外側の 
 | [`bias`](#bias) | 調和バイアス設定 | all, scan, scan2d, scan3d |
 | [`bond`](#bond) | 結合変化検出設定 | all, scan, path-search |
 | [`search`](#search) | 再帰的経路探索設定 | all, path-search |
-| [`hessian_dimer`](#hessian_dimer) | Hessian・ダイマーTS 最適化 | all, tsopt |
+| [`hessian_dimer`](#hessian_dimer) | Hessian Dimer による TS 最適化 | all, tsopt |
 | [`rsirfo`](#rsirfo) | Hessian TS 最適化設定 | all, tsopt |
-| [`stopt`](#stopt) | ストリング最適化（StringOptimizer）設定 | all, path-opt, path-search |
-| [`microiter`](#microiter) | マイクロイテレーション（MM緩和）設定 | all, opt, tsopt |
+| [`stopt`](#stopt) | ストリング最適化の設定 | all, path-opt, path-search |
+| [`microiter`](#microiter) | マイクロイテレーション（MM 緩和）の設定 | all, opt, tsopt |
 
+(ja-yaml-configuration-precedence)=
+## 設定の優先順位
+
+設定は以下の順序で適用されます（後のものが前のものを上書き）:
+
+```
+組み込みデフォルト  <  --config (YAML)  <  CLI フラグ
+```
+
+1. **組み込みデフォルト** — `mlmm <subcmd> --help-advanced` と [コマンドリファレンス（英語のみ）](../reference/commands/index.md) の `[default: …]` に出る値。
+2. **`--config`** — デフォルトを上書きする YAML ファイル（例: `--config my_settings.yaml`）。
+3. **CLI フラグ** — コマンドラインで明示的に指定したオプション（例: `-q -1`, `--thresh gau_loose`）。*明示的に指定された*値のみが YAML を上書きし、CLI デフォルトのままのオプションは YAML の値を上書きしません。
+
+例: YAML で `calc.model_charge: 0` を設定し、CLI で `-q -1` を渡した場合、ML 領域の電荷は `-1` になります。
+
+この優先順位は、`--config` を持つすべてのコマンドに共通です。
+
+実行で使われる値は {ref}`-v 3 <ja-verbosity-levels>` で確かめられます。各セクションを、名前、`-` の下線、実際に使う値の順に表示します:
+
+```text
+opt
 ---
+thresh: gau
+max_cycles: 100000
+…
+```
+
+セクション名を書き間違えると `[config] WARNING: YAML section(s) … are not recognized and were ignored.` が出て、そのセクションを使わずに実行を続けます。
+
+(ja-common-cli-to-yaml-mapping)=
+## 主要な CLI→YAML マッピング
+
+| CLI フラグ | YAML キー | セクション |
+|----------|----------|---------|
+| `-q` / `--charge` | `model_charge` | `calc` |
+| `-m` / `--multiplicity` | `model_mult` | `calc` |
+| `-b` / `--backend` | `backend` | `calc` |
+| `--backend-model` | `uma_model`・`orb_model`・`mace_model`・`aimnet2_model`（選んだバックエンドのキー） | `calc` |
+| `--precision` | `uma_precision`・`orb_precision`・`mace_dtype`（選んだバックエンドのキー） | `calc` |
+| `--workers` | `workers` | `calc` |
+| `--link-atom-method` | `link_atom_method` | `calc` |
+| `--mm-backend` | `mm_backend` | `calc` |
+| `--cmap/--no-cmap` | `use_cmap` | `calc` |
+| `--detect-layer/--no-detect-layer` | `use_bfactor_layers` | `calc` |
+| `--hess-cutoff` | `hess_cutoff` | `calc` |
+| `--movable-cutoff` | `movable_cutoff`（`use_bfactor_layers: false` にもする） | `calc` |
+| `--embedcharge/--no-embedcharge` | `embedcharge` | `calc` |
+| `--embedcharge-cutoff` | `embedcharge_cutoff` | `calc` |
+| `--thresh` | `thresh` | `opt`・`tsopt`・スキャンのコマンドは `opt`、`path-opt`・`path-search` は `lbfgs` と `rfo` |
+| `--thresh-gsm` | `thresh` | `stopt` |
+| `--dmf-tol` / `--thresh-dmf` | `tol` | `dmf` |
+| `--max-cycles` | `max_cycles` | コマンド別: `opt`/`tsopt`/`scan` は `opt`、`irc` は `irc` |
+| `--max-cycles-gsm` | `max_cycles` | `stopt`（`stopt.stop_in_when_full` も設定） |
+| `--dmf-max-iterations` / `--max-cycles-dmf` | `max_cycles` | `dmf` |
+| `--gsm-param` | `param` | `gs` |
+| `--max-nodes` | `max_nodes` | `gs` |
+| `--preopt-max-cycles` | `max_cycles` | `lbfgs` と `rfo` |
+| `--dump` | `dump` | `opt`（opt、tsopt、scan）、`stopt`（path-opt、path-search）、`thermo`（freq） |
+| `--step-size`（irc） | `step_length` | `irc` |
+| `--freeze-atoms` | `freeze_atoms`（YAML のリストと合わせる） | `geom` |
+| `--coord-type` | `coord_type` | `geom` |
+| `--temperature`（freq、`all --freq-temperature`） | `temperature` | `thermo` |
+| `--pressure`（freq、`all --freq-pressure`） | `pressure_atm` | `thermo` |
+| `--dft-engine` / `--engine` | `engine` | `dft` コマンドは `dft`、`--backend dft` は `calc.dft` |
+
+```{note}
+**名前不一致 — `--pressure` vs `pressure_atm`.** CLI フラグは `--pressure`（単位は暗黙的に atm）、`thermo:` 配下の対応 YAML キーは `pressure_atm`（単位接尾辞付き）です。どちらも atm の値です。
+```
+
+### サブコマンド別の `--thresh` デフォルト
+
+`--thresh` のデフォルトはサブコマンドごとに異なります。
+
+| サブコマンド | デフォルト `--thresh` |
+|------------|---------------------|
+| `opt` | `gau` |
+| `tsopt`（Hessian Dimer、RS-P-RFO、RS-I-RFO、TRIM） | `baker` |
+| `scan` | `gau` |
+| `scan2d`, `scan3d` | `baker` |
+| `path-opt`、`path-search`（端点の事前最適化と、整列の後の緩和） | `gau` |
+| `path-opt`、`path-search`（GSM のストリング: `--thresh-gsm`、`stopt.thresh`） | `gau_loose` |
+| `path-opt`、`path-search`（DMF の経路: `--dmf-tol`、`dmf.tol`） | `tight`（0.04。Gaussian のプリセットではない） |
+| `all`（`--thresh`: 単一構造の最適化とスキャンの緩和） | `gau` |
+| `all`（`--thresh-post`: TS と IRC の後の端点の最適化） | `baker` |
+
+受け付ける値: `gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`。実行ごとに `--thresh <preset>` または YAML の `opt.thresh` で上書きできます。マイクロイテレーションの MM 緩和は `microiter.micro_thresh` を使い、設定しないときはマクロステップのプリセットに従います。
+
+```{note}
+**`--thresh` を持たないサブコマンド。** `irc`、`freq`、`dft`、`sp` には `--thresh` が**ありません**:
+
+- `irc` — 収束は `irc.rms_grad_thresh`、`irc.energy_thresh`、`irc.max_cycles` で制御されます（[`irc` セクション](#ja-irc-section) を参照）。IRC は予測子–修正子積分器に従うため、力ベース極小化用のプリセットは適用されません。
+- `freq` と `sp` — 最適化ステップが無いため `--thresh` は存在しません。
+- `dft` — SCF 収束は `dft.conv_tol`（デフォルト `1e-9` Hartree）と `dft.max_cycle` で制御されます。`gau`/`baker` のプリセットは使用しません。[`dft` セクション](#ja-dft-section) を参照してください。
+```
 
 ## 共通セクション
 
@@ -42,28 +129,21 @@ prefix は実行ごとに設定します。ストリング最適化は外側の 
 
 ```yaml
 geom:
- coord_type: cart # 座標タイプ: "cart" (デカルト) または "dlc" (非局在化内部座標)
+ coord_type: cart # "cart"（デカルト）、"redund"（冗長内部座標）、"dlc"（非局在化内部座標）、"tric"（並進・回転を含む内部座標）は opt と tsopt。all・path-opt・path-search は cart か dlc のみ
  freeze_atoms: [] # 1 始まりの凍結原子インデックス
- tr_projection: constrained # 固定の内部 Cartesian PHVA 処理
 ```
 
 **注記:**
+- YAML の `freeze_atoms` は、`--freeze-atoms` で指定した原子と合わせて使われます。
 - Frozen 層の原子は力がゼロに設定され、Hessian の対応する列もゼロになります。
-- 固定の `tr_projection: constrained` 処理は、凍結 anchor をすべて動かさない
-  全系剛体運動だけを除去します。一般的な有効 rank は anchor が
-  0/1/2/非共線の 3 個以上のとき 6/3/1/0 で、実用的な ML/MM 境界では
-  通常 0 です。全原子凍結は明示的なエラーになります。
-- 古い非constrained値は明示的に拒否されます。
-- `tr_projection` は `freq`、`irc`、`tsopt`、`opt --flatten` が使う内部の
-  凍結境界 PHVA fieldであり、user-selectableな処理ではありません。
-  `tsopt --ref-mode` の MEP 接線とは無関係です。
-- `irc` では `geom.coord_type` が YAML/CLI マージ後に `cart` へ強制されます。
+- デカルト座標の PHVA（部分 Hessian 振動解析）では、凍結原子を動かさない全系の剛体運動だけを除きます。詳細は [freq](freq.md#凍結境界での剛体モード) を参照してください。
+- `irc` では、YAML や CLI の指定によらず `geom.coord_type` は `cart` です。
 
 ---
 
 ### `calc`
 
-ML/MM calculator（MLIP バックエンド + hessian_ff）の設定。
+ML/MM 計算機の設定。
 
 ```yaml
 calc:
@@ -89,7 +169,7 @@ calc:
  uma_task_name: omol # UMA バッチに記録されるタスクタグ (backend=uma 時)
  uma_precision: fp32 # fp32 | fp64 (UMA バックエンドの数値精度)
  orb_model: orb_v3_conservative_omol  # ORB モデル名 (backend=orb 時)
- orb_precision: float64  # ORB 浮動小数点精度のデフォルト (backend=orb 時; "float32-high" は TF32 matmul で --precision fp32 でも選択可、レガシー "float32" alias は受理)
+ orb_precision: float64  # ORB 浮動小数点精度 (backend=orb 時; "float32-high" は TF32 matmul で --precision fp32 でも選択可、"float32" も受け付ける)
  mace_model: MACE-OMOL-0 # MACE モデル名 (backend=mace 時)
  mace_dtype: float64      # MACE 浮動小数点精度 (backend=mace 時)
  aimnet2_model: aimnet2   # AIMNet2 モデル名 (backend=aimnet2 時)
@@ -101,7 +181,7 @@ calc:
   nprocs: auto # scheduler/affinityからPySCF thread数を決定
   memory: auto # host RAM上限（例64GB、GPU VRAMではない）
   save_scf_checkpoint: false
-  checkpoint_path: null # leafで有効時: <out-dir>/_work/dft_scf/state.chk
+  checkpoint_path: null # 有効時のデフォルト（all 以外）: <out-dir>/_work/dft_scf/state.chk
   pyscf:
    mol: {}
    mf: {}
@@ -113,13 +193,13 @@ calc:
  H_double: true # Hessianを float64 で組み立て・返却
  ml_device: auto # ML デバイス: "cuda", "cpu", "auto"
  ml_cuda_idx: 0 # CUDA デバイスインデックス
- mm_backend: hessian_ff # MM バックエンド: "hessian_ff" (解析的) | "openmm" (FD Hessian)
+ mm_backend: hessian_ff # MM バックエンド: "hessian_ff" | "openmm"。Hessian の方法は下の mm_fd で選ぶ
  use_cmap: true         # parm7 の CMAP を REAL と MODEL の両 MM 層で保持
  mm_device: cpu # MM デバイス (hessian_ff は CPU のみ、OpenMM は CUDA/CPU 対応)
  mm_cuda_idx: 0 # MM CUDA インデックス (OpenMM のみ)
  mm_threads: 16 # MM 計算のスレッド数
  workers: 1 # ローカル ML worker process 数（対応 backend のみ）
- workers_per_node: null # 未設定。UMA parallel predictor 使用時の実効値は 1
+ workers_per_node: 1 # workers > 1 のときのノードあたりの worker 数（UMA の並列 predictor）
  mm_fd: true # MM Hessianに有限差分を使用
  mm_hessian_mode: null # 明示指定は finite_difference/analytical。null は mm_fd に従う
  mm_fd_dir: null # MM Hessianログの出力ディレクトリ
@@ -131,50 +211,35 @@ calc:
  freeze_atoms: [] # geom.freeze_atoms から継承
  # 層設定:
  hess_cutoff: null # Å: null = 可動 MM をすべて Hessian 対象に含める (デフォルト)、>0.0 で ML 周辺の指定距離内 MM のみに限定
- movable_cutoff: null # Å: movable MM の距離カットオフ
+ movable_cutoff: null # Å: ML からこの距離以内の MM を可動にする（null は freeze_atoms に従う）
  use_bfactor_layers: true # 入力 PDB の B-factor から層を読み取り
- hess_mm_atoms: null # 明示的 Hessian 対象 MM 原子インデックス (1始まり)
- movable_mm_atoms: null # 明示的 movable MM 原子インデックス (1始まり)
- frozen_mm_atoms: null # 明示的 frozen MM 原子インデックス (1始まり)
+ hess_mm_atoms: null # 明示的 Hessian 対象 MM 原子インデックス（1 始まり、カットオフより優先）
+ movable_mm_atoms: null # 明示的 movable MM 原子インデックス（1 始まり、カットオフより優先）
+ frozen_mm_atoms: null # 明示的 frozen MM 原子インデックス（1 始まり、カットオフより優先）
 ```
 
 **注記:**
-- calculator workflowは`calc:`と`mlmm:`を受け付けます。両方にある重複しない
-  keyは統合し、同じkeyの値が異なる場合はerrorにします。
-- CLIの`--model-indices`は常に1始まりです。YAMLでは
-  `calc.model_indices`にlistまたはrange文字列を指定でき、0始まりのYAML data
-  だけ`calc.model_indices_base: 0`を指定します。
-- `backend`は高レベルbackendを選択します。`uma`（既定）、`orb`、`mace`、`aimnet2`、stateful PySCF/GPU4PySCF `dft`を選択できます。
-- `backend: dft`と`embedcharge: true`の組合せはPySCF native点電荷とMM site forceを使い、HessianはQM–MM応答を含む完成ML/MM forceの有限差分です。
+- CLI の `--model-indices` は常に 1 始まりです。YAML の `calc.model_indices` にはリストか範囲の文字列を書けます。0 始まりの YAML データのときだけ `calc.model_indices_base: 0` を指定します。
+- `backend` は高レベルのバックエンドを選びます。`uma`（既定）、`orb`、`mace`、`aimnet2`、PySCF/GPU4PySCF の `dft` から選べます。
+- `backend: dft` で `embedcharge: true` のときは、MM の点電荷を PySCF に直接入れ、MM 原子にかかる力も計算します。Hessian は ML/MM 全体の力の有限差分なので、ML と MM の間の応答も含みます。
 - バックエンド固有のモデルキーは、対応するバックエンドが選択されている場合にのみ有効です:
   - `uma_model`、`uma_task_name` — UMA バックエンドのみ
   - `orb_model`、`orb_precision` — ORB バックエンドのみ
   - `mace_model`、`mace_dtype` — MACE バックエンドのみ
   - `aimnet2_model` — AIMNet2 バックエンドのみ
 - `hessian_calc_mode: Analytical` はバックエンドの解析 Hessian を明示的に要求します。UMA、ORB、MACE、AIMNet2 がこの経路を実装しており、インストール済みバックエンドが非対応なら計算法を暗黙に変更せずエラーになります。`workers > 1` との併用もエラーです。
-- `hess_cutoff` のデフォルト `null` は可動 MM 原子をすべて Hessian 対象に含めることを意味します（freq/irc/opt はすべての可動原子を解析します）。値（>0.0）を指定すると、その距離以内の MM 原子のみに Hessian 対象を限定します。`movable_cutoff` を指定しない場合は `freeze_atoms` の指定に従います。
-- `use_bfactor_layers: true` を設定すると、`define-layer` で書き込んだ B-factor から層割り当てを読み取ります。
-- 明示的インデックス（`hess_mm_atoms` 等）が設定された場合、カットオフや B-factor よりも優先されます。
 - `opt`/`tsopt`/`irc`/`freq` は、YAML で `calc.return_partial_hessian` を明示しない場合に部分 Hessian をデフォルトで使用します。
 - これらのコマンドで完全 Hessian を強制するには `calc.return_partial_hessian: false` を明示してください。
-- `mm_fd: true` は有限差分 MM Hessian、`false` は `hessian_ff` の解析
-  MM Hessian を使います。`mm_hessian_mode` は
-  `finite_difference`/`analytical` の明示形で、`null` の場合は互換用の
-  `mm_fd` に従います。
+- `mm_fd: true` は有限差分 MM Hessian、`false` は `hessian_ff` の解析 MM Hessian を使います。`mm_hessian_mode` は同じ選択を名前（`finite_difference` か `analytical`）で指定し、`null` の場合は `mm_fd` で決まります。
 - `use_cmap: true`（デフォルト）は parm7 に含まれる CMAP を REAL と MODEL の両 MM 層で保持します。明示的な改変力場計算だけ `false` を指定してください。この場合は両層から CMAP を除去します。
 - standalone ML/MM 計算には `real_parm7` が必須です。ML 領域は `model_pdb`、明示的な model index、または有効な B-factor layer から指定できます。
-- `irc` は YAML の設定にかかわらず `geom.coord_type = cart` を強制します。
+- `-q` と `-m` を明示すると、YAML の `model_charge` と `model_mult` より優先されます。省いた値は YAML から取ります。
 
 ---
 
 ### `opt`
 
-L-BFGS/RFO で共通の最適化設定。ここに書いた全キーが `opt` コマンドの optimizer に
-届きます（`--microiter` の有無に関わらず。microiteration の macro step がその
-optimizer です）。`tsopt` の macro optimizer にも届き、その上に
-[`rsirfo`](#rsirfo) / [`hessian_dimer`](#hessian_dimer) が重なります。
-転送されるのは**実際に変更した値だけ**なので、触っていないキーについては
-optimizer 固有セクションが優先されます。
+L-BFGS/RFO で共通の最適化設定。ここに書いた全キーが、`--microiter` の有無によらず `opt` コマンドの optimizer に届きます。`tsopt` の macro optimizer にも届き、その上に [`rsirfo`](#rsirfo) / [`hessian_dimer`](#hessian_dimer) が重なります。転送されるのは**実際に変更した値だけ**なので、触っていないキーについては optimizer 固有セクションが優先されます。同じ YAML ファイルの中で同じ設定に異なる値を書くとエラーで止まり、共通の `opt` キーと選択したオプティマイザのセクションの同じキーも照合します。
 
 ```yaml
 opt:
@@ -196,11 +261,11 @@ opt:
  line_search: true # ラインサーチを有効化
  dump: false # 軌跡/リスタートデータの出力
  dump_restart: false # リスタートチェックポイントの出力
- prefix: "" # ファイル名プレフィックス
+ prefix: "" # ファイル名の接頭辞
  out_dir: ./result_opt/ # 出力ディレクトリ
 ```
 
-**収束プリセット:**
+**収束プリセット**（デカルト座標で、力は Hartree/Bohr、ステップは Bohr）:
 
 | プリセット | Max Force | RMS Force | Max Step | RMS Step |
 |-----------|-----------|-----------|----------|----------|
@@ -210,36 +275,23 @@ opt:
 | `gau_vtight` | 2.0e-6 | 1.0e-6 | 6.0e-6 | 4.0e-6 |
 | `baker` | 3.0e-4 | 2.0e-4 | 3.0e-4 | 2.0e-4 |
 
-`baker` は5基準すべてを要求します。`|delta E| < 1e-6` に加え、max/RMS force と max/RMS step がすべて閾値を満たす必要があります。
+`baker` は表の 4 列すべてに加えて、直前のサイクルとの `|delta E| < 1e-6` Hartree を要求します。これは Bakken と Helgaker（*J. Chem. Phys.* **117**, 9160 (2002)）が示した Baker 基準（`max(|force|) <= 3e-4` **かつ**（`|delta E| < 1e-6` **または** `max(|step|) <= 3e-4`））より厳しい条件です。文献の形では RMS の力が残った構造も収束とみなされ、機械学習ポテンシャルの面では高次の鞍点で止まることがあるため、厳しい形を使います。`min_step_norm` 以下のステップは、エネルギーの条件を満たすとみなします。
+
+ほかのプリセットでは、`overachieve_factor` を 0 より大きくすると、`max(force)` と `rms(force)` がともに `閾値 / overachieve_factor` を下回った時点で、ステップの条件を満たしていなくても収束とします。既定は `0.0`（無効）で、`baker` では使いません。
 
 **エネルギープラトー停止（opt-in、デフォルト無効）:**
 
-`energy_plateau` のデフォルトは `false` です。`opt` / `tsopt` / `all` の
-`--stop-plateau` で有効化し、`--stop-plateau-thresh` / `--stop-plateau-window` が
-上記の 2 つの値を設定します。有効時、直近 `energy_plateau_window` ステップ
-（デフォルト 50）のエネルギー範囲 `max(E) - min(E)` が `energy_plateau_thresh`
-（デフォルト `1.0e-4` au、約 0.06 kcal/mol）を下回ると、オプティマイザを `optimization_status: "stalled"` で停止します（`converged` とは
-区別される非収束の結果で、決して `converged` にはなりません）。
+`energy_plateau` のデフォルトは `false` です。`opt` / `tsopt` / `all` の `--stop-plateau` で有効化し、`--stop-plateau-thresh` / `--stop-plateau-window` が上記の 2 つの値を設定します。有効時、直近 `energy_plateau_window` ステップのエネルギー範囲 `max(E) - min(E)` が `energy_plateau_thresh` を下回ると、オプティマイザを `optimization_status: "stalled"` で停止します。
 
-これは ML/MM 最適化で cycle を節約するための機構です。MLIP の力には数値精度に起因する
-ノイズフロアがあり、これが `gau`/`baker` などの勾配ベース収束閾値を
-上回ると、ジオメトリが実質的に停止していても力が閾値を下回らないことがあります。
-エネルギー自体が MLIP の数値精度内で平坦化した段階では、追加ステップを回しても
-残差力はノイズフロア以下にならない場合があります。ただしエネルギーの平坦化は
-停留点の証拠ではないため、この停止は明示的に指定したときだけ働き、
-実行の実質的な上限は常に `max_cycles` です。
+MLIP の力のノイズで力が収束閾値を下回らないとき、cycle を節約できます。ただしエネルギーの平坦化は停留点の証拠ではないため、この停止は明示的に指定したときだけ働き、実行の実質的な上限は常に `max_cycles` です。
 
-Chain-of-states（COS）最適化（GS/DMF ストリング最適化等）では、
-プラトー判定は自動的にスキップされます。`--microiter` の **MM micro 反復** でも
-常にスキップされます（力が閾値を超えたまま MM エネルギーが平坦なのは MM 平衡ではなく
-停滞した micro 緩和であり、そこで止めると周辺環境が緩和されないまま macro/micro
-交互計算が終了してしまうためです）。`microiter.micro_max_cycles` は MM 緩和の回数上限で、通常は収束した時点で終了します。
+GSM・DMF などの chain-of-states 最適化と、`--microiter` の MM 緩和では、プラトー判定を行いません。MM 緩和で止めると周辺環境が緩和されないまま終わるためです。`microiter.micro_max_cycles` は MM 緩和の回数上限で、通常は収束した時点で終了します。
 
 ---
 
 ### `lbfgs`
 
-L-BFGSの設定（`opt` を拡張）。
+L-BFGS の設定（`opt` を拡張）。
 
 ```yaml
 lbfgs:
@@ -294,8 +346,7 @@ rfo:
 
 ### `microiter`
 
-ML/MM最適化用のマイクロイテレーション設定。`--microiter` 有効時、MLリージョンの
-マクロステップ間でMMリージョンをL-BFGSで緩和（ML原子は凍結）します。
+ML/MM 最適化のマイクロイテレーションの設定です。`--microiter` を有効にすると、ML 領域のマクロステップの合間に、ML 原子を固定したまま MM 領域を L-BFGS で緩和します。
 
 ```yaml
 microiter:
@@ -304,9 +355,9 @@ microiter:
 ```
 
 **注意:**
-- CLIフラグ `--microiter` / `--no-microiter` で有効化（デフォルト: 有効）
+- CLI の `--microiter` / `--no-microiter` で切り替えます（既定は有効）。
 - `opt --opt-mode hess` と、すべての Hessian TS mode（`hess`, `rsirfo`, `rsprfo`, `trim`）で使用可能
-- `micro_thresh` は `opt.thresh` と同じプリセット（gau_loose, gau, gau_tight等）を受け付けます。`null` または省略時はマクロステップの閾値と同じになります
+- `micro_thresh` には `opt.thresh` と同じプリセットを書けます。`null` か省略のときは、マクロステップと同じ閾値を使います。
 
 ---
 
@@ -336,7 +387,7 @@ gs:
  scheduler: null # オプションのスケジューラバックエンド
 ```
 
-`gs.param` は `equi` または `energy` を受け付けます。energy weighting はGSMストリングの完全成長後にのみ適用され、高エネルギー領域へノード密度を寄せます。対応するCLIオプションは `--gsm-param` です。
+`gs.param` には `equi` か `energy` を書けます。`energy` は GSM のストリングが伸びきった後にだけ効き、エネルギーの高い領域にノードを寄せます。CLI では `--gsm-param` で指定します。
 
 ---
 
@@ -403,7 +454,7 @@ search:
 
 ```yaml
 stopt:
- type: string           # 最適化タイプラベル（StringOptimizer用）
+ type: string           # 最適化タイプのラベル
  thresh: gau_loose      # ストリング最適化の収束プリセット（--thresh-gsm で上書き）
  stop_in_when_full: 300 # ストリングが満杯時の早期停止閾値
  align: false           # アライメントトグル
@@ -424,7 +475,8 @@ stopt:
 
 **注意:**
 - `stopt.lbfgs` / `stopt.rfo` は端点の事前最適化、HEI±1 精密化、ねじれノードに使う単一構造オプティマイザを設定します。
-- 外側の `stopt` キーはストリング最適化（GS または DMF ラッパー）を制御します。
+- 外側の `stopt` キーはストリング最適化を制御します。
+- path 系のコマンドは、実行ごとの出力先と接頭辞を自分で決めます。
 
 ---
 
@@ -432,7 +484,7 @@ stopt:
 
 ### `hessian_dimer`
 
-Hessian・ダイマー TS 最適化（`tsopt --opt-mode grad`）。`opt.thresh` と `hessian_dimer.thresh` を両方明示する場合は同じ値にしてください。片方だけならその値、無指定なら Dimer のデフォルトを使います。
+`tsopt --opt-mode grad` の Hessian Dimer による TS 最適化の設定です。`opt.thresh` と `hessian_dimer.thresh` を両方書くときは同じ値にします。片方だけならその値を、どちらも無ければ Dimer の既定値を使います。
 
 ```yaml
 hessian_dimer:
@@ -476,16 +528,15 @@ hessian_dimer:
 ```
 
 **注記:**
-- 通常の TSOPT 省略時は flattening が無効で実効反復数は 0 です。有効化した場合の上限を `flatten_max_iter` が制御し、そのデフォルトは 50 です。
-- CLI フラグ `--flatten` / `--no-flatten`（`tsopt` および `all`）はこの設定と連動します。`--flatten` はデフォルトの `flatten_max_iter`（50）でflatteningループを有効化し、`--no-flatten` は `flatten_max_iter` を 0 に強制してループを無効化します。`--flatten` と同時に YAML で `flatten_max_iter` を明示指定した場合は、YAML の値が優先されます。
+- `--flatten` を付けない `tsopt` は、YAML で有効にしない限り flattening を行いません。有効にしたときの反復の上限は `flatten_max_iter`（既定 50）です。
+- `tsopt` と `all` の `--flatten` は既定の `flatten_max_iter` で flattening を有効にし、`--no-flatten` は `flatten_max_iter` を 0 にします。`--flatten` と同時に YAML で `flatten_max_iter` を明示した場合は、YAML の値が優先されます。
 - 内側の L-BFGS 固有設定は、最上位の `lbfgs` ではなく `hessian_dimer.lbfgs` に置きます。共通の `print_every` と `energy_plateau*` は上記の競合規則に従います。`line_search` は `false` 固定で、Dimer の有効力は表示する物理エネルギーの勾配ではないため `true` は拒否されます。`max_cycles` は設定できず、各 segment には `opt.max_cycles` の残り cycle 数が渡されます。
 
 ---
 
 ### `rsirfo`
 
-Hessian TS 最適化の共通設定です。デフォルトの RS-P-RFO
-（`tsopt --opt-mode hess` / `rsprfo`）と、明示的な `rsirfo` / `trim` に適用されます。
+Hessian TS 最適化の共通設定です。デフォルトの RS-P-RFO（`tsopt --opt-mode hess` / `rsprfo`）と、明示的な `rsirfo` / `trim` に適用されます。
 
 ```yaml
 rsirfo:
@@ -517,8 +568,7 @@ rsirfo:
  out_dir: ./result_tsopt/ # 出力ディレクトリ
 ```
 
-RS-P-RFO は line search を使いません。`min_line_search` または
-`max_line_search` に `true` を書くと警告を出して `false` に戻します。
+RS-P-RFO は line search を使いません。`min_line_search` または `max_line_search` に `true` を書くと警告を出して `false` に戻します。
 
 `opt` と `rsirfo` に同じ設定を明示する場合は値を一致させてください。片方だけならその値、無指定なら `rsirfo` のデフォルトを使います。
 
@@ -527,7 +577,7 @@ RS-P-RFO は line search を使いません。`min_line_search` または
 ## IRC セクション
 
 (ja-irc-section)=
-### `irc` (section)
+### `irc` セクション
 
 IRC 積分設定。
 
@@ -553,7 +603,7 @@ irc:
  force_inflection: true # 変曲点検出の強制
  check_bonds: false # 伝搬中の結合チェック
  out_dir: ./result_irc/ # 出力ディレクトリ
- prefix: "" # ファイル名プレフィックス
+ prefix: "" # ファイル名の接頭辞
  dump_fn: irc_data.h5 # IRC データファイル名
  dump_every: null # デフォルトでは無効。有効化する場合のみ正の間隔を指定
  max_pred_steps: 500 # 予測子-修正子の最大ステップ数
@@ -566,7 +616,7 @@ irc:
 ## 振動解析セクション
 
 (ja-freq-section)=
-### `freq` (section)
+### `freq` セクション
 
 振動解析設定。
 
@@ -581,12 +631,9 @@ freq:
  out_dir: ./result_freq/ # 出力ディレクトリ
 ```
 
-`freq.zero_cutoff_cm` の既定値は5.0で、standalone `freq`、`opt` flatten、Dimer、
-Hessian系TS最適化が共有します。旧`hessian_dimer.neg_freq_thresh_cm` と
-`rsirfo.saddle_imaginary_threshold_cm` は互換aliasですが、競合する値は
-エラーになります。
+`freq.zero_cutoff_cm` は、単体の `freq`、`opt` の flatten、Dimer、Hessian を使う TS 最適化で共通です。`hessian_dimer.neg_freq_thresh_cm` と `rsirfo.saddle_imaginary_threshold_cm` は同じ閾値の別名で、異なる値を書くとエラーで止まります。
 
-既定では ν < −5.00 cm⁻¹ を虚振動と分類します。`freq.zero_cutoff_cm` で別の閾値絶対値を指定できます。選択した虚振動の本数は鞍点次数を記述し、すべての負符号の数は `n_negative_modes` に別途記録します。いずれも最適化の数値収束を変更しません。符号付き物理モードと熱化学に使う正のモードはすべて保持します。
+既定では ν < −5.00 cm⁻¹ を虚振動と分類します。n_imag は鞍点の次数を表し、`n_negative_modes` はすべての負の振動数を数えます。どちらも最適化の収束を変えません。符号付き物理モードと熱化学に使う正のモードはすべて保持します。
 
 **注記:**
 - `active_dof_mode`: 振動解析に参加させる原子集合を選択します。`all` は全原子、`ml-only` は ML 領域のみ、`partial`（デフォルト）は ML + Movable-MM、`unfrozen` は凍結されていない全原子を使用します。CLI フラグ `--active-dof-mode` が明示された場合は YAML 値より優先されます。
@@ -609,7 +656,7 @@ thermo:
 
 ## 一点計算セクション
 
-### `sp` (section)
+### `sp` セクション
 
 single-point 設定。`mlmm sp` だけが読み込みます。
 
@@ -620,15 +667,14 @@ sp:
  out_dir: ./result_sp/
 ```
 
-対応する CLI の `--hess`、`--hessian-calc-mode`、`-o/--out-dir` を
-明示した場合は CLI が上書きします。
+対応する CLI の `--hess`、`--hessian-calc-mode`、`-o/--out-dir` を明示した場合は CLI が上書きします。
 
 ---
 
 ## DFT セクション
 
 (ja-dft-section)=
-### `dft` (section)
+### `dft` セクション
 
 DFT 計算設定。
 
@@ -648,7 +694,7 @@ dft:
 ```
 
 **注記:**
-- `engine`: `gpu`はgpu4pyscf経由で実行します（electrostatic embeddingを含むclosed-shell計算で`lowmem: true`なら`rks_lowmem.RKS`）。`cpu`は標準PySCF RKS/UKSを使います。CLIフラグ`--dft-engine`が明示された場合はYAML値より優先されます。
+- `engine`: `gpu` は gpu4pyscf で実行し、`lowmem: true` の閉殻計算は `rks_lowmem.RKS` を使います。`cpu` は標準の PySCF RKS/UKS を使います。
 - `ecp`: 基底名が `def2-` で始まり `ecp` が `null` の場合、ECP として同名の基底が自動的に使用されます。明示的に上書きするには値を設定してください。
 
 ---
@@ -688,7 +734,6 @@ bond:
 geom:
  coord_type: cart
  freeze_atoms: []
- tr_projection: constrained
 
 calc:
  model_charge: 0
@@ -696,7 +741,7 @@ calc:
  backend: uma                  # 高レベルbackend: uma | orb | mace | aimnet2 | dft
  uma_model: uma-s-1p2          # uma-s-1p2 | uma-m-1p1
  ml_device: auto
- hessian_calc_mode: Analytical   # 代表的な pilot で FiniteDifference と比較
+ hessian_calc_mode: Analytical   # 試しの計算で FiniteDifference と比べる
  mm_device: cpu
  mm_fd: true
  use_bfactor_layers: true # 入力 PDB の B-factor から層を読み取り
@@ -741,9 +786,14 @@ dft:
  grid_level: 3
 ```
 
----
+## 使用上の注意点
 
-## 参照
+- 計算機のセクション名には `calc:` と `mlmm:` のどちらも使えます。両方あるときはキーを合わせて使い、同じキーに異なる値があるとエラーで止まります。
+- `opt.lbfgs` / `opt.rfo` は `lbfgs` / `rfo`、`freq.thermo` は `thermo` の別の書き方です。熱化学設定は `all --thermo` でも使用します。
+- `mlmm all` は、選択して有効化した stage の section だけを使用します。
+- `--show-config`（`scan`・`scan2d`・`scan3d` には無い）は、読み込んだ YAML ファイルと最上位のキーを表示してから、そのまま実行を続けます。
+
+## 関連ドキュメント
 
 - [all](all.md) - メインワークフロー
 - [opt](opt.md) - 単一構造最適化
@@ -751,5 +801,6 @@ dft:
 - [path-search](path-search.md) - 再帰的 MEP 探索
 - [freq](freq.md) - 振動解析
 - [dft](dft.md) - DFT 計算
-- [概念とワークフロー](concepts.md) - ML/MM 3層システムと ONIOM エネルギー分解
-- [ML/MM calculator](mlmm-calc.md) - ML/MM calculatorの詳細
+- [ML/MM 計算機](mlmm-calc.md) - ML/MM の層、リンク原子、ONIOM のエネルギー
+- [MLIP バックエンド](backends.md) - MLIP バックエンドの詳細
+- [トラブルシューティング](troubleshooting.md) - 実行に失敗したときの対処

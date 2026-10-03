@@ -1,50 +1,52 @@
 # Agent Skills for `mlmm-toolkit`
 
-This folder contains a set of skills that common AI agent interfaces
-will recognize and help speed up code development by providing
-concise instructions on how to use the `mlmm-toolkit` API and CLI for
-common tasks. Inspired by the [nvalchemi-toolkit][nvalchemi] skill
-pattern.
+This folder contains skills that common AI agent interfaces recognize.
+They give an agent concise instructions for using the `mlmm-toolkit` CLI:
+which command to run and when, how to judge success, common pitfalls and
+how to recover, and how to read the outputs. Inspired by the
+[nvalchemi-toolkit][nvalchemi] skill pattern.
 
 [nvalchemi]: https://github.com/NVIDIA/nvalchemi-toolkit
 
-- `mlmm-overview`: what `mlmm-toolkit` is, when to use it,
-  and how it differs from generic QM/MLIP path-search tools.
-- `mlmm-architecture`: 6-layer package map (cli / workflows / domain /
-  backends / io / core) + 3 bundled forks (pysisyphus / thermoanalysis /
-  hessian_ff); tells an agent which dir to grep for a given concern
-  before touching code.
-- `mlmm-cli`: index of the 22 subcommands plus per-subcommand
-  mds (each with synopsis, key flags, examples, output, caveats).
-- `mlmm-ts-strategy`: cross-cutting decision know-how for a
-  reaction-barrier campaign — keeping backend-default precision, the two
-  TS-candidate routes (`path-search` MEP vs distance-restrained `scan`),
-  inspecting and retrying a wrong imaginary-frequency count
-  (coordinate / flattening / precision settings), an IRC that stops too early,
-  reading a barrier when the scan started from the Product side, staged vs concerted `--scan-lists`,
-  and controlled mutant-vs-WT barrier comparisons with explicit assignment
-  of atoms added or deleted by the mutation.
+- `mlmm-overview` (start here): what `mlmm-toolkit` is and which of the three `all` modes
+  fits your structures; `ts-strategy.md` for TS strategy (imaginary-mode count,
+  flattening, a TS that does not come out, mutant-vs-WT comparisons);
+  `outputs.md` for reading the outputs.
+- `mlmm-cli`: the 22 subcommands in 17 files, each with when to use it, how to
+  judge success, and pitfalls and recovery.
 - `mlmm-mcp`: how to drive `mlmm-toolkit` from any MCP client (Claude
   Desktop / Claude Code / Cursor / custom SDK) via the bundled
   `mlmm-mcp` server; lists the 22 MCP tools (including the mlmm-specific
-  topology / ONIOM-layer / ONIOM-input tools) and the shared
-  `SubcmdResult` return schema.
-- `mlmm-structure-io`: PDB / XYZ / GJF format references and
-  the charge / multiplicity decision workflow.
-- `mlmm-install-backends`: install mlmm itself, MLIP
-  backends (UMA / Orb / MACE / AIMNet2), DFT (PySCF / GPU4PySCF), and
-  xtb; CUDA + PyTorch pairing.
-- `mlmm-workflows-output`: canonical workflows (cluster /
-  multistep / scan-list / endpoint-MEP / TS-only / DFT//MLIP/MM), output
-  schema, and R/TS/P canonical paths.
+  topology / ONIOM-layer / ONIOM-input tools) and the result format
+  shared by every tool.
+- `mlmm-structure-io`: PDB / mmCIF / XYZ / GJF / Amber parm7/rst7
+  handling and the charge / multiplicity decision workflow.
+- `mlmm-model-setup`: what `extract` puts in the ML region, a hand-built
+  `model.pdb` with `--model-pdb`, `--parm7`, and `-q`, the `define-layer` layers,
+  trimming or enlarging the model, and the same-atom rules for R/IM/P and
+  WT/mutant models; the full guide is [`docs/model-setup.md`](../docs/model-setup.md).
+- `mlmm-install-backends`: install mlmm itself, MLIP backends (UMA / Orb / MACE /
+  AIMNet2), DFT (PySCF / GPU4PySCF), xtb (the `--embedcharge` point-charge correction,
+  not an MLIP backend), and AmberTools (tleap); CUDA + PyTorch pairing; probing an
+  unknown scheduler / GPU / CUDA / conda env.
 - `mlmm-hpc`: PBS / SLURM preamble templates with placeholders,
   walltime guidance, monitoring, plus a flock+pbsdsh dynamic-dispatch
   recipe.
-- `mlmm-env-detect`: fallback for detecting scheduler / GPU /
-  CUDA / conda env when the environment is unknown.
 - `colab-local-gpu-runtime`: Windows setup and operation for running the Colab
   interface on a local NVIDIA GPU through WSL2 and Docker Desktop.
 
-The skills accompany the main documentation. Copying this directory exposes
-the workflows to a compatible agent interface; linked project documentation
-remains the source of truth.
+## Install
+
+Each folder here is one skill (`<name>/SKILL.md`). Copy the folders into your agent's skill directory:
+
+- Claude Code: `.claude/skills/` in a project, or `~/.claude/skills/` for all projects.
+- Codex: `.agents/skills/` in a repository, or `~/.agents/skills/` for all repositories.
+
+For example, from the root of this repository:
+
+```bash
+mkdir -p ~/.claude/skills
+cp -r skills/mlmm-* skills/colab-local-gpu-runtime ~/.claude/skills/
+```
+
+For exact flags and defaults, check the installed CLI (`mlmm <subcommand> --help-advanced`) and the [command reference](../docs/reference/commands/index.md).

@@ -1,68 +1,27 @@
 # `mlmm freq`
 
-## Purpose
+Builds and diagonalizes the Hessian of the ML/MM model, writes the frequencies
+and per-mode displacements, and computes QRRHO thermochemistry. Run
+`mlmm freq -i <structure> --parm7 <real.parm7> -q <charge> --out-json`.
+Success is the n_imag you expect: 0 for a minimum, 1 for a TS candidate.
 
-Vibrational analysis: build the Hessian, diagonalize for normal-mode
-frequencies, write per-mode geometry displacements, and compute
-QRRHO thermochemistry. Default temperature 298.15 K, 1 atm.
-Partial-Hessian variant (PHVA) activates automatically when
-`freeze_atoms` is non-empty.
+## When to use
 
-## Synopsis
+- Check that an optimized structure is a minimum (n_imag = 0) or a TS
+  candidate (n_imag = 1).
+- Free energies at 298.15 K and 1 atm by default, or at your own temperature
+  and pressure.
+- With frozen atoms, the partial-Hessian analysis (PHVA) is used
+  automatically.
 
-```bash
-mlmm freq -i geom.{pdb,xyz} --parm7 real.parm7 \
-    [-q 0 -m 1] [-l 'RES:Q,...'] \
-    [--temperature 298.15] [--pressure 1.0] \
-    [-b uma|orb|mace|aimnet2|dft] [-o ./result_freq/]
-```
-
-
-## ML/MM-aware flags (mlmm-toolkit specific)
-
-In addition to the common flags below,
-**`mlmm-toolkit` requires an Amber topology** and supports layer-aware
-selection. Most subcommands accept:
-
-| flag | purpose |
-|---|---|
-| `--parm7 FILE` | Amber `parm7` topology of the whole enzyme — **required** |
-| `--model-pdb FILE` | Explicit ML-region PDB; takes precedence over B-factor ML membership |
-| `--detect-layer` | Automatically read B-factor layers; explicit ML membership retains valid movable/frozen MM layers. Enabled by default. |
-| `--model-indices` | Explicit ML atom indices used when `--model-pdb` is omitted; takes precedence over B-factor ML membership |
-| `--ref-pdb FILE` | Full-enzyme PDB used as topology reference for XYZ inputs |
-| `--link-atom-method [scaled\|fixed]` | g-factor (default) or fixed 1.09/1.01 Å |
-| `-q, --charge` | **ML-region** charge (not whole-system) |
-| `-l, --ligand-charge` | Per-residue charge mapping for ML region |
-
-Inspect via `mlmm <subcommand> --help` and `mlmm <subcommand> --help-advanced`.
-
-## Key flags
-
-| flag | type | default | description |
-|---|---|---|---|
-| `-i, --input` | path | required | Input geometry |
-| `-q` / `-l` / `-m` | — | — | Charge / spin (common conventions) |
-| `--temperature` | float | 298.15 | K, for thermochemistry |
-| `--pressure` | float | 1.0 | atm, for thermochemistry |
-| `--hessian-calc-mode` | str | `FiniteDifference` | `Analytical` / `FiniteDifference`; check `FREQ_KW` / `MLMM_CALC_KW` |
-| `--precision` | str | backend-specific | UMA/AIMNet2 fp32; ORB/MACE fp64; AIMNet2 rejects fp64 |
-| `--uma-workers` | int | 1 | UMA predictor workers; `>1` requires `fairchem-core[extras]` and is incompatible with `Analytical` |
-| `-b, --backend` | str | `uma` | High-level backend (MLIP or optional DFT) |
-| `--read-hess` / `--dump-hess` | path | — | Reuse / save the Hessian as a NumPy `.npy` array (shared by `freq`, `tsopt`, `irc`) |
-| `-o, --out-dir` | path | `./result_freq/` | Output directory |
-| `--config` / `--show-config` / `--dry-run` / `--help-advanced` | — | — | Standard |
-
-## Examples
-
-### Default (298.15 K, 1 atm)
+## Minimal run
 
 ```bash
 mlmm freq -i ts.xyz --parm7 real.parm7 --ref-pdb full_enzyme.pdb \
-    -q 0 -m 1 -b uma -o result_freq
+    -q 0 -m 1 -b uma --out-json -o result_freq
 ```
 
-### Higher temperature for activation enthalpy
+At a higher temperature for the activation enthalpy:
 
 ```bash
 mlmm freq -i ts.xyz --parm7 real.parm7 --ref-pdb full_enzyme.pdb \
@@ -71,102 +30,90 @@ mlmm freq -i ts.xyz --parm7 real.parm7 --ref-pdb full_enzyme.pdb \
     -b uma -o result_freq_310K
 ```
 
-## Output
+## Judge success
+
+The console thermochemistry summary prints `Number of Imaginary Freq = N`, and
+`result.json` records it as `n_imaginary`. A minimum has n_imag = 0. A
+successful TS optimization gives one imaginary mode along the reaction
+coordinate, so a TS candidate has exactly 1. Residual imaginary modes in R or P
+do not block thermochemistry. `freq` does not judge n_imag itself:
+`scientific_status` is `success` whatever n_imag is.
+
+`freq` retains every signed physical mode. The default imaginary criterion is
+ν < −5.00 cm⁻¹, and YAML `freq.zero_cutoff_cm` sets another cutoff magnitude.
+Positive modes between 0 and 5 cm⁻¹ remain in thermochemistry.
+`n_negative_modes` counts every negative value. Raw negative counts are diagnostic and do not add a failure gate.
 
 ```
 result_freq/
-├── result.json                          # when --out-json
-├── frequencies_cm-1.txt                 # all modes, sorted, cm⁻¹
-├── thermoanalysis.yaml                  # when --dump (ZPE, S, H, G)
-└── mode_NNNN_<±freq>cm-1_trj.xyz / .pdb # per-mode displacement (visualize in PyMOL)
+├── frequencies_cm-1.txt                  # all modes, sorted, cm⁻¹
+├── mode_NNNN_<±freq>cm-1_trj.xyz / .pdb  # per-mode displacement
+├── thermoanalysis.yaml                   # with --dump
+└── result.json                           # with --out-json
 ```
-
-`--dump-hess result_freq/hessian.npy` writes the Hessian at that exact path;
-a relative path is resolved from the current working directory, not relocated
-under `--out-dir`. The file is one `numpy.save` array: the Cartesian Hessian in
-Hartree/bohr² (not mass-weighted), atoms in input order, 3N×3N or only the
-atoms selected by `--active-dof-mode`. `--read-hess` checks only size,
-symmetry, and finiteness, so pass a Hessian computed for the same geometry,
-charge, multiplicity, layers, and calculator.
-
-`result.json` keys:
 
 ```python
 import json
 d = json.load(open("result_freq/result.json"))
-print(d["n_imaginary"])                 # minimum certification: 0; TS: 1
+print(d["n_imaginary"])                 # minimum: 0; TS: 1
 print(d["frequencies_cm"][:5])          # first five frequencies
-print(d["thermochemistry"]["zpe_ha"])
-print(d["thermochemistry"]["thermal_correction_energy_ha"])
-print(d["thermochemistry"]["S_cal_per_mol_K"])
 t = d["thermochemistry"]
+print(t["zpe_ha"], t["thermal_correction_energy_ha"], t["S_cal_per_mol_K"])
 print(t["electronic_energy_ha"], "+",
       t["thermal_correction_free_energy_ha"], "=",
       t["sum_EE_and_thermal_free_energy_ha"])  # E + G_corr = G
-print(d["thermochemistry"]["symmetry_number"],
-      d["thermochemistry"]["symmetry_number_source"])
-print(d["rigid_projection"]["treatment"], d["rigid_projection"]["effective_rank"])
+print(t["symmetry_number"], t["symmetry_number_source"])
 ```
 
-## QRRHO thermochemistry
+`--dump-hess result_freq/hessian.npy` writes the Hessian at that exact path;
+a relative path is resolved from the current working directory, not under
+`--out-dir`. The file is one `numpy.save` array: the Cartesian Hessian in
+Hartree/bohr², not mass-weighted, atoms in input order, 3N×3N or only the
+atoms selected by `--active-dof-mode`. `--read-hess` checks only size,
+symmetry, and finiteness, so pass a Hessian computed for the same geometry,
+charge, multiplicity, layers, and calculator.
 
-Default thermochemistry uses the QRRHO (Grimme) treatment with a
-100 cm⁻¹ rotor cutoff:
+## Thermochemistry
 
-- low-frequency vibrations (< 100 cm⁻¹) are interpolated toward the
-  free-rotor entropy limit,
-- high-frequency vibrations use the standard harmonic-oscillator
-  partition function.
+The QRRHO (Grimme) treatment uses a fixed 100 cm⁻¹ rotor cutoff: vibrations
+below it are interpolated toward the free-rotor entropy limit, and higher ones
+use the harmonic oscillator. The free energy is E + G_corr = G.
 
-The QRRHO/rotor cutoff (100 cm⁻¹) is fixed by the vendored
-thermoanalysis default and is not user-tunable via `THERMO_KW`.
-`mlmm.core.defaults.THERMO_KW` exposes `temperature`, `pressure_atm`,
-the optional advanced `symmetry_number` override, and `dump`. The normal
-workflow detects point group and external rotational symmetry from each
-structure and always includes the `1/sigma` correction.
+What you choose:
 
-## Partial-Hessian Vibrational Analysis (PHVA)
+- `--temperature` (default 298.15 K) and `--pressure` (default 1.0 atm).
+- The point group and the external rotational symmetry number are detected
+  from each structure, and the 1/σ correction is always included. YAML
+  `thermo.symmetry_number` is an advanced override.
 
-When the input has frozen atoms (PDB B-factor or `freeze_atoms`
-set), `freq` automatically computes the **partial Hessian**: only the
-mobile-atom block is built and diagonalized; frozen atoms are projected
-out. This is much cheaper for large clusters.
+## PHVA
 
-Frozen atoms are assigned by `define-layer` or explicitly through
-`geom.freeze_atoms`; `extract` only writes the capped pocket structure.
+When the input has frozen atoms, `freq` builds and diagonalizes only the
+mobile-atom block. This is much cheaper for large systems. With three or more
+frozen atoms not on one line, the usual ML/MM case, no rigid motion is removed
+and every vibration of the mobile atoms is kept.
 
-The default `constrained` TR treatment removes only full-system rigid motions
-that leave every frozen anchor fixed. Generic effective ranks are 6/3/1/0 for
-zero/one/two/at least three non-collinear anchors; realistic ML/MM boundaries
-normally have rank 0. All-frozen input is an explicit error. A stale
-non-constrained YAML value fails explicitly. `result.json` and dumped
-`thermoanalysis.yaml` record the treatment, effective rank, Hessian source,
-and Hessian shape under `rigid_projection`.
+What you choose: the frozen atoms, assigned by `define-layer` or explicitly
+through `geom.freeze_atoms`. `extract` only writes the capped pocket
+structure.
 
-## Caveats
+## Pitfalls and recovery
 
-- Separate minimum certification ideally has **0 imaginary frequencies**; a
-  certified TS must have **exactly 1**. Residual imaginary modes in R/P do not
-  block thermochemistry.
-- `freq` retains every signed physical mode. The default imaginary criterion is
-  ν < −5.00 cm⁻¹. `freq.zero_cutoff_cm` sets another cutoff magnitude.
-  Positive modes between 0 and 5 cm⁻¹ remain in thermochemistry. Raw negative counts are diagnostic and
-  do not add a pipeline failure gate.
 - A small-magnitude imaginary frequency may be numerical or a real shallow
   mode. Inspect its displacement and repeat the Hessian at suitable precision;
   the QRRHO cutoff does not validate a stationary point.
 - `--hessian-calc-mode FiniteDifference` often lowers peak model/autograd
   memory. Runtime depends on backend, model, system, precision, and hardware;
-  benchmark the actual calculation, and remember that both paths materialize a
-  dense active-space Hessian.
-- An explicit analytical Hessian with `workers > 1` is a hard error. Use one
-  worker for analytical curvature or select `FiniteDifference` before enabling
-  the UMA parallel predictor.
-- Thermochemistry depends on charge / spin — make sure `-q`/`-m` are
-  correct or ZPE will be off.
+  benchmark the actual calculation, and remember that both modes build a dense
+  active-space Hessian.
+- An explicit analytical Hessian with `--uma-workers` above 1 is a hard error.
+  Use one worker for analytical curvature, or select `FiniteDifference` before
+  enabling the UMA parallel predictor.
+- Thermochemistry depends on charge and spin; make sure `-q`/`-m` are correct
+  or the ZPE will be off.
 
-## See also
+## Next step
 
-- `tsopt.md`, `irc.md` — usual upstream stages.
-- `mlmm-install-backends/uma.md` — `--hessian-calc-mode` knob.
-- Defaults: `import mlmm.core.defaults as d; print(d.FREQ_KW, d.THERMO_KW, d.MLMM_CALC_KW)`
+- Usual upstream stages: [tsopt.md](tsopt.md), [irc.md](irc.md).
+- The `--hessian-calc-mode` setting for UMA:
+  [backends.md](../mlmm-install-backends/backends.md#uma).
