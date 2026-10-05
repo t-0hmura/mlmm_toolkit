@@ -11,7 +11,7 @@ so a consumer cannot mutate the canonical catalog.  Callers that must add
 entries (e.g. ``extract``'s ``--modified-residue``) copy into a request-local
 ``dict`` at their single mutation boundary; the canonical table stays intact.
 
-For the amino-acid keys, ``rn = res.get_resname().upper()`` is used at the
+For the amino-acid keys, ``rn = standard_resname(res).upper()`` is used at the
 charge-inference lookup, so uppercase keys are what the protein/terminus path
 reads.  The ``ION`` table additionally carries Amber-style mixed-case aliases
 for the raw-name path (``mm_parm``); their uppercase folds equal the uppercase
@@ -137,9 +137,10 @@ _ION: Dict[str, int] = {
     "Cl-": -1,
 }
 
-# Amber terminal residue names whose AMINO_ACIDS value already BAKES IN the
-# ionized-terminus formal charge (e.g. CGLU=-2, NLYS=+2). For these the
-# kept-cap correction in compute_charge_summary must NOT be applied again.
+# Terminal residue names whose AMINO_ACIDS value already BAKES IN the
+# ionized-terminus formal charge (e.g. CGLU=-2, NLYS=+2). Amber names are read
+# as the standard residue (TERMINAL_RESNAME_BASE), so the "do not apply the
+# kept-cap correction again" check only matters for the generic NTER/CTER.
 C_TERMINAL_RESNAMES: frozenset = frozenset({
     "CALA", "CARG", "CASN", "CASP", "CCYS", "CCYX", "CGLN", "CGLU", "CGLY",
     "CHID", "CHIE", "CHIP", "CHYP", "CILE", "CLEU", "CLYS", "CMET", "CPHE",
@@ -149,6 +150,14 @@ N_TERMINAL_RESNAMES: frozenset = frozenset({
     "NALA", "NARG", "NASN", "NASP", "NCYS", "NCYX", "NGLN", "NGLU", "NGLY",
     "NHID", "NHIE", "NHIP", "NILE", "NLEU", "NLYS", "NMET", "NPHE", "NPRO",
     "NSER", "NTHR", "NTRP", "NTYR", "NVAL", "NTER",
+})
+
+# Amber terminal name -> standard residue (NPRO -> PRO, CGLU -> GLU). The
+# terminal group and its charge are then read from the atoms (H1-H3, OXT).
+TERMINAL_RESNAME_BASE: Mapping[str, str] = MappingProxyType({
+    name: name[1:]
+    for name in sorted(N_TERMINAL_RESNAMES | C_TERMINAL_RESNAMES)
+    if name not in {"NTER", "CTER"}
 })
 
 WATER_RES: frozenset = frozenset({"HOH", "WAT", "H2O", "DOD", "TIP", "TIP3", "SOL"})

@@ -87,6 +87,7 @@ Target release: **0.4.0**.
 ### Fixed
 
 - `extract` cuts amino-acid centers at the pocket boundary like other residues, so no peptide bond is left open; with `--exclude-backbone`, only the main chain between peptide-bonded centers is kept. Hydrogens now follow their parent atom (the HA before a proline was lost), hydroxyproline adds its N-side neighbor like proline, centers at a chain end get their terminal charge, and a bond cut outside the link-hydrogen positions gives a warning.
+- `extract` and the full-structure charge read Amber terminal residue names (`NPRO`, `CGLU`, …; also when written in PDB columns 18–21) as the standard residue and take the terminal charge from the kept atoms (H1–H3, OXT). They are no longer treated as unknown residues with charge 0, and an N-terminal proline or hydroxyproline (ring NH2+ with H2 and H3) now counts +1.
 - Finalize `all` summaries after a completed but non-converged TS optimization, retaining the TS diagnostics and stopping before IRC.
 - Scope endpoint-maximum warnings to the affected path-search interval and state that its highest-energy image is an endpoint.
 - When both `--model-pdb` and `--model-indices` are given, B-factor MM layers now exclude the `--model-pdb` atoms, matching the calculator's ML region.

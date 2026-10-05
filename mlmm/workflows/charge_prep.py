@@ -46,18 +46,20 @@ def infer_present_terminal_cap_ids(
     structure,
     selected_ids: set[tuple],
 ) -> tuple[set[tuple], set[tuple]]:
-    """Return selected amino acids with explicit NH3+ or COO- terminal atoms."""
+    """Return selected amino acids with explicit NH3+ (PRO/HYP NH2+) or COO- terminal atoms."""
 
-    from mlmm.workflows.extract import AMINO_ACIDS
+    from mlmm.io.structure_formats import standard_resname
+    from mlmm.workflows.extract import AMINO_ACIDS, _has_n_terminal_hydrogens
 
     keep_ncap_ids: set[tuple] = set()
     keep_ccap_ids: set[tuple] = set()
     for res in structure.get_residues():
         fid = res.get_full_id()
-        if fid not in selected_ids or res.get_resname().upper() not in AMINO_ACIDS:
+        rn = standard_resname(res).upper()
+        if fid not in selected_ids or rn not in AMINO_ACIDS:
             continue
         atom_names = {atom.get_name().strip().upper() for atom in res.get_atoms()}
-        if {"H1", "H2", "H3"} <= atom_names:
+        if _has_n_terminal_hydrogens(rn, atom_names):
             keep_ncap_ids.add(fid)
         if "OXT" in atom_names:
             keep_ccap_ids.add(fid)
@@ -78,6 +80,11 @@ def _derive_charge_from_ligand_charge(
     if ligand_charge is None:
         return None
     from Bio import PDB as BioPDB
+    from mlmm.io.structure_formats import (
+        attach_template_metadata,
+        coordinate_template_for,
+        restore_pdb_terminal_resnames,
+    )
     # Lazy: keep the heavy ``extract`` module out of the import chain until a
     # ligand-charge derivation actually runs (workflow -> workflow edge).
     from mlmm.workflows.extract import (
@@ -87,6 +94,11 @@ def _derive_charge_from_ligand_charge(
 
     parser = BioPDB.PDBParser(QUIET=True)
     complex_struct = parser.get_structure("complex", str(pdb_path))
+    template = coordinate_template_for(pdb_path)
+    if template is not None:
+        attach_template_metadata(complex_struct, template)
+    else:
+        restore_pdb_terminal_resnames(complex_struct, pdb_path)
     residues = list(complex_struct.get_residues())
     all_residue_ids = {res.get_full_id() for res in residues}
     if select_bfactor_layer:

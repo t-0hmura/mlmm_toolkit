@@ -387,3 +387,146 @@ def test_no_add_linkh_leaves_only_carbon_cuts(tmp_path, capsys):
     assert _read_model(outputs[0])[1] == []
     assert result["uncapped_boundaries"] == []
     assert "outside the carbon cut positions" not in capsys.readouterr().err
+
+
+# NPRO-ALA-CPRO (ff14SB), built and minimized like the peptide above. The N-terminal
+# Pro NH2+ has H2 and H3 only. Columns: resseq, resname, atom, x, y, z.
+_PRO_TERMINI = """\
+1 PRO N 3.371 1.382 0.029
+1 PRO H2 2.930 1.064 -0.832
+1 PRO H3 2.676 1.414 0.763
+1 PRO CD 4.529 0.532 0.389
+1 PRO HD2 4.803 -0.084 -0.472
+1 PRO HD3 4.306 -0.121 1.237
+1 PRO CG 5.701 1.459 0.711
+1 PRO HG2 6.666 0.979 0.527
+1 PRO HG3 5.642 1.805 1.746
+1 PRO CB 5.449 2.618 -0.252
+1 PRO HB2 5.791 2.355 -1.258
+1 PRO HB3 5.936 3.541 0.076
+1 PRO CA 3.919 2.737 -0.220
+1 PRO HA 3.643 3.391 0.609
+1 PRO C 3.341 3.331 -1.504
+1 PRO O 2.655 2.617 -2.231
+2 ALA N 3.631 4.602 -1.750
+2 ALA H 4.250 5.108 -1.126
+2 ALA CA 3.240 5.404 -2.906
+2 ALA HA 3.196 4.787 -3.804
+2 ALA CB 1.847 5.983 -2.604
+2 ALA HB1 1.903 6.646 -1.738
+2 ALA HB2 1.481 6.564 -3.448
+2 ALA HB3 1.138 5.179 -2.405
+2 ALA C 4.319 6.501 -3.094
+2 ALA O 5.263 6.525 -2.292
+3 PRO N 4.220 7.369 -4.117
+3 PRO CD 3.455 7.217 -5.341
+3 PRO HD2 2.417 7.498 -5.166
+3 PRO HD3 3.522 6.204 -5.736
+3 PRO CG 4.085 8.213 -6.310
+3 PRO HG2 3.392 8.507 -7.099
+3 PRO HG3 4.999 7.791 -6.732
+3 PRO CB 4.432 9.384 -5.391
+3 PRO HB2 3.549 10.014 -5.262
+3 PRO HB3 5.262 9.974 -5.780
+3 PRO CA 4.794 8.715 -4.057
+3 PRO HA 5.876 8.645 -3.961
+3 PRO C 4.254 9.520 -2.861
+3 PRO O 3.121 9.215 -2.418
+3 PRO OXT 4.985 10.433 -2.426
+"""
+
+# PRO everywhere, NPRO/CPRO in PDB columns 18-21, NPRO/CPRO in columns 17-20
+# (cpptraj), and NPRO/CPRO in mmCIF.
+_PRO_LAYOUTS = ["pro", "named_18_21", "named_17_20", "named_cif"]
+
+_PRO_TERMINI_CASES = {
+    "center_n": dict(center="A:1", radius=0.0),
+    "center_c": dict(center="A:3", radius=0.0),
+    "neighbor": dict(center="A:2", radius=2.6),
+    "forced_noncenter": dict(center="A:LIG", selected_resn="A:1,A:3", radius=0.0),
+    "center_n_exclude": dict(center="A:1", radius=0.0, exclude_backbone=True),
+    "neighbor_exclude": dict(center="A:2", radius=2.6, exclude_backbone=True),
+}
+
+
+def _write_pro_termini(path, layout, drop=()):
+    from Bio.PDB import MMCIFIO, PDBParser
+
+    lines = []
+    for serial, row in enumerate(_PRO_TERMINI.splitlines(), start=1):
+        resseq, resname, name, x, y, z = row.split()
+        if (int(resseq), name) in drop:
+            continue
+        xyz = (float(x), float(y), float(z))
+        line = _atom_line("ATOM", serial, name, resname, int(resseq), xyz, name[0])
+        terminal = {"1": "NPRO", "3": "CPRO"}.get(resseq)
+        if terminal and layout == "named_18_21":
+            line = line[:17] + terminal + line[21:]
+        elif terminal and layout == "named_17_20":
+            line = line[:16] + terminal + line[20:]
+        lines.append(line)
+    lines.append("TER\n")
+    lines.append(_atom_line("HETATM", len(lines), "C1", "LIG", 200, (40.0, 40.0, 40.0), "C"))
+    pdb = path.with_suffix(".pdb")
+    pdb.write_text("".join(lines) + "END\n", encoding="utf-8")
+    if layout != "named_cif":
+        return pdb
+    structure = PDBParser(QUIET=True).get_structure("pep", str(pdb))
+    residues = list(structure[0]["A"])
+    residues[0].resname, residues[2].resname = "NPRO", "CPRO"
+    io = MMCIFIO()
+    io.set_structure(structure)
+    io.save(str(path.with_suffix(".cif")))
+    return path.with_suffix(".cif")
+
+
+def _extract_pro_termini(tmp_path, layout, n_inputs, **options):
+    from mlmm.workflows.extract import extract_api
+
+    options.setdefault("add_linkh", True)
+
+    sources = [_write_pro_termini(tmp_path / f"{layout}_{i}", layout) for i in range(n_inputs)]
+    outputs = [tmp_path / f"{layout}_model_{i}.pdb" for i in range(n_inputs)]
+    result = extract_api(
+        [str(path) for path in sources], output=[str(path) for path in outputs], **options
+    )
+    atoms, caps = _read_model(outputs[0])
+    return set(atoms), len(caps), result
+
+
+@pytest.mark.parametrize("n_inputs", [1, 2])
+@pytest.mark.parametrize("layout", _PRO_LAYOUTS)
+@pytest.mark.parametrize("case", sorted(_PRO_TERMINI_CASES))
+def test_pro_termini_are_read_as_pro_and_charged_from_kept_atoms(
+    tmp_path, case, layout, n_inputs
+):
+    options = _PRO_TERMINI_CASES[case]
+    atoms, n_caps, result = _extract_pro_termini(tmp_path, layout, n_inputs, **options)
+    expected = int({(1, "N"), (1, "H2"), (1, "H3")} <= atoms) - int((3, "OXT") in atoms)
+    assert result["charge_summary"]["protein_charge"] == expected
+    assert result["uncapped_boundaries"] == []
+    # Terminal names give the same model as PRO.
+    assert (atoms, n_caps) == _extract_pro_termini(tmp_path, "pro", 1, **options)[:2]
+
+
+@pytest.mark.parametrize(
+    ("drop", "charge"),
+    [
+        ((), 0),  # NH2+ (+1) and COO- (-1)
+        (((3, "OXT"),), 1),  # NH2+ only
+        (((1, "H2"), (1, "H3")), -1),  # COO- only
+    ],
+)
+@pytest.mark.parametrize("layout", _PRO_LAYOUTS)
+def test_full_structure_charge_counts_pro_termini(tmp_path, layout, drop, charge):
+    from mlmm.core.utils import prepare_input_structure
+    from mlmm.workflows.charge_prep import _derive_charge_from_ligand_charge
+
+    prepared = prepare_input_structure(_write_pro_termini(tmp_path / layout, layout, drop))
+    try:
+        derived = _derive_charge_from_ligand_charge(
+            prepared.source_path, "LIG:0", select_bfactor_layer=False, prefix="[test]"
+        )
+        assert derived == charge
+    finally:
+        prepared.cleanup()

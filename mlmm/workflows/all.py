@@ -120,8 +120,10 @@ from mlmm.io.summary import (
     write_summary_log,
 )
 from mlmm.io.structure_formats import (
+    attach_template_metadata,
     coordinate_template_for,
     register_output_template_and_write_cif,
+    restore_pdb_terminal_resnames,
 )
 from mlmm.workflows.align_freeze import (
     align_and_refine_sequence_inplace,
@@ -1273,6 +1275,11 @@ def _derive_charge_from_ligand_charge_when_extract_skipped(
     try:
         parser = PDB.PDBParser(QUIET=True)
         complex_struct = parser.get_structure("complex", str(pdb_path))
+        template = coordinate_template_for(pdb_path)
+        if template is not None:
+            attach_template_metadata(complex_struct, template)
+        else:
+            restore_pdb_terminal_resnames(complex_struct, pdb_path)
         selected_ids = {res.get_full_id() for res in complex_struct.get_residues()}
         keep_ncap_ids, keep_ccap_ids = infer_present_terminal_cap_ids(
             complex_struct,
@@ -1327,6 +1334,11 @@ def _derive_ml_charge_from_layered_pdb(
 
         parser = PDB.PDBParser(QUIET=True)
         st = parser.get_structure("complex", str(pdb_path))
+        template = coordinate_template_for(pdb_path)
+        if template is not None:
+            attach_template_metadata(st, template)
+        else:
+            restore_pdb_terminal_resnames(st, pdb_path)
         for residue in st.get_residues():
             selected = [
                 classify_bfactor_layer(atom.get_bfactor()) == "ml"

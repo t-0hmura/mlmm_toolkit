@@ -24,6 +24,7 @@ from mlmm.io.altloc import (
     occupancy_choice_key,
     parsed_occupancy,
 )
+from mlmm.core.residue_data import TERMINAL_RESNAME_BASE
 
 
 logger = logging.getLogger(__name__)
@@ -454,7 +455,10 @@ def read_pdb_atom_sites(
             record_name = line[:6].strip().upper()
             atom_name = line[12 + offset : 16 + offset].strip()
             altloc = line[16 + offset : 17 + offset].strip()
-            resname = line[17 + offset : 20 + offset].strip()
+            # Amber terminal names (NPRO) may fill columns 18-21.
+            resname = line[17 + offset : 21 + offset].strip()
+            if resname not in TERMINAL_RESNAME_BASE:
+                resname = line[17 + offset : 20 + offset].strip()
             chain = line[21 + offset : 22 + offset].strip()
 
             residue_shift = 0
@@ -824,6 +828,43 @@ def residue_auth_identity(residue: Any) -> tuple[str, str, str, str]:
     icode = str(residue.xtra.get("mlmm_auth_icode", residue.id[2] or "")).strip()
     resname = str(residue.xtra.get("mlmm_auth_resname", residue.get_resname()))
     return chain, resseq, icode, resname
+
+
+def standard_resname(residue: Any) -> str:
+    """Return the residue name used for chemistry; Amber terminal names read as the standard residue."""
+
+    auth = str(residue.xtra.get("mlmm_auth_resname", "")).upper()
+    return TERMINAL_RESNAME_BASE.get(auth, residue.get_resname())
+
+
+def restore_pdb_terminal_resnames(structure: Any, pdb_path: Path | str) -> None:
+    """Keep Amber terminal names written in PDB columns 18-21 (NPRO) as auth names.
+
+    Biopython reads columns 18-20 only ("NPR").
+    """
+
+    names: dict[tuple[str, int, str], str] = {}
+    with Path(pdb_path).open("r", encoding="utf-8", errors="replace") as handle:
+        for line in handle:
+            if not line.startswith(("ATOM  ", "HETATM")):
+                continue
+            name = line[17:21].strip()
+            if name not in TERMINAL_RESNAME_BASE:
+                continue
+            try:
+                names[(line[21:22] or " ", int(line[22:26]), line[26:27] or " ")] = name
+            except ValueError:
+                continue
+    if not names:
+        return
+    for residue in structure.get_residues():
+        name = names.get((residue.get_parent().id, residue.id[1], residue.id[2]))
+        if (
+            name is not None
+            and residue.get_resname() == name[:3]
+            and "mlmm_auth_resname" not in residue.xtra
+        ):
+            residue.xtra["mlmm_auth_resname"] = name
 
 
 def atom_site_from_biopython_atom(atom: Any) -> Optional[AtomSiteRecord]:

@@ -34,6 +34,8 @@ from mlmm.io.structure_formats import (
     coordinate_template_for,
     register_output_template_and_write_cif,
     residue_auth_identity,
+    restore_pdb_terminal_resnames,
+    standard_resname,
     template_from_selected_structure,
 )
 
@@ -370,6 +372,8 @@ def load_structure(path: str, name: str) -> PDB.Structure.Structure:
         template = prepared.structure_template or coordinate_template_for(prepared.geom_path)
         if template is not None:
             attach_template_metadata(structure, template)
+        else:
+            restore_pdb_terminal_resnames(structure, prepared.geom_path)
     finally:
         prepared.cleanup()
     models = list(structure.get_models())
@@ -683,7 +687,7 @@ def are_peptide_adjacent(prev_res: PDB.Residue.Residue,
     Distance‑based criterion; in practice this avoids crossing TER boundaries because missing
     atoms or long inter‑residue distances will fail the check.
     """
-    if prev_res.get_resname() not in AMINO_ACIDS or next_res.get_resname() not in AMINO_ACIDS:
+    if standard_resname(prev_res) not in AMINO_ACIDS or standard_resname(next_res) not in AMINO_ACIDS:
         return False
     if ("C" not in prev_res) or ("N" not in next_res):
         return False
@@ -697,7 +701,7 @@ def are_peptide_adjacent(prev_res: PDB.Residue.Residue,
 
 def _is_amino_backbone_atom(atom: PDB.Atom.Atom) -> bool:
     res = atom.get_parent()
-    return (res.get_resname() in AMINO_ACIDS) and (atom.get_name() in BACKBONE_ATOMS)
+    return (standard_resname(res) in AMINO_ACIDS) and (atom.get_name() in BACKBONE_ATOMS)
 
 
 def _add_residue_if_eligible(
@@ -708,11 +712,11 @@ def _add_residue_if_eligible(
     via_backbone: bool,
 ) -> None:
     res = atom.get_parent()
-    if not include_h2o and res.get_resname() in WATER_RES:
+    if not include_h2o and standard_resname(res) in WATER_RES:
         return
     fid = res.get_full_id()
     selected_ids.add(fid)
-    if via_backbone and res.get_resname() in AMINO_ACIDS:
+    if via_backbone and standard_resname(res) in AMINO_ACIDS:
         backbone_contact_ids.add(fid)
 
 
@@ -884,7 +888,7 @@ def _report_truncated_centers(structure, center_ids: Set[Tuple],
     emptied: List[str] = []
     for fid in _sorted_fids_by_file_order(structure, center_ids):
         res = structure[fid[1]][fid[2]].child_dict[fid[3]]
-        if res.get_resname() not in AMINO_ACIDS:
+        if standard_resname(res) not in AMINO_ACIDS:
             continue
         skip_set = skip_map.get(fid, set())
         if not skip_set & {"N", "CA", "C"}:
@@ -916,7 +920,7 @@ def augment_disulfides(structure, selected_ids: Set[Tuple],
     Include Cys–Cys disulfide partners if either residue is selected (SG–SG ≤ cutoff).
     """
     sg_atoms = [r["SG"] for r in structure.get_residues()
-                if r.get_resname() in {"CYS", "CYX"} and "SG" in r]
+                if standard_resname(r) in {"CYS", "CYX"} and "SG" in r]
 
     if not sg_atoms:
         return
@@ -947,7 +951,7 @@ def augment_proline_prev_neighbor(structure, selected_ids: Set[Tuple]):
     for fid in list(selected_ids):
         model_id, chain_id, res_id = fid[1], fid[2], fid[3]
         res: PDB.Residue.Residue = structure[model_id][chain_id].child_dict[res_id]
-        if res.get_resname() not in {"PRO", "HYP"}:
+        if standard_resname(res) not in {"PRO", "HYP"}:
             continue
         chain = structure[model_id][chain_id]
         residues: List[PDB.Residue.Residue] = list(chain.get_residues())
@@ -958,7 +962,7 @@ def augment_proline_prev_neighbor(structure, selected_ids: Set[Tuple]):
         prev_res = None
         for j in range(idx - 1, -1, -1):
             rj = residues[j]
-            if rj.get_resname() in AMINO_ACIDS:
+            if standard_resname(rj) in AMINO_ACIDS:
                 prev_res = rj
                 break
         if prev_res is None:
@@ -989,13 +993,13 @@ def _center_terminal_caps(structure, center_ids: Set[Tuple]) -> Tuple[Set[Tuple]
         except StopIteration:
             continue
         cur_res = residues[idx]
-        if cur_res.get_resname() not in AMINO_ACIDS:
+        if standard_resname(cur_res) not in AMINO_ACIDS:
             continue
         prev_res = next(
             (
                 residues[j]
                 for j in range(idx - 1, -1, -1)
-                if residues[j].get_resname() in AMINO_ACIDS
+                if standard_resname(residues[j]) in AMINO_ACIDS
             ),
             None,
         )
@@ -1003,7 +1007,7 @@ def _center_terminal_caps(structure, center_ids: Set[Tuple]) -> Tuple[Set[Tuple]
             (
                 residues[j]
                 for j in range(idx + 1, len(residues))
-                if residues[j].get_resname() in AMINO_ACIDS
+                if standard_resname(residues[j]) in AMINO_ACIDS
             ),
             None,
         )
@@ -1012,6 +1016,15 @@ def _center_terminal_caps(structure, center_ids: Set[Tuple]) -> Tuple[Set[Tuple]
         if next_res is None or not are_peptide_adjacent(cur_res, next_res):
             keep_ccap_ids.add(fid)
     return keep_ncap_ids, keep_ccap_ids
+
+
+def _proline_terminal_ncaps(structure, selected_ids: Set[Tuple]) -> Set[Tuple]:
+    """Selected PRO/HYP at a true N-terminus; they always keep the ring N and its H."""
+    pro_ids = {
+        fid for fid in selected_ids
+        if standard_resname(structure[fid[1]][fid[2]].child_dict[fid[3]]) in {"PRO", "HYP"}
+    }
+    return _center_terminal_caps(structure, pro_ids)[0]
 
 
 #   Backbone-contact neighbor augmentation (exclude_backbone == False; TER-aware)
@@ -1056,7 +1069,7 @@ def augment_backbone_contact_neighbors(structure,
         prev_res = None
         for j in range(idx - 1, -1, -1):
             rj = residues[j]
-            if rj.get_resname() in AMINO_ACIDS:
+            if standard_resname(rj) in AMINO_ACIDS:
                 prev_res = rj
                 break
         if prev_res is not None and are_peptide_adjacent(prev_res, cur_res):
@@ -1072,7 +1085,7 @@ def augment_backbone_contact_neighbors(structure,
         next_res = None
         for j in range(idx + 1, len(residues)):
             rj = residues[j]
-            if rj.get_resname() in AMINO_ACIDS:
+            if standard_resname(rj) in AMINO_ACIDS:
                 next_res = rj
                 break
         if next_res is not None and are_peptide_adjacent(cur_res, next_res):
@@ -1112,9 +1125,9 @@ def mark_atoms_to_skip(structure, selected_ids: Set[Tuple], center_ids: Set[Tupl
     chain_map: Dict[Tuple[str, str], List[Tuple]] = {}
     for fid in _sorted_fids_by_file_order(structure, segment_ids):
         res = structure[fid[1]][fid[2]].child_dict[fid[3]]
-        if fid in center_ids and res.get_resname() not in AMINO_ACIDS:
+        if fid in center_ids and standard_resname(res) not in AMINO_ACIDS:
             continue
-        if res.get_resname() in WATER_RES:
+        if standard_resname(res) in WATER_RES:
             continue
         chain_map.setdefault((fid[1], fid[2]), []).append(fid)
 
@@ -1159,15 +1172,15 @@ def mark_atoms_to_skip(structure, selected_ids: Set[Tuple], center_ids: Set[Tupl
             c_res = chain_obj.child_dict[c_id[3]]
 
             # N-terminal cap deletion (only for amino acids; skip if PRO/HYP or explicitly kept)
-            if (n_res.get_resname() in AMINO_ACIDS) and (n_res.get_resname() not in {"PRO", "HYP"}) and (n_id not in keep_ncap_ids):
+            if (standard_resname(n_res) in AMINO_ACIDS) and (standard_resname(n_res) not in {"PRO", "HYP"}) and (n_id not in keep_ncap_ids):
                 add(n_id, {"N", "H", "H1", "H2", "H3", "HN"})
             # C-terminal cap deletion (only for amino acids; skip if explicitly kept)
-            if (c_res.get_resname() in AMINO_ACIDS) and (c_id not in keep_ccap_ids):
+            if (standard_resname(c_res) in AMINO_ACIDS) and (c_id not in keep_ccap_ids):
                 add(c_id, {"C", "O", "OXT"})
 
             # Isolated stretch – remove CA/HA* (only for amino acids; except PRO/HYP
             # and residues that keep a terminal group on CA)
-            if single and (n_res.get_resname() in AMINO_ACIDS) and (n_res.get_resname() not in {"PRO", "HYP"}) \
+            if single and (standard_resname(n_res) in AMINO_ACIDS) and (standard_resname(n_res) not in {"PRO", "HYP"}) \
                     and (n_id not in keep_ncap_ids) and (n_id not in keep_ccap_ids):
                 add(n_id, {"CA", "HA", "HA2", "HA3"})
 
@@ -1179,10 +1192,10 @@ def mark_atoms_to_skip(structure, selected_ids: Set[Tuple], center_ids: Set[Tupl
             if fid in center_ids:
                 continue
             res = structure[fid[1]][fid[2]].child_dict[fid[3]]
-            if res.get_resname() in WATER_RES:
+            if standard_resname(res) in WATER_RES:
                 continue
-            if res.get_resname() in AMINO_ACIDS:
-                if res.get_resname() in {"PRO", "HYP"}:
+            if standard_resname(res) in AMINO_ACIDS:
+                if standard_resname(res) in {"PRO", "HYP"}:
                     to_remove = BACKBONE_ALL - {"N", "CA", "HA", "H", "H1", "H2", "H3"}
                 else:
                     to_remove = BACKBONE_ALL
@@ -1191,7 +1204,7 @@ def mark_atoms_to_skip(structure, selected_ids: Set[Tuple], center_ids: Set[Tupl
         # Preserve peptide carbonyl on the N-side neighbor of PRO/HYP
         for fid in _sorted_fids_by_file_order(structure, selected_ids):
             res = structure[fid[1]][fid[2]].child_dict[fid[3]]
-            if res.get_resname() not in {"PRO", "HYP"}:
+            if standard_resname(res) not in {"PRO", "HYP"}:
                 continue
             chain = structure[fid[1]][fid[2]]
             residues: List[PDB.Residue.Residue] = list(chain.get_residues())
@@ -1202,7 +1215,7 @@ def mark_atoms_to_skip(structure, selected_ids: Set[Tuple], center_ids: Set[Tupl
             prev_res = None
             for j in range(idx - 1, -1, -1):
                 rj = residues[j]
-                if rj.get_resname() in AMINO_ACIDS:
+                if standard_resname(rj) in AMINO_ACIDS:
                     prev_res = rj
                     break
             if prev_res is None:
@@ -1219,7 +1232,7 @@ def mark_atoms_to_skip(structure, selected_ids: Set[Tuple], center_ids: Set[Tupl
     # Always keep CA on the N-side neighbor of PRO/HYP (independent of --exclude-backbone)
     for fid in _sorted_fids_by_file_order(structure, selected_ids):
         res = structure[fid[1]][fid[2]].child_dict[fid[3]]
-        if res.get_resname() not in {"PRO", "HYP"}:
+        if standard_resname(res) not in {"PRO", "HYP"}:
             continue
         chain = structure[fid[1]][fid[2]]
         residues: List[PDB.Residue.Residue] = list(chain.get_residues())
@@ -1230,7 +1243,7 @@ def mark_atoms_to_skip(structure, selected_ids: Set[Tuple], center_ids: Set[Tupl
         prev_res = None
         for j in range(idx - 1, -1, -1):
             rj = residues[j]
-            if rj.get_resname() in AMINO_ACIDS:
+            if standard_resname(rj) in AMINO_ACIDS:
                 prev_res = rj
                 break
         if prev_res is None:
@@ -1304,10 +1317,10 @@ def compute_linkH_atoms(structure,
     for fid in _sorted_fids_by_file_order(structure, selected_ids):
         model_id, chain_id, res_id = fid[1], fid[2], fid[3]
         res: PDB.Residue.Residue = structure[model_id][chain_id].child_dict[res_id]
-        if res.get_resname() in WATER_RES:
+        if standard_resname(res) in WATER_RES:
             continue
         skip_set = skip_map.get(fid, set())
-        resname = res.get_resname()
+        resname = standard_resname(res)
 
         def _add_if_cut(parent_name: str, partner_name: str):
             if not _atom_present_in_output(res, parent_name, skip_set):
@@ -1473,6 +1486,13 @@ def _parse_ligand_charge_option(ligand_charge: float | str | Dict[str, float] | 
         return None, mapping
     raise TypeError(f"Unsupported type for ligand_charge: {type(ligand_charge)!r}")
 
+
+def _has_n_terminal_hydrogens(resname: str, atom_names: Set[str]) -> bool:
+    """NH3+ has H1-H3; the PRO/HYP ring NH2+ has two of them (Amber: H2, H3)."""
+    count = len({"H1", "H2", "H3"} & atom_names)
+    return count >= 2 if resname in {"PRO", "HYP"} else count == 3
+
+
 def compute_charge_summary(structure,
                            selected_ids: Set[Tuple],
                            substrate_ids: Set[Tuple],
@@ -1523,7 +1543,7 @@ def compute_charge_summary(structure,
 
     for fid in fids_in_order:
         res = structure[fid[1]][fid[2]].child_dict[fid[3]]
-        rn = res.get_resname().upper()
+        rn = standard_resname(res).upper()
         key = _residue_key_from_res(res)
         if rn in WATER_RES:
             q = 0.0
@@ -1535,7 +1555,8 @@ def compute_charge_summary(structure,
             # the internal AMINO_ACIDS value omits. Mirror the cap atoms the
             # truncation preserves (N-cap N/H*; C-cap C/O/OXT):
             #   C-terminus carboxylate (COO-, has OXT)       -> -1
-            #   N-terminus ammonium    (NH3+, has H1/H2/H3)  -> +1
+            #   N-terminus ammonium    (NH3+, has H1/H2/H3;
+            #                           PRO/HYP NH2+, two)    -> +1
             # TER-break caps have neither OXT nor NH3+ Hs, so they stay neutral.
             if keep_ccap_ids or keep_ncap_ids:
                 atom_names = {a.get_name() for a in res}
@@ -1543,7 +1564,7 @@ def compute_charge_summary(structure,
                         and rn not in C_TERMINAL_RESNAMES:
                     q -= 1.0
                     terminal_corrections.append((res.get_resname(), res.id[1], -1))
-                if fid in keep_ncap_ids and {"H1", "H2", "H3"} <= atom_names \
+                if fid in keep_ncap_ids and _has_n_terminal_hydrogens(rn, atom_names) \
                         and rn not in N_TERMINAL_RESNAMES:
                     q += 1.0
                     terminal_corrections.append((res.get_resname(), res.id[1], 1))
@@ -1759,7 +1780,7 @@ def _disulfide_partner_keys(structure, candidate_keys: Set[ResidueKey],
     sg_atoms: List[PDB.Atom.Atom] = []
     res_of_atom: Dict[PDB.Atom.Atom, ResidueKey] = {}
     for res in structure.get_residues():
-        if res.get_resname() in {"CYS", "CYX"} and "SG" in res:
+        if standard_resname(res) in {"CYS", "CYX"} and "SG" in res:
             at = res["SG"]
             sg_atoms.append(at)
             res_of_atom[at] = _residue_key_from_res(res)
@@ -1831,7 +1852,7 @@ def _compute_linkH_defs(structure,
     out: List[Tuple[Tuple[ResidueKey, str], Tuple[float, float, float]]] = []
     for fid in _sorted_fids_by_file_order(structure, selected_ids):
         res: PDB.Residue.Residue = structure[fid[1]][fid[2]].child_dict[fid[3]]
-        if res.get_resname() in WATER_RES:
+        if standard_resname(res) in WATER_RES:
             continue
         skip_set = skip_map.get(fid, set())
         key = _residue_key_from_res(res)
@@ -1855,7 +1876,7 @@ def _compute_linkH_defs(structure,
             h = np.array(parent.get_coord(), dtype=float) + v * dist
             out.append(((key, cut_type), (float(h[0]), float(h[1]), float(h[2]))))
 
-        if res.get_resname() in {"PRO", "HYP"}:
+        if standard_resname(res) in {"PRO", "HYP"}:
             _maybe("CA", "C", "CA-C")
         else:
             _maybe("CB", "CA", "CB-CA")
@@ -1959,6 +1980,10 @@ def extract_multi(args: argparse.Namespace, api=False) -> Dict[str, Any]:
         _echo_info("[extract:multi] PRO/HYP N-side neighbor addition (union): +%d residues.",
                      len(pro_prev_add_union))
     union_sel_keys |= pro_prev_add_union
+    for st in structs:
+        keep_ncap_union |= _fids_to_keys(
+            st, _proline_terminal_ncaps(st, _keys_to_fids(st, union_sel_keys))
+        )
 
     # ==== Build skip maps per structure (using unified selection and cap-keep flags) ====
     selected_ids_per_struct: List[Set[Tuple]] = []
@@ -2288,6 +2313,7 @@ def _extract_body(args, api):
 
         # Ensure PRO's N-side neighbor is included (TER-aware)
         augment_proline_prev_neighbor(complex_struct, selected_ids)
+        keep_ncap_ids |= _proline_terminal_ncaps(complex_struct, selected_ids)
 
         # Atom counts
         raw = sum(len(complex_struct[f[1]][f[2]].child_dict[f[3]]) for f in selected_ids)
@@ -2315,7 +2341,7 @@ def _extract_body(args, api):
         _bb_full = {"N", "CA", "C", "O"}
         for fid in selected_ids:
             res = complex_struct[fid[1]][fid[2]].child_dict[fid[3]]
-            resname = res.get_resname()
+            resname = standard_resname(res)
             if resname in AMINO_ACIDS or resname in WATER_RES:
                 continue
             if fid in substrate_ids:
