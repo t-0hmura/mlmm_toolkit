@@ -1,3 +1,7 @@
+---
+orphan: true
+---
+
 # mlmm-toolkit ドキュメント
 
 [GitHub](https://github.com/t-0hmura/mlmm_toolkit) · [ChemRxiv 論文](https://doi.org/10.26434/chemrxiv-2025-jft1k) · [Google Colab で実行](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb)
@@ -16,12 +20,12 @@
 
 | 目的 | ガイド |
 |---|---|
-| R と P から経路を一気に求める | [クイックスタート: all](quickstart-all.md) |
-| 1 つの構造から始める（P の構造が無い） | [クイックスタート: scan](quickstart-scan.md) |
-| TS 候補を最適化して確かめる | [クイックスタート: TS-only モード](quickstart-tsopt.md) |
+| 反応の前後の構造から反応機構解析を一気通貫で行う | [クイックスタート: all の Endpoint モード](quickstart-all.md) |
+| 1 つの構造から一気通貫で反応機構解析を行う | [クイックスタート: all の Scan-list モード](quickstart-scan.md) |
+| TS 構造から一気通貫で反応機構解析を行う | [クイックスタート: TS-only モード](quickstart-tsopt.md) |
 | ML 領域と層を決める・計算を軽くする | [ML 領域と層の組み方](model-setup.md) |
 | 反応機構を調べる・TS が取れない | [反応機構を調べるコツ](mechanism-tips.md) |
-| TS を DFT で確かめる | [MLIP の TS を DFT で確かめる](dft-backend.md) |
+| 求めた TS 構造を DFT で構造最適化する | [求めた TS 構造を DFT で構造最適化する](dft-backend.md) |
 | 計算が失敗した | [トラブルシューティング](troubleshooting.md) |
 
 前提条件は [インストール](installation.md) を参照してください。
@@ -83,7 +87,11 @@ VRAM・RAM・実行時間は、代表的な計算から見積もってくださ�
 
 ## エージェントスキル
 
-`skills/` に、AI エージェント向けの手順書（CLI コマンド・構造 I/O・バックエンド・ワークフローと出力・HPC 運用）を同梱しています。インストール手順とスキルの一覧は [`skills/README.md`](https://github.com/t-0hmura/mlmm_toolkit/blob/main/skills/README.md) を参照してください。
+`skills/` に、AI エージェント向けの手順書（CLI コマンド・構造 I/O・バックエンド・ワークフローと出力・HPC 運用）を同梱しています。導入するときは、AI エージェントに次のように指示してください。
+
+> `https://github.com/t-0hmura/mlmm_toolkit/tree/main/skills` をスキルとして取り込んで
+
+clone 済みなら、URL の代わりに手元の `skills/` の path を渡しても構いません。
 
 ## 引用
 
