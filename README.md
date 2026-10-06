@@ -122,7 +122,7 @@ A run writes its deliverables to `--out-dir` (default `./result_all/`):
   `ml_region_without_linkH.xyz` and `ml_region_with_linkH.xyz`,
   plus matching .pdb files for PDB input
 
-Pipeline scratch lives under `_work/` (safe to delete). Full layout and filename conventions: [docs/output-layout.md](docs/output-layout.md).
+Pipeline scratch lives under `_work/`; keep it if you may redo the post-processing with `--resume-segment`. Full layout and filename conventions: [docs/output-layout.md](docs/output-layout.md).
 
 ## Colab GUI workspace
 

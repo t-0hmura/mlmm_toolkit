@@ -95,8 +95,7 @@ while true; do
     echo "[$(date +'%F %T')] $(hostname): START ${rel_path}"
 
     if ! (
-        cd "${task_dir}"
-        bash run.sh
+        cd "${task_dir}" && bash run.sh
     ); then
         echo "[$(date +'%F %T')] $(hostname): ERROR ${rel_path}" >&2
         failed=1

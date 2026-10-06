@@ -65,7 +65,7 @@ Before a long run, check that:
 
 - **Symptom**: the extracted ML region is smaller than expected, or catalytic residues are missing.
 - **Cause**: the radius (`-r/--radius`, default 2.6 Å) is too small for this site.
-- **Fix**: raise `--radius` (for example 2.6 → 3.5 Å), or add the residue with `--selected-resn 'A:TYR:44'`, which adds it without starting a distance search from it; adding it to `-c` keeps it whole ([Make the model larger](model-setup.md#make-the-model-larger)). The accepted forms are in {ref}`Residue selectors <selected-resn-takes-ids>`; in a PDB with an empty chain column, use the name or the number alone, such as `'44'`. You can also select the ML atoms yourself and pass the PDB with `--model-pdb` ([Use a model you built yourself](model-setup.md#use-a-model-you-built-yourself)).
+- **Fix**: raise `--radius` (for example 2.6 → 3.5 Å), or add the residue with `--selected-resn 'A:TYR:44'`, which adds it without starting a distance search from it; adding it to `-c` keeps it whole when `-r` is above 0 ([Make the model larger](model-setup.md#make-the-model-larger)). The accepted forms are in {ref}`Residue selectors <selected-resn-takes-ids>`; in a PDB with an empty chain column, use the name or the number alone, such as `'44'`. You can also select the ML atoms yourself and pass the PDB with `--model-pdb` ([Use a model you built yourself](model-setup.md#use-a-model-you-built-yourself)).
 
 ### Energies or barriers shift with the size of the ML region
 

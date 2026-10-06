@@ -78,5 +78,3 @@ Without `-o`, the output is `<input>_layered.pdb` next to the input.
 - [mm-parm.md](mm-parm.md): usually run before `define-layer`; the `parm7`
   holds no layers.
 - [extract.md](extract.md): cut a binding pocket.
-- The YAML keys `bfactor_ml`, `bfactor_movable_mm`, `bfactor_frozen`, and
-  `bfactor_tolerance` set the B-factor values.

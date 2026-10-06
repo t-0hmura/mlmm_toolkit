@@ -43,7 +43,7 @@ calls `mlmm mm-parm`, or build it into your env-init shell hook.
 ## CLI usage (`mlmm mm-parm`)
 
 ```bash
-mlmm mm-parm -i complex.pdb \
+mlmm mm-parm -i input.pdb \
     --ligand-charge 'SAM:1,GPP:-3' \
     --ff-set ff14SB \
     --out-prefix complex

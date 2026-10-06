@@ -91,7 +91,7 @@ Make the ML region larger when a residue, water, or cofactor of the reaction lie
 - **Raise `-r`** (default 2.6 Å).
 - **`--selected-resn`** adds residues without starting a distance search from them.
 - **`--radius-het2het`** (default 0, off) adds a second cutoff measured only between atoms other than C and H, on both the center side and the neighbor side. It picks up close N and O partners without enlarging the whole radius.
-- **Add the residue to `-c`** to keep it whole: amino acids in `-c` start their own distance search and, without `--exclude-backbone`, keep all their atoms.
+- **Add the residue to `-c`** to keep it whole: amino acids in `-c` start their own distance search; with `-r` above 0 their peptide-bonded neighbors join, so without `--exclude-backbone` they keep all their atoms.
 
 To let more of the environment relax, widen Movable-MM instead of the ML region, for example with `define-layer --movable-cutoff 10.0`. If you narrowed the Hessian to the ML region, drop `--hessian-cutoff` to go back to the default; see [Tips for studying reaction mechanisms](mechanism-tips.md).
 

@@ -54,7 +54,7 @@ A raw enzyme PDB that needs a parm7?
 | `path-search` / `path-opt` | ✓ | ✓ with `--ref-pdb` | — | required |
 | `sp` / `opt` / `tsopt` / `freq` / `irc` / `dft` | ✓ | ✓ with `--ref-pdb` | — | required |
 | `scan` / `scan2d` / `scan3d` | ✓ | ✓ with `--ref-pdb` | — | required |
-| `oniom-export` | PDB in | ✓ in | ✓ out | required |
+| `oniom-export` | PDB in | — | ✓ out | required |
 | `oniom-import` | PDB out | XYZ out | ✓ in | — |
 
 For an mmCIF input, `extract` and `define-layer` also write `.cif` files that

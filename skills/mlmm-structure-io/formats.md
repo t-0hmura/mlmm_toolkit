@@ -394,7 +394,7 @@ Common values; always confirm against the mechanism.
 | NAD⁺ | `NAD` | −1 |
 | FAD | `FAD` | −2 |
 | Pyridoxal phosphate | `PLP` | −2 |
-| Heme (Fe(III) protoporphyrin) | `HEM` | +1 (Fe³⁺ + porphyrin²⁻) |
+| Heme | `HEM` | From the oxidation state, axial ligands, and propionate protonation |
 | Phosphate ion | `PO4` | −2 to −3 |
 
 Monatomic ions are summed from the internal `ION` table. `-l` applies only to
