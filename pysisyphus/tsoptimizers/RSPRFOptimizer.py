@@ -44,16 +44,16 @@ class RSPRFOptimizer(TSHessianOptimizer):
     @staticmethod
     def _partition_dstep2_dalpha(alpha, eigval, step, eigvals, gradient):
         """Derivative of a partitioned squared RFO step (Besalú Eq. 18)."""
+        step = np.asarray(step, dtype=np.float64)
+        gradient = np.asarray(gradient, dtype=np.float64)
         step2 = float(np.dot(step, step))
         if step2 == 0.0:
             return 0.0
-        denom = (eigvals - eigval * alpha) ** 3
-        return (
-            2.0
-            * eigval
-            / (1.0 + step2 * alpha)
-            * np.sum(gradient**2 / denom)
-        )
+        # (h - alpha*lambda)*s = -g turns g**2/(h - alpha*lambda)**3 into
+        # -s**3/g, which avoids subtracting nearly equal eigenvalues at weakly
+        # coupled roots. Uncoupled components contribute zero, as in Eq. 18.
+        ratio = np.divide(step, gradient, out=np.zeros_like(step), where=gradient != 0.0)
+        return -2.0 * eigval / (1.0 + step2 * alpha) * np.dot(step * step, ratio)
 
     def _max_atom_prfo_step(
         self, eigvals, eigvecs, gradient_trans, ip_step_trans,
@@ -389,6 +389,10 @@ class RSPRFOptimizer(TSHessianOptimizer):
                 2 * (self.trust_radius * step_norm - step_norm**2) / dstep2_dalpha
             )
             next_alpha = alpha + alpha_step
+            # Near a weakly coupled root the step norm is noisy at the scale of
+            # one ulp in alpha; a positive update must not round to no change.
+            if next_alpha == alpha and alpha_step > 0.0:
+                next_alpha = np.nextafter(alpha, np.inf)
             if not np.isfinite(next_alpha) or next_alpha <= 0.0:
                 raise ValueError("RS-P-RFO alpha update is not finite and positive.")
             alpha = next_alpha
