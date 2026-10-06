@@ -41,13 +41,6 @@ class RSPRFOptimizer(TSHessianOptimizer):
         )
         return step, gradient
 
-    def _recover_image_step(self, reason):
-        """Recover a rejected RFO proposal from the available physical model."""
-        if not getattr(self, "forces", ()) or getattr(self, "H", None) is None:
-            raise ValueError(reason)
-        self.log(f"{reason} Recovering with a restricted image-quadratic step.")
-        return self._image_trust_step()
-
     @staticmethod
     def _partition_dstep2_dalpha(alpha, eigval, step, eigvals, gradient):
         """Derivative of a partitioned squared RFO step (Besalú Eq. 18)."""
@@ -369,11 +362,9 @@ class RSPRFOptimizer(TSHessianOptimizer):
             if self.max_micro_cycles == 1:
                 break
             if mu + 1 == self.max_micro_cycles:
-                step, gradient = self._recover_image_step(
+                raise ValueError(
                     "RS-P-RFO exhausted its micro cycles outside the trust radius."
                 )
-                image_step = True
-                break
 
             # Derivative of the squared step w.r.t. alpha for both
             # partitioned subspaces (Besalú and Bofill, Eq. 18).
@@ -393,21 +384,13 @@ class RSPRFOptimizer(TSHessianOptimizer):
             )
             dstep2_dalpha = dstep2_dalpha_max + dstep2_dalpha_min
             if not np.isfinite(dstep2_dalpha) or dstep2_dalpha == 0.0:
-                step, gradient = self._recover_image_step(
-                    "RS-P-RFO alpha derivative is zero or nonfinite."
-                )
-                image_step = True
-                break
+                raise ValueError("RS-P-RFO alpha derivative is zero or nonfinite.")
             alpha_step = (
                 2 * (self.trust_radius * step_norm - step_norm**2) / dstep2_dalpha
             )
             next_alpha = alpha + alpha_step
             if not np.isfinite(next_alpha) or next_alpha <= 0.0:
-                step, gradient = self._recover_image_step(
-                    "RS-P-RFO alpha update is not finite and positive."
-                )
-                image_step = True
-                break
+                raise ValueError("RS-P-RFO alpha update is not finite and positive.")
             alpha = next_alpha
 
         # Right now the step is still given in the Hessians eigensystem. We
