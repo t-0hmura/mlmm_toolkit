@@ -141,7 +141,7 @@ The atom order of `input.pdb` must match `real.parm7`. The calculator writes its
 
 ## Python API
 
-The calculator can also be used from Python without the CLI. The `mlmm` package exports `MLMMCore` (the engine), `MLMMASECalculator` (ASE interface), and `mlmm` (pysisyphus Calculator). The constructor arguments correspond to the CLI options: `-i` → `input_pdb`, `--parm7` → `real_parm7`, `--model-pdb` → `model_pdb`, `-q`/`-m` → `model_charge`/`model_mult`, `-b` → `backend`, and `--mm-backend` → `mm_backend`. Most other arguments share their names with the keys of the YAML [`calc` section](yaml-reference.md#calc-section).
+The calculator can also be used from Python without the CLI. The `mlmm` package exports `MLMMCore` (the engine), `MLMMASECalculator` (ASE interface), and `mlmm` (pysisyphus Calculator). The constructor arguments correspond to the CLI options: `-i` → `input_pdb`, `--parm7` → `real_parm7`, `--model-pdb` → `model_pdb`, `-q`/`-m` → `model_charge`/`model_mult`, `-b` → `backend`, and `--mm-backend` → `mm_backend`. Most other arguments share their names with the keys of the YAML [`calc` section](yaml-reference.md#calc).
 
 ### Quick start
 
