@@ -36,9 +36,9 @@ mlmm -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft
 
 ### 主な用途
 
-* **反応機構解析の試行錯誤**: DFT の QM/MM では時間がかかりすぎる系で、酵素全体を含めたまま機構をスクリーニング
-* **QM/MM 計算の初期構造作成**: 全系の反応物（R）・遷移状態（TS）・生成物（P）を作り、[`oniom-export`](oniom-export.md) で Gaussian ONIOM や ORCA QM/MM の入力を書き出し
-* **多検体のハイスループット計算**: 基質バリアントや酵素変異体にわたる反応経路の網羅的探索
+* DFT の QM/MM では検証に時間がかかる、酵素全体を含む系での**反応機構解析の試行錯誤**
+* QM/MM 計算に向けた**初期構造の作成**（全系の反応物・TS・生成物。[`oniom-export`](oniom-export.md) で Gaussian ONIOM や ORCA QM/MM の入力にできます）
+* 基質バリアントや酵素変異体にわたる**反応経路の大量計算**
 
 ### 主な自動化機能
 

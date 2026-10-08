@@ -36,9 +36,9 @@ mlmm -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft
 
 ### What it is for
 
-* **Trial and error on reaction mechanisms**: screen mechanisms in the full enzyme, for systems where QM/MM with DFT alone would take too long
-* **Starting structures for QM/MM**: build the reactant (R), transition state (TS), and product (P) of the full system, and write Gaussian ONIOM or ORCA QM/MM input from them with [`oniom-export`](oniom-export.md)
-* **High-throughput calculations over many systems**: explore reaction pathways systematically across substrate variants and enzyme mutants
+* **Trial and error on reaction mechanisms** in the full enzyme, where QM/MM with DFT takes too long to check
+* **Starting structures** for QM/MM (reactant, TS, and product of the full system; [`oniom-export`](oniom-export.md) turns them into Gaussian ONIOM or ORCA QM/MM input)
+* **Many reaction-path calculations** across substrate variants and enzyme mutants
 
 ### What it automates
 
