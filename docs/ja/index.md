@@ -133,18 +133,47 @@ GitHub のリポジトリを clone 済みなら、URL の代わりに手元の `
 
 ## 引用
 
-Ohmura, T., Inoue, S., Terada, T. (2025). *ML/MM toolkit — Toward Accelerated Mechanistic Investigation of Enzymatic Reactions.* [ChemRxiv](https://doi.org/10.26434/chemrxiv-2025-jft1k)。
+`mlmm-toolkit` を研究で利用する場合は、ChemRxiv の論文を引用してください:
+
+```bibtex
+@article{ohmura2025mlmm,
+  author       = {Ohmura, Takuto and Inoue, Sei and Terada, Tohru},
+  title        = {ML/MM Toolkit -- Toward Accelerated Mechanistic Investigation of Enzymatic Reactions},
+  journal      = {ChemRxiv},
+  year         = {2025},
+  doi          = {10.26434/chemrxiv-2025-jft1k}
+}
+```
+
+ソフトウェアまたは特定のリリースを引用する場合は、Zenodo レコードを使用してください:
+
+```bibtex
+@software{ohmura2026mlmm_software,
+  author       = {Ohmura, Takuto},
+  title        = {mlmm-toolkit},
+  year         = {2026},
+  version      = {0.4.0},
+  url          = {https://github.com/t-0hmura/mlmm_toolkit},
+  license      = {GPL-3.0-or-later},
+  doi          = {10.5281/zenodo.19197863}
+}
+```
 
 ## ライセンス
 
-GNU General Public License version 3 or later (GPL-3.0-or-later)。
+`mlmm-toolkit` は **GNU General Public License version 3 or later (GPL-3.0-or-later)** の下で配布されています。
 
 ## ヘルプ
 
 ```bash
+# 一般的なヘルプ
 mlmm --help
-mlmm <command> --help
-mlmm <command> --help-advanced
+
+# コマンドのヘルプ
+mlmm <subcommand> --help
+
+# 詳細オプション（内部チューニング用）
+mlmm <subcommand> --help-advanced
 ```
 
 問題や機能リクエストは [GitHub Issues](https://github.com/t-0hmura/mlmm_toolkit/issues) に報告してください。

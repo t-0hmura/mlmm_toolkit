@@ -286,18 +286,43 @@ If you cloned the GitHub repository, you can give the local `skills/` path inste
 
 ## Citation
 
-Ohmura, T., Inoue, S., Terada, T. (2025). *ML/MM toolkit — Toward Accelerated Mechanistic Investigation of Enzymatic Reactions.* [ChemRxiv](https://doi.org/10.26434/chemrxiv-2025-jft1k).
+```bibtex
+@article{ohmura2025mlmm,
+  author  = {Ohmura, Takuto and Inoue, Sei and Terada, Tohru},
+  title   = {ML/MM Toolkit -- Toward Accelerated Mechanistic Investigation of Enzymatic Reactions},
+  journal = {ChemRxiv}, year = {2025}, doi = {10.26434/chemrxiv-2025-jft1k}
+}
+```
+
+To cite the software or a specific release, use the Zenodo record:
+
+```bibtex
+@software{ohmura2026mlmm_software,
+  author       = {Ohmura, Takuto},
+  title        = {mlmm-toolkit},
+  year         = {2026},
+  version      = {0.4.0},
+  url          = {https://github.com/t-0hmura/mlmm_toolkit},
+  license      = {GPL-3.0-or-later},
+  doi          = {10.5281/zenodo.19197863}
+}
+```
 
 ## License
 
-GNU General Public License version 3 or later (GPL-3.0-or-later).
+GNU General Public License v3 or later (GPL-3.0-or-later).
 
-## Help
+## Getting Help
 
 ```bash
+# General help
 mlmm --help
-mlmm <command> --help
-mlmm <command> --help-advanced
+
+# Command help
+mlmm <subcommand> --help
+
+# Advanced options (internal tuning)
+mlmm <subcommand> --help-advanced
 ```
 
 Report problems and feature requests on [GitHub Issues](https://github.com/t-0hmura/mlmm_toolkit/issues).
