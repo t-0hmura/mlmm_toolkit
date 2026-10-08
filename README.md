@@ -18,19 +18,18 @@ Starting from the reactant (R) and product (P) structures of the full system, th
 
 **ML/MM model setup (ML-region selection + MM parameter preparation) → Minimum energy path (MEP) search → TS optimization → IRC → Thermochemistry**
 
----
+## Features
 
-- In **Endpoint mode**, you give two or more structures of the full system along the reaction (R, P, and any intermediates), and the MEP search connects the structural changes between them across the potential energy surface to find the TS. When a reaction coordinate is hard to define, build the intermediates or products yourself in PyMOL or GaussView; without a predefined coordinate, the search may also show mechanism candidates you did not expect.
-- With `--refine-path`, the recursive MEP search splits the path where bonds form or break, so each step of a multi-step reaction gets its own TS candidate.
-- In **Scan-list mode**, you start from one structure (a reactant, intermediate, or product), define the reaction coordinate yourself with atom indices or PDB atom IDs, and drive bond distances or angles to target values to build the structures of the next step. Because you choose the coordinate, the rest of the system changes less and the intended TS is easier to reach.
-- In **TS-only mode**, you give a TS candidate and the TS search starts directly.
-- `-c` names the residues the ML region is built around. Give only the charges of the non-standard residues with `-l`; the ML-region charge, the Amber topology (parm7), and the ML / Movable-MM / Frozen-MM layers are prepared automatically.
-- **Microiteration** (on by default) separates the ML-region steps from the relaxation of the movable MM atoms in large systems.
-- The MLIP is chosen with `-b`: UMA, ORB, MACE, or AIMNet2.
-- Once the MLIP gives a plausible path and TS, switch the backend with `-b dft` to run TS optimization and IRC with DFT/MM (GPU4PySCF) in the same tool. See [DFT backend](docs/dft-backend.md).
-- Models can be exported to and imported from **Gaussian ONIOM** and **ORCA QM/MM** input ([`oniom-export`](docs/oniom-export.md) / [`oniom-import`](docs/oniom-import.md)).
-- Each stage, and many other functions, can be called as [subcommands](#cli-subcommands).
-- The bundled [agent skills](#agent-skills) let AI agents run mlmm-toolkit, which can raise the throughput of reaction-mechanism studies.
+- Find a reaction path and its TS from two or more full-system structures you built, without defining a reaction coordinate ([Endpoint mode](docs/quickstart-all.md)).
+- Build the path from one structure by driving a reaction coordinate you choose ([Scan-list mode](docs/quickstart-scan.md)).
+- Start the TS search directly from a TS candidate ([TS-only mode](docs/quickstart-tsopt.md)).
+- Split a multi-step reaction into steps, each with its own TS ([path-search](docs/path-search.md)).
+- Set up the ML region, the Amber topology, and the MM layers from a PDB file automatically ([Building the ML region and layers](docs/model-setup.md)).
+- Choose the MLIP: UMA, ORB, MACE, or AIMNet2 ([MLIP backends](docs/backends.md)).
+- Refine the TS with GPU-accelerated DFT/MM in the same tool ([DFT backend](docs/dft-backend.md)).
+- Export to and import from Gaussian ONIOM and ORCA QM/MM input ([oniom-export](docs/oniom-export.md) / [oniom-import](docs/oniom-import.md)).
+- Run each stage on its own as a subcommand ([CLI subcommands](#cli-subcommands)).
+- Let AI agents run the workflow with the bundled skills ([Agent skills](#agent-skills)).
 
 ## Installation
 
