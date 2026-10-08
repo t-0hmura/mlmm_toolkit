@@ -1,6 +1,6 @@
 # Quickstart: `mlmm all --scan-lists`
 
-`mlmm all --scan-lists` (`-s`) builds a reaction path from one structure. It drives the distances you choose to target values under harmonic restraints (a scan) on the full ML/MM system and uses the scan endpoints to search the minimum energy path (MEP). With `--tsopt`, it continues to transition-state (TS) optimization and an intrinsic reaction coordinate (IRC) calculation. As in [Quickstart: `mlmm all`](quickstart-all.md), the same run cuts out the ML region and builds the Amber topology and the layers first.
+`mlmm all --scan-lists` (`-s`) builds a reaction path from one structure. It drives the distances you choose to target values under harmonic restraints (a scan) on the full ML/MM system and uses the scan endpoints to search the minimum energy path (MEP). With `--tsopt`, it continues to transition-state (TS) optimization and an intrinsic reaction coordinate (IRC) calculation. As in [Quickstart: `mlmm all`](quickstart-all.md), the same run cuts out the ML region and builds the Amber topology and the layers first. You define the reaction coordinate yourself, so the rest of the system changes less and the intended TS is easier to reach. The starting structure can be a reactant, an intermediate, or a product.
 
 The commands below use `1.R.pdb` from the bundled [`examples/beza/`](https://github.com/t-0hmura/mlmm_toolkit/tree/main/examples/beza); run them in that directory.
 

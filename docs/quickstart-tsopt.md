@@ -1,6 +1,6 @@
 # Quickstart: `mlmm all --tsopt` (TS-only mode)
 
-TS-only mode checks one transition-state (TS) candidate without a minimum energy path (MEP) search. `mlmm all --tsopt` optimizes the TS on the full ML/MM system, follows the intrinsic reaction coordinate (IRC) in both directions, and optimizes the two endpoints, the reactant (R) and the product (P). `--thermo` adds vibrational analysis and thermochemistry, and `--dft` adds DFT single points of the ML region on R, TS, and P.
+TS-only mode checks one transition-state (TS) candidate without a minimum energy path (MEP) search. `mlmm all --tsopt` optimizes the TS on the full ML/MM system, follows the intrinsic reaction coordinate (IRC) in both directions, and optimizes the two endpoints, the reactant (R) and the product (P). `--thermo` adds vibrational analysis and thermochemistry, and `--dft` adds DFT single points of the ML region on R, TS, and P. If you already have a TS candidate, give it to this mode to start the TS search directly.
 
 ---
 
