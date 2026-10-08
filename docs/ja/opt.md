@@ -150,7 +150,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 
 `baker` では、サイクル間のエネルギー変化が 1e-6 hartree 未満であることも求めます。`never` は収束を報告しないので、`--max-cycles` まで続きます。
 
-> **補足:** YAML（`--config`）のキーの一覧は、YAML 設定の一覧の [`geom`](yaml-reference.md#geom)、[`opt`](yaml-reference.md#opt)、[`lbfgs`](yaml-reference.md#lbfgs)、[`rfo`](yaml-reference.md#rfo)、[`microiter`](yaml-reference.md#microiter) にあります。
+> **補足:** YAML（`--config`）のキーは、YAML 設定の一覧の [`geom`](yaml-reference.md#geom)、[`opt`](yaml-reference.md#opt)、[`lbfgs`](yaml-reference.md#lbfgs)、[`rfo`](yaml-reference.md#rfo)、[`microiter`](yaml-reference.md#microiter) にあります。
 
 ---
 

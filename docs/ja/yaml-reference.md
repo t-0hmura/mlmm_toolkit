@@ -793,7 +793,7 @@ dft:
 
 ## 関連ドキュメント
 
-- [all](all.md) - メインワークフロー
+- [all](all.md) - 一気通貫ワークフロー
 - [opt](opt.md) - 単一構造最適化
 - [tsopt](tsopt.md) - 遷移状態最適化
 - [path-search](path-search.md) - 再帰的 MEP 探索

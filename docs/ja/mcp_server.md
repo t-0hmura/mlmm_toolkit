@@ -125,7 +125,7 @@ IRC と TS の引数は同じ名前の CLI オプションです。意味とデ�
 
 環境変数（PATH / AMBERHOME / CUDA_VISIBLE_DEVICES）を設定する完全な例は [`examples/mcp_client_config.json`](../../examples/mcp_client_config.json) を参照してください。
 
-VS Code は `.vscode/mcp.json` でトップレベルの `servers` オブジェクトを使います（[VS Code MCP 設定リファレンス](https://code.visualstudio.com/docs/agents/reference/mcp-configuration)）。
+VS Code は `.vscode/mcp.json` で[トップレベルの `servers` オブジェクト](https://code.visualstudio.com/docs/agents/reference/mcp-configuration)を使います。
 
 ```json
 {
