@@ -10,7 +10,7 @@
 * **A TS candidate for `tsopt`**: `hei.pdb` (or `hei.xyz`) is the starting structure for [`tsopt`](tsopt.md).
 * **Comparing GSM and DMF**: run the same pair with `--mep-mode gsm` and `--mep-mode dmf` and compare the paths.
 
-The ML region is computed with **UMA** (Meta) by default, and the rest of the system is computed with the Amber force field of `--parm7`. For two or more structures with automatic refinement of the reactive region, use [`path-search`](path-search.md).
+The ML region is computed with **UMA** (Meta) by default, and the rest of the system is computed with the Amber force field of `--parm7`. To give three or more structures at once, use the [Endpoint mode](quickstart-all.md) of `all`. To try whether intermediates between R and P can be detected automatically, use [`path-search`](path-search.md).
 
 ---
 
