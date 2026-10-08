@@ -19,12 +19,6 @@ mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo
 
 The run writes candidate R / TS / P structures, an energy diagram, and `summary.log` / `summary.json` to `result_all/`, plus a reusable ML region (`ml_region.pdb`) and Amber topology (parm7).
 
-### What it is for
-
-- **Trial and error on reaction mechanisms**: screen mechanisms in the full enzyme, where QM/MM with DFT alone would take too long
-- **Starting structures for QM/MM**: build R, TS, and P of the full system and write Gaussian ONIOM or ORCA QM/MM input with `oniom-export`
-- **High-throughput calculations over many systems**: explore reaction pathways across substrate variants and enzyme mutants
-
 Once MLIP/MM finds a plausible path, mlmm-toolkit can take that TS straight into DFT/MM TS optimization: the TS optimization → IRC → endpoint optimization → frequency workflow runs as GPU-accelerated DFT/MM with GPU4PySCF. See [DFT backend](docs/dft-backend.md).
 
 ## Installation
