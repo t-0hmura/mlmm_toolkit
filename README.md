@@ -116,7 +116,9 @@ Each stage (`mm-parm` → `extract` → `define-layer` → `opt` → `path-opt` 
 
 ## Output
 
-A run writes its deliverables to `--out-dir` (default `./result_all/`):
+Each calculation command writes to its own directory, `./result_<command>/` by default (for example `./result_opt/`, `./result_tsopt/`, or `./result_path_opt/`); `-o/--out-dir` sets another. The preparation commands `extract`, `mm-parm`, and `define-layer` write their files to the current directory.
+
+An `all` run writes its deliverables to `./result_all/`:
 
 - `segments/seg_NN/{reactant,ts,product}.pdb` for MEP-oriented and TS-only segments
 - `mep_trj.pdb` / `mep_trj.xyz` — the merged reaction path; `energy_diagram_MEP.png` — barrier diagram
