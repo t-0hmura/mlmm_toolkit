@@ -16,6 +16,8 @@ Starting from the reactant (R) and product (P) structures of the full system, th
 
 **ML/MM model setup (ML-region selection + MM parameter preparation) → Minimum energy path (MEP) search → TS optimization → IRC → Thermochemistry**
 
+---
+
 ## Features
 
 - Find a reaction path and its TS from two or more full-system structures you built, without defining a reaction coordinate ([Endpoint mode](docs/quickstart-all.md)).
