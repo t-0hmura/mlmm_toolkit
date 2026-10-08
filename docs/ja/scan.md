@@ -188,9 +188,9 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 | `--dump/--no-dump` | フラグ | `False` | 各ステップの最適化の軌跡を出力 |
 | `--opt-mode` | `grad` / `hess` | `grad` | 緩和の方法：L-BFGS / RFO（`tsopt` では同じ語が別の最適化法を指す。{ref}`コマンドごとの --opt-mode <ja-opt-mode-semantics>` を参照） |
 | `--freeze-atoms` | 文字列 | `None` | 凍結する原子の 1 始まりのインデックス（カンマ区切り）。YAML の `geom.freeze_atoms` と凍結 MM 層に加えられる |
-| `--out-json/--no-out-json` | フラグ | `False` | 結果の要約を `result.json` に出力（[JSON 出力リファレンス](json-output.md)） |
+| `--out-json/--no-out-json` | フラグ | `False` | 結果の要約を `result.json` に出力（[JSON 出力の一覧](json-output.md)） |
 
-全オプションの一覧は [自動生成 CLI リファレンス](../reference/commands/scan.md) を参照してください。
+全オプションは [自動生成のオプションの一覧（英語のみ）](../reference/commands/scan.md) を参照してください。
 
 > **補足:** YAML（`--config`）では、`--restraint-k` を指定しないときの拘束の強さを [`bias.k`](yaml-reference.md#bias) で、結合変化の閾値 `bond_factor`・`margin_fraction`・`delta_fraction` を [`bond`](yaml-reference.md#bond) の節で設定できます。
 
@@ -198,7 +198,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 
 ## 使用上の注意点
 
-* **`--preopt` は呼び出し方で変わる**: `scan` を単独で実行したときは、`--preopt` を付けない限り事前最適化をしません。`all` の中では、`all --preopt`（デフォルトで有効）に従って事前最適化し、`all --scan-preopt/--no-scan-preopt` で上書きできます（[`all` の自動生成 CLI リファレンス](../reference/commands/all.md) を参照）。
+* **`--preopt` は呼び出し方で変わる**: `scan` を単独で実行したときは、`--preopt` を付けない限り事前最適化をしません。`all` の中では、`all --preopt`（デフォルトで有効）に従って事前最適化し、`all --scan-preopt/--no-scan-preopt` で上書きできます（[`all` の自動生成のオプションの一覧（英語のみ）](../reference/commands/all.md) を参照）。
 * **インラインでは目標値と範囲を混ぜない**: 1 つのインラインリテラルの中でも、1 回の実行のリテラルどうしでも、目標値 `(i,j,target)` と範囲のどちらか一方だけを使います。両方を組み合わせるときは、YAML/JSON スペックの `stages:` に並べてください。
 * **範囲を使うときのステージ番号**: 範囲 1 つは `low` 向きと `high` 向きの 2 つのステージになります（4-tuple 1 つなら `stage_01/` と `stage_02/`）。インラインでは、1 つのリテラルの範囲がすべてこの 2 つのステージで一緒に動きます。YAML の `stages:` では、範囲を含むステージの項目がそれぞれ別のステージになり、目標値は 1 つ、範囲は 2 つのステージになります。
 * **目標の距離は正の値**にしてください。また、1 つのステージに同じ座標を 2 回書くことはできません。

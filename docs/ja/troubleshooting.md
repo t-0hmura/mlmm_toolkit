@@ -239,7 +239,7 @@ IPOPT/MUMPS が並列版 BLIS を使う環境では、入れ子の並列化で�
 - **原因**：MLIP の力には数値精度によるノイズフロアがあります。大きな ML/MM 系では、これが標準の力の閾値を上回り、構造がほぼ止まっていても力が閾値を下回りません。
 - **対処**：
   - 実行の上限は `--max-cycles`（既定 100000）です。エネルギーが平坦になった時点で早く止めたいときは、`--stop-plateau`（`opt`、`tsopt`、`all`）を付けてください。`stalled`（未収束）として止まります。
-  - 判定の調整は [YAML リファレンス](yaml-reference.md#opt) を参照してください。
+  - 判定の調整は [YAML 設定の一覧](yaml-reference.md#opt) を参照してください。
   - この判定は GSM / DMF では行いません。`path-opt` / `path-search` の単一構造の事前最適化には使われます。
 
 (ja-troubleshooting-ts)=
@@ -248,7 +248,7 @@ IPOPT/MUMPS が並列版 BLIS を使う環境では、入れ子の並列化で�
 - **症状**：TS 最適化が多くのサイクルを回しても収束しない（`summary.log` に `TS optimization did not converge. Review the TS trajectory.`）、または収束後に n_imag が 2 以上（`TS imaginary-mode validation found n_imag=N.`）や 0（`[tsopt] No imaginary mode detected. Try all --refine-path.`）になる（[TS の判定](tsopt.md#ts-の判定)）。
 - **最適化が収束しないときの対処**：止まった理由とモードの変位を確かめてから、次を順に試してください。
   1. オプティマイザを RS-P-RFO（既定）と Dimer 法の間で切り替える：単独では `tsopt --opt-mode hess` / `dimer`、`all` では `--opt-mode-post hess` / `grad`（Dimer）。
-  2. YAML でステップサイズを小さくする。[YAML リファレンス](yaml-reference.md#ts-最適化セクション) を参照してください。
+  2. YAML でステップサイズを小さくする。[YAML 設定の一覧](yaml-reference.md#ts-最適化セクション) を参照してください。
   3. 経路のよりよい HEI（最高エネルギーのイメージ）など、別の候補から始める。{ref}`TS が取れないとき <ja-ts-search-fails>` を参照してください。
 - **n_imag ≥ 2 が残るときの対処**：`--flatten` を付けて最適化し直すか、収束の基準を既定の `baker` から `gau_tight` か `gau_vtight` に締めてください（単独では `tsopt --thresh`、`all` では `--thresh-post`）。Hessian の範囲を広げる、`--refine-path` などのほかの手は {ref}`TS が取れないとき <ja-ts-search-fails>` にまとめてあります。
 

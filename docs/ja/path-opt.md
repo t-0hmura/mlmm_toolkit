@@ -124,9 +124,9 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 | `--fix-ends/--no-fix-ends` | フラグ | `True` | GSM のストリングの最適化の間、端点を固定する（DMF では使わない） |
 | `--climb/--no-climb` | フラグ | `True` | 経路の成長後に GSM のクライミングイメージ探索を行う（DMF では使わない） |
 | `--freeze-atoms` | 文字列 | `None` | すべてのイメージで凍結する原子の番号（1 始まり、カンマ区切り）。YAML の `geom.freeze_atoms` と Frozen-MM 層に加わる（{ref}`原子の固定と距離の拘束 <ja-freeze-atoms-and-restraints>` を参照） |
-| `--out-json/--no-out-json` | フラグ | `False` | 結果の要約を `result.json` に出力（[JSON 出力リファレンス](json-output.md)） |
+| `--out-json/--no-out-json` | フラグ | `False` | 結果の要約を `result.json` に出力（[JSON 出力の一覧](json-output.md)） |
 
-全オプションの一覧は [自動生成 CLI リファレンス](../reference/commands/path_opt.md) を参照してください。
+全オプションは [自動生成のオプションの一覧（英語のみ）](../reference/commands/path_opt.md) を参照してください。
 
 > **補足:** YAML（`--config`）では、[`gs`](yaml-reference.md#gs) の節で GSM のストリングを、[`dmf`](yaml-reference.md#dmf) の節で DMF の経路を、[`stopt`](yaml-reference.md#stopt) の節でストリングのオプティマイザを設定できます。`stopt.lbfgs`・`stopt.rfo` でも、`opt.lbfgs`・`opt.rfo` と同じように端点のオプティマイザを設定できます。
 
@@ -150,7 +150,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 * [tsopt](tsopt.md) — HEI から TS を最適化
 * [irc](irc.md) — TS が狙った R と P につながるかを確認
 * [all](all.md) — 一貫実行のワークフロー。MEP の段は `path-opt` を使い、`--refine-path` で `path-search` に切り替えられます（[all の「主な CLI オプション」](all.md#主な-cli-オプション)）
-* [YAML リファレンス](yaml-reference.md) — `gs`・`dmf`・`stopt` の全設定
+* [YAML 設定の一覧](yaml-reference.md) — `gs`・`dmf`・`stopt` の全設定
 * [用語集](glossary.md) — MEP、GSM、DMF、HEI などの用語
 * [トラブルシューティング](troubleshooting.md) — 異常終了時の原因切り分けと対処法
 * {ref}`終了コード <ja-exit-codes>` — 終了コードの意味

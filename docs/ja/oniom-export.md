@@ -112,7 +112,7 @@ Gaussian の入力には、route の `#p oniom(<method>:amber=softonly)`、可�
 | `--element-check/--no-element-check` | フラグ | `True` | `-i` の元素をトポロジーと 1 原子ずつ照合する |
 | `--link-atom-method` | `scaled` / `fixed` | `scaled` | g16: リンク水素を g-factor（`scaled`）または固定の結合長（`fixed`）で置く |
 
-全オプションの一覧は [自動生成 CLI リファレンス](../reference/commands/oniom_export.md) を参照してください。
+全オプションは [自動生成のオプションの一覧（英語のみ）](../reference/commands/oniom_export.md) を参照してください。
 
 ---
 

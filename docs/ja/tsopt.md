@@ -140,7 +140,7 @@ mmCIF の入力と、PDB の欄に入りきらない大きな PDB の入力で�
 
 * **final geometry**: `final_geometry.*` を、[`irc`](irc.md) に渡す TS として使います。`final_geometry.pdb` の B-factor は、ML 領域が 0、可動 MM 原子が 10、凍結 MM 原子が 20 です。
 * **反応モード**: `vib/imag_*_trj.xyz` を PyMOL や VMD で開き、生成・切断される結合に沿って原子が動いているかを確かめてください。
-* **要約**: `--out-json` を付けると、`result.json` に終わり方（`optimization_status`: `converged`、`stalled`、`not_converged`）、`hessian_status`、n_imag が記録されます（[JSON 出力リファレンス](json-output.md#tsopt) を参照）。
+* **要約**: `--out-json` を付けると、`result.json` に終わり方（`optimization_status`: `converged`、`stalled`、`not_converged`）、`hessian_status`、n_imag が記録されます（[JSON 出力の一覧](json-output.md#tsopt) を参照）。
 
 ---
 
@@ -173,11 +173,11 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 | `--coord-type` | `cart` / `redund` / `dlc` / `tric` | `cart` | 最適化に使う座標系：デカルト座標 / 冗長内部座標 / 非局在化内部座標（DLC）/ 並進・回転を含む内部座標（TRIC） |
 | `--config` | パス | `None` | コマンドラインのオプションより前に適用する YAML ファイル |
 | `--dump/--no-dump` | フラグ | `False` | 最適化の軌跡 `optimization_all_trj.xyz` を書き出す |
-| `--out-json/--no-out-json` | フラグ | `False` | 結果の要約を `result.json` に出力（[JSON 出力リファレンス](json-output.md)） |
+| `--out-json/--no-out-json` | フラグ | `False` | 結果の要約を `result.json` に出力（[JSON 出力の一覧](json-output.md)） |
 
-全オプションは `mlmm tsopt --help-advanced` または [自動生成 CLI リファレンス](../reference/commands/tsopt.md) を参照してください。
+全オプションは `mlmm tsopt --help-advanced` または [自動生成のオプションの一覧（英語のみ）](../reference/commands/tsopt.md) を参照してください。
 
-> **補足:** YAML では、Dimer 法は `hessian_dimer:` ブロックを読み、RS-P-RFO・RS-I-RFO・TRIM は `rsirfo:` ブロックを共用し、マイクロイテレーションは `microiter:` ブロックを読みます。キーの一覧は YAML リファレンスの [`rsirfo`](yaml-reference.md#rsirfo)、[`hessian_dimer`](yaml-reference.md#hessian_dimer)、[`microiter`](yaml-reference.md#microiter) にあります。
+> **補足:** YAML では、Dimer 法は `hessian_dimer:` ブロックを読み、RS-P-RFO・RS-I-RFO・TRIM は `rsirfo:` ブロックを共用し、マイクロイテレーションは `microiter:` ブロックを読みます。キーは YAML 設定の一覧の [`rsirfo`](yaml-reference.md#rsirfo)、[`hessian_dimer`](yaml-reference.md#hessian_dimer)、[`microiter`](yaml-reference.md#microiter) にあります。
 
 > **補足:** 最適化の途中で反応モードが別の Hessian 固有ベクトル（root）に入れ替わる場合は、`rsirfo.track_mode_by_overlap: true` を設定してください。
 
@@ -227,6 +227,6 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 * [all](all.md) — モデル作成・MEP・TS 最適化・IRC・振動解析を一度に実行するワークフロー
 * [反応機構を調べるコツ](mechanism-tips.md) — TS が取れないときに試すこと
 * [トラブルシューティング](troubleshooting.md) — 実行が失敗したときの切り分け
-* [YAML リファレンス](yaml-reference.md) — `rsirfo`・`hessian_dimer`・`microiter` のすべての設定
+* [YAML 設定の一覧](yaml-reference.md) — `rsirfo`・`hessian_dimer`・`microiter` のすべての設定
 * [用語集](glossary.md) — TS、Dimer、Hessian などの用語
 * {ref}`終了コード <ja-exit-codes>` — 終了ステータスの意味

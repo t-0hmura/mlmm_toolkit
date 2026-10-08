@@ -184,6 +184,6 @@ mlmm opt -i r_complex_layered.pdb --parm7 real.parm7 -q -1 --config config.yaml
 - [インストール](installation.md) — インストール、CUDA、C++ コンパイラ
 - [ML/MM 計算機](mlmm-calc.md) — 計算機の構成とパラメータ
 - [MLIP バックエンド](backends.md) — 精度、ワーカー、Hessian の計算方式
-- [YAML 設定リファレンス](yaml-reference.md) — 設定の全体
+- [YAML 設定の一覧](yaml-reference.md) — 設定の全体
 - [freq](freq.md) · [irc](irc.md) — `--hess-device`
 - [トラブルシューティング](troubleshooting.md) — よくあるエラーと対処法

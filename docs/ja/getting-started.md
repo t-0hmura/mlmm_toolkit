@@ -160,7 +160,7 @@ mlmm all [OPTIONS]...
 | `--dft/--no-dft` | （フラグ） | 得られた構造に対して一点 DFT 計算を実行（`--tsopt` と併用） |
 | `-b, --backend` | `uma` / `orb` / `mace` | ML 領域に使うバックエンドを指定（デフォルト: `uma`。`dft` も選択可能） |
 
-構文ルールの詳細は [共通オプションと残基・原子の指定](cli-conventions.md)、全オプションの一覧は [`all` の CLI リファレンス](../reference/commands/all.md) を参照してください。
+構文ルールの詳細は [共通オプションと残基・原子の指定](cli-conventions.md)、全オプションは [`all` のオプションの一覧（英語のみ）](../reference/commands/all.md) を参照してください。
 
 ---
 
@@ -193,7 +193,7 @@ mmCIF（`.cif`・`.mmcif`）と、PDB 形式の固定列に収まらない大き
 
 ## 出力ファイルの構成
 
-実行完了後、出力ディレクトリ（既定は `./result_all/`、`-o` で変更）に以下のファイル群が生成されます。主なファイルは [出力ディレクトリのレイアウト](output-layout.md)、`summary.json` の欄は [JSON 出力リファレンス](json-output.md) にあります。
+実行完了後、出力ディレクトリ（既定は `./result_all/`、`-o` で変更）に以下のファイル群が生成されます。主なファイルは [出力ディレクトリのレイアウト](output-layout.md)、`summary.json` の欄は [JSON 出力の一覧](json-output.md) にあります。
 
 | 出力ファイル / フォルダ | 内容 |
 | --- | --- |

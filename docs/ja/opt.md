@@ -103,7 +103,7 @@ result_opt/
 mmCIF の入力と、PDB の欄に入りきらない大きな PDB の入力では、元の識別子を保った `.cif` も書きます（{ref}`mmCIF の入力 <ja-mmcif-input>` を参照）。
 
 * **final geometry**: `final_geometry.*` が最適化した構造です。[`freq`](freq.md) や経路探索に渡してください。
-* **要約**: `--out-json` を付けると、`result.json` に `optimization_status`、最後のエネルギー `energy_hartree`（拘束のエネルギーを除いた値）、サイクル数 `n_opt_cycles` が記録されます。マイクロイテレーションでは、MM の緩和のサイクル数 `n_micro_cycles` も記録されます（[JSON 出力リファレンス](json-output.md) を参照）。
+* **要約**: `--out-json` を付けると、`result.json` に `optimization_status`、最後のエネルギー `energy_hartree`（拘束のエネルギーを除いた値）、サイクル数 `n_opt_cycles` が記録されます。マイクロイテレーションでは、MM の緩和のサイクル数 `n_micro_cycles` も記録されます（[JSON 出力の一覧](json-output.md) を参照）。
 * **端末**: サイクルごとの表と実行時間が出ます。
 
 ---
@@ -136,7 +136,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 | `--stop-plateau/--no-stop-plateau` | フラグ | `False` | エネルギーが変わらなくなったら（直近 50 サイクルの幅が 1e-4 hartree 未満）止め、`stalled` と報告 |
 | `-o, --out-dir` | パス | `./result_opt/` | 出力先ディレクトリ |
 
-全オプションの一覧は [自動生成 CLI リファレンス](../reference/commands/opt.md) を参照してください。
+全オプションは [自動生成のオプションの一覧（英語のみ）](../reference/commands/opt.md) を参照してください。
 
 `--thresh` のプリセットは次の上限を決めます（力は hartree/bohr、ステップは bohr）。
 
@@ -150,7 +150,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 
 `baker` では、サイクル間のエネルギー変化が 1e-6 hartree 未満であることも求めます。`never` は収束を報告しないので、`--max-cycles` まで続きます。
 
-> **補足:** YAML（`--config`）のキーの一覧は、YAML リファレンスの [`geom`](yaml-reference.md#geom)、[`opt`](yaml-reference.md#opt)、[`lbfgs`](yaml-reference.md#lbfgs)、[`rfo`](yaml-reference.md#rfo)、[`microiter`](yaml-reference.md#microiter) にあります。
+> **補足:** YAML（`--config`）のキーの一覧は、YAML 設定の一覧の [`geom`](yaml-reference.md#geom)、[`opt`](yaml-reference.md#opt)、[`lbfgs`](yaml-reference.md#lbfgs)、[`rfo`](yaml-reference.md#rfo)、[`microiter`](yaml-reference.md#microiter) にあります。
 
 ---
 
@@ -166,7 +166,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 * **凍結原子があるときの剛体運動**: `--flatten` は、剛体運動を [`freq`](freq.md#凍結境界での剛体モード) と同じように扱い、`result.json` の `rigid_projection` に記録します。
 * **凍結原子と拘束の全体**: 凍結する原子や拘束の選び方は、{ref}`原子の固定と距離の拘束 <ja-freeze-atoms-and-restraints>` を参照してください。
 * **オプティマイザの状態の書き出し**: `--dump` を付け、YAML の `opt.dump_restart` に正の整数 N を指定すると、N サイクルごとに `restart_NNN.yaml` を書きます。mlmm-toolkit はこのファイルを読み戻さないので、止まった計算は final geometry から `opt` をやり直してください。
-* **モデルと精度**: `--backend-model` でバックエンドのモデルを、`--precision` で精度を選べます。詳しくは自動生成 CLI リファレンスを参照してください。
+* **モデルと精度**: `--backend-model` でバックエンドのモデルを、`--precision` で精度を選べます。詳しくは自動生成のオプションの一覧（英語のみ）を参照してください。
 * **設定の優先順位**: デフォルト < YAML < コマンドライン（[CLI 規約](cli-conventions.md) を参照）。
 
 ---
@@ -179,6 +179,6 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 * [define-layer](define-layer.md) — 最適化の前に ML 層と MM 層を B-factor に書き込む
 * [all](all.md) — IRC の端点の最適化まで含む一連のワークフロー
 * [トラブルシューティング](troubleshooting.md) — 実行が失敗したときの切り分け
-* [YAML リファレンス](yaml-reference.md) — `opt`、`lbfgs`、`rfo`、`microiter` のすべての設定
+* [YAML 設定の一覧](yaml-reference.md) — `opt`、`lbfgs`、`rfo`、`microiter` のすべての設定
 * [用語集](glossary.md) — L-BFGS、RFO などの用語
 * [終了コード](cli-conventions.md#終了コード) — 終了ステータスの意味

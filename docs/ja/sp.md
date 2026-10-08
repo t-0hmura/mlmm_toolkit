@@ -77,7 +77,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 | `-o, --out-dir` | パス | `./result_sp/` | 出力先ディレクトリ |
 | `--out-json/--no-out-json` | フラグ | `False` | `result.json` と `summary.json` を出力 |
 
-全オプションの一覧は [自動生成 CLI リファレンス](../reference/commands/sp.md) を参照してください。
+全オプションは [自動生成のオプションの一覧（英語のみ）](../reference/commands/sp.md) を参照してください。
 
 > **補足:** YAML（`--config`）では、`calc` でバックエンドを設定し、`geom.freeze_atoms`（1 始まり）で凍結原子を追加できます。`geom.freeze_atoms` は `--freeze-atoms` と合わせて使われます。
 

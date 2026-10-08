@@ -84,6 +84,6 @@ result_all/
 - [ML 領域と層の組み方](model-setup.md): ML 領域を小さくする、残基が足りないときに広げる
 - [反応機構を調べるコツ](mechanism-tips.md): 計算の計画と、TS が取れないときに試すこと
 - [MLIP の TS を DFT で確かめる](dft-backend.md): TS を DFT/MM で詰めて確かめる
-- [`all`](all.md): 全オプションのリファレンス。`mlmm all --help-advanced` でも見られます
-- [JSON 出力リファレンス](json-output.md): `summary.json` の欄
+- [`all`](all.md): オプションの説明。`mlmm all --help-advanced` でも見られます
+- [JSON 出力の一覧](json-output.md): `summary.json` の欄
 - [トラブルシューティング](troubleshooting.md): エラーメッセージや症状から対処を探す

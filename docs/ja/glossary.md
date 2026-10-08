@@ -1,6 +1,6 @@
 # 用語集
 
-ドキュメントに出てくる略語・手法名・単位を、分野ごとに 1 行で引くページです。オプション、出力の欄、ステータスの値（`stalled` など）は、各コマンドのページと [JSON 出力リファレンス](json-output.md) にあります。
+ドキュメントに出てくる略語・手法名・単位を、分野ごとに 1 行で引くページです。オプション、出力の欄、ステータスの値（`stalled` など）は、各コマンドのページと [JSON 出力の一覧](json-output.md) にあります。
 
 ## ML/MM・ONIOM
 
@@ -138,6 +138,6 @@
 - [インストール](installation.md) — セットアップと依存関係
 - [all](all.md) — ポケット抽出、MEP 探索、後処理の全体像
 - [トラブルシューティング](troubleshooting.md) — よくあるエラーと対処法
-- [YAML 設定リファレンス](yaml-reference.md) — 設定ファイルの仕様
+- [YAML 設定の一覧](yaml-reference.md) — 設定ファイルの仕様
 - [MLIP バックエンド](backends.md) — MLIP バックエンドの詳細
 - [ML/MM 計算機](mlmm-calc.md) — ONIOM の結合、リンク原子、MM Hessian

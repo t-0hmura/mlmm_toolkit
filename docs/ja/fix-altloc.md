@@ -107,7 +107,7 @@ altLoc の状態ごとに原子が違う場合も、選んだラベルの原子�
 | `--overwrite/--no-overwrite` | フラグ | `False` | 既存の出力ファイルの上書きを許可。無いときに出力がすでにあると `Output exists: <path> (use --overwrite to overwrite)` で止まる |
 | `--force/--no-force` | フラグ | `False` | altLoc が見つからないファイルも処理 |
 
-全オプションの一覧は [自動生成 CLI リファレンス](../reference/commands/fix_altloc.md) を参照してください。
+全オプションは [自動生成のオプションの一覧（英語のみ）](../reference/commands/fix_altloc.md) を参照してください。
 
 ---
 

@@ -74,7 +74,7 @@ summary.json    # result.json の写し。result.json を読む（--out-json 指
 ```
 
 * **CSV の列**: `frame`、`energy_hartree`、図に描いた値（`--unit` の単位）の 3 列です。3 列目の名前は、基準があるときは `delta_kcal` か `delta_hartree`、`-r none` では `energy_kcal` か `energy_hartree` です。
-* **`result.json`** は最初の出力と同じディレクトリに書き出します。`n_frames`、`min_energy_hartree`、`max_energy_hartree`、`energy_source`（`trajectory_comment` か `mlip_recomputed`）と、書き出したファイルを順に並べた `output_files` を持ちます。`mlip_backend`・`mlip_model`・`mlip_model_label`・`mlip_task`・`mlip_precision` はエネルギーを計算し直したときだけ値が入り、それ以外では null です（[JSON 出力リファレンス](json-output.md#trj2fig)）。
+* **`result.json`** は最初の出力と同じディレクトリに書き出します。`n_frames`、`min_energy_hartree`、`max_energy_hartree`、`energy_source`（`trajectory_comment` か `mlip_recomputed`）と、書き出したファイルを順に並べた `output_files` を持ちます。`mlip_backend`・`mlip_model`・`mlip_model_label`・`mlip_task`・`mlip_precision` はエネルギーを計算し直したときだけ値が入り、それ以外では null です（[JSON 出力の一覧](json-output.md#trj2fig)）。
 
 ---
 
@@ -94,7 +94,7 @@ summary.json    # result.json の写し。result.json を読む（--out-json 指
 | `--precision` | `fp32` / `fp64` | バックエンドごと | 計算し直しの精度（UMA は `fp32`、ORB と MACE は `fp64`）。AIMNet2 は `fp32` だけ |
 | `--out-json/--no-out-json` | フラグ | `False` | `result.json` と `summary.json` を出力 |
 
-全オプションの一覧は [自動生成 CLI リファレンス](../reference/commands/trj2fig.md) を参照してください。
+全オプションは [自動生成のオプションの一覧（英語のみ）](../reference/commands/trj2fig.md) を参照してください。
 
 ---
 

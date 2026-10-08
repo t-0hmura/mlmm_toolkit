@@ -98,7 +98,7 @@ result_path_search/
 └─ seg_NNN_*/                # GSM・DMF の実行と HEI の両側の最適化ごとの作業ファイル
 ```
 
-`summary.json` は常に書き出され、ほかのコマンドの `result.json` とは別の構造です。[JSON 出力リファレンス](json-output.md) の「summary.json (path-search / all)」の節を参照してください。`mep_seg_NN_*` と `hei_seg_NN.*` は、結合が変わる区間にだけ書き出します。NN は `summary.json` の区間の `index`（最終経路で 01 から数える）で、`seg_NNN` のタグやディレクトリの NNN は GSM・DMF の実行を 000 から数えた番号なので、両者は一致しません。mmCIF 入力と、PDB の列に収まらない大きな PDB 入力では、元の識別子を保った `.cif` も書き出します（{ref}`mmCIF 入力 <ja-mmcif-input>` を参照）。`--no-convert-files` では `.xyz` だけを書き出します。
+`summary.json` は常に書き出され、ほかのコマンドの `result.json` とは別の構造です。[JSON 出力の一覧](json-output.md) の「summary.json (path-search / all)」の節を参照してください。`mep_seg_NN_*` と `hei_seg_NN.*` は、結合が変わる区間にだけ書き出します。NN は `summary.json` の区間の `index`（最終経路で 01 から数える）で、`seg_NNN` のタグやディレクトリの NNN は GSM・DMF の実行を 000 から数えた番号なので、両者は一致しません。mmCIF 入力と、PDB の列に収まらない大きな PDB 入力では、元の識別子を保った `.cif` も書き出します（{ref}`mmCIF 入力 <ja-mmcif-input>` を参照）。`--no-convert-files` では `.xyz` だけを書き出します。
 
 ---
 
@@ -124,9 +124,9 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 | `--freeze-atoms` | 文字列 | `None` | 凍結する原子の番号（1 始まり、カンマ区切り）。YAML の `geom.freeze_atoms` と Frozen-MM 層に加わる（{ref}`原子の固定と距離の拘束 <ja-freeze-atoms-and-restraints>` を参照） |
 | `--climb/--no-climb` | フラグ | `True` | 反応区間で GSM のクライミングイメージ探索を行う。接続経路では常に行わない |
 
-全オプションの一覧は [自動生成 CLI リファレンス](../reference/commands/path_search.md) を参照してください。
+全オプションは [自動生成のオプションの一覧（英語のみ）](../reference/commands/path_search.md) を参照してください。
 
-> **補足:** YAML（`--config`）では、`--max-depth` を指定しないときに `search.max_depth` が階層の上限になり、`search.kink_max_nodes`（デフォルト `3`）がねじれに入れるノードの数を、`bond.bond_factor`（デフォルト `1.20`）が結合の変化の判定に使う共有結合半径の倍率を決めます。すべてのキーは YAML リファレンスの [`search`](yaml-reference.md#search) と [`bond`](yaml-reference.md#bond) にあります。[`stopt`](yaml-reference.md#stopt) の `stopt.lbfgs`・`stopt.rfo` でも、`opt.lbfgs`・`opt.rfo` と同じように単一構造のオプティマイザを設定できます。
+> **補足:** YAML（`--config`）では、`--max-depth` を指定しないときに `search.max_depth` が階層の上限になり、`search.kink_max_nodes`（デフォルト `3`）がねじれに入れるノードの数を、`bond.bond_factor`（デフォルト `1.20`）が結合の変化の判定に使う共有結合半径の倍率を決めます。すべてのキーは YAML 設定の一覧の [`search`](yaml-reference.md#search) と [`bond`](yaml-reference.md#bond) にあります。[`stopt`](yaml-reference.md#stopt) の `stopt.lbfgs`・`stopt.rfo` でも、`opt.lbfgs`・`opt.rfo` と同じように単一構造のオプティマイザを設定できます。
 
 ---
 
@@ -151,7 +151,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 * [tsopt](tsopt.md) — 区間ごとの HEI から TS を最適化
 * [ML 領域と層の組み方](model-setup.md) — 入力に使う全系の PDB、`real.parm7`、ML 領域を作る
 * [all](all.md) — 一貫実行のワークフロー。`all --refine-path` で MEP の段に `path-search` を使います
-* [YAML リファレンス](yaml-reference.md) — `search`・`bond`・`gs`・`dmf` の全設定
+* [YAML 設定の一覧](yaml-reference.md) — `search`・`bond`・`gs`・`dmf` の全設定
 * [用語集](glossary.md) — MEP、GSM、DMF、HEI、ねじれなどの用語
 * [トラブルシューティング](troubleshooting.md) — 異常終了時の原因切り分けと対処法
 * {ref}`終了コード <ja-exit-codes>` — 終了コードの意味

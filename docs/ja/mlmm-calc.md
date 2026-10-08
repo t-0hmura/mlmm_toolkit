@@ -79,7 +79,7 @@ Hessian では、2 つの親原子のブロックに自己項 `Jᵀ H_link J` �
 | **オプティマイザ** | `opt`：厳密な Hessian から始めて TS-BFGS で更新する RFO。`tsopt`：選んだ Hessian 型の TS オプティマイザ | L-BFGS（Hessian を使わず、マイクロステップごとに新しく始める） |
 | **収束判定** | `--thresh`（既定は `opt` で `gau`、`tsopt` で `baker`） | `microiter.micro_thresh`（既定は `--thresh` と同じ） |
 
-マイクロイテレーションは `--microiter/--no-microiter`（既定はオン）で切り替えます。使われるのは `opt --opt-mode hess` と、`tsopt` の Hessian 型のモード（`hess`、`rsirfo`、`rsprfo`、`trim`）で、`tsopt` の既定は `hess` です。マイクロステップの設定キーは、YAML リファレンスの [`microiter`](yaml-reference.md#microiter) にあります。
+マイクロイテレーションは `--microiter/--no-microiter`（既定はオン）で切り替えます。使われるのは `opt --opt-mode hess` と、`tsopt` の Hessian 型のモード（`hess`、`rsirfo`、`rsprfo`、`trim`）で、`tsopt` の既定は `hess` です。マイクロステップの設定キーは、YAML 設定の一覧の [`microiter`](yaml-reference.md#microiter) にあります。
 
 ```{note}
 **リンク原子の MM 側の親原子をマクロステップで動かす理由：**
@@ -278,6 +278,6 @@ forces = geom.forces            # Hartree/Bohr (flat)
 - [opt](opt.md)：ML/MM 計算機を使う単一構造の構造最適化
 - [tsopt](tsopt.md)：遷移状態の最適化
 - [freq](freq.md)：振動解析
-- [YAML リファレンス](yaml-reference.md)：`calc` と `microiter` の設定キー
+- [YAML 設定の一覧](yaml-reference.md)：`calc` と `microiter` の設定キー
 - [MLIP バックエンド](backends.md)：バックエンドの選び方、インストール、精度、バックエンドの追加
 - [デバイス設定と HPC](device-hpc.md)：ML/MM のデバイス設定と HPC での投入

@@ -1,4 +1,4 @@
-# JSON 出力リファレンス
+# JSON 出力の一覧
 
 このページでは、`--out-json` で書き出す `result.json` と `summary.json` の欄（key）を、全コマンドに共通の欄とコマンドごとの欄に分けて示します。
 
@@ -467,6 +467,6 @@ jq '.post_segments[] | {index, barrier_kcal: .mlip.barrier_kcal}' result_all/sum
 - {ref}`終了コード <ja-exit-codes>` — 終了コードの意味
 - [出力ディレクトリのレイアウト](output-layout.md) — `result.json` と `summary.json` を書き出す場所
 - [トラブルシューティング](troubleshooting.md) — 失敗・未収束の後に何を変えるか
-- [YAML リファレンス](yaml-reference.md) — これらのスキーマに現れる設定入力
+- [YAML 設定の一覧](yaml-reference.md) — これらのスキーマに現れる設定入力
 - [all](all.md), [path-search](path-search.md) — `--out-json` なしで `summary.json` を書き出すサブコマンド
 - [opt](opt.md), [sp](sp.md), [tsopt](tsopt.md), [freq](freq.md), [irc](irc.md), [scan](scan.md), [scan2d](scan2d.md), [scan3d](scan3d.md), [path-opt](path-opt.md), [dft](dft.md), [extract](extract.md), [trj2fig](trj2fig.md), [energy-diagram](energy-diagram.md), [bond-summary](bond-summary.md) — `--out-json` を付けたときだけ JSON を出すサブコマンド（`bond-summary` は `--json`）

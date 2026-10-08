@@ -124,7 +124,7 @@ result_irc/
 
 * **端点の候補**: `forward_first.xyz` と `backward_last.xyz` を [`opt`](opt.md) で最適化します。各分岐は TS 側のもう一方の端（`forward_last.xyz`、`backward_first.xyz`）も書きます。
 * **経路**: `finished_irc_trj.xyz` か `finished_irc.pdb` を PyMOL や VMD で開くと、反応の動きを見られます。
-* **要約**: `--out-json` を付けると、`result.json` に各分岐のフレーム数（`n_frames_forward`、`n_frames_backward`）、各分岐の止まり方、`bond_changes`、両端と TS のエネルギー（`energy_first_hartree`、`energy_ts_hartree`、`energy_last_hartree`）、`rigid_projection` に除いた剛体運動と最初の Hessian の情報が記録されます（[JSON 出力リファレンス](json-output.md) を参照）。
+* **要約**: `--out-json` を付けると、`result.json` に各分岐のフレーム数（`n_frames_forward`、`n_frames_backward`）、各分岐の止まり方、`bond_changes`、両端と TS のエネルギー（`energy_first_hartree`、`energy_ts_hartree`、`energy_last_hartree`）、`rigid_projection` に除いた剛体運動と最初の Hessian の情報が記録されます（[JSON 出力の一覧](json-output.md) を参照）。
 * **端末**: 各分岐のステップの表と実行時間が出ます。
 
 > **補足:** YAML で `irc.prefix: trial` とすると、`result.json` 以外のファイルの名前が `trial_finished_irc_trj.xyz` のように `trial_` で始まり、`result.json` の `files` にも接頭辞つきの名前が記録されます。YAML の `irc.dump_every` に正の整数を指定すると、実行中に HDF5 のチェックポイント `irc_data.h5` も書きます（デフォルトは書きません）。
@@ -151,11 +151,11 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 | `--hessian-calc-mode` | `FiniteDifference` / `Analytical` | `FiniteDifference` | ML バックエンドが最初の Hessian を計算する方法 |
 | `-b, --backend` | 文字列 | `uma` | ML 領域のバックエンド（`uma`, `orb`, `mace`, `aimnet2`, `dft`） |
 | `--read-hess` | パス | `None` | Hessian を計算せず、`.npy` ファイル（`freq` や `tsopt --dump-hess` で書いたものなど）から読んで始める |
-| `--out-json/--no-out-json` | フラグ | `False` | 結果の要約を `result.json` に出力（[JSON 出力リファレンス](json-output.md)） |
+| `--out-json/--no-out-json` | フラグ | `False` | 結果の要約を `result.json` に出力（[JSON 出力の一覧](json-output.md)） |
 
-全オプションの一覧は [自動生成 CLI リファレンス](../reference/commands/irc.md) を参照してください。
+全オプションは [自動生成のオプションの一覧（英語のみ）](../reference/commands/irc.md) を参照してください。
 
-> **補足:** YAML（`--config`）の `irc` ブロックのキーは、YAML リファレンスの {ref}`irc <ja-irc-section>` にすべて載っています。
+> **補足:** YAML（`--config`）の `irc` ブロックのキーは、YAML 設定の一覧の {ref}`irc <ja-irc-section>` にすべて載っています。
 
 ---
 
@@ -182,6 +182,6 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 * [opt](opt.md) — IRC の端点を R と P へ最適化する
 * [all](all.md) — `tsopt` の後に IRC を実行し、端点まで最適化する一連のワークフロー
 * [トラブルシューティング](troubleshooting.md) — 実行が失敗したときの切り分け
-* [YAML リファレンス](yaml-reference.md) — `irc` のすべての設定
+* [YAML 設定の一覧](yaml-reference.md) — `irc` のすべての設定
 * [用語集](glossary.md) — IRC などの用語
 * [終了コード](cli-conventions.md#終了コード) — 終了ステータスの意味

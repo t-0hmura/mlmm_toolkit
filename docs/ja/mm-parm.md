@@ -108,7 +108,7 @@ mlmm all -i reactant.cif product.cif --parm7 full_system.parm7 \
 | `--ph` | 浮動小数点数 | `7.0` | `--add-h` の pH |
 | `--ff-set` | `ff19SB` か `ff14SB` | `ff19SB` | 力場の組（[使用上の注意点](#使用上の注意点)） |
 
-全オプションの一覧は [自動生成 CLI リファレンス](../reference/commands/mm_parm.md) を参照してください。
+全オプションは [自動生成のオプションの一覧（英語のみ）](../reference/commands/mm_parm.md) を参照してください。
 
 ---
 
@@ -149,7 +149,7 @@ python -c "import parmed as pmd; p=pmd.load_file('system.parm7'); assert not p.c
 ## 関連ドキュメント
 
 * [ML 領域と層の組み方](model-setup.md) — `mm-parm` が書く PDB で ML 領域と MM の層を決める
-* [all](all.md) — 一括のワークフロー。`--parm7` が無いと `mm-parm` を実行する
+* [all](all.md) — 一気通貫のワークフロー。`--parm7` が無いと `mm-parm` を実行する
 * [extract](extract.md) — トポロジーと対応した PDB から ML 領域を切り出す
 * [define-layer](define-layer.md) — トポロジーと対応した PDB に ML・Movable-MM・Frozen-MM の層を付ける
 * [oniom-export](oniom-export.md) — Gaussian ONIOM・ORCA QM/MM の入力を書き出す。上の CMAP を含まないトポロジーが要る

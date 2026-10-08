@@ -142,9 +142,9 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 | `--baseline` | `min` / `first` | `min` | `energy_kcal` の 0 点：使える点の最小値、または点 `(0, 0)` |
 | `--zmin`, `--zmax` | 浮動小数点数 | 曲面の最小値 / 最大値 | カラースケールの下限と上限（kcal/mol） |
 | `--thresh` | 文字列 | `baker` | 各緩和の収束プリセット（`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`） |
-| `--out-json/--no-out-json` | フラグ | `False` | 結果の要約を `result.json` に出力（[JSON 出力リファレンス](json-output.md)） |
+| `--out-json/--no-out-json` | フラグ | `False` | 結果の要約を `result.json` に出力（[JSON 出力の一覧](json-output.md)） |
 
-全オプションの一覧は [自動生成 CLI リファレンス](../reference/commands/scan2d.md) を参照してください。
+全オプションは [自動生成のオプションの一覧（英語のみ）](../reference/commands/scan2d.md) を参照してください。
 
 > **補足:** YAML（`--config`）では、`--opt-mode grad` のとき `lbfgs` か `opt.lbfgs` の節が、`--opt-mode hess` のとき `rfo` か `opt.rfo` の節が効きます。軌跡を書くかどうかは `--dump` だけで決まり、YAML の `opt.dump` は使いません。
 

@@ -109,7 +109,7 @@ mlmm extract -i complex.pdb -c 'A:SUB:301' -o pocket.pdb \
 | 複数 | 1 つ | マルチ MODEL の PDB 1 つ |
 | 複数 | 入力と同じ数 | 入力ごとに PDB 1 つ |
 
-`-o` がこれ以外の数のときと、出力先が入力のファイルそのもののときは、エラーで止まります。出力先の親ディレクトリは自動で作られます。`result.json` には、原子数（`n_atoms_raw`、`n_atoms_extracted`、`n_link_hydrogens`）、電荷（`total_charge`、`protein_charge`、`ligand_total_charge`、`ion_total_charge`）と使った設定が入ります（[JSON 出力リファレンス](json-output.md)）。mmCIF の入力と、PDB の桁に収まらない大きな PDB の入力では、元の ID のままの `.cif` も出ます（{ref}`mmCIF の入力 <ja-mmcif-input>`）。
+`-o` がこれ以外の数のときと、出力先が入力のファイルそのもののときは、エラーで止まります。出力先の親ディレクトリは自動で作られます。`result.json` には、原子数（`n_atoms_raw`、`n_atoms_extracted`、`n_link_hydrogens`）、電荷（`total_charge`、`protein_charge`、`ligand_total_charge`、`ion_total_charge`）と使った設定が入ります（[JSON 出力の一覧](json-output.md)）。mmCIF の入力と、PDB の桁に収まらない大きな PDB の入力では、元の ID のままの `.cif` も出ます（{ref}`mmCIF の入力 <ja-mmcif-input>`）。
 
 ---
 
@@ -130,7 +130,7 @@ mlmm extract -i complex.pdb -c 'A:SUB:301' -o pocket.pdb \
 | `-l, --ligand-charge` | 文字列 | `None` | 総電荷か、残基名ごとの電荷（例: `'GPP:-3,SAM:1'`） |
 | `--out-json/--no-out-json` | フラグ | `False` | `result.json` と `summary.json` を書き出す |
 
-全オプションの一覧は [自動生成 CLI リファレンス](../reference/commands/extract.md) を参照してください。
+全オプションは [自動生成のオプションの一覧（英語のみ）](../reference/commands/extract.md) を参照してください。
 
 ---
 
@@ -154,7 +154,7 @@ mlmm extract -i complex.pdb -c 'A:SUB:301' -o pocket.pdb \
 ## 関連ドキュメント
 
 * [ML 領域と層の組み方](model-setup.md) — ML 領域を削る・広げる、MM の層を決める、原子を固定する
-* [all](all.md) — 一括のワークフロー。`-c` で `extract` を実行する
+* [all](all.md) — 一気通貫のワークフロー。`-c` で `extract` を実行する
 * [mm-parm](mm-parm.md) — Amber の topology と、切り出し元にする対応した PDB を作る
 * [define-layer](define-layer.md) — 切り出した領域から ML・Movable-MM・Frozen-MM の層を付ける
 * [fix-altloc](fix-altloc.md) — 残基ごとに別位置の配座を 1 つにした PDB を書く

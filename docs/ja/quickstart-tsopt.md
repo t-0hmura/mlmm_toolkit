@@ -110,5 +110,5 @@ n_imag が 1 でないときや、IRC の端点が狙いと違うときは、[�
 - [`tsopt`](tsopt.md)・[`irc`](irc.md)・[`freq`](freq.md): 各段を単独で実行する
 - [クイックスタート: `mlmm all`](quickstart-all.md): R と P から MEP を作る
 - [クイックスタート: scan](quickstart-scan.md): 1 つの構造から経路を作る
-- [`all`](all.md)・[`dft`](dft.md): 全オプションのリファレンス
+- [`all`](all.md)・[`dft`](dft.md): オプションの説明
 - [トラブルシューティング](troubleshooting.md): エラーメッセージや症状から対処を探す

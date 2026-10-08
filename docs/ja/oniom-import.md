@@ -84,7 +84,7 @@ B-factor を 0・10・20 にして `<out_prefix>_layered.pdb` を書きます。
 | `--ref-pdb` | パス | `None` | 原子名・残基名を出力に書き写す PDB。同じ原子を同じ順に並べたもの |
 | `--allow-unverified-ref-order/--no-allow-unverified-ref-order` | フラグ | `False` | マーカーでも元素の一意性でも並びを確かめられないときに、`--ref-pdb` を位置で対応づける |
 
-全オプションの一覧は [自動生成 CLI リファレンス](../reference/commands/oniom_import.md) を参照してください。
+全オプションは [自動生成のオプションの一覧（英語のみ）](../reference/commands/oniom_import.md) を参照してください。
 
 ---
 

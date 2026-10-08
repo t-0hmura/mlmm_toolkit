@@ -87,7 +87,7 @@ result_dft/
 * **`mlmm_energy`**（`result.yaml`）: MM のエネルギー `E_real_low_hartree` と `E_model_low_hartree`、総エネルギー `E_total_ml_dft_mm_hartree`。kcal/mol の値もあります。
 * **`charges [index, element, mulliken, lowdin, iao]`**: リンク水素を含む ML 領域の 1 原子 1 行の表で、`index` は 0 始まりです。端末にも同じ表が出ます。
 * **`spin_densities [index, element, mulliken, lowdin, iao]`**: 同じ形の表です。`result.yaml` には常に書き出し、端末には開殻のときだけ表示します。
-* **`result.json`**: エネルギー、`mulliken`・`lowdin`・`iao` の配列での電荷とスピン密度、電荷・多重度・汎関数・基底・SCF の設定を持ちます（[JSON 出力リファレンス](json-output.md#dft)）。
+* **`result.json`**: エネルギー、`mulliken`・`lowdin`・`iao` の配列での電荷とスピン密度、電荷・多重度・汎関数・基底・SCF の設定を持ちます（[JSON 出力の一覧](json-output.md#dft)）。
 
 ---
 
@@ -114,7 +114,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 | `--convert-files/--no-convert-files` | フラグ | `True` | ML 領域を PDB でも書き出す（PDB 入力のときだけ） |
 | `-o, --out-dir` | パス | `./result_dft/` | 出力先ディレクトリ |
 
-全オプションの一覧は [自動生成 CLI リファレンス](../reference/commands/dft.md) を参照してください。
+全オプションは [自動生成のオプションの一覧（英語のみ）](../reference/commands/dft.md) を参照してください。
 
 > **補足:** YAML（`--config`）では、{ref}`dft <ja-dft-section>` の節で同じ設定を指定できます。`dft.pyscf` は PySCF のオブジェクトに属性を名前で渡し、SCF が収束しにくいときは `pyscf: {mf: {level_shift: 0.2}}` のように使えます。ML 領域の電荷と多重度は `calc.model_charge`・`calc.model_mult` に書きます。優先されるのは `-q`・`-l`・`-m`、YAML の順です。
 

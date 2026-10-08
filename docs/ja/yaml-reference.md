@@ -1,4 +1,4 @@
-# YAML 設定リファレンス
+# YAML 設定の一覧
 
 YAML 設定ファイル（`--config`）に書けるキーと既定値を、セクションごとに引くページです。セクションの一覧、優先順位、CLI フラグと YAML キーの対応も最初にまとめています。
 
@@ -33,7 +33,7 @@ YAML 設定ファイル（`--config`）に書けるキーと既定値を、セ�
 組み込みデフォルト  <  --config (YAML)  <  CLI フラグ
 ```
 
-1. **組み込みデフォルト** — `mlmm <subcmd> --help-advanced` と [コマンドリファレンス（英語のみ）](../reference/commands/index.md) の `[default: …]` に出る値。
+1. **組み込みデフォルト** — `mlmm <subcmd> --help-advanced` と [コマンドの一覧（英語のみ）](../reference/commands/index.md) の `[default: …]` に出る値。
 2. **`--config`** — デフォルトを上書きする YAML ファイル（例: `--config my_settings.yaml`）。
 3. **CLI フラグ** — コマンドラインで明示的に指定したオプション（例: `-q -1`, `--thresh gau_loose`）。*明示的に指定された*値のみが YAML を上書きし、CLI デフォルトのままのオプションは YAML の値を上書きしません。
 

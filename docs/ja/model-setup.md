@@ -176,7 +176,7 @@ mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 - [`extract`](extract.md) — 切り出しのオプション、`-c` の残基の指定、非標準の残基名
 - [`define-layer`](define-layer.md) — ML・Movable-MM・Frozen-MM の層を付ける
 - [`mm-parm`](mm-parm.md) — Amber のトポロジーと、対応する PDB を作る
-- [`all`](all.md) — 一括のワークフロー。`-c` で ML 領域と層を作る
+- [`all`](all.md) — 一気通貫のワークフロー。`-c` で ML 領域と層を作る
 - [`opt`](opt.md) — 距離の拘束を付けた構造最適化
 - [`scan`](scan.md) — 拘束を付けた段階的なスキャン
 - [`freq`](freq.md) — 固定した原子があるときの PHVA と剛体モード

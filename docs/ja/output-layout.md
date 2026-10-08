@@ -6,7 +6,7 @@
 
 | ファイル名 | 書き出し元 | 用途 |
 |---|---|---|
-| `summary.json` | `all` / `path-search` | 集約ワークフローの JSON 結果（[JSON 出力リファレンス](json-output.md)）。 |
+| `summary.json` | `all` / `path-search` | 集約ワークフローの JSON 結果（[JSON 出力の一覧](json-output.md)）。 |
 | `summary.json` | `--out-json`（デフォルト: `--no-out-json`）を指定した個別計算・レポートのコマンド | そのコマンドの `result.json` の写し。書き込みが正常に終われば同一内容です。`mm-parm`、`define-layer`、`fix-altloc`、`add-elem-info`、`bond-summary`、`oniom-export`、`oniom-import` は書き出しません。 |
 | `result.json` | `--out-json` を指定した `opt`、`tsopt`、`freq`、`irc`、`sp`、`scan` / `scan2d` / `scan3d`、`path-opt`、`dft`、`extract`、`trj2fig`、`energy-diagram` | 個別計算・レポートの JSON 結果。収束せずに終わった場合も書き出します。`extract`、`trj2fig`、`energy-diagram` は、最初の出力ファイルと同じ場所に書きます。 |
 | `run.log` | 出力ディレクトリが作られた後の CLI / Colab 実行 | シェルでそのまま使える形の実行コマンドと、コマンド実行中の標準出力・標準エラー。実行がどう終わったかを示す行も入り、その行は各コマンドのページにあります（例：[opt の収束の判定](opt.md#収束の判定)）。ヘルプ、バージョン、dry-run の呼び出しと、出力ディレクトリを持たないコマンド（`extract`、`mm-parm`、`define-layer`、`add-elem-info`、`fix-altloc`、`bond-summary`、`trj2fig`、`energy-diagram`、`oniom-export`、`oniom-import`）では生成しません。 |
@@ -78,6 +78,6 @@ TS-only モード（遷移状態（TS）の候補 1 つに `--tsopt` を付け�
 ## 関連ドキュメント
 
 - [all](all.md#主な出力ファイル) — `result_all/` のツリー全体とエネルギー図
-- [JSON 出力リファレンス](json-output.md) — `summary.json` と `result.json` のキー、Python と jq の例
+- [JSON 出力の一覧](json-output.md) — `summary.json` と `result.json` のキー、Python と jq の例
 - [共通オプションと残基・原子の指定](cli-conventions.md) — `--out-dir`、`--convert-files`、終了コード
 - [トラブルシューティング](troubleshooting.md) — よくあるエラーと対処法

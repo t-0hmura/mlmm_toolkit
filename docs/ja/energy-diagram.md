@@ -1,6 +1,6 @@
 # `energy-diagram`（状態エネルギー図）
 
-`energy-diagram` サブコマンドは、与えた数値から**状態エネルギー図を描きます**。構造ファイルを読まず、ML/MM の計算も行いません。`all` や `path-search` が書き出す `summary.json` の `energy_diagrams`（[JSON 出力リファレンス](json-output.md)）や論文の表など、すでに手元にあるエネルギーの作図に向いています。
+`energy-diagram` サブコマンドは、与えた数値から**状態エネルギー図を描きます**。構造ファイルを読まず、ML/MM の計算も行いません。`all` や `path-search` が書き出す `summary.json` の `energy_diagrams`（[JSON 出力の一覧](json-output.md)）や論文の表など、すでに手元にあるエネルギーの作図に向いています。
 
 ---
 
@@ -78,7 +78,7 @@ summary.json         # result.json の写し。result.json を読む（--out-jso
 | `--label-y` | 文字列 | `ΔE (kcal/mol)` | y 軸のラベル |
 | `--out-json/--no-out-json` | フラグ | `False` | 画像の隣に `result.json` と `summary.json` を出力 |
 
-全オプションの一覧は [自動生成 CLI リファレンス](../reference/commands/energy_diagram.md) を参照してください。
+全オプションは [自動生成のオプションの一覧（英語のみ）](../reference/commands/energy_diagram.md) を参照してください。
 
 ---
 
@@ -96,5 +96,5 @@ summary.json         # result.json の写し。result.json を読む（--out-jso
 
 * [trj2fig](trj2fig.md) — 軌跡の各フレームからエネルギープロファイルを作図
 * [all](all.md) — エネルギー図も自動で描く全工程のワークフロー
-* [JSON 出力リファレンス](json-output.md#energy-diagram) — `result.json` の欄
+* [JSON 出力の一覧](json-output.md#energy-diagram) — `result.json` の欄
 * [トラブルシューティング](troubleshooting.md) — 実行に失敗したときの対処。画像の書き出しの失敗は {ref}`図のエクスポートが失敗する <ja-plot-export-fails-chrome-missing>`

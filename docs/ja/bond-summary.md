@@ -72,7 +72,7 @@ mlmm bond-summary -i reactant.xyz im1.xyz im2.xyz product.xyz
 | `--json/--no-json` | フラグ | `False` | テキストの代わりに JSON を標準出力に表示 |
 | `--one-based/--zero-based` | フラグ | `--one-based` | 報告での原子の番号付け |
 
-全オプションの一覧は [自動生成 CLI リファレンス](../reference/commands/bond_summary.md) を参照してください。
+全オプションは [自動生成のオプションの一覧（英語のみ）](../reference/commands/bond_summary.md) を参照してください。
 
 ---
 

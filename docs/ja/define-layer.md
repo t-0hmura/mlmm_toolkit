@@ -83,7 +83,7 @@ PDB は入力のレコードをすべて保ち、B-factor だけを変えます�
 | `-o, --output` | パス | `<input>_layered.pdb` | 出力 PDB |
 | `--one-based/--zero-based` | フラグ | `--one-based` | `--model-indices` の読み方 |
 
-全オプションの一覧は [自動生成 CLI リファレンス](../reference/commands/define_layer.md) を参照してください。
+全オプションは [自動生成のオプションの一覧（英語のみ）](../reference/commands/define_layer.md) を参照してください。
 
 ---
 
@@ -102,6 +102,6 @@ PDB は入力のレコードをすべて保ち、B-factor だけを変えます�
 * [ML 領域と層の組み方](model-setup.md) — ML 領域、動く殻、Hessian の範囲を決める
 * [extract](extract.md) — `--model-pdb` に渡す ML 領域を切り出す
 * [mm-parm](mm-parm.md) — トポロジーと、層を付ける対応した PDB を作る
-* [all](all.md) — 一括のワークフロー。`-c` で `define-layer` を実行する
+* [all](all.md) — 一気通貫のワークフロー。`-c` で `define-layer` を実行する
 * [opt](opt.md) — 層付きの系を最適化する
 * [トラブルシューティング](troubleshooting.md) — 層と原子の順のエラー

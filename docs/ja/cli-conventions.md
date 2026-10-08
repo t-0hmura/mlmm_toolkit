@@ -276,7 +276,7 @@ JSON の有無で終了コードは変わりません。終了コード `0` に�
 
 ## CLI ↔ YAML 名称の不一致
 
-一部の CLI フラグは YAML の対応キーと微妙に名前が異なり、`all` でラップされたときにリネームされるものもあります。主なフラグと YAML キーの対応は {ref}`YAML リファレンスの主要な CLI→YAML マッピング <ja-common-cli-to-yaml-mapping>` にあります。特によく聞かれるケースを以下に示します:
+一部の CLI フラグは YAML の対応キーと微妙に名前が異なり、`all` でラップされたときにリネームされるものもあります。主なフラグと YAML キーの対応は {ref}`YAML 設定の一覧の主要な CLI→YAML マッピング <ja-common-cli-to-yaml-mapping>` にあります。特によく聞かれるケースを以下に示します:
 
 (ja-pressure-vs-pressure-atm)=
 - **`--pressure` (CLI) と `pressure_atm` (YAML)** — `freq` のフラグは `--pressure FLOAT`、`all` では `--freq-pressure` です。YAML キーは `thermo.pressure_atm` です。どちらも値は **atm** 単位です（デフォルト 1.0）。
@@ -303,7 +303,7 @@ mlmm all -i r.pdb p.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --config my_settings.yaml
 組み込みデフォルト  <  --config (YAML)  <  CLI オプション
 ```
 
-各オプションの組み込みデフォルトは、`mlmm <subcmd> --help-advanced` と [コマンドリファレンス（英語のみ）](../reference/commands/index.md) の `[default: …]` で確かめられます。YAML を上書きするのは*明示的に指定した* CLI の値だけで、CLI のデフォルトのままのオプションは YAML の値を隠しません。この順序は `--config` を受け付けるすべてのコマンドに共通です。全設定は [YAML リファレンス](yaml-reference.md) を参照してください。
+各オプションの組み込みデフォルトは、`mlmm <subcmd> --help-advanced` と [コマンドの一覧（英語のみ）](../reference/commands/index.md) の `[default: …]` で確かめられます。YAML を上書きするのは*明示的に指定した* CLI の値だけで、CLI のデフォルトのままのオプションは YAML の値を隠しません。この順序は `--config` を受け付けるすべてのコマンドに共通です。全設定は [YAML 設定の一覧](yaml-reference.md) を参照してください。
 
 ## 出力ディレクトリ
 
@@ -326,6 +326,6 @@ mlmm all -i r.pdb p.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --config my_settings.yaml
 - [はじめに](getting-started.md) — 最短の実行と次に読むページ
 - [出力ディレクトリのレイアウト](output-layout.md) — ファイル名とデフォルトの出力ディレクトリ
 - [トラブルシューティング](troubleshooting.md) — よくあるエラーと対処法
-- [YAML リファレンス](yaml-reference.md) — 全設定オプション
+- [YAML 設定の一覧](yaml-reference.md) — 全設定オプション
 - [MLIP バックエンド](backends.md) — バックエンドの選び方、精度、workers
 - [ML/MM 計算機](mlmm-calc.md) — ML/MM のエネルギー・力・Hessian の計算方法

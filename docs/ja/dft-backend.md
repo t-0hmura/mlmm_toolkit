@@ -79,9 +79,9 @@ mlmm all -i result_all/segments/seg_01/ts.pdb \
 | `--embedcharge/--no-embedcharge`、`--embedcharge-cutoff FLOAT` | `-b dft` のとき、ML 領域から cutoff（Å）以内の MM の点電荷を DFT のハミルトニアンに入れます。 | `--no-embedcharge`、`12.0` |
 | `--dft/--no-dft` | R・TS・P に DFT の一点計算を足します（`all` だけ）。 | `--no-dft` |
 
-ほかの DFT のオプション（`--dft-engine`、`--dft-low-memory/--no-dft-low-memory`、`--dft-nprocs`、`--dft-memory`、SCF のチェックポイント）は [`all` のリファレンス](../reference/commands/all.md)にあります。
+ほかの DFT のオプション（`--dft-engine`、`--dft-low-memory/--no-dft-low-memory`、`--dft-nprocs`、`--dft-memory`、SCF のチェックポイント）は [`all` のオプションの一覧（英語のみ）](../reference/commands/all.md)にあります。
 
-> **補足:** YAML では同じ設定を `calc.dft` に書きます。`calc.dft.pyscf` では PySCF のオブジェクトの名前ごとに属性を渡せます（例：収束しにくい SCF に `mf: {level_shift: 0.2}`）。キーの一覧は [YAML 設定リファレンス](yaml-reference.md)にあります。
+> **補足:** YAML では同じ設定を `calc.dft` に書きます。`calc.dft.pyscf` では PySCF のオブジェクトの名前ごとに属性を渡せます（例：収束しにくい SCF に `mf: {level_shift: 0.2}`）。キーは [YAML 設定の一覧](yaml-reference.md)にあります。
 
 ## 使用上の注意点
 

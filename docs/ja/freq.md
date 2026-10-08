@@ -62,7 +62,7 @@ ML 領域を `--model-pdb` から、可動 MM 層と凍結 MM 層を入力 PDB �
 
 凍結原子が無いときは、振動ではない剛体運動（並進 3 つと回転 3 つ）の 6 つを取り除いてから振動数を出します。凍結原子があるときは、すべての凍結原子をその場に残す剛体運動だけを取り除きます。凍結 MM 層を持つふつうの ML/MM モデルのように、一直線に並ばない凍結原子が 3 つ以上あれば、取り除く剛体運動は 0 で、可動原子の振動モードはすべて残ります。凍結原子が 1 つなら 3 つ（その原子のまわりの回転）、2 つなら 1 つ（2 原子を結ぶ軸まわりの回転）を取り除きます。
 
-`irc`、`tsopt` の TS の振動数の確認と Dimer の向きの計算、`opt`・`tsopt` の `--flatten`（余分な虚振動を消す処理）も、剛体運動を同じように扱います。`--out-json` を付けると、取り除いた剛体運動の数と使った Hessian が `result.json` の `rigid_projection` に記録されます（[JSON 出力リファレンス](json-output.md#剛体モードの射影の記録)）。
+`irc`、`tsopt` の TS の振動数の確認と Dimer の向きの計算、`opt`・`tsopt` の `--flatten`（余分な虚振動を消す処理）も、剛体運動を同じように扱います。`--out-json` を付けると、取り除いた剛体運動の数と使った Hessian が `result.json` の `rigid_projection` に記録されます（[JSON 出力の一覧](json-output.md#剛体モードの射影の記録)）。
 
 ---
 
@@ -123,7 +123,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 | `--dump/--no-dump` | フラグ | `False` | 詳細熱化学ファイル（`thermoanalysis.yaml`）を出力 |
 | `--out-json/--no-out-json` | フラグ | `False` | 結果要約を `result.json` に出力 |
 
-全オプションの一覧は [自動生成 CLI リファレンス](../reference/commands/freq.md) を参照してください。
+全オプションは [自動生成のオプションの一覧（英語のみ）](../reference/commands/freq.md) を参照してください。
 
 > **補足:** YAML（`--config`）では、{ref}`freq <ja-freq-section>` の節で虚振動の判定閾値 `zero_cutoff_cm` や書き出すモードの本数・振幅を、[`thermo`](yaml-reference.md#thermo) の節で温度と圧力を設定できます。
 
@@ -147,6 +147,6 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 * [irc](irc.md) — 遷移状態からの固有反応座標（IRC）追跡
 * [dft](dft.md) — 構造に対する高精度な DFT 一点エネルギー計算
 * [all](all.md) — モデル作成・経路探索・TS 最適化・振動解析を一貫実行するワークフロー
-* [YAML リファレンス](yaml-reference.md) — 設定ファイルの記法
+* [YAML 設定の一覧](yaml-reference.md) — 設定ファイルの記法
 * [トラブルシューティング](troubleshooting.md) — 異常終了時の原因切り分けと対処法
 * {ref}`終了コード <ja-exit-codes>` — 終了コードの意味

@@ -29,7 +29,7 @@ mlmm opt -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b aim
 
 `--backend-model NAME` は、選んだ `--backend` のモデルを替えます（例：`--backend uma --backend-model uma-m-1p1`）。`-b dft` を付けると ML 領域を DFT で計算でき（[DFT/MM バックエンド](#dftmm-バックエンド)）、`--calc-file` で任意の ASE calculator を使えます（{ref}`カスタムバックエンド <ja-backends-custom-calculator>`）。
 
-実行時には、読み込むバックエンドとモデルが `[backend] Preparing MLIP model (UMA / UMA-S-1.2 (OMol))...` のように表示され、JSON の出力の `mlip_backend`・`mlip_model`・`mlip_precision` に記録されます（[JSON 出力リファレンス](json-output.md#共通エンベロープ)）。
+実行時には、読み込むバックエンドとモデルが `[backend] Preparing MLIP model (UMA / UMA-S-1.2 (OMol))...` のように表示され、JSON の出力の `mlip_backend`・`mlip_model`・`mlip_precision` に記録されます（[JSON 出力の一覧](json-output.md#共通エンベロープ)）。
 
 (ja-precision)=
 ### 精度（precision）

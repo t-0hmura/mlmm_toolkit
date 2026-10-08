@@ -69,7 +69,7 @@ mlmm add-elem-info -i 1abc.pdb --overwrite
 | `--overwrite/--no-overwrite` | フラグ | `False` | `-o` を省略したときに入力ファイルを上書き |
 | `--overwrite-elem/--no-overwrite-elem` | フラグ | `False` | 有効な記号が入っている元素欄も推定し直す |
 
-全オプションの一覧は [自動生成 CLI リファレンス](../reference/commands/add_elem_info.md) を参照してください。
+全オプションは [自動生成のオプションの一覧（英語のみ）](../reference/commands/add_elem_info.md) を参照してください。
 
 ---
 
