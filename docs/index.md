@@ -212,9 +212,11 @@ The three layers (ML, movable MM, frozen MM) and how ONIOM combines them are exp
 `skills/` contains guides for AI agents on the CLI commands, structure I/O, backends, workflows and outputs, and HPC use.
 To install them, tell your AI agent:
 
-> Import `https://github.com/t-0hmura/mlmm_toolkit/tree/main/skills` as skills.
+> Import `https://github.com/t-0hmura/mlmm_toolkit/tree/main/skills` as skills, and install mlmm-toolkit by following `mlmm-install-backends`.
 
-If you cloned the repository, you can give the local `skills/` path instead.
+If you cloned the repository, you can give the local `skills/` path instead. Then you can ask, for example:
+
+> Read *the paper*, build a model from the PDB structure *PDB ID*, and study the mechanism of *the reaction step* with the mlmm-toolkit skills.
 
 ## Citation
 
