@@ -2,24 +2,32 @@
 
 [![PyPI](https://img.shields.io/pypi/v/mlmm-toolkit.svg)](https://pypi.org/project/mlmm-toolkit/) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb)
 
-`mlmm-toolkit` is an open-source CLI for **ML/MM ONIOM** analyses of enzymatic reactions.
-
 ## Overview
 
 <img src="https://raw.githubusercontent.com/t-0hmura/mlmm_toolkit/main/docs/mlmm_toolkit_overview.png" alt="Overview of ML/MM toolkit" width="90%">
 
-`mlmm-toolkit` replaces the QM region of conventional QM/MM with a machine-learning interatomic potential (MLIP, default: UMA) while keeping the surrounding protein under an analytical Amber force field (`hessian_ff`), and chains **ML-region selection → MM topology/layer preparation → MEP search → TS optimization → IRC → thermochemical correction → DFT single-point** in one command.
+`mlmm-toolkit` is an open-source CLI for **ML/MM ONIOM** analyses of enzymatic reactions. It replaces the QM region of conventional QM/MM with a machine-learning interatomic potential (MLIP, default: UMA) while keeping the surrounding protein under an analytical Amber force field (`hessian_ff`).
 
-Test a reaction mechanism in a single command:
+You can test a reaction mechanism in a **single command** like:
 
 ```bash
-# Multi-structure MEP (R + P endpoints → MEP, with TS optimization + thermo)
 mlmm all -i R.pdb P.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --tsopt --thermo
 ```
 
-The run writes candidate R / TS / P structures, an energy diagram, and `summary.log` / `summary.json` to `result_all/`, plus a reusable ML region (`ml_region.pdb`) and Amber topology (parm7).
+Starting from the reactant (R) and product (P) structures of the full system, the command above runs:
 
-Once MLIP/MM finds a plausible path, mlmm-toolkit can take that TS straight into DFT/MM TS optimization: the TS optimization → IRC → endpoint optimization → frequency workflow runs as GPU-accelerated DFT/MM with GPU4PySCF. See [DFT backend](docs/dft-backend.md).
+**ML/MM model setup (ML-region selection + MM parameter preparation) → Minimum energy path (MEP) search → TS optimization → IRC → Thermochemistry**
+
+---
+
+- Start from **two or more structures** along the reaction, from **one structure with a staged bond scan** (`--scan-lists`), or from **one TS candidate** (`--tsopt`).
+- With `-c`, the **ML region** is chosen around the given residues, the Amber topology (parm7) is built, and the full system is divided into ML, Movable-MM, and Frozen-MM layers; a link hydrogen caps each covalent bond cut by the ML region.
+- **Microiteration** (on by default) separates the ML-region steps from the relaxation of the movable MM atoms in large systems.
+- **Multi-step reactions** are split into segments by a recursive MEP search, and each segment is refined (`--refine-path`).
+- The MLIP is **UMA** by default; **ORB**, **MACE**, and **AIMNet2** are available with `-b`.
+- A TS found with the MLIP/MM can be taken into **GPU-accelerated DFT/MM** (GPU4PySCF) for TS optimization → IRC → endpoint optimization → frequencies. See [DFT backend](docs/dft-backend.md).
+- Models can be exported to and imported from **Gaussian ONIOM** and **ORCA QM/MM** input ([`oniom-export`](docs/oniom-export.md) / [`oniom-import`](docs/oniom-import.md)).
+- Every stage is also an [individual subcommand](#cli-subcommands), and each run writes `summary.json` for scripts, HPC jobs, and AI agents.
 
 ## Installation
 
