@@ -20,14 +20,17 @@ Starting from the reactant (R) and product (P) structures of the full system, th
 
 ---
 
-- Start from **two or more structures** along the reaction, from **one structure with a staged bond scan** (`--scan-lists`), or from **one TS candidate** (`--tsopt`).
-- With `-c`, the **ML region** is chosen around the given residues, the Amber topology (parm7) is built, and the full system is divided into ML, Movable-MM, and Frozen-MM layers; a link hydrogen caps each covalent bond cut by the ML region.
+- In **Endpoint mode**, you give two or more structures of the full system along the reaction (R, P, and any intermediates), and the MEP search connects the structural changes between them across the potential energy surface to find the TS. When a reaction coordinate is hard to define, build the intermediates or products yourself in PyMOL or GaussView; without a predefined coordinate, the search may also show mechanism candidates you did not expect.
+- With `--refine-path`, the recursive MEP search splits the path where bonds form or break, so each step of a multi-step reaction gets its own TS candidate.
+- In **Scan-list mode**, you start from one structure (a reactant, intermediate, or product), define the reaction coordinate yourself with atom indices or PDB atom IDs, and drive bond distances or angles to target values to build the structures of the next step. Because you choose the coordinate, the rest of the system changes less and the intended TS is easier to reach.
+- In **TS-only mode**, you give a TS candidate and the TS search starts directly.
+- `-c` names the residues the ML region is built around. Give only the charges of the non-standard residues with `-l`; the ML-region charge, the Amber topology (parm7), and the ML / Movable-MM / Frozen-MM layers are prepared automatically.
 - **Microiteration** (on by default) separates the ML-region steps from the relaxation of the movable MM atoms in large systems.
-- **Multi-step reactions** are split into segments by a recursive MEP search, and each segment is refined (`--refine-path`).
-- The MLIP is **UMA** by default; **ORB**, **MACE**, and **AIMNet2** are available with `-b`.
-- A TS found with the MLIP/MM can be taken into **GPU-accelerated DFT/MM** (GPU4PySCF) for TS optimization → IRC → endpoint optimization → frequencies. See [DFT backend](docs/dft-backend.md).
+- The MLIP is chosen with `-b`: UMA, ORB, MACE, or AIMNet2.
+- Once the MLIP gives a plausible path and TS, switch the backend with `-b dft` to run TS optimization and IRC with DFT/MM (GPU4PySCF) in the same tool. See [DFT backend](docs/dft-backend.md).
 - Models can be exported to and imported from **Gaussian ONIOM** and **ORCA QM/MM** input ([`oniom-export`](docs/oniom-export.md) / [`oniom-import`](docs/oniom-import.md)).
-- Every stage is also an [individual subcommand](#cli-subcommands), and each run writes `summary.json` for scripts, HPC jobs, and AI agents.
+- Each stage, and many other functions, can be called as [subcommands](#cli-subcommands).
+- The bundled [agent skills](#agent-skills) let AI agents run mlmm-toolkit, which can raise the throughput of reaction-mechanism studies.
 
 ## Installation
 
