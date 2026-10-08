@@ -189,12 +189,10 @@ Issues: <https://github.com/t-0hmura/mlmm_toolkit/issues>.
 ## Known limitations
 
 - **MACE + UMA cannot coexist** (`e3nn` version conflict). Use separate conda envs.
-- **DFT single-point** cost and practical region size depend on method, basis,
-  hardware, memory, and system; benchmark the intended setup before production.
-- **Check every TS.** When `tsopt` converges or stops on an energy plateau, it computes the Hessian of the final geometry and reports n_imag; a successful TS optimization shows one imaginary mode along the reaction. IRC and endpoint optimization then confirm that it connects R and P (reaching the right R and P counts even if IRC stops early). ORB runs in fp64 by default; validate frequencies and IRC yourself if you switch to fp32.
-- **CPU-only execution** may be substantially slower than GPU depending on the
-  backend and system.
-- `mlmm-toolkit` bundles a GPU-optimized pysisyphus fork that is **not** compatible with upstream pysisyphus — do not install it into an environment that already has upstream pysisyphus.
+- **DFT/MM** is practical for an ML region of up to about **500 atoms for a single point** and about **300 atoms for an optimization** on an HPC GPU, and up to about **200 atoms on a consumer GPU** (ωB97M-V/def2-SVP, the default; from experience).
+- **MACE and ORB need fp64** (`--precision fp64`, their default); in fp32, extra imaginary modes appear more often. fp64 is slow on consumer GPUs: on HPC GPUs, ORB in fp64 is very cost-effective, and on a consumer GPU, UMA in fp32 gives the best balance.
+- **CPU-only execution** may be substantially slower than GPU depending on the backend and system.
+- The bundled pysisyphus is a modified fork; do not install upstream pysisyphus in the same environment.
 
 ## Citation
 
