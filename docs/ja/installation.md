@@ -105,21 +105,28 @@ DMF を使う場合は、cyipopt と pydmf も導入してください（[下記
 
     mlmm-toolkit はデフォルトで UMA を使用します。他のバックエンドは対応する追加パッケージを導入し、`-b/--backend`（例: `-b orb`）で選択します:
 
+    **ORB**（Python 3.11／3.12 が必要、3.12 推奨）:
+
     ```bash
-    # ORB バックエンド（Python 3.11／3.12 が必要、3.12 推奨）
-    pip install --only-binary=dm-tree "mlmm-toolkit[orb]"
+    pip install "mlmm-toolkit[orb]"
+    ```
 
-    # AIMNet2 バックエンド
+    **AIMNet2**:
+
+    ```bash
     pip install "mlmm-toolkit[aimnet]"
+    ```
 
-    # MACE バックエンド（mace-torch が要求する e3nn==0.4.4 が UMA の
-    # fairchem-core と衝突するため、手順 2〜6 で作った別の環境で実施してください）
-    pip uninstall -y fairchem-core && pip install mace-torch
+    **MACE**: `mace-torch` が要求する `e3nn==0.4.4` が UMA の `fairchem-core` と衝突するので、手順 2〜6 で作った別の環境に入れます。
 
-    # DFT バックエンドと後処理（`-b dft`、`--dft`、`mlmm dft`）
-    # [dft] は Linux x86_64 で CUDA 13 用の GPU4PySCF を導入します（手順 4 の cu130 / cu132 の
-    # PyTorch 向け）。cu126 の wheel を使うときは、代わりに [dft-cuda12] を導入します。
-    # aarch64 では GPU4PySCF をソースからビルドしてください (https://github.com/pyscf/gpu4pyscf)。
+    ```bash
+    pip uninstall -y fairchem-core
+    pip install mace-torch
+    ```
+
+    **DFT**（`-b dft`、`--dft`、`mlmm dft`）: `[dft]` は Linux x86_64 で CUDA 13 用の GPU4PySCF を導入します（手順 4 の cu130 / cu132 の PyTorch 向け）。cu126 の wheel を使うときは、代わりに `[dft-cuda12]` を導入します。aarch64 では [GPU4PySCF](https://github.com/pyscf/gpu4pyscf) をソースからビルドしてください。
+
+    ```bash
     pip install "mlmm-toolkit[dft]"
     ```
 

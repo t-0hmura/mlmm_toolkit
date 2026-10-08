@@ -108,21 +108,28 @@ If you prefer to build the environment piece by piece:
 
     mlmm-toolkit uses UMA by default. For another backend, install its extra and select it with `-b/--backend` (for example, `-b orb`):
 
+    **ORB** (requires Python 3.11 or 3.12; 3.12 recommended):
+
     ```bash
-    # ORB backend (Requires Python 3.11 or 3.12; 3.12 recommended)
-    pip install --only-binary=dm-tree "mlmm-toolkit[orb]"
+    pip install "mlmm-toolkit[orb]"
+    ```
 
-    # AIMNet2 backend
+    **AIMNet2**:
+
+    ```bash
     pip install "mlmm-toolkit[aimnet]"
+    ```
 
-    # MACE backend (in a separate environment built with steps 2-6, because
-    # mace-torch pins e3nn==0.4.4, which conflicts with UMA's fairchem-core)
-    pip uninstall -y fairchem-core && pip install mace-torch
+    **MACE**: `mace-torch` pins `e3nn==0.4.4`, which conflicts with UMA's `fairchem-core`, so install it in a separate environment built with steps 2-6.
 
-    # DFT calculator and post-processing (`-b dft`, `--dft`, `mlmm dft`)
-    # [dft] installs the CUDA 13 GPU4PySCF build on Linux x86_64, for the cu130 / cu132
-    # PyTorch wheels of step 4; with the cu126 wheel, install [dft-cuda12] instead.
-    # On aarch64, GPU4PySCF must be built from source (https://github.com/pyscf/gpu4pyscf).
+    ```bash
+    pip uninstall -y fairchem-core
+    pip install mace-torch
+    ```
+
+    **DFT** (`-b dft`, `--dft`, `mlmm dft`): `[dft]` installs the CUDA 13 GPU4PySCF build on Linux x86_64, for the cu130 / cu132 PyTorch wheels of step 4; with the cu126 wheel, install `[dft-cuda12]` instead. On aarch64, build [GPU4PySCF](https://github.com/pyscf/gpu4pyscf) from source.
+
+    ```bash
     pip install "mlmm-toolkit[dft]"
     ```
 
