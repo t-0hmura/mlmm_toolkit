@@ -2,7 +2,7 @@
 
 ## 1. 概要
 
-mlmm-toolkit のコードを直す人向けに、パッケージの層、ファイルの置き場、直す前に守る制約をまとめたページです。直したあとは、CONTRIBUTING の [Required validation](https://github.com/t-0hmura/mlmm_toolkit/blob/main/CONTRIBUTING.md#11-required-validation) の検査を走らせてください。計算を実行するだけなら、[はじめに](getting-started.md)から読んでください。
+mlmm-toolkit の開発者向けに、パッケージの層、ファイルの置き場、開発するときに守る制約をまとめたページです。変更したあとは、CONTRIBUTING の [Required validation](https://github.com/t-0hmura/mlmm_toolkit/blob/main/CONTRIBUTING.md#11-required-validation) の検査を走らせてください。計算を実行するだけなら、[はじめに](getting-started.md)から読んでください。
 
 `mlmm-toolkit` は、完全なタンパク質環境に対して **ML/MM (ONIOM) 酵素反応経路解析** を実行する Python 製 CLI です。小さな反応コアを機械学習原子間ポテンシャル (MLIP) で、周囲のタンパク質を分子力学 (MM) 力場で計算し、両者を subtractive ONIOM で合わせます。
 

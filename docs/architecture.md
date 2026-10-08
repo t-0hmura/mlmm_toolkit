@@ -2,9 +2,9 @@
 
 ## 1. Overview
 
-This page is for people who change the mlmm-toolkit code: it describes the
-package layers, where each file lives, and the constraints to respect before
-you patch. After a patch, run the checks in
+This page is for mlmm-toolkit developers: it describes the package layers,
+where each file lives, and the constraints to respect while developing. After
+a change, run the checks in
 [Required validation](https://github.com/t-0hmura/mlmm_toolkit/blob/main/CONTRIBUTING.md#11-required-validation)
 of CONTRIBUTING. To run calculations instead, start from
 [Getting Started](getting-started.md).
