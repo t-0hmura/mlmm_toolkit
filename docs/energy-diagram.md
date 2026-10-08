@@ -2,6 +2,8 @@
 
 `energy-diagram` **draws a state energy diagram** from numbers you give it. It reads no structure files and runs no ML/MM calculation. It suits energies you already have, for example the `energy_diagrams` of the `summary.json` written by `all` or `path-search` ([JSON Output Reference](json-output.md)) or a table in a paper.
 
+---
+
 ## What it is for
 
 * **Figures from known energies**: energies of the reactant (R), transition state (TS), intermediate (IM), and product (P) taken from a workflow or from DFT.

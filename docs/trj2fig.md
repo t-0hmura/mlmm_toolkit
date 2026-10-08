@@ -2,6 +2,8 @@
 
 `trj2fig` **plots the energy along an XYZ trajectory**, such as one written by `opt`, `scan`, `path-opt`, `path-search`, or `irc`. It reads the energy of each frame from its comment line and exports figures and a CSV table.
 
+---
+
 ## What it is for
 
 * **Energy profiles of paths**: minimum energy path (MEP), scan, and intrinsic reaction coordinate (IRC) trajectories as ΔE plots.

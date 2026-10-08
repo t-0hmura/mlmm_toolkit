@@ -4,6 +4,8 @@
 
 Without `--tsopt`, the run ends with TS candidates: the highest-energy image (HEI) of each MEP segment. The ML region is computed by **UMA**, Meta's pretrained [machine-learning interatomic potential (MLIP)](backends.md), by default; `-b/--backend` also selects **ORB**, **MACE**, **AIMNet2**, or DFT ([`dft`](dft-backend.md)). The rest of the enzyme is computed with the Amber force field, and ONIOM combines the two.
 
+---
+
 ## What it is for
 
 What you pass selects the mode:

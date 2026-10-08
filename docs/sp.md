@@ -2,6 +2,8 @@
 
 `sp` computes the **ML/MM ONIOM energy and atomic forces** of one structure, and with `--hess` also the **Hessian** of the atoms that move. The ML region is computed with the selected backend and the rest of the enzyme with the Amber force field of `--parm7`. It runs no optimization: the geometry stays as given.
 
+---
+
 ## What it is for
 
 * **Check before an optimization**: confirm that the ML region, charge, and multiplicity are accepted and that the backend returns a finite energy and forces.

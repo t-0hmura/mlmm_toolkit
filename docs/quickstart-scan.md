@@ -4,6 +4,8 @@
 
 The commands below use `1.R.pdb` from the bundled [`examples/beza/`](https://github.com/t-0hmura/mlmm_toolkit/tree/main/examples/beza); run them in that directory.
 
+---
+
 ## What it is for
 
 * **No product structure**: drive the forming and breaking bonds to make the product (P) from the reactant (R).

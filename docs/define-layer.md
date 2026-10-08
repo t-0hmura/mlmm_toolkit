@@ -8,6 +8,8 @@
 | Movable-MM | 10.0 | MM atoms within `--movable-cutoff` (default 8.0 Å) of the ML region | MM, free to move |
 | Frozen-MM | 20.0 | MM atoms farther away | MM, coordinates fixed; still part of the MM energy |
 
+---
+
 ## What it is for
 
 * **Preparing the input of the calculation commands**: write the layered full-system PDB that `opt`, `tsopt`, `freq`, and the other commands take with `--parm7`.

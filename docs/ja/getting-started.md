@@ -32,6 +32,8 @@ mlmm -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft
 
 > **実行例:** [`examples/beza/`](https://github.com/t-0hmura/mlmm_toolkit/tree/main/examples/beza) ディレクトリに、上のコマンドで使う構造（`1.R.pdb`、`3.P.pdb`）と、GPP C6-メチル基転移酵素 BezA（[Tsutsumi et al., *Angew. Chem. Int. Ed.* 2022, 61, e202111217](https://doi.org/10.1002/anie.202111217)）を題材としたワークフロースクリプト（MEP 探索とスキャン）を用意しています。[インストール](installation.md)の後、`git clone https://github.com/t-0hmura/mlmm_toolkit && cd mlmm_toolkit/examples/beza` で取得し、その中で上のコマンドを実行してください。
 
+---
+
 ## 主な用途
 
 * DFT の QM/MM では検証に時間がかかる、酵素全体を含む系での**反応機構解析の試行錯誤**

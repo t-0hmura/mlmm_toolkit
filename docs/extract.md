@@ -2,6 +2,8 @@
 
 `extract` cuts the residues around a substrate out of a protein–ligand PDB/mmCIF file, cuts the main chain by fixed rules, and counts the charge of the cut-out region. In mlmm-toolkit this region becomes the ML region; the rest of the protein stays in the calculation as MM.
 
+---
+
 ## What it is for
 
 * **Defining the ML region**: write the atom selection that `define-layer` and the calculation commands take as `--model-pdb`.

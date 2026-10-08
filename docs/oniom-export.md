@@ -2,6 +2,8 @@
 
 `oniom-export` **writes an mlmm ML/MM system as an input file for Gaussian ONIOM (`--mode g16`) or ORCA QM/MM (`--mode orca`)**. It reads the Amber topology (`--parm7`) and a PDB whose B-factors hold the layers. It uses the ML region as the QM region and writes the coordinates, the QM and movable atoms, and the MM parameters into one input file. The topology must be free of CMAP terms; [mm-parm](mm-parm.md#cmap-free-topology-for-oniom-export) shows how to build one.
 
+---
+
 ## What it is for
 
 * **Gaussian ONIOM**: take a structure from mlmm, such as a TS candidate, into a Gaussian ONIOM calculation with a DFT high layer

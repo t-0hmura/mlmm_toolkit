@@ -2,6 +2,8 @@
 
 `oniom-import` サブコマンドは、**Gaussian ONIOM または ORCA QM/MM の入力ファイルから、XYZ ファイルと層付き PDB を作り直します**。
 
+---
+
 ## 主な用途
 
 * **mlmm の外で直した入力**: 自分で作った、または直した Gaussian・ORCA の QM/MM 入力を mlmm に戻す

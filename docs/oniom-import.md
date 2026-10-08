@@ -2,6 +2,8 @@
 
 `oniom-import` **rebuilds an XYZ file and a layered PDB from a Gaussian ONIOM or ORCA QM/MM input file**.
 
+---
+
 ## What it is for
 
 * **Inputs edited outside mlmm**: bring a Gaussian or ORCA QM/MM input that you prepared or edited back into mlmm

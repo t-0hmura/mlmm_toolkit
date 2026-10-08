@@ -4,6 +4,8 @@
 
 以下のコマンドは同梱の [`examples/beza/`](https://github.com/t-0hmura/mlmm_toolkit/tree/main/examples/beza) にある `1.R.pdb` を使うので、そのディレクトリで実行します。
 
+---
+
 ## 主な用途
 
 * **生成物の構造が無い**: できる結合と切れる結合を動かして、反応物（R）から生成物（P）を作る

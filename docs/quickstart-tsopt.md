@@ -2,6 +2,8 @@
 
 TS-only mode checks one transition-state (TS) candidate without a minimum energy path (MEP) search. `mlmm all --tsopt` optimizes the TS on the full ML/MM system, follows the intrinsic reaction coordinate (IRC) in both directions, and optimizes the two endpoints, the reactant (R) and the product (P). `--thermo` adds vibrational analysis and thermochemistry, and `--dft` adds DFT single points of the ML region on R, TS, and P.
 
+---
+
 ## What it is for
 
 * **Refining a candidate from a scan or an MEP**: optimize the top of a scan or the highest-energy image (HEI) of an MEP into a TS.

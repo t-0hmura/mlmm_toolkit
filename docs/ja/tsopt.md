@@ -2,6 +2,8 @@
 
 `tsopt` サブコマンドは、層を定義した ML/MM の酵素モデルで遷移状態（TS）の候補構造を 1 次の鞍点へ最適化し、final geometry で Hessian を計算して虚振動数の本数（n_imag）を数えます。TS 最適化が成功すると、反応モードの虚振動が 1 つ出ます。
 
+---
+
 ## 主な用途
 
 * **TS 候補の仕上げ**: [`path-opt`](path-opt.md) / [`path-search`](path-search.md) の最高エネルギーのイメージ（HEI）や [`scan`](scan.md) の頂点を、最適化した TS に仕上げる

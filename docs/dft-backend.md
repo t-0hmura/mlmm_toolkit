@@ -4,6 +4,8 @@ Once MLIP/MM has found a reasonable pathway, mlmm-toolkit can take its TS straig
 
 The MLIP/MM pathway search is the main tool; DFT/MM is an add-on that checks the TS candidate you found with MLIP/MM.
 
+---
+
 ## What it is for
 
 - **Refine the TS at the DFT/MM level**: run TS optimization → IRC → endpoint optimization → frequencies with DFT for the ML region (`-b dft`).

@@ -4,6 +4,8 @@
 
 以下のコマンドは、ゲラニル二リン酸（GPP）の C6 位をメチル化する酵素 BezA の同梱例（[`examples/beza/`](https://github.com/t-0hmura/mlmm_toolkit/tree/main/examples/beza)）を使います。`1.R.pdb` が反応物、`2.IM.pdb` が中間体、`3.P.pdb` が生成物です。どれもすべての水素を含む酵素全体の構造です。同梱例は `git clone https://github.com/t-0hmura/mlmm_toolkit && cd mlmm_toolkit/examples/beza` で取得できます。自分の反応では、全系の構造に置き換えてください。
 
+---
+
 ## 主な用途
 
 * **全工程を初めて通す**: 同梱例で、すべての段を 1 回実行
