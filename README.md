@@ -191,7 +191,7 @@ Issues: <https://github.com/t-0hmura/mlmm_toolkit/issues>.
 - **MACE + UMA cannot coexist** (`e3nn` version conflict). Use separate conda envs.
 - **DFT/MM** is practical for an ML region of up to about **500 atoms for a single point** and about **300 atoms for an optimization** on an HPC GPU, and up to about **200 atoms on a consumer GPU** (ωB97M-V/def2-SVP, the default; from experience).
 - **MACE and ORB need fp64** (`--precision fp64`, their default); in fp32, extra imaginary modes appear more often. fp64 is slow on consumer GPUs: on HPC GPUs, ORB in fp64 is very cost-effective, and on a consumer GPU, UMA in fp32 gives the best balance.
-- **CPU-only execution** may be substantially slower than GPU depending on the backend and system.
+- **CPU-only execution** may be **substantially slower than GPU** depending on the backend and system.
 - The bundled pysisyphus is a modified fork; do not install upstream pysisyphus in the same environment.
 
 ## Citation
