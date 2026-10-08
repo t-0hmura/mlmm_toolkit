@@ -215,7 +215,6 @@ For every option, run `mlmm tsopt --help-advanced` or see the [generated CLI ref
 * **`--ref-mode` and frozen atoms**: `--ref-mode` only gives the reaction direction from the MEP; it does not change how frozen boundaries are treated.
 * **At least one atom must move**: if every atom is frozen, `tsopt` stops with an error.
 * **Errors**: invalid input or structure, or an error that keeps the optimizer from continuing, stops the run with an error message. Only the files written up to that point remain.
-* **Option priority**: default < YAML < command line (see {ref}`Configuration precedence <configuration-precedence>`).
 
 ---
 

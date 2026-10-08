@@ -112,26 +112,13 @@ Pass `system_layered.pdb` with `--parm7 system.parm7` and `--model-pdb model.pdb
 (model-pdb-selection)=
 ### How to construct a reliable `model.pdb`
 
-`model.pdb` is an **atom-selection file**, not an independently rebuilt cluster.
-Every atom must be an unchanged subset of the full PDB/`parm7` topology: preserve
-atom names, residue names/numbers, chain IDs, and full-system atom order. Do not
-renumber, reorder, add link hydrogens, or export a separately hydrogenated model.
+`model.pdb` is an **atom-selection file**, not an independently rebuilt cluster. Every atom must be an unchanged subset of the full PDB/`parm7` topology: preserve atom names, residue names/numbers, chain IDs, and full-system atom order. Do not renumber, reorder, add link hydrogens, or export a separately hydrogenated model.
 
-- Include the complete reactive center, covalent cofactors/partners, and any
-  atoms whose protonation or bonding changes along the path.
-- For retained protein-backbone fragments, choose the span so both main-chain
-  ends terminate consistently at alpha carbons (`CA`), then let the ML/MM link
-  treatment satisfy boundary valences.
-- At side-chain/ligand/cofactor boundaries, place the ML/MM cut on an aliphatic
-  **C–C single bond** whenever possible (`CA–CB` or farther from the reactive
-  center). Avoid peptide C–N, polar C–N/C–O, aromatic/conjugated, disulfide,
-  and metal-coordination cuts; include the bonded partner or move the boundary.
-- Use the identical full-system atom set/order and the identical `model.pdb`
-  selection for R/IM/P. A model built independently for each state invalidates
-  atom mapping and controlled barrier comparisons.
-- Visually inspect every boundary and verify the ML-region charge/multiplicity
-  before production. `define-layer` assigns layers; it does not repair a
-  chemically poor boundary.
+- Include the complete reactive center, covalent cofactors/partners, and any atoms whose protonation or bonding changes along the path.
+- For retained protein-backbone fragments, choose the span so both main-chain ends terminate consistently at alpha carbons (`CA`), then let the ML/MM link treatment satisfy boundary valences.
+- At side-chain/ligand/cofactor boundaries, place the ML/MM cut on an aliphatic **C–C single bond** whenever possible (`CA–CB` or farther from the reactive center). Avoid peptide C–N, polar C–N/C–O, aromatic/conjugated, disulfide, and metal-coordination cuts; include the bonded partner or move the boundary.
+- Use the identical full-system atom set/order and the identical `model.pdb` selection for R/IM/P. A model built independently for each state invalidates atom mapping and controlled barrier comparisons.
+- Visually inspect every boundary and verify the ML-region charge/multiplicity before production. `define-layer` assigns layers; it does not repair a chemically poor boundary.
 
 When you save `model.pdb` from PyMOL, tick **Original atom order** in the export dialog.
 

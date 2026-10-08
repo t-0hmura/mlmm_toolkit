@@ -13,21 +13,19 @@
 | **電荷 / スピン** | | |
 | `ML-region charge is unresolved` / `[all] ML-region charge could not be resolved` | `-q/--charge` または `-l/--ligand-charge` を明示してください | {ref}`電荷 / スピンの問題 <ja-charge--spin>` |
 | 計算は通るが状態やエネルギーが不自然 | ML 領域の電荷と多重度を見直してください | {ref}`電荷 / スピンの問題 <ja-charge--spin>` |
-| **インストール / 環境** | | |
-| UMA モデルで 401 / 403 / アクセス制限付きリポジトリのエラー（`huggingface_hub.errors.GatedRepoError`） | `hf auth login` でログインし、UMA モデルのライセンスに同意してください | {ref}`インストール / 環境の問題 <ja-installation--environment>` |
-| `orb-models is required for the ORB backend`（AIMNet2 / MACE も同様） | バックエンドの追加パッケージを入れてください：`pip install "mlmm-toolkit[orb]"` または `"mlmm-toolkit[aimnet]"`。MACE は別の環境に入れます | {ref}`バックエンド固有の問題 <ja-troubleshooting-backends>` |
-| `mm-parm` が実行できない（`AmberTools preflight failed`。`tleap` / `antechamber` / `parmchk2` が無い） | 先に AmberTools を使えるようにしてください | {ref}`AmberTools / mm-parm の問題 <ja-ambertools--mm-parm>` |
-| `hessian_ff` のビルドや import のエラー（`hessian_ff build attempts failed`） | C++20 のコンパイラを確かめ、ネイティブ拡張を作り直してください | {ref}`hessian_ff ビルドの問題 <ja-hessian_ff-build--import>` |
-| DMF モードの import エラー（`DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2`） | `cyipopt`（conda-forge）と `pydmf[torch]>=1.2`（PyPI）を入れてください | {ref}`DMF モードが動かない <ja-dmf-mode-fails-cyipopt--pydmf--ase-missing>` |
-| **GPU / CUDA** | | |
+| **計算 / 収束** | | |
 | 実行時に CUDA のメモリ不足（`torch.cuda.OutOfMemoryError`） | Frozen-MM の層を確かめる、ML 領域を小さくする（`--radius`）、Hessian の範囲を絞る（`--hessian-cutoff`）、`Analytical` を選んでいたら既定の `FiniteDifference` に戻す、VRAM の大きい GPU に移る | {ref}`CUDA メモリ不足 <ja-cuda-oom>` |
-| CUDA / GPU の実行時エラー | GPU、PyTorch のビルド、ドライバをまとめて確かめてください | {ref}`CUDA / PyTorch の不整合 <ja-cuda--pytorch-mismatch>` |
-| **収束** | | |
 | TS 最適化が収束しない（`TS optimization did not converge`）、または収束後の n_imag が 1 でない | まず TS 候補を確かめ、次にオプティマイザを切り替えてください（`tsopt --opt-mode` / `all --opt-mode-post`）。n_imag ≥ 2 なら `--flatten` を付けます | {ref}`TS 最適化 <ja-troubleshooting-ts>`、{ref}`TS が取れないとき <ja-ts-search-fails>` |
 | IRC が正常に終了しない | まず最適化後の端点を確かめ、次にステップを小さくしてください：`irc --step-size` または `all --irc-step-size` | {ref}`IRC <ja-troubleshooting-irc>` |
 | エネルギーが平坦なのに最適化が停滞する（MLIP のノイズフロアの可能性） | `--max-cycles` に任せるか、`--stop-plateau` で早期停止を有効にしてください。止まるのが早すぎる・遅すぎるときは `--stop-plateau-thresh` / `--stop-plateau-window` を調整します | {ref}`プラトーでの停止 <ja-optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor>` |
-| **プロット** | | |
-| 図の出力に失敗する | `plotly_get_chrome -y` でヘッドレス Chrome を入れてください | {ref}`図のエクスポート <ja-plot-export-fails-chrome-missing>` |
+| **インストール / 環境** | | |
+| UMA モデルで 401 / 403 / アクセス制限付きリポジトリのエラー（`huggingface_hub.errors.GatedRepoError`） | `hf auth login` でログインし、UMA モデルのライセンスに同意してください | {ref}`インストール / 環境の問題 <ja-installation-environment-problems>` |
+| `orb-models is required for the ORB backend`（AIMNet2 / MACE も同様） | バックエンドの追加パッケージを入れてください：`pip install "mlmm-toolkit[orb]"` または `"mlmm-toolkit[aimnet]"`。MACE は別の環境に入れます | {ref}`バックエンド固有の問題 <ja-troubleshooting-backends>` |
+| `mm-parm` が実行できない（`AmberTools preflight failed`。`tleap` / `antechamber` / `parmchk2` が無い） | 先に AmberTools を使えるようにしてください | {ref}`AmberTools / mm-parm の問題 <ja-ambertools--mm-parm>` |
+| `hessian_ff` のビルドや import のエラー（`hessian_ff build attempts failed`） | C++20 のコンパイラを確かめ、ネイティブ拡張を作り直してください | {ref}`hessian_ff ビルドの問題 <ja-hessian_ff-build--import>` |
+| DMF モードの import エラー（`DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2`） | `cyipopt`（conda-forge）と `pydmf[torch]>=1.2`（PyPI）を入れてください | {ref}`インストール / 環境の問題 <ja-installation-environment-problems>` |
+| CUDA / GPU の実行時エラー | GPU、PyTorch のビルド、ドライバをまとめて確かめてください | {ref}`インストール / 環境の問題 <ja-installation-environment-problems>` |
+| 図の出力に失敗する | `plotly_get_chrome -y` でヘッドレス Chrome を入れてください | {ref}`インストール / 環境の問題 <ja-installation-environment-problems>` |
 
 ## 実行前チェックリスト
 
@@ -173,46 +171,21 @@
 
 ---
 
-(ja-installation--environment)=
+(ja-installation-environment-problems)=
 ## インストール / 環境の問題
 
-直した後は `mlmm --version` と `python -c "import torch; print(torch.cuda.is_available())"` で確かめ、`--help-advanced` で使えるオプションを確かめてから、本番の前に一度 `--dry-run` を付けて実行します。
+まず、使っている環境にオプションのパッケージが入っているか、PyTorch から GPU が見えるかを確かめてください。直した後は `mlmm --version` と `python -c "import torch; print(torch.cuda.is_available())"` で確かめ、本番の前に一度 `--dry-run` を付けて実行し、オプションと入力を確かめます。
 
-### MLIP モデルのダウンロードに失敗する
-
-- **症状**：UMA モデルをダウンロードできない（`huggingface_hub.errors.GatedRepoError`、`401`、`403`）。
-- **原因**：Hugging Face にログインしていない、または UMA モデルのライセンスに同意していない。
-- **対処**：環境・マシンごとに一度 `hf auth login` を実行し、Hugging Face のモデルのページでライセンスに同意してください。HPC では、計算ノードから Hugging Face のキャッシュディレクトリに書き込めるかを確かめます。
-
-(ja-cuda--pytorch-mismatch)=
-### CUDA / PyTorch の不整合
-
-- **症状**：GPU のあるノードで `torch.cuda.is_available()` が `False` になる、または import 時に CUDA の実行時エラーが出る。
-- **原因**：PyTorch のビルドが計算ノードの GPU・ドライバに合っていない。
-- **対処**：`nvidia-smi`、`python -m torch.utils.collect_env`、`python -m pip check` で、割り当てられた GPU、入っている wheel、ドライバを確かめてください。`nvidia-smi` が示す `CUDA Version` はドライバが扱える最も新しい CUDA です。それ以下の CUDA の PyTorch wheel（`cu126`、`cu130`、`cu132`）を入れてください。
-
-(ja-dmf-mode-fails-cyipopt--pydmf--ase-missing)=
-### DMF モードが動かない（cyipopt / pydmf / ase が無い）
-
-- **症状**：`--mep-mode dmf` が `DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2 (...). Import error: ...` で止まる。
-- **原因**：`cyipopt` と `pydmf` は `mlmm-toolkit` と一緒には入りません（`ase` は入ります）。
-- **対処**：{ref}`インストールの手順 3 <ja-step-by-step-installation>` のとおりに入れてください。
-
-  ```bash
-  conda install -c conda-forge cyipopt -y
-  pip install 'pydmf[torch]>=1.2'   # --dmf-backend cpu だけなら: pip install 'pydmf>=1.2'
-  ```
+| 症状 | 原因 | 対処 |
+| --- | --- | --- |
+| UMA のダウンロードに失敗する（`huggingface_hub.errors.GatedRepoError`、`401`、`403`） | Hugging Face にログインしていない、または UMA モデルのライセンスに同意していない | 環境・マシンごとに一度 `hf auth login` を実行し、Hugging Face の UMA モデルのページでライセンスに同意してください。HPC では、計算ノードから Hugging Face のキャッシュディレクトリに書き込めるかを確かめます |
+| `torch.cuda.is_available()` が `False`、またはインポート時に CUDA の実行時エラー | PyTorch のビルドが計算ノードの GPU・ドライバに合っていない | `nvidia-smi`、`python -m torch.utils.collect_env`、`python -m pip check` で、割り当てられた GPU、入っている wheel、ドライバを確かめてください。`nvidia-smi` が示す `CUDA Version` はドライバが扱える最も新しい CUDA です。それ以下の CUDA の PyTorch wheel（`cu126`、`cu130`、`cu132`）を入れてください |
+| `--mep-mode dmf` が `DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2` で止まる | `cyipopt` と `pydmf` は `mlmm-toolkit` と一緒には入らない（`ase` は入る） | {ref}`インストールの手順 3 <ja-step-by-step-installation>` のとおり、`conda install -c conda-forge cyipopt -y` と `pip install 'pydmf[torch]>=1.2'`（`--dmf-backend cpu` だけなら `pip install 'pydmf>=1.2'`）を実行してください |
+| 図の出力に失敗する（Plotly / Chrome） | ヘッドレス Chrome が無い | `plotly_get_chrome -y` を一度実行してください。Chromium のバイナリをダウンロードするので、インターネット接続が必要です |
 
 ### DMF が IPOPT 内で極端に遅い
 
 IPOPT/MUMPS が並列版 BLIS を使う環境では、入れ子の並列化で長い待ちが生じることがあります。ジョブスクリプトなどで、Python や CLI の起動前に `BLIS_NUM_THREADS=1` を設定してください。外側の OpenMP/MM のスレッド数は変更不要です。`BLIS_JC_NT`、`BLIS_PC_NT`、`BLIS_IC_NT`、`BLIS_JR_NT`、`BLIS_IR_NT` の手動設定はこの制限より優先されるため、そのジョブの設定から外してください。起動済みの Notebook は、設定変更後にカーネルを再起動します。詳しくは [BLIS のスレッド設定](https://github.com/flame/blis/blob/2.0/docs/Multithreading.md)を参照してください。
-
-(ja-plot-export-fails-chrome-missing)=
-### 図のエクスポートが失敗する（Chrome がない）
-
-- **症状**：Plotly の図の静止画（PNG）が書き出されない。
-- **原因**：Plotly が画像の書き出しに使うヘッドレス Chrome が無い。
-- **対処**：`plotly_get_chrome -y` を一度実行してください。Chromium のバイナリをダウンロードするので、インターネット接続が必要です。
 
 ---
 
@@ -303,12 +276,13 @@ IRC が収束せずに止まっても、端点の最適化で狙った R と P �
 
 ---
 
-## 不具合を報告するとき
+## 不具合報告のときに添えると助かる情報
 
 実行したコマンド、`summary.log`（または端末の出力）、再現できる最小の入力、環境（OS / Python / CUDA / PyTorch）、AmberTools と `hessian_ff` が入って動くかどうかを添えてください。
 
 ## 関連ドキュメント
 
-- [反応機構を調べるコツ](mechanism-tips.md)：TS が取れないときに試すこと
-- [インストール](installation.md)：環境の用意とオプションのバックエンド
-- [ML 領域と層の組み方](model-setup.md)：ML 領域と層を確かめる・削る・広げる
+- [反応機構を調べるコツ](mechanism-tips.md) — TS が取れないときに試すこと
+- [インストール](installation.md) — 環境の構築とオプションのバックエンド
+- [MLIP バックエンド](backends.md) — バックエンドの選び方
+- [ML 領域と層の組み方](model-setup.md) — ML 領域と層を確かめる・削る・広げる

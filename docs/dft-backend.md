@@ -60,7 +60,7 @@ For ways to shrink it, see [Shrink the ML region](model-setup.md#shrink-the-ml-r
 
 ## Output files
 
-With `-b dft`, the output has the same layout as an MLIP/MM run in the same mode; for TS-only mode, see [Quickstart: TS-only mode](quickstart-tsopt.md). `--dft` adds these files:
+With `-b dft`, the output has the same layout as an MLIP/MM run in the same mode; for TS-only mode, see [Expected output](quickstart-tsopt.md#expected-output). `--dft` adds these files:
 
 | File | Content |
 |---|---|

@@ -60,7 +60,7 @@ mlmm all -i result_all/segments/seg_01/ts.pdb \
 
 ## 主な出力ファイル
 
-`-b dft` の出力の並びは、同じモードの MLIP/MM の計算と同じです（TS-only モードは [クイックスタート: TS-only モード](quickstart-tsopt.md)）。`--dft` を付けると、次のファイルが増えます。
+`-b dft` の出力の並びは、同じモードの MLIP/MM の計算と同じです（TS-only モードは[期待される出力](quickstart-tsopt.md#期待される出力)）。`--dft` を付けると、次のファイルが増えます。
 
 | ファイル | 内容 |
 |---|---|

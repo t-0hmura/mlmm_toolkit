@@ -25,6 +25,8 @@ mlmm freq -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
   -q 0 -m 1 --out-dir ./result_freq
 ```
 
+The console summary prints n_imag as `Number of Imaginary Freq = N`.
+
 ### 2. Extra frozen atoms and the detailed thermochemistry file
 
 `--freeze-atoms` freezes more atoms on top of the frozen MM layer, and `--dump` also writes the detailed thermochemistry file `thermoanalysis.yaml`.
@@ -79,7 +81,7 @@ How `frequencies_cm-1.txt` and the JSON record treat each case:
 
 ## Output files
 
-`freq` writes these files to `--out-dir` (default `./result_freq/`):
+`freq` writes these files to `--out-dir`:
 
 ```text
 result_freq/

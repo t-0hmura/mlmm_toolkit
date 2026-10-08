@@ -355,6 +355,7 @@ microiter:
 **注意:**
 - CLI の `--microiter` / `--no-microiter` で切り替えます（既定は有効）。
 - `opt --opt-mode hess` と、すべての Hessian TS mode（`hess`, `rsirfo`, `rsprfo`, `trim`）で使用可能
+- ML 原子を固定したまま、L-BFGS で MM 領域の力を最小化します
 - `micro_thresh` には `opt.thresh` と同じプリセットを書けます。`null` か省略のときは、マクロステップと同じ閾値を使います。
 
 ---
@@ -656,7 +657,7 @@ thermo:
 
 ### `sp` セクション
 
-single-point 設定。`mlmm sp` だけが読み込みます。
+一点計算の設定。`mlmm sp` だけが読み込みます。
 
 ```yaml
 sp:
@@ -724,7 +725,7 @@ bond:
 
 ---
 
-## 例: 複数セクションを含む設定ファイル
+## 例: 設定ファイルの全体例
 
 ```yaml
 # mlmm configuration example

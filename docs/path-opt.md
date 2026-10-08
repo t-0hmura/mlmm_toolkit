@@ -38,7 +38,7 @@ mlmm path-opt -i reactant.pdb product.pdb --parm7 real.parm7 --model-pdb ml_regi
 
 ### 3. DMF instead of GSM
 
-DMF needs `cyipopt` and `pydmf` (see [Notes](#notes)); here we also use fewer movable images.
+DMF needs `cyipopt` and `pydmf`; here we also use fewer movable images.
 
 ```bash
 mlmm path-opt -i reactant.pdb product.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
@@ -80,7 +80,7 @@ The HEI is the top of an approximate path, not a TS. A successful TS optimizatio
 
 ## Output files
 
-`path-opt` writes these files to `--out-dir` (default `./result_path_opt/`):
+`path-opt` writes these files to `--out-dir`:
 
 ```text
 result_path_opt/
@@ -139,8 +139,6 @@ See the [generated CLI reference](reference/commands/path_opt.md) for every opti
 * **Options DMF ignores**: `--climb` and `--fix-ends` are accepted but not used by DMF.
 * **One template for XYZ endpoints**: `--ref-pdb` takes a single full-system PDB, applied to both `.xyz` endpoints.
 * **Conflicting optimizer settings in YAML**: setting the same key to different values in `opt:` and in the section of the optimizer that runs (`lbfgs:`, `opt.lbfgs:`, `stopt.lbfgs:`, or the `rfo` equivalents) stops the run with an error.
-* **Option priority**: default < YAML < command line (see {ref}`Configuration precedence <configuration-precedence>`).
-* **Exit status**: see {ref}`Exit codes <exit-codes>`.
 
 ---
 
@@ -149,7 +147,7 @@ See the [generated CLI reference](reference/commands/path_opt.md) for every opti
 * [path-search](path-search.md) — MEP through two or more structures, refined where bonds change
 * [tsopt](tsopt.md) — optimize the HEI into a TS
 * [irc](irc.md) — check that the TS connects the intended R and P
-* [all](all.md) — the full workflow; its MEP step uses `path-opt`, and `--refine-path` switches it to `path-search` (see [Main options](all.md#main-options))
+* [all](all.md) — the full workflow; its MEP step uses `path-opt`, and `--refine-path` switches it to `path-search`
 * [YAML Reference](yaml-reference.md) — every `gs`, `dmf`, and `stopt` setting
 * [Glossary](glossary.md) — MEP, GSM, DMF, HEI, and other terms
 * [Troubleshooting](troubleshooting.md) — when a run fails

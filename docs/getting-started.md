@@ -98,9 +98,7 @@ Input structure(s) (PDB / mmCIF)
 [dft] DFT single points: compute DFT/MM energies (only with --tsopt --dft)
 ```
 
-Each stage also runs on its own as a subcommand.
-
-At the end of a run, `Scientific status: success` in the terminal output means that every requested stage converged. A successful TS optimization gives one imaginary mode along the reaction coordinate. Even if the IRC does not converge, the result is usable when the endpoint optimizations reach the intended R and P.
+Each stage also runs on its own as a subcommand ([`extract`](extract.md), [`tsopt`](tsopt.md), [`irc`](irc.md), and so on; see the [subcommand list](index.md#subcommands)).
 
 ---
 
@@ -193,7 +191,7 @@ mmCIF (`.cif`, `.mmcif`) and PDB files beyond the fixed-column limits of the PDB
 
 ## Output files
 
-When the run finishes, the output directory (`./result_all/` by default; set it with `-o`) contains the following files. [Output Directory Layout](output-layout.md) lists the main files, and [JSON Output Reference](json-output.md) the keys of `summary.json`.
+When the run finishes, the output directory (`-o`, default `./result_all/`) contains the following files. [Output Directory Layout](output-layout.md) lists the main files, and {ref}`JSON Output Reference <summary-json-path-search-all>` every key of `summary.json`.
 
 | File / folder | Contents |
 | --- | --- |
@@ -212,7 +210,7 @@ At the end of the terminal output, the `Scientific status:` line under `====== P
 
 `mlmm-toolkit` ships instructions for AI agents (Claude Code, Codex, Cursor, and others) in the `skills/` directory.
 
-They cover the CLI subcommands, structure input and output, backend installation, TS search strategy, and HPC runs. Load `skills/` into an agent, and it can run and analyze calculations from plain-language instructions. For where to place the files and the full list of skills, see [`skills/README.md`](https://github.com/t-0hmura/mlmm_toolkit/blob/main/skills/README.md). To call the commands as tools from an MCP client, see [mlmm MCP server](mcp_server.md).
+They cover the CLI subcommands, structure input and output, backend installation, TS search strategy, and HPC runs. Load `skills/` into an agent, and it can run and analyze calculations from plain-language instructions. For where to place the files and the full list of skills, see [`skills/README.md`](https://github.com/t-0hmura/mlmm_toolkit/blob/main/skills/README.md). To call the commands as tools from an MCP client, see [MCP server](mcp_server.md).
 
 ---
 
@@ -220,7 +218,7 @@ They cover the CLI subcommands, structure input and output, backend installation
 
 If an error occurs during a run, see these pages:
 
-* [Troubleshooting](troubleshooting.md): fixes by error symptom, and solutions for installation and environment problems
+* {ref}`Troubleshooting <troubleshooting-quick-table>`: fixes by error symptom, and solutions for installation and environment problems
 * [MLIP Backends](backends.md): choosing a backend and running parallel workers; [Device Configuration & HPC Setup](device-hpc.md) for GPU memory, device settings, and job scripts on clusters
 
 To see every option of a command, use the help options:

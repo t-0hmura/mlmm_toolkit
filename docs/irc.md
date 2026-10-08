@@ -173,7 +173,6 @@ See the [generated CLI reference](reference/commands/irc.md) for every option.
 * **Large systems**: `--hess-device cpu` keeps the starting Hessian and the IRC Hessian operations on the CPU, to stay within GPU memory.
 * **At least one branch**: `--no-forward` together with `--no-backward` stops with an error.
 * **One structure per run**: `-i` takes a single structure. Extract the frame you need from a trajectory to `.xyz` first and pass it with `--ref-pdb`.
-* **Option priority**: default < YAML < command line (see [CLI Conventions](cli-conventions.md)).
 
 ---
 
@@ -186,4 +185,4 @@ See the [generated CLI reference](reference/commands/irc.md) for every option.
 * [Troubleshooting](troubleshooting.md) — when a run fails
 * [YAML Reference](yaml-reference.md) — every `irc` setting
 * [Glossary](glossary.md) — IRC and other terms
-* [Exit codes](cli-conventions.md#exit-codes) — what each exit status means
+* {ref}`Exit codes <exit-codes>` — what each exit status means

@@ -13,21 +13,19 @@ Find your symptom in the quick table, then read the fix in the section it points
 | **Charge & spin** | | |
 | `ML-region charge is unresolved` / `[all] ML-region charge could not be resolved` | Set `-q/--charge` or `-l/--ligand-charge` explicitly | {ref}`Charge / spin <charge--spin>` |
 | Energies or states look wrong after a run | Re-check the charge and multiplicity of the ML region | {ref}`Charge / spin <charge--spin>` |
-| **Installation & environment** | | |
-| UMA model 401 / 403 or gated-repo error (`huggingface_hub.errors.GatedRepoError`) | Run `hf auth login` and accept the UMA model license | {ref}`Installation / environment <installation--environment>` |
-| `orb-models is required for the ORB backend` (or the same for AIMNet2 / MACE) | Install the backend extra: `pip install "mlmm-toolkit[orb]"` or `"mlmm-toolkit[aimnet]"`; MACE goes in a separate environment | {ref}`Backend-specific <troubleshooting-backends>` |
-| `mm-parm` cannot run (`AmberTools preflight failed`; `tleap` / `antechamber` / `parmchk2` missing) | Make AmberTools available first | {ref}`AmberTools / mm-parm <ambertools--mm-parm>` |
-| `hessian_ff` build or import errors (`hessian_ff build attempts failed`) | Check the C++20 compiler, then rebuild the native extension | {ref}`hessian_ff build / import <hessian_ff-build--import>` |
-| DMF mode import error (`DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2`) | Install `cyipopt` (conda-forge) and `pydmf[torch]>=1.2` (PyPI) | {ref}`DMF mode fails <dmf-mode-fails-cyipopt--pydmf--ase-missing>` |
-| **GPU & CUDA** | | |
+| **Calculation & convergence** | | |
 | CUDA out of memory (`torch.cuda.OutOfMemoryError`) | Check the Frozen-MM layer, shrink the ML region (`--radius`), narrow the Hessian (`--hessian-cutoff`), return to the default `FiniteDifference` if you selected `Analytical`, or move to a larger GPU | {ref}`CUDA OOM <cuda-oom-torchcudaoutofmemoryerror>` |
-| CUDA / GPU runtime mismatch | Check the GPU, the PyTorch build, and the driver together | {ref}`CUDA / PyTorch mismatch <cuda--pytorch-mismatch>` |
-| **Convergence** | | |
 | TS optimization does not converge (`TS optimization did not converge`), or n_imag is not 1 after it | Check the TS candidate first, then switch the optimizer (`tsopt --opt-mode` / `all --opt-mode-post`); for n_imag ≥ 2, add `--flatten` | {ref}`TS optimization <troubleshooting-ts>`, {ref}`When the TS search fails <ts-search-fails>` |
 | IRC does not terminate | Check the optimized endpoints first, then reduce the step: `irc --step-size` or `all --irc-step-size` | {ref}`IRC <troubleshooting-irc>` |
 | Optimizer stalls at a flat energy (possible MLIP noise floor) | Let `--max-cycles` bound the run, or opt in to `--stop-plateau`; tune `--stop-plateau-thresh` / `--stop-plateau-window` if it stops too early or too late | {ref}`Plateau stop <optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor>` |
-| **Plotting** | | |
-| Plot export fails | Run `plotly_get_chrome -y` to install headless Chrome | {ref}`Plot export <plot-export-fails-chrome-missing>` |
+| **Installation & environment** | | |
+| UMA model 401 / 403 or gated-repo error (`huggingface_hub.errors.GatedRepoError`) | Run `hf auth login` and accept the UMA model license | {ref}`Installation / environment <installation-environment-problems>` |
+| `orb-models is required for the ORB backend` (or the same for AIMNet2 / MACE) | Install the backend extra: `pip install "mlmm-toolkit[orb]"` or `"mlmm-toolkit[aimnet]"`; MACE goes in a separate environment | {ref}`Backend-specific <troubleshooting-backends>` |
+| `mm-parm` cannot run (`AmberTools preflight failed`; `tleap` / `antechamber` / `parmchk2` missing) | Make AmberTools available first | {ref}`AmberTools / mm-parm <ambertools--mm-parm>` |
+| `hessian_ff` build or import errors (`hessian_ff build attempts failed`) | Check the C++20 compiler, then rebuild the native extension | {ref}`hessian_ff build / import <hessian_ff-build--import>` |
+| DMF mode import error (`DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2`) | Install `cyipopt` (conda-forge) and `pydmf[torch]>=1.2` (PyPI) | {ref}`Installation / environment <installation-environment-problems>` |
+| CUDA / GPU runtime mismatch | Check the GPU, the PyTorch build, and the driver together | {ref}`Installation / environment <installation-environment-problems>` |
+| Plot export fails | Run `plotly_get_chrome -y` to install headless Chrome | {ref}`Installation / environment <installation-environment-problems>` |
 
 ## Preflight checklist
 
@@ -173,35 +171,17 @@ The layers are stored in the B-factors: ML = 0.0, Movable-MM = 10.0, Frozen-MM =
 
 ---
 
-(installation--environment)=
+(installation-environment-problems)=
 ## Installation / environment
 
-After a repair, check with `mlmm --version` and `python -c "import torch; print(torch.cuda.is_available())"`, check the available options with `--help-advanced`, and run the command once with `--dry-run` before the full run.
+First confirm that the optional packages are installed in the active environment and that PyTorch sees the GPU. After a repair, check with `mlmm --version` and `python -c "import torch; print(torch.cuda.is_available())"`, then run the command once with `--dry-run` to check the options and input before the full run.
 
-### MLIP model download fails
-
-- **Symptom**: the UMA model cannot be downloaded (`huggingface_hub.errors.GatedRepoError`, `401`, `403`).
-- **Cause**: no Hugging Face login, or the UMA model license is not accepted.
-- **Fix**: run `hf auth login` once per environment and machine, and accept the model license on its Hugging Face page. On HPC, make sure that compute nodes can write to the Hugging Face cache directory.
-
-(cuda--pytorch-mismatch)=
-### CUDA / PyTorch mismatch
-
-- **Symptom**: `torch.cuda.is_available()` returns `False` on a GPU node, or a CUDA runtime error appears at import.
-- **Cause**: the PyTorch build does not match the GPU or driver of the node.
-- **Fix**: check the assigned GPU, the installed wheel, and the driver with `nvidia-smi`, `python -m torch.utils.collect_env`, and `python -m pip check`. The `CUDA Version` that `nvidia-smi` shows is the newest CUDA the driver supports; install a PyTorch wheel at or below it (`cu126`, `cu130`, or `cu132`).
-
-(dmf-mode-fails-cyipopt--pydmf--ase-missing)=
-### DMF mode fails (cyipopt / pydmf / ase missing)
-
-- **Symptom**: `--mep-mode dmf` stops with `DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2 (...). Import error: ...`.
-- **Cause**: `cyipopt` and `pydmf` are not installed with `mlmm-toolkit` (`ase` is).
-- **Fix**: install them as in {ref}`step 3 of the installation <step-by-step-installation>`:
-
-  ```bash
-  conda install -c conda-forge cyipopt -y
-  pip install 'pydmf[torch]>=1.2'   # for --dmf-backend cpu only: pip install 'pydmf>=1.2'
-  ```
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| UMA download fails (`huggingface_hub.errors.GatedRepoError`, `401`, `403`) | No Hugging Face login, or the UMA model license is not accepted | Run `hf auth login` once per environment and machine, and accept the UMA model license on its Hugging Face page. On HPC, make sure compute nodes can write to the Hugging Face cache directory |
+| `torch.cuda.is_available()` returns `False`, or a CUDA runtime error at import | The PyTorch build does not match the GPU or driver of the node | Check the assigned GPU, the installed wheel, and the driver with `nvidia-smi`, `python -m torch.utils.collect_env`, and `python -m pip check`. The `CUDA Version` that `nvidia-smi` shows is the newest CUDA the driver supports; install a PyTorch wheel at or below it (`cu126`, `cu130`, or `cu132`) |
+| `--mep-mode dmf` fails with `DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2` | `cyipopt` and `pydmf` are not installed with `mlmm-toolkit` (`ase` is) | Install them as in {ref}`step 3 of the installation <step-by-step-installation>`: `conda install -c conda-forge cyipopt -y`, then `pip install 'pydmf[torch]>=1.2'` (for `--dmf-backend cpu` only: `pip install 'pydmf>=1.2'`) |
+| Plot export fails (Plotly / Chrome) | Headless Chrome is missing | Run `plotly_get_chrome -y` once; it downloads a Chromium binary and needs internet access |
 
 ### DMF is unusually slow inside IPOPT
 
@@ -212,13 +192,6 @@ Manual `BLIS_JC_NT`, `BLIS_PC_NT`, `BLIS_IC_NT`, `BLIS_JR_NT`, or
 `BLIS_IR_NT` settings override this limit; remove them from that job's
 configuration. Restart an existing notebook kernel after changing the settings.
 See [BLIS thread controls](https://github.com/flame/blis/blob/2.0/docs/Multithreading.md).
-
-(plot-export-fails-chrome-missing)=
-### Plot export fails (Chrome missing)
-
-- **Symptom**: static images (PNG) of the Plotly figures are not written.
-- **Cause**: the headless Chrome that Plotly uses for image export is missing.
-- **Fix**: run `plotly_get_chrome -y` once; it downloads a Chromium binary and needs internet access.
 
 ---
 
@@ -315,6 +288,7 @@ Include the exact command, `summary.log` (or the console output), the smallest r
 
 ## See also
 
-- [Tips for studying reaction mechanisms](mechanism-tips.md): what to try when the TS search fails
-- [Installation](installation.md): environment setup and optional backends
-- [Building the ML region and layers](model-setup.md): check, trim, or enlarge the ML region and the layers
+- [Tips for studying reaction mechanisms](mechanism-tips.md) — what to try when the TS search fails
+- [Installation](installation.md) — environment setup and optional backends
+- [MLIP Backends](backends.md) — choosing a backend
+- [Building the ML region and layers](model-setup.md) — check, trim, or enlarge the ML region and the layers

@@ -81,7 +81,7 @@ ML 領域を `--model-pdb` から、可動 MM 層と凍結 MM 層を入力 PDB �
 
 ## 主な出力ファイル
 
-実行完了後、`--out-dir`（デフォルト: `./result_freq/`）内に以下のファイル群が生成されます。
+実行が終わると、`--out-dir` に次のファイルができます。
 
 ```text
 result_freq/

@@ -108,8 +108,6 @@ These commands stop after the MEP search and do not create `segments/`. Add `--t
 4. **TS (with `--tsopt`)**: a successful TS optimization gives one imaginary mode along the reaction coordinate. The console then prints `[microiter] Converged!` and then `[Imaginary modes] n=1 (...)`. Open `segments/seg_01/ts/vib/imag_*_trj.xyz` in a viewer and check that the mode moves the bonds that form or break.
 5. **Endpoints (with `--tsopt`)**: open `segments/seg_01/irc/finished_irc_trj.xyz` and the optimized endpoints `segments/seg_01/reactant.pdb` and `product.pdb`, and check that they are the intended R and P. Even if the IRC does not converge, the result is usable when the endpoint optimizations reach the intended R and P.
 
-For how `all` judges each stage, see [Reading the run status](all.md#reading-the-run-status).
-
 ## Notes
 
 * **Input**: one full-system PDB or mmCIF structure. Give `-c` to cut out the ML region around the given residues; leave it out to take the ML region from the B-factor layers of the input or from `--model-pdb`.

@@ -140,7 +140,7 @@ geom:
 ---
 
 (calc)=
-### `calc` (section)
+### `calc`
 
 ML/MM calculator settings: input files, the ML region and its charge, the MLIP backend, the MM backend, the layers, and the Hessian.
 
@@ -319,7 +319,7 @@ when both `max(force)` and `rms(force)` fall below `threshold / overachieve_fact
 even if the step criteria are not yet met. It is `0.0` (off) by default, and
 `baker` never uses it.
 
-**Energy plateau stop (opt-in, default off):**
+**Energy plateau stop (off by default):**
 
 `energy_plateau` is `false` by default; `--stop-plateau` on `opt` / `tsopt` /
 `all` turns it on, and `--stop-plateau-thresh` / `--stop-plateau-window` set the

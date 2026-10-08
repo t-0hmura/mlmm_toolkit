@@ -80,7 +80,7 @@ The segmentation is a guide based on bond-distance criteria. One segment is not 
 
 ## Output files
 
-`path-search` writes these files to `--out-dir` (default `./result_path_search/`):
+`path-search` writes these files to `--out-dir`:
 
 ```text
 result_path_search/
@@ -140,7 +140,6 @@ See the [generated CLI reference](reference/commands/path_search.md) for every o
 * **Frozen atoms move slightly with DMF**: DMF holds frozen atoms with a harmonic restraint (k = 300 eV/Å², YAML `dmf.k_fix`), so they can drift a little; see [path-opt](path-opt.md#notes) and {ref}`Freeze atoms and restrain distances <freeze-atoms-and-restraints>`.
 * **DMF needs `cyipopt` and `pydmf`**: neither is installed with `mlmm-toolkit`; install them before you run `--mep-mode dmf` (see [path-opt](path-opt.md#notes)).
 * **Complex mechanisms** may need adjusted intermediates, scan settings, or convergence thresholds.
-* **Option priority**: default < YAML < command line (see {ref}`Configuration precedence <configuration-precedence>`).
 
 ---
 

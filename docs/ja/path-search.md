@@ -80,7 +80,7 @@ A → End1 と End2 → B の部分で結合の変化を調べ、変化が残る
 
 ## 主な出力ファイル
 
-実行完了後、`--out-dir`（デフォルト: `./result_path_search/`）内に以下のファイル群が生成されます。
+`--out-dir` に次のファイルを書き出します。
 
 ```text
 result_path_search/
@@ -140,7 +140,6 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 * **DMF では凍結原子が少し動く**: DMF は凍結原子を調和拘束（k = 300 eV/Å²、YAML の `dmf.k_fix`）で保持するので、わずかにずれることがあります。[path-opt の「使用上の注意点」](path-opt.md#使用上の注意点) と {ref}`原子の固定と距離の拘束 <ja-freeze-atoms-and-restraints>` を参照してください。
 * **DMF には `cyipopt` と `pydmf` が必要**: どちらも `mlmm-toolkit` と一緒にはインストールされません。`--mep-mode dmf` を使う前に、[path-opt の「使用上の注意点」](path-opt.md#使用上の注意点) の手順でインストールしてください。
 * **複雑な機構**では、中間体、スキャンの設定、収束の閾値を調整する必要があることがあります。
-* **オプションの優先度**: **「デフォルト値 < 設定 YAML < コマンドライン引数」** の順です（{ref}`設定の優先順位 <ja-configuration-precedence>` を参照）。
 
 ---
 

@@ -105,7 +105,7 @@ mlmm all -i r_complex.pdb p_complex.pdb -c PRE -q -1 --deterministic
 many of them run on each node. Both flags exist on `opt`, `tsopt`, `freq`,
 `irc`, `sp`, `all`, `path-opt`, `path-search`, `scan`, `scan2d`, and `scan3d`.
 The other backends ignore them with a warning. HPC job templates are in
-[Device & HPC Setup](device-hpc.md).
+[Device Configuration & HPC Setup](device-hpc.md).
 
 ### Hessian evaluation mode
 
@@ -278,6 +278,6 @@ ML-region energy, forces, and Hessian in the correct units.
 
 - [ML/MM Calculator](mlmm-calc.md) — ONIOM coupling, MM Hessian, and the Python API (`MLMMCore`, `MLMMASECalculator`, `mlmm`).
 - [Architecture](architecture.md) — directory map and dependency direction.
-- [Device & HPC Setup](device-hpc.md) — GPU/CPU placement and job templates.
+- [Device Configuration & HPC Setup](device-hpc.md) — GPU/CPU placement and job templates.
 - [Refine an MLIP TS with DFT](dft-backend.md) — DFT settings, memory, and checkpoints.
 - [Troubleshooting](troubleshooting.md) — detailed troubleshooting guide.

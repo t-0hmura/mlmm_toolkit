@@ -1,6 +1,6 @@
 # Glossary
 
-This page gives a one-line definition of each abbreviation, method name, and unit used in the docs, grouped by field. Options, output fields, and status values (such as `stalled`) are described on each command page and in [JSON Output Reference](json-output.md).
+Each abbreviation, method name, and unit used in the docs is defined here in one line, grouped by field. Options, output fields, and status values are on each command page and in [JSON Output](json-output.md).
 
 ## ML/MM & ONIOM
 

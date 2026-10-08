@@ -21,11 +21,11 @@ The TS and the path that mlmm-toolkit finds are candidates for the mechanism you
 
 Before you run anything, write down what the proposed mechanism does: the bonds that form, the bonds that break, and every H atom that moves. This list becomes the `-s` coordinates and the points you check at the IRC endpoints. Every atom on the list belongs in the ML region.
 
-Pick the input mode from the structures you have ([Choosing an input mode](getting-started.md#choosing-an-input-mode)):
+Pick the [input mode](getting-started.md#choosing-an-input-mode) from the structures you have:
 
-- **R and P (and any intermediates)**: list them in `all` ([Quickstart: `mlmm all`](quickstart-all.md)).
-- **R only**: build the path from R with a scan ([Quickstart: scan](quickstart-scan.md)).
-- **A TS candidate only**: use TS-only mode ([Quickstart: TS-only mode](quickstart-tsopt.md)).
+- **R and P (and any intermediates)**: list them in [`all`](quickstart-all.md).
+- **R only**: build the path from R with a [scan](quickstart-scan.md).
+- **A TS candidate only**: use [TS-only mode](quickstart-tsopt.md).
 
 (mechanism-split)=
 ## Decide how to split the reaction
@@ -109,6 +109,7 @@ The other remedies (precision, coordinate type) are in [`tsopt` → Wrong imagin
 
 ## Notes
 
+- The diagnostic IRC is a clue to where a mode leads, not a TS check.
 - `--flatten` removes extra imaginary modes; it cannot create a reaction mode that is missing.
 - On a coarse path, `--refine-path` can split the reaction into unneeded stages, each with its own MEP, TS optimization, IRC, and frequency calculation.
 - Changing the cutoff that counts n_imag does not bring a structure closer to a TS; how n_imag is counted is in [tsopt](tsopt.md).

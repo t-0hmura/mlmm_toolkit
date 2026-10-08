@@ -25,6 +25,8 @@ mlmm irc -i ts.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
     -q 0 -m 1 --out-json --out-dir ./result_irc
 ```
 
+端点の候補は `forward_first.xyz` と `backward_last.xyz` です。
+
 ### 2. 順方向だけ
 
 順方向の分岐だけをたどります。
@@ -171,7 +173,6 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 * **大きな系**: `--hess-device cpu` を付けると、最初の Hessian と IRC の Hessian の演算を CPU で行い、GPU のメモリに収めます。
 * **分岐は少なくとも 1 つ**: `--no-forward` と `--no-backward` を両方付けると、エラーで止まります。
 * **1 回に 1 構造**: `-i` には 1 つの構造を指定します。軌跡からは、使うフレームを先に `.xyz` に切り出し、`--ref-pdb` と一緒に渡してください。
-* **設定の優先順位**: デフォルト < YAML < コマンドライン（[CLI 規約](cli-conventions.md) を参照）。
 
 ---
 
@@ -184,4 +185,4 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 * [トラブルシューティング](troubleshooting.md) — 実行が失敗したときの切り分け
 * [YAML 設定の一覧](yaml-reference.md) — `irc` のすべての設定
 * [用語集](glossary.md) — IRC などの用語
-* [終了コード](cli-conventions.md#終了コード) — 終了ステータスの意味
+* {ref}`終了コード <ja-exit-codes>` — 終了ステータスの意味

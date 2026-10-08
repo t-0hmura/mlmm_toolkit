@@ -91,7 +91,7 @@ scaled（g-factor）のリンク原子では、`r_L = (1−g)·r_QM + g·r_MM` �
 MM のエンジンは `--mm-backend`（YAML では `calc.mm_backend`）で選べます。
 
 - **`hessian_ff`**（既定）：mlmm-toolkit に同梱された、Amber parm7 の力場用の CPU 専用 MM エンジンです。結合、角度、二面角、不正二面角、Lennard-Jones、静電、CMAP の項を計算し、MM の Hessian を解析的に計算できます。MM の Hessian は既定では有限差分（`calc.mm_fd: true`）で、`calc.mm_fd: false` にすると `hessian_ff` の解析 Hessian を使います。C++ のカーネルは初回の使用時に自動でビルドされ、C++20 のコンパイラが要ります（[インストール](installation.md)）。MM を CPU で計算するので、GPU のメモリは ML 領域に使えます。
-- **`openmm`**：CPU または CUDA で動く OpenMM で、Hessian は有限差分です。`hessian_ff` が対応していない力場を使うときや、ワークフローですでに OpenMM を使っているときに選んでください。`mm_backend` と `mm_device` の YAML の例と VRAM の兼ね合いは、[デバイス設定と HPC](device-hpc.md) にあります。
+- **`openmm`**：CPU または CUDA で動く OpenMM で、Hessian は有限差分です。`hessian_ff` が対応していない力場を使うときや、ワークフローですでに OpenMM を使っているときに選んでください。`mm_backend` と `mm_device` の YAML の例と VRAM の兼ね合いは、[デバイス設定 & HPC セットアップ](device-hpc.md) にあります。
 
 一部の原子だけが動くときは、動く原子の Hessian のブロックを、凍結した原子の行と列を 0 で埋めた全デカルト座標の形に広げることもできます（`return_partial_hessian`）。
 
@@ -113,7 +113,7 @@ CMAP（クロスマップ骨格二面角補正）は、ff19SB などで使われ
 | `use_cmap: true`（既定） | parm7 にあれば CMAP あり | parm7 にあれば CMAP あり | MODEL 内で完結する CMAP は相殺され、境界の項は低レベルの結合として残る |
 | `use_cmap: false` | CMAP を除く | CMAP を除く | CMAP を除いた、明示的に改変した力場での計算 |
 
-ff19SB では、CMAP が対応する骨格の cosine 項（0 にしてある項）を置き換えます（[Tian et al., 2020](https://doi.org/10.1021/acs.jctc.9b00591)）。このため、CMAP を保つのが力場に忠実な既定です。`use_cmap: false`（CLI では `--no-cmap`）は、両方の MM 層から CMAP を除きます。
+[Tian et al. (2020)](https://doi.org/10.1021/acs.jctc.9b00591) の ff19SB 力場では、CMAP が対応する骨格の cosine 項（0 にしてある項）を置き換えます。このため、CMAP を保つのが力場に忠実な既定です。`use_cmap: false`（CLI では `--no-cmap`）は、両方の MM 層から CMAP を除きます。
 
 **YAML の設定例：**
 ```yaml
@@ -280,4 +280,4 @@ forces = geom.forces            # Hartree/Bohr (flat)
 - [freq](freq.md)：振動解析
 - [YAML 設定の一覧](yaml-reference.md)：`calc` と `microiter` の設定キー
 - [MLIP バックエンド](backends.md)：バックエンドの選び方、インストール、精度、バックエンドの追加
-- [デバイス設定と HPC](device-hpc.md)：ML/MM のデバイス設定と HPC での投入
+- [デバイス設定 & HPC セットアップ](device-hpc.md)：ML/MM のデバイス設定と HPC での投入

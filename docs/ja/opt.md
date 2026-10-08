@@ -167,7 +167,6 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 * **凍結原子と拘束の全体**: 凍結する原子や拘束の選び方は、{ref}`原子の固定と距離の拘束 <ja-freeze-atoms-and-restraints>` を参照してください。
 * **オプティマイザの状態の書き出し**: `--dump` を付け、YAML の `opt.dump_restart` に正の整数 N を指定すると、N サイクルごとに `restart_NNN.yaml` を書きます。mlmm-toolkit はこのファイルを読み戻さないので、止まった計算は final geometry から `opt` をやり直してください。
 * **モデルと精度**: `--backend-model` でバックエンドのモデルを、`--precision` で精度を選べます。詳しくは自動生成のオプションの一覧（英語のみ）を参照してください。
-* **設定の優先順位**: デフォルト < YAML < コマンドライン（[CLI 規約](cli-conventions.md) を参照）。
 
 ---
 
@@ -181,4 +180,4 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 * [トラブルシューティング](troubleshooting.md) — 実行が失敗したときの切り分け
 * [YAML 設定の一覧](yaml-reference.md) — `opt`、`lbfgs`、`rfo`、`microiter` のすべての設定
 * [用語集](glossary.md) — L-BFGS、RFO などの用語
-* [終了コード](cli-conventions.md#終了コード) — 終了ステータスの意味
+* {ref}`終了コード <ja-exit-codes>` — 終了ステータスの意味

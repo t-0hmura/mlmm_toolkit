@@ -32,11 +32,13 @@ hf auth login
 hf auth login --token '<YOUR_ACCESS_TOKEN>' --add-to-git-credential
 ```
 
-You only need to do this once per machine / environment. Then check the installation with `mlmm --version`.
+You only need to do this once per machine / environment.
+
+Check the installation with `mlmm --version`, which prints the installed version.
 
 ### Optional
 
-For DMF, also install cyipopt and pydmf ([step 3 below](#step-by-step-installation)). ORB, AIMNet2, MACE, and DFT are installed in [step 7](#step-by-step-installation).
+For DMF, also install cyipopt and pydmf, as in step 3 of {ref}`Step-by-step installation <step-by-step-installation>`. ORB, AIMNet2, MACE, and DFT are installed in step 7 of the same section.
 
 (step-by-step-installation)=
 ## Step-by-step installation
@@ -64,7 +66,7 @@ If you prefer to build the environment piece by piece:
     ```
 
 3. **Install cyipopt and pydmf**
-    Required if you want to use the DMF method (`--mep-mode dmf`) in MEP search; neither is installed with `mlmm-toolkit`. You can skip this step if you only use GSM. If `--mep-mode dmf` still stops with an import error, see {ref}`Installation / environment <installation--environment>`.
+    Required if you want to use the DMF method (`--mep-mode dmf`) in MEP search; neither is installed with `mlmm-toolkit`. You can skip this step if you only use GSM. If `--mep-mode dmf` still stops with an import error, see {ref}`Installation / environment <installation-environment-problems>`.
 
     ```bash
     conda install -c conda-forge cyipopt -y
@@ -127,7 +129,7 @@ If you prefer to build the environment piece by piece:
     pip install mace-torch
     ```
 
-    **DFT** (`-b dft`, `--dft`, `mlmm dft`): `[dft]` installs the CUDA 13 GPU4PySCF build on Linux x86_64, for the cu130 / cu132 PyTorch wheels of step 4; with the cu126 wheel, install `[dft-cuda12]` instead. On aarch64, build [GPU4PySCF](https://github.com/pyscf/gpu4pyscf) from source.
+    **DFT** (`-b dft`, `--dft`, `mlmm dft`): `[dft]` installs the CUDA 13 GPU4PySCF build on Linux x86_64, for the cu130 / cu132 PyTorch wheels of step 4; with the cu126 wheel, install `[dft-cuda12]` instead. On aarch64, build [GPU4PySCF](https://github.com/pyscf/gpu4pyscf) from source. Without a GPU, `[dft]` still installs PySCF; run DFT with `--dft-engine cpu`.
 
     ```bash
     pip install "mlmm-toolkit[dft]"

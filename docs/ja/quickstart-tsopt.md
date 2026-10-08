@@ -84,8 +84,6 @@ result_ts_only/
 4. **端点の振動数**: `--thermo` のとき、`segments/seg_01/freq/{R,TS,P}/frequencies_cm-1.txt` に符号つきの全振動数が出ます。R と P には虚振動（−5.00 cm⁻¹ より小さい値）が無いはずです。
 5. **エネルギー**: `post_segments[0].mlip.barrier_kcal` が ΔE‡（TS − R）、`.delta_kcal` が ΔE（P − R）で、単位は kcal/mol です。どちらも最適化した TS と端点の ML/MM エネルギーから求めます。MEP が無いので、`segments[0].barrier_kcal` と `.delta_kcal` にも同じ値が入ります。`--thermo` のときは `post_segments[0].gibbs_mlip.barrier_kcal` と `.delta_kcal` が ΔG‡ と ΔG、`--dft` のときは `post_segments[0].dft.barrier_kcal` と `.delta_kcal` が DFT の値です。
 
-`all` が各段をどう判定するかは [実行結果の判定](all.md#実行結果の判定) を参照してください。
-
 | 結果 | 次に試すこと |
 |---|---|
 | n_imag = 0 | MEP の HEI やスキャンの最高点など、よりよい候補から始めます。TS-only モードには手がかりにする経路がありません。 |

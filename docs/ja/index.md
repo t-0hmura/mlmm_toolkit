@@ -12,7 +12,7 @@ orphan: true
 <img src="../mlmm_toolkit_overview.png" alt="mlmm-toolkit ワークフロー概要" class="p2r-hero-figure">
 
 {.p2r-tagline}
-**mlmm-toolkit** は、機械学習原子間ポテンシャルと分子力学を ONIOM 的に結合した **ML/MM 法** を用いて、酵素複合体などの PDB 構造から反応機構解析を行うための Python 製 CLI ツールキットです。
+**mlmm-toolkit** は、機械学習原子間ポテンシャルと分子力学を ONIOM 的に結合した ML/MM 法を用いて、酵素複合体などの PDB 構造から反応機構解析を行うための Python 製 CLI ツールキットです。
 
 {.p2r-lead}
 初めての方は [はじめに](getting-started.md) からお読みください。
@@ -63,25 +63,25 @@ orphan: true
 | サブコマンド | 説明 |
 |---------|------|
 | [`all`](all.md) | ML/MM モデルの構築と MEP 探索。TS・IRC・熱化学・DFT は任意 |
-| [`fix-altloc`](fix-altloc.md) | PDB の代替コンフォメーションを解決 |
-| [`add-elem-info`](add-elem-info.md) | PDB の元素列（77–78）を補完 |
+| [`fix-altloc`](fix-altloc.md) | PDB の代替位置指示子を解決 |
+| [`add-elem-info`](add-elem-info.md) | PDB の元素列（77–78）を修復 |
 | [`mm-parm`](mm-parm.md) | Amber のトポロジー・座標（parm7/rst7）を構築 |
 | [`extract`](extract.md) | タンパク質–リガンド複合体から ML 領域を定義 |
 | [`define-layer`](define-layer.md) | ML・可動 MM・凍結 MM の層を B-factor で指定 |
-| [`opt`](opt.md) | L-BFGS または RFO で構造最適化 |
-| [`scan`](scan.md) | 拘束付き距離スキャン。複数距離の協奏変化と多段階に対応 |
-| [`scan2d`](scan2d.md) | 2 次元エネルギー面 |
-| [`scan3d`](scan3d.md) | 3 次元エネルギー面 |
-| [`path-opt`](path-opt.md) | 2 端点間の MEP を GSM または DMF で最適化 |
-| [`path-search`](path-search.md) | MEP 探索と再帰的な精密化 |
-| [`tsopt`](tsopt.md) | RS-P-RFO・Dimer などで TS 候補を最適化 |
-| [`irc`](irc.md) | 固有反応座標を追跡 |
+| [`opt`](opt.md) | 単一構造の構造最適化（L-BFGS または RFO。任意の `--flatten` で残った虚振動を除く） |
+| [`scan`](scan.md) | 拘束付き距離スキャン（複数距離の協奏スキャン・多段階スキャンに対応） |
+| [`scan2d`](scan2d.md) | 2 次元のエネルギー地形の探索・PES マッピング |
+| [`scan3d`](scan3d.md) | 3 次元のエネルギー地形の探索・PES マッピング |
+| [`path-opt`](path-opt.md) | GSM または DMF による 1 段階の MEP 最適化（2 構造から） |
+| [`path-search`](path-search.md) | 自動精密化を伴う多段階の再帰的 MEP 探索（2 構造以上） |
+| [`tsopt`](tsopt.md) | 遷移状態最適化（Dimer または RS-P-RFO。任意の `--flatten` で余分な虚振動を除く） |
+| [`irc`](irc.md) | 固有反応座標（IRC: Intrinsic Reaction Coordinate）計算 |
 | [`freq`](freq.md) | 振動解析と熱化学 |
-| [`dft`](dft.md) | GPU4PySCF または PySCF による DFT 一点計算 |
+| [`dft`](dft.md) | DFT 一点計算（GPU4PySCF / PySCF） |
 | [`sp`](sp.md) | ML/MM ONIOM のエネルギー・力。任意で Hessian |
-| [`bond-summary`](bond-summary.md) | 構造間の共有結合の変化を記録 |
-| [`trj2fig`](trj2fig.md) | XYZ 軌跡のエネルギープロファイルを描画 |
-| [`energy-diagram`](energy-diagram.md) | 数値から状態エネルギー図を描画 |
+| [`bond-summary`](bond-summary.md) | 連続構造間の共有結合変化を検出・レポート |
+| [`trj2fig`](trj2fig.md) | XYZ 軌跡からエネルギープロファイルをプロット |
+| [`energy-diagram`](energy-diagram.md) | 数値入力からエネルギーダイアグラムを作成 |
 | [`oniom-export`](oniom-export.md) | Gaussian ONIOM または ORCA QM/MM の入力を生成 |
 | [`oniom-import`](oniom-import.md) | ONIOM の入力から XYZ・層付き PDB を再構築 |
 
@@ -123,7 +123,7 @@ orphan: true
 
 ## エージェントスキル
 
-`skills/` に、AI エージェント向けの手順書（CLI コマンド・構造 I/O・バックエンド・ワークフローと出力・HPC 運用）を同梱しています。導入するときは、AI エージェントに次のように指示してください。
+`mlmm-toolkit` は、CLI サブコマンド・構造 I/O・バックエンドインストール・ワークフロー・出力解析・HPC 運用をカバーする AI エージェント向けの手順書を `skills/` に同梱しています。導入するときは、AI エージェントに次のように指示してください。
 
 > `https://github.com/t-0hmura/mlmm_toolkit/tree/main/skills` をスキルとして取り込み、`mlmm-install-backends` の手順に従って mlmm-toolkit をインストールして
 

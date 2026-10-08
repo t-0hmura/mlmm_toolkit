@@ -42,7 +42,7 @@ mlmm all -i 1.R.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
     --tsopt --thermo --out-dir ./result_scan
 ```
 
-The targets inside one literal move together in one stage. Literals given in a row run as successive stages, each starting from the end of the one before, and the stage ends become the inputs of the MEP search. Give `-s` once and list every literal after it. To decide how to split a reaction, see [Tips for studying reaction mechanisms](mechanism-tips.md). In a PDB with an empty chain field, an atom is its residue name, residue number, and atom name in any order (`"CS1 SAM 320"`); with chains, write `A:SAM:320:CS1`. All accepted forms are in [CLI Conventions](cli-conventions.md).
+The targets inside one literal move together in one stage. Literals given in a row run as successive stages, each starting from the end of the one before, and the stage ends become the inputs of the MEP search. Give `-s` once and list every literal after it. To decide how to split a reaction, see [Tips for studying reaction mechanisms](mechanism-tips.md). In a PDB with an empty chain field, an atom is its residue name, residue number, and atom name in any order (`"CS1 SAM 320"`); with chains, write `A:SAM:320:CS1`. All accepted forms are in [Common options and selectors](cli-conventions.md).
 
 ### 3. Check a TS candidate (TS-only mode)
 
@@ -199,7 +199,7 @@ Energies in the diagrams are in kcal/mol relative to the first state (the reacta
 | `--auto-mm-disulfide/--no-auto-mm-disulfide` | flag | `True` | Bond cysteines found by their SG–SG distance and rename them CYX; when off, only residues already named CYX are bonded |
 | `--auto-mm-ligand-mult` | text | `None` (1 for every ligand) | Spin multiplicities of the ligands for the topology (e.g. `'GPP:2,SAM:1'`) |
 | `--auto-mm-keep-temp` | flag | `False` | Keep the temporary directory of the topology build |
-| `-s, --scan-lists` | text | `None` | Staged scan targets for one input, one literal per stage (e.g. `'[("A:SAM:320:CS1","A:GPP:321:C7",1.50)]'`) |
+| `-s, --scan-lists` | text | `None` | Staged scan targets for one input, one literal per stage (e.g. `'[("A:SAM:320:CS1","A:GPP:321:C7",1.50)]'`; format in {ref}`Scan-list spec <scan-list-spec>`) |
 | `--tsopt/--no-tsopt` | flag | `False` | Optimize the TS of each segment and run IRC |
 | `--thermo/--no-thermo` | flag | `False` | Frequencies and ML/MM thermochemistry on R, TS, and P (needs `--tsopt`) |
 | `--dft/--no-dft` | flag | `False` | DFT single points of the ML region on R, TS, and P (needs `--tsopt`) |
@@ -234,7 +234,7 @@ For every option, run `mlmm all --help-advanced` or see the [generated CLI refer
 * **Without `-c`**: extraction is skipped, and the full input structures are used. The ML region comes from the B-factors of the input (`--detect-layer`, on by default) or from `--model-pdb`; with `--no-detect-layer` and no `--model-pdb`, the run stops with an error. One structure still needs `-s` or `--tsopt`.
 * **AmberTools**: without `--parm7`, `all` stops with an error when AmberTools is not found.
 * **Input formats**: `all` reads PDB and mmCIF; XYZ input needs `--ref-pdb`, a PDB with the same atoms. All structures of one run must have the same atoms in the same order.
-* **Charge and multiplicity**: `-q` and `-m` describe the ML region, not the whole enzyme. With `-c`, the ML-region charge is the sum over the extracted model of the first input: built-in values for amino acids, ions, and water, `-l` for the other residues, and 0 for residues not listed in `-l`. Without `-c`, the same sum is taken over the ML region from the B-factors or `--model-pdb`. `-q` overrides the derived value with a warning; when no value can be derived, `calc.model_charge` in the YAML file is used. The multiplicity is `-m`, otherwise `calc.model_mult` in the YAML file, otherwise 1. See [CLI Conventions](cli-conventions.md).
+* **Charge and multiplicity**: `-q` and `-m` describe the ML region, not the whole enzyme. With `-c`, the ML-region charge is the sum over the extracted model of the first input: built-in values for amino acids, ions, and water, `-l` for the other residues, and 0 for residues not listed in `-l`. Without `-c`, the same sum is taken over the ML region from the B-factors or `--model-pdb`. `-q` overrides the derived value with a warning; when no value can be derived, `calc.model_charge` in the YAML file is used. The multiplicity is `-m`, otherwise `calc.model_mult` in the YAML file, otherwise 1. See [Common options and selectors](cli-conventions.md).
 * **Frozen atoms and rigid-body motions**: the vibrational analysis projects out only the rigid translations and rotations that leave the frozen atoms in place, so with a frozen MM layer usually none are removed; see [freq → Rigid modes with frozen boundaries](freq.md#rigid-modes-with-frozen-boundaries).
 * **Separately prepared structures**: when the input structures were prepared independently, their differences outside the reaction coordinate enter the barrier. Compare the structures before reading the barrier.
 * **`--resume-segment`**: it needs `--tsopt`, `--thermo`, or `--dft`, and cannot be combined with `--dry-run`. The run stops with an error when the saved inputs, ML region, topology, layered structures, or MEP do not match the command.

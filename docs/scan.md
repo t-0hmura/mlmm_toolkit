@@ -140,7 +140,7 @@ No option changes this. Before quoting a barrier, check which endpoint the scan 
 
 ## Output files
 
-`scan` writes these files to `--out-dir` (default `./result_scan/`):
+`scan` writes these files to `--out-dir`:
 
 ```text
 result_scan/

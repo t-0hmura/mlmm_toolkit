@@ -108,8 +108,6 @@ result_scan/
 4. **TS（`--tsopt` のとき）**: TS 最適化が成功すると、反応モードの虚振動が 1 つ出ます。このとき端末に `[microiter] Converged!` が出て、続いて `[Imaginary modes] n=1 (...)` が出ます。`segments/seg_01/ts/vib/imag_*_trj.xyz` をビューアで開き、できる結合と切れる結合に沿って原子が動くかを確認してください。
 5. **端点（`--tsopt` のとき）**: `segments/seg_01/irc/finished_irc_trj.xyz` と、最適化した端点の `segments/seg_01/reactant.pdb`・`product.pdb` を開き、狙った R と P かを確かめます。IRC が収束しなくても、端点の最適化で狙った R と P に着けば、その結果は使えます。
 
-`all` が各段をどう判定するかは [実行結果の判定](all.md#実行結果の判定) を参照してください。
-
 ## 使用上の注意点
 
 * **入力**: 全系の PDB か mmCIF の構造 1 つです。`-c` を付けると、指定した残基のまわりから ML 領域を切り出します。省くと、入力の B-factor の層か `--model-pdb` から ML 領域を取ります。

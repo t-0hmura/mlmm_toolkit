@@ -1,7 +1,7 @@
 # [mlmm-toolkit]{.p2r-wordmark} Documentation
 
 :::{container} p2r-hero-meta
-[Version: v{{ release }}]{.p2r-pill} [GitHub](https://github.com/t-0hmura/mlmm_toolkit){.p2r-meta-gh} [ChemRxiv preprint](https://doi.org/10.26434/chemrxiv-2025-jft1k){.p2r-meta-paper}
+[Version: v{{ release }}]{.p2r-pill} [GitHub](https://github.com/t-0hmura/mlmm_toolkit){.p2r-meta-gh} [ChemRxiv paper](https://doi.org/10.26434/chemrxiv-2025-jft1k){.p2r-meta-paper}
 :::
 
 :::{container} p2r-hero
@@ -213,25 +213,25 @@ ja/architecture
 | Subcommand | Description |
 |---------|------|
 | [`all`](all.md) | ML/MM model setup and MEP search; optional TS, IRC, thermochemistry, and DFT |
-| [`fix-altloc`](fix-altloc.md) | Resolve PDB alternate conformations |
-| [`add-elem-info`](add-elem-info.md) | Fill PDB element columns 77–78 |
+| [`fix-altloc`](fix-altloc.md) | Resolve PDB alternate locations |
+| [`add-elem-info`](add-elem-info.md) | Repair PDB element columns (77–78) |
 | [`mm-parm`](mm-parm.md) | Build Amber parm7/rst7 topology and coordinates |
 | [`extract`](extract.md) | Define the ML region from a protein–ligand complex |
 | [`define-layer`](define-layer.md) | Assign ML / movable-MM / frozen-MM B-factor layers |
-| [`opt`](opt.md) | Optimize a geometry with L-BFGS or RFO |
-| [`scan`](scan.md) | Restrained distance scans; concerted coordinates and sequential stages |
-| [`scan2d`](scan2d.md) | Two-dimensional energy landscapes |
-| [`scan3d`](scan3d.md) | Three-dimensional energy landscapes |
-| [`path-opt`](path-opt.md) | Optimize a two-endpoint MEP with GSM or DMF |
-| [`path-search`](path-search.md) | Search and recursively refine an MEP |
-| [`tsopt`](tsopt.md) | Optimize a TS candidate with RS-P-RFO, Dimer, or another supported TS optimizer |
-| [`irc`](irc.md) | Trace the intrinsic reaction coordinate |
-| [`freq`](freq.md) | Vibrational analysis and thermochemistry |
-| [`dft`](dft.md) | Single-point DFT with GPU4PySCF or PySCF |
+| [`opt`](opt.md) | Single-structure geometry optimization (L-BFGS or RFO; optional `--flatten` removes leftover imaginary modes) |
+| [`scan`](scan.md) | Restrained distance scan supporting concerted multi-distance and multistage scans |
+| [`scan2d`](scan2d.md) | Two-dimensional energy-landscape exploration and PES mapping |
+| [`scan3d`](scan3d.md) | Three-dimensional energy-landscape exploration and PES mapping |
+| [`path-opt`](path-opt.md) | Single-step MEP optimization via GSM or DMF (from 2 structures) |
+| [`path-search`](path-search.md) | Recursive multi-step MEP search with automatic refinement (2+ structures) |
+| [`tsopt`](tsopt.md) | Transition state optimization (Dimer or RS-P-RFO; optional `--flatten` removes extra imaginary modes) |
+| [`irc`](irc.md) | Intrinsic Reaction Coordinate calculation |
+| [`freq`](freq.md) | Vibrational frequency analysis & thermochemistry |
+| [`dft`](dft.md) | Single-point DFT calculations (GPU4PySCF / PySCF) |
 | [`sp`](sp.md) | ML/MM ONIOM energy and forces; optional Hessian |
-| [`bond-summary`](bond-summary.md) | Report covalent bond changes between structures |
-| [`trj2fig`](trj2fig.md) | Plot an XYZ trajectory's energy profile |
-| [`energy-diagram`](energy-diagram.md) | Draw a state-energy diagram from numeric values |
+| [`bond-summary`](bond-summary.md) | Detect and report covalent bond changes between consecutive structures |
+| [`trj2fig`](trj2fig.md) | Plot energy profiles from XYZ trajectories |
+| [`energy-diagram`](energy-diagram.md) | Draw an energy diagram from numeric values |
 | [`oniom-export`](oniom-export.md) | Generate Gaussian ONIOM or ORCA QM/MM input |
 | [`oniom-import`](oniom-import.md) | Read an ONIOM input into XYZ / layered PDB |
 
@@ -248,7 +248,7 @@ ja/architecture
 | **Files each command writes** | [Output Directory Layout](output-layout.md) |
 | **Keys of `result.json` and `summary.json`** | [JSON Output Reference](json-output.md) |
 | **GPU and CPU assignment, HPC** | [Device Configuration & HPC Setup](device-hpc.md) |
-| **Use the ML/MM calculator from Python** | [ML/MM calculator](mlmm-calc.md) |
+| **Use the ML/MM calculator from Python** | [ML/MM Calculator](mlmm-calc.md) |
 | **Calling mlmm-toolkit from an AI agent (MCP)** | [MCP server](mcp_server.md) |
 | **Code structure (for developers)** | [Architecture](architecture.md) |
 | **Terminology** | [Glossary](glossary.md) |
@@ -275,7 +275,7 @@ The three layers (ML, movable MM, frozen MM) and how ONIOM combines them are exp
 
 ## Agent skills
 
-`skills/` contains guides for AI agents on the CLI commands, structure I/O, backends, workflows and outputs, and HPC use.
+`skills/` contains guides for CLI commands, structure I/O, backends, workflows, output analysis, and HPC use.
 To install them, tell your AI agent:
 
 > Import `https://github.com/t-0hmura/mlmm_toolkit/tree/main/skills` as skills, and install mlmm-toolkit by following `mlmm-install-backends`.

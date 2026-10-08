@@ -8,7 +8,7 @@
 
 * **Checking IRC endpoints**: confirm that the two ends of an intrinsic reaction coordinate (IRC) differ by the intended bonds.
 * **Screening multistep mechanisms**: list the bonds that change in each step of a chain of intermediates.
-* **Checking a workflow by hand**: compare the R, transition state (TS), and P that `all` wrote under `segments/seg_NN/` (see [Output Directory Layout](output-layout.md)).
+* **Checking a workflow by hand**: compare the R, transition state (TS), and P that `all` wrote under [`segments/seg_NN/`](output-layout.md).
 
 ---
 
@@ -51,7 +51,7 @@ mlmm bond-summary -i reactant.xyz im1.xyz im2.xyz product.xyz
 1. **Reading the structures**:
 The files are read in the order given; XYZ, PDB, and GJF are recognized by their extension. At least two files are needed.
 2. **Bond criterion**:
-For each atom pair, the threshold *T* is the sum of the covalent radii ([Cordero et al., 2008](https://doi.org/10.1039/b801115j), except 0.40 Å for H) times `--bond-factor` (default `1.20`), and a pair is bonded when its distance is at most 0.95 *T*.
+A pair is bonded when its distance is at most 0.95 *T*, where *T* is `--bond-factor` (default `1.20`) times the sum of the two covalent radii of [Cordero et al. (2008)](https://doi.org/10.1039/b801115j), with 0.40 Å for H.
 3. **Counting a change**:
 A pair counts as formed (broken) when it is unbonded (bonded) in the first structure, bonded (unbonded) in the next, and its distance changes by at least 0.05 *T*, so a small move across the threshold is not counted. `irc` and `all` use the same criterion for the bond changes they report.
 

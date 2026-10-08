@@ -233,7 +233,7 @@ mlmm myaction ─────────────────► mlmm/cli/ap
 | バックエンドディスパッチ / ファクトリ (`_create_ml_backend`) | `mlmm/backends/mlmm_calc.py` |
 | 任意の DFT high-level adapter | `mlmm/backends/pyscf_dft.py` |
 
-[MLIP Backends](backends.md) ではインストール方法と実行時の挙動を説明します。
+[MLIP バックエンド](backends.md) ではインストール方法と実行時の挙動を説明します。
 バックエンド実装の変更は、現時点では `mlmm_calc.py` とディスパッチャに反映します。
 
 ### 4.5 I/O (L4b `io/`)

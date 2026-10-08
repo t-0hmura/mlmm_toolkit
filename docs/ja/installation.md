@@ -32,11 +32,13 @@ hf auth login
 hf auth login --token '<YOUR_ACCESS_TOKEN>' --add-to-git-credential
 ```
 
-これはマシン/環境ごとに 1 回だけ行う必要があります。最後に `mlmm --version` でインストールを確かめます。
+これはマシン/環境ごとに 1 回だけ行う必要があります。
+
+`mlmm --version` でバージョンが表示されれば、インストールは成功です。
 
 ### 任意
 
-DMF を使う場合は、cyipopt と pydmf も導入してください（[下記の手順 3](#詳細なインストール手順)）。ORB・AIMNet2・MACE・DFT の導入は[手順 7](#詳細なインストール手順) を参照してください。
+DMF を使う場合は、{ref}`詳細なインストール手順 <ja-step-by-step-installation>` の手順 3 で cyipopt と pydmf も導入してください。ORB・AIMNet2・MACE・DFT の導入は同じ節の手順 7 を参照してください。
 
 (ja-step-by-step-installation)=
 ## 詳細なインストール手順
@@ -62,7 +64,7 @@ DMF を使う場合は、cyipopt と pydmf も導入してください（[下記
     ```
 
 3. **cyipopt と pydmf をインストール**
-    MEP 探索で DMF 法（`--mep-mode dmf`）を使用する場合に必要です。どちらも `mlmm-toolkit` と一緒には入りません。GSM のみを使用する場合はスキップできます。それでも `--mep-mode dmf` がインポートのエラーで止まるときは、{ref}`インストール / 環境の問題 <ja-installation--environment>` を参照してください。
+    MEP 探索で DMF 法（`--mep-mode dmf`）を使用する場合に必要です。どちらも `mlmm-toolkit` と一緒には入りません。GSM のみを使用する場合はスキップできます。それでも `--mep-mode dmf` がインポートのエラーで止まるときは、{ref}`インストール / 環境の問題 <ja-installation-environment-problems>` を参照してください。
 
     ```bash
     conda install -c conda-forge cyipopt -y
@@ -124,7 +126,7 @@ DMF を使う場合は、cyipopt と pydmf も導入してください（[下記
     pip install mace-torch
     ```
 
-    **DFT**（`-b dft`、`--dft`、`mlmm dft`）: `[dft]` は Linux x86_64 で CUDA 13 用の GPU4PySCF を導入します（手順 4 の cu130 / cu132 の PyTorch 向け）。cu126 の wheel を使うときは、代わりに `[dft-cuda12]` を導入します。aarch64 では [GPU4PySCF](https://github.com/pyscf/gpu4pyscf) をソースからビルドしてください。
+    **DFT**（`-b dft`、`--dft`、`mlmm dft`）: `[dft]` は Linux x86_64 で CUDA 13 用の GPU4PySCF を導入します（手順 4 の cu130 / cu132 の PyTorch 向け）。cu126 の wheel を使うときは、代わりに `[dft-cuda12]` を導入します。aarch64 では [GPU4PySCF](https://github.com/pyscf/gpu4pyscf) をソースからビルドしてください。GPU のない環境でも `[dft]` で PySCF が入り、`--dft-engine cpu` で DFT を実行できます。
 
     ```bash
     pip install "mlmm-toolkit[dft]"

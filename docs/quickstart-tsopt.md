@@ -84,8 +84,6 @@ result_ts_only/
 4. **Endpoint frequencies**: with `--thermo`, `segments/seg_01/freq/{R,TS,P}/frequencies_cm-1.txt` lists every frequency with its sign. R and P should have no imaginary mode (no value below −5.00 cm⁻¹).
 5. **Energies**: `post_segments[0].mlip.barrier_kcal` is ΔE‡ (TS − R) and `.delta_kcal` is ΔE (P − R) in kcal/mol, from the ML/MM energies of the optimized TS and endpoints. Since there is no MEP, `segments[0].barrier_kcal` and `.delta_kcal` hold the same values. With `--thermo`, `post_segments[0].gibbs_mlip.barrier_kcal` and `.delta_kcal` give ΔG‡ and ΔG; with `--dft`, `post_segments[0].dft.barrier_kcal` and `.delta_kcal` give the DFT values.
 
-For how `all` judges each stage, see [Reading the run status](all.md#reading-the-run-status).
-
 | Result | What to try |
 |---|---|
 | n_imag = 0 | Start from a better candidate, such as the HEI of an MEP or the top of a scan; TS-only mode has no path to guide it. |

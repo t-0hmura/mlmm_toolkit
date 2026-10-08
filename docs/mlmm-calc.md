@@ -113,7 +113,7 @@ CMAP (Cross-Map backbone dihedral correction) is a 5-atom torsion correction ter
 | `use_cmap: true` (default) | CMAP included when present | CMAP included when present | Complete model-internal CMAP cancels; boundary terms remain in the low-level coupling |
 | `use_cmap: false` | CMAP excluded | CMAP excluded | Explicit modified-force-field calculation without CMAP |
 
-For ff19SB, CMAP replaces the corresponding zeroed backbone cosine terms ([Tian et al., 2020](https://doi.org/10.1021/acs.jctc.9b00591)), so preserving it is the force-field-faithful default. `use_cmap: false` (CLI `--no-cmap`) removes CMAP from both MM layers.
+In the ff19SB force field of [Tian et al. (2020)](https://doi.org/10.1021/acs.jctc.9b00591), CMAP replaces the corresponding zeroed backbone cosine terms, so preserving it is the force-field-faithful default. `use_cmap: false` (CLI `--no-cmap`) removes CMAP from both MM layers.
 
 **Example YAML configuration:**
 ```yaml

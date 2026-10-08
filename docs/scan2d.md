@@ -99,7 +99,7 @@ After the last point, all points go into `surface.csv`. The usable points are in
 
 ## Output files
 
-After a run, `--out-dir` (default: `./result_scan2d/`) contains the following files.
+After a run, `--out-dir` contains the following files.
 
 ```text
 result_scan2d/

@@ -167,7 +167,6 @@ The `--thresh` presets set these limits (forces in hartree/bohr, steps in bohr):
 * **Frozen atoms and restraints in general**: how to choose frozen atoms and restraints is described in {ref}`Frozen atoms and distance restraints <freeze-atoms-and-restraints>`.
 * **Optimizer state dumps**: with `--dump`, set YAML `opt.dump_restart` to a positive integer N to write `restart_NNN.yaml` every N cycles. mlmm-toolkit does not read this file back, so rerun `opt` from the final geometry to continue a stopped calculation.
 * **Model and precision**: `--backend-model` selects the model of the backend and `--precision` its precision; see the generated reference.
-* **Option priority**: default < YAML < command line (see [CLI Conventions](cli-conventions.md)).
 
 ---
 
@@ -181,4 +180,4 @@ The `--thresh` presets set these limits (forces in hartree/bohr, steps in bohr):
 * [Troubleshooting](troubleshooting.md) — when a run fails
 * [YAML Reference](yaml-reference.md) — every `opt`, `lbfgs`, `rfo`, and `microiter` setting
 * [Glossary](glossary.md) — L-BFGS, RFO, and other terms
-* [Exit codes](cli-conventions.md#exit-codes) — what each exit status means
+* {ref}`Exit codes <exit-codes>` — what each exit status means

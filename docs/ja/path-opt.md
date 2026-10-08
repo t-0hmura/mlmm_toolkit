@@ -38,7 +38,7 @@ mlmm path-opt -i reactant.pdb product.pdb --parm7 real.parm7 --model-pdb ml_regi
 
 ### 3. GSM の代わりに DMF を使う
 
-DMF には `cyipopt` と `pydmf` が必要です（「使用上の注意点」を参照）。この例では可動なイメージの数も減らしています。
+DMF には `cyipopt` と `pydmf` が必要です。この例では可動なイメージの数も減らしています。
 
 ```bash
 mlmm path-opt -i reactant.pdb product.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
@@ -80,7 +80,7 @@ HEI は近似的な経路の頂点であり、TS そのものではありませ�
 
 ## 主な出力ファイル
 
-実行完了後、`--out-dir`（デフォルト: `./result_path_opt/`）内に以下のファイル群が生成されます。
+`--out-dir` に次のファイルを書き出します。
 
 ```text
 result_path_opt/
@@ -139,8 +139,6 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 * **DMF で使われないオプション**: `--climb`・`--fix-ends` は、指定しても DMF では使われません。
 * **XYZ の端点のテンプレートは 1 つ**: `--ref-pdb` には全系の PDB を 1 つだけ指定し、両方の `.xyz` 端点に使います。
 * **YAML のオプティマイザ設定の矛盾**: 同じ YAML ファイルの中で、同じキーを `opt:` と実際に動くオプティマイザの節（`lbfgs:`・`opt.lbfgs:`・`stopt.lbfgs:`、または `rfo` の同等の節）とで別の値にすると、エラーで停止します。
-* **オプションの優先度**: **「デフォルト値 < 設定 YAML < コマンドライン引数」** の順です（{ref}`設定の優先順位 <ja-configuration-precedence>` を参照）。
-* **終了コード**: {ref}`終了コード <ja-exit-codes>` を参照してください。
 
 ---
 
@@ -149,7 +147,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 * [path-search](path-search.md) — 2 つ以上の構造を通り、結合が変わる区間を精密化する MEP 探索
 * [tsopt](tsopt.md) — HEI から TS を最適化
 * [irc](irc.md) — TS が狙った R と P につながるかを確認
-* [all](all.md) — 一貫実行のワークフロー。MEP の段は `path-opt` を使い、`--refine-path` で `path-search` に切り替えられます（[all の「主な CLI オプション」](all.md#主な-cli-オプション)）
+* [all](all.md) — 一貫実行のワークフロー。MEP の段は `path-opt` を使い、`--refine-path` で `path-search` に切り替えられます
 * [YAML 設定の一覧](yaml-reference.md) — `gs`・`dmf`・`stopt` の全設定
 * [用語集](glossary.md) — MEP、GSM、DMF、HEI などの用語
 * [トラブルシューティング](troubleshooting.md) — 異常終了時の原因切り分けと対処法

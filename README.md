@@ -5,7 +5,7 @@
   </picture>
 </p>
 
-# **mlmm-toolkit**: An End-to-End ML/MM ONIOM Platform for Automated Enzymatic Reaction Mechanism Analysis
+# `mlmm-toolkit`: An End-to-End ML/MM ONIOM Platform for Automated Enzymatic Reaction Mechanism Analysis
 
 [![PyPI](https://img.shields.io/pypi/v/mlmm-toolkit.svg)](https://pypi.org/project/mlmm-toolkit/) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb)
 
@@ -62,7 +62,7 @@ pip install mlmm-toolkit
 # 3. Authenticate Hugging Face once (only required for the default UMA backend)
 #    Accept the FAIR Chemistry License v1 at https://huggingface.co/facebook/UMA, then:
 hf auth login                               # interactive
-# OR: export HF_TOKEN=hf_xxx && hf auth login --token "$HF_TOKEN"   # CI / HPC
+# OR, for non-interactive CI/HPC jobs: export HF_TOKEN=hf_xxx
 ```
 
 > **Avoid AmberTools conflicts:** on clusters with a system AmberTools module loaded, run `module unload amber` before installing to prevent a ParmEd conflict with the conda-installed AmberTools.
@@ -71,7 +71,7 @@ hf auth login                               # interactive
 
 | Extra | Adds |
 |---|---|
-| `[orb]` / `[aimnet]` | Orb / AIMNet2 MLIP backend — *not* HF-gated |
+| `[orb]` / `[aimnet]` | Orb / AIMNet2 MLIP backend (`-b orb` / `-b aimnet2`) — *not* HF-gated |
 | `[dft]` / `[dft-cuda12]` | DFT calculator and standalone command with native CUDA 13 / CUDA 12 GPU4PySCF |
 | `[mcp]` | Model Context Protocol server (`mlmm-mcp`) for agent clients |
 | `[pdbfixer]` | PDBFixer extra (alternative to the conda install above) |
@@ -79,7 +79,7 @@ hf auth login                               # interactive
 
 The MACE backend (`-b mace`) does not install into the same environment as UMA; create a dedicated environment as described in [docs/installation.md](docs/installation.md).
 
-CUDA module-load recipes, alternative-backend installs, DMF / `cyipopt`, Plotly Chromium, and HPC job-script templates: [docs/installation.md](docs/installation.md) and [docs/device-hpc.md](docs/device-hpc.md).
+CUDA module loads, alternative-backend recipes, DMF/`cyipopt` setup, Plotly Chromium, and HPC job-script templates: [docs/installation.md](docs/installation.md) and [docs/device-hpc.md](docs/device-hpc.md).
 
 ## Preparing an Enzyme-Substrate System
 
@@ -111,9 +111,9 @@ mlmm all -i examples/beza/1.R.pdb examples/beza/3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:
 
 # Scan mode (single structure → staged bond scan → MEP)
 mlmm all -i examples/beza/1.R.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
-    --scan-lists "[('SAM 320 CS1','GPP 321 C7',1.60)]" --tsopt --thermo --out-dir result_scan
+    -s '[("SAM 320 CS1","GPP 321 C7",1.60)]' --tsopt --thermo --out-dir result_scan
 
-# TS-only validation (existing TS candidate)
+# TS-only validation (your own TS candidate → tsopt → IRC → freq)
 mlmm all -i TS_candidate_layered.pdb --parm7 complex.parm7 -q 1 --tsopt --thermo --out-dir result_tsonly
 ```
 
@@ -125,9 +125,9 @@ Each stage (`mm-parm` → `extract` → `define-layer` → `opt` → `path-opt` 
 
 Each calculation command writes to its own directory, `./result_<command>/` by default (for example `./result_opt/`, `./result_tsopt/`, or `./result_path_opt/`); `-o/--out-dir` sets another. The preparation commands `extract`, `mm-parm`, and `define-layer` write their files to the current directory.
 
-An `all` run writes its deliverables to `./result_all/`:
+A non-dry `all` run writes the deliverables reached by its enabled stages to `./result_all/`:
 
-- `segments/seg_NN/{reactant,ts,product}.pdb` for MEP-oriented and TS-only segments
+- `segments/seg_NN/{reactant,ts,product}.pdb` — the canonical R / TS / P structures to cite
 - `mep_trj.pdb` / `mep_trj.xyz` — the merged reaction path; `energy_diagram_MEP.png` — barrier diagram
 - `summary.log` / `summary.json`
 - Reusable inputs for follow-up runs: `ml_region.pdb` (`--model-pdb`), `mm_parm/*.parm7` (`--parm7`), `layered/` (B-factor-annotated full-system PDBs)
@@ -151,14 +151,14 @@ Pipeline scratch lives under `_work/`; keep it if you may redo the post-processi
 | `mm-parm` | Generate parm7/rst7 via AmberTools | [mm-parm](docs/mm-parm.md) |
 | `extract` | Extract active-site pocket | [extract](docs/extract.md) |
 | `define-layer` | Assign 3-layer ML/MM B-factor encoding | [define-layer](docs/define-layer.md) |
-| `fix-altloc` | Resolve PDB altlocs | [fix-altloc](docs/fix-altloc.md) |
-| `add-elem-info` | Repair PDB element columns | [add-elem-info](docs/add-elem-info.md) |
-| `opt` | Geometry optimization | [opt](docs/opt.md) |
-| `tsopt` | TS optimization | [tsopt](docs/tsopt.md) |
-| `path-opt` | MEP via GSM/DMF | [path-opt](docs/path-opt.md) |
-| `path-search` | Recursive MEP refinement | [path-search](docs/path-search.md) |
+| `fix-altloc` | Resolve PDB alternate conformations | [fix-altloc](docs/fix-altloc.md) |
+| `add-elem-info` | Repair PDB element columns (77–78) | [add-elem-info](docs/add-elem-info.md) |
+| `opt` | Geometry optimization (L-BFGS / RFO) | [opt](docs/opt.md) |
+| `tsopt` | TS optimization (Dimer / RS-P-RFO) | [tsopt](docs/tsopt.md) |
+| `path-opt` | MEP via GSM or DMF | [path-opt](docs/path-opt.md) |
+| `path-search` | Recursive MEP search with refinement | [path-search](docs/path-search.md) |
 | `scan` / `scan2d` / `scan3d` | 1D / 2D / 3D bond-distance scans | [scan](docs/scan.md) · [scan2d](docs/scan2d.md) · [scan3d](docs/scan3d.md) |
-| `freq` | Vibrational analysis + thermo | [freq](docs/freq.md) |
+| `freq` | Vibrational analysis + thermochemistry | [freq](docs/freq.md) |
 | `irc` | IRC (EulerPC) | [irc](docs/irc.md) |
 | `dft` | Single-point DFT | [dft](docs/dft.md) |
 | `sp` | Single-point ML/MM ONIOM | [sp](docs/sp.md) |
@@ -200,16 +200,16 @@ Issues: <https://github.com/t-0hmura/mlmm_toolkit/issues>.
 - **MACE + UMA cannot coexist** (`e3nn` version conflict). Use separate conda envs.
 - **DFT/MM** is practical for an ML region of up to about **500 atoms for a single point** and about **300 atoms for an optimization** on an HPC GPU, and up to about **200 atoms on a consumer GPU** (ωB97M-V/def2-SVP, the default; from experience).
 - **MACE and ORB need fp64** (`--precision fp64`, their default); in fp32, extra imaginary modes appear more often. fp64 is slow on consumer GPUs: on HPC GPUs, ORB in fp64 is very cost-effective, and on a consumer GPU, UMA in fp32 gives the best balance.
-- **CPU-only execution** may be **substantially slower than GPU** depending on the backend and system.
+- **CPU-only execution** is supported but usually **much slower than GPU**.
 - The bundled pysisyphus is a modified fork; do not install upstream pysisyphus in the same environment.
 
 ## Citation
 
 ```bibtex
 @article{ohmura2025mlmm,
-  author = {Ohmura, Takuto and Inoue, Sei and Terada, Tohru},
-  title  = {ML/MM Toolkit -- Toward Accelerated Mechanistic Investigation of Enzymatic Reactions},
-  year   = {2025}, journal = {ChemRxiv}, doi = {10.26434/chemrxiv-2025-jft1k}
+  author  = {Ohmura, Takuto and Inoue, Sei and Terada, Tohru},
+  title   = {ML/MM Toolkit -- Toward Accelerated Mechanistic Investigation of Enzymatic Reactions},
+  journal = {ChemRxiv}, year = {2025}, doi = {10.26434/chemrxiv-2025-jft1k}
 }
 ```
 
@@ -219,4 +219,4 @@ Issues and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-GNU General Public License version 3 or later (GPL-3.0-or-later).
+GNU General Public License v3 or later (GPL-3.0-or-later).

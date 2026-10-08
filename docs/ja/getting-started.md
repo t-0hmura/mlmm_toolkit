@@ -98,9 +98,7 @@ MLIP/MM で妥当な経路が見つかったら、その TS をそのまま DFT/
 [dft] DFT 一点計算: --tsopt --dft 指定時のみ DFT/MM エネルギーを算出
 ```
 
-各ステージは単独のサブコマンドとしても実行可能です。
-
-実行の最後に端末に `Scientific status: success` と出れば、求めた段はすべて収束しています。TS 最適化が成功すると、反応モードの虚振動が 1 つ出ます。IRC が収束しなくても、端点の最適化で狙った R と P に着けば、その結果は使えます。
+各ステージは [`extract`](extract.md)、[`tsopt`](tsopt.md)、[`irc`](irc.md) などのサブコマンドとして単独でも実行できます。一覧は [サブコマンド](index.md#サブコマンド) にあります。
 
 ---
 
@@ -193,7 +191,7 @@ mmCIF（`.cif`・`.mmcif`）と、PDB 形式の固定列に収まらない大き
 
 ## 出力ファイルの構成
 
-実行完了後、出力ディレクトリ（既定は `./result_all/`、`-o` で変更）に以下のファイル群が生成されます。主なファイルは [出力ディレクトリのレイアウト](output-layout.md)、`summary.json` の欄は [JSON 出力の一覧](json-output.md) にあります。
+実行が終わると、`-o` の出力ディレクトリに次のファイルができます。既定は `./result_all/` です。主なファイルは [出力ディレクトリのレイアウト](output-layout.md)、`summary.json` のすべての欄は {ref}`JSON 出力の一覧 <ja-summary-json-path-search-all>` にあります。
 
 | 出力ファイル / フォルダ | 内容 |
 | --- | --- |
@@ -212,7 +210,7 @@ mmCIF（`.cif`・`.mmcif`）と、PDB 形式の固定列に収まらない大き
 
 `mlmm-toolkit` には、AI エージェント（Claude Code、Codex、Cursor など）向けの設定指示書が `skills/` ディレクトリに同梱されています。
 
-CLI サブコマンド、構造の入出力、バックエンドの導入、TS 探索の方針、HPC での実行が書かれています。`skills/` をエージェントに読み込ませることで、エージェントを通じた自然言語指示による計算実行・解析が可能になります。配置場所とスキルの一覧は [`skills/README.md`](https://github.com/t-0hmura/mlmm_toolkit/blob/main/skills/README.md) を参照してください。MCP のクライアントからコマンドをツールとして呼ぶ方法は [mlmm MCP サーバー](mcp_server.md) にあります。
+CLI サブコマンド、構造の入出力、バックエンドの導入、TS 探索の方針、HPC での実行が書かれています。`skills/` をエージェントに読み込ませることで、エージェントを通じた自然言語指示による計算実行・解析が可能になります。配置場所とスキルの一覧は [`skills/README.md`](https://github.com/t-0hmura/mlmm_toolkit/blob/main/skills/README.md) を参照してください。MCP のクライアントからコマンドをツールとして呼ぶ方法は [MCP サーバー](mcp_server.md) にあります。
 
 ---
 
@@ -220,7 +218,7 @@ CLI サブコマンド、構造の入出力、バックエンドの導入、TS �
 
 実行中にエラーが発生した場合は、以下のドキュメントを参照してください。
 
-* [トラブルシューティング](troubleshooting.md): エラー症状別の対処法と、インストールや環境起因の不具合の解決手順
+* {ref}`トラブルシューティング <ja-troubleshooting-quick-table>`: エラー症状別の対処法と、インストールや環境起因の不具合の解決手順
 * [MLIP バックエンド](backends.md): バックエンドの選び方と並列ワーカーの使い方。GPU メモリ、デバイスの設定、クラスターのジョブスクリプトは [デバイス設定 & HPC セットアップ](device-hpc.md)
 
 コマンドの全オプションを確認したい場合は、ヘルプオプションを利用してください。

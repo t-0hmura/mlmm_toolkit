@@ -85,7 +85,7 @@ mlmm all -i r_complex.pdb p_complex.pdb -c PRE -q -1 --deterministic
 
 ## ワーカーと Hessian の計算方式
 
-`--uma-workers N`（既定 1）は UMA の予測器を N 個並列に動かし（`fairchem-core[extras]` が要ります）、`--uma-workers-per-node`（既定 1）はそのうち 1 ノードで動かす数を決めます。どちらのフラグも `opt`、`tsopt`、`freq`、`irc`、`sp`、`all`、`path-opt`、`path-search`、`scan`、`scan2d`、`scan3d` にあります。ほかのバックエンドはこれらを警告を出して無視します。HPC のジョブのテンプレートは [デバイス設定と HPC](device-hpc.md) にあります。
+`--uma-workers N`（既定 1）は UMA の予測器を N 個並列に動かし（`fairchem-core[extras]` が要ります）、`--uma-workers-per-node`（既定 1）はそのうち 1 ノードで動かす数を決めます。どちらのフラグも `opt`、`tsopt`、`freq`、`irc`、`sp`、`all`、`path-opt`、`path-search`、`scan`、`scan2d`、`scan3d` にあります。ほかのバックエンドはこれらを警告を出して無視します。HPC のジョブのテンプレートは [デバイス設定 & HPC セットアップ](device-hpc.md) にあります。
 
 ### Hessian の計算方式
 
@@ -187,6 +187,6 @@ ML/MM の段では、選んだ ML バックエンドと Hessian の途中の配�
 
 - [ML/MM 計算機](mlmm-calc.md)：ONIOM の結合、MM の Hessian、Python API（`MLMMCore`、`MLMMASECalculator`、`mlmm`）
 - [アーキテクチャ](architecture.md)：ディレクトリの構成と依存の向き
-- [デバイス設定と HPC](device-hpc.md)：GPU と CPU の割り当てとジョブのテンプレート
+- [デバイス設定 & HPC セットアップ](device-hpc.md)：GPU と CPU の割り当てとジョブのテンプレート
 - [MLIP の TS を DFT で確かめる](dft-backend.md)：DFT の設定、メモリ、チェックポイント
 - [トラブルシューティング](troubleshooting.md)：計算が失敗したとき

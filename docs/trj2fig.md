@@ -54,7 +54,7 @@ mlmm trj2fig -i traj.xyz -q 0 -m 1 -b uma --backend-model uma-s-1p2 \
 ## How it works
 
 1. **Reading the energies**:
-Each frame's comment line gives its energy. Trajectories written by mlmm are read as they are, for example `optimization_trj.xyz` ([`opt`](opt.md) `--dump`), `scan_trj.xyz` ([`scan`](scan.md)), `mep_trj.xyz`, and `finished_irc_trj.xyz` (the last two in [Output Directory Layout](output-layout.md)). In other files, write `E=<value>` with an optional unit (`Ha`, `Eh`, `hartree`, `eV`, `kcal/mol`); without a unit it is hartree, except `energy=` in extended XYZ (a comment with `Properties=` or `Lattice=`), which is eV. With `-q` or `-m`, the MLIP (machine-learning interatomic potential) backend recomputes every frame instead.
+Each frame's comment line gives its energy. Trajectories written by mlmm, such as `optimization_trj.xyz` (`opt --dump`), `scan_trj.xyz`, `mep_trj.xyz`, and `finished_irc_trj.xyz`, are read as they are. In other files, write `E=<value>` with an optional unit (`Ha`, `Eh`, `hartree`, `eV`, `kcal/mol`); without a unit it is hartree, except `energy=` in extended XYZ (a comment with `Properties=` or `Lattice=`), which is eV. With `-q` or `-m`, the MLIP (machine-learning interatomic potential) backend recomputes every frame instead.
 2. **Choosing the reference**:
 `-r init` (the default) is the frame at the left end: the first frame, or the last with `--reverse-x`; an integer is a 0-based frame index; `none` plots absolute energies.
 3. **Converting the unit**:
@@ -114,4 +114,4 @@ See the [generated CLI reference](reference/commands/trj2fig.md) for every optio
 * [irc](irc.md) — IRC trajectories to plot
 * [energy-diagram](energy-diagram.md) — a state energy diagram from numbers you give
 * [all](all.md) — the full workflow
-* [Troubleshooting](troubleshooting.md) — what to do when a run fails; for a failed figure export, see {ref}`Plot export fails <plot-export-fails-chrome-missing>`
+* [Troubleshooting](troubleshooting.md) — what to do when a run fails; for a failed figure export, see {ref}`Installation / environment <installation-environment-problems>`

@@ -1,6 +1,6 @@
 # `energy-diagram` (state energy diagram)
 
-`energy-diagram` **draws a state energy diagram** from numbers you give it. It reads no structure files and runs no ML/MM calculation. It suits energies you already have, for example the `energy_diagrams` of the `summary.json` written by `all` or `path-search` ([JSON Output Reference](json-output.md)) or a table in a paper.
+`energy-diagram` **draws a state energy diagram** from numbers you give it. It reads no structure files and runs no calculation. It suits energies you already have, for example the {ref}`energy_diagrams <summary-json-path-search-all>` of the `summary.json` written by `all` or `path-search`, or a table in a paper. It saves the diagram as an image file.
 
 ---
 
@@ -97,4 +97,4 @@ See the [generated CLI reference](reference/commands/energy_diagram.md) for ever
 * [trj2fig](trj2fig.md) — energy profile from the frames of a trajectory
 * [all](all.md) — the full workflow, which draws its own energy diagrams
 * [JSON Output Reference](json-output.md#energy-diagram) — the fields of `result.json`
-* [Troubleshooting](troubleshooting.md) — what to do when a run fails; for a failed image export, see {ref}`Plot export fails <plot-export-fails-chrome-missing>`
+* [Troubleshooting](troubleshooting.md) — what to do when a run fails; for a failed image export, see {ref}`Installation / environment <installation-environment-problems>`
