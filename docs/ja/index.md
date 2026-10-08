@@ -2,38 +2,66 @@
 orphan: true
 ---
 
-# mlmm-toolkit ドキュメント
+# [mlmm-toolkit]{.p2r-wordmark} ドキュメント
 
-[GitHub](https://github.com/t-0hmura/mlmm_toolkit) · [ChemRxiv 論文](https://doi.org/10.26434/chemrxiv-2025-jft1k) · [Google Colab で実行](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb)
+:::{container} p2r-hero-meta
+[バージョン: v{{ release }}]{.p2r-pill} [GitHub](https://github.com/t-0hmura/mlmm_toolkit){.p2r-meta-gh} [ChemRxiv 論文](https://doi.org/10.26434/chemrxiv-2025-jft1k){.p2r-meta-paper}
+:::
 
-*バージョン: v{{ release }}*
+:::{container} p2r-hero
+<img src="../mlmm_toolkit_overview.png" alt="mlmm-toolkit ワークフロー概要" class="p2r-hero-figure">
 
----
+{.p2r-tagline}
+**mlmm-toolkit** は、機械学習原子間ポテンシャルと分子力学を ONIOM 的に結合した **ML/MM 法** を用いて、酵素複合体などの PDB 構造から反応機構解析を行うための Python 製 CLI ツールキットです。
 
-<img src="../mlmm_toolkit_overview.png" alt="mlmm-toolkit workflow overview" width="90%">
-
-**mlmm-toolkit** は、機械学習原子間ポテンシャルと分子力学を ONIOM 的に結合した **ML/MM 法** を用いて、PDB 構造から酵素反応経路を自動モデリングする Python 製 CLI ツールキットです。
-
+{.p2r-lead}
 初めての方は [はじめに](getting-started.md) からお読みください。
 
-## 目的別クイックスタート
+{.p2r-cta}
+[はじめに](getting-started.md){.p2r-btn .p2r-btn-primary} [インストール](installation.md){.p2r-btn .p2r-btn-install} [Google Colabで実行](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb){.p2r-btn .p2r-btn-colab}
+:::
 
-| 目的 | ガイド |
-|---|---|
-| 反応の前後の構造から反応機構解析を一気通貫で行う | [クイックスタート: all の Endpoint モード](quickstart-all.md) |
-| 1 つの構造から一気通貫で反応機構解析を行う | [クイックスタート: all の Scan-list モード](quickstart-scan.md) |
-| TS 構造から一気通貫で反応機構解析を行う | [クイックスタート: TS-only モード](quickstart-tsopt.md) |
-| ML 領域と層を決める・計算を軽くする | [ML 領域と層の組み方](model-setup.md) |
-| 反応機構を調べる・TS が取れない | [反応機構を調べるコツ](mechanism-tips.md) |
-| 求めた TS 構造を DFT で構造最適化する | [求めた TS 構造を DFT で構造最適化する](dft-backend.md) |
-| 計算が失敗した | [トラブルシューティング](troubleshooting.md) |
+## クイックスタート
 
-前提条件は [インストール](installation.md) を参照してください。
+::::{container} p2r-cards
+:::{container} p2r-card p2r-card-endpoint
+**反応の前後の構造から反応機構解析を一気通貫で行う**
 
-## CLI サブコマンド
+<!-- p2r-mode-stages endpoint -->
+
+[クイックスタート: all の Endpoint モード](quickstart-all.md)
+:::
+
+:::{container} p2r-card p2r-card-scan
+**1 つの構造から一気通貫で反応機構解析を行う**
+
+<!-- p2r-mode-stages scan -->
+
+[クイックスタート: all の Scan-list モード](quickstart-scan.md)
+:::
+
+:::{container} p2r-card p2r-card-tsonly
+**TS 構造から一気通貫で反応機構解析を行う**
+
+<!-- p2r-mode-stages tsonly -->
+
+[クイックスタート: TS-only モード](quickstart-tsopt.md)
+:::
+::::
+
+| 目的 | ページ |
+|------|------|
+| **ML 領域と層を決める・計算を軽くする** | [ML 領域と層の組み方](model-setup.md) |
+| **反応機構を調べる・TS が取れない** | [反応機構を調べるコツ](mechanism-tips.md) |
+| **求めた TS 構造を DFT で構造最適化する** | [求めた TS 構造を DFT で構造最適化する](dft-backend.md) |
+| **計算が失敗した** | [トラブルシューティング](troubleshooting.md) |
+
+## サブコマンド
+
+<!-- p2r-stage-strip -->
 
 | サブコマンド | 説明 |
-|---|---|
+|---------|------|
 | [`all`](all.md) | ML/MM モデルの構築と MEP 探索。TS・IRC・熱化学・DFT は任意 |
 | [`fix-altloc`](fix-altloc.md) | PDB の代替コンフォメーションを解決 |
 | [`add-elem-info`](add-elem-info.md) | PDB の元素列（77–78）を補完 |
@@ -57,29 +85,37 @@ orphan: true
 | [`oniom-export`](oniom-export.md) | Gaussian ONIOM または ORCA QM/MM の入力を生成 |
 | [`oniom-import`](oniom-import.md) | ONIOM の入力から XYZ・層付き PDB を再構築 |
 
-## 設定・リファレンス
+## 設定・参照資料
 
 | トピック | ページ |
-|---|---|
-| CLI 規約と入力形式 | [共通オプションと残基・原子の指定](cli-conventions.md) |
-| 原子の固定と距離の拘束（`--freeze-atoms`・`--distance-restraint`） | {ref}`原子の固定と距離の拘束 <ja-freeze-atoms-and-restraints>` |
-| 用語 | [用語集](glossary.md) |
-| YAML 設定 | [YAML リファレンス](yaml-reference.md) |
-| 出力ファイル・JSON | [出力構造](output-layout.md) · [JSON スキーマ](json-output.md) |
-| バックエンド・再現性 | [バックエンド](backends.md) |
-| デバイス・HPC | [デバイスと HPC](device-hpc.md) |
-| Python API・構成 | [ML/MM 計算機](mlmm-calc.md) · [アーキテクチャ](architecture.md) |
-| MCP サーバー | [MCP サーバー](mcp_server.md) |
-| トラブルシューティング | [トラブルシューティング](troubleshooting.md) |
-| 自動生成 CLI リファレンス（英語） | [コマンドリファレンス](../reference/commands/index.md) |
-| スターター設定（英語） | [YAML 抜粋](../reference/yaml.md) |
+|-------|------|
+| **共通オプションと入力要件** | [共通オプションと残基・原子の指定](cli-conventions.md) |
+| **原子の固定と距離の拘束（`--freeze-atoms`・`--distance-restraint`）** | {ref}`原子の固定と距離の拘束 <ja-freeze-atoms-and-restraints>` |
+| **よくあるエラーと対処** | [トラブルシューティング](troubleshooting.md) |
+| **CLI コマンドの一覧（英語のみ、自動生成）** | [コマンドの一覧（英語のみ）](../reference/commands/index.md) |
+| **YAML 設定オプション** | [YAML 設定の一覧](yaml-reference.md) · [YAML の抜粋（英語のみ）](../reference/yaml.md) |
+| **MLIP バックエンド設定** | [MLIP バックエンド](backends.md) |
+| **各コマンドが書き出すファイル** | [出力ディレクトリのレイアウト](output-layout.md) |
+| **`result.json` と `summary.json` の欄** | [JSON 出力の一覧](json-output.md) |
+| **GPU・CPU の割り当てと HPC** | [デバイス設定 & HPC セットアップ](device-hpc.md) |
+| **Python から ML/MM 計算機を使う** | [ML/MM 計算機](mlmm-calc.md) |
+| **AI エージェントから呼ぶ（MCP）** | [MCP サーバー](mcp_server.md) |
+| **コードの構成（開発者向け）** | [アーキテクチャ](architecture.md) |
+| **用語** | [用語集](glossary.md) |
 
 ## システム要件
 
-インストールとバックエンドの互換性は [インストール](installation.md) を参照してください。
-GPU とドライバーは選択したバックエンドの要件を満たす必要があります。
-VRAM・RAM・実行時間は、代表的な計算から見積もってください。
-`mm-parm` には AmberTools が必要です。
+### ハードウェア
+- **OS**: Linux（Windows では WSL2 上の Linux に導入してください）
+- **GPU**: 使用するバックエンドと PyTorch wheel に対応する NVIDIA ドライバー。CPU のみでも実行可能ですが低速です
+- **VRAM / RAM**: モデル、系の大きさ、Hessian の計算方式で変わります。代表的な計算で最大使用量を測ってください
+
+### ソフトウェア
+- Python >= 3.11
+- CPU 版または CUDA 対応の PyTorch。ビルド済みの wheel は CUDA ランタイムを含むので、手元の CUDA toolkit は通常いりません（ソースからビルドするときだけ必要です）
+- AmberTools（`mm-parm` が Amber のトポロジーを作るのに使います）
+
+セットアップは [インストール](installation.md) を参照してください。
 
 ## 重要な概念
 

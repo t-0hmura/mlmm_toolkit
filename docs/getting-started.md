@@ -1,7 +1,9 @@
 # Getting Started
 
-<img src="./mlmm_toolkit_overview.png" alt="mlmm-toolkit workflow overview" width="90%">
+::::{container} p2r-intro
+<img src="./mlmm_toolkit_overview.png" alt="mlmm-toolkit workflow overview" class="p2r-intro-figure">
 
+:::{container} p2r-intro-text
 `mlmm-toolkit` is a Python command-line toolkit that uses ML/MM (machine learning / molecular mechanics) to **search automatically for candidate enzyme reaction pathways, starting from PDB / mmCIF structures**.
 
 ML/MM works like QM/MM, with a machine-learning interatomic potential (MLIP) in place of QM. The MLIPs are neural networks trained on DFT data; they approximate a DFT-level potential energy surface at a tiny fraction of the cost. The reacting part of the enzyme (the ML region) is computed with the MLIP, and the protein around it with an Amber force field (MM). The two are combined by the ONIOM subtraction:
@@ -19,6 +21,8 @@ In many cases, a **single command** like this one gives a first draft of the rea
 ```bash
 mlmm -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3'
 ```
+:::
+::::
 
 ---
 

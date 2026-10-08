@@ -1,7 +1,9 @@
 # はじめに
 
-<img src="../mlmm_toolkit_overview.png" alt="mlmm-toolkit workflow overview" width="90%">
+::::{container} p2r-intro
+<img src="../mlmm_toolkit_overview.png" alt="mlmm-toolkit workflow overview" class="p2r-intro-figure">
 
+:::{container} p2r-intro-text
 `mlmm-toolkit` は、ML/MM（機械学習 / 分子力学）法を活用し、**PDB / mmCIF 構造から酵素の反応経路候補を自動探索する** Python 製 CLI ツールキットです。
 
 ML/MM は、QM/MM の QM を機械学習原子間ポテンシャル（MLIP）に置き換えた方法です。MLIP は DFT（密度汎関数法）の計算データを学習したニューラルネットワークで、DFT レベルのポテンシャルエネルギー曲面をごくわずかな計算コストで近似します。酵素のうち反応する部分（ML 領域）を MLIP で、その周りのタンパク質を Amber 力場（MM）で計算し、両者を ONIOM の差し引きで合わせます。
@@ -19,6 +21,8 @@ MM の原子は 2 つの層に分かれます。Movable-MM は最適化で動き
 ```bash
 mlmm -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3'
 ```
+:::
+::::
 
 ---
 

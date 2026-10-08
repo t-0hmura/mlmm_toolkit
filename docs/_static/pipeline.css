@@ -1,0 +1,574 @@
+/* Reaction-workflow stages: the stage strip of the top page and the stage badge
+   of the command pages. Stage colours come from conf.py (p2r_pipeline, set as
+   --p2r-<stage> and --p2r-gradient from the navy / green / violet / teal / orange
+   palette that custom.css also uses for the entry cards and admonitions).
+   The decorations at the end apply only with html.p2r-deco (p2r_deco in conf.py). */
+
+/* ==========================================================================
+   Stage icons (_static/icons/*.svg, 96x96, one colour), drawn as masks so that
+   each takes the colour of its element (the stage colour).
+   The .p2r-ico--<stage> rules that set --p2r-ico are in p2r-icons.css, which
+   conf.py writes at build time from the icon set named by p2r_icon_set.
+   ========================================================================== */
+.p2r-ico {
+    display: block;
+    width: 40px;
+    height: 40px;
+    background-color: var(--p2r-c);
+    -webkit-mask-image: var(--p2r-ico);
+    mask-image: var(--p2r-ico);
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+}
+
+/* ==========================================================================
+   Top page: stage strip, one round icon per stage, as in the overview figure
+   ========================================================================== */
+.p2r-strip {
+    --p2r-disc: 66px;
+    margin: 0 0 2.25rem;
+}
+
+.p2r-strip__steps {
+    display: grid;
+    grid-template-columns: repeat(var(--p2r-n, 5), minmax(0, 1fr));
+    gap: 0.6rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.p2r-strip__step {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0;
+    text-align: center;
+}
+
+/* dotted connector to the next stage */
+.p2r-strip__step:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    top: calc(var(--p2r-disc) / 2 - 1.5px);
+    left: calc(50% + var(--p2r-disc) / 2 + 6px);
+    width: calc(100% - var(--p2r-disc) - 12px + 0.6rem);
+    border-top: 3px dotted color-mix(in srgb, var(--p2r-c) 75%, transparent);
+}
+
+/* pale tinted disc, stage-colour ring and icon */
+.p2r-strip__icon {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: var(--p2r-disc);
+    height: var(--p2r-disc);
+    box-sizing: border-box;
+    border: 2.5px solid var(--p2r-c);
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--p2r-c) 9%, var(--color-background-primary));
+    box-shadow: var(--p2r-shadow);
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.p2r-strip__icon .p2r-ico {
+    width: 42px;
+    height: 42px;
+}
+
+.p2r-strip__step:hover .p2r-strip__icon {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 20px -8px var(--p2r-c);
+}
+
+.p2r-strip__body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 0;
+}
+
+.p2r-strip__label {
+    margin-top: 0.75rem;
+    color: var(--p2r-navy-deep);
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1.35;
+    text-decoration: none;
+}
+
+body[data-lang="ja"] .p2r-strip__label {
+    font-feature-settings: "palt";
+    word-break: keep-all;
+}
+
+.p2r-strip__label:hover {
+    color: color-mix(in srgb, var(--p2r-c) 80%, var(--color-foreground-primary));
+}
+
+/* stage number: a small disc on the upper left of the round icon */
+.p2r-strip__num {
+    position: absolute;
+    top: -4px;
+    left: calc(50% - var(--p2r-disc) / 2 - 5px);
+    display: grid;
+    place-items: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    box-sizing: border-box;
+    border: 2px solid var(--color-background-primary);
+    border-radius: 50%;
+    background: var(--p2r-c);
+    color: var(--p2r-on-stage);
+    font-size: 0.7rem;
+    line-height: 1;
+}
+
+.p2r-strip__cmds {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    margin-top: 0.45rem;
+}
+
+.p2r-strip__cmds a {
+    text-decoration: none;
+}
+
+.p2r-strip__cmds code {
+    display: inline-block;
+    padding: 0.08rem 0.5rem;
+    border: 1px solid color-mix(in srgb, var(--p2r-c) 40%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--p2r-c) 7%, var(--color-background-primary));
+    color: var(--color-foreground-primary);
+    font-size: 0.72rem;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.p2r-strip__cmds a:hover code {
+    border-color: var(--p2r-c);
+    background: color-mix(in srgb, var(--p2r-c) 18%, var(--color-background-primary));
+}
+
+/* `all` runs every stage: a bar under the five steps */
+.p2r-strip__all {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    margin-top: 1.1rem;
+    padding: 0.5rem 1rem;
+    border: 2.5px solid transparent;
+    border-radius: 999px;
+    background:
+        linear-gradient(color-mix(in srgb, var(--color-background-primary) 90%, transparent),
+                        color-mix(in srgb, var(--color-background-primary) 90%, transparent)) padding-box,
+        var(--p2r-gradient) padding-box,
+        var(--p2r-gradient) border-box;
+    box-shadow: var(--p2r-shadow);
+    color: var(--p2r-navy-deep);
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition: transform 0.15s ease;
+}
+
+.p2r-strip__all:hover {
+    transform: translateY(-1px);
+}
+
+.p2r-strip__all code {
+    padding: 0.1rem 0.6rem;
+    border: 1.5px solid color-mix(in srgb, var(--p2r-navy) 45%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--p2r-navy) 7%, var(--color-background-primary));
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+/* ==========================================================================
+   Command pages: stage badge above the title
+   ========================================================================== */
+.p2r-badge {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem 0.8rem;
+    margin: -0.35rem 0 1.4rem;   /* right under the page title */
+    font-size: 0.8rem;
+    line-height: 1.3;
+}
+
+.p2r-badge__steps {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.p2r-badge__step {
+    display: flex;
+    align-items: center;
+    margin: 0;
+}
+
+.p2r-badge__step + .p2r-badge__step::before {
+    content: "";
+    width: 0.6rem;
+    margin: 0 0.2rem;
+    border-top: 2px dotted color-mix(in srgb, var(--p2r-c) 55%, var(--color-background-border));
+}
+
+.p2r-badge__step a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--color-foreground-secondary);
+    text-decoration: none;
+}
+
+.p2r-badge__icon {
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    width: 34px;
+    height: 34px;
+    box-sizing: border-box;
+    border: 1.5px solid color-mix(in srgb, var(--p2r-c) 55%, var(--color-background-border));
+    border-radius: 50%;
+    background: var(--color-background-primary);
+    transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.p2r-badge__icon .p2r-ico {
+    width: 24px;
+    height: 24px;
+}
+
+.p2r-badge__step a:hover .p2r-badge__icon {
+    border-color: var(--p2r-c);
+    transform: translateY(-1px);
+}
+
+
+.p2r-badge__step.is-on .p2r-badge__icon {
+    border: 2.5px solid var(--p2r-c);
+    background: color-mix(in srgb, var(--p2r-c) 9%, var(--color-background-primary));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--p2r-c) 18%, transparent);
+}
+
+.p2r-badge__label {
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: color-mix(in srgb, var(--p2r-c) 78%, var(--color-foreground-primary));
+}
+
+.p2r-badge__cmds {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+}
+
+.p2r-badge__cmds a {
+    text-decoration: none;
+}
+
+article .p2r-badge__cmds code {
+    display: inline-block;
+    padding: 0.08rem 0.5rem;
+    border: 1px solid var(--color-background-border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-foreground-secondary);
+    font-size: 0.72rem;
+}
+
+.p2r-badge__cmds a:hover code {
+    border-color: var(--p2r-c);
+    color: var(--color-foreground-primary);
+}
+
+article .p2r-badge__cmds a.is-current code {
+    border-color: var(--p2r-c);
+    background: color-mix(in srgb, var(--p2r-c) 12%, transparent);
+    color: var(--color-foreground-primary);
+    font-weight: 600;
+}
+
+/* A page with a stage badge starts its title below the language switch. */
+.p2r-badge + section > h1 {
+    clear: right;
+}
+
+/* ==========================================================================
+   Decorations: only with html.p2r-deco (p2r_deco in conf.py)
+   ========================================================================== */
+.p2r-deco {
+}
+
+/* the hairline under the top bar in the stage colours */
+.p2r-deco .p2r-topbar::after {
+    background: var(--p2r-gradient);
+    opacity: 0.55;
+}
+
+
+.p2r-deco article[data-p2r-stage] h1 code.literal {
+    color: color-mix(in srgb, var(--p2r-c, var(--p2r-navy)) 82%, var(--color-foreground-primary));
+}
+
+/* section headings: a small stage-coloured atom */
+.p2r-deco article[role="main"] h2::before {
+    content: "";
+    display: inline-block;
+    width: 0.3em;
+    height: 0.3em;
+    margin-right: 0.5em;
+    vertical-align: 0.24em;
+    border-radius: 50%;
+    background: var(--p2r-c, var(--p2r-navy));
+    opacity: 0.7;
+}
+
+.p2r-deco article[data-p2r-stage="all"] h2::before {
+    background: var(--p2r-gradient);
+}
+
+/* stage dots on command links in the sidebar and in tables (marked by pipeline.js) */
+.p2r-deco article td:first-child a[data-p2r-stage] {
+    white-space: nowrap;
+}
+
+.p2r-deco .sidebar-tree a[data-p2r-stage]::before,
+.p2r-deco article td:first-child a[data-p2r-stage]::before {
+    content: "";
+    display: inline-block;
+    flex: none;
+    width: 0.4rem;
+    height: 0.4rem;
+    margin-right: 0.45rem;
+    vertical-align: 0.1em;
+    border-radius: 50%;
+    background: var(--p2r-c);
+    opacity: 0.75;
+}
+
+/* hanging indent: a wrapped sidebar label continues under the text, not under the dot */
+.p2r-deco .sidebar-tree a[data-p2r-stage] {
+    padding-left: calc(var(--sidebar-item-spacing-horizontal) - 0.1rem + 0.85rem);
+    text-indent: -0.85rem;
+}
+
+.p2r-deco .sidebar-tree a[data-p2r-stage="all"]::before,
+.p2r-deco article td:first-child a[data-p2r-stage="all"]::before {
+    background: var(--p2r-blue);
+    opacity: 1;
+}
+
+/* a small neutral mark on the other sidebar entries (introduction, quick start, guides, reference);
+   the current page takes the brand colour */
+.p2r-deco .sidebar-tree li.toctree-l1:not(.p2r-home) > a.reference:not([data-p2r-stage]) {
+    padding-left: calc(var(--sidebar-item-spacing-horizontal) - 0.1rem + 0.85rem);
+    text-indent: -0.85rem;
+}
+
+.p2r-deco .sidebar-tree li.toctree-l1:not(.p2r-home) > a.reference:not([data-p2r-stage])::before {
+    content: "";
+    display: inline-block;
+    width: 0.32rem;
+    height: 0.32rem;
+    margin-right: 0.53rem;
+    vertical-align: 0.14em;
+    border-radius: 50%;
+    background: var(--color-foreground-muted);
+    opacity: 0.6;
+}
+
+.p2r-deco .sidebar-tree li.toctree-l1.current-page:not(.p2r-home) > a.reference:not([data-p2r-stage])::before {
+    background: var(--color-brand-primary);
+    opacity: 1;
+}
+
+.p2r-deco .sidebar-tree a[data-p2r-stage="none"]::before,
+.p2r-deco article td:first-child a[data-p2r-stage="none"]::before {
+    background: transparent;
+    box-shadow: inset 0 0 0 1.2px var(--color-foreground-border);
+    opacity: 0.6;
+}
+
+/* `all` page: the five numbered steps of "How it works" in stage colours */
+.p2r-deco ol.p2r-steps {
+    padding-left: 0;
+    list-style: none;
+}
+
+.p2r-deco ol.p2r-steps > li {
+    position: relative;
+    margin: 0;
+    padding: 0 0 0.9rem 2.4rem;
+}
+
+.p2r-deco ol.p2r-steps > li::before {
+    content: counter(list-item);
+    position: absolute;
+    top: 0.15rem;
+    left: 0;
+    display: grid;
+    place-items: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 50%;
+    background: var(--p2r-disc, var(--p2r-c));
+    color: var(--p2r-on-stage);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.p2r-deco ol.p2r-steps > li:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    top: 2rem;
+    bottom: 0.15rem;
+    left: calc(0.8rem - 1.5px);
+    border-left: 3px dotted color-mix(in srgb, var(--p2r-c) 70%, transparent);
+}
+
+.p2r-deco ol.p2r-steps > li > p:first-child > strong:first-child {
+    color: color-mix(in srgb, var(--p2r-c) 78%, var(--color-foreground-primary));
+}
+
+/* ==========================================================================
+   Phone width
+   ========================================================================== */
+@media (max-width: 40em) {
+    .p2r-strip__steps {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0;
+        padding-left: 7px;   /* keeps the stage number and the halo inside the column */
+    }
+
+    .p2r-strip__step {
+        flex-direction: row;
+        align-items: flex-start;
+        gap: 0.9rem;
+        padding-bottom: 1rem;
+        text-align: left;
+    }
+
+    .p2r-strip {
+        --p2r-disc: 58px;
+    }
+
+    .p2r-strip__step:not(:last-child)::after {
+        top: calc(var(--p2r-disc) + 4px);
+        bottom: 0.2rem;
+        left: calc(var(--p2r-disc) / 2 - 1.5px);
+        width: 0;
+        border-top: none;
+        border-left: 3px dotted color-mix(in srgb, var(--p2r-c) 75%, transparent);
+    }
+
+    .p2r-strip__icon .p2r-ico {
+        width: 40px;
+        height: 40px;
+    }
+
+    .p2r-strip__body {
+        align-items: flex-start;
+    }
+
+    .p2r-strip__label {
+        margin-top: 0.2rem;
+    }
+
+    .p2r-strip__num {
+        left: -6px;
+    }
+
+    .p2r-strip__cmds {
+        align-items: flex-start;
+    }
+}
+
+/* ==========================================================================
+   In each entry card, the stage icons that input mode goes through
+   (p2r_mode_stages in conf.py); a skipped stage is an empty dashed ring
+   ========================================================================== */
+.p2r-modestages {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px;
+    margin: 0.25rem 0 0.1rem;
+}
+
+.p2r-modestages__step {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 28px;
+    height: 28px;
+    box-sizing: border-box;
+    border: 2px solid var(--p2r-c);
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--p2r-c) 9%, var(--color-background-primary));
+}
+
+.p2r-modestages__step .p2r-ico {
+    width: 20px;
+    height: 20px;
+}
+
+.p2r-modestages__step.is-skipped {
+    border: 1.5px dashed var(--color-foreground-border);
+    background: transparent;
+}
+
+.p2r-modestages__step.is-skipped .p2r-ico {
+    background-color: var(--color-foreground-border);
+    opacity: 0.55;
+}
+
+@media (max-width: 52em) {
+    .p2r-card .p2r-modestages {
+        grid-column: 2;
+    }
+}
+
+/* ==========================================================================
+   The stage strip as a map of the commands, at the head of
+   "Subcommands" (after the quick-start cards and table)
+   ========================================================================== */
+[role="main"] .p2r-strip {
+    margin: 1rem 0 1.6rem;
+    padding: 1.5rem 1.1rem 1.25rem;
+    border: 1px solid var(--color-background-border);
+    border-radius: 16px;
+    background: var(--color-background-secondary);
+}
+
+/* Seven stages (with scan) fit one row of an entry card. */
+.p2r-modestages {
+    gap: 3px;
+}
+
+.p2r-modestages__step {
+    width: 24px;
+    height: 24px;
+    border-width: 1.75px;
+}
+
+.p2r-modestages__step .p2r-ico {
+    width: 17px;
+    height: 17px;
+}

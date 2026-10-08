@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" fill="currentColor">
+<mask id="m-p2r-tsopt" maskUnits="userSpaceOnUse" x="0" y="0" width="96" height="96">
+<rect width="96" height="96" fill="#000"/>
+<path d="M11.9,75.0 C15.7,74.9 21.1,74.5 24.5,72.5 C27.9,70.5 30.2,67.1 32.1,62.9 C34.1,58.7 35.2,52.1 36.4,47.0 C37.6,41.9 39.5,33.6 48.0,33.3" fill="none" stroke="#fff" stroke-width="5.000" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M48.1,11.1 L48.1,26.2" fill="none" stroke="#fff" stroke-width="5.000" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M43.8,15.4 L52.2,15.4" fill="none" stroke="#fff" stroke-width="5.000" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M43.8,21.7 L52.2,21.7" fill="none" stroke="#fff" stroke-width="5.000" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M48.0,51.5 L48.0,74.2" fill="none" stroke="#fff" stroke-width="5.000" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M48.0,50.5 L44.1,54.7" fill="none" stroke="#fff" stroke-width="5.000" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M48.0,50.5 L51.8,54.7" fill="none" stroke="#fff" stroke-width="5.000" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M84.0,75.0 C80.2,74.9 74.8,74.5 71.4,72.5 C68.0,70.5 65.7,67.1 63.8,62.9 C61.8,58.7 60.7,52.1 59.5,47.0 C58.3,41.9 56.2,33.9 48.0,33.3" fill="none" stroke="#fff" stroke-width="5.000" stroke-linecap="round" stroke-linejoin="round"/>
+</mask>
+<rect width="96" height="96" mask="url(#m-p2r-tsopt)"/>
+</svg>

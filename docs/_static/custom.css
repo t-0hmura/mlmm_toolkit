@@ -1,23 +1,49 @@
-/* Custom styles for mlmm_toolkit documentation */
+/* Custom styles for mlmm-toolkit documentation.
+   Colours are theme variables set in conf.py (light_css_variables /
+   dark_css_variables); this file only refers to them through var(). */
 
-/* Make the sidebar title bold */
-.sidebar-brand-text {
-    font-weight: 700 !important;
+/* ==========================================================================
+   Base type
+   ========================================================================== */
+:root {
+    --p2r-topbar-h: 3.5rem;
 }
 
-/* Set base font size */
 html {
     font-size: 16px;
 }
 
-/* Adjust content area font */
+/* The top bar is a direct child of <body>; body must grow with the page so it stays sticky. */
+body {
+    height: auto;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+.page {
+    min-height: calc(100vh - var(--p2r-topbar-h));
+}
+
 .content {
     font-size: 1rem;
 }
 
-/* Adjust sidebar font */
-.sidebar-tree {
-    font-size: 1rem;
+article[role="main"] {
+    line-height: 1.7;
+}
+
+body[data-lang="ja"] article[role="main"] {
+    line-height: 1.85;
+}
+
+:target {
+    scroll-margin-top: calc(var(--p2r-topbar-h) + 1.25rem);
+}
+
+section > span:target {
+    scroll-margin-top: calc(var(--p2r-topbar-h) + 1.5rem);
 }
 
 /* Adjust code blocks */
@@ -30,26 +56,554 @@ table {
     font-size: 0.95rem;
 }
 
-/* Language switch - Pill-style segment control */
+/* ==========================================================================
+   Headings
+   ========================================================================== */
+article h1, article h2, article h3, article h4 {
+    color: var(--p2r-navy-deep);
+    letter-spacing: -0.015em;
+}
+
+body[data-lang="ja"] article h1,
+body[data-lang="ja"] article h2,
+body[data-lang="ja"] article h3,
+body[data-lang="ja"] article h4 {
+    letter-spacing: 0.01em;
+    font-feature-settings: "palt";
+}
+
+article h1 { font-size: 2rem; font-weight: 800; line-height: 1.25; margin-top: 1.75rem; }
+article h2 { font-size: 1.5rem; font-weight: 700; line-height: 1.35; }
+article h3 { font-size: 1.2rem; font-weight: 700; line-height: 1.4; }
+article h4 { font-size: 1.05rem; font-weight: 700; }
+
+/* h2: a hairline across the text column (Furo headings stick out 0.5rem on each side)
+   with the short navy accent on its left end */
+article h2 {
+    position: relative;
+    margin-top: 2.75rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-radius: 0;
+    background-image: linear-gradient(var(--color-background-border), var(--color-background-border));
+    background-position: 0.5rem 100%;
+    background-size: calc(100% - 1rem) 1px;
+    background-repeat: no-repeat;
+}
+
+article h2::after {
+    content: "";
+    position: absolute;
+    left: 0.5rem;
+    bottom: 0;
+    width: 2.75rem;
+    height: 2px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--p2r-sky), var(--p2r-navy));
+}
+
+article h3 {
+    color: var(--p2r-navy);
+    margin-top: 2rem;
+    margin-bottom: 0.6rem;
+}
+
+article h4 {
+    margin-top: 1.6rem;
+}
+
+/* ==========================================================================
+   Links, inline code, rules, quotes
+   ========================================================================== */
+article a {
+    text-underline-offset: 0.2em;
+    text-decoration-thickness: 1px;
+}
+
+article code.literal {
+    color: var(--p2r-navy-deep);
+    font-size: 0.84em;
+    padding: 0.12em 0.4em;
+    border-radius: 0.4em;
+}
+
+article a code.literal {
+    color: inherit;
+}
+
+article h1 code.literal,
+article h2 code.literal,
+article h3 code.literal,
+article h4 code.literal {
+    background: transparent;
+    border: 0;
+    padding: 0;
+    font-size: 0.92em;
+    color: inherit;
+}
+
+.sidebar-tree code.literal,
+.toc-tree code.literal {
+    background: transparent;
+    border: 0;
+    padding: 0;
+    font-size: 0.86em;
+}
+
+article hr {
+    border: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--color-background-border) 15%, var(--color-background-border) 85%, transparent);
+    margin: 2rem 0;
+}
+
+/* A rule right before a new section duplicates the h2 hairline */
+article hr:has(+ section) {
+    display: none;
+}
+
+article blockquote {
+    background: var(--p2r-tint);
+    border-left: 4px solid var(--p2r-sky);
+    border-radius: 0 12px 12px 0;
+    padding: 0.7rem 1.1rem;
+}
+
+article blockquote > :first-child { margin-top: 0; }
+article blockquote > :last-child { margin-bottom: 0; }
+
+/* ==========================================================================
+   Code blocks: dark navy in both themes
+   ========================================================================== */
+article div[class*="highlight-"] {
+    margin: 1rem 0 1.35rem;
+}
+
+article .highlight {
+    background:
+        linear-gradient(90deg, var(--p2r-sky), var(--p2r-navy) 55%, var(--p2r-violet)) top / 100% 3px no-repeat,
+        var(--color-code-background) !important;
+    border: 1px solid var(--p2r-code-border);
+    border-radius: 12px;
+    box-shadow: var(--p2r-shadow);
+    overflow: hidden;
+}
+
+article .highlight pre {
+    background: transparent;
+    color: var(--color-code-foreground);
+    font-size: 0.84rem;
+    line-height: 1.65;
+    padding: 1rem 1.15rem 0.95rem;
+}
+
+button.copybtn {
+    background-color: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: #C9D6EA;
+    top: 0.55em;
+    right: 0.55em;
+}
+
+.highlight button.copybtn:hover {
+    background-color: rgba(255, 255, 255, 0.18);
+}
+
+.highlight button.copybtn:active {
+    background-color: rgba(255, 255, 255, 0.26);
+}
+
+/* ==========================================================================
+   Tables
+   ========================================================================== */
+/* Furo's wrapper is width:100% plus padding; keep it inside the column */
+[role="main"] .table-wrapper.container {
+    box-sizing: border-box;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+article table.docutils {
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 1px solid var(--color-table-border);
+    border-radius: 12px;
+    box-shadow: none;
+    width: 100%;
+}
+
+article table.docutils th,
+article table.docutils td {
+    border-left: 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-table-border);
+    padding: 0.55rem 0.9rem;
+    text-align: left;
+    vertical-align: top;
+}
+
+article table.docutils th {
+    background: var(--color-table-header-background);
+    color: var(--p2r-navy-deep);
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    border-bottom: 1px solid var(--p2r-tint-strong);
+}
+
+article table.docutils thead tr:first-child th:first-child { border-top-left-radius: 11px; }
+article table.docutils thead tr:first-child th:last-child { border-top-right-radius: 11px; }
+
+article table.docutils td p,
+article table.docutils th p {
+    margin: 0;
+}
+
+article table.docutils {
+    line-height: 1.6;
+}
+
+/* keep short options such as --thermo on one line inside tables */
+article table.docutils code.literal {
+    white-space: nowrap;
+}
+
+article table.docutils tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+article table.docutils tbody tr:nth-child(even) td {
+    background: var(--color-background-secondary);
+}
+
+article table.docutils tbody tr:hover td {
+    background: var(--p2r-tint);
+}
+
+article table.docutils tbody tr:last-child td:first-child { border-bottom-left-radius: 11px; }
+article table.docutils tbody tr:last-child td:last-child { border-bottom-right-radius: 11px; }
+
+/* ==========================================================================
+   Admonitions (note = navy, tip = teal, important = violet, warning = orange,
+   the stage colours of the overview figure)
+   ========================================================================== */
+article .admonition {
+    border: 1px solid var(--color-background-border);
+    border-left-width: 4px;
+    border-radius: 12px;
+    box-shadow: none;
+    padding: 0 1.1rem 0.8rem;
+}
+
+article .admonition > .admonition-title {
+    font-weight: 700;
+    margin: 0 -1.1rem 0.7rem;
+    padding: 0.55rem 1.1rem 0.55rem 2.6rem;
+}
+
+article .admonition > .admonition-title::before {
+    left: 1.05rem;
+    width: 1.05rem;
+    height: 1.05rem;
+}
+
+article .admonition.note > .admonition-title { color: var(--color-admonition-title--note); }
+article .admonition.tip > .admonition-title { color: var(--color-admonition-title--tip); }
+article .admonition.important > .admonition-title { color: var(--color-admonition-title--important); }
+article .admonition.warning > .admonition-title { color: var(--color-admonition-title--warning); }
+
+/* ==========================================================================
+   Top bar (navy palette): brand, version, guide links,
+   search, GitHub, EN/JA switch, theme toggle; full width on every page
+   ========================================================================== */
+.p2r-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    box-sizing: border-box;
+    height: var(--p2r-topbar-h);
+    display: grid;
+    /* the first column is as wide as Furo's sidebar drawer, so the brand sits over the sidebar */
+    grid-template-columns: max(15em, 50% - 26em) minmax(0, 1fr) auto;
+    align-items: center;
+    background: var(--p2r-topbar-bg);
+    -webkit-backdrop-filter: saturate(180%) blur(14px);
+    backdrop-filter: saturate(180%) blur(14px);
+    border-bottom: 1px solid var(--color-background-border);
+    transition: box-shadow 0.2s ease;
+}
+
+/* faint navy hairline under the bar (in the stage colours with p2r_deco, pipeline.css) */
+.p2r-topbar::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 1px;
+    background: linear-gradient(90deg, var(--p2r-sky), var(--p2r-navy) 55%, var(--p2r-violet));
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 20%, #000 80%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 20%, #000 80%, transparent);
+    opacity: 0.45;
+    pointer-events: none;
+}
+
+.p2r-topbar.scrolled {
+    box-shadow: 0 8px 24px -18px rgba(15, 29, 51, 0.55);
+}
+
+.p2r-topbar-left {
+    justify-self: end;
+    box-sizing: border-box;
+    width: 15em;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding-left: 1.25rem;
+    min-width: 0;
+}
+
+/* the first link's text lines up with the text column (Furo: 3em of side padding) */
+.p2r-topnav {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+    padding-left: calc(3em - 0.7rem);
+    min-width: 0;
+}
+
+.p2r-topnav a {
+    padding: 0.4rem 0.7rem;
+    border-radius: 9px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    line-height: 1.3;
+    color: var(--color-foreground-secondary);
+    text-decoration: none;
+    white-space: nowrap;
+    transition: color 0.15s ease, background 0.15s ease;
+}
+
+.p2r-topnav a:hover {
+    color: var(--color-foreground-primary);
+    background: var(--color-background-hover);
+}
+
+.p2r-topnav a.is-active {
+    color: var(--color-brand-primary);
+    font-weight: 600;
+    background: var(--p2r-tint);
+}
+
+.p2r-topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding-right: 1.25rem;
+}
+
+/* Brand (sidebar/brand.html: in the top bar, and in the drawer on phones) */
+.sidebar-brand {
+    text-decoration: none;
+}
+
+.p2r-brand-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.p2r-brand-mark {
+    flex: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(27, 54, 93, 0.25);
+}
+
+.sidebar-brand-text {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 800 !important;
+    letter-spacing: -0.02em;
+    color: var(--color-sidebar-brand-text);
+}
+
+.p2r-topbar .sidebar-brand {
+    padding: 0;
+    min-width: 0;
+}
+
+.p2r-topbar .p2r-brand-mark {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+}
+
+.p2r-version {
+    flex: none;
+    font-family: var(--font-stack--monospace);
+    font-size: 0.7rem;
+    font-weight: 500;
+    line-height: 1;
+    padding: 0.28rem 0.5rem;
+    border-radius: 999px;
+    color: var(--p2r-navy);
+    background: var(--p2r-tint);
+    border: 1px solid var(--p2r-tint-strong);
+}
+
+/* Search box */
+.p2r-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.p2r-search::before {
+    content: "";
+    position: absolute;
+    left: 0.75rem;
+    width: 0.95rem;
+    height: 0.95rem;
+    background-color: var(--color-foreground-muted);
+    -webkit-mask: var(--icon-search) center / contain no-repeat;
+    mask: var(--icon-search) center / contain no-repeat;
+    pointer-events: none;
+}
+
+.p2r-search-input {
+    box-sizing: border-box;
+    width: 14rem;
+    height: 2.15rem;
+    padding: 0 2.1rem;
+    border-radius: 10px;
+    border: 1px solid var(--color-background-border);
+    background: var(--color-background-secondary);
+    color: var(--color-foreground-primary);
+    font-family: inherit;
+    font-size: 0.875rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.p2r-search-input::placeholder {
+    color: var(--color-foreground-muted);
+}
+
+.p2r-search-input:focus {
+    outline: none;
+    border-color: color-mix(in srgb, var(--color-brand-primary) 60%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand-primary) 20%, transparent);
+    background: var(--color-background-primary);
+}
+
+.p2r-kbd {
+    position: absolute;
+    right: 0.55rem;
+    min-width: 1.1rem;
+    padding: 0.05rem 0.3rem;
+    border-radius: 5px;
+    border: 1px solid var(--p2r-border-strong);
+    background: var(--color-background-primary);
+    color: var(--color-foreground-muted);
+    font-family: var(--font-stack--monospace);
+    font-size: 0.7rem;
+    line-height: 1.3;
+    text-align: center;
+    box-shadow: none;
+    pointer-events: none;
+}
+
+/* Icon buttons: GitHub, theme toggle, menu and contents */
+.p2r-icon-link,
+.p2r-theme-toggle .theme-toggle,
+.p2r-topbar .nav-overlay-icon,
+.p2r-topbar .toc-overlay-icon {
+    box-sizing: border-box;
+    width: 2.15rem;
+    height: 2.15rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    color: var(--color-foreground-secondary);
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.p2r-icon-link {
+    display: inline-flex;
+    text-decoration: none;
+}
+
+.p2r-icon-link svg {
+    flex: none;
+    width: 1.15rem;
+    height: 1.15rem;
+}
+
+/* the GitHub link shows its name next to the icon where the bar has room */
+.p2r-icon-link .p2r-icon-text {
+    display: none;
+}
+
+@media (min-width: 82em) {
+    .p2r-icon-link {
+        width: auto;
+        gap: 0.4rem;
+        padding: 0 0.6rem;
+    }
+
+    .p2r-icon-link .p2r-icon-text {
+        display: inline;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+}
+
+.p2r-icon-link:hover,
+.p2r-theme-toggle .theme-toggle:hover,
+.p2r-topbar .nav-overlay-icon:hover,
+.p2r-topbar .toc-overlay-icon:hover {
+    background: var(--color-background-hover);
+    color: var(--color-brand-primary);
+}
+
+.p2r-theme-toggle .theme-toggle svg {
+    width: 1.15rem;
+    height: 1.15rem;
+    color: currentColor;
+}
+
+.p2r-topbar .nav-overlay-icon .icon,
+.p2r-topbar .toc-overlay-icon .icon {
+    width: 1.3rem;
+    height: 1.3rem;
+    color: currentColor;
+}
+
+/* Contents button: only while the right-hand contents are collapsed (Furo: below 82em) */
+.p2r-topbar .p2r-toc-icon {
+    display: none;
+}
+
+/* Language switch - pill segment control (in the top bar) */
 .lang-switch {
     display: inline-flex;
     align-items: center;
-    gap: 0.2rem;
-    margin-right: 0.5rem;
+    gap: 0.15rem;
     background: var(--color-background-secondary);
     border-radius: 999px;
     padding: 0.2rem;
     border: 1px solid var(--color-background-border);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .lang-switch .lang-link {
     display: inline-flex;
     align-items: center;
-    padding: 0.35rem 0.65rem;
+    padding: 0.32rem 0.62rem;
     border-radius: 999px;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 600;
+    letter-spacing: 0.02em;
     text-decoration: none;
     color: var(--color-foreground-secondary);
     background: transparent;
@@ -64,7 +618,7 @@ table {
 
 .lang-switch .lang-link.is-active {
     color: #fff;
-    background: var(--color-brand-primary);
+    background: linear-gradient(135deg, var(--p2r-btn-from), var(--p2r-btn-to));
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
@@ -73,20 +627,610 @@ table {
 }
 
 .lang-switch .lang-sep {
-    font-size: 0.7rem;
-    color: var(--color-foreground-muted);
+    display: none;
 }
 
-/* Adjust headings */
-h1 { font-size: 2.0rem; }
-h2 { font-size: 1.6rem; }
-h3 { font-size: 1.3rem; }
-h4 { font-size: 1.15rem; }
+/* ==========================================================================
+   Layout under the sticky top bar (Furo specifics)
+   ========================================================================== */
+.back-to-top {
+    top: calc(var(--p2r-topbar-h) + 0.75rem);
+    border: 1px solid var(--color-background-border);
+}
+
+/* The icon row above the article is empty unless "edit this page" is shown */
+.content-icon-container:not(:has(*)) {
+    display: none;
+}
+
+/* Furo gives the drawers z-index 30/50 for the off-canvas mode. As flex items that
+   also applies in place and would paint them over the sticky top bar. */
+@media (min-width: 63em) {
+    .sidebar-drawer {
+        z-index: auto;
+    }
+
+    .sidebar-sticky {
+        top: var(--p2r-topbar-h);
+        height: calc(100vh - var(--p2r-topbar-h));
+    }
+
+    /* Brand and search are in the top bar on wide screens; the drawer keeps them on phones. */
+    .sidebar-drawer .sidebar-brand,
+    .sidebar-drawer .sidebar-search-container {
+        display: none;
+    }
+}
+
+@media (min-width: 82em) {
+    .toc-drawer {
+        z-index: auto;
+    }
+
+    .toc-sticky {
+        top: var(--p2r-topbar-h);
+        height: calc(100vh - var(--p2r-topbar-h));
+    }
+
+    .toc-scroll {
+        max-height: calc(100vh - var(--p2r-topbar-h));
+    }
+}
+
+/* ==========================================================================
+   Sidebar
+   ========================================================================== */
+.sidebar-drawer .sidebar-brand {
+    padding-top: 1.1rem;
+    padding-bottom: 0.6rem;
+}
+
+.sidebar-search-container {
+    margin: 0.35rem var(--sidebar-item-spacing-horizontal) 0.4rem;
+    border-radius: 10px;
+}
+
+.sidebar-search {
+    border: 1px solid var(--color-sidebar-search-border);
+    border-radius: 10px;
+}
+
+.sidebar-tree {
+    font-size: 0.9rem;
+    margin-top: 1.1rem;
+    padding: 0 0.55rem 1.5rem;
+}
+
+.sidebar-tree .caption,
+.sidebar-tree :not(.caption) > .caption-text {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.sidebar-tree .caption {
+    margin-top: 1.25rem;
+    padding: 0.3rem calc(var(--sidebar-item-spacing-horizontal) - 0.1rem) 0.25rem;
+}
+
+.sidebar-tree > .caption:first-child {
+    margin-top: 0;
+}
+
+.sidebar-tree .reference {
+    border-radius: 8px;
+    padding: 0.28rem calc(var(--sidebar-item-spacing-horizontal) - 0.1rem);
+    line-height: 1.45;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.sidebar-tree .current > .reference {
+    background: transparent;
+}
+
+.sidebar-tree .current-page > .reference,
+.sidebar-tree .current-page > .reference:hover {
+    color: var(--color-brand-primary);
+    font-weight: 600;
+    background: var(--color-sidebar-item-background--current);
+    box-shadow: inset 2px 0 0 var(--color-brand-primary);
+}
+
+.sidebar-tree label {
+    border-radius: 8px;
+}
+
+.toc-title {
+    letter-spacing: 0.1em;
+    font-weight: 700;
+}
+
+.toc-tree li.scroll-current > .reference {
+    font-weight: 600;
+}
 
 /* Reduce prev/next navigation arrow size */
 .related-pages a svg {
     width: 1.6rem;
     height: 1.6rem;
+}
+
+.related-pages a .page-info .title {
+    font-weight: 600;
+}
+
+/* ==========================================================================
+   Landing page: hero
+   ========================================================================== */
+article.p2r-home > section > h1 {
+    font-size: 2.35rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+    margin-top: 1.75rem;
+    background: linear-gradient(90deg, var(--p2r-navy-deep), var(--p2r-navy) 55%, var(--p2r-sky));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+body[data-lang="ja"] article.p2r-home > section > h1 {
+    letter-spacing: 0;
+    word-break: keep-all;
+}
+
+/* Line icons for the buttons and links of the hero, drawn as masks */
+article.p2r-home {
+    --p2r-i-arrow: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h14M13 6l6 6-6 6'/%3E%3C/svg%3E");
+    --p2r-i-terminal: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4.5' width='18' height='15' rx='2.5'/%3E%3Cpath d='m7.5 9.5 3 2.5-3 2.5M12.5 15h4'/%3E%3C/svg%3E");
+    --p2r-i-play: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 5.5v13l10.5-6.5z' fill='black'/%3E%3C/svg%3E");
+    --p2r-i-paper: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3.5H7.5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V8z'/%3E%3Cpath d='M14 3.5V8h4.5M9 12.5h6M9 16h6'/%3E%3C/svg%3E");
+    --p2r-i-github: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='black'%3E%3Cpath fill-rule='evenodd' d='M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z'/%3E%3C/svg%3E");
+}
+
+/* Meta row under the title: version pill, then GitHub and the paper as small icon links
+   (the " · " separators are hidden; the gap separates them) */
+.p2r-hero-meta {
+    margin: 0.35rem 0 1.1rem;
+}
+
+.p2r-hero-meta p {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 1rem;
+    margin: 0;
+    font-size: 0;
+    line-height: 1.4;
+}
+
+.p2r-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.24rem 0.72rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--p2r-navy);
+    background: var(--p2r-tint);
+    border: 1px solid var(--p2r-tint-strong);
+}
+
+.p2r-hero-meta a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.3rem 0.85rem;
+    border: 1px solid var(--p2r-border-strong);
+    border-radius: 999px;
+    background: var(--p2r-surface);
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--color-foreground-primary);
+    text-decoration: none;
+    transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.p2r-hero-meta a:hover {
+    color: var(--color-brand-primary);
+    border-color: color-mix(in srgb, var(--p2r-navy) 45%, var(--p2r-border-strong));
+}
+
+.p2r-hero-meta a::before {
+    content: "";
+    flex: none;
+    width: 1.05rem;
+    height: 1.05rem;
+    background-color: currentColor;
+    -webkit-mask: var(--p2r-icon) center / contain no-repeat;
+    mask: var(--p2r-icon) center / contain no-repeat;
+}
+
+.p2r-hero-meta a.p2r-meta-gh { --p2r-icon: var(--p2r-i-github); }
+.p2r-hero-meta a.p2r-meta-paper { --p2r-icon: var(--p2r-i-paper); }
+
+[role="main"] .p2r-hero {
+    position: relative;
+    margin: 0 0 2rem;
+    padding: 1.25rem 1.4rem 1.35rem;
+    border: 1px solid var(--p2r-tint-strong);
+    border-radius: 18px;
+    background: linear-gradient(140deg, var(--p2r-hero-from), var(--p2r-hero-to));
+    overflow: hidden;
+}
+
+.p2r-hero::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #7BA3D7, #2E5B96 60%, #1B365D);
+}
+
+/* The overview figure fills the text column up to 46rem, then stays centred at that width. */
+.p2r-hero img.p2r-hero-figure {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: min(100%, 46rem);
+    height: auto;
+    margin: 0.15rem auto 0;
+    padding: 0.6rem;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: var(--p2r-shadow);
+    filter: var(--p2r-figure-filter);
+}
+
+.p2r-hero > p {
+    margin: 0;
+}
+
+/* Tagline: the first sentence of the page */
+.p2r-hero > p.p2r-tagline {
+    margin-top: 1rem;
+    font-size: 1.15rem;
+    line-height: 1.65;
+    color: var(--color-foreground-primary);
+}
+
+.p2r-hero > p.p2r-tagline strong {
+    color: var(--p2r-navy-deep);
+}
+
+.p2r-hero > p.p2r-lead {
+    margin-top: 0.35rem;
+    font-size: 0.95rem;
+    color: var(--color-foreground-secondary);
+}
+
+/* Call-to-action buttons */
+.p2r-hero > p.p2r-cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-top: 1.05rem;
+}
+
+article a.p2r-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    box-sizing: border-box;
+    height: 2.6rem;
+    padding: 0 1.1rem;
+    border-radius: 11px;
+    border: 1px solid var(--p2r-border-strong);
+    background: var(--p2r-surface);
+    color: var(--color-foreground-primary);
+    font-size: 0.92rem;
+    font-weight: 600;
+    line-height: 1;
+    text-decoration: none;
+    white-space: nowrap;
+    box-shadow: 0 1px 2px rgba(27, 54, 93, 0.06);
+    transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease, filter 0.2s ease, color 0.2s ease;
+}
+
+article a.p2r-btn:hover {
+    color: var(--p2r-navy-deep);
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--p2r-navy) 45%, var(--p2r-border-strong));
+    box-shadow: 0 8px 20px -12px rgba(27, 54, 93, 0.5);
+}
+
+article a.p2r-btn::before,
+article a.p2r-btn-primary::after {
+    content: "";
+    flex: none;
+    width: 1.05rem;
+    height: 1.05rem;
+    background-color: currentColor;
+    -webkit-mask: var(--p2r-icon) center / contain no-repeat;
+    mask: var(--p2r-icon) center / contain no-repeat;
+}
+
+article a.p2r-btn-install { --p2r-icon: var(--p2r-i-terminal); }
+article a.p2r-btn-colab { --p2r-icon: var(--p2r-i-play); }
+
+article a.p2r-btn-primary {
+    --p2r-icon: var(--p2r-i-arrow);
+    color: #fff;
+    border-color: transparent;
+    background: linear-gradient(135deg, var(--p2r-btn-from), var(--p2r-btn-to));
+    box-shadow: 0 8px 20px -10px rgba(27, 54, 93, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+article a.p2r-btn-primary::before {
+    display: none;
+}
+
+article a.p2r-btn-primary::after {
+    transition: transform 0.15s ease;
+}
+
+article a.p2r-btn-primary:hover {
+    color: #fff;
+    border-color: transparent;
+    filter: brightness(1.08);
+    box-shadow: 0 12px 26px -12px rgba(27, 54, 93, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+article a.p2r-btn-primary:hover::after {
+    transform: translateX(2px);
+}
+
+/* ==========================================================================
+   Landing page: entry cards for the three input modes
+   ========================================================================== */
+.p2r-cards {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0 1rem;
+    margin: 1.25rem 0 1.75rem;
+}
+
+.p2r-card {
+    --p2r-accent: var(--p2r-navy);
+}
+
+/* Each card spans four rows of the grid (icon tile, title, stage row, link) as a
+   subgrid, so the stage rows and links of the three cards line up. */
+[role="main"] .p2r-card {
+    position: relative;
+    display: grid;
+    grid-row: span 4;
+    grid-template-rows: subgrid;
+    align-content: start;
+    row-gap: 0.55rem;
+    padding: 1.15rem 1.15rem 1rem;
+    border: 1px solid var(--color-background-border);
+    border-radius: 16px;
+    background:
+        linear-gradient(var(--p2r-accent), var(--p2r-accent)) top / 100% 3px no-repeat,
+        var(--color-background-primary);
+    box-shadow: var(--p2r-shadow);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.p2r-card-endpoint { --p2r-accent: var(--p2r-green); }
+.p2r-card-scan { --p2r-accent: var(--p2r-navy); }
+.p2r-card-tsonly { --p2r-accent: var(--p2r-violet); }
+
+/* icon tile + icon (mini energy profiles in the style of the figure) */
+.p2r-card::before {
+    content: "";
+    display: block;
+    width: 46px;
+    height: 46px;
+    border-radius: 13px;
+    background: color-mix(in srgb, var(--p2r-accent) 14%, transparent);
+}
+
+.p2r-card::after {
+    content: "";
+    position: absolute;
+    top: calc(1.15rem + 8px);
+    left: calc(1.15rem + 8px);
+    width: 30px;
+    height: 30px;
+    background: var(--p2r-accent);
+    -webkit-mask: var(--p2r-icon) center / contain no-repeat;
+    mask: var(--p2r-icon) center / contain no-repeat;
+}
+
+.p2r-card-endpoint {
+    --p2r-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M6.4 17.2C9.5 16.6 9.8 6.5 12.4 6.5S15.6 14.6 17.6 15.2' stroke-dasharray='2.2 2.4'/%3E%3Ccircle cx='4' cy='17.5' r='2.6' fill='black' stroke='none'/%3E%3Ccircle cx='20' cy='15.5' r='2.6' fill='black' stroke='none'/%3E%3C/svg%3E");
+}
+
+.p2r-card-scan {
+    --p2r-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='4.5' cy='18' r='2.6' fill='black' stroke='none'/%3E%3Cpath d='M6.76 15.74L15.96 6.54' stroke-dasharray='2.2 2.4'/%3E%3Cpath d='M12.32 4.78H17.72V10.18'/%3E%3C/svg%3E");
+}
+
+.p2r-card-tsonly {
+    --p2r-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.0' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5.20 19.20C6.89 15.57 9 7.6 12 7.6S17.11 15.57 18.80 19.20'/%3E%3Cpath d='M4.17 16.38L5.20 19.20L8.02 18.17'/%3E%3Cpath d='M19.83 16.38L18.80 19.20L15.98 18.17'/%3E%3Ccircle cx='12' cy='7.6' r='2.5' fill='black' stroke='none'/%3E%3Cpath d='M19.4 3V10.2M17.6 5H21.2M17.6 8.2H21.2'/%3E%3C/svg%3E");
+}
+
+.p2r-card p {
+    margin: 0;
+}
+
+.p2r-card p:first-of-type {
+    font-size: 0.95rem;
+    line-height: 1.55;
+    color: var(--color-foreground-primary);
+}
+
+.p2r-card p:last-of-type {
+    padding-top: 0.2rem;
+    font-size: 0.86rem;
+    font-weight: 600;
+    line-height: 1.5;
+    color: var(--p2r-accent);
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+}
+
+.p2r-card p:last-of-type a {
+    color: var(--p2r-accent);
+    text-decoration: none;
+}
+
+.p2r-card p:last-of-type::after {
+    content: " \2192";
+}
+
+/* The whole card is the link */
+.p2r-card p:last-of-type a::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 16px;
+}
+
+.p2r-card:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--p2r-accent) 50%, var(--color-background-border));
+    box-shadow: 0 2px 4px rgba(27, 54, 93, 0.08), 0 10px 24px rgba(27, 54, 93, 0.12);
+}
+
+.p2r-card:focus-within {
+    outline: 2px solid var(--p2r-accent);
+    outline-offset: 2px;
+}
+
+/* ==========================================================================
+   Narrow screens
+   ========================================================================== */
+@media (max-width: 82em) {
+    .p2r-topbar {
+        grid-template-columns: max(15em, 50% - 18.5em) minmax(0, 1fr) auto;
+    }
+
+    .p2r-topbar .p2r-toc-icon:not(.no-toc) {
+        display: flex;
+    }
+}
+
+@media (max-width: 67em) {
+    .p2r-topnav {
+        padding-left: 1em;
+    }
+
+    /* a narrower search box leaves room for the three links */
+    .p2r-search-input {
+        width: 10rem;
+    }
+}
+
+/* Furo collapses the sidebar into the drawer here: the bar keeps brand, EN/JA and theme */
+@media (max-width: 63em) {
+    .p2r-topbar {
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 0.5rem;
+        padding-left: 0.75rem;
+    }
+
+    .p2r-topbar-right {
+        padding-right: 0.75rem;
+    }
+
+    .p2r-topbar-left {
+        justify-self: start;
+        width: auto;
+        padding-left: 0;
+        gap: 0.45rem;
+    }
+
+    .p2r-topnav,
+    .p2r-search {
+        display: none;
+    }
+
+    .p2r-topbar .nav-overlay-icon {
+        display: flex;
+    }
+}
+
+@media (max-width: 52em) {
+    .p2r-cards {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+
+    [role="main"] .p2r-card {
+        grid-row: auto;
+        grid-template-rows: none;
+        grid-template-columns: 46px minmax(0, 1fr);
+        column-gap: 0.9rem;
+        row-gap: 0.3rem;
+        align-items: start;
+    }
+
+    .p2r-card::before {
+        grid-row: 1 / span 2;
+    }
+
+    .p2r-card p {
+        grid-column: 2;
+    }
+
+    .p2r-card p:last-of-type {
+        padding-top: 0;
+    }
+}
+
+@media (max-width: 40em) {
+    article.p2r-home > section > h1 {
+        font-size: 2rem;
+    }
+
+    [role="main"] .p2r-hero {
+        padding: 0.9rem 0.9rem 1rem;
+        border-radius: 16px;
+    }
+
+    .p2r-hero img.p2r-hero-figure {
+        padding: 0.35rem;
+        border-radius: 10px;
+    }
+
+    .p2r-hero > p.p2r-tagline {
+        font-size: 1.05rem;
+    }
+
+    article a.p2r-btn {
+        height: 2.5rem;
+        padding: 0 0.95rem;
+        font-size: 0.9rem;
+    }
+}
+
+/* Phones: no version chip in the top bar. */
+@media (max-width: 36em) {
+    .p2r-version {
+        display: none;
+    }
+}
+
+@media (max-width: 28em) {
+    .p2r-icon-link {
+        display: none;
+    }
+
+    .p2r-topbar-right {
+        gap: 0.25rem;
+    }
+}
+
+@media print {
+    .p2r-topbar {
+        display: none;
+    }
 }
 
 /* ==========================================================================
@@ -107,4 +1251,178 @@ body[data-lang="ja"] .sidebar-tree > ul > li.lang-nav-root > ul {
     display: block !important;
     margin: 0;
     padding-left: 0;
+}
+
+/* mlmm-toolkit logo (icon + wordmark); the dark copy has light letters. */
+.p2r-brand-logo {
+    display: block;
+    height: 34px;
+    width: auto;
+}
+
+/* Home title: the word "mlmm-toolkit" is shown as the wordmark; the text stays for the page title and search. */
+.p2r-wordmark {
+    --p2r-wordmark-img: url("mlmm-toolkit-wordmark.svg");
+    display: inline-block;
+    height: 1.12em;
+    width: calc(1.12em * 1900 / 344);
+    vertical-align: -0.24em;
+    background: var(--p2r-wordmark-img) no-repeat left center / contain;
+    color: transparent;
+    overflow: hidden;
+    white-space: nowrap;
+    text-indent: 110%;
+}
+
+body[data-theme="dark"] .p2r-wordmark {
+    --p2r-wordmark-img: url("mlmm-toolkit-wordmark-dark.svg");
+}
+
+@media (prefers-color-scheme: dark) {
+    body:not([data-theme="light"]) .p2r-wordmark {
+        --p2r-wordmark-img: url("mlmm-toolkit-wordmark-dark.svg");
+    }
+}
+
+/* Sidebar: command entries show the command name only (full title on hover); Home item on top. */
+.sidebar-tree .p2r-nav-desc {
+    display: none;
+}
+
+.sidebar-tree .p2r-home-list {
+    margin-bottom: 0.4rem;
+}
+
+/* ==========================================================================
+   Fluid layout: the sidebar sits on the left edge and the table of contents on
+   the right edge at fixed widths; the article column takes the rest (text up to
+   72rem wide, centred in it). Text grows slightly on large screens.
+   ========================================================================== */
+:root {
+    --p2r-side-w: 17.5rem;
+    --p2r-toc-w: 15.5rem;
+}
+
+html {
+    font-size: clamp(16px, calc(14px + 0.15vw), 18px);
+}
+
+@media (min-width: 63em) {
+    .p2r-topbar {
+        grid-template-columns: var(--p2r-side-w) minmax(0, 1fr) auto;
+    }
+
+    .p2r-topbar-left {
+        justify-self: start;
+        width: var(--p2r-side-w);
+    }
+
+    .sidebar-drawer {
+        width: var(--p2r-side-w);
+        min-width: var(--p2r-side-w);
+        justify-content: flex-start;
+    }
+
+    .sidebar-container {
+        width: 100%;
+    }
+
+    /* let the main row shrink to the window (large figures must not widen it) */
+    .main {
+        min-width: 0;
+    }
+
+    .main .content {
+        width: auto;
+        flex: 1 1 0;
+        min-width: 0;
+        padding: 0 clamp(1.5rem, 3vw, 4rem);
+    }
+
+    .content > .article-container,
+    .content > footer {
+        width: 100%;
+        max-width: 72rem;
+        margin-inline: auto;
+    }
+}
+
+@media (min-width: 82em) {
+    .toc-drawer {
+        width: var(--p2r-toc-w);
+        min-width: var(--p2r-toc-w);
+    }
+}
+
+/* Wide screens: the top-page hero in two columns, text on the left and the figure on the right. */
+@media (min-width: 112.5em) {
+    [role="main"] .p2r-hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+        grid-template-rows: 1fr auto auto auto 1fr;
+        grid-template-areas:
+            ".    fig"
+            "tag  fig"
+            "lead fig"
+            "cta  fig"
+            ".    fig";
+        column-gap: 2.25rem;
+        padding: 1.5rem 1.6rem;
+    }
+
+    .p2r-hero img.p2r-hero-figure {
+        grid-area: fig;
+        align-self: center;
+        max-width: 100%;
+        margin: 0;
+    }
+
+    .p2r-hero > p.p2r-tagline {
+        grid-area: tag;
+        margin-top: 0;
+    }
+
+    .p2r-hero > p.p2r-lead {
+        grid-area: lead;
+    }
+
+    .p2r-hero > p.p2r-cta {
+        grid-area: cta;
+        gap: 0.5rem;
+    }
+
+    .p2r-hero a.p2r-btn {
+        padding: 0 0.9rem;
+    }
+}
+
+/* Getting Started: the overview figure above the opening text, at most 46rem wide; on wide
+   screens the text on the left and the figure on the right, as in the top-page hero. */
+article .p2r-intro img.p2r-intro-figure {
+    display: block;
+    max-width: min(100%, 46rem);
+    height: auto;
+    margin: 0 auto 1.2rem;
+}
+
+@media (min-width: 112.5em) {
+    article .p2r-intro {
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+        column-gap: 2.25rem;
+        align-items: center;
+    }
+
+    article .p2r-intro img.p2r-intro-figure {
+        grid-column: 2;
+        grid-row: 1;
+        max-width: 100%;
+        margin: 0;
+    }
+
+    article .p2r-intro > .p2r-intro-text {
+        grid-column: 1;
+        grid-row: 1;
+        min-width: 0;
+    }
 }

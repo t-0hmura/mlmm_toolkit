@@ -1,27 +1,46 @@
-# mlmm-toolkit Documentation
+# [mlmm-toolkit]{.p2r-wordmark} Documentation
 
-[GitHub](https://github.com/t-0hmura/mlmm_toolkit) · [ChemRxiv preprint](https://doi.org/10.26434/chemrxiv-2025-jft1k) · [Open in Google Colab](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb)
+:::{container} p2r-hero-meta
+[Version: v{{ release }}]{.p2r-pill} [GitHub](https://github.com/t-0hmura/mlmm_toolkit){.p2r-meta-gh} [ChemRxiv preprint](https://doi.org/10.26434/chemrxiv-2025-jft1k){.p2r-meta-paper}
+:::
 
-*Version: v{{ release }}*
+:::{container} p2r-hero
+<img src="./mlmm_toolkit_overview.png" alt="mlmm-toolkit workflow overview" class="p2r-hero-figure">
 
----
+{.p2r-tagline}
+**mlmm-toolkit** is a Python CLI toolkit for reaction-mechanism analysis from PDB structures of enzyme complexes and other systems, using ML/MM, which combines machine-learning interatomic potentials and molecular mechanics through ONIOM.
 
-<img src="./mlmm_toolkit_overview.png" alt="mlmm-toolkit workflow overview" width="90%">
-
-**mlmm-toolkit** is a Python CLI for modeling enzymatic reaction paths from PDB structures using ML/MM, combining machine-learning interatomic potentials and molecular mechanics through ONIOM.
-
+{.p2r-lead}
 New to mlmm-toolkit? Start with [Getting Started](getting-started.md).
+
+{.p2r-cta}
+[Getting Started](getting-started.md){.p2r-btn .p2r-btn-primary} [Installation](installation.md){.p2r-btn .p2r-btn-install} [Open in Google Colab](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb){.p2r-btn .p2r-btn-colab}
+:::
+
+```{toctree}
+:maxdepth: 2
+:caption: Introduction
+:hidden:
+
+getting-started
+installation
+```
+
+```{toctree}
+:maxdepth: 2
+:caption: Quickstart
+:hidden:
+
+Endpoint mode <quickstart-all>
+Scan-list mode <quickstart-scan>
+TS-only mode <quickstart-tsopt>
+```
 
 ```{toctree}
 :maxdepth: 2
 :caption: Guides
 :hidden:
 
-getting-started
-installation
-quickstart-all
-quickstart-scan
-quickstart-tsopt
 model-setup
 mechanism-tips
 dft-backend
@@ -78,14 +97,28 @@ architecture
 
 ```{toctree}
 :maxdepth: 2
-:caption: ガイド
+:caption: 導入
 :hidden:
 
 ja/getting-started
 ja/installation
-ja/quickstart-all
-ja/quickstart-scan
-ja/quickstart-tsopt
+```
+
+```{toctree}
+:maxdepth: 2
+:caption: クイックスタート
+:hidden:
+
+Endpoint モード <ja/quickstart-all>
+Scan-list モード <ja/quickstart-scan>
+TS-only モード <ja/quickstart-tsopt>
+```
+
+```{toctree}
+:maxdepth: 2
+:caption: ガイド
+:hidden:
+
 ja/model-setup
 ja/mechanism-tips
 ja/dft-backend
@@ -123,7 +156,7 @@ ja/oniom-import
 
 ```{toctree}
 :maxdepth: 2
-:caption: リファレンス
+:caption: 参照資料
 :hidden:
 
 ja/cli-conventions
@@ -140,22 +173,45 @@ ja/architecture
 
 ## Quick start
 
-| Goal | Guide |
-|---|---|
-| Analyze the mechanism end to end from the structures before and after the reaction | [Quickstart: all in Endpoint mode](quickstart-all.md) |
-| Analyze the mechanism end to end from one structure | [Quickstart: all in Scan-list mode](quickstart-scan.md) |
-| Analyze the mechanism end to end from a TS structure | [Quickstart: TS-only mode](quickstart-tsopt.md) |
-| Choose the ML region and layers, or make a run lighter | [Building the ML region and layers](model-setup.md) |
-| Study a mechanism, or the TS search fails | [Tips for studying reaction mechanisms](mechanism-tips.md) |
-| Optimize the TS structure with DFT | [Optimize the TS structure with DFT](dft-backend.md) |
-| A run failed | [Troubleshooting](troubleshooting.md) |
+::::{container} p2r-cards
+:::{container} p2r-card p2r-card-endpoint
+**Analyze the mechanism end to end from the structures before and after the reaction**
 
-See [Installation](installation.md) for prerequisites.
+<!-- p2r-mode-stages endpoint -->
 
-## CLI subcommands
+[Quickstart: all in Endpoint mode](quickstart-all.md)
+:::
+
+:::{container} p2r-card p2r-card-scan
+**Analyze the mechanism end to end from one structure**
+
+<!-- p2r-mode-stages scan -->
+
+[Quickstart: all in Scan-list mode](quickstart-scan.md)
+:::
+
+:::{container} p2r-card p2r-card-tsonly
+**Analyze the mechanism end to end from a TS structure**
+
+<!-- p2r-mode-stages tsonly -->
+
+[Quickstart: TS-only mode](quickstart-tsopt.md)
+:::
+::::
+
+| Goal | Page |
+|------|------|
+| **Choose the ML region and layers, or make a run lighter** | [Building the ML region and layers](model-setup.md) |
+| **Study a mechanism, or the TS search fails** | [Tips for studying reaction mechanisms](mechanism-tips.md) |
+| **Optimize the TS structure with DFT** | [Optimize the TS structure with DFT](dft-backend.md) |
+| **A run failed** | [Troubleshooting](troubleshooting.md) |
+
+## Subcommands
+
+<!-- p2r-stage-strip -->
 
 | Subcommand | Description |
-|---|---|
+|---------|------|
 | [`all`](all.md) | ML/MM model setup and MEP search; optional TS, IRC, thermochemistry, and DFT |
 | [`fix-altloc`](fix-altloc.md) | Resolve PDB alternate conformations |
 | [`add-elem-info`](add-elem-info.md) | Fill PDB element columns 77–78 |
@@ -182,26 +238,36 @@ See [Installation](installation.md) for prerequisites.
 ## Configuration and reference
 
 | Topic | Page |
-|---|---|
-| CLI conventions and input formats | [Common options and selectors](cli-conventions.md) |
-| Frozen atoms and distance restraints (`--freeze-atoms`, `--distance-restraint`) | {ref}`Freeze atoms and restrain distances <freeze-atoms-and-restraints>` |
-| Terminology | [Glossary](glossary.md) |
-| YAML options | [YAML reference](yaml-reference.md) |
-| Output files and JSON | [Output layout](output-layout.md) · [JSON schema](json-output.md) |
-| Backends and reproducibility | [Backends](backends.md) |
-| Devices and HPC | [Device and HPC setup](device-hpc.md) |
-| Python API and architecture | [ML/MM calculator](mlmm-calc.md) · [Architecture](architecture.md) |
-| MCP server | [MCP server](mcp_server.md) |
-| Troubleshooting | [Troubleshooting](troubleshooting.md) |
-| Generated CLI reference (English) | [Command reference](reference/commands/index.md) |
-| Starter configuration (English) | [Curated YAML subset](reference/yaml.md) |
+|-------|------|
+| **Common options and input requirements** | [Common options and selectors](cli-conventions.md) |
+| **Frozen atoms and distance restraints (`--freeze-atoms`, `--distance-restraint`)** | {ref}`Freeze atoms and restrain distances <freeze-atoms-and-restraints>` |
+| **Common errors and fixes** | [Troubleshooting](troubleshooting.md) |
+| **CLI command reference** | [Command Reference](reference/commands/index.md) |
+| **YAML configuration options** | [YAML Reference](yaml-reference.md) · [Curated YAML subset](reference/yaml.md) |
+| **MLIP backend settings** | [MLIP Backends](backends.md) |
+| **Files each command writes** | [Output Directory Layout](output-layout.md) |
+| **Keys of `result.json` and `summary.json`** | [JSON Output Reference](json-output.md) |
+| **GPU and CPU assignment, HPC** | [Device Configuration & HPC Setup](device-hpc.md) |
+| **Use the ML/MM calculator from Python** | [ML/MM calculator](mlmm-calc.md) |
+| **Calling mlmm-toolkit from an AI agent (MCP)** | [MCP server](mcp_server.md) |
+| **Code structure (for developers)** | [Architecture](architecture.md) |
+| **Terminology** | [Glossary](glossary.md) |
 
 ## System requirements
 
-See [Installation](installation.md) for installation and backend compatibility.
-The GPU and driver must meet the selected backend's requirements.
-Estimate VRAM, RAM, and runtime with a representative calculation.
-`mm-parm` requires AmberTools.
+### Hardware
+
+- **OS:** Linux (on Windows, install it in Linux under WSL2).
+- **GPU:** an NVIDIA driver compatible with the backend and PyTorch wheel. CPU execution is also supported but slower.
+- **VRAM / RAM:** depends on the model, the system size, and the Hessian mode; measure the peak on a representative run.
+
+### Software
+
+- Python >= 3.11.
+- CPU or CUDA-enabled PyTorch. Prebuilt wheels include their CUDA runtime; a local toolkit is normally needed only for source builds.
+- AmberTools, which `mm-parm` uses to build the Amber topology.
+
+See [Installation](installation.md) for setup.
 
 ## Key concepts
 

@@ -1,0 +1,55 @@
+{#- Reaction-workflow stage strip (top page) and stage badge (command pages).
+    The stages, labels and page assignment come from p2r_pipeline in conf.py. -#}
+
+{%- macro label(s, is_ja) -%}{{ s.ja if is_ja else s.en }}{%- endmacro -%}
+
+{#- Badge above the title of a command page: the stage icons, the current one lit
+    (all of them on the `all` page). -#}
+{%- macro stage_badge(cur, base, prefix, is_ja) -%}
+<nav class="p2r-badge{% if cur == 'all' %} p2r-badge--all{% endif %}" aria-label="{{ 'ワークフロー' if is_ja else 'Workflow' }}">
+  <ol class="p2r-badge__steps">
+    {%- for s in p2r_pipeline %}
+    <li class="p2r-badge__step{% if cur == 'all' or s.id == cur %} is-on{% endif %}" style="--p2r-c: var(--p2r-{{ s.id }})">
+      <a href="{{ pathto(prefix ~ s.pages[0]) }}" title="{{ loop.index }}. {{ label(s, is_ja) }}"><span class="p2r-badge__icon"><span class="p2r-ico p2r-ico--{{ s.id }}"></span></span></a>
+    </li>
+    {%- endfor %}
+  </ol>
+  {%- for s in p2r_pipeline if s.id == cur %}
+  <span class="p2r-badge__label" style="--p2r-c: var(--p2r-{{ s.id }})">{{ label(s, is_ja) }}</span>
+  {%- if s.pages|length > 1 %}
+  <span class="p2r-badge__cmds" style="--p2r-c: var(--p2r-{{ s.id }})">
+    {%- for p in s.pages %}<a href="{{ pathto(prefix ~ p) }}"{% if p == base %} class="is-current" aria-current="page"{% endif %}><code>{{ p }}</code></a>{% endfor -%}
+  </span>
+  {%- endif %}
+  {%- endfor %}
+</nav>
+{%- endmacro -%}
+
+{#- Stage strip of the top page: one round icon per stage, linked to its pages. -#}
+{%- macro stage_strip(prefix, is_ja) -%}
+<div class="p2r-strip" style="--p2r-n: {{ p2r_pipeline|length }}">
+  <ol class="p2r-strip__steps">
+    {%- for s in p2r_pipeline %}
+    <li class="p2r-strip__step" style="--p2r-c: var(--p2r-{{ s.id }})">
+      <a class="p2r-strip__icon" href="{{ pathto(prefix ~ s.pages[0]) }}" tabindex="-1" aria-hidden="true"><span class="p2r-ico p2r-ico--{{ s.id }}"></span></a>
+      <div class="p2r-strip__body">
+        <a class="p2r-strip__label" href="{{ pathto(prefix ~ s.pages[0]) }}"><span class="p2r-strip__num">{{ loop.index }}</span>{{ label(s, is_ja) }}</a>
+        <div class="p2r-strip__cmds">
+          {%- for p in s.pages %}<a href="{{ pathto(prefix ~ p) }}"><code>{{ p }}</code></a>{% endfor -%}
+        </div>
+      </div>
+    </li>
+    {%- endfor %}
+  </ol>
+  <a class="p2r-strip__all" href="{{ pathto(prefix ~ p2r_pipeline_all) }}"><span>{{ p2r_pipeline_all_label.ja if is_ja else p2r_pipeline_all_label.en }}</span><code>{{ p2r_pipeline_all }}</code></a>
+</div>
+{%- endmacro -%}
+
+{#- Entry card of the top page: the stages that input mode goes through (p2r_mode_stages). -#}
+{%- macro mode_stages(mode, is_ja) -%}
+<div class="p2r-modestages" aria-hidden="true">
+  {%- for s in p2r_pipeline %}
+  <span class="p2r-modestages__step{% if s.id not in p2r_mode_stages[mode] %} is-skipped{% endif %}" style="--p2r-c: var(--p2r-{{ s.id }})"><span class="p2r-ico p2r-ico--{{ s.id }}"></span></span>
+  {%- endfor %}
+</div>
+{%- endmacro -%}

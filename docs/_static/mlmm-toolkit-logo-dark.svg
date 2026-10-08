@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1084 200" width="1084" height="200">
+<title>mlmm-toolkit (placeholder logo)</title>
+<g><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3E6CA8"/><stop offset="1" stop-color="#1B365D"/></linearGradient></defs>
+<rect x="6" y="6" width="188" height="188" rx="44" fill="url(#g)"/>
+<circle cx="100" cy="100" r="74" fill="none" stroke="#FFFFFF" stroke-opacity="0.75" stroke-width="10" stroke-dasharray="16 14"/>
+<circle cx="100" cy="100" r="46" fill="none" stroke="#FFFFFF" stroke-width="12"/>
+<circle cx="100" cy="100" r="20" fill="#3CC3C0"/></g>
+<text x="236" y="138" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="112" font-weight="700" textLength="830" lengthAdjust="spacingAndGlyphs"><tspan fill="#DCE7F7">mlmm</tspan><tspan fill="#5CC4BE">-toolkit</tspan></text>
+</svg>
