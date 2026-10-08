@@ -1,10 +1,8 @@
 # `dft` (DFT single point)
 
-## Overview
-
 `dft` runs a **DFT (density functional theory) single point on the ML region** of one ML/MM structure with GPU4PySCF (GPU) or PySCF (CPU), and combines it with the MM energies into the **ML(DFT)/MM total energy**, `E_total = E_REAL_low + E_ML(DFT) - E_MODEL_low`. It also reports the **atomic charges** of the ML region. It computes energies only, no forces.
 
-### What it is for
+## What it is for
 
 * **DFT energies on ML/MM geometries**: single points on the reactant (R), transition state (TS), and product (P) optimized with an MLIP for the ML region.
 * **Charge distribution**: per-atom charges of the ML region, and spin densities for open shells.

@@ -1,12 +1,10 @@
 # `all` (end-to-end workflow)
 
-## Overview
-
 `all` runs the whole ML/MM workflow in one command: it selects the ML region around the active site, builds the Amber topology and the three layers of the full system, and finds the minimum energy path (MEP). When asked, it optimizes the transition state (TS) of each reaction step and runs the intrinsic reaction coordinate (IRC), frequency, and DFT calculations on it.
 
 Without `--tsopt`, the run ends with TS candidates: the highest-energy image (HEI) of each MEP segment. The ML region is computed by **UMA**, Meta's pretrained [machine-learning interatomic potential (MLIP)](backends.md), by default; `-b/--backend` also selects **ORB**, **MACE**, **AIMNet2**, or DFT ([`dft`](dft-backend.md)). The rest of the enzyme is computed with the Amber force field, and ONIOM combines the two.
 
-### What it is for
+## What it is for
 
 What you pass selects the mode:
 

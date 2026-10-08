@@ -1,10 +1,8 @@
 # `bond-summary` (bond changes between structures)
 
-## Overview
-
 `bond-summary` reports which **covalent bonds form and break** between consecutive structures, such as reactant (R) → product (P), or R → intermediates IM1 → IM2 → P. For *N* input files it prints *N* − 1 comparison blocks (A → B, B → C, …) with each changed bond and its distance before and after, in Å. It writes no file.
 
-### What it is for
+## What it is for
 
 * **Checking IRC endpoints**: confirm that the two ends of an intrinsic reaction coordinate (IRC) differ by the intended bonds.
 * **Screening multistep mechanisms**: list the bonds that change in each step of a chain of intermediates.

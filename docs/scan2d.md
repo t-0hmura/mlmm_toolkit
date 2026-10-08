@@ -1,10 +1,8 @@
 # `scan2d` (2D restrained grid scan)
 
-## Overview
-
 `scan2d` relaxes every point of a grid over two coordinates of a layered enzyme structure with harmonic restraints and the ML/MM calculator, and records the energy without the restraints, giving a 2D energy map of the reaction. Each axis is a range: a distance `(i,j,low,high)` in Å, an angle `(i,j,k,low,high)`, or a dihedral `(i,j,k,l,low,high)` in degrees.
 
-### What it is for
+## What it is for
 
 * **Locating the TS region**: see where the saddle between the reactant and product basins lies before a path search or TS optimization.
 * **Viewing the landscape before the MEP**: check whether two events, such as bond formation and proton transfer, happen together or one after the other, before refining the minimum-energy path (MEP).

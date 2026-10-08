@@ -1,10 +1,8 @@
 # `oniom-import` (ONIOM input back to XYZ and a layered PDB)
 
-## Overview
-
 `oniom-import` **rebuilds an XYZ file and a layered PDB from a Gaussian ONIOM or ORCA QM/MM input file**.
 
-### What it is for
+## What it is for
 
 * **Inputs edited outside mlmm**: bring a Gaussian or ORCA QM/MM input that you prepared or edited back into mlmm
 * **Round trip with names**: restore an input written by [`oniom-export`](oniom-export.md) with the atom and residue names of the original PDB through `--ref-pdb`

@@ -2,7 +2,7 @@
 """Validate the command-page heading template (EN/JA).
 
 Every command (one per ``docs/reference/commands/*.md``) has an EN page and a
-JA page. The EN page runs ``## Overview`` (with ``### What it is for``) →
+JA page. The EN page runs ``## What it is for`` →
 ``## Examples`` → ``## How it works`` → (a page-specific section on reading the
 result) → ``## Output files`` → ``## Main options`` → optional ``## Notes`` →
 ``## See also``; the JA page mirrors it.
@@ -20,8 +20,7 @@ COMMANDS_ROOT = DOCS_ROOT / "reference" / "commands"
 LAYOUT = {
     "en": {
         "ordered": (
-            "## Overview",
-            "### What it is for",
+            "## What it is for",
             "## Examples",
             "## How it works",
             "## Output files",
@@ -40,8 +39,7 @@ LAYOUT = {
     },
     "ja": {
         "ordered": (
-            "## 概要",
-            "### 主な用途",
+            "## 主な用途",
             "## 基本的な実行例",
             "## 処理の仕組みと計算仕様",
             "## 主な出力ファイル",

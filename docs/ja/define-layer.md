@@ -1,7 +1,5 @@
 # `define-layer`（ML・MM の層の割り当て）
 
-## 概要
-
 `define-layer` は、全系を ML 領域の周りの 3 つの層に分け、各原子の層を PDB の B-factor の欄に書き込みます。計算コマンドは、この B-factor から層を読み戻します。
 
 | 層 | B-factor | 原子 | 計算での扱い |
@@ -10,7 +8,7 @@
 | Movable-MM | 10.0 | ML 領域から `--movable-cutoff`（既定 8.0 Å）以内の MM 原子 | MM。動ける |
 | Frozen-MM | 20.0 | それより遠い MM 原子 | MM。座標は固定し、MM のエネルギーには入る |
 
-### 主な用途
+## 主な用途
 
 * **計算コマンドの入力を作る**: `opt`・`tsopt`・`freq` などが `--parm7` と一緒に受け取る、層付きの全系の PDB を書き出します。
 * **動く殻を変える**: `--movable-cutoff` で Movable-MM の層を広げたり狭めたりします。

@@ -1,7 +1,5 @@
 # Getting Started
 
-## Overview
-
 <img src="./mlmm_toolkit_overview.png" alt="mlmm-toolkit workflow overview" width="90%">
 
 `mlmm-toolkit` is a Python command-line toolkit that uses ML/MM (machine learning / molecular mechanics) to **search automatically for candidate enzyme reaction pathways, starting from PDB / mmCIF structures**.
@@ -34,13 +32,13 @@ mlmm -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft
 
 > **Examples:** the [`examples/beza/`](https://github.com/t-0hmura/mlmm_toolkit/tree/main/examples/beza) directory holds the structures used above (`1.R.pdb`, `3.P.pdb`) and a workflow script (MEP search and scan pipelines) built around the GPP C6-methyltransferase BezA ([Tsutsumi et al., *Angew. Chem. Int. Ed.* 2022, 61, e202111217](https://doi.org/10.1002/anie.202111217)). After [installation](installation.md), get it with `git clone https://github.com/t-0hmura/mlmm_toolkit && cd mlmm_toolkit/examples/beza` and run the commands above there.
 
-### What it is for
+## What it is for
 
 * **Trial and error on reaction mechanisms** in the full enzyme, where QM/MM with DFT takes too long to check
 * **Starting structures** for QM/MM (reactant, TS, and product of the full system; [`oniom-export`](oniom-export.md) turns them into Gaussian ONIOM or ORCA QM/MM input)
 * **Many reaction-path calculations** across substrate variants and enzyme mutants
 
-### What it automates
+## What it automates
 
 Provide one of three inputs: (1) several PDB structures in reaction order (R → … → P), (2) one structure plus a scan, or (3) one structure plus TS optimization. `mlmm-toolkit` then handles the following automatically.
 

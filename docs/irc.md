@@ -1,10 +1,8 @@
 # `irc` (intrinsic reaction coordinate)
 
-## Overview
-
 `irc` traces the intrinsic reaction coordinate (IRC) of an ML/MM system from an optimized transition state (TS) in both directions with EulerPC (an Euler predictor–corrector integrator). It writes the trajectory of each branch and the two endpoint candidates. Optimizing those endpoints with [`opt`](opt.md) shows which reactant (R) and product (P) the TS connects.
 
-### What it is for
+## What it is for
 
 * **Checking a TS**: after [`tsopt`](tsopt.md) and [`freq`](freq.md) (n_imag = 1), confirm that the TS connects the intended R and P.
 * **Getting R and P**: optimize the endpoints with [`opt`](opt.md) to obtain the R and P structures of this TS.

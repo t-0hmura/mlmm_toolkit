@@ -83,7 +83,7 @@ VRAM・RAM・実行時間は、代表的な計算から見積もってくださ�
 
 ## 重要な概念
 
-3 つの層（ML・可動 MM・凍結 MM）と ONIOM での組み合わせ方は [はじめに](getting-started.md#概要)、ML 領域と層の決め方は [ML 領域と層の組み方](model-setup.md) を参照してください。
+3 つの層（ML・可動 MM・凍結 MM）と ONIOM での組み合わせ方は [はじめに](getting-started.md)、ML 領域と層の決め方は [ML 領域と層の組み方](model-setup.md) を参照してください。
 
 ## エージェントスキル
 

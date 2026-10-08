@@ -1,10 +1,8 @@
 # `oniom-export`（Gaussian ONIOM・ORCA QM/MM の入力の書き出し）
 
-## 概要
-
 `oniom-export` サブコマンドは、mlmm の ML/MM 系を **Gaussian ONIOM（`--mode g16`）または ORCA QM/MM（`--mode orca`）の入力ファイルとして書き出します**。Amber トポロジー（`--parm7`）と、層を B-factor に持つ PDB を読みます。ML 領域を QM 領域として、座標・QM 原子・可動原子・MM パラメータを 1 つの入力ファイルにまとめます。トポロジーは CMAP 項を含まないものが必要で、作り方は [mm-parm](mm-parm.md#oniom-export-用の-cmap-を含まないトポロジー) にあります。
 
-### 主な用途
+## 主な用途
 
 * **Gaussian ONIOM**: mlmm で得た構造（TS 候補など）を、高層を DFT にした Gaussian の ONIOM 計算にかける
 * **ORCA QM/MM**: 同じ系を ORCA の QM/MM 機能で計算する

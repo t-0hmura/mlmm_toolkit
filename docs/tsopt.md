@@ -1,10 +1,8 @@
 # `tsopt` (transition-state optimization)
 
-## Overview
-
 `tsopt` optimizes a transition-state (TS) candidate on a layered ML/MM enzyme model to a first-order saddle point, then computes the Hessian at the final geometry and counts its imaginary frequencies (n_imag). A successful TS optimization gives one imaginary mode along the reaction coordinate.
 
-### What it is for
+## What it is for
 
 * **Refining a TS candidate**: turn the highest-energy image (HEI) of [`path-opt`](path-opt.md) / [`path-search`](path-search.md), or the top of a [`scan`](scan.md), into an optimized TS.
 * **Checking a structure you built**: confirm that a hand-made candidate is a TS (n_imag = 1) and watch its reaction mode as an animation.

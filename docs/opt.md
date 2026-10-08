@@ -1,10 +1,8 @@
 # `opt` (geometry optimization)
 
-## Overview
-
 `opt` optimizes one structure of a layered ML/MM enzyme model to a local minimum. It uses L-BFGS (`--opt-mode grad`, the default) or RFO (`--opt-mode hess`).
 
-### What it is for
+## What it is for
 
 * **Preparing R, P, and intermediates**: relax the reactant, product, and intermediate structures before a path search or a frequency calculation, and confirm each minimum (n_imag = 0) with [`freq`](freq.md).
 * **Relaxing with fixed distances**: keep chosen atom pairs at a set distance while everything else relaxes.

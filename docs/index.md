@@ -205,7 +205,7 @@ Estimate VRAM, RAM, and runtime with a representative calculation.
 
 ## Key concepts
 
-The three layers (ML, movable MM, frozen MM) and how ONIOM combines them are explained in [Getting Started](getting-started.md#overview); how to choose the ML region and layers is in [Building the ML region and layers](model-setup.md).
+The three layers (ML, movable MM, frozen MM) and how ONIOM combines them are explained in [Getting Started](getting-started.md); how to choose the ML region and layers is in [Building the ML region and layers](model-setup.md).
 
 ## Agent skills
 

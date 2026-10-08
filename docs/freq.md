@@ -1,10 +1,8 @@
 # `freq` (vibrational analysis and thermochemistry)
 
-## Overview
-
 `freq` computes **harmonic vibrational frequencies** and **thermochemical corrections** such as the zero-point energy (ZPE), enthalpy, and Gibbs free energy for a layered ML/MM enzyme model.
 
-### What it is for
+## What it is for
 
 * **Checking a stationary point**: confirm that an optimized structure is a minimum (no imaginary frequency, n_imag = 0) or a transition state (TS: exactly one, n_imag = 1).
 * **Thermochemistry**: free energies and other thermodynamic quantities from the QRRHO (quasi-rigid-rotor harmonic oscillator) model.

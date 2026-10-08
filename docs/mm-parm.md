@@ -1,10 +1,8 @@
 # `mm-parm` (build the Amber topology)
 
-## Overview
-
 `mm-parm` builds an Amber topology (`parm7`), coordinates (`rst7`), and a matching PDB from a PDB of the whole enzyme–substrate complex with AmberTools tleap. Residues that the force field does not know, such as a substrate or a cofactor, get GAFF2 parameters with AM1-BCC charges. Every ML/MM command reads the resulting `parm7` through `--parm7`.
 
-### What it is for
+## What it is for
 
 * **Building the MM topology**: write `parm7`, `rst7`, and a PDB for the whole system.
 * **Parameterizing ligands**: give unknown residues GAFF2 parameters with the formal charge and multiplicity from `-l` and `--ligand-mult`.

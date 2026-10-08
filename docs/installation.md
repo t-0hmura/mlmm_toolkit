@@ -1,7 +1,5 @@
 # Installation
 
-## Overview
-
 `mlmm-toolkit` is intended for Linux environments (local workstations or HPC clusters), and production runs normally use a CUDA-capable GPU. The MM part needs **AmberTools** (`tleap`) to build the topology and a **C++20 compiler** for the `hessian_ff` kernels. The conda command below installs both.
 
 ## Quick start

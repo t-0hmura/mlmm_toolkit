@@ -1,10 +1,8 @@
 # `scan3d` (3D restrained grid scan)
 
-## Overview
-
 `scan3d` relaxes every point of a grid over three coordinates of a layered enzyme structure with harmonic restraints and the ML/MM calculator, records the energy without the restraints, and draws the energy volume as isosurfaces in an HTML page. Each axis is a range: a distance `(i,j,low,high)` in Å, an angle `(i,j,k,low,high)`, or a dihedral `(i,j,k,l,low,high)` in degrees.
 
-### What it is for
+## What it is for
 
 * **Reactions that involve three coordinates at once**: see the energy landscape when, for example, a bond forms, another breaks, and a proton moves in the same step.
 * **Redrawing a finished grid**: plot an existing `surface.csv` again over another energy range (`--csv`).

@@ -1,12 +1,10 @@
 # Quickstart: `mlmm all`
 
-## Overview
-
 `mlmm all` builds a reaction path from the reactant (R) and product (P) in one run. It cuts out the ML region around the substrates, builds the Amber topology of the full system (`mm-parm`) and its three layers (`define-layer`), and searches the minimum energy path (MEP) between R and P with ML/MM. With `--tsopt --thermo --dft`, the same run continues to transition-state (TS) optimization, an intrinsic reaction coordinate (IRC) calculation, frequencies, and DFT single points.
 
 The commands below use the bundled example of the GPP (geranyl pyrophosphate) C6-methyltransferase BezA in [`examples/beza/`](https://github.com/t-0hmura/mlmm_toolkit/tree/main/examples/beza): `1.R.pdb` is the reactant, `2.IM.pdb` an intermediate, and `3.P.pdb` the product. They are full enzyme structures with every hydrogen. Get them with `git clone https://github.com/t-0hmura/mlmm_toolkit && cd mlmm_toolkit/examples/beza`. For your own reaction, replace them with your full-system structures.
 
-### What it is for
+## What it is for
 
 * **A first run of the whole workflow**: run every stage once on the bundled example.
 * **The MEP between R and P**: get the path and its highest-energy image (HEI), the TS candidate.

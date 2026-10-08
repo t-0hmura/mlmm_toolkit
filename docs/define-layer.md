@@ -1,7 +1,5 @@
 # `define-layer` (assign the ML and MM layers)
 
-## Overview
-
 `define-layer` divides the full system into three layers around the ML region and writes the layer of each atom into the B-factor column of a PDB. The calculation commands read the layers back from the B-factors.
 
 | Layer | B-factor | Atoms | In the calculation |
@@ -10,7 +8,7 @@
 | Movable-MM | 10.0 | MM atoms within `--movable-cutoff` (default 8.0 Å) of the ML region | MM, free to move |
 | Frozen-MM | 20.0 | MM atoms farther away | MM, coordinates fixed; still part of the MM energy |
 
-### What it is for
+## What it is for
 
 * **Preparing the input of the calculation commands**: write the layered full-system PDB that `opt`, `tsopt`, `freq`, and the other commands take with `--parm7`.
 * **Changing the movable shell**: widen or narrow the Movable-MM layer with `--movable-cutoff`.

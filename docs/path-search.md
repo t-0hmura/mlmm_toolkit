@@ -1,10 +1,8 @@
 # `path-search` (recursive MEP through two or more structures)
 
-## Overview
-
 `path-search` builds one continuous minimum-energy path (MEP) through **two or more** layered enzyme structures given in reaction order (R → … → P), using the ML/MM calculator on the whole system. It refines the path recursively, only in the regions where covalent bonds change, and builds each piece with GSM (growing string method, the default) or DMF (direct max flux).
 
-### What it is for
+## What it is for
 
 * **Splitting R → P into reactive segments**: when you do not know whether the reaction has one step or several, find the regions where bonds change.
 * **A multistep path through intermediates**: give known intermediates between R and P and get one stitched path.

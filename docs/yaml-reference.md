@@ -2,8 +2,6 @@
 
 This page lists, section by section, the keys and default values you can set in a YAML configuration file (`--config`). The list of sections, the order of precedence, and the mapping from CLI flags to YAML keys come first.
 
-## Overview
-
 | Section | Description | Used by |
 |---------|-------------|---------|
 | [`geom`](#geom) | Geometry and coordinate settings | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |

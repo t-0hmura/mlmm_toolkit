@@ -1,10 +1,8 @@
 # `scan` (restrained coordinate scan)
 
-## Overview
-
 `scan` drives chosen distances, angles, or dihedrals of a layered enzyme structure step by step with harmonic restraints, relaxing every other degree of freedom with the ML/MM calculator at each step, and so builds a candidate reaction path from a single structure. The coordinates in one literal (or one YAML stage) move together as one **stage**; several literals run as stages in sequence, each starting from the relaxed end of the previous one.
 
-### What it is for
+## What it is for
 
 * **A path from one structure**: drive the reacting bonds of a reactant to get intermediate- and product-like structures for [`path-search`](path-search.md).
 * **Testing the order of events**: drive bond formation and proton transfer in one stage or in separate stages, and compare the energy profiles.

@@ -1,10 +1,8 @@
 # `fix-altloc` (resolve PDB alternate locations)
 
-## Overview
-
 `fix-altloc` **removes alternate locations (altLoc)** from PDB files. For each residue it keeps one altLoc label, the one with the highest mean occupancy, so each residue is one conformer that was actually deposited. `extract`, `define-layer`, and the ML/MM calculation commands apply the same rule on their own when they read a PDB. Use `fix-altloc` when you need the cleaned file itself.
 
-### What it is for
+## What it is for
 
 * **A clean PDB file to keep**: one conformer per residue, for other programs or for your records.
 * **Input for `mm-parm`**: `mm-parm` does not resolve altLoc, so clean it first.
