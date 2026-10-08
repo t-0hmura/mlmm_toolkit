@@ -1,6 +1,6 @@
 # `path-opt`（2 構造間の MEP 探索）
 
-`path-opt` は、反応物と生成物の**ちょうど 2 つ**の層付き酵素構造の間の最小エネルギー経路（MEP）を、系全体に ML/MM 計算機を使って GSM（Growing String Method、デフォルト）または DMF（Direct Max Flux）で 1 回だけ求めます。最もエネルギーの高いイメージ（HEI）を TS 候補として書き出します。
+`path-opt` は、反応物と生成物の 2 つの層付き酵素構造の間の最小エネルギー経路（MEP）を、系全体に ML/MM 計算機を使って GSM（Growing String Method、デフォルト）または DMF（Direct Max Flux）で 1 回だけ求めます。最もエネルギーの高いイメージ（HEI）を TS 候補として書き出します。
 
 ---
 
