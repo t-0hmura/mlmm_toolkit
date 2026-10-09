@@ -1,7 +1,7 @@
 """Contract for the curated starter-snapshot reference page.
 
 Positive: the generated page is a curated, non-exhaustive snapshot that links
-the full YAML reference, the JA navigation labels it a starter snapshot, and the
+the full YAML reference, the JA navigation labels it an excerpt (抜粋), and the
 runtime-owner parity validator accepts every current scalar. Negative: mutating
 a scalar, adding an ownerless scalar, or declaring an unused owner each fails and
 names the exact dotted path.
@@ -56,7 +56,7 @@ def test_ja_navigation_labels_starter_snapshot_not_schema() -> None:
         if "../reference/yaml.md" in ln
     )
     assert "スキーマ" not in line
-    assert "スターター" in line
+    assert "抜粋" in line
 
 
 def test_current_starter_snapshot_passes_parity() -> None:

@@ -112,7 +112,8 @@ def _check_landing_pages() -> list[str]:
                 f"{rel}: landing header must render the version via "
                 f"'{LANDING_SUBSTITUTION}': {header.strip()!r}"
             )
-        if _VERSION_LITERAL_RE.search(header):
+        # Link targets such as the paper DOI are not version text.
+        if _VERSION_LITERAL_RE.search(re.sub(r"\]\([^)]*\)", "]", header)):
             errors.append(
                 f"{rel}: landing header must not hardcode a version literal: "
                 f"{header.strip()!r}"
