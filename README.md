@@ -208,7 +208,7 @@ Issues: <https://github.com/t-0hmura/mlmm_toolkit/issues>.
 ```bibtex
 @article{ohmura2025mlmm,
   author  = {Ohmura, Takuto and Inoue, Sei and Terada, Tohru},
-  title   = {ML/MM Toolkit -- Toward Accelerated Mechanistic Investigation of Enzymatic Reactions},
+  title   = {ML/MM toolkit -- Towards Accelerated Mechanistic Investigation of Enzymatic Reactions},
   journal = {ChemRxiv}, year = {2025}, doi = {10.26434/chemrxiv-2025-jft1k}
 }
 ```

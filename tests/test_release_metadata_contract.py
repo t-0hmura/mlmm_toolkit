@@ -50,8 +50,8 @@ def test_primary_source_title_is_identical_across_citation_surfaces() -> None:
     )
     for relative in surfaces:
         text = (REPO_ROOT / relative).read_text(encoding="utf-8")
-        assert "Toward Accelerated" in text, relative
-        assert "Towards Accelerated" not in text, relative
+        assert "Towards Accelerated" in text, relative
+        assert "Toward Accelerated" not in text, relative
 
 
 def test_hardcoded_landing_literal_fails(tmp_path, monkeypatch) -> None:
