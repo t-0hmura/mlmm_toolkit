@@ -112,6 +112,7 @@ def test_leaf_dft_checkpoint_uses_yaml_effective_output_directory(
         {"lowmem": "false"},
         {"density_fit": "false"},
         {"save_scf_checkpoint": "false"},
+        {"scf_stepwise_grid": "false"},
         {"pyscf": {"density_fit": {"enabled": "false"}}},
     ],
 )

@@ -25,6 +25,7 @@ _FIELDS = {
     "save_scf_checkpoint", "checkpoint_path", "embedcharge",
     "embedcharge_cutoff", "nprocs", "nprocs_source", "memory", "memory_mb",
     "memory_source", "pyscf", "charge", "multiplicity",
+    "scf_stepwise_grid",
 }
 _CALCULATOR_DFT_FIELDS = _FIELDS - {
     "charge", "multiplicity", "embedcharge", "embedcharge_cutoff",
@@ -34,6 +35,7 @@ _STANDALONE_FIELDS = {
     "func_basis", "func", "functional", "basis", "engine", "conv_tol",
     "max_cycle", "grid_level", "verbose", "lowmem", "density_fit",
     "auxbasis", "nprocs", "memory", "memory_mb", "pyscf",
+    "scf_stepwise_grid",
 }
 
 _MEMORY_RE = re.compile(r"^\s*(\d+(?:\.\d+)?)\s*([kmgt]?i?b)?\s*$", re.IGNORECASE)
@@ -241,6 +243,7 @@ class DFTSettings:
     grid_level: int = 3
     verbose: int = 0
     lowmem: bool = True
+    scf_stepwise_grid: bool = False
     density_fit: bool = False
     auxbasis: Optional[str] = None
     save_scf_checkpoint: bool = False
@@ -379,6 +382,9 @@ def resolve_dft_settings(
             ) from exc
 
     lowmem = _strict_bool(raw.get("lowmem", True), "calc.dft.lowmem")
+    scf_stepwise_grid = _strict_bool(
+        raw.get("scf_stepwise_grid", False), "calc.dft.scf_stepwise_grid"
+    )
     density_cfg = pyscf_cfg.get("density_fit", {})
     direct_density = raw.get("density_fit")
     if isinstance(direct_density, Mapping):
@@ -479,6 +485,7 @@ def resolve_dft_settings(
         grid_level=_resolved("grid_level", "grids", "level", 3, int),
         verbose=_resolved("verbose", "mol", "verbose", 0, int),
         lowmem=lowmem,
+        scf_stepwise_grid=scf_stepwise_grid,
         density_fit=density_fit,
         auxbasis=None if auxbasis in (None, "") else str(auxbasis),
         save_scf_checkpoint=save_checkpoint,

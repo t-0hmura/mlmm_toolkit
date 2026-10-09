@@ -671,11 +671,12 @@ def test_all_dft_child_relays_success_stderr_without_forwarding_mlip_backend(
         False,
         tmp_path / "dft",
         None,
-        overrides={"lowmem": False, "nprocs": 8, "memory": "64GB"},
+        overrides={"lowmem": False, "scf_stepwise_grid": True, "nprocs": 8, "memory": "64GB"},
     )
 
     assert "--backend" not in commands[0]
     assert "--no-lowmem" in commands[0]
+    assert "--scf-stepwise-grid" in commands[0]
     assert commands[0][commands[0].index("--dft-nprocs") + 1] == "8"
     assert commands[0][commands[0].index("--dft-mem") + 1] == "64GB"
     assert emitted.count(("fallback warning", False)) == 1

@@ -4200,6 +4200,7 @@ def _run_dft_for_state(pdb_path: Path,
     _append_cli_arg(args, "--grid-level", overrides.get("grid_level"))
     _append_cli_arg(args, "--engine", overrides.get("engine"))
     _append_toggle_arg(args, "--lowmem", overrides.get("lowmem"))
+    _append_toggle_arg(args, "--scf-stepwise-grid", overrides.get("scf_stepwise_grid"))
     _append_cli_arg(args, "--dft-nprocs", overrides.get("nprocs"))
     _append_cli_arg(args, "--dft-mem", overrides.get("memory"))
     _append_toggle_arg(args, "--convert-files", overrides.get("convert_files"))
@@ -5176,7 +5177,7 @@ def cli(
         and do_dft
     ):
         _dft_cli_meta = ctx.meta.get(DFT_CLI_META_KEY, {})
-        for _resource_name in ("lowmem", "nprocs", "memory"):
+        for _resource_name in ("lowmem", "scf_stepwise_grid", "nprocs", "memory"):
             if _resource_name in _dft_cli_meta:
                 _post_dft_resource_cli[_resource_name] = _dft_cli_meta.pop(
                     _resource_name

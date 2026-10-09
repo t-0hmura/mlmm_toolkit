@@ -92,6 +92,7 @@ mlmm all -i result_all/segments/seg_01/ts.pdb \
 - **組み合わせ**：`-b dft` と `--dft` は一緒に使えず、実行の始めにエラーで止まります。`-b dft` の計算の後に DFT の一点計算を足すときは、別のジョブで `mlmm sp -b dft` か `mlmm dft` を実行してください。`--dft` と `--thermo` には `--tsopt` が必要です。
 - **図のファイル名とキーの名前**：`-b dft` でも、図のファイル名は `energy_diagram_MLIP.png` と `energy_diagram_G_MLIP.png`（`--thermo` のとき）、`summary.json` のブロックの名前は `mlip` と `gibbs_mlip` のままです。中身は DFT/MM の値で、図の題には DFT/MM と出ます。
 - **メモリとスレッド**：`--dft-memory` の値は PySCF が使うホスト RAM で、GPU の VRAM ではありません。GPU のメモリが足りないときは ML 領域を小さくしてください。`--dft` でメモリが足りないときは、`--dft` を外して `mlmm dft` を別に実行してください。
+- **段階的なグリッド**：`--scf-stepwise-grid`（既定は off）は、各実行の最初の SCF を、グリッドレベル 1・収束閾値 1e-6 でいったん収束させ、その密度から指定のグリッドと閾値で収束させます。2 回目以降の SCF は、これまでどおり前の密度から始めます。効果は系によって変わり、小さい系では速くなりません。粗い段階が収束しなかったときは、通常の SCF を行います。
 
 ## 関連ドキュメント
 

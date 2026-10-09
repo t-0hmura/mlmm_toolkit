@@ -107,6 +107,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 | `--dft-grid-level` | 整数 | `3` | 数値積分グリッドのレベル（PySCF の `grids.level`） |
 | `--dft-engine` | `gpu` / `cpu` | `gpu` | GPU4PySCF か CPU の PySCF |
 | `--dft-low-memory/--no-dft-low-memory` | フラグ | `True` | J と K を直接組み立てる。`--no-dft-low-memory` で密度フィッティングを使用 |
+| `--scf-stepwise-grid/--no-scf-stepwise-grid` | フラグ | `False` | SCF をまず[粗いグリッド](dft-backend.md#使用上の注意点)で収束させ、その密度から最終のグリッドで収束させる |
 | `--dft-nprocs` | 整数 | auto | PySCF の CPU スレッド数（スケジューラとホストから自動検出） |
 | `--dft-memory` | 文字列 | auto | PySCF のホスト RAM の上限（例: `64GB`）。GPU メモリではない |
 | `--embedcharge/--no-embedcharge` | フラグ | `False` | MM の点電荷を DFT のハミルトニアンに入れる |

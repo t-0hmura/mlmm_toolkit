@@ -58,6 +58,10 @@ Options:
                                   embedding. Open-shell or CPU runs use standard
                                   direct-JK RKS/UKS; --no-dft-low-memory enables
                                   density fitting.  [default: dft-low-memory]
+  --scf-stepwise-grid / --no-scf-stepwise-grid
+                                  Converge the SCF on a coarse grid first, then
+                                  on the final grid with the same settings.
+                                  [default: no-scf-stepwise-grid]
   --dft-nprocs INTEGER RANGE      PySCF/OpenMP CPU threads; GPU count is
                                   unaffected.  [default: (auto); x>=1]
   --dft-memory, --dft-mem TEXT    PySCF host RAM limit (for example 64GB or

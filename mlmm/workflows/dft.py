@@ -376,6 +376,7 @@ def _apply_explicit_dft_overrides(
     grid_level: int,
     out_dir: Path,
     lowmem: bool,
+    scf_stepwise_grid: bool = False,
 ) -> Dict[str, Any]:
     """Apply only explicit CLI values over an already YAML-resolved DFT map."""
 
@@ -390,6 +391,8 @@ def _apply_explicit_dft_overrides(
         resolved["out_dir"] = str(out_dir)
     if is_param_explicit("lowmem"):
         resolved["lowmem"] = bool(lowmem)
+    if is_param_explicit("scf_stepwise_grid"):
+        resolved["scf_stepwise_grid"] = bool(scf_stepwise_grid)
     resolved["max_cycle"] = optional_positive_int(
         resolved.get("max_cycle"), "dft.max_cycle"
     )
@@ -752,6 +755,14 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
          "direct-JK RKS/UKS; --no-dft-low-memory enables density fitting.",
 )
 @click.option(
+    "--scf-stepwise-grid/--no-scf-stepwise-grid",
+    "scf_stepwise_grid",
+    default=DFT_KW["scf_stepwise_grid"],
+    show_default=True,
+    help="Converge the SCF on a coarse grid first, then on the final grid "
+         "with the same settings.",
+)
+@click.option(
     "--dft-nprocs",
     "nprocs",
     type=click.IntRange(min=1),
@@ -873,6 +884,7 @@ def cli(
     grid_level: int,
     engine: str,
     lowmem: bool,
+    scf_stepwise_grid: bool,
     nprocs: Optional[int],
     memory: Optional[str],
     out_dir: Path,
@@ -967,6 +979,7 @@ def cli(
             grid_level=grid_level,
             out_dir=out_dir,
             lowmem=lowmem,
+            scf_stepwise_grid=scf_stepwise_grid,
         )
         if _is_param_explicit("nprocs") and nprocs is not None:
             dft_kw["nprocs"] = int(nprocs)
@@ -1074,6 +1087,7 @@ def cli(
             "grid_level": resolved_settings.grid_level,
             "verbose": resolved_settings.verbose,
             "lowmem": resolved_settings.lowmem,
+            "scf_stepwise_grid": resolved_settings.scf_stepwise_grid,
             "density_fit": resolved_settings.density_fit,
             "auxbasis": resolved_settings.auxbasis,
             "pyscf": resolved_settings.pyscf,
@@ -1283,6 +1297,7 @@ def cli(
         from mlmm.backends.pyscf_dft import (
             _apply_attributes,
             _attach_gpu_lowmem_point_charges,
+            stepwise_grid_density,
         )
         if isinstance(_pyscf_cfg, dict):
             _apply_attributes(mol, _pyscf_cfg.get("mol", {}), "pyscf.mol")
@@ -1323,11 +1338,12 @@ def cli(
         engine_label = "pyscf(cpu)"
         _engine = engine_name
         lowmem_requested = bool(dft_kw.get("lowmem", True))
+        rks_lowmem_mod = None
+        ks_module = None
         if _engine != "cpu":
             try:
                 from gpu4pyscf import dft as gdf
 
-                rks_lowmem_mod = None
                 if resolved_settings.use_rks_lowmem:
                     try:
                         from gpu4pyscf.dft import rks_lowmem as rks_lowmem_mod  # type: ignore
@@ -1339,7 +1355,6 @@ def cli(
                         ) from exc
 
                 if rks_lowmem_mod is not None:
-                    mf = rks_lowmem_mod.RKS(mol, xc=xc)
                     using_lowmem = True
                     engine_label = "gpu4pyscf(rks_lowmem)"
                 else:
@@ -1349,7 +1364,7 @@ def cli(
                             "open-shell run uses standard UKS.",
                             err=True,
                         )
-                    mf = gdf.RKS(mol) if model_spin2s == 0 else gdf.UKS(mol)
+                    ks_module = gdf
                     engine_label = "gpu4pyscf"
                 using_gpu = True
             except Exception as e:
@@ -1360,48 +1375,14 @@ def cli(
         if _engine == "cpu":
             from pyscf import dft as pdft
 
-            mf = pdft.RKS(mol) if model_spin2s == 0 else pdft.UKS(mol)
-
-        density_cfg = _pyscf_cfg.get("density_fit", {})
-        density_enabled = resolved_settings.density_fit
-        density_kwargs: Dict[str, Any] = {
-            key: value for key, value in density_cfg.items() if key != "enabled"
-        }
-        if density_enabled:
-            auxbasis = resolved_settings.auxbasis
-            if auxbasis is not None:
-                density_kwargs.setdefault("auxbasis", auxbasis)
-            mf = mf.density_fit(**density_kwargs)
-            if isinstance(_pyscf_cfg, dict):
-                _apply_attributes(
-                    mf.with_df, _pyscf_cfg.get("with_df", {}), "pyscf.with_df"
-                )
-
-        mf.xc = xc
-        # PySCF requires an integer loop bound. Keep the workflow configuration
-        # truly uncapped (None) and adapt only at this external-library boundary.
-        configured_max_cycle = dft_kw.get("max_cycle")
-        mf.max_cycle = (
-            1_000_000_000
-            if configured_max_cycle is None
-            else int(configured_max_cycle)
-        )
-        mf.conv_tol = float(dft_kw["conv_tol"])
-        if isinstance(_pyscf_cfg, dict):
-            _apply_attributes(mf, _pyscf_cfg.get("mf", {}), "pyscf.mf")
-        mf.grids.level = int(dft_kw["grid_level"])
-        if isinstance(_pyscf_cfg, dict):
-            _apply_attributes(mf.grids, _pyscf_cfg.get("grids", {}), "pyscf.grids")
-        try:
-            mf.chkfile = None
-        except Exception:
-            logger.debug("Failed to disable chkfile", exc_info=True)
-        if xc.lower().endswith("-v") or "vv10" in xc.lower():
-            mf.nlc = "vv10"
+            ks_module = pdft
 
         # --- Electrostatic embedding (--embedcharge) ---
         n_mm_charges = 0
         embedding_sha256 = None
+        mm_coords = None
+        mm_charges = None
+        pyscf_qmmm = None
         if calc_kw.get("embedcharge", False):
             import parmed as pmd
             from scipy.spatial.distance import cdist
@@ -1436,14 +1417,6 @@ def cli(
                     [real_top.atoms[index].charge for index in mm_indices],
                     dtype=float,
                 )
-                if using_lowmem:
-                    mf = _attach_gpu_lowmem_point_charges(
-                        mf, mm_coords, mm_charges, unit="Angstrom"
-                    )
-                else:
-                    mf = pyscf_qmmm.mm_charge(
-                        mf, mm_coords, mm_charges, unit="Angstrom"
-                    )
                 n_mm_charges = len(mm_indices)
                 embedding_digest = hashlib.sha256()
                 embedding_digest.update(
@@ -1466,8 +1439,74 @@ def cli(
                     "--embedcharge-cutoff or disable electrostatic embedding."
                 )
 
+        def build_mf():
+            """Return a new SCF method with every setting and the point charges."""
+            try:
+                if rks_lowmem_mod is not None:
+                    mf = rks_lowmem_mod.RKS(mol, xc=xc)
+                else:
+                    mf = ks_module.RKS(mol) if model_spin2s == 0 else ks_module.UKS(mol)
+            except Exception as e:
+                if not using_gpu:
+                    raise
+                raise click.ClickException(
+                    f"[gpu] GPU backend failed: {e}. "
+                    "Set dft.engine: cpu in YAML config to explicitly run on CPU."
+                )
+
+            density_cfg = _pyscf_cfg.get("density_fit", {})
+            density_kwargs: Dict[str, Any] = {
+                key: value for key, value in density_cfg.items() if key != "enabled"
+            }
+            if resolved_settings.density_fit:
+                auxbasis = resolved_settings.auxbasis
+                if auxbasis is not None:
+                    density_kwargs.setdefault("auxbasis", auxbasis)
+                mf = mf.density_fit(**density_kwargs)
+                if isinstance(_pyscf_cfg, dict):
+                    _apply_attributes(
+                        mf.with_df, _pyscf_cfg.get("with_df", {}), "pyscf.with_df"
+                    )
+
+            mf.xc = xc
+            # PySCF requires an integer loop bound. Keep the workflow configuration
+            # truly uncapped (None) and adapt only at this external-library boundary.
+            configured_max_cycle = dft_kw.get("max_cycle")
+            mf.max_cycle = (
+                1_000_000_000
+                if configured_max_cycle is None
+                else int(configured_max_cycle)
+            )
+            mf.conv_tol = float(dft_kw["conv_tol"])
+            if isinstance(_pyscf_cfg, dict):
+                _apply_attributes(mf, _pyscf_cfg.get("mf", {}), "pyscf.mf")
+            mf.grids.level = int(dft_kw["grid_level"])
+            if isinstance(_pyscf_cfg, dict):
+                _apply_attributes(mf.grids, _pyscf_cfg.get("grids", {}), "pyscf.grids")
+            try:
+                mf.chkfile = None
+            except Exception:
+                logger.debug("Failed to disable chkfile", exc_info=True)
+            if xc.lower().endswith("-v") or "vv10" in xc.lower():
+                mf.nlc = "vv10"
+
+            if mm_coords is not None:
+                if using_lowmem:
+                    mf = _attach_gpu_lowmem_point_charges(
+                        mf, mm_coords, mm_charges, unit="Angstrom"
+                    )
+                else:
+                    mf = pyscf_qmmm.mm_charge(
+                        mf, mm_coords, mm_charges, unit="Angstrom"
+                    )
+            return mf
+
         tic_scf = time.time()
-        e_tot = mf.kernel()
+        stepwise_dm = None
+        if resolved_settings.scf_stepwise_grid and not resolved_settings.is_hf:
+            stepwise_dm = stepwise_grid_density(build_mf)
+        mf = build_mf()
+        e_tot = mf.kernel() if stepwise_dm is None else mf.kernel(dm0=stepwise_dm)
         toc_scf = time.time()
 
         converged = bool(getattr(mf, "converged", False))

@@ -536,3 +536,115 @@ def test_embedding_charge_indices_are_fixed_for_the_pes_lifetime() -> None:
     core._configure_native_dft_embedding(moved)
 
     assert recorded == [[1], [1]]
+
+
+def test_stepwise_grid_density_converges_a_coarse_stage_first() -> None:
+    from pyscf import dft, gto
+
+    from mlmm.backends.pyscf_dft import (
+        SCF_STEPWISE_CONV_TOL,
+        SCF_STEPWISE_GRID_LEVEL,
+        stepwise_grid_density,
+    )
+
+    mol = gto.M(
+        atom="O 0 0 0; H 0 0.76 0.59; H 0 -0.76 0.59", basis="sto-3g", verbose=0
+    )
+    built = []
+
+    def make_method():
+        mf = dft.RKS(mol)
+        mf.xc = "lda"
+        mf.grids.level = 3
+        built.append(mf)
+        return mf
+
+    density = stepwise_grid_density(make_method)
+
+    assert density is not None
+    assert len(built) == 1
+    assert built[0].grids.level == SCF_STEPWISE_GRID_LEVEL
+    assert built[0].nlcgrids.level == SCF_STEPWISE_GRID_LEVEL
+    assert built[0].conv_tol == SCF_STEPWISE_CONV_TOL
+
+
+def test_stepwise_grid_density_falls_back_without_grid_or_convergence() -> None:
+    from mlmm.backends.pyscf_dft import stepwise_grid_density
+
+    class Grids:
+        level = 3
+
+    class Unconverged:
+        converged = False
+        grids = Grids()
+
+        def kernel(self):
+            return 0.0
+
+    class NoGrid:
+        def kernel(self):
+            raise AssertionError("a method without a grid is not run")
+
+    assert stepwise_grid_density(Unconverged) is None
+    assert stepwise_grid_density(NoGrid) is None
+
+
+def test_stepwise_grid_with_embedding_applies_only_to_the_first_scf() -> None:
+    from mlmm.backends.pyscf_dft import create_dft_backend
+
+    def run(stepwise):
+        backend = create_dft_backend(
+            _settings(func_basis="lda/sto-3g", embedcharge=True, scf_stepwise_grid=stepwise)
+        )
+        backend.set_embedding(np.array([[2.0, 0.0, 0.0]]), np.array([0.2]), [7])
+        first = Atoms("H2", positions=[[0.0, 0.0, -0.7], [0.0, 0.0, 0.7]])
+        energy, _, _ = backend.eval(first, need_grad=False)
+        second = Atoms("H2", positions=[[0.0, 0.0, -0.72], [0.0, 0.0, 0.72]])
+        backend.eval(second, need_grad=False)
+        return energy, backend.session.metrics
+
+    e_normal, normal_metrics = run(False)
+    e_staged, staged_metrics = run(True)
+
+    assert e_staged == pytest.approx(e_normal, abs=1.0e-6)
+    assert staged_metrics[0]["cycles"] < normal_metrics[0]["cycles"]
+    assert staged_metrics[0]["guess_source"] == "fresh"
+    assert staged_metrics[1]["guess_source"] == "previous_density"
+
+
+def test_stepwise_grid_is_opt_in_and_skipped_for_hartree_fock() -> None:
+    from mlmm.backends.pyscf_dft import create_dft_backend
+    from mlmm.core.dft_settings import resolve_dft_settings
+
+    assert resolve_dft_settings({"backend": "dft"}).scf_stepwise_grid is False
+    plain = create_dft_backend(_settings())
+    backend = create_dft_backend(_settings(scf_stepwise_grid=True))
+    plain.eval(Atoms("He", positions=[[0.0, 0.0, 0.0]]), need_grad=False)
+    backend.eval(Atoms("He", positions=[[0.0, 0.0, 0.0]]), need_grad=False)
+
+    assert backend.session.metrics[0]["cycles"] == plain.session.metrics[0]["cycles"]
+
+
+def test_calculator_dft_cli_flags_reach_the_dft_settings(tmp_path) -> None:
+    from pathlib import Path
+
+    from click.testing import CliRunner
+
+    from mlmm.cli import cli
+
+    smoke = Path(__file__).parent / "smoke"
+    result = CliRunner().invoke(
+        cli,
+        [
+            "sp", "-i", str(smoke / "r_complex_layered.pdb"),
+            "--real-parm7", str(smoke / "p_complex.parm7"),
+            "-q", "-1", "-m", "1", "-b", "dft", "--dft-engine", "cpu",
+            "--no-dft-low-memory", "--scf-stepwise-grid",
+            "--show-config", "--dry-run", "-o", str(tmp_path / "sp"),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "    engine: cpu\n" in result.output
+    assert "    lowmem: false\n" in result.output
+    assert "    scf_stepwise_grid: true\n" in result.output

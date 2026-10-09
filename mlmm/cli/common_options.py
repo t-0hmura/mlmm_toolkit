@@ -30,6 +30,7 @@ def add_dft_calculator_options(*, include_method: bool = True, include_engine: b
                     "help": "High-level method as FUNCTIONAL/BASIS; HF/BASIS is accepted.",
                 }),
                 (("--dft-engine", "--engine"), {
+                    "name": "engine",
                     "type": click.Choice(["gpu", "cpu"], case_sensitive=False),
                     "default": None, "show_default": "gpu",
                     "help": "PySCF execution engine used by --backend dft.",
@@ -44,11 +45,19 @@ def add_dft_calculator_options(*, include_method: bool = True, include_engine: b
                     "help": "Load/save the optional structure-bound PySCF checkpoint at PATH.",
                 }),
                 (("--dft-low-memory/--no-dft-low-memory", "--lowmem/--no-lowmem"), {
+                    "name": "lowmem",
                     "default": None, "show_default": "lowmem",
                     "help": (
                         "Use GPU4PySCF rks_lowmem for closed-shell GPU DFT; "
                         "open-shell GPU and CPU use standard direct JK. "
                         "--no-lowmem enables density fitting."
+                    ),
+                }),
+                (("--scf-stepwise-grid/--no-scf-stepwise-grid",), {
+                    "name": "scf_stepwise_grid", "default": None, "show_default": "disabled",
+                    "help": (
+                        "Converge the first SCF on a coarse grid, then on the final grid "
+                        "(later SCFs reuse the previous density as usual)."
                     ),
                 }),
                 (("--dft-nprocs",), {
