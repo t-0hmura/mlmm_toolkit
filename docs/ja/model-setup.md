@@ -108,7 +108,7 @@ mlmm extract -i system.pdb -c LIG -l 'LIG:0' -o model.pdb
 mlmm define-layer -i system.pdb --model-pdb model.pdb -o system_layered.pdb
 ```
 
-個別のコマンドか、`-c` を省いた `all` に、`system_layered.pdb` と `--parm7 system.parm7`、`--model-pdb model.pdb` を渡してください。どのコマンドも、ML 領域を `--model-pdb`、`--model-indices`、B-factor の層の順に探します（{ref}`ML/MM の共通オプション <ja-mlmm-options>`）。電荷は、ML 領域の電荷を `-q` で渡すか、残基名ごとに `-l` で渡します（PDB/mmCIF の入力）。領域を手で切ったときや、プロトン化を手で変えたときは、残基名から電荷を求められないので `-q` で渡してください。
+個別のコマンドか、`-c` を省いた `all` に、`system_layered.pdb` と `--parm7 system.parm7`、`--model-pdb model.pdb` を渡してください。どのコマンドも、ML 領域を `--model-pdb`、`--model-indices`、B-factor の層の {ref}`順に探します <ja-mlmm-options>`。電荷は、ML 領域の電荷を `-q` で渡すか、残基名ごとに `-l` で渡します（PDB/mmCIF の入力）。領域を手で切ったときや、プロトン化を手で変えたときは、残基名から電荷を求められないので `-q` で渡してください。
 
 (ja-model-pdb-selection)=
 ### 信頼できる `model.pdb` の作り方
@@ -130,7 +130,7 @@ PyMOL で `model.pdb` を保存するときは、書き出しの画面で **Orig
 
 ### 原子を固定する 3 つの方法
 
-- **Frozen-MM の層**（B-factor 20）：自動で固定します（{ref}`MM の層 <ja-mm-layers>`）。
+- **Frozen-MM の層**（B-factor 20）：{ref}`自動で固定します <ja-mm-layers>`。
 - **`--freeze-atoms 'i,j,k'`**：全系の 1 始まりの原子番号です。`all`・`opt`・`tsopt`・`irc`・`freq`・`scan`・`scan2d`・`scan3d`・`path-opt`・`path-search`・`sp` で使えます。
 - **YAML の `geom.freeze_atoms`**（`--config` で渡す）：リストが長いときや、ほかの設定と一緒に残したいときに使います。
 

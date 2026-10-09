@@ -109,7 +109,7 @@ With several inputs, each structure selects its residues, and the union of the s
 | Several | one path | one multi-MODEL PDB |
 | Several | one path per input | one PDB per input |
 
-Any other number of `-o` paths stops with an error, and so does an output path that is the input file itself. Missing parent directories are created. `result.json` holds the atom counts (`n_atoms_raw`, `n_atoms_extracted`, `n_link_hydrogens`), the charges (`total_charge`, `protein_charge`, `ligand_total_charge`, `ion_total_charge`), and the settings used; see [JSON Output Reference](json-output.md). mmCIF input, and PDB input too large for the PDB columns, also get `.cif` files that keep the original identifiers (see {ref}`mmCIF input <mmcif-input>`).
+Any other number of `-o` paths stops with an error, and so does an output path that is the input file itself. Missing parent directories are created. `result.json` holds the atom counts (`n_atoms_raw`, `n_atoms_extracted`, `n_link_hydrogens`), the charges (`total_charge`, `protein_charge`, `ligand_total_charge`, `ion_total_charge`), and the settings used; see [JSON Output Reference](json-output.md). {ref}`mmCIF input <mmcif-input>`, and PDB input too large for the PDB columns, also get `.cif` files that keep the original identifiers.
 
 ---
 

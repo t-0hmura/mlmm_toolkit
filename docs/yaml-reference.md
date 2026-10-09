@@ -114,7 +114,7 @@ Accepted values: `gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`
 ```{note}
 **Subcommands without `--thresh`.** `irc`, `freq`, `dft`, and `sp` do **not** expose `--thresh`:
 
-- `irc` — convergence is governed by `irc.rms_grad_thresh`, `irc.energy_thresh`, and `irc.max_cycles` (see [`irc` section](#irc-section)). The optimizer presets do not apply because IRC follows a predictor–corrector integrator, not a force-based minimizer.
+- [`irc`](#irc-section) — convergence is governed by `irc.rms_grad_thresh`, `irc.energy_thresh`, and `irc.max_cycles`. The optimizer presets do not apply because IRC follows a predictor–corrector integrator, not a force-based minimizer.
 - `freq` and `sp` — there is no optimization step, so no `--thresh`.
 - `dft` — SCF convergence uses `dft.conv_tol` (default `1e-9` hartree) and `dft.max_cycle`, not the `gau`/`baker` presets. See the [`dft` section](#dft-section).
 ```

@@ -53,7 +53,7 @@ Provide one of three inputs: (1) several PDB structures in reaction order (R →
 3. **Minimum energy path (MEP) search**: searches the pathway with the Growing String Method (GSM) or Direct Max Flux (DMF)
 4. **High-accuracy checks**: TS optimization, IRC, vibrational analysis, and DFT single points
 
-The ML region uses **UMA** (Meta) by default; `-b/--backend` also selects **ORB**, **MACE**, and **AIMNet2** (see [MLIP Backends](backends.md)).
+The ML region uses **UMA** (Meta) by default; [`-b/--backend`](backends.md) also selects **ORB**, **MACE**, and **AIMNet2**.
 
 Once MLIP/MM has found a reasonable pathway, `mlmm-toolkit` can take its TS straight into a DFT/MM TS optimization. It runs the TS optimization → IRC → endpoint optimization → frequency workflow with GPU-accelerated DFT through GPU4PySCF. See [Refine an MLIP TS with DFT](dft-backend.md) for details.
 

@@ -78,7 +78,7 @@ See the [generated CLI reference](reference/commands/bond_summary.md) for every 
 
 ## Notes
 
-* **Same atoms in the same order**: every structure must have the same atoms in the same order. A pair that differs prints `ERROR: Atom types and ordering must be identical.` to stderr (see {ref}`Input / extraction <input--extraction>`).
+* **Same atoms in the same order**: every structure must have the same atoms in the same order. A pair that differs prints `ERROR: Atom types and ordering must be identical.` to stderr; see {ref}`Input / extraction <input--extraction>`.
 * **Borderline bonds**: to count longer contacts such as metal coordination at 2.0–2.4 Å, raise `--bond-factor` (for example `1.30`).
 * **Failed pairs**: if any pair cannot be compared, the run exits with code 1 and the JSON `scientific_status` is `partial` or `failed`.
 * **Exit codes**: see {ref}`Exit codes <exit-codes>`.

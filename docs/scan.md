@@ -9,7 +9,7 @@
 * **A path from one structure**: drive the reacting bonds of a reactant to get intermediate- and product-like structures for [`path-search`](path-search.md).
 * **Testing the order of events**: drive bond formation and proton transfer in one stage or in separate stages, and compare the energy profiles.
 * **Running the scan step of `all` on its own**: repeat the scan that [`all`](all.md) runs for `-s`, with other step sizes or restraints.
-* **Judging the result**: each stage reports whether covalent bonds formed or broke, and `result.json` gives `scientific_status` (see {ref}`Checking the result <scan-checking-result>`).
+* **Judging the result**: each stage reports whether covalent bonds formed or broke, and `result.json` gives `scientific_status`. See {ref}`Checking the result <scan-checking-result>`.
 
 The ML region uses **UMA** (Meta) by default; `-b/--backend` also selects **ORB**, **MACE**, **AIMNet2**, or DFT (`dft`). For an energy grid over two or three independent coordinates, use [`scan2d`](scan2d.md) or [`scan3d`](scan3d.md).
 
@@ -68,7 +68,7 @@ mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
 
 ### 5. Bidirectional scan
 
-A 4-tuple scans one distance in both directions from the input geometry (see [Bidirectional scan](#bidirectional-scan-4-tuple)).
+A [4-tuple](#bidirectional-scan-4-tuple) scans one distance in both directions from the input geometry.
 
 ```bash
 mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
@@ -88,7 +88,7 @@ mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
 
 ## How it works
 
-1. **Reading the structure**: the ML-region charge comes from `-q` or `-l` (see {ref}`Charge specification <charge-specification>`). With `--preopt`, the structure is first optimized without restraints; if that does not converge, the input geometry is used.
+1. **Reading the structure**: the ML-region {ref}`charge <charge-specification>` comes from `-q` or `-l`. With `--preopt`, the structure is first optimized without restraints; if that does not converge, the input geometry is used.
 2. **Splitting each stage into steps**: for every coordinate, `scan` takes the change Δ = target − current and divides the stage into N = ceil(max(|Δ| / h)) steps, where h is `--max-step-size` (Å) for distances, `--max-angle-step-size` for angles, and `--max-dihedral-step-size` for dihedrals (degrees). Each coordinate moves by Δ / N per step, so all coordinates of a stage arrive together.
 3. **Restrained relaxation**: at each step, a harmonic restraint E = ½ k (q − q_target)² holds every scanned coordinate q at its step target (k from `--restraint-k`), and the rest of the structure is relaxed with the ML/MM calculator by L-BFGS (`--opt-mode grad`, default) or RFO (rational function optimization, `--opt-mode hess`); the atoms of the frozen MM layer stay fixed. The energy written for each step is the ML/MM energy computed with the restraints removed. Cartesian coordinates (`geom.coord_type: cart`) are the default and recommended for ML/MM scans; `dlc` can be selected in YAML but can take much longer to converge.
 4. **End of the stage**: with `--endopt`, the last structure of the stage is optimized once more without restraints. `scan` then compares the first and last structures of the stage for covalent-bond changes and writes the stage result.
@@ -123,7 +123,7 @@ Let T be the sum of the covalent radii of two atoms scaled by `bond_factor` (def
 | `result.json` (`--out-json`) | `scientific_status`: `success` when every step of every stage converged (and the `--preopt` and `--endopt` optimizations, when requested) with a finite energy; `partial` when only some of them did; `failed` when none did |
 | `result.json` (`--out-json`) | `stages[].converged`, `stages[].bond_changes.changed`, `stages[].final_energy_hartree`, and the energy of every step in `stages[].energies_hartree` |
 
-A `partial` run exits with 0 and a `failed` run with 1 (see {ref}`Exit codes <exit-codes>`). A converged scan with the intended bond changes gives a candidate path; the highest-energy step is a TS candidate for [`tsopt`](tsopt.md) (to take that frame out of `scan_trj.xyz`, see {ref}`Extract one frame from a trajectory <trajectory-one-frame>`).
+A `partial` run exits with 0 and a `failed` run with 1. See {ref}`Exit codes <exit-codes>`. A converged scan with the intended bond changes gives a candidate path; the highest-energy step is a TS candidate for [`tsopt`](tsopt.md), which you can {ref}`extract <trajectory-one-frame>` from `scan_trj.xyz`.
 
 ### Barrier sign
 
@@ -154,7 +154,7 @@ result_scan/
 └─ result.json                      # Summary (--out-json); summary.json has the same content
 ```
 
-The structures and trajectories are also written as PDB under the same names (`result.pdb`, `scan.pdb`); `--no-convert-files` turns this off. mmCIF input, and PDB input too large for the PDB columns, also get `.cif` files that keep the original identifiers (see {ref}`mmCIF input <mmcif-input>`).
+The structures and trajectories are also written as PDB under the same names (`result.pdb`, `scan.pdb`); `--no-convert-files` turns this off. {ref}`mmCIF input <mmcif-input>`, and PDB input too large for the PDB columns, also get `.cif` files that keep the original identifiers.
 
 * **Stage results**: `stage_NN/result.*` is the structure at the end of stage NN. For [`path-search`](path-search.md), give the starting structure followed by the `stage_NN/result.*` files in stage order.
 * **Energy profile**: the comment line of each frame in `scan_trj.xyz` holds the energy without restraints (Hartree); plot it with [`trj2fig`](trj2fig.md).
@@ -193,12 +193,12 @@ See the [generated CLI reference](reference/commands/scan.md) for every option.
 
 ## Notes
 
-* **`--preopt` depends on the caller**: run on its own, `scan` does not pre-optimize unless you pass `--preopt`. Inside `all`, the scan pre-optimizes when `all --preopt` is on (the default), and `all --scan-preopt/--no-scan-preopt` overrides it (see the [`all` CLI reference](reference/commands/all.md)).
+* **`--preopt` depends on the caller**: run on its own, `scan` does not pre-optimize unless you pass `--preopt`. Inside `all`, the scan pre-optimizes when `all --preopt` is on (the default), and [`all --scan-preopt/--no-scan-preopt`](reference/commands/all.md) overrides it.
 * **Targets and ranges are not mixed inline**: one inline literal, and all literals of one run, hold either targets `(i,j,target)` or ranges. To combine them, list them under `stages:` in a YAML/JSON spec.
 * **Stage numbers with ranges**: a range gives two stages, toward `low` and then toward `high` (a single 4-tuple gives `stage_01/` and `stage_02/`). Inline, all ranges of one literal move together in these two stages; in a YAML `stages:` list, each entry of a stage that holds a range becomes its own stage, one for a target and two for a range.
 * **Target distances must be positive**, and one coordinate may appear only once per stage.
 * **Check the spec without computing**: `--dry-run` reads the input, the charge and spin, and `-s`, prints the number of stages, and exits without any optimization.
-* **Frozen atoms**: the atoms given by `--freeze-atoms` or YAML `geom.freeze_atoms`, and the atoms of the frozen MM layer, stay fixed in every relaxation. A scanned coordinate whose atoms are all frozen is an error (see {ref}`Frozen atoms and restraints <freeze-atoms-and-restraints>`).
+* **Frozen atoms**: the atoms given by `--freeze-atoms` or YAML `geom.freeze_atoms`, and the atoms of the frozen MM layer, stay fixed in every relaxation. A scanned coordinate whose atoms are all {ref}`frozen <freeze-atoms-and-restraints>` is an error.
 * **Cycle limit**: `--relax-max-cycles` (default `100000`) limits each relaxation; when given, it overrides YAML `opt.max_cycles`.
 
 ---

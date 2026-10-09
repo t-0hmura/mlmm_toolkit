@@ -161,7 +161,7 @@ result_all/
 ```
 
 * **報告に使う構造**: `segments/seg_NN/reactant.*`・`ts.*`・`product.*` を使ってください。`seg_NN/` の下の各ディレクトリには、各段の計算のファイルが入っています。
-* **`.cif` ファイル**: mmCIF の入力と、PDB の欄に入りきらない大きな PDB の入力では、元の識別子を保った `.cif` も書きます（{ref}`mmCIF と大きな構造 <ja-mmcif-input>`）。
+* **`.cif` ファイル**: {ref}`mmCIF の入力 <ja-mmcif-input>` と、PDB の欄に入りきらない大きな PDB の入力では、元の識別子を保った `.cif` も書きます。
 * **TS-only モード**: MEP 探索が無いので、MEP のファイルと `_work/path_opt/` はありません。R・TS・P は `segments/seg_01/` に入ります。
 
 エネルギー図のファイル名は手法を表します。

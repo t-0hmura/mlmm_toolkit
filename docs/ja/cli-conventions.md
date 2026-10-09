@@ -60,7 +60,7 @@ mlmm opt -i input.pdb --parm7 real.parm7 -q -1 --config my_settings.yaml --show-
 | `--parm7` | 酵素複合体全体（全系）の Amber parm7 トポロジー。 | 必須（`all` は自分で作る） |
 | `--model-pdb` | ML 領域だけの PDB（リンク水素を含まない）。原子の名前と順序は全系の PDB・parm7 と同じにします。与えると、これで ML 領域が決まります。 | なし |
 | `--model-indices` | ML 領域の原子番号（1 始まり、カンマ区切り。`1-5` のような範囲も可）。`--model-pdb` が無いときに使います。 | なし |
-| `--detect-layer/--no-detect-layer` | B-factor 0 / 10 / 20 を ML・Movable-MM・Frozen-MM の層として読みます（{ref}`MM の層 <ja-mm-layers>`）。ML 領域を明示したときは MM の層だけを読みます。 | `--detect-layer` |
+| `--detect-layer/--no-detect-layer` | B-factor 0 / 10 / 20 を {ref}`ML・Movable-MM・Frozen-MM の層 <ja-mm-layers>` として読みます。ML 領域を明示したときは MM の層だけを読みます。 | `--detect-layer` |
 | `--ref-pdb` | XYZ 入力のときに、原子の順序と残基の情報を与える PDB。 | なし |
 | `--movable-cutoff` | ML 領域からの距離（Å）。この内側の MM 原子は動き、外側は固定されます。 | なし（層は B-factor か `--freeze-atoms` から） |
 | `--mm-backend` | MM の計算エンジン：`hessian_ff` か `openmm`。MM の Hessian はデフォルトで有限差分です。 | `hessian_ff` |

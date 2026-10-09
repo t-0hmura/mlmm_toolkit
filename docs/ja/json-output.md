@@ -104,7 +104,7 @@ ML/MM 計算機を評価するコマンドは、さらに以下を記録しま�
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
-| `optimization_status` | string | `"converged"` / `"not_converged"` / `"stalled"`（エネルギープラトー。[エラー処理](#エラー処理)を参照） |
+| `optimization_status` | string | `"converged"` / `"not_converged"` / [`"stalled"`](#エラー処理)（エネルギープラトー） |
 | `stop_reason` | string | オプティマイザが収束せずに止まったとき（`stalled` か `not_converged`）だけ出力。エネルギープラトーの範囲・ウィンドウや満たせなかった基準など、止まった理由を記録 |
 | `energy_hartree` | float | 最終 ONIOM エネルギー (Hartree) |
 | `n_opt_cycles` | int | 最適化サイクル数 |

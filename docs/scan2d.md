@@ -65,7 +65,7 @@ mlmm scan2d -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
 ## How it works
 
 1. **Starting structure and grid**:
-The ML-region charge comes from `-q` or `-l` (see {ref}`Charge specification <charge-specification>`). With `--preopt`, the input is first optimized without restraints; if that does not converge, the input geometry is used. Each axis gets ceil(|high − low| / h) + 1 evenly spaced values, both ends included, where h is `--max-step-size` (Å) for a distance and `--max-angle-step-size` or `--max-dihedral-step-size` (degrees) for an angle or dihedral. The values are visited from the one closest to the starting structure.
+The ML-region {ref}`charge <charge-specification>` comes from `-q` or `-l`. With `--preopt`, the input is first optimized without restraints; if that does not converge, the input geometry is used. Each axis gets ceil(|high − low| / h) + 1 evenly spaced values, both ends included, where h is `--max-step-size` (Å) for a distance and `--max-angle-step-size` or `--max-dihedral-step-size` (degrees) for an angle or dihedral. The values are visited from the one closest to the starting structure.
 2. **Outer and inner loops**:
 For each d₁ value, the structure is relaxed with only the d₁ restraint. The inner loop then scans d₂ with both restraints, starting each point from the nearest point that has already converged.
 3. **Relaxation at each point**:
@@ -92,7 +92,7 @@ After the last point, all points go into `surface.csv`. The usable points are in
 
 * **Reference row**: `i = j = -1` and `is_preopt = true` hold the starting structure. The row stays in the table but is never a grid point, a baseline, or a plotted point.
 * **Usable points**: a point is usable when its relaxation converged, its energy is finite, and its structure was written. Only usable points set the baseline and enter the plots.
-* **Verdict**: in `result.json` (`--out-json`), `scientific_status` is `success` when every grid point is usable, `partial` when only some are (exit status 0), and `failed` when none is (exit status 1); `n_points_attempted` and `n_points_usable` give the counts (see {ref}`Exit codes <exit-codes>`).
+* **Verdict**: in `result.json` (`--out-json`), `scientific_status` is `success` when every grid point is usable, `partial` when only some are ({ref}`exit status <exit-codes>` 0), and `failed` when none is (exit status 1); `n_points_attempted` and `n_points_usable` give the counts.
 * **Next step**: the plots are interpolated, so take a structure from a computed point near the saddle, `grid/point_*.pdb`, and pass it to [`tsopt`](tsopt.md); points in the two basins can be inputs for [`path-search`](path-search.md).
 
 ---
@@ -116,7 +116,7 @@ result_scan2d/
 Start with `surface.csv` and the two plots; the structure of each point is under `grid/`. In `result.json`, `grid_points[]` maps each grid index to its values, targets, energy, convergence, and structure file; use it instead of reading values back from file names.
 
 * **File names**: the number after `i` or `j` (the tag `DDD`) is the target × 100 (Å, or degrees for an angle), padded to at least three digits, not the grid index of `surface.csv`: `d1 = 1.50 Å, d2 = 0.90 Å` gives `point_i150_j090.xyz`, and an angle of 120° gives `12000`. When two points round to the same tag, the later file name gets `_grid_III_JJJ` with the zero-based indices.
-* **Other formats**: each structure is also written as `.pdb` (`--no-convert-files` turns this off), with the layer of each atom in the B-factor column: 0 for the ML region, 10 for movable MM, and 20 for frozen MM. mmCIF input, and PDB input too large for the PDB columns, also get `.cif` files with the original identifiers (see {ref}`mmCIF input <mmcif-input>`).
+* **Other formats**: each structure is also written as `.pdb` (`--no-convert-files` turns this off), with the layer of each atom in the B-factor column: 0 for the ML region, 10 for movable MM, and 20 for frozen MM. {ref}`mmCIF input <mmcif-input>`, and PDB input too large for the PDB columns, also get `.cif` files with the original identifiers.
 
 ---
 
@@ -153,11 +153,11 @@ See the [generated CLI reference](reference/commands/scan2d.md) for every option
 ## Notes
 
 * **Two ranges in one literal**: `-s` takes exactly two ranges, in one inline literal or under `pairs:` in a YAML/JSON file. For staged scans, use [`scan`](scan.md).
-* **For a PDB with chains**, the positional form `A:SAM:320:CS1` picks one atom without ambiguity (see {ref}`Scan-list spec <scan-list-spec>`).
+* **For a PDB with chains**, the {ref}`positional form <scan-list-spec>` `A:SAM:320:CS1` picks one atom without ambiguity.
 * **Restraint units**: `--restraint-k` is in eV/Å² for distances and eV/rad² for angles and dihedrals. When the option is omitted, YAML `bias.k` applies.
 * **Energies without restraints**: every recorded energy is computed after the restraints are removed, so `surface.csv` can go straight into fitting or plotting scripts.
 * **Baseline**: `--baseline min` (default) puts zero at the lowest usable point; `--baseline first` puts it at point `(i, j) = (0, 0)`, or at the lowest usable point when `(0, 0)` is not usable.
-* **Frozen atoms**: the atoms given by `--freeze-atoms` or YAML `geom.freeze_atoms`, and the atoms of the frozen MM layer, stay fixed in every relaxation. A scanned coordinate whose atoms are all frozen is an error (see {ref}`Frozen atoms and restraints <freeze-atoms-and-restraints>`).
+* **Frozen atoms**: the atoms given by `--freeze-atoms` or YAML `geom.freeze_atoms`, and the atoms of the frozen MM layer, stay fixed in every relaxation. A scanned coordinate whose atoms are all {ref}`frozen <freeze-atoms-and-restraints>` is an error.
 * **Check the spec without computing**: `--dry-run` reads the input, the charge and spin, and `-s`, prints the plan, and exits without any optimization.
 * **Cycle limit**: `--relax-max-cycles` (default `100000`) limits each relaxation; an explicit value overrides YAML `opt.max_cycles`.
 * **Too few usable points**: with fewer than three usable points, or with all of them on one line, only the plots are skipped. The run prints `[plot] NOTE: Plots skipped: …`, still writes `surface.csv` (and `result.json` with `--out-json`), and exits with status 0. With no usable point it prints `[plot] No finite data for plotting.` and exits with status 1.

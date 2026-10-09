@@ -73,7 +73,7 @@ result_all/
 ## 使用上の注意点
 
 * **準備の結果の再利用**: `mm_parm/1.R.parm7` を `--parm7` で、`ml_region.pdb` を `--model-pdb` で次の実行や個別のコマンドに渡すと、トポロジーを組み直さずに同じ系を計算できます。
-* **DFT と GPU のメモリ**: `--dft` には DFT 用の追加パッケージ（{ref}`詳細なインストール手順 <ja-step-by-step-installation>` の手順 7）が要ります。GPU メモリについては [MLIP の TS を DFT で確かめる](dft-backend.md#使用上の注意点) の使用上の注意点を参照してください。
+* **DFT と GPU のメモリ**: `--dft` には、{ref}`詳細なインストール手順 <ja-step-by-step-installation>` の手順 7 で入れる DFT 用の追加パッケージが要ります。GPU メモリについては [MLIP の TS を DFT で確かめる](dft-backend.md#使用上の注意点) の使用上の注意点を参照してください。
 * **`summary.json` の障壁**: `segments[].barrier_kcal` は TS 最適化の前の、MEP の上の障壁です。`--tsopt` を付けると、最適化した TS と端点から求めた ML/MM の障壁が `post_segments[].mlip.barrier_kcal` に入り、`--thermo` で `post_segments[].gibbs_mlip.barrier_kcal`、`--dft` で `post_segments[].dft.barrier_kcal` が加わります。`rate_limiting_step.barrier_kcal` は、すべてのセグメントにそろっている最も高いレベル（`DFT//MLIP/MM_Gibbs` > `DFT` > `MLIP_Gibbs` > `MLIP` > `MEP`）で比べた、最も高い障壁です。使ったレベルは `rate_limiting_step.method` に入ります。
 * **実行時間**: 系の大きさ、ML 領域の大きさ、GPU、求めた段によって変わります。
 

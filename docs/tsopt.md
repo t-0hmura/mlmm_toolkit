@@ -25,7 +25,7 @@ Optimize the candidate with `tsopt`, then follow the TS with [`irc`](irc.md). Th
 
 ## Examples
 
-In these examples, `ts_guess.pdb` is the full-system candidate that matches `real.parm7`, and `ml_region.pdb` defines the ML region (see [Building the ML region and layers](model-setup.md)).
+In these examples, `ts_guess.pdb` is the full-system candidate that matches `real.parm7`, and `ml_region.pdb` defines the [ML region](model-setup.md).
 
 ### 1. Default run (RS-P-RFO)
 
@@ -67,7 +67,7 @@ mlmm tsopt -i ts_guess.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ## How it works
 
-1. **Reading the model and freezing the boundary**: the ML region comes from `--model-pdb` and the movable and frozen MM layers from the B-factors of the input PDB; the charge of the ML region comes from `-q` or `-l` (see {ref}`Charge specification <charge-specification>`). The frozen MM layer and the atoms in `--freeze-atoms` stay fixed, and the final Hessian covers the atoms chosen by `--active-dof-mode` (PHVA: partial Hessian vibrational analysis). An `.xyz` candidate needs the full-system PDB with `--ref-pdb` for the atom order and the layers.
+1. **Reading the model and freezing the boundary**: the ML region comes from `--model-pdb` and the movable and frozen MM layers from the B-factors of the input PDB; the {ref}`charge <charge-specification>` of the ML region comes from `-q` or `-l`. The frozen MM layer and the atoms in `--freeze-atoms` stay fixed, and the final Hessian covers the atoms chosen by `--active-dof-mode` (PHVA: partial Hessian vibrational analysis). An `.xyz` candidate needs the full-system PDB with `--ref-pdb` for the atom order and the layers.
 2. **Choosing the optimizer** (`--opt-mode`): `hess` (default) runs **RS-P-RFO** (restricted-step partitioned rational function optimization), which uses the full Hessian; `rsirfo` and `trim` select RS-I-RFO (restricted-step image RFO) and TRIM (trust-region image minimization). `dimer` (or `grad`) runs the **Hessian-guided Dimer** method, which follows the lowest mode with gradients and refreshes its direction from an exact Hessian at intervals.
 3. **Climbing along the reaction mode**: the optimizer goes uphill along the reaction mode and downhill along every other direction until the convergence criteria (`--thresh`, default `baker`) are met. `baker` needs all five at once (atomic units): max force below 3 × 10⁻⁴, RMS force below 2 × 10⁻⁴, max step below 3 × 10⁻⁴, RMS step below 2 × 10⁻⁴, and an energy change below 10⁻⁶ hartree, all tighter than Gaussian's default (`gau`). RS-P-RFO updates the Hessian with the Bofill formula and keeps each step within a trust radius of 0.1 bohr (`rsirfo.trust_max`). With microiteration (`--microiter`, on by default), each macro step moves the ML region and the boundary MM atoms bonded to it, and the movable MM atoms then relax with L-BFGS. With microiteration, the optimizer's own lines start with `[microiter]`; Dimer and `--no-microiter` print the `[tsopt]` form.
 4. **Final check**: after convergence, `tsopt` computes the Hessian at the final geometry, counts n_imag, and writes each imaginary mode as an animation. Frozen atoms are handled as in [`freq`](freq.md#rigid-modes-with-frozen-boundaries).
@@ -136,11 +136,11 @@ result_tsopt/
 └─ result.json                      # Summary (--out-json)
 ```
 
-mmCIF input, and PDB input too large for the PDB columns, also get `.cif` files that keep the original identifiers (see {ref}`mmCIF input <mmcif-input>`).
+{ref}`mmCIF input <mmcif-input>`, and PDB input too large for the PDB columns, also get `.cif` files that keep the original identifiers.
 
 * **Final geometry**: `final_geometry.*` is the TS to pass to [`irc`](irc.md). In `final_geometry.pdb`, the B-factor is 0 for the ML region, 10 for movable MM atoms, and 20 for frozen MM atoms.
 * **Reaction mode**: open `vib/imag_*_trj.xyz` in PyMOL or VMD and check that the atoms move along the bonds that form or break.
-* **Summary**: with `--out-json`, `result.json` records how the run ended (`optimization_status`: `converged`, `stalled`, or `not_converged`), `hessian_status`, and n_imag (see [JSON Output Reference](json-output.md#tsopt)).
+* **Summary**: with `--out-json`, [`result.json`](json-output.md#tsopt) records how the run ended (`optimization_status`: `converged`, `stalled`, or `not_converged`), `hessian_status`, and n_imag.
 
 ---
 
@@ -207,7 +207,7 @@ For every option, run `mlmm tsopt --help-advanced` or see the [generated CLI ref
 * **One root**: the optimizer climbs along one root (`0` is the lowest eigenvalue). Set it as a one-item list such as `rsirfo.roots: [0]`; Dimer uses `hessian_dimer.root`. `tsopt` has no `--root` flag.
 * **Other RS-P-RFO settings**: `trust_norm: max_atom` limits the displacement of each atom instead of the whole step (Cartesian coordinates only), and `hessian_update: ts_bfgs` selects the TS-BFGS update instead of Bofill. Neither changes the trust radii.
 * **Extra searches are opt-in**: after convergence, `tsopt` does not search further on its own, even when n_imag is not 1. Use `--flatten`, or set `rsirfo.saddle_recovery_max_cycles` above `0` (default `0`) to let RS-P-RFO / RS-I-RFO / TRIM step uphill when the exact Hessian shows no imaginary mode.
-* **Flags that cannot be combined**: `--skip-final-freq` with `--dump-hess`; `--uma-workers` (parallel MLIP workers) above 1 with `--hessian-calc-mode Analytical` (see [Workers and Hessian mode](backends.md#workers-and-hessian-mode)).
+* **Flags that cannot be combined**: `--skip-final-freq` with `--dump-hess`; [`--uma-workers`](backends.md#workers-and-hessian-mode) (parallel MLIP workers) above 1 with `--hessian-calc-mode Analytical`.
 * **`--skip-final-freq` and `--flatten`**: with RS-P-RFO / RS-I-RFO / TRIM, `--skip-final-freq` also skips `--flatten`, which needs the final Hessian.
 * **`--read-hess` with RS-P-RFO / RS-I-RFO / TRIM**: the file replaces the first exact Hessian, so keep `rsirfo.hessian_init` at its default `calc`; other values stop with an error.
 * **MM relaxation threshold in microiteration**: `microiter.micro_thresh` sets the convergence criteria of the MM relaxation; when it is unset, the MM relaxation uses the same criteria as the macro step.

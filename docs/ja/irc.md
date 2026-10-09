@@ -68,7 +68,7 @@ mlmm irc -i ts.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ## 処理の仕組みと計算仕様
 
-1. **ML/MM の系の組み立て**: `-i` から TS の構造を、`--parm7` から Amber のトポロジーを、`--model-pdb` から ML 領域を読みます（{ref}`ML/MM の共通オプション <ja-mlmm-options>` を参照）。`-q` と `-m` は ML 領域の電荷とスピン多重度です。
+1. **ML/MM の系の組み立て**: `-i` から TS の構造を、`--parm7` から Amber のトポロジーを、`--model-pdb` から {ref}`ML 領域 <ja-mlmm-options>` を読みます。`-q` と `-m` は ML 領域の電荷とスピン多重度です。
 2. **出発の方向**: TS で Hessian を計算するか `--read-hess` のファイルから読み、剛体運動を [`freq`](freq.md#凍結境界での剛体モード) と同じように除いてから、`--root` 番目（デフォルト `0`）の固有ベクトルを反応モードとします。そのモードが虚振動でなければ、エラーで止まります。
 3. **EulerPC による積分**: 各分岐（順方向、次に逆方向）は TS から始まります。各ステップでは、質量加重の最急降下方向に沿って Euler 予測子で進み、続いて DWI（距離加重補間）面の上で修正 Bulirsch–Stoer 修正子をかけます。予測子の勾配は、Bofill 式で更新する現在の Hessian を使った 2 次の Taylor 展開で見積もります。分岐は、TS の近くを出た後に RMS 勾配が 1 × 10⁻³ hartree/bohr を下回ったとき、エネルギーが上がったとき、1 ステップのエネルギー変化が 1 × 10⁻⁶ hartree 以下になったとき、または `--max-cycles`（デフォルト 125）に達したときに止まります。
 4. **経路の書き出し**: 各分岐、TS を通る経路全体、端の構造を書き出します。PDB/mmCIF の入力か `--ref-pdb` があるときは、軌跡と 2 つの端点の候補を PDB にも変換します。
@@ -122,11 +122,11 @@ result_irc/
 └─ result.json             # 結果の要約（--out-json）
 ```
 
-`.pdb` は、PDB/mmCIF の入力か `--ref-pdb` があるときに書きます。mmCIF の入力と、PDB の欄に入りきらない大きな PDB の入力では、元の識別子を保った `.cif` も書きます（{ref}`mmCIF の入力 <ja-mmcif-input>` を参照）。
+`.pdb` は、PDB/mmCIF の入力か `--ref-pdb` があるときに書きます。{ref}`mmCIF の入力 <ja-mmcif-input>` と、PDB の欄に入りきらない大きな PDB の入力では、元の識別子を保った `.cif` も書きます。
 
 * **端点の候補**: `forward_first.xyz` と `backward_last.xyz` を [`opt`](opt.md) で最適化します。各分岐は TS 側のもう一方の端（`forward_last.xyz`、`backward_first.xyz`）も書きます。
 * **経路**: `finished_irc_trj.xyz` か `finished_irc.pdb` を PyMOL や VMD で開くと、反応の動きを見られます。
-* **要約**: `--out-json` を付けると、`result.json` に各分岐のフレーム数（`n_frames_forward`、`n_frames_backward`）、各分岐の止まり方、`bond_changes`、両端と TS のエネルギー（`energy_first_hartree`、`energy_ts_hartree`、`energy_last_hartree`）、`rigid_projection` に除いた剛体運動と最初の Hessian の情報が記録されます（[JSON 出力の一覧](json-output.md) を参照）。
+* **要約**: `--out-json` を付けると、[`result.json`](json-output.md) に各分岐のフレーム数（`n_frames_forward`、`n_frames_backward`）、各分岐の止まり方、`bond_changes`、両端と TS のエネルギー（`energy_first_hartree`、`energy_ts_hartree`、`energy_last_hartree`）、`rigid_projection` に除いた剛体運動と最初の Hessian の情報が記録されます。
 * **端末**: 各分岐のステップの表と実行時間が出ます。
 
 > **補足:** YAML で `irc.prefix: trial` とすると、`result.json` 以外のファイルの名前が `trial_finished_irc_trj.xyz` のように `trial_` で始まり、`result.json` の `files` にも接頭辞つきの名前が記録されます。YAML の `irc.dump_every` に正の整数を指定すると、実行中に HDF5 のチェックポイント `irc_data.h5` も書きます（デフォルトは書きません）。
@@ -168,7 +168,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 * **`--root` は 0 から数える**: TS 最適化が成功すると、反応モードの虚振動が 1 つ出るので、n_imag = 1 の TS では `--root 0`（ただ 1 つの負の固有値）のままにしてください。`1`、`2` などは、反応モードより固有値の小さい（より負の）疑似モードがあると分かっているときだけ使います。
 * **Cartesian 座標**: YAML の `geom.coord_type` にかかわらず、`irc` は Cartesian 座標を使います。
 * **`--read-hess` のファイル**: [`freq`](freq.md) と同じ `.npy` ファイルで、単位は Hartree/bohr²、全原子か Hessian の計算に入る原子だけの分を持ちます。同じ構造・電荷・多重度・計算機で計算した Hessian を渡してください。`irc.hessian_init: calc`（デフォルト）が必要です。ファイルを使ったときは、`result.json["rigid_projection"]["hessian_source"]` が `"file"` になります。
-* **解析 Hessian と `--uma-workers`**: UMA では、`--hessian-calc-mode Analytical` は 1 より大きい `--uma-workers` と併用できず、エラーで止まります。解析 Hessian には `--uma-workers 1` を使ってください（[バックエンド](backends.md) を参照）。速度とメモリ量はバックエンドと系によって変わるので、先に対象の系で両方を比べてください。
+* **解析 Hessian と `--uma-workers`**: UMA では、`--hessian-calc-mode Analytical` は 1 より大きい `--uma-workers` と併用できず、エラーで止まります。[解析 Hessian](backends.md) には `--uma-workers 1` を使ってください。速度とメモリ量はバックエンドと系によって変わるので、先に対象の系で両方を比べてください。
 * **凍結原子**: 凍結 MM 層のほかに、`--freeze-atoms` でほかの原子（1 始まり）も凍結できます。選び方は {ref}`原子の固定と距離の拘束 <ja-freeze-atoms-and-restraints>` を参照してください。
 * **大きな系**: `--hess-device cpu` を付けると、最初の Hessian と IRC の Hessian の演算を CPU で行い、GPU のメモリに収めます。
 * **分岐は少なくとも 1 つ**: `--no-forward` と `--no-backward` を両方付けると、エラーで止まります。

@@ -16,7 +16,7 @@ The ML region uses **UMA**, Meta's pretrained [machine-learning interatomic pote
 
 ## Examples
 
-In these examples, `pocket.pdb` is the full system that matches `real.parm7`, and `ml_region.pdb` defines the ML region (see [Building the ML region and layers](model-setup.md)).
+In these examples, `pocket.pdb` is the full system that matches `real.parm7`, and `ml_region.pdb` defines the [ML region](model-setup.md).
 
 ### 1. Minimal run (explicit charge and multiplicity)
 

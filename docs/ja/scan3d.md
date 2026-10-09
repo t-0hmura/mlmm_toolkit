@@ -8,7 +8,7 @@
 
 * **3 つの座標が同時に関わる反応**: 結合の形成・別の結合の切断・プロトン移動が 1 つの段階で起きるような反応で、エネルギーの地形を調べる
 * **計算済みの格子の描き直し**: 既存の `surface.csv` を、別のエネルギーの範囲で描き直す（`--csv`）
-* **結果の判定**: `surface.csv` に各点の収束の可否が入り、`result.json` には `scientific_status` が入る（下の「surface.csv の読み方と判定」を参照）
+* **結果の判定**: [`surface.csv`](#surfacecsv-の読み方と判定) に各点の収束の可否が入り、`result.json` には `scientific_status` が入る
 
 ML 領域の計算バックエンドにはデフォルトの **UMA**（Meta）のほか、`-b/--backend` オプションで **ORB**、**MACE**、**AIMNet2**、DFT（`dft`）も選択可能です。1 つ以上の座標を動かして 1 本の経路を作るには [`scan`](scan.md) を、2 つの座標の格子には [`scan2d`](scan2d.md) を使います。
 
@@ -61,7 +61,7 @@ mlmm scan3d -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
 
 ### 4. 既存の surface.csv からの描き直し
 
-計算済みの格子の等値面を、−10〜40 kcal/mol の範囲で描き直します。エネルギーは計算しません。別の `-o` を指定すると、元のスキャンのファイルが残ります（「使用上の注意点」を参照）。
+計算済みの格子の等値面を、−10〜40 kcal/mol の範囲で描き直します。エネルギーは計算しません。別の `-o` を指定すると、[元のスキャンのファイル](#使用上の注意点)が残ります。
 
 ```bash
 mlmm scan3d --csv ./result_scan3d/surface.csv --zmin -10 --zmax 40 -o ./result_scan3d_replot/
@@ -72,7 +72,7 @@ mlmm scan3d --csv ./result_scan3d/surface.csv --zmin -10 --zmax 40 -o ./result_s
 ## 処理の仕組みと計算仕様
 
 1. **開始構造と格子**:
-ML 領域の電荷は `-q` または `-l` から決まります（{ref}`電荷の指定 <ja-charge-specification>` を参照）。`--preopt` を付けると、まず拘束なしで入力構造を最適化します。収束しなかった場合は入力構造を使います。各軸には両端を含めて ceil(|high − low| / h) + 1 個の等間隔の値ができます。h は距離では `--max-step-size`（Å）、角度と二面角では `--max-angle-step-size` と `--max-dihedral-step-size`（度）です。値は開始構造に近いものから順に計算します。
+ML 領域の {ref}`電荷 <ja-charge-specification>` は `-q` または `-l` から決まります。`--preopt` を付けると、まず拘束なしで入力構造を最適化します。収束しなかった場合は入力構造を使います。各軸には両端を含めて ceil(|high − low| / h) + 1 個の等間隔の値ができます。h は距離では `--max-step-size`（Å）、角度と二面角では `--max-angle-step-size` と `--max-dihedral-step-size`（度）です。値は開始構造に近いものから順に計算します。
 2. **3 重のループ**:
 d₁ の各値で d₁ の拘束だけをかけて構造を緩和し、d₂ の各値で d₁ と d₂ の拘束をかけて緩和します。続く内側ループで、3 つの拘束をかけて d₃ を走査します。各緩和は、同じループですでに収束した最も近い構造から始めます。まだ収束した構造が無いときは、外側のループで得た構造（d₁ では開始構造）から始めます。
 3. **各点の緩和**:
@@ -99,7 +99,7 @@ d₁ の各値で d₁ の拘束だけをかけて構造を緩和し、d₂ の�
 
 * **基準の行**: `i = j = k = -1`、`is_preopt = true` の行は開始構造です。表には残りますが、格子点・エネルギーの基準・図の点には使いません。
 * **使える点**: 緩和が収束し、エネルギーが有限で、構造ファイルが書けた点を「使える点」とします。エネルギーの基準と図には、使える点だけを使います。
-* **判定**: `result.json`（`--out-json`）の `scientific_status` は、すべての格子点が使える点なら `success`、一部だけなら `partial`（終了コード 0）、1 つも無ければ `failed`（終了コード 1）です。点の数は `n_points_attempted` と `n_points_usable` に入ります（{ref}`終了コード <ja-exit-codes>` を参照）。
+* **判定**: `result.json`（`--out-json`）の `scientific_status` は、すべての格子点が使える点なら `success`、一部だけなら `partial`（{ref}`終了コード <ja-exit-codes>` 0）、1 つも無ければ `failed`（終了コード 1）です。点の数は `n_points_attempted` と `n_points_usable` に入ります。
 * **次の段階**: 等値面は補間なので、鞍点に近い計算点の構造 `grid/point_*.pdb` を [`tsopt`](tsopt.md) に渡します。反応物側と生成物側の谷の点は [`path-search`](path-search.md) の入力にできます。
 * **表からの描き直し（`--csv`）**: 表には `d1_A`, `d2_A`, `d3_A` と、`energy_hartree` か `energy_kcal` の列が要ります。基準の行と、`bias_converged = false` かエネルギーが有限でない行は除きます。
 
@@ -123,7 +123,7 @@ result_scan3d/
 まず `scan3d_density.html` と `surface.csv` を確認し、各点の構造は `grid/` を見てください。`result.json` の `grid_points[]` には、各格子点の番号・値・目標値・エネルギー・収束の可否・構造ファイルが入ります。
 
 * **ファイル名**: `i`・`j`・`k` の後の数字（タグ `DDD`）は目標値の 100 倍（Å、角度では度）を 3 桁以上に 0 で埋めた数で、`surface.csv` の格子の番号ではありません。`d1 = 1.50 Å, d2 = 0.90 Å, d3 = 1.80 Å` なら `point_i150_j090_k180.xyz`、角度 120° なら `12000` です。丸めたタグが別の点と重なると、後のファイル名には 0 始まりの番号 `_grid_III_JJJ_KKK` が付きます。`inner_path_d1_000_d2_000` の数字も 0 始まりの番号です。
-* **ほかの形式**: 各構造は `.pdb` でも書き、B-factor の欄に各原子の層を入れます：ML 領域 0、可動 MM 10、凍結 MM 20。`--no-convert-files` で止められます。mmCIF の入力と、PDB の欄に入りきらない大きな PDB の入力では、元の識別子を保った `.cif` も書きます（{ref}`mmCIF の入力 <ja-mmcif-input>` を参照）。
+* **ほかの形式**: 各構造は `.pdb` でも書き、B-factor の欄に各原子の層を入れます：ML 領域 0、可動 MM 10、凍結 MM 20。`--no-convert-files` で止められます。{ref}`mmCIF の入力 <ja-mmcif-input>` と、PDB の欄に入りきらない大きな PDB の入力では、元の識別子を保った `.cif` も書きます。
 * **`--csv` を付けたとき**: `scan3d_density.html` だけを書きます。`--out-json` を付けると、`grid_points` の無い `result.json` も書きます。`scientific_status` は、表に使える点があれば `success`、無ければ `failed` です。
 
 ---
@@ -162,10 +162,10 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 ## 使用上の注意点
 
 * **範囲は 1 つのリテラルに 3 つ**: `-s` には、1 つのインラインリテラル、または YAML/JSON ファイルの `pairs:` で、ちょうど 3 つの範囲を渡します。複数ステージのスキャンには [`scan`](scan.md) を使ってください。
-* **chain のある PDB では**、位置固定の 4 項目の形 `A:SAM:320:CS1` を使うと原子を一意に指定できます（{ref}`スキャンリスト仕様 <ja-scan-list-spec>` を参照）。
+* **chain のある PDB**: {ref}`位置固定の 4 項目の形 <ja-scan-list-spec>` `A:SAM:320:CS1` を使うと原子を一意に指定できます。
 * **格子の大きさ**: 緩和の回数は 3 つの軸の値の数の積で、すぐに大きくなります（例 1 では 567 回）。最初は `--max-step-size` を大きくするか、範囲を狭めてください。
 * **`--baseline first`**: 点 `(i, j, k) = (0, 0, 0)` が使える点ならそこを 0 にします。使える点でなければ `[baseline] 'first' requested but usable (i=0,j=0,k=0) is missing; using the usable minimum instead.` を表示し、使える点の最小値を使います。
-* **凍結原子**: `--freeze-atoms` か YAML の `geom.freeze_atoms` で指定した原子と、凍結 MM 層の原子は、どの緩和でも固定されます。スキャンする座標の原子がすべて凍結原子だとエラーになります（{ref}`凍結原子と拘束 <ja-freeze-atoms-and-restraints>` を参照）。
+* **凍結原子**: `--freeze-atoms` か YAML の `geom.freeze_atoms` で指定した原子と、凍結 MM 層の原子は、どの緩和でも固定されます。スキャンする座標の原子がすべて {ref}`凍結原子 <ja-freeze-atoms-and-restraints>` だとエラーになります。
 * **計算せずに指定を確かめる**: `--dry-run` は入力・電荷とスピン・`-s` を読み、計画を表示して、最適化をせずに終わります。`--csv` を付けたときは、オプションだけを確かめます。
 * **サイクル数の上限**: `--relax-max-cycles`（デフォルト `100000`）が各緩和のサイクル数を制限します。指定すると YAML の `opt.max_cycles` より優先され、省くと YAML の値が使われます。
 * **使える点が少ないとき**: 使える点が 4 つ未満か、すべて 1 つの平面上にあるときは、図だけを省きます。`[plot] NOTE: Volume plot skipped: …` を表示し、`surface.csv`（`--out-json` 指定時は図を載せない `result.json` も）を書いて、終了コード 0 で終わります。使える点が 1 つも無いときは `[plot] No finite data for plotting.` を表示し、終了コード 1 で終わります。

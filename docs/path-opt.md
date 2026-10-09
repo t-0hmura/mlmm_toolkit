@@ -25,7 +25,7 @@ mlmm path-opt -i reactant.pdb product.pdb --parm7 real.parm7 --model-pdb ml_regi
   -q 0 -m 1 --out-json --out-dir ./result_path_opt
 ```
 
-A console line that starts with `[write] Wrote '…/hei.xyz'` shows that the TS candidate was written. In `result.json`, `scientific_status` is `success` when every requested stage (endpoint pre-optimization and the MEP) converged, otherwise `partial` or `failed`. `barrier_kcal` is the HEI energy relative to the first image, and `hei_index` tells you where the HEI sits on the path (see [Reading the HEI](#reading-the-hei)).
+A console line that starts with `[write] Wrote '…/hei.xyz'` shows that the TS candidate was written. In `result.json`, `scientific_status` is `success` when every requested stage (endpoint pre-optimization and the MEP) converged, otherwise `partial` or `failed`. `barrier_kcal` is the HEI energy relative to the first image, and `hei_index` tells you where the [HEI](#reading-the-hei) sits on the path.
 
 ### 2. Set the endpoint pre-optimization limit
 
@@ -95,7 +95,7 @@ result_path_opt/
 └─ summary.json               # Same content as result.json (--out-json)
 ```
 
-Open `final_geometries_trj.xyz` to watch the path. The PDB files mark the layers in the B-factor column (ML 0, Movable-MM 10, Frozen-MM 20), so pass `hei.pdb` to `tsopt` with the same `--parm7` and `--model-pdb`; with `hei.xyz`, add `--ref-pdb`. mmCIF input, and PDB input too large for the PDB columns, also get `.cif` files that keep the original identifiers (see {ref}`mmCIF input <mmcif-input>`); `--no-convert-files` writes only the `.xyz` files. With DMF, the IPOPT logs `dmf_fbenm_ipopt.out` and `dmf_ipopt.out` are also written. `--dump` also keeps the optimizer trajectories.
+Open `final_geometries_trj.xyz` to watch the path. The PDB files mark the layers in the B-factor column (ML 0, Movable-MM 10, Frozen-MM 20), so pass `hei.pdb` to `tsopt` with the same `--parm7` and `--model-pdb`; with `hei.xyz`, add `--ref-pdb`. {ref}`mmCIF input <mmcif-input>`, and PDB input too large for the PDB columns, also get `.cif` files that keep the original identifiers; `--no-convert-files` writes only the `.xyz` files. With DMF, the IPOPT logs `dmf_fbenm_ipopt.out` and `dmf_ipopt.out` are also written. `--dump` also keeps the optimizer trajectories.
 
 The console prints the MEP progress cycle by cycle, with timings.
 
@@ -123,7 +123,7 @@ The options shared by every ML/MM calculation command are explained once in {ref
 | `--dmf-tol` | text | `tight` | IPOPT tolerance of the DMF path: `tight` (0.04), `middle` (0.10), `loose` (0.20), or a positive number; alias `--thresh-dmf` |
 | `--fix-ends/--no-fix-ends` | flag | `True` | Keep the endpoints fixed while the GSM string is optimized (not used by DMF) |
 | `--climb/--no-climb` | flag | `True` | Run the GSM climbing-image search after the path is grown (not used by DMF) |
-| `--freeze-atoms` | text | `None` | Comma-separated 1-based atom indices to freeze in every image, added to YAML `geom.freeze_atoms` and the Frozen-MM layer (see {ref}`Freeze atoms and restrain distances <freeze-atoms-and-restraints>`) |
+| `--freeze-atoms` | text | `None` | Comma-separated 1-based atom indices to {ref}`freeze <freeze-atoms-and-restraints>` in every image, added to YAML `geom.freeze_atoms` and the Frozen-MM layer |
 | `--out-json/--no-out-json` | flag | `False` | Write a summary to `result.json` ([JSON Output Reference](json-output.md)) |
 
 See the [generated CLI reference](reference/commands/path_opt.md) for every option.

@@ -34,7 +34,7 @@ E_ONIOM = E(REAL-low) - E(MODEL-low) + E(MODEL-high)
 
 ## Hessian / 最適化用の層設定
 
-各原子は、入力 PDB の B-factor から読んだ 3 つの層（ML、可動 MM、凍結 MM）のどれかに属します（{ref}`ML 領域と層の組み方 › MM の層 <ja-mm-layers>`）。さらに 2 つの設定で、Hessian に入れる MM 原子と動かす MM 原子を決めます。
+各原子は、入力 PDB の B-factor から読んだ {ref}`3 つの層 <ja-mm-layers>`（ML、可動 MM、凍結 MM）のどれかに属します。さらに 2 つの設定で、Hessian に入れる MM 原子と動かす MM 原子を決めます。
 
 - **Hessian 対象 MM**（専用の B-factor はありません）：Hessian の行と列を計算する可動 MM 原子です。既定では可動 MM 原子をすべて含めます。`--hessian-cutoff` を指定すると ML 領域からその距離（Å）以内の可動 MM 原子だけを含めます。
 - **距離で決める可動 MM**：`--movable-cutoff` を指定すると、ML 領域からその距離（Å）以内の MM 原子を可動にし、残りを凍結します。B-factor の層の代わりにこの距離を使います。

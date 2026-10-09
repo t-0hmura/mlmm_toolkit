@@ -60,7 +60,7 @@ mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ## 処理の仕組みと計算仕様
 
-1. **ML/MM の系の組み立て**: `-i` から全系の構造を、`--parm7` から Amber のトポロジーを、`--model-pdb` から ML 領域を読みます。残りの原子は可動 MM 原子か凍結 MM 原子になります（{ref}`ML/MM の共通オプション <ja-mlmm-options>` を参照）。`-q` と `-m` は ML 領域の電荷とスピン多重度です。`--freeze-atoms` でほかの原子も凍結できます。
+1. **ML/MM の系の組み立て**: `-i` から全系の構造を、`--parm7` から Amber のトポロジーを、`--model-pdb` から ML 領域を読みます。残りの原子は {ref}`可動 MM 原子か凍結 MM 原子 <ja-mlmm-options>` になります。`-q` と `-m` は ML 領域の電荷とスピン多重度です。`--freeze-atoms` でほかの原子も凍結できます。
 2. **最適化法の選択**（`--opt-mode`）: `grad`（別名 `lbfgs`）は勾配だけを使う **L-BFGS** を実行します。`hess`（別名 `rfo`）は **RFO** を実行し、厳密な Hessian から始めて TS-BFGS 式で更新し（YAML の [`rfo.hessian_update`](yaml-reference.md#rfo) のデフォルト）、500 サイクルごとに計算し直します。`hess` のマイクロイテレーションでは、ML 原子とリンク原子の MM 側の親原子を動かす RFO の 1 ステップと、ほかの可動 MM 原子を MM の力だけで動かす L-BFGS の緩和とを交互に行います。Gaussian のマイクロイテレーションと同じ方式です。
 3. **距離拘束の追加**（`--distance-restraint`）: `(i, j, target)` のそれぞれが、力の定数 `--restraint-k`（eV·Å⁻²）の調和項を加え、原子 i と j の距離を `target`（Å）へ引き寄せます。`(i, j)` は最初の距離を保ちます。番号は 1 始まりで、`--zero-based` を付けると 0 始まりになります。
 4. **最小化**: 収束条件を満たすか `--max-cycles` に達するまで構造を動かします。デフォルトの `--thresh gau` は、力の最大値が 4.5 × 10⁻⁴、RMS が 3.0 × 10⁻⁴ hartree/bohr 未満、ステップの最大値が 1.8 × 10⁻³、RMS が 1.2 × 10⁻³ bohr 未満を求め、Gaussian の既定と同じ条件です。
@@ -100,10 +100,10 @@ result_opt/
 └─ result.json               # 結果の要約（--out-json）
 ```
 
-mmCIF の入力と、PDB の欄に入りきらない大きな PDB の入力では、元の識別子を保った `.cif` も書きます（{ref}`mmCIF の入力 <ja-mmcif-input>` を参照）。
+{ref}`mmCIF の入力 <ja-mmcif-input>` と、PDB の欄に入りきらない大きな PDB の入力では、元の識別子を保った `.cif` も書きます。
 
 * **final geometry**: `final_geometry.*` が最適化した構造です。[`freq`](freq.md) や経路探索に渡してください。
-* **要約**: `--out-json` を付けると、`result.json` に `optimization_status`、最後のエネルギー `energy_hartree`（拘束のエネルギーを除いた値）、サイクル数 `n_opt_cycles` が記録されます。マイクロイテレーションでは、MM の緩和のサイクル数 `n_micro_cycles` も記録されます（[JSON 出力の一覧](json-output.md) を参照）。
+* **要約**: `--out-json` を付けると、[`result.json`](json-output.md) に `optimization_status`、最後のエネルギー `energy_hartree`（拘束のエネルギーを除いた値）、サイクル数 `n_opt_cycles` が記録されます。マイクロイテレーションでは、MM の緩和のサイクル数 `n_micro_cycles` も記録されます。
 * **端末**: サイクルごとの表と実行時間が出ます。
 
 ---

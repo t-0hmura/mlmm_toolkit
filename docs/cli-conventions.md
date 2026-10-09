@@ -60,7 +60,7 @@ Each command takes the ML region from the first of these that is given: `--model
 | `--parm7` | Amber parm7 topology of the whole enzyme complex (the full system). | Required (`all` builds it) |
 | `--model-pdb` | PDB of the ML region only, without link hydrogens; atom names and order match the full-system PDB and parm7. When given, it defines the ML region. | None |
 | `--model-indices` | 1-based atom indices of the ML region, comma-separated; ranges such as `1-5` are allowed. Used when `--model-pdb` is not given. | None |
-| `--detect-layer/--no-detect-layer` | Reads B-factors 0 / 10 / 20 as the ML, Movable-MM, and Frozen-MM layers (see {ref}`The MM layers <mm-layers>`). With an explicit ML region, only the MM layers are read. | `--detect-layer` |
+| `--detect-layer/--no-detect-layer` | Reads B-factors 0 / 10 / 20 as the ML, Movable-MM, and Frozen-MM {ref}`layers <mm-layers>`. With an explicit ML region, only the MM layers are read. | `--detect-layer` |
 | `--ref-pdb` | PDB that gives the atom order and residue information for an XYZ input. | None |
 | `--movable-cutoff` | Distance (Å) from the ML region: MM atoms within it move, and atoms beyond it are frozen. | None (layers from the B-factors or `--freeze-atoms`) |
 | `--mm-backend` | MM engine: `hessian_ff` or `openmm`. MM Hessians use finite differences by default. | `hessian_ff` |

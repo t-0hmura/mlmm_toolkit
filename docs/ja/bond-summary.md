@@ -78,7 +78,7 @@ mlmm bond-summary -i reactant.xyz im1.xyz im2.xyz product.xyz
 
 ## 使用上の注意点
 
-* **同じ原子が同じ順に並ぶこと**: すべての構造で、原子の種類と並びが同じである必要があります。違う組では、標準エラーに `ERROR: Atom types and ordering must be identical.` が出ます（{ref}`入力 / 抽出の問題 <ja-input--extraction>`）。
+* **同じ原子が同じ順に並ぶこと**: すべての構造で、原子の種類と並びが同じである必要があります。違う組では、標準エラーに `ERROR: Atom types and ordering must be identical.` が出ます。{ref}`入力 / 抽出の問題 <ja-input--extraction>` を参照してください。
 * **境目の結合**: 2.0–2.4 Å の金属配位のような長めの接触も数えたいときは、`--bond-factor` を大きくしてください（例: `1.30`）。
 * **比較できなかった組**: 1 組でも比較できないと終了コード 1 で終わり、JSON の `scientific_status` は `partial` か `failed` になります。
 * **終了コード**: {ref}`終了コード <ja-exit-codes>`を参照してください。

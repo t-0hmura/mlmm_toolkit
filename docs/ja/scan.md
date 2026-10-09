@@ -9,7 +9,7 @@
 * **1 つの構造からの経路づくり**: 反応物の反応する結合を動かして、中間体や生成物に近い構造を作り、[`path-search`](path-search.md) に渡す
 * **反応の順序の検討**: 結合形成とプロトン移動を 1 つのステージで動かす場合と、別のステージに分ける場合とで、エネルギーの変化を比べる
 * **`all` のスキャン段の単独実行**: [`all`](all.md) が `-s` で行うスキャンを、刻み幅や拘束を変えて単独で実行し直す
-* **結果の判定**: 各ステージで共有結合ができたか切れたかが出力され、`result.json` には `scientific_status` が入る（{ref}`結果の判定 <ja-scan-checking-result>` を参照）
+* **{ref}`結果の判定 <ja-scan-checking-result>`**: 各ステージで共有結合ができたか切れたかが出力され、`result.json` には `scientific_status` が入る
 
 ML 領域の計算バックエンドにはデフォルトの **UMA**（Meta）のほか、`-b/--backend` オプションで **ORB**、**MACE**、**AIMNet2**、DFT（`dft`）も選択可能です。独立した 2 つまたは 3 つの座標でエネルギーの格子を作るには、[`scan2d`](scan2d.md) または [`scan3d`](scan3d.md) を使います。
 
@@ -68,7 +68,7 @@ mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
 
 ### 5. 双方向スキャン
 
-4-tuple を使うと、1 つの距離を入力構造から両方向にスキャンします（[双方向スキャン](#双方向スキャン4-tuple) を参照）。
+[4-tuple](#双方向スキャン4-tuple) を使うと、1 つの距離を入力構造から両方向にスキャンします。
 
 ```bash
 mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
@@ -89,7 +89,7 @@ mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
 ## 処理の仕組みと計算仕様
 
 1. **構造の読み込み**:
-ML 領域の電荷は `-q` または `-l` から決まります（{ref}`電荷の指定 <ja-charge-specification>` を参照）。`--preopt` を付けると、まず拘束なしで構造を最適化します。収束しなかった場合は入力構造を使います。
+ML 領域の {ref}`電荷 <ja-charge-specification>` は `-q` または `-l` から決まります。`--preopt` を付けると、まず拘束なしで構造を最適化します。収束しなかった場合は入力構造を使います。
 2. **ステージのステップ分割**:
 座標ごとに変化量 Δ = 目標値 − 現在値 を求め、ステージを N = ceil(max(|Δ| / h)) ステップに分けます。h は距離では `--max-step-size`（Å）、角度では `--max-angle-step-size`、二面角では `--max-dihedral-step-size`（度）です。各座標は 1 ステップに Δ / N ずつ動くので、ステージ内のすべての座標が同時に目標値に着きます。
 3. **拘束付きの緩和**:
@@ -128,7 +128,7 @@ ML 領域の電荷は `-q` または `-l` から決まります（{ref}`電荷�
 | `result.json`（`--out-json`） | `scientific_status`：すべてのステージの全ステップが収束し（`--preopt` と `--endopt` を付けたときはそれらの最適化も収束し）、エネルギーが有限なら `success`、一部だけなら `partial`、1 つも無ければ `failed` |
 | `result.json`（`--out-json`） | `stages[].converged`、`stages[].bond_changes.changed`、`stages[].final_energy_hartree`、各ステップのエネルギー `stages[].energies_hartree` |
 
-`partial` の終了コードは 0、`failed` は 1 です（{ref}`終了コード <ja-exit-codes>` を参照）。収束して狙った結合変化が起きたスキャンは経路の候補になり、エネルギーが最も高いステップは [`tsopt`](tsopt.md) に渡す TS 候補になります（`scan_trj.xyz` からの取り出し方は {ref}`軌跡から 1 フレームを取り出す <ja-trajectory-one-frame>` を参照）。
+`partial` の {ref}`終了コード <ja-exit-codes>` は 0、`failed` は 1 です。収束して狙った結合変化が起きたスキャンは経路の候補になり、エネルギーが最も高いステップは [`tsopt`](tsopt.md) に渡す TS 候補になります。このステップは `scan_trj.xyz` から {ref}`取り出せます <ja-trajectory-one-frame>`。
 
 ### バリアの向き
 
@@ -159,7 +159,7 @@ result_scan/
 └─ result.json                      # 結果の要約（--out-json 指定時）。summary.json も同じ内容
 ```
 
-構造と軌跡は同じ名前の PDB（`result.pdb`、`scan.pdb`）でも書きます。`--no-convert-files` で止められます。mmCIF の入力と、PDB の欄に入りきらない大きな PDB の入力では、元の識別子を保った `.cif` も書きます（{ref}`mmCIF の入力 <ja-mmcif-input>` を参照）。
+構造と軌跡は同じ名前の PDB（`result.pdb`、`scan.pdb`）でも書きます。`--no-convert-files` で止められます。{ref}`mmCIF の入力 <ja-mmcif-input>` と、PDB の欄に入りきらない大きな PDB の入力では、元の識別子を保った `.cif` も書きます。
 
 * **ステージの結果**: `stage_NN/result.*` はステージ NN の終わりの構造です。[`path-search`](path-search.md) には、開始構造に続けて `stage_NN/result.*` をステージの順に渡します。
 * **エネルギーの変化**: `scan_trj.xyz` の各フレームのコメント行には、拘束を外したエネルギー（Hartree）が入っています。[`trj2fig`](trj2fig.md) で図にできます。
@@ -198,12 +198,12 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 
 ## 使用上の注意点
 
-* **`--preopt` は呼び出し方で変わる**: `scan` を単独で実行したときは、`--preopt` を付けない限り事前最適化をしません。`all` の中では、`all --preopt`（デフォルトで有効）に従って事前最適化し、`all --scan-preopt/--no-scan-preopt` で上書きできます（[`all` の自動生成のオプションの一覧（英語のみ）](../reference/commands/all.md) を参照）。
+* **`--preopt` は呼び出し方で変わる**: `scan` を単独で実行したときは、`--preopt` を付けない限り事前最適化をしません。`all` の中では、`all --preopt`（デフォルトで有効）に従って事前最適化し、[`all --scan-preopt/--no-scan-preopt`](../reference/commands/all.md) で上書きできます。
 * **インラインでは目標値と範囲を混ぜない**: 1 つのインラインリテラルの中でも、1 回の実行のリテラルどうしでも、目標値 `(i,j,target)` と範囲のどちらか一方だけを使います。両方を組み合わせるときは、YAML/JSON スペックの `stages:` に並べてください。
 * **範囲を使うときのステージ番号**: 範囲 1 つは `low` 向きと `high` 向きの 2 つのステージになります（4-tuple 1 つなら `stage_01/` と `stage_02/`）。インラインでは、1 つのリテラルの範囲がすべてこの 2 つのステージで一緒に動きます。YAML の `stages:` では、範囲を含むステージの項目がそれぞれ別のステージになり、目標値は 1 つ、範囲は 2 つのステージになります。
 * **目標の距離は正の値**にしてください。また、1 つのステージに同じ座標を 2 回書くことはできません。
 * **計算せずに指定を確かめる**: `--dry-run` は入力・電荷とスピン・`-s` を読み、ステージの数を表示して、最適化をせずに終了します。
-* **凍結原子**: `--freeze-atoms` か YAML の `geom.freeze_atoms` で指定した原子と、凍結 MM 層の原子は、どの緩和でも固定されます。スキャンする座標の原子がすべて凍結原子だとエラーになります（{ref}`凍結原子と拘束 <ja-freeze-atoms-and-restraints>` を参照）。
+* **凍結原子**: `--freeze-atoms` か YAML の `geom.freeze_atoms` で指定した原子と、凍結 MM 層の原子は、どの緩和でも固定されます。スキャンする座標の原子がすべて {ref}`凍結原子 <ja-freeze-atoms-and-restraints>` だとエラーになります。
 * **サイクル数の上限**: `--relax-max-cycles`（デフォルト `100000`）が各緩和のサイクル数を制限します。指定すると YAML の `opt.max_cycles` より優先されます。
 
 ---

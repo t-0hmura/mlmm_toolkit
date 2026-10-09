@@ -98,7 +98,7 @@ result_path_search/
 └─ seg_NNN_*/                # GSM・DMF の実行と HEI の両側の最適化ごとの作業ファイル
 ```
 
-`summary.json` は常に書き出され、ほかのコマンドの `result.json` とは別の構造です。[JSON 出力の一覧](json-output.md) の「summary.json (path-search / all)」の節を参照してください。`mep_seg_NN_*` と `hei_seg_NN.*` は、結合が変わる区間にだけ書き出します。NN は `summary.json` の区間の `index`（最終経路で 01 から数える）で、`seg_NNN` のタグやディレクトリの NNN は GSM・DMF の実行を 000 から数えた番号なので、両者は一致しません。mmCIF 入力と、PDB の列に収まらない大きな PDB 入力では、元の識別子を保った `.cif` も書き出します（{ref}`mmCIF 入力 <ja-mmcif-input>` を参照）。`--no-convert-files` では `.xyz` だけを書き出します。
+`summary.json` は常に書き出され、ほかのコマンドの `result.json` とは別の構造です。{ref}`path-search と all の summary.json <ja-summary-json-path-search-all>` を参照してください。`mep_seg_NN_*` と `hei_seg_NN.*` は、結合が変わる区間にだけ書き出します。NN は `summary.json` の区間の `index`（最終経路で 01 から数える）で、`seg_NNN` のタグやディレクトリの NNN は GSM・DMF の実行を 000 から数えた番号なので、両者は一致しません。{ref}`mmCIF 入力 <ja-mmcif-input>` と、PDB の列に収まらない大きな PDB 入力では、元の識別子を保った `.cif` も書き出します。`--no-convert-files` では `.xyz` だけを書き出します。
 
 ---
 
@@ -121,7 +121,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 | `--max-nodes` | 整数 | `20` | 区間ごとの可動なイメージの数。区間のイメージは全部で `max_nodes + 2` 個 |
 | `--preopt/--no-preopt` | フラグ | `True` | 探索の前に各入力を事前最適化 |
 | `--align/--no-align` | フラグ | `True` | 探索の前に各入力を 1 つ前の構造に重ね合わせる |
-| `--freeze-atoms` | 文字列 | `None` | 凍結する原子の番号（1 始まり、カンマ区切り）。YAML の `geom.freeze_atoms` と Frozen-MM 層に加わる（{ref}`原子の固定と距離の拘束 <ja-freeze-atoms-and-restraints>` を参照） |
+| `--freeze-atoms` | 文字列 | `None` | {ref}`凍結する原子 <ja-freeze-atoms-and-restraints>` の番号（1 始まり、カンマ区切り）。YAML の `geom.freeze_atoms` と Frozen-MM 層に加わる |
 | `--climb/--no-climb` | フラグ | `True` | 反応区間で GSM のクライミングイメージ探索を行う。接続経路では常に行わない |
 
 全オプションは [自動生成のオプションの一覧（英語のみ）](../reference/commands/path_search.md) を参照してください。

@@ -98,7 +98,7 @@ result_path_search/
 └─ seg_NNN_*/                # Working files of each GSM/DMF run and HEI-side optimization
 ```
 
-`summary.json` is always written and has its own structure, unlike the `result.json` of the other commands; see the section `summary.json (path-search / all)` of the [JSON Output Reference](json-output.md). Only segments with bond changes get `mep_seg_NN_*` and `hei_seg_NN.*` files. NN is the segment's `index` in `summary.json` (counted from 01 along the final path), while NNN in a `seg_NNN` tag or directory counts the GSM/DMF runs from 000, so the two numbers differ. mmCIF input, and PDB input too large for the PDB columns, also get `.cif` files that keep the original identifiers (see {ref}`mmCIF input <mmcif-input>`); `--no-convert-files` writes only the `.xyz` files.
+`summary.json` is always written and has its own structure, unlike the `result.json` of the other commands; see {ref}`summary.json for path-search and all <summary-json-path-search-all>`. Only segments with bond changes get `mep_seg_NN_*` and `hei_seg_NN.*` files. NN is the segment's `index` in `summary.json` (counted from 01 along the final path), while NNN in a `seg_NNN` tag or directory counts the GSM/DMF runs from 000, so the two numbers differ. {ref}`mmCIF input <mmcif-input>`, and PDB input too large for the PDB columns, also get `.cif` files that keep the original identifiers; `--no-convert-files` writes only the `.xyz` files.
 
 ---
 
@@ -121,7 +121,7 @@ The options shared by every ML/MM calculation command are explained once in {ref
 | `--max-nodes` | integer | `20` | Movable images per segment; a segment has `max_nodes + 2` images |
 | `--preopt/--no-preopt` | flag | `True` | Pre-optimize each input before the search |
 | `--align/--no-align` | flag | `True` | Align each input to the one before it before the search |
-| `--freeze-atoms` | text | `None` | Comma-separated 1-based atom indices to freeze, added to YAML `geom.freeze_atoms` and the Frozen-MM layer (see {ref}`Freeze atoms and restrain distances <freeze-atoms-and-restraints>`) |
+| `--freeze-atoms` | text | `None` | Comma-separated 1-based atom indices to {ref}`freeze <freeze-atoms-and-restraints>`, added to YAML `geom.freeze_atoms` and the Frozen-MM layer |
 | `--climb/--no-climb` | flag | `True` | Run the GSM climbing-image search on the reactive segments; connecting paths never climb |
 
 See the [generated CLI reference](reference/commands/path_search.md) for every option.
@@ -138,7 +138,7 @@ See the [generated CLI reference](reference/commands/path_search.md) for every o
 * **Inputs are protected**: if a fixed output name (`mep_trj.*`, `mep_plot.png`, `energy_diagram_MEP.png`, `summary.json`, `summary.log`) would replace an input file, `path-search` stops before writing anything.
 * **Conflicting optimizer settings in YAML**: setting the same key to different values in `opt:` and in the section of the optimizer that runs (`lbfgs:`, `opt.lbfgs:`, `stopt.lbfgs:`, or the `rfo` equivalents) stops the run with an error.
 * **Frozen atoms move slightly with DMF**: DMF holds frozen atoms with a harmonic restraint (k = 300 eV/Å², YAML `dmf.k_fix`), so they can drift a little; see [path-opt](path-opt.md#notes) and {ref}`Freeze atoms and restrain distances <freeze-atoms-and-restraints>`.
-* **DMF needs `cyipopt` and `pydmf`**: neither is installed with `mlmm-toolkit`; install them before you run `--mep-mode dmf` (see [path-opt](path-opt.md#notes)).
+* **DMF needs `cyipopt` and `pydmf`**: neither is installed with `mlmm-toolkit`; [install them](path-opt.md#notes) before you run `--mep-mode dmf`.
 * **Complex mechanisms** may need adjusted intermediates, scan settings, or convergence thresholds.
 
 ---

@@ -60,7 +60,7 @@ mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ## How it works
 
-1. **Building the ML/MM system**: `opt` reads the full system from `-i`, the Amber topology from `--parm7`, and the ML region from `--model-pdb`; the other atoms are movable or frozen MM atoms (see {ref}`ML/MM options <mlmm-options>`). `-q` and `-m` are the charge and the spin multiplicity of the ML region, and `--freeze-atoms` freezes more atoms.
+1. **Building the ML/MM system**: `opt` reads the full system from `-i`, the Amber topology from `--parm7`, and the {ref}`ML region <mlmm-options>` from `--model-pdb`; the other atoms are movable or frozen MM atoms. `-q` and `-m` are the charge and the spin multiplicity of the ML region, and `--freeze-atoms` freezes more atoms.
 2. **Choosing the optimizer** (`--opt-mode`): `grad` (alias `lbfgs`) runs **L-BFGS**, which uses gradients only; `hess` (alias `rfo`) runs **RFO**, which starts from an exact Hessian, updates it with TS-BFGS (the default of YAML [`rfo.hessian_update`](yaml-reference.md#rfo)), and recomputes it every 500 cycles. With `hess`, microiteration alternates one RFO step of the ML atoms and the MM parent atoms of the link atoms with an L-BFGS relaxation of the other movable MM atoms on MM forces only, as in Gaussian's microiteration.
 3. **Adding distance restraints** (`--distance-restraint`): each `(i, j, target)` adds a harmonic term with force constant `--restraint-k` (eV·Å⁻²) that pulls atoms i and j toward `target` in Å; `(i, j)` keeps their starting distance. Indices are 1-based unless `--zero-based` is given.
 4. **Minimizing**: the optimizer moves the structure until the convergence criteria are met or `--max-cycles` is reached. The default `--thresh gau` asks for a max force below 4.5 × 10⁻⁴ and an RMS force below 3.0 × 10⁻⁴ hartree/bohr, and a max step below 1.8 × 10⁻³ and an RMS step below 1.2 × 10⁻³ bohr, the same as Gaussian's default.
@@ -100,10 +100,10 @@ result_opt/
 └─ result.json               # Summary (--out-json)
 ```
 
-mmCIF input, and PDB input too large for the PDB columns, also get `.cif` files that keep the original identifiers (see {ref}`mmCIF input <mmcif-input>`).
+{ref}`mmCIF input <mmcif-input>`, and PDB input too large for the PDB columns, also get `.cif` files that keep the original identifiers.
 
 * **Final geometry**: `final_geometry.*` is the optimized structure to pass to [`freq`](freq.md) or to a path search.
-* **Summary**: with `--out-json`, `result.json` records `optimization_status`, the final energy `energy_hartree` (without the restraint energy), and the number of cycles `n_opt_cycles`; with microiteration, also the number of MM relaxation cycles `n_micro_cycles` (see [JSON Output Reference](json-output.md)).
+* **Summary**: with `--out-json`, [`result.json`](json-output.md) records `optimization_status`, the final energy `energy_hartree` (without the restraint energy), and the number of cycles `n_opt_cycles`; with microiteration, also the number of MM relaxation cycles `n_micro_cycles`.
 * **Console**: the cycle table and the elapsed time.
 
 ---

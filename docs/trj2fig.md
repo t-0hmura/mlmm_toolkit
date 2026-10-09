@@ -42,7 +42,7 @@ mlmm trj2fig -i traj.xyz --reverse-x -o energy.png energy.html energy.pdf
 
 ### 4. Recompute energies with an MLIP
 
-Recompute every frame as a neutral singlet with a chosen UMA model and precision (see [MLIP Backends](backends.md)) instead of reading the comments, and record the backend in `result.json`.
+Recompute every frame as a neutral singlet with a chosen [UMA](backends.md) model and precision instead of reading the comments, and record the backend in `result.json`.
 
 ```bash
 mlmm trj2fig -i traj.xyz -q 0 -m 1 -b uma --backend-model uma-s-1p2 \

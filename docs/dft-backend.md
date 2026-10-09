@@ -33,7 +33,7 @@ mlmm all -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
 
 ### 2. Refine the TS with DFT/MM
 
-Pass the TS from example 1 as the only input, which selects TS-only mode. `ts.pdb` holds the full system, and `--parm7` and `--model-pdb` reuse the topology and ML region of example 1, so both runs describe the same system. This needs the DFT extra (see [Notes](#notes)).
+Pass the TS from example 1 as the only input, which selects TS-only mode. `ts.pdb` holds the full system, and `--parm7` and `--model-pdb` reuse the topology and ML region of example 1, so both runs describe the same system. This needs the [DFT extra](#notes).
 
 ```bash
 mlmm all -i result_all/segments/seg_01/ts.pdb \

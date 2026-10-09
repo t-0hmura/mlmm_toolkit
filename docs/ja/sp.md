@@ -86,7 +86,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 ## 使用上の注意点
 
 * **失敗したとき**: `ML region electron count inconsistent` のような 1 行の `Error: …` か、トレースバック付きの `Unhandled error during single-point:` が出て、0 以外の終了コードで終わります。
-* **エネルギーがおかしいとき**: 有限の値でもおかしいときは、ML 領域とその電荷・多重度を見直してください（{ref}`電荷 / スピンの問題 <ja-charge--spin>`）。
+* **エネルギーがおかしいとき**: 有限の値でもおかしいときは、ML 領域とその {ref}`電荷・多重度 <ja-charge--spin>` を見直してください。
 * **凍結原子**: インデックスは 1 始まりで、凍結原子に働く力は 0 になります。Frozen-MM 層も凍結されます。
 * **原子電荷**: `sp -b dft` が出すのは ML(DFT)/MM のエネルギーと力だけです。ML 領域の Mulliken・meta-Löwdin・IAO の電荷が必要なときは [`dft`](dft.md) を使ってください。
 * **終了コード**: {ref}`終了コード <ja-exit-codes>`を参照してください。

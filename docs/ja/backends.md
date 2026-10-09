@@ -27,7 +27,7 @@ mlmm opt -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b aim
 | `mace` | 専用の環境で `pip uninstall -y fairchem-core && pip install mace-torch`（`mace-torch` が固定する `e3nn` の版が UMA とぶつかるため、この環境では UMA は動きません） | `MACE-OMOL-0` | `mace_dtype="float32" \| "float64"` |
 | `aimnet2` | `pip install "mlmm-toolkit[aimnet]"` | `aimnet2` | なし |
 
-`--backend-model NAME` は、選んだ `--backend` のモデルを替えます（例：`--backend uma --backend-model uma-m-1p1`）。`-b dft` を付けると ML 領域を DFT で計算でき（[DFT/MM バックエンド](#dftmm-バックエンド)）、`--calc-file` で任意の ASE calculator を使えます（{ref}`カスタムバックエンド <ja-backends-custom-calculator>`）。
+`--backend-model NAME` は、選んだ `--backend` のモデルを替えます（例：`--backend uma --backend-model uma-m-1p1`）。`-b dft` を付けると ML 領域を [DFT](#dftmm-バックエンド) で計算でき、`--calc-file` で {ref}`任意の ASE calculator <ja-backends-custom-calculator>` を使えます。
 
 実行時には、読み込むバックエンドとモデルが `[backend] Preparing MLIP model (UMA / UMA-S-1.2 (OMol))...` のように表示され、JSON の出力の `mlip_backend`・`mlip_model`・`mlip_precision` に記録されます（[JSON 出力の一覧](json-output.md#共通エンベロープ)）。
 

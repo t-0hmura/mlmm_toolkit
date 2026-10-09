@@ -114,7 +114,7 @@ max_cycles: 100000
 ```{note}
 **`--thresh` を持たないサブコマンド。** `irc`、`freq`、`dft`、`sp` には `--thresh` が**ありません**:
 
-- `irc` — 収束は `irc.rms_grad_thresh`、`irc.energy_thresh`、`irc.max_cycles` で制御されます（[`irc` セクション](#ja-irc-section) を参照）。IRC は予測子–修正子積分器に従うため、力ベース極小化用のプリセットは適用されません。
+- [`irc`](#ja-irc-section) — 収束は `irc.rms_grad_thresh`、`irc.energy_thresh`、`irc.max_cycles` で制御されます。IRC は予測子–修正子積分器に従うため、力ベース極小化用のプリセットは適用されません。
 - `freq` と `sp` — 最適化ステップが無いため `--thresh` は存在しません。
 - `dft` — SCF 収束は `dft.conv_tol`（デフォルト `1e-9` Hartree）と `dft.max_cycle` で制御されます。`gau`/`baker` のプリセットは使用しません。[`dft` セクション](#ja-dft-section) を参照してください。
 ```

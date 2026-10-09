@@ -95,7 +95,7 @@ result_path_opt/
 └─ summary.json               # result.json と同じ内容（--out-json）
 ```
 
-経路は `final_geometries_trj.xyz` を開いて確かめてください。PDB ファイルの B-factor の列には層が入っている（ML 0、Movable-MM 10、Frozen-MM 20）ので、`tsopt` には `hei.pdb` を同じ `--parm7` と `--model-pdb` とともに渡してください。`hei.xyz` を渡すときは `--ref-pdb` を付けてください。mmCIF 入力と、PDB の列に収まらない大きな PDB 入力では、元の識別子を保った `.cif` も書き出します（{ref}`mmCIF 入力 <ja-mmcif-input>` を参照）。`--no-convert-files` では `.xyz` だけを書き出します。DMF では IPOPT のログ `dmf_fbenm_ipopt.out` と `dmf_ipopt.out` も書き出します。`--dump` を付けると、オプティマイザの軌跡も残します。
+経路は `final_geometries_trj.xyz` を開いて確かめてください。PDB ファイルの B-factor の列には層が入っている（ML 0、Movable-MM 10、Frozen-MM 20）ので、`tsopt` には `hei.pdb` を同じ `--parm7` と `--model-pdb` とともに渡してください。`hei.xyz` を渡すときは `--ref-pdb` を付けてください。{ref}`mmCIF 入力 <ja-mmcif-input>` と、PDB の列に収まらない大きな PDB 入力では、元の識別子を保った `.cif` も書き出します。`--no-convert-files` では `.xyz` だけを書き出します。DMF では IPOPT のログ `dmf_fbenm_ipopt.out` と `dmf_ipopt.out` も書き出します。`--dump` を付けると、オプティマイザの軌跡も残します。
 
 端末には MEP の進行状況がサイクルごとに、所要時間とともに出ます。
 
@@ -123,7 +123,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 | `--dmf-tol` | 文字列 | `tight` | DMF の経路の IPOPT の許容値: `tight`（0.04）、`middle`（0.10）、`loose`（0.20）、または正の数。別名 `--thresh-dmf` |
 | `--fix-ends/--no-fix-ends` | フラグ | `True` | GSM のストリングの最適化の間、端点を固定する（DMF では使わない） |
 | `--climb/--no-climb` | フラグ | `True` | 経路の成長後に GSM のクライミングイメージ探索を行う（DMF では使わない） |
-| `--freeze-atoms` | 文字列 | `None` | すべてのイメージで凍結する原子の番号（1 始まり、カンマ区切り）。YAML の `geom.freeze_atoms` と Frozen-MM 層に加わる（{ref}`原子の固定と距離の拘束 <ja-freeze-atoms-and-restraints>` を参照） |
+| `--freeze-atoms` | 文字列 | `None` | すべてのイメージで {ref}`凍結する原子 <ja-freeze-atoms-and-restraints>` の番号（1 始まり、カンマ区切り）。YAML の `geom.freeze_atoms` と Frozen-MM 層に加わる |
 | `--out-json/--no-out-json` | フラグ | `False` | 結果の要約を `result.json` に出力（[JSON 出力の一覧](json-output.md)） |
 
 全オプションは [自動生成のオプションの一覧（英語のみ）](../reference/commands/path_opt.md) を参照してください。

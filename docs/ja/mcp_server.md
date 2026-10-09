@@ -90,7 +90,7 @@ pip install "mlmm-toolkit[mcp]"
 
 ### 電荷と順序付き入力
 
-`charge` は系全体ではなく ML 領域の電荷（`-q`）です。残基名から求めたいときは、`charge` を省き、`"SAM:1,GPP:-3"` のような残基名ごとの `ligand_charge` を渡します。和を取る範囲は ML 領域で、入力の B-factor の層か `--model-pdb` から決まります。`--model-pdb` は `run_single_point_oniom` では `model_pdb`、ほかのツールでは `extra_args` で渡します（{ref}`ML/MM の共通オプション <ja-mlmm-options>`）。
+`charge` は系全体ではなく ML 領域の電荷（`-q`）です。残基名から求めたいときは、`charge` を省き、`"SAM:1,GPP:-3"` のような残基名ごとの `ligand_charge` を渡します。和を取る範囲は ML 領域で、入力の B-factor の層か `--model-pdb` から決まります。`--model-pdb` は `run_single_point_oniom` では `model_pdb`、ほかのツールでは `extra_args` で渡します。詳しくは {ref}`ML/MM の共通オプション <ja-mlmm-options>` を参照してください。
 
 `search_paths` では、反応物の `input_pdb` と `product_pdb` の間に入る中間体を、順番に並べて `intermediate_pdbs` に渡します。`scan_1d`・`scan_2d`・`scan_3d` は `scan_lists` を `--scan-lists` の 1 つの値として渡します。書き方は [`scan`](scan.md) のページにあります。`run_full_pipeline` に `reactant_complex_pdb` だけを渡すときは、1 つの入力の `mlmm all` と同じく、`do_tsopt=True` か、`extra_args` で渡すスキャン（`["--scan-lists", "…"]`）が必要です。
 

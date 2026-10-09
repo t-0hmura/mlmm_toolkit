@@ -68,7 +68,7 @@ mlmm irc -i ts.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ## How it works
 
-1. **Building the ML/MM system**: `irc` reads the TS structure from `-i`, the Amber topology from `--parm7`, and the ML region from `--model-pdb` (see {ref}`ML/MM options <mlmm-options>`). `-q` and `-m` are the charge and the spin multiplicity of the ML region.
+1. **Building the ML/MM system**: `irc` reads the TS structure from `-i`, the Amber topology from `--parm7`, and the {ref}`ML region <mlmm-options>` from `--model-pdb`. `-q` and `-m` are the charge and the spin multiplicity of the ML region.
 2. **Starting direction**: `irc` computes the Hessian at the TS (or reads it with `--read-hess`), removes rigid motions as [`freq`](freq.md#rigid-modes-with-frozen-boundaries) does, and takes the eigenvector `--root` (default `0`, the lowest eigenvalue) as the reaction mode. If that mode is not imaginary, the run stops with an error.
 3. **EulerPC integration**: each branch (forward, then backward) starts from the TS. Every step is an Euler predictor along the mass-weighted steepest-descent direction, with the gradient estimated from a second-order Taylor expansion with the current Hessian (Bofill update), followed by a modified Bulirsch–Stoer corrector on a DWI (distance-weighted interpolation) surface. A branch stops when the RMS gradient falls below 1 × 10⁻³ hartree/bohr after leaving the TS region, when the energy rises, when the energy changes by 1 × 10⁻⁶ hartree or less in one step, or at `--max-cycles` (default 125 steps per branch).
 4. **Writing the path**: `irc` writes each branch, the whole path through the TS, and the end structures. For PDB/mmCIF input or with `--ref-pdb`, the trajectories and the two endpoint candidates are also converted to PDB.
@@ -122,11 +122,11 @@ result_irc/
 └─ result.json             # Summary (--out-json)
 ```
 
-The `.pdb` files are written for PDB/mmCIF input or with `--ref-pdb`. mmCIF input, and PDB input too large for the PDB columns, also get `.cif` files that keep the original identifiers (see {ref}`mmCIF input <mmcif-input>`).
+The `.pdb` files are written for PDB/mmCIF input or with `--ref-pdb`. {ref}`mmCIF input <mmcif-input>`, and PDB input too large for the PDB columns, also get `.cif` files that keep the original identifiers.
 
 * **Endpoint candidates**: `forward_first.xyz` and `backward_last.xyz` are the structures to optimize with [`opt`](opt.md). Each branch also writes its other end, next to the TS (`forward_last.xyz`, `backward_first.xyz`).
 * **Path**: open `finished_irc_trj.xyz` or `finished_irc.pdb` in PyMOL or VMD to watch the reaction.
-* **Summary**: with `--out-json`, `result.json` records the number of frames of each branch (`n_frames_forward`, `n_frames_backward`), how each branch stopped, `bond_changes`, the energies of the two ends and the TS (`energy_first_hartree`, `energy_ts_hartree`, `energy_last_hartree`), and the removed rigid motions and the starting Hessian under `rigid_projection` (see [JSON Output Reference](json-output.md)).
+* **Summary**: with `--out-json`, [`result.json`](json-output.md) records the number of frames of each branch (`n_frames_forward`, `n_frames_backward`), how each branch stopped, `bond_changes`, the energies of the two ends and the TS (`energy_first_hartree`, `energy_ts_hartree`, `energy_last_hartree`), and the removed rigid motions and the starting Hessian under `rigid_projection`.
 * **Console**: the step table of each branch and the elapsed time.
 
 > **Note:** with YAML `irc.prefix: trial`, every file name other than `result.json` starts with `trial_`, as in `trial_finished_irc_trj.xyz`, and `files` in `result.json` records the prefixed names. A positive YAML `irc.dump_every` also writes the HDF5 checkpoint `irc_data.h5` during the run; it is off by default.
@@ -168,7 +168,7 @@ See the [generated CLI reference](reference/commands/irc.md) for every option.
 * **`--root` counts from 0**: a successful TS optimization gives one imaginary mode along the reaction coordinate, so for a TS with n_imag = 1 keep `--root 0` (the only negative eigenvalue). Use `1`, `2`, … only when you know that spurious modes with lower (more negative) eigenvalues come before the reaction mode.
 * **Cartesian coordinates**: `irc` always uses Cartesian coordinates, whatever YAML `geom.coord_type` says.
 * **The `--read-hess` file** is the same `.npy` file as in [`freq`](freq.md), in Hartree/bohr², for all atoms or only the atoms in the Hessian calculation; pass a Hessian computed for the same geometry, charge, multiplicity, and calculator. It needs `irc.hessian_init: calc` (the default); when the file is used, `result.json["rigid_projection"]["hessian_source"]` is `"file"`.
-* **Analytical Hessian and `--uma-workers`**: with UMA, `--hessian-calc-mode Analytical` cannot be combined with `--uma-workers` above 1 and stops with an error. Use `--uma-workers 1` for an analytical Hessian (see [Backends](backends.md)). Its speed and memory use depend on the backend and the system, so compare both modes on your system first.
+* **Analytical Hessian and `--uma-workers`**: with UMA, `--hessian-calc-mode Analytical` cannot be combined with `--uma-workers` above 1 and stops with an error. Use `--uma-workers 1` for an [analytical Hessian](backends.md). Its speed and memory use depend on the backend and the system, so compare both modes on your system first.
 * **Frozen atoms**: besides the frozen MM layer, `--freeze-atoms` freezes more atoms (1-based); how to choose them is described in {ref}`Frozen atoms and distance restraints <freeze-atoms-and-restraints>`.
 * **Large systems**: `--hess-device cpu` keeps the starting Hessian and the IRC Hessian operations on the CPU, to stay within GPU memory.
 * **At least one branch**: `--no-forward` together with `--no-backward` stops with an error.

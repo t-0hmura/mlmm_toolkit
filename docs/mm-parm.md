@@ -106,7 +106,7 @@ mlmm all -i reactant.cif product.cif --parm7 full_system.parm7 \
 | `--auto-disulfide/--no-auto-disulfide` | flag | `True` | Bond CYS/CYX pairs with SG–SG ≤ 2.5 Å and rename a bonded CYS to CYX. Off: bond only residues already named CYX |
 | `--add-h/--no-add-h` | flag | `False` | Add hydrogens with PDBFixer at `--ph` |
 | `--ph` | float | `7.0` | pH for `--add-h` |
-| `--ff-set` | `ff19SB` or `ff14SB` | `ff19SB` | Force-field set (see [Notes](#notes)) |
+| `--ff-set` | `ff19SB` or `ff14SB` | `ff19SB` | [Force-field set](#notes) |
 
 See the [generated CLI reference](reference/commands/mm_parm.md) for every option.
 

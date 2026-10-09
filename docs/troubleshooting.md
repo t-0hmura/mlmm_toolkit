@@ -112,7 +112,7 @@ Enlarge the ML region as in [The ML region is too small or misses catalytic resi
   - Give the formal charge with `-l 'LIG:-1'`, and the multiplicity of a non-singlet ligand with `--ligand-mult 'HEM:1,NO:2'` (`--auto-mm-ligand-mult` in `all`).
   - Rerun with `--keep-temp` (`--auto-mm-keep-temp` in `all`) to keep the working directory `parm7build_*`, and read `<resname>.antechamber.log` there.
   - Run antechamber by hand on the ligand: `antechamber -i ligand.pdb -fi pdb -o ligand.mol2 -fo mol2 -c bcc -nc -3 -at gaff2`.
-  - For RESP charges or other custom parameters, build the topology yourself with tleap and your own `frcmod` / `lib` files, and pass it with `--parm7` (see [mm-parm](mm-parm.md#notes)).
+  - For RESP charges or other custom parameters, [build the topology yourself](mm-parm.md#notes) with tleap and your own `frcmod` / `lib` files, and pass it with `--parm7`.
 
 ### `Coordinate shape mismatch for '...': got (N, 3), expected (M, 3)`
 
@@ -122,7 +122,7 @@ Enlarge the ML region as in [The ML region is too small or misses catalytic resi
 
 ### `oniom-export`: `Element sequence mismatch at atom index ...`
 
-- **Fix**: give `-i` the same PDB that the `parm7` was built from. `--no-element-check` turns the check off (then verify the result by hand); a different atom count still stops the export (see [oniom-export](oniom-export.md#notes)).
+- **Fix**: give `-i` the same PDB that the `parm7` was built from. `--no-element-check` turns the check off (then verify the result by hand); a different atom count still stops the [export](oniom-export.md#notes).
 
 ---
 

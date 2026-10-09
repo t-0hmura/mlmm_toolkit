@@ -16,7 +16,7 @@ ML 領域の計算バックエンドのデフォルトは、Meta が公開した
 
 ## 基本的な実行例
 
-以下の例では、`pocket.pdb` が `real.parm7` に対応する全系の構造、`ml_region.pdb` が ML 領域の定義です（[ML 領域と層の組み方](model-setup.md) を参照）。
+以下の例では、`pocket.pdb` が `real.parm7` に対応する全系の構造、`ml_region.pdb` が [ML 領域](model-setup.md)の定義です。
 
 ### 1. 最小構成での実行（電荷と多重度を明示）
 

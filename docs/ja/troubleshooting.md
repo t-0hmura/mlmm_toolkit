@@ -63,7 +63,7 @@
 
 - **症状**：切り出した ML 領域が想定より小さい、または触媒残基が含まれない。
 - **原因**：この部位には半径（`-r/--radius`、既定 2.6 Å）が小さすぎる。
-- **対処**：`--radius` を大きくするか（例：2.6 → 3.5 Å）、`--selected-resn 'A:TYR:44'` で残基を足してください。この残基からは距離の探索を始めません。`-c` に足すと、`-r` が 0 より大きければ残基が丸ごと残ります（{ref}`モデルを広げる <ja-model-setup-larger>`）。指定できる形は {ref}`残基の指定 <ja-selected-resn-takes-ids>` にあります。chain の欄が空の PDB では、`'44'` のように名前か番号だけを使います。ML 領域の原子を自分で選び、その PDB を `--model-pdb` で渡すこともできます（[自分で組んだモデルを使う](model-setup.md#自分で組んだモデルを使う)）。
+- **対処**：`--radius` を大きくするか（例：2.6 → 3.5 Å）、`--selected-resn 'A:TYR:44'` で残基を足してください。この残基からは距離の探索を始めません。`-c` に足すと、`-r` が 0 より大きければ残基が丸ごと残ります。詳しくは {ref}`モデルを広げる <ja-model-setup-larger>` を参照してください。指定できる形は {ref}`残基の指定 <ja-selected-resn-takes-ids>` にあります。chain の欄が空の PDB では、`'44'` のように名前か番号だけを使います。ML 領域の原子を自分で選び、その PDB を `--model-pdb` で渡すこともできます（[自分で組んだモデルを使う](model-setup.md#自分で組んだモデルを使う)）。
 
 ### エネルギーや障壁が ML 領域の大きさで変わる
 
@@ -112,7 +112,7 @@
   - 形式電荷を `-l 'LIG:-1'` で、一重項でないリガンドの多重度を `--ligand-mult 'HEM:1,NO:2'`（`all` では `--auto-mm-ligand-mult`）で与えてください。
   - `--keep-temp`（`all` では `--auto-mm-keep-temp`）を付けて再実行すると作業ディレクトリ `parm7build_*` が残るので、その中の `<resname>.antechamber.log` を読んでください。
   - リガンドに antechamber を手で実行して切り分けてください：`antechamber -i ligand.pdb -fi pdb -o ligand.mol2 -fo mol2 -c bcc -nc -3 -at gaff2`。
-  - RESP 電荷やほかの独自パラメータを使うときは、tleap と自分の `frcmod` / `lib` ファイルでトポロジーを作り、`--parm7` で渡してください（[mm-parm](mm-parm.md#使用上の注意点) を参照）。
+  - RESP 電荷やほかの独自パラメータを使うときは、tleap と自分の `frcmod` / `lib` ファイルで[トポロジーを作り](mm-parm.md#使用上の注意点)、`--parm7` で渡してください。
 
 ### `Coordinate shape mismatch for '...': got (N, 3), expected (M, 3)`
 
@@ -122,7 +122,7 @@
 
 ### `oniom-export` の `Element sequence mismatch at atom index ...`
 
-- **対処**：`parm7` を作ったときと同じ PDB を `-i` に渡してください。`--no-element-check` でこの確認を外せます（結果は手で確かめます）。原子の数が違うときは、確認を外しても止まります（[oniom-export](oniom-export.md#使用上の注意点) を参照）。
+- **対処**：`parm7` を作ったときと同じ PDB を `-i` に渡してください。`--no-element-check` でこの確認を外せます（結果は手で確かめます）。[原子の数が違うとき](oniom-export.md#使用上の注意点)は、確認を外しても止まります。
 
 ---
 

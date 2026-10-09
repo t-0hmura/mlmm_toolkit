@@ -44,7 +44,7 @@ TS そのものを DFT/MM（`-b dft`）で最適化する方法と、DFT 用の�
 ## 実行の前に
 
 * **入力**: 全系の TS 候補 1 つで、PDB か mmCIF、または同じ原子の PDB を `--ref-pdb` で添えた XYZ です。`-c` を付けると、指定した残基のまわりから ML 領域を切り出します。`-c` を省くと、`--model-pdb` か入力の B-factor の層から ML 領域を取ります。`all` が書き出した HEI の PDB は、この層を持っています。
-* **電荷と多重度**: `-q` は ML 領域の電荷で、全系の電荷ではありません。`-q` を省くと、`all` は ML 領域の残基と `-l` から電荷を求めます（{ref}`電荷の指定 <ja-charge-specification>` を参照）。多重度は `-m` → YAML の `calc.model_mult` → 1 の順で決まります。
+* **電荷と多重度**: `-q` は ML 領域の電荷で、全系の電荷ではありません。`-q` を省くと、`all` は ML 領域の残基と `-l` から {ref}`電荷 <ja-charge-specification>` を求めます。多重度は `-m` → YAML の `calc.model_mult` → 1 の順で決まります。
 * **TS-only モードになる条件**: 入力が 1 つで、`--tsopt` を付け、`--scan-lists` を付けないとき。入力が 2 つ以上なら MEP 探索、入力 1 つに `--scan-lists` を付けるとスキャンになります。
 
 ## 期待される出力

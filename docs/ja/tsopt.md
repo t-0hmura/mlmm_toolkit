@@ -25,7 +25,7 @@ ML 領域の計算バックエンドのデフォルトは、Meta が公開した
 
 ## 基本的な実行例
 
-以下の例では、`ts_guess.pdb` が `real.parm7` に対応する全系の候補構造、`ml_region.pdb` が ML 領域の定義です（[ML 領域と層の組み方](model-setup.md) を参照）。
+以下の例では、`ts_guess.pdb` が `real.parm7` に対応する全系の候補構造、`ml_region.pdb` が [ML 領域](model-setup.md)の定義です。
 
 ### 1. 標準の実行（RS-P-RFO）
 
@@ -67,7 +67,7 @@ mlmm tsopt -i ts_guess.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ## 処理の仕組みと計算仕様
 
-1. **モデルの読み込みと境界の凍結**: ML 領域を `--model-pdb` から、可動 MM 層と凍結 MM 層を入力 PDB の B-factor から読み込みます。ML 領域の電荷は `-q` または `-l` から決まります（{ref}`電荷の指定 <ja-charge-specification>` を参照）。凍結 MM 層と `--freeze-atoms` で指定した原子は固定したままで、最後の Hessian は `--active-dof-mode` で選んだ原子だけで扱います（PHVA: 部分 Hessian 振動解析）。`.xyz` の候補には、原子の順序と層を与える全系の PDB を `--ref-pdb` で渡してください。
+1. **モデルの読み込みと境界の凍結**: ML 領域を `--model-pdb` から、可動 MM 層と凍結 MM 層を入力 PDB の B-factor から読み込みます。ML 領域の {ref}`電荷 <ja-charge-specification>` は `-q` または `-l` から決まります。凍結 MM 層と `--freeze-atoms` で指定した原子は固定したままで、最後の Hessian は `--active-dof-mode` で選んだ原子だけで扱います（PHVA: 部分 Hessian 振動解析）。`.xyz` の候補には、原子の順序と層を与える全系の PDB を `--ref-pdb` で渡してください。
 2. **最適化法の選択**（`--opt-mode`）: `hess`（デフォルト）は完全な Hessian を使う **RS-P-RFO**（制限ステップ分割有理関数最適化）を実行し、`rsirfo` と `trim` はそれぞれ RS-I-RFO（restricted-step image RFO）と TRIM（trust-region image minimization）を選びます。`dimer`（または `grad`）は **Hessian-guided Dimer** 法で、勾配を使って最低固有モードを追い、ときどき厳密な Hessian で方向を更新します。
 3. **反応モードに沿った探索**: 反応モードの方向にはエネルギーを上り、それ以外の方向には下りながら、収束条件（`--thresh`）を満たすまで構造を動かします。デフォルトの `baker` は、力の最大値 3 × 10⁻⁴ 未満、力の RMS 2 × 10⁻⁴ 未満、ステップの最大値 3 × 10⁻⁴ 未満、ステップの RMS 2 × 10⁻⁴ 未満（原子単位）、エネルギー変化 10⁻⁶ hartree 未満の 5 つをすべて同時に求め、どれも Gaussian の既定（`gau`）より厳しい条件です。RS-P-RFO は Bofill 式で Hessian を更新し、1 ステップを信頼半径 0.1 bohr（`rsirfo.trust_max`）以内に収めます。マイクロイテレーション（`--microiter`）はデフォルトで有効で、各 macro ステップで ML 領域とそれに結合した境界の MM 原子を動かし、続いて可動 MM 原子を L-BFGS で緩和します。マイクロイテレーションでは最適化の行が `[microiter]` で始まり、Dimer 法と `--no-microiter` では `[tsopt]` の形で出ます。
 4. **最後の確認**: 収束すると、final geometry で Hessian を計算して n_imag を数え、各虚振動モードをアニメーションとして書き出します。凍結原子の扱いは [`freq`](freq.md#凍結境界での剛体モード) と同じです。
@@ -136,11 +136,11 @@ result_tsopt/
 └─ result.json                      # 結果の要約（--out-json）
 ```
 
-mmCIF の入力と、PDB の欄に入りきらない大きな PDB の入力では、元の識別子を保った `.cif` も書きます（{ref}`mmCIF の入力 <ja-mmcif-input>` を参照）。
+{ref}`mmCIF の入力 <ja-mmcif-input>` と、PDB の欄に入りきらない大きな PDB の入力では、元の識別子を保った `.cif` も書きます。
 
 * **final geometry**: `final_geometry.*` を、[`irc`](irc.md) に渡す TS として使います。`final_geometry.pdb` の B-factor は、ML 領域が 0、可動 MM 原子が 10、凍結 MM 原子が 20 です。
 * **反応モード**: `vib/imag_*_trj.xyz` を PyMOL や VMD で開き、生成・切断される結合に沿って原子が動いているかを確かめてください。
-* **要約**: `--out-json` を付けると、`result.json` に終わり方（`optimization_status`: `converged`、`stalled`、`not_converged`）、`hessian_status`、n_imag が記録されます（[JSON 出力の一覧](json-output.md#tsopt) を参照）。
+* **要約**: `--out-json` を付けると、[`result.json`](json-output.md#tsopt) に終わり方（`optimization_status`: `converged`、`stalled`、`not_converged`）、`hessian_status`、n_imag が記録されます。
 
 ---
 
@@ -207,7 +207,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 * **追う固有ベクトル（root）は 1 つ**: 最適化は 1 つの固有ベクトルに沿って上ります（`0` が最も低い固有値）。`rsirfo.roots: [0]` のように 1 要素のリストで指定します。Dimer 法では `hessian_dimer.root` を使います。`tsopt` に `--root` フラグはありません。
 * **そのほかの RS-P-RFO の設定**: `trust_norm: max_atom` はステップ全体ではなく原子ごとの変位を制限し（Cartesian 座標だけ）、`hessian_update: ts_bfgs` は Bofill の代わりに TS-BFGS で Hessian を更新します。どちらも信頼半径は変えません。
 * **追加の探索は指定したときだけ**: 収束後は、n_imag が 1 でなくても、自動では追加の探索をしません。`--flatten` を使うか、`rsirfo.saddle_recovery_max_cycles` を `0` より大きくしてください（デフォルト `0`）。後者では、厳密な Hessian に虚振動が無いとき、RS-P-RFO・RS-I-RFO・TRIM がエネルギーを上る向きにステップを進めます。
-* **併用できない組み合わせ**: `--skip-final-freq` と `--dump-hess`、2 以上の `--uma-workers`（MLIP の並列ワーカー数）と `--hessian-calc-mode Analytical`（[ワーカーと Hessian の計算方式](backends.md#ワーカーと-hessian-の計算方式) を参照）。
+* **併用できない組み合わせ**: `--skip-final-freq` と `--dump-hess`、2 以上の [`--uma-workers`](backends.md#ワーカーと-hessian-の計算方式)（MLIP の並列ワーカー数）と `--hessian-calc-mode Analytical`。
 * **`--skip-final-freq` と `--flatten`**: RS-P-RFO・RS-I-RFO・TRIM では、`--skip-final-freq` を付けると、最後の Hessian を使う `--flatten` も省かれます。
 * **`--read-hess` を RS-P-RFO・RS-I-RFO・TRIM で使う場合**: ファイルの Hessian が最初の厳密な Hessian の代わりになるので、`rsirfo.hessian_init` はデフォルトの `calc` のままにしてください。ほかの値ではエラーで止まります。
 * **マイクロイテレーションの MM 緩和の収束条件**: `microiter.micro_thresh` で MM 緩和の収束条件を指定します。指定しないときは macro ステップと同じ条件を使います。

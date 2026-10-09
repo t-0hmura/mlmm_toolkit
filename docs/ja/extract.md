@@ -109,7 +109,7 @@ mlmm extract -i complex.pdb -c 'A:SUB:301' -o pocket.pdb \
 | 複数 | 1 つ | マルチ MODEL の PDB 1 つ |
 | 複数 | 入力と同じ数 | 入力ごとに PDB 1 つ |
 
-`-o` がこれ以外の数のときと、出力先が入力のファイルそのもののときは、エラーで止まります。出力先の親ディレクトリは自動で作られます。`result.json` には、原子数（`n_atoms_raw`、`n_atoms_extracted`、`n_link_hydrogens`）、電荷（`total_charge`、`protein_charge`、`ligand_total_charge`、`ion_total_charge`）と使った設定が入ります（[JSON 出力の一覧](json-output.md)）。mmCIF の入力と、PDB の桁に収まらない大きな PDB の入力では、元の ID のままの `.cif` も出ます（{ref}`mmCIF の入力 <ja-mmcif-input>`）。
+`-o` がこれ以外の数のときと、出力先が入力のファイルそのもののときは、エラーで止まります。出力先の親ディレクトリは自動で作られます。`result.json` には、原子数（`n_atoms_raw`、`n_atoms_extracted`、`n_link_hydrogens`）、電荷（`total_charge`、`protein_charge`、`ligand_total_charge`、`ion_total_charge`）と使った設定が入ります（[JSON 出力の一覧](json-output.md)）。{ref}`mmCIF の入力 <ja-mmcif-input>` と、PDB の桁に収まらない大きな PDB の入力では、元の ID のままの `.cif` も出ます。
 
 ---
 
@@ -137,7 +137,7 @@ mlmm extract -i complex.pdb -c 'A:SUB:301' -o pocket.pdb \
 ## 使用上の注意点
 
 * **`-r 0`** では距離で隣の残基を足さず（内部では 0.001 Å）、`-c` と `--selected-resn` の残基に、手順 2 で足す S–S 結合の相手とプロリンの N 側の隣を加えた領域になります。`--radius-het2het 0` も同じです。
-* **領域の大きさ**: ML 領域を広げても結果が変わらないことを系ごとに確かめてください。`-r` を大きくすると計算は重くなり、精度が上がるとは限りません（{ref}`モデルを広げる <ja-model-setup-larger>`）。
+* **領域の大きさ**: {ref}`ML 領域を広げて <ja-model-setup-larger>` も結果が変わらないことを系ごとに確かめてください。`-r` を大きくすると計算は重くなり、精度が上がるとは限りません。
 * **使い回す `--model-pdb` を手で作るとき**は、`mm-parm` が書く PDB から切り出して、原子を `parm7` とそろえてください（[mm-parm の例 4](mm-parm.md#基本的な実行例)）。
 * **名前はすべての chain に当たる**: `TYR` のような名前は、どの chain の TYR もすべて選び、複数あれば警告を出します。
 * **`TYR:44` は chain TYR と読まれる**: 2 つの欄では最初の欄が必ず chain で、2 つ目は番号（`TYR:44`）か名前（`A:SAM`）なので、`A:TYR:44` と書いてください。同梱例のように chain の欄が空の PDB では、名前か番号だけを使います。

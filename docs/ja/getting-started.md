@@ -53,7 +53,7 @@ mlmm -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' --tsopt --thermo --dft
 3. **最小エネルギー経路（MEP）探索**: Growing String Method (GSM) や Direct Max Flux (DMF) による経路探索
 4. **高精度検証**: 遷移状態（TS）の構造最適化、IRC 計算、振動解析、DFT 一点計算
 
-ML 領域の計算にはデフォルトの **UMA**（Meta）のほか、`-b/--backend` オプションで **ORB**、**MACE**、**AIMNet2** も選択可能です（[MLIP バックエンド](backends.md) を参照）。
+ML 領域の計算にはデフォルトの **UMA**（Meta）のほか、[`-b/--backend` オプション](backends.md)で **ORB**、**MACE**、**AIMNet2** も選択可能です。
 
 MLIP/MM で妥当な経路が見つかったら、その TS をそのまま DFT/MM での TS 構造最適化にもっていくことにも `mlmm-toolkit` は対応しています。TS 最適化 → IRC → 端点の最適化 → 振動数計算のワークフローを、GPU4PySCF を用いることで GPU で高速化された DFT 計算により実行可能です。詳しくは [MLIP の TS を DFT で確かめる](dft-backend.md) を参照してください。
 
