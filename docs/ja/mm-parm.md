@@ -106,7 +106,7 @@ mlmm all -i reactant.cif product.cif --parm7 full_system.parm7 \
 | `--auto-disulfide/--no-auto-disulfide` | フラグ | `True` | SG–SG ≤ 2.5 Å の CYS/CYX の組を結合し、結合した CYS の名前を CYX に変える。オフでは、もとから CYX の残基だけを結合する |
 | `--add-h/--no-add-h` | フラグ | `False` | PDBFixer で `--ph` の水素を付ける |
 | `--ph` | 浮動小数点数 | `7.0` | `--add-h` の pH |
-| `--ff-set` | `ff19SB` か `ff14SB` | `ff19SB` | 力場の組（[使用上の注意点](#使用上の注意点)） |
+| `--ff-set` | `ff19SB` か `ff14SB` | `ff19SB` | [力場の組](#使用上の注意点) |
 
 全オプションは [自動生成のオプションの一覧（英語のみ）](../reference/commands/mm_parm.md) を参照してください。
 
@@ -142,7 +142,7 @@ python -c "import parmed as pmd; p=pmd.load_file('system.parm7'); assert not p.c
 * **リガンドの電荷と水素**: 残基の水素の数が電荷・多重度と合わないと、電子数の確認で止まります（SAM では水素 22 個が電荷 0、23 個が +1）。tleap がもう知っている残基への `-l`・`--ligand-mult` は使われず、警告が出ます。
 * **力場の組**: `ff19SB` は ff19SB と phosaa19SB・ff19SB_modAA、OPC3 の水とそのイオンのパラメータを読み込みます。`ff14SB` は ff14SB と phosaa14SB・ff14SB_modAA、TIP3P の水とそのイオンのパラメータを読み込みます。どちらも lipid21・RNA.OL3・DNA.OL21・GLYCAM_06j-1・GAFF2 を読み込みます。
 * **仮想サイトを持つ水**: 既定の MM バックエンド `hessian_ff` は、質量の無い仮想サイトを持つ水（OPC・TIP4P/-Ew・TIP5P）のトポロジーを拒み、その数と原子番号を表示します。3 点の水を使うか、計算を `--mm-backend openmm` で実行してください。
-* **必要なもの**: AmberTools の tleap・antechamber・parmchk2 が `PATH` にあることが必要で、`--add-h` には PDBFixer も要ります（[インストール](installation.md)）。
+* **必要なもの**: [AmberTools](installation.md) の tleap・antechamber・parmchk2 が `PATH` にあることが必要で、`--add-h` には PDBFixer も要ります。
 
 ---
 

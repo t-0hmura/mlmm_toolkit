@@ -91,7 +91,7 @@ See the [generated CLI reference](reference/commands/define_layer.md) for every 
 
 * **The ML region is required**: without `--model-pdb` or `--model-indices`, the command stops with exit code 2 and `ERROR: Either --model-pdb or --model-indices must be provided.`
 * **`--model-pdb` wins**: when both are given, `--model-pdb` is used, as in the calculation commands.
-* **Use the topology-matched PDB**: give the PDB that `mm-parm` writes as `-i`, so that the layered PDB has the same atoms in the same order as the `parm7` ([mm-parm example 4](mm-parm.md#examples)). An atom of `--model-pdb` that is not in the input stops the command with an error.
+* **Use the topology-matched PDB**: give the PDB that `mm-parm` writes as `-i`, so that the layered PDB has the same atoms in the same order as the `parm7`, as in [`mm-parm` example 4](mm-parm.md#examples). An atom of `--model-pdb` that is not in the input stops the command with an error.
 * **Multi-MODEL input**: only the first MODEL is used, with a warning.
 * **Choosing the cutoff**: a smaller `--movable-cutoff` makes the calculation cheaper, and a larger one lets more of the environment relax. A `--movable-cutoff` given to a calculation command replaces the B-factor layers. See [Building the ML region and layers](model-setup.md).
 

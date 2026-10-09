@@ -134,7 +134,7 @@ See the [generated CLI reference](reference/commands/freq.md) for every option.
 * **`freq` or `tsopt`?** `tsopt` already checks the imaginary frequencies. Run `freq` on its own when you need detailed thermochemistry (ZPE, Gibbs energy) or mode animations.
 * **At least one atom must move.** If every atom is frozen there is no vibration to analyze, and `freq` stops with an error.
 * **Hessian mode priority**: `--hessian-calc-mode` follows the priority default < YAML config < command line.
-* **Analytical Hessian and `--uma-workers`**: with UMA, `--hessian-calc-mode Analytical` cannot run with `--uma-workers` (parallel MLIP predictor workers) above 1 and stops with an error. Use `--uma-workers 1` for an analytical Hessian ([details](backends.md#workers-and-hessian-mode)).
+* **Analytical Hessian and `--uma-workers`**: with UMA, `--hessian-calc-mode Analytical` cannot run with `--uma-workers` (parallel MLIP predictor workers) above 1 and stops with an error. Use `--uma-workers 1` for an [analytical Hessian](backends.md#workers-and-hessian-mode).
 * **`all --thermo` keeps the thermochemistry file**: `all` builds its Gibbs energy diagram from `thermoanalysis.yaml`, so with `--thermo` its `freq` step writes this file even under `--no-dump`.
 * **The `--read-hess` / `--dump-hess` file** is one NumPy array (`numpy.save`): the Cartesian Hessian in Hartree/bohr², not mass-weighted, with atoms in input order. It covers all atoms (3N × 3N) or only the atoms selected by `--active-dof-mode`. `--read-hess` checks only that the matrix is square, finite, symmetric, and one of these two sizes, so pass a Hessian computed for the same geometry, charge, multiplicity, layers, and calculator settings.
 

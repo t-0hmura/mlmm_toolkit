@@ -57,7 +57,7 @@ The ML region uses **UMA** (Meta) by default; [`-b/--backend`](backends.md) also
 
 Once MLIP/MM has found a reasonable pathway, `mlmm-toolkit` can take its TS straight into a DFT/MM TS optimization. It runs the TS optimization → IRC → endpoint optimization → frequency workflow with GPU-accelerated DFT through GPU4PySCF. See [Refine an MLIP TS with DFT](dft-backend.md) for details.
 
-> To run a model you built yourself as is, omit `-c` ([Building the ML region and layers](model-setup.md#use-a-model-you-built-yourself)).
+> To run a [model you built yourself](model-setup.md#use-a-model-you-built-yourself) as is, omit `-c`.
 
 ---
 

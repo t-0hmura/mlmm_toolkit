@@ -33,7 +33,7 @@ mlmm all -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
 
 ### 2. TS を DFT/MM で詰める
 
-例 1 の TS を 1 つだけ入力にすると、TS-only モードになります。`ts.pdb` は全系の構造で、`--parm7` と `--model-pdb` で例 1 のトポロジーと ML 領域を使い回すので、2 つの計算は同じ系を扱います。DFT 用の追加パッケージが要ります（[使用上の注意点](#使用上の注意点)）。
+例 1 の TS を 1 つだけ入力にすると、TS-only モードになります。`ts.pdb` は全系の構造で、`--parm7` と `--model-pdb` で例 1 のトポロジーと ML 領域を使い回すので、2 つの計算は同じ系を扱います。DFT 用の[追加パッケージ](#使用上の注意点)が要ります。
 
 ```bash
 mlmm all -i result_all/segments/seg_01/ts.pdb \

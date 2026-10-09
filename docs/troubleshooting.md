@@ -63,7 +63,7 @@ Before a long run, check that:
 
 - **Symptom**: the extracted ML region is smaller than expected, or catalytic residues are missing.
 - **Cause**: the radius (`-r/--radius`, default 2.6 Å) is too small for this site.
-- **Fix**: raise `--radius` (for example 2.6 → 3.5 Å), or add the residue with `--selected-resn 'A:TYR:44'`, which adds it without starting a distance search from it; adding it to `-c` keeps it whole when `-r` is above 0 ([Make the model larger](model-setup.md#make-the-model-larger)). The accepted forms are in {ref}`Residue selectors <selected-resn-takes-ids>`; in a PDB with an empty chain column, use the name or the number alone, such as `'44'`. You can also select the ML atoms yourself and pass the PDB with `--model-pdb` ([Use a model you built yourself](model-setup.md#use-a-model-you-built-yourself)).
+- **Fix**: raise `--radius` (for example 2.6 → 3.5 Å), or add the residue with `--selected-resn 'A:TYR:44'`, which adds it without starting a distance search from it; adding it to `-c` keeps it whole when `-r` is above 0. See [Make the model larger](model-setup.md#make-the-model-larger). The accepted forms are in {ref}`Residue selectors <selected-resn-takes-ids>`; in a PDB with an empty chain column, use the name or the number alone, such as `'44'`. You can also [select the ML atoms yourself](model-setup.md#use-a-model-you-built-yourself) and pass the PDB with `--model-pdb`.
 
 ### Energies or barriers shift with the size of the ML region
 
@@ -205,9 +205,9 @@ First check the TS candidate: a successful TS optimization gives one imaginary m
 
 Try in order:
 
-1. **Check Frozen-MM**: `define-layer` should put distal atoms at B = 20.0. If the Frozen-MM region is too small, the Movable-MM region and its Hessian grow. A smaller `--movable-cutoff` enlarges Frozen-MM ([Thin the movable MM shell](model-setup.md#thin-the-movable-mm-shell)).
-2. **Shrink the ML region**: a smaller `--radius` in `extract`, or a smaller ML region given with `--model-pdb` ([Shrink the ML region](model-setup.md#shrink-the-ml-region)).
-3. **Narrow the Hessian**: `--hessian-cutoff` of `opt`, `tsopt`, `freq`, and `sp` keeps fewer Movable-MM atoms in the Hessian ([Narrow the Hessian](model-setup.md#narrow-the-hessian)).
+1. **Check Frozen-MM**: `define-layer` should put distal atoms at B = 20.0. If the Frozen-MM region is too small, the Movable-MM region and its Hessian grow. A smaller [`--movable-cutoff`](model-setup.md#thin-the-movable-mm-shell) enlarges Frozen-MM.
+2. **Shrink the ML region**: a smaller `--radius` in `extract`, or a [smaller ML region](model-setup.md#shrink-the-ml-region) given with `--model-pdb`.
+3. **Narrow the Hessian**: [`--hessian-cutoff`](model-setup.md#narrow-the-hessian) of `opt`, `tsopt`, `freq`, and `sp` keeps fewer Movable-MM atoms in the Hessian.
 4. **Compare Hessian modes**: finite differences often lower the ML autograd memory, but both modes form a dense Hessian over the active atoms; compare runtime and peak memory on the target system, and return to the default `FiniteDifference` if you selected `Analytical`.
 5. **Use a bigger GPU**: try the same model, Hessian mode, and active region on the target device first.
 
@@ -234,7 +234,7 @@ Try in order:
 (troubleshooting-irc)=
 ### IRC does not terminate properly
 
-An IRC that stops before it converges is still usable when the endpoint optimizations reach the intended R and P, so check the optimized endpoints first ([Judging the IRC](irc.md#judging-the-irc)).
+An IRC that stops before it converges is still usable when the endpoint optimizations reach the intended R and P, so check the [optimized endpoints](irc.md#judging-the-irc) first.
 
 - **Symptom**: the IRC stops before it reaches a clear minimum, or the energy oscillates and the gradient stays large.
 - **Cause**: the step is too large for this surface, or the starting structure has more than one imaginary mode.

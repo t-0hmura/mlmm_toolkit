@@ -63,7 +63,7 @@
 
 - **症状**：切り出した ML 領域が想定より小さい、または触媒残基が含まれない。
 - **原因**：この部位には半径（`-r/--radius`、既定 2.6 Å）が小さすぎる。
-- **対処**：`--radius` を大きくするか（例：2.6 → 3.5 Å）、`--selected-resn 'A:TYR:44'` で残基を足してください。この残基からは距離の探索を始めません。`-c` に足すと、`-r` が 0 より大きければ残基が丸ごと残ります。詳しくは {ref}`モデルを広げる <ja-model-setup-larger>` を参照してください。指定できる形は {ref}`残基の指定 <ja-selected-resn-takes-ids>` にあります。chain の欄が空の PDB では、`'44'` のように名前か番号だけを使います。ML 領域の原子を自分で選び、その PDB を `--model-pdb` で渡すこともできます（[自分で組んだモデルを使う](model-setup.md#自分で組んだモデルを使う)）。
+- **対処**：`--radius` を大きくするか（例：2.6 → 3.5 Å）、`--selected-resn 'A:TYR:44'` で残基を足してください。この残基からは距離の探索を始めません。`-c` に足すと、`-r` が 0 より大きければ残基が丸ごと残ります。詳しくは {ref}`モデルを広げる <ja-model-setup-larger>` を参照してください。指定できる形は {ref}`残基の指定 <ja-selected-resn-takes-ids>` にあります。chain の欄が空の PDB では、`'44'` のように名前か番号だけを使います。ML 領域の原子を自分で選び、その PDB を [`--model-pdb`](model-setup.md#自分で組んだモデルを使う) で渡すこともできます。
 
 ### エネルギーや障壁が ML 領域の大きさで変わる
 
@@ -199,9 +199,9 @@ IPOPT/MUMPS が並列版 BLIS を使う環境では、入れ子の並列化で�
 
 次を順に試してください。
 
-1. **Frozen-MM を確かめる**：`define-layer` で遠い原子が B = 20.0 になっているか確かめてください。Frozen-MM が小さすぎると、Movable-MM とその Hessian が大きくなります。`--movable-cutoff` を小さくすると Frozen-MM が広がります（[動く MM の殻を薄くする](model-setup.md#動く-mm-の殻を薄くする)）。
-2. **ML 領域を小さくする**：`extract` の `--radius` を小さくするか、`--model-pdb` で小さい ML 領域を渡します（[ML 領域を小さくする](model-setup.md#ml-領域を小さくする)）。
-3. **Hessian の範囲を絞る**：`opt`、`tsopt`、`freq`、`sp` の `--hessian-cutoff` で、Hessian に入る Movable-MM の原子を減らします（[Hessian の範囲を絞る](model-setup.md#hessian-の範囲を絞る)）。
+1. **Frozen-MM を確かめる**：`define-layer` で遠い原子が B = 20.0 になっているか確かめてください。Frozen-MM が小さすぎると、Movable-MM とその Hessian が大きくなります。[`--movable-cutoff`](model-setup.md#動く-mm-の殻を薄くする) を小さくすると Frozen-MM が広がります。
+2. **ML 領域を小さくする**：`extract` の `--radius` を小さくするか、`--model-pdb` で[小さい ML 領域](model-setup.md#ml-領域を小さくする)を渡します。
+3. **Hessian の範囲を絞る**：`opt`、`tsopt`、`freq`、`sp` の [`--hessian-cutoff`](model-setup.md#hessian-の範囲を絞る) で、Hessian に入る Movable-MM の原子を減らします。
 4. **Hessian の計算方式を比べる**：有限差分は ML の自動微分のメモリを抑えることが多いものの、どちらの方式も動く原子の密な Hessian を作ります。対象の系で実行時間とピークメモリを比べ、`Analytical` を選んでいたら既定の `FiniteDifference` に戻してください。
 5. **メモリの大きい GPU に移る**：同じモデル、Hessian の方式、動く範囲で、移る先の GPU で先に試してください。
 
@@ -218,7 +218,7 @@ IPOPT/MUMPS が並列版 BLIS を使う環境では、入れ子の並列化で�
 (ja-troubleshooting-ts)=
 ### TS 最適化が収束しない・虚振動が複数残る
 
-- **症状**：TS 最適化が多くのサイクルを回しても収束しない（`summary.log` に `TS optimization did not converge. Review the TS trajectory.`）、または収束後に n_imag が 2 以上（`TS imaginary-mode validation found n_imag=N.`）や 0（`[tsopt] No imaginary mode detected. Try all --refine-path.`）になる（[TS の判定](tsopt.md#ts-の判定)）。
+- **症状**：TS 最適化が多くのサイクルを回しても収束しない（`summary.log` に `TS optimization did not converge. Review the TS trajectory.`）、または収束後に [n_imag](tsopt.md#ts-の判定) が 2 以上（`TS imaginary-mode validation found n_imag=N.`）や 0（`[tsopt] No imaginary mode detected. Try all --refine-path.`）になる。
 - **最適化が収束しないときの対処**：止まった理由とモードの変位を確かめてから、次を順に試してください。
   1. オプティマイザを RS-P-RFO（既定）と Dimer 法の間で切り替える：単独では `tsopt --opt-mode hess` / `dimer`、`all` では `--opt-mode-post hess` / `grad`（Dimer）。
   2. YAML でステップサイズを小さくする。[YAML 設定の一覧](yaml-reference.md#ts-最適化セクション) を参照してください。
@@ -228,7 +228,7 @@ IPOPT/MUMPS が並列版 BLIS を使う環境では、入れ子の並列化で�
 (ja-troubleshooting-irc)=
 ### IRC が正常に終了しない
 
-IRC が収束せずに止まっても、端点の最適化で狙った R と P に着けば使えます。まず最適化後の端点を確かめてください（[IRC の成否の判定](irc.md#irc-の成否の判定)）。
+IRC が収束せずに止まっても、端点の最適化で狙った R と P に着けば使えます。まず[最適化後の端点](irc.md#irc-の成否の判定)を確かめてください。
 
 - **症状**：IRC が明確な極小構造に着く前に止まる、またはエネルギーが振動し勾配が大きいままになる。
 - **原因**：この曲面にはステップが大きすぎる、または開始構造に虚振動が 2 つ以上ある。

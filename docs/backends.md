@@ -63,7 +63,7 @@ Which value to choose depends on the purpose:
 | --- | --- | --- |
 | Routine run | Leave unset | Keeps the defaults above: UMA/AIMNet2 fp32, ORB/MACE fp64. |
 | Speed screening | `--precision fp32` only when needed | This lowers ORB/MACE precision (see [Notes](#notes)). |
-| Final TS/Hessian | Leave unset; with UMA, compare `--precision fp64` when n_imag ≥ 2 ([tsopt](tsopt.md)) | Whatever the precision, check n_imag from the final Hessian of `tsopt` and confirm with IRC and the endpoint optimizations that the TS connects the intended R and P. |
+| Final TS/Hessian | Leave unset; with UMA, compare `--precision fp64` when n_imag ≥ 2 ([tsopt](tsopt.md#wrong-imaginary-mode-count-after-optimization)) | Whatever the precision, check n_imag from the final Hessian of `tsopt` and confirm with IRC and the endpoint optimizations that the TS connects the intended R and P. |
 
 Enable fp64 with:
 
@@ -116,8 +116,8 @@ exists on `freq`, `irc`, `tsopt`, `sp`, and `all`, and YAML uses
 worker), ORB, MACE, and AIMNet2 compute analytical Hessians when the installed
 version provides them, and the DFT backend does so without `--embedcharge`. A custom calculator supports only
 `FiniteDifference`. When the analytical Hessian is not available for the
-selected backend, the run stops with an error. The MM part of the Hessian is
-set separately ([ML/MM Calculator](mlmm-calc.md)).
+selected backend, the run stops with an error. The [MM part of the Hessian](mlmm-calc.md) is
+set separately.
 
 Choose one of these two settings with UMA:
 

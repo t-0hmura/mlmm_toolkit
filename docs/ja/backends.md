@@ -29,7 +29,7 @@ mlmm opt -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b aim
 
 `--backend-model NAME` は、選んだ `--backend` のモデルを替えます（例：`--backend uma --backend-model uma-m-1p1`）。`-b dft` を付けると ML 領域を [DFT](#dftmm-バックエンド) で計算でき、`--calc-file` で {ref}`任意の ASE calculator <ja-backends-custom-calculator>` を使えます。
 
-実行時には、読み込むバックエンドとモデルが `[backend] Preparing MLIP model (UMA / UMA-S-1.2 (OMol))...` のように表示され、JSON の出力の `mlip_backend`・`mlip_model`・`mlip_precision` に記録されます（[JSON 出力の一覧](json-output.md#共通エンベロープ)）。
+実行時には、読み込むバックエンドとモデルが `[backend] Preparing MLIP model (UMA / UMA-S-1.2 (OMol))...` のように表示され、[JSON の出力](json-output.md#共通エンベロープ)の `mlip_backend`・`mlip_model`・`mlip_precision` に記録されます。
 
 (ja-precision)=
 ### 精度（precision）
@@ -50,7 +50,7 @@ mlmm opt -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b aim
 | --- | --- | --- |
 | 通常の計算 | 指定しない | 上の既定値（UMA・AIMNet2 は fp32、ORB・MACE は fp64）のままにします。 |
 | 速さを優先するスクリーニング | 必要なときだけ `--precision fp32` | ORB・MACE の精度が下がります（[使用上の注意点](#使用上の注意点)）。 |
-| 最終の TS と Hessian | 指定しない。UMA で n_imag ≥ 2 のときは `--precision fp64` と比べる（[tsopt](tsopt.md)） | 精度によらず、`tsopt` の最後の Hessian で n_imag を確かめ、IRC と端点の最適化で TS が狙った R と P をつなぐことを確かめます。 |
+| 最終の TS と Hessian | 指定しない。UMA で n_imag ≥ 2 のときは `--precision fp64` と比べる（{ref}`tsopt <ja-wrong-imaginary-mode-count>`） | 精度によらず、`tsopt` の最後の Hessian で n_imag を確かめ、IRC と端点の最適化で TS が狙った R と P をつなぐことを確かめます。 |
 
 fp64 は次のように指定します。
 
@@ -89,7 +89,7 @@ mlmm all -i r_complex.pdb p_complex.pdb -c PRE -q -1 --deterministic
 
 ### Hessian の計算方式
 
-`--hessian-calc-mode` で、ML 領域の Hessian の計算方式を選びます。このフラグは `freq`、`irc`、`tsopt`、`sp`、`all` にあり、YAML では `calc.hessian_calc_mode` です。`FiniteDifference`（既定）は力の中心差分を取り、`Analytical` はバックエンドの自動微分またはネイティブの Hessian を使います。UMA（ワーカー 1 つのとき）、ORB、MACE、AIMNet2 は入れた版が対応していれば解析 Hessian を計算でき、DFT のバックエンドも `--embedcharge` なしなら計算できます。自作の calculator は `FiniteDifference` だけに対応します。選んだバックエンドで解析 Hessian が使えないときは、エラーで止まります。Hessian の MM の部分は別に設定します（[ML/MM 計算機](mlmm-calc.md)）。
+`--hessian-calc-mode` で、ML 領域の Hessian の計算方式を選びます。このフラグは `freq`、`irc`、`tsopt`、`sp`、`all` にあり、YAML では `calc.hessian_calc_mode` です。`FiniteDifference`（既定）は力の中心差分を取り、`Analytical` はバックエンドの自動微分またはネイティブの Hessian を使います。UMA（ワーカー 1 つのとき）、ORB、MACE、AIMNet2 は入れた版が対応していれば解析 Hessian を計算でき、DFT のバックエンドも `--embedcharge` なしなら計算できます。自作の calculator は `FiniteDifference` だけに対応します。選んだバックエンドで解析 Hessian が使えないときは、エラーで止まります。[Hessian の MM の部分](mlmm-calc.md)は別に設定します。
 
 UMA では次の 2 つのどちらかを選んでください。
 

@@ -42,7 +42,7 @@ mlmm trj2fig -i traj.xyz --reverse-x -o energy.png energy.html energy.pdf
 
 ### 4. MLIP でエネルギーを計算し直す
 
-コメント行を読む代わりに、UMA のモデルと精度を指定して（[MLIP バックエンド](backends.md)）、中性の一重項として全フレームを計算し直し、使ったバックエンドを `result.json` に記録します。
+コメント行を読む代わりに、[UMA](backends.md) のモデルと精度を指定して、中性の一重項として全フレームを計算し直し、使ったバックエンドを `result.json` に記録します。
 
 ```bash
 mlmm trj2fig -i traj.xyz -q 0 -m 1 -b uma --backend-model uma-s-1p2 \
@@ -74,7 +74,7 @@ summary.json    # result.json の写し。result.json を読む（--out-json 指
 ```
 
 * **CSV の列**: `frame`、`energy_hartree`、図に描いた値（`--unit` の単位）の 3 列です。3 列目の名前は、基準があるときは `delta_kcal` か `delta_hartree`、`-r none` では `energy_kcal` か `energy_hartree` です。
-* **`result.json`** は最初の出力と同じディレクトリに書き出します。`n_frames`、`min_energy_hartree`、`max_energy_hartree`、`energy_source`（`trajectory_comment` か `mlip_recomputed`）と、書き出したファイルを順に並べた `output_files` を持ちます。`mlip_backend`・`mlip_model`・`mlip_model_label`・`mlip_task`・`mlip_precision` はエネルギーを計算し直したときだけ値が入り、それ以外では null です（[JSON 出力の一覧](json-output.md#trj2fig)）。
+* **`result.json`** は最初の出力と同じディレクトリに書き出します。`n_frames`、`min_energy_hartree`、`max_energy_hartree`、`energy_source`（`trajectory_comment` か `mlip_recomputed`）と、書き出したファイルを順に並べた `output_files` を持ちます。`mlip_backend`・`mlip_model`・`mlip_model_label`・`mlip_task`・`mlip_precision` はエネルギーを計算し直したときだけ値が入り、それ以外では null です。[JSON 出力の一覧](json-output.md#trj2fig)を参照してください。
 
 ---
 

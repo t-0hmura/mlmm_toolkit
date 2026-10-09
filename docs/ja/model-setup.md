@@ -94,7 +94,7 @@ ML 領域の外の原子は、2 つの MM の層に分かれます。各原子�
 - **`--radius-het2het`**（既定 0 で無効）：中心の側も相手の側も C・H 以外の原子だけで測る、2 つ目の距離を足します。全体の半径を広げずに、近くの N・O の相手を拾えます。
 - **残基を `-c` に足す**：残基を丸ごと残したいときに使います。`-c` のアミノ酸からも距離での探索が始まり、`-r` が 0 より大きければペプチド結合でつながった隣の残基が加わるので、`--exclude-backbone` なしでは全部の原子が残ります。
 
-周りの環境を動けるようにしたいときは、`define-layer --movable-cutoff 10.0` などで、ML 領域ではなく Movable-MM を広げてください。Hessian を ML 領域だけに絞っていたら、`--hessian-cutoff` を外して既定に戻します（[反応機構を調べるコツ](mechanism-tips.md)）。
+周りの環境を動けるようにしたいときは、`define-layer --movable-cutoff 10.0` などで、ML 領域ではなく Movable-MM を広げてください。Hessian を ML 領域だけに絞っていたら、`--hessian-cutoff` を外して既定に戻します。詳しくは [反応機構を調べるコツ](mechanism-tips.md) を参照してください。
 
 半径は、ML 領域の大きさに対して結果が収束したかを確かめるためのパラメータです。ML 領域を広げると計算は重くなり、精度が上がるとは限らないので、化学的に妥当な何通りかの ML 領域で、エネルギー・力・障壁を比べてください。反応物・中間体・生成物では同じ ML 領域を使い、`ml_region.pdb` を `--model-pdb` で渡します。
 
@@ -166,10 +166,10 @@ mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 - **`--movable-cutoff` は B-factor の MM の層を置き換えます**：このオプションを持つどのコマンドでも同じです。`opt`・`tsopt`・`freq`・`path-opt`・`path-search` では `--detect-layer` も無効になるので、ML 領域を `--model-pdb` か `--model-indices` で渡してください。
 - **`--model-pdb` が決めるのは ML 領域だけ**：`--detect-layer` が有効なら、Movable-MM と Frozen-MM は入力の B-factor から決まります。
 - **層は `define-layer` で変える**：B-factor を手で書き換えず、`define-layer` をやり直してください。
-- **同梱の PDB は chain の欄が空です**。chain が空の PDB では、残基を名前か番号で指定してください。chain のある PDB では、`-c 'A:TYR:44'` のように chain:残基名:番号 で書きます（[残基セレクタ](cli-conventions.md#残基セレクタ)）。
+- **同梱の PDB は chain の欄が空です**。chain が空の PDB では、残基を名前か番号で指定してください。chain のある PDB では、`-c 'A:TYR:44'` のように [chain:残基名:番号](cli-conventions.md#残基セレクタ) で書きます。
 - **リンク水素は自動で付きます**。計算機は、`parm7` の結合のうち片方の端だけが ML 領域にあるものに 1 つずつ水素を置くので、`model.pdb` には入れません。詳しくは [リンク原子の再分配](mlmm-calc.md#リンク原子の再分配) にあります。
 - **境界の結合**：リンク水素を置けるのは C–C、C–N、N–C の結合だけです。ほかの `parm7` の結合が境界をまたぐと、`Unsupported ML/MM boundary bond in parm7` で止まります。境界を、置ける結合へ動かしてください。
-- **金属・糖鎖・MD の snapshot**：`parm7` を自分で作り、`--parm7` で渡してください（[`mm-parm` の注意点](mm-parm.md#使用上の注意点)）。
+- **金属・糖鎖・MD の snapshot**：[`parm7` を自分で作り](mm-parm.md#使用上の注意点)、`--parm7` で渡してください。
 
 ## 関連ドキュメント
 

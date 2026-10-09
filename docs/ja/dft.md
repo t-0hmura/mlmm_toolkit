@@ -87,7 +87,7 @@ result_dft/
 * **`mlmm_energy`**（`result.yaml`）: MM のエネルギー `E_real_low_hartree` と `E_model_low_hartree`、総エネルギー `E_total_ml_dft_mm_hartree`。kcal/mol の値もあります。
 * **`charges [index, element, mulliken, lowdin, iao]`**: リンク水素を含む ML 領域の 1 原子 1 行の表で、`index` は 0 始まりです。端末にも同じ表が出ます。
 * **`spin_densities [index, element, mulliken, lowdin, iao]`**: 同じ形の表です。`result.yaml` には常に書き出し、端末には開殻のときだけ表示します。
-* **`result.json`**: エネルギー、`mulliken`・`lowdin`・`iao` の配列での電荷とスピン密度、電荷・多重度・汎関数・基底・SCF の設定を持ちます（[JSON 出力の一覧](json-output.md#dft)）。
+* **`result.json`**: エネルギー、`mulliken`・`lowdin`・`iao` の配列での電荷とスピン密度、電荷・多重度・汎関数・基底・SCF の設定を持ちます。[JSON 出力の一覧](json-output.md#dft) を参照してください。
 
 ---
 

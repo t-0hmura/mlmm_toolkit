@@ -90,7 +90,7 @@ scaled（g-factor）のリンク原子では、`r_L = (1−g)·r_QM + g·r_MM` �
 
 MM のエンジンは `--mm-backend`（YAML では `calc.mm_backend`）で選べます。
 
-- **`hessian_ff`**（既定）：mlmm-toolkit に同梱された、Amber parm7 の力場用の CPU 専用 MM エンジンです。結合、角度、二面角、不正二面角、Lennard-Jones、静電、CMAP の項を計算し、MM の Hessian を解析的に計算できます。MM の Hessian は既定では有限差分（`calc.mm_fd: true`）で、`calc.mm_fd: false` にすると `hessian_ff` の解析 Hessian を使います。C++ のカーネルは初回の使用時に自動でビルドされ、C++20 のコンパイラが要ります（[インストール](installation.md)）。MM を CPU で計算するので、GPU のメモリは ML 領域に使えます。
+- **`hessian_ff`**（既定）：mlmm-toolkit に同梱された、Amber parm7 の力場用の CPU 専用 MM エンジンです。結合、角度、二面角、不正二面角、Lennard-Jones、静電、CMAP の項を計算し、MM の Hessian を解析的に計算できます。MM の Hessian は既定では有限差分（`calc.mm_fd: true`）で、`calc.mm_fd: false` にすると `hessian_ff` の解析 Hessian を使います。C++ のカーネルは初回の使用時に自動でビルドされ、[C++20 のコンパイラ](installation.md)が要ります。MM を CPU で計算するので、GPU のメモリは ML 領域に使えます。
 - **`openmm`**：CPU または CUDA で動く OpenMM で、Hessian は有限差分です。`hessian_ff` が対応していない力場を使うときや、ワークフローですでに OpenMM を使っているときに選んでください。`mm_backend` と `mm_device` の YAML の例と VRAM の兼ね合いは、[デバイス設定 & HPC セットアップ](device-hpc.md) にあります。
 
 一部の原子だけが動くときは、動く原子の Hessian のブロックを、凍結した原子の行と列を 0 で埋めた全デカルト座標の形に広げることもできます（`return_partial_hessian`）。
@@ -270,7 +270,7 @@ forces = geom.forces            # Hartree/Bohr (flat)
 - `--embedcharge` を付けると、マイクロイテレーションは使われません。MM だけのマイクロステップには埋め込みの力が入らないためで、このときオプティマイザは ML と MM の原子を一緒に動かします。
 - fixed のリンク原子の配置は、ML 側の親原子が C か N のときだけ使えます。
 - 既定の `return_partial_hessian=True` では、`compute()` は Hessian 対象の原子だけの Hessian を、4 次元の配列 `(n_active, 3, n_active, 3)` で返します。全系に戻すには `within_partial_hessian` を使ってください。
-- `backend="dft"` には `dft_settings` も要ります。コマンドラインでは、`-b dft` が YAML の `calc.dft` ブロックと DFT のオプションからこれを作ります（[MLIP の TS を DFT で確かめる](dft-backend.md)）。
+- `backend="dft"` には `dft_settings` も要ります。コマンドラインでは、[`-b dft`](dft-backend.md) が YAML の `calc.dft` ブロックと DFT のオプションからこれを作ります。
 
 ## 関連ドキュメント
 

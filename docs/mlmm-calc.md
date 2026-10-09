@@ -90,7 +90,7 @@ With the scaled (g-factor) link atom, `r_L = (1−g)·r_QM + g·r_MM` ties the l
 
 `--mm-backend` (YAML `calc.mm_backend`) selects the MM engine:
 
-- **`hessian_ff`** (default): a CPU-only MM engine for Amber parm7 force fields, bundled with mlmm-toolkit. It evaluates the bond, angle, dihedral, improper, Lennard-Jones, electrostatic, and CMAP terms, and it can compute the MM Hessian analytically. The MM Hessian uses finite differences by default (`calc.mm_fd: true`); `calc.mm_fd: false` switches to the analytical `hessian_ff` Hessian. Its C++ kernels are built automatically on first use and need a C++20 compiler ([Installation](installation.md)). Running MM on the CPU leaves the GPU memory to the ML region.
+- **`hessian_ff`** (default): a CPU-only MM engine for Amber parm7 force fields, bundled with mlmm-toolkit. It evaluates the bond, angle, dihedral, improper, Lennard-Jones, electrostatic, and CMAP terms, and it can compute the MM Hessian analytically. The MM Hessian uses finite differences by default (`calc.mm_fd: true`); `calc.mm_fd: false` switches to the analytical `hessian_ff` Hessian. Its C++ kernels are built automatically on first use and need a [C++20 compiler](installation.md). Running MM on the CPU leaves the GPU memory to the ML region.
 - **`openmm`**: OpenMM on the CPU or CUDA, with a finite-difference Hessian. Use it for force fields that `hessian_ff` does not cover, or when OpenMM is already part of your workflow. YAML examples for `mm_backend` and `mm_device` and the VRAM trade-offs are in [Device Configuration & HPC Setup](device-hpc.md).
 
 When only part of the system is active, the Hessian blocks of the active atoms can be expanded to the full Cartesian shape with the frozen rows and columns filled with zeros (`return_partial_hessian`).
@@ -271,7 +271,7 @@ forces = geom.forces            # Hartree/Bohr (flat)
 - Microiteration is turned off when `--embedcharge` is on, because the MM-only micro steps would leave out the embedding forces; the optimizer then moves the ML and MM atoms together.
 - The fixed link-atom placement supports only C and N parents on the ML side.
 - With the default `return_partial_hessian=True`, `compute()` returns the Hessian of the Hessian-target atoms only, as a 4D array `(n_active, 3, n_active, 3)`. Use `within_partial_hessian` to map it back to the full system.
-- `backend="dft"` also needs `dft_settings`. On the command line, `-b dft` builds them from the YAML `calc.dft` block and the DFT options ([Refine an MLIP TS with DFT](dft-backend.md)).
+- `backend="dft"` also needs `dft_settings`. On the command line, `-b dft` builds them from the YAML `calc.dft` block and the [DFT options](dft-backend.md).
 
 ## See Also
 

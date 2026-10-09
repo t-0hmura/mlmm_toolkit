@@ -2,7 +2,7 @@
 
 `all` runs the whole ML/MM workflow in one command: it selects the ML region around the active site, builds the Amber topology and the three layers of the full system, and finds the minimum energy path (MEP). When asked, it optimizes the transition state (TS) of each reaction step and runs the intrinsic reaction coordinate (IRC), frequency, and DFT calculations on it.
 
-Without `--tsopt`, the run ends with TS candidates: the highest-energy image (HEI) of each MEP segment. The ML region is computed by **UMA**, Meta's pretrained [machine-learning interatomic potential (MLIP)](backends.md), by default; `-b/--backend` also selects **ORB**, **MACE**, **AIMNet2**, or DFT ([`dft`](dft-backend.md)). The rest of the enzyme is computed with the Amber force field, and ONIOM combines the two.
+Without `--tsopt`, the run ends with TS candidates: the highest-energy image (HEI) of each MEP segment. The ML region is computed by **UMA**, Meta's pretrained [machine-learning interatomic potential (MLIP)](backends.md), by default; `-b/--backend` also selects **ORB**, **MACE**, **AIMNet2**, or [DFT](dft-backend.md) (`dft`). The rest of the enzyme is computed with the Amber force field, and ONIOM combines the two.
 
 ---
 
@@ -18,7 +18,7 @@ What you pass selects the mode:
 
 ## Examples
 
-The examples use the GPP C6-methyltransferase BezA ([Tsutsumi et al., *Angew. Chem. Int. Ed.* 2022, 61, e202111217](https://doi.org/10.1002/anie.202111217)); the full scripts are in [`examples/beza/`](https://github.com/t-0hmura/mlmm_toolkit/tree/main/examples/beza). `1.R.pdb` (reactant), `2.IM.pdb` (intermediate), and `3.P.pdb` (product) are full enzyme structures with every hydrogen; your own structures need hydrogens too ([Getting Started](getting-started.md)). Examples 1–3 are walked through, with how to check the results, in [Quickstart: `all`](quickstart-all.md), [Quickstart: `--scan-lists`](quickstart-scan.md), and [Quickstart: TS-only mode](quickstart-tsopt.md).
+The examples use the GPP C6-methyltransferase BezA ([Tsutsumi et al., *Angew. Chem. Int. Ed.* 2022, 61, e202111217](https://doi.org/10.1002/anie.202111217)); the full scripts are in [`examples/beza/`](https://github.com/t-0hmura/mlmm_toolkit/tree/main/examples/beza). `1.R.pdb` (reactant), `2.IM.pdb` (intermediate), and `3.P.pdb` (product) are full enzyme structures with every hydrogen; your own structures need [hydrogens](getting-started.md) too. Examples 1–3 are walked through, with how to check the results, in [Quickstart: `all`](quickstart-all.md), [Quickstart: `--scan-lists`](quickstart-scan.md), and [Quickstart: TS-only mode](quickstart-tsopt.md).
 
 ### 1. MEP with TS optimization, thermochemistry, and DFT
 

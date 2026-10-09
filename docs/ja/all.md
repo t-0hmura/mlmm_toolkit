@@ -2,7 +2,7 @@
 
 `all` サブコマンドは、活性部位のまわりの ML 領域の選択、全系の Amber トポロジーと 3 層の作成、最小エネルギー経路（MEP）の探索を 1 回の実行で行います。指定すれば、各反応段の遷移状態（TS）の最適化と、固有反応座標（IRC）・振動数・DFT の計算まで行います。
 
-`--tsopt` を付けない場合は、TS 候補（各 MEP セグメントで最もエネルギーの高い点、HEI）までで終わります。ML 領域の計算バックエンドにはデフォルトの **UMA**（Meta が公開した学習済みの[機械学習原子間ポテンシャル（MLIP）](backends.md)）のほか、`-b/--backend` オプションで **ORB**、**MACE**、**AIMNet2**、DFT（[`dft`](dft-backend.md)）も選択可能です。酵素の残りの部分は Amber 力場で計算し、両者を ONIOM で合わせます。
+`--tsopt` を付けない場合は、TS 候補（各 MEP セグメントで最もエネルギーの高い点、HEI）までで終わります。ML 領域の計算バックエンドにはデフォルトの **UMA**（Meta が公開した学習済みの[機械学習原子間ポテンシャル（MLIP）](backends.md)）のほか、`-b/--backend` オプションで **ORB**、**MACE**、**AIMNet2**、[DFT](dft-backend.md)（`dft`）も選択可能です。酵素の残りの部分は Amber 力場で計算し、両者を ONIOM で合わせます。
 
 ---
 
@@ -18,7 +18,7 @@
 
 ## 基本的な実行例
 
-例は GPP C6-メチル基転移酵素 BezA（[Tsutsumi et al., *Angew. Chem. Int. Ed.* 2022, 61, e202111217](https://doi.org/10.1002/anie.202111217)）の系で、スクリプト一式は [`examples/beza/`](https://github.com/t-0hmura/mlmm_toolkit/tree/main/examples/beza) にあります。`1.R.pdb`（反応物）・`2.IM.pdb`（中間体）・`3.P.pdb`（生成物）は、水素原子をすべて含む酵素全体の構造です。自分の構造にも水素原子が要ります（[はじめに](getting-started.md)）。例 1〜3 の流れと結果の確かめ方は [クイックスタート: `all`](quickstart-all.md)、[クイックスタート: `--scan-lists`](quickstart-scan.md)、[クイックスタート: TS-only モード](quickstart-tsopt.md) にあります。
+例は GPP C6-メチル基転移酵素 BezA（[Tsutsumi et al., *Angew. Chem. Int. Ed.* 2022, 61, e202111217](https://doi.org/10.1002/anie.202111217)）の系で、スクリプト一式は [`examples/beza/`](https://github.com/t-0hmura/mlmm_toolkit/tree/main/examples/beza) にあります。`1.R.pdb`（反応物）・`2.IM.pdb`（中間体）・`3.P.pdb`（生成物）は、水素原子をすべて含む酵素全体の構造です。自分の構造にも[水素原子](getting-started.md)が要ります。例 1〜3 の流れと結果の確かめ方は [クイックスタート: `all`](quickstart-all.md)、[クイックスタート: `--scan-lists`](quickstart-scan.md)、[クイックスタート: TS-only モード](quickstart-tsopt.md) にあります。
 
 ### 1. MEP を求め、TS 最適化・熱化学・DFT まで計算する
 

@@ -109,7 +109,7 @@ mlmm extract -i complex.pdb -c 'A:SUB:301' -o pocket.pdb \
 | 複数 | 1 つ | マルチ MODEL の PDB 1 つ |
 | 複数 | 入力と同じ数 | 入力ごとに PDB 1 つ |
 
-`-o` がこれ以外の数のときと、出力先が入力のファイルそのもののときは、エラーで止まります。出力先の親ディレクトリは自動で作られます。`result.json` には、原子数（`n_atoms_raw`、`n_atoms_extracted`、`n_link_hydrogens`）、電荷（`total_charge`、`protein_charge`、`ligand_total_charge`、`ion_total_charge`）と使った設定が入ります（[JSON 出力の一覧](json-output.md)）。{ref}`mmCIF の入力 <ja-mmcif-input>` と、PDB の桁に収まらない大きな PDB の入力では、元の ID のままの `.cif` も出ます。
+`-o` がこれ以外の数のときと、出力先が入力のファイルそのもののときは、エラーで止まります。出力先の親ディレクトリは自動で作られます。`result.json` には、原子数（`n_atoms_raw`、`n_atoms_extracted`、`n_link_hydrogens`）、電荷（`total_charge`、`protein_charge`、`ligand_total_charge`、`ion_total_charge`）と使った設定が入ります。各欄は [JSON 出力の一覧](json-output.md) にあります。{ref}`mmCIF の入力 <ja-mmcif-input>` と、PDB の桁に収まらない大きな PDB の入力では、元の ID のままの `.cif` も出ます。
 
 ---
 
@@ -138,12 +138,12 @@ mlmm extract -i complex.pdb -c 'A:SUB:301' -o pocket.pdb \
 
 * **`-r 0`** では距離で隣の残基を足さず（内部では 0.001 Å）、`-c` と `--selected-resn` の残基に、手順 2 で足す S–S 結合の相手とプロリンの N 側の隣を加えた領域になります。`--radius-het2het 0` も同じです。
 * **領域の大きさ**: {ref}`ML 領域を広げて <ja-model-setup-larger>` も結果が変わらないことを系ごとに確かめてください。`-r` を大きくすると計算は重くなり、精度が上がるとは限りません。
-* **使い回す `--model-pdb` を手で作るとき**は、`mm-parm` が書く PDB から切り出して、原子を `parm7` とそろえてください（[mm-parm の例 4](mm-parm.md#基本的な実行例)）。
+* **使い回す `--model-pdb` を手で作るとき**は、`mm-parm` が書く PDB から切り出して、原子を `parm7` とそろえてください。[mm-parm の例 4](mm-parm.md#基本的な実行例) を参照してください。
 * **名前はすべての chain に当たる**: `TYR` のような名前は、どの chain の TYR もすべて選び、複数あれば警告を出します。
 * **`TYR:44` は chain TYR と読まれる**: 2 つの欄では最初の欄が必ず chain で、2 つ目は番号（`TYR:44`）か名前（`A:SAM`）なので、`A:TYR:44` と書いてください。同梱例のように chain の欄が空の PDB では、名前か番号だけを使います。
 * **1 つの list に 1 つの形**: `'SAM,44'` のように名前と番号を混ぜた list はエラーで止まります。
 * **境界の警告**: 手順 5 の CA と CB の切断のほかで、非金属の原子どうしの結合を切ると、`extract` は警告を出します。計算の前に、境界・電荷・多重度を確かめてください。境界の選び方は [ML 領域と層の組み方](model-setup.md) にあります。
-* **どの入力も同じ原子**: 原子の数や並びが違う入力は `[multi] Atom count mismatch` か `[multi] Atom order mismatch` で止まります（[トラブルシューティング](troubleshooting.md)）。
+* **どの入力も同じ原子**: 原子の数や並びが違う入力は `[multi] Atom count mismatch` か `[multi] Atom order mismatch` で止まります。詳しくは [トラブルシューティング](troubleshooting.md) を参照してください。
 * **マルチ MODEL の入力**は、最初の MODEL だけを使い、警告を出します。
 * **altLoc（別位置の配座）**: `extract` は残基ごとに、平均占有率がいちばん高い altLoc を 1 つ残します。整えたファイルそのものが要るときは [fix-altloc](fix-altloc.md) を使ってください。
 * **`--modified-residue`**: 電荷を書かない `NAME` を使えるのは、組み込みの表（付録）にある名前だけで、表の電荷のままになります（`SEP` なら −2）。表に無い名前を電荷なしで渡すと、`NAME:charge` で書くよう求めるエラーで止まります。`NAME:charge` は組み込みの電荷もこの実行に限って上書きします（中性の Lys なら `LYS:0`）。`--modified-residue` で足りないときは、ML 領域の原子を手で選びます。

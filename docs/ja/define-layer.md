@@ -91,7 +91,7 @@ PDB は入力のレコードをすべて保ち、B-factor だけを変えます�
 
 * **ML 領域の指定は必須**: `--model-pdb` も `--model-indices` も無いと、`ERROR: Either --model-pdb or --model-indices must be provided.` を出して終了コード 2 で止まります。
 * **`--model-pdb` が優先**: 両方を与えると、計算コマンドと同じく `--model-pdb` が使われます。
-* **トポロジーと対応した PDB を使う**: `-i` には `mm-parm` が書く PDB を渡し、層付きの PDB の原子が `parm7` と同じ順に並ぶようにしてください（[mm-parm の例 4](mm-parm.md#基本的な実行例)）。入力に無い原子が `--model-pdb` にあると、エラーで止まります。
+* **トポロジーと対応した PDB を使う**: `-i` には `mm-parm` が書く PDB を渡し、層付きの PDB の原子が `parm7` と同じ順に並ぶようにしてください。[mm-parm の例 4](mm-parm.md#基本的な実行例) を参照してください。入力に無い原子が `--model-pdb` にあると、エラーで止まります。
 * **マルチ MODEL の入力**は、最初の MODEL だけを使い、警告を出します。
 * **しきい値の選び方**: `--movable-cutoff` を小さくすると計算は軽くなり、大きくすると周りの環境がより緩和できます。計算コマンドに `--movable-cutoff` を渡すと、B-factor の層の代わりにその距離で層を決めます。詳しくは [ML 領域と層の組み方](model-setup.md) を見てください。
 

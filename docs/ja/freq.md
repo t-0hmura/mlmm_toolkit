@@ -134,7 +134,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 * **`tsopt` との使い分け**: `tsopt` コマンドには内部で虚振動数チェックが含まれています。別途 `freq` を単独実行するのは、主に詳細な熱化学量（ZPE、ギブズエネルギー）の取得や、変位ベクトルの可視化ファイルを出力したい場合です。
 * **全原子凍結の禁止**: すべての原子を凍結指定すると、可動な振動自由度（DOF）が存在しなくなるためエラーで停止します。
 * **Hessian モードの優先度**: `--hessian-calc-mode` の設定は **「デフォルト値 < 設定 YAML < コマンドライン引数」** の順で優先されます。
-* **解析的 Hessian と `--uma-workers`**: UMA で `--uma-workers`（MLIP の並列ワーカー数）を 2 以上にすると、`--hessian-calc-mode Analytical` は使えずエラーで停止します。解析的 Hessian には `--uma-workers 1` を指定してください（[詳細](backends.md#ワーカーと-hessian-の計算方式)）。
+* **解析的 Hessian と `--uma-workers`**: UMA で `--uma-workers`（MLIP の並列ワーカー数）を 2 以上にすると、`--hessian-calc-mode Analytical` は使えずエラーで停止します。[解析的 Hessian](backends.md#ワーカーと-hessian-の計算方式)には `--uma-workers 1` を指定してください。
 * **`all --thermo` の熱化学ファイル**: `all` は `thermoanalysis.yaml` からギブズエネルギーの図を作るので、`--thermo` で実行すると、その `freq` の段は `--no-dump` を指定してもこのファイルを書き出します。
 * **`--read-hess`・`--dump-hess` のファイル**: `numpy.save` で書いた配列 1 つで、中身は質量重み付けなしの Cartesian の Hessian（Hartree/bohr²）です。原子は入力の順で、全原子の 3N×3N か、`--active-dof-mode` で選んだ原子の分だけを持ちます。`--read-hess` は、正方・有限・対称で、この 2 つの大きさのどちらかであることしか確かめないので、同じ構造・電荷・多重度・層・計算設定で求めた Hessian を渡してください。
 
