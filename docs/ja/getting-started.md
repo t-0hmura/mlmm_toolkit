@@ -1,7 +1,7 @@
 # はじめに
 
 ::::{container} p2r-intro
-<img src="../mlmm_toolkit_overview.png" alt="mlmm-toolkit workflow overview" class="p2r-intro-figure">
+<img src="../overview.jpg" alt="mlmm-toolkit workflow overview" class="p2r-intro-figure">
 
 :::{container} p2r-intro-text
 `mlmm-toolkit` は、ML/MM（機械学習 / 分子力学）法を活用し、**PDB / mmCIF 構造から酵素の反応経路候補を自動探索する** Python 製 CLI ツールキットです。

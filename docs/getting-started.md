@@ -1,7 +1,7 @@
 # Getting Started
 
 ::::{container} p2r-intro
-<img src="./mlmm_toolkit_overview.png" alt="mlmm-toolkit workflow overview" class="p2r-intro-figure">
+<img src="./overview.jpg" alt="mlmm-toolkit workflow overview" class="p2r-intro-figure">
 
 :::{container} p2r-intro-text
 `mlmm-toolkit` is a Python command-line toolkit that uses ML/MM (machine learning / molecular mechanics) to **search automatically for candidate enzyme reaction pathways, starting from PDB / mmCIF structures**.

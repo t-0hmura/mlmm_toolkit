@@ -11,7 +11,7 @@
 
 [Documentation](https://t-0hmura.github.io/mlmm_toolkit/) | [日本語ドキュメント](https://t-0hmura.github.io/mlmm_toolkit/ja/)
 
-<img src="https://raw.githubusercontent.com/t-0hmura/mlmm_toolkit/main/docs/mlmm_toolkit_overview.png" alt="Overview of ML/MM toolkit" width="90%">
+<img src="https://raw.githubusercontent.com/t-0hmura/mlmm_toolkit/main/docs/overview.jpg" alt="Overview of ML/MM toolkit" width="90%">
 
 `mlmm-toolkit` is an open-source CLI for **ML/MM ONIOM** analyses of enzymatic reactions. It replaces the QM region of conventional QM/MM with a machine-learning interatomic potential (MLIP, default: UMA) while keeping the surrounding protein under an analytical Amber force field (`hessian_ff`).
 

@@ -5,7 +5,7 @@
 :::
 
 :::{container} p2r-hero
-<img src="./mlmm_toolkit_overview.png" alt="mlmm-toolkit workflow overview" class="p2r-hero-figure">
+<img src="./overview.jpg" alt="mlmm-toolkit workflow overview" class="p2r-hero-figure">
 
 {.p2r-tagline}
 **mlmm-toolkit** is a Python CLI toolkit for reaction-mechanism analysis from structures such as PDB files of enzyme complexes, using ML/MM, which combines machine-learning interatomic potentials and molecular mechanics through ONIOM.
