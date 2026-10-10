@@ -15,7 +15,7 @@ Run the Colab page in the browser while Python and the GPU run locally in Google
 4. In Colab, choose **Connect ▸ Connect to a local runtime**, paste the whole URL including `?token=...`, then run **Installation** and **Launch GUI**.
 5. `scripts/stop.ps1` stops the container; `C:\colab-work` is kept.
 
-Run each script with `powershell -ExecutionPolicy Bypass -File`. `setup.ps1` and `start.ps1` copy the notebooks, source ZIPs, and input folders found in the bundle root (two levels above `scripts/`; pass `-BundleRoot` for another layout) into `C:\colab-work`. Keep the notebook's version field at the release tag so Installation installs that release. For an unpublished build, set it to `debug`: Installation then installs from the matching source ZIP next to the notebook, without a file picker.
+Run each script with `powershell -ExecutionPolicy Bypass -File`. `setup.ps1` and `start.ps1` copy the notebooks (`pdb2reaction_colab.ipynb`, `mlmm_colab.ipynb`), source ZIPs (`pdb2reaction-src.zip`, `mlmm-toolkit-src.zip`), and input folders (`pdb2reaction_inputs`, `mlmm_inputs`) found in the bundle root (two levels above `scripts/`; pass `-BundleRoot` for another layout, such as `<repo>/examples` in a repository checkout) into `C:\colab-work`. Keep the notebook's version field at the release tag so Installation installs that release. For an unpublished build, set it to `debug`: Installation then installs from the matching source ZIP next to the notebook, without a file picker.
 
 ## Done when
 
@@ -29,7 +29,7 @@ Run each script with `powershell -ExecutionPolicy Bypass -File`. `setup.ps1` and
 - **Docker does not start after the first install:** restart Windows once, open Docker Desktop, and run `start.ps1`.
 - **Release not found on PyPI:** use the matching notebook and source ZIP pair and set the version field to `debug`.
 - **Files disappear:** save under `/content` (`C:\colab-work`); `drive.mount()` does not work in a local runtime.
-- **First check:** the ORB backend needs no login; UMA needs a Hugging Face sign-in and license acceptance.
+- **UMA does not load:** sign in to Hugging Face and accept the UMA license, or try the ORB backend first, which needs no login.
 
 ## Safety
 

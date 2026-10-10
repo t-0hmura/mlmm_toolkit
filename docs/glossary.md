@@ -11,7 +11,7 @@ Each abbreviation, method name, and unit used in the docs is defined here in one
 | **QM/MM** | Quantum Mechanics / Molecular Mechanics | A multi-scale method coupling QM for the reactive region with MM for the environment. ML/MM replaces the QM layer with an MLIP backend. |
 | **Real system** | — | The full set of atoms (all 3 layers). Evaluated at the MM (low) level in the ONIOM decomposition. Described by the parm7 topology; its MM energy is computed by the MM backend. |
 | **Model system** | — | The ML region (Layer 1). Evaluated at both the MLIP (high) and MM (low) levels in the ONIOM decomposition. |
-| **Link Hydrogen** | — | A hydrogen generated for each parm7 bond crossing the real-atom ML/MM selection. Coordinates place it along that known topology bond, and forces are redistributed through a Jacobian. Optional `extract --add-linkh` hydrogens are inspection-only pocket caps, not the runtime boundary definition. |
+| **Link Hydrogen** | — | A hydrogen placed on each parm7 bond that crosses the ML/MM boundary. It lies along that bond, and its force is redistributed through a Jacobian. The cap hydrogens of `extract --add-linkh` are only for inspecting the pocket. |
 | **Link atom** | — | See **Link Hydrogen**; in mlmm-toolkit the link atoms placed at severed ML/MM boundaries are hydrogens. |
 | **hessian_ff** | — | A C++ native extension that evaluates Amber force field energies, forces, and analytical Hessians. Used as the MM engine in mlmm-toolkit. |
 | **3-layer system** | — | mlmm-toolkit's B-factor partitioning scheme: ML (B=0.0), Movable-MM (B=10.0), Frozen-MM (B=20.0). |
@@ -51,7 +51,7 @@ Each abbreviation, method name, and unit used in the docs is defined here in one
 
 | Term | Full Name | Description |
 |------|-----------|-------------|
-| **L-BFGS** | Limited-memory BFGS | A quasi-Newton optimization algorithm that approximates the Hessian using a limited history of gradients. Used in `--opt-mode grad`. |
+| **L-BFGS** | Limited-memory BFGS | A quasi-Newton optimization algorithm that approximates the Hessian using a limited history of gradients. Used in `opt --opt-mode grad`. |
 | **RFO** | Rational Function Optimization | A trust-region optimization method that uses explicit Hessian information. Used in `--opt-mode hess`. |
 | **RS-I-RFO** | Restricted-Step Image-RFO | A variant of RFO for saddle point (TS) optimization that follows one negative eigenvalue. |
 | **Dimer** | Dimer Method | A TS optimization method that follows a low-curvature direction. mlmm-toolkit's Hessian-guided variant uses initial and periodic active-subspace Hessians, which is more robust than a random initial orientation for systems with many active degrees of freedom. Used in `--opt-mode grad` for TSOPT. |

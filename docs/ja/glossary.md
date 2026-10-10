@@ -11,11 +11,11 @@
 | **QM/MM** | Quantum Mechanics / Molecular Mechanics | 量子化学と分子力学の結合手法。ML/MM は QM 部分を機械学習ポテンシャルで置き換えた変種。 |
 | **real system** | — | ONIOM 分解における全系（3 層すべて）。parm7 トポロジーで記述され、MM バックエンドで MM エネルギーを計算。 |
 | **model system** | — | ONIOM 分解における ML 領域（Layer 1）。MLIP バックエンド（デフォルト: UMA）と MM の両方で評価。 |
-| **リンク水素** | Link Hydrogen | ML/MM 境界を横切る parm7 の結合ごとに置く水素原子です。その結合に沿って配置し、力はヤコビアンで再分配します。`extract --add-linkh` が付ける水素はポケット確認用のキャップで、境界の定義には使いません。 |
-| **リンク原子** | Link atom | **リンク水素** を参照。mlmm-toolkit では、切断した ML/MM 境界に置くリンク原子は水素です。 |
+| **リンク水素** | Link Hydrogen | ML/MM 境界を横切る parm7 の結合ごとに置く水素原子。その結合に沿って配置し、力はヤコビアンで再分配。`extract --add-linkh` が付ける水素はポケット確認用のキャップで、境界の定義には使わない。 |
+| **リンク原子** | Link atom | **リンク水素** を参照。mlmm-toolkit では、切断した ML/MM 境界に置くリンク原子は水素。 |
 | **hessian_ff** | — | mlmm-toolkit に同梱される C++ ネイティブ拡張の Amber 力場計算エンジン。解析 Hessian をサポート。 |
-| **3 層システム** | 3-layer system | mlmm-toolkit の B-factor による層分割方式: ML（B=0.0）、Movable-MM（B=10.0）、Frozen-MM（B=20.0）。 |
-| **B-factor エンコーディング** | B-factor encoding | PDB の B-factor（温度因子）列に層の所属を格納する方式: 0.0 = ML、10.0 = Movable-MM、20.0 = Frozen-MM。Hessian 対象 MM 原子はカットオフ/明示的インデックスで制御。{ref}`MM の層 <ja-mm-layers>` を参照。 |
+| **3 層システム** | 3-layer system | mlmm-toolkit の B-factor による層分割方式: ML（B=0.0）、可動 MM（B=10.0）、固定 MM（B=20.0）。 |
+| **B-factor エンコーディング** | B-factor encoding | PDB の B-factor（温度因子）列に層の所属を格納する方式: 0.0 = ML、10.0 = 可動 MM、20.0 = 固定 MM。Hessian 対象 MM 原子はカットオフ/明示的インデックスで制御。{ref}`MM の層 <ja-mm-layers>` を参照。 |
 
 ## 力場・Amber
 
@@ -38,24 +38,24 @@
 |------|----------|------|
 | **MEP** | Minimum Energy Path | 反応物から生成物へ至る最小エネルギー経路（ポテンシャルエネルギー面上の最も低い経路）。 |
 | **TS** | Transition State | ポテンシャルエネルギー面上の一次鞍点（first-order saddle point）。反応座標方向にのみ負の曲率（虚振動数）を 1 つ持つ停留点。 |
-| **n_imag** | Number of imaginary modes（虚振動の数） | 虚振動の分類基準（既定では ν < −5.00 cm⁻¹）より下の振動モードの数。TS では n_imag = 1 で、`result.json` には `tsopt` では `n_imaginary_modes`、`freq` では `n_imaginary` として記録されます。 |
-| **IRC** | Intrinsic Reaction Coordinate | TS から反応物側・生成物側へ向かう、質量重み付き最急降下経路。TS の接続検証によく使われます。 |
-| **GSM** | Growing String Method | 端点からストリング（画像列）を伸長・最適化して MEP を近似する手法。 |
+| **n_imag** | Number of imaginary modes（虚振動の数） | 虚振動の分類基準（デフォルトでは ν < −5.00 cm⁻¹）より下の振動モードの数。TS では n_imag = 1 で、`result.json` には `tsopt` では `n_imaginary_modes`、`freq` では `n_imaginary` として記録。 |
+| **IRC** | Intrinsic Reaction Coordinate | TS から反応物側・生成物側へ向かう、質量重み付き最急降下経路。TS の接続検証によく使用。 |
+| **GSM** | Growing String Method | 端点からストリング（イメージの列）を伸長・最適化して MEP を近似する手法。 |
 | **DMF** | Direct Max Flux | 反応座標方向のフラックスを最大化することで MEP を最適化する chain-of-states 手法。`--mep-mode dmf` で選択。 |
-| **HEI** | Highest-Energy Image | MEP 上でエネルギーが最大の画像。TS の初期推定としてよく使われます。 |
-| **画像（Image）** | — | 経路上の 1 つの構造（1 ノード）。 |
+| **HEI** | Highest-Energy Image | MEP 上でエネルギーが最大のイメージ。TS の初期推定としてよく使用。 |
+| **イメージ（Image）** | — | 経路上の 1 つの構造（1 ノード）。 |
 | **セグメント** | — | 2 つの隣接する端点を結ぶ MEP（例: R → I1, I1 → I2, …）。 |
-| **ねじれ** | Kink | 配座だけが変わる経路の区間（セグメント）。`path-search` が HEI の両側で最適化した 2 つの構造（End1 と End2。[path-search の処理の仕組み](path-search.md#処理の仕組みと計算仕様) の 2）の間で、共有結合が変わらない区間を指します。`path-search` は新しい GSM・DMF の経路の代わりに、線形補間のノードを数個（`search.kink_max_nodes`、既定 3）入れて 1 つずつ最適化します。 |
+| **キンク（kink）** | Kink | 配座だけが変わる経路の区間（セグメント）。`path-search` が HEI の両側で最適化した 2 つの構造（End1 と End2。[path-search の処理の仕組み](path-search.md#処理の仕組みと計算仕様) の 2）の間で、共有結合が変わらない区間を指します。`path-search` は新しい GSM・DMF の経路の代わりに、線形補間のノードを数個（`search.kink_max_nodes`、デフォルト 3）入れて 1 つずつ最適化します。 |
 
 ## 最適化アルゴリズム
 
 | 用語 | 正式名称 | 説明 |
 |------|----------|------|
-| **L-BFGS** | Limited-memory BFGS | 勾配履歴から Hessian を近似する準ニュートン法。`--opt-mode grad` で使用。 |
+| **L-BFGS** | Limited-memory BFGS | 勾配履歴から Hessian を近似する準ニュートン法。`opt` の `--opt-mode grad` で使用。 |
 | **RFO** | Rational Function Optimization | 明示的な Hessian 情報を使用する信頼領域最適化法。`--opt-mode hess` で使用。 |
 | **RS-I-RFO** | Restricted-Step Image-RFO | 1 つの負固有値方向に沿う、鞍点（TS）最適化用の RFO 変種。 |
 | **Dimer** | Dimer Method | 低曲率方向を追跡する TS 最適化法。mlmm-toolkit の Hessian-guided Dimer は初期および定期的な活性部分空間 Hessian を使うため、活性自由度が多い系ではランダムな初期方向より頑健です。`--opt-mode grad` の TSOPT で使用。 |
-| **PHVA** | Partial Hessian Vibrational Analysis | アクティブ（非凍結）原子の Hessian ブロックのみを使用した振動解析。`freq` のデフォルト。 |
+| **PHVA** | Partial Hessian Vibrational Analysis | アクティブ（非固定）原子の Hessian ブロックのみを使用した振動解析。`freq` のデフォルト。 |
 
 ## 機械学習・計算機
 
@@ -66,8 +66,8 @@
 | **ORB** | ORB Models | Orbital Materials が提供する MLIP バックエンド。`--backend orb` で選択。`pip install "mlmm-toolkit[orb]"` で追加インストール。 |
 | **MACE** | MACE (Message-passing Atomic Cluster Expansion) | 等変メッセージパッシングに基づく MLIP バックエンド。`--backend mace` で選択。専用の conda 環境で `pip uninstall fairchem-core`（UMA の pin が `e3nn` で衝突するため）を実行してから `pip install mace-torch` でインストールします。 |
 | **AIMNet2** | Atoms In Molecules Network 2 | ニューラルネットワークベースの MLIP バックエンド。`--backend aimnet2` で選択。`pip install "mlmm-toolkit[aimnet]"` で追加インストール。 |
-| **解析 Hessian** | Analytical Hessian | バックエンドの微分可能な、またはネイティブの Hessian 計算で二階微分を求めます。計算時間とメモリはバックエンドと系によって変わります。UMA、ORB、MACE、AIMNet2 で使えます。 |
-| **有限差分** | Finite Difference | 変位させた構造の力から二階微分を近似します。計算時間とメモリはバックエンドと系によって変わり、すべての MLIP バックエンドで使えます。 |
+| **解析 Hessian** | Analytical Hessian | バックエンドの微分可能な、またはネイティブの Hessian 計算で二階微分を求める方法。計算時間とメモリはバックエンドと系によって変わる。UMA、ORB、MACE、AIMNet2 で使用可能。 |
+| **有限差分** | Finite Difference | 変位させた構造の力から二階微分を近似する方法。計算時間とメモリはバックエンドと系によって変わり、すべての MLIP バックエンドで使用可能。 |
 
 ## 量子化学
 
@@ -75,7 +75,7 @@
 |------|----------|------|
 | **QM** | Quantum Mechanics | DFT、HF、post-HF などの第一原理電子状態計算。 |
 | **DFT** | Density Functional Theory | 電子密度汎関数に基づく電子状態計算法。 |
-| **Hessian** | — | エネルギーの二階微分行列。振動解析や TS 最適化に使用します。 |
+| **Hessian** | — | エネルギーの二階微分行列。振動解析や TS 最適化で使用。 |
 | **SP** | Single Point | 固定構造での計算（最適化なし）。高精度エネルギー補正によく使用。 |
 | **スピン多重度** | Spin Multiplicity | 2S+1（S は全スピン）。一重項 = 1、二重項 = 2、三重項 = 3 など。 |
 
@@ -84,10 +84,10 @@
 | 用語 | 正式名称 | 説明 |
 |------|----------|------|
 | **PDB** | Protein Data Bank | タンパク質などの三次元構造を表す標準フォーマット（およびデータベース）。 |
-| **XYZ** | — | 元素記号と直交座標を並べたシンプルなテキスト形式。計算のコマンドは、XYZ を `--ref-pdb` と一緒に受け付けます。 |
-| **GJF** | Gaussian Job File | Gaussian の入力形式。`oniom-export` が `g16` モードで書き出し、`oniom-import` と `bond-summary` が読み込みます。 |
+| **XYZ** | — | 元素記号と直交座標を並べたシンプルなテキスト形式。計算のコマンドは、XYZ を `--ref-pdb` と一緒に受け付ける。 |
+| **GJF** | Gaussian Job File | Gaussian の入力形式。`oniom-export` が `g16` モードで書き出し、`oniom-import` と `bond-summary` が読み込む。 |
 | **ポケット** | Active-site Pocket | `extract` サブコマンドで基質周辺から切り出した部分構造。ML/MM ワークフローでは ML 領域と周辺 MM 環境を定義する。 |
-| **抽出用リンク水素** | Extractor-only Link Hydrogen | `extract --add-linkh` がポケット確認用に付けるキャップ水素です。ML/MM 計算では使わず、リンク水素を置く結合は ML/MM 境界にある parm7 の結合から決まります。 |
+| **抽出用リンク水素** | Extractor-only Link Hydrogen | `extract --add-linkh` がポケット確認用に付けるキャップ水素。ML/MM 計算では使わず、リンク水素を置く結合は ML/MM 境界にある parm7 の結合から決まる。 |
 | **主鎖** | Backbone | タンパク質の主骨格（N–Cα–C–O 原子）。`--exclude-backbone` で除外可能。 |
 | **B-factor** | Temperature Factor | PDB の温度因子列。mlmm では 3 層への割り当てをエンコードするために使用（0.0, 10.0, 20.0）。 |
 
@@ -111,8 +111,8 @@
 | **eV** | 電子ボルト。1 eV ≈ 23.06 kcal/mol。 |
 | **Bohr** | 原子単位系の長さ。1 Bohr ≈ 0.529 Å。 |
 | **Å（オングストローム）** | 10⁻¹⁰ m。原子間距離の標準単位。 |
-| **cm⁻¹** | 波数（逆センチメートル）。振動数の標準単位。虚振動数は負の値で表されます。 |
-| **虚振動数** | Hessian 行列の負の固有値に対応する振動数。TS では 1 本のみ存在（一次鞍点）。負の cm⁻¹ 値で報告されます。 |
+| **cm⁻¹** | 波数（逆センチメートル）。振動数の標準単位。虚振動数は負の値で表される。 |
+| **虚振動数** | Hessian 行列の負の固有値に対応する振動数。TS では 1 本のみ存在（一次鞍点）。負の cm⁻¹ 値で報告。 |
 
 (ja-frequency-thresholds)=
 ### 虚振動の分類基準と QRRHO のローター閾値
@@ -121,7 +121,7 @@
 
 | 閾値 | 役割 | 定義場所 |
 |------|------|----------|
-| **ν < −5.00 cm⁻¹** | 既定の虚振動分類基準。 | 設定で変えられます（`freq.zero_cutoff_cm`） |
+| **ν < −5.00 cm⁻¹** | デフォルトの虚振動分類基準。 | 設定で変えられます（`freq.zero_cutoff_cm`） |
 | **100 cm⁻¹** | *QRRHO のローター閾値*（Grimme）。`freq` の熱化学計算では、これ未満の **正の** 低振動モードのエントロピーを、調和振動子の値から自由回転子の値へ滑らかに切り替えます。変わるのはエントロピーとギブズ自由エネルギーだけです | 固定（mlmm-toolkit の設定では変えられません） |
 
 ## CLI 規則

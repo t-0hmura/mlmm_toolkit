@@ -16,7 +16,7 @@ MLIP/MM で妥当な経路が見つかったら、その TS をそのまま DFT/
 
 1. **MLIP/MM で探す**：経路を作り、条件を変えて試し、いちばん有望な TS 候補を選びます。
 2. **DFT/MM で詰める**：その TS を入力にして、`-b dft` 付きの [TS-only モード](#基本的な実行例)を実行します。MM のトポロジーと ML 領域は最初の計算のものを使い回します。
-3. **確かめる**：見る点は MLIP/MM のときと同じです。TS 最適化が成功すると、反応モードの虚振動が 1 つ出ます（log には `[Imaginary modes] n=1`）。求めた段がすべて収束すると `====== Pipeline summary ======` の下に `Scientific status: success` と出ます。IRC が収束しなくても、端点の最適化で狙った R と P に着けば、その結果は使えます。
+3. **確かめる**：見る点は MLIP/MM のときと同じです。TS 最適化が成功すると、反応モードの虚振動が 1 つ出ます（log には `[Imaginary modes] n=1`）。指定した段がすべて収束すると `====== Pipeline summary ======` の下に `Scientific status: success` と出ます。IRC が収束しなくても、端点の最適化で狙った R と P に着けば、その結果は使えます。
 
 ## 基本的な実行例
 
@@ -29,7 +29,7 @@ mlmm all -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
     -r 0 --selected-resn '44,63,186' --tsopt
 ```
 
-`-r 0` で切り出しの半径を 0 Å にすると、距離で近くの残基を足すのを止め、`-c` と `--selected-resn` の残基から ML 領域を組みます。[`examples/beza/`](https://github.com/t-0hmura/mlmm_toolkit/tree/main/examples/beza) の同梱例の 44・63・186 番は、SAM のメチル炭素（CS1）にいちばん近い 3 残基です。同梱の PDB は chain の欄が空です。chain が空の PDB では、残基を名前か番号で指定してください。自分の系では、反応に関わる残基を選んでください。
+`-r 0` で切り出しの半径を 0 Å にすると、距離で近くの残基を足すのを止め、`-c` と `--selected-resn` の残基から ML 領域を組みます。[`examples/beza/`](https://github.com/t-0hmura/mlmm_toolkit/tree/main/examples/beza) の同梱例の 44・63・186 番は、SAM のメチル炭素（CS1）にいちばん近い 3 残基です。同梱の PDB は chain の欄が空なので、残基は名前か番号で指定してください。自分の系では、反応に関わる残基を選んでください。
 
 ### 2. TS を DFT/MM で詰める
 
@@ -71,7 +71,7 @@ mlmm all -i result_all/segments/seg_01/ts.pdb \
 
 ## 主な CLI オプション
 
-| オプション | 説明 | 既定値 |
+| オプション | 説明 | デフォルト値 |
 |---|---|---|
 | `-b, --backend dft` | ML 領域を DFT で計算します（GPU4PySCF。`--dft-engine cpu` で CPU の PySCF）。 | `uma` |
 | `--parm7 FILE`、`--model-pdb FILE` | 前の計算の MM のトポロジーと ML 領域を使い回します。省くと、`all` が入力から作り直します。 | — |
@@ -88,11 +88,11 @@ mlmm all -i result_all/segments/seg_01/ts.pdb \
 - **DFT 用の追加パッケージ**：PyTorch の wheel が `cu130` か `cu132` なら `pip install "mlmm-toolkit[dft]"`、`cu126` なら `pip install "mlmm-toolkit[dft-cuda12]"` で入れてください。詳しくは {ref}`詳細なインストール手順 <ja-step-by-step-installation>` の手順 7 を参照してください。GPU が無いときは `--dft-engine cpu` を付けてください。
 - **`--parm7` と `--model-pdb` を外さない**：外すと、DFT/MM の計算は TS の構造からトポロジーを作り直し、ML 領域をその B-factor の層から取ります。parm7 の名前は例 1 の最初の入力から付きます（ここでは `mm_parm/1.R.parm7`）。名前は `result_all/mm_parm/` で確かめてください。
 - **電荷**：ML 領域を小さくすると、ふつう ML 領域の電荷も変わります。DFT/MM を流す前に、例 1 の端末の出力の `Total active site model charge` を確かめてください。
-- **300 原子は目安**：code の上限ではありません。出力ディレクトリの `ml_region_with_linkH.xyz` の 1 行目が、リンク水素を含む ML 領域の原子数です。
+- **300 原子は目安**：プログラム側に上限はありません。出力ディレクトリの `ml_region_with_linkH.xyz` の 1 行目が、リンク水素を含む ML 領域の原子数です。
 - **組み合わせ**：`-b dft` と `--dft` は一緒に使えず、実行の始めにエラーで止まります。`-b dft` の計算の後に DFT の一点計算を足すときは、別のジョブで `mlmm sp -b dft` か `mlmm dft` を実行してください。`--dft` と `--thermo` には `--tsopt` が必要です。
 - **図のファイル名とキーの名前**：`-b dft` でも、図のファイル名は `energy_diagram_MLIP.png` と `energy_diagram_G_MLIP.png`（`--thermo` のとき）、`summary.json` のブロックの名前は `mlip` と `gibbs_mlip` のままです。中身は DFT/MM の値で、図の題には DFT/MM と出ます。
 - **メモリとスレッド**：`--dft-memory` の値は PySCF が使うホスト RAM で、GPU の VRAM ではありません。GPU のメモリが足りないときは ML 領域を小さくしてください。`--dft` でメモリが足りないときは、`--dft` を外して `mlmm dft` を別に実行してください。
-- **段階的なグリッド**：`--scf-stepwise-grid`（既定は on）は、各実行の最初の SCF を、グリッドレベル 1・収束閾値 1e-6 でいったん収束させ、その密度から指定のグリッドと閾値で収束させます。2 回目以降の SCF は、これまでどおり前の密度から始めます。効果は系によって変わり、小さい系では少し遅くなることがあります。`--no-scf-stepwise-grid` で切れます。指定のグリッドレベルが 1 以下のときと、`pyscf.grids.atom_grid` でグリッドを直接指定したときは、段階化を行いません。粗い段階が収束しなかったときは、通常の SCF を行います。
+- **段階的なグリッド**：`--scf-stepwise-grid`（デフォルトは on）は、各実行の最初の SCF を、グリッドレベル 1・収束閾値 1e-6 でいったん収束させ、その密度から指定のグリッドと閾値で収束させます。2 回目以降の SCF は、これまでどおり前の密度から始めます。効果は系によって変わり、小さい系では少し遅くなることがあります。`--no-scf-stepwise-grid` で切れます。指定のグリッドレベルが 1 以下のときと、`pyscf.grids.atom_grid` でグリッドを直接指定したときは、段階化を行いません。粗い段階が収束しなかったときは、通常の SCF を行います。
 
 ## 関連ドキュメント
 

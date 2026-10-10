@@ -63,7 +63,7 @@ result_ts_only/
         ├── reactant.pdb            # R/TS/P structures, in the format of the input
         ├── ts.pdb
         ├── product.pdb
-        ├── energy_diagram_MLIP.png # R–TS–P ML/MM energy diagram (energy_diagram_G_MLIP.png with --thermo)
+        ├── energy_diagram_MLIP.png # R–TS–P ML/MM energy diagram (plus energy_diagram_G_MLIP.png with --thermo)
         ├── ts/
         │   ├── final_geometry.{xyz,pdb}
         │   └── vib/imag_*_trj.xyz  # Animation of each imaginary mode
@@ -99,7 +99,7 @@ If n_imag is not 1 or the IRC endpoints are not the intended ones, see {ref}`Che
 * **Extra imaginary modes**: `--flatten` displaces the structure along the extra imaginary modes and optimizes again, for up to 50 rounds; see {ref}`When --flatten is on <flatten-precedence-caveat>`.
 * **Hessian mode**: keep the default `--hessian-calc-mode FiniteDifference`. Set `--hessian-calc-mode Analytical` only after comparing its speed, memory use, and results with the default on a representative structure of your system.
 * **R and P labels**: without an MEP the direction of the reaction is unknown, so TS-only mode labels the higher-energy IRC endpoint R and the lower one P, and records this rule in `endpoint_assignment` in `summary.json`. The labels are not the chemical direction; the barrier from P is `barrier_kcal − delta_kcal`.
-* **`tsopt` and `freq` on their own**: for `--opt-mode`, `--max-cycles`, `--no-microiter`, `--hessian-cutoff`, and the other Hessian options, run [`tsopt`](tsopt.md) on its own with the `--parm7` and `--model-pdb` of the run. It writes the final geometry to `final_geometry.{xyz,pdb}` and the imaginary-mode animations to `vib/`. For the full frequency list and thermochemistry of that structure, run [`freq`](freq.md) on `final_geometry.pdb` with the same `--parm7`, `--model-pdb`, `-q`, and `-m`. `mlmm all --help-advanced` lists every option of `all`.
+* **`tsopt` and `freq` on their own**: for `--opt-mode rsirfo`/`trim`, `--no-microiter`, `--hessian-cutoff`, and the other Hessian options, run [`tsopt`](tsopt.md) on its own with the `--parm7` and `--model-pdb` of the run. It writes the final geometry to `final_geometry.{xyz,pdb}` and the imaginary-mode animations to `vib/`. For the full frequency list and thermochemistry of that structure, run [`freq`](freq.md) on `final_geometry.pdb` with the same `--parm7`, `--model-pdb`, `-q`, and `-m`. `mlmm all --help-advanced` lists every option of `all`.
 
 ## Next steps
 

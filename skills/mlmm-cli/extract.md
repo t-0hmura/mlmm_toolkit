@@ -61,12 +61,13 @@ print(d["total_charge"], d["n_atoms_extracted"], d["n_link_hydrogens"])
   dry pocket), `--exclude-backbone` off (on for cluster-style truncated
   backbones).
 - For a reusable standalone ML/MM workflow, follow `mm-parm → extract →
-  define-layer → opt/tsopt/...`. Request that PDB with a distinct prefix, for
-  example `mlmm mm-parm -i input.pdb --out-prefix system`, then run the latter
+  define-layer → opt/tsopt/...`. Have `mm-parm` write its PDB under a distinct
+  prefix, for example `mlmm mm-parm -i input.pdb --out-prefix system`, then run the latter
   two commands on `system.pdb`. LEaP may change hydrogens; the exported PDB has
   the same atom identity/order as `system.parm7`, and `mm-parm` fills missing
   element columns.
-- Atom names match exactly (case-sensitive). Run `mlmm add-elem-info` first
+- When `-c` is a PDB path, its atom names must match the complex exactly
+  (case-sensitive). Run `mlmm add-elem-info` first
   on a PDB from PyMOL or Maestro. `extract` keeps one altLoc per residue
   itself; run `fix-altloc` only when you need the cleaned file.
 - `--add-linkh` is for standalone pockets, not for an mlmm `--model-pdb`. The

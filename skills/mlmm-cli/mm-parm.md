@@ -43,8 +43,8 @@ and the tleap logs.
   element columns filled. It is written when `--out-prefix` is given, or as
   `<input>_parm.pdb` with `--add-h` and no prefix; otherwise only `parm7` and
   `rst7` are written.
-- `<prefix>` defaults to the input name; choose another so that `<prefix>.pdb`
-  does not replace the input.
+- `<prefix>` defaults to the input name; pass an `--out-prefix` other than the
+  input stem so that `<prefix>.pdb` does not replace the input.
 - To check the topology:
 
   ```bash

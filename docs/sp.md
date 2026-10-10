@@ -54,7 +54,7 @@ The Hessian covers the ML region and the movable MM atoms, without frozen atoms.
 | `forces.npy` | ONIOM forces as an `(N, 3)` array over all atoms of the full system, in Hartree/bohr | Always |
 | `hessian.npy` | ONIOM Hessian without mass weighting (Hartree/bohr²): `(3M, 3M)` for the M atoms of the Hessian, in input order | With `--hess` |
 | `result.json` | Energy (`energy_au`), backend, model, charge, multiplicity, ML region (source and atom count), paths to the `.npy` files, elapsed time | With `--out-json` |
-| `summary.json` | Copy of `result.json`; read `result.json` | With `--out-json` |
+| `summary.json` | Same content as `result.json` | With `--out-json` |
 
 ---
 
@@ -64,7 +64,7 @@ The options shared by every ML/MM calculation command are explained once in {ref
 
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
-| `-i, --input` | path | (required) | Full-system structure (`.pdb`, `.cif`, or `.xyz` with `--ref-pdb`) |
+| `-i, --input` | path | (required) | Full-system structure (`.pdb`, `.cif`, `.mmcif`, or `.xyz` with `--ref-pdb`) |
 | `-q, --charge` | integer | `None` | Charge of the ML region. Required unless `-l` is given |
 | `-m, --multiplicity` | integer | `1` | Spin multiplicity (2S+1) of the ML region |
 | `-l, --ligand-charge` | text | `None` | Per-residue formal charges (e.g. `'SAM:1,GPP:-3'`) or one total ligand charge, used to derive the ML-region charge when `-q` is omitted (PDB/mmCIF input or `--ref-pdb`) |

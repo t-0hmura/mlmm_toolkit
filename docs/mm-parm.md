@@ -89,7 +89,7 @@ mlmm all -i reactant.cif product.cif --parm7 full_system.parm7 \
 └─ <prefix>.pdb     # tleap's PDB with element columns filled; same atoms and order as the parm7
 ```
 
-`<prefix>` defaults to the input file name without its extension, in the current directory. Choose a prefix different from the input name, so that `<prefix>.pdb` does not replace the input. The PDB is written when `--out-prefix` is given, and as `<input name>_parm.pdb` when `--add-h` is given without `--out-prefix`; otherwise only `parm7` and `rst7` are written. If the build fails after `--add-h`, the hydrogen-added structure is written to that PDB path, unless a file already exists there. `--keep-temp` keeps the working directory `parm7build_*`, with the tleap logs, in the current directory.
+`<prefix>` defaults to the input file name without its extension, in the current directory. The PDB is written when `--out-prefix` is given, and as `<input name>_parm.pdb` when `--add-h` is given without `--out-prefix`; otherwise only `parm7` and `rst7` are written. Choose a prefix different from the input name, so that `<prefix>.pdb` does not replace the input. If the build fails after `--add-h`, the hydrogen-added structure is written to that PDB path, unless a file already exists there. `--keep-temp` keeps the working directory `parm7build_*`, with the tleap logs, in the current directory.
 
 ---
 

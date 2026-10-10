@@ -36,7 +36,7 @@ mlmm oniom-import -i model.gjf -o model_imported
 `--mode` は拡張子より優先され、ファイル名が `.gjf`・`.com`・`.inp` のどれでもないときに必要です。
 
 ```bash
-mlmm oniom-import -i model.inp --mode orca -o model_imported
+mlmm oniom-import -i model.txt --mode orca -o model_imported
 ```
 
 ### 4. 参照 PDB の名前を残す

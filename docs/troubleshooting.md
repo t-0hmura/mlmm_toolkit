@@ -132,7 +132,7 @@ Enlarge the ML region as in [The ML region is too small or misses catalytic resi
 - **Symptom**: `hessian_ff build attempts failed: ...`, or a calculation stops with `native bonded extension is unavailable.`, `native nonbonded extension is unavailable; torch fallback is disabled.`, or `analytical Hessian native extension is unavailable.`
 - **Cause**: the C++ extension is compiled on first use through `torch.utils.cpp_extension`. It needs a C++20 compiler (validated with GCC 13.3) and `ninja`, which is installed with `mlmm-toolkit`.
 - **Fix**:
-  - Check C++20 support with `g++ -std=c++20 -x c++ -fsyntax-only /dev/null`. To install a compiler, run `conda install -c conda-forge gxx_linux-64`, or on HPC load the site's C++20 compiler module.
+  - Check C++20 support with `g++ -std=c++20 -x c++ -fsyntax-only /dev/null`. To install a compiler, run `conda install -c conda-forge cxx-compiler`, or on HPC load the site's C++20 compiler module.
   - Check that the PyTorch headers are found: `python -c "import torch; print(torch.utils.cmake_prefix_path)"`.
   - The build uses a local temporary directory by default, because a network-mounted directory (NFS/Lustre) can hang on the build lock of PyTorch; to choose another local path, set `TORCH_EXTENSIONS_DIR`.
   - Check that `hessian_ff` is importable from the Python environment you run `mlmm` in.
@@ -209,7 +209,8 @@ Try in order:
 2. **Shrink the ML region**: a smaller `--radius` in `extract`, or a [smaller ML region](model-setup.md#shrink-the-ml-region) given with `--model-pdb`.
 3. **Narrow the Hessian**: [`--hessian-cutoff`](model-setup.md#narrow-the-hessian) of `opt`, `tsopt`, `freq`, and `sp` keeps fewer Movable-MM atoms in the Hessian.
 4. **Compare Hessian modes**: finite differences often lower the ML autograd memory, but both modes form a dense Hessian over the active atoms; compare runtime and peak memory on the target system, and return to the default `FiniteDifference` if you selected `Analytical`.
-5. **Use a bigger GPU**: try the same model, Hessian mode, and active region on the target device first.
+5. **Use a bigger GPU**: before the production run, test the same model, Hessian mode, and active region on the larger GPU.
+6. **Run ML on the CPU**: YAML `ml_device: cpu` avoids the GPU memory limit at a higher runtime cost.
 
 (optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor)=
 ### Optimizer "stalls" with flat energy + forces just above threshold (MLIP force noise floor)
@@ -219,7 +220,7 @@ Try in order:
 - **Fix**:
   - Runs stop at `--max-cycles` (default 100000). To stop earlier, add `--stop-plateau` (`opt`, `tsopt`, and `all`): the run stops as `stalled`, which is not converged.
   - To tune it, see [YAML Reference](yaml-reference.md#opt).
-  - The check skips GSM / DMF. It applies to the single-structure preoptimization in `path-opt` / `path-search`.
+  - The check skips GSM / DMF. For the single-structure preoptimization in `path-opt` / `path-search`, turn it on with YAML `opt.energy_plateau: true`.
 
 (troubleshooting-ts)=
 ### TS optimization does not converge / multiple imaginary modes remain
@@ -275,10 +276,6 @@ An IRC that stops before it converges is still usable when the endpoint optimiza
   - ORB: `pip install "mlmm-toolkit[orb]"`. AIMNet2: `pip install "mlmm-toolkit[aimnet]"`.
   - MACE: use a dedicated environment, `pip uninstall -y fairchem-core && pip install mace-torch`; `mace-torch` pins `e3nn==0.4.4`, while UMA (`fairchem-core`) needs `e3nn>=0.5`.
   - If ORB still fails to import after installing the extra, run `python -m pip check` and fix the package that the resolver or the import error names; do not add unrelated PyG packages.
-
-### CUDA OOM while building a Hessian
-
-Use `--hessian-cutoff` or the `FiniteDifference` Hessian mode. YAML `ml_device: cpu` avoids the GPU memory limit at a higher runtime cost.
 
 ---
 

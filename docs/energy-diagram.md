@@ -61,7 +61,7 @@ The extension of `-o` chooses the format. A path without an extension gets `.png
 ```text
 energy_diagram.png   # The diagram (default name; set with -o)
 result.json          # execution_status, scientific_status, n_points, and files (with --out-json)
-summary.json         # Copy of result.json; read result.json (with --out-json)
+summary.json         # Same content as result.json (with --out-json)
 ```
 
 `result.json` and `summary.json` are written in the directory of the image. They record the number of points and the image path, not the values or the labels.

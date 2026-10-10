@@ -112,13 +112,13 @@ Pass `system_layered.pdb` with `--parm7 system.parm7` and `--model-pdb model.pdb
 (model-pdb-selection)=
 ### How to construct a reliable `model.pdb`
 
-`model.pdb` is an **atom-selection file**, not an independently rebuilt cluster. Every atom must be an unchanged subset of the full PDB/`parm7` topology: preserve atom names, residue names/numbers, chain IDs, and full-system atom order. Do not renumber, reorder, add link hydrogens, or export a separately hydrogenated model.
+`model.pdb` is not a cluster rebuilt on its own, but an **atom-selection file** that picks atoms from the full-system PDB and `parm7`. Keep the atom names, the residue names and numbers, the chain IDs, and the full-system atom order. Do not renumber or reorder atoms, add link hydrogens by hand, or write out a model with hydrogens added separately.
 
-- Include the complete reactive center, covalent cofactors/partners, and any atoms whose protonation or bonding changes along the path.
-- For retained protein-backbone fragments, choose the span so both main-chain ends terminate consistently at alpha carbons (`CA`), then let the ML/MM link treatment satisfy boundary valences.
-- At side-chain/ligand/cofactor boundaries, place the ML/MM cut on an aliphatic **C–C single bond** whenever possible (`CA–CB` or farther from the reactive center). Avoid peptide C–N, polar C–N/C–O, aromatic/conjugated, disulfide, and metal-coordination cuts; include the bonded partner or move the boundary.
-- Use the identical full-system atom set/order and the identical `model.pdb` selection for R/IM/P. A model built independently for each state invalidates atom mapping and controlled barrier comparisons.
-- Visually inspect every boundary and verify the ML-region charge/multiplicity before production. `define-layer` assigns layers; it does not repair a chemically poor boundary.
+- Put the whole reactive center, the covalently bound cofactors and partners, and every atom whose protonation or bonding changes along the path in the ML region.
+- When you keep a fragment of the protein main chain, choose a span whose two main-chain ends both stop at an alpha carbon (`CA`). The ML/MM link-atom treatment takes care of the valences at the boundary.
+- Put the boundary of a side chain, ligand, or cofactor on an aliphatic **C–C single bond** where you can (`CA–CB`, or farther from the reactive center). Do not cut a peptide C–N bond, a polar C–N or C–O bond, an aromatic or conjugated bond, a disulfide bond, or a metal-coordination bond; include the bonded partner or move the boundary.
+- Use the same full-system atoms in the same order, and the same `model.pdb` selection, for the reactant, intermediates, and product. A model built separately for each state breaks the atom mapping and the barrier comparison.
+- Before production runs, look at every boundary and check the charge and multiplicity of the ML region. `define-layer` only assigns the layers; it does not fix a chemically poor boundary.
 
 When you save `model.pdb` from PyMOL, tick **Original atom order** in the export dialog.
 
@@ -162,7 +162,7 @@ mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ## Notes
 
-- **`--movable-cutoff` replaces the B-factor MM layers** in every command that takes it. In `opt`, `tsopt`, `freq`, `path-opt`, and `path-search` it also turns off `--detect-layer`, so give the ML region with `--model-pdb` or `--model-indices`.
+- **`--movable-cutoff` replaces the B-factor MM layers** in every command that takes it. It also turns off `--detect-layer`, so give the ML region with `--model-pdb` or `--model-indices`.
 - **`--model-pdb` sets only the ML region**: with `--detect-layer`, Movable-MM and Frozen-MM still come from the B-factors of the input.
 - **Change the layers with `define-layer`**: run it again instead of editing B-factors by hand.
 - **The bundled PDB has an empty chain column**; in such a PDB, give residues by name or by number. In a PDB with chains, write each residue as chain:name:number, such as `-c 'A:TYR:44'`; see [Residue selectors](cli-conventions.md#residue-selectors).

@@ -4,7 +4,7 @@
 
 ## `--out-json` フラグ
 
-ML/MM 計算機を使用する主なサブコマンドとレポート系サブコマンドは `--out-json / --no-out-json`（デフォルト: 無効）に対応しています。有効にすると、通常の出力と同じ場所に `result.json` と `summary.json` を書き出します。2 つのファイルの中身は同じなので、`result.json` を読みます。
+ML/MM 計算機を使用するサブコマンドとレポート系サブコマンドのほとんどは `--out-json / --no-out-json`（デフォルト: 無効）に対応しています。有効にすると、通常の出力と同じ場所に `result.json` と `summary.json` を書き出します。2 つのファイルの中身は同じなので、`result.json` を読みます。
 
 ```bash
 mlmm opt -i r_complex_layered.pdb --parm7 real.parm7 -q 0 -m 1 \
@@ -54,14 +54,14 @@ ML/MM 計算機を評価するコマンドは、さらに以下を記録しま�
 | `n_cpus` | int | `<int>` |
 | `ram_gb` | float | `<ram in GB>` |
 
-### 実行と要求段階の完了状況
+### 実行の完了と指定した段の完了
 
 すべての結果に `execution_status` と `scientific_status` を出します。複数段階の計算と scan は、各段の結果も下の欄に残します。必要な最適化や計算が欠けていれば、結果は未完了です。
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
 | `execution_status` | string | `completed` または `failed`。`all` では、IRC の後の端点の最適化が収束しなくても `completed` のままで、エラーで止まると `failed` になります。 |
-| `scientific_status` | string | 要求した段がすべて収束すれば `success`、そうでなければ `partial` か `failed`。`all` では、n_imag ≥ 2 の TS は `partial` になり、n_imag = 0 の TS は IRC の前で止まるので、`success` は n_imag = 1 を意味します。有効な TS と、片方の端点の最適化の失敗の組み合わせも `partial` です。単体の `tsopt` は収束だけを見て n_imag を見ないので、`n_imaginary_modes` を読んでください。 |
+| `scientific_status` | string | 指定した段がすべて収束すれば `success`、そうでなければ `partial` か `failed`。`all` では、n_imag ≥ 2 の TS は `partial` になり、n_imag = 0 の TS は IRC の前で止まるので、`success` は n_imag = 1 を意味します。有効な TS と、片方の端点の最適化の失敗の組み合わせも `partial` です。単体の `tsopt` は収束だけを見て n_imag を見ないので、`n_imaginary_modes` を読んでください。 |
 | `scientific_status_reasons` | string[] | 利用できない、または欠落した段の理由。正常終了時は省略されます。 |
 | `expected_item_ids` / `observed_item_ids` | string[] | 欠けた作業を検出するための、期待された段と観測された段の ID。 |
 | `stage_outcomes` | object[] | `stage`、`item_id`、`required`、`executed`、`converged`、`usable`、`reason`、`artifacts` を持つ段階別の結果。 |
@@ -83,7 +83,7 @@ ML/MM 計算機を評価するコマンドは、さらに以下を記録しま�
 
 最適化が収束せずに終わった場合、`result.json` には `"optimization_status": "not_converged"` が記録されます。再実行の前に何を変えるかは、{ref}`トラブルシューティングの計算 / 収束 <ja-calculation--convergence>` を参照してください。
 
-オプティマイザは `"optimization_status": "stalled"` を返すこともあります。これは、力/ステップの収束基準を満たさないまま、設定ウィンドウにわたってエネルギーが減少しなくなった状態（エネルギープラトー）です。停滞は未収束の一種で、`converged` にはなりません。`stop_reason` にはエネルギーの範囲、ウィンドウ、満たせなかった基準が記録されます。`--flatten` を指定した `opt` と `tsopt` は、`--max-cycles` の残りがあれば、停滞の後も flatten ループを実行します。マイクロイテレーションでは、マクロステップと直近の MM 緩和の両方が収束したときだけ収束とみなします。MM 緩和が停滞しても、その時点で力が閾値を下回っていれば収束として扱います。
+オプティマイザは `"optimization_status": "stalled"` を返すこともあります。これは、力/ステップの収束基準を満たさないまま、設定した数の直近のサイクル（ウィンドウ）でエネルギーが下がらなくなった状態（エネルギープラトー）です。停滞は未収束の一種で、`converged` にはなりません。`stop_reason` にはエネルギーの範囲、ウィンドウ、満たせなかった基準が記録されます。`--flatten` を指定した `opt` と `tsopt` は、`--max-cycles` の残りがあれば、停滞の後も flatten ループを実行します。マイクロイテレーションでは、マクロステップと直近の MM 緩和の両方が収束したときだけ収束とみなします。MM 緩和が停滞しても、その時点で力が閾値を下回っていれば収束として扱います。
 
 ## サブコマンド別スキーマ
 
@@ -112,7 +112,7 @@ ML/MM 計算機を評価するコマンドは、さらに以下を記録しま�
 | `charge` | int | ML 領域の電荷 |
 | `spin` | int | ML 領域のスピン多重度 |
 | `n_atoms` | int | 全原子数（全層） |
-| `n_freeze_atoms` | int | 凍結原子数 |
+| `n_freeze_atoms` | int | 固定原子数 |
 | `thresh` | string | 収束閾値プリセット名 |
 | `max_cycles` | int | 最大サイクル数 |
 | `input_file` | string | 入力ファイル名 |
@@ -141,7 +141,7 @@ ML/MM 計算機を評価するコマンドは、さらに以下を記録しま�
 | `n_imaginary_modes` | int\|null | 虚振動モードの数。PHVA を実行しなかった場合は `null` |
 | `n_negative_modes` | int\|null | 大きさを問わない負の振動数の数（閾値以内も含む）。`n_imaginary_modes` と並べて見る診断用の値で、PHVA を実行しなかった場合は `null` |
 | `imaginary_frequencies_cm` | float[]\|null | 虚振動数 (cm⁻¹, 負の値)。PHVA を実行しなかった場合、`--skip-final-freq` では `[]`、それ以外は `null` |
-| `frequency_zero_cutoff_cm` / `imaginary_mode_criterion` / `imaginary_frequency_threshold_cm` | float / string / float | 既定値は `5.0`、`"frequency_cutoff_cm"`、`-5.0` で、ν < −5.00 cm⁻¹ だけを虚振動として数えます。 |
+| `frequency_zero_cutoff_cm` / `imaginary_mode_criterion` / `imaginary_frequency_threshold_cm` | float / string / float | デフォルト値は `5.0`、`"frequency_cutoff_cm"`、`-5.0` で、ν < −5.00 cm⁻¹ だけを虚振動として数えます。 |
 | `opt_mode` | string | `"grad"`、`"hess"`、`"dimer"`、`"rsprfo"`、`"rsirfo"`、`"trim"` のいずれか。`hess` は RS-P-RFO を選択 |
 | `opt_mode_requested` | string | CLI で要求したプリセット |
 | `optimizer` | string | 実際に使用したオプティマイザのアルゴリズム |
@@ -169,7 +169,7 @@ TS 最適化が成功すると、反応モードの虚振動が 1 つ出ます�
 | `charge` | int | ML 領域の電荷 |
 | `spin` | int | ML 領域のスピン多重度 |
 | `n_atoms` | int | 全原子数 |
-| `n_freeze_atoms` | int | 凍結原子数 |
+| `n_freeze_atoms` | int | 固定原子数 |
 | `files` | object | 出力マップ。`--dump-hess` で書いたときは `hessian_npy`（絶対パス）を含む |
 | `rigid_projection` | object | 振動解析と熱化学で使った剛体モードと Hessian の記録。`--dump` では `thermoanalysis.yaml` にも書きます |
 
@@ -254,6 +254,7 @@ IRC は `execution_status` と `scientific_status` を出し、方向ごとの�
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
+| `optimization_status` | string | `"converged"` / `"not_converged"` / `"completed"`（収束シグナルを読み取れない場合） |
 | `converged` | bool \| null | 収束判定: エンジン自身の収束シグナルによる `true` / `false`。読み取れない場合は `null`（`optimization_status` は `"completed"` となり、収束を主張しない） |
 | `mep_mode` | string | `"dmf"` / `"gsm"` |
 | `image_energies_hartree` | float[] | 全イメージのエネルギー |
@@ -356,17 +357,17 @@ IRC は `execution_status` と `scientific_status` を出し、方向ごとの�
 | `treatment` | string | 固定の剛体モード処理: `"constrained"` |
 | `algorithm` | string | 射影の方法の名前 |
 | `effective_rank` | int | 動ける原子の Hessian から除いた剛体方向の数 |
-| `full_rigid_rank` | int | 凍結原子を考える前の、系全体の剛体運動のランク |
-| `frozen_constraint_rank` | int | 凍結原子を動かさない条件で除かれたランク |
+| `full_rigid_rank` | int | 固定原子を考える前の、系全体の剛体運動のランク |
+| `frozen_constraint_rank` | int | 固定原子を動かさない条件で除かれたランク |
 | `svd_rtol` | float | ランクの判定に用いる相対 SVD 許容値 |
-| `active_atom_count` / `frozen_atom_count` | int | 動ける原子と凍結原子の数 |
-| `active_atoms` / `frozen_atoms` | int[] | 動ける原子と凍結原子の 0 始まりのインデックス |
+| `active_atom_count` / `frozen_atom_count` | int | 動ける原子と固定原子の数 |
+| `active_atoms` / `frozen_atoms` | int[] | 動ける原子と固定原子の 0 始まりのインデックス |
 | `hessian_space` | string | 入力 Hessian 空間: `"full"` / `"active"` |
 | `hessian_source` / `source` | string | Hessian の出どころ。`freq`/`irc` は `hessian_source` で、`"file"`（`--read-hess`）、`"cache"`（同じ実行の前の段）、`"fresh"`（新規計算）のいずれか。`opt`/`tsopt` は `source` を使用 |
 | `hessian_shape` / `raw_hessian_shape` | int[2] | 入力 Hessian の形状。`freq`/`irc` は `hessian_shape`、`opt`/`tsopt` は `raw_hessian_shape` を使用（`freq` は両方を記録） |
-| `near_zero_mode_count` / `near_zero_frequencies_cm` | int / float[] | ±`frequency_zero_cutoff_cm`（既定 5.00 cm⁻¹）以内のモードの数と値。これらのモードは全振動数の一覧にも入ります |
+| `near_zero_mode_count` / `near_zero_frequencies_cm` | int / float[] | ±`frequency_zero_cutoff_cm`（デフォルト 5.00 cm⁻¹）以内のモードの数と値。これらのモードは全振動数の一覧にも入ります |
 
-`constrained` は、凍結原子を動かさない系全体の剛体運動だけを除きます。詳しくは [freq](freq.md#凍結境界での剛体モード) を参照してください。
+`constrained` は、固定原子を動かさない系全体の剛体運動だけを除きます。詳しくは [freq](freq.md#固定境界での剛体モード) を参照してください。
 
 (ja-summary-json-path-search-all)=
 ## `summary.json` (`path-search` / `all`)
@@ -375,16 +376,16 @@ IRC は `execution_status` と `scientific_status` を出し、方向ごとの�
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
-| `execution_status` / `scientific_status` | string / string | 実行の完了度と、要求した数値最適化・計算段階の完了度。 |
+| `execution_status` / `scientific_status` | string / string | 実行の完了度と、指定した数値最適化・計算段階の完了度。 |
 | `scientific_status_reasons` | string[] | 要求した結果の欠損・未収束などの理由。正常終了時は省略されます。 |
-| `pipeline_stop` | object \| 不在 | 早期停止時のみ存在。`stage` は `post`（`reason` は `no_segments` / `no_reactive_segment`）、`before_irc`（TSOPT の理由と `segment`・`tsopt_result`）、または `endpoint_opt`（`endpoint_execution_failed` と端点別 `failures`）。`summary.log` では `Pipeline stop` |
+| `pipeline_stop` | object（無い場合あり） | 早期停止時のみ存在。`stage` は `post`（`reason` は `no_segments` / `no_reactive_segment`）、`before_irc`（TSOPT の理由と `segment`・`tsopt_result`）、または `endpoint_opt`（`endpoint_execution_failed` と端点別 `failures`）。`summary.log` では `Pipeline stop` |
 | `expected_item_ids` / `observed_item_ids` | string[] | 期待された段と観測された段の ID。 |
-| `config` | object | 実効設定。`mep_mode` は GSM/DMF、`ts_opt_mode` / `endpoint_opt_mode` は設定した後処理のプリセットを示す。一般の `opt_mode*` は実際に使った CLI の値を記録する。`path_opt_mode` は端点の事前最適化に使う単一構造オプティマイザであり（`preopt` を参照）、MEP の経路アルゴリズムではない。 |
+| `config` | object | 実効設定。`mep_mode` は GSM/DMF、`ts_opt_mode` / `endpoint_opt_mode` は設定した後処理のプリセットを示します。一般の `opt_mode*` は実際に使った CLI の値を記録します。`path_opt_mode` は端点の事前最適化に使う単一構造オプティマイザであり（`preopt` を参照）、MEP の経路アルゴリズムではありません。 |
 | `n_segments` | int | セグメント数 |
 | `search_max_depth` | int | 実効の再帰分割階層上限。`0` は分割無効 |
-| `path_optimizers` | string[] | 経路の準備・精密化で実際に使用した単一構造オプティマイザ（`lbfgs`, `rfo`）。`all` ではスキャン・アライメントの実行も含む。`path-opt` の `result.json` にも記録 |
-| `preopt_requested` / `preopt_converged` | bool / bool \| null | 端点の事前最適化を実行したか、および全端点が収束したか。読み取れない端点があれば `null`。`all` では `preopt_converged` も `scientific_status` に数えます。ただし、要求した最終 TS 最適化と両端点の最適化がすべての反応区間で収束した場合は数えません。欄そのものは残します |
-| `segments` | object[] | セグメントごとの `index`（1 始まり）、`tag`（`seg_001` のような名前。共有結合が変わらないねじれ（kink）のセグメントは名前に `kink` を含みます）、`kind`（反応セグメントは `"seg"`、[ブリッジセグメント](path-search.md#処理の仕組みと計算仕様)は `"bridge"`、TS-only モードは `"tsopt"`）、`converged`（そのセグメントを作った最適化がすべて収束したか）、`barrier_kcal`、`delta_kcal`、`bond_changes`（ブリッジセグメントは `""`）。`barrier_kcal` は TS 最適化の前の MEP 上の障壁です。TS-only モードでは TS − R で、R は IRC の両端のうちエネルギーが高いほうです（向きの名前で、化学的な反応の向きではありません）。 |
+| `path_optimizers` | string[] | 経路の準備・精密化で実際に使用した単一構造オプティマイザ（`lbfgs`, `rfo`）。`all` ではスキャン・アライメントの実行も含みます。`path-opt` の `result.json` にも記録します |
+| `preopt_requested` / `preopt_converged` | bool / bool \| null | 端点の事前最適化を実行したか、および全端点が収束したか。読み取れない端点があれば `null`。`all` では `preopt_converged` も `scientific_status` に数えます。ただし、指定した最終 TS 最適化と両端点の最適化がすべての反応セグメントで収束した場合は数えません。欄そのものは残します |
+| `segments` | object[] | セグメントごとの `index`（1 始まり）、`tag`（`seg_001` のような名前。共有結合が変わらないキンク（kink）のセグメントは名前に `kink` を含みます）、`kind`（反応セグメントは `"seg"`、[ブリッジセグメント](path-search.md#処理の仕組みと計算仕様)は `"bridge"`、TS-only モードは `"tsopt"`）、`converged`（そのセグメントを作った最適化がすべて収束したか）、`barrier_kcal`、`delta_kcal`、`bond_changes`（ブリッジセグメントは `""`）。`barrier_kcal` は TS 最適化の前の MEP 上の障壁です。TS-only モードでは TS − R で、R は IRC の両端のうちエネルギーが高いほうです（向きの名前で、化学的な反応の向きではありません）。 |
 | `energy_diagrams` | object[] | ラベルと kcal/mol の値を持つエネルギーダイアグラム |
 | `mlip_backend` | string | バックエンド名（`uma`、`orb`、`mace`、`aimnet2`、`dft`、`custom`） |
 | `mlip_model` | string \| null | 正確なモデル/チェックポイント名。`dft` では `FUNCTIONAL/BASIS` |

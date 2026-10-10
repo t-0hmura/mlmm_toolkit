@@ -1,13 +1,13 @@
 # MLIP バックエンド
 
-ML 領域を計算するバックエンドの選び方と、バックエンドごとのインストール、モデル名、精度、再現性の設定、Hessian の計算方式をまとめたページです。既定のバックエンドは **UMA**（Meta の Universal Models for Atoms）で、`-b/--backend` で **ORB**、**MACE**、**AIMNet2** も選べます。4 つとも機械学習原子間ポテンシャル（MLIP）です。どのバックエンドを選んでも、MM 領域は Amber のトポロジー（`--parm7`）で計算し、2 つを ONIOM で合わせます。
+ML 領域を計算するバックエンドの選び方と、バックエンドごとのインストール、モデル名、精度、再現性の設定、Hessian の計算方式をまとめたページです。デフォルトのバックエンドは **UMA**（Meta の Universal Models for Atoms）で、`-b/--backend` で **ORB**、**MACE**、**AIMNet2** も選べます。4 つとも機械学習原子間ポテンシャル（MLIP）です。どのバックエンドを選んでも、MM 領域は Amber のトポロジー（`--parm7`）で計算し、2 つを ONIOM で合わせます。
 
 ## バックエンドごとの特性
 
 バックエンドは、ML/MM の計算を行うどのコマンドでも `-b/--backend` で選ぶか、YAML の `calc.backend` で設定します。
 
 ```bash
-# UMA（既定）
+# UMA（デフォルト）
 mlmm opt -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0
 
 # ORB
@@ -22,7 +22,7 @@ mlmm opt -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b aim
 
 | バックエンド | インストール | モデル名 | 精度の設定 |
 |---------|---------|------------------|------------------|
-| `uma` | `pip install mlmm-toolkit`（`fairchem-core` は本体の依存）＋ [Hugging Face へのログイン](installation.md) | `uma-s-1p2`（既定）/ `uma-m-1p1` | `uma_precision="fp32" \| "fp64"` |
+| `uma` | `pip install mlmm-toolkit`（`fairchem-core` は本体の依存）＋ [Hugging Face へのログイン](installation.md) | `uma-s-1p2`（デフォルト）/ `uma-m-1p1` | `uma_precision="fp32" \| "fp64"` |
 | `orb` | `pip install "mlmm-toolkit[orb]"` | `orb_v3_conservative_omol` | `orb_precision="float32-high" \| "float32-highest" \| "float64"`（`fp32`・`float32` の名前でも受け付けます） |
 | `mace` | 専用の環境で `pip uninstall -y fairchem-core && pip install mace-torch`（`mace-torch` が固定する `e3nn` の版が UMA とぶつかるため、この環境では UMA は動きません） | `MACE-OMOL-0` | `mace_dtype="float32" \| "float64"` |
 | `aimnet2` | `pip install "mlmm-toolkit[aimnet]"` | `aimnet2` | なし |
@@ -34,7 +34,7 @@ mlmm opt -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b aim
 (ja-precision)=
 ### 精度（precision）
 
-`--precision fp32|fp64` は MLIP の推論の浮動小数点精度を決めます。`--precision` を指定しないときは、バックエンドごとの既定値を使います。
+`--precision fp32|fp64` は MLIP の推論の浮動小数点精度を決めます。`--precision` を指定しないときは、バックエンドごとのデフォルト値を使います。
 
 | バックエンド | `--precision` なし | `--precision fp64` |
 |---------|------|------|
@@ -48,7 +48,7 @@ mlmm opt -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b aim
 
 | 目的 | 推奨 | 理由 |
 | --- | --- | --- |
-| 通常の計算 | 指定しない | 上の既定値（UMA・AIMNet2 は fp32、ORB・MACE は fp64）のままにします。 |
+| 通常の計算 | 指定しない | 上のデフォルト値（UMA・AIMNet2 は fp32、ORB・MACE は fp64）のままにします。 |
 | 速さを優先するスクリーニング | 必要なときだけ `--precision fp32` | ORB・MACE の精度が下がります（[使用上の注意点](#使用上の注意点)）。 |
 | 最終の TS と Hessian | 指定しない。UMA で n_imag ≥ 2 のときは `--precision fp64` と比べる（{ref}`tsopt <ja-wrong-imaginary-mode-count>`） | 精度によらず、`tsopt` の最後の Hessian で n_imag を確かめ、IRC と端点の最適化で TS が狙った R と P をつなぐことを確かめます。 |
 
@@ -85,11 +85,11 @@ mlmm all -i r_complex.pdb p_complex.pdb -c PRE -q -1 --deterministic
 
 ## ワーカーと Hessian の計算方式
 
-`--uma-workers N`（既定 1）は UMA の予測器を N 個並列に動かし（`fairchem-core[extras]` が要ります）、`--uma-workers-per-node`（既定 1）はそのうち 1 ノードで動かす数を決めます。どちらのフラグも `opt`、`tsopt`、`freq`、`irc`、`sp`、`all`、`path-opt`、`path-search`、`scan`、`scan2d`、`scan3d` にあります。ほかのバックエンドはこれらを警告を出して無視します。HPC のジョブのテンプレートは [デバイス設定 & HPC セットアップ](device-hpc.md) にあります。
+`--uma-workers N`（デフォルト 1）は UMA の予測器を N 個並列に動かし（`fairchem-core[extras]` が要ります）、`--uma-workers-per-node`（デフォルト 1）はそのうち 1 ノードで動かす数を決めます。どちらのフラグも `opt`、`tsopt`、`freq`、`irc`、`sp`、`all`、`path-opt`、`path-search`、`scan`、`scan2d`、`scan3d` にあります。ほかのバックエンドはこれらを警告を出して無視します。HPC のジョブのテンプレートは [デバイス設定 & HPC セットアップ](device-hpc.md) にあります。
 
 ### Hessian の計算方式
 
-`--hessian-calc-mode` で、ML 領域の Hessian の計算方式を選びます。このフラグは `freq`、`irc`、`tsopt`、`sp`、`all` にあり、YAML では `calc.hessian_calc_mode` です。`FiniteDifference`（既定）は力の中心差分を取り、`Analytical` はバックエンドの自動微分またはネイティブの Hessian を使います。UMA（ワーカー 1 つのとき）、ORB、MACE、AIMNet2 は入れた版が対応していれば解析 Hessian を計算でき、DFT のバックエンドも `--embedcharge` なしなら計算できます。自作の calculator は `FiniteDifference` だけに対応します。選んだバックエンドで解析 Hessian が使えないときは、エラーで止まります。[Hessian の MM の部分](mlmm-calc.md)は別に設定します。
+`--hessian-calc-mode` で、ML 領域の Hessian の計算方式を選びます。このフラグは `freq`、`irc`、`tsopt`、`sp`、`all` にあり、YAML では `calc.hessian_calc_mode` です。`FiniteDifference`（デフォルト）は力の中心差分を取り、`Analytical` はバックエンドの自動微分またはネイティブの Hessian を使います。UMA（ワーカー 1 つのとき）、ORB、MACE、AIMNet2 は入れた版が対応していれば解析 Hessian を計算でき、DFT のバックエンドも `--embedcharge` なしなら計算できます。自作の calculator は `FiniteDifference` だけに対応します。選んだバックエンドで解析 Hessian が使えないときは、エラーで止まります。[Hessian の MM の部分](mlmm-calc.md)は別に設定します。
 
 UMA では次の 2 つのどちらかを選んでください。
 
@@ -98,17 +98,17 @@ UMA では次の 2 つのどちらかを選んでください。
 --uma-workers 4 --hessian-calc-mode FiniteDifference # 並列の UMA 予測器 + 有限差分
 ```
 
-モデルの精度と Hessian の精度は別の設定です。Hessian は既定（`calc.H_double: true`）では float64 で組み立て、`H_double: false` にすると float32 で返します。`--precision fp64` のときは Hessian も常に float64 になり、設定ファイルの `H_double: false` は警告を出して上書きされます。
+モデルの精度と Hessian の精度は別の設定です。Hessian はデフォルト（`calc.H_double: true`）では float64 で組み立て、`H_double: false` にすると float32 で返します。`--precision fp64` のときは Hessian も常に float64 になり、設定ファイルの `H_double: false` は警告を出して上書きされます。
 
 ## xTB 静電補正
 
-MLIP/MM の計算では、`--embedcharge/--no-embedcharge`（既定はオフ）で `E_xTB(ML + MM point charges) - E_xTB(ML)` と、それに対応する力と Hessian の差を足し、ML 領域に MM の点電荷の影響を入れます。
+MLIP/MM の計算では、`--embedcharge/--no-embedcharge`（デフォルトはオフ）で `E_xTB(ML + MM point charges) - E_xTB(ML)` と、それに対応する力と Hessian の差を足し、ML 領域に MM の点電荷の影響を入れます。
 
 `-b dft` では、`--embedcharge` は xTB の補正を使わず、MM の点電荷を PySCF のハミルトニアンに直接入れます。
 
 ## DFT/MM バックエンド
 
-計算を行うどのコマンドも `-b dft --func-basis FUNCTIONAL/BASIS --dft-engine gpu|cpu`（既定は `wb97m-v/def2-svp` と `gpu`）を受け付け、MM 領域は Amber の力場のまま、ML 領域を PySCF/GPU4PySCF で計算します。ポピュレーション解析付きの一点計算には、別の `mlmm dft` コマンドがあります。省メモリのモード、CPU のスレッド数とホスト RAM、SCF のチェックポイントは [MLIP の TS を DFT で確かめる](dft-backend.md) にあります。
+ML/MM の計算を行う 11 のコマンド（`all`、`opt`、`tsopt`、`irc`、`freq`、`scan`、`scan2d`、`scan3d`、`path-opt`、`path-search`、`sp`）は `-b dft --func-basis FUNCTIONAL/BASIS --dft-engine gpu|cpu`（デフォルトは `wb97m-v/def2-svp` と `gpu`）を受け付け、MM 領域は Amber の力場のまま、ML 領域を PySCF/GPU4PySCF で計算します。ポピュレーション解析付きの一点計算には、別の `mlmm dft` コマンドがあります。低メモリモードは [`dft`](dft.md#処理の仕組みと計算仕様) に、CPU のスレッド数とホスト RAM、SCF のチェックポイントは [`all` のオプションの一覧（英語のみ）](../reference/commands/all.md) にあります。
 
 (ja-backends-custom-calculator)=
 ## カスタムバックエンド — 任意の ASE Calculator を使う（`--calc-file`）
@@ -134,9 +134,9 @@ mlmm freq  -i complex.pdb --parm7 system.parm7 --model-pdb ml_region.pdb --calc-
 mlmm all   -i R.pdb P.pdb --parm7 system.parm7 --model-pdb ml_region.pdb --calc-file my_calc.py -q 0 -m 1
 ```
 
-- 関数の引数で受け取る形か `**kwargs` があれば、`charge`、`spin`（多重度。`mult`・`multiplicity` の名前でも渡します）、`device` が渡されるので、全電荷が要るエンジン（xTB など）も設定できます。関数の名前は `--calc-file-func-name NAME` で変えられ、その名前に Calculator のインスタンスを置いてもかまいません。
-- 自作の calculator が計算するのは **ML 領域だけ**です。MM 側はふつうどおり `hessian_ff` か OpenMM で計算し、ONIOM の結合も変わりません。Hessian は有限差分で求めるので、`freq` と `tsopt --opt-mode hess` はどのエンジンでも動きます。凍結原子もふつうどおり効きます。
-- `all` と、ML/MM の計算を行う各サブコマンドで使えます。`all` は、calculator を使うすべての段に同じ factory を渡します。独自の `--backend` 名を持つ、インストールできるバックエンドにするときは [開発者向け](#開発者向け) を見てください。
+- 関数が `charge`・`spin`（多重度。`mult`・`multiplicity` の名前でも渡します）・`device` を引数に持つか、`**kwargs` を持てば、これらが渡されるので、全電荷が要るエンジン（xTB など）も設定できます。関数の名前は `--calc-file-func-name NAME` で変えられ、その名前に Calculator のインスタンスを置いてもかまいません。
+- 自作の calculator が計算するのは **ML 領域だけ**です。MM 側はふつうどおり `hessian_ff` か OpenMM で計算し、ONIOM の結合も変わりません。Hessian は有限差分で求めるので、`freq` と `tsopt --opt-mode hess` はどのエンジンでも動きます。固定原子もふつうどおり効きます。
+- `all` と、ML/MM の計算を行う各サブコマンドで使えます。`all` は、calculator を使うすべての段に同じ関数を渡します。独自の `--backend` 名を持つ、インストールできるバックエンドにするときは [開発者向け](#開発者向け) を見てください。
 
 ## Python API
 
@@ -179,7 +179,7 @@ ML/MM の段では、選んだ ML バックエンドと Hessian の途中の配�
 - 環境変数 `MLMM_STRICT_DETERMINISTIC=1` でも、CI のジョブや Python API で同じモードになります。この変数があると、`--no-deterministic` を付けてもモードは切れません。
 - `--deterministic` だけでは、別の計算機やソフトウェアの版でのビット単位の一致は保証されません。使う環境で 2 回実行して比べてください。
 - UMA で `--uma-workers` を 2 以上にすると、`--hessian-calc-mode Analytical` とは併用できず、エラーで止まります。並列の予測器は autograd のモデルを持たないためです。解析 Hessian には `--uma-workers 1` を、複数のワーカーには `FiniteDifference` を使ってください。
-- MACE は UMA と同じ環境に入りません。専用の conda 環境に入れてください。
+- MACE は UMA と同じ環境には入れられません。専用の conda 環境に入れてください。
 - パッケージを入れていないバックエンドを選ぶと、``orb-models is required for the ORB backend. Install with `pip install orb-models`.`` のようなエラーで止まります。
 - `--embedcharge` はエネルギー、力、Hessian を求めるたびに、MM の点電荷あり・なしで xTB を実行します。ML 領域は 200〜300 原子くらいまでにし、実際の系で先に計算時間を測ってください。
 

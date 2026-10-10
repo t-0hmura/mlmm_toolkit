@@ -70,7 +70,7 @@ mlmm trj2fig -i traj.xyz -q 0 -m 1 -b uma --backend-model uma-s-1p2 \
 energy.png      # 図（出力の指定が無いときのデフォルト）
 energy.csv      # エネルギーの表（.csv の出力を指定したとき）
 result.json     # 要約（--out-json 指定時）
-summary.json    # result.json の写し。result.json を読む（--out-json 指定時）
+summary.json    # result.json と同じ内容（--out-json 指定時）
 ```
 
 * **CSV の列**: `frame`、`energy_hartree`、図に描いた値（`--unit` の単位）の 3 列です。3 列目の名前は、基準があるときは `delta_kcal` か `delta_hartree`、`-r none` では `energy_kcal` か `energy_hartree` です。

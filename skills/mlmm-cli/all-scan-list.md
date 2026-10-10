@@ -1,4 +1,4 @@
-# `mlmm all`: Single structure + scan
+# `mlmm all`: Scan-list mode
 
 Give one full-system reactant and the coordinates to drive with `-s`; `all`
 runs the scan stages in order, searches the MEP through the stage ends, and,
@@ -78,7 +78,7 @@ for stage in d["stages"]:
 - **Python literal error.** Wrap each stage in single quotes outside and double quotes inside; backticks survive bash inside the outer single quotes.
 - **Atom not found or matched twice.** Atom names must match those in the input PDB (case is ignored); editing tools such as PyMOL and Maestro sometimes rename `CB` to `CB1`. If a three-field selector matches more than one atom, the run stops; add the chain with `CHAIN:RESNAME:RESSEQ[ICODE]:ATOM` or use the atom number.
 - **Several `-i` inputs.** `-s` takes exactly one structure; with two or more, the run stops with an error ([all-endpoint-mep.md](all-endpoint-mep.md)).
-- **`-s` with `--tsopt`.** This is the scan mode with TS optimization, not TS-only mode.
+- **`-s` with `--tsopt`.** This is Scan-list mode with TS optimization, not TS-only mode.
 - **More segments than expected** (`--refine-path` only). Bond-change splitting proposed another candidate intermediate; check it and the neighbouring TS and IRC. The default `path-opt` adds no segments.
 - **Walltime.** One stage can take longer than the MEP search; time a pilot stage and budget from it.
 

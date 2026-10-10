@@ -62,8 +62,9 @@ Without `-o`, the output is `<input>_layered.pdb` next to the input.
   PDB written by `mm-parm` as `-i` so that the atoms match the `parm7`.
 - `mlmm extract` does not call `define-layer`. After `extract`, run
   `define-layer`, or pass `--model-pdb` or `--model-indices` directly to the
-  calculation command, with `--movable-cutoff` to set the movable shell by
-  distance (this replaces the B-factor layers).
+  calculation command; `opt`, `tsopt`, `freq`, `sp`, `scan*`, and `path-*`
+  also take `--movable-cutoff` to set the movable shell by distance (this
+  replaces the B-factor layers).
 - What the model PDB must contain, where to cut the ML/MM boundary, and how
   to choose the cutoff:
   [Set the layers](../mlmm-model-setup/SKILL.md#set-the-layers) and

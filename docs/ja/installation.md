@@ -2,7 +2,7 @@
 
 `mlmm-toolkit` は Linux 環境（ワークステーションや HPC）向けで、本番計算では通常 CUDA 対応 GPU を使用します。MM の計算には、トポロジーを作る **AmberTools**（`tleap`）と、`hessian_ff` のカーネルをビルドする **C++20 対応コンパイラー** が必要です。どちらも下の conda のコマンドで入ります。
 
-## クイックスタート
+## 最短のインストール
 
 `nvidia-smi` の右上に出る `CUDA Version` は、ドライバーが扱える最も新しい CUDA です。PyTorch の wheel は、それ以下の CUDA のもの（`cu126`、`cu130`、`cu132`）を選びます。以下のコマンドは推奨の `cu130` を使います。
 
@@ -32,7 +32,7 @@ hf auth login
 hf auth login --token '<YOUR_ACCESS_TOKEN>' --add-to-git-credential
 ```
 
-これはマシン/環境ごとに 1 回だけ行う必要があります。
+ログインはマシン・環境ごとに 1 回で済みます。
 
 `mlmm --version` でバージョンが表示されれば、インストールは成功です。
 
@@ -79,7 +79,7 @@ DMF を使う場合は、{ref}`詳細なインストール手順 <ja-step-by-ste
     pip install 'torch==2.13.0' --index-url https://download.pytorch.org/whl/cu130
     ```
 
-    PyTorch 2.13.0 の公式 wheel には `cu126`、`cu132`、`cpu` もあります。上のクイックスタートにある `nvidia-smi` の見方で wheel を選び、手順 8 で GPU が使えるかを確かめてください。[PyTorch の版の対応表](https://pytorch.org/get-started/previous-versions/) を参照してください。
+    PyTorch 2.13.0 の公式 wheel には `cu126`、`cu132`、`cpu` もあります。上の最短のインストールにある `nvidia-smi` の見方で wheel を選び、手順 8 で GPU が使えるかを確かめてください。[PyTorch の版の対応表](https://pytorch.org/get-started/previous-versions/) を参照してください。
 
 5. **`mlmm-toolkit` 本体と可視化用 Chrome をインストール**
 
@@ -161,9 +161,9 @@ DMF を使う場合は、{ref}`詳細なインストール手順 <ja-step-by-ste
 
 **Python:** 3.12 を推奨します（最低 3.11）。ORB バックエンドには 3.11 か 3.12 が必要です。
 
-**GPU / CUDA:** 選んだ wheel に対応するドライバーの NVIDIA GPU（クイックスタートを参照）。新しい GPU アーキテクチャでは新しい wheel が必要なことがあります。CPU のみでも実行できますが、通常は大幅に遅くなります。
+**GPU / CUDA:** 選んだ wheel に対応するドライバーの NVIDIA GPU（最短のインストールを参照）。新しい GPU アーキテクチャでは新しい wheel が必要なことがあります。CPU のみでも実行できますが、通常は大幅に遅くなります。
 
-**AmberTools とコンパイラー:** `mm-parm` と `all` のトポロジー作成に AmberTools（`tleap`）が必要です。前の計算の対応する `--parm7` を渡すと、この段を省けます。既定の MM バックエンド `hessian_ff` には C++20 対応コンパイラー（GCC 13.3 で検証）が必要です。PDBFixer が要るのは `mm-parm --add-h` のときだけです。
+**AmberTools とコンパイラー:** `mm-parm` と `all` のトポロジー作成に AmberTools（`tleap`）が必要です。前の計算の対応する `--parm7` を渡すと、この段を省けます。デフォルトの MM バックエンド `hessian_ff` には C++20 対応コンパイラー（GCC 13.3 で検証）が必要です。PDBFixer が要るのは `mm-parm --add-h` のときだけです。
 
 **VRAM・RAM・ディスク:** メモリはバックエンド、原子数、Hessian の計算方式とともに増え、ディスクには環境、モデルの重み、トポロジー、軌跡と Hessian が入ります。代表的な計算を 1 つ対象の計算ノードで流し、最大使用量を見てください。
 

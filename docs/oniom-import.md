@@ -36,7 +36,7 @@ mlmm oniom-import -i model.gjf -o model_imported
 `--mode` takes precedence over the suffix and is needed when the file name does not end in `.gjf`, `.com`, or `.inp`.
 
 ```bash
-mlmm oniom-import -i model.inp --mode orca -o model_imported
+mlmm oniom-import -i model.txt --mode orca -o model_imported
 ```
 
 ### 4. Keep names from a reference PDB

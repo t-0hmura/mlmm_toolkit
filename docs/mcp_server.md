@@ -62,7 +62,7 @@ When a stage runner or a scan / path tool fails, its `summary` carries the error
 | MCP tool | Required arguments | CLI subcmd | Purpose |
 |---|---|---|---|
 | `prepare_amber_topology` | `input_pdb`, `output_prefix` | `mlmm mm-parm` | AMBER parm7/rst7 for the whole system, built with AmberTools |
-| `define_layer` | `input_pdb`, `output_pdb`, and `model_pdb` or `model_indices` | `mlmm define-layer` | Write the ML / Movable-MM / Frozen layers as B-factors |
+| `define_layer` | `input_pdb`, `output_pdb`, and `model_pdb` or `model_indices` | `mlmm define-layer` | Write the ML / Movable-MM / Frozen-MM layers as B-factors |
 | `extract_pocket` | `complex_pdb`, `ligand_id`, `radius_angstrom`, `output_pdb` | `mlmm extract` | Active-site model: residues within `radius_angstrom` of the centers given in `ligand_id` (`-c`) |
 
 ### Stage runners

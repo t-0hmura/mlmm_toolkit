@@ -30,7 +30,7 @@ Three bundled forks, `pysisyphus/`, `thermoanalysis/`, and `hessian_ff/`, live a
 | **L3 Domain** | `mlmm/domain/` | chemistry-aware helper logic (bond change detection, bond summary, element-info propagation) | `core/` |
 | **L4a Infra (MLIP + ONIOM)** | `mlmm/backends/` | MLIP backend dispatch, inline backend integrations, and the ML/MM ONIOM calculator core | `core/` |
 | **L4b Infra (I/O)** | `mlmm/io/` | output layout, summary, trajectory, PDB fix, energy diagram, Hessian cache, analytical-Hessian glue | `core/` |
-| **L5 Foundation** | `mlmm/core/` | shared defaults, PDB/XYZ/plot helpers, result commit/output support, and residue tables | `backends/`, `domain/`, `io/` (a few upward imports, see below) |
+| **L5 Foundation** | `mlmm/core/` | shared defaults, PDB/XYZ/plot helpers, result commit/output support, and residue tables | `backends/`, `domain/`, `io/`, `cli/` (a few upward imports, see below) |
 | (bundle, not a layer) | `<repo>/pysisyphus/`, `<repo>/thermoanalysis/`, `<repo>/hessian_ff/` | repo-internal forks (optimizer / thermochemistry / analytical MM Hessian) | (sibling, layer-external) |
 
 **Dependency direction (design goal)**: `L1 → L2 → {L3, L4} → L5`. Shared charge/spin preparation and layer helpers live in `workflows/charge_prep.py` and `workflows/_opt_freq_common.py`. Bundled forks sit outside the layer graph and may be imported from any layer (`from pysisyphus.X import Y`).
@@ -66,17 +66,17 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ ├── workflows/ # === L2 Application ===
 │ │ ├── all.py full pipeline orchestrator (extract → … → DFT)
 │ │ ├── path_search.py / path_opt.py MEP search / COS wrapper
-│ │ ├── tsopt.py / freq.py / irc.py / dft.py per-stage runners
+│ │ ├── tsopt.py / freq.py / irc.py / dft.py / sp.py per-stage runners
 │ │ ├── opt.py / scan.py / scan2d.py /
 │ │ │ scan3d.py / scan_common.py ONIOM geometry opt / scans
 │ │ ├── extract.py active-site extraction CLI
-│ │ ├── define_layer.py ML / Movable-MM / Frozen B-factor assignment
+│ │ ├── define_layer.py ML / Movable-MM / Frozen-MM B-factor assignment
 │ │ ├── mm_parm.py AmberTools-driven parm7 / rst7 generation
 │ │ ├── oniom_export.py ONIOM input writer (Gaussian / ORCA)
 │ │ ├── oniom_import.py ONIOM input reader (sanity / atom-name diff)
 │ │ ├── align_freeze.py Kabsch + frozen-subset rmsd
 │ │ └── _all_helpers.py / _opt_freq_common.py / _run_session.py /
-│ │     restraints.py shared workflow helpers
+│ │     restraints.py / charge_prep.py shared workflow helpers
 │ │
 │ ├── domain/ # === L3 Domain ===
 │ │ ├── bond_changes.py R↔P bond detection
@@ -210,14 +210,15 @@ Acronyms used below: GSM = growing-string method; COS = chain-of-states; RS-P-RF
 | Full pipeline orchestrator | `mlmm/workflows/all.py` |
 | Geometry optimization (ONIOM macro/micro pre-opt) | `mlmm/workflows/opt.py` |
 | Scan and 2D/3D energy-landscape grids + shared | `mlmm/workflows/scan{,2d,3d,_common}.py` |
-| MEP search (GSM) | `mlmm/workflows/path_search.py` |
+| MEP search (GSM / DMF, recursive) | `mlmm/workflows/path_search.py` |
 | MEP optimizer core (pysisyphus COS) | `mlmm/workflows/path_opt.py` |
 | TS optimization (RS-P-RFO / RS-I-RFO / TRIM + Bofill + macro/micro) | `mlmm/workflows/tsopt.py` |
 | Vibrational analysis (PHVA + MLIP active block) | `mlmm/workflows/freq.py` |
 | IRC integration (macro / micro) | `mlmm/workflows/irc.py` |
 | Single-point DFT (ONIOM-embedded) | `mlmm/workflows/dft.py` |
+| Single-point ML/MM energy and forces | `mlmm/workflows/sp.py` |
 | Active-site extraction (cluster cut-out + link-atom cap) | `mlmm/workflows/extract.py` |
-| ML / Movable-MM / Frozen region assignment | `mlmm/workflows/define_layer.py` |
+| ML / Movable-MM / Frozen-MM region assignment | `mlmm/workflows/define_layer.py` |
 | AmberTools-driven MM parameter generation | `mlmm/workflows/mm_parm.py` |
 | ONIOM input writer (Gaussian / ORCA) | `mlmm/workflows/oniom_export.py` |
 | ONIOM input reader (sanity, atom-name diff) | `mlmm/workflows/oniom_import.py` |
@@ -389,11 +390,11 @@ After the Fresh-eyes 5-step navigation (§3), follow this depth-first reading or
 
 - **ML region**: substrate + reaction-center residues, evaluated by one of the 4 MLIP backends (UMA / ORB / MACE / AIMNet2)
 - **Movable-MM region**: a shell around the ML region, free to move under the AMBER force field
-- **Frozen region**: the rest of the protein, held rigid
+- **Frozen-MM region**: the rest of the protein, held rigid
 
 The split is encoded in B-factor channels of the input PDB and propagated through `extract → mm-parm → ONIOM model → MEP → tsopt → IRC → freq → dft`.
 
 ## Notes
 
-- A few `core/` imports break the dependency direction today: `core.utils` imports `domain.add_elem_info` and `io.structure_formats`, and `core.calc_eval` imports `backends.mlmm_calc`; none of them forms a cycle.
+- A few `core/` imports break the dependency direction today: `core.utils` imports `domain.add_elem_info`, `domain.scan_coordinates`, `io.structure_formats`, and `cli.completion` (status vocabularies), and `core.calc_eval` imports `backends.mlmm_calc`; none of them forms a cycle.
 - The `_check_domain_pure` gate only checks that the `# DOMAIN_PURE` marker is present on `backends/mlmm_calc.py`, `workflows/tsopt.py`, and `workflows/freq.py`; `workflows/sp.py` also carries it, and no `domain/` file does.

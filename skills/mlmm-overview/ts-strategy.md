@@ -17,7 +17,7 @@ How to study a reaction mechanism with an ML/MM ONIOM model and get a correct ba
 
 ## 3. Wrong n_imag after TS optimization
 
-A first-order saddle has exactly one imaginary mode, along the reaction; check its displacement and the IRC ends. Two or more fail regardless of their size.
+A first-order saddle has exactly one imaginary mode, along the reaction; check its displacement and the IRC ends. Two or more fail, however small the extra imaginary frequencies are.
 
 - **Extra imaginary modes**: look at every mode's displacement, the MEP guess, the optimizer's stop reason, and the backend's numerical behavior. Then retry with another coordinate, flattening, or precision setting and read the new final PHVA.
 - **n_imag = 0**: a failure, not a TS. Improve the MEP or the starting structure; `--flatten` only removes surplus modes and cannot create a missing reaction direction.
@@ -26,7 +26,7 @@ A first-order saddle has exactly one imaginary mode, along the reaction; check i
 
 Settings to retry with:
 
-- `--flatten` runs the loop that removes extra imaginary modes, on `opt`, `tsopt`, and `all`; the TS commands run it when n_imag > 1. `--flatten` uses the iteration cap (50 by default) and `--no-flatten` sets it to zero.
+- `--flatten` runs the loop that removes extra imaginary modes, on `opt`, `tsopt`, and `all`, and is off by default (`--no-flatten`); with it, the TS commands run the loop when n_imag > 1. `--flatten` uses the iteration cap (50 by default) and `--no-flatten` sets it to zero.
 - `--coord-type` takes `cart`, `redund`, `dlc`, or `tric` in `opt` and `tsopt`, and `cart` or `dlc` in `all`; the default is `cart`. Keep `cart` for ML/MM: `dlc` (delocalized internal coordinates) is slow to build for these models and its convergence depends on the system, so compare it with `cart` from the same start. `opt` accepts `dlc` with L-BFGS (`--opt-mode grad`) or RFO (`--opt-mode hess`). `path-opt` and `path-search` have no `--coord-type`; they read `geom.coord_type` from the YAML, `cart` or `dlc` only.
 - Check any change of coordinate system with a frequency analysis and the IRC ends.
 - `--ref-mode` is an advanced input, not a routine fix. It takes Cartesian 3N vectors in the input atom order (`.npz`, `.npy`, or text) and guides which negative Hessian root the TS optimizer follows; it does not replace the Hessian, and Dimer ignores it. `all` supplies the MEP tangent this way by default; with `all --no-tsopt-from-mep-tan`, `tsopt` picks its starting root from the Hessian of the starting structure.
@@ -58,7 +58,7 @@ mlmm scan -i r.pdb --parm7 e.parm7 -l 'LIG:Q' \
     --scan-lists '[(1,5,1.40)]' '[(7,9,0.95)]' -o result_staged
 ```
 
-- Put every moving coordinate in its stage: the bond that breaks and each H that moves, not only the bond that forms.
+- When the TS does not come out, try putting every moving coordinate in its stage: the bond that breaks and each H that moves, not only the bond that forms.
 - In `scan`, a 4-tuple `(i,j,low,high)` scans one distance both ways from the input and becomes two stages; in `all`, a 4-tuple is an angle target.
 
 ## 6. When the TS does not come out
@@ -80,7 +80,7 @@ The full guide is [`docs/mechanism-tips.md`](../../docs/mechanism-tips.md).
 ## 7. Controlled mutant-vs-WT comparison
 
 - Form each barrier within one system (TS − R or TS − P), then compare the barriers: ΔΔG‡ = (G_TS − G_R)_mutant − (G_TS − G_R)_WT. Do not subtract total energies of systems with different compositions.
-- Give R and P of each system in MEP mode, so that R is the chemical reactant; G_TS − G_R is `post_segments[].gibbs_mlip.barrier_kcal`.
+- Give R and P of each system in Endpoint mode, so that R is the chemical reactant; G_TS − G_R is `post_segments[].gibbs_mlip.barrier_kcal`.
 - Keep the backend and model, precision, force field, convergence criteria, restraints, thermochemistry settings, and temperature the same.
 - Check each TS on its own: one imaginary mode along the reaction, its displacement, and both IRC ends before naming R and P.
 - The same ML region and layers for both systems, the added or deleted atoms, and the charge and multiplicity of each system are in [Same atoms across states and variants](../mlmm-model-setup/SKILL.md#same-atoms-across-states-and-variants). Two radius-based selections can differ at the boundary, so compare the two `ml_region.pdb` files.

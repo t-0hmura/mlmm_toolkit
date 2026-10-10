@@ -93,7 +93,7 @@ segments/seg_NN/
 
 Read from `segments/seg_NN/` downstream. Use `structures/reactant_irc.*` and `product_irc.*` only to see where the IRC end and the optimized end differ.
 
-In MEP modes the IRC ends are named R and P by matching them to the ends of the MEP segment, by bond topology first and RMSD second; `endpoint_assignment.method` records which one decided.
+In Endpoint and Scan-list modes the IRC ends are named R and P by matching them to the ends of the MEP segment, by bond topology first and RMSD second; `endpoint_assignment.method` records which one decided.
 
 In TS-only mode there is no MEP, so the higher-energy IRC end is named the reactant and the other the product, with the left end as the reactant on a tie. The names, the file names, `barrier_kcal`, and `delta_kcal` follow this energy order, not a known chemical direction. `endpoint_assignment.policy` is `higher_energy_endpoint_as_reactant` and `chemical_direction_known` is false. Inspect the structures to identify the chemical states; the barrier from P is `barrier_kcal − delta_kcal`.
 
@@ -150,7 +150,7 @@ Bond broken (2):
 ```
 
 - An empty list prints as `Bond formed: None` or `Bond broken: None`. A segment with no change gives `(no covalent changes detected)`, a bridge segment gives `""`, and a failed analysis gives `(bond-change analysis unavailable)`.
-- In MEP modes the changes are between the first and last images of the MEP segment; in TS-only mode they are between the optimized R and P. In MEP modes, compare the optimized `reactant.*` and `product.*` with the intended R and P yourself.
+- In Endpoint and Scan-list modes the changes are between the first and last images of the MEP segment; in TS-only mode they are between the optimized R and P. Outside TS-only mode, compare the optimized `reactant.*` and `product.*` with the intended R and P yourself.
 - A pair counts as bonded within 1.20 times the sum of the covalent radii, less a 5% margin.
 - One elementary step usually has 1 to 4 entries in all. More than 8 in one segment suggests that the segmentation failed; inspect the geometries before trusting the barrier.
 - The `result.json` of the `irc` command uses another shape, an object `{formed: [...], broken: [...]}` from the first to the last frame; do not confuse the two.

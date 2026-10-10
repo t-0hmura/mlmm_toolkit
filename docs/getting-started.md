@@ -77,7 +77,7 @@ Input structure(s) (PDB / mmCIF)
 [mm-parm] MM topology: build the Amber parm7/rst7 of the full system (skipped with --parm7)
   │
   ▼
-[define-layer] layers: write the ML / Movable-MM / Frozen-MM layers into the B-factor column
+[define-layer] layers: write the ML / Movable-MM / Frozen-MM layers into the B-factor column (only with -c)
   │
   ▼
 [scan] scan: staged scan of distances, angles, or dihedrals (only with -s)
@@ -127,8 +127,8 @@ mlmm all [OPTIONS]...
 
 | Mode | Input | What happens |
 | --- | --- | --- |
-| **Multi-structure MEP search** | Two or more PDBs (`-i R.pdb P.pdb`) | Builds the ML region and layers from the structures and searches the MEP |
-| **Single structure + scan** | One PDB + `--scan-lists` (`-s`) | Drives the chosen distances, angles, or dihedrals step by step to build the pathway |
+| **Endpoint mode** | Two or more PDBs (`-i R.pdb P.pdb`) | Builds the ML region and layers from the structures and searches the MEP |
+| **Scan-list mode** | One PDB + `--scan-lists` (`-s`) | Drives the chosen distances, angles, or dihedrals step by step to build the pathway |
 | **TS-only mode** | One PDB + `--tsopt` | Skips the MEP search and goes straight to optimizing the TS candidate and running IRC |
 
 > **Note:** a single-structure input needs either `--scan-lists/-s` or `--tsopt`.

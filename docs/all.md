@@ -10,8 +10,8 @@ Without `--tsopt`, the run ends with TS candidates: the highest-energy image (HE
 
 What you pass selects the mode:
 
-* **Path and energy diagram from R and P**: give two or more full structures in reaction order (reactant, intermediates, product); `all` finds the MEP between each neighbouring pair and draws the energy diagram.
-* **Path from a reactant alone**: give one structure and the bonds to form or break with `-s`; a staged scan makes the intermediates, and the MEP search runs through them.
+* **Path and energy diagram from R and P (Endpoint mode)**: give two or more full structures in reaction order (reactant, intermediates, product); `all` finds the MEP between each neighbouring pair and draws the energy diagram.
+* **Path from a reactant alone (Scan-list mode)**: give one structure and the bonds to form or break with `-s`; a staged scan makes the intermediates, and the MEP search runs through them.
 * **Check one TS candidate (TS-only mode)**: give one structure with `--tsopt` and no `-s`; `all` optimizes the TS and runs IRC from it. The TS is confirmed when n_imag = 1 and the IRC ends at the intended R and P.
 
 ---
@@ -42,7 +42,7 @@ mlmm all -i 1.R.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
     --tsopt --thermo --out-dir ./result_scan
 ```
 
-The targets inside one literal move together in one stage. Literals given in a row run as successive stages, each starting from the end of the one before, and the stage ends become the inputs of the MEP search. Give `-s` once and list every literal after it. To decide how to split a reaction, see [Tips for studying reaction mechanisms](mechanism-tips.md). In a PDB with an empty chain field, an atom is its residue name, residue number, and atom name in any order (`"CS1 SAM 320"`); with chains, write `A:SAM:320:CS1`. All accepted forms are in [Common options and selectors](cli-conventions.md).
+The targets inside one literal move together in one stage. Literals given in a row run as successive stages, each starting from the end of the one before, and the stage ends become the inputs of the MEP search. Give `-s` once and list every literal after it. To decide how to split a reaction, see [Tips for studying reaction mechanisms](mechanism-tips.md). In a PDB with an empty chain field, write an atom as its residue name, residue number, and atom name in any order (`"CS1 SAM 320"`); with chains, write `A:SAM:320:CS1`. All accepted forms are in [Common options and selectors](cli-conventions.md).
 
 ### 3. Check a TS candidate (TS-only mode)
 
@@ -89,7 +89,7 @@ Full structure(s) (PDB / mmCIF, or XYZ with --ref-pdb)
 ```
 
 1. **Preparing the input and the ML region**: for a PDB with blank element columns, `all` fills them in. With `-c`, it cuts out the active-site model around the given residues; the model of the first input becomes the ML region and is written to `ml_region.pdb`.
-2. **Building the topology and the layers**: `mm-parm` builds the Amber topology of the full system from the first input with AmberTools (ff19SB, GAFF2 for non-standard residues); `--parm7` skips this step. `define-layer` then writes the three layers into the B-factors: ML (0), movable MM residues within 8 Å of the ML region (10), and frozen MM (20). Every later calculation runs on the full system with ML/MM, and the bonds cut at the ML/MM boundary are capped with link hydrogens.
+2. **Building the topology and the layers**: `mm-parm` builds the Amber topology of the full system from the first input with AmberTools (ff19SB, GAFF2 for non-standard residues); `--parm7` skips this step. `define-layer` then writes the three layers into the B-factors: ML (0), Movable-MM residues within 8 Å of the ML region (10), and Frozen-MM (20). Every later calculation runs on the full system with ML/MM, and the bonds cut at the ML/MM boundary are capped with link hydrogens.
 3. **Building the path**: the input structures are optimized first (`--preopt`). With `-s`, the staged scan makes the intermediates. `path-opt` then finds the MEP between each neighbouring pair by GSM (growing string method, the default) or DMF (direct max flux); with `--refine-path`, the recursive `path-search` refines the path and splits it into steps where bonds change. The HEI of each step is its TS candidate.
 4. **Optimizing the TS and following the IRC** (`--tsopt`): each HEI is optimized by RS-P-RFO (restricted-step partitioned rational function optimization) by default, and the final Hessian of the ML and movable MM atoms (PHVA, partial Hessian vibrational analysis) gives n_imag. From the TS, the IRC is traced in both directions with EulerPC (an Euler predictor–corrector integrator), and both ends are optimized to minima. These become the R and P of the segment.
 5. **Thermochemistry and DFT**: `--thermo` runs `freq` on R, TS, and P for the ML/MM Gibbs energy, and `--dft` computes the ML region of the same structures with DFT and combines it with the MM energy. Each adds its own energy diagram.
@@ -103,7 +103,7 @@ A successful TS optimization gives one imaginary mode along the reaction coordin
 | TS result | What `all` does |
 | --- | --- |
 | Converged, n_imag = 1 | Runs IRC and optimizes both IRC ends. |
-| Converged, n_imag ≥ 2 | Runs IRC with a warning along the imaginary mode that best matches the MEP direction (the lowest one when none matches). The result is `partial`. |
+| Converged, n_imag ≥ 2 | Warns, then runs IRC along the imaginary mode that best matches the MEP direction (the lowest one when none matches). The result is `partial`. |
 | Converged, n_imag = 0 | Stops before IRC. |
 | Stopped at the cycle limit | Computes no final Hessian and stops before IRC. |
 | Stopped by `--stop-plateau` (stalled) | Computes the final Hessian, reports n_imag, and stops before IRC. |
@@ -236,7 +236,7 @@ For every option, run `mlmm all --help-advanced` or see the [generated CLI refer
 * **Input formats**: `all` reads PDB and mmCIF; XYZ input needs `--ref-pdb`, a PDB with the same atoms. All structures of one run must have the same atoms in the same order.
 * **Charge and multiplicity**: `-q` and `-m` describe the ML region, not the whole enzyme. With `-c`, the ML-region charge is the sum over the extracted model of the first input: built-in values for amino acids, ions, and water, `-l` for the other residues, and 0 for residues not listed in `-l`. Without `-c`, the same sum is taken over the ML region from the B-factors or `--model-pdb`. `-q` overrides the derived value with a warning; when no value can be derived, `calc.model_charge` in the YAML file is used. The multiplicity is `-m`, otherwise `calc.model_mult` in the YAML file, otherwise 1. See [Common options and selectors](cli-conventions.md).
 * **Frozen atoms and rigid-body motions**: the vibrational analysis projects out only the rigid translations and rotations that leave the frozen atoms in place, so with a frozen MM layer usually none are removed; see [freq → Rigid modes with frozen boundaries](freq.md#rigid-modes-with-frozen-boundaries).
-* **Separately prepared structures**: when the input structures were prepared independently, their differences outside the reaction coordinate enter the barrier. Compare the structures before reading the barrier.
+* **Separately prepared structures**: when the input structures were prepared independently, their differences outside the reaction coordinate enter the barrier. Compare the structures before reading the barrier. For two mechanisms of the same composition, use one common atom set and atom order for both paths.
 * **`--resume-segment`**: it needs `--tsopt`, `--thermo`, or `--dft`, and cannot be combined with `--dry-run`. The run stops with an error when the saved inputs, ML region, topology, layered structures, or MEP do not match the command.
 
 ### Comparing a mutant with the wild type
@@ -247,9 +247,8 @@ Within one path, every structure has the same atoms in the same order. A mutant 
 
 * Select the same ML-region residues and the same layer rules for both systems, so that the mutation is the only designed difference. Two independent radius-based selections can differ, because a boundary residue may enter one ML region and not the other; compare the two `ml_region.pdb` files.
 * Use the same protonation rules, charge assignment, force field, backend and model, precision, restraints, and thermochemistry settings. If the mutation changes a protonation state or a formal charge in the ML region, the ML-region charges differ; do not force the same `-q` on both.
-* For two mechanisms of the same composition, use one common atom set and atom order for both paths.
 
-The two runs use the same options except for the input and the output directory. Give R and P of each system (MEP mode), so that R is the chemical reactant; `G_TS − G_R` is `post_segments[].gibbs_mlip.barrier_kcal`:
+The two runs use the same options except for the input and the output directory. Give R and P of each system (Endpoint mode), so that R is the chemical reactant; `G_TS − G_R` is `post_segments[].gibbs_mlip.barrier_kcal`:
 
 ```bash
 mlmm all -i wt_R.pdb wt_P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' --tsopt --thermo --out-dir ./result_wt

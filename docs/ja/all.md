@@ -10,8 +10,8 @@
 
 与える入力でモードが決まります。
 
-* **R と P から経路とエネルギー図を作る**: 反応順に並べた全系の 2 構造以上（反応物、中間体、生成物）を与えると、隣り合う構造の間の MEP を求め、エネルギー図を描きます。
-* **反応物 1 つから経路を作る**: 1 構造と、作る結合・切れる結合を `-s` で与えると、段階的スキャンで中間体を作り、それらを通る MEP を求めます。
+* **R と P から経路とエネルギー図を作る（Endpoint モード）**: 反応順に並べた全系の 2 構造以上（反応物、中間体、生成物）を与えると、隣り合う構造の間の MEP を求め、エネルギー図を描きます。
+* **反応物 1 つから経路を作る（Scan-list モード）**: 1 構造と、作る結合・切れる結合を `-s` で与えると、段階的スキャンで中間体を作り、それらを通る MEP を求めます。
 * **TS 候補 1 つを確かめる（TS-only モード）**: 1 構造に `--tsopt` を付け、`-s` を付けずに与えると、TS を最適化し、そこから IRC をたどります。n_imag = 1 で、IRC が狙った R と P に着けば TS と確かめられます。
 
 ---
@@ -29,7 +29,7 @@ mlmm all -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
     --refine-path --tsopt --thermo --dft --out-dir ./result_mep
 ```
 
-端末に各 TS の `[Imaginary modes] n=1 (...)` が出て、最後の `====== Pipeline summary ======` の下に `Scientific status: success` が出れば、求めた段はすべて終わっています。続けて [実行結果の判定](#実行結果の判定) のとおり端点を確かめてください。最適化した構造は `result_mep/segments/seg_NN/` にあります。
+端末に各 TS の `[Imaginary modes] n=1 (...)` が出て、最後の `====== Pipeline summary ======` の下に `Scientific status: success` が出れば、指定した段はすべて終わっています。続けて [実行結果の判定](#実行結果の判定) のとおり端点を確かめてください。最適化した構造は `result_mep/segments/seg_NN/` にあります。
 
 ### 2. 反応物から段階的スキャンで経路を作る
 
@@ -89,9 +89,9 @@ N より前のセグメントはそのまま残し、セグメント N 以降の
 ```
 
 1. **入力と ML 領域の準備**: 元素の欄が空の PDB では、元素記号を補います。`-c` を指定すると、指定した残基のまわりの活性部位モデルを切り出します。最初の入力のモデルが ML 領域になり、`ml_region.pdb` に書き出されます。
-2. **トポロジーと層の作成**: `mm-parm` が、最初の入力から AmberTools で全系の Amber トポロジーを作ります。力場は ff19SB、非標準残基は GAFF2 です。`--parm7` を指定するとこの段を省きます。続いて `define-layer` が、3 つの層を B-factor に書き込みます。ML（0）、動かす MM（10）、固定する MM（20）で、動かす MM は ML 領域から 8 Å 以内の残基です。以降の計算はすべて全系を ML/MM で行い、ML/MM の境界で切れる結合はリンク水素で埋めます。
+2. **トポロジーと層の作成**: `mm-parm` が、最初の入力から AmberTools で全系の Amber トポロジーを作ります。力場は ff19SB、非標準残基は GAFF2 です。`--parm7` を指定するとこの段を省きます。続いて `define-layer` が、3 つの層を B-factor に書き込みます。ML（0）、可動 MM（10）、固定 MM（20）で、可動 MM は ML 領域から 8 Å 以内の残基です。以降の計算はすべて全系を ML/MM で行い、ML/MM の境界で切れる結合はリンク水素で埋めます。
 3. **経路の作成**: まず入力構造を最適化します（`--preopt`）。`-s` を指定すると、段階的スキャンで中間体を作ります。続いて `path-opt` が、隣り合う構造の間の MEP を GSM（growing string method、デフォルト）か DMF（direct max flux）で求めます。`--refine-path` では、再帰的な `path-search` が経路を詰め、結合が変わる所で段に分けます。各段の HEI がその段の TS 候補です。
-4. **TS の最適化と IRC の追跡**（`--tsopt`）: 各 HEI をデフォルトでは RS-P-RFO（restricted-step partitioned rational function optimization）で最適化し、ML と動かす MM の原子の最後の Hessian（PHVA、部分 Hessian 振動解析）から n_imag を求めます。TS から EulerPC（Euler 予測子–修正子法による積分）で IRC を両方向へたどり、両端を極小まで最適化します。これがそのセグメントの R と P になります。
+4. **TS の最適化と IRC の追跡**（`--tsopt`）: 各 HEI をデフォルトでは RS-P-RFO（restricted-step partitioned rational function optimization）で最適化し、ML と可動 MM の原子の最後の Hessian（PHVA、部分 Hessian 振動解析）から n_imag を求めます。TS から EulerPC（Euler 予測子–修正子法による積分）で IRC を両方向へたどり、両端を極小まで最適化します。これがそのセグメントの R と P になります。
 5. **熱化学と DFT**: `--thermo` では R・TS・P で `freq` を実行して ML/MM のギブズエネルギーを求め、`--dft` では同じ構造の ML 領域を DFT で計算し、MM のエネルギーと合わせます。それぞれのエネルギー図も描きます。
 
 ---
@@ -117,7 +117,7 @@ IRC が収束しなくても、端点の最適化で狙った R と P に着け�
 
 * **端末**: 虚振動が 1 つの TS では、`[Imaginary modes] n=1 (...)` に虚振動数が出ます。`====== Pipeline summary ======` の下に `Execution status:` と `Scientific status:` が出ます。結果が `success` でないときは、`RESULT WARNING:` の行に理由が出ます。
 * **`summary.log`**: ヘッダーに `Pipeline mode`（`MEP`、`Scan`、`TS-only`）と 2 つのステータスが出ます。[1] は MEP の概要、[2] は各セグメントの MEP 上の障壁 ΔE‡・反応エネルギー ΔE・結合の変化、[3] は各セグメントの後処理で、`TS imaginary freq:` の下に n_imag が出ます。[4] はエネルギー図の表、[5] は出力のツリーです。
-* **`summary.json`**: `scientific_status` には、求めた段がすべて収束すると `success`、そうでなければ `partial` か `failed` が入り、理由は `scientific_status_reasons` に出ます。各 TS の n_imag は `post_segments[].tsopt.n_imaginary_modes` です。ステータスの欄の説明は [実行と要求段階の完了状況](json-output.md#実行と要求段階の完了状況) にあります。
+* **`summary.json`**: `scientific_status` には、指定した段がすべて収束すると `success`、そうでなければ `partial` か `failed` が入り、理由は `scientific_status_reasons` に出ます。各 TS の n_imag は `post_segments[].tsopt.n_imaginary_modes` です。ステータスの欄の説明は [実行と要求段階の完了状況](json-output.md#実行の完了と指定した段の完了) にあります。
   * **障壁**: `--tsopt` のとき、各セグメントの障壁は、最適化した TS と R の ML/MM のエネルギーの差で、`post_segments[].mlip.barrier_kcal` に入ります。`--thermo` と `--dft` のときは、ほかの手法の障壁が同じ形で `gibbs_mlip`・`dft`・`gibbs_dft_mlip` に入ります。`segments[].barrier_kcal` は TS 最適化の前の MEP 上の障壁です。TS-only モードでは TS − R です。
 
 端点が狙った R と P かは自分で確かめてください。`summary.log` の [2] の結合の変化と、`segments/seg_NN/reactant.*`・`product.*` の構造を、狙った R と P と比べます。n_imag が 1 でないときや、IRC の端点が狙いと違うときは {ref}`TS が取れないとき <ja-ts-search-fails>` を参照してください。
@@ -173,7 +173,7 @@ result_all/
 | `energy_diagram_G_MLIP.png` | `--thermo` | R → TS → P、ML/MM のギブズエネルギー |
 | `energy_diagram_DFT.png` | `--dft` | R → TS → P、ML/MM の構造での ML 領域の DFT のエネルギー |
 | `energy_diagram_G_DFT_plus_MLIP.png` | `--dft` と `--thermo` | R → TS → P、ML(DFT)/MM のエネルギーに ML/MM の熱補正を足した値 |
-| `energy_diagram_*_all.png` | `_all` の無い同じ図と同じ | 全セグメントをまとめた同じ図（出力ディレクトリの直下） |
+| `energy_diagram_*_all.png` | `_all` の無い図と同じ | 全セグメントをまとめた図（出力ディレクトリの直下） |
 | `irc_plot.png`（`seg_NN/irc/` の中）、`irc_plot_all.png` | `--tsopt` | 1 つのセグメントと全セグメントの IRC のエネルギー |
 
 図のエネルギーは、最初の状態（反応物）を基準にした kcal/mol です。
@@ -235,8 +235,8 @@ result_all/
 * **AmberTools**: `--parm7` を指定しないと、AmberTools が見つからないときにエラーで止まります。
 * **入力の形式**: `all` は PDB と mmCIF を読みます。XYZ の入力には、同じ原子を持つ PDB を `--ref-pdb` で指定してください。1 回の実行のすべての構造は、同じ原子を同じ順に持つ必要があります。
 * **電荷と多重度**: `-q` と `-m` は酵素全体ではなく ML 領域の値です。`-c` のときの ML 領域の電荷は、最初の入力から抽出したモデルの合計で、アミノ酸・イオン・水は組み込みの値、そのほかの残基は `-l` の値、`-l` に無い残基は 0 として数えます。`-c` が無いときは、B-factor か `--model-pdb` で決めた ML 領域で同じように合計します。`-q` は求めた値よりも優先し、警告を出します。値を求められないときは、YAML の `calc.model_charge` を使います。多重度は `-m`、無ければ YAML の `calc.model_mult`、それも無ければ 1 です。詳しくは [共通オプションと残基・原子の指定](cli-conventions.md) を参照してください。
-* **固定原子と剛体運動**: 振動解析では、固定原子を動かさない並進と回転だけを射影で除きます。固定する MM の層があれば、除かれる運動はふつうありません。詳しくは [freq の「凍結境界での剛体モード」](freq.md#凍結境界での剛体モード) を参照してください。
-* **別々に用意した構造**: 入力構造を別々に用意すると、反応座標の外の構造の違いも障壁に入ります。障壁を読む前に構造を比べてください。
+* **固定原子と剛体運動**: 振動解析では、固定原子を動かさない並進と回転だけを射影で除きます。固定 MM の層があれば、除かれる運動はふつうありません。詳しくは [freq の「固定境界での剛体モード」](freq.md#固定境界での剛体モード) を参照してください。
+* **別々に用意した構造**: 入力構造を別々に用意すると、反応座標の外の構造の違いも障壁に入ります。障壁を読む前に構造を比べてください。組成が同じ 2 つの機構を比べるときは、両方の経路で共通の原子の集合と順序を使います。
 * **`--resume-segment`**: `--tsopt`・`--thermo`・`--dft` のどれかが必要で、`--dry-run` とは一緒に使えません。保存した入力・ML 領域・トポロジー・層を割り当てた構造・MEP がコマンドと合わないときは、エラーで止まります。
 
 ### 変異体と野生型の比較
@@ -247,9 +247,8 @@ result_all/
 
 * 2 つの系で、ML 領域に入れる残基と層の決め方をそろえ、狙った変異だけが違うようにします。半径で別々に選ぶと、境界の残基が片方の ML 領域にだけ入ることがあるので、2 つの `ml_region.pdb` を比べてください。
 * プロトン化の決め方、電荷の決め方、力場、バックエンドとモデル、精度、拘束、熱化学の条件をそろえます。変異で ML 領域のプロトン化の状態や形式電荷が変わる場合は ML 領域の電荷も違うので、両方に同じ `-q` を当てはめないでください。
-* 組成が同じ 2 つの機構を比べるときは、両方の経路で共通の原子の集合と順序を使います。
 
-2 つの実行は、入力と出力先のほかは同じオプションにします。R が化学的な反応物になるよう、それぞれの系の R と P を与えます（MEP のモード）。`G_TS − G_R` は `post_segments[].gibbs_mlip.barrier_kcal` です。
+2 つの実行は、入力と出力先のほかは同じオプションにします。R が化学的な反応物になるよう、それぞれの系の R と P を与えます（Endpoint モード）。`G_TS − G_R` は `post_segments[].gibbs_mlip.barrier_kcal` です。
 
 ```bash
 mlmm all -i wt_R.pdb wt_P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' --tsopt --thermo --out-dir ./result_wt

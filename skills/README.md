@@ -49,4 +49,6 @@ mkdir -p ~/.claude/skills
 cp -r skills/mlmm-* skills/colab-local-gpu-runtime ~/.claude/skills/
 ```
 
+Links from the skills to `../../docs/` open only inside a repository checkout; elsewhere, use the docs at <https://t-0hmura.github.io/mlmm_toolkit/>.
+
 For exact flags and defaults, check the installed CLI (`mlmm <subcommand> --help-advanced`) and the [command reference](../docs/reference/commands/index.md).

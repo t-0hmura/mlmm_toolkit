@@ -55,7 +55,7 @@ The bundled `1.R.pdb` has an empty chain column, so its selectors use the residu
 
 - **Write `-s` once**: list every literal after a single `-s`. This form works in both `all` and `scan`.
 - **Put every moving coordinate in its stage**: include the bond that breaks and each H that moves, not only the bond that forms. Do not drive two coordinates and expect the rest to follow.
-- **Without a scan**: when you can prepare R and P (and intermediates, if any), list them in `-i` for an MEP search. Each neighbouring pair becomes one segment; with `--refine-path`, the path is split into segments where bonds change.
+- **Without a scan**: when you can prepare R and P (and intermediates, if any), list them in `-i` for an MEP search. Each neighboring pair becomes one segment; with `--refine-path`, the path is split into segments where bonds change.
 
 (mechanism-check-ts)=
 ## Check the TS

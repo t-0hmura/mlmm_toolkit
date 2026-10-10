@@ -119,4 +119,5 @@ structures are `segments/seg_NN/reactant.pdb`, `ts.pdb`, and `product.pdb`.
 - [DFT (PySCF, GPU4PySCF)](../mlmm-install/backends.md#dft-pyscf-gpu4pyscf):
   install the `[dft]` extra (`[dft-cuda12]` for the `cu126` wheel).
 - [tsopt.md](tsopt.md) and [irc.md](irc.md): make the geometries.
-- `--show-config` prints the effective settings.
+- `--show-config` prints the YAML given with `--config` and its top-level
+  keys, then continues.

@@ -53,14 +53,14 @@ mlmm opt -i input.pdb --parm7 real.parm7 -q -1 --config my_settings.yaml --show-
 
 `-q` は系全体ではなく ML 領域の電荷です。ML/MM の個別のコマンドには、全系のトポロジー（`--parm7`）と ML 領域が要ります。`all` はどちらも自分で作ります。
 
-各コマンドは、次のうち最初に与えられたものから ML 領域を決めます：`--model-pdb`、次に `--model-indices`、次に `--detect-layer` での入力 PDB の ML 原子（B-factor 0）。ML 領域を明示したときも、`--detect-layer` は B-factor から Movable-MM と Frozen-MM の層を読みます。
+各コマンドは、次のうち最初に与えられたものから ML 領域を決めます：`--model-pdb`、次に `--model-indices`、次に `--detect-layer` での入力 PDB の ML 原子（B-factor 0）。ML 領域を明示したときも、`--detect-layer` は B-factor から可動 MM と固定 MM の層を読みます。
 
 | オプション | 意味 | デフォルト |
 |---|---|---|
 | `--parm7` | 酵素複合体全体（全系）の Amber parm7 トポロジー。 | 必須（`all` は自分で作る） |
 | `--model-pdb` | ML 領域だけの PDB（リンク水素を含まない）。原子の名前と順序は全系の PDB・parm7 と同じにします。与えると、これで ML 領域が決まります。 | なし |
 | `--model-indices` | ML 領域の原子番号（1 始まり、カンマ区切り。`1-5` のような範囲も可）。`--model-pdb` が無いときに使います。 | なし |
-| `--detect-layer/--no-detect-layer` | B-factor 0 / 10 / 20 を {ref}`ML・Movable-MM・Frozen-MM の層 <ja-mm-layers>` として読みます。ML 領域を明示したときは MM の層だけを読みます。 | `--detect-layer` |
+| `--detect-layer/--no-detect-layer` | B-factor 0 / 10 / 20 を {ref}`ML・可動 MM・固定 MM の層 <ja-mm-layers>` として読みます。ML 領域を明示したときは MM の層だけを読みます。 | `--detect-layer` |
 | `--ref-pdb` | XYZ 入力のときに、原子の順序と残基の情報を与える PDB。 | なし |
 | `--movable-cutoff` | ML 領域からの距離（Å）。この内側の MM 原子は動き、外側は固定されます。 | なし（層は B-factor か `--freeze-atoms` から） |
 | `--mm-backend` | MM の計算エンジン：`hessian_ff` か `openmm`。MM の Hessian はデフォルトで有限差分です。 | `hessian_ff` |
@@ -77,7 +77,7 @@ MLIP バックエンドの選び方、精度、`--uma-workers` は [MLIP バッ�
 
 ## 残基セレクタ
 
-`extract` と `all` の `-c/--center` は、モデルの中心にする残基を指定します。下の表は、範囲の狭い形から順に並べています。
+`extract` と `all` の `-c/--center` は、モデルの中心にする残基を指定します。
 
 | 形 | 例 | 選ばれる残基 |
 |---|---|---|
@@ -104,7 +104,7 @@ mlmm extract -i complex.cif -c 'LONG_CHAIN:10001' -o pocket.pdb      # chain＋�
 (ja-charge-specification)=
 ## 電荷の指定
 
-`-q/--charge` は ML 領域の電荷です。PDB/mmCIF 入力では、`--ligand-charge/-l` を使うと**非標準残基（基質・補因子など）の電荷だけ**を指定すれば、標準アミノ酸やイオンの電荷と合算して ML 領域の電荷が自動計算されます。組み込みの表にあるイオンは表の電荷を使います（`MG` は +2）。`-l` に同じ値で書いても構わず、違う値は警告を出して無視します。
+`-q/--charge` は ML 領域の電荷です。PDB/mmCIF 入力では、`--ligand-charge/-l` で**非標準残基（基質・補因子など）の電荷だけ**を指定すれば、標準アミノ酸やイオンの電荷と合算して ML 領域の電荷が自動で決まります。組み込みの表にあるイオンは表の電荷を使います（`MG` は +2）。`-l` に同じ値で書いても構わず、違う値は警告を出して無視します。
 
 ```bash
 -l 'SAM:1,GPP:-3'        # 残基ごとの指定（推奨）
@@ -169,7 +169,7 @@ pairs:                     # scan2d（要素は 2 つちょうど） / scan3d（
   - [2, 8, 1.20, 3.20]
 ```
 
-YAML スペックでは、`scan` の 1 ステージに距離の目標値と、距離・角度・二面角の範囲を混ぜられます。`scan2d` / `scan3d` の各軸は `(i,j,low,high)`、`(i,j,k,low,high)`、`(i,j,k,l,low,high)` のいずれかです。インデックスは整数、3 項目のセレクタ、または位置固定の `CHAIN:RESNAME:RESSEQ[ICODE]:ATOM` で指定できます。距離の単位は Å、角度と二面角は度です。
+YAML スペックでは、`scan` の 1 ステージに距離の目標値と、距離・角度・二面角の範囲を混ぜられます。`scan2d` / `scan3d` の各軸は `(i,j,low,high)`、`(i,j,k,low,high)`、`(i,j,k,l,low,high)` のいずれかです。インデックスは整数、3 項目のセレクタ、または順序固定の `CHAIN:RESNAME:RESSEQ[ICODE]:ATOM` で指定できます。距離の単位は Å、角度と二面角は度です。
 
 **インラインリテラル**: シェルがカッコや空白を解釈しないように、リスト全体を**シングルクォート**で囲み、中の PDB セレクタはダブルクォートで書いてください。
 
@@ -249,7 +249,7 @@ PDB のトポロジーを使って続けるときは、元の PDB を次の計�
 | `2` | 入力・CLI 引数・設定の指定ミス |
 | `130` | ユーザー中断（SIGINT） |
 
-JSON の有無で終了コードは変わりません。終了コード `0` には `success` と `partial` の両方が入るので、`scientific_status` で見分けます。`all` と `path-search` はこれを `summary.log` に書き（`all` は端末にも `Scientific status:` として出します）、ほかのコマンドは `--out-json` を付けたときに `result.json` に記録します（[実行と要求段階の完了状況](json-output.md#実行と要求段階の完了状況)）。`--out-json` を付けないときは、そのコマンドのページにある端末の行で見分けてください（例：`irc`（固有反応座標）では [IRC の成否の判定](irc.md#irc-の成否の判定)）。
+JSON の有無で終了コードは変わりません。終了コード `0` には `success` と `partial` の両方が入るので、`scientific_status` で見分けます。`all` と `path-search` はこれを `summary.log` に書き（`all` は端末にも `Scientific status:` として出します）、ほかのコマンドは `--out-json` を付けたときに `result.json` に記録します（[実行と要求段階の完了状況](json-output.md#実行の完了と指定した段の完了)）。`--out-json` を付けないときは、そのコマンドのページにある端末の行で見分けてください（例：`irc`（固有反応座標）では [IRC の成否の判定](irc.md#irc-の成否の判定)）。
 
 (ja-opt-mode-semantics)=
 
@@ -270,13 +270,13 @@ JSON の有無で終了コードは変わりません。終了コード `0` に�
 
 `--opt-mode-post` を省いて `--opt-mode` を明示すると、`all` はその値を TS 最適化と端点の最適化にも使います。
 
-同じ `--opt-mode` の値でも、サブコマンドによって**選ばれる最適化法が異なり**、デフォルトも異なります。レシピをコピーする前に表を確認してください。アルゴリズム名を受け付けるのは `opt`（`lbfgs` / `rfo`）と `tsopt`（`dimer` / `rsirfo` / `trim` / `rsprfo`）だけで、ほかのサブコマンドは `grad` / `hess` だけを受け付けます。したがって `tsopt` の `--opt-mode grad` は L-BFGS 最小化ではなく **Dimer TS 探索**で、この Dimer は Hessian を周期的に計算してダイマーの方向を更新します。曖昧さを避けるには、`tsopt` では `--opt-mode dimer` か `rsirfo`、`opt` では `--opt-mode lbfgs` か `rfo` と書いてください。
+同じ `--opt-mode` の値でも、サブコマンドによって**選ばれる最適化法が異なり**、デフォルトも異なります。レシピをコピーする前に表を確認してください。アルゴリズム名を受け付けるのは `opt`（`lbfgs` / `rfo`）と `tsopt`（`dimer` / `rsirfo` / `trim` / `rsprfo`）だけで、ほかのサブコマンドは `grad` / `hess` だけを受け付けます。したがって `tsopt` の `--opt-mode grad` は L-BFGS 最小化ではなく **Dimer TS 探索**で、この Dimer は Hessian を周期的に計算して方向を更新します。曖昧さを避けるには、`tsopt` では `--opt-mode dimer` か `rsirfo`、`opt` では `--opt-mode lbfgs` か `rfo` と書いてください。
 
 `--microiter/--no-microiter`（デフォルトで有効）は、ML 領域の Hessian を使う 1 ステップと、MM 原子の L-BFGS 緩和を交互に行います。`opt` では RFO、`tsopt` では RS-P-RFO・RS-I-RFO・TRIM のときに使います。Dimer と静電埋め込み（`--embedcharge`）では使いません。
 
 ## CLI ↔ YAML 名称の不一致
 
-一部の CLI フラグは YAML の対応キーと微妙に名前が異なり、`all` でラップされたときにリネームされるものもあります。主なフラグと YAML キーの対応は {ref}`YAML 設定の一覧の主要な CLI→YAML マッピング <ja-common-cli-to-yaml-mapping>` にあります。特によく聞かれるケースを以下に示します:
+CLI のフラグには YAML のキーと名前が少し違うものがあり、`all` では別の名前になるものもあります。主なフラグと YAML キーの対応は {ref}`YAML 設定の一覧の主要な CLI→YAML マッピング <ja-common-cli-to-yaml-mapping>` にあります。特によく聞かれるケースを以下に示します:
 
 (ja-pressure-vs-pressure-atm)=
 - **`--pressure` (CLI) と `pressure_atm` (YAML)** — `freq` のフラグは `--pressure FLOAT`、`all` では `--freq-pressure` です。YAML キーは `thermo.pressure_atm` です。どちらも値は **atm** 単位です（デフォルト 1.0）。

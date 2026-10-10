@@ -169,7 +169,7 @@ See the [generated CLI reference](reference/commands/irc.md) for every option.
 * **Cartesian coordinates**: `irc` always uses Cartesian coordinates, whatever YAML `geom.coord_type` says.
 * **The `--read-hess` file** is the same `.npy` file as in [`freq`](freq.md), in Hartree/bohr², for all atoms or only the atoms in the Hessian calculation; pass a Hessian computed for the same geometry, charge, multiplicity, and calculator. It needs `irc.hessian_init: calc` (the default); when the file is used, `result.json["rigid_projection"]["hessian_source"]` is `"file"`.
 * **Analytical Hessian and `--uma-workers`**: with UMA, `--hessian-calc-mode Analytical` cannot be combined with `--uma-workers` above 1 and stops with an error. Use `--uma-workers 1` for an [analytical Hessian](backends.md). Its speed and memory use depend on the backend and the system, so compare both modes on your system first.
-* **Frozen atoms**: besides the frozen MM layer, `--freeze-atoms` freezes more atoms (1-based); how to choose them is described in {ref}`Frozen atoms and distance restraints <freeze-atoms-and-restraints>`.
+* **Frozen atoms**: besides the Frozen-MM layer, `--freeze-atoms` freezes more atoms (1-based); how to choose them is described in {ref}`Frozen atoms and distance restraints <freeze-atoms-and-restraints>`.
 * **Large systems**: `--hess-device cpu` keeps the starting Hessian and the IRC Hessian operations on the CPU, to stay within GPU memory.
 * **At least one branch**: `--no-forward` together with `--no-backward` stops with an error.
 * **One structure per run**: `-i` takes a single structure. Extract the frame you need from a trajectory to `.xyz` first and pass it with `--ref-pdb`.

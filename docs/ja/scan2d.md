@@ -1,6 +1,6 @@
 # `scan2d`（2 次元の拘束付きグリッドスキャン）
 
-`scan2d` サブコマンドは、層付き酵素構造の 2 つの座標の格子の各点を調和拘束で保って ML/MM 計算機で緩和し、拘束を外したエネルギーを記録して、反応の 2D エネルギーマップを作ります。各軸は範囲で指定し、距離 `(i,j,low,high)`（Å）、角度 `(i,j,k,low,high)`、二面角 `(i,j,k,l,low,high)`（度）を使えます。
+`scan2d` サブコマンドは、層付き酵素構造の 2 つの座標で格子を作り、各点を調和拘束で保ったまま ML/MM 計算機で緩和して、拘束を外したエネルギーから反応の 2D エネルギーマップを作ります。各軸は範囲で指定し、距離 `(i,j,low,high)`（Å）、角度 `(i,j,k,low,high)`、二面角 `(i,j,k,l,low,high)`（度）を使えます。
 
 ---
 
@@ -16,7 +16,7 @@ ML 領域の計算バックエンドにはデフォルトの **UMA**（Meta）�
 
 ## 基本的な実行例
 
-例の `pocket.pdb` は `real.parm7` に対応する全系の構造で、`ml_region.pdb` はそのうちの ML 領域（リンク水素なし）を選びます。
+例の `complex.pdb` は `real.parm7` に対応する全系の構造で、`ml_region.pdb` はそのうちの ML 領域（リンク水素なし）を選びます。
 
 原子は同梱の酵素の例（`examples/beza/1.R.pdb`）のもので、この PDB は chain の欄が空です。そのため、原子は chain を省いた 3 項目（残基名・残基番号・原子名）を任意の順序で、カンマか空白で区切って書きます（`"SAM,320,CS1"`）。
 
@@ -34,7 +34,7 @@ pairs:
 構造・電荷と、このファイルを渡します。`--out-json` を付けると `result.json` も出力します。
 
 ```bash
-mlmm scan2d -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
+mlmm scan2d -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
     -s scan2d.yaml --out-json -o ./result_scan2d/
 ```
 
@@ -45,7 +45,7 @@ mlmm scan2d -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
 同じ 2 つの範囲を、1 つのリテラルとしてコマンドラインに書けます。
 
 ```bash
-mlmm scan2d -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
+mlmm scan2d -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
     -s '[("SAM,320,CS1","GPP,321,C7",1.50,3.00),("GPP,321,H11","GLU,186,OE2",0.90,2.50)]'
 ```
 
@@ -54,7 +54,7 @@ mlmm scan2d -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
 スキャンの前に入力構造を最適化し、内側ループの軌跡を保存して、相対エネルギーを使える点の最小値から測ります。`--max-step-size 0.20`・`--opt-mode grad`・`--baseline min` はデフォルトで、ここでは明示しています。
 
 ```bash
-mlmm scan2d -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
+mlmm scan2d -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
     -s '[("SAM,320,CS1","GPP,321,C7",1.50,3.00),("GPP,321,H11","GLU,186,OE2",0.90,2.50)]' \
     --max-step-size 0.20 --dump -o ./result_scan2d/ --opt-mode grad \
     --preopt --baseline min
@@ -69,7 +69,7 @@ ML 領域の {ref}`電荷 <ja-charge-specification>` は `-q` または `-l` か
 2. **外側と内側のループ**:
 d₁ の各値で、d₁ の拘束だけをかけて構造を緩和します。続く内側ループで、両方の拘束をかけて d₂ を走査します。各点は、すでに収束した点のうち最も近いものから始めます。
 3. **各点の緩和**:
-調和拘束 E = ½ k (q − q_target)² が各座標 q を目標値に保ち（k は `--restraint-k`）、残りの構造を ML/MM 計算機で L-BFGS（`--opt-mode grad`、デフォルト）または RFO（有理関数最適化、`--opt-mode hess`）により緩和します。凍結 MM 層の原子は動きません。そのあと拘束を外してエネルギーを計算し、構造を `grid/` に書き出します。
+調和拘束 E = ½ k (q − q_target)² が各座標 q を目標値に保ち（k は `--restraint-k`）、残りの構造を ML/MM 計算機で L-BFGS（`--opt-mode grad`、デフォルト）または RFO（有理関数最適化、`--opt-mode hess`）により緩和します。固定 MM 層の原子は動きません。そのあと拘束を外してエネルギーを計算し、構造を `grid/` に書き出します。
 4. **表と図**:
 最後の点のあと、全点を `surface.csv` にまとめます。使える点を 50 × 50 の格子上で動径基底関数（RBF）で補間し、等高線図（`scan2d_map.png`）と 3D 曲面（`scan2d_landscape.html`）を描きます。
 
@@ -116,7 +116,7 @@ result_scan2d/
 まず `surface.csv` と 2 つの図を確認し、各点の構造は `grid/` を見てください。`result.json` の `grid_points[]` には、各格子点の番号・値・目標値・エネルギー・収束の可否・構造ファイルが入ります。ファイル名から値を読み取らずに、この対応を使ってください。
 
 * **ファイル名**: `i`・`j` の後の数字（タグ `DDD`）は目標値の 100 倍（Å、角度では度）を 3 桁以上に 0 で埋めた数で、`surface.csv` の格子の番号ではありません。`d1 = 1.50 Å, d2 = 0.90 Å` なら `point_i150_j090.xyz`、角度 120° なら `12000` です。丸めたタグが別の点と重なると、後のファイル名には 0 始まりの番号 `_grid_III_JJJ` が付きます。
-* **ほかの形式**: 各構造は `.pdb` でも書き、B-factor の欄に各原子の層を入れます：ML 領域 0、可動 MM 10、凍結 MM 20。`--no-convert-files` で止められます。{ref}`mmCIF の入力 <ja-mmcif-input>` と、PDB の欄に入りきらない大きな PDB の入力では、元の識別子を保った `.cif` も書きます。
+* **ほかの形式**: 各構造は `.pdb` でも書き、B-factor の欄に各原子の層を入れます：ML 領域 0、可動 MM 10、固定 MM 20。`--no-convert-files` で止められます。{ref}`mmCIF の入力 <ja-mmcif-input>` と、PDB の欄に入りきらない大きな PDB の入力では、元の識別子を保った `.cif` も書きます。
 
 ---
 
@@ -153,15 +153,15 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 ## 使用上の注意点
 
 * **範囲は 1 つのリテラルに 2 つ**: `-s` には、1 つのインラインリテラル、または YAML/JSON ファイルの `pairs:` で、ちょうど 2 つの範囲を渡します。複数ステージのスキャンには [`scan`](scan.md) を使ってください。
-* **chain のある PDB**: {ref}`位置固定の 4 項目の形 <ja-scan-list-spec>` `A:SAM:320:CS1` を使うと原子を一意に指定できます。
+* **chain のある PDB**: {ref}`順序固定の 4 項目の形 <ja-scan-list-spec>` `A:SAM:320:CS1` を使うと原子を一意に指定できます。
 * **拘束の単位**: `--restraint-k` の単位は、距離では eV/Å²、角度と二面角では eV/rad² です。オプションを省くと YAML の `bias.k` が使われます。
 * **拘束を外したエネルギー**: 記録するエネルギーはすべて拘束を外して計算した値なので、`surface.csv` をそのままフィッティングや作図のスクリプトに使えます。
 * **エネルギーの基準**: `--baseline min`（デフォルト）は使える点の最小値を 0 にします。`--baseline first` は点 `(i, j) = (0, 0)` を 0 にし、`(0, 0)` が使える点でなければ使える点の最小値を使います。
-* **凍結原子**: `--freeze-atoms` か YAML の `geom.freeze_atoms` で指定した原子と、凍結 MM 層の原子は、どの緩和でも固定されます。スキャンする座標の原子がすべて {ref}`凍結原子 <ja-freeze-atoms-and-restraints>` だとエラーになります。
+* **固定原子**: `--freeze-atoms` か YAML の `geom.freeze_atoms` で指定した原子と、固定 MM 層の原子は、どの緩和でも固定されます。スキャンする座標の原子がすべて {ref}`固定原子 <ja-freeze-atoms-and-restraints>` だとエラーになります。
 * **計算せずに指定を確かめる**: `--dry-run` は入力・電荷とスピン・`-s` を読み、計画を表示して、最適化をせずに終わります。
 * **サイクル数の上限**: `--relax-max-cycles`（デフォルト `100000`）が各緩和のサイクル数を制限します。指定すると YAML の `opt.max_cycles` より優先されます。
 * **使える点が少ないとき**: 使える点が 3 つ未満か、すべて 1 本の直線上にあるときは、図だけを省きます。`[plot] NOTE: Plots skipped: …` を表示し、`surface.csv`（`--out-json` 指定時は `result.json` も）を書いて、終了コード 0 で終わります。使える点が 1 つも無いときは `[plot] No finite data for plotting.` を表示し、終了コード 1 で終わります。
-* **PNG の書き出し**: PNG は Plotly と Kaleido で書き出します。書き出しに失敗したときは `[plot] NOTE: PNG export skipped: …` を表示して HTML の曲面は書き、`result.json` には PNG を載せません。
+* **PNG の書き出し**: PNG は Plotly と Kaleido で書き出します。書き出しに失敗したときは `[plot] NOTE: PNG export skipped: …` を表示します。HTML の曲面は書き出しますが、`result.json` には PNG を載せません。
 
 ---
 

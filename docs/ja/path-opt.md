@@ -6,7 +6,7 @@
 
 ## 主な用途
 
-* **R と P からの MEP の初案**: 2 つの端点構造から、再帰的な精密化なしで経路とエネルギープロファイルを得る
+* **R と P からの最初の MEP**: 2 つの端点構造から、再帰的な精密化なしで経路とエネルギープロファイルを得る
 * **`tsopt` に渡す TS 候補**: `hei.pdb`（または `hei.xyz`）を [`tsopt`](tsopt.md) の初期構造にする
 * **GSM と DMF の比較**: 同じ 2 構造を `--mep-mode gsm` と `--mep-mode dmf` で計算し、経路を見比べる
 
@@ -25,7 +25,7 @@ mlmm path-opt -i reactant.pdb product.pdb --parm7 real.parm7 --model-pdb ml_regi
   -q 0 -m 1 --out-json --out-dir ./result_path_opt
 ```
 
-端末に `[write] Wrote '…/hei.xyz'` で始まる行が出れば、TS 候補が書き出されています。`result.json` の `scientific_status` には、求めた段（端点の事前最適化と MEP）がすべて収束すると `success`、そうでなければ `partial` か `failed` が入ります。`barrier_kcal` は最初のイメージを基準にした HEI のエネルギー、`hei_index` は経路上の HEI の位置です（下の「HEI の判定」を参照）。
+端末に `[write] Wrote '…/hei.xyz'` で始まる行が出れば、TS 候補が書き出されています。`result.json` の `scientific_status` には、指定した段（端点の事前最適化と MEP）がすべて収束すると `success`、そうでなければ `partial` か `failed` が入ります。`barrier_kcal` は最初のイメージを基準にした HEI のエネルギー、`hei_index` は経路上の HEI の位置です（下の「HEI の判定」を参照）。
 
 ### 2. 端点の事前最適化の上限を変える
 
@@ -59,7 +59,7 @@ mlmm path-opt -i reactant.pdb product.pdb --parm7 real.parm7 --model-pdb ml_regi
 ## 処理の仕組みと計算仕様
 
 1. **端点の準備**:
-各端点を事前最適化します（デフォルトは L-BFGS）。続いて凍結原子（無ければ全原子）の Kabsch フィットで生成物を反応物に剛体で重ね合わせ、凍結原子を少しずつ反応物側の位置へ動かしながら残りの原子を緩和します。凍結原子は Frozen-MM 層と `--freeze-atoms` で指定した原子を合わせたものです。
+各端点を事前最適化します（デフォルトは L-BFGS）。続いて固定原子（無ければ全原子）の Kabsch フィットで生成物を反応物に剛体で重ね合わせ、固定原子を少しずつ反応物側の位置へ動かしながら残りの原子を緩和します。固定原子は固定 MM 層と `--freeze-atoms` で指定した原子を合わせたものです。
 2. **経路の成長と精密化**:
 GSM は 2 つの端点の間に `--max-nodes` 個の可動なイメージのストリングを成長させ、`--thresh-gsm` まで最適化します。`--climb`（デフォルト有効）では、続くクライミングイメージ探索で最も高いイメージを鞍点へ押し上げます。DMF は補間で作った経路を IPOPT（内点法の最適化ソルバー）で `--dmf-tol` まで最適化します。
 3. **HEI の書き出し**:
@@ -92,10 +92,10 @@ result_path_opt/
 ├─ align_refine/              # 端点の重ね合わせと緩和のファイル
 ├─ dmf_initial_trj.xyz        # 補間で作った初期経路（DMF のときのみ）
 ├─ result.json                # 結果の要約（--out-json）
-└─ summary.json               # result.json と同じ内容（--out-json）
+└─ summary.json               # result.json と同じ内容（--out-json 指定時）
 ```
 
-経路は `final_geometries_trj.xyz` を開いて確かめてください。PDB ファイルの B-factor の列には層が入っている（ML 0、Movable-MM 10、Frozen-MM 20）ので、`tsopt` には `hei.pdb` を同じ `--parm7` と `--model-pdb` とともに渡してください。`hei.xyz` を渡すときは `--ref-pdb` を付けてください。{ref}`mmCIF 入力 <ja-mmcif-input>` と、PDB の列に収まらない大きな PDB 入力では、元の識別子を保った `.cif` も書き出します。`--no-convert-files` では `.xyz` だけを書き出します。DMF では IPOPT のログ `dmf_fbenm_ipopt.out` と `dmf_ipopt.out` も書き出します。`--dump` を付けると、オプティマイザの軌跡も残します。
+経路は `final_geometries_trj.xyz` を開いて確かめてください。PDB ファイルの B-factor の列には層が入っている（ML 0、可動 MM 10、固定 MM 20）ので、`tsopt` には `hei.pdb` を同じ `--parm7` と `--model-pdb` とともに渡してください。`hei.xyz` を渡すときは `--ref-pdb` を付けてください。{ref}`mmCIF 入力 <ja-mmcif-input>` と、PDB の列に収まらない大きな PDB 入力では、元の識別子を保った `.cif` も書き出します。`--no-convert-files` では `.xyz` だけを書き出します。DMF では IPOPT のログ `dmf_fbenm_ipopt.out` と `dmf_ipopt.out` も書き出します。`--dump` を付けると、オプティマイザの軌跡も残します。
 
 端末には MEP の進行状況がサイクルごとに、所要時間とともに出ます。
 
@@ -123,7 +123,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 | `--dmf-tol` | 文字列 | `tight` | DMF の経路の IPOPT の許容値: `tight`（0.04）、`middle`（0.10）、`loose`（0.20）、または正の数。別名 `--thresh-dmf` |
 | `--fix-ends/--no-fix-ends` | フラグ | `True` | GSM のストリングの最適化の間、端点を固定する（DMF では使わない） |
 | `--climb/--no-climb` | フラグ | `True` | 経路の成長後に GSM のクライミングイメージ探索を行う（DMF では使わない） |
-| `--freeze-atoms` | 文字列 | `None` | すべてのイメージで {ref}`凍結する原子 <ja-freeze-atoms-and-restraints>` の番号（1 始まり、カンマ区切り）。YAML の `geom.freeze_atoms` と Frozen-MM 層に加わる |
+| `--freeze-atoms` | 文字列 | `None` | すべてのイメージで {ref}`固定する原子 <ja-freeze-atoms-and-restraints>` の番号（1 始まり、カンマ区切り）。YAML の `geom.freeze_atoms` と固定 MM 層に加わる |
 | `--out-json/--no-out-json` | フラグ | `False` | 結果の要約を `result.json` に出力（[JSON 出力の一覧](json-output.md)） |
 
 全オプションは [自動生成のオプションの一覧（英語のみ）](../reference/commands/path_opt.md) を参照してください。
@@ -134,7 +134,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 
 ## 使用上の注意点
 
-* **DMF では凍結原子が少し動く**: DMF は凍結原子を固定せず、調和拘束（k = 300 eV/Å²、YAML の `dmf.k_fix`）で保持するので、参照位置からわずかにずれることがあります。GSM では固定されたままです。{ref}`原子の固定と距離の拘束 <ja-freeze-atoms-and-restraints>` を参照してください。
+* **DMF では固定原子が少し動く**: DMF は固定原子を固定せず、調和拘束（k = 300 eV/Å²、YAML の `dmf.k_fix`）で保持するので、参照位置からわずかにずれることがあります。GSM では固定されたままです。{ref}`原子の固定と距離の拘束 <ja-freeze-atoms-and-restraints>` を参照してください。
 * **DMF には `cyipopt` と `pydmf` が必要**: どちらも `mlmm-toolkit` と一緒にはインストールされません。`--mep-mode dmf` を使う前に、`conda install -c conda-forge cyipopt -y` を実行し、続けて GPU バックエンドなら `pip install 'pydmf[torch]>=1.2'`、CPU バックエンドなら `pip install 'pydmf>=1.2'` でインストールしてください。デフォルトの `--dmf-backend gpu` は CUDA が使えないとエラーで停止します。その場合と GPU のメモリ不足のときは `--dmf-backend cpu` を指定してください。
 * **DMF で使われないオプション**: `--climb`・`--fix-ends` は、指定しても DMF では使われません。
 * **XYZ の端点のテンプレートは 1 つ**: `--ref-pdb` には全系の PDB を 1 つだけ指定し、両方の `.xyz` 端点に使います。

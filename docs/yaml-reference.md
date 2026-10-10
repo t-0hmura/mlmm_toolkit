@@ -4,8 +4,8 @@ This page lists, section by section, the keys and default values you can set in 
 
 | Section | Description | Used by |
 |---------|-------------|---------|
-| [`geom`](#geom) | Geometry and coordinate settings | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |
-| [`calc`](#calc) | ML/MM calculator settings (alias: `mlmm:`) | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, path-opt, path-search |
+| [`geom`](#geom) | Geometry and coordinate settings | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, sp, dft, path-opt, path-search |
+| [`calc`](#calc) | ML/MM calculator settings (alias: `mlmm:`) | all, opt, scan, scan2d, scan3d, tsopt, freq, irc, sp, dft, path-opt, path-search |
 | [`sp`](#sp-section) | Single-point output settings | sp |
 | [`opt`](#opt) | Shared optimizer settings | all, opt, scan, scan2d, scan3d, tsopt, path-opt, path-search |
 | [`lbfgs`](#lbfgs) | L-BFGS optimizer settings | all, opt, scan, scan2d, scan3d, tsopt (microiteration MM relaxation), path-opt, path-search |
@@ -89,10 +89,6 @@ A misspelled section name prints `[config] WARNING: YAML section(s) … are not 
 | `--pressure` (freq, `all --freq-pressure`) | `pressure_atm` | `thermo` |
 | `--dft-engine` / `--engine` | `engine` | `dft` for the `dft` command; `calc.dft` for `--backend dft` |
 
-```{note}
-**Name mismatch — `--pressure` vs `pressure_atm`.** On the CLI the flag is `--pressure` (units implicit: atm); the matching YAML key under `thermo:` is `pressure_atm` with an explicit unit suffix. Both carry atm values.
-```
-
 ### Default `--thresh` per subcommand
 
 The default `--thresh` differs per subcommand.
@@ -152,7 +148,7 @@ calc:
  model_pdb: null # PDB defining the ML (model) region atoms
  model_indices: null # ML atom indices used when model_pdb is omitted
  model_indices_base: 1 # 1 or 0; applies only to YAML model_indices
- model_charge: 0 # Charge of the ML (model) region
+ model_charge: 0 # Charge of the ML (model) region; no built-in default — without -q, -l, or this key the run stops
  model_mult: 1 # Spin multiplicity of the ML (model) region
  link_mlmm: null # null: derive boundary pairs from parm7 bonds; list: explicit override
  link_atom_method: scaled    # Link atom placement: "scaled" (g-factor) or "fixed" (1.09/1.01 Å)
@@ -219,7 +215,7 @@ calc:
  workers_per_node: 1 # Workers per node when workers > 1 (UMA parallel predictor)
  mm_fd: true # Use finite-difference for MM Hessian
  mm_hessian_mode: null # Explicit finite_difference/analytical mode; null maps mm_fd
- mm_fd_dir: null # Directory for MM finite-difference scratch files
+ mm_fd_dir: null # Directory for the MM finite-difference logs (real.log / model.log)
  mm_fd_delta: 0.001 # Finite-difference step size for MM Hessian
 
  # --- Hessian output settings ---
@@ -229,7 +225,7 @@ calc:
  return_partial_hessian: true # Active-block partial Hessian (CLI wrappers default to true)
 
  # --- Layer configuration ---
- freeze_atoms: [] # 1-based indices of atoms to freeze (Frozen layer)
+ freeze_atoms: [] # 1-based indices of atoms to freeze (Frozen-MM layer)
  hess_cutoff: null # Å; null = all movable MM included in Hessian (default); >0.0 = only MM within this distance of ML
  movable_cutoff: null # Å; MM atoms within this distance of ML are movable (null = use freeze_atoms)
  use_bfactor_layers: true # If true, read layer assignments from input PDB B-factors
@@ -266,7 +262,7 @@ calc:
 ### `opt`
 
 Shared optimizer controls used by both L-BFGS and RFO. Every key here reaches
-the `opt` command's optimizer, with or without `--microiter`, and to the `tsopt` macro optimizer, which
+the optimizer of the `opt` command (with or without `--microiter`) and the macro optimizer of `tsopt`, which
 takes [`rsirfo`](#rsirfo) / [`hessian_dimer`](#hessian_dimer) on top. Only values
 you actually changed here are forwarded, so an optimizer-specific section stays
 authoritative for the keys you left alone. Two different values for the same
@@ -552,7 +548,7 @@ hessian_dimer:
  thresh: baker # Main convergence preset
  update_interval_hessian: 500 # Hessian rebuild cadence
  flatten_amp_ang: 0.1 # Flattening amplitude (Å)
- flatten_max_iter: 50 # Flattening iteration cap (default 50; --no-flatten sets to 0)
+ flatten_max_iter: 50 # Cap used when flattening is enabled (--flatten or this key); tsopt runs no flattening by default
  flatten_sep_cutoff: 0.0 # Minimum distance between representative atoms
  flatten_k: 10 # Representative atoms sampled per mode
  flatten_loop_bofill: false # Bofill update for flatten displacements

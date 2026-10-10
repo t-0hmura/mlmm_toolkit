@@ -92,7 +92,7 @@ result_path_opt/
 ├─ align_refine/              # Endpoint alignment and relaxation files
 ├─ dmf_initial_trj.xyz        # Interpolated starting path (DMF only)
 ├─ result.json                # Summary (--out-json)
-└─ summary.json               # Same content as result.json (--out-json)
+└─ summary.json               # Same content as result.json (with --out-json)
 ```
 
 Open `final_geometries_trj.xyz` to watch the path. The PDB files mark the layers in the B-factor column (ML 0, Movable-MM 10, Frozen-MM 20), so pass `hei.pdb` to `tsopt` with the same `--parm7` and `--model-pdb`; with `hei.xyz`, add `--ref-pdb`. {ref}`mmCIF input <mmcif-input>`, and PDB input too large for the PDB columns, also get `.cif` files that keep the original identifiers; `--no-convert-files` writes only the `.xyz` files. With DMF, the IPOPT logs `dmf_fbenm_ipopt.out` and `dmf_ipopt.out` are also written. `--dump` also keeps the optimizer trajectories.

@@ -67,7 +67,7 @@ mlmm tsopt -i ts_guess.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ## How it works
 
-1. **Reading the model and freezing the boundary**: the ML region comes from `--model-pdb` and the movable and frozen MM layers from the B-factors of the input PDB; the {ref}`charge <charge-specification>` of the ML region comes from `-q` or `-l`. The frozen MM layer and the atoms in `--freeze-atoms` stay fixed, and the final Hessian covers the atoms chosen by `--active-dof-mode` (PHVA: partial Hessian vibrational analysis). An `.xyz` candidate needs the full-system PDB with `--ref-pdb` for the atom order and the layers.
+1. **Reading the model and freezing the boundary**: the ML region comes from `--model-pdb` and the Movable-MM and Frozen-MM layers from the B-factors of the input PDB; the {ref}`charge <charge-specification>` of the ML region comes from `-q` or `-l`. The Frozen-MM layer and the atoms in `--freeze-atoms` stay fixed, and the final Hessian covers the atoms chosen by `--active-dof-mode` (PHVA: partial Hessian vibrational analysis). An `.xyz` candidate needs the full-system PDB with `--ref-pdb` for the atom order and the layers.
 2. **Choosing the optimizer** (`--opt-mode`): `hess` (default) runs **RS-P-RFO** (restricted-step partitioned rational function optimization), which uses the full Hessian; `rsirfo` and `trim` select RS-I-RFO (restricted-step image RFO) and TRIM (trust-region image minimization). `dimer` (or `grad`) runs the **Hessian-guided Dimer** method, which follows the lowest mode with gradients and refreshes its direction from an exact Hessian at intervals.
 3. **Climbing along the reaction mode**: the optimizer goes uphill along the reaction mode and downhill along every other direction until the convergence criteria (`--thresh`, default `baker`) are met. `baker` needs all five at once (atomic units): max force below 3 × 10⁻⁴, RMS force below 2 × 10⁻⁴, max step below 3 × 10⁻⁴, RMS step below 2 × 10⁻⁴, and an energy change below 10⁻⁶ hartree, all tighter than Gaussian's default (`gau`). RS-P-RFO updates the Hessian with the Bofill formula and keeps each step within a trust radius of 0.1 bohr (`rsirfo.trust_max`). With microiteration (`--microiter`, on by default), each macro step moves the ML region and the boundary MM atoms bonded to it, and the movable MM atoms then relax with L-BFGS. With microiteration, the optimizer's own lines start with `[microiter]`; Dimer and `--no-microiter` print the `[tsopt]` form.
 4. **Final check**: after convergence, `tsopt` computes the Hessian at the final geometry, counts n_imag, and writes each imaginary mode as an animation. Frozen atoms are handled as in [`freq`](freq.md#rigid-modes-with-frozen-boundaries).
@@ -153,12 +153,12 @@ The options shared by every ML/MM calculation command are explained once in {ref
 | `-i, --input` | path | (required) | One full-system structure (`.pdb`, `.cif`, `.mmcif`, or `.xyz` with `--ref-pdb`). For a trajectory, extract one frame to `.xyz` first (see {ref}`Extract one frame from a trajectory <trajectory-one-frame>`) |
 | `-q, --charge` | integer | `None` | Charge of the ML region. Required unless `-l` is given |
 | `-m, --multiplicity` | integer | `1` | Spin multiplicity (2S+1) of the ML region |
-| `-l, --ligand-charge` | text | `None` | Total charge of unknown ligands or a charge per residue name (for example `'GPP:-3,SAM:1'`), used to derive the ML-region charge when `-q` is omitted (PDB input or `--ref-pdb`) |
+| `-l, --ligand-charge` | text | `None` | Total charge of unknown ligands or a charge per residue name (for example `'GPP:-3,SAM:1'`), used to derive the ML-region charge when `-q` is omitted (PDB/mmCIF input or `--ref-pdb`) |
 | `-o, --out-dir` | path | `./result_tsopt/` | Output directory |
 | `-b, --backend` | text | `uma` | Backend for the ML region (`uma`, `orb`, `mace`, `aimnet2`, `dft`) |
 | `--opt-mode` | `hess` / `dimer` / `rsirfo` / `trim` | `hess` | Optimizer: RS-P-RFO / Dimer / RS-I-RFO / TRIM (`rsprfo` = `hess`, `grad` = `dimer`). On `opt`, `grad` means L-BFGS (see {ref}`--opt-mode by command <opt-mode-semantics>`) |
 | `--ref-mode` | path | `None` | Reference direction for the reaction mode (`.npz`, `.npy`, or text). `all` passes it from the MEP; you normally leave it unset. Not used by Dimer |
-| `--microiter/--no-microiter` | flag | `True` | Alternate each macro TS step with an L-BFGS relaxation of the movable MM atoms. Not used by Dimer; with `--embedcharge`, the standard optimization runs instead |
+| `--microiter/--no-microiter` | flag | `True` | Alternate each macro TS step with an L-BFGS relaxation of the movable MM atoms. Not used by Dimer; with `--embedcharge`, the optimization runs without microiteration |
 | `--hessian-calc-mode` | `FiniteDifference` / `Analytical` | `FiniteDifference` | How the ML-region Hessian is computed |
 | `--flatten/--no-flatten` | flag | `False` | Remove extra imaginary modes |
 | `--freeze-atoms` | text | `None` | Extra atoms to freeze (1-based, comma-separated, for example `'1,3,5'`) |
@@ -203,7 +203,7 @@ For every option, run `mlmm tsopt --help-advanced` or see the [generated CLI ref
 ### Other notes
 
 * **Uphill steps are always allowed**: a saddle search has to go uphill along the reaction mode, so `tsopt` keeps `reject_uphill: false` even if YAML sets it. `--reject-uphill/--no-reject-uphill` belongs to `opt` and to the endpoint optimization in `all`.
-* **Barrier from a product-side scan**: if the scan that made this candidate started from the product, read its barrier as described in [`scan` → Scan direction and barrier sign](scan.md#scan-direction-and-barrier-sign).
+* **Barrier from a product-side scan**: if the scan that made this candidate started from the product, read its barrier as described in [`scan` → Barrier sign](scan.md#barrier-sign).
 * **One root**: the optimizer climbs along one root (`0` is the lowest eigenvalue). Set it as a one-item list such as `rsirfo.roots: [0]`; Dimer uses `hessian_dimer.root`. `tsopt` has no `--root` flag.
 * **Other RS-P-RFO settings**: `trust_norm: max_atom` limits the displacement of each atom instead of the whole step (Cartesian coordinates only), and `hessian_update: ts_bfgs` selects the TS-BFGS update instead of Bofill. Neither changes the trust radii.
 * **Extra searches are opt-in**: after convergence, `tsopt` does not search further on its own, even when n_imag is not 1. Use `--flatten`, or set `rsirfo.saddle_recovery_max_cycles` above `0` (default `0`) to let RS-P-RFO / RS-I-RFO / TRIM step uphill when the exact Hessian shows no imaginary mode.

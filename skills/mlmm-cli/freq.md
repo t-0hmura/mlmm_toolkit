@@ -21,7 +21,7 @@ mlmm freq -i ts.xyz --parm7 real.parm7 --ref-pdb full_enzyme.pdb \
     -q 0 -m 1 -b uma --out-json -o result_freq
 ```
 
-At a higher temperature for the activation enthalpy:
+At another temperature and pressure (for example 310.15 K):
 
 ```bash
 mlmm freq -i ts.xyz --parm7 real.parm7 --ref-pdb full_enzyme.pdb \
@@ -42,7 +42,8 @@ do not block thermochemistry. `freq` does not judge n_imag itself:
 `freq` retains every signed physical mode. The default imaginary criterion is
 ν < −5.00 cm⁻¹, and YAML `freq.zero_cutoff_cm` sets another cutoff magnitude.
 Positive modes between 0 and 5 cm⁻¹ remain in thermochemistry.
-`n_negative_modes` counts every negative value. Raw negative counts are diagnostic and do not add a failure gate.
+`n_negative_modes` counts every negative value, including those above
+−5 cm⁻¹. Raw negative counts are diagnostic and do not make the run fail.
 
 ```
 result_freq/

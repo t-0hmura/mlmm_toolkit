@@ -78,7 +78,7 @@ result_ts_only/
 
 ## 結果の確認
 
-1. **完了状況**: `scientific_status` には、求めた段がすべて収束すると `success`、そうでなければ `partial` か `failed` が入り、[理由](json-output.md#実行と要求段階の完了状況)は `scientific_status_reasons` に出ます。虚振動のモードができる結合と切れる結合を動かすかと、端点が狙った R と P かの 2 つは自分で確かめてください。
+1. **完了状況**: `scientific_status` には、指定した段がすべて収束すると `success`、そうでなければ `partial` か `failed` が入り、[理由](json-output.md#実行の完了と指定した段の完了)は `scientific_status_reasons` に出ます。虚振動のモードが、できる結合と切れる結合を動かしているかと、端点が狙った R と P かの 2 点は自分で確かめてください。
 2. **TS のモード**: TS 最適化が成功すると、反応モードの虚振動が 1 つ出ます。このとき端末に `[microiter] Converged!` が出て、続いて `[Imaginary modes] n=1 ([-593.1])` のように虚振動の波数（cm⁻¹）が出ます。`segments/seg_01/ts/vib/imag_*_trj.xyz` をビューアで開き、できる結合と切れる結合に沿って原子が動くかを確認してください。
 3. **端点**: `segments/seg_01/irc/finished_irc_trj.xyz` と R/TS/P の構造（`reactant.pdb`・`ts.pdb`・`product.pdb`）を開き、`segments[0].bond_changes` を読みます。端点は狙った R と P のはずです。IRC が収束しなくても、端点の最適化で狙った R と P に着けば、その結果は使えます。
 4. **端点の振動数**: `--thermo` のとき、`segments/seg_01/freq/{R,TS,P}/frequencies_cm-1.txt` に符号つきの全振動数が出ます。R と P には虚振動（−5.00 cm⁻¹ より小さい値）が無いはずです。
@@ -87,7 +87,7 @@ result_ts_only/
 | 結果 | 次に試すこと |
 |---|---|
 | n_imag = 0 | MEP の HEI やスキャンの最高点など、よりよい候補から始めます。TS-only モードには手がかりにする経路がありません。 |
-| n_imag ≥ 2 | 各虚振動のモードを見ます。`--flatten` を付けて最適化し直すか、`all --thresh-post gau_tight`（既定の [`baker`](tsopt.md#処理の仕組みと計算仕様) より厳しい）または `tsopt --thresh gau_tight` で収束を厳しくします。 |
+| n_imag ≥ 2 | 各虚振動のモードを見ます。`--flatten` を付けて最適化し直すか、`all --thresh-post gau_tight`（デフォルトの [`baker`](tsopt.md#処理の仕組みと計算仕様) より厳しい）または `tsopt --thresh gau_tight` で収束を厳しくします。 |
 | `bond_changes` が空、または端点が狙いと違う | TS のモードと IRC を確認します。経路が別の極小点どうしを結んでいる可能性があります。 |
 | R や P に虚振動が残る | 端点の構造とモードを確認し、`--thresh-post gau_tight` で端点の最適化を厳しくします。 |
 
@@ -97,9 +97,9 @@ n_imag が 1 でないときや、IRC の端点が狙いと違うときは、[�
 
 * **IRC に進む条件**: `all` が IRC に進むのは、TS 最適化が収束し、最後の Hessian の計算が終わり、n_imag が 1 以上のときだけです。n_imag が 2 以上のときの IRC は、虚振動の 1 つに沿った診断用の計算で、構造が一次の鞍点になるわけではありません。
 * **余分な虚振動**: `--flatten` は、余分な虚振動のモードに沿って構造をずらして最適化し直すことを、最大 50 回くり返します。{ref}`--flatten を使うとき <ja-flatten-precedence-caveat>` を参照してください。
-* **Hessian の計算法**: 既定の `--hessian-calc-mode FiniteDifference` のまま使ってください。`--hessian-calc-mode Analytical` は、自分の系の代表的な構造で既定と速度・メモリ・結果を比べてから指定します。
+* **Hessian の計算法**: デフォルトの `--hessian-calc-mode FiniteDifference` のまま使ってください。`--hessian-calc-mode Analytical` は、自分の系の代表的な構造でデフォルトと速度・メモリ・結果を比べてから指定します。
 * **R と P の名付け**: MEP が無いと反応の向きが分からないため、TS-only モードはエネルギーが高いほうの IRC 端点を R、低いほうを P と呼び、この決まりを `summary.json` の `endpoint_assignment` に記録します。この名前は化学的な反応の向きではありません。P からの障壁は `barrier_kcal − delta_kcal` です。
-* **`tsopt` と `freq` を単独で使うとき**: `--opt-mode`、`--max-cycles`、`--no-microiter`、`--hessian-cutoff` などの Hessian のオプションを変えるときは、この実行の `--parm7` と `--model-pdb` を渡して [`tsopt`](tsopt.md) を単独で実行してください。final geometry は `final_geometry.{xyz,pdb}` に、虚振動のアニメーションは `vib/` に出ます。その構造の全振動数と熱化学は、`final_geometry.pdb` に同じ `--parm7`・`--model-pdb`・`-q`・`-m` を付けて [`freq`](freq.md) を実行すると得られます。`all` の全オプションは `mlmm all --help-advanced` で確認できます。
+* **`tsopt` と `freq` を単独で使うとき**: `--opt-mode rsirfo`/`trim`、`--no-microiter`、`--hessian-cutoff` などの TS 最適化のオプションを変えるときは、この実行の `--parm7` と `--model-pdb` を渡して [`tsopt`](tsopt.md) を単独で実行してください。final geometry は `final_geometry.{xyz,pdb}` に、虚振動のアニメーションは `vib/` に出ます。その構造の全振動数と熱化学は、`final_geometry.pdb` に同じ `--parm7`・`--model-pdb`・`-q`・`-m` を付けて [`freq`](freq.md) を実行すると得られます。`all` の全オプションは `mlmm all --help-advanced` で確認できます。
 
 ## 次のステップ
 

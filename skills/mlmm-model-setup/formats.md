@@ -366,8 +366,9 @@ For larger changes, use `mlmm define-layer`.
 
 Pitfalls:
 
-- `Could not find unit "GPP"`: the ligand is not in the standard Amber
-  libraries. `mm-parm` runs `antechamber` on it when the ligand is in the PDB.
+- `Unknown residue: GPP`: the ligand is not in the standard Amber
+  libraries. `mm-parm` runs `antechamber` on it automatically, with its charge
+  from `-l` (0 if not given).
 - `mismatching atom counts` between parm7 and rst7: the rst7 belongs to a
   different system; regenerate both with `mm-parm`.
 - No MM layer is read: the B-factors hold ML atoms only, or are all zero, so

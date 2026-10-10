@@ -105,11 +105,11 @@ For most systems the only hard requirement is a **PDB with explicit hydrogens** 
 The source repository includes full-system [COMT](examples/comt/README.md) and [BezA](examples/beza/README.md) endpoint mechanisms, a methyltransferase scan, and a 122-atom ML/MM fixture; see [`examples/`](https://github.com/t-0hmura/mlmm_toolkit/tree/main/examples). The commands below use the BezA structures and run from the repository root.
 
 ```bash
-# Multi-structure MEP (R + P → MEP, with TS + thermochemistry)
+# Endpoint mode (R + P → MEP, with TS + thermochemistry)
 mlmm all -i examples/beza/1.R.pdb examples/beza/3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
     --tsopt --thermo --out-dir result_mep
 
-# Scan mode (single structure → staged bond scan → MEP)
+# Scan-list mode (single structure → staged bond scan → MEP)
 mlmm all -i examples/beza/1.R.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
     -s '[("SAM 320 CS1","GPP 321 C7",1.60)]' --tsopt --thermo --out-dir result_scan
 

@@ -53,7 +53,7 @@ orphan: true
 |------|------|
 | **ML 領域と層を決める・計算を軽くする** | [ML 領域と層の組み方](model-setup.md) |
 | **反応機構を調べる・TS が取れない** | [反応機構を調べるコツ](mechanism-tips.md) |
-| **求めた TS 構造を DFT で構造最適化する** | [求めた TS 構造を DFT で構造最適化する](dft-backend.md) |
+| **求めた TS 構造を DFT で構造最適化する** | [MLIP の TS を DFT で確かめる](dft-backend.md) |
 | **計算が失敗した** | [トラブルシューティング](troubleshooting.md) |
 
 ## サブコマンド
@@ -67,7 +67,7 @@ orphan: true
 | [`add-elem-info`](add-elem-info.md) | PDB の元素列（77–78）を修復 |
 | [`mm-parm`](mm-parm.md) | Amber のトポロジー・座標（parm7/rst7）を構築 |
 | [`extract`](extract.md) | タンパク質–リガンド複合体から ML 領域を定義 |
-| [`define-layer`](define-layer.md) | ML・可動 MM・凍結 MM の層を B-factor で指定 |
+| [`define-layer`](define-layer.md) | ML・可動 MM・固定 MM の層を B-factor で指定 |
 | [`opt`](opt.md) | 単一構造の構造最適化（L-BFGS または RFO。任意の `--flatten` で残った虚振動を除く） |
 | [`scan`](scan.md) | 拘束付き距離スキャン（複数距離の協奏スキャン・多段階スキャンに対応） |
 | [`scan2d`](scan2d.md) | 2 次元のエネルギー地形の探索・PES マッピング |
@@ -119,7 +119,7 @@ orphan: true
 
 ## 重要な概念
 
-3 つの層（ML・可動 MM・凍結 MM）と ONIOM での組み合わせ方は [はじめに](getting-started.md)、ML 領域と層の決め方は [ML 領域と層の組み方](model-setup.md) を参照してください。
+3 つの層（ML・可動 MM・固定 MM）と ONIOM での組み合わせ方は [はじめに](getting-started.md)、ML 領域と層の決め方は [ML 領域と層の組み方](model-setup.md) を参照してください。
 
 ## エージェントスキル
 

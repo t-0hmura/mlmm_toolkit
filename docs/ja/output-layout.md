@@ -1,6 +1,6 @@
 # 出力ディレクトリのレイアウト
 
-各コマンドが出力ディレクトリに書く主なファイルの名前と、デフォルトの出力ディレクトリ、`all` の中での置き場所を引くページです。各コマンドのファイルの全体は、そのコマンドのページの「主な出力ファイル」にあります。
+各コマンドが出力ディレクトリに書く主なファイルの名前と、デフォルトの出力ディレクトリ、`all` の中での置き場所を引くページです。各コマンドが書くファイルの一覧は、そのコマンドのページの「主な出力ファイル」の節にあります。
 
 ## ファイル名の規約
 
@@ -43,13 +43,13 @@
 
 ほかのディレクトリに書くには `-o/--out-dir <path>` を指定します。準備のコマンドはファイルパスを取ります：`extract` は `-o/--output <file>` に 1 つ以上のパス、`mm-parm` は `-o/--out-prefix <prefix>`、`define-layer` は `-o/--output <file>` です。
 
-## スタンドアロン と `all` の比較
+## 単独実行と `all` の比較
 
 単独実行では `result_<subcmd>/` にファイルが並び、`segments/` や `_work/` はありません。`all` では、後処理の各段階が同じファイル構成で `segments/seg_NN/` の下の `ts/`・`irc/`・`freq/`・`dft/` に配置されます。
 
 - **`path-search` / `path-opt` は配置が異なります。** 単独で実行すると、上の表のファイルを `result_path_search/` か `result_path_opt/` に書きます。`all` の中の MEP 探索は、デフォルトでは `path-opt`、`--refine-path` を付けると再帰的な `path-search` で行います。生の出力は `_work/path_opt/` か `_work/path_search/` に残り、MEP のファイル（`mep_trj.*`、`mep_plot.png`、`energy_diagram_MEP.png`）だけがルートに移されます。
 
-したがって `all` のツリーには 3 つのゾーンがあります。下のツリーは主な項目だけで、`seg_NN/` の中を含むすべてのファイルとエネルギー図の名前は [all の主な出力ファイル](all.md#主な出力ファイル) にあります。
+`all` のツリーは、ルートの成果物・`segments/`・`_work/` の 3 つに分かれます。下のツリーは主な項目だけで、`seg_NN/` の中を含むすべてのファイルとエネルギー図の名前は [all の主な出力ファイル](all.md#主な出力ファイル) にあります。
 
 ```text
 result_all/
@@ -68,7 +68,7 @@ result_all/
    └─ path_opt/                                      # MEP 探索と hei_seg_NN.*（--refine-path のときは path_search/）
 ```
 
-TS-only モード（遷移状態（TS）の候補 1 つに `--tsopt` を付け、`-s/--scan-lists` を付けずに与える実行）では MEP ステージがないため、`_work/path_opt/` は存在せず、成果物は `segments/seg_01/` 下に置かれます。
+TS-only モード（遷移状態の候補を 1 つだけ入力し、`-s/--scan-lists` なしで `--tsopt` を付けた実行）では MEP ステージがないため、`_work/path_opt/` は存在せず、成果物は `segments/seg_01/` 下に置かれます。
 
 ## 使用上の注意点
 

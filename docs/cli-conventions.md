@@ -77,7 +77,7 @@ The choice of MLIP backend, precision, and `--uma-workers` is described in [MLIP
 
 ## Residue selectors
 
-`-c/--center` (on `extract` and `all`) names the residues at the center of the model. The forms below run from the most specific to the broadest:
+`-c/--center` (on `extract` and `all`) names the residues at the center of the model.
 
 | Form | Example | What it selects |
 |---|---|---|

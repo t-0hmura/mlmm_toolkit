@@ -102,8 +102,8 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
         "ml_region_with_linkH.pdb",
     ),
     Path("docs/glossary.md"): (
-        "parm7 bond crossing the real-atom ML/MM selection",
-        "inspection-only pocket caps",
+        "parm7 bond that crosses the ML/MM boundary",
+        "only for inspecting the pocket",
     ),
     Path("docs/ja/glossary.md"): (
         "ML/MM 境界を横切る parm7 の結合",
@@ -133,7 +133,7 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
         "Raw negative counts are diagnostic",
     ),
     Path("docs/backends.md"): ("mlmm all", "forwards the same factory"),
-    Path("docs/ja/backends.md"): ("mlmm all", "同じ factory"),
+    Path("docs/ja/backends.md"): ("mlmm all", "同じ関数"),
     Path("docs/add-elem-info.md"): (
         "`--overwrite/--no-overwrite`",
         "`<input>_add_elem.pdb`",
@@ -142,7 +142,7 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
     Path("docs/ja/add-elem-info.md"): (
         "`--overwrite/--no-overwrite`",
         "`<input>_add_elem.pdb`",
-        "列 77–78 を除き、各入力行はそのまま保持されます",
+        "77–78 列を除き、各入力行はそのまま保持されます",
     ),
     Path("skills/mlmm-install/SKILL.md"): (
         "torch==2.13.0",

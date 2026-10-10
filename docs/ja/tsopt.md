@@ -1,6 +1,6 @@
 # `tsopt`（遷移状態の構造最適化）
 
-`tsopt` サブコマンドは、層を定義した ML/MM の酵素モデルで遷移状態（TS）の候補構造を 1 次の鞍点へ最適化し、final geometry で Hessian を計算して虚振動数の本数（n_imag）を数えます。TS 最適化が成功すると、反応モードの虚振動が 1 つ出ます。
+`tsopt` サブコマンドは、層を定義した ML/MM の酵素モデルで遷移状態（TS）の候補構造を 1 次の鞍点へ最適化し、final geometry で Hessian を計算して虚振動の数（n_imag）を数えます。TS 最適化が成功すると、反応モードの虚振動が 1 つ出ます。
 
 ---
 
@@ -67,10 +67,10 @@ mlmm tsopt -i ts_guess.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ## 処理の仕組みと計算仕様
 
-1. **モデルの読み込みと境界の凍結**: ML 領域を `--model-pdb` から、可動 MM 層と凍結 MM 層を入力 PDB の B-factor から読み込みます。ML 領域の {ref}`電荷 <ja-charge-specification>` は `-q` または `-l` から決まります。凍結 MM 層と `--freeze-atoms` で指定した原子は固定したままで、最後の Hessian は `--active-dof-mode` で選んだ原子だけで扱います（PHVA: 部分 Hessian 振動解析）。`.xyz` の候補には、原子の順序と層を与える全系の PDB を `--ref-pdb` で渡してください。
+1. **モデルの読み込みと境界の固定**: ML 領域を `--model-pdb` から、可動 MM 層と固定 MM 層を入力 PDB の B-factor から読み込みます。ML 領域の {ref}`電荷 <ja-charge-specification>` は `-q` または `-l` から決まります。固定 MM 層と `--freeze-atoms` で指定した原子は固定したままで、最後の Hessian は `--active-dof-mode` で選んだ原子だけで扱います（PHVA: 部分 Hessian 振動解析）。`.xyz` の候補には、原子の順序と層を与える全系の PDB を `--ref-pdb` で渡してください。
 2. **最適化法の選択**（`--opt-mode`）: `hess`（デフォルト）は完全な Hessian を使う **RS-P-RFO**（制限ステップ分割有理関数最適化）を実行し、`rsirfo` と `trim` はそれぞれ RS-I-RFO（restricted-step image RFO）と TRIM（trust-region image minimization）を選びます。`dimer`（または `grad`）は **Hessian-guided Dimer** 法で、勾配を使って最低固有モードを追い、ときどき厳密な Hessian で方向を更新します。
-3. **反応モードに沿った探索**: 反応モードの方向にはエネルギーを上り、それ以外の方向には下りながら、収束条件（`--thresh`）を満たすまで構造を動かします。デフォルトの `baker` は、力の最大値 3 × 10⁻⁴ 未満、力の RMS 2 × 10⁻⁴ 未満、ステップの最大値 3 × 10⁻⁴ 未満、ステップの RMS 2 × 10⁻⁴ 未満（原子単位）、エネルギー変化 10⁻⁶ hartree 未満の 5 つをすべて同時に求め、どれも Gaussian の既定（`gau`）より厳しい条件です。RS-P-RFO は Bofill 式で Hessian を更新し、1 ステップを信頼半径 0.1 bohr（`rsirfo.trust_max`）以内に収めます。マイクロイテレーション（`--microiter`）はデフォルトで有効で、各 macro ステップで ML 領域とそれに結合した境界の MM 原子を動かし、続いて可動 MM 原子を L-BFGS で緩和します。マイクロイテレーションでは最適化の行が `[microiter]` で始まり、Dimer 法と `--no-microiter` では `[tsopt]` の形で出ます。
-4. **最後の確認**: 収束すると、final geometry で Hessian を計算して n_imag を数え、各虚振動モードをアニメーションとして書き出します。凍結原子の扱いは [`freq`](freq.md#凍結境界での剛体モード) と同じです。
+3. **反応モードに沿った探索**: 反応モードの方向にはエネルギーを上り、それ以外の方向には下りながら、収束条件（`--thresh`）を満たすまで構造を動かします。デフォルトの `baker` は、力の最大値 3 × 10⁻⁴ 未満、力の RMS 2 × 10⁻⁴ 未満、ステップの最大値 3 × 10⁻⁴ 未満、ステップの RMS 2 × 10⁻⁴ 未満（原子単位）、エネルギー変化 10⁻⁶ hartree 未満の 5 つをすべて同時に求めます。どの値も Gaussian のデフォルト（`gau`）より厳しい条件です。RS-P-RFO は Bofill 式で Hessian を更新し、1 ステップを信頼半径 0.1 bohr（`rsirfo.trust_max`）以内に収めます。マイクロイテレーション（`--microiter`）はデフォルトで有効で、各マクロステップで ML 領域とそれに結合した境界の MM 原子を動かし、続いて可動 MM 原子を L-BFGS で緩和します。マイクロイテレーションでは最適化の行が `[microiter]` で始まり、Dimer 法と `--no-microiter` では `[tsopt]` の形で出ます。
+4. **最後の確認**: 収束すると、final geometry で Hessian を計算して n_imag を数え、各虚振動モードをアニメーションとして書き出します。固定原子の扱いは [`freq`](freq.md#固定境界での剛体モード) と同じです。
 5. **`--flatten` による余分な虚振動の除去**: 虚振動が 2 つ以上残る場合は、余分なモードに沿って構造をずらして最適化し直し、1 つになるか回数の上限に達するまで繰り返します。Dimer 法では、各回で厳密な Hessian を計算し直してダイマー方向を更新し、短い Dimer + L-BFGS の区間を実行します。
 
 ---
@@ -98,7 +98,7 @@ n_imag は次のように読みます。
 ν < −5.00 cm⁻¹ のモードを虚振動として数えます。−5.00 以上 0 cm⁻¹ 未満の値は数値誤差として扱います。
 
 (ja-wrong-imaginary-mode-count)=
-### 最適化後に虚振動数の本数が誤っている場合
+### 最適化後に n_imag が 1 でない場合
 
 n_imag が 1 でない場合や、モードが狙った反応の原子を動かしていない場合は、次を試してください。これらは組み合わせて使えます。
 
@@ -138,7 +138,7 @@ result_tsopt/
 
 {ref}`mmCIF の入力 <ja-mmcif-input>` と、PDB の欄に入りきらない大きな PDB の入力では、元の識別子を保った `.cif` も書きます。
 
-* **final geometry**: `final_geometry.*` を、[`irc`](irc.md) に渡す TS として使います。`final_geometry.pdb` の B-factor は、ML 領域が 0、可動 MM 原子が 10、凍結 MM 原子が 20 です。
+* **final geometry**: `final_geometry.*` を、[`irc`](irc.md) に渡す TS として使います。`final_geometry.pdb` の B-factor は、ML 領域が 0、可動 MM 原子が 10、固定 MM 原子が 20 です。
 * **反応モード**: `vib/imag_*_trj.xyz` を PyMOL や VMD で開き、生成・切断される結合に沿って原子が動いているかを確かめてください。
 * **要約**: `--out-json` を付けると、[`result.json`](json-output.md#tsopt) に終わり方（`optimization_status`: `converged`、`stalled`、`not_converged`）、`hessian_status`、n_imag が記録されます。
 
@@ -153,16 +153,16 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 | `-i, --input` | パス | （必須） | 全系の構造 1 つ（`.pdb`, `.cif`, `.mmcif`、または `--ref-pdb` と組み合わせた `.xyz`）。軌跡は 1 フレームを `.xyz` に切り出してから指定（{ref}`軌跡から 1 フレームを取り出す <ja-trajectory-one-frame>` を参照） |
 | `-q, --charge` | 整数 | `None` | ML 領域の電荷。`-l` を使う場合のほかは必須 |
 | `-m, --multiplicity` | 整数 | `1` | ML 領域のスピン多重度（2S+1） |
-| `-l, --ligand-charge` | 文字列 | `None` | 未知のリガンドの総電荷、または残基名ごとの電荷（例: `'GPP:-3,SAM:1'`）。`-q` を省いたときに ML 領域の電荷を求めるのに使用（PDB 入力または `--ref-pdb`） |
+| `-l, --ligand-charge` | 文字列 | `None` | 未知のリガンドの総電荷、または残基名ごとの電荷（例: `'GPP:-3,SAM:1'`）。`-q` を省いたときに ML 領域の電荷を求めるのに使用（PDB/mmCIF 入力または `--ref-pdb`） |
 | `-o, --out-dir` | パス | `./result_tsopt/` | 出力先ディレクトリ |
 | `-b, --backend` | 文字列 | `uma` | ML 領域のバックエンド（`uma`, `orb`, `mace`, `aimnet2`, `dft`） |
 | `--opt-mode` | `hess` / `dimer` / `rsirfo` / `trim` | `hess` | 最適化法: RS-P-RFO / Dimer / RS-I-RFO / TRIM（`rsprfo` = `hess`、`grad` = `dimer`）。`opt` では `grad` は L-BFGS を指す（{ref}`コマンドごとの --opt-mode <ja-opt-mode-semantics>` を参照） |
 | `--ref-mode` | パス | `None` | 反応モードの参照方向（`.npz`, `.npy`, テキスト）。`all` が MEP から渡すもので、通常は指定しない。Dimer 法では使わない |
-| `--microiter/--no-microiter` | フラグ | `True` | 各 macro TS ステップと、可動 MM 原子の L-BFGS 緩和を交互に実行。Dimer 法では使わず、`--embedcharge` では通常の最適化に切り替える |
+| `--microiter/--no-microiter` | フラグ | `True` | 各マクロ TS ステップと、可動 MM 原子の L-BFGS 緩和を交互に実行。Dimer 法では使わず、`--embedcharge` ではマイクロイテレーションなしで最適化する |
 | `--hessian-calc-mode` | `FiniteDifference` / `Analytical` | `FiniteDifference` | ML 領域の Hessian の計算法（有限差分 / 解析的） |
 | `--flatten/--no-flatten` | フラグ | `False` | 余分な虚振動を除く |
-| `--freeze-atoms` | 文字列 | `None` | 追加で凍結する原子（1 始まり、カンマ区切り: 例 `'1,3,5'`） |
-| `--active-dof-mode` | `all` / `ml-only` / `partial` / `unfrozen` | `partial` | 最後の振動解析に入れる原子: 全原子 / ML 領域だけ / ML 領域と可動 MM 原子 / 凍結層以外のすべての原子 |
+| `--freeze-atoms` | 文字列 | `None` | 追加で固定する原子（1 始まり、カンマ区切り: 例 `'1,3,5'`） |
+| `--active-dof-mode` | `all` / `ml-only` / `partial` / `unfrozen` | `partial` | 最後の振動解析に入れる原子: 全原子 / ML 領域だけ / ML 領域と可動 MM 原子 / 固定層以外のすべての原子 |
 | `--thresh` | プリセット | `baker` | 収束条件（`gau_loose`, `gau`, `gau_tight`, `gau_vtight`, `baker`, `never`） |
 | `--max-cycles` | 整数 | `100000` | 最適化サイクルの上限 |
 | `--stop-plateau/--no-stop-plateau` | フラグ | `False` | エネルギーが変わらなくなったら（直近 50 サイクルの幅が 1e-4 hartree 未満）止め、Hessian を計算 |
@@ -203,17 +203,17 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 ### そのほかの注意
 
 * **上り方向のステップは常に許可**: 鞍点探索では反応モードに沿ってエネルギーを上る必要があるため、YAML で指定しても `tsopt` は `reject_uphill: false` を保ちます。`--reject-uphill/--no-reject-uphill` は、`opt` と `all` の端点の最適化で使うフラグです。
-* **生成物側から scan した障壁**: この候補を作った scan が生成物から始まった場合、障壁の読み方は {ref}`scan: スキャン方向とバリアの符号 <ja-scan-direction-barrier-sign>` を参照してください。
+* **生成物側から scan した障壁**: この候補を作った scan が生成物から始まった場合、障壁の読み方は {ref}`scan: 障壁の向き <ja-scan-direction-barrier-sign>` を参照してください。
 * **追う固有ベクトル（root）は 1 つ**: 最適化は 1 つの固有ベクトルに沿って上ります（`0` が最も低い固有値）。`rsirfo.roots: [0]` のように 1 要素のリストで指定します。Dimer 法では `hessian_dimer.root` を使います。`tsopt` に `--root` フラグはありません。
 * **そのほかの RS-P-RFO の設定**: `trust_norm: max_atom` はステップ全体ではなく原子ごとの変位を制限し（Cartesian 座標だけ）、`hessian_update: ts_bfgs` は Bofill の代わりに TS-BFGS で Hessian を更新します。どちらも信頼半径は変えません。
 * **追加の探索は指定したときだけ**: 収束後は、n_imag が 1 でなくても、自動では追加の探索をしません。`--flatten` を使うか、`rsirfo.saddle_recovery_max_cycles` を `0` より大きくしてください（デフォルト `0`）。後者では、厳密な Hessian に虚振動が無いとき、RS-P-RFO・RS-I-RFO・TRIM がエネルギーを上る向きにステップを進めます。
 * **併用できない組み合わせ**: `--skip-final-freq` と `--dump-hess`、2 以上の [`--uma-workers`](backends.md#ワーカーと-hessian-の計算方式)（MLIP の並列ワーカー数）と `--hessian-calc-mode Analytical`。
 * **`--skip-final-freq` と `--flatten`**: RS-P-RFO・RS-I-RFO・TRIM では、`--skip-final-freq` を付けると、最後の Hessian を使う `--flatten` も省かれます。
 * **`--read-hess` を RS-P-RFO・RS-I-RFO・TRIM で使う場合**: ファイルの Hessian が最初の厳密な Hessian の代わりになるので、`rsirfo.hessian_init` はデフォルトの `calc` のままにしてください。ほかの値ではエラーで止まります。
-* **マイクロイテレーションの MM 緩和の収束条件**: `microiter.micro_thresh` で MM 緩和の収束条件を指定します。指定しないときは macro ステップと同じ条件を使います。
-* **エネルギーの停滞とマイクロイテレーション**: `--stop-plateau` が見るのは macro ステップで、MM 緩和を止めることはありません。
-* **`--ref-mode` と凍結原子**: `--ref-mode` は MEP から反応の方向を与えるだけで、凍結境界の扱いは変えません。
-* **全原子凍結の禁止**: すべての原子を凍結すると、`tsopt` はエラーで停止します。
+* **マイクロイテレーションの MM 緩和の収束条件**: `microiter.micro_thresh` で MM 緩和の収束条件を指定します。指定しないときはマクロステップと同じ条件を使います。
+* **エネルギーの停滞とマイクロイテレーション**: `--stop-plateau` が見るのはマクロステップで、MM 緩和を止めることはありません。
+* **`--ref-mode` と固定原子**: `--ref-mode` は MEP から反応の方向を与えるだけで、固定境界の扱いは変えません。
+* **全原子固定の禁止**: すべての原子を固定すると、`tsopt` はエラーで停止します。
 * **エラーでの停止**: 入力や構造が不正な場合や、最適化を続けられないエラーが起きた場合は、エラーメッセージを出して止まります。それまでに書いたファイルだけが残ります。
 
 ---

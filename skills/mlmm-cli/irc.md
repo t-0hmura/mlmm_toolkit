@@ -42,9 +42,9 @@ not know which end is the reactant or the product. Judge it in three steps:
    `*_integration_converged` describes whether the RMS-gradient stationarity
    criterion fired, so `--never-stop` leaves it false. This field and
    `*_downhill_departure_valid` are diagnostics, not endpoint-optimization
-   gates. Finite retained endpoints can proceed to optimization after a
-   predictor-budget or max-cycle stop. Missing or non-finite coordinates and
-   execution errors must still be reported.
+   gates. After a max-cycle or predictor-step stop, optimize the endpoints
+   anyway if their coordinates are finite; report missing or non-finite
+   coordinates and execution errors as failures.
 3. Optimize both endpoint candidates and compare them with the intended R and
    P. Even if the IRC does not converge, the result is usable when the
    optimized endpoints reach the intended R and P. The direction forward or
@@ -126,7 +126,7 @@ for b in bc["broken"]: print("BROKEN ", b)
   energy endpoint criteria; numerical or integration failures still stop the
   branch. It is off by default. Always inspect both branches and the bond
   connectivity.
-- `--max-cycles 125` is enough for most systems. A branch that hits the cap
+- The default `--max-cycles` (125) is enough for most systems. A branch that hits the cap
   still leaves a finite endpoint that goes on to endpoint `opt`; raise
   `--max-cycles` only when the branch must be followed further.
 - The bond-change detector is geometry-based (covalent-radius cutoff), not

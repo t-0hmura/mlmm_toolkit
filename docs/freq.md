@@ -16,12 +16,12 @@ The ML region uses **UMA**, Meta's pretrained [machine-learning interatomic pote
 
 ## Examples
 
-In these examples, `pocket.pdb` is the full system that matches `real.parm7`, and `ml_region.pdb` defines the [ML region](model-setup.md).
+In these examples, `complex.pdb` is the full system that matches `real.parm7`, and `ml_region.pdb` defines the [ML region](model-setup.md).
 
 ### 1. Minimal run (explicit charge and multiplicity)
 
 ```bash
-mlmm freq -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm freq -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
   -q 0 -m 1 --out-dir ./result_freq
 ```
 
@@ -29,19 +29,19 @@ The console summary prints n_imag as `Number of Imaginary Freq = N`.
 
 ### 2. Extra frozen atoms and the detailed thermochemistry file
 
-`--freeze-atoms` freezes more atoms on top of the frozen MM layer, and `--dump` also writes the detailed thermochemistry file `thermoanalysis.yaml`.
+`--freeze-atoms` freezes more atoms on top of the Frozen-MM layer, and `--dump` also writes the detailed thermochemistry file `thermoanalysis.yaml`.
 
 ```bash
-mlmm freq -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm freq -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
   -q 0 -m 1 --freeze-atoms "1,3,5,7" --dump --out-dir ./result_freq_phva
 ```
 
 ### 3. Analytical Hessian
 
-Use this to avoid the step-size error of finite differences. It uses more GPU memory, so test it on your system first.
+Use this to avoid the step-size error of finite differences. Its speed and memory use depend on the backend and the system, so compare both modes on your system first.
 
 ```bash
-mlmm freq -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
+mlmm freq -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
   -q 0 -m 1 --hessian-calc-mode Analytical --out-dir ./result_freq_analytical
 ```
 
@@ -50,7 +50,7 @@ mlmm freq -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 ## How it works
 
 1. **Reading the layers and freezing (PHVA)**:
-`freq` takes the ML region from `--model-pdb` and the movable and frozen MM layers from the B-factors of the input PDB. `--active-dof-mode` chooses the atoms in the vibrational analysis; the default `partial` takes the ML region and the movable MM atoms. The frozen MM layer and the atoms given with `--freeze-atoms` stay fixed.
+`freq` takes the ML region from `--model-pdb` and the Movable-MM and Frozen-MM layers from the B-factors of the input PDB. `--active-dof-mode` chooses the atoms in the vibrational analysis; the default `partial` takes the ML region and the movable MM atoms. The Frozen-MM layer and the atoms given with `--freeze-atoms` stay fixed.
 2. **Hessian**:
 `--hessian-calc-mode` selects `FiniteDifference` (finite differences, the default) or `Analytical` for the ML region. `--hess-device` chooses where the computed Hessian is held and diagonalized.
 3. **Thermochemistry (QRRHO)**:
@@ -60,9 +60,9 @@ Mode animations (trajectory files) are written starting from the imaginary or lo
 
 ### Rigid modes with frozen boundaries
 
-Without frozen atoms, `freq` removes the six rigid motions (three translations and three rotations), which are not vibrations, before reporting frequencies. With frozen atoms, it removes only the rigid motions that keep every frozen atom in place. With three or more frozen atoms that do not lie on one line, the normal case for an ML/MM model with a frozen MM layer, nothing is removed and every vibrational mode of the movable atoms is kept. With one frozen atom, three motions are removed (rotations about that atom); with two, one is removed (rotation about the axis through them).
+Without frozen atoms, `freq` removes the six rigid motions (three translations and three rotations), which are not vibrations, before reporting frequencies. With frozen atoms, it removes only the rigid motions that keep every frozen atom in place. With three or more frozen atoms that do not lie on one line, the normal case for an ML/MM model with a Frozen-MM layer, nothing is removed and every vibrational mode of the movable atoms is kept. With one frozen atom, three motions are removed (rotations about that atom); with two, one is removed (rotation about the axis through them).
 
-`irc`, the TS frequency check and the Dimer direction in `tsopt`, and `--flatten` (removing extra imaginary modes) in `opt` and `tsopt` treat rigid motions the same way. With `--out-json`, `result.json` records the number of removed motions and the Hessian used under `rigid_projection`; see [JSON Output Reference](json-output.md#rigid-projection-provenance).
+`irc`, the TS frequency check and the Dimer direction in `tsopt`, and `--flatten` (removing imaginary modes) in `opt` and `tsopt` treat rigid motions the same way. With `--out-json`, `result.json` records the number of removed motions and the Hessian used under `rigid_projection`; see [JSON Output Reference](json-output.md#rigid-projection-provenance).
 
 ---
 
@@ -107,7 +107,7 @@ The options shared by every ML/MM calculation command are explained once in {ref
 | `-i, --input` | path | (required) | Full-system structure matching `--parm7` (`.pdb`, `.cif`, `.mmcif`, or `.xyz` with `--ref-pdb`) |
 | `-q, --charge` | integer | `None` | Charge of the ML region. Required unless `-l` is given |
 | `-m, --multiplicity` | integer | `1` | Spin multiplicity (2S+1) of the ML region |
-| `-l, --ligand-charge` | text | `None` | Total charge of unknown ligands or a charge per residue name (e.g. `'GPP:-3,SAM:1'`), used to derive the ML-region charge when `-q` is omitted (PDB input or `--ref-pdb`) |
+| `-l, --ligand-charge` | text | `None` | Total charge of unknown ligands or a charge per residue name (e.g. `'GPP:-3,SAM:1'`), used to derive the ML-region charge when `-q` is omitted (PDB/mmCIF input or `--ref-pdb`) |
 | `-o, --out-dir` | path | `./result_freq/` | Output directory |
 | `-b, --backend` | text | `uma` | Backend for the ML region (`uma`, `orb`, `mace`, `aimnet2`, `dft`) |
 | `--hessian-calc-mode` | `FiniteDifference` / `Analytical` | `FiniteDifference` | How the ML-region Hessian is computed (finite differences / analytical) |

@@ -16,7 +16,7 @@ The ML region uses **UMA** (Meta) by default; `-b/--backend` also selects **ORB*
 
 ## Examples
 
-Here `pocket.pdb` contains the full system matching `real.parm7`, and `ml_region.pdb` selects its ML region without link hydrogens.
+Here `complex.pdb` contains the full system matching `real.parm7`, and `ml_region.pdb` selects its ML region without link hydrogens.
 
 The atoms are those of the bundled enzyme example (`examples/beza/1.R.pdb`), whose PDB has an empty chain column. Each atom is therefore written with three fields, residue name, residue number, and atom name, in any order and separated by commas or spaces (`"SAM,320,CS1"`).
 
@@ -34,7 +34,7 @@ pairs:
 Give the structure, the charge, and the file; add `--out-json` to also get `result.json`.
 
 ```bash
-mlmm scan2d -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
+mlmm scan2d -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
     -s scan2d.yaml --out-json -o ./result_scan2d/
 ```
 
@@ -45,7 +45,7 @@ Open `result_scan2d/scan2d_map.png` for the contour map and `scan2d_landscape.ht
 The same two ranges can be written on the command line as one literal.
 
 ```bash
-mlmm scan2d -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
+mlmm scan2d -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
     -s '[("SAM,320,CS1","GPP,321,C7",1.50,3.00),("GPP,321,H11","GLU,186,OE2",0.90,2.50)]'
 ```
 
@@ -54,7 +54,7 @@ mlmm scan2d -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
 Optimize the input before the scan, keep the inner-loop trajectories, and measure the relative energies from the lowest usable point. `--max-step-size 0.20`, `--opt-mode grad`, and `--baseline min` are the defaults, written out here.
 
 ```bash
-mlmm scan2d -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
+mlmm scan2d -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
     -s '[("SAM,320,CS1","GPP,321,C7",1.50,3.00),("GPP,321,H11","GLU,186,OE2",0.90,2.50)]' \
     --max-step-size 0.20 --dump -o ./result_scan2d/ --opt-mode grad \
     --preopt --baseline min
@@ -116,7 +116,7 @@ result_scan2d/
 Start with `surface.csv` and the two plots; the structure of each point is under `grid/`. In `result.json`, `grid_points[]` maps each grid index to its values, targets, energy, convergence, and structure file; use it instead of reading values back from file names.
 
 * **File names**: the number after `i` or `j` (the tag `DDD`) is the target × 100 (Å, or degrees for an angle), padded to at least three digits, not the grid index of `surface.csv`: `d1 = 1.50 Å, d2 = 0.90 Å` gives `point_i150_j090.xyz`, and an angle of 120° gives `12000`. When two points round to the same tag, the later file name gets `_grid_III_JJJ` with the zero-based indices.
-* **Other formats**: each structure is also written as `.pdb` (`--no-convert-files` turns this off), with the layer of each atom in the B-factor column: 0 for the ML region, 10 for movable MM, and 20 for frozen MM. {ref}`mmCIF input <mmcif-input>`, and PDB input too large for the PDB columns, also get `.cif` files with the original identifiers.
+* **Other formats**: each structure is also written as `.pdb` (`--no-convert-files` turns this off), with the layer of each atom in the B-factor column: 0 for the ML region, 10 for Movable-MM, and 20 for Frozen-MM. {ref}`mmCIF input <mmcif-input>`, and PDB input too large for the PDB columns, also get `.cif` files with the original identifiers.
 
 ---
 

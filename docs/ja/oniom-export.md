@@ -21,7 +21,6 @@
 ```bash
 mlmm oniom-export --mode g16 --parm7 real.parm7 -i result_tsopt/final_geometry.pdb \
     --model-pdb ml_region.pdb -o ts_refine.com -q 0 -m 1
-g16 < ts_refine.com > ts_refine.log
 ```
 
 端末に `[oniom-gaussian] Wrote 'ts_refine.com'` と、QM 原子・可動原子・リンク境界の数が出ます。
@@ -78,7 +77,7 @@ parm7 から原子・結合・電荷・Amber パラメータを、`-i` の PDB �
 2. **QM 領域**:
 `--model-pdb` を指定すると、その原子が QM 領域です。原子名・残基名・chain・残基番号・挿入コードで `-i` の原子に対応づけます。指定しなければ、B-factor が 0 の原子が QM 領域です。固定 MM 以外のすべての原子が可動で、QM 原子は常に可動です。
 3. **QM/MM 境界**:
-Gaussian では、切った QM–MM 結合ごとに MM 原子をリンク水素に置き換えます。`--link-atom-method scaled`（デフォルト）は Morokuma/Dapprich の g-factor で、`fixed` は QM 原子から 1.09 Å（QM 原子が炭素）または 1.01 Å（窒素）の位置に置きます。ORCA は `QMAtoms` と `ORCAFF.prms` からキャップを自分で作り、入力には推定したキャップの位置をコメントとしてだけ書きます。
+Gaussian では、切った QM–MM 結合ごとに MM 原子をリンク水素に置き換えます。`--link-atom-method scaled`（デフォルト）は Morokuma/Dapprich の g-factor で位置を決め、`fixed` は QM 原子から 1.09 Å（QM 原子が炭素）または 1.01 Å（窒素）の位置に置きます。ORCA は `QMAtoms` と `ORCAFF.prms` からキャップを自分で作り、入力には推定したキャップの位置をコメントとしてだけ書きます。
 4. **入力の書き出し**:
 Gaussian の入力には、route の `#p oniom(<method>:amber=softonly)`、可動フラグ（`0` は可動、`-1` は固定）と層（`H` か `L`）つきの座標、結合の情報、Amber パラメータを書きます。電荷と多重度の行は 3 組で、系全体（トポロジーの総電荷と `-m`）、続いて QM 領域を 2 回（`-q` と `-m`）です。ORCA の入力には、`! <method>` と `! QMMM`、`ORCAFFFilename`・`QMAtoms`・`ActiveAtoms`・`Charge_Total`・`Mult_Total` を含む `%qmmm` ブロック、QM 領域の電荷と多重度（`-q`、`-m`）つきの `* xyz` の座標を書きます。ORCA モードでは `ORCAFF.prms` を探すか作ります。`%qmmm` のキーワードは [ORCA 6.0 マニュアル（QM/MM）](https://www.faccts.de/docs/orca/6.0/manual/contents/typical/qmmm.html) にあります。
 

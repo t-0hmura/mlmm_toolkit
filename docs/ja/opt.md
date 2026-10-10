@@ -60,10 +60,10 @@ mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ## 処理の仕組みと計算仕様
 
-1. **ML/MM の系の組み立て**: `-i` から全系の構造を、`--parm7` から Amber のトポロジーを、`--model-pdb` から ML 領域を読みます。残りの原子は {ref}`可動 MM 原子か凍結 MM 原子 <ja-mlmm-options>` になります。`-q` と `-m` は ML 領域の電荷とスピン多重度です。`--freeze-atoms` でほかの原子も凍結できます。
+1. **ML/MM の系の組み立て**: `-i` から全系の構造を、`--parm7` から Amber のトポロジーを、`--model-pdb` から ML 領域を読みます。残りの原子は {ref}`可動 MM 原子か固定 MM 原子 <ja-mlmm-options>` になります。`-q` と `-m` は ML 領域の電荷とスピン多重度です。`--freeze-atoms` でほかの原子も固定できます。
 2. **最適化法の選択**（`--opt-mode`）: `grad`（別名 `lbfgs`）は勾配だけを使う **L-BFGS** を実行します。`hess`（別名 `rfo`）は **RFO** を実行し、厳密な Hessian から始めて TS-BFGS 式で更新し（YAML の [`rfo.hessian_update`](yaml-reference.md#rfo) のデフォルト）、500 サイクルごとに計算し直します。`hess` のマイクロイテレーションでは、ML 原子とリンク原子の MM 側の親原子を動かす RFO の 1 ステップと、ほかの可動 MM 原子を MM の力だけで動かす L-BFGS の緩和とを交互に行います。Gaussian のマイクロイテレーションと同じ方式です。
 3. **距離拘束の追加**（`--distance-restraint`）: `(i, j, target)` のそれぞれが、力の定数 `--restraint-k`（eV·Å⁻²）の調和項を加え、原子 i と j の距離を `target`（Å）へ引き寄せます。`(i, j)` は最初の距離を保ちます。番号は 1 始まりで、`--zero-based` を付けると 0 始まりになります。
-4. **最小化**: 収束条件を満たすか `--max-cycles` に達するまで構造を動かします。デフォルトの `--thresh gau` は、力の最大値が 4.5 × 10⁻⁴、RMS が 3.0 × 10⁻⁴ hartree/bohr 未満、ステップの最大値が 1.8 × 10⁻³、RMS が 1.2 × 10⁻³ bohr 未満を求め、Gaussian の既定と同じ条件です。
+4. **最小化**: 収束条件を満たすか `--max-cycles` に達するまで構造を動かします。デフォルトの `--thresh gau` は、力の最大値が 4.5 × 10⁻⁴、RMS が 3.0 × 10⁻⁴ hartree/bohr 未満、ステップの最大値が 1.8 × 10⁻³、RMS が 1.2 × 10⁻³ bohr 未満を求め、Gaussian のデフォルトと同じ条件です。
 5. **`--flatten` による虚振動の除去**: 最適化の後に Hessian を計算し、すべての虚振動モード（ν < −5.00 cm⁻¹）に沿って構造を 0.10 Å ずらして最適化し直します。虚振動が無くなるか 50 回に達するまで繰り返します。`--flatten` では、各回の後に端末の `[Imaginary modes] n=…` の行に n_imag が出て、最後の回の後にも虚振動が残ると `[flatten] WARNING: Remaining imaginary modes after the flatten loop: N` が出ます。
 
 ---
@@ -127,10 +127,10 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 | `--coord-type` | `cart` / `redund` / `dlc` / `tric` | `cart` | 最適化の座標系。ML/MM では `cart` のままにする |
 | `--dump/--no-dump` | フラグ | `False` | 軌跡 `optimization_trj.xyz` と `optimization_all_trj.xyz` を書き出す |
 | `--distance-restraint` | 文字列 | `None` | 調和の距離拘束。直接書く（`'[(i,j,target_Å),...]'`）か、YAML/JSON ファイルで指定。`(i,j)` は最初の距離を保つ |
-| `--restraint-k` | 実数 | `300` | 距離拘束の力の定数（eV·Å⁻²） |
+| `--restraint-k` | 浮動小数点数 | `300` | 距離拘束の力の定数（eV·Å⁻²） |
 | `--one-based/--zero-based` | フラグ | `--one-based` | `--distance-restraint` の番号を 1 から数えるか 0 から数えるか |
-| `--freeze-atoms` | 文字列 | `None` | 凍結する原子（1 始まり、カンマ区切り: 例 `'1,3,5'`） |
-| `--hessian-cutoff` | 実数 | `None` | ML 領域からこの距離（Å）以内の可動 MM 原子だけを Hessian に入れる。デフォルトでは可動 MM 原子すべて |
+| `--freeze-atoms` | 文字列 | `None` | 固定する原子（1 始まり、カンマ区切り: 例 `'1,3,5'`） |
+| `--hessian-cutoff` | 浮動小数点数 | `None` | ML 領域からこの距離（Å）以内の可動 MM 原子だけを Hessian に入れる。デフォルトでは可動 MM 原子すべて |
 | `--flatten/--no-flatten` | フラグ | `False` | 最適化の後に虚振動を除く |
 | `--reject-uphill/--no-reject-uphill` | フラグ | `False` | `hess` で、エネルギーが 1e-4 hartree を超えて上がる RFO のステップを捨て、信頼半径を縮める |
 | `--stop-plateau/--no-stop-plateau` | フラグ | `False` | エネルギーが変わらなくなったら（直近 50 サイクルの幅が 1e-4 hartree 未満）止め、`stalled` と報告 |
@@ -156,15 +156,15 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 
 ## 使用上の注意点
 
-* **マイクロイテレーション**: `--distance-restraint` があると通常の RFO を、`--embedcharge` では標準の最適化を使います。MM だけのステップには電荷埋め込みの力が入らないためです。MM の緩和は `--thresh` と同じプリセットで収束を判定します。別のプリセットは YAML の `microiter.micro_thresh` で指定できます。
-* **`--mm-only` は `grad` だけ**: `--opt-mode hess` と組み合わせるとエラーで止まります（終了コード 2）。可動 MM 層と凍結 MM 層の区別はそのまま使います。
+* **マイクロイテレーション**: `--distance-restraint` か `--embedcharge` を付けると、マイクロイテレーションを使わない RFO になります（`--embedcharge` では、MM だけのステップに電荷埋め込みの力が入らないため）。MM の緩和は `--thresh` と同じプリセットで収束を判定します。別のプリセットは YAML の `microiter.micro_thresh` で指定できます。
+* **`--mm-only` は `grad` だけ**: `--opt-mode hess` と組み合わせるとエラーで止まります（終了コード 2）。可動 MM 層と固定 MM 層の区別はそのまま使います。
 * **プラトーでの停止**: `--stop-plateau` は、力のノイズで力の収束条件に届かないときにサイクルを節約できますが、エネルギーが平坦であることは停留点の証拠になりません。実質的な上限は `--max-cycles` です。マイクロイテレーションの MM の緩和はこの判定では止めません。エネルギーの幅とサイクル数は `--stop-plateau-thresh` と `--stop-plateau-window` で指定できます。
 * **拘束の強さ**: デフォルトの力の定数 300 eV·Å⁻² は距離を強く保ちます。実行例の 20 eV·Å⁻² は、目標の距離へゆるやかに導きます。
 * **`--reject-uphill` は `hess` だけで有効**: `grad`（L-BFGS）では無視されます。
 * **1 回に 1 構造**: `-i` には 1 つの構造を指定します。`.xyz` の入力には、原子の順と層を与える `--ref-pdb` が要ります。軌跡からは、使うフレームを先に `.xyz` に切り出してください。
 * **`--flatten` はほぼ収束した構造に使う**: 虚振動が 25 本を超えると、`opt` は虚振動の除去を飛ばして警告を出します。先に構造を最適化してから、`--flatten` を付けて実行し直してください。
-* **凍結原子があるときの剛体運動**: `--flatten` は、剛体運動を [`freq`](freq.md#凍結境界での剛体モード) と同じように扱い、`result.json` の `rigid_projection` に記録します。
-* **凍結原子と拘束の全体**: 凍結する原子や拘束の選び方は、{ref}`原子の固定と距離の拘束 <ja-freeze-atoms-and-restraints>` を参照してください。
+* **固定原子があるときの剛体運動**: `--flatten` は、剛体運動を [`freq`](freq.md#固定境界での剛体モード) と同じように扱い、`result.json` の `rigid_projection` に記録します。
+* **固定原子と拘束の全体**: 固定する原子や拘束の選び方は、{ref}`原子の固定と距離の拘束 <ja-freeze-atoms-and-restraints>` を参照してください。
 * **オプティマイザの状態の書き出し**: `--dump` を付け、YAML の `opt.dump_restart` に正の整数 N を指定すると、N サイクルごとに `restart_NNN.yaml` を書きます。mlmm-toolkit はこのファイルを読み戻さないので、止まった計算は final geometry から `opt` をやり直してください。
 * **モデルと精度**: `--backend-model` でバックエンドのモデルを、`--precision` で精度を選べます。詳しくは自動生成のオプションの一覧（英語のみ）を参照してください。
 

@@ -124,7 +124,7 @@ mlmm opt -i complex.pdb --parm7 complex.parm7 -q 0 -m 1 -b uma -o result_opt
 ```
 
 When `-i` is XYZ, also pass the full-system PDB or mmCIF to `--ref-pdb`; it
-supplies the atom order and residue context and nothing else. To change
+supplies the atom order, the residue context, and the B-factor layers. To change
 layers, run `mlmm define-layer` ([define-layer](../mlmm-cli/define-layer.md));
 a one-residue edit is in [formats.md](formats.md#amber-parm7-and-rst7). Which
 atoms belong in the ML region and in each layer is in
@@ -279,7 +279,7 @@ state, ask rather than defaulting a metal or radical model to `-q 0 -m 1`.
 - Fewer Movable-MM atoms: a shorter `--movable-cutoff`.
 - ML-only Hessian in `freq` and `tsopt`: `--hessian-cutoff 0.0 --active-dof-mode ml-only`. Their analysis covers ML and all Movable-MM by default (`partial`), so a narrower `--hessian-cutoff` alone stops the run. `all` has no `--hessian-cutoff`.
 - Microiteration, on by default in `tsopt` and `opt --opt-mode hess`, relaxes MM on the force field alone between ML steps, saving MLIP calls.
-- Pitfalls: `--movable-cutoff` replaces the B-factor MM layers; in `opt`, `tsopt`, `freq`, `path-opt`, and `path-search` it also turns off `--detect-layer`, so pass `--model-pdb`.
+- Pitfalls: `--movable-cutoff` replaces the B-factor MM layers; in every calculation command that takes it, it also turns off `--detect-layer`, so pass `--model-pdb`.
 
 ## Enlarge when the model is too small
 

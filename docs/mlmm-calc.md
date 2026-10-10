@@ -34,7 +34,7 @@ The full system is evaluated with MM, the ML region is evaluated at both the hig
 
 ## Layering for Hessian / optimization
 
-Each atom belongs to one of three layers (ML, movable MM, or frozen MM), read from the B-factors of the input PDB ({ref}`Building the ML region and layers › The MM layers <mm-layers>`). Two further settings decide which MM atoms enter the Hessian and which MM atoms move:
+Each atom belongs to one of three layers (ML, Movable-MM, or Frozen-MM), read from the B-factors of the input PDB ({ref}`Building the ML region and layers › The MM layers <mm-layers>`). Two further settings decide which MM atoms enter the Hessian and which MM atoms move:
 
 - **Hessian-target MM** (no B-factor of its own): the movable MM atoms whose Hessian rows and columns are computed. By default every movable MM atom is included. `--hessian-cutoff` keeps only the movable MM atoms within that distance (Å) of the ML region.
 - **Movable MM by distance**: `--movable-cutoff` makes the MM atoms within that distance (Å) of the ML region movable and freezes the rest, in place of the B-factor layers.
@@ -93,7 +93,7 @@ With the scaled (g-factor) link atom, `r_L = (1−g)·r_QM + g·r_MM` ties the l
 - **`hessian_ff`** (default): a CPU-only MM engine for Amber parm7 force fields, bundled with mlmm-toolkit. It evaluates the bond, angle, dihedral, improper, Lennard-Jones, electrostatic, and CMAP terms, and it can compute the MM Hessian analytically. The MM Hessian uses finite differences by default (`calc.mm_fd: true`); `calc.mm_fd: false` switches to the analytical `hessian_ff` Hessian. Its C++ kernels are built automatically on first use and need a [C++20 compiler](installation.md). Running MM on the CPU leaves the GPU memory to the ML region.
 - **`openmm`**: OpenMM on the CPU or CUDA, with a finite-difference Hessian. Use it for force fields that `hessian_ff` does not cover, or when OpenMM is already part of your workflow. YAML examples for `mm_backend` and `mm_device` and the VRAM trade-offs are in [Device Configuration & HPC Setup](device-hpc.md).
 
-When only part of the system is active, the Hessian blocks of the active atoms can be expanded to the full Cartesian shape with the frozen rows and columns filled with zeros (`return_partial_hessian`).
+When only part of the system is active, the Hessian blocks of the active atoms can be expanded to the full Cartesian shape with the frozen rows and columns filled with zeros (`return_partial_hessian=False`).
 
 ### ML Hessian
 
@@ -108,9 +108,9 @@ The combined Hessian is assembled in float64 by default (`calc.H_double: true`).
 
 CMAP (Cross-Map backbone dihedral correction) is a 5-atom torsion correction term used by force fields such as ff19SB. The REAL and MODEL MM calculations must use the same CMAP policy in the subtractive expression.
 
-| Region | E_MM(real) | E_MM(model) | ONIOM net effect |
+| Setting | E_MM(real) | E_MM(model) | ONIOM net effect |
 |--------|-----------|------------|-----------------|
-| `use_cmap: true` (default) | CMAP included when present | CMAP included when present | Complete model-internal CMAP cancels; boundary terms remain in the low-level coupling |
+| `use_cmap: true` (default) | CMAP included when present | CMAP included when present | Complete model-internal CMAP cancels; boundary terms remain at the MM (low) level |
 | `use_cmap: false` | CMAP excluded | CMAP excluded | Explicit modified-force-field calculation without CMAP |
 
 In the ff19SB force field of [Tian et al. (2020)](https://doi.org/10.1021/acs.jctc.9b00591), CMAP replaces the corresponding zeroed backbone cosine terms, so preserving it is the force-field-faithful default. `use_cmap: false` (CLI `--no-cmap`) removes CMAP from both MM layers.
@@ -267,7 +267,6 @@ forces = geom.forces            # Hartree/Bohr (flat)
 ## Notes
 
 - `--hessian-calc-mode Analytical` stops with an error when the selected backend, or its installed version, has no analytical Hessian. The calculator does not switch to finite differences on its own.
-- `use_cmap: false` (`--no-cmap`) is not an ff19SB-compatible setting; it removes CMAP from both MM layers.
 - Microiteration is turned off when `--embedcharge` is on, because the MM-only micro steps would leave out the embedding forces; the optimizer then moves the ML and MM atoms together.
 - The fixed link-atom placement supports only C and N parents on the ML side.
 - With the default `return_partial_hessian=True`, `compute()` returns the Hessian of the Hessian-target atoms only, as a 4D array `(n_active, 3, n_active, 3)`. Use `within_partial_hessian` to map it back to the full system.

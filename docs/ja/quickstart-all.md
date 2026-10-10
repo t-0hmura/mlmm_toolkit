@@ -62,7 +62,7 @@ result_all/
 
 ## 結果の確認
 
-1. **完了状況**: `scientific_status` には、求めた段がすべて収束すると `success`、そうでなければ `partial` か `failed` が入り、[理由](json-output.md#実行と要求段階の完了状況)は `scientific_status_reasons` に出ます。`--tsopt` のとき、虚振動のモードができる結合と切れる結合を動かすかと、端点が狙った R と P かの 2 つは自分で確かめてください。
+1. **完了状況**: `scientific_status` には、指定した段がすべて収束すると `success`、そうでなければ `partial` か `failed` が入り、[理由](json-output.md#実行の完了と指定した段の完了)は `scientific_status_reasons` に出ます。`--tsopt` のとき、虚振動のモードが、できる結合と切れる結合を動かしているかと、端点が狙った R と P かの 2 点は自分で確かめてください。
 2. **TS の候補**: 最初のセグメントの HEI `_work/path_opt/hei_seg_01.pdb` を開きます。層を B-factor に持つ全系の PDB です。`--tsopt` のときは、最適化した TS の `segments/seg_01/ts.pdb` も開きます。
 3. **エネルギープロファイル**: `energy_diagram_MEP.png` で、R と P の間にはっきりした障壁があるかを確かめます。
 4. **TS（`--tsopt` のとき）**: TS 最適化が成功すると、反応モードの虚振動が 1 つ出ます。このとき端末に `[microiter] Converged!` が出て、続いて `[Imaginary modes] n=1 (...)` の括弧の中に虚振動の波数（cm⁻¹）が出ます。`segments/seg_01/ts/vib/imag_*_trj.xyz` をビューアで開き、できる結合と切れる結合に沿って原子が動くかを確認してください。
@@ -75,7 +75,7 @@ result_all/
 * **準備の結果の再利用**: `mm_parm/1.R.parm7` を `--parm7` で、`ml_region.pdb` を `--model-pdb` で次の実行や個別のコマンドに渡すと、トポロジーを組み直さずに同じ系を計算できます。
 * **DFT と GPU のメモリ**: `--dft` には、{ref}`詳細なインストール手順 <ja-step-by-step-installation>` の手順 7 で入れる DFT 用の追加パッケージが要ります。GPU メモリについては [MLIP の TS を DFT で確かめる](dft-backend.md#使用上の注意点) の使用上の注意点を参照してください。
 * **`summary.json` の障壁**: `segments[].barrier_kcal` は TS 最適化の前の、MEP の上の障壁です。`--tsopt` を付けると、最適化した TS と端点から求めた ML/MM の障壁が `post_segments[].mlip.barrier_kcal` に入り、`--thermo` で `post_segments[].gibbs_mlip.barrier_kcal`、`--dft` で `post_segments[].dft.barrier_kcal` が加わります。`rate_limiting_step.barrier_kcal` は、すべてのセグメントにそろっている最も高いレベル（`DFT//MLIP/MM_Gibbs` > `DFT` > `MLIP_Gibbs` > `MLIP` > `MEP`）で比べた、最も高い障壁です。使ったレベルは `rate_limiting_step.method` に入ります。
-* **実行時間**: 系の大きさ、ML 領域の大きさ、GPU、求めた段によって変わります。
+* **実行時間**: 系の大きさ、ML 領域の大きさ、GPU、指定した段によって変わります。
 
 ## 次のステップ
 

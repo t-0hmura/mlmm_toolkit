@@ -45,6 +45,7 @@ nvidia-smi -L >/dev/null     || { echo "no GPU visible"; exit 1; }
 # Conda env (<YOUR_ENV> from backends.md, Probe the compute environment)
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate <YOUR_ENV>
+python -c "import sys, torch; ok=torch.cuda.is_available(); print('cuda:', ok, 'device:', torch.cuda.get_device_name(0) if ok else 'unavailable'); sys.exit(0 if ok else 2)"
 command -v g++ >/dev/null || { echo "g++ is required for hessian_ff" >&2; exit 1; }
 if ! g++ -std=c++20 -x c++ -fsyntax-only /dev/null; then
     echo "hessian_ff requires a compiler supporting PyTorch's C++20 JIT flag" >&2
@@ -62,8 +63,9 @@ mlmm all -i 1.R.pdb 3.P.pdb \
 ```
 
 PBSPro syntax differs slightly (`#PBS -l select=1:ncpus=<NCPU>:ngpus=<NGPU>:mem=<MEM>gb`).
-Both are accepted by most modern Torque + PBSPro installations; check
-`man qsub` on your cluster.
+Torque and PBSPro resource syntax is not interchangeable. Select the syntax
+shown by working jobs or `man qsub` on the target cluster; do not put both forms
+in one script.
 
 ## SLURM preamble template
 
@@ -83,11 +85,12 @@ set -euo pipefail
 cd "${SLURM_SUBMIT_DIR}"
 # Preflight: confirm conda + GPU before launching
 command -v conda >/dev/null || { echo "ERROR: conda not on PATH"; exit 1; }
-command -v nvidia-smi >/dev/null && nvidia-smi -L || echo "WARN: nvidia-smi not found; continuing"
+nvidia-smi -L >/dev/null || { echo "ERROR: no GPU visible"; exit 1; }
 # Prebuilt wheels need no CUDA toolkit module. hessian_ff needs a C++20-capable compiler;
 # load <COMPILER_MODULE> here if the system g++ is missing or too old.
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate <YOUR_ENV>
+python -c "import sys, torch; ok=torch.cuda.is_available(); print('cuda:', ok, 'device:', torch.cuda.get_device_name(0) if ok else 'unavailable'); sys.exit(0 if ok else 2)"
 command -v g++ >/dev/null || { echo "g++ is required for hessian_ff" >&2; exit 1; }
 if ! g++ -std=c++20 -x c++ -fsyntax-only /dev/null; then
     echo "hessian_ff requires a compiler supporting PyTorch's C++20 JIT flag" >&2
@@ -153,8 +156,10 @@ Before cancellation, inspect the owner, name, and state, then cancel the
 specific job ID:
 
 ```bash
-qstat -f <jobid> && qdel <jobid>
-scontrol show job <jobid> && scancel <jobid>
+qstat -f <jobid>                 # check the owner, name, and state
+qdel <jobid>                     # only after the check
+scontrol show job <jobid>        # check the owner, name, and state
+scancel <jobid>                  # only after the check
 ```
 
 Do not derive cancellation IDs from an unreviewed bulk pipeline; a broad
@@ -165,7 +170,7 @@ filter can cancel an unrelated job in the same account.
 - Run one real job of the batch first and read its log; submit the rest only after it passes.
 - Check the plan without computing: `mlmm all ... --dry-run` runs the preparation and the charge and electron-parity checks, prints the plan, and skips the calculations; `mlmm sp ... --show-config` prints the merged configuration and exits.
 - Before `qsub` / `sbatch`, check that no job with the same name is queued; afterwards, confirm that exactly one was created.
-- Judge success from what the job wrote, not from the job leaving the queue. Write the exit code to a file from the job script (`trap 'echo "rc=$?" > "$PBS_O_WORKDIR/$PBS_JOBID.exit"' EXIT`) and set no second EXIT trap after it. A walltime kill skips the trap, so with no exit file, read the scheduler history (`qstat -x -f <jobid>` on PBSPro, `sacct -j <jobid>` on SLURM).
+- Judge success from what the job wrote, not from the job leaving the queue. Write the exit code to a file from the job script (`trap 'echo "rc=$?" > "$PBS_O_WORKDIR/$PBS_JOBID.exit"' EXIT`; on SLURM, `$SLURM_SUBMIT_DIR/$SLURM_JOB_ID.exit`) and set no second EXIT trap after it. A walltime kill skips the trap, so with no exit file, read the scheduler history (`qstat -x -f <jobid>` on PBSPro, `sacct -j <jobid>` on SLURM).
 - Keep heavy I/O and per-job environments on node-local scratch (`$TMPDIR`, or `/var/tmp/$PBS_JOBID`). Stop when the job ID is empty, and remove only that job's directory at the end.
 - Throttle large copies to a shared file system (`rsync --bwlimit=...`); many concurrent writes can fail with I/O errors on some NFS servers.
 
@@ -197,9 +202,21 @@ UMA worker pool.
 ### Fan-out (one job per task)
 
 ```bash
-for ts in seg_*.pdb; do
-    jobid=$(qsub -v TS="$ts" generic_dft.sh)
-    echo "submitted $ts as $jobid"
+shopt -s nullglob
+tasks=(seg_*.pdb)
+(( ${#tasks[@]} > 0 )) || { echo "No seg_*.pdb inputs; submitting nothing." >&2; exit 2; }
+MAX_SUBMIT=${MAX_SUBMIT:-100}
+(( ${#tasks[@]} <= MAX_SUBMIT )) || {
+    echo "Refusing ${#tasks[@]} submissions (MAX_SUBMIT=$MAX_SUBMIT)." >&2
+    exit 2
+}
+for ts in "${tasks[@]}"; do
+    if jobid=$(qsub -v TS="$ts" generic_dft.sh); then
+        echo "submitted $ts as $jobid"
+    else
+        echo "qsub failed for $ts; stopping fan-out." >&2
+        exit 2
+    fi
 done
 ```
 
@@ -222,7 +239,7 @@ shared list with file-lock-protected counter increment.
 | `OMP_NUM_THREADS=<NCPU>` | Limit OpenMP threads (avoid oversubscription) |
 | `MKL_NUM_THREADS=<NCPU>` | Intel MKL thread cap |
 | `CUPY_CACHE_DIR`, `CUDA_CACHE_PATH` | Put the CuPy and CUDA kernel caches in a work directory when the home directory has a file-count quota |
-| `LD_LIBRARY_PATH=<torch lib>:...` | Override system CUDA libs (see backends.md, CUDA and PyTorch) |
+| `LD_LIBRARY_PATH` | Leave unchanged for prebuilt wheels unless a diagnosed site-specific module/build requires it; see [`backends.md`](../mlmm-install/backends.md#cuda-and-pytorch) |
 
 ## ssh-based remote submission
 

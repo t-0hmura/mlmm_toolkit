@@ -52,10 +52,10 @@ Settings apply in the order built-in defaults < `--config` YAML < explicit CLI o
 
 ## Cross-cutting pitfalls
 
-- **Wrong charge**: check it before a long job. `extract` prints `Total active site model charge`, and `all --dry-run` runs the preparation and the charge and electron-parity checks in a temporary directory, prints the plan, and skips the calculations. `scan`, `scan2d`, and `scan3d` do not accept `--show-config`. With `--model-indices`, the charge cannot be derived from `-l`; give `-q`.
+- **Wrong charge**: check it before a long job. `extract` prints `Total active site model charge`, and `all --dry-run` runs the preparation and the charge and electron-parity checks in a temporary directory, prints the plan, and skips the calculations. With `--model-indices`, the charge cannot be derived from `-l`; give `-q`.
 - **Default backend**: without `-b`, the run uses `uma`. Spell the backend out for production runs.
 - **YAML ignored**: explicit CLI values override `--config`; options left at their CLI default do not mask YAML values.
-- **Scan literals**: `-s/--scan-lists` takes Python literals. Quote each with single quotes outside and double quotes inside, and watch space- vs backtick-separated atom specs.
+- **Scan literals**: `-s/--scan-lists` takes Python literals. Quote each with single quotes outside and double quotes inside; backticks in atom specs are safe only inside the outer single quotes.
 - **Hidden options**: an option missing from `--help` may be listed by `--help-advanced`.
 - **Out of memory on a Hessian**: narrow the Hessian region with `--hessian-cutoff` (`opt`, `tsopt`, `freq`, `sp`), and keep the default `FiniteDifference` unless a pilot shows `Analytical` is better.
 - **`--uma-workers` above 1 with `--hessian-calc-mode Analytical`**: this stops with an error. Use one worker for an analytical Hessian, or `FiniteDifference` with several workers.
@@ -64,7 +64,7 @@ Settings apply in the order built-in defaults < `--config` YAML < explicit CLI o
 ## Where flags and defaults live
 
 - `mlmm <subcommand> --help-advanced` lists every option with its default; the generated reference is `docs/reference/commands/`.
-- `--show-config` prints the YAML given with `--config` and its top-level keys, then continues; `all` and `path-search` print the settings after merging defaults, YAML, and CLI, and `sp` prints its merged config and exits.
+- `--show-config` prints the YAML given with `--config` and its top-level keys, then continues; `all` and `path-search` print the settings after merging defaults, YAML, and CLI, and `sp` prints its merged config and exits. `scan`, `scan2d`, and `scan3d` do not accept `--show-config`.
 - `mlmm.core.defaults` holds the built-in defaults, for example `python -c "import mlmm.core.defaults as d; print(d.IRC_KW)"`.
 
 ## See also

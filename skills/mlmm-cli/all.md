@@ -19,15 +19,15 @@ stages one by one ([overview](../mlmm-overview/SKILL.md#run-stage-by-stage)).
 
 | Input | Mode (`Pipeline mode` in `summary.log`) | Page |
 |---|---|---|
-| Two or more structures in reaction order | Multi-structure MEP search (`MEP`) | [all-endpoint-mep.md](all-endpoint-mep.md) |
-| One structure with `-s` | Single structure + scan (`Scan`) | [all-scan-list.md](all-scan-list.md) |
+| Two or more structures in reaction order | Endpoint mode (`MEP`) | [all-endpoint-mep.md](all-endpoint-mep.md) |
+| One structure with `-s` | Scan-list mode (`Scan`) | [all-scan-list.md](all-scan-list.md) |
 | One structure with `--tsopt` and no `-s` | TS-only mode (`TS-only`) | [all-ts-only.md](all-ts-only.md) |
 
 One structure without `-s` or `--tsopt` stops with `BadParameter` ("Provide at
 least two structures with -i/--input in reaction order, or use one structure
 with --scan-lists or --tsopt."). `-s` with two or more structures also stops
 ("--scan-lists requires exactly one input structure"). One structure with both
-`-s` and `--tsopt` runs the scan mode.
+`-s` and `--tsopt` runs Scan-list mode.
 
 ## Minimal run
 

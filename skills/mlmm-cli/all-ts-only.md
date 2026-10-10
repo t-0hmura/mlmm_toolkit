@@ -13,8 +13,8 @@ Use it when you already have a TS candidate (from another QM code, an earlier
 run such as `result_all/_work/path_opt/hei_seg_01.pdb`, or a manual guess) and
 want only the validation stages, without an MEP search.
 
-Without a TS candidate, use the [Multi-structure MEP search](all-endpoint-mep.md)
-or [Single structure + scan](all-scan-list.md) mode, or `path-search`
+Without a TS candidate, use [Endpoint mode](all-endpoint-mep.md)
+or [Scan-list mode](all-scan-list.md), or `path-search`
 ([path.md](path.md)). If you suspect the candidate does not sit between the
 right reactant and product, find the connectivity with `path-search` first.
 
@@ -46,7 +46,7 @@ given residues; without it, it comes from the B-factor layers or `--model-pdb`.
 there is no flag that forces it, and `summary.log` shows `Pipeline mode` as
 `TS-only`. After the preparation, the MEP search is skipped and the run starts
 at the TS optimization. One input without `-s` or `--tsopt` stops with
-`BadParameter`. One input with both `-s` and `--tsopt` runs the scan mode.
+`BadParameter`. One input with both `-s` and `--tsopt` runs Scan-list mode.
 
 IRC starts only when the TS optimization converged, its final Hessian was
 computed, and n_imag ≥ 1. With n_imag ≥ 2, IRC runs with a warning as a
@@ -91,9 +91,11 @@ print(irc["energy_first_hartree"], irc["energy_ts_hartree"], irc["energy_last_ha
 For finer control, check the TS before running the next commands:
 
 ```bash
-mlmm tsopt -i ts.xyz --parm7 enzyme.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 -o result_tsopt -b uma
-mlmm irc   -i result_tsopt/final_geometry.xyz --parm7 enzyme.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 -o result_irc -b uma
-mlmm freq  -i result_tsopt/final_geometry.xyz --parm7 enzyme.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 -o result_freq -b uma
+mlmm tsopt -i ts.xyz --parm7 enzyme.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 --out-json -o result_tsopt -b uma
+mlmm irc   -i result_tsopt/final_geometry.xyz --parm7 enzyme.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 --out-json -o result_irc -b uma
+mlmm opt   -i result_irc/forward_first.xyz --parm7 enzyme.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 --out-json -o result_end_forward -b uma
+mlmm opt   -i result_irc/backward_last.xyz --parm7 enzyme.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 --out-json -o result_end_backward -b uma
+mlmm freq  -i result_tsopt/final_geometry.xyz --parm7 enzyme.parm7 --ref-pdb enzyme_layered.pdb -q -1 -m 1 --out-json -o result_freq -b uma
 ```
 
 ## Outputs

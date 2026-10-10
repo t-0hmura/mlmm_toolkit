@@ -21,7 +21,6 @@ Write the TS candidate from `mlmm tsopt` as a Gaussian ONIOM input. Here `result
 ```bash
 mlmm oniom-export --mode g16 --parm7 real.parm7 -i result_tsopt/final_geometry.pdb \
     --model-pdb ml_region.pdb -o ts_refine.com -q 0 -m 1
-g16 < ts_refine.com > ts_refine.log
 ```
 
 The console prints `[oniom-gaussian] Wrote 'ts_refine.com'` followed by the numbers of QM atoms, movable atoms, and link boundaries.

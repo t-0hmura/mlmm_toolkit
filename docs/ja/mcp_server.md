@@ -1,6 +1,6 @@
 # mlmm MCP サーバー
 
-AI エージェントから MCP（Model Context Protocol）で mlmm-toolkit の 22 個のツールを呼ぶための、インストール、ツールの一覧、クライアントの設定をまとめたページです。サーバー `mlmm-mcp` は stdio 上の JSON-RPC でやりとりするので、[MCP](https://modelcontextprotocol.io/) に対応したどのクライアントからも使えます。Claude Desktop、Claude Code、Cursor、Codeium のほか、公式の Python や TypeScript の MCP SDK で作ったエージェントからも使えます。
+AI エージェントから MCP（Model Context Protocol）で mlmm-toolkit の 22 個のツールを呼ぶための、インストール、ツールの一覧、クライアントの設定をまとめたページです。サーバー `mlmm-mcp` は stdio 上の JSON-RPC でやりとりするので、[MCP](https://modelcontextprotocol.io/) に対応したどのクライアントからも使えます（Claude Desktop、Claude Code、Cursor、Codeium、公式の Python・TypeScript の MCP SDK で作ったエージェントなど）。
 
 ## インストール
 
@@ -8,7 +8,7 @@ AI エージェントから MCP（Model Context Protocol）で mlmm-toolkit の 
 pip install "mlmm-toolkit[mcp]"
 ```
 
-これにより `mcp[cli]` 依存関係が追加され、`mlmm-mcp` コンソールスクリプトが登録されます。
+依存の `mcp[cli]` が入り、コンソールスクリプト `mlmm-mcp` が使えるようになります。
 
 ## ツール
 
@@ -48,7 +48,7 @@ pip install "mlmm-toolkit[mcp]"
 | MCP ツール | 必須の引数 | CLI サブコマンド | 目的 |
 |---|---|---|---|
 | `prepare_amber_topology` | `input_pdb`, `output_prefix` | `mlmm mm-parm` | AmberTools で系全体の AMBER parm7/rst7 を作る |
-| `define_layer` | `input_pdb`, `output_pdb`、および `model_pdb` か `model_indices` | `mlmm define-layer` | ML / Movable-MM / Frozen の層を B-factor に書く |
+| `define_layer` | `input_pdb`, `output_pdb`、および `model_pdb` か `model_indices` | `mlmm define-layer` | ML / 可動 MM / 固定 MM の層を B-factor に書く |
 | `extract_pocket` | `complex_pdb`, `ligand_id`, `radius_angstrom`, `output_pdb` | `mlmm extract` | 活性部位モデル: `ligand_id`（`-c`）で指定した中心から `radius_angstrom` 以内の残基を切り出す |
 
 ### ステージランナー
@@ -168,7 +168,7 @@ asyncio.run(main())
 ## サンドボックス / 安全性に関する注意
 
 - 各ツールは、サーバーと同じ Python インタープリタで `mlmm`（`python -m mlmm`）をサブプロセスとして実行し、作業ディレクトリは呼び出した側のままです。このため入力の相対パスの意味は変わらず、`PATH` の前にある別の `mlmm` も使われません。
-- サーバーは呼び出した側の PATH、conda 環境、CUDA の設定、AmberTools のパスを引き継ぎます。`prepare_amber_topology` には PATH 上の AmberTools（antechamber、parmchk2、tleap）が必要です。opt / tsopt / irc / scan のような時間のかかるツールは CLI をサブプロセスで実行するので、呼び出しごとに `timeout_seconds` を設定し、止まらない計算を打ち切ってください（既定は時間制限なし）。
+- サーバーは呼び出した側の PATH、conda 環境、CUDA の設定、AmberTools のパスを引き継ぎます。`prepare_amber_topology` には PATH 上の AmberTools（antechamber、parmchk2、tleap）が必要です。opt / tsopt / irc / scan のような時間のかかるツールは CLI をサブプロセスで実行するので、呼び出しごとに `timeout_seconds` を設定し、止まらない計算を打ち切ってください（デフォルトは時間制限なし）。
 - ステージランナーとスキャン / 経路 / パイプラインのツールの出力は `out_dir` の下に置かれます。指定しないときは呼び出しごとに別の一時ディレクトリ（例: `mlmm_mcp_opt_…`）を使うので、同時の呼び出しがぶつかりません。
 - ほかのツールは `out_dir` を持たず、指定した出力パスに書きます。`extra_args` で CLI のフラグを追加できますが、型付きの出力パス、`--out-dir`、`--out-json/--no-out-json`、`detect_bond_changes` の `--json/--no-json` は、`--out-dir=…` のようにつなげた形も含めて上書きできず、そのような呼び出しは CLI を起動する前に拒否されます。コマンドに渡したパスは、返された `argv` ですべて確かめられます。
 - サーバーはファイルシステムのサンドボックスではなく、外部プログラムやモデルのキャッシュは `out_dir` の外にも書き込むことがあります。入力の構造、parm7、MLIP の重みは前もってディスクに置き、ファイルへのアクセスを限りたいときは、クライアント側のパス制限か OS / コンテナによる隔離を使ってください。

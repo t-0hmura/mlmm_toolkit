@@ -61,7 +61,7 @@ mlmm energy-diagram -i "[0, 12.5, 4.3]" \
 ```text
 energy_diagram.png   # 状態エネルギー図（デフォルト名。-o で指定）
 result.json          # execution_status、scientific_status、n_points、files（--out-json 指定時）
-summary.json         # result.json の写し。result.json を読む（--out-json 指定時）
+summary.json         # result.json と同じ内容（--out-json 指定時）
 ```
 
 `result.json` と `summary.json` は画像と同じディレクトリに書き出します。記録するのは点の数と画像のパスで、値とラベルは含みません。

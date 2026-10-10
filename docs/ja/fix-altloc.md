@@ -104,7 +104,7 @@ altLoc の状態ごとに原子が違う場合も、選んだラベルの原子�
 | `-o, --output` | パス | `None` | 出力ファイル（ファイル入力）またはディレクトリ（ディレクトリ入力）。省略時は `<input>_clean.pdb` または `<input>_clean/` |
 | `--recursive/--no-recursive` | フラグ | `False` | ディレクトリ入力で、サブディレクトリの `.pdb` も処理 |
 | `--inplace/--no-inplace` | フラグ | `False` | 入力ファイルを上書き（`.bak` のバックアップを作成） |
-| `--overwrite/--no-overwrite` | フラグ | `False` | 既存の出力ファイルの上書きを許可。無いときに出力がすでにあると `Output exists: <path> (use --overwrite to overwrite)` で止まる |
+| `--overwrite/--no-overwrite` | フラグ | `False` | 既存の出力ファイルの上書きを許可。付けないと、出力がすでにあるときに `Output exists: <path> (use --overwrite to overwrite)` で止まる |
 | `--force/--no-force` | フラグ | `False` | altLoc が見つからないファイルも処理 |
 
 全オプションは [自動生成のオプションの一覧（英語のみ）](../reference/commands/fix_altloc.md) を参照してください。
@@ -127,6 +127,6 @@ altLoc の状態ごとに原子が違う場合も、選んだラベルの原子�
 
 * [extract](extract.md) — PDB の読み込み時に同じ altLoc の規則を適用する活性部位モデルの抽出
 * [mm-parm](mm-parm.md) — 整理した PDB から Amber のトポロジーを作る
-* [add-elem-info](add-elem-info.md) — PDB の元素列（77–78 列）を埋める
+* [add-elem-info](add-elem-info.md) — PDB の元素欄（77–78 列）を埋める
 * [all](all.md) — 全工程のワークフロー
 * [トラブルシューティング](troubleshooting.md) — 実行に失敗したときの対処

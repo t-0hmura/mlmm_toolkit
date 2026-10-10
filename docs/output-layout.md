@@ -13,7 +13,7 @@ This page lists the main files that the commands write, the default output direc
 | `summary.log` | `path-search`, `all` | Text summary. The header gives `Scientific status`; the numbered sections give the barrier and bond changes of each segment and the output tree (see [all → Reading the run status](all.md#reading-the-run-status)). |
 | `final_geometry.xyz` / `final_geometry.pdb` | `opt`, `tsopt` | Optimized geometry, the structure to pass to the next command; also written when the optimization does not converge. The `.xyz` is always written; the `.pdb` is for PDB/mmCIF input and carries the layers in its B-factors. |
 | `mep_trj.pdb` / `mep_trj.cif` / `mep_trj.xyz` | `path-search` | Reaction path frames. The `.cif` is added for mmCIF or large-PDB input when file conversion is on. |
-| `final_geometries_trj.xyz` / `hei.xyz` | `path-opt` | Reaction path frames (all images) and the highest-energy image (HEI), with `.pdb` copies (`final_geometries.pdb`, `hei.pdb`) and `.cif` copies for mmCIF or large-PDB input when file conversion is on. |
+| `final_geometries_trj.xyz` / `hei.xyz` | `path-opt` | Reaction path frames (all images) and the highest-energy image (HEI). When file conversion is on, `.pdb` copies (`final_geometries.pdb`, `hei.pdb`) are added, plus `.cif` copies for mmCIF or large-PDB input. |
 | `mep_plot.png` / `energy_diagram_MEP.png` | `path-search` | Energy profile of the minimum energy path (MEP): `mep_plot.png` along the path, `energy_diagram_MEP.png` as a state-energy diagram. `all` places both at its root. |
 | `finished_irc_trj.xyz` / `forward_irc_trj.xyz` / `backward_irc_trj.xyz` | `irc` | IRC (intrinsic reaction coordinate) trajectories (full path plus each branch), with a `.pdb` copy when a reference topology is available and a `.cif` copy for mmCIF or large-PDB input. |
 | `forward_first.xyz` / `backward_last.xyz` | `irc` | Ends of the two branches: the endpoint candidates to optimize with [`opt`](opt.md). |
@@ -49,7 +49,7 @@ A standalone subcommand writes a flat `result_<subcmd>/` directory, without `seg
 
 - **`path-search` / `path-opt` are laid out differently.** Run standalone, they write the files in the table above to `result_path_search/` or `result_path_opt/`. Inside `all`, the MEP search runs `path-opt` by default and the recursive `path-search` with `--refine-path`; the raw output stays in `_work/path_opt/` or `_work/path_search/`, and only the MEP files (`mep_trj.*`, `mep_plot.png`, `energy_diagram_MEP.png`) are moved to the root.
 
-The `all` tree therefore has three zones. The tree below shows the main entries; [all → Output files](all.md#output-files) lists every file, including those inside `seg_NN/`, and the names of the energy diagrams:
+The `all` tree has three parts: the deliverables at the root, `segments/`, and `_work/`. The tree below shows the main entries; [all → Output files](all.md#output-files) lists every file, including those inside `seg_NN/`, and the names of the energy diagrams:
 
 ```text
 result_all/

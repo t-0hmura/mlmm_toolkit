@@ -1,6 +1,6 @@
 # `scan` (restrained coordinate scan)
 
-`scan` drives chosen distances, angles, or dihedrals of a layered enzyme structure step by step with harmonic restraints, relaxing every other degree of freedom with the ML/MM calculator at each step, and so builds a candidate reaction path from a single structure. The coordinates in one literal (or one YAML stage) move together as one **stage**; several literals run as stages in sequence, each starting from the relaxed end of the previous one.
+`scan` drives chosen distances, angles, or dihedrals of a layered enzyme structure step by step with harmonic restraints, relaxing every other degree of freedom with the ML/MM calculator at each step, and so builds a candidate reaction path from a single structure. The coordinates in one literal (or the distance targets of one YAML stage) move together as one **stage**; several literals run as stages in sequence, each starting from the relaxed end of the previous one.
 
 ---
 
@@ -9,7 +9,7 @@
 * **A path from one structure**: drive the reacting bonds of a reactant to get intermediate- and product-like structures for [`path-search`](path-search.md).
 * **Testing the order of events**: drive bond formation and proton transfer in one stage or in separate stages, and compare the energy profiles.
 * **Running the scan step of `all` on its own**: repeat the scan that [`all`](all.md) runs for `-s`, with other step sizes or restraints.
-* **Judging the result**: each stage reports whether covalent bonds formed or broke, and `result.json` gives `scientific_status`. See {ref}`Checking the result <scan-checking-result>`.
+* **Judging the result**: each stage reports whether covalent bonds formed or broke, and `result.json` gives `scientific_status`. See {ref}`Reading the result <scan-checking-result>`.
 
 The ML region uses **UMA** (Meta) by default; `-b/--backend` also selects **ORB**, **MACE**, **AIMNet2**, or DFT (`dft`). For an energy grid over two or three independent coordinates, use [`scan2d`](scan2d.md) or [`scan3d`](scan3d.md).
 
@@ -17,7 +17,7 @@ The ML region uses **UMA** (Meta) by default; `-b/--backend` also selects **ORB*
 
 ## Examples
 
-Here `pocket.pdb` contains the full system matching `real.parm7`, and `ml_region.pdb` selects its ML region without link hydrogens.
+Here `complex.pdb` contains the full system matching `real.parm7`, and `ml_region.pdb` selects its ML region without link hydrogens.
 
 The atoms are those of the bundled enzyme example (`examples/beza/1.R.pdb`), whose PDB has an empty chain column. Each atom is therefore written with three fields, residue name, residue number, and atom name, in any order and separated by commas or spaces.
 
@@ -33,7 +33,7 @@ stages:
 ```
 
 ```bash
-mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
+mlmm scan -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
     -s scan.yaml --out-json -o ./result_scan
 ```
 
@@ -44,7 +44,7 @@ For each stage the console prints `[stage k] Covalent-bond changes (start vs fin
 A short single-stage scan can be given on the command line.
 
 ```bash
-mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
+mlmm scan -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
     -s '[("SAM,320,CS1","GPP,321,C7",1.60)]'
 ```
 
@@ -53,7 +53,7 @@ mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
 Coordinates in the same literal move together (a concerted step).
 
 ```bash
-mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
+mlmm scan -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
     -s '[("CS1 SAM 320","GPP 321 C7",1.60),("GPP 321 H11","GLU 186 OE2",0.90)]' -o ./result_concerted
 ```
 
@@ -62,7 +62,7 @@ mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
 Give several literals after one `-s`; stage 2 starts from the relaxed result of stage 1.
 
 ```bash
-mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
+mlmm scan -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
     -s '[("SAM,320,CS1","GPP,321,C7",1.60)]' '[("GPP,321,H11","GLU,186,OE2",0.90)]' -o ./result_staged
 ```
 
@@ -71,7 +71,7 @@ mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
 A [4-tuple](#bidirectional-scan-4-tuple) scans one distance in both directions from the input geometry.
 
 ```bash
-mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
+mlmm scan -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
     -s '[(12, 45, 1.35, 2.50)]'
 ```
 
@@ -80,7 +80,7 @@ mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
 Add `--dump` to keep the optimizer trajectory of every step.
 
 ```bash
-mlmm scan -i pocket.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
+mlmm scan -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
     -s scan.yaml --dump -o ./result_scan_dump
 ```
 
@@ -110,11 +110,8 @@ Let T be the sum of the covalent radii of two atoms scaled by `bond_factor` (def
 
 ---
 
-(scan-direction-and-barrier-sign)=
-## Scan direction and barrier sign
-
 (scan-checking-result)=
-### Checking the result
+## Reading the result
 
 | Where | What to check |
 | --- | --- |
@@ -125,7 +122,10 @@ Let T be the sum of the covalent radii of two atoms scaled by `bond_factor` (def
 
 A `partial` run exits with 0 and a `failed` run with 1. See {ref}`Exit codes <exit-codes>`. A converged scan with the intended bond changes gives a candidate path; the highest-energy step is a TS candidate for [`tsopt`](tsopt.md), which you can {ref}`extract <trajectory-one-frame>` from `scan_trj.xyz`.
 
-### Barrier sign
+---
+
+(scan-direction-and-barrier-sign)=
+## Barrier sign
 
 `scan` records energies but does not report a barrier. If you read a barrier off a scan (or a path, or a TS candidate made from one) that **started from the product**, the difference from the starting structure is the **reverse** barrier, `E(TS) − E(product)`. The forward barrier is computed from the reactant:
 

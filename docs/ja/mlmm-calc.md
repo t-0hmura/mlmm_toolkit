@@ -2,7 +2,7 @@
 
 ML 領域を MLIP で、周りのタンパク質と溶媒を Amber の MM 力場で計算し、2 つを ONIOM の差し引きで合わせる計算機の仕組みと、Python から呼ぶ方法をまとめたページです。
 
-ML/MM の構造最適化、経路探索、スキャン、振動解析、IRC のコマンドは、すべてこの計算機を使います。ML 領域は `-b/--backend` で選んだバックエンドで計算します。選べるのは `uma`（既定）、`orb`、`mace`、`aimnet2`、DFT/MM の `dft` です。バックエンドごとのインストール、モデル名、設定は [MLIP バックエンド](backends.md)にあります。
+ML/MM の構造最適化、経路探索、スキャン、振動解析、IRC のコマンドは、すべてこの計算機を使います。ML 領域は `-b/--backend` で選んだバックエンドで計算します。選べるのは `uma`（デフォルト）、`orb`、`mace`、`aimnet2`、DFT/MM の `dft` です。バックエンドごとのインストール、モデル名、設定は [MLIP バックエンド](backends.md)にあります。
 
 ## ONIOM のエネルギー分解
 
@@ -12,7 +12,7 @@ ML/MM の構造最適化、経路探索、スキャン、振動解析、IRC の�
 | --- | --- | --- | --- |
 | **REAL-low** | 全系 | MM（`hessian_ff` または OpenMM） | Amber parm7 の力場で評価した全系 |
 | **MODEL-low** | ML 領域 | MM（同じエンジン） | MM で評価した ML 領域 |
-| **MODEL-high** | ML 領域 + リンク H | MLIP または DFT | 選んだバックエンド（既定は UMA）で評価した ML 領域 |
+| **MODEL-high** | ML 領域 + リンク H | MLIP または DFT | 選んだバックエンド（デフォルトは UMA）で評価した ML 領域 |
 
 合わせたエネルギーは次の式です。
 
@@ -27,17 +27,17 @@ E_ONIOM = E(REAL-low) - E(MODEL-low) + E(MODEL-high)
 | 側面 | 一般的な QM/MM | mlmm-toolkit の ML/MM |
 | --- | --- | --- |
 | 高レベル手法 | DFT、HF、post-HF | MLIP（UMA、ORB、MACE、AIMNet2）または DFT（`-b dft`） |
-| 低レベル手法 | OpenMM / Amber | `hessian_ff`（既定）/ OpenMM |
+| 低レベル手法 | OpenMM / Amber | `hessian_ff`（デフォルト）/ OpenMM |
 | リンク原子 | 通常は必要 | parm7 の結合のうち ML/MM 境界をまたぐものすべてに自動で付く |
-| 埋め込み | 静電埋め込みが一般的 | 既定は機械的埋め込み。`--embedcharge` で MM の点電荷を入れる（MLIP では xTB の補正、DFT では PySCF の Hamiltonian） |
+| 埋め込み | 静電埋め込みが一般的 | デフォルトは機械的埋め込み。`--embedcharge` で MM の点電荷を入れる（MLIP では xTB の補正、DFT では PySCF の Hamiltonian） |
 | 速度 | 遅い（QM が律速） | MLIP なら速い（GPU で推論）。`-b dft` は DFT と同じコスト |
 
 ## Hessian / 最適化用の層設定
 
-各原子は、入力 PDB の B-factor から読んだ {ref}`3 つの層 <ja-mm-layers>`（ML、可動 MM、凍結 MM）のどれかに属します。さらに 2 つの設定で、Hessian に入れる MM 原子と動かす MM 原子を決めます。
+各原子は、入力 PDB の B-factor から読んだ {ref}`3 つの層 <ja-mm-layers>`（ML、可動 MM、固定 MM）のどれかに属します。さらに 2 つの設定で、Hessian に入れる MM 原子と動かす MM 原子を決めます。
 
-- **Hessian 対象 MM**（専用の B-factor はありません）：Hessian の行と列を計算する可動 MM 原子です。既定では可動 MM 原子をすべて含めます。`--hessian-cutoff` を指定すると ML 領域からその距離（Å）以内の可動 MM 原子だけを含めます。
-- **距離で決める可動 MM**：`--movable-cutoff` を指定すると、ML 領域からその距離（Å）以内の MM 原子を可動にし、残りを凍結します。B-factor の層の代わりにこの距離を使います。
+- **Hessian 対象 MM**（専用の B-factor はありません）：Hessian の行と列を計算する可動 MM 原子です。デフォルトでは可動 MM 原子をすべて含めます。`--hessian-cutoff` を指定すると ML 領域からその距離（Å）以内の可動 MM 原子だけを含めます。
+- **距離で決める可動 MM**：`--movable-cutoff` を指定すると、ML 領域からその距離（Å）以内の MM 原子を可動にし、残りを固定します。B-factor の層の代わりにこの距離を使います。
 
 ## 機能
 
@@ -47,7 +47,7 @@ ML/MM 境界が共有結合を切るとき、MODEL-high の計算では、切れ
 
 | 方式 | 配置 | 推奨 |
 | --- | --- | --- |
-| **scaled**（g-factor、既定） | `r_L = r_QM + g·(r_MM − r_QM)`、`g = (CR_QM + CR_H)/(CR_QM + CR_MM)`（共有結合半径） | 推奨（滑らかな PES、一定のヤコビアン） |
+| **scaled**（g-factor、デフォルト） | `r_L = r_QM + g·(r_MM − r_QM)`、`g = (CR_QM + CR_H)/(CR_QM + CR_MM)`（共有結合半径） | 推奨（滑らかな PES、一定のヤコビアン） |
 | **fixed** | `r_L = r_QM + d·û`、`d` = 1.09 Å（親が C）/ 1.01 Å（親が N）、`û` は MM 原子へ向かう単位ベクトル | 推奨しない（座標に依存するヤコビアン） |
 
 scaled は Gaussian ONIOM と同じ Morokuma–Dapprich の g-factor 法で、リンク水素は QM–MM 距離に比例して動きます。fixed は、リンク水素を結合軸に沿って一定の距離に置きます。
@@ -68,7 +68,7 @@ Hessian では、2 つの親原子のブロックに自己項 `Jᵀ H_link J` �
 
 ```
 最初に MM 環境を 1 回緩和し、収束するまで繰り返す:
-    マクロステップ — ML 原子 + リンク原子の MM 側の親原子を 1 ステップ動かす（ONIOM の全力）
+    マクロステップ — ML 原子 + リンク原子の MM 側の親原子を 1 ステップ動かす（ONIOM 全体の力）
     マイクロステップ — 残りの可動 MM 原子を L-BFGS で緩和（MM の力のみ）
 ```
 
@@ -77,9 +77,9 @@ Hessian では、2 つの親原子のブロックに自己項 `Jᵀ H_link J` �
 | **計算機** | ONIOM の全体（`E_MM(real) + E_ML(model) − E_MM(model)`） | MM 力場のみ（`E_MM(real)`） |
 | **動かす座標** | ML 原子 + リンク原子の MM 側の親原子 | リンク原子の MM 側の親原子を除く可動 MM 原子 |
 | **オプティマイザ** | `opt`：厳密な Hessian から始めて TS-BFGS で更新する RFO。`tsopt`：選んだ Hessian 型の TS オプティマイザ | L-BFGS（Hessian を使わず、マイクロステップごとに新しく始める） |
-| **収束判定** | `--thresh`（既定は `opt` で `gau`、`tsopt` で `baker`） | `microiter.micro_thresh`（既定は `--thresh` と同じ） |
+| **収束判定** | `--thresh`（デフォルトは `opt` で `gau`、`tsopt` で `baker`） | `microiter.micro_thresh`（デフォルトは `--thresh` と同じ） |
 
-マイクロイテレーションは `--microiter/--no-microiter`（既定はオン）で切り替えます。使われるのは `opt --opt-mode hess` と、`tsopt` の Hessian 型のモード（`hess`、`rsirfo`、`rsprfo`、`trim`）で、`tsopt` の既定は `hess` です。マイクロステップの設定キーは、YAML 設定の一覧の [`microiter`](yaml-reference.md#microiter) にあります。
+マイクロイテレーションは `--microiter/--no-microiter`（デフォルトはオン）で切り替えます。使われるのは `opt --opt-mode hess` と、`tsopt` の Hessian 型のモード（`hess`、`rsirfo`、`rsprfo`、`trim`）で、`tsopt` のデフォルトは `hess` です。マイクロステップの設定キーは、YAML 設定の一覧の [`microiter`](yaml-reference.md#microiter) にあります。
 
 ```{note}
 **リンク原子の MM 側の親原子をマクロステップで動かす理由：**
@@ -90,30 +90,30 @@ scaled（g-factor）のリンク原子では、`r_L = (1−g)·r_QM + g·r_MM` �
 
 MM のエンジンは `--mm-backend`（YAML では `calc.mm_backend`）で選べます。
 
-- **`hessian_ff`**（既定）：mlmm-toolkit に同梱された、Amber parm7 の力場用の CPU 専用 MM エンジンです。結合、角度、二面角、不正二面角、Lennard-Jones、静電、CMAP の項を計算し、MM の Hessian を解析的に計算できます。MM の Hessian は既定では有限差分（`calc.mm_fd: true`）で、`calc.mm_fd: false` にすると `hessian_ff` の解析 Hessian を使います。C++ のカーネルは初回の使用時に自動でビルドされ、[C++20 のコンパイラ](installation.md)が要ります。MM を CPU で計算するので、GPU のメモリは ML 領域に使えます。
+- **`hessian_ff`**（デフォルト）：mlmm-toolkit に同梱された、Amber parm7 の力場用の CPU 専用 MM エンジンです。結合、角度、二面角、不正二面角、Lennard-Jones、静電、CMAP の項を計算し、MM の Hessian を解析的に計算できます。MM の Hessian はデフォルトでは有限差分（`calc.mm_fd: true`）で、`calc.mm_fd: false` にすると `hessian_ff` の解析 Hessian を使います。C++ のカーネルは初回の使用時に自動でビルドされ、[C++20 のコンパイラ](installation.md)が要ります。MM を CPU で計算するので、GPU のメモリは ML 領域に使えます。
 - **`openmm`**：CPU または CUDA で動く OpenMM で、Hessian は有限差分です。`hessian_ff` が対応していない力場を使うときや、ワークフローですでに OpenMM を使っているときに選んでください。`mm_backend` と `mm_device` の YAML の例と VRAM の兼ね合いは、[デバイス設定 & HPC セットアップ](device-hpc.md) にあります。
 
-一部の原子だけが動くときは、動く原子の Hessian のブロックを、凍結した原子の行と列を 0 で埋めた全デカルト座標の形に広げることもできます（`return_partial_hessian`）。
+一部の原子だけが動くときは、動く原子の Hessian のブロックを、固定した原子の行と列を 0 で埋めた全デカルト座標の形に広げることもできます（`return_partial_hessian=False` のとき）。
 
 ### ML Hessian
 
 ML 領域の Hessian の作り方は、`--hessian-calc-mode`（YAML では `calc.hessian_calc_mode`）で選べます。
 
-- `FiniteDifference`（既定）：力の中心差分です。すべてのバックエンドで使えます。
+- `FiniteDifference`（デフォルト）：力の中心差分です。すべてのバックエンドで使えます。
 - `Analytical`：バックエンドの自動微分またはネイティブの Hessian です。UMA（ワーカー 1 つのとき）、ORB、MACE、AIMNet2 は入れた版が対応していれば使え、DFT のバックエンドも `--embedcharge` なしなら使えます。バックエンドごとの対応とメモリの兼ね合いは、[MLIP バックエンド › Hessian の計算方式](backends.md#hessian-の計算方式)にあります。
 
-合わせた Hessian は、既定では float64 で組み立てます（`calc.H_double: true`）。
+合わせた Hessian は、デフォルトでは float64 で組み立てます（`calc.H_double: true`）。
 
 ### 2 つの MM 層の CMAP
 
 CMAP（クロスマップ骨格二面角補正）は、ff19SB などで使われる 5 原子のトーション補正項です。差し引きの式では、REAL と MODEL の MM 計算に同じ CMAP の扱いを適用します。
 
-| 領域 | E_MM(real) | E_MM(model) | ONIOM への正味の影響 |
+| 設定 | E_MM(real) | E_MM(model) | ONIOM への正味の影響 |
 |--------|-----------|------------|--------------------|
-| `use_cmap: true`（既定） | parm7 にあれば CMAP あり | parm7 にあれば CMAP あり | MODEL 内で完結する CMAP は相殺され、境界の項は低レベルの結合として残る |
+| `use_cmap: true`（デフォルト） | parm7 にあれば CMAP あり | parm7 にあれば CMAP あり | MODEL 内で完結する CMAP は相殺され、境界をまたぐ CMAP の項は MM（低レベル）の相互作用として残る |
 | `use_cmap: false` | CMAP を除く | CMAP を除く | CMAP を除いた、明示的に改変した力場での計算 |
 
-[Tian et al. (2020)](https://doi.org/10.1021/acs.jctc.9b00591) の ff19SB 力場では、CMAP が対応する骨格の cosine 項（0 にしてある項）を置き換えます。このため、CMAP を保つのが力場に忠実な既定です。`use_cmap: false`（CLI では `--no-cmap`）は、両方の MM 層から CMAP を除きます。
+[Tian et al. (2020)](https://doi.org/10.1021/acs.jctc.9b00591) の ff19SB 力場では、CMAP が対応する骨格の cosine 項（0 にしてある項）を置き換えます。このため、CMAP を保つのが力場に忠実なデフォルトです。`use_cmap: false`（CLI では `--no-cmap`）は、両方の MM 層から CMAP を除きます。
 
 **YAML の設定例：**
 ```yaml
@@ -193,7 +193,7 @@ core = MLMMCore(
 
 #### 主なパラメータ
 
-| パラメータ | 型 | 既定 | 説明 |
+| パラメータ | 型 | デフォルト | 説明 |
 |------------|------|---------|------|
 | `input_pdb` | `str` | *必須* | 入力 PDB（B-factor の層を付けた全系） |
 | `real_parm7` | `str` | *必須* | 全系の Amber prmtop |
@@ -216,7 +216,7 @@ result = core.compute(
 # result["energy"]   : float (eV)
 # result["forces"]   : numpy (N, 3) (eV/Å)
 # result["hessian"]  : torch 4D (eV/Å²)。return_hessian=True のときだけ。
-#   return_partial_hessian=True（既定）では形状 (n_active, 3, n_active, 3)、
+#   return_partial_hessian=True（デフォルト）では形状 (n_active, 3, n_active, 3)、
 #   False では全系に広げた (N, 3, N, 3)。部分 Hessian では、付随するキー
 #   "within_partial_hessian"（active_atoms / active_dofs / full_to_active の対応を含む dict）も返す。
 ```
@@ -266,10 +266,9 @@ forces = geom.forces            # Hartree/Bohr (flat)
 ## 使用上の注意点
 
 - `--hessian-calc-mode Analytical` は、選んだバックエンド（またはその入れた版）に解析 Hessian がないとエラーで止まります。計算機が自分で有限差分に切り替えることはありません。
-- `use_cmap: false`（`--no-cmap`）は ff19SB に沿った設定ではありません。両方の MM 層から CMAP を除きます。
 - `--embedcharge` を付けると、マイクロイテレーションは使われません。MM だけのマイクロステップには埋め込みの力が入らないためで、このときオプティマイザは ML と MM の原子を一緒に動かします。
 - fixed のリンク原子の配置は、ML 側の親原子が C か N のときだけ使えます。
-- 既定の `return_partial_hessian=True` では、`compute()` は Hessian 対象の原子だけの Hessian を、4 次元の配列 `(n_active, 3, n_active, 3)` で返します。全系に戻すには `within_partial_hessian` を使ってください。
+- デフォルトの `return_partial_hessian=True` では、`compute()` は Hessian 対象の原子だけの Hessian を、4 次元の配列 `(n_active, 3, n_active, 3)` で返します。全系に戻すには `within_partial_hessian` を使ってください。
 - `backend="dft"` には `dft_settings` も要ります。コマンドラインでは、[`-b dft`](dft-backend.md) が YAML の `calc.dft` ブロックと DFT のオプションからこれを作ります。
 
 ## 関連ドキュメント

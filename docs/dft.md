@@ -80,7 +80,7 @@ result_dft/
 ├─ ml_region_with_linkH.pdb      # Same as PDB (PDB input with --convert-files)
 ├─ result.yaml                   # Energies, convergence, engine, per-atom charges and spin densities
 ├─ result.json                   # Machine-readable summary (with --out-json)
-└─ summary.json                  # Copy of result.json; read result.json (with --out-json)
+└─ summary.json                  # Same content as result.json (with --out-json)
 ```
 
 * **`energy`** in `result.yaml`: the DFT energy of the ML region (`hartree`, `kcal_per_mol`), `converged`, and the engine used (`engine`: `gpu4pyscf(rks_lowmem)`, `gpu4pyscf`, or `pyscf(cpu)`; `used_gpu`; `used_lowmem`).

@@ -203,7 +203,7 @@ ja/architecture
 |------|------|
 | **Choose the ML region and layers, or make a run lighter** | [Building the ML region and layers](model-setup.md) |
 | **Study a mechanism, or the TS search fails** | [Tips for studying reaction mechanisms](mechanism-tips.md) |
-| **Optimize the TS structure with DFT** | [Optimize the TS structure with DFT](dft-backend.md) |
+| **Optimize the TS structure with DFT** | [Refine an MLIP TS with DFT](dft-backend.md) |
 | **A run failed** | [Troubleshooting](troubleshooting.md) |
 
 ## Subcommands
@@ -217,7 +217,7 @@ ja/architecture
 | [`add-elem-info`](add-elem-info.md) | Repair PDB element columns (77–78) |
 | [`mm-parm`](mm-parm.md) | Build Amber parm7/rst7 topology and coordinates |
 | [`extract`](extract.md) | Define the ML region from a protein–ligand complex |
-| [`define-layer`](define-layer.md) | Assign ML / movable-MM / frozen-MM B-factor layers |
+| [`define-layer`](define-layer.md) | Assign ML / Movable-MM / Frozen-MM B-factor layers |
 | [`opt`](opt.md) | Single-structure geometry optimization (L-BFGS or RFO; optional `--flatten` removes leftover imaginary modes) |
 | [`scan`](scan.md) | Restrained distance scan supporting concerted multi-distance and multistage scans |
 | [`scan2d`](scan2d.md) | Two-dimensional energy-landscape exploration and PES mapping |
@@ -271,7 +271,7 @@ See [Installation](installation.md) for setup.
 
 ## Key concepts
 
-The three layers (ML, movable MM, frozen MM) and how ONIOM combines them are explained in [Getting Started](getting-started.md); how to choose the ML region and layers is in [Building the ML region and layers](model-setup.md).
+The three layers (ML, Movable-MM, Frozen-MM) and how ONIOM combines them are explained in [Getting Started](getting-started.md); how to choose the ML region and layers is in [Building the ML region and layers](model-setup.md).
 
 ## Agent skills
 

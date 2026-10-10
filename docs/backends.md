@@ -142,12 +142,15 @@ the PySCF Hamiltonian, without the xTB correction.
 
 ## DFT/MM backend
 
-All calculation commands accept `-b dft --func-basis FUNCTIONAL/BASIS
---dft-engine gpu|cpu` (defaults `wb97m-v/def2-svp` and `gpu`), which computes
-the ML region with PySCF/GPU4PySCF while the MM region stays on the Amber
-force field. The separate `mlmm dft` command gives single points with
-population analysis. Low-memory mode, CPU threads and host RAM, and SCF
-checkpoints are described in [Refine an MLIP TS with DFT](dft-backend.md).
+The 11 ML/MM calculation commands (`all`, `opt`, `tsopt`, `irc`, `freq`,
+`scan`, `scan2d`, `scan3d`, `path-opt`, `path-search`, and `sp`) accept
+`-b dft --func-basis FUNCTIONAL/BASIS --dft-engine gpu|cpu` (defaults
+`wb97m-v/def2-svp` and `gpu`), which computes the ML region with
+PySCF/GPU4PySCF while the MM region stays on the Amber force field. The
+separate `mlmm dft` command gives single points with population analysis.
+Low-memory mode is described in [`dft`](dft.md#how-it-works); CPU threads,
+host RAM, and SCF checkpoints are listed in the
+[`all` reference](reference/commands/all.md).
 
 (backends-custom-calculator)=
 ## Custom backend — bring your own ASE Calculator (`--calc-file`)

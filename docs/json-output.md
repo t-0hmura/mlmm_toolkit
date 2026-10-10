@@ -275,6 +275,7 @@ records convergence and geometry files for every point.
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `optimization_status` | string | `"converged"`, `"not_converged"`, or `"completed"` (the engine exposed no convergence signal) |
 | `converged` | bool \| null | Convergence flag: `true` / `false` from the engine's own convergence signal, `null` when it exposed none (`optimization_status` is then `"completed"`, never a success claim) |
 | `mep_mode` | string | `"dmf"` or `"gsm"` |
 | `image_energies_hartree` | float[] | All image energies |

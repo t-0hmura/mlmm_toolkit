@@ -70,7 +70,7 @@ Each output gets its format from its extension: `.png`, `.jpg`, `.jpeg`, `.svg`,
 energy.png      # Figure (default when no output is given)
 energy.csv      # Energy table (when a .csv output is given)
 result.json     # Summary (with --out-json)
-summary.json    # Copy of result.json; read result.json (with --out-json)
+summary.json    # Same content as result.json (with --out-json)
 ```
 
 * **CSV columns**: `frame`, `energy_hartree`, and the plotted value in the `--unit` unit. The third column is named `delta_kcal` or `delta_hartree` with a reference, and `energy_kcal` or `energy_hartree` with `-r none`.

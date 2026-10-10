@@ -2,9 +2,9 @@
 
 `mlmm-toolkit` is intended for Linux environments (local workstations or HPC clusters), and production runs normally use a CUDA-capable GPU. The MM part needs **AmberTools** (`tleap`) to build the topology and a **C++20 compiler** for the `hessian_ff` kernels. The conda command below installs both.
 
-## Quick start
+## Quick install
 
-For PyTorch, `nvidia-smi` shows `CUDA Version` at its top right, the newest CUDA the driver supports. Choose a wheel at or below it (`cu126`, `cu130`, or `cu132`). The commands below use the recommended `cu130`.
+`nvidia-smi` shows `CUDA Version` at its top right: the newest CUDA the driver supports. Choose a PyTorch wheel at or below it (`cu126`, `cu130`, or `cu132`). The commands below use the recommended `cu130`.
 
 ### Required
 
@@ -24,7 +24,7 @@ pip install mlmm-toolkit
 plotly_get_chrome -y
 ```
 
-Finally, log in to **Hugging Face Hub** so that UMA models can be downloaded. It needs a free HF account with read-only token. Accept the FAIR Chemistry License v1 at <https://huggingface.co/facebook/UMA> first:
+Finally, log in to **Hugging Face Hub** so that UMA models can be downloaded. It needs a free HF account with a read-only token. Accept the FAIR Chemistry License v1 at <https://huggingface.co/facebook/UMA> first:
 
 ```bash
 hf auth login
@@ -82,7 +82,7 @@ If you prefer to build the environment piece by piece:
     ```
 
     The official 2.13.0 matrix also provides `cu126`, `cu132`, and `cpu`.
-    Choose the wheel with the `nvidia-smi` rule in the Quick start above, then check GPU access in step 8. See [PyTorch's version matrix](https://pytorch.org/get-started/previous-versions/).
+    Choose the wheel with the `nvidia-smi` rule in the Quick install above, then check GPU access in step 8. See [PyTorch's version matrix](https://pytorch.org/get-started/previous-versions/).
 
 5. **Install `mlmm-toolkit` itself and Chrome for visualization**
 
@@ -165,7 +165,7 @@ If you prefer to build the environment piece by piece:
 
 **Python.** 3.12 is recommended (3.11 at minimum); the ORB backend needs 3.11 or 3.12.
 
-**GPU / CUDA.** An NVIDIA GPU whose driver supports the chosen wheel (see Quick start); newer GPU architectures may need a newer wheel. CPU-only execution works but is usually much slower.
+**GPU / CUDA.** An NVIDIA GPU whose driver supports the chosen wheel (see Quick install); newer GPU architectures may need a newer wheel. CPU-only execution works but is usually much slower.
 
 **AmberTools and compiler.** AmberTools (`tleap`) builds the topology in `mm-parm` and `all`; a matching `--parm7` from an earlier run skips that step. The default `hessian_ff` MM backend needs a C++20 compiler (validated with GCC 13.3). PDBFixer is needed only for `mm-parm --add-h`.
 

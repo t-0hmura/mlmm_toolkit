@@ -107,13 +107,13 @@ representative structures and stationary points for your system.
 
 `mace-torch` pins `e3nn==0.4.4`, while `fairchem-core` (UMA) needs
 `e3nn>=0.5`, so the two cannot share an env. Keep UMA in your default env and
-put MACE in a second env. ORB needs the Python 3.12 default env; AIMNet2, DFT,
+put MACE in a second env. ORB goes in the default env (0.7 on 3.12, 0.5.x on 3.11); AIMNet2, DFT,
 and xTB can sit in either. mlmm-toolkit is the same code in both envs; only
 the backend set differs.
 
 ```bash
-conda create -n <your_mace_mlmm_env> python=3.11
-conda activate <your_mace_mlmm_env>
+conda create -n <YOUR_MACE_ENV> python=3.11
+conda activate <YOUR_MACE_ENV>
 
 # torch matching your CUDA driver (see CUDA and PyTorch)
 pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/<cu_index>
@@ -134,7 +134,7 @@ incompatible `e3nn>=0.5`. The same env can come from the
 `mlmm-toolkit`; run the two swap commands above after activating it.
 
 ```bash
-conda activate <your_mace_mlmm_env>
+conda activate <YOUR_MACE_ENV>
 mlmm all -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' --tsopt --thermo -b mace
 ```
 
@@ -180,8 +180,8 @@ Pitfalls:
 - `--precision fp64` stops with an error.
 - `KeyError` on an element during atom-type lookup: the checkpoint does not
   support that element; choose a checkpoint or backend that does.
-- `RuntimeError: charge mismatch`: AIMNet2 charge is a per-atom network
-  output; give `-q` with the ML-region total.
+- Give the ML-region total charge `-q` and multiplicity `-m`; they are model
+  inputs, not per-atom charges.
 - Unexpected behavior for a charge or multiplicity: confirm the state is in
   the checkpoint's documented domain and compare against a reference method.
 
@@ -436,7 +436,7 @@ Reading the report:
 
 | Placeholder | How to fill it |
 |---|---|
-| `<YOUR_QUEUE>` | A queue from `qstat -Q` (PBS) whose `max_walltime` covers the job |
+| `<YOUR_QUEUE>` | A queue from `qstat -Q` (PBS) whose `resources_max.walltime` covers the job |
 | `<YOUR_PARTITION>` | A partition from `sinfo -o "%P %l %N %G"` (SLURM) whose `TIMELIMIT` covers the job |
 | `<NCPU>` | `np` from `pbsnodes -a` (PBS) or the `--cpus-per-task` budget (SLURM) |
 | `<NGPU>` | `gpus = N` from `pbsnodes -a` (PBS) or `--gres=gpu:N` (SLURM) |

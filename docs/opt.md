@@ -156,8 +156,8 @@ The `--thresh` presets set these limits (forces in hartree/bohr, steps in bohr):
 
 ## Notes
 
-* **Microiteration**: with `--distance-restraint`, `opt` uses plain RFO instead, and with `--embedcharge` the standard optimization, because the MM-only steps leave out the embedding forces. The MM relaxation converges to the same preset as `--thresh`; YAML `microiter.micro_thresh` sets another preset.
-* **`--mm-only` works only with `grad`**: with `--opt-mode hess` it stops with an error (exit code 2). The movable and frozen MM layers still apply.
+* **Microiteration**: with `--distance-restraint` or `--embedcharge`, `opt` runs RFO without microiteration (with `--embedcharge` because the MM-only steps leave out the embedding forces). The MM relaxation converges to the same preset as `--thresh`; YAML `microiter.micro_thresh` sets another preset.
+* **`--mm-only` works only with `grad`**: with `--opt-mode hess` it stops with an error (exit code 2). The Movable-MM and Frozen-MM layers still apply.
 * **Plateau stop**: `--stop-plateau` saves cycles when force noise keeps the force criteria out of reach, but a flat energy is no evidence of a stationary point. `--max-cycles` remains the real limit, and the MM relaxation of microiteration is never stopped this way. `--stop-plateau-thresh` and `--stop-plateau-window` set the energy range and the number of cycles.
 * **Restraint strength**: the default force constant, 300 eV·Å⁻², holds the distance firmly; the 20 eV·Å⁻² of the example guides the structure gently toward the target.
 * **`--reject-uphill` works only with `hess`**: with `grad` (L-BFGS) it is ignored.

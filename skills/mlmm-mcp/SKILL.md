@@ -39,7 +39,7 @@ See [`examples/mcp_client_config.json`](../../examples/mcp_client_config.json) f
 | MCP tool | wraps | purpose |
 |---|---|---|
 | `prepare_amber_topology` | `mlmm mm-parm` | Generate AMBER parm7 / rst7 via AmberTools |
-| `define_layer` | `mlmm define-layer` | Assign ML / MM-movable / MM-frozen B-factor layers |
+| `define_layer` | `mlmm define-layer` | Assign ML / Movable-MM / Frozen-MM B-factor layers |
 | `extract_pocket` | `mlmm extract` | Cut a sphere around a ligand to make an active-site model |
 
 ### Stage runners (ONIOM-aware)
@@ -59,7 +59,7 @@ See [`examples/mcp_client_config.json`](../../examples/mcp_client_config.json) f
 | `scan_1d` / `scan_2d` / `scan_3d` | `mlmm scan` / `mlmm scan2d` / `mlmm scan3d` | ONIOM restraint scans |
 | `optimize_path` | `mlmm path-opt` | Two-endpoint ONIOM MEP optimization |
 | `search_paths` | `mlmm path-search` | Recursive ONIOM pathway search |
-| `run_full_pipeline` | `mlmm all` | End-to-end (extract → MEP → TS → IRC → freq → DFT) |
+| `run_full_pipeline` | `mlmm all` | Configurable end-to-end pipeline; TS/IRC, thermo/freq, and DFT stages run only when their tool arguments enable them |
 | `run_single_point_dft` | `mlmm dft` | ONIOM-embedded single-point DFT via gpu4pyscf |
 
 ### ONIOM I/O (Gaussian / ORCA)

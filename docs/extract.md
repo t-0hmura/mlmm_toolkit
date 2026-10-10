@@ -99,7 +99,7 @@ With several inputs, each structure selects its residues, and the union of the s
 ├─ pocket.pdb    # the cut-out region (cap hydrogens after a TER record only with --add-linkh)
 ├─ pocket.cif    # mmCIF input, or PDB input too large for the PDB columns
 ├─ result.json   # with --out-json, next to the first output file
-└─ summary.json  # copy of result.json; read result.json (with --out-json)
+└─ summary.json  # Same content as result.json (with --out-json)
 ```
 
 | Inputs | `-o` | Output |

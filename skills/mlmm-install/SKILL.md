@@ -5,7 +5,7 @@ description: "Install recipes for mlmm-toolkit core, AmberTools, and the ML back
 
 # Install mlmm-toolkit
 
-Install torch for your driver, then `pip install mlmm-toolkit`, then at least one ML backend; MACE needs its own env, and `mm-parm` needs AmberTools.
+Install torch for your driver, then `pip install mlmm-toolkit` (UMA comes with the core); MACE needs its own env, and `mm-parm` needs AmberTools.
 
 mlmm-toolkit needs a PyTorch wheel that matches the NVIDIA driver, at least one
 MLIP backend, AmberTools for `mlmm mm-parm` ([ambertools.md](ambertools.md)),
@@ -27,7 +27,7 @@ and the checks in [Verify the install](#verify-the-install) pass.
    [CUDA and PyTorch](backends.md#cuda-and-pytorch).
 4. Install mlmm-toolkit and headless Chrome for Plotly PNG export.
 5. Accept the UMA license on Hugging Face and log in ([UMA](backends.md#uma)).
-6. Add at least one more backend only when needed, after checking the model
+6. Add other backends only when needed, after checking the model
    domain and a pilot on the target system. MACE needs its own env
    ([MACE](backends.md#mace-separate-environment)). DFT is optional
    ([DFT](backends.md#dft-pyscf-gpu4pyscf)); skip it if you only need MLIP
@@ -170,7 +170,7 @@ backend's section in [backends.md](backends.md); a CUDA error points to
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `import torch` fails with `libcudart.so.12 not found` | Wheel CUDA index and driver do not match, or mixed CUDA libraries | [CUDA and PyTorch](backends.md#cuda-and-pytorch) |
+| `import torch` fails with `libcudart.so.12 not found` | Incomplete or mixed wheel install, or a library-path collision; not by itself evidence against the driver | [CUDA and PyTorch](backends.md#cuda-and-pytorch) |
 | `e3nn` version conflict on `pip install` | UMA and MACE in the same env | Separate env for MACE ([MACE](backends.md#mace-separate-environment)) |
 | `gpu4pyscf` import fails on aarch64 | `gpu4pyscf-cuda13x` is x86_64 only | Build GPU4PySCF from source or run with `--dft-engine cpu` ([DFT](backends.md#dft-pyscf-gpu4pyscf)) |
 | `huggingface_hub.errors.GatedRepoError` on UMA load | License not accepted or not logged in | Accept the license on `facebook/UMA`, run `hf auth login`, confirm with `hf auth whoami` ([UMA](backends.md#uma)) |
