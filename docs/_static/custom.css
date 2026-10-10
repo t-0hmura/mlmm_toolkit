@@ -1264,9 +1264,11 @@ body[data-lang="ja"] .sidebar-tree > ul > li.lang-nav-root > ul {
 .p2r-wordmark {
     --p2r-wordmark-img: url("mlmm-toolkit-wordmark.svg");
     display: inline-block;
-    height: 1.12em;
-    width: calc(1.12em * 1915.24 / 267.12);
-    vertical-align: -0.24em;
+    /* The file ends at the baseline (no descenders), so it is smaller and sits higher than
+       the pdb2reaction wordmark box; letter height and baseline then match pdb2reaction. */
+    height: 0.85em;
+    width: calc(0.85em * 1915.24 / 267.12);
+    vertical-align: 0.03em;
     background: var(--p2r-wordmark-img) no-repeat left center / contain;
     color: transparent;
     overflow: hidden;
