@@ -284,6 +284,8 @@ If you cloned the GitHub repository, you can give the local `skills/` path inste
 
 ## Citation
 
+If you use mlmm-toolkit in your research, cite the ChemRxiv paper:
+
 ```bibtex
 @article{ohmura2025mlmm,
   author  = {Ohmura, Takuto and Inoue, Sei and Terada, Tohru},

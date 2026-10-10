@@ -44,7 +44,7 @@ To optimize the TS itself with DFT/MM (`-b dft`), and for the DFT extra and GPU 
 ## Before you run
 
 * **Input**: one full-system TS candidate as PDB or mmCIF, or as XYZ with `--ref-pdb` (a PDB with the same atoms). With `-c`, the ML region is cut out around the given residues. Without `-c`, the ML region comes from `--model-pdb` or from the B-factor layers of the input; the HEI PDB of `all` carries those layers.
-* **Charge and multiplicity**: `-q` is the charge of the ML region, not of the whole system. Without `-q`, `all` derives it from the residues in the ML region and `-l`; see {ref}`Charge specification <charge-specification>`. The multiplicity comes from `-m`, then YAML `calc.model_mult`, then 1.
+* **Charge and multiplicity**: `-q` is the charge of the ML region, not of the whole system. Without `-q`, `all` derives the {ref}`charge <charge-specification>` from the residues in the ML region and `-l`. The multiplicity comes from `-m`, then YAML `calc.model_mult`, then 1.
 * **When TS-only mode runs**: one input, `--tsopt`, and no `--scan-lists`. Two or more inputs run the MEP search, and one input with `--scan-lists` runs a scan.
 
 ## Expected output
@@ -99,7 +99,7 @@ If n_imag is not 1 or the IRC endpoints are not the intended ones, see {ref}`Che
 * **Extra imaginary modes**: `--flatten` displaces the structure along the extra imaginary modes and optimizes again, for up to 50 rounds; see {ref}`When --flatten is on <flatten-precedence-caveat>`.
 * **Hessian mode**: keep the default `--hessian-calc-mode FiniteDifference`. Set `--hessian-calc-mode Analytical` only after comparing its speed, memory use, and results with the default on a representative structure of your system.
 * **R and P labels**: without an MEP the direction of the reaction is unknown, so TS-only mode labels the higher-energy IRC endpoint R and the lower one P, and records this rule in `endpoint_assignment` in `summary.json`. The labels are not the chemical direction; the barrier from P is `barrier_kcal − delta_kcal`.
-* **`tsopt` and `freq` on their own**: for `--opt-mode rsirfo`/`trim`, `--no-microiter`, `--hessian-cutoff`, and the other Hessian options, run [`tsopt`](tsopt.md) on its own with the `--parm7` and `--model-pdb` of the run. It writes the final geometry to `final_geometry.{xyz,pdb}` and the imaginary-mode animations to `vib/`. For the full frequency list and thermochemistry of that structure, run [`freq`](freq.md) on `final_geometry.pdb` with the same `--parm7`, `--model-pdb`, `-q`, and `-m`. `mlmm all --help-advanced` lists every option of `all`.
+* **`tsopt` and `freq` on their own**: for `--opt-mode rsirfo`/`trim`, `--no-microiter`, `--hessian-cutoff`, and the other TS optimization options, run [`tsopt`](tsopt.md) on its own with the `--parm7` and `--model-pdb` of the run. It writes the final geometry to `final_geometry.{xyz,pdb}` and the imaginary-mode animations to `vib/`. For the full frequency list and thermochemistry of that structure, run [`freq`](freq.md) on `final_geometry.pdb` with the same `--parm7`, `--model-pdb`, `-q`, and `-m`. `mlmm all --help-advanced` lists every option of `all`.
 
 ## Next steps
 
@@ -108,5 +108,5 @@ If n_imag is not 1 or the IRC endpoints are not the intended ones, see {ref}`Che
 - [`tsopt`](tsopt.md), [`irc`](irc.md), [`freq`](freq.md): run each stage on its own
 - [Quickstart: `mlmm all`](quickstart-all.md): build an MEP from R and P
 - [Quickstart: scan](quickstart-scan.md): build a path from one structure
-- [`all`](all.md), [`dft`](dft.md): full option references
+- [`all`](all.md), [`dft`](dft.md): option descriptions
 - [Troubleshooting](troubleshooting.md): find an error message or symptom and its fix

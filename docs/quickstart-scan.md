@@ -130,6 +130,6 @@ These commands stop after the MEP search and do not create `segments/`. Add `--t
 - [Tips for studying reaction mechanisms](mechanism-tips.md): how to split a reaction into stages ("Decide how to split the reaction")
 - {ref}`Freeze atoms and restrain distances <freeze-atoms-and-restraints>`: what the restraint strength means
 - [`scan`](scan.md): run the scan on its own
-- [`all`](all.md): full option reference (also `mlmm all --help-advanced`)
+- [`all`](all.md): option descriptions (also `mlmm all --help-advanced`)
 - [Glossary](glossary.md): MEP, TS, IRC, and other terms
 - [Troubleshooting](troubleshooting.md): find an error message or symptom and its fix

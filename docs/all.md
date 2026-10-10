@@ -161,7 +161,7 @@ result_all/
 ```
 
 * **Structures to report**: cite `segments/seg_NN/reactant.*`, `ts.*`, and `product.*`. The subdirectories of `seg_NN/` hold the files of each stage.
-* **`.cif` files**: for mmCIF input and for PDB input too large for the PDB columns, `all` also writes `.cif` files that keep the original identifiers; see {ref}`mmCIF and large structures <mmcif-input>`.
+* **`.cif` files**: for {ref}`mmCIF input <mmcif-input>` and for PDB input too large for the PDB columns, `all` also writes `.cif` files that keep the original identifiers.
 * **TS-only mode**: there is no MEP search, so the MEP files and `_work/path_opt/` are absent; R, TS, and P go to `segments/seg_01/`.
 
 The energy diagrams are named by method:

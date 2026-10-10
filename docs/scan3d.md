@@ -8,7 +8,7 @@
 
 * **Reactions that involve three coordinates at once**: see the energy landscape when, for example, a bond forms, another breaks, and a proton moves in the same step.
 * **Redrawing a finished grid**: plot an existing `surface.csv` again over another energy range (`--csv`).
-* **Judging the result**: `surface.csv` marks every point as converged or not, and `result.json` gives `scientific_status` (see *Reading surface.csv* below).
+* **Judging the result**: [`surface.csv`](#reading-surfacecsv) marks every point as converged or not, and `result.json` gives `scientific_status`.
 
 The ML region uses **UMA** (Meta) by default; `-b/--backend` also selects **ORB**, **MACE**, **AIMNet2**, or DFT (`dft`). For a single path driven by one or more coordinates, use [`scan`](scan.md); for two coordinates, use [`scan2d`](scan2d.md).
 
@@ -61,7 +61,7 @@ mlmm scan3d -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
 
 ### 4. Re-plot an existing surface.csv
 
-Redraw the isosurfaces of a finished grid over −10 to 40 kcal/mol; no energy is computed. A separate `-o` keeps the files of the original scan (see *Notes*).
+Redraw the isosurfaces of a finished grid over −10 to 40 kcal/mol; no energy is computed. A separate `-o` keeps the files of the original scan (see [Notes](#notes)).
 
 ```bash
 mlmm scan3d --csv ./result_scan3d/surface.csv --zmin -10 --zmax 40 -o ./result_scan3d_replot/

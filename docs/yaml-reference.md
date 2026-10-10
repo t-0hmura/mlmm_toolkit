@@ -206,7 +206,7 @@ calc:
  xtb_ncores: 4 # xTB process count
 
  # --- MM backend settings ---
- mm_backend: hessian_ff # MM backend; Hessian method is selected by mm_fd below
+ mm_backend: hessian_ff # MM backend: "hessian_ff" | "openmm"; Hessian method is selected by mm_fd below
  use_cmap: true         # Preserve parm7 CMAP in both REAL and MODEL MM layers
  mm_device: cpu # Device for MM calculation: "cuda" or "cpu" (hessian_ff is CPU-only)
  mm_cuda_idx: 0 # CUDA device index for MM calculation (OpenMM only)
@@ -216,7 +216,7 @@ calc:
  mm_fd: true # Use finite-difference for MM Hessian
  mm_hessian_mode: null # Explicit finite_difference/analytical mode; null maps mm_fd
  mm_fd_dir: null # Directory for the MM finite-difference logs (real.log / model.log)
- mm_fd_delta: 0.001 # Finite-difference step size for MM Hessian
+ mm_fd_delta: 0.001 # Finite-difference displacement for the MM Hessian (Å)
 
  # --- Hessian output settings ---
  out_hess_torch: true # Return Hessian as torch.Tensor
@@ -225,7 +225,7 @@ calc:
  return_partial_hessian: true # Active-block partial Hessian (CLI wrappers default to true)
 
  # --- Layer configuration ---
- freeze_atoms: [] # 1-based indices of atoms to freeze (Frozen-MM layer)
+ freeze_atoms: [] # Inherited from geom.freeze_atoms
  hess_cutoff: null # Å; null = all movable MM included in Hessian (default); >0.0 = only MM within this distance of ML
  movable_cutoff: null # Å; MM atoms within this distance of ML are movable (null = use freeze_atoms)
  use_bfactor_layers: true # If true, read layer assignments from input PDB B-factors

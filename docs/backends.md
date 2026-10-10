@@ -35,14 +35,14 @@ mlmm opt -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b aim
 | `aimnet2` | `pip install "mlmm-toolkit[aimnet]"` | `aimnet2` | n/a |
 
 `--backend-model NAME` overrides the model variant for the selected `--backend`
-(e.g. `--backend uma --backend-model uma-m-1p1`). `-b dft` computes the ML region with DFT
-([DFT/MM backend](#dftmm-backend)), and `--calc-file` plugs in any ASE
-calculator ({ref}`Custom backend <backends-custom-calculator>`).
+(e.g. `--backend uma --backend-model uma-m-1p1`). `-b dft` computes the ML region with
+[DFT](#dftmm-backend), and `--calc-file` plugs in
+{ref}`any ASE calculator <backends-custom-calculator>`.
 
 The run prints the backend and model it loads, for example
-`[backend] Preparing MLIP model (UMA / UMA-S-1.2 (OMol))...`, and the JSON
-output records them as `mlip_backend`, `mlip_model`, and `mlip_precision`
-([JSON output](json-output.md#common-envelope)).
+`[backend] Preparing MLIP model (UMA / UMA-S-1.2 (OMol))...`, and the
+[JSON output](json-output.md#common-envelope) records them as `mlip_backend`,
+`mlip_model`, and `mlip_precision`.
 
 ### Precision
 
@@ -283,4 +283,4 @@ ML-region energy, forces, and Hessian in the correct units.
 - [Architecture](architecture.md) — directory map and dependency direction.
 - [Device Configuration & HPC Setup](device-hpc.md) — GPU/CPU placement and job templates.
 - [Refine an MLIP TS with DFT](dft-backend.md) — DFT settings, memory, and checkpoints.
-- [Troubleshooting](troubleshooting.md) — detailed troubleshooting guide.
+- [Troubleshooting](troubleshooting.md) — when a run fails.

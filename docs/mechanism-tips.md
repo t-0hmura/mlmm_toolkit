@@ -1,6 +1,6 @@
 # Tips for studying reaction mechanisms
 
-The TS and the path that mlmm-toolkit finds are candidates for the mechanism you propose. This page takes you from a hypothesis to a calculation, a checked TS, a comparison of candidate mechanisms, and a barrier, with the next moves to try when the TS search fails.
+The TS and the path that mlmm-toolkit finds are candidates for the mechanism you propose. This page takes you from a hypothesis to a calculation, a checked TS, a comparison of candidate mechanisms, and a barrier.
 
 ## Quick guide
 
@@ -21,7 +21,7 @@ The TS and the path that mlmm-toolkit finds are candidates for the mechanism you
 
 Before you run anything, write down what the proposed mechanism does: the bonds that form, the bonds that break, and every H atom that moves. This list becomes the `-s` coordinates and the points you check at the IRC endpoints. Every atom on the list belongs in the ML region.
 
-Pick the [input mode](getting-started.md#choosing-an-input-mode) from the structures you have:
+Pick the [input mode](getting-started.md#3-find-the-reaction-pathway) from the structures you have:
 
 - **R and P (and any intermediates)**: list them in [`all`](quickstart-all.md).
 - **R only**: build the path from R with a [scan](quickstart-scan.md).
@@ -71,11 +71,14 @@ A successful TS optimization gives one imaginary mode along the reaction coordin
 (ts-search-fails)=
 ## When the TS search fails
 
+When `all` runs into a problem, do not rerun the whole workflow; rerun only the segment that had the problem. Each move below can start from that segment's structures with `tsopt` or TS-only mode.
+
 ### Extra imaginary modes
 
-- **Extra modes outside the reacting site** (e.g. a rotating side chain or water): rerun with `--flatten` (`tsopt`, `opt`, and `all`). When n_imag ≥ 2 after the optimization, it displaces the structure along the extra modes and optimizes again, for up to 50 rounds by default ({ref}`Flatten rounds <flatten-precedence-caveat>`).
+- **Extra modes outside the reacting site** (e.g. a rotating side chain or water): rerun with `--flatten` (`tsopt`, `opt`, and `all`). When n_imag ≥ 2 after the optimization, it displaces the structure along the extra modes and optimizes again, for up to {ref}`50 rounds <flatten-precedence-caveat>` by default.
+- **Stopped at a higher-order saddle** (converged with n_imag ≥ 2): one option is to start `tsopt` with `--flatten` from the final geometry of that TS optimization (`final_geometry.*` of `tsopt`, or in `segments/seg_NN/ts/` of `all`), with the same `--parm7` and `--model-pdb`.
 - **After `--flatten`**: check both IRC ends again. n_imag can reach 1 on a TS candidate of a different reaction.
-- **Extra modes that span the ML region and movable MM atoms** (e.g. a water moving with the substrate): `tsopt` uses microiteration by default, so its TS steps move only the ML atoms and the MM atoms bonded to them ({ref}`Microiteration <microiteration>`). Rerun `tsopt` with `--no-microiter --flatten` so that the TS optimizer steps over every movable atom. `all` has no `--microiter` option, so pass the `--parm7` and `--model-pdb` of the `all` run to `tsopt`.
+- **Extra modes that span the ML region and movable MM atoms** (e.g. a water moving with the substrate): `tsopt` uses {ref}`microiteration <microiteration>` by default, so its TS steps move only the ML atoms and the MM atoms bonded to them. Rerun `tsopt` with `--no-microiter --flatten` so that the TS optimizer steps over every movable atom. `all` has no `--microiter` option, so pass the `--parm7` and `--model-pdb` of the `all` run to `tsopt`.
 - **A narrowed Hessian**: if you ran `tsopt` with a small [`--hessian-cutoff`](model-setup.md#narrow-the-hessian), widen it or leave it out to return to the default, every movable MM atom.
 - **Without `--flatten`**: the mode files of an extra mode, `vib/imag_*_trj.xyz` and `vib/imag_*.pdb` (with the layers in the B-factors), hold 20 frames, and frames 6 and 16 are the largest displacements in the two directions. Save each of the two as its own PDB in a viewer and start TS-only mode or `tsopt` from each, with the same charge and spin:
   ```bash

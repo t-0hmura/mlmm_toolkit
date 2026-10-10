@@ -34,7 +34,7 @@ mlmm all -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
 
 ## Before you run
 
-The structures need every hydrogen atom, and R and P must list the same atoms in the same order; see [Before you run: the input structures](getting-started.md#before-you-run-the-input-structures). Two more points apply to the topology build:
+The structures need every hydrogen atom, and R and P must list the same atoms in the same order; see [Prepare the complex structure](getting-started.md#1-prepare-the-complex-structure). Two more points apply to the topology build:
 
 * **Charges and hydrogens**: give each ligand in `-l` the charge that matches its hydrogens in the file. In the bundled example SAM has 23 hydrogens, so it is `SAM:1`; with 22 it would be `SAM:0`. When they do not match, `mm-parm` stops with an electron-count error before it runs `antechamber`.
 * **AmberTools**: `all` builds the topology with AmberTools (`tleap`, `antechamber`, `parmchk2`) and stops with an error when they are missing. `--parm7` with an existing topology skips the build.
@@ -73,7 +73,7 @@ For how `all` judges each stage, see [Reading the run status](all.md#reading-the
 ## Notes
 
 * **Reusing the preparation**: pass `mm_parm/1.R.parm7` with `--parm7` and `ml_region.pdb` with `--model-pdb` to the next run or to the single-stage commands, so that they compute the same system without building the topology again.
-* **DFT and GPU memory**: `--dft` needs the DFT extra (step 7 of {ref}`Step-by-step installation <step-by-step-installation>`); for GPU memory, see the Notes of [Refine an MLIP TS with DFT](dft-backend.md#notes).
+* **DFT and GPU memory**: `--dft` needs the DFT extra installed in step 7 of {ref}`Step-by-step installation <step-by-step-installation>`; for GPU memory, see the Notes of [Refine an MLIP TS with DFT](dft-backend.md#notes).
 * **Barriers in `summary.json`**: `segments[].barrier_kcal` is the barrier on the MEP, before TS optimization. With `--tsopt`, `post_segments[].mlip.barrier_kcal` is the ML/MM barrier from the optimized TS and endpoints; `--thermo` adds `post_segments[].gibbs_mlip.barrier_kcal` and `--dft` adds `post_segments[].dft.barrier_kcal`. `rate_limiting_step.barrier_kcal` is the highest barrier among the segments, compared at the highest level that every segment has (`DFT//MLIP/MM_Gibbs` > `DFT` > `MLIP_Gibbs` > `MLIP` > `MEP`); `rate_limiting_step.method` names that level.
 * **Run time**: it depends on the system size, the size of the ML region, the GPU, and the stages you request.
 
@@ -84,6 +84,6 @@ For how `all` judges each stage, see [Reading the run status](all.md#reading-the
 - [Building the ML region and layers](model-setup.md): shrink the ML region, or extend it when residues are missing
 - [Tips for studying reaction mechanisms](mechanism-tips.md): plan the calculations, and what to try when the TS search fails
 - [Refine an MLIP TS with DFT](dft-backend.md): refine and check the TS with DFT/MM
-- [`all`](all.md): full option reference (also `mlmm all --help-advanced`)
+- [`all`](all.md): option descriptions (also `mlmm all --help-advanced`)
 - [JSON Output Reference](json-output.md): the fields of `summary.json`
 - [Troubleshooting](troubleshooting.md): find an error message or symptom and its fix

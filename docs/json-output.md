@@ -114,7 +114,7 @@ An optimizer may also report `"optimization_status": "stalled"`: the energy stop
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `optimization_status` | string | `"converged"`, `"not_converged"`, or `"stalled"` (energy plateau; see [Error handling](#error-handling)) |
+| `optimization_status` | string | `"converged"`, `"not_converged"`, or [`"stalled"`](#error-handling) (energy plateau) |
 | `stop_reason` | string | Present only when the optimizer stopped without converging (`stalled` or `not_converged`); records why, e.g. the energy-plateau range/window and the failed criteria |
 | `energy_hartree` | float | Final ONIOM energy (Hartree) |
 | `n_opt_cycles` | int | Optimization cycles completed |

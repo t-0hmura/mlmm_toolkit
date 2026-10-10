@@ -34,7 +34,7 @@ The full system is evaluated with MM, the ML region is evaluated at both the hig
 
 ## Layering for Hessian / optimization
 
-Each atom belongs to one of three layers (ML, Movable-MM, or Frozen-MM), read from the B-factors of the input PDB ({ref}`Building the ML region and layers › The MM layers <mm-layers>`). Two further settings decide which MM atoms enter the Hessian and which MM atoms move:
+Each atom belongs to one of {ref}`three layers <mm-layers>` (ML, Movable-MM, or Frozen-MM), read from the B-factors of the input PDB. Two further settings decide which MM atoms enter the Hessian and which MM atoms move:
 
 - **Hessian-target MM** (no B-factor of its own): the movable MM atoms whose Hessian rows and columns are computed. By default every movable MM atom is included. `--hessian-cutoff` keeps only the movable MM atoms within that distance (Å) of the ML region.
 - **Movable MM by distance**: `--movable-cutoff` makes the MM atoms within that distance (Å) of the ML region movable and freezes the rest, in place of the B-factor layers.

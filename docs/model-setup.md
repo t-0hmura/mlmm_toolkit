@@ -84,6 +84,7 @@ A smaller `--movable-cutoff` puts fewer atoms in Movable-MM and more in Frozen-M
 
 With many movable MM atoms, {ref}`microiteration <microiteration>` (on by default in `tsopt` and in `opt --opt-mode hess`) relaxes the MM atoms with the force field alone between the ML steps, so the MLIP is called fewer times.
 
+(model-setup-larger)=
 ## Make the model larger
 
 Make the ML region larger when a residue, water, or cofactor of the reaction lies outside it. The rest of the protein is already in MM, so add to the ML region the atoms whose bonds, protonation, or charge change, together with their covalent partners.
@@ -107,7 +108,7 @@ mlmm extract -i system.pdb -c LIG -l 'LIG:0' -o model.pdb
 mlmm define-layer -i system.pdb --model-pdb model.pdb -o system_layered.pdb
 ```
 
-Pass `system_layered.pdb` with `--parm7 system.parm7` and `--model-pdb model.pdb` to the individual commands, or to `all` without `-c`. Each command takes the ML region from `--model-pdb`, then `--model-indices`, then the B-factor layers ({ref}`ML/MM options <mlmm-options>`). Give the charge of the ML region with `-q`, or the charge of each residue name with `-l` (PDB/mmCIF input). When you cut the region or changed protonation by hand, the charge cannot be derived from the residue names; give it with `-q`.
+Pass `system_layered.pdb` with `--parm7 system.parm7` and `--model-pdb model.pdb` to the individual commands, or to `all` without `-c`. Each command takes the {ref}`ML region <mlmm-options>` from `--model-pdb`, then `--model-indices`, then the B-factor layers. Give the charge of the ML region with `-q`, or the charge of each residue name with `-l` (PDB/mmCIF input). When you cut the region or changed protonation by hand, the charge cannot be derived from the residue names; give it with `-q`.
 
 (model-pdb-selection)=
 ### How to construct a reliable `model.pdb`
@@ -129,7 +130,7 @@ Freezing keeps an atom in place by setting its force to zero. A restraint pulls 
 
 ### Three ways to freeze atoms
 
-- **The Frozen-MM layer** (B-factor 20) is frozen automatically; see {ref}`The MM layers <mm-layers>`.
+- **{ref}`The Frozen-MM layer <mm-layers>`** (B-factor 20) is frozen automatically.
 - **`--freeze-atoms 'i,j,k'`** takes 1-based atom numbers of the full system. It works in `all`, `opt`, `tsopt`, `irc`, `freq`, `scan`, `scan2d`, `scan3d`, `path-opt`, `path-search`, and `sp`.
 - **YAML `geom.freeze_atoms`** (passed with `--config`) suits a long list, or a list you keep with the rest of the settings.
 
@@ -165,10 +166,10 @@ mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 - **`--movable-cutoff` replaces the B-factor MM layers** in every command that takes it. It also turns off `--detect-layer`, so give the ML region with `--model-pdb` or `--model-indices`.
 - **`--model-pdb` sets only the ML region**: with `--detect-layer`, Movable-MM and Frozen-MM still come from the B-factors of the input.
 - **Change the layers with `define-layer`**: run it again instead of editing B-factors by hand.
-- **The bundled PDB has an empty chain column**; in such a PDB, give residues by name or by number. In a PDB with chains, write each residue as chain:name:number, such as `-c 'A:TYR:44'`; see [Residue selectors](cli-conventions.md#residue-selectors).
+- **The bundled PDB has an empty chain column**; in such a PDB, give residues by name or by number. In a PDB with chains, write each residue as [chain:name:number](cli-conventions.md#residue-selectors), such as `-c 'A:TYR:44'`.
 - **Link hydrogens are added for you**: the calculator puts one on each `parm7` bond that has exactly one end in the ML region, so `model.pdb` does not contain them. See [Link-atom redistribution](mlmm-calc.md#link-atom-redistribution).
 - **Boundary bonds**: link hydrogens go only on C–C, C–N, and N–C bonds. Any other `parm7` bond across the boundary stops the run with `Unsupported ML/MM boundary bond in parm7`; move the boundary to a supported bond.
-- **Metals, glycans, and MD snapshots**: build the `parm7` yourself and pass it with `--parm7`; see the [`mm-parm` notes](mm-parm.md#notes).
+- **Metals, glycans, and MD snapshots**: build the [`parm7`](mm-parm.md#notes) yourself and pass it with `--parm7`.
 
 ## See also
 

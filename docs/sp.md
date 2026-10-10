@@ -86,7 +86,7 @@ See the [generated CLI reference](reference/commands/sp.md) for every option.
 ## Notes
 
 * **Failed run**: a failed run prints a one-line `Error: …`, such as `ML region electron count inconsistent`, or `Unhandled error during single-point:` with a traceback, and exits with a nonzero code.
-* **Energy looks wrong**: if the energy is finite but looks wrong, re-check the ML region and its charge and multiplicity ({ref}`Charge / spin <charge--spin>`).
+* **Energy looks wrong**: if the energy is finite but looks wrong, re-check the ML region and its {ref}`charge and multiplicity <charge--spin>`.
 * **Frozen atoms**: indices are 1-based, and frozen atoms get zero force. The Frozen-MM layer is frozen as well.
 * **Atomic charges**: `sp -b dft` gives the ML(DFT)/MM energy and forces only. For Mulliken, meta-Löwdin, and IAO charges of the ML region, use [`dft`](dft.md).
 * **Exit codes**: see {ref}`Exit codes <exit-codes>`.

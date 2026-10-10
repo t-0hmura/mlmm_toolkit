@@ -225,7 +225,7 @@ Try in order:
 (troubleshooting-ts)=
 ### TS optimization does not converge / multiple imaginary modes remain
 
-- **Symptom**: the TS optimization runs many cycles without converging (`TS optimization did not converge. Review the TS trajectory.` in `summary.log`), or after it converges n_imag is 2 or more (`TS imaginary-mode validation found n_imag=N.`) or 0 (`[tsopt] No imaginary mode detected. Try all --refine-path.`); see [Reading the TS result](tsopt.md#reading-the-ts-result).
+- **Symptom**: the TS optimization runs many cycles without converging (`TS optimization did not converge. Review the TS trajectory.` in `summary.log`), or after it converges [n_imag](tsopt.md#reading-the-ts-result) is 2 or more (`TS imaginary-mode validation found n_imag=N.`) or 0 (`[tsopt] No imaginary mode detected. Try all --refine-path.`).
 - **Fix when the optimization does not converge**: inspect the stop reason and the mode displacements, then try the following in order.
   1. Switch the optimizer between RS-P-RFO (the default) and the Dimer method: `tsopt --opt-mode hess` / `dimer`, or `all --opt-mode-post hess` / `grad` (Dimer).
   2. Reduce the step size in YAML; see [YAML Reference](yaml-reference.md#ts-optimization-sections).
@@ -281,7 +281,7 @@ An IRC that stops before it converges is still usable when the endpoint optimiza
 
 ## How to report an issue
 
-Include the exact command, `summary.log` (or the console output), the smallest reproducing inputs, your environment (OS / Python / CUDA / PyTorch), and whether AmberTools and `hessian_ff` are installed and working.
+Report problems and feature requests on [GitHub Issues](https://github.com/t-0hmura/mlmm_toolkit/issues). Include the exact command, `summary.log` (or the console output), the smallest reproducing inputs, your environment (OS / Python / CUDA / PyTorch), and whether AmberTools and `hessian_ff` are installed and working.
 
 ## See also
 

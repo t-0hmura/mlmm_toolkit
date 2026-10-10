@@ -358,7 +358,7 @@ The bundled `pysisyphus/`, `thermoanalysis/`, and `hessian_ff/` packages are **f
 | `thermoanalysis/` | NO — fork (branding diff) | ΔG, ZPE, partition functions, `QCData` | preserve the `QCData` consumer contract; see its README |
 | `hessian_ff/` | **NO — PyPI 404, bundling mandatory** | analytical Hessian on MM force field | preserve its derivative and public API contracts; see its README |
 
-Each dir carries its own `README.md` listing the divergent files and the touch-restriction boundary.
+Each dir carries its own `README.md` listing its divergences from upstream and its consumer contracts.
 
 
 ---

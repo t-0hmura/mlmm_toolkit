@@ -142,7 +142,7 @@ python -c "import parmed as pmd; p=pmd.load_file('system.parm7'); assert not p.c
 * **Ligand charge and hydrogens**: the electron-count check stops the build when the hydrogens of a residue do not match its charge and multiplicity (SAM: 22 H for charge 0, 23 H for +1). A `-l` or `--ligand-mult` entry for a residue that tleap already knows is not used, and a warning says so.
 * **Force-field sets**: `ff19SB` loads ff19SB with phosaa19SB and ff19SB_modAA, OPC3 water, and its ion parameters. `ff14SB` loads ff14SB with phosaa14SB and ff14SB_modAA, TIP3P water, and its ion parameters. Both also load lipid21, RNA.OL3, DNA.OL21, GLYCAM_06j-1, and GAFF2.
 * **Water with virtual sites**: the default MM backend, `hessian_ff`, rejects topologies whose water has massless virtual sites (OPC, TIP4P/-Ew, TIP5P) and reports their number and atom numbers. Use 3-point water, or run the calculation with `--mm-backend openmm`.
-* **Requirements**: tleap, antechamber, and parmchk2 from AmberTools must be on `PATH`, and `--add-h` also needs PDBFixer; see [Installation](installation.md).
+* **Requirements**: tleap, antechamber, and parmchk2 from [AmberTools](installation.md) must be on `PATH`, and `--add-h` also needs PDBFixer.
 
 ---
 

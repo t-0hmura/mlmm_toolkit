@@ -8,7 +8,7 @@
 
 * **Locating the TS region**: see where the saddle between the reactant and product basins lies before a path search or TS optimization.
 * **Viewing the landscape before the MEP**: check whether two events, such as bond formation and proton transfer, happen together or one after the other, before refining the minimum-energy path (MEP).
-* **Judging the result**: `surface.csv` marks every point as converged or not, and `result.json` gives `scientific_status` (see *Reading surface.csv* below).
+* **Judging the result**: [`surface.csv`](#reading-surfacecsv) marks every point as converged or not, and `result.json` gives `scientific_status`.
 
 The ML region uses **UMA** (Meta) by default; `-b/--backend` also selects **ORB**, **MACE**, **AIMNet2**, or DFT (`dft`). For a single path driven by one or more coordinates, use [`scan`](scan.md); for three coordinates, use [`scan3d`](scan3d.md).
 

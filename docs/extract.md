@@ -137,7 +137,7 @@ See the [generated CLI reference](reference/commands/extract.md) for every optio
 ## Notes
 
 * **`-r 0`** adds no neighbors by distance (the cutoff is evaluated as 0.001 Å): the region is built from the `-c` and `--selected-resn` residues, plus the disulfide partners and the N-side neighbor of a proline that step 2 adds. The same holds for `--radius-het2het 0`.
-* **Region size**: check for your system that the result does not change when the ML region grows; a larger `-r` costs more and does not always improve accuracy. See [Make the model larger](model-setup.md#make-the-model-larger).
+* **Region size**: check for your system that the result does not change when the {ref}`ML region <model-setup-larger>` grows; a larger `-r` costs more and does not always improve accuracy.
 * **To build a reusable `--model-pdb` by hand**, extract from the PDB that `mm-parm` writes, so that the atoms match the `parm7`, as in [`mm-parm` example 4](mm-parm.md#examples).
 * **Names match everywhere**: a name such as `TYR` selects every TYR in every chain, with a warning when there is more than one.
 * **`TYR:44` means chain TYR**: with two fields the first is always the chain, and the second is a number (`TYR:44`) or a name (`A:SAM`), so write `A:TYR:44`. In a PDB with an empty chain column, such as the bundled examples, use the name or the number alone.

@@ -172,7 +172,7 @@ If you prefer to build the environment piece by piece:
 
 **AmberTools and compiler.** AmberTools (`tleap`) builds the topology in `mm-parm` and `all`; a matching `--parm7` from an earlier run skips that step. The default `hessian_ff` MM backend needs a C++20 compiler (validated with GCC 13.3). PDBFixer is needed only for `mm-parm --add-h`.
 
-**VRAM, RAM, and disk.** Memory grows with the backend, the atom count, and the Hessian mode, and the disk holds the environment, the model weights, the topology, and the trajectories and Hessians; run one representative calculation on the target node and watch the peak use.
+**VRAM, RAM, and disk.** Memory grows with the backend, the atom count, and the Hessian mode, and the disk holds the environment, the model weights, the topology, and the trajectories and Hessians; for a very large system, run one representative calculation on the target node and watch the peak use.
 
 ## Next steps
 
