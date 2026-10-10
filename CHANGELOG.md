@@ -34,6 +34,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Import the UMA, ORB, MACE, and AIMNet2 packages only when that backend is built, so a broken install of one backend (for example `warp-lang` needing a newer glibc) no longer stops `dft` and the other backends.
 - Read an `-s` stage literal longer than the operating-system path limit as a literal instead of stopping with `File name too long`.
 - Cut amino-acid centers in `extract` at the pocket boundary like other residues and read Amber terminal names such as `NPRO` as the standard residue (an N-terminal proline counts +1); a cut outside the link-hydrogen positions gives a warning.
 - Infer PDB elements correctly for LEaP chlorine and bromine names (` CL1`), four-character ligand hydrogens (`HG11`), and blank element columns, so `freq` and `irc` use the right masses; `mm-parm` fills blank columns from the parm7 topology.

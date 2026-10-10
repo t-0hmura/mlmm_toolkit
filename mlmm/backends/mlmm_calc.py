@@ -12,6 +12,7 @@ For backend configuration, see: docs/backends.md
 from __future__ import annotations
 
 import abc
+import importlib
 import logging
 import os
 from pathlib import Path
@@ -109,54 +110,62 @@ except ImportError:
 # reduces numerical drift but does not replace strict deterministic mode.
 
 
-# Optional fairchem import (UMA backend)
-try:
-    from fairchem.core import pretrained_mlip
-    from fairchem.core.datasets.atomic_data import AtomicData
-    from fairchem.core.datasets import data_list_collater
-    HAS_FAIRCHEM = True
-except ImportError:
-    HAS_FAIRCHEM = False
-
-# Optional: parallel MLIP predictor, only needed when workers > 1.
-try:
-    from fairchem.core.units.mlip_unit.predict import ParallelMLIPPredictUnit
-    from fairchem.core.units.mlip_unit.api.inference import guess_inference_settings
-except Exception:
-    ParallelMLIPPredictUnit = None
-    guess_inference_settings = None
-
+# Optional MLIP backends are imported when a backend is first built, as in
+# pdb2reaction, so a broken install of one backend stops only the runs that use it.
+# None means not tried yet; tests may set these names before building a backend.
+HAS_FAIRCHEM: Optional[bool] = None  # UMA
+pretrained_mlip = None
+AtomicData = None
+data_list_collater = None
+ParallelMLIPPredictUnit = None  # workers > 1
+guess_inference_settings = None
 # fp64 base precision: switching OMol-trained UMA from default fp32 to
 # fp64 can have non-trivial impact on TSopt + Hessian numerics. Available
 # via InferenceSettings(base_precision_dtype="float64") in fairchem ≥ 2.0.
-try:
-    from fairchem.core.units.mlip_unit.api.inference import InferenceSettings as _UMAInferenceSettings
-except Exception:
-    _UMAInferenceSettings = None
+_UMAInferenceSettings = None
+HAS_ORB: Optional[bool] = None
+HAS_MACE: Optional[bool] = None
+HAS_AIMNET2: Optional[bool] = None
 
-# Importing orb_models registers the ORB backend with ASE/torch.
-# Optional ORB backend
-try:
-    import orb_models  # noqa: F401
-    HAS_ORB = True
-except ImportError:
-    HAS_ORB = False
 
-# Importing mace registers the MACE backend with ASE/torch.
-# Optional MACE backend
-try:
-    import mace  # noqa: F401
-    HAS_MACE = True
-except ImportError:
-    HAS_MACE = False
+def _load_fairchem() -> bool:
+    """Import fairchem for the UMA backend; return False when it is not installed."""
+    global HAS_FAIRCHEM, pretrained_mlip, AtomicData, data_list_collater
+    global ParallelMLIPPredictUnit, guess_inference_settings, _UMAInferenceSettings
+    if HAS_FAIRCHEM is not None:
+        return HAS_FAIRCHEM
+    try:
+        from fairchem.core import pretrained_mlip as _pretrained_mlip
+        from fairchem.core.datasets.atomic_data import AtomicData as _AtomicData
+        from fairchem.core.datasets import data_list_collater as _data_list_collater
+    except ImportError:
+        HAS_FAIRCHEM = False
+        return False
+    pretrained_mlip, AtomicData, data_list_collater = _pretrained_mlip, _AtomicData, _data_list_collater
+    try:
+        from fairchem.core.units.mlip_unit.predict import ParallelMLIPPredictUnit as _parallel
+        from fairchem.core.units.mlip_unit.api.inference import guess_inference_settings as _guess
+        ParallelMLIPPredictUnit, guess_inference_settings = _parallel, _guess
+    except Exception:
+        pass
+    try:
+        from fairchem.core.units.mlip_unit.api.inference import InferenceSettings as _settings
+        _UMAInferenceSettings = _settings
+    except Exception:
+        pass
+    HAS_FAIRCHEM = True
+    return True
 
-# Importing aimnet registers the AIMNet2 backend with ASE/torch.
-# Optional AIMNet2 backend
-try:
-    import aimnet  # noqa: F401
-    HAS_AIMNET2 = True
-except ImportError:
-    HAS_AIMNET2 = False
+
+def _load_backend_module(flag: str, module: str) -> bool:
+    """Import an optional backend package once (this also registers it); False when absent."""
+    if globals()[flag] is None:
+        try:
+            importlib.import_module(module)
+            globals()[flag] = True
+        except ImportError:
+            globals()[flag] = False
+    return bool(globals()[flag])
 
 # ---------- PySisyphus unit constants ----------
 from pysisyphus.constants import BOHR2ANG, ANG2BOHR, AU2EV, AU2KCALPERMOL
@@ -433,7 +442,7 @@ class _UMABackend(_MLBackend):
         workers_per_node: int = 1,
         analytical_hessian: bool = False,
     ):
-        if not HAS_FAIRCHEM:
+        if not _load_fairchem():
             raise ImportError(
                 "fairchem-core is required for the UMA backend. "
                 "Install with `pip install fairchem-core` "
@@ -731,7 +740,7 @@ class _OrbBackend(_ASEMLBackend):
         ml_device: torch.device,
         **_kwargs,
     ):
-        if not HAS_ORB:
+        if not _load_backend_module("HAS_ORB", "orb_models"):
             raise ImportError(
                 "orb-models is required for the ORB backend. "
                 "Install with `pip install orb-models`."
@@ -885,7 +894,7 @@ class _MACEBackend(_ASEMLBackend):
         model_mult: int = 1,
         ml_device: torch.device,
     ):
-        if not HAS_MACE:
+        if not _load_backend_module("HAS_MACE", "mace"):
             raise ImportError(
                 "mace-torch is required for the MACE backend. "
                 "Install with `pip install mace-torch`."
@@ -1016,7 +1025,7 @@ class _AIMNet2Backend(_ASEMLBackend):
         model_mult: int = 1,
         ml_device: torch.device,
     ):
-        if not HAS_AIMNET2:
+        if not _load_backend_module("HAS_AIMNET2", "aimnet"):
             raise ImportError(
                 "aimnet is required for the AIMNet2 backend. "
                 "Install with `pip install aimnet`."
