@@ -56,8 +56,9 @@ conda install -c conda-forge ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compil
 #    (choose the official 2.13 wheel for your driver/GPU)
 pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cu130
 
-# 2. Install mlmm-toolkit
+# 2. Install mlmm-toolkit and headless Chrome (for PNG export of plots)
 pip install mlmm-toolkit
+plotly_get_chrome -y
 
 # 3. Authenticate Hugging Face once (only required for the default UMA backend)
 #    Accept the FAIR Chemistry License v1 at https://huggingface.co/facebook/UMA, then:
