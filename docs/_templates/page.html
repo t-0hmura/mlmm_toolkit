@@ -373,4 +373,57 @@
     </aside>
   </div>
 </div>
+<script>
+/* EN/JA switch keeps the reading position: the two pages share their section layout, so the
+   section and the distance into it are carried over (whole-page ratio when the layouts differ). */
+(function() {
+  var KEY = 'p2r-lang-pos';
+  function sections() { return Array.prototype.slice.call(document.querySelectorAll('article section')); }
+  function layout(list) { return list.map(function(s) { var d = 0, p = s.parentElement; while (p) { if (p.tagName === 'SECTION') d++; p = p.parentElement; } return d; }).join(''); }
+  function barHeight() { var b = document.querySelector('.p2r-topbar'); return b ? b.offsetHeight : 0; }
+  function starts(list) { return list.map(function(s) { return s.getBoundingClientRect().top + window.scrollY; }); }
+  function docEnd() { return document.documentElement.scrollHeight; }
+  function maxScroll() { return Math.max(1, docEnd() - window.innerHeight); }
+  function page(href) { return new URL(href, location.href).pathname.replace(/(index)?\.html$/, ''); }
+  document.querySelectorAll('.lang-link:not(.is-active)').forEach(function(a) {
+    a.addEventListener('click', function() {
+      var list = sections(), top = starts(list), y = window.scrollY + barHeight() + 1, i = -1;
+      for (var k = 0; k < top.length; k++) { if (top[k] <= y) i = k; }
+      var end = i + 1 < top.length ? top[i + 1] : docEnd();
+      var frac = i >= 0 ? (y - top[i]) / Math.max(1, end - top[i]) : 0;
+      try {
+        sessionStorage.setItem(KEY, JSON.stringify({ page: page(a.href), layout: layout(list), i: i, frac: frac,
+          ratio: window.scrollY / maxScroll(), t: Date.now() }));
+      } catch (e) {}
+    });
+  });
+  var pos = null;
+  try { pos = JSON.parse(sessionStorage.getItem(KEY) || 'null'); sessionStorage.removeItem(KEY); } catch (e) {}
+  if (!pos || pos.page !== page(location.href) || Date.now() - pos.t > 10000 || location.hash) return;
+  if (window.scrollY === 0 && pos.ratio === 0) return;
+  window.p2rLangRestore = true;
+  var held = true;
+  ['wheel', 'touchstart', 'keydown', 'mousedown'].forEach(function(e) {
+    window.addEventListener(e, function() { held = false; }, { passive: true, once: true });
+  });
+  function restore() {
+    if (!held) return;
+    var list = sections(), y;
+    if (pos.i >= 0 && layout(list) === pos.layout) {
+      var top = starts(list), end = pos.i + 1 < top.length ? top[pos.i + 1] : docEnd();
+      y = top[pos.i] + pos.frac * (end - top[pos.i]) - barHeight() - 1;
+    } else {
+      y = pos.ratio * maxScroll();
+    }
+    window.scrollTo(0, Math.max(0, Math.round(y)));
+  }
+  restore();
+  var ro = window.ResizeObserver ? new ResizeObserver(restore) : null;
+  if (ro) ro.observe(document.body);
+  window.addEventListener('load', function() {
+    restore(); setTimeout(restore, 150);
+    setTimeout(function() { if (ro) ro.disconnect(); held = false; }, 3000);
+  });
+})();
+</script>
 {%- endblock %}
