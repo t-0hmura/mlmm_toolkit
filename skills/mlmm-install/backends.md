@@ -68,8 +68,8 @@ ORB (`-b orb`) is an energy-conserving MLIP from `orb-models`. Use Python 3.12
 (recommended; installs ORB 0.7) or 3.11 (installs ORB 0.5.x).
 
 ```bash
-pip install --only-binary=dm-tree 'mlmm-toolkit[orb]'   # pulls orb-models
-pip install --only-binary=dm-tree orb-models            # when mlmm-toolkit is already installed
+pip install 'mlmm-toolkit[orb]'   # pulls orb-models
+pip install orb-models            # when mlmm-toolkit is already installed
 python -c "import orb_models; print('orb backend OK:', orb_models.__version__)"
 ```
 

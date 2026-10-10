@@ -54,7 +54,7 @@ The bundled packages install as separate top-level packages next to `mlmm`.
 ```bash
 conda activate <YOUR_ENV>
 pip install mlmm-toolkit                                           # core only (UMA)
-pip install --only-binary=dm-tree 'mlmm-toolkit[orb,aimnet,dft]'   # extras as needed
+pip install 'mlmm-toolkit[orb,aimnet,dft]'   # extras as needed
 ```
 
 | Extra | Pulls in | When you need it |
@@ -73,7 +73,7 @@ different `e3nn` versions; MACE goes in a separate env
 full list of extras and pins.
 
 Contributors install from source; `pip install -e` picks up edits without a
-reinstall: `git clone https://github.com/t-0hmura/mlmm_toolkit.git mlmm && cd mlmm && pip install --only-binary=dm-tree -e '.[orb,aimnet,dft]'`.
+reinstall: `git clone https://github.com/t-0hmura/mlmm_toolkit.git mlmm && cd mlmm && pip install -e '.[orb,aimnet,dft]'`.
 
 ## Conda env template
 
