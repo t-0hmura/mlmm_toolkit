@@ -273,9 +273,9 @@ IRC が収束せずに止まっても、端点の最適化で狙った R と P �
 
 ---
 
-## 不具合報告のときに添えると助かる情報
+## 不具合の報告
 
-実行したコマンド、`summary.log`（または端末の出力）、再現できる最小の入力、環境（OS / Python / CUDA / PyTorch）、AmberTools と `hessian_ff` が入って動くかどうかを添えてください。
+問題の報告や機能の要望は [GitHub Issues](https://github.com/t-0hmura/mlmm_toolkit/issues) へお寄せください。実行したコマンド、`summary.log`（または端末の出力）、再現できる最小の入力、環境（OS / Python / CUDA / PyTorch）、AmberTools と `hessian_ff` が入って動くかどうかを添えていただくと助かります。
 
 ## 関連ドキュメント
 

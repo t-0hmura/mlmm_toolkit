@@ -20,6 +20,7 @@ conda activate mlmm-toolkit
 conda install -c conda-forge ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler -y
 pip install 'torch==2.13.0' --index-url https://download.pytorch.org/whl/cu130  # 推奨。cu126 / cu132 なら末尾を置き換え
 pip install mlmm-toolkit
+
 plotly_get_chrome -y
 ```
 
@@ -166,7 +167,7 @@ DMF を使う場合は、{ref}`詳細なインストール手順 <ja-step-by-ste
 
 **AmberTools とコンパイラー:** `mm-parm` と `all` のトポロジー作成に AmberTools（`tleap`）が必要です。前の計算の対応する `--parm7` を渡すと、この段を省けます。デフォルトの MM バックエンド `hessian_ff` には C++20 対応コンパイラー（GCC 13.3 で検証）が必要です。PDBFixer が要るのは `mm-parm --add-h` のときだけです。
 
-**VRAM・RAM・ディスク:** メモリはバックエンド、原子数、Hessian の計算方式とともに増え、ディスクには環境、モデルの重み、トポロジー、軌跡と Hessian が入ります。代表的な計算を 1 つ対象の計算ノードで流し、最大使用量を見てください。
+**VRAM・RAM・ディスク:** メモリはバックエンド、原子数、Hessian の計算方式とともに増え、ディスクには環境、モデルの重み、トポロジー、軌跡と Hessian が入ります。巨大な系を扱う場合は、代表的な計算を 1 つ対象の計算ノードで流し、最大使用量を見てください。
 
 ## 次のステップ
 
