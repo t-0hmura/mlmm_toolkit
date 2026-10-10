@@ -44,7 +44,7 @@ bonds you meant, `====== Scan finished ======`, and `scientific_status`
 - `scan2d` and `scan3d`: exactly two or three ranges in one literal (or
   under `pairs:`). The tuples are the grid axes.
 - Staged versus concerted:
-  [Staged vs concerted scan](../mlmm-overview/ts-strategy.md#5-staged-vs-concerted-scan).
+  [Staged vs concerted scan](../mlmm-overview/ts-strategy.md#6-staged-vs-concerted-scan).
 
 ## Minimal run
 
@@ -78,10 +78,19 @@ and `-s`, prints the plan, and stops.
 `[stage k] Covalent-bond changes (start vs final): Yes` (or `No`), and the
 run ends with a `Summary` and `====== Scan finished ======`. With `--out-json`, `result.json` gives
 `scientific_status`: `success` when every step converged (and `--preopt`
-and `--endopt`, if requested), `partial` when some did (exit 0), `failed`
-when none did (exit 1). Per stage it has `stages[].converged`,
-`stages[].bond_changes`, `stages[].final_energy_hartree`, and
-`stages[].energies_hartree`. Files: `stage_NN/result.{xyz,pdb}` (end of each
+and `--endopt`, if requested), `partial` when only part of the scan is
+usable (exit 0), `failed` when nothing is (exit 1). Per stage it has
+`stages[].converged`, `stages[].bond_changes`,
+`stages[].final_energy_hartree`, and `stages[].energies_hartree`. A point
+that does not converge does not stop its stage: the next point starts from
+its geometry, and `stages[].converged` reports only the last point (the end
+optimization when `--endopt` is on). A stage is usable only when every point
+converged: read `usable` in its `stage_outcomes` entry. A point stopped on an
+energy plateau (YAML `opt.energy_plateau`) is not converged. Inside `all`,
+read `_work/scan/result.json`; `all` continues past a `partial` scan without
+a warning and stops on a `failed` one.
+
+Files: `stage_NN/result.{xyz,pdb}` (end of each
 stage), `stage_NN/scan_trj.xyz`, and `scan_trj.xyz` and `scan.pdb` joining
 all stages; `preopt/` with `--preopt`. Each frame's comment line holds the
 energy without restraints; plot it with [trj2fig](utilities.md#trj2fig).
@@ -114,6 +123,14 @@ interpolated, so take a computed `grid/point_*.pdb` near the saddle for
   [Reading the barrier](../mlmm-overview/ts-strategy.md#4-reading-the-barrier-when-the-scan-started-from-p).
 - Standalone `scan` does not pre-optimize unless you pass `--preopt`;
   inside `all`, `--preopt` is on by default.
+- `--relax-max-cycles` (default 100000 per point; `--scan-relax-max-cycles`
+  in `all`) is the cycle limit of each relaxation. Lower it for exploratory
+  scans so that points that do not converge do not use up the walltime.
+- `--max-step-size` is the largest change of a driven
+  distance per scan point and also bounds every relaxation step at that point:
+  the L-BFGS `max_step` and the RFO trust radius become the smaller of their
+  own value and this size, so a small `--max-step-size` also shortens the
+  relaxation steps.
 - Grid cost is the product of the axis lengths: 10 × 10 = 100
   relaxations, 5 × 5 × 5 = 125, and 9 × 9 × 7 = 567. Start with a larger
   `--max-step-size` or narrower ranges; for 1D or 2D chemistry, `scan` and

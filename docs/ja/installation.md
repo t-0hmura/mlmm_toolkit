@@ -90,6 +90,8 @@ DMF を使う場合は、{ref}`詳細なインストール手順 <ja-step-by-ste
 
     `hessian_ff` のカーネルは初回の使用時に自動でビルドされます。ビルドが失敗したときの手動の再ビルドは、{ref}`hessian_ff ビルドの問題 <ja-hessian_ff-build--import>` を参照してください。
 
+    aarch64 では、UMA が `fairchem-core` を通して読み込む `warp-lang` 1.18.0 の wheel が glibc 2.35 を必要とし、それより古いシステム（`ldd --version` で確認できます）では import が `GLIBC_2.35' not found` で止まります。その場合は `warp-lang==1.17.0` をインストールしてください（`nvalchemi-toolkit-ops` には 1.13.0 以上が必要です）。
+
 6. **Hugging Face Hub (UMA モデル) にログイン**
 
     ```bash

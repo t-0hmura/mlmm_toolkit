@@ -18,7 +18,7 @@ result_all/
 ├─ mm_parm/                      # parm7 and rst7 (reusable with --parm7)
 ├─ layered/                      # Full structures with the layers in the B-factors
 ├─ segments/
-│  └─ seg_NN/                    # One step: seg_01, seg_02, ...
+│  └─ seg_NN/                    # One step
 │     ├─ reactant.*, ts.*, product.*   # Optimized R, TS, and P (--tsopt)
 │     ├─ structures/             # XYZ and PDB of R, TS, P, and the raw IRC ends
 │     ├─ energy_diagram_*.png    # R → TS → P diagrams of this step
@@ -54,7 +54,7 @@ Run record:
 
 - `command` is the full invocation and `mlmm_toolkit_version` the version that wrote the file. `pipeline_mode` is `path-opt`, `path-search` (with `--refine-path`), or `tsopt-only`.
 - `config` holds the effective settings after the CLI, YAML, and defaults are merged. `mep_mode` names GSM or DMF, and `ts_opt_mode` and `endpoint_opt_mode` the post-processing optimizers. `path_opt_mode` is the single-structure optimizer used to pre-optimize the endpoints, not the MEP algorithm.
-- `charge` and `spin` are the ML-region charge and multiplicity. `freeze_atoms` lists the 0-based indices frozen with `--freeze-atoms` or YAML `geom.freeze_atoms`, when there are any. `environment` is `{device, gpu_name, gpu_vram_gb, cuda_version, cpu, n_cpus, ram_gb}`.
+- `charge` and `spin` are the ML-region charge and multiplicity. `freeze_atoms` lists the 0-based indices frozen with `--freeze-atoms` or YAML `geom.freeze_atoms`, when there are any; add 1 to each for `--freeze-atoms`. `environment` is `{device, gpu_name, gpu_vram_gb, cuda_version, cpu, n_cpus, ram_gb}`.
 - `mlip_backend` names the backend. `mlip_model` is the exact model or checkpoint, `filename:factory` for a custom calculator, and `FUNCTIONAL/BASIS` for `-b dft`. `mlip_precision` is the effective `fp32` or `fp64`, and null for DFT and custom calculators.
 - `references` lists the methods actually used by the run, as `{method, citation, doi}` records. The same set is printed at the end of `summary.log` and of the console output, just before the elapsed time.
 
@@ -63,6 +63,7 @@ Segments:
 - `n_segments` counts the MEP segments and `n_segments_reactive` those that are not bridges. Check the chemistry before treating a segment as an elementary step.
 - Each `segments[]` record has `index`, `tag` (a kink segment, which has no covalent bond change, has `kink` in its tag), `kind` (`seg`, `bridge` for a short connecting path, or `tsopt` in TS-only mode), `converged`, `barrier_kcal`, `delta_kcal`, and `bond_changes`. It holds no structures and no stage records: the structures are files under `segments/seg_NN/`, and the stage results are in `post_segments[]`.
 - Each `post_segments[]` record covers one post-processed segment: `tag` and `post_dir`; `tsopt`, with `n_imaginary_modes`, `imaginary_frequencies_cm`, `optimization_status`, and `n_opt_cycles` against `max_cycles`; `irc`, the stop diagnostics of each direction, and `irc_plot` and `irc_traj`; `endpoint_assignment`, how the IRC ends were named R and P; `endpoint_opt`, with `optimization_status`, `n_opt_cycles`, `max_cycles`, and any `stop_reason` for `reactant` and `product`; `thermo_symmetry`, the point group and symmetry number of R, TS, and P when found; and `mep_barrier_kcal` and `mep_delta_kcal`, the MEP values of the segment.
+- In Endpoint and Scan-list modes, `endpoint_opt.connectivity_validated` (with `endpoint_opt.connectivity.match_matrix`) tells whether the optimized R and P kept the bond topology of the MEP ends. `scientific_status` `success` does not check this, and `bond_changes` ([Bond changes](#bond-changes)) cannot show what the TS connects; treat `false` as a TS that connects other states.
 - `mlip`, `gibbs_mlip`, `dft`, and `gibbs_dft_mlip` in `post_segments[]` give R, TS, and P at one level each, with `energies_kcal`, `barrier_kcal`, `delta_kcal`, and a `structures` map keyed R/TS/P: ML/MM energies (`--tsopt`), ML/MM Gibbs energies (`--thermo`), DFT energies of the ML region (`--dft`), and DFT//ML/MM Gibbs energies (`--dft` with `--thermo`).
 
 Barriers:
@@ -92,6 +93,8 @@ segments/seg_NN/
 ```
 
 Read from `segments/seg_NN/` downstream. Use `structures/reactant_irc.*` and `product_irc.*` only to see where the IRC end and the optimized end differ.
+
+`segments/seg_NN/` exists only for reactive segments, and NN is `segments[].index`, so after `--refine-path` the list can start at `seg_02` or skip numbers. List `segments/` or read `post_segments[].index` instead of assuming `seg_01`, take the barrier TS from the segment in `rate_limiting_step.segment` (not `post_segments[0]`), and copy R, TS, and P of one segment together.
 
 In Endpoint and Scan-list modes the IRC ends are named R and P by matching them to the ends of the MEP segment, by bond topology first and RMSD second; `endpoint_assignment.method` records which one decided.
 
@@ -161,9 +164,11 @@ When `execution_status` is `failed` or `scientific_status` is not `success`, loo
 
 1. `summary.log`: its header gives both statuses, and an early stop is shown as `Pipeline stop`. On the console, `RESULT WARNING:` lines after `====== Pipeline summary ======` give the reasons.
 2. `segments/seg_NN/{ts,irc,endpoint_opt}/result.json`: the status of each stage. `endpoint_opt/failure.json` is written when an endpoint optimization could not run. In an `all` run, `freq/` and `dft/` have no `result.json`.
-3. The terminal or scheduler stderr, for tracebacks that are not in the JSON. A run that fails while its options or inputs are checked can stop before writing any JSON, so treat a nonzero exit code as a failure.
+3. The terminal or scheduler stderr, for tracebacks that are not in the JSON. Read the exit code with the status: 0 is `success` or `partial` (tell them apart by `scientific_status`); 1 is non-convergence, no usable result, a runtime exception, or an output failure; 2 is invalid input, arguments, or configuration (including invalid YAML), so fix the command instead of resubmitting it; 130 is an interrupt. A run that fails while its options or inputs are checked can stop before writing any JSON, so treat a nonzero exit code as a failure.
 
 Partial outputs are kept. The MEP intermediates are under `_work/path_opt/` or `_work/path_search/`, and `segments/seg_NN/` can hold files of the current run even when a later stage failed. Trust the stage outcomes and `current_output_paths`, not the existence of a directory.
+
+A barrier or reaction energy of hundreds to thousands of kcal/mol usually means that one endpoint optimization diverged, not a summary bug. Compare the Hartree energy on the second line of `segments/seg_NN/structures/{reactant,product}_irc.xyz` with that of `{reactant,product}.xyz` in the same directory. If the raw IRC end is sensible and the optimized one is not, rerun only that end with `opt` from its `*_irc.xyz` file, with a PDB from `layered/` as `--ref-pdb`, the parm7 in `mm_parm/` as `--parm7`, `ml_region.pdb` as `--model-pdb`, and the same charge, multiplicity, and frozen atoms (`freeze_atoms` in [summary.json](#summaryjson)).
 
 ## Energy diagrams
 
@@ -175,7 +180,11 @@ Partial outputs are kept. The MEP intermediates are under `_work/path_opt/` or `
 - `energy_diagram_DFT_all.png`: DFT energies of the ML region on the ML/MM geometries (`--dft`).
 - `energy_diagram_G_DFT_plus_MLIP_all.png`: DFT energies plus the ML/MM thermal correction (`--dft` and `--thermo`).
 
-Each `segments/seg_NN/` has the same diagrams for its own step, without `_all`, and `irc/irc_plot.png` shows its IRC. Energies are in kcal/mol relative to the first state. When the PNG cannot be written, the console prints a `NOTE`, and the values stay in `summary.json["energy_diagrams"]`. To draw a diagram from the numbers of several runs, use `mlmm energy-diagram` ([cli/utilities.md](../mlmm-cli/utilities.md)).
+Each `segments/seg_NN/` has the same diagrams for its own step, without `_all`, and `irc/irc_plot.png` shows its IRC. Energies are in kcal/mol relative to the first state. When the PNG cannot be written, the console prints a `NOTE`, and the values stay in `summary.json["energy_diagrams"]`.
+
+Read a barrier from `barrier_kcal` of its level ([summary.json](#summaryjson)) or from the TS-labelled entry of `energy_diagrams`. Do not compute `max(energies) − E(R)`: after thermal or DFT corrections, P or a later state can lie above the TS.
+
+To draw a diagram from the numbers of several runs, use `mlmm energy-diagram` ([cli/utilities.md](../mlmm-cli/utilities.md)).
 
 ## See also
 

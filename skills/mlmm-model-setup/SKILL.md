@@ -8,7 +8,7 @@ description: "Input structures, the ML region, and layers for mlmm-toolkit: PDB,
 Give `-i` the whole system as PDB (or XYZ with `--ref-pdb`), `--parm7` from `mm-parm`, the ML region by B-factor or `--model-pdb`, and the ML-region charge with `-q` or `-l`.
 
 ```bash
-mlmm opt -i complex_layered.pdb --parm7 real.parm7 -l 'SAM:1,GPP:-3' -m 1 -o result_opt
+mlmm opt -i complex_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -l 'SAM:1,GPP:-3' -m 1 -o result_opt
 ```
 
 A structure is ready when a calculation starts without an atom-count or
@@ -151,7 +151,12 @@ The charge is taken from the first of:
 Use `-q` when the input has no residue metadata or to override the derived
 value; in `mlmm all`, `-q` wins and the workflow reports the value it would
 have derived. With `--model-indices`, `-l` cannot derive the charge: give `-q`,
-or define the ML region with `--model-pdb` or B-factor layers. XYZ input gets
+or define the ML region with `--model-pdb` or B-factor layers. With B-factor
+layers, `-l` counts only whole residues: when the ML layer cuts through a
+residue, as a main-chain cut at `CA` does, the run stops with
+`B-factor ML selection splits residue …; provide -q/--charge`. Give the
+verified ML-region charge with `-q`, or pass the ML region with `--model-pdb`
+(such as the `ml_region.pdb` that `all` writes) and keep `-l`. XYZ input gets
 its residue context from `--ref-pdb` and follows the same rules.
 
 Recognized monatomic ions keep their table value. Listing one in `-l` with the
@@ -184,6 +189,13 @@ antiferromagnetically coupled centers, or uncertain protonation or oxidation
 states, derive charge and multiplicity from the modeled mechanism and primary
 literature. Common ligand, ion, and metal values are in
 [formats.md](formats.md#ligand-ion-and-metal-charges).
+
+If a run stops with `ML region electron count inconsistent`, recount the
+ML-region charge before touching `-m`: often one residue charge is off by one,
+such as a [terminus](formats.md#per-residue-charge--l), a cofactor mapping, or
+a metal-bound oxo, hydroxide, or water given the wrong charge. Change `-m` only
+when the mechanism or literature gives that spin state, and do not pass
+`--allow-charge-mult-mismatch` to get past the check.
 
 ## Unknown substrate charge
 
@@ -234,7 +246,7 @@ When a ligand's formal charge is unknown:
    used:
 
    ```bash
-   mlmm opt -i complex_layered.pdb --parm7 real.parm7 -l 'SAM:1,GPP:-3' -m 1 --max-cycles 1 -o check_opt --out-json
+   mlmm opt -i complex_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -l 'SAM:1,GPP:-3' -m 1 --max-cycles 1 -o check_opt --out-json
    python -c "import json; print(json.load(open('check_opt/result.json'))['charge'])"
    ```
 
@@ -251,17 +263,21 @@ state, ask rather than defaulting a metal or radical model to `-q 0 -m 1`.
 
 ## Build the ML region
 
-- Give `-c` the substrate, cofactors, metals, and catalytic residues; with chain IDs, write `A:SAM:44`. The bundled examples lack chain IDs and use names.
+- Give `-c` the substrate, cofactors, and metals; with chain IDs, write `A:SAM:44`. The bundled examples lack chain IDs and use names.
 - A residue joins when any of its atoms lies within `-r` of a `-c` atom; waters join by default. Consecutive amino acids keep their internal main chain; `--exclude-backbone` moves the main chain of amino acids to MM, except between peptide-bonded centers. `--selected-resn` adds residues without a radius.
-- `all` writes the first input's ML region to `<out-dir>/ml_region.pdb`; reuse it with `--model-pdb`.
+- Putting the catalytic residues in `-c` is reasonable, but every `-c` residue also seeds the radius, so the ML region tends to grow; fix the residue choice with `--selected-resn` instead. `--selected-resn` keeps only the side chain in the ML region unless a peptide neighbor is also in, so also select the neighbor of a residue whose main chain takes part.
+- `all` writes the ML region to `<out-dir>/ml_region.pdb`; reuse it with `--model-pdb`.
 - By hand: cut a link-H-free `model.pdb` from the PDB that `mm-parm` writes (order in [cli/extract.md](../mlmm-cli/extract.md)) and pass `--model-pdb`, `--parm7`, and `-q`. `--model-pdb` overrides `-c` and input B-factors; `--parm7` skips `mm-parm`.
 - Automatic extraction derives the charge from residue names, `-l`, and `--modified-residue`; after hand edits to atoms, protonation, or the cut, give `-q`.
+- A structure taken from MD carries neutralizing ions such as Na⁺ and Cl⁻. `extract` has no ion filter, so such an ion within the radius joins the ML region, adds its table charge to the ML-region charge, and can differ between snapshots. Unless the mechanism needs one, keep these ions in MM: delete them from `ml_region.pdb`, pass that file with `--model-pdb`, and give the recounted ML-region charge with `-q`.
+- When building ML regions from many MD snapshots, keep the selected residues the same in every snapshot: use `-r 0` with `--selected-resn` so that the ML regions share the same atoms except waters and atoms that cannot be avoided. With the residues and molecules fixed, the ML-region charge is the same in every snapshot; if it is not, look for a counter-ion or a residue that was chosen differently. When the protonation or a bound molecule really differs between snapshots, keep that charge for that snapshot instead of editing residues or H to make the charges match.
 - Pitfalls: `--add-linkh` is only for a standalone pocket; the calculator adds link H on `parm7` boundary bonds. A resumed `all` writes `ml_region.pdb` to a temporary directory; keep the first run's copy.
 
 ## Check the boundary and the charge
 
 - `model.pdb` selects atoms from the full PDB/`parm7`: keep atom order, names, numbers, and chain IDs; do not renumber or add link H.
 - Include every atom in bond or proton transfer, plus covalent partners whose bonding changes.
+- The radius is measured only from atoms of the `-c` residues, not from `--selected-resn` residues, so a water or residue that touches a catalytic base but no center atom can stay out of the ML region. Before a campaign, extract one representative structure and confirm in a viewer or its residue list that the proton acceptor and every bridging water of each hypothesis are in; add a missing one with `--selected-resn` instead of raising `-r` for the whole ML region, then recheck the charge.
 - End retained backbone fragments at `CA` on both ends; put other cuts on aliphatic C–C single bonds (`CA–CB` or farther). Never cut peptide C–N, polar C–N/C–O, aromatic, disulfide, or metal-coordination bonds; move the boundary instead.
 - Check boundary valences and the ML-region charge and multiplicity; `define-layer` cannot fix a bad selection.
 - A boundary bond other than C–C, C–N, or N–C stops with `Unsupported ML/MM boundary bond in parm7`; move the cut.
@@ -276,6 +292,7 @@ state, ask rather than defaulting a metal or radical model to `-q 0 -m 1`.
 ## Trim to lower cost
 
 - Smaller ML region: a smaller `-r`, `--exclude-backbone`, `--no-include-h2o`, `-r 0` with `--selected-resn`, or a trimmed `model.pdb`. Recheck the charge.
+- `--exclude-backbone` also changes which residues join the ML region: an amino acid enters only through a side-chain atom within `-r` (or `--radius-het2het`), so a residue that touches a center only through its backbone N–H or C=O, such as an oxyanion hole, is left out of the ML region. An amino-acid center not peptide-bonded to another center keeps only its side chain in the ML region, cut at CB (Pro and Hyp keep the ring), and a lone Gly center keeps no atoms (`[extract] Center residue(s) … keep no atoms`). Put such a residue in `-c` with its peptide-bonded neighbor, or drop `--exclude-backbone`.
 - Fewer Movable-MM atoms: a shorter `--movable-cutoff`.
 - ML-only Hessian in `freq` and `tsopt`: `--hessian-cutoff 0.0 --active-dof-mode ml-only`. Their analysis covers ML and all Movable-MM by default (`partial`), so a narrower `--hessian-cutoff` alone stops the run. `all` has no `--hessian-cutoff`.
 - Microiteration, on by default in `tsopt` and `opt --opt-mode hess`, relaxes MM on the force field alone between ML steps, saving MLIP calls.
@@ -285,11 +302,13 @@ state, ask rather than defaulting a metal or radical model to `-q 0 -m 1`.
 
 - Raise `-r`, add residues with `--radius-het2het`, `--selected-resn`, or `-c`, or add atoms to `model.pdb`. Lengthen `--movable-cutoff` to relax more of the environment.
 - The radius is a convergence test: a larger region costs more and is not always better, so compare energies, forces, and barriers over a few sensible regions.
+- MLIP TS optimization builds a dense MLIP Hessian of the ML region, so its cost grows quickly with the ML-region atom count. Keep the ML region to about 400–500 atoms when the reaction allows; this finishes fastest even on a large GPU. A large active site may need about 800–1,000 atoms, which works but runs noticeably slower, so plan the walltime for it.
 
 ## Same atoms across states and variants
 
-- R/IM/P: every full-system PDB has identical atoms and order, and one `model.pdb` serves all. `all` builds the ML region from the first input and layers every input with it.
-- WT/mutant: build and parameterize each system separately, use corresponding ML and movable regions, transfer layer labels only for atoms with a clear match, assign added or deleted atoms explicitly, and set charge and multiplicity per system. Comparing barriers: [Controlled mutant-vs-WT comparison](../mlmm-overview/ts-strategy.md#7-controlled-mutant-vs-wt-comparison).
+- R/IM/P: every full-system PDB has identical atoms and order, and one `model.pdb` serves all. `all` builds one ML region for all inputs and layers every input with it.
+- Across runs: with several inputs and `-c`, extraction keeps every residue within `-r` of the centers in any input (the union), so runs given different input sets (Scan-list mode from R alone, Endpoint mode from R and P, another snapshot) can produce ML regions with different atoms and charge, and their barriers then come from different models. To compare barriers across runs, build the ML region once and pass the same `ml_region.pdb` with `--model-pdb` and the same `--parm7` to every run; then confirm that `charge` in each `summary.json` and the ML-region atom counts (`[all] ML structure with link H (N + M; …)`) agree.
+- WT/mutant: build and parameterize each system separately, use corresponding ML and movable regions, transfer layer labels only for atoms with a clear match, assign added or deleted atoms explicitly, and set charge and multiplicity per system. Comparing barriers: [Controlled comparisons](../mlmm-overview/ts-strategy.md#8-controlled-comparisons).
 
 ## Editing approach
 

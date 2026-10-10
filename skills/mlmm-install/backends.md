@@ -348,6 +348,7 @@ containers, some HPC nodes):
   <https://download.pytorch.org/whl/torch/>.
 - `gpu4pyscf-cuda13x` is x86_64 only; see [DFT](#dft-pyscf-gpu4pyscf).
 - For UMA, ORB, MACE, and AIMNet2 wheels, check each backend's PyPI page.
+- The aarch64 wheel of `warp-lang` 1.18.0, which UMA loads through `fairchem-core`, needs glibc 2.35 and stops the import with `GLIBC_2.35' not found` on older systems (`ldd --version`); there, install `warp-lang==1.17.0` (`nvalchemi-toolkit-ops` needs 1.13.0 or newer).
 
 ### Check an existing env
 

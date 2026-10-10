@@ -79,12 +79,12 @@ print(irc["energy_first_hartree"], irc["energy_ts_hartree"], irc["energy_last_ha
 
 - **TS optimization not converged.** The last structure is kept and no final Hessian is computed. Read the stop reason in `summary.log` and `segments/seg_01/ts/`, then retry from a better seed or with another optimizer setting (`--opt-mode-post grad` for Dimer).
 - **n_imag = 0.** The geometry fell to a minimum; the candidate was not a saddle. The run stops before IRC and is not `success`. Start from a better seed, such as the HEI of an MEP or the top of a scan.
-- **n_imag ≥ 2.** The result is `partial`; IRC follows one mode only as a diagnostic. Inspect every mode, check the frozen boundary, then re-optimize with `--flatten` or tighten convergence with `--thresh-post gau_tight`. A first-order TS needs exactly one imaginary mode along the intended displacement and an IRC that connects the intended states. See [Wrong n_imag](../mlmm-overview/ts-strategy.md#3-wrong-n_imag-after-ts-optimization).
+- **n_imag ≥ 2.** The result is `partial`; IRC follows one mode only as a diagnostic. Inspect every mode, check the frozen boundary, then tighten convergence with `--thresh-post gau_tight` or, if the extra mode persists, re-optimize with `--flatten`. A first-order TS needs exactly one imaginary mode along the intended displacement and an IRC that connects the intended states. See [Wrong n_imag](../mlmm-overview/ts-strategy.md#3-wrong-n_imag-after-ts-optimization).
 - **`bond_changes` is `(no covalent changes detected)`, or an end is not the intended state.** The TS may connect two nearly identical wells or other minima. Watch the imaginary mode and the IRC before trusting the TS.
 - **`--no-tsopt` with one input.** It stops with `BadParameter`; TS-only mode needs `--tsopt`.
 - **XYZ candidate.** Give `--ref-pdb` for the topology and the B-factor layers, and `-q` and `-m`, because XYZ carries no charge or multiplicity.
 - **R and P labels.** See R and P names above; inspect `reactant.*` and `product.*` to tell which chemical states the IRC reached.
-- **TS still not found.** See [When the TS does not come out](../mlmm-overview/ts-strategy.md#6-when-the-ts-does-not-come-out).
+- **TS still not found.** See [When the TS does not come out](../mlmm-overview/ts-strategy.md#7-when-the-ts-does-not-come-out).
 
 ## Run the stages yourself
 

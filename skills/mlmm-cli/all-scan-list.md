@@ -53,7 +53,7 @@ not mean an empty chain.
 
 Several tuples in one literal move together in one stage; to drive them one
 after another, put them in separate literals. Which to choose for your
-reaction: [Staged vs concerted scan](../mlmm-overview/ts-strategy.md#5-staged-vs-concerted-scan).
+reaction: [Staged vs concerted scan](../mlmm-overview/ts-strategy.md#6-staged-vs-concerted-scan).
 
 ## Judge success
 
@@ -61,20 +61,23 @@ Read the console, `summary.json`, and the endpoints as in
 [all.md](all.md#judge-success). For the scan itself:
 
 - **Stages**: open `_work/scan/stage_NN/scan_trj.xyz` and check that the coordinates change as intended. Each stage prints `[stage 1] Covalent-bond changes (start vs final): Yes` or `No`.
-- **Scan record**: `all` runs the scan with `--out-json`, so `_work/scan/result.json` holds the stages; the top-level `summary.json` has no scan stages.
+- **Scan record**: `all` runs the scan with `--out-json`, so `_work/scan/result.json` holds the stages, read as in [scan.md](scan.md#judge-success); the top-level `summary.json` has no scan stages.
 - **Stage ends**: `_work/scan/stage_NN/result.*` are restrained structures, not minima or TS until an unrestrained optimization, or a TS optimization and IRC, confirms them.
 - **MEP**: open `mep_trj.pdb` and the TS candidate `_work/path_opt/hei_seg_01.pdb`, and check that `energy_diagram_MEP.png` shows a clear barrier.
 
 ```python
 import json
 d = json.load(open("result_scan/_work/scan/result.json"))
+print(d["scientific_status"], d.get("scientific_status_reasons"))
+for leaf in d["stage_outcomes"]:   # "preopt", then "stage_1", "stage_2", ...
+    print(leaf["item_id"], leaf["usable"], leaf["reason"])
 for stage in d["stages"]:
-    print(stage["index"], stage["converged"], stage["bond_changes"], stage["target_distances_angstrom"])
+    print(stage["index"], stage["bond_changes"], stage["target_distances_angstrom"])
 ```
 
 ## Pitfalls and recovery
 
-- **A stage reaches an unexpected geometry.** The restraint was not strong enough, or the stage relaxed into a side product. Inspect the trajectory, tighten the target, or split a complex stage into two simpler ones; do not assume the side product is valid.
+- **A stage reaches an unexpected geometry.** The restraint was not strong enough, or the stage relaxed into a side product. Inspect the trajectory, tighten the target, or split a complex stage into two simpler ones; do not assume the side product is valid. To hold a coordinate until its own stage, and to tell a stage end from an intermediate, see [ts-strategy](../mlmm-overview/ts-strategy.md#6-staged-vs-concerted-scan).
 - **Python literal error.** Wrap each stage in single quotes outside and double quotes inside; backticks survive bash inside the outer single quotes.
 - **Atom not found or matched twice.** Atom names must match those in the input PDB (case is ignored); editing tools such as PyMOL and Maestro sometimes rename `CB` to `CB1`. If a three-field selector matches more than one atom, the run stops; add the chain with `CHAIN:RESNAME:RESSEQ[ICODE]:ATOM` or use the atom number.
 - **Several `-i` inputs.** `-s` takes exactly one structure; with two or more, the run stops with an error ([all-endpoint-mep.md](all-endpoint-mep.md)).

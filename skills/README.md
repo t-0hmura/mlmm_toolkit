@@ -10,7 +10,7 @@ how to recover, and how to read the outputs. Inspired by the
 
 - `mlmm-overview` (start here): what `mlmm-toolkit` is and which of the three `all` modes
   fits your structures; `ts-strategy.md` for TS strategy (imaginary-mode count,
-  flattening, a TS that does not come out, mutant-vs-WT comparisons);
+  flattening, a TS that does not come out, multistep paths, controlled comparisons);
   `outputs.md` for reading the outputs.
 - `mlmm-cli`: the 22 subcommands in 17 files, each with when to use it, how to
   judge success, and pitfalls and recovery.

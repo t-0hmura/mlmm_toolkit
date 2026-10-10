@@ -77,8 +77,18 @@ Files: `mep_trj.xyz` and `mep_trj.pdb` (the stitched MEP), `mep_plot.png`,
 - A tag `seg_NNN_maxdepth` or `seg_NNN_kinklimit`: splitting stopped there,
   and the segment may hold more than one step. Raise `--max-depth` or give
   intermediates.
-- Only `_kink` tags, or the warning `HEI is at an endpoint`: no bond change
-  or no peak. Check the inputs or give intermediates.
+- Only `_kink` tags: no bond change was found between the ends. Check the
+  inputs or give intermediates.
+- The warning `HEI is at an endpoint`: in that interval no image lies above
+  the higher end, so, as for `path-opt` above, there is no TS candidate.
+  `path-search` returns the interval as a raw path with no `segments` entry
+  or `hei_seg_NN.xyz`, adds `endpoint_hei` to `scientific_status_reasons`,
+  and `all --refine-path` runs no TS optimization on it. It is not a zero
+  barrier and does not show that no bond changes. Read the energies on the
+  comment lines of that run's `seg_NNN_*/final_geometries_trj.xyz` and its
+  bond changes ([bond-summary](utilities.md#bond-summary)); a frame at an
+  interior local maximum can start `tsopt` like an HEI. Other routes:
+  [When the TS does not come out](../mlmm-overview/ts-strategy.md#7-when-the-ts-does-not-come-out).
 
 A segment is a candidate, not a proven elementary step. Accept a HEI as a TS
 only after `tsopt` gives n_imag = 1 and IRC reaches the intended R and P.
@@ -90,7 +100,17 @@ only after `tsopt` gives n_imag = 1 and IRC reaches the intended R and P.
   `path-search` takes one per input, in `-i` order.
 - Convergence depends on the endpoints. Both are pre-optimized by default
   (`--preopt`, capped by `--preopt-max-cycles`); if the MEP still does not
-  converge, relax each endpoint with [opt.md](opt.md) first.
+  converge, relax each endpoint with [opt.md](opt.md) first. When it converges but
+  changes the bonding, see
+  [Run stage by stage](../mlmm-overview/SKILL.md#run-stage-by-stage).
+- With frozen atoms (the Frozen-MM layer or `--freeze-atoms`), `path-opt`,
+  `path-search`, and `all` align each input to the previous one and then
+  relax it with L-BFGS (up to 10000 cycles), even when the frozen atoms
+  already coincide and whatever `--preopt/--no-preopt` says. If that
+  relaxation does not converge, the run stops with
+  `Input alignment did not converge for pair(s)`. Only `path-search` can skip
+  the step (`--align/--no-align`); use `--no-align` for inputs that already
+  share identical frozen coordinates.
 - If one optimizer stalls, compare GSM and DMF on the real system and look
   at the path before changing `--max-nodes`; system size alone does not pick
   the optimizer. More nodes buy resolution, not repair: they cannot fix
@@ -102,7 +122,10 @@ only after `tsopt` gives n_imag = 1 and IRC reaches the intended R and P.
   mlmm-toolkit: `conda install -c conda-forge cyipopt -y`, then
   `pip install 'pydmf[torch]>=1.2'` (GPU) or `pip install 'pydmf>=1.2'`
   (CPU). The default `--dmf-backend gpu` stops when CUDA is missing; use
-  `--dmf-backend cpu` then, or after a GPU out-of-memory error.
+  `--dmf-backend cpu` then, or after a GPU out-of-memory error. If a DMF run
+  makes almost no progress, set `BLIS_NUM_THREADS=1` in the job script before
+  Python starts: nested BLIS threads in IPOPT can stall it, and a change
+  inside the running process does not reach the solver.
 - DMF holds frozen atoms with a harmonic restraint, so they can drift a
   little; GSM keeps them fixed. DMF ignores `--climb` and `--fix-ends`.
 - Neither command optimizes the TS. `all --tsopt` writes the optimized R,

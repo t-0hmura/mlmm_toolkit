@@ -16,7 +16,14 @@ is `energy.converged: true` in `result.yaml` and the console line
   works in `sp`, `opt`, `tsopt`, `irc`, `freq`, `scan`, `scan2d`, `scan3d`,
   `path-opt`, `path-search`, and `all`; iterative runs start each SCF from the
   last converged density. Keep the ML region to roughly 300 atoms, counting
-  the link H.
+  the link H. To refine an MLIP/MM TS, run [TS-only mode](all-ts-only.md)
+  with `-b dft` on `segments/seg_NN/ts.pdb`, reusing the `--parm7` and
+  `--model-pdb` of the first run; its frequencies and thermochemistry stay a
+  PHVA of the ML and movable MM atoms, as in the MLIP/MM run. If you take the
+  structure to another QM code instead (for example with
+  [oniom-export](oniom.md)), first check that its frequency analysis also
+  leaves out the frozen atoms; otherwise its n_imag and Gibbs corrections are
+  not comparable.
 - `all --dft` runs these single points on R, TS, and P after an MLIP/MM run
   and needs `--tsopt`; `-b dft` and `--dft` cannot be combined. How to choose:
   [DFT backend](../../docs/dft-backend.md).

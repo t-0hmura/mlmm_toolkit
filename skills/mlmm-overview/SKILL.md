@@ -67,6 +67,10 @@ mlmm define-layer -i real.pdb --model-pdb ml_region.pdb -o R_layered.pdb
 
 GATE: `[mm-parm] Wrote:` lists `real.pdb` and `real.parm7`; `real.pdb` has filled element columns and the same atoms in the same order as `real.parm7`; the layered PDB carries 0/10/20 on the intended atoms.
 
+**Pre-optimization.** `all`, `path-opt`, and `path-search` optimize each endpoint without restraints before the MEP (`--preopt`, on by default; in Scan-list mode `--scan-preopt` follows it), and this can already move a proton, break a weak bond, or complete part of the reaction. Before reading the MEP, run `bond-summary` between each input and its pre-optimized structure (`_work/scan/preopt/result.*` in Scan-list mode; otherwise `final_geometry.*` in the `initNN_*_opt/` directories that `path-search` writes, under `_work/path_search/` in `all --refine-path`, or `preopt/endNN/final_geometry.xyz` of each `path-opt` run, under `_work/path_opt/seg_NN_mep/` in `all`) and compare the moving H atoms; judge later bond changes against this optimized structure, not the raw MD frame, whose short contacts can count as bonds. A non-reacting bond that breaks points to the ML region or the backend: enlarge the ML region or change the backend.
+
+If the chemistry you meant to start from changed, hold the bonds to keep with `opt --distance-restraint '[(i, j)]'` (a pair without a target keeps its current distance); start a scan from that result with `all --no-scan-preopt`, and for an MEP endpoint run an unrestrained `opt` from it and check the bonds again before passing it to `all`. If you continue from the changed R instead, treat it as another chemical state: check the ML/MM boundary, the layers, and protonation, and do not rank its barriers with candidates that kept the original state.
+
 **Stage 1, MEP**:
 
 ```bash
@@ -125,6 +129,7 @@ Pitfalls and recovery:
 - After a walltime stop, rerun the same commands; for `all`, repeat the original command with `--resume-segment N` ([all.md](../mlmm-cli/all.md)).
 - On any status other than `success`, read `summary.log`, then the `result.json` of the failed stage. Inside an `all` run these exist under `ts/`, `irc/`, and `endpoint_opt/`, not under `freq/` or `dft/`.
 - If the Bofill Hessian update of an IRC runs out of GPU memory, rerun with `PYSIS_BOFILL_CPU_OFFLOAD=1`. It does the update on the CPU at the cost of host memory and two full-matrix transfers, and does not help a frequency Hessian that runs out of memory.
+- `all` reuses the final tsopt Hessian in IRC and in the TS `freq` through an in-process cache, so separate `tsopt` → `irc` → `freq` commands build the same dense Hessian up to three times. Add `--dump-hess ts_hess.npy` to `tsopt` (not with `--skip-final-freq`) and pass `--read-hess ts_hess.npy` to `irc` (which needs `irc.hessian_init: calc`, the default) and to `freq`, both run on the tsopt `final_geometry.*`.
 
 ## What it does
 
@@ -146,7 +151,7 @@ Pitfalls and recovery:
 ## When not to use it
 
 - A pure QM cluster model with DFT only: an ORCA or Gaussian workflow on its own is leaner.
-- Free-energy sampling (umbrella sampling, metadynamics): out of scope.
+- Free-energy sampling (umbrella sampling, metadynamics): out of scope. The Gibbs barrier from `--thermo` is the static TS of one ML/MM structure with QRRHO corrections, not a potential of mean force: keep its method label when you quote it, and for a condensed-phase free-energy barrier, pass the validated R, TS, and P to a free-energy sampling tool.
 
 ## Quick check
 
@@ -189,7 +194,7 @@ The layer map, the import rules, and the invariants to keep are in [`docs/archit
 
 ## Where to go next
 
-- [ts-strategy.md](ts-strategy.md): studying a mechanism (hypothesis, TS precision, routes to a candidate, splitting the reaction, wrong n_imag, a TS that does not come out, comparisons, barriers).
+- [ts-strategy.md](ts-strategy.md): studying a mechanism (hypothesis, TS precision, routes to a candidate, splitting the reaction, wrong n_imag, a TS that does not come out, multistep paths, comparisons, barriers).
 - [outputs.md](outputs.md): `summary.json`, `result.json`, and the output tree.
 - [mlmm-cli](../mlmm-cli/SKILL.md): running and judging each subcommand.
 - [mlmm-model-setup](../mlmm-model-setup/SKILL.md): formats, residue and atom selection, layer encoding, charge and multiplicity, and building, trimming, and enlarging the ML region and the layers.

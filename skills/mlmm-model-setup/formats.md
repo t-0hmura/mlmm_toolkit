@@ -91,6 +91,13 @@ override it and logs an unmatched-entry warning. The model charge is the sum
 over all retained residues. For an unknown ligand charge, see
 [Unknown substrate charge](SKILL.md#unknown-substrate-charge).
 
+Amber terminal residue names (`NPRO`, `CGLU`, …, PDB columns 18–21) are read as
+the standard residue, and the terminal charge comes from the atoms present: +1
+only when H1, H2, and H3 remain (two of them for the Pro or Hyp ring N), −1
+only when OXT remains. Check the terminal H atoms and OXT before trusting the
+summed charge, and select such a residue by the name written in the file
+(`-c NPRO`; `-c PRO` does not match it).
+
 ### Link hydrogens
 
 With `--add-linkh` (off by default), when `extract` cuts a covalent bond
@@ -371,6 +378,13 @@ Pitfalls:
   from `-l` (0 if not given).
 - `mismatching atom counts` between parm7 and rst7: the rst7 belongs to a
   different system; regenerate both with `mm-parm`.
+- `hessian_ff does not support dependent Amber virtual sites`: the topology
+  has 4-point water (OPC, TIP4P; extra points such as `EPW`), which the
+  default MM engine cannot handle. Strip the extra points from the structure
+  and rebuild the parm7 with `mm-parm`, whose water models (OPC3, TIP3P) have
+  three points; `--mm-backend openmm` accepts the topology but computes the MM
+  Hessian by finite differences. Grep the input PDB for `EPW` or element `EP`
+  before a long run.
 - No MM layer is read: the B-factors hold ML atoms only, or are all zero, so
   they are not a layer assignment. A Frozen-MM-only environment is valid;
   re-run `define-layer` only when every MM class is missing.

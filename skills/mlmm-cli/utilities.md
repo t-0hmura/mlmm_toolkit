@@ -135,7 +135,7 @@ the fixed-column atom name and the residue name, in this order:
    N → N, O → O); monatomic metals and halogens by residue name, with a
    CL/BR/I/F atom-name fallback.
 2. Protein, nucleic acid, and water: H/D → H, water O/H or EP for virtual
-   sites, Se → Se, a first letter of P/N/O/S, then C* → C.
+   sites ([4-point water](../mlmm-model-setup/formats.md#amber-parm7-and-rst7)), Se → Se, a first letter of P/N/O/S, then C* → C.
 3. Other ligands: the column alignment separates ` NA ` (N) from `NA  `
    (Na); LEaP ` CL1` and ` BR1` are halogens, and `HG11` is H.
 4. Otherwise a two-letter, then one-letter match against known elements

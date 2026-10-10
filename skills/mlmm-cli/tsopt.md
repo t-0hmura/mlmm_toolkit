@@ -60,7 +60,10 @@ How the run ended decides whether n_imag exists:
 
 `saddle_validation` is `first_order` for n_imag = 1, `higher_order` for 2 or
 more, `no_imaginary` for 0, and `unavailable` without a Hessian. A mode counts
-as imaginary when ν < −5.00 cm⁻¹. Standalone `tsopt` judges convergence only:
+as imaginary when ν < −5.00 cm⁻¹. The warning `[tsopt] WARNING: the leading
+imaginary mode is … cm^-1, below 50 cm^-1` changes neither the status nor
+n_imag; judge such a TS by its mode and IRC ends like any other. Standalone
+`tsopt` judges convergence only:
 `converged` gives `scientific_status` `success` and exit 0 whatever n_imag is,
 and `stalled` or `not_converged` gives `failed` and exit 1. A failed final
 Hessian (`[tsopt] ERROR: Terminal PHVA failed.`) sets `hessian_status` to
@@ -80,7 +83,20 @@ elif n == 0:
 else:
     print(status, "multiple imaginary modes; inspect vib/imag_*")
 print(d["energy_hartree"], d["files"]["final_geometry_xyz"])
+print(d["reaction_mode_index"], d["reaction_mode_frequency_cm"],
+      d["reaction_mode_source"], d["reaction_mode_overlap"])
 ```
+
+`reaction_mode_index` and `reaction_mode_frequency_cm` name the imaginary mode
+that `all` follows into IRC. With a reference direction (the MEP tangent in
+`all` unless `--no-tsopt-from-mep-tan`, or `--ref-mode`), it is the imaginary
+mode closest to that direction, `reaction_mode_source` is
+`"mep-reference-overlap"`, and `reaction_mode_overlap` gives the overlap.
+Otherwise, or when the final Hessian was computed again, it is the lowest
+imaginary mode and the source is `"lowest-imaginary"`, as always for Dimer and
+for `tsopt` without `--ref-mode`. Neither value shows that the mode is the
+reaction: check that the `vib/imag_*_trj.xyz` of that frequency moves the
+bonds that form or break.
 
 A converged run with n_imag = 1 is still a candidate until [IRC](irc.md)
 shows that it connects the expected R and P.
@@ -122,7 +138,21 @@ cycle threshold.
 - `--max-cycles` is a safety cap, not evidence of correctness. On repeated
   non-convergence, inspect the TS seed, the followed mode, the optimizer
   diagnostics, and the backend and model behavior; see
-  [ts-strategy.md](../mlmm-overview/ts-strategy.md#6-when-the-ts-does-not-come-out).
+  [ts-strategy.md](../mlmm-overview/ts-strategy.md#7-when-the-ts-does-not-come-out).
+- A run stopped by the scheduler (walltime, a node failure, or cancellation)
+  is unfinished, not a convergence failure: it prints none of the end lines in
+  [Judge success](#judge-success) and reports no n_imag. Do not count the
+  candidate as one that does not converge or change the method for it; rerun
+  with more walltime, or resume `all`
+  ([all.md](all.md#resume-a-failed-segment)).
+- `RS-P-RFO exhausted its micro cycles outside the trust radius.`,
+  `RS-P-RFO alpha update is not finite and positive.`, and
+  `RS-P-RFO combined step exceeds the trust radius.` are numerical stops of
+  the RS-P-RFO step solver (a `ValueError`): the run exits with 1 and a
+  traceback, without a final Hessian or n_imag, and more cycles do not help.
+  They do not show that the candidate is bad. Rerun once; if the stop
+  repeats, switch `--opt-mode` to `rsirfo` or `dimer`, or start from another
+  candidate.
 - The backend and model change the curvature surface. Validate every candidate
   by exactly one imaginary mode, its displacement, and the intended IRC
   connectivity.

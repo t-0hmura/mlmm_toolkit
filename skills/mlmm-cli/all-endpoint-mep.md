@@ -38,8 +38,8 @@ mlmm all --parm7 enzyme.parm7 -i 1.R.pdb 2.IM.pdb 3.P.pdb \
 ## Same atoms in the same order
 
 Every input, and the parm7, needs the same number of atoms, the same element
-sequence, and the same residue assignments. `all` builds the ML region from the
-first input and applies it to every input. The extraction checks the series and
+sequence, and the same residue assignments. `all` builds one ML region for all
+inputs and layers every input with it. The extraction checks the series and
 stops with `[multi] Atom count mismatch between input #1 and input #2: ...` or
 `[multi] Atom order mismatch between input #1 and input #2.`, but it does not
 map or repair a mismatched series. To check a series before a long job, cut all
