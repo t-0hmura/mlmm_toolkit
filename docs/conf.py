@@ -84,8 +84,8 @@ html_theme = 'furo'
 # Same palette and page design as the pdb2reaction docs (the p2r-* names of the CSS
 # classes and of these settings are shared with them so the two stay in step): navy
 # #2E5B96, light navy #7BA3D7, stage colours (MEP #70AD47, TS #4747C1, IRC #2E9691,
-# thermo #EC7C30), a rose for DFT, and a gold for the ML/MM layers.
-# In the light theme green/teal/orange/gold are darkened so text in them reaches 4.5:1.
+# thermo #EC7C30), and a rose for DFT.
+# In the light theme green/teal/orange are darkened so text in them reaches 4.5:1.
 _FONTS = {
     'font-stack': '"Inter", "Noto Sans JP", -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Yu Gothic UI", Meiryo, sans-serif',
     'font-stack--headings': '"Inter", "Noto Sans JP", -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Yu Gothic UI", Meiryo, sans-serif',
@@ -99,10 +99,9 @@ _FONTS = {
 # each stage takes its colour from the palette above.
 # pages[0] is the page a stage links to; commands not listed here stay neutral.
 p2r_pipeline = [
-    {'id': 'prep', 'en': 'Preparing the input', 'ja': '入力の準備',
-     'pages': ['extract', 'fix-altloc', 'add-elem-info'], 'color': 'navy', 'icon': 'extract'},
-    {'id': 'layer', 'en': 'Topology and layers', 'ja': 'トポロジーと層',
-     'pages': ['mm-parm', 'define-layer'], 'color': 'gold', 'icon': 'layer'},
+    # Steps 1 and 2 of "How it works" (ML region, then topology and layers) form one stage.
+    {'id': 'prep', 'en': 'ML/MM model setup', 'ja': 'ML/MM モデルのセットアップ',
+     'pages': ['extract', 'mm-parm', 'define-layer', 'fix-altloc', 'add-elem-info'], 'color': 'navy', 'icon': 'extract'},
     # Scan comes right before the MEP search; only the Scan-list mode goes through it.
     {'id': 'scan', 'en': 'Scan', 'ja': 'スキャン',
      'pages': ['scan', 'scan2d', 'scan3d'], 'color': 'scan', 'icon': 'scan'},
@@ -121,8 +120,9 @@ p2r_pipeline = [
 # Stage icon set: the folder under _static/icons/ (u50 = every line drawn 5.0 units
 # wide on the 96-unit canvas).
 p2r_icon_set = 'u50'
-# Stages of each numbered step of "How it works" in all.md (steps 3-5 cover two each).
-p2r_all_steps = [['prep'], ['layer'], ['scan', 'path'], ['ts', 'irc'], ['thermo', 'dft']]
+# Stages of each numbered step of "How it works" in all.md (steps 1 and 2 share one stage;
+# steps 3-5 cover two each).
+p2r_all_steps = [['prep'], ['prep'], ['scan', 'path'], ['ts', 'irc'], ['thermo', 'dft']]
 p2r_pipeline_all = 'all'      # the page that runs every stage (label: its title)
 p2r_pipeline_all_label = {'en': 'End-to-end workflow', 'ja': '一気通貫ワークフロー'}
 
@@ -133,9 +133,9 @@ p2r_deco = True
 # Stages each input mode of `all` goes through, shown in the entry cards of the top
 # page (all.md "How it works"; quickstart-*.md; TS-only mode skips the MEP search).
 p2r_mode_stages = {
-    'endpoint': ['prep', 'layer', 'path', 'ts', 'irc', 'thermo', 'dft'],
-    'scan': ['prep', 'layer', 'scan', 'path', 'ts', 'irc', 'thermo', 'dft'],
-    'tsonly': ['prep', 'layer', 'ts', 'irc', 'thermo', 'dft'],
+    'endpoint': ['prep', 'path', 'ts', 'irc', 'thermo', 'dft'],
+    'scan': ['prep', 'scan', 'path', 'ts', 'irc', 'thermo', 'dft'],
+    'tsonly': ['prep', 'ts', 'irc', 'thermo', 'dft'],
 }
 
 html_context = {
@@ -169,7 +169,6 @@ html_theme_options = {
         'p2r-scan': '#566A86',   # slate (scan colour S5)
         'p2r-orange': '#B4520F',
         'p2r-rose': '#B0396E',
-        'p2r-gold': '#8A6A14',
         'p2r-on-stage': '#FFFFFF',
         'p2r-tint': '#EEF3FA',
         'p2r-blue': '#1F6FEB',   # the dot of `all` in the sidebar and tables
@@ -240,7 +239,6 @@ html_theme_options = {
         'p2r-scan': '#A9B8CE',   # slate (scan colour S5)
         'p2r-orange': '#F2A05E',
         'p2r-rose': '#F29BC2',
-        'p2r-gold': '#E3C15F',
         'p2r-on-stage': '#0D131F',
         'p2r-tint': '#16233A',
         'p2r-blue': '#58A6FF',
