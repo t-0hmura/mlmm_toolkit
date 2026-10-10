@@ -2009,7 +2009,12 @@ def _first_spec_field(
 def is_scan_spec_file(value: str) -> bool:
     """Return True if *value* looks like an existing YAML/JSON scan spec file."""
     p = Path(value)
-    return p.is_file() and p.suffix.lower() in {".yaml", ".yml", ".json"}
+    if p.suffix.lower() not in {".yaml", ".yml", ".json"}:
+        return False
+    try:
+        return p.is_file()
+    except (OSError, ValueError):  # e.g. a stage literal longer than the OS path limit
+        return False
 
 
 def parse_scan_spec_stages(

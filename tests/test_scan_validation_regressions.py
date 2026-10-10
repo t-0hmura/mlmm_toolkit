@@ -10,6 +10,7 @@ import pytest
 from click.testing import CliRunner
 
 from mlmm.core.utils import (
+    is_scan_spec_file,
     parse_scan_list_quads,
     parse_scan_list_triples,
     parse_scan_spec_stages,
@@ -652,3 +653,12 @@ def test_grid_scan_insufficient_plot_data_skips_plots_without_error_json(
     assert (out_dir / "surface.csv").exists()
     assert not (out_dir / "result.json").exists()
     assert not list(out_dir.glob("*.html"))
+
+
+def test_long_stage_literal_is_not_treated_as_a_spec_path(tmp_path) -> None:
+    literal = "[" + ",".join(f"({i},{i + 1},1.50)" for i in range(1, 40)) + "]"
+    assert len(literal) > 255
+    assert not is_scan_spec_file(literal)
+    spec = tmp_path / "stages.yaml"
+    spec.write_text("stages: []\n", encoding="utf-8")
+    assert is_scan_spec_file(str(spec))

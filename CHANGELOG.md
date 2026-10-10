@@ -34,6 +34,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Read an `-s` stage literal longer than the operating-system path limit as a literal instead of stopping with `File name too long`.
 - Cut amino-acid centers in `extract` at the pocket boundary like other residues and read Amber terminal names such as `NPRO` as the standard residue (an N-terminal proline counts +1); a cut outside the link-hydrogen positions gives a warning.
 - Infer PDB elements correctly for LEaP chlorine and bromine names (` CL1`), four-character ligand hydrogens (`HG11`), and blank element columns, so `freq` and `irc` use the right masses; `mm-parm` fills blank columns from the parm7 topology.
 - Reuse the TS Hessian in the `irc` and TS `freq` steps of `all` instead of recomputing it, and finalize `all` summaries after a non-converged TS optimization.
