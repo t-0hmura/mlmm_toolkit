@@ -47,8 +47,8 @@ ML/MM 境界が共有結合を切るとき、MODEL-high の計算では、切れ
 
 | 方式 | 配置 | 推奨 |
 | --- | --- | --- |
-| **scaled**（g-factor、デフォルト） | `r_L = r_QM + g·(r_MM − r_QM)`、`g = (CR_QM + CR_H)/(CR_QM + CR_MM)`（共有結合半径） | 推奨（滑らかな PES、一定のヤコビアン） |
-| **fixed** | `r_L = r_QM + d·û`、`d` = 1.09 Å（親が C）/ 1.01 Å（親が N）、`û` は MM 原子へ向かう単位ベクトル | 推奨しない（座標に依存するヤコビアン） |
+| **scaled**（g-factor、デフォルト） | `r_L = r_QM + g·(r_MM − r_QM)`、`g = (CR_QM + CR_H)/(CR_QM + CR_MM)`（共有結合半径） | 推奨（デフォルト。Gaussian ONIOM と同じ方式） |
+| **fixed** | `r_L = r_QM + d·û`、`d` = 1.09 Å（親が C）/ 1.01 Å（親が N）、`û` は MM 原子へ向かう単位ベクトル | 代替（ML 側の親原子が C か N のときだけ） |
 
 scaled は Gaussian ONIOM と同じ Morokuma–Dapprich の g-factor 法で、リンク水素は QM–MM 距離に比例して動きます。fixed は、リンク水素を結合軸に沿って一定の距離に置きます。
 

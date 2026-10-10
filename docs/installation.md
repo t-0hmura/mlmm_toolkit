@@ -18,8 +18,7 @@
 conda create -n mlmm-toolkit python=3.12 -y
 conda activate mlmm-toolkit
 conda install -c conda-forge ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler -y
-TORCH_INDEX=cu130  # recommended; or cu126 / cu132
-pip install 'torch==2.13.0' --index-url "https://download.pytorch.org/whl/${TORCH_INDEX}"
+pip install 'torch==2.13.0' --index-url https://download.pytorch.org/whl/cu130  # recommended; for cu126 / cu132, change the end
 pip install mlmm-toolkit
 plotly_get_chrome -y
 ```
