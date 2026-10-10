@@ -80,7 +80,7 @@ values taken from the scheduler. The default output directory is
 - `OSError: libcusolver.so.11: cannot open shared object file`:
   `LD_LIBRARY_PATH` shadows the CUDA
   libraries bundled with torch. Fix the order as in
-  [Library-loading collisions](../mlmm-install-backends/backends.md#library-loading-collisions).
+  [Library-loading collisions](../mlmm-install/backends.md#library-loading-collisions).
 - `cupy ... invalid device ordinal`: keep the scheduler's
   `CUDA_VISIBLE_DEVICES` and use a valid local ordinal (usually 0 on a
   one-GPU allocation).
@@ -116,7 +116,7 @@ structures are `segments/seg_NN/reactant.pdb`, `ts.pdb`, and `product.pdb`.
 
 ## Next step
 
-- [DFT (PySCF, GPU4PySCF)](../mlmm-install-backends/backends.md#dft-pyscf-gpu4pyscf):
+- [DFT (PySCF, GPU4PySCF)](../mlmm-install/backends.md#dft-pyscf-gpu4pyscf):
   install the `[dft]` extra (`[dft-cuda12]` for the `cu126` wheel).
 - [tsopt.md](tsopt.md) and [irc.md](irc.md): make the geometries.
 - `--show-config` prints the effective settings.

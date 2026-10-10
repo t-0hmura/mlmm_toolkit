@@ -142,5 +142,5 @@ result_tsopt/
 - n_imag = 1: run [irc.md](irc.md); [freq.md](freq.md) for thermochemistry.
 - A new candidate: [path.md](path.md) or [scan.md](scan.md).
 - Backends for the TS step:
-  [UMA](../mlmm-install-backends/backends.md#uma),
-  [MACE](../mlmm-install-backends/backends.md#mace-separate-environment).
+  [UMA](../mlmm-install/backends.md#uma),
+  [MACE](../mlmm-install/backends.md#mace-separate-environment).

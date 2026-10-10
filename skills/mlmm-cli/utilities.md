@@ -51,7 +51,7 @@ atoms, without mass weighting. With `--out-json`, `result.json` reports
   `Unhandled error during single-point:` with a traceback, and exits nonzero.
   A finite energy that looks wrong points to the ML region or its charge and
   multiplicity:
-  [Charge and multiplicity](../mlmm-structure-io/SKILL.md#charge-and-multiplicity).
+  [Charge and multiplicity](../mlmm-model-setup/SKILL.md#charge-and-multiplicity).
 - `--hessian-calc-mode` is `FiniteDifference` (default) or `Analytical`,
   which uses the analytical Hessian of UMA, ORB, MACE, or AIMNet2 for the ML
   region and cannot run with `--uma-workers` above 1. A backend without it
@@ -295,7 +295,7 @@ path, not the values or labels.
 - [extract.md](extract.md): cut the binding pocket from the cleaned PDB.
 - [irc.md](irc.md), [path.md](path.md), and [scan.md](scan.md): the
   trajectories and bond changes that `trj2fig` and `bond-summary` read.
-- [PDB](../mlmm-structure-io/formats.md#pdb): the altLoc and element
+- [PDB](../mlmm-model-setup/formats.md#pdb): the altLoc and element
   columns.
 - [outputs.md](../mlmm-overview/outputs.md): per-segment bond changes and
   energies in `summary.json`.

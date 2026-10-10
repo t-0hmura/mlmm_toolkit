@@ -19,13 +19,13 @@ how to recover, and how to read the outputs. Inspired by the
   `mlmm-mcp` server; lists the 22 MCP tools (including the mlmm-specific
   topology / ONIOM-layer / ONIOM-input tools) and the result format
   shared by every tool.
-- `mlmm-structure-io`: PDB / mmCIF / XYZ / GJF / Amber parm7/rst7
-  handling and the charge / multiplicity decision workflow.
-- `mlmm-model-setup`: what `extract` puts in the ML region, a hand-built
-  `model.pdb` with `--model-pdb`, `--parm7`, and `-q`, the `define-layer` layers,
-  trimming or enlarging the model, and the same-atom rules for R/IM/P and
-  WT/mutant models; the full guide is [`docs/model-setup.md`](../docs/model-setup.md).
-- `mlmm-install-backends`: install mlmm itself, MLIP backends (UMA / Orb / MACE /
+- `mlmm-model-setup`: PDB / mmCIF / XYZ / GJF / Amber parm7/rst7
+  handling, the charge / multiplicity decision, what `extract` puts in the
+  ML region, a hand-built `model.pdb` with `--model-pdb`, `--parm7`, and `-q`,
+  the `define-layer` layers, trimming or enlarging the model, and the same-atom
+  rules for R/IM/P and WT/mutant models; the full guide is
+  [`docs/model-setup.md`](../docs/model-setup.md).
+- `mlmm-install`: install mlmm itself, MLIP backends (UMA / Orb / MACE /
   AIMNet2), DFT (PySCF / GPU4PySCF), xtb (the `--embedcharge` point-charge correction,
   not an MLIP backend), and AmberTools (tleap); CUDA + PyTorch pairing; probing an
   unknown scheduler / GPU / CUDA / conda env.

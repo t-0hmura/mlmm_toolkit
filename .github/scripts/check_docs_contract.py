@@ -144,11 +144,11 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
         "`<input>_add_elem.pdb`",
         "列 77–78 を除き、各入力行はそのまま保持されます",
     ),
-    Path("skills/mlmm-install-backends/SKILL.md"): (
+    Path("skills/mlmm-install/SKILL.md"): (
         "torch==2.13.0",
         "`cpu`, `cu126`, `cu130`, `cu132`",
     ),
-    Path("skills/mlmm-install-backends/backends.md"): (
+    Path("skills/mlmm-install/backends.md"): (
         "torch==2.13.0",
         "`cu126`, `cu130`, `cu132`, and `cpu`",
         "does not require a\nmatching local CUDA toolkit",
@@ -191,7 +191,7 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
 }
 
 ORDERED_SNIPPETS: dict[Path, tuple[str, ...]] = {
-    Path("skills/mlmm-install-backends/backends.md"): (
+    Path("skills/mlmm-install/backends.md"): (
         "Install mlmm first, then replace its incompatible UMA dependency with MACE.",
         "pip uninstall -y fairchem-core",
         "pip install mace-torch",

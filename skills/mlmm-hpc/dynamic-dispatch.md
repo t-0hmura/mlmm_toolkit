@@ -10,7 +10,7 @@ lock.
 This is the same pattern used by `pbsdsh` + `flock` on Torque/PBSPro
 clusters. The recipe below is **placeholder-driven** — fill in
 `<NCPU>`, `<NGPU>`, `<YOUR_QUEUE>`, `<CUDA_MODULE>`, `<YOUR_ENV>`,
-`<TASK_LIST_FILE>` from [`mlmm-install-backends/backends.md`](../mlmm-install-backends/backends.md#probe-the-compute-environment).
+`<TASK_LIST_FILE>` from [`mlmm-install/backends.md`](../mlmm-install/backends.md#probe-the-compute-environment).
 
 ## Files involved
 
@@ -189,5 +189,5 @@ When **not** to use:
 ## Cross-references
 
 - `SKILL.md` (parent) — single-job PBS / SLURM templates.
-- [`mlmm-install-backends/backends.md`](../mlmm-install-backends/backends.md#probe-the-compute-environment) — how to
+- [`mlmm-install/backends.md`](../mlmm-install/backends.md#probe-the-compute-environment) — how to
   fill the placeholders.

@@ -1,5 +1,5 @@
 ---
-name: mlmm-install-backends
+name: mlmm-install
 description: "Install recipes for mlmm-toolkit core, AmberTools, and the ML backends (UMA, Orb, MACE, AIMNet2), plus the optional DFT (PySCF/GPU4PySCF) and xTB pieces, the CUDA/PyTorch wheel choice, and a probe for an unknown machine (scheduler, GPU, CUDA, conda env). `backends.md` holds per-backend notes and the probe; `ambertools.md` covers tleap and antechamber. TRIGGER on install / setup / `pip install` / `conda env` / `ImportError` / CUDA mismatch / 'GPU not detected' / `huggingface` auth / e3nn conflict / `tleap` not found, or when the compute environment is unknown. SKIP when mlmm imports cleanly and the user is running subcommands; the CLI skill covers usage."
 ---
 
@@ -204,7 +204,7 @@ and [backends.md](backends.md).
 ## Next step
 
 - Run commands: [mlmm-cli](../mlmm-cli/SKILL.md).
-- Prepare structures, layers, and charges: [mlmm-structure-io](../mlmm-structure-io/SKILL.md).
+- Prepare structures, layers, and charges: [mlmm-model-setup](../mlmm-model-setup/SKILL.md).
 - Write PBS or SLURM job scripts: [mlmm-hpc](../mlmm-hpc/SKILL.md).
 - Per-backend steps, CUDA diagnostics, and environment probes: [backends.md](backends.md); AmberTools: [ambertools.md](ambertools.md).
 - Docs: [Installation](../../docs/installation.md) and [MLIP Backends](../../docs/backends.md).

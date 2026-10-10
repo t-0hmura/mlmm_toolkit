@@ -76,12 +76,11 @@ STATUS_RE = re.compile(r'"(status|execution_status|scientific_status|optimizatio
 # Skill subdirs that document the mlmm CLI (not external tools like pip /
 # conda / nvidia-smi / sbatch). Unknown-flag check is restricted to these
 # so legitimate ``--cpus-per-task`` etc. references in HPC / env-detect /
-# install-backends docs are not flagged.
+# install docs are not flagged.
 MLMM_CLI_DIRS = {
     "mlmm-cli",
     "mlmm-overview",
     "mlmm-model-setup",
-    "mlmm-structure-io",
 }
 
 

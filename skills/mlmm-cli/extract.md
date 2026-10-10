@@ -81,7 +81,7 @@ print(d["total_charge"], d["n_atoms_extracted"], d["n_link_hydrogens"])
 - [define-layer.md](define-layer.md): assign ML, Movable-MM, and Frozen-MM.
 - [mm-parm.md](mm-parm.md): the topology and the matching PDB to extract from.
 - [mlmm-model-setup](../mlmm-model-setup/SKILL.md): grow or trim the ML region.
-- [Selecting residues and atoms](../mlmm-structure-io/SKILL.md#selecting-residues-and-atoms)
-  and [PDB](../mlmm-structure-io/formats.md#pdb).
+- [Selecting residues and atoms](../mlmm-model-setup/SKILL.md#selecting-residues-and-atoms)
+  and [PDB](../mlmm-model-setup/formats.md#pdb).
 - [add-elem-info](utilities.md#add-elem-info) and
   [fix-altloc](utilities.md#fix-altloc): pre-clean a raw PDB.

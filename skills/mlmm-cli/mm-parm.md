@@ -53,7 +53,7 @@ and the tleap logs.
 
 ## Pitfalls and recovery
 
-- AmberTools must be on `PATH`: [ambertools.md](../mlmm-install-backends/ambertools.md).
+- AmberTools must be on `PATH`: [ambertools.md](../mlmm-install/ambertools.md).
 - `-l` accepts both `=` and `:` (`'GPP=-3,SAM:1'`). Use `:` to match the rest
   of the toolkit.
 - Use `--add-h` only when the PDB lacks hydrogens at the protonation you want;
@@ -86,5 +86,5 @@ and the tleap logs.
 
 - [define-layer.md](define-layer.md): assign layers on `system.pdb`.
 - [extract.md](extract.md): cut the ML region from `system.pdb`.
-- [Amber parm7 and rst7](../mlmm-structure-io/formats.md#amber-parm7-and-rst7):
+- [Amber parm7 and rst7](../mlmm-model-setup/formats.md#amber-parm7-and-rst7):
   what the two files contain.

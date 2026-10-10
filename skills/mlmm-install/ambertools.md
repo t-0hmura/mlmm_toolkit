@@ -63,7 +63,7 @@ separate `--water` flag**, and there is **no `--force-field` flag**
 |---|---|
 | `tleap: command not found` | AmberTools not installed; or `<amber_install>/amber.sh` not sourced. |
 | `Unknown residue name 'GPP'` | A non-standard ligand: give its formal charge via `--ligand-charge` (e.g. `-l 'GPP:-3'`); `mm-parm` then auto-runs `antechamber` + `parmchk2` to derive GAFF2 parameters (AM1-BCC charges; there is no flag to pass a pre-built `.frcmod`). |
-| `parm7` written but `mm-parm` reports charge mismatch | Check [Charge and multiplicity](../mlmm-structure-io/SKILL.md#charge-and-multiplicity) — the `-l` mapping must agree with the protonation states in the PDB. |
+| `parm7` written but `mm-parm` reports charge mismatch | Check [Charge and multiplicity](../mlmm-model-setup/SKILL.md#charge-and-multiplicity) — the `-l` mapping must agree with the protonation states in the PDB. |
 | Linux aarch64 not supported | conda-forge ships `linux-64`, `osx-64`, and `osx-arm64` only — `linux-aarch64` is not a published platform for `ambertools`. On ARM HPC, build from the official tarball. |
 
 ## What AmberTools is **not** used for
@@ -79,6 +79,6 @@ separate `--water` flag**, and there is **no `--force-field` flag**
 
 - [SKILL.md](SKILL.md) — `mlmm-toolkit` install (the toolkit itself does not depend on AmberTools, only `mm-parm` does).
 - `mlmm-cli/mm-parm.md` — full `mm-parm` flag reference.
-- [formats.md](../mlmm-structure-io/formats.md#amber-parm7-and-rst7) — `parm7`/`rst7` file structure and editing.
-- [Charge and multiplicity](../mlmm-structure-io/SKILL.md#charge-and-multiplicity) — when ligand charges
+- [formats.md](../mlmm-model-setup/formats.md#amber-parm7-and-rst7) — `parm7`/`rst7` file structure and editing.
+- [Charge and multiplicity](../mlmm-model-setup/SKILL.md#charge-and-multiplicity) — when ligand charges
   conflict between PDB and the AmberTools parameter set.

@@ -156,15 +156,15 @@ mlmm --help              # lists the subcommands
 mlmm all --help          # the end-to-end pipeline
 ```
 
-If `mlmm` is not on PATH or an import fails, see [Verify the install](../mlmm-install-backends/SKILL.md#verify-the-install).
+If `mlmm` is not on PATH or an import fails, see [Verify the install](../mlmm-install/SKILL.md#verify-the-install).
 
 ## ML/MM layers in one paragraph
 
-Every ML/MM command takes the full system with `-i`, the topology with `--parm7`, and the ML region from `--model-pdb` or the B-factors; the shared options are in [Shared ML/MM conventions](../mlmm-cli/SKILL.md#shared-mlmm-conventions), the B-factor encoding in [ML region and layers](../mlmm-structure-io/SKILL.md#ml-region-and-layers), and how to choose, trim, and enlarge the region in [mlmm-model-setup](../mlmm-model-setup/SKILL.md).
+Every ML/MM command takes the full system with `-i`, the topology with `--parm7`, and the ML region from `--model-pdb` or the B-factors; the shared options are in [Shared ML/MM conventions](../mlmm-cli/SKILL.md#shared-mlmm-conventions), the B-factor encoding in [ML region and layers](../mlmm-model-setup/SKILL.md#ml-region-and-layers), and how to choose, trim, and enlarge the region in [mlmm-model-setup](../mlmm-model-setup/SKILL.md).
 
 ## Backends
 
-`-b` selects the ML backend (`uma` by default, `orb`, `mace`, `aimnet2`, or `dft`); the table and the install steps are in [Choose a backend](../mlmm-install-backends/SKILL.md#choose-a-backend), and DFT single points in [cli/dft.md](../mlmm-cli/dft.md).
+`-b` selects the ML backend (`uma` by default, `orb`, `mace`, `aimnet2`, or `dft`); the table and the install steps are in [Choose a backend](../mlmm-install/SKILL.md#choose-a-backend), and DFT single points in [cli/dft.md](../mlmm-cli/dft.md).
 
 ## Where the code lives
 
@@ -192,9 +192,8 @@ The layer map, the import rules, and the invariants to keep are in [`docs/archit
 - [ts-strategy.md](ts-strategy.md): studying a mechanism (hypothesis, TS precision, routes to a candidate, splitting the reaction, wrong n_imag, a TS that does not come out, comparisons, barriers).
 - [outputs.md](outputs.md): `summary.json`, `result.json`, and the output tree.
 - [mlmm-cli](../mlmm-cli/SKILL.md): running and judging each subcommand.
-- [mlmm-model-setup](../mlmm-model-setup/SKILL.md): building, trimming, and enlarging the ML region and the layers.
-- [mlmm-structure-io](../mlmm-structure-io/SKILL.md): formats, residue and atom selection, layer encoding, charge and multiplicity.
-- [mlmm-install-backends](../mlmm-install-backends/SKILL.md): the core, backends, AmberTools, CUDA, and checking an unknown environment.
+- [mlmm-model-setup](../mlmm-model-setup/SKILL.md): formats, residue and atom selection, layer encoding, charge and multiplicity, and building, trimming, and enlarging the ML region and the layers.
+- [mlmm-install](../mlmm-install/SKILL.md): the core, backends, AmberTools, CUDA, and checking an unknown environment.
 - [mlmm-hpc](../mlmm-hpc/SKILL.md): job scripts.
 - [mlmm-mcp](../mlmm-mcp/SKILL.md): the MCP tools.
 - [colab-local-gpu-runtime](../colab-local-gpu-runtime/SKILL.md): a Colab local runtime.

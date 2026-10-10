@@ -42,7 +42,7 @@ One line per subcommand: what goes in, what comes out, and which file to read.
 
 `-i` takes the full system, not a cut-out model: PDB, mmCIF, or XYZ with `--ref-pdb` (a PDB with the same atoms). Every structure of one run, and the parm7, has the same atoms in the same order. Gaussian and ORCA ONIOM inputs go through `oniom-import`.
 
-The calculation commands other than `all` need the full-system Amber topology (`--parm7`) and an ML region; `all` builds both. The ML region comes from `--model-pdb`, `--model-indices`, or the B-factor layers read by `--detect-layer` (on by default); which one wins, and the 0/10/20 encoding, are in [ML region and layers](../mlmm-structure-io/SKILL.md#ml-region-and-layers). `--link-atom-method` places the link atoms: `scaled` (g-factor, the default) or `fixed` (1.09/1.01 Å).
+The calculation commands other than `all` need the full-system Amber topology (`--parm7`) and an ML region; `all` builds both. The ML region comes from `--model-pdb`, `--model-indices`, or the B-factor layers read by `--detect-layer` (on by default); which one wins, and the 0/10/20 encoding, are in [ML region and layers](../mlmm-model-setup/SKILL.md#ml-region-and-layers). `--link-atom-method` places the link atoms: `scaled` (g-factor, the default) or `fixed` (1.09/1.01 Å).
 
 `-q` is the charge of the ML region, not of the whole system. `-l 'SAM:1,GPP:-3'` gives the charges of non-standard residues, and the ML-region charge is derived from them. The charge comes from explicit `-q`, then the `-l` derivation, then `calc.model_charge` in the `--config` YAML; otherwise the run stops with an error. `-m` is the ML-region multiplicity, otherwise `calc.model_mult`, otherwise 1.
 
@@ -59,7 +59,7 @@ Settings apply in the order built-in defaults < `--config` YAML < explicit CLI o
 - **Hidden options**: an option missing from `--help` may be listed by `--help-advanced`.
 - **Out of memory on a Hessian**: narrow the Hessian region with `--hessian-cutoff` (`opt`, `tsopt`, `freq`, `sp`), and keep the default `FiniteDifference` unless a pilot shows `Analytical` is better.
 - **`--uma-workers` above 1 with `--hessian-calc-mode Analytical`**: this stops with an error. Use one worker for an analytical Hessian, or `FiniteDifference` with several workers.
-- **`--embedcharge`**: the xTB correction runs xTB with and without the MM point charges at every evaluation; keep the ML region to about 200–300 atoms and benchmark first ([backends.md](../mlmm-install-backends/backends.md)). With `-b dft`, it places the MM point charges in the PySCF Hamiltonian instead.
+- **`--embedcharge`**: the xTB correction runs xTB with and without the MM point charges at every evaluation; keep the ML region to about 200–300 atoms and benchmark first ([backends.md](../mlmm-install/backends.md)). With `-b dft`, it places the MM point charges in the PySCF Hamiltonian instead.
 
 ## Where flags and defaults live
 
@@ -72,7 +72,6 @@ Settings apply in the order built-in defaults < `--config` YAML < explicit CLI o
 - [mlmm-overview](../mlmm-overview/SKILL.md) — pick an `all` mode, or run stage by stage.
 - [outputs.md](../mlmm-overview/outputs.md) — `summary.json`, `result.json`, and the output tree.
 - [ts-strategy.md](../mlmm-overview/ts-strategy.md) — TS candidates, wrong n_imag, and a TS that does not come out.
-- [mlmm-model-setup](../mlmm-model-setup/SKILL.md) — what goes into the ML region and the layers.
-- [mlmm-structure-io](../mlmm-structure-io/SKILL.md) — formats, residue and atom selectors, charge and multiplicity.
-- [mlmm-install-backends](../mlmm-install-backends/SKILL.md) — install, AmberTools, and backends.
+- [mlmm-model-setup](../mlmm-model-setup/SKILL.md) — formats, residue and atom selectors, charge and multiplicity, and what goes into the ML region and the layers.
+- [mlmm-install](../mlmm-install/SKILL.md) — install, AmberTools, and backends.
 - [mlmm-hpc](../mlmm-hpc/SKILL.md) — job scripts for PBS and SLURM.

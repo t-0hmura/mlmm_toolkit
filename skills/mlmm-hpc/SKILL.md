@@ -10,12 +10,12 @@ description: "PBS and SLURM submission for mlmm-toolkit: placeholder-based job t
 `mlmm-toolkit` is a CPU+GPU Python program; on HPC clusters you typically
 submit it as a PBS or SLURM job that requests one node with one GPU by default.
 This skill provides **generic templates** with placeholders — fill in
-your queue / module / env names from [`mlmm-install-backends/backends.md`](../mlmm-install-backends/backends.md#probe-the-compute-environment).
+your queue / module / env names from [`mlmm-install/backends.md`](../mlmm-install/backends.md#probe-the-compute-environment).
 
 ## When the env is unknown
 
 If you don't know the cluster's queue / GPU / module configuration,
-read [`mlmm-install-backends/backends.md`](../mlmm-install-backends/backends.md#probe-the-compute-environment) first. It walks through the
+read [`mlmm-install/backends.md`](../mlmm-install/backends.md#probe-the-compute-environment) first. It walks through the
 discovery commands (`qstat -Q`, `pbsnodes -a`, `nvidia-smi`,
 `module avail cuda`, `conda env list`) and tells you how to fill the
 placeholders this skill uses.
@@ -110,6 +110,16 @@ optimizer cycles; TS/frequency cost depends on Hessian mode and active degrees
 of freedom; DFT cost depends strongly on elements, basis, functional, grid, and
 engine. Add margin for retries and first-use compilation.
 
+GPU DFT (`-b dft` and `mlmm dft`) grows steeply with the ML-region size: for
+`wb97m-v/def2-svp` on a 16 GB consumer GPU, a 63-atom single point took about
+8 min and an 87-atom one about 18 min, roughly the 2.4–2.6 power of the atom
+count. ML regions of several hundred atoms need a GPU with strong FP64
+throughput and 24 GB or more; time one structure on the production GPU and
+extrapolate before a batch. The first SCF of each run converges on a coarse
+grid first (`--scf-stepwise-grid`, on by default), which shortened it 1.4–1.9
+times from about 60 atoms up; small systems can be slightly slower, so
+`--no-scf-stepwise-grid` turns it off.
+
 ## CPU vs GPU choice
 
 | Workload | CPU | GPU |
@@ -118,8 +128,8 @@ engine. Add margin for retries and first-use compilation.
 | `mlmm dft` | Supported | Supported with a compatible GPU4PySCF stack |
 | Analytical MLIP Hessian | Supported by selected backends | Runtime and memory are backend/model/system dependent; compare with finite difference on a pilot |
 
-Check [`mlmm-install-backends/backends.md`](../mlmm-install-backends/backends.md#dft-pyscf-gpu4pyscf) for `--dft-engine gpu` / `cpu`
-specifics, including the aarch64 caveat (CPU PySCF only).
+Check [`mlmm-install/backends.md`](../mlmm-install/backends.md#dft-pyscf-gpu4pyscf) for `--dft-engine gpu` / `cpu`
+specifics, including the GPU4PySCF source build on aarch64.
 
 ## Monitoring and control
 
@@ -149,6 +159,15 @@ scontrol show job <jobid> && scancel <jobid>
 
 Do not derive cancellation IDs from an unreviewed bulk pipeline; a broad
 filter can cancel an unrelated job in the same account.
+
+## Before and after submitting
+
+- Run one real job of the batch first and read its log; submit the rest only after it passes.
+- Check the plan without computing: `mlmm all ... --dry-run` runs the preparation and the charge and electron-parity checks, prints the plan, and skips the calculations; `mlmm sp ... --show-config` prints the merged configuration and exits.
+- Before `qsub` / `sbatch`, check that no job with the same name is queued; afterwards, confirm that exactly one was created.
+- Judge success from what the job wrote, not from the job leaving the queue. Write the exit code to a file from the job script (`trap 'echo "rc=$?" > "$PBS_O_WORKDIR/$PBS_JOBID.exit"' EXIT`) and set no second EXIT trap after it. A walltime kill skips the trap, so with no exit file, read the scheduler history (`qstat -x -f <jobid>` on PBSPro, `sacct -j <jobid>` on SLURM).
+- Keep heavy I/O and per-job environments on node-local scratch (`$TMPDIR`, or `/var/tmp/$PBS_JOBID`). Stop when the job ID is empty, and remove only that job's directory at the end.
+- Throttle large copies to a shared file system (`rsync --bwlimit=...`); many concurrent writes can fail with I/O errors on some NFS servers.
 
 ## Failed jobs / restart
 
@@ -202,6 +221,7 @@ shared list with file-lock-protected counter increment.
 | `CUDA_VISIBLE_DEVICES` | Normally leave the scheduler-provided mapping unchanged. Set it manually only outside scheduler isolation or as part of a tested worker-launch scheme; device indices inside a job are local to that mapping. |
 | `OMP_NUM_THREADS=<NCPU>` | Limit OpenMP threads (avoid oversubscription) |
 | `MKL_NUM_THREADS=<NCPU>` | Intel MKL thread cap |
+| `CUPY_CACHE_DIR`, `CUDA_CACHE_PATH` | Put the CuPy and CUDA kernel caches in a work directory when the home directory has a file-count quota |
 | `LD_LIBRARY_PATH=<torch lib>:...` | Override system CUDA libs (see backends.md, CUDA and PyTorch) |
 
 ## ssh-based remote submission
@@ -214,8 +234,8 @@ embed it inside the skill template.
 ## See also
 
 - `dynamic-dispatch.md` — flock + pbsdsh template for many short tasks.
-- [`mlmm-install-backends/backends.md`](../mlmm-install-backends/backends.md#probe-the-compute-environment) — discover queue / module / env
+- [`mlmm-install/backends.md`](../mlmm-install/backends.md#probe-the-compute-environment) — discover queue / module / env
   values for the placeholders above.
-- [`mlmm-install-backends/backends.md`](../mlmm-install-backends/backends.md#cuda-and-pytorch) — driver / torch CUDA
+- [`mlmm-install/backends.md`](../mlmm-install/backends.md#cuda-and-pytorch) — driver / torch CUDA
   pairing.
 - `mlmm-cli/all.md` — the typical workload submitted to HPC.

@@ -71,7 +71,7 @@ Without `-o`, the output is `<input>_layered.pdb` next to the input.
 
 ## Next step
 
-- [ML region and layers](../mlmm-structure-io/SKILL.md#ml-region-and-layers):
+- [ML region and layers](../mlmm-model-setup/SKILL.md#ml-region-and-layers):
   what the B-factor values mean to the other commands.
 - [mlmm-model-setup](../mlmm-model-setup/SKILL.md): grow or trim the ML
   region and the movable shell.

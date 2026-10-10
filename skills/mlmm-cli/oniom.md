@@ -127,10 +127,10 @@ ORCA, `QMAtoms` and `ActiveAtoms` set the same layers.
 
 ## Next step
 
-- [ML region and layers](../mlmm-structure-io/SKILL.md#ml-region-and-layers):
+- [ML region and layers](../mlmm-model-setup/SKILL.md#ml-region-and-layers):
   the B-factor layers that the export reads and the import writes.
-- [GJF](../mlmm-structure-io/formats.md#gjf) and
-  [Amber parm7 and rst7](../mlmm-structure-io/formats.md#amber-parm7-and-rst7):
+- [GJF](../mlmm-model-setup/formats.md#gjf) and
+  [Amber parm7 and rst7](../mlmm-model-setup/formats.md#amber-parm7-and-rst7):
   the file formats.
 - [mm-parm.md](mm-parm.md): build the topology.
 - [define-layer.md](define-layer.md): write the layers into the PDB.

@@ -116,4 +116,4 @@ structure.
 
 - Usual upstream stages: [tsopt.md](tsopt.md), [irc.md](irc.md).
 - The `--hessian-calc-mode` setting for UMA:
-  [backends.md](../mlmm-install-backends/backends.md#uma).
+  [backends.md](../mlmm-install/backends.md#uma).

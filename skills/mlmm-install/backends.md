@@ -202,6 +202,24 @@ only; `[dft-cuda12]` pulls the CUDA 12 builds instead. On aarch64
 GPU4PySCF; build GPU4PySCF from source (<https://github.com/pyscf/gpu4pyscf>)
 or run with `--dft-engine cpu`.
 
+A source build that works with Python 3.12 and a CUDA 12 toolkit module:
+
+```bash
+pip install 'pyscf>=2.13.0' pyscf-dispersion cupy-cuda12x
+git clone --depth 1 --branch v1.8.1 https://github.com/pyscf/gpu4pyscf.git
+cd gpu4pyscf
+cmake -S gpu4pyscf/lib -B build/temp.gpu4pyscf -DCUDA_ARCHITECTURES=90-real -DBUILD_LIBXC=ON
+cmake --build build/temp.gpu4pyscf -j "$(nproc)"
+export PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}"
+```
+
+Set `CUDA_ARCHITECTURES` to the GPU's compute capability (`90-real` for
+Hopper). Build in place and use `PYTHONPATH`: the package's `setup.py`
+expects the separate libxc wheel, which has no aarch64 build. The libxc step
+downloads its sources, so the build node needs network access. Before
+production, run one small GPU SCF in the same environment, for example water
+with `wb97m-v/def2-svp`.
+
 ```bash
 python -c "import pyscf; print('pyscf       :', pyscf.__version__)"
 python -c "import gpu4pyscf; print('gpu4pyscf   :', gpu4pyscf.__version__)"   # only on x86_64
@@ -439,5 +457,5 @@ copying the placeholder values.
 - [mlmm-hpc](../mlmm-hpc/SKILL.md): job scripts that use the placeholders above.
 - [tsopt](../mlmm-cli/tsopt.md) and [freq](../mlmm-cli/freq.md): Hessian mode and the TS checks per backend.
 - [dft](../mlmm-cli/dft.md): the `dft` command and DFT//MLIP/MM single points.
-- [mlmm-structure-io](../mlmm-structure-io/SKILL.md#charge-and-multiplicity): choosing `-q` and `-m`.
+- [mlmm-model-setup](../mlmm-model-setup/SKILL.md#charge-and-multiplicity): choosing `-q` and `-m`.
 - Docs: [Installation](../../docs/installation.md), [MLIP Backends](../../docs/backends.md), [Refine an MLIP TS with DFT](../../docs/dft-backend.md).

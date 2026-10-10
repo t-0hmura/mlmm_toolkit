@@ -182,4 +182,4 @@ Each `segments/seg_NN/` has the same diagrams for its own step, without `_all`, 
 - [cli/all.md](../mlmm-cli/all.md) and the three mode pages: [all-endpoint-mep.md](../mlmm-cli/all-endpoint-mep.md), [all-scan-list.md](../mlmm-cli/all-scan-list.md), [all-ts-only.md](../mlmm-cli/all-ts-only.md).
 - [cli/tsopt.md](../mlmm-cli/tsopt.md), [cli/freq.md](../mlmm-cli/freq.md), [cli/irc.md](../mlmm-cli/irc.md), [cli/dft.md](../mlmm-cli/dft.md): the `result.json` of each stage.
 - [cli/utilities.md](../mlmm-cli/utilities.md): `bond-summary`, the same bond-change analysis on its own.
-- [mlmm-structure-io](../mlmm-structure-io/SKILL.md): the input formats.
+- [mlmm-model-setup](../mlmm-model-setup/SKILL.md): the input formats.

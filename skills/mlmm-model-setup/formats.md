@@ -376,7 +376,7 @@ Pitfalls:
 - The parm7 charge sum differs from the `-l` total: `tleap` rounded charges;
   sum the `charge` column of `printDetails *` in `parmed`.
 - `parmed` not on `PATH`: install AmberTools
-  ([ambertools.md](../mlmm-install-backends/ambertools.md)).
+  ([ambertools.md](../mlmm-install/ambertools.md)).
 
 ## Ligand, ion, and metal charges
 
@@ -433,4 +433,4 @@ rename the residue in the model or give the verified ML-region total with `-q`.
 - [oniom](../mlmm-cli/oniom.md): gjf export and import.
 - [utilities](../mlmm-cli/utilities.md): `add-elem-info`, `fix-altloc`, `trj2fig`.
 - [Outputs](../mlmm-overview/outputs.md): where a run writes its XYZ, PDB, and CIF files.
-- [ambertools.md](../mlmm-install-backends/ambertools.md): AmberTools for `mm-parm` and `parmed`.
+- [ambertools.md](../mlmm-install/ambertools.md): AmberTools for `mm-parm` and `parmed`.
