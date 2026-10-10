@@ -9,7 +9,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/mlmm-toolkit.svg)](https://pypi.org/project/mlmm-toolkit/) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/t-0hmura/mlmm_toolkit/blob/main/examples/mlmm_colab.ipynb)
 
-[日本語ドキュメント](docs/ja/index.md)
+[Documentation](https://t-0hmura.github.io/mlmm_toolkit/) | [日本語ドキュメント](https://t-0hmura.github.io/mlmm_toolkit/ja/)
 
 <img src="https://raw.githubusercontent.com/t-0hmura/mlmm_toolkit/main/docs/mlmm_toolkit_overview.png" alt="Overview of ML/MM toolkit" width="90%">
 
