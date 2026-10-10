@@ -17,6 +17,7 @@
 
 conda create -n mlmm-toolkit python=3.12 -y
 conda activate mlmm-toolkit
+
 conda install -c conda-forge ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler -y
 pip install 'torch==2.13.0' --index-url https://download.pytorch.org/whl/cu130  # 推奨。cu126 / cu132 なら末尾を置き換え
 pip install mlmm-toolkit
