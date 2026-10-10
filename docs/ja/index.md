@@ -99,7 +99,7 @@ orphan: true
 | **`result.json` と `summary.json` の欄** | [JSON 出力の一覧](json-output.md) |
 | **GPU・CPU の割り当てと HPC** | [デバイス設定 & HPC セットアップ](device-hpc.md) |
 | **Python から ML/MM 計算機を使う** | [ML/MM 計算機](mlmm-calc.md) |
-| **AI エージェントから呼ぶ（MCP）** | [MCP サーバー](mcp_server.md) |
+| **AI エージェントから使う** | [エージェントスキル](#エージェントスキル) |
 | **コードの構成（開発者向け）** | [アーキテクチャ](architecture.md) |
 | **用語** | [用語集](glossary.md) |
 

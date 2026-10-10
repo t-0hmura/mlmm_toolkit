@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 
 from click.testing import CliRunner
@@ -10,7 +9,6 @@ import pytest
 
 from mlmm.cli import cli as root_cli
 from mlmm.domain.add_elem_info import assign_elements
-from mlmm.mcp import _tools
 
 
 def _atom(serial: int, name: str, resname: str, element: str, record: str = "HETATM") -> str:
@@ -155,35 +153,3 @@ def test_advanced_help_lists_the_overwrite_elem_toggle() -> None:
 
     assert result.exit_code == 0, result.output
     assert "--overwrite-elem / --no-overwrite-elem" in result.output
-
-
-class _FakeMCP:
-    def __init__(self) -> None:
-        self.tools: dict[str, object] = {}
-
-    def tool(self):
-        def decorator(func):
-            self.tools[func.__name__] = func
-            return func
-
-        return decorator
-
-
-class _FakeResult:
-    def to_dict(self) -> dict:
-        return {"status": "ok"}
-
-
-@pytest.mark.parametrize("value, expected", [(False, False), (True, True)])
-def test_mcp_add_element_info_passes_overwrite_elem(monkeypatch, value, expected) -> None:
-    calls: list[list[str]] = []
-    monkeypatch.setattr(
-        _tools, "run_subcmd", lambda argv, **_kwargs: calls.append(list(argv)) or _FakeResult()
-    )
-    mcp = _FakeMCP()
-    _tools.register_all(mcp)
-
-    asyncio.run(mcp.tools["add_element_info"]("raw.pdb", "fixed.pdb", overwrite_elem=value))
-
-    assert ("--overwrite-elem" in calls[-1]) is expected
-    assert "--overwrite" not in calls[-1]

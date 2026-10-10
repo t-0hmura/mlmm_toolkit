@@ -134,7 +134,7 @@ DMF を使う場合は、{ref}`詳細なインストール手順 <ja-step-by-ste
     pip install "mlmm-toolkit[dft]"
     ```
 
-    DFT/MM を使う場面と、MLIP/MM の TS を DFT/MM で確かめる方法は [MLIP の TS を DFT で確かめる](dft-backend.md) を参照してください。ほかに、`[openmm]`（MM に OpenMM）、`[mcp]`（`mlmm-mcp` サーバー）、`[pdbfixer]`（pip で PDBFixer）の追加パッケージがあります。
+    DFT/MM を使う場面と、MLIP/MM の TS を DFT/MM で確かめる方法は [MLIP の TS を DFT で確かめる](dft-backend.md) を参照してください。ほかに、`[openmm]`（MM に OpenMM）と `[pdbfixer]`（pip で PDBFixer）の追加パッケージがあります。
 
 8. **インストールの確認**
 

@@ -64,7 +64,6 @@ pip install 'mlmm-toolkit[orb,aimnet,dft]'   # extras as needed
 | `[aimnet]` | `aimnet>=0.2.0` | `-b aimnet2` |
 | `[dft]` | PySCF, CUDA 13 GPU4PySCF and CuPy on Linux x86_64 | DFT with a `cu130` or `cu132` wheel |
 | `[dft-cuda12]` | PySCF, CUDA 12 GPU4PySCF and CuPy on Linux x86_64 | DFT with a `cu126` wheel |
-| `[mcp]` | `mcp[cli]>=1.29,<2` | Running the MCP server |
 | `[dev]` | `pytest` family | Contributing |
 
 There is no `[mace]` extra, because `mace-torch` and `fairchem-core` need

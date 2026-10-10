@@ -25,7 +25,7 @@ cat result_opt/result.json | python -m json.tool
 | `mlmm_version` / `mlmm_toolkit_version` | string | パッケージバージョン（単体のコマンドの結果は `mlmm_version`、`all` / `path-search` の要約は `mlmm_toolkit_version`） |
 | `execution_status` | string | 実行の完了状況: `completed` / `failed`。 |
 | `scientific_status` | string | 結果の利用可否: `success` / `partial` / `failed`。 |
-| `run_id` | string | 任意。現在の呼び出しの UUID。MCP サーバーからコマンドを起動したときと、`all` の実行（各段を含む）で書かれます。 |
+| `run_id` | string | 任意。現在の呼び出しの UUID。`all` の実行（各段を含む）で書かれます。 |
 | `elapsed_seconds` | float | 任意。実行時間（秒）。時間を記録しないコマンドでは省きます |
 | `environment` | object | ハードウェア情報（下表参照） |
 

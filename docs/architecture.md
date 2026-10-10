@@ -100,19 +100,15 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ │ ├── hessian_cache.py in-memory Hessian cache
 │ │ └── hessian_calc.py numerical-Hessian build + frequency / vibrational I/O helpers
 │ │
-│ ├── core/ # === L5 Foundation ===
-│ │ ├── defaults.py shared workflow/calculator defaults
-│ │ ├── dft_settings.py DFT settings (CHEMISTRY-RULE:4)
-│ │ ├── utils.py PDB / XYZ / plot helpers
-│ │ ├── logging.py -v/--verbose LEVEL (0–3) logging wiring
-│ │ ├── calc_eval.py per-stage calc evaluation
-│ │ ├── output.py / result_commit.py output/result commit helpers
-│ │ ├── pes_composition.py energy-component composition
-│ │ └── residue_data.py residue tables
-│ │
-│ └── mcp/ # non-layer subpackage: MCP server exposing every CLI subcommand
-│   ├── server.py / _runner.py
-│   └── _tools.py
+│ └── core/ # === L5 Foundation ===
+│   ├── defaults.py shared workflow/calculator defaults
+│   ├── dft_settings.py DFT settings (CHEMISTRY-RULE:4)
+│   ├── utils.py PDB / XYZ / plot helpers
+│   ├── logging.py -v/--verbose LEVEL (0–3) logging wiring
+│   ├── calc_eval.py per-stage calc evaluation
+│   ├── output.py / result_commit.py output/result commit helpers
+│   ├── pes_composition.py energy-component composition
+│   └── residue_data.py residue tables
 │
 ├── tests/ smoke / unit
 ├── .github/ workflows/ + scripts/ (CI, release, engineering, and docs checks)

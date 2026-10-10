@@ -14,11 +14,6 @@ how to recover, and how to read the outputs. Inspired by the
   `outputs.md` for reading the outputs.
 - `mlmm-cli`: the 22 subcommands in 17 files, each with when to use it, how to
   judge success, and pitfalls and recovery.
-- `mlmm-mcp`: how to drive `mlmm-toolkit` from any MCP client (Claude
-  Desktop / Claude Code / Cursor / custom SDK) via the bundled
-  `mlmm-mcp` server; lists the 22 MCP tools (including the mlmm-specific
-  topology / ONIOM-layer / ONIOM-input tools) and the result format
-  shared by every tool.
 - `mlmm-model-setup`: PDB / mmCIF / XYZ / GJF / Amber parm7/rst7
   handling, the charge / multiplicity decision, what `extract` puts in the
   ML region, a hand-built `model.pdb` with `--model-pdb`, `--parm7`, and `-q`,

@@ -2058,7 +2058,7 @@ def _enrich_summary(
     """Add machine-readable metadata to summary dict for AI agent consumption.
 
     The resulting dict is written as summary.json and is the machine-readable
-    pipeline output consumed by MCP tools and other clients. Formatted tables
+    pipeline output consumed by clients. Formatted tables
     and the filesystem tree remain specific to summary.log.
     """
     from mlmm import __version__

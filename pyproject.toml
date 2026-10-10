@@ -109,9 +109,6 @@ docs = [
     "furo>=2024.0",
     "sphinx-copybutton>=0.5",
 ]
-mcp = [
-    "mcp[cli]>=1.29,<2",
-]
 
 [project.urls]
 Homepage = "https://github.com/t-0hmura/mlmm_toolkit"
@@ -121,7 +118,6 @@ Documentation = "https://t-0hmura.github.io/mlmm_toolkit/"
 
 [project.scripts]
 mlmm = "mlmm.cli:cli"
-mlmm-mcp = "mlmm.mcp:serve"
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "hessian_ff/tests"]

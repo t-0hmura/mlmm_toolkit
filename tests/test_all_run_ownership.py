@@ -45,7 +45,7 @@ class _FakePrepared:
 
 
 @pytest.mark.parametrize("failure", [None, RuntimeError("boom")])
-@pytest.mark.parametrize("prior_run_id", [None, "prior-mcp-run"])
+@pytest.mark.parametrize("prior_run_id", [None, "prior-run"])
 def test_all_binds_run_id_and_restores_process_state(
     tmp_path: Path, monkeypatch, failure, prior_run_id,
 ) -> None:

@@ -8,7 +8,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Breaking changes
 
-- Result JSON keeps `execution_status` and `scientific_status` and drops the generic `status` and duplicate reason fields (JSON schema 4.0, MCP schema 2.0); exit codes are 0 for success or a usable partial result, 1 for failure, 2 for invalid input, and 130 for interruption.
+- The MCP server (`mlmm-mcp`) and the `[mcp]` extra are removed; AI agents run the CLI directly with the bundled skills.
+- Result JSON keeps `execution_status` and `scientific_status` and drops the generic `status` and duplicate reason fields (JSON schema 4.0); exit codes are 0 for success or a usable partial result, 1 for failure, 2 for invalid input, and 130 for interruption.
 - `--dump-hess` and `--read-hess` files are one plain NumPy `.npy` array instead of `.npz`; convert an older file with `numpy.save("hessian.npy", numpy.load("old.npz")["hessian"])`.
 - TS-only `all` names the IRC endpoints reactant and product (the higher-energy endpoint is the reactant), and `tsopt` records the optimizer that ran in `opt_mode`.
 - `scan2d` and `scan3d` name grid points by the target distances, and `surface.csv` holds the measured values, with the targets in new `target_*` columns.

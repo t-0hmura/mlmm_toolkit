@@ -43,7 +43,6 @@ def test_runtime_dependency_floors_match_consumed_apis() -> None:
     assert "ParmEd>=4.3.1" in dependencies
     assert "plotly>=6.1.1" in dependencies
     assert extras["aimnet"] == ["aimnet>=0.2.0"]
-    assert extras["mcp"] == ["mcp[cli]>=1.29,<2"]
     dft = {req.name: req for req in map(Requirement, extras["dft"])}
     dft_cuda12 = {req.name: req for req in map(Requirement, extras["dft-cuda12"])}
     assert {"gpu4pyscf-cuda13x", "cupy-cuda13x"} <= set(dft)

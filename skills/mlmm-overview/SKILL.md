@@ -187,7 +187,6 @@ The package body `mlmm/` has one directory per layer; `pysisyphus/`, `thermoanal
 | Analytical MM Hessian | `hessian_ff/` |
 | Optimizer, TS, and IRC internals | `pysisyphus/` |
 | QRRHO thermochemistry | `thermoanalysis/` |
-| MCP server | `mlmm/mcp/` ([mlmm-mcp](../mlmm-mcp/SKILL.md)) |
 | Chemistry rules | search for `# CHEMISTRY-RULE:` markers |
 
 The layer map, the import rules, and the invariants to keep are in [`docs/architecture.md`](../../docs/architecture.md); contributor recipes in [`CONTRIBUTING.md`](../../CONTRIBUTING.md). The import graph is checked by [`check_import_graph.py`](../../.github/scripts/check_import_graph.py), and the chemistry markers by [`check_engineering_markers.py`](../../.github/scripts/check_engineering_markers.py).
@@ -200,5 +199,4 @@ The layer map, the import rules, and the invariants to keep are in [`docs/archit
 - [mlmm-model-setup](../mlmm-model-setup/SKILL.md): formats, residue and atom selection, layer encoding, charge and multiplicity, and building, trimming, and enlarging the ML region and the layers.
 - [mlmm-install](../mlmm-install/SKILL.md): the core, backends, AmberTools, CUDA, and checking an unknown environment.
 - [mlmm-hpc](../mlmm-hpc/SKILL.md): job scripts.
-- [mlmm-mcp](../mlmm-mcp/SKILL.md): the MCP tools.
 - [colab-local-gpu-runtime](../colab-local-gpu-runtime/SKILL.md): a Colab local runtime.

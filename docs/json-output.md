@@ -29,7 +29,7 @@ when the command has the corresponding data:
 | `mlmm_version` / `mlmm_toolkit_version` | string | Package version (`mlmm_version` in single-command results; `mlmm_toolkit_version` in the `all` / `path-search` summaries) |
 | `execution_status` | string | Execution completion: `completed` / `failed`. |
 | `scientific_status` | string | Result usability: `success` / `partial` / `failed`. |
-| `run_id` | string | Optional UUID of the current invocation; written when the MCP server starts the command and in every `all` run, including its stages. |
+| `run_id` | string | Optional UUID of the current invocation; written in every `all` run, including its stages. |
 | `elapsed_seconds` | float | Optional wall-clock time; omitted by commands that do not record timing |
 | `environment` | object | Hardware info (see below) |
 

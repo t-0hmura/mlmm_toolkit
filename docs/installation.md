@@ -137,7 +137,7 @@ If you prefer to build the environment piece by piece:
     pip install "mlmm-toolkit[dft]"
     ```
 
-    For when to use DFT/MM and how to check an MLIP/MM TS with it, see [Refine an MLIP TS with DFT](dft-backend.md). Three more extras are available: `[openmm]` (OpenMM as the MM backend), `[mcp]` (the `mlmm-mcp` server for agent clients), and `[pdbfixer]` (PDBFixer through pip instead of conda).
+    For when to use DFT/MM and how to check an MLIP/MM TS with it, see [Refine an MLIP TS with DFT](dft-backend.md). Two more extras are available: `[openmm]` (OpenMM as the MM backend) and `[pdbfixer]` (PDBFixer through pip instead of conda).
 
 8. **Verify installation**
 

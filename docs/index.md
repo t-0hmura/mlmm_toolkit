@@ -90,7 +90,6 @@ output-layout
 backends
 mlmm-calc
 device-hpc
-mcp_server
 glossary
 architecture
 ```
@@ -166,7 +165,6 @@ ja/output-layout
 ja/backends
 ja/mlmm-calc
 ja/device-hpc
-ja/mcp_server
 ja/glossary
 ja/architecture
 ```
@@ -249,7 +247,7 @@ ja/architecture
 | **Keys of `result.json` and `summary.json`** | [JSON Output Reference](json-output.md) |
 | **GPU and CPU assignment, HPC** | [Device Configuration & HPC Setup](device-hpc.md) |
 | **Use the ML/MM calculator from Python** | [ML/MM Calculator](mlmm-calc.md) |
-| **Calling mlmm-toolkit from an AI agent (MCP)** | [MCP server](mcp_server.md) |
+| **Using mlmm-toolkit from an AI agent** | [Agent skills](#agent-skills) |
 | **Code structure (for developers)** | [Architecture](architecture.md) |
 | **Terminology** | [Glossary](glossary.md) |
 

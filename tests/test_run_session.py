@@ -327,16 +327,16 @@ def test_run_session_binds_generated_id_and_removes_absent_environment(
 
 
 def test_run_session_retains_and_restores_existing_environment(monkeypatch) -> None:
-    monkeypatch.setenv(MLMM_RUN_ID_ENV, "mcp-existing")
+    monkeypatch.setenv(MLMM_RUN_ID_ENV, "existing-run")
     session = RunSession(manifest=InvocationManifest(run_id="unused-generated"))
 
     bound = session.own_run_id_environment()
 
-    assert bound == "mcp-existing"
-    assert session.manifest.run_id == "mcp-existing"
+    assert bound == "existing-run"
+    assert session.manifest.run_id == "existing-run"
     os.environ[MLMM_RUN_ID_ENV] = "child-temporary"
     session.close()
-    assert os.environ[MLMM_RUN_ID_ENV] == "mcp-existing"
+    assert os.environ[MLMM_RUN_ID_ENV] == "existing-run"
 
 
 class _FakeGeometry:
