@@ -1265,7 +1265,7 @@ body[data-lang="ja"] .sidebar-tree > ul > li.lang-nav-root > ul {
     --p2r-wordmark-img: url("mlmm-toolkit-wordmark.svg");
     display: inline-block;
     height: 1.12em;
-    width: calc(1.12em * 1900 / 344);
+    width: calc(1.12em * 1915.24 / 267.12);
     vertical-align: -0.24em;
     background: var(--p2r-wordmark-img) no-repeat left center / contain;
     color: transparent;

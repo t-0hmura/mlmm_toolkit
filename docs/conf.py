@@ -101,7 +101,7 @@ _FONTS = {
 p2r_pipeline = [
     # Steps 1 and 2 of "How it works" (ML region, then topology and layers) form one stage.
     {'id': 'prep', 'en': 'ML/MM model setup', 'ja': 'ML/MM モデルのセットアップ',
-     'pages': ['extract', 'mm-parm', 'define-layer', 'fix-altloc', 'add-elem-info'], 'color': 'navy', 'icon': 'extract'},
+     'pages': ['extract', 'mm-parm', 'define-layer', 'fix-altloc', 'add-elem-info'], 'color': 'navy', 'icon': 'layer'},
     # Scan comes right before the MEP search; only the Scan-list mode goes through it.
     {'id': 'scan', 'en': 'Scan', 'ja': 'スキャン',
      'pages': ['scan', 'scan2d', 'scan3d'], 'color': 'scan', 'icon': 'scan'},
@@ -325,7 +325,7 @@ html_css_files = [
     'p2r-icons.css',
 ]
 
-# Favicon: the mlmm-toolkit icon (a placeholder until the logo is designed)
+# Favicon: the mlmm-toolkit icon
 html_favicon = '_static/mlmm-toolkit-icon.svg'
 
 # Logo (optional)
