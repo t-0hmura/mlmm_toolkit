@@ -461,8 +461,8 @@ search:
  bridge_rmsd_thresh: 0.0001 # ブリッジノードの RMSD 閾値
  max_nodes_segment: 20 # セグメントあたりの最大ノード数
  max_nodes_bridge: 5 # ブリッジあたりの最大ノード数
- kink_max_nodes: 3 # キンク（kink）最適化の最大ノード数
- max_seq_kink: 2 # 連続キンクの上限
+ kink_max_nodes: 3 # 配座変化の区間（kink）の最適化の最大ノード数
+ max_seq_kink: 2 # 配座変化の区間が続く数の上限
  refine_mode: null # 精密化戦略: peak, minima, null (自動)
 ```
 
@@ -487,14 +487,14 @@ stopt:
  out_dir: ./result_path_opt/  # 出力ディレクトリ
  print_every: 10        # ログ出力間隔
  lbfgs:
-   # 単一構造最適化用（端点の事前最適化、HEI±1、キンクノード）
+   # 単一構造最適化用（端点の事前最適化、HEI±1、配座変化の区間のノード）
    thresh: gau
    # max_cycles: 100000 # 任意の上書き
    # ...（詳細は lbfgs セクション参照）
 ```
 
 **注記:**
-- `stopt.lbfgs` / `stopt.rfo` は端点の事前最適化、HEI±1 精密化、キンクノードに使う単一構造オプティマイザを設定します。
+- `stopt.lbfgs` / `stopt.rfo` は端点の事前最適化、HEI±1 精密化、配座変化の区間のノードに使う単一構造オプティマイザを設定します。
 - 外側の `stopt` キーはストリング最適化を制御します。
 - path 系のコマンドは、実行ごとの出力先と接頭辞を自分で決めます。
 

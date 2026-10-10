@@ -55,8 +55,8 @@ mlmm path-search -i reactant.pdb product.pdb --parm7 real.parm7 --model-pdb ml_r
 隣り合う入力の組（A → B）ごとに、GSM または DMF で粗い MEP を作り、その HEI を求めます。
 2. **HEI のまわりの緩和**:
 `--refine-mode peak` では HEI の両隣のイメージ（HEI ± 1）を、`minima` では HEI から外側へたどった両側の最も近い極小を最適化し、近くの 2 つの極小 End1 と End2 を得ます。`--refine-mode` を省くと、GSM では `peak`、DMF では `minima` になります。
-3. **キンク（kink）か反応区間か**:
-End1 と End2 の間で共有結合が変わらなければ、その区間は *キンク* とみなし、線形補間のノードを数個入れて 1 つずつ最適化します。結合が変われば *反応区間* とみなし、End1 と End2 の間に新しく GSM または DMF の経路を作って障壁をはっきりさせます。
+3. **配座変化の区間（kink）か反応区間か**:
+End1 と End2 の間で共有結合が変わらなければ、その区間は *配座変化の区間* とみなし、線形補間のノードを数個入れて 1 つずつ最適化します。結合が変われば *反応区間* とみなし、End1 と End2 の間に新しく GSM または DMF の経路を作って障壁をはっきりさせます。
 4. **結合の変化が残る区間だけを再帰**:
 A → End1 と End2 → B の部分で結合の変化を調べ、変化が残る部分だけを、`--max-depth` の階層まで探索し直します。
 5. **区間をつなぐ**:
@@ -71,7 +71,7 @@ A → End1 と End2 → B の部分で結合の変化を調べ、変化が残る
 | 見えるもの | 意味 | 次の操作 |
 | --- | --- | --- |
 | 結合が変わる区間と、その `hei_seg_NN.xyz` | その段の TS 候補 | [`tsopt`](tsopt.md) で最適化して虚振動が 1 つかを確かめ、[`irc`](irc.md) を実行する |
-| `tag` が `seg_NNN_maxdepth` または `seg_NNN_kinklimit` の区間 | 階層の上限に達した（`_maxdepth`）か、キンクの区間が続いた（`_kinklimit`）ため、そこより先は分けていない | 複数の段を含むことがある。上と同じように確かめるか、`--max-depth` を上げるか、中間体を入れる |
+| `tag` が `seg_NNN_maxdepth` または `seg_NNN_kinklimit` の区間 | 階層の上限に達した（`_maxdepth`）か、配座変化の区間が続いた（`_kinklimit`）ため、そこより先は分けていない | 複数の段を含むことがある。上と同じように確かめるか、`--max-depth` を上げるか、中間体を入れる |
 | `tag` が `_kink` で終わる区間しかない、または `HEI is at an endpoint` の警告 | 結合の変化が見つからないか、経路の端と端の間に頂点がない | 入力を見直すか、中間体を入れる（例 2） |
 
 区間の分け方は結合距離による結合の判定にもとづく目安です。1 つの区間が 1 つの素過程であることも、TS をちょうど 1 つ含むことも保証しません。TS 最適化が成功すると、反応モードの虚振動が 1 つ出ます。各 HEI を `tsopt`（n_imag = 1）と IRC で確かめてから、機構の 1 段として扱ってください。
@@ -126,7 +126,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 
 全オプションは [自動生成のオプションの一覧（英語のみ）](../reference/commands/path_search.md) を参照してください。
 
-> **補足:** YAML（`--config`）では、`--max-depth` を指定しないときに `search.max_depth` が階層の上限になり、`search.kink_max_nodes`（デフォルト `3`）がキンクに入れるノードの数を、`bond.bond_factor`（デフォルト `1.20`）が結合の変化の判定に使う共有結合半径の倍率を決めます。すべてのキーは YAML 設定の一覧の [`search`](yaml-reference.md#search) と [`bond`](yaml-reference.md#bond) にあります。[`stopt`](yaml-reference.md#stopt) の `stopt.lbfgs`・`stopt.rfo` でも、`opt.lbfgs`・`opt.rfo` と同じように単一構造のオプティマイザを設定できます。
+> **補足:** YAML（`--config`）では、`--max-depth` を指定しないときに `search.max_depth` が階層の上限になり、`search.kink_max_nodes`（デフォルト `3`）が配座変化の区間に入れるノードの数を、`bond.bond_factor`（デフォルト `1.20`）が結合の変化の判定に使う共有結合半径の倍率を決めます。すべてのキーは YAML 設定の一覧の [`search`](yaml-reference.md#search) と [`bond`](yaml-reference.md#bond) にあります。[`stopt`](yaml-reference.md#stopt) の `stopt.lbfgs`・`stopt.rfo` でも、`opt.lbfgs`・`opt.rfo` と同じように単一構造のオプティマイザを設定できます。
 
 ---
 
@@ -151,6 +151,6 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 * [ML 領域と層の組み方](model-setup.md) — 入力に使う全系の PDB、`real.parm7`、ML 領域を作る
 * [all](all.md) — 一貫実行のワークフロー。`all --refine-path` で MEP の段に `path-search` を使います
 * [YAML 設定の一覧](yaml-reference.md) — `search`・`bond`・`gs`・`dmf` の全設定
-* [用語集](glossary.md) — MEP、GSM、DMF、HEI、キンクなどの用語
+* [用語集](glossary.md) — MEP、GSM、DMF、HEI、配座変化の区間などの用語
 * [トラブルシューティング](troubleshooting.md) — 異常終了時の原因切り分けと対処法
 * {ref}`終了コード <ja-exit-codes>` — 終了コードの意味

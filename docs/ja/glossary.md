@@ -45,7 +45,7 @@
 | **HEI** | Highest-Energy Image | MEP 上でエネルギーが最大のイメージ。TS の初期推定としてよく使用。 |
 | **イメージ（Image）** | — | 経路上の 1 つの構造（1 ノード）。 |
 | **セグメント** | — | 2 つの隣接する端点を結ぶ MEP（例: R → I1, I1 → I2, …）。 |
-| **キンク（kink）** | Kink | 配座だけが変わる経路の区間（セグメント）。`path-search` が HEI の両側で最適化した 2 つの構造（End1 と End2。[path-search の処理の仕組み](path-search.md#処理の仕組みと計算仕様) の 2）の間で、共有結合が変わらない区間を指します。`path-search` は新しい GSM・DMF の経路の代わりに、線形補間のノードを数個（`search.kink_max_nodes`、デフォルト 3）入れて 1 つずつ最適化します。 |
+| **配座変化の区間（kink）** | Kink | 配座だけが変わる経路の区間（セグメント）。`path-search` が HEI の両側で最適化した 2 つの構造（End1 と End2。[path-search の処理の仕組み](path-search.md#処理の仕組みと計算仕様) の 2）の間で、共有結合が変わらない区間を指します。`path-search` は新しい GSM・DMF の経路の代わりに、線形補間のノードを数個（`search.kink_max_nodes`、デフォルト 3）入れて 1 つずつ最適化します。 |
 
 ## 最適化アルゴリズム
 
