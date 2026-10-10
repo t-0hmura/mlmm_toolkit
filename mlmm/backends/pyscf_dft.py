@@ -28,11 +28,21 @@ def stepwise_grid_density(make_method):
 
     ``make_method()`` must return a new, fully configured SCF method (point
     charges included), so both stages see the same Hamiltonian. Returns
-    ``None`` when the method has no DFT grid or the coarse SCF did not converge;
+    ``None`` when the method has no DFT grid, the requested grid is not finer than
+    the coarse one (level 1 or lower, or an explicit atom grid), or the coarse SCF
+    did not converge;
     the caller then runs the normal SCF from its own initial guess.
     """
     mf = make_method()
     if not hasattr(mf, "grids"):
+        return None
+    # The coarse stage helps only when it is coarser than the requested grid.
+    nlcgrids = getattr(mf, "nlcgrids", None)
+    if (
+        mf.grids.level <= SCF_STEPWISE_GRID_LEVEL
+        or getattr(mf.grids, "atom_grid", None)
+        or getattr(nlcgrids, "atom_grid", None)
+    ):
         return None
     mf.grids.level = SCF_STEPWISE_GRID_LEVEL
     if hasattr(mf, "nlcgrids"):

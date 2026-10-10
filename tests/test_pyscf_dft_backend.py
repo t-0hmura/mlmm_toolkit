@@ -568,7 +568,7 @@ def test_stepwise_grid_density_converges_a_coarse_stage_first() -> None:
     assert built[0].conv_tol == SCF_STEPWISE_CONV_TOL
 
 
-def test_stepwise_grid_density_falls_back_without_grid_or_convergence() -> None:
+def test_stepwise_grid_density_falls_back_without_a_coarser_grid_or_convergence() -> None:
     from mlmm.backends.pyscf_dft import stepwise_grid_density
 
     class Grids:
@@ -585,8 +585,22 @@ def test_stepwise_grid_density_falls_back_without_grid_or_convergence() -> None:
         def kernel(self):
             raise AssertionError("a method without a grid is not run")
 
+    class LevelOne:
+        grids = type("Grids", (), {"level": 1})()
+
+        def kernel(self):
+            raise AssertionError("no coarse stage when the requested grid is level 1")
+
+    class AtomGrid:
+        grids = type("Grids", (), {"level": 3, "atom_grid": (50, 194)})()
+
+        def kernel(self):
+            raise AssertionError("no coarse stage with an explicit atom grid")
+
     assert stepwise_grid_density(Unconverged) is None
     assert stepwise_grid_density(NoGrid) is None
+    assert stepwise_grid_density(LevelOne) is None
+    assert stepwise_grid_density(AtomGrid) is None
 
 
 def test_stepwise_grid_with_embedding_applies_only_to_the_first_scf() -> None:
