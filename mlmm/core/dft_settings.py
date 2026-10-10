@@ -243,7 +243,7 @@ class DFTSettings:
     grid_level: int = 3
     verbose: int = 0
     lowmem: bool = True
-    scf_stepwise_grid: bool = False
+    scf_stepwise_grid: bool = True
     density_fit: bool = False
     auxbasis: Optional[str] = None
     save_scf_checkpoint: bool = False
@@ -383,7 +383,7 @@ def resolve_dft_settings(
 
     lowmem = _strict_bool(raw.get("lowmem", True), "calc.dft.lowmem")
     scf_stepwise_grid = _strict_bool(
-        raw.get("scf_stepwise_grid", False), "calc.dft.scf_stepwise_grid"
+        raw.get("scf_stepwise_grid", True), "calc.dft.scf_stepwise_grid"
     )
     density_cfg = pyscf_cfg.get("density_fit", {})
     direct_density = raw.get("density_fit")

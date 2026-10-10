@@ -107,7 +107,7 @@ The options shared by every ML/MM calculation command are explained once in {ref
 | `--dft-grid-level` | integer | `3` | Integration grid level (PySCF `grids.level`) |
 | `--dft-engine` | `gpu` / `cpu` | `gpu` | GPU4PySCF or CPU PySCF |
 | `--dft-low-memory/--no-dft-low-memory` | flag | `True` | Build J and K directly; `--no-dft-low-memory` uses density fitting |
-| `--scf-stepwise-grid/--no-scf-stepwise-grid` | flag | `False` | Converge the SCF on a [coarse grid](dft-backend.md#notes) first, then on the final grid |
+| `--scf-stepwise-grid/--no-scf-stepwise-grid` | flag | `True` | Converge the SCF on a [coarse grid](dft-backend.md#notes) first, then on the final grid |
 | `--dft-nprocs` | integer | auto | PySCF CPU threads (detected from the scheduler and the host) |
 | `--dft-memory` | text | auto | PySCF host RAM limit (e.g. `64GB`); this is not GPU memory |
 | `--embedcharge/--no-embedcharge` | flag | `False` | Put the MM point charges into the DFT Hamiltonian |

@@ -54,7 +54,7 @@ def add_dft_calculator_options(*, include_method: bool = True, include_engine: b
                     ),
                 }),
                 (("--scf-stepwise-grid/--no-scf-stepwise-grid",), {
-                    "name": "scf_stepwise_grid", "default": None, "show_default": "disabled",
+                    "name": "scf_stepwise_grid", "default": None, "show_default": "enabled",
                     "help": (
                         "Converge the first SCF on a coarse grid, then on the final grid "
                         "(later SCFs reuse the previous density as usual)."

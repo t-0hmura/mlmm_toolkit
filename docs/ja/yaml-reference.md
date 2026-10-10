@@ -175,7 +175,7 @@ calc:
   func_basis: wb97m-v/def2-svp
   engine: gpu # gpu | cpu
   lowmem: true # DF tensorを保持しないdirect JK
-  scf_stepwise_grid: false # 最初のSCFを粗いグリッドから（--scf-stepwise-grid）
+  scf_stepwise_grid: true # 最初のSCFを粗いグリッドから（--scf-stepwise-grid）
   density_fit: false # --no-dft-low-memoryで既定有効
   nprocs: auto # scheduler/affinityからPySCF thread数を決定
   memory: auto # host RAM上限（例64GB、GPU VRAMではない）
@@ -687,7 +687,7 @@ dft:
  engine: gpu # 計算エンジン: "gpu"（gpu4pyscf）または "cpu"（pyscf）。CLI --dft-engine が優先
  ecp: null # ECP 基底名。null の場合は def2-* 基底から自動導出
  lowmem: true # 低memory direct JK。falseでdensity fitting
- scf_stepwise_grid: false # 最初のSCFを粗いグリッドから（--scf-stepwise-grid）
+ scf_stepwise_grid: true # 最初のSCFを粗いグリッドから（--scf-stepwise-grid）
  nprocs: auto # scheduler/affinityからPySCF thread数を決定
  memory: auto # host RAM上限（例64GB、GPU VRAMではない）
  verbose: 0 # PySCF 出力詳細レベル; CLI -v 2/3 では実行時 PySCF verbosity が >=4

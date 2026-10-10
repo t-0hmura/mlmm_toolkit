@@ -61,7 +61,7 @@ Options:
   --scf-stepwise-grid / --no-scf-stepwise-grid
                                   Converge the SCF on a coarse grid first, then
                                   on the final grid with the same settings.
-                                  [default: no-scf-stepwise-grid]
+                                  [default: scf-stepwise-grid]
   --dft-nprocs INTEGER RANGE      PySCF/OpenMP CPU threads; GPU count is
                                   unaffected.  [default: (auto); x>=1]
   --dft-memory, --dft-mem TEXT    PySCF host RAM limit (for example 64GB or

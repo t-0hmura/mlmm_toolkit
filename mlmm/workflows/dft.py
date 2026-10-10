@@ -376,7 +376,7 @@ def _apply_explicit_dft_overrides(
     grid_level: int,
     out_dir: Path,
     lowmem: bool,
-    scf_stepwise_grid: bool = False,
+    scf_stepwise_grid: bool = True,
 ) -> Dict[str, Any]:
     """Apply only explicit CLI values over an already YAML-resolved DFT map."""
 

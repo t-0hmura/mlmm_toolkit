@@ -19,7 +19,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 ### Added
 
 - Add a stateful PySCF/GPU4PySCF DFT/MM backend to calculator-consuming workflows, with point-charge embedding, SCF reuse between steps, analytical Hessians, and opt-in checkpoints.
-- Add `--scf-stepwise-grid` to `dft`, `all --dft`, and `-b dft` (off by default): the first SCF converges on a coarse grid and passes its density to the SCF on the requested grid.
+- Add `--scf-stepwise-grid` to `dft`, `all --dft`, and `-b dft` (on by default; `--no-scf-stepwise-grid` turns it off): the first SCF converges on a coarse grid and passes its density to the SCF on the requested grid.
 - Add distance, angle, and dihedral coordinates to `scan`, `scan2d`, `scan3d`, and `all`, and `all --resume-segment N` to restart post-processing from a saved MEP.
 - Add `--opt-mode grad|hess` to `scan`, `scan2d`, `scan3d`, `path-opt`, and `path-search` to relax with RFO started from the ML/MM Hessian; `all --opt-mode` is passed to them.
 - Add `--read-hess` to `freq` and `tsopt` and `--dump-hess` to `tsopt`, so one Hessian file can be passed between `freq`, `tsopt`, and `irc`.

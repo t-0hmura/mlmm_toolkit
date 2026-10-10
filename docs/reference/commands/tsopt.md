@@ -238,7 +238,7 @@ Options:
                                   Converge the first SCF on a coarse grid, then
                                   on the final grid (later SCFs reuse the
                                   previous density as usual).  [default:
-                                  (disabled)]
+                                  (enabled)]
   --dft-nprocs INTEGER RANGE      PySCF/OpenMP CPU threads; GPU count is
                                   unaffected.  [default: (auto); x>=1]
   --dft-memory, --dft-mem TEXT    PySCF host RAM limit (for example 64GB or

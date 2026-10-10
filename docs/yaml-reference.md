@@ -181,7 +181,7 @@ calc:
   func_basis: wb97m-v/def2-svp
   engine: gpu # gpu | cpu
   lowmem: true # direct JK without a persistent DF tensor
-  scf_stepwise_grid: false # coarse-grid first SCF (--scf-stepwise-grid)
+  scf_stepwise_grid: true # coarse-grid first SCF (--scf-stepwise-grid)
   density_fit: false # enabled by --no-dft-low-memory unless set explicitly
   nprocs: auto # PySCF/OpenMP threads from scheduler/affinity
   memory: auto # host RAM limit, e.g. 64GB (not GPU VRAM)
@@ -754,7 +754,7 @@ dft:
  engine: gpu # Compute engine: "gpu" (gpu4pyscf) or "cpu" (pyscf); CLI --dft-engine takes precedence
  ecp: null # ECP basis name; null auto-derives from def2-* basis sets
  lowmem: true # Low-memory direct JK; false enables density fitting
- scf_stepwise_grid: false # Coarse-grid first SCF stage (--scf-stepwise-grid)
+ scf_stepwise_grid: true # Coarse-grid first SCF stage (--scf-stepwise-grid)
  nprocs: auto # PySCF/OpenMP threads from scheduler/affinity
  memory: auto # Host RAM limit, e.g. 64GB (not GPU VRAM)
  verbose: 0 # PySCF verbosity level; CLI -v 2/3 raises runtime PySCF verbosity to >=4

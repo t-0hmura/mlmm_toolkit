@@ -612,12 +612,12 @@ def test_stepwise_grid_with_embedding_applies_only_to_the_first_scf() -> None:
     assert staged_metrics[1]["guess_source"] == "previous_density"
 
 
-def test_stepwise_grid_is_opt_in_and_skipped_for_hartree_fock() -> None:
+def test_stepwise_grid_is_on_by_default_and_skipped_for_hartree_fock() -> None:
     from mlmm.backends.pyscf_dft import create_dft_backend
     from mlmm.core.dft_settings import resolve_dft_settings
 
-    assert resolve_dft_settings({"backend": "dft"}).scf_stepwise_grid is False
-    plain = create_dft_backend(_settings())
+    assert resolve_dft_settings({"backend": "dft"}).scf_stepwise_grid is True
+    plain = create_dft_backend(_settings(scf_stepwise_grid=False))
     backend = create_dft_backend(_settings(scf_stepwise_grid=True))
     plain.eval(Atoms("He", positions=[[0.0, 0.0, 0.0]]), need_grad=False)
     backend.eval(Atoms("He", positions=[[0.0, 0.0, 0.0]]), need_grad=False)
