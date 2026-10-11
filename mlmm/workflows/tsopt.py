@@ -555,9 +555,15 @@ def _calc_full_hessian_torch(geom, calc_kwargs: Dict[str, Any], device: torch.de
     return H
 
 
-def _load_initial_hessian_file(path, geom, calc_kwargs: Dict[str, Any]) -> Dict[str, Any]:
-    """Read a ``--read-hess`` file in the movable-atom basis."""
-    from mlmm.io.hessian_file import load_hessian_file
+def _load_initial_hessian_file(
+    path,
+    geom,
+    calc_kwargs: Dict[str, Any],
+    *,
+    hessian_atoms: Optional[Sequence[int]] = None,
+) -> Dict[str, Any]:
+    """Read a ``--read-hess`` file in the movable-atom or Hessian-atom basis."""
+    from mlmm.io.hessian_file import load_hessian_file_in_bases
 
     freeze = calc_kwargs.get("freeze_atoms")
     frozen = set(int(i) for i in (geom.freeze_atoms if freeze is None else freeze))
@@ -567,8 +573,19 @@ def _load_initial_hessian_file(path, geom, calc_kwargs: Dict[str, Any]) -> Dict[
         if atom not in frozen
         for axis in range(3)
     ]
+    bases = [("movable atoms only", dofs)]
+    if hessian_atoms is not None:
+        hess_dofs = [
+            3 * atom + axis
+            for atom in sorted(set(int(a) for a in hessian_atoms) - frozen)
+            for axis in range(3)
+        ]
+        if hess_dofs and len(hess_dofs) != len(dofs):
+            bases.append(("atoms in the Hessian calculation", hess_dofs))
     try:
-        hessian = load_hessian_file(path, n_atoms=len(geom.atomic_numbers), active_dofs=dofs)
+        hessian, dofs = load_hessian_file_in_bases(
+            path, n_atoms=len(geom.atomic_numbers), bases=bases
+        )
     except ValueError as exc:
         raise click.BadParameter(str(exc)) from exc
     emit(f"[tsopt] Initial Hessian read from {path}.", narrative=True)
@@ -3664,7 +3681,8 @@ def _prepare_tsopt_output_dir(
     show_default="None",
     help="Start from the Hessian in this .npy file (e.g. from freq or tsopt "
          "--dump-hess) instead of computing it: the Cartesian Hessian of the "
-         "input geometry in Hartree/bohr^2, for all atoms or only the movable ones.",
+         "input geometry in Hartree/bohr^2, for all atoms, only the movable ones, "
+         "or only the atoms in the Hessian calculation.",
 )
 @click.option(
     "--dump-hess",
@@ -4422,11 +4440,17 @@ def cli(
                 coord_type=coord_type,
                 **coord_kwargs,
             )
-            _initial_hessian = (
-                _load_initial_hessian_file(read_hess, geometry, calc_cfg)
-                if read_hess
-                else None
-            )
+            _initial_hessian = None
+            if read_hess:
+                _, _read_layers = _resolve_active_atom_indices(
+                    calc_cfg, len(geometry.atomic_numbers), active_dof_mode
+                )
+                _initial_hessian = _load_initial_hessian_file(
+                    read_hess,
+                    geometry,
+                    calc_cfg,
+                    hessian_atoms=_read_layers["ml"] | _read_layers["hess_mm"],
+                )
 
             echo_resolved_device()
             _heavy_optimizer_converged = False
@@ -5294,8 +5318,14 @@ def cli(
                 skip_final_freq=skip_final_freq,
             )
             if read_hess:
+                _, _read_layers = _resolve_active_atom_indices(
+                    calc_cfg, light_n_atoms, active_dof_mode
+                )
                 runner.initial_hessian = _load_initial_hessian_file(
-                    read_hess, runner.geom, runner.calc_kwargs
+                    read_hess,
+                    runner.geom,
+                    runner.calc_kwargs,
+                    hessian_atoms=_read_layers["ml"] | _read_layers["hess_mm"],
                 )
 
             echo_resolved_device()

@@ -10,7 +10,11 @@ from click.testing import CliRunner
 
 from mlmm.core import result_commit
 from mlmm.core.result_commit import ResultCommitError
-from mlmm.io.hessian_file import load_hessian_file, save_hessian_file
+from mlmm.io.hessian_file import (
+    load_hessian_file,
+    load_hessian_file_in_bases,
+    save_hessian_file,
+)
 from mlmm.workflows.freq import _record_hessian_result_path
 
 SMOKE = Path(__file__).resolve().parents[1] / "tests" / "smoke"
@@ -55,6 +59,45 @@ def test_wrong_size_is_rejected(tmp_path, active, message) -> None:
     np.save(path, np.eye(6))
     with pytest.raises(ValueError, match=message):
         load_hessian_file(path, n_atoms=3, active_dofs=active)
+
+
+_BASES = [
+    ("atoms selected by --active-dof-mode", [0, 1, 2]),
+    ("atoms in the Hessian calculation", [0, 1, 2, 6, 7, 8]),
+]
+
+
+def test_hessian_calculation_block_is_read_in_its_own_basis(tmp_path) -> None:
+    path = tmp_path / "block.npy"
+    np.save(path, np.diag(np.arange(1.0, 7.0)))
+
+    loaded, dofs = load_hessian_file_in_bases(path, n_atoms=3, bases=_BASES)
+
+    np.testing.assert_array_equal(loaded, np.diag(np.arange(1.0, 7.0)))
+    assert dofs == [0, 1, 2, 6, 7, 8]
+
+
+def test_full_hessian_is_restricted_to_the_first_basis(tmp_path) -> None:
+    path = tmp_path / "full.npy"
+    np.save(path, np.diag(np.arange(1.0, 10.0)))
+
+    loaded, dofs = load_hessian_file_in_bases(path, n_atoms=3, bases=_BASES)
+
+    np.testing.assert_array_equal(loaded, np.diag([1.0, 2.0, 3.0]))
+    assert dofs == [0, 1, 2]
+
+
+def test_size_outside_every_basis_names_each_accepted_size(tmp_path) -> None:
+    path = tmp_path / "h.npy"
+    np.save(path, np.eye(4))
+    with pytest.raises(
+        ValueError,
+        match=(
+            r"is 4x4; expected 9x9 \(all atoms\) or 3x3 \(atoms selected by "
+            r"--active-dof-mode\) or 6x6 \(atoms in the Hessian calculation\)"
+        ),
+    ):
+        load_hessian_file_in_bases(path, n_atoms=3, bases=_BASES)
 
 
 @pytest.mark.parametrize(
@@ -224,3 +267,23 @@ def test_tsopt_final_hessian_round_trips_through_dump_and_read(
         assert not (tmp_path / "moved.npy").exists()
     finally:
         hessian_cache.clear()
+
+
+def test_tsopt_reads_a_hessian_cutoff_block(tmp_path) -> None:
+    from types import SimpleNamespace
+
+    import click
+
+    from mlmm.workflows import tsopt
+
+    geom = SimpleNamespace(atomic_numbers=np.array([6, 1, 8, 1]), freeze_atoms=[3])
+    calc = {"freeze_atoms": [3]}
+    path = tmp_path / "block.npy"
+    np.save(path, np.diag(np.arange(1.0, 7.0)))
+
+    loaded = tsopt._load_initial_hessian_file(path, geom, calc, hessian_atoms={0, 2, 3})
+
+    np.testing.assert_array_equal(loaded["hessian"], np.diag(np.arange(1.0, 7.0)))
+    assert loaded["active_dofs"] == [0, 1, 2, 6, 7, 8]
+    with pytest.raises(click.BadParameter, match=r"or 9x9 \(movable atoms only\)"):
+        tsopt._load_initial_hessian_file(path, geom, calc)

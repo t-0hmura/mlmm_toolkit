@@ -110,8 +110,9 @@ Options:
                                   freq or tsopt --dump-hess) instead of
                                   computing it: the Cartesian Hessian of the
                                   input geometry in Hartree/bohr^2, for all
-                                  atoms or only the atoms selected by --active-
-                                  dof-mode.  [default: (None)]
+                                  atoms, only the atoms selected by --active-
+                                  dof-mode, or only the atoms in the Hessian
+                                  calculation.  [default: (None)]
   --dump-hess FILE                Save the Hessian as a NumPy .npy array
                                   (Cartesian, Hartree/bohr^2; the atoms selected
                                   by --active-dof-mode) for '--read-hess' in

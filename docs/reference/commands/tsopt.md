@@ -154,7 +154,8 @@ Options:
                                   from freq or tsopt --dump-hess) instead of
                                   computing it: the Cartesian Hessian of the
                                   input geometry in Hartree/bohr^2, for all
-                                  atoms or only the movable ones.  [default:
+                                  atoms, only the movable ones, or only the
+                                  atoms in the Hessian calculation.  [default:
                                   (None)]
   --dump-hess FILE                Save the Hessian of the final geometry as a
                                   NumPy .npy array (Cartesian, Hartree/bohr^2;

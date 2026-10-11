@@ -903,8 +903,9 @@ def _prepare_frequency_output_paths(
     show_default="None",
     help="Use the Hessian in this .npy file (e.g. from freq or tsopt "
          "--dump-hess) instead of computing it: the Cartesian Hessian of the "
-         "input geometry in Hartree/bohr^2, for all atoms or only the atoms "
-         "selected by --active-dof-mode.",
+         "input geometry in Hartree/bohr^2, for all atoms, only the atoms "
+         "selected by --active-dof-mode, or only the atoms in the Hessian "
+         "calculation.",
 )
 @click.option(
     "--dump-hess",
@@ -1514,16 +1515,25 @@ def cli(
         # Priority: --read-hess file > Hessian from an earlier stage > fresh.
         _hessian_source = "fresh"
         if read_hess:
-            from mlmm.io.hessian_file import load_hessian_file
+            from mlmm.io.hessian_file import load_hessian_file_in_bases
 
             _requested_dofs = [
                 3 * atom + axis for atom in _requested_atoms for axis in range(3)
             ]
+            # tsopt --dump-hess writes the Hessian-calculation block (ML + --hess-cutoff MM).
+            _coverage_dofs = [
+                3 * atom + axis
+                for atom in sorted(
+                    (set(layer_sets["ml"]) | set(layer_sets["hess_mm"])) - explicit_freeze
+                )
+                for axis in range(3)
+            ]
+            _bases = [("atoms selected by --active-dof-mode", _requested_dofs)]
+            if _coverage_dofs and len(_coverage_dofs) != len(_requested_dofs):
+                _bases.append(("atoms in the Hessian calculation", _coverage_dofs))
             try:
-                _loaded = load_hessian_file(
-                    read_hess,
-                    n_atoms=len(geometry.atomic_numbers),
-                    active_dofs=_requested_dofs,
+                _loaded, _requested_dofs = load_hessian_file_in_bases(
+                    read_hess, n_atoms=len(geometry.atomic_numbers), bases=_bases
                 )
             except ValueError as exc:
                 raise click.ClickException(str(exc)) from exc

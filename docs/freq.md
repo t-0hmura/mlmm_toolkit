@@ -136,7 +136,7 @@ See the [generated CLI reference](reference/commands/freq.md) for every option.
 * **Hessian mode priority**: `--hessian-calc-mode` follows the priority default < YAML config < command line.
 * **Analytical Hessian and `--uma-workers`**: with UMA, `--hessian-calc-mode Analytical` cannot run with `--uma-workers` (parallel MLIP predictor workers) above 1 and stops with an error. Use `--uma-workers 1` for an [analytical Hessian](backends.md#workers-and-hessian-mode).
 * **`all --thermo` keeps the thermochemistry file**: `all` builds its Gibbs energy diagram from `thermoanalysis.yaml`, so with `--thermo` its `freq` step writes this file even under `--no-dump`.
-* **The `--read-hess` / `--dump-hess` file** is one NumPy array (`numpy.save`): the Cartesian Hessian in Hartree/bohr², not mass-weighted, with atoms in input order. It covers all atoms (3N × 3N) or only the atoms selected by `--active-dof-mode`. `--read-hess` checks only that the matrix is square, finite, symmetric, and one of these two sizes, so pass a Hessian computed for the same geometry, charge, multiplicity, layers, and calculator settings.
+* **The `--read-hess` / `--dump-hess` file** is one NumPy array (`numpy.save`): the Cartesian Hessian in Hartree/bohr², not mass-weighted, with atoms in input order. It covers all atoms (3N × 3N), only the atoms selected by `--active-dof-mode`, or only the atoms in the Hessian calculation. `--read-hess` checks only that the matrix is square, finite, symmetric, and one of these sizes, so pass a Hessian computed for the same geometry, charge, multiplicity, layers, and calculator settings.
 
 ---
 
