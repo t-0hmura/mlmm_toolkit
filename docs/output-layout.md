@@ -19,7 +19,7 @@ This page lists the main files that the commands write, the default output direc
 | `forward_first.xyz` / `backward_last.xyz` | `irc` | Ends of the two branches: the endpoint candidates to optimize with [`opt`](opt.md). |
 | `frequencies_cm-1.txt` | `freq` | Vibrational mode listing. |
 | `ml_region_without_linkH.xyz` / `ml_region_with_linkH.xyz` | `dft` | The ML region without and with the link hydrogens, as the DFT calculation sees it; `.pdb` copies are written for PDB input. Inside `all`, they are in each `segments/seg_NN/dft/{R,TS,P}/`. |
-| `*.pdb` / `*.cif` | commands with `--convert-files` (the default; `--no-convert-files` turns it off), and `extract` | Copies of the outputs in the input format, written next to them: PDB for PDB/mmCIF input, plus a `.cif` that keeps the original chain IDs, residue numbers, and insertion codes for mmCIF or large-PDB input. A multi-frame trajectory becomes a multi-model CIF. `extract` has no toggle and always writes the `.cif` for mmCIF or large-PDB input. |
+| `*.pdb` / `*.cif` | commands with `--convert-files` (the default; `--no-convert-files` turns it off), and `extract` | Copies of the outputs in the input format, written next to them: PDB for PDB/mmCIF input, plus a `.cif` that keeps the original chain IDs, residue numbers, and insertion codes for mmCIF or large-PDB input. A multi-frame trajectory becomes a multi-model CIF. `extract` has no toggle and always writes the `.cif` for mmCIF or large-PDB input. In `all`, `--no-convert-files` cannot be combined with `--tsopt`, `--thermo`, or `--dft`. |
 
 ## Default `--out-dir`
 

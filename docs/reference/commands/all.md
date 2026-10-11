@@ -326,7 +326,9 @@ Options:
   --convert-files / --no-convert-files
                                   Convert XYZ/TRJ outputs to PDB format using
                                   reference topology; forwarded to all
-                                  subcommands.  [default: convert-files]
+                                  subcommands. --no-convert-files cannot be
+                                  combined with --tsopt, --thermo, or --dft.
+                                  [default: convert-files]
   --ref-pdb FILE                  Reference PDB for topology/B-factor layer
                                   information when -i provides XYZ inputs. Used
                                   for define-layer, mm_parm, ml_region, and

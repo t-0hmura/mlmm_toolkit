@@ -2544,25 +2544,12 @@ def _copy_structures_to_seg_dir(
 
 
 def _ensure_hei_pocket_pdb(seg_root: Path, seg_idx: int, topology: Optional[Path]) -> Path:
-    """Return ``hei_seg_NN.pdb``, building it from ``hei_seg_NN.xyz`` when the MEP stage wrote no PDB.
+    """Return ``hei_seg_NN.pdb`` with the mmCIF template of *topology* when it has none.
 
-    --no-convert-files stops the PDB companions of path-search and path-opt,
-    but TSOPT needs the HEI topology, so it is written here as an internal file.
-    A copied or resumed HEI PDB carries no mmCIF template; it takes the one of
+    A copied or resumed HEI PDB carries no template; it takes the one of
     *topology* (same atoms), so the R/TS/P of mmCIF inputs are published as .cif too.
     """
     hei_pdb = seg_root / f"hei_seg_{seg_idx:02d}.pdb"
-    hei_xyz = seg_root / f"hei_seg_{seg_idx:02d}.xyz"
-    if (
-        not hei_pdb.exists()
-        and hei_xyz.exists()
-        and topology is not None
-        and topology.suffix.lower() == ".pdb"
-    ):
-        try:
-            convert_xyz_to_pdb(hei_xyz, topology, hei_pdb)
-        except Exception as e:
-            _echo(f"[post] WARNING: could not build the HEI pocket PDB for segment {seg_idx:02d}: {e}", err=True)
     if hei_pdb.exists() and topology is not None and coordinate_template_for(hei_pdb) is None:
         template = coordinate_template_for(topology)
         if template is not None:
@@ -4822,7 +4809,8 @@ def _configure_all_help_visibility(command: click.Command) -> None:
               show_default="False",
               help="Override scan --endopt flag.")
 @click.option("--convert-files/--no-convert-files", "convert_files", default=True, show_default=True,
-              help="Convert XYZ/TRJ outputs to PDB format using reference topology; forwarded to all subcommands.")
+              help="Convert XYZ/TRJ outputs to PDB format using reference topology; forwarded to all subcommands. "
+                   "--no-convert-files cannot be combined with --tsopt, --thermo, or --dft.")
 @click.option(
     "--ref-pdb",
     "ref_pdb_cli",
@@ -5056,6 +5044,11 @@ def cli(
         raise click.UsageError(
             "--resume-segment requires at least one post-processing stage: "
             "--tsopt, --thermo, or --dft."
+        )
+    if not convert_files and (do_tsopt or do_thermo or do_dft):
+        raise click.UsageError(
+            "--no-convert-files cannot be combined with --tsopt, --thermo, or --dft: "
+            "post-processing reads the PDB files of each stage."
         )
     # Post-IRC endpoint re-optimization uphill-rejection toggle. ``None`` unless
     # the flag was explicitly passed, so the default path inherits the child

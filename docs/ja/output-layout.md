@@ -19,7 +19,7 @@
 | `forward_first.xyz` / `backward_last.xyz` | `irc` | 2 つの分岐の端で、[`opt`](opt.md) で最適化する端点の候補です。 |
 | `frequencies_cm-1.txt` | `freq` | 振動モードの一覧。 |
 | `ml_region_without_linkH.xyz` / `ml_region_with_linkH.xyz` | `dft` | DFT 計算が見る ML 領域の、リンク水素を付ける前と後の構造。PDB 入力では `.pdb` の写しも書きます。`all` の中では各 `segments/seg_NN/dft/{R,TS,P}/` にあります。 |
-| `*.pdb` / `*.cif` | `--convert-files`（デフォルト。`--no-convert-files` で無効）を持つコマンドと `extract` | 入力の形式に応じた出力の写しで、元の出力の横に書き出します。PDB/mmCIF 入力では PDB、mmCIF・大きな PDB の入力ではさらに元の chain ID・残基番号・挿入コードを保つ `.cif` です。複数フレームの軌跡は複数モデルの CIF になります。`extract` には変換の切り替えがなく、mmCIF・大きな PDB の入力では常に `.cif` を書き出します。 |
+| `*.pdb` / `*.cif` | `--convert-files`（デフォルト。`--no-convert-files` で無効）を持つコマンドと `extract` | 入力の形式に応じた出力の写しで、元の出力の横に書き出します。PDB/mmCIF 入力では PDB、mmCIF・大きな PDB の入力ではさらに元の chain ID・残基番号・挿入コードを保つ `.cif` です。複数フレームの軌跡は複数モデルの CIF になります。`extract` には変換の切り替えがなく、mmCIF・大きな PDB の入力では常に `.cif` を書き出します。`all` では、`--no-convert-files` を `--tsopt`・`--thermo`・`--dft` と一緒には使えません。 |
 
 ## デフォルトの `--out-dir`
 

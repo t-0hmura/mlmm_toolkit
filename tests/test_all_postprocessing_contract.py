@@ -45,7 +45,7 @@ def test_all_cli_rejects_redundant_dft_before_pipeline(tmp_path, via_yaml) -> No
     assert "separate process/job" in result.output
 
 
-@pytest.mark.parametrize("toggle", ["--convert-files", "--no-convert-files"])
+@pytest.mark.parametrize("toggle", ["--convert-files"])
 def test_all_post_dft_accepts_explicit_convert_files_forwarding(
     tmp_path, toggle
 ) -> None:

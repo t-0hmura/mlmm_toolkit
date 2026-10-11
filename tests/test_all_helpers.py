@@ -72,26 +72,6 @@ def test_segment_copies_take_the_xyz_of_each_saved_structure() -> None:
     assert copied and copied <= xyz_names and not copied & pdb_names
 
 
-def test_hei_pocket_pdb_is_built_when_the_mep_stage_wrote_none(tmp_path: Path) -> None:
-    from mlmm.workflows.all import _ensure_hei_pocket_pdb
-
-    topology = tmp_path / "layered.pdb"
-    topology.write_text(
-        "HETATM    1  C1  LIG A   1       0.000   0.000   0.000  1.00  0.00           C  \n"
-        "HETATM    2  O1  LIG A   1       1.200   0.000   0.000  1.00 10.00           O  \n"
-        "END\n",
-        encoding="utf-8",
-    )
-    (tmp_path / "hei_seg_01.xyz").write_text("2\n-1.0\nC 0.0 0.0 0.0\nO 1.3 0.0 0.0\n", encoding="utf-8")
-
-    hei = _ensure_hei_pocket_pdb(tmp_path, 1, topology)
-
-    assert hei == tmp_path / "hei_seg_01.pdb"
-    atoms = [line for line in hei.read_text(encoding="utf-8").splitlines() if line.startswith("HETATM")]
-    assert float(atoms[1][30:38]) == 1.3
-    assert atoms[1][60:66].strip() == "10.00"
-
-
 def test_hei_pocket_pdb_takes_the_mmcif_template_of_the_topology(tmp_path: Path) -> None:
     from mlmm.io.structure_formats import (
         coordinate_template_for,
@@ -1379,3 +1359,19 @@ def test_strict_higher_order_is_not_reclassified_by_resolved_count():
     payload.pop("n_negative_modes")
     payload["saddle_validation"] = "first_order"  # legacy resolved-only claim
     assert _tsopt_continuation_decision(payload, skip_final_freq=False)["reason"] == "first_order_saddle"
+
+
+def test_all_rejects_no_convert_files_with_post_processing(tmp_path: Path) -> None:
+    from click.testing import CliRunner
+
+    from mlmm.workflows.all import cli
+
+    args = []
+    for name in ("r.pdb", "p.pdb"):
+        path = tmp_path / name
+        path.write_text("END\n", encoding="utf-8")
+        args.extend(["-i", str(path)])
+    result = CliRunner().invoke(cli, [*args, "--tsopt", "--no-convert-files"])
+
+    assert result.exit_code == 2, result.output
+    assert "--no-convert-files cannot be combined with --tsopt, --thermo, or --dft" in result.output
