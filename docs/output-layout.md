@@ -39,7 +39,7 @@ This page lists the main files that the commands write, the default output direc
 | `sp` | `./result_sp/` |
 | `extract` | `./` (writes `pocket.pdb`, or `pocket_<input>.pdb` for multiple inputs) |
 | `mm-parm` | `./` (writes `<prefix>.parm7` and `<prefix>.rst7`; the prefix defaults to the input file name without `.pdb`) |
-| `define-layer` | `./` (writes `<input>_layered.pdb`) |
+| `define-layer` | next to the input file (writes `<input>_layered.pdb`) |
 
 Set another directory with `-o/--out-dir <path>`. The preparation commands take file paths instead: `extract` takes one or more `-o/--output <file>` paths, `mm-parm` an `-o/--out-prefix <prefix>`, and `define-layer` an `-o/--output <file>`.
 

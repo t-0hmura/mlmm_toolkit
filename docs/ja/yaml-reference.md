@@ -79,7 +79,7 @@ max_cycles: 100000
 | `--max-cycles-gsm` | `max_cycles` | `stopt`（`stopt.stop_in_when_full` も設定） |
 | `--dmf-max-iterations` / `--max-cycles-dmf` | `max_cycles` | `dmf` |
 | `--gsm-param` | `param` | `gs` |
-| `--max-nodes` | `max_nodes` | `gs` |
+| `--max-nodes` | `max_nodes` | `gs`（`path-search` では `search.max_nodes_segment` も設定） |
 | `--preopt-max-cycles` | `max_cycles` | `lbfgs` と `rfo` |
 | `--dump` | `dump` | `opt`（opt、tsopt、scan）、`stopt`（path-opt、path-search）、`thermo`（freq） |
 | `--step-size`（irc） | `step_length` | `irc` |
@@ -123,7 +123,7 @@ max_cycles: 100000
 
 ```yaml
 geom:
- coord_type: cart # opt と tsopt では "cart"（デカルト）・"redund"（冗長内部座標）・"dlc"（非局在化内部座標）・"tric"（並進・回転を含む内部座標）、all・path-opt・path-search では cart か dlc のみ
+ coord_type: cart # opt と tsopt では "cart"（デカルト）・"redund"（冗長内部座標）・"dlc"（非局在化内部座標）・"tric"（並進・回転を含む内部座標）、all では cart か dlc、path-opt・path-search では常に cart
  freeze_atoms: [] # 1 始まりの固定原子インデックス
 ```
 
@@ -258,7 +258,7 @@ calc:
 
 ### `opt`
 
-L-BFGS/RFO で共通の最適化設定。ここに書いた全キーが、`--microiter` の有無によらず `opt` コマンドのオプティマイザに届きます。`tsopt` のマクロオプティマイザにも届き、その上に [`rsirfo`](#rsirfo) / [`hessian_dimer`](#hessian_dimer) が重なります。転送されるのは**実際に変更した値だけ**なので、触っていないキーについてはオプティマイザ固有セクションが優先されます。同じ YAML ファイルで同じ設定に違う値を書くとエラーで止まります。共通の `opt` のキーと、選んだオプティマイザのセクションの同じキーの組も対象です。
+L-BFGS/RFO で共通の最適化設定。ここに書いた全キーが、`--microiter` の有無によらず `opt` コマンドのオプティマイザに届きます。`tsopt` の Hessian を使うマクロオプティマイザにも届き、その上に [`rsirfo`](#rsirfo) が重なります。Dimer に届くのは [`hessian_dimer`](#hessian_dimer) に書いた共通のキーだけです。転送されるのは**実際に変更した値だけ**なので、触っていないキーについてはオプティマイザ固有セクションが優先されます。同じ YAML ファイルで同じ設定に違う値を書くとエラーで止まります。共通の `opt` のキーと、選んだオプティマイザのセクションの同じキーの組も対象です。
 
 ```yaml
 opt:
@@ -476,7 +476,7 @@ search:
 stopt:
  type: string           # 最適化タイプのラベル
  thresh: gau_loose      # ストリング最適化の収束プリセット（--thresh-gsm で上書き）
- stop_in_when_full: 300 # ストリングが満杯になったときの早期停止閾値
+ stop_in_when_full: 300 # path-opt/path-search では常に max_cycles と同じ値になる
  align: false           # アライメントトグル
  scale_step: global     # ステップスケーリングモード
  max_cycles: 300         # ストリング最適化サイクル上限
@@ -812,7 +812,7 @@ dft:
 - 計算機のセクション名には `calc:` と `mlmm:` のどちらも使えます。両方あるときはキーを合わせて使い、同じキーに異なる値があるとエラーで止まります。
 - `opt.lbfgs` / `opt.rfo` は `lbfgs` / `rfo`、`freq.thermo` は `thermo` の別の書き方です。熱化学設定は `all --thermo` でも使用します。
 - `mlmm all` は、選択して有効化した stage の section だけを使用します。
-- `--show-config`（`scan`・`scan2d`・`scan3d` には無い）は、読み込んだ YAML ファイルと最上位のキーを表示してから、そのまま実行を続けます。
+- `--show-config`（`scan`・`scan2d`・`scan3d` には無い）は、読み込んだ YAML ファイルと最上位のキーを表示してから、そのまま実行を続けます。`sp` だけは、合わせた設定を表示して計算せずに終わります。
 
 ## 関連ドキュメント
 

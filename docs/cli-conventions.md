@@ -249,7 +249,7 @@ To continue with the PDB topology, pass the original PDB to `--ref-pdb` of the n
 |---|---|
 | `0` | Success or usable partial results |
 | `1` | Non-convergence, no usable result, runtime exception, or output failure |
-| `2` | Invalid input, CLI arguments, or configuration |
+| `2` | CLI arguments the command rejects, or a malformed configuration YAML |
 | `130` | User interruption (SIGINT) |
 
 Exit codes do not depend on JSON output. Exit code `0` covers both `success` and `partial`; tell them apart by `scientific_status`. `all` and `path-search` write it to `summary.log` (`all` also prints `Scientific status:` on the console), and the other commands record it in `result.json` when run with `--out-json` (see [Execution and requested-stage completion](json-output.md#execution-and-requested-stage-completion)). Without `--out-json`, read the console lines that the command's page lists, for example [Judging the IRC](irc.md#judging-the-irc) for `irc` (intrinsic reaction coordinate).

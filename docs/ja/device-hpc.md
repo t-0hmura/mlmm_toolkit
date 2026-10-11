@@ -146,7 +146,7 @@ mlmm opt \
 
 ### 重要なポイント
 
-- **GPU:** ML 推論用に GPU を 1 基要求します（PBS は `gpus=1`、Slurm は `--gres=gpu:1`）。2 基目を要求するのは、OpenMM の MM バックエンドを別の CUDA デバイス（`mm_device: cuda`、`mm_cuda_idx: 1`）に置く場合だけです。
+- **GPU:** ML 推論用に GPU を 1 基要求します（PBS は `gpus=1`、Slurm は `--gres=gpu:1`）。`--uma-workers` を 2 以上にする場合はワーカーごとに 1 基、OpenMM の MM バックエンドを別の CUDA デバイス（`mm_device: cuda`、`mm_cuda_idx: 1`）に置く場合はさらに 1 基を要求します。
 - **CPU スレッド:** MM バックエンドのスレッド数（`mm_threads`、デフォルト 16）に足りる CPU を要求します。上の例は余裕を見て 32（`ppn=32`、`--cpus-per-task=32`）を要求しています。
 - **メモリ:** 代表的な試験計算と scheduler のピークメモリの記録から RAM を決めます。
 - **CUDA ランタイム:** 公式 PyTorch wheel には CUDA のユーザー空間ライブラリが含まれるため、通常は対応する NVIDIA ドライバーだけで足ります。CUDA toolkit のモジュールを読み込むのは、それを必要とする拡張を使う場合だけです。

@@ -75,7 +75,7 @@ When `all` runs into a problem, do not rerun the whole workflow; rerun only the 
 
 ### Extra imaginary modes
 
-- **Extra modes outside the reacting site** (e.g. a rotating side chain or water): rerun with `--flatten` (`tsopt`, `opt`, and `all`). When n_imag ≥ 2 after the optimization, it displaces the structure along the extra modes and optimizes again, for up to {ref}`50 rounds <flatten-precedence-caveat>` by default.
+- **Extra modes outside the reacting site** (e.g. a rotating side chain or water): rerun with `--flatten` (`tsopt` and `all`). When n_imag ≥ 2 after the optimization, it displaces the structure along the extra modes and optimizes again, for up to {ref}`50 rounds <flatten-precedence-caveat>` by default.
 - **Stopped at a higher-order saddle** (converged with n_imag ≥ 2): one option is to start `tsopt` with `--flatten` from the final geometry of that TS optimization (`final_geometry.*` of `tsopt`, or in `segments/seg_NN/ts/` of `all`), with the same `--parm7` and `--model-pdb`.
 - **After `--flatten`**: check both IRC ends again. n_imag can reach 1 on a TS candidate of a different reaction.
 - **Extra modes that span the ML region and movable MM atoms** (e.g. a water moving with the substrate): `tsopt` uses {ref}`microiteration <microiteration>` by default, so its TS steps move only the ML atoms and the MM atoms bonded to them. Rerun `tsopt` with `--no-microiter --flatten` so that the TS optimizer steps over every movable atom. `all` has no `--microiter` option, so pass the `--parm7` and `--model-pdb` of the `all` run to `tsopt`.

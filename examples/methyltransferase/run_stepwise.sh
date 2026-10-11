@@ -35,7 +35,7 @@ mlmm tsopt -i 03_path_opt/hei.pdb -l "SAM:1,PHN:-1" --parm complex.parm7 --out-d
 mlmm irc -i 04_tsopt/final_geometry.pdb -l "SAM:1,PHN:-1" --parm complex.parm7 --out-dir 05_irc
 
 # Step 9: Optimize the IRC forward endpoint (direction is not chemical identity).
-mlmm opt -i 05_irc/forward_last.pdb -l "SAM:1,PHN:-1" --parm complex.parm7 --out-dir 06_opt_forward --thresh baker
+mlmm opt -i 05_irc/forward_first.pdb -l "SAM:1,PHN:-1" --parm complex.parm7 --out-dir 06_opt_forward --thresh baker
 
 # Step 10: Optimize the IRC backward endpoint.
 mlmm opt -i 05_irc/backward_last.pdb -l "SAM:1,PHN:-1" --parm complex.parm7 --out-dir 07_opt_backward --thresh baker

@@ -246,7 +246,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     "input_path",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=True,
-    help="Input structure file (.pdb, .cif, .mmcif, .xyz, _trj.xyz, etc.).",
+    help="Input structure file (.pdb, .cif, .mmcif, or .xyz with --ref-pdb).",
 )
 @click.option(
     "--parm7",

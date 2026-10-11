@@ -90,9 +90,10 @@ ORCA, `QMAtoms` and `ActiveAtoms` set the same layers.
   than 0.05 from an integer stops the export; in ORCA mode, give
   `--total-charge`.
 - In Gaussian, each cut QM–MM bond needs its own MM atom; two QM atoms bonded
-  to one MM atom stop the export. `--link-atom-method scaled` (default) places
-  the link H with the g-factor, and `fixed` at 1.09 Å (QM carbon) or 1.01 Å
-  (QM nitrogen). ORCA builds the caps itself.
+  to one MM atom stop the export. The Gaussian input names the QM parent of
+  each link H, and Gaussian places it; ORCA builds the caps itself.
+  `--link-atom-method` (`scaled` g-factor, `fixed` 1.09/1.01 Å) changes only
+  the estimated cap positions written as comments in the ORCA input.
 - The exported input has no job keyword, so as written it is a single point.
   Add `opt`, `freq`, or the job you want before running it.
 - ORCA needs `ORCAFF.prms`: the `--orcaff` file, or

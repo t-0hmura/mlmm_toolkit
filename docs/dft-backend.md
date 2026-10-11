@@ -81,7 +81,7 @@ With `-b dft`, the output has the same layout as an MLIP/MM run in the same mode
 
 The other DFT options (`--dft-engine`, `--dft-low-memory/--no-dft-low-memory`, `--dft-nprocs`, `--dft-memory`, SCF checkpoints) are listed in the [`all` reference](reference/commands/all.md).
 
-> **Note:** In YAML, the same settings go under `calc.dft`. `calc.dft.pyscf` passes attributes to PySCF objects by name, for example `mf: {level_shift: 0.2}` for a hard-to-converge SCF. See [YAML Reference](yaml-reference.md).
+> **Note:** In YAML, use `calc.dft` for `-b dft`, and the top-level `dft` section for `--dft` or `mlmm dft`. `calc.dft.pyscf` passes attributes to PySCF objects by name, for example `mf: {level_shift: 0.2}` for a hard-to-converge SCF. See [YAML Reference](yaml-reference.md).
 
 ## Notes
 

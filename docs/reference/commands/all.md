@@ -129,9 +129,9 @@ Options:
                                   stage. This is a solver iteration count, not a
                                   string-optimizer cycle count.  [default:
                                   (3000); x>=1]
-  --climb / --no-climb            Enable transition-state climbing after growth
-                                  for the *first* segment in each pair.
-                                  [default: climb]
+  --climb / --no-climb            Enable climbing image for standard GSM
+                                  segments (bridge segments always disable
+                                  climbing).  [default: climb]
   --opt-mode [grad|hess]          Optimizer mode forwarded to scan/tsopt and
                                   used for single optimizations: grad
                                   (=LBFGS/Dimer) or hess (=RFO for scan/opt; RS-
@@ -265,7 +265,7 @@ Options:
                                   [default: (<segment>/ts)]
   --freq-out-dir DIRECTORY        Override freq output base directory (relative
                                   paths resolved against the default).
-                                  [default: (<tsopt dir>/freq)]
+                                  [default: (<segment dir>/freq)]
   --freq-max-write INTEGER        Override freq --max-write value.  [default:
                                   (10)]
   --freq-amplitude-ang FLOAT      Override freq --amplitude-ang (Å).  [default:
@@ -280,7 +280,7 @@ Options:
                                   [default: (1.0)]
   --dft-out-dir DIRECTORY         Override dft output base directory (relative
                                   paths resolved against the default).
-                                  [default: (<tsopt dir>/dft)]
+                                  [default: (<segment dir>/dft)]
   --func-basis, --dft-func-basis TEXT
                                   Override dft --func-basis value.  [default:
                                   (wb97m-v/def2-svp)]

@@ -81,7 +81,7 @@ mlmm all -i result_all/segments/seg_01/ts.pdb \
 
 ほかの DFT のオプション（`--dft-engine`、`--dft-low-memory/--no-dft-low-memory`、`--dft-nprocs`、`--dft-memory`、SCF のチェックポイント）は [`all` のオプションの一覧（英語のみ）](../reference/commands/all.md)にあります。
 
-> **補足:** YAML では同じ設定を `calc.dft` に書きます。`calc.dft.pyscf` では PySCF のオブジェクトの名前ごとに属性を渡せます（例：収束しにくい SCF に `mf: {level_shift: 0.2}`）。キーは [YAML 設定の一覧](yaml-reference.md)にあります。
+> **補足:** YAML では、`-b dft` の設定は `calc.dft` に、`--dft` と `mlmm dft` の設定はトップレベルの `dft` に書きます。`calc.dft.pyscf` では PySCF のオブジェクトの名前ごとに属性を渡せます（例：収束しにくい SCF に `mf: {level_shift: 0.2}`）。キーは [YAML 設定の一覧](yaml-reference.md)にあります。
 
 ## 使用上の注意点
 

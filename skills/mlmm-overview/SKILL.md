@@ -126,7 +126,7 @@ mlmm energy-diagram -i 0.0 -i 21.5 -i -0.7 --label-x R --label-x TS --label-x P 
 
 Pitfalls and recovery:
 
-- After a walltime stop, rerun the same commands; for `all`, repeat the original command with `--resume-segment N` ([all.md](../mlmm-cli/all.md)).
+- After a walltime stop, rerun the same commands; for `all` stopped after the MEP search (`summary.json` exists), you can instead repeat the original command with `--resume-segment N` ([all.md](../mlmm-cli/all.md)).
 - On any status other than `success`, read `summary.log`, then the `result.json` of the failed stage. Inside an `all` run these exist under `ts/`, `irc/`, and `endpoint_opt/`, not under `freq/` or `dft/`.
 - If the Bofill Hessian update of an IRC runs out of GPU memory, rerun with `PYSIS_BOFILL_CPU_OFFLOAD=1`. It does the update on the CPU at the cost of host memory and two full-matrix transfers, and does not help a frequency Hessian that runs out of memory.
 - `all` reuses the final tsopt Hessian in IRC and in the TS `freq` through an in-process cache, so separate `tsopt` → `irc` → `freq` commands build the same dense Hessian up to three times. Add `--dump-hess ts_hess.npy` to `tsopt` (not with `--skip-final-freq`) and pass `--read-hess ts_hess.npy` to `irc` (which needs `irc.hessian_init: calc`, the default) and to `freq`, both run on the tsopt `final_geometry.*`.

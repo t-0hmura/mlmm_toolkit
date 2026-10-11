@@ -76,9 +76,8 @@ Options:
   --dry-run / --no-dry-run        Validate options and inputs without running
                                   DFT.  [default: no-dry-run]
   --convert-files / --no-convert-files
-                                  Toggle XYZ/TRJ to PDB companions when a PDB
-                                  template is available.  [default: convert-
-                                  files]
+                                  Also write the ML region as PDB files (PDB
+                                  input only).  [default: convert-files]
   --embedcharge / --no-embedcharge
                                   Embed MM point charges directly in the PySCF
                                   QM Hamiltonian. The DFT workflow does not use

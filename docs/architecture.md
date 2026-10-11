@@ -25,7 +25,7 @@ Three bundled forks, `pysisyphus/`, `thermoanalysis/`, and `hessian_ff/`, live a
 
 | layer | dir | responsibility | may depend on |
 |---|---|---|---|
-| **L1 Interface** | `mlmm/cli/` | Click root group, decorator factories, `--help-advanced`, bool flag normalization, subcommand resolver, AmberTools preflight | `workflows/`, `core/` |
+| **L1 Interface** | `mlmm/cli/` | Click root group, decorator factories, `--help-advanced`, bool flag normalization, subcommand resolver, input-file checks | `workflows/`, `core/` |
 | **L2 Application** | `mlmm/workflows/` | per-subcommand orchestration plus shared workflow helpers (`_all_helpers.py`, `_opt_freq_common.py`, `_run_session.py`, …) | `domain/`, `backends/`, `io/`, `core/` |
 | **L3 Domain** | `mlmm/domain/` | chemistry-aware helper logic (bond change detection, bond summary, element-info propagation) | `core/` |
 | **L4a Infra (MLIP + ONIOM)** | `mlmm/backends/` | MLIP backend dispatch, inline backend integrations, and the ML/MM ONIOM calculator core | `core/` |
@@ -61,7 +61,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ │ ├── help_pages.py --help-advanced pager
 │ │ ├── bool_compat.py --flag / --no-flag normalization
 │ │ ├── default_group.py subcommand resolver, lazy module import
-│ │ └── preflight.py AmberTools / conda env / GPU preflight
+│ │ └── preflight.py input-file existence checks
 │ │
 │ ├── workflows/ # === L2 Application ===
 │ │ ├── all.py full pipeline orchestrator (extract → … → DFT)
@@ -98,7 +98,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ │ ├── pdb_fix.py altloc resolution
 │ │ ├── pdb_indexing.py parm7 atom indexing (CHEMISTRY-RULE:9)
 │ │ ├── hessian_cache.py in-memory Hessian cache
-│ │ └── hessian_calc.py numerical-Hessian build + frequency / vibrational I/O helpers
+│ │ └── hessian_calc.py numerical-Hessian build
 │ │
 │ └── core/ # === L5 Foundation ===
 │   ├── defaults.py shared workflow/calculator defaults
@@ -120,7 +120,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 
 ### 2.3 Per-layer responsibility detail
 
-**L1 `cli/`** owns root dispatch and shared argv parsing; the Click command of each subcommand is defined in its registered `workflows/`, `domain/`, or `io/` module. `app.py` holds the root `Click.Group` and the `_LAZY_SUBCOMMANDS` registry, whose entries use **absolute module paths** (§5.5). `preflight.py` (AmberTools / conda env / GPU preflight) lives here because it runs at CLI startup, before any L2 workflow.
+**L1 `cli/`** owns root dispatch and shared argv parsing; the Click command of each subcommand is defined in its registered `workflows/`, `domain/`, or `io/` module. `app.py` holds the root `Click.Group` and the `_LAZY_SUBCOMMANDS` registry, whose entries use **absolute module paths** (§5.5). `preflight.py` holds the input-file check (`validate_existing_files`) that workflow commands call.
 
 **L2 `workflows/`** contains command modules plus shared workflow helpers. Modules registered in `cli/app.py:_LAZY_SUBCOMMANDS` own a `@click.command()` named `cli`; helper modules such as `_all_helpers.py`, `_opt_freq_common.py`, `_run_session.py`, `scan_common.py`, and `restraints.py` have no independent command.
 
@@ -128,7 +128,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 
 **L4a `backends/`**. The ML/MM ONIOM calculator core (`mlmm_calc.py`) lives here together with backend dispatch (`__init__.py`). The ML-region backends (UMA / ORB / MACE / AIMNet2) and OpenMM / hessian_ff coupling are dispatched from this layer. `mlmm_calc.py` hosts chemistry rules #1, #2, and #8 (§5.1).
 
-**L4b `io/`**. Output-side I/O concerns include the per-stage summary writer, energy diagram, trajectory rendering, PDB/altloc handling, Hessian cache, numerical Hessian construction, and frequency/vibrational I/O (`hessian_calc.py`). `io/` never depends on `workflows/`; output format is owned here and consumed by stage runners.
+**L4b `io/`**. Output-side I/O concerns include the per-stage summary writer, energy diagram, trajectory rendering, PDB/altloc handling, Hessian cache, and numerical Hessian construction (`hessian_calc.py`). `io/` never depends on `workflows/`; output format is owned here and consumed by stage runners.
 
 **L5 `core/`**. The lowest layer. `defaults.py` is the **single source of truth** for shared defaults — grep here before adding a number elsewhere, then inspect justified command-local defaults. `utils.py` contains shared PDB / XYZ / plotting helpers.
 
@@ -195,7 +195,7 @@ After step 5 you can read any other file by following the file index in §4. The
 | Bool/YAML/exception CLI helpers | `mlmm/cli/decorators.py` |
 | `--help-advanced` pager | `mlmm/cli/help_pages.py` |
 | Bool flag parsing (`--flag` / `--no-flag` + value style) | `mlmm/cli/bool_compat.py` |
-| AmberTools / conda env / GPU preflight | `mlmm/cli/preflight.py` |
+| Input-file existence checks | `mlmm/cli/preflight.py` |
 
 ### 4.2 Workflow stage runners (L2 `workflows/`)
 
@@ -250,7 +250,7 @@ implementation changes currently touch `mlmm_calc.py` and the dispatcher.
 | PDB altloc resolution | `mlmm/io/pdb_fix.py` |
 | parm7 atom indexing (CHEMISTRY-RULE:9) | `mlmm/io/pdb_indexing.py` |
 | In-memory Hessian cache (per-run TTL) | `mlmm/io/hessian_cache.py` |
-| Numerical Hessian build + frequency / vibrational I/O | `mlmm/io/hessian_calc.py` |
+| Numerical Hessian build | `mlmm/io/hessian_calc.py` |
 | Harmonic restraint setup | `mlmm/workflows/restraints.py` (L2 stage helper) |
 
 ### 4.6 Foundation (L5 `core/`)

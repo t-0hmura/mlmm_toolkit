@@ -39,7 +39,7 @@
 | `sp` | `./result_sp/` |
 | `extract` | `./`（`pocket.pdb` を書き出し。入力が複数の場合は `pocket_<input>.pdb`） |
 | `mm-parm` | `./`（`<prefix>.parm7` と `<prefix>.rst7` を書き出し。接頭辞のデフォルトは入力ファイル名から `.pdb` を除いたもの） |
-| `define-layer` | `./`（`<input>_layered.pdb` を書き出し） |
+| `define-layer` | 入力ファイルと同じディレクトリ（`<input>_layered.pdb` を書き出し） |
 
 ほかのディレクトリに書くには `-o/--out-dir <path>` を指定します。準備のコマンドはファイルパスを取ります：`extract` は `-o/--output <file>` に 1 つ以上のパス、`mm-parm` は `-o/--out-prefix <prefix>`、`define-layer` は `-o/--output <file>` です。
 

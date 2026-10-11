@@ -59,7 +59,8 @@ no image lies above the higher endpoint and there is no candidate.
 **path-search.** `summary.json` and `summary.log` are always written (no
 `--out-json`); read `[2] Segment-level MEP summary` in the log.
 `scientific_status` is `success` when the pre-optimizations and every path
-run converged, otherwise `partial` or `failed`. Each entry of
+run converged and no interval has its HEI at an endpoint, otherwise `partial`
+or `failed`. Each entry of
 `summary.json["segments"]` looks like:
 
 ```
@@ -75,8 +76,8 @@ Files: `mep_trj.xyz` and `mep_trj.pdb` (the stitched MEP), `mep_plot.png`,
 
 - A segment with bond changes and its `hei_seg_NN.xyz`: a TS candidate.
 - A tag `seg_NNN_maxdepth` or `seg_NNN_kinklimit`: splitting stopped there,
-  and the segment may hold more than one step. Raise `--max-depth` or give
-  intermediates.
+  and the segment may hold more than one step. Raise `--max-depth` (for
+  `_maxdepth`) or give intermediates.
 - Only `_kink` tags: no bond change was found between the ends. Check the
   inputs or give intermediates.
 - The warning `HEI is at an endpoint`: in that interval no image lies above
@@ -99,9 +100,9 @@ only after `tsopt` gives n_imag = 1 and IRC reaches the intended R and P.
   XYZ inputs, `path-opt` takes one `--ref-pdb` for both endpoints, and
   `path-search` takes one per input, in `-i` order.
 - Convergence depends on the endpoints. Both are pre-optimized by default
-  (`--preopt`, capped by `--preopt-max-cycles`); if the MEP still does not
-  converge, relax each endpoint with [opt.md](opt.md) first. When it converges but
-  changes the bonding, see
+  (`--preopt`; `--preopt-max-cycles` is available only in `path-opt`); if
+  the MEP still does not converge, relax each endpoint with [opt.md](opt.md)
+  first. When it converges but changes the bonding, see
   [Run stage by stage](../mlmm-overview/SKILL.md#run-stage-by-stage).
 - With frozen atoms (the Frozen-MM layer or `--freeze-atoms`), `path-opt`,
   `path-search`, and `all` align each input to the previous one and then

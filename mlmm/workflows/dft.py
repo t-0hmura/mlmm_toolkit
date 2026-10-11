@@ -812,7 +812,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     "convert_files",
     default=True,
     show_default=True,
-    help="Toggle XYZ/TRJ to PDB companions when a PDB template is available.",
+    help="Also write the ML region as PDB files (PDB input only).",
 )
 @click.option(
     "--embedcharge/--no-embedcharge",

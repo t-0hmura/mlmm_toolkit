@@ -49,9 +49,11 @@ Options:
                                   -convff -AMBER` automatically (orca mode).
                                   [default: convert-orcaff]
   --link-atom-method [scaled|fixed]
-                                  Link-H placement rule. 'scaled' uses the
-                                  Morokuma/Dapprich g-factor (matches MLMMCore
-                                  runtime). 'fixed' uses a fixed 1.09/1.01 Å
-                                  bond length.  [default: scaled]
+                                  Rule for the estimated link-H positions
+                                  written as comments in the ORCA input:
+                                  'scaled' uses the Morokuma/Dapprich g-factor
+                                  (matches MLMMCore runtime), 'fixed' a fixed
+                                  1.09/1.01 Å bond length. The Gaussian input
+                                  does not change.  [default: scaled]
   -h, --help                      Show this message and exit.
 ```

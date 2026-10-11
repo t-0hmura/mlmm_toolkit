@@ -46,8 +46,8 @@ mlmm extract -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
 - `pocket.pdb` exists (default name; `pocket_<filename>.pdb` for several
   inputs without `-o`).
 - With `--out-json`, `result.json` has `total_charge`, `n_atoms_extracted`
-  (N, without cap H), and `n_link_hydrogens` (M). The model computes N + M
-  atoms.
+  (N, without cap H), and `n_link_hydrogens` (M). The extracted pocket
+  contains N + M atoms.
 
 ```python
 import json

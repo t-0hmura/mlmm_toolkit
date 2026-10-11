@@ -122,7 +122,7 @@ ML 領域の {ref}`電荷 <ja-charge-specification>` は `-q` または `-l` か
 | --- | --- |
 | 端末（各ステージ） | `[stage k] Covalent-bond changes (start vs final): Yes` とできた結合・切れた結合の一覧、または `No` と `(no covalent changes detected)` |
 | 端末（実行の最後） | `Summary`：各ステージの目標値・初期値・座標ごとの刻み・ステップ数・結合変化。続いて `====== Scan finished ======` |
-| `result.json`（`--out-json`） | `scientific_status`：すべてのステージの全ステップが収束し（`--preopt` と `--endopt` を付けたときはそれらの最適化も収束し）、エネルギーが有限なら `success`、一部だけが収束したなら `partial`、1 つも収束しなければ `failed` |
+| `result.json`（`--out-json`） | `scientific_status`：すべてのステージの全ステップが収束し（`--preopt` と `--endopt` を付けたときはそれらの最適化も収束し）、エネルギーが有限なら `success`、一部のステージ（`--preopt` も 1 つと数える）だけが全ステップ収束したなら `partial`、1 つもなければ `failed` |
 | `result.json`（`--out-json`） | `stages[].converged`、`stages[].bond_changes.changed`、`stages[].final_energy_hartree`、各ステップのエネルギー `stages[].energies_hartree` |
 
 `partial` の {ref}`終了コード <ja-exit-codes>` は 0、`failed` は 1 です。収束して狙った結合変化が起きたスキャンは経路の候補になり、エネルギーが最も高いステップは [`tsopt`](tsopt.md) に渡す TS 候補になります。このステップは `scan_trj.xyz` から {ref}`取り出せます <ja-trajectory-one-frame>`。

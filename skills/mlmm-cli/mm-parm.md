@@ -37,8 +37,8 @@ and the tleap logs.
 ## Judge success
 
 - The files are written to the current directory, with no subdirectory and no
-  `result.json`: `<prefix>.parm7` (topology), `<prefix>.rst7` (coordinates,
-  and the box if there is water), and `<prefix>.pdb`.
+  `result.json`: `<prefix>.parm7` (topology), `<prefix>.rst7` (coordinates),
+  and `<prefix>.pdb`.
 - `<prefix>.pdb` has the same atoms in the same order as the `parm7`, with
   element columns filled. It is written when `--out-prefix` is given, or as
   `<input>_parm.pdb` with `--add-h` and no prefix; otherwise only `parm7` and

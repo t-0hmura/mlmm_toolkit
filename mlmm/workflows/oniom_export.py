@@ -2030,8 +2030,9 @@ end
     type=click.Choice(["scaled", "fixed"], case_sensitive=False),
     default="scaled",
     show_default=True,
-    help="Link-H placement rule. 'scaled' uses the Morokuma/Dapprich g-factor (matches MLMMCore runtime). "
-         "'fixed' uses a fixed 1.09/1.01 Å bond length.",
+    help="Rule for the estimated link-H positions written as comments in the ORCA input: "
+         "'scaled' uses the Morokuma/Dapprich g-factor (matches MLMMCore runtime), "
+         "'fixed' a fixed 1.09/1.01 Å bond length. The Gaussian input does not change.",
 )
 def cli(
     parm7: Path,

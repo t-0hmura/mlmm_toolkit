@@ -27,8 +27,8 @@ mlmm opt -i my.xyz --parm7 real.parm7 --ref-pdb topology.pdb -q -1 -m 1 --opt-mo
 Pre-relax endpoints before `path-opt`:
 
 ```bash
-mlmm opt -i 1.R.pdb --parm7 real.parm7 -l '...' -o /tmp/relax_R
-mlmm opt -i 3.P.pdb --parm7 real.parm7 -l '...' -o /tmp/relax_P
+mlmm opt -i 1.R.pdb --parm7 real.parm7 -l 'SAM:1,GPP:-3' -o /tmp/relax_R
+mlmm opt -i 3.P.pdb --parm7 real.parm7 -l 'SAM:1,GPP:-3' -o /tmp/relax_P
 mlmm path-opt -i /tmp/relax_R/final_geometry.xyz /tmp/relax_P/final_geometry.xyz \
     --parm7 real.parm7 --ref-pdb 1.R.pdb \
     -l 'SAM:1,GPP:-3' -o result_path_opt
@@ -43,7 +43,7 @@ mlmm path-opt -i /tmp/relax_R/final_geometry.xyz /tmp/relax_P/final_geometry.xyz
   `[opt] Stalled (energy plateau; not converged)`. `failed`, exit 1.
 
 With `--out-json`, `result.json` holds `optimization_status`, `n_opt_cycles`,
-`energy_hartree`, `final_max_force`, and `files.final_geometry_xyz`. The
+`energy_hartree`, and `files.final_geometry_xyz`. The
 outputs are `final_geometry.{xyz,pdb}`, plus `optimization_trj.xyz` and
 `optimization_all_trj.xyz` with `--dump`.
 

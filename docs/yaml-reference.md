@@ -79,7 +79,7 @@ A misspelled section name prints `[config] WARNING: YAML section(s) … are not 
 | `--max-cycles-gsm` | `max_cycles` | `stopt` (also sets `stopt.stop_in_when_full`) |
 | `--dmf-max-iterations` / `--max-cycles-dmf` | `max_cycles` | `dmf` |
 | `--gsm-param` | `param` | `gs` |
-| `--max-nodes` | `max_nodes` | `gs` |
+| `--max-nodes` | `max_nodes` | `gs` (`path-search` also sets `search.max_nodes_segment`) |
 | `--preopt-max-cycles` | `max_cycles` | `lbfgs` and `rfo` |
 | `--dump` | `dump` | `opt` (opt, tsopt, scan), `stopt` (path-opt, path-search), `thermo` (freq) |
 | `--step-size` (irc) | `step_length` | `irc` |
@@ -123,7 +123,7 @@ Geometry loading and coordinate handling.
 
 ```yaml
 geom:
- coord_type: cart # "cart" (Cartesian), "redund" (redundant internals), "dlc" (delocalized internals), or "tric" (translation-rotation internals) for opt and tsopt; all, path-opt, and path-search use cart or dlc only
+ coord_type: cart # "cart" (Cartesian), "redund" (redundant internals), "dlc" (delocalized internals), or "tric" (translation-rotation internals) for opt and tsopt; all uses cart or dlc; path-opt and path-search always use cart
  freeze_atoms: [] # 1-based frozen-atom indices
 ```
 
@@ -262,8 +262,8 @@ calc:
 ### `opt`
 
 Shared optimizer controls used by both L-BFGS and RFO. Every key here reaches
-the optimizer of the `opt` command (with or without `--microiter`) and the macro optimizer of `tsopt`, which
-takes [`rsirfo`](#rsirfo) / [`hessian_dimer`](#hessian_dimer) on top. Only values
+the optimizer of the `opt` command (with or without `--microiter`) and the Hessian-based macro optimizer of `tsopt`, which
+takes [`rsirfo`](#rsirfo) on top; the Dimer takes only the shared keys named in [`hessian_dimer`](#hessian_dimer). Only values
 you actually changed here are forwarded, so an optimizer-specific section stays
 authoritative for the keys you left alone. Two different values for the same
 setting in one YAML file stop the run with an error, including a common `opt`
@@ -509,7 +509,7 @@ optimization (not individual node optimization).
 stopt:
  type: string           # Optimizer type label
  thresh: gau_loose      # Convergence preset for string optimization (overridden by --thresh-gsm)
- stop_in_when_full: 300 # Early stop threshold when string is full
+ stop_in_when_full: 300 # Always set to max_cycles in path-opt/path-search
  align: false           # Alignment toggle
  scale_step: global     # Step scaling mode
  max_cycles: 300         # String-optimizer cycle cap
@@ -855,7 +855,7 @@ dft:
 - `calc:` and `mlmm:` are both accepted as the name of the calculator section. If both are present, their keys are merged; the same key with two different values stops the run with an error.
 - `opt.lbfgs` and `opt.rfo` are other names for `lbfgs` and `rfo`, and `freq.thermo` is another name for `thermo`, which `all --thermo` also reads.
 - `mlmm all` consumes only the sections for its selected active stages.
-- `--show-config` (not on `scan`, `scan2d`, or `scan3d`) prints the loaded YAML file and its top-level keys, and the run then continues.
+- `--show-config` (not on `scan`, `scan2d`, or `scan3d`) prints the loaded YAML file and its top-level keys, and the run then continues; `sp` prints its merged settings and exits without calculating.
 
 ## See Also
 

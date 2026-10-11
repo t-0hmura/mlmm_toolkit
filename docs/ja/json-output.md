@@ -67,7 +67,7 @@ ML/MM 計算機を評価するコマンドは、さらに以下を記録しま�
 | `stage_outcomes` | object[] | `stage`、`item_id`、`required`、`executed`、`converged`、`usable`、`reason`、`artifacts` を持つ段階別の結果。 |
 | `point_outcomes` | object[] | `point_id`、`executed`、`converged`、`energy_valid`、`artifact_written`、`seed_eligible`、`reason` を持つ scan の点ごとの結果。 |
 
-### エラーエンベロープ（`execution_status == "failed"` のとき）
+### エラーエンベロープ（コマンドが例外で停止した場合）
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
@@ -242,7 +242,7 @@ IRC は `execution_status` と `scientific_status` を出し、方向ごとの�
 | `n_points_usable` | int | 明示的に収束し、有限のエネルギー・座標と構造ファイルを持つ点の数 |
 | `grid_points` | object[] | 格子インデックス、距離、エネルギー、収束結果、`geometry_file` の対応 |
 | `current_output_paths` | string[] | 今回の実行が書いた CSV・HTML・PNG と格子点の構造。前の実行で残ったファイルは並びません |
-| `pair1`、`pair2`（`pair3`） | object | `{i, j, low, high}` |
+| `pair1`、`pair2`（`pair3`） | object | `{kind, atoms_1based, unit, low, high}`。距離の軸は `i` と `j` も含む |
 | `min_energy_hartree` | float | 表面上の最小エネルギー |
 | `charge` | int \| null | ML 領域の電荷。作図のみの `scan3d --csv` では null |
 | `spin` | int \| null | ML 領域の多重度。作図のみの `scan3d --csv` では null |
@@ -380,7 +380,6 @@ IRC は `execution_status` と `scientific_status` を出し、方向ごとの�
 | `scientific_status_reasons` | string[] | 要求した結果の欠損・未収束などの理由。正常終了時は省略されます。 |
 | `pipeline_stop` | object（無い場合あり） | 早期停止時のみ存在。`stage` は `post`（`reason` は `no_segments` / `no_reactive_segment`）、`before_irc`（TSOPT の理由と `segment`・`tsopt_result`）、または `endpoint_opt`（`endpoint_execution_failed` と端点別 `failures`）。`summary.log` では `Pipeline stop` |
 | `expected_item_ids` / `observed_item_ids` | string[] | 期待された段と観測された段の ID。 |
-| `config` | object | 実効設定。`mep_mode` は GSM/DMF、`ts_opt_mode` / `endpoint_opt_mode` は設定した後処理のプリセットを示します。一般の `opt_mode*` は実際に使った CLI の値を記録します。`path_opt_mode` は端点の事前最適化に使う単一構造オプティマイザであり（`preopt` を参照）、MEP の経路アルゴリズムではありません。 |
 | `n_segments` | int | セグメント数 |
 | `search_max_depth` | int | 実効の再帰分割階層上限。`0` は分割無効 |
 | `path_optimizers` | string[] | 経路の準備・精密化で実際に使用した単一構造オプティマイザ（`lbfgs`, `rfo`）。`all` ではスキャン・アライメントの実行も含みます。`path-opt` の `result.json` にも記録します |
@@ -401,6 +400,7 @@ IRC は `execution_status` と `scientific_status` を出し、方向ごとの�
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
+| `config` | object | 実効設定。`mep_mode` は GSM/DMF、`ts_opt_mode` / `endpoint_opt_mode` は設定した後処理のプリセットを示します。一般の `opt_mode*` は実際に使った CLI の値を記録します。`path_opt_mode` は端点の事前最適化に使う単一構造オプティマイザであり（`preopt` を参照）、MEP の経路アルゴリズムではありません。 |
 | `n_segments_reactive` | int | bridge 以外の反応セグメント数 |
 | `rate_limiting_step` | object | 反応セグメントのうち局所障壁が最大のもの。`{segment, barrier_kcal, method}` と、`mep_barrier_kcal`（MEP 上の障壁。TS-only モードでは無し）を持ちます。障壁は、すべてのセグメントで得られる最も高い水準の手法（`DFT//MLIP/MM_Gibbs` > `DFT` > `MLIP_Gibbs` > `MLIP` > `MEP`。`--backend dft` では `MLIP_Gibbs` と `MLIP` の代わりに `DFT/MM_Gibbs` と `DFT/MM`）で取ります。microkinetics に基づく律速段階の判定ではありません。 |
 | `overall_reaction_energy_kcal` | float | 全体の反応エネルギー |
@@ -434,7 +434,8 @@ elif status == "converged":
     print(f"Energy: {result['energy_hartree']:.6f} Hartree")
 elif status in {"not_converged", "stalled"}:
     print(f"Not converged after {result['n_opt_cycles']} cycles")
-    print(f"Max force: {result['final_max_force']:.6f}")
+    if result.get("final_max_force") is not None:
+        print(f"Max force: {result['final_max_force']:.6f}")
 else:
     print(f"Status: {status}")
 ```

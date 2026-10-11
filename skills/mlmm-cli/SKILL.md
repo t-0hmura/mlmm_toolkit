@@ -48,7 +48,7 @@ The calculation commands other than `all` need the full-system Amber topology (`
 
 `-b` selects the ML-region backend: `uma` (default), `orb`, `mace`, `aimnet2`, or `dft`. Without `--precision`, UMA and AIMNet2 run in fp32 and ORB and MACE in fp64; AIMNet2 rejects fp64.
 
-Settings apply in the order built-in defaults < `--config` YAML < explicit CLI options. The calculation commands write to `./result_<subcommand>/` by default (for example `./result_all/`, `./result_path_opt/`); change it with `-o/--out-dir`. `extract`, `mm-parm`, and `define-layer` write into `./` and take output file paths instead.
+Settings apply in the order built-in defaults < `--config` YAML < explicit CLI options. The calculation commands write to `./result_<subcommand>/` by default (for example `./result_all/`, `./result_path_opt/`); change it with `-o/--out-dir`. `extract` and `mm-parm` write into `./`, and `define-layer` next to its input; these three take output file paths instead.
 
 ## Cross-cutting pitfalls
 
@@ -58,7 +58,7 @@ Settings apply in the order built-in defaults < `--config` YAML < explicit CLI o
 - **`opt.<key> and <section>.<key> conflict.` (exit 2)**: in `opt`, `tsopt`, and the scan commands, a setting shared by `opt` (in YAML, or through its flag such as `--max-cycles`, `--thresh`, or `--print-every`) and the optimizer section (`lbfgs`, `rfo`, `rsirfo`, `hessian_dimer`) follows one rule: set to different values in both, the run stops with this error; set in one, that value is used; set in neither, the optimizer section's default is used. The same check applies to a section given both at the YAML root and nested (`lbfgs:` and `opt.lbfgs:`). Set each value in one place.
 - **Scan literals**: `-s/--scan-lists` takes Python literals. Quote each with single quotes outside and double quotes inside; backticks in atom specs are safe only inside the outer single quotes.
 - **Hidden options**: an option missing from `--help` may be listed by `--help-advanced`.
-- **Out of memory on a Hessian**: narrow the Hessian region with `--hessian-cutoff` (`opt`, `tsopt`, `freq`, `sp`), and keep the default `FiniteDifference` unless a pilot shows `Analytical` is better.
+- **Out of memory on a Hessian**: narrow the Hessian region with `--hessian-cutoff` (`opt`, `tsopt`, `freq`, `sp`; `tsopt` and `freq` also need `--active-dof-mode ml-only`, see [Trim to lower cost](../mlmm-model-setup/SKILL.md#trim-to-lower-cost)), and keep the default `FiniteDifference` unless a pilot shows `Analytical` is better.
 - **`--uma-workers` above 1 with `--hessian-calc-mode Analytical`**: this stops with an error. Use one worker for an analytical Hessian, or `FiniteDifference` with several workers.
 - **`--embedcharge`**: the xTB correction runs xTB with and without the MM point charges at every evaluation; keep the ML region to about 200–300 atoms and benchmark first ([backends.md](../mlmm-install/backends.md)). With `-b dft`, it places the MM point charges in the PySCF Hamiltonian instead.
 

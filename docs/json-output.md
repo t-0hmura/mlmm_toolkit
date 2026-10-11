@@ -71,7 +71,7 @@ Every result reports `execution_status` and `scientific_status`; multi-stage and
 | `stage_outcomes` | object[] | One entry per stage with `stage`, `item_id`, `required`, `executed`, `converged`, `usable`, `reason`, and `artifacts`. |
 | `point_outcomes` | object[] | Scan points with `point_id`, `executed`, `converged`, `energy_valid`, `artifact_written`, `seed_eligible`, and `reason`. |
 
-### Error envelope (when `execution_status == "failed"`)
+### Error envelope (when a command stops on an exception)
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -260,7 +260,7 @@ IRC reports `execution_status` and `scientific_status` and keeps the stop reason
 | `n_points_usable` | int | Fresh-run points with explicit convergence, finite energy/coordinates, and a written geometry file |
 | `grid_points` | object[] | Explicit grid-index, distances, energy, convergence, and `geometry_file` mapping |
 | `current_output_paths` | string[] | CSV/HTML/PNG files and grid geometries written by this run; files left from an earlier run are not listed |
-| `pair1`, `pair2` (,`pair3`) | object | `{i, j, low, high}` |
+| `pair1`, `pair2` (,`pair3`) | object | `{kind, atoms_1based, unit, low, high}`; distance axes also include `i` and `j` |
 | `min_energy_hartree` | float | Surface minimum energy |
 | `charge` | int \| null | ML-region charge; null for plot-only `scan3d --csv` |
 | `spin` | int \| null | ML-region multiplicity; null for plot-only `scan3d --csv` |
@@ -406,7 +406,6 @@ The `all` and `path-search` commands write `summary.json` with a richer structur
 | `scientific_status_reasons` | string[] | Reasons for missing or unusable requested results; omitted on success. |
 | `pipeline_stop` | object \| absent | Present only on an early stop. `stage` is `post` (`reason` `no_segments` / `no_reactive_segment`), `before_irc` (a TSOPT reason, plus `segment` and `tsopt_result`), or `endpoint_opt` (`endpoint_execution_failed` and endpoint-specific `failures`). Rendered in `summary.log` as `Pipeline stop`. |
 | `expected_item_ids` / `observed_item_ids` | string[] | Expected and observed stage identifiers. |
-| `config` | object | Effective settings. `mep_mode` identifies GSM/DMF; `ts_opt_mode` and `endpoint_opt_mode` identify the configured post-processing presets. Generic `opt_mode*` keys record the CLI values in effect. `path_opt_mode` is the single-structure optimizer used for endpoint preoptimization (see `preopt`), not the MEP path algorithm. |
 | `n_segments` | int | Segment count |
 | `search_max_depth` | int | Effective recursion cap; `0` means subdivision was disabled |
 | `path_optimizers` | string[] | Single-structure optimizers actually used during path preparation/refinement (`lbfgs`, `rfo`); includes scan and alignment work in `all`. Also present in `path-opt` `result.json` |
@@ -427,6 +426,7 @@ The `all` command additionally includes:
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `config` | object | Effective settings. `mep_mode` identifies GSM/DMF; `ts_opt_mode` and `endpoint_opt_mode` identify the configured post-processing presets. Generic `opt_mode*` keys record the CLI values in effect. `path_opt_mode` is the single-structure optimizer used for endpoint preoptimization (see `preopt`), not the MEP path algorithm. |
 | `n_segments_reactive` | int | Number of non-bridge (reactive) segments |
 | `rate_limiting_step` | object | Highest local barrier among the reactive segments, as `{segment, barrier_kcal, method}` plus `mep_barrier_kcal` (the barrier on the MEP; not in TS-only mode), taken at the highest-level method available for every segment (`DFT//MLIP/MM_Gibbs` > `DFT` > `MLIP_Gibbs` > `MLIP` > `MEP`; with `--backend dft`, `DFT/MM_Gibbs` and `DFT/MM` take the place of `MLIP_Gibbs` and `MLIP`). It is not a microkinetic rate-limiting-step assignment. |
 | `overall_reaction_energy_kcal` | float | Overall reaction energy |
@@ -460,7 +460,8 @@ elif status == "converged":
     print(f"Energy: {result['energy_hartree']:.6f} Hartree")
 elif status in {"not_converged", "stalled"}:
     print(f"Not converged after {result['n_opt_cycles']} cycles")
-    print(f"Max force: {result['final_max_force']:.6f}")
+    if result.get("final_max_force") is not None:
+        print(f"Max force: {result['final_max_force']:.6f}")
 else:
     print(f"Status: {status}")
 ```

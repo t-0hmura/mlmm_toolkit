@@ -77,7 +77,7 @@ mlmm oniom-export --mode g16 --parm7 real.parm7 -i result_tsopt/final_geometry.p
 2. **QM region**:
 With `--model-pdb`, its atoms form the QM region; they are matched to `-i` by atom name, residue name, chain, residue number, and insertion code. Without it, the atoms with B-factor 0 form the QM region. Every atom except the frozen MM atoms is movable, and the QM atoms are always movable.
 3. **QM/MM boundary**:
-For Gaussian, a link H replaces the MM atom of each cut QM–MM bond: `--link-atom-method scaled` (the default) places it with the Morokuma/Dapprich g-factor, and `fixed` places it 1.09 Å (QM carbon) or 1.01 Å (QM nitrogen) from the QM atom. ORCA builds the caps itself from `QMAtoms` and `ORCAFF.prms`, and the input lists the estimated cap positions only as comments.
+For Gaussian, a link H replaces the MM atom of each cut QM–MM bond; the input names its QM parent atom, and Gaussian places the link H itself. ORCA builds the caps itself from `QMAtoms` and `ORCAFF.prms`, and the input lists the estimated cap positions only as comments. `--link-atom-method` (`scaled`: g-factor, `fixed`: 1.09/1.01 Å) changes only these estimated positions.
 4. **Writing the input**:
 The Gaussian input has the route `#p oniom(<method>:amber=softonly)`, the coordinates with the movable flag (`0` movable, `-1` frozen) and the layer (`H` or `L`), the connectivity, and the Amber parameters. Its charge and multiplicity line has three pairs: the whole system (the topology total charge and `-m`), then the QM region twice (`-q` and `-m`). The ORCA input has `! <method>` and `! QMMM`, a `%qmmm` block with `ORCAFFFilename`, `QMAtoms`, `ActiveAtoms`, `Charge_Total`, and `Mult_Total`, and the coordinates under `* xyz` with the QM charge and multiplicity (`-q`, `-m`). In ORCA mode, `oniom-export` also finds or creates `ORCAFF.prms`. The `%qmmm` keywords are described in the [ORCA 6.0 manual (QM/MM)](https://www.faccts.de/docs/orca/6.0/manual/contents/typical/qmmm.html).
 
@@ -109,7 +109,7 @@ The Gaussian input has the route `#p oniom(<method>:amber=softonly)`, the coordi
 | `--orcaff` | path | `<parm7 stem>.ORCAFF.prms` in the directory of `-o` | ORCA: an existing `ORCAFF.prms` to use |
 | `--convert-orcaff/--no-convert-orcaff` | flag | `True` | ORCA: when `--orcaff` is not given and the default file is missing, create it with `orca_mm -convff -AMBER` |
 | `--element-check/--no-element-check` | flag | `True` | Compare the elements of `-i` with the topology atom by atom |
-| `--link-atom-method` | `scaled` / `fixed` | `scaled` | g16: place link H atoms with the g-factor (`scaled`) or at a fixed bond length (`fixed`) |
+| `--link-atom-method` | `scaled` / `fixed` | `scaled` | ORCA: how the estimated link-H positions in the comments are placed, with the g-factor (`scaled`) or a fixed bond length (`fixed`); the Gaussian input does not change |
 
 See the [generated CLI reference](reference/commands/oniom_export.md) for every option.
 

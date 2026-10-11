@@ -25,7 +25,7 @@ mlmm path-search -i reactant.pdb product.pdb --parm7 real.parm7 --model-pdb ml_r
   -q 0 -m 1 --out-dir ./result_path_search
 ```
 
-実行が終わったら `summary.log` の `[2] Segment-level MEP summary` の節を開くか、`summary.json` を読みます。`scientific_status` には、事前最適化とすべての経路の計算が収束すると `success`、そうでなければ `partial` か `failed` が入ります。`segments` には区間ごとの `index`・`tag`・`kind`・`bond_changes`・`converged`・`barrier_kcal` が並びます。結合が変わる区間には、TS 候補の `hei_seg_NN.xyz` も書き出されます。
+実行が終わったら `summary.log` の `[2] Segment-level MEP summary` の節を開くか、`summary.json` を読みます。`scientific_status` には、事前最適化とすべての経路の計算が収束し、HEI が端点にある区間がなければ `success`、そうでなければ `partial` か `failed` が入ります。`segments` には区間ごとの `index`・`tag`・`kind`・`bond_changes`・`converged`・`barrier_kcal` が並びます。結合が変わる区間には、TS 候補の `hei_seg_NN.xyz` も書き出されます。
 
 ### 2. 中間体を入れて多段階の経路を作る
 

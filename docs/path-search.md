@@ -25,7 +25,7 @@ mlmm path-search -i reactant.pdb product.pdb --parm7 real.parm7 --model-pdb ml_r
   -q 0 -m 1 --out-dir ./result_path_search
 ```
 
-When the run finishes, open `summary.log` (section `[2] Segment-level MEP summary`), or read `summary.json`. `scientific_status` is `success` when the pre-optimizations and every path run converged, otherwise `partial` or `failed`. `segments` lists each segment with its `index`, `tag`, `kind`, `bond_changes`, `converged`, and `barrier_kcal`. Each reactive segment also has its TS candidate, `hei_seg_NN.xyz`.
+When the run finishes, open `summary.log` (section `[2] Segment-level MEP summary`), or read `summary.json`. `scientific_status` is `success` when the pre-optimizations and every path run converged and no interval has its HEI at an endpoint, otherwise `partial` or `failed`. `segments` lists each segment with its `index`, `tag`, `kind`, `bond_changes`, `converged`, and `barrier_kcal`. Each reactive segment also has its TS candidate, `hei_seg_NN.xyz`.
 
 ### 2. Add intermediates for a multistep path
 

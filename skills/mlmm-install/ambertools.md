@@ -4,10 +4,11 @@
 `antechamber`) for the MM region parameterization step
 (`mlmm mm-parm`). AmberTools is required if you want to drive the
 parameter file (`parm7`) generation through the toolkit; if you have
-hand-built `parm7` / `rst7` files, you can skip the install and feed
-them to the compute subcommands (`opt` / `sp` / `freq` / `tsopt` / `irc` /
-`dft` / `path-opt` / `path-search` / `all`) via `--parm7`. (`extract` and
-`define-layer` operate on PDB only and do not take `parm7` / `rst7`.)
+a hand-built `parm7` file, you can skip the install and pass
+it to the compute subcommands (`opt` / `sp` / `freq` / `tsopt` / `irc` /
+`dft` / `path-opt` / `path-search` / `all`) via `--parm7`, with the matching
+PDB as `-i`. (`extract` and `define-layer` operate on PDB or mmCIF and do not
+take `parm7` / `rst7`.)
 
 ## Install via conda (recommended)
 

@@ -18,7 +18,7 @@ mlmm-toolkit の開発者向けに、パッケージの層、ファイルの置�
 
 | 層 | ディレクトリ | 責務 | 依存してよい先 |
 |---|---|---|---|
-| **L1 Interface** | `mlmm/cli/` | Click ルートグループ、デコレータファクトリ、`--help-advanced`、bool フラグ正規化、サブコマンドリゾルバ、AmberTools preflight | `workflows/`、`core/` |
+| **L1 Interface** | `mlmm/cli/` | Click ルートグループ、デコレータファクトリ、`--help-advanced`、bool フラグ正規化、サブコマンドリゾルバ、入力ファイルの確認 | `workflows/`、`core/` |
 | **L2 Application** | `mlmm/workflows/` | サブコマンドごとのオーケストレーションと共有ワークフローヘルパー (`_all_helpers.py`、`_opt_freq_common.py`、`_run_session.py`、…) | `domain/`、`backends/`、`io/`、`core/` |
 | **L3 Domain** | `mlmm/domain/` | 化学を意識したヘルパーロジック (結合変化検出、結合サマリー、元素情報伝播) | `core/` |
 | **L4a Infra (MLIP + ONIOM)** | `mlmm/backends/` | MLIP バックエンドのディスパッチ、インライン実装、および ML/MM ONIOM 計算コア | `core/` |
@@ -54,7 +54,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ │ ├── help_pages.py --help-advanced pager
 │ │ ├── bool_compat.py --flag / --no-flag normalization
 │ │ ├── default_group.py subcommand resolver, lazy module import
-│ │ └── preflight.py AmberTools / conda env / GPU preflight
+│ │ └── preflight.py input-file existence checks
 │ │
 │ ├── workflows/ # === L2 Application ===
 │ │ ├── all.py full pipeline orchestrator (extract → … → DFT)
@@ -91,7 +91,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ │ ├── pdb_fix.py altloc resolution
 │ │ ├── pdb_indexing.py parm7 atom indexing (CHEMISTRY-RULE:9)
 │ │ ├── hessian_cache.py in-memory Hessian cache
-│ │ └── hessian_calc.py numerical-Hessian build + frequency / vibrational I/O helpers
+│ │ └── hessian_calc.py numerical-Hessian build
 │ │
 │ └── core/ # === L5 Foundation ===
 │   ├── defaults.py shared workflow/calculator defaults
@@ -113,7 +113,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 
 ### 2.3 レイヤーごとの責務詳細
 
-**L1 `cli/`** は、ルートディスパッチと共通の argv 解析を受け持ちます。各サブコマンドの Click コマンドは、登録先の `workflows/`、`domain/`、`io/` のモジュールで定義されます。`app.py` はルートの `Click.Group` と `_LAZY_SUBCOMMANDS` レジストリを持ち、各エントリは **絶対モジュールパス** を使います (§5.5)。`preflight.py` (AmberTools / conda env / GPU preflight) がここにあるのは、CLI の起動時、L2 のワークフローより前に実行されるためです。
+**L1 `cli/`** は、ルートディスパッチと共通の argv 解析を受け持ちます。各サブコマンドの Click コマンドは、登録先の `workflows/`、`domain/`、`io/` のモジュールで定義されます。`app.py` はルートの `Click.Group` と `_LAZY_SUBCOMMANDS` レジストリを持ち、各エントリは **絶対モジュールパス** を使います (§5.5)。`preflight.py` には、ワークフローのコマンドが呼ぶ入力ファイルの確認（`validate_existing_files`）があります。
 
 **L2 `workflows/`** にはコマンドモジュールと共有ワークフローヘルパーがあります。`cli/app.py:_LAZY_SUBCOMMANDS` に登録されたモジュールが `cli` という `@click.command()` を所有します。`_all_helpers.py`、`_opt_freq_common.py`、`_run_session.py`、`scan_common.py`、`restraints.py` などは独立したコマンドを持たない共有ヘルパーです。
 
@@ -121,7 +121,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 
 **L4a `backends/`**。ML/MM ONIOM 計算コア (`mlmm_calc.py`) とバックエンドディスパッチ (`__init__.py`) はここにあります。ML 領域の UMA / ORB / MACE / AIMNet2 と OpenMM / hessian_ff の連携はこのレイヤーからディスパッチされます。`mlmm_calc.py` は化学ルール #1、#2、#8 を持ちます (§5.1)。
 
-**L4b `io/`**。出力側の I/O には、ステージごとのサマリーライター、エネルギー図、軌跡レンダリング、PDB/altloc 処理、Hessian キャッシュ、数値 Hessian 構築、および振動数・振動 I/O (`hessian_calc.py`) が含まれます。`io/` は `workflows/` に依存しません。出力形式はここで管理され、ステージランナーから使用されます。
+**L4b `io/`**。出力側の I/O には、ステージごとのサマリーライター、エネルギー図、軌跡レンダリング、PDB/altloc 処理、Hessian キャッシュ、および数値 Hessian 構築 (`hessian_calc.py`) が含まれます。`io/` は `workflows/` に依存しません。出力形式はここで管理され、ステージランナーから使用されます。
 
 **L5 `core/`**。最下層です。`defaults.py` は共有デフォルトの **唯一の出典** です。別の場所に数値を足す前に、まずここを grep し、そのうえで理由があってコマンドごとに置いたデフォルト値を確かめてください。`utils.py` は共有 PDB / XYZ / プロットヘルパーを保持します。
 
@@ -188,7 +188,7 @@ mlmm myaction ─────────────────► mlmm/cli/ap
 | Bool/YAML/例外の CLI ヘルパー | `mlmm/cli/decorators.py` |
 | `--help-advanced` pager | `mlmm/cli/help_pages.py` |
 | Bool フラグの解釈 (`--flag` / `--no-flag` + 値スタイル) | `mlmm/cli/bool_compat.py` |
-| AmberTools / conda env / GPU preflight | `mlmm/cli/preflight.py` |
+| 入力ファイルの存在確認 | `mlmm/cli/preflight.py` |
 
 ### 4.2 ワークフローステージランナー (L2 `workflows/`)
 
@@ -243,7 +243,7 @@ mlmm myaction ─────────────────► mlmm/cli/ap
 | PDB altloc 解決 | `mlmm/io/pdb_fix.py` |
 | parm7 の原子 index（CHEMISTRY-RULE:9） | `mlmm/io/pdb_indexing.py` |
 | インメモリ Hessian キャッシュ (run ごとの TTL) | `mlmm/io/hessian_cache.py` |
-| 数値 Hessian 構築 + 振動数 / 振動 I/O | `mlmm/io/hessian_calc.py` |
+| 数値 Hessian 構築 | `mlmm/io/hessian_calc.py` |
 | 調和拘束のセットアップ | `mlmm/workflows/restraints.py` (L2 ステージヘルパー) |
 
 ### 4.6 Foundation (L5 `core/`)

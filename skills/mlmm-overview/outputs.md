@@ -163,7 +163,7 @@ Bond broken (2):
 When `execution_status` is `failed` or `scientific_status` is not `success`, look at:
 
 1. `summary.log`: its header gives both statuses, and an early stop is shown as `Pipeline stop`. On the console, `RESULT WARNING:` lines after `====== Pipeline summary ======` give the reasons.
-2. `segments/seg_NN/{ts,irc,endpoint_opt}/result.json`: the status of each stage. `endpoint_opt/failure.json` is written when an endpoint optimization could not run. In an `all` run, `freq/` and `dft/` have no `result.json`.
+2. `segments/seg_NN/{ts,irc}/result.json` and `segments/seg_NN/endpoint_opt/{R,P}/result.json`: the status of each stage. `endpoint_opt/failure.json` is written when an endpoint optimization could not run. In an `all` run, `freq/` and `dft/` have no `result.json`.
 3. The terminal or scheduler stderr, for tracebacks that are not in the JSON. Read the exit code with the status: 0 is `success` or `partial` (tell them apart by `scientific_status`); 1 is non-convergence, no usable result, a runtime exception, or an output failure; 2 is invalid input, arguments, or configuration (including invalid YAML), so fix the command instead of resubmitting it; 130 is an interrupt. A run that fails while its options or inputs are checked can stop before writing any JSON, so treat a nonzero exit code as a failure.
 
 Partial outputs are kept. The MEP intermediates are under `_work/path_opt/` or `_work/path_search/`, and `segments/seg_NN/` can hold files of the current run even when a later stage failed. Trust the stage outcomes and `current_output_paths`, not the existence of a directory.
@@ -178,7 +178,7 @@ A barrier or reaction energy of hundreds to thousands of kcal/mol usually means 
 - `energy_diagram_MLIP_all.png`: R → TS → P with ML/MM energies (`--tsopt`).
 - `energy_diagram_G_MLIP_all.png`: ML/MM Gibbs energies with QRRHO thermochemistry (`--thermo`).
 - `energy_diagram_DFT_all.png`: DFT energies of the ML region on the ML/MM geometries (`--dft`).
-- `energy_diagram_G_DFT_plus_MLIP_all.png`: DFT energies plus the ML/MM thermal correction (`--dft` and `--thermo`).
+- `energy_diagram_G_DFT_plus_MLIP_all.png`: ML(DFT)/MM energies plus the ML/MM thermal correction (`--dft` and `--thermo`).
 
 Each `segments/seg_NN/` has the same diagrams for its own step, without `_all`, and `irc/irc_plot.png` shows its IRC. Energies are in kcal/mol relative to the first state. When the PNG cannot be written, the console prints a `NOTE`, and the values stay in `summary.json["energy_diagrams"]`.
 

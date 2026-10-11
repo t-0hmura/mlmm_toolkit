@@ -146,7 +146,7 @@ mlmm opt \
 
 ### Key points
 
-- **GPUs:** Request one GPU for ML inference (`gpus=1` for PBS, `--gres=gpu:1` for Slurm); request a second GPU only if you place the OpenMM MM backend on a separate CUDA device (`mm_device: cuda`, `mm_cuda_idx: 1`).
+- **GPUs:** Request one GPU for ML inference (`gpus=1` for PBS, `--gres=gpu:1` for Slurm); request one GPU per worker with `--uma-workers` above 1, and one more if you place the OpenMM MM backend on a separate CUDA device (`mm_device: cuda`, `mm_cuda_idx: 1`).
 - **CPU threads:** Request enough CPUs for the MM backend (`mm_threads`, default 16). The examples request 32 (`ppn=32`, `--cpus-per-task=32`) as a margin.
 - **Memory:** Size RAM from a representative test run and the scheduler's peak-memory log.
 - **CUDA runtime:** Official PyTorch wheels carry CUDA user-space libraries; a matching NVIDIA driver is normally sufficient. Load a site CUDA toolkit only for an extension that needs it.

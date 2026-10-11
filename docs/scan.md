@@ -117,7 +117,7 @@ Let T be the sum of the covalent radii of two atoms scaled by `bond_factor` (def
 | --- | --- |
 | Console, each stage | `[stage k] Covalent-bond changes (start vs final): Yes` with the formed and broken bonds listed, or `No` with `(no covalent changes detected)` |
 | Console, end of run | `Summary`: targets, initial values, per-coordinate step, number of steps, and bond changes of each stage, followed by `====== Scan finished ======` |
-| `result.json` (`--out-json`) | `scientific_status`: `success` when every step of every stage converged (and the `--preopt` and `--endopt` optimizations, when requested) with a finite energy; `partial` when only some of them did; `failed` when none did |
+| `result.json` (`--out-json`) | `scientific_status`: `success` when every step of every stage converged (and the `--preopt` and `--endopt` optimizations, when requested) with a finite energy; `partial` when only some stages (counting `--preopt` as one) did; `failed` when none did |
 | `result.json` (`--out-json`) | `stages[].converged`, `stages[].bond_changes.changed`, `stages[].final_energy_hartree`, and the energy of every step in `stages[].energies_hartree` |
 
 A `partial` run exits with 0 and a `failed` run with 1. See {ref}`Exit codes <exit-codes>`. A converged scan with the intended bond changes gives a candidate path; the highest-energy step is a TS candidate for [`tsopt`](tsopt.md), which you can {ref}`extract <trajectory-one-frame>` from `scan_trj.xyz`.

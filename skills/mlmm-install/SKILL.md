@@ -96,7 +96,8 @@ dependencies:
 ```
 
 `<cu_index>` is one of `cpu`, `cu126`, `cu130`, `cu132`, the indexes in
-PyTorch's official 2.13.0 matrix; see
+PyTorch's official 2.13.0 matrix, and with `cu126`, use `[dft-cuda12]` in
+place of `[dft]`; see
 [CUDA and PyTorch](backends.md#cuda-and-pytorch). The MACE env is built
 separately ([MACE](backends.md#mace-separate-environment)).
 
@@ -146,7 +147,7 @@ hf auth whoami                  # Hugging Face account used for UMA downloads
 python -c "import torch; print('CUDA:', torch.cuda.is_available(), torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'N/A')"
 
 # backend checks (only those you installed); a subcommand --help loads no backend
-python -c "import fairchem"   && echo "uma backend OK"
+python -c "import fairchem.core" && echo "uma backend OK"
 python -c "import orb_models" && echo "orb backend OK"
 python -c "import mace"       && echo "mace backend OK"     # MACE env only
 python -c "import aimnet"     && echo "aimnet2 backend OK"

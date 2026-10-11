@@ -21,7 +21,7 @@ the broadest element and chemistry range of the four. It comes through
 
 ```bash
 pip install mlmm-toolkit                      # fairchem-core comes along
-python -c "import fairchem; print('fairchem :', fairchem.__version__)"
+python -c "import fairchem.core; print('fairchem :', fairchem.core.__version__)"
 ```
 
 The weights are gated on Hugging Face. Accept the FAIR Chemistry License at
@@ -420,9 +420,9 @@ squeue -u "$USER"                 # SLURM: your jobs
 
 Reading the report:
 
-- `aarch64`: the `gpu4pyscf-cuda13x` wheel is missing, so DFT runs on CPU
-  PySCF unless GPU4PySCF is built from source. The MLIP backends work where
-  wheels exist for the driver.
+- `aarch64`: the `gpu4pyscf-cuda13x` wheel is missing, so DFT needs
+  `--dft-engine cpu` (CPU PySCF) unless GPU4PySCF is built from source. The
+  MLIP backends work where wheels exist for the driver.
 - No GPU: the MLIP backends run on the CPU (`ml_device: auto`), `dft` needs
   `--dft-engine cpu`, and any `gpus=N` request is dropped from the PBS
   preamble.

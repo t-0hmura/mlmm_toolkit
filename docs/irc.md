@@ -82,7 +82,7 @@ Even if the IRC does not converge, the result is usable when the endpoints, opti
 | What to check | Where to look |
 | --- | --- |
 | The start was a TS | The console line `Transition vector is mode 0 with wavenumber … cm⁻¹.` shows a negative wavenumber |
-| How each branch stopped | `forward_integration_converged` / `backward_integration_converged` in `result.json`: `true` when the RMS gradient fell below the threshold, `false` for an energy stop or the cycle limit; `forward_integration_stop_reason` / `backward_integration_stop_reason` give the reason |
+| How each branch stopped | `forward_integration_converged` / `backward_integration_converged` in `result.json`: `true` when the RMS gradient fell below the threshold, `false` for an energy stop or the cycle limit |
 | Bonds that change along the path | `bond_changes` in `result.json` (`formed` and `broken`, from `finished_first` to `finished_last`) |
 | Which end is R and which is P | Optimize `forward_first.xyz` and `backward_last.xyz` with [`opt`](opt.md) and compare them with the intended R and P. The direction forward / backward does not decide it |
 

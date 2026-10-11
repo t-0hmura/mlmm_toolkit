@@ -14,8 +14,8 @@ Options:
                                   paths, DEBUG logging).  [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
-  -i, --input FILE                Input structure file (.pdb, .cif, .mmcif,
-                                  .xyz, _trj.xyz, etc.).  [required]
+  -i, --input FILE                Input structure file (.pdb, .cif, .mmcif, or
+                                  .xyz with --ref-pdb).  [required]
   --parm7, --parm FILE            Amber parm7 topology for the whole enzyme (MM
                                   region). If omitted, must be provided in YAML
                                   as calc.real_parm7.
