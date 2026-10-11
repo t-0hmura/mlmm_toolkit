@@ -64,29 +64,21 @@ def _gather_atom_hessian_square(H, atom_indices):
 
 
 def read(filename, *args, **kwargs):
-    """ASE read() that tolerates virtual-site atoms (element 'EP', e.g. OPC/TIP4P 4-point water
-    'EPW', or lone pairs 'LP'). ASE's label_to_symbol cannot parse 'EP'/'EPW', so we rewrite the
-    element column (PDB cols 77-78) of such atoms to 'X' (ASE dummy, Z=0) before reading. Virtual
-    sites are MM point charges handled by OpenMM via the parm and never enter the MLIP region, so
-    the dummy symbol is bookkeeping only. Non-PDB inputs pass straight through to ASE."""
-    import io as _io
+    """Read a structure as ASE ``Atoms``; a PDB is read by ``read_pdb_ase_atoms`` (first model).
+
+    That reader takes blank element columns from this package's rules instead of
+    ASE's atom-name guess, and maps virtual sites (EP, e.g. OPC/TIP4P water) to the
+    dummy ``X``: they are MM point charges in the parm and never enter the MLIP region.
+    """
     try:
         is_pdb = isinstance(filename, str) and filename.lower().endswith((".pdb", ".pdb1", ".ent"))
     except Exception:
         is_pdb = False
     if not is_pdb:
         return _ase_read(filename, *args, **kwargs)
-    out = []
-    with open(filename) as fh:
-        for ln in fh:
-            if (ln.startswith("ATOM") or ln.startswith("HETATM")) and len(ln) >= 78:
-                elem = ln[76:78].strip().upper()
-                name = ln[12:16].strip().upper()
-                if elem in ("EP", "LP") or name.startswith(("EPW", "LP")):
-                    ln = ln[:76] + " X" + ln[78:]
-            out.append(ln)
-    kwargs.setdefault("format", "proteindatabank")
-    return _ase_read(_io.StringIO("".join(out)), *args, **kwargs)
+    from mlmm.io.structure_formats import read_pdb_ase_atoms
+
+    return read_pdb_ase_atoms(filename)
 
 import parmed as pmd
 from hessian_ff import ForceFieldTorch, load_coords, load_system

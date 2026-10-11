@@ -23,7 +23,6 @@ import numpy as np
 import torch
 from ase import Atoms
 from ase.data import atomic_masses
-from ase.io import read as ase_read
 from ase.io import write
 
 # ---------------- pysisyphus / mlmm imports ----------------
@@ -69,6 +68,7 @@ from mlmm.core.defaults import (
     THRESH_CHOICES,
 )
 from mlmm.io.path_mode_cache import read_reference_mode_candidates
+from mlmm.io.structure_formats import read_structure_atoms
 from mlmm.workflows.opt import (
     _parse_freeze_atoms as _parse_freeze_atoms_opt,
     _normalize_geom_freeze as _normalize_geom_freeze_opt,
@@ -3839,7 +3839,7 @@ def cli(
     reference_mode_metadata: Dict[str, Any] = {}
     if reference_mode_path is not None:
         try:
-            n_atoms_reference = len(ase_read(str(geom_input_path), index=0))
+            n_atoms_reference = len(read_structure_atoms(geom_input_path))
             (
                 reference_modes,
                 reference_mode_labels,
@@ -5283,7 +5283,7 @@ def cli(
 
         else:
             # Dimer path: partial-Hessian-guided orientation updates.
-            light_n_atoms = len(ase_read(str(geom_input_path), index=0))
+            light_n_atoms = len(read_structure_atoms(geom_input_path))
             light_active_atoms = _resolve_validated_hessian_analysis_atoms(
                 calc_cfg,
                 light_n_atoms,

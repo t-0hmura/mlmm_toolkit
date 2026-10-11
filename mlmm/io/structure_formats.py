@@ -609,6 +609,35 @@ def pdb_requires_normalization(path: Path | str) -> bool:
     return nonstandard or nres >= 10_000 or len(records) >= 99_999
 
 
+def read_pdb_ase_atoms(path: Path | str) -> Any:
+    """First-model PDB atoms as ASE ``Atoms`` with this module's element rules.
+
+    ASE's own PDB reader guesses a blank element column from the atom name
+    (``CA`` becomes calcium).  Virtual sites (``EP``) become the dummy ``X``.
+    """
+    from ase import Atoms
+
+    try:
+        records, _ = read_pdb_atom_sites(path, warn_altloc=False)
+    except ValueError as exc:
+        if "No ATOM/HETATM records" in str(exc):
+            return Atoms()
+        raise
+    return Atoms(
+        symbols=["X" if r.element.upper() in ("EP", "LP") else r.element for r in records],
+        positions=[(r.x, r.y, r.z) for r in records],
+    )
+
+
+def read_structure_atoms(path: Path | str) -> Any:
+    """First structure in *path* as ASE ``Atoms``; a PDB never goes through ASE's reader."""
+    if Path(path).suffix.lower() in (".pdb", ".ent"):
+        return read_pdb_ase_atoms(path)
+    from ase.io import read
+
+    return read(str(path), index=0)
+
+
 def _pdb_atom_field(atom_name: str, element: str) -> str:
     name = atom_name.strip()[:4]
     if len(name) == 4:

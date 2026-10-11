@@ -2876,9 +2876,9 @@ def _count_atoms_in_file(path: Path) -> int:
 def _ordered_elements_in_file(path: Path) -> Optional[List[str]]:
     """Read the first structure's ordered element symbols when supported."""
     try:
-        from ase.io import read as ase_read
+        from mlmm.io.structure_formats import read_structure_atoms
 
-        atoms = ase_read(str(path), index=0)
+        atoms = read_structure_atoms(path)
         return [str(symbol).capitalize() for symbol in atoms.get_chemical_symbols()]
     except Exception:
         logger.debug("Failed to read ordered elements from %s", path, exc_info=True)

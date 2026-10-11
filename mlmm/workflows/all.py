@@ -3488,9 +3488,10 @@ def _ensure_hei_path_tangent(
         return None, status
     try:
         from ase.io import read as ase_read
+        from mlmm.io.structure_formats import read_structure_atoms
 
         images = list(ase_read(str(mep_trj), index=":"))
-        hei = ase_read(str(hei_path), index=0)
+        hei = read_structure_atoms(hei_path)
         if len(images) < 2:
             raise ValueError("MEP trajectory contains fewer than two images")
         hei_numbers = np.asarray(hei.numbers)

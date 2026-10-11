@@ -1,8 +1,8 @@
 """Example: geometry optimization using the ASE interface."""
 
-from ase.io import read, write
+from ase.io import write
 from ase.optimize import LBFGS
-from mlmm.backends.mlmm_calc import MLMMCore, MLMMASECalculator
+from mlmm.backends.mlmm_calc import MLMMCore, MLMMASECalculator, read
 
 core = MLMMCore(
     input_pdb="r_complex.pdb",

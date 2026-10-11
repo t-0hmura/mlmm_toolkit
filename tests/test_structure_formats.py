@@ -1908,3 +1908,43 @@ def test_blank_element_columns_follow_fixed_column_atom_names(tmp_path: Path) ->
     assert copy_pdb_with_element_fields(source, filled) == (4, 0)
     written = [line[76:78] for line in filled.read_text(encoding="utf-8").splitlines()[:4]]
     assert written == [" N", " N", " O", " H"]
+
+
+def test_pdb_atoms_do_not_use_ase_element_guesses(tmp_path: Path) -> None:
+    from mlmm.backends.mlmm_calc import read
+    from mlmm.core.utils import (
+        _ordered_elements_in_file,
+        apply_ref_pdb_override,
+        prepare_input_structure,
+    )
+    from mlmm.io.structure_formats import read_structure_atoms
+
+    rows = [(" CA ", "GLY"), (" HG ", "CYS"), (" EPW", "HOH")]
+    lines = [
+        f"ATOM  {i:>5} {name} {res} A{i:>4}    {float(i):8.3f}{0.0:8.3f}{0.0:8.3f}"
+        f"{1.0:6.2f}{0.0:6.2f}{'':14}\n"
+        for i, (name, res) in enumerate(rows, 1)
+    ]
+    source = tmp_path / "blank_elements.pdb"
+    source.write_text("".join(lines) + "END\n", encoding="utf-8")
+
+    # ASE's reader would give Ca and Hg here.
+    assert read_structure_atoms(source).get_chemical_symbols() == ["C", "H", "X"]
+    assert read(str(source)).get_chemical_symbols() == ["C", "H", "X"]
+    assert _ordered_elements_in_file(source) == ["C", "H", "X"]
+
+    rows = rows[:2]
+    lines = [
+        f"ATOM  {i:>5} {name} {res} A{i:>4}    {float(i):8.3f}{0.0:8.3f}{0.0:8.3f}"
+        f"{1.0:6.2f}{0.0:6.2f}{'':14}\n"
+        for i, (name, res) in enumerate(rows, 1)
+    ]
+    source = tmp_path / "ref.pdb"
+    source.write_text("".join(lines) + "END\n", encoding="utf-8")
+    geom = tmp_path / "geom.xyz"
+    geom.write_text("2\n\nC 1.0 0.0 0.0\nH 2.0 0.0 0.0\n", encoding="utf-8")
+    prepared = prepare_input_structure(geom)
+    try:
+        assert apply_ref_pdb_override(prepared, source) is not None
+    finally:
+        prepared.cleanup()

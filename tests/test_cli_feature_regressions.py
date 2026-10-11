@@ -191,15 +191,16 @@ def test_path_opt_rejects_zero_cycles(
 def test_path_opt_applies_one_ref_pdb_to_both_xyz_endpoints(
     tmp_path: Path, monkeypatch
 ) -> None:
-    from ase.io import read, write
+    from ase.io import write
 
+    from mlmm.io.structure_formats import read_structure_atoms
     from mlmm.workflows import path_opt as path_opt_workflow
 
     smoke = Path(__file__).resolve().parent / "smoke"
     endpoints = []
     for name in ("r_complex_layered", "p_complex_layered"):
         xyz = tmp_path / f"{name}.xyz"
-        write(xyz, read(smoke / f"{name}.pdb"), format="xyz")
+        write(xyz, read_structure_atoms(smoke / f"{name}.pdb"), format="xyz")
         endpoints.append(str(xyz))
     applied = []
     real_apply = path_opt_workflow.apply_ref_pdb_override
