@@ -87,6 +87,10 @@ name: <YOUR_ENV>
 channels: [conda-forge, nvidia]
 dependencies:
   - python=3.12
+  - ambertools=24.8
+  - "numpy>=2,<2.5"
+  - pdbfixer
+  - cxx-compiler
   - xtb                                # only for the MLIP/MM correction
   - pip
   - pip:

@@ -123,11 +123,11 @@ Each stage (`mm-parm` → `extract` → `define-layer` → `opt` → `path-opt` 
 
 ## Output
 
-Each calculation command writes to its own directory, `./result_<command>/` by default (for example `./result_opt/`, `./result_tsopt/`, or `./result_path_opt/`); `-o/--out-dir` sets another. The preparation commands `extract`, `mm-parm`, and `define-layer` write their files to the current directory.
+Each calculation command writes to its own directory, `./result_<command>/` by default (for example `./result_opt/`, `./result_tsopt/`, or `./result_path_opt/`); `-o/--out-dir` sets another. The preparation commands `extract` and `mm-parm` write their files to the current directory; `define-layer` writes next to its input by default.
 
 A non-dry `all` run writes the deliverables reached by its enabled stages to `./result_all/`:
 
-- `segments/seg_NN/{reactant,ts,product}.pdb` — the canonical R / TS / P structures to cite
+- `segments/seg_NN/{reactant,ts,product}.*` — the canonical R / TS / P structures to cite
 - `mep_trj.pdb` / `mep_trj.xyz` — the merged reaction path; `energy_diagram_MEP.png` — barrier diagram
 - `summary.log` / `summary.json`
 - Reusable inputs for follow-up runs: `ml_region.pdb` (`--model-pdb`), `mm_parm/*.parm7` (`--parm7`), `layered/` (B-factor-annotated full-system PDBs)

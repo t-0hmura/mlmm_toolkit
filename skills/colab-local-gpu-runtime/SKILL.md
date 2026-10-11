@@ -10,7 +10,7 @@ Run the Colab page in the browser while Python and the GPU run locally in Google
 ## Steps
 
 1. `powershell -ExecutionPolicy Bypass -File scripts/status.ps1` shows what is missing.
-2. First time: `scripts/setup.ps1` installs WSL2 and Docker Desktop, pulls the image, and starts the `colab-gpu` container. Expect a UAC prompt and keep at least 100 GB free.
+2. First time: `scripts/setup.ps1` installs WSL2 and Docker Desktop, pulls the image, and starts the `colab-gpu` container. Expect a UAC prompt and keep at least 100 GB free. Then rerun `status.ps1` for the token URL.
 3. Later: `scripts/start.ps1` starts the container and prints the token URL.
 4. In Colab, choose **Connect ▸ Connect to a local runtime**, paste the whole URL including `?token=...`, then run **Installation** and **Launch GUI**.
 5. `scripts/stop.ps1` stops the container; `C:\colab-work` is kept.

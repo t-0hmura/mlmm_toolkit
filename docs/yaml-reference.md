@@ -424,7 +424,7 @@ gs:
  fix_first: true # Keep first endpoint fixed
  fix_last: true # Keep last endpoint fixed
  max_nodes: 20 # Maximum string nodes (internal images)
- perp_thresh: 0.005 # Perpendicular displacement threshold
+ perp_thresh: 0.005 # Perpendicular force threshold for adding new string nodes
  reparam_check: rms # Reparameterization check metric
  reparam_every: 1 # Reparameterization stride
  reparam_every_full: 1 # Full reparameterization stride
@@ -771,7 +771,7 @@ Harmonic bias settings for scans.
 
 ```yaml
 bias:
- k: 300.0 # Harmonic bias strength (eV/Å²)
+ k: 300.0 # Harmonic bias strength (eV/Å² for distances; eV/rad² for angles and dihedrals)
 ```
 
 ---

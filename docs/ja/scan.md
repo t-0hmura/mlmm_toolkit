@@ -91,7 +91,7 @@ mlmm scan -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
 1. **構造の読み込み**:
 ML 領域の {ref}`電荷 <ja-charge-specification>` は `-q` または `-l` から決まります。`--preopt` を付けると、まず拘束なしで構造を最適化します。収束しなかった場合は入力構造を使います。
 2. **ステージのステップ分割**:
-座標ごとに変化量 Δ = 目標値 − 現在値 を求め、ステージを N = ceil(max(|Δ| / h)) ステップに分けます。h は距離では `--max-step-size`（Å）、角度では `--max-angle-step-size`、二面角では `--max-dihedral-step-size`（度）です。各座標は 1 ステップに Δ / N ずつ動くので、ステージ内のすべての座標が同時に目標値に着きます。
+座標ごとに変化量 Δ = 目標値 − 現在値（二面角では −180°〜180° に折り返した最短の変化量）を求め、ステージを N = ceil(max(|Δ| / h)) ステップに分けます。h は距離では `--max-step-size`（Å）、角度では `--max-angle-step-size`、二面角では `--max-dihedral-step-size`（度）です。各座標は 1 ステップに Δ / N ずつ動くので、ステージ内のすべての座標が同時に目標値に着きます。
 3. **拘束付きの緩和**:
 各ステップで、調和拘束 E = ½ k (q − q_target)² がスキャンする座標 q をそのステップの目標値に保ち（k は `--restraint-k`）、残りの構造を ML/MM 計算機で L-BFGS（`--opt-mode grad`、デフォルト）または RFO（有理関数最適化、`--opt-mode hess`）により緩和します。固定 MM 層の原子は動きません。各ステップには、拘束を外して計算した ML/MM のエネルギーを記録します。ML/MM のスキャンでは Cartesian 座標（`geom.coord_type: cart`）がデフォルトで、推奨です。YAML で `dlc` を選ぶこともできますが、収束までにずっと長くかかることがあります。
 4. **ステージの終わり**:
@@ -173,7 +173,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 | オプション | 引数の型 | デフォルト | 説明 |
 | --- | --- | --- | --- |
 | `-i, --input` | パス | （必須） | 全系の構造ファイル（`.pdb`, `.cif`, `.mmcif`、または `--ref-pdb` を付けた `.xyz`） |
-| `-q, --charge` | 整数 | `None` | ML 領域の電荷。`-l` を使う場合のほかは必須 |
+| `-q, --charge` | 整数 | `None` | ML 領域の電荷。`-l` か YAML の `calc.model_charge` が無ければ必須 |
 | `-m, --multiplicity` | 整数 | `1` | ML 領域のスピン多重度（2S+1） |
 | `-l, --ligand-charge` | 文字列 | `None` | 未知のリガンド残基の総電荷（例: `-1`）または残基名ごとの電荷（例: `'GPP:-3,SAM:1'`）。`-q` を省いたときに ML 領域の電荷を求めるのに使用（PDB/mmCIF 入力または `--ref-pdb`） |
 | `-s, --scan-lists` | 文字列 | （必須） | YAML/JSON スペックファイル、または 1 つ以上のインラインリテラル（1 つが 1 ステージ）。距離の目標値 `(i,j,target)`、または距離 `(i,j,low,high)`・角度 `(i,j,k,low,high)`・二面角 `(i,j,k,l,low,high)` の範囲 |

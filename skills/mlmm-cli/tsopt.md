@@ -52,9 +52,10 @@ How the run ended decides whether n_imag exists:
 - `stalled`: the energy-plateau stop of `--stop-plateau` (off by default)
   fired, and the console prints `Stalled (energy plateau; not converged)`. The
   Hessian is still computed, so n_imag is reported for an unconverged geometry.
-- `not_converged`: `--max-cycles` was reached
-  (`[microiter] Reached max macro iterations (M).` or
-  `[tsopt] Reached max cycles (N/M).`). No Hessian is computed, so
+- `not_converged`: the optimizer stopped without converging, usually at
+  `--max-cycles` (`[microiter] Reached max macro iterations (M).` or
+  `[tsopt] Reached max cycles (N/M).`); any other stop writes its cause to
+  `stop_reason` in `result.json`. No Hessian is computed, so
   `hessian_status` is `skipped`, `n_imaginary_modes` is null, and the saddle
   order is unknown.
 

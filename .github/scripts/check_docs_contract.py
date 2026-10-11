@@ -168,11 +168,11 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
         "`ref_order=identity-verified` / `element-verified` / `unverified-opt-in`",
     ),
     Path("docs/irc.md"): (
-        "Charge of the ML region. Required unless `-l` is given",
+        "Charge of the ML region. Required unless `-l` or YAML `calc.model_charge` gives it",
         '`result.json["rigid_projection"]["hessian_source"]`',
     ),
     Path("docs/ja/irc.md"): (
-        "ML 領域の電荷。`-l` を使う場合のほかは必須",
+        "ML 領域の電荷。`-l` か YAML の `calc.model_charge` が無ければ必須",
         '`result.json["rigid_projection"]["hessian_source"]`',
     ),
     Path("skills/mlmm-hpc/SKILL.md"): (

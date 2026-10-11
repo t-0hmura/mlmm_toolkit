@@ -29,7 +29,8 @@ Options:
                                   pdb is omitted.
   -q, --charge INTEGER            Net charge of the ML region/model system;
                                   overrides calc.model_charge from YAML.
-                                  Required unless --ligand-charge is provided.
+                                  Required unless --ligand-charge or YAML
+                                  calc.model_charge gives it.
   -l, --ligand-charge TEXT        Total charge for unknown ligand residues or a
                                   per-resname mapping (e.g., GPP:-3,SAM:1), used
                                   to derive the ML-region charge when -q is

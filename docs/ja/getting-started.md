@@ -59,7 +59,7 @@ AlphaFold 3、Boltz-2、OpenFold3 などの構造予測や、各種のドッキ�
 | 推奨ツール | コマンド例 | 特徴 |
 | --- | --- | --- |
 | **reduce** (Richardson Lab) | `reduce input.pdb > output.pdb` | 高速で結晶構造の水素付加に広く使われる |
-| **pdb2pqr** | `pdb2pqr --ff=AMBER input.pdb output.pqr` | 水素を付加し、部分電荷を割り当てる |
+| **pdb2pqr** | `pdb2pqr --ff=AMBER --pdb-output=output.pdb input.pdb output.pqr` | 水素を付加する（`output.pdb` を使う） |
 | **Open Babel** | `obabel input.pdb -O output.pdb -h` | 汎用的な化学情報処理ツール |
 | **mm-parm --add-h** | `mlmm mm-parm -i input.pdb --add-h` | PDBFixer で `--ph`（デフォルト 7.0）に合わせて水素を付加 |
 

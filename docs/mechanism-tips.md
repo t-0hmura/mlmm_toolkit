@@ -71,7 +71,7 @@ A successful TS optimization gives one imaginary mode along the reaction coordin
 (ts-search-fails)=
 ## When the TS search fails
 
-When `all` runs into a problem, do not rerun the whole workflow; rerun only the segment that had the problem. Each move below can start from that segment's structures with `tsopt` or TS-only mode.
+When `all` runs into a problem, do not rerun the whole workflow; rerun only the segment that had the problem.
 
 ### Extra imaginary modes
 

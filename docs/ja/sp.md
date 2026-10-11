@@ -65,7 +65,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 | オプション | 引数の型 | デフォルト | 説明 |
 | --- | --- | --- | --- |
 | `-i, --input` | パス | （必須） | 全系の入力構造ファイル（`.pdb`, `.cif`, `.mmcif`、または `--ref-pdb` と組み合わせた `.xyz`） |
-| `-q, --charge` | 整数 | `None` | ML 領域の電荷。`-l` を使う場合のほかは必須 |
+| `-q, --charge` | 整数 | `None` | ML 領域の電荷。`-l` か YAML の `calc.model_charge` が無ければ必須 |
 | `-m, --multiplicity` | 整数 | `1` | ML 領域のスピン多重度（2S+1） |
 | `-l, --ligand-charge` | 文字列 | `None` | 残基ごとの形式電荷（例: `'SAM:1,GPP:-3'`）またはリガンドの総電荷。`-q` を省いたときに ML 領域の電荷を求めるのに使用（PDB/mmCIF 入力または `--ref-pdb`） |
 | `-b, --backend` | 文字列 | `uma` | ML 領域のバックエンド（`uma`, `orb`, `mace`, `aimnet2`, `dft`）。`-b dft` の設定は [MLIP の TS を DFT で確かめる](dft-backend.md) を参照 |

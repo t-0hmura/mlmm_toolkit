@@ -100,9 +100,10 @@ summed charge, and select such a residue by the name written in the file
 
 ### Link hydrogens
 
-With `--add-linkh` (off by default), when `extract` cuts a covalent bond
-between a kept atom A and a removed atom B at a carbon boundary, it places a
-hydrogen along A→B at 1.09 Å. It is written as `HETATM` atom `HL` in residue
+With `--add-linkh` (off by default), when `extract` cuts an amino-acid CB–CA,
+CA–N, or CA–C bond (only CA–C for proline and hydroxyproline), it adds a
+hydrogen 1.09 Å from the kept carbon toward the removed partner. It is
+written as `HETATM` atom `HL` in residue
 `LKH`, chain `L`, and carries no charge. This is for standalone pocket models;
 a `--model-pdb` for mlmm does not need it, because the ML/MM calculator adds
 link atoms from the `--parm7` topology.
@@ -313,8 +314,8 @@ outputs; it takes no format value, and there is no `--convert-files gjf`. Only
 
 ## Amber parm7 and rst7
 
-mlmm-toolkit uses the Amber parm7 (topology) and rst7 (coordinates) pair for
-the MM part. `mlmm mm-parm` writes one of each from a PDB through AmberTools `tleap`.
+mlmm-toolkit takes only the Amber parm7 (topology) for the MM part.
+`mlmm mm-parm` writes it and an rst7 (coordinates) from a PDB through AmberTools `tleap`.
 Regenerate with `mm-parm` instead of editing a parm7 by hand.
 
 | File | Holds |
@@ -364,10 +365,11 @@ parameters; `--keep-temp` keeps the build directory so you can inspect the
 generated `.frcmod`.
 
 **Change one residue's layer** without rebuilding the parm7, which does not
-change; only the B-factors in the PDB move. This moves residue 44 to Frozen-MM:
+change; only the B-factors in the PDB move. This moves residue 44 of chain A
+to Frozen-MM:
 
 ```bash
-awk 'BEGIN{OFS=""} /^ATOM|^HETATM/{if(substr($0,23,4)+0==44){$0=substr($0,1,60)" 20.00"substr($0,67)}} {print}' \
+awk 'BEGIN{OFS=""} /^ATOM|^HETATM/{if(substr($0,22,1)=="A" && substr($0,23,4)+0==44){$0=substr($0,1,60)" 20.00"substr($0,67)}} {print}' \
     complex.pdb > complex_edited.pdb
 mlmm opt -i complex_edited.pdb --parm7 complex.parm7 -q 0 -m 1 -o result_opt
 ```

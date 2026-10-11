@@ -92,7 +92,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │ │ └── _determinism.py strict-determinism setup (--deterministic)
 │ │
 │ ├── io/ # === L4b Infra (I/O) ===
-│ │ ├── summary.py summary.json / summary.log writer
+│ │ ├── summary.py summary.log writer
 │ │ ├── energy_diagram.py Plotly diagram
 │ │ ├── trj2fig.py trajectory → PNG / HTML / SVG / PDF
 │ │ ├── pdb_fix.py altloc resolution
@@ -244,7 +244,7 @@ implementation changes currently touch `mlmm_calc.py` and the dispatcher.
 
 | concern | file |
 |---|---|
-| `summary.json` / `summary.log` writer | `mlmm/io/summary.py` |
+| `summary.log` writer | `mlmm/io/summary.py` |
 | Plotly energy diagram | `mlmm/io/energy_diagram.py` |
 | Trajectory → PNG / HTML / SVG / PDF | `mlmm/io/trj2fig.py` |
 | PDB altloc resolution | `mlmm/io/pdb_fix.py` |

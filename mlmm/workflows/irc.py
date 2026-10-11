@@ -277,7 +277,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
 )
 @click.option("-q", "--charge", type=int, required=False,
               help="Net charge of the ML region/model system; overrides calc.model_charge from YAML. "
-                   "Required unless --ligand-charge is provided.")
+                   "Required unless --ligand-charge or YAML calc.model_charge gives it.")
 @click.option("-l", "--ligand-charge", type=str, default=None, show_default=False,
               help="Total charge for unknown ligand residues or a per-resname mapping "
                    "(e.g., GPP:-3,SAM:1), used to derive the ML-region charge when -q "

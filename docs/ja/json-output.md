@@ -61,7 +61,7 @@ ML/MM 計算機を評価するコマンドは、さらに以下を記録しま�
 | フィールド | 型 | 説明 |
 |-----------|------|------|
 | `execution_status` | string | `completed` または `failed`。`all` では、IRC の後の端点の最適化が収束しなくても `completed` のままで、エラーで止まると `failed` になります。 |
-| `scientific_status` | string | 指定した段がすべて収束すれば `success`、そうでなければ `partial` か `failed`。`all` では、n_imag ≥ 2 の TS は `partial` になり、n_imag = 0 の TS は IRC の前で止まるので、`success` は n_imag = 1 を意味します。有効な TS と、片方の端点の最適化の失敗の組み合わせも `partial` です。単体の `tsopt` は収束だけを見て n_imag を見ないので、`n_imaginary_modes` を読んでください。 |
+| `scientific_status` | string | 指定した段がすべて収束すれば `success`、そうでなければ `partial` か `failed`。`--tsopt` を指定した `all` では、n_imag ≥ 2 の TS は `partial` になり、n_imag = 0 の TS は IRC の前で止まるので、`success` は n_imag = 1 を意味します。有効な TS と、片方の端点の最適化の失敗の組み合わせも `partial` です。単体の `tsopt` は収束だけを見て n_imag を見ないので、`n_imaginary_modes` を読んでください。 |
 | `scientific_status_reasons` | string[] | 利用できない、または欠落した段の理由。正常終了時は省略されます。 |
 | `expected_item_ids` / `observed_item_ids` | string[] | 欠けた作業を検出するための、期待された段と観測された段の ID。 |
 | `stage_outcomes` | object[] | `stage`、`item_id`、`required`、`executed`、`converged`、`usable`、`reason`、`artifacts` を持つ段階別の結果。 |
@@ -137,10 +137,10 @@ ML/MM 計算機を評価するコマンドは、さらに以下を記録しま�
 | `reaction_mode_index` | int\|null | `all` が IRC でたどる、厳密な PHVA の負の固有値のモード。参照方向にそろったモードが無いときは 0 番を使ってその旨を記録し、反応のモードであることは確かめていません |
 | `reaction_mode_frequency_cm` | float\|null | 選んだ負のモードの振動数 |
 | `reaction_mode_source` | string\|null | モードの選び方（参照方向にそろえたか、0 番の代用か） |
-| `energy_hartree` | float \| null | TS エネルギー (Hartree)。最終エネルギーの評価に失敗した場合は `null`（有限でない数はすべて `null` で書かれます）で、そのとき実行と結果の状態は `failed` |
+| `energy_hartree` | float | TS エネルギー (Hartree) |
 | `n_imaginary_modes` | int\|null | 虚振動モードの数。PHVA を実行しなかった場合は `null` |
 | `n_negative_modes` | int\|null | 大きさを問わない負の振動数の数（閾値以内も含む）。`n_imaginary_modes` と並べて見る診断用の値で、PHVA を実行しなかった場合は `null` |
-| `imaginary_frequencies_cm` | float[]\|null | 虚振動数 (cm⁻¹, 負の値)。PHVA を実行しなかった場合、`--skip-final-freq` では `[]`、それ以外は `null` |
+| `imaginary_frequencies_cm` | float[]\|null | 虚振動数 (cm⁻¹, 負の値)。PHVA 未実行時は `null` または `[]` |
 | `frequency_zero_cutoff_cm` / `imaginary_mode_criterion` / `imaginary_frequency_threshold_cm` | float / string / float | デフォルト値は `5.0`、`"frequency_cutoff_cm"`、`-5.0` で、ν < −5.00 cm⁻¹ だけを虚振動として数えます。 |
 | `opt_mode` | string | `"grad"`、`"hess"`、`"dimer"`、`"rsprfo"`、`"rsirfo"`、`"trim"` のいずれか。`hess` は RS-P-RFO を選択 |
 | `opt_mode_requested` | string | CLI で要求したプリセット |

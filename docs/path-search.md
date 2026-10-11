@@ -109,7 +109,7 @@ The options shared by every ML/MM calculation command are explained once in {ref
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
 | `-i, --input` | paths | (required) | Two or more structures in reaction order (`.pdb`, `.cif`, `.mmcif`, or `.xyz` with `--ref-pdb`), after one `-i` (`-i` may also be repeated for each file) |
-| `-q, --charge` | integer | `None` | Charge of the ML region. Required unless `-l` is given |
+| `-q, --charge` | integer | `None` | Charge of the ML region. Required unless `-l` or YAML `calc.model_charge` gives it |
 | `-m, --multiplicity` | integer | `1` | Spin multiplicity (2S+1) |
 | `-l, --ligand-charge` | text | `None` | Total ligand charge (for example `-1`) or a charge per residue name (for example `'GPP:-3,SAM:1'`), used to derive the ML-region charge when `-q` is omitted (PDB/mmCIF input or `--ref-pdb`) |
 | `-b, --backend` | text | `uma` | Backend of the ML region (`uma`, `orb`, `mace`, `aimnet2`, `dft`) |

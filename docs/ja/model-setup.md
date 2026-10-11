@@ -159,7 +159,7 @@ mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 
 - 原子番号は 1 始まりで、`--zero-based` を付けると 0 始まりになります。`--restraint-k` は力の定数です（デフォルト 300 eV/Å²）。
 - `scan`・`scan2d`・`scan3d` では、`--restraint-k` が各段の力の定数です（距離は eV/Å²、角度は eV/rad²）。YAML の `bias.k` より CLI の値が優先されます。各段はその段の座標だけを拘束します。`all` では `--scan-restraint-k` で渡します。スキャンリストの書き方は {ref}`スキャンリスト仕様 <ja-scan-list-spec>` にあります。
-- 出力のエネルギーは、拘束のエネルギーを除いた値です。
+- `opt` の `result.json`（`--out-json`）とスキャンの結果のエネルギーは、拘束のエネルギーを除いた値です。
 
 ## 使用上の注意点
 

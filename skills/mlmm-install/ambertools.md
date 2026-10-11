@@ -30,8 +30,7 @@ tleap -h | head -3
 ## Install from the official tarball
 
 If `conda-forge` is not available, AmberTools can also be installed
-from the official tarball at https://ambermd.org/AmberTools.php
-(free academic license required). After install:
+from the official tarball at https://ambermd.org/AmberTools.php. After install:
 
 ```bash
 source <amber_install>/amber.sh   # sets AMBERHOME, PATH, LD_LIBRARY_PATH
@@ -51,7 +50,7 @@ mlmm mm-parm -i input.pdb \
 ```
 
 `mm-parm` writes `complex.parm7` and `complex.rst7` directly to the
-current working directory. Pass them to downstream subcommands via
+current working directory. Pass `complex.parm7` to downstream subcommands via
 `--parm7`, and the layer-encoded PDB with `-i` (`--ref-pdb` for XYZ input);
 `--detect-layer` (on by default) reads its B-factor layers. The water model is **fixed by `--ff-set`**:
 `ff19SB` ships with OPC3 water, `ff14SB` with TIP3P. There is **no
@@ -73,8 +72,7 @@ separate `--water` flag**, and there is **no `--force-field` flag**
   antechamber for parameter generation; the actual ML/MM gradient
   evaluation goes through bundled `hessian_ff`.
 - Producing trajectories. The toolkit reads positions from the
-  `parm7` + `rst7` pair (or from a fresh PDB) but does not call
-  `sander` / `pmemd`.
+  structure given with `-i` but does not call `sander` / `pmemd`.
 
 ## See also
 

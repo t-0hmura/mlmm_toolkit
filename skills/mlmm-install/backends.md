@@ -114,6 +114,7 @@ the backend set differs.
 ```bash
 conda create -n <YOUR_MACE_ENV> python=3.11
 conda activate <YOUR_MACE_ENV>
+conda install -c conda-forge ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler -y
 
 # torch matching your CUDA driver (see CUDA and PyTorch)
 pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/<cu_index>

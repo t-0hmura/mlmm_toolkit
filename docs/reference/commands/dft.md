@@ -30,12 +30,12 @@ Options:
                                   (ranges allowed like 1-5). Used when --model-
                                   pdb is omitted.
   -q, --charge INTEGER            ML region charge. Required unless --ligand-
-                                  charge is provided (PDB inputs or XYZ with
-                                  --ref-pdb).
+                                  charge (PDB inputs or XYZ with --ref-pdb) or
+                                  YAML calc.model_charge gives it.
   -l, --ligand-charge TEXT        Total charge or per-resname mapping (e.g.,
                                   'SAM:1,GPP:-3') used to derive ML region
-                                  charge when -q is omitted (requires PDB input
-                                  or --ref-pdb).
+                                  charge when -q is omitted (requires PDB/mmCIF
+                                  input or --ref-pdb).
   -m, --multiplicity INTEGER RANGE
                                   Spin multiplicity (2S+1) for the ML region;
                                   YAML applies when omitted.  [default: (1);

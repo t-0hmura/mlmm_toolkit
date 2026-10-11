@@ -65,7 +65,7 @@ Every result reports `execution_status` and `scientific_status`; multi-stage and
 | Field | Type | Description |
 |-------|------|-------------|
 | `execution_status` | string | `completed` or `failed`. In `all`, an endpoint optimization after IRC that does not converge leaves it `completed`; one that stops on an error makes it `failed`. |
-| `scientific_status` | string | `success` when every requested stage converged; otherwise `partial` or `failed`. In `all`, a TS with n_imag ≥ 2 gives `partial`, and a TS with n_imag = 0 stops the run before IRC, so `success` means n_imag = 1; a valid TS plus one failed endpoint optimization is also `partial`. Standalone `tsopt` looks only at convergence, not at n_imag; read `n_imaginary_modes`. |
+| `scientific_status` | string | `success` when every requested stage converged; otherwise `partial` or `failed`. In `all --tsopt`, a TS with n_imag ≥ 2 gives `partial`, and a TS with n_imag = 0 stops the run before IRC, so `success` means n_imag = 1; a valid TS plus one failed endpoint optimization is also `partial`. Standalone `tsopt` looks only at convergence, not at n_imag; read `n_imaginary_modes`. |
 | `scientific_status_reasons` | string[] | Reasons for unusable or missing stages; omitted on clean success. |
 | `expected_item_ids` / `observed_item_ids` | string[] | Expected and observed stage identifiers, used to detect missing work. |
 | `stage_outcomes` | object[] | One entry per stage with `stage`, `item_id`, `required`, `executed`, `converged`, `usable`, `reason`, and `artifacts`. |
@@ -147,10 +147,10 @@ An optimizer may also report `"optimization_status": "stalled"`: the energy stop
 | `reaction_mode_index` | int\|null | Negative exact-PHVA root that `all` follows in IRC; when no reference-aligned root is available, root 0 is used and labelled as such, which does not confirm that it is the reaction mode |
 | `reaction_mode_frequency_cm` | float\|null | Frequency of the selected negative root |
 | `reaction_mode_source` | string\|null | How the root was selected (aligned with the reference direction, or the root-0 fallback) |
-| `energy_hartree` | float \| null | TS energy (Hartree); `null` when the final energy evaluation failed (every non-finite number is written as `null`), in which case execution and scientific status are `failed` |
+| `energy_hartree` | float | TS energy (Hartree) |
 | `n_imaginary_modes` | int\|null | Number of imaginary frequencies; `null` if PHVA was not run |
 | `n_negative_modes` | int\|null | Number of negative frequencies of any size, including those within the cutoff; a diagnostic next to `n_imaginary_modes`, `null` if PHVA was not run |
-| `imaginary_frequencies_cm` | float[]\|null | Imaginary frequencies (cm⁻¹, negative); without PHVA, `[]` with `--skip-final-freq` and otherwise `null` |
+| `imaginary_frequencies_cm` | float[]\|null | Imaginary frequencies (cm⁻¹, negative); `null` or `[]` when PHVA was not run |
 | `frequency_zero_cutoff_cm` / `imaginary_mode_criterion` / `imaginary_frequency_threshold_cm` | float / string / float | The defaults are `5.0`, `"frequency_cutoff_cm"`, and `-5.0`: only ν < −5.00 cm⁻¹ counts as imaginary. |
 | `opt_mode` | string | `"grad"`, `"hess"`, `"dimer"`, `"rsprfo"`, `"rsirfo"`, or `"trim"`; `hess` selects RS-P-RFO |
 | `opt_mode_requested` | string | Requested CLI preset |

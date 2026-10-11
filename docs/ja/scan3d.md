@@ -135,7 +135,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 | オプション | 引数の型 | デフォルト | 説明 |
 | --- | --- | --- | --- |
 | `-i, --input` | パス | `None` | 全系の構造ファイル（`.pdb`, `.cif`, `.mmcif`、または `--ref-pdb` を付けた `.xyz`）。`--csv` を使う場合のほかは必須 |
-| `-q, --charge` | 整数 | `None` | ML 領域の電荷。`-l` か `--csv` を使う場合のほかは必須 |
+| `-q, --charge` | 整数 | `None` | ML 領域の電荷。`-l`、YAML の `calc.model_charge`、`--csv` のどれも無ければ必須 |
 | `-m, --multiplicity` | 整数 | `1` | ML 領域のスピン多重度（2S+1） |
 | `-l, --ligand-charge` | 文字列 | `None` | 未知のリガンド残基の総電荷（例: `-1`）または残基名ごとの電荷（例: `'GPP:-3,SAM:1'`）。`-q` を省いたときに ML 領域の電荷を求めるのに使用（PDB/mmCIF 入力または `--ref-pdb`） |
 | `-s, --scan-lists` | 文字列 | `None` | YAML/JSON スペックファイルまたは 1 つのインラインリテラルで 3 つの範囲を指定。距離 `(i,j,low,high)`、角度 `(i,j,k,low,high)`、二面角 `(i,j,k,l,low,high)`。`--csv` を使う場合のほかは必須 |

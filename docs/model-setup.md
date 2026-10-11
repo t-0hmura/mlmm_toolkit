@@ -159,7 +159,7 @@ mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 
 - Atom numbers are 1-based; `--zero-based` counts from 0. `--restraint-k` sets the force constant (default 300 eV/Å²).
 - In `scan`, `scan2d`, and `scan3d`, `--restraint-k` is the force constant of each step (eV/Å² for distances, eV/rad² for angles) and takes priority over YAML `bias.k`. Each stage restrains only its own coordinates. In `all`, pass the value with `--scan-restraint-k`. For the format of the scan lists, see {ref}`Scan-list spec <scan-list-spec>`.
-- Reported energies leave out the energy of the restraint.
+- The energies in `result.json` (`opt --out-json`) and in the scan results leave out the energy of the restraint.
 
 ## Notes
 

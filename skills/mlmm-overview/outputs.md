@@ -46,7 +46,7 @@ Standalone ML/MM commands need `--parm7`; `all` builds it with `mm-parm` when it
 Status:
 
 - `execution_status` is `completed` or `failed`: whether the requested stages ran. `scientific_status` is `success`, `partial`, or `failed`: whether they met their numerical criteria. `scientific_status_reasons` lists what is missing or unusable and is omitted on success.
-- In `all`, a TS with n_imag ≥ 2 gives `partial`, and a TS with n_imag = 0 stops the run before the IRC, so `success` means n_imag = 1 for every TS.
+- In `all --tsopt`, a TS with n_imag ≥ 2 gives `partial`, and a TS with n_imag = 0 stops the run before the IRC, so `success` means n_imag = 1 for every TS.
 - `expected_item_ids` and `observed_item_ids` list the expected and observed stages; compare them before accepting the run. `stage_outcomes` has one record per stage and `point_outcomes` one per scan point. IRC records say how the integration stopped, with no success or failure verdict per direction.
 - `pipeline_stop` appears only when the run stopped early and names the stage and the reason.
 
@@ -164,7 +164,7 @@ When `execution_status` is `failed` or `scientific_status` is not `success`, loo
 
 1. `summary.log`: its header gives both statuses, and an early stop is shown as `Pipeline stop`. On the console, `RESULT WARNING:` lines after `====== Pipeline summary ======` give the reasons.
 2. `segments/seg_NN/{ts,irc}/result.json` and `segments/seg_NN/endpoint_opt/{R,P}/result.json`: the status of each stage. `endpoint_opt/failure.json` is written when an endpoint optimization could not run. In an `all` run, `freq/` and `dft/` have no `result.json`.
-3. The terminal or scheduler stderr, for tracebacks that are not in the JSON. Read the exit code with the status: 0 is `success` or `partial` (tell them apart by `scientific_status`); 1 is non-convergence, no usable result, a runtime exception, or an output failure; 2 is invalid input, arguments, or configuration (including invalid YAML), so fix the command instead of resubmitting it; 130 is an interrupt. A run that fails while its options or inputs are checked can stop before writing any JSON, so treat a nonzero exit code as a failure.
+3. The terminal or scheduler stderr, for tracebacks that are not in the JSON. Read the exit code with the status: 0 is `success` or `partial` (tell them apart by `scientific_status`); 1 is non-convergence, no usable result, a runtime exception, or an output failure; 2 is a CLI argument that the command rejects or a malformed configuration YAML, so fix the command instead of resubmitting it; 130 is an interrupt. A run that fails while its options or inputs are checked can stop before writing any JSON, so treat a nonzero exit code as a failure.
 
 Partial outputs are kept. The MEP intermediates are under `_work/path_opt/` or `_work/path_search/`, and `segments/seg_NN/` can hold files of the current run even when a later stage failed. Trust the stage outcomes and `current_output_paths`, not the existence of a directory.
 
@@ -182,7 +182,7 @@ A barrier or reaction energy of hundreds to thousands of kcal/mol usually means 
 
 Each `segments/seg_NN/` has the same diagrams for its own step, without `_all`, and `irc/irc_plot.png` shows its IRC. Energies are in kcal/mol relative to the first state. When the PNG cannot be written, the console prints a `NOTE`, and the values stay in `summary.json["energy_diagrams"]`.
 
-Read a barrier from `barrier_kcal` of its level ([summary.json](#summaryjson)) or from the TS-labelled entry of `energy_diagrams`. Do not compute `max(energies) − E(R)`: after thermal or DFT corrections, P or a later state can lie above the TS.
+Read a barrier from `barrier_kcal` of its level ([summary.json](#summaryjson)). Do not compute `max(energies) − E(R)`: after thermal or DFT corrections, P or a later state can lie above the TS.
 
 To draw a diagram from the numbers of several runs, use `mlmm energy-diagram` ([cli/utilities.md](../mlmm-cli/utilities.md)).
 

@@ -22,8 +22,9 @@ mlmm extract -i 1abc.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' -r 4.0 -o pocket.pdb
 ```
 
 `-c` takes a PDB path, residue IDs (`'A:44,B:321'`), or names (`'GPP,SAM'`);
-with chain IDs, `A:SAM:44` is the safest form. `-l` takes the total charge or
-a per-residue mapping. With link H and `result.json`:
+with chain IDs, `A:SAM:44` is the safest form. `-l` takes the total charge of
+the unknown residues (ligands) as one number, or a per-residue mapping. With
+link H and `result.json`:
 
 ```bash
 mlmm extract -i complex.pdb -c 'A:123,A:124' -l 'GPP:-3' -r 3.5 \

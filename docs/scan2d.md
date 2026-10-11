@@ -127,7 +127,7 @@ The options shared by every ML/MM calculation command are explained once in {ref
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
 | `-i, --input` | path | (required) | Full-system structure (`.pdb`, `.cif`, `.mmcif`, or `.xyz` with `--ref-pdb`) |
-| `-q, --charge` | integer | `None` | Charge of the ML region. Required unless `-l` is given |
+| `-q, --charge` | integer | `None` | Charge of the ML region. Required unless `-l` or YAML `calc.model_charge` gives it |
 | `-m, --multiplicity` | integer | `1` | Spin multiplicity (2S+1) of the ML region |
 | `-l, --ligand-charge` | text | `None` | Total charge of the unknown ligand residues (e.g. `-1`) or per-residue charges (e.g. `'GPP:-3,SAM:1'`), used to derive the ML-region charge when `-q` is omitted (PDB/mmCIF input or `--ref-pdb`) |
 | `-s, --scan-lists` | text | (required) | Two ranges as a YAML/JSON spec file or one inline literal: distance `(i,j,low,high)`, angle `(i,j,k,low,high)`, or dihedral `(i,j,k,l,low,high)` |

@@ -3445,12 +3445,12 @@ def _prepare_tsopt_output_dir(
     "--charge",
     type=int,
     required=False,
-    help="Total charge of the ML region. Required unless --ligand-charge is provided.",
+    help="Total charge of the ML region. Required unless --ligand-charge or YAML calc.model_charge gives it.",
 )
 @click.option("-l", "--ligand-charge", type=str, default=None, show_default=False,
               help="Total charge for unknown ligand residues or a per-resname mapping "
                    "(e.g., GPP:-3,SAM:1), used to derive the ML-region charge when -q "
-                   "is omitted (requires PDB input or --ref-pdb).")
+                   "is omitted (requires PDB/mmCIF input or --ref-pdb).")
 @click.option(
     "-m",
     "--multiplicity",

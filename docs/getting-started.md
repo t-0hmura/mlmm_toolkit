@@ -59,7 +59,7 @@ Input structures must contain **every hydrogen atom**; `all` does not add them. 
 | Recommended tool | Example command | Notes |
 | --- | --- | --- |
 | **reduce** (Richardson Lab) | `reduce input.pdb > output.pdb` | Fast; widely used to add hydrogens to crystal structures |
-| **pdb2pqr** | `pdb2pqr --ff=AMBER input.pdb output.pqr` | Adds hydrogens and assigns partial charges |
+| **pdb2pqr** | `pdb2pqr --ff=AMBER --pdb-output=output.pdb input.pdb output.pqr` | Adds hydrogens (use `output.pdb`) |
 | **Open Babel** | `obabel input.pdb -O output.pdb -h` | General-purpose cheminformatics toolkit |
 | **mm-parm --add-h** | `mlmm mm-parm -i input.pdb --add-h` | Adds hydrogens with PDBFixer at `--ph` (default 7.0) |
 

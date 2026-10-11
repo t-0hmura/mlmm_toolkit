@@ -16,11 +16,12 @@ Options:
   -i, --input FILE...             Two endpoint structures in PDB/mmCIF, or XYZ
                                   with --ref-pdb.  [required]
   -q, --charge INTEGER            ML region charge. Required unless --ligand-
-                                  charge is provided.
+                                  charge or YAML calc.model_charge gives it.
   -l, --ligand-charge TEXT        Total charge for unknown ligand residues or a
                                   per-resname mapping (e.g., GPP:-3,SAM:1), used
                                   to derive the ML-region charge when -q is
-                                  omitted (requires PDB input or --ref-pdb).
+                                  omitted (requires PDB/mmCIF input or --ref-
+                                  pdb).
   -m, --multiplicity INTEGER RANGE
                                   Spin multiplicity (2S+1).  [default: (1);
                                   x>=1]

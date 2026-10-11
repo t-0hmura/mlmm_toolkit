@@ -392,7 +392,7 @@ gs:
  fix_first: true # 最初の端点を固定
  fix_last: true # 最後の端点を固定
  max_nodes: 20 # 最大ストリングノード数
- perp_thresh: 0.005 # 垂直変位閾値
+ perp_thresh: 0.005 # ノードを足すかを決める、経路に垂直な力の閾値
  reparam_check: rms # 再パラメータ化チェック指標
  reparam_every: 1 # 再パラメータ化間隔
  reparam_every_full: 1 # 完全再パラメータ化間隔
@@ -728,7 +728,7 @@ dft:
 
 ```yaml
 bias:
- k: 300.0 # 調和バイアス強度 (eV/Å^2)
+ k: 300.0 # 調和バイアス強度（距離は eV/Å^2、角度・二面角は eV/rad^2）
 ```
 
 ---

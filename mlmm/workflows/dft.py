@@ -700,8 +700,8 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     type=int,
     required=False,
     help=(
-        "ML region charge. Required unless --ligand-charge is provided "
-        "(PDB inputs or XYZ with --ref-pdb)."
+        "ML region charge. Required unless --ligand-charge (PDB inputs or XYZ with --ref-pdb) "
+        "or YAML calc.model_charge gives it."
     ),
 )
 @click.option(
@@ -712,7 +712,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     show_default=False,
     help=(
         "Total charge or per-resname mapping (e.g., 'SAM:1,GPP:-3') used to derive "
-        "ML region charge when -q is omitted (requires PDB input or --ref-pdb)."
+        "ML region charge when -q is omitted (requires PDB/mmCIF input or --ref-pdb)."
     ),
 )
 @click.option(

@@ -42,11 +42,13 @@ Options:
                                   (ranges allowed like 1-5). Used when --model-
                                   pdb is omitted.
   -q, --charge INTEGER            Total charge of the ML region. Required unless
-                                  --ligand-charge is provided.
+                                  --ligand-charge or YAML calc.model_charge
+                                  gives it.
   -l, --ligand-charge TEXT        Total charge for unknown ligand residues or a
                                   per-resname mapping (e.g., GPP:-3,SAM:1), used
                                   to derive the ML-region charge when -q is
-                                  omitted (requires PDB input or --ref-pdb).
+                                  omitted (requires PDB/mmCIF input or --ref-
+                                  pdb).
   -m, --multiplicity INTEGER RANGE
                                   Spin multiplicity (2S+1) for the ML region.
                                   [default: (1); x>=1]

@@ -119,7 +119,8 @@ mlmm dft -i result_tsopt/final_geometry.pdb --parm7 real.parm7 \
 
 Repeat for both endpoints, then combine the energies with
 [energy-diagram](utilities.md#energy-diagram). After `all --tsopt`, the
-structures are `segments/seg_NN/reactant.pdb`, `ts.pdb`, and `product.pdb`.
+structures are `segments/seg_NN/reactant.*`, `ts.*`, and `product.*` (in the
+input format).
 
 ## Next step
 

@@ -151,7 +151,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 | オプション | 引数の型 | デフォルト | 説明 |
 | --- | --- | --- | --- |
 | `-i, --input` | パス | （必須） | 全系の構造 1 つ（`.pdb`, `.cif`, `.mmcif`、または `--ref-pdb` と組み合わせた `.xyz`）。軌跡は 1 フレームを `.xyz` に切り出してから指定（{ref}`軌跡から 1 フレームを取り出す <ja-trajectory-one-frame>` を参照） |
-| `-q, --charge` | 整数 | `None` | ML 領域の電荷。`-l` を使う場合のほかは必須 |
+| `-q, --charge` | 整数 | `None` | ML 領域の電荷。`-l` か YAML の `calc.model_charge` が無ければ必須 |
 | `-m, --multiplicity` | 整数 | `1` | ML 領域のスピン多重度（2S+1） |
 | `-l, --ligand-charge` | 文字列 | `None` | 未知のリガンドの総電荷、または残基名ごとの電荷（例: `'GPP:-3,SAM:1'`）。`-q` を省いたときに ML 領域の電荷を求めるのに使用（PDB/mmCIF 入力または `--ref-pdb`） |
 | `-o, --out-dir` | パス | `./result_tsopt/` | 出力先ディレクトリ |
