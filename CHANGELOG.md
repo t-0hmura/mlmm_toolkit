@@ -46,7 +46,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Include every movable MM atom in the default Hessian of `MLMMCore` and `sp --hess`, as the CLI did (a layered PDB gave an ML-only Hessian), and show the CLI `--freeze-atoms` in `sp --show-config`.
 - Stop `tsopt --opt-mode hess` before the optimization, not after it, when `--active-dof-mode` needs atoms outside the `--hess-cutoff` Hessian.
 - Write only the macro-step (ML/MM) frames to `optimization_trj.xyz` and `optimization_all_trj.xyz` when `opt` and `tsopt` run microiterations with `--dump`; MM-only relaxation frames were mixed in.
-- Reset the Colab Mol* view when a structure with another atom count is loaded, so an example loaded after another no longer shows an empty viewer; switching between Reactant and Product keeps the view.
+- In the Colab notebook, reset the Mol* view when a structure with another atom count is loaded (an example loaded after another showed an empty viewer; switching between Reactant and Product keeps the view), and install orb-models 0.7 on Python 3.13 runtimes (pip fell back to 0.5, so ORB runs stopped with a backend error).
 
 ## [0.3.7] — 2026-09-19
 

@@ -6972,7 +6972,7 @@ def test_colab_runtime_is_pinned_to_python312_image() -> None:
     assert notebook["metadata"]["colab"]["runtime_attributes"]["runtime_version"] == "2026.07"
 
 
-@pytest.mark.parametrize("python_version", [(3, 11), (3, 12)])
+@pytest.mark.parametrize("python_version", [(3, 11), (3, 12), (3, 13)])
 @pytest.mark.parametrize("existing_flags", [None, "-O2 -DUSER_BUILD_FLAG=1"])
 def test_orb_uses_dm_tree_wheel_and_preserves_base_pins(
     monkeypatch, python_version, existing_flags,
@@ -6985,7 +6985,12 @@ def test_orb_uses_dm_tree_wheel_and_preserves_base_pins(
     calls = []
     _run_orb_install_branch(monkeypatch, python_version=python_version,
                             platform="linux", calls=calls)
-    assert calls == [(("orb-models", "--only-binary=dm-tree", "torch==2.8.0", "numpy==2.1.3"), {})]
+    assert calls == [
+        (("dm-tree>=0.1.9", "cached-path>=1.7.1", "ase>=3.25.0,<4", "scipy>=1.15.1",
+          "tqdm>=4.67.1", "nvalchemi-toolkit-ops[torch]>=0.3.1,<0.4", "--only-binary=dm-tree",
+          "torch==2.8.0", "numpy==2.1.3"), {}),
+        (("--no-deps", "orb-models==0.7.0"), {}),
+    ]
     assert dict(os.environ) == original
 
 
@@ -6994,10 +6999,10 @@ def test_orb_installer_failure_retains_original_error(monkeypatch, capsys) -> No
     original = os.environ.copy()
     with pytest.raises(subprocess.CalledProcessError) as raised:
         _run_orb_install_branch(monkeypatch, python_version=(3, 12), platform="linux",
-                                calls=calls, failure_at="orb-models")
+                                calls=calls, failure_at="--no-deps")
     assert raised.value.output == "build diagnostic"
     assert raised.value.returncode == 1
-    assert calls[-1][0][0] == "orb-models"
+    assert calls[-1][0] == ("--no-deps", "orb-models==0.7.0")
     assert dict(os.environ) == original
     assert "ORB installed" not in capsys.readouterr().out
 
