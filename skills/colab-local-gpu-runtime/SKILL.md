@@ -24,7 +24,7 @@ Run each script with `powershell -ExecutionPolicy Bypass -File`. `setup.ps1` and
 
 ## When it does not work
 
-- **Connect stays disabled:** paste the full URL with `?token=...`, and open Colab in Chrome or Edge; some embedded browsers block `localhost`, which does not mean the runtime is broken.
+- **Connect stays disabled:** paste the full URL with `?token=...`, and open Colab in Chrome or Edge; some embedded browsers block `localhost`, which does not mean the runtime is broken. If the browser asks whether colab.research.google.com may access devices on your local network, allow it; when that access is blocked, Colab stays at **Reconnect (Local)** and the browser console reports that access to the loopback address space was denied.
 - **No GPU in the container:** run `status.ps1` and check the NVIDIA driver on Windows.
 - **Docker does not start after the first install:** restart Windows once, open Docker Desktop, and run `start.ps1`.
 - **Release not found on PyPI:** use the matching notebook and source ZIP pair and set the version field to `debug`.
