@@ -466,28 +466,47 @@ def test_tsopt_zero_micro_active_uses_vacuous_micro_not_all_frozen_lbfgs(tmp_pat
     assert mi.to_result_object()["micro_cycles"] == 0
 
 
-def test_tsopt_dump_keeps_initial_micro_trajectory_when_macro_never_runs(
-    tmp_path, monkeypatch
-):
-    import mlmm.workflows.tsopt as tsopt_mod
-    from mlmm.core.defaults import RSIRFO_KW
+def _micro_writing_only_with_dump(converged: bool):
+    """An MM micro optimizer that, like pysisyphus, writes its trajectory only with dump=True."""
 
-    class _NonconvergedMicro:
+    class _Micro:
         cur_cycle = 0
-        is_converged = False
+        is_converged = converged
         is_stalled = False
-        stop_reason = "maximum cycles reached"
+        stop_reason = None if converged else "maximum cycles reached"
+        dumps: list = []
 
         def __init__(self, _geom, **kwargs):
             self.out_dir = Path(kwargs["out_dir"])
+            type(self).dumps.append(kwargs.get("dump"))
 
         def run(self):
-            (self.out_dir / "optimization_trj.xyz").write_text(
-                "2\ninitial micro\nH 0 0 0\nH 0 0 1\n",
-                encoding="utf-8",
-            )
+            if type(self).dumps[-1]:
+                (self.out_dir / "optimization_trj.xyz").write_text(
+                    "2\nmicro\nH 0 0 0\nH 0 0 1\n", encoding="utf-8"
+                )
 
-    _install_common_fakes(monkeypatch, tsopt_mod, _NonconvergedMicro)
+    return _Micro
+
+
+class _NamedFrameGeom(_FakeGeom):
+    """Returns a labelled frame from ``as_xyz`` so the trajectory files can be read back."""
+
+    def __init__(self, n_atoms=2):
+        super().__init__(n_atoms)
+        self.frames = 0
+
+    def as_xyz(self):
+        self.frames += 1
+        return f"2\nmacro {self.frames}\nH 0 0 0\nH 0 0 1"
+
+
+def test_tsopt_dump_writes_no_micro_frames_when_macro_never_runs(tmp_path, monkeypatch):
+    import mlmm.workflows.tsopt as tsopt_mod
+    from mlmm.core.defaults import RSIRFO_KW
+
+    micro = _micro_writing_only_with_dump(converged=False)
+    _install_common_fakes(monkeypatch, tsopt_mod, micro)
     monkeypatch.setattr(
         tsopt_mod,
         "_calc_full_hessian_torch",
@@ -525,36 +544,17 @@ def test_tsopt_dump_keeps_initial_micro_trajectory_when_macro_never_runs(
     assert outcome["cycles"] == 0
     assert outcome["optimizer"] is None
     assert outcome["outcome"].macro.executed is False
-    assert (tmp_path / "optimization_all_trj.xyz").read_text(
-        encoding="utf-8"
-    ) == (tmp_path / "optimization_trj.xyz").read_text(encoding="utf-8")
+    assert micro.dumps and not any(micro.dumps)
+    assert not (tmp_path / "optimization_trj.xyz").exists()
+    assert not (tmp_path / "optimization_all_trj.xyz").exists()
 
 
-def test_tsopt_dump_does_not_duplicate_converged_initial_micro_trajectory(
-    tmp_path, monkeypatch
-):
+def test_tsopt_dump_trajectories_hold_one_oniom_frame_per_macro_step(tmp_path, monkeypatch):
     import mlmm.workflows.tsopt as tsopt_mod
     from mlmm.core.defaults import RSIRFO_KW
 
-    class _ConvergedMicro:
-        cur_cycle = 0
-        is_converged = True
-        is_stalled = False
-        stop_reason = None
-        calls = 0
-
-        def __init__(self, _geom, **kwargs):
-            self.out_dir = Path(kwargs["out_dir"])
-
-        def run(self):
-            type(self).calls += 1
-            label = f"micro {type(self).calls}"
-            (self.out_dir / "optimization_trj.xyz").write_text(
-                f"2\n{label}\nH 0 0 0\nH 0 0 1\n",
-                encoding="utf-8",
-            )
-
-    _install_common_fakes(monkeypatch, tsopt_mod, _ConvergedMicro)
+    micro = _micro_writing_only_with_dump(converged=True)
+    _install_common_fakes(monkeypatch, tsopt_mod, micro)
     monkeypatch.setattr(
         tsopt_mod,
         "_calc_full_hessian_torch",
@@ -570,11 +570,11 @@ def test_tsopt_dump_does_not_duplicate_converged_initial_micro_trajectory(
     monkeypatch.setitem(tsopt_mod.TSOPT_CLASS_MAP, "rsirfo", _FakeMacroOptimizer)
 
     tsopt_mod._run_microiter_tsopt(
-        _FakeGeom(n_atoms=2),
+        _NamedFrameGeom(n_atoms=2),
         {},
         dict(RSIRFO_KW),
         {},
-        {"max_cycles": 1, "dump": True},
+        {"max_cycles": 3, "dump": True},
         {"micro_max_cycles": 1},
         tmp_path,
         dump=True,
@@ -583,9 +583,38 @@ def test_tsopt_dump_does_not_duplicate_converged_initial_micro_trajectory(
         reference_mode=None,
     )
 
-    combined = (tmp_path / "optimization_all_trj.xyz").read_text(encoding="utf-8")
-    assert combined.count("micro 1") == 1
-    assert combined.count("micro 2") == 1
+    trj = (tmp_path / "optimization_trj.xyz").read_text(encoding="utf-8")
+    assert not any(micro.dumps)
+    assert "micro" not in trj
+    assert trj.count("\nmacro ") >= 2
+    assert (tmp_path / "optimization_all_trj.xyz").read_text(encoding="utf-8") == trj
+
+
+def test_opt_dump_trajectories_hold_one_oniom_frame_per_macro_step(tmp_path, monkeypatch):
+    import mlmm.workflows.opt as opt_mod
+
+    micro = _micro_writing_only_with_dump(converged=True)
+    _install_common_fakes(monkeypatch, opt_mod, micro)
+    monkeypatch.setattr(opt_mod, "RFOptimizer", _FakeMacroOptimizer)
+
+    opt_mod._run_microiter_opt(
+        _NamedFrameGeom(n_atoms=2),
+        _FakeCalc(),
+        calc_cfg={},
+        rfo_cfg={},
+        lbfgs_cfg={},
+        opt_cfg={"max_cycles": 3},
+        microiter_cfg={"micro_max_cycles": 1},
+        out_dir_path=tmp_path,
+        partition=_micro_active_partition(),
+        dump=True,
+    )
+
+    trj = (tmp_path / "optimization_trj.xyz").read_text(encoding="utf-8")
+    assert not any(micro.dumps)
+    assert "micro" not in trj
+    assert trj.count("\nmacro ") >= 2
+    assert (tmp_path / "optimization_all_trj.xyz").read_text(encoding="utf-8") == trj
 
 
 def test_tsopt_initial_hessian_is_resolved_after_initial_mm_relaxation(

@@ -745,7 +745,7 @@ def _run_microiter_opt(
         micro_lbfgs_args["max_cycles"] = micro_max_cycles
         micro_lbfgs_args["thresh"] = micro_thresh
         micro_lbfgs_args["out_dir"] = str(out_dir_path)
-        micro_lbfgs_args["dump"] = dump
+        micro_lbfgs_args["dump"] = False
         # The MM equilibration never uses the plateau stop; see the twin in
         # `tsopt.py`. `micro_max_cycles` is the real bound.
         micro_lbfgs_args["energy_plateau"] = False
@@ -990,9 +990,10 @@ def _run_microiter_opt(
                 break
 
             if dump:
-                with open(macro_trj_path, "a") as f:
-                    f.write(geometry.as_xyz() + "\n")
-                _append_xyz_trajectory(optim_all_path, macro_trj_path)
+                _frame = geometry.as_xyz() + "\n"
+                for _path in (macro_trj_path, optim_all_path):
+                    with open(_path, "a") as f:
+                        f.write(_frame)
 
             if macro_converged:
                 # Print final converged row (no micro steps)
@@ -1071,9 +1072,6 @@ def _run_microiter_opt(
             # not later read as clean macro convergence.
             latest_micro_stalled = _micro_out.stalled
             latest_micro_stop_reason = _micro_out.stop_reason or ""
-
-            if dump:
-                _append_xyz_trajectory(optim_all_path, out_dir_path / "optimization_trj.xyz")
 
             # a required micro relaxation that did not explicitly converge stops
             # the macro/micro alternation; the aggregate cannot be converged and no

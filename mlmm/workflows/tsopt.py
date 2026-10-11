@@ -2820,7 +2820,7 @@ def _run_microiter_tsopt(
         micro_lbfgs_args["max_cycles"] = micro_max_cycles
         micro_lbfgs_args["thresh"] = micro_thresh
         micro_lbfgs_args["out_dir"] = str(out_dir_path)
-        micro_lbfgs_args["dump"] = dump
+        micro_lbfgs_args["dump"] = False
         # The MM equilibration never uses the plateau stop. A flat energy while
         # its forces are still above threshold is a stalled optimizer, not MM
         # equilibrium, and stopping there ends the whole macro/micro alternation
@@ -2875,12 +2875,6 @@ def _run_microiter_tsopt(
             latest_micro_stop_reason = _init_micro_out.stop_reason or ""
             if _init_micro_out.converged is not True and not _init_micro_equilibrium:
                 run_macro = False
-                if dump:
-                    _append_xyz_trajectory(
-                        optim_all_path,
-                        out_dir_path / "optimization_trj.xyz",
-                        reset=True,
-                    )
                 emit(
                     "[microiter] Initial MM equilibration did not converge "
                     f"(status={_init_micro_out.status}); no macro step is taken.",
@@ -3068,9 +3062,10 @@ def _run_microiter_tsopt(
                 break
 
             if dump:
-                with open(macro_trj_path, "a") as f:
-                    f.write(geometry.as_xyz() + "\n")
-                _append_xyz_trajectory(optim_all_path, macro_trj_path)
+                _frame = geometry.as_xyz() + "\n"
+                for _path in (macro_trj_path, optim_all_path):
+                    with open(_path, "a") as f:
+                        f.write(_frame)
 
             if macro_converged:
                 # Print final converged row (no micro steps)
@@ -3143,9 +3138,6 @@ def _run_microiter_tsopt(
             # not later read as clean macro convergence.
             latest_micro_stalled = _micro_out.stalled
             latest_micro_stop_reason = _micro_out.stop_reason or ""
-
-            if dump:
-                _append_xyz_trajectory(optim_all_path, out_dir_path / "optimization_trj.xyz")
 
             # a required micro relaxation that did not explicitly converge stops
             # the macro/micro alternation; the aggregate cannot be converged and no
