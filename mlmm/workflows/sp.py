@@ -480,6 +480,12 @@ def cli(
         )
         _reject_sp_output_collisions(out_dir_path, protected_inputs)
 
+        # Apply optional CLI freeze_atoms extension
+        if freeze_atoms_cli is not None:
+            from mlmm.core.utils import _parse_freeze_atoms
+            extra = _parse_freeze_atoms(freeze_atoms_cli)
+            merge_freeze_atom_indices(geom_cfg, extra)
+
         if show_config:
             click.echo(yaml.safe_dump(
                 {"calc": calc_cfg, "geom": geom_cfg, "sp": sp_cfg},
@@ -515,12 +521,6 @@ def cli(
         if not out_json:
             for name in ("result.json", "summary.json"):
                 (out_dir_path / name).unlink(missing_ok=True)
-
-        # Apply optional CLI freeze_atoms extension
-        if freeze_atoms_cli is not None:
-            from mlmm.core.utils import _parse_freeze_atoms
-            extra = _parse_freeze_atoms(freeze_atoms_cli)
-            merge_freeze_atom_indices(geom_cfg, extra)
 
         coord_type = geom_cfg.get("coord_type", "cart")
         from mlmm.core.utils import validate_geometry_config

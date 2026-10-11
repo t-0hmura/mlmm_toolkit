@@ -211,6 +211,33 @@ def test_distance_movable_cutoff_bounds_default_hessian_targets() -> None:
     assert core.movable_indices == [0, 1]
 
 
+def test_bfactor_layers_default_hessian_targets_every_movable_mm_atom(tmp_path) -> None:
+    layered = tmp_path / "layered.pdb"
+    layered.write_text(
+        "".join(
+            f"HETATM{i + 1:5d}  C{i + 1:<2d} LIG A   1    {x:8.3f}   0.000   0.000  1.00{b:6.2f}           C  \n"
+            for i, (x, b) in enumerate([(0.0, 0.0), (1.0, 10.0), (3.0, 20.0)])
+        )
+        + "END\n",
+        encoding="utf-8",
+    )
+    core = object.__new__(MLMMCore)
+    core.selection_indices = [0]
+    core._explicit_hess_mm_atoms = None
+    core._explicit_movable_mm_atoms = None
+    core._explicit_frozen_mm_atoms = None
+    core.use_bfactor_layers = True
+    core._original_input_pdb = str(layered)
+    core.hess_cutoff = None
+    core.movable_cutoff = None
+
+    core._compute_layer_indices(np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [3.0, 0.0, 0.0]]))
+
+    assert core.hess_mm_indices == [1]
+    assert core.movable_mm_indices == []
+    assert core.frozen_layer_indices == [2]
+
+
 def test_calculator_attach_preserves_distance_layer_freezes() -> None:
     class FakeCore:
         frozen_layer_indices = [3]

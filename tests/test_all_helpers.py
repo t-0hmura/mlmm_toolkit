@@ -22,6 +22,76 @@ def test_element_fix_paths_do_not_collide_for_same_basename(tmp_path: Path) -> N
     assert second.name == "002_input.pdb"
 
 
+def test_mm_parm_topology_keeps_the_input_name(tmp_path: Path, monkeypatch) -> None:
+    import mlmm.workflows.all as all_workflow
+
+    def fake_mm_run(args) -> None:
+        for suffix in (".parm7", ".rst7"):
+            Path(f"{args.out_prefix}{suffix}").write_text("", encoding="utf-8")
+
+    monkeypatch.setattr(all_workflow, "_mm_run", fake_mm_run)
+    repaired = all_workflow._element_fix_path(tmp_path / "add_elem_info", Path("r_complex.pdb"), 1)
+    parm7, rst7 = all_workflow._build_mm_parm7(
+        pdb=repaired,
+        ligand_charge_expr=None,
+        ligand_mult_expr=None,
+        out_dir=tmp_path / "mm_parm",
+        ff_set="ff19SB",
+        add_ter=True,
+        keep_temp=False,
+        name="r_complex",
+    )
+
+    assert (parm7.name, rst7.name) == ("r_complex.parm7", "r_complex.rst7")
+
+
+def test_segment_copies_take_the_xyz_of_each_saved_structure() -> None:
+    import ast
+
+    import mlmm.workflows.all as all_workflow
+
+    # _save_single_geom_for_tools returns (xyz, pdb); _copy_structures_to_seg_dir expects the xyz.
+    tree = ast.parse(Path(all_workflow.__file__).read_text(encoding="utf-8"))
+    xyz_names, pdb_names = set(), set()
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Assign)
+            and isinstance(node.value, ast.Call)
+            and getattr(node.value.func, "id", None) == "_save_single_geom_for_tools"
+        ):
+            xyz, pdb = node.targets[0].elts
+            xyz_names.add(xyz.id)
+            pdb_names.add(pdb.id)
+    copied = {
+        value.id
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Assign) and getattr(node.targets[0], "id", None) == "_state_structs"
+        for value in node.value.values
+    }
+
+    assert copied and copied <= xyz_names and not copied & pdb_names
+
+
+def test_hei_pocket_pdb_is_built_when_the_mep_stage_wrote_none(tmp_path: Path) -> None:
+    from mlmm.workflows.all import _ensure_hei_pocket_pdb
+
+    topology = tmp_path / "layered.pdb"
+    topology.write_text(
+        "HETATM    1  C1  LIG A   1       0.000   0.000   0.000  1.00  0.00           C  \n"
+        "HETATM    2  O1  LIG A   1       1.200   0.000   0.000  1.00 10.00           O  \n"
+        "END\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "hei_seg_01.xyz").write_text("2\n-1.0\nC 0.0 0.0 0.0\nO 1.3 0.0 0.0\n", encoding="utf-8")
+
+    hei = _ensure_hei_pocket_pdb(tmp_path, 1, topology)
+
+    assert hei == tmp_path / "hei_seg_01.pdb"
+    atoms = [line for line in hei.read_text(encoding="utf-8").splitlines() if line.startswith("HETATM")]
+    assert float(atoms[1][30:38]) == 1.3
+    assert atoms[1][60:66].strip() == "10.00"
+
+
 def test_role_checkpoint_refresh_updates_every_manifest_alias(tmp_path: Path) -> None:
     from mlmm.workflows._run_session import InvocationManifest
     from mlmm.workflows.all import _save_role_scf_checkpoint

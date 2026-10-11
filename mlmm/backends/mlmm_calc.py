@@ -2420,7 +2420,9 @@ class MLMMCore:
                     hess_cut = float(self.hess_cutoff)
                     hess_mm = {idx for idx in movable_pool if min_dist_to_ml(idx) <= hess_cut}
                 else:
-                    hess_mm = set(hess_from_layer) & movable_pool
+                    # hess_cutoff=None means every movable MM atom (MLMM_CALC_KW),
+                    # the same targets the CLI selects for 3-layer inputs.
+                    hess_mm = set(movable_pool)
 
                 movable_mm = movable_pool - hess_mm
 

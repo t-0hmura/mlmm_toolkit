@@ -1078,10 +1078,11 @@ def _build_mm_parm7(
     add_ter: bool,
     keep_temp: bool,
     auto_disulfide: bool = True,
+    name: Optional[str] = None,
 ) -> Tuple[Path, Path]:
-    """Run mm_parm on ``pdb`` and return (parm7, rst7)."""
+    """Run mm_parm on ``pdb`` and return (parm7, rst7), named ``<name or pdb stem>``."""
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_prefix = (out_dir / pdb.stem).resolve()
+    out_prefix = (out_dir / (name or pdb.stem)).resolve()
     out_prefix.parent.mkdir(parents=True, exist_ok=True)
     args = _AutoMMArgs(
         pdb=pdb.resolve(),
@@ -2539,6 +2540,27 @@ def _copy_structures_to_seg_dir(
         else:
             copy_destination(src, seg_dir / f"{dst_name}.xyz")
     return seg_dir
+
+
+def _ensure_hei_pocket_pdb(seg_root: Path, seg_idx: int, topology: Optional[Path]) -> Path:
+    """Return ``hei_seg_NN.pdb``, building it from ``hei_seg_NN.xyz`` when the MEP stage wrote no PDB.
+
+    --no-convert-files stops the PDB companions of path-search and path-opt,
+    but TSOPT needs the HEI topology, so it is written here as an internal file.
+    """
+    hei_pdb = seg_root / f"hei_seg_{seg_idx:02d}.pdb"
+    hei_xyz = seg_root / f"hei_seg_{seg_idx:02d}.xyz"
+    if (
+        not hei_pdb.exists()
+        and hei_xyz.exists()
+        and topology is not None
+        and topology.suffix.lower() == ".pdb"
+    ):
+        try:
+            convert_xyz_to_pdb(hei_xyz, topology, hei_pdb)
+        except Exception as e:
+            _echo(f"[post] WARNING: could not build the HEI pocket PDB for segment {seg_idx:02d}: {e}", err=True)
+    return hei_pdb
 
 
 def _read_summary(summary_json: Path) -> List[Dict[str, Any]]:
@@ -4500,7 +4522,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
               help=("Maximum IPOPT iterations for the DMF MEP stage. This is a solver "
                     "iteration count, not a string-optimizer cycle count."))
 @click.option("--climb/--no-climb", default=True, show_default=True,
-              help="Enable transition-state climbing after growth for the *first* segment in each pair.")
+              help="Enable climbing image for standard GSM segments (bridge segments always disable climbing).")
 @click.option(
     "--opt-mode",
     type=click.Choice(["grad", "hess"], case_sensitive=False),
@@ -4723,7 +4745,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
               show_default="<segment>/ts",
               help="Override tsopt output subdirectory (relative paths are resolved against the default).")
 @click.option("--freq-out-dir", type=click.Path(path_type=Path, file_okay=False), default=None,
-              show_default="<tsopt dir>/freq",
+              show_default="<segment dir>/freq",
               help="Override freq output base directory (relative paths resolved against the default).")
 @click.option("--freq-max-write", type=int, default=None,
               show_default="10",
@@ -4744,7 +4766,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
               show_default="1.0",
               help="Override freq thermochemistry pressure (atm).")
 @click.option("--dft-out-dir", type=click.Path(path_type=Path, file_okay=False), default=None,
-              show_default="<tsopt dir>/dft",
+              show_default="<segment dir>/dft",
               help="Override dft output base directory (relative paths resolved against the default).")
 @click.option("--func-basis", "--dft-func-basis", "dft_func_basis", type=str, default=None,
               show_default="wb97m-v/def2-svp",
@@ -6203,6 +6225,8 @@ def cli(
             add_ter=mm_add_ter,
             keep_temp=mm_keep_temp,
             auto_disulfide=mm_auto_disulfide,
+            # Public name follows the user's input, not the element-repair copy.
+            name=_original_input_paths[0].stem,
         )
         _echo_detail(f"[all] mm_parm outputs → parm7: {real_parm7_path.name}, rst7: {real_rst7_path.name}")
 
@@ -7398,7 +7422,7 @@ def cli(
 
         # Copy R/TS/P structures to out_dir/seg_01/.
         try:
-            _state_structs = {"R": pR, "TS": pT, "P": pP}
+            _state_structs = {"R": xR, "TS": xT, "P": xP}
             _input_suffix = (
                 _original_input_paths[0].suffix.lower()
                 if _original_input_paths
@@ -8617,7 +8641,9 @@ def cli(
                 dft_out_dir_segment = dft_out_dir / f"seg_{seg_idx:02d}"
 
         # HEI pocket file prepared by path_search (only for bond-change segments)
-        hei_pocket_pdb = seg_root / f"hei_seg_{seg_idx:02d}.pdb"
+        hei_pocket_pdb = _ensure_hei_pocket_pdb(
+            seg_root, seg_idx, Path(layered_inputs[0]) if layered_inputs else None
+        )
         if not hei_pocket_pdb.exists():
             _echo(f"[post] WARNING: HEI pocket PDB not found for segment {seg_idx:02d}; skipping TSOPT.", err=True)
             continue
@@ -9030,7 +9056,7 @@ def cli(
 
         # Copy R/TS/P structures to out_dir/seg_XX/
         try:
-            _state_structs = {"R": pL, "TS": pT, "P": pR}
+            _state_structs = {"R": xL, "TS": xT, "P": xR}
             _input_suffix = (
                 _original_input_paths[0].suffix.lower()
                 if _original_input_paths

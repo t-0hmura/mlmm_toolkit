@@ -42,6 +42,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Reuse the TS Hessian in the `irc` and TS `freq` steps of `all` instead of recomputing it, and finalize `all` summaries after a non-converged TS optimization.
 - Apply nested YAML optimizer sections instead of failing with `TypeError`, reject multiplicities below 1 in every command, and write `result.json` with the usual file permissions.
 - Keep RS-P-RFO TS optimizations going when a second negative mode couples only weakly to the gradient; the restricted-step update of alpha could turn negative or stall and stop the run.
+- Write the R/TS/P structures in `segments/seg_NN/` of an `all --tsopt` run with XYZ input (`--ref-pdb`) as XYZ; they held PDB text under the `.xyz` name.
+- Run the TS optimization of every segment in `all --tsopt --no-convert-files` with two or more inputs; without the HEI PDB of the MEP stage, each segment skipped TSOPT with a warning.
+- Include every movable MM atom in the Hessian by default when `MLMMCore` is used directly and in `sp --hess`, as the CLI and `hess_cutoff: null` already did; with a layered PDB these gave an ML-only Hessian.
+- Name the `mm_parm` topology of `all` after the input (`mm_parm/<input>.parm7`) also when the input PDB has no element columns; it was written as `001_<input>.parm7`.
+- Show the CLI `--freeze-atoms` in the settings printed by `sp --show-config`.
 
 ## [0.3.7] — 2026-09-19
 
