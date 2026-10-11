@@ -69,8 +69,8 @@ seg, post = d["segments"][0], d["post_segments"][0]
 print(d["scientific_status"], d.get("scientific_status_reasons"), d.get("pipeline_stop"))
 print(post["tsopt"].get("n_imaginary_modes"), post["tsopt"].get("imaginary_frequencies_cm"))
 # the rest exists only when IRC ran
-print(seg["barrier_kcal"], seg["delta_kcal"], seg["bond_changes"])
-print(post["endpoint_assignment"], post["mlip"]["energies_kcal"])
+print(seg.get("barrier_kcal"), seg.get("delta_kcal"), seg.get("bond_changes"))
+print(post.get("endpoint_assignment"), (post.get("mlip") or {}).get("energies_kcal"))
 irc = json.load(open("result_ts_only/segments/seg_01/irc/result.json"))
 print(irc["energy_first_hartree"], irc["energy_ts_hartree"], irc["energy_last_hartree"])
 ```

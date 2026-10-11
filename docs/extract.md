@@ -127,7 +127,7 @@ Any other number of `-o` paths stops with an error, and so does an output path t
 | `--exclude-backbone/--no-exclude-backbone` | flag | `False` | Remove main-chain atoms from amino acids, except between peptide-bonded `-c` residues |
 | `--add-linkh/--no-add-linkh` | flag | `False` | Add cap hydrogens where a cut leaves CA or CB without its partner. Leave off for a `--model-pdb` file |
 | `--modified-residue` | text | `""` | Residue names to treat as amino acids, as `NAME:charge` (bare `NAME` only for names in the built-in table) |
-| `-l, --ligand-charge` | text | `None` | Total charge, or charge per residue name (e.g. `'GPP:-3,SAM:1'`) |
+| `-l, --ligand-charge` | text | `None` | Total charge of the unknown residues (ligands), or charge per residue name (e.g. `'GPP:-3,SAM:1'`) |
 | `--out-json/--no-out-json` | flag | `False` | Write `result.json` and `summary.json` |
 
 See the [generated CLI reference](reference/commands/extract.md) for every option.

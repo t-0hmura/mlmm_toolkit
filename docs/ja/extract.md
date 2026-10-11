@@ -127,7 +127,7 @@ mlmm extract -i complex.pdb -c 'A:SUB:301' -o pocket.pdb \
 | `--exclude-backbone/--no-exclude-backbone` | フラグ | `False` | アミノ酸から主鎖の原子を除く。ペプチド結合でつながった `-c` のアミノ酸どうしの間は残す |
 | `--add-linkh/--no-add-linkh` | フラグ | `False` | 切断で CA か CB の相手が無くなった所にキャップ水素を付ける。`--model-pdb` に使うファイルでは付けない |
 | `--modified-residue` | 文字列 | `""` | アミノ酸として扱う残基名。`NAME:charge`（電荷なしの `NAME` は組み込みの表にある名前だけ） |
-| `-l, --ligand-charge` | 文字列 | `None` | 総電荷か、残基名ごとの電荷（例: `'GPP:-3,SAM:1'`） |
+| `-l, --ligand-charge` | 文字列 | `None` | 未知の残基（リガンド）の電荷の合計か、残基名ごとの電荷（例: `'GPP:-3,SAM:1'`） |
 | `--out-json/--no-out-json` | フラグ | `False` | `result.json` と `summary.json` を書き出す |
 
 全オプションは [自動生成のオプションの一覧（英語のみ）](../reference/commands/extract.md) を参照してください。

@@ -61,7 +61,7 @@ result_all/
 ├─ layered/                                          # B-factor に層を書いた全系の構造
 ├─ segments/
 │  └─ seg_NN/                                        # 反応の 1 段: seg_01, seg_02, ...
-│     ├─ reactant.{pdb,cif} · ts.* · product.*       # 最適化した R・TS・P（--tsopt）
+│     ├─ reactant.{pdb,cif,xyz} · ts.* · product.*   # 最適化した R・TS・P（--tsopt）
 │     └─ ts/ · irc/ · endpoint_opt/ · freq/{R,TS,P}/ · dft/{R,TS,P}/  # ステージ別の作業ファイル（--tsopt / --thermo / --dft）
 └─ _work/                                            # 途中のファイル（TS 候補の HEI を含む）
    ├─ pockets/ · scan/

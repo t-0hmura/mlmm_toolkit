@@ -54,9 +54,9 @@ plan, and skips the calculations. Each mode page has a complete command.
 import json
 d = json.load(open("result_all/summary.json"))
 print(d["execution_status"], d["scientific_status"], d.get("scientific_status_reasons"))
-print(d["mlmm_toolkit_version"], d["charge"], d["spin"], d["rate_limiting_step"])
+print(d["mlmm_toolkit_version"], d["charge"], d["spin"], d.get("rate_limiting_step"))
 for seg in d["segments"]:
-    print(seg["index"], seg["kind"], seg["barrier_kcal"], seg["delta_kcal"], seg["bond_changes"])
+    print(seg["index"], seg["kind"], seg.get("barrier_kcal"), seg.get("delta_kcal"), seg["bond_changes"])
 for post in d.get("post_segments", []):   # match to segments by "index"
     print(post["index"], post.get("tsopt", {}).get("n_imaginary_modes"))
 ```

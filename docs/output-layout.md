@@ -61,7 +61,7 @@ result_all/
 ├─ layered/                                          # full structures with the layers in the B-factors
 ├─ segments/
 │  └─ seg_NN/                                        # one reaction step: seg_01, seg_02, ...
-│     ├─ reactant.{pdb,cif} · ts.* · product.*       # optimized R, TS, and P (--tsopt)
+│     ├─ reactant.{pdb,cif,xyz} · ts.* · product.*   # optimized R, TS, and P (--tsopt)
 │     └─ ts/ · irc/ · endpoint_opt/ · freq/{R,TS,P}/ · dft/{R,TS,P}/  # per-stage working files (--tsopt / --thermo / --dft)
 └─ _work/                                            # intermediate files, including the TS candidates (HEI)
    ├─ pockets/ · scan/

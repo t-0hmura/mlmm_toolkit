@@ -233,7 +233,7 @@ _MAX_BOUNDARY_BOND_DISTANCE = _BOUNDARY_BOND_SCALE * 2.0 * max(
     "-l",
     "--ligand-charge",
     type=str, default=None,
-    help="Total charge number or per-resname mapping like 'GPP:-3,SAM:1'.",
+    help="Total ligand charge (number) or per-resname mapping like 'GPP:-3,SAM:1'.",
 )
 @click.option(
     "--out-json/--no-out-json",
