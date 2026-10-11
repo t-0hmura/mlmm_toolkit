@@ -44,6 +44,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Keep RS-P-RFO TS optimizations going when a second negative mode couples only weakly to the gradient; the restricted-step update of alpha could turn negative or stall and stop the run.
 - Write the R/TS/P of `all --tsopt` in `segments/seg_NN/` in the input format (XYZ input gave PDB text; mmCIF input after an MEP or `--resume-segment` gave no `.cif`), name the `mm_parm` topology after the input, and stop when `--no-convert-files` is combined with `--tsopt`, `--thermo`, or `--dft`.
 - Include every movable MM atom in the default Hessian of `MLMMCore` and `sp --hess`, as the CLI did (a layered PDB gave an ML-only Hessian), and show the CLI `--freeze-atoms` in `sp --show-config`.
+- Stop `tsopt --opt-mode hess` before the optimization, not after it, when `--active-dof-mode` needs atoms outside the `--hess-cutoff` Hessian.
 - Write only the macro-step (ML/MM) frames to `optimization_trj.xyz` and `optimization_all_trj.xyz` when `opt` and `tsopt` run microiterations with `--dump`; MM-only relaxation frames were mixed in.
 
 ## [0.3.7] — 2026-09-19

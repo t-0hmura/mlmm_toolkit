@@ -114,6 +114,40 @@ def test_tsopt_rejects_configured_basis_gap_before_optimization(
     ) == [0, 1, 2, 3]
 
 
+def test_hess_tsopt_checks_the_analysis_basis_before_optimizing(
+    tmp_path, monkeypatch
+) -> None:
+    from pathlib import Path
+
+    from click.testing import CliRunner
+
+    smoke = Path(__file__).resolve().parent / "smoke"
+
+    def basis_gap(*_args, **_kwargs):
+        raise click.ClickException("basis gap sentinel")
+
+    def optimize(*_args, **_kwargs):
+        raise AssertionError("the TS optimization ran before the basis check")
+
+    monkeypatch.setattr(tsopt, "_resolve_validated_hessian_analysis_atoms", basis_gap)
+    monkeypatch.setattr(tsopt, "_run_microiter_tsopt", optimize)
+    for name in list(tsopt.TSOPT_CLASS_MAP):
+        monkeypatch.setitem(tsopt.TSOPT_CLASS_MAP, name, optimize)
+
+    result = CliRunner().invoke(
+        tsopt.cli,
+        [
+            "-i", str(smoke / "p_complex_layered.pdb"),
+            "--parm", str(smoke / "p_complex.parm7"),
+            "-q", "-1", "-m", "1", "--opt-mode", "hess",
+            "--out-dir", str(tmp_path / "out"),
+        ],
+    )
+
+    assert "basis gap sentinel" in result.output, (result.output, result.exception)
+    assert result.exit_code == 1
+
+
 def test_dimer_loop_accepts_an_unlimited_budget() -> None:
     runner = HessianDimer.__new__(HessianDimer)
     runner.max_total_cycles = None

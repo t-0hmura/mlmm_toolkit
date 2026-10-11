@@ -4440,6 +4440,15 @@ def cli(
                 coord_type=coord_type,
                 **coord_kwargs,
             )
+            # Reject a final-analysis basis wider than the Hessian before the
+            # optimization, as the Dimer path does.
+            _resolve_validated_hessian_analysis_atoms(
+                calc_cfg,
+                len(geometry.atomic_numbers),
+                active_dof_mode,
+                freeze_atoms_final,
+                validate_coverage=not skip_final_freq,
+            )
             _initial_hessian = None
             if read_hess:
                 _, _read_layers = _resolve_active_atom_indices(
