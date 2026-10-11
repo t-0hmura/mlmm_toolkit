@@ -122,6 +122,7 @@ from mlmm.io.summary import (
 from mlmm.io.structure_formats import (
     attach_template_metadata,
     coordinate_template_for,
+    register_coordinate_template,
     register_output_template_and_write_cif,
     restore_pdb_terminal_resnames,
 )
@@ -2547,6 +2548,8 @@ def _ensure_hei_pocket_pdb(seg_root: Path, seg_idx: int, topology: Optional[Path
 
     --no-convert-files stops the PDB companions of path-search and path-opt,
     but TSOPT needs the HEI topology, so it is written here as an internal file.
+    A copied or resumed HEI PDB carries no mmCIF template; it takes the one of
+    *topology* (same atoms), so the R/TS/P of mmCIF inputs are published as .cif too.
     """
     hei_pdb = seg_root / f"hei_seg_{seg_idx:02d}.pdb"
     hei_xyz = seg_root / f"hei_seg_{seg_idx:02d}.xyz"
@@ -2560,6 +2563,10 @@ def _ensure_hei_pocket_pdb(seg_root: Path, seg_idx: int, topology: Optional[Path
             convert_xyz_to_pdb(hei_xyz, topology, hei_pdb)
         except Exception as e:
             _echo(f"[post] WARNING: could not build the HEI pocket PDB for segment {seg_idx:02d}: {e}", err=True)
+    if hei_pdb.exists() and topology is not None and coordinate_template_for(hei_pdb) is None:
+        template = coordinate_template_for(topology)
+        if template is not None:
+            register_coordinate_template(hei_pdb, template)
     return hei_pdb
 
 
@@ -6493,6 +6500,10 @@ def cli(
                 raise click.ClickException(
                     f"Saved layered input does not match the completed MEP: {saved}"
                 )
+            # The saved copy has the same content; keep the mmCIF template of the regenerated input.
+            template = coordinate_template_for(generated_resolved)
+            if template is not None and coordinate_template_for(saved) is None:
+                register_coordinate_template(saved, template)
             saved_layered_inputs.append(saved.resolve())
         if parm7_override is None:
             saved_parm7 = out_dir / "mm_parm" / real_parm7_path.name

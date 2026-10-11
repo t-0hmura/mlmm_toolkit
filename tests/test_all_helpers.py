@@ -92,6 +92,28 @@ def test_hei_pocket_pdb_is_built_when_the_mep_stage_wrote_none(tmp_path: Path) -
     assert atoms[1][60:66].strip() == "10.00"
 
 
+def test_hei_pocket_pdb_takes_the_mmcif_template_of_the_topology(tmp_path: Path) -> None:
+    from mlmm.io.structure_formats import (
+        coordinate_template_for,
+        register_coordinate_template,
+        unregister_coordinate_template,
+    )
+    from mlmm.workflows.all import _ensure_hei_pocket_pdb
+
+    topology = tmp_path / "layered.pdb"
+    hei = tmp_path / "hei_seg_01.pdb"
+    topology.write_text("END\n", encoding="utf-8")
+    hei.write_text("END\n", encoding="utf-8")
+    template = object()
+    register_coordinate_template(topology, template)
+    try:
+        assert _ensure_hei_pocket_pdb(tmp_path, 1, topology) == hei
+        assert coordinate_template_for(hei) is template
+    finally:
+        unregister_coordinate_template(topology)
+        unregister_coordinate_template(hei)
+
+
 def test_role_checkpoint_refresh_updates_every_manifest_alias(tmp_path: Path) -> None:
     from mlmm.workflows._run_session import InvocationManifest
     from mlmm.workflows.all import _save_role_scf_checkpoint
