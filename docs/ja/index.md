@@ -127,9 +127,11 @@ orphan: true
 
 > `https://github.com/t-0hmura/mlmm_toolkit/tree/main/skills` をスキルとして取り込み、`mlmm-install` の手順に従って mlmm-toolkit をインストールして
 
-GitHub のリポジトリを clone 済みなら、URL の代わりに手元の `skills/` の path を渡しても構いません。導入した後は、たとえば次のように頼めます。
+GitHub のリポジトリを clone 済みなら、URL の代わりに手元の `skills/` の path を渡しても構いません。導入後は、たとえば次のように指示できます。
 
 > 〈論文〉を読んで、〈PDB ID〉の構造からモデルを作成し、〈反応段階〉の経路について、mlmm-toolkit のスキルを用いて反応機構解析を行ってください。
+
+詳しくは [AI エージェント向けスキル](agent-skills.md) を参照してください。
 
 ## 引用
 

@@ -228,7 +228,7 @@ If you cloned the GitHub repository, you can give the local `skills/` path inste
 
 > Read *the paper*, build a model from the PDB structure *PDB ID*, and study the mechanism of *the reaction step* with the mlmm-toolkit skills.
 
-The skills cover the CLI subcommands, structure input and output, backend installation, TS search strategy, and HPC runs. Load `skills/` into an agent, and it can run and analyze calculations from plain-language instructions. For where to place the files and the full list of skills, see [`skills/README.md`](https://github.com/t-0hmura/mlmm_toolkit/blob/main/skills/README.md).
+The skills cover the CLI subcommands, structure input and output, backend installation, TS search strategy, and HPC runs. Load `skills/` into an agent, and it can run and analyze calculations from plain-language instructions. For where to place the files and the full list of skills, see [Skills for AI Agents](agent-skills.md).
 
 ---
 

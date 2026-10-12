@@ -45,6 +45,7 @@ model-setup
 mechanism-tips
 dft-backend
 troubleshooting
+agent-skills
 ```
 
 ```{toctree}
@@ -122,6 +123,7 @@ ja/model-setup
 ja/mechanism-tips
 ja/dft-backend
 ja/troubleshooting
+ja/agent-skills
 ```
 
 ```{toctree}
@@ -281,6 +283,8 @@ To install them, tell your AI agent:
 If you cloned the GitHub repository, you can give the local `skills/` path instead. Then you can ask, for example:
 
 > Read *the paper*, build a model from the PDB structure *PDB ID*, and study the mechanism of *the reaction step* with the mlmm-toolkit skills.
+
+For details, see [Skills for AI Agents](agent-skills.md).
 
 ## Citation
 
