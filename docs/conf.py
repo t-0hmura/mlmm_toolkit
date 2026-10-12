@@ -440,7 +440,56 @@ def _p2r_sidebar(app, pagename, templatename, context, doctree):
         f'<a class="reference internal{" current" if cur else ""}" href="{href}">{label}</a></li></ul>' + tree)
 
 
+# Search engines: canonical URLs (html_baseurl), sitemap.xml, the home page's title and description
+# (the overview sentence of index.md), and lang/hreflang for the Japanese pages under ja/.
+html_baseurl = 'https://t-0hmura.github.io/mlmm_toolkit/'
+p2r_search_name = 'mlmm-toolkit'
+p2r_home_title = 'mlmm-toolkit: ML/MM reaction-mechanism analysis of enzymes'
+
+
+def _p2r_overview(app, pagename):
+    """The page's first line that starts with the bold product name, as plain text."""
+    with open(app.env.doc2path(pagename), encoding='utf-8') as f:
+        line = next((l for l in f if l.startswith(f'**{p2r_search_name}**')), '')
+    return re.sub(r'[*`]', '', line).strip()
+
+
+def _p2r_search_meta(app, pagename, templatename, context, doctree):
+    base = app.config.html_baseurl
+    is_ja = pagename.startswith('ja/')
+    if is_ja:
+        context['language'] = 'ja'
+    en = pagename[3:] if is_ja else pagename
+    tags = []
+    if en in app.env.found_docs and 'ja/' + en in app.env.found_docs:
+        tags += [f'<link rel="alternate" hreflang="en" href="{base}{en}.html">',
+                 f'<link rel="alternate" hreflang="ja" href="{base}ja/{en}.html">',
+                 f'<link rel="alternate" hreflang="x-default" href="{base}{en}.html">']
+    if en == master_doc:
+        description = _p2r_overview(app, pagename)
+        if description:
+            tags.append(f'<meta name="description" content="{html.escape(description, quote=True)}">')
+        if not is_ja:
+            context['docstitle'] = p2r_home_title
+    if tags:
+        context['metatags'] = context.get('metatags', '') + '\n'.join(tags) + '\n'
+
+
+def _p2r_sitemap(app, exception):
+    """Write sitemap.xml with the canonical URL of every page."""
+    if exception or app.builder.format != 'html':
+        return
+    base = app.config.html_baseurl
+    urls = ''.join(f'  <url><loc>{html.escape(base + doc + ".html")}</loc></url>\n'
+                   for doc in sorted(app.env.found_docs))
+    with open(os.path.join(app.outdir, 'sitemap.xml'), 'w', encoding='utf-8') as f:
+        f.write('<?xml version="1.0" encoding="UTF-8"?>\n'
+                '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + urls + '</urlset>\n')
+
+
 def setup(app):
     app.connect('build-finished', _p2r_icon_css)
+    app.connect('build-finished', _p2r_sitemap)
+    app.connect('html-page-context', _p2r_search_meta)
     # After Furo's own html-page-context handler, which builds furo_navigation_tree.
     app.connect('html-page-context', _p2r_sidebar, priority=900)
