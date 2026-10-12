@@ -5,6 +5,7 @@ import click
 import pytest
 from click.testing import CliRunner
 
+from mlmm.workflows import all as all_workflow
 from mlmm.workflows.all import (
     _validate_all_dry_run_semantics,
     _validate_all_freeze_atom_bounds,
@@ -130,8 +131,10 @@ def test_all_dry_run_does_not_print_success_for_unresolved_charge() -> None:
     ],
 )
 def test_all_dry_run_lists_only_planned_stages(
-    tmp_path: Path, args: list, stages: str
+    tmp_path: Path, args: list, stages: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    # The stage list must not depend on AmberTools being on PATH (CI has none).
+    monkeypatch.setattr(all_workflow, "_missing_ambertools_commands", lambda _paths=None: [])
     smoke = Path(__file__).resolve().parent / "smoke"
     files = {
         "R": smoke / "r_complex_layered.pdb",
