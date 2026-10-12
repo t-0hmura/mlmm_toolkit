@@ -310,6 +310,8 @@ html_short_title = 'mlmm-toolkit'
 
 # Static files path
 html_static_path = ['_static']
+# Copied to the site root as is: the Google Search Console ownership file.
+html_extra_path = ['_extra']
 
 # Custom JS — override Furo 3-state toggle to 2-state (light ↔ dark)
 html_js_files = ['theme_toggle.js', 'pipeline.js']
