@@ -58,9 +58,13 @@ def test_dft_resource_defaults_are_lowmem_and_explicit_values_normalize(
     assert explicit.memory_mb == 64000
 
 
-def test_dft_resources_are_provenance_but_not_checkpoint_identity() -> None:
+def test_dft_resources_are_provenance_but_not_checkpoint_identity(monkeypatch) -> None:
+    from mlmm.core import dft_settings
     from mlmm.core.dft_settings import resolve_dft_settings
     from mlmm.core.utils import calculator_provenance
+
+    # Explicit nprocs is capped at the CPU affinity; keep the check independent of the host.
+    monkeypatch.setattr(dft_settings, "_affinity_count", lambda: None)
 
     small = resolve_dft_settings({
         "backend": "dft", "dft": {"nprocs": 2, "memory": "4GB"}
