@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+_No changes yet._
+
+## [0.4.0] — 2026-10-12
+
 ### Breaking changes
 
 - The MCP server (`mlmm-mcp`) and the `[mcp]` extra are removed; AI agents run the CLI directly with the bundled skills.
