@@ -33,6 +33,7 @@ _No changes yet._
 
 - Reorganize the English and Japanese documentation for first-time users and merge the agent skills into seven.
 - Use the low-memory direct-JK GPU route for closed-shell DFT/MM, the current FAIR-Chem/Torch stack, and native CUDA 13 DFT/OpenMM wheels; retain CUDA 12 DFT through the `dft-cuda12` extra.
+- Install `pydmf>=1.2` with the package, as pdb2reaction does; DMF needs only cyipopt from conda-forge.
 - Classify imaginary modes with the strict ν < −5.00 cm⁻¹ criterion, use TS-BFGS updates for RFO minimizations, and run terminal PHVA in `tsopt` and continue `--flatten` after an energy-plateau stop.
 - Use common CLI names with compatibility aliases and `--flag/--no-flag` toggles, reject conflicting explicit CLI and YAML values, and name the MEP trajectory `mep_trj.pdb`.
 - Read `opt:` in `path-opt` and `path-search` for endpoint pre-optimization and other single-structure optimizations; string-optimizer settings belong under `stopt:`.

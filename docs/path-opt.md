@@ -38,7 +38,7 @@ mlmm path-opt -i reactant.pdb product.pdb --parm7 real.parm7 --model-pdb ml_regi
 
 ### 3. DMF instead of GSM
 
-DMF needs `cyipopt` and `pydmf`; here we also use fewer movable images.
+DMF needs `cyipopt`; here we also use fewer movable images.
 
 ```bash
 mlmm path-opt -i reactant.pdb product.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
@@ -135,7 +135,7 @@ See the [generated CLI reference](reference/commands/path_opt.md) for every opti
 ## Notes
 
 * **Frozen atoms move slightly with DMF**: DMF holds frozen atoms with a harmonic restraint (k = 300 eV/Å², YAML `dmf.k_fix`) instead of fixing them, so they can drift a little from their reference positions; GSM keeps them fixed. See {ref}`Freeze atoms and restrain distances <freeze-atoms-and-restraints>`.
-* **DMF needs `cyipopt` and `pydmf`**: neither is installed with `mlmm-toolkit`. Install them before you run `--mep-mode dmf`: `conda install -c conda-forge cyipopt -y`, then `pip install 'pydmf[torch]>=1.2'` for the GPU backend or `pip install 'pydmf>=1.2'` for the CPU backend. The default `--dmf-backend gpu` stops with an error when CUDA is unavailable; use `--dmf-backend cpu` then, or after a GPU out-of-memory error.
+* **DMF needs `cyipopt`**: install it with PyTorch from conda-forge, as in step 2 of {ref}`Step-by-step installation <step-by-step-installation>`, before you run `--mep-mode dmf`; `pydmf` comes with `mlmm-toolkit`. The default `--dmf-backend gpu` stops with an error when CUDA is unavailable; use `--dmf-backend cpu` then, or after a GPU out-of-memory error.
 * **Options DMF ignores**: `--climb` and `--fix-ends` are accepted but not used by DMF.
 * **One template for XYZ endpoints**: `--ref-pdb` takes a single full-system PDB, applied to both `.xyz` endpoints.
 * **Conflicting optimizer settings in YAML**: setting the same key to different values in `opt:` and in the section of the optimizer that runs (`lbfgs:`, `opt.lbfgs:`, `stopt.lbfgs:`, or the `rfo` equivalents) stops the run with an error.

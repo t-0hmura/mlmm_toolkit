@@ -59,8 +59,7 @@ no image lies above the higher endpoint and there is no candidate.
 **path-search.** `summary.json` and `summary.log` are always written (no
 `--out-json`); read `[2] Segment-level MEP summary` in the log.
 `scientific_status` is `success` when the pre-optimizations and every path
-run converged and no interval has its HEI at an endpoint, otherwise `partial`
-or `failed`. Each entry of
+run converged, otherwise `partial` or `failed`. Each entry of
 `summary.json["segments"]` looks like:
 
 ```
@@ -119,10 +118,9 @@ only after `tsopt` gives n_imag = 1 and IRC reaches the intended R and P.
   changes.
 - `path-search` can return more segments than inputs minus one; it finds
   intermediates you did not give.
-- DMF needs `cyipopt` and `pydmf`, which are not installed with
-  mlmm-toolkit: `conda install -c conda-forge cyipopt -y`, then
-  `pip install 'pydmf[torch]>=1.2'` (GPU) or `pip install 'pydmf>=1.2'`
-  (CPU). The default `--dmf-backend gpu` stops when CUDA is missing; use
+- DMF needs `cyipopt`, installed with PyTorch from conda-forge
+  ([Install order](../mlmm-install/SKILL.md#install-order)); `pydmf` comes
+  with mlmm-toolkit. The default `--dmf-backend gpu` stops when CUDA is missing; use
   `--dmf-backend cpu` then, or after a GPU out-of-memory error. If a DMF run
   makes almost no progress, set `BLIS_NUM_THREADS=1` in the job script before
   Python starts: nested BLIS threads in IPOPT can stall it, and a change

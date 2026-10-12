@@ -23,7 +23,7 @@
 | `orb-models is required for the ORB backend`（AIMNet2 / MACE も同様） | バックエンドの追加パッケージを入れてください：`pip install "mlmm-toolkit[orb]"` または `"mlmm-toolkit[aimnet]"`。MACE は別の環境に入れます | {ref}`バックエンド固有の問題 <ja-troubleshooting-backends>` |
 | `mm-parm` が実行できない（`AmberTools preflight failed`。`tleap` / `antechamber` / `parmchk2` が無い） | 先に AmberTools を使えるようにしてください | {ref}`AmberTools / mm-parm の問題 <ja-ambertools--mm-parm>` |
 | `hessian_ff` のビルドや import のエラー（`hessian_ff build attempts failed`） | C++20 のコンパイラを確かめ、ネイティブ拡張を作り直してください | {ref}`hessian_ff ビルドの問題 <ja-hessian_ff-build--import>` |
-| DMF モードの import エラー（`DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2`） | `cyipopt`（conda-forge）と `pydmf[torch]>=1.2`（PyPI）を入れてください | {ref}`インストール / 環境の問題 <ja-installation-environment-problems>` |
+| DMF モードの import エラー（`DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2`） | `cyipopt` はインストールの conda のコマンドで conda-forge から入り、`pydmf` は `mlmm-toolkit` と一緒に入ります。デフォルトの GPU 版でそれでもインポートに失敗するときは、`pip install 'pydmf[torch]'` | {ref}`インストール / 環境の問題 <ja-installation-environment-problems>` |
 | CUDA / GPU の実行時エラー | GPU、PyTorch のビルド、ドライバをまとめて確かめてください | {ref}`インストール / 環境の問題 <ja-installation-environment-problems>` |
 | 図の出力に失敗する | `plotly_get_chrome -y` でヘッドレス Chrome を入れてください | {ref}`インストール / 環境の問題 <ja-installation-environment-problems>` |
 
@@ -179,8 +179,8 @@
 | 症状 | 原因 | 対処 |
 | --- | --- | --- |
 | UMA のダウンロードに失敗する（`huggingface_hub.errors.GatedRepoError`、`401`、`403`） | Hugging Face にログインしていない、または UMA モデルのライセンスに同意していない | 環境・マシンごとに一度 `hf auth login` を実行し、Hugging Face の UMA モデルのページでライセンスに同意してください。HPC では、計算ノードから Hugging Face のキャッシュディレクトリに書き込めるかを確かめます |
-| `torch.cuda.is_available()` が `False`、またはインポート時に CUDA の実行時エラー | PyTorch のビルドが計算ノードの GPU・ドライバに合っていない | `nvidia-smi`、`python -m torch.utils.collect_env`、`python -m pip check` で、割り当てられた GPU、入っている wheel、ドライバを確かめてください。`nvidia-smi` が示す `CUDA Version` はドライバが扱える最も新しい CUDA です。それ以下の CUDA の PyTorch wheel（`cu126`、`cu130`、`cu132`）を入れてください |
-| `--mep-mode dmf` が `DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2` で止まる | `cyipopt` と `pydmf` は `mlmm-toolkit` と一緒には入らない（`ase` は入る） | {ref}`インストールの手順 3 <ja-step-by-step-installation>` のとおり、`conda install -c conda-forge cyipopt -y` と `pip install 'pydmf[torch]>=1.2'`（`--dmf-backend cpu` だけなら `pip install 'pydmf>=1.2'`）を実行してください |
+| `torch.cuda.is_available()` が `False`、またはインポート時に CUDA の実行時エラー | PyTorch のビルドが計算ノードの GPU・ドライバに合っていない | `nvidia-smi`、`python -m torch.utils.collect_env`、`python -m pip check` で、割り当てられた GPU、入っている PyTorch のビルド、ドライバを確認してください。`nvidia-smi` が示す `CUDA Version` はドライバが扱える最も新しい CUDA です。13.0 より小さいときは、`cuda130` の代わりに `"pytorch=2.13.0=cuda129*"` で環境を作ってください |
+| `--mep-mode dmf` が `DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2` で止まる | `cyipopt` が無い、または `pydmf` の GPU 用の部分が無い | {ref}`インストールの手順 2 <ja-step-by-step-installation>` のとおり、cyipopt を conda-forge から入れて環境を作ってください。`pydmf` は `mlmm-toolkit` と一緒に入ります。デフォルトの GPU 版 DMF でそれでもインポートに失敗するときは、エラーの文が勧めるとおり `pip install 'pydmf[torch]'` を実行してください |
 | 図の出力に失敗する（Plotly / Chrome） | ヘッドレス Chrome が無い | `plotly_get_chrome -y` を一度実行してください。Chromium のバイナリをダウンロードするので、インターネット接続が必要です |
 
 ### DMF が IPOPT 内で極端に遅い

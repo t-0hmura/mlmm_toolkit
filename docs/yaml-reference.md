@@ -695,7 +695,7 @@ and Hessian-family TS optimization. `hessian_dimer.neg_freq_thresh_cm` and
 `rsirfo.saddle_imaginary_threshold_cm` are other names for the same cutoff;
 two different values stop the run with an error.
 
-The default classifies ν < −5.00 cm⁻¹ as imaginary. n_imag gives the saddle order, and `n_negative_modes` counts every negative frequency. Neither count changes optimizer convergence. All signed physical modes and positive thermochemistry modes are retained.
+The default classifies ν < −5.00 cm⁻¹ as imaginary. n_imag gives the saddle order, and `n_negative_modes` counts every negative frequency. `n_negative_modes` does not change optimizer convergence. All signed physical modes and positive thermochemistry modes are retained.
 
 **Notes:**
 - `active_dof_mode` selects which atoms participate in the vibrational analysis. `all` uses every atom; `ml-only` restricts to ML-region atoms; `partial` (default) uses ML + Movable-MM atoms; `unfrozen` uses every non-frozen atom. The CLI flag `--active-dof-mode` overrides the YAML value when explicitly passed.

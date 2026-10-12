@@ -394,8 +394,7 @@ Pitfalls:
   they are not a layer assignment. A Frozen-MM-only environment is valid;
   re-run `define-layer` only when every MM class is missing.
 - The parm7 charge sum differs from the `-l` total: the parm7 sum covers the
-  whole system (protein, ions, ligands), `-l` only the ligands;
-  sum the `charge` column of `printDetails *` in `parmed`.
+  whole system (protein, ions, ligands), `-l` only the ligands.
 - `parmed` not on `PATH`: install AmberTools
   ([ambertools.md](../mlmm-install/ambertools.md)).
 

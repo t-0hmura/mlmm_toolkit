@@ -145,13 +145,13 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
         "77–78 列を除き、各入力行はそのまま保持されます",
     ),
     Path("skills/mlmm-install/SKILL.md"): (
-        "torch==2.13.0",
-        "`cpu`, `cu126`, `cu130`, `cu132`",
+        '"pytorch=2.13.0=cuda130*"',
+        "`cuda129` when it is below 13.0",
     ),
     Path("skills/mlmm-install/backends.md"): (
-        "torch==2.13.0",
-        "`cu126`, `cu130`, `cu132`, and `cpu`",
-        "does not require a\nmatching local CUDA toolkit",
+        '"pytorch=2.13.0=cuda130*"',
+        "Do not install a pip `torch` into this env",
+        "it does not\nrequire a site CUDA toolkit",
     ),
     Path("docs/device-hpc.md"): (
         "g++ -std=c++20 -x c++ -fsyntax-only /dev/null",

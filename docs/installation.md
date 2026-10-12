@@ -4,22 +4,19 @@
 
 ## Quick install
 
-`nvidia-smi` shows `CUDA Version` at its top right: the newest CUDA the driver supports. Choose a PyTorch wheel at or below it (`cu126`, `cu130`, or `cu132`). The commands below use the recommended `cu130`.
+`nvidia-smi` shows `CUDA Version` at its top right: the newest CUDA the driver supports. The commands below install the conda-forge PyTorch for CUDA 13.0 (`cuda130`); if this number is below 13.0, replace `cuda130` with `cuda129`.
 
 ### Required
 
 ```bash
-# 1) Create a conda environment with AmberTools, PDBFixer, and a C++ compiler
-# 2) Install a CUDA-enabled PyTorch build
-# 3) Install mlmm-toolkit
-# 4) Install headless Chrome for Plotly static image export (PNG)
+# 1) Create a conda environment with AmberTools, PDBFixer, a C++ compiler, cyipopt, and CUDA-enabled PyTorch
+# 2) Install mlmm-toolkit
+# 3) Install headless Chrome for Plotly static image export (PNG)
 #    Downloads a Chromium binary; requires internet access.
 
-conda create -n mlmm-toolkit python=3.12 -y
+conda create -n mlmm-toolkit -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt "pytorch=2.13.0=cuda130*" cuda-nvcc -y
 conda activate mlmm-toolkit
 
-conda install -c conda-forge ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler -y
-pip install 'torch==2.13.0' --index-url https://download.pytorch.org/whl/cu130  # recommended; for cu126 / cu132, change the end
 pip install mlmm-toolkit
 
 plotly_get_chrome -y
@@ -39,7 +36,7 @@ Check the installation with `mlmm --version`, which prints the installed version
 
 ### Optional
 
-For DMF, also install cyipopt and pydmf, as in step 3 of {ref}`Step-by-step installation <step-by-step-installation>`. ORB, AIMNet2, MACE, and DFT are installed in step 7 of the same section.
+ORB, AIMNet2, MACE, and DFT are installed in step 7 of {ref}`Step-by-step installation <step-by-step-installation>`.
 
 (step-by-step-installation)=
 ## Step-by-step installation
@@ -48,7 +45,7 @@ If you prefer to build the environment piece by piece:
 
 1. **Load a CUDA toolkit only when the site/build requires one**
 
-    A prebuilt PyTorch wheel does not require `nvcc`. If a dependency must be
+    The conda-forge PyTorch of step 2 does not need a CUDA module. If a dependency must be
     built from source, use `module avail cuda` and load the compiler/toolkit
     combination documented by the cluster:
 
@@ -56,34 +53,21 @@ If you prefer to build the environment piece by piece:
     module load cuda/<your-version>   # e.g. cuda/12.6 or cuda/12.9
     ```
 
-2. **Create a conda environment with AmberTools**
+2. **Create a conda environment with AmberTools and PyTorch**
 
-    On a cluster with a system AmberTools module, run `module unload amber` first so that it does not conflict with the conda AmberTools.
+    On a cluster with a system AmberTools module, run `module unload amber` first so that it does not conflict with the conda AmberTools. PyTorch comes from conda-forge in the same command (choose its CUDA build as in step 4); do not install a pip PyTorch into this environment.
 
     ```bash
-    conda create -n <your-env> python=3.12 -y
+    conda create -n <your-env> -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt "pytorch=2.13.0=cuda130*" cuda-nvcc -y
     conda activate <your-env>
-    conda install -c conda-forge ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler -y
     ```
 
-3. **Install cyipopt and pydmf**
-    Required if you want to use the DMF method (`--mep-mode dmf`) in MEP search; neither is installed with `mlmm-toolkit`. You can skip this step if you only use GSM. If `--mep-mode dmf` still stops with an import error, see {ref}`Installation / environment <installation-environment-problems>`.
+3. **cyipopt and pydmf (DMF)**
+    The DMF method (`--mep-mode dmf`) in MEP search uses cyipopt, installed in step 2, and pydmf, which comes with `mlmm-toolkit` in step 5. If `--mep-mode dmf` still stops with an import error, see {ref}`Installation / environment <installation-environment-problems>`.
 
-    ```bash
-    conda install -c conda-forge cyipopt -y
-    pip install 'pydmf[torch]>=1.2'   # for --dmf-backend cpu only: pip install 'pydmf>=1.2'
-    ```
+4. **Choose the PyTorch CUDA build**
 
-4. **Install PyTorch with the right CUDA build**
-
-    Recommended example (`cu130`):
-
-    ```bash
-    pip install 'torch==2.13.0' --index-url https://download.pytorch.org/whl/cu130
-    ```
-
-    The official 2.13.0 matrix also provides `cu126`, `cu132`, and `cpu`.
-    Choose the wheel with the `nvidia-smi` rule in the Quick install above, then check GPU access in step 8. See [PyTorch's version matrix](https://pytorch.org/get-started/previous-versions/).
+    Step 2 installs PyTorch built for CUDA 13.0 (`cuda130`). If the `CUDA Version` of `nvidia-smi` is below 13.0, write `"pytorch=2.13.0=cuda129*"` in step 2 instead. Check GPU access in step 8.
 
 5. **Install `mlmm-toolkit` itself and Chrome for visualization**
 
@@ -132,7 +116,7 @@ If you prefer to build the environment piece by piece:
     pip install mace-torch
     ```
 
-    **DFT** (`-b dft`, `--dft`, `mlmm dft`): `[dft]` installs the CUDA 13 GPU4PySCF build on Linux x86_64, for the cu130 / cu132 PyTorch wheels of step 4; with the cu126 wheel, install `[dft-cuda12]` instead. On aarch64, build [GPU4PySCF](https://github.com/pyscf/gpu4pyscf) from source. Without a GPU, `[dft]` still installs PySCF; run DFT with `--dft-engine cpu`.
+    **DFT** (`-b dft`, `--dft`, `mlmm dft`): `[dft]` installs the CUDA 13 GPU4PySCF build on Linux x86_64; with the `cuda129` PyTorch build (step 4), install `[dft-cuda12]` instead. On aarch64, build [GPU4PySCF](https://github.com/pyscf/gpu4pyscf) from source. Without a GPU, `[dft]` still installs PySCF; run DFT with `--dft-engine cpu`.
 
     ```bash
     pip install "mlmm-toolkit[dft]"
@@ -154,7 +138,7 @@ If you prefer to build the environment piece by piece:
     python -c "import torch; print('CUDA:', torch.cuda.is_available(), torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'N/A')"
     ```
 
-    If `CUDA: False`, inspect the installed wheel, scheduler GPU visibility,
+    If `CUDA: False`, inspect the installed PyTorch build, scheduler GPU visibility,
     driver, and environment libraries before changing versions:
 
     ```bash
@@ -168,7 +152,7 @@ If you prefer to build the environment piece by piece:
 
 **Python.** 3.12 is recommended (3.11 at minimum); the ORB backend needs 3.11 or 3.12.
 
-**GPU / CUDA.** An NVIDIA GPU whose driver supports the chosen wheel (see Quick install); newer GPU architectures may need a newer wheel. CPU-only execution works but is usually much slower.
+**GPU / CUDA.** An NVIDIA GPU whose driver supports the chosen PyTorch build (see Quick install); newer GPU architectures may need a newer build. CPU-only execution works but is usually much slower.
 
 **AmberTools and compiler.** AmberTools (`tleap`) builds the topology in `mm-parm` and `all`; a matching `--parm7` from an earlier run skips that step. The default `hessian_ff` MM backend needs a C++20 compiler (validated with GCC 13.3). PDBFixer is needed only for `mm-parm --add-h`.
 

@@ -4,22 +4,19 @@
 
 ## 最短のインストール
 
-`nvidia-smi` の右上に出る `CUDA Version` は、ドライバーが扱える最も新しい CUDA です。PyTorch の wheel は、それ以下の CUDA のもの（`cu126`、`cu130`、`cu132`）を選びます。以下のコマンドは推奨の `cu130` を使います。
+`nvidia-smi` の右上に出る `CUDA Version` は、ドライバーが扱える最も新しい CUDA です。以下のコマンドは CUDA 13.0 用の conda-forge の PyTorch（`cuda130`）を入れます。この値が 13.0 より小さいときは、`cuda130` を `cuda129` に置き換えてください。
 
 ### 必須
 
 ```bash
-# 1) AmberTools・PDBFixer・C++ コンパイラーを入れた conda 環境を作成
-# 2) CUDA 対応の PyTorch ビルドをインストール
-# 3) mlmm-toolkit をインストール
-# 4) Plotly 静的画像 (PNG) エクスポート用のヘッドレス Chrome をインストール
+# 1) AmberTools・PDBFixer・C++ コンパイラー・cyipopt・CUDA 対応の PyTorch を入れた conda 環境を作成
+# 2) mlmm-toolkit をインストール
+# 3) Plotly 静的画像 (PNG) エクスポート用のヘッドレス Chrome をインストール
 #    Chromium のバイナリをダウンロード（インターネット接続が必要）
 
-conda create -n mlmm-toolkit python=3.12 -y
+conda create -n mlmm-toolkit -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt "pytorch=2.13.0=cuda130*" cuda-nvcc -y
 conda activate mlmm-toolkit
 
-conda install -c conda-forge ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler -y
-pip install 'torch==2.13.0' --index-url https://download.pytorch.org/whl/cu130  # 推奨。cu126 / cu132 なら末尾を置き換え
 pip install mlmm-toolkit
 
 plotly_get_chrome -y
@@ -39,7 +36,7 @@ hf auth login --token '<YOUR_ACCESS_TOKEN>' --add-to-git-credential
 
 ### 任意
 
-DMF を使う場合は、{ref}`詳細なインストール手順 <ja-step-by-step-installation>` の手順 3 で cyipopt と pydmf も導入してください。ORB・AIMNet2・MACE・DFT の導入は同じ節の手順 7 を参照してください。
+ORB・AIMNet2・MACE・DFT の導入は {ref}`詳細なインストール手順 <ja-step-by-step-installation>` の手順 7 を参照してください。
 
 (ja-step-by-step-installation)=
 ## 詳細なインストール手順
@@ -48,39 +45,27 @@ DMF を使う場合は、{ref}`詳細なインストール手順 <ja-step-by-ste
 
 1. **クラスターやビルドが必要とする場合のみ CUDA toolkit をロード**
 
-    ビルド済みの PyTorch wheel に `nvcc` は不要です。依存パッケージをソースからビルドする場合は `module avail cuda` を確認し、クラスターが指定するコンパイラと CUDA toolkit の組み合わせをロードしてください:
+    手順 2 の conda-forge の PyTorch に CUDA のモジュールは不要です。依存パッケージをソースからビルドする場合は `module avail cuda` を確認し、クラスターが指定するコンパイラと CUDA toolkit の組み合わせをロードしてください:
 
     ```bash
     module load cuda/<your-version>   # 例: cuda/12.6 または cuda/12.9
     ```
 
-2. **AmberTools を入れた conda 環境を作成**
+2. **AmberTools と PyTorch を入れた conda 環境を作成**
 
-    システムの AmberTools のモジュールがあるクラスターでは、conda の AmberTools と衝突しないように、先に `module unload amber` を実行してください。
+    システムの AmberTools のモジュールがあるクラスターでは、conda の AmberTools と衝突しないように、先に `module unload amber` を実行してください。PyTorch も同じコマンドで conda-forge から入ります（CUDA のビルドは手順 4 のとおりに選びます）。この環境に pip の PyTorch は入れないでください。
 
     ```bash
-    conda create -n <your-env> python=3.12 -y
+    conda create -n <your-env> -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt "pytorch=2.13.0=cuda130*" cuda-nvcc -y
     conda activate <your-env>
-    conda install -c conda-forge ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler -y
     ```
 
-3. **cyipopt と pydmf をインストール**
-    MEP 探索で DMF 法（`--mep-mode dmf`）を使用する場合に必要です。どちらも `mlmm-toolkit` と一緒には入りません。GSM のみを使用する場合はスキップできます。それでも `--mep-mode dmf` がインポートのエラーで止まるときは、{ref}`インストール / 環境の問題 <ja-installation-environment-problems>` を参照してください。
+3. **cyipopt と pydmf（DMF）**
+    MEP 探索の DMF 法（`--mep-mode dmf`）には、手順 2 で入る cyipopt と、手順 5 で `mlmm-toolkit` と一緒に入る pydmf を使います。それでも `--mep-mode dmf` がインポートのエラーで止まるときは、{ref}`インストール / 環境の問題 <ja-installation-environment-problems>` を参照してください。
 
-    ```bash
-    conda install -c conda-forge cyipopt -y
-    pip install 'pydmf[torch]>=1.2'   # --dmf-backend cpu だけなら pip install 'pydmf>=1.2'
-    ```
+4. **PyTorch の CUDA ビルドを選ぶ**
 
-4. **適切な CUDA ビルドの PyTorch をインストール**
-
-    推奨の例（`cu130`）:
-
-    ```bash
-    pip install 'torch==2.13.0' --index-url https://download.pytorch.org/whl/cu130
-    ```
-
-    PyTorch 2.13.0 の公式 wheel には `cu126`、`cu132`、`cpu` もあります。上の最短のインストールにある `nvidia-smi` の見方で wheel を選び、手順 8 で GPU が使えるかを確かめてください。[PyTorch の版の対応表](https://pytorch.org/get-started/previous-versions/) を参照してください。
+    手順 2 では CUDA 13.0 用の PyTorch（`cuda130`）が入ります。`nvidia-smi` の `CUDA Version` が 13.0 より小さいときは、手順 2 で代わりに `"pytorch=2.13.0=cuda129*"` と書いてください。手順 8 で GPU が使えるかを確認してください。
 
 5. **`mlmm-toolkit` 本体と可視化用 Chrome をインストール**
 
@@ -129,7 +114,7 @@ DMF を使う場合は、{ref}`詳細なインストール手順 <ja-step-by-ste
     pip install mace-torch
     ```
 
-    **DFT**（`-b dft`、`--dft`、`mlmm dft`）: `[dft]` は Linux x86_64 で CUDA 13 用の GPU4PySCF を導入します（手順 4 の cu130 / cu132 の PyTorch 向け）。cu126 の wheel を使うときは、代わりに `[dft-cuda12]` を導入します。aarch64 では [GPU4PySCF](https://github.com/pyscf/gpu4pyscf) をソースからビルドしてください。GPU のない環境でも `[dft]` で PySCF が入り、`--dft-engine cpu` で DFT を実行できます。
+    **DFT**（`-b dft`、`--dft`、`mlmm dft`）: `[dft]` は Linux x86_64 で CUDA 13 用の GPU4PySCF を導入します。`cuda129` の PyTorch（手順 4）を使うときは、代わりに `[dft-cuda12]` を導入します。aarch64 では [GPU4PySCF](https://github.com/pyscf/gpu4pyscf) をソースからビルドしてください。GPU のない環境でも `[dft]` で PySCF が入り、`--dft-engine cpu` で DFT を実行できます。
 
     ```bash
     pip install "mlmm-toolkit[dft]"
@@ -151,7 +136,7 @@ DMF を使う場合は、{ref}`詳細なインストール手順 <ja-step-by-ste
     python -c "import torch; print('CUDA:', torch.cuda.is_available(), torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'N/A')"
     ```
 
-    `CUDA: False` の場合、バージョンを変える前に、インストールした wheel、スケジューラがジョブに GPU を見せているか、ドライバー、環境のライブラリを確認してください:
+    `CUDA: False` の場合、バージョンを変える前に、インストールした PyTorch のビルド、スケジューラがジョブに GPU を見せているか、ドライバー、環境のライブラリを確認してください:
 
     ```bash
     python -m torch.utils.collect_env
@@ -164,7 +149,7 @@ DMF を使う場合は、{ref}`詳細なインストール手順 <ja-step-by-ste
 
 **Python:** 3.12 を推奨します（最低 3.11）。ORB バックエンドには 3.11 か 3.12 が必要です。
 
-**GPU / CUDA:** 選んだ wheel に対応するドライバーの NVIDIA GPU（最短のインストールを参照）。新しい GPU アーキテクチャでは新しい wheel が必要なことがあります。CPU のみでも実行できますが、通常は大幅に遅くなります。
+**GPU / CUDA:** 選んだ PyTorch のビルドに対応するドライバーの NVIDIA GPU（最短のインストールを参照）。新しい GPU アーキテクチャでは新しいビルドが必要なことがあります。CPU のみでも実行できますが、通常は大幅に遅くなります。
 
 **AmberTools とコンパイラー:** `mm-parm` と `all` のトポロジー作成に AmberTools（`tleap`）が必要です。前の計算の対応する `--parm7` を渡すと、この段を省けます。デフォルトの MM バックエンド `hessian_ff` には C++20 対応コンパイラー（GCC 13.3 で検証）が必要です。PDBFixer が要るのは `mm-parm --add-h` のときだけです。
 

@@ -112,12 +112,9 @@ and xTB can sit in either. mlmm-toolkit is the same code in both envs; only
 the backend set differs.
 
 ```bash
-conda create -n <YOUR_MACE_ENV> python=3.11
+# PyTorch from conda-forge for your CUDA driver (see CUDA and PyTorch)
+conda create -n <YOUR_MACE_ENV> -c conda-forge --override-channels python=3.11 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt "pytorch=2.13.0=cuda130*" cuda-nvcc -y
 conda activate <YOUR_MACE_ENV>
-conda install -c conda-forge ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler -y
-
-# torch matching your CUDA driver (see CUDA and PyTorch)
-pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/<cu_index>
 
 # Install mlmm first, then replace its incompatible UMA dependency with MACE.
 pip install mlmm-toolkit
@@ -193,7 +190,7 @@ DFT pieces are optional and are not part of the default install.
 
 ```bash
 pip install 'mlmm-toolkit[dft]'
-# CUDA 12 systems (cu126 wheel): pip install 'mlmm-toolkit[dft-cuda12]'
+# with the cuda129 PyTorch build: pip install 'mlmm-toolkit[dft-cuda12]'
 ```
 
 `[dft]` pulls `pyscf>=2.13.0` and `basis-set-exchange>=0.11` on every platform,
@@ -257,28 +254,32 @@ the corresponding CLI options.
 
 ## CUDA and PyTorch
 
-FAIR-Chem selects PyTorch 2.13. PyTorch's official 2.13.0
-matrix publishes Linux/Windows wheels for `cu126`, `cu130`, `cu132`, and `cpu`.
+FAIR-Chem selects PyTorch 2.13. The mlmm env takes PyTorch 2.13.0 from
+conda-forge in the same command as AmberTools, the C++ compiler, and cyipopt,
+so that all compiled packages share one C++ runtime.
 
-### Pick a wheel
+### Pick a build
 
 `nvidia-smi` shows `CUDA Version` at its top right, the newest CUDA the driver
-supports; choose a CUDA wheel at or below it. `cu130` is the recommended
-choice, and newer GPU architectures may need a newer wheel. Use the cluster
-administrator's tested module and wheel pair when one is supplied, and `cpu`
-only when no NVIDIA GPU is assigned. The decisive check is the smoke test
-below.
+supports; use `"pytorch=2.13.0=cuda130*"`, or `cuda129*` when it is below
+13.0. `cuda-nvcc` in the same command supplies the CUDA headers (`cuda.h`)
+that Triton needs to compile kernels.
+Do not install a pip `torch` into this env: on hosts with an older libstdc++
+(RHEL 8, for example), the pip wheel loads the host library first, and
+conda-forge extensions such as numpy, cyipopt, and OpenMM then fail with
+`GLIBCXX_3.4.29 not found` or `CXXABI_1.3.15 not found`. Use `cpu` only when
+no NVIDIA GPU is assigned. The decisive check is the smoke test below.
 
 ### Driver, not toolkit
 
-An official prebuilt PyTorch wheel carries its CUDA user-space libraries. It
-needs a compatible NVIDIA driver and an allocated GPU; it does not require a
-matching local CUDA toolkit, `nvcc`, `CUDA_HOME`, or a `cuda/<X.Y>` module.
+The conda-forge PyTorch brings its CUDA user-space libraries as conda
+packages. It needs a compatible NVIDIA driver and an allocated GPU; it does not
+require a site CUDA toolkit, `CUDA_HOME`, or a `cuda/<X.Y>` module.
 Start with a clean runtime and check the driver with `nvidia-smi`.
 
 Load a CUDA toolkit and compiler only when building a C/CUDA extension from
 source, for example a source-built GPU4PySCF or an architecture not covered by
-the wheels. Then use the administrator's compatible module pair and keep it in
+the builds. Then use the administrator's compatible module pair and keep it in
 both the build and the job environment:
 
 ```bash
@@ -291,10 +292,9 @@ The MM side runs on CPU threads (`calc.mm_threads`, default 16), so request
 `ppn` or `--cpus-per-task` of at least that many. No cross-node MPI launcher
 is involved.
 
-### Install and check torch
+### Check torch
 
 ```bash
-pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/<cu_index>
 python -c "
 import torch
 print('torch    :', torch.__version__)
@@ -306,14 +306,14 @@ print('device 0 :', torch.cuda.get_device_name(0) if torch.cuda.is_available() e
 
 If `torch.cuda.is_available()` is `False` despite a working `nvidia-smi`,
 capture `python -m torch.utils.collect_env`, `python -m pip check`, and
-`CUDA_VISIBLE_DEVICES` before changing the wheel index. A CPU wheel, an
+`CUDA_VISIBLE_DEVICES` before changing the build. A CPU build, an
 unassigned GPU, an unsupported architecture, or mixed module libraries give
 the same symptom.
 
 ### Library-loading collisions
 
-Torch wheels install CUDA libraries under `site-packages/nvidia/`. A system or
-module `LD_LIBRARY_PATH` can load an incompatible `libcusolver`, `libcudnn`,
+The conda-forge PyTorch loads its CUDA libraries from `$CONDA_PREFIX/lib`. A
+system or module `LD_LIBRARY_PATH` can load an incompatible `libcusolver`, `libcudnn`,
 `libnvrtc`, or `libnvJitLink` first. The symptoms are
 `OSError: libcusolver.so.11: cannot open shared object file`,
 `Could not load symbol cublasLtCreate`, and
@@ -331,8 +331,11 @@ control variable.
 
 ### CPU only
 
+Write `"pytorch=2.13.0=cpu*"` in place of the CUDA build and leave out
+`cuda-nvcc`:
+
 ```bash
-pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cpu
+conda create -n <YOUR_ENV> -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt "pytorch=2.13.0=cpu*" -y
 ```
 
 MLIP backends run on the CPU but usually much slower; benchmark a

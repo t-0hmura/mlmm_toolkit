@@ -38,6 +38,7 @@ classifiers = [
 dependencies = [
     # mlmm core dependencies
     "fairchem-core>=2.22,<3",
+    "pydmf>=1.2",  # >=1.2 ships dmf.torch for optional --mep-mode dmf / --dmf-backend gpu (the CLI default is gsm)
     "torch>=2.13,<2.14",
     # hessian_ff JIT-compiles its C++ kernels through torch.utils.cpp_extension,
     # which on torch >= 2.x requires Ninja and no longer has a distutils fallback.

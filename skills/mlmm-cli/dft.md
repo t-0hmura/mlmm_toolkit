@@ -125,7 +125,7 @@ input format).
 ## Next step
 
 - [DFT (PySCF, GPU4PySCF)](../mlmm-install/backends.md#dft-pyscf-gpu4pyscf):
-  install the `[dft]` extra (`[dft-cuda12]` for the `cu126` wheel).
+  install the `[dft]` extra (`[dft-cuda12]` for the `cuda129` PyTorch build).
 - [tsopt.md](tsopt.md) and [irc.md](irc.md): make the geometries.
 - `--show-config` prints the YAML given with `--config` and its top-level
   keys, then continues.

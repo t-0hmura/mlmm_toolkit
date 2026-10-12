@@ -41,6 +41,7 @@ def test_runtime_dependency_floors_match_consumed_apis() -> None:
     extras = project["optional-dependencies"]
 
     assert "ParmEd>=4.3.1" in dependencies
+    assert "pydmf>=1.2" in dependencies
     assert "plotly>=6.1.1" in dependencies
     assert extras["aimnet"] == ["aimnet>=0.2.0"]
     dft = {req.name: req for req in map(Requirement, extras["dft"])}

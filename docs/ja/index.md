@@ -12,7 +12,7 @@ orphan: true
 <img src="../overview.jpg" alt="mlmm-toolkit ワークフロー概要" class="p2r-hero-figure">
 
 {.p2r-tagline}
-**mlmm-toolkit** は、機械学習原子間ポテンシャルと分子力学を ONIOM 的に結合した ML/MM 法を用いて、酵素複合体などの PDB 構造から反応機構解析を行うための Python 製 CLI ツールキットです。
+**mlmm-toolkit** は、酵素複合体を対象として、機械学習原子間ポテンシャル（MLIP）と分子力学（MM）を ONIOM で結合した ML/MM 法を用いて PDB/mmCIF の構造から反応機構を解析する Python 製 CLI ツールキットです。
 
 {.p2r-lead}
 初めての方は [はじめに](getting-started.md) からお読みください。

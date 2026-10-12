@@ -25,7 +25,7 @@ mlmm path-search -i reactant.pdb product.pdb --parm7 real.parm7 --model-pdb ml_r
   -q 0 -m 1 --out-dir ./result_path_search
 ```
 
-実行が終わったら `summary.log` の `[2] Segment-level MEP summary` の節を開くか、`summary.json` を読みます。`scientific_status` には、事前最適化とすべての経路の計算が収束し、HEI が端点にある区間がなければ `success`、そうでなければ `partial` か `failed` が入ります。`segments` には区間ごとの `index`・`tag`・`kind`・`bond_changes`・`converged`・`barrier_kcal` が並びます。結合が変わる区間には、TS 候補の `hei_seg_NN.xyz` も書き出されます。
+実行が終わったら `summary.log` の `[2] Segment-level MEP summary` の節を開くか、`summary.json` を読みます。`scientific_status` には、事前最適化とすべての経路の計算が収束すると `success`、そうでなければ `partial` か `failed` が入ります。`segments` には区間ごとの `index`・`tag`・`kind`・`bond_changes`・`converged`・`barrier_kcal` が並びます。結合が変わる区間には、TS 候補の `hei_seg_NN.xyz` も書き出されます。
 
 ### 2. 中間体を入れて多段階の経路を作る
 
@@ -138,7 +138,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 * **入力ファイルの保護**: 決まった名前の出力（`mep_trj.*`, `mep_plot.png`, `energy_diagram_MEP.png`, `summary.json`, `summary.log`）が入力ファイルを置き換えそうなときは、何も書き出す前に停止します。
 * **YAML のオプティマイザ設定の矛盾**: 同じ YAML ファイルの中で、同じキーを `opt:` と実際に動くオプティマイザの節（`lbfgs:`・`opt.lbfgs:`・`stopt.lbfgs:`、または `rfo` の同等の節）とで別の値にすると、エラーで停止します。
 * **DMF では固定原子が少し動く**: DMF は固定原子を調和拘束（k = 300 eV/Å²、YAML の `dmf.k_fix`）で保持するので、わずかにずれることがあります。[path-opt の「使用上の注意点」](path-opt.md#使用上の注意点) と {ref}`原子の固定と距離の拘束 <ja-freeze-atoms-and-restraints>` を参照してください。
-* **DMF には `cyipopt` と `pydmf` が必要**: どちらも `mlmm-toolkit` と一緒にはインストールされません。`--mep-mode dmf` を使う前に、[path-opt の「使用上の注意点」](path-opt.md#使用上の注意点) の手順でインストールしてください。
+* **DMF には `cyipopt` が必要**: `--mep-mode dmf` を使う前に、[path-opt の「使用上の注意点」](path-opt.md#使用上の注意点) の手順でインストールしてください。`pydmf` は `mlmm-toolkit` に同梱されています。
 * **複雑な機構**では、中間体、スキャンの設定、収束の閾値を調整する必要があることがあります。
 
 ---

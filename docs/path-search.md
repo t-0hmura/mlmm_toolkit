@@ -25,7 +25,7 @@ mlmm path-search -i reactant.pdb product.pdb --parm7 real.parm7 --model-pdb ml_r
   -q 0 -m 1 --out-dir ./result_path_search
 ```
 
-When the run finishes, open `summary.log` (section `[2] Segment-level MEP summary`), or read `summary.json`. `scientific_status` is `success` when the pre-optimizations and every path run converged and no interval has its HEI at an endpoint, otherwise `partial` or `failed`. `segments` lists each segment with its `index`, `tag`, `kind`, `bond_changes`, `converged`, and `barrier_kcal`. Each reactive segment also has its TS candidate, `hei_seg_NN.xyz`.
+When the run finishes, open `summary.log` (section `[2] Segment-level MEP summary`), or read `summary.json`. `scientific_status` is `success` when the pre-optimizations and every path run converged, otherwise `partial` or `failed`. `segments` lists each segment with its `index`, `tag`, `kind`, `bond_changes`, `converged`, and `barrier_kcal`. Each reactive segment also has its TS candidate, `hei_seg_NN.xyz`.
 
 ### 2. Add intermediates for a multistep path
 
@@ -138,7 +138,7 @@ See the [generated CLI reference](reference/commands/path_search.md) for every o
 * **Inputs are protected**: if a fixed output name (`mep_trj.*`, `mep_plot.png`, `energy_diagram_MEP.png`, `summary.json`, `summary.log`) would replace an input file, `path-search` stops before writing anything.
 * **Conflicting optimizer settings in YAML**: setting the same key to different values in `opt:` and in the section of the optimizer that runs (`lbfgs:`, `opt.lbfgs:`, `stopt.lbfgs:`, or the `rfo` equivalents) stops the run with an error.
 * **Frozen atoms move slightly with DMF**: DMF holds frozen atoms with a harmonic restraint (k = 300 eV/Å², YAML `dmf.k_fix`), so they can drift a little; see [path-opt](path-opt.md#notes) and {ref}`Freeze atoms and restrain distances <freeze-atoms-and-restraints>`.
-* **DMF needs `cyipopt` and `pydmf`**: neither is installed with `mlmm-toolkit`; [install them](path-opt.md#notes) before you run `--mep-mode dmf`.
+* **DMF needs `cyipopt`**: [install it](path-opt.md#notes) before you run `--mep-mode dmf`; `pydmf` comes with `mlmm-toolkit`.
 * **Complex mechanisms** may need adjusted intermediates, scan settings, or convergence thresholds.
 
 ---

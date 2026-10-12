@@ -38,7 +38,7 @@ mlmm path-opt -i reactant.pdb product.pdb --parm7 real.parm7 --model-pdb ml_regi
 
 ### 3. GSM の代わりに DMF を使う
 
-DMF には `cyipopt` と `pydmf` が必要です。この例では可動なイメージの数も減らしています。
+DMF には `cyipopt` が必要です。この例では可動なイメージの数も減らしています。
 
 ```bash
 mlmm path-opt -i reactant.pdb product.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
@@ -135,7 +135,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 ## 使用上の注意点
 
 * **DMF では固定原子が少し動く**: DMF は固定原子を固定せず、調和拘束（k = 300 eV/Å²、YAML の `dmf.k_fix`）で保持するので、参照位置からわずかにずれることがあります。GSM では固定されたままです。{ref}`原子の固定と距離の拘束 <ja-freeze-atoms-and-restraints>` を参照してください。
-* **DMF には `cyipopt` と `pydmf` が必要**: どちらも `mlmm-toolkit` と一緒にはインストールされません。`--mep-mode dmf` を使う前に、`conda install -c conda-forge cyipopt -y` を実行し、続けて GPU バックエンドなら `pip install 'pydmf[torch]>=1.2'`、CPU バックエンドなら `pip install 'pydmf>=1.2'` でインストールしてください。デフォルトの `--dmf-backend gpu` は CUDA が使えないとエラーで停止します。その場合と GPU のメモリ不足のときは `--dmf-backend cpu` を指定してください。
+* **DMF には `cyipopt` が必要**: `--mep-mode dmf` を使う前に、{ref}`詳細なインストール手順 <ja-step-by-step-installation>` の手順 2 のとおり PyTorch と一緒に conda-forge からインストールしてください。`pydmf` は `mlmm-toolkit` に同梱されています。デフォルトの `--dmf-backend gpu` は CUDA が使えないとエラーで停止します。その場合と GPU のメモリ不足のときは `--dmf-backend cpu` を指定してください。
 * **DMF で使われないオプション**: `--climb`・`--fix-ends` は、指定しても DMF では使われません。
 * **XYZ の端点のテンプレートは 1 つ**: `--ref-pdb` には全系の PDB を 1 つだけ指定し、両方の `.xyz` 端点に使います。
 * **YAML のオプティマイザ設定の矛盾**: 同じ YAML ファイルの中で、同じキーを `opt:` と実際に動くオプティマイザの節（`lbfgs:`・`opt.lbfgs:`・`stopt.lbfgs:`、または `rfo` の同等の節）とで別の値にすると、エラーで停止します。

@@ -81,11 +81,11 @@ With `-b dft`, the output has the same layout as an MLIP/MM run in the same mode
 
 The other DFT options (`--dft-engine`, `--dft-low-memory/--no-dft-low-memory`, `--dft-nprocs`, `--dft-memory`, SCF checkpoints) are listed in the [`all` reference](reference/commands/all.md).
 
-> **Note:** In YAML, use `calc.dft` for `-b dft`, and the top-level `dft` section for `--dft` or `mlmm dft`. `calc.dft.pyscf` passes attributes to PySCF objects by name, for example `mf: {level_shift: 0.2}` for a hard-to-converge SCF. See [YAML Reference](yaml-reference.md).
+> **Note:** In YAML, use `calc.dft` for `-b dft`, and the top-level `dft` section for `--dft` or `mlmm dft`. In either section, `pyscf` passes attributes to PySCF objects by name, for example `mf: {level_shift: 0.2}` for a hard-to-converge SCF. See [YAML Reference](yaml-reference.md).
 
 ## Notes
 
-- **DFT extra**: install it with `pip install "mlmm-toolkit[dft]"` for the `cu130` or `cu132` PyTorch wheel, or with `pip install "mlmm-toolkit[dft-cuda12]"` for `cu126`; see step 7 of {ref}`Step-by-step installation <step-by-step-installation>`. Without a GPU, add `--dft-engine cpu`.
+- **DFT extra**: install it with `pip install "mlmm-toolkit[dft]"` for the `cuda130` PyTorch build, or with `pip install "mlmm-toolkit[dft-cuda12]"` for `cuda129`; see step 7 of {ref}`Step-by-step installation <step-by-step-installation>`. Without a GPU, add `--dft-engine cpu`.
 - **Keep `--parm7` and `--model-pdb`**: without them, the DFT/MM run builds a new topology from the TS structure and takes the ML region from its B-factor layers. The parm7 is named after the first input of example 1 (`mm_parm/1.R.parm7` here); take the name from `result_all/mm_parm/`.
 - **Charge**: a smaller ML region usually has a different charge. Check `Total active site model charge` in the console output of example 1 before the DFT/MM run.
 - **300 atoms is a guide**: the code sets no limit. The first line of `ml_region_with_linkH.xyz` in the output directory is the ML-region atom count including the link hydrogens.

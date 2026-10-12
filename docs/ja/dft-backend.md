@@ -81,11 +81,11 @@ mlmm all -i result_all/segments/seg_01/ts.pdb \
 
 ほかの DFT のオプション（`--dft-engine`、`--dft-low-memory/--no-dft-low-memory`、`--dft-nprocs`、`--dft-memory`、SCF のチェックポイント）は [`all` のオプションの一覧（英語のみ）](../reference/commands/all.md)にあります。
 
-> **補足:** YAML では、`-b dft` の設定は `calc.dft` に、`--dft` と `mlmm dft` の設定はトップレベルの `dft` に書きます。`calc.dft.pyscf` では PySCF のオブジェクトの名前ごとに属性を渡せます（例：収束しにくい SCF に `mf: {level_shift: 0.2}`）。キーは [YAML 設定の一覧](yaml-reference.md)にあります。
+> **補足:** YAML では、`-b dft` の設定は `calc.dft` に、`--dft` と `mlmm dft` の設定は最上位の `dft` に書きます。どちらでも、`pyscf` で PySCF のオブジェクトの名前ごとに属性を渡せます（例：収束しにくい SCF に `mf: {level_shift: 0.2}`）。キーは [YAML 設定の一覧](yaml-reference.md)にあります。
 
 ## 使用上の注意点
 
-- **DFT 用の追加パッケージ**：PyTorch の wheel が `cu130` か `cu132` なら `pip install "mlmm-toolkit[dft]"`、`cu126` なら `pip install "mlmm-toolkit[dft-cuda12]"` で入れてください。詳しくは {ref}`詳細なインストール手順 <ja-step-by-step-installation>` の手順 7 を参照してください。GPU が無いときは `--dft-engine cpu` を付けてください。
+- **DFT 用の追加パッケージ**：PyTorch のビルドが `cuda130` なら `pip install "mlmm-toolkit[dft]"`、`cuda129` なら `pip install "mlmm-toolkit[dft-cuda12]"` で入れてください。詳しくは {ref}`詳細なインストール手順 <ja-step-by-step-installation>` の手順 7 を参照してください。GPU が無いときは `--dft-engine cpu` を付けてください。
 - **`--parm7` と `--model-pdb` を外さない**：外すと、DFT/MM の計算は TS の構造からトポロジーを作り直し、ML 領域をその B-factor の層から取ります。parm7 の名前は例 1 の最初の入力から付きます（ここでは `mm_parm/1.R.parm7`）。名前は `result_all/mm_parm/` で確かめてください。
 - **電荷**：ML 領域を小さくすると、ふつう ML 領域の電荷も変わります。DFT/MM を流す前に、例 1 の端末の出力の `Total active site model charge` を確かめてください。
 - **300 原子は目安**：プログラム側に上限はありません。出力ディレクトリの `ml_region_with_linkH.xyz` の 1 行目が、リンク水素を含む ML 領域の原子数です。

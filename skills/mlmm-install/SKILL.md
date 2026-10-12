@@ -5,9 +5,9 @@ description: "Install recipes for mlmm-toolkit core, AmberTools, and the ML back
 
 # Install mlmm-toolkit
 
-Install torch for your driver, then `pip install mlmm-toolkit` (UMA comes with the core); MACE needs its own env, and `mm-parm` needs AmberTools.
+Create one conda-forge env with AmberTools and PyTorch for your driver, then `pip install mlmm-toolkit` (UMA comes with the core); MACE needs its own env.
 
-mlmm-toolkit needs a PyTorch wheel that matches the NVIDIA driver, at least one
+mlmm-toolkit needs a PyTorch build that matches the NVIDIA driver, at least one
 MLIP backend, AmberTools for `mlmm mm-parm` ([ambertools.md](ambertools.md)),
 and a C++20 compiler for the bundled `hessian_ff` kernels. PySCF/GPU4PySCF (DFT)
 and the `xtb` executable are optional. The bundled `pysisyphus` fork,
@@ -19,12 +19,14 @@ and the checks in [Verify the install](#verify-the-install) pass.
 
 1. On a new or unknown host, run the probes in
    [backends.md](backends.md#probe-the-compute-environment) first.
-2. Create a conda env with Python 3.12 (3.11 or newer is required; ORB needs
-   3.11 or 3.12) and install AmberTools, PDBFixer, and a C++ compiler.
-3. Install PyTorch. `nvidia-smi` shows `CUDA Version` at its top right, the
-   newest CUDA the driver supports; choose a wheel at or below it (`cu126`,
-   `cu130`, or `cu132`). `cu130` is the recommended choice. Details are in
-   [CUDA and PyTorch](backends.md#cuda-and-pytorch).
+2. Create a conda env from conda-forge with Python 3.12 (3.11 or newer is
+   required; ORB needs 3.11 or 3.12), AmberTools, PDBFixer, a C++ compiler,
+   cyipopt (for DMF; `pydmf` comes with mlmm-toolkit), and PyTorch in one
+   command.
+3. Choose the PyTorch build in that command. `nvidia-smi` shows `CUDA Version`
+   at its top right, the newest CUDA the driver supports; use `cuda130`, or
+   `cuda129` when it is below 13.0. Do not add a pip `torch` to this env.
+   Details are in [CUDA and PyTorch](backends.md#cuda-and-pytorch).
 4. Install mlmm-toolkit and headless Chrome for Plotly PNG export.
 5. Accept the UMA license on Hugging Face and log in ([UMA](backends.md#uma)).
 6. Add other backends only when needed, after checking the model
@@ -35,10 +37,8 @@ and the checks in [Verify the install](#verify-the-install) pass.
    through a custom calculator ([xTB](backends.md#xtb-point-charge-correction)).
 
 ```bash
-conda create -n <YOUR_ENV> python=3.12 -y
+conda create -n <YOUR_ENV> -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt "pytorch=2.13.0=cuda130*" cuda-nvcc -y
 conda activate <YOUR_ENV>
-conda install -c conda-forge ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler -y
-pip install 'torch==2.13.0' --index-url https://download.pytorch.org/whl/cu130
 pip install mlmm-toolkit                 # UMA via fairchem-core
 plotly_get_chrome -y                     # headless Chrome; needs network
 hf auth login                            # after accepting the license on facebook/UMA
@@ -62,8 +62,8 @@ pip install 'mlmm-toolkit[orb,aimnet,dft]'   # extras as needed
 | (none) | UMA via `fairchem-core`, base deps | Default; `-b uma` works |
 | `[orb]` | `orb-models` (0.7 or newer on Python 3.12, 0.5.x on 3.11) | `-b orb` |
 | `[aimnet]` | `aimnet>=0.2.0` | `-b aimnet2` |
-| `[dft]` | PySCF, CUDA 13 GPU4PySCF and CuPy on Linux x86_64 | DFT with a `cu130` or `cu132` wheel |
-| `[dft-cuda12]` | PySCF, CUDA 12 GPU4PySCF and CuPy on Linux x86_64 | DFT with a `cu126` wheel |
+| `[dft]` | PySCF, CUDA 13 GPU4PySCF and CuPy on Linux x86_64 | DFT with the `cuda130` PyTorch build |
+| `[dft-cuda12]` | PySCF, CUDA 12 GPU4PySCF and CuPy on Linux x86_64 | DFT with the `cuda129` PyTorch build |
 | `[dev]` | `pytest` family | Contributing |
 
 There is no `[mace]` extra, because `mace-torch` and `fairchem-core` need
@@ -84,24 +84,23 @@ Replace `<...>` with the values from the probe. The template uses
 
 ```yaml
 name: <YOUR_ENV>
-channels: [conda-forge, nvidia]
+channels: [conda-forge, nodefaults]
 dependencies:
   - python=3.12
   - ambertools=24.8
   - "numpy>=2,<2.5"
   - pdbfixer
   - cxx-compiler
+  - cyipopt                            # only for DMF
+  - pytorch=2.13.0=cuda130*            # cuda129* below CUDA 13.0
+  - cuda-nvcc
   - xtb                                # only for the MLIP/MM correction
   - pip
   - pip:
-      - --extra-index-url https://download.pytorch.org/whl/<cu_index>
-      - torch==2.13.0
       - mlmm-toolkit[orb,aimnet,dft]
 ```
 
-`<cu_index>` is one of `cpu`, `cu126`, `cu130`, `cu132`, the indexes in
-PyTorch's official 2.13.0 matrix, and with `cu126`, use `[dft-cuda12]` in
-place of `[dft]`; see
+With `cuda129*`, use `[dft-cuda12]` in place of `[dft]`; see
 [CUDA and PyTorch](backends.md#cuda-and-pytorch). The MACE env is built
 separately ([MACE](backends.md#mace-separate-environment)).
 

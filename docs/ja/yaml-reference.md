@@ -653,7 +653,7 @@ freq:
 
 `freq.zero_cutoff_cm` は、単体の `freq`、`opt` の flatten、Dimer、Hessian を使う TS 最適化で共通です。`hessian_dimer.neg_freq_thresh_cm` と `rsirfo.saddle_imaginary_threshold_cm` は同じ閾値の別名で、異なる値を書くとエラーで止まります。
 
-デフォルトでは ν < −5.00 cm⁻¹ を虚振動と分類します。n_imag は鞍点の次数を表し、`n_negative_modes` はすべての負の振動数を数えます。どちらも最適化の収束を変えません。符号付き物理モードと熱化学に使う正のモードはすべて保持します。
+デフォルトでは ν < −5.00 cm⁻¹ を虚振動と分類します。n_imag は鞍点の次数を表し、`n_negative_modes` はすべての負の振動数を数えます。`n_negative_modes` は最適化の収束を変えません。符号付き物理モードと熱化学に使う正のモードはすべて保持します。
 
 **注記:**
 - `active_dof_mode`: 振動解析に参加させる原子集合を選択します。`all` は全原子、`ml-only` は ML 領域のみ、`partial`（デフォルト）は ML + 可動 MM、`unfrozen` は固定されていない全原子を使用します。CLI フラグ `--active-dof-mode` が明示された場合は YAML 値より優先されます。

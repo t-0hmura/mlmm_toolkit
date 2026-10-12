@@ -69,9 +69,8 @@ print(t["symmetry_number"], t["symmetry_number_source"])
 `--dump-hess result_freq/hessian.npy` writes the Hessian at that exact path;
 a relative path is resolved from the current working directory, not under
 `--out-dir`. The file is one `numpy.save` array: the Cartesian Hessian in
-Hartree/bohr², not mass-weighted, atoms in input order, 3N×3N, only the
-atoms selected by `--active-dof-mode`, or only the atoms in the Hessian
-calculation. `--read-hess` checks only size,
+Hartree/bohr², not mass-weighted, atoms in input order, 3N×3N or only the
+atoms selected by `--active-dof-mode`. `--read-hess` checks only size,
 symmetry, and finiteness, so pass a Hessian computed for the same geometry,
 charge, multiplicity, layers, and calculator.
 

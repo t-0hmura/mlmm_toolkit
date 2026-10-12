@@ -123,7 +123,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 
 ## 使用上の注意点
 
-* **必要なもの**: DFT 用の追加パッケージが必要で、PyTorch の wheel が `cu130`・`cu132` なら `pip install "mlmm-toolkit[dft]"`、`cu126` なら `pip install "mlmm-toolkit[dft-cuda12]"` で入れます。
+* **必要なもの**: DFT 用の追加パッケージが必要で、PyTorch のビルドが `cuda130` なら `pip install "mlmm-toolkit[dft]"`、`cuda129` なら `pip install "mlmm-toolkit[dft-cuda12]"` で入れます。
 * **基底のコスト**: `def2-tzvpd` は `def2-svp` よりはるかに重い計算です。原子数や GPU メモリの決まった上限は無く、コストは基底関数の数・元素・汎関数・グリッド（`--dft-grid-level`）・GPU で決まります。まず代表構造を 1 つ計算し、メモリの最大使用量を確かめてください。足りないときは、基底を小さくするか、メモリの大きい GPU を使ってください。
 * **GPU**: GPU4PySCF が動かないとき、`dft` は CPU のエンジンを勧めるエラーで止まり、自動では CPU に切り替えません。Blackwell（RTX 50xx）のような新しい世代の GPU では、メモリ不足や未対応カーネルのエラーがメモリ量ではなく GPU4PySCF と CuPy の版から来ることがあるので、まず版とトレースバックを確かめてください。
 * **CPU**: `--dft-engine cpu` は GPU を必要としません。実用になる ML 領域の大きさは手法とマシンで変わるため、代表構造の一点計算で時間を測ってください。
