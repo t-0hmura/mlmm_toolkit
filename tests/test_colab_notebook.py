@@ -211,7 +211,9 @@ def test_installation_backend_guidance_is_explicit() -> None:
         '<a href="https://huggingface.co/facebook/UMA" target="_blank">huggingface.co/facebook/UMA</a> '
         "and create a read token at "
         '<a href="https://huggingface.co/settings/tokens" target="_blank">huggingface.co/settings/tokens</a>. '
-        "Without a token, use ORB or MACE. Restart the runtime before switching backends. "
+        "Without a token, use ORB or MACE. To switch backends, start a fresh runtime "
+        "(Runtime \u25b8 Disconnect and delete runtime; Restart session keeps the installed packages), "
+        "then rerun Installation. "
         "UMA uses fp32; ORB/MACE use fp64 by default."
     )
     assert expected in setup
@@ -723,7 +725,8 @@ def test_colab_setup_is_pinned_to_matching_release_and_one_backend() -> None:
     assert "installed_version != _requested_version" in setup
     assert "anywidget==0.11.0" in setup
     assert "version('mlmm-toolkit')" in setup
-    assert "Restart the Colab runtime first" in setup
+    assert "Start a fresh runtime first (Runtime \u25b8 Disconnect and delete runtime)" in setup
+    assert "Restart the Colab runtime first" not in setup
     assert "mace-torch==0.3.16" in setup
     assert "HF_TOKEN" in setup
     assert 'install_dft = True  #@param {type:"boolean"}' in setup
@@ -1148,8 +1151,10 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert "btn_clear_pick" not in app
     assert "sel_lang" not in app
     assert "No structure loaded" in app
-    assert "options=[('MEP', 'mep'), ('Scan', 'scan'), ('TS-only', 'tsonly')]" in app
-    assert "style={'button_width': '74px', 'description_width': '0px'}" in app
+    assert "options=[('Endpoint mode', 'mep'), ('Scan-lists mode', 'scan'), ('TS-only mode', 'tsonly')]" in app
+    assert "style={'button_width': '118px', 'description_width': '0px'}" in app
+    assert "'all Endpoint mode needs 2 or more structures.'" in app
+    assert "<b>MEP</b> (minimum-energy path)" not in app
     assert "No results yet." in app
     assert "frame_slider.disabled = last == 0" in app
     assert "trajectory_box.layout.display = 'none'" in app
@@ -1309,8 +1314,16 @@ def test_colab_gui_keeps_responsive_release_layout() -> None:
     assert ".rxtabs .rxtab-button { flex:1 1 0 !important; width:auto !important;" in app
     assert ".rxpage > * { flex:0 0 auto !important; }" not in app
     assert "height:auto; max-height:none; min-height:0; overflow:visible;" in app
-    assert "height:calc(clamp(460px,50vw,660px) + 52px); max-height:712px;" in app
-    assert "height:clamp(460px,50vw,660px) !important; max-height:660px !important;" in app
+    # In Colab the app fits the visible notebook pane (.rxfit): the bridge samples the
+    # pane, and the Setup viewer fills the page between the steps and the command dock.
+    assert "height:calc(var(--rx-view-h, clamp(460px,50vw,660px)) + 52px); max-height:none;" in app
+    assert "height:var(--rx-view-h, clamp(460px,50vw,660px)) !important; max-height:none !important;" in app
+    assert ".rxapp.rxfit { height:var(--rx-fit-h) !important; padding-bottom:24px; overflow:hidden !important; }" in app
+    assert "app.classList.toggle('rxfit',fit);" in app
+    assert "var probe=new IntersectionObserver(function(entries){" in app
+    assert "app.style.setProperty('--rx-fit-h',height+'px');" in app
+    assert "app.style.setProperty('--rx-view-h',want+'px');" in app
+    assert "  syncFitHeight();\n  setInterval(syncFitHeight,500);\n  resizeColabFrame();" in app
     assert "overflow-y:auto !important; overflow-x:hidden !important;" in app
     assert "scrollbar-gutter:auto; scrollbar-width:auto; scrollbar-color:#2563eb #dbeafe;" in app
     assert ".rxinspector::-webkit-scrollbar { width:14px; }" in app
@@ -1568,7 +1581,12 @@ def test_colab_viewer_persists_exact_atom_and_residue_context() -> None:
     assert "String(item.sourceIndex)" in app
     assert "cfg.generation,exact" in app
     assert "if exact in (False, 0, 'false', 'False')" in app
-    assert "Mol* focused this residue" in app
+    assert "Mol* shows this residue in ball-and-stick" in app
+    # Picking never moves the camera: Mol*'s click-to-focus camera bindings are
+    # cleared in the interactive Setup viewer only.
+    assert "transformer.id==='ms-plugin.camera-focus-loci'" in app
+    assert "    if(cfg.interactive){\n      await keepCameraOnClick();" in app
+    assert app.count("await keepCameraOnClick();") == 1
     click_completion = app[
         app.index("def on_click("):
         app.index("_co.register_callback('mlmm_gui.on_click', on_click)")
@@ -5070,6 +5088,56 @@ def test_colab_uma_login_accepts_a_colab_secret(monkeypatch) -> None:
 
     assert [entry[0] for entry in logins] == ["token"]
     assert logins[0][1]["token"] == "secret-token"
+
+
+def test_colab_uma_login_reads_the_runtime_token_before_the_secret(monkeypatch, capsys) -> None:
+    """A token cached in the runtime is reused without reading the Colab secret,
+    which opens a blocking access dialog on a local runtime."""
+    import importlib.metadata
+
+    setup = _notebook()["cells"][1]["source"].replace("install_dft = True", "install_dft = False", 1)
+    logins: list[tuple] = []
+    secret_reads: list[str] = []
+    fake_hf = types.ModuleType("huggingface_hub")
+    fake_hf.login = lambda **kwargs: logins.append(("token", kwargs))
+    fake_hf.notebook_login = lambda: logins.append(("notebook", {}))
+    fake_hf.get_token = lambda: "cached-token"
+    userdata = types.ModuleType("google.colab.userdata")
+    userdata.get = lambda name: secret_reads.append(name) or "secret-token"
+    colab = types.ModuleType("google.colab")
+    colab.userdata = userdata
+    google = types.ModuleType("google")
+    google.colab = colab
+    monkeypatch.setitem(sys.modules, "huggingface_hub", fake_hf)
+    monkeypatch.setitem(sys.modules, "google", google)
+    monkeypatch.setitem(sys.modules, "google.colab", colab)
+    monkeypatch.setitem(sys.modules, "google.colab.userdata", userdata)
+    monkeypatch.setattr(
+        subprocess, "run",
+        lambda argv, **_kwargs: types.SimpleNamespace(stdout="GPU 0", stderr="", returncode=0),
+    )
+    monkeypatch.setattr(importlib.util, "find_spec", lambda _name: object())
+    monkeypatch.setattr(
+        importlib.metadata, "version",
+        lambda name: "0.5.0" if name == "mlmm-toolkit" else "test",
+    )
+    monkeypatch.delenv("HF_TOKEN", raising=False)
+
+    exec(compile(setup, str(NOTEBOOK), "exec"), {})
+
+    assert secret_reads == []
+    assert logins == []
+    assert "reusing the token already cached in this runtime" in capsys.readouterr().out
+
+
+def test_readiness_chip_is_guidance_before_any_structure(monkeypatch, tmp_path) -> None:
+    """Before any input the command line shows neutral guidance, not a warning."""
+    app, _rendered = _execute_app(monkeypatch, tmp_path)
+
+    assert not app["S"].get("inputs")
+    assert 'class="rxreadiness-idle"' in app["ready_chip"].value
+    assert "rxreadiness-error" not in app["ready_chip"].value
+    assert "(_NO if S.get('inputs') else _IDLE) % html.escape(str(e))" in _notebook()["cells"][2]["source"]
 
 
 def test_extract_panel_is_shown_only_for_workflows_that_need_it() -> None:
