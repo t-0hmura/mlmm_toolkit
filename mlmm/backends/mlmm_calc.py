@@ -1429,6 +1429,57 @@ def write_model_parm7(
     model.save(str(model_rst7), overwrite=True)
 
 
+def apply_dft_embedding_charges(
+    structure,
+    ml_indices: Sequence[int],
+    link_pairs: Sequence[Tuple[int, int]],
+) -> Dict[str, float]:
+    """Set the MM charges for DFT electrostatic embedding, in place.
+
+    The DFT Hamiltonian already holds the interaction between the ML-region
+    density and the MM point charges, so the MM layers must not count it
+    again: the ML-region charges become zero, which removes every ML-MM
+    electrostatic term from ``E_real_low`` and makes the ML-internal
+    electrostatics of ``E_real_low`` and ``E_model_low`` cancel at zero.
+
+    Each link-host MM atom (the MM end of a cut bond) passes its charge in
+    equal parts to its bonded MM neighbours that are not link hosts (charge
+    shift without dipole correction). The MM charge is conserved, and no point
+    charge sits next to a link hydrogen.
+
+    ``ml_indices`` are 0-based; ``link_pairs`` are 1-based ``(ml, mm)`` pairs
+    as in ``MLMMCore.mlmm_links``.
+    """
+    ml = {int(i) for i in ml_indices}
+    hosts = {int(mm) - 1 for _, mm in link_pairs}
+    removed = float(sum(structure.atoms[i].charge for i in ml))
+    for i in ml:
+        structure.atoms[i].charge = 0.0
+    shifted = 0.0
+    for host in sorted(hosts):
+        atom = structure.atoms[host]
+        receivers = [
+            partner.idx for partner in atom.bond_partners
+            if partner.idx not in ml and partner.idx not in hosts
+        ]
+        if not receivers:
+            raise ValueError(
+                f"Link-host MM atom {host + 1} has no bonded MM neighbour that is "
+                "not itself a link host, so its charge cannot be redistributed. "
+                "Move the ML/MM boundary."
+            )
+        charge = float(atom.charge)
+        atom.charge = 0.0
+        for index in receivers:
+            structure.atoms[index].charge += charge / len(receivers)
+        shifted += abs(charge)
+    return {
+        "ml_charge_removed": removed,
+        "link_hosts": float(len(hosts)),
+        "host_charge_shifted_abs": shifted,
+    }
+
+
 def _normalize_prmtop_lj_tables(parm7_path: str) -> None:
     """Normalize LJ table lengths in parm7 files generated from sliced structures.
 
@@ -1996,6 +2047,7 @@ class MLMMCore:
         use_cmap: bool = True,
         _high_level_backend: Optional[Any] = None,
         _skip_high_level_backend: bool = False,
+        _dft_point_charge_embedding: bool = False,
         **kwargs,
     ):
         if kwargs:
@@ -2114,6 +2166,26 @@ class MLMMCore:
             ]
         else:
             self._link_g_factors = []
+        # DFT electrostatic embedding: the MM layers must not hold ML-MM
+        # electrostatics (the DFT Hamiltonian does). The model parm7 below is
+        # sliced from this charge-modified real parm7, so both MM layers agree.
+        self.dft_embedding_charges: Optional[Dict[str, float]] = None
+        if _dft_point_charge_embedding or (
+            bool(embedcharge) and str(backend or "").strip().lower() == "dft"
+        ):
+            charged_top = pmd.load_file(self.real_parm7, self.real_rst7)
+            self.dft_embedding_charges = apply_dft_embedding_charges(
+                charged_top,
+                [int(i) - 1 for i in self.ml_ID],
+                self.mlmm_links,
+            )
+            charged_top.save(self.real_parm7, overwrite=True)
+            logger.info(
+                "[MLMMCore] DFT embedding: ML-region MM charges (sum %.4f) set to "
+                "zero; %d link-host charge(s) shifted to MM neighbours.",
+                self.dft_embedding_charges["ml_charge_removed"],
+                int(self.dft_embedding_charges["link_hosts"]),
+            )
         self.selection_indices = self._mk_model_parm7()
 
         self.hess_cutoff = hess_cutoff
@@ -3743,6 +3815,7 @@ class mlmm(PySiCalc):
         use_cmap: bool = True,
         _high_level_backend: Optional[Any] = None,
         _skip_high_level_backend: bool = False,
+        _dft_point_charge_embedding: bool = False,
         **kwargs,
     ):
 
@@ -3806,6 +3879,7 @@ class mlmm(PySiCalc):
             use_cmap=use_cmap,
             _high_level_backend=_high_level_backend,
             _skip_high_level_backend=_skip_high_level_backend,
+            _dft_point_charge_embedding=_dft_point_charge_embedding,
         )
 
         self.out_hess_torch = bool(out_hess_torch)

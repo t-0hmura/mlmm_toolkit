@@ -253,6 +253,12 @@ def _prepare_ml_region_workspace(
     # below. The ML/MM core's optional xTB delta correction is an alternative
     # for MLIP workflows and must not be added to the embedded DFT energy.
     calculator_kwargs["embedcharge"] = False
+    # The MM layers still need the embedding charge scheme (ML charges zeroed,
+    # link-host charges shifted), or E_real_low double-counts the ML-MM
+    # electrostatics that the embedded DFT energy already holds.
+    calculator_kwargs["_dft_point_charge_embedding"] = bool(
+        (calc_kwargs or {}).get("embedcharge", False)
+    )
     calculator_kwargs.update(
         {
             "input_pdb": str(Path(input_pdb)),
