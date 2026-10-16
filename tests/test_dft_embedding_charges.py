@@ -145,3 +145,22 @@ def test_embedding_does_not_double_count_the_ion_pair_coulomb(tmp_path, distance
 
     assert abs(e_ee - e_me) < 1.0e-4
     assert abs(e_ee - e_me - double_count) > 0.9 * abs(double_count)
+
+
+@pytest.mark.timeout(600)
+@pytest.mark.parametrize("embed", [False, True])
+def test_standalone_dft_workspace_applies_the_charge_scheme(tmp_path, embed) -> None:
+    """`mlmm dft --embedcharge` builds its MM layers through the same core."""
+    from mlmm.workflows.dft import _prepare_ml_region_workspace
+
+    pdb, parm7, model, _ = _ion_pair(tmp_path, 10.0)
+    workspace = _prepare_ml_region_workspace(
+        input_pdb=pdb, real_parm7=parm7, model_pdb=model, link_mlmm=None,
+        calc_kwargs={"model_charge": 1, "model_mult": 1, "embedcharge": embed,
+                     "ml_device": "cpu", "mm_device": "cpu"},
+    )
+    try:
+        charges = [a.charge for a in pmd.load_file(str(workspace.real_parm7)).atoms]
+    finally:
+        workspace.calculator.core.cleanup()
+    assert charges == pytest.approx([0.0 if embed else 1.0, -1.0])

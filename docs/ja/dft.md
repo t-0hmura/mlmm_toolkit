@@ -60,7 +60,7 @@ mlmm dft -i enzyme.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 1. **ML 領域を組む**:
 `-i` から全系を、`--parm7` から Amber トポロジーを、`--model-pdb`・`--model-indices`・入力の B-factor のどれかから ML 領域を読みます。XYZ 入力では、PDB/mmCIF のトポロジーを `--ref-pdb` で与えます。ML/MM の境界で切れる `--parm7` の結合をリンク水素でふさぎ、ML 領域をリンク水素なしとありの 2 通りで保存します。
 2. **SCF**:
-`--func-basis` で汎関数と基底を選びます。名前が `def2` で始まる基底には、対応する def2 の有効内殻ポテンシャル（ECP）を付けます。`--dft-engine` で GPU4PySCF（`gpu`、デフォルト）か PySCF（`cpu`）を選びます。閉殻は RKS、開殻は UKS で計算します。デフォルトで有効な低メモリモードでは、密度フィッティング（density fitting）を使わずに J と K を直接組み立てます。このとき、GPU で閉殻系を計算する場合は GPU4PySCF の低メモリ版 RKS を使います。`--no-dft-low-memory` では密度フィッティングを使います。`--embedcharge` を付けると、ML 領域から `--embedcharge-cutoff` 以内にある `--parm7` の MM 点電荷を DFT のハミルトニアンに入れます。
+`--func-basis` で汎関数と基底を選びます。名前が `def2` で始まる基底には、対応する def2 の有効内殻ポテンシャル（ECP）を付けます。`--dft-engine` で GPU4PySCF（`gpu`、デフォルト）か PySCF（`cpu`）を選びます。閉殻は RKS、開殻は UKS で計算します。デフォルトで有効な低メモリモードでは、密度フィッティング（density fitting）を使わずに J と K を直接組み立てます。このとき、GPU で閉殻系を計算する場合は GPU4PySCF の低メモリ版 RKS を使います。`--no-dft-low-memory` では密度フィッティングを使います。`--embedcharge` を付けると、ML 領域から `--embedcharge-cutoff` 以内にある `--parm7` の MM 点電荷を DFT のハミルトニアンに入れます。このとき MM のエネルギーは ML 領域の電荷を 0 にして計算するので、ML–MM 間の静電相互作用は DFT のエネルギーでだけ数えます。ML 領域と結合している MM 原子（リンク先）の電荷は、その原子に結合している他の MM 原子へ等分して移すので、MM 全体の電荷は変わりません。
 3. **ML(DFT)/MM のエネルギー**:
 リンク水素を含む ML 領域の DFT エネルギーを、ONIOM の和の ML のエネルギーの代わりに使います。`E_REAL_low` と `E_MODEL_low` は、全系と ML 領域の MM エネルギーです。
 4. **電荷と結果ファイル**:

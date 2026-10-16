@@ -6,7 +6,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
-_No changes yet._
+### Fixed
+
+- DFT electrostatic embedding (`-b dft --embedcharge` and `mlmm dft --embedcharge`) no longer counts the ML–MM electrostatics twice. The MM layers now run with the ML-region charges set to zero, so only the DFT Hamiltonian holds the interaction of the ML region with the MM charges; each link-host MM charge is shifted onto its bonded MM neighbours, so no point charge sits next to a link hydrogen. Energies, forces, and Hessians with `--embedcharge` change; runs without it are unchanged.
 
 ## [0.4.0] — 2026-10-12
 
