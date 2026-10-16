@@ -1,8 +1,5 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/t-0hmura/mlmm_toolkit/main/docs/_static/mlmm-toolkit-logo-dark.svg">
-    <img src="https://raw.githubusercontent.com/t-0hmura/mlmm_toolkit/main/docs/_static/mlmm-toolkit-logo.svg" alt="mlmm-toolkit" width="520">
-  </picture>
+  <img src="https://raw.githubusercontent.com/t-0hmura/mlmm_toolkit/main/docs/_static/mlmm-toolkit-logo-plate.svg" alt="mlmm-toolkit" width="546">
 </p>
 
 # `mlmm-toolkit`: An End-to-End ML/MM ONIOM Platform for Automated Enzymatic Reaction Mechanism Analysis
