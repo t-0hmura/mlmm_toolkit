@@ -829,8 +829,8 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     "embedcharge_cutoff",
     type=float,
     default=None,
-    show_default="12.0",
-    help="Distance cutoff (Å) from ML region for MM point charges embedded in the PySCF QM Hamiltonian. Only used when --embedcharge is enabled.",
+    show_default="none",
+    help="Distance cutoff (Å) from the ML region for the embedded MM point charges. By default every MM atom except those one or two bonds from the ML region is a point charge. Only used when --embedcharge is enabled.",
 )
 @click.option(
     "--link-atom-method",
@@ -1382,10 +1382,10 @@ def cli(
         embedding_sha256 = None
         mm_coords = None
         mm_charges = None
+        mm_indices: List[int] = []
         pyscf_qmmm = None
         if calc_kw.get("embedcharge", False):
             import parmed as pmd
-            from scipy.spatial.distance import cdist
 
             if using_gpu and not using_lowmem:
                 from gpu4pyscf import qmmm as pyscf_qmmm
@@ -1393,23 +1393,11 @@ def cli(
                 from pyscf import qmmm as pyscf_qmmm
 
             real_top = pmd.load_file(str(workspace.real_parm7))
-            ml_set = set(workspace.selection_indices)
-            mm_indices = [
-                index
-                for index in range(len(workspace.atoms_real))
-                if index not in ml_set
-            ]
-
-            cutoff = calc_kw.get("embedcharge_cutoff")
-            if mm_indices and cutoff is not None:
-                ml_positions = workspace.atoms_real.get_positions()[sorted(ml_set)]
-                mm_positions = workspace.atoms_real.get_positions()[mm_indices]
-                distances = cdist(mm_positions, ml_positions).min(axis=1)
-                mm_indices = [
-                    atom_index
-                    for atom_index, distance in zip(mm_indices, distances)
-                    if distance <= float(cutoff)
-                ]
+            # Same ONIOM-EE point charges as -b dft --embedcharge: MM atoms one
+            # or two bonds from the ML region stay out, the rest within the cutoff.
+            mm_indices = list(
+                workspace.core.embedding_point_charge_indices(workspace.atoms_real)
+            )
 
             if mm_indices:
                 mm_coords = workspace.atoms_real.get_positions()[mm_indices]
@@ -1577,10 +1565,19 @@ def cli(
         energy_components = mlmm_result["energy_components"]
         e_real_low = float(energy_components["real_low"])
         e_model_low = float(energy_components["model_low"])
+        e_total = float(mlmm_result["energy"])
+        if mm_indices:
+            # ONIOM-EE model-low term: the ML force-field charges with the same
+            # point charges, which cancels their ML-MM Coulomb in E_real_low.
+            e_coulomb, _, _ = workspace.core.embedding_coulomb(
+                workspace.atoms_real, mm_indices
+            )
+            e_model_low += e_coulomb
+            e_total -= e_coulomb
 
         e_real_low_au = e_real_low * EV2AU
         e_model_low_au = e_model_low * EV2AU
-        e_total_au = float(mlmm_result["energy"]) * EV2AU
+        e_total_au = e_total * EV2AU
         e_total_kcal = _hartree_to_kcalmol(e_total_au)
 
         result_yaml = {

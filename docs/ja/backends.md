@@ -102,9 +102,9 @@ UMA では次の 2 つのどちらかを選んでください。
 
 ## xTB 静電補正
 
-MLIP/MM の計算では、`--embedcharge/--no-embedcharge`（デフォルトはオフ）で `E_xTB(ML + MM point charges) - E_xTB(ML)` と、それに対応する力と Hessian の差を足し、ML 領域に MM の点電荷の影響を入れます。
+MLIP/MM の計算では、`--embedcharge/--no-embedcharge`（デフォルトはオフ）で `E_xTB(ML + link H + MM point charges) - E_xTB(ML + link H)` と、それに対応する力と Hessian の差を足し、ML 領域に MM の点電荷の影響を入れます。xTB には MLIP と同じ ML 領域とリンク水素を渡します。埋め込みは ONIOM-EE の形で、ML 領域から 1・2 結合の MM 原子は点電荷にせず、MODEL-low には ML 原子の力場の電荷と点電荷との Coulomb エネルギーを足します（[ML/MM 計算機](mlmm-calc.md)）。
 
-`-b dft` では、`--embedcharge` は xTB の補正を使わず、MM の点電荷を PySCF のハミルトニアンに直接入れます。
+`-b dft` では、`--embedcharge` は xTB の補正を使わず、同じ MM の点電荷を PySCF のハミルトニアンに直接入れます。
 
 ## DFT/MM バックエンド
 
@@ -181,7 +181,7 @@ ML/MM の段では、選んだ ML バックエンドと Hessian の途中の配�
 - UMA で `--uma-workers` を 2 以上にすると、`--hessian-calc-mode Analytical` とは併用できず、エラーで止まります。並列の予測器は autograd のモデルを持たないためです。解析 Hessian には `--uma-workers 1` を、複数のワーカーには `FiniteDifference` を使ってください。
 - MACE は UMA と同じ環境には入れられません。専用の conda 環境に入れてください。
 - パッケージを入れていないバックエンドを選ぶと、``orb-models is required for the ORB backend. Install with `pip install orb-models`.`` のようなエラーで止まります。
-- `--embedcharge` はエネルギー、力、Hessian を求めるたびに、MM の点電荷あり・なしで xTB を実行します。ML 領域は 200〜300 原子くらいまでにし、実際の系で先に計算時間を測ってください。
+- `--embedcharge` はエネルギー、力、Hessian を求めるたびに、MM の点電荷あり・なしで xTB を実行します。ML 領域は 200〜300 原子くらいまでにし、実際の系で先に計算時間を測ってください。xTB の補正の Hessian は ML 原子とすべての点電荷についての有限差分なので、`--embedcharge-cutoff` を指定しないと、MM 原子の数に比例して重くなります。
 
 ## 関連ドキュメント
 

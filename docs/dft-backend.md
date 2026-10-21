@@ -76,7 +76,7 @@ With `-b dft`, the output has the same layout as an MLIP/MM run in the same mode
 | `-b, --backend dft` | Use DFT for the ML region (GPU4PySCF; CPU PySCF with `--dft-engine cpu`). | `uma` |
 | `--parm7 FILE`, `--model-pdb FILE` | Reuse the MM topology and the ML region of an earlier run. Without them, `all` builds them again from the input. | — |
 | `--func-basis TEXT` | Functional and basis as `FUNCTIONAL/BASIS`. Applies to both `-b dft` and `--dft`. | `wb97m-v/def2-svp` |
-| `--embedcharge/--no-embedcharge`, `--embedcharge-cutoff FLOAT` | With `-b dft`, put the MM point charges within the cutoff (Å) of the ML region into the DFT Hamiltonian. | `--no-embedcharge`, `12.0` |
+| `--embedcharge/--no-embedcharge`, `--embedcharge-cutoff FLOAT` | With `-b dft`, put the MM point charges into the DFT Hamiltonian, leaving out MM atoms one or two bonds from the ML region (ONIOM-EE; see [ML/MM Calculator](mlmm-calc.md)); the cutoff (Å) keeps only those within that distance of the ML region. | `--no-embedcharge`, no cutoff |
 | `--dft/--no-dft` | Add DFT single points on R, TS, and P (`all` only). | `--no-dft` |
 
 The other DFT options (`--dft-engine`, `--dft-low-memory/--no-dft-low-memory`, `--dft-nprocs`, `--dft-memory`, SCF checkpoints) are listed in the [`all` reference](reference/commands/all.md).

@@ -196,7 +196,7 @@ calc:
 
  # --- 静電埋め込み（任意） ---
  embedcharge: false # MLIP は高コストな xTB 補正、dft は PySCF への直接静電埋込み
- embedcharge_cutoff: 12.0 # ML 領域からの MM 点電荷カットオフ (Å)
+ embedcharge_cutoff: null # ML 領域からの MM 点電荷カットオフ (Å)。null は ML 領域から 1・2 結合の MM 原子を除く全 MM 原子
  embedcharge_step: 0.001 # MLIP/xTB 補正用の数値 Hessian ステップ（dft では未使用）
  xtb_cmd: xtb # xTB 実行コマンド
  xtb_acc: 0.2 # xTB 精度パラメータ

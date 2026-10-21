@@ -4,6 +4,7 @@
 # This script assumes the calling environment already has:
 #   - a Python with `mlmm` installed and importable
 #   - AmberTools (antechamber / parmchk2 / tleap) on PATH
+#   - xtb on PATH (test80: --embedcharge with an MLIP)
 #   - CUDA available
 #   - a writable scratch copy of this directory (artefacts land in `testNN*`)
 # It does NOT activate conda, load modules, or contain HPC scheduler
@@ -669,5 +670,65 @@ mlmm tsopt -i p_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --opt-mod
 python assert_release_result.py hessian-dump test78_dimer --hessian-file test78_dimer/ts_hessian.npy >> test78_dimer.out 2>&1
 mlmm irc -i test78_dimer/final_geometry.pdb --parm7 p_complex.parm7 -q -1 -m 1 --read-hess test78_dimer/ts_hessian.npy --max-cycles 2 --out-json --out-dir test78_irc > test78_irc.out 2>&1
 python assert_release_result.py hessian-read test78_irc --log-file test78_irc.out >> test78_irc.out 2>&1
+
+# test79: ONIOM-EE embedding gives one ML(DFT)/MM energy through `dft` and
+# `sp -b dft`. REAL-low equals the unembedded test11 run (the MM layers keep
+# their force-field charges), and MODEL-low gains the point-charge Coulomb term.
+mlmm dft -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --func-basis 'hf/sto-3g' --dft-engine cpu --no-scf-stepwise-grid --embedcharge --out-dir test79_dft_embed > test79_dft_embed.out 2>&1
+mlmm sp -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 -b dft --func-basis 'hf/sto-3g' --dft-engine cpu --no-scf-stepwise-grid --embedcharge --out-json --out-dir test79_sp_dft_embed > test79_sp_dft_embed.out 2>&1
+python - <<'PY'
+import json
+import math
+from pathlib import Path
+
+import numpy as np
+import yaml
+
+ee = yaml.safe_load(Path("test79_dft_embed/result.yaml").read_text(encoding="utf-8"))
+me = yaml.safe_load(Path("test11/result.yaml").read_text(encoding="utf-8"))
+sp = json.loads(Path("test79_sp_dft_embed/result.json").read_text(encoding="utf-8"))
+n_charges = int(ee["input"]["n_mm_charges"])
+e_dft = float(ee["mlmm_energy"]["E_total_ml_dft_mm_hartree"])
+e_sp = float(sp["energy_au"])
+d_real = float(ee["mlmm_energy"]["E_real_low_hartree"]) - float(me["mlmm_energy"]["E_real_low_hartree"])
+d_model = float(ee["mlmm_energy"]["E_model_low_hartree"]) - float(me["mlmm_energy"]["E_model_low_hartree"])
+forces = np.load("test79_sp_dft_embed/forces.npy", allow_pickle=False)
+if n_charges <= 0 or not ee["energy"]["converged"]:
+    raise SystemExit(f"[smoke] FAIL test79: embedded dft did not converge with point charges (n={n_charges})")
+if not (math.isfinite(e_dft) and math.isfinite(e_sp) and np.isfinite(forces).all()):
+    raise SystemExit("[smoke] FAIL test79: non-finite embedded DFT energy or forces")
+if abs(e_dft - e_sp) > 1.0e-6:
+    raise SystemExit(f"[smoke] FAIL test79: dft and sp -b dft energies differ by {e_dft - e_sp:.3e} Eh")
+if abs(d_real) > 1.0e-10:
+    raise SystemExit(f"[smoke] FAIL test79: embedding changed E_real_low by {d_real:.3e} Eh")
+if abs(d_model) < 1.0e-6:
+    raise SystemExit("[smoke] FAIL test79: E_model_low lacks the point-charge Coulomb term")
+print(f"[smoke] PASS test79: {n_charges} point charges; dft - sp = {e_dft - e_sp:.2e} Eh; "
+      f"model-low Coulomb = {d_model:.6f} Eh")
+PY
+
+# test80: MLIP embedding runs the xTB correction on the ML region with its link
+# hydrogens and returns finite energy and forces that differ from no embedding.
+command -v xtb > /dev/null || { echo "[smoke] BLOCKED: xtb is required by test80 (--embedcharge with an MLIP)" >&2; exit 1; }
+mlmm sp -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --out-json --out-dir test80_sp_uma > test80_sp_uma.out 2>&1
+mlmm sp -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --embedcharge --out-json --out-dir test80_sp_uma_embed > test80_sp_uma_embed.out 2>&1
+python - <<'PY'
+import json
+import math
+from pathlib import Path
+
+import numpy as np
+
+me = json.loads(Path("test80_sp_uma/result.json").read_text(encoding="utf-8"))
+ee = json.loads(Path("test80_sp_uma_embed/result.json").read_text(encoding="utf-8"))
+f_me = np.load("test80_sp_uma/forces.npy", allow_pickle=False)
+f_ee = np.load("test80_sp_uma_embed/forces.npy", allow_pickle=False)
+d_e = float(ee["energy_au"]) - float(me["energy_au"])
+if not math.isfinite(d_e) or f_ee.shape != f_me.shape or not np.isfinite(f_ee).all():
+    raise SystemExit("[smoke] FAIL test80: invalid embedded MLIP energy or forces")
+if abs(d_e) < 1.0e-6 or np.max(np.abs(f_ee - f_me)) < 1.0e-6:
+    raise SystemExit("[smoke] FAIL test80: --embedcharge did not change the MLIP energy and forces")
+print(f"[smoke] PASS test80: embedding shifts the energy by {d_e:.6f} Eh")
+PY
 
 echo "[smoke] PASS: required GPU, ML/MM, Hessian-handoff, and structure-I/O lane completed with zero skips."

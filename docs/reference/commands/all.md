@@ -343,8 +343,10 @@ Options:
                                   correction; DFT/MM stages embed MM charges in
                                   the PySCF Hamiltonian.  [default: no-
                                   embedcharge]
-  --embedcharge-cutoff FLOAT      Distance cutoff (Å) from the ML region for
-                                  embedded MM point charges.  [default: (12.0)]
+  --embedcharge-cutoff FLOAT      Distance cutoff (Å) from the ML region for the
+                                  embedded MM point charges. By default every MM
+                                  atom except those one or two bonds from the ML
+                                  region is a point charge.  [default: (none)]
   --link-atom-method [scaled|fixed]
                                   Link-atom position mode: scaled (g-factor) or
                                   fixed (1.09/1.01 Å).  [default: (scaled)]

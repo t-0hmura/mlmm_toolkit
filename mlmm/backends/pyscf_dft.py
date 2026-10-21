@@ -805,7 +805,7 @@ def create_dft_backend(
         "model_charge": int(charge),
         "model_mult": int(multiplicity),
         "embedcharge": values.get("embedcharge", False),
-        "embedcharge_cutoff": values.get("embedcharge_cutoff", 12.0),
+        "embedcharge_cutoff": values.get("embedcharge_cutoff"),
         "dft_settings": dict(values),
     })
     return DFTBackend(settings)

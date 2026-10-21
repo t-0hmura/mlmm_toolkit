@@ -22,6 +22,8 @@ E_ONIOM = E(REAL-low) - E(MODEL-low) + E(MODEL-high)
 
 The full system is evaluated with MM, the ML region is evaluated at both the high level and the MM level, and the MM energy of the ML region is subtracted so that it is not counted twice. Forces and Hessians follow the same subtraction.
 
+With `--embedcharge`, the calculator uses electrostatic embedding in the ONIOM-EE form ([Vreven et al., *J. Chem. Theory Comput.* 2006, 2, 815](https://doi.org/10.1021/ct050289g)). The MM point charges enter MODEL-high, and MODEL-low adds the Coulomb energy between the force-field charges of the ML atoms and the same point charges. That term cancels the ML–MM Coulomb energy that REAL-low holds for those charges, so the interaction is counted once, at the high level. MM atoms one or two bonds from the ML region are not point charges; their interaction with the ML region stays in REAL-low at the force-field level. All other MM atoms are point charges, with no distance cutoff as in Gaussian; `--embedcharge-cutoff` keeps only those within that distance (Å) of the ML region, chosen at the first geometry and then kept fixed.
+
 ### Comparison with conventional QM/MM
 
 | Aspect | Conventional QM/MM | mlmm-toolkit ML/MM |
@@ -29,7 +31,7 @@ The full system is evaluated with MM, the ML region is evaluated at both the hig
 | High-level method | DFT, HF, post-HF | MLIP (UMA, ORB, MACE, AIMNet2) or DFT (`-b dft`) |
 | Low-level method | OpenMM / Amber | `hessian_ff` (default) / OpenMM |
 | Link atoms | Usually required | Added automatically for every parm7 bond that crosses the ML/MM boundary |
-| Embedding | Electrostatic embedding is common | Mechanical by default; `--embedcharge` adds the MM point charges (an xTB correction for MLIP backends, the PySCF Hamiltonian for DFT) |
+| Embedding | Electrostatic embedding is common | Mechanical by default; `--embedcharge` adds the MM point charges in the ONIOM-EE form (an xTB correction for MLIP backends, the PySCF Hamiltonian for DFT) |
 | Speed | Slow (QM is the bottleneck) | Fast with an MLIP (GPU inference); `-b dft` runs at DFT cost |
 
 ## Layering for Hessian / optimization
@@ -47,7 +49,7 @@ When the ML/MM boundary cuts a covalent bond, a link hydrogen caps the ML side o
 
 | Method | Placement | Recommended |
 | --- | --- | --- |
-| **scaled** (g-factor, default) | `r_L = r_QM + g·(r_MM − r_QM)` with `g = (CR_QM + CR_H)/(CR_QM + CR_MM)` (covalent radii) | Yes (default; the method of Gaussian ONIOM) |
+| **scaled** (g-factor, default) | `r_L = r_QM + g·(r_MM − r_QM)` with `g = (CR_QM + CR_H)/(CR_QM + CR_MM)` (covalent radii of [Cordero et al. 2008](https://doi.org/10.1039/b801115j), `CR_H` = 0.31 Å; a cut C–C bond of 1.53 Å gives C–H 1.077 Å) | Yes (default; the method of Gaussian ONIOM) |
 | **fixed** | `r_L = r_QM + d·û` with `d` = 1.09 Å (C parent) / 1.01 Å (N parent) and `û` the unit vector toward the MM atom | Alternative (ML-side parent C or N only) |
 
 The scaled placement is the Morokuma–Dapprich g-factor method used in Gaussian ONIOM: the link hydrogen moves linearly with the QM–MM distance. The fixed placement keeps the link hydrogen at a constant distance along the bond axis.

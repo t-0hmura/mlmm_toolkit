@@ -249,7 +249,7 @@ class DFTSettings:
     save_scf_checkpoint: bool = False
     checkpoint_path: Optional[str] = None
     embedcharge: bool = False
-    embedcharge_cutoff: Optional[float] = 12.0
+    embedcharge_cutoff: Optional[float] = None
     nprocs: int = 1
     nprocs_source: str = "environment"
     memory_mb: Optional[int] = None
@@ -463,7 +463,7 @@ def resolve_dft_settings(
     if multiplicity < 1:
         raise click.BadParameter("calc.model_mult must be >= 1.")
     cutoff_raw = calc_cfg.get(
-        "embedcharge_cutoff", raw.get("embedcharge_cutoff", 12.0)
+        "embedcharge_cutoff", raw.get("embedcharge_cutoff")
     )
     try:
         embedcharge_cutoff = None if cutoff_raw is None else float(cutoff_raw)

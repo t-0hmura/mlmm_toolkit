@@ -231,15 +231,19 @@ Usage and the CPU or GPU choice are in [dft](../mlmm-cli/dft.md).
 For MLIP/MM commands, `--embedcharge` adds this correction:
 
 ```text
-ΔE = E_xTB(ML + MM point charges) - E_xTB(ML)
+ΔE = E_xTB(ML + link H + MM point charges) - E_xTB(ML + link H)
 ```
 
-Forces and Hessians use the corresponding difference. It is off by default
+Forces and Hessians use the corresponding difference. xTB sees the same ML
+region and link hydrogens as the MLIP. It is off by default
 and expensive, because each correction runs xTB with and without the MM point
 charges. Keep the ML region to roughly 200–300 atoms or fewer as a practical
 guideline, then benchmark the actual system, point-charge count, and hardware;
 this is not a hard atom limit. In `mlmm dft`, the same flag instead adds the
-Amber MM point charges directly to the PySCF Hamiltonian, without xTB.
+Amber MM point charges directly to the PySCF Hamiltonian, without xTB. Both
+follow ONIOM-EE: MM atoms one or two bonds from the ML region are not point
+charges, and MODEL-low adds the Coulomb energy between the ML force-field
+charges and the point charges.
 
 The MLIP/MM correction calls the standalone `xtb` executable:
 
