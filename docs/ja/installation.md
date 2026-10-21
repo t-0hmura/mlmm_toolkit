@@ -9,12 +9,12 @@
 ### 必須
 
 ```bash
-# 1) AmberTools・PDBFixer・C++ コンパイラー・cyipopt・CUDA 対応の PyTorch を入れた conda 環境を作成
+# 1) AmberTools・PDBFixer・C++ コンパイラー・cyipopt・xTB・CUDA 対応の PyTorch を入れた conda 環境を作成
 # 2) mlmm-toolkit をインストール
 # 3) Plotly 静的画像 (PNG) エクスポート用のヘッドレス Chrome をインストール
 #    Chromium のバイナリをダウンロード（インターネット接続が必要）
 
-conda create -n mlmm-toolkit -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt "pytorch=2.13.0=cuda130*" cuda-nvcc -y
+conda create -n mlmm-toolkit -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt xtb "pytorch=2.13.0=cuda130*" cuda-nvcc -y
 conda activate mlmm-toolkit
 
 pip install mlmm-toolkit
@@ -53,10 +53,10 @@ ORB・AIMNet2・MACE・DFT の導入は {ref}`詳細なインストール手順 
 
 2. **AmberTools と PyTorch を入れた conda 環境を作成**
 
-    システムの AmberTools のモジュールがあるクラスターでは、conda の AmberTools と衝突しないように、先に `module unload amber` を実行してください。PyTorch も同じコマンドで conda-forge から入ります（CUDA のビルドは手順 4 のとおりに選びます）。この環境に pip の PyTorch は入れないでください。
+    システムの AmberTools のモジュールがあるクラスターでは、conda の AmberTools と衝突しないように、先に `module unload amber` を実行してください。PyTorch も同じコマンドで conda-forge から入ります（CUDA のビルドは手順 4 のとおりに選びます）。この環境に pip の PyTorch は入れないでください。xTB は、MLIP のバックエンドの `--embedcharge` の補正にだけ使います。
 
     ```bash
-    conda create -n <your-env> -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt "pytorch=2.13.0=cuda130*" cuda-nvcc -y
+    conda create -n <your-env> -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt xtb "pytorch=2.13.0=cuda130*" cuda-nvcc -y
     conda activate <your-env>
     ```
 

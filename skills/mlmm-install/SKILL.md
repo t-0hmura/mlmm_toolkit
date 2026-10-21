@@ -32,11 +32,12 @@ and the checks in [Verify the install](#verify-the-install) pass.
    domain and a pilot on the target system. MACE needs its own env
    ([MACE](backends.md#mace-separate-environment)). DFT is optional
    ([DFT](backends.md#dft-pyscf-gpu4pyscf)); skip it if you only need MLIP
-   energies. Install xTB only for the MLIP/MM `--embedcharge` correction or xTB
-   through a custom calculator ([xTB](backends.md#xtb-point-charge-correction)).
+   energies. xTB, in the command below, is used only by the MLIP/MM
+   `--embedcharge` correction or xTB through a custom calculator
+   ([xTB](backends.md#xtb-point-charge-correction)).
 
 ```bash
-conda create -n <YOUR_ENV> -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt "pytorch=2.13.0=cuda130*" cuda-nvcc -y
+conda create -n <YOUR_ENV> -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt xtb "pytorch=2.13.0=cuda130*" cuda-nvcc -y
 conda activate <YOUR_ENV>
 pip install mlmm-toolkit                 # UMA via fairchem-core
 plotly_get_chrome -y                     # headless Chrome; needs network

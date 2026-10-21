@@ -348,7 +348,7 @@ Write `"pytorch=2.13.0=cpu*"` in place of the CUDA build and leave out
 `cuda-nvcc`:
 
 ```bash
-conda create -n <YOUR_ENV> -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt "pytorch=2.13.0=cpu*" -y
+conda create -n <YOUR_ENV> -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt xtb "pytorch=2.13.0=cpu*" -y
 ```
 
 MLIP backends run on the CPU but usually much slower; benchmark a

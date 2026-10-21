@@ -9,12 +9,12 @@
 ### Required
 
 ```bash
-# 1) Create a conda environment with AmberTools, PDBFixer, a C++ compiler, cyipopt, and CUDA-enabled PyTorch
+# 1) Create a conda environment with AmberTools, PDBFixer, a C++ compiler, cyipopt, xTB, and CUDA-enabled PyTorch
 # 2) Install mlmm-toolkit
 # 3) Install headless Chrome for Plotly static image export (PNG)
 #    Downloads a Chromium binary; requires internet access.
 
-conda create -n mlmm-toolkit -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt "pytorch=2.13.0=cuda130*" cuda-nvcc -y
+conda create -n mlmm-toolkit -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt xtb "pytorch=2.13.0=cuda130*" cuda-nvcc -y
 conda activate mlmm-toolkit
 
 pip install mlmm-toolkit
@@ -55,10 +55,10 @@ If you prefer to build the environment piece by piece:
 
 2. **Create a conda environment with AmberTools and PyTorch**
 
-    On a cluster with a system AmberTools module, run `module unload amber` first so that it does not conflict with the conda AmberTools. PyTorch comes from conda-forge in the same command (choose its CUDA build as in step 4); do not install a pip PyTorch into this environment.
+    On a cluster with a system AmberTools module, run `module unload amber` first so that it does not conflict with the conda AmberTools. PyTorch comes from conda-forge in the same command (choose its CUDA build as in step 4); do not install a pip PyTorch into this environment. xTB is used only by the `--embedcharge` correction of the MLIP backends.
 
     ```bash
-    conda create -n <your-env> -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt "pytorch=2.13.0=cuda130*" cuda-nvcc -y
+    conda create -n <your-env> -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt xtb "pytorch=2.13.0=cuda130*" cuda-nvcc -y
     conda activate <your-env>
     ```
 

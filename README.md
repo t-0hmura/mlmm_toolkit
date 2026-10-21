@@ -47,9 +47,9 @@ Starting from the reactant (R) and product (P) structures of the full system, th
 Full requirements and step-by-step setup: [docs/installation.md](docs/installation.md).
 
 ```bash
-# 1. New env + AmberTools + CUDA-enabled PyTorch, all from conda-forge
+# 1. New env + AmberTools + xTB + CUDA-enabled PyTorch, all from conda-forge
 #    (cuda129 instead of cuda130 when nvidia-smi shows CUDA below 13.0)
-conda create -n mlmm-toolkit -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt "pytorch=2.13.0=cuda130*" cuda-nvcc -y
+conda create -n mlmm-toolkit -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt xtb "pytorch=2.13.0=cuda130*" cuda-nvcc -y
 conda activate mlmm-toolkit
 
 # 2. Install mlmm-toolkit and headless Chrome (for PNG export of plots)
