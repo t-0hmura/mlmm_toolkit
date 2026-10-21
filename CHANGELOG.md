@@ -8,7 +8,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
-- DFT electrostatic embedding (`-b dft --embedcharge` and `mlmm dft --embedcharge`) no longer counts the ML–MM electrostatics twice. The MM layers now run with the ML-region charges set to zero, so only the DFT Hamiltonian holds the interaction of the ML region with the MM charges; each link-host MM charge is shifted onto its bonded MM neighbours, so no point charge sits next to a link hydrogen. Energies, forces, and Hessians with `--embedcharge` change; runs without it are unchanged.
+- Electrostatic embedding (`--embedcharge`) no longer counts the ML–MM electrostatics twice, with `-b dft`, `mlmm dft`, and the xTB correction of the MLIP backends. It now follows ONIOM-EE (Vreven et al., *J. Chem. Theory Comput.* 2006, 2, 815): MODEL-low adds the Coulomb energy between the ML force-field charges and the embedded point charges, which cancels the same interaction in REAL-low. MM atoms one or two bonds from the ML region are no longer point charges, and the point charges are chosen once at the first geometry. Reported in issue #18 by @aouchi6, whose ion-pair test is included.
+- The xTB embedding correction of the MLIP backends is computed for the ML region with its link hydrogens, the same system as the MLIP. It ran on the ML atoms alone, leaving cut bonds open.
 
 ## [0.4.0] — 2026-10-12
 

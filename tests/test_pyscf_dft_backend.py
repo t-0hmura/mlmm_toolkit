@@ -527,7 +527,7 @@ def test_embedding_charge_indices_are_fixed_for_the_pes_lifetime() -> None:
     core.embedcharge = True
     core.embedcharge_cutoff = 1.5
     core.selection_indices = [0]
-    core._dft_embedding_indices = None
+    core._embedding_indices = None
     core._ml_backend = SimpleNamespace(
         set_embedding=lambda coords, charges, indices: recorded.append(list(indices))
     )

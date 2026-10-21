@@ -179,6 +179,113 @@ def _get_g_factor(qm1_elem: str, mm_elem: str, link_elem: str = "H") -> float:
 EV2AU = 1.0 / AU2EV  # eV → Hartree
 KCALMOL2EV = AU2EV / AU2KCALPERMOL  # kcal/mol -> eV
 
+from hessian_ff.constants import COULOMB_K as _COULOMB_K_KCAL  # noqa: E402
+
+# Same Coulomb constant as the MM layers (hessian_ff and OpenMM), in eV·Å/e².
+_COULOMB_K_EV = _COULOMB_K_KCAL * KCALMOL2EV
+
+# Electrostatic embedding follows ONIOM-EE (Vreven et al., J. Chem. Theory
+# Comput. 2006, 2, 815): MM charges less than three bonds from the ML region
+# stay out of the embedded point charges. Their interaction with the ML region
+# remains in E_real_low at the force-field level.
+EMBED_EXCLUDED_BOND_DEPTH = 2
+
+
+def _atoms_within_bonds(
+    structure, start_indices: Sequence[int], max_bonds: int
+) -> set[int]:
+    """Return 0-based atoms 1..max_bonds bonds away from ``start_indices``."""
+    start = {int(i) for i in start_indices}
+    neighbours: Dict[int, List[int]] = {}
+    for bond in structure.bonds:
+        a, b = int(bond.atom1.idx), int(bond.atom2.idx)
+        neighbours.setdefault(a, []).append(b)
+        neighbours.setdefault(b, []).append(a)
+    visited = set(start)
+    frontier = set(start)
+    found: set[int] = set()
+    for _ in range(int(max_bonds)):
+        nxt = {
+            j for i in frontier for j in neighbours.get(i, ()) if j not in visited
+        }
+        found |= nxt
+        visited |= nxt
+        frontier = nxt
+    return found
+
+
+def point_charge_coulomb(
+    ml_positions: np.ndarray,
+    ml_charges: np.ndarray,
+    pc_positions: np.ndarray,
+    pc_charges: np.ndarray,
+    *,
+    need_forces: bool = False,
+) -> Tuple[float, Optional[np.ndarray], Optional[np.ndarray]]:
+    """Coulomb energy (eV) between ML force-field charges and point charges.
+
+    Returns ``(energy, forces_on_ml, forces_on_point_charges)`` in eV and
+    eV/Å; the forces are None unless ``need_forces``.
+    """
+    d = np.asarray(ml_positions, float)[:, None, :] - np.asarray(pc_positions, float)[None, :, :]
+    r = np.linalg.norm(d, axis=2)
+    qq = _COULOMB_K_EV * np.outer(np.asarray(ml_charges, float), np.asarray(pc_charges, float))
+    energy = float(np.sum(qq / r))
+    if not need_forces:
+        return energy, None, None
+    pair_forces = (qq / r**3)[:, :, None] * d
+    return energy, pair_forces.sum(axis=1), -pair_forces.sum(axis=0)
+
+
+def point_charge_coulomb_hessian(
+    ml_positions: np.ndarray,
+    ml_charges: np.ndarray,
+    pc_positions: np.ndarray,
+    pc_charges: np.ndarray,
+    ml_rows: Sequence[int],
+    pc_rows: Sequence[int],
+) -> np.ndarray:
+    """Hessian (eV/Å²) of :func:`point_charge_coulomb` on a subset of atoms.
+
+    The basis is ``[ml_rows, pc_rows]`` (positions in the two input arrays);
+    the diagonal blocks still sum over every partner.
+    """
+    ml_pos = np.asarray(ml_positions, float)
+    pc_pos = np.asarray(pc_positions, float)
+    qq = _COULOMB_K_EV * np.outer(np.asarray(ml_charges, float), np.asarray(pc_charges, float))
+    n_ml, n_pc = len(ml_rows), len(pc_rows)
+    hess = np.zeros((3 * (n_ml + n_pc), 3 * (n_ml + n_pc)))
+    eye = np.eye(3)
+
+    def _pair_blocks(i_rows, j_rows) -> np.ndarray:
+        d = ml_pos[i_rows][:, None, :] - pc_pos[j_rows][None, :, :]
+        r = np.linalg.norm(d, axis=2)
+        u = d / r[:, :, None]
+        coeff = qq[np.ix_(i_rows, j_rows)] / r**3
+        return coeff[:, :, None, None] * (
+            3.0 * u[:, :, :, None] * u[:, :, None, :] - eye
+        )
+
+    all_pc = np.arange(pc_pos.shape[0])
+    all_ml = np.arange(ml_pos.shape[0])
+    if n_ml:
+        ml_self = _pair_blocks(np.asarray(ml_rows), all_pc).sum(axis=1)
+        for a in range(n_ml):
+            hess[3 * a:3 * a + 3, 3 * a:3 * a + 3] = ml_self[a]
+    if n_pc:
+        pc_self = _pair_blocks(all_ml, np.asarray(pc_rows)).sum(axis=0)
+        for b in range(n_pc):
+            o = 3 * (n_ml + b)
+            hess[o:o + 3, o:o + 3] = pc_self[b]
+    if n_ml and n_pc:
+        cross = -_pair_blocks(np.asarray(ml_rows), np.asarray(pc_rows))
+        for a in range(n_ml):
+            for b in range(n_pc):
+                o = 3 * (n_ml + b)
+                hess[3 * a:3 * a + 3, o:o + 3] = cross[a, b]
+                hess[o:o + 3, 3 * a:3 * a + 3] = cross[a, b].T
+    return hess
+
 
 def _prepare_model_for_autograd_hessian(model_obj: Any) -> Dict[str, Any]:
     """Temporarily make a torch model deterministic and double-backward safe."""
@@ -1429,57 +1536,6 @@ def write_model_parm7(
     model.save(str(model_rst7), overwrite=True)
 
 
-def apply_dft_embedding_charges(
-    structure,
-    ml_indices: Sequence[int],
-    link_pairs: Sequence[Tuple[int, int]],
-) -> Dict[str, float]:
-    """Set the MM charges for DFT electrostatic embedding, in place.
-
-    The DFT Hamiltonian already holds the interaction between the ML-region
-    density and the MM point charges, so the MM layers must not count it
-    again: the ML-region charges become zero, which removes every ML-MM
-    electrostatic term from ``E_real_low`` and makes the ML-internal
-    electrostatics of ``E_real_low`` and ``E_model_low`` cancel at zero.
-
-    Each link-host MM atom (the MM end of a cut bond) passes its charge in
-    equal parts to its bonded MM neighbours that are not link hosts (charge
-    shift without dipole correction). The MM charge is conserved, and no point
-    charge sits next to a link hydrogen.
-
-    ``ml_indices`` are 0-based; ``link_pairs`` are 1-based ``(ml, mm)`` pairs
-    as in ``MLMMCore.mlmm_links``.
-    """
-    ml = {int(i) for i in ml_indices}
-    hosts = {int(mm) - 1 for _, mm in link_pairs}
-    removed = float(sum(structure.atoms[i].charge for i in ml))
-    for i in ml:
-        structure.atoms[i].charge = 0.0
-    shifted = 0.0
-    for host in sorted(hosts):
-        atom = structure.atoms[host]
-        receivers = [
-            partner.idx for partner in atom.bond_partners
-            if partner.idx not in ml and partner.idx not in hosts
-        ]
-        if not receivers:
-            raise ValueError(
-                f"Link-host MM atom {host + 1} has no bonded MM neighbour that is "
-                "not itself a link host, so its charge cannot be redistributed. "
-                "Move the ML/MM boundary."
-            )
-        charge = float(atom.charge)
-        atom.charge = 0.0
-        for index in receivers:
-            structure.atoms[index].charge += charge / len(receivers)
-        shifted += abs(charge)
-    return {
-        "ml_charge_removed": removed,
-        "link_hosts": float(len(hosts)),
-        "host_charge_shifted_abs": shifted,
-    }
-
-
 def _normalize_prmtop_lj_tables(parm7_path: str) -> None:
     """Normalize LJ table lengths in parm7 files generated from sliced structures.
 
@@ -2047,7 +2103,6 @@ class MLMMCore:
         use_cmap: bool = True,
         _high_level_backend: Optional[Any] = None,
         _skip_high_level_backend: bool = False,
-        _dft_point_charge_embedding: bool = False,
         **kwargs,
     ):
         if kwargs:
@@ -2146,6 +2201,11 @@ class MLMMCore:
         self.link_atom_method = link_atom_method
         self.use_cmap = use_cmap
         self.ml_ID, self.mlmm_links, self._link_elem_pairs = self._ml_prep(real_top)
+        self._embedding_near_mm = _atoms_within_bonds(
+            real_top,
+            [int(i) - 1 for i in self.ml_ID],
+            EMBED_EXCLUDED_BOND_DEPTH,
+        )
         link_source = "manual link_mlmm" if self.link_mlmm is not None else "parm7 bonds"
         logger.info(
             "[MLMMCore] ML region = %d atoms from model_pdb; link H = %d "
@@ -2166,26 +2226,6 @@ class MLMMCore:
             ]
         else:
             self._link_g_factors = []
-        # DFT electrostatic embedding: the MM layers must not hold ML-MM
-        # electrostatics (the DFT Hamiltonian does). The model parm7 below is
-        # sliced from this charge-modified real parm7, so both MM layers agree.
-        self.dft_embedding_charges: Optional[Dict[str, float]] = None
-        if _dft_point_charge_embedding or (
-            bool(embedcharge) and str(backend or "").strip().lower() == "dft"
-        ):
-            charged_top = pmd.load_file(self.real_parm7, self.real_rst7)
-            self.dft_embedding_charges = apply_dft_embedding_charges(
-                charged_top,
-                [int(i) - 1 for i in self.ml_ID],
-                self.mlmm_links,
-            )
-            charged_top.save(self.real_parm7, overwrite=True)
-            logger.info(
-                "[MLMMCore] DFT embedding: ML-region MM charges (sum %.4f) set to "
-                "zero; %d link-host charge(s) shifted to MM neighbours.",
-                self.dft_embedding_charges["ml_charge_removed"],
-                int(self.dft_embedding_charges["link_hosts"]),
-            )
         self.selection_indices = self._mk_model_parm7()
 
         self.hess_cutoff = hess_cutoff
@@ -2303,7 +2343,7 @@ class MLMMCore:
         # Point-charge embedding correction
         self.embedcharge = bool(embedcharge)
         self.embedcharge_cutoff = embedcharge_cutoff
-        self._dft_embedding_indices: Optional[Tuple[int, ...]] = None
+        self._embedding_indices: Optional[Tuple[int, ...]] = None
         self._embed_correction: Optional[_EmbedChargeCorrection] = None
         if self.embedcharge and self.backend_name != "dft":
             self._embed_correction = _EmbedChargeCorrection(
@@ -2556,16 +2596,22 @@ class MLMMCore:
             self._idx_map_real_to_model[i] for i in self.freeze_atoms if i in self._idx_map_real_to_model
         ]
 
-    def _configure_native_dft_embedding(self, atoms_real: Atoms) -> None:
-        """Update PySCF point charges from the current real-system geometry."""
+    def embedding_point_charge_indices(self, atoms_real: Atoms) -> Tuple[int, ...]:
+        """Real-system indices of the embedded MM point charges.
 
-        if getattr(self, "backend_name", None) != "dft" or not getattr(
-            self, "embedcharge", False
-        ):
-            return
-        if self._dft_embedding_indices is None:
+        MM atoms one or two bonds from the ML region are left out (ONIOM-EE);
+        every other MM atom is kept, or only those within ``embedcharge_cutoff``
+        of the ML region when it is set. The set is fixed at the first
+        geometry, so the energy stays continuous while atoms move across a
+        cutoff.
+        """
+        if getattr(self, "_embedding_indices", None) is None:
             ml_set = set(self.selection_indices)
-            mm_indices = [i for i in range(len(atoms_real)) if i not in ml_set]
+            near = getattr(self, "_embedding_near_mm", set())
+            mm_indices = [
+                i for i in range(len(atoms_real))
+                if i not in ml_set and i not in near
+            ]
             cutoff = self.embedcharge_cutoff
             if mm_indices and cutoff is not None:
                 ml_coords = atoms_real.get_positions()[sorted(ml_set)]
@@ -2577,8 +2623,39 @@ class MLMMCore:
                     index for index, distance in zip(mm_indices, distances)
                     if distance <= float(cutoff)
                 ]
-            self._dft_embedding_indices = tuple(map(int, mm_indices))
-        mm_indices = list(self._dft_embedding_indices)
+            self._embedding_indices = tuple(map(int, mm_indices))
+        return self._embedding_indices
+
+    def embedding_coulomb(
+        self,
+        atoms_real: Atoms,
+        indices: Sequence[int],
+        *,
+        need_forces: bool = False,
+    ) -> Tuple[float, Optional[np.ndarray], Optional[np.ndarray]]:
+        """ONIOM-EE model-low term: ML force-field charges with the point charges.
+
+        Returns the energy (eV) and, with ``need_forces``, the forces (eV/Å) on
+        the ML atoms (``selection_indices`` order) and on ``indices``.
+        """
+        positions = atoms_real.get_positions()
+        selection = list(self.selection_indices)
+        return point_charge_coulomb(
+            positions[selection],
+            self._get_mm_charges(selection),
+            positions[list(indices)],
+            self._get_mm_charges(list(indices)),
+            need_forces=need_forces,
+        )
+
+    def _configure_native_dft_embedding(self, atoms_real: Atoms) -> None:
+        """Update PySCF point charges from the current real-system geometry."""
+
+        if getattr(self, "backend_name", None) != "dft" or not getattr(
+            self, "embedcharge", False
+        ):
+            return
+        mm_indices = list(self.embedding_point_charge_indices(atoms_real))
         if not mm_indices:
             raise ValueError(
                 "DFT electrostatic embedding selected no MM point charges; "
@@ -2903,6 +2980,79 @@ class MLMMCore:
         """Jacobian for scaled (g-factor) link atoms. Shape (3, 6)."""
         I3 = torch.eye(3, dtype=dtype, device=device)
         return torch.hstack([(1.0 - g) * I3, g * I3])
+
+    def _link_jacobians(
+        self, added_link_atoms, atoms_model_LH: Atoms, atoms_real: Atoms
+    ) -> List[Tuple[int, int, int, float, np.ndarray]]:
+        """Per link H: ``(row in ML+link-H basis, ML index, MM index, param, J (6, 3))``."""
+        maps = []
+        for link_idx, ml_idx, mm_idx, param in added_link_atoms:
+            if self.link_atom_method == "scaled":
+                J = self._jacobian_blocks_numpy_scaled(param)
+            else:
+                r_ml = atoms_model_LH[self._idx_map_real_to_model[ml_idx]].position
+                J = self._jacobian_blocks_numpy(r_ml, atoms_real[mm_idx].position, param)
+            if J is not None:
+                maps.append((int(link_idx), int(ml_idx), int(mm_idx), float(param), J))
+        return maps
+
+    def _link_hessian_to_real(
+        self,
+        dH: np.ndarray,
+        dF: Optional[np.ndarray],
+        link_maps,
+        atoms_model_LH: Atoms,
+        atoms_real: Atoms,
+        pc_indices: Sequence[int],
+    ) -> Tuple[np.ndarray, List[int]]:
+        """Map a Hessian on ``[ML + link H, point charges]`` onto real atoms.
+
+        Link-H rows and columns go to the ML parent and the MM host through
+        the same Jacobian as the high-level link-atom B-matrix; fixed-distance
+        link atoms also get the curvature term from the link-H gradient. The
+        basis of the result is ``[ML, point charges, hosts]``.
+        """
+        selection = [int(i) for i in self.selection_indices]
+        n_ml, n_lh, n_pc = len(selection), len(atoms_model_LH), len(pc_indices)
+        hosts: List[int] = []
+        for _link_idx, _ml_idx, mm_idx, _param, _J in link_maps:
+            if mm_idx not in hosts:
+                hosts.append(mm_idx)
+        real_basis = selection + [int(i) for i in pc_indices] + hosts
+        host_pos = {h: n_ml + n_pc + k for k, h in enumerate(hosts)}
+        n_real = len(real_basis)
+
+        def _map_columns(matrix: np.ndarray) -> np.ndarray:
+            out = np.zeros((matrix.shape[0], 3 * n_real))
+            out[:, :3 * n_ml] = matrix[:, :3 * n_ml]
+            out[:, 3 * n_ml:3 * (n_ml + n_pc)] = matrix[:, 3 * n_lh:]
+            for link_idx, ml_idx, mm_idx, _param, J in link_maps:
+                col = matrix[:, 3 * link_idx:3 * link_idx + 3]
+                p = self._idx_map_real_to_model[ml_idx]
+                h = host_pos[mm_idx]
+                out[:, 3 * p:3 * p + 3] += col @ J[0:3].T
+                out[:, 3 * h:3 * h + 3] += col @ J[3:6].T
+            return out
+
+        H = np.asarray(dH, dtype=float).reshape(3 * (n_lh + n_pc), 3 * (n_lh + n_pc))
+        H_real = _map_columns(_map_columns(H).T).T
+        if self.link_atom_method != "scaled" and dF is not None:
+            I3 = np.eye(3)
+            for link_idx, ml_idx, mm_idx, dist, _J in link_maps:
+                grad_L = -np.asarray(dF[link_idx], dtype=float)
+                v = atoms_real[mm_idx].position - atoms_model_LH[self._idx_map_real_to_model[ml_idx]].position
+                inv_R2 = 1.0 / max(float(v @ v), 1.0e-24)
+                u = v * np.sqrt(inv_R2)
+                alpha = float(u @ grad_L)
+                B = dist * (alpha * (3.0 * np.outer(u, u) - I3)
+                            - (np.outer(u, grad_L) + np.outer(grad_L, u))) * inv_R2
+                p = 3 * self._idx_map_real_to_model[ml_idx]
+                h = 3 * host_pos[mm_idx]
+                H_real[p:p + 3, p:p + 3] += B
+                H_real[h:h + 3, h:h + 3] += B
+                H_real[p:p + 3, h:h + 3] -= B
+                H_real[h:h + 3, p:p + 3] -= B
+        return H_real, real_basis
 
     def _get_mm_charges(self, atom_indices: Sequence[int]) -> np.ndarray:
         """Retrieve MM partial charges for the given atom indices.
@@ -3241,69 +3391,98 @@ class MLMMCore:
                     F_combined[int(real_index)] += mm_forces[row]
             results["forces"] = F_combined
 
-        # Point-charge embedding correction (optional)
-        embed_dH_info = None
-        if self.embedcharge and self._embed_correction is not None:
+        # Point-charge embedding (optional), ONIOM-EE: the same point charges
+        # act on the high level and, through the ML force-field charges, on the
+        # model-low term. The model-low Coulomb cancels the ML-MM Coulomb of
+        # E_real_low with those charges, so only the high level counts it.
+        embed_dH_infos: List[Tuple[np.ndarray, List[int]]] = []
+        if self.embedcharge:
             t0_embed = time.perf_counter()
-            # ML atom symbols and coordinates
-            ml_symbols = [atoms_model_LH[i].symbol for i in range(len(self._atoms_model_tpl))]
-            ml_coords = np.array([atoms_model_LH[i].position for i in range(len(self._atoms_model_tpl))])
-            # MM atom coordinates and charges from the real topology
-            ml_set = set(self.selection_indices)
-            mm_atom_indices = [i for i in range(len(atoms_real)) if i not in ml_set]
-            if mm_atom_indices and self.embedcharge_cutoff is not None:
-                from scipy.spatial.distance import cdist
-                _ml_ref_coords = atoms_real.get_positions()[sorted(ml_set)]
-                mm_coords_all = atoms_real.get_positions()[mm_atom_indices]
-                dists = cdist(mm_coords_all, _ml_ref_coords).min(axis=1)
-                n_before = len(mm_atom_indices)
-                mask = dists <= self.embedcharge_cutoff
-                mm_atom_indices = [mm_atom_indices[j] for j in range(n_before) if mask[j]]
-                if self.print_timing and not getattr(self, '_embedcharge_logged', False):
-                    emit(f"[embedcharge] {len(mm_atom_indices)}/{n_before} MM atoms within {self.embedcharge_cutoff:.1f} Å cutoff.",
-                         narrative=True)
-                    self._embedcharge_logged = True
-            if mm_atom_indices:
-                mm_coords = atoms_real.get_positions()[mm_atom_indices]
-                # Get MM partial charges from the topology
-                mm_charges = self._get_mm_charges(mm_atom_indices)
+            need_embed_forces = return_forces or return_hessian
+            embed_indices = list(self.embedding_point_charge_indices(atoms_real))
+            if getattr(self, "print_timing", False) and not getattr(self, "_embedcharge_logged", False):
+                emit(
+                    f"[embedcharge] {len(embed_indices)} MM point charges embedded; "
+                    f"MM atoms within {EMBED_EXCLUDED_BOND_DEPTH} bonds of the ML region "
+                    "stay at the force-field level.",
+                    narrative=True,
+                )
+                self._embedcharge_logged = True
+            if embed_indices:
+                selection = [int(i) for i in self.selection_indices]
+                e_coul, f_coul_ml, f_coul_pc = self.embedding_coulomb(
+                    atoms_real, embed_indices, need_forces=need_embed_forces
+                )
+                results["energy"] -= e_coul
+                results["energy_components"]["model_low"] += e_coul
+                if need_embed_forces:
+                    for row, ridx in enumerate(selection):
+                        results["forces"][ridx] -= f_coul_ml[row]
+                    for row, ridx in enumerate(embed_indices):
+                        results["forces"][ridx] -= f_coul_pc[row]
+                if return_hessian:
+                    ml_rows = [
+                        row for row, ridx in enumerate(selection)
+                        if ridx in self.full_to_hess_active
+                    ]
+                    pc_rows = [
+                        row for row, ridx in enumerate(embed_indices)
+                        if ridx in self.full_to_hess_active
+                    ]
+                    if ml_rows or pc_rows:
+                        positions = atoms_real.get_positions()
+                        h_coul = point_charge_coulomb_hessian(
+                            positions[selection],
+                            self._get_mm_charges(selection),
+                            positions[embed_indices],
+                            self._get_mm_charges(embed_indices),
+                            ml_rows,
+                            pc_rows,
+                        )
+                        embed_dH_infos.append((
+                            -h_coul,
+                            [selection[row] for row in ml_rows]
+                            + [embed_indices[row] for row in pc_rows],
+                        ))
 
+            if self._embed_correction is not None and embed_indices:
+                # xTB sees the same ML region plus link hydrogens as the MLIP.
                 dE_embed, dF_embed, dH_embed = self._embed_correction.compute_correction(
-                    symbols=ml_symbols,
-                    coords_ml_ang=ml_coords,
-                    mm_coords_ang=mm_coords,
-                    mm_charges=mm_charges,
+                    symbols=atoms_model_LH.get_chemical_symbols(),
+                    coords_ml_ang=atoms_model_LH.get_positions(),
+                    mm_coords_ang=atoms_real.get_positions()[embed_indices],
+                    mm_charges=self._get_mm_charges(embed_indices),
                     charge=self.model_charge,
                     multiplicity=self.model_mult,
-                    need_forces=return_forces or return_hessian,
+                    need_forces=need_embed_forces,
                     need_hessian=return_hessian,
                 )
-
-                # Add energy correction
                 results["energy"] += dE_embed
-
-                correction_real_indices = [
-                    *[int(i) for i in self.selection_indices],
-                    *[int(i) for i in mm_atom_indices],
-                ]
-
-                # Scatter the complete conservative correction, including
-                # movable MM point-charge sites.
-                if dF_embed is not None and (return_forces or return_hessian):
-                    if len(dF_embed) != len(correction_real_indices):
+                link_maps = self._link_jacobians(added_link_atoms, atoms_model_LH, atoms_real)
+                n_lh = len(atoms_model_LH)
+                if dF_embed is not None and need_embed_forces:
+                    if len(dF_embed) != n_lh + len(embed_indices):
                         raise ValueError(
                             "Embedding force basis length does not match the "
-                            "real-system index map."
+                            "ML + link H + point-charge index map."
                         )
-                    for row, ridx in enumerate(correction_real_indices):
+                    for row, ridx in enumerate(self.selection_indices):
                         results["forces"][ridx] += dF_embed[row]
-
-                # Store Hessian correction for later assembly
+                    for link_idx, ml_idx, mm_idx, _param, J in link_maps:
+                        redistributed = J @ dF_embed[link_idx]
+                        results["forces"][ml_idx] += redistributed[:3]
+                        results["forces"][mm_idx] += redistributed[3:]
+                    for row, ridx in enumerate(embed_indices):
+                        results["forces"][ridx] += dF_embed[n_lh + row]
                 if dH_embed is not None:
-                    embed_dH_info = (dH_embed, correction_real_indices)
-
-                timing["embedcharge_s"] = time.perf_counter() - t0_embed
+                    embed_dH_infos.append(
+                        self._link_hessian_to_real(
+                            dH_embed, dF_embed, link_maps, atoms_model_LH,
+                            atoms_real, embed_indices,
+                        )
+                    )
                 del dE_embed, dF_embed, dH_embed
+            timing["embedcharge_s"] = time.perf_counter() - t0_embed
 
         if return_hessian:
             n_real = len(atoms_real)
@@ -3535,10 +3714,12 @@ class MLMMCore:
             if self.ml_device.type == "cuda":
                 torch.cuda.empty_cache()
 
-            # Add point-charge embedding Hessian correction
-            if embed_dH_info is not None:
-                t_asm = time.perf_counter()
-                embed_dH, correction_real_indices = embed_dH_info
+            # Add point-charge embedding Hessian corrections (model-low Coulomb
+            # and the xTB correction), each on its own real-index basis.
+            t_asm = time.perf_counter()
+            had_embed_dH = bool(embed_dH_infos)
+            while embed_dH_infos:
+                embed_dH, correction_real_indices = embed_dH_infos.pop(0)
                 n_correction_atoms = len(correction_real_indices)
                 correction_positions: List[int] = []
                 hessian_active_positions: List[int] = []
@@ -3601,10 +3782,10 @@ class MLMMCore:
                         dH_sub_cpu,
                         embed_matrix,
                     )
-                embed_dH_info = None
                 del embed_dH
                 if self.ml_device.type == "cuda":
                     torch.cuda.empty_cache()
+            if had_embed_dH:
                 timing["hess_asm_embed_s"] = time.perf_counter() - t_asm
 
             if self.symmetrize_hessian:
@@ -3815,7 +3996,6 @@ class mlmm(PySiCalc):
         use_cmap: bool = True,
         _high_level_backend: Optional[Any] = None,
         _skip_high_level_backend: bool = False,
-        _dft_point_charge_embedding: bool = False,
         **kwargs,
     ):
 
@@ -3879,7 +4059,6 @@ class mlmm(PySiCalc):
             use_cmap=use_cmap,
             _high_level_backend=_high_level_backend,
             _skip_high_level_backend=_skip_high_level_backend,
-            _dft_point_charge_embedding=_dft_point_charge_embedding,
         )
 
         self.out_hess_torch = bool(out_hess_torch)

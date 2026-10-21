@@ -1,8 +1,9 @@
 """DFT electrostatic embedding must not double-count the ML-MM electrostatics.
 
 With embedding, the DFT Hamiltonian holds the interaction between the ML-region
-density and the MM point charges. The MM layers therefore run with the ML-region
-charges set to zero, and each link-host charge is shifted onto its MM neighbours.
+density and the MM point charges. The MM layers keep their force-field charges,
+and MODEL-low adds the Coulomb energy between the ML force-field charges and the
+point charges (ONIOM-EE), which cancels the same interaction in E_real_low.
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ pmd = pytest.importorskip("parmed")
 BOHR = 0.529177210903
 
 
-def _structure(atoms, bonds=()):
+def _structure(atoms):
     """Build a ParmEd structure from (name, element, Z, mass, charge, rmin, eps, xyz, resname)."""
     s = pmd.Structure()
     for resnum, (name, _el, z, mass, charge, rmin, eps, _xyz, resname) in enumerate(atoms, 1):
@@ -28,63 +29,8 @@ def _structure(atoms, bonds=()):
         )
         atom.atom_type = atom_type
         s.add_atom(atom, resname, resnum)
-    if bonds:
-        bond_type = pmd.BondType(300.0, 1.53)
-        s.bond_types.append(bond_type)
-        for i, j in bonds:
-            s.bonds.append(pmd.Bond(s.atoms[i], s.atoms[j], type=bond_type))
     s.coordinates = np.array([a[7] for a in atoms], dtype=float)
     return s
-
-
-def _chain():
-    # C0-C1 | C2-C3-C4 : ML = {0, 1}, cut bond 1-2 (link host 2).
-    atoms = [
-        (f"C{i}", "C", 6, 12.011, q, 1.9, 0.086, (1.53 * i, 0.0, 0.0), "MOL")
-        for i, q in enumerate([-0.1, 0.2, 0.3, -0.4, 0.15])
-    ]
-    return _structure(atoms, bonds=[(0, 1), (1, 2), (2, 3), (3, 4)])
-
-
-def test_ml_charges_are_zeroed_and_link_host_charge_is_shifted() -> None:
-    from mlmm.backends.mlmm_calc import apply_dft_embedding_charges
-
-    s = _chain()
-    mm_before = sum(a.charge for a in s.atoms[2:])
-    summary = apply_dft_embedding_charges(s, [0, 1], [(2, 3)])
-
-    charges = [a.charge for a in s.atoms]
-    assert charges[:2] == [0.0, 0.0]
-    assert charges[2] == 0.0  # link host emptied ...
-    assert charges[3] == pytest.approx(-0.4 + 0.3)  # ... onto its only MM neighbour
-    assert charges[4] == pytest.approx(0.15)
-    assert sum(charges[2:]) == pytest.approx(mm_before)  # MM charge conserved
-    assert summary["ml_charge_removed"] == pytest.approx(0.1)
-    assert summary["link_hosts"] == 1
-
-
-def test_link_host_without_mm_neighbour_is_rejected() -> None:
-    from mlmm.backends.mlmm_calc import apply_dft_embedding_charges
-
-    s = _chain()
-    with pytest.raises(ValueError, match="link host"):
-        # Atoms 2, 3 and 4 are all link hosts: host 2 has no MM receiver.
-        apply_dft_embedding_charges(s, [0, 1], [(2, 3), (2, 4), (2, 5)])
-
-
-def test_modified_charges_survive_a_parm7_round_trip(tmp_path) -> None:
-    from parmed.amber import AmberParm
-
-    from mlmm.backends.mlmm_calc import apply_dft_embedding_charges
-
-    parm7 = tmp_path / "chain.parm7"
-    AmberParm.from_structure(_chain()).save(str(parm7))
-    loaded = pmd.load_file(str(parm7))
-    apply_dft_embedding_charges(loaded, [0, 1], [(2, 3)])
-    loaded.save(str(parm7), overwrite=True)
-
-    reread = [a.charge for a in pmd.load_file(str(parm7)).atoms]
-    assert reread == pytest.approx([0.0, 0.0, 0.0, -0.1, 0.15], abs=1.0e-6)
 
 
 # --- end-to-end: a charged ML ion and one distant MM counter-charge ----------
@@ -127,7 +73,10 @@ def _total_energy_hartree(tmp_path: Path, distance: float, embed: bool) -> float
         dft_settings=settings.to_dict(), embedcharge=embed,
         embedcharge_cutoff=100.0, ml_device="cpu", mm_device="cpu",
     )
-    return float(core.compute(np.asarray(coords))["energy"]) / AU2EV
+    try:
+        return float(core.compute(np.asarray(coords))["energy"]) / AU2EV
+    finally:
+        core.cleanup()
 
 
 @pytest.mark.timeout(600)
@@ -145,22 +94,3 @@ def test_embedding_does_not_double_count_the_ion_pair_coulomb(tmp_path, distance
 
     assert abs(e_ee - e_me) < 1.0e-4
     assert abs(e_ee - e_me - double_count) > 0.9 * abs(double_count)
-
-
-@pytest.mark.timeout(600)
-@pytest.mark.parametrize("embed", [False, True])
-def test_standalone_dft_workspace_applies_the_charge_scheme(tmp_path, embed) -> None:
-    """`mlmm dft --embedcharge` builds its MM layers through the same core."""
-    from mlmm.workflows.dft import _prepare_ml_region_workspace
-
-    pdb, parm7, model, _ = _ion_pair(tmp_path, 10.0)
-    workspace = _prepare_ml_region_workspace(
-        input_pdb=pdb, real_parm7=parm7, model_pdb=model, link_mlmm=None,
-        calc_kwargs={"model_charge": 1, "model_mult": 1, "embedcharge": embed,
-                     "ml_device": "cpu", "mm_device": "cpu"},
-    )
-    try:
-        charges = [a.charge for a in pmd.load_file(str(workspace.real_parm7)).atoms]
-    finally:
-        workspace.calculator.core.cleanup()
-    assert charges == pytest.approx([0.0 if embed else 1.0, -1.0])
