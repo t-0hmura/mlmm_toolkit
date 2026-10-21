@@ -305,7 +305,7 @@ To cite the software or a specific release, use the Zenodo record:
   author       = {Ohmura, Takuto},
   title        = {mlmm-toolkit},
   year         = {2026},
-  version      = {0.4.1},
+  version      = {0.4.2},
   url          = {https://github.com/t-0hmura/mlmm_toolkit},
   license      = {GPL-3.0-or-later},
   doi          = {10.5281/zenodo.19197863}

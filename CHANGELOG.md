@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+_No changes yet._
+
+## [0.4.2] — 2026-10-22
+
 ### Changed
 
 - Compute the Hessian of the `--embedcharge` xTB correction far more efficiently: only the ML atoms and link hydrogens are displaced, the ML–MM block comes from the point-charge forces and the MM–MM block from the xTB charges of the ML region, so `freq`, `tsopt` and `irc` with an MLIP no longer grow with the number of MM atoms (the coupling of two MM charges through the polarized ML region is left out).
