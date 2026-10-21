@@ -306,9 +306,11 @@ def test_embed_hessian_is_compacted_before_active_block_assembly() -> None:
     )
     correction_hessian = np.zeros((6, 6), dtype=float)
     correction_hessian[3:, 3:] = expected
+    seen = {}
 
     class EmbedCorrection:
-        def compute_correction(self, **_kwargs):
+        def compute_correction(self, **kwargs):
+            seen.update(kwargs)
             return 0.0, np.zeros((2, 3)), correction_hessian
 
     def eval_high(
@@ -347,6 +349,7 @@ def test_embed_hessian_is_compacted_before_active_block_assembly() -> None:
         return_hessian=True,
     )
 
+    assert seen["hessian_mm_rows"] == [0]  # only the Hessian-active point charge moves
     assert result["hessian"].shape == (1, 3, 1, 3)
     torch.testing.assert_close(
         result["hessian"].reshape(3, 3),

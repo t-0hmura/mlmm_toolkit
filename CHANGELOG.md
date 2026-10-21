@@ -6,7 +6,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
-_No changes yet._
+### Changed
+
+- Compute the Hessian of the `--embedcharge` xTB correction far more efficiently: only the ML atoms and link hydrogens are displaced, the ML–MM block comes from the point-charge forces and the MM–MM block from the xTB charges of the ML region, so `freq`, `tsopt` and `irc` with an MLIP no longer grow with the number of MM atoms (the coupling of two MM charges through the polarized ML region is left out).
+
+### Fixed
+
+- `--embedcharge-cutoff` is measured once on the `--ref-pdb` structure (else the `-i` PDB), and `all` uses one structure for all its stages, so dimer segments, restarts and R, TS and P keep the same point charges; MM atoms one or two bonds from the ML region stay out at any cutoff, so `--embedcharge-cutoff 12` does not restore the 0.4.0 selection as the 0.4.1 entry says.
+- `dft`, `path-opt` and `path-search` apply `--ref-pdb` to a PDB input, as the other commands do.
+- The MM host of a manual `link_mlmm` pair is never a point charge, even without a parm7 bond.
+- MLIP backends stop with an error, as DFT does, when `--embedcharge` selects no point charges.
 
 ## [0.4.1] — 2026-10-21
 

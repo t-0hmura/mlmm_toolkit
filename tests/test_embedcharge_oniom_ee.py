@@ -220,3 +220,174 @@ def test_xtb_correction_minus_model_low_coulomb_removes_the_first_order_term(tmp
         # xTB damps the Coulomb kernel at short range; the residual is far
         # below the -1/R term that a double count would leave.
         assert abs(d_e - e_coul) < 0.02 * abs(e_coul)
+
+
+def test_manual_link_pair_counts_as_a_bond_for_the_near_atoms() -> None:
+    from mlmm.backends.mlmm_calc import EMBED_EXCLUDED_BOND_DEPTH, _atoms_within_bonds
+
+    s = pmd.Structure()
+    for i in range(4):
+        s.add_atom(_carbon(f"C{i}"), "MOL", 1)
+    s.bonds.append(pmd.Bond(s.atoms[2], s.atoms[3]))  # the ML atom 0 has no parm7 bond
+
+    assert _atoms_within_bonds(s, [0], EMBED_EXCLUDED_BOND_DEPTH) == set()
+    near = _atoms_within_bonds(s, [0], EMBED_EXCLUDED_BOND_DEPTH, extra_bonds=[(0, 2)])
+    assert near == {2, 3}
+
+
+def test_cutoff_selection_uses_the_input_pdb_positions() -> None:
+    from ase import Atoms
+
+    from mlmm.backends.mlmm_calc import MLMMCore
+
+    core = MLMMCore.__new__(MLMMCore)
+    core.selection_indices = [0]
+    core._embedding_near_mm = set()
+    core.embedcharge_cutoff = 2.5
+    core._embedding_reference_positions = np.array([[0, 0, 0], [2, 0, 0], [5, 0, 0]], dtype=float)
+    moved = Atoms("HHH", positions=[[0, 0, 0], [5, 0, 0], [2, 0, 0]])
+
+    assert core.embedding_point_charge_indices(moved) == (1,)
+
+
+def test_embedding_with_no_point_charges_stops() -> None:
+    from test_mlmm_result_constraints import _force_only_core
+
+    core = _force_only_core(with_link=False)
+    core.embedcharge = True
+    core.embedcharge_cutoff = None
+    core._embedding_near_mm = {1}
+    core.model_charge = 0
+    core.model_mult = 1
+
+    with pytest.raises(ValueError, match="never point charges"):
+        core.compute(np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]), return_forces=True)
+
+
+def test_compute_subtracts_the_model_low_coulomb_with_matching_derivatives() -> None:
+    """compute() removes k*q_ML*q_PC/r once; forces and Hessian are its derivatives."""
+    import torch
+    from ase import Atoms
+    from test_mlmm_result_constraints import _force_only_core
+
+    from mlmm.backends.mlmm_calc import _MLHighOut, _MMLowOut
+
+    charges = np.array([0.4, -0.3])
+    core = _force_only_core(with_link=False)
+    core.freeze_atoms = []
+    core.embedcharge = True
+    core.embedcharge_cutoff = None
+    core._embedding_near_mm = set()
+    core.model_charge = 0
+    core.model_mult = 1
+    core.mm_fd = True
+    core.H_dtype = torch.float64
+    core.H_np_dtype = np.float64
+    core.symmetrize_hessian = True
+    core.return_partial_hessian = True
+    core._get_mm_charges = MethodType(lambda self, indices: charges[list(indices)], core)
+
+    def prep(self, coords):
+        x = np.asarray(coords, dtype=float).reshape(2, 3)
+        model = Atoms("H", positions=x[:1])
+        return Atoms("HH", positions=x), model, model.copy(), [], []
+
+    def eval_high(self, _atoms, _freeze_model, *, need_forces, return_hessian):
+        hessian = torch.zeros((1, 3, 1, 3), dtype=torch.float64) if return_hessian else None
+        return _MLHighOut(E=0.0, F=np.zeros((1, 3)), H=hessian, timing={})
+
+    def eval_low(self, _atoms_real, _atoms_model, *, need_forces, return_hessian):
+        return _MMLowOut(
+            E_real=0.0, F_real=np.zeros((2, 3)), E_model=0.0, F_model=np.zeros((1, 3)),
+            H_real=np.zeros((6, 6)) if return_hessian else None,
+            H_model=np.zeros((3, 3)) if return_hessian else None,
+            active_atoms_from_fd=np.array([0, 1]) if return_hessian else None,
+            timing={},
+        )
+
+    core._prep_3_layer_atoms = MethodType(prep, core)
+    core._eval_ml_high = MethodType(eval_high, core)
+    core._eval_mm_low = MethodType(eval_low, core)
+
+    x0 = np.array([[0.0, 0.0, 0.0], [2.5, 0.4, -0.3]])
+    k = 14.3996454784  # e^2 / (4 pi eps0) in eV*Å (CODATA 2018)
+    out = core.compute(x0, return_forces=True, return_hessian=True)
+    assert out["energy"] == pytest.approx(-k * 0.4 * -0.3 / np.linalg.norm(x0[1]), rel=1.0e-6)
+
+    def energy(x):
+        return core.compute(x)["energy"]
+
+    def forces(x):
+        return np.asarray(core.compute(x, return_forces=True)["forces"], dtype=float).reshape(-1)
+
+    assert np.allclose(np.asarray(out["forces"]).reshape(-1), _fd_forces(energy, x0), atol=1.0e-6)
+    step = 1.0e-5
+    fd_hess = np.column_stack([
+        -(forces((x0.reshape(-1) + e).reshape(2, 3)) - forces((x0.reshape(-1) - e).reshape(2, 3)))
+        / (2 * step)
+        for e in np.eye(6) * step
+    ])
+    hess = torch.as_tensor(out["hessian"]).detach().cpu().numpy().reshape(6, 6)
+    assert np.allclose(hess, fd_hess, atol=1.0e-5)
+
+
+def test_xtb_hessian_moves_only_the_qm_atoms() -> None:
+    from mlmm.backends import xtb_embedcharge_correction as xtb
+
+    rng = np.random.default_rng(3)
+    A = rng.normal(size=(12, 12))
+    A = A + A.T  # the exact Hessian: one QM atom and three point charges
+    calls = []
+
+    def forces(q, m):
+        calls.append(1)
+        return (-A @ np.vstack([q, m]).reshape(-1)).reshape(4, 3)
+
+    q0 = rng.normal(size=(1, 3))
+    m0 = rng.normal(size=(3, 3))
+    _, hess = xtb._numerical_hessian_from_forces(forces, q0, m0, step_ang=1.0e-4, mm_rows=[0, 2])
+
+    keep = [0, 1, 2, 3, 4, 5, 9, 10, 11]  # the QM atom and point charges 0 and 2
+    exact = A[np.ix_(keep, keep)]
+    assert len(calls) == 1 + 2 * 3  # f0 and +/- for the three QM coordinates
+    assert np.allclose(hess[:3], exact[:3], atol=1.0e-8)  # QM-QM and QM-MM
+    assert np.allclose(hess[:, :3], exact[:, :3], atol=1.0e-8)
+    assert np.all(hess[3:, 3:] == 0.0)  # the MM-MM block is filled by the caller
+
+
+def test_point_charge_self_hessian_matches_finite_differences() -> None:
+    from mlmm.backends import xtb_embedcharge_correction as xtb
+    from mlmm.backends.mlmm_calc import point_charge_coulomb
+
+    rng = np.random.default_rng(4)
+    q, qq = rng.normal(size=(3, 3)), rng.normal(size=3)
+    m, qm = rng.normal(size=(2, 3)) + 4.0, rng.normal(size=2)
+    blocks = xtb._point_charge_self_hessian(q, qq, m, qm)
+
+    def pc_forces(x):
+        return point_charge_coulomb(q, qq, x.reshape(2, 3), qm, need_forces=True)[2].reshape(-1)
+
+    step = 1.0e-5
+    fd = np.column_stack([
+        -(pc_forces(m.reshape(-1) + e) - pc_forces(m.reshape(-1) - e)) / (2 * step)
+        for e in np.eye(6) * step
+    ])
+    assert np.allclose(blocks[0], fd[:3, :3], atol=1.0e-6)
+    assert np.allclose(blocks[1], fd[3:, 3:], atol=1.0e-6)
+    assert np.allclose(fd[:3, 3:], 0.0, atol=1.0e-6)  # point charges do not couple directly
+
+
+def test_all_passes_one_cutoff_reference_to_every_stage(tmp_path) -> None:
+    import yaml
+
+    from mlmm.workflows.all import _inject_embedcharge_reference
+
+    config = tmp_path / "config.yaml"
+    config.write_text(yaml.safe_dump({"calc": {"embedcharge": True, "embedcharge_cutoff": 12.0}}))
+    reference = tmp_path / "layered_r.pdb"
+    child = _inject_embedcharge_reference(config, reference)
+
+    calc = yaml.safe_load(child.read_text())["calc"]
+    assert calc["embedcharge_reference"] == str(reference)
+    assert calc["embedcharge_cutoff"] == 12.0
+    assert yaml.safe_load(config.read_text())["calc"].get("embedcharge_reference") is None

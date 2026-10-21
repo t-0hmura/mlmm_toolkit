@@ -385,7 +385,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     type=float,
     default=None,
     show_default="none",
-    help="Distance cutoff (Å) from the ML region for the embedded MM point charges. By default every MM atom except those one or two bonds from the ML region is a point charge.",
+    help="Distance cutoff (Å) from the ML region for the embedded MM point charges, measured on the -i PDB (or the --ref-pdb structure when given) so that all states share one point-charge set. A cutoff lowers the cost, but the default (none: every MM atom except those one or two bonds from the ML region) is the correct electrostatic embedding and is recommended.",
 )
 @click.option(
     "--link-atom-method",

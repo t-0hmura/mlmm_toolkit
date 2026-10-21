@@ -15,9 +15,9 @@ Options:
                                   and exit.
   -i, --input FILE                Full enzyme structure (PDB/mmCIF, or XYZ with
                                   --ref-pdb topology).  [required]
-  --ref-pdb FILE                  Reference PDB topology when input is XYZ. XYZ
-                                  coordinates are used (higher precision) while
-                                  PDB provides atom ordering and residue
+  --ref-pdb FILE                  Reference PDB topology, required when input is
+                                  XYZ. The coordinates come from --input, while
+                                  the PDB provides atom ordering and residue
                                   information.
   --parm7, --parm FILE            Amber parm7 topology for the full system.
                                   [required]
@@ -84,10 +84,15 @@ Options:
                                   the optional xTB correction.  [default: no-
                                   embedcharge]
   --embedcharge-cutoff FLOAT      Distance cutoff (Å) from the ML region for the
-                                  embedded MM point charges. By default every MM
-                                  atom except those one or two bonds from the ML
-                                  region is a point charge. Only used when
-                                  --embedcharge is enabled.  [default: (none)]
+                                  embedded MM point charges, measured on the -i
+                                  PDB (or the --ref-pdb structure when given) so
+                                  that all states share one point-charge set. A
+                                  cutoff lowers the cost, but the default (none:
+                                  every MM atom except those one or two bonds
+                                  from the ML region) is the correct
+                                  electrostatic embedding and is recommended.
+                                  Only used when --embedcharge is enabled.
+                                  [default: (none)]
   --link-atom-method [scaled|fixed]
                                   Link-atom placement: 'scaled' (g-factor,
                                   Gaussian ONIOM standard) or 'fixed' (1.09 Å

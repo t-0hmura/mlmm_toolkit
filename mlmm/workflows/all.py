@@ -821,6 +821,33 @@ def _inject_coord_type_into_args_yaml(
     return new_path
 
 
+def _inject_embedcharge_reference(args_yaml: Optional[Path], reference: Path) -> Path:
+    """Write an args YAML whose ``calc.embedcharge_reference`` names *reference*.
+
+    With ``--embedcharge-cutoff``, every stage then measures the cutoff on the
+    same structure and embeds the same point charges.
+    """
+    cfg = {} if args_yaml is None else load_yaml_dict(args_yaml)
+    if not isinstance(cfg, dict):
+        cfg = {}
+    cfg = canonicalize_calculator_section(cfg)
+    calc_cfg = dict(cfg.get("calc") or {})
+    calc_cfg["embedcharge_reference"] = str(reference)
+    cfg["calc"] = calc_cfg
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        encoding="utf-8",
+        suffix=".yaml",
+        prefix="mlmm_all_embedcharge_",
+        delete=False,
+    ) as tf:
+        yaml.safe_dump(cfg, tf, sort_keys=False, allow_unicode=True)
+        new_path = Path(tf.name).resolve()
+    import atexit
+    atexit.register(lambda p=new_path: p.unlink(missing_ok=True))
+    return new_path
+
+
 def _resolve_all_freeze_atoms(
     merged_yaml_cfg: Optional[Mapping[str, Any]],
     freeze_atoms_text: Optional[str],
@@ -4847,7 +4874,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     type=float,
     default=None,
     show_default="none",
-    help="Distance cutoff (Å) from the ML region for the embedded MM point charges. By default every MM atom except those one or two bonds from the ML region is a point charge.",
+    help="Distance cutoff (Å) from the ML region for the embedded MM point charges, measured on the -i PDB (or the --ref-pdb structure when given) so that all states share one point-charge set. A cutoff lowers the cost, but the default (none: every MM atom except those one or two bonds from the ML region) is the correct electrostatic embedding and is recommended.",
 )
 @click.option(
     "--link-atom-method",
@@ -6567,6 +6594,17 @@ def cli(
             f"segment {int(resume_segment):02d}.",
             narrative=True,
         )
+
+    # With --embedcharge-cutoff, every stage measures the cutoff on one
+    # structure (--ref-pdb, else the first input) and embeds the same charges.
+    if embedcharge and embedcharge_cutoff is not None and layered_inputs:
+        _embedcharge_reference = (ref_pdb_for_topology or Path(layered_inputs[0])).resolve()
+        args_yaml = _inject_embedcharge_reference(args_yaml, _embedcharge_reference)
+        session.resources.add(lambda p=args_yaml: p.unlink(missing_ok=True))
+        resolved_calc_template = _ResolvedCalculatorTemplate.from_mapping(
+            {**resolved_calc_template.materialize(), "embedcharge_reference": str(_embedcharge_reference)}
+        )
+        _echo(f"[all] --embedcharge-cutoff is measured on {_embedcharge_reference}")
 
     # Other path: single-structure + --tsopt True (and NO scan-lists) → TSOPT-only mode
     if single_tsopt_mode:

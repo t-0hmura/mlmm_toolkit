@@ -253,8 +253,13 @@ def _run_xtb_state(
     symbols, coords_q_ang, charge, multiplicity, mode,
     with_embedding, mm_coords_ang, mm_charges,
     xtb_cmd, xtb_acc, xtb_workdir, xtb_keep_files, ncores,
+    charges_out=None,
 ):
-    """Run xTB with or without point-charge embedding."""
+    """Run xTB with or without point-charge embedding.
+
+    With a list as ``charges_out``, the xTB atomic charges of the QM atoms are
+    appended to it.
+    """
     run_dir = _make_run_dir(xtb_workdir)
     xyz_name = "xtb_input.xyz"
     nm = int(np.asarray(mm_charges, dtype=np.float64).reshape(-1).size)
@@ -295,6 +300,13 @@ def _run_xtb_state(
         if with_embedding and nm > 0:
             pcgrad_ha_bohr = _parse_pcgrad(os.path.join(run_dir, "pcgrad"), nm)
             _, forces_m_ev_ang = _convert_units(gradient_ha_bohr=pcgrad_ha_bohr)
+        if charges_out is not None:
+            charges = np.loadtxt(os.path.join(run_dir, "charges"), dtype=np.float64).reshape(-1)
+            if charges.size != len(symbols):
+                raise XTBEmbedError(
+                    f"xTB charges: expected {len(symbols)}, got {charges.size}."
+                )
+            charges_out.append(charges)
 
         return (
             float(energy_ev),
@@ -309,8 +321,12 @@ def _delta_embed_minus_vac(
     symbols, coords_q_ang, mm_coords_ang, mm_charges,
     charge, multiplicity, need_forces,
     xtb_cmd, xtb_acc, xtb_workdir, xtb_keep_files, ncores,
+    charges_out=None,
 ):
-    """Compute dE = E(embed) - E(vac), dF = F(embed) - F(vac)."""
+    """Compute dE = E(embed) - E(vac), dF = F(embed) - F(vac).
+
+    ``charges_out`` collects the QM atomic charges of the embedded run.
+    """
     nm = int(np.asarray(mm_charges, dtype=np.float64).reshape(-1).size)
     if nm <= 0:
         zq = np.zeros((len(symbols), 3), dtype=np.float64) if need_forces else None
@@ -328,7 +344,8 @@ def _delta_embed_minus_vac(
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
         fut_embed = pool.submit(
             _run_xtb_state, with_embedding=True,
-            mm_coords_ang=mm_coords_ang, mm_charges=mm_charges, **common_kw,
+            mm_coords_ang=mm_coords_ang, mm_charges=mm_charges,
+            charges_out=charges_out, **common_kw,
         )
         fut_vac = pool.submit(
             _run_xtb_state, with_embedding=False,
@@ -360,45 +377,67 @@ def _assemble_full_force(df_q, df_m):
 
 def _numerical_hessian_from_forces(
     eval_full_forces, coords_q_ang, mm_coords_ang, step_ang, force0_ev_ang=None,
+    mm_rows=None,
 ):
-    """Central-difference numerical Hessian from embedding force deltas."""
+    """Central-difference Hessian from embedding force deltas, moving the QM atoms only.
+
+    The Hessian is returned on the ``[QM, mm_rows]`` basis (all point charges
+    when ``mm_rows`` is None). The MM-QM block comes from the point-charge rows
+    of the QM columns (the QM-MM block is its transpose); the MM-MM block is
+    left zero for the caller.
+    """
     q0 = np.asarray(coords_q_ang, dtype=np.float64).reshape(-1, 3)
     m0 = np.asarray(mm_coords_ang, dtype=np.float64).reshape(-1, 3)
     nq = q0.shape[0]
     nm = m0.shape[0]
     nall = nq + nm
-    dof = nall * 3
     step = float(step_ang)
+    rows = range(nm) if mm_rows is None else [int(row) for row in mm_rows]
+    basis = list(range(nq)) + [nq + row for row in rows]
+    dofs = np.asarray([3 * atom + axis for atom in basis for axis in range(3)], dtype=np.intp)
 
     if force0_ev_ang is None:
         f0 = np.asarray(eval_full_forces(q0, m0), dtype=np.float64).reshape(nall, 3)
     else:
         f0 = np.asarray(force0_ev_ang, dtype=np.float64).reshape(nall, 3)
 
-    hess = np.zeros((dof, dof), dtype=np.float64)
+    hess = np.zeros((dofs.size, dofs.size), dtype=np.float64)
     nqdof = 3 * nq
-    for k in range(dof):
+    for k in range(nqdof):
         qp = q0.copy()
         qm = q0.copy()
-        mp = m0.copy()
-        mm_m = m0.copy()
-
-        if k < nqdof:
-            a, c = k // 3, k % 3
-            qp[a, c] += step
-            qm[a, c] -= step
-        else:
-            kk = k - nqdof
-            a, c = kk // 3, kk % 3
-            mp[a, c] += step
-            mm_m[a, c] -= step
-
-        f_plus = np.asarray(eval_full_forces(qp, mp), dtype=np.float64).reshape(-1)
-        f_minus = np.asarray(eval_full_forces(qm, mm_m), dtype=np.float64).reshape(-1)
+        a, c = k // 3, k % 3
+        qp[a, c] += step
+        qm[a, c] -= step
+        f_plus = np.asarray(eval_full_forces(qp, m0), dtype=np.float64).reshape(-1)[dofs]
+        f_minus = np.asarray(eval_full_forces(qm, m0), dtype=np.float64).reshape(-1)[dofs]
         hess[:, k] = (-f_plus + f_minus) / (2.0 * step)
 
-    hess = 0.5 * (hess + hess.T)
+    hess[:nqdof, :nqdof] = 0.5 * (hess[:nqdof, :nqdof] + hess[:nqdof, :nqdof].T)
+    hess[:nqdof, nqdof:] = hess[nqdof:, :nqdof].T
     return f0, hess
+
+
+def _point_charge_self_hessian(q_coords_ang, q_charges, mm_coords_ang, mm_charges):
+    """MM-MM block of the point-charge embedding with the QM density frozen.
+
+    Each point charge interacts with the QM atomic charges through the bare
+    Coulomb kernel, so the block is diagonal in the point charges: one 3x3
+    block per charge, in eV/Å². The coupling of two point charges through the
+    polarisation of the QM region is left out.
+    """
+    q = np.asarray(q_coords_ang, dtype=np.float64).reshape(-1, 3)
+    qq = np.asarray(q_charges, dtype=np.float64).reshape(-1)
+    m = np.asarray(mm_coords_ang, dtype=np.float64).reshape(-1, 3)
+    qm = np.asarray(mm_charges, dtype=np.float64).reshape(-1)
+    k = EV_PER_HARTREE * ANG_PER_BOHR  # e^2 / (4 pi eps0) in eV*Å
+    d = m[:, None, :] - q[None, :, :]
+    r2 = np.einsum("mqi,mqi->mq", d, d)
+    r = np.sqrt(r2)
+    w = k * qm[:, None] * qq[None, :] / (r2 * r)
+    blocks = 3.0 * np.einsum("mq,mqi,mqj->mij", w / r2, d, d)
+    blocks -= np.einsum("mq->m", w)[:, None, None] * np.eye(3)[None, :, :]
+    return blocks
 
 
 def delta_embedcharge_minus_noembed(
@@ -416,6 +455,7 @@ def delta_embedcharge_minus_noembed(
     xtb_keep_files=False,
     ncores=4,
     hessian_step=1.0e-3,
+    hessian_mm_rows=None,
 ):
     """Return xTB point-charge embedding correction in eV / eV/Å / eV/Å² units.
 
@@ -423,7 +463,8 @@ def delta_embedcharge_minus_noembed(
     -------
     tuple
         ``(dE_ev, dF_full_ev_ang, dH_full_ev_ang2)``, where full index order is
-        concatenated as ``[QM atoms, MM point charges]``.
+        concatenated as ``[QM atoms, MM point charges]``. The Hessian covers the
+        QM atoms and the point charges in ``hessian_mm_rows`` (all when None).
     """
     q_symbols = list(symbols or [])
     q_coords = np.asarray(coords_q_ang, dtype=np.float64).reshape(-1, 3)
@@ -443,6 +484,7 @@ def delta_embedcharge_minus_noembed(
         run_ncores = 1
 
     req_force = bool(need_forces) or bool(need_hessian)
+    qm_charges = [] if need_hessian else None
     de_ev, df_q, df_m = _delta_embed_minus_vac(
         symbols=q_symbols, coords_q_ang=q_coords,
         mm_coords_ang=m_coords, mm_charges=m_charges,
@@ -450,7 +492,7 @@ def delta_embedcharge_minus_noembed(
         need_forces=req_force,
         xtb_cmd=xtb_cmd, xtb_acc=xtb_acc,
         xtb_workdir=xtb_workdir, xtb_keep_files=xtb_keep_files,
-        ncores=run_ncores,
+        ncores=run_ncores, charges_out=qm_charges,
     )
 
     df_full = None
@@ -473,10 +515,18 @@ def delta_embedcharge_minus_noembed(
             )
             return _assemble_full_force(_fq, _fm)
 
+        # Only the QM atoms move: the point-charge forces of those runs give the
+        # QM-MM block, and the MM-MM block uses the xTB charges of the QM atoms,
+        # so the cost does not grow with the number of point charges.
         _f0, dh_full = _numerical_hessian_from_forces(
             eval_full_forces=_eval_full_forces,
             coords_q_ang=q_coords, mm_coords_ang=m_coords,
-            step_ang=step, force0_ev_ang=df_full,
+            step_ang=step, force0_ev_ang=df_full, mm_rows=hessian_mm_rows,
         )
+        rows = list(range(nm)) if hessian_mm_rows is None else [int(row) for row in hessian_mm_rows]
+        blocks = _point_charge_self_hessian(q_coords, qm_charges[0], m_coords[rows], m_charges[rows])
+        for j, block in enumerate(blocks):
+            p = 3 * (nq + j)
+            dh_full[p:p + 3, p:p + 3] = block
 
     return float(de_ev), df_full, dh_full

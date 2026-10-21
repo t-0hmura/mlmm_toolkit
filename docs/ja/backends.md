@@ -181,7 +181,7 @@ ML/MM の段では、選んだ ML バックエンドと Hessian の途中の配�
 - UMA で `--uma-workers` を 2 以上にすると、`--hessian-calc-mode Analytical` とは併用できず、エラーで止まります。並列の予測器は autograd のモデルを持たないためです。解析 Hessian には `--uma-workers 1` を、複数のワーカーには `FiniteDifference` を使ってください。
 - MACE は UMA と同じ環境には入れられません。専用の conda 環境に入れてください。
 - パッケージを入れていないバックエンドを選ぶと、``orb-models is required for the ORB backend. Install with `pip install orb-models`.`` のようなエラーで止まります。
-- `--embedcharge` はエネルギー、力、Hessian を求めるたびに、MM の点電荷あり・なしで xTB を実行します。ML 領域は 200〜300 原子くらいまでにし、実際の系で先に計算時間を測ってください。xTB の補正の Hessian は ML 原子とすべての点電荷についての有限差分なので、`--embedcharge-cutoff` を指定しないと、MM 原子の数に比例して重くなります。
+- `--embedcharge` はエネルギー、力、Hessian を求めるたびに、MM の点電荷あり・なしで xTB を実行します。ML 領域は 200〜300 原子くらいまでにし、実際の系で先に計算時間を測ってください。xTB の補正の Hessian は ML 原子と link H についての有限差分です。そのときの点電荷にかかる力から ML–MM の部分を、ML 領域の xTB の原子電荷から MM–MM の部分を求めるので、MM 原子が多くても重くなりません。
 
 ## 関連ドキュメント
 

@@ -1962,7 +1962,7 @@ def _build_multistep_path(
     type=float,
     default=None,
     show_default="none",
-    help="Distance cutoff (Å) from the ML region for the embedded MM point charges. By default every MM atom except those one or two bonds from the ML region is a point charge.",
+    help="Distance cutoff (Å) from the ML region for the embedded MM point charges, measured on the -i PDB (or the --ref-pdb structure when given) so that all states share one point-charge set. A cutoff lowers the cost, but the default (none: every MM atom except those one or two bonds from the ML region) is the correct electrostatic embedding and is recommended.",
 )
 @click.option(
     "--link-atom-method",
@@ -2122,6 +2122,8 @@ def cli(
                 raise click.BadParameter(
                     f"'{p}': unsupported format. Use .pdb/.cif/.mmcif or .xyz (with --ref-pdb)."
                 )
+            elif i < len(ref_list):
+                apply_ref_pdb_override(pi, ref_list[i])
             prepared_inputs.append(pi)
         config_layer_cfg = load_yaml_dict(config_yaml)
         override_layer_cfg = load_yaml_dict(override_yaml)

@@ -32,7 +32,7 @@ from ase import Atoms
 
 from pysisyphus.constants import AU2EV, AU2KCALPERMOL
 
-from mlmm.backends.mlmm_calc import MLMMCore, mlmm as MLMMCalculator
+from mlmm.backends.mlmm_calc import MLMMCore, mlmm as MLMMCalculator, no_point_charge_message
 from mlmm.workflows.opt import (
     GEOM_KW as OPT_GEOM_KW,
     CALC_KW as OPT_CALC_KW,
@@ -665,8 +665,8 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     default=None,
     show_default=False,
-    help="Reference PDB topology when input is XYZ. XYZ coordinates are used (higher precision) "
-         "while PDB provides atom ordering and residue information.",
+    help="Reference PDB topology, required when input is XYZ. The coordinates come from --input, "
+         "while the PDB provides atom ordering and residue information.",
 )
 @click.option(
     "--parm7",
@@ -830,7 +830,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     type=float,
     default=None,
     show_default="none",
-    help="Distance cutoff (Å) from the ML region for the embedded MM point charges. By default every MM atom except those one or two bonds from the ML region is a point charge. Only used when --embedcharge is enabled.",
+    help="Distance cutoff (Å) from the ML region for the embedded MM point charges, measured on the -i PDB (or the --ref-pdb structure when given) so that all states share one point-charge set. A cutoff lowers the cost, but the default (none: every MM atom except those one or two bonds from the ML region) is the correct electrostatic embedding and is recommended. Only used when --embedcharge is enabled.",
 )
 @click.option(
     "--link-atom-method",
@@ -938,11 +938,11 @@ def cli(
         # topology is overlaid onto this same object, so layer selection and
         # ligand-charge derivation cannot observe different structures.
         prepared_input = prepare_input_structure(input_path)
-        if input_path.suffix.lower() == ".xyz":
-            if ref_pdb is None:
-                raise click.BadParameter(
-                    "Provide --ref-pdb for topology when using XYZ input."
-                )
+        if input_path.suffix.lower() == ".xyz" and ref_pdb is None:
+            raise click.BadParameter(
+                "Provide --ref-pdb for topology when using XYZ input."
+            )
+        if ref_pdb is not None:
             apply_ref_pdb_override(prepared_input, ref_pdb)
         source_pdb = prepared_input.source_path
 
@@ -1423,8 +1423,9 @@ def cli(
                 )
             else:
                 raise click.BadParameter(
-                    "--embedcharge selected no MM atoms. Increase "
-                    "--embedcharge-cutoff or disable electrostatic embedding."
+                    no_point_charge_message(
+                        workspace.core.embedcharge_cutoff, cli=True
+                    )
                 )
 
         def build_mf():

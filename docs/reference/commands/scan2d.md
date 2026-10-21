@@ -66,9 +66,14 @@ Options:
                                   charge delta correction; dft uses native PySCF
                                   MM point charges.  [default: no-embedcharge]
   --embedcharge-cutoff FLOAT      Distance cutoff (Å) from the ML region for the
-                                  embedded MM point charges. By default every MM
-                                  atom except those one or two bonds from the ML
-                                  region is a point charge.  [default: (none)]
+                                  embedded MM point charges, measured on the -i
+                                  PDB (or the --ref-pdb structure when given) so
+                                  that all states share one point-charge set. A
+                                  cutoff lowers the cost, but the default (none:
+                                  every MM atom except those one or two bonds
+                                  from the ML region) is the correct
+                                  electrostatic embedding and is recommended.
+                                  [default: (none)]
   --link-atom-method [scaled|fixed]
                                   Link-atom position mode: scaled (g-factor) or
                                   fixed (1.09/1.01 Å).  [default: (scaled)]

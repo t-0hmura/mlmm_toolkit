@@ -202,13 +202,20 @@ EMBED_EXCLUDED_BOND_DEPTH = 2
 
 
 def _atoms_within_bonds(
-    structure, start_indices: Sequence[int], max_bonds: int
+    structure,
+    start_indices: Sequence[int],
+    max_bonds: int,
+    extra_bonds: Sequence[Tuple[int, int]] = (),
 ) -> set[int]:
-    """Return 0-based atoms 1..max_bonds bonds away from ``start_indices``."""
+    """Return 0-based atoms 1..max_bonds bonds away from ``start_indices``.
+
+    ``extra_bonds`` (0-based pairs) count as bonds as well, e.g. ML/MM link
+    pairs given by hand that the topology does not bond.
+    """
     start = {int(i) for i in start_indices}
     neighbours: Dict[int, List[int]] = {}
-    for bond in structure.bonds:
-        a, b = int(bond.atom1.idx), int(bond.atom2.idx)
+    pairs = [(int(bond.atom1.idx), int(bond.atom2.idx)) for bond in structure.bonds]
+    for a, b in pairs + [(int(a), int(b)) for a, b in extra_bonds]:
         neighbours.setdefault(a, []).append(b)
         neighbours.setdefault(b, []).append(a)
     visited = set(start)
@@ -222,6 +229,17 @@ def _atoms_within_bonds(
         visited |= nxt
         frontier = nxt
     return found
+
+
+def no_point_charge_message(cutoff: Optional[float], *, cli: bool = False) -> str:
+    """Message for electrostatic embedding that selected no MM point charges."""
+    name = "--embedcharge-cutoff" if cli else "embedcharge_cutoff"
+    remedy = f"increase {name} or " if cutoff is not None else ""
+    return (
+        "Electrostatic embedding selected no MM point charges (MM atoms one or "
+        f"two bonds from the ML region are never point charges); {remedy}"
+        "disable --embedcharge."
+    )
 
 
 def point_charge_coulomb(
@@ -1404,6 +1422,7 @@ class _EmbedChargeCorrection:
         *,
         need_forces: bool = False,
         need_hessian: bool = False,
+        hessian_mm_rows: Optional[Sequence[int]] = None,
     ) -> Tuple[float, Optional[np.ndarray], Optional[np.ndarray]]:
         """Compute point-charge embedding correction.
 
@@ -1425,6 +1444,8 @@ class _EmbedChargeCorrection:
             Whether to compute force corrections.
         need_hessian : bool
             Whether to compute Hessian corrections.
+        hessian_mm_rows : sequence of int, optional
+            Rows of the point charges the Hessian covers (all when None).
 
         Returns
         -------
@@ -1432,8 +1453,8 @@ class _EmbedChargeCorrection:
             Energy correction in eV.
         dF : ndarray (N_ML + N_MM, 3) or None
             Force corrections in ``[ML atoms, MM charge sites]`` order, eV/Å.
-        dH : ndarray (3*(N_ML + N_MM), 3*(N_ML + N_MM)) or None
-            Hessian correction in the same ordered basis, eV/Å².
+        dH : ndarray or None
+            Hessian correction on ``[ML atoms, hessian_mm_rows]``, eV/Å².
         """
         from mlmm.backends.xtb_embedcharge_correction import delta_embedcharge_minus_noembed
 
@@ -1462,6 +1483,7 @@ class _EmbedChargeCorrection:
             xtb_keep_files=self.xtb_keep_files,
             ncores=self.xtb_ncores,
             hessian_step=self.hessian_step,
+            hessian_mm_rows=hessian_mm_rows,
         )
 
         dF = None
@@ -1476,7 +1498,8 @@ class _EmbedChargeCorrection:
         dH = None
         if dH_full_ev is not None:
             dH = np.asarray(dH_full_ev, dtype=np.float64)
-            expected = 3 * (n_ml + n_mm)
+            n_hess_mm = n_mm if hessian_mm_rows is None else len(hessian_mm_rows)
+            expected = 3 * (n_ml + n_hess_mm)
             if dH.shape != (expected, expected):
                 raise ValueError(
                     "Embedding correction Hessian shape does not match its "
@@ -2105,6 +2128,7 @@ class MLMMCore:
         embedcharge: bool = False,
         embedcharge_step: float = 1.0e-3,
         embedcharge_cutoff: Optional[float] = None,
+        embedcharge_reference: Optional[str] = None,
         xtb_cmd: str = "xtb",
         xtb_acc: float = 0.2,
         xtb_workdir: str = "tmp",
@@ -2202,6 +2226,21 @@ class MLMMCore:
             real_top.coordinates = coordinate_atoms.get_positions()
         else:
             real_top.coordinates = start_struct.coordinates
+        # --embedcharge-cutoff is measured on the input PDB, or on
+        # embedcharge_reference when given, so every calculator built for the
+        # same system selects the same point charges.
+        if embedcharge_reference is not None:
+            from mlmm.io.structure_formats import read_structure_atoms
+
+            reference_atoms = read_structure_atoms(embedcharge_reference)
+            if len(reference_atoms) != len(real_top.atoms):
+                raise ValueError(
+                    "embedcharge_reference and the Amber topology have different atom "
+                    f"counts: {len(reference_atoms)} != {len(real_top.atoms)}."
+                )
+            self._embedding_reference_positions = np.asarray(reference_atoms.get_positions(), dtype=float)
+        else:
+            self._embedding_reference_positions = np.array(start_struct.coordinates, dtype=float)
         real_top.box = None
         apply_cmap_policy(real_top, use_cmap)
         real_top.save(self.real_parm7, overwrite=True)
@@ -2215,6 +2254,7 @@ class MLMMCore:
             real_top,
             [int(i) - 1 for i in self.ml_ID],
             EMBED_EXCLUDED_BOND_DEPTH,
+            extra_bonds=[(ml_idx - 1, mm_idx - 1) for ml_idx, mm_idx in self.mlmm_links],
         )
         link_source = "manual link_mlmm" if self.link_mlmm is not None else "parm7 bonds"
         logger.info(
@@ -2611,9 +2651,9 @@ class MLMMCore:
 
         MM atoms one or two bonds from the ML region are left out (ONIOM-EE);
         every other MM atom is kept, or only those within ``embedcharge_cutoff``
-        of the ML region when it is set. The set is fixed at the first
-        geometry, so the energy stays continuous while atoms move across a
-        cutoff.
+        of the ML region when it is set. The cutoff is measured on the input
+        PDB, so the set stays fixed while atoms move and every calculator
+        built from the same input (dimer segments, restarts) uses the same set.
         """
         if getattr(self, "_embedding_indices", None) is None:
             ml_set = set(self.selection_indices)
@@ -2624,8 +2664,11 @@ class MLMMCore:
             ]
             cutoff = self.embedcharge_cutoff
             if mm_indices and cutoff is not None:
-                ml_coords = atoms_real.get_positions()[sorted(ml_set)]
-                mm_coords = atoms_real.get_positions()[mm_indices]
+                reference = getattr(self, "_embedding_reference_positions", None)
+                if reference is None:
+                    reference = atoms_real.get_positions()
+                ml_coords = reference[sorted(ml_set)]
+                mm_coords = reference[mm_indices]
                 distances = np.linalg.norm(
                     mm_coords[:, None, :] - ml_coords[None, :, :], axis=2
                 ).min(axis=1)
@@ -2667,10 +2710,7 @@ class MLMMCore:
             return
         mm_indices = list(self.embedding_point_charge_indices(atoms_real))
         if not mm_indices:
-            raise ValueError(
-                "DFT electrostatic embedding selected no MM point charges; "
-                "increase embedcharge_cutoff or disable embedcharge."
-            )
+            raise ValueError(no_point_charge_message(self.embedcharge_cutoff))
         self._ml_backend.set_embedding(
             atoms_real.get_positions()[mm_indices],
             self._get_mm_charges(mm_indices),
@@ -3410,6 +3450,8 @@ class MLMMCore:
             t0_embed = time.perf_counter()
             need_embed_forces = return_forces or return_hessian
             embed_indices = list(self.embedding_point_charge_indices(atoms_real))
+            if not embed_indices:
+                raise ValueError(no_point_charge_message(self.embedcharge_cutoff))
             if getattr(self, "print_timing", False) and not getattr(self, "_embedcharge_logged", False):
                 emit(
                     f"[embedcharge] {len(embed_indices)} MM point charges embedded; "
@@ -3457,6 +3499,12 @@ class MLMMCore:
 
             if self._embed_correction is not None and embed_indices:
                 # xTB sees the same ML region plus link hydrogens as the MLIP.
+                # Its Hessian covers only the point charges in the Hessian
+                # region; the others would be dropped at assembly.
+                hess_pc_rows = [
+                    row for row, ridx in enumerate(embed_indices)
+                    if ridx in self.full_to_hess_active
+                ] if return_hessian else None
                 dE_embed, dF_embed, dH_embed = self._embed_correction.compute_correction(
                     symbols=atoms_model_LH.get_chemical_symbols(),
                     coords_ml_ang=atoms_model_LH.get_positions(),
@@ -3466,6 +3514,7 @@ class MLMMCore:
                     multiplicity=self.model_mult,
                     need_forces=need_embed_forces,
                     need_hessian=return_hessian,
+                    hessian_mm_rows=hess_pc_rows,
                 )
                 results["energy"] += dE_embed
                 link_maps = self._link_jacobians(added_link_atoms, atoms_model_LH, atoms_real)
@@ -3488,7 +3537,7 @@ class MLMMCore:
                     embed_dH_infos.append(
                         self._link_hessian_to_real(
                             dH_embed, dF_embed, link_maps, atoms_model_LH,
-                            atoms_real, embed_indices,
+                            atoms_real, [embed_indices[row] for row in hess_pc_rows],
                         )
                     )
                 del dE_embed, dF_embed, dH_embed
@@ -3998,6 +4047,7 @@ class mlmm(PySiCalc):
         embedcharge: bool = False,
         embedcharge_step: float = 1.0e-3,
         embedcharge_cutoff: Optional[float] = None,
+        embedcharge_reference: Optional[str] = None,
         xtb_cmd: str = "xtb",
         xtb_acc: float = 0.2,
         xtb_workdir: str = "tmp",
@@ -4061,6 +4111,7 @@ class mlmm(PySiCalc):
             embedcharge=embedcharge,
             embedcharge_step=embedcharge_step,
             embedcharge_cutoff=embedcharge_cutoff,
+            embedcharge_reference=embedcharge_reference,
             xtb_cmd=xtb_cmd,
             xtb_acc=xtb_acc,
             xtb_workdir=xtb_workdir,

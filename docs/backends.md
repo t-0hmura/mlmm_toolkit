@@ -280,8 +280,10 @@ ML-region energy, forces, and Hessian in the correct units.
 - `--embedcharge` runs xTB with and without the MM point charges at every
   energy, force, and Hessian evaluation; keep the ML region to about 200–300
   atoms and benchmark the actual system first. The Hessian of the xTB
-  correction is a finite difference over the ML atoms and every point charge,
-  so with no `--embedcharge-cutoff` its cost grows with the number of MM atoms.
+  correction is a finite difference over the ML atoms and link hydrogens: the
+  point-charge forces of those runs give the ML–MM part, and the MM–MM part
+  uses the xTB atomic charges of the ML region, so the cost does not grow with
+  the number of MM atoms.
 
 ## See Also
 
