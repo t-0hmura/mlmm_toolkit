@@ -6,15 +6,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+_No changes yet._
+
+## [0.4.1] — 2026-10-21
+
 ### Fixed
 
-- Electrostatic embedding (`--embedcharge`) no longer counts the ML–MM electrostatics twice, with `-b dft`, `mlmm dft`, and the xTB correction of the MLIP backends. It now follows ONIOM-EE (Vreven et al., *J. Chem. Theory Comput.* 2006, 2, 815): MODEL-low adds the Coulomb energy between the ML force-field charges and the embedded point charges, which cancels the same interaction in REAL-low. MM atoms one or two bonds from the ML region are no longer point charges, and the point charges are chosen once at the first geometry. Reported in issue #18 by @aouchi6, whose ion-pair test is included.
-- The xTB embedding correction of the MLIP backends is computed for the ML region with its link hydrogens, the same system as the MLIP. It ran on the ML atoms alone, leaving cut bonds open.
+- Count the ML–MM electrostatics of `--embedcharge` once in `-b dft`, `mlmm dft`, and the xTB correction of the MLIP backends, following ONIOM-EE as in Gaussian ([#18](https://github.com/t-0hmura/mlmm_toolkit/issues/18), [#19](https://github.com/t-0hmura/mlmm_toolkit/pull/19)); the xTB correction now includes the link hydrogens.
 
 ### Changed
 
-- `--embedcharge-cutoff` has no default distance. Every MM atom except those one or two bonds from the ML region is now a point charge, as in Gaussian's ONIOM-EE, instead of only those within 12 Å. With the 12 Å cutoff, separate runs on R, TS, and P chose different point charges, which shifted their relative energies; pass `--embedcharge-cutoff 12` for the previous selection.
-- The scaled link hydrogen uses the covalent radius of H from Cordero et al. (2008), 0.31 Å, in its g-factor instead of 0.40 Å. A cut C–C bond of 1.53 Å now gives a C–H bond of 1.077 Å instead of 1.168 Å. Every ML/MM result with a cut bond and the default `--link-atom-method scaled` changes slightly. Bond detection keeps 0.40 Å for H.
+- `--embedcharge-cutoff` has no default: every MM atom except those one or two bonds from the ML region is a point charge (`--embedcharge-cutoff 12` restores the previous selection).
+- Place the scaled link hydrogen with an H radius of 0.31 Å (C–H 1.077 Å for a cut C–C bond); ML/MM results with a cut bond change slightly.
 
 ## [0.4.0] — 2026-10-12
 
