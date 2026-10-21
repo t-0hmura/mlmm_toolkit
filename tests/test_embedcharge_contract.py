@@ -65,4 +65,6 @@ def test_yaml_embedcharge_remains_active(tmp_path: Path) -> None:
 
 def test_embedcharge_defaults_are_opt_in() -> None:
     assert MLMM_CALC_KW["embedcharge"] is False
-    assert MLMM_CALC_KW["embedcharge_cutoff"] == pytest.approx(12.0)
+    # No distance cutoff by default: every MM atom except those 1-2 bonds from
+    # the ML region is a point charge (ONIOM-EE, as in Gaussian).
+    assert MLMM_CALC_KW["embedcharge_cutoff"] is None

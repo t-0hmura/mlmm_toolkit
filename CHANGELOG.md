@@ -13,6 +13,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- `--embedcharge-cutoff` has no default distance. Every MM atom except those one or two bonds from the ML region is now a point charge, as in Gaussian's ONIOM-EE, instead of only those within 12 Å. With the 12 Å cutoff, separate runs on R, TS, and P chose different point charges, which shifted their relative energies; pass `--embedcharge-cutoff 12` for the previous selection.
 - The scaled link hydrogen uses the covalent radius of H from Cordero et al. (2008), 0.31 Å, in its g-factor instead of 0.40 Å. A cut C–C bond of 1.53 Å now gives a C–H bond of 1.077 Å instead of 1.168 Å. Every ML/MM result with a cut bond and the default `--link-atom-method scaled` changes slightly. Bond detection keeps 0.40 Å for H.
 
 ## [0.4.0] — 2026-10-12

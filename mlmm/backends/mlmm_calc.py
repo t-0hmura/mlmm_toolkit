@@ -2104,7 +2104,7 @@ class MLMMCore:
         # Point-charge embedding correction
         embedcharge: bool = False,
         embedcharge_step: float = 1.0e-3,
-        embedcharge_cutoff: float = 12.0,
+        embedcharge_cutoff: Optional[float] = None,
         xtb_cmd: str = "xtb",
         xtb_acc: float = 0.2,
         xtb_workdir: str = "tmp",
@@ -3997,7 +3997,7 @@ class mlmm(PySiCalc):
         # Point-charge embedding correction
         embedcharge: bool = False,
         embedcharge_step: float = 1.0e-3,
-        embedcharge_cutoff: float = 12.0,
+        embedcharge_cutoff: Optional[float] = None,
         xtb_cmd: str = "xtb",
         xtb_acc: float = 0.2,
         xtb_workdir: str = "tmp",

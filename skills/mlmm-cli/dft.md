@@ -45,8 +45,8 @@ mlmm dft -i ts.xyz --ref-pdb real.pdb --parm7 real.parm7 -q 0 -m 1 \
 `-q` is the ML-region charge; `-l` derives it from the ligand charges and
 the residues in the ML region. `--func-basis` (default `wb97m-v/def2-svp`)
 takes PySCF names as `FUNC/BASIS`. `--embedcharge` puts the MM point charges
-within `--embedcharge-cutoff` (12.0 Å) into the DFT Hamiltonian, except the
-MM atoms one or two bonds from the ML region.
+into the DFT Hamiltonian, except the MM atoms one or two bonds from the ML
+region; `--embedcharge-cutoff` keeps only those within that distance (Å).
 `--dft-nprocs` and `--dft-memory` (host RAM, not GPU memory) override the
 values taken from the scheduler. The default output directory is
 `./result_dft/`.

@@ -829,8 +829,8 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     "embedcharge_cutoff",
     type=float,
     default=None,
-    show_default="12.0",
-    help="Distance cutoff (Å) from ML region for MM point charges embedded in the PySCF QM Hamiltonian. Only used when --embedcharge is enabled.",
+    show_default="none",
+    help="Distance cutoff (Å) from the ML region for the embedded MM point charges. By default every MM atom except those one or two bonds from the ML region is a point charge. Only used when --embedcharge is enabled.",
 )
 @click.option(
     "--link-atom-method",

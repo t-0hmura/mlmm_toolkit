@@ -283,8 +283,8 @@ def _resolve_sp_ml_region(
 )
 @click.option(
     "--embedcharge-cutoff", "embedcharge_cutoff",
-    type=float, default=None, show_default="12.0",
-    help="Distance cutoff (Å) from the ML region for MM point charges used by embedding.",
+    type=float, default=None, show_default="none",
+    help="Distance cutoff (Å) from the ML region for the embedded MM point charges. By default every MM atom except those one or two bonds from the ML region is a point charge.",
 )
 @click.option(
     "--link-atom-method", "link_atom_method",

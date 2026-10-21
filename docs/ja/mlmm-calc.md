@@ -22,7 +22,7 @@ E_ONIOM = E(REAL-low) - E(MODEL-low) + E(MODEL-high)
 
 全系を MM で評価し、ML 領域を高レベルと MM の両方で評価して、ML 領域の MM エネルギーを差し引くことで二重に数えないようにします。力と Hessian も同じ差し引きで合わせます。
 
-`--embedcharge` を付けると、ONIOM-EE の形の静電埋め込み（[Vreven et al., *J. Chem. Theory Comput.* 2006, 2, 815](https://doi.org/10.1021/ct050289g)）を使います。MM の点電荷を MODEL-high に入れ、MODEL-low には ML 原子の力場の電荷と同じ点電荷との Coulomb エネルギーを足します。この項が、REAL-low に含まれるそれらの点電荷と ML 領域の Coulomb エネルギーを打ち消すので、この相互作用は高レベルで 1 回だけ数えます。ML 領域から 1・2 結合の MM 原子は点電荷にせず、ML 領域との相互作用は REAL-low の力場の項に残ります。それ以外の MM 原子のうち、ML 領域から `--embedcharge-cutoff`（Å）以内の原子を点電荷にし、最初の構造で選んだあとは変えません。
+`--embedcharge` を付けると、ONIOM-EE の形の静電埋め込み（[Vreven et al., *J. Chem. Theory Comput.* 2006, 2, 815](https://doi.org/10.1021/ct050289g)）を使います。MM の点電荷を MODEL-high に入れ、MODEL-low には ML 原子の力場の電荷と同じ点電荷との Coulomb エネルギーを足します。この項が、REAL-low に含まれるそれらの点電荷と ML 領域の Coulomb エネルギーを打ち消すので、この相互作用は高レベルで 1 回だけ数えます。ML 領域から 1・2 結合の MM 原子は点電荷にせず、ML 領域との相互作用は REAL-low の力場の項に残ります。それ以外の MM 原子はすべて点電荷にし、Gaussian と同じく距離の cutoff は設けません。`--embedcharge-cutoff` を指定すると、ML 領域からその距離（Å）以内の原子だけを点電荷にし、最初の構造で選んだあとは変えません。
 
 ### 一般的な QM/MM との比較
 

@@ -83,10 +83,11 @@ Options:
                                   QM Hamiltonian. The DFT workflow does not use
                                   the optional xTB correction.  [default: no-
                                   embedcharge]
-  --embedcharge-cutoff FLOAT      Distance cutoff (Å) from ML region for MM
-                                  point charges embedded in the PySCF QM
-                                  Hamiltonian. Only used when --embedcharge is
-                                  enabled.  [default: (12.0)]
+  --embedcharge-cutoff FLOAT      Distance cutoff (Å) from the ML region for the
+                                  embedded MM point charges. By default every MM
+                                  atom except those one or two bonds from the ML
+                                  region is a point charge. Only used when
+                                  --embedcharge is enabled.  [default: (none)]
   --link-atom-method [scaled|fixed]
                                   Link-atom placement: 'scaled' (g-factor,
                                   Gaussian ONIOM standard) or 'fixed' (1.09 Å

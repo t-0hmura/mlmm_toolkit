@@ -76,7 +76,7 @@ mlmm all -i result_all/segments/seg_01/ts.pdb \
 | `-b, --backend dft` | ML 領域を DFT で計算します（GPU4PySCF。`--dft-engine cpu` で CPU の PySCF）。 | `uma` |
 | `--parm7 FILE`、`--model-pdb FILE` | 前の計算の MM のトポロジーと ML 領域を使い回します。省くと、`all` が入力から作り直します。 | — |
 | `--func-basis TEXT` | 汎関数と基底を `FUNCTIONAL/BASIS` の形で指定します。`-b dft` と `--dft` の両方に効きます。 | `wb97m-v/def2-svp` |
-| `--embedcharge/--no-embedcharge`、`--embedcharge-cutoff FLOAT` | `-b dft` のとき、ML 領域から cutoff（Å）以内の MM の点電荷を DFT のハミルトニアンに入れます。ML 領域から 1・2 結合の MM 原子は入れません（ONIOM-EE。[ML/MM 計算機](mlmm-calc.md) を参照）。 | `--no-embedcharge`、`12.0` |
+| `--embedcharge/--no-embedcharge`、`--embedcharge-cutoff FLOAT` | `-b dft` のとき、MM の点電荷を DFT のハミルトニアンに入れます。ML 領域から 1・2 結合の MM 原子は入れません（ONIOM-EE。[ML/MM 計算機](mlmm-calc.md) を参照）。cutoff（Å）を指定すると、ML 領域からその距離以内の点電荷だけを入れます。 | `--no-embedcharge`、cutoff なし |
 | `--dft/--no-dft` | R・TS・P に DFT の一点計算を足します（`all` だけ）。 | `--no-dft` |
 
 ほかの DFT のオプション（`--dft-engine`、`--dft-low-memory/--no-dft-low-memory`、`--dft-nprocs`、`--dft-memory`、SCF のチェックポイント）は [`all` のオプションの一覧（英語のみ）](../reference/commands/all.md)にあります。

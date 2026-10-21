@@ -60,7 +60,7 @@ mlmm dft -i enzyme.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 1. **Building the ML region**:
 `dft` reads the full system from `-i`, the Amber topology from `--parm7`, and the ML region from `--model-pdb`, `--model-indices`, or the B-factors of the input. For an XYZ input, `--ref-pdb` gives the PDB/mmCIF topology. Link hydrogens cap the bonds of `--parm7` that the ML/MM boundary cuts, and the ML region is saved without and with them.
 2. **SCF**:
-`--func-basis` sets the functional and basis; a basis whose name begins with `def2` gets the matching def2 effective core potential (ECP). `--dft-engine` selects GPU4PySCF (`gpu`, the default) or PySCF (`cpu`). A closed shell runs RKS and an open shell UKS. Low-memory mode, on by default, builds J and K directly without density fitting; on the GPU, a closed shell then uses GPU4PySCF's low-memory RKS. `--no-dft-low-memory` uses density fitting instead. With `--embedcharge`, the MM point charges of `--parm7` within `--embedcharge-cutoff` of the ML region enter the DFT Hamiltonian. MM atoms one or two bonds from the ML region are left out, and the MODEL-low energy includes the Coulomb energy between the ML force-field charges and the point charges, so the ML–MM electrostatics are counted once (ONIOM-EE; see [ML/MM Calculator](mlmm-calc.md)).
+`--func-basis` sets the functional and basis; a basis whose name begins with `def2` gets the matching def2 effective core potential (ECP). `--dft-engine` selects GPU4PySCF (`gpu`, the default) or PySCF (`cpu`). A closed shell runs RKS and an open shell UKS. Low-memory mode, on by default, builds J and K directly without density fitting; on the GPU, a closed shell then uses GPU4PySCF's low-memory RKS. `--no-dft-low-memory` uses density fitting instead. With `--embedcharge`, the MM point charges of `--parm7` enter the DFT Hamiltonian; `--embedcharge-cutoff` keeps only those within that distance (Å) of the ML region. MM atoms one or two bonds from the ML region are left out, and the MODEL-low energy includes the Coulomb energy between the ML force-field charges and the point charges, so the ML–MM electrostatics are counted once (ONIOM-EE; see [ML/MM Calculator](mlmm-calc.md)).
 3. **ML(DFT)/MM energy**:
 The DFT energy of the ML region with link hydrogens takes the place of the ML energy in the ONIOM sum: `E_REAL_low` and `E_MODEL_low` are the MM energies of the full system and of the ML region.
 4. **Charges and the result file**:
@@ -111,7 +111,7 @@ The options shared by every ML/MM calculation command are explained once in {ref
 | `--dft-nprocs` | integer | auto | PySCF CPU threads (detected from the scheduler and the host) |
 | `--dft-memory` | text | auto | PySCF host RAM limit (e.g. `64GB`); this is not GPU memory |
 | `--embedcharge/--no-embedcharge` | flag | `False` | Put the MM point charges into the DFT Hamiltonian |
-| `--embedcharge-cutoff` | float | `12.0` | Distance (Å) from the ML region within which MM point charges are embedded |
+| `--embedcharge-cutoff` | float | none | Distance (Å) from the ML region within which MM point charges are embedded; without it, every MM atom except those one or two bonds from the ML region |
 | `--convert-files/--no-convert-files` | flag | `True` | Also write the ML region as PDB (PDB input only) |
 | `-o, --out-dir` | path | `./result_dft/` | Output directory |
 

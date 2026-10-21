@@ -60,7 +60,7 @@ mlmm dft -i enzyme.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 1. **ML 領域を組む**:
 `-i` から全系を、`--parm7` から Amber トポロジーを、`--model-pdb`・`--model-indices`・入力の B-factor のどれかから ML 領域を読みます。XYZ 入力では、PDB/mmCIF のトポロジーを `--ref-pdb` で与えます。ML/MM の境界で切れる `--parm7` の結合をリンク水素でふさぎ、ML 領域をリンク水素なしとありの 2 通りで保存します。
 2. **SCF**:
-`--func-basis` で汎関数と基底を選びます。名前が `def2` で始まる基底には、対応する def2 の有効内殻ポテンシャル（ECP）を付けます。`--dft-engine` で GPU4PySCF（`gpu`、デフォルト）か PySCF（`cpu`）を選びます。閉殻は RKS、開殻は UKS で計算します。デフォルトで有効な低メモリモードでは、密度フィッティング（density fitting）を使わずに J と K を直接組み立てます。このとき、GPU で閉殻系を計算する場合は GPU4PySCF の低メモリ版 RKS を使います。`--no-dft-low-memory` では密度フィッティングを使います。`--embedcharge` を付けると、ML 領域から `--embedcharge-cutoff` 以内にある `--parm7` の MM 点電荷を DFT のハミルトニアンに入れます。ML 領域から 1・2 結合の MM 原子は点電荷にせず、MODEL-low のエネルギーには ML 原子の力場の電荷と点電荷との Coulomb エネルギーを含めるので、ML–MM の静電相互作用は 1 回だけ数えます（ONIOM-EE。[ML/MM 計算機](mlmm-calc.md) を参照）。
+`--func-basis` で汎関数と基底を選びます。名前が `def2` で始まる基底には、対応する def2 の有効内殻ポテンシャル（ECP）を付けます。`--dft-engine` で GPU4PySCF（`gpu`、デフォルト）か PySCF（`cpu`）を選びます。閉殻は RKS、開殻は UKS で計算します。デフォルトで有効な低メモリモードでは、密度フィッティング（density fitting）を使わずに J と K を直接組み立てます。このとき、GPU で閉殻系を計算する場合は GPU4PySCF の低メモリ版 RKS を使います。`--no-dft-low-memory` では密度フィッティングを使います。`--embedcharge` を付けると、`--parm7` の MM 点電荷を DFT のハミルトニアンに入れます。`--embedcharge-cutoff` を指定すると、ML 領域からその距離（Å）以内の点電荷だけを入れます。ML 領域から 1・2 結合の MM 原子は点電荷にせず、MODEL-low のエネルギーには ML 原子の力場の電荷と点電荷との Coulomb エネルギーを含めるので、ML–MM の静電相互作用は 1 回だけ数えます（ONIOM-EE。[ML/MM 計算機](mlmm-calc.md) を参照）。
 3. **ML(DFT)/MM のエネルギー**:
 リンク水素を含む ML 領域の DFT エネルギーを、ONIOM の和の ML のエネルギーの代わりに使います。`E_REAL_low` と `E_MODEL_low` は、全系と ML 領域の MM エネルギーです。
 4. **電荷と結果ファイル**:
@@ -111,7 +111,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 | `--dft-nprocs` | 整数 | auto | PySCF の CPU スレッド数（スケジューラとホストから自動検出） |
 | `--dft-memory` | 文字列 | auto | PySCF のホスト RAM の上限（例: `64GB`）。GPU メモリではない |
 | `--embedcharge/--no-embedcharge` | フラグ | `False` | MM の点電荷を DFT のハミルトニアンに入れる |
-| `--embedcharge-cutoff` | 浮動小数点数 | `12.0` | 点電荷を入れる MM 原子の、ML 領域からの距離（Å） |
+| `--embedcharge-cutoff` | 浮動小数点数 | なし | 点電荷を入れる MM 原子の、ML 領域からの距離（Å）。指定しないと、ML 領域から 1・2 結合の MM 原子を除くすべての MM 原子 |
 | `--convert-files/--no-convert-files` | フラグ | `True` | ML 領域を PDB でも書き出す（PDB 入力のときだけ） |
 | `-o, --out-dir` | パス | `./result_dft/` | 出力先ディレクトリ |
 

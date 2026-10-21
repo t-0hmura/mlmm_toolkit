@@ -4846,8 +4846,8 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     "embedcharge_cutoff",
     type=float,
     default=None,
-    show_default="12.0",
-    help="Distance cutoff (Å) from the ML region for embedded MM point charges.",
+    show_default="none",
+    help="Distance cutoff (Å) from the ML region for the embedded MM point charges. By default every MM atom except those one or two bonds from the ML region is a point charge.",
 )
 @click.option(
     "--link-atom-method",

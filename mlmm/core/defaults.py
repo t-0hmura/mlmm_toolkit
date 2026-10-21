@@ -140,7 +140,9 @@ MLMM_CALC_KW: Dict[str, Any] = {
     # Optional xTB point-charge correction.
     "embedcharge": False,
     "embedcharge_step": 1.0e-3,
-    "embedcharge_cutoff": 12.0,
+    # None embeds every MM atom except those 1-2 bonds from the ML region
+    # (ONIOM-EE, as in Gaussian); a float (Å) keeps only atoms that close.
+    "embedcharge_cutoff": None,
     "xtb_cmd": "xtb",              # xTB executable command
     "xtb_acc": 0.2,                # xTB accuracy parameter
     "xtb_workdir": "tmp",          # xTB working directory
