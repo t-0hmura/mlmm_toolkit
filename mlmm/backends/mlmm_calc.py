@@ -164,17 +164,27 @@ from pysisyphus.constants import BOHR2ANG, ANG2BOHR, AU2EV, AU2KCALPERMOL
 from pysisyphus.elem_data import COVALENT_RADII as _COVALENT_RADII_BOHR
 
 
+# Covalent radius of H from Cordero et al., Dalton Trans. 2008, 2832 (Table 2).
+# pysisyphus keeps 0.40 Å for H because its table is a bond-detection
+# threshold; a link-atom bond length needs the 0.31 Å value.
+_LINK_H_COVALENT_RADIUS_BOHR = 0.31 * ANG2BOHR
+
+
 def _get_g_factor(qm1_elem: str, mm_elem: str, link_elem: str = "H") -> float:
     """Compute Morokuma/Dapprich g-factor for link atom placement.
 
     g = (CR(QM1) + CR(link)) / (CR(QM1) + CR(MM))
 
     The link atom is placed at: r_L = r_QM1 + g * (r_MM - r_QM1).
-    Units cancel (covalent radii in Bohr).
+    Units cancel (covalent radii in Bohr). A hydrogen link atom uses the
+    Cordero radius of 0.31 Å, so a cut C-C bond of 1.53 Å gives C-H 1.077 Å.
     """
     cr_qm1 = _COVALENT_RADII_BOHR[qm1_elem.lower()]
     cr_mm = _COVALENT_RADII_BOHR[mm_elem.lower()]
-    cr_link = _COVALENT_RADII_BOHR[link_elem.lower()]
+    if link_elem.lower() == "h":
+        cr_link = _LINK_H_COVALENT_RADIUS_BOHR
+    else:
+        cr_link = _COVALENT_RADII_BOHR[link_elem.lower()]
     return (cr_qm1 + cr_link) / (cr_qm1 + cr_mm)
 EV2AU = 1.0 / AU2EV  # eV → Hartree
 KCALMOL2EV = AU2EV / AU2KCALPERMOL  # kcal/mol -> eV

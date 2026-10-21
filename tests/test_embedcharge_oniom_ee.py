@@ -24,6 +24,14 @@ def _carbon(name: str):
     return pmd.Atom(name=name, type="CT", charge=0.0, mass=12.011, atomic_number=6)
 
 
+def test_link_h_g_factor_uses_the_cordero_hydrogen_radius() -> None:
+    from mlmm.backends.mlmm_calc import _get_g_factor
+
+    g = _get_g_factor("C", "C")
+    assert g == pytest.approx((0.76 + 0.31) / (0.76 + 0.76), abs=1.0e-4)
+    assert 1.53 * g == pytest.approx(1.077, abs=1.0e-3)
+
+
 def test_mm_atoms_one_or_two_bonds_from_the_ml_region_are_near() -> None:
     from mlmm.backends.mlmm_calc import EMBED_EXCLUDED_BOND_DEPTH, _atoms_within_bonds
 

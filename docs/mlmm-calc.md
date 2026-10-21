@@ -49,7 +49,7 @@ When the ML/MM boundary cuts a covalent bond, a link hydrogen caps the ML side o
 
 | Method | Placement | Recommended |
 | --- | --- | --- |
-| **scaled** (g-factor, default) | `r_L = r_QM + g·(r_MM − r_QM)` with `g = (CR_QM + CR_H)/(CR_QM + CR_MM)` (covalent radii) | Yes (default; the method of Gaussian ONIOM) |
+| **scaled** (g-factor, default) | `r_L = r_QM + g·(r_MM − r_QM)` with `g = (CR_QM + CR_H)/(CR_QM + CR_MM)` (covalent radii of [Cordero et al. 2008](https://doi.org/10.1039/b801115j), `CR_H` = 0.31 Å; a cut C–C bond of 1.53 Å gives C–H 1.077 Å) | Yes (default; the method of Gaussian ONIOM) |
 | **fixed** | `r_L = r_QM + d·û` with `d` = 1.09 Å (C parent) / 1.01 Å (N parent) and `û` the unit vector toward the MM atom | Alternative (ML-side parent C or N only) |
 
 The scaled placement is the Morokuma–Dapprich g-factor method used in Gaussian ONIOM: the link hydrogen moves linearly with the QM–MM distance. The fixed placement keeps the link hydrogen at a constant distance along the bond axis.
