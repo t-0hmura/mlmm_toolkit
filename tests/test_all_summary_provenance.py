@@ -17,7 +17,7 @@ def test_resolved_mlip_provenance_uses_backend_defaults() -> None:
         backend_model=None,
         calc_file=None,
         calc_factory="get_calculator",
-    ) == ("orb", "orb_v3_conservative_omol", "fp64")
+    ) == ("orb", "orbmol-v2", "fp64")
     assert _resolve_mlip_provenance(
         backend=None,
         backend_model=None,

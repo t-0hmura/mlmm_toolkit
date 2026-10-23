@@ -18,11 +18,17 @@ def mlip_model_label(backend: Any, model: Any, task_name: Any = None) -> str:
     if not model_token:
         return "-"
     if backend_token == "uma":
-        match = re.fullmatch(r"uma-([a-z]+)-([0-9]+(?:p[0-9]+)*)", model_token.lower())
+        match = re.fullmatch(
+            r"uma-([a-z]+)-([0-9]+(?:p[0-9]+)*)(?:-ft-([a-z0-9]+))?", model_token.lower()
+        )
         if match:
             model_label = "UMA-%s-%s" % (
                 match.group(1).upper(), match.group(2).replace("p", ".")
             )
+            if match.group(3):
+                model_label += "-FT-" + {"d4rev": "D4rev", "r2scan": "r2SCAN"}.get(
+                    match.group(3), match.group(3)
+                )
         else:
             model_label = model_token
         task_token = str(task_name or "omol").strip().lower()
@@ -33,6 +39,8 @@ def mlip_model_label(backend: Any, model: Any, task_name: Any = None) -> str:
         }.get(task_token, str(task_name or "").strip())
         return f"{model_label} ({task_label})" if task_label else model_label
     if backend_token == "orb":
+        if model_token.lower().startswith("orbmol"):
+            return "OrbMol" + model_token[len("orbmol"):].replace("_", "-")
         label = re.sub(r"(?i)^orb[_-]", "ORB-", model_token).replace("_", "-")
         return label.replace("-omol", "-OMol").replace("-omat", "-OMat")
     if backend_token == "mace":

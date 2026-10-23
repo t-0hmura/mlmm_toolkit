@@ -223,7 +223,7 @@ mlmm trj2fig -i finished_irc_trj.xyz -o irc_profile.png
 mlmm trj2fig -i scan_trj.xyz -o mep.html
 mlmm trj2fig -i scan_trj.xyz -o profile.png -o profile.csv
 mlmm trj2fig -i trajectory.xyz -q 0 -m 1 -b uma \
-    --backend-model uma-s-1p2 --precision fp32 -o profile.png --out-json
+    --backend-model uma-s-1p2p1 --precision fp32 -o profile.png --out-json
 ```
 
 The default output is `energy.png`. Repeat `-o`, or list more paths after

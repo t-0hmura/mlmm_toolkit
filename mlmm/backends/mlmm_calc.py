@@ -22,7 +22,7 @@ import tempfile
 import time
 from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 from concurrent.futures import ThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
@@ -84,7 +84,7 @@ import parmed as pmd
 from hessian_ff import ForceFieldTorch, load_coords, load_system
 from hessian_ff.analytical_hessian import build_analytical_hessian
 
-from mlmm.core.defaults import DEFAULT_UMA_MODEL  # noqa: E402
+from mlmm.core.defaults import DEFAULT_ORB_MODEL, DEFAULT_UMA_MODEL  # noqa: E402
 from mlmm.io.pdb_indexing import resolve_mlmm_atoms
 
 # Optional OpenMM import
@@ -889,6 +889,39 @@ def _normalize_orb_precision(precision: str) -> str:
     return _OrbBackend._PRECISION_ALIASES.get(token, token)
 
 
+def _resolve_orb_loader(pretrained: Any, orb_model: str) -> Callable[..., Any]:
+    """Return the orb-models loader for ``orb_model``.
+
+    ``ORB_PRETRAINED_MODELS`` keys are hyphenated (``"orbmol-v2"``,
+    ``"orb-v3-conservative-omol"``) while the loader functions are
+    underscored (``orb_v3_conservative_omol``), so both spellings resolve.
+    """
+    name = str(orb_model).strip()
+    registry = getattr(pretrained, "ORB_PRETRAINED_MODELS", None) or {}
+    candidates = (
+        name,
+        name.replace("_", "-"),
+        name.replace("-", "_"),
+        name.lower(),
+        name.lower().replace("_", "-"),
+        name.lower().replace("-", "_"),
+    )
+    for key in dict.fromkeys(candidates):
+        if key in registry:
+            return registry[key]
+    for attr in dict.fromkeys((name.replace("-", "_"), name.lower().replace("-", "_"))):
+        loader = getattr(pretrained, attr, None)
+        if callable(loader):
+            return loader
+    if name.lower().replace("_", "-") == "orbmol-v2":
+        raise ImportError(
+            "orbmol-v2 needs orb-models >= 0.7.0 (Python 3.12+), and the "
+            "installed orb-models does not provide it. "
+            "`--backend-model orb_v3_conservative_omol` selects OrbMol-v1."
+        )
+    raise ValueError(f"Unknown ORB model '{orb_model}'.")
+
+
 class _OrbBackend(_ASEMLBackend):
     """ORB (Orbital Materials) ML backend.
 
@@ -908,7 +941,7 @@ class _OrbBackend(_ASEMLBackend):
     def __init__(
         self,
         *,
-        orb_model: str = "orb_v3_conservative_omol",
+        orb_model: str = DEFAULT_ORB_MODEL,
         orb_precision: str = "float64",
         model_charge: int = 0,
         model_mult: int = 1,
@@ -924,13 +957,21 @@ class _OrbBackend(_ASEMLBackend):
 
         device_str = str(ml_device)
         precision = _normalize_orb_precision(orb_precision)
-        loaded = getattr(pretrained, orb_model)(
+        loaded = _resolve_orb_loader(pretrained, orb_model)(
             device=device_str, precision=precision
         )
         if isinstance(loaded, tuple) and len(loaded) >= 2:
             self._model_obj, self._adapter = loaded[0], loaded[1]
         else:
             self._model_obj, self._adapter = loaded, None
+        # Forces and Hessians are energy derivatives; direct-force ORB models
+        # are rejected.
+        regressor = type(self._model_obj).__name__
+        if regressor != "ConservativeForcefieldRegressor":
+            raise ValueError(
+                f"ORB model '{orb_model}' loads {regressor}; only conservative "
+                "ORB models are supported."
+            )
 
         def _construct(calculator_cls):
             attempts = []
@@ -1089,9 +1130,28 @@ class _MACEBackend(_ASEMLBackend):
             "mace-off23_medium": "medium",
             "mace-off23_large": "large",
         }
+        polar_aliases = {
+            f"{prefix}polar-1-{size}": f"polar-1-{size}"
+            for prefix in ("", "mace-")
+            for size in ("s", "m", "l")
+        }
 
         # Resolve model name to the appropriate factory
-        if model_lower in off23_aliases:
+        if model_lower in polar_aliases:
+            # MACE-POLAR-1 loads via mace_polar; like MACE-OMOL it reads the
+            # total charge and multiplicity from atoms.info "charge"/"spin".
+            try:
+                from mace.calculators.foundations_models import mace_polar
+            except ImportError as exc:
+                raise ImportError(
+                    "MACE-POLAR-1 needs mace-torch >= 0.3.16."
+                ) from exc
+            self._ase_calc = mace_polar(
+                model=polar_aliases[model_lower],
+                device=device_str,
+                default_dtype=mace_dtype,
+            )
+        elif model_lower in off23_aliases:
             self._ase_calc = mace_off(
                 model=off23_aliases[model_lower],
                 device=device_str,
@@ -1321,7 +1381,7 @@ def _create_ml_backend(
     uma_precision: str = "fp32",
     workers: int = 1,
     workers_per_node: int = 1,
-    orb_model: str = "orb_v3_conservative_omol",
+    orb_model: str = DEFAULT_ORB_MODEL,
     orb_precision: str = "float64",
     mace_model: str = "MACE-OMOL-0",
     mace_dtype: str = "float64",
@@ -2139,7 +2199,7 @@ class MLMMCore:
         uma_precision: str = "fp32",
         workers: int = 1,
         workers_per_node: int = 1,
-        orb_model: str = "orb_v3_conservative_omol",
+        orb_model: str = DEFAULT_ORB_MODEL,
         orb_precision: str = "float64",
         mace_model: str = "MACE-OMOL-0",
         mace_dtype: str = "float64",
@@ -4057,7 +4117,7 @@ class mlmm(PySiCalc):
         uma_precision: str = "fp32",
         workers: int = 1,
         workers_per_node: int = 1,
-        orb_model: str = "orb_v3_conservative_omol",
+        orb_model: str = DEFAULT_ORB_MODEL,
         orb_precision: str = "float64",
         mace_model: str = "MACE-OMOL-0",
         mace_dtype: str = "float64",

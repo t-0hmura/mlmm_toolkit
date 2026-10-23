@@ -13,9 +13,11 @@ _No changes yet._
 ### Added
 
 - Add `--precision tf32`: TF32 matrix multiplications for UMA (UMA Nitro where fairchem-core provides it) and ORB (`float32-high`), for screening; MACE, AIMNet2 and `--calc-file` reject it.
+- Support the `uma-s-1p2p1-ft-d4rev` UMA fine-tune (ωB97M-D4rev; fairchem-core >= 2.24), the ORB `orbmol-v2` model (conservative, with learnable long-range electrostatics; orb-models >= 0.7.0), and `MACE-POLAR-1-S`/`-M`/`-L` (mace-torch >= 0.3.16 with graph_electrostatics); document the AIMNet2 `aimnet2-2025`, `aimnet2-nse` and `aimnet2-pd` models.
 
 ### Changed
 
+- The default UMA model is `uma-s-1p2p1` and the default ORB model is `orbmol-v2`, the models the backends recommend; `--backend-model uma-s-1p2` or `orb_v3_conservative_omol` selects the previous defaults, and ORB accepts only conservative models.
 - `--precision fp32` is IEEE FP32 on every backend: ORB uses `float32-highest` instead of `float32-high` (TF32), and `mlip_precision` records `tf32` for a TF32 run.
 
 ### Fixed

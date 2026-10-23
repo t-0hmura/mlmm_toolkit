@@ -157,20 +157,20 @@ calc:
  backend: uma # High-level backend: uma, orb, mace, aimnet2, or dft
 
  # --- UMA backend settings ---
- uma_model: uma-s-1p2 # uma-s-1p2 | uma-m-1p1
+ uma_model: uma-s-1p2p1 # uma-s-1p2p1 | uma-s-1p2p1-ft-d4rev | uma-s-1p2 | uma-m-1p1
  uma_task_name: omol # Task tag recorded in UMA batches (UMA backend only)
  uma_precision: fp32 # fp32 | fp64 (UMA backend numerical precision)
 
  # --- ORB backend settings ---
- orb_model: orb_v3_conservative_omol  # ORB model name (ORB backend only)
+ orb_model: orbmol-v2  # ORB model name (ORB backend only): orbmol-v2 | orb_v3_conservative_omol
  orb_precision: float64  # ORB floating-point precision (ORB backend only; "float32-high" = TF32 matmul, also set by --precision tf32; "float32-highest" = IEEE FP32, also set by --precision fp32 or "float32")
 
  # --- MACE backend settings ---
- mace_model: MACE-OMOL-0 # MACE model name (MACE backend only)
+ mace_model: MACE-OMOL-0 # MACE model name (MACE backend only): MACE-OMOL-0 | MACE-POLAR-1-S | MACE-POLAR-1-M | MACE-POLAR-1-L
  mace_dtype: float64      # MACE floating-point precision (MACE backend only)
 
  # --- AIMNet2 backend settings ---
- aimnet2_model: aimnet2   # AIMNet2 model name (AIMNet2 backend only)
+ aimnet2_model: aimnet2   # AIMNet2 model name (AIMNet2 backend only): aimnet2 | aimnet2-2025 | aimnet2-nse | aimnet2-pd
 
  # --- PySCF/GPU4PySCF high-level backend ---
  dft:
@@ -804,7 +804,7 @@ calc:
  model_charge: 0
  model_mult: 1
  backend: uma                  # High-level backend: "uma", "orb", "mace", "aimnet2", or "dft"
- uma_model: uma-s-1p2          # uma-s-1p2 | uma-m-1p1
+ uma_model: uma-s-1p2p1        # uma-s-1p2p1 | uma-s-1p2p1-ft-d4rev | uma-s-1p2 | uma-m-1p1
  ml_device: auto
  hessian_calc_mode: Analytical   # Compare with FiniteDifference on a pilot
  mm_device: cpu

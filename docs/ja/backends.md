@@ -22,14 +22,21 @@ mlmm opt -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b aim
 
 | バックエンド | インストール | モデル名 | 精度の設定 |
 |---------|---------|------------------|------------------|
-| `uma` | `pip install mlmm-toolkit`（`fairchem-core` は本体の依存）＋ [Hugging Face へのログイン](installation.md) | `uma-s-1p2`（デフォルト）/ `uma-m-1p1` | `uma_precision="tf32" \| "fp32" \| "fp64"` |
-| `orb` | `pip install "mlmm-toolkit[orb]"` | `orb_v3_conservative_omol` | `orb_precision="float32-high" \| "float32-highest" \| "float64"`（`float32-high` は `tf32`、`float32-highest` は `fp32`・`float32` の名前でも受け付けます） |
-| `mace` | 専用の環境で `pip uninstall -y fairchem-core && pip install mace-torch`（`mace-torch` が固定する `e3nn` の版が UMA とぶつかるため、この環境では UMA は動きません） | `MACE-OMOL-0` | `mace_dtype="float32" \| "float64"` |
-| `aimnet2` | `pip install "mlmm-toolkit[aimnet]"` | `aimnet2` | なし |
+| `uma` | `pip install mlmm-toolkit`（`fairchem-core` は本体の依存）＋ [Hugging Face へのログイン](installation.md) | `uma-s-1p2p1`（デフォルト）/ `uma-s-1p2p1-ft-d4rev` / `uma-s-1p2` / `uma-m-1p1` | `uma_precision="tf32" \| "fp32" \| "fp64"` |
+| `orb` | `pip install "mlmm-toolkit[orb]"` | `orbmol-v2`（デフォルト）/ `orb_v3_conservative_omol`（エネルギーの勾配から力を求める conservative モデルのみ） | `orb_precision="float32-high" \| "float32-highest" \| "float64"`（`float32-high` は `tf32`、`float32-highest` は `fp32`・`float32` の名前でも受け付けます） |
+| `mace` | 専用の環境で `pip uninstall -y fairchem-core && pip install mace-torch`（`mace-torch` が固定する `e3nn` の版が UMA とぶつかるため、この環境では UMA は動きません） | `MACE-OMOL-0`（デフォルト）/ `MACE-POLAR-1-S` / `-M` / `-L` | `mace_dtype="float32" \| "float64"` |
+| `aimnet2` | `pip install "mlmm-toolkit[aimnet]"` | `aimnet2`（デフォルト）/ `aimnet2-2025` / `aimnet2-nse` / `aimnet2-pd` | なし |
 
 `--backend-model NAME` は、選んだ `--backend` のモデルを替えます（例：`--backend uma --backend-model uma-m-1p1`）。`-b dft` を付けると ML 領域を [DFT](#dftmm-バックエンド) で計算でき、`--calc-file` で {ref}`任意の ASE calculator <ja-backends-custom-calculator>` を使えます。
 
-実行時には、読み込むバックエンドとモデルが `[backend] Preparing MLIP model (UMA / UMA-S-1.2 (OMol))...` のように表示され、[JSON の出力](json-output.md#共通エンベロープ)の `mlip_backend`・`mlip_model`・`mlip_precision` に記録されます。
+表のモデルについての注意：
+
+- `uma-s-1p2p1-ft-d4rev`：UMA-S-1.2.1 を OMol25 の約 400 万構造で ωB97M-D4rev に fine-tune したモデルです。分散力を含むので、分散補正を足さないでください。タスクは `omol` だけで、孤立原子の参照エネルギーはありません。fairchem-core 2.24 以上が要ります。
+- `orbmol-v2`（デフォルト、OrbMol-v2）：全電荷とスピン多重度を受け取る conservative モデルで、原子ごとに学習する電荷と長距離の Coulomb 項を加え、OMol25 と OPoly26（ωB97M-V/def2-TZVPD）で学習しています。orb-models 0.7.0 以上が要り、これは Python 3.12 以上で動きます。Python 3.11 では `[orb]` で orb-models 0.5.5 が入り、`--backend-model orb_v3_conservative_omol` で OrbMol-v1 を使えます。
+- `MACE-POLAR-1-S`・`-M`・`-L`：OMol25（ωB97M-V）で学習し、学習した電荷とスピンの密度から長距離の静電相互作用を計算するモデルで、どの全電荷とスピンでも使えます。mace-torch 0.3.16 以上と `pip install git+https://github.com/WillBaldwin0/graph_electrostatics.git@v0.4.4` が要ります。
+- AIMNet2：`aimnet2`（デフォルト、wB97M-D3）、`aimnet2-2025`（改良した B97-3c）、`aimnet2-pd`（CPCM（THF）の溶媒をモデルに含む B97-3c。Pd を扱えます）は閉殻だけです。`aimnet2-nse`（wB97M-D3）は開殻の系を扱えるので、多重度を `-m` で指定してください。mlmm は ML 領域の電荷と多重度を AIMNet2 に `charge` と `mult` として渡します。`mult` を使うのは `aimnet2-nse` だけで、ほかのモデルは無視します。
+
+実行時には、読み込むバックエンドとモデルが `[backend] Preparing MLIP model (UMA / UMA-S-1.2.1 (OMol))...` のように表示され、[JSON の出力](json-output.md#共通エンベロープ)の `mlip_backend`・`mlip_model`・`mlip_precision` に記録されます。
 
 (ja-precision)=
 ### 精度（precision）

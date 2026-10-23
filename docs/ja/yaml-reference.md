@@ -156,20 +156,20 @@ calc:
  backend: uma # 高レベルバックエンド: uma, orb, mace, aimnet2, dft
 
  # --- UMA バックエンドの設定 ---
- uma_model: uma-s-1p2 # UMA モデル名: uma-s-1p2, uma-m-1p1
+ uma_model: uma-s-1p2p1 # UMA モデル名: uma-s-1p2p1, uma-s-1p2p1-ft-d4rev, uma-s-1p2, uma-m-1p1
  uma_task_name: omol # UMA バッチに記録されるタスクタグ (backend=uma 時)
  uma_precision: fp32 # fp32 | fp64 (UMA バックエンドの数値精度)
 
  # --- ORB バックエンドの設定 ---
- orb_model: orb_v3_conservative_omol  # ORB モデル名 (backend=orb 時)
+ orb_model: orbmol-v2  # ORB モデル名 (backend=orb 時): orbmol-v2, orb_v3_conservative_omol
  orb_precision: float64  # ORB 浮動小数点精度 (backend=orb 時; "float32-high" は TF32 matmul で --precision tf32 でも選択可、"float32-highest" は IEEE FP32 で --precision fp32 か "float32" でも選択可)
 
  # --- MACE バックエンドの設定 ---
- mace_model: MACE-OMOL-0 # MACE モデル名 (backend=mace 時)
+ mace_model: MACE-OMOL-0 # MACE モデル名 (backend=mace 時): MACE-OMOL-0, MACE-POLAR-1-S, MACE-POLAR-1-M, MACE-POLAR-1-L
  mace_dtype: float64      # MACE 浮動小数点精度 (backend=mace 時)
 
  # --- AIMNet2 バックエンドの設定 ---
- aimnet2_model: aimnet2   # AIMNet2 モデル名 (backend=aimnet2 時)
+ aimnet2_model: aimnet2   # AIMNet2 モデル名 (backend=aimnet2 時): aimnet2, aimnet2-2025, aimnet2-nse, aimnet2-pd
 
  # --- PySCF/GPU4PySCF の高レベルバックエンド ---
  dft:
@@ -761,7 +761,7 @@ calc:
  model_charge: 0
  model_mult: 1
  backend: uma                  # 高レベルbackend: uma | orb | mace | aimnet2 | dft
- uma_model: uma-s-1p2          # uma-s-1p2 | uma-m-1p1
+ uma_model: uma-s-1p2p1        # uma-s-1p2p1 | uma-s-1p2p1-ft-d4rev | uma-s-1p2 | uma-m-1p1
  ml_device: auto
  hessian_calc_mode: Analytical   # 試しの計算で FiniteDifference と比べる
  mm_device: cpu

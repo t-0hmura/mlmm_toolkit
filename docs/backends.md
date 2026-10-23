@@ -29,18 +29,41 @@ mlmm opt -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b aim
 
 | backend | install | model identifier | precision option |
 |---------|---------|------------------|------------------|
-| `uma` | `pip install mlmm-toolkit` (`fairchem-core` is a core dependency) + [Hugging Face login](installation.md) | `uma-s-1p2` (default) / `uma-m-1p1` | `uma_precision="tf32" \| "fp32" \| "fp64"` |
-| `orb` | `pip install "mlmm-toolkit[orb]"` | `orb_v3_conservative_omol` | `orb_precision="float32-high" \| "float32-highest" \| "float64"` (`tf32` is accepted for `float32-high`, and `fp32` / `float32` for `float32-highest`) |
-| `mace` | dedicated env: `pip uninstall -y fairchem-core && pip install mace-torch` (`mace-torch` pins an `e3nn` version that conflicts with UMA, so UMA does not run in this env) | `MACE-OMOL-0` | `mace_dtype="float32" \| "float64"` |
-| `aimnet2` | `pip install "mlmm-toolkit[aimnet]"` | `aimnet2` | n/a |
+| `uma` | `pip install mlmm-toolkit` (`fairchem-core` is a core dependency) + [Hugging Face login](installation.md) | `uma-s-1p2p1` (default) / `uma-s-1p2p1-ft-d4rev` / `uma-s-1p2` / `uma-m-1p1` | `uma_precision="tf32" \| "fp32" \| "fp64"` |
+| `orb` | `pip install "mlmm-toolkit[orb]"` | `orbmol-v2` (default) / `orb_v3_conservative_omol` (conservative models only, which take the forces from the energy gradient) | `orb_precision="float32-high" \| "float32-highest" \| "float64"` (`tf32` is accepted for `float32-high`, and `fp32` / `float32` for `float32-highest`) |
+| `mace` | dedicated env: `pip uninstall -y fairchem-core && pip install mace-torch` (`mace-torch` pins an `e3nn` version that conflicts with UMA, so UMA does not run in this env) | `MACE-OMOL-0` (default) / `MACE-POLAR-1-S` / `-M` / `-L` | `mace_dtype="float32" \| "float64"` |
+| `aimnet2` | `pip install "mlmm-toolkit[aimnet]"` | `aimnet2` (default) / `aimnet2-2025` / `aimnet2-nse` / `aimnet2-pd` | n/a |
 
 `--backend-model NAME` overrides the model variant for the selected `--backend`
 (e.g. `--backend uma --backend-model uma-m-1p1`). `-b dft` computes the ML region with
 [DFT](#dftmm-backend), and `--calc-file` plugs in
 {ref}`any ASE calculator <backends-custom-calculator>`.
 
+Notes on the models in the table:
+
+- `uma-s-1p2p1-ft-d4rev`: UMA-S-1.2.1 fine-tuned at ωB97M-D4rev on about 4M
+  OMol25 structures. Dispersion is included, so do not add a dispersion
+  correction; it has the `omol` task only, ships no isolated-atom reference
+  energies, and needs fairchem-core >= 2.24.
+- `orbmol-v2` (the default, OrbMol-v2): a conservative model that takes the
+  total charge and spin multiplicity, adds learnable per-atom charges with a
+  long-range Coulomb term, and was trained on OMol25 and OPoly26 at
+  ωB97M-V/def2-TZVPD. It needs orb-models >= 0.7.0, which runs on Python 3.12
+  or newer; on Python 3.11 the `[orb]` extra installs orb-models 0.5.5, where
+  `--backend-model orb_v3_conservative_omol` selects OrbMol-v1.
+- `MACE-POLAR-1-S` / `-M` / `-L`: trained on OMol25 at ωB97M-V, with long-range
+  electrostatics from learned charge and spin densities, for any total charge
+  and spin. They need mace-torch >= 0.3.16 and
+  `pip install git+https://github.com/WillBaldwin0/graph_electrostatics.git@v0.4.4`.
+- AIMNet2: `aimnet2` (the default, wB97M-D3), `aimnet2-2025` (improved B97-3c),
+  and `aimnet2-pd` (B97-3c with CPCM(THF) solvation built into the model;
+  covers Pd) are closed-shell only. `aimnet2-nse` (wB97M-D3) handles
+  open-shell systems; set the multiplicity with `-m`. mlmm passes the ML-region
+  charge and multiplicity to AIMNet2 as `charge` and `mult`; only `aimnet2-nse`
+  uses `mult`, and the other models ignore it.
+
 The run prints the backend and model it loads, for example
-`[backend] Preparing MLIP model (UMA / UMA-S-1.2 (OMol))...`, and the
+`[backend] Preparing MLIP model (UMA / UMA-S-1.2.1 (OMol))...`, and the
 [JSON output](json-output.md#common-envelope) records them as `mlip_backend`,
 `mlip_model`, and `mlip_precision`.
 

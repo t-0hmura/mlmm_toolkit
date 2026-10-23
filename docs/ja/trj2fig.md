@@ -45,7 +45,7 @@ mlmm trj2fig -i traj.xyz --reverse-x -o energy.png energy.html energy.pdf
 コメント行を読む代わりに、[UMA](backends.md) のモデルと精度を指定して、中性の一重項として全フレームを計算し直し、使ったバックエンドを `result.json` に記録します。
 
 ```bash
-mlmm trj2fig -i traj.xyz -q 0 -m 1 -b uma --backend-model uma-s-1p2 \
+mlmm trj2fig -i traj.xyz -q 0 -m 1 -b uma --backend-model uma-s-1p2p1 \
     --precision fp32 -o energy.png energy.csv --out-json
 ```
 
@@ -90,7 +90,7 @@ summary.json    # result.json と同じ内容（--out-json 指定時）
 | `-m, --multiplicity` | 整数 | `None` | スピン多重度（2S+1）。指定すると MLIP でエネルギーを計算し直す |
 | `--reverse-x/--no-reverse-x` | フラグ | `False` | 最後のフレームを左端に置く |
 | `-b, --backend` | 文字列 | `uma` | 計算し直しに使う MLIP（`uma`, `orb`, `mace`, `aimnet2`。[MLIP バックエンド](backends.md)） |
-| `--backend-model` | 文字列 | `None` | 選んだバックエンドのモデル（例: `uma-s-1p2`）。省略時はそのバックエンドのデフォルトのモデル |
+| `--backend-model` | 文字列 | `None` | 選んだバックエンドのモデル（例: `uma-s-1p2p1`）。省略時はそのバックエンドのデフォルトのモデル |
 | `--precision` | `tf32` / `fp32` / `fp64` | バックエンドごと | 計算し直しの精度（UMA は `fp32`、ORB と MACE は `fp64`）。`tf32` は UMA と ORB だけ。AIMNet2 は `fp32` だけ |
 | `--out-json/--no-out-json` | フラグ | `False` | `result.json` と `summary.json` を出力 |
 

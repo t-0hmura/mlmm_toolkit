@@ -72,7 +72,10 @@ GEOM_KW_DEFAULT: Dict[str, Any] = {
 # Single source of truth for the default UMA model name. Every code default
 # (backend factory, calculators, workflows) references this instead of a
 # hardcoded literal so the release model can be bumped in one place.
-DEFAULT_UMA_MODEL = "uma-s-1p2"
+DEFAULT_UMA_MODEL = "uma-s-1p2p1"
+# Default ORB model (OrbMol-v2, conservative); the ORB backend and the
+# calculator signatures reference it the same way.
+DEFAULT_ORB_MODEL = "orbmol-v2"
 
 # Calculator defaults (ML/MM with MLIP backend + hessian_ff MM)
 
@@ -91,7 +94,7 @@ MLMM_CALC_KW: Dict[str, Any] = {
     "uma_precision": "fp32",  # "tf32" | "fp32" (default, IEEE FP32) | "fp64" (full-precision base inference)
     "workers": 1,             # MLIP predictor workers; >1 uses ParallelMLIPPredictUnit (UMA only). Combining it with an explicit Analytical Hessian is an error.
     "workers_per_node": 1,    # Workers per node when the parallel predictor is used (workers>1).
-    "orb_model": "orb_v3_conservative_omol",
+    "orb_model": DEFAULT_ORB_MODEL,
     # float64 is the product default. --precision fp32 selects IEEE FP32
     # ("float32-highest") and --precision tf32 ORB's TF32 mode ("float32-high");
     # the bare "float32" is aliased through _OrbBackend._PRECISION_ALIASES.

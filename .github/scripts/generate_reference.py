@@ -31,7 +31,7 @@ _ALL_TEMPLATE = """# Starter config for `mlmm all`
 
 calc:
   backend: uma              # High-level backend: uma, orb, mace, aimnet2, or dft
-  orb_model: orb_v3_conservative_omol  # ORB model name (when backend=orb)
+  orb_model: orbmol-v2      # ORB model name (when backend=orb)
   orb_precision: float64    # ORB precision default (when backend=orb; "float32-high" = TF32 matmul, also via --precision tf32; "float32-highest" = IEEE FP32, also via --precision fp32 or "float32")
   mace_model: MACE-OMOL-0   # MACE model path or name (when backend=mace)
   mace_dtype: float64       # MACE dtype, e.g. float32 / float64 (when backend=mace)

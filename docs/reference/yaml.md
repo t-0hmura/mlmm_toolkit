@@ -3,7 +3,7 @@
 This page is a **curated, non-exhaustive** starter snapshot for `mlmm all`. It shows a common subset of keys whose values are pinned to (and equal) their runtime owners; it is **not** the full configuration schema. For every configurable section and option, see the [YAML Reference](../yaml-reference.md).
 
 - Source template: `.github/scripts/generate_reference.py::_ALL_TEMPLATE`
-- Template digest: `51fe347a7807`
+- Template digest: `270fa92ebc20`
 
 ## Included Sections
 
@@ -21,7 +21,7 @@ This page is a **curated, non-exhaustive** starter snapshot for `mlmm all`. It s
 
 calc:
   backend: uma              # High-level backend: uma, orb, mace, aimnet2, or dft
-  orb_model: orb_v3_conservative_omol  # ORB model name (when backend=orb)
+  orb_model: orbmol-v2      # ORB model name (when backend=orb)
   orb_precision: float64    # ORB precision default (when backend=orb; "float32-high" = TF32 matmul, also via --precision tf32; "float32-highest" = IEEE FP32, also via --precision fp32 or "float32")
   mace_model: MACE-OMOL-0   # MACE model path or name (when backend=mace)
   mace_dtype: float64       # MACE dtype, e.g. float32 / float64 (when backend=mace)
@@ -52,7 +52,7 @@ Each scalar is pinned to (and equals) the runtime owner shown.
 | Key | Type | Default | Runtime owner |
 |---|---|---|---|
 | `calc.backend` | `str` | `'uma'` | `MLMM_CALC_KW["backend"]` |
-| `calc.orb_model` | `str` | `'orb_v3_conservative_omol'` | `MLMM_CALC_KW["orb_model"]` |
+| `calc.orb_model` | `str` | `'orbmol-v2'` | `MLMM_CALC_KW["orb_model"]` |
 | `calc.orb_precision` | `str` | `'float64'` | `MLMM_CALC_KW["orb_precision"]` |
 | `calc.mace_model` | `str` | `'MACE-OMOL-0'` | `MLMM_CALC_KW["mace_model"]` |
 | `calc.mace_dtype` | `str` | `'float64'` | `MLMM_CALC_KW["mace_dtype"]` |

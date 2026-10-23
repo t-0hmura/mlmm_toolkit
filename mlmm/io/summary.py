@@ -434,13 +434,14 @@ def _method_citation_record_keys(payload: Dict[str, Any]) -> List[str]:
         if (mlip_task or "omol") == "omol":
             keys.append("omol25")
     elif mlip_backend == "orb":
-        if "orb_v3" in mlip_model or "orb-v3" in mlip_model:
+        # OrbMol models are the OMol25 continuation of the Orb-v3 series.
+        if "orb_v3" in mlip_model or "orb-v3" in mlip_model or "orbmol" in mlip_model:
             keys.append("orb_v3")
         if "omol" in mlip_model or "orbmol" in mlip_model:
             keys.append("omol25")
     elif mlip_backend == "mace":
         keys.extend(("mace", "mace_design"))
-        if "omol" in mlip_model:
+        if "omol" in mlip_model or "polar" in mlip_model:
             keys.append("omol25")
     elif mlip_backend == "aimnet2":
         keys.append("aimnet2")

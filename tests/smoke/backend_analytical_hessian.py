@@ -53,7 +53,7 @@ def main() -> None:
         from mlmm.backends.mlmm_calc import _UMABackend
 
         backend = _UMABackend(
-            uma_model="uma-s-1p2",
+            uma_model="uma-s-1p2p1",
             uma_task_name="omol",
             precision="fp32",
             workers=1,
@@ -67,7 +67,7 @@ def main() -> None:
         from mlmm.backends.mlmm_calc import _OrbBackend
 
         backend = _OrbBackend(
-            orb_model="orb_v3_conservative_omol",
+            orb_model="orbmol-v2",
             orb_precision="float64",
             model_charge=0,
             model_mult=1,

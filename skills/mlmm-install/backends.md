@@ -45,7 +45,9 @@ mlmm all -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' -b uma --backend-m
 
 | Model (`--backend-model`) | Notes |
 |---|---|
-| `uma-s-1p2` (default) | Small model |
+| `uma-s-1p2p1` (default) | Small model (UMA-S-1.2.1) |
+| `uma-s-1p2p1-ft-d4rev` | Small model fine-tuned at ωB97M-D4rev; `omol` task only; dispersion is included, so do not add a dispersion correction; needs fairchem-core >= 2.24 |
+| `uma-s-1p2` | Small model (UMA-S-1.2) |
 | `uma-m-1p1` | Larger model; benchmark accuracy and cost on the target system |
 
 Pitfalls:
@@ -81,7 +83,9 @@ without authentication.
 mlmm all -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' --tsopt --thermo -b orb
 ```
 
-The default model is `orb_v3_conservative_omol` in fp64. Check the installed
+The default model is `orbmol-v2` (OrbMol-v2) in fp64; it needs orb-models
+>= 0.7.0, which the `[orb]` extra installs on Python 3.12, and
+`--backend-model orb_v3_conservative_omol` selects OrbMol-v1. Check the installed
 `orb-models` model card for checkpoint provenance, supported elements, and
 runtime requirements; dataset coverage alone does not establish what a
 checkpoint can do. ORB is a conservative energy/force model with a
@@ -136,7 +140,11 @@ conda activate <YOUR_MACE_ENV>
 mlmm all -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' --tsopt --thermo -b mace
 ```
 
-The default model is `MACE-OMOL-0` in fp64. MACE has broad molecular and
+The default model is `MACE-OMOL-0` in fp64; `--backend-model MACE-POLAR-1-S`,
+`-M`, or `-L` selects MACE-POLAR-1 (OMol25, long-range electrostatics), which
+needs mace-torch >= 0.3.16 and
+`pip install git+https://github.com/WillBaldwin0/graph_electrostatics.git@v0.4.4`.
+MACE has broad molecular and
 elemental coverage, analytical Hessians in mlmm, and a configurable model and
 precision. It needs the separate env, its runtime and memory depend on the
 system, device, and precision, and it has no multi-GPU sharding.
@@ -168,7 +176,9 @@ python -c "import aimnet; print('aimnet:', aimnet.__version__)" && echo "mlmm + 
 mlmm all -i R.pdb P.pdb -c 'A:LIG:301' -l 'LIG:-1' --tsopt --thermo -b aimnet2
 ```
 
-The default model is `aimnet2`, fp32 only. Use it when the installed
+The default model is `aimnet2`, fp32 only. `aimnet2`, `aimnet2-2025`, and
+`aimnet2-pd` are closed-shell only; `aimnet2-nse` handles open-shell systems
+with the multiplicity from `-m`. Use a model when the installed
 checkpoint covers the target elements, charge, and multiplicity and the
 target-system comparison meets the required error tolerance; do not use it
 when the checkpoint excludes any target state or the comparison fails.

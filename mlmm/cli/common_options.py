@@ -252,8 +252,8 @@ def add_backend_model_option() -> Callable[[Callable], Callable]:
     the active backend's model kwarg via
     ``mlmm.backends.apply_backend_model_to_calc_cfg``:
 
-    - ``uma``     -> ``uma_model``     (default ``uma-s-1p2``)
-    - ``orb``     -> ``orb_model``     (default ``orb_v3_conservative_omol``)
+    - ``uma``     -> ``uma_model``     (default ``uma-s-1p2p1``)
+    - ``orb``     -> ``orb_model``     (default ``orbmol-v2``)
     - ``mace``    -> ``mace_model``    (default ``MACE-OMOL-0``)
     - ``aimnet2`` -> ``aimnet2_model`` (default ``aimnet2``)
 
@@ -270,8 +270,10 @@ def add_backend_model_option() -> Callable[[Callable], Callable]:
             show_default="the selected backend's own model",
             help=(
                 "Model variant for the selected --backend (e.g. "
-                "uma-s-1p2 / uma-m-1p1 for uma, orb_v3_conservative_omol for orb, "
-                "MACE-OMOL-0 / off:small for mace)."
+                "uma-s-1p2p1 / uma-s-1p2p1-ft-d4rev / uma-m-1p1 for uma, "
+                "orbmol-v2 / orb_v3_conservative_omol for orb, "
+                "MACE-OMOL-0 / MACE-POLAR-1-M for mace, aimnet2 / aimnet2-nse "
+                "for aimnet2)."
             ),
         )(func)
     return decorator

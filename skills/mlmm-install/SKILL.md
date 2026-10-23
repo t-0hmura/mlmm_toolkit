@@ -108,10 +108,10 @@ separately ([MACE](backends.md#mace-separate-environment)).
 
 | `-b` | Default model | Install | Notes |
 |---|---|---|---|
-| `uma` (default) | `uma-s-1p2`; `uma-m-1p1` via `--backend-model` | Core dependency; gated weights need a Hugging Face login | fp32 by default |
-| `orb` | `orb_v3_conservative_omol` | `[orb]` extra | fp64 by default; `--precision fp32` is for screening |
-| `mace` | `MACE-OMOL-0` | Separate env (`e3nn` conflict) | fp64 by default |
-| `aimnet2` | `aimnet2` | `[aimnet]` extra | fp32 only; `--precision fp64` stops with an error |
+| `uma` (default) | `uma-s-1p2p1`; `uma-s-1p2p1-ft-d4rev`, `uma-s-1p2`, `uma-m-1p1` via `--backend-model` | Core dependency; gated weights need a Hugging Face login | fp32 by default |
+| `orb` | `orbmol-v2` (orb-models >= 0.7.0, Python 3.12+); `orb_v3_conservative_omol` via `--backend-model` | `[orb]` extra | fp64 by default; `--precision fp32` is for screening |
+| `mace` | `MACE-OMOL-0`; `MACE-POLAR-1-S`/`-M`/`-L` (mace-torch >= 0.3.16) via `--backend-model` | Separate env (`e3nn` conflict) | fp64 by default |
+| `aimnet2` | `aimnet2`; `aimnet2-2025`, `aimnet2-nse` (open-shell), `aimnet2-pd` via `--backend-model` | `[aimnet]` extra | fp32 only; `--precision fp64` stops with an error |
 
 Select the backend with `-b` on any ML/MM calculation command. Check each
 candidate model's card for supported elements, charge, multiplicity, and

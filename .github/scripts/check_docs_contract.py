@@ -15,11 +15,11 @@ STALE_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r'd\["(?:forward|backward)_status"\]'),
      "IRC examples must read retained diagnostics, not removed direction-status keys"),
     (re.compile(
-        r"uma-s-1p1\s*(?:\([^)]*\))?\s*(?:is\s+)?(?:the\s+)?default\b"
-        r"|\bdefault(?:\s+(?:model|is))?\s*[:=]?\s*[`'\"]?uma-s-1p1\b",
+        r"uma-s-1p[12]\b\s*(?:\([^)]*\))?\s*(?:is\s+)?(?:the\s+)?default\b"
+        r"|\bdefault(?:\s+(?:model|is))?\s*[:=]?\s*[`'\"]?uma-s-1p[12]\b",
         re.I,
     ),
-     "UMA's default model is uma-s-1p2"),
+     "UMA's default model is uma-s-1p2p1"),
     (re.compile(r"\b(?:Analytical|analytical|解析[^\n]{0,10}Hessian)[^\n]{0,40}(?:UMA-only|only[^\n]{0,12}UMA|UMA[^\n]{0,12}のみ)", re.I),
      "analytical Hessians are implemented for all bundled MLIP backends"),
     (re.compile(r"(?:auto[- ]?downgrad|automatically falls? back|自動的[^\n]{0,20}FiniteDifference)", re.I),
@@ -230,7 +230,7 @@ def main() -> int:
     )
 
     errors: list[str] = []
-    if DEFAULT_UMA_MODEL != "uma-s-1p2":
+    if DEFAULT_UMA_MODEL != "uma-s-1p2p1":
         errors.append(f"source default changed: DEFAULT_UMA_MODEL={DEFAULT_UMA_MODEL!r}")
     expected = {"uma_precision": "fp32", "orb_precision": "float64", "mace_dtype": "float64"}
     for key, value in expected.items():

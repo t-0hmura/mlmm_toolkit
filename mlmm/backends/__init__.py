@@ -132,7 +132,7 @@ def apply_calc_file_to_calc_cfg(
         calc_cfg["calc_factory"] = str(factory).strip()
     # A user ASE Calculator has no MLIP model variant: drop the inherited
     # per-backend model defaults so run headers don't mislabel it (e.g. as
-    # 'uma-s-1p2'). The MLMMCore signature keeps its own defaults for the keys.
+    # 'uma-s-1p2p1'). The MLMMCore signature keeps its own defaults for the keys.
     for _k in (
         "uma_model",
         "orb_model",
