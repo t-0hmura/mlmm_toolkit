@@ -765,7 +765,10 @@ class _UMABackend(_MLBackend):
         pos = batch.pos.detach().clone()
         pos.requires_grad_(need_grad)
         batch.pos = pos
-        if need_grad:
+        # UMA Nitro differentiates the energy inside predict(), which fails
+        # under torch.no_grad(); its settings say whether it is serving.
+        nitro = bool(getattr(getattr(self.predictor, "inference_settings", None), "nitro", False))
+        if need_grad or nitro:
             res = self.predictor.predict(batch)
         else:
             with torch.no_grad():
@@ -957,9 +960,23 @@ class _OrbBackend(_ASEMLBackend):
 
         device_str = str(ml_device)
         precision = _normalize_orb_precision(orb_precision)
-        loaded = _resolve_orb_loader(pretrained, orb_model)(
-            device=device_str, precision=precision
-        )
+        with warnings.catch_warnings():
+            # orb-models announces the global default dtype and suggests
+            # precision='float32-high'; both describe the precision chosen on
+            # purpose (TF32 noise inflates finite-difference Hessians), so they
+            # are noise here. Other orb-models warnings still reach the log.
+            warnings.filterwarnings(
+                "ignore", message=r"Setting global torch default dtype", category=UserWarning
+            )
+            warnings.filterwarnings(
+                "ignore", message=r"Consider passing 'precision=float32-high'", category=UserWarning
+            )
+            loaded = _resolve_orb_loader(pretrained, orb_model)(
+                device=device_str, precision=precision
+            )
+        if precision == "float32-highest":
+            # orb-models compiles the model; IEEE FP32 leaves TF32 off on purpose.
+            warnings.filterwarnings("ignore", message=_TF32_HINT, category=UserWarning)
         if isinstance(loaded, tuple) and len(loaded) >= 2:
             self._model_obj, self._adapter = loaded[0], loaded[1]
         else:

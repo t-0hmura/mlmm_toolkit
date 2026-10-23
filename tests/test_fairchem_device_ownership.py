@@ -397,3 +397,25 @@ def test_lazy_preparation_control_detects_premature_device_transfer(monkeypatch)
     with pytest.raises(AssertionError, match="lazy preparation device mismatch"):
         backend.energy(Atoms("OHH", positions=np.zeros((3, 3))))
     assert not predictor.initialized
+
+
+@pytest.mark.parametrize(("nitro", "grad_enabled"), [(True, True), (False, False)])
+def test_energy_only_calls_keep_grad_for_uma_nitro(monkeypatch, nitro, grad_enabled) -> None:
+    """UMA Nitro differentiates inside predict(), so torch.no_grad() must not wrap it."""
+    from types import SimpleNamespace
+
+    backend, predictor, _events = _lazy_preparation_backend(
+        monkeypatch, device="cpu", precision="fp32",
+    )
+    seen = []
+    original = predictor.predict
+
+    def predict(batch):
+        seen.append(torch.is_grad_enabled())
+        return original(batch)
+
+    predictor.predict = predict
+    predictor.inference_settings = SimpleNamespace(nitro=nitro)
+    atoms = Atoms("OHH", positions=[[0, 0, 0], [0.757, 0.586, 0], [-0.757, 0.586, 0]])
+    backend.energy(atoms)
+    assert seen == [grad_enabled]
