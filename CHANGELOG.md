@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+_No changes yet._
+
+## [0.4.3] — 2026-10-24
+
 ### Added
 
 - Add `--precision tf32`: TF32 matrix multiplications for UMA (UMA Nitro where fairchem-core provides it) and ORB (`float32-high`), for screening; MACE, AIMNet2 and `--calc-file` reject it.
