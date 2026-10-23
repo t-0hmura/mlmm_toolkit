@@ -33,7 +33,7 @@ mlmm opt -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b aim
 
 - `uma-s-1p2p1-ft-d4rev`：UMA-S-1.2.1 を OMol25 の約 400 万構造で ωB97M-D4rev に fine-tune したモデルです。分散力を含むので、分散補正を足さないでください。タスクは `omol` だけで、孤立原子の参照エネルギーはありません。fairchem-core 2.24 以上が要ります。
 - `orbmol-v2`（デフォルト、OrbMol-v2）：全電荷とスピン多重度を受け取る conservative モデルで、原子ごとに学習する電荷と長距離の Coulomb 項を加え、OMol25 と OPoly26（ωB97M-V/def2-TZVPD）で学習しています。`--backend-model orb_v3_conservative_omol` で OrbMol-v1 を使えます。
-- `MACE-POLAR-1-S`・`-M`・`-L`：OMol25（ωB97M-V）で学習し、学習した電荷とスピンの密度から長距離の静電相互作用を計算するモデルで、どの全電荷とスピンでも使えます。mace-torch 0.3.16 以上と `pip install git+https://github.com/WillBaldwin0/graph_electrostatics.git@v0.4.4` が要ります。
+- `MACE-POLAR-1-S`・`-M`・`-L`：OMol25（ωB97M-V）で学習し、学習した電荷とスピンの密度から長距離の静電相互作用を計算するモデルで、どの全電荷とスピンでも使えます。mace-torch 0.3.16 以上と `pip install graph-longrange==0.4.0` が要ります。
 - AIMNet2：`aimnet2`（デフォルト、wB97M-D3）、`aimnet2-2025`（改良した B97-3c）、`aimnet2-pd`（CPCM（THF）の溶媒をモデルに含む B97-3c。Pd を扱えます）は閉殻だけです。`aimnet2-nse`（wB97M-D3）は開殻の系を扱えるので、多重度を `-m` で指定してください。mlmm は ML 領域の電荷と多重度を AIMNet2 に `charge` と `mult` として渡します。`mult` を使うのは `aimnet2-nse` だけで、ほかのモデルは無視します。
 
 実行時には、読み込むバックエンドとモデルが `[backend] Preparing MLIP model (UMA / UMA-S-1.2.1 (OMol))...` のように表示され、[JSON の出力](json-output.md#共通エンベロープ)の `mlip_backend`・`mlip_model`・`mlip_precision` に記録されます。

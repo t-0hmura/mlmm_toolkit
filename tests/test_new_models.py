@@ -271,18 +271,18 @@ def test_new_models_cite_their_model_and_dataset(backend, model, expected) -> No
     assert expected <= keys
 
 
-def test_mace_polar_without_graph_electrostatics_names_the_package(monkeypatch) -> None:
+def test_mace_polar_without_graph_longrange_names_the_package(monkeypatch) -> None:
     def missing(**_kwargs):
         raise ModuleNotFoundError("No module named 'graph_longrange'", name="graph_longrange")
 
     _install_fake_mace(monkeypatch, mace_polar=missing)
-    with pytest.raises(ImportError, match="MACE-POLAR-1 needs graph_electrostatics") as excinfo:
+    with pytest.raises(ImportError, match="MACE-POLAR-1 needs graph-longrange 0.4.0") as excinfo:
         mlmm_calc._MACEBackend(
             mace_model="MACE-POLAR-1-M",
             mace_dtype="float64",
             ml_device=torch.device("cpu"),
         )
-    assert "graph_electrostatics.git@v0.4.4" in str(excinfo.value)
+    assert "graph-longrange==0.4.0" in str(excinfo.value)
 
 
 def test_mace_polar_other_missing_modules_propagate(monkeypatch) -> None:

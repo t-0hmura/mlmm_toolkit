@@ -1184,8 +1184,8 @@ class _MACEBackend(_ASEMLBackend):
                 if exc.name != "graph_longrange":
                     raise
                 raise ImportError(
-                    "MACE-POLAR-1 needs graph_electrostatics: pip install "
-                    "git+https://github.com/WillBaldwin0/graph_electrostatics.git@v0.4.4"
+                    "MACE-POLAR-1 needs graph-longrange 0.4.0: "
+                    "pip install graph-longrange==0.4.0"
                 ) from exc
         elif model_lower in off23_aliases:
             self._ase_calc = mace_off(

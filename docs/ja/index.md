@@ -154,7 +154,7 @@ GitHub のリポジトリを clone 済みなら、URL の代わりに手元の `
   author       = {Ohmura, Takuto},
   title        = {mlmm-toolkit},
   year         = {2026},
-  version      = {0.4.3},
+  version      = {0.5.0},
   url          = {https://github.com/t-0hmura/mlmm_toolkit},
   license      = {GPL-3.0-or-later},
   doi          = {10.5281/zenodo.19197863}

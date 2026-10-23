@@ -53,7 +53,7 @@ Notes on the models in the table:
 - `MACE-POLAR-1-S` / `-M` / `-L`: trained on OMol25 at ωB97M-V, with long-range
   electrostatics from learned charge and spin densities, for any total charge
   and spin. They need mace-torch >= 0.3.16 and
-  `pip install git+https://github.com/WillBaldwin0/graph_electrostatics.git@v0.4.4`.
+  `pip install graph-longrange==0.4.0`.
 - AIMNet2: `aimnet2` (the default, wB97M-D3), `aimnet2-2025` (improved B97-3c),
   and `aimnet2-pd` (B97-3c with CPCM(THF) solvation built into the model;
   covers Pd) are closed-shell only. `aimnet2-nse` (wB97M-D3) handles

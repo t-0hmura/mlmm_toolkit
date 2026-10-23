@@ -142,7 +142,7 @@ mlmm all -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' --tsopt --thermo -
 The default model is `MACE-OMOL-0` in fp64; `--backend-model MACE-POLAR-1-S`,
 `-M`, or `-L` selects MACE-POLAR-1 (OMol25, long-range electrostatics), which
 needs mace-torch >= 0.3.16 and
-`pip install git+https://github.com/WillBaldwin0/graph_electrostatics.git@v0.4.4`.
+`pip install graph-longrange==0.4.0`.
 MACE has broad molecular and
 elemental coverage, analytical Hessians in mlmm, and a configurable model and
 precision. It needs the separate env, its runtime and memory depend on the

@@ -220,7 +220,24 @@ compatibility break as a side effect of wording cleanup.
 
 ---
 
-## 5. Where to ask
+## 5. Versioning and the changelog
+
+pdb2reaction and mlmm-toolkit number releases X.Y.Z with the same rule:
+
+- **X**: a substantial change, such as a new generation of the toolkit.
+- **Y**: a breaking change. A CLI option or value is removed or renamed, a
+  default that changes results (a model, a precision, a threshold) changes, an
+  output key or its meaning changes, the supported Python or dependency range
+  narrows, or an input that used to run now stops with an error.
+- **Z**: backward-compatible fixes and additions.
+
+`CHANGELOG.md` and the release note use the sections Breaking changes, Added,
+Changed, and Fixed. When Y or X changes, read Breaking changes before
+upgrading.
+
+---
+
+## 6. Where to ask
 
 | forum | best for |
 |---|---|
