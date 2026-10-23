@@ -66,8 +66,8 @@ Pitfalls:
 
 ## ORB
 
-ORB (`-b orb`) is an energy-conserving MLIP from `orb-models`. Use Python 3.12
-(recommended; installs ORB 0.7) or 3.11 (installs ORB 0.5.x).
+ORB (`-b orb`) is an energy-conserving MLIP from `orb-models`. The `[orb]`
+extra installs orb-models 0.7 or newer.
 
 ```bash
 pip install 'mlmm-toolkit[orb]'   # pulls orb-models
@@ -83,8 +83,7 @@ without authentication.
 mlmm all -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' --tsopt --thermo -b orb
 ```
 
-The default model is `orbmol-v2` (OrbMol-v2) in fp64; it needs orb-models
->= 0.7.0, which the `[orb]` extra installs on Python 3.12, and
+The default model is `orbmol-v2` (OrbMol-v2) in fp64, and
 `--backend-model orb_v3_conservative_omol` selects OrbMol-v1. Check the installed
 `orb-models` model card for checkpoint provenance, supported elements, and
 runtime requirements; dataset coverage alone does not establish what a
@@ -111,13 +110,13 @@ representative structures and stationary points for your system.
 
 `mace-torch` pins `e3nn==0.4.4`, while `fairchem-core` (UMA) needs
 `e3nn>=0.5`, so the two cannot share an env. Keep UMA in your default env and
-put MACE in a second env. ORB goes in the default env (0.7 on 3.12, 0.5.x on 3.11); AIMNet2, DFT,
+put MACE in a second env. ORB goes in the default env; AIMNet2, DFT,
 and xTB can sit in either. mlmm-toolkit is the same code in both envs; only
 the backend set differs.
 
 ```bash
 # PyTorch from conda-forge for your CUDA driver (see CUDA and PyTorch)
-conda create -n <YOUR_MACE_ENV> -c conda-forge --override-channels python=3.11 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt "pytorch=2.13.0=cuda130*" cuda-nvcc -y
+conda create -n <YOUR_MACE_ENV> -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt "pytorch=2.13.0=cuda130*" cuda-nvcc -y
 conda activate <YOUR_MACE_ENV>
 
 # Install mlmm first, then replace its incompatible UMA dependency with MACE.
@@ -132,7 +131,7 @@ Keep this order. `fairchem-core` is a core dependency of mlmm-toolkit, so it
 must be removed before MACE is installed; installing mlmm-toolkit after MACE
 would pull `fairchem-core` back in and replace `e3nn==0.4.4` with an
 incompatible `e3nn>=0.5`. The same env can come from the
-[conda template](SKILL.md#conda-env-template) with `python=3.11` and plain
+[conda template](SKILL.md#conda-env-template) with plain
 `mlmm-toolkit`; run the two swap commands above after activating it.
 
 ```bash

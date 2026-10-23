@@ -19,10 +19,9 @@ and the checks in [Verify the install](#verify-the-install) pass.
 
 1. On a new or unknown host, run the probes in
    [backends.md](backends.md#probe-the-compute-environment) first.
-2. Create a conda env from conda-forge with Python 3.12 (3.11 or newer is
-   required; ORB needs 3.11 or 3.12), AmberTools, PDBFixer, a C++ compiler,
-   cyipopt (for DMF; `pydmf` comes with mlmm-toolkit), and PyTorch in one
-   command.
+2. Create a conda env from conda-forge with Python 3.12, AmberTools,
+   PDBFixer, a C++ compiler, cyipopt (for DMF; `pydmf` comes with
+   mlmm-toolkit), and PyTorch in one command.
 3. Choose the PyTorch build in that command. `nvidia-smi` shows `CUDA Version`
    at its top right, the newest CUDA the driver supports; use `cuda130`, or
    `cuda129` when it is below 13.0. Do not add a pip `torch` to this env.
@@ -60,7 +59,7 @@ pip install 'mlmm-toolkit[orb,aimnet,dft]'   # extras as needed
 | Extra | Pulls in | When you need it |
 |---|---|---|
 | (none) | UMA via `fairchem-core`, base deps | Default; `-b uma` works |
-| `[orb]` | `orb-models` (0.7 or newer on Python 3.12, 0.5.x on 3.11) | `-b orb` |
+| `[orb]` | `orb-models>=0.7.0` | `-b orb` |
 | `[aimnet]` | `aimnet>=0.2.0` | `-b aimnet2` |
 | `[dft]` | PySCF, CUDA 13 GPU4PySCF and CuPy on Linux x86_64 | DFT with the `cuda130` PyTorch build |
 | `[dft-cuda12]` | PySCF, CUDA 12 GPU4PySCF and CuPy on Linux x86_64 | DFT with the `cuda129` PyTorch build |
@@ -77,7 +76,7 @@ reinstall: `git clone https://github.com/t-0hmura/mlmm_toolkit.git mlmm && cd ml
 ## Conda env template
 
 Replace `<...>` with the values from the probe. The template uses
-`python=3.12` for ORB; mlmm-toolkit itself requires Python 3.11 or newer.
+`python=3.12`, the Python that mlmm-toolkit requires.
 `mm-parm` also needs AmberTools ([ambertools.md](ambertools.md)).
 
 `env_mlmm.yml` (UMA, ORB, AIMNet2, DFT, xTB):
@@ -109,7 +108,7 @@ separately ([MACE](backends.md#mace-separate-environment)).
 | `-b` | Default model | Install | Notes |
 |---|---|---|---|
 | `uma` (default) | `uma-s-1p2p1`; `uma-s-1p2p1-ft-d4rev`, `uma-s-1p2`, `uma-m-1p1` via `--backend-model` | Core dependency; gated weights need a Hugging Face login | fp32 by default |
-| `orb` | `orbmol-v2` (orb-models >= 0.7.0, Python 3.12+); `orb_v3_conservative_omol` via `--backend-model` | `[orb]` extra | fp64 by default; `--precision fp32` is for screening |
+| `orb` | `orbmol-v2`; `orb_v3_conservative_omol` via `--backend-model` | `[orb]` extra | fp64 by default; `--precision fp32` is for screening |
 | `mace` | `MACE-OMOL-0`; `MACE-POLAR-1-S`/`-M`/`-L` (mace-torch >= 0.3.16) via `--backend-model` | Separate env (`e3nn` conflict) | fp64 by default |
 | `aimnet2` | `aimnet2`; `aimnet2-2025`, `aimnet2-nse` (open-shell), `aimnet2-pd` via `--backend-model` | `[aimnet]` extra | fp32 only; `--precision fp64` stops with an error |
 

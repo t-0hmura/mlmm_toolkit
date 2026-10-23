@@ -189,6 +189,17 @@ def _uma_inference_settings(precision: str, *, analytical_hessian: bool, paralle
     return _UMAInferenceSettings(**kwargs)
 
 
+def _uma_reference_energies(model: str, reference_type: str):
+    """Reference energies for the parallel predictor, or None when the
+    checkpoint ships none (e.g. uma-s-1p2p1-ft-d4rev), as FAIR-Chem's own
+    loader does."""
+    registry = getattr(getattr(pretrained_mlip, "_MODEL_CKPTS", None), "checkpoints", {})
+    entry = registry.get(model) if hasattr(registry, "get") else None
+    if entry is not None and getattr(entry, reference_type, None) is None:
+        return None
+    return pretrained_mlip.get_reference_energies(model, reference_type=reference_type)
+
+
 def _verify_uma_precision(predictor: Any, precision: str) -> None:
     """Fail if the loaded predictor does not run the requested matmul mode."""
     settings = getattr(predictor, "inference_settings", None)
@@ -667,8 +678,8 @@ class _UMABackend(_MLBackend):
                     "from fairchem. Install `fairchem-core[extras]`."
                 )
             ckpt_path = pretrained_mlip.pretrained_checkpoint_path_from_name(uma_model)
-            atom_refs = pretrained_mlip.get_reference_energies(uma_model, reference_type="atom_refs")
-            form_elem_refs = pretrained_mlip.get_reference_energies(uma_model, reference_type="form_elem_refs")
+            atom_refs = _uma_reference_energies(uma_model, "atom_refs")
+            form_elem_refs = _uma_reference_energies(uma_model, "form_elem_refs")
             self.predictor = ParallelMLIPPredictUnit(
                 inference_model_path=str(ckpt_path),
                 device=device_str,
@@ -1163,11 +1174,19 @@ class _MACEBackend(_ASEMLBackend):
                 raise ImportError(
                     "MACE-POLAR-1 needs mace-torch >= 0.3.16."
                 ) from exc
-            self._ase_calc = mace_polar(
-                model=polar_aliases[model_lower],
-                device=device_str,
-                default_dtype=mace_dtype,
-            )
+            try:
+                self._ase_calc = mace_polar(
+                    model=polar_aliases[model_lower],
+                    device=device_str,
+                    default_dtype=mace_dtype,
+                )
+            except ModuleNotFoundError as exc:
+                if exc.name != "graph_longrange":
+                    raise
+                raise ImportError(
+                    "MACE-POLAR-1 needs graph_electrostatics: pip install "
+                    "git+https://github.com/WillBaldwin0/graph_electrostatics.git@v0.4.4"
+                ) from exc
         elif model_lower in off23_aliases:
             self._ase_calc = mace_off(
                 model=off23_aliases[model_lower],

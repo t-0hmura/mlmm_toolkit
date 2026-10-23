@@ -4,7 +4,7 @@ How to study a reaction mechanism with an ML/MM ONIOM model and get a correct ba
 
 ## 1. Precision: keep backend defaults
 
-- Without `--precision`, UMA runs in fp32, ORB and MACE in fp64, and AIMNet2 in fp32 only, where an explicit fp64 is rejected. When precision matters, compare the supported precisions on the target system before production, and time one Hessian in each precision on the production GPU. fp64 is slow on consumer GPUs, where UMA in fp32 gives the best balance; on HPC GPUs, ORB in fp64 is cost-effective. ORB and MACE in fp32 leave extra imaginary modes more often.
+- Without `--precision`, UMA runs in fp32, ORB and MACE in fp64, and AIMNet2 in fp32 only, where an explicit fp64 is rejected. When precision matters, compare the supported precisions on the target system before production, and time one Hessian in each precision on the production GPU. fp64 is slow on consumer GPUs, where UMA in fp32 gives the best balance; on HPC GPUs, ORB in fp64 is cost-effective. ORB in tf32 and MACE in fp32 leave extra imaginary modes more often.
 - `--precision tf32` (TF32 matmul, UMA and ORB only) is for screening, not for TS optimization, frequencies, or IRC.
 - `--precision tf32|fp32|fp64` is case-insensitive and is accepted by `sp`, `opt`, `tsopt`, `freq`, `irc`, `scan`, `scan2d`, `scan3d`, `path-opt`, `path-search`, and `all`.
 - fp64 changes numerical precision only. `--deterministic` requests deterministic algorithms, but exact repeatability still has to be checked on the installed backend, model, and hardware ([`docs/backends.md`](../../docs/backends.md#precision)). AIMNet2 rejects `--deterministic` as well as fp64.

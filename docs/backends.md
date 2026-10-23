@@ -48,9 +48,8 @@ Notes on the models in the table:
 - `orbmol-v2` (the default, OrbMol-v2): a conservative model that takes the
   total charge and spin multiplicity, adds learnable per-atom charges with a
   long-range Coulomb term, and was trained on OMol25 and OPoly26 at
-  ωB97M-V/def2-TZVPD. It needs orb-models >= 0.7.0, which runs on Python 3.12
-  or newer; on Python 3.11 the `[orb]` extra installs orb-models 0.5.5, where
-  `--backend-model orb_v3_conservative_omol` selects OrbMol-v1.
+  ωB97M-V/def2-TZVPD. `--backend-model orb_v3_conservative_omol` selects
+  OrbMol-v1.
 - `MACE-POLAR-1-S` / `-M` / `-L`: trained on OMol25 at ωB97M-V, with long-range
   electrostatics from learned charge and spin densities, for any total charge
   and spin. They need mace-torch >= 0.3.16 and
@@ -285,8 +284,8 @@ ML-region energy, forces, and Hessian in the correct units.
   `--precision fp32` the IEEE FP32 `float32-highest` mode.
 - With UMA, `--precision tf32` runs FAIR-Chem's UMA Nitro where the installed
   fairchem-core provides it (the `uma-s-1p2p1` checkpoints, one worker); other
-  checkpoints run the compiled path with TF32, and FAIR-Chem logs
-  `Running in a reduced-precision mode`.
+  checkpoints run the compiled path with TF32. FAIR-Chem logs
+  `Running in a reduced-precision mode` for every tf32 run on a GPU.
 - AIMNet2 supports neither `--precision fp64` nor `--deterministic`; both stop
   the run with an error. AIMNet2 casts its model inputs to float32, and it
   computes forces with its own CUDA code outside PyTorch's deterministic mode.

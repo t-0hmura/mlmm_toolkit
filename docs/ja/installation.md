@@ -95,7 +95,7 @@ ORB・AIMNet2・MACE・DFT の導入は {ref}`詳細なインストール手順 
 
     mlmm-toolkit はデフォルトで UMA を使用します。他のバックエンドは対応する追加パッケージを導入し、`-b/--backend`（例: `-b orb`）で選択します:
 
-    **ORB**（Python 3.11／3.12 が必要、3.12 推奨）:
+    **ORB**:
 
     ```bash
     pip install "mlmm-toolkit[orb]"
@@ -147,7 +147,7 @@ ORB・AIMNet2・MACE・DFT の導入は {ref}`詳細なインストール手順 
 
 **OS:** Linux を推奨します。ネイティブの Windows では AmberTools（`tleap`）が使えないため、対応していません。
 
-**Python:** 3.12 を推奨します（最低 3.11）。ORB バックエンドには 3.11 か 3.12 が必要です。
+**Python:** 3.12 が必要です。
 
 **GPU / CUDA:** 選んだ PyTorch のビルドに対応するドライバーの NVIDIA GPU（最短のインストールを参照）。新しい GPU アーキテクチャでは新しいビルドが必要なことがあります。CPU のみでも実行できますが、通常は大幅に遅くなります。
 

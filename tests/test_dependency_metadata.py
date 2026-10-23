@@ -53,24 +53,16 @@ def test_runtime_dependency_floors_match_consumed_apis() -> None:
     assert "3.0.0" not in requirements["fairchem-core"].specifier
 
 
-@pytest.mark.parametrize("python_version", ["3.11", "3.12", "3.13"])
-def test_orb_extra_selects_the_supported_api_for_each_python(python_version):
+def test_orb_extra_requires_the_orbmol_v2_release() -> None:
     project = tomllib.loads(
         (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text(encoding="utf-8")
     )["project"]
     requirements = [Requirement(value) for value in project["optional-dependencies"]["orb"]]
-    environment = {"python_version": python_version, "python_full_version": python_version + ".0"}
-    eligible = [requirement for requirement in requirements
-                if requirement.marker is None or requirement.marker.evaluate(environment)]
-    assert len(eligible) == 1
-    assert eligible[0].name == "orb-models"
-    specifier = eligible[0].specifier
-    if python_version == "3.11":
-        assert "0.5.5" in specifier and "0.5.99" in specifier
-        assert "0.5.4" not in specifier and "0.6.0" not in specifier and "0.7.0" not in specifier
-    else:
-        assert "0.7.0" in specifier and "0.8.0" in specifier
-        assert "0.6.99" not in specifier
+    assert len(requirements) == 1 and requirements[0].marker is None
+    assert requirements[0].name == "orb-models"
+    specifier = requirements[0].specifier
+    assert "0.7.0" in specifier and "0.8.0" in specifier
+    assert "0.5.5" not in specifier and "0.6.99" not in specifier
 
 
 def test_version_tuple_matches_the_packaged_version() -> None:
@@ -82,11 +74,10 @@ def test_version_tuple_matches_the_packaged_version() -> None:
 
 
 @pytest.mark.parametrize(("version", "supported"), [
-    ("3.9.23", False), ("3.10.18", False), ("3.11.0", True),
-    ("3.11.13", True), ("3.12.0", True), ("3.12.13", True),
-    ("3.13.0", True), ("3.14.0", True),
+    ("3.10.18", False), ("3.11.13", False), ("3.12.0", True),
+    ("3.12.13", True), ("3.13.0", False), ("3.14.0", False),
 ])
-def test_python_requirement_keeps_core_floor_without_orb_upper_bound(version, supported):
+def test_python_requirement_is_python_3_12(version, supported):
     project = tomllib.loads(
         (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text(encoding="utf-8")
     )["project"]

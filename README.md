@@ -38,7 +38,7 @@ Starting from the reactant (R) and product (P) structures of the full system, th
 ## Installation
 
 - **OS:** Linux. Native Windows is not supported because AmberTools (`tleap`) is not available there.
-- **Python:** 3.11 or later, 3.12 recommended. ORB requires 3.11 or 3.12.
+- **Python:** 3.12.
 - **GPU:** an NVIDIA GPU.
 - **AmberTools (`tleap`):** builds the topology in `mm-parm` and `all`; not needed when you reuse a matching `--parm7`.
 - **C++20 compiler:** for the default `hessian_ff` MM backend; `cxx-compiler` in the conda command below installs it.
@@ -195,7 +195,7 @@ Issues: <https://github.com/t-0hmura/mlmm_toolkit/issues>.
 
 - **MACE + UMA cannot coexist** (`e3nn` version conflict). Use separate conda envs.
 - **DFT/MM** is practical for an ML region of up to about **500 atoms for a single point** and about **300 atoms for an optimization** on an HPC GPU, and up to about **200 atoms on a consumer GPU** (ωB97M-V/def2-SVP, the default; from experience).
-- **MACE and ORB need fp64** (`--precision fp64`, their default); in fp32, extra imaginary modes appear more often. fp64 is slow on consumer GPUs: on HPC GPUs, ORB in fp64 is very cost-effective, and on a consumer GPU, UMA in fp32 gives the best balance.
+- **MACE and ORB need fp64** (`--precision fp64`, their default); with MACE in fp32 or ORB in tf32, extra imaginary modes appear more often. fp64 is slow on consumer GPUs: on HPC GPUs, ORB in fp64 is very cost-effective, and on a consumer GPU, UMA in fp32 gives the best balance.
 - **CPU-only execution** is supported but usually **much slower than GPU**.
 - The bundled pysisyphus is a modified fork; do not install upstream pysisyphus in the same environment.
 

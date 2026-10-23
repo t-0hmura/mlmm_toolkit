@@ -97,7 +97,7 @@ If you prefer to build the environment piece by piece:
 
     mlmm-toolkit uses UMA by default. For another backend, install its extra and select it with `-b/--backend` (for example, `-b orb`):
 
-    **ORB** (requires Python 3.11 or 3.12; 3.12 recommended):
+    **ORB**:
 
     ```bash
     pip install "mlmm-toolkit[orb]"
@@ -150,7 +150,7 @@ If you prefer to build the environment piece by piece:
 
 **OS.** Linux is recommended. Native Windows is not supported because AmberTools (`tleap`) is not available there.
 
-**Python.** 3.12 is recommended (3.11 at minimum); the ORB backend needs 3.11 or 3.12.
+**Python.** 3.12 is required.
 
 **GPU / CUDA.** An NVIDIA GPU whose driver supports the chosen PyTorch build (see Quick install); newer GPU architectures may need a newer build. CPU-only execution works but is usually much slower.
 

@@ -18,6 +18,7 @@ _No changes yet._
 ### Changed
 
 - The default UMA model is `uma-s-1p2p1` and the default ORB model is `orbmol-v2`, the models the backends recommend; `--backend-model uma-s-1p2` or `orb_v3_conservative_omol` selects the previous defaults, and ORB accepts only conservative models.
+- Require Python 3.12 (`>=3.12,<3.13`); the `[orb]` extra installs orb-models >= 0.7.0, the release with orbmol-v2.
 - `--precision fp32` is IEEE FP32 on every backend: ORB uses `float32-highest` instead of `float32-high` (TF32), and `mlip_precision` records `tf32` for a TF32 run.
 
 ### Fixed

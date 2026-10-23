@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import inspect
 import sys
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 
 import numpy as np
 import pytest
@@ -269,3 +269,48 @@ def test_new_models_cite_their_model_and_dataset(backend, model, expected) -> No
 
     keys = set(_method_citation_record_keys({"mlip_backend": backend, "mlip_model": model}))
     assert expected <= keys
+
+
+def test_mace_polar_without_graph_electrostatics_names_the_package(monkeypatch) -> None:
+    def missing(**_kwargs):
+        raise ModuleNotFoundError("No module named 'graph_longrange'", name="graph_longrange")
+
+    _install_fake_mace(monkeypatch, mace_polar=missing)
+    with pytest.raises(ImportError, match="MACE-POLAR-1 needs graph_electrostatics") as excinfo:
+        mlmm_calc._MACEBackend(
+            mace_model="MACE-POLAR-1-M",
+            mace_dtype="float64",
+            ml_device=torch.device("cpu"),
+        )
+    assert "graph_electrostatics.git@v0.4.4" in str(excinfo.value)
+
+
+def test_mace_polar_other_missing_modules_propagate(monkeypatch) -> None:
+    def missing(**_kwargs):
+        raise ModuleNotFoundError("No module named 'something_else'", name="something_else")
+
+    _install_fake_mace(monkeypatch, mace_polar=missing)
+    with pytest.raises(ModuleNotFoundError) as excinfo:
+        mlmm_calc._MACEBackend(
+            mace_model="MACE-POLAR-1-M",
+            mace_dtype="float64",
+            ml_device=torch.device("cpu"),
+        )
+    assert excinfo.value.name == "something_else"
+
+
+def test_uma_reference_energies_skip_checkpoints_without_them(monkeypatch) -> None:
+    registry = {
+        "uma-s-1p2p1": SimpleNamespace(atom_refs={"f": 1}, form_elem_refs={"f": 2}),
+        "uma-s-1p2p1-ft-d4rev": SimpleNamespace(atom_refs=None, form_elem_refs=None),
+    }
+    fetched = []
+    fake = SimpleNamespace(
+        _MODEL_CKPTS=SimpleNamespace(checkpoints=registry),
+        get_reference_energies=lambda model, reference_type: fetched.append((model, reference_type)) or {"ok": 1},
+    )
+    monkeypatch.setattr(mlmm_calc, "pretrained_mlip", fake, raising=False)
+    assert mlmm_calc._uma_reference_energies("uma-s-1p2p1-ft-d4rev", "atom_refs") is None
+    assert mlmm_calc._uma_reference_energies("uma-s-1p2p1-ft-d4rev", "form_elem_refs") is None
+    assert mlmm_calc._uma_reference_energies("uma-s-1p2p1", "form_elem_refs") == {"ok": 1}
+    assert fetched == [("uma-s-1p2p1", "form_elem_refs")]
