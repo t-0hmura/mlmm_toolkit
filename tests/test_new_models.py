@@ -172,10 +172,12 @@ class _InfoRecordingCalculator(Calculator):
     def __init__(self):
         super().__init__()
         self.seen_info = []
+        self.seen_positions = []
 
     def calculate(self, atoms=None, properties=("energy",), system_changes=all_changes):
         super().calculate(atoms, properties, system_changes)
         self.seen_info.append(dict(self.atoms.info))
+        self.seen_positions.append(self.atoms.get_positions())
         self.results = {"energy": 0.0, "forces": np.zeros((len(self.atoms), 3))}
 
 
@@ -230,6 +232,24 @@ def test_mace_polar_names_route_to_mace_polar(monkeypatch, model, key) -> None:
     backend.eval(Atoms("H2", positions=[[0.0, 0.0, 0.0], [0.0, 0.0, 0.74]]))
     assert ase_calc.seen_info[-1]["charge"] == -1
     assert ase_calc.seen_info[-1]["spin"] == 2
+
+
+def test_mace_sees_coordinates_centred_on_the_origin(monkeypatch) -> None:
+    ase_calc = _InfoRecordingCalculator()
+    _install_fake_mace(monkeypatch, mace_polar=lambda **_kwargs: ase_calc)
+    backend = mlmm_calc._MACEBackend(
+        mace_model="MACE-POLAR-1-M", mace_dtype="float64", ml_device=torch.device("cpu")
+    )
+    xyz = np.array([[40.0, 50.0, 60.0], [41.0, 50.0, 60.0], [40.0, 52.0, 61.0]])
+    atoms = Atoms("OH2", positions=xyz)
+    _, _, opaque = backend.eval(atoms)
+    ase_calc.reset()  # same positions; drop the cached results
+    backend.energy(atoms)
+    assert len(ase_calc.seen_positions) == 2
+    for seen in [*ase_calc.seen_positions, opaque.get_positions()]:
+        assert np.allclose(seen.min(axis=0), -seen.max(axis=0))
+        assert np.allclose(seen - seen[0], xyz - xyz[0])
+    assert np.allclose(atoms.get_positions(), xyz)
 
 
 def test_mace_polar_without_mace_polar_names_the_mace_torch_version(monkeypatch) -> None:

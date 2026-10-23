@@ -1234,6 +1234,27 @@ class _MACEBackend(_ASEMLBackend):
         self._model_charge = model_charge
         self._model_mult = model_mult
 
+    @staticmethod
+    def _centered(atoms: Atoms) -> Atoms:
+        """A copy whose bounding box is centred on the origin.
+
+        For a non-periodic system mace-torch sizes the box it builds from the
+        largest absolute coordinate (mace/data/neighborhood.py), and
+        MACE-POLAR-1 sizes its k-space grid from that box, so an ML region far
+        from the origin (PDB coordinates) runs out of GPU memory. Energies,
+        forces and Hessians do not change under a translation.
+        """
+        centered = atoms.copy()
+        xyz = centered.get_positions()
+        centered.set_positions(xyz - 0.5 * (xyz.min(axis=0) + xyz.max(axis=0)))
+        return centered
+
+    def eval(self, atoms: Atoms, need_grad: bool = True) -> Tuple[float, np.ndarray, Any]:
+        return super().eval(self._centered(atoms), need_grad)
+
+    def energy(self, atoms: Atoms) -> float:
+        return super().energy(self._centered(atoms))
+
     @property
     def supports_analytical_hessian(self) -> bool:
         return hasattr(self._ase_calc, "get_hessian")
