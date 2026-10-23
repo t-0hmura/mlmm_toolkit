@@ -198,6 +198,7 @@ def test_analytical_mode_uses_noncompiled_precision_matched_settings(
 
     settings = captured["inference_settings"]
     assert settings.kwargs == {
+        "tf32": False,
         "compile": False,
         "base_precision_dtype": expected_dtype,
     }
@@ -333,7 +334,6 @@ def _lazy_preparation_backend(monkeypatch, *, device, precision, workers=1):
     monkeypatch.setattr(mlmm_calc, "data_list_collater", collate, raising=False)
     monkeypatch.setattr(mlmm_calc, "_UMAInferenceSettings", SimpleNamespace)
     monkeypatch.setattr(mlmm_calc, "ParallelMLIPPredictUnit", parallel_factory)
-    monkeypatch.setattr(mlmm_calc, "guess_inference_settings", lambda name: name)
     monkeypatch.setattr(mlmm_calc.torch.cuda, "device", lambda _device: nullcontext())
     backend = _UMABackend(uma_model="uma-s-1p2", model_charge=-1, model_mult=2,
                           ml_device=torch.device(device), precision=precision, workers=workers)

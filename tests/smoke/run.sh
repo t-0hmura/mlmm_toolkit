@@ -368,6 +368,10 @@ python run_limited.py mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 
 # test46n: opt --precision fp32 (explicit UMA fp32 dispatch alongside test46m fp64)
 python run_limited.py mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --precision fp32 --max-cycles 3 --thresh gau_loose --out-dir test46n_opt_fp32 > test46n_opt_fp32.out 2>&1
 
+# test46o: opt --precision tf32 (opt-in TF32 matmul; the result must record tf32)
+python run_limited.py mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --precision tf32 --max-cycles 3 --thresh gau_loose --out-json --out-dir test46o_opt_tf32 > test46o_opt_tf32.out 2>&1
+python assert_release_result.py opt-config test46o_opt_tf32 --expected-model uma-s-1p2 --expected-max-cycles 3 --expected-precision tf32 --expected-link-atom-method scaled --expected-thresh gau_loose >> test46o_opt_tf32.out 2>&1
+
 # test46p: opt --mm-backend openmm (alternate MM backend; analytical Hessian path → FD)
 python run_limited.py mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --mm-backend openmm --max-cycles 3 --thresh gau_loose --out-dir test46p_opt_openmm > test46p_opt_openmm.out 2>&1
 
@@ -379,6 +383,8 @@ python run_limited.py mlmm opt -i r_complex_layered.pdb --parm7 p_complex.parm7 
 # test47: full `all` with `--backend orb` — exercises the non-default MLIP backend.
 mlmm all -i r_complex.pdb p_complex.pdb -c PRE -r 6.0 --ligand-charge PRE:0 -q -1 -m 1 --backend orb --out-dir test47 > test47.out 2>&1
 python assert_release_result.py provenance test47 --expected-backend orb --expected-model orb_v3_conservative_omol --expected-precision fp64 >> test47.out 2>&1
+# test47b: ORB --precision fp32 (IEEE FP32, float32-highest) with an analytical Hessian
+mlmm sp -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --backend orb --precision fp32 --hess --hessian-calc-mode Analytical --out-json --out-dir test47b_orb_fp32_hess > test47b_orb_fp32_hess.out 2>&1
 
 # ---- Subcommand-specific regression coverage ----
 # test48: opt --mm-only (MM-only minimization; skips the MLIP component entirely)

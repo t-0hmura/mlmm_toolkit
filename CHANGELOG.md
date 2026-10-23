@@ -6,7 +6,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
-_No changes yet._
+### Added
+
+- Add `--precision tf32`: TF32 matrix multiplications for UMA (UMA Nitro where fairchem-core provides it) and ORB (`float32-high`), for screening; MACE, AIMNet2 and `--calc-file` reject it.
+
+### Changed
+
+- `--precision fp32` is IEEE FP32 on every backend: ORB uses `float32-highest` instead of `float32-high` (TF32), and `mlip_precision` records `tf32` for a TF32 run.
+
+### Fixed
+
+- UMA `fp32` no longer follows fairchem-core's default inference preset, which fairchem-core 2.24 made a TF32 mode; every UMA route passes explicit settings, and a predictor loaded in the other matmul mode stops the run.
 
 ## [0.4.2] — 2026-10-22
 

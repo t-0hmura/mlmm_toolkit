@@ -9,7 +9,7 @@ Modules:
   correction for ML/MM environmental effects.
 
 User-facing API (factory pattern, per-backend kwargs, unified
-``--precision fp32|fp64`` option, add-a-backend recipe) — see
+``--precision tf32|fp32|fp64`` option, add-a-backend recipe) — see
 ``docs/backends.md``.
 """
 from __future__ import annotations
@@ -18,14 +18,21 @@ import warnings
 from typing import Any, Dict, Optional
 
 # Backend-specific value domain for the unified ``--precision`` CLI flag.
-# Routes the user-facing `fp32` / `fp64` choice to each backend's native
-# kwarg via `_create_ml_backend`. ORB binding (`orb_precision`) follows
-# orb_models matmul-precision strings; MACE uses numpy-dtype strings;
-# AIMNet2 has no precision knob: fp32 is a no-op, fp64 is rejected.
+# Routes the user-facing `tf32` / `fp32` / `fp64` choice to each backend's
+# native kwarg via `_create_ml_backend`. `fp32` is IEEE FP32 on every backend;
+# `tf32` (TF32 matmul, FP32 storage) is opt-in and exists only where the
+# backend has a TF32 mode. ORB binding (`orb_precision`) follows orb_models
+# matmul-precision strings ('float32-high' = TF32, 'float32-highest' = IEEE
+# FP32); MACE uses numpy-dtype strings and has no TF32 mode; AIMNet2 has no
+# precision knob: fp32 is a no-op, tf32 and fp64 are rejected.
 _PRECISION_DISPATCH: Dict[str, Dict[str, tuple]] = {
+    "tf32": {
+        "uma":  ("uma_precision", "tf32"),
+        "orb":  ("orb_precision", "float32-high"),
+    },
     "fp32": {
         "uma":  ("uma_precision", "fp32"),
-        "orb":  ("orb_precision", "float32-high"),
+        "orb":  ("orb_precision", "float32-highest"),
         "mace": ("mace_dtype", "float32"),
     },
     "fp64": {
@@ -191,7 +198,8 @@ def apply_precision_to_calc_cfg(calc_cfg: Dict[str, Any], precision: Optional[st
     """Route the unified ``--precision`` CLI value into backend-specific kwargs.
 
     Mutates ``calc_cfg`` in place; for aimnet2 fp32 is a no-op and fp64
-    is rejected (its model inputs are cast to float32 upstream).
+    is rejected (its model inputs are cast to float32 upstream); tf32 is
+    rejected on backends without a TF32 mode (MACE, AIMNet2).
     Raises ``ValueError`` for invalid values.
 
     Also consumes (pops) any raw ``precision`` token already sitting in
@@ -207,7 +215,7 @@ def apply_precision_to_calc_cfg(calc_cfg: Dict[str, Any], precision: Optional[st
         return  # no precision requested via arg or config → keep backend defaults
     if val not in _PRECISION_DISPATCH:
         raise ValueError(
-            f"--precision must be 'fp32' or 'fp64', got {precision if precision is not None else raw!r}"
+            f"--precision must be 'tf32', 'fp32' or 'fp64', got {precision if precision is not None else raw!r}"
         )
     backend = str(calc_cfg.get("backend") or "uma").strip().lower()
     if backend == "custom":
@@ -217,17 +225,23 @@ def apply_precision_to_calc_cfg(calc_cfg: Dict[str, Any], precision: Optional[st
         )
     mapping = _PRECISION_DISPATCH[val]
     if backend not in mapping:
-        # AIMNet2 (or any future backend with no precision knob) cannot honour
-        # `--precision fp64`: upstream `aimnet` casts model inputs to float32
-        # (`aimnet/calculators/calculator.py keys_in: torch.float`), so silently
-        # accepting fp64 would lie about the actual numeric precision of the
-        # run. Reject the combination loudly; fp32 stays a no-op so users can
-        # swap `--backend` without changing scripts.
+        # A backend without this precision cannot honour it, and silently
+        # running another precision would lie about the numerics of the run.
+        # AIMNet2: upstream `aimnet` casts model inputs to float32
+        # (`aimnet/calculators/calculator.py keys_in: torch.float`), so fp64 is
+        # not real; MACE and AIMNet2 have no TF32 mode. Reject loudly; fp32
+        # stays a no-op on AIMNet2 so users can swap `--backend` without
+        # changing scripts.
         if val == "fp64":
             raise ValueError(
                 f"--precision fp64 is not supported by backend {backend!r}: "
                 f"its model inputs are cast to float32 upstream, so the run "
                 f"would not actually be fp64."
+            )
+        if val == "tf32":
+            raise ValueError(
+                f"--precision tf32 is not supported by backend {backend!r}: "
+                f"it has no TF32 mode. Use --precision fp32 or fp64."
             )
         return
     kw_name, kw_val = mapping[backend]

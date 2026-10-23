@@ -88,13 +88,13 @@ MLMM_CALC_KW: Dict[str, Any] = {
     "backend": "uma",
     "uma_model": DEFAULT_UMA_MODEL,
     "uma_task_name": "omol",
-    "uma_precision": "fp32",  # "fp32" (default) | "fp64" (full-precision base inference)
+    "uma_precision": "fp32",  # "tf32" | "fp32" (default, IEEE FP32) | "fp64" (full-precision base inference)
     "workers": 1,             # MLIP predictor workers; >1 uses ParallelMLIPPredictUnit (UMA only). Combining it with an explicit Analytical Hessian is an error.
     "workers_per_node": 1,    # Workers per node when the parallel predictor is used (workers>1).
     "orb_model": "orb_v3_conservative_omol",
-    # float64 is the product default. Pass --precision fp32 to opt into ORB's
-    # reduced-precision mode. Legacy "float32" remains accepted through
-    # _OrbBackend._PRECISION_ALIASES.
+    # float64 is the product default. --precision fp32 selects IEEE FP32
+    # ("float32-highest") and --precision tf32 ORB's TF32 mode ("float32-high");
+    # the bare "float32" is aliased through _OrbBackend._PRECISION_ALIASES.
     "orb_precision": "float64",
     "mace_model": "MACE-OMOL-0",
     "mace_dtype": "float64",

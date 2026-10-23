@@ -59,11 +59,33 @@ def test_invalid_precision_rejected() -> None:
         apply_precision_to_calc_cfg({"backend": "uma"}, "fp16")
 
 
+def test_fp32_routes_orb_to_ieee_fp32() -> None:
+    cfg = {"backend": "orb"}
+    apply_precision_to_calc_cfg(cfg, "fp32")
+    assert cfg["orb_precision"] == "float32-highest"
+
+
+def test_tf32_routes_to_uma_and_orb_tf32_modes() -> None:
+    uma_cfg = {"backend": "uma"}
+    apply_precision_to_calc_cfg(uma_cfg, "tf32")
+    assert uma_cfg["uma_precision"] == "tf32"
+    orb_cfg = {"backend": "orb", "precision": "TF32"}
+    apply_precision_to_calc_cfg(orb_cfg)
+    assert orb_cfg["orb_precision"] == "float32-high"
+
+
+@pytest.mark.parametrize("backend", ["mace", "aimnet2"])
+def test_tf32_rejected_without_a_tf32_mode(backend) -> None:
+    with pytest.raises(ValueError, match="tf32"):
+        apply_precision_to_calc_cfg({"backend": backend}, "tf32")
+
+
 @pytest.mark.parametrize(
     ("raw", "expected"),
     [
-        ("FP32", "float32-high"),
-        (" Float32 ", "float32-high"),
+        ("FP32", "float32-highest"),
+        (" Float32 ", "float32-highest"),
+        ("TF32", "float32-high"),
         ("FP64", "float64"),
         ("FLOAT64", "float64"),
         ("float32-highest", "float32-highest"),

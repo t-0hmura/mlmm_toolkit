@@ -22,8 +22,8 @@ mlmm opt -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b aim
 
 | バックエンド | インストール | モデル名 | 精度の設定 |
 |---------|---------|------------------|------------------|
-| `uma` | `pip install mlmm-toolkit`（`fairchem-core` は本体の依存）＋ [Hugging Face へのログイン](installation.md) | `uma-s-1p2`（デフォルト）/ `uma-m-1p1` | `uma_precision="fp32" \| "fp64"` |
-| `orb` | `pip install "mlmm-toolkit[orb]"` | `orb_v3_conservative_omol` | `orb_precision="float32-high" \| "float32-highest" \| "float64"`（`fp32`・`float32` の名前でも受け付けます） |
+| `uma` | `pip install mlmm-toolkit`（`fairchem-core` は本体の依存）＋ [Hugging Face へのログイン](installation.md) | `uma-s-1p2`（デフォルト）/ `uma-m-1p1` | `uma_precision="tf32" \| "fp32" \| "fp64"` |
+| `orb` | `pip install "mlmm-toolkit[orb]"` | `orb_v3_conservative_omol` | `orb_precision="float32-high" \| "float32-highest" \| "float64"`（`float32-high` は `tf32`、`float32-highest` は `fp32`・`float32` の名前でも受け付けます） |
 | `mace` | 専用の環境で `pip uninstall -y fairchem-core && pip install mace-torch`（`mace-torch` が固定する `e3nn` の版が UMA とぶつかるため、この環境では UMA は動きません） | `MACE-OMOL-0` | `mace_dtype="float32" \| "float64"` |
 | `aimnet2` | `pip install "mlmm-toolkit[aimnet]"` | `aimnet2` | なし |
 
@@ -34,22 +34,22 @@ mlmm opt -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b aim
 (ja-precision)=
 ### 精度（precision）
 
-`--precision fp32|fp64` は MLIP の推論の浮動小数点精度を決めます。`--precision` を指定しないときは、バックエンドごとのデフォルト値を使います。
+`--precision tf32|fp32|fp64` は MLIP の推論の浮動小数点精度を決めます。`fp32` はどのバックエンドでも IEEE の単精度、`fp64` は倍精度です。`tf32` はテンソルを float32 のまま持ち、NVIDIA の GPU（Ampere 以降）で行列積だけを TF32 で計算します。速くなる代わりに精度が下がります。`--precision` を指定しないときは、バックエンドごとのデフォルト値を使います。
 
-| バックエンド | `--precision` なし | `--precision fp64` |
-|---------|------|------|
-| `uma` | fp32 | 使えます |
-| `orb` | fp64 | 使えます |
-| `mace` | fp64 | 使えます |
-| `aimnet2` | fp32（精度の設定がなく、`--precision fp32` を指定しても何も変わりません） | エラー |
-| `custom`（`--calc-file`） | calculator 自身の設定 | エラー（`--precision fp32` もエラー） |
+| バックエンド | `--precision` なし | `--precision fp64` | `--precision tf32` |
+|---------|------|------|------|
+| `uma` | fp32（インストールした fairchem-core の既定によらず、TF32 を使わない IEEE の FP32） | 使えます | 使えます |
+| `orb` | fp64 | 使えます | 使えます（`float32-high`） |
+| `mace` | fp64 | 使えます | エラー |
+| `aimnet2` | fp32（精度の設定がなく、`--precision fp32` を指定しても何も変わりません） | エラー | エラー |
+| `custom`（`--calc-file`） | calculator 自身の設定 | エラー（`--precision fp32` もエラー） | エラー |
 
 どの値を選ぶかは目的で決めます。
 
 | 目的 | 推奨 | 理由 |
 | --- | --- | --- |
 | 通常の計算 | 指定しない | 上のデフォルト値（UMA・AIMNet2 は fp32、ORB・MACE は fp64）のままにします。 |
-| 速さを優先するスクリーニング | 必要なときだけ `--precision fp32` | ORB・MACE の精度が下がります（[使用上の注意点](#使用上の注意点)）。 |
+| 速さを優先するスクリーニング | 必要なときだけ `--precision tf32`（UMA・ORB）か `fp32`（ORB・MACE） | どちらも精度が下がります（[使用上の注意点](#使用上の注意点)）。 |
 | 最終の TS と Hessian | 指定しない。UMA で n_imag ≥ 2 のときは `--precision fp64` と比べる（{ref}`tsopt <ja-wrong-imaginary-mode-count>`） | 精度によらず、`tsopt` の最後の Hessian で n_imag を確かめ、IRC と端点の最適化で TS が狙った R と P をつなぐことを確かめます。 |
 
 fp64 は次のように指定します。
@@ -168,10 +168,11 @@ ML/MM の段では、選んだ ML バックエンドと Hessian の途中の配�
 
 ## 使用上の注意点
 
-- ORB と MACE の `--precision fp32` はスクリーニング専用です。結果を使う前に n_imag を確かめてください。
-- ORB で `--precision fp32` を指定すると、精度を下げた `float32-high` のモードになります。
+- `--precision tf32` と、ORB・MACE の `--precision fp32` はスクリーニング専用です。結果を使う前に n_imag を確かめてください。
+- ORB では、`--precision tf32` が `float32-high`（TF32）、`--precision fp32` が IEEE の FP32 の `float32-highest` のモードになります。
+- UMA の `--precision tf32` は、インストールした fairchem-core に UMA Nitro があれば（`uma-s-1p2p1` 系の checkpoint、ワーカー 1 つ）それで計算します。ほかの checkpoint は TF32 でコンパイルした経路で計算し、FAIR-Chem が `Running in a reduced-precision mode` と出力します。
 - AIMNet2 は `--precision fp64` にも `--deterministic` にも対応せず、どちらもエラーで止まります。AIMNet2 はモデルへの入力を float32 にし、力を PyTorch の決定論的モードの外にある独自の CUDA のコードで計算します。繰り返しの計算を一致させたいときは、UMA、ORB、MACE のいずれかで `--deterministic` を付け、同じ環境で 2 回実行して比べてください。
-- `--calc-file` は `--precision`（`fp32` も `fp64` も）と `--deterministic` のどちらも受け付けず、エラーで止まります。精度は自作の calculator の中で設定してください。
+- `--calc-file` は `--precision`（`tf32` も `fp32` も `fp64` も）と `--deterministic` のどちらも受け付けず、エラーで止まります。精度は自作の calculator の中で設定してください。
 - `--deterministic` は PyTorch の決定論的アルゴリズム（`torch.use_deterministic_algorithms`）を有効にし、GPU で決定論的に動く版の無い PyTorch の演算 1 つを置き換えます。
 - `--deterministic` はプロセス全体に効きます。`all` に付ければ `all` が実行する段すべてに効くので、段ごとに付ける必要はありません。
 - `--deterministic` を付けると遅くなることがあります。決定論的な GPU の演算は別の遅い実装を使うことがあるので、繰り返しの計算を一致させる必要があるときだけ使ってください。

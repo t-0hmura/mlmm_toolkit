@@ -626,9 +626,11 @@ def calculator_provenance(calc_cfg: Mapping[str, Any]) -> Dict[str, Any]:
                 precision = MLMM_CALC_KW.get(precision_key)
 
         token = "" if precision is None else str(precision).strip().lower()
-        if token in {"fp64", "float64", "double", "highest"}:
+        if token in {"fp64", "float64", "double"}:
             precision = "fp64"
-        elif token in {"fp32", "float32", "float32-high", "float32-highest", "single"}:
+        elif token in {"tf32", "float32-high"}:
+            precision = "tf32"
+        elif token in {"fp32", "float32", "float32-highest", "single"}:
             precision = "fp32"
         else:
             precision = token or None

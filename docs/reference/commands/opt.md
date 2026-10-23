@@ -150,13 +150,12 @@ Options:
                                   [default: (cart)]
   --print-every INTEGER RANGE     Print optimizer status every N cycles.
                                   [default: (100); x>=1]
-  --precision [fp32|fp64]         MLIP backend precision: fp32 or fp64. Unset
-                                  defaults per backend (uma: fp32; orb, mace:
-                                  fp64). Routed to backend-specific kwargs (UMA
-                                  precision / ORB precision / MACE
-                                  default_dtype). aimnet2: fp32 no-op; fp64
-                                  rejected.  [default: (per backend: uma fp32;
-                                  orb, mace fp64)]
+  --precision [tf32|fp32|fp64]    MLIP backend precision: tf32, fp32 (IEEE) or
+                                  fp64. Unset defaults per backend (uma: fp32;
+                                  orb, mace: fp64). tf32 uses TF32 matmul for
+                                  speed (uma, orb only); avoid it for Hessians.
+                                  aimnet2: fp32 only.  [default: (per backend:
+                                  uma fp32; orb, mace fp64)]
   --uma-workers, --workers INTEGER
                                   MLIP predictor workers (UMA). >1 uses a
                                   parallel predictor (fairchem-core[extras]);

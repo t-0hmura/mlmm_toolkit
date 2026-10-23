@@ -41,7 +41,7 @@ Commands that evaluate the ML/MM calculator also record:
 | `mlip_model` | string \| null | Exact model/checkpoint; `filename:factory` for `--calc-file` |
 | `mlip_model_label` | string \| null | Publication-facing model label derived from the exact identifier |
 | `mlip_task` | string \| null | Backend task used by a multi-domain model (for UMA, `omol` unless `calc.uma_task_name` sets another); `mlip_model` remains the exact identifier |
-| `mlip_precision` | string \| null | Effective public precision token (`fp32` or `fp64`); null for a custom calculator whose dtype is controlled by user code |
+| `mlip_precision` | string \| null | Effective public precision token (`tf32`, `fp32` or `fp64`); null for a custom calculator whose dtype is controlled by user code |
 | `mm_backend` | string \| null | MM Hessian/energy backend (`hessian_ff` or `openmm`); null when a plot-only command did not evaluate a calculator |
 | `link_atom_method` | string \| null | Link-atom placement (`scaled` or `fixed`); null for plot-only output |
 | `use_cmap` | bool \| null | Whether CMAP terms were enabled; null for plot-only output |
@@ -416,7 +416,7 @@ The `all` and `path-search` commands write `summary.json` with a richer structur
 | `mlip_model` | string \| null | Exact model/checkpoint name, or `FUNCTIONAL/BASIS` for `dft` |
 | `mlip_model_label` | string \| null | Publication-facing model label |
 | `mlip_task` | string \| null | Backend task for a multi-domain model |
-| `mlip_precision` | string \| null | Effective `fp32` / `fp64`; null for DFT and custom calculators (the DFT engine is recorded separately) |
+| `mlip_precision` | string \| null | Effective `tf32` / `fp32` / `fp64`; null for DFT and custom calculators (the DFT engine is recorded separately) |
 | `charge` | int | ML-region charge |
 | `spin` | int | ML-region multiplicity |
 | `environment` | object | Hardware info |

@@ -169,7 +169,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 | `--skip-final-freq/--no-skip-final-freq` | フラグ | `False` | 収束後の最後の Hessian を省く |
 | `--read-hess` | パス | `None` | Hessian を計算せず `.npy` ファイルから読んで開始（Cartesian、Hartree/bohr²、全原子、可動原子だけ、または Hessian の計算に入る原子だけ） |
 | `--dump-hess` | パス | `None` | final geometry の Hessian を `.npy` ファイルに保存（`freq`・`tsopt`・`irc` の `--read-hess` 用）。最後の Hessian を計算したときだけ書く |
-| `--precision` | `fp32` / `fp64` | バックエンドごと（`uma`: `fp32`、`orb`・`mace`: `fp64`） | バックエンドの精度。`aimnet2` は `fp64` を受け付けない（{ref}`MLIP バックエンド: 精度 <ja-precision>` を参照） |
+| `--precision` | `tf32` / `fp32` / `fp64` | バックエンドごと（`uma`: `fp32`、`orb`・`mace`: `fp64`） | バックエンドの精度。`mace` と `aimnet2` は `tf32` を、`aimnet2` は `fp64` を受け付けない（{ref}`MLIP バックエンド: 精度 <ja-precision>` を参照） |
 | `--coord-type` | `cart` / `redund` / `dlc` / `tric` | `cart` | 最適化に使う座標系：デカルト座標 / 冗長内部座標 / 非局在化内部座標（DLC）/ 並進・回転を含む内部座標（TRIC） |
 | `--config` | パス | `None` | コマンドラインのオプションより前に適用する YAML ファイル |
 | `--dump/--no-dump` | フラグ | `False` | 最適化の軌跡 `optimization_all_trj.xyz` を書き出す |

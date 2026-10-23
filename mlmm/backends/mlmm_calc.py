@@ -110,10 +110,10 @@ pretrained_mlip = None
 AtomicData = None
 data_list_collater = None
 ParallelMLIPPredictUnit = None  # workers > 1
-guess_inference_settings = None
-# fp64 base precision: switching OMol-trained UMA from default fp32 to
-# fp64 can have non-trivial impact on TSopt + Hessian numerics. Available
-# via InferenceSettings(base_precision_dtype="float64") in fairchem ≥ 2.0.
+# Every UMA route passes explicit InferenceSettings built from fields
+# (_uma_inference_settings) instead of a preset name: fairchem-core 2.24 turned
+# its named default into a TF32 mode, so relying on it changed the numerics of
+# fp32 runs with the installed fairchem release.
 _UMAInferenceSettings = None
 HAS_ORB: Optional[bool] = None
 HAS_MACE: Optional[bool] = None
@@ -123,7 +123,7 @@ HAS_AIMNET2: Optional[bool] = None
 def _load_fairchem() -> bool:
     """Import fairchem for the UMA backend; return False when it is not installed."""
     global HAS_FAIRCHEM, pretrained_mlip, AtomicData, data_list_collater
-    global ParallelMLIPPredictUnit, guess_inference_settings, _UMAInferenceSettings
+    global ParallelMLIPPredictUnit, _UMAInferenceSettings
     if HAS_FAIRCHEM is not None:
         return HAS_FAIRCHEM
     try:
@@ -136,8 +136,7 @@ def _load_fairchem() -> bool:
     pretrained_mlip, AtomicData, data_list_collater = _pretrained_mlip, _AtomicData, _data_list_collater
     try:
         from fairchem.core.units.mlip_unit.predict import ParallelMLIPPredictUnit as _parallel
-        from fairchem.core.units.mlip_unit.api.inference import guess_inference_settings as _guess
-        ParallelMLIPPredictUnit, guess_inference_settings = _parallel, _guess
+        ParallelMLIPPredictUnit = _parallel
     except Exception:
         pass
     try:
@@ -147,6 +146,62 @@ def _load_fairchem() -> bool:
         pass
     HAS_FAIRCHEM = True
     return True
+
+
+UMA_PRECISIONS = ("tf32", "fp32", "fp64")
+
+# torch.compile's hint that TF32 tensor cores are available but unused. fp32
+# leaves TF32 off on purpose (see _uma_inference_settings), so the hint is noise.
+_TF32_HINT = r"TensorFloat32 tensor cores for float32 matrix multiplication available but not enabled"
+
+
+def _uma_inference_settings(precision: str, *, analytical_hessian: bool, parallel: bool):
+    """Explicit FAIR-Chem InferenceSettings for a UMA precision token.
+
+    - ``fp64``: float64 base precision, not compiled.
+    - ``fp32``: IEEE FP32 (``tf32=False``): the merged-MOLE compiled fast path
+      that fairchem-core 2.22/2.23 used as its default (2.24 names it
+      "high-precision").
+    - ``tf32``: the same fast path with TF32 matmul, and UMA Nitro where the
+      installed fairchem-core has it (2.24+, single worker; FAIR-Chem falls back
+      to the TF32 fast path for checkpoints Nitro cannot serve).
+
+    ML/MM analytical Hessians need a double backward that the compiled model
+    does not support, so that route is not compiled at any precision.
+    """
+    tf32 = precision == "tf32"
+    if precision == "fp64" or analytical_hessian:
+        return _UMAInferenceSettings(
+            tf32=tf32,
+            compile=False,
+            base_precision_dtype="float64" if precision == "fp64" else "float32",
+        )
+    kwargs = dict(
+        tf32=tf32,
+        activation_checkpointing=False,
+        merge_mole=True,
+        compile=True,
+        external_graph_gen=False,
+        internal_graph_gen_version=2,
+    )
+    if tf32 and not parallel and "nitro" in getattr(_UMAInferenceSettings, "__dataclass_fields__", {}):
+        kwargs["nitro"] = True
+    return _UMAInferenceSettings(**kwargs)
+
+
+def _verify_uma_precision(predictor: Any, precision: str) -> None:
+    """Fail if the loaded predictor does not run the requested matmul mode."""
+    settings = getattr(predictor, "inference_settings", None)
+    if settings is None:
+        return
+    loaded = bool(getattr(settings, "tf32", False))
+    if loaded != (precision == "tf32"):
+        raise RuntimeError(
+            f"UMA was loaded with tf32={loaded}, but --precision {precision} was "
+            "requested; the run would not have the requested precision."
+        )
+    if precision == "fp32":
+        warnings.filterwarnings("ignore", message=_TF32_HINT, category=UserWarning)
 
 
 def _load_backend_module(flag: str, module: str) -> bool:
@@ -580,52 +635,44 @@ class _UMABackend(_MLBackend):
         self._AtomicData = AtomicData
         self._data_list_collater = data_list_collater
 
-        # fp32 is the established baseline; fp64 enables full-precision
-        # base inference and can change TSopt + Hessian numerics non-trivially.
+        # fp32 (IEEE) is the established baseline; fp64 enables full-precision
+        # base inference and can change TSopt + Hessian numerics non-trivially;
+        # tf32 trades matmul precision for speed (opt-in only).
         self.precision = str(precision or "fp32").lower()
-        if self.precision not in ("fp32", "fp64"):
-            raise ValueError(f"UMA precision must be 'fp32' or 'fp64', got {precision!r}")
-        if self.precision == "fp64" and _UMAInferenceSettings is None:
+        if self.precision not in UMA_PRECISIONS:
+            raise ValueError(
+                f"UMA precision must be 'tf32', 'fp32' or 'fp64', got {precision!r}"
+            )
+        if _UMAInferenceSettings is None:
             raise ImportError(
-                "UMA precision='fp64' requires fairchem-core's InferenceSettings; "
-                "upgrade fairchem-core (≥ 2.0) or pass precision='fp32'."
+                "UMA requires fairchem-core's InferenceSettings; install fairchem-core>=2.22."
             )
         self.workers = max(int(workers or 1), 1)
         self.workers_per_node = max(int(workers_per_node or 1), 1)
         self.parallel_predict = self.workers > 1
 
-        _uma_inference_settings = None
-        if _UMAInferenceSettings is not None and (
-            self.precision == "fp64" or analytical_hessian
-        ):
-            # FAIR-Chem 2.22's named default enables torch.compile. The
-            # compiled backward does not support the double backward used by
-            # ML/MM analytical Hessians, so that route requests the public
-            # non-compiled settings object explicitly.
-            _uma_inference_settings = _UMAInferenceSettings(
-                compile=False,
-                base_precision_dtype=(
-                    "float64" if self.precision == "fp64" else "float32"
-                )
-            )
+        uma_settings = _uma_inference_settings(
+            self.precision,
+            analytical_hessian=analytical_hessian,
+            parallel=self.parallel_predict,
+        )
         if self.parallel_predict:
             # ParallelMLIPPredictUnit spreads inference over `workers` processes but
             # does NOT expose `.model`; analytical Hessians are therefore unavailable
             # in this mode. Automatic selection uses finite differences; an explicit
             # Analytical request is rejected by the preflight before model loading.
-            if ParallelMLIPPredictUnit is None or guess_inference_settings is None:
+            if ParallelMLIPPredictUnit is None:
                 raise ImportError(
-                    "workers>1 requested, but ParallelMLIPPredictUnit/guess_inference_settings "
-                    "could not be imported from fairchem. Install `fairchem-core[extras]`."
+                    "workers>1 requested, but ParallelMLIPPredictUnit could not be imported "
+                    "from fairchem. Install `fairchem-core[extras]`."
                 )
             ckpt_path = pretrained_mlip.pretrained_checkpoint_path_from_name(uma_model)
-            inference_settings = _uma_inference_settings or guess_inference_settings("default")
             atom_refs = pretrained_mlip.get_reference_energies(uma_model, reference_type="atom_refs")
             form_elem_refs = pretrained_mlip.get_reference_energies(uma_model, reference_type="form_elem_refs")
             self.predictor = ParallelMLIPPredictUnit(
                 inference_model_path=str(ckpt_path),
                 device=device_str,
-                inference_settings=inference_settings,
+                inference_settings=uma_settings,
                 atom_refs=atom_refs,
                 form_elem_refs=form_elem_refs,
                 num_workers=self.workers,
@@ -633,9 +680,6 @@ class _UMABackend(_MLBackend):
             )
         else:
             # Serial in-process predictor used when workers=1.
-            _uma_kwargs = {"device": device_str}
-            if _uma_inference_settings is not None:
-                _uma_kwargs["inference_settings"] = _uma_inference_settings
             device_context = (
                 torch.cuda.device(ml_device)
                 if ml_device.type == "cuda"
@@ -643,8 +687,11 @@ class _UMABackend(_MLBackend):
             )
             with device_context:
                 self.predictor = pretrained_mlip.get_predict_unit(
-                    uma_model, **_uma_kwargs
+                    uma_model,
+                    device=device_str,
+                    inference_settings=uma_settings,
                 )
+        _verify_uma_precision(self.predictor, self.precision)
 
         self.uma_task_name = uma_task_name
         self.model_charge = model_charge
@@ -846,14 +893,15 @@ class _OrbBackend(_ASEMLBackend):
     """ORB (Orbital Materials) ML backend.
 
     `orb_precision` is mapped to ORB's pretrained `precision=` kwarg
-    (e.g. ``"float32-high"`` or ``"float64"``). The historical alias
-    ``"float32"`` is silently rewritten to ``"float32-high"`` for
-    backward compatibility with older YAML defaults.
+    (``"float32-high"`` = TF32 matmul, ``"float32-highest"`` = IEEE FP32, or
+    ``"float64"``). The unified tokens and the bare ``"float32"`` are aliased
+    so that fp32 means IEEE FP32 as on every other backend.
     """
 
     _PRECISION_ALIASES = {
-        "float32": "float32-high",
-        "fp32": "float32-high",
+        "tf32": "float32-high",
+        "float32": "float32-highest",
+        "fp32": "float32-highest",
         "fp64": "float64",
     }
 

@@ -92,8 +92,8 @@ workflow.
 
 Pitfalls:
 
-- `--precision fp32` selects ORB's reduced `float32-high` mode; use it for
-  screening only.
+- `--precision tf32` selects ORB's `float32-high` (TF32) mode and `--precision fp32`
+  IEEE FP32 (`float32-highest`); use either for screening only.
 - Extra imaginary modes: inspect the modes and compare the supported
   precisions on the target system before recomputing frequencies or IRC.
 - A TS candidate with n_imag above 1 is not a first-order saddle point;

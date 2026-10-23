@@ -454,7 +454,7 @@ def run_trj2fig(
 )
 @click.option(
     "--precision",
-    type=click.Choice(["fp32", "fp64"], case_sensitive=False),
+    type=click.Choice(["tf32", "fp32", "fp64"], case_sensitive=False),
     default=None,
     show_default="per backend: uma fp32; orb, mace fp64",
     help="Backend-neutral precision used when energies are recomputed.",

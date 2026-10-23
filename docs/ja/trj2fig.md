@@ -91,7 +91,7 @@ summary.json    # result.json と同じ内容（--out-json 指定時）
 | `--reverse-x/--no-reverse-x` | フラグ | `False` | 最後のフレームを左端に置く |
 | `-b, --backend` | 文字列 | `uma` | 計算し直しに使う MLIP（`uma`, `orb`, `mace`, `aimnet2`。[MLIP バックエンド](backends.md)） |
 | `--backend-model` | 文字列 | `None` | 選んだバックエンドのモデル（例: `uma-s-1p2`）。省略時はそのバックエンドのデフォルトのモデル |
-| `--precision` | `fp32` / `fp64` | バックエンドごと | 計算し直しの精度（UMA は `fp32`、ORB と MACE は `fp64`）。AIMNet2 は `fp32` だけ |
+| `--precision` | `tf32` / `fp32` / `fp64` | バックエンドごと | 計算し直しの精度（UMA は `fp32`、ORB と MACE は `fp64`）。`tf32` は UMA と ORB だけ。AIMNet2 は `fp32` だけ |
 | `--out-json/--no-out-json` | フラグ | `False` | `result.json` と `summary.json` を出力 |
 
 全オプションは [自動生成のオプションの一覧（英語のみ）](../reference/commands/trj2fig.md) を参照してください。

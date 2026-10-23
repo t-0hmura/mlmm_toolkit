@@ -903,7 +903,7 @@ def test_all_injection_preserves_alias_only_calculator_values(tmp_path: Path) ->
 @pytest.mark.parametrize(
     ("backend", "precision_key", "precision_value", "model_key"),
     [
-        ("orb", "orb_precision", "float32-high", "orb_model"),
+        ("orb", "orb_precision", "float32-highest", "orb_model"),
         ("mace", "mace_dtype", "float32", "mace_model"),
     ],
 )
@@ -1004,7 +1004,7 @@ def test_all_injection_translates_yaml_only_generic_backend_aliases(
     payload = yaml.safe_load(effective.read_text(encoding="utf-8"))
     assert payload["calc"] == {
         "backend": "orb",
-        "orb_precision": "float32-high",
+        "orb_precision": "float32-highest",
         "orb_model": "orb-custom",
     }
     template = _resolve_calculator_template(
@@ -1026,7 +1026,7 @@ def test_all_injection_translates_yaml_only_generic_backend_aliases(
         merged_yaml_cfg=payload,
     )
     assert template["orb_model"] == provenance[1] == "orb-custom"
-    assert template["orb_precision"] == "float32-high"
+    assert template["orb_precision"] == "float32-highest"
     assert provenance == ("orb", "orb-custom", "fp32")
 
 

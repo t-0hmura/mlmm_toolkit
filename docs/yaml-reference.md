@@ -163,7 +163,7 @@ calc:
 
  # --- ORB backend settings ---
  orb_model: orb_v3_conservative_omol  # ORB model name (ORB backend only)
- orb_precision: float64  # ORB floating-point precision (ORB backend only; "float32-high" = TF32 matmul, also set by --precision fp32; "float32" is also accepted)
+ orb_precision: float64  # ORB floating-point precision (ORB backend only; "float32-high" = TF32 matmul, also set by --precision tf32; "float32-highest" = IEEE FP32, also set by --precision fp32 or "float32")
 
  # --- MACE backend settings ---
  mace_model: MACE-OMOL-0 # MACE model name (MACE backend only)

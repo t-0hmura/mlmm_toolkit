@@ -162,7 +162,7 @@ calc:
 
  # --- ORB バックエンドの設定 ---
  orb_model: orb_v3_conservative_omol  # ORB モデル名 (backend=orb 時)
- orb_precision: float64  # ORB 浮動小数点精度 (backend=orb 時; "float32-high" は TF32 matmul で --precision fp32 でも選択可、"float32" も受け付ける)
+ orb_precision: float64  # ORB 浮動小数点精度 (backend=orb 時; "float32-high" は TF32 matmul で --precision tf32 でも選択可、"float32-highest" は IEEE FP32 で --precision fp32 か "float32" でも選択可)
 
  # --- MACE バックエンドの設定 ---
  mace_model: MACE-OMOL-0 # MACE モデル名 (backend=mace 時)
