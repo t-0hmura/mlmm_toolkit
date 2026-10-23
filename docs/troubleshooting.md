@@ -274,7 +274,7 @@ An IRC that stops before it converges is still usable when the endpoint optimiza
 - **Symptom**: `orb-models is required for the ORB backend. ...`, `aimnet is required for the AIMNet2 backend. ...`, or `mace-torch is required for the MACE backend. ...`
 - **Fix**:
   - ORB: `pip install "mlmm-toolkit[orb]"`. AIMNet2: `pip install "mlmm-toolkit[aimnet]"`.
-  - MACE: use a dedicated environment, `pip uninstall -y fairchem-core && pip install mace-torch`; `mace-torch` pins `e3nn==0.4.4`, while UMA (`fairchem-core`) needs `e3nn>=0.5`.
+  - MACE: use a dedicated environment, `pip uninstall -y fairchem-core && pip install 'mace-torch>=0.3.16'`; `mace-torch` pins `e3nn==0.4.4`, while UMA (`fairchem-core`) needs `e3nn>=0.5`.
   - If ORB still fails to import after installing the extra, run `python -m pip check` and fix the package that the resolver or the import error names; do not add unrelated PyG packages.
 
 ---

@@ -268,7 +268,7 @@ IRC が収束せずに止まっても、端点の最適化で狙った R と P �
 - **症状**：`orb-models is required for the ORB backend. ...`、`aimnet is required for the AIMNet2 backend. ...`、`mace-torch is required for the MACE backend. ...` が出る。
 - **対処**：
   - ORB：`pip install "mlmm-toolkit[orb]"`。AIMNet2：`pip install "mlmm-toolkit[aimnet]"`。
-  - MACE：専用の環境で `pip uninstall -y fairchem-core && pip install mace-torch` を実行してください。`mace-torch` は `e3nn==0.4.4` に固定し、UMA（`fairchem-core`）は `e3nn>=0.5` を必要とします。
+  - MACE：専用の環境で `pip uninstall -y fairchem-core && pip install 'mace-torch>=0.3.16'` を実行してください。`mace-torch` は `e3nn==0.4.4` に固定し、UMA（`fairchem-core`）は `e3nn>=0.5` を必要とします。
   - 追加パッケージを入れても ORB を import できないときは、`python -m pip check` を実行し、依存関係の解決か import のエラーが名指ししたパッケージを直してください。関係のない PyG のパッケージは入れないでください。
 
 ---

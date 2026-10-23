@@ -64,7 +64,7 @@
 | **MLIP** | Machine Learning Interatomic Potential | 量子化学データから学習し、構造からエネルギー・力を予測する原子間ポテンシャル。 |
 | **UMA** | Universal Models for Atoms | Meta が公開している事前学習 MLIP 群。mlmm のデフォルト MLIP バックエンド。`--backend uma` で選択（デフォルト）。 |
 | **ORB** | ORB Models | Orbital Materials が提供する MLIP バックエンド。`--backend orb` で選択。`pip install "mlmm-toolkit[orb]"` で追加インストール。 |
-| **MACE** | MACE (Message-passing Atomic Cluster Expansion) | 等変メッセージパッシングに基づく MLIP バックエンド。`--backend mace` で選択。専用の conda 環境で `pip uninstall fairchem-core`（UMA の pin が `e3nn` で衝突するため）を実行してから `pip install mace-torch` でインストールします。 |
+| **MACE** | MACE (Message-passing Atomic Cluster Expansion) | 等変メッセージパッシングに基づく MLIP バックエンド。`--backend mace` で選択。専用の conda 環境で `pip uninstall fairchem-core`（UMA の pin が `e3nn` で衝突するため）を実行してから `pip install 'mace-torch>=0.3.16'` でインストールします。 |
 | **AIMNet2** | Atoms In Molecules Network 2 | ニューラルネットワークベースの MLIP バックエンド。`--backend aimnet2` で選択。`pip install "mlmm-toolkit[aimnet]"` で追加インストール。 |
 | **解析 Hessian** | Analytical Hessian | バックエンドの微分可能な、またはネイティブの Hessian 計算で二階微分を求める方法。計算時間とメモリはバックエンドと系によって変わる。UMA、ORB、MACE、AIMNet2 で使用可能。 |
 | **有限差分** | Finite Difference | 変位させた構造の力から二階微分を近似する方法。計算時間とメモリはバックエンドと系によって変わり、すべての MLIP バックエンドで使用可能。 |

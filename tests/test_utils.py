@@ -61,7 +61,7 @@ def test_freq_and_irc_cache_provenance_uses_detail_tier() -> None:
     assert "detail=True" in irc_source
 
 
-# Skip on Python < 3.11
+# Skip on Python < 3.12
 pytestmark = pytest.mark.skipif(
     sys.version_info < (3, 12),
     reason="mlmm requires Python >= 3.12",
