@@ -18,8 +18,8 @@ from click.testing import CliRunner
 from mlmm.cli import cli as root_cli
 
 pytestmark = pytest.mark.skipif(
-    sys.version_info < (3, 11),
-    reason="mlmm CLI requires Python >= 3.11",
+    sys.version_info < (3, 12),
+    reason="mlmm CLI requires Python >= 3.12",
 )
 
 

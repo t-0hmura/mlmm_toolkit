@@ -7,8 +7,8 @@ import pytest
 # The CLI modules use Python 3.10+ union syntax (str | None) which
 # causes a TypeError on older interpreters at import time.
 pytestmark = pytest.mark.skipif(
-    sys.version_info < (3, 11),
-    reason="mlmm CLI requires Python >= 3.11",
+    sys.version_info < (3, 12),
+    reason="mlmm CLI requires Python >= 3.12",
 )
 
 from click.testing import CliRunner  # noqa: E402

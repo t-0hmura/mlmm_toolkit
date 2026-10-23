@@ -8,8 +8,8 @@ import pytest
 # and 3.7+ features (from __future__ import annotations).
 # Skip those tests on older interpreters.
 _need_py311 = pytest.mark.skipif(
-    sys.version_info < (3, 11),
-    reason="mlmm.cli / mlmm.cli.decorators require Python >= 3.11",
+    sys.version_info < (3, 12),
+    reason="mlmm.cli / mlmm.cli.decorators require Python >= 3.12",
 )
 
 

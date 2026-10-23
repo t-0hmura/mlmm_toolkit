@@ -24,7 +24,7 @@ mlmm opt -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b aim
 |---------|---------|------------------|------------------|
 | `uma` | `pip install mlmm-toolkit`（`fairchem-core` は本体の依存）＋ [Hugging Face へのログイン](installation.md) | `uma-s-1p2p1`（デフォルト）/ `uma-s-1p2p1-ft-d4rev` / `uma-s-1p2` / `uma-m-1p1` | `uma_precision="tf32" \| "fp32" \| "fp64"` |
 | `orb` | `pip install "mlmm-toolkit[orb]"` | `orbmol-v2`（デフォルト）/ `orb_v3_conservative_omol`（エネルギーの勾配から力を求める conservative モデルのみ） | `orb_precision="float32-high" \| "float32-highest" \| "float64"`（`float32-high` は `tf32`、`float32-highest` は `fp32`・`float32` の名前でも受け付けます） |
-| `mace` | 専用の環境で `pip uninstall -y fairchem-core && pip install mace-torch`（`mace-torch` が固定する `e3nn` の版が UMA とぶつかるため、この環境では UMA は動きません） | `MACE-OMOL-0`（デフォルト）/ `MACE-POLAR-1-S` / `-M` / `-L` | `mace_dtype="float32" \| "float64"` |
+| `mace` | 専用の環境で `pip uninstall -y fairchem-core && pip install 'mace-torch>=0.3.16'`（`mace-torch` が固定する `e3nn` の版が UMA とぶつかるため、この環境では UMA は動きません） | `MACE-OMOL-0`（デフォルト）/ `MACE-POLAR-1-S` / `-M` / `-L` | `mace_dtype="float32" \| "float64"` |
 | `aimnet2` | `pip install "mlmm-toolkit[aimnet]"` | `aimnet2`（デフォルト）/ `aimnet2-2025` / `aimnet2-nse` / `aimnet2-pd` | なし |
 
 `--backend-model NAME` は、選んだ `--backend` のモデルを替えます（例：`--backend uma --backend-model uma-m-1p1`）。`-b dft` を付けると ML 領域を [DFT](#dftmm-バックエンド) で計算でき、`--calc-file` で {ref}`任意の ASE calculator <ja-backends-custom-calculator>` を使えます。

@@ -158,7 +158,7 @@ calc:
  # --- UMA バックエンドの設定 ---
  uma_model: uma-s-1p2p1 # UMA モデル名: uma-s-1p2p1, uma-s-1p2p1-ft-d4rev, uma-s-1p2, uma-m-1p1
  uma_task_name: omol # UMA バッチに記録されるタスクタグ (backend=uma 時)
- uma_precision: fp32 # fp32 | fp64 (UMA バックエンドの数値精度)
+ uma_precision: fp32 # tf32 | fp32 | fp64 (UMA バックエンドの数値精度。tf32 は TF32 matmul)
 
  # --- ORB バックエンドの設定 ---
  orb_model: orbmol-v2  # ORB モデル名 (backend=orb 時): orbmol-v2, orb_v3_conservative_omol

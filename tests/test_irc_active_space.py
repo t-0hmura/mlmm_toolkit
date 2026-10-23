@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 
 pytestmark = pytest.mark.skipif(
-    sys.version_info < (3, 11), reason="mlmm requires Python >= 3.11"
+    sys.version_info < (3, 12), reason="mlmm requires Python >= 3.12"
 )
 
 from pysisyphus.irc.IRC import IRC

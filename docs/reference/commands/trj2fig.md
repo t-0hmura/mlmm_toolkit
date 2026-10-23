@@ -35,9 +35,12 @@ Options:
   --backend-model TEXT            Model variant for the selected backend;
                                   defaults to its built-in model.  [default:
                                   (the selected backend's own model)]
-  --precision [tf32|fp32|fp64]    Backend-neutral precision used when energies
-                                  are recomputed.  [default: (per backend: uma
-                                  fp32; orb, mace fp64)]
+  --precision [tf32|fp32|fp64]    MLIP backend precision: tf32, fp32 (IEEE) or
+                                  fp64. Unset defaults per backend (uma: fp32;
+                                  orb, mace: fp64). tf32 uses TF32 matmul for
+                                  speed (uma, orb only); avoid it for Hessians.
+                                  aimnet2: fp32 only.  [default: (per backend:
+                                  uma fp32; orb, mace fp64)]
   --out-json / --no-out-json      Write machine-readable result.json next to the
                                   first output.  [default: no-out-json]
   -h, --help                      Show this message and exit.

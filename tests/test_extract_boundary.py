@@ -8,8 +8,8 @@ import numpy as np
 import pytest
 
 pytestmark = pytest.mark.skipif(
-    sys.version_info < (3, 11),
-    reason="mlmm requires Python >= 3.11",
+    sys.version_info < (3, 12),
+    reason="mlmm requires Python >= 3.12",
 )
 
 # NMET-ALA-ASP-PRO-LYS-GLY-PRO-SER-CYS-GLY-HYP-GLU-ALA-CLYS (ff14SB names), built

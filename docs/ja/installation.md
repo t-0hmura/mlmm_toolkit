@@ -111,7 +111,7 @@ ORB・AIMNet2・MACE・DFT の導入は {ref}`詳細なインストール手順 
 
     ```bash
     pip uninstall -y fairchem-core
-    pip install mace-torch
+    pip install 'mace-torch>=0.3.16'
     ```
 
     **DFT**（`-b dft`、`--dft`、`mlmm dft`）: `[dft]` は Linux x86_64 で CUDA 13 用の GPU4PySCF を導入します。`cuda129` の PyTorch（手順 4）を使うときは、代わりに `[dft-cuda12]` を導入します。aarch64 では [GPU4PySCF](https://github.com/pyscf/gpu4pyscf) をソースからビルドしてください。GPU のない環境でも `[dft]` で PySCF が入り、`--dft-engine cpu` で DFT を実行できます。

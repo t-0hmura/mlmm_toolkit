@@ -8,8 +8,8 @@ import yaml
 # mlmm.cli.decorators uses ``from __future__ import annotations`` (Python 3.7+)
 # and other modern features.  Skip the entire module on older interpreters.
 pytestmark = pytest.mark.skipif(
-    sys.version_info < (3, 11),
-    reason="mlmm.cli.decorators requires Python >= 3.11",
+    sys.version_info < (3, 12),
+    reason="mlmm.cli.decorators requires Python >= 3.12",
 )
 
 

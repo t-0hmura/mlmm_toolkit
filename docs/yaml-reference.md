@@ -159,7 +159,7 @@ calc:
  # --- UMA backend settings ---
  uma_model: uma-s-1p2p1 # uma-s-1p2p1 | uma-s-1p2p1-ft-d4rev | uma-s-1p2 | uma-m-1p1
  uma_task_name: omol # Task tag recorded in UMA batches (UMA backend only)
- uma_precision: fp32 # fp32 | fp64 (UMA backend numerical precision)
+ uma_precision: fp32 # tf32 | fp32 | fp64 (UMA backend numerical precision; tf32 = TF32 matmul)
 
  # --- ORB backend settings ---
  orb_model: orbmol-v2  # ORB model name (ORB backend only): orbmol-v2 | orb_v3_conservative_omol

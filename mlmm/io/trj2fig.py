@@ -10,6 +10,7 @@ For detailed documentation, see: docs/trj2fig.md
 from __future__ import annotations
 
 from mlmm.cli.completion import completion_guard
+from mlmm.cli.common_options import add_precision_option
 
 import csv
 import os
@@ -452,13 +453,7 @@ def run_trj2fig(
     show_default="the selected backend's own model",
     help="Model variant for the selected backend; defaults to its built-in model.",
 )
-@click.option(
-    "--precision",
-    type=click.Choice(["tf32", "fp32", "fp64"], case_sensitive=False),
-    default=None,
-    show_default="per backend: uma fp32; orb, mace fp64",
-    help="Backend-neutral precision used when energies are recomputed.",
-)
+@add_precision_option()
 @click.option(
     "--out-json/--no-out-json",
     default=False,

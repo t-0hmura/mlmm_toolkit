@@ -122,7 +122,7 @@ conda activate <YOUR_MACE_ENV>
 # Install mlmm first, then replace its incompatible UMA dependency with MACE.
 pip install mlmm-toolkit
 pip uninstall -y fairchem-core
-pip install mace-torch            # resolves MACE's required e3nn==0.4.4 last
+pip install 'mace-torch>=0.3.16' # resolves MACE's required e3nn==0.4.4 last
 
 python -c "import mace; print('mace:', mace.__version__)" && echo "mlmm + mace backend OK"
 ```

@@ -194,7 +194,7 @@ ORDERED_SNIPPETS: dict[Path, tuple[str, ...]] = {
     Path("skills/mlmm-install/backends.md"): (
         "Install mlmm first, then replace its incompatible UMA dependency with MACE.",
         "pip uninstall -y fairchem-core",
-        "pip install mace-torch",
+        "pip install 'mace-torch>=0.3.16'",
     ),
 }
 
