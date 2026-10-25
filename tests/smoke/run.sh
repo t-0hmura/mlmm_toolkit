@@ -34,6 +34,12 @@ export PYTHONHASHSEED=0
 # Reduce CUDA allocator fragmentation across the 40+ stage processes.
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 
+# Every capability in this lane is required. Missing prerequisites block the
+# release lane before case 1; they are never converted into a passing skip.
+command -v xtb >/dev/null 2>&1 || {
+  echo "[smoke] BLOCKED: xtb is required by test80 (--embedcharge with an MLIP)" >&2
+  exit 2
+}
 python - <<'PY'
 from importlib.metadata import version
 from pathlib import Path
@@ -715,7 +721,6 @@ PY
 
 # test80: MLIP embedding runs the xTB correction on the ML region with its link
 # hydrogens and returns finite energy and forces that differ from no embedding.
-command -v xtb > /dev/null || { echo "[smoke] BLOCKED: xtb is required by test80 (--embedcharge with an MLIP)" >&2; exit 1; }
 mlmm sp -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --out-json --out-dir test80_sp_uma > test80_sp_uma.out 2>&1
 mlmm sp -i r_complex_layered.pdb --parm7 p_complex.parm7 -q -1 -m 1 --embedcharge --out-json --out-dir test80_sp_uma_embed > test80_sp_uma_embed.out 2>&1
 python - <<'PY'
