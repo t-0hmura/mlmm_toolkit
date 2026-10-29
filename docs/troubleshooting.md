@@ -20,7 +20,7 @@ Find your symptom in the quick table, then read the fix in the section it points
 | Optimizer stalls at a flat energy (possible MLIP noise floor) | Let `--max-cycles` bound the run, or opt in to `--stop-plateau`; tune `--stop-plateau-thresh` / `--stop-plateau-window` if it stops too early or too late | {ref}`Plateau stop <optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor>` |
 | **Installation & environment** | | |
 | UMA model 401 / 403 or gated-repo error (`huggingface_hub.errors.GatedRepoError`) | Run `hf auth login` and accept the UMA model license | {ref}`Installation / environment <installation-environment-problems>` |
-| `orb-models is required for the ORB backend` (or the same for AIMNet2 / MACE) | Install the backend extra: `pip install "mlmm-toolkit[orb]"` or `"mlmm-toolkit[aimnet]"`; MACE goes in a separate environment | {ref}`Backend-specific <troubleshooting-backends>` |
+| `orb-models is required for the ORB backend` (or the same for AIMNet2 / MACE) | Install the backend extra: `pip install "mlmm-toolkit[orb]"` (in a separate environment) or `"mlmm-toolkit[aimnet]"`; MACE also goes in a separate environment | {ref}`Backend-specific <troubleshooting-backends>` |
 | `mm-parm` cannot run (`AmberTools preflight failed`; `tleap` / `antechamber` / `parmchk2` missing) | Make AmberTools available first | {ref}`AmberTools / mm-parm <ambertools--mm-parm>` |
 | `hessian_ff` build or import errors (`hessian_ff build attempts failed`) | Check the C++20 compiler, then rebuild the native extension | {ref}`hessian_ff build / import <hessian_ff-build--import>` |
 | DMF mode import error (`DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2`) | `cyipopt` comes from conda-forge in the conda command of the installation, and `pydmf` is installed with `mlmm-toolkit`; if the import still fails with the default GPU backend, `pip install 'pydmf[torch]'` | {ref}`Installation / environment <installation-environment-problems>` |
@@ -273,7 +273,7 @@ An IRC that stops before it converges is still usable when the endpoint optimiza
 
 - **Symptom**: `orb-models is required for the ORB backend. ...`, `aimnet is required for the AIMNet2 backend. ...`, or `mace-torch is required for the MACE backend. ...`
 - **Fix**:
-  - ORB: `pip install "mlmm-toolkit[orb]"`. AIMNet2: `pip install "mlmm-toolkit[aimnet]"`.
+  - ORB: a separate environment with `pip install "mlmm-toolkit[orb]"`. AIMNet2: `pip install "mlmm-toolkit[aimnet]"`.
   - MACE: use a dedicated environment, `pip uninstall -y fairchem-core && pip install 'mace-torch>=0.3.16'`; `mace-torch` pins `e3nn==0.4.4`, while UMA (`fairchem-core`) needs `e3nn>=0.5`.
   - If ORB still fails to import after installing the extra, run `python -m pip check` and fix the package that the resolver or the import error names; do not add unrelated PyG packages.
 

@@ -95,7 +95,7 @@ ORB・AIMNet2・MACE・DFT の導入は {ref}`詳細なインストール手順 
 
     mlmm-toolkit はデフォルトで UMA を使用します。他のバックエンドは対応する追加パッケージを導入し、`-b/--backend`（例: `-b orb`）で選択します:
 
-    **ORB**:
+    **ORB**: `orb-models` は `nvalchemi-toolkit-ops<0.4` に固定しているので、同じ環境に入れると UMA の `fairchem-core` が古い版に下がります。下の MACE と同じく、手順 2〜6 で作った別の環境に入れ、UMA は元の環境で使います。
 
     ```bash
     pip install "mlmm-toolkit[orb]"

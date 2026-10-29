@@ -23,7 +23,7 @@ mlmm opt -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b aim
 | バックエンド | インストール | モデル名 | 精度の設定 |
 |---------|---------|------------------|------------------|
 | `uma` | `pip install mlmm-toolkit`（`fairchem-core` は本体の依存）＋ [Hugging Face へのログイン](installation.md) | `uma-s-1p2p1`（デフォルト）/ `uma-s-1p2p1-ft-d4rev` / `uma-s-1p2` / `uma-m-1p1` | `uma_precision="tf32" \| "fp32" \| "fp64"` |
-| `orb` | `pip install "mlmm-toolkit[orb]"` | `orbmol-v2`（デフォルト）/ `orb_v3_conservative_omol`（エネルギーの勾配から力を求める conservative モデルのみ） | `orb_precision="float32-high" \| "float32-highest" \| "float64"`（`float32-high` は `tf32`、`float32-highest` は `fp32`・`float32` の名前でも受け付けます） |
+| `orb` | 別の環境で `pip install "mlmm-toolkit[orb]"`（UMA は元の環境で使います） | `orbmol-v2`（デフォルト）/ `orb_v3_conservative_omol`（エネルギーの勾配から力を求める conservative モデルのみ） | `orb_precision="float32-high" \| "float32-highest" \| "float64"`（`float32-high` は `tf32`、`float32-highest` は `fp32`・`float32` の名前でも受け付けます） |
 | `mace` | 専用の環境で `pip uninstall -y fairchem-core && pip install 'mace-torch>=0.3.16'`（`mace-torch` が固定する `e3nn` の版が UMA とぶつかるため、この環境では UMA は動きません） | `MACE-OMOL-0`（デフォルト）/ `MACE-POLAR-1-S` / `-M` / `-L` | `mace_dtype="float32" \| "float64"` |
 | `aimnet2` | `pip install "mlmm-toolkit[aimnet]"` | `aimnet2`（デフォルト）/ `aimnet2-2025` / `aimnet2-nse` / `aimnet2-pd` | なし |
 
@@ -187,7 +187,7 @@ ML/MM の段では、選んだ ML バックエンドと Hessian の途中の配�
 - 環境変数 `MLMM_STRICT_DETERMINISTIC=1` でも、CI のジョブや Python API で同じモードになります。この変数があると、`--no-deterministic` を付けてもモードは切れません。
 - `--deterministic` だけでは、別の計算機やソフトウェアの版でのビット単位の一致は保証されません。使う環境で 2 回実行して比べてください。
 - UMA で `--uma-workers` を 2 以上にすると、`--hessian-calc-mode Analytical` とは併用できず、エラーで止まります。並列の予測器は autograd のモデルを持たないためです。解析 Hessian には `--uma-workers 1` を、複数のワーカーには `FiniteDifference` を使ってください。
-- MACE は UMA と同じ環境には入れられません。専用の conda 環境に入れてください。
+- MACE は UMA と同じ環境には入れられません。専用の conda 環境に入れてください。ORB も別の環境に入れてください。
 - パッケージを入れていないバックエンドを選ぶと、``orb-models is required for the ORB backend. Install with `pip install orb-models`.`` のようなエラーで止まります。
 - `--embedcharge` はエネルギー、力、Hessian を求めるたびに、MM の点電荷あり・なしで xTB を実行します。ML 領域は 200〜300 原子くらいまでにし、実際の系で先に計算時間を測ってください。xTB の補正の Hessian は ML 原子と link H についての有限差分です。そのときの点電荷にかかる力から ML–MM の部分を、ML 領域の xTB の原子電荷から MM–MM の部分を求めるので、MM 原子が多くても重くなりません。
 

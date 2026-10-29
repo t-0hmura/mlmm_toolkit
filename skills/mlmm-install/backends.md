@@ -5,7 +5,7 @@ unknown host. The install order, verification, and failure table are in
 [SKILL.md](SKILL.md).
 
 - [UMA](#uma)
-- [ORB](#orb)
+- [ORB (separate environment)](#orb-separate-environment)
 - [MACE (separate environment)](#mace-separate-environment)
 - [AIMNet2](#aimnet2)
 - [DFT (PySCF, GPU4PySCF)](#dft-pyscf-gpu4pyscf)
@@ -70,14 +70,17 @@ Pitfalls:
   `python -c "from fairchem.core import pretrained_mlip; pretrained_mlip.get_predict_unit('uma-s-1p2p1', device='cpu')"`,
   then `export HF_HUB_OFFLINE=1` in the job script.
 
-## ORB
+## ORB (separate environment)
 
 ORB (`-b orb`) is an energy-conserving MLIP from `orb-models`. The `[orb]`
-extra installs orb-models 0.7 or newer.
+extra installs orb-models 0.7 or newer. orb-models pins
+`nvalchemi-toolkit-ops<0.4`, so in the same env pip lowers `fairchem-core` to
+2.22, and UMA models that need a newer fairchem (such as `uma-s-1p2p1-ft-d4rev`)
+no longer load. Build a second env as for MACE below and keep UMA in the
+default env.
 
 ```bash
-pip install 'mlmm-toolkit[orb]'   # pulls orb-models
-pip install orb-models            # when mlmm-toolkit is already installed
+pip install 'mlmm-toolkit[orb]'   # in the ORB env; pulls orb-models
 python -c "import orb_models; print('orb backend OK:', orb_models.__version__)"
 ```
 
@@ -116,8 +119,8 @@ representative structures and stationary points for your system.
 
 `mace-torch` pins `e3nn==0.4.4`, while `fairchem-core` (UMA) needs
 `e3nn>=0.5`, so the two cannot share an env. Keep UMA in your default env and
-put MACE in a second env. ORB goes in the default env; AIMNet2, DFT,
-and xTB can sit in either. mlmm-toolkit is the same code in both envs; only
+put MACE in a second env. ORB also gets its own env; AIMNet2, DFT,
+and xTB can sit in any of them. mlmm-toolkit is the same code in both envs; only
 the backend set differs.
 
 ```bash

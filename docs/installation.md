@@ -97,7 +97,7 @@ If you prefer to build the environment piece by piece:
 
     mlmm-toolkit uses UMA by default. For another backend, install its extra and select it with `-b/--backend` (for example, `-b orb`):
 
-    **ORB**:
+    **ORB**: `orb-models` pins `nvalchemi-toolkit-ops<0.4`, so pip would lower UMA's `fairchem-core` to an older release. Install ORB in a separate environment built with steps 2-6, as for MACE below, and keep UMA in the main one.
 
     ```bash
     pip install "mlmm-toolkit[orb]"

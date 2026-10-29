@@ -30,7 +30,7 @@ mlmm opt -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b aim
 | backend | install | model identifier | precision option |
 |---------|---------|------------------|------------------|
 | `uma` | `pip install mlmm-toolkit` (`fairchem-core` is a core dependency) + [Hugging Face login](installation.md) | `uma-s-1p2p1` (default) / `uma-s-1p2p1-ft-d4rev` / `uma-s-1p2` / `uma-m-1p1` | `uma_precision="tf32" \| "fp32" \| "fp64"` |
-| `orb` | `pip install "mlmm-toolkit[orb]"` | `orbmol-v2` (default) / `orb_v3_conservative_omol` (conservative models only, which take the forces from the energy gradient) | `orb_precision="float32-high" \| "float32-highest" \| "float64"` (`tf32` is accepted for `float32-high`, and `fp32` / `float32` for `float32-highest`) |
+| `orb` | separate env: `pip install "mlmm-toolkit[orb]"` (UMA stays in the main env) | `orbmol-v2` (default) / `orb_v3_conservative_omol` (conservative models only, which take the forces from the energy gradient) | `orb_precision="float32-high" \| "float32-highest" \| "float64"` (`tf32` is accepted for `float32-high`, and `fp32` / `float32` for `float32-highest`) |
 | `mace` | dedicated env: `pip uninstall -y fairchem-core && pip install 'mace-torch>=0.3.16'` (`mace-torch` pins an `e3nn` version that conflicts with UMA, so UMA does not run in this env) | `MACE-OMOL-0` (default) / `MACE-POLAR-1-S` / `-M` / `-L` | `mace_dtype="float32" \| "float64"` |
 | `aimnet2` | `pip install "mlmm-toolkit[aimnet]"` | `aimnet2` (default) / `aimnet2-2025` / `aimnet2-nse` / `aimnet2-pd` | n/a |
 
@@ -305,7 +305,7 @@ ML-region energy, forces, and Hessian in the correct units.
   `--hessian-calc-mode Analytical`: the run stops with an error because the
   parallel predictor has no autograd model. Use `--uma-workers 1` for an
   analytical Hessian, or `FiniteDifference` with several workers.
-- MACE cannot share an environment with UMA; install it in its own conda env.
+- MACE cannot share an environment with UMA; install it in its own conda env. Install ORB in its own env as well.
 - A backend whose package is not installed stops with an error such as ``orb-models is required for the ORB backend. Install with `pip install orb-models`.``
 - `--embedcharge` runs xTB with and without the MM point charges at every
   energy, force, and Hessian evaluation; keep the ML region to about 200–300

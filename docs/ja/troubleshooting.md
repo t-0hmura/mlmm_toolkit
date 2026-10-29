@@ -20,7 +20,7 @@
 | エネルギーが平坦なのに最適化が終わらない（MLIP のノイズフロアの可能性） | `--max-cycles` に任せるか、`--stop-plateau` で早期停止を有効にしてください。止まるのが早すぎる・遅すぎるときは `--stop-plateau-thresh` / `--stop-plateau-window` を調整します | {ref}`プラトーでの停止 <ja-optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor>` |
 | **インストール / 環境** | | |
 | UMA モデルで 401 / 403 / アクセス制限付きリポジトリのエラー（`huggingface_hub.errors.GatedRepoError`） | `hf auth login` でログインし、UMA モデルのライセンスに同意してください | {ref}`インストール / 環境の問題 <ja-installation-environment-problems>` |
-| `orb-models is required for the ORB backend`（AIMNet2 / MACE も同様） | バックエンドの追加パッケージを入れてください：`pip install "mlmm-toolkit[orb]"` または `"mlmm-toolkit[aimnet]"`。MACE は別の環境に入れます | {ref}`バックエンド固有の問題 <ja-troubleshooting-backends>` |
+| `orb-models is required for the ORB backend`（AIMNet2 / MACE も同様） | バックエンドの追加パッケージを入れてください：`pip install "mlmm-toolkit[orb]"`（別の環境に）または `"mlmm-toolkit[aimnet]"`。MACE も別の環境に入れます | {ref}`バックエンド固有の問題 <ja-troubleshooting-backends>` |
 | `mm-parm` が実行できない（`AmberTools preflight failed`。`tleap` / `antechamber` / `parmchk2` が無い） | 先に AmberTools を使えるようにしてください | {ref}`AmberTools / mm-parm の問題 <ja-ambertools--mm-parm>` |
 | `hessian_ff` のビルドや import のエラー（`hessian_ff build attempts failed`） | C++20 のコンパイラを確かめ、ネイティブ拡張を作り直してください | {ref}`hessian_ff ビルドの問題 <ja-hessian_ff-build--import>` |
 | DMF モードの import エラー（`DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2`） | `cyipopt` はインストールの conda のコマンドで conda-forge から入り、`pydmf` は `mlmm-toolkit` と一緒に入ります。デフォルトの GPU 版でそれでもインポートに失敗するときは、`pip install 'pydmf[torch]'` | {ref}`インストール / 環境の問題 <ja-installation-environment-problems>` |
@@ -267,7 +267,7 @@ IRC が収束せずに止まっても、端点の最適化で狙った R と P �
 
 - **症状**：`orb-models is required for the ORB backend. ...`、`aimnet is required for the AIMNet2 backend. ...`、`mace-torch is required for the MACE backend. ...` が出る。
 - **対処**：
-  - ORB：`pip install "mlmm-toolkit[orb]"`。AIMNet2：`pip install "mlmm-toolkit[aimnet]"`。
+  - ORB：別の環境で `pip install "mlmm-toolkit[orb]"`。AIMNet2：`pip install "mlmm-toolkit[aimnet]"`。
   - MACE：専用の環境で `pip uninstall -y fairchem-core && pip install 'mace-torch>=0.3.16'` を実行してください。`mace-torch` は `e3nn==0.4.4` に固定し、UMA（`fairchem-core`）は `e3nn>=0.5` を必要とします。
   - 追加パッケージを入れても ORB を import できないときは、`python -m pip check` を実行し、依存関係の解決か import のエラーが名指ししたパッケージを直してください。関係のない PyG のパッケージは入れないでください。
 

@@ -60,7 +60,7 @@ pip install 'mlmm-toolkit[orb,aimnet,dft]'   # extras as needed
 | Extra | Pulls in | When you need it |
 |---|---|---|
 | (none) | UMA via `fairchem-core`, base deps | Default; `-b uma` works |
-| `[orb]` | `orb-models>=0.7.0` | `-b orb` |
+| `[orb]` | `orb-models>=0.7.0` | `-b orb`, in a separate env |
 | `[aimnet]` | `aimnet>=0.2.0` | `-b aimnet2` |
 | `[dft]` | PySCF, CUDA 13 GPU4PySCF and CuPy on Linux x86_64 | DFT with the `cuda130` PyTorch build |
 | `[dft-cuda12]` | PySCF, CUDA 12 GPU4PySCF and CuPy on Linux x86_64 | DFT with the `cuda129` PyTorch build |
@@ -68,7 +68,8 @@ pip install 'mlmm-toolkit[orb,aimnet,dft]'   # extras as needed
 
 There is no `[mace]` extra, because `mace-torch` and `fairchem-core` need
 different `e3nn` versions; MACE goes in a separate env
-([MACE](backends.md#mace-separate-environment)). `pyproject.toml` holds the
+([MACE](backends.md#mace-separate-environment)). ORB also goes in its own env
+([ORB](backends.md#orb-separate-environment)). `pyproject.toml` holds the
 full list of extras and pins.
 
 Contributors install from source; `pip install -e` picks up edits without a
@@ -109,7 +110,7 @@ separately ([MACE](backends.md#mace-separate-environment)).
 | `-b` | Default model | Install | Notes |
 |---|---|---|---|
 | `uma` (default) | `uma-s-1p2p1`; `uma-s-1p2p1-ft-d4rev`, `uma-s-1p2`, `uma-m-1p1` via `--backend-model` | Core dependency; gated weights need a Hugging Face login | fp32 by default |
-| `orb` | `orbmol-v2`; `orb_v3_conservative_omol` via `--backend-model` | `[orb]` extra | fp64 by default; `--precision fp32` is for screening |
+| `orb` | `orbmol-v2`; `orb_v3_conservative_omol` via `--backend-model` | `[orb]` extra in a separate env | fp64 by default; `--precision fp32` is for screening |
 | `mace` | `MACE-OMOL-0`; `MACE-POLAR-1-S`/`-M`/`-L` (mace-torch >= 0.3.16) via `--backend-model` | Separate env (`e3nn` conflict) | fp64 by default |
 | `aimnet2` | `aimnet2`; `aimnet2-2025`, `aimnet2-nse` (open-shell), `aimnet2-pd` via `--backend-model` | `[aimnet]` extra | fp32 only; `--precision fp64` stops with an error |
 
