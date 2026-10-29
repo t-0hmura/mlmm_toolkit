@@ -62,7 +62,13 @@ Pitfalls:
 - A frequency calculation runs out of VRAM: compare Hessian modes and model
   sizes on a representative pilot, or move Hessian assembly to the CPU.
 - The first call is slower than later ones: the model is downloaded once
-  (cache in `~/.cache/huggingface/hub/`) and the kernels are compiled.
+  (cache in `$FAIRCHEM_CACHE_DIR`, default `~/.cache/fairchem`) and the
+  kernels are compiled.
+- Compute nodes without internet access: with the same env and the same
+  `FAIRCHEM_CACHE_DIR` on a shared filesystem, fetch each model once on a
+  login node, e.g.
+  `python -c "from fairchem.core import pretrained_mlip; pretrained_mlip.get_predict_unit('uma-s-1p2p1', device='cpu')"`,
+  then `export HF_HUB_OFFLINE=1` in the job script.
 
 ## ORB
 
