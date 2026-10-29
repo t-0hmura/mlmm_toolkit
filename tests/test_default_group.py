@@ -84,6 +84,70 @@ def test_output_directory_command_writes_run_log(tmp_path: Path) -> None:
     assert "work-complete" in log
 
 
+def test_run_log_is_written_during_the_run_and_appends_on_rerun(tmp_path: Path) -> None:
+    cli = _make_group()
+    seen_during_run: list[str] = []
+
+    @cli.command(name="work")
+    @click.option("-o", "--out-dir", default="result_work")
+    @click.option("--tag", default="first")
+    def work_cmd(out_dir: str, tag: str) -> None:
+        Path(out_dir).mkdir(parents=True, exist_ok=True)
+        click.echo(f"work-{tag}")
+        seen_during_run.append((Path(out_dir) / "run.log").read_text(encoding="utf-8"))
+
+    out = tmp_path / "result"
+    assert CliRunner().invoke(cli, ["work", "-o", str(out)]).exit_code == 0
+    assert CliRunner().invoke(cli, ["work", "-o", str(out), "--tag", "second"]).exit_code == 0
+
+    assert "work-first" in seen_during_run[0]
+    log = (out / "run.log").read_text(encoding="utf-8")
+    assert log.count("[command] mlmm work") == 2
+    assert log.index("work-first") < log.index("--tag second") < log.index("work-second")
+
+
+def test_run_log_keeps_c_library_child_and_logging_output(tmp_path: Path) -> None:
+    import subprocess
+    import sys
+    import textwrap
+
+    out = tmp_path / "result"
+    script = textwrap.dedent(
+        """
+        import ctypes, logging, os, subprocess, sys, time
+        from pathlib import Path
+        from mlmm.cli import default_group as dg
+
+        out = Path(sys.argv[1])
+        out.mkdir()
+        dg._C_FLUSH_INTERVAL_SECONDS = 0.2
+        handler = logging.StreamHandler(sys.stderr)  # bound before the capture, like torch's
+        log = logging.getLogger("bound-early")
+        log.addHandler(handler)
+        sink = dg._RunLogSink(out, "[command] mlmm probe\\n")
+        with dg._capture_run_log(sink):
+            print("python-stdout")
+            os.write(1, b"fd-stdout\\n")
+            os.write(2, b"fd-stderr\\n")
+            subprocess.run([sys.executable, "-c", "print('child-output')"], check=True)
+            log.warning("logging-stderr")
+            ctypes.CDLL(None).puts(b"c-stdio-output")
+            time.sleep(1.0)
+            print("during:" + str("c-stdio-output" in (out / "run.log").read_text()))
+        sink.close()
+        """
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script, str(out)], capture_output=True, text=True, timeout=120
+    )
+    assert result.returncode == 0, result.stderr
+    log = (out / "run.log").read_text(encoding="utf-8")
+    for text in ("python-stdout", "fd-stdout", "fd-stderr", "child-output",
+                 "logging-stderr", "c-stdio-output", "during:True"):
+        assert text in log, text
+    assert "python-stdout" in result.stdout and "fd-stderr" in result.stderr
+
+
 def test_help_does_not_trigger_default_subcommand() -> None:
     cli = _make_group(default="all")
 

@@ -9,7 +9,7 @@
 | `summary.json` | `all` / `path-search` | 集約ワークフローの JSON 結果（[JSON 出力の一覧](json-output.md)）。 |
 | `summary.json` | `--out-json`（デフォルト: `--no-out-json`）を指定した個別計算・レポートのコマンド | そのコマンドの `result.json` の写し。書き込みが正常に終われば同一内容です。`mm-parm`、`define-layer`、`fix-altloc`、`add-elem-info`、`bond-summary`、`oniom-export`、`oniom-import` は書き出しません。 |
 | `result.json` | `--out-json` を指定した `opt`、`tsopt`、`freq`、`irc`、`sp`、`scan` / `scan2d` / `scan3d`、`path-opt`、`dft`、`extract`、`trj2fig`、`energy-diagram` | 個別計算・レポートの JSON 結果。収束せずに終わった場合も書き出します。`extract`、`trj2fig`、`energy-diagram` は、最初の出力ファイルと同じ場所に書きます。 |
-| `run.log` | 出力ディレクトリが作られた後の CLI / Colab 実行 | シェルでそのまま使える形の実行コマンドと、コマンド実行中の標準出力・標準エラー。実行がどう終わったかを示す行も入り、その行は各コマンドのページにあります（例：[opt の収束の判定](opt.md#収束の判定)）。ヘルプ、バージョン、dry-run の呼び出しと、出力ディレクトリを持たないコマンド（`extract`、`mm-parm`、`define-layer`、`add-elem-info`、`fix-altloc`、`bond-summary`、`trj2fig`、`energy-diagram`、`oniom-export`、`oniom-import`）では生成しません。 |
+| `run.log` | 出力ディレクトリが作られた後の CLI / Colab 実行 | シェルでそのまま使える形の実行コマンドと、コマンド実行中の標準出力・標準エラー（外部ライブラリの出力を含む）。実行中に随時書き込まれ、同じディレクトリで再実行すると前の記録の後に追記されます。実行がどう終わったかを示す行も入り、その行は各コマンドのページにあります（例：[opt の収束の判定](opt.md#収束の判定)）。ヘルプ、バージョン、dry-run の呼び出しと、出力ディレクトリを持たないコマンド（`extract`、`mm-parm`、`define-layer`、`add-elem-info`、`fix-altloc`、`bond-summary`、`trj2fig`、`energy-diagram`、`oniom-export`、`oniom-import`）では生成しません。 |
 | `summary.log` | `path-search`、`all` | テキストの要約。ヘッダーに `Scientific status` があり、番号付きの節にセグメントごとの障壁と結合の変化、出力のツリーが入ります（[all の実行結果の判定](all.md#実行結果の判定)）。 |
 | `final_geometry.xyz` / `final_geometry.pdb` | `opt`、`tsopt` | 最適化された構造で、次のコマンドに渡す構造です。最適化が収束しなかった場合も書きます。`.xyz` は常に書き、`.pdb` は PDB/mmCIF 入力のときに書き、B-factor に層を持ちます。 |
 | `mep_trj.pdb` / `mep_trj.cif` / `mep_trj.xyz` | `path-search` | 反応経路のフレーム。mmCIF・大きな PDB の入力でファイル変換が有効なときは `.cif` も書き出します。 |

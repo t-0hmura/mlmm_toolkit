@@ -6,9 +6,8 @@ import contextlib
 import importlib
 import os
 import shlex
-import shutil
 import sys
-import tempfile
+import threading
 from collections.abc import Callable, Mapping
 from pathlib import Path
 
@@ -47,15 +46,84 @@ _INTERNAL_IMPORT_ROOTS = frozenset(
 )
 
 
-class _TeeText:
-    """Mirror text to the live terminal and an in-memory run transcript."""
+_C_FLUSH_INTERVAL_SECONDS = 5.0
 
-    def __init__(self, stream, transcript):
+
+def _write_all(write, data) -> None:
+    view = memoryview(data)
+    while view:
+        view = view[write(view):]
+
+
+class _RunLogSink:
+    """Append the command's output to ``<out-dir>/run.log`` as it is produced.
+
+    Output that arrives before the command creates its output directory is
+    held in memory and written once the directory exists. A rerun into the
+    same directory appends after the previous run's log.
+    """
+
+    def __init__(self, directory: Path, header: str):
+        self._path = directory / "run.log"
+        self._pending = bytearray(header.encode("utf-8"))
+        self._handle = None
+        self._closed = False
+        self._lock = threading.Lock()
+        self.error: OSError | None = None
+
+    def _ready(self) -> bool:
+        if self._handle is not None:
+            return True
+        if not self._path.parent.is_dir():
+            return False
+        handle = open(self._path, "ab", buffering=0)
+        try:
+            if handle.tell() > 0:
+                _write_all(handle.write, b"\n")
+            _write_all(handle.write, bytes(self._pending))
+        except OSError:
+            handle.close()
+            raise
+        self._pending.clear()
+        self._handle = handle
+        return True
+
+    def write(self, data: bytes) -> None:
+        with self._lock:
+            if self._closed or self.error is not None:
+                return
+            try:
+                if self._ready():
+                    _write_all(self._handle.write, data)
+                else:
+                    self._pending += data
+            except OSError as exc:
+                self.error = exc
+
+    def close(self) -> None:
+        with self._lock:
+            if self._closed:
+                return
+            self._closed = True
+            try:
+                if self.error is None:
+                    self._ready()
+            except OSError as exc:
+                self.error = exc
+            if self._handle is not None:
+                self._handle.close()
+                self._handle = None
+
+
+class _TeeText:
+    """Mirror text to a replaced sys.stdout/sys.stderr and to the run log."""
+
+    def __init__(self, stream, sink: _RunLogSink):
         self._stream = stream
-        self._transcript = transcript
+        self._sink = sink
 
     def write(self, value):
-        self._transcript.write(value)
+        self._sink.write(value.encode("utf-8", errors="replace"))
         return self._stream.write(value)
 
     def flush(self):
@@ -65,35 +133,129 @@ class _TeeText:
         return getattr(self._stream, name)
 
 
-def _publish_run_log(directory: Path, transcript) -> None:
-    """Atomically publish the ordinary CLI transcript beside its results."""
+class _FdTee:
+    """Copy everything written to file descriptor *fd* (by Python, C libraries
+    or child processes) to its original destination and to the run log."""
 
-    if not directory.is_dir():
-        return
-    temporary = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            encoding="utf-8",
-            newline="",
-            prefix=".run.log.",
-            suffix=".tmp",
-            dir=directory,
-            delete=False,
-        ) as handle:
-            temporary = Path(handle.name)
-            transcript.seek(0)
-            shutil.copyfileobj(transcript, handle, length=1024 * 1024)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(temporary, directory / "run.log")
-        temporary = None
-    finally:
-        if temporary is not None:
+    def __init__(self, fd: int, sink: _RunLogSink):
+        self._fd = fd
+        self._sink = sink
+        self._saved = os.dup(fd)
+        try:
+            read_end, write_end = os.pipe()
+        except OSError:
+            os.close(self._saved)
+            raise
+        os.dup2(write_end, fd)
+        os.close(write_end)
+        self._read_end = read_end
+        self._thread = threading.Thread(target=self._pump, name=f"run-log-fd{fd}", daemon=True)
+        self._thread.start()
+
+    def _pump(self) -> None:
+        while True:
             try:
-                temporary.unlink(missing_ok=True)
+                data = os.read(self._read_end, 65536)
+            except OSError:
+                return
+            if not data:
+                return
+            try:
+                _write_all(lambda chunk: os.write(self._saved, chunk), data)
             except OSError:
                 pass
+            self._sink.write(data)
+
+    def restore(self) -> None:
+        os.dup2(self._saved, self._fd)
+
+    def finish(self) -> None:
+        # A child process that outlives the command keeps the pipe open; stop
+        # waiting after a short grace period and leave both ends to the pump.
+        self._thread.join(timeout=5.0)
+        if not self._thread.is_alive():
+            os.close(self._read_end)
+            os.close(self._saved)
+
+
+def _libc_fflush():
+    """Return a callable that flushes the C stdio buffers, or None."""
+    try:
+        import ctypes
+
+        fflush = ctypes.CDLL(None).fflush
+    except (OSError, AttributeError):
+        return None
+    fflush.argtypes = [ctypes.c_void_p]
+    return lambda: fflush(None)
+
+
+def _start_fd_tees(sink: _RunLogSink, fflush) -> list[_FdTee]:
+    try:
+        if sys.stdout.fileno() != 1 or sys.stderr.fileno() != 2:
+            return []
+    except (AttributeError, OSError, ValueError):
+        return []
+    for stream in (sys.stdout, sys.stderr):
+        stream.flush()
+    if fflush is not None:
+        fflush()
+    tees: list[_FdTee] = []
+    try:
+        for fd in (1, 2):
+            tees.append(_FdTee(fd, sink))
+    except OSError:
+        for tee in tees:
+            tee.restore()
+            tee.finish()
+        return []
+    return tees
+
+
+@contextlib.contextmanager
+def _capture_run_log(sink: _RunLogSink):
+    """Send stdout and stderr to the run log while the command runs."""
+    fflush = _libc_fflush()
+    tees = _start_fd_tees(sink, fflush)
+    if not tees:
+        # In-process callers (tests, notebooks) replace sys.stdout/sys.stderr.
+        with contextlib.redirect_stdout(_TeeText(sys.stdout, sink)), \
+                contextlib.redirect_stderr(_TeeText(sys.stderr, sink)):
+            yield
+        return
+
+    # Python output reaches run.log line by line; C stdio buffers (for
+    # example Ipopt in DMF) are flushed every few seconds.
+    line_buffering = getattr(sys.stdout, "line_buffering", None)
+    with contextlib.suppress(AttributeError, ValueError):
+        sys.stdout.reconfigure(line_buffering=True)
+    stop = threading.Event()
+    flusher = None
+    if fflush is not None:
+        def _flush_c_streams() -> None:
+            while not stop.wait(_C_FLUSH_INTERVAL_SECONDS):
+                fflush()
+
+        flusher = threading.Thread(target=_flush_c_streams, name="run-log-flush", daemon=True)
+        flusher.start()
+    try:
+        yield
+    finally:
+        stop.set()
+        if flusher is not None:
+            flusher.join(timeout=1.0)
+        for stream in (sys.stdout, sys.stderr):
+            with contextlib.suppress(Exception):
+                stream.flush()
+        if fflush is not None:
+            fflush()
+        for tee in tees:
+            tee.restore()
+        for tee in tees:
+            tee.finish()
+        if line_buffering is not None:
+            with contextlib.suppress(AttributeError, ValueError):
+                sys.stdout.reconfigure(line_buffering=line_buffering)
 
 
 def _is_external_missing_dependency(exc: ModuleNotFoundError) -> bool:
@@ -485,23 +647,15 @@ class DefaultGroup(click.Group):
         if run_log_dir is None:
             return super().invoke(ctx)
 
-        transcript = tempfile.SpooledTemporaryFile(
-            mode="w+", encoding="utf-8", newline="", max_size=1024 * 1024
-        )
         raw = list(ctx.meta.get("mlmm.cli.raw_args") or ())
-        transcript.write(f"[command] {shlex.join(['mlmm', *raw])}\n")
-        stdout = _TeeText(sys.stdout, transcript)
-        stderr = _TeeText(sys.stderr, transcript)
+        sink = _RunLogSink(run_log_dir, f"[command] {shlex.join(['mlmm', *raw])}\n")
         try:
-            with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            with _capture_run_log(sink):
                 return super().invoke(ctx)
         finally:
-            try:
-                _publish_run_log(run_log_dir, transcript)
-            except OSError as exc:
-                click.echo(f"[run.log] WARNING: Could not save run.log: {exc}", err=True)
-            finally:
-                transcript.close()
+            sink.close()
+            if sink.error is not None:
+                click.echo(f"[run.log] WARNING: Could not save run.log: {sink.error}", err=True)
 
     def _run_log_directory(self, ctx) -> Path | None:
         """Resolve the selected command's Click-owned output directory."""
