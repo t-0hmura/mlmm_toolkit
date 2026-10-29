@@ -38,7 +38,7 @@ nvidia-smi -L >/dev/null     || { echo "no GPU visible"; exit 1; }
 
 # Prebuilt PyTorch/backend wheels need a compatible NVIDIA driver, not a local
 # CUDA toolkit module. hessian_ff still JIT-compiles C++ kernels on first use;
-# if the system g++ cannot compile in C++20 mode, load <COMPILER_MODULE> here.
+# if the compiler checked below cannot compile in C++20 mode, load <COMPILER_MODULE> here.
 # Load <CUDA_MODULE> separately only for an extension that needs that toolkit.
 # The default workers=1 run needs no MPI launcher.
 
@@ -46,9 +46,14 @@ nvidia-smi -L >/dev/null     || { echo "no GPU visible"; exit 1; }
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate <YOUR_ENV>
 python -c "import sys, torch; ok=torch.cuda.is_available(); print('cuda:', ok, 'device:', torch.cuda.get_device_name(0) if ok else 'unavailable'); sys.exit(0 if ok else 2)"
-command -v g++ >/dev/null || { echo "g++ is required for hessian_ff" >&2; exit 1; }
-if ! g++ -std=c++20 -x c++ -fsyntax-only /dev/null; then
-    echo "hessian_ff requires a compiler supporting PyTorch's C++20 JIT flag" >&2
+# hessian_ff builds with $CXX, else the env's conda g++, else c++
+CXX_CMD="${CXX:-}"
+if [ -z "${CXX_CMD}" ]; then
+    CXX_CMD="$(python -c 'import sys; print(sys.prefix)')/bin/$(uname -m)-conda-linux-gnu-g++"
+    [ -x "${CXX_CMD}" ] || CXX_CMD=c++
+fi
+if ! ${CXX_CMD} -std=c++20 -x c++ -fsyntax-only /dev/null; then
+    echo "hessian_ff requires a compiler supporting PyTorch's C++20 JIT flag (checked: ${CXX_CMD})" >&2
     exit 1
 fi
 command -v ninja >/dev/null || { echo "ninja is required for hessian_ff" >&2; exit 1; }
@@ -87,13 +92,18 @@ cd "${SLURM_SUBMIT_DIR}"
 command -v conda >/dev/null || { echo "ERROR: conda not on PATH"; exit 1; }
 nvidia-smi -L >/dev/null || { echo "ERROR: no GPU visible"; exit 1; }
 # Prebuilt wheels need no CUDA toolkit module. hessian_ff needs a C++20-capable compiler;
-# load <COMPILER_MODULE> here if the system g++ is missing or too old.
+# load <COMPILER_MODULE> here if the compiler checked below is missing or too old.
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate <YOUR_ENV>
 python -c "import sys, torch; ok=torch.cuda.is_available(); print('cuda:', ok, 'device:', torch.cuda.get_device_name(0) if ok else 'unavailable'); sys.exit(0 if ok else 2)"
-command -v g++ >/dev/null || { echo "g++ is required for hessian_ff" >&2; exit 1; }
-if ! g++ -std=c++20 -x c++ -fsyntax-only /dev/null; then
-    echo "hessian_ff requires a compiler supporting PyTorch's C++20 JIT flag" >&2
+# hessian_ff builds with $CXX, else the env's conda g++, else c++
+CXX_CMD="${CXX:-}"
+if [ -z "${CXX_CMD}" ]; then
+    CXX_CMD="$(python -c 'import sys; print(sys.prefix)')/bin/$(uname -m)-conda-linux-gnu-g++"
+    [ -x "${CXX_CMD}" ] || CXX_CMD=c++
+fi
+if ! ${CXX_CMD} -std=c++20 -x c++ -fsyntax-only /dev/null; then
+    echo "hessian_ff requires a compiler supporting PyTorch's C++20 JIT flag (checked: ${CXX_CMD})" >&2
     exit 1
 fi
 command -v ninja >/dev/null || { echo "ninja is required for hessian_ff" >&2; exit 1; }

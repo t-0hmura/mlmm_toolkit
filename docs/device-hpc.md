@@ -86,16 +86,21 @@ set -euo pipefail
 hostname
 cd "${PBS_O_WORKDIR}"
 
-# hessian_ff JIT-compiles C++ kernels on first use. If the system compiler is
-# missing or cannot compile in C++20 mode, load the site's compiler module here:
+# hessian_ff JIT-compiles C++ kernels on first use. If the compiler checked below
+# is missing or cannot compile in C++20 mode, load the site's compiler module here:
 # module load <COMPILER_MODULE>
 
 # Activate conda environment
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate <your-env>
-command -v g++ >/dev/null || { echo "g++ is required for hessian_ff" >&2; exit 1; }
-if ! g++ -std=c++20 -x c++ -fsyntax-only /dev/null; then
-  echo "hessian_ff requires a compiler supporting PyTorch's C++20 JIT flag" >&2
+# hessian_ff builds with $CXX, else the env's conda g++, else c++
+CXX_CMD="${CXX:-}"
+if [ -z "${CXX_CMD}" ]; then
+  CXX_CMD="$(python -c 'import sys; print(sys.prefix)')/bin/$(uname -m)-conda-linux-gnu-g++"
+  [ -x "${CXX_CMD}" ] || CXX_CMD=c++
+fi
+if ! ${CXX_CMD} -std=c++20 -x c++ -fsyntax-only /dev/null; then
+  echo "hessian_ff requires a compiler supporting PyTorch's C++20 JIT flag (checked: ${CXX_CMD})" >&2
   exit 1
 fi
 command -v ninja >/dev/null || { echo "ninja is required for hessian_ff" >&2; exit 1; }
@@ -129,9 +134,14 @@ hostname
 # module load <COMPILER_MODULE>
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate <your-env>
-command -v g++ >/dev/null || { echo "g++ is required for hessian_ff" >&2; exit 1; }
-if ! g++ -std=c++20 -x c++ -fsyntax-only /dev/null; then
-  echo "hessian_ff requires a compiler supporting PyTorch's C++20 JIT flag" >&2
+# hessian_ff builds with $CXX, else the env's conda g++, else c++
+CXX_CMD="${CXX:-}"
+if [ -z "${CXX_CMD}" ]; then
+  CXX_CMD="$(python -c 'import sys; print(sys.prefix)')/bin/$(uname -m)-conda-linux-gnu-g++"
+  [ -x "${CXX_CMD}" ] || CXX_CMD=c++
+fi
+if ! ${CXX_CMD} -std=c++20 -x c++ -fsyntax-only /dev/null; then
+  echo "hessian_ff requires a compiler supporting PyTorch's C++20 JIT flag (checked: ${CXX_CMD})" >&2
   exit 1
 fi
 command -v ninja >/dev/null || { echo "ninja is required for hessian_ff" >&2; exit 1; }
@@ -175,7 +185,7 @@ mlmm opt -i r_complex_layered.pdb --parm7 real.parm7 -q -1 --config config.yaml
 * **One GPU for ML inference**: with the default `--uma-workers 1`, ML inference runs on the one GPU set by `ml_cuda_idx`. For `--uma-workers` above 1, see [MLIP Backends › Workers and Hessian mode](backends.md#workers-and-hessian-mode).
 * **ML and MM on one GPU share its memory**: when both use CUDA on the same device, measure the peak memory on a representative test run, and use `mm_device: cpu` for a large system.
 * **`--hess-device cpu` does not prevent every out-of-memory error**: an out-of-memory error inside the backend while the Hessian is being evaluated happens before the Hessian is moved. Make the model smaller, or choose a Hessian or backend setting that uses less memory.
-* **C++ compiler on every compute node**: the default `hessian_ff` MM backend JIT-compiles C++ kernels on first use, independently of CUDA. Every compute node needs a C++20-capable compiler and Ninja (GCC 13.3 was validated); load a compiler module when the system `g++` is absent or too old. The job scripts above check both.
+* **C++ compiler on every compute node**: the default `hessian_ff` MM backend JIT-compiles C++ kernels on first use, independently of CUDA. Every compute node needs a C++20-capable compiler and Ninja (GCC 13.3 was validated); hessian_ff uses `$CXX` if set, else the env's conda `g++` (from `cxx-compiler`), else `c++`; load a compiler module when that compiler is absent or too old. The job scripts above check both.
 
 ---
 
