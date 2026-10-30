@@ -6,7 +6,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
-_No changes yet._
+### Breaking changes
+
+- A pair that contains a metal atom counts as a bond formed or broken only when its distance changes by at least `bond.metal_delta_fraction` × T (default `0.40`, about 1.0 Å for Mg–O; other pairs keep `delta_fraction` 0.05). Fluctuations of metal coordination no longer split `--refine-path` paths into extra segments, fail IRC endpoint matching or appear as bond changes.
+- Input alignment relaxations always use the package L-BFGS defaults (line search, `max_step` 0.30) with the `gau` preset; the `--thresh` of `path-opt`, `path-search` and `all` no longer applies to them. With `--thresh baker` the final alignment relaxation could run to 10,000 cycles and stop the run with "Input alignment did not converge".
+
+### Changed
+
+- `run.log` in the output directory is written while the command runs and also records output from C libraries (DMF's Ipopt), child processes and early logging handlers; rerunning into the same `-o` appends to it instead of replacing it.
+- Colab notebook: from 721 px wide the GUI fits the visible notebook pane with the header, steps and command dock on screen, Mol* clicks no longer move the camera, the Setup viewer height can be dragged, and the token cached in the runtime is read before the Colab secret.
+- Docs and skills: ORB is installed in its own environment, like MACE; the UMA model cache (`$FAIRCHEM_CACHE_DIR`, default `~/.cache/fairchem`) and offline use on compute nodes (`HF_HUB_OFFLINE=1`) are documented.
+- Docs and skills: the conda environment includes `xtb`, which the `--embedcharge` xTB correction calls, and the HPC templates check the compiler hessian_ff actually uses (`$CXX`, then the environment's conda g++, then `c++`).
 
 ## [0.5.0] — 2026-10-24
 
