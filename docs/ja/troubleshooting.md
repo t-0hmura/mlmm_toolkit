@@ -247,7 +247,7 @@ IRC が収束せずに止まっても、端点の最適化で狙った R と P �
   - 複雑な反応では `--max-nodes`（デフォルト 20）を 30 や 40 に増やしてください。
   - 端点の事前最適化は有効のままにしてください（デフォルト）。`--no-preopt` を付けていたら外します。
   - 別の手法を試してください：`--mep-mode dmf` ↔ `gsm`。
-  - YAML の `bond.bond_factor` と `bond.delta_fraction` で結合変化の検出を調整してください。
+  - YAML の `bond.bond_factor` と `bond.delta_fraction`（金属原子を含む組は `bond.metal_delta_fraction`）で結合変化の検出を調整してください。
 
 ---
 

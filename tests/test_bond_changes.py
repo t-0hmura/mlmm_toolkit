@@ -147,3 +147,31 @@ class TestCompareStructures:
         text = summarize_changes(_line_geom(r2), res, one_based=True)
         assert "C1-C2" in text
         assert "Å -->" in text
+
+
+def test_metal_pairs_need_a_larger_change():
+    """Metal coordination fluctuations are not bond changes; large moves are."""
+    from pysisyphus.constants import BOHR2ANG
+    from mlmm.core.defaults import BOND_KW
+    from mlmm.domain.bond_changes import compare_structures
+
+    def _pair(elems, d_ang):
+        coords = np.array([[0.0, 0.0, 0.0], [d_ang / BOHR2ANG, 0.0, 0.0]])
+        return SimpleNamespace(atoms=list(elems), coords3d=coords)
+
+    mgo = ("Mg", "O")
+    assert BOND_KW["metal_delta_fraction"] == 0.40
+    # The Mg-O boundary is 2.36 A; 2.1 -> 2.6 A crosses it with a 0.5 A change.
+    res = compare_structures(_pair(mgo, 2.1), _pair(mgo, 2.6), device="cpu")
+    assert not res.formed_covalent and not res.broken_covalent
+    res = compare_structures(
+        _pair(mgo, 2.1), _pair(mgo, 2.6), device="cpu", metal_delta_fraction=0.05
+    )
+    assert _as_int_pairs(res.broken_covalent) == {(0, 1)}
+    res = compare_structures(_pair(mgo, 2.1), _pair(mgo, 3.3), device="cpu")
+    assert _as_int_pairs(res.broken_covalent) == {(0, 1)}
+    # Pairs without a metal keep delta_fraction: C-O 1.43 -> 1.80 A still breaks.
+    co = ("C", "O")
+    res = compare_structures(_pair(co, 1.43), _pair(co, 1.80), device="cpu")
+    assert _as_int_pairs(res.broken_covalent) == {(0, 1)}
+

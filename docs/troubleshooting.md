@@ -253,7 +253,7 @@ An IRC that stops before it converges is still usable when the endpoint optimiza
   - Raise `--max-nodes` (default 20) to 30 or 40 for complex reactions.
   - Keep endpoint preoptimization on (the default); remove `--no-preopt` if you passed it.
   - Try the other method: `--mep-mode dmf` ↔ `gsm`.
-  - Tune bond-change detection with YAML `bond.bond_factor` and `bond.delta_fraction`.
+  - Tune bond-change detection with YAML `bond.bond_factor` and `bond.delta_fraction` (`bond.metal_delta_fraction` for pairs that contain a metal atom).
 
 ---
 

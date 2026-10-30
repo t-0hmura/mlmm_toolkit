@@ -214,6 +214,7 @@ def _has_bond_change(x, y, bond_cfg: Dict[str, Any]) -> Tuple[bool, str]:
         bond_factor=float(bond_cfg.get("bond_factor", 1.20)),
         margin_fraction=float(bond_cfg.get("margin_fraction", 0.05)),
         delta_fraction=float(bond_cfg.get("delta_fraction", 0.05)),
+        metal_delta_fraction=float(bond_cfg.get("metal_delta_fraction", 0.40)),
     )
     formed = len(getattr(res, "formed_covalent", [])) > 0
     broken = len(getattr(res, "broken_covalent", [])) > 0

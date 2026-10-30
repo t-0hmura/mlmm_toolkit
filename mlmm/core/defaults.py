@@ -241,6 +241,7 @@ BOND_KW: Dict[str, Any] = {
     "bond_factor": 1.20,
     "margin_fraction": 0.05,
     "delta_fraction": 0.05,
+    "metal_delta_fraction": 0.40,
 }
 
 

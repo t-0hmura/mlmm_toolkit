@@ -22,14 +22,15 @@ Algorithm (core logic):
 - Per-element radii: from `pysisyphus.elem_data.COVALENT_RADII`.
 - Threshold per pair (i, j): `T_cov = bond_factor * (r_i + r_j)`; conservative margin `eps = margin_fraction * T_cov`.
 - Bond adjacency in a geometry: `A = (D <= T_cov - eps)` evaluated only for `i < j` (upper triangle).
-- Change gating: only pairs with `|D2 - D1| >= delta_fraction * T_cov` are considered.
+- Change gating: only pairs with `|D2 - D1| >= delta_fraction * T_cov` are considered; pairs that contain a metal
+  atom need `|D2 - D1| >= metal_delta_fraction * T_cov`, because coordination distances fluctuate around `T_cov`.
 - Classification:
     - Formed: `(~A1) & A2 & need_change`
     - Broken:  `A1 & (~A2) & need_change`
 - Distances: row-chunked `torch.cdist` (rows processed in blocks) to bound peak memory to O(N·chunk); the full N×N matrices are not materialized.
 
 Public API:
-- `compare_structures(geom1, geom2, device='cuda', bond_factor=1.20, margin_fraction=0.05, delta_fraction=0.05) -> BondChangeResult`
+- `compare_structures(geom1, geom2, device='cuda', bond_factor=1.20, margin_fraction=0.05, delta_fraction=0.05, metal_delta_fraction=0.40) -> BondChangeResult`
   Detects formed and broken covalent bonds. Returns sets of zero-based index pairs plus `changed_lengths` (per-pair lengths in Bohr for the changed pairs only). The full distance matrices (`distances_1/2`) are no longer materialized or returned (memory-bounded path).
 - `summarize_changes(geom, result, one_based: bool = True) -> str`
   Builds a human-readable report:
@@ -65,6 +66,7 @@ Notes:
   - `bond_factor` (default 1.20): global scaling of the covalent radii sum.
   - `margin_fraction` (default 0.05): conservative shrinkage of the bond cutoff to avoid borderline matches.
   - `delta_fraction` (default 0.05): minimum relative distance change required to count a bond event.
+  - `metal_delta_fraction` (default 0.40): the same for pairs that contain a metal atom (about 1.0 Å for Mg–O).
 - Device selection: pass `'cpu'`, `'cuda'`, or `'cuda:0'` etc. If the requested device is not available or invalid, the code falls back to CPU and issues a `RuntimeWarning`. Computations use `float64` for stability and run under `torch.no_grad()`.
 - The method detects binary bond formation/breakage; it does not estimate bond orders, angles, or multi-center bonding, and it ignores periodic boundary conditions.
 - Numerical caveats: near-threshold pairs may toggle with small geometry noise; tune tolerances to your system size and sampling noise.
@@ -84,6 +86,11 @@ from pysisyphus.elem_data import (
 from pysisyphus.constants import BOHR2ANG  # Convert Bohr distances to Ångström for reporting
 
 Pair = Tuple[int, int]
+
+# Non-metals and metalloids; every other element counts as a metal for `metal_delta_fraction`.
+_NONMETALS = frozenset(
+    "h he b c n o f ne si p s cl ar ge as se br kr sb te i xe at rn".split()
+)
 
 
 @dataclass
@@ -142,6 +149,7 @@ def compare_structures(
     bond_factor: float = 1.20,
     margin_fraction: float = 0.05,
     delta_fraction: float = 0.05,
+    metal_delta_fraction: float = 0.40,
 ) -> BondChangeResult:
 
     if geom1.atoms != geom2.atoms:
@@ -160,6 +168,9 @@ def compare_structures(
     if not bool(torch.isfinite(R1).all()) or not bool(torch.isfinite(R2).all()):
         raise ValueError("Structure coordinates must be finite.")
     cov = torch.as_tensor(cov_np, dtype=dtype, device=dev)
+    metal = torch.as_tensor([e.lower() not in _NONMETALS for e in elems], device=dev)
+    frac_nonmetal = torch.tensor(float(delta_fraction), dtype=dtype, device=dev)
+    frac_metal = torch.tensor(float(metal_delta_fraction), dtype=dtype, device=dev)
 
     # Row-chunked covalent bond-change detection. A dense formulation needs ~10
     # simultaneous N×N float64 tensors (D1, D2, masks); that is O(N^2) memory and
@@ -180,7 +191,8 @@ def compare_structures(
         up = cols_g > torch.arange(i0, i1, device=dev)[:, None]  # strict upper triangle
         a1 = (d1 <= (T - eps)) & up
         a2 = (d2 <= (T - eps)) & up
-        need = ((d2 - d1).abs() >= (delta_fraction * T)) & up
+        frac = torch.where(metal[i0:i1, None] | metal[None, :], frac_metal, frac_nonmetal)
+        need = ((d2 - d1).abs() >= (frac * T)) & up
         fi = torch.nonzero((~a1) & a2 & need, as_tuple=False)
         bi = torch.nonzero(a1 & (~a2) & need, as_tuple=False)
         if fi.numel():

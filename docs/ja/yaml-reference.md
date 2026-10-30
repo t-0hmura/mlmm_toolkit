@@ -745,6 +745,7 @@ bond:
  bond_factor: 1.2 # 共有結合半径スケーリング
  margin_fraction: 0.05 # 比較の分率許容値
  delta_fraction: 0.05 # 結合形成/切断を検出する最小相対変化
+ metal_delta_fraction: 0.40 # 金属原子を含む組の最小相対変化
 ```
 
 ---
