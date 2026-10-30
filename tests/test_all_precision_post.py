@@ -242,7 +242,7 @@ def test_summary_records_post_precision(tmp_path):
     for post, recorded in ((None, "tf32"), ("fp64", "fp64")):
         summary = {"segments": []}
         all_workflow._enrich_summary(
-            summary, version="", pipeline_mode="path-opt", out_dir=tmp_path,
+            summary, pipeline_mode="path-opt", out_dir=tmp_path,
             mlip_backend="uma", mlip_model="uma-s-1p2p1", mlip_precision="tf32",
             mlip_precision_post=post, charge=0, spin=1,
             config={"tsopt": True, "thermo": False, "dft": False},

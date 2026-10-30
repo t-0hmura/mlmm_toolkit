@@ -170,7 +170,6 @@ def test_enriched_rate_limit_uses_refined_barrier(tmp_path) -> None:
     ]
     _enrich_summary(
         summary,
-        version="",
         pipeline_mode="path-opt",
         mlip_backend="orb",
         mlip_model="orb_v3_conservative_omol",
@@ -232,7 +231,6 @@ def test_enriched_summary_labels_primary_dft_mm_compatibility_energy_keys(
     }
     _enrich_summary(
         summary,
-        version="",
         pipeline_mode="path-opt",
         mlip_backend="dft",
         charge=0,
@@ -256,7 +254,6 @@ def test_enriched_references_only_add_omol25_for_omol(tmp_path) -> None:
     summary = {"segments": [], "energy_diagrams": []}
     _enrich_summary(
         summary,
-        version="",
         pipeline_mode="path-opt",
         mlip_backend="uma",
         mlip_model="uma-s-1p2",
@@ -282,7 +279,6 @@ def test_primary_dft_provenance_is_not_overwritten_by_legacy_mlip_values(
     summary = {"segments": [], "energy_diagrams": []}
     _enrich_summary(
         summary,
-        version="",
         pipeline_mode="path-opt",
         mlip_backend="-",
         mlip_model="-",
@@ -324,7 +320,6 @@ def test_ts_only_summary_reports_barrier_from_assigned_reactant(tmp_path) -> Non
     }
     _enrich_summary(
         summary,
-        version="",
         pipeline_mode="tsopt-only",
         mlip_backend="orb",
         charge=0,

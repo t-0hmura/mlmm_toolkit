@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import inspect
 import os
 from pathlib import Path
 
@@ -21,17 +20,33 @@ _MIN_PDB = (
 )
 
 
-def test_stopped_ts_summary_reuses_the_final_citation_payload() -> None:
-    source = inspect.getsource(all_workflow.cli.callback)
-    stopped_branch = source.split(
-        'if not bool(_tsopt_decision.get("continue_irc")):', 1
-    )[1]
-    stopped_writer = stopped_branch.split("summary_payload = {", 1)[1].split(
-        "write_summary_log", 1
-    )[0]
+def _citation_lines(text: str, header: str) -> list[str]:
+    block = text.split(header, 1)[1].split("Please cite the software and methods used:", 1)[1]
+    lines = []
+    for line in block.splitlines()[1:]:
+        if not line.startswith(("(", "- ")):
+            break
+        lines.append(line)
+    return lines
 
-    assert "citation_post_segments = [_stop_log]" in stopped_branch
-    assert "summary_payload.update(_all_method_citation_payload())" in stopped_writer
+
+def test_stopped_ts_summary_reuses_the_final_citation_payload(tmp_path, monkeypatch) -> None:
+    from _all_stub_harness import TS_NOT_CONVERGED, Behaviour, run_all
+
+    run = run_all(
+        tmp_path, monkeypatch, frames=(1.0,), extra=["--tsopt"],
+        behaviour=Behaviour(tsopt=dict(TS_NOT_CONVERGED)),
+    )
+
+    assert run.summary["stopped_before_irc"] is True
+    logged = _citation_lines(
+        (run.out / "summary.log").read_text(encoding="utf-8"), "[6] Methods and citations"
+    )
+    printed = _citation_lines(run.result.output, "====== Citations & References ======")
+    # summary.log cites the same methods as the final console block, including
+    # the TS optimizer of the stopped segment.
+    assert logged and logged == printed
+    assert any(line.endswith(") RS-P-RFO:") for line in logged)
 
 
 class _FakePrepared:
@@ -315,15 +330,32 @@ def test_finalize_summary_includes_outputs_from_late_producers(tmp_path: Path) -
     assert json.loads((work_dir / "summary.json").read_text(encoding="utf-8")) == stored
 
 
-def test_all_finalizes_after_each_late_summary_log_producer() -> None:
-    """Every successful terminal path republishes after writing summary.log."""
+_SUMMARY_EXITS = {
+    "mep-no-post": ((0.0, 2.0), [], {}),
+    "mep-post": ((0.0, 2.0), ["--tsopt"], {}),
+    "no-segments": ((0.0, 2.0), ["--refine-path", "--tsopt"], {"path_search_segments": []}),
+    "no-reactive-segment": ((0.0, 2.0), ["--refine-path", "--tsopt"], {"path_search_segments": [{
+        "index": 1, "tag": "seg_001_bridge", "kind": "bridge", "barrier_kcal": 0.5,
+        "delta_kcal": 0.1, "bond_changes": "", "converged": True,
+    }]}),
+    "tsopt-only": ((1.0,), ["--tsopt"], {}),
+    "tsopt-only-stopped": ((1.0,), ["--tsopt"], {"tsopt": "not_converged"}),
+    "tsopt-only-endpoint-failure": ((1.0,), ["--tsopt"], {"opt": {"P": "error"}}),
+}
 
-    import inspect
 
-    source = inspect.getsource(all_workflow.cli.callback)
-    assert source.count("_write_pipeline_summary_log([])") == 3
-    assert source.count("_write_pipeline_summary_log(post_segment_logs)") == 1
-    # The workflow may gain additional late result producers; every such
-    # boundary must finalize, so assert the invariant rather than a brittle
-    # historical call count.
-    assert source.count("_finalize_current_summary(") >= 5
+@pytest.mark.parametrize("exit_name", list(_SUMMARY_EXITS))
+def test_all_finalizes_after_each_late_summary_log_producer(tmp_path, monkeypatch, exit_name) -> None:
+    """Every terminal path republishes summary.json after writing summary.log."""
+    from _all_stub_harness import TS_NOT_CONVERGED, Behaviour, run_all
+
+    frames, extra, options = _SUMMARY_EXITS[exit_name]
+    if options.get("tsopt") == "not_converged":
+        options = {**options, "tsopt": dict(TS_NOT_CONVERGED)}
+    run = run_all(tmp_path, monkeypatch, frames=frames, extra=extra, behaviour=Behaviour(**options))
+
+    summary = run.summary
+    assert (run.out / "summary.log").is_file()
+    assert "summary.log" in summary["current_output_paths"]
+    assert "summary.log" in summary["key_output_files"]
+    assert "summary.json" in summary["current_output_paths"]

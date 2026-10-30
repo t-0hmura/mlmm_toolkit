@@ -1194,30 +1194,34 @@ def test_all_pipeline_aggregate_gates_on_endpoint_opt(tmp_path: Path) -> None:
     assert any(reason.endswith("endpoint_opt:product_not_converged") for reason in truth.status_reasons)
 
 
-def test_all_producer_wires_endpoint_opt_record() -> None:
+@pytest.mark.parametrize("frames", [(1.0,), (0.0, 2.0)], ids=["tsopt-only", "mep"])
+def test_all_producer_wires_endpoint_opt_record(tmp_path, monkeypatch, frames) -> None:
     # Regression guard for the PRODUCER: the endpoint-opt convergence gate is
-    # dead unless (a) `_run_opt_for_state` emits result.json (--out-json), reads
-    # the child's convergence, and returns it, and (b) BOTH the TS-only and
-    # multisegment branches assemble segment_log["endpoint_opt"] from those bits.
-    # A future edit that drops any of these re-opens the false-success path.
-    import inspect
+    # dead unless the endpoint opt child emits result.json (--out-json), the
+    # parent reads the child's convergence, and BOTH the TS-only and the MEP
+    # routes record it in post_segments[].endpoint_opt. A future edit that
+    # drops any of these re-opens the false-success path.
+    from _all_stub_harness import Behaviour, run_all
 
-    from mlmm.workflows import all as _all_mod
-    from mlmm.workflows.all import _run_opt_for_state
+    run = run_all(
+        tmp_path, monkeypatch, frames=frames, extra=["--tsopt", "--dump"],
+        behaviour=Behaviour(opt={"P": "not_converged"}),
+    )
 
-    ros_src = inspect.getsource(_run_opt_for_state)
-    assert '"--out-json"' in ros_src
-    assert '_append_toggle_arg(args, "--dump", dump)' in ros_src
-    assert "_read_opt_endpoint_converged(opt_dir)" in ros_src
-    assert "return g_opt, final_geom_path, endpoint_converged" in ros_src
-
-    all_src = Path(_all_mod.__file__).read_text(encoding="utf-8")
-    # Both producer branches (TS-only + multisegment) assemble the record.
-    assert all_src.count('segment_log["endpoint_opt"] = {') == 2
-    # ...fed by the reader's returned bits, not a hard-coded literal.
-    assert all_src.count("_react_opt_conv = _run_opt_for_state(") == 2
-    assert all_src.count("_prod_opt_conv = _run_opt_for_state(") == 2
-    assert all_src.count("dump=dump,") >= 4
+    opt_args = run.child_args("opt")
+    assert len(opt_args) == 2
+    assert all("--out-json" in args and "--dump" in args for args in opt_args)
+    (post,) = run.summary["post_segments"]
+    record = post["endpoint_opt"]
+    assert record["reactant_converged"] is True
+    assert record["product_converged"] is False
+    assert record["product"]["optimization_status"] == "not_converged"
+    assert (record["reactant"]["n_opt_cycles"], record["product"]["n_opt_cycles"]) == (3, 4)
+    assert record["product"]["max_cycles"] == 3000
+    assert run.summary["scientific_status"] == "partial"
+    assert "all:segment_1:endpoint_opt:product_not_converged" in (
+        run.summary["scientific_status_reasons"]
+    )
 
 
 def test_all_pipeline_aggregate_preserves_legacy_severity() -> None:
@@ -1451,21 +1455,25 @@ def test_requested_preopt_nonconvergence_keeps_path_diagnostic(
     assert any("preopt" in reason for reason in truth.status_reasons)
 
 
-def test_all_path_opt_child_emits_machine_result() -> None:
+def test_all_path_opt_child_emits_machine_result(tmp_path, monkeypatch) -> None:
     """The no-refine path-opt producer must enable its result.json contract."""
-    from mlmm.workflows import all as all_workflow
+    from _all_stub_harness import Behaviour, run_all
 
-    source = Path(all_workflow.__file__).read_text(encoding="utf-8")
-    branch_start = source.index("elif not resuming:")
-    branch = source[
-        branch_start:source.index("# --- Concatenated MEP trajectory ---", branch_start)
+    run = run_all(
+        tmp_path, monkeypatch, frames=(0.0, 2.0, 4.0),
+        behaviour=Behaviour(path_opt_converged=(True, False)),
+    )
+
+    path_args = run.child_args("path_opt")
+    assert all("--out-json" in args for args in path_args)
+    assert [Path(args[args.index("--out-dir") + 1]).name for args in path_args] == [
+        "seg_01_mep", "seg_02_mep",
     ]
-    assert 'po_args.append("--out-json")' in branch
-    assert "_read_path_opt_segment_converged(seg_out)" in branch
-    assert "seg_idx = pair_pos + 1" in branch
-    assert 'seg_tag = f"seg_{seg_idx:02d}"' in branch
-    assert '"index": seg_idx' in branch
-    assert "enumerate(path_opt_segments, start=1)" in source
+    # One-based public segment ids carry each child's own convergence bit.
+    assert [
+        (segment["index"], segment["tag"], segment["converged"])
+        for segment in run.summary["segments"]
+    ] == [(1, "seg_01", True), (2, "seg_02", False)]
 
 
 def test_all_mep_completion_banner_does_not_prejudge_status() -> None:

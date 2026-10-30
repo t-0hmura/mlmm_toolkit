@@ -2086,7 +2086,6 @@ def _derive_pipeline_status(
 def _enrich_summary(
     summary: dict,
     *,
-    version: str,
     pipeline_mode: str,
     mlip_backend: str,
     mlip_precision: Optional[str] = None,
@@ -2242,18 +2241,14 @@ def _enrich_summary(
     summary["mlmm_toolkit_version"] = __version__
     summary["schema_version"] = RESULT_JSON_SCHEMA_VERSION
     summary["pipeline_mode"] = pipeline_mode
-    summary["status"] = status
-    if status_reasons:
-        summary["status_reasons"] = status_reasons
-    else:
-        summary.pop("status_reasons", None)
-    # Keep the legacy overloaded ``status`` intact and
-    # expose the execution/scientific split plus expected/observed segment IDs so
-    # a forward-compatible consumer can tell "the pipeline ran" from "the science
-    # is complete and usable". ``scientific_status`` is computed from explicit
-    # final per-segment optimization outcomes and requested output completeness.
-    # IRC stop conditions and frequency/topology diagnostics remain separately
-    # available without imposing another optimizer acceptance criterion.
+    # The legacy overloaded ``status`` is not published; it only joins the
+    # leaf aggregate below. Expose the execution/scientific split plus
+    # expected/observed segment IDs so a consumer can tell "the pipeline ran"
+    # from "the science is complete and usable". ``scientific_status`` is
+    # computed from explicit final per-segment optimization outcomes and
+    # requested output completeness. IRC stop conditions and
+    # frequency/topology diagnostics remain separately available without
+    # imposing another optimizer acceptance criterion.
     _apply_pipeline_truth(
         summary,
         post_segments=post_segments,
@@ -2535,7 +2530,7 @@ def _finalize_current_summary(
 
 def _copy_structures_to_seg_dir(
     state_structs, out_dir, seg_idx, input_suffix,
-    prepared_input=None, ref_pdb_path=None, manifest=None,
+    prepared_input=None, manifest=None,
 ):
     """Copy named state structures to out_dir/segments/seg_XX/."""
     seg_dir = out_dir / SEGMENTS_DIRNAME / f"seg_{seg_idx:02d}"
@@ -2683,12 +2678,14 @@ def _orient_irc_endpoint_geometries(
     """Orient IRC endpoints; topology decides only an unambiguous XOR."""
 
     bond_cfg = dict(_path_search.BOND_KW)
+    check_errors: List[str] = []
 
     def _matches(x: Any, y: Any) -> bool:
         try:
             changed, _ = _path_search._has_bond_change(x, y, bond_cfg)
             return not changed
-        except Exception:
+        except Exception as exc:
+            check_errors.append(str(exc))
             return False
 
     def _rmsd_cart(g1: Any, g2: Any) -> float:
@@ -2744,9 +2741,12 @@ def _orient_irc_endpoint_geometries(
             assignment["connectivity_validated"] = False
             assignment["reason"] = f"rmsd_failed:{exc}"
         if not assignment["connectivity_validated"]:
+            # A failed bond-change check is not a topology mismatch.
             assignment.setdefault(
                 "reason",
-                "neither endpoint pairing matched the MEP bond topology",
+                f"bond_change_check_failed:{check_errors[0]}"
+                if check_errors
+                else "neither endpoint pairing matched the MEP bond topology",
             )
 
     if reverse_irc:
@@ -3696,7 +3696,6 @@ def _write_segment_energy_diagram(
     energies_eh: List[float],
     title_note: str,
     ylabel: str = "ΔE (kcal/mol)",
-    write_html: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """
     Write energy diagram (PNG only) using utils.build_energy_diagram.
@@ -5461,6 +5460,38 @@ def cli(
     tsopt_opt_mode_default = post_optimizer_mode
     endpoint_opt_mode_default = post_optimizer_mode
 
+    def _summary_config(
+        *, dft_status: Optional[str] = None, dft_stage_done: bool = False
+    ) -> Dict[str, Any]:
+        """The ``config`` block of the aggregate summary, built the same on every exit.
+
+        TS-only summaries also carry ``dft_status`` once the TS-only DFT stage
+        has been reached; MEP summaries also carry ``preopt`` and ``dmf_backend``.
+        """
+        post_mode = tsopt_opt_mode_default if do_tsopt else None
+        config: Dict[str, Any] = {
+            "refine_path": bool(refine_path),
+            "flatten": bool(flatten),
+            "tsopt": do_tsopt,
+            "thermo": do_thermo,
+            "dft": do_dft,
+        }
+        if single_tsopt_mode and dft_stage_done:
+            config["dft_status"] = dft_status
+        config["opt_mode"] = opt_mode_norm
+        config["opt_mode_post"] = post_mode
+        if not single_tsopt_mode:
+            config["preopt"] = bool(pre_opt)
+        config["path_opt_mode"] = None if single_tsopt_mode else path_optimizer_mode
+        config["post_opt_mode"] = post_mode
+        config["ts_opt_mode"] = post_mode
+        config["endpoint_opt_mode"] = endpoint_opt_mode_default if do_tsopt else None
+        config["mep_mode"] = mep_mode_kind
+        config["dmf_correlated"] = dmf_correlated_effective
+        if not single_tsopt_mode:
+            config["dmf_backend"] = dmf_backend_effective
+        return config
+
     citation_post_segments: List[Dict[str, Any]] = []
     path_optimizers: set[str] = set()
 
@@ -6787,7 +6818,6 @@ def cli(
             }
             _enrich_summary(
                 summary,
-                version="",
                 pipeline_mode="tsopt-only",
                 out_dir=out_dir,
                 manifest=manifest,
@@ -6801,21 +6831,7 @@ def cli(
                 freeze_atoms=effective_freeze_atoms,
                 command=command_str,
                 post_segments=[_stop_log],
-                config={
-                    "refine_path": bool(refine_path),
-                    "flatten": bool(flatten),
-                    "tsopt": do_tsopt,
-                    "thermo": do_thermo,
-                    "dft": do_dft,
-                    "opt_mode": opt_mode_norm,
-                    "opt_mode_post": tsopt_opt_mode_default if do_tsopt else None,
-                    "path_opt_mode": None,
-                    "post_opt_mode": tsopt_opt_mode_default if do_tsopt else None,
-                    "ts_opt_mode": tsopt_opt_mode_default if do_tsopt else None,
-                    "endpoint_opt_mode": endpoint_opt_mode_default if do_tsopt else None,
-                    "mep_mode": mep_mode_kind,
-                    "dmf_correlated": dmf_correlated_effective,
-                },
+                config=_summary_config(),
             )
             summary["stopped_before_irc"] = True
             summary["pipeline_stop"] = dict(pipeline_stop)
@@ -7187,19 +7203,14 @@ def cli(
                 "pipeline_stop": _endpoint_stop, "energy_diagrams": [],
             }
             _enrich_summary(
-                summary, version="", pipeline_mode="tsopt-only",
+                summary, pipeline_mode="tsopt-only",
                 out_dir=out_dir, manifest=manifest, post_segments=[_stop_log],
                 charge=q_int, spin=spin, command=command_str,
                 calculator_config=resolved_calc_template.materialize(),
                 mlip_backend=mlip_backend_resolved, mlip_model=mlip_model_resolved,
                 mlip_precision=mlip_precision_resolved,
                 mlip_precision_post=mlip_precision_post_resolved, freeze_atoms=effective_freeze_atoms,
-                config={
-                    "tsopt": do_tsopt, "thermo": do_thermo, "dft": do_dft,
-                    "ts_opt_mode": tsopt_opt_mode_default,
-                    "endpoint_opt_mode": endpoint_opt_mode_default,
-                    "mep_mode": mep_mode_kind,
-                },
+                config=_summary_config(),
             )
             citation_post_segments = [_stop_log]
             _finalize_current_summary(
@@ -7209,6 +7220,11 @@ def cli(
             _write_endpoint_failure_summary_log(
                 summary, out_dir=out_dir, tsroot=tsroot, manifest=manifest,
                 citation_payload=_all_method_citation_payload(),
+            )
+            # Republish so summary.json also lists the summary.log written above.
+            _finalize_current_summary(
+                out_dir / "summary.json", summary, manifest=manifest,
+                out_dir=out_dir, mirrors=(tsroot / "summary.json",),
             )
             _persist_run_manifest(manifest, out_dir)
             _echo("[all] Endpoint optimization failed; dependent stages skipped. Diagnostics retained.", err=True)
@@ -7490,7 +7506,6 @@ def cli(
         }
         _enrich_summary(
             summary,
-            version="",
             pipeline_mode="tsopt-only",
             out_dir=out_dir,
             manifest=manifest,
@@ -7503,21 +7518,7 @@ def cli(
             spin=spin,
             freeze_atoms=effective_freeze_atoms,
             command=command_str,
-            config={
-                "refine_path": bool(refine_path),
-                "flatten": bool(flatten),
-                "tsopt": do_tsopt,
-                "thermo": do_thermo,
-                "dft": do_dft,
-                "opt_mode": opt_mode_norm,
-                "opt_mode_post": tsopt_opt_mode_default if do_tsopt else None,
-                "path_opt_mode": None,
-                "post_opt_mode": tsopt_opt_mode_default if do_tsopt else None,
-                "ts_opt_mode": tsopt_opt_mode_default if do_tsopt else None,
-                "endpoint_opt_mode": endpoint_opt_mode_default if do_tsopt else None,
-                "mep_mode": mep_mode_kind,
-                "dmf_correlated": dmf_correlated_effective,
-            },
+            config=_summary_config(),
         )
         try:
             _publish_manifest_summary(
@@ -7699,7 +7700,6 @@ def cli(
         try:
             _enrich_summary(
                 summary,
-                version="",
                 pipeline_mode="tsopt-only",
                 out_dir=out_dir,
                 manifest=manifest,
@@ -7713,21 +7713,9 @@ def cli(
                 freeze_atoms=effective_freeze_atoms,
                 command=command_str,
                 post_segments=[segment_log],
-                config={
-                    "refine_path": bool(refine_path),
-                    "flatten": bool(flatten),
-                    "tsopt": do_tsopt,
-                    "thermo": do_thermo,
-                    "dft": do_dft,
-                    "dft_status": summary_payload["dft_status"],
-                    "opt_mode": opt_mode_norm,
-                    "opt_mode_post": tsopt_opt_mode_default,
-                    "path_opt_mode": None,
-                    "post_opt_mode": tsopt_opt_mode_default,
-                    "ts_opt_mode": tsopt_opt_mode_default,
-                    "endpoint_opt_mode": endpoint_opt_mode_default,
-                    "dmf_correlated": dmf_correlated_effective,
-                },
+                config=_summary_config(
+                    dft_status=summary_payload["dft_status"], dft_stage_done=True
+                ),
             )
             for key in (
                 "status",
@@ -8425,7 +8413,6 @@ def cli(
             po_summary["energy_diagrams"] = list(energy_diagrams_po)
         _enrich_summary(
             po_summary,
-            version="",
             pipeline_mode="path-search" if refine_path else "path-opt",
             out_dir=out_dir,
             manifest=manifest,
@@ -8439,23 +8426,7 @@ def cli(
             spin=spin,
             freeze_atoms=effective_freeze_atoms,
             command=command_str,
-            config={
-                "refine_path": bool(refine_path),
-                "flatten": bool(flatten),
-                "tsopt": do_tsopt,
-                "thermo": do_thermo,
-                "dft": do_dft,
-                "opt_mode": opt_mode_norm,
-                "opt_mode_post": tsopt_opt_mode_default if do_tsopt else None,
-                "preopt": bool(pre_opt),
-                "path_opt_mode": path_optimizer_mode,
-                "post_opt_mode": tsopt_opt_mode_default if do_tsopt else None,
-                "ts_opt_mode": tsopt_opt_mode_default if do_tsopt else None,
-                "endpoint_opt_mode": endpoint_opt_mode_default if do_tsopt else None,
-                "mep_mode": mep_mode_kind,
-                "dmf_correlated": dmf_correlated_effective,
-                "dmf_backend": dmf_backend_effective,
-            },
+            config=_summary_config(),
         )
         try:
             _publish_manifest_summary(
@@ -9634,7 +9605,6 @@ def cli(
             labels=all_labels,
             energies_eh=all_energies,
             title_note=title_note,
-            write_html=False,
             **extra_kwargs,
         )
         if diag_payload:
@@ -9655,7 +9625,6 @@ def cli(
             summary.pop("pipeline_stop", None)
         _enrich_summary(
             summary,
-            version="",
             pipeline_mode="path-search" if refine_path else "path-opt",
             out_dir=out_dir,
             manifest=manifest,
@@ -9670,23 +9639,7 @@ def cli(
             freeze_atoms=effective_freeze_atoms,
             command=command_str,
             post_segments=post_segment_logs,
-            config={
-                "refine_path": bool(refine_path),
-                "flatten": bool(flatten),
-                "tsopt": do_tsopt,
-                "thermo": do_thermo,
-                "dft": do_dft,
-                "opt_mode": opt_mode_norm,
-                "opt_mode_post": tsopt_opt_mode_default if do_tsopt else None,
-                "preopt": bool(pre_opt),
-                "path_opt_mode": path_optimizer_mode,
-                "post_opt_mode": tsopt_opt_mode_default if do_tsopt else None,
-                "ts_opt_mode": tsopt_opt_mode_default if do_tsopt else None,
-                "endpoint_opt_mode": endpoint_opt_mode_default if do_tsopt else None,
-                "mep_mode": mep_mode_kind,
-                "dmf_correlated": dmf_correlated_effective,
-                "dmf_backend": dmf_backend_effective,
-            },
+            config=_summary_config(),
         )
         _publish_manifest_summary(
             out_dir / "summary.json",

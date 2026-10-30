@@ -45,31 +45,29 @@ def test_mm_parm_topology_keeps_the_input_name(tmp_path: Path, monkeypatch) -> N
     assert (parm7.name, rst7.name) == ("r_complex.parm7", "r_complex.rst7")
 
 
-def test_segment_copies_take_the_xyz_of_each_saved_structure() -> None:
-    import ast
+@pytest.mark.parametrize("frames", [(1.0,), (0.0, 2.0)], ids=["tsopt-only", "mep"])
+@pytest.mark.parametrize("xyz_inputs", [True, False], ids=["xyz", "pdb"])
+def test_segment_copies_take_the_xyz_of_each_saved_structure(
+    tmp_path: Path, monkeypatch, frames, xyz_inputs
+) -> None:
+    from _all_stub_harness import run_all
 
-    import mlmm.workflows.all as all_workflow
-
-    # _save_single_geom_for_tools returns (xyz, pdb); _copy_structures_to_seg_dir expects the xyz.
-    tree = ast.parse(Path(all_workflow.__file__).read_text(encoding="utf-8"))
-    xyz_names, pdb_names = set(), set()
-    for node in ast.walk(tree):
-        if (
-            isinstance(node, ast.Assign)
-            and isinstance(node.value, ast.Call)
-            and getattr(node.value.func, "id", None) == "_save_single_geom_for_tools"
-        ):
-            xyz, pdb = node.targets[0].elts
-            xyz_names.add(xyz.id)
-            pdb_names.add(pdb.id)
-    copied = {
-        value.id
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Assign) and getattr(node.targets[0], "id", None) == "_state_structs"
-        for value in node.value.values
-    }
-
-    assert copied and copied <= xyz_names and not copied & pdb_names
+    # The published R/TS/P are the saved XYZ (PDB inputs: its PDB companion),
+    # never the PDB text under an .xyz name.
+    run = run_all(tmp_path, monkeypatch, frames=frames, extra=["--tsopt"], xyz_inputs=xyz_inputs)
+    assert run.result.exit_code == 0, run.result.output[-3000:]
+    segment = run.out / "segments" / "seg_01"
+    for state in ("reactant", "ts", "product"):
+        saved = segment / "structures" / f"{state}.xyz"
+        if xyz_inputs:
+            published = segment / f"{state}.xyz"
+            assert published.read_text(encoding="utf-8") == saved.read_text(encoding="utf-8")
+            assert not (segment / f"{state}.pdb").exists()
+        else:
+            published = segment / f"{state}.pdb"
+            assert published.read_bytes() == saved.with_suffix(".pdb").read_bytes()
+            assert published.read_text(encoding="utf-8").startswith(("ATOM", "HETATM", "MODEL", "REMARK", "CRYST1"))
+            assert not (segment / f"{state}.xyz").exists()
 
 
 def test_hei_pocket_pdb_takes_the_mmcif_template_of_the_topology(tmp_path: Path) -> None:
@@ -1319,6 +1317,41 @@ def test_irc_endpoint_topology_tie_uses_rmsd_and_records_provenance(
     assert assignment["method"] == "rmsd_topology_tie"
     assert assignment["rmsd_swapped"] < assignment["rmsd_direct"]
     assert assignment["connectivity_validated"] is True
+
+
+def test_irc_endpoint_bond_check_error_is_recorded_as_the_reason(monkeypatch):
+    """A failed bond-change check stays an error, not a topology mismatch."""
+    from types import SimpleNamespace
+
+    import numpy as np
+
+    from mlmm.workflows import all as workflow
+
+    left = SimpleNamespace(coords=np.array([10.0, 0.0, 0.0]))
+    right = SimpleNamespace(coords=np.array([0.0, 0.0, 0.0]))
+    mep_left = SimpleNamespace(coords=np.array([0.0, 0.0, 0.0]))
+    mep_right = SimpleNamespace(coords=np.array([10.0, 0.0, 0.0]))
+
+    def _raise(*_args, **_kwargs):
+        raise RuntimeError("bond graph unavailable")
+
+    monkeypatch.setattr(workflow._path_search, "_has_bond_change", _raise)
+
+    (
+        oriented_left,
+        oriented_right,
+        _left_tag,
+        _right_tag,
+        reversed_irc,
+        assignment,
+    ) = workflow._orient_irc_endpoint_geometries(left, right, mep_left, mep_right)
+
+    # The RMSD fallback still orients the pair; only the reason changes.
+    assert (oriented_left, oriented_right) == (right, left)
+    assert reversed_irc is True
+    assert assignment["method"] == "rmsd_topology_unmatched"
+    assert assignment["connectivity_validated"] is False
+    assert assignment["reason"] == "bond_change_check_failed:bond graph unavailable"
 
 
 def test_optimized_endpoint_validation_requires_assigned_direct_pair(

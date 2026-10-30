@@ -110,7 +110,7 @@ def test_endpoint_failure_publishes_real_summary_log(tmp_path):
 
 def test_summary_relays_mode_counts_and_numerical_status(tmp_path):
     summary, post = _fixture()
-    result = workflow._enrich_summary(summary, version="", pipeline_mode="path-opt",
+    result = workflow._enrich_summary(summary, pipeline_mode="path-opt",
                                       mlip_backend="uma", charge=0, spin=1, out_dir=tmp_path,
                                       post_segments=post, config={"tsopt":True})
     record = result["post_segments"][0]
@@ -130,7 +130,6 @@ def test_higher_order_saddle_is_partial_in_summary_json(tmp_path):
 
     result = workflow._enrich_summary(
         summary,
-        version="",
         pipeline_mode="path-opt",
         mlip_backend="uma",
         charge=0,

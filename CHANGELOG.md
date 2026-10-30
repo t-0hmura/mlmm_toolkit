@@ -25,6 +25,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- `all` with a TS-only input: when the endpoint optimization fails, the root `summary.json` records the full `config` like the other exits and `summary.log` is listed; TS-only runs also record `config.mep_mode`. An error while comparing IRC endpoints with the MEP bonds is reported as `bond_change_check_failed:<error>` instead of a bond mismatch.
 - The IRC warning for a branch that stops after a few frames names the `all` options (`--irc-step-size`, `--irc-never-stop`) when IRC runs inside `all`.
 - The optimizer progress table marks only the convergence criteria the preset checks; GSM rows no longer mark the energy and step columns, and `gau` rows no longer mark the energy change.
 

@@ -1238,18 +1238,7 @@ def _enrich_path_summary_contract(
         path_expected.insert(0, "preopt")
     path_truth = aggregate_workflow_truth(path_leaves, path_expected)
 
-    reactive = [
-        segment
-        for segment in segments
-        if getattr(segment, "kind", "seg") != "bridge"
-    ]
-    legacy_status = "success" if summary.get("energy_diagrams") else "partial"
-    if legacy_status == "success" and not reactive:
-        legacy_status = "partial"
-    summary["status"] = legacy_status
     attach_outcomes(summary, truth=path_truth, stage_outcomes=path_leaves)
-    summary.pop("status", None)
-    summary.pop("status_reasons", None)
     record_completion(summary, command="path-search")
     summary.update(calculator_provenance(calc_cfg))
     summary["charge"] = calc_cfg.get("model_charge")

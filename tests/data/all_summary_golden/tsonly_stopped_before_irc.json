@@ -1,0 +1,242 @@
+{
+ "children": [
+  "tsopt"
+ ],
+ "exit_code": 1,
+ "summary": {
+  "charge": 0,
+  "command": "mlmm all -i <tmp>/input0.pdb -q 0 -m 1 --parm <tmp>/fixture.parm7 --model-pdb <tmp>/input0.pdb --out-dir <tmp>/out --no-preopt --tsopt",
+  "config": {
+   "dft": false,
+   "dmf_correlated": true,
+   "endpoint_opt_mode": "hess",
+   "flatten": false,
+   "mep_mode": "gsm",
+   "opt_mode": "grad",
+   "opt_mode_post": "hess",
+   "path_opt_mode": null,
+   "post_opt_mode": "hess",
+   "refine_path": false,
+   "thermo": false,
+   "ts_opt_mode": "hess",
+   "tsopt": true
+  },
+  "current_output_paths": [
+   "ml_region.pdb",
+   "ml_region_with_linkH.pdb",
+   "ml_region_with_linkH.xyz",
+   "ml_region_without_linkH.pdb",
+   "ml_region_without_linkH.xyz",
+   "summary.json",
+   "summary.log"
+  ],
+  "environment": "<environment>",
+  "execution_status": "completed",
+  "expected_item_ids": [
+   "segment_1"
+  ],
+  "key_output_files": {
+   "ml_region.pdb": "Reusable ML-region model",
+   "ml_region_with_linkH.pdb": "Current-run pipeline output",
+   "ml_region_with_linkH.xyz": "Current-run pipeline output",
+   "ml_region_without_linkH.pdb": "Current-run pipeline output",
+   "ml_region_without_linkH.xyz": "Current-run pipeline output",
+   "summary.json": "Machine-readable results summary",
+   "summary.log": "Human-readable results summary"
+  },
+  "link_atom_method": "scaled",
+  "mlip_backend": "uma",
+  "mlip_model": "uma-s-1p2p1",
+  "mlip_model_label": "UMA-S-1.2.1 (OMol)",
+  "mlip_precision": "fp32",
+  "mlip_precision_post": "fp32",
+  "mlip_task": "omol",
+  "mlmm_toolkit_version": "<version>",
+  "mm_backend": "hessian_ff",
+  "n_images": 1,
+  "n_segments": 1,
+  "n_segments_reactive": 1,
+  "observed_item_ids": [
+   "segment_1"
+  ],
+  "out_dir": "<tmp>/out/segments/seg_01",
+  "pipeline_mode": "tsopt-only",
+  "pipeline_stop": {
+   "reason": "ts_optimization_not_converged",
+   "segment": 1,
+   "stage": "before_irc",
+   "tsopt_result": {
+    "continue_irc": false,
+    "energy_hartree": -0.975,
+    "energy_valid": true,
+    "files": {
+     "final_geometry": "<tmp>/out/segments/seg_01/ts/final_geometry.xyz"
+    },
+    "final_structure": "<tmp>/out/segments/seg_01/ts/final_geometry.pdb",
+    "flatten_enabled": false,
+    "frequency_zero_cutoff_cm": null,
+    "hessian_error": null,
+    "hessian_status": "skipped",
+    "imaginary_frequencies_cm": null,
+    "imaginary_frequency_threshold_cm": null,
+    "imaginary_mode_criterion": null,
+    "max_cycles": 100,
+    "n_imaginary_modes": null,
+    "n_negative_modes": null,
+    "n_opt_cycles": 100,
+    "optimization_status": "not_converged",
+    "published_structure_pdb": "<tmp>/out/segments/seg_01/structures/ts.pdb",
+    "published_structure_xyz": "<tmp>/out/segments/seg_01/structures/ts.xyz",
+    "reaction_mode_fallback": false,
+    "reaction_mode_fallback_reason": null,
+    "reaction_mode_frequency_cm": null,
+    "reaction_mode_index": null,
+    "reaction_mode_overlap": null,
+    "reaction_mode_source": null,
+    "reason": "ts_optimization_not_converged",
+    "result_json": "<tmp>/out/segments/seg_01/ts/result.json",
+    "saddle_validation": "unavailable",
+    "skip_final_freq": false,
+    "stop_reason": "max_cycles",
+    "structure_valid": true
+   }
+  },
+  "post_segments": [
+   {
+    "bond_changes": "",
+    "index": 1,
+    "kind": "tsopt",
+    "pipeline_stop": {
+     "reason": "ts_optimization_not_converged",
+     "segment": 1,
+     "stage": "before_irc",
+     "tsopt_result": {
+      "continue_irc": false,
+      "energy_hartree": -0.975,
+      "energy_valid": true,
+      "files": {
+       "final_geometry": "<tmp>/out/segments/seg_01/ts/final_geometry.xyz"
+      },
+      "final_structure": "<tmp>/out/segments/seg_01/ts/final_geometry.pdb",
+      "flatten_enabled": false,
+      "frequency_zero_cutoff_cm": null,
+      "hessian_error": null,
+      "hessian_status": "skipped",
+      "imaginary_frequencies_cm": null,
+      "imaginary_frequency_threshold_cm": null,
+      "imaginary_mode_criterion": null,
+      "max_cycles": 100,
+      "n_imaginary_modes": null,
+      "n_negative_modes": null,
+      "n_opt_cycles": 100,
+      "optimization_status": "not_converged",
+      "published_structure_pdb": "<tmp>/out/segments/seg_01/structures/ts.pdb",
+      "published_structure_xyz": "<tmp>/out/segments/seg_01/structures/ts.xyz",
+      "reaction_mode_fallback": false,
+      "reaction_mode_fallback_reason": null,
+      "reaction_mode_frequency_cm": null,
+      "reaction_mode_index": null,
+      "reaction_mode_overlap": null,
+      "reaction_mode_source": null,
+      "reason": "ts_optimization_not_converged",
+      "result_json": "<tmp>/out/segments/seg_01/ts/result.json",
+      "saddle_validation": "unavailable",
+      "skip_final_freq": false,
+      "stop_reason": "max_cycles",
+      "structure_valid": true
+     }
+    },
+    "post_dir": "<tmp>/out/segments/seg_01",
+    "tag": "seg_01",
+    "tsopt": {
+     "continue_irc": false,
+     "energy_hartree": -0.975,
+     "energy_valid": true,
+     "files": {
+      "final_geometry": "<tmp>/out/segments/seg_01/ts/final_geometry.xyz"
+     },
+     "final_structure": "<tmp>/out/segments/seg_01/ts/final_geometry.pdb",
+     "flatten_enabled": false,
+     "frequency_zero_cutoff_cm": null,
+     "hessian_error": null,
+     "hessian_status": "skipped",
+     "imaginary_frequencies_cm": null,
+     "imaginary_frequency_threshold_cm": null,
+     "imaginary_mode_criterion": null,
+     "max_cycles": 100,
+     "n_imaginary_modes": null,
+     "n_negative_modes": null,
+     "n_opt_cycles": 100,
+     "optimization_status": "not_converged",
+     "published_structure_pdb": "<tmp>/out/segments/seg_01/structures/ts.pdb",
+     "published_structure_xyz": "<tmp>/out/segments/seg_01/structures/ts.xyz",
+     "reaction_mode_fallback": false,
+     "reaction_mode_fallback_reason": null,
+     "reaction_mode_frequency_cm": null,
+     "reaction_mode_index": null,
+     "reaction_mode_overlap": null,
+     "reaction_mode_source": null,
+     "reason": "ts_optimization_not_converged",
+     "result_json": "<tmp>/out/segments/seg_01/ts/result.json",
+     "saddle_validation": "unavailable",
+     "skip_final_freq": false,
+     "stop_reason": "max_cycles",
+     "structure_valid": true
+    }
+   }
+  ],
+  "primary_method": "mlip",
+  "primary_method_label": "ML/MM",
+  "references": [
+   {
+    "citation": "Ohmura, T.; Inoue, S.; Terada, T. ML/MM toolkit – Towards Accelerated Mechanistic Investigation of Enzymatic Reactions. ChemRxiv (2025). https://doi.org/10.26434/chemrxiv-2025-jft1k",
+    "doi": "10.26434/chemrxiv-2025-jft1k",
+    "method": "mlmm-toolkit"
+   },
+   {
+    "citation": "Steinmetzer, J.; Kupfer, S.; Gräfe, S. pysisyphus: Exploring potential energy surfaces in ground and excited states. Int. J. Quantum Chem. 121, e26390 (2021). https://doi.org/10.1002/qua.26390",
+    "doi": "10.1002/qua.26390",
+    "method": "pysisyphus engine"
+   },
+   {
+    "citation": "Wood, B. M.; Dzamba, M.; Fu, X.; Gao, M.; Shuaibi, M.; Barroso-Luque, L.; Abdelmaqsoud, K.; Gharakhanyan, V.; Kitchin, J. R.; Levine, D. S.; Michel, K.; Sriram, A.; Cohen, T. S.; Das, A.; Sahoo, S. J.; Rizvi, A.; Ulissi, Z. W.; Zitnick, C. L. UMA: A Family of Universal Models for Atoms. Advances in Neural Information Processing Systems 38, 129391-129427 (2025). https://doi.org/10.52202/085713-4310",
+    "doi": "10.52202/085713-4310",
+    "method": "UMA"
+   },
+   {
+    "citation": "Levine, D. S.; Shuaibi, M.; Spotte-Smith, E. W. C.; Taylor, M. G.; Hasyim, M. R.; Michel, K.; Batatia, I.; Csányi, G.; Dzamba, M.; Eastman, P.; Frey, N. C.; Fu, X.; Gharakhanyan, V.; Krishnapriyan, A. S.; Rackers, J. A.; Raja, S.; Rizvi, A.; Rosen, A. S.; Ulissi, Z.; Vargas, S.; Zitnick, C. L.; Blau, S. M.; Wood, B. M. The Open Molecules 2025 (OMol25) Dataset, Evaluations, and Models. arXiv 2025, arXiv:2505.08762. https://doi.org/10.48550/arXiv.2505.08762",
+    "doi": "10.48550/arXiv.2505.08762",
+    "method": "OMol25"
+   },
+   {
+    "citation": "Banerjee, A.; Adams, N.; Simons, J.; Shepard, R. Search for stationary points on surfaces. J. Phys. Chem. 89, 52-57 (1985). https://doi.org/10.1021/j100247a015",
+    "doi": "10.1021/j100247a015",
+    "method": "RFO / P-RFO"
+   },
+   {
+    "citation": "Besalú, E.; Bofill, J. M. On the automatic restricted-step rational-function-optimization method. Theor. Chem. Acc. 100, 265-274 (1998). https://doi.org/10.1007/s002140050387",
+    "doi": "10.1007/s002140050387",
+    "method": "RS-P-RFO"
+   }
+  ],
+  "run_id": "<run_id>",
+  "schema_version": "4.0",
+  "scientific_status": "failed",
+  "scientific_status_reasons": [
+   "no usable energy diagram was produced",
+   "all:segment_1:tsopt:ts_optimization_not_converged"
+  ],
+  "segments": [
+   {
+    "bond_changes": "",
+    "converged": false,
+    "index": 1,
+    "kind": "tsopt",
+    "tag": "seg_01"
+   }
+  ],
+  "spin": 1,
+  "stopped_before_irc": true,
+  "use_cmap": true
+ }
+}

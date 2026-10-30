@@ -1,15 +1,12 @@
 """Endpoint hard failures stop real all-branch control flow before consumers.
 
-The contiguous production statements from IRC snapshot publication through the
-optimized-structure handoff are compiled without CLI setup. Optimizers and I/O
-boundaries are injected; exception handlers, retention, return/continue, and
+The endpoint-boundary tests run the whole ``mlmm all`` callback (TS-only and
+MEP routes) with the child commands stubbed at the dispatcher
+(``_all_stub_harness.py``); exception handlers, retention, the stage gate and
 cleanup execute unchanged.
 """
 from __future__ import annotations
 
-import ast
-import builtins
-import copy
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -17,6 +14,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from _all_stub_harness import Behaviour, coords, run_all, write
 from mlmm.workflows import all as workflow
 from mlmm.io import hessian_cache
 
@@ -40,7 +38,7 @@ def test_failed_ts_only_summary_does_not_invent_a_barrier(tmp_path):
         },
     }]
     workflow._enrich_summary(
-        summary, version="", pipeline_mode="tsopt-only", out_dir=tmp_path,
+        summary, pipeline_mode="tsopt-only", out_dir=tmp_path,
         mlip_backend="orb", mlip_model="orb_v3_conservative_omol",
         charge=0, spin=1, post_segments=post,
         config={"tsopt": True, "thermo": True, "dft": True},
@@ -101,67 +99,28 @@ class Geometry:
         return f"1\nobserved\nH {self.cart_coords[0]} 0 0\n"
 
 
-def endpoint_statements(branch, from_energies=False):
-    tree = ast.parse(Path(workflow.__file__).read_text())
-    owner = "tsroot" if branch == "ts" else "seg_dir"
-    save_name = "_save_single_geom_for_tools"
-    for node in ast.walk(tree):
-        body = getattr(node, "body", None)
-        if not isinstance(body, list):
-            continue
-        endpoint_index = next((
-            index for index, statement in enumerate(body)
-            if isinstance(statement, ast.Assign)
-            and any(isinstance(target, ast.Name) and target.id == "endpoint_opt_dir"
-                    for target in statement.targets)
-            and isinstance(statement.value, ast.BinOp)
-            and isinstance(statement.value.left, ast.Name)
-            and statement.value.left.id == owner
-        ), None)
-        if endpoint_index is None:
-            continue
-        saves = [
-            index for index, statement in enumerate(body)
-            if any(isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
-                   and call.func.id == save_name for call in ast.walk(statement))
-        ]
-        previous = [index for index in saves if index < endpoint_index]
-        following = [index for index in saves if index > endpoint_index]
-        start, end = previous[-3], following[1]
-        if from_energies:
-            # Start at the IRC endpoint energies so the R/P assignment runs too.
-            start = next(
-                index for index, statement in enumerate(body[:start])
-                if isinstance(statement, ast.Assign)
-                and any(isinstance(target, ast.Name) and target.id == "eL"
-                        for target in statement.targets)
-            )
-        guard = next(statement for statement in body[endpoint_index:end]
-                     if isinstance(statement, ast.If)
-                     and isinstance(statement.test, ast.Name)
-                     and statement.test.id == "_endpoint_failures")
-        # All real refined consumers follow this stage gate. P segment
-        # frequency/DFT are in the outer loop, so their line numbers are checked
-        # in that loop as well.
-        scope = node
-        if branch == "seg":
-            scope = next(parent for parent in ast.walk(tree)
-                         if isinstance(parent, ast.For)
-                         and any(child is node for child in ast.walk(parent)))
-        consumers = [
-            call for call in ast.walk(scope)
-            if isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
-            and call.func.id in {
-                "_run_freq_for_state", "_run_dft_for_state", "_run_dft_sequence",
-                "_write_public_energy_diagram", "_write_public_segment_diagram",
-                "_copy_structures_to_seg_dir",
-            }
-            and call.lineno > body[endpoint_index].lineno
-        ]
-        assert consumers
-        assert all(call.lineno > guard.end_lineno for call in consumers)
-        return copy.deepcopy(body[start:end + 1])
-    raise AssertionError(f"Endpoint branch not found: {branch}")
+_ROLE = {0: "R", 1: "P"}
+_STATE = {"R": "reactant", "P": "product"}
+_MODE = {
+    "hard_error": "error", "nonfinite_error": "nonfinite",
+    "converged": "converged", "not_converged": "not_converged",
+}
+
+
+def _xyz_values(path: Path):
+    rows = Path(path).read_text(encoding="utf-8").splitlines()[2:4]
+    return [tuple(float(v) for v in row.split()[1:4]) for row in rows]
+
+
+def _record_irc_leases(monkeypatch, leases):
+    real = workflow._irc_and_match
+
+    def irc_and_match(*args, **kwargs):
+        result = real(*args, **kwargs)
+        leases.append(result["calculator_lease"])
+        return result
+
+    return lambda _hooks: monkeypatch.setattr(workflow, "_irc_and_match", irc_and_match)
 
 
 @pytest.mark.parametrize("branch", ["ts", "seg"])
@@ -171,207 +130,121 @@ def endpoint_statements(branch, from_energies=False):
 def test_endpoint_boundary_retains_provenance_and_stops_consumers(
     monkeypatch, tmp_path, branch, failed_endpoint, dump, outcome,
 ):
-    statements = endpoint_statements(branch)
-    monkeypatch.setattr(hessian_cache, "load", lambda *_a: None)
-    monkeypatch.setattr(hessian_cache, "discard", lambda *_a: None)
-    events, records = [], []
-    root = tmp_path / "segment"
-    structures = root / "structures"
-    structures.mkdir(parents=True)
-    geometries = [Geometry(1), Geometry(2)]
-    lease = SimpleNamespace(release=lambda: events.append("release"))
-
-    def save(geom, _ref, directory, name):
-        events.append(name)
-        path = directory / f"{name}.xyz"
-        path.write_text(geom.as_xyz())
-        return (path, path)
-
-    opt_calls = []
-
-    def optimize(*args, **kwargs):
-        index = len(opt_calls)
-        opt_calls.append(index)
-        metadata = kwargs.get("outcome")
-        if metadata is not None:
-            metadata.update({
-                "optimization_status": "converged",
-                "converged": True,
-                "n_opt_cycles": index + 3,
-                "max_cycles": 3000,
-            })
-        child = args[6]
-        geom = Geometry(index + 1)
-        child.mkdir(parents=True, exist_ok=True)
-        geom.cart_coords[0] = 10 + index
-        (child / "iterate.xyz").write_text(geom.as_xyz())
-        if index == failed_endpoint and outcome in {"hard_error", "nonfinite_error"}:
-            if outcome == "nonfinite_error":
-                geom.cart_coords[0] = np.nan
-            raise ValueError("endpoint numerical failure")
-        return geom, child / "iterate.xyz", outcome != "not_converged"
-
-    def write_record(path, payload, **_kwargs):
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(payload))
-        records.append(payload)
-        return path
-
-    def enrich(summary, **kwargs):
-        summary["post_segments"] = kwargs["post_segments"]
-        summary["scientific_status"] = "failed"
-        records.append(summary)
-
-    names = {node.id for statement in statements for node in ast.walk(statement)
-             if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)}
-    namespace = {name: None for name in names if not hasattr(builtins, name)}
-    namespace.update(vars(workflow))
-    namespace.update({
-        "gL": geometries[0], "gR": geometries[1], "gT": Geometry(3),
-        "g_react_irc": geometries[0], "g_prod_irc": geometries[1],
-        "g_react": geometries[0], "g_prod": geometries[1],
-        "tsroot": root, "seg_dir": root, "struct_dir": structures,
-        "out_dir": tmp_path, "dump": dump, "eL": 1.0, "eR_raw": 0.0,
-        "reverse_irc": False, "irc_res": {"calculator_lease": lease},
-        "seg_idx": 1, "seg_tag": "seg_01", "s": {}, "segment_log": {},
-        "post_segment_logs": [], "endpoint_assignment": {},
-        "_tsopt_record": {}, "_tsopt_decision": {},
-        "_tsopt_payload": {}, "calculator_lease": lease,
-        "resolved_calc_template": SimpleNamespace(materialize=lambda: {}),
-        "_save_single_geom_for_tools": save, "_run_opt_for_state": optimize,
-        "_validate_optimized_endpoint_pair": lambda *_a, **_kw: {},
-        "commit_json": write_record, "commit_json_exact": write_record,
-        "_enrich_summary": enrich,
-        "_publish_manifest_summary": write_record,
-        "_finalize_current_summary": write_record,
-        "_copy_public_logged": lambda *_a, **_kw: None,
-        "_persist_run_manifest": lambda *_a: None,
-        "_write_endpoint_failure_summary_log": lambda *_a, **_kw: None,
-        "_all_method_citation_payload": lambda: {},
-        "_freeze_atoms_for_log": lambda: [],
-        "_emit_final_summary": lambda *_a, **_kw: None,
-    })
-    namespace["__builtins__"] = __builtins__
-    function = ast.parse("def exercise():\n    pass\n").body[0]
-    if branch == "seg":
-        wrapper = ast.parse("for iteration in [0]:\n    pass\n").body[0]
-        wrapper.body = statements
-        function.body = [wrapper]
-    else:
-        function.body = statements
-    inputs = ("gL", "gR", "gT", "g_react", "g_prod")
-    function.args.args = [ast.arg(arg=name) for name in inputs]
-    exec(compile(ast.fix_missing_locations(ast.Module(body=[function], type_ignores=[])),
-                 str(workflow.__file__), "exec"), namespace)
-    namespace["exercise"](*(namespace[name] for name in inputs))
-
-    states = ["reactant", "product"]
-    assert opt_calls == [0, 1]
-    assert "ts" in events
-    for index, state in enumerate(states):
-        assert f"H {index + 1}.0 0 0" in (structures / f"{state}_irc.xyz").read_text()
+    role = _ROLE[failed_endpoint]
+    leases = []
+    run = run_all(
+        tmp_path, monkeypatch,
+        frames=(1.0,) if branch == "ts" else (0.0, 2.0),
+        extra=["--tsopt", "--thermo", *(["--dump"] if dump else [])],
+        behaviour=Behaviour(opt={role: _MODE[outcome]}),
+        wrap=_record_irc_leases(monkeypatch, leases),
+    )
     failed = outcome in {"hard_error", "nonfinite_error"}
+    assert run.result.exit_code == (1 if failed else 0), run.result.output[-3000:]
+    segment = run.out / "segments" / "seg_01"
+    structures = segment / "structures"
+    endpoint_dir = segment / "endpoint_opt"
+
+    # Both endpoints are attempted even when the first one fails.
+    assert [Path(args[args.index("--out-dir") + 1]).name for args in run.child_args("opt")] == ["R", "P"]
+    assert (structures / "ts.xyz").is_file()
+    # TS-only presents the higher-energy IRC endpoint (frame 2) as the reactant;
+    # the MEP route keeps the MEP orientation (frame 0 is the reactant).
+    irc_frames = {"reactant": 2.0, "product": 0.0} if branch == "ts" else {"reactant": 0.0, "product": 2.0}
+    for state, frame in irc_frames.items():
+        np.testing.assert_allclose(_xyz_values(structures / f"{state}_irc.xyz"), coords(frame), atol=1e-6)
+    (lease,) = leases
+    assert lease.released
+    summary = run.summary
+    (post,) = summary["post_segments"]
+
     if failed:
-        assert not any(state in events for state in states)
-        assert (root / "endpoint_opt" / "failure.json").is_file()
-        failure = json.loads((root / "endpoint_opt" / "failure.json").read_text())
-        info = failure["failures"][states[failed_endpoint]]
-        assert info["error_type"] == "ValueError"
-        assert info["error"] == "endpoint numerical failure"
-        assert Path(info["irc_structure"]).is_file()
-        assert "release" in events
-        assert list((root / "endpoint_opt").rglob("iterate.xyz"))
-        assert info["geometry_role"] == "parent_irc_input_not_child_iterate"
-        assert geometries[failed_endpoint].cart_coords[0] == failed_endpoint + 1
-        if branch == "ts":
-            assert any(record.get("scientific_status") == "failed" for record in records)
+        state = _STATE[role]
+        assert not (structures / "reactant.xyz").exists()
+        assert not (structures / "product.xyz").exists()
+        failure = json.loads((endpoint_dir / "failure.json").read_text())
+        assert set(failure["failures"]) == {state}
+        info = failure["failures"][state]
+        if outcome == "hard_error":
+            assert info["error_type"] == "RuntimeError"
+            assert info["error"] == f"endpoint numerical failure ({role})"
         else:
-            assert namespace["post_segment_logs"][0]["pipeline_stop"]["stage"] == "endpoint_opt"
+            assert info["error_type"] == "ClickException"
+            assert "Nonfinite final coordinates" in info["error"]
+        assert info["geometry_role"] == "parent_irc_input_not_child_iterate"
+        # The retained structure is the parent IRC input, not the child iterate.
+        np.testing.assert_allclose(_xyz_values(info["irc_structure"]), coords(irc_frames[state]), atol=1e-6)
+        assert (endpoint_dir / role / "iterate.xyz").is_file()
+        # No refined consumer runs after the stage gate.
+        assert "freq" not in run.child_names()
+        assert not (segment / "energy_diagram_MLIP.png").exists()
+        assert post["pipeline_stop"]["stage"] == "endpoint_opt"
+        assert post["pipeline_stop"]["reason"] == "endpoint_execution_failed"
+        assert summary["execution_status"] == "failed"
     else:
-        assert all(state in events for state in states)
-        assert (root / "endpoint_opt").exists() is (dump or outcome == "not_converged")
-    if branch == "seg" and namespace["post_segment_logs"]:
-        endpoint_record = namespace["post_segment_logs"][0]["endpoint_opt"]
-        assert endpoint_record["reactant"]["n_opt_cycles"] == 3
-        assert endpoint_record["product"]["n_opt_cycles"] == 4
+        assert (structures / "reactant.xyz").is_file()
+        assert (structures / "product.xyz").is_file()
+        assert endpoint_dir.exists() is (dump or outcome == "not_converged")
+        assert run.child_names().count("freq") == 3
+        assert "pipeline_stop" not in post
+        converged = {state: True for state in ("reactant", "product")}
+        converged[_STATE[role]] = outcome == "converged"
+        assert post["endpoint_opt"]["reactant_converged"] is converged["reactant"]
+        assert post["endpoint_opt"]["product_converged"] is converged["product"]
+    for opt_role, state in _STATE.items():
+        if not (failed and opt_role == role):
+            assert post["endpoint_opt"][state]["n_opt_cycles"] == {"R": 3, "P": 4}[opt_role]
 
 
 def test_ts_only_higher_energy_irc_endpoint_is_reactant(monkeypatch, tmp_path):
-    statements = endpoint_statements("ts", from_energies=True)
-    loads, checkpoints, opt_dirs, records = [], [], [], []
-    monkeypatch.setattr(hessian_cache, "load", lambda key: loads.append(key))
-    monkeypatch.setattr(hessian_cache, "discard", lambda *_a: None)
-    root = tmp_path / "segment"
-    left, right, ts = Geometry(1), Geometry(2), Geometry(3)
-    left.energy, right.energy, ts.energy = -2.0, -1.5, -1.0
-    lease = SimpleNamespace(release=lambda: None, calculator=object())
+    loads, checkpoints = [], []
+    real_load = hessian_cache.load
+    real_checkpoint = workflow._save_role_scf_checkpoint
+    real_irc = workflow._irc_and_match
+    working = write(tmp_path / "ts.chk", "checkpoint fixture\n")
 
-    def save(geom, _ref, directory, name):
-        path = directory / f"{name}.xyz"
-        path.write_text(geom.as_xyz())
-        return (path, path)
+    def record_load(key):
+        loads.append(key)
+        return real_load(key)
 
-    def save_checkpoint(_calculator, geometry_path, destination, *, manifest, key):
+    def irc_with_checkpoint(*args, **kwargs):
+        result = real_irc(*args, **kwargs)
+        result["scf_checkpoint"] = working
+        return result
+
+    def record_checkpoint(calculator, geometry_path, destination, *, manifest, key):
         checkpoints.append((key, Path(geometry_path).name))
-        return destination
+        return real_checkpoint(calculator, geometry_path, destination, manifest=manifest, key=key)
 
-    def optimize(*args, **kwargs):
-        opt_dirs.append(args[6].name)
-        kwargs["outcome"].update({"optimization_status": "converged", "converged": True})
-        if len(opt_dirs) == 2:
-            raise ValueError("product endpoint failure")
-        return Geometry(10), None, True
+    def hooks(_hooks):
+        monkeypatch.setattr(hessian_cache, "load", record_load)
+        monkeypatch.setattr(workflow, "_irc_and_match", irc_with_checkpoint)
+        monkeypatch.setattr(workflow, "_save_role_scf_checkpoint", record_checkpoint)
 
-    def write_record(path, payload, **_kwargs):
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(payload))
-        return path
+    # IRC frame 0 (left, E=-1.00) is lower than frame 2 (right, E=-0.99).
+    run = run_all(tmp_path, monkeypatch, frames=(1.0,), extra=["--tsopt"],
+                  behaviour=Behaviour(opt={"P": "error"}), wrap=hooks)
 
-    def enrich(summary, **kwargs):
-        records.append(kwargs["post_segments"][0])
-
-    names = {node.id for statement in statements for node in ast.walk(statement)
-             if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)}
-    namespace = {name: None for name in names if not hasattr(builtins, name)}
-    namespace.update(vars(workflow))
-    namespace.update({
-        "tsroot": root, "out_dir": tmp_path, "dump": False,
-        "irc_res": {"calculator_lease": lease, "scf_checkpoint": tmp_path / "ts.chk"},
-        "_tsopt_record": {}, "_tsopt_payload": {},
-        "resolved_calc_template": SimpleNamespace(materialize=lambda: {}),
-        "_save_single_geom_for_tools": save, "_save_role_scf_checkpoint": save_checkpoint,
-        "_run_opt_for_state": optimize,
-        "commit_json_exact": write_record, "_enrich_summary": enrich,
-        "_finalize_current_summary": write_record,
-        "_persist_run_manifest": lambda *_a: None,
-        "_write_endpoint_failure_summary_log": lambda *_a, **_kw: None,
-        "_all_method_citation_payload": lambda: {},
-        "_emit_final_summary": lambda *_a, **_kw: None,
-    })
-    namespace["__builtins__"] = __builtins__
-    function = ast.parse("def exercise(gL, gR, gT):\n    pass\n").body[0]
-    function.body = statements
-    exec(compile(ast.fix_missing_locations(ast.Module(body=[function], type_ignores=[])),
-                 str(workflow.__file__), "exec"), namespace)
-    namespace["exercise"](left, right, ts)
-
-    structures = root / "structures"
-    assert "H 2.0 0 0" in (structures / "reactant_irc.xyz").read_text()
-    assert "H 1.0 0 0" in (structures / "product_irc.xyz").read_text()
-    assert loads == ["irc_right", "irc_left"]
-    assert opt_dirs == ["R", "P"]
+    assert run.result.exit_code == 1, run.result.output[-3000:]
+    structures = run.out / "segments" / "seg_01" / "structures"
+    np.testing.assert_allclose(_xyz_values(structures / "reactant_irc.xyz"), coords(2.0), atol=1e-6)
+    np.testing.assert_allclose(_xyz_values(structures / "product_irc.xyz"), coords(0.0), atol=1e-6)
+    assert [key for key in loads if key.startswith("irc_")] == ["irc_right", "irc_left"]
+    opt_inputs = [Path(args[args.index("-i") + 1]) for args in run.child_args("opt")]
+    assert [Path(args[args.index("--out-dir") + 1]).name for args in run.child_args("opt")] == ["R", "P"]
+    np.testing.assert_allclose(_xyz_values(opt_inputs[0]), coords(2.0), atol=1e-6)
     assert checkpoints == [
         ("post.01.scf_checkpoint.R", "reactant_irc.xyz"),
         ("post.01.scf_checkpoint.P", "product_irc.xyz"),
     ]
-    failure = json.loads((root / "endpoint_opt" / "failure.json").read_text())
+    failure = json.loads((run.out / "segments/seg_01/endpoint_opt/failure.json").read_text())
     assert set(failure["failures"]) == {"product"}
-    (stop_log,) = records
-    assignment = stop_log["endpoint_assignment"]
+    (post,) = run.summary["post_segments"]
+    assignment = post["endpoint_assignment"]
     assert assignment["policy"] == "higher_energy_endpoint_as_reactant"
     assert (assignment["left_role"], assignment["right_role"]) == ("product", "reactant")
-    assert stop_log["endpoint_opt"]["reactant_converged"] is True
-    assert stop_log["endpoint_opt"]["product_converged"] is None
+    assert post["endpoint_opt"]["reactant_converged"] is True
+    assert post["endpoint_opt"]["product_converged"] is None
 
 
 @pytest.mark.parametrize(

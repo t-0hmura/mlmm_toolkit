@@ -1630,28 +1630,8 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
 
                         crel = f"{path_dir_rel}/{child.name}"
 
-                        # post_seg_XX/ directories
-                        if child.name.startswith("post_seg_"):
-                            annotations.setdefault(
-                                crel,
-                                f"Post-processing: TSOPT, IRC, freq for {child.name}",
-                            )
-                            _subdir_notes = {
-                                "structures": "Optimized state structures (IRC endpoints)",
-                                "irc": "IRC trajectories and plots",
-                                "ts": "TS optimization output",
-                                "ts/vib": "TS vibrational analysis",
-                                "freq": "Frequency and thermochemistry",
-                                "freq/R": "Reactant freq/thermo",
-                                "freq/TS": "TS freq/thermo",
-                                "freq/P": "Product freq/thermo",
-                            }
-                            for subdir_name, desc in _subdir_notes.items():
-                                sub = child / subdir_name
-                                if sub.exists():
-                                    annotations.setdefault(f"{crel}/{subdir_name}", desc)
                         # init optimization dirs
-                        elif _re.match(r"init\d+_(lbfgs|rfo)_opt$", child.name):
+                        if _re.match(r"init\d+_(lbfgs|rfo)_opt$", child.name):
                             idx = _re.search(r"init(\d+)", child.name).group(1)
                             annotations.setdefault(crel, f"Initial optimization of endpoint {idx}")
                         # GSM/NEB path dirs

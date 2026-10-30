@@ -1,0 +1,225 @@
+{
+ "children": [
+  "path_search"
+ ],
+ "exit_code": 0,
+ "summary": {
+  "charge": 0,
+  "command": "mlmm path-search -i <tmp>/input0.pdb <tmp>/input1.pdb -q 0 -m 1 --parm <tmp>/fixture.parm7 --detect-layer --mep-mode gsm --no-preopt --opt-mode grad --out-dir <tmp>/out/_work/path_search --ref-pdb <tmp>/input0.pdb <tmp>/input1.pdb",
+  "current_output_paths": [
+   "energy_diagram_MEP.png",
+   "mep_plot.png",
+   "mep_trj.pdb",
+   "mep_trj.xyz",
+   "ml_region.pdb",
+   "ml_region_with_linkH.pdb",
+   "ml_region_with_linkH.xyz",
+   "ml_region_without_linkH.pdb",
+   "ml_region_without_linkH.xyz",
+   "summary.json",
+   "summary.log"
+  ],
+  "environment": "<environment>",
+  "execution_status": "completed",
+  "expected_item_ids": [
+   "segment_1",
+   "raw_path",
+   "reactive_segment_1"
+  ],
+  "key_output_files": {
+   "energy_diagram_MEP.png": "MEP energy plot",
+   "mep_plot.png": "MEP energy plot (trj2fig)",
+   "mep_trj.pdb": "Full MEP as PDB",
+   "mep_trj.xyz": "Full MEP trajectory",
+   "ml_region.pdb": "Reusable ML-region model",
+   "ml_region_with_linkH.pdb": "Current-run pipeline output",
+   "ml_region_with_linkH.xyz": "Current-run pipeline output",
+   "ml_region_without_linkH.pdb": "Current-run pipeline output",
+   "ml_region_without_linkH.xyz": "Current-run pipeline output",
+   "summary.json": "Machine-readable results summary",
+   "summary.log": "Human-readable results summary"
+  },
+  "link_atom_method": "scaled",
+  "mlip_backend": "uma",
+  "mlip_model": "uma-s-1p2p1",
+  "mlip_model_label": "UMA-S-1.2.1 (OMol)",
+  "mlip_precision": "fp32",
+  "mlip_task": "omol",
+  "mlmm_toolkit_version": "<version>",
+  "mm_backend": "hessian_ff",
+  "n_images": 3,
+  "n_segments": 1,
+  "observed_item_ids": [
+   "segment_1",
+   "raw_path"
+  ],
+  "out_dir": "<tmp>/out/_work/path_search",
+  "path_optimizers": [],
+  "pipeline_mode": "path-search",
+  "pipeline_stop": {
+   "reason": "no_reactive_segment",
+   "stage": "post"
+  },
+  "preopt_converged": null,
+  "preopt_endpoints": [],
+  "preopt_requested": false,
+  "primary_method": "mlip",
+  "primary_method_label": "ML/MM",
+  "references": [
+   {
+    "citation": "Ohmura, T.; Inoue, S.; Terada, T. ML/MM toolkit – Towards Accelerated Mechanistic Investigation of Enzymatic Reactions. ChemRxiv (2025). https://doi.org/10.26434/chemrxiv-2025-jft1k",
+    "doi": "10.26434/chemrxiv-2025-jft1k",
+    "method": "mlmm-toolkit"
+   },
+   {
+    "citation": "Steinmetzer, J.; Kupfer, S.; Gräfe, S. pysisyphus: Exploring potential energy surfaces in ground and excited states. Int. J. Quantum Chem. 121, e26390 (2021). https://doi.org/10.1002/qua.26390",
+    "doi": "10.1002/qua.26390",
+    "method": "pysisyphus engine"
+   },
+   {
+    "citation": "Wood, B. M.; Dzamba, M.; Fu, X.; Gao, M.; Shuaibi, M.; Barroso-Luque, L.; Abdelmaqsoud, K.; Gharakhanyan, V.; Kitchin, J. R.; Levine, D. S.; Michel, K.; Sriram, A.; Cohen, T. S.; Das, A.; Sahoo, S. J.; Rizvi, A.; Ulissi, Z. W.; Zitnick, C. L. UMA: A Family of Universal Models for Atoms. Advances in Neural Information Processing Systems 38, 129391-129427 (2025). https://doi.org/10.52202/085713-4310",
+    "doi": "10.52202/085713-4310",
+    "method": "UMA"
+   },
+   {
+    "citation": "Levine, D. S.; Shuaibi, M.; Spotte-Smith, E. W. C.; Taylor, M. G.; Hasyim, M. R.; Michel, K.; Batatia, I.; Csányi, G.; Dzamba, M.; Eastman, P.; Frey, N. C.; Fu, X.; Gharakhanyan, V.; Krishnapriyan, A. S.; Rackers, J. A.; Raja, S.; Rizvi, A.; Rosen, A. S.; Ulissi, Z.; Vargas, S.; Zitnick, C. L.; Blau, S. M.; Wood, B. M. The Open Molecules 2025 (OMol25) Dataset, Evaluations, and Models. arXiv 2025, arXiv:2505.08762. https://doi.org/10.48550/arXiv.2505.08762",
+    "doi": "10.48550/arXiv.2505.08762",
+    "method": "OMol25"
+   },
+   {
+    "citation": "Peters, B.; Heyden, A.; Bell, A. T.; Chakraborty, A. A growing string method for determining transition states: Comparison to the nudged elastic band and string methods. J. Chem. Phys. 120, 7877-7886 (2004). https://doi.org/10.1063/1.1691018",
+    "doi": "10.1063/1.1691018",
+    "method": "Growing String Method (GSM)"
+   },
+   {
+    "citation": "Zimmerman, P. M. Reliable Transition State Searches Integrated with the Growing String Method. J. Chem. Theory Comput. 9, 3043-3050 (2013). https://doi.org/10.1021/ct400319w",
+    "doi": "10.1021/ct400319w",
+    "method": "Growing String Method (GSM)"
+   }
+  ],
+  "resume_identity": {
+   "calculator_identity": {
+    "embedcharge": false,
+    "embedcharge_cutoff": null,
+    "link_atom_method": "scaled",
+    "mlip_backend": "uma",
+    "mlip_model": "uma-s-1p2p1",
+    "mlip_precision": "fp32",
+    "mlip_task": "omol",
+    "mm_backend": "hessian_ff",
+    "primary_method": "mlip",
+    "use_cmap": true
+   },
+   "charge": 0,
+   "inputs": [
+    {
+     "path": "<tmp>/input0.pdb",
+     "sha256": "fb8fc3ddafa4c3af9c2c4ee9be4500d09624da6292a2b33292b488bec9122b60",
+     "size": 162
+    },
+    {
+     "path": "<tmp>/input1.pdb",
+     "sha256": "b5676dc7eb8f1c6d0a45ad20a12e74fa9611cb619def12c576fb98c15f5ea32f",
+     "size": 162
+    }
+   ],
+   "path_request": {
+    "add_linkh": false,
+    "center": null,
+    "climb": true,
+    "config_sha256": null,
+    "coord_type": null,
+    "detect_layer": true,
+    "dmf_backend": "gpu",
+    "exclude_backbone": false,
+    "freeze_atoms": [],
+    "gsm_param": null,
+    "include_h2o": true,
+    "layered_input_sha256": [
+     "fb8fc3ddafa4c3af9c2c4ee9be4500d09624da6292a2b33292b488bec9122b60",
+     "b5676dc7eb8f1c6d0a45ad20a12e74fa9611cb619def12c576fb98c15f5ea32f"
+    ],
+    "ligand_charge": null,
+    "max_cycles_dmf": null,
+    "max_cycles_gsm": null,
+    "max_depth": null,
+    "max_nodes": 20,
+    "mep_mode": "gsm",
+    "mm_add_ter": true,
+    "mm_auto_disulfide": true,
+    "mm_ff_set": "ff19SB",
+    "mm_ligand_mult": null,
+    "model_region_sha256": "fb8fc3ddafa4c3af9c2c4ee9be4500d09624da6292a2b33292b488bec9122b60",
+    "modified_residue": "",
+    "opt_mode": "grad",
+    "parm7_sha256": "25dab2b065184d72574ac6b0d3d0eb5572e4965e48a92ddd93b1f9450acec13e",
+    "preopt": false,
+    "radius": 2.6,
+    "radius_het2het": 0.0,
+    "refine_path": true,
+    "scan_bias_k": null,
+    "scan_endopt": null,
+    "scan_lists": [],
+    "scan_max_step_size": null,
+    "scan_one_based": true,
+    "scan_preopt": null,
+    "scan_relax_max_cycles": null,
+    "selected_resn": "",
+    "thresh": null,
+    "thresh_dmf": null,
+    "thresh_gsm": null
+   },
+   "pipeline_mode": "path-search",
+   "ref_pdb": null,
+   "schema_version": 1,
+   "spin": 1
+  },
+  "run_id": "<run_id>",
+  "schema_version": "4.0",
+  "scientific_status": "partial",
+  "scientific_status_reasons": [
+   "path:raw_path:endpoint_hei",
+   "missing:reactive_segment_1"
+  ],
+  "search_max_depth": 10,
+  "segments": [
+   {
+    "barrier_kcal": 0.5,
+    "bond_changes": "",
+    "converged": true,
+    "delta_kcal": 0.1,
+    "index": 1,
+    "kind": "bridge",
+    "tag": "seg_001_bridge"
+   }
+  ],
+  "spin": 1,
+  "stage_outcomes": [
+   {
+    "artifacts": [],
+    "converged": true,
+    "executed": true,
+    "item_id": "segment_1",
+    "reason": "ok",
+    "required": true,
+    "stage": "path",
+    "usable": true
+   },
+   {
+    "artifacts": [
+     "mep_trj.pdb",
+     "mep_plot.png",
+     "energy_diagram_MEP.png"
+    ],
+    "converged": true,
+    "executed": true,
+    "item_id": "raw_path",
+    "reason": "endpoint_hei",
+    "required": true,
+    "stage": "path",
+    "usable": false
+   }
+  ],
+  "use_cmap": true
+ }
+}

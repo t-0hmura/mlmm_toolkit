@@ -13,7 +13,7 @@ from mlmm.cli.completion import completion_guard, record_completion
 
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import gc
 import ast
@@ -162,18 +162,6 @@ def _coords3d_to_xyz_string(geom, energy: Optional[float] = None) -> str:
     if not s.endswith("\n"):
         s += "\n"
     return s
-
-
-def _pair_distances(coords_ang: np.ndarray, pairs: Iterable[Tuple[int, int]]) -> List[float]:
-    """
-    coords_ang: (N,3) in Å; returns a list of distances (Å) for the given pairs.
-    """
-    dists: List[float] = []
-    for i, j in pairs:
-        v = coords_ang[i] - coords_ang[j]
-        d = float(np.linalg.norm(v))
-        dists.append(d)
-    return dists
 
 
 def _schedule_for_stage(

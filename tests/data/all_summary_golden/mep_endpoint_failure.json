@@ -1,0 +1,372 @@
+{
+ "children": [
+  "path_opt",
+  "tsopt",
+  "irc",
+  "opt",
+  "opt"
+ ],
+ "exit_code": 1,
+ "summary": {
+  "charge": 0,
+  "command": "mlmm all -i <tmp>/input0.pdb -i <tmp>/input1.pdb -q 0 -m 1 --parm <tmp>/fixture.parm7 --model-pdb <tmp>/input0.pdb --out-dir <tmp>/out --no-preopt --tsopt",
+  "config": {
+   "dft": false,
+   "dmf_backend": "gpu",
+   "dmf_correlated": true,
+   "endpoint_opt_mode": "hess",
+   "flatten": false,
+   "mep_mode": "gsm",
+   "opt_mode": "grad",
+   "opt_mode_post": "hess",
+   "path_opt_mode": "grad",
+   "post_opt_mode": "hess",
+   "preopt": false,
+   "refine_path": false,
+   "thermo": false,
+   "ts_opt_mode": "hess",
+   "tsopt": true
+  },
+  "current_output_paths": [
+   "energy_diagram_MEP.png",
+   "irc_plot_all.png",
+   "mep_plot.png",
+   "mep_trj.pdb",
+   "mep_trj.xyz",
+   "ml_region.pdb",
+   "ml_region_with_linkH.pdb",
+   "ml_region_with_linkH.xyz",
+   "ml_region_without_linkH.pdb",
+   "ml_region_without_linkH.xyz",
+   "segments/seg_01/irc/finished_irc.pdb",
+   "segments/seg_01/irc/finished_irc_trj.xyz",
+   "segments/seg_01/irc/irc_plot.png",
+   "summary.json",
+   "summary.log"
+  ],
+  "energy_diagrams": [
+   {
+    "energies_au": [
+     -1.0,
+     -0.975,
+     -0.99
+    ],
+    "energies_kcal": [
+     0.0,
+     15.68773685157245,
+     6.27509474062898
+    ],
+    "image": "<tmp>/out/_work/path_opt/energy_diagram_MEP.png",
+    "image_written": true,
+    "labels": [
+     "R",
+     "TS1",
+     "P"
+    ],
+    "name": "energy_diagram_MEP",
+    "title": "(GSM)",
+    "ylabel": "ΔE (kcal/mol)"
+   }
+  ],
+  "environment": "<environment>",
+  "execution_status": "failed",
+  "expected_item_ids": [
+   "segment_1"
+  ],
+  "key_output_files": {
+   "energy_diagram_MEP.png": "MEP energy plot",
+   "irc_plot_all.png": "Aggregated IRC plot",
+   "mep_plot.png": "MEP energy plot (trj2fig)",
+   "mep_trj.pdb": "Full MEP as PDB",
+   "mep_trj.xyz": "Full MEP trajectory",
+   "ml_region.pdb": "Reusable ML-region model",
+   "ml_region_with_linkH.pdb": "Current-run pipeline output",
+   "ml_region_with_linkH.xyz": "Current-run pipeline output",
+   "ml_region_without_linkH.pdb": "Current-run pipeline output",
+   "ml_region_without_linkH.xyz": "Current-run pipeline output",
+   "seg_01": {
+    "description": "Per-segment results for seg_01",
+    "files": [
+     "irc/finished_irc.pdb",
+     "irc/finished_irc_trj.xyz",
+     "irc/irc_plot.png"
+    ]
+   },
+   "summary.json": "Machine-readable results summary",
+   "summary.log": "Human-readable results summary"
+  },
+  "link_atom_method": "scaled",
+  "mlip_backend": "uma",
+  "mlip_model": "uma-s-1p2p1",
+  "mlip_model_label": "UMA-S-1.2.1 (OMol)",
+  "mlip_precision": "fp32",
+  "mlip_precision_post": "fp32",
+  "mlip_task": "omol",
+  "mlmm_toolkit_version": "<version>",
+  "mm_backend": "hessian_ff",
+  "n_images": 3,
+  "n_segments": 1,
+  "n_segments_reactive": 1,
+  "observed_item_ids": [
+   "segment_1"
+  ],
+  "out_dir": "<tmp>/out/_work/path_opt",
+  "overall_reaction_energy_kcal": 6.28,
+  "overall_reaction_energy_method": "MEP",
+  "path_optimizers": [],
+  "pipeline_mode": "path-opt",
+  "post_segments": [
+   {
+    "endpoint_assignment": {
+     "connectivity_validated": true,
+     "match_matrix": {
+      "left_to_mep_left": true,
+      "left_to_mep_right": true,
+      "right_to_mep_left": true,
+      "right_to_mep_right": true
+     },
+     "method": "rmsd_topology_tie",
+     "reversed": false,
+     "rmsd_direct": 0.0,
+     "rmsd_swapped": 0.8625380222221168
+    },
+    "endpoint_opt": {
+     "failures": {
+      "product": {
+       "child_work_dir": "<tmp>/out/segments/seg_01/endpoint_opt/P",
+       "error": "endpoint numerical failure (P)",
+       "error_type": "RuntimeError",
+       "geometry_role": "parent_irc_input_not_child_iterate",
+       "irc_structure": "<tmp>/out/segments/seg_01/structures/product_irc.xyz"
+      }
+     },
+     "product": {
+      "converged": null,
+      "error": "endpoint numerical failure (P)",
+      "error_type": "RuntimeError",
+      "optimization_status": "error"
+     },
+     "product_converged": null,
+     "reactant": {
+      "converged": true,
+      "max_cycles": 3000,
+      "n_opt_cycles": 3,
+      "optimization_status": "converged"
+     },
+     "reactant_converged": true
+    },
+    "index": 1,
+    "irc": {
+     "backward_integration_converged": true,
+     "backward_integration_stop_reason": "energy_minimum",
+     "backward_requested": true,
+     "forward_integration_converged": true,
+     "forward_integration_stop_reason": "energy_minimum",
+     "forward_requested": true,
+     "n_frames_backward": 2,
+     "n_frames_forward": 2,
+     "traj": "<tmp>/out/segments/seg_01/irc/finished_irc_trj.xyz"
+    },
+    "irc_plot": "<tmp>/out/segments/seg_01/irc/irc_plot.png",
+    "irc_traj": "<tmp>/out/segments/seg_01/irc/finished_irc_trj.xyz",
+    "kind": "seg",
+    "pipeline_stop": {
+     "diagnostic_dir": "<tmp>/out/segments/seg_01/endpoint_opt",
+     "failures": {
+      "product": {
+       "child_work_dir": "<tmp>/out/segments/seg_01/endpoint_opt/P",
+       "error": "endpoint numerical failure (P)",
+       "error_type": "RuntimeError",
+       "geometry_role": "parent_irc_input_not_child_iterate",
+       "irc_structure": "<tmp>/out/segments/seg_01/structures/product_irc.xyz"
+      }
+     },
+     "reason": "endpoint_execution_failed",
+     "segment": 1,
+     "stage": "endpoint_opt",
+     "ts_structure": "<tmp>/out/segments/seg_01/structures/ts.pdb"
+    },
+    "post_dir": "<tmp>/out/segments/seg_01",
+    "tag": "seg_01",
+    "tsopt": {
+     "continue_irc": true,
+     "flatten_enabled": false,
+     "hessian_error": null,
+     "hessian_status": "completed",
+     "n_imaginary_modes": 1,
+     "n_negative_modes": 1,
+     "optimization_status": "converged",
+     "reaction_mode_fallback": false,
+     "reaction_mode_fallback_reason": null,
+     "reaction_mode_frequency_cm": -512.5,
+     "reaction_mode_index": 0,
+     "reaction_mode_overlap": null,
+     "reaction_mode_source": null,
+     "reason": "first_order_saddle",
+     "saddle_validation": "first_order",
+     "skip_final_freq": false
+    }
+   }
+  ],
+  "preopt_converged": null,
+  "preopt_requested": false,
+  "primary_method": "mlip",
+  "primary_method_label": "ML/MM",
+  "rate_limiting_step": {
+   "barrier_kcal": 15.69,
+   "mep_barrier_kcal": 15.69,
+   "method": "MEP",
+   "segment": 1
+  },
+  "references": [
+   {
+    "citation": "Ohmura, T.; Inoue, S.; Terada, T. ML/MM toolkit – Towards Accelerated Mechanistic Investigation of Enzymatic Reactions. ChemRxiv (2025). https://doi.org/10.26434/chemrxiv-2025-jft1k",
+    "doi": "10.26434/chemrxiv-2025-jft1k",
+    "method": "mlmm-toolkit"
+   },
+   {
+    "citation": "Steinmetzer, J.; Kupfer, S.; Gräfe, S. pysisyphus: Exploring potential energy surfaces in ground and excited states. Int. J. Quantum Chem. 121, e26390 (2021). https://doi.org/10.1002/qua.26390",
+    "doi": "10.1002/qua.26390",
+    "method": "pysisyphus engine"
+   },
+   {
+    "citation": "Wood, B. M.; Dzamba, M.; Fu, X.; Gao, M.; Shuaibi, M.; Barroso-Luque, L.; Abdelmaqsoud, K.; Gharakhanyan, V.; Kitchin, J. R.; Levine, D. S.; Michel, K.; Sriram, A.; Cohen, T. S.; Das, A.; Sahoo, S. J.; Rizvi, A.; Ulissi, Z. W.; Zitnick, C. L. UMA: A Family of Universal Models for Atoms. Advances in Neural Information Processing Systems 38, 129391-129427 (2025). https://doi.org/10.52202/085713-4310",
+    "doi": "10.52202/085713-4310",
+    "method": "UMA"
+   },
+   {
+    "citation": "Levine, D. S.; Shuaibi, M.; Spotte-Smith, E. W. C.; Taylor, M. G.; Hasyim, M. R.; Michel, K.; Batatia, I.; Csányi, G.; Dzamba, M.; Eastman, P.; Frey, N. C.; Fu, X.; Gharakhanyan, V.; Krishnapriyan, A. S.; Rackers, J. A.; Raja, S.; Rizvi, A.; Rosen, A. S.; Ulissi, Z.; Vargas, S.; Zitnick, C. L.; Blau, S. M.; Wood, B. M. The Open Molecules 2025 (OMol25) Dataset, Evaluations, and Models. arXiv 2025, arXiv:2505.08762. https://doi.org/10.48550/arXiv.2505.08762",
+    "doi": "10.48550/arXiv.2505.08762",
+    "method": "OMol25"
+   },
+   {
+    "citation": "Peters, B.; Heyden, A.; Bell, A. T.; Chakraborty, A. A growing string method for determining transition states: Comparison to the nudged elastic band and string methods. J. Chem. Phys. 120, 7877-7886 (2004). https://doi.org/10.1063/1.1691018",
+    "doi": "10.1063/1.1691018",
+    "method": "Growing String Method (GSM)"
+   },
+   {
+    "citation": "Zimmerman, P. M. Reliable Transition State Searches Integrated with the Growing String Method. J. Chem. Theory Comput. 9, 3043-3050 (2013). https://doi.org/10.1021/ct400319w",
+    "doi": "10.1021/ct400319w",
+    "method": "Growing String Method (GSM)"
+   },
+   {
+    "citation": "Hratchian, H. P.; Frisch, M. J.; Schlegel, H. B. Steepest Descent Reaction Path Integration Using a First-Order Predictor-Corrector Method. J. Chem. Phys. 133, 224101 (2010). https://doi.org/10.1063/1.3514202",
+    "doi": "10.1063/1.3514202",
+    "method": "Euler predictor-corrector IRC (EulerPC)"
+   },
+   {
+    "citation": "Hratchian, H. P.; Schlegel, H. B. Accurate Reaction Paths Using a Hessian-Based Predictor-Corrector Integrator. J. Chem. Phys. 120, 9918-9924 (2004). https://doi.org/10.1063/1.1724823",
+    "doi": "10.1063/1.1724823",
+    "method": "Euler predictor-corrector IRC (EulerPC)"
+   },
+   {
+    "citation": "Banerjee, A.; Adams, N.; Simons, J.; Shepard, R. Search for stationary points on surfaces. J. Phys. Chem. 89, 52-57 (1985). https://doi.org/10.1021/j100247a015",
+    "doi": "10.1021/j100247a015",
+    "method": "RFO / P-RFO"
+   },
+   {
+    "citation": "Besalú, E.; Bofill, J. M. On the automatic restricted-step rational-function-optimization method. Theor. Chem. Acc. 100, 265-274 (1998). https://doi.org/10.1007/s002140050387",
+    "doi": "10.1007/s002140050387",
+    "method": "RS-P-RFO"
+   }
+  ],
+  "resume_identity": {
+   "calculator_identity": {
+    "embedcharge": false,
+    "embedcharge_cutoff": null,
+    "link_atom_method": "scaled",
+    "mlip_backend": "uma",
+    "mlip_model": "uma-s-1p2p1",
+    "mlip_precision": "fp32",
+    "mlip_task": "omol",
+    "mm_backend": "hessian_ff",
+    "primary_method": "mlip",
+    "use_cmap": true
+   },
+   "charge": 0,
+   "inputs": [
+    {
+     "path": "<tmp>/input0.pdb",
+     "sha256": "fb8fc3ddafa4c3af9c2c4ee9be4500d09624da6292a2b33292b488bec9122b60",
+     "size": 162
+    },
+    {
+     "path": "<tmp>/input1.pdb",
+     "sha256": "b5676dc7eb8f1c6d0a45ad20a12e74fa9611cb619def12c576fb98c15f5ea32f",
+     "size": 162
+    }
+   ],
+   "path_request": {
+    "add_linkh": false,
+    "center": null,
+    "climb": true,
+    "config_sha256": null,
+    "coord_type": null,
+    "detect_layer": true,
+    "dmf_backend": "gpu",
+    "exclude_backbone": false,
+    "freeze_atoms": [],
+    "gsm_param": null,
+    "include_h2o": true,
+    "layered_input_sha256": [
+     "fb8fc3ddafa4c3af9c2c4ee9be4500d09624da6292a2b33292b488bec9122b60",
+     "b5676dc7eb8f1c6d0a45ad20a12e74fa9611cb619def12c576fb98c15f5ea32f"
+    ],
+    "ligand_charge": null,
+    "max_cycles_dmf": null,
+    "max_cycles_gsm": null,
+    "max_depth": null,
+    "max_nodes": 20,
+    "mep_mode": "gsm",
+    "mm_add_ter": true,
+    "mm_auto_disulfide": true,
+    "mm_ff_set": "ff19SB",
+    "mm_ligand_mult": null,
+    "model_region_sha256": "fb8fc3ddafa4c3af9c2c4ee9be4500d09624da6292a2b33292b488bec9122b60",
+    "modified_residue": "",
+    "opt_mode": "grad",
+    "parm7_sha256": "25dab2b065184d72574ac6b0d3d0eb5572e4965e48a92ddd93b1f9450acec13e",
+    "preopt": false,
+    "radius": 2.6,
+    "radius_het2het": 0.0,
+    "refine_path": false,
+    "scan_bias_k": null,
+    "scan_endopt": null,
+    "scan_lists": [],
+    "scan_max_step_size": null,
+    "scan_one_based": true,
+    "scan_preopt": null,
+    "scan_relax_max_cycles": null,
+    "selected_resn": "",
+    "thresh": null,
+    "thresh_dmf": null,
+    "thresh_gsm": null
+   },
+   "pipeline_mode": "path-opt",
+   "ref_pdb": null,
+   "schema_version": 1,
+   "spin": 1
+  },
+  "run_id": "<run_id>",
+  "schema_version": "4.0",
+  "scientific_status": "partial",
+  "scientific_status_reasons": [
+   "segment 1: TSOPT/IRC refined ML/MM energies are missing",
+   "all:segment_1:endpoint_opt:product_execution_failed"
+  ],
+  "segments": [
+   {
+    "barrier_kcal": 15.68773685157245,
+    "bond_changes": "(no covalent changes detected)",
+    "converged": true,
+    "delta_kcal": 6.27509474062898,
+    "index": 1,
+    "kind": "seg",
+    "tag": "seg_01"
+   }
+  ],
+  "spin": 1,
+  "stopped_before_irc": false,
+  "use_cmap": true
+ }
+}

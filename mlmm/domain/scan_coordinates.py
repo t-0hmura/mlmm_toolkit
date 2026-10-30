@@ -48,10 +48,6 @@ def coordinate_unit(kind: str) -> str:
     return "angstrom" if kind == "distance" else "degree"
 
 
-def coordinate_symbol(kind: str) -> str:
-    return {"distance": "r", "angle": "angle", "dihedral": "dihedral"}[kind]
-
-
 def canonical_axis_key(kind: str, atoms: Sequence[int]) -> tuple[str, tuple[int, ...]]:
     atom_tuple = tuple(int(i) for i in atoms)
     reverse = tuple(reversed(atom_tuple))
