@@ -122,3 +122,48 @@ def test_final_step_log_states_the_achieved_coincidence(tmp_path, monkeypatch):
     assert "frozen" in snap[0]
     assert outcome["max_remaining_A"] == 0.0
     assert np.allclose(mob.cart_coords, ref.cart_coords)
+
+
+def test_alignment_relaxations_use_package_lbfgs_defaults_with_gau(
+    tmp_path, monkeypatch
+):
+    """Every scan step and the final relaxation use LBFGS_KW with gau."""
+    from mlmm.core.defaults import LBFGS_KW
+
+    calls = []
+
+    class _RecordingLBFGS:
+        is_converged = True
+
+        def __init__(self, _geom, **kwargs):
+            calls.append(kwargs)
+
+        def run(self):
+            return None
+
+    ref = Geometry(["H"], np.zeros(3), coord_type="cart")
+    mob = Geometry(["H"], np.array([0.5, 0.0, 0.0]), coord_type="cart")
+    ref.freeze_atoms = np.array([0], dtype=int)
+    mob.freeze_atoms = np.array([0], dtype=int)
+    monkeypatch.setattr(align_freeze, "LBFGS", _RecordingLBFGS)
+    monkeypatch.setattr(
+        align_freeze, "_attach_calc_if_needed", lambda *_args, **_kwargs: None
+    )
+
+    outcome = scan_freeze_atoms_toward_target_inplace(
+        ref,
+        mob,
+        step_A=0.1,
+        per_step_cycles=7,
+        final_cycles=11,
+        out_dir=tmp_path,
+        verbose=False,
+    )
+
+    skip = ("thresh", "out_dir", "max_cycles")
+    expected = {k: v for k, v in LBFGS_KW.items() if k not in skip}
+    assert outcome["converged"] is True
+    assert [kwargs["max_cycles"] for kwargs in calls] == [7, 7, 11]
+    for kwargs in calls:
+        assert kwargs["thresh"] == "gau"
+        assert {k: v for k, v in kwargs.items() if k not in skip} == expected

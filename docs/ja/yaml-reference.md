@@ -99,7 +99,8 @@ max_cycles: 100000
 | `tsopt`（Hessian Dimer、RS-P-RFO、RS-I-RFO、TRIM） | `baker` |
 | `scan` | `gau` |
 | `scan2d`, `scan3d` | `baker` |
-| `path-opt`、`path-search`（端点の事前最適化と、整列の後の緩和） | `gau` |
+| `path-opt`、`path-search`（端点の事前最適化） | `gau` |
+| `path-opt`、`path-search`、`all`（入力の整列。`--thresh` に依らない） | `gau` |
 | `path-opt`、`path-search`（GSM のストリング: `--thresh-gsm`、`stopt.thresh`） | `gau_loose` |
 | `path-opt`、`path-search`（DMF の経路: `--dmf-tol`、`dmf.tol`） | `tight`（0.04。Gaussian のプリセットではない） |
 | `all`（`--thresh`: 単一構造の最適化とスキャンの緩和） | `gau` |

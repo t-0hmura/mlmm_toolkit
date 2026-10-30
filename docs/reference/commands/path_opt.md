@@ -66,8 +66,7 @@ Options:
                                   ./result_path_opt/]
   --thresh [gau_loose|gau|gau_tight|gau_vtight|baker|never]
                                   Convergence preset for endpoint
-                                  preoptimization and the post-alignment
-                                  relaxation only. The MEP itself keeps
+                                  preoptimization only. The MEP itself keeps
                                   --thresh-gsm / --dmf-tol.  [default: (gau)]
   --thresh-gsm [gau_loose|gau|gau_tight|gau_vtight|baker|never]
                                   Convergence preset for the GSM string

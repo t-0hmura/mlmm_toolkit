@@ -44,7 +44,7 @@ Provided functionality (concise):
     Returns: dict(before_A, after_A, n_used, mode) with RMSD in Å and mode ∈ {"one_anchor","two_anchor","kabsch"}.
 - scan_freeze_atoms_toward_target_inplace(
       g_ref, g_mob, *, step_A=0.1, per_step_cycles=1000, final_cycles=10000, max_steps=100,
-      shared_calc=None, out_dir=Path("./result_align_refine/"), thresh="gau", verbose=True)
+      shared_calc=None, out_dir=Path("./result_align_refine/"), verbose=True)
     Moves `g_mob.freeze_atoms` toward `g_ref` by `step_A` Å per iteration. At each step the frozen atoms
     are held fixed and the surroundings are relaxed with LBFGS. When the maximum remaining distance is
     below one step, enforce exact coincidence of the frozen atoms and run a finishing relaxation.
@@ -52,13 +52,13 @@ Provided functionality (concise):
 - align_and_refine_pair_inplace(
       g_ref, g_mob, *, shared_calc=None, out_dir=Path("./result_align_refine/"),
       step_A=0.1, per_step_cycles=1000, final_cycles=10000, max_steps=100,
-      thresh="gau", verbose=True)
+      verbose=True)
     High-level pair API: (1) rigid alignment, then (2) scan + relaxation toward the reference.
     Returns: {"align": {...}, "scan": {...}}.
 - align_and_refine_sequence_inplace(
       geoms, *, shared_calc=None, out_dir=Path("./result_align_refine/"),
       step_A=0.1, per_step_cycles=1000, final_cycles=10000, max_steps=100,
-      thresh="gau", verbose=True)
+      verbose=True)
     Applies the pair procedure along [g0, g1, g2, ...] as (g0←g1), (g1←g2), ... and returns a list of per-pair results.
 
 Outputs (& Directory Layout)
@@ -99,6 +99,7 @@ from pathlib import Path
 from typing import List, Optional, Sequence, Tuple, Dict, Any
 
 import click
+from mlmm.core.defaults import LBFGS_KW
 from mlmm.core.output import emit
 import numpy as np
 
@@ -369,6 +370,18 @@ def align_second_to_first_kabsch_inplace(g_ref, g_mob,
 
 # Scan + relaxation (stepwise matching of `freeze_atoms` to the reference)
 
+def _alignment_lbfgs(geom, out_dir: Path, max_cycles: int) -> LBFGS:
+    """L-BFGS for the alignment relaxations: package defaults with the gau preset.
+
+    Alignment prepares the inputs, so it does not follow the ``--thresh`` of the
+    user's single-structure optimizations.
+    """
+    return LBFGS(
+        geom,
+        **{**LBFGS_KW, "thresh": "gau", "out_dir": str(out_dir), "max_cycles": int(max_cycles)},
+    )
+
+
 def scan_freeze_atoms_toward_target_inplace(
     g_ref,
     g_mob,
@@ -377,7 +390,6 @@ def scan_freeze_atoms_toward_target_inplace(
     per_step_cycles: int = 1000,
     final_cycles: int = 10000,
     max_steps: int = 100,
-    thresh: str = "gau",
     shared_calc=None,
     out_dir: Path = Path("./result_align_refine/"),
     verbose: bool = True,
@@ -442,14 +454,7 @@ def scan_freeze_atoms_toward_target_inplace(
                 try:
                     # Finishing relaxation
                     g_mob.freeze_atoms = np.array(idx, int)
-                    final_optimizer = LBFGS(
-                        g_mob,
-                        out_dir=str(out_dir),
-                        max_cycles=int(final_cycles),
-                        print_every=100,
-                        thresh=thresh,
-                        dump=False,
-                    )
+                    final_optimizer = _alignment_lbfgs(g_mob, out_dir, final_cycles)
                     final_optimizer.run()
                     final_relax_converged = (
                         getattr(final_optimizer, "is_converged", None) is True
@@ -476,14 +481,7 @@ def scan_freeze_atoms_toward_target_inplace(
             _set_all_coords_disabling_freeze(g_mob, Q_next)
             try:
                 g_mob.freeze_atoms = np.array(idx, int)
-                LBFGS(
-                    g_mob,
-                    out_dir=str(out_dir),
-                    max_cycles=int(per_step_cycles),
-                    print_every=100,
-                    thresh=thresh,
-                    dump=False,
-                ).run()
+                _alignment_lbfgs(g_mob, out_dir, per_step_cycles).run()
             except (ZeroStepLength, OptimizationError) as e:
                 if verbose:
                     click.echo(f"[scan] WARNING: Exception occurred in relaxation: {e} (continue...)", err=True)
@@ -515,7 +513,6 @@ def align_and_refine_pair_inplace(
     per_step_cycles: int = 1000,
     final_cycles: int = 10000,
     max_steps: int = 100,
-    thresh: str = "gau",
     verbose: bool = True,
 ) -> Dict[str, Any]:
     """
@@ -539,7 +536,6 @@ def align_and_refine_pair_inplace(
         per_step_cycles=per_step_cycles,
         final_cycles=final_cycles,
         max_steps=max_steps,
-        thresh=thresh,
         shared_calc=shared_calc,
         out_dir=out_dir,
         verbose=verbose,
@@ -556,7 +552,6 @@ def align_and_refine_sequence_inplace(
     per_step_cycles: int = 1000,
     final_cycles: int = 10000,
     max_steps: int = 100,
-    thresh: str = "gau",
     verbose: bool = True,
 ) -> List[Dict[str, Any]]:
     """
@@ -591,7 +586,6 @@ def align_and_refine_sequence_inplace(
             per_step_cycles=per_step_cycles,
             final_cycles=final_cycles,
             max_steps=max_steps,
-            thresh=thresh,
             verbose=verbose,
         )
         results.append(res)

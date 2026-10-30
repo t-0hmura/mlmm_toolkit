@@ -1029,8 +1029,7 @@ def _run_dmf_mep(
     default=None,
     show_default="gau",
     help=(
-        "Convergence preset for endpoint preoptimization and the "
-        "post-alignment relaxation only. "
+        "Convergence preset for endpoint preoptimization only. "
         "The MEP itself keeps --thresh-gsm / --dmf-tol."
     ),
 )
@@ -1834,12 +1833,10 @@ def cli(
             )
 
         # By default, apply external Kabsch alignment (if freeze_atoms exist, use only them)
-        align_thresh = str(single_opt_cfg.get("thresh", "gau"))
         try:
             emit("\n====== Aligning all inputs to the first structure (freeze-guided scan + relaxation) ======\n", narrative=True)
             alignment_results = align_and_refine_sequence_inplace(
                 geoms,
-                thresh=align_thresh,
                 shared_calc=shared_calc,
                 out_dir=out_dir_path / "align_refine",
                 verbose=True,

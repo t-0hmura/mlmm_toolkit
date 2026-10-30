@@ -99,7 +99,8 @@ The default `--thresh` differs per subcommand.
 | `tsopt` (Hessian Dimer, RS-P-RFO, RS-I-RFO, TRIM) | `baker` |
 | `scan` | `gau` |
 | `scan2d`, `scan3d` | `baker` |
-| `path-opt`, `path-search` (endpoint preoptimization and the relaxation after alignment) | `gau` |
+| `path-opt`, `path-search` (endpoint preoptimization) | `gau` |
+| `path-opt`, `path-search`, `all` (input alignment, independent of `--thresh`) | `gau` |
 | `path-opt`, `path-search` (GSM string: `--thresh-gsm`, `stopt.thresh`) | `gau_loose` |
 | `path-opt`, `path-search` (DMF path: `--dmf-tol`, `dmf.tol`) | `tight` (0.04; not a Gaussian preset) |
 | `all` (`--thresh`: single-structure optimizations and scan relaxations) | `gau` |
