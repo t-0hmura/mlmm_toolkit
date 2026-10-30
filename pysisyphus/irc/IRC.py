@@ -703,7 +703,7 @@ class IRC:
             # 10.1002/jcc.540080808 proposes 3 kcal/mol as initial energy lowering
             msg = (
                 f"Energy-based (ΔE={self.displ_energy} au) initial displacement from "
-                "the TS using 2rd derivatives."
+                "the TS using 2nd derivatives."
             )
             step_length = np.sqrt(self.displ_energy * 2 / np.abs(min_eigval))
             # Guard against near-zero eigenvalue producing an excessively

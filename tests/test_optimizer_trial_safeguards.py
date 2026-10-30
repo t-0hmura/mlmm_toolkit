@@ -540,6 +540,29 @@ def test_undefined_initial_energy_change_has_no_convergence_mark(
     assert "nan*" not in row.lower()
 
 
+def test_progress_marks_only_checked_criteria(tmp_path, capsys) -> None:
+    # Unchecked criteria report True; they must not get a convergence mark.
+    _, opt = _ts_optimizer(tmp_path, 0.0, energy_plateau=False, thresh="gau")
+    opt.convergence = {k: v for k, v in opt.convergence.items() if "force" in k}
+    opt.cur_cycle = 1
+    opt.energies = [0.0, -1.0e-7]
+    opt.max_forces = [2.0e-4]
+    opt.rms_forces = [1.0e-4]
+    opt.max_steps = [3.0e-4]
+    opt.rms_steps = [2.0e-4]
+    opt.cycle_times = [0.0]
+
+    class _ConvInfo:
+        @staticmethod
+        def get_convergence():
+            return True, True, True, True, True, True
+
+    opt.print_opt_progress(_ConvInfo())
+
+    row = capsys.readouterr().out.splitlines()[0]
+    assert row.count(opt.table.mark) == 2
+
+
 def test_ts_mode_loss_rejects_trial_and_restores_hessian(tmp_path) -> None:
     geom, opt = _ts_optimizer(tmp_path, 0.4, reject_mode_loss=True)
     opt.prepare_opt()

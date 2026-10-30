@@ -18,6 +18,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Docs and skills: ORB is installed in its own environment, like MACE; the UMA model cache (`$FAIRCHEM_CACHE_DIR`, default `~/.cache/fairchem`) and offline use on compute nodes (`HF_HUB_OFFLINE=1`) are documented.
 - Docs and skills: the conda environment includes `xtb`, which the `--embedcharge` xTB correction calls, and the HPC templates check the compiler hessian_ff actually uses (`$CXX`, then the environment's conda g++, then `c++`).
 
+### Fixed
+
+- The IRC warning for a branch that stops after a few frames names the `all` options (`--irc-step-size`, `--irc-never-stop`) when IRC runs inside `all`.
+- The optimizer progress table marks only the convergence criteria the preset checks; GSM rows no longer mark the energy and step columns, and `gau` rows no longer mark the energy change.
+
 ## [0.5.0] — 2026-10-24
 
 ### Breaking changes

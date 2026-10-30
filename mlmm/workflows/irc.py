@@ -57,6 +57,7 @@ from mlmm.core.utils import (
     yaml_section_has_key,
     echo_resolved_device,
     optional_positive_int,
+    is_child_mode,
 )
 from mlmm.cli.common_options import (
     add_ml_layer_detection_options,
@@ -1035,16 +1036,18 @@ def cli(
             if 0 < n_frames <= 3 and not reached_cycle_cap:
                 quick_directions.append(direction)
         if quick_directions:
+            # Under `all`, name the parent's flags.
+            irc_flag = "--irc-" if is_child_mode() else "--"
             warning = (
                 "[irc] IRC stopped after only a few frames in "
                 + ", ".join(quick_directions)
                 + ". Retry with a smaller maximum step, for example "
-                "--step-size 0.05."
+                f"{irc_flag}step-size 0.05."
             )
             if not eulerpc.never_stop:
                 warning += (
                     " If a small uphill/flat section is intentional, also "
-                    "consider --never-stop; it is opt-in."
+                    f"consider {irc_flag}never-stop; it is opt-in."
                 )
             click.echo(
                 warning,

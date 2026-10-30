@@ -871,7 +871,27 @@ class Optimizer(metaclass=abc.ABCMeta):
             self.table.print_sep()
 
         # desired_eigval_structure is also returned, but currently not reported.
-        marks = [False, *conv_info.get_convergence()[:-1], False]
+        # Unchecked criteria report True, so mark only the ones this preset checks.
+        checked = (
+            self.thresh == "baker",
+            *(
+                key in self.convergence
+                for key in (
+                    "max_force_thresh",
+                    "rms_force_thresh",
+                    "max_step_thresh",
+                    "rms_step_thresh",
+                )
+            ),
+        )
+        marks = [
+            False,
+            *(
+                bool(met) and is_checked
+                for met, is_checked in zip(conv_info.get_convergence()[:-1], checked)
+            ),
+            False,
+        ]
         if not np.all(np.isfinite(np.asarray(energy_diff))):
             marks[1] = False
         try:
