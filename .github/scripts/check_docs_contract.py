@@ -154,11 +154,11 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
         "it does not\nrequire a site CUDA toolkit",
     ),
     Path("docs/device-hpc.md"): (
-        "g++ -std=c++20 -x c++ -fsyntax-only /dev/null",
+        "${CXX_CMD} -std=c++20 -x c++ -fsyntax-only /dev/null",
         "command -v ninja",
     ),
     Path("docs/ja/device-hpc.md"): (
-        "g++ -std=c++20 -x c++ -fsyntax-only /dev/null",
+        "${CXX_CMD} -std=c++20 -x c++ -fsyntax-only /dev/null",
         "command -v ninja",
     ),
     Path("docs/oniom-import.md"): (
@@ -176,11 +176,11 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
         '`result.json["rigid_projection"]["hessian_source"]`',
     ),
     Path("skills/mlmm-hpc/SKILL.md"): (
-        "g++ -std=c++20 -x c++ -fsyntax-only /dev/null",
+        "${CXX_CMD} -std=c++20 -x c++ -fsyntax-only /dev/null",
         "command -v ninja",
     ),
     Path("skills/mlmm-hpc/dynamic-dispatch.md"): (
-        "g++ -std=c++20 -x c++ -fsyntax-only /dev/null",
+        "${CXX_CMD} -std=c++20 -x c++ -fsyntax-only /dev/null",
         "command -v ninja",
     ),
     Path("skills/mlmm-cli/extract.md"): (

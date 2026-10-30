@@ -69,12 +69,17 @@ COMPLETED_FILE="$6"
 FAILED_FILE="$7"
 
 # Prebuilt wheels need no CUDA toolkit module. hessian_ff needs a C++20-capable compiler;
-# load <COMPILER_MODULE> here if the system g++ is missing or too old.
+# load <COMPILER_MODULE> here if the compiler below is missing or too old.
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate <YOUR_ENV>
-command -v g++ >/dev/null || { echo "g++ is required for hessian_ff" >&2; exit 1; }
-if ! g++ -std=c++20 -x c++ -fsyntax-only /dev/null; then
-    echo "hessian_ff requires a compiler supporting PyTorch's C++20 JIT flag" >&2
+# hessian_ff builds with $CXX, else the env's conda g++, else c++
+CXX_CMD="${CXX:-}"
+if [ -z "${CXX_CMD}" ]; then
+    CXX_CMD="$(python -c 'import sys; print(sys.prefix)')/bin/$(uname -m)-conda-linux-gnu-g++"
+    [ -x "${CXX_CMD}" ] || CXX_CMD=c++
+fi
+if ! ${CXX_CMD} -std=c++20 -x c++ -fsyntax-only /dev/null; then
+    echo "hessian_ff requires a compiler supporting PyTorch's C++20 JIT flag (checked: ${CXX_CMD})" >&2
     exit 1
 fi
 command -v ninja >/dev/null || { echo "ninja is required for hessian_ff" >&2; exit 1; }
