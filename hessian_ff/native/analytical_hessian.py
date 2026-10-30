@@ -21,28 +21,30 @@ def _require_ext(verbose: bool = False):
 
 def bond_hessian_native(
     *,
+    h2: torch.Tensor,
     coords: torch.Tensor,
     bond_i: torch.Tensor,
     bond_j: torch.Tensor,
     bond_k: torch.Tensor,
     bond_r0: torch.Tensor,
     active_map: torch.Tensor,
-    ndof: int,
-) -> torch.Tensor:
+) -> None:
+    """Add the bond Hessian to ``h2`` in place."""
     ext = _require_ext(verbose=False)
-    return ext.bond_hessian(
+    ext.bond_hessian(
+        h2,
         coords,
         bond_i,
         bond_j,
         bond_k,
         bond_r0,
         active_map,
-        int(ndof),
     )
 
 
 def nonbonded_hessian_native(
     *,
+    h2: torch.Tensor,
     coords: torch.Tensor,
     charge: torch.Tensor,
     atom_type: torch.Tensor,
@@ -56,11 +58,12 @@ def nonbonded_hessian_native(
     inv_scee: torch.Tensor | None,
     inv_scnb: torch.Tensor | None,
     active_map: torch.Tensor,
-    ndof: int,
-) -> torch.Tensor:
+) -> None:
+    """Add the nonbonded Hessian of the pair set to ``h2`` in place."""
     ext = _require_ext(verbose=False)
     # pybind optional Tensor args accept None.
-    return ext.nonbonded_hessian(
+    ext.nonbonded_hessian(
+        h2,
         coords,
         charge,
         atom_type,
@@ -74,15 +77,15 @@ def nonbonded_hessian_native(
         inv_scee,
         inv_scnb,
         active_map,
-        int(ndof),
     )
 
 
 def scatter_local_hessian_native(
     *,
+    h2: torch.Tensor,
     local_h: torch.Tensor,
     dof_idx: torch.Tensor,
-    ndof: int,
-) -> torch.Tensor:
+) -> None:
+    """Add the local term Hessian blocks to ``h2`` in place."""
     ext = _require_ext(verbose=False)
-    return ext.scatter_local_hessian(local_h, dof_idx, int(ndof))
+    ext.scatter_local_hessian(h2, local_h, dof_idx)

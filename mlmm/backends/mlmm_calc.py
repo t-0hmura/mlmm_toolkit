@@ -1790,14 +1790,9 @@ def _expand_partial_hessian(
     dtype: np.dtype,
 ) -> np.ndarray:
     h_full = np.zeros((3 * n_atoms, 3 * n_atoms), dtype=dtype)
-    for i_local, i_atom in enumerate(active_atoms):
-        i0 = 3 * int(i_atom)
-        for j_local, j_atom in enumerate(active_atoms):
-            j0 = 3 * int(j_atom)
-            h_full[i0:i0 + 3, j0:j0 + 3] = h_sub[
-                3 * i_local:3 * i_local + 3,
-                3 * j_local:3 * j_local + 3,
-            ]
+    atoms = np.asarray(active_atoms, dtype=np.int64)
+    idx3 = (3 * atoms[:, None] + np.arange(3)).ravel()
+    h_full[np.ix_(idx3, idx3)] = h_sub
     return h_full
 
 
@@ -1935,6 +1930,16 @@ class hessianffCalculator(Calculator):
     ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
         from mlmm.io.hessian_calc import hessian_calc
 
+        if return_partial_hessian:
+            # Sub-Hessian of the unfixed atoms in ascending atom order.
+            return hessian_calc(
+                atoms,
+                self,
+                delta=float(delta),
+                info_path=info_path,
+                dtype=dtype,
+                return_partial=True,
+            )
         H_full = hessian_calc(
             atoms,
             self,
@@ -1942,16 +1947,6 @@ class hessianffCalculator(Calculator):
             info_path=info_path,
             dtype=dtype,
         )
-        if return_partial_hessian:
-            fixed = _fixed_indices_from_constraints(atoms)
-            active_atoms = np.asarray(
-                [i for i in range(len(atoms)) if i not in fixed], dtype=int
-            )
-            idx3 = np.concatenate(
-                [3 * active_atoms + component for component in range(3)]
-            )
-            idx3.sort()
-            return H_full[np.ix_(idx3, idx3)], active_atoms
         return H_full, None
 
 
@@ -2108,24 +2103,27 @@ class OpenMMCalculator(Calculator):
         """
         from mlmm.io.hessian_calc import hessian_calc
 
-        H_full = hessian_calc(atoms, self, delta=delta, info_path=info_path, dtype=dtype)
+        if not return_partial_hessian:
+            H_full = hessian_calc(atoms, self, delta=delta, info_path=info_path, dtype=dtype)
+            return H_full, None
 
-        if return_partial_hessian:
-            fixed = _fixed_indices_from_constraints(atoms)
-            excluded = fixed | set(self._vsite_idx)
-            active_atoms = np.asarray(
-                [i for i in range(len(atoms)) if i not in excluded],
-                dtype=np.int64,
-            )
-            if active_atoms.size == 0:
-                return np.zeros((0, 0), dtype=dtype), active_atoms
-            # Extract active sub-Hessian to match hessian_ff convention
-            idx3 = np.concatenate([3 * active_atoms + d for d in range(3)])
-            idx3.sort()
-            H_sub = H_full[np.ix_(idx3, idx3)]
-            return H_sub, active_atoms
-
-        return H_full, None
+        H_movable, movable = hessian_calc(
+            atoms, self, delta=delta, info_path=info_path, dtype=dtype, return_partial=True
+        )
+        fixed = _fixed_indices_from_constraints(atoms)
+        excluded = fixed | set(self._vsite_idx)
+        active_atoms = np.asarray(
+            [i for i in range(len(atoms)) if i not in excluded],
+            dtype=np.int64,
+        )
+        if active_atoms.size == 0:
+            return np.zeros((0, 0), dtype=dtype), active_atoms
+        if active_atoms.size == movable.size:
+            return H_movable, active_atoms
+        # Drop the virtual-site rows/cols to match the hessian_ff convention.
+        local = np.searchsorted(movable, active_atoms)
+        idx3 = (3 * local[:, None] + np.arange(3)).ravel()
+        return H_movable[np.ix_(idx3, idx3)], active_atoms
 
 
 #                          ML/MM Core (Multi-Backend)

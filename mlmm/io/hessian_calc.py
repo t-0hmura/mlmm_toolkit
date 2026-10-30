@@ -37,14 +37,15 @@ def hessian_calc(
     info_path: str | None = None,
     *,
     dtype: np.dtype = np.float64,
+    return_partial: bool = False,
 ):
     """
-    Numerically compute the full Cartesian Hessian (second derivatives).
+    Numerically compute the Cartesian Hessian (second derivatives).
 
     Finite differences are taken by displacing each *unfixed* atom by
-    ``±delta`` Å along x, y, z.  Central differences give the sub-Hessian,
-    which is **always expanded to the full (3N, 3N) matrix** by padding
-    zeros for fixed atoms before returning.
+    ``±delta`` Å along x, y, z.  Central differences give the sub-Hessian of
+    the unfixed atoms, which is expanded to the full (3N, 3N) matrix with
+    zeros for fixed atoms unless ``return_partial`` is set.
 
     Parameters
     ----------
@@ -58,12 +59,18 @@ def hessian_calc(
         If given, progress info is appended to this file.
     dtype : numpy dtype, default float64
         Data type of the returned Hessian.
+    return_partial : bool, default False
+        Return the sub-Hessian of the unfixed atoms and their indices instead
+        of the full matrix.
 
     Returns
     -------
     ndarray
         Cartesian Hessian of shape ``(3N, 3N)`` where
         ``N == len(atoms)`` (fixed-atom rows/cols are zero).
+    (ndarray, ndarray)
+        With ``return_partial``: the ``(3m, 3m)`` sub-Hessian of the ``m``
+        unfixed atoms and their indices (int64, ascending, the row order).
     """
     try:
         delta = float(delta)
@@ -76,12 +83,16 @@ def hessian_calc(
         i for c in atoms.constraints if isinstance(c, FixAtoms)
         for i in c.get_indices()
     }
-    movable = np.asarray([i for i in range(len(atoms)) if i not in fixed])
+    movable = np.asarray(
+        [i for i in range(len(atoms)) if i not in fixed], dtype=np.int64
+    )
     m = len(movable)
     n_dof = 3 * m
 
     # Short-circuit: all atoms frozen → return zeros
     if m == 0:
+        if return_partial:
+            return np.zeros((0, 0), dtype=dtype), movable
         N = len(atoms)
         return np.zeros((3 * N, 3 * N), dtype=dtype)
 
@@ -135,16 +146,13 @@ def hessian_calc(
             me, se = divmod(int(elapsed), 60)
             log.write(f"Done in {me}m{se}s\n")
 
+    if return_partial:
+        return H_sub, movable
     N = len(atoms)
+    if m == N:
+        return H_sub
+    idx3 = (3 * movable[:, None] + np.arange(3)).ravel()
     H = np.zeros((3 * N, 3 * N), dtype=dtype)
-    for i_local, i_atom in enumerate(movable):
-        for j_local, j_atom in enumerate(movable):
-            H[
-                3 * i_atom : 3 * i_atom + 3,
-                3 * j_atom : 3 * j_atom + 3,
-            ] = H_sub[
-                3 * i_local : 3 * i_local + 3,
-                3 * j_local : 3 * j_local + 3,
-            ]
+    H[np.ix_(idx3, idx3)] = H_sub
     return H
 

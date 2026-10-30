@@ -206,13 +206,7 @@ def _scatter_local_hessian(
     local_h: torch.Tensor,
     dof_idx: torch.Tensor,
 ) -> None:
-    h2.add_(
-        scatter_local_hessian_native(
-            local_h=local_h,
-            dof_idx=dof_idx,
-            ndof=int(h2.shape[0]),
-        )
-    )
+    scatter_local_hessian_native(h2=h2, local_h=local_h, dof_idx=dof_idx)
 
 
 def _filter_terms_with_active(active_map: torch.Tensor, atom_cols: Sequence[torch.Tensor]) -> torch.Tensor:
@@ -242,16 +236,14 @@ def _add_bond_hessian_closed_form(
     if ii.numel() == 0:
         return 0
 
-    h2.add_(
-        bond_hessian_native(
-            coords=coords,
-            bond_i=ii,
-            bond_j=jj,
-            bond_k=kk,
-            bond_r0=r0,
-            active_map=active_map,
-            ndof=int(h2.shape[0]),
-        )
+    bond_hessian_native(
+        h2=h2,
+        coords=coords,
+        bond_i=ii,
+        bond_j=jj,
+        bond_k=kk,
+        bond_r0=r0,
+        active_map=active_map,
     )
     return int(ii.numel())
 
@@ -285,23 +277,21 @@ def _add_nonbonded_pairset_closed_form(
     if n == 0:
         return 0
 
-    h2.add_(
-        nonbonded_hessian_native(
-            coords=coords,
-            charge=system.charge,
-            atom_type=system.atom_type,
-            lj_acoef=system.lj_acoef,
-            lj_bcoef=system.lj_bcoef,
-            hb_acoef=system.hb_acoef,
-            hb_bcoef=system.hb_bcoef,
-            nb_index=system.nb_index,
-            pair_i=ii,
-            pair_j=jj,
-            inv_scee=scee,
-            inv_scnb=scnb,
-            active_map=active_map,
-            ndof=int(h2.shape[0]),
-        )
+    nonbonded_hessian_native(
+        h2=h2,
+        coords=coords,
+        charge=system.charge,
+        atom_type=system.atom_type,
+        lj_acoef=system.lj_acoef,
+        lj_bcoef=system.lj_bcoef,
+        hb_acoef=system.hb_acoef,
+        hb_bcoef=system.hb_bcoef,
+        nb_index=system.nb_index,
+        pair_i=ii,
+        pair_j=jj,
+        inv_scee=scee,
+        inv_scnb=scnb,
+        active_map=active_map,
     )
     return n
 

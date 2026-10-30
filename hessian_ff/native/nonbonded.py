@@ -41,7 +41,6 @@ def nonbonded_energy_force_native(
             f"detail: {status.get('note')}"
         )
 
-    chunk_size = max(int(pair_i.numel()), int(pair14_i.numel()), 1)
     out = ext.nonbonded_energy_force(
         coords,
         charge,
@@ -57,7 +56,6 @@ def nonbonded_energy_force_native(
         pair14_j,
         pair14_inv_scee,
         pair14_inv_scnb,
-        int(chunk_size),
         bool(cpu_fast),
         -1,
     )
@@ -79,7 +77,6 @@ def nonbonded_energy_force_preparam_native(
     pair14_a12_coeff: torch.Tensor,
     pair14_b6_coeff: torch.Tensor,
     pair14_b10_coeff: torch.Tensor,
-    cpu_fast: bool = True,
     verbose: bool = False,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """Call C++ nonbonded extension using precomputed pair coefficients.
@@ -96,7 +93,6 @@ def nonbonded_energy_force_preparam_native(
             f"detail: {status.get('note')}"
         )
 
-    chunk_size = max(int(pair_i.numel()), int(pair14_i.numel()), 1)
     out = ext.nonbonded_energy_force_preparam(
         coords,
         pair_i,
@@ -111,8 +107,5 @@ def nonbonded_energy_force_preparam_native(
         pair14_a12_coeff,
         pair14_b6_coeff,
         pair14_b10_coeff,
-        int(chunk_size),
-        bool(cpu_fast),
-        -1,
     )
     return out[0], out[1], out[2], out[3], out[4]

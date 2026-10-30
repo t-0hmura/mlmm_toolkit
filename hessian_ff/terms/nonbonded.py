@@ -227,7 +227,6 @@ class NonbondedTerm(nn.Module):
                 pair14_a12_coeff=self.pair14_a12_coeff,
                 pair14_b6_coeff=self.pair14_b6_coeff,
                 pair14_b10_coeff=self.pair14_b10_coeff,
-                cpu_fast=False,
             )
         else:
             out = nonbonded_energy_force_native(

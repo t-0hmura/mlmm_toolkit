@@ -182,9 +182,7 @@ std::vector<torch::Tensor> nonbonded_energy_force_aten(
     const torch::Tensor& pair14_i,
     const torch::Tensor& pair14_j,
     const torch::Tensor& pair14_inv_scee,
-    const torch::Tensor& pair14_inv_scnb,
-    int64_t chunk_size) {
-  TORCH_CHECK(chunk_size > 0, "chunk_size must be > 0");
+    const torch::Tensor& pair14_inv_scnb) {
   TORCH_CHECK(coords.dim() == 2 && coords.size(1) == 3, "coords must be [N,3]");
   TORCH_CHECK(coords.is_floating_point(), "coords must be floating tensor");
   TORCH_CHECK(charge.is_floating_point(), "charge must be floating tensor");
@@ -228,11 +226,7 @@ std::vector<torch::Tensor> nonbonded_energy_force_aten(
   auto e_lj14 = torch::zeros({}, coords.options());
   auto force = torch::zeros_like(coords);
 
-  const int64_t n = pair_i.numel();
-  for (int64_t start = 0; start < n; start += chunk_size) {
-    int64_t end = std::min(start + chunk_size, n);
-    auto ii = pair_i.slice(0, start, end);
-    auto jj = pair_j.slice(0, start, end);
+  if (pair_i.numel() > 0) {
     auto out = pair_energy_force_aten(
         coords,
         charge,
@@ -242,8 +236,8 @@ std::vector<torch::Tensor> nonbonded_energy_force_aten(
         hb_acoef,
         hb_bcoef,
         nb_index,
-        ii,
-        jj,
+        pair_i,
+        pair_j,
         c10::nullopt,
         c10::nullopt);
     auto ce = std::get<0>(out);
@@ -251,17 +245,11 @@ std::vector<torch::Tensor> nonbonded_energy_force_aten(
     auto fij = std::get<2>(out);
     e_coul = e_coul + ce;
     e_lj = e_lj + le;
-    force.index_add_(0, ii, fij);
-    force.index_add_(0, jj, -fij);
+    force.index_add_(0, pair_i, fij);
+    force.index_add_(0, pair_j, -fij);
   }
 
-  const int64_t n14 = pair14_i.numel();
-  for (int64_t start = 0; start < n14; start += chunk_size) {
-    int64_t end = std::min(start + chunk_size, n14);
-    auto ii = pair14_i.slice(0, start, end);
-    auto jj = pair14_j.slice(0, start, end);
-    auto inv_scee = pair14_inv_scee.slice(0, start, end);
-    auto inv_scnb = pair14_inv_scnb.slice(0, start, end);
+  if (pair14_i.numel() > 0) {
     auto out = pair_energy_force_aten(
         coords,
         charge,
@@ -271,17 +259,17 @@ std::vector<torch::Tensor> nonbonded_energy_force_aten(
         hb_acoef,
         hb_bcoef,
         nb_index,
-        ii,
-        jj,
-        inv_scee,
-        inv_scnb);
+        pair14_i,
+        pair14_j,
+        pair14_inv_scee,
+        pair14_inv_scnb);
     auto ce = std::get<0>(out);
     auto le = std::get<1>(out);
     auto fij = std::get<2>(out);
     e_coul14 = e_coul14 + ce;
     e_lj14 = e_lj14 + le;
-    force.index_add_(0, ii, fij);
-    force.index_add_(0, jj, -fij);
+    force.index_add_(0, pair14_i, fij);
+    force.index_add_(0, pair14_j, -fij);
   }
 
   return {e_coul, e_lj, e_coul14, e_lj14, force};
@@ -300,9 +288,7 @@ std::vector<torch::Tensor> nonbonded_energy_force_preparam_aten(
     const torch::Tensor& pair14_coul_coeff,
     const torch::Tensor& pair14_a12_coeff,
     const torch::Tensor& pair14_b6_coeff,
-    const torch::Tensor& pair14_b10_coeff,
-    int64_t chunk_size) {
-  TORCH_CHECK(chunk_size > 0, "chunk_size must be > 0");
+    const torch::Tensor& pair14_b10_coeff) {
   TORCH_CHECK(coords.dim() == 2 && coords.size(1) == 3, "coords must be [N,3]");
   TORCH_CHECK(coords.is_floating_point(), "coords must be floating tensor");
   TORCH_CHECK(pair_i.scalar_type() == torch::kInt64, "pair_i must be int64");
@@ -346,112 +332,37 @@ std::vector<torch::Tensor> nonbonded_energy_force_preparam_aten(
   auto e_lj14 = torch::zeros({}, coords.options());
   auto force = torch::zeros_like(coords);
 
-  const int64_t n = pair_i.numel();
-  for (int64_t start = 0; start < n; start += chunk_size) {
-    int64_t end = std::min(start + chunk_size, n);
-    auto ii = pair_i.slice(0, start, end);
-    auto jj = pair_j.slice(0, start, end);
-    auto cc = pair_coul_coeff.slice(0, start, end);
-    auto a12 = pair_a12_coeff.slice(0, start, end);
-    auto b6 = pair_b6_coeff.slice(0, start, end);
-    auto b10 = pair_b10_coeff.slice(0, start, end);
-    auto out = pair_energy_force_preparam_aten(coords, ii, jj, cc, a12, b6, b10);
+  if (pair_i.numel() > 0) {
+    auto out = pair_energy_force_preparam_aten(
+        coords, pair_i, pair_j, pair_coul_coeff, pair_a12_coeff, pair_b6_coeff, pair_b10_coeff);
     auto ce = std::get<0>(out);
     auto le = std::get<1>(out);
     auto fij = std::get<2>(out);
     e_coul = e_coul + ce;
     e_lj = e_lj + le;
-    force.index_add_(0, ii, fij);
-    force.index_add_(0, jj, -fij);
+    force.index_add_(0, pair_i, fij);
+    force.index_add_(0, pair_j, -fij);
   }
 
-  const int64_t n14 = pair14_i.numel();
-  for (int64_t start = 0; start < n14; start += chunk_size) {
-    int64_t end = std::min(start + chunk_size, n14);
-    auto ii = pair14_i.slice(0, start, end);
-    auto jj = pair14_j.slice(0, start, end);
-    auto cc = pair14_coul_coeff.slice(0, start, end);
-    auto a12 = pair14_a12_coeff.slice(0, start, end);
-    auto b6 = pair14_b6_coeff.slice(0, start, end);
-    auto b10 = pair14_b10_coeff.slice(0, start, end);
-    auto out = pair_energy_force_preparam_aten(coords, ii, jj, cc, a12, b6, b10);
-    auto ce = std::get<0>(out);
-    auto le = std::get<1>(out);
-    auto fij = std::get<2>(out);
-    e_coul14 = e_coul14 + ce;
-    e_lj14 = e_lj14 + le;
-    force.index_add_(0, ii, fij);
-    force.index_add_(0, jj, -fij);
-  }
-
-  return {e_coul, e_lj, e_coul14, e_lj14, force};
-}
-
-std::vector<torch::Tensor> nonbonded_energy_force_preparam_cpu(
-    const torch::Tensor& coords,
-    const torch::Tensor& pair_i,
-    const torch::Tensor& pair_j,
-    const torch::Tensor& pair_coul_coeff,
-    const torch::Tensor& pair_a12_coeff,
-    const torch::Tensor& pair_b6_coeff,
-    const torch::Tensor& pair_b10_coeff,
-    const torch::Tensor& pair14_i,
-    const torch::Tensor& pair14_j,
-    const torch::Tensor& pair14_coul_coeff,
-    const torch::Tensor& pair14_a12_coeff,
-    const torch::Tensor& pair14_b6_coeff,
-    const torch::Tensor& pair14_b10_coeff,
-    int64_t min_pairs_per_thread);
-
-std::vector<torch::Tensor> nonbonded_energy_force_preparam(
-    const torch::Tensor& coords,
-    const torch::Tensor& pair_i,
-    const torch::Tensor& pair_j,
-    const torch::Tensor& pair_coul_coeff,
-    const torch::Tensor& pair_a12_coeff,
-    const torch::Tensor& pair_b6_coeff,
-    const torch::Tensor& pair_b10_coeff,
-    const torch::Tensor& pair14_i,
-    const torch::Tensor& pair14_j,
-    const torch::Tensor& pair14_coul_coeff,
-    const torch::Tensor& pair14_a12_coeff,
-    const torch::Tensor& pair14_b6_coeff,
-    const torch::Tensor& pair14_b10_coeff,
-    int64_t chunk_size,
-    bool cpu_fast,
-    int64_t min_pairs_per_thread) {
-  if (coords.device().is_cpu() && cpu_fast) {
-    return nonbonded_energy_force_preparam_cpu(
+  if (pair14_i.numel() > 0) {
+    auto out = pair_energy_force_preparam_aten(
         coords,
-        pair_i,
-        pair_j,
-        pair_coul_coeff,
-        pair_a12_coeff,
-        pair_b6_coeff,
-        pair_b10_coeff,
         pair14_i,
         pair14_j,
         pair14_coul_coeff,
         pair14_a12_coeff,
         pair14_b6_coeff,
-        pair14_b10_coeff,
-        min_pairs_per_thread);
+        pair14_b10_coeff);
+    auto ce = std::get<0>(out);
+    auto le = std::get<1>(out);
+    auto fij = std::get<2>(out);
+    e_coul14 = e_coul14 + ce;
+    e_lj14 = e_lj14 + le;
+    force.index_add_(0, pair14_i, fij);
+    force.index_add_(0, pair14_j, -fij);
   }
-  return nonbonded_energy_force_preparam_aten(
-      coords,
-      pair_i,
-      pair_j,
-      pair_coul_coeff,
-      pair_a12_coeff,
-      pair_b6_coeff,
-      pair_b10_coeff,
-      pair14_i,
-      pair14_j,
-      pair14_coul_coeff,
-      pair14_a12_coeff,
-      pair14_b6_coeff,
-      pair14_b10_coeff,
-      chunk_size);
+
+  return {e_coul, e_lj, e_coul14, e_lj14, force};
 }
 
 template <typename scalar_t>
@@ -667,152 +578,6 @@ void accumulate_pairs_cpu(
   }
 }
 
-template <typename scalar_t>
-inline void accumulate_pair_preparam_one(
-    const scalar_t* coords,
-    int64_t i,
-    int64_t j,
-    const scalar_t* coul_coeff,
-    const scalar_t* a12_coeff,
-    const scalar_t* b6_coeff,
-    const scalar_t* b10_coeff,
-    int64_t p,
-    scalar_t* force,
-    double& e_coul,
-    double& e_lj) {
-  const double dx = static_cast<double>(coords[3 * j + 0] - coords[3 * i + 0]);
-  const double dy = static_cast<double>(coords[3 * j + 1] - coords[3 * i + 1]);
-  const double dz = static_cast<double>(coords[3 * j + 2] - coords[3 * i + 2]);
-  const double r2 = std::max(dx * dx + dy * dy + dz * dz, 1.0e-24);
-  const double inv_r = 1.0 / std::sqrt(r2);
-  const double inv_r2 = inv_r * inv_r;
-  const double inv_r4 = inv_r2 * inv_r2;
-  const double inv_r6 = inv_r4 * inv_r2;
-  const double inv_r8 = inv_r6 * inv_r2;
-  const double inv_r10 = inv_r8 * inv_r2;
-  const double inv_r12 = inv_r6 * inv_r6;
-  const double inv_r14 = inv_r12 * inv_r2;
-
-  const double c = static_cast<double>(coul_coeff[p]);
-  const double a12 = static_cast<double>(a12_coeff[p]);
-  const double b6 = static_cast<double>(b6_coeff[p]);
-  const double b10 = static_cast<double>(b10_coeff[p]);
-
-  const double ec = c * inv_r;
-  const double el = a12 * inv_r12 - b6 * inv_r6 - b10 * inv_r10;
-  const double fs = -c * inv_r2 * inv_r - 12.0 * a12 * inv_r14 + 6.0 * b6 * inv_r8 + 10.0 * b10 * inv_r12;
-
-  const double fx = fs * dx;
-  const double fy = fs * dy;
-  const double fz = fs * dz;
-
-  force[3 * i + 0] += static_cast<scalar_t>(fx);
-  force[3 * i + 1] += static_cast<scalar_t>(fy);
-  force[3 * i + 2] += static_cast<scalar_t>(fz);
-  force[3 * j + 0] -= static_cast<scalar_t>(fx);
-  force[3 * j + 1] -= static_cast<scalar_t>(fy);
-  force[3 * j + 2] -= static_cast<scalar_t>(fz);
-
-  e_coul += ec;
-  e_lj += el;
-}
-
-template <typename scalar_t>
-void accumulate_pairs_preparam_cpu(
-    const scalar_t* coords,
-    const int64_t* ii,
-    const int64_t* jj,
-    const scalar_t* coul_coeff,
-    const scalar_t* a12_coeff,
-    const scalar_t* b6_coeff,
-    const scalar_t* b10_coeff,
-    int64_t npairs,
-    int64_t natom,
-    int64_t min_pairs_per_thread,
-    std::vector<scalar_t>& force_out,
-    double& e_coul_out,
-    double& e_lj_out) {
-  const int64_t stride = natom * 3;
-  if (npairs <= 0) {
-    return;
-  }
-
-  int nthreads = 1;
-#ifdef _OPENMP
-  const int max_threads = effective_max_threads();
-  const int64_t kMinPairsPerThread = min_pairs_per_thread_threshold(min_pairs_per_thread);
-  nthreads = std::min<int>(
-      max_threads,
-      std::max<int64_t>(1, npairs / kMinPairsPerThread));
-#endif
-
-  if (nthreads <= 1) {
-    scalar_t* f = force_out.data();
-    for (int64_t p = 0; p < npairs; ++p) {
-      accumulate_pair_preparam_one<scalar_t>(
-          coords,
-          ii[p],
-          jj[p],
-          coul_coeff,
-          a12_coeff,
-          b6_coeff,
-          b10_coeff,
-          p,
-          f,
-          e_coul_out,
-          e_lj_out);
-    }
-    return;
-  }
-
-  std::vector<scalar_t> force_tls(
-      static_cast<size_t>(nthreads) * static_cast<size_t>(stride),
-      static_cast<scalar_t>(0));
-  std::vector<double> ec_tls(static_cast<size_t>(nthreads), 0.0);
-  std::vector<double> el_tls(static_cast<size_t>(nthreads), 0.0);
-
-#ifdef _OPENMP
-#pragma omp parallel num_threads(nthreads)
-#endif
-  {
-    int tid = 0;
-#ifdef _OPENMP
-    tid = omp_get_thread_num();
-#endif
-    auto* f = force_tls.data() + static_cast<size_t>(tid) * static_cast<size_t>(stride);
-    double ec_loc = 0.0;
-    double el_loc = 0.0;
-#ifdef _OPENMP
-#pragma omp for schedule(static)
-#endif
-    for (int64_t p = 0; p < npairs; ++p) {
-      accumulate_pair_preparam_one<scalar_t>(
-          coords,
-          ii[p],
-          jj[p],
-          coul_coeff,
-          a12_coeff,
-          b6_coeff,
-          b10_coeff,
-          p,
-          f,
-          ec_loc,
-          el_loc);
-    }
-    ec_tls[static_cast<size_t>(tid)] = ec_loc;
-    el_tls[static_cast<size_t>(tid)] = el_loc;
-  }
-
-  for (int tid = 0; tid < nthreads; ++tid) {
-    const auto* f = force_tls.data() + static_cast<size_t>(tid) * static_cast<size_t>(stride);
-    for (int64_t k = 0; k < stride; ++k) {
-      force_out[static_cast<size_t>(k)] += f[static_cast<size_t>(k)];
-    }
-    e_coul_out += ec_tls[static_cast<size_t>(tid)];
-    e_lj_out += el_tls[static_cast<size_t>(tid)];
-  }
-}
-
 std::vector<torch::Tensor> nonbonded_energy_force_cpu(
     const torch::Tensor& coords,
     const torch::Tensor& charge,
@@ -932,115 +697,6 @@ std::vector<torch::Tensor> nonbonded_energy_force_cpu(
   return {e_coul, e_lj, e_coul14, e_lj14, force};
 }
 
-std::vector<torch::Tensor> nonbonded_energy_force_preparam_cpu(
-    const torch::Tensor& coords,
-    const torch::Tensor& pair_i,
-    const torch::Tensor& pair_j,
-    const torch::Tensor& pair_coul_coeff,
-    const torch::Tensor& pair_a12_coeff,
-    const torch::Tensor& pair_b6_coeff,
-    const torch::Tensor& pair_b10_coeff,
-    const torch::Tensor& pair14_i,
-    const torch::Tensor& pair14_j,
-    const torch::Tensor& pair14_coul_coeff,
-    const torch::Tensor& pair14_a12_coeff,
-    const torch::Tensor& pair14_b6_coeff,
-    const torch::Tensor& pair14_b10_coeff,
-    int64_t min_pairs_per_thread) {
-  auto c = coords.contiguous();
-  auto pi = pair_i.contiguous();
-  auto pj = pair_j.contiguous();
-  auto cc = pair_coul_coeff.contiguous();
-  auto a12 = pair_a12_coeff.contiguous();
-  auto b6 = pair_b6_coeff.contiguous();
-  auto b10 = pair_b10_coeff.contiguous();
-  auto p14i = pair14_i.contiguous();
-  auto p14j = pair14_j.contiguous();
-  auto cc14 = pair14_coul_coeff.contiguous();
-  auto a1214 = pair14_a12_coeff.contiguous();
-  auto b614 = pair14_b6_coeff.contiguous();
-  auto b1014 = pair14_b10_coeff.contiguous();
-
-  TORCH_CHECK(c.device().is_cpu(), "CPU kernel expects CPU coords tensor");
-  TORCH_CHECK(c.dim() == 2 && c.size(1) == 3, "coords must be [N,3]");
-  TORCH_CHECK(pi.scalar_type() == torch::kInt64, "pair_i must be int64");
-  TORCH_CHECK(pj.scalar_type() == torch::kInt64, "pair_j must be int64");
-  TORCH_CHECK(p14i.scalar_type() == torch::kInt64, "pair14_i must be int64");
-  TORCH_CHECK(p14j.scalar_type() == torch::kInt64, "pair14_j must be int64");
-  TORCH_CHECK(cc.scalar_type() == c.scalar_type(), "pair coeff dtype mismatch");
-  TORCH_CHECK(a12.scalar_type() == c.scalar_type(), "pair coeff dtype mismatch");
-  TORCH_CHECK(b6.scalar_type() == c.scalar_type(), "pair coeff dtype mismatch");
-  TORCH_CHECK(b10.scalar_type() == c.scalar_type(), "pair coeff dtype mismatch");
-  TORCH_CHECK(cc14.scalar_type() == c.scalar_type(), "pair14 coeff dtype mismatch");
-  TORCH_CHECK(a1214.scalar_type() == c.scalar_type(), "pair14 coeff dtype mismatch");
-  TORCH_CHECK(b614.scalar_type() == c.scalar_type(), "pair14 coeff dtype mismatch");
-  TORCH_CHECK(b1014.scalar_type() == c.scalar_type(), "pair14 coeff dtype mismatch");
-  TORCH_CHECK(pi.numel() == pj.numel(), "pair_i/pair_j size mismatch");
-  TORCH_CHECK(p14i.numel() == p14j.numel(), "pair14_i/pair14_j size mismatch");
-  TORCH_CHECK(
-      pi.numel() == cc.numel() && pi.numel() == a12.numel() && pi.numel() == b6.numel() &&
-          pi.numel() == b10.numel(),
-      "pair/coeff size mismatch");
-  TORCH_CHECK(
-      p14i.numel() == cc14.numel() && p14i.numel() == a1214.numel() && p14i.numel() == b614.numel() &&
-          p14i.numel() == b1014.numel(),
-      "pair14/coeff size mismatch");
-
-  const int64_t natom = c.size(0);
-  auto e_coul = torch::zeros({}, c.options());
-  auto e_lj = torch::zeros({}, c.options());
-  auto e_coul14 = torch::zeros({}, c.options());
-  auto e_lj14 = torch::zeros({}, c.options());
-  auto force = torch::zeros_like(c);
-
-  AT_DISPATCH_FLOATING_TYPES(c.scalar_type(), "nonbonded_energy_force_preparam_cpu", [&] {
-    std::vector<scalar_t> force_acc(static_cast<size_t>(natom) * 3, static_cast<scalar_t>(0));
-    double ec = 0.0;
-    double el = 0.0;
-    double ec14 = 0.0;
-    double el14 = 0.0;
-
-    accumulate_pairs_preparam_cpu<scalar_t>(
-        c.data_ptr<scalar_t>(),
-        pi.data_ptr<int64_t>(),
-        pj.data_ptr<int64_t>(),
-        cc.data_ptr<scalar_t>(),
-        a12.data_ptr<scalar_t>(),
-        b6.data_ptr<scalar_t>(),
-        b10.data_ptr<scalar_t>(),
-        pi.numel(),
-        natom,
-        min_pairs_per_thread,
-        force_acc,
-        ec,
-        el);
-
-    accumulate_pairs_preparam_cpu<scalar_t>(
-        c.data_ptr<scalar_t>(),
-        p14i.data_ptr<int64_t>(),
-        p14j.data_ptr<int64_t>(),
-        cc14.data_ptr<scalar_t>(),
-        a1214.data_ptr<scalar_t>(),
-        b614.data_ptr<scalar_t>(),
-        b1014.data_ptr<scalar_t>(),
-        p14i.numel(),
-        natom,
-        min_pairs_per_thread,
-        force_acc,
-        ec14,
-        el14);
-
-    auto* force_ptr = force.data_ptr<scalar_t>();
-    std::copy(force_acc.begin(), force_acc.end(), force_ptr);
-    e_coul.fill_(static_cast<scalar_t>(ec));
-    e_lj.fill_(static_cast<scalar_t>(el));
-    e_coul14.fill_(static_cast<scalar_t>(ec14));
-    e_lj14.fill_(static_cast<scalar_t>(el14));
-  });
-
-  return {e_coul, e_lj, e_coul14, e_lj14, force};
-}
-
 }  // namespace
 
 std::vector<torch::Tensor> nonbonded_energy_force(
@@ -1058,7 +714,6 @@ std::vector<torch::Tensor> nonbonded_energy_force(
     const torch::Tensor& pair14_j,
     const torch::Tensor& pair14_inv_scee,
     const torch::Tensor& pair14_inv_scnb,
-    int64_t chunk_size,
     bool cpu_fast,
     int64_t min_pairs_per_thread) {
   // CPU-specialized path: hand-written loop kernel with OpenMP threading.
@@ -1095,8 +750,7 @@ std::vector<torch::Tensor> nonbonded_energy_force(
       pair14_i,
       pair14_j,
       pair14_inv_scee,
-      pair14_inv_scnb,
-      chunk_size);
+      pair14_inv_scnb);
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
@@ -1119,12 +773,11 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       pybind11::arg("pair14_j"),
       pybind11::arg("pair14_inv_scee"),
       pybind11::arg("pair14_inv_scnb"),
-      pybind11::arg("chunk_size"),
       pybind11::arg("cpu_fast") = true,
       pybind11::arg("min_pairs_per_thread") = -1);
   m.def(
       "nonbonded_energy_force_preparam",
-      &nonbonded_energy_force_preparam,
+      &nonbonded_energy_force_preparam_aten,
       "Compute nonbonded energies and forces from precomputed pair coefficients (CPU-only)",
       pybind11::arg("coords"),
       pybind11::arg("pair_i"),
@@ -1138,8 +791,5 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       pybind11::arg("pair14_coul_coeff"),
       pybind11::arg("pair14_a12_coeff"),
       pybind11::arg("pair14_b6_coeff"),
-      pybind11::arg("pair14_b10_coeff"),
-      pybind11::arg("chunk_size"),
-      pybind11::arg("cpu_fast") = true,
-      pybind11::arg("min_pairs_per_thread") = -1);
+      pybind11::arg("pair14_b10_coeff"));
 }

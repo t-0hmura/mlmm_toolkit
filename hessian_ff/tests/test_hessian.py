@@ -134,3 +134,21 @@ class TestHessianConsistency:
         h_ana = _analytical_hessian(small_system, small_coords)
         diff = float(torch.max(torch.abs(h_ana - h_ana.T)))
         assert diff < 1e-10, f"Hessian not symmetric: max asymmetry = {diff:.6e}"
+
+    def test_partial_active_matches_full_subblock(self, small_system, small_coords):
+        # Terms with inactive atoms add only to the rows/cols of the active
+        # ones; the rows follow the caller's order of the active atoms.
+        natom = small_system.natom
+        h_full, _ = build_analytical_hessian(
+            system=small_system, coords=small_coords, active_atoms=list(range(natom)),
+        )
+        active = list(range(natom - 1, -1, -3))
+        h_part, _ = build_analytical_hessian(
+            system=small_system, coords=small_coords, active_atoms=active,
+        )
+        idx = torch.tensor([3 * a + k for a in active for k in range(3)])
+        ref = h_full[idx][:, idx]
+        assert h_part.shape == ref.shape
+        torch.testing.assert_close(
+            h_part, ref, rtol=1e-12, atol=1e-12 * float(ref.abs().max()),
+        )

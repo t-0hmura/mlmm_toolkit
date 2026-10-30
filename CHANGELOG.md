@@ -21,6 +21,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Colab notebook: from 721 px wide the GUI fits the visible notebook pane with the header, steps and command dock on screen, Mol* clicks no longer move the camera, the Setup viewer height can be dragged, and the token cached in the runtime is read before the Colab secret.
 - Docs and skills: ORB is installed in its own environment, like MACE; the UMA model cache (`$FAIRCHEM_CACHE_DIR`, default `~/.cache/fairchem`) and offline use on compute nodes (`HF_HUB_OFFLINE=1`) are documented.
 - Docs and skills: the conda environment includes `xtb`, which the `--embedcharge` xTB correction calls, and the HPC templates check the compiler hessian_ff actually uses (`$CXX`, then the environment's conda g++, then `c++`).
+- MM Hessians keep their values and allocate less: the default finite-difference MM Hessian returns the block of the movable atoms without building the full (3N, 3N) matrix, the hessian_ff analytical Hessian adds each term into the result instead of a new dense matrix per chunk, and hessian_ff drops its unused C++ preparam CPU nonbonded kernels and the extension's `chunk_size` argument.
 
 ### Fixed
 

@@ -106,6 +106,79 @@ def test_hessianff_finite_difference_dispatches_numerical_engine(
     assert calls[0][2]["delta"] == pytest.approx(0.002)
 
 
+@pytest.mark.parametrize("backend", ["hessian_ff", "openmm"])
+@pytest.mark.parametrize("fixed", [[], [4, 1], [0, 1, 2, 3, 4, 5]])
+def test_mm_finite_difference_partial_equals_restricted_full(backend, fixed) -> None:
+    import numpy as np
+    from ase import Atoms
+    from ase.constraints import FixAtoms
+
+    from mlmm.backends.mlmm_calc import OpenMMCalculator, hessianffCalculator
+
+    n_atoms = 6
+    vsites = [2] if backend == "openmm" else []
+    base = hessianffCalculator if backend == "hessian_ff" else OpenMMCalculator
+
+    class _Quadratic(base):
+        """No topology: forces of E = x.K.x/2 with a fixed dense symmetric K."""
+
+        def __init__(self) -> None:
+            a = np.random.default_rng(5).standard_normal((3 * n_atoms, 3 * n_atoms))
+            self.k = a + a.T
+            self._vsite_idx = list(vsites)
+
+        def get_forces(self, atoms=None):
+            return -(self.k @ atoms.get_positions().reshape(-1)).reshape(-1, 3)
+
+    calculator = _Quadratic()
+    positions = np.random.default_rng(1).standard_normal((n_atoms, 3))
+    atoms = Atoms("H6", positions=positions)
+    if fixed:
+        atoms.set_constraint(FixAtoms(indices=fixed))
+
+    full, no_atoms = calculator.finite_difference_hessian(
+        atoms, delta=1.0e-3, return_partial_hessian=False
+    )
+    partial, active = calculator.finite_difference_hessian(
+        atoms, delta=1.0e-3, return_partial_hessian=True
+    )
+
+    expected = [i for i in range(n_atoms) if i not in set(fixed) | set(vsites)]
+    assert no_atoms is None
+    assert full.shape == (3 * n_atoms, 3 * n_atoms)
+    np.testing.assert_array_equal(active, expected)
+    assert active.dtype == np.int64
+    idx3 = (3 * np.asarray(expected, dtype=np.int64)[:, None] + np.arange(3)).ravel()
+    assert partial.shape == (idx3.size, idx3.size)
+    assert partial.tobytes() == full[np.ix_(idx3, idx3)].tobytes()
+
+
+@pytest.mark.parametrize("active", [[0, 2, 5], [5, 1, 3], [], [0, 1, 2, 3, 4, 5]])
+@pytest.mark.parametrize("dtype", ["float64", "float32"])
+def test_expand_partial_hessian_matches_block_loop(active, dtype) -> None:
+    import numpy as np
+
+    from mlmm.backends.mlmm_calc import _expand_partial_hessian
+
+    n_atoms = 6
+    n_dof = 3 * len(active)
+    h_sub = np.random.default_rng(11).standard_normal((n_dof, n_dof))
+    expected = np.zeros((3 * n_atoms, 3 * n_atoms), dtype=dtype)
+    for i_local, i_atom in enumerate(active):
+        for j_local, j_atom in enumerate(active):
+            expected[3 * i_atom:3 * i_atom + 3, 3 * j_atom:3 * j_atom + 3] = h_sub[
+                3 * i_local:3 * i_local + 3, 3 * j_local:3 * j_local + 3
+            ]
+
+    actual = _expand_partial_hessian(
+        h_sub, np.asarray(active, dtype=int), n_atoms, dtype=np.dtype(dtype)
+    )
+
+    assert actual.dtype == expected.dtype
+    assert actual.shape == expected.shape
+    assert actual.tobytes() == expected.tobytes()
+
+
 @pytest.mark.parametrize(
     ("keyword", "value", "message"),
     [
