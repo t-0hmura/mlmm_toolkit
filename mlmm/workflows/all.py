@@ -27,6 +27,7 @@ from mlmm.cli.common_options import (
     add_coord_type_option,
     add_deterministic_option,
     add_precision_option,
+    add_precision_post_option,
     add_print_every_option,
     add_workers_options,
 )
@@ -362,6 +363,23 @@ def _bind_calculator_state(
         from mlmm.core.dft_settings import resolve_dft_settings
 
         values["dft_settings"] = resolve_dft_settings(values).to_dict()
+    return _ResolvedCalculatorTemplate.from_mapping(values)
+
+
+def _post_stage_calc_template(
+    template: _ResolvedCalculatorTemplate, precision_post: Optional[str]
+) -> _ResolvedCalculatorTemplate:
+    """Return the template of TSOPT, IRC, endpoint optimization and freq.
+
+    ``--precision-post`` replaces the precision of ``template`` as a child
+    given ``--precision`` does; unset, the post stages share ``template``.
+    """
+    if precision_post is None:
+        return template
+    from mlmm.backends import apply_precision_to_calc_cfg
+
+    values = template.materialize()
+    apply_precision_to_calc_cfg(values, precision_post)
     return _ResolvedCalculatorTemplate.from_mapping(values)
 
 
@@ -2072,6 +2090,7 @@ def _enrich_summary(
     pipeline_mode: str,
     mlip_backend: str,
     mlip_precision: Optional[str] = None,
+    mlip_precision_post: Optional[str] = None,
     charge: int,
     spin: int,
     command: str = "",
@@ -2257,6 +2276,12 @@ def _enrich_summary(
         # Record the resolved MLIP model used by the high-level ML/MM calculator.
         if mlip_model is not None:
             summary["mlip_model"] = mlip_model
+    # Precision of TSOPT, IRC, endpoint optimization and freq (--precision-post).
+    summary["mlip_precision_post"] = (
+        summary.get("mlip_precision")
+        if primary_dft or mlip_precision_post is None
+        else mlip_precision_post
+    )
     if str(mlip_backend).lower() == "uma" and not summary.get("mlip_task"):
         summary["mlip_task"] = MLMM_CALC_KW["uma_task_name"]
     if summary.get("mlip_model") is not None and not summary.get("mlip_model_label"):
@@ -2848,7 +2873,8 @@ def _irc_and_match(seg_idx: int,
                    manifest: Optional[InvocationManifest] = None,
                    artifact_prefix: str = "irc",
                    public_root: Optional[Path] = None,
-                   hessian_calc_mode: Optional[str] = None) -> Dict[str, Any]:
+                   hessian_calc_mode: Optional[str] = None,
+                   precision: Optional[str] = None) -> Dict[str, Any]:
     """
     Run EulerPC IRC from a TS geometry, then map the IRC endpoints to (left, right)
     by comparing bond states with the MEP segment endpoints (when ``mep_dir`` is given).
@@ -2934,6 +2960,7 @@ def _irc_and_match(seg_idx: int,
         mm_backend=mm_backend,
         use_cmap=use_cmap,
         args_yaml=args_yaml,
+        precision=precision,
     )
     if ts_scf_checkpoint is not None:
         irc_args.extend([
@@ -3281,7 +3308,8 @@ def _run_tsopt_on_hei(hei_pdb: Path,
                       link_atom_method: Optional[str] = None,
                       mm_backend: Optional[str] = None,
                       use_cmap: Optional[bool] = None,
-                      ref_pdb: Optional[Path] = None) -> Tuple[Path, Optional[Path], Any]:
+                      ref_pdb: Optional[Path] = None,
+                      precision: Optional[str] = None) -> Tuple[Path, Optional[Path], Any]:
     """
     Run tsopt CLI on a HEI structure; return
     ``(final_ts_pdb_path, final_ts_xyz_path, ts_geom)``.
@@ -3408,6 +3436,7 @@ def _run_tsopt_on_hei(hei_pdb: Path,
             link_atom_method=link_atom_method,
             mm_backend=mm_backend,
             use_cmap=use_cmap,
+            precision=precision,
         )
         if ts_scf_checkpoint is not None:
             ts_args.extend(
@@ -3805,7 +3834,8 @@ def _run_freq_for_state(pdb_path: Path,
                         use_cmap: Optional[bool] = None,
                         xyz_path: Optional[Path] = None,
                         scf_checkpoint: Optional[Path] = None,
-                        topology_pdb: Optional[Path] = None) -> Dict[str, Any]:
+                        topology_pdb: Optional[Path] = None,
+                        precision: Optional[str] = None) -> Dict[str, Any]:
     """
     Run freq CLI; return parsed thermo dict (may be empty).
     When *xyz_path* is given, use it for full-precision coordinates with
@@ -3862,6 +3892,7 @@ def _run_freq_for_state(pdb_path: Path,
         mm_backend=mm_backend,
         use_cmap=use_cmap,
         args_yaml=args_yaml,
+        precision=precision,
     )
     if scf_checkpoint is not None:
         args.extend([
@@ -3960,6 +3991,7 @@ def _run_opt_for_state(
     scf_checkpoint: Optional[Path] = None,
     outcome: Optional[Dict[str, Any]] = None,
     topology_pdb: Optional[Path] = None,
+    precision: Optional[str] = None,
 ) -> Tuple[Any, Path, Optional[bool]]:
     """
     Run opt CLI for a single endpoint and return
@@ -4033,6 +4065,7 @@ def _run_opt_for_state(
             link_atom_method=link_atom_method,
             mm_backend=mm_backend,
             use_cmap=use_cmap,
+            precision=precision,
         )
         if scf_checkpoint is not None:
             args.extend([
@@ -4901,7 +4934,8 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 )
 @add_coord_type_option(choices=("cart", "dlc"))
 @add_print_every_option()
-@add_precision_option()
+@add_precision_option(post_option=True)
+@add_precision_post_option()
 @add_workers_options()
 @add_backend_model_option()
 @add_calc_file_option()
@@ -5004,6 +5038,7 @@ def cli(
     print_every: Optional[int],
     cli_coord_type: Optional[str],
     precision: Optional[str],
+    precision_post: Optional[str],
     workers: Optional[int],
     workers_per_node: Optional[int],
     backend_model: Optional[str],
@@ -5192,6 +5227,19 @@ def cli(
         precision=precision,
         merged_yaml_cfg=merged_yaml_cfg,
     )
+    # Precision of TSOPT, IRC, endpoint optimization and freq (--precision-post).
+    mlip_precision_post_resolved = (
+        mlip_precision_resolved
+        if precision_post is None
+        else _resolve_mlip_provenance(
+            backend=backend,
+            backend_model=backend_model,
+            calc_file=calc_file,
+            calc_factory=calc_factory,
+            precision=precision_post,
+            merged_yaml_cfg=merged_yaml_cfg,
+        )[2]
+    )
     resolved_calc_template = _resolve_calculator_template(
         args_yaml,
         backend=backend,
@@ -5236,6 +5284,8 @@ def cli(
     resolved_calc_template = _ResolvedCalculatorTemplate.from_mapping(
         _resolved_dft_values
     )
+    # Reject an unsupported --precision-post before any stage runs.
+    _post_stage_calc_template(resolved_calc_template, precision_post)
     _reject_redundant_dft_postprocessing(
         effective_backend=str(_resolved_dft_values.get("backend", "")),
         do_dft=do_dft,
@@ -6606,6 +6656,12 @@ def cli(
         )
         _echo(f"[all] --embedcharge-cutoff is measured on {_embedcharge_reference}")
 
+    # TSOPT, IRC, endpoint optimization and freq use --precision-post; unset,
+    # they share resolved_calc_template.
+    resolved_calc_template_post = _post_stage_calc_template(
+        resolved_calc_template, precision_post
+    )
+
     # Other path: single-structure + --tsopt True (and NO scan-lists) → TSOPT-only mode
     if single_tsopt_mode:
         _echo_section("====== [all] TSOPT-only single-structure mode ======")
@@ -6636,7 +6692,8 @@ def cli(
             args_yaml,
             tsroot,
             tsopt_opt_mode_default,
-            resolved_calc_template=resolved_calc_template,
+            resolved_calc_template=resolved_calc_template_post,
+            precision=precision_post,
             overrides=tsopt_overrides,
             backend=backend,
             embedcharge=embedcharge,
@@ -6738,6 +6795,7 @@ def cli(
                 mlip_backend=mlip_backend_resolved,
                 mlip_model=mlip_model_resolved,
                 mlip_precision=mlip_precision_resolved,
+                mlip_precision_post=mlip_precision_post_resolved,
                 charge=q_int,
                 spin=spin,
                 freeze_atoms=effective_freeze_atoms,
@@ -6787,6 +6845,7 @@ def cli(
                 "mlip_model_label": _mlip_model_label_resolved,
                 "mlip_task": _mlip_task_resolved,
                 "mlip_precision": mlip_precision_resolved,
+                "mlip_precision_post": mlip_precision_post_resolved,
                 "execution_status": summary.get("execution_status"),
                 "scientific_status": summary.get("scientific_status"),
                 "scientific_status_reasons": summary.get(
@@ -6880,7 +6939,8 @@ def cli(
                                  g_ts=g_ts,
                                  q_int=q_int,
                                  spin=spin,
-                                 resolved_calc_template=resolved_calc_template,
+                                 resolved_calc_template=resolved_calc_template_post,
+                                 precision=precision_post,
                                  ts_xyz_path=ts_xyz,
                                  real_parm7=real_parm7_path,
                                  model_pdb=ml_region_pdb,
@@ -6989,7 +7049,8 @@ def cli(
             g_react, _, _react_opt_conv = _run_opt_for_state(
                 pR_irc, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                 endpoint_opt_dir / "R", args_yaml, endpoint_opt_mode_default,
-                resolved_calc_template=resolved_calc_template,
+                resolved_calc_template=resolved_calc_template_post,
+                precision=precision_post,
                 convert_files=post_convert_files_forward,
                 dump=dump,
                 backend=backend,
@@ -7038,7 +7099,8 @@ def cli(
             g_prod, _, _prod_opt_conv = _run_opt_for_state(
                 pP_irc, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                 endpoint_opt_dir / "P", args_yaml, endpoint_opt_mode_default,
-                resolved_calc_template=resolved_calc_template,
+                resolved_calc_template=resolved_calc_template_post,
+                precision=precision_post,
                 convert_files=post_convert_files_forward,
                 dump=dump,
                 backend=backend,
@@ -7130,7 +7192,8 @@ def cli(
                 charge=q_int, spin=spin, command=command_str,
                 calculator_config=resolved_calc_template.materialize(),
                 mlip_backend=mlip_backend_resolved, mlip_model=mlip_model_resolved,
-                mlip_precision=mlip_precision_resolved, freeze_atoms=effective_freeze_atoms,
+                mlip_precision=mlip_precision_resolved,
+                mlip_precision_post=mlip_precision_post_resolved, freeze_atoms=effective_freeze_atoms,
                 config={
                     "tsopt": do_tsopt, "thermo": do_thermo, "dft": do_dft,
                     "ts_opt_mode": tsopt_opt_mode_default,
@@ -7228,6 +7291,7 @@ def cli(
             _echo_detail("[thermo] Single TSOPT: freq on TS/R/P")
             tT = _run_freq_for_state(pT, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      freq_root / "TS", args_yaml, overrides=freq_overrides,
+                                     precision=precision_post,
                                      backend=backend,
                                      embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
                                      embedcharge_explicit=embedcharge_explicit,
@@ -7237,6 +7301,7 @@ def cli(
             _clear_hess_cache()  # TS Hessian consumed; R/P need exact computation
             tR = _run_freq_for_state(pR, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      freq_root / "R", args_yaml, overrides=freq_overrides,
+                                     precision=precision_post,
                                      backend=backend,
                                      embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
                                      embedcharge_explicit=embedcharge_explicit,
@@ -7244,6 +7309,7 @@ def cli(
                                      scf_checkpoint=scf_checkpoints.get("R"))
             tP = _run_freq_for_state(pP, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                                      freq_root / "P", args_yaml, overrides=freq_overrides,
+                                     precision=precision_post,
                                      backend=backend,
                                      embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
                                      embedcharge_explicit=embedcharge_explicit,
@@ -7432,6 +7498,7 @@ def cli(
             mlip_backend=mlip_backend_resolved,
             mlip_model=mlip_model_resolved,
             mlip_precision=mlip_precision_resolved,
+            mlip_precision_post=mlip_precision_post_resolved,
             charge=q_int,
             spin=spin,
             freeze_atoms=effective_freeze_atoms,
@@ -7613,6 +7680,7 @@ def cli(
             "mlip_model_label": _mlip_model_label_resolved,
             "mlip_task": _mlip_task_resolved,
             "mlip_precision": mlip_precision_resolved,
+            "mlip_precision_post": mlip_precision_post_resolved,
             "execution_status": summary.get("execution_status"),
             "scientific_status": summary.get("scientific_status"),
             "scientific_status_reasons": summary.get(
@@ -7639,6 +7707,7 @@ def cli(
                 mlip_backend=mlip_backend_resolved,
                 mlip_model=mlip_model_resolved,
                 mlip_precision=mlip_precision_resolved,
+                mlip_precision_post=mlip_precision_post_resolved,
                 charge=q_int,
                 spin=spin,
                 freeze_atoms=effective_freeze_atoms,
@@ -8365,6 +8434,7 @@ def cli(
             mlip_backend=mlip_backend_resolved,
             mlip_model=mlip_model_resolved,
             mlip_precision=mlip_precision_resolved,
+            mlip_precision_post=mlip_precision_post_resolved,
             charge=q_int,
             spin=spin,
             freeze_atoms=effective_freeze_atoms,
@@ -8531,6 +8601,7 @@ def cli(
                 mlip_model_label=_mlip_model_label_resolved,
                 mlip_task=_mlip_task_resolved,
                 mlip_precision=mlip_precision_resolved,
+                mlip_precision_post=mlip_precision_post_resolved,
             )
             summary_payload["layer_counts"] = dict(_layer_summary_counts)
             _copy_path_outputs_to_root()
@@ -8736,7 +8807,8 @@ def cli(
                 args_yaml,
                 seg_dir,
                 tsopt_opt_mode_default,
-                resolved_calc_template=resolved_calc_template,
+                resolved_calc_template=resolved_calc_template_post,
+                precision=precision_post,
                 overrides=segment_tsopt_overrides,
                 backend=backend,
                 embedcharge=embedcharge,
@@ -8856,7 +8928,8 @@ def cli(
                                  g_ts=g_ts,
                                  q_int=q_int,
                                  spin=spin,
-                                 resolved_calc_template=resolved_calc_template,
+                                 resolved_calc_template=resolved_calc_template_post,
+                                 precision=precision_post,
                                  ts_xyz_path=ts_xyz,
                                  real_parm7=real_parm7_path,
                                  model_pdb=ml_region_pdb,
@@ -8939,7 +9012,8 @@ def cli(
             gL, _, _react_opt_conv = _run_opt_for_state(
                 pL_irc, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                 endpoint_opt_dir / "R", args_yaml, endpoint_opt_mode_default,
-                resolved_calc_template=resolved_calc_template,
+                resolved_calc_template=resolved_calc_template_post,
+                precision=precision_post,
                 convert_files=post_convert_files_forward,
                 dump=dump,
                 backend=backend,
@@ -8988,7 +9062,8 @@ def cli(
             gR, _, _prod_opt_conv = _run_opt_for_state(
                 pR_irc, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                 endpoint_opt_dir / "P", args_yaml, endpoint_opt_mode_default,
-                resolved_calc_template=resolved_calc_template,
+                resolved_calc_template=resolved_calc_template_post,
+                precision=precision_post,
                 convert_files=post_convert_files_forward,
                 dump=dump,
                 backend=backend,
@@ -9166,6 +9241,7 @@ def cli(
             tT = _run_freq_for_state(
                 pT, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                 freq_seg_root / "TS", args_yaml, overrides=freq_overrides,
+                precision=precision_post,
                 backend=backend,
                 embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
                 embedcharge_explicit=embedcharge_explicit,
@@ -9177,6 +9253,7 @@ def cli(
             tR = _run_freq_for_state(
                 pL, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                 freq_seg_root / "R", args_yaml, overrides=freq_overrides,
+                precision=precision_post,
                 backend=backend,
                 embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
                 embedcharge_explicit=embedcharge_explicit,
@@ -9186,6 +9263,7 @@ def cli(
             tP = _run_freq_for_state(
                 pR, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
                 freq_seg_root / "P", args_yaml, overrides=freq_overrides,
+                precision=precision_post,
                 backend=backend,
                 embedcharge=embedcharge, embedcharge_cutoff=embedcharge_cutoff,
                 embedcharge_explicit=embedcharge_explicit,
@@ -9586,6 +9664,7 @@ def cli(
             mlip_backend=mlip_backend_resolved,
             mlip_model=mlip_model_resolved,
             mlip_precision=mlip_precision_resolved,
+            mlip_precision_post=mlip_precision_post_resolved,
             charge=q_int,
             spin=spin,
             freeze_atoms=effective_freeze_atoms,

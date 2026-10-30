@@ -71,7 +71,9 @@ The run prints the backend and model it loads, for example
 `--precision tf32|fp32|fp64` sets the floating-point precision of MLIP inference.
 `fp32` is IEEE single precision and `fp64` double precision on every backend.
 `tf32` keeps tensors in float32 but runs matrix multiplications in TF32 on NVIDIA
-GPUs (Ampere or newer): faster, and less precise. When `--precision` is not
+GPUs (Ampere or newer): faster, and less precise. In `all`, `--precision-post`
+sets the precision of TS optimization, IRC, the endpoint optimizations and freq;
+unset, they use `--precision`. When `--precision` is not
 given, each backend takes its own default:
 
 | backend | without `--precision` | `--precision fp64` | `--precision tf32` |

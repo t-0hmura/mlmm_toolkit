@@ -156,6 +156,7 @@ def build_pipeline_summary_payload(
     mlip_model_label: Optional[str] = None,
     mlip_task: Optional[str] = None,
     mlip_precision: Optional[str] = None,
+    mlip_precision_post: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Assemble the summary_log payload for the `all` pipeline.
 
@@ -214,6 +215,7 @@ def build_pipeline_summary_payload(
         "mlip_model_label": mlip_model_label,
         "mlip_task": mlip_task,
         "mlip_precision": mlip_precision,
+        "mlip_precision_post": mlip_precision_post,
         "execution_status": summary.get("execution_status"),
         "scientific_status": summary.get("scientific_status"),
         "scientific_status_reasons": summary.get(
@@ -548,12 +550,16 @@ def append_backend_forwarding_args(
     mm_backend: Optional[str],
     use_cmap: Optional[bool],
     args_yaml: Optional[Any] = None,
+    precision: Optional[str] = None,
 ) -> None:
     """Append shared calculator options to a child CLI argv list.
 
     Mutates ``args`` in place; matches the existing ``_append_cli_arg``
-    / ``_append_toggle_arg`` style.
+    / ``_append_toggle_arg`` style. ``precision`` (``all --precision-post``)
+    is passed only by the post-MEP stages.
     """
+    if precision is not None:
+        args.extend(["--precision", str(precision).lower()])
     if backend is not None:
         args.extend(["--backend", str(backend)])
     if embedcharge:

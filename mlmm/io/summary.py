@@ -1152,6 +1152,9 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
         lines.append(f"MLIP backend        : {backend_label}")
         lines.append(f"MLIP model          : {model_label}")
         lines.append(f"MLIP precision      : {mlip_precision}")
+        post_precision = payload.get("mlip_precision_post")
+        if post_precision and post_precision != payload.get("mlip_precision"):
+            lines.append(f"MLIP post precision : {post_precision}")
     execution_status = payload.get("execution_status")
     scientific_status = payload.get("scientific_status")
     if execution_status is not None:

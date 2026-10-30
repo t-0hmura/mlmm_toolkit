@@ -11,6 +11,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - A pair that contains a metal atom counts as a bond formed or broken only when its distance changes by at least `bond.metal_delta_fraction` × T (default `0.40`, about 1.0 Å for Mg–O; other pairs keep `delta_fraction` 0.05). Fluctuations of metal coordination no longer split `--refine-path` paths into extra segments, fail IRC endpoint matching or appear as bond changes.
 - Input alignment relaxations always use the package L-BFGS defaults (line search, `max_step` 0.30) with the `gau` preset; the `--thresh` of `path-opt`, `path-search` and `all` no longer applies to them. With `--thresh baker` the final alignment relaxation could run to 10,000 cycles and stop the run with "Input alignment did not converge".
 
+### Added
+
+- `all --precision-post tf32|fp32|fp64` sets the MLIP precision of TS optimization, IRC, the endpoint optimizations and freq; unset, they use `--precision`. The root `summary.json` records it as `mlip_precision_post`.
+
 ### Changed
 
 - `run.log` in the output directory is written while the command runs and also records output from C libraries (DMF's Ipopt), child processes and early logging handlers; rerunning into the same `-o` appends to it instead of replacing it.

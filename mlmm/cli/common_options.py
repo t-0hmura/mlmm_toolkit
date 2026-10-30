@@ -168,7 +168,7 @@ def add_coord_type_option(
     return decorator
 
 
-def add_precision_option() -> Callable[[Callable], Callable]:
+def add_precision_option(*, post_option: bool = False) -> Callable[[Callable], Callable]:
     """Attach `--precision tf32|fp32|fp64` to a Click command.
 
     Backend-agnostic precision flag. ``fp32`` is IEEE FP32 on every backend;
@@ -187,8 +187,21 @@ def add_precision_option() -> Callable[[Callable], Callable]:
     Wire targets: every subcommand that constructs a backend calculator —
     currently ``sp``, ``opt``, ``tsopt``, ``freq``, ``irc``,
     ``scan`` / ``scan2d`` / ``scan3d``, ``path-opt``, ``path-search``, and
-    ``all``.
+    ``all``. ``post_option=True`` (``all``) points the help to
+    ``--precision-post`` (:func:`add_precision_post_option`).
     """
+    help_text = (
+        "MLIP backend precision: tf32, fp32 (IEEE) or fp64. Unset "
+        "defaults per backend (uma: fp32; orb, mace: fp64). tf32 uses "
+        "TF32 matmul for speed (uma, orb only); avoid it for Hessians. "
+        "aimnet2: fp32 only."
+    )
+    if post_option:
+        help_text += (
+            " --precision-post overrides it for TSOPT, IRC, endpoint "
+            "optimization and freq."
+        )
+
     def decorator(func: Callable) -> Callable:
         return click.option(
             "--precision",
@@ -196,11 +209,28 @@ def add_precision_option() -> Callable[[Callable], Callable]:
             type=click.Choice(["tf32", "fp32", "fp64"], case_sensitive=False),
             default=None,
             show_default="per backend: uma fp32; orb, mace fp64",
+            help=help_text,
+        )(func)
+    return decorator
+
+
+def add_precision_post_option() -> Callable[[Callable], Callable]:
+    """Attach ``--precision-post tf32|fp32|fp64`` to the ``all`` command.
+
+    Sets the precision of the stages after the MEP search: TS optimization,
+    IRC, the endpoint optimizations after IRC, and freq. Unset (``None``)
+    keeps ``--precision`` for those stages.
+    """
+    def decorator(func: Callable) -> Callable:
+        return click.option(
+            "--precision-post",
+            "precision_post",
+            type=click.Choice(["tf32", "fp32", "fp64"], case_sensitive=False),
+            default=None,
+            show_default="inherits --precision",
             help=(
-                "MLIP backend precision: tf32, fp32 (IEEE) or fp64. Unset "
-                "defaults per backend (uma: fp32; orb, mace: fp64). tf32 uses "
-                "TF32 matmul for speed (uma, orb only); avoid it for Hessians. "
-                "aimnet2: fp32 only."
+                "MLIP precision (tf32, fp32 or fp64) for TSOPT, IRC, the "
+                "post-IRC endpoint optimizations and freq. Unset uses --precision."
             ),
         )(func)
     return decorator

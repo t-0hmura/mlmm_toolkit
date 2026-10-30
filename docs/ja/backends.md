@@ -41,7 +41,7 @@ mlmm opt -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b aim
 (ja-precision)=
 ### 精度（precision）
 
-`--precision tf32|fp32|fp64` は MLIP の推論の浮動小数点精度を決めます。`fp32` はどのバックエンドでも IEEE の単精度、`fp64` は倍精度です。`tf32` はテンソルを float32 のまま持ち、NVIDIA の GPU（Ampere 以降）で行列積だけを TF32 で計算します。速くなる代わりに精度が下がります。`--precision` を指定しないときは、バックエンドごとのデフォルト値を使います。
+`--precision tf32|fp32|fp64` は MLIP の推論の浮動小数点精度を決めます。`fp32` はどのバックエンドでも IEEE の単精度、`fp64` は倍精度です。`tf32` はテンソルを float32 のまま持ち、NVIDIA の GPU（Ampere 以降）で行列積だけを TF32 で計算します。速くなる代わりに精度が下がります。`all` では、TS 最適化・IRC・端点の最適化・freq の精度を `--precision-post` で決め、指定しなければ `--precision` に従います。`--precision` を指定しないときは、バックエンドごとのデフォルト値を使います。
 
 | バックエンド | `--precision` なし | `--precision fp64` | `--precision tf32` |
 |---------|------|------|------|
