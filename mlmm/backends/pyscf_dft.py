@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import ctypes.util
 import hashlib
+import importlib.util
 import json
+import logging
 import os
+import re
+import sys
 import uuid
 from pathlib import Path
 from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
@@ -21,6 +26,84 @@ from mlmm.core.dft_settings import DFTSettings, resolve_dft_settings
 # tolerance (see docs/dft-backend.md).
 SCF_STEPWISE_GRID_LEVEL = 1
 SCF_STEPWISE_CONV_TOL = 1.0e-6
+
+_LOGGER = logging.getLogger(__name__)
+_cusolver_checked = False
+
+
+def _environment_cusolver() -> Optional[str]:
+    """Return the path of libcusolver in the active Python environment, or ``None``.
+
+    ``cuda.pathfinder`` (a CuPy 14 dependency) answers with the copy that CuPy or
+    PyTorch already loaded, else the one in the pip wheels (``site-packages/nvidia``),
+    ``$CONDA_PREFIX/lib`` or ``$CUDA_PATH``. Without it, the newest ``libcusolver.so.N``
+    in the ``lib`` directory of the environment is used.
+    """
+    try:
+        from cuda.pathfinder import load_nvidia_dynamic_lib
+
+        found = load_nvidia_dynamic_lib("cusolver").abs_path
+        if found:
+            return str(found)
+    except Exception:  # cuda-pathfinder is absent, or it finds no copy
+        pass
+    best = None
+    for prefix in (sys.prefix, os.environ.get("CONDA_PREFIX")):
+        if not prefix:
+            continue
+        for path in Path(prefix, "lib").glob("libcusolver.so.*"):
+            match = re.fullmatch(r"libcusolver\.so\.(\d+)", path.name)
+            if match and (best is None or int(match.group(1)) > best[0]):
+                best = (int(match.group(1)), str(path))
+    return None if best is None else best[1]
+
+
+def ensure_gpu4pyscf_cusolver() -> None:
+    """Let ``import gpu4pyscf`` find libcusolver in the active environment.
+
+    gpu4pyscf 1.x opens libcusolver in ``gpu4pyscf/lib/cusolver.py`` with
+    ``ctypes.util.find_library("cusolver")``, which answers from the ldconfig cache of
+    the system (1.9 falls back to ``nvidia/cusolver/lib`` on ``sys.path``). On a node
+    whose CUDA toolkit is not registered with ldconfig the import stops (``OSError:
+    Unable to load libcusolver`` in 1.9), although the environment ships the library
+    (the conda-forge package that PyTorch depends on, or a pip wheel).
+
+    Call this before the first gpu4pyscf import. It does nothing when the system lookup
+    finds libcusolver, when gpu4pyscf is absent or already imported, and when the
+    environment has no copy. Otherwise it imports gpu4pyscf once while
+    ``find_library("cusolver")`` answers with the copy of the environment; every
+    other lookup, and ``find_library`` itself after the import, stay unchanged.
+    In gpu4pyscf 1.8 and 1.9 no other CUDA library is opened by name: the rest comes
+    through CuPy, and ``lib/cublas.py`` (``CDLL("libcublas.so")``) is imported by nothing.
+    """
+    global _cusolver_checked
+    if _cusolver_checked:
+        return
+    _cusolver_checked = True
+    if (
+        not sys.platform.startswith("linux")
+        or "gpu4pyscf" in sys.modules
+        or importlib.util.find_spec("gpu4pyscf") is None
+    ):
+        return
+    system_lookup = ctypes.util.find_library
+    if system_lookup("cusolver") is not None:
+        return
+    library = _environment_cusolver()
+    if library is None:
+        return
+    _LOGGER.debug("gpu4pyscf: libcusolver is not in the system library cache; using %s", library)
+
+    def find_library(name):
+        return library if name == "cusolver" else system_lookup(name)
+
+    ctypes.util.find_library = find_library
+    try:
+        importlib.import_module("gpu4pyscf")
+    except Exception as exc:  # the caller's own import reports the cause
+        _LOGGER.debug("gpu4pyscf: import with the environment's libcusolver failed: %s", exc)
+    finally:
+        ctypes.util.find_library = system_lookup
 
 
 def stepwise_grid_density(make_method):
@@ -281,6 +364,8 @@ class PySCFDFTSession:
 
         unrestricted = self.settings.multiplicity != 1
         self._using_rks_lowmem = self.settings.use_rks_lowmem
+        if self.settings.engine == "gpu":
+            ensure_gpu4pyscf_cusolver()
         if self._using_rks_lowmem:
             try:
                 from gpu4pyscf.dft import rks_lowmem

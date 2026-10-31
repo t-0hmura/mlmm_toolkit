@@ -26,6 +26,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- GPU DFT (`-b dft`, `dft`) loads the environment's libcusolver when the system has no CUDA toolkit registered; gpu4pyscf searched only the system library cache, so a node with only the NVIDIA driver stopped with "Unable to load libcusolver".
 - `all --resume-segment` reuses the parm7 saved by the completed MEP, checked against its recorded hash, instead of rebuilding it, so a rebuilt parm7 with other AM1-BCC charges no longer refuses the resume ("path_request changed"); changed inputs or a different `--parm` still do.
 - `all` with a TS-only input: when the endpoint optimization fails, the root `summary.json` records the full `config` like the other exits and `summary.log` is listed; TS-only runs also record `config.mep_mode`. An error while comparing IRC endpoints with the MEP bonds is reported as `bond_change_check_failed:<error>` instead of a bond mismatch.
 - The IRC warning for a branch that stops after a few frames names the `all` options (`--irc-step-size`, `--irc-never-stop`) when IRC runs inside `all`.

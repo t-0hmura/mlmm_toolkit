@@ -1342,6 +1342,9 @@ def cli(
         ks_module = None
         if _engine != "cpu":
             try:
+                from mlmm.backends.pyscf_dft import ensure_gpu4pyscf_cusolver
+
+                ensure_gpu4pyscf_cusolver()
                 from gpu4pyscf import dft as gdf
 
                 if resolved_settings.use_rks_lowmem:
