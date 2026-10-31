@@ -369,7 +369,7 @@ def _rebuild_hint() -> str:
         "If the build fails:\n"
         "  - check C++20 support:  g++ -std=c++20 -x c++ -fsyntax-only /dev/null\n"
         "  - install a modern compiler:  conda install -c conda-forge gxx_linux-64"
-        "   (or  apt install g++ / yum install gcc-c++; on HPC, load the site's "
+        "   (or  apt-get update && apt-get install g++ / dnf install gcc-c++; on HPC, load the site's "
         "C++20-capable compiler module)\n"
         "  - a network-mounted build dir (NFS/Lustre) can hang torch's build "
         "lock; the build defaults to a local temp dir (override via "
