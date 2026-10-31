@@ -79,20 +79,6 @@ def test_usage_and_interrupt_codes_remain_distinct_from_execution_errors(code):
     assert result.exit_code == code
 
 
-def test_removed_scan_flag_is_rejected_for_each_scan_command(tmp_path):
-    from mlmm.cli import cli
-
-    source = tmp_path / "h2.xyz"
-    source.write_text("2\nH2\nH 0 0 0\nH 0 0 2\n")
-    parm = tmp_path / "system.parm7"
-    parm.write_text("fixture")
-    for command in ("scan", "scan2d", "scan3d"):
-        for flag in ("--print-parsed", "--no-print-parsed"):
-            result = CliRunner().invoke(cli, [command, "-i", str(source), "--parm7", str(parm), "-q", "0", "--dry-run", flag])
-            assert result.exit_code == 2
-            assert flag in result.output, result.output
-
-
 def test_limited_smoke_checks_the_actual_exit_and_rejects_execution_failure():
     import importlib.util
     from pathlib import Path

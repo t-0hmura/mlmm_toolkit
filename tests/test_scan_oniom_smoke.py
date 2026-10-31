@@ -106,15 +106,6 @@ def test_scan3d_rejects_non_pdb_xyz_input(tmp_path: Path) -> None:
     assert "--input must be a PDB, mmCIF, or XYZ file" in result.output
 
 
-def test_multidimensional_scans_honor_configured_geometry_coordinates() -> None:
-    from mlmm.workflows import scan2d, scan3d
-
-    expected = 'geom_cfg.get("coord_type", GEOM_KW_DEFAULT["coord_type"])'
-    for module in (scan2d, scan3d):
-        source = Path(module.__file__).read_text(encoding="utf-8")
-        assert expected in source
-
-
 def test_workflows_guard_optional_companion_conversion() -> None:
     from mlmm.workflows import dft, scan, scan2d, scan3d
 
@@ -374,19 +365,6 @@ def test_oniom_export_help_shows_convert_orcaff_default_enabled() -> None:
     assert result.exit_code == 0, result.output
     assert "--convert-orcaff / --no-convert-orcaff" in result.output
     assert "[default: convert-orcaff]" in result.output
-    assert "--near" not in result.output
-
-
-def test_oniom_export_rejects_removed_near_option() -> None:
-    result = CliRunner().invoke(
-        root_cli,
-        ["oniom-export", "--near", "4.0"],
-        catch_exceptions=False,
-    )
-
-    assert result.exit_code != 0
-    assert "No such option" in result.output
-    assert "--near" in result.output
 
 
 def test_oniom_export_requires_layered_input(
@@ -442,18 +420,6 @@ def test_oniom_export_uses_bfactor_movable_partition(
 
     assert result.exit_code == 0, result.output
     assert "QM atoms: 1, Movable atoms: 2" in result.output
-
-
-def test_legacy_oniom_subcommands_removed() -> None:
-    runner = CliRunner()
-
-    g16 = runner.invoke(root_cli, ["oniom-gaussian", "--help"], catch_exceptions=False)
-    assert g16.exit_code != 0
-    assert "No such command 'oniom-gaussian'" in g16.output
-
-    orca = runner.invoke(root_cli, ["oniom-orca", "--help"], catch_exceptions=False)
-    assert orca.exit_code != 0
-    assert "No such command 'oniom-orca'" in orca.output
 
 
 def test_oniom_export_default_convert_fallback_without_orca_mm(

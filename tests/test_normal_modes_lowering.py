@@ -83,18 +83,6 @@ def test_no_product_imports_anywhere_in_pysisyphus():
     )
 
 
-def test_tshessianoptimizer_imports_the_lower_kernel_directly():
-    """TSHessianOptimizer sources the kernel from pysisyphus.normal_modes."""
-    src = Path(
-        pysisyphus.__file__
-    ).resolve().parent.joinpath("tsoptimizers", "TSHessianOptimizer.py").read_text(
-        encoding="utf-8"
-    )
-    assert "from pysisyphus.normal_modes import" in src
-    assert "from mlmm.workflows.freq import" not in src
-    assert "from mlmm" not in src and "import mlmm" not in src
-
-
 def test_product_freq_reexports_are_the_lower_objects():
     """The old workflow symbols ARE the lowered implementations (same object)."""
     for name in LOWERED_KERNEL_NAMES:

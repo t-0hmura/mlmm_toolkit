@@ -466,6 +466,76 @@ def test_tsopt_zero_micro_active_uses_vacuous_micro_not_all_frozen_lbfgs(tmp_pat
     assert mi.to_result_object()["micro_cycles"] == 0
 
 
+def _cached_hessian_entry():
+    import torch
+
+    return {"hessian": torch.eye(6, dtype=torch.float64), "active_dofs": None}
+
+
+def test_opt_macro_step_reuses_the_irc_endpoint_hessian_at_the_detail_tier(tmp_path, monkeypatch):
+    import mlmm.io.hessian_cache as _hc
+    import mlmm.workflows.opt as opt_mod
+
+    def _lbfgs_tripwire(*args, **kwargs):
+        raise AssertionError("no LBFGS may be built when the partition has no micro-active DOF")
+
+    _install_common_fakes(monkeypatch, opt_mod, _lbfgs_tripwire)
+    monkeypatch.setattr(opt_mod, "RFOptimizer", _FakeMacroOptimizer)
+    monkeypatch.setattr(_hc, "load_matching", lambda *a, **k: _cached_hessian_entry())
+    messages = []
+    monkeypatch.setattr(opt_mod, "emit", lambda text="", **tags: messages.append((text, tags)))
+
+    opt_mod._run_microiter_opt(
+        _FakeGeom(n_atoms=2),
+        _FakeCalc(),
+        calc_cfg={},
+        rfo_cfg={},
+        lbfgs_cfg={},
+        opt_cfg={"max_cycles": 1},
+        microiter_cfg={},
+        out_dir_path=tmp_path,
+        partition=_no_micro_active_partition(),
+        dump=False,
+    )
+
+    reuse = [tags for text, tags in messages if "Reusing IRC endpoint Hessian for RFO macro" in text]
+    assert reuse == [{"detail": True}]
+
+
+def test_tsopt_macro_step_reuses_the_cached_ts_hessian_at_the_detail_tier(tmp_path, monkeypatch):
+    import mlmm.io.hessian_cache as _hc
+    import mlmm.workflows.tsopt as tsopt_mod
+    from mlmm.core.defaults import RSIRFO_KW
+
+    def _lbfgs_tripwire(*args, **kwargs):
+        raise AssertionError("no LBFGS may be built when the partition has no micro-active DOF")
+
+    _install_common_fakes(monkeypatch, tsopt_mod, _lbfgs_tripwire)
+    part = _no_micro_active_partition()
+    monkeypatch.setattr(tsopt_mod, "resolve_partition_from_core", lambda *a, **k: part)
+    monkeypatch.setitem(tsopt_mod.TSOPT_CLASS_MAP, "rsirfo", _FakeMacroOptimizer)
+    monkeypatch.setattr(_hc, "load_matching", lambda *a, **k: _cached_hessian_entry())
+    messages = []
+    monkeypatch.setattr(tsopt_mod, "emit", lambda text="", **tags: messages.append((text, tags)))
+
+    tsopt_mod._run_microiter_tsopt(
+        _FakeGeom(n_atoms=2),
+        {},
+        dict(RSIRFO_KW),
+        {},
+        {"max_cycles": 1, "dump": False},
+        {},
+        tmp_path,
+        dump=False,
+        thresh=None,
+        mode="rsirfo",
+        reference_mode=None,
+    )
+
+    reuse = [tags for text, tags in messages if "Hessian for the macro TS step." in text]
+    assert reuse == [{"detail": True}]
+
+
 def _micro_writing_only_with_dump(converged: bool):
     """An MM micro optimizer that, like pysisyphus, writes its trajectory only with dump=True."""
 
@@ -1049,19 +1119,6 @@ def test_ts_macro_honours_the_shared_opt_block(tmp_path):
     )
     without = _build_rsirfo_kwargs(dict(RSIRFO_KW), max_cycles=7, out_dir=tmp_path)
     assert with_opt == without
-
-
-def test_ts_micro_lbfgs_is_reachable_from_the_lbfgs_yaml_section():
-    """The microiteration MM relaxation is an L-BFGS run, so its memory and step
-    controls must be reachable from the same `lbfgs` section `opt` uses. Without
-    the mapping they were settable from neither YAML nor CLI."""
-    import inspect
-    import mlmm.workflows.tsopt as tsopt_mod
-
-    src = inspect.getsource(tsopt_mod)
-    mapping = '(lbfgs_cfg, (("lbfgs",), ("opt", "lbfgs")))'
-    # The --config YAML layer must carry it.
-    assert src.count(mapping) == 1, src.count(mapping)
 
 
 def test_micro_stop_description_names_the_bound_the_user_can_raise():

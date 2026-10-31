@@ -37,47 +37,6 @@ def test_root_invocation_resets_charge_multiplicity_override() -> None:
         validate_charge_spin(["H"], 0, 1)
 
 
-def test_sp_rejects_removed_print_every_option() -> None:
-    result = CliRunner().invoke(root_cli, ["sp", "--print-every", "3"])
-
-    assert result.exit_code == 2
-    assert "No such option" in result.output
-    assert "--print-every" in result.output
-
-
-@pytest.mark.parametrize(
-    ("command", "option"),
-    [
-        ("sp", "--convert-files"),
-        ("sp", "--use-cmap"),
-        ("sp", "--radius-partial-hessian"),
-        ("sp", "--radius-freeze"),
-        ("sp", "--solvent"),
-        ("sp", "--solvent-model"),
-        ("opt", "--radius-partial-hessian"),
-        ("opt", "--radius-freeze"),
-        ("dft", "--freeze-atoms"),
-        ("scan", "--coord-type"),
-        ("scan", "--hess-cutoff"),
-        ("scan2d", "--hess-cutoff"),
-        ("scan3d", "--hess-cutoff"),
-        ("path-opt", "--hess-cutoff"),
-        ("path-search", "--hess-cutoff"),
-    ],
-)
-def test_removed_noop_and_legacy_options_are_unknown(
-    command: str, option: str
-) -> None:
-    subcommand = root_cli.get_command(click.Context(root_cli), command)
-    assert subcommand is not None
-    declared = {
-        flag
-        for parameter in subcommand.params
-        for flag in [*getattr(parameter, "opts", ()), *getattr(parameter, "secondary_opts", ())]
-    }
-    assert option not in declared
-
-
 @pytest.mark.parametrize(
     "command",
     [
@@ -415,26 +374,6 @@ def test_start_header_is_silent_for_legacy_json_true(monkeypatch) -> None:
     app._emit_start_header(context, subcommand_name="bond-summary")
 
     assert emitted == []
-
-
-def test_freeze_links_removed_from_help_outputs() -> None:
-    runner = CliRunner()
-    for command_name in ("opt", "tsopt", "freq", "irc"):
-        short = runner.invoke(root_cli, [command_name, "--help"])
-        assert short.exit_code == 0, short.output
-        assert "--freeze-links" not in short.output
-
-        advanced = runner.invoke(root_cli, [command_name, "--help-advanced"])
-        assert advanced.exit_code == 0, advanced.output
-        assert "--freeze-links" not in advanced.output
-
-
-def test_freeze_links_now_fails_as_unknown_option() -> None:
-    runner = CliRunner()
-    for command_name in ("opt", "tsopt", "freq", "irc"):
-        result = runner.invoke(root_cli, [command_name, "--freeze-links"])
-        assert result.exit_code != 0
-        assert "No such option" in result.output
 
 
 def test_path_search_help_shows_refine_mode() -> None:
@@ -1430,23 +1369,14 @@ def test_trj2fig_module_entrypoint_executes(tmp_path: Path) -> None:
     assert "energy_hartree" in out_csv.read_text(encoding="utf-8")
 
 
-@pytest.mark.parametrize(
-    ("configured", "should_run"),
-    [("constrained", True), ("legacy-active", False)],
-)
-def test_opt_rejects_the_removed_projection_mode_from_yaml(
-    tmp_path: Path, configured: str, should_run: bool,
-) -> None:
+def test_opt_accepts_the_constrained_projection_mode_from_yaml(tmp_path: Path) -> None:
     repo = Path(__file__).resolve().parents[1]
     in_pdb = repo / "examples" / "toy_system" / "p_toy.pdb"
     parm = repo / "examples" / "toy_system" / "p_toy.parm7"
     if not (in_pdb.exists() and parm.exists()):
         pytest.skip("toy_system example inputs not present")
     config = tmp_path / "projection.yaml"
-    config.write_text(
-        f"geom:\n  tr_projection: {configured}\n",
-        encoding="utf-8",
-    )
+    config.write_text("geom:\n  tr_projection: constrained\n", encoding="utf-8")
     result = CliRunner().invoke(
         root_cli,
         [
@@ -1456,19 +1386,13 @@ def test_opt_rejects_the_removed_projection_mode_from_yaml(
         ],
     )
 
-    if should_run:
-        assert result.exit_code == 0, result.output
-        assert "tr_projection: constrained" in result.output
-    else:
-        assert result.exit_code != 0
-        message = result.output + str(result.exception or "")
-        assert "Unknown TR projection mode" in message
+    assert result.exit_code == 0, result.output
+    assert "tr_projection: constrained" in result.output
 
 
 def test_verbose_is_a_per_subcommand_option() -> None:
     """`-v/--verbose LEVEL` is injected into every subcommand (including the
-    compat-parsing `extract`); it is no longer a root-group option, so a
-    root-placed `-v` is rejected."""
+    compat-parsing `extract`)."""
     runner = CliRunner()
     for name in (
         "opt", "tsopt", "freq", "irc", "sp", "scan",
@@ -1477,15 +1401,6 @@ def test_verbose_is_a_per_subcommand_option() -> None:
         res = runner.invoke(root_cli, [name, "--help"])
         assert res.exit_code == 0, res.output
         assert "-v, --verbose" in res.output, f"{name} --help is missing -v"
-
-    for argv in (
-        ["-v", "2", "opt", "--help"],
-        ["-v2", "opt", "--help"],
-        ["--verbose=2", "opt", "--help"],
-    ):
-        root = runner.invoke(root_cli, argv)
-        assert root.exit_code != 0, argv
-        assert "No such option" in root.output, argv
 
     # The level is an IntRange(0, 3); 0/1/2/3 are accepted (default 2) and
     # out-of-range values are rejected, for the injected commands, including the

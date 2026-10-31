@@ -12,7 +12,6 @@ real device-policy helper.
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -24,8 +23,6 @@ pytestmark = pytest.mark.skipif(
 from pysisyphus.irc.IRC import IRC
 
 from mlmm.workflows._microiteration import resolve_hessian_device
-
-IRC_SRC = Path(__file__).resolve().parents[1] / "mlmm" / "workflows" / "irc.py"
 
 
 class _CoordsGeom:
@@ -65,13 +62,6 @@ def test_full_zeros_movable_mm_under_the_old_ml_macro_crop():
     full = irc._full(np.ones(len(cropped)))
     movable_dofs = [6, 7, 8]
     assert np.all(full[movable_dofs] == 0.0)
-
-
-def test_irc_source_has_no_ml_macro_crop_path():
-    # The ML-macro crop must remain absent.
-    text = IRC_SRC.read_text(encoding="utf-8")
-    for banned in ("_macro_atoms", "_try_reduce", "ML macro sub-block"):
-        assert banned not in text, banned
 
 
 # --------------------------------------------------------------------------

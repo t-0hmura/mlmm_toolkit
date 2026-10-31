@@ -1,9 +1,9 @@
 """Contract for the curated starter-snapshot reference page.
 
-Positive: the generated page is a curated, non-exhaustive snapshot that links
-the full YAML reference, the JA navigation labels it an excerpt (抜粋), and the
-runtime-owner parity validator accepts every current scalar. Negative: mutating
-a scalar, adding an ownerless scalar, or declaring an unused owner each fails and
+Positive: the runtime-owner parity validator accepts every current scalar (the
+page's title, its link to the full YAML reference and the JA navigation label are
+checked by ``.github/scripts/check_docs_contract.py``). Negative: mutating a
+scalar, adding an ownerless scalar, or declaring an unused owner each fails and
 names the exact dotted path.
 """
 
@@ -24,9 +24,6 @@ for _p in (str(REPO_ROOT), str(SCRIPTS)):
 
 import generate_reference as gr  # noqa: E402
 
-GENERATED = REPO_ROOT / "docs" / "reference" / "yaml.md"
-JA_INDEX = REPO_ROOT / "docs" / "ja" / "index.md"
-
 
 def _owner_values():
     return gr._resolve_owner_values(gr.root_cli)
@@ -39,26 +36,6 @@ def _template():
 # --------------------------------------------------------------------------- #
 # Positive controls
 # --------------------------------------------------------------------------- #
-def test_generated_page_is_curated_non_exhaustive_and_links_full_reference() -> None:
-    text = GENERATED.read_text(encoding="utf-8")
-    assert text.startswith("# Curated `mlmm all` Starter Snapshot")
-    assert "non-exhaustive" in text
-    assert "(../yaml-reference.md)" in text
-    assert "## Included Sections" in text
-    assert "YAML Schema" not in text
-    assert "Top-level Keys" not in text
-
-
-def test_ja_navigation_labels_starter_snapshot_not_schema() -> None:
-    line = next(
-        ln
-        for ln in JA_INDEX.read_text(encoding="utf-8").splitlines()
-        if "../reference/yaml.md" in ln
-    )
-    assert "スキーマ" not in line
-    assert "抜粋" in line
-
-
 def test_current_starter_snapshot_passes_parity() -> None:
     gr._validate_starter_snapshot(_template(), _owner_values())
 

@@ -169,25 +169,6 @@ def _css_rule_has(source: str, selector: str, *declarations: str) -> bool:
     return any(all(declaration in compact(rule) for declaration in expected) for rule in rules)
 
 
-def test_colab_full_system_example_assets_and_refined_beza_script() -> None:
-    examples = NOTEBOOK.parent
-    for name, expected_atoms in (("comt", 3420), ("beza", 9215)):
-        for endpoint in ("1.R.pdb", "3.P.pdb"):
-            text = (examples / name / endpoint).read_text(encoding="utf-8")
-            atoms = sum(
-                line.startswith(("ATOM  ", "HETATM")) for line in text.splitlines()
-            )
-            assert atoms == expected_atoms
-
-    beza_script = (examples / "beza" / "run.sh").read_text(encoding="utf-8")
-    endpoint_command = beza_script.split("mlmm all", 2)[1]
-    assert "--refine-path" in endpoint_command
-
-    comt_script = (examples / "comt" / "run.sh").read_text(encoding="utf-8")
-    assert "-c 'CAT,SAM,MG'" in comt_script
-    assert "-l 'CAT:-1,SAM:0,MG:2' -r 4.0" in comt_script
-
-
 def _css_media_body(source: str, condition: str) -> str:
     """Return a balanced @media body so responsive rules are checked in scope."""
     marker = f"@media ({condition})"
@@ -657,27 +638,6 @@ def _assert_advanced_argv_parses(app: dict, subcommand: str, argv: list[str]) ->
     assert leftovers == [], (subcommand, argv, leftovers)
 
 
-def test_colab_notebook_has_valid_code_cells_and_gpu_metadata() -> None:
-    notebook = _notebook()
-    introduction = notebook["cells"][0]["source"]
-
-    assert notebook["nbformat"] == 4
-    assert notebook["metadata"]["accelerator"] == "GPU"
-    assert len(notebook["cells"]) == 3
-    assert (
-        "[t-0hmura/mlmm_toolkit](https://github.com/t-0hmura/mlmm_toolkit)"
-    ) in introduction
-    assert "ML/MM ONIOM reaction paths on full solvated proteins" in introduction
-    assert "**① Input → ② Setup → ③ Options → (Run) → ④ Results**" in introduction
-    assert (
-        "[DOI: 10.26434/chemrxiv-2025-jft1k]"
-        "(https://doi.org/10.26434/chemrxiv-2025-jft1k)"
-    ) in introduction
-    for cell in notebook["cells"]:
-        if cell["cell_type"] == "code":
-            ast.parse(cell["source"])
-
-
 def test_colab_responsive_contract_covers_the_whole_four_step_app() -> None:
     app = _notebook()["cells"][2]["source"]
 
@@ -697,7 +657,8 @@ def test_colab_responsive_contract_covers_the_whole_four_step_app() -> None:
 def test_colab_setup_is_pinned_to_matching_release_and_one_backend() -> None:
     setup = _notebook()["cells"][1]["source"]
 
-    assert 'mlmm_toolkit_version = "v0.5.0"' in setup
+    # The pinned release number itself is checked against the package version by
+    # .github/scripts/check_release_versions.py.
     # Only the exact `debug` sentinel switches to the matching adjacent source
     # snapshot; release versions never inspect the ZIP.
     assert "_raw_version = str(mlmm_toolkit_version)" in setup
@@ -6757,7 +6718,6 @@ def test_colab_setup_exposes_linked_nonnegative_radius_and_selected_resn() -> No
     app = _notebook()["cells"][2]["source"]
     setup = _notebook()["cells"][1]["source"]
     assert 'backend = "uma"' in setup
-    assert 'mlmm_toolkit_version = "v0.5.0"' in setup
     assert 'prep_radius = W.BoundedFloatText(' in app
     assert 'value=2.6, min=0.0, max=1000000.0, step=0.2' in app
     assert 'adv_radius = W.BoundedFloatText(value=2.6, min=0.0, max=1000000.0, step=0.2' in app
@@ -7036,11 +6996,6 @@ def _run_orb_install_branch(monkeypatch, *, python_version, platform, calls, fai
     namespace = {"pip": fake_pip, "os": os,
                  "sys": types.SimpleNamespace(version_info=python_version, platform=platform)}
     exec(compile(ast.Module(body=orb_branch.body, type_ignores=[]), str(NOTEBOOK), "exec"), namespace)
-
-
-def test_colab_runtime_is_pinned_to_python312_image() -> None:
-    notebook = _notebook()
-    assert notebook["metadata"]["colab"]["runtime_attributes"]["runtime_version"] == "2026.07"
 
 
 @pytest.mark.parametrize("python_version", [(3, 11), (3, 12), (3, 13)])

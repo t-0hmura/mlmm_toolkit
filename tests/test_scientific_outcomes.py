@@ -730,38 +730,6 @@ def test_freq_no_dump_does_not_consume_stale_thermo(tmp_path: Path, monkeypatch)
     ) == {}
 
 
-def test_all_freq_leaves_symmetry_detection_to_each_child(
-    tmp_path: Path,
-    monkeypatch,
-) -> None:
-    from mlmm.workflows import all as all_workflow
-
-    structure = tmp_path / "R.xyz"
-    structure.write_text("1\n\nH 0 0 0\n", encoding="utf-8")
-    captured: list[str] = []
-
-    def _capture(_name, _command, argv, **_kwargs):
-        captured.extend(argv)
-        return 1
-
-    monkeypatch.setattr(all_workflow, "_run_cli_main", _capture)
-    monkeypatch.setattr(all_workflow, "_echo", lambda *a, **k: None)
-
-    all_workflow._run_freq_for_state(
-        structure,
-        0,
-        1,
-        tmp_path / "real.parm7",
-        tmp_path / "model.pdb",
-        False,
-        tmp_path / "freq",
-        None,
-        overrides={},
-    )
-
-    assert "--symmetry-number" not in captured
-
-
 def test_all_freq_loads_role_checkpoint_without_rewriting_it(
     tmp_path: Path,
     monkeypatch,
@@ -986,7 +954,6 @@ def test_dmf_result_legacy_contract_preserved_and_additive_leaf_added() -> None:
     # (status="converged"/"not_converged", converged=bool); the added field is
     # purely additive and MUST NOT flip those legacy fields. The additive
     # scientific_status leaf is fed by the SAME real IPOPT convergence bit.
-    from mlmm.workflows import path_opt
     from mlmm.workflows.path_opt import DMFMepResult, _build_dmf_result_data
 
     conv_res = DMFMepResult(
@@ -1006,13 +973,6 @@ def test_dmf_result_legacy_contract_preserved_and_additive_leaf_added() -> None:
     assert nc_data["status"] == "not_converged"
     assert nc_data["converged"] is False
 
-    # The additive leaf must be fed by the ONE canonical IPOPT criterion
-    # (status 0 or 1, matching path_search), not inferred from artifact
-    # existence and not from the legacy status==0 bit.
-    src = Path(path_opt.__file__).read_text(encoding="utf-8")
-    assert "ipopt_status_to_converged(dmf_res.ipopt_status)" in src
-    assert '"dmf_mep"' in src
-
     # Read the real adapter for status 1; both public views use its result.
     from mlmm.workflows.path_opt import _dmf_solver_outcome
     converged, status, reason = _dmf_solver_outcome(([], {"status": 1}))
@@ -1023,6 +983,46 @@ def test_dmf_result_legacy_contract_preserved_and_additive_leaf_added() -> None:
     acc_data = _build_dmf_result_data(acc_res, {"model_charge": 0, "model_mult": 1})
     assert acc_data["status"] == "converged"
     assert acc_data["converged"] is True
+
+
+@pytest.mark.parametrize(("ipopt_status", "usable"), [(0, True), (1, True), (2, False)])
+def test_path_opt_dmf_leaf_follows_the_canonical_ipopt_criterion(
+    tmp_path: Path, monkeypatch, ipopt_status: int, usable: bool,
+) -> None:
+    # The additive leaf is fed by the ONE canonical IPOPT criterion (status 0 or 1,
+    # matching path_search), not inferred from artifact existence or the legacy bit.
+    from types import SimpleNamespace
+
+    from click.testing import CliRunner
+
+    from mlmm.cli import cli as root_cli
+    from mlmm.workflows import path_opt
+    from mlmm.workflows.path_opt import DMFMepResult
+
+    toy = Path(__file__).resolve().parents[1] / "examples" / "toy_system"
+    if not (toy / "p_toy.parm7").exists():
+        pytest.skip("toy_system example inputs not present")
+
+    def run_dmf(geoms, shared_calc, out_dir, *args, **kwargs):
+        (Path(out_dir) / "final_geometries_trj.xyz").write_text("", encoding="utf-8")
+        return DMFMepResult(
+            images=[*geoms, geoms[-1]], energies=(-1.0, -0.9, -1.1), hei_idx=1,
+            converged=usable, ipopt_status=ipopt_status, reason="",
+        )
+
+    monkeypatch.setattr(path_opt, "mlmm", lambda **kwargs: SimpleNamespace(core=None))
+    monkeypatch.setattr(path_opt, "_run_dmf_mep", run_dmf)
+    out_dir = tmp_path / "out"
+
+    CliRunner().invoke(root_cli, [
+        "path-opt", "-i", str(toy / "r_toy.pdb"), str(toy / "p_toy.pdb"),
+        "--parm", str(toy / "p_toy.parm7"), "-q", "-1", "-m", "1",
+        "--mep-mode", "dmf", "--no-preopt", "--out-json", "--out-dir", str(out_dir),
+    ])
+
+    payload = json.loads((out_dir / "result.json").read_text(encoding="utf-8"))
+    (leaf,) = payload["stage_outcomes"]
+    assert (leaf["item_id"], leaf["converged"], leaf["usable"]) == ("dmf_mep", usable, usable)
 
 
 # ---------------------------------------------------------------------------
@@ -1476,9 +1476,11 @@ def test_all_path_opt_child_emits_machine_result(tmp_path, monkeypatch) -> None:
     ] == [(1, "seg_01", True), (2, "seg_02", False)]
 
 
-def test_all_mep_completion_banner_does_not_prejudge_status() -> None:
-    from mlmm.workflows import all as all_workflow
+def test_all_mep_completion_banner_does_not_prejudge_status(tmp_path, monkeypatch) -> None:
+    from _all_stub_harness import run_all
 
-    source = Path(all_workflow.__file__).read_text(encoding="utf-8")
-    assert "Core MEP pipeline finished ======" in source
-    assert "Core MEP pipeline finished successfully" not in source
+    run = run_all(tmp_path, monkeypatch)
+
+    assert run.result.exit_code == 0, run.result.output
+    assert "====== [all] Core MEP pipeline finished ======" in run.result.output
+    assert "finished successfully" not in run.result.output

@@ -96,14 +96,22 @@ def test_summarize_unlayered_pdb(tmp_path: Path) -> None:
 
 
 @_need_py311
-def test_honor_input_bfactors_with_or_without_explicit_model(tmp_path: Path) -> None:
+@pytest.mark.parametrize("explicit_model", [True, False], ids=["with-model-pdb", "without-model-pdb"])
+def test_honor_input_bfactors_with_or_without_explicit_model(
+    tmp_path: Path, monkeypatch, explicit_model: bool
+) -> None:
     """Extraction-free layer detection must not depend on --model-pdb."""
+    from _all_stub_harness import run_all
     from mlmm.workflows import all as _all
 
-    src = Path(_all.__file__).read_text()
-    assert "honor_input_bfactors = bool(skip_extract and detect_layer)" in src
-    assert (
-        "honor_input_bfactors = bool(skip_extract and detect_layer "
-        "and model_pdb_override is None)"
-    ) not in src
-    assert "honoring input PDB" in src
+    def recomputed(**_kwargs):
+        raise AssertionError("define-layer must not replace the input B-factor layers")
+
+    monkeypatch.setattr(_all, "_define_layers", recomputed)
+
+    # C is the ML atom (B=0) and O a movable MM atom (B=10).
+    run = run_all(tmp_path, monkeypatch, model_pdb=explicit_model, bfactors=(0.0, 10.0))
+
+    assert run.result.exit_code == 0, run.result.output
+    assert "honoring input PDB B-factor layer encoding" in run.result.output
+    assert "WARNING: define-layer failed" not in run.result.output

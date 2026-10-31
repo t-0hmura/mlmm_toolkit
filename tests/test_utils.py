@@ -21,13 +21,6 @@ def test_rfo_safeguard_summary_requires_verbose_level_three() -> None:
         set_verbose_level(0)
 
 
-def test_optimizer_omits_redundant_moving_image_startup_line() -> None:
-    import inspect
-    from pysisyphus.optimizers.Optimizer import Optimizer
-
-    assert "Path with" not in inspect.getsource(Optimizer.__init__)
-
-
 def test_optimizer_stdout_verbosity_is_monotonic() -> None:
     from mlmm.core.utils import _pysis_stdout_visible, set_verbose_level
 
@@ -47,18 +40,6 @@ def test_optimizer_stdout_verbosity_is_monotonic() -> None:
         assert _pysis_stdout_visible(hidden_detail)
     finally:
         set_verbose_level(0)
-
-
-def test_freq_and_irc_cache_provenance_uses_detail_tier() -> None:
-    import inspect
-    from mlmm.workflows import freq, irc
-
-    freq_source = inspect.getsource(freq.cli.callback)
-    irc_source = inspect.getsource(irc.cli.callback)
-    assert 'Reusing cached TS Hessian.", detail=True' in freq_source
-    assert 'Reusing cached TS Hessian from tsopt.", detail=True' in irc_source
-    assert "active-DOF basis does not match" in irc_source
-    assert "detail=True" in irc_source
 
 
 # Skip on Python < 3.12

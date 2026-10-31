@@ -58,14 +58,12 @@ def test_rms_absent_falls_back_to_max_force_only() -> None:
     assert micro_reached_force_equilibrium(opt) is True
 
 
-def test_introduces_no_new_tolerance() -> None:
-    """The predicate must read the optimizer's own configured thresholds."""
-    import inspect
-
-    src = inspect.getsource(micro_reached_force_equilibrium)
-    assert "max_force_thresh" in src and "rms_force_thresh" in src
-    # No numeric literal tolerance of its own.
-    assert "e-" not in src
+def test_verdict_follows_the_optimizers_own_thresholds() -> None:
+    """The predicate has no tolerance of its own: the same forces flip with the thresholds."""
+    forces = (2.9e-4, 1.9e-4)
+    assert micro_reached_force_equilibrium(_Opt(*forces)) is True
+    assert micro_reached_force_equilibrium(_Opt(*forces, max_thresh=1.0e-4, rms_thresh=1.0e-4)) is False
+    assert micro_reached_force_equilibrium(_Opt(5.0e-4, 4.0e-4, max_thresh=1.0e-3, rms_thresh=1.0e-3)) is True
 
 
 def test_accepted_force_equilibrium_is_serialized_as_converged() -> None:
@@ -90,39 +88,3 @@ def test_accepted_force_equilibrium_is_serialized_as_converged() -> None:
         "stalled": False,
         "stop_reason": None,
     }
-
-
-def test_flatten_outcome_is_published_not_only_on_stderr() -> None:
-    """A requested flatten that never ran must be visible in result.json.
-
-    Before this, the only signal was one stderr line; the run's own
-    result.json, summary.json and summary.log said nothing, so a consumer
-    could not tell a flattened result from a vetoed one. That is how I
-    initially misread a correct veto as a silently ignored flag.
-    """
-    from pathlib import Path
-
-    import mlmm.workflows.tsopt as tsopt_mod
-
-    src = Path(tsopt_mod.__file__).read_text(encoding="utf-8")
-    assert '"flatten_requested": bool(simple_cfg.get("flatten_max_iter", 0)),' in src
-    assert '"flatten_skip_reason": _flatten_skip_reason,' in src
-    # Initialised before any branch, so the key is always present.
-    assert src.index("_flatten_skip_reason = None") < src.index('"flatten_skip_reason"')
-
-
-def test_veto_message_distinguishes_undetermined_from_positive() -> None:
-    """`None` (never determined) and `False` (determined positive) differ.
-
-    The observed run took zero macro steps, so the sign was never determined,
-    yet the message claimed the mode "is not negative" -- a stronger statement
-    than the code had evidence for.
-    """
-    from pathlib import Path
-
-    import mlmm.workflows.tsopt as tsopt_mod
-
-    src = Path(tsopt_mod.__file__).read_text(encoding="utf-8")
-    assert "target mode sign never determined" in src
-    assert "target mode is not negative" in src
-    assert "if target_mode_is_negative is None" in src

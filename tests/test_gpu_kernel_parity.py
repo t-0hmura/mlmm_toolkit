@@ -186,17 +186,6 @@ def test_bofill_numpy_degenerate_secants_are_finite(dt):
     np.testing.assert_allclose(orthogonal, expected, **_tol(torch_dtype))
 
 
-def test_bofill_kernel_has_no_advanced_index_addto():
-    # The low-rank kernel must not use triu_indices or advanced-index .add_(),
-    # which would silently discard the write, or a CPU round-trip default.
-    src = inspect.getsource(bofill_rank2_factors) + inspect.getsource(bofill_update)
-    assert "triu_indices" not in src
-    assert ".add_(" not in src
-    # the default torch branch must not detach the full Hessian to CPU
-    default_branch = inspect.getsource(bofill_update).split("bofill_cpu_offload_enabled")[-1]
-    assert "detach().cpu()" not in default_branch
-
-
 # ---------------------------------------------------------------------------
 # Copy-on-write ownership and trial-rejection rollback
 # ---------------------------------------------------------------------------
@@ -379,13 +368,41 @@ def test_uma_backend_exposes_forces_tensor():
     assert backend_cls is not None, "a UMA backend must expose forces_tensor for device-native FD"
 
 
-def test_hessian_fd_gates_on_forces_tensor():
-    # The generic FD assembler must take the device-native branch only when the
-    # backend exposes ``forces_tensor`` and is not in the parallel-predict mode,
-    # otherwise fall back to the NumPy round-trip. Guard the gate wiring so a
-    # refactor cannot silently drop the fast path or force it on ASE/MM backends.
+class _HarmonicFdBackend:
+    """Forces -2 x, offered through ``eval`` and, when ``native``, also ``forces_tensor``."""
+
+    def __init__(self, *, native, parallel_predict=False):
+        self.calls = {"forces_tensor": 0, "eval": 0}
+        self.parallel_predict = parallel_predict
+        if native:
+            self.forces_tensor = self._forces_tensor
+
+    def _forces_tensor(self, atoms):
+        self.calls["forces_tensor"] += 1
+        return torch.from_numpy(-2.0 * atoms.get_positions().reshape(-1))
+
+    def eval(self, atoms, need_grad=False):
+        self.calls["eval"] += 1
+        return 0.0, -2.0 * atoms.get_positions(), None
+
+
+@pytest.mark.parametrize(
+    ("native", "parallel_predict", "expected_entry"),
+    [(True, False, "forces_tensor"), (True, True, "eval"), (False, False, "eval")],
+)
+def test_hessian_fd_takes_the_device_native_path_only_for_a_serial_native_backend(
+    native, parallel_predict, expected_entry
+):
+    # The generic FD assembler uses ``forces_tensor`` only when the backend has it and
+    # is not in the parallel-predict mode; every other backend goes through ``eval``.
+    from ase import Atoms
     from mlmm.backends import mlmm_calc as mm
 
-    src = inspect.getsource(mm._MLBackend.hessian_fd)
-    assert "forces_tensor" in src
-    assert "parallel_predict" in src
+    backend = _HarmonicFdBackend(native=native, parallel_predict=parallel_predict)
+    atoms = Atoms("H2", positions=[[0.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
+
+    hessian = mm._MLBackend.hessian_fd(backend, atoms, [], eps_ang=1e-3, dtype=torch.float64)
+
+    assert backend.calls[expected_entry] == 12
+    assert sum(backend.calls.values()) == 12
+    torch.testing.assert_close(hessian.reshape(6, 6), 2.0 * torch.eye(6, dtype=torch.float64))

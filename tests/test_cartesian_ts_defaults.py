@@ -172,9 +172,10 @@ def capture_cli(monkeypatch, tmp_path):
     monkeypatch.setattr(tsopt, "_torch_device", lambda *_a: torch.device("cpu"))
     monkeypatch.setitem(tsopt.TSOPT_CLASS_MAP, "rsprfo", CaptureOptimizer)
 
-    def capture_micro(geometry, _calc, rs_cfg, _lbfgs, opt_cfg, _micro, out_dir, **kwargs):
+    def capture_micro(geometry, _calc, rs_cfg, lbfgs_cfg, opt_cfg, _micro, out_dir, **kwargs):
         # Capture the resolved dictionary at the real microdriver boundary.
         # Its existing kwargs builder is shared with the direct constructor.
+        captured["micro_lbfgs"] = dict(lbfgs_cfg)
         opts = tsopt._build_rsirfo_kwargs(
             rs_cfg, max_cycles=opt_cfg["max_cycles"], out_dir=out_dir,
             macro_thresh=kwargs.get("thresh") or rs_cfg["thresh"],
@@ -242,6 +243,17 @@ def test_real_default_entry_reaches_microdriver(capture_cli):
     assert kwargs["micro_boundary"] is True
     assert_baseline(kwargs)
     assert kwargs["hessian_update"] == "bofill"
+
+
+@pytest.mark.parametrize("config", [
+    {"lbfgs": {"max_step": 0.123}},
+    {"opt": {"lbfgs": {"max_step": 0.123}}},
+], ids=["lbfgs", "opt.lbfgs"])
+def test_ts_micro_lbfgs_is_reachable_from_the_lbfgs_yaml_section(capture_cli, config):
+    # The microiteration MM relaxation is an L-BFGS run, so its memory and step
+    # controls must be reachable from the same `lbfgs` section `opt` uses.
+    assert capture_cli(config, micro=True)["micro_lbfgs"]["max_step"] == 0.123
+    assert capture_cli(micro=True)["micro_lbfgs"]["max_step"] == 0.30
 
 
 @pytest.mark.parametrize("section", ["opt", "rsirfo"])

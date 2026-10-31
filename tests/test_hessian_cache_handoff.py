@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import inspect
 import json
 
 import numpy as np
@@ -12,20 +11,89 @@ import torch
 from mlmm.io import hessian_cache
 
 
-def test_hessian_cache_reuse_messages_are_visible_at_v2() -> None:
-    from mlmm.workflows.opt import _run_microiter_opt, _seed_rfo_initial_hessian
-    from mlmm.workflows.tsopt import HessianDimer, _run_microiter_tsopt
+def test_rfo_seed_reuses_the_irc_endpoint_hessian_at_the_detail_tier(monkeypatch) -> None:
+    from types import SimpleNamespace
 
-    cases = (
-        (_seed_rfo_initial_hessian, "Reusing IRC endpoint Hessian for RFO seeding"),
-        (_run_microiter_opt, "Reusing IRC endpoint Hessian for RFO macro"),
-        (HessianDimer._calc_full_hessian_cached, "Reusing cached raw Hessian"),
-        (_run_microiter_tsopt, "Hessian for the macro TS step."),
+    from mlmm.workflows import opt
+
+    cached = torch.eye(6, dtype=torch.float64)
+    monkeypatch.setattr(hessian_cache, "identity_from_context", lambda *args, **kwargs: {})
+    monkeypatch.setattr(
+        hessian_cache, "load_matching",
+        lambda *args, **kwargs: {"hessian": cached, "active_dofs": None},
     )
-    for function, marker in cases:
-        source = inspect.getsource(function)
-        offset = source.index(marker)
-        assert "detail=True" in source[offset : offset + 240], marker
+    messages = []
+    monkeypatch.setattr(opt, "emit", lambda text="", **tags: messages.append((text, tags)))
+    geometry = SimpleNamespace(cart_coords=np.zeros(6), cart_hessian=None, within_partial_hessian=None)
+
+    source = opt._seed_rfo_initial_hessian(geometry, {}, None, restraints_active=False)
+
+    assert source == "irc_cache"
+    torch.testing.assert_close(geometry.cart_hessian, cached)
+    reuse = [tags for text, tags in messages if "Reusing IRC endpoint Hessian" in text]
+    assert reuse == [{"detail": True}]
+
+
+def test_dimer_cache_reuse_is_visible_at_v2(monkeypatch) -> None:
+    from mlmm.workflows import tsopt
+
+    cached = torch.eye(3)
+    runner = object.__new__(tsopt.HessianDimer)
+    runner._reuse_cached_hessian = lambda calc_kwargs: cached
+    messages = []
+    monkeypatch.setattr(tsopt, "emit", lambda text="", **tags: messages.append((text, tags)))
+
+    assert runner._calc_full_hessian_cached({}, allow_reuse=True) is cached
+
+    ((text, tags),) = messages
+    assert "Reusing cached raw Hessian" in text
+    assert tags == {"detail": True}
+
+
+def test_freq_cache_hit_uses_detail_tier(monkeypatch, tmp_path) -> None:
+    from types import SimpleNamespace
+
+    from click.testing import CliRunner
+
+    from mlmm.cli import cli as root_cli
+    from mlmm.workflows import freq
+
+    class Stopped(Exception):
+        pass
+
+    def stop(*args, **kwargs):
+        raise Stopped
+
+    source = tmp_path / "five_carbons.pdb"
+    source.write_text("".join(
+        f"HETATM{i:5d}  C{i:<2d} MOL A   1    {2.0 * (i - 1):8.3f}{0.0:8.3f}{0.0:8.3f}"
+        "  1.00  0.00           C  \n"
+        for i in range(1, 6)
+    ) + "END\n")
+    monkeypatch.setattr(freq, "mlmm", lambda **kwargs: SimpleNamespace(
+        ml_indices=list(range(5)), hess_mm_indices=[], movable_mm_indices=[],
+        frozen_layer_indices=[],
+    ))
+    monkeypatch.setattr(hessian_cache, "identity_from_context", lambda *args, **kwargs: {})
+    monkeypatch.setattr(
+        hessian_cache, "load_matching",
+        lambda *args, **kwargs: {
+            "hessian": torch.eye(15, dtype=torch.float64), "active_dofs": None,
+            "meta": {"energy_ha": -1.0},
+        },
+    )
+    monkeypatch.setattr(freq, "_frequencies_cm_and_modes", stop)
+    messages = []
+    monkeypatch.setattr(freq, "emit", lambda text="", **tags: messages.append((text, tags)))
+
+    CliRunner().invoke(root_cli, [
+        "freq", "-i", str(source), "-q", "0", "-m", "1", "--parm", str(source),
+        "--model-indices", "1-5", "--no-detect-layer", "--active-dof-mode", "all",
+        "--hess-device", "cpu", "-o", str(tmp_path / "out"),
+    ])
+
+    reuse = [tags for text, tags in messages if "Reusing cached TS Hessian" in text]
+    assert reuse == [{"detail": True}]
 
 
 def setup_function() -> None:

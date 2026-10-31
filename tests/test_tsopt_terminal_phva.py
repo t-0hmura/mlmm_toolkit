@@ -141,16 +141,6 @@ def test_exact_frequency_cache_requires_matching_analysis_conditions(change):
     assert tsopt._optimizer_exact_frequency_data(optimizer, geometry, **kwargs) is None
 
 
-def test_heavy_terminal_phva_binds_frequency_cutoff_before_nested_helper():
-    source = Path(tsopt.__file__).read_text(encoding="utf-8")
-    cutoff = 'neg_freq_thresh_cm = float('
-    helper = 'def _calc_freqs_and_modes()'
-    terminal_call = 'freqs_cm, modes = _terminal_freqs_and_modes(last_optimizer)'
-
-    assert source.count(cutoff) == 1
-    assert source.index(cutoff) < source.index(helper) < source.index(terminal_call)
-
-
 def _runner(tmp_path, monkeypatch, *, stalled):
     runner = object.__new__(tsopt.HessianDimer)
     runner.geom = _Geometry()

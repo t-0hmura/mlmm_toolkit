@@ -20,7 +20,6 @@ All checks bind to the production functions (imported, never reimplemented).
 
 from __future__ import annotations
 
-import inspect
 from pathlib import Path
 
 import numpy as np
@@ -30,10 +29,8 @@ from pysisyphus.constants import AU2EV
 parmed = pytest.importorskip("parmed")
 
 from mlmm.backends.mlmm_calc import (
-    MLMMCore,
     _normalize_prmtop_lj_tables,
     apply_cmap_policy,
-    write_model_parm7,
 )
 from mlmm.core.utils import parse_layer_indices_from_bfactors
 from mlmm.workflows.dft import _prepare_ml_region_workspace
@@ -126,25 +123,6 @@ def test_exactly_one_owner_of_the_cmap_and_lj_rules():
         if "cmaps[:] = []" in text or "_normalize_prmtop_lj_tables(" in text:
             writers.append(str(path.relative_to(root)))
     assert writers == ["backends/mlmm_calc.py"], writers
-
-
-def test_both_oniom_layers_share_one_cmap_policy():
-    """`E_real_low` and `E_model_low` must come from the same MM Hamiltonian.
-
-    A CMAP term lying entirely inside the ML region only cancels in the
-    subtractive total when both layers treat CMAP the same way. Stripping the
-    model alone left it uncancelled -- an empirical backbone potential stacked
-    on the high-level description.
-    """
-    core = inspect.getsource(MLMMCore.__init__)
-    assert "apply_cmap_policy(real_top, use_cmap)" in core, (
-        "the ML/MM real layer no longer applies the shared CMAP policy"
-    )
-    dft_src = inspect.getsource(_prepare_ml_region_workspace)
-    assert "MLMMCalculator(**calculator_kwargs)" in dft_src, (
-        "dft no longer delegates preparation and MM construction to MLMMCore"
-    )
-    assert "apply_cmap_policy(model, use_cmap)" in inspect.getsource(write_model_parm7)
 
 
 def test_cmap_policy_default_is_on_and_explicit_off_strips_both_layers():
@@ -248,11 +226,6 @@ def test_sliced_model_topology_follows_the_same_cmap_switch(
         workspace.cleanup()
 
 
-def test_dft_delegates_to_core_and_core_delegates_to_the_shared_builder():
-    assert "MLMMCalculator(" in inspect.getsource(_prepare_ml_region_workspace)
-    assert "write_model_parm7(" in inspect.getsource(MLMMCore._mk_model_parm7)
-
-
 def test_dft_energy_only_backend_replaces_exactly_the_core_high_level_term():
     workspace = _prepare_ml_region_workspace(
         input_pdb=PDB_FIXTURE,
@@ -305,21 +278,3 @@ def test_dft_workspace_disables_the_mlip_xtb_embedding_correction():
         assert workspace.core._embed_correction is None
     finally:
         workspace.cleanup()
-
-
-def test_shared_builder_honours_use_cmap():
-    assert "use_cmap" in inspect.signature(write_model_parm7).parameters
-    assert "use_cmap" in inspect.signature(_prepare_ml_region_workspace).parameters
-    assert "use_cmap" in inspect.signature(apply_cmap_policy).parameters
-    # The rule itself lives in apply_cmap_policy; the builder must delegate.
-    assert "if not use_cmap:" in inspect.getsource(apply_cmap_policy)
-
-
-def test_dft_has_no_second_mm_or_subtractive_recombination_path():
-    from mlmm.workflows import dft
-
-    source = Path(dft.__file__).read_text(encoding="utf-8")
-    assert "hessianffCalculator(" not in source
-    assert "OpenMMCalculator(" not in source
-    assert "e_real_low_au + e_h - e_model_low_au" not in source
-    assert "workspace.core.compute(" in source

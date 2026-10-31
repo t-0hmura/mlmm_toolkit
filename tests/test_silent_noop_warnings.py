@@ -7,76 +7,128 @@ thresholds, or defaults.
 
 from pathlib import Path
 
+import numpy as np
+import pytest
+
 import mlmm.workflows.freq as freq_mod
 import mlmm.workflows.mm_parm as mm_parm_mod
 import mlmm.workflows.tsopt as tsopt_mod
 
 
-def _src(mod) -> str:
-    return Path(mod.__file__).read_text(encoding="utf-8")
-
-
-def test_unresolvable_layer_sets_are_reported() -> None:
+def test_unresolvable_layer_sets_are_reported(monkeypatch, capsys) -> None:
     # Empty layer sets collapse every --active-dof-mode to ALL atoms, and the
-    # only previous signal was a debug-level log line.
-    src = _src(freq_mod)
-    assert "could not resolve ML/MM layer sets" in src
-    assert "falls back to ALL atoms regardless of" in src
+    # only previous signal was a debug-level log line. The warning must not
+    # change what callers receive.
+    def failing_calculator(**_kwargs):
+        raise RuntimeError("no topology")
+
+    monkeypatch.setattr(freq_mod, "mlmm", failing_calculator)
+
+    layer_sets = freq_mod._collect_layer_atom_sets({})
+
+    assert layer_sets == {"ml": set(), "hess_mm": set(), "movable_mm": set(), "frozen_mm": set()}
+    err = capsys.readouterr().err
+    assert "could not resolve ML/MM layer sets (no topology)" in err
+    assert "falls back to ALL atoms regardless of --active-dof-mode" in err
 
 
-def test_mode_pdb_fallback_is_reported() -> None:
+@pytest.mark.parametrize("module", [freq_mod, tsopt_mod], ids=["freq", "tsopt"])
+def test_mode_pdb_fallback_is_reported(module, tmp_path, monkeypatch, capsys) -> None:
     # The file still appears, but without the reference topology its atom names
     # and residues are not the input's.
-    src = _src(freq_mod)
-    assert "mode PDB fell back to plain ASE output" in src
-    assert "mode PDB fell back to plain ASE output" in _src(tsopt_mod)
+    from pysisyphus.Geometry import Geometry
+
+    def failing_converter(*_args, **_kwargs):
+        raise RuntimeError("template mismatch")
+
+    monkeypatch.setattr(module, "is_convert_file_enabled", lambda: True)
+    monkeypatch.setattr(module, "convert_xyz_to_pdb", failing_converter)
+    geometry = Geometry(("H", "H"), np.array([0.0, 0.0, 0.0, 0.0, 0.0, 1.4]), coord_type="cart")
+    reference = tmp_path / "input.pdb"
+    reference.write_text("END\n", encoding="utf-8")
+    out_pdb = tmp_path / "mode.pdb"
+
+    module._write_mode_trj_and_pdb(
+        geometry, np.array([1.0, 0.0, 0.0, -1.0, 0.0, 0.0]), tmp_path / "mode_trj.xyz",
+        out_pdb, n_frames=2, ref_pdb=reference,
+    )
+
+    assert out_pdb.is_file()
+    assert (
+        "mode PDB fell back to plain ASE output without the reference topology: "
+        "template mismatch"
+    ) in capsys.readouterr().err
 
 
-def test_unknown_path_mode_diagnostic_is_not_reported_as_lost() -> None:
-    src = _src(tsopt_mod)
-    marker = src.index("Path-correlated mode was lost")
-    assert "is False" in src[marker - 400 : marker]
-
-
-def test_unused_ligand_charge_entries_are_reported() -> None:
+def test_unused_ligand_charge_entries_are_reported(tmp_path, monkeypatch, capsys) -> None:
     # A --ligand-charge entry for a residue tleap already knows is never read;
     # a mistyped residue name is exactly how the wrong net charge gets used.
-    src = _src(mm_parm_mod)
-    assert "matched no residue needing parameters" in src
+    source = tmp_path / "input.pdb"
+    source.write_text(
+        "ATOM      1  CA  ALA A   1       0.000   0.000   0.000  1.00  0.00           C\nEND\n",
+        encoding="utf-8",
+    )
+
+    def tleap_knows_everything(cmd, cwd=None, logfile=None, env=None):
+        for name in mm_parm_mod._TLEAP_REQUIRED_OUTPUTS:
+            (Path(cwd) / name).write_text("fixture\n", encoding="utf-8")
+        return 0
+
+    monkeypatch.setattr(mm_parm_mod, "run", tleap_knows_everything)
+    monkeypatch.setattr(mm_parm_mod, "parse_tleap_unknown_residues", lambda _log: set())
+
+    mm_parm_mod.ambertools_route(
+        source, str(tmp_path / "out"), {"ZZZ": 1}, {}, False, tmp_path, "ff19SB", False,
+    )
+
+    assert (
+        "--ligand-charge/--ligand-mult entry ZZZ matched no residue needing parameters"
+    ) in capsys.readouterr().err
 
 
-def test_the_layer_fallback_keeps_its_return_contract() -> None:
-    """The warning must not change what callers receive."""
-    src = _src(freq_mod)
-    i = src.index("could not resolve ML/MM layer sets")
-    # `return empty` still follows the echo, so callers are unaffected.
-    assert "return empty" in src[i : i + 600]
-
-
-def test_dft_slices_the_model_with_the_same_cmap_rule_as_mlmm() -> None:
+@pytest.mark.parametrize("dry_run", [True, False], ids=["dry-run", "run"])
+@pytest.mark.parametrize(("calc_yaml", "expected"), [("", True), ("calc:\n  use_cmap: false\n", False)],
+                         ids=["default", "off"])
+def test_dft_passes_the_cmap_switch_to_the_model_workspace(
+    tmp_path, monkeypatch, dry_run, calc_yaml, expected
+) -> None:
     """The CMAP policy must reach the ordinary ML/MM core used by dft.
 
     `dft.py` used to build its own model workspace and never read the setting,
     so with a backbone-containing ML region the ML/MM and QM/MM paths computed
     E_model_low on different models -- and `result.yaml` recorded
-    `use_cmap: False` either way. dft now delegates to the shared builder, so
-    the rule lives in one place and the flag has to reach it.
+    `use_cmap: False` either way. Both builds of the workspace (the dry-run
+    validation and the run) have to receive it.
     """
-    import inspect
+    from click.testing import CliRunner
 
+    from mlmm.cli import cli as root_cli
     import mlmm.workflows.dft as dft_mod
-    from mlmm.backends.mlmm_calc import apply_cmap_policy, write_model_parm7
 
-    assert "if not use_cmap:" in inspect.getsource(apply_cmap_policy)
-    assert "cmaps[:] = []" in inspect.getsource(apply_cmap_policy)
-    assert "apply_cmap_policy(model, use_cmap)" in inspect.getsource(write_model_parm7)
+    toy = Path(__file__).resolve().parents[1] / "examples" / "toy_system"
+    if not (toy / "p_toy.parm7").exists():
+        pytest.skip("toy_system example inputs not present")
 
-    src = _src(dft_mod)
-    assert "MLMMCalculator(**calculator_kwargs)" in src
-    assert "workspace.core.compute(" in src
-    # Threaded, not read from a global: both call sites must pass it.
-    assert src.count('use_cmap=bool(calc_kw.get("use_cmap", True))') == 2
-    assert "use_cmap: bool = True" in src
+    class WorkspaceRequested(Exception):
+        pass
+
+    requested = {}
+
+    def prepare(**kwargs):
+        requested.update(kwargs)
+        raise WorkspaceRequested
+
+    monkeypatch.setattr(dft_mod, "_prepare_ml_region_workspace", prepare)
+    config = tmp_path / "config.yaml"
+    config.write_text(calc_yaml, encoding="utf-8")
+
+    CliRunner().invoke(root_cli, [
+        "dft", "-i", str(toy / "p_toy.pdb"), "--parm", str(toy / "p_toy.parm7"),
+        "-q", "-1", "-m", "1", "--config", str(config), "-o", str(tmp_path / "out"),
+        *(["--dry-run"] if dry_run else []),
+    ])
+
+    assert requested["use_cmap"] is expected
 
 
 def test_dft_cmap_default_matches_the_product_default() -> None:

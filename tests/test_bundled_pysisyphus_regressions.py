@@ -1537,8 +1537,34 @@ def test_irc_ordinary_energy_rise_outranks_physical_convergence() -> None:
     assert irc._energy_stop_message() == ""
 
 
-def test_irc_resolves_the_requested_hessian_init() -> None:
+def test_irc_resolves_the_requested_hessian_init(monkeypatch) -> None:
     """hessian_init is resolved through get_guess_hessian instead of ignored."""
-    source = inspect.getsource(IRC.run)
-    assert "get_guess_hessian(" in source, source
-    assert "self.init_hessian = self.geometry.hessian" not in source
+    seen = []
+
+    class _SeedingStopped(Exception):
+        pass
+
+    def get_guess_hessian(geometry, requested):
+        seen.append((geometry, requested))
+        raise _SeedingStopped
+
+    class _TsProbe(IRC):
+        coords = mw_coords = gradient = mw_gradient = np.zeros(3)
+        energy = -1.0
+
+        def __init__(self, geometry, requested):
+            self.geometry = geometry
+            self.hessian_init = requested
+
+        def report_conv_thresholds(self):
+            pass
+
+        def log(self, *args, **kwargs):
+            pass
+
+    monkeypatch.setitem(IRC.run.__globals__, "get_guess_hessian", get_guess_hessian)
+    geometry = object()
+    with pytest.raises(_SeedingStopped):
+        _TsProbe(geometry, "unit").run()
+
+    assert seen == [(geometry, "unit")]

@@ -64,13 +64,13 @@ def xyz_text(frame: float, energy: Optional[float] = None, *, values=None) -> st
     return f"2\nE={energy:.12f} unit=hartree frame{frame:g}\n{atoms}"
 
 
-def pdb_text(frame: float, *, values=None) -> str:
+def pdb_text(frame: float, *, values=None, bfactors=(0.0, 0.0)) -> str:
     rows = values if values is not None else coords(frame)
     return "".join(
         f"HETATM{serial:5d} {name:<4s} MOL A   1    "
-        f"{x:8.3f}{y:8.3f}{z:8.3f}{1.:6.2f}{0.:6.2f}          {element:>2s}\n"
-        for serial, (name, element, (x, y, z)) in enumerate(
-            zip(("C1", "O1"), ("C", "O"), rows), 1
+        f"{x:8.3f}{y:8.3f}{z:8.3f}{1.:6.2f}{b:6.2f}          {element:>2s}\n"
+        for serial, (name, element, (x, y, z), b) in enumerate(
+            zip(("C1", "O1"), ("C", "O"), rows, bfactors), 1
         )
     ) + "END\n"
 
@@ -211,17 +211,24 @@ def run_all(
     xyz_inputs: bool = False,
     wrap: Optional[Callable[[Any], None]] = None,
     parm: bool = True,
+    model_pdb: bool = True,
+    bfactors: Sequence[float] = (0.0, 0.0),
 ) -> AllRun:
     """Run ``mlmm all`` and return the output dir, CLI result and child calls.
 
     With ``parm=False`` no ``--parm`` is passed, so ``all`` builds the parm7 with
-    ``_build_mm_parm7`` (the caller replaces it).
+    ``_build_mm_parm7`` (the caller replaces it). With ``model_pdb=False`` no
+    ``--model-pdb`` is passed. ``bfactors`` are the B-factors (the layer encoding)
+    of the C and O atoms of the input PDBs.
     """
 
     behaviour = behaviour or Behaviour()
     monkeypatch.delenv(MLMM_RUN_ID_ENV, raising=False)
     monkeypatch.setattr(utils, "_CONVERT_FILES_ENABLED", True)
-    pdbs = [write(tmp_path / f"input{i}.pdb", pdb_text(f)) for i, f in enumerate(frames)]
+    pdbs = [
+        write(tmp_path / f"input{i}.pdb", pdb_text(f, bfactors=bfactors))
+        for i, f in enumerate(frames)
+    ]
     if xyz_inputs:
         inputs = [write(tmp_path / f"input{i}.xyz", xyz_text(f)) for i, f in enumerate(frames)]
     else:
@@ -361,7 +368,8 @@ def run_all(
     if xyz_inputs:
         args += ["--ref-pdb", str(pdbs[0])]
     args += ["-q", "0", "-m", "1", *(["--parm", str(parm_file)] if parm else []),
-             "--model-pdb", str(pdbs[0]), "--out-dir", str(out), "--no-preopt", *extra]
+             *(["--model-pdb", str(pdbs[0])] if model_pdb else []),
+             "--out-dir", str(out), "--no-preopt", *extra]
     result = CliRunner().invoke(root_cli, args)
     return AllRun(out=out, result=result, calls=calls, events=events)
 

@@ -34,15 +34,28 @@ def test_opt_optional_invalidation_preserves_unrelated_files(tmp_path: Path) -> 
     assert unrelated.read_text(encoding="utf-8") == "keep"
 
 
-def test_opt_resolves_model_pdb_before_collision_validation() -> None:
-    from mlmm.workflows import opt
+def test_opt_resolves_model_pdb_before_collision_validation(tmp_path: Path) -> None:
+    from click.testing import CliRunner
 
-    source = Path(opt.__file__).read_text(encoding="utf-8")
-    cli_source = source[source.index("def cli("):]
-    assignment = cli_source.index('model_pdb_cfg = calc_cfg.get("model_pdb")')
-    collision_check = cli_source.index("        _reject_opt_output_collisions(")
+    from mlmm.cli import cli as root_cli
 
-    assert assignment < collision_check
+    toy = Path(__file__).resolve().parents[1] / "examples" / "toy_system"
+    structure, parm = toy / "p_toy.pdb", toy / "p_toy.parm7"
+    if not (structure.exists() and parm.exists()):
+        pytest.skip("toy_system example inputs not present")
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    # The model PDB is consumed as an input and is also the file `opt` writes.
+    model = out_dir / "final_geometry.pdb"
+    model.write_text(structure.read_text(encoding="utf-8"), encoding="utf-8")
+
+    result = CliRunner().invoke(root_cli, [
+        "opt", "-i", str(structure), "--parm", str(parm), "-q", "0",
+        "--model-pdb", str(model), "--dry-run", "-o", str(out_dir),
+    ])
+
+    assert result.exit_code == 2, result.output
+    assert "aliases consumed input" in result.output
 
 
 def test_path_search_collision_helper_detects_symlink(tmp_path: Path) -> None:

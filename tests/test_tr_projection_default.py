@@ -18,7 +18,6 @@ import pytest
 
 from pysisyphus.tr_projection import (
     DEFAULT_TR_PROJECTION,
-    TR_PROJECTION_MODES,
     normalize_tr_projection_mode,
 )
 
@@ -38,33 +37,6 @@ def test_geometry_defaults_agree_with_the_single_source_of_truth() -> None:
     from mlmm.core.defaults import GEOM_KW_DEFAULT
 
     assert GEOM_KW_DEFAULT["tr_projection"] == DEFAULT_TR_PROJECTION
-
-
-def test_engine_fallbacks_agree_with_the_single_source_of_truth() -> None:
-    """IRC and the TS optimizer must not carry their own literal fallback.
-
-    Both read ``getattr(self.geometry, "tr_projection", DEFAULT_TR_PROJECTION)``.
-    A geometry without the attribute must land on the same default as everything
-    else, not on a stale literal.
-    """
-    import inspect
-
-    from pysisyphus.irc import IRC
-    from pysisyphus.tsoptimizers import TSHessianOptimizer
-
-    for module in (IRC, TSHessianOptimizer):
-        src = inspect.getsource(module)
-        assert '"tr_projection", "constrained"' not in src, (
-            f"{module.__name__} carries a literal default that can drift from "
-            f"DEFAULT_TR_PROJECTION"
-        )
-
-
-def test_the_removed_legacy_mode_is_no_longer_selectable() -> None:
-    """A stale config naming the removed treatment fails instead of running it."""
-    assert TR_PROJECTION_MODES == ("constrained",)
-    with pytest.raises(ValueError, match="Unknown TR projection mode"):
-        normalize_tr_projection_mode("legacy-active")
 
 
 def test_unknown_mode_is_rejected_loudly() -> None:

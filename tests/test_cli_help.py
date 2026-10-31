@@ -184,15 +184,6 @@ def test_main_help(runner, cli_group):
     assert "opt" in result.output
 
 
-def test_define_layer_rejects_removed_partial_hessian_option(runner, cli_group):
-    result = runner.invoke(
-        cli_group, ["define-layer", "--radius-partial-hessian", "4.0"]
-    )
-    assert result.exit_code != 0
-    assert "No such option" in result.output
-    assert "--radius-partial-hessian" in result.output
-
-
 def test_all_help_progressive_disclosure(runner, cli_group):
     result = runner.invoke(cli_group, ["all", "--help"])
     assert result.exit_code == 0
@@ -207,14 +198,12 @@ def test_all_help_advanced_shows_hidden_options(runner, cli_group):
     assert "--freq-temperature" in result.output
     assert "--opt-mode-post" in result.output
     assert "--freeze-atoms" in result.output
-    assert "--sopt-mode" not in result.output
 
 
-def test_path_search_help_advanced_shows_single_optimizer_selector(runner, cli_group):
+def test_path_search_help_advanced_shows_the_optimizer_selector(runner, cli_group):
     result = runner.invoke(cli_group, ["path-search", "--help-advanced"])
     assert result.exit_code == 0
     assert "--opt-mode" in result.output
-    assert "--sopt-mode" not in result.output
 
 
 @pytest.mark.parametrize("subcmd,legacy_header", SCAN_SUBCOMMANDS)

@@ -44,20 +44,26 @@ def _patch_inputs(monkeypatch, tmp_path):
     return source, parm
 
 
-def _run_microiter(monkeypatch, tmp_path, *, runs, max_cycles, extra_args):
-    """``runs[i] = (cycles, converged)`` for the i-th microiteration TS run;
-    ``cycles=None`` spends the whole budget given to that run."""
+def _run_microiter(
+    monkeypatch, tmp_path, *, runs, max_cycles, extra_args, optimizer_attrs=None, budgets=None,
+):
+    """``runs[i] = (cycles, converged[, stalled])`` for the i-th microiteration TS run;
+    ``cycles=None`` spends the whole budget given to that run. ``budgets`` collects the
+    ``max_cycles`` that each run was given. ``optimizer_attrs`` are extra attributes of
+    the optimizers: one dict for every run, or a list with one dict per run."""
     source, parm = _patch_inputs(monkeypatch, tmp_path)
-    calls = []
+    calls = [] if budgets is None else budgets
     phva_calls = []
 
     def fake_microiter(geometry, calc_cfg, rsirfo_cfg, lbfgs_cfg, opt_cfg, *args, **kwargs):
-        cycles, converged = runs[len(calls)]
+        cycles, converged, *stalled = runs[len(calls)]
         calls.append(opt_cfg.get("max_cycles"))
         used = int(opt_cfg["max_cycles"]) if cycles is None else cycles
         optimizer = SimpleNamespace(
-            is_converged=converged, is_stalled=False, cur_cycle=used - 1,
+            is_converged=converged, is_stalled=bool(stalled and stalled[0]), cur_cycle=used - 1,
             stop_reason="", forces=[],
+            **(optimizer_attrs[len(calls) - 1] if isinstance(optimizer_attrs, list)
+               else optimizer_attrs or {}),
         )
         return {"optimizer": optimizer, "converged": converged, "cycles": used,
                 "safeguards": {}, "micro_cycles": 0, "outcome": None}
@@ -117,6 +123,69 @@ def test_unconverged_flatten_retry_records_budget_reason(monkeypatch, tmp_path):
 
     assert payload["flatten_skip_reason"] == BUDGET_DURING, result.output
     assert len(phva_calls) == 1
+
+
+@pytest.mark.parametrize(
+    ("retry_sign", "lost"),
+    [(None, False), (False, True)],
+    ids=["sign-unknown", "sign-positive"],
+)
+def test_unknown_path_mode_sign_is_not_reported_as_lost(monkeypatch, tmp_path, retry_sign, lost):
+    # After the flatten retry the target mode's sign is either undetermined (None)
+    # or determined positive (False); only the latter means the mode was lost.
+    reference = tmp_path / "reference_mode.npy"
+    np.save(reference, np.ones(9))
+    monkeypatch.setattr(tsopt, "read_structure_atoms", lambda _path: ("O", "H", "H"))
+
+    payload, result, _ = _run_microiter(
+        monkeypatch, tmp_path, runs=[(1, True), (1, True), (None, False)], max_cycles=10,
+        extra_args=["--flatten", "--ref-mode", str(reference)],
+        optimizer_attrs=[
+            {"_last_exact_target_mode_is_negative": True},
+            {"_last_exact_target_mode_is_negative": retry_sign},
+            {"_last_exact_target_mode_is_negative": retry_sign},
+        ],
+    )
+
+    assert ("Path-correlated mode was lost" in result.output) is lost, result.output
+
+
+def test_heavy_flatten_retries_receive_only_the_remaining_cycle_budget(monkeypatch, tmp_path):
+    # The first run stops on an energy plateau after one cycle of a three-cycle budget;
+    # the plateau does not end the command, and the flatten retry gets the two cycles left.
+    budgets = []
+    payload, result, phva_calls = _run_microiter(
+        monkeypatch, tmp_path, runs=[(1, False, True), (None, False)], max_cycles=3,
+        extra_args=["--flatten"], budgets=budgets,
+    )
+
+    assert budgets == [3, 2], result.output
+    assert payload["n_opt_cycles"] == 3
+    assert len(phva_calls) == 1
+
+
+@pytest.mark.parametrize(
+    ("target_negative", "reason"),
+    [(None, "target mode sign never determined"), (False, "target mode is not negative")],
+)
+def test_flatten_veto_says_whether_the_target_mode_sign_was_determined(
+    monkeypatch, tmp_path, target_negative, reason
+):
+    # None means no macro step ever determined the sign, False that it was
+    # determined positive; the two must not be reported as the same thing.
+    reference = tmp_path / "reference_mode.npy"
+    np.save(reference, np.ones(9))
+    monkeypatch.setattr(tsopt, "read_structure_atoms", lambda _path: ("O", "H", "H"))
+
+    payload, result, _ = _run_microiter(
+        monkeypatch, tmp_path, runs=[(1, True)], max_cycles=10,
+        extra_args=["--flatten", "--ref-mode", str(reference)],
+        optimizer_attrs={"_last_exact_target_mode_is_negative": target_negative},
+    )
+
+    assert payload["flatten_requested"] is True, result.output
+    assert payload["flatten_skip_reason"] == reason, result.output
+    assert f"[flatten] Skipping extra-mode flattening: {reason}." in result.output
 
 
 @pytest.mark.parametrize(

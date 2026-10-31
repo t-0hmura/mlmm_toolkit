@@ -17,8 +17,12 @@ class _EulerPCReached(RuntimeError):
     pass
 
 
-def _run_irc_until_eulerpc(tmp_path, monkeypatch, irc_section=None):
-    """Run the irc CLI with stub inputs up to the EulerPC constructor."""
+def _run_irc_until_eulerpc(tmp_path, monkeypatch, irc_section=None, *, finished=None, extra_args=()):
+    """Run the irc CLI with stub inputs up to the EulerPC constructor.
+
+    With ``finished`` (an object standing for an EulerPC that has run), the
+    constructor returns it and the command continues to its outputs.
+    """
     from mlmm.workflows import irc as irc_module
 
     source, parm = tmp_path / "input.pdb", tmp_path / "input.parm7"
@@ -45,6 +49,8 @@ def _run_irc_until_eulerpc(tmp_path, monkeypatch, irc_section=None):
     def fake_eulerpc(geometry, **kwargs):
         captured["hessian_init"] = kwargs.get("hessian_init")
         captured["seeded"] = geometry._hessian is not None
+        if finished is not None:
+            return finished
         raise _EulerPCReached("EulerPCReached: no IRC integration requested.")
 
     monkeypatch.chdir(tmp_path)
@@ -58,15 +64,118 @@ def _run_irc_until_eulerpc(tmp_path, monkeypatch, irc_section=None):
     monkeypatch.setattr(irc_module, "EulerPC", fake_eulerpc)
 
     args = ["-i", str(source), "--parm", str(parm), "-q", "0", "-m", "1",
-            "--out-dir", str(tmp_path / "out")]
+            "--out-dir", str(tmp_path / "out"), *extra_args]
     if irc_section is not None:
         config = tmp_path / "config.yaml"
         config.write_text(json.dumps({"irc": irc_section}), encoding="utf-8")
         args += ["--config", str(config)]
     result = CliRunner().invoke(irc_module.cli, args)
-    assert "EulerPCReached" in result.output, result.output
+    if finished is None:
+        assert "EulerPCReached" in result.output, result.output
+    else:
+        captured["result"] = result
     captured["device_line"] = "[device] IRC Hessian device" in result.output
     return hessian_calls, captured
+
+
+class _FinishedEulerPC:
+    """What the irc command reads from an EulerPC that has run both directions."""
+
+    forward = backward = True
+    forward_is_converged = backward_is_converged = False
+    forward_mw_hessian = mw_hessian = None
+    never_stop = False
+    max_cycles = 100
+    init_hessian_shape = (9, 9)
+    _act_atoms = (0, 1, 2)
+    forward_integration_converged = True
+    backward_integration_converged = False
+    forward_integration_stop_reason = "energy_minimum"
+    backward_integration_stop_reason = "max_cycles"
+    forward_downhill_departure_valid = True
+    backward_downhill_departure_valid = False
+    forward_energy_increased = False
+    backward_energy_increased = True
+
+    def __init__(self, out_dir):
+        self.out_dir = out_dir
+        frames = [np.zeros(9) for _ in range(5)]
+        self.forward_energies = self.backward_energies = [-1.0, -1.1, -1.2, -1.3, -1.4]
+        self.forward_coords = self.backward_coords = frames
+        self.all_energies = [-1.4, -1.2, -1.0, -1.2, -1.4]
+        self.ts_energy = -1.0
+
+    def run(self):
+        pass
+
+    def get_path_for_fn(self, filename):
+        return str(self.out_dir / filename)
+
+
+def test_irc_result_json_carries_every_direction_field_that_all_reads(
+    tmp_path, monkeypatch
+) -> None:
+    from mlmm.workflows.all import _read_irc_outcome
+
+    out_dir = tmp_path / "out"
+    finished = _FinishedEulerPC(out_dir)
+    _hessian_calls, captured = _run_irc_until_eulerpc(
+        tmp_path, monkeypatch, finished=finished, extra_args=("--out-json",)
+    )
+
+    result = captured["result"]
+    assert result.exit_code == 0, result.output
+    outcome = _read_irc_outcome(out_dir)
+    for direction in ("forward", "backward"):
+        assert outcome[f"{direction}_requested"] is True
+        for suffix in ("integration_converged", "integration_stop_reason",
+                       "downhill_departure_valid", "energy_increased"):
+            assert outcome[f"{direction}_{suffix}"] == getattr(finished, f"{direction}_{suffix}")
+        assert outcome[f"{direction}_short_branch"] is False
+        assert outcome[f"n_frames_{direction}"] == 5
+
+
+def test_cached_ts_hessian_seeds_the_irc_and_is_logged_at_the_detail_tier(
+    tmp_path, monkeypatch
+) -> None:
+    from mlmm.io import hessian_cache
+    from mlmm.workflows import irc as irc_module
+
+    monkeypatch.setattr(hessian_cache, "identity_from_context", lambda *_a, **_k: {})
+    monkeypatch.setattr(
+        hessian_cache, "load_matching",
+        lambda *_a, **_k: {"hessian": torch.eye(9, dtype=torch.float64), "active_dofs": None},
+    )
+    messages = []
+    monkeypatch.setattr(irc_module, "emit", lambda text="", **tags: messages.append((text, tags)))
+
+    hessian_calls, captured = _run_irc_until_eulerpc(tmp_path, monkeypatch)
+
+    assert hessian_calls == []
+    assert captured["seeded"] is True
+    reuse = [tags for text, tags in messages if "Reusing cached TS Hessian from tsopt" in text]
+    assert reuse == [{"detail": True}]
+
+
+def test_cached_ts_hessian_of_another_basis_is_dropped_and_logged_at_the_detail_tier(
+    tmp_path, monkeypatch
+) -> None:
+    from mlmm.io import hessian_cache
+    from mlmm.workflows import irc as irc_module
+
+    monkeypatch.setattr(hessian_cache, "identity_from_context", lambda *_a, **_k: {})
+    monkeypatch.setattr(
+        hessian_cache, "load_matching",
+        lambda *_a, **_k: {"hessian": torch.eye(3, dtype=torch.float64), "active_dofs": [0, 1, 2]},
+    )
+    messages = []
+    monkeypatch.setattr(irc_module, "emit", lambda text="", **tags: messages.append((text, tags)))
+
+    hessian_calls, _captured = _run_irc_until_eulerpc(tmp_path, monkeypatch)
+
+    assert len(hessian_calls) == 1
+    mismatch = [tags for text, tags in messages if "active-DOF basis does not match" in text]
+    assert mismatch == [{"detail": True}]
 
 
 def test_default_hessian_init_computes_and_seeds_the_initial_hessian(

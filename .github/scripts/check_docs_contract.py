@@ -211,6 +211,70 @@ YAML_ALL_SENTENCES = {
 }
 
 
+DISPATCH_SKILL = Path("skills/mlmm-hpc/dynamic-dispatch.md")
+DISPATCHER_FRAGMENTS = (
+    '${PBS_JOBID:?PBS_JOBID is required',
+    '_state.${JOB_ID}.txt',
+    '_lock.${JOB_ID}',
+    '_worker.${JOB_ID}.sh',
+    "awk 'END {print NR}'",
+    "failed=1",
+    'exit "${failed}"',
+)
+STARTER_SNAPSHOT_PAGE = Path("docs/reference/yaml.md")
+JA_INDEX_PAGE = Path("docs/ja/index.md")
+
+
+def _check_dispatcher_script() -> list[str]:
+    """The copyable PBS dispatcher recipe keeps its failure contract and is valid bash."""
+    import subprocess
+
+    text = (REPO_ROOT / DISPATCH_SKILL).read_text(encoding="utf-8")
+    if "## dispatcher.sh" not in text:
+        return [f"{DISPATCH_SKILL}: no '## dispatcher.sh' section"]
+    section = text.split("## dispatcher.sh", 1)[1]
+    if "```bash" not in section:
+        return [f"{DISPATCH_SKILL}: the '## dispatcher.sh' section has no bash block"]
+    script = section.split("```bash", 1)[1].split("```", 1)[0]
+    errors = [
+        f"{DISPATCH_SKILL}: dispatcher.sh is missing {fragment!r}"
+        for fragment in DISPATCHER_FRAGMENTS
+        if fragment not in script
+    ]
+    copyable = re.sub(r"<[A-Z][A-Z0-9_:]*>", "placeholder", script)
+    result = subprocess.run(
+        ["bash", "-n"], input=copyable, text=True, capture_output=True, check=False
+    )
+    if result.returncode != 0:
+        errors.append(f"{DISPATCH_SKILL}: dispatcher.sh is not valid bash: {result.stderr.strip()}")
+    return errors
+
+
+def _check_starter_snapshot_pages() -> list[str]:
+    """The generated YAML page is a curated, non-exhaustive snapshot linking the full
+    reference, and the JA navigation calls it an excerpt, not a schema."""
+    errors: list[str] = []
+    text = (REPO_ROOT / STARTER_SNAPSHOT_PAGE).read_text(encoding="utf-8")
+    if not text.startswith("# Curated `mlmm all` Starter Snapshot"):
+        errors.append(f"{STARTER_SNAPSHOT_PAGE}: the title must be 'Curated `mlmm all` Starter Snapshot'")
+    for fragment in ("non-exhaustive", "(../yaml-reference.md)", "## Included Sections"):
+        if fragment not in text:
+            errors.append(f"{STARTER_SNAPSHOT_PAGE}: missing {fragment!r}")
+    for banned in ("YAML Schema", "Top-level Keys"):
+        if banned in text:
+            errors.append(f"{STARTER_SNAPSHOT_PAGE}: must not contain {banned!r}")
+    ja_text = (REPO_ROOT / JA_INDEX_PAGE).read_text(encoding="utf-8")
+    line = next((ln for ln in ja_text.splitlines() if "../reference/yaml.md" in ln), None)
+    if line is None:
+        errors.append(f"{JA_INDEX_PAGE}: no navigation line for ../reference/yaml.md")
+    else:
+        if "スキーマ" in line:
+            errors.append(f"{JA_INDEX_PAGE}: the yaml.md navigation line must not call the snapshot a schema")
+        if "抜粋" not in line:
+            errors.append(f"{JA_INDEX_PAGE}: the yaml.md navigation line must label it an excerpt (抜粋)")
+    return errors
+
+
 def _iter_markdown() -> list[Path]:
     paths: list[Path] = []
     for root in SCAN_ROOTS:
@@ -292,6 +356,9 @@ def main() -> int:
                 f"{rel}: MACE environment order must be mlmm install, "
                 "fairchem-core removal, then MACE install"
             )
+
+    errors.extend(_check_dispatcher_script())
+    errors.extend(_check_starter_snapshot_pages())
 
     if errors:
         print(f"[docs-contract] FAIL: {len(errors)} issue(s)")

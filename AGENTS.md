@@ -30,7 +30,7 @@ Read §4 before changing any of these:
 ## Editing skills
 
 Each skill is `skills/<name>/SKILL.md`.
-After editing skills, run `python .github/scripts/run_docs_quality.py` (it runs the skill checkers) and `pytest tests/test_skill_command_checker.py tests/test_skill_drift_checker.py tests/test_dynamic_dispatch_skill.py tests/test_cli_completion.py -q`.
+After editing skills, run `python .github/scripts/run_docs_quality.py` (it runs the skill checkers) and `pytest tests/test_skill_command_checker.py tests/test_skill_drift_checker.py tests/test_cli_completion.py -q`.
 The checkers require:
 
 - Frontmatter with `name` and `description`; `name` is lowercase hyphen-case, at most 64 characters, and equals the folder name.
@@ -38,7 +38,7 @@ The checkers require:
 - Real flags in shell code blocks (no language, `bash`, `console`, or `sh`) and in inline `mlmm …` (`check_skill_commands.py`).
 - In a concrete `mlmm` example with `-i`: the required topology option (`--parm7`); a charge option (`-q` or `-l`) unless every input is `.gjf` or `--config` is given; and `--ref-pdb` for XYZ input (for `path-search`, one per XYZ position). Write placeholders as `<...>`.
 - Real flags in backticks in prose in the folders listed in `MLMM_CLI_DIRS` (`check_skill_drift.py`). Add a new skill folder that documents the CLI there.
-- The sentences that `check_docs_contract.py` pins in `docs/` and `skills/` (some in a fixed order), and none of the phrases it bans. `tests/test_dynamic_dispatch_skill.py` also reads the `## dispatcher.sh` section of `skills/mlmm-hpc/dynamic-dispatch.md`. When you move or reword pinned text, update the checker or test in the same change.
+- The sentences that `check_docs_contract.py` pins in `docs/` and `skills/` (some in a fixed order), and none of the phrases it bans. `check_docs_contract.py` also checks the `## dispatcher.sh` section of `skills/mlmm-hpc/dynamic-dispatch.md` (its pinned fragments and `bash -n`). When you move or reword pinned text, update the checker or test in the same change.
 
 Also write only `name` and `description` in the frontmatter, state TRIGGER and SKIP in the `description`, and keep each `SKILL.md` within 500 lines.
 

@@ -1,7 +1,7 @@
 """Fail-closed validation for scan axes and scientific eligibility."""
 
 import json
-import inspect
+import re
 from pathlib import Path
 
 import click
@@ -476,27 +476,6 @@ def test_scan3d_csv_failure_invalidates_prior_plot(tmp_path: Path) -> None:
     assert '"old"' not in stale_summary.read_text(encoding="utf-8")
 
 
-def test_scan_html_plots_are_responsive_and_scan2d_keeps_native_projection() -> None:
-    from mlmm.workflows import scan2d, scan3d
-
-    scan2d_source = inspect.getsource(scan2d)
-    scan3d_source = inspect.getsource(scan3d)
-
-    assert "plane_proj = go.Surface" in scan2d_source
-    assert "plane_z = z_bottom + 0.005" in scan2d_source
-    assert "z=np.full_like(ZI, plane_z)" in scan2d_source
-    assert "bottom_contours = go.Scatter3d" in scan2d_source
-    assert "contour_z = z_bottom + 0.01" in scan2d_source
-    assert "go.Figure(data=[surface3d, plane_proj, bottom_contours])" in scan2d_source
-    assert 'name="2D Contour Projection (Bottom)"' in scan2d_source
-    assert "Computed grid points" not in scan2d_source
-    assert '"project": {"z": True}' not in scan2d_source
-    for source in (scan2d_source, scan3d_source):
-        assert 'config={"responsive": True, "displaylogo": False}' in source
-        assert 'default_width="100%"' in source
-        assert 'default_height="100%"' in source
-
-
 def test_scan2d_bottom_contours_are_explicit_line_segments() -> None:
     from mlmm.workflows.scan2d import _contour_line_segments
 
@@ -625,6 +604,73 @@ def test_grid_scan_surface_records_measured_and_target_coordinates(
         )
         assert point["distances_angstrom"] == point["coordinate_values"]
         assert point["targets_angstrom"] == point["coordinate_targets"]
+
+
+@pytest.mark.parametrize(
+    ("command", "scan_lists", "html_name"),
+    [
+        ("scan2d", "[(1,2,1.000,1.008),(3,4,1.000,1.004)]", "scan2d_landscape.html"),
+        (
+            "scan3d",
+            "[(1,2,1.000,1.008),(2,3,1.000,1.004),(3,4,1.000,1.004)]",
+            "scan3d_density.html",
+        ),
+    ],
+)
+def test_scan_html_plots_are_responsive_and_scan2d_keeps_native_projection(
+    tmp_path: Path, monkeypatch, command: str, scan_lists: str, html_name: str,
+) -> None:
+    from mlmm.workflows import scan2d, scan3d
+
+    module = scan2d if command == "scan2d" else scan3d
+    monkeypatch.setattr(module, "_make_lbfgs", _restraint_reaching_lbfgs())
+
+    result, out_dir = _run_grid_scan(tmp_path, monkeypatch, command, scan_lists)
+
+    assert result.exit_code == 0, result.output
+    html = (out_dir / html_name).read_text(encoding="utf-8")
+    assert re.search(r'"responsive":\s*true', html)
+    assert re.search(r'"displaylogo":\s*false', html)
+    if command == "scan3d":
+        # The viewer fills its container instead of keeping a fixed pixel size.
+        assert '<div style="height:100%; width:100%;">' in html
+    else:
+        assert "2D Contour Projection (Bottom)" in html
+        assert not re.search(r'"project":\s*\{\s*"z":\s*true', html)
+        assert "Computed grid points" not in html
+
+
+@pytest.mark.parametrize(
+    ("command", "scan_lists"),
+    [
+        ("scan2d", "[(1,2,1.000,1.008),(3,4,1.000,1.004)]"),
+        ("scan3d", "[(1,2,1.000,1.008),(2,3,1.000,1.004),(3,4,1.000,1.004)]"),
+    ],
+)
+def test_multidimensional_scans_honor_configured_geometry_coordinates(
+    tmp_path: Path, monkeypatch, command: str, scan_lists: str,
+) -> None:
+    from mlmm.workflows import scan2d, scan3d
+
+    module = scan2d if command == "scan2d" else scan3d
+    monkeypatch.setattr(module, "_make_lbfgs", _restraint_reaching_lbfgs())
+    real_loader = module.geom_loader
+    requested = []
+
+    def loader(*args, **kwargs):
+        requested.append(kwargs.get("coord_type"))
+        return real_loader(*args, **{**kwargs, "coord_type": "cart"})  # keep the toy chain Cartesian
+
+    monkeypatch.setattr(module, "geom_loader", loader)
+    config = tmp_path / "geom.yaml"
+    config.write_text("geom:\n  coord_type: dlc\n", encoding="utf-8")
+
+    result, _out_dir = _run_grid_scan(
+        tmp_path, monkeypatch, command, scan_lists, "--config", str(config)
+    )
+
+    assert result.exit_code == 0, result.output
+    assert requested == ["dlc"]
 
 
 @pytest.mark.parametrize(
