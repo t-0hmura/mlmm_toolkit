@@ -22,9 +22,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Docs and skills: ORB is installed in its own environment, like MACE; the UMA model cache (`$FAIRCHEM_CACHE_DIR`, default `~/.cache/fairchem`) and offline use on compute nodes (`HF_HUB_OFFLINE=1`) are documented.
 - Docs and skills: the conda environment includes `xtb`, which the `--embedcharge` xTB correction calls, and the HPC templates check the compiler hessian_ff actually uses (`$CXX`, then the environment's conda g++, then `c++`).
 - MM Hessians keep their values and allocate less: the default finite-difference MM Hessian returns the block of the movable atoms without building the full (3N, 3N) matrix, the hessian_ff analytical Hessian adds each term into the result instead of a new dense matrix per chunk, and hessian_ff drops its unused C++ preparam CPU nonbonded kernels and the extension's `chunk_size` argument.
+- `mm-parm` (and `all`) run antechamber and its sqm on one BLAS/OpenMP thread with a fixed diagonalizer (`diag_routine=7`, dsyevr, added to antechamber's default AM1 keywords) instead of the one sqm times as fastest, so a ligand gets the same AM1-BCC charges on every run; before, the charges of the test ligand PRE varied by up to 0.32 e per atom with the thread count and machine load. Charges can differ from those of earlier builds.
 
 ### Fixed
 
+- `all --resume-segment` reuses the parm7 saved by the completed MEP, checked against its recorded hash, instead of rebuilding it, so a rebuilt parm7 with other AM1-BCC charges no longer refuses the resume ("path_request changed"); changed inputs or a different `--parm` still do.
 - `all` with a TS-only input: when the endpoint optimization fails, the root `summary.json` records the full `config` like the other exits and `summary.log` is listed; TS-only runs also record `config.mep_mode`. An error while comparing IRC endpoints with the MEP bonds is reported as `bond_change_check_failed:<error>` instead of a bond mismatch.
 - The IRC warning for a branch that stops after a few frames names the `all` options (`--irc-step-size`, `--irc-never-stop`) when IRC runs inside `all`.
 - The optimizer progress table marks only the convergence criteria the preset checks; GSM rows no longer mark the energy and step columns, and `gau` rows no longer mark the energy change.

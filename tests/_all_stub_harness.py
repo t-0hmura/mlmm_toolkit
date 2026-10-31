@@ -210,8 +210,13 @@ def run_all(
     behaviour: Optional[Behaviour] = None,
     xyz_inputs: bool = False,
     wrap: Optional[Callable[[Any], None]] = None,
+    parm: bool = True,
 ) -> AllRun:
-    """Run ``mlmm all`` and return the output dir, CLI result and child calls."""
+    """Run ``mlmm all`` and return the output dir, CLI result and child calls.
+
+    With ``parm=False`` no ``--parm`` is passed, so ``all`` builds the parm7 with
+    ``_build_mm_parm7`` (the caller replaces it).
+    """
 
     behaviour = behaviour or Behaviour()
     monkeypatch.delenv(MLMM_RUN_ID_ENV, raising=False)
@@ -223,7 +228,7 @@ def run_all(
         inputs = pdbs
     # Only the ML/MM workspace construction is replaced; this parm7 fixture is
     # not a force field and never reaches a calculator or topology reader.
-    parm = write(tmp_path / "fixture.parm7", "dispatch fixture; not a force field\n")
+    parm_file = write(tmp_path / "fixture.parm7", "dispatch fixture; not a force field\n")
     model = Atoms("CO", positions=coords(frames[0]))
     workspace = SimpleNamespace(
         atoms_model=model, atoms_model_lh=model.copy(), model_pdb=pdbs[0],
@@ -355,8 +360,8 @@ def run_all(
     args = ["all", *[a for path in inputs for a in ("-i", str(path))]]
     if xyz_inputs:
         args += ["--ref-pdb", str(pdbs[0])]
-    args += ["-q", "0", "-m", "1", "--parm", str(parm), "--model-pdb", str(pdbs[0]),
-             "--out-dir", str(out), "--no-preopt", *extra]
+    args += ["-q", "0", "-m", "1", *(["--parm", str(parm_file)] if parm else []),
+             "--model-pdb", str(pdbs[0]), "--out-dir", str(out), "--no-preopt", *extra]
     result = CliRunner().invoke(root_cli, args)
     return AllRun(out=out, result=result, calls=calls, events=events)
 

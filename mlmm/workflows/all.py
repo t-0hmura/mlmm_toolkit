@@ -6312,6 +6312,33 @@ def cli(
     if parm7_override is not None:
         real_parm7_path = parm7_override.resolve()
         _echo_detail(f"[all] parm7 (--parm override) → {real_parm7_path}")
+    elif resuming:
+        # Reuse the parm7 the completed MEP was computed with instead of
+        # rebuilding it: a rebuilt parm7 need not reproduce its AM1-BCC charges
+        # bit for bit. Inputs and mm-parm options are checked through the
+        # resume identity; the saved file is checked against its recorded hash.
+        real_parm7_path = (
+            out_dir / "mm_parm" / f"{_original_input_paths[0].stem}.parm7"
+        ).resolve()
+        _recorded_identity = (previous_root_summary or {}).get("resume_identity")
+        _recorded_request = (
+            _recorded_identity.get("path_request")
+            if isinstance(_recorded_identity, dict)
+            else None
+        )
+        _recorded_parm7_sha = (
+            _recorded_request.get("parm7_sha256")
+            if isinstance(_recorded_request, dict)
+            else None
+        )
+        if not real_parm7_path.is_file() or (
+            _recorded_parm7_sha is not None
+            and parm7_content_sha256(real_parm7_path) != _recorded_parm7_sha
+        ):
+            raise click.ClickException(
+                f"Saved parm7 does not match the completed MEP: {real_parm7_path}"
+            )
+        _echo_detail(f"[all] parm7 (saved by the completed MEP) → {real_parm7_path}")
     else:
         _echo_detail(f"[all] mm_parm source PDB → {pdb_for_mm_parm}")
         mm_dir = preparation_out_dir / "mm_parm"  # reusable deliverable (parm7/rst7 = --parm input for follow-up runs)
@@ -6607,17 +6634,7 @@ def cli(
             if template is not None and coordinate_template_for(saved) is None:
                 register_coordinate_template(saved, template)
             saved_layered_inputs.append(saved.resolve())
-        if parm7_override is None:
-            saved_parm7 = out_dir / "mm_parm" / real_parm7_path.name
-            if (
-                not saved_parm7.is_file()
-                or parm7_content_sha256(saved_parm7)
-                != recorded_path_request["parm7_sha256"]
-            ):
-                raise click.ClickException(
-                    f"Saved parm7 does not match the completed MEP: {saved_parm7}"
-                )
-            real_parm7_path = saved_parm7.resolve()
+        # The saved parm7 is already in use (checked where the parm7 is chosen).
         ml_region_pdb = saved_model_region.resolve()
         layered_inputs = saved_layered_inputs
         _layer_summary_counts = _summarize_existing_bfactor_layers(layered_inputs[0])

@@ -4,6 +4,7 @@ input/topology checks."""
 from __future__ import annotations
 
 import stat
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -78,6 +79,73 @@ def test_run_executes_the_resolved_environment_path(monkeypatch) -> None:
 
     assert mm_parm.run(["tleap", "-f", "input.in"]) == 0
     assert seen == [["/env/bin/tleap", "-f", "input.in"]]
+
+
+def test_run_sets_the_given_variables_on_top_of_the_environment(monkeypatch) -> None:
+    seen = []
+
+    class FakePopen:
+        def __init__(self, _argv, **kwargs):
+            seen.append(kwargs["env"])
+            self.stdout = []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        @staticmethod
+        def wait():
+            return 0
+
+    monkeypatch.setattr(mm_parm, "which", lambda cmd: f"/env/bin/{cmd}")
+    monkeypatch.setattr(mm_parm.subprocess, "Popen", FakePopen)
+    monkeypatch.setenv("MLMM_TEST_SENTINEL", "kept")
+    monkeypatch.setenv("OMP_NUM_THREADS", "16")
+
+    mm_parm.run(["tleap"])
+    mm_parm.run(["antechamber"], env={"OMP_NUM_THREADS": "1"})
+
+    assert seen[0] is None  # inherit the environment unchanged
+    assert seen[1]["MLMM_TEST_SENTINEL"] == "kept"
+    assert seen[1]["OMP_NUM_THREADS"] == "1"
+
+
+def test_antechamber_runs_single_threaded_with_a_fixed_sqm_diagonalizer(
+    tmp_path, monkeypatch,
+) -> None:
+    """The AM1-BCC charges must not depend on the machine load (sqm otherwise
+    times its diagonalizers and keeps the fastest; threaded BLAS adds noise)."""
+    (tmp_path / "LIG.pdb").write_text(
+        "HETATM    1  O1  LIG A   1       0.000   0.000   0.000  1.00  0.00           O\n"
+        "HETATM    2  H1  LIG A   1       0.957   0.000   0.000  1.00  0.00           H\n"
+        "HETATM    3  H2  LIG A   1      -0.240   0.927   0.000  1.00  0.00           H\n"
+        "END\n",
+        encoding="utf-8",
+    )
+    calls = []
+
+    def fake_run(cmd, cwd=None, logfile=None, env=None):
+        calls.append((list(cmd), env))
+        output = {"antechamber": "LIG.mol2", "parmchk2": "LIG.frcmod"}[cmd[0]]
+        (Path(cwd) / output).write_text("fixture\n", encoding="utf-8")
+        return 0
+
+    monkeypatch.setattr(mm_parm, "run", fake_run)
+
+    mm_parm.antechamber_parametrize("LIG", 0, 1, tmp_path)
+
+    antechamber, env = calls[0]
+    assert antechamber[0] == "antechamber"
+    assert antechamber[antechamber.index("-c") + 1] == "bcc"
+    keywords = antechamber[antechamber.index("-ek") + 1]
+    # antechamber's own default sqm keywords for -c bcc, plus one fixed diagonalizer
+    assert keywords == (
+        "qm_theory='AM1', grms_tol=0.0005, scfconv=1.d-10, ndiis_attempts=700, "
+        "diag_routine=7,"
+    )
+    assert env == {"OMP_NUM_THREADS": "1", "MKL_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1"}
 
 
 def test_second_tleap_pass_cannot_reuse_first_pass_outputs(
