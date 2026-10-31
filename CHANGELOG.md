@@ -14,6 +14,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 ### Added
 
 - `all --precision-post tf32|fp32|fp64` sets the MLIP precision of TS optimization, IRC, the endpoint optimizations and freq; unset, they use `--precision`. The root `summary.json` records it as `mlip_precision_post`.
+- A run that stops because UMA finds no compiler (C on a GPU, C++ on a CPU) or Chrome cannot start prints `Missing system prerequisite: ...` with the install commands and the docs page, not a PyTorch or Kaleido traceback; the exit status is unchanged. The docs and skills list these prerequisites.
 
 ### Changed
 
@@ -27,6 +28,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- The job-script templates in the docs and skills run `conda activate` between `set +u` and `set -u`; with `set -euo pipefail` the activate script of conda-forge's `cuda-nvcc` stopped with "NVCC_PREPEND_FLAGS: unbound variable".
 - GPU DFT (`-b dft`, `dft`) loads the environment's libcusolver when the system has no CUDA toolkit registered; gpu4pyscf searched only the system library cache, so a node with only the NVIDIA driver stopped with "Unable to load libcusolver".
 - `all --resume-segment` reuses the parm7 saved by the completed MEP, checked against its recorded hash, instead of rebuilding it, so a rebuilt parm7 with other AM1-BCC charges no longer refuses the resume ("path_request changed"); changed inputs or a different `--parm` still do.
 - `all` with a TS-only input: when the endpoint optimization fails, the root `summary.json` records the full `config` like the other exits and `summary.log` is listed; TS-only runs also record `config.mep_mode`. An error while comparing IRC endpoints with the MEP bonds is reported as `bond_change_check_failed:<error>` instead of a bond mismatch.

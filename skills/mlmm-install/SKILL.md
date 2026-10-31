@@ -1,6 +1,6 @@
 ---
 name: mlmm-install
-description: "Install recipes for mlmm-toolkit core, AmberTools, and the ML backends (UMA, Orb, MACE, AIMNet2), plus the optional DFT (PySCF/GPU4PySCF) and xTB pieces, the CUDA/PyTorch wheel choice, and a probe for an unknown machine (scheduler, GPU, CUDA, conda env). `backends.md` holds per-backend notes and the probe; `ambertools.md` covers tleap and antechamber. TRIGGER on install / setup / `pip install` / `conda env` / `ImportError` / CUDA mismatch / 'GPU not detected' / `huggingface` auth / e3nn conflict / `tleap` not found, or when the compute environment is unknown. SKIP when mlmm imports cleanly and the user is running subcommands; the CLI skill covers usage."
+description: "Install recipes for mlmm-toolkit core, AmberTools, and the ML backends (UMA, Orb, MACE, AIMNet2), plus the optional DFT (PySCF/GPU4PySCF) and xTB pieces, the CUDA/PyTorch wheel choice, and a probe for an unknown machine (scheduler, GPU, CUDA, conda env). `backends.md` holds per-backend notes and the probe; `ambertools.md` covers tleap and antechamber. TRIGGER on install / setup / `pip install` / `conda env` / `ImportError` / CUDA mismatch / 'GPU not detected' / `huggingface` auth / e3nn conflict / `tleap` not found / a `Missing system prerequisite:` message (compiler, Chrome libraries), or when the compute environment is unknown. SKIP when mlmm imports cleanly and the user is running subcommands; the CLI skill covers usage."
 ---
 
 # Install mlmm-toolkit
@@ -43,6 +43,47 @@ pip install mlmm-toolkit                 # UMA via fairchem-core
 plotly_get_chrome -y                     # headless Chrome; needs network
 hf auth login                            # after accepting the license on facebook/UMA
 ```
+
+## System packages
+
+pip and conda do not install the libraries of Chrome, and an environment built
+without `cxx-compiler` has no compiler; a bare container or cluster node often
+lacks both. UMA builds code the first time it runs: a GPU run needs a C compiler
+(`gcc`), a CPU run a C++ compiler (`g++`), and `hessian_ff` a C++20 compiler.
+PNG export needs the operating-system libraries of the Chrome that
+`plotly_get_chrome -y` downloads. The conda command above installs the
+compilers; check with `gcc --version` (`g++ --version` on a CPU), then install
+what is missing:
+
+```bash
+sudo apt-get update && sudo apt-get install -y gcc g++    # Ubuntu/Debian
+sudo dnf install -y gcc gcc-c++                            # Rocky/RHEL
+```
+
+Without sudo, use `module load gcc` or `conda install -c conda-forge c-compiler cxx-compiler`;
+ask the administrator for Chrome's libraries (`all` and `path-search` then skip
+only the PNG files). The Chrome libraries are, for Ubuntu/Debian (Ubuntu 22.04 and
+Debian 12: `libasound2` instead of `libasound2t64`):
+
+```bash
+sudo apt-get update
+sudo apt-get install -y ca-certificates fonts-liberation libasound2t64 libatk-bridge2.0-0 \
+  libatk1.0-0 libatspi2.0-0 libcairo2 libcups2 libcurl4 libdbus-1-3 libexpat1 libgbm1 \
+  libglib2.0-0 libgtk-3-0 libnspr4 libnss3 libpango-1.0-0 libudev1 libvulkan1 libx11-6 libxcb1 \
+  libxcomposite1 libxdamage1 libxext6 libxfixes3 libxkbcommon0 libxrandr2 wget xdg-utils
+```
+
+and for Rocky/RHEL:
+
+```bash
+sudo dnf install -y alsa-lib at-spi2-atk at-spi2-core atk ca-certificates cairo cups-libs \
+  dbus-libs expat glib2 gtk3 libX11 libXcomposite libXdamage libXext libXfixes libXrandr \
+  libgcc liberation-fonts libxcb libxkbcommon mesa-libgbm nspr nss nss-util pango systemd-libs \
+  vulkan-loader wget xdg-utils
+```
+
+A missing one stops the command with `Missing system prerequisite:` and the same
+commands. Docs: [System prerequisites](../../docs/installation.md#system-prerequisites).
 
 ## Install the core
 
@@ -181,6 +222,8 @@ backend's section in [backends.md](backends.md); a CUDA error points to
 | `OSError: libcusolver.so.11 not found` | torch's bundled CUDA libraries missing or shadowed by `LD_LIBRARY_PATH` | [CUDA and PyTorch](backends.md#cuda-and-pytorch) |
 | `RuntimeError: CUDA out of memory` during `freq` | Active Hessian exceeds GPU memory | Reduce the active region, keep `return_partial_hessian: true`, and compare `Analytical` with `FiniteDifference` on a pilot ([freq](../mlmm-cli/freq.md)) |
 | `tleap: command not found` | AmberTools missing or not sourced | [ambertools.md](ambertools.md) |
+| `Missing system prerequisite: C compiler (gcc).` or `C++ compiler (g++).`; a PyTorch error `Failed to find C compiler` or `No working C++ compiler found` | No compiler on `PATH`; UMA builds code the first time it runs | Install `gcc` (`g++` on a CPU): [System packages](#system-packages); on a cluster, `module load gcc` in the job script |
+| `Missing system prerequisite: Chrome for PNG export.`, or `path-search` / `all` finish without the diagram PNG | No headless Chrome for Plotly, or an operating-system library it needs is missing | `plotly_get_chrome -y`, then the libraries in [System packages](#system-packages) |
 
 ## Upgrade and clean rebuild
 

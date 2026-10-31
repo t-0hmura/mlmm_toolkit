@@ -14,6 +14,7 @@ from pathlib import Path
 import click
 
 from mlmm.cli.bool_compat import normalize_argv_option_names as _normalize_argv_option_names
+from mlmm.core.prerequisites import exit_if_missing_prerequisite
 
 LazySubcommands = Mapping[str, tuple[str, str, str]]
 BoolOptionsByCommand = Mapping[str, frozenset[str]]
@@ -636,6 +637,15 @@ class DefaultGroup(click.Group):
                 except Exception:
                     pass
 
+    def _invoke_command(self, ctx):
+        """Run the selected command; an error that escapes it and names a missing system
+        prerequisite ends with the install guidance instead of a traceback."""
+        try:
+            return super().invoke(ctx)
+        except Exception as exc:
+            exit_if_missing_prerequisite(exc)
+            raise
+
     def invoke(self, ctx):
         # Add a leading blank line for subcommands (except "all") to separate CLI tool logs.
         if ctx.invoked_subcommand and ctx.invoked_subcommand != "all":
@@ -645,13 +655,13 @@ class DefaultGroup(click.Group):
         self._silence_pysisyphus_loggers()
         run_log_dir = self._run_log_directory(ctx)
         if run_log_dir is None:
-            return super().invoke(ctx)
+            return self._invoke_command(ctx)
 
         raw = list(ctx.meta.get("mlmm.cli.raw_args") or ())
         sink = _RunLogSink(run_log_dir, f"[command] {shlex.join(['mlmm', *raw])}\n")
         try:
             with _capture_run_log(sink):
-                return super().invoke(ctx)
+                return self._invoke_command(ctx)
         finally:
             sink.close()
             if sink.error is not None:

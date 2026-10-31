@@ -104,6 +104,7 @@ summary.json    # result.json と同じ内容（--out-json 指定時）
 * **計算し直したエネルギーは MLIP のエネルギー**: MLIP はフレームの全原子を ML/MM に分けずに計算するので、結果は ML/MM ONIOM のエネルギーではありません。mlmm の軌跡の ONIOM エネルギーを描くときは、`-q`・`-m` を付けずにコメント行から読んでください。
 * **エネルギーを読めないコメント行**は、そのフレームを示すエラーで止まります。
 * **対応しない拡張子**はエラーで止まります。
+* **PNG には Chrome が要ります**: Chrome またはその OS のライブラリが無いと、`Missing system prerequisite: Chrome for PNG export.` で止まります。{ref}`システムの前提パッケージ <ja-system-prerequisites>` のとおり入れてください。
 * **終了コード**: {ref}`終了コード <ja-exit-codes>`を参照してください。
 
 ---

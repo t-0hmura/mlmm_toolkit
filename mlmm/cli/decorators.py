@@ -14,6 +14,7 @@ from typing import Any, Dict, Optional, Tuple
 
 import click
 
+from mlmm.core.prerequisites import exit_if_missing_prerequisite
 from mlmm.core.utils import load_yaml_dict
 
 logger = logging.getLogger(__name__)
@@ -212,7 +213,8 @@ def render_cli_exception(
 
     User-input errors (Click UsageError/BadParameter/ClickException, a
     malformed --config/override YAML) print a clean one-line ``Error:`` and exit with the conventional
-    code (2). Everything else falls through to the full traceback (exit 1)
+    code (2). A known missing system prerequisite (a compiler, Chrome's libraries) prints its
+    install guidance (exit 1). Everything else falls through to the full traceback (exit 1)
     so genuine internal bugs stay visible — no exception masking. Always
     calls sys.exit (never returns).
     """
@@ -220,6 +222,7 @@ def render_cli_exception(
         # _write_error_json is best-effort and swallows its own errors
         # internally (see its definition), so it cannot mask the real error.
         _write_error_json(Path(out_dir).resolve(), command, e, label, time_start)
+    exit_if_missing_prerequisite(e)
     if isinstance(e, click.ClickException):
         e.show()
         click.echo(

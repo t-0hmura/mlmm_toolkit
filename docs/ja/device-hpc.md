@@ -90,9 +90,11 @@ cd "${PBS_O_WORKDIR}"
 # コンパイラがない、または C++20 モードでコンパイルできない場合は、サイトのコンパイラモジュールを読み込みます:
 # module load <COMPILER_MODULE>
 
-# conda 環境の有効化
+# conda 環境の有効化（set +u: conda の activate スクリプト、たとえば cuda-nvcc のものは未設定の変数を読む）
+set +u
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate <your-env>
+set -u
 # hessian_ff は $CXX、なければ env の conda の g++、それもなければ c++ でビルドする
 CXX_CMD="${CXX:-}"
 if [ -z "${CXX_CMD}" ]; then
@@ -132,8 +134,10 @@ hostname
 
 # hessian_ff は初回利用時に C++ カーネルを JIT ビルドします。必要な場合:
 # module load <COMPILER_MODULE>
+set +u    # conda の activate スクリプトは未設定の変数を読む
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate <your-env>
+set -u
 # hessian_ff は $CXX、なければ env の conda の g++、それもなければ c++ でビルドする
 CXX_CMD="${CXX:-}"
 if [ -z "${CXX_CMD}" ]; then
@@ -185,7 +189,7 @@ mlmm opt -i r_complex_layered.pdb --parm7 real.parm7 -q -1 --config config.yaml
 * **ML 推論は GPU 1 基**: デフォルトの `--uma-workers 1` では、ML 推論は `ml_cuda_idx` の GPU 1 基で動きます。`--uma-workers` を 2 以上にする場合は [MLIP バックエンド › ワーカーと Hessian の計算方式](backends.md#ワーカーと-hessian-の計算方式) を参照してください。
 * **ML と MM を同じ GPU に置くとメモリを共有する**: 両方を同じ CUDA デバイスで動かすときは、代表的な試験計算でピークメモリを測り、大きな系では `mm_device: cpu` を使ってください。
 * **`--hess-device cpu` でもすべての out-of-memory は防げない**: Hessian の計算中にバックエンドの中で起きる out-of-memory は、Hessian を移す前に起きます。モデルを小さくするか、メモリの少ない Hessian やバックエンドの設定を選んでください。
-* **各計算ノードに C++ コンパイラが要る**: デフォルトの `hessian_ff` MM バックエンドは、初回利用時に C++ カーネルを JIT ビルドします。これは CUDA とは関係なく行われます。各計算ノードに C++20 対応のコンパイラと Ninja が必要です（GCC 13.3 で検証済み）。hessian_ff は `$CXX`、なければ env の conda の `g++`（`cxx-compiler` が入れるもの）、それもなければ `c++` を使います。そのコンパイラがない、または古い場合はコンパイラモジュールを読み込んでください。上のジョブスクリプトは両方を確かめます。
+* **各計算ノードに C++ コンパイラが要る**: デフォルトの `hessian_ff` MM バックエンドは、初回利用時に C++ カーネルを JIT ビルドします。これは CUDA とは関係なく行われます。各計算ノードに C++20 対応のコンパイラと Ninja が必要です（GCC 13.3 で検証済み）。hessian_ff は `$CXX`、なければ env の conda の `g++`（`cxx-compiler` が入れるもの）、それもなければ `c++` を使います。そのコンパイラがない、または古い場合はコンパイラモジュールを読み込んでください。上のジョブスクリプトは両方を確かめます。UMA も実行時にコードをビルドするため C コンパイラ（`gcc`。CPU では `g++`）が要り、conda のコンパイラがこれにも使われます。
 
 ---
 

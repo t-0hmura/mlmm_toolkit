@@ -107,6 +107,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │   ├── logging.py -v/--verbose LEVEL (0–3) logging wiring
 │   ├── calc_eval.py per-stage calc evaluation
 │   ├── output.py / result_commit.py output/result commit helpers
+│   ├── prerequisites.py guidance for a missing compiler or Chrome library
 │   ├── pes_composition.py energy-component composition
 │   └── residue_data.py residue tables
 │
@@ -263,6 +264,7 @@ implementation changes currently touch `mlmm_calc.py` and the dispatcher.
 | `-v/--verbose LEVEL` (0–3) logging wiring | `mlmm/core/logging.py` |
 | Per-stage calc evaluation | `mlmm/core/calc_eval.py` |
 | Output/result commit helpers | `mlmm/core/output.py`, `mlmm/core/result_commit.py` |
+| Guidance for a missing compiler or Chrome library | `mlmm/core/prerequisites.py` |
 | Energy-component composition | `mlmm/core/pes_composition.py` |
 | Residue tables | `mlmm/core/residue_data.py` |
 

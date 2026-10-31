@@ -22,6 +22,8 @@ pip install mlmm-toolkit
 plotly_get_chrome -y
 ```
 
+PNG export needs operating-system libraries that pip and conda do not install; install them first if they are missing: {ref}`System prerequisites <system-prerequisites>`.
+
 Finally, log in to **Hugging Face Hub** so that UMA models can be downloaded. It needs a free HF account with a read-only token. Accept the FAIR Chemistry License v1 at <https://huggingface.co/facebook/UMA> first:
 
 ```bash
@@ -37,6 +39,39 @@ Check the installation with `mlmm --version`, which prints the installed version
 ### Optional
 
 ORB, AIMNet2, MACE, and DFT are installed in step 7 of {ref}`Step-by-step installation <step-by-step-installation>`.
+
+(system-prerequisites)=
+## System prerequisites
+
+pip and conda do not install the libraries Chrome needs, and an environment built without `cxx-compiler` has no compiler. A workstation usually has them; a minimal container or a bare cluster node often does not.
+
+- **A compiler.** UMA builds code the first time it runs: a GPU run needs a C compiler (`gcc`), and a CPU run needs a C++ compiler (`g++`). `hessian_ff` needs a C++20 compiler. The conda command of Quick install installs them (`cxx-compiler`).
+- **Libraries for Chrome.** PNG figures (`energy-diagram`, `trj2fig`, and the diagrams of `all`) are drawn by headless Chrome, which `plotly_get_chrome -y` downloads. Chrome loads the operating-system libraries below.
+
+Ubuntu/Debian (on Ubuntu 22.04 and Debian 12, write `libasound2` instead of `libasound2t64`; drop `sudo` if you are root):
+
+```bash
+sudo apt-get update
+sudo apt-get install -y gcc g++
+sudo apt-get install -y ca-certificates fonts-liberation libasound2t64 libatk-bridge2.0-0 \
+  libatk1.0-0 libatspi2.0-0 libcairo2 libcups2 libcurl4 libdbus-1-3 libexpat1 libgbm1 \
+  libglib2.0-0 libgtk-3-0 libnspr4 libnss3 libpango-1.0-0 libudev1 libvulkan1 libx11-6 libxcb1 \
+  libxcomposite1 libxdamage1 libxext6 libxfixes3 libxkbcommon0 libxrandr2 wget xdg-utils
+```
+
+Rocky/RHEL:
+
+```bash
+sudo dnf install -y gcc gcc-c++
+sudo dnf install -y alsa-lib at-spi2-atk at-spi2-core atk ca-certificates cairo cups-libs \
+  dbus-libs expat glib2 gtk3 libX11 libXcomposite libXdamage libXext libXfixes libXrandr \
+  libgcc liberation-fonts libxcb libxkbcommon mesa-libgbm nspr nss nss-util pango systemd-libs \
+  vulkan-loader wget xdg-utils
+```
+
+Without sudo (HPC), run `module load gcc`, or add the compilers to your environment with `conda install -c conda-forge c-compiler cxx-compiler`. Ask the administrator for Chrome's libraries; without them `all` and `path-search` still finish and only skip the PNG files.
+
+If one is missing, the command stops and prints `Missing system prerequisite:` followed by these commands.
 
 (step-by-step-installation)=
 ## Step-by-step installation
@@ -75,6 +110,8 @@ If you prefer to build the environment piece by piece:
     pip install mlmm-toolkit
     plotly_get_chrome -y
     ```
+
+    The libraries Chrome needs are system packages: see {ref}`System prerequisites <system-prerequisites>`.
 
     The `hessian_ff` kernels are built automatically on first use. If the build fails, see {ref}`hessian_ff build / import <hessian_ff-build--import>` for a manual rebuild.
 

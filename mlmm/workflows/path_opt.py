@@ -77,6 +77,7 @@ from mlmm.core.utils import (
 from mlmm.cli.common_options import add_ml_layer_detection_options, add_precision_option, add_workers_options, add_backend_model_option, add_calc_file_option, add_deterministic_option, add_allow_charge_mult_mismatch_option
 from mlmm.cli.common_options import add_dft_calculator_options
 from mlmm.cli.decorators import load_merged_yaml_cfg, make_is_param_explicit, _write_error_json, render_cli_exception
+from mlmm.core.prerequisites import exit_if_missing_prerequisite
 from mlmm.workflows.align_freeze import (
     align_and_refine_sequence_inplace,
     alignment_failed_pair_indices,
@@ -1857,6 +1858,7 @@ def cli(
                         err=True,
                     )
                 else:
+                    exit_if_missing_prerequisite(e)
                     tb = "".join(traceback.format_exception(type(e), e, e.__traceback__))
                     click.echo(f"[dmf] ERROR: DMF optimization failed:\n{textwrap.indent(tb, '  ')}", err=True)
                 _write_error_json(

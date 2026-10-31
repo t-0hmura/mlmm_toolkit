@@ -90,9 +90,11 @@ cd "${PBS_O_WORKDIR}"
 # is missing or cannot compile in C++20 mode, load the site's compiler module here:
 # module load <COMPILER_MODULE>
 
-# Activate conda environment
+# Activate conda environment (set +u: conda's activate scripts, for example cuda-nvcc, read unset variables)
+set +u
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate <your-env>
+set -u
 # hessian_ff builds with $CXX, else the env's conda g++, else c++
 CXX_CMD="${CXX:-}"
 if [ -z "${CXX_CMD}" ]; then
@@ -132,8 +134,10 @@ hostname
 
 # hessian_ff JIT-compiles C++ kernels on first use. If needed:
 # module load <COMPILER_MODULE>
+set +u    # conda's activate scripts read unset variables
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate <your-env>
+set -u
 # hessian_ff builds with $CXX, else the env's conda g++, else c++
 CXX_CMD="${CXX:-}"
 if [ -z "${CXX_CMD}" ]; then
@@ -185,7 +189,7 @@ mlmm opt -i r_complex_layered.pdb --parm7 real.parm7 -q -1 --config config.yaml
 * **One GPU for ML inference**: with the default `--uma-workers 1`, ML inference runs on the one GPU set by `ml_cuda_idx`. For `--uma-workers` above 1, see [MLIP Backends › Workers and Hessian mode](backends.md#workers-and-hessian-mode).
 * **ML and MM on one GPU share its memory**: when both use CUDA on the same device, measure the peak memory on a representative test run, and use `mm_device: cpu` for a large system.
 * **`--hess-device cpu` does not prevent every out-of-memory error**: an out-of-memory error inside the backend while the Hessian is being evaluated happens before the Hessian is moved. Make the model smaller, or choose a Hessian or backend setting that uses less memory.
-* **C++ compiler on every compute node**: the default `hessian_ff` MM backend JIT-compiles C++ kernels on first use, independently of CUDA. Every compute node needs a C++20-capable compiler and Ninja (GCC 13.3 was validated); hessian_ff uses `$CXX` if set, else the env's conda `g++` (from `cxx-compiler`), else `c++`; load a compiler module when that compiler is absent or too old. The job scripts above check both.
+* **C++ compiler on every compute node**: the default `hessian_ff` MM backend JIT-compiles C++ kernels on first use, independently of CUDA. Every compute node needs a C++20-capable compiler and Ninja (GCC 13.3 was validated); hessian_ff uses `$CXX` if set, else the env's conda `g++` (from `cxx-compiler`), else `c++`; load a compiler module when that compiler is absent or too old. The job scripts above check both. UMA also builds code at run time and needs a C compiler (`gcc`; `g++` on a CPU): the conda compilers serve it too.
 
 ---
 

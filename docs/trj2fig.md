@@ -104,6 +104,7 @@ See the [generated CLI reference](reference/commands/trj2fig.md) for every optio
 * **Recomputed energies are MLIP energies**: the MLIP computes every atom of the frame, with no ML/MM split, so the result is not the ML/MM ONIOM energy. To plot the ONIOM energy of an mlmm trajectory, read its comment lines (no `-q` or `-m`).
 * **Comments without a readable energy** stop the run with an error that names the frame.
 * **Unsupported extensions** stop the run with an error.
+* **PNG needs Chrome**: without Chrome or its operating-system libraries the run stops with `Missing system prerequisite: Chrome for PNG export.`; install them as in {ref}`System prerequisites <system-prerequisites>`.
 * **Exit codes**: see {ref}`Exit codes <exit-codes>`.
 
 ---

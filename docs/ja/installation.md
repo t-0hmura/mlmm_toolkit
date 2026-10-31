@@ -22,6 +22,8 @@ pip install mlmm-toolkit
 plotly_get_chrome -y
 ```
 
+PNG の出力には、pip と conda が入れない OS のライブラリが要ります。足りないときは先に入れてください: {ref}`システムの前提パッケージ <ja-system-prerequisites>`。
+
 最後に、UMA モデルをダウンロードできるように **Hugging Face Hub** にログインします。無料の HF アカウントと読み取り専用トークンが必要で、先に <https://huggingface.co/facebook/UMA> で FAIR Chemistry License v1 に同意します:
 
 ```bash
@@ -37,6 +39,39 @@ hf auth login --token '<YOUR_ACCESS_TOKEN>' --add-to-git-credential
 ### 任意
 
 ORB・AIMNet2・MACE・DFT の導入は {ref}`詳細なインストール手順 <ja-step-by-step-installation>` の手順 7 を参照してください。
+
+(ja-system-prerequisites)=
+## システムの前提パッケージ
+
+pip と conda は Chrome が使うライブラリを入れません。また `cxx-compiler` を入れずに作った環境にはコンパイラがありません。ワークステーションには通常ありますが、最小構成のコンテナや素のクラスターノードにはないことが多いです。
+
+- **コンパイラ:** UMA は初回の実行時にコードをビルドします。GPU では C コンパイラ（`gcc`）、CPU では C++ コンパイラ（`g++`）が要ります。`hessian_ff` には C++20 対応コンパイラが要ります。最短のインストールの conda のコマンドは、これらを入れます（`cxx-compiler`）。
+- **Chrome 用のライブラリ:** PNG の図（`energy-diagram`、`trj2fig`、`all` の図）はヘッドレス Chrome で描きます。Chrome は `plotly_get_chrome -y` でダウンロードし、下の OS のライブラリを読み込みます。
+
+Ubuntu/Debian（Ubuntu 22.04 と Debian 12 では `libasound2t64` の代わりに `libasound2` と書きます。root なら `sudo` は不要）:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y gcc g++
+sudo apt-get install -y ca-certificates fonts-liberation libasound2t64 libatk-bridge2.0-0 \
+  libatk1.0-0 libatspi2.0-0 libcairo2 libcups2 libcurl4 libdbus-1-3 libexpat1 libgbm1 \
+  libglib2.0-0 libgtk-3-0 libnspr4 libnss3 libpango-1.0-0 libudev1 libvulkan1 libx11-6 libxcb1 \
+  libxcomposite1 libxdamage1 libxext6 libxfixes3 libxkbcommon0 libxrandr2 wget xdg-utils
+```
+
+Rocky/RHEL:
+
+```bash
+sudo dnf install -y gcc gcc-c++
+sudo dnf install -y alsa-lib at-spi2-atk at-spi2-core atk ca-certificates cairo cups-libs \
+  dbus-libs expat glib2 gtk3 libX11 libXcomposite libXdamage libXext libXfixes libXrandr \
+  libgcc liberation-fonts libxcb libxkbcommon mesa-libgbm nspr nss nss-util pango systemd-libs \
+  vulkan-loader wget xdg-utils
+```
+
+sudo が使えない HPC では、`module load gcc` か、環境へのコンパイラの追加（`conda install -c conda-forge c-compiler cxx-compiler`）を使います。Chrome のライブラリは管理者に依頼してください。入っていなくても `all` と `path-search` は最後まで実行され、PNG だけが作られません。
+
+どれかが足りないときは、コマンドが止まり、`Missing system prerequisite:` に続けて同じコマンドを表示します。
 
 (ja-step-by-step-installation)=
 ## 詳細なインストール手順
@@ -73,6 +108,8 @@ ORB・AIMNet2・MACE・DFT の導入は {ref}`詳細なインストール手順 
     pip install mlmm-toolkit
     plotly_get_chrome -y
     ```
+
+    Chrome が使うライブラリはシステムのパッケージです: {ref}`システムの前提パッケージ <ja-system-prerequisites>` を参照してください。
 
     `hessian_ff` のカーネルは初回の使用時に自動でビルドされます。ビルドが失敗したときの手動の再ビルドは、{ref}`hessian_ff ビルドの問題 <ja-hessian_ff-build--import>` を参照してください。
 

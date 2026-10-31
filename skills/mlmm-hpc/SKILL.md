@@ -37,14 +37,18 @@ command -v conda >/dev/null || { echo "conda not on PATH"; exit 1; }
 nvidia-smi -L >/dev/null     || { echo "no GPU visible"; exit 1; }
 
 # Prebuilt PyTorch/backend wheels need a compatible NVIDIA driver, not a local
-# CUDA toolkit module. hessian_ff still JIT-compiles C++ kernels on first use;
+# CUDA toolkit module. hessian_ff still JIT-compiles C++ kernels on first use
+# (UMA also builds code at run time with the env's compiler);
 # if the compiler checked below cannot compile in C++20 mode, load <COMPILER_MODULE> here.
 # Load <CUDA_MODULE> separately only for an extension that needs that toolkit.
 # The default workers=1 run needs no MPI launcher.
 
-# Conda env (<YOUR_ENV> from backends.md, Probe the compute environment)
+# Conda env (<YOUR_ENV> from backends.md, Probe the compute environment).
+# set +u: conda's activate scripts (for example cuda-nvcc) read unset variables.
+set +u
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate <YOUR_ENV>
+set -u
 python -c "import sys, torch; ok=torch.cuda.is_available(); print('cuda:', ok, 'device:', torch.cuda.get_device_name(0) if ok else 'unavailable'); sys.exit(0 if ok else 2)"
 # hessian_ff builds with $CXX, else the env's conda g++, else c++
 CXX_CMD="${CXX:-}"
@@ -93,8 +97,10 @@ command -v conda >/dev/null || { echo "ERROR: conda not on PATH"; exit 1; }
 nvidia-smi -L >/dev/null || { echo "ERROR: no GPU visible"; exit 1; }
 # Prebuilt wheels need no CUDA toolkit module. hessian_ff needs a C++20-capable compiler;
 # load <COMPILER_MODULE> here if the compiler checked below is missing or too old.
+set +u    # conda's activate scripts read unset variables
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate <YOUR_ENV>
+set -u
 python -c "import sys, torch; ok=torch.cuda.is_available(); print('cuda:', ok, 'device:', torch.cuda.get_device_name(0) if ok else 'unavailable'); sys.exit(0 if ok else 2)"
 # hessian_ff builds with $CXX, else the env's conda g++, else c++
 CXX_CMD="${CXX:-}"

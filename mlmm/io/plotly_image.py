@@ -10,6 +10,12 @@ import uuid
 from pathlib import Path
 from typing import Any, Mapping
 
+from mlmm.core.prerequisites import (
+    KIND_CHROME,
+    MissingPrerequisiteError,
+    is_chrome_failure,
+)
+
 
 PLOTLY_IMAGE_TIMEOUT_SECONDS = 600.0
 
@@ -152,6 +158,8 @@ def write_plotly_image(
         temporary.unlink(missing_ok=True)
         destination.unlink(missing_ok=True)
         detail = result[1] if result is not None else f"worker exit code {process.exitcode}"
+        if is_chrome_failure(detail):
+            raise MissingPrerequisiteError(KIND_CHROME, f"Plotly image export failed: {detail}")
         raise RuntimeError(f"Plotly image export failed: {detail}")
 
     return destination

@@ -25,7 +25,8 @@
 | `hessian_ff` のビルドや import のエラー（`hessian_ff build attempts failed`） | C++20 のコンパイラを確かめ、ネイティブ拡張を作り直してください | {ref}`hessian_ff ビルドの問題 <ja-hessian_ff-build--import>` |
 | DMF モードの import エラー（`DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2`） | `cyipopt` はインストールの conda のコマンドで conda-forge から入り、`pydmf` は `mlmm-toolkit` と一緒に入ります。デフォルトの GPU 版でそれでもインポートに失敗するときは、`pip install 'pydmf[torch]'` | {ref}`インストール / 環境の問題 <ja-installation-environment-problems>` |
 | CUDA / GPU の実行時エラー | GPU、PyTorch のビルド、ドライバをまとめて確かめてください | {ref}`インストール / 環境の問題 <ja-installation-environment-problems>` |
-| 図の出力に失敗する | `plotly_get_chrome -y` でヘッドレス Chrome を入れてください | {ref}`インストール / 環境の問題 <ja-installation-environment-problems>` |
+| `Missing system prerequisite: C compiler (gcc).` または `C++ compiler (g++).` | コンパイラを入れてください。UMA は初回の実行時にコードをビルドします | {ref}`システムの前提パッケージ <ja-system-prerequisites>` |
+| 図の出力に失敗する（`Missing system prerequisite: Chrome for PNG export.`） | `plotly_get_chrome -y` を実行し、続けて Chrome が使うライブラリを入れてください | {ref}`システムの前提パッケージ <ja-system-prerequisites>` |
 
 ## 実行前チェックリスト
 
@@ -36,6 +37,7 @@
 - 入力の PDB/mmCIF に **水素** と **元素記号** が入っている。
 - 複数の PDB を与える場合、**同じ原子が同じ順序** で並んでいる。
 - `tleap`、`antechamber`、`parmchk2` が `$PATH` にある。
+- `PATH` 上にコンパイラがある（`gcc`。CPU では `g++`）。PNG の図が要るときは Chrome のライブラリも入っている: {ref}`システムの前提パッケージ <ja-system-prerequisites>`。
 - `hessian_ff` の C++ 拡張が初回の使用時にビルドできる。{ref}`hessian_ff ビルドの問題 <ja-hessian_ff-build--import>` を参照してください。
 
 ---
@@ -181,7 +183,8 @@
 | UMA のダウンロードに失敗する（`huggingface_hub.errors.GatedRepoError`、`401`、`403`） | Hugging Face にログインしていない、または UMA モデルのライセンスに同意していない | 環境・マシンごとに一度 `hf auth login` を実行し、Hugging Face の UMA モデルのページでライセンスに同意してください。HPC では、計算ノードからモデルのキャッシュ（`$FAIRCHEM_CACHE_DIR`、デフォルトは `~/.cache/fairchem`）に書き込めるかを確かめます |
 | `torch.cuda.is_available()` が `False`、またはインポート時に CUDA の実行時エラー | PyTorch のビルドが計算ノードの GPU・ドライバに合っていない | `nvidia-smi`、`python -m torch.utils.collect_env`、`python -m pip check` で、割り当てられた GPU、入っている PyTorch のビルド、ドライバを確認してください。`nvidia-smi` が示す `CUDA Version` はドライバが扱える最も新しい CUDA です。13.0 より小さいときは、`cuda130` の代わりに `"pytorch=2.13.0=cuda129*"` で環境を作ってください |
 | `--mep-mode dmf` が `DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2` で止まる | `cyipopt` が無い、または `pydmf` の GPU 用の部分が無い | {ref}`インストールの手順 2 <ja-step-by-step-installation>` のとおり、cyipopt を conda-forge から入れて環境を作ってください。`pydmf` は `mlmm-toolkit` と一緒に入ります。デフォルトの GPU 版 DMF でそれでもインポートに失敗するときは、エラーの文が勧めるとおり `pip install 'pydmf[torch]'` を実行してください |
-| 図の出力に失敗する（Plotly / Chrome） | ヘッドレス Chrome が無い | `plotly_get_chrome -y` を一度実行してください。Chromium のバイナリをダウンロードするので、インターネット接続が必要です |
+| `Missing system prerequisite: C compiler (gcc).` または `C++ compiler (g++).`（PyTorch のエラー `Failed to find C compiler`、`No working C++ compiler found`） | `PATH` 上にコンパイラが無い。UMA は初回の実行時にコードをビルドします | {ref}`システムの前提パッケージ <ja-system-prerequisites>` のとおり `gcc`（CPU では `g++`）を入れてください。クラスターではジョブスクリプトで `module load gcc` します |
+| 図の出力に失敗する（`Missing system prerequisite: Chrome for PNG export.`） | ヘッドレス Chrome が入っていない、または Chrome が使う OS のライブラリが無い | `plotly_get_chrome -y` を一度実行し（Chromium のバイナリをダウンロードするので、インターネット接続が必要です）、続けて {ref}`システムの前提パッケージ <ja-system-prerequisites>` のライブラリを入れてください |
 
 ### DMF が IPOPT 内で極端に遅い
 
