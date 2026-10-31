@@ -153,7 +153,6 @@ from mlmm.cli.decorators import (
     load_merged_yaml_cfg,
     make_is_param_explicit,
     render_cli_exception,
-    resolve_yaml_sources,
 )
 
 # Shared defaults (copied from opt.py to keep ML/MM behavior consistent)
@@ -788,15 +787,7 @@ def cli(
 
     set_convert_file_enabled(convert_files)
     time_start = time.perf_counter()
-    config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
-        config_yaml=config_yaml,
-        override_yaml=None,
-        args_yaml_legacy=None,
-    )
-    yaml_cfg, _, _ = load_merged_yaml_cfg(
-        config_yaml=config_yaml,
-        override_yaml=None,
-    )
+    yaml_cfg, _ = load_merged_yaml_cfg(config_yaml)
     from mlmm.cli.decorators import resolve_model_indices_setting
     model_indices_str, model_indices_one_based = resolve_model_indices_setting(
         ctx, yaml_cfg, model_indices_str, model_indices_one_based
@@ -823,7 +814,6 @@ def cli(
                 protected_inputs=(
                     resolved_csv,
                     config_yaml,
-                    override_yaml,
                 ),
             )
             df = pd.read_csv(resolved_csv)
@@ -1053,7 +1043,6 @@ def cli(
                         ref_pdb,
                         spec_path,
                         config_yaml,
-                        override_yaml,
                         (
                             Path(calc_cfg["calc_file"])
                             if calc_cfg.get("calc_file")
@@ -1213,7 +1202,6 @@ def cli(
                     ref_pdb,
                     spec_path,
                     config_yaml,
-                    override_yaml,
                     (
                         Path(calc_cfg["calc_file"])
                         if calc_cfg.get("calc_file")

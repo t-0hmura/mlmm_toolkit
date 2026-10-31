@@ -2,8 +2,7 @@
 
 Input/calculator boundaries follow tests/test_tsopt_terminal_workflow_phva.py.
 Dispatch cases stop at the microdriver or ordinary optimizer.run, not at dry-run.
-Current commands support --config plus explicit CLI overrides, not --override;
-these tests deliberately do not inject the dormant override-YAML resolver.
+Current commands support --config plus explicit CLI overrides, not --override.
 Two completion cases use an explicitly unconverged optimizer stub and the real
 JSON writer. Their initial Hessian and final energy are mocked; no physical
 optimization, terminal curvature, or scientific convergence is validated.

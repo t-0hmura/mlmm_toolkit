@@ -20,7 +20,7 @@ def copy_path_outputs_to_root(
     warn_fn: Optional[Callable[[str], None]] = None,
     image_names: Optional[Collection[str]] = None,
 ) -> None:
-    """Move MEP structures/images and copy summaries to the output root.
+    """Move MEP structures/images and copy summary.log to the output root.
 
     When supplied, ``image_names`` limits promotion to current-run plots.
     Report I/O errors through ``warn_fn`` when it is provided.
@@ -30,8 +30,9 @@ def copy_path_outputs_to_root(
 
         # MEP deliverables: MOVE to root (no _work/ duplicate). The summary
         # payload reads these from path_dir before this runs, so the move is
-        # safe; summary.{json,log} stay COPY because they are re-written under
-        # path_dir downstream.
+        # safe; summary.log stays COPY because it is re-written under path_dir
+        # downstream. The root summary.json is written by all's
+        # _publish_root_summary only.
         for name in (
             "mep_plot.png",
             "energy_diagram_MEP.png",
@@ -48,10 +49,9 @@ def copy_path_outputs_to_root(
                 src = path_dir / f"{stem}{ext}"
                 if src.exists():
                     shutil.move(str(src), str(out_dir / src.name))
-        for name in ("summary.json", "summary.log"):
-            src = path_dir / name
-            if src.exists():
-                commit_exact_bytes(out_dir / name, src.read_bytes())
+        src = path_dir / "summary.log"
+        if src.exists():
+            commit_exact_bytes(out_dir / "summary.log", src.read_bytes())
     except (OSError, shutil.Error) as exc:
         if warn_fn is not None:
             warn_fn(f"[all] WARNING: Failed to copy path_search outputs: {exc}")

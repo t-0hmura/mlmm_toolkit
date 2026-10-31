@@ -117,7 +117,7 @@ from mlmm.cli.common_options import (
     add_deterministic_option, add_allow_charge_mult_mismatch_option,
 )
 from mlmm.cli.common_options import add_dft_calculator_options
-from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, render_cli_exception
+from mlmm.cli.decorators import load_merged_yaml_cfg, make_is_param_explicit, render_cli_exception
 
 
 # Defaults (merge order: defaults ← YAML ← CLI)
@@ -511,15 +511,7 @@ def cli(
 
     set_convert_file_enabled(convert_files)
     time_start = time.perf_counter()
-    config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
-        config_yaml=config_yaml,
-        override_yaml=None,
-        args_yaml_legacy=None,
-    )
-    yaml_cfg, _, _ = load_merged_yaml_cfg(
-        config_yaml=config_yaml,
-        override_yaml=None,
-    )
+    yaml_cfg, _ = load_merged_yaml_cfg(config_yaml)
     from mlmm.cli.decorators import resolve_model_indices_setting
     model_indices_str, model_indices_one_based = resolve_model_indices_setting(
         ctx, yaml_cfg, model_indices_str, model_indices_one_based
@@ -732,7 +724,6 @@ def cli(
                         ref_pdb,
                         spec_path,
                         config_yaml,
-                        override_yaml,
                         (
                             Path(calc_cfg["calc_file"])
                             if calc_cfg.get("calc_file")
@@ -926,7 +917,6 @@ def cli(
                     ref_pdb,
                     spec_path,
                     config_yaml,
-                    override_yaml,
                     (
                         Path(calc_cfg["calc_file"])
                         if calc_cfg.get("calc_file")

@@ -1060,8 +1060,8 @@ def test_ts_micro_lbfgs_is_reachable_from_the_lbfgs_yaml_section():
 
     src = inspect.getsource(tsopt_mod)
     mapping = '(lbfgs_cfg, (("lbfgs",), ("opt", "lbfgs")))'
-    # Both YAML layers (--config and --override) must carry it.
-    assert src.count(mapping) == 2, src.count(mapping)
+    # The --config YAML layer must carry it.
+    assert src.count(mapping) == 1, src.count(mapping)
 
 
 def test_micro_stop_description_names_the_bound_the_user_can_raise():

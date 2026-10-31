@@ -58,7 +58,7 @@ from mlmm.cli.common_options import (
     add_allow_charge_mult_mismatch_option,
     add_ml_layer_detection_options,
 )
-from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, render_cli_exception
+from mlmm.cli.decorators import load_merged_yaml_cfg, make_is_param_explicit, render_cli_exception
 from mlmm.core.defaults import DFT_KW as _DFT_KW_DEFAULT
 from mlmm.io.pdb_indexing import (
     PDBOrdinalAtom,
@@ -903,15 +903,7 @@ def cli(
 
     _is_param_explicit = make_is_param_explicit(ctx)
 
-    config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
-        config_yaml=config_yaml,
-        override_yaml=None,
-        args_yaml_legacy=None,
-    )
-    merged_yaml_cfg, _, _ = load_merged_yaml_cfg(
-        config_yaml=config_yaml,
-        override_yaml=None,
-    )
+    merged_yaml_cfg, _ = load_merged_yaml_cfg(config_yaml)
     from mlmm.cli.decorators import resolve_model_indices_setting
     model_indices_str, model_indices_one_based = resolve_model_indices_setting(
         ctx, merged_yaml_cfg, model_indices_str, model_indices_one_based
@@ -1130,7 +1122,6 @@ def cli(
                     "yaml_layers",
                     {
                         "config": None if config_yaml is None else str(config_yaml),
-                        "override_yaml": None if override_yaml is None else str(override_yaml),
                         "merged_keys": sorted(merged_yaml_cfg.keys()),
                     },
                 force=True)
@@ -1205,7 +1196,6 @@ def cli(
                 real_parm7,
                 model_pdb_cfg,
                 config_yaml,
-                override_yaml,
                 (
                     Path(calc_kw["calc_file"])
                     if calc_kw.get("calc_file")
@@ -1231,7 +1221,6 @@ def cli(
                 real_parm7,
                 Path(model_pdb_cfg) if model_pdb_cfg else None,
                 config_yaml,
-                override_yaml,
                 (
                     Path(calc_kw["calc_file"])
                     if calc_kw.get("calc_file")

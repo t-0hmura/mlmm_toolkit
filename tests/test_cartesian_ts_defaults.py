@@ -9,17 +9,16 @@ from mlmm.core.utils import apply_yaml_overrides
 from mlmm.workflows import tsopt
 
 
-def resolve(base=None, override=None, *, kind="rsprfo", geom=None):
-    base, override = deepcopy(base or {}), deepcopy(override or {})
-    raw_before = deepcopy((base, override))
+def resolve(config=None, *, kind="rsprfo", geom=None):
+    config = deepcopy(config or {})
+    raw_before = deepcopy(config)
     opt, rs = dict(OPT_BASE_KW), deepcopy(RSIRFO_KW)
     geometry = deepcopy(GEOM_KW_DEFAULT)
-    for layer in (base, override):
-        apply_yaml_overrides(layer, [(opt, (("opt",),)), (rs, (("rsirfo",),)),
-                                     (geometry, (("geom",),))])
+    apply_yaml_overrides(config, [(opt, (("opt",),)), (rs, (("rsirfo",),)),
+                                  (geometry, (("geom",),))])
     if geom:
         geometry.update(geom)
-    assert (base, override) == raw_before
+    assert config == raw_before
     return tsopt._build_rsirfo_kwargs(rs, max_cycles=1, out_dir=".", mode=kind, opt_cfg=opt)
 
 
@@ -39,12 +38,11 @@ def test_unconfigured_cartesian_defaults_preserve_baseline(coord):
 
 
 @pytest.mark.parametrize("section", ["opt", "rsirfo"])
-@pytest.mark.parametrize("layer", ["base", "override"])
-def test_explicit_old_values_survive_even_when_equal_to_defaults(section, layer):
+def test_explicit_old_values_survive_even_when_equal_to_defaults(section):
     config = {section: {"trust_norm": "l2", "trust_radius": 0.1,
                         "trust_min": 1e-4, "trust_max": 0.1,
                         "hessian_update": "bofill"}}
-    kwargs = resolve(**{layer: config})
+    kwargs = resolve(config)
     assert kwargs["trust_norm"] == "l2"
     assert kwargs["trust_radius"] == kwargs["trust_max"] == 0.1
     assert kwargs["trust_min"] == 1e-4
@@ -93,21 +91,16 @@ def test_explicit_max_atom_preserves_default_and_explicit_radii(section):
     assert kwargs["trust_max"] == 0.075
 
 
-def test_override_layer_and_ignored_section_keep_explicit_provenance():
-    base = {"rsirfo": {"trust_radius": 0.025, "hessian_update": "bofill"}}
-    overridden = resolve(base, {"rsirfo": {"trust_radius": 0.1}})
-    assert overridden["trust_radius"] == 0.1
-    assert overridden.get("trust_norm", "l2") == "l2"
-    assert overridden["hessian_update"] == "bofill"
-    ignored = resolve(base, {"rsirfo": None})
-    assert ignored["trust_radius"] == 0.025
-    assert ignored.get("trust_norm", "l2") == "l2"
-    assert ignored["hessian_update"] == "bofill"
+def test_ignored_section_keeps_explicit_provenance():
+    config = {"rsirfo": {"trust_radius": 0.025, "hessian_update": "bofill"}}
+    for kwargs in (resolve(config), resolve({**config, "opt": None})):
+        assert kwargs["trust_radius"] == 0.025
+        assert kwargs.get("trust_norm", "l2") == "l2"
+        assert kwargs["hessian_update"] == "bofill"
 
 
-def test_explicit_atomic_override_preserves_base_radius():
-    kwargs = resolve({"rsirfo": {"trust_radius": 0.1}},
-                     {"rsirfo": {"trust_norm": "max_atom"}})
+def test_explicit_atomic_norm_preserves_explicit_radius():
+    kwargs = resolve({"rsirfo": {"trust_radius": 0.1, "trust_norm": "max_atom"}})
     assert kwargs["trust_norm"] == "max_atom"
     assert kwargs["trust_radius"] == 0.1
     assert kwargs["trust_max"] == 0.1

@@ -200,7 +200,7 @@ TS. For when `all` goes on to IRC, see
 | `point_group` | string | Automatically detected molecular point group |
 | `point_group_source` | string | `"auto"` or conservative `"auto-fallback"` |
 | `symmetry_number` | int | External rotational symmetry number |
-| `symmetry_number_source` | string | `"auto"`, `"auto-fallback"`, `"config"`, or `"override"` |
+| `symmetry_number_source` | string | `"auto"`, `"auto-fallback"`, or `"config"` |
 | `electronic_energy_ha` | float | Hartree — the `E` of the reported `E + G_corr = G` |
 | `zpe_ha` | float | Hartree |
 | `thermal_correction_energy_ha` | float | Hartree |

@@ -91,7 +91,7 @@ from mlmm.core.utils import (
 )
 from mlmm.cli.common_options import add_ml_charge_spin_options, add_ml_layer_detection_options, add_precision_option, add_workers_options, add_backend_model_option, add_calc_file_option, add_deterministic_option, add_allow_charge_mult_mismatch_option
 from mlmm.cli.common_options import add_dft_calculator_options
-from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, render_cli_exception
+from mlmm.cli.decorators import load_merged_yaml_cfg, make_is_param_explicit, render_cli_exception
 
 
 def _format_mode_accounting(
@@ -613,13 +613,11 @@ def _validated_symmetry_number(value: object) -> Optional[int]:
 
 
 def _symmetry_number_source(
-    *, config_has_value: bool, override_has_value: bool, resolved_value: object
+    *, config_has_value: bool, resolved_value: object
 ) -> str:
     """Describe which configuration layer supplied the resolved symmetry number."""
     if resolved_value is None:
         return "auto"
-    if override_has_value:
-        return "override"
     if config_has_value:
         return "config"
     return "auto"
@@ -985,15 +983,7 @@ def cli(
     error_out_dir = Path(out_dir).resolve()
     _is_param_explicit = make_is_param_explicit(ctx)
 
-    config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
-        config_yaml=config_yaml,
-        override_yaml=None,
-        args_yaml_legacy=None,
-    )
-    merged_yaml_cfg, _, _ = load_merged_yaml_cfg(
-        config_yaml=config_yaml,
-        override_yaml=None,
-    )
+    merged_yaml_cfg, _ = load_merged_yaml_cfg(config_yaml)
     from mlmm.cli.decorators import resolve_model_indices_setting
     model_indices_str, model_indices_one_based = resolve_model_indices_setting(
         ctx, merged_yaml_cfg, model_indices_str, model_indices_one_based
@@ -1045,7 +1035,6 @@ def cli(
 
     try:
         config_layer_cfg = load_yaml_dict(config_yaml)
-        override_layer_cfg = load_yaml_dict(override_yaml)
     except ValueError as e:
         click.echo(f"ERROR: {e}", err=True)
         prepared_input.cleanup()
@@ -1074,7 +1063,7 @@ def cli(
         and thermo_cfg.get("symmetry_number") is not None
     )
 
-    # CLI explicit overrides (after config YAML, before override YAML)
+    # CLI explicit overrides (after config YAML)
     if backend is not None:
         calc_cfg["backend"] = str(backend).lower()
     from mlmm.backends import apply_precision_to_calc_cfg
@@ -1146,15 +1135,6 @@ def cli(
     if model_pdb is not None:
         calc_cfg["model_pdb"] = str(model_pdb)
 
-    apply_yaml_overrides(
-        override_layer_cfg,
-        [
-            (geom_cfg, (("geom",),)),
-            (calc_cfg, (("calc",), ("mlmm",))),
-            (freq_cfg, (("freq",),)),
-            (thermo_cfg, (("thermo",), ("freq", "thermo"))),
-        ],
-    )
     try:
         freq_cfg["zero_cutoff_cm"] = normalize_frequency_zero_cutoff_cm(
             freq_cfg.get("zero_cutoff_cm", DEFAULT_FREQUENCY_ZERO_CUTOFF_CM)
@@ -1164,18 +1144,11 @@ def cli(
             f"freq.zero_cutoff_cm must be finite and non-negative, got "
             f"{freq_cfg.get('zero_cutoff_cm')!r}."
         ) from exc
-    _override_has_symmetry_number = (
-        yaml_section_has_key(
-            override_layer_cfg, thermo_paths, "symmetry_number"
-        )
-        and thermo_cfg.get("symmetry_number") is not None
-    )
     thermo_cfg["symmetry_number"] = _validated_symmetry_number(
         thermo_cfg.get("symmetry_number")
     )
     symmetry_number_source = _symmetry_number_source(
         config_has_value=_config_has_symmetry_number,
-        override_has_value=_override_has_symmetry_number,
         resolved_value=thermo_cfg["symmetry_number"],
     )
     thermo_cfg["temperature"] = _validated_thermo_condition(
@@ -1237,9 +1210,8 @@ def cli(
         geom_cfg.get("tr_projection")
     )
     calc_paths = (("calc",), ("mlmm",))
-    partial_explicit = (
-        yaml_section_has_key(config_layer_cfg, calc_paths, "return_partial_hessian")
-        or yaml_section_has_key(override_layer_cfg, calc_paths, "return_partial_hessian")
+    partial_explicit = yaml_section_has_key(
+        config_layer_cfg, calc_paths, "return_partial_hessian"
     )
     if not partial_explicit:
         calc_cfg["return_partial_hessian"] = True
@@ -1287,7 +1259,6 @@ def cli(
                 "yaml_layers",
                 {
                     "config": None if config_yaml is None else str(config_yaml),
-                    "override_yaml": None if override_yaml is None else str(override_yaml),
                     "merged_keys": sorted(merged_yaml_cfg.keys()),
                 },
             force=True)
@@ -1362,7 +1333,6 @@ def cli(
         ),
         Path(model_pdb_cfg) if model_pdb_cfg is not None else None,
         config_yaml,
-        override_yaml,
         (
             Path(calc_cfg["calc_file"])
             if calc_cfg.get("calc_file")

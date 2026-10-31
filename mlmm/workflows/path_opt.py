@@ -76,7 +76,7 @@ from mlmm.core.utils import (
 )
 from mlmm.cli.common_options import add_ml_layer_detection_options, add_precision_option, add_workers_options, add_backend_model_option, add_calc_file_option, add_deterministic_option, add_allow_charge_mult_mismatch_option
 from mlmm.cli.common_options import add_dft_calculator_options
-from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, _write_error_json, render_cli_exception
+from mlmm.cli.decorators import load_merged_yaml_cfg, make_is_param_explicit, _write_error_json, render_cli_exception
 from mlmm.workflows.align_freeze import (
     align_and_refine_sequence_inplace,
     alignment_failed_pair_indices,
@@ -1244,15 +1244,7 @@ def cli(
     set_convert_file_enabled(convert_files)
     _is_param_explicit = make_is_param_explicit(ctx)
 
-    config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
-        config_yaml=config_yaml,
-        override_yaml=None,
-        args_yaml_legacy=None,
-    )
-    merged_yaml_cfg, _, _ = load_merged_yaml_cfg(
-        config_yaml=config_yaml,
-        override_yaml=None,
-    )
+    merged_yaml_cfg, _ = load_merged_yaml_cfg(config_yaml)
     from mlmm.cli.decorators import resolve_model_indices_setting
     model_indices_str, model_indices_one_based = resolve_model_indices_setting(
         ctx, merged_yaml_cfg, model_indices_str, model_indices_one_based
@@ -1294,7 +1286,6 @@ def cli(
         input_paths = tuple(prep.source_path for prep in prepared_inputs)
 
         config_layer_cfg = load_yaml_dict(config_yaml)
-        override_layer_cfg = load_yaml_dict(override_yaml)
 
         mep_mode_kind = mep_mode.strip().lower()
 
@@ -1306,16 +1297,6 @@ def cli(
         rfo_cfg = dict(RFO_KW)
         dmf_cfg = fresh_dmf_config()
 
-        def _apply_single_opt_yaml_layer(layer_cfg: Dict[str, Any]) -> None:
-            apply_single_opt_yaml_layer(
-                layer_cfg,
-                lbfgs_cfg=lbfgs_cfg,
-                rfo_cfg=rfo_cfg,
-                stopt_cfg=stopt_cfg,
-                opt_base_kw=OPT_BASE_KW,
-                deep_update=deep_update,
-            )
-
         apply_yaml_overrides(
             config_layer_cfg,
             [
@@ -1326,9 +1307,16 @@ def cli(
                 (dmf_cfg, (("dmf",),)),
             ],
         )
-        _apply_single_opt_yaml_layer(config_layer_cfg)
+        apply_single_opt_yaml_layer(
+            config_layer_cfg,
+            lbfgs_cfg=lbfgs_cfg,
+            rfo_cfg=rfo_cfg,
+            stopt_cfg=stopt_cfg,
+            opt_base_kw=OPT_BASE_KW,
+            deep_update=deep_update,
+        )
 
-        # CLI explicit overrides (after config YAML, before override YAML)
+        # CLI explicit overrides (after config YAML)
         if backend is not None:
             calc_cfg["backend"] = str(backend).lower()
         from mlmm.backends import apply_precision_to_calc_cfg
@@ -1427,23 +1415,11 @@ def cli(
         calc_cfg["input_pdb"] = str(input_paths[0])
         calc_cfg["real_parm7"] = str(real_parm7)
 
-        apply_yaml_overrides(
-            override_layer_cfg,
-            [
-                (geom_cfg, (("geom",),)),
-                (calc_cfg, (("calc",), ("mlmm",))),
-                (gs_cfg, (("gs",),)),
-                (stopt_cfg, (("stopt",),)),
-                (dmf_cfg, (("dmf",),)),
-            ],
-        )
-        _apply_single_opt_yaml_layer(override_layer_cfg)
         single_opt_kind = normalize_scan_opt_mode(opt_mode)
         single_opt_cfg = lbfgs_cfg if single_opt_kind == "lbfgs" else rfo_cfg
-        for layer_cfg in (config_layer_cfg, override_layer_cfg):
-            check_single_opt_yaml_conflicts(
-                layer_cfg, kind=single_opt_kind, opt_base_kw=OPT_BASE_KW
-            )
+        check_single_opt_yaml_conflicts(
+            config_layer_cfg, kind=single_opt_kind, opt_base_kw=OPT_BASE_KW
+        )
         # The final layer may replace strict method enums or the workers count.
         # Revalidate the fully resolved calculator mapping before dry-run can
         # report success (the constructor repeats this for normal execution).
@@ -1555,7 +1531,6 @@ def cli(
                     "yaml_layers",
                     {
                         "config": None if config_yaml is None else str(config_yaml),
-                        "override_yaml": None if override_yaml is None else str(override_yaml),
                         "merged_keys": sorted(merged_yaml_cfg.keys()),
                     },
                 force=True)

@@ -58,7 +58,6 @@ from mlmm.cli.decorators import (
     load_merged_yaml_cfg,
     make_is_param_explicit,
     render_cli_exception,
-    resolve_yaml_sources,
 )
 logger = logging.getLogger(__name__)
 
@@ -350,12 +349,7 @@ def cli(
     """Compute a single-point ML/MM ONIOM energy + forces (and optionally Hessian)."""
     _is_param_explicit = make_is_param_explicit(ctx)
 
-    config_yaml, _override, _legacy = resolve_yaml_sources(
-        config_yaml=config_yaml, override_yaml=None, args_yaml_legacy=None,
-    )
-    merged_yaml_cfg, config_layer_cfg, _override_layer_cfg = load_merged_yaml_cfg(
-        config_yaml=config_yaml, override_yaml=None,
-    )
+    merged_yaml_cfg, config_layer_cfg = load_merged_yaml_cfg(config_yaml)
     from mlmm.cli.decorators import resolve_model_indices_setting
     model_indices_str, model_indices_one_based = resolve_model_indices_setting(
         ctx, merged_yaml_cfg, model_indices_str, model_indices_one_based

@@ -814,7 +814,7 @@ def test_post_threshold_default_is_forwarded_only_without_yaml_value() -> None:
 
 
 def test_all_effective_yaml_canonicalizes_alias_only_calculator(tmp_path: Path) -> None:
-    from mlmm.workflows.all import _build_effective_args_yaml
+    from mlmm.cli.decorators import load_merged_yaml_cfg
 
     source = tmp_path / "alias.yaml"
     source.write_text(
@@ -830,20 +830,16 @@ def test_all_effective_yaml_canonicalizes_alias_only_calculator(tmp_path: Path) 
         encoding="utf-8",
     )
 
-    effective, payload = _build_effective_args_yaml(
-        source, None, tmp_prefix="test_mlmm_alias_"
-    )
-    assert effective is not None
-    assert effective == source
+    payload, _ = load_merged_yaml_cfg(source)
     assert "mlmm" not in payload
     assert payload["calc"]["backend"] == "orb"
-    assert yaml.safe_load(effective.read_text(encoding="utf-8"))["mlmm"]["backend"] == "orb"
+    assert yaml.safe_load(source.read_text(encoding="utf-8"))["mlmm"]["backend"] == "orb"
 
 
 def test_all_effective_yaml_rejects_conflicting_calculator_sections(
     tmp_path: Path,
 ) -> None:
-    from mlmm.workflows.all import _build_effective_args_yaml
+    from mlmm.cli.decorators import load_merged_yaml_cfg
 
     source = tmp_path / "both.yaml"
     source.write_text(
@@ -857,9 +853,7 @@ def test_all_effective_yaml_rejects_conflicting_calculator_sections(
     )
 
     with pytest.raises(click.BadParameter, match="Conflicting YAML values"):
-        _build_effective_args_yaml(
-            source, None, tmp_prefix="test_mlmm_both_"
-        )
+        load_merged_yaml_cfg(source)
 
 
 def test_all_injection_preserves_alias_only_calculator_values(tmp_path: Path) -> None:
@@ -1188,6 +1182,7 @@ def test_copy_path_outputs_copies_known_artefacts(tmp_path: Path) -> None:
     (src / "mep_trj.pdb").write_text("dummy-pdb")
     (src / "mep_trj.cif").write_text("dummy-cif")
     (src / "summary.json").write_text("{}")
+    (src / "summary.log").write_text("log")
     (src / "mep_trj.xyz").write_text("xyz")
     (src / "unrelated.tmp").write_text("ignore me")
 
@@ -1196,7 +1191,9 @@ def test_copy_path_outputs_copies_known_artefacts(tmp_path: Path) -> None:
     assert (dst / "mep_plot.png").read_text() == "dummy-png"
     assert (dst / "mep_trj.pdb").read_text() == "dummy-pdb"
     assert (dst / "mep_trj.cif").read_text() == "dummy-cif"
-    assert (dst / "summary.json").read_text() == "{}"
+    assert (dst / "summary.log").read_text() == "log"
+    # The root summary.json has one writer, all's _publish_root_summary.
+    assert not (dst / "summary.json").exists()
     assert (dst / "mep_trj.xyz").read_text() == "xyz"
     assert not (dst / "unrelated.tmp").exists()
 

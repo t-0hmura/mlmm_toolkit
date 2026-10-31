@@ -23,6 +23,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Docs and skills: the conda environment includes `xtb`, which the `--embedcharge` xTB correction calls, and the HPC templates check the compiler hessian_ff actually uses (`$CXX`, then the environment's conda g++, then `c++`).
 - MM Hessians keep their values and allocate less: the default finite-difference MM Hessian returns the block of the movable atoms without building the full (3N, 3N) matrix, the hessian_ff analytical Hessian adds each term into the result instead of a new dense matrix per chunk, and hessian_ff drops its unused C++ preparam CPU nonbonded kernels and the extension's `chunk_size` argument.
 - `mm-parm` (and `all`) run antechamber and its sqm on one BLAS/OpenMP thread with a fixed diagonalizer (`diag_routine=7`, dsyevr, added to antechamber's default AM1 keywords) instead of the one sqm times as fastest, so a ligand gets the same AM1-BCC charges on every run; before, the charges of the test ligand PRE varied by up to 0.32 e per atom with the thread count and machine load. Charges can differ from those of earlier builds.
+- `--show-config` no longer prints the always-empty `override_yaml` entry (`override:` in `path-search`), and thermochemistry no longer documents the unreachable `symmetry_number_source: "override"`.
 
 ### Fixed
 

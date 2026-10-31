@@ -67,7 +67,7 @@ from mlmm.cli.common_options import (
     add_irc_pos_def_option,
 )
 from mlmm.cli.common_options import add_dft_calculator_options
-from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, _write_error_json, render_cli_exception
+from mlmm.cli.decorators import load_merged_yaml_cfg, make_is_param_explicit, _write_error_json, render_cli_exception
 
 
 
@@ -502,15 +502,7 @@ def cli(
 ) -> None:
     set_convert_file_enabled(convert_files)
     _is_param_explicit = make_is_param_explicit(ctx)
-    config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
-        config_yaml=config_yaml,
-        override_yaml=None,
-        args_yaml_legacy=None,
-    )
-    merged_yaml_cfg, _, _ = load_merged_yaml_cfg(
-        config_yaml=config_yaml,
-        override_yaml=None,
-    )
+    merged_yaml_cfg, _ = load_merged_yaml_cfg(config_yaml)
     from mlmm.cli.decorators import resolve_model_indices_setting
     model_indices_str, model_indices_one_based = resolve_model_indices_setting(
         ctx, merged_yaml_cfg, model_indices_str, model_indices_one_based
@@ -548,7 +540,6 @@ def cli(
         time_start = time.perf_counter()
 
         config_layer_cfg = load_yaml_dict(config_yaml)
-        override_layer_cfg = load_yaml_dict(override_yaml)
 
         geom_cfg: Dict[str, Any] = dict(GEOM_KW_DEFAULT)
         calc_cfg: Dict[str, Any] = dict(CALC_KW_DEFAULT)
@@ -567,7 +558,7 @@ def cli(
         )
         error_out_dir = Path(irc_cfg["out_dir"]).resolve()
 
-        # CLI explicit overrides (after config YAML, before override YAML)
+        # CLI explicit overrides (after config YAML)
         if backend is not None:
             calc_cfg["backend"] = str(backend).lower()
         from mlmm.backends import apply_precision_to_calc_cfg
@@ -633,23 +624,14 @@ def cli(
         if model_pdb is not None:
             calc_cfg["model_pdb"] = str(model_pdb)
 
-        apply_yaml_overrides(
-            override_layer_cfg,
-            [
-                (geom_cfg, (("geom",),)),
-                (calc_cfg, (("calc",), ("mlmm",))),
-                (irc_cfg, (("irc",),)),
-            ],
-        )
         error_out_dir = Path(irc_cfg["out_dir"]).resolve()
         from pysisyphus.tr_projection import normalize_tr_projection_mode
         geom_cfg["tr_projection"] = normalize_tr_projection_mode(
             geom_cfg.get("tr_projection")
         )
         calc_paths = (("calc",), ("mlmm",))
-        partial_explicit = (
-            yaml_section_has_key(config_layer_cfg, calc_paths, "return_partial_hessian")
-            or yaml_section_has_key(override_layer_cfg, calc_paths, "return_partial_hessian")
+        partial_explicit = yaml_section_has_key(
+            config_layer_cfg, calc_paths, "return_partial_hessian"
         )
         if not partial_explicit:
             calc_cfg["return_partial_hessian"] = True
@@ -710,7 +692,6 @@ def cli(
                     "yaml_layers",
                     {
                         "config": None if config_yaml is None else str(config_yaml),
-                        "override_yaml": None if override_yaml is None else str(override_yaml),
                         "merged_keys": sorted(merged_yaml_cfg.keys()),
                     },
                 force=True)
@@ -766,7 +747,6 @@ def cli(
                 else None
             ),
             config_yaml,
-            override_yaml,
             Path(calc_cfg["real_parm7"]) if calc_cfg.get("real_parm7") else None,
             Path(model_pdb_cfg) if model_pdb_cfg else None,
             (

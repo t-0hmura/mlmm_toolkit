@@ -94,22 +94,6 @@ def test_thermo_branch_does_not_clobber_the_tsopt_frequency() -> None:
     assert segment_log["ts_imag"] == from_tsopt
 
 
-def test_thermo_fallback_is_wired_in_the_product() -> None:
-    """Thermo is a fallback, never an overwrite of TS certification."""
-    import inspect
-
-    from mlmm.workflows import all as all_mod
-
-    src = inspect.getsource(all_mod)
-    guarded_fallback = (
-        "n_imag is not None\n"
-        "                and not do_tsopt\n"
-        '                and "ts_imag" not in segment_log'
-    )
-    assert src.count(guarded_fallback) == 2
-    assert "must never overwrite certification" in src
-
-
 def test_unexported_soft_mode_is_not_reported_as_no_imaginary_mode() -> None:
     """An exact soft imaginary root must not be announced as absent.
 

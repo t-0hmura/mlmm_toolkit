@@ -98,7 +98,7 @@ from mlmm.cli.common_options import (
     add_workers_options,
 )
 from mlmm.cli.common_options import add_dft_calculator_options
-from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, _write_error_json, render_cli_exception
+from mlmm.cli.decorators import load_merged_yaml_cfg, make_is_param_explicit, _write_error_json, render_cli_exception
 from mlmm.workflows._microiteration import (
     MicroiterationOutcome,
     MicroiterationPartition,
@@ -1506,15 +1506,7 @@ def cli(
 
     _is_param_explicit = make_is_param_explicit(ctx)
 
-    config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
-        config_yaml=config_yaml,
-        override_yaml=None,
-        args_yaml_legacy=None,
-    )
-    merged_yaml_cfg, _, _ = load_merged_yaml_cfg(
-        config_yaml=config_yaml,
-        override_yaml=None,
-    )
+    merged_yaml_cfg, _ = load_merged_yaml_cfg(config_yaml)
     from mlmm.cli.decorators import resolve_model_indices_setting
     model_indices_str, model_indices_one_based = resolve_model_indices_setting(
         ctx, merged_yaml_cfg, model_indices_str, model_indices_one_based
@@ -1578,7 +1570,6 @@ def cli(
 
     try:
         config_layer_cfg = load_yaml_dict(config_yaml)
-        override_layer_cfg = load_yaml_dict(override_yaml)
         geom_cfg = dict(GEOM_KW)
         calc_cfg = dict(CALC_KW)
         opt_cfg = dict(OPT_BASE_KW)
@@ -1665,17 +1656,6 @@ def cli(
         if use_cmap is not None:
             calc_cfg["use_cmap"] = use_cmap
 
-        apply_yaml_overrides(
-            override_layer_cfg,
-            [
-                (geom_cfg, (("geom",),)),
-                (calc_cfg, (("calc",), ("mlmm",))),
-                (opt_cfg, (("opt",),)),
-                (lbfgs_cfg, (("lbfgs",), ("opt", "lbfgs"))),
-                (rfo_cfg, (("rfo",), ("opt", "rfo"))),
-                (frequency_cfg, (("freq",),)),
-            ],
-        )
         opt_mode_effective = opt_cfg.pop("opt_mode", opt_mode)
         if _is_param_explicit("opt_mode"):
             opt_mode_effective = opt_mode
@@ -1696,11 +1676,6 @@ def cli(
             "energy_plateau_window": "stop_plateau_window",
         }
 
-        def _yaml_has(paths: Tuple[Tuple[str, ...], ...], key: str) -> bool:
-            return yaml_section_has_key(config_layer_cfg, paths, key) or yaml_section_has_key(
-                override_layer_cfg, paths, key
-            )
-
         sopt_name = "rfo" if use_rfo else "lbfgs"
         sopt_paths = ((sopt_name,), ("opt", sopt_name))
         resolve_shared_optimizer_keys(
@@ -1708,10 +1683,16 @@ def cli(
             rfo_cfg if use_rfo else lbfgs_cfg,
             RFO_KW if use_rfo else LBFGS_KW,
             downstream_section=sopt_name,
-            opt_explicit={key for key in OPT_BASE_KW if _yaml_has((("opt",),), key)} | {
+            opt_explicit={
+                key for key in OPT_BASE_KW
+                if yaml_section_has_key(config_layer_cfg, (("opt",),), key)
+            } | {
                 key for key, name in cli_shared.items() if _is_param_explicit(name)
             },
-            downstream_explicit={key for key in OPT_BASE_KW if _yaml_has(sopt_paths, key)},
+            downstream_explicit={
+                key for key in OPT_BASE_KW
+                if yaml_section_has_key(config_layer_cfg, sopt_paths, key)
+            },
         )
         frequency_zero_cutoff_cm = normalize_frequency_zero_cutoff_cm(
             frequency_cfg["zero_cutoff_cm"]
@@ -1729,9 +1710,8 @@ def cli(
             raise click.BadParameter(str(exc)) from exc
 
         calc_paths = (("calc",), ("mlmm",))
-        partial_explicit = (
-            yaml_section_has_key(config_layer_cfg, calc_paths, "return_partial_hessian")
-            or yaml_section_has_key(override_layer_cfg, calc_paths, "return_partial_hessian")
+        partial_explicit = yaml_section_has_key(
+            config_layer_cfg, calc_paths, "return_partial_hessian"
         )
         if not partial_explicit:
             calc_cfg["return_partial_hessian"] = True
@@ -1766,7 +1746,6 @@ def cli(
                 real_parm7,
                 Path(model_pdb_cfg) if model_pdb_cfg else None,
                 config_yaml,
-                override_yaml,
                 Path(calc_cfg["calc_file"]) if calc_cfg.get("calc_file") else None,
             ),
         )
@@ -1792,7 +1771,6 @@ def cli(
                     "yaml_layers",
                     {
                         "config": None if config_yaml is None else str(config_yaml),
-                        "override_yaml": None if override_yaml is None else str(override_yaml),
                         "merged_keys": sorted(merged_yaml_cfg.keys()),
                     },
                 force=True)
@@ -1869,7 +1847,6 @@ def cli(
                     real_parm7,
                     Path(model_pdb_cfg) if model_pdb_cfg else None,
                     config_yaml,
-                    override_yaml,
                     (
                         Path(calc_cfg["calc_file"])
                         if calc_cfg.get("calc_file")
@@ -2045,10 +2022,6 @@ def cli(
         microiter_cfg = dict(MICROITER_KW)
         apply_yaml_overrides(
             config_layer_cfg,
-            [(microiter_cfg, (("microiter",),))],
-        )
-        apply_yaml_overrides(
-            override_layer_cfg,
             [(microiter_cfg, (("microiter",),))],
         )
 

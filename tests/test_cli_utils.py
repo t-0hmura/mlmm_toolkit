@@ -44,35 +44,24 @@ def _load_merged_yaml_cfg():
 
 
 class TestLoadMergedYamlCfg:
-    def test_merge_keeps_source_layers_and_effective_tree_independent(
+    def test_effective_tree_is_independent_of_the_config_layer(
         self, tmp_path, _load_merged_yaml_cfg
     ):
         cfg_file = tmp_path / "config.yaml"
         cfg_file.write_text(
             yaml.dump({"opt": {"max_cycles": 100, "nested": {"left": 1}}})
         )
-        ovr_file = tmp_path / "override.yaml"
-        ovr_file.write_text(
-            yaml.dump({"opt": {"max_cycles": 50, "nested": {"right": 2}}})
-        )
 
-        merged, cfg, ovr = _load_merged_yaml_cfg(cfg_file, ovr_file)
+        merged, cfg = _load_merged_yaml_cfg(cfg_file)
 
-        assert cfg["opt"] == {"max_cycles": 100, "nested": {"left": 1}}
-        assert ovr["opt"] == {"max_cycles": 50, "nested": {"right": 2}}
-        assert merged["opt"] == {
-            "max_cycles": 50,
-            "nested": {"left": 1, "right": 2},
-        }
-
+        assert merged == cfg == {"opt": {"max_cycles": 100, "nested": {"left": 1}}}
         merged["opt"]["nested"]["left"] = 99
         assert cfg["opt"]["nested"]["left"] == 1
-        assert "left" not in ovr["opt"]["nested"]
 
     def test_unknown_top_level_section_warns(self, tmp_path, capsys, _load_merged_yaml_cfg):
         cfg_file = tmp_path / "config.yaml"
         cfg_file.write_text("clac: {charge: 0}\n1: {}\nopt: {max_cycles: 10}\n")
-        _load_merged_yaml_cfg(cfg_file, None)
+        _load_merged_yaml_cfg(cfg_file)
         err = capsys.readouterr().err
         assert "YAML section(s) 1, clac are not recognized" in err
 
@@ -84,5 +73,5 @@ class TestLoadMergedYamlCfg:
         )
         cfg_file = tmp_path / "config.yaml"
         cfg_file.write_text(yaml.dump({name: {} for name in sections}))
-        _load_merged_yaml_cfg(cfg_file, None)
+        _load_merged_yaml_cfg(cfg_file)
         assert capsys.readouterr().err == ""

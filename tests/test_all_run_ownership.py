@@ -83,17 +83,17 @@ def test_all_binds_run_id_and_restores_process_state(
     )
     monkeypatch.setattr(all_workflow.shutil, "which", lambda _cmd: "/usr/bin/true")
 
-    real_build = all_workflow._build_effective_args_yaml
+    real_load = all_workflow.load_merged_yaml_cfg
 
-    def build_or_fail(*args, **kwargs):
+    def load_or_fail(*args, **kwargs):
         observed.append(
             (os.environ.get(MLMM_RUN_ID_ENV), with_current_run_id({}).get("run_id"))
         )
         if failure is not None:
             raise failure
-        return real_build(*args, **kwargs)
+        return real_load(*args, **kwargs)
 
-    monkeypatch.setattr(all_workflow, "_build_effective_args_yaml", build_or_fail)
+    monkeypatch.setattr(all_workflow, "load_merged_yaml_cfg", load_or_fail)
 
     # Seed process state whose restoration must be observable. cli forces
     # pipeline_mode True internally, so seeding it to the module default False
@@ -136,40 +136,6 @@ def test_all_binds_run_id_and_restores_process_state(
     finally:
         _utils.set_pipeline_mode(prior_pipeline)
         all_workflow._echo_state._started = prior_started
-
-
-def test_all_closes_generated_effective_yaml_with_invocation(
-    tmp_path: Path, monkeypatch
-) -> None:
-    inputs = [tmp_path / "left.pdb", tmp_path / "right.pdb"]
-    for path in inputs:
-        path.write_text(_MIN_PDB, encoding="utf-8")
-    generated = tmp_path / "generated-effective.yaml"
-
-    monkeypatch.setattr(
-        all_workflow, "prepare_input_structure", lambda p: _FakePrepared(p)
-    )
-    monkeypatch.setattr(all_workflow.shutil, "which", lambda _cmd: "/usr/bin/true")
-
-    def _build(*args, **kwargs):
-        generated.write_text("{}\n", encoding="utf-8")
-        return generated, {}
-
-    monkeypatch.setattr(all_workflow, "_build_effective_args_yaml", _build)
-
-    result = CliRunner().invoke(
-        all_workflow.cli,
-        [
-            "-i", str(inputs[0]), "-i", str(inputs[1]),
-            "-c", "ALA",
-            "-q", "0",
-            "--out-dir", str(tmp_path / "out"),
-            "--dry-run",
-        ],
-    )
-
-    assert result.exit_code == 0, result.output
-    assert not generated.exists()
 
 
 def test_key_outputs_exclude_stale_and_undeclared(tmp_path: Path) -> None:

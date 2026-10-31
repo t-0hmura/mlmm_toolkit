@@ -14,7 +14,7 @@ from typing import Any, Dict, Optional, Tuple
 
 import click
 
-from mlmm.core.utils import deep_update, load_yaml_dict
+from mlmm.core.utils import load_yaml_dict
 
 logger = logging.getLogger(__name__)
 
@@ -117,21 +117,6 @@ def parse_bool(value: Any) -> bool:
     raise ValueError(f"Invalid boolean value: {value!r}. Use True/False.")
 
 
-def resolve_yaml_sources(
-    config_yaml: Optional[Path],
-    override_yaml: Optional[Path],
-    args_yaml_legacy: Optional[Path],
-) -> Tuple[Optional[Path], Optional[Path], bool]:
-    """Resolve which YAML files to use, raising on conflicting options."""
-    if override_yaml is not None and args_yaml_legacy is not None:
-        raise click.BadParameter(
-            "Use a single YAML source option."
-        )
-    if args_yaml_legacy is not None:
-        return config_yaml, args_yaml_legacy, True
-    return config_yaml, override_yaml, False
-
-
 # Every top-level section any subcommand reads via apply_yaml_overrides. Deliberately the UNION
 # over all commands: a per-command list would fire on a legitimate shared config file and become
 # noise. `mlmm` is an accepted alias of `calc`.
@@ -159,24 +144,21 @@ def _warn_unknown_yaml_sections(merged: Mapping[str, Any]) -> None:
 
 def load_merged_yaml_cfg(
     config_yaml: Optional[Path],
-    override_yaml: Optional[Path],
-) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
-    """Load and merge YAML config and override files.
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """Load the ``--config`` YAML file.
 
-    Returns ``(merged, config_dict, override_dict)`` so that callers can
-    use the individual layers for staged ``apply_yaml_overrides`` and the
-    merged dict for ``show_config`` display without re-reading the files.
+    Returns ``(merged, config_dict)``: ``config_dict`` is the layer that
+    ``apply_yaml_overrides`` applies, and ``merged`` is an independent deep
+    copy for lookups and ``show_config`` display, so changes to one never
+    reach the other.
     """
     try:
         config_dict = canonicalize_calculator_section(load_yaml_dict(config_yaml))
-        override_dict = canonicalize_calculator_section(load_yaml_dict(override_yaml))
     except ValueError as exc:
-        raise click.BadParameter(str(exc), param_hint="--config/--override") from exc
+        raise click.BadParameter(str(exc), param_hint="--config") from exc
     merged: Dict[str, Any] = deepcopy(config_dict)
-    deep_update(merged, deepcopy(override_dict))
-    merged = canonicalize_calculator_section(merged)
     _warn_unknown_yaml_sections(merged)
-    return merged, config_dict, override_dict
+    return merged, config_dict
 
 
 def _write_error_json(

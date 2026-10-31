@@ -182,7 +182,7 @@ TS 最適化が成功すると、反応モードの虚振動が 1 つ出ます�
 | `point_group` | string | 自動検出した分子の点群 |
 | `point_group_source` | string | `"auto"` または保守的なフォールバックを示す `"auto-fallback"` |
 | `symmetry_number` | int | 外部回転の対称数 |
-| `symmetry_number_source` | string | `"auto"`、`"auto-fallback"`、`"config"`、`"override"` |
+| `symmetry_number_source` | string | `"auto"`、`"auto-fallback"`、`"config"` |
 | `electronic_energy_ha` | float | Hartree（報告される `E + G_corr = G` の `E`） |
 | `zpe_ha` | float | Hartree |
 | `thermal_correction_energy_ha` | float | Hartree |

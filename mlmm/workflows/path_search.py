@@ -97,7 +97,7 @@ from mlmm.core.result_commit import commit_json_exact, with_current_run_id
 from mlmm.io.plotly_image import write_plotly_image
 from mlmm.cli.common_options import add_ml_layer_detection_options, add_precision_option, add_workers_options, add_backend_model_option, add_calc_file_option, add_deterministic_option, add_allow_charge_mult_mismatch_option
 from mlmm.cli.common_options import add_dft_calculator_options
-from mlmm.cli.decorators import resolve_yaml_sources, load_merged_yaml_cfg, make_is_param_explicit, _write_error_json, render_cli_exception
+from mlmm.cli.decorators import load_merged_yaml_cfg, make_is_param_explicit, _write_error_json, render_cli_exception
 from mlmm.cli.preflight import validate_existing_files
 from mlmm.io.trj2fig import run_trj2fig  # auto-generate an energy plot when a _trj.xyz is produced
 from mlmm.io.path_mode_cache import write_path_mode_cache
@@ -2075,15 +2075,7 @@ def cli(
 
     _is_param_explicit = make_is_param_explicit(ctx)
 
-    config_yaml, override_yaml, used_legacy_yaml = resolve_yaml_sources(
-        config_yaml=config_yaml,
-        override_yaml=None,
-        args_yaml_legacy=None,
-    )
-    merged_yaml_cfg, _, _ = load_merged_yaml_cfg(
-        config_yaml=config_yaml,
-        override_yaml=None,
-    )
+    merged_yaml_cfg, _ = load_merged_yaml_cfg(config_yaml)
     from mlmm.cli.decorators import resolve_model_indices_setting
     model_indices_str, model_indices_one_based = resolve_model_indices_setting(
         ctx, merged_yaml_cfg, model_indices_str, model_indices_one_based
@@ -2116,7 +2108,6 @@ def cli(
                 apply_ref_pdb_override(pi, ref_list[i])
             prepared_inputs.append(pi)
         config_layer_cfg = load_yaml_dict(config_yaml)
-        override_layer_cfg = load_yaml_dict(override_yaml)
 
         mep_mode_kind = mep_mode.lower().strip()
         refine_mode_kind = refine_mode.strip().lower() if refine_mode else None
@@ -2131,16 +2122,6 @@ def cli(
         search_cfg = dict(SEARCH_KW)
         dmf_cfg = fresh_dmf_config()
 
-        def _apply_single_opt_yaml_layer(layer_cfg: Dict[str, Any]) -> None:
-            apply_single_opt_yaml_layer(
-                layer_cfg,
-                lbfgs_cfg=lbfgs_cfg,
-                rfo_cfg=rfo_cfg,
-                stopt_cfg=stopt_cfg,
-                opt_base_kw=OPT_BASE_KW,
-                deep_update=deep_update,
-            )
-
         apply_yaml_overrides(
             config_layer_cfg,
             [
@@ -2153,9 +2134,16 @@ def cli(
                 (dmf_cfg, (("dmf",),)),
             ],
         )
-        _apply_single_opt_yaml_layer(config_layer_cfg)
+        apply_single_opt_yaml_layer(
+            config_layer_cfg,
+            lbfgs_cfg=lbfgs_cfg,
+            rfo_cfg=rfo_cfg,
+            stopt_cfg=stopt_cfg,
+            opt_base_kw=OPT_BASE_KW,
+            deep_update=deep_update,
+        )
 
-        # CLI explicit overrides (after config YAML, before override YAML)
+        # CLI explicit overrides (after config YAML)
         if backend is not None:
             calc_cfg["backend"] = str(backend).lower()
         from mlmm.backends import apply_precision_to_calc_cfg
@@ -2281,26 +2269,12 @@ def cli(
         if _is_param_explicit("refine_mode"):
             search_cfg["refine_mode"] = refine_mode_kind
 
-        apply_yaml_overrides(
-            override_layer_cfg,
-            [
-                (geom_cfg, (("geom",),)),
-                (calc_cfg, (("calc",), ("mlmm",))),
-                (gs_cfg, (("gs",),)),
-                (stopt_cfg, (("stopt",),)),
-                (bond_cfg, (("bond",),)),
-                (search_cfg, (("search",),)),
-                (dmf_cfg, (("dmf",),)),
-            ],
-        )
-        _apply_single_opt_yaml_layer(override_layer_cfg)
         single_opt_kind = normalize_scan_opt_mode(opt_mode)
         single_opt_cfg = lbfgs_cfg if single_opt_kind == "lbfgs" else rfo_cfg
         opt_mode_label = "grad" if single_opt_kind == "lbfgs" else "hess"
-        for layer_cfg in (config_layer_cfg, override_layer_cfg):
-            check_single_opt_yaml_conflicts(
-                layer_cfg, kind=single_opt_kind, opt_base_kw=OPT_BASE_KW
-            )
+        check_single_opt_yaml_conflicts(
+            config_layer_cfg, kind=single_opt_kind, opt_base_kw=OPT_BASE_KW
+        )
         # The final layer may replace strict method enums or the workers count.
         # Revalidate the fully resolved calculator mapping before dry-run can
         # report success (the constructor repeats this for normal execution).
@@ -2347,7 +2321,6 @@ def cli(
                 real_parm7,
                 model_pdb_effective,
                 config_yaml,
-                override_yaml,
                 Path(calc_cfg["calc_file"]) if calc_cfg.get("calc_file") else None,
             ),
         )
@@ -2419,7 +2392,6 @@ def cli(
                         "yaml_layers",
                         {
                             "config": None if config_yaml is None else str(config_yaml),
-                            "override": None if override_yaml is None else str(override_yaml),
                             "merged_keys": sorted(merged_yaml_cfg.keys()),
                         },
                     force=True)
@@ -2503,7 +2475,6 @@ def cli(
                     *ref_list,
                     real_parm7,
                     config_yaml,
-                    override_yaml,
                     (
                         Path(calc_cfg["calc_file"])
                         if calc_cfg.get("calc_file")

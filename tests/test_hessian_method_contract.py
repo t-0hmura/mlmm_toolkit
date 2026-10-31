@@ -309,9 +309,8 @@ def test_opt_dry_run_rejects_invalid_yaml_method(
         ("link_atom_method", "link_atom_method"),
     ],
 )
-def test_path_dry_run_rejects_invalid_method_from_final_override(
+def test_path_dry_run_rejects_invalid_method_from_config(
     tmp_path: Path,
-    monkeypatch,
     module_name: str,
     command_args,
     key: str,
@@ -329,22 +328,13 @@ def test_path_dry_run_rejects_invalid_method_from_final_override(
     if not all(path.exists() for path in required):
         pytest.skip("smoke inputs not present")
 
-    override = tmp_path / f"{key}-override.yaml"
-    override.write_text(f"calc:\n  {key}: typo\n", encoding="utf-8")
+    config = tmp_path / f"{key}-config.yaml"
+    config.write_text(f"calc:\n  {key}: typo\n", encoding="utf-8")
     module = importlib.import_module(module_name)
-    monkeypatch.setattr(
-        module,
-        "resolve_yaml_sources",
-        lambda config_yaml, override_yaml, args_yaml_legacy: (
-            config_yaml,
-            override,
-            False,
-        ),
-    )
 
     result = CliRunner().invoke(
         module.cli,
-        command_args(smoke, tmp_path / f"out-{key}"),
+        [*command_args(smoke, tmp_path / f"out-{key}"), "--config", str(config)],
     )
 
     assert result.exit_code != 0

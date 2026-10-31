@@ -58,20 +58,18 @@ def test_yaml_none_selects_automatic_symmetry_detection() -> None:
 
 
 @pytest.mark.parametrize(
-    ("config_has_value", "override_has_value", "resolved_value", "expected"),
+    ("config_has_value", "resolved_value", "expected"),
     [
-        (False, False, None, "auto"),
-        (True, False, 2, "config"),
-        (True, True, 3, "override"),
-        (True, True, None, "auto"),
+        (False, None, "auto"),
+        (True, 2, "config"),
+        (True, None, "auto"),
     ],
 )
 def test_symmetry_number_source_tracks_configuration_precedence(
-    config_has_value, override_has_value, resolved_value, expected
+    config_has_value, resolved_value, expected
 ) -> None:
     assert _symmetry_number_source(
         config_has_value=config_has_value,
-        override_has_value=override_has_value,
         resolved_value=resolved_value,
     ) == expected
 
