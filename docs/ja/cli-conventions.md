@@ -51,13 +51,13 @@ mlmm opt -i input.pdb --parm7 real.parm7 -q -1 --config my_settings.yaml --show-
 
 ## ML/MM の共通オプション
 
-`-q` は系全体ではなく ML 領域の電荷です。ML/MM の個別のコマンドには、全系のトポロジー（`--parm7`）と ML 領域が要ります。`all` はどちらも自分で作ります。
+`-q` は系全体ではなく ML 領域の電荷です。ML/MM の個別のコマンドには、全系のトポロジー（`--parm7`）と ML 領域が要ります。`all` はどちらも自動で作ります。
 
 各コマンドは、次のうち最初に与えられたものから ML 領域を決めます：`--model-pdb`、次に `--model-indices`、次に `--detect-layer` での入力 PDB の ML 原子（B-factor 0）。ML 領域を明示したときも、`--detect-layer` は B-factor から可動 MM と固定 MM の層を読みます。
 
 | オプション | 意味 | デフォルト |
 |---|---|---|
-| `--parm7` | 酵素複合体全体（全系）の Amber parm7 トポロジー。 | 必須（`all` は自分で作る） |
+| `--parm7` | 酵素複合体全体（全系）の Amber parm7 トポロジー。 | 必須（`all` は自動で作る） |
 | `--model-pdb` | ML 領域だけの PDB（リンク水素を含まない）。原子の名前と順序は全系の PDB・parm7 と同じにします。与えると、これで ML 領域が決まります。 | なし |
 | `--model-indices` | ML 領域の原子番号（1 始まり、カンマ区切り。`1-5` のような範囲も可）。`--model-pdb` が無いときに使います。 | なし |
 | `--detect-layer/--no-detect-layer` | B-factor 0 / 10 / 20 を {ref}`ML・可動 MM・固定 MM の層 <ja-mm-layers>` として読みます。ML 領域を明示したときは MM の層だけを読みます。 | `--detect-layer` |
@@ -151,7 +151,7 @@ mlmm extract -i complex.cif -c 'LONG_CHAIN:10001' -o pocket.pdb      # chain＋�
 (ja-scan-list-spec)=
 ### スキャンリスト仕様
 
-`-s/--scan-lists`（`scan` / `scan2d` / `scan3d` / `all` で使用）は 1 個以上のインライン Python リテラルを受け付けます。スタンドアロンの `scan` / `scan2d` / `scan3d` はこれに加えて YAML/JSON スペックファイルパスも受け付けます。複数ステージの実行にはファイルが、短い指定にはインラインリテラルが適しています。
+`-s/--scan-lists`（`scan` / `scan2d` / `scan3d` / `all` で使用）は 1 個以上のインライン Python リテラルを受け付けます。スタンドアロンの `scan` / `scan2d` / `scan3d` はこれに加えて YAML/JSON スペックファイルのパスも受け付けます。複数ステージの実行にはファイルが、短い指定にはインラインリテラルが適しています。
 
 **YAML/JSON スペックファイル**（ルートはマッピング。キーは `scan` では `stages`、`scan2d` / `scan3d` では `pairs`）:
 
@@ -327,5 +327,5 @@ mlmm all -i r.pdb p.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --config my_settings.yaml
 - [出力ディレクトリのレイアウト](output-layout.md) — ファイル名とデフォルトの出力ディレクトリ
 - [トラブルシューティング](troubleshooting.md) — よくあるエラーと対処法
 - [YAML 設定の一覧](yaml-reference.md) — 全設定オプション
-- [MLIP バックエンド](backends.md) — バックエンドの選び方、精度、workers
+- [MLIP バックエンド](backends.md) — バックエンドの選び方、精度、ワーカー
 - [ML/MM 計算機](mlmm-calc.md) — ML/MM のエネルギー・力・Hessian の計算方法

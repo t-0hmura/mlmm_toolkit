@@ -80,7 +80,7 @@ B-factor を 0・10・20 にして `<out_prefix>_layered.pdb` を書きます。
 | --- | --- | --- | --- |
 | `-i, --input` | パス | （必須） | ONIOM の入力。`.gjf` / `.com`（g16）または `.inp`（ORCA） |
 | `--mode` | `g16` / `orca` | `-i` の拡張子から | 入力の形式 |
-| `-o, --out-prefix` | パス | カレントディレクトリに入力の stem | 出力ファイルの接頭辞 |
+| `-o, --out-prefix` | パス | カレントディレクトリに入力の名前（拡張子なし） | 出力ファイルの接頭辞 |
 | `--ref-pdb` | パス | `None` | 原子名・残基名を出力に書き写す PDB。同じ原子を同じ順に並べたもの |
 | `--allow-unverified-ref-order/--no-allow-unverified-ref-order` | フラグ | `False` | マーカーでも元素の一意性でも並びを確かめられないときに、`--ref-pdb` を位置で対応づける |
 

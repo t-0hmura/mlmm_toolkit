@@ -132,7 +132,7 @@ A non-dry `all` run writes the deliverables reached by its enabled stages to `./
   `ml_region_without_linkH.xyz` and `ml_region_with_linkH.xyz`,
   plus matching .pdb files for PDB input
 
-Pipeline scratch lives under `_work/`; keep it if you may redo the post-processing with `--resume-segment`. Full layout and filename conventions: [docs/output-layout.md](docs/output-layout.md).
+Pipeline scratch lives under `_work/`; keep it if you might redo the post-processing with `--resume-segment`. Full layout and filename conventions: [docs/output-layout.md](docs/output-layout.md).
 
 ## Colab GUI workspace
 

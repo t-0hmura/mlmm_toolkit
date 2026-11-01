@@ -26,7 +26,7 @@ mlmm all -i TS_candidate.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' --tsopt --thermo 
 
 A run finished every requested stage when each TS prints `[Imaginary modes] n=1 (...)` and the console ends with `Scientific status: success` under `====== Pipeline summary ======`. Then check that `segments/seg_NN/reactant.*` and `product.*` are the R and P you intended ([outputs.md](outputs.md)).
 
-- **Endpoint mode**: `path-opt` finds one MEP per neighbouring pair of inputs. `--refine-path` runs the recursive `path-search` instead, which splits a multistep reaction where bonds change, so `n_segments` can exceed the number of pairs. Either way, a segment is a candidate step until its TS and IRC are checked.
+- **Endpoint mode**: `path-opt` finds one MEP per neighboring pair of inputs. `--refine-path` runs the recursive `path-search` instead, which splits a multistep reaction where bonds change, so `n_segments` can exceed the number of pairs. Either way, a segment is a candidate step until its TS and IRC are checked.
 - **Scan-list mode**: each literal after `-s` is one stage; the stage ends become the inputs of the MEP search.
 - **TS-only mode**: for a candidate from another code or an earlier run, `all` runs `tsopt`, the IRC, and both endpoint optimizations, without an MEP search. The same chain can be run by hand ([Run stage by stage](#run-stage-by-stage)).
 - **DFT//MLIP/MM**: `--dft` (with `--tsopt`) adds DFT single points on the ML region of R, TS, and P; for standalone runs see [DFT//MLIP/MM on the TS candidate](../mlmm-cli/dft.md#dftmlipmm-on-the-ts-candidate).

@@ -4,7 +4,7 @@
 
 ## Quick install
 
-`nvidia-smi` shows `CUDA Version` at its top right: the newest CUDA the driver supports. The commands below install the conda-forge PyTorch for CUDA 13.0 (`cuda130`); if this number is below 13.0, replace `cuda130` with `cuda129`.
+`nvidia-smi` shows `CUDA Version` at the top right of its output: the newest CUDA the driver supports. The commands below install the conda-forge PyTorch for CUDA 13.0 (`cuda130`); if this number is below 13.0, replace `cuda130` with `cuda129`.
 
 ### Required
 
@@ -24,7 +24,7 @@ plotly_get_chrome -y
 
 PNG export needs operating-system libraries that pip and conda do not install; install them first if they are missing: {ref}`System prerequisites <system-prerequisites>`.
 
-Finally, log in to **Hugging Face Hub** so that UMA models can be downloaded. It needs a free HF account with a read-only token. Accept the FAIR Chemistry License v1 at <https://huggingface.co/facebook/UMA> first:
+Finally, log in to **Hugging Face Hub** so that UMA models can be downloaded. Logging in needs a free HF account with a read-only token. Accept the FAIR Chemistry License v1 at <https://huggingface.co/facebook/UMA> first:
 
 ```bash
 hf auth login
@@ -45,7 +45,7 @@ ORB, AIMNet2, MACE, and DFT are installed in step 7 of {ref}`Step-by-step instal
 
 pip and conda do not install the libraries Chrome needs, and an environment built without `cxx-compiler` has no compiler. A workstation usually has them; a minimal container or a bare cluster node often does not.
 
-- **A compiler.** UMA builds code the first time it runs: a GPU run needs a C compiler (`gcc`), and a CPU run needs a C++ compiler (`g++`). `hessian_ff` needs a C++20 compiler. The conda command of Quick install installs them (`cxx-compiler`).
+- **A compiler.** UMA builds code the first time it runs: a GPU run needs a C compiler (`gcc`), and a CPU run needs a C++ compiler (`g++`). `hessian_ff` needs a C++20 compiler. The conda command in Quick install installs them (`cxx-compiler`).
 - **Libraries for Chrome.** PNG figures (`energy-diagram`, `trj2fig`, and the diagrams of `all`) are drawn by headless Chrome, which `plotly_get_chrome -y` downloads. Chrome loads the operating-system libraries below.
 
 Ubuntu/Debian (on Ubuntu 22.04 and Debian 12, write `libasound2` instead of `libasound2t64`; drop `sudo` if you are root):
@@ -115,7 +115,7 @@ If you prefer to build the environment piece by piece:
 
     The `hessian_ff` kernels are built automatically on first use. If the build fails, see {ref}`hessian_ff build / import <hessian_ff-build--import>` for a manual rebuild.
 
-    On aarch64, the `warp-lang` 1.18.0 wheel, which UMA loads through `fairchem-core`, needs glibc 2.35 and stops the import with `GLIBC_2.35' not found` on older systems (`ldd --version`); there, install `warp-lang==1.17.0` (`nvalchemi-toolkit-ops` needs 1.13.0 or newer).
+    On aarch64, the `warp-lang` 1.18.0 wheel, which UMA loads through `fairchem-core`, needs glibc 2.35 and stops the import with `GLIBC_2.35' not found` on older systems (`ldd --version`); on those systems, install `warp-lang==1.17.0` (`nvalchemi-toolkit-ops` needs 1.13.0 or newer).
 
 6. **Log in to Hugging Face Hub (UMA model)**
 

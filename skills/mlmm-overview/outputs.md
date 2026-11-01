@@ -162,7 +162,7 @@ Bond broken (2):
 
 When `execution_status` is `failed` or `scientific_status` is not `success`, look at:
 
-1. `summary.log`: its header gives both statuses, and an early stop is shown as `Pipeline stop`, and segments that stopped before IRC as `Stopped before IRC`. On the console, `RESULT WARNING:` lines after `====== Pipeline summary ======` give the reasons.
+1. `summary.log`: its header gives both statuses; an early stop is shown as `Pipeline stop`, and segments that stopped before IRC as `Stopped before IRC`. On the console, `RESULT WARNING:` lines after `====== Pipeline summary ======` give the reasons.
 2. `segments/seg_NN/{ts,irc}/result.json` and `segments/seg_NN/endpoint_opt/{R,P}/result.json`: the status of each stage. `endpoint_opt/failure.json` is written when an endpoint optimization could not run. In an `all` run, `freq/` and `dft/` have no `result.json`.
 3. The terminal or scheduler stderr, for tracebacks that are not in the JSON. Read the exit code with the status: 0 is `success` or `partial` (tell them apart by `scientific_status`); 1 is non-convergence, no usable result, a runtime exception, or an output failure; 2 is a CLI argument that the command rejects or a malformed configuration YAML, so fix the command instead of resubmitting it; 130 is an interrupt. A run that fails while its options or inputs are checked can stop before writing any JSON, so treat a nonzero exit code as a failure.
 

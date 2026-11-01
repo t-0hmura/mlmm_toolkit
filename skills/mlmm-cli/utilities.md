@@ -14,7 +14,7 @@ Six small commands around the main workflow:
 **When to use.** The cheapest stage: the ONIOM energy and forces at one
 geometry, and with `--hess` the Hessian, without an optimization. Use it to
 spot-check a geometry or extract forces. It does not move atoms; relax with
-[opt.md](opt.md) and search a TS with [tsopt.md](tsopt.md).
+[opt.md](opt.md) and search for a TS with [tsopt.md](tsopt.md).
 
 **Minimal run.**
 

@@ -57,7 +57,7 @@ current working directory. Pass `complex.parm7` to downstream subcommands via
 separate `--water` flag**, and there is **no `--force-field` flag**
 (use `--ff-set` instead).
 
-## Common gotchas
+## Common problems
 
 | Symptom | Cause / fix |
 |---|---|
@@ -70,7 +70,7 @@ separate `--water` flag**, and there is **no `--force-field` flag**
 
 - Running MD inside `mlmm-toolkit`. The toolkit only uses tleap /
   antechamber for parameter generation; the actual ML/MM gradient
-  evaluation goes through bundled `hessian_ff`.
+  evaluation goes through the bundled `hessian_ff`.
 - Producing trajectories. The toolkit reads positions from the
   structure given with `-i` but does not call `sander` / `pmemd`.
 
@@ -80,4 +80,4 @@ separate `--water` flag**, and there is **no `--force-field` flag**
 - `mlmm-cli/mm-parm.md` — full `mm-parm` flag reference.
 - [formats.md](../mlmm-model-setup/formats.md#amber-parm7-and-rst7) — `parm7`/`rst7` file structure and editing.
 - [Charge and multiplicity](../mlmm-model-setup/SKILL.md#charge-and-multiplicity) — when ligand charges
-  conflict between PDB and the AmberTools parameter set.
+  conflict between the PDB and the AmberTools parameter set.

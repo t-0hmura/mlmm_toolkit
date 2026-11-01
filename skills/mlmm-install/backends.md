@@ -253,7 +253,7 @@ For MLIP/MM commands, `--embedcharge` adds this correction:
 ```
 
 Forces and Hessians use the corresponding difference. xTB sees the same ML
-region and link hydrogens as the MLIP. It is off by default
+region and link hydrogens as the MLIP. The correction is off by default
 and expensive, because each correction runs xTB with and without the MM point
 charges. Keep the ML region to roughly 200–300 atoms or fewer as a practical
 guideline, then benchmark the actual system, point-charge count, and hardware;
@@ -456,7 +456,7 @@ Reading the report:
   preamble.
 - With a GPU, note the driver version and VRAM; they bound the torch wheel and
   the model size.
-- No CUDA toolkit found does not block a prebuilt CUDA wheel, which carries its
+- A missing CUDA toolkit does not block a prebuilt CUDA wheel, which carries its
   runtime libraries and needs only the driver. Load a toolkit only to compile a
   CUDA extension from source ([CUDA and PyTorch](#cuda-and-pytorch)).
 - `pbsnodes -a` gives each node's `np` (CPU count) and `gpus` (GPU count).

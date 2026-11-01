@@ -111,7 +111,7 @@ structure.
   Use one worker for analytical curvature, or select `FiniteDifference` before
   enabling the UMA parallel predictor.
 - Thermochemistry depends on charge and spin; make sure `-q`/`-m` are correct
-  or the ZPE will be off.
+  or the ZPE will be wrong.
 
 ## Next step
 

@@ -258,7 +258,7 @@ calc:
 - `use_cmap: true` (default) preserves CMAP in both REAL and MODEL MM layers when the parm7 contains it. Set `false` only for an explicit modified-force-field calculation; the opt-out removes CMAP from both layers.
 - `real_parm7` is required for standalone ML/MM calculations. ML membership can come from `model_pdb`, explicit model indices, or valid B-factor layers.
 - Explicit `-q` and `-m` override `model_charge` and `model_mult` from YAML for the ML region; YAML fills omitted values.
-- `opt`, `tsopt`, `irc`, and `freq` use partial Hessian by default when `calc.return_partial_hessian` is not explicitly set in YAML.
+- `opt`, `tsopt`, `irc`, and `freq` use a partial Hessian by default when `calc.return_partial_hessian` is not explicitly set in YAML.
 - To force full Hessian output in those commands, set `calc.return_partial_hessian: false` explicitly.
 
 ### `opt`

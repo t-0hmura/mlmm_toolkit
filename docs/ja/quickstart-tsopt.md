@@ -12,7 +12,7 @@ TS-only モードは、手元の遷移状態（TS）の候補 1 つを、最小�
 
 ## 最小コマンド
 
-全系の TS 候補を 1 つ渡し、`--tsopt` を付けます。同梱例には TS 候補が無いので、次のコマンドは [`all` のクイックスタート](quickstart-all.md) の実行で得た HEI を使います。自分の反応では、自分で用意した候補を渡してください。
+全系の TS 候補を 1 つ渡し、`--tsopt` を付けます。同梱例には TS 候補が無いので、次のコマンドは [`all` のクイックスタート](quickstart-all.md) の実行で得た HEI を使います。自分の反応では、用意した候補を渡してください。
 
 ```bash
 mlmm all -i result_all/_work/path_opt/hei_seg_01.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \

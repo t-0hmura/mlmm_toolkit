@@ -173,7 +173,7 @@ pairs:                     # scan2d (exactly 2 entries) / scan3d (exactly 3 entr
 
 In a YAML spec, a `scan` stage may mix distance targets with distance, angle, or dihedral ranges. Each `scan2d` / `scan3d` axis is `(i,j,low,high)`, `(i,j,k,low,high)`, or `(i,j,k,l,low,high)`. Indices may be integers, three-field selectors, or positional `CHAIN:RESNAME:RESSEQ[ICODE]:ATOM` selectors. Distances are in Å, angles and dihedrals in degrees.
 
-**Inline literal**: wrap in **single quotes** so the shell does not interpret parens / spaces; use double-quoted PDB selectors inside.
+**Inline literal**: wrap in **single quotes** so the shell does not interpret parentheses or spaces; use double-quoted PDB selectors inside.
 
 ```bash
 -s '[(atom1, atom2, target_Å), ...]'             # scan: triples

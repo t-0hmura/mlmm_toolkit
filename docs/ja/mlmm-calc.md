@@ -131,7 +131,7 @@ calc:
 | `real.parm7` | `--parm7` | 全系（REAL）の Amber トポロジー |
 | `model.pdb` | `--model-pdb` | ML 領域を定める PDB（ML 原子の特定に使います） |
 
-`input.pdb` の原子の並びは `real.parm7` と一致させてください。計算機は `real.parm7` と `input.pdb` の座標から ParmEd で `real.rst7` を自分で書くので、別に `real.rst7` や `real.pdb` を用意する必要はありません。コマンドラインでは、ML 領域を `--model-indices` や B-factor の ML 層（`--detect-layer`）から決めることもできます。
+`input.pdb` の原子の並びは `real.parm7` と一致させてください。計算機は `real.parm7` と `input.pdb` の座標から ParmEd で `real.rst7` を自動で書くので、別に `real.rst7` や `real.pdb` を用意する必要はありません。コマンドラインでは、ML 領域を `--model-indices` や B-factor の ML 層（`--detect-layer`）から決めることもできます。
 
 ## 単位
 
@@ -267,7 +267,7 @@ forces = geom.forces            # Hartree/Bohr (flat)
 
 ## 使用上の注意点
 
-- `--hessian-calc-mode Analytical` は、選んだバックエンド（またはその入れた版）に解析 Hessian がないとエラーで止まります。計算機が自分で有限差分に切り替えることはありません。
+- `--hessian-calc-mode Analytical` は、選んだバックエンド（またはその入れた版）に解析 Hessian がないとエラーで止まります。計算機が自動で有限差分に切り替えることはありません。
 - `--embedcharge` を付けると、マイクロイテレーションは使われません。MM だけのマイクロステップには埋め込みの力が入らないためで、このときオプティマイザは ML と MM の原子を一緒に動かします。
 - fixed のリンク原子の配置は、ML 側の親原子が C か N のときだけ使えます。
 - デフォルトの `return_partial_hessian=True` では、`compute()` は Hessian 対象の原子だけの Hessian を、4 次元の配列 `(n_active, 3, n_active, 3)` で返します。全系に戻すには `within_partial_hessian` を使ってください。

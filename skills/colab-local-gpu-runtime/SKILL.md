@@ -5,7 +5,7 @@ description: Set up, start, verify, and troubleshoot Google Colab local runtimes
 
 # Colab Local GPU Runtime
 
-Run the Colab page in the browser while Python and the GPU run locally in Google's official Colab image (Windows with WSL2 and Docker Desktop). `C:\colab-work` is mounted as `/content`, so notebooks and results stay on the disk.
+Run the Colab page in the browser while Python and the GPU run locally in Google's official Colab image (Windows with WSL2 and Docker Desktop). `C:\colab-work` is mounted as `/content`, so notebooks and results stay on the Windows disk.
 
 ## Steps
 

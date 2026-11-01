@@ -47,8 +47,8 @@ not know which end is the reactant or the product. Judge it in three steps:
    coordinates and execution errors as failures.
 3. Optimize both endpoint candidates and compare them with the intended R and
    P. Even if the IRC does not converge, the result is usable when the
-   optimized endpoints reach the intended R and P. The direction forward or
-   backward does not decide which one is R.
+   optimized endpoints reach the intended R and P. The forward or backward
+   direction does not decide which end is R.
 
 ```bash
 mlmm opt -i result_irc/forward_first.xyz --ref-pdb enzyme_layered.pdb \
@@ -130,7 +130,7 @@ for b in bc["broken"]: print("BROKEN ", b)
   still leaves a finite endpoint that goes on to endpoint `opt`; raise
   `--max-cycles` only when the branch must be followed further.
 - The bond-change detector is geometry-based (covalent-radius cutoff), not
-  physics-based. Metal–ligand bonds may flicker on the borderline.
+  physics-based. Metal–ligand bonds may flicker near the cutoff.
 
 ## Next step
 

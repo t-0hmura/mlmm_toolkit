@@ -108,7 +108,7 @@ mlmm extract -i system.pdb -c LIG -l 'LIG:0' -o model.pdb
 mlmm define-layer -i system.pdb --model-pdb model.pdb -o system_layered.pdb
 ```
 
-Pass `system_layered.pdb` with `--parm7 system.parm7` and `--model-pdb model.pdb` to the individual commands, or to `all` without `-c`. Each command takes the {ref}`ML region <mlmm-options>` from `--model-pdb`, then `--model-indices`, then the B-factor layers. Give the charge of the ML region with `-q`, or the charge of each residue name with `-l` (PDB/mmCIF input). When you cut the region or changed protonation by hand, the charge cannot be derived from the residue names; give it with `-q`.
+Pass `system_layered.pdb` with `--parm7 system.parm7` and `--model-pdb model.pdb` to the individual commands, or to `all` without `-c`. Each command takes the {ref}`ML region <mlmm-options>` from `--model-pdb`, then `--model-indices`, then the B-factor layers. Give the charge of the ML region with `-q`, or the charge of each residue name with `-l` (PDB/mmCIF input). When you cut the region or change protonation by hand, the charge cannot be derived from the residue names; give it with `-q`.
 
 (model-pdb-selection)=
 ### How to construct a reliable `model.pdb`

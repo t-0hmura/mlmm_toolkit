@@ -364,8 +364,8 @@ For non-standard residues, `mm-parm` runs `antechamber` to derive GAFF2
 parameters; `--keep-temp` keeps the build directory so you can inspect the
 generated `.frcmod`.
 
-**Change one residue's layer** without rebuilding the parm7, which does not
-change; only the B-factors in the PDB move. This moves residue 44 of chain A
+**Change one residue's layer** without rebuilding the parm7: the parm7 stays
+the same, and only the B-factors in the PDB change. This moves residue 44 of chain A
 to Frozen-MM:
 
 ```bash

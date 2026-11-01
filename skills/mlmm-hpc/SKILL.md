@@ -129,14 +129,14 @@ optimizer cycles; TS/frequency cost depends on Hessian mode and active degrees
 of freedom; DFT cost depends strongly on elements, basis, functional, grid, and
 engine. Add margin for retries and first-use compilation.
 
-GPU DFT (`-b dft` and `mlmm dft`) grows steeply with the ML-region size: for
+The cost of GPU DFT (`-b dft` and `mlmm dft`) grows steeply with the ML-region size: for
 `wb97m-v/def2-svp` on a 16 GB consumer GPU, a 63-atom single point took about
 8 min and an 87-atom one about 18 min, roughly the 2.4–2.6 power of the atom
 count. ML regions of several hundred atoms need a GPU with strong FP64
 throughput and 24 GB or more; time one structure on the production GPU and
 extrapolate before a batch. The first SCF of each run converges on a coarse
-grid first (`--scf-stepwise-grid`, on by default), which shortened it 1.4–1.9
-times from about 60 atoms up; small systems can be slightly slower, so
+grid first (`--scf-stepwise-grid`, on by default), which made it 1.4–1.9
+times faster from about 60 atoms up; small systems can be slightly slower, and
 `--no-scf-stepwise-grid` turns it off.
 
 ## CPU vs GPU choice
@@ -243,8 +243,8 @@ them.
 
 When you have many short tasks and want to amortize the queue wait,
 use the flock + pbsdsh pattern documented in `dynamic-dispatch.md`. One
-qsub grabs N nodes, each node runs a worker that pulls tasks from a
-shared list with file-lock-protected counter increment.
+qsub grabs N nodes; each node runs a worker that pulls tasks from a
+shared list, incrementing a counter under a file lock.
 
 ## Useful environment variables
 
@@ -259,8 +259,8 @@ shared list with file-lock-protected counter increment.
 
 ## ssh-based remote submission
 
-Generally avoided in shared distribution skills (depends on
-per-user ssh config). If your cluster requires `ssh <login> qsub`,
+These shared templates avoid it, because it depends on
+per-user ssh config. If your cluster requires `ssh <login> qsub`,
 add that as a wrapper around the PBS / SLURM command above; do **not**
 embed it inside the skill template.
 

@@ -132,7 +132,7 @@ cycle threshold.
   with `--flatten`; see
   [ts-strategy.md](../mlmm-overview/ts-strategy.md#3-wrong-n_imag-after-ts-optimization).
 - `--ref-mode` is an advanced input; `all` supplies the MEP tangent this way
-  by default; with `all --no-tsopt-from-mep-tan`, the root comes from
+  by default; with `all --no-tsopt-from-mep-tan`, the followed mode comes from
   the Hessian modes of the starting structure. Standalone runs omit it. Supply
   it by hand only when the non-zero 3N vector uses exactly the same atom order
   as the TS input.

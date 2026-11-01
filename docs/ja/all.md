@@ -90,7 +90,7 @@ N より前のセグメントはそのまま残し、セグメント N 以降の
 
 1. **入力と ML 領域の準備**: 元素の欄が空の PDB では、元素記号を補います。`-c` を指定すると、指定した残基のまわりの活性部位モデルを切り出します。最初の入力のモデルが ML 領域になり、`ml_region.pdb` に書き出されます。
 2. **トポロジーと層の作成**: `mm-parm` が、最初の入力から AmberTools で全系の Amber トポロジーを作ります。力場は ff19SB、非標準残基は GAFF2 です。`--parm7` を指定するとこの段を省きます。続いて `define-layer` が、3 つの層を B-factor に書き込みます。ML（0）、可動 MM（10）、固定 MM（20）で、可動 MM は ML 領域から 8 Å 以内の残基です。以降の計算はすべて全系を ML/MM で行い、ML/MM の境界で切れる結合はリンク水素で埋めます。
-3. **経路の作成**: まず入力構造を最適化します（`--preopt`）。`-s` を指定すると、段階的スキャンで中間体を作ります。続いて `path-opt` が、隣り合う構造の間の MEP を GSM（growing string method、デフォルト）か DMF（direct max flux）で求めます。`--refine-path` では、再帰的な `path-search` が経路を詰め、結合が変わる所で段に分けます。各段の HEI がその段の TS 候補です。
+3. **経路の作成**: まず入力構造を最適化します（`--preopt`）。`-s` を指定すると、段階的スキャンで中間体を作ります。続いて `path-opt` が、隣り合う構造の間の MEP を GSM（growing string method、デフォルト）か DMF（direct max flux）で求めます。`--refine-path` では、再帰的な `path-search` が経路を精密化し、結合が変わる所で段に分けます。各段の HEI がその段の TS 候補です。
 4. **TS の最適化と IRC の追跡**（`--tsopt`）: 各 HEI をデフォルトでは RS-P-RFO（restricted-step partitioned rational function optimization）で最適化し、ML と可動 MM の原子の最後の Hessian（PHVA、部分 Hessian 振動解析）から n_imag を求めます。TS から EulerPC（Euler 予測子–修正子法による積分）で IRC を両方向へたどり、両端を極小まで最適化します。これがそのセグメントの R と P になります。
 5. **熱化学と DFT**: `--thermo` では R・TS・P で `freq` を実行して ML/MM のギブズエネルギーを求め、`--dft` では同じ構造の ML 領域を DFT で計算し、MM のエネルギーと合わせます。それぞれのエネルギー図も描きます。
 
@@ -183,7 +183,7 @@ result_all/
 
 ## 主な CLI オプション
 
-`all` は Amber のトポロジーと層を自分で作るので、{ref}`ML/MM の共通オプション <ja-mlmm-options>` は前の実行のトポロジーと `ml_region.pdb` を使い回すときだけ渡します。下の表は `all` に固有のものだけです。
+`all` は Amber のトポロジーと層を自動で作るので、{ref}`ML/MM の共通オプション <ja-mlmm-options>` は前の実行のトポロジーと `ml_region.pdb` を再利用するときだけ渡します。下の表は `all` に固有のものだけです。
 
 | オプション | 引数の型 | デフォルト | 説明 |
 | --- | --- | --- | --- |

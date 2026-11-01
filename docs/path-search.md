@@ -56,7 +56,7 @@ Between each pair of adjacent inputs (A → B), GSM or DMF builds a coarse MEP a
 2. **Relaxing around the HEI**:
 `--refine-mode peak` optimizes the images on either side of the HEI (HEI ± 1); `minima` searches outward from the HEI for the nearest local minimum on each side. The result is two nearby minima, End1 and End2. When `--refine-mode` is omitted, GSM uses `peak` and DMF uses `minima`.
 3. **Kink or reactive segment**:
-If no covalent bond changes between End1 and End2, the region is a *kink*: `path-search` inserts a few linear nodes and optimizes each one. Otherwise the region is a *reactive segment*, and a new GSM or DMF path between End1 and End2 sharpens its barrier.
+If no covalent bond changes between End1 and End2, the region is a *kink*: `path-search` inserts a few linearly interpolated nodes and optimizes each one. Otherwise the region is a *reactive segment*, and a new GSM or DMF path between End1 and End2 sharpens its barrier.
 4. **Recursing where bonds still change**:
 The parts A → End1 and End2 → B are checked for bond changes, and only parts that still have them are searched again, down to `--max-depth` levels.
 5. **Stitching**:

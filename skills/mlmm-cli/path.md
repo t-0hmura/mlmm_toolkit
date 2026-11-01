@@ -38,7 +38,7 @@ mlmm path-search -i 1.R.pdb 3.P.pdb --parm7 real.parm7 \
 ```
 
 Give all structures after one `-i`. `--max-nodes` (default 20) sets the
-movable images of each string, so a string has at most `max-nodes + 2`
+number of movable images of each string, so a string has at most `max-nodes + 2`
 images. `-b` selects `uma`, `orb`, `mace`, `aimnet2`, or `dft`.
 `--refine-mode` is `peak` (HEI ± 1) for GSM and `minima` (nearest local
 minima) for DMF unless given; `--max-depth` (default 10) limits the

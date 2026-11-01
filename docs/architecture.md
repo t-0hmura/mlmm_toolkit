@@ -169,7 +169,7 @@ Two import surfaces are supported:
 
 ## 3. Fresh-eyes 5-step navigation (≈ 40 min total)
 
-For a contributor opening the repo for the first time, follow this path top-to-bottom; each step closes one concern.
+For a contributor opening the repo for the first time, follow this path top-to-bottom; each step covers one concern.
 
 | step | minutes | open | what you learn |
 |------|---------|------|-----------------|
@@ -327,11 +327,11 @@ For mlmm the practical curriculum is the 5-pass Hessian set first, then the TS s
 
 ### 5.2 VRAM-management invariant (do not refactor `del` chains)
 
-The IRC / TSopt / Freq stages explicitly `del` GPU-resident objects (`calc`, `geom`, `hess`) between stages to free CUDA memory; stage boundaries also use `gc.collect()` and, where CUDA allocations are present, `torch.cuda.empty_cache()`. **Do not refactor these release operations out** — long-running ML/MM `all` jobs on the full protein environment OOM without them.
+The IRC / TSopt / Freq stages explicitly `del` GPU-resident objects (`calc`, `geom`, `hess`) between stages to free CUDA memory; stage boundaries also use `gc.collect()` and, where CUDA allocations are present, `torch.cuda.empty_cache()`. **Do not refactor these release operations out** — long-running ML/MM `all` jobs on the full protein environment run out of GPU memory without them.
 
 ### 5.3 Bundled forks: do NOT install upstream alongside
 
-The bundled `pysisyphus/`, `thermoanalysis/`, and `hessian_ff/` packages are **forks**; `hessian_ff/` has no PyPI release at all. Reinstalling `pip install pysisyphus` or `pip install thermoanalysis` next to this package silently breaks:
+The bundled `pysisyphus/`, `thermoanalysis/`, and `hessian_ff/` packages are **forks**; `hessian_ff/` has no PyPI release at all. Running `pip install pysisyphus` or `pip install thermoanalysis` next to this package silently breaks:
 
 - `pysisyphus/irc/IRC.py` — initial-displacement memory hygiene
 - `pysisyphus/optimizers/hessian_updates.py` — GPU-resident in-place rank-two Bofill update; opt-in `PYSIS_BOFILL_CPU_OFFLOAD=1` fallback
@@ -369,7 +369,7 @@ Each dir carries its own `README.md` listing its divergences from upstream and i
 
 After the Fresh-eyes 5-step navigation (§3), follow this depth-first reading order:
 
-1. `mlmm/core/defaults.py` — internalise the default-value table; everything downstream reads from here.
+1. `mlmm/core/defaults.py` — internalize the default-value table; everything downstream reads from here.
 2. `mlmm/cli/app.py` — Click root + `_LAZY_SUBCOMMANDS` registry.
 3. `mlmm/workflows/all.py` — one full pipeline top-to-bottom.
 4. `mlmm/workflows/extract.py` + `define_layer.py` — cluster cut-out + link-atom cap + ONIOM layer assignment.

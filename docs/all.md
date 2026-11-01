@@ -10,7 +10,7 @@ Without `--tsopt`, the run ends with TS candidates: the highest-energy image (HE
 
 What you pass selects the mode:
 
-* **Path and energy diagram from R and P (Endpoint mode)**: give two or more full structures in reaction order (reactant, intermediates, product); `all` finds the MEP between each neighbouring pair and draws the energy diagram.
+* **Path and energy diagram from R and P (Endpoint mode)**: give two or more full structures in reaction order (reactant, intermediates, product); `all` finds the MEP between each neighboring pair and draws the energy diagram.
 * **Path from a reactant alone (Scan-list mode)**: give one structure and the bonds to form or break with `-s`; a staged scan makes the intermediates, and the MEP search runs through them.
 * **Check one TS candidate (TS-only mode)**: give one structure with `--tsopt` and no `-s`; `all` optimizes the TS and runs IRC from it. The TS is confirmed when n_imag = 1 and the IRC ends at the intended R and P.
 
@@ -29,7 +29,7 @@ mlmm all -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
     --refine-path --tsopt --thermo --dft --out-dir ./result_mep
 ```
 
-Every requested stage finished when the console prints `[Imaginary modes] n=1 (...)` for each TS and `Scientific status: success` under the last `====== Pipeline summary ======`. Then check the endpoints as in [Reading the run status](#reading-the-run-status). The optimized structures are in `result_mep/segments/seg_NN/`.
+Every requested stage has finished when the console prints `[Imaginary modes] n=1 (...)` for each TS and `Scientific status: success` under the last `====== Pipeline summary ======`. Then check the endpoints as in [Reading the run status](#reading-the-run-status). The optimized structures are in `result_mep/segments/seg_NN/`.
 
 ### 2. Path from the reactant by a staged scan
 
@@ -90,7 +90,7 @@ Full structure(s) (PDB / mmCIF, or XYZ with --ref-pdb)
 
 1. **Preparing the input and the ML region**: for a PDB with blank element columns, `all` fills them in. With `-c`, it cuts out the active-site model around the given residues; the model of the first input becomes the ML region and is written to `ml_region.pdb`.
 2. **Building the topology and the layers**: `mm-parm` builds the Amber topology of the full system from the first input with AmberTools (ff19SB, GAFF2 for non-standard residues); `--parm7` skips this step. `define-layer` then writes the three layers into the B-factors: ML (0), Movable-MM residues within 8 Å of the ML region (10), and Frozen-MM (20). Every later calculation runs on the full system with ML/MM, and the bonds cut at the ML/MM boundary are capped with link hydrogens.
-3. **Building the path**: the input structures are optimized first (`--preopt`). With `-s`, the staged scan makes the intermediates. `path-opt` then finds the MEP between each neighbouring pair by GSM (growing string method, the default) or DMF (direct max flux); with `--refine-path`, the recursive `path-search` refines the path and splits it into steps where bonds change. The HEI of each step is its TS candidate.
+3. **Building the path**: the input structures are optimized first (`--preopt`). With `-s`, the staged scan makes the intermediates. `path-opt` then finds the MEP between each neighboring pair by GSM (growing string method, the default) or DMF (direct max flux); with `--refine-path`, the recursive `path-search` refines the path and splits it into steps where bonds change. The HEI of each step is its TS candidate.
 4. **Optimizing the TS and following the IRC** (`--tsopt`): each HEI is optimized by RS-P-RFO (restricted-step partitioned rational function optimization) by default, and the final Hessian of the ML and movable MM atoms (PHVA, partial Hessian vibrational analysis) gives n_imag. From the TS, the IRC is traced in both directions with EulerPC (an Euler predictor–corrector integrator), and both ends are optimized to minima. These become the R and P of the segment.
 5. **Thermochemistry and DFT**: `--thermo` runs `freq` on R, TS, and P for the ML/MM Gibbs energy, and `--dft` computes the ML region of the same structures with DFT and combines it with the MM energy. Each adds its own energy diagram.
 

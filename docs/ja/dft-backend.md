@@ -1,6 +1,6 @@
 # MLIP の TS を DFT で確かめる
 
-MLIP/MM で妥当な経路が見つかったら、その TS をそのまま DFT/MM での TS 構造最適化にもっていくことにも `mlmm-toolkit` は対応しています。TS 最適化 → IRC → 端点の最適化 → 振動数計算のワークフローを、GPU4PySCF を用いることで GPU で高速化された DFT 計算により実行可能です。DFT で計算するのは ML 領域だけで、周りのタンパク質は MM のままです。
+MLIP/MM で妥当な経路が見つかったら、その TS をそのまま DFT/MM での TS 構造最適化に進めることにも `mlmm-toolkit` は対応しています。TS 最適化 → IRC → 端点の最適化 → 振動数計算のワークフローを、GPU4PySCF を用いることで GPU で高速化された DFT 計算により実行可能です。DFT で計算するのは ML 領域だけで、周りのタンパク質は MM のままです。
 
 主役は MLIP/MM による経路探索で、DFT/MM は MLIP/MM で見つけた TS 候補を確かめるための追加の機能です。
 
@@ -22,7 +22,7 @@ MLIP/MM で妥当な経路が見つかったら、その TS をそのまま DFT/
 
 ### 1. 小さな ML 領域で MLIP/MM の探索を行う
 
-DFT で扱える大きさの ML 領域で MLIP/MM の探索を行います。出力ディレクトリ `result_all/` に、例 2 で再利用す TS・MM のトポロジー・ML 領域が入ります。
+DFT で扱える大きさの ML 領域で MLIP/MM の探索を行います。出力ディレクトリ `result_all/` に、例 2 で再利用する TS・MM のトポロジー・ML 領域が入ります。
 
 ```bash
 mlmm all -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
@@ -33,7 +33,7 @@ mlmm all -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
 
 ### 2. TS を DFT/MM で精密化する
 
-例 1 の TS を 1 つだけ入力にすると、TS-only モードになります。`ts.pdb` は全系の構造で、`--parm7` と `--model-pdb` で例 1 のトポロジーと ML 領域を再利用すので、2 つの計算は同じ系を扱います。DFT 用の[追加パッケージ](#使用上の注意点)が要ります。
+例 1 の TS を 1 つだけ入力にすると、TS-only モードになります。`ts.pdb` は全系の構造で、`--parm7` と `--model-pdb` で例 1 のトポロジーと ML 領域を再利用するので、2 つの計算は同じ系を扱います。DFT 用の[追加パッケージ](#使用上の注意点)が要ります。
 
 ```bash
 mlmm all -i result_all/segments/seg_01/ts.pdb \

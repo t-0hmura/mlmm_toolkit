@@ -30,7 +30,7 @@
 
 ## 実行前チェックリスト
 
-長い計算を回す前に、次を確かめてください。
+長い計算を実行する前に、次を確かめてください。
 
 - `mlmm -h` でヘルプが表示される。
 - デフォルトの UMA バックエンドのために、このマシンで Hugging Face にログインできている。
@@ -212,7 +212,7 @@ IPOPT/MUMPS が並列版 BLIS を使う環境では、入れ子の並列化で�
 (ja-optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor)=
 ### エネルギーが平坦なまま最適化が終わらない（MLIP の力のノイズフロア）
 
-- **症状**：`opt` / `tsopt` が回り続けるが、直近のサイクルでエネルギーがほぼ平坦になり、最大・RMS の力が `gau` / `baker` の閾値のわずか上で下がらなくなる。
+- **症状**：`opt` / `tsopt` が終わらずに続くが、直近のサイクルでエネルギーがほぼ平坦になり、最大・RMS の力が `gau` / `baker` の閾値のわずか上で下がらなくなる。
 - **原因**：MLIP の力には数値精度によるノイズフロアがあります。大きな ML/MM 系では、これが標準の力の閾値を上回り、構造がほぼ止まっていても力が閾値を下回りません。
 - **対処**：
   - 実行の上限は `--max-cycles`（デフォルト 100000）です。エネルギーが平坦になった時点で早く止めたいときは、`--stop-plateau`（`opt`、`tsopt`、`all`）を付けてください。`stalled`（未収束）として止まります。
@@ -222,7 +222,7 @@ IPOPT/MUMPS が並列版 BLIS を使う環境では、入れ子の並列化で�
 (ja-troubleshooting-ts)=
 ### TS 最適化が収束しない・虚振動が複数残る
 
-- **症状**：TS 最適化が多くのサイクルを回しても収束しない（`summary.log` に `TS optimization did not converge. Review the TS trajectory.`）、または収束後に [n_imag](tsopt.md#ts-の判定) が 2 以上（`TS imaginary-mode validation found n_imag=N.`）や 0（`[tsopt] No imaginary mode detected. Try all --refine-path.`）になる。
+- **症状**：TS 最適化が多くのサイクルを繰り返しても収束しない（`summary.log` に `TS optimization did not converge. Review the TS trajectory.`）、または収束後に [n_imag](tsopt.md#ts-の判定) が 2 以上（`TS imaginary-mode validation found n_imag=N.`）や 0（`[tsopt] No imaginary mode detected. Try all --refine-path.`）になる。
 - **最適化が収束しないときの対処**：止まった理由とモードの変位を確かめてから、次を順に試してください。
   1. オプティマイザを RS-P-RFO（デフォルト）と Dimer 法の間で切り替える：単独では `tsopt --opt-mode hess` / `dimer`、`all` では `--opt-mode-post hess` / `grad`（Dimer）。
   2. YAML でステップサイズを小さくする。[YAML 設定の一覧](yaml-reference.md#ts-最適化セクション) を参照してください。

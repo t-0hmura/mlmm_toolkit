@@ -24,7 +24,7 @@ mlmm opt -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b aim
 |---------|---------|------------------|------------------|
 | `uma` | `pip install mlmm-toolkit`（`fairchem-core` は本体の依存）＋ [Hugging Face へのログイン](installation.md) | `uma-s-1p2p1`（デフォルト）/ `uma-s-1p2p1-ft-d4rev` / `uma-s-1p2` / `uma-m-1p1` | `uma_precision="tf32" \| "fp32" \| "fp64"` |
 | `orb` | 別の環境で `pip install "mlmm-toolkit[orb]"`（UMA は元の環境で使います） | `orbmol-v2`（デフォルト）/ `orb_v3_conservative_omol`（エネルギーの勾配から力を求める conservative モデルのみ） | `orb_precision="float32-high" \| "float32-highest" \| "float64"`（`float32-high` は `tf32`、`float32-highest` は `fp32`・`float32` の名前でも受け付けます） |
-| `mace` | 専用の環境で `pip uninstall -y fairchem-core && pip install 'mace-torch>=0.3.16'`（`mace-torch` が固定する `e3nn` の版が UMA とぶつかるため、この環境では UMA は動きません） | `MACE-OMOL-0`（デフォルト）/ `MACE-POLAR-1-S` / `-M` / `-L` | `mace_dtype="float32" \| "float64"` |
+| `mace` | 専用の環境で `pip uninstall -y fairchem-core && pip install 'mace-torch>=0.3.16'`（`mace-torch` が固定する `e3nn` の版が UMA と衝突するため、この環境では UMA は動きません） | `MACE-OMOL-0`（デフォルト）/ `MACE-POLAR-1-S` / `-M` / `-L` | `mace_dtype="float32" \| "float64"` |
 | `aimnet2` | `pip install "mlmm-toolkit[aimnet]"` | `aimnet2`（デフォルト）/ `aimnet2-2025` / `aimnet2-nse` / `aimnet2-pd` | なし |
 
 `--backend-model NAME` は、選んだ `--backend` のモデルを替えます（例：`--backend uma --backend-model uma-m-1p1`）。`-b dft` を付けると ML 領域を [DFT](#dftmm-バックエンド) で計算でき、`--calc-file` で {ref}`任意の ASE calculator <ja-backends-custom-calculator>` を使えます。
@@ -153,7 +153,7 @@ Python では、`MLMMCore` か pysisyphus 用の calculator `mlmm` の `backend`
 
 ### バックエンドディスパッチャのパターン
 
-`MLMMCore` は、ML 領域の計算を選んだバックエンドのアダプタに渡し、MM の計算と ONIOM の結合は自分で行います。知らないバックエンド名は `ValueError` になります。mlmm-toolkit に `auto` のバックエンドは無く、各ワークフローはコマンドラインで選んだバックエンドを渡します。
+`MLMMCore` は、ML 領域の計算を選んだバックエンドのアダプタに渡し、MM の計算と ONIOM の結合は自身で行います。知らないバックエンド名は `ValueError` になります。mlmm-toolkit に `auto` のバックエンドは無く、各ワークフローはコマンドラインで選んだバックエンドを渡します。
 
 ### ファイルマップ
 
@@ -167,7 +167,7 @@ Python では、`MLMMCore` か pysisyphus 用の calculator `mlmm` の `backend`
 
 ### ML/MM の段での GPU メモリ
 
-ML/MM の段では、選んだ ML バックエンドと Hessian の途中の配列が GPU のメモリを使い、トポロジーの処理と解析的な MM の力場は CPU で動きます。単独の DFT は別の段です。`mlmm/backends/mlmm_calc.py` の有限差分 Hessian のループは、変位の方向を 1 つずつ評価して、同時に行う評価の数を抑えます。まとめて評価する実装に変えるときは、GPU の smoke テストを流し直して VRAM のピークを確かめてください。各段の実行のあとで calculator を解放するので、後の段が前の段のモデルをメモリに残すことはありません。
+ML/MM の段では、選んだ ML バックエンドと Hessian の途中の配列が GPU のメモリを使い、トポロジーの処理と解析的な MM の力場は CPU で動きます。単独の DFT は別の段です。`mlmm/backends/mlmm_calc.py` の有限差分 Hessian のループは、変位の方向を 1 つずつ評価して、同時に行う評価の数を抑えます。まとめて評価する実装に変えるときは、GPU の smoke テストを実行し直して VRAM のピークを確かめてください。各段の実行のあとで calculator を解放するので、後の段が前の段のモデルをメモリに残すことはありません。
 
 ### ONIOM の結合と MLIP 単体の違い
 
@@ -177,7 +177,7 @@ ML/MM の段では、選んだ ML バックエンドと Hessian の途中の配�
 
 - `--precision tf32` と、ORB・MACE の `--precision fp32` はスクリーニング専用です。結果を使う前に n_imag を確かめてください。
 - ORB では、`--precision tf32` が `float32-high`（TF32）、`--precision fp32` が IEEE の FP32 の `float32-highest` のモードになります。
-- UMA の `--precision tf32` は、インストールした fairchem-core に UMA Nitro があれば（`uma-s-1p2p1` 系の checkpoint、ワーカー 1 つ）それで計算します。ほかの checkpoint は TF32 でコンパイルした経路で計算します。GPU での tf32 の計算では、FAIR-Chem がいつも `Running in a reduced-precision mode` と出力します。
+- UMA の `--precision tf32` は、インストールした fairchem-core に UMA Nitro があれば（`uma-s-1p2p1` 系の checkpoint、ワーカー 1 つ）それで計算します。ほかの checkpoint は TF32 でコンパイルした経路で計算します。GPU での tf32 の計算では、FAIR-Chem が毎回 `Running in a reduced-precision mode` と出力します。
 - AIMNet2 は `--precision fp64` にも `--deterministic` にも対応せず、どちらもエラーで止まります。AIMNet2 はモデルへの入力を float32 にし、力を PyTorch の決定論的モードの外にある独自の CUDA のコードで計算します。繰り返しの計算を一致させたいときは、UMA、ORB、MACE のいずれかで `--deterministic` を付け、同じ環境で 2 回実行して比べてください。
 - `--calc-file` は `--precision`（`tf32` も `fp32` も `fp64` も）と `--deterministic` のどちらも受け付けず、エラーで止まります。精度は自作の calculator の中で設定してください。
 - `--deterministic` は PyTorch の決定論的アルゴリズム（`torch.use_deterministic_algorithms`）を有効にし、GPU で決定論的に動く版の無い PyTorch の演算 1 つを置き換えます。
@@ -189,7 +189,7 @@ ML/MM の段では、選んだ ML バックエンドと Hessian の途中の配�
 - UMA で `--uma-workers` を 2 以上にすると、`--hessian-calc-mode Analytical` とは併用できず、エラーで止まります。並列の予測器は autograd のモデルを持たないためです。解析 Hessian には `--uma-workers 1` を、複数のワーカーには `FiniteDifference` を使ってください。
 - MACE は UMA と同じ環境には入れられません。専用の conda 環境に入れてください。ORB も別の環境に入れてください。
 - パッケージを入れていないバックエンドを選ぶと、``orb-models is required for the ORB backend. Install with `pip install orb-models`.`` のようなエラーで止まります。
-- `--embedcharge` はエネルギー、力、Hessian を求めるたびに、MM の点電荷あり・なしで xTB を実行します。ML 領域は 200〜300 原子程度までにし、実際の系で先に計算時間を測ってください。xTB の補正の Hessian は ML 原子と link H についての有限差分です。そのときの点電荷にかかる力から ML–MM の部分を、ML 領域の xTB の原子電荷から MM–MM の部分を求めるので、MM 原子が多くても重くなりません。
+- `--embedcharge` はエネルギー、力、Hessian を求めるたびに、MM の点電荷あり・なしで xTB を実行します。ML 領域は 200〜300 原子程度までにし、実際の系で先に計算時間を測ってください。xTB の補正の Hessian は ML 原子とリンク水素についての有限差分です。そのときの点電荷にかかる力から ML–MM の部分を、ML 領域の xTB の原子電荷から MM–MM の部分を求めるので、MM 原子が多くても重くなりません。
 
 ## 関連ドキュメント
 

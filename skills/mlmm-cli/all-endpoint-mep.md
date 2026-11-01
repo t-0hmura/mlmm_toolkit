@@ -1,7 +1,7 @@
 # `mlmm all`: Endpoint mode
 
 Give two or more full-system structures in reaction order; `all` finds the MEP
-between each neighbouring pair and, with `--tsopt`, optimizes each TS candidate
+between each neighboring pair and, with `--tsopt`, optimizes each TS candidate
 and runs IRC. It succeeded when the console prints `[Imaginary modes] n=1 (...)`
 for each TS and `Scientific status: success` under the last
 `====== Pipeline summary ======`.
@@ -11,7 +11,7 @@ for each TS and `Scientific status: success` under the last
 You have two or more structures in reaction order (reactant, optional
 intermediates, product) with the same atoms in the same order, typically R and
 P (sometimes IM) from a published QM or QM/MM study. By default `all` runs one
-single-pass `path-opt` per neighbouring pair, so the structures you pass are
+single-pass `path-opt` per neighboring pair, so the structures you pass are
 taken as the steps. With `--refine-path`, the recursive `path-search` splits a
 pair further where bonds change, so you need to give only the steps you already
 know.
@@ -61,7 +61,7 @@ Read the console, `summary.json`, and the endpoints as in
 [all.md](all.md#judge-success). For this mode also check:
 
 - **MEP**: open `mep_trj.pdb` (or `.xyz`) and `energy_diagram_MEP.png`; the TS candidates are `_work/path_opt/hei_seg_NN.*` (`_work/path_search/` with `--refine-path`).
-- **Segments**: `summary.json["segments"]` lists `index`, `kind`, `barrier_kcal`, `delta_kcal`, and `bond_changes` for each segment. The default gives one segment per neighbouring pair. With `--refine-path`, compare `n_segments_reactive` with the number of inputs minus one; `n_segments` also counts bridge segments.
+- **Segments**: `summary.json["segments"]` lists `index`, `kind`, `barrier_kcal`, `delta_kcal`, and `bond_changes` for each segment. The default gives one segment per neighboring pair. With `--refine-path`, compare `n_segments_reactive` with the number of inputs minus one; `n_segments` also counts bridge segments.
 - **R/TS/P**: with `--tsopt`, `segments/seg_NN/{reactant,ts,product}.*` are written after IRC and the endpoint optimizations (RFO by default, L-BFGS with `--opt-mode-post grad`).
 
 ## Pitfalls and recovery

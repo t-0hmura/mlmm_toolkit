@@ -78,7 +78,7 @@ given, each backend takes its own default:
 
 | backend | without `--precision` | `--precision fp64` | `--precision tf32` |
 |---------|-----------------------|--------------------|--------------------|
-| `uma` | fp32 (IEEE FP32 with TF32 off, whatever the installed fairchem-core selects by default) | accepted | accepted |
+| `uma` | fp32 (IEEE FP32 with TF32 off, regardless of what the installed fairchem-core selects by default) | accepted | accepted |
 | `orb` | fp64 | accepted | accepted (`float32-high`) |
 | `mace` | fp64 | accepted | error |
 | `aimnet2` | fp32 (no precision setting; `--precision fp32` changes nothing) | error | error |

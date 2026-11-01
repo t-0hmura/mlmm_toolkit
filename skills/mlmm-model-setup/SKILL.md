@@ -55,7 +55,7 @@ A raw enzyme PDB that needs a parm7?
 ## Before `mm-parm`: a raw PDB entry
 
 `mm-parm --add-h` adds hydrogens only (PDBFixer, at `--ph`). Prepare the rest
-first, with PDBFixer or a modelling program:
+first, with PDBFixer or a modeling program:
 
 - Fill in missing heavy atoms and residues.
 - Decide each His as HID, HIE, or HIP, or let `--add-h` choose at `--ph`.

@@ -144,7 +144,7 @@ An optimizer may also report `"optimization_status": "stalled"`: the energy stop
 | `saddle_validation` | string | `"first_order"`, `"higher_order"`, `"no_imaginary"`, or `"unavailable"` from terminal exact PHVA (partial Hessian vibrational analysis) |
 | `saddle_order_verified` | bool | `true` only for `saddle_validation: "first_order"` |
 | `hessian_status` | string | `"completed"`, `"failed"`, `"skipped"`, or `"unavailable"`; `hessian_error` gives the failure reason |
-| `reaction_mode_index` | int\|null | Negative exact-PHVA root that `all` follows in IRC; when no reference-aligned root is available, root 0 is used and labelled as such, which does not confirm that it is the reaction mode |
+| `reaction_mode_index` | int\|null | Negative exact-PHVA root that `all` follows in IRC; when no reference-aligned root is available, root 0 is used and labeled as such, which does not confirm that it is the reaction mode |
 | `reaction_mode_frequency_cm` | float\|null | Frequency of the selected negative root |
 | `reaction_mode_source` | string\|null | How the root was selected (aligned with the reference direction, or the root-0 fallback) |
 | `energy_hartree` | float | TS energy (Hartree) |
@@ -421,7 +421,7 @@ The `all` and `path-search` commands write `summary.json` with a richer structur
 | `charge` | int | ML-region charge |
 | `spin` | int | ML-region multiplicity |
 | `environment` | object | Hardware info |
-| `references` | object[] | Methods actually used by the run, as `{method, citation, doi}` records. The same reference set is grouped at the end of `summary.log` and final stdout immediately before elapsed time. |
+| `references` | object[] | Methods actually used by the run, as `{method, citation, doi}` records. The same reference set is listed at the end of `summary.log` and at the end of stdout, just before the elapsed time. |
 
 The `all` command additionally includes:
 

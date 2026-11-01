@@ -7,7 +7,7 @@
 | 用語 | 正式名称 | 説明 |
 |------|----------|------|
 | **ML/MM** | Machine Learning / Molecular Mechanics | 機械学習ポテンシャルと分子力学を組み合わせたマルチスケール手法。mlmm-toolkit の中核概念。 |
-| **ONIOM** | Our own N-layered Integrated molecular Orbital and molecular Mechanics | 異なる計算レベルを多層的に組み合わせる手法。mlmm-toolkit は ONIOM 的な引き算方式を使用: E_total = E_REAL_low + E_MODEL_high - E_MODEL_low。 |
+| **ONIOM** | Our own N-layered Integrated molecular Orbital and molecular Mechanics | 異なる計算レベルを多層的に組み合わせる手法。mlmm-toolkit は ONIOM の差し引き方式を使用: E_total = E_REAL_low + E_MODEL_high - E_MODEL_low。 |
 | **QM/MM** | Quantum Mechanics / Molecular Mechanics | 量子化学と分子力学の結合手法。ML/MM は QM 部分を機械学習ポテンシャルで置き換えた変種。 |
 | **real system** | — | ONIOM 分解における全系（3 層すべて）。parm7 トポロジーで記述され、MM バックエンドで MM エネルギーを計算。 |
 | **model system** | — | ONIOM 分解における ML 領域（Layer 1）。MLIP バックエンド（デフォルト: UMA）と MM の両方で評価。 |

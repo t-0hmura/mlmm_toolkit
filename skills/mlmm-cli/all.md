@@ -48,7 +48,7 @@ plan, and skips the calculations. Each mode page has a complete command.
 - **`summary.json`**: `scientific_status` is `success`, `partial`, or `failed`, with `scientific_status_reasons`. `success` means every requested stage converged. A TS with n_imag ≥ 2 gives `partial`; n_imag = 0 stops before IRC and is never `success`.
 - **TS**: a successful TS optimization gives one imaginary mode along the reaction coordinate. Read `post_segments[].tsopt.n_imaginary_modes` and `.imaginary_frequencies_cm`, and play `segments/seg_NN/ts/vib/imag_*_trj.xyz` to see that the mode moves the bonds that form or break. n_imag comes from the final Hessian of the ML and movable MM atoms (PHVA); only the rigid motions that leave the frozen atoms in place are projected out, so with a frozen MM layer usually none are.
 - **Endpoints**: whether they are the intended R and P is for you to check. Compare `segments/seg_NN/reactant.*` and `product.*` with the intended states, and in Endpoint and Scan-list modes read `endpoint_opt.connectivity_validated` ([summary.json](../mlmm-overview/outputs.md#summaryjson)). Even if the IRC does not converge, the result is usable when the endpoint optimizations reach the intended R and P.
-- **Barriers**: `segments[].barrier_kcal` is the barrier on the MEP before TS optimization (TS − R in TS-only mode). After `--tsopt`, read `post_segments[].mlip.barrier_kcal`; `gibbs_mlip` (`--thermo`), `dft` (`--dft`), and `gibbs_dft_mlip` (both) carry the same keys. `rate_limiting_step` is the highest local barrier at the highest method available for every segment, not a microkinetic assignment.
+- **Barriers**: `segments[].barrier_kcal` is the barrier on the MEP before TS optimization (TS − R in TS-only mode). After `--tsopt`, read `post_segments[].mlip.barrier_kcal`; `gibbs_mlip` (`--thermo`), `dft` (`--dft`), and `gibbs_dft_mlip` (both) carry the same keys. `rate_limiting_step` is the highest local barrier at the highest level of theory available for every segment, not a microkinetic assignment.
 
 ```python
 import json
@@ -87,7 +87,7 @@ structures, or MEP do not match the command.
 - **Endpoint optimization trouble.** A non-converged endpoint gives `partial` and keeps `segments/seg_NN/endpoint_opt/`; an endpoint error is written to `endpoint_opt/failure.json`, and that segment skips freq and DFT.
 - **`--dft` with `-b dft`.** The run stops at startup. Run `mlmm sp -b dft` as a separate job.
 - **No AmberTools.** Without `--parm7`, the run stops when AmberTools is not found; pass a topology built elsewhere with `--parm7`.
-- **No ML region.** Without `-c`, `--no-detect-layer` and no `--model-pdb` stop with an error.
+- **No ML region.** Without `-c`, the run stops with an error when `--no-detect-layer` is given without `--model-pdb`.
 
 ## Outputs
 

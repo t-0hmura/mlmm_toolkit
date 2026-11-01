@@ -48,9 +48,9 @@ Each step also runs on its own as a subcommand ([`extract`](extract.md), [`mm-pa
 
 ## 1. Prepare the complex structure
 
-Build a structure of the enzyme–substrate complex with structure prediction such as AlphaFold 3, Boltz-2, or OpenFold3, or with a docking tool. Run molecular dynamics (MD) on it and take snapshots of various conformations. The Amber topology used in the MD can be reused with `--parm7`. Rather than drawing a conclusion from one structure, compute several snapshots.
+Build a structure of the enzyme–substrate complex with a structure-prediction tool such as AlphaFold 3, Boltz-2, or OpenFold3, or with a docking tool. Run molecular dynamics (MD) on it and take snapshots of various conformations. The Amber topology used in the MD can be reused with `--parm7`. Rather than drawing a conclusion from one structure, compute several snapshots.
 
-For the structures you give `mlmm-toolkit`, watch these three points.
+For the structures you give `mlmm-toolkit`, check these three points.
 
 ### Add hydrogens (required)
 
@@ -95,7 +95,7 @@ See [Building the ML region and layers](model-setup.md) for details.
 
 **Compared with a cluster model**: a cluster model cuts out only the part involved in the reaction, so to keep the shape and environment of the protein it needs a large model that also holds residues not directly involved in the reaction. ML/MM keeps the surrounding protein as MM, so the ML region is easier to shrink to just the reacting part, and the calculation can be lighter than with a cluster model. In the bundled example, the default ML region has 632 atoms; moving the main-chain atoms to MM gives 397 atoms, and picking the residues yourself gives 129 atoms ([Shrink the ML region](model-setup.md#shrink-the-ml-region)).
 
-**Size of the ML region**: in a study of COMT (catechol *O*-methyltransferase) that varied the size of the QM region in QM/MM, adding residues in order of distance from the substrate made the activation energy nearly constant at about 500–600 atoms ([Kulik et al., *J. Phys. Chem. B* 2016, 120, 11381](https://doi.org/10.1021/acs.jpcb.6b07814)). When you pin down barrier values, check that enlarging the ML region does not change the result. When a residue involved in the reaction is missing, raise `-r` or add the residue to `-c` or `--selected-resn` ({ref}`Make the model larger <model-setup-larger>`).
+**Size of the ML region**: in a study of COMT (catechol *O*-methyltransferase) that varied the size of the QM region in QM/MM, as residues were added in order of distance from the substrate, the activation energy became nearly constant at about 500–600 atoms ([Kulik et al., *J. Phys. Chem. B* 2016, 120, 11381](https://doi.org/10.1021/acs.jpcb.6b07814)). When you pin down barrier values, check that enlarging the ML region does not change the result. When a residue involved in the reaction is missing, raise `-r` or add the residue to `-c` or `--selected-resn` ({ref}`Make the model larger <model-setup-larger>`).
 
 ---
 
@@ -192,7 +192,7 @@ mlmm all [OPTIONS]...
 ### Choosing between all and individual commands
 
 * **Use `all`** to run model setup → MEP search → TS optimization and IRC → frequencies and DFT in one command, or while you are still exploring and want one command to manage the outputs.
-* **Use the individual commands** to run each stage in turn and check its result before the next; for a complex reaction, this often works better than one `all` run. They also fit a custom sequence and a run that reuses the parm7 and layered PDB of an earlier run.
+* **Use the individual commands** to run each stage in turn and check its result before the next; for a complex reaction, this often works better than one `all` run. They also suit a custom sequence and a run that reuses the parm7 and layered PDB of an earlier run.
 
 The individual ML/MM commands need the full-system topology (`--parm7`) and the ML region (`--model-pdb`, `--model-indices`, or the B-factor layers of the input); `all` builds both. `-q` is the charge of the ML region, not of the whole system. See {ref}`ML/MM options <mlmm-options>`.
 

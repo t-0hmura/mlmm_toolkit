@@ -207,7 +207,7 @@ YAML_ALL_SENTENCES = {
     Path("docs/yaml-reference.md"):
         "`mlmm all` consumes only the sections for its selected active stages.",
     Path("docs/ja/yaml-reference.md"):
-        "`mlmm all` は、選択して有効化した stage の section だけを使用します。",
+        "`mlmm all` は、有効にした段のセクションだけを使用します。",
 }
 
 

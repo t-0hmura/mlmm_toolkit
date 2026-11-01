@@ -123,7 +123,7 @@ See the [generated CLI reference](reference/commands/oniom_export.md) for every 
 * **Whole-system charge**: the charge of the Gaussian real system, and the default ORCA `Charge_Total`, is the sum of the parm7 partial charges rounded to an integer. If the sum is more than 0.05 from an integer, the export stops; in ORCA mode, give `--total-charge` instead.
 * **Gaussian boundaries**: each cut QM–MM bond needs its own MM atom. If two QM atoms are bonded to the same MM atom, the Gaussian export stops.
 * **Job type**: the exported input has no job keyword (such as `opt` or `freq`) on the Gaussian route line or the ORCA `!` line, so as written it is a single-point calculation. Add the keywords for the job you want before running it.
-* **`ORCAFF.prms` before running ORCA**: the `.inp` refers to `ORCAFF.prms` by its absolute path. Check that this file exists before you run the `.inp`, also after moving the input to another machine.
+* **`ORCAFF.prms` before running ORCA**: the `.inp` refers to `ORCAFF.prms` by its absolute path. Check that this file exists before you run the `.inp`, including after you move the input to another machine.
 * **Atom-order marker**: the exported file carries `MLMM_REF_PDB_ORDER_V1_SHA256=<digest>`, a hash of the names, numbers, and other identity fields of every atom in `-i`; coordinates, occupancy, and B-factors are left out. [`oniom-import`](oniom-import.md) `--ref-pdb` checks this marker before it copies the names back.
 * **Multiplicity**: a value of `-m` below 1 is rejected on the command line.
 * **Requirements**: Gaussian and ORCA are not part of mlmm-toolkit; install and license them separately.

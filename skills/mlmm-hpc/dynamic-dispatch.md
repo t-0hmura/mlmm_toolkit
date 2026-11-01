@@ -2,12 +2,12 @@
 
 When you have **many short tasks** (e.g. dozens of `mlmm dft`
 single points), submitting one PBS job per task wastes scheduler time
-and clutters the queue with many small jobs. Better: submit **one** multi-node
-PBS job that grabs N nodes, runs one worker per node, and the workers
+and clutters the queue with many small jobs. Instead, submit **one** multi-node
+PBS job that grabs N nodes and runs one worker per node; the workers
 pull tasks from a shared list, incrementing a counter under a file
 lock.
 
-This is the same pattern used by `pbsdsh` + `flock` on Torque/PBSPro
+This is the common `pbsdsh` + `flock` pattern on Torque/PBSPro
 clusters. The recipe below is **placeholder-driven** — fill in
 `<N_NODES>`, `<NCPU>`, `<NGPU>`, `<MEM>`, `<HH:MM:SS>`, `<YOUR_QUEUE>`,
 `<YOUR_ENV>`, `<TASK_LIST_FILE>` (and `<COMPILER_MODULE>` only if needed) from [`mlmm-install/backends.md`](../mlmm-install/backends.md#probe-the-compute-environment).

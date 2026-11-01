@@ -91,7 +91,7 @@ TS 最適化が成功すると、反応モードの虚振動が 1 つ出ます�
 ### 虚振動が無い・候補が滑り落ちたとき
 
 - **HEI（最高エネルギーのイメージ）を見る**：HEI で作る結合と切れる結合がどちらも長い、または HEI が、結合が切れた後の構造になっていると、TS 最適化で反応のモードを失いやすくなります。HEI の結合長を確かめてください。
-- **`--refine-path`**：`all` に付けると、1 回の `path-opt` の代わりに再帰的な `path-search` で経路を詰め、HEI を選び直します。デフォルトで無効です。先に粗い MEP を見てから使ってください。
+- **`--refine-path`**：`all` に付けると、1 回の `path-opt` の代わりに再帰的な `path-search` で経路を精密化し、HEI を選び直します。デフォルトで無効です。先に粗い MEP を見てから使ってください。
 - **経路の設定**：MEP の点の数（`--max-nodes`、デフォルト 20）、MEP の方法（`--mep-mode dmf`）、GSM のノードの置き方を変えると、HEI の位置が変わります。`--gsm-param energy` は、エネルギーの高い所にノードを多く置きます。
 - **別の初期構造**：分割前の MEP の HEI（`path-opt` の `hei.xyz`）、段ごとの HEI（`path-search` の `hei_seg_NN.xyz`）、scan の最高点の近くのフレームから TS-only モードをやり直してください。`all` では、HEI のファイルは `_work/path_opt/`（`--refine-path` では `path_search/`）の下の `hei_seg_NN.{xyz,pdb}` です。
 

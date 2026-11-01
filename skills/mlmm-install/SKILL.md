@@ -33,7 +33,7 @@ and the checks in [Verify the install](#verify-the-install) pass.
    ([MACE](backends.md#mace-separate-environment)). DFT is optional
    ([DFT](backends.md#dft-pyscf-gpu4pyscf)); skip it if you only need MLIP
    energies. xTB, in the command below, is used only by the MLIP/MM
-   `--embedcharge` correction or xTB through a custom calculator
+   `--embedcharge` correction or by a custom calculator that runs xTB
    ([xTB](backends.md#xtb-point-charge-correction)).
 
 ```bash
@@ -82,7 +82,7 @@ sudo dnf install -y alsa-lib at-spi2-atk at-spi2-core atk ca-certificates cairo 
   vulkan-loader wget xdg-utils
 ```
 
-A missing one stops the command with `Missing system prerequisite:` and the same
+A missing one stops the command with `Missing system prerequisite:` and prints the same
 commands. Docs: [System prerequisites](../../docs/installation.md#system-prerequisites).
 
 ## Install the core

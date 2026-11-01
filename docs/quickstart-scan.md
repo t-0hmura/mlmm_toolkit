@@ -1,6 +1,6 @@
 # Quickstart: `mlmm all --scan-lists`
 
-`mlmm all --scan-lists` (`-s`) builds a reaction path from one structure. It drives the distances you choose to target values under harmonic restraints (a scan) on the full ML/MM system and uses the scan endpoints to search the minimum energy path (MEP). With `--tsopt`, it continues to transition-state (TS) optimization and an intrinsic reaction coordinate (IRC) calculation. As in [Quickstart: `mlmm all`](quickstart-all.md), the same run cuts out the ML region and builds the Amber topology and the layers first. You define the reaction coordinate yourself, so the rest of the system changes less and the intended TS is easier to reach. The starting structure can be a reactant, an intermediate, or a product.
+`mlmm all --scan-lists` (`-s`) builds a reaction path from one structure. It drives the distances you choose to target values under harmonic restraints (a scan) on the full ML/MM system and uses the scan endpoints to search for the minimum energy path (MEP). With `--tsopt`, it continues to transition-state (TS) optimization and an intrinsic reaction coordinate (IRC) calculation. As in [Quickstart: `mlmm all`](quickstart-all.md), the same run cuts out the ML region and builds the Amber topology and the layers first. You define the reaction coordinate yourself, so the rest of the system changes less and the intended TS is easier to reach. The starting structure can be a reactant, an intermediate, or a product.
 
 The commands below use `1.R.pdb` from the bundled [`examples/beza/`](https://github.com/t-0hmura/mlmm_toolkit/tree/main/examples/beza); run them in that directory.
 
@@ -65,7 +65,7 @@ Each stage holds both the bond that forms and the bond that breaks; for how to s
 ## Writing `--scan-lists`
 
 * **Tuples**: each literal is a list of tuples: distance `(atom1, atom2, target_Å)`, angle `(atom1, atom2, atom3, target_deg)`, or dihedral `(atom1, atom2, atom3, atom4, target_deg)`. Distances are in ångströms, and angles and dihedrals in degrees.
-* **Atoms**: give integer atom numbers in the order of the full input structure, counting from 1 (from 0 with `--scan-zero-based`), or atom names in double quotes. The scan runs on the full system, so the numbers are those of the input structure, also with `-c`.
+* **Atoms**: give integer atom numbers in the order of the full input structure, counting from 1 (from 0 with `--scan-zero-based`), or atom names in double quotes. The scan runs on the full system, so the numbers are those of the input structure, even with `-c`.
 * **Stages**: one literal is one stage, and the tuples in the same literal move together. Several literals run as stages in order, each from the result of the previous one. Give `-s` once and list the literals after it.
 * **Quoting**: wrap each literal in single quotes so that the shell leaves the parentheses and spaces alone.
 * **Bundled PDBs**: they have an empty chain column, so use the name or number forms such as `"SAM,320,CS1"`, not the forms with a chain ID.
