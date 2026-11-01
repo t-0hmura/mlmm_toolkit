@@ -414,7 +414,11 @@ class RSPRFOptimizer(TSHessianOptimizer):
         if (self.max_micro_cycles == 1) and (step_norm > self.trust_radius):
             step = step / step_norm * self.trust_radius
         elif step_norm > self.trust_radius * (1.0 + 1e-12):
-            raise ValueError("RS-P-RFO combined step exceeds the trust radius.")
+            # The micro cycles accept a step in the eigenvector basis; the
+            # basis change back to Cartesians adds round-off to its norm.
+            if step_norm > self.trust_radius * (1.0 + 1e-9):
+                raise ValueError("RS-P-RFO combined step exceeds the trust radius.")
+            step = step * (self.trust_radius / step_norm)
         self.log(f"norm(step)={np.linalg.norm(step):.6f}")
 
         # Eq. (6) from [4] seems erronous ... the prediction is usually only ~50%
