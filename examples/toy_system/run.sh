@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-set -euo pipefail
 
 # Independent mlmm toy-system command examples — GPU required. The bundled
 # parm7/rst7 files are fixtures, so numbered examples are not one workflow.

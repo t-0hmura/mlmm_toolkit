@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-set -euo pipefail
 
 # Methyltransferase — step-by-step ML/MM workflow.
 # Methyl transfer: CS1 (SAM 359) – C8 (PHN 360) bond formation

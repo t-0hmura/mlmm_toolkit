@@ -79,8 +79,6 @@ def main() -> int:
         rel = s.relative_to(REPO_ROOT)
         if not lines or lines[0] != "#!/usr/bin/env bash":
             errors.append(f"{rel}: first line must be '#!/usr/bin/env bash'")
-        if "set -euo pipefail" not in lines[:5]:
-            errors.append(f"{rel}: missing 'set -euo pipefail' near the top")
         if not s.stat().st_mode & 0o111:
             errors.append(f"{rel}: script is not executable")
         if "BASH_SOURCE[0]" not in text:

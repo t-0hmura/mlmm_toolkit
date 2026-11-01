@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-set -euo pipefail
 
 # Methyltransferase — automated end-to-end workflow via `mlmm all`.
 # Single PDB + scan mode: extract → scan → MEP → TS → IRC → freq
