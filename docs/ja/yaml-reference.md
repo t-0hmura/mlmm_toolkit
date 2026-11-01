@@ -130,7 +130,7 @@ geom:
 
 **注記:**
 - YAML の `freeze_atoms` は、`--freeze-atoms` で指定した原子と合わせて使われます。
-- 固定 MM 層の原子は力がゼロに設定され、Hessian の対応する列もゼロになります。
+- 固定原子は力がゼロに設定され、Hessian の対応する列もゼロになります。
 - デカルト座標の PHVA（部分 Hessian 振動解析）では、固定原子を動かさない全系の剛体運動だけを除きます。詳細は [freq](freq.md#固定境界での剛体モード) を参照してください。
 - `irc` では、YAML や CLI の指定によらず `geom.coord_type` は `cart` です。
 
@@ -253,14 +253,14 @@ calc:
 - これらのコマンドで完全 Hessian を強制するには `calc.return_partial_hessian: false` を明示してください。
 - `mm_fd: true` は有限差分 MM Hessian、`false` は `hessian_ff` の解析 MM Hessian を使います。`mm_hessian_mode` は同じ選択を名前（`finite_difference` か `analytical`）で指定し、`null` の場合は `mm_fd` で決まります。
 - `use_cmap: true`（デフォルト）は parm7 に含まれる CMAP を REAL と MODEL の両 MM 層で保持します。明示的な改変力場計算だけ `false` を指定してください。この場合は両層から CMAP を除去します。
-- standalone ML/MM 計算には `real_parm7` が必須です。ML 領域は `model_pdb`、明示的な model index、または有効な B-factor layer から指定できます。
+- 単独の ML/MM 計算には `real_parm7` が必須です。ML 領域は `model_pdb`、`model_indices`（`--model-indices`）、または有効な B-factor の層から指定できます。
 - `-q` と `-m` を明示すると、YAML の `model_charge` と `model_mult` より優先されます。省いた値は YAML から取ります。
 
 ---
 
 ### `opt`
 
-L-BFGS/RFO で共通の最適化設定。ここに書いた全キーが、`--microiter` の有無によらず `opt` コマンドのオプティマイザに届きます。`tsopt` の Hessian を使うマクロオプティマイザにも届き、その上に [`rsirfo`](#rsirfo) が重なります。Dimer に届くのは [`hessian_dimer`](#hessian_dimer) に書いた共通のキーだけです。転送されるのは**実際に変更した値だけ**なので、触っていないキーについてはオプティマイザ固有セクションが優先されます。同じ YAML ファイルで同じ設定に違う値を書くとエラーで止まります。共通の `opt` のキーと、選んだオプティマイザのセクションの同じキーの組も対象です。
+L-BFGS/RFO で共通の最適化設定。ここに書いた全キーが、`--microiter` の有無によらず `opt` コマンドのオプティマイザに届きます。`tsopt` の Hessian を使うマクロオプティマイザにも届き、その上に [`rsirfo`](#rsirfo) が重なります。Dimer に届くのは [`hessian_dimer`](#hessian_dimer) に書いた共通のキーだけです。転送されるのは**実際に変更した値だけ**なので、変更していないキーについてはオプティマイザ固有セクションが優先されます。同じ YAML ファイルで同じ設定に違う値を書くとエラーで止まります。共通の `opt` のキーと、選んだオプティマイザのセクションの同じキーの組も対象です。
 
 ```yaml
 opt:
@@ -552,7 +552,7 @@ hessian_dimer:
 **注記:**
 - `--flatten` を付けない `tsopt` は、YAML で有効にしない限り flattening を行いません。有効にしたときの反復の上限は `flatten_max_iter`（デフォルト 50）です。
 - `tsopt` と `all` の `--flatten` はデフォルトの `flatten_max_iter` で flattening を有効にし、`--no-flatten` は `flatten_max_iter` を 0 にします。`--flatten` と同時に YAML で `flatten_max_iter` を明示した場合は、YAML の値が優先されます。
-- 内側の L-BFGS 固有設定は、最上位の `lbfgs` ではなく `hessian_dimer.lbfgs` に置きます。共通の `print_every` と `energy_plateau*` は上記の競合規則に従います。`line_search` は `false` 固定で、Dimer の有効力は表示する物理エネルギーの勾配ではないため `true` は拒否されます。`max_cycles` は設定できず、各 segment には `opt.max_cycles` の残り cycle 数が渡されます。
+- 内側の L-BFGS 固有設定は、最上位の `lbfgs` ではなく `hessian_dimer.lbfgs` に置きます。共通の `print_every` と `energy_plateau*` は上記の競合規則に従います。`line_search` は `false` 固定で、Dimer の有効力は表示する物理エネルギーの勾配ではないため `true` は拒否されます。`max_cycles` は設定できず、各セグメントには `opt.max_cycles` の残りサイクル数が渡されます。
 
 ---
 
@@ -814,7 +814,7 @@ dft:
 
 - 計算機のセクション名には `calc:` と `mlmm:` のどちらも使えます。両方あるときはキーを合わせて使い、同じキーに異なる値があるとエラーで止まります。
 - `opt.lbfgs` / `opt.rfo` は `lbfgs` / `rfo`、`freq.thermo` は `thermo` の別の書き方です。熱化学設定は `all --thermo` でも使用します。
-- `mlmm all` は、選択して有効化した stage の section だけを使用します。
+- `mlmm all` は、有効にした段のセクションだけを使用します。
 - `--show-config`（`scan`・`scan2d`・`scan3d` には無い）は、読み込んだ YAML ファイルと最上位のキーを表示してから、そのまま実行を続けます。`sp` だけは、合わせた設定を表示して計算せずに終わります。
 
 ## 関連ドキュメント

@@ -107,7 +107,8 @@ A successful TS optimization gives one imaginary mode along the reaction coordin
 | Converged, n_imag = 0 | Stops before IRC. |
 | Stopped at the cycle limit | Computes no final Hessian and stops before IRC. |
 | Stopped by `--stop-plateau` (stalled) | Computes the final Hessian, reports n_imag, and stops before IRC. |
-| `--skip-final-freq`, or a failed Hessian | Stops before IRC. |
+| `--skip-final-freq` | Stops before IRC. |
+| The final Hessian fails with an error | Stops the whole run (`failed`, exit 1); no later segment is processed. |
 
 The full table of how a TS optimization can end is in [`tsopt` → Reading the TS result](tsopt.md#reading-the-ts-result).
 
@@ -227,7 +228,7 @@ For every option, run `mlmm all --help-advanced` or see the [generated CLI refer
 * **Cost of `--dft`**: memory use depends on the size of the ML region, basis, functional, precision, and software stack. Try a representative structure on the target node and watch the peak memory. For a large ML region, finish the MLIP run first and run the DFT single points as a separate job.
 * **R and P in TS-only mode**: the higher-energy IRC end is named the reactant. The names, the file names, the barrier, and the reaction energy follow this energy order, not a known chemical direction; the barrier from P is `barrier_kcal − delta_kcal`. `summary.json` records the rule under `endpoint_assignment`, with `chemical_direction_known: false`.
 * **`summary.log` in TS-only mode**: [1] is the TS and IRC overview, and [2] comes from the optimized TS and endpoints.
-* **When `all` stops before IRC**: the TS files stay in `segments/seg_NN/ts/`, and the later segments are not post-processed.
+* **When a segment stops before IRC**: that segment gets no IRC or later stage and its TS files stay in `segments/seg_NN/ts/`. The other segments are still post-processed. `summary.json` keeps the first stop in `pipeline_stop` and lists every stopped segment in `stopped_segments`. `irc_plot_all.png` is drawn only when every segment has an IRC.
 * **Endpoint optimizations**: if one endpoint optimization does not converge, the result is `partial` and `segments/seg_NN/endpoint_opt/` is kept for inspection. If an endpoint optimization fails with an error, the error is written to `segments/seg_NN/endpoint_opt/failure.json`, and that segment stops before the frequency and DFT stages; the TS and IRC structures are kept.
 * **Thermochemistry file**: with `--thermo`, `thermoanalysis.yaml` is kept even under `--no-dump`, because `all` reads the thermochemistry from it.
 * **Extraction radius**: `-r 0` disables radius-based expansion, so the model starts from the residues selected by `-c` and `--selected-resn`. Structural safeguards can still add a disulfide partner or the backbone of an adjacent residue. A zero radius is evaluated internally as 0.001 Å.

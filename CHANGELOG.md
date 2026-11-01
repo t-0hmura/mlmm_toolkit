@@ -10,11 +10,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 - A pair that contains a metal atom counts as a bond formed or broken only when its distance changes by at least `bond.metal_delta_fraction` × T (default `0.40`, about 1.0 Å for Mg–O; other pairs keep `delta_fraction` 0.05). Fluctuations of metal coordination no longer split `--refine-path` paths into extra segments, fail IRC endpoint matching or appear as bond changes.
 - Input alignment relaxations always use the package L-BFGS defaults (line search, `max_step` 0.30) with the `gau` preset; the `--thresh` of `path-opt`, `path-search` and `all` no longer applies to them. With `--thresh baker` the final alignment relaxation could run to 10,000 cycles and stop the run with "Input alignment did not converge".
+- `all`: a segment that stops before IRC (TS optimization not converged, the final Hessian skipped with `--skip-final-freq`, or no imaginary mode) no longer stops the later segments; they still get their TS optimization, IRC and requested stages. `summary.json` keeps the first stop in `pipeline_stop` and lists every stop in `stopped_segments`, and `irc_plot_all.png` is drawn only when every segment has an IRC. The run ends `completed` / `partial` with exit 0 whichever segment stops; before, a stop before the last segment ended `failed` with exit 1.
+- `all` without `--refine-path`: when the highest image of an interval's MEP is one of its end images, no segment is built for it, as in `path-search`: no barrier is reported and no TS optimization runs (`HEI is at an endpoint (idx=N). Returning the raw path.`), and the result is `partial` or `failed` with reason `endpoint_hei`. Before, `max(E) - E[0]` of such an interval was reported as its barrier and its end image was TS-optimized.
 
 ### Added
 
 - `all --precision-post tf32|fp32|fp64` sets the MLIP precision of TS optimization, IRC, the endpoint optimizations and freq; unset, they use `--precision`. The root `summary.json` records it as `mlip_precision_post`.
 - A run that stops because UMA finds no compiler (C on a GPU, C++ on a CPU) or Chrome cannot start prints `Missing system prerequisite: ...` with the install commands and the docs page, not a PyTorch or Kaleido traceback; the exit status is unchanged. The docs and skills list these prerequisites.
+- Python 3.13 is supported (`>=3.12,<3.14`). The `[orb]` extra still needs Python 3.12, because orb-models pins `dm-tree==0.1.8`, which has no Python 3.13 wheel; the Colab notebooks keep the Python 3.12 runtime.
 
 ### Changed
 
@@ -25,6 +28,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - MM Hessians keep their values and allocate less: the default finite-difference MM Hessian returns the block of the movable atoms without building the full (3N, 3N) matrix, the hessian_ff analytical Hessian adds each term into the result instead of a new dense matrix per chunk, and hessian_ff drops its unused C++ preparam CPU nonbonded kernels and the extension's `chunk_size` argument.
 - `mm-parm` (and `all`) run antechamber and its sqm on one BLAS/OpenMP thread with a fixed diagonalizer (`diag_routine=7`, dsyevr, added to antechamber's default AM1 keywords) instead of the one sqm times as fastest, so a ligand gets the same AM1-BCC charges on every run; before, the charges of the test ligand PRE varied by up to 0.32 e per atom with the thread count and machine load. Charges can differ from those of earlier builds.
 - `--show-config` no longer prints the always-empty `override_yaml` entry (`override:` in `path-search`), and thermochemistry no longer documents the unreachable `symmetry_number_source: "override"`.
+- Example scripts start with `#!/usr/bin/env bash` only; `set -euo pipefail` was removed.
+- Colab notebook: ORB is installed by pip's resolver (fairchem-core drops to 2.22, as in the separate ORB environment), the MACE cell no longer pins `torchvision==0.23.0` (which pulled torch back to 2.8), each backend install ends with `pip check`, and the duplicate-CuPy warning of the DFT install is no longer shown.
+- CLI help: `extract -i/-o`, `--deterministic`, `opt --reject-uphill` and `--max-depth` say what they do without internal names; the generated reference says it is built from `--help-advanced`, and its YAML page no longer shows the generator's internal columns.
+- Docs (EN/JA) and skills: the review findings of 2026-10-16 are fixed: the Japanese pages use written style, unclear passages are reworded, the model-setup skill lists how to prepare a raw PDB, and the output guide explains a `connectivity_validated: false` caused only by a moved hydrogen (check it with `bond-summary`).
 
 ### Fixed
 
@@ -34,6 +41,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - `all` with a TS-only input: when the endpoint optimization fails, the root `summary.json` records the full `config` like the other exits and `summary.log` is listed; TS-only runs also record `config.mep_mode`. An error while comparing IRC endpoints with the MEP bonds is reported as `bond_change_check_failed:<error>` instead of a bond mismatch.
 - The IRC warning for a branch that stops after a few frames names the `all` options (`--irc-step-size`, `--irc-never-stop`) when IRC runs inside `all`.
 - The optimizer progress table marks only the convergence criteria the preset checks; GSM rows no longer mark the energy and step columns, and `gau` rows no longer mark the energy change.
+- RS-P-RFO: a combined step that exceeds the trust radius by at most 1e-9 (relative) after the basis change back to Cartesians is scaled to the trust radius; before, the TS optimization stopped with "RS-P-RFO combined step exceeds the trust radius". A larger excess still stops it.
+- `--uma-workers` 2 or more: the error message and docs name `pip install "fairchem-core[ray]"`; Ray moved to that extra in fairchem-core 2.23, and `[extras]` never contained it.
+- Colab notebook: after Validate, the log shows the whole dry-run output when the status chip turns valid; before, it could keep `[validate] preparing command and inputs …` for about 10 s or drop the `$ <command>` line.
+- `mm-parm --add-h` names each histidine HID, HIE or HIP from the hydrogens PDBFixer adds and gives the N-terminal hydrogen its Amber name; before, tleap stopped on proteins with histidine ("does not have a type"). Ligands still get no hydrogens.
 
 ## [0.5.0] — 2026-10-24
 

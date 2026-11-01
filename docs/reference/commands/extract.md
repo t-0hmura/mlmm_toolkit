@@ -17,11 +17,11 @@ Options:
                                   and exit.
   -i, --input TEXT                Protein-substrate complex PDB/mmCIF file(s).
                                   Multiple files may be given space-separated
-                                  after one -i or by repeating -i. PDBs beyond
-                                  fixed-column residue/atom limits are handled
-                                  through an internal safe bridge. If multiple,
-                                  they must have identical atom counts and
-                                  ordering.  [required]
+                                  after one -i or by repeating -i. PDBs whose
+                                  residue or atom numbers overflow the fixed PDB
+                                  columns are also accepted. If multiple, they
+                                  must have identical atom counts and ordering.
+                                  [required]
   -c, --center TEXT               Centers (normally substrate + catalytic
                                   residues): a PDB/mmCIF path, a comma/space-
                                   separated residue-ID list like '123,124' or
@@ -30,11 +30,11 @@ Options:
                                   qualified name like 'A:SAM' (all matches in
                                   chain A) / 'A:SAM:123' (one residue). Each
                                   match starts radius expansion.  [required]
-  -o, --output TEXT               Internal/output PDB path(s). For mmCIF or
-                                  oversized-PDB input, a .cif companion with the
-                                  original chain/residue IDs is written
-                                  automatically. One path creates multi-MODEL
-                                  output; N paths create one output per input.
+  -o, --output TEXT               Output PDB path(s). For mmCIF or oversized-PDB
+                                  input, a .cif companion with the original
+                                  chain/residue IDs is written automatically.
+                                  One path creates multi-MODEL output; N paths
+                                  create one output per input.
   -r, --radius FLOAT RANGE        Cutoff (Å) around center atoms for active-site
                                   inclusion. Zero is accepted and evaluated
                                   internally as 0.001 Å (effectively off for

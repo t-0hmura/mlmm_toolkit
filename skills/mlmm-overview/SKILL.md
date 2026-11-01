@@ -63,6 +63,7 @@ Run the subcommands one by one instead of a single `mlmm all` when you want to j
 mlmm mm-parm -i input.pdb -l 'SAM:1,GPP:-3' --out-prefix real
 mlmm extract -i real.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' -o ml_region.pdb
 mlmm define-layer -i real.pdb --model-pdb ml_region.pdb -o R_layered.pdb
+mlmm define-layer -i P.pdb --model-pdb ml_region.pdb -o P_layered.pdb   # P: same atoms and order as real.pdb
 ```
 
 GATE: `[mm-parm] Wrote:` lists `real.pdb` and `real.parm7`; `real.pdb` has filled element columns and the same atoms in the same order as `real.parm7`; the layered PDB carries 0/10/20 on the intended atoms.

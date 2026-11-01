@@ -94,7 +94,7 @@ result_scan/
     │   │   └── scan.pdb
     │   ├── stage_02/            # スキャンの段 2（2 段の実行）
     │   └── result.json          # 各段のスキャンの結果
-    └── path_opt/                # MEP 探索（MEP を再帰的に詰める --refine-path のときは path_search/）
+    └── path_opt/                # MEP 探索（MEP を再帰的に精密化する --refine-path のときは path_search/）
         └── hei_seg_01.{xyz,pdb} # セグメント 1 の最高エネルギーのイメージ
 ```
 
@@ -119,7 +119,7 @@ result_scan/
   | `mlmm scan` | `--max-step-size 0.20` Å、`--restraint-k 300` eV/Å² | `--relax-max-cycles 100000` | 前: off（`--preopt/--no-preopt`）、後: off（`--endopt/--no-endopt`） |
 
   拘束の強さは YAML の [`bias.k`](yaml-reference.md#bias) でも指定できます。
-* **結合変化と `--refine-path`**: スキャンの端点は、その段で結合変化が出たかどうかに関係なく、すべて MEP 探索に渡されます。MEP を再帰的に詰める（`path_search/`）かどうかは `--refine-path` だけで決まります。
+* **結合変化と `--refine-path`**: スキャンの端点は、その段で結合変化が出たかどうかに関係なく、すべて MEP 探索に渡されます。MEP を再帰的に精密化する（`path_search/`）かどうかは `--refine-path` だけで決まります。
 * **スキャンの端点**: スキャンが終わって得られるのは拘束した構造です。拘束なしの最適化、または TS 最適化と IRC で確かめるまでは、極小点とも遷移状態とも言えません。
 * **`scan` を単独で使うとき**: 単独の [`scan`](scan.md) は YAML・JSON のスペックファイルも受け付けます。`all -s` が受け付けるのはインラインのリテラルだけで、スペックファイルを渡すとエラーで止まります。`scan` のデフォルトの `--no-preopt --no-endopt` のままでは、入力構造をそのまま出発点にし、各段の終わりは拘束したままの構造になります。
 * **`scan --dry-run`**: 入力、電荷とスピン、`--scan-lists` の解釈を確かめ、予定のスキャンを表示して止まります。`all` の切り出しとトポロジーの作成は `all --dry-run` でしか確かめられません。

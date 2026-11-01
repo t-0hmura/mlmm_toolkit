@@ -111,8 +111,8 @@ orphan: true
 - **VRAM / RAM**: モデル、系の大きさ、Hessian の計算方式で変わります。代表的な計算で最大使用量を測ってください
 
 ### ソフトウェア
-- Python 3.12
-- CPU 版または CUDA 対応の PyTorch。ビルド済みの wheel は CUDA ランタイムを含むので、手元の CUDA toolkit は通常いりません（ソースからビルドするときだけ必要です）
+- Python 3.12 または 3.13
+- CPU 版または CUDA 対応の PyTorch。ビルド済みの wheel は CUDA ランタイムを含むので、手元の CUDA toolkit は通常不要です（ソースからビルドするときだけ必要です）
 - AmberTools（`mm-parm` が Amber のトポロジーを作るのに使います）
 
 セットアップは [インストール](installation.md) を参照してください。

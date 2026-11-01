@@ -85,7 +85,7 @@ How the run ended decides what you get.
 | Stopped on an energy plateau | `[microiter] Stalled (energy plateau; not converged)` or `[tsopt] Stalled (energy plateau; not converged)` | Final geometry and n_imag | Stops before IRC |
 | Reached `--max-cycles` without converging | `[microiter] Reached max macro iterations (M).` or `[tsopt] Reached max cycles (N/M).` | Final geometry; no Hessian | Stops before IRC |
 | Converged with `--skip-final-freq` | `[tsopt] WARNING: TS saddle-point order is not verified (--skip-final-freq).` | Final geometry; no Hessian | Stops before IRC, because the reaction mode is unchecked |
-| The final Hessian failed | `[tsopt] ERROR: Terminal PHVA failed.` | Final geometry, with `hessian_status: failed` and the reason | Stops before IRC |
+| The final Hessian failed | `[tsopt] ERROR: Terminal PHVA failed.` | Final geometry, with `hessian_status: failed` and the reason | Stops the whole run (exit 1) |
 
 Read n_imag as follows:
 

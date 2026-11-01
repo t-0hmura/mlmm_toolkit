@@ -1460,7 +1460,8 @@ def test_all_path_opt_child_emits_machine_result(tmp_path, monkeypatch) -> None:
     from _all_stub_harness import Behaviour, run_all
 
     run = run_all(
-        tmp_path, monkeypatch, frames=(0.0, 2.0, 4.0),
+        # Each pair has an interior highest image; an endpoint HEI builds no segment.
+        tmp_path, monkeypatch, frames=(0.0, 2.0, 0.0),
         behaviour=Behaviour(path_opt_converged=(True, False)),
     )
 

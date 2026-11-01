@@ -1,6 +1,6 @@
 # CLI Command Reference
 
-These pages are the generated `--help` reference for each command. For usage guidance and worked examples, see the command's narrative guide in the main documentation (e.g. [all](../../all.md), [opt](../../opt.md)).
+These pages are the generated `--help-advanced` reference for each command. For usage guidance and worked examples, see the command's narrative guide in the main documentation (e.g. [all](../../all.md), [opt](../../opt.md)).
 
 ```{toctree}
 :maxdepth: 1

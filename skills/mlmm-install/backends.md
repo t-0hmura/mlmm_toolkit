@@ -57,7 +57,7 @@ Pitfalls:
   `hf auth login`.
 - `e3nn` install conflict: `fairchem-core` clashes with `mace-torch`; put MACE
   in its own env ([MACE](#mace-separate-environment)).
-- `--uma-workers` above 1 needs `fairchem-core[extras]` and finite-difference
+- `--uma-workers` above 1 needs Ray (`pip install "fairchem-core[ray]"`) and finite-difference
   Hessians; an analytical Hessian needs one worker.
 - A frequency calculation runs out of VRAM: compare Hessian modes and model
   sizes on a representative pilot, or move Hessian assembly to the CPU.
@@ -77,7 +77,7 @@ extra installs orb-models 0.7 or newer. orb-models pins
 `nvalchemi-toolkit-ops<0.4`, so in the same env pip lowers `fairchem-core` to
 2.22, and UMA models that need a newer fairchem (such as `uma-s-1p2p1-ft-d4rev`)
 no longer load. Build a second env as for MACE below and keep UMA in the
-default env.
+default env. ORB needs Python 3.12: `orb-models` pins `dm-tree==0.1.8`, which has no Python 3.13 wheel.
 
 ```bash
 pip install 'mlmm-toolkit[orb]'   # in the ORB env; pulls orb-models

@@ -52,6 +52,17 @@ A raw enzyme PDB that needs a parm7?
   └── mlmm mm-parm → parm7 + rst7 (AmberTools tleap)
 ```
 
+## Before `mm-parm`: a raw PDB entry
+
+`mm-parm --add-h` adds hydrogens only (PDBFixer, at `--ph`). Prepare the rest
+first, with PDBFixer or a modelling program:
+
+- Fill in missing heavy atoms and residues.
+- Decide each His as HID, HIE, or HIP, or let `--add-h` choose at `--ph`.
+- Decide which crystal waters and ions to keep.
+- From an MD snapshot, cut the solvent you do not need first and build the
+  `parm7` from that same PDB, so that the atoms and their order match.
+
 ## Which subcommand reads which format
 
 | Subcommand | PDB/mmCIF | XYZ | GJF | parm7 |

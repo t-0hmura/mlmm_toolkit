@@ -230,7 +230,7 @@ mlmm tsopt -i hei.xyz --ref-pdb full_system.mmcif --parm7 full_system.parm7 -q -
 (ja-trajectory-one-frame)=
 ### 軌跡から 1 フレームを取り出す
 
-`_trj.xyz` はふつうの複数フレームの XYZ（各フレームは原子数の行・コメントの行・原子の行）なので、k 番目（1 から数える）のフレームは次のように取り出せます。
+`_trj.xyz` は通常の複数フレームの XYZ（各フレームは原子数の行・コメントの行・原子の行）なので、k 番目（1 から数える）のフレームは次のように取り出せます。
 
 ```bash
 N=$(head -1 scan_trj.xyz); k=12
@@ -249,7 +249,7 @@ PDB のトポロジーを使って続けるときは、元の PDB を次の計�
 | `2` | コマンドが受け付けなかった CLI 引数、書式の誤った設定 YAML |
 | `130` | ユーザー中断（SIGINT） |
 
-JSON の有無で終了コードは変わりません。終了コード `0` には `success` と `partial` の両方が入るので、`scientific_status` で見分けます。`all` と `path-search` はこれを `summary.log` に書き（`all` は端末にも `Scientific status:` として出します）、ほかのコマンドは `--out-json` を付けたときに `result.json` に記録します（[実行と要求段階の完了状況](json-output.md#実行の完了と指定した段の完了)）。`--out-json` を付けないときは、そのコマンドのページにある端末の行で見分けてください（例：`irc`（固有反応座標）では [IRC の成否の判定](irc.md#irc-の成否の判定)）。
+JSON の有無で終了コードは変わりません。終了コード `0` には `success` と `partial` の両方が入るので、`scientific_status` で見分けます。`all` と `path-search` はこれを `summary.log` に書き（`all` は端末にも `Scientific status:` として出します）、ほかのコマンドは `--out-json` を付けたときに `result.json` に記録します（[実行の完了と指定した段の完了](json-output.md#実行の完了と指定した段の完了)）。`--out-json` を付けないときは、そのコマンドのページにある端末の行で見分けてください（例：`irc`（固有反応座標）では [IRC の成否の判定](irc.md#irc-の成否の判定)）。
 
 (ja-opt-mode-semantics)=
 

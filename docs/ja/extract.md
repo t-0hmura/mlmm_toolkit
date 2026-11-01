@@ -145,7 +145,7 @@ mlmm extract -i complex.pdb -c 'A:SUB:301' -o pocket.pdb \
 * **境界の警告**: 手順 5 の CA と CB の切断のほかで、非金属の原子どうしの結合を切ると、`extract` は警告を出します。計算の前に、境界・電荷・多重度を確かめてください。境界の選び方は [ML 領域と層の組み方](model-setup.md) にあります。
 * **どの入力も同じ原子**: 原子の数や並びが違う入力は `[multi] Atom count mismatch` か `[multi] Atom order mismatch` で止まります。詳しくは [トラブルシューティング](troubleshooting.md) を参照してください。
 * **マルチ MODEL の入力**は、最初の MODEL だけを使い、警告を出します。
-* **altLoc（別位置の配座）**: `extract` は残基ごとに、平均占有率がいちばん高い altLoc を 1 つ残します。整えたファイルそのものが要るときは [fix-altloc](fix-altloc.md) を使ってください。
+* **altLoc（別位置の配座）**: `extract` は残基ごとに、平均占有率が最も高い altLoc を 1 つ残します。整えたファイルそのものが要るときは [fix-altloc](fix-altloc.md) を使ってください。
 * **`--modified-residue`**: 電荷を書かない `NAME` を使えるのは、組み込みの表（付録）にある名前だけで、表の電荷のままになります（`SEP` なら −2）。表に無い名前を電荷なしで渡すと、`NAME:charge` で書くよう求めるエラーで止まります。`NAME:charge` は組み込みの電荷もこの実行に限って上書きします（中性の Lys なら `LYS:0`）。`--modified-residue` で足りないときは、ML 領域の原子を手で選びます。
 * **組み込みの残基名**は Amber/CHARMM の命名です。PDB の残基が別の化合物と同じ名前を持つときは、`--modified-residue NAME:charge` で意図する電荷を渡してください。
 

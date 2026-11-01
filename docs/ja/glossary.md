@@ -15,7 +15,7 @@
 | **リンク原子** | Link atom | **リンク水素** を参照。mlmm-toolkit では、切断した ML/MM 境界に置くリンク原子は水素。 |
 | **hessian_ff** | — | mlmm-toolkit に同梱される C++ ネイティブ拡張の Amber 力場計算エンジン。解析 Hessian をサポート。 |
 | **3 層システム** | 3-layer system | mlmm-toolkit の B-factor による層分割方式: ML（B=0.0）、可動 MM（B=10.0）、固定 MM（B=20.0）。 |
-| **B-factor エンコーディング** | B-factor encoding | PDB の B-factor（温度因子）列に層の所属を格納する方式: 0.0 = ML、10.0 = 可動 MM、20.0 = 固定 MM。Hessian 対象 MM 原子はカットオフ/明示的インデックスで制御。{ref}`MM の層 <ja-mm-layers>` を参照。 |
+| **B-factor エンコーディング** | B-factor encoding | PDB の B-factor（温度因子）列に層の所属を格納する方式: 0.0 = ML、10.0 = 可動 MM、20.0 = 固定 MM。Hessian に入れる MM 原子は別に、`--hessian-cutoff` か YAML の `calc.hess_mm_atoms` で決める。{ref}`MM の層 <ja-mm-layers>` を参照。 |
 
 ## 力場・Amber
 

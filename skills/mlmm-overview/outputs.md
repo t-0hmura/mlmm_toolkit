@@ -46,7 +46,7 @@ Standalone ML/MM commands need `--parm7`; `all` builds it with `mm-parm` when it
 Status:
 
 - `execution_status` is `completed` or `failed`: whether the requested stages ran. `scientific_status` is `success`, `partial`, or `failed`: whether they met their numerical criteria. `scientific_status_reasons` lists what is missing or unusable and is omitted on success.
-- In `all --tsopt`, a TS with n_imag ≥ 2 gives `partial`, and a TS with n_imag = 0 stops the run before the IRC, so `success` means n_imag = 1 for every TS.
+- In `all --tsopt`, a TS with n_imag ≥ 2 gives `partial`, and a TS with n_imag = 0 stops that segment before the IRC, so `success` means n_imag = 1 for every TS.
 - `expected_item_ids` and `observed_item_ids` list the expected and observed stages; compare them before accepting the run. `stage_outcomes` has one record per stage and `point_outcomes` one per scan point. IRC records say how the integration stopped, with no success or failure verdict per direction.
 - `pipeline_stop` appears only when the run stopped early and names the stage and the reason.
 
@@ -63,7 +63,7 @@ Segments:
 - `n_segments` counts the MEP segments and `n_segments_reactive` those that are not bridges. Check the chemistry before treating a segment as an elementary step.
 - Each `segments[]` record has `index`, `tag` (a kink segment, which has no covalent bond change, has `kink` in its tag), `kind` (`seg`, `bridge` for a short connecting path, or `tsopt` in TS-only mode), `converged`, `barrier_kcal`, `delta_kcal`, and `bond_changes`. It holds no structures and no stage records: the structures are files under `segments/seg_NN/`, and the stage results are in `post_segments[]`.
 - Each `post_segments[]` record covers one post-processed segment: `tag` and `post_dir`; `tsopt`, with `n_imaginary_modes`, `imaginary_frequencies_cm`, `optimization_status`, and `n_opt_cycles` against `max_cycles`; `irc`, the stop diagnostics of each direction, and `irc_plot` and `irc_traj`; `endpoint_assignment`, how the IRC ends were named R and P; `endpoint_opt`, with `optimization_status`, `n_opt_cycles`, `max_cycles`, and any `stop_reason` for `reactant` and `product`; `thermo_symmetry`, the point group and symmetry number of R, TS, and P when found; and `mep_barrier_kcal` and `mep_delta_kcal`, the MEP values of the segment.
-- In Endpoint and Scan-list modes, `endpoint_opt.connectivity_validated` (with `endpoint_opt.connectivity.match_matrix`) tells whether the optimized R and P kept the bond topology of the MEP ends. `scientific_status` `success` does not check this, and `bond_changes` ([Bond changes](#bond-changes)) cannot show what the TS connects; treat `false` as a TS that connects other states.
+- In Endpoint and Scan-list modes, `endpoint_opt.connectivity_validated` (with `endpoint_opt.connectivity.match_matrix`) tells whether the optimized R and P kept the bond topology of the MEP ends. `scientific_status` `success` does not check this, and `bond_changes` ([Bond changes](#bond-changes)) cannot show what the TS connects. When `false`, run `bond-summary` between the MEP end (`_work/path_opt/seg_NN_mep/preopt/endNN/final_geometry.xyz`) and `segments/seg_NN/reactant.*` or `product.*`, and read which bonds differ. If only H atoms moved, report the TS as the same reaction seen from another protonation state, and name that state.
 - `mlip`, `gibbs_mlip`, `dft`, and `gibbs_dft_mlip` in `post_segments[]` give R, TS, and P at one level each, with `energies_kcal`, `barrier_kcal`, `delta_kcal`, and a `structures` map keyed R/TS/P: ML/MM energies (`--tsopt`), ML/MM Gibbs energies (`--thermo`), DFT energies of the ML region (`--dft`), and DFT//ML/MM Gibbs energies (`--dft` with `--thermo`).
 
 Barriers:
@@ -77,7 +77,7 @@ Files and diagrams:
 
 - `key_output_files` maps each root file to a description, and each `seg_NN` to `{description, files}` with paths relative to that segment directory. `current_output_paths` lists the paths, relative to `--out-dir`, written by this run. Both cover only the current run, so trust them over the existence of a directory.
 - `energy_diagrams` lists each diagram with its name, labels, `energies_kcal`, and `image` path.
-- `all` passes `--out-json` to `tsopt`, `irc`, and the endpoint optimizations, so `ts/`, `irc/`, and `endpoint_opt/` have a `result.json`. It does not pass it to `freq` or `dft`; rerun those alone with `--out-json` when you need one.
+- `all` passes `--out-json` to `tsopt`, `irc`, and the endpoint optimizations, so `ts/` and `irc/` have a `result.json`; `endpoint_opt/` stays only with `--dump` or when an endpoint did not converge, otherwise read `post_segments[].endpoint_opt` in `summary.json`. It does not pass it to `freq` or `dft`; rerun those alone with `--out-json` when you need one.
 
 ## Oriented R/TS/P paths
 
@@ -162,7 +162,7 @@ Bond broken (2):
 
 When `execution_status` is `failed` or `scientific_status` is not `success`, look at:
 
-1. `summary.log`: its header gives both statuses, and an early stop is shown as `Pipeline stop`. On the console, `RESULT WARNING:` lines after `====== Pipeline summary ======` give the reasons.
+1. `summary.log`: its header gives both statuses, and an early stop is shown as `Pipeline stop`, and segments that stopped before IRC as `Stopped before IRC`. On the console, `RESULT WARNING:` lines after `====== Pipeline summary ======` give the reasons.
 2. `segments/seg_NN/{ts,irc}/result.json` and `segments/seg_NN/endpoint_opt/{R,P}/result.json`: the status of each stage. `endpoint_opt/failure.json` is written when an endpoint optimization could not run. In an `all` run, `freq/` and `dft/` have no `result.json`.
 3. The terminal or scheduler stderr, for tracebacks that are not in the JSON. Read the exit code with the status: 0 is `success` or `partial` (tell them apart by `scientific_status`); 1 is non-convergence, no usable result, a runtime exception, or an output failure; 2 is a CLI argument that the command rejects or a malformed configuration YAML, so fix the command instead of resubmitting it; 130 is an interrupt. A run that fails while its options or inputs are checked can stop before writing any JSON, so treat a nonzero exit code as a failure.
 

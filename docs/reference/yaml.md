@@ -1,9 +1,6 @@
 # Curated `mlmm all` Starter Snapshot
 
-This page is a **curated, non-exhaustive** starter snapshot for `mlmm all`. It shows a common subset of keys whose values are pinned to (and equal) their runtime owners; it is **not** the full configuration schema. For every configurable section and option, see the [YAML Reference](../yaml-reference.md).
-
-- Source template: `.github/scripts/generate_reference.py::_ALL_TEMPLATE`
-- Template digest: `270fa92ebc20`
+This page is a **curated, non-exhaustive** starter snapshot for `mlmm all`. It shows a common subset of keys with their current default values; it is **not** the full configuration schema. For every configurable section and option, see the [YAML Reference](../yaml-reference.md).
 
 ## Included Sections
 
@@ -47,27 +44,25 @@ dft:
 
 ## Scalar Defaults
 
-Each scalar is pinned to (and equals) the runtime owner shown.
-
-| Key | Type | Default | Runtime owner |
-|---|---|---|---|
-| `calc.backend` | `str` | `'uma'` | `MLMM_CALC_KW["backend"]` |
-| `calc.orb_model` | `str` | `'orbmol-v2'` | `MLMM_CALC_KW["orb_model"]` |
-| `calc.orb_precision` | `str` | `'float64'` | `MLMM_CALC_KW["orb_precision"]` |
-| `calc.mace_model` | `str` | `'MACE-OMOL-0'` | `MLMM_CALC_KW["mace_model"]` |
-| `calc.mace_dtype` | `str` | `'float64'` | `MLMM_CALC_KW["mace_dtype"]` |
-| `calc.aimnet2_model` | `str` | `'aimnet2'` | `MLMM_CALC_KW["aimnet2_model"]` |
-| `freq.max_write` | `int` | `10` | `FREQ_KW["max_write"]` |
-| `freq.amplitude_ang` | `float` | `0.8` | `FREQ_KW["amplitude_ang"]` |
-| `freq.n_frames` | `int` | `20` | `FREQ_KW["n_frames"]` |
-| `freq.sort` | `str` | `'value'` | `FREQ_KW["sort"]` |
-| `thermo.temperature` | `float` | `298.15` | `THERMO_KW["temperature"]` |
-| `thermo.pressure_atm` | `float` | `1.0` | `THERMO_KW["pressure_atm"]` |
-| `thermo.symmetry_number` | `NoneType` | `None` | `THERMO_KW["symmetry_number"]` |
-| `dft.func_basis` | `str` | `'wb97m-v/def2-svp'` | `DFT_KW["func_basis"]` |
-| `dft.max_cycle` | `int` | `100` | `DFT_KW["max_cycle"]` |
-| `dft.conv_tol` | `float` | `1e-09` | `DFT_KW["conv_tol"]` |
-| `dft.grid_level` | `int` | `3` | `DFT_KW["grid_level"]` |
+| Key | Type | Default |
+|---|---|---|
+| `calc.backend` | `str` | `'uma'` |
+| `calc.orb_model` | `str` | `'orbmol-v2'` |
+| `calc.orb_precision` | `str` | `'float64'` |
+| `calc.mace_model` | `str` | `'MACE-OMOL-0'` |
+| `calc.mace_dtype` | `str` | `'float64'` |
+| `calc.aimnet2_model` | `str` | `'aimnet2'` |
+| `freq.max_write` | `int` | `10` |
+| `freq.amplitude_ang` | `float` | `0.8` |
+| `freq.n_frames` | `int` | `20` |
+| `freq.sort` | `str` | `'value'` |
+| `thermo.temperature` | `float` | `298.15` |
+| `thermo.pressure_atm` | `float` | `1.0` |
+| `thermo.symmetry_number` | `NoneType` | `None` |
+| `dft.func_basis` | `str` | `'wb97m-v/def2-svp'` |
+| `dft.max_cycle` | `int` | `100` |
+| `dft.conv_tol` | `float` | `1e-09` |
+| `dft.grid_level` | `int` | `3` |
 
 ## Scan Spec Shapes
 

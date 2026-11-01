@@ -68,7 +68,7 @@ result_all/
    └─ path_opt/                                      # MEP search and hei_seg_NN.* (path_search/ with --refine-path)
 ```
 
-In TS-only mode (one transition-state (TS) candidate given with `--tsopt` and no `-s/--scan-lists`) there is no MEP stage, so `_work/path_opt/` is absent and the deliverables live under `segments/seg_01/`.
+In TS-only mode (one transition-state (TS) candidate given with `-i`, plus `--tsopt` and no `-s/--scan-lists`) there is no MEP stage, so `_work/path_opt/` is absent and the deliverables live under `segments/seg_01/`.
 
 ## Notes
 

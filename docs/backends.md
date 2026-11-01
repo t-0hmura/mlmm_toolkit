@@ -128,7 +128,7 @@ mlmm all -i r_complex.pdb p_complex.pdb -c PRE -q -1 --deterministic
 ## Workers and Hessian mode
 
 `--uma-workers N` (default 1) runs N parallel UMA predictors (this needs
-`fairchem-core[extras]`), and `--uma-workers-per-node` (default 1) sets how
+`pip install "fairchem-core[ray]"`), and `--uma-workers-per-node` (default 1) sets how
 many of them run on each node. Both flags exist on `opt`, `tsopt`, `freq`,
 `irc`, `sp`, `all`, `path-opt`, `path-search`, `scan`, `scan2d`, and `scan3d`.
 The other backends ignore them with a warning. HPC job templates are in

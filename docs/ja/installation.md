@@ -132,7 +132,7 @@ sudo が使えない HPC では、`module load gcc` か、環境へのコンパ�
 
     mlmm-toolkit はデフォルトで UMA を使用します。他のバックエンドは対応する追加パッケージを導入し、`-b/--backend`（例: `-b orb`）で選択します:
 
-    **ORB**: `orb-models` は `nvalchemi-toolkit-ops<0.4` に固定しているので、同じ環境に入れると UMA の `fairchem-core` が古い版に下がります。下の MACE と同じく、手順 2〜6 で作った別の環境に入れ、UMA は元の環境で使います。
+    **ORB**: `orb-models` は `nvalchemi-toolkit-ops<0.4` に固定しているので、同じ環境に入れると UMA の `fairchem-core` が古い版に下がります。下の MACE と同じく、手順 2〜6 で作った別の環境に入れ、UMA は元の環境で使います。ORB は Python 3.12 でだけ使えます（`orb-models` が固定する `dm-tree==0.1.8` に Python 3.13 用の wheel がないためです）。
 
     ```bash
     pip install "mlmm-toolkit[orb]"
@@ -184,7 +184,7 @@ sudo が使えない HPC では、`module load gcc` か、環境へのコンパ�
 
 **OS:** Linux を推奨します。ネイティブの Windows では AmberTools（`tleap`）が使えないため、対応していません。
 
-**Python:** 3.12 が必要です。
+**Python:** 3.12 または 3.13 が必要です。
 
 **GPU / CUDA:** 選んだ PyTorch のビルドに対応するドライバーの NVIDIA GPU（最短のインストールを参照）。新しい GPU アーキテクチャでは新しいビルドが必要なことがあります。CPU のみでも実行できますが、通常は大幅に遅くなります。
 
@@ -198,7 +198,7 @@ sudo が使えない HPC では、`module load gcc` か、環境へのコンパ�
 - [クイックスタート: `mlmm all`](quickstart-all.md) — R と P から MEP を作る
 - [クイックスタート: `mlmm all --scan-lists`](quickstart-scan.md) — 1 つの構造から経路を作る
 - [クイックスタート: TS-only モード](quickstart-tsopt.md) — TS 候補を最適化して確かめる
-- [MLIP の TS を DFT で確かめる](dft-backend.md) — TS を DFT/MM で詰めて確かめる
+- [MLIP の TS を DFT で確かめる](dft-backend.md) — TS を DFT/MM で精密化して確かめる
 - [共通オプションと残基・原子の指定](cli-conventions.md) — 共通のオプションと、残基・原子の指定の書き方
 - [デバイス設定 & HPC セットアップ](device-hpc.md) — クラスターでの GPU の設定とジョブスクリプト
 - [トラブルシューティング](troubleshooting.md) — よくあるエラーと試すこと

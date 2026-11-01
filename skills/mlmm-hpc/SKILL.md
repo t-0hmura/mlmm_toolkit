@@ -202,8 +202,8 @@ structures.
 ## UMA predictor workers
 
 The default `--uma-workers 1` uses one in-process UMA predictor. `--uma-workers N`
-with `N > 1` selects fairchem's `ParallelMLIPPredictUnit`; install
-`fairchem-core[extras]`, request enough GPU/process resources, and set
+with `N > 1` selects fairchem's `ParallelMLIPPredictUnit`; install Ray with
+`pip install "fairchem-core[ray]"`, request enough GPU/process resources, and set
 `--uma-workers-per-node` to match the allocation. The exact multi-node launcher is
 site/fairchem specific and is intentionally absent from these generic templates.
 

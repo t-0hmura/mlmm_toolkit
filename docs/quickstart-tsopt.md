@@ -12,7 +12,7 @@ TS-only mode checks one transition-state (TS) candidate without a minimum energy
 
 ## Minimal command
 
-Pass one full-system TS candidate with `--tsopt`. The bundled example has no TS candidate, so the command below uses the HEI from the [`all` quickstart](quickstart-all.md) run. For your own reaction, pass your own candidate.
+Pass one full-system TS candidate with `-i` and add `--tsopt`. The bundled example has no TS candidate, so the command below uses the HEI from the [`all` quickstart](quickstart-all.md) run. For your own reaction, pass your own candidate.
 
 ```bash
 mlmm all -i result_all/_work/path_opt/hei_seg_01.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \

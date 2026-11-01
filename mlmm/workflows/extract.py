@@ -152,8 +152,8 @@ _MAX_BOUNDARY_BOND_DISTANCE = _BOUNDARY_BOND_SCALE * 2.0 * max(
     type=str, multiple=True, required=True,
     help=(
         "Protein-substrate complex PDB/mmCIF file(s). Multiple files may be given space-separated "
-        "after one -i or by repeating -i. PDBs beyond fixed-column residue/atom limits are "
-        "handled through an internal safe bridge. "
+        "after one -i or by repeating -i. PDBs whose residue or atom numbers overflow the "
+        "fixed PDB columns are also accepted. "
         "If multiple, they must have identical atom counts and ordering."
     ),
 )
@@ -172,7 +172,7 @@ _MAX_BOUNDARY_BOND_DISTANCE = _BOUNDARY_BOND_SCALE * 2.0 * max(
     "-o", "--output", "output_pdb",
     type=str, multiple=True, default=(),
     help=(
-        "Internal/output PDB path(s). For mmCIF or oversized-PDB input, a .cif companion with "
+        "Output PDB path(s). For mmCIF or oversized-PDB input, a .cif companion with "
         "the original chain/residue IDs is written automatically. One path creates multi-MODEL "
         "output; N paths create one output per input."
     ),

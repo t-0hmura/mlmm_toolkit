@@ -172,5 +172,5 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 * [opt](opt.md) — スキャンの前後の単一構造の最適化
 * [tsopt](tsopt.md) — 鞍点に近い構造からの TS 最適化
 * [path-search](path-search.md) — マップから取った構造を通る MEP 探索
-* [all](all.md) — 一貫ワークフロー
+* [all](all.md) — 一気通貫ワークフロー
 * [トラブルシューティング](troubleshooting.md) — 異常終了時の原因切り分けと対処法

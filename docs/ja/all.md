@@ -107,7 +107,8 @@ TS 最適化が成功すると、反応モードの虚振動が 1 つ出ます�
 | 収束、n_imag = 0 | IRC の前で止まります。 |
 | サイクル上限で停止 | 最後の Hessian を計算せず、IRC の前で止まります。 |
 | `--stop-plateau` で停止（stalled） | 最後の Hessian を計算して n_imag を出し、IRC の前で止まります。 |
-| `--skip-final-freq`、Hessian の失敗 | IRC の前で止まります。 |
+| `--skip-final-freq` | IRC の前で止まります。 |
+| 最後の Hessian がエラーで失敗 | 実行全体が止まり（`failed`、終了コード 1）、後のセグメントは処理しません。 |
 
 TS 最適化の終わり方の一覧は [`tsopt` の「TS の判定」](tsopt.md#ts-の判定) にあります。
 
@@ -117,7 +118,7 @@ IRC が収束しなくても、端点の最適化で狙った R と P に着け�
 
 * **端末**: 虚振動が 1 つの TS では、`[Imaginary modes] n=1 (...)` に虚振動数が出ます。`====== Pipeline summary ======` の下に `Execution status:` と `Scientific status:` が出ます。結果が `success` でないときは、`RESULT WARNING:` の行に理由が出ます。
 * **`summary.log`**: ヘッダーに `Pipeline mode`（`MEP`、`Scan`、`TS-only`）と 2 つのステータスが出ます。[1] は MEP の概要、[2] は各セグメントの MEP 上の障壁 ΔE‡・反応エネルギー ΔE・結合の変化、[3] は各セグメントの後処理で、`TS imaginary freq:` の下に n_imag が出ます。[4] はエネルギー図の表、[5] は出力のツリーです。
-* **`summary.json`**: `scientific_status` には、指定した段がすべて収束すると `success`、そうでなければ `partial` か `failed` が入り、理由は `scientific_status_reasons` に出ます。各 TS の n_imag は `post_segments[].tsopt.n_imaginary_modes` です。ステータスの欄の説明は [実行と要求段階の完了状況](json-output.md#実行の完了と指定した段の完了) にあります。
+* **`summary.json`**: `scientific_status` には、指定した段がすべて収束すると `success`、そうでなければ `partial` か `failed` が入り、理由は `scientific_status_reasons` に出ます。各 TS の n_imag は `post_segments[].tsopt.n_imaginary_modes` です。ステータスの欄の説明は [実行の完了と指定した段の完了](json-output.md#実行の完了と指定した段の完了) にあります。
   * **障壁**: `--tsopt` のとき、各セグメントの障壁は、最適化した TS と R の ML/MM のエネルギーの差で、`post_segments[].mlip.barrier_kcal` に入ります。`--thermo` と `--dft` のときは、ほかの手法の障壁が同じ形で `gibbs_mlip`・`dft`・`gibbs_dft_mlip` に入ります。`segments[].barrier_kcal` は TS 最適化の前の MEP 上の障壁です。TS-only モードでは TS − R です。
 
 端点が狙った R と P かは自分で確かめてください。`summary.log` の [2] の結合の変化と、`segments/seg_NN/reactant.*`・`product.*` の構造を、狙った R と P と比べます。n_imag が 1 でないときや、IRC の端点が狙いと違うときは {ref}`TS が取れないとき <ja-ts-search-fails>` を参照してください。
@@ -225,9 +226,9 @@ result_all/
 
 * **`--dft` と `-b dft`**: 一緒には使えず、実行の始めにエラーで止まります。`-b dft` の計算の後に DFT の一点計算を足すときは、別のジョブで `mlmm sp -b dft` を実行してください。
 * **`--dft` の費用**: 必要なメモリは ML 領域の大きさ・基底・汎関数・精度・ソフトウェアの構成で変わります。対象の計算ノードで代表的な構造を試し、最大メモリ使用量を見てください。ML 領域が大きいときは、MLIP の計算を先に終え、DFT の一点計算を別のジョブで実行してください。
-* **TS-only モードの R と P**: IRC のエネルギーの高いほうの端を反応物と呼びます。R・P の名前、ファイル名、障壁、反応エネルギーはこのエネルギーの順に従うもので、化学的に分かった反応の向きではありません。P からの障壁は `barrier_kcal − delta_kcal` です。`summary.json` の `endpoint_assignment` にこの規則が記録され、`chemical_direction_known: false` となります。
+* **TS-only モードの R と P**: IRC のエネルギーの高いほうの端を反応物と呼びます。R・P の名前、ファイル名、障壁、反応エネルギーはこのエネルギーの順に従うもので、既知の化学的な反応の向きではありません。P からの障壁は `barrier_kcal − delta_kcal` です。`summary.json` の `endpoint_assignment` にこの規則が記録され、`chemical_direction_known: false` となります。
 * **TS-only モードの `summary.log`**: [1] は TS と IRC の概要で、[2] は最適化した TS と端点から求めます。
-* **IRC の前で止まったとき**: TS のファイルは `segments/seg_NN/ts/` に残り、後のセグメントの後処理は行いません。
+* **セグメントが IRC の前で止まったとき**: そのセグメントは IRC とその後の段を行わず、TS のファイルは `segments/seg_NN/ts/` に残ります。ほかのセグメントは後処理を続けます。`summary.json` は最初の停止を `pipeline_stop` に残し、止まったセグメントすべてを `stopped_segments` に列挙します。`irc_plot_all.png` は全セグメントに IRC があるときだけ描きます。
 * **端点の最適化**: 片方の端点の最適化が収束しない場合、結果は `partial` になり、`segments/seg_NN/endpoint_opt/` を確認用に残します。端点の最適化がエラーで失敗した場合は、エラーを `segments/seg_NN/endpoint_opt/failure.json` に記録し、そのセグメントは振動数と DFT の段の前で止まります。TS と IRC の構造は残ります。
 * **熱化学のファイル**: `all` は熱化学量を `thermoanalysis.yaml` から読むので、`--thermo` では `--no-dump` を指定してもこのファイルを残します。
 * **抽出の半径**: `-r 0` では半径による拡張を無効にし、`-c` と `--selected-resn` で選んだ残基からモデルを組みます。構造上の安全策として、ジスルフィド結合の相手や隣の残基の主鎖が加わることはあります。半径 0 は内部で 0.001 Å として扱います。
@@ -235,7 +236,7 @@ result_all/
 * **AmberTools**: `--parm7` を指定しないと、AmberTools が見つからないときにエラーで止まります。
 * **入力の形式**: `all` は PDB と mmCIF を読みます。XYZ の入力には、同じ原子を持つ PDB を `--ref-pdb` で指定してください。1 回の実行のすべての構造は、同じ原子を同じ順に持つ必要があります。
 * **電荷と多重度**: `-q` と `-m` は酵素全体ではなく ML 領域の値です。`-c` のときの ML 領域の電荷は、最初の入力から抽出したモデルの合計で、アミノ酸・イオン・水は組み込みの値、そのほかの残基は `-l` の値、`-l` に無い残基は 0 として数えます。`-c` が無いときは、B-factor か `--model-pdb` で決めた ML 領域で同じように合計します。`-q` は求めた値よりも優先し、警告を出します。値を求められないときは、YAML の `calc.model_charge` を使います。多重度は `-m`、無ければ YAML の `calc.model_mult`、それも無ければ 1 です。詳しくは [共通オプションと残基・原子の指定](cli-conventions.md) を参照してください。
-* **固定原子と剛体運動**: 振動解析では、固定原子を動かさない並進と回転だけを射影で除きます。固定 MM の層があれば、除かれる運動はふつうありません。詳しくは [freq の「固定境界での剛体モード」](freq.md#固定境界での剛体モード) を参照してください。
+* **固定原子と剛体運動**: 振動解析では、固定原子を動かさない並進と回転だけを射影で除きます。固定 MM の層があれば、除かれる運動は通常ありません。詳しくは [freq の「固定境界での剛体モード」](freq.md#固定境界での剛体モード) を参照してください。
 * **別々に用意した構造**: 入力構造を別々に用意すると、反応座標の外の構造の違いも障壁に入ります。障壁を読む前に構造を比べてください。組成が同じ 2 つの機構を比べるときは、両方の経路で共通の原子の集合と順序を使います。
 * **`--resume-segment`**: `--tsopt`・`--thermo`・`--dft` のどれかが必要で、`--dry-run` とは一緒に使えません。保存した入力・ML 領域・トポロジー・層を割り当てた構造・MEP がコマンドと合わないときは、エラーで止まります。
 

@@ -239,7 +239,7 @@ def add_workers_options() -> Callable[[Callable], Callable]:
     """Attach ``--workers`` / ``--workers-per-node`` to a Click command.
 
     MLIP predictor parallelism. ``--workers > 1`` routes the UMA backend through
-    ``ParallelMLIPPredictUnit`` (needs ``fairchem-core[extras]``); the parallel
+    ``ParallelMLIPPredictUnit`` (needs ``fairchem-core[ray]``); the parallel
     predictor exposes no autograd model, so analytical Hessians are unavailable and
     combining ``--workers >1`` with ``--hessian-calc-mode Analytical`` is an error.
 
@@ -267,7 +267,7 @@ def add_workers_options() -> Callable[[Callable], Callable]:
             show_default="1",
             help=(
                 "MLIP predictor workers (UMA). >1 uses a parallel predictor "
-                "(fairchem-core[extras]); combining it with an analytical Hessian "
+                "(needs fairchem-core[ray]); combining it with an analytical Hessian "
                 "is an error. Default 1."
             ),
         )(func)
@@ -399,8 +399,10 @@ def add_deterministic_option() -> Callable[[Callable], Callable]:
             expose_value=False,
             callback=_deterministic_callback,
             help=(
-                "Request deterministic algorithms for controlled operations; "
-                "verify exact reproducibility on the complete target stack."
+                "Make repeated runs on the same software versions and hardware "
+                "give identical results (PyTorch deterministic algorithms). "
+                "Slower; raises for detected unsupported ops; custom calculators "
+                "are outside its scope."
             ),
         )(func)
     return decorator

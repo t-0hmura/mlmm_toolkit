@@ -1314,8 +1314,9 @@ def _run_microiter_opt(
     show_default=True,
     help=(
         "Opt in to rejecting uphill RFO trials in hess mode (tolerance: "
-        "1e-4 Hartree) and final-check the retained geometry at the emergency "
-        "floor. Ignored in grad/lbfgs mode."
+        "1e-4 Hartree) and shrink the trust radius; after repeated rejections "
+        "at the smallest radius, keep the lower-energy geometry and stop after "
+        "one convergence check. Ignored in grad/lbfgs mode."
     ),
 )
 @click.option(

@@ -233,6 +233,7 @@ def build_pipeline_summary_payload(
         # summary.log is the file a downstream reader may receive on its own, so
         # an early stop has to reach it too.
         "pipeline_stop": summary.get("pipeline_stop"),
+        "stopped_segments": summary.get("stopped_segments"),
         "key_files": {},
     }
 

@@ -33,12 +33,18 @@ def _coords(index: int):
     return [(index * 0.125, 0.25, -0.5), (1.25 + index * 0.25, 0.5, 0.75)]
 
 
-def _frame(index: int) -> str:
+def _frame(index: int, energy: float | None = None) -> str:
     atoms = "".join(
         f"{element} {x:.3f} {y:.3f} {z:.3f}\n"
         for element, (x, y, z) in zip(("C", "O"), _coords(index))
     )
-    return f"2\nE={index * 0.01:.3f} unit=hartree frame{index}\n{atoms}"
+    energy = index * 0.01 if energy is None else energy
+    return f"2\nE={energy:.3f} unit=hartree frame{index}\n{atoms}"
+
+
+def _mep_frame(index: int) -> str:
+    # Odd frames are the interior highest images; an endpoint HEI builds no segment.
+    return _frame(index, 1.0 if index % 2 else None)
 
 
 def _pdb(residue: str) -> str:
@@ -101,7 +107,7 @@ def test_all_path_opt_mep_pdb_publication(tmp_path: Path, monkeypatch, case: str
             references.append(refs)
             left = Path(args[args.index("-i") + 1])
             assert left.suffix == (".pdb" if case == "direct_pdb" else ".xyz")
-            _write(child_out / "final_geometries_trj.xyz", _frame(pair) + _frame(pair + 1))
+            _write(child_out / "final_geometries_trj.xyz", "".join(_mep_frame(i) for i in range(2 * pair, 2 * pair + 3)))
             payload = {"stage_outcomes": [{"item_id": "gsm_mep", "converged": True}], "preopt_converged": True}
         else:
             raise AssertionError(f"Unexpected computational child: {name}")
@@ -139,8 +145,8 @@ def test_all_path_opt_mep_pdb_publication(tmp_path: Path, monkeypatch, case: str
         assert (out / "mep_plot.png").read_text() == "current plot"
     assert ("mep_plot.png" in summary["key_output_files"]) is plot_writes
     assert "energy_diagram_MEP.png" not in summary["key_output_files"]
-    assert summary["n_images"] == 3 and summary["n_segments"] == 2
-    assert (out / "mep_trj.xyz").read_text() == "".join(_frame(i) for i in range(3))
+    assert summary["n_images"] == 5 and summary["n_segments"] == 2
+    assert (out / "mep_trj.xyz").read_text() == "".join(_mep_frame(i) for i in range(5))
     assert (out / "mep_trj.pdb").exists() is convert
     assert ("mep_trj.pdb" in summary["key_output_files"]) is convert
     assert ("output.public.mep_trj.pdb" in manifest["produced"]) is convert
@@ -157,6 +163,6 @@ def test_all_path_opt_mep_pdb_publication(tmp_path: Path, monkeypatch, case: str
         segment_pdb = path_dir / f"mep_seg_{index:02d}.pdb"
         assert segment_pdb.exists() is convert
         if convert:
-            _assert_pdb(segment_pdb, [index - 1, index], labels[index - 1])
+            _assert_pdb(segment_pdb, range(2 * index - 2, 2 * index + 1), labels[index - 1])
     if convert:
-        _assert_pdb(out / "mep_trj.pdb", [0, 1, 2], labels[0])
+        _assert_pdb(out / "mep_trj.pdb", range(5), labels[0])

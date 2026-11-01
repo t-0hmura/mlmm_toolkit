@@ -10,7 +10,7 @@
 * **`tsopt` に渡す TS 候補**: `hei.pdb`（または `hei.xyz`）を [`tsopt`](tsopt.md) の初期構造にする
 * **GSM と DMF の比較**: 同じ 2 構造を `--mep-mode gsm` と `--mep-mode dmf` で計算し、経路を見比べる
 
-ML 領域の計算にはデフォルトの **UMA**（Meta）を使います。残りの部分は `--parm7` の Amber 力場で計算します。3 つ以上の構造を一度に入力したいときは、`all` の [Endpoint モード](quickstart-all.md) を使ってください。R と P の間にありうる中間体を自動で検知できるか試したいなら、[`path-search`](path-search.md) を使うとよいでしょう。
+ML 領域の計算にはデフォルトの **UMA**（Meta）を使います。残りの部分は `--parm7` の Amber 力場で計算します。3 つ以上の構造を一度に入力したいときは、`all` の [Endpoint モード](quickstart-all.md) を使ってください。R と P の間にありうる中間体を自動で検出するには、[`path-search`](path-search.md) を使ってください。
 
 ---
 
@@ -147,7 +147,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 * [path-search](path-search.md) — 2 つ以上の構造を通り、結合が変わる区間を精密化する MEP 探索
 * [tsopt](tsopt.md) — HEI から TS を最適化
 * [irc](irc.md) — TS が狙った R と P につながるかを確認
-* [all](all.md) — 一貫実行のワークフロー。MEP の段は `path-opt` を使い、`--refine-path` で `path-search` に切り替えられます
+* [all](all.md) — 一気通貫ワークフロー。MEP の段は `path-opt` を使い、`--refine-path` で `path-search` に切り替えられます
 * [YAML 設定の一覧](yaml-reference.md) — `gs`・`dmf`・`stopt` の全設定
 * [用語集](glossary.md) — MEP、GSM、DMF、HEI などの用語
 * [トラブルシューティング](troubleshooting.md) — 異常終了時の原因切り分けと対処法

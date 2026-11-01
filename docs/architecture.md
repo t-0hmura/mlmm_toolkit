@@ -274,7 +274,7 @@ implementation changes currently touch `mlmm_calc.py` and the dispatcher.
 |---|---|---|
 | `pysisyphus/` | optimizer / TS / IRC engine | `irc/IRC.py`, `optimizers/hessian_updates.py`, `tsoptimizers/TSHessianOptimizer.py`, `calculators/*` |
 | `thermoanalysis/` | thermochemistry (ΔG, ZPE, partition functions) | `QCData.py` (branding diff vs upstream) |
-| `hessian_ff/` | analytical Hessian on MM force field — **PyPI 404, bundling is mandatory** | `analytical_hessian.py` (sole entry consumed by `mlmm/backends/mlmm_calc.py`) |
+| `hessian_ff/` | analytical Hessian on MM force field — **not on PyPI, bundling is mandatory** | `analytical_hessian.py` (sole entry consumed by `mlmm/backends/mlmm_calc.py`) |
 
 ---
 
@@ -358,7 +358,7 @@ The bundled `pysisyphus/`, `thermoanalysis/`, and `hessian_ff/` packages are **f
 |---|---|---|---|
 | `pysisyphus/` | NO — fork, do not `pip install pysisyphus` alongside | optimizer, TS, IRC, COS, calculators | preserve the listed divergences; validate numerical changes with focused and scheduled numerical tests |
 | `thermoanalysis/` | NO — fork (branding diff) | ΔG, ZPE, partition functions, `QCData` | preserve the `QCData` consumer contract; see its README |
-| `hessian_ff/` | **NO — PyPI 404, bundling mandatory** | analytical Hessian on MM force field | preserve its derivative and public API contracts; see its README |
+| `hessian_ff/` | **NO — not on PyPI, bundling mandatory** | analytical Hessian on MM force field | preserve its derivative and public API contracts; see its README |
 
 Each dir carries its own `README.md` listing its divergences from upstream and its consumer contracts.
 

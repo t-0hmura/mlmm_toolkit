@@ -119,7 +119,7 @@ reinstall: `git clone https://github.com/t-0hmura/mlmm_toolkit.git mlmm && cd ml
 ## Conda env template
 
 Replace `<...>` with the values from the probe. The template uses
-`python=3.12`, the Python that mlmm-toolkit requires.
+`python=3.12`; mlmm-toolkit supports Python 3.12 and 3.13.
 `mm-parm` also needs AmberTools ([ambertools.md](ambertools.md)).
 
 `env_mlmm.yml` (UMA, ORB, AIMNet2, DFT, xTB):

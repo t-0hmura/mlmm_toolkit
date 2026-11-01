@@ -117,7 +117,7 @@ Gaussian の入力には、route の `#p oniom(<method>:amber=softonly)`、可�
 
 ## 使用上の注意点
 
-* **CMAP**: Gaussian ONIOM は parm7 の CMAP 項を表せず、ORCA の MM エンジンは CMAP 項を使わないため、CMAP を含むトポロジーではファイルを書く前に止まります。書き出しには CMAP を含まないトポロジーを作ってください。mlmm の ML/MM 計算は両方の MM 層に CMAP を適用するので、ふだんの計算では CMAP を残せます。
+* **CMAP**: Gaussian ONIOM は parm7 の CMAP 項を表せず、ORCA の MM エンジンは CMAP 項を使わないため、CMAP を含むトポロジーではファイルを書く前に止まります。書き出しには CMAP を含まないトポロジーを作ってください。mlmm の ML/MM 計算は両方の MM 層に CMAP を適用するので、mlmm で使うトポロジーには CMAP を残せます。
 * **モードの決まり方**: `--mode` が拡張子より優先です。`--mode` が無いと、`.gjf`・`.com`・`.inp` 以外の拡張子はエラーです。
 * **原子の並び**: `-i` は parm7 と原子数が同じ PDB（`.pdb` か `.ent`）が必要です。原子数が違うと `--no-element-check` でも止まり、照合が有効なら最初に元素が食い違った原子で `Element sequence mismatch at atom index …`（0 から数えた番号）を出して止まります。
 * **系全体の電荷**: Gaussian の real 系の電荷と、デフォルトの ORCA `Charge_Total` は、parm7 の部分電荷の和を整数に丸めた値です。和が整数から 0.05 を超えて離れていると止まります。ORCA モードでは `--total-charge` で指定してください。

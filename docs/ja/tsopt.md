@@ -85,7 +85,7 @@ mlmm tsopt -i ts_guess.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 | エネルギーが変わらなくなって停止 | `[microiter] Stalled (energy plateau; not converged)` または `[tsopt] Stalled (energy plateau; not converged)` | final geometry と n_imag | IRC の前で止まる |
 | `--max-cycles` に達して未収束 | `[microiter] Reached max macro iterations (M).` または `[tsopt] Reached max cycles (N/M).` | final geometry（Hessian なし） | IRC の前で止まる |
 | `--skip-final-freq` を付けて収束 | `[tsopt] WARNING: TS saddle-point order is not verified (--skip-final-freq).` | final geometry（Hessian なし） | 反応モードを確かめられないため、IRC の前で止まる |
-| 最後の Hessian の計算に失敗 | `[tsopt] ERROR: Terminal PHVA failed.` | final geometry と、`hessian_status: failed` とその理由 | IRC の前で止まる |
+| 最後の Hessian の計算に失敗 | `[tsopt] ERROR: Terminal PHVA failed.` | final geometry と、`hessian_status: failed` とその理由 | 実行全体が止まる（終了コード 1） |
 
 n_imag は次のように読みます。
 
@@ -93,7 +93,7 @@ n_imag は次のように読みます。
 | --- | --- |
 | 1 | 1 次の鞍点。モードが狙った原子を動かしているかを確かめてから、[`irc`](irc.md) を実行してください |
 | 0 | 虚振動なし。構造が極小点の側へ緩和しています |
-| 2 以上 | 高次の鞍点。余分な虚振動が残っています。`all` はそれでも、最適化が追っていた虚振動のモード（それが使えないときは最も低い虚振動のモード）に沿って IRC を流すので、IRC の端点でそのモードがどこへつながるかを確かめられます |
+| 2 以上 | 高次の鞍点。余分な虚振動が残っています。`all` はそれでも、最適化が追っていた虚振動のモード（それが使えないときは最も低い虚振動のモード）に沿って IRC を実行するので、IRC の端点でそのモードがどこへつながるかを確かめられます |
 
 ν < −5.00 cm⁻¹ のモードを虚振動として数えます。−5.00 以上 0 cm⁻¹ 未満の値は数値誤差として扱います。
 
@@ -115,7 +115,7 @@ mlmm tsopt -i ts_guess.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m 
     --precision fp64 --flatten -o result_tsopt
 ```
 
-ほかの手は {ref}`TS が取れないとき <ja-ts-search-fails>` に、そのほかの失敗は [トラブルシューティング](troubleshooting.md) にあります。
+ほかの対処法は {ref}`TS が取れないとき <ja-ts-search-fails>` に、そのほかの失敗は [トラブルシューティング](troubleshooting.md) にあります。
 
 ---
 

@@ -30,7 +30,7 @@ mlmm-toolkit で得られる TS と経路は、仮説として立てた機構の
 (ja-mechanism-split)=
 ## 反応の分け方を決める
 
-`-s` のリテラル（`-s` の後の角括弧のリスト）1 つが 1 つの段です。1 つのリテラルの中の座標は、同じ段で一緒に動きます（協奏）。リテラルを並べると、1 つずつ順に動かし（段階）、次の段に進むと前の段の拘束は外れます。各段の刻みの数は、座標ごとに変化量（目標値と初期値の差）を刻み幅の上限で割り、いちばん多くの刻みが要る座標で決まります。上限は、距離が `--scan-max-step-size`（0.20 Å。`scan` では `--max-step-size`）、角度が 5°、二面角が 10° です。
+`-s` のリテラル（`-s` の後の角括弧のリスト）1 つが 1 つの段です。1 つのリテラルの中の座標は、同じ段で一緒に動きます（協奏）。リテラルを並べると、1 つずつ順に動かし（段階）、次の段に進むと前の段の拘束は外れます。各段の刻みの数は、座標ごとに変化量（目標値と初期値の差）を刻み幅の上限で割り、最も多くの刻みが要る座標で決まります。上限は、距離が `--scan-max-step-size`（0.20 Å。`scan` では `--max-step-size`）、角度が 5°、二面角が 10° です。
 
 次の 2 つのコマンドは、同梱例の同じ 4 つの座標を動かします。作る C–C 結合、切れる C–S 結合、GPP から Glu186 へ移る H で、H の移動は 2 つの距離（C7–H11 と OE2–H11）で書きます。
 
@@ -65,7 +65,7 @@ TS 最適化が成功すると、反応モードの虚振動が 1 つ出ます�
 - **終わり方**：収束した `tsopt` は `[microiter] Converged!`（マイクロイテレーションを使わないときは `[tsopt] Numerical optimization converged.`）を出し、続けて `[Imaginary modes] n=1 (...)` のように虚振動を出します。n_imag が 1 でないときは、`[tsopt] WARNING: Higher-order stationary point (n_imag=N). Try --flatten or all --refine-path.` か `[tsopt] No imaginary mode detected. Try all --refine-path.` も出ます。`--out-json` を付けると `result.json` も書きます。`all --tsopt` は TS ごとに同じ行を出し、指定した段がすべて収束すると、最後の `====== Pipeline summary ======` の下に `Scientific status: success` と出ます。`summary.log` の [3] には、セグメントごとの n_imag と IRC の出力がまとまります。判定の読み方は [tsopt の TS の判定](tsopt.md#ts-の判定) と [all の実行結果の判定](all.md#実行結果の判定) にあります。
 - **max cycles とプラトー停止**：TS 最適化が max cycles に達して未収束のときは Hessian を計算しないので、n_imag は出ません。エネルギーが変わらなくなって止まったとき（`--stop-plateau`。{ref}`プラトー停止 <ja-optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor>`）は、必ず Hessian を計算して n_imag を出します。
 - **端点**：終了コードが 0 であるだけでは、狙った TS が取れた証拠になりません。端点の最適化の後、IRC の両端で共有結合と移る H の付き先が狙った R と P と同じかを確かめてください。
-- **診断用の IRC**：n_imag が 2 以上でも、最適化が数値的に収束し（プラトー停止は除く）、最後の PHVA（部分 Hessian 振動解析）が終わっていれば、`all` は IRC を続けます。反応の方向に合う虚振動のモードを使い、選べないときはいちばん低い虚振動のモードを使います。ログには `[all] WARNING: continuing diagnostic IRC from a numerically converged higher-order saddle …` と出ます。
+- **診断用の IRC**：n_imag が 2 以上でも、最適化が数値的に収束し（プラトー停止は除く）、最後の PHVA（部分 Hessian 振動解析）が終わっていれば、`all` は IRC を続けます。反応の方向に合う虚振動のモードを使い、選べないときは最も低い虚振動のモードを使います。ログには `[all] WARNING: continuing diagnostic IRC from a numerically converged higher-order saddle …` と出ます。
 - **モード**：`vib/imag_*_trj.xyz` をビューアで開き、各モードでどの原子が動くかを見てください。
 
 (ja-ts-search-fails)=
@@ -76,17 +76,17 @@ TS 最適化が成功すると、反応モードの虚振動が 1 つ出ます�
 ### 虚振動が 2 つ以上残るとき
 
 - **余分なモードが反応部位の外にある**（側鎖や水の回転など）：`--flatten` を付けてやり直してください。`tsopt`・`all` で使えます。最適化の後に n_imag が 2 以上なら、余分なモードに沿って構造を少しずらして最適化をやり直し、デフォルトでは最大 {ref}`50 回 <ja-flatten-precedence-caveat>` まで繰り返します。
-- **高次の鞍点で止まった**（n_imag が 2 以上のまま収束した）：その TS 最適化の最後の構造（`tsopt` の `final_geometry.*`、`all` では `segments/seg_NN/ts/` の中）から、同じ `--parm7` と `--model-pdb` で `--flatten` を付けた `tsopt` を始めるのも 1 つの手です。
+- **高次の鞍点で止まった**（n_imag が 2 以上のまま収束した）：その TS 最適化の最後の構造（`tsopt` の `final_geometry.*`、`all` では `segments/seg_NN/ts/` の中）から、同じ `--parm7` と `--model-pdb` で `--flatten` を付けた `tsopt` を始める方法もあります。
 - **`--flatten` の後**：IRC の両端をもう一度確かめてください。n_imag が 1 になっても、別の反応の TS 候補に移ることがあります。
 - **余分なモードが ML 領域と可動 MM 原子にまたがる**（基質と一緒に動く水など）：`tsopt` はデフォルトで {ref}`マイクロイテレーション <ja-microiteration>` を使うので、TS のステップで動くのは ML 原子とそれに結合した MM 原子だけです。`tsopt` に `--no-microiter --flatten` を付けてやり直し、TS のオプティマイザが動く原子のすべてを動かすようにしてください。`all` には `--microiter` が無いので、`all` の実行の `--parm7` と `--model-pdb` を `tsopt` に渡します。
 - **Hessian の範囲を絞っていた**：`tsopt` に小さい [`--hessian-cutoff`](model-setup.md#hessian-の範囲を絞る) を付けていたら、広げるか外して、デフォルト（可動 MM 原子のすべて）に戻してください。
-- **`--flatten` を使わない方法**：余分なモードのファイル `vib/imag_*_trj.xyz` と、B-factor に層を保った `vib/imag_*.pdb` には 20 のフレームがあり、6 番目と 16 番目が両方向にいちばん大きくずらした構造です。ビューアでこの 2 つをそれぞれ別の PDB に保存し、同じ電荷とスピンで、それぞれを TS-only モードか `tsopt` の初期構造にします。
+- **`--flatten` を使わない方法**：余分なモードのファイル `vib/imag_*_trj.xyz` と、B-factor に層を保った `vib/imag_*.pdb` には 20 のフレームがあり、6 番目と 16 番目が両方向に最も大きくずらした構造です。ビューアでこの 2 つをそれぞれ別の PDB に保存し、同じ電荷とスピンで、それぞれを TS-only モードか `tsopt` の初期構造にします。
   ```bash
   mlmm all -i <frame>.pdb --parm7 <run>/mm_parm/<name>.parm7 --model-pdb <run>/ml_region.pdb -l ... --tsopt
   ```
 - **余分なモードも反応の結合を動かしている**：2 つの段が 1 つの候補に重なっているかもしれません。段に分けて試してください。
 
-ほかの手（精度、座標の種類）は {ref}`tsopt：最適化後に n_imag が 1 でない場合 <ja-wrong-imaginary-mode-count>` にあります。
+ほかの対処法（精度、座標の種類）は {ref}`tsopt：最適化後に n_imag が 1 でない場合 <ja-wrong-imaginary-mode-count>` にあります。
 
 ### 虚振動が無い・候補が滑り落ちたとき
 
@@ -98,8 +98,8 @@ TS 最適化が成功すると、反応モードの虚振動が 1 つ出ます�
 (ja-mechanism-compare)=
 ## 候補の機構を比べる
 
-- **段の順**：段の順が、MEP 探索に渡す構造の並び（R → 1 段目の終わり → 2 段目の終わり …）になります。順を入れ替えると別の経路になるので、考えられる順をそれぞれ回し、エネルギー図で比べてください。
-- **段階か協奏か**：段階で回し、拘束を外した最適化（`--scan-endopt`）の後も途中の結合の状態が残るかを見ます。残らずに元へ戻るなら、協奏のほうが合います。協奏で回しても、`--refine-path` で 2 つの段に分かれて同じ中間体を経るなら、段階のほうが合います。
+- **段の順**：段の順が、MEP 探索に渡す構造の並び（R → 1 段目の終わり → 2 段目の終わり …）になります。順を入れ替えると別の経路になるので、考えられる順でそれぞれ計算し、エネルギー図で比べてください。
+- **段階か協奏か**：段階的に計算し、拘束を外した最適化（`--scan-endopt`）の後も途中の結合の状態が残るかを見ます。残らずに元へ戻るなら、協奏のほうが合います。協奏的に計算しても、`--refine-path` で 2 つの段に分かれて同じ中間体を経るなら、段階のほうが合います。
 - **ML 領域**：IRC の端点が狙いと違う、または反応に関わる残基・水・補因子が ML 領域の外にあるときは、{ref}`ML 領域 <ja-model-setup-larger>` を広げてください。周りの環境をもっと緩和させたいときは、ML 領域ではなく可動 MM を広げます。
 - **DFT**：候補の TS を DFT/MM で確かめるときは、[MLIP の TS を DFT で確かめる](dft-backend.md) を参照してください。
 

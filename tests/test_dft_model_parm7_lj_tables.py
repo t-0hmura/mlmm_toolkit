@@ -226,6 +226,9 @@ def test_sliced_model_topology_follows_the_same_cmap_switch(
         workspace.cleanup()
 
 
+# The first MM call in a new environment JIT-builds hessian_ff's native extension (about
+# 80 s, longer on a busy node), which the default 120 s timeout cannot cover.
+@pytest.mark.timeout(600)
 def test_dft_energy_only_backend_replaces_exactly_the_core_high_level_term():
     workspace = _prepare_ml_region_workspace(
         input_pdb=PDB_FIXTURE,

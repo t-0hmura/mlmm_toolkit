@@ -113,10 +113,10 @@ Options:
                                   (max_nodes+2 images including endpoints).
                                   [default: 20]
   --max-depth INTEGER RANGE       Maximum recursive subdivision levels; requires
-                                  --refine-path. 0 disables subdivision.
-                                  Intervals retained at a positive cap use
-                                  seg_NNN_maxdepth and may contain multiple
-                                  steps.  [default: (10); x>=0]
+                                  --refine-path. 0 disables subdivision. With a
+                                  positive limit, an interval still undivided at
+                                  the limit is named seg_NNN_maxdepth and may
+                                  contain several steps.  [default: (10); x>=0]
   --gsm-param [equi|energy]       GSM node parameterization after string growth.
                                   The energy scheme concentrates nodes in high-
                                   energy regions and may be tried when an
@@ -256,10 +256,11 @@ Options:
   --skip-final-freq / --no-skip-final-freq
                                   Skip terminal PHVA/frequency analysis in
                                   tsopt. The TS structure is retained with
-                                  unverified saddle order, and all stops before
-                                  IRC because no imaginary reaction direction
-                                  can be validated.  [default: no-skip-final-
-                                  freq]
+                                  unverified saddle order, and all skips IRC and
+                                  the later stages of that segment because no
+                                  imaginary reaction direction can be validated;
+                                  other segments continue.  [default: no-skip-
+                                  final-freq]
   --tsopt-out-dir DIRECTORY       Override tsopt output subdirectory (relative
                                   paths are resolved against the default).
                                   [default: (<segment>/ts)]
@@ -383,7 +384,7 @@ Options:
                                   (inherits --precision)]
   --uma-workers, --workers INTEGER
                                   MLIP predictor workers (UMA). >1 uses a
-                                  parallel predictor (fairchem-core[extras]);
+                                  parallel predictor (needs fairchem-core[ray]);
                                   combining it with an analytical Hessian is an
                                   error. Default 1.  [default: (1)]
   --uma-workers-per-node, --workers-per-node INTEGER
@@ -407,10 +408,12 @@ Options:
                                   YAML; otherwise defaults to get_calculator.
                                   [default: (get_calculator)]
   --deterministic / --no-deterministic
-                                  Request deterministic algorithms for
-                                  controlled operations; verify exact
-                                  reproducibility on the complete target stack.
-                                  [default: no-deterministic]
+                                  Make repeated runs on the same software
+                                  versions and hardware give identical results
+                                  (PyTorch deterministic algorithms). Slower;
+                                  raises for detected unsupported ops; custom
+                                  calculators are outside its scope.  [default:
+                                  no-deterministic]
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
                                   electron-parity check (logs that it was
                                   skipped). An open-shell ML region needs a

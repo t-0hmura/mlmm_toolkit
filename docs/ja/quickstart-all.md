@@ -53,7 +53,7 @@ result_all/
 ├── mm_parm/                     # Amber トポロジー 1.R.parm7 と 1.R.rst7（--parm7 で再利用できる）
 ├── layered/                     # 3 つの層を B-factor に書いた 1.R_layered.pdb と 3.P_layered.pdb
 └── _work/                       # 途中のファイル（TS 候補の HEI を含む。実行後も残る）
-    └── path_opt/                # MEP 探索（MEP を再帰的に詰める --refine-path のときは path_search/）
+    └── path_opt/                # MEP 探索（MEP を再帰的に精密化する --refine-path のときは path_search/）
         ├── hei_seg_01.{xyz,pdb} # セグメント 1 の最高エネルギーのイメージ
         └── summary.json         # MEP 探索の結果
 ```
@@ -83,7 +83,7 @@ result_all/
 - [クイックスタート: TS-only モード](quickstart-tsopt.md): 手元の TS 候補を最適化して確かめる
 - [ML 領域と層の組み方](model-setup.md): ML 領域を小さくする、残基が足りないときに広げる
 - [反応機構を調べるコツ](mechanism-tips.md): 計算の計画と、TS が取れないときに試すこと
-- [MLIP の TS を DFT で確かめる](dft-backend.md): TS を DFT/MM で詰めて確かめる
+- [MLIP の TS を DFT で確かめる](dft-backend.md): TS を DFT/MM で精密化して確かめる
 - [`all`](all.md): オプションの説明。`mlmm all --help-advanced` でも見られます
 - [JSON 出力の一覧](json-output.md): `summary.json` の欄
 - [トラブルシューティング](troubleshooting.md): エラーメッセージや症状から対処を探す

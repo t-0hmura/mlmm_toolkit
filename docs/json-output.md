@@ -65,7 +65,7 @@ Every result reports `execution_status` and `scientific_status`; multi-stage and
 | Field | Type | Description |
 |-------|------|-------------|
 | `execution_status` | string | `completed` or `failed`. In `all`, an endpoint optimization after IRC that does not converge leaves it `completed`; one that stops on an error makes it `failed`. |
-| `scientific_status` | string | `success` when every requested stage converged; otherwise `partial` or `failed`. In `all --tsopt`, a TS with n_imag ≥ 2 gives `partial`, and a TS with n_imag = 0 stops the run before IRC, so `success` means n_imag = 1; a valid TS plus one failed endpoint optimization is also `partial`. Standalone `tsopt` looks only at convergence, not at n_imag; read `n_imaginary_modes`. |
+| `scientific_status` | string | `success` when every requested stage converged; otherwise `partial` or `failed`. In `all --tsopt`, a TS with n_imag ≥ 2 gives `partial`, and a TS with n_imag = 0 stops that segment before IRC, so `success` means n_imag = 1; a valid TS plus one failed endpoint optimization is also `partial`. Standalone `tsopt` looks only at convergence, not at n_imag; read `n_imaginary_modes`. |
 | `scientific_status_reasons` | string[] | Reasons for unusable or missing stages; omitted on clean success. |
 | `expected_item_ids` / `observed_item_ids` | string[] | Expected and observed stage identifiers, used to detect missing work. |
 | `stage_outcomes` | object[] | One entry per stage with `stage`, `item_id`, `required`, `executed`, `converged`, `usable`, `reason`, and `artifacts`. |
@@ -404,7 +404,8 @@ The `all` and `path-search` commands write `summary.json` with a richer structur
 |-------|------|-------------|
 | `execution_status` / `scientific_status` | string / string | Execution completeness and completion of requested numerical/calculation stages. |
 | `scientific_status_reasons` | string[] | Reasons for missing or unusable requested results; omitted on success. |
-| `pipeline_stop` | object \| absent | Present only on an early stop. `stage` is `post` (`reason` `no_segments` / `no_reactive_segment`), `before_irc` (a TSOPT reason, plus `segment` and `tsopt_result`), or `endpoint_opt` (`endpoint_execution_failed` and endpoint-specific `failures`). Rendered in `summary.log` as `Pipeline stop`. |
+| `pipeline_stop` | object \| absent | Present only on an early stop. `stage` is `post` (`reason` `no_segments` / `no_reactive_segment`), `before_irc` (the first segment that stopped: a TSOPT reason, plus `segment` and `tsopt_result`), or `endpoint_opt` (`endpoint_execution_failed` and endpoint-specific `failures`). Rendered in `summary.log` as `Pipeline stop`. |
+| `stopped_segments` | object[] \| absent | Every segment that stopped before IRC (`stage`, `segment`, `reason`); the other segments are still processed. Rendered in `summary.log` as `Stopped before IRC`. |
 | `expected_item_ids` / `observed_item_ids` | string[] | Expected and observed stage identifiers. |
 | `n_segments` | int | Segment count |
 | `search_max_depth` | int | Effective recursion cap; `0` means subdivision was disabled |
@@ -438,7 +439,7 @@ The `all` command additionally includes:
 | `post_segments[].tsopt.energy_valid` / `.structure_valid` | bool | `energy_valid`: the final TS energy is a finite number. `structure_valid`: the final TS structure file exists and its coordinates are finite. These checks run no extra Hessian or optimization. |
 | `post_segments[].tsopt.n_opt_cycles` / `.max_cycles` | int / int\|null | TS optimization cycles executed and configured limit. These are reported for both converged and normally non-converged runs. |
 | `post_segments[].irc` / `.endpoint_assignment` / `.endpoint_opt` | object | IRC stop diagnostics, endpoint orientation, and endpoint-OPT convergence, respectively. In TS-only mode, `endpoint_assignment.policy` is `higher_energy_endpoint_as_reactant` and `chemical_direction_known` is false. `endpoint_opt.reactant` and `.product` report `optimization_status`, `n_opt_cycles`, `max_cycles`, and any `stop_reason`. How the IRC stopped and whether the bond changes match do not enter `scientific_status`; whether the optimized endpoints are the intended R and P is for you to check. |
-| `post_segments[].thermo_symmetry` | object | Child-reported point-group and rotational-symmetry provenance by state: R/TS/P, including TS-only runs. States with valid symmetry-number provenance are included; missing states are omitted, and the field is absent only when no state has valid provenance. |
+| `post_segments[].thermo_symmetry` | object | Point-group and rotational-symmetry provenance reported by `freq` for each of R, TS, and P, including TS-only runs. States with valid symmetry-number provenance are included; missing states are omitted, and the field is absent only when no state has valid provenance. |
 | `key_output_files` | object | Current-run output index: root filename → description; each `seg_NN` entry is `{description, files}` with paths relative to that segment directory. |
 | `current_output_paths` | string[] | Sorted paths relative to `--out-dir`, limited to files written by the current run. |
 

@@ -375,6 +375,13 @@
   ],
   "spin": 1,
   "stopped_before_irc": true,
+  "stopped_segments": [
+   {
+    "reason": "ts_optimization_not_converged",
+    "segment": 1,
+    "stage": "before_irc"
+   }
+  ],
   "use_cmap": true
  }
 }

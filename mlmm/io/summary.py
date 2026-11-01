@@ -1166,7 +1166,16 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
         depth_note = " (subdivision disabled)" if int(search_max_depth) == 0 else ""
         lines.append(f"Recursion depth cap : {int(search_max_depth)}{depth_note}")
     pipeline_stop = payload.get("pipeline_stop")
-    if isinstance(pipeline_stop, dict):
+    stopped_segments = payload.get("stopped_segments")
+    if isinstance(stopped_segments, list) and stopped_segments:
+        # A segment that stops before IRC does not stop the other segments.
+        stops = "; ".join(
+            f"segment {item.get('segment')} ({item.get('reason')})"
+            for item in stopped_segments
+            if isinstance(item, dict)
+        )
+        lines.append(f"Stopped before IRC  : {stops}")
+    elif isinstance(pipeline_stop, dict):
         # The request echo above reports what was ASKED for. Without this line a
         # run that stopped early and a run that completed look identical in the
         # only file a downstream reader may receive.

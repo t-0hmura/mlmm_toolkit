@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -186,7 +185,7 @@ def _render_commands_index(command_docs: list[CommandDoc]) -> str:
     )
     return (
         "# CLI Command Reference\n\n"
-        "These pages are the generated `--help` reference for each command. For usage "
+        "These pages are the generated `--help-advanced` reference for each command. For usage "
         "guidance and worked examples, see the command's narrative guide in the main "
         "documentation (e.g. [all](../../all.md), [opt](../../opt.md)).\n\n"
         "```{toctree}\n"
@@ -309,10 +308,9 @@ def _render_yaml_reference(owner_values: dict[str, tuple[str, object]]) -> str:
     top_keys = list(template_data.keys()) if isinstance(template_data, dict) else []
     top_rows = "\n".join(f"| `{k}` |" for k in top_keys)
     scalar_rows = "\n".join(
-        f"| `{k}` | `{type(v).__name__}` | `{v!r}` | {owner_values[k][0]} |"
+        f"| `{k}` | `{type(v).__name__}` | `{v!r}` |"
         for k, v in _iter_scalar_items(template_data)
     )
-    digest = hashlib.sha256(_ALL_TEMPLATE.encode("utf-8")).hexdigest()[:12]
 
     scan_schema = """```yaml
 # scan (1D staged)
@@ -338,12 +336,10 @@ pairs:
     return (
         "# Curated `mlmm all` Starter Snapshot\n\n"
         "This page is a **curated, non-exhaustive** starter snapshot for "
-        "`mlmm all`. It shows a common subset of keys whose values are pinned to "
-        "(and equal) their runtime owners; it is **not** the full configuration "
-        "schema. For every configurable section and option, see the "
+        "`mlmm all`. It shows a common subset of keys with their current default "
+        "values; it is **not** the full configuration schema. For every "
+        "configurable section and option, see the "
         "[YAML Reference](../yaml-reference.md).\n\n"
-        f"- Source template: `.github/scripts/generate_reference.py::_ALL_TEMPLATE`\n"
-        f"- Template digest: `{digest}`\n\n"
         "## Included Sections\n\n"
         "| Section |\n"
         "|---|\n"
@@ -353,9 +349,8 @@ pairs:
         f"{_ALL_TEMPLATE.strip()}\n"
         "```\n\n"
         "## Scalar Defaults\n\n"
-        "Each scalar is pinned to (and equals) the runtime owner shown.\n\n"
-        "| Key | Type | Default | Runtime owner |\n"
-        "|---|---|---|---|\n"
+        "| Key | Type | Default |\n"
+        "|---|---|---|\n"
         f"{scalar_rows}\n\n"
         "## Scan Spec Shapes\n\n"
         "Accepted by `scan`, `scan2d`, and `scan3d` with `-s/--scan-lists`.\n\n"

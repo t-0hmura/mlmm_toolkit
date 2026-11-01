@@ -15,7 +15,7 @@ Each abbreviation, method name, and unit used in the docs is defined here in one
 | **Link atom** | — | See **Link Hydrogen**; in mlmm-toolkit the link atoms placed at severed ML/MM boundaries are hydrogens. |
 | **hessian_ff** | — | A C++ native extension that evaluates Amber force field energies, forces, and analytical Hessians. Used as the MM engine in mlmm-toolkit. |
 | **3-layer system** | — | mlmm-toolkit's B-factor partitioning scheme: ML (B=0.0), Movable-MM (B=10.0), Frozen-MM (B=20.0). |
-| **B-factor encoding** | — | Convention of storing layer membership in the PDB B-factor (temperature factor) column: 0.0 = ML, 10.0 = Movable-MM, 20.0 = Frozen-MM. Hessian-target MM is controlled by cutoffs/explicit indices. See {ref}`The MM layers <mm-layers>`. |
+| **B-factor encoding** | — | Convention of storing layer membership in the PDB B-factor (temperature factor) column: 0.0 = ML, 10.0 = Movable-MM, 20.0 = Frozen-MM. The MM atoms in the Hessian are set separately, with `--hessian-cutoff` or YAML `calc.hess_mm_atoms`. See {ref}`The MM layers <mm-layers>`. |
 
 ## Amber & Force Field
 

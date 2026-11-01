@@ -1772,8 +1772,8 @@ def _build_multistep_path(
     show_default="10",
     help=(
         "Maximum recursive subdivision levels. "
-        "0 disables subdivision. Intervals retained at a positive cap use "
-        "seg_NNN_maxdepth and may contain multiple steps. When omitted, YAML search.max_depth applies."
+        "0 disables subdivision. With a positive limit, an interval still undivided at the limit "
+        "is named seg_NNN_maxdepth and may contain several steps. When omitted, YAML search.max_depth applies."
     ),
 )
 @click.option(

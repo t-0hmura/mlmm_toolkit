@@ -118,7 +118,8 @@ mlmm dft -i result_tsopt/final_geometry.pdb --parm7 real.parm7 \
     --dft-engine gpu -o dft_TS
 ```
 
-Repeat for both endpoints, then combine the energies with
+Repeat for both endpoints, then combine their `energy_hartree` (the ML-region
+DFT energy, the value `all --dft` uses) with
 [energy-diagram](utilities.md#energy-diagram). After `all --tsopt`, the
 structures are `segments/seg_NN/reactant.*`, `ts.*`, and `product.*` (in the
 input format).

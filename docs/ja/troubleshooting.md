@@ -5,10 +5,10 @@
 (ja-troubleshooting-quick-table)=
 ## 早見表
 
-| 症状 | 最初にやること | 詳細（節） |
+| 症状 | 最初の対処 | 詳細（節） |
 | --- | --- | --- |
 | **入力 / 抽出** | | |
-| 元素欄が空で `extract` が止まる（`Element symbols are missing in '...'`）。`all` は空の元素欄を自分で埋め、割り当てられない原子が残ると止まる | 元の PDB に `add-elem-info` を適用してください | {ref}`入力 / 抽出の問題 <ja-input--extraction>` |
+| 元素欄が空で `extract` が止まる（`Element symbols are missing in '...'`）。`all` は空の元素欄を自動で埋め、割り当てられない原子が残ると止まる | 元の PDB に `add-elem-info` を適用してください | {ref}`入力 / 抽出の問題 <ja-input--extraction>` |
 | `[multi] Atom count mismatch` / `Coordinate shape mismatch` / `Element sequence mismatch` | 同じ前処理ツール・同じ設定で全 PDB を作り直し、計算に使う構造からトポロジーを作り直してください。`mm-parm` の後に原子を並べ替えないでください | {ref}`入力 / 抽出の問題 <ja-input--extraction>`、{ref}`AmberTools / mm-parm の問題 <ja-ambertools--mm-parm>` |
 | **電荷 / スピン** | | |
 | `ML-region charge is unresolved` / `[all] ML-region charge could not be resolved` | `-q/--charge` または `-l/--ligand-charge` を明示してください | {ref}`電荷 / スピンの問題 <ja-charge--spin>` |
@@ -47,7 +47,7 @@
 
 ### `Element symbols are missing in '...'`
 
-- **症状**：`extract` が ``Element symbols are missing in '...'. For PDB input, run `mlmm add-elem-info -i ... --overwrite`, or write a fixed PDB with `-o` and pass that file to extract; ...`` で止まる。`all` は抽出の前に空の元素欄を自分で埋め、割り当てられない原子が残ると同じメッセージで止まる。
+- **症状**：`extract` が ``Element symbols are missing in '...'. For PDB input, run `mlmm add-elem-info -i ... --overwrite`, or write a fixed PDB with `-o` and pass that file to extract; ...`` で止まる。`all` は抽出の前に空の元素欄を自動で埋め、割り当てられない原子が残ると同じメッセージで止まる。
 - **原因**：PDB の元素欄（77–78 列）が空のことが多く、`extract` は原子の種類を決めるために元素記号を使います。mmCIF の入力では `_atom_site.type_symbol` が必要です。
 - **対処**：`add-elem-info` で元素欄を埋め、新しいファイルで再実行してください。`[add-elem-info] WARNING: Could not confidently assign N atoms; left unchanged.` の後に並んだ原子は、元素記号を手で 77–78 列に右詰めで書いてください。
 
@@ -227,7 +227,7 @@ IPOPT/MUMPS が並列版 BLIS を使う環境では、入れ子の並列化で�
   1. オプティマイザを RS-P-RFO（デフォルト）と Dimer 法の間で切り替える：単独では `tsopt --opt-mode hess` / `dimer`、`all` では `--opt-mode-post hess` / `grad`（Dimer）。
   2. YAML でステップサイズを小さくする。[YAML 設定の一覧](yaml-reference.md#ts-最適化セクション) を参照してください。
   3. 経路のよりよい HEI（最高エネルギーのイメージ）など、別の候補から始める。{ref}`TS が取れないとき <ja-ts-search-fails>` を参照してください。
-- **n_imag ≥ 2 が残るときの対処**：`--flatten` を付けて最適化し直すか、収束の基準をデフォルトの `baker` から `gau_tight` か `gau_vtight` に締めてください（単独では `tsopt --thresh`、`all` では `--thresh-post`）。Hessian の範囲を広げる、`--refine-path` などのほかの手は {ref}`TS が取れないとき <ja-ts-search-fails>` にまとめてあります。
+- **n_imag ≥ 2 が残るときの対処**：`--flatten` を付けて最適化し直すか、収束の基準をデフォルトの `baker` から `gau_tight` か `gau_vtight` に締めてください（単独では `tsopt --thresh`、`all` では `--thresh-post`）。Hessian の範囲を広げる、`--refine-path` などのほかの対処は {ref}`TS が取れないとき <ja-ts-search-fails>` にまとめてあります。
 
 (ja-troubleshooting-irc)=
 ### IRC が正常に終了しない
@@ -257,8 +257,8 @@ IRC が収束せずに止まっても、端点の最適化で狙った R と P �
 (ja-troubleshooting-performance)=
 ## パフォーマンス / 安定性のヒント
 
-- **メモリ不足**：{ref}`CUDA メモリ不足 <ja-cuda-oom>` の手を試すか、`--max-nodes` を減らします。`opt` と `scan` では {ref}`--opt-mode grad <ja-opt-mode-semantics>`（L-BFGS、Hessian なし）のままにします。
-- **解析的な ML Hessian**：評価の回数を減らせることがありますが、メモリはバックエンドと系で変わります。試しの計算で `FiniteDifference` と比べてください。
+- **メモリ不足**：{ref}`CUDA メモリ不足 <ja-cuda-oom>` の対処を試すか、`--max-nodes` を減らします。`opt` と `scan` では {ref}`--opt-mode grad <ja-opt-mode-semantics>`（L-BFGS、Hessian なし）のままにします。
+- **解析的な ML Hessian**：評価の回数を減らせることがありますが、メモリはバックエンドと系で変わります。試験計算で `FiniteDifference` と比べてください。
 - **MM Hessian**：デフォルトの `mm_fd: true`（有限差分）は速さよりメモリを優先します。`mm_fd: false` は小さな系では速いものの、メモリを多く使います。
 - **複数の GPU**：ML は 1 つのデバイス（`ml_cuda_idx: 0`）を使います。デフォルトの `hessian_ff` の MM バックエンドは CPU で動きます。MM を別の GPU に置くときは、`mm_backend: openmm`、`mm_device: cuda`、`mm_cuda_idx: 1` を指定します。
 - **ML と MM の並列実行**：デフォルトで ML（GPU）と MM（CPU）は並列に動きます。CPU のスレッド数は `mm_threads` で指定します。
@@ -278,7 +278,7 @@ IRC が収束せずに止まっても、端点の最適化で狙った R と P �
 
 ## 不具合の報告
 
-問題の報告や機能の要望は [GitHub Issues](https://github.com/t-0hmura/mlmm_toolkit/issues) へお寄せください。実行したコマンド、`summary.log`（または端末の出力）、再現できる最小の入力、環境（OS / Python / CUDA / PyTorch）、AmberTools と `hessian_ff` が入って動くかどうかを添えていただくと助かります。
+問題の報告や機能の要望は [GitHub Issues](https://github.com/t-0hmura/mlmm_toolkit/issues) へお寄せください。実行したコマンド、`summary.log`（または端末の出力）、再現できる最小の入力、環境（OS / Python / CUDA / PyTorch）、AmberTools と `hessian_ff` が入って動くかどうかを添えてください。
 
 ## 関連ドキュメント
 

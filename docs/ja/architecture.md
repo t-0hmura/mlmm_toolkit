@@ -267,7 +267,7 @@ mlmm myaction ─────────────────► mlmm/cli/ap
 |---|---|---|
 | `pysisyphus/` | オプティマイザ / TS / IRC エンジン | `irc/IRC.py`、`optimizers/hessian_updates.py`、`tsoptimizers/TSHessianOptimizer.py`、`calculators/*` |
 | `thermoanalysis/` | 熱化学 (ΔG, ZPE, 分配関数) | `QCData.py` (upstream とのブランディング差分) |
-| `hessian_ff/` | MM 力場上の解析的 Hessian — **PyPI 404、バンドルは必須** | `analytical_hessian.py` (`mlmm/backends/mlmm_calc.py` が消費する唯一のエントリ) |
+| `hessian_ff/` | MM 力場上の解析的 Hessian — **PyPI で配布されておらず、バンドルは必須** | `analytical_hessian.py` (`mlmm/backends/mlmm_calc.py` が消費する唯一のエントリ) |
 
 ---
 
@@ -347,7 +347,7 @@ IRC / TSopt / Freq ステージは、CUDA メモリを解放するためにス�
 |---|---|---|---|
 | `pysisyphus/` | NO — フォーク、`pip install pysisyphus` を併存させない | オプティマイザ、TS、IRC、COS、calculators | 記載された差分を維持し、数値変更は focused test と scheduled numerical test で検証 |
 | `thermoanalysis/` | NO — フォーク (ブランディング差分) | ΔG, ZPE, 分配関数, `QCData` | `QCData` の利用側契約を維持。README 参照 |
-| `hessian_ff/` | **NO — PyPI 404、バンドル必須** | MM 力場上の解析的 Hessian | 導関数と公開 API の契約を維持。README 参照 |
+| `hessian_ff/` | **NO — PyPI で配布されておらず、バンドル必須** | MM 力場上の解析的 Hessian | 導関数と公開 API の契約を維持。README 参照 |
 
 各ディレクトリの `README.md` は、上流との差分と利用側の契約を列挙します。
 

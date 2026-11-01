@@ -216,7 +216,7 @@ Try in order:
 6. **Run ML on the CPU**: YAML `ml_device: cpu` avoids the GPU memory limit at a higher runtime cost.
 
 (optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor)=
-### Optimizer "stalls" with flat energy + forces just above threshold (MLIP force noise floor)
+### Optimizer stalls with flat energy and forces just above the threshold (MLIP force noise floor)
 
 - **Symptom**: `opt` / `tsopt` keeps running while the energy stays flat and the forces stay just above the `gau` / `baker` thresholds.
 - **Cause**: MLIPs have finite numerical precision. For large ML/MM systems the noise floor can exceed the force thresholds, so the forces never drop further.

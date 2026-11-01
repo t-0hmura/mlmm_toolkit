@@ -3668,8 +3668,8 @@ def _prepare_tsopt_output_dir(
         "Skip the terminal PHVA/frequency analysis after convergence (a plateau "
         "stop still runs it); RS-P-RFO/RS-I-RFO/TRIM also skip --flatten, which "
         "needs it. Standalone tsopt retains the final structure with unverified "
-        "saddle order; all stops before IRC because no imaginary direction can "
-        "be validated."
+        "saddle order; all skips IRC and the later stages of that segment "
+        "because no imaginary direction can be validated."
     ),
 )
 @click.option(

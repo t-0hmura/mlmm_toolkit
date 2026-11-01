@@ -134,7 +134,7 @@ If you prefer to build the environment piece by piece:
 
     mlmm-toolkit uses UMA by default. For another backend, install its extra and select it with `-b/--backend` (for example, `-b orb`):
 
-    **ORB**: `orb-models` pins `nvalchemi-toolkit-ops<0.4`, so pip would lower UMA's `fairchem-core` to an older release. Install ORB in a separate environment built with steps 2-6, as for MACE below, and keep UMA in the main one.
+    **ORB**: `orb-models` pins `nvalchemi-toolkit-ops<0.4`, so pip would lower UMA's `fairchem-core` to an older release. Install ORB in a separate environment built with steps 2-6, as for MACE below, and keep UMA in the main one. ORB needs Python 3.12: `orb-models` pins `dm-tree==0.1.8`, which has no Python 3.13 wheel.
 
     ```bash
     pip install "mlmm-toolkit[orb]"
@@ -187,7 +187,7 @@ If you prefer to build the environment piece by piece:
 
 **OS.** Linux is recommended. Native Windows is not supported because AmberTools (`tleap`) is not available there.
 
-**Python.** 3.12 is required.
+**Python.** 3.12 or 3.13 is required.
 
 **GPU / CUDA.** An NVIDIA GPU whose driver supports the chosen PyTorch build (see Quick install); newer GPU architectures may need a newer build. CPU-only execution works but is usually much slower.
 
