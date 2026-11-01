@@ -19,8 +19,11 @@ import re
 import shlex
 import subprocess
 import sys
+import threading
+import time
 import types
 import urllib.request
+import warnings
 import zipfile
 from pathlib import Path
 
@@ -6971,11 +6974,10 @@ def test_pip_passes_child_environment_without_mutating_parent(monkeypatch) -> No
     assert dict(os.environ) == original
 
 
-def _run_orb_install_branch(monkeypatch, *, python_version, platform, calls, failure_at=None):
-    import importlib.metadata
-
+def _run_backend_install_branch(monkeypatch, backend, *, calls, failure_at=None, check_failure=False):
+    """Run one `if backend == ...` branch of the install cell with recording stand-ins."""
     setup = ast.parse(_notebook()["cells"][1]["source"])
-    orb_branch = next(
+    branch = next(
         node for node in ast.walk(setup)
         if isinstance(node, ast.If)
         and isinstance(node.test, ast.Compare)
@@ -6983,54 +6985,244 @@ def _run_orb_install_branch(monkeypatch, *, python_version, platform, calls, fai
         and node.test.left.id == "backend"
         and len(node.test.comparators) == 1
         and isinstance(node.test.comparators[0], ast.Constant)
-        and node.test.comparators[0].value == "orb"
+        and node.test.comparators[0].value == backend
     )
 
     def fake_pip(*args, **kwargs):
-        calls.append((args, kwargs))
+        calls.append(("pip", args, kwargs))
         if args[0] == failure_at:
             raise subprocess.CalledProcessError(1, ["pip", *args], output="build diagnostic")
 
-    monkeypatch.setattr(importlib.metadata, "version", lambda name:
-                        {"torch": "2.8.0", "numpy": "2.1.3"}[name])
-    namespace = {"pip": fake_pip, "os": os,
-                 "sys": types.SimpleNamespace(version_info=python_version, platform=platform)}
-    exec(compile(ast.Module(body=orb_branch.body, type_ignores=[]), str(NOTEBOOK), "exec"), namespace)
+    def fake_pip_check(ignore=()):
+        calls.append(("pip check", tuple(ignore)))
+        if check_failure:
+            raise RuntimeError("pip check found broken requirements")
+
+    monkeypatch.setattr(subprocess, "run", lambda argv, **kwargs: calls.append(("run", list(argv))))
+    namespace = {"pip": fake_pip, "_pip_check": fake_pip_check, "subprocess": subprocess, "sys": sys}
+    exec(compile(ast.Module(body=branch.body, type_ignores=[]), str(NOTEBOOK), "exec"), namespace)
 
 
-@pytest.mark.parametrize("python_version", [(3, 11), (3, 12), (3, 13)])
-@pytest.mark.parametrize("existing_flags", [None, "-O2 -DUSER_BUILD_FLAG=1"])
-def test_orb_uses_dm_tree_wheel_and_preserves_base_pins(
-    monkeypatch, python_version, existing_flags,
-) -> None:
-    if existing_flags is None:
-        monkeypatch.delenv("CXXFLAGS", raising=False)
-    else:
-        monkeypatch.setenv("CXXFLAGS", existing_flags)
-    original = os.environ.copy()
+def test_orb_installs_with_fairchem_core_and_ends_with_pip_check(monkeypatch, capsys) -> None:
+    # orb-models 0.7 pins nvalchemi-toolkit-ops<0.4 (fairchem-core 2.24 needs >=0.4.1); naming both
+    # in one install lets pip choose a consistent pair instead of a --no-deps install over the base.
     calls = []
-    _run_orb_install_branch(monkeypatch, python_version=python_version,
-                            platform="linux", calls=calls)
+    _run_backend_install_branch(monkeypatch, "orb", calls=calls)
     assert calls == [
-        (("dm-tree>=0.1.9", "cached-path>=1.7.1", "ase>=3.25.0,<4", "scipy>=1.15.1",
-          "tqdm>=4.67.1", "nvalchemi-toolkit-ops[torch]>=0.3.1,<0.4", "--only-binary=dm-tree",
-          "torch==2.8.0", "numpy==2.1.3"), {}),
-        (("--no-deps", "orb-models==0.7.0"), {}),
+        ("pip", ("orb-models==0.7.0", "fairchem-core>=2.22,<3"), {}),
+        ("pip check", ()),
     ]
-    assert dict(os.environ) == original
+    assert "ORB installed" in capsys.readouterr().out
 
 
 def test_orb_installer_failure_retains_original_error(monkeypatch, capsys) -> None:
     calls = []
-    original = os.environ.copy()
     with pytest.raises(subprocess.CalledProcessError) as raised:
-        _run_orb_install_branch(monkeypatch, python_version=(3, 12), platform="linux",
-                                calls=calls, failure_at="--no-deps")
+        _run_backend_install_branch(monkeypatch, "orb", calls=calls, failure_at="orb-models==0.7.0")
     assert raised.value.output == "build diagnostic"
     assert raised.value.returncode == 1
-    assert calls[-1][0] == ("--no-deps", "orb-models==0.7.0")
-    assert dict(os.environ) == original
+    assert [call[0] for call in calls] == ["pip"]
     assert "ORB installed" not in capsys.readouterr().out
+
+
+def test_orb_pip_check_failure_stops_before_the_ready_message(monkeypatch, capsys) -> None:
+    with pytest.raises(RuntimeError, match="pip check found broken requirements"):
+        _run_backend_install_branch(monkeypatch, "orb", calls=[], check_failure=True)
+    assert "ORB installed" not in capsys.readouterr().out
+
+
+def test_mace_install_keeps_torch_and_expects_fairchem_core_missing(monkeypatch, capsys) -> None:
+    # torchvision==0.23.0 requires torch==2.8.0, so pinning it replaced the torch that the tool needs.
+    calls = []
+    _run_backend_install_branch(monkeypatch, "mace", calls=calls)
+    assert [call[0] for call in calls] == ["run", "pip", "pip check", "run"]
+    assert calls[0][1][-5:] == ["pip", "uninstall", "-y", "-q", "fairchem-core"]
+    assert calls[1] == ("pip", ("mace-torch==0.3.16",), {})
+    assert calls[2] == ("pip check", ("requires fairchem-core, which is not installed",))
+    assert "MACE installed" in capsys.readouterr().out
+
+
+def _pip_check_from_setup(monkeypatch, *, returncode, stdout):
+    setup = ast.parse(_notebook()["cells"][1]["source"])
+    definition = next(node for node in setup.body
+                      if isinstance(node, ast.FunctionDef) and node.name == "_pip_check")
+    namespace = {"subprocess": subprocess, "sys": sys}
+    exec(compile(ast.Module(body=[definition], type_ignores=[]), str(NOTEBOOK), "exec"), namespace)
+    calls = []
+    monkeypatch.setattr(subprocess, "run", lambda argv, **kwargs: calls.append(argv) or
+                        types.SimpleNamespace(returncode=returncode, stdout=stdout))
+    return namespace["_pip_check"], calls
+
+
+_COLAB_ONLY_CONFLICTS = (
+    "google-colab 1.0.0 has requirement pandas==2.2.2, but you have pandas 2.3.3.\n"
+    "torchvision 0.23.0 has requirement torch==2.8.0, but you have torch 2.13.0.\n"
+)
+
+
+def test_pip_check_passes_when_pip_reports_nothing(monkeypatch) -> None:
+    check, calls = _pip_check_from_setup(monkeypatch, returncode=0, stdout="No broken requirements found.\n")
+    check()
+    assert calls == [[sys.executable, "-m", "pip", "check"]]
+
+
+def test_pip_check_ignores_conflicts_among_colab_preinstalled_packages(monkeypatch) -> None:
+    check, _ = _pip_check_from_setup(monkeypatch, returncode=1, stdout=_COLAB_ONLY_CONFLICTS)
+    check()
+
+
+def test_pip_check_reports_broken_requirements_of_the_tool_and_backend(monkeypatch) -> None:
+    ours = (
+        "orb-models 0.7.0 has requirement dm-tree==0.1.8, but you have dm-tree 0.1.9.\n"
+        "fairchem-core 2.24.0 has requirement nvalchemi-toolkit-ops>=0.4.1, but you have "
+        "nvalchemi-toolkit-ops 0.3.1.\n"
+        "mlmm-toolkit 0.5.0 has requirement torch<2.14,>=2.13, but you have torch 2.8.0.\n"
+    )
+    check, _ = _pip_check_from_setup(monkeypatch, returncode=1, stdout=_COLAB_ONLY_CONFLICTS + ours)
+    with pytest.raises(RuntimeError) as raised:
+        check()
+    message = str(raised.value)
+    assert all(line in message for line in ours.splitlines())
+    assert "google-colab" not in message and "torchvision" not in message
+
+
+def test_pip_check_skips_only_the_listed_expected_line(monkeypatch) -> None:
+    missing = "mlmm-toolkit 0.5.0 requires fairchem-core, which is not installed.\n"
+    expected = ("requires fairchem-core, which is not installed",)
+    check, _ = _pip_check_from_setup(monkeypatch, returncode=1, stdout=missing)
+    check(ignore=expected)
+    with pytest.raises(RuntimeError, match="fairchem-core, which is not installed"):
+        check()
+    other = "mlmm-toolkit 0.5.0 requires pyscf, which is not installed.\n"
+    check, _ = _pip_check_from_setup(monkeypatch, returncode=1, stdout=missing + other)
+    with pytest.raises(RuntimeError, match="requires pyscf"):
+        check(ignore=expected)
+
+
+def test_installation_hides_only_the_duplicate_cupy_warning() -> None:
+    setup = ast.parse(_notebook()["cells"][1]["source"])
+    filters = [node for node in setup.body
+               if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call)
+               and ast.unparse(node.value.func) == "warnings.filterwarnings"]
+    duplicate = (
+        "\n" + "-" * 80 + "\n\n  CuPy may not function correctly because multiple CuPy packages are installed\n"
+        "  in your environment:\n\n    cupy-cuda12x, cupy-cuda13x\n"
+    )
+    with warnings.catch_warnings(record=True) as seen:
+        warnings.simplefilter("always")
+        namespace = {"warnings": warnings}
+        for node in filters:
+            exec(compile(ast.Module(body=[node], type_ignores=[]), str(NOTEBOOK), "exec"), namespace)
+        emit = "import warnings; warnings.warn(text)"
+        exec(emit, {"__name__": "cupy._environment", "text": duplicate})
+        exec(emit, {"__name__": "cupy._environment", "text": "CUDA path could not be detected."})
+        exec(emit, {"__name__": "somewhere_else", "text": duplicate})
+    assert [str(item.message) for item in seen] == ["CUDA path could not be detected.", duplicate]
+
+
+def _run_log_publisher(*, clock):
+    """Compile the log publisher of the GUI cell against a recording stand-in for the widget."""
+    tree = _parsed(_notebook()["cells"][2]["source"])
+    names = {"_RUN_LOG_BUFFER", "_RUN_LOG_PENDING", "_RUN_LOG_LAST_VIEW", "_RUN_LOG_PATCH_SEQ",
+             "_RUN_LOG_RECOVERY", "_RUN_LOG_LOCK", "_RUN_LOG_FLUSH_LOCK"}
+    body = [node for node in tree.body
+            if (isinstance(node, ast.FunctionDef) and node.name in {"_visible_run_log_text", "_flush_run_log"})
+            or (isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name)
+                and node.targets[0].id in names)]
+
+    class LogBox:
+        def __init__(self):
+            self.patch = ""
+            self.sent = []
+
+        def send_state(self, key=None):
+            if key == "patch":
+                self.sent.append(json.loads(self.patch))
+                time.sleep(0.005)
+
+    logbox = LogBox()
+    namespace = {"time": types.SimpleNamespace(monotonic=lambda: clock[0]), "json": json,
+                 "threading": threading, "logbox": logbox, "_RUN_LOG_INCREMENTAL": True}
+    exec(compile(ast.Module(body=body, type_ignores=[]), str(NOTEBOOK), "exec"), namespace)
+    return namespace, logbox
+
+
+def test_run_log_resends_a_full_snapshot_when_a_run_or_validation_ends() -> None:
+    clock = [100.0]
+    app, logbox = _run_log_publisher(clock=clock)
+    buffer = app["_RUN_LOG_BUFFER"]
+    buffer["text"] = "preparing\n"
+    app["_flush_run_log"]()
+    buffer["text"] = "$ command\n"
+    app["_flush_run_log"]()
+    buffer["text"] += "output\n"
+    app["_flush_run_log"]()
+    assert [(item["reset"], item["text"]) for item in logbox.sent] == [
+        (True, "preparing\n"), (True, "$ command\n"), (False, "output\n")]
+    # The browser may have missed a patch; the end of the run replaces its view with the whole log.
+    app["_flush_run_log"](force=True, full=True)
+    assert (logbox.sent[-1]["reset"], logbox.sent[-1]["text"]) == (True, "$ command\noutput\n")
+    sent = len(logbox.sent)
+    clock[0] += 0.4
+    app["_flush_run_log"](force=True, full=True)    # a second end-of-run flush right after is not resent
+    assert len(logbox.sent) == sent
+    clock[0] += 5
+    app["_flush_run_log"](force=True)               # the poll waits 15 s between snapshots
+    assert len(logbox.sent) == sent
+    clock[0] += 15
+    app["_flush_run_log"](force=True)
+    assert len(logbox.sent) == sent + 1
+
+
+def test_run_log_patches_from_concurrent_flushes_replay_to_the_final_log() -> None:
+    app, logbox = _run_log_publisher(clock=[100.0])
+    buffer = app["_RUN_LOG_BUFFER"]
+    buffer["text"] = "preparing\n"
+    app["_flush_run_log"]()
+
+    def emit(index):
+        with app["_RUN_LOG_LOCK"]:
+            buffer["text"] += "line %d\n" % index
+        app["_flush_run_log"]()
+
+    threads = [threading.Thread(target=emit, args=(index,)) for index in range(8)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=10)
+    shown = ""
+    for item in logbox.sent:
+        shown = item["text"] if item["reset"] else shown + item["text"]
+    seqs = [item["seq"] for item in logbox.sent]
+    assert seqs == sorted(seqs) and len(set(seqs)) == len(seqs)
+    assert shown == buffer["text"]
+
+
+def test_validate_worker_hands_completion_to_the_ui_loop() -> None:
+    tree = _parsed(_notebook()["cells"][2]["source"])
+    definition = next(node for node in tree.body
+                      if isinstance(node, ast.FunctionDef) and node.name == "_do_validate")
+    done = threading.Event()
+    running = []
+
+    def set_running(*args):
+        running.append(args)
+        if args == (False,):
+            done.set()
+
+    namespace = {
+        "IN_COLAB": True, "TOOL": "pdb2reaction", "threading": threading,
+        "_RUN_EXECUTION": {"thread": None, "cancel": threading.Event()},
+        "_argv": lambda: ["pdb2reaction", "all"], "_set_running": set_running,
+        "_set_run_status": lambda *args: None, "_run_log_emit": lambda *args, **kwargs: None,
+        "_open_run_log": lambda: None, "_validate_command": lambda argv: True,
+    }
+    exec(compile(ast.Module(body=[definition], type_ignores=[]), str(NOTEBOOK), "exec"), namespace)
+    namespace["_do_validate"](None)
+    assert done.wait(timeout=10)
+    # The worker thread must not publish the end of validation itself: `_set_running(False)` queues
+    # it behind the log flushes already waiting on the UI loop, `_set_running(False, True)` would not.
+    assert running == [(True,), (False,)]
 
 def _write_result_pdb(path, coordinates, symbols=("O", "H")):
     models = []
