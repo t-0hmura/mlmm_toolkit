@@ -38,7 +38,7 @@ Starting from the reactant (R) and product (P) structures of the full system, th
 ## Installation
 
 - **OS:** Linux. Native Windows is not supported because AmberTools (`tleap`) is not available there.
-- **Python:** 3.12.
+- **Python:** 3.12 or 3.13.
 - **GPU:** an NVIDIA GPU.
 - **AmberTools (`tleap`):** builds the topology in `mm-parm` and `all`; not needed when you reuse a matching `--parm7`.
 - **C++20 compiler:** for the default `hessian_ff` MM backend; `cxx-compiler` in the conda command below installs it. UMA also uses a compiler to build code at run time.

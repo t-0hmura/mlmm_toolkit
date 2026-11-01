@@ -289,7 +289,7 @@ def _check_pyproject_metadata() -> list[str]:
     python = SpecifierSet(project["requires-python"])
     for version, supported in (
         ("3.10.18", False), ("3.11.13", False), ("3.12.0", True),
-        ("3.12.13", True), ("3.13.0", False), ("3.14.0", False),
+        ("3.12.13", True), ("3.13.0", True), ("3.14.0", False),
     ):
         if (version in python) is not supported:
             errors.append(f"{name}: requires-python must {'allow' if supported else 'exclude'} {version}")

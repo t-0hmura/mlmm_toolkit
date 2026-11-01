@@ -15,7 +15,7 @@ license-files = [
     "thermoanalysis/LICENSE",
 ]
 dynamic = ["version"]
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.12,<3.14"
 keywords = [
     "computational-chemistry",
     "enzyme",
@@ -32,6 +32,7 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Chemistry",
 ]
 dependencies = [
