@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-11-02
+
 ### Breaking changes
 
 - A pair that contains a metal atom counts as a bond formed or broken only when its distance changes by at least `bond.metal_delta_fraction` × T (default `0.40`, about 1.0 Å for Mg–O; other pairs keep `delta_fraction` 0.05). Fluctuations of metal coordination no longer split `--refine-path` paths into extra segments, fail IRC endpoint matching or appear as bond changes. Every bond judgment reads the YAML `bond` section: the IRC endpoint matching, the segment bond changes and the TS-only R/P check of `all` and the endpoint comparison of `irc`, which used the defaults before, now also apply `bond_factor`, `margin_fraction`, `delta_fraction` and `metal_delta_fraction` from it, and `bond-summary` takes `--metal-delta-fraction`.
