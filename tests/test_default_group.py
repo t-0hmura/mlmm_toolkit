@@ -148,6 +148,73 @@ def test_run_log_keeps_c_library_child_and_logging_output(tmp_path: Path) -> Non
     assert "python-stdout" in result.stdout and "fd-stderr" in result.stderr
 
 
+def test_run_log_keeps_the_output_of_a_command_killed_by_a_signal(tmp_path: Path) -> None:
+    import signal
+    import subprocess
+    import sys
+    import textwrap
+
+    out = tmp_path / "result"
+    script = textwrap.dedent(
+        """
+        import os, resource, sys
+        from pathlib import Path
+        from mlmm.cli import default_group as dg
+
+        resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+        out = Path(sys.argv[1])
+        out.mkdir()
+        sink = dg._RunLogSink(out, "[command] mlmm probe\\n")
+        with dg._capture_run_log(sink):
+            print("python-stdout", flush=True)
+            # What a C++ library prints just before abort().
+            os.write(2, b"terminate called after throwing an instance\\n")
+            os.abort()
+        """
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script, str(out)], capture_output=True, text=True, timeout=120
+    )
+    assert result.returncode == -signal.SIGABRT
+    log = (out / "run.log").read_text(encoding="utf-8")
+    for text in ("python-stdout", "terminate called after throwing"):
+        assert text in log, text
+    assert "terminate called after throwing" in result.stderr
+
+
+def test_run_log_does_not_wait_for_a_process_that_outlives_the_command(tmp_path: Path) -> None:
+    import subprocess
+    import sys
+    import textwrap
+
+    out = tmp_path / "result"
+    script = textwrap.dedent(
+        """
+        import sys, time
+        from multiprocessing import resource_tracker
+        from pathlib import Path
+        from mlmm.cli import default_group as dg
+
+        out = Path(sys.argv[1])
+        out.mkdir()
+        sink = dg._RunLogSink(out, "[command] mlmm probe\\n")
+        with dg._capture_run_log(sink):
+            # A PNG export starts this tracker; it keeps stdout and stderr open.
+            resource_tracker.ensure_running()
+            print("python-stdout")
+            start = time.monotonic()
+        print(f"left the capture in {time.monotonic() - start:.1f} s")
+        """
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script, str(out)], capture_output=True, text=True, timeout=120
+    )
+    assert result.returncode == 0, result.stderr
+    seconds = float(result.stdout.rsplit("left the capture in ", 1)[1].split()[0])
+    assert seconds < 2.0
+    assert "python-stdout" in (out / "run.log").read_text(encoding="utf-8")
+
+
 def test_help_does_not_trigger_default_subcommand() -> None:
     cli = _make_group(default="all")
 

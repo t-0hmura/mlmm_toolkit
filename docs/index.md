@@ -219,7 +219,7 @@ ja/architecture
 | [`extract`](extract.md) | Define the ML region from a protein–ligand complex |
 | [`define-layer`](define-layer.md) | Assign ML / Movable-MM / Frozen-MM B-factor layers |
 | [`opt`](opt.md) | Single-structure geometry optimization (L-BFGS or RFO; optional `--flatten` removes leftover imaginary modes) |
-| [`scan`](scan.md) | Restrained distance scan supporting concerted multi-distance and multistage scans |
+| [`scan`](scan.md) | Restrained scan of distances, angles, or dihedrals, with concerted and multistage scans |
 | [`scan2d`](scan2d.md) | Two-dimensional energy-landscape exploration and PES mapping |
 | [`scan3d`](scan3d.md) | Three-dimensional energy-landscape exploration and PES mapping |
 | [`path-opt`](path-opt.md) | Single-step MEP optimization via GSM or DMF (from 2 structures) |

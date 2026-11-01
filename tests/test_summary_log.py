@@ -235,18 +235,19 @@ def test_write_summary_log_marks_non_successful_results_and_precision(
             "Review the path and path-search log.",
         ),
         (
-            "path:raw_seg_001:endpoint_hei",
-            "Path-search interval 2 (seg_001): the highest-energy image is at an endpoint. "
-            "Review this interval before using its barrier.",
+            "path:raw_seg_01:endpoint_hei",
+            "Path-opt interval 1 (seg_01): the highest-energy image is at an endpoint. "
+            "No barrier is reported for this interval; check the inputs or add an intermediate.",
         ),
         (
-            "path:raw_seg_010_refine:endpoint_hei;engine_nonconverged",
-            "Path-search interval 11 (seg_010_refine): the highest-energy image is at an endpoint "
-            "and the path-search engine did not converge. Review this interval and its path-search log.",
+            "path:raw_seg_01:endpoint_hei;engine_nonconverged",
+            "Path-opt interval 1 (seg_01): the highest-energy image is at an endpoint "
+            "and the path-opt engine did not converge. Review this interval and its path-opt log.",
         ),
         (
             "path:raw_path:endpoint_hei",
-            "The highest-energy image is at an endpoint. Review the path before using its barrier.",
+            "The highest-energy image is at an endpoint. "
+            "No barrier is reported; check the inputs or add an intermediate.",
         ),
         (
             "missing:segment_4",
@@ -266,6 +267,27 @@ def test_format_result_warning_explains_priority_status_codes(reason, expected):
     from mlmm.io.summary import format_result_warning
 
     assert format_result_warning(reason) == expected
+
+
+@pytest.mark.parametrize(
+    ("reason", "expected"),
+    [
+        (
+            "path:raw_seg_001:endpoint_hei",
+            "Path-search interval 2 (seg_001): the highest-energy image is at an endpoint. "
+            "No barrier is reported for this interval; check the inputs or add an intermediate.",
+        ),
+        (
+            "path:raw_seg_010_refine:endpoint_hei;engine_nonconverged",
+            "Path-search interval 11 (seg_010_refine): the highest-energy image is at an endpoint "
+            "and the path-search engine did not converge. Review this interval and its path-search log.",
+        ),
+    ],
+)
+def test_format_result_warning_numbers_path_search_intervals_from_zero(reason, expected):
+    from mlmm.io.summary import format_result_warning
+
+    assert format_result_warning(reason, refine_path=True) == expected
 
 
 def test_format_result_warning_omits_already_active_recovery_flags():

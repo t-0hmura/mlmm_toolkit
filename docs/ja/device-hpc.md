@@ -79,8 +79,7 @@ mlmm freq -i r_complex_layered.pdb --parm7 real.parm7 -q -1 --hess-device cpu
 #PBS -N mlmm_opt
 #PBS -q default
 #PBS -l nodes=1:ppn=32:gpus=1,mem=120GB,walltime=72:00:00
-#PBS -o ${PBS_JOBNAME}.o${PBS_JOBID}
-#PBS -e ${PBS_JOBNAME}.e${PBS_JOBID}
+#PBS -j oe
 
 set -euo pipefail
 hostname

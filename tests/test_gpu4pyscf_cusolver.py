@@ -7,7 +7,6 @@ CPU-only: ``gpu4pyscf`` is a stub package whose import records what
 from __future__ import annotations
 
 import ctypes.util
-import importlib.util
 import sys
 import types
 from pathlib import Path
@@ -168,10 +167,32 @@ def test_method_builder_prepares_cusolver_before_the_first_gpu4pyscf_import(
     assert events == (["prepare", "gpu4pyscf"] if prepared else [])
 
 
-def test_dft_command_prepares_cusolver_before_its_first_gpu4pyscf_import() -> None:
-    source = Path(importlib.util.find_spec("mlmm.workflows.dft").origin).read_text()
+def test_dft_command_prepares_cusolver_before_its_first_gpu4pyscf_import(
+    environment, monkeypatch, tmp_path
+) -> None:
+    pytest.importorskip("pyscf")
+    from ase import Atoms
+    from click.testing import CliRunner
 
-    assert source.count("from gpu4pyscf import dft as gdf") == 1
-    assert source.index("ensure_gpu4pyscf_cusolver()") < source.index(
-        "from gpu4pyscf import dft as gdf"
+    from mlmm.cli import cli as root_cli
+    from mlmm.workflows import dft
+
+    toy = Path(__file__).resolve().parents[1] / "examples" / "toy_system"
+    if not (toy / "p_toy.parm7").exists():
+        pytest.skip("toy_system example inputs not present")
+    _system_lookup(monkeypatch, None)
+    model = Atoms("F", positions=[(0.0, 0.0, 0.0)])
+    workspace = types.SimpleNamespace(
+        atoms_model=model, atoms_model_lh=model.copy(), link_pairs=[], cleanup=lambda: None,
     )
+    monkeypatch.setattr(dft, "_prepare_ml_region_workspace", lambda **kwargs: workspace)
+
+    result = CliRunner().invoke(root_cli, [
+        "dft", "-i", str(toy / "p_toy.pdb"), "--parm", str(toy / "p_toy.parm7"),
+        "-q", "-1", "-m", "1", "--func-basis", "hf/sto-3g", "--no-convert-files",
+        "-o", str(tmp_path / "out"),
+    ])
+
+    # The stub has no gpu4pyscf.dft, so the GPU setup stops right after the import.
+    assert "[gpu] GPU backend failed" in result.output, result.output
+    assert sys.modules["gpu4pyscf"].cusolver_seen == str(environment.lib / "libcusolver.so.12")

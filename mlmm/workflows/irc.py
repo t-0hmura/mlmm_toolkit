@@ -31,6 +31,7 @@ from pysisyphus.irc.EulerPC import EulerPC
 from mlmm.backends.mlmm_calc import mlmm
 from mlmm.workflows.freq import _torch_device, _calc_full_hessian_torch, _align_three_layer_hessian_targets
 from mlmm.core.defaults import (
+    BOND_KW,
     GEOM_KW_DEFAULT,
     MLMM_CALC_KW as _UMA_CALC_KW,
     IRC_KW,
@@ -544,6 +545,7 @@ def cli(
         geom_cfg: Dict[str, Any] = dict(GEOM_KW_DEFAULT)
         calc_cfg: Dict[str, Any] = dict(CALC_KW_DEFAULT)
         irc_cfg: Dict[str, Any] = dict(IRC_KW_DEFAULT)
+        bond_cfg: Dict[str, Any] = dict(BOND_KW)
         # Keep the command-level detect-layer default unless YAML or an explicit
         # CLI option overrides it.
         calc_cfg["use_bfactor_layers"] = bool(detect_layer)
@@ -554,6 +556,7 @@ def cli(
                 (geom_cfg, (("geom",),)),
                 (calc_cfg, (("calc",), ("mlmm",))),
                 (irc_cfg, (("irc",),)),
+                (bond_cfg, (("bond",),)),
             ],
         )
         error_out_dir = Path(irc_cfg["out_dir"]).resolve()
@@ -1220,7 +1223,13 @@ def cli(
                 if _irc_first_xyz.exists() and _irc_last_xyz.exists():
                     _g1 = geom_loader(str(_irc_first_xyz))
                     _g2 = geom_loader(str(_irc_last_xyz))
-                    _bc = compare_structures(_g1, _g2, device="cpu")
+                    _bc = compare_structures(
+                        _g1, _g2, device="cpu",
+                        bond_factor=bond_cfg["bond_factor"],
+                        margin_fraction=bond_cfg["margin_fraction"],
+                        delta_fraction=bond_cfg["delta_fraction"],
+                        metal_delta_fraction=bond_cfg["metal_delta_fraction"],
+                    )
                     _elems = [a.capitalize() for a in _g1.atoms]
                     result_data["bond_changes"] = {
                         "formed": [f"{_elems[i]}{i+1}-{_elems[j]}{j+1}" for i, j in sorted(_bc.formed_covalent)],

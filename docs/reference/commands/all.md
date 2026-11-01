@@ -154,14 +154,12 @@ Options:
                                   path]
   --thresh [gau_loose|gau|gau_tight|gau_vtight|baker|never]
                                   Convergence preset for single-structure
-                                  optimizations and scan relaxations (gau_loose|
-                                  gau|gau_tight|gau_vtight|baker|never). The MEP
+                                  optimizations and scan relaxations. The MEP
                                   stage keeps its own --thresh-gsm / --dmf-tol.
                                   [default: (gau)]
   --thresh-gsm [gau_loose|gau|gau_tight|gau_vtight|baker|never]
                                   Convergence preset for the GSM string
-                                  optimizer of the MEP stage (gau_loose|gau|gau_
-                                  tight|gau_vtight|baker|never).  [default:
+                                  optimizer of the MEP stage.  [default:
                                   (gau_loose)]
   --dmf-tol, --thresh-dmf TEXT    IPOPT dual-infeasibility tolerance for the DMF
                                   MEP stage: tight (0.04) | middle (0.10) |
@@ -169,8 +167,7 @@ Options:
                                   a Gaussian preset.  [default: (tight)]
   --thresh-post [gau_loose|gau|gau_tight|gau_vtight|baker|never]
                                   Convergence preset for TS and post-IRC
-                                  endpoint optimizations (gau_loose|gau|gau_tigh
-                                  t|gau_vtight|baker|never).  [default: baker]
+                                  endpoint optimizations.  [default: baker]
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
   --resume-segment INTEGER RANGE  Reuse the verified MEP in --out-dir and rerun
@@ -203,12 +200,12 @@ Options:
                                   structure), and build energy diagrams.
                                   [default: no-tsopt]
   --tsopt-from-mep-tan / --no-tsopt-from-mep-tan
-                                  Guide Hessian-based TS root identity from MEP
-                                  tangent candidate(s) at the highest-energy
-                                  image. The CPU/file cache is not created or
-                                  used when disabled. Dimer does not consume
-                                  this Hessian reference mode.  [default: tsopt-
-                                  from-mep-tan]
+                                  Use the MEP tangent at the highest-energy
+                                  image to choose which Hessian mode the
+                                  Hessian-based TS optimizer (RS-P-RFO, RS-I-
+                                  RFO, TRIM) follows as the reaction mode. Not
+                                  used with Dimer.  [default: tsopt-from-mep-
+                                  tan]
   --thermo / --no-thermo          Run freq on (R,TS,P) per reactive segment (or
                                   TSOPT-only mode) and build a Gibbs free-energy
                                   diagram (ML/MM).  [default: no-thermo]
@@ -412,8 +409,9 @@ Options:
                                   versions and hardware give identical results
                                   (PyTorch deterministic algorithms). Slower;
                                   raises for detected unsupported ops; custom
-                                  calculators are outside its scope.  [default:
-                                  no-deterministic]
+                                  calculators (--calc-file) and AIMNet2 are not
+                                  supported: the run stops.  [default: no-
+                                  deterministic]
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
                                   electron-parity check (logs that it was
                                   skipped). An open-shell ML region needs a

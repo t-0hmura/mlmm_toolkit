@@ -21,7 +21,7 @@ mlmm all -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
  --out-dir ./result_all
 ```
 
-端末の最後のほうの `====== Pipeline summary ======` の下に `Scientific status: success` と出れば成功で、`summary.json` の `scientific_status` にも同じ値が入ります。
+端末出力の末尾付近の `====== Pipeline summary ======` の下に `Scientific status: success` と出れば成功で、`summary.json` の `scientific_status` にも同じ値が入ります。
 
 ### （オプション）同一実行で後処理まで行う
 
@@ -82,7 +82,7 @@ result_all/
 - [クイックスタート: scan](quickstart-scan.md): 生成物の構造が無いとき、1 つの構造から始める
 - [クイックスタート: TS-only モード](quickstart-tsopt.md): 手元の TS 候補を最適化して確かめる
 - [ML 領域と層の組み方](model-setup.md): ML 領域を小さくする、残基が足りないときに広げる
-- [反応機構を調べるコツ](mechanism-tips.md): 計算の計画と、TS が取れないときに試すこと
+- [反応機構を調べるコツ](mechanism-tips.md): 計算の計画と、TS が得られないときに試すこと
 - [MLIP の TS を DFT で確かめる](dft-backend.md): TS を DFT/MM で精密化して確かめる
 - [`all`](all.md): オプションの説明。`mlmm all --help-advanced` でも見られます
 - [JSON 出力の一覧](json-output.md): `summary.json` の欄

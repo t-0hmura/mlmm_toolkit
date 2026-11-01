@@ -115,7 +115,7 @@ mlmm tsopt -i ts_guess.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m 
     --precision fp64 --flatten -o result_tsopt
 ```
 
-ほかの対処法は {ref}`TS が取れないとき <ja-ts-search-fails>` に、そのほかの失敗は [トラブルシューティング](troubleshooting.md) にあります。
+ほかの対処法は {ref}`TS が得られないとき <ja-ts-search-fails>` に、そのほかの失敗は [トラブルシューティング](troubleshooting.md) にあります。
 
 ---
 
@@ -224,7 +224,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 * [freq](freq.md) — 完全な振動解析と熱化学補正
 * [path-opt](path-opt.md) / [path-search](path-search.md) / [scan](scan.md) — TS 候補の作成
 * [all](all.md) — モデル作成・MEP・TS 最適化・IRC・振動解析を一度に実行するワークフロー
-* [反応機構を調べるコツ](mechanism-tips.md) — TS が取れないときに試すこと
+* [反応機構を調べるコツ](mechanism-tips.md) — TS が得られないときに試すこと
 * [トラブルシューティング](troubleshooting.md) — 実行が失敗したときの切り分け
 * [YAML 設定の一覧](yaml-reference.md) — `rsirfo`・`hessian_dimer`・`microiter` のすべての設定
 * [用語集](glossary.md) — TS、Dimer、Hessian などの用語

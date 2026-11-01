@@ -175,3 +175,26 @@ def test_metal_pairs_need_a_larger_change():
     res = compare_structures(_pair(co, 1.43), _pair(co, 1.80), device="cpu")
     assert _as_int_pairs(res.broken_covalent) == {(0, 1)}
 
+
+
+def test_bond_summary_passes_the_metal_delta_fraction(tmp_path):
+    import json
+
+    from click.testing import CliRunner
+
+    from mlmm.cli import cli as root_cli
+
+    for name, distance in (("a.xyz", 2.1), ("b.xyz", 2.6)):
+        (tmp_path / name).write_text(f"2\n\nMg 0 0 0\nO {distance} 0 0\n", encoding="utf-8")
+    args = ["bond-summary", "-i", str(tmp_path / "a.xyz"), "-i", str(tmp_path / "b.xyz"),
+            "--device", "cpu", "--json"]
+
+    default = CliRunner().invoke(root_cli, args)
+    loose = CliRunner().invoke(root_cli, [*args, "--metal-delta-fraction", "0.05"])
+
+    assert default.exit_code == loose.exit_code == 0, default.output + loose.output
+
+    def broken(result):  # the JSON report follows the banner
+        return json.loads(result.output[result.output.index("\n{"):])["comparisons"][0]["bonds_broken"]
+
+    assert (broken(default), broken(loose)) == (0, 1)

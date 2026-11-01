@@ -70,8 +70,7 @@ Options:
                                   --thresh-gsm / --dmf-tol.  [default: (gau)]
   --thresh-gsm [gau_loose|gau|gau_tight|gau_vtight|baker|never]
                                   Convergence preset for the GSM string
-                                  optimizer (gau_loose|gau|gau_tight|gau_vtight|
-                                  baker|never).  [default: (gau_loose)]
+                                  optimizer.  [default: (gau_loose)]
   --dmf-tol, --thresh-dmf TEXT    IPOPT dual-infeasibility tolerance for the DMF
                                   path optimizer: tight (0.04) | middle (0.10) |
                                   loose (0.20) or a positive float. This is not
@@ -179,8 +178,9 @@ Options:
                                   versions and hardware give identical results
                                   (PyTorch deterministic algorithms). Slower;
                                   raises for detected unsupported ops; custom
-                                  calculators are outside its scope.  [default:
-                                  no-deterministic]
+                                  calculators (--calc-file) and AIMNet2 are not
+                                  supported: the run stops.  [default: no-
+                                  deterministic]
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
                                   electron-parity check (logs that it was
                                   skipped). An open-shell ML region needs a

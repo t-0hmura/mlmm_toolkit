@@ -111,7 +111,7 @@ ML 領域の {ref}`電荷 <ja-charge-specification>` は `-q` または `-l` か
 (ja-section-bond)=
 ### 結合変化の検出
 
-両原子の共有結合半径の和に `bond_factor`（デフォルト `1.20`）を掛けた値を T とします。2 原子の距離が T − `margin_fraction` × T 以下なら、結合しているとみなします。結合の形成・切断として報告するのは、距離が `delta_fraction` × T 以上変わった組だけです。`margin_fraction` と `delta_fraction` のデフォルトはどちらも `0.05` です。金属原子を含む組では、配位の揺らぎを数えないよう、必要な変化を `metal_delta_fraction` × T（デフォルト `0.40`。Mg–O で約 1.0 Å）とします。`path-search` も同じ基準を使います。キーは YAML の [`bond`](yaml-reference.md#bond) の節にあります。
+両原子の共有結合半径の和に `bond_factor`（デフォルト `1.20`）を掛けた値を T とします。2 原子の距離が T − `margin_fraction` × T 以下なら、結合しているとみなします。結合の形成・切断として報告するのは、距離が `delta_fraction` × T 以上変わった組だけです。`margin_fraction` と `delta_fraction` のデフォルトはどちらも `0.05` です。金属原子を含む組では、配位の揺らぎを数えないよう、必要な変化を `metal_delta_fraction` × T（デフォルト `0.40`。Mg–O で約 1.0 Å）とします。`path-search`・`all`・`irc` も同じ基準を使います。キーは YAML の [`bond`](yaml-reference.md#bond) の節にあります。
 
 ---
 
@@ -192,7 +192,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 
 全オプションは [自動生成のオプションの一覧（英語のみ）](../reference/commands/scan.md) を参照してください。
 
-> **補足:** YAML（`--config`）では、`--restraint-k` を指定しないときの拘束の強さを [`bias.k`](yaml-reference.md#bias) で、結合変化の閾値 `bond_factor`・`margin_fraction`・`delta_fraction` を [`bond`](yaml-reference.md#bond) の節で設定できます。
+> **補足:** YAML（`--config`）では、`--restraint-k` を指定しないときの拘束の強さを [`bias.k`](yaml-reference.md#bias) で、結合変化の閾値 `bond_factor`・`margin_fraction`・`delta_fraction`・`metal_delta_fraction` を [`bond`](yaml-reference.md#bond) の節で設定できます。
 
 ---
 

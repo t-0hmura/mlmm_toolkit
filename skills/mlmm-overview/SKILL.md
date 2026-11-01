@@ -192,6 +192,14 @@ The package body `mlmm/` has one directory per layer; `pysisyphus/`, `thermoanal
 
 The layer map, the import rules, and the invariants to keep are in [`docs/architecture.md`](../../docs/architecture.md); contributor recipes in [`CONTRIBUTING.md`](../../CONTRIBUTING.md). The import graph is checked by [`check_import_graph.py`](../../.github/scripts/check_import_graph.py), and the chemistry markers by [`check_engineering_markers.py`](../../.github/scripts/check_engineering_markers.py).
 
+## Report
+
+When you report a mechanism, give:
+
+- R, TS, and P ([paths](outputs.md#oriented-rtsp-paths)), the backend, model, and precision, the charge and multiplicity, the `parm7`, and the ML region (center residues, `-r`, atom count).
+- n_imag and the imaginary frequency of the TS, and whether the IRC and endpoint optimizations reached the intended R and P (`connectivity_validated`, [per-segment keys](outputs.md#summaryjson)).
+- ΔE‡ or ΔG‡ with its method label and the `references` of `summary.json` ([top-level keys](outputs.md#summaryjson)); for several steps, count from one common R ([multistep paths](ts-strategy.md#5-multistep-paths)).
+
 ## Where to go next
 
 - [ts-strategy.md](ts-strategy.md): studying a mechanism (hypothesis, TS precision, routes to a candidate, splitting the reaction, wrong n_imag, a TS that does not come out, multistep paths, comparisons, barriers).

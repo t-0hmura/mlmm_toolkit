@@ -17,7 +17,7 @@ YAML 設定ファイル（`--config`）に書けるキーとデフォルト値�
 | [`thermo`](#thermo) | 熱化学設定 | all, freq |
 | [`dft`](#ja-dft-section) | DFT 計算設定 | all, dft |
 | [`bias`](#bias) | 調和バイアス設定 | all, scan, scan2d, scan3d |
-| [`bond`](#bond) | 結合変化検出設定 | all, scan, path-search |
+| [`bond`](#bond) | 結合変化検出設定 | all, scan, path-search, irc |
 | [`search`](#search) | 再帰的経路探索設定 | all, path-search |
 | [`hessian_dimer`](#hessian_dimer) | Hessian Dimer による TS 最適化 | all, tsopt |
 | [`rsirfo`](#rsirfo) | Hessian TS 最適化設定 | all, tsopt |

@@ -47,7 +47,7 @@ mlmm all -i 1.R.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
  -s '[("SAM,320,CS1", "GPP,321,C7", 1.50)]' -o ./result_scan
 ```
 
-端末の最後のほうの `====== Pipeline summary ======` の下に `Scientific status: success` と出れば成功で、`summary.json` の `scientific_status` にも同じ値が入ります。
+端末出力の末尾付近の `====== Pipeline summary ======` の下に `Scientific status: success` と出れば成功で、`summary.json` の `scientific_status` にも同じ値が入ります。
 
 ### 3. 2 段のスキャン
 

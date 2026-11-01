@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import importlib.util
+
 import numpy as np
 import pytest
 import torch
@@ -334,6 +336,11 @@ def _lazy_preparation_backend(monkeypatch, *, device, precision, workers=1):
     monkeypatch.setattr(mlmm_calc, "data_list_collater", collate, raising=False)
     monkeypatch.setattr(mlmm_calc, "_UMAInferenceSettings", SimpleNamespace)
     monkeypatch.setattr(mlmm_calc, "ParallelMLIPPredictUnit", parallel_factory)
+    if workers > 1:
+        # The stub stands in for the Ray-backed predictor, so Ray need not be installed.
+        find_spec = importlib.util.find_spec
+        monkeypatch.setattr(importlib.util, "find_spec",
+                            lambda name, *args: object() if name == "ray" else find_spec(name, *args))
     monkeypatch.setattr(mlmm_calc.torch.cuda, "device", lambda _device: nullcontext())
     backend = _UMABackend(uma_model="uma-s-1p2", model_charge=-1, model_mult=2,
                           ml_device=torch.device(device), precision=precision, workers=workers)
@@ -382,6 +389,27 @@ def test_parallel_uma_constructor_keeps_host_handoff(monkeypatch):
     np.testing.assert_array_equal(force, -2 * np.ones((3, 3)))
     assert events == [("construct", "parallel"), ("prepare", "cpu"),
                       ("batch_to", "cuda"), ("predict", "cuda")]
+
+
+def test_parallel_uma_without_ray_names_the_ray_extra(monkeypatch):
+    """fairchem-core 2.23+ imports ParallelMLIPPredictUnit without Ray; the guidance must still show."""
+    from types import SimpleNamespace
+
+    find_spec = importlib.util.find_spec
+    monkeypatch.setattr(importlib.util, "find_spec",
+                        lambda name, *args: None if name == "ray" else find_spec(name, *args))
+    monkeypatch.setattr(mlmm_calc, "HAS_FAIRCHEM", True)
+    monkeypatch.setattr(mlmm_calc, "_UMAInferenceSettings", SimpleNamespace)
+    monkeypatch.setattr(mlmm_calc, "ParallelMLIPPredictUnit",
+                        lambda **kwargs: pytest.fail("the parallel predictor was built without Ray"))
+    message = (
+        "--uma-workers 2 or more needs fairchem's parallel predictor and Ray; "
+        'install them with `pip install "fairchem-core[ray]"`.'
+    )
+    with pytest.raises(ImportError) as excinfo:
+        _UMABackend(uma_model="uma-s-1p2", model_charge=0, model_mult=1,
+                    ml_device=torch.device("cpu"), workers=2)
+    assert str(excinfo.value) == message
 
 
 def test_lazy_preparation_control_detects_premature_device_transfer(monkeypatch):

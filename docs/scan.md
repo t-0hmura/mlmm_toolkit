@@ -106,7 +106,7 @@ The joined trajectory runs `low → input geometry → high`, a continuous path 
 (section-bond)=
 ### Bond-change detection
 
-Let T be the sum of the covalent radii of two atoms scaled by `bond_factor` (default `1.20`). The atoms count as bonded when their distance is at most T − `margin_fraction` × T (`margin_fraction` defaults to `0.05`). A pair is reported as formed or broken only when its distance changed by at least `delta_fraction` × T (`delta_fraction` defaults to `0.05`). Pairs that contain a metal atom need a change of at least `metal_delta_fraction` × T (default `0.40`, about 1.0 Å for Mg–O), so that fluctuations of metal coordination are not counted. `path-search` uses the same rules; the keys are in the YAML [`bond`](yaml-reference.md#bond) section.
+Let T be the sum of the covalent radii of two atoms scaled by `bond_factor` (default `1.20`). The atoms count as bonded when their distance is at most T − `margin_fraction` × T (`margin_fraction` defaults to `0.05`). A pair is reported as formed or broken only when its distance changed by at least `delta_fraction` × T (`delta_fraction` defaults to `0.05`). Pairs that contain a metal atom need a change of at least `metal_delta_fraction` × T (default `0.40`, about 1.0 Å for Mg–O), so that fluctuations of metal coordination are not counted. `path-search`, `all`, and `irc` use the same rules; the keys are in the YAML [`bond`](yaml-reference.md#bond) section.
 
 ---
 
@@ -187,7 +187,7 @@ The options shared by every ML/MM calculation command are explained once in {ref
 
 See the [generated CLI reference](reference/commands/scan.md) for every option.
 
-> **Note:** In YAML (`--config`), [`bias.k`](yaml-reference.md#bias) sets the restraint strength when `--restraint-k` is not given, and the [`bond`](yaml-reference.md#bond) section sets the bond-change thresholds `bond_factor`, `margin_fraction`, and `delta_fraction`.
+> **Note:** In YAML (`--config`), [`bias.k`](yaml-reference.md#bias) sets the restraint strength when `--restraint-k` is not given, and the [`bond`](yaml-reference.md#bond) section sets the bond-change thresholds `bond_factor`, `margin_fraction`, `delta_fraction`, and `metal_delta_fraction`.
 
 ---
 

@@ -95,7 +95,7 @@ The bundled packages install as separate top-level packages next to `mlmm`.
 ```bash
 conda activate <YOUR_ENV>
 pip install mlmm-toolkit                                           # core only (UMA)
-pip install 'mlmm-toolkit[orb,aimnet,dft]'   # extras as needed
+pip install 'mlmm-toolkit[aimnet,dft]'       # extras as needed
 ```
 
 | Extra | Pulls in | When you need it |
@@ -114,7 +114,7 @@ different `e3nn` versions; MACE goes in a separate env
 full list of extras and pins.
 
 Contributors install from source; `pip install -e` picks up edits without a
-reinstall: `git clone https://github.com/t-0hmura/mlmm_toolkit.git mlmm && cd mlmm && pip install -e '.[orb,aimnet,dft]'`.
+reinstall: `git clone https://github.com/t-0hmura/mlmm_toolkit.git mlmm && cd mlmm && pip install -e '.[aimnet,dft]'`.
 
 ## Conda env template
 
@@ -122,7 +122,7 @@ Replace `<...>` with the values from the probe. The template uses
 `python=3.12`; mlmm-toolkit supports Python 3.12 and 3.13.
 `mm-parm` also needs AmberTools ([ambertools.md](ambertools.md)).
 
-`env_mlmm.yml` (UMA, ORB, AIMNet2, DFT, xTB):
+`env_mlmm.yml` (UMA, AIMNet2, DFT, xTB):
 
 ```yaml
 name: <YOUR_ENV>
@@ -139,7 +139,7 @@ dependencies:
   - xtb                                # only for the MLIP/MM correction
   - pip
   - pip:
-      - mlmm-toolkit[orb,aimnet,dft]
+      - mlmm-toolkit[aimnet,dft]
 ```
 
 With `cuda129*`, use `[dft-cuda12]` in place of `[dft]`; see

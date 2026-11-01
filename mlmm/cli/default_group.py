@@ -5,7 +5,10 @@ from __future__ import annotations
 import contextlib
 import importlib
 import os
+import select
 import shlex
+import signal
+import subprocess
 import sys
 import threading
 from collections.abc import Callable, Mapping
@@ -101,6 +104,11 @@ class _RunLogSink:
             except OSError as exc:
                 self.error = exc
 
+    def hand_over(self) -> None:
+        """Leave the log to the run-log helper process; write nothing more."""
+        with self._lock:
+            self._closed = True
+
     def close(self) -> None:
         with self._lock:
             if self._closed:
@@ -135,48 +143,121 @@ class _TeeText:
 
 
 class _FdTee:
-    """Copy everything written to file descriptor *fd* (by Python, C libraries
-    or child processes) to its original destination and to the run log."""
+    """Copy everything written to file descriptors 1 and 2 (by Python, C
+    libraries or child processes) to their original destinations and to the
+    run log.
 
-    def __init__(self, fd: int, sink: _RunLogSink):
-        self._fd = fd
-        self._sink = sink
-        self._saved = os.dup(fd)
+    A helper process does the copying, so the output written just before the
+    command dies by a signal (an abort or a segfault in C code) still reaches
+    both.
+    """
+
+    def __init__(self, sink: _RunLogSink):
+        pipes = [os.pipe() for _ in range(4)]
+        (out_read, out_write), (err_read, err_write), (control_read, control_write), \
+            (ready_read, ready_write) = pipes
+        child_ends = (out_read, err_read, control_read, ready_write)
         try:
-            read_end, write_end = os.pipe()
-        except OSError:
-            os.close(self._saved)
-            raise
-        os.dup2(write_end, fd)
-        os.close(write_end)
-        self._read_end = read_end
-        self._thread = threading.Thread(target=self._pump, name=f"run-log-fd{fd}", daemon=True)
-        self._thread.start()
-
-    def _pump(self) -> None:
-        while True:
-            try:
-                data = os.read(self._read_end, 65536)
-            except OSError:
-                return
-            if not data:
-                return
-            try:
-                _write_all(lambda chunk: os.write(self._saved, chunk), data)
-            except OSError:
-                pass
-            self._sink.write(data)
+            self._process = subprocess.Popen(
+                [
+                    sys.executable, "-c", _PUMP_SCRIPT,
+                    str(Path(__file__).resolve().parents[2]), __name__,
+                    *(str(fd) for fd in child_ends),
+                    str(sink._path.parent), bytes(sink._pending).decode("utf-8"),
+                ],
+                stdin=subprocess.DEVNULL,
+                pass_fds=child_ends,
+            )
+        except (OSError, subprocess.SubprocessError, ValueError) as exc:
+            for fd in (fd for pipe in pipes for fd in pipe):
+                os.close(fd)
+            raise OSError(f"cannot start the run-log helper: {exc}") from exc
+        for fd in child_ends:
+            os.close(fd)
+        started = bool(select.select([ready_read], [], [], 30.0)[0]) and os.read(ready_read, 1) == b"R"
+        os.close(ready_read)
+        if not started:
+            self._process.kill()
+            self._process.wait()
+            for fd in (out_write, err_write, control_write):
+                os.close(fd)
+            raise OSError("the run-log helper did not start")
+        sink.hand_over()
+        self._saved = [os.dup(1), os.dup(2)]
+        os.dup2(out_write, 1)
+        os.dup2(err_write, 2)
+        os.close(out_write)
+        os.close(err_write)
+        self._control = control_write
 
     def restore(self) -> None:
-        os.dup2(self._saved, self._fd)
+        os.dup2(self._saved[0], 1)
+        os.dup2(self._saved[1], 2)
 
     def finish(self) -> None:
-        # A child process that outlives the command keeps the pipe open; stop
-        # waiting after a short grace period and leave both ends to the pump.
-        self._thread.join(timeout=5.0)
-        if not self._thread.is_alive():
-            os.close(self._read_end)
-            os.close(self._saved)
+        # Closing the control pipe makes the helper copy what is left in the
+        # pipes and exit, even when a process that outlives the command (such
+        # as multiprocessing's resource tracker) still holds them open.
+        os.close(self._control)
+        with contextlib.suppress(subprocess.TimeoutExpired):
+            self._process.wait(timeout=5.0)
+        for fd in self._saved:
+            os.close(fd)
+
+
+_PUMP_SCRIPT = (
+    "import importlib, sys; sys.path.insert(0, sys.argv[1]); "
+    "importlib.import_module(sys.argv[2])._pump_run_log(sys.argv[3:])"
+)
+
+
+def _pump_run_log(argv: list[str]) -> None:
+    """Run the helper process of :class:`_FdTee`."""
+    out_read, err_read, control_read, ready_write = (int(value) for value in argv[:4])
+    # Stop when the command closes the control pipe or dies, not on a signal
+    # sent to its whole process group (Ctrl-C, a batch system's SIGTERM).
+    for signum in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+        signal.signal(signum, signal.SIG_IGN)
+    sink = _RunLogSink(Path(argv[4]), argv[5])
+    os.write(ready_write, b"R")
+    os.close(ready_write)
+    destinations = {out_read: 1, err_read: 2}
+
+    def copy(fd: int) -> bool:
+        try:
+            data = os.read(fd, 65536)
+        except BlockingIOError:
+            return False
+        except OSError:
+            data = b""
+        if not data:
+            os.close(fd)
+            del destinations[fd]
+            return False
+        try:
+            _write_all(lambda chunk: os.write(destinations[fd], chunk), data)
+        except OSError:
+            pass
+        sink.write(data)
+        return True
+
+    while True:
+        readable = select.select([*destinations, control_read], [], [])[0]
+        for fd in readable:
+            if fd in destinations:
+                copy(fd)
+        if control_read in readable:
+            break
+    # The command has finished or died: copy what is left in the pipes.
+    for fd in list(destinations):
+        os.set_blocking(fd, False)
+        while copy(fd):
+            pass
+    sink.close()
+    if sink.error is not None:
+        message = f"[run.log] WARNING: Could not save run.log: {sink.error}\n"
+        with contextlib.suppress(OSError):
+            _write_all(lambda chunk: os.write(2, chunk), message.encode("utf-8"))
 
 
 def _libc_fflush():
@@ -201,16 +282,10 @@ def _start_fd_tees(sink: _RunLogSink, fflush) -> list[_FdTee]:
         stream.flush()
     if fflush is not None:
         fflush()
-    tees: list[_FdTee] = []
     try:
-        for fd in (1, 2):
-            tees.append(_FdTee(fd, sink))
+        return [_FdTee(sink)]
     except OSError:
-        for tee in tees:
-            tee.restore()
-            tee.finish()
         return []
-    return tees
 
 
 @contextlib.contextmanager

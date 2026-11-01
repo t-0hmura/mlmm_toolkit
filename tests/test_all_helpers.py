@@ -1359,7 +1359,7 @@ def test_optimized_endpoint_validation_requires_assigned_direct_pair(
     monkeypatch.setattr(
         workflow,
         "_orient_irc_endpoint_geometries",
-        lambda left, right, mep_left, mep_right: (
+        lambda left, right, mep_left, mep_right, bond_cfg=None: (
             left, right, "forward", "backward", False,
             {"match_matrix": {
                 "left_to_mep_left": True,
@@ -1374,6 +1374,28 @@ def test_optimized_endpoint_validation_requires_assigned_direct_pair(
     )
     assert result["source"] == "optimized_endpoints"
     assert result["connectivity_validated"] is True
+
+
+def test_optimized_endpoint_validation_keeps_a_failed_bond_change_check(
+    monkeypatch,
+) -> None:
+    """A failed bond-change check after endpoint optimization is not a topology mismatch."""
+    from types import SimpleNamespace
+
+    import numpy as np
+
+    from mlmm.workflows import all as workflow
+
+    def _raise(*_args, **_kwargs):
+        raise RuntimeError("bond graph unavailable")
+
+    monkeypatch.setattr(workflow._path_search, "_has_bond_change", _raise)
+    geometries = [SimpleNamespace(coords=np.array([x, 0.0, 0.0])) for x in (0.0, 10.0, 0.0, 10.0)]
+
+    result = workflow._validate_optimized_endpoint_pair(*geometries)
+
+    assert result["connectivity_validated"] is False
+    assert result["reason"] == "bond_change_check_failed:bond graph unavailable"
 
 
 def test_strict_higher_order_is_not_reclassified_by_resolved_count():

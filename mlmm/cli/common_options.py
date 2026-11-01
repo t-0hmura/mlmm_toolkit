@@ -402,7 +402,7 @@ def add_deterministic_option() -> Callable[[Callable], Callable]:
                 "Make repeated runs on the same software versions and hardware "
                 "give identical results (PyTorch deterministic algorithms). "
                 "Slower; raises for detected unsupported ops; custom calculators "
-                "are outside its scope."
+                "(--calc-file) and AIMNet2 are not supported: the run stops."
             ),
         )(func)
     return decorator

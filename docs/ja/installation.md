@@ -32,7 +32,7 @@ hf auth login
 hf auth login --token '<YOUR_ACCESS_TOKEN>' --add-to-git-credential
 ```
 
-ログインはマシン・環境ごとに 1 回で済みます。
+ログインはマシンごとに 1 回で済みます。
 
 `mlmm --version` でバージョンが表示されれば、インストールは成功です。
 

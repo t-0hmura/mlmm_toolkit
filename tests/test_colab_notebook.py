@@ -867,6 +867,69 @@ def test_colab_setup_dft_branch_installs_extra_and_checks_gpu(monkeypatch, capsy
     assert "first run takes several minutes" in setup
 
 
+@pytest.mark.parametrize("install_xtb", [True, False])
+def test_colab_setup_install_xtb_puts_xtb_from_conda_forge_on_path(
+    monkeypatch, tmp_path, install_xtb,
+) -> None:
+    import importlib.metadata
+    import shutil
+
+    prefix = tmp_path / "conda"
+    setup = _notebook()["cells"][1]["source"].replace(
+        'backend = "uma"', 'backend = "mace"', 1,
+    ).replace("install_dft = True", "install_dft = False", 1).replace(
+        "install_xtb = False", "install_xtb = %s" % install_xtb, 1,
+    ).replace("_conda_prefix = Path('/opt/conda')", "_conda_prefix = Path(%r)" % str(prefix), 1)
+    calls: list[list[str]] = []
+    installed: set[str] = set()
+
+    def fake_run(argv, **_kwargs):
+        call = [str(value) for value in argv]
+        calls.append(call)
+        if call[:1] == ["bash"]:  # the Miniforge installer
+            (prefix / "bin").mkdir(parents=True)
+            (prefix / "bin" / "mamba").write_text("", encoding="utf-8")
+            (prefix / "conda-meta").mkdir()
+        if call[1:2] == ["install"] and "conda-forge" in call:
+            installed.update(call[call.index("conda-forge") + 1:])
+        return types.SimpleNamespace(stdout="GPU 0", stderr="", returncode=0)
+
+    def fake_which(name, *args, **kwargs):
+        if name in ("mamba", "conda"):
+            return str(prefix / "bin" / name) if (prefix / "bin" / "mamba").is_file() else None
+        if name == "xtb":
+            return str(prefix / "bin" / "xtb") if "xtb" in installed else None
+        return "/usr/bin/" + name
+    (prefix / "bin").mkdir(parents=True)
+    (prefix / "bin" / "mamba").write_text("", encoding="utf-8")
+    (prefix / "conda-meta").mkdir()
+
+    real_import_module = importlib.import_module
+    platform = types.SimpleNamespace(getName=lambda: "CUDA")
+    fake_openmm = types.SimpleNamespace(Platform=types.SimpleNamespace(
+        getNumPlatforms=lambda: 1, getPlatform=lambda _index: platform))
+    real_isdir = os.path.isdir
+    monkeypatch.setenv("PATH", os.environ.get("PATH", ""))
+    monkeypatch.delenv("AMBERHOME", raising=False)
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(shutil, "which", fake_which)
+    monkeypatch.setattr(urllib.request, "urlretrieve", lambda *_args: None)
+    monkeypatch.setattr(os.path, "isdir", lambda path: str(path) == "/content" or real_isdir(path))
+    monkeypatch.setattr(importlib.util, "find_spec", lambda _name: object())
+    monkeypatch.setattr(importlib, "import_module",
+                        lambda name: fake_openmm if name == "openmm" else real_import_module(name))
+    monkeypatch.setattr(importlib.metadata, "version", lambda name: "0.5.0" if name == "mlmm-toolkit" else "test")
+    namespace: dict = {}
+    exec(compile(setup, str(NOTEBOOK), "exec"), namespace)
+
+    assert namespace["INSTALL_XTB"] is install_xtb
+    # xtb joins the one conda-forge install of AmberTools, and the stamp follows it.
+    expected = ("ambertools=24.8", "xtb") if install_xtb else ("ambertools=24.8",)
+    assert installed == set(expected)
+    assert (prefix / "conda-meta" / "mlmm-colab-stack-v1").read_text(
+        encoding="utf-8") == " ".join(expected) + "\n"
+
+
 @pytest.mark.parametrize(
     ("backend", "use_token", "expected_login"),
     [
@@ -2291,6 +2354,61 @@ def test_run_uses_executed_output_path_for_results_directory(
     assert app["S"]["_last_argv"] == argv
     assert app["S"]["_last_out_dir"] == str(output)
     assert app["results_dir"].value == str(output)
+
+
+@pytest.mark.parametrize(
+    ("written", "chip"),
+    [
+        pytest.param({"scientific_status": "partial"}, ("⚠ done (partial)", "warn"), id="partial"),
+        pytest.param({"scientific_status": "success"}, ("✓ done", "ok"), id="success"),
+        pytest.param(None, ("✓ done", "ok"), id="earlier-partial-summary"),
+    ],
+)
+def test_run_chip_marks_a_partial_result(tmp_path: Path, monkeypatch, written, chip) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    structure = tmp_path / "reactant.pdb"
+    topology = tmp_path / "system.parm7"
+    structure.write_text("ATOM\n", encoding="utf-8")
+    topology.write_text("%VERSION\n", encoding="utf-8")
+    output = tmp_path / "out"
+    output.mkdir()
+    summary = output / "summary.json"
+    summary.write_text(json.dumps({"scientific_status": "partial"}), encoding="utf-8")
+    os.utime(summary, ns=(10**9, 10**9))  # left by an earlier run
+    argv = ["mlmm", "opt", "-i", str(structure), "--parm", str(topology), "-o", str(output)]
+    app["_RUN_STATE"]["validated_fingerprint"] = app["_validation_fingerprint"](argv)
+    app["_output_scope_collision"] = lambda _scope: False
+
+    def stream(_argv):
+        if written is not None:
+            summary.write_text(json.dumps(written), encoding="utf-8")
+        return 0, "ran"
+
+    app["_stream"] = stream
+    app["_results"] = lambda _root: None
+
+    app["_do_run_sync"](None, argv)
+
+    assert (app["_RUN_STATE"]["text"], app["_RUN_STATE"]["tone"]) == chip
+
+
+@pytest.mark.parametrize(
+    ("ready", "sub", "disabled"),
+    [(False, "opt", True), (True, "opt", False), (False, "dft", False)],
+)
+def test_xtb_options_are_off_until_xtb_is_installed(
+    tmp_path: Path, monkeypatch, ready, sub, disabled,
+) -> None:
+    app, _ = _execute_app(monkeypatch, tmp_path)
+    app["XTB_READY"] = ready
+    params = [param for param in app["_advanced_options"](sub)
+              if param.name in app["_XTB_PARAMS"]]
+
+    assert params
+    for param in params:
+        widget = app["_advanced_widget"](sub, param).children[0]
+        assert widget.disabled is disabled, param.name
+    assert app["_XTB_PARAMS"] == {'embedcharge'}
 
 
 def test_colab_manifest_hashes_inplace_input_before_execution(
@@ -5157,6 +5275,7 @@ def test_advanced_dropdowns_select_their_default_label() -> None:
     namespace = {
         "S": state, "W": W, "click": click,
         "_ADVANCED_DEFAULT": "(default)",
+        "XTB_READY": True, "_XTB_PARAMS": set(),
         "_advanced_flag": lambda param: param.opts[0],
         "refresh": lambda: None,
         "_flag_row": lambda widget, _help: types.SimpleNamespace(children=(widget,)),
@@ -5199,6 +5318,7 @@ def test_advanced_numeric_controls_use_the_effective_cli_default() -> None:
     namespace = {
         "S": state, "W": W, "click": click,
         "_ADVANCED_DEFAULT": "(default)",
+        "XTB_READY": True, "_XTB_PARAMS": set(),
         "_DISTANCE_FLOAT_PARAMS": set(),
         "_advanced_flag": lambda param: param.opts[0],
         "_make_distance_stepper": lambda _widget: None,

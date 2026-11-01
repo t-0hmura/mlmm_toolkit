@@ -185,3 +185,47 @@ def test_all_tsopt_dispatch_ignores_bond_diagnostic(tmp_path, monkeypatch, bond_
     assert expected in str(segment["bond_changes"])
     assert (out / "_work/path_opt/hei_seg_01.pdb").is_file()
     assert (out / "_work/path_opt/mep_seg_01_trj.xyz").is_file()
+
+
+def test_refine_path_root_summary_fails_closed_until_post_processing(tmp_path, monkeypatch):
+    # A run that dies in TSOPT must not leave the root without a summary or with the raw path-search success.
+    from _all_stub_harness import run_all
+
+    def stop_at_ts(hei, *args, **kwargs):
+        raise ReachedTSDispatch
+
+    monkeypatch.setattr(all_workflow, "_run_tsopt_on_hei", stop_at_ts)
+    with pytest.raises(ReachedTSDispatch):
+        run_all(tmp_path, monkeypatch, extra=("--refine-path", "--tsopt"))
+
+    out = tmp_path / "out"
+    root = json.loads((out / "summary.json").read_text())
+    assert root["scientific_status"] != "success"
+    assert root["execution_status"] == "failed"
+    assert root["segments"][0]["tag"] == "seg_001"
+    assert "resume_identity" in root
+    raw = json.loads((out / "_work/path_search/summary.json").read_text())
+    assert raw["scientific_status"] == "success"
+
+
+@pytest.mark.parametrize("frames", [(0.0, 2.0), (1.0,)], ids=["mep", "ts-only"])
+def test_every_bond_judgment_of_all_reads_the_yaml_bond_section(tmp_path, monkeypatch, frames):
+    from _all_stub_harness import run_all
+
+    config = tmp_path / "config.yaml"
+    config.write_text("bond:\n  bond_factor: 1.3\n  metal_delta_fraction: 0.25\n", encoding="utf-8")
+    seen = []
+    real = all_workflow._path_search._has_bond_change
+
+    def record(x, y, bond_cfg):
+        seen.append(dict(bond_cfg))
+        return real(x, y, bond_cfg)
+
+    monkeypatch.setattr(all_workflow._path_search, "_has_bond_change", record)
+    run = run_all(tmp_path, monkeypatch, frames=frames, extra=("--tsopt", "--config", str(config)))
+
+    assert run.result.exit_code == 0, run.result.output
+    # MEP: the segment, the IRC endpoint orientation and the optimized endpoints;
+    # TS-only: the optimized R/P.
+    assert len(seen) == (9 if len(frames) == 2 else 1)
+    assert {(cfg["bond_factor"], cfg["metal_delta_fraction"]) for cfg in seen} == {(1.3, 0.25)}

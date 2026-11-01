@@ -43,28 +43,12 @@ from mlmm.core.residue_data import (  # single source of truth (was a drifted lo
 # Distance cutoff (Å) for retaining a peptide C-N connection when adding TERs.
 PEPTIDE_BOND_CUTOFF = 1.9
 
-# AM1-BCC charges must not depend on the machine: left alone, sqm times its
-# diagonalizers and keeps the fastest, and threaded BLAS changes with the load,
-# so the same ligand could get different charges (up to 0.32 e per atom for PRE).
-# antechamber's default sqm keywords for -c bcc plus one fixed diagonalizer:
-# dsyevr (7) reached the lowest final AM1 energy of the PRE minimization
-# (-148.5604 kcal/mol; dsyevd, which sqm's timing picked there, -117.7856).
-SQM_BCC_KEYWORDS = (
-    "qm_theory='AM1', grms_tol=0.0005, scfconv=1.d-10, ndiis_attempts=700, "
-    "diag_routine=7,"
-)
-SINGLE_THREAD_ENV = {
-    "OMP_NUM_THREADS": "1",
-    "MKL_NUM_THREADS": "1",
-    "OPENBLAS_NUM_THREADS": "1",
-}
-
 # Hint message printed when the build fails
 HINT_MESSAGE = (
     "[HINT] When the build fails, please check:\n"
     "  - TER records are present between protein chains in the input PDB.\n"
     "  - Ligand formal charges and spin multiplicities (defaults: 0 and 1) are set correctly via --ligand-charge/--ligand-mult.\n"
-    "  - Hydrogens are present on the ligand (--add-h adds them to standard residues only).\n"
+    "  - Hydrogens are present on the ligand (--add-h adds them to a ligand only when PDBFixer can download its CCD definition and the atom names match).\n"
 )
 
 # ff19SB/OPC3 + nucleic/lipid/GLYCAM + GAFF2
@@ -235,16 +219,8 @@ def ambertools_available() -> bool:
 
 
 # Capture tleap/antechamber output and write the combined log after completion.
-def run(
-    cmd: List[str],
-    cwd: Optional[Path] = None,
-    logfile: Optional[Path] = None,
-    env: Optional[Dict[str, str]] = None,
-) -> int:
-    """Run a subprocess, capture stdout+stderr into a log file, and return the return code.
-
-    ``env`` entries are set on top of the current environment.
-    """
+def run(cmd: List[str], cwd: Optional[Path] = None, logfile: Optional[Path] = None) -> int:
+    """Run a subprocess, capture stdout+stderr into a log file, and return the return code."""
     if not cmd:
         raise ValueError("run() requires a non-empty command")
     executable = which(cmd[0])
@@ -254,7 +230,6 @@ def run(
     with subprocess.Popen(
         resolved_cmd,
         cwd=str(cwd) if cwd else None,
-        env=None if env is None else {**os.environ, **env},
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
@@ -796,15 +771,8 @@ def antechamber_parametrize(resname: str, res_charge: int, res_mult: int, workdi
         resname,
         "-s",
         "2",
-        "-ek",
-        SQM_BCC_KEYWORDS,
     ]
-    rc1 = run(
-        cmd1,
-        cwd=workdir,
-        logfile=workdir / f"{resname}.antechamber.log",
-        env=SINGLE_THREAD_ENV,
-    )
+    rc1 = run(cmd1, cwd=workdir, logfile=workdir / f"{resname}.antechamber.log")
     if rc1 != 0 or not mol2.exists():
         raise RuntimeError(f"[{resname}] antechamber failed (see log).")
     cmd2 = ["parmchk2", "-i", mol2.name, "-f", "mol2", "-o", frcmod.name, "-s", "2"]

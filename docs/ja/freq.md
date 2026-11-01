@@ -93,7 +93,7 @@ result_freq/
 └─ result.json                   # 結果の要約（--out-json 指定時）
 ```
 
-* **極小か TS か**: 端末の熱化学の要約に出る `Number of Imaginary Freq = N` の N が n_imag です。`freq` はこの値を判定しないので、`result.json` の `scientific_status` は n_imag によらず `success` です。極小は n_imag = 0 です。TS 最適化が成功すると、反応モードの虚振動が 1 つ出ます。`frequencies_cm-1.txt` の先頭に有意な虚振動（負の値）が**1 つだけ**あり、2 番目以降が正の値（または許容誤差内）であれば TS で、次は [`irc`](irc.md) に進みます。極小のはずの構造に虚振動が出たら [`opt`](opt.md) の `--flatten` で最適化し直し、TS に虚振動が無いか 2 つ以上あるときは {ref}`TS が取れないとき <ja-ts-search-fails>` を見てください。
+* **極小か TS か**: 端末の熱化学の要約に出る `Number of Imaginary Freq = N` の N が n_imag です。`freq` はこの値を判定しないので、`result.json` の `scientific_status` は n_imag によらず `success` です。極小は n_imag = 0 です。TS 最適化が成功すると、反応モードの虚振動が 1 つ出ます。`frequencies_cm-1.txt` の先頭に有意な虚振動（負の値）が**1 つだけ**あり、2 番目以降が正の値（または許容誤差内）であれば TS で、次は [`irc`](irc.md) に進みます。極小のはずの構造に虚振動が出たら [`opt`](opt.md) の `--flatten` で最適化し直し、TS に虚振動が無いか 2 つ以上あるときは {ref}`TS が得られないとき <ja-ts-search-fails>` を見てください。
 * **可視化**: 生成された `mode_*_trj.xyz` や `.pdb` を PyMOL や VMD などの分子ビューアで開くと、原子が振動するアニメーションを確認できます。
 
 ---

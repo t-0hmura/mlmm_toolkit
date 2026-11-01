@@ -170,8 +170,9 @@ mlmm bond-summary -i frame_01.xyz frame_05.xyz frame_10.xyz
 
 Give two or more XYZ, PDB, or GJF files in order, after one `-i` or with
 `-i` repeated. `--bond-factor` (1.20) scales the summed covalent radii;
-numbering is `--one-based` (default) or `--zero-based`; `--device` defaults
-to `cpu`.
+`--metal-delta-fraction` (0.40) is the change, as a fraction of T, that a pair
+with a metal atom needs; numbering is `--one-based` (default) or `--zero-based`;
+`--device` defaults to `cpu`.
 
 **Judge success.** One block per consecutive pair, written to stdout only:
 
@@ -202,9 +203,11 @@ instead, with `scientific_status`, `execution_status`, and `comparisons`
 - The test is geometric: a pair is bonded at no more than 0.95 × T, where
   T is the summed covalent radii times `--bond-factor`, and a change counts
   only if the distance moves by at least 0.05 × T. It does not tell covalent
-  from ionic or hydrogen bonds. Metal–ligand contacts can sit near the
-  cutoff; raise `--bond-factor`, for example to 1.30 for metal coordination
-  at 2.0–2.4 Å, or to 1.5–1.6 for permissive detection.
+  from ionic or hydrogen bonds. A larger `--bond-factor` (for example 1.30)
+  counts longer contacts but can add false bonds; report the value and
+  inspect the pairs. A pair that contains a metal atom counts only when its
+  distance changes by at least `--metal-delta-fraction` × T (default 0.40, about
+  1.0 Å for Mg–O), whatever `--bond-factor` is.
 - In the `summary.json` of `all` and `path-search`,
   `segments[i]["bond_changes"]` holds the same report as a multi-line
   string.

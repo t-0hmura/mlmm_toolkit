@@ -21,7 +21,7 @@
    "dmf_correlated": true,
    "endpoint_opt_mode": "hess",
    "flatten": false,
-   "mep_mode": "gsm",
+   "mep_mode": "---",
    "opt_mode": "grad",
    "opt_mode_post": "hess",
    "path_opt_mode": null,

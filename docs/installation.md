@@ -32,7 +32,7 @@ hf auth login
 hf auth login --token '<YOUR_ACCESS_TOKEN>' --add-to-git-credential
 ```
 
-You only need to do this once per machine / environment.
+You only need to do this once per machine.
 
 Check the installation with `mlmm --version`, which prints the installed version.
 

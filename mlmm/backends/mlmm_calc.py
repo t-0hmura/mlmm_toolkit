@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import abc
 import importlib
+import importlib.util
 import logging
 import os
 from pathlib import Path
@@ -672,10 +673,10 @@ class _UMABackend(_MLBackend):
             # does NOT expose `.model`; analytical Hessians are therefore unavailable
             # in this mode. Automatic selection uses finite differences; an explicit
             # Analytical request is rejected by the preflight before model loading.
-            if ParallelMLIPPredictUnit is None:
+            if ParallelMLIPPredictUnit is None or importlib.util.find_spec("ray") is None:
                 raise ImportError(
-                    "workers>1 requested, but ParallelMLIPPredictUnit could not be imported "
-                    "from fairchem. Install it with `pip install \"fairchem-core[ray]\"`."
+                    "--uma-workers 2 or more needs fairchem's parallel predictor and Ray; "
+                    'install them with `pip install "fairchem-core[ray]"`.'
                 )
             ckpt_path = pretrained_mlip.pretrained_checkpoint_path_from_name(uma_model)
             atom_refs = _uma_reference_energies(uma_model, "atom_refs")

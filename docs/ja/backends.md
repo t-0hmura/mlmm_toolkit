@@ -183,7 +183,7 @@ ML/MM の段では、選んだ ML バックエンドと Hessian の途中の配�
 - `--deterministic` は PyTorch の決定論的アルゴリズム（`torch.use_deterministic_algorithms`）を有効にし、GPU で決定論的に動く版の無い PyTorch の演算 1 つを置き換えます。
 - `--deterministic` はプロセス全体に効きます。`all` に付ければ `all` が実行する段すべてに効くので、段ごとに付ける必要はありません。
 - `--deterministic` を付けると遅くなることがあります。決定論的な GPU の演算は別の遅い実装を使うことがあるので、繰り返しの計算を一致させる必要があるときだけ使ってください。
-- `--deterministic` では、実行する演算に PyTorch の決定論的な版が無いときは、再現しない結果を黙って出さずに、エラーで止まります。
+- `--deterministic` では、実行する演算に PyTorch の決定論的な版が無いときは、再現しない結果を出さずに、エラーで止まります。
 - 環境変数 `MLMM_STRICT_DETERMINISTIC=1` でも、CI のジョブや Python API で同じモードになります。この変数があると、`--no-deterministic` を付けてもモードは切れません。
 - `--deterministic` だけでは、別の計算機やソフトウェアの版でのビット単位の一致は保証されません。使う環境で 2 回実行して比べてください。
 - UMA で `--uma-workers` を 2 以上にすると、`--hessian-calc-mode Analytical` とは併用できず、エラーで止まります。並列の予測器は autograd のモデルを持たないためです。解析 Hessian には `--uma-workers 1` を、複数のワーカーには `FiniteDifference` を使ってください。

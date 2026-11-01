@@ -123,6 +123,8 @@ Read the outcome in three places:
 
 Whether the endpoints are the intended R and P is for you to check: compare the bond changes in section [2] of `summary.log` and the structures `segments/seg_NN/reactant.*` and `product.*` with the R and P you intended. If n_imag is not 1 or the IRC ends are not the intended ones, see {ref}`When the TS search fails <ts-search-fails>`.
 
+If the highest image of the MEP between two inputs is an end image, `all` builds no segment for that pair (no barrier, no TS optimization), prints "HEI is at an endpoint", and the result is `partial` or `failed` with reason `endpoint_hei`. Check the inputs or add an intermediate.
+
 ---
 
 ## Output files

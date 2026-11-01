@@ -52,7 +52,7 @@ orphan: true
 | 目的 | ページ |
 |------|------|
 | **ML 領域と層を決める・計算を軽くする** | [ML 領域と層の組み方](model-setup.md) |
-| **反応機構を調べる・TS が取れない** | [反応機構を調べるコツ](mechanism-tips.md) |
+| **反応機構を調べる・TS が得られない** | [反応機構を調べるコツ](mechanism-tips.md) |
 | **求めた TS 構造を DFT で構造最適化する** | [MLIP の TS を DFT で確かめる](dft-backend.md) |
 | **計算が失敗した** | [トラブルシューティング](troubleshooting.md) |
 
@@ -69,7 +69,7 @@ orphan: true
 | [`extract`](extract.md) | タンパク質–リガンド複合体から ML 領域を定義 |
 | [`define-layer`](define-layer.md) | ML・可動 MM・固定 MM の層を B-factor で指定 |
 | [`opt`](opt.md) | 単一構造の構造最適化（L-BFGS または RFO。任意の `--flatten` で残った虚振動を除く） |
-| [`scan`](scan.md) | 拘束付き距離スキャン（複数距離の協奏スキャン・多段階スキャンに対応） |
+| [`scan`](scan.md) | 距離・角度・二面角の拘束付きスキャン（協奏スキャン・多段階スキャンに対応） |
 | [`scan2d`](scan2d.md) | 2 次元のエネルギー地形の探索・PES マッピング |
 | [`scan3d`](scan3d.md) | 3 次元のエネルギー地形の探索・PES マッピング |
 | [`path-opt`](path-opt.md) | GSM または DMF による 1 段階の MEP 最適化（2 構造から） |

@@ -15,7 +15,7 @@
 | 計算は通るが状態やエネルギーが不自然 | ML 領域の電荷と多重度を見直してください | {ref}`電荷 / スピンの問題 <ja-charge--spin>` |
 | **計算 / 収束** | | |
 | 実行時に CUDA のメモリ不足（`torch.cuda.OutOfMemoryError`） | 固定 MM の層を確かめる、ML 領域を小さくする（`--radius`）、Hessian の範囲を絞る（`--hessian-cutoff`）、`Analytical` を選んでいたらデフォルトの `FiniteDifference` に戻す、VRAM の大きい GPU に移る | {ref}`CUDA メモリ不足 <ja-cuda-oom>` |
-| TS 最適化が収束しない（`TS optimization did not converge`）、または収束後の n_imag が 1 でない | まず TS 候補を確かめ、次にオプティマイザを切り替えてください（`tsopt --opt-mode` / `all --opt-mode-post`）。n_imag ≥ 2 なら `--flatten` を付けます | {ref}`TS 最適化 <ja-troubleshooting-ts>`、{ref}`TS が取れないとき <ja-ts-search-fails>` |
+| TS 最適化が収束しない（`TS optimization did not converge`）、または収束後の n_imag が 1 でない | まず TS 候補を確かめ、次にオプティマイザを切り替えてください（`tsopt --opt-mode` / `all --opt-mode-post`）。n_imag ≥ 2 なら `--flatten` を付けます | {ref}`TS 最適化 <ja-troubleshooting-ts>`、{ref}`TS が得られないとき <ja-ts-search-fails>` |
 | IRC が正常に終了しない | まず最適化後の端点を確かめ、次にステップを小さくしてください：`irc --step-size` または `all --irc-step-size` | {ref}`IRC <ja-troubleshooting-irc>` |
 | エネルギーが平坦なのに最適化が終わらない（MLIP のノイズフロアの可能性） | `--max-cycles` に任せるか、`--stop-plateau` で早期停止を有効にしてください。止まるのが早すぎる・遅すぎるときは `--stop-plateau-thresh` / `--stop-plateau-window` を調整します | {ref}`プラトーでの停止 <ja-optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor>` |
 | **インストール / 環境** | | |
@@ -134,7 +134,7 @@
 - **症状**：`hessian_ff build attempts failed: ...` が出る、または計算が `native bonded extension is unavailable.`、`native nonbonded extension is unavailable; torch fallback is disabled.`、`analytical Hessian native extension is unavailable.` で止まる。
 - **原因**：C++ 拡張は初回の使用時に `torch.utils.cpp_extension` でコンパイルされます。C++20 対応のコンパイラ（GCC 13.3 で検証済み）と `ninja` が必要です。`ninja` は `mlmm-toolkit` と一緒に入ります。
 - **対処**：
-  - `g++ -std=c++20 -x c++ -fsyntax-only /dev/null` で C++20 に対応しているか確かめてください。コンパイラは `conda install -c conda-forge cxx-compiler` で入れるか、HPC では計算機の C++20 対応のコンパイラのモジュールを読み込みます。
+  - `hessian_ff` が使うコンパイラ（`$CXX` があればそれ、なければ環境の `<arch>-conda-linux-gnu-g++`、それもなければ `c++`）が C++20 に対応しているかを `<コンパイラ> -std=c++20 -x c++ -fsyntax-only /dev/null` で確かめてください。コンパイラは `conda install -c conda-forge cxx-compiler` で入れるか、HPC では計算機の C++20 対応のコンパイラのモジュールを読み込みます。
   - PyTorch のヘッダが見つかるかを `python -c "import torch; print(torch.utils.cmake_prefix_path)"` で確かめてください。
   - ビルドはデフォルトでローカルの一時ディレクトリを使います。ネットワーク上のディレクトリ（NFS/Lustre）では PyTorch のビルドロックで止まることがあるためです。別のローカルのパスを使うときは `TORCH_EXTENSIONS_DIR` を指定してください。
   - `mlmm` を実行する Python 環境から `hessian_ff` を import できるかを確かめてください。
@@ -180,7 +180,7 @@
 
 | 症状 | 原因 | 対処 |
 | --- | --- | --- |
-| UMA のダウンロードに失敗する（`huggingface_hub.errors.GatedRepoError`、`401`、`403`） | Hugging Face にログインしていない、または UMA モデルのライセンスに同意していない | 環境・マシンごとに一度 `hf auth login` を実行し、Hugging Face の UMA モデルのページでライセンスに同意してください。HPC では、計算ノードからモデルのキャッシュ（`$FAIRCHEM_CACHE_DIR`、デフォルトは `~/.cache/fairchem`）に書き込めるかを確かめます |
+| UMA のダウンロードに失敗する（`huggingface_hub.errors.GatedRepoError`、`401`、`403`） | Hugging Face にログインしていない、または UMA モデルのライセンスに同意していない | マシンごとに一度 `hf auth login` を実行し、Hugging Face の UMA モデルのページでライセンスに同意してください。HPC では、計算ノードからモデルのキャッシュ（`$FAIRCHEM_CACHE_DIR`、デフォルトは `~/.cache/fairchem`）に書き込めるかを確かめます。インターネットに接続できない計算ノードでは、同じ環境と、共有ファイルシステム上の同じ `$FAIRCHEM_CACHE_DIR` を使い、ログインノードで各モデルを 1 回取得してから（例: `python -c "from fairchem.core import pretrained_mlip; pretrained_mlip.get_predict_unit('uma-s-1p2p1', device='cpu')"`）、ジョブスクリプトで `export HF_HUB_OFFLINE=1` を設定します |
 | `torch.cuda.is_available()` が `False`、またはインポート時に CUDA の実行時エラー | PyTorch のビルドが計算ノードの GPU・ドライバに合っていない | `nvidia-smi`、`python -m torch.utils.collect_env`、`python -m pip check` で、割り当てられた GPU、入っている PyTorch のビルド、ドライバを確認してください。`nvidia-smi` が示す `CUDA Version` はドライバが扱える最も新しい CUDA です。13.0 より小さいときは、`cuda130` の代わりに `"pytorch=2.13.0=cuda129*"` で環境を作ってください |
 | `--mep-mode dmf` が `DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2` で止まる | `cyipopt` が無い、または `pydmf` の GPU 用の部分が無い | {ref}`インストールの手順 2 <ja-step-by-step-installation>` のとおり、cyipopt を conda-forge から入れて環境を作ってください。`pydmf` は `mlmm-toolkit` と一緒に入ります。デフォルトの GPU 版 DMF でそれでもインポートに失敗するときは、エラーの文が勧めるとおり `pip install 'pydmf[torch]'` を実行してください |
 | `Missing system prerequisite: C compiler (gcc).` または `C++ compiler (g++).`（PyTorch のエラー `Failed to find C compiler`、`No working C++ compiler found`） | `PATH` 上にコンパイラが無い。UMA は初回の実行時にコードをビルドします | {ref}`システムの前提パッケージ <ja-system-prerequisites>` のとおり `gcc`（CPU では `g++`）を入れてください。クラスターではジョブスクリプトで `module load gcc` します |
@@ -226,8 +226,8 @@ IPOPT/MUMPS が並列版 BLIS を使う環境では、入れ子の並列化で�
 - **最適化が収束しないときの対処**：止まった理由とモードの変位を確かめてから、次を順に試してください。
   1. オプティマイザを RS-P-RFO（デフォルト）と Dimer 法の間で切り替える：単独では `tsopt --opt-mode hess` / `dimer`、`all` では `--opt-mode-post hess` / `grad`（Dimer）。
   2. YAML でステップサイズを小さくする。[YAML 設定の一覧](yaml-reference.md#ts-最適化セクション) を参照してください。
-  3. 経路のよりよい HEI（最高エネルギーのイメージ）など、別の候補から始める。{ref}`TS が取れないとき <ja-ts-search-fails>` を参照してください。
-- **n_imag ≥ 2 が残るときの対処**：`--flatten` を付けて最適化し直すか、収束の基準をデフォルトの `baker` から `gau_tight` か `gau_vtight` に締めてください（単独では `tsopt --thresh`、`all` では `--thresh-post`）。Hessian の範囲を広げる、`--refine-path` などのほかの対処は {ref}`TS が取れないとき <ja-ts-search-fails>` にまとめてあります。
+  3. 経路のよりよい HEI（最高エネルギーのイメージ）など、別の候補から始める。{ref}`TS が得られないとき <ja-ts-search-fails>` を参照してください。
+- **n_imag ≥ 2 が残るときの対処**：`--flatten` を付けて最適化し直すか、収束の基準をデフォルトの `baker` から `gau_tight` か `gau_vtight` に締めてください（単独では `tsopt --thresh`、`all` では `--thresh-post`）。Hessian の範囲を広げる、`--refine-path` などのほかの対処は {ref}`TS が得られないとき <ja-ts-search-fails>` にまとめてあります。
 
 (ja-troubleshooting-irc)=
 ### IRC が正常に終了しない
@@ -282,7 +282,7 @@ IRC が収束せずに止まっても、端点の最適化で狙った R と P �
 
 ## 関連ドキュメント
 
-- [反応機構を調べるコツ](mechanism-tips.md) — TS が取れないときに試すこと
+- [反応機構を調べるコツ](mechanism-tips.md) — TS が得られないときに試すこと
 - [インストール](installation.md) — 環境の構築とオプションのバックエンド
 - [MLIP バックエンド](backends.md) — バックエンドの選び方
 - [ML 領域と層の組み方](model-setup.md) — ML 領域と層を確かめる・削る・広げる

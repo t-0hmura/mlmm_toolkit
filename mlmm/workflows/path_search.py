@@ -1851,8 +1851,7 @@ def _build_multistep_path(
     default=None,
     show_default="gau_loose",
     help=(
-        "Convergence preset for the GSM string optimizer "
-        "(gau_loose|gau|gau_tight|gau_vtight|baker|never)."
+        "Convergence preset for the GSM string optimizer."
     ),
 )
 @click.option(

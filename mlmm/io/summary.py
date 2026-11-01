@@ -49,10 +49,17 @@ def format_result_warning(
         r"(?:^|:)raw_(seg_(\d+)(?:_[a-z0-9]+)*)(?::|$)", lowered
     )
 
+    # path-search numbers its raw intervals from seg_000; the path-opt route of
+    # `all` (no --refine-path) numbers them from seg_01.
+    path_stage = "path-search" if refine_path else "path-opt"
+
     def scoped(message: str) -> str:
         if raw_interval_match is not None:
-            number = int(raw_interval_match.group(2)) + 1
-            return f"Path-search interval {number} ({raw_interval_match.group(1)}): {message}"
+            number = int(raw_interval_match.group(2)) + (1 if refine_path else 0)
+            return (
+                f"{path_stage.capitalize()} interval {number} "
+                f"({raw_interval_match.group(1)}): {message}"
+            )
         if segment is None:
             return message[0].upper() + message[1:]
         return f"Segment {segment}: {message}"
@@ -182,16 +189,22 @@ def format_result_warning(
     if "endpoint_hei" in lowered:
         message = "the highest-energy image is at an endpoint"
         if "engine_nonconverged" in lowered:
-            message += " and the path-search engine did not converge. "
-            message += (
-                "Review this interval and its path-search log."
-                if raw_interval_match is not None else "Review the path and path-search log."
-            )
+            if raw_interval_match is not None:
+                message += (
+                    f" and the {path_stage} engine did not converge. "
+                    f"Review this interval and its {path_stage} log."
+                )
+            else:
+                message += (
+                    " and the path-search engine did not converge. "
+                    "Review the path and path-search log."
+                )
         else:
             message += ". "
             message += (
-                "Review this interval before using its barrier."
-                if raw_interval_match is not None else "Review the path before using its barrier."
+                "No barrier is reported for this interval; check the inputs or add an intermediate."
+                if raw_interval_match is not None
+                else "No barrier is reported; check the inputs or add an intermediate."
             )
         return scoped(message)
     priority_messages = {

@@ -1040,8 +1040,7 @@ def _run_dmf_mep(
     default=None,
     show_default="gau_loose",
     help=(
-        "Convergence preset for the GSM string optimizer "
-        "(gau_loose|gau|gau_tight|gau_vtight|baker|never)."
+        "Convergence preset for the GSM string optimizer."
     ),
 )
 @click.option(
@@ -1851,6 +1850,13 @@ def cli(
                     freeze_atoms_final=freeze_atoms_final,
                 )
             except Exception as e:
+                _write_error_json(
+                    out_dir_path,
+                    "path-opt",
+                    e,
+                    "DMFError",
+                    time_start,
+                )
                 if str(dmf_cfg.get("backend", "gpu")).lower() != "cpu" and _is_cuda_oom(e):
                     click.echo(
                         "[dmf] GPU out of memory. Retry with `--dmf-backend cpu` "
@@ -1861,13 +1867,6 @@ def cli(
                     exit_if_missing_prerequisite(e)
                     tb = "".join(traceback.format_exception(type(e), e, e.__traceback__))
                     click.echo(f"[dmf] ERROR: DMF optimization failed:\n{textwrap.indent(tb, '  ')}", err=True)
-                _write_error_json(
-                    out_dir_path,
-                    "path-opt",
-                    e,
-                    "DMFError",
-                    time_start,
-                )
                 sys.exit(1)
             from mlmm.core.utils import write_result_json
 

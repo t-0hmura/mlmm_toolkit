@@ -2635,10 +2635,11 @@ def _orient_irc_endpoint_geometries(
     g_right: Any,
     g_mep_left: Any,
     g_mep_right: Any,
+    bond_cfg: Optional[Mapping[str, Any]] = None,
 ) -> Tuple[Any, Any, str, str, bool, Dict[str, Any]]:
     """Orient IRC endpoints; topology decides only an unambiguous XOR."""
 
-    bond_cfg = dict(_path_search.BOND_KW)
+    bond_cfg = dict(_path_search.BOND_KW if bond_cfg is None else bond_cfg)
     check_errors: List[str] = []
 
     def _matches(x: Any, y: Any) -> bool:
@@ -2731,6 +2732,7 @@ def _validate_optimized_endpoint_pair(
     g_product: Any,
     g_mep_reactant: Any,
     g_mep_product: Any,
+    bond_cfg: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Validate optimized R/P topology against the assigned MEP endpoints."""
 
@@ -2740,6 +2742,7 @@ def _validate_optimized_endpoint_pair(
             g_product,
             g_mep_reactant,
             g_mep_product,
+            bond_cfg=bond_cfg,
         )
     except Exception as exc:
         return {
@@ -2774,8 +2777,12 @@ def _validate_optimized_endpoint_pair(
         "match_matrix": matrix,
     }
     if not direct:
+        # A failed bond-change check is not a topology mismatch.
+        probe_reason = str(probe.get("reason") or "") if isinstance(probe, dict) else ""
         result["reason"] = (
-            "optimized reactant/product did not match their assigned MEP "
+            probe_reason
+            if probe_reason.startswith("bond_change_check_failed:")
+            else "optimized reactant/product did not match their assigned MEP "
             "endpoint bond topologies"
         )
     return result
@@ -2835,7 +2842,8 @@ def _irc_and_match(seg_idx: int,
                    artifact_prefix: str = "irc",
                    public_root: Optional[Path] = None,
                    hessian_calc_mode: Optional[str] = None,
-                   precision: Optional[str] = None) -> Dict[str, Any]:
+                   precision: Optional[str] = None,
+                   bond_cfg: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
     """
     Run EulerPC IRC from a TS geometry, then map the IRC endpoints to (left, right)
     by comparing bond states with the MEP segment endpoints (when ``mep_dir`` is given).
@@ -3079,6 +3087,7 @@ def _irc_and_match(seg_idx: int,
                 g_right,
                 gL_end,
                 gR_end,
+                bond_cfg=bond_cfg,
             )
 
         return {
@@ -4578,8 +4587,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     show_default="gau",
     help=(
         "Convergence preset for single-structure optimizations and scan "
-        "relaxations (gau_loose|gau|gau_tight|gau_vtight|baker|never). "
-        "The MEP stage keeps its own "
+        "relaxations. The MEP stage keeps its own "
         "--thresh-gsm / --dmf-tol."
     ),
 )
@@ -4589,8 +4597,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     default=None,
     show_default="gau_loose",
     help=(
-        "Convergence preset for the GSM string optimizer of the MEP stage "
-        "(gau_loose|gau|gau_tight|gau_vtight|baker|never)."
+        "Convergence preset for the GSM string optimizer of the MEP stage."
     ),
 )
 @click.option(
@@ -4612,8 +4619,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     default="baker",
     show_default=True,
     help=(
-        "Convergence preset for TS and post-IRC endpoint optimizations "
-        "(gau_loose|gau|gau_tight|gau_vtight|baker|never)."
+        "Convergence preset for TS and post-IRC endpoint optimizations."
     ),
 )
 @click.option("--config", "config_yaml", type=click.Path(path_type=Path, exists=True, dir_okay=False),
@@ -4658,9 +4664,9 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     default=True,
     show_default=True,
     help=(
-        "Guide Hessian-based TS root identity from MEP tangent candidate(s) at "
-        "the highest-energy image. The CPU/file cache is not created or used "
-        "when disabled. Dimer does not consume this Hessian reference mode."
+        "Use the MEP tangent at the highest-energy image to choose which Hessian "
+        "mode the Hessian-based TS optimizer (RS-P-RFO, RS-I-RFO, TRIM) follows "
+        "as the reaction mode. Not used with Dimer."
     ),
 )
 @click.option("--thermo/--no-thermo", "do_thermo", default=False, show_default=True,
@@ -5118,6 +5124,10 @@ def cli(
 
     args_yaml = config_yaml
     merged_yaml_cfg, _ = load_merged_yaml_cfg(config_yaml)
+    # Every bond judgment of the run reads the YAML bond section, as scan and
+    # path-search do.
+    _bond_cfg_shared = dict(_path_search.BOND_KW)
+    apply_yaml_overrides(merged_yaml_cfg, [(_bond_cfg_shared, (("bond",),))])
     yaml_model_charge, yaml_model_spin = configured_model_charge_spin(
         merged_yaml_cfg
     )
@@ -6859,7 +6869,8 @@ def cli(
                                  manifest=manifest,
                                  artifact_prefix=f"post.{seg_idx:02d}.irc",
                                  public_root=out_dir,
-                                 hessian_calc_mode=hessian_calc_mode)
+                                 hessian_calc_mode=hessian_calc_mode,
+                                 bond_cfg=_bond_cfg_shared)
         _persist_run_manifest(manifest, out_dir)
         gL = irc_res["left_min_geom"]
         gR = irc_res["right_min_geom"]
@@ -7059,6 +7070,7 @@ def cli(
                     g_prod,
                     mep_left_geom,
                     mep_right_geom,
+                    _bond_cfg_shared,
                 )
         if not dump and react_conv is True and prod_conv is True:
             shutil.rmtree(endpoint_opt_dir, ignore_errors=True)
@@ -7106,7 +7118,7 @@ def cli(
 
         bond_summary: Optional[str] = None
         if ts_only:
-            bond_cfg = dict(_path_search.BOND_KW)
+            bond_cfg = dict(_bond_cfg_shared)
             try:
                 changed, bond_summary = _path_search._has_bond_change(
                     g_react, g_prod, bond_cfg
@@ -7553,6 +7565,10 @@ def cli(
         irc_trj_for_all: List[Tuple[Path, bool]] = []
         tsroot = out_dir / SEGMENTS_DIRNAME / "seg_01"
         ensure_dir(tsroot)
+
+        # In TSOPT-only mode, no MEP search is performed. Use a placeholder for
+        # MEP-related fields in downstream summaries.
+        mep_mode_kind = "---"
 
         # Use the layered full-system PDB as TS initial guess
         layered_pdb = layered_inputs[0]
@@ -8634,15 +8650,24 @@ def cli(
         # --- Energy diagram ---
         energy_diagrams_po: List[Dict[str, Any]] = []
         try:
-            labels = _build_global_segment_labels(
+            segment_labels = _build_global_segment_labels(
                 [int(info["index"]) for info in path_opt_segments]
             )
+            labels: List[str] = []
             energies_chain: List[float] = []
-            for seg_info in path_opt_segments:
+            for position, seg_info in enumerate(path_opt_segments):
                 Es = [float(x) for x in seg_info.get("energies", [])]
                 if not Es:
-                    continue
-                energies_chain.extend((Es[0], max(Es), Es[-1]))
+                    labels = []
+                    break
+                start, ts_label, end = segment_labels[3 * position : 3 * position + 3]
+                if 1 <= _path_opt._select_hei_index(Es) <= len(Es) - 2:
+                    labels.extend((start, ts_label, end))
+                    energies_chain.extend((Es[0], max(Es), Es[-1]))
+                else:
+                    # An endpoint HEI is not a TS: the interval keeps only its ends.
+                    labels.extend((start, end))
+                    energies_chain.extend((Es[0], Es[-1]))
             if labels and energies_chain and len(labels) == len(energies_chain):
                 title_note = (
                     f"({mep_mode_label}; all segments)"
@@ -8671,7 +8696,7 @@ def cli(
         # --- Bond change detection and summary.json ---
         segments_summary: List[Dict[str, Any]] = []
         raw_path_outcomes: List[Dict[str, Any]] = []
-        bond_cfg = dict(_path_search.BOND_KW)
+        bond_cfg = dict(_bond_cfg_shared)
         for seg_idx, info in enumerate(path_opt_segments, start=1):
             Es = [float(x) for x in info.get("energies", [])]
             if not Es:
@@ -8842,6 +8867,36 @@ def cli(
         summary.pop("resumed_from_segment", None)
     path_optimizers.update(summary.get("path_optimizers", []))
     summary["path_optimizers"] = sorted(path_optimizers)
+
+    def _publish_provisional_root_summary(post_segments: Sequence[Dict[str, Any]] = ()) -> None:
+        # The root keeps the fail-closed provisional verdict until
+        # post-processing re-authors it; resume_identity and the segments
+        # finished so far let --resume-segment continue a run that stopped.
+        root_summary = deepcopy(summary)
+        _enrich_summary(
+            root_summary,
+            pipeline_mode="path-search" if refine_path else "path-opt",
+            out_dir=out_dir,
+            manifest=manifest,
+            calculator_config=resolved_calc_template.materialize(),
+            mep_trajectory=final_trj,
+            mlip_backend=mlip_backend_resolved,
+            mlip_model=mlip_model_resolved,
+            mlip_precision=mlip_precision_resolved,
+            mlip_precision_post=mlip_precision_post_resolved,
+            charge=q_int,
+            spin=spin,
+            freeze_atoms=effective_freeze_atoms,
+            command=command_str,
+            config=_summary_config(),
+        )
+        if post_segments:
+            root_summary["post_segments"] = _json_safe(list(post_segments))
+        _publish_root_summary(root_summary)
+
+    if refine_path and not resuming:
+        # The raw path-search summary reads as success.
+        _publish_provisional_root_summary()
     segments = _read_summary(summary_json_path)
     energy_diagrams: List[Dict[str, Any]] = []
     existing_diagrams = summary.get("energy_diagrams", [])
@@ -8995,6 +9050,19 @@ def cli(
         _restore_prior_energy("gibbs_mlip", g_mlip_seg_energies)
         _restore_prior_energy("dft", dft_seg_energies)
         _restore_prior_energy("gibbs_dft_mlip", g_dft_mlip_seg_energies)
+        # The inherited segments keep their stops before IRC.
+        for prior in post_segment_logs:
+            stop = prior.get("pipeline_stop")
+            if not isinstance(stop, dict) or stop.get("stage") != "before_irc":
+                continue
+            stopped_segments.append(
+                {"stage": "before_irc", "segment": stop.get("segment"), "reason": stop.get("reason")}
+            )
+            if pipeline_stop is None:
+                pipeline_stop = dict(stop)
+                summary["stopped_before_irc"] = True
+                summary["pipeline_stop"] = dict(pipeline_stop)
+                summary["stopped_segments"] = stopped_segments
         for prior in post_segment_logs:
             trajectory = prior.get("irc_traj")
             if not trajectory:
@@ -9011,6 +9079,7 @@ def cli(
 
     # For each reactive segment
     for s in reactive:
+        _publish_provisional_root_summary(post_segment_logs)
         seg_idx = int(s.get("index", 0) or 0)
         seg_tag = s.get("tag", f"seg_{seg_idx:02d}")
         _echo_section(f"--- [post] seg_{seg_idx:02d} ({seg_tag}) ---")
@@ -9166,6 +9235,7 @@ def cli(
             continue
 
         post_segment_logs.append(segment_log)
+    _publish_provisional_root_summary(post_segment_logs)
 
     _all_diagram_specs = [
         (True, tsopt_seg_energies, "energy_diagram_MLIP_all",

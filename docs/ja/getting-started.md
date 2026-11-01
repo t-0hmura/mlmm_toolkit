@@ -146,7 +146,7 @@ TS 最適化が成功すると、反応モードの虚振動が 1 つ出ます�
 | `ml_region.pdb`、`mm_parm/`、`layered/` | ML 領域、全系の Amber トポロジー、層を書き込んだ全系の PDB。`--model-pdb` と `--parm7` で再利用できる |
 | `segments/seg_NN/` | 反応セグメントごとの詳細結果（最適化された R/TS/P 構造、IRC 軌跡など。`--tsopt` のとき） |
 
-端末の出力の最後のほうにある `====== Pipeline summary ======` の下の `Scientific status:` の行（`summary.json` の `scientific_status`）は、指定した段がすべて収束すると `success`、そうでなければ `partial` か `failed` になり、理由は `scientific_status_reasons` に出ます。TS の n_imag が 1 か、端点が狙った R と P かは自分で確かめてください。開くファイルは各クイックスタートにあります。
+端末の出力の末尾付近にある `====== Pipeline summary ======` の下の `Scientific status:` の行（`summary.json` の `scientific_status`）は、指定した段がすべて収束すると `success`、そうでなければ `partial` か `failed` になり、理由は `scientific_status_reasons` に出ます。TS の n_imag が 1 か、端点が狙った R と P かは自分で確かめてください。開くファイルは各クイックスタートにあります。
 
 ---
 

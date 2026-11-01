@@ -378,7 +378,7 @@ IRC は `execution_status` と `scientific_status` を出し、方向ごとの�
 |-----------|------|------|
 | `execution_status` / `scientific_status` | string / string | 実行の完了度と、指定した数値最適化・計算段階の完了度。 |
 | `scientific_status_reasons` | string[] | 要求した結果の欠損・未収束などの理由。正常終了時は省略されます。 |
-| `pipeline_stop` | object（無い場合あり） | 早期停止時のみ存在。`stage` は `post`（`reason` は `no_segments` / `no_reactive_segment`）、`before_irc`（最初に止まったセグメントの TSOPT の理由と `segment`・`tsopt_result`）、または `endpoint_opt`（`endpoint_execution_failed` と端点別 `failures`）。`summary.log` では `Pipeline stop` |
+| `pipeline_stop` | object（無い場合あり） | 早期停止時のみ存在。`stage` は `post`（`reason` は `no_segments` / `no_reactive_segment`）、`before_irc`（最初に止まったセグメントの TSOPT の理由と `segment`・`tsopt_result`）、または `endpoint_opt`（`endpoint_execution_failed` と端点別 `failures`）。`summary.log` では `Pipeline stop`。ただし経路のセグメントの `before_irc` の停止は `Stopped before IRC`（`stopped_segments` を参照）と表示し、TS-only の停止は `stopped_segments` に入らない |
 | `stopped_segments` | object[]（無い場合あり） | IRC の前で止まったすべてのセグメント（`stage`・`segment`・`reason`）。ほかのセグメントは処理を続ける。`summary.log` では `Stopped before IRC` |
 | `expected_item_ids` / `observed_item_ids` | string[] | 期待された段と観測された段の ID。 |
 | `n_segments` | int | セグメント数 |
@@ -401,11 +401,11 @@ IRC は `execution_status` と `scientific_status` を出し、方向ごとの�
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
-| `config` | object | 実効設定。`mep_mode` は GSM/DMF、`ts_opt_mode` / `endpoint_opt_mode` は設定した後処理のプリセットを示します。一般の `opt_mode*` は実際に使った CLI の値を記録します。`path_opt_mode` は端点の事前最適化に使う単一構造オプティマイザであり（`preopt` を参照）、MEP の経路アルゴリズムではありません。 |
+| `config` | object | 実効設定。`mep_mode` は GSM/DMF（MEP を探さない TS-only モードでは `---`）、`ts_opt_mode` / `endpoint_opt_mode` は設定した後処理のプリセットを示します。一般の `opt_mode*` は実際に使った CLI の値を記録します。`path_opt_mode` は端点の事前最適化に使う単一構造オプティマイザであり（`preopt` を参照）、MEP の経路アルゴリズムではありません。 |
 | `mlip_precision_post` | string \| null | TS 最適化・IRC・端点の最適化・freq の実効の `tf32` / `fp32` / `fp64`（`--precision-post`）。指定しなければ `mlip_precision` と同じ |
 | `n_segments_reactive` | int | bridge 以外の反応セグメント数 |
 | `rate_limiting_step` | object | 反応セグメントのうち局所障壁が最大のもの。`{segment, barrier_kcal, method}` と、`mep_barrier_kcal`（MEP 上の障壁。TS-only モードでは無し）を持ちます。障壁は、すべてのセグメントで得られる最も高い水準の手法（`DFT//MLIP/MM_Gibbs` > `DFT` > `MLIP_Gibbs` > `MLIP` > `MEP`。`--backend dft` では `MLIP_Gibbs` と `MLIP` の代わりに `DFT/MM_Gibbs` と `DFT/MM`）で取ります。microkinetics に基づく律速段階の判定ではありません。 |
-| `overall_reaction_energy_kcal` | float | 全体の反応エネルギー |
+| `overall_reaction_energy_kcal` | float | 全体反応エネルギー。セグメントを作った区間の値で、セグメントを作らなかった区間は含みません |
 | `overall_reaction_energy_method` | string | 全体の反応エネルギーの手法。`rate_limiting_step.method` と同じ一覧から、それより高くない水準を使います |
 | `post_segments` | list | セグメントごとの TS/IRC/freq/DFT 結果 |
 | `post_segments[].tsopt.n_imaginary_modes` / `.imaginary_frequencies_cm` | int / float[] | 最適化した TS の n_imag と虚振動数 (cm⁻¹, 負の値) |

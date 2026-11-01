@@ -430,3 +430,32 @@ def test_a_stage_wrapped_by_all_prints_the_guidance_once(monkeypatch, tmp_path):
     assert result.exit_code == 1
     assert result.output.count("Missing system prerequisite") == 1, result.output
     assert "Error: [all] path-opt exit code 1." in result.output
+
+
+def test_path_opt_dmf_without_a_compiler_keeps_the_error_record(monkeypatch, tmp_path):
+    """The guidance exit still leaves the DMF failure in result.json."""
+    import json
+    from types import SimpleNamespace
+
+    from mlmm.cli import cli as root_cli
+    from mlmm.workflows import path_opt
+
+    toy = Path(__file__).resolve().parents[1] / "examples" / "toy_system"
+    if not (toy / "p_toy.parm7").exists():
+        pytest.skip("toy_system example inputs not present")
+
+    def no_compiler(*args, **kwargs):
+        raise RuntimeError(TRITON_C)
+
+    monkeypatch.setattr(path_opt, "mlmm", lambda **kwargs: SimpleNamespace(core=None))
+    monkeypatch.setattr(path_opt, "_run_dmf_mep", no_compiler)
+    out_dir = tmp_path / "out"
+    result = CliRunner().invoke(root_cli, [
+        "path-opt", "-i", str(toy / "r_toy.pdb"), str(toy / "p_toy.pdb"),
+        "--parm", str(toy / "p_toy.parm7"), "-q", "-1", "-m", "1",
+        "--mep-mode", "dmf", "--no-preopt", "--out-dir", str(out_dir),
+    ])
+    assert result.exit_code == 1
+    _assert_guidance_only(result.output, pre.KIND_C_COMPILER)
+    record = json.loads((out_dir / "result.json").read_text(encoding="utf-8"))
+    assert (record["error_type"], record["error_label"]) == ("RuntimeError", "DMFError")

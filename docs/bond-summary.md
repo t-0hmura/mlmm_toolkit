@@ -53,7 +53,7 @@ The files are read in the order given; XYZ, PDB, and GJF are recognized by their
 2. **Bond criterion**:
 A pair is bonded when its distance is at most 0.95 *T*, where *T* is `--bond-factor` (default `1.20`) times the sum of the two covalent radii of [Cordero et al. (2008)](https://doi.org/10.1039/b801115j), with 0.40 Å for H.
 3. **Counting a change**:
-A pair counts as formed (broken) when it is unbonded (bonded) in the first structure, bonded (unbonded) in the next, and its distance changes by at least 0.05 *T*, so a small move across the threshold is not counted. `irc` and `all` use the same criterion for the bond changes they report.
+A pair counts as formed (broken) when it is unbonded (bonded) in the first structure, bonded (unbonded) in the next, and its distance changes by at least 0.05 *T* (`--metal-delta-fraction` × *T* for a pair that contains a metal atom; default 0.40, about 1.0 Å for Mg–O), so a small move across the threshold is not counted. `irc` and `all` use the same criterion for the bond changes they report.
 
 ---
 
@@ -69,6 +69,7 @@ A pair counts as formed (broken) when it is unbonded (bonded) in the first struc
 | --- | --- | --- | --- |
 | `-i, --input` | path | (required) | Two or more structures in order, listed after one `-i` (`-i` may also be repeated) |
 | `--bond-factor` | float | `1.20` | Scale factor for the sum of covalent radii |
+| `--metal-delta-fraction` | float | `0.40` | Minimum change, as a fraction of *T*, for a pair that contains a metal atom |
 | `--json/--no-json` | flag | `False` | Print JSON to stdout instead of the text report |
 | `--one-based/--zero-based` | flag | `--one-based` | Atom numbering in the report |
 
@@ -79,7 +80,7 @@ See the [generated CLI reference](reference/commands/bond_summary.md) for every 
 ## Notes
 
 * **Same atoms in the same order**: every structure must have the same atoms in the same order. A pair that differs prints `ERROR: Atom types and ordering must be identical.` to stderr; see {ref}`Input / extraction <input--extraction>`.
-* **Borderline bonds**: to count longer contacts such as metal coordination at 2.0–2.4 Å, raise `--bond-factor` (for example `1.30`).
+* **Borderline bonds**: to count longer contacts, raise `--bond-factor` (for example `1.30`). A pair that contains a metal atom, such as metal coordination, needs a change of `--metal-delta-fraction` × *T* (default `0.40`); lower it to count a smaller change.
 * **Failed pairs**: if any pair cannot be compared, the run exits with code 1 and the JSON `scientific_status` is `partial` or `failed`.
 * **Exit codes**: see {ref}`Exit codes <exit-codes>`.
 

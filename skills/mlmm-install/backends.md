@@ -125,7 +125,7 @@ the backend set differs.
 
 ```bash
 # PyTorch from conda-forge for your CUDA driver (see CUDA and PyTorch)
-conda create -n <YOUR_MACE_ENV> -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt "pytorch=2.13.0=cuda130*" cuda-nvcc -y
+conda create -n <YOUR_MACE_ENV> -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt xtb "pytorch=2.13.0=cuda130*" cuda-nvcc -y
 conda activate <YOUR_MACE_ENV>
 
 # Install mlmm first, then replace its incompatible UMA dependency with MACE.

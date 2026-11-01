@@ -135,6 +135,53 @@ def test_irc_result_json_carries_every_direction_field_that_all_reads(
         assert outcome[f"n_frames_{direction}"] == 5
 
 
+@pytest.mark.parametrize(("child", "prefix"), [(False, "--"), (True, "--irc-")])
+def test_few_frames_warning_names_the_options_of_the_running_command(
+    tmp_path, monkeypatch, child, prefix
+) -> None:
+    from mlmm.core import utils
+
+    finished = _FinishedEulerPC(tmp_path / "out")
+    finished.forward_energies = [-1.0, -1.1]
+    finished.forward_coords = [np.zeros(9) for _ in range(2)]
+    # Under `all` the parent's --irc-* options are the ones a user can pass.
+    monkeypatch.setattr(utils, "_CHILD_MODE", child)
+    _hessian_calls, captured = _run_irc_until_eulerpc(tmp_path, monkeypatch, finished=finished)
+
+    output = captured["result"].output
+    assert "IRC stopped after only a few frames in forward." in output
+    assert f"for example {prefix}step-size 0.05." in output
+    assert f"consider {prefix}never-stop; it is opt-in." in output
+
+
+def test_irc_endpoint_bond_changes_use_the_yaml_bond_section(tmp_path, monkeypatch) -> None:
+    from mlmm.domain import bond_changes
+
+    seen = []
+    real = bond_changes.compare_structures
+
+    def record(g1, g2, **kwargs):
+        seen.append(kwargs)
+        return real(g1, g2, **kwargs)
+
+    class WithEndpoints(_FinishedEulerPC):
+        def run(self):
+            for name in ("finished_first.xyz", "finished_last.xyz"):
+                (self.out_dir / name).write_text(
+                    "3\n\nO 0 0 0\nH 0.96 0 0\nH -0.24 0.93 0\n", encoding="utf-8")
+
+    monkeypatch.setattr(bond_changes, "compare_structures", record)
+    config = tmp_path / "config.yaml"
+    config.write_text(json.dumps({"bond": {"bond_factor": 1.3, "metal_delta_fraction": 0.25}}),
+                      encoding="utf-8")
+    _run_irc_until_eulerpc(
+        tmp_path, monkeypatch, finished=WithEndpoints(tmp_path / "out"),
+        extra_args=("--out-json", "--config", str(config)),
+    )
+    (call,) = seen
+    assert (call["bond_factor"], call["metal_delta_fraction"]) == (1.3, 0.25)
+
+
 def test_cached_ts_hessian_seeds_the_irc_and_is_logged_at_the_detail_tier(
     tmp_path, monkeypatch
 ) -> None:

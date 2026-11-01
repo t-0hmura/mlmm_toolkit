@@ -122,7 +122,7 @@ Imaginary-mode classification and the QRRHO rotor cutoff serve different purpose
 | Threshold | Role | Source |
 |-----------|------|--------|
 | **ν < −5.00 cm⁻¹** | Default imaginary-mode criterion. | Configurable: `freq.zero_cutoff_cm`. |
-| **100 cm⁻¹** | *QRRHO rotor cutoff* (Grimme). Positive low-frequency vibrations are damped between harmonic-oscillator and free-rotor entropy in `freq` thermochemistry; it changes only entropy / Gibbs free energy. | Fixed (not configurable in mlmm-toolkit). |
+| **100 cm⁻¹** | *QRRHO rotor cutoff* (Grimme). The entropy of positive low-frequency vibrations is interpolated between the harmonic-oscillator and free-rotor values in `freq` thermochemistry; it changes only entropy / Gibbs free energy. | Fixed (not configurable in mlmm-toolkit). |
 
 ## CLI Conventions
 

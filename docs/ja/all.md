@@ -121,7 +121,9 @@ IRC が収束しなくても、端点の最適化で狙った R と P に着け�
 * **`summary.json`**: `scientific_status` には、指定した段がすべて収束すると `success`、そうでなければ `partial` か `failed` が入り、理由は `scientific_status_reasons` に出ます。各 TS の n_imag は `post_segments[].tsopt.n_imaginary_modes` です。ステータスの欄の説明は [実行の完了と指定した段の完了](json-output.md#実行の完了と指定した段の完了) にあります。
   * **障壁**: `--tsopt` のとき、各セグメントの障壁は、最適化した TS と R の ML/MM のエネルギーの差で、`post_segments[].mlip.barrier_kcal` に入ります。`--thermo` と `--dft` のときは、ほかの手法の障壁が同じ形で `gibbs_mlip`・`dft`・`gibbs_dft_mlip` に入ります。`segments[].barrier_kcal` は TS 最適化の前の MEP 上の障壁です。TS-only モードでは TS − R です。
 
-端点が狙った R と P かは自分で確かめてください。`summary.log` の [2] の結合の変化と、`segments/seg_NN/reactant.*`・`product.*` の構造を、狙った R と P と比べます。n_imag が 1 でないときや、IRC の端点が狙いと違うときは {ref}`TS が取れないとき <ja-ts-search-fails>` を参照してください。
+端点が狙った R と P かは自分で確かめてください。`summary.log` の [2] の結合の変化と、`segments/seg_NN/reactant.*`・`product.*` の構造を、狙った R と P と比べます。n_imag が 1 でないときや、IRC の端点が狙いと違うときは {ref}`TS が得られないとき <ja-ts-search-fails>` を参照してください。
+
+2 つの入力間の MEP で最高エネルギーの画像が端の画像だった場合、`all` はその区間を作らず（障壁も TS 最適化も出しません）、`HEI is at an endpoint` と表示します。結果は理由 `endpoint_hei` の `partial` か `failed` になります。入力を見直すか中間体を加えてください。
 
 ---
 
@@ -271,6 +273,6 @@ mlmm all -i mutant_R.pdb mutant_P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' --tsopt 
 * [freq](freq.md) — 振動解析と熱化学
 * [dft](dft.md) — ML 領域の DFT 一点計算
 * [MLIP の TS を DFT で確かめる](dft-backend.md) — `-b dft` と `--dft`
-* [反応機構を調べるコツ](mechanism-tips.md) — 反応の分け方、TS の確かめ方、TS が取れないときの次の手
+* [反応機構を調べるコツ](mechanism-tips.md) — 反応の分け方、TS の確かめ方、TS が得られないときの次の手
 * [トラブルシューティング](troubleshooting.md) — 計算が失敗したとき
 * [はじめに](getting-started.md) — 最短の実行と次に読むページ

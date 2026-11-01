@@ -19,7 +19,7 @@ mlmm all -i result_all/_work/path_opt/hei_seg_01.pdb -c 'SAM,GPP,MG' -l 'SAM:1,G
     --tsopt --thermo -o ./result_ts_only
 ```
 
-端末の最後のほうの `====== Pipeline summary ======` の下に `Scientific status: success` と出れば成功で、虚振動が 1 つの TS では `[Imaginary modes] n=1 (...)` と出ます。状態は `summary.json` の `scientific_status` にも入ります。
+端末出力の末尾付近の `====== Pipeline summary ======` の下に `Scientific status: success` と出れば成功で、虚振動が 1 つの TS では `[Imaginary modes] n=1 (...)` と出ます。状態は `summary.json` の `scientific_status` にも入ります。
 
 前の実行とまったく同じ系で TS を計算するときは、そのトポロジーを `--parm7` で、ML 領域を `--model-pdb` で渡し、`-c` を省きます。
 
@@ -91,7 +91,7 @@ result_ts_only/
 | `bond_changes` が空、または端点が狙いと違う | TS のモードと IRC を確認します。経路が別の極小点どうしを結んでいる可能性があります。 |
 | R や P に虚振動が残る | 端点の構造とモードを確認し、`--thresh-post gau_tight` で端点の最適化を厳しくします。 |
 
-n_imag が 1 でないときや、IRC の端点が狙いと違うときは、[反応機構を調べるコツ](mechanism-tips.md) の {ref}`TS を確かめる <ja-mechanism-check-ts>` と {ref}`TS が取れないとき <ja-ts-search-fails>` を参照してください。
+n_imag が 1 でないときや、IRC の端点が狙いと違うときは、[反応機構を調べるコツ](mechanism-tips.md) の {ref}`TS を確かめる <ja-mechanism-check-ts>` と {ref}`TS が得られないとき <ja-ts-search-fails>` を参照してください。
 
 ## 使用上の注意点
 
@@ -104,7 +104,7 @@ n_imag が 1 でないときや、IRC の端点が狙いと違うときは、[�
 ## 次のステップ
 
 - [MLIP の TS を DFT で確かめる](dft-backend.md): TS を DFT/MM で精密化して確かめる
-- [反応機構を調べるコツ](mechanism-tips.md): TS の確かめ方と、TS が取れないときに試すこと
+- [反応機構を調べるコツ](mechanism-tips.md): TS の確かめ方と、TS が得られないときに試すこと
 - [`tsopt`](tsopt.md)・[`irc`](irc.md)・[`freq`](freq.md): 各段を単独で実行する
 - [クイックスタート: `mlmm all`](quickstart-all.md): R と P から MEP を作る
 - [クイックスタート: scan](quickstart-scan.md): 1 つの構造から経路を作る

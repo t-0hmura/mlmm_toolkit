@@ -810,6 +810,7 @@ _SUBCOMMAND_PRIMARY_HELP_OPTIONS: dict[str, frozenset[str]] = {
             "--input",
             "--device",
             "--bond-factor",
+            "--metal-delta-fraction",
             "--help-advanced",
         }
     ),

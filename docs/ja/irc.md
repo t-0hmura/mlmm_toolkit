@@ -97,7 +97,7 @@ mlmm opt -i result_irc/backward_last.xyz --ref-pdb ts.pdb --parm7 real.parm7 \
     --model-pdb ml_region.pdb -q 0 -m 1 --out-dir ./result_opt_backward
 ```
 
-端点が意図した R と P でないときは、{ref}`TS が取れないとき <ja-ts-search-fails>` を参照してください。
+端点が意図した R と P でないときは、{ref}`TS が得られないとき <ja-ts-search-fails>` を参照してください。
 
 ---
 
@@ -170,7 +170,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 * **`--read-hess` のファイル**: [`freq`](freq.md) と同じ `.npy` ファイルで、単位は Hartree/bohr²、全原子か Hessian の計算に入る原子だけの分を持ちます。同じ構造・電荷・多重度・計算設定で求めた Hessian を渡してください。`irc.hessian_init: calc`（デフォルト）が必要です。ファイルを使ったときは、`result.json["rigid_projection"]["hessian_source"]` が `"file"` になります。
 * **解析 Hessian と `--uma-workers`**: UMA では、`--hessian-calc-mode Analytical` は 1 より大きい `--uma-workers` と併用できず、エラーで止まります。[解析 Hessian](backends.md) には `--uma-workers 1` を使ってください。速度とメモリ量はバックエンドと系によって変わるので、先に対象の系で両方を比べてください。
 * **固定原子**: 固定 MM 層のほかに、`--freeze-atoms` でほかの原子（1 始まり）も固定できます。選び方は {ref}`原子の固定と距離の拘束 <ja-freeze-atoms-and-restraints>` を参照してください。
-* **大きな系**: `--hess-device cpu` を付けると、最初の Hessian を CPU に置き、IRC の Hessian の演算も CPU で行って、GPU のメモリに収めます。
+* **大きな系**: `--hess-device cpu` を付けると、最初の Hessian を CPU に置き、IRC の Hessian の演算も CPU で行って、GPU のメモリ不足を避けます。
 * **分岐は少なくとも 1 つ**: `--no-forward` と `--no-backward` を両方付けると、エラーで止まります。
 * **1 回に 1 構造**: `-i` には 1 つの構造を指定します。軌跡からは、使うフレームを先に `.xyz` に切り出し、`--ref-pdb` と一緒に渡してください。
 
