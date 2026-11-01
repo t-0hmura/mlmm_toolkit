@@ -64,7 +64,7 @@ HINT_MESSAGE = (
     "[HINT] When the build fails, please check:\n"
     "  - TER records are present between protein chains in the input PDB.\n"
     "  - Ligand formal charges and spin multiplicities (defaults: 0 and 1) are set correctly via --ligand-charge/--ligand-mult.\n"
-    "  - Hydrogens have been correctly added to the ligand (e.g. with --add-h/--ph).\n"
+    "  - Hydrogens are present on the ligand (--add-h adds them to standard residues only).\n"
 )
 
 # ff19SB/OPC3 + nucleic/lipid/GLYCAM + GAFF2
@@ -378,6 +378,52 @@ def add_hydrogens_with_pdbfixer(pdb_in: Path, pdb_out: Path, ph: float) -> None:
     fixer.addMissingHydrogens(pH=ph)  # only Hs
     with open(pdb_out, "w") as f:
         pdbfile_writer.writeFile(fixer.topology, fixer.positions, f, keepIds=True)
+    rename_pdbfixer_hydrogens_for_amber(pdb_out)
+
+
+def rename_pdbfixer_hydrogens_for_amber(pdb_path: Path) -> None:
+    """
+    Rewrite two PDBFixer naming choices that tleap does not accept, in place.
+
+    PDBFixer writes every histidine as HIS (tleap reads HIS as HIE, so an HD1-only His
+    stops with "HD1 does not have a type") and the N-terminal NH3+ as H/H2/H3 (Amber's
+    N-terminal templates use H1/H2/H3). His becomes HID/HIE/HIP from the hydrogens
+    present, and the N-terminal H becomes H1.
+    """
+    lines = pdb_path.read_text().splitlines(keepends=True)
+    groups: List[List[int]] = []
+    previous_key = None
+    for i, line in enumerate(lines):
+        if not line.startswith(("ATOM  ", "HETATM")):
+            previous_key = None
+            continue
+        key = (line[17:20], line[21], line[22:27])
+        if key != previous_key:
+            groups.append([])
+            previous_key = key
+        groups[-1].append(i)
+
+    for group in groups:
+        names = {lines[i][12:16].strip() for i in group}
+        resname = lines[group[0]][17:20]
+        new_resname = None
+        if resname == "HIS" and names & {"HD1", "HE2"}:
+            new_resname = (
+                "HIP" if {"HD1", "HE2"} <= names else "HID" if "HD1" in names else "HIE"
+            )
+        for i in group:
+            line = lines[i]
+            if new_resname is not None:
+                line = line[:17] + new_resname + line[20:]
+            if (
+                resname in AMINO_ACIDS
+                and {"N", "H", "H2", "H3"} <= names
+                and "H1" not in names
+                and line[12:16].strip() == "H"
+            ):
+                line = line[:12] + " H1 " + line[16:]
+            lines[i] = line
+    pdb_path.write_text("".join(lines))
 
 
 def detect_disulfides_from_pdb(

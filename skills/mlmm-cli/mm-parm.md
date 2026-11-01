@@ -20,7 +20,8 @@ Standard residues only:
 mlmm mm-parm -i complex.pdb --out-prefix system
 ```
 
-A non-standard ligand, with hydrogens added at pH 7 and ff14SB:
+A non-standard ligand that already has its hydrogens in the PDB, with the standard
+residues' hydrogens added at pH 7 and ff14SB (`--add-h` adds none to a ligand):
 
 ```bash
 mlmm mm-parm -i complex.pdb --ligand-charge 'GPP:-3,SAM:1' \
