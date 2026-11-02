@@ -62,7 +62,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - `all --refine-path`: when the run ends before post-processing (no segments, no reactive segment, or none of `--tsopt`, `--thermo` and `--dft`), the root `summary.json` records the `all` command and the `config` of the `all` run, and `all` sets its verdict, like other runs; before, it was the summary of the `path-search` child, with its command and without `config`.
 - The hint printed when the `hessian_ff` extension fails to build gives the C++20 check for the compiler `hessian_ff` uses and suggests `conda install -c conda-forge cxx-compiler`; before, it named the system `g++` and `gxx_linux-64`.
 - `examples/toy_system/run.sh` exports the ONIOM input from a copy of `p_toy.parm7` without CMAP terms; before, `oniom-export` refused the CMAP topology and the script ended with exit 1 at its last command.
-- PNG export (energy diagrams, `trj2fig` and other plots): the export turns on the browser's page events before Kaleido opens the plot page, as the upstream fix does (plotly/Kaleido#481); with Kaleido 1.5.0 and older, a page that loaded quickly could leave the export waiting until the 600 s limit.
 
 ## [0.5.0] — 2026-10-24
 
