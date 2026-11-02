@@ -7009,7 +7009,7 @@ def test_plot_export_installation_does_not_launch_a_render_probe() -> None:
     ):
         assert library in setup
     assert "Chrome installation for Plotly export failed" in setup
-    assert "write_image" in setup
+    assert "write_plotly_image(" in setup
     assert "timeout=90" in setup
     assert "_plot_probe_code" in setup
     assert "PNG export verified" in setup

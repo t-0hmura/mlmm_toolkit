@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import multiprocessing as mp
 import os
-import re
 import signal
 import tempfile
 import uuid
@@ -26,30 +25,25 @@ class PlotlyImageTimeoutError(TimeoutError):
 
 
 def _enable_page_events_before_navigation() -> None:
-    """Send Page.enable before navigation on Kaleido 1.5.0 and older.
+    """Make Kaleido enable Page events before it navigates to its page.
 
-    These versions enable Page events after Page.navigate, so a page that has
-    already loaded never delivers Page.loadEventFired and the export waits
-    until the timeout (plotly/Kaleido#481, fixed upstream by #482).
+    Kaleido 1.5.0 and older enable them after Page.navigate, so a page that has
+    already loaded never delivers Page.loadEventFired and the export waits until
+    the timeout (plotly/Kaleido#481). Kaleido with the upstream fix (#482)
+    enables them first itself; the extra Page.enable is then harmless.
     """
 
     try:
-        from importlib.metadata import version
-
-        release = tuple(int(part) for part in re.findall(r"\d+", version("kaleido"))[:3])
         from kaleido._kaleido_tab import _KaleidoTab
-        from kaleido._kaleido_tab._errors import _raise_error
-    except (ImportError, ValueError):
+    except ImportError:
         return
-    apply_headers = getattr(_KaleidoTab, "_apply_headers", None)
-    if release > (1, 5, 0) or apply_headers is None:
-        return
+    navigate = _KaleidoTab.navigate
 
-    async def _apply_headers_and_enable_page(tab: Any) -> None:
-        await apply_headers(tab)
-        _raise_error(await tab.tab.send_command("Page.enable"))
+    async def _navigate_with_page_events(tab: Any, *args: Any, **kwargs: Any) -> Any:
+        await tab.tab.send_command("Page.enable")
+        return await navigate(tab, *args, **kwargs)
 
-    _KaleidoTab._apply_headers = _apply_headers_and_enable_page
+    _KaleidoTab.navigate = _navigate_with_page_events
 
 
 def _plotly_image_worker(

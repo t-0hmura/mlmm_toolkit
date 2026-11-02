@@ -209,24 +209,9 @@ def _navigate_commands() -> list[str]:
 
 def test_page_events_are_enabled_before_navigation(monkeypatch: pytest.MonkeyPatch) -> None:
     tab_module = pytest.importorskip("kaleido._kaleido_tab")
-    monkeypatch.setattr(
-        tab_module._KaleidoTab, "_apply_headers", tab_module._KaleidoTab._apply_headers
-    )
+    monkeypatch.setattr(tab_module._KaleidoTab, "navigate", tab_module._KaleidoTab.navigate)
     plotly_image._enable_page_events_before_navigation()
 
     commands = _navigate_commands()
 
     assert commands.index("Page.enable") < commands.index("Page.navigate")
-
-
-def test_page_event_order_is_left_to_fixed_kaleido(monkeypatch: pytest.MonkeyPatch) -> None:
-    import importlib.metadata
-
-    tab_module = pytest.importorskip("kaleido._kaleido_tab")
-    apply_headers = tab_module._KaleidoTab._apply_headers
-    monkeypatch.setattr(tab_module._KaleidoTab, "_apply_headers", apply_headers)
-    monkeypatch.setattr(importlib.metadata, "version", lambda name: "1.5.1")
-
-    plotly_image._enable_page_events_before_navigation()
-
-    assert tab_module._KaleidoTab._apply_headers is apply_headers
