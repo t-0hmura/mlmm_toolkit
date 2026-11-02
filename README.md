@@ -69,7 +69,7 @@ hf auth login                               # interactive
 
 | Extra | Adds |
 |---|---|
-| `[orb]` / `[aimnet]` | Orb / AIMNet2 MLIP backend (`-b orb` / `-b aimnet2`) — *not* HF-gated; install `[orb]` in a separate env |
+| `[orb]` / `[aimnet]` | Orb / AIMNet2 MLIP backend (`-b orb` / `-b aimnet2`) — *not* HF-gated; install `[orb]` in a separate Python 3.12 env |
 | `[dft]` / `[dft-cuda12]` | DFT calculator and standalone command with native CUDA 13 / CUDA 12 GPU4PySCF |
 | `[pdbfixer]` | PDBFixer extra (alternative to the conda install above) |
 | `[openmm]` | OpenMM low-level backend, including virtual-site water models |

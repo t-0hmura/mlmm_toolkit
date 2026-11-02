@@ -201,10 +201,9 @@ Options:
                                   [default: no-tsopt]
   --tsopt-from-mep-tan / --no-tsopt-from-mep-tan
                                   Use the MEP tangent at the highest-energy
-                                  image to choose which Hessian mode the
-                                  Hessian-based TS optimizer (RS-P-RFO, RS-I-
-                                  RFO, TRIM) follows as the reaction mode. Not
-                                  used with Dimer.  [default: tsopt-from-mep-
+                                  image to choose which Hessian mode RS-P-RFO
+                                  (hess) follows as the reaction mode. Not used
+                                  with Dimer (grad).  [default: tsopt-from-mep-
                                   tan]
   --thermo / --no-thermo          Run freq on (R,TS,P) per reactive segment (or
                                   TSOPT-only mode) and build a Gibbs free-energy
@@ -361,9 +360,8 @@ Options:
   --cmap / --no-cmap              Preserve CMAP terms in both real and model MM
                                   layers when present in parm7.  [default:
                                   (cmap)]
-  --coord-type [cart|dlc]         Optimization coordinate system (cart|dlc).
-                                  cart is the default; command-specific choices
-                                  are listed here.  [default: (cart)]
+  --coord-type [cart|dlc]         Optimization coordinate system.  [default:
+                                  (cart)]
   --print-every INTEGER RANGE     Print optimizer status every N cycles.
                                   [default: (100); x>=1]
   --precision [tf32|fp32|fp64]    MLIP backend precision: tf32, fp32 (IEEE) or
@@ -375,10 +373,10 @@ Options:
                                   freq.  [default: (per backend: uma fp32; orb,
                                   mace fp64)]
   --precision-post [tf32|fp32|fp64]
-                                  MLIP precision (tf32, fp32 or fp64) for TSOPT,
-                                  IRC, the post-IRC endpoint optimizations and
-                                  freq. Unset uses --precision.  [default:
-                                  (inherits --precision)]
+                                  MLIP precision for TSOPT, IRC, the post-IRC
+                                  endpoint optimizations and freq. Unset uses
+                                  --precision.  [default: (inherits
+                                  --precision)]
   --uma-workers, --workers INTEGER
                                   MLIP predictor workers (UMA). >1 uses a
                                   parallel predictor (needs fairchem-core[ray]);

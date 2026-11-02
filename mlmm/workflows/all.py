@@ -4652,8 +4652,8 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     show_default=True,
     help=(
         "Use the MEP tangent at the highest-energy image to choose which Hessian "
-        "mode the Hessian-based TS optimizer (RS-P-RFO, RS-I-RFO, TRIM) follows "
-        "as the reaction mode. Not used with Dimer."
+        "mode RS-P-RFO (hess) follows as the reaction mode. Not used with Dimer "
+        "(grad)."
     ),
 )
 @click.option("--thermo/--no-thermo", "do_thermo", default=False, show_default=True,

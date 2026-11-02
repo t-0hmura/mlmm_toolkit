@@ -220,10 +220,8 @@ Options:
                                   file) and AIMNet2 are not supported: the run
                                   stops.  [default: no-deterministic]
   --coord-type [cart|redund|dlc|tric]
-                                  Optimization coordinate system
-                                  (cart|redund|dlc|tric). cart is the default;
-                                  command-specific choices are listed here.
-                                  [default: (cart)]
+                                  Optimization coordinate system.  [default:
+                                  (cart)]
   --print-every INTEGER RANGE     Print optimizer status every N cycles.
                                   [default: (100); x>=1]
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity

@@ -146,10 +146,8 @@ Options:
                                   Spin multiplicity (2S+1) for the ML region.
                                   [default: (1); x>=1]
   --coord-type [cart|redund|dlc|tric]
-                                  Optimization coordinate system
-                                  (cart|redund|dlc|tric). cart is the default;
-                                  command-specific choices are listed here.
-                                  [default: (cart)]
+                                  Optimization coordinate system.  [default:
+                                  (cart)]
   --print-every INTEGER RANGE     Print optimizer status every N cycles.
                                   [default: (100); x>=1]
   --precision [tf32|fp32|fp64]    MLIP backend precision: tf32, fp32 (IEEE) or

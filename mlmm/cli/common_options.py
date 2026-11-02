@@ -152,7 +152,6 @@ def add_coord_type_option(
     `coord_type` would make Python treat the whole symbol as local to the
     closure and the assemble-block reference would UnboundLocalError.
     """
-    options_str = "|".join(choices)
     def decorator(func: Callable) -> Callable:
         return click.option(
             "--coord-type",
@@ -160,10 +159,7 @@ def add_coord_type_option(
             type=click.Choice(list(choices), case_sensitive=False),
             default=None,
             show_default="cart",
-            help=(
-                f"Optimization coordinate system ({options_str}). cart is the "
-                f"default; command-specific choices are listed here."
-            ),
+            help="Optimization coordinate system.",
         )(func)
     return decorator
 
@@ -229,8 +225,8 @@ def add_precision_post_option() -> Callable[[Callable], Callable]:
             default=None,
             show_default="inherits --precision",
             help=(
-                "MLIP precision (tf32, fp32 or fp64) for TSOPT, IRC, the "
-                "post-IRC endpoint optimizations and freq. Unset uses --precision."
+                "MLIP precision for TSOPT, IRC, the post-IRC endpoint "
+                "optimizations and freq. Unset uses --precision."
             ),
         )(func)
     return decorator
