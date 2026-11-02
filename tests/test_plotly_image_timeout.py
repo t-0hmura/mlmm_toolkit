@@ -171,3 +171,62 @@ def test_worker_avoids_shared_browser_configuration(
     assert os.environ.get("HOME") == caller_home
     if not render_error:
         assert output.read_bytes() == b"rendered"
+
+
+def _navigate_commands() -> list[str]:
+    import asyncio
+    from unittest.mock import AsyncMock, Mock
+
+    import choreographer
+    from kaleido._kaleido_tab import _KaleidoTab
+
+    async def navigate() -> list[str]:
+        loop = asyncio.get_running_loop()
+        javascript_ready = loop.create_future()
+        page_ready = loop.create_future()
+        tab = Mock(spec=choreographer.Tab)
+        tab.subscribe_once.side_effect = {
+            "Runtime.executionContextCreated": javascript_ready,
+            "Page.loadEventFired": page_ready,
+        }.__getitem__
+        commands: list[str] = []
+
+        async def send_command(command, params=None):
+            commands.append(command)
+            # Chrome does not replay a load event missed while Page was disabled.
+            if command == "Page.navigate" and "Page.enable" in commands:
+                page_ready.set_result({})
+            elif command == "Runtime.enable":
+                javascript_ready.set_result({"params": {"context": {"id": 2}}})
+            return {"result": {}}
+
+        tab.send_command = AsyncMock(side_effect=send_command)
+        await asyncio.wait_for(_KaleidoTab(tab).navigate("file:///index.html"), timeout=1)
+        return commands
+
+    return asyncio.run(navigate())
+
+
+def test_page_events_are_enabled_before_navigation(monkeypatch: pytest.MonkeyPatch) -> None:
+    tab_module = pytest.importorskip("kaleido._kaleido_tab")
+    monkeypatch.setattr(
+        tab_module._KaleidoTab, "_apply_headers", tab_module._KaleidoTab._apply_headers
+    )
+    plotly_image._enable_page_events_before_navigation()
+
+    commands = _navigate_commands()
+
+    assert commands.index("Page.enable") < commands.index("Page.navigate")
+
+
+def test_page_event_order_is_left_to_fixed_kaleido(monkeypatch: pytest.MonkeyPatch) -> None:
+    import importlib.metadata
+
+    tab_module = pytest.importorskip("kaleido._kaleido_tab")
+    apply_headers = tab_module._KaleidoTab._apply_headers
+    monkeypatch.setattr(tab_module._KaleidoTab, "_apply_headers", apply_headers)
+    monkeypatch.setattr(importlib.metadata, "version", lambda name: "1.5.1")
+
+    plotly_image._enable_page_events_before_navigation()
+
+    assert tab_module._KaleidoTab._apply_headers is apply_headers

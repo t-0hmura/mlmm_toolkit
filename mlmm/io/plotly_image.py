@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import multiprocessing as mp
 import os
+import re
 import signal
 import tempfile
 import uuid
@@ -22,6 +23,33 @@ PLOTLY_IMAGE_TIMEOUT_SECONDS = 600.0
 
 class PlotlyImageTimeoutError(TimeoutError):
     """Raised when a Plotly/Kaleido image export exceeds its wall-time bound."""
+
+
+def _enable_page_events_before_navigation() -> None:
+    """Send Page.enable before navigation on Kaleido 1.5.0 and older.
+
+    These versions enable Page events after Page.navigate, so a page that has
+    already loaded never delivers Page.loadEventFired and the export waits
+    until the timeout (plotly/Kaleido#481, fixed upstream by #482).
+    """
+
+    try:
+        from importlib.metadata import version
+
+        release = tuple(int(part) for part in re.findall(r"\d+", version("kaleido"))[:3])
+        from kaleido._kaleido_tab import _KaleidoTab
+        from kaleido._kaleido_tab._errors import _raise_error
+    except (ImportError, ValueError):
+        return
+    apply_headers = getattr(_KaleidoTab, "_apply_headers", None)
+    if release > (1, 5, 0) or apply_headers is None:
+        return
+
+    async def _apply_headers_and_enable_page(tab: Any) -> None:
+        await apply_headers(tab)
+        _raise_error(await tab.tab.send_command("Page.enable"))
+
+    _KaleidoTab._apply_headers = _apply_headers_and_enable_page
 
 
 def _plotly_image_worker(
@@ -43,6 +71,7 @@ def _plotly_image_worker(
     try:
         from plotly import io as pio
 
+        _enable_page_events_before_navigation()
         figure = pio.from_json(figure_json)
         # Keep Chrome's configuration locks off shared home directories.
         previous_config = os.environ.get("XDG_CONFIG_HOME")
