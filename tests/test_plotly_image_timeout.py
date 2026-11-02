@@ -58,8 +58,8 @@ class _Context:
         return self.process
 
 
-def test_plotly_image_timeout_is_ten_minutes() -> None:
-    assert plotly_image.PLOTLY_IMAGE_TIMEOUT_SECONDS == 600.0
+def test_plotly_image_timeout_is_two_minutes() -> None:
+    assert plotly_image.PLOTLY_IMAGE_TIMEOUT_SECONDS == 120.0
 
 
 def test_plotly_image_timeout_terminates_worker_and_removes_stale_output(

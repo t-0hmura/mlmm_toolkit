@@ -17,7 +17,7 @@ from mlmm.core.prerequisites import (
 )
 
 
-PLOTLY_IMAGE_TIMEOUT_SECONDS = 600.0
+PLOTLY_IMAGE_TIMEOUT_SECONDS = 120.0
 
 
 class PlotlyImageTimeoutError(TimeoutError):
@@ -109,7 +109,7 @@ def write_plotly_image(
     timeout_seconds: float = PLOTLY_IMAGE_TIMEOUT_SECONDS,
     **kwargs: Any,
 ) -> Path:
-    """Write one Plotly image atomically, failing after ten minutes by default."""
+    """Write one Plotly image atomically, failing after two minutes by default."""
 
     timeout = float(timeout_seconds)
     if timeout <= 0:
