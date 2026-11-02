@@ -1007,7 +1007,7 @@ def test_path_opt_dmf_leaf_follows_the_canonical_ipopt_criterion(
         (Path(out_dir) / "final_geometries_trj.xyz").write_text("", encoding="utf-8")
         return DMFMepResult(
             images=[*geoms, geoms[-1]], energies=(-1.0, -0.9, -1.1), hei_idx=1,
-            converged=usable, ipopt_status=ipopt_status, reason="",
+            converged=not usable, ipopt_status=ipopt_status, reason="",  # the legacy bit disagrees
         )
 
     monkeypatch.setattr(path_opt, "mlmm", lambda **kwargs: SimpleNamespace(core=None))

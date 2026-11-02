@@ -282,7 +282,7 @@ def _check_pyproject_metadata() -> list[str]:
     else:
         specifier = orb[0].specifier
         if "0.7.0" not in specifier or "0.8.0" not in specifier:
-            errors.append(f"{name}: the orb extra must allow the OrbMol-v2 releases 0.7.0 and 0.8.0")
+            errors.append(f"{name}: the orb extra must allow orb-models 0.7.0 and later versions")
         if "0.5.5" in specifier or "0.6.99" in specifier:
             errors.append(f"{name}: the orb extra must exclude orb-models before 0.7.0")
 

@@ -160,7 +160,7 @@ class _FdTee:
         try:
             self._process = subprocess.Popen(
                 [
-                    sys.executable, "-c", _PUMP_SCRIPT,
+                    sys.executable, "-P", "-c", _PUMP_SCRIPT,
                     str(Path(__file__).resolve().parents[2]), __name__,
                     *(str(fd) for fd in child_ends),
                     str(sink._path.parent), bytes(sink._pending).decode("utf-8"),
@@ -272,28 +272,28 @@ def _libc_fflush():
     return lambda: fflush(None)
 
 
-def _start_fd_tees(sink: _RunLogSink, fflush) -> list[_FdTee]:
+def _start_fd_tee(sink: _RunLogSink, fflush) -> _FdTee | None:
     try:
         if sys.stdout.fileno() != 1 or sys.stderr.fileno() != 2:
-            return []
+            return None
     except (AttributeError, OSError, ValueError):
-        return []
+        return None
     for stream in (sys.stdout, sys.stderr):
         stream.flush()
     if fflush is not None:
         fflush()
     try:
-        return [_FdTee(sink)]
+        return _FdTee(sink)
     except OSError:
-        return []
+        return None
 
 
 @contextlib.contextmanager
 def _capture_run_log(sink: _RunLogSink):
     """Send stdout and stderr to the run log while the command runs."""
     fflush = _libc_fflush()
-    tees = _start_fd_tees(sink, fflush)
-    if not tees:
+    tee = _start_fd_tee(sink, fflush)
+    if tee is None:
         # In-process callers (tests, notebooks) replace sys.stdout/sys.stderr.
         with contextlib.redirect_stdout(_TeeText(sys.stdout, sink)), \
                 contextlib.redirect_stderr(_TeeText(sys.stderr, sink)):
@@ -325,10 +325,8 @@ def _capture_run_log(sink: _RunLogSink):
                 stream.flush()
         if fflush is not None:
             fflush()
-        for tee in tees:
-            tee.restore()
-        for tee in tees:
-            tee.finish()
+        tee.restore()
+        tee.finish()
         if line_buffering is not None:
             with contextlib.suppress(AttributeError, ValueError):
                 sys.stdout.reconfigure(line_buffering=line_buffering)

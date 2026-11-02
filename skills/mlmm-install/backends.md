@@ -150,8 +150,8 @@ mlmm all -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' --tsopt --thermo -
 
 The default model is `MACE-OMOL-0` in fp64; `--backend-model MACE-POLAR-1-S`,
 `-M`, or `-L` selects MACE-POLAR-1 (OMol25, long-range electrostatics), which
-needs mace-torch >= 0.3.16 and
-`pip install graph-longrange==0.4.0`.
+needs
+`pip install 'mace-torch[polar]>=0.3.17'` (this also installs graph-longrange 0.4.4 or later).
 MACE has broad molecular and
 elemental coverage, analytical Hessians in mlmm, and a configurable model and
 precision. It needs the separate env, its runtime and memory depend on the
@@ -298,7 +298,7 @@ The conda-forge PyTorch brings its CUDA user-space libraries as conda
 packages. It needs a compatible NVIDIA driver and an allocated GPU; it does not
 require a site CUDA toolkit, `CUDA_HOME`, or a `cuda/<X.Y>` module.
 Start with a clean runtime and check the driver with `nvidia-smi`.
-UMA also builds code at run time with the env's compiler (`cxx-compiler`), which
+UMA and ORB also compile code at run time for speed, using the env's compiler (`cxx-compiler`), which
 is separate from the toolkit ([System packages](SKILL.md#system-packages)).
 
 Load a CUDA toolkit and compiler only when building a C/CUDA extension from
@@ -339,8 +339,8 @@ the same symptom.
 The conda-forge PyTorch loads its CUDA libraries from `$CONDA_PREFIX/lib`. A
 system or module `LD_LIBRARY_PATH` can load an incompatible `libcusolver`, `libcudnn`,
 `libnvrtc`, or `libnvJitLink` first. The symptoms are
-`OSError: libcusolver.so.11: cannot open shared object file`,
-`Could not load symbol cublasLtCreate`, and
+`OSError: libcusolver.so.<N>: cannot open shared object file` (N is 12 for
+`cuda130`, 11 for `cuda129`), `Could not load symbol cublasLtCreate`, and
 `undefined symbol: cusparseLoggerSetCallback`. Compare against a clean
 environment:
 

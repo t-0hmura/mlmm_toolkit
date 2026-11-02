@@ -24,7 +24,7 @@ The commands below use `1.R.pdb` from the bundled [`examples/beza/`](https://git
 
 ### 1. Check the input first
 
-`--dry-run` checks the input, the layers, the ML-region extraction, the `-s` syntax, the charge and spin, the atom count and order of the topology, and the AmberTools commands, and then stops without any calculation.
+`--dry-run` checks the input, the layers, the ML-region extraction, the `-s` syntax, the charge and spin, and whether the AmberTools commands are installed (without running them), and then stops without any calculation. With `--parm7`, it also checks the atom count and order of the topology and the electron-count parity.
 
 ```bash
 mlmm all -i 1.R.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \

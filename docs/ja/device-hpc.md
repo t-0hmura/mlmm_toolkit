@@ -72,13 +72,14 @@ mlmm freq -i r_complex_layered.pdb --parm7 real.parm7 -q -1 --hess-device cpu
 
 ## HPC ジョブ投入
 
-### PBS 例
+### PBS（Torque）例
 
 ```bash
 #!/bin/bash
 #PBS -N mlmm_opt
 #PBS -q default
 #PBS -l nodes=1:ppn=32:gpus=1,mem=120GB,walltime=72:00:00
+# PBS Pro の場合: -l select=1:ncpus=32:ngpus=1:mem=120gb,walltime=72:00:00
 #PBS -j oe
 
 set -euo pipefail

@@ -177,7 +177,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 
 全オプションは `mlmm tsopt --help-advanced` または [自動生成のオプションの一覧（英語のみ）](../reference/commands/tsopt.md) を参照してください。
 
-> **補足:** YAML では、Dimer 法は `hessian_dimer:` ブロックを読み、RS-P-RFO・RS-I-RFO・TRIM は `rsirfo:` ブロックを共用し、マイクロイテレーションは `microiter:` ブロックを読みます。キーは YAML 設定の一覧の [`rsirfo`](yaml-reference.md#rsirfo)、[`hessian_dimer`](yaml-reference.md#hessian_dimer)、[`microiter`](yaml-reference.md#microiter) にあります。
+> **補足:** YAML では、Dimer 法は `hessian_dimer:` ブロックを読み、RS-P-RFO・RS-I-RFO・TRIM は `rsirfo:` ブロックを共用し、マイクロイテレーションは `microiter:` ブロックを読みます。YAML 設定の一覧の [`rsirfo`](yaml-reference.md#rsirfo)、[`hessian_dimer`](yaml-reference.md#hessian_dimer)、[`microiter`](yaml-reference.md#microiter) を参照してください。
 
 > **補足:** 最適化の途中で反応モードが別の Hessian 固有ベクトル（root）に入れ替わる場合は、`rsirfo.track_mode_by_overlap: true` を設定してください。
 

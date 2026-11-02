@@ -99,7 +99,7 @@ def test_unconverged_max_cycles_stop_records_budget_reason(monkeypatch, tmp_path
     assert payload["flatten_requested"] is True, result.output
     assert payload["flatten_skip_reason"] == BUDGET_BEFORE, result.output
     assert "Reached --max-cycles budget; skipping flatten loop." in result.output
-    # S2: an unconverged max-cycles stop computes no Hessian.
+    # An unconverged max-cycles stop computes no Hessian.
     assert payload["hessian_status"] == "skipped"
     assert phva_calls == []
 

@@ -41,7 +41,7 @@ mlmm sp -i enzyme.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m 1 --h
 2. **エネルギーと力**:
 入力の構造で、ML 領域をバックエンドで、MM 原子を力場で 1 回ずつ計算し、ONIOM のエネルギーと力に組み合わせます。エネルギーと力の最大成分を端末に表示し、力を `forces.npy` に保存します。固定原子に働く力は 0 です。
 3. **Hessian（`--hess` 指定時）**:
-Hessian に入るのは ML 領域と可動 MM 原子で、固定原子は入りません。`--hessian-calc-mode FiniteDifference`（デフォルト）は力を数値微分し、`Analytical` は ML 領域に UMA・ORB・MACE・AIMNet2 の解析 Hessian を使います。`Analytical` は `--uma-workers`（MLIP の並列ワーカー数）を 2 以上にすると使えません。MM の部分はデフォルトで有限差分で、YAML の `calc.mm_fd: false` で `hessian_ff` の解析 Hessian になります。
+Hessian に入るのは ML 領域と可動 MM 原子で、固定原子は入りません。`--hessian-calc-mode FiniteDifference`（デフォルト）は力を数値微分し、`Analytical` は ML 領域に UMA・ORB・MACE・AIMNet2・DFT（`--embedcharge` なし）の解析 Hessian を使います。`Analytical` は `--uma-workers`（MLIP の並列ワーカー数）を 2 以上にすると使えません。MM の部分はデフォルトで有限差分で、YAML の `calc.mm_fd: false` で `hessian_ff` の解析 Hessian になります。
 
 ---
 

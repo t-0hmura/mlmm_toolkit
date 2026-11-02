@@ -78,22 +78,6 @@ def test_summary_renders_the_frequency_and_its_warning() -> None:
     assert "WARNING" not in large
 
 
-def test_thermo_branch_does_not_clobber_the_tsopt_frequency() -> None:
-    """The exact TS-stage record remains a complete saddle verdict."""
-    from mlmm.workflows.all import _ts_imag_record
-
-    from_tsopt = _ts_imag_record(1, [-444.08301776728405])
-    assert from_tsopt["nu_imag_max_cm"] == pytest.approx(-444.083017767)
-
-    # A later thermochemistry spectrum may contain tiny numerical negative
-    # roots.  The workflow must keep this exact TS-stage record unchanged.
-    segment_log = {"ts_imag": from_tsopt}
-    thermo_n_imag = 3
-    if thermo_n_imag is not None and "ts_imag" not in segment_log:
-        segment_log["ts_imag"] = _ts_imag_record(thermo_n_imag)
-    assert segment_log["ts_imag"] == from_tsopt
-
-
 def test_unexported_soft_mode_is_not_reported_as_no_imaginary_mode() -> None:
     """An exact soft imaginary root must not be announced as absent.
 

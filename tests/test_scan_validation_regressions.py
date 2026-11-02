@@ -633,7 +633,7 @@ def test_scan_html_plots_are_responsive_and_scan2d_keeps_native_projection(
     assert re.search(r'"displaylogo":\s*false', html)
     if command == "scan3d":
         # The viewer fills its container instead of keeping a fixed pixel size.
-        assert '<div style="height:100%; width:100%;">' in html
+        assert 'class="plotly-graph-div" style="height:100%; width:100%;"' in html
     else:
         assert "2D Contour Projection (Bottom)" in html
         assert not re.search(r'"project":\s*\{\s*"z":\s*true', html)

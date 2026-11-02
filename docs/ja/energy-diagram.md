@@ -88,7 +88,7 @@ summary.json         # result.json と同じ内容（--out-json 指定時）
 * **ラベルの数**: `--label-x` のラベルの数は値の数と同じにしてください。
 * **順序**: 入力の順がそのまま x 軸の順になります。
 * **単位**: 値はそのまま描くので、単位は `--label-y` に書いてください。
-* **PNG には Chrome が要ります**: Chrome またはその OS のライブラリが無いと、`Missing system prerequisite: Chrome for PNG export.` で止まります。{ref}`システムの前提パッケージ <ja-system-prerequisites>` のとおり入れてください。
+* **画像の出力には Chrome が要ります**: PNG・JPEG・SVG・PDF のどれもヘッドレス Chrome で描くため、Chrome またはその OS のライブラリが無いと、`Missing system prerequisite: Chrome for PNG export.` で止まります。{ref}`システムの前提パッケージ <ja-system-prerequisites>` のとおり入れてください。
 * **終了コード**: {ref}`終了コード <ja-exit-codes>`を参照してください。
 
 ---

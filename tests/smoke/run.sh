@@ -6,6 +6,9 @@
 #   - AmberTools (antechamber / parmchk2 / tleap) on PATH
 #   - xtb on PATH (test80: --embedcharge with an MLIP)
 #   - CUDA available
+#   - orb-models, for test47, test47b and the `orb` argument of test71 only. ORB
+#     goes in its own env (orb-models lowers fairchem-core): run those steps there
+#     and delete them from the copy that runs in the main env.
 #   - a writable scratch copy of this directory (artefacts land in `testNN*`)
 # It does NOT activate conda, load modules, or contain HPC scheduler
 # directives. Copy the fixtures to scratch, then run from that copy:
@@ -432,7 +435,7 @@ python run_limited.py mlmm all -i r_complex.pdb -c PRE -r 6.0 --ligand-charge PR
 # Regression guard: a single -i with several space-separated paths must NOT drop the 2nd input.
 # A single -o yields one multi-MODEL PDB, so both endpoints must appear (-> exactly 2 MODEL records).
 mlmm extract -i r_complex.pdb p_complex.pdb -c PRE -r 5.0 --no-exclude-backbone --ligand-charge 'PRE:0' -o pocket_multi.pdb > test58_multi_extract.out 2>&1
-n_models=$(grep -c '^MODEL' pocket_multi.pdb 2>/dev/null)
+n_models=$(grep -c '^MODEL' pocket_multi.pdb 2>/dev/null || true)
 if [ "${n_models:-0}" -ne 2 ]; then
   echo "[extract-multi] test58: space-separated '-i a b' yielded ${n_models:-0} MODEL records (expected 2); the 2nd input was dropped" >> test58_multi_extract.out
   exit 1

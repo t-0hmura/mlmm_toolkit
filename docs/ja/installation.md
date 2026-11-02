@@ -22,7 +22,7 @@ pip install mlmm-toolkit
 plotly_get_chrome -y
 ```
 
-PNG の出力には、pip と conda が入れない OS のライブラリが要ります。足りないときは先に入れてください: {ref}`システムの前提パッケージ <ja-system-prerequisites>`。
+画像（PNG・JPEG・SVG・PDF）の出力には、pip と conda が入れない OS のライブラリが要ります。足りないときは先に入れてください: {ref}`システムの前提パッケージ <ja-system-prerequisites>`。
 
 最後に、UMA モデルをダウンロードできるように **Hugging Face Hub** にログインします。無料の HF アカウントと読み取り専用トークンが必要で、先に <https://huggingface.co/facebook/UMA> で FAIR Chemistry License v1 に同意します:
 
@@ -45,8 +45,8 @@ ORB・AIMNet2・MACE・DFT の導入は {ref}`詳細なインストール手順 
 
 pip と conda は Chrome が使うライブラリを入れません。また `cxx-compiler` を入れずに作った環境にはコンパイラがありません。ワークステーションには通常ありますが、最小構成のコンテナや素のクラスターノードにはないことが多いです。
 
-- **コンパイラ:** UMA は初回の実行時にコードをビルドします。GPU では C コンパイラ（`gcc`）、CPU では C++ コンパイラ（`g++`）が要ります。`hessian_ff` には C++20 対応コンパイラが要ります。最短のインストールの conda のコマンドは、これらを入れます（`cxx-compiler`）。
-- **Chrome 用のライブラリ:** PNG の図（`energy-diagram`、`trj2fig`、`all` の図）はヘッドレス Chrome で描きます。Chrome は `plotly_get_chrome -y` でダウンロードし、下の OS のライブラリを読み込みます。
+- **コンパイラ:** UMA と ORB は実行時に高速化のためコンパイルをします。GPU では C コンパイラ（`gcc`）、CPU では C++ コンパイラ（`g++`）が要ります。`hessian_ff` には C++20 対応コンパイラが要ります。最短のインストールの conda のコマンドは、これらを入れます（`cxx-compiler`）。
+- **Chrome 用のライブラリ:** PNG・JPEG・SVG・PDF の図（`energy-diagram`、`trj2fig`、`all` の図）はヘッドレス Chrome で描きます。Chrome は `plotly_get_chrome -y` でダウンロードし、下の OS のライブラリを読み込みます。
 
 Ubuntu/Debian（Ubuntu 22.04 と Debian 12 では `libasound2t64` の代わりに `libasound2` と書きます。root なら `sudo` は不要）:
 
@@ -69,9 +69,9 @@ sudo dnf install -y alsa-lib at-spi2-atk at-spi2-core atk ca-certificates cairo 
   vulkan-loader wget xdg-utils
 ```
 
-sudo が使えない HPC では、`module load gcc` か、環境へのコンパイラの追加（`conda install -c conda-forge c-compiler cxx-compiler`）を使います。Chrome のライブラリは管理者に依頼してください。入っていなくても `all` と `path-search` は最後まで実行され、PNG だけが作られません。
+sudo が使えない HPC では、`module load gcc` か、環境へのコンパイラの追加（`conda install -c conda-forge c-compiler cxx-compiler`）を使います。Chrome のライブラリは管理者に依頼してください。
 
-どれかが足りないときは、コマンドが止まり、`Missing system prerequisite:` に続けて同じコマンドを表示します。
+コンパイラが足りないときは、コマンドが止まり、`Missing system prerequisite:` に続けて同じコマンドを表示します。Chrome のライブラリが足りないときは、`energy-diagram` と `trj2fig` は同じように止まり、`all`・`path-search`・`scan2d` は警告を出し、PNG の作成だけを省いて続けます。
 
 (ja-step-by-step-installation)=
 ## 詳細なインストール手順

@@ -46,7 +46,8 @@ mlmm freq -i 04_tsopt/final_geometry.pdb -l "SAM:1,PHN:-1" --parm complex.parm7 
 mlmm freq -i 07_opt_backward/final_geometry.pdb -l "SAM:1,PHN:-1" --parm complex.parm7 --out-dir 10_freq_backward || exit 1
 
 # Step 12: Supply relative energies in forward/TS/backward order and the three
-# validated chemical labels explicitly (for example ENDPOINT_LABELS='P TS R').
+# validated chemical labels explicitly (for example ENERGIES='[0.0, 12.5, 4.3]'
+# and ENDPOINT_LABELS='P TS R').
 if [[ -n ${ENERGIES:-} && -n ${ENDPOINT_LABELS:-} ]]; then
   read -r -a endpoint_labels <<< "$ENDPOINT_LABELS"
   if [[ ${#endpoint_labels[@]} -ne 3 ]]; then

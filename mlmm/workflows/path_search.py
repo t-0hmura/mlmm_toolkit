@@ -1262,8 +1262,6 @@ def _summary_log_provenance(summary: Dict[str, Any]) -> Dict[str, Any]:
         "mlip_model_label": summary.get("mlip_model_label"),
         "mlip_task": summary.get("mlip_task"),
         "mlip_precision": summary.get("mlip_precision"),
-        "status": summary.get("status"),
-        "status_reasons": summary.get("status_reasons", []),
         "execution_status": summary.get("execution_status"),
         "scientific_status": summary.get("scientific_status"),
         "scientific_status_reasons": summary.get(

@@ -20,6 +20,8 @@ TIMEOUT_ENV = "MLMM_DUMP_CASE_TIMEOUT_SEC"
 GENERIC_TIMEOUT_ENV = "DOCS_DUMP_CASE_TIMEOUT_SEC"
 DEFAULT_CASE_TIMEOUT_SEC = 900.0
 
+sys.path.insert(0, str(REPO_ROOT))
+
 
 @dataclass(frozen=True)
 class Fixture:

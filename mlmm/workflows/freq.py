@@ -78,7 +78,6 @@ from mlmm.core.utils import (
     emit_dry_run_complete,
     format_elapsed,
     format_freeze_atoms_for_echo,
-    load_yaml_dict,
     merge_freeze_atom_indices,
     normalize_choice,
     prepare_input_structure,
@@ -983,7 +982,7 @@ def cli(
     error_out_dir = Path(out_dir).resolve()
     _is_param_explicit = make_is_param_explicit(ctx)
 
-    merged_yaml_cfg, _ = load_merged_yaml_cfg(config_yaml)
+    merged_yaml_cfg, config_layer_cfg = load_merged_yaml_cfg(config_yaml)
     from mlmm.cli.decorators import resolve_model_indices_setting
     model_indices_str, model_indices_one_based = resolve_model_indices_setting(
         ctx, merged_yaml_cfg, model_indices_str, model_indices_one_based
@@ -1032,13 +1031,6 @@ def cli(
             click.echo(f"ERROR: {e}", err=True)
             prepared_input.cleanup()
             sys.exit(2)
-
-    try:
-        config_layer_cfg = load_yaml_dict(config_yaml)
-    except ValueError as e:
-        click.echo(f"ERROR: {e}", err=True)
-        prepared_input.cleanup()
-        sys.exit(2)
 
     geom_cfg = deepcopy(GEOM_KW)
     calc_cfg = deepcopy(CALC_KW)

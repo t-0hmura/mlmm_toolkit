@@ -170,12 +170,15 @@ def test_method_builder_prepares_cusolver_before_the_first_gpu4pyscf_import(
 def test_dft_command_prepares_cusolver_before_its_first_gpu4pyscf_import(
     environment, monkeypatch, tmp_path
 ) -> None:
-    pytest.importorskip("pyscf")
+    pyscf_misc = pytest.importorskip("pyscf.lib.misc")
     from ase import Atoms
     from click.testing import CliRunner
 
     from mlmm.cli import cli as root_cli
     from mlmm.workflows import dft
+
+    # A real gpu4pyscf imported earlier replaces this banner with one that reads gpu4pyscf.__config__.
+    monkeypatch.setattr(pyscf_misc, "format_sys_info", lambda: [])
 
     toy = Path(__file__).resolve().parents[1] / "examples" / "toy_system"
     if not (toy / "p_toy.parm7").exists():

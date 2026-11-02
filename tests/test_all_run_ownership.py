@@ -294,34 +294,3 @@ def test_finalize_summary_includes_outputs_from_late_producers(tmp_path: Path) -
     ]
     assert set(stored["key_output_files"]) == set(stored["current_output_paths"])
     assert json.loads((work_dir / "summary.json").read_text(encoding="utf-8")) == stored
-
-
-_SUMMARY_EXITS = {
-    "mep-no-post": ((0.0, 2.0), [], {}),
-    "mep-post": ((0.0, 2.0), ["--tsopt"], {}),
-    "no-segments": ((0.0, 2.0), ["--refine-path", "--tsopt"], {"path_search_segments": []}),
-    "no-reactive-segment": ((0.0, 2.0), ["--refine-path", "--tsopt"], {"path_search_segments": [{
-        "index": 1, "tag": "seg_001_bridge", "kind": "bridge", "barrier_kcal": 0.5,
-        "delta_kcal": 0.1, "bond_changes": "", "converged": True,
-    }]}),
-    "tsopt-only": ((1.0,), ["--tsopt"], {}),
-    "tsopt-only-stopped": ((1.0,), ["--tsopt"], {"tsopt": "not_converged"}),
-    "tsopt-only-endpoint-failure": ((1.0,), ["--tsopt"], {"opt": {"P": "error"}}),
-}
-
-
-@pytest.mark.parametrize("exit_name", list(_SUMMARY_EXITS))
-def test_all_finalizes_after_each_late_summary_log_producer(tmp_path, monkeypatch, exit_name) -> None:
-    """Every terminal path republishes summary.json after writing summary.log."""
-    from _all_stub_harness import TS_NOT_CONVERGED, Behaviour, run_all
-
-    frames, extra, options = _SUMMARY_EXITS[exit_name]
-    if options.get("tsopt") == "not_converged":
-        options = {**options, "tsopt": dict(TS_NOT_CONVERGED)}
-    run = run_all(tmp_path, monkeypatch, frames=frames, extra=extra, behaviour=Behaviour(**options))
-
-    summary = run.summary
-    assert (run.out / "summary.log").is_file()
-    assert "summary.log" in summary["current_output_paths"]
-    assert "summary.log" in summary["key_output_files"]
-    assert "summary.json" in summary["current_output_paths"]

@@ -66,24 +66,6 @@ def test_default_subcommand_is_inserted_when_no_args() -> None:
     assert "all-called" in result.output
 
 
-def test_output_directory_command_writes_run_log(tmp_path: Path) -> None:
-    cli = _make_group()
-
-    @cli.command(name="work")
-    @click.option("-o", "--out-dir", default="result_work")
-    def work_cmd(out_dir: str) -> None:
-        Path(out_dir).mkdir(parents=True)
-        click.echo("work-complete")
-
-    out = tmp_path / "result"
-    result = CliRunner().invoke(cli, ["work", "-o", str(out)])
-
-    assert result.exit_code == 0
-    log = (out / "run.log").read_text(encoding="utf-8")
-    assert "[command] mlmm work" in log
-    assert "work-complete" in log
-
-
 def test_run_log_is_written_during_the_run_and_appends_on_rerun(tmp_path: Path) -> None:
     cli = _make_group()
     seen_during_run: list[str] = []
@@ -146,6 +128,45 @@ def test_run_log_keeps_c_library_child_and_logging_output(tmp_path: Path) -> Non
                  "logging-stderr", "c-stdio-output", "during:True"):
         assert text in log, text
     assert "python-stdout" in result.stdout and "fd-stderr" in result.stderr
+
+
+def test_run_log_helper_does_not_import_modules_from_the_working_directory(tmp_path: Path) -> None:
+    import os
+    import subprocess
+    import sys
+    import textwrap
+
+    work = tmp_path / "work"
+    work.mkdir()
+    # A user file named like a module the helper imports.
+    (work / "select.py").write_text(
+        "raise RuntimeError('the select.py of the working directory was imported')\n",
+        encoding="utf-8",
+    )
+    out = tmp_path / "result"
+    script = textwrap.dedent(
+        """
+        import os, sys
+        from pathlib import Path
+        from mlmm.cli import default_group as dg
+
+        out = Path(sys.argv[1])
+        out.mkdir()
+        sink = dg._RunLogSink(out, "[command] mlmm probe\\n")
+        with dg._capture_run_log(sink):
+            os.write(1, b"fd-stdout\\n")
+        sink.close()
+        """
+    )
+    # Like the console script, the command itself has no working directory on sys.path.
+    env = dict(os.environ, PYTHONPATH=str(Path(__file__).resolve().parents[1]))
+    result = subprocess.run(
+        [sys.executable, "-P", "-c", script, str(out)],
+        cwd=work, env=env, capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "select.py of the working directory" not in result.stderr
+    assert "fd-stdout" in (out / "run.log").read_text(encoding="utf-8")
 
 
 def test_run_log_keeps_the_output_of_a_command_killed_by_a_signal(tmp_path: Path) -> None:

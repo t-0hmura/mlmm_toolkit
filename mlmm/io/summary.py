@@ -1493,7 +1493,10 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
                     f"    Image : {_shorten_path(diag_payload.get('image'), root_out_path)}"
                 )
 
-            diag_by_method.setdefault(method_key, diag_payload)
+            # The table shows the whole reaction: an all-segment diagram
+            # replaces the first segment's.
+            if method_key not in diag_by_method or name.endswith("_all"):
+                diag_by_method[method_key] = diag_payload
             if not state_order and labels:
                 state_order = list(labels)
     else:

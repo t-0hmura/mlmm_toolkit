@@ -254,12 +254,13 @@ def test_mace_sees_coordinates_centred_on_the_origin(monkeypatch) -> None:
 
 def test_mace_polar_without_mace_polar_names_the_mace_torch_version(monkeypatch) -> None:
     _install_fake_mace(monkeypatch, mace_polar=None)
-    with pytest.raises(ImportError, match=r"MACE-POLAR-1 needs mace-torch >= 0\.3\.16"):
+    with pytest.raises(ImportError, match=r"MACE-POLAR-1 needs mace-torch >= 0\.3\.17") as excinfo:
         mlmm_calc._MACEBackend(
             mace_model="MACE-POLAR-1-M",
             mace_dtype="float64",
             ml_device=torch.device("cpu"),
         )
+    assert "pip install 'mace-torch[polar]>=0.3.17'" in str(excinfo.value)
 
 
 @pytest.mark.parametrize(
@@ -296,13 +297,13 @@ def test_mace_polar_without_graph_longrange_names_the_package(monkeypatch) -> No
         raise ModuleNotFoundError("No module named 'graph_longrange'", name="graph_longrange")
 
     _install_fake_mace(monkeypatch, mace_polar=missing)
-    with pytest.raises(ImportError, match="MACE-POLAR-1 needs graph-longrange 0.4.0") as excinfo:
+    with pytest.raises(ImportError, match="MACE-POLAR-1 needs graph-longrange from the polar extra") as excinfo:
         mlmm_calc._MACEBackend(
             mace_model="MACE-POLAR-1-M",
             mace_dtype="float64",
             ml_device=torch.device("cpu"),
         )
-    assert "graph-longrange==0.4.0" in str(excinfo.value)
+    assert "pip install 'mace-torch[polar]>=0.3.17'" in str(excinfo.value)
 
 
 def test_mace_polar_other_missing_modules_propagate(monkeypatch) -> None:

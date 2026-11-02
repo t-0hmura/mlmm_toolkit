@@ -5,7 +5,24 @@
  "exit_code": 0,
  "summary": {
   "charge": 0,
-  "command": "mlmm path-search -i <tmp>/input0.pdb <tmp>/input1.pdb -q 0 -m 1 --parm <tmp>/fixture.parm7 --detect-layer --mep-mode gsm --no-preopt --opt-mode grad --out-dir <tmp>/out/_work/path_search --ref-pdb <tmp>/input0.pdb <tmp>/input1.pdb",
+  "command": "mlmm all -i <tmp>/input0.pdb -i <tmp>/input1.pdb -q 0 -m 1 --parm <tmp>/fixture.parm7 --model-pdb <tmp>/input0.pdb --out-dir <tmp>/out --no-preopt --refine-path --tsopt",
+  "config": {
+   "dft": false,
+   "dmf_backend": "gpu",
+   "dmf_correlated": true,
+   "endpoint_opt_mode": "hess",
+   "flatten": false,
+   "mep_mode": "gsm",
+   "opt_mode": "grad",
+   "opt_mode_post": "hess",
+   "path_opt_mode": "grad",
+   "post_opt_mode": "hess",
+   "preopt": false,
+   "refine_path": true,
+   "thermo": false,
+   "ts_opt_mode": "hess",
+   "tsopt": true
+  },
   "current_output_paths": [
    "energy_diagram_MEP.png",
    "mep_plot.png",
@@ -23,8 +40,7 @@
   "execution_status": "completed",
   "expected_item_ids": [
    "segment_1",
-   "raw_path",
-   "reactive_segment_1"
+   "raw_path"
   ],
   "key_output_files": {
    "energy_diagram_MEP.png": "MEP energy plot",
@@ -44,11 +60,13 @@
   "mlip_model": "uma-s-1p2p1",
   "mlip_model_label": "UMA-S-1.2.1 (OMol)",
   "mlip_precision": "fp32",
+  "mlip_precision_post": "fp32",
   "mlip_task": "omol",
   "mlmm_toolkit_version": "<version>",
   "mm_backend": "hessian_ff",
   "n_images": 3,
   "n_segments": 1,
+  "n_segments_reactive": 0,
   "observed_item_ids": [
    "segment_1",
    "raw_path"
@@ -178,8 +196,9 @@
   "schema_version": "4.0",
   "scientific_status": "partial",
   "scientific_status_reasons": [
-   "path:raw_path:endpoint_hei",
-   "missing:reactive_segment_1"
+   "no usable energy diagram was produced",
+   "requested post-processing did not run: no reactive segment was identified",
+   "path:raw_path:endpoint_hei"
   ],
   "search_max_depth": 10,
   "segments": [

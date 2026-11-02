@@ -205,7 +205,7 @@ Energies in the diagrams are in kcal/mol relative to the first state (the reacta
 | `-s, --scan-lists` | text | `None` | Staged scan targets for one input, one literal per stage (e.g. `'[("A:SAM:320:CS1","A:GPP:321:C7",1.50)]'`; format in {ref}`Scan-list spec <scan-list-spec>`) |
 | `--tsopt/--no-tsopt` | flag | `False` | Optimize the TS of each segment and run IRC |
 | `--thermo/--no-thermo` | flag | `False` | Frequencies and ML/MM thermochemistry on R, TS, and P (needs `--tsopt`) |
-| `--dft/--no-dft` | flag | `False` | DFT single points of the ML region on R, TS, and P (needs `--tsopt`) |
+| `--dft/--no-dft` | flag | `False` | DFT single points of the ML region on R, TS, and P (needs `--tsopt` and the DFT extra) |
 | `--refine-path/--no-refine-path` | flag | `False` | Run the recursive `path-search` instead of one `path-opt` per pair |
 | `--mep-mode` | `gsm` / `dmf` | `gsm` | MEP method: GSM or DMF |
 | `--opt-mode` | `grad` / `hess` | `grad` | Optimizer for the single-structure optimizations and the scan: `grad` = L-BFGS, `hess` = RFO. When given and `--opt-mode-post` is not, it is also used for the TS and the endpoints |
@@ -240,7 +240,7 @@ For every option, run `mlmm all --help-advanced` or see the [generated CLI refer
 * **Charge and multiplicity**: `-q` and `-m` describe the ML region, not the whole enzyme. With `-c`, the ML-region charge is the sum over the extracted model of the first input: built-in values for amino acids, ions, and water, `-l` for the other residues, and 0 for residues not listed in `-l`. Without `-c`, the same sum is taken over the ML region from the B-factors or `--model-pdb`. `-q` overrides the derived value with a warning; when no value can be derived, `calc.model_charge` in the YAML file is used. The multiplicity is `-m`, otherwise `calc.model_mult` in the YAML file, otherwise 1. See [Common options and selectors](cli-conventions.md).
 * **Frozen atoms and rigid-body motions**: the vibrational analysis projects out only the rigid translations and rotations that leave the frozen atoms in place, so with a frozen MM layer usually none are removed; see [freq → Rigid modes with frozen boundaries](freq.md#rigid-modes-with-frozen-boundaries).
 * **Separately prepared structures**: when the input structures were prepared independently, their differences outside the reaction coordinate enter the barrier. Compare the structures before reading the barrier. For two mechanisms of the same composition, use one common atom set and atom order for both paths.
-* **`--resume-segment`**: it needs `--tsopt`, `--thermo`, or `--dft`, and cannot be combined with `--dry-run`. The run stops with an error when the saved inputs, ML region, topology, layered structures, or MEP do not match the command.
+* **`--resume-segment`**: it needs `--tsopt` (give `--thermo` and `--dft` together with `--tsopt`), and cannot be combined with `--dry-run`. The run stops with an error when the saved inputs, ML region, topology, layered structures, or MEP do not match the command.
 
 ### Comparing a mutant with the wild type
 

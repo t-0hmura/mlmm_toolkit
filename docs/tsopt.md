@@ -177,7 +177,7 @@ The options shared by every ML/MM calculation command are explained once in {ref
 
 For every option, run `mlmm tsopt --help-advanced` or see the [generated CLI reference](reference/commands/tsopt.md).
 
-> **Note:** in YAML, Dimer reads the `hessian_dimer:` block, RS-P-RFO, RS-I-RFO, and TRIM share the `rsirfo:` block, and microiteration reads `microiter:`. Every key is listed under [`rsirfo`](yaml-reference.md#rsirfo), [`hessian_dimer`](yaml-reference.md#hessian_dimer), and [`microiter`](yaml-reference.md#microiter) in the YAML Reference.
+> **Note:** in YAML, Dimer reads the `hessian_dimer:` block, RS-P-RFO, RS-I-RFO, and TRIM share the `rsirfo:` block, and microiteration reads `microiter:`. See [`rsirfo`](yaml-reference.md#rsirfo), [`hessian_dimer`](yaml-reference.md#hessian_dimer), and [`microiter`](yaml-reference.md#microiter) in the YAML Reference.
 
 > **Note:** if the reaction mode switches to another Hessian eigenvector (root) during the optimization, set `rsirfo.track_mode_by_overlap: true`.
 

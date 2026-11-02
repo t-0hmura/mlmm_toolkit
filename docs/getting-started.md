@@ -142,7 +142,7 @@ When the run finishes, the output directory (`-o`, default `./result_all/`) cont
 | `summary.log` | Text summary (directory layout and progress of each stage) |
 | `summary.json` | Machine-readable results (barriers, energies of each state, bond changes) |
 | `energy_diagram_*.png` | Energy profile plots (electronic energy / Gibbs-corrected) |
-| `mep_trj.pdb` / `mep_trj.cif` | Animated trajectory of the minimum energy path (MEP) |
+| `mep_trj.xyz` / `mep_trj.pdb` | Animated trajectory of the minimum energy path (MEP) |
 | `ml_region.pdb`, `mm_parm/`, `layered/` | The ML region, the full-system Amber topology, and the layered full-system PDBs; reuse them with `--model-pdb` and `--parm7` |
 | `segments/seg_NN/` | Detailed results for each reaction segment (optimized R/TS/P structures, IRC trajectories, and more; with `--tsopt`) |
 
@@ -213,6 +213,8 @@ The individual ML/MM commands need the full-system topology (`--parm7`) and the 
 | `--thermo/--no-thermo` | (flag) | Runs vibrational analysis and thermochemical correction with the QRRHO (quasi-rigid-rotor harmonic oscillator) model (with `--tsopt`) |
 | `--dft/--no-dft` | (flag) | Runs DFT single points on the resulting structures (with `--tsopt`) |
 | `-b, --backend` | `uma` / `orb` / `mace` | Backend for the ML region (default `uma`; `dft` is also available) |
+
+`--dft` needs the DFT extra from step 7 of {ref}`Step-by-step installation <step-by-step-installation>`.
 
 For the syntax rules, see [Common options and selectors](cli-conventions.md); for every option, see the [`all` CLI reference](reference/commands/all.md).
 

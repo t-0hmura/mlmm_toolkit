@@ -142,7 +142,7 @@ TS 最適化が成功すると、反応モードの虚振動が 1 つ出ます�
 | `summary.log` | テキスト形式のサマリー（ディレクトリ構成、各段階の進行状況） |
 | `summary.json` | 機械可読形式の結果（反応障壁、各状態のエネルギー、結合変化） |
 | `energy_diagram_*.png` | 生成されたエネルギープロファイル図（電子エネルギー / Gibbs 補正） |
-| `mep_trj.pdb` / `mep_trj.cif` | 最小エネルギー経路（MEP）のアニメーション軌跡ファイル |
+| `mep_trj.xyz` / `mep_trj.pdb` | 最小エネルギー経路（MEP）のアニメーション軌跡ファイル |
 | `ml_region.pdb`、`mm_parm/`、`layered/` | ML 領域、全系の Amber トポロジー、層を書き込んだ全系の PDB。`--model-pdb` と `--parm7` で再利用できる |
 | `segments/seg_NN/` | 反応セグメントごとの詳細結果（最適化された R/TS/P 構造、IRC 軌跡など。`--tsopt` のとき） |
 
@@ -213,6 +213,8 @@ mlmm all [OPTIONS]...
 | `--thermo/--no-thermo` | （フラグ） | 振動解析と QRRHO（準剛体ローター・調和振動子）モデルによる熱化学補正を実行（`--tsopt` と併用） |
 | `--dft/--no-dft` | （フラグ） | 得られた構造に対して一点 DFT 計算を実行（`--tsopt` と併用） |
 | `-b, --backend` | `uma` / `orb` / `mace` | ML 領域に使うバックエンドを指定（デフォルト: `uma`。`dft` も選択可能） |
+
+`--dft` には、{ref}`詳細なインストール手順 <ja-step-by-step-installation>` の手順 7 で入れる DFT 用の追加パッケージが要ります。
 
 構文ルールの詳細は [共通オプションと残基・原子の指定](cli-conventions.md)、全オプションは [`all` のオプションの一覧（英語のみ）](../reference/commands/all.md) を参照してください。
 

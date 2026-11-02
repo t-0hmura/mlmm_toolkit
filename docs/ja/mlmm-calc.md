@@ -30,7 +30,7 @@ E_ONIOM = E(REAL-low) - E(MODEL-low) + E(MODEL-high)
 | --- | --- | --- |
 | 高レベル手法 | DFT、HF、post-HF | MLIP（UMA、ORB、MACE、AIMNet2）または DFT（`-b dft`） |
 | 低レベル手法 | OpenMM / Amber | `hessian_ff`（デフォルト）/ OpenMM |
-| リンク原子 | 通常は必要 | parm7 の結合のうち ML/MM 境界をまたぐものすべてに自動で付く |
+| リンク原子 | 通常は必要 | parm7 の C–C・C–N・N–C の結合のうち ML/MM 境界をまたぐものすべてに自動で付く |
 | 埋め込み | 静電埋め込みが一般的 | デフォルトは機械的埋め込み。`--embedcharge` で MM の点電荷を ONIOM-EE の形で入れる（MLIP では xTB の補正、DFT では PySCF の Hamiltonian） |
 | 速度 | 遅い（QM が律速） | MLIP なら速い（GPU で推論）。`-b dft` は DFT と同じコスト |
 
@@ -45,7 +45,7 @@ E_ONIOM = E(REAL-low) - E(MODEL-low) + E(MODEL-high)
 
 ### リンク原子の再分配
 
-ML/MM 境界が共有結合を切るとき、MODEL-high の計算では、切れた結合の ML 側をリンク水素でキャップします。計算機は、parm7 の結合のうち片方の端だけが ML 領域にあるものすべてか、`link_mlmm` で指定した組にリンク水素を付けるので、`model.pdb` にはリンク水素を入れません。配置の方式は `--link-atom-method` で選べます。
+ML/MM 境界が共有結合を切るとき、MODEL-high の計算では、切れた結合の ML 側をリンク水素でキャップします。計算機は、parm7 の C–C・C–N・N–C の結合のうち片方の端だけが ML 領域にあるものすべてか、`link_mlmm` で指定した組にリンク水素を付けるので、`model.pdb` にはリンク水素を入れません。ほかの結合が境界をまたぐと `Unsupported ML/MM boundary bond in parm7` で止まります。配置の方式は `--link-atom-method` で選べます。
 
 | 方式 | 配置 | 推奨 |
 | --- | --- | --- |
@@ -205,7 +205,7 @@ core = MLMMCore(
 | `backend` | `str` | `"uma"` | MLIP バックエンド |
 | `mm_backend` | `str` | `"hessian_ff"` | MM エンジン（`hessian_ff` または `openmm`） |
 | `return_partial_hessian` | `bool` | `True` | `True` なら、`compute()` は 4 次元の `(n_active, 3, n_active, 3)` の部分 Hessian と、メタデータの dict `within_partial_hessian`（動く原子の番号、自由度の対応）を返します。`False` なら、全系に広げた 4 次元の `(N, 3, N, 3)` の Hessian を返します。 |
-| `link_mlmm` | `list[tuple[str, str]]` | `None` | リンク原子の組を手で指定します。`[("RESN RESID ATOMNAME", "RESN RESID ATOMNAME"), ...]` の形で、1 つ目が ML 側、2 つ目が MM 側です（例：`[("SAM 359 CA", "SAM 359 N")]`）。`None` なら、parm7 のトポロジーで ML/MM 境界をまたぐ結合すべてにリンクを付けます（距離では決めません）。 |
+| `link_mlmm` | `list[tuple[str, str]]` | `None` | リンク原子の組を手で指定します。`[("RESN RESID ATOMNAME", "RESN RESID ATOMNAME"), ...]` の形で、1 つ目が ML 側、2 つ目が MM 側です（例：`[("SAM 359 CA", "SAM 359 N")]`）。`None` なら、parm7 のトポロジーで ML/MM 境界をまたぐ C–C・C–N・N–C の結合すべてにリンクを付けます（距離では決めません）。ほかの結合が境界をまたぐと止まります。 |
 
 #### compute()
 

@@ -60,7 +60,7 @@ If no covalent bond changes between End1 and End2, the region is a *kink*: `path
 4. **Recursing where bonds still change**:
 The parts A → End1 and End2 → B are checked for bond changes, and only parts that still have them are searched again, down to `--max-depth` levels.
 5. **Stitching**:
-The pieces are joined into one path. Duplicate endpoints are dropped; where the ends of two neighboring pieces still differ in bonds, that gap is searched as a new segment, and any other gap is filled with a short connecting path.
+The pieces are joined into one path. Duplicate endpoints are dropped; where the ends of two neighboring pieces still differ in bonds, that gap is searched as a new segment, and any other gap is filled with a short connecting path (a bridge segment, kind `bridge`).
 
 Bond changes are judged with the thresholds in the YAML `bond` section, by the same rules as in {ref}`scan <section-bond>`.
 

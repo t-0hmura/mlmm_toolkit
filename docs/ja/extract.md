@@ -191,7 +191,7 @@ PDB の残基名や原子名が標準でないために、`extract` が残基を
 
 **リシンの変異体・カルボキシル化:** `MLY` (+1), `LLP` (0), `KCX`（−1, Nz のカルボン酸）
 
-**D-アミノ酸**（19 残基）: `DAL`, `DAR`, `DSG`, `DAS`, `DCY`, `DGN`, `DGL`, `DHI`, `DIL`, `DLE`, `DLY`, `MED`, `DPN`, `DPR`, `DSN`, `DTH`, `DTR`, `DTY`, `DVA`
+**D-アミノ酸**（19 残基）: `DAL`, `DAR`, `DSG`, `DAS`, `DCY`, `DGN`, `DGL`, `DHI`, `DIL`, `DLE`, `DLY`, `MED`, `DPN`, `DPR`, `DSN`, `DTH`, `DTR`, `DTY`, `DVA`。`DAR` と `DLY` は +1、`DAS` と `DGL` は −1、ほかの 15 残基は 0 です。
 
 **その他の修飾残基:** `CGU`（−2, γ-カルボキシグルタミン酸）、`CGA` (−1)、`PCA`（0, ピログルタミン酸）、`MSE`（0, セレノメチオニン）、`OMT`（0, メチオニンスルホン）、`HYP`（0, ヒドロキシプロリン）。ほかに `ASA`, `CIR`, `FOR`, `MVA`, `IIL`, `AIB`, `HTN`, `SAR`, `NMC`, `PFF`, `NFA`, `ALY`, `AZF`, `CNX`, `CYF`（いずれも 0）
 

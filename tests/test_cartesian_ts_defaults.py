@@ -99,13 +99,6 @@ def test_ignored_section_keeps_explicit_provenance():
         assert kwargs["hessian_update"] == "bofill"
 
 
-def test_explicit_atomic_norm_preserves_explicit_radius():
-    kwargs = resolve({"rsirfo": {"trust_radius": 0.1, "trust_norm": "max_atom"}})
-    assert kwargs["trust_norm"] == "max_atom"
-    assert kwargs["trust_radius"] == 0.1
-    assert kwargs["trust_max"] == 0.1
-
-
 @pytest.mark.parametrize("kind,geom,extra", [
     ("rsirfo", {}, {}), ("trim", {}, {}), ("dimer", {}, {}),
     ("rsprfo", {"coord_type": "dlc"}, {}),

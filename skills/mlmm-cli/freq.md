@@ -48,7 +48,8 @@ Positive modes between 0 and 5 cm⁻¹ remain in thermochemistry.
 ```
 result_freq/
 ├── frequencies_cm-1.txt                  # all modes, sorted, cm⁻¹
-├── mode_NNNN_<±freq>cm-1_trj.xyz / .pdb  # per-mode displacement
+├── mode_NNNN_<±freq>cm-1_trj.xyz         # per-mode displacement
+├── mode_NNNN_<±freq>cm-1.pdb             # same, as PDB
 ├── thermoanalysis.yaml                   # with --dump
 └── result.json                           # with --out-json
 ```

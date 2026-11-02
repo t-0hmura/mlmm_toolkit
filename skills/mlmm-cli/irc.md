@@ -130,7 +130,7 @@ for b in bc["broken"]: print("BROKEN ", b)
   still leaves a finite endpoint that goes on to endpoint `opt`; raise
   `--max-cycles` only when the branch must be followed further.
 - The bond-change detector is geometry-based (covalent-radius cutoff), not
-  physics-based. Metal–ligand bonds may flicker near the cutoff.
+  physics-based. A pair with a metal atom counts only when its distance changes by at least `bond.metal_delta_fraction` × the cutoff (YAML `bond` section, default 0.40).
 
 ## Next step
 

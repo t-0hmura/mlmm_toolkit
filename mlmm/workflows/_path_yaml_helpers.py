@@ -60,8 +60,7 @@ def apply_single_opt_yaml_layer(
 
     Mutates ``lbfgs_cfg`` and ``rfo_cfg`` in place and removes the nested
     ``lbfgs``/``rfo`` sections that the ``stopt`` route copied into
-    ``stopt_cfg``. ``deep_update`` is taken as a parameter so this module
-    stays free of upward imports from ``mlmm.core.utils``.
+    ``stopt_cfg``.
     """
     if not isinstance(layer_cfg, dict):
         return

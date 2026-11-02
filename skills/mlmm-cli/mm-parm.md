@@ -75,8 +75,8 @@ and the tleap logs.
 
 - SAM has 22 H at charge 0 (NH2/COO⁻/S⁺ zwitterion) and 23 H at +1
   (NH3⁺/COO⁻/S⁺, the usual biological form). A −3 diphosphate such as DMAPP
-  has 9 H. ATP / ADP: 12–13 H for the usual −4 / −3, depending on the
-  dataset; count the H in your file. Do not add or remove
+  has 9 H. ATP⁴⁻ and ADP³⁻ have 12 H; 13 H fits ATP³⁻ or ADP²⁻, so
+  count the H in your file. Do not add or remove
   protons to fix the parity; keep the dataset's protonation and change `-l`:
 
   ```bash

@@ -88,7 +88,7 @@ See the [generated CLI reference](reference/commands/energy_diagram.md) for ever
 * **Label count**: the number of `--label-x` labels must equal the number of values.
 * **Order**: the input order is the order on the x-axis.
 * **Units**: the values are drawn unchanged, so state their unit in `--label-y`.
-* **PNG needs Chrome**: without Chrome or its operating-system libraries the run stops with `Missing system prerequisite: Chrome for PNG export.`; install them as in {ref}`System prerequisites <system-prerequisites>`.
+* **Image files need Chrome**: PNG, JPEG, SVG and PDF are all drawn by headless Chrome, so without Chrome or its operating-system libraries the run stops with `Missing system prerequisite: Chrome for PNG export.`; install them as in {ref}`System prerequisites <system-prerequisites>`.
 * **Exit codes**: see {ref}`Exit codes <exit-codes>`.
 
 ---

@@ -41,7 +41,7 @@ mlmm sp -i enzyme.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m 1 --h
 2. **Energy and forces**:
 The backend computes the ML region and the force field the MM atoms, once at the input geometry, and the two are combined into the ONIOM energy and forces. `sp` prints the energy and the largest force component and saves the forces to `forces.npy`; frozen atoms get zero force.
 3. **Hessian (with `--hess`)**:
-The Hessian covers the ML region and the movable MM atoms, without frozen atoms. `--hessian-calc-mode FiniteDifference` (the default) differentiates the forces numerically; `Analytical` uses the analytical Hessian of UMA, ORB, MACE, or AIMNet2 for the ML region and cannot run with `--uma-workers` (parallel MLIP predictor workers) above 1. The MM part uses finite differences by default; YAML `calc.mm_fd: false` selects the analytical MM Hessian of `hessian_ff`.
+The Hessian covers the ML region and the movable MM atoms, without frozen atoms. `--hessian-calc-mode FiniteDifference` (the default) differentiates the forces numerically; `Analytical` uses the analytical Hessian of UMA, ORB, MACE, AIMNet2, or DFT (without `--embedcharge`) for the ML region and cannot run with `--uma-workers` (parallel MLIP predictor workers) above 1. The MM part uses finite differences by default; YAML `calc.mm_fd: false` selects the analytical MM Hessian of `hessian_ff`.
 
 ---
 

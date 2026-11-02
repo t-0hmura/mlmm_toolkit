@@ -213,11 +213,12 @@ Options:
   --deterministic / --no-deterministic
                                   Make repeated runs on the same software
                                   versions and hardware give identical results
-                                  (PyTorch deterministic algorithms). Slower;
-                                  raises for detected unsupported ops; custom
-                                  calculators (--calc-file) and AIMNet2 are not
-                                  supported: the run stops.  [default: no-
-                                  deterministic]
+                                  (PyTorch deterministic algorithms; AM1-BCC
+                                  ligand charges are not covered, so reuse one
+                                  parm7). Slower; raises for detected
+                                  unsupported ops; custom calculators (--calc-
+                                  file) and AIMNet2 are not supported: the run
+                                  stops.  [default: no-deterministic]
   --coord-type [cart|redund|dlc|tric]
                                   Optimization coordinate system
                                   (cart|redund|dlc|tric). cart is the default;

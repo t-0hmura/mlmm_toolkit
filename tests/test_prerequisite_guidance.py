@@ -33,6 +33,12 @@ BROWSER = (
     "BrowserFailedError: ('The browser seemed to close immediately after starting.', "
     "'You can set the `logging.Logger` level lower to see more output.')"
 )
+# Plotly turns Kaleido's ChromeNotFoundError into a RuntimeError with this text (plotly.io._kaleido, Plotly 7.1.0).
+PLOTLY_NO_CHROME = (
+    "\n\nKaleido requires Google Chrome to be installed.\n\n"
+    "Either download and install Chrome yourself following Google's instructions for your operating system,\n"
+    "or install it from your terminal by running:\n\n    $ plotly_get_chrome\n\n"
+)
 
 
 class InductorError(Exception):
@@ -86,10 +92,12 @@ def test_message_links_to_a_docs_section_that_exists():
 def test_compiler_messages_give_the_install_commands():
     # An official image has no apt package lists: apt-get install alone stops with "Unable to locate package".
     gpu = pre.guidance(pre.KIND_C_COMPILER)
+    assert "UMA and ORB compile GPU code at run time for speed" in gpu
     assert "sudo apt-get update && sudo apt-get install -y gcc" in gpu
     assert "sudo dnf install -y gcc" in gpu
     assert "conda install -c conda-forge c-compiler" in gpu
     cpu = pre.guidance(pre.KIND_CXX_COMPILER)
+    assert "UMA and ORB compile CPU kernels at run time for speed" in cpu
     assert "sudo apt-get update && sudo apt-get install -y g++" in cpu
     assert "sudo dnf install -y gcc-c++" in cpu
     assert "conda install -c conda-forge cxx-compiler" in cpu
@@ -308,6 +316,15 @@ def test_png_export_that_cannot_start_chrome_raises_the_prerequisite_error(monke
     assert re.search(HEADERS[pre.KIND_CHROME], text)
     assert "Plotly image export failed: BrowserFailedError" in text
     assert not (tmp_path / "plot.png").exists()
+
+
+def test_png_export_without_chrome_raises_the_prerequisite_error(monkeypatch, tmp_path):
+    error = RuntimeError(PLOTLY_NO_CHROME)
+    _render_returns(monkeypatch, ("error", f"{type(error).__name__}: {error}"))  # what the worker sends
+    with pytest.raises(pre.MissingPrerequisiteError) as caught:
+        plotly_image.write_plotly_image(_Figure(), tmp_path / "plot.png")
+    assert caught.value.kind == pre.KIND_CHROME
+    assert "Kaleido requires Google Chrome to be installed" in str(caught.value)
 
 
 def test_png_export_failing_for_another_reason_keeps_its_plain_error(monkeypatch, tmp_path):

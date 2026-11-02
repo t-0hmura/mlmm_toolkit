@@ -419,3 +419,11 @@ def test_successful_memory_cache_skips_recomputing_build_identity(
     assert first is second
     assert identity_calls == 1
     assert len(calls) == 1
+
+
+def test_rebuild_hint_checks_the_compiler_the_build_uses(monkeypatch):
+    monkeypatch.setenv("CXX", "g++-13 -fPIC")
+    hint = loader._rebuild_hint()
+
+    assert "check C++20 support:  g++-13 -fPIC -std=c++20 -x c++ -fsyntax-only /dev/null" in hint
+    assert "conda install -c conda-forge cxx-compiler" in hint

@@ -5,7 +5,7 @@ description: "Install recipes for mlmm-toolkit core, AmberTools, and the ML back
 
 # Install mlmm-toolkit
 
-Create one conda-forge env with AmberTools and PyTorch for your driver, then `pip install mlmm-toolkit` (UMA comes with the core); MACE needs its own env.
+Create one conda-forge env with AmberTools and PyTorch for your driver, then `pip install mlmm-toolkit` (UMA comes with the core); ORB and MACE each need their own env.
 
 mlmm-toolkit needs a PyTorch build that matches the NVIDIA driver, at least one
 MLIP backend, AmberTools for `mlmm mm-parm` ([ambertools.md](ambertools.md)),
@@ -29,8 +29,9 @@ and the checks in [Verify the install](#verify-the-install) pass.
 4. Install mlmm-toolkit and headless Chrome for Plotly PNG export.
 5. Accept the UMA license on Hugging Face and log in ([UMA](backends.md#uma)).
 6. Add other backends only when needed, after checking the model
-   domain and a pilot on the target system. MACE needs its own env
-   ([MACE](backends.md#mace-separate-environment)). DFT is optional
+   domain and a pilot on the target system. ORB and MACE need their own envs
+   ([ORB](backends.md#orb-separate-environment),
+   [MACE](backends.md#mace-separate-environment)). DFT is optional
    ([DFT](backends.md#dft-pyscf-gpu4pyscf)); skip it if you only need MLIP
    energies. xTB, in the command below, is used only by the MLIP/MM
    `--embedcharge` correction or by a custom calculator that runs xTB
@@ -48,12 +49,14 @@ hf auth login                            # after accepting the license on facebo
 
 pip and conda do not install the libraries of Chrome, and an environment built
 without `cxx-compiler` has no compiler; a bare container or cluster node often
-lacks both. UMA builds code the first time it runs: a GPU run needs a C compiler
+lacks both. UMA and ORB compile code at run time for speed: a GPU run needs a C compiler
 (`gcc`), a CPU run a C++ compiler (`g++`), and `hessian_ff` a C++20 compiler.
 PNG export needs the operating-system libraries of the Chrome that
-`plotly_get_chrome -y` downloads. The conda command above installs the
-compilers; check with `gcc --version` (`g++ --version` on a CPU), then install
-what is missing:
+`plotly_get_chrome -y` downloads. The conda command above installs conda's
+compilers under prefixed names (`x86_64-conda-linux-gnu-gcc`, ...), and
+`conda activate` sets `$CC` and `$CXX` to them. Inside the env, check with
+`$CC --version` (`$CXX --version` on a CPU); outside it, with `gcc --version`
+(`g++ --version`). Then install what is missing:
 
 ```bash
 sudo apt-get update && sudo apt-get install -y gcc g++    # Ubuntu/Debian
@@ -152,7 +155,7 @@ separately ([MACE](backends.md#mace-separate-environment)).
 |---|---|---|---|
 | `uma` (default) | `uma-s-1p2p1`; `uma-s-1p2p1-ft-d4rev`, `uma-s-1p2`, `uma-m-1p1` via `--backend-model` | Core dependency; gated weights need a Hugging Face login | fp32 by default |
 | `orb` | `orbmol-v2`; `orb_v3_conservative_omol` via `--backend-model` | `[orb]` extra in a separate env | fp64 by default; `--precision fp32` is for screening |
-| `mace` | `MACE-OMOL-0`; `MACE-POLAR-1-S`/`-M`/`-L` (mace-torch >= 0.3.16) via `--backend-model` | Separate env (`e3nn` conflict) | fp64 by default |
+| `mace` | `MACE-OMOL-0`; `MACE-POLAR-1-S`/`-M`/`-L` (`mace-torch[polar]>=0.3.17`) via `--backend-model` | Separate env (`e3nn` conflict) | fp64 by default |
 | `aimnet2` | `aimnet2`; `aimnet2-2025`, `aimnet2-nse` (open-shell), `aimnet2-pd` via `--backend-model` | `[aimnet]` extra | fp32 only; `--precision fp64` stops with an error |
 
 Select the backend with `-b` on any ML/MM calculation command. Check each
@@ -215,14 +218,14 @@ backend's section in [backends.md](backends.md); a CUDA error points to
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `import torch` fails with `libcudart.so.12 not found` | Incomplete or mixed wheel install, or a library-path collision; not by itself evidence against the driver | [CUDA and PyTorch](backends.md#cuda-and-pytorch) |
+| `import torch` fails with `libcudart.so.<N> not found` (N is 13 for `cuda130`, 12 for `cuda129`) | Incomplete or mixed wheel install, or a library-path collision; not by itself evidence against the driver | [CUDA and PyTorch](backends.md#cuda-and-pytorch) |
 | `e3nn` version conflict on `pip install` | UMA and MACE in the same env | Separate env for MACE ([MACE](backends.md#mace-separate-environment)) |
 | `gpu4pyscf` import fails on aarch64 | `gpu4pyscf-cuda13x` is x86_64 only | Build GPU4PySCF from source or run with `--dft-engine cpu` ([DFT](backends.md#dft-pyscf-gpu4pyscf)) |
 | `huggingface_hub.errors.GatedRepoError` on UMA load | License not accepted or not logged in | Accept the license on `facebook/UMA`, run `hf auth login`, confirm with `hf auth whoami` ([UMA](backends.md#uma)) |
-| `OSError: libcusolver.so.11 not found` | torch's bundled CUDA libraries missing or shadowed by `LD_LIBRARY_PATH` | [CUDA and PyTorch](backends.md#cuda-and-pytorch) |
+| `OSError: libcusolver.so.<N> not found` (N is 12 for `cuda130`, 11 for `cuda129`) | torch's bundled CUDA libraries missing or shadowed by `LD_LIBRARY_PATH` | [CUDA and PyTorch](backends.md#cuda-and-pytorch) |
 | `RuntimeError: CUDA out of memory` during `freq` | Active Hessian exceeds GPU memory | Reduce the active region, keep `return_partial_hessian: true`, and compare `Analytical` with `FiniteDifference` on a pilot ([freq](../mlmm-cli/freq.md)) |
 | `tleap: command not found` | AmberTools missing or not sourced | [ambertools.md](ambertools.md) |
-| `Missing system prerequisite: C compiler (gcc).` or `C++ compiler (g++).`; a PyTorch error `Failed to find C compiler` or `No working C++ compiler found` | No compiler on `PATH`; UMA builds code the first time it runs | Install `gcc` (`g++` on a CPU): [System packages](#system-packages); on a cluster, `module load gcc` in the job script |
+| `Missing system prerequisite: C compiler (gcc).` or `C++ compiler (g++).`; a PyTorch error `Failed to find C compiler` or `No working C++ compiler found` | No compiler on `PATH`; UMA and ORB compile code at run time for speed | Install `gcc` (`g++` on a CPU): [System packages](#system-packages); on a cluster, `module load gcc` in the job script |
 | `Missing system prerequisite: Chrome for PNG export.`, or `path-search` / `all` finish without the diagram PNG | No headless Chrome for Plotly, or an operating-system library it needs is missing | `plotly_get_chrome -y`, then the libraries in [System packages](#system-packages) |
 
 ## Upgrade and clean rebuild

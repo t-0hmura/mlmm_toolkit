@@ -198,7 +198,7 @@ When you report a mechanism, give:
 
 - R, TS, and P ([paths](outputs.md#oriented-rtsp-paths)), the backend, model, and precision, the charge and multiplicity, the `parm7`, and the ML region (center residues, `-r`, atom count).
 - n_imag and the imaginary frequency of the TS, and whether the IRC and endpoint optimizations reached the intended R and P (`connectivity_validated`, [per-segment keys](outputs.md#summaryjson)).
-- ΔE‡ or ΔG‡ with its method label and the `references` of `summary.json` ([top-level keys](outputs.md#summaryjson)); for several steps, count from one common R ([multistep paths](ts-strategy.md#5-multistep-paths)).
+- ΔE‡ or ΔG‡ with its method label and the `references` of `summary.json` ([top-level keys](outputs.md#summaryjson)); for several steps, report each local barrier and the TS height from one common R ([multistep paths](ts-strategy.md#5-multistep-paths)).
 
 ## Where to go next
 

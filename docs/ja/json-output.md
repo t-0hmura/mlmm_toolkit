@@ -142,8 +142,8 @@ ML/MM 計算機を評価するコマンドは、さらに以下を記録しま�
 | `n_negative_modes` | int\|null | 大きさを問わない負の振動数の数（閾値以内も含む）。`n_imaginary_modes` と並べて見る診断用の値で、PHVA を実行しなかった場合は `null` |
 | `imaginary_frequencies_cm` | float[]\|null | 虚振動数 (cm⁻¹, 負の値)。PHVA 未実行時は `null` または `[]` |
 | `frequency_zero_cutoff_cm` / `imaginary_mode_criterion` / `imaginary_frequency_threshold_cm` | float / string / float | デフォルト値は `5.0`、`"frequency_cutoff_cm"`、`-5.0` で、ν < −5.00 cm⁻¹ だけを虚振動として数えます。 |
-| `opt_mode` | string | `"grad"`、`"hess"`、`"dimer"`、`"rsprfo"`、`"rsirfo"`、`"trim"` のいずれか。`hess` は RS-P-RFO を選択 |
-| `opt_mode_requested` | string | CLI で要求したプリセット |
+| `opt_mode` | string | 実行したオプティマイザ。`"dimer"`、`"rsprfo"`、`"rsirfo"`、`"trim"` のいずれか |
+| `opt_mode_requested` | string | 入力どおりの `--opt-mode` の値（`grad` は `dimer`、`hess` は `rsprfo` になります） |
 | `optimizer` | string | 実際に使用したオプティマイザのアルゴリズム |
 | `n_atoms` | int | 全原子数 |
 | `n_opt_cycles` | int | 最適化サイクル数 |
@@ -405,7 +405,7 @@ IRC は `execution_status` と `scientific_status` を出し、方向ごとの�
 | `mlip_precision_post` | string \| null | TS 最適化・IRC・端点の最適化・freq の実効の `tf32` / `fp32` / `fp64`（`--precision-post`）。指定しなければ `mlip_precision` と同じ |
 | `n_segments_reactive` | int | bridge 以外の反応セグメント数 |
 | `rate_limiting_step` | object | 反応セグメントのうち局所障壁が最大のもの。`{segment, barrier_kcal, method}` と、`mep_barrier_kcal`（MEP 上の障壁。TS-only モードでは無し）を持ちます。障壁は、すべてのセグメントで得られる最も高い水準の手法（`DFT//MLIP/MM_Gibbs` > `DFT` > `MLIP_Gibbs` > `MLIP` > `MEP`。`--backend dft` では `MLIP_Gibbs` と `MLIP` の代わりに `DFT/MM_Gibbs` と `DFT/MM`）で取ります。microkinetics に基づく律速段階の判定ではありません。 |
-| `overall_reaction_energy_kcal` | float | 全体反応エネルギー。セグメントを作った区間の値で、セグメントを作らなかった区間は含みません |
+| `overall_reaction_energy_kcal` | float | 全体反応エネルギー。すべての反応セグメントを含む最も高い水準の手法のエネルギー図で、最初の状態を基準にした最後の状態のエネルギーです。MEP のエネルギー図は、セグメントを作らなかった区間も含みます |
 | `overall_reaction_energy_method` | string | 全体の反応エネルギーの手法。`rate_limiting_step.method` と同じ一覧から、それより高くない水準を使います |
 | `post_segments` | list | セグメントごとの TS/IRC/freq/DFT 結果 |
 | `post_segments[].tsopt.n_imaginary_modes` / `.imaginary_frequencies_cm` | int / float[] | 最適化した TS の n_imag と虚振動数 (cm⁻¹, 負の値) |

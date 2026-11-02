@@ -25,7 +25,7 @@
 | `hessian_ff` のビルドや import のエラー（`hessian_ff build attempts failed`） | C++20 のコンパイラを確かめ、ネイティブ拡張を作り直してください | {ref}`hessian_ff ビルドの問題 <ja-hessian_ff-build--import>` |
 | DMF モードの import エラー（`DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2`） | `cyipopt` はインストールの conda のコマンドで conda-forge から入り、`pydmf` は `mlmm-toolkit` と一緒に入ります。デフォルトの GPU 版でそれでもインポートに失敗するときは、`pip install 'pydmf[torch]'` | {ref}`インストール / 環境の問題 <ja-installation-environment-problems>` |
 | CUDA / GPU の実行時エラー | GPU、PyTorch のビルド、ドライバをまとめて確かめてください | {ref}`インストール / 環境の問題 <ja-installation-environment-problems>` |
-| `Missing system prerequisite: C compiler (gcc).` または `C++ compiler (g++).` | コンパイラを入れてください。UMA は初回の実行時にコードをビルドします | {ref}`システムの前提パッケージ <ja-system-prerequisites>` |
+| `Missing system prerequisite: C compiler (gcc).` または `C++ compiler (g++).` | コンパイラを入れてください。UMA と ORB は実行時に高速化のためコンパイルをします | {ref}`システムの前提パッケージ <ja-system-prerequisites>` |
 | 図の出力に失敗する（`Missing system prerequisite: Chrome for PNG export.`） | `plotly_get_chrome -y` を実行し、続けて Chrome が使うライブラリを入れてください | {ref}`システムの前提パッケージ <ja-system-prerequisites>` |
 
 ## 実行前チェックリスト
@@ -75,7 +75,7 @@
 
 - **症状**：`extract` が `[extract] WARNING: Residue ... may be an amino acid (has N, CA, C, O) but is not recognized as a standard residue name. Backbone truncation was not applied. ...` を出し、その残基の主鎖が切られない。
 - **原因**：主鎖の切断とリンク水素の付加には、残基の表への登録が必要です。SEP、TPO、MLY などは登録済みです。
-- **対処**：`--modified-residue "HD1:0"` のように、残基を整数の電荷とともに登録してください（`mlmm all` でも使えます）。名前だけで書くときの決まりは [extract](extract.md#5-非標準残基--modified-residue) にあります。主鎖のトポロジーが特殊な場合は、ML 領域を手で組み、`--parm7` と `--model-pdb` で下流のコマンドに直接渡してください。
+- **対処**：`--modified-residue "HD1:0"` のように、残基を整数の電荷とともに登録してください（`mlmm all` でも使えます）。名前だけで書くときの決まりは [extract](extract.md#使用上の注意点) にあります。主鎖のトポロジーが特殊な場合は、ML 領域を手で組み、`--parm7` と `--model-pdb` で下流のコマンドに直接渡してください。
 
 ---
 
@@ -183,7 +183,7 @@
 | UMA のダウンロードに失敗する（`huggingface_hub.errors.GatedRepoError`、`401`、`403`） | Hugging Face にログインしていない、または UMA モデルのライセンスに同意していない | マシンごとに一度 `hf auth login` を実行し、Hugging Face の UMA モデルのページでライセンスに同意してください。HPC では、計算ノードからモデルのキャッシュ（`$FAIRCHEM_CACHE_DIR`、デフォルトは `~/.cache/fairchem`）に書き込めるかを確かめます。インターネットに接続できない計算ノードでは、同じ環境と、共有ファイルシステム上の同じ `$FAIRCHEM_CACHE_DIR` を使い、ログインノードで各モデルを 1 回取得してから（例: `python -c "from fairchem.core import pretrained_mlip; pretrained_mlip.get_predict_unit('uma-s-1p2p1', device='cpu')"`）、ジョブスクリプトで `export HF_HUB_OFFLINE=1` を設定します |
 | `torch.cuda.is_available()` が `False`、またはインポート時に CUDA の実行時エラー | PyTorch のビルドが計算ノードの GPU・ドライバに合っていない | `nvidia-smi`、`python -m torch.utils.collect_env`、`python -m pip check` で、割り当てられた GPU、入っている PyTorch のビルド、ドライバを確認してください。`nvidia-smi` が示す `CUDA Version` はドライバが扱える最も新しい CUDA です。13.0 より小さいときは、`cuda130` の代わりに `"pytorch=2.13.0=cuda129*"` で環境を作ってください |
 | `--mep-mode dmf` が `DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2` で止まる | `cyipopt` が無い、または `pydmf` の GPU 用の部分が無い | {ref}`インストールの手順 2 <ja-step-by-step-installation>` のとおり、cyipopt を conda-forge から入れて環境を作ってください。`pydmf` は `mlmm-toolkit` と一緒に入ります。デフォルトの GPU 版 DMF でそれでもインポートに失敗するときは、エラーの文が勧めるとおり `pip install 'pydmf[torch]'` を実行してください |
-| `Missing system prerequisite: C compiler (gcc).` または `C++ compiler (g++).`（PyTorch のエラー `Failed to find C compiler`、`No working C++ compiler found`） | `PATH` 上にコンパイラが無い。UMA は初回の実行時にコードをビルドします | {ref}`システムの前提パッケージ <ja-system-prerequisites>` のとおり `gcc`（CPU では `g++`）を入れてください。クラスターではジョブスクリプトで `module load gcc` します |
+| `Missing system prerequisite: C compiler (gcc).` または `C++ compiler (g++).`（PyTorch のエラー `Failed to find C compiler`、`No working C++ compiler found`） | `PATH` 上にコンパイラが無い。UMA と ORB は実行時に高速化のためコンパイルをします | {ref}`システムの前提パッケージ <ja-system-prerequisites>` のとおり `gcc`（CPU では `g++`）を入れてください。クラスターではジョブスクリプトで `module load gcc` します |
 | 図の出力に失敗する（`Missing system prerequisite: Chrome for PNG export.`） | ヘッドレス Chrome が入っていない、または Chrome が使う OS のライブラリが無い | `plotly_get_chrome -y` を一度実行し（Chromium のバイナリをダウンロードするので、インターネット接続が必要です）、続けて {ref}`システムの前提パッケージ <ja-system-prerequisites>` のライブラリを入れてください |
 
 ### DMF が IPOPT 内で極端に遅い

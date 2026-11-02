@@ -52,7 +52,7 @@ Settings apply in the order built-in defaults < `--config` YAML < explicit CLI o
 
 ## Cross-cutting pitfalls
 
-- **Wrong charge**: check it before a long job. `extract` prints `Total active site model charge`, and `all --dry-run` runs the preparation and the charge and electron-parity checks in a temporary directory, prints the plan, and skips the calculations. With `--model-indices`, the charge cannot be derived from `-l`; give `-q`.
+- **Wrong charge**: check it before a long job. `extract` prints `Total active site model charge`, and `all --dry-run` runs the preparation and the charge check in a temporary directory, adds the electron-parity check only with `--parm7`, prints the plan, and skips the calculations (it never runs AmberTools). With `--model-indices`, the charge cannot be derived from `-l`; give `-q`.
 - **Default backend**: without `-b`, the run uses `uma`. Spell the backend out for production runs.
 - **YAML ignored**: explicit CLI values override `--config`, except for the conflict below; options left at their CLI default do not mask YAML values.
 - **`opt.<key> and <section>.<key> conflict.` (exit 2)**: in `opt`, `tsopt`, and the scan commands, a setting shared by `opt` (in YAML, or through its flag such as `--max-cycles`, `--thresh`, or `--print-every`) and the optimizer section (`lbfgs`, `rfo`, `rsirfo`, `hessian_dimer`) follows one rule: set to different values in both, the run stops with this error; set in one, that value is used; set in neither, the optimizer section's default is used. The same check applies to a section given both at the YAML root and nested (`lbfgs:` and `opt.lbfgs:`). Set each value in one place.

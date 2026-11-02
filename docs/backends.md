@@ -52,8 +52,8 @@ Notes on the models in the table:
   OrbMol-v1.
 - `MACE-POLAR-1-S` / `-M` / `-L`: trained on OMol25 at ωB97M-V, with long-range
   electrostatics from learned charge and spin densities, for any total charge
-  and spin. They need mace-torch >= 0.3.16 and
-  `pip install graph-longrange==0.4.0`.
+  and spin. They need
+  `pip install 'mace-torch[polar]>=0.3.17'`, which installs graph-longrange 0.4.4 or later.
 - AIMNet2: `aimnet2` (the default, wB97M-D3), `aimnet2-2025` (improved B97-3c),
   and `aimnet2-pd` (B97-3c with CPCM(THF) solvation built into the model;
   covers Pd) are closed-shell only. `aimnet2-nse` (wB97M-D3) handles

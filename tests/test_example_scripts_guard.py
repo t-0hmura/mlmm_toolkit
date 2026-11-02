@@ -41,7 +41,8 @@ def _stub_mlmm(tmp_path: Path, fail_on: str = "") -> Path:
 
 
 def _run(script: str, work_dir: Path, bin_dir: Path) -> subprocess.CompletedProcess:
-    env = dict(os.environ, PATH=f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+    # mkdir prints its error in the current language; the test reads the English one.
+    env = dict(os.environ, PATH=f"{bin_dir}{os.pathsep}{os.environ['PATH']}", LC_ALL="C")
     return subprocess.run(
         ["bash", str(EXAMPLES / script), str(work_dir)],
         cwd=work_dir.parent,

@@ -30,7 +30,7 @@ With `--embedcharge`, the calculator uses electrostatic embedding in the ONIOM-E
 | --- | --- | --- |
 | High-level method | DFT, HF, post-HF | MLIP (UMA, ORB, MACE, AIMNet2) or DFT (`-b dft`) |
 | Low-level method | OpenMM / Amber | `hessian_ff` (default) / OpenMM |
-| Link atoms | Usually required | Added automatically for every parm7 bond that crosses the ML/MM boundary |
+| Link atoms | Usually required | Added automatically on each C–C, C–N, or N–C parm7 bond that crosses the ML/MM boundary |
 | Embedding | Electrostatic embedding is common | Mechanical by default; `--embedcharge` adds the MM point charges in the ONIOM-EE form (an xTB correction for MLIP backends, the PySCF Hamiltonian for DFT) |
 | Speed | Slow (QM is the bottleneck) | Fast with an MLIP (GPU inference); `-b dft` runs at DFT cost |
 
@@ -45,7 +45,7 @@ Each atom belongs to one of {ref}`three layers <mm-layers>` (ML, Movable-MM, or 
 
 ### Link-atom redistribution
 
-When the ML/MM boundary cuts a covalent bond, a link hydrogen caps the ML side of that bond in the MODEL-high calculation. The calculator adds one for every parm7 bond with exactly one end in the ML region (or for the pairs given in `link_mlmm`), so `model.pdb` contains no link hydrogens. `--link-atom-method` selects how the link hydrogen is placed:
+When the ML/MM boundary cuts a covalent bond, a link hydrogen caps the ML side of that bond in the MODEL-high calculation. The calculator adds one for every C–C, C–N, or N–C parm7 bond with exactly one end in the ML region or for the pairs given in `link_mlmm`, so `model.pdb` contains no link hydrogens. Any other boundary bond stops the run with `Unsupported ML/MM boundary bond in parm7`. `--link-atom-method` selects how the link hydrogen is placed:
 
 | Method | Placement | Recommended |
 | --- | --- | --- |
@@ -205,7 +205,7 @@ core = MLMMCore(
 | `backend` | `str` | `"uma"` | MLIP backend |
 | `mm_backend` | `str` | `"hessian_ff"` | MM engine (`hessian_ff` or `openmm`) |
 | `return_partial_hessian` | `bool` | `True` | If `True`, `compute()` returns a 4D `(n_active, 3, n_active, 3)` sub-Hessian plus a `within_partial_hessian` metadata dict (active-atom indices, DOF maps). If `False`, it returns the expanded 4D `(N, 3, N, 3)` full-system Hessian. |
-| `link_mlmm` | `List[Tuple[str, str]]` | `None` | Manual link-atom pairs as `[("RESN RESID ATOMNAME", "RESN RESID ATOMNAME"), ...]` (first = ML side, second = MM side, e.g. `[("SAM 359 CA", "SAM 359 N")]`). `None` adds a link for every bond in the parm7 topology that crosses the ML/MM boundary (not by distance). |
+| `link_mlmm` | `List[Tuple[str, str]]` | `None` | Manual link-atom pairs as `[("RESN RESID ATOMNAME", "RESN RESID ATOMNAME"), ...]` (first = ML side, second = MM side, e.g. `[("SAM 359 CA", "SAM 359 N")]`). `None` adds a link for every C–C, C–N, or N–C bond in the parm7 topology that crosses the ML/MM boundary (not by distance); any other crossing bond stops the run. |
 
 #### compute()
 

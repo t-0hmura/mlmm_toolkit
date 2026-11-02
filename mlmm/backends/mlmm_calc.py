@@ -1173,7 +1173,8 @@ class _MACEBackend(_ASEMLBackend):
                 from mace.calculators.foundations_models import mace_polar
             except ImportError as exc:
                 raise ImportError(
-                    "MACE-POLAR-1 needs mace-torch >= 0.3.16."
+                    "MACE-POLAR-1 needs mace-torch >= 0.3.17 with its polar extra: "
+                    "pip install 'mace-torch[polar]>=0.3.17'"
                 ) from exc
             try:
                 self._ase_calc = mace_polar(
@@ -1185,8 +1186,8 @@ class _MACEBackend(_ASEMLBackend):
                 if exc.name != "graph_longrange":
                     raise
                 raise ImportError(
-                    "MACE-POLAR-1 needs graph-longrange 0.4.0: "
-                    "pip install graph-longrange==0.4.0"
+                    "MACE-POLAR-1 needs graph-longrange from the polar extra of mace-torch: "
+                    "pip install 'mace-torch[polar]>=0.3.17'"
                 ) from exc
         elif model_lower in off23_aliases:
             self._ase_calc = mace_off(

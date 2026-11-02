@@ -110,6 +110,35 @@ def test_resume_keeps_only_the_stops_of_the_current_run(tmp_path, monkeypatch):
     assert (resumed.result.exit_code, summary["scientific_status"]) == (0, "success")
 
 
+def test_a_resume_from_segment_1_lists_only_the_segments_it_finished(tmp_path, monkeypatch):
+    """While a resume from segment 1 runs, the root lists none of the previous run's segments."""
+    from test_all_resume_saved_parm7 import _stub_mm_parm
+
+    seen = []
+
+    def record_root_segments(_context):
+        child = all_workflow._run_cli_main
+
+        def wrapped(name, cli, args, **kwargs):
+            if name == "tsopt":
+                root = json.loads((tmp_path / "out" / "summary.json").read_text(encoding="utf-8"))
+                seen.append([item["index"] for item in root.get("post_segments", [])])
+            return child(name, cli, args, **kwargs)
+
+        monkeypatch.setattr(all_workflow, "_run_cli_main", wrapped)
+
+    _stub_mm_parm(monkeypatch, [])
+    first = run_three_segments(tmp_path, monkeypatch, set(), parm=False)
+    assert [item["index"] for item in first.summary["post_segments"]] == [1, 2, 3]
+
+    resumed = run_all(
+        tmp_path, monkeypatch, frames=FRAMES, extra=("--tsopt", "--resume-segment", "1"), parm=False,
+        wrap=record_root_segments)
+
+    assert seen == [[], [1], [1, 2]]
+    assert resumed.result.exit_code == 0
+
+
 @pytest.mark.parametrize(
     "resume_segment,stopped_now,expected",
     [

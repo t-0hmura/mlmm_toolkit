@@ -248,7 +248,7 @@ calc:
   - `orb_model`、`orb_precision` — ORB バックエンドのみ
   - `mace_model`、`mace_dtype` — MACE バックエンドのみ
   - `aimnet2_model` — AIMNet2 バックエンドのみ
-- `hessian_calc_mode: Analytical` はバックエンドの解析 Hessian を明示的に要求します。UMA、ORB、MACE、AIMNet2 がこの経路を実装しており、インストール済みバックエンドが非対応なら計算法を暗黙に変更せずエラーになります。`workers > 1` との併用もエラーです。
+- `hessian_calc_mode: Analytical` はバックエンドの解析 Hessian を明示的に要求します。UMA、ORB、MACE、AIMNet2、DFT（`--embedcharge` なし）がこの経路を実装しており、インストール済みバックエンドが非対応なら計算法を暗黙に変更せずエラーになります。`workers > 1` との併用もエラーです。
 - `opt`/`tsopt`/`irc`/`freq` は、YAML で `calc.return_partial_hessian` を明示しない場合に部分 Hessian をデフォルトで使用します。
 - これらのコマンドで完全 Hessian を強制するには `calc.return_partial_hessian: false` を明示してください。
 - `mm_fd: true` は有限差分 MM Hessian、`false` は `hessian_ff` の解析 MM Hessian を使います。`mm_hessian_mode` は同じ選択を名前（`finite_difference` か `analytical`）で指定し、`null` の場合は `mm_fd` で決まります。

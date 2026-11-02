@@ -250,7 +250,7 @@ calc:
   - `orb_model`, `orb_precision` — ORB backend only
   - `mace_model`, `mace_dtype` — MACE backend only
   - `aimnet2_model` — AIMNet2 backend only
-- `hessian_calc_mode: Analytical` requests the backend's analytical Hessian. UMA, ORB, MACE, and AIMNet2 implement this path; an incompatible installed backend version raises an error instead of silently changing methods. Runtime and memory depend on the backend and system, so compare both modes on a representative pilot. `workers > 1` cannot be combined with an analytical Hessian and raises an error.
+- `hessian_calc_mode: Analytical` requests the backend's analytical Hessian. UMA, ORB, MACE, AIMNet2, and DFT (without `--embedcharge`) implement this path; an incompatible installed backend version raises an error instead of silently changing methods. Runtime and memory depend on the backend and system, so compare both modes on a representative pilot. `workers > 1` cannot be combined with an analytical Hessian and raises an error.
 - `mm_fd: true` uses a finite-difference MM Hessian; `false` uses the
   analytical `hessian_ff` Hessian. `mm_hessian_mode` sets the same choice
   by name (`finite_difference` or `analytical`); when it is `null`, `mm_fd`

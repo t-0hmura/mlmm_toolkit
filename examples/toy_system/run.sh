@@ -102,5 +102,12 @@ mlmm trj2fig -i test4/optimization_trj.xyz -o test29.png > test29.out 2>&1
 # test30: energy-diagram
 mlmm energy-diagram -i "[0, 12.5, 4.3, 18.7, -1.2]" -o test30.png > test30.out 2>&1
 
-# test31: oniom-export
-mlmm oniom-export --parm p_toy.parm7 -i r_toy.pdb --model-pdb ml_region_r.pdb -q -1 -m 1 -o test31.gjf > test31.out 2>&1
+# test31: oniom-export (Gaussian input cannot hold CMAP terms, so export a copy without them)
+python - <<'PY'
+import parmed as pmd
+
+parm = pmd.load_file("p_toy.parm7")
+parm.cmaps[:] = []
+parm.save("p_toy_nocmap.parm7", overwrite=True)
+PY
+mlmm oniom-export --parm p_toy_nocmap.parm7 -i r_toy.pdb --model-pdb ml_region_r.pdb -q -1 -m 1 -o test31.gjf > test31.out 2>&1

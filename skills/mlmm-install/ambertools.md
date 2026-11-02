@@ -49,10 +49,12 @@ mlmm mm-parm -i input.pdb \
     --out-prefix complex
 ```
 
-`mm-parm` writes `complex.parm7` and `complex.rst7` directly to the
-current working directory. Pass `complex.parm7` to downstream subcommands via
-`--parm7`, and the layer-encoded PDB with `-i` (`--ref-pdb` for XYZ input);
-`--detect-layer` (on by default) reads its B-factor layers. The water model is **fixed by `--ff-set`**:
+`mm-parm` writes `complex.parm7`, `complex.rst7`, and `complex.pdb` (the same
+atoms in the same order as the parm7) directly to the current working
+directory. Pass `complex.parm7` to downstream subcommands via `--parm7`.
+`mm-parm` writes no layers: run `define-layer` on `complex.pdb` and pass the layered PDB
+from `define-layer` with `-i` (`--ref-pdb` for XYZ input); `--detect-layer` (on by default) reads
+its B-factor layers. The water model is **fixed by `--ff-set`**:
 `ff19SB` ships with OPC3 water, `ff14SB` with TIP3P. There is **no
 separate `--water` flag**, and there is **no `--force-field` flag**
 (use `--ff-set` instead).
@@ -64,7 +66,6 @@ separate `--water` flag**, and there is **no `--force-field` flag**
 | `tleap: command not found` | AmberTools not installed; or `<amber_install>/amber.sh` not sourced. |
 | `Unknown residue: GPP` | A non-standard ligand: `mm-parm` auto-runs `antechamber` + `parmchk2` to derive GAFF2 parameters (AM1-BCC charges; there is no flag to pass a pre-built `.frcmod`), with its formal charge from `--ligand-charge` (e.g. `-l 'GPP:-3'`; 0 if not given). |
 | `parm7` written but `mm-parm` reports charge mismatch | Check [Charge and multiplicity](../mlmm-model-setup/SKILL.md#charge-and-multiplicity) — the `-l` mapping must agree with the protonation states in the PDB. |
-| Linux aarch64 not supported | conda-forge ships `linux-64`, `osx-64`, and `osx-arm64` only — `linux-aarch64` is not a published platform for `ambertools`. On ARM HPC, build from the official tarball. |
 
 ## What AmberTools is **not** used for
 

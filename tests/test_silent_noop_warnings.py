@@ -69,7 +69,7 @@ def test_unused_ligand_charge_entries_are_reported(tmp_path, monkeypatch, capsys
         encoding="utf-8",
     )
 
-    def tleap_knows_everything(cmd, cwd=None, logfile=None, env=None):
+    def tleap_knows_everything(cmd, cwd=None, logfile=None):
         for name in mm_parm_mod._TLEAP_REQUIRED_OUTPUTS:
             (Path(cwd) / name).write_text("fixture\n", encoding="utf-8")
         return 0

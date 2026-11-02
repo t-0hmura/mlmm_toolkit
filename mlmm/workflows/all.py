@@ -2490,8 +2490,7 @@ def _finalize_current_summary(
 
 
 def _copy_structures_to_seg_dir(
-    state_structs, out_dir, seg_idx, input_suffix,
-    prepared_input=None, manifest=None,
+    state_structs, out_dir, seg_idx, input_suffix, manifest=None,
 ):
     """Copy named state structures to out_dir/segments/seg_XX/."""
     seg_dir = out_dir / SEGMENTS_DIRNAME / f"seg_{seg_idx:02d}"
@@ -2532,18 +2531,6 @@ def _copy_structures_to_seg_dir(
                         src_pdb.with_suffix(".cif"),
                         dst_pdb.with_suffix(".cif"),
                     )
-            else:
-                copy_destination(src, seg_dir / f"{dst_name}.xyz")
-        elif input_suffix == ".gjf":
-            if (prepared_input is not None and getattr(prepared_input, "gjf_template", None) is not None):
-                dst_gjf = seg_dir / f"{dst_name}.gjf"
-                declare_destination(dst_gjf)
-                try:
-                    from mlmm.core.utils import convert_xyz_to_gjf
-                    convert_xyz_to_gjf(src, prepared_input.gjf_template, dst_gjf)
-                    claim_destination(dst_gjf)
-                except Exception:
-                    copy_destination(src, seg_dir / f"{dst_name}.xyz")
             else:
                 copy_destination(src, seg_dir / f"{dst_name}.xyz")
         else:
@@ -4047,7 +4034,7 @@ def _run_opt_for_state(
         endpoint_manifest = InvocationManifest()
         endpoint_manifest.declare("result", [opt_dir / "result.json"])
         endpoint_manifest.declare("final", [opt_dir / "final_geometry.xyz", opt_dir / "final_geometry.pdb"])
-        _run_cli_main("opt", _opt_cli.cli, args, on_nonzero="raise", on_exception="raise", prefix="endpoint-opt")
+        _run_cli_main("opt", _opt_cli.cli, args, on_nonzero="result", on_exception="raise", prefix="endpoint-opt")
 
         # Read the endpoint opt child's explicit convergence bit from its
         # result.json (fail-closed tri-state) so a nonconverged endpoint cannot
@@ -6716,7 +6703,6 @@ def cli(
         resolved_calc_template, precision_post
     )
 
-    # Other path: single-structure + --tsopt True (and NO scan-lists) → TSOPT-only mode
     def _post_process_segment(
         record: Optional[Dict[str, Any]],
         *,
@@ -6886,7 +6872,6 @@ def cli(
 
         if ts_only:
             eL = float(gL.energy)
-            eT = float(gT.energy)
             eR_raw = float(gR.energy)
             # The higher-energy IRC endpoint is presented as the reactant (left
             # wins a tie). This is an energy-order convention, not an established
@@ -7098,8 +7083,7 @@ def cli(
 
         # Segment-level ML/MM energy diagram (R, TS, P)
         e_react = float(g_react.energy)
-        if not ts_only:
-            eT = float(gT.energy)
+        eT = float(gT.energy)
         e_prod = float(g_prod.energy)
         if working_scf_checkpoint is not None and calculator_lease is not None:
             for role, geometry_path, destination in (
@@ -7259,39 +7243,22 @@ def cli(
                     )
                 except Exception as e:
                     _echo(f"[thermo] WARNING: failed to build Gibbs diagram: {e}", err=True)
-            elif ts_only:
-                _echo(
-                    "[thermo] WARNING: one or more R/TS/P FREQ free energies are "
-                    "unavailable; ML/MM Gibbs diagram skipped (no ML/MM energy "
-                    "substitution).",
-                    err=True,
-                )
             else:
+                _seg_prefix = "" if ts_only else f"seg {seg_idx}: "
                 _echo(
-                    f"[thermo] WARNING: seg {seg_idx}: one or more R/TS/P FREQ "
-                    "free energies are unavailable; ML/MM Gibbs diagram skipped "
-                    "(no ML/MM energy "
-                    "substitution).",
+                    f"[thermo] WARNING: {_seg_prefix}one or more R/TS/P FREQ free "
+                    "energies are unavailable; ML/MM Gibbs diagram skipped (no "
+                    "ML/MM energy substitution).",
                     err=True,
                 )
 
         # DFT single-point and (optionally) DFT//MLIP/MM Gibbs
         if do_dft:
-            # Frequency subprocess parsing may
-            # have re-bound heavy refs onto cli-frame Geometry locals.
-            # Two layers (null calculator + rebind local to None) prevent
-            # closure/hook capture from resurrecting the model before the
-            # DFT subprocess fork. `del locals[name]` is a CPython no-op
-            # (locals returns a *copy* of the frame namespace), so the
-            # rebind to None below is the only mechanism that actually
-            # decrements the heavy refs before gc.collect + empty_cache.
-            # NOTE: thermo_payloads is deliberately NOT nulled here — the
-            # DFT//MLIP/MM Gibbs-diagram block below and the
-            # segment records both read from it.
+            # Clear the calculator retained by Geometry before forking the DFT
+            # subprocess so it does not inherit the GPU-pinned model.
             for _g in (gL, gR, gT, g_react, g_prod):
                 if _g is not None and hasattr(_g, "calculator"):
                     _g.calculator = None
-            gL = gR = gT = g_react = g_prod = None
             gc.collect()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
@@ -7318,36 +7285,18 @@ def cli(
                 embedcharge_explicit=embedcharge_explicit,
                 link_atom_method=link_atom_method, mm_backend=mm_backend, use_cmap=use_cmap, xyz_path=x_prod,
             )
-            if ts_only:
-                eR_dft = _dft_energy_ha(dR)
-                eT_dft = _dft_energy_ha(dT)
-                eP_dft = _dft_energy_ha(dP)
-                # Match the per-segment gate: a non-finite DFT energy must not reach a diagram.
-                dft_all_ok = all(
-                    e is not None and np.isfinite(e) for e in (eR_dft, eT_dft, eP_dft)
-                )
-                if not dft_all_ok:
-                    _failed_states = [s for s, e in zip(["R", "TS", "P"], [eR_dft, eT_dft, eP_dft]) if e is None]
-                    _echo(f"[dft] WARNING: DFT failed for state(s): {', '.join(_failed_states)}. Skipping DFT diagrams.", err=True)
-                if dft_all_ok:
-                    try:
-                        dft_diag = _write_public_segment_diagram(
-                            seg_dir / "energy_diagram_DFT",
-                            labels=["R", ts_label, "P"],
-                            energies_eh=[eR_dft, eT_dft, eP_dft],
-                            title_note=f"({dft_method_fallback})",
-                        )
-                    except Exception as e:
-                        _echo(f"[dft] WARNING: failed to build DFT diagram: {e}", err=True)
-            else:
+            # _dft_energy_ha returns None for a failed DFT child or a non-finite
+            # energy, so a failed payload never enters a diagram.
+            eR_dft = _dft_energy_ha(dR)
+            eT_dft = _dft_energy_ha(dT)
+            eP_dft = _dft_energy_ha(dP)
+            dft_all_ok = all(e is not None for e in (eR_dft, eT_dft, eP_dft))
+            if not dft_all_ok:
+                _failed_states = [s for s, e in zip(["R", "TS", "P"], [eR_dft, eT_dft, eP_dft]) if e is None]
+                _echo(f"[dft] WARNING: DFT failed for state(s): {', '.join(_failed_states)}. Skipping DFT diagrams.", err=True)
+            if dft_all_ok:
                 try:
-                    # read the DFT energy through _dft_energy_ha, which returns
-                    # None when the DFT child failed (_dft_failed) — a finite hartree in
-                    # A failed payload must not enter a diagram.
-                    eR_dft = _dft_energy_ha(dR)
-                    eT_dft = _dft_energy_ha(dT)
-                    eP_dft = _dft_energy_ha(dP)
-                    if all(e is not None and np.isfinite(e) for e in (eR_dft, eT_dft, eP_dft)):
+                    if not ts_only:
                         _dft_values = {"R": eR_dft, "TS": eT_dft, "P": eP_dft}
                         _echo_state_energies(
                             "dft",
@@ -7391,14 +7340,12 @@ def cli(
                                 precision=2,
                             )
                         dft_seg_energies.append((eR_dft, eT_dft, eP_dft))
-                        dft_diag = _write_public_segment_diagram(
-                            seg_dir / "energy_diagram_DFT",
-                            labels=["R", ts_label, "P"],
-                            energies_eh=[eR_dft, eT_dft, eP_dft],
-                            title_note=f"({dft_method_fallback})",
-                        )
-                    else:
-                        _echo("[dft] WARNING: some DFT energies missing; diagram skipped.", err=True)
+                    dft_diag = _write_public_segment_diagram(
+                        seg_dir / "energy_diagram_DFT",
+                        labels=["R", ts_label, "P"],
+                        energies_eh=[eR_dft, eT_dft, eP_dft],
+                        title_note=f"({dft_method_fallback})",
+                    )
                 except Exception as e:
                     _echo(f"[dft] WARNING: failed to build DFT diagram: {e}", err=True)
 
@@ -7450,16 +7397,10 @@ def cli(
                         )
                     except Exception as e:
                         _echo(f"[dft//mlip] WARNING: failed to build DFT//MLIP/MM Gibbs diagram: {e}", err=True)
-                elif ts_only:
-                    _echo(
-                        "[dft//mlip] WARNING: a subtractive DFT//MLIP/MM electronic "
-                        "total or FREQ thermal correction is unusable; Gibbs diagram "
-                        "skipped (no raw-model DFT or 0.0 substitution).",
-                        err=True,
-                    )
                 else:
+                    _seg_prefix = "" if ts_only else f"seg {seg_idx}: "
                     _echo(
-                        f"[dft//mlip] WARNING: seg {seg_idx}: a subtractive "
+                        f"[dft//mlip] WARNING: {_seg_prefix}a subtractive "
                         "DFT//MLIP/MM electronic total or FREQ thermal correction "
                         "is unusable; Gibbs diagram skipped (no raw-model DFT, "
                         "MLIP, or 0.0 substitution).",
@@ -7518,9 +7459,7 @@ def cli(
                     diagram_path=str((seg_dir / "energy_diagram_G_MLIP").with_suffix(".png")),
                     structures=_structs_seg,
                 )
-            if eR_dft is not None and eT_dft is not None and eP_dft is not None and all(
-                map(np.isfinite, [eR_dft, eT_dft, eP_dft])
-            ):
+            if eR_dft is not None and eT_dft is not None and eP_dft is not None:
                 record["dft"] = build_energy_level_dict(
                     labels=["R", "TS", "P"],
                     energies_au=[eR_dft, eT_dft, eP_dft],
@@ -7560,6 +7499,7 @@ def cli(
         )
         return post
 
+    # Other path: single-structure + --tsopt True (and NO scan-lists) → TSOPT-only mode
     if single_tsopt_mode:
         _echo_section("====== [all] TSOPT-only single-structure mode ======")
         irc_trj_for_all: List[Tuple[Path, bool]] = []
@@ -8867,14 +8807,18 @@ def cli(
         summary.pop("resumed_from_segment", None)
     path_optimizers.update(summary.get("path_optimizers", []))
     summary["path_optimizers"] = sorted(path_optimizers)
+    # The written MEP diagram is moved to the root as energy_diagram_MEP.png.
+    for diagram in summary.get("energy_diagrams", []) or []:
+        if (
+            isinstance(diagram, dict)
+            and diagram.get("image")
+            and str(diagram.get("name", "")).lower().endswith("mep")
+        ):
+            diagram["image"] = str(out_dir / "energy_diagram_MEP.png")
 
-    def _publish_provisional_root_summary(post_segments: Sequence[Dict[str, Any]] = ()) -> None:
-        # The root keeps the fail-closed provisional verdict until
-        # post-processing re-authors it; resume_identity and the segments
-        # finished so far let --resume-segment continue a run that stopped.
-        root_summary = deepcopy(summary)
+    def _enrich_root_summary(target: Dict[str, Any]) -> None:
         _enrich_summary(
-            root_summary,
+            target,
             pipeline_mode="path-search" if refine_path else "path-opt",
             out_dir=out_dir,
             manifest=manifest,
@@ -8890,8 +8834,14 @@ def cli(
             command=command_str,
             config=_summary_config(),
         )
-        if post_segments:
-            root_summary["post_segments"] = _json_safe(list(post_segments))
+
+    def _publish_provisional_root_summary(post_segments: Sequence[Dict[str, Any]] = ()) -> None:
+        # The root keeps the fail-closed provisional verdict until
+        # post-processing re-authors it; resume_identity and the segments
+        # finished so far let --resume-segment continue a run that stopped.
+        root_summary = deepcopy(summary)
+        _enrich_root_summary(root_summary)
+        root_summary["post_segments"] = _json_safe(list(post_segments))
         _publish_root_summary(root_summary)
 
     if refine_path and not resuming:
@@ -8972,6 +8922,9 @@ def cli(
 
     # Optional Stage 4: TSOPT / THERMO / DFT (per reactive segment)
     if not (do_tsopt or do_thermo or do_dft):
+        if refine_path:
+            # The path-search child summary records its own command and no all options.
+            _enrich_root_summary(summary)
         _write_pipeline_summary_log([])
         _publish_root_summary(summary, mirrors=summary_mirrors, finalize=True)
         # Elapsed time
@@ -8989,6 +8942,8 @@ def cli(
     if not segments:
         _echo("[post] No segments found in summary; nothing to do.", narrative=True)
         summary["pipeline_stop"] = {"stage": "post", "reason": "no_segments"}
+        if refine_path:
+            _enrich_root_summary(summary)
         _write_pipeline_summary_log([])
         _publish_root_summary(summary, mirrors=summary_mirrors, finalize=True)
         _emit_final_summary(
@@ -9009,6 +8964,8 @@ def cli(
     if not all_reactive:
         _echo("[post] No TS-capable segments. Skipping TS/thermo/DFT.", narrative=True)
         summary["pipeline_stop"] = {"stage": "post", "reason": "no_reactive_segment"}
+        if refine_path:
+            _enrich_root_summary(summary)
         _write_pipeline_summary_log([])
         _publish_root_summary(summary, mirrors=summary_mirrors, finalize=True)
         _emit_final_summary(

@@ -55,6 +55,17 @@ def test_load_yaml_dict_rejects_malformed_yaml(tmp_path: Path):
         load_yaml_dict(p)
 
 
+def test_invalid_yaml_error_names_the_config_file(capsys):
+    import yaml
+
+    from mlmm.cli.decorators import render_cli_exception
+
+    with pytest.raises(SystemExit) as stop:
+        render_cli_exception(yaml.YAMLError("bad mapping"), label="optimization", command="opt")
+    assert stop.value.code == 2
+    assert "Error: invalid YAML in a configuration file: bad mapping" in capsys.readouterr().err
+
+
 def test_collect_single_option_values_rejects_repeated_flags():
     from mlmm.core.utils import collect_single_option_values
 

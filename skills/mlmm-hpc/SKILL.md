@@ -38,7 +38,7 @@ nvidia-smi -L >/dev/null     || { echo "no GPU visible"; exit 1; }
 
 # Prebuilt PyTorch/backend wheels need a compatible NVIDIA driver, not a local
 # CUDA toolkit module. hessian_ff still JIT-compiles C++ kernels on first use
-# (UMA also builds code at run time with the env's compiler);
+# (UMA and ORB also compile code at run time for speed, using the env's compiler);
 # if the compiler checked below cannot compile in C++20 mode, load <COMPILER_MODULE> here.
 # Load <CUDA_MODULE> separately only for an extension that needs that toolkit.
 # The default workers=1 run needs no MPI launcher.
@@ -184,7 +184,7 @@ filter can cancel an unrelated job in the same account.
 ## Before and after submitting
 
 - Run one real job of the batch first and read its log; submit the rest only after it passes.
-- Check the plan without computing: `mlmm all ... --dry-run` runs the preparation and the charge and electron-parity checks, prints the plan, and skips the calculations; `mlmm sp ... --show-config` prints the merged configuration and exits.
+- Check the plan without computing: `mlmm all ... --dry-run` runs the preparation and the charge check, adds the electron-parity check only with `--parm7`, prints the plan, and skips the calculations (it never runs AmberTools); `mlmm sp ... --show-config` prints the merged configuration and exits.
 - Before `qsub` / `sbatch`, check that no job with the same name is queued; afterwards, confirm that exactly one was created.
 - Judge success from what the job wrote, not from the job leaving the queue. Write the exit code to a file from the job script (`trap 'echo "rc=$?" > "$PBS_O_WORKDIR/$PBS_JOBID.exit"' EXIT`; on SLURM, `$SLURM_SUBMIT_DIR/$SLURM_JOB_ID.exit`) and set no second EXIT trap after it. A walltime kill skips the trap, so with no exit file, read the scheduler history (`qstat -x -f <jobid>` on PBSPro, `sacct -j <jobid>` on SLURM).
 - Keep heavy I/O and per-job environments on node-local scratch (`$TMPDIR`, or `/var/tmp/$PBS_JOBID`). Stop when the job ID is empty, and remove only that job's directory at the end.
@@ -227,7 +227,7 @@ MAX_SUBMIT=${MAX_SUBMIT:-100}
     exit 2
 }
 for ts in "${tasks[@]}"; do
-    if jobid=$(qsub -v TS="$ts" generic_dft.sh); then
+    if jobid=$(qsub -v TS="$ts" "<JOB_SCRIPT>"); then
         echo "submitted $ts as $jobid"
     else
         echo "qsub failed for $ts; stopping fan-out." >&2
@@ -236,8 +236,8 @@ for ts in "${tasks[@]}"; do
 done
 ```
 
-Each `qsub` produces an independent PBS job; the scheduler load-balances
-them.
+`<JOB_SCRIPT>` is your own PBS script, which reads its task from `$TS`. Each
+`qsub` produces an independent PBS job; the scheduler load-balances them.
 
 ### Dynamic dispatch (one job, N nodes pull tasks)
 

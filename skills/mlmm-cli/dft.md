@@ -85,7 +85,7 @@ values taken from the scheduler. The default output directory is
 
 ## Pitfalls and recovery
 
-- `OSError: libcusolver.so.11: cannot open shared object file`:
+- `OSError: libcusolver.so.<N>: cannot open shared object file`:
   `LD_LIBRARY_PATH` shadows the CUDA
   libraries bundled with torch. Fix the order as in
   [Library-loading collisions](../mlmm-install/backends.md#library-loading-collisions).
@@ -115,7 +115,7 @@ endpoints with `opt` first. The TS:
 ```bash
 mlmm dft -i result_tsopt/final_geometry.pdb --parm7 real.parm7 \
     -l 'SAM:1,GPP:-3' --func-basis 'wb97m-v/def2-tzvpd' \
-    --dft-engine gpu -o dft_TS
+    --dft-engine gpu --out-json -o dft_TS
 ```
 
 Repeat for both endpoints, then combine their `energy_hartree` (the ML-region

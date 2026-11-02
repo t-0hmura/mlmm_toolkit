@@ -22,7 +22,7 @@ pip install mlmm-toolkit
 plotly_get_chrome -y
 ```
 
-PNG export needs operating-system libraries that pip and conda do not install; install them first if they are missing: {ref}`System prerequisites <system-prerequisites>`.
+Image export (PNG, JPEG, SVG, PDF) needs operating-system libraries that pip and conda do not install; install them first if they are missing: {ref}`System prerequisites <system-prerequisites>`.
 
 Finally, log in to **Hugging Face Hub** so that UMA models can be downloaded. Logging in needs a free HF account with a read-only token. Accept the FAIR Chemistry License v1 at <https://huggingface.co/facebook/UMA> first:
 
@@ -45,8 +45,8 @@ ORB, AIMNet2, MACE, and DFT are installed in step 7 of {ref}`Step-by-step instal
 
 pip and conda do not install the libraries Chrome needs, and an environment built without `cxx-compiler` has no compiler. A workstation usually has them; a minimal container or a bare cluster node often does not.
 
-- **A compiler.** UMA builds code the first time it runs: a GPU run needs a C compiler (`gcc`), and a CPU run needs a C++ compiler (`g++`). `hessian_ff` needs a C++20 compiler. The conda command in Quick install installs them (`cxx-compiler`).
-- **Libraries for Chrome.** PNG figures (`energy-diagram`, `trj2fig`, and the diagrams of `all`) are drawn by headless Chrome, which `plotly_get_chrome -y` downloads. Chrome loads the operating-system libraries below.
+- **A compiler.** UMA and ORB compile code at run time for speed: a GPU run needs a C compiler (`gcc`), and a CPU run needs a C++ compiler (`g++`). `hessian_ff` needs a C++20 compiler. The conda command in Quick install installs them (`cxx-compiler`).
+- **Libraries for Chrome.** PNG, JPEG, SVG and PDF figures (`energy-diagram`, `trj2fig`, and the diagrams of `all`) are drawn by headless Chrome, which `plotly_get_chrome -y` downloads. Chrome loads the operating-system libraries below.
 
 Ubuntu/Debian (on Ubuntu 22.04 and Debian 12, write `libasound2` instead of `libasound2t64`; drop `sudo` if you are root):
 
@@ -69,9 +69,9 @@ sudo dnf install -y alsa-lib at-spi2-atk at-spi2-core atk ca-certificates cairo 
   vulkan-loader wget xdg-utils
 ```
 
-Without sudo (HPC), run `module load gcc`, or add the compilers to your environment with `conda install -c conda-forge c-compiler cxx-compiler`. Ask the administrator for Chrome's libraries; without them `all` and `path-search` still finish and only skip the PNG files.
+Without sudo (HPC), run `module load gcc`, or add the compilers to your environment with `conda install -c conda-forge c-compiler cxx-compiler`. Ask the administrator for Chrome's libraries.
 
-If one is missing, the command stops and prints `Missing system prerequisite:` followed by these commands.
+If a compiler is missing, the command stops and prints `Missing system prerequisite:` followed by these commands. If a Chrome library is missing, `energy-diagram` and `trj2fig` stop the same way, while `all`, `path-search` and `scan2d` print a warning and skip only their PNG files.
 
 (step-by-step-installation)=
 ## Step-by-step installation

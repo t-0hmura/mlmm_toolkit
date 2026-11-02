@@ -152,8 +152,8 @@ An optimizer may also report `"optimization_status": "stalled"`: the energy stop
 | `n_negative_modes` | int\|null | Number of negative frequencies of any size, including those within the cutoff; a diagnostic next to `n_imaginary_modes`, `null` if PHVA was not run |
 | `imaginary_frequencies_cm` | float[]\|null | Imaginary frequencies (cm⁻¹, negative); `null` or `[]` when PHVA was not run |
 | `frequency_zero_cutoff_cm` / `imaginary_mode_criterion` / `imaginary_frequency_threshold_cm` | float / string / float | The defaults are `5.0`, `"frequency_cutoff_cm"`, and `-5.0`: only ν < −5.00 cm⁻¹ counts as imaginary. |
-| `opt_mode` | string | `"grad"`, `"hess"`, `"dimer"`, `"rsprfo"`, `"rsirfo"`, or `"trim"`; `hess` selects RS-P-RFO |
-| `opt_mode_requested` | string | Requested CLI preset |
+| `opt_mode` | string | The optimizer that ran: `"dimer"`, `"rsprfo"`, `"rsirfo"`, or `"trim"` |
+| `opt_mode_requested` | string | The `--opt-mode` value as typed (`grad` gives `dimer`, `hess` gives `rsprfo`) |
 | `optimizer` | string | Effective optimizer algorithm used by the run |
 | `n_atoms` | int | Total atoms |
 | `n_opt_cycles` | int | Optimization cycles |
@@ -431,7 +431,7 @@ The `all` command additionally includes:
 | `mlip_precision_post` | string \| null | Effective `tf32` / `fp32` / `fp64` of TS optimization, IRC, the endpoint optimizations and freq (`--precision-post`); the same as `mlip_precision` when it is not given |
 | `n_segments_reactive` | int | Number of non-bridge (reactive) segments |
 | `rate_limiting_step` | object | Highest local barrier among the reactive segments, as `{segment, barrier_kcal, method}` plus `mep_barrier_kcal` (the barrier on the MEP; not in TS-only mode), taken at the highest-level method available for every segment (`DFT//MLIP/MM_Gibbs` > `DFT` > `MLIP_Gibbs` > `MLIP` > `MEP`; with `--backend dft`, `DFT/MM_Gibbs` and `DFT/MM` take the place of `MLIP_Gibbs` and `MLIP`). It is not a microkinetic rate-limiting-step assignment. |
-| `overall_reaction_energy_kcal` | float | Overall reaction energy of the segments that were built; an interval that built no segment is not included |
+| `overall_reaction_energy_kcal` | float | Overall reaction energy: the energy of the last state relative to the first in the highest-level energy diagram that covers every reactive segment. The MEP-level diagram includes intervals that built no segment |
 | `overall_reaction_energy_method` | string | Method of the overall reaction energy, from the same list as `rate_limiting_step.method` and no higher than it |
 | `post_segments` | list | Per-segment TS/IRC/freq/DFT results |
 | `post_segments[].tsopt.n_imaginary_modes` / `.imaginary_frequencies_cm` | int / float[] | n_imag of the optimized TS and its imaginary frequencies (cm⁻¹, negative) |

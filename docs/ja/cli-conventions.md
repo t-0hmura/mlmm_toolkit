@@ -62,7 +62,7 @@ mlmm opt -i input.pdb --parm7 real.parm7 -q -1 --config my_settings.yaml --show-
 | `--model-indices` | ML 領域の原子番号（1 始まり、カンマ区切り。`1-5` のような範囲も可）。`--model-pdb` が無いときに使います。 | なし |
 | `--detect-layer/--no-detect-layer` | B-factor 0 / 10 / 20 を {ref}`ML・可動 MM・固定 MM の層 <ja-mm-layers>` として読みます。ML 領域を明示したときは MM の層だけを読みます。 | `--detect-layer` |
 | `--ref-pdb` | XYZ 入力のときに、原子の順序と残基の情報を与える PDB。 | なし |
-| `--movable-cutoff` | ML 領域からの距離（Å）。この内側の MM 原子は動き、外側は固定されます。 | なし（層は B-factor か `--freeze-atoms` から） |
+| `--movable-cutoff` | ML 領域からの距離（Å）。この内側の MM 原子は動き、外側は固定されます。`irc`・`dft`・`all` にはありません。 | なし（層は B-factor か `--freeze-atoms` から） |
 | `--mm-backend` | MM の計算エンジン：`hessian_ff` か `openmm`。MM の Hessian はデフォルトで有限差分です。 | `hessian_ff` |
 | `--link-atom-method` | リンク原子の置き方：`scaled`（g-factor）か `fixed`（1.09 / 1.01 Å）。 | `scaled` |
 | `--cmap/--no-cmap` | parm7 に CMAP 項があれば、real system と model system の両方の MM 計算に残します。 | `--cmap` |
@@ -272,7 +272,7 @@ JSON の有無で終了コードは変わりません。終了コード `0` に�
 
 同じ `--opt-mode` の値でも、サブコマンドによって**選ばれる最適化法が異なり**、デフォルトも異なります。レシピをコピーする前に表を確認してください。アルゴリズム名を受け付けるのは `opt`（`lbfgs` / `rfo`）と `tsopt`（`dimer` / `rsirfo` / `trim` / `rsprfo`）だけで、ほかのサブコマンドは `grad` / `hess` だけを受け付けます。したがって `tsopt` の `--opt-mode grad` は L-BFGS 最小化ではなく **Dimer TS 探索**で、この Dimer は Hessian を周期的に計算して方向を更新します。曖昧さを避けるには、`tsopt` では `--opt-mode dimer` か `rsirfo`、`opt` では `--opt-mode lbfgs` か `rfo` と書いてください。
 
-`--microiter/--no-microiter`（デフォルトで有効）は、ML 領域の Hessian を使う 1 ステップと、MM 原子の L-BFGS 緩和を交互に行います。`opt` では RFO、`tsopt` では RS-P-RFO・RS-I-RFO・TRIM のときに使います。Dimer と静電埋め込み（`--embedcharge`）では使いません。
+`--microiter/--no-microiter`（デフォルトで有効）は、ML 領域の Hessian を使う 1 ステップと、MM 原子の L-BFGS 緩和を交互に行います。`opt` では RFO、`tsopt` では RS-P-RFO・RS-I-RFO・TRIM のときに使います。Dimer、静電埋め込み（`--embedcharge`）、`opt` の `--distance-restraint` では使いません。
 
 ## CLI ↔ YAML 名称の不一致
 

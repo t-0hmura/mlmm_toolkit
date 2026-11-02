@@ -63,6 +63,26 @@ def test_summary_log_labels_primary_dft_mm_without_mlip_composite_rows(tmp_path:
     assert "DFT//MLIP/MM" not in text
 
 
+def test_overview_table_takes_the_all_segment_diagram(tmp_path: Path):
+    from mlmm.io.summary import write_summary_log
+
+    dest = tmp_path / "summary.log"
+    write_summary_log(dest, {
+        "energy_diagrams": [
+            {"name": "energy_diagram_MEP", "labels": ["R", "TS1", "IM1", "TS2", "P"],
+             "energies_kcal": [0.0, 20.0, 5.0, 18.0, -3.0]},
+            {"name": "energy_diagram_MLIP_seg_01", "labels": ["R", "TS1", "IM1"],
+             "energies_kcal": [0.0, 15.0, 4.0]},
+            {"name": "energy_diagram_MLIP_all", "labels": ["R", "TS1", "IM1", "TS2", "P"],
+             "energies_kcal": [0.0, 15.0, 4.0, 13.0, -2.0]},
+        ],
+    })
+
+    row = next(line for line in dest.read_text(encoding="utf-8").splitlines()
+               if line.strip().startswith("ML/MM ΔE"))
+    assert row.split()[-5:] == ["0.00", "15.00", "4.00", "13.00", "-2.00"]
+
+
 @pytest.mark.parametrize("display_mode", ["MEP", "Scan", "TS-only"])
 def test_all_summary_header_uses_entry_mode_and_absolute_directories(
     tmp_path: Path, display_mode: str,

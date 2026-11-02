@@ -400,7 +400,8 @@ def add_deterministic_option() -> Callable[[Callable], Callable]:
             callback=_deterministic_callback,
             help=(
                 "Make repeated runs on the same software versions and hardware "
-                "give identical results (PyTorch deterministic algorithms). "
+                "give identical results (PyTorch deterministic algorithms; AM1-BCC "
+                "ligand charges are not covered, so reuse one parm7). "
                 "Slower; raises for detected unsupported ops; custom calculators "
                 "(--calc-file) and AIMNet2 are not supported: the run stops."
             ),

@@ -5,7 +5,24 @@
  "exit_code": 0,
  "summary": {
   "charge": 0,
-  "command": "mlmm path-search -i <tmp>/input0.pdb <tmp>/input1.pdb -q 0 -m 1 --parm <tmp>/fixture.parm7 --detect-layer --mep-mode gsm --no-preopt --opt-mode grad --out-dir <tmp>/out/_work/path_search --ref-pdb <tmp>/input0.pdb <tmp>/input1.pdb",
+  "command": "mlmm all -i <tmp>/input0.pdb -i <tmp>/input1.pdb -q 0 -m 1 --parm <tmp>/fixture.parm7 --model-pdb <tmp>/input0.pdb --out-dir <tmp>/out --no-preopt --refine-path",
+  "config": {
+   "dft": false,
+   "dmf_backend": "gpu",
+   "dmf_correlated": true,
+   "endpoint_opt_mode": null,
+   "flatten": false,
+   "mep_mode": "gsm",
+   "opt_mode": "grad",
+   "opt_mode_post": null,
+   "path_opt_mode": "grad",
+   "post_opt_mode": null,
+   "preopt": false,
+   "refine_path": true,
+   "thermo": false,
+   "ts_opt_mode": null,
+   "tsopt": false
+  },
   "current_output_paths": [
    "energy_diagram_MEP.png",
    "mep_plot.png",
@@ -31,7 +48,7 @@
      15.687736850000013,
      6.2750947400000054
     ],
-    "image": "<tmp>/out/_work/path_search/energy_diagram_MEP.png",
+    "image": "<tmp>/out/energy_diagram_MEP.png",
     "labels": [
      "R",
      "TS1",
@@ -64,15 +81,19 @@
   "mlip_model": "uma-s-1p2p1",
   "mlip_model_label": "UMA-S-1.2.1 (OMol)",
   "mlip_precision": "fp32",
+  "mlip_precision_post": "fp32",
   "mlip_task": "omol",
   "mlmm_toolkit_version": "<version>",
   "mm_backend": "hessian_ff",
   "n_images": 3,
   "n_segments": 1,
+  "n_segments_reactive": 1,
   "observed_item_ids": [
    "segment_1"
   ],
   "out_dir": "<tmp>/out/_work/path_search",
+  "overall_reaction_energy_kcal": 6.28,
+  "overall_reaction_energy_method": "MEP",
   "path_optimizers": [],
   "pipeline_mode": "path-search",
   "preopt_converged": null,
@@ -80,6 +101,12 @@
   "preopt_requested": false,
   "primary_method": "mlip",
   "primary_method_label": "ML/MM",
+  "rate_limiting_step": {
+   "barrier_kcal": 15.69,
+   "mep_barrier_kcal": 15.69,
+   "method": "MEP",
+   "segment": 1
+  },
   "references": [
    {
     "citation": "Ohmura, T.; Inoue, S.; Terada, T. ML/MM toolkit – Towards Accelerated Mechanistic Investigation of Enzymatic Reactions. ChemRxiv (2025). https://doi.org/10.26434/chemrxiv-2025-jft1k",

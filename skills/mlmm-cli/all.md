@@ -39,8 +39,9 @@ mlmm all -i <inputs> [-c <centers>] [-l 'RES:Q,...'] [-s '...'] \
 `-i` takes full-system structures. Without `--parm7`, `all` builds the topology
 with AmberTools; without `-c`, the ML region comes from the B-factor layers of
 the input or from `--model-pdb`. Add `--dry-run` first: it runs the preparation
-and the charge and electron-parity checks in a temporary directory, prints the
-plan, and skips the calculations. Each mode page has a complete command.
+and the charge check in a temporary directory, adds the electron-parity check
+only with `--parm7`, prints the plan, and skips the calculations (it never
+runs AmberTools). Each mode page has a complete command.
 
 ## Judge success
 

@@ -7,8 +7,10 @@ PBS job that grabs N nodes and runs one worker per node; the workers
 pull tasks from a shared list, incrementing a counter under a file
 lock.
 
-This is the common `pbsdsh` + `flock` pattern on Torque/PBSPro
-clusters. The recipe below is **placeholder-driven** — fill in
+This is the common `pbsdsh` + `flock` pattern on PBS clusters. The template
+uses PBS Pro resource syntax; on Torque, write the `-l` line as
+`nodes=<N_NODES>:ppn=<NCPU>:gpus=<NGPU>,mem=<MEM>GB,walltime=<HH:MM:SS>`.
+The recipe below is **placeholder-driven** — fill in
 `<N_NODES>`, `<NCPU>`, `<NGPU>`, `<MEM>`, `<HH:MM:SS>`, `<YOUR_QUEUE>`,
 `<YOUR_ENV>`, `<TASK_LIST_FILE>` (and `<COMPILER_MODULE>` only if needed) from [`mlmm-install/backends.md`](../mlmm-install/backends.md#probe-the-compute-environment).
 

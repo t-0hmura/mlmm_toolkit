@@ -72,13 +72,14 @@ Choose precision by backend and purpose, then measure its cost on the allocated 
 
 ## HPC Job Submission
 
-### PBS example
+### PBS (Torque) example
 
 ```bash
 #!/bin/bash
 #PBS -N mlmm_opt
 #PBS -q default
 #PBS -l nodes=1:ppn=32:gpus=1,mem=120GB,walltime=72:00:00
+# PBS Pro: -l select=1:ncpus=32:ngpus=1:mem=120gb,walltime=72:00:00
 #PBS -j oe
 
 set -euo pipefail

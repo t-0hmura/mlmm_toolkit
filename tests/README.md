@@ -31,8 +31,10 @@ version, without pinning a release number. Every CLI case is executed through
 activation stay out of the repository.
 
 The default strict lane numerically compares UMA and ORB analytical Hessians
-with finite differences. Run the same required checker in the isolated MACE
-and AIMNet2 environments:
+with finite differences. ORB goes in its own environment, so run test47,
+test47b and the `orb` argument of test71 there and remove them from the copy of
+`run.sh` that runs in the main environment. Run the same required checker in the
+isolated MACE and AIMNet2 environments:
 
 ```bash
 bash run_backend_hessian.sh mace

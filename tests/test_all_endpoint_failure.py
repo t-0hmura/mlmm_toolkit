@@ -8,15 +8,20 @@ cleanup execute unchanged.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+import click
 import numpy as np
 import pytest
 
 from _all_stub_harness import Behaviour, coords, run_all, write
+from mlmm.cli.completion import completion_guard, record_completion
 from mlmm.workflows import all as workflow
 from mlmm.io import hessian_cache
+
+REAL_RUN_CLI_MAIN = workflow._run_cli_main
 
 def test_failed_ts_only_summary_does_not_invent_a_barrier(tmp_path):
     stop = {"stage": "endpoint_opt", "reason": "endpoint_execution_failed"}
@@ -194,6 +199,53 @@ def test_endpoint_boundary_retains_provenance_and_stops_consumers(
     for opt_role, state in _STATE.items():
         if not (failed and opt_role == role):
             assert post["endpoint_opt"][state]["n_opt_cycles"] == {"R": 3, "P": 4}[opt_role]
+
+
+@pytest.mark.parametrize("outcome", ["not_converged", "hard_error"])
+def test_endpoint_opt_exit_code_goes_through_the_real_dispatch(monkeypatch, tmp_path, outcome):
+    """Like the opt command, the endpoint child exits 1 when it does not converge
+    (a completed run) and when it fails with an error; only the error stops the segment."""
+
+    def opt_with_its_exit_code(_hooks):
+        stub = workflow._run_cli_main
+
+        def dispatch(name, cli, args, **kwargs):
+            if name != "opt":
+                return stub(name, cli, args, **kwargs)
+            out = Path(args[args.index("--out-dir") + 1])
+
+            @click.command(context_settings={"ignore_unknown_options": True, "allow_extra_args": True})
+            def opt():
+                try:
+                    stub(name, cli, args, **kwargs)  # writes the result and geometry
+                except RuntimeError:
+                    sys.exit(1)
+                status = json.loads((out / "result.json").read_text(encoding="utf-8"))["optimization_status"]
+                record_completion({"status": status}, command="opt")
+
+            opt.callback = completion_guard(opt.callback)
+            return REAL_RUN_CLI_MAIN(name, opt, args, **kwargs)
+
+        monkeypatch.setattr(workflow, "_run_cli_main", dispatch)
+
+    run = run_all(
+        tmp_path, monkeypatch, frames=(1.0,), extra=["--tsopt", "--thermo"],
+        behaviour=Behaviour(opt={"P": _MODE[outcome]}), wrap=opt_with_its_exit_code,
+    )
+    summary = run.summary
+    (post,) = summary["post_segments"]
+
+    if outcome == "not_converged":
+        assert run.result.exit_code == 0, run.result.output[-3000:]
+        assert (summary["execution_status"], summary["scientific_status"]) == ("completed", "partial")
+        assert post["endpoint_opt"]["product_converged"] is False
+        assert "pipeline_stop" not in post
+        assert run.child_names().count("freq") == 3
+    else:
+        assert run.result.exit_code == 1
+        assert summary["execution_status"] == "failed"
+        assert post["pipeline_stop"]["reason"] == "endpoint_execution_failed"
+        assert "freq" not in run.child_names()
 
 
 def test_ts_only_higher_energy_irc_endpoint_is_reactant(monkeypatch, tmp_path):

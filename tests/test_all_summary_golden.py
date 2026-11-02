@@ -109,6 +109,7 @@ def test_all_root_summary_matches_golden(tmp_path, monkeypatch, case):
     frames, extra, behaviour = CASES[case]
     run = run_all(tmp_path, monkeypatch, frames=frames, extra=extra, behaviour=behaviour)
     assert (run.out / "summary.json").is_file(), run.result.output[-3000:]
+    assert (run.out / "summary.log").is_file()
     actual = snapshot(run, tmp_path)
     golden = GOLDEN_DIR / f"{case}.json"
     if os.environ.get("MLMM_UPDATE_SUMMARY_GOLDEN") == "1":
@@ -120,3 +121,27 @@ def test_all_root_summary_matches_golden(tmp_path, monkeypatch, case):
     expected = json.loads(golden.read_text(encoding="utf-8"))
     differences = _diff(expected, actual)
     assert not differences, "\n".join(differences[:60])
+
+
+def test_refine_path_exit_before_post_processing_reports_the_all_run(tmp_path, monkeypatch):
+    """Without post-processing the root summary is the all summary, not the
+    path-search child summary, so the console names the interval as summary.log does."""
+    from mlmm.workflows import path_search
+
+    contract = path_search._enrich_path_summary_contract
+    # One interval of the recursive search has its highest image at an endpoint.
+    endpoint_hei = path_search._raw_path_outcome("raw_seg_000", engine_converged=True)
+    monkeypatch.setattr(
+        path_search, "_enrich_path_summary_contract",
+        lambda summary, **kwargs: contract(summary, **kwargs, required_outcomes=[endpoint_hei]),
+    )
+    run = run_all(tmp_path, monkeypatch, frames=(0.0, 2.0), extra=("--refine-path",))
+    summary = run.summary
+
+    assert run.result.exit_code == 0, run.result.output[-3000:]
+    assert summary["command"].startswith("mlmm all ")
+    assert summary["config"]["refine_path"] is True
+    assert summary["scientific_status"] == "partial"
+    interval = "Path-search interval 1 (seg_000)"
+    assert f"RESULT WARNING: {interval}" in run.result.output
+    assert interval in (run.out / "summary.log").read_text(encoding="utf-8")

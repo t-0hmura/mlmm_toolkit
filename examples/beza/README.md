@@ -30,7 +30,8 @@ bash examples/beza/run.sh /path/to/mlmm_beza_output
 
 1. The MEP between `1.R.pdb` and `3.P.pdb`, with `--refine-path`.
 2. A two-stage distance scan from `1.R.pdb`: stage 1 moves the methyl group of
-   SAM onto C7 of GPP, and stage 2 moves H11 of GPP onto OE2 of Glu186.
+   SAM onto C7 of GPP (the PDB atom name; C6 in IUPAC numbering), and stage 2
+   moves H11 of GPP onto OE2 of Glu186.
 
 `mlmm all` builds the Amber topology and the ML/MM layers from the input
 structures.
