@@ -187,7 +187,7 @@ If you prefer to build the environment piece by piece:
 
 **OS.** Linux is recommended. Native Windows is not supported because AmberTools (`tleap`) is not available there.
 
-**Python.** 3.12 or 3.13 is required.
+**Python.** 3.12 (recommended) or 3.13 is required.
 
 **GPU / CUDA.** An NVIDIA GPU whose driver supports the chosen PyTorch build (see Quick install); newer GPU architectures may need a newer build. CPU-only execution works but is usually much slower.
 
