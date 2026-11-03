@@ -45,7 +45,7 @@ ORB・AIMNet2・MACE・DFT の導入は {ref}`詳細なインストール手順 
 
 pip と conda は Chrome が使うライブラリを入れません。また `cxx-compiler` を入れずに作った環境にはコンパイラがありません。ワークステーションには通常ありますが、最小構成のコンテナや素のクラスターノードにはないことが多いです。
 
-- **コンパイラ:** UMA と ORB は実行時に高速化のためコンパイルをします。GPU では C コンパイラ（`gcc`）、CPU では C++ コンパイラ（`g++`）が要ります。`hessian_ff` には C++20 対応コンパイラが要ります。最短のインストールの conda のコマンドは、これらを入れます（`cxx-compiler`）。
+- **コンパイラ:** GPU では、UMA は実行時に高速化のためコンパイルをします（PyTorch が Triton で GPU のカーネルを作ります）。そのため `--compile` を付けなくても C コンパイラ（`gcc`）が要ります。`--compile` を付けると UMA と ORB はモデルもコンパイルするので、GPU では C コンパイラ、CPU では C++ コンパイラ（`g++`）が要ります。`hessian_ff` には C++20 対応コンパイラが要ります。最短のインストールの conda のコマンドは、これらを入れます（`cxx-compiler`）。
 - **Chrome 用のライブラリ:** PNG・JPEG・SVG・PDF の図（`energy-diagram`、`trj2fig`、`all` の図）はヘッドレス Chrome で描きます。Chrome は `plotly_get_chrome -y` でダウンロードし、下の OS のライブラリを読み込みます。
 
 Ubuntu/Debian（Ubuntu 22.04 と Debian 12 では `libasound2t64` の代わりに `libasound2` と書きます。root なら `sudo` は不要）:

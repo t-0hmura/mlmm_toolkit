@@ -102,6 +102,8 @@ MLMM_CALC_KW: Dict[str, Any] = {
     "mace_model": "MACE-OMOL-0",
     "mace_dtype": "float64",
     "aimnet2_model": "aimnet2",
+    # torch.compile the UMA or ORB model (--compile). None = not set: not compiled.
+    "compile_model": None,
     # ML Hessian mode: "FiniteDifference" or "Analytical"
     "hessian_calc_mode": "FiniteDifference",
     "out_hess_torch": True,

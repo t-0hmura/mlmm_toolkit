@@ -49,7 +49,7 @@ from mlmm.core.utils import (
 )
 from mlmm.cli.common_options import (
     add_ml_layer_detection_options,
-    add_precision_option, add_backend_model_option, add_calc_file_option,
+    add_precision_option, add_compile_option, add_backend_model_option, add_calc_file_option,
     add_workers_options,
     add_deterministic_option, add_allow_charge_mult_mismatch_option,
 )
@@ -304,6 +304,7 @@ def _resolve_sp_ml_region(
 )
 @add_ml_layer_detection_options()
 @add_precision_option()
+@add_compile_option()
 @add_workers_options()
 @add_backend_model_option()
 @add_calc_file_option()
@@ -340,6 +341,7 @@ def cli(
     mm_backend: Optional[str],
     use_cmap: Optional[bool],
     precision: Optional[str],
+    compile_model: Optional[bool],
     workers: Optional[int],
     workers_per_node: Optional[int],
     backend_model: Optional[str],
@@ -418,6 +420,8 @@ def cli(
             if _is_param_explicit("precision") and precision is not None
             else None,
         )
+        from mlmm.core.compile_policy import apply_compile_option
+        apply_compile_option(calc_cfg, compile_model)
         # SP-specific CLI overrides
         if _is_param_explicit("out_dir"):
             sp_cfg["out_dir"] = out_dir

@@ -93,7 +93,7 @@ from mlmm.cli.common_options import (
     add_ml_layer_detection_options,
     add_coord_type_option,
     add_print_every_option,
-    add_precision_option, add_backend_model_option, add_calc_file_option,
+    add_precision_option, add_compile_option, add_backend_model_option, add_calc_file_option,
     add_deterministic_option, add_allow_charge_mult_mismatch_option,
     add_workers_options,
 )
@@ -1415,6 +1415,7 @@ def _run_microiter_opt(
 @add_coord_type_option()
 @add_print_every_option()
 @add_precision_option()
+@add_compile_option()
 @add_workers_options()
 @add_backend_model_option()
 @add_calc_file_option()
@@ -1494,6 +1495,7 @@ def cli(
     cli_coord_type: Optional[str],
     print_every: Optional[int],
     precision: Optional[str],
+    compile_model: Optional[bool],
     workers: Optional[int],
     workers_per_node: Optional[int],
     backend_model: Optional[str],
@@ -1646,6 +1648,8 @@ def cli(
         # Unconditional: also dispatches a --config YAML calc.precision
         # after the final backend has been selected.
         apply_precision_to_calc_cfg(calc_cfg, precision)
+        from mlmm.core.compile_policy import apply_compile_option
+        apply_compile_option(calc_cfg, compile_model)
         if _is_param_explicit("embedcharge"):
             calc_cfg["embedcharge"] = bool(embedcharge)
         if _is_param_explicit("embedcharge_cutoff"):
@@ -2364,6 +2368,7 @@ def cli(
                     "mlip_model_label": None,
                     "mlip_task": None,
                     "mlip_precision": None,
+                    "mlip_compiled": None,
                 }
             )
         result_data = {

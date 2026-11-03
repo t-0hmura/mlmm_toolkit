@@ -10,7 +10,7 @@ For detailed documentation, see: docs/trj2fig.md
 from __future__ import annotations
 
 from mlmm.cli.completion import completion_guard
-from mlmm.cli.common_options import add_precision_option
+from mlmm.cli.common_options import add_compile_option, add_precision_option
 
 import csv
 import os
@@ -42,6 +42,7 @@ def recompute_energies(
     backend: str = "uma",
     backend_model: Optional[str] = None,
     precision: Optional[str] = None,
+    compile_model: Optional[bool] = None,
 ) -> List[float]:
     """Recalculate frame energies with the selected MLIP backend."""
     try:
@@ -73,6 +74,7 @@ def recompute_energies(
         backend,
         backend_model=backend_model,
         precision=precision,
+        compile_model=compile_model,
     )
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     backend_kwargs = {
@@ -87,6 +89,7 @@ def recompute_energies(
             "mace_model",
             "mace_dtype",
             "aimnet2_model",
+            "compile_model",
         }
     }
     ml_backend = _create_ml_backend(
@@ -109,23 +112,26 @@ def _resolved_backend_config(
     *,
     backend_model: Optional[str] = None,
     precision: Optional[str] = None,
+    compile_model: Optional[bool] = None,
 ) -> tuple[dict, dict]:
-    """Resolve backend-specific model/precision and its public provenance."""
+    """Resolve backend-specific model/precision/compilation and its public provenance."""
     from mlmm.backends import (
         apply_backend_model_to_calc_cfg,
         apply_precision_to_calc_cfg,
     )
+    from mlmm.core.compile_policy import apply_compile_option
     from mlmm.core.utils import calculator_provenance
 
     calc_cfg = {"backend": str(backend).strip().lower()}
     apply_backend_model_to_calc_cfg(calc_cfg, backend_model)
     apply_precision_to_calc_cfg(calc_cfg, precision)
+    apply_compile_option(calc_cfg, compile_model)
     provenance = calculator_provenance(calc_cfg)
     return calc_cfg, {
         key: provenance[key]
         for key in (
             "mlip_backend", "mlip_model", "mlip_model_label", "mlip_task",
-            "mlip_precision",
+            "mlip_precision", "mlip_compiled",
         )
     }
 
@@ -308,6 +314,7 @@ def run_trj2fig(
     backend: str = "uma",
     backend_model: Optional[str] = None,
     precision: Optional[str] = None,
+    compile_model: Optional[bool] = None,
 ) -> dict:
     """Run trj2fig and return energies, outputs, and actual provenance."""
     traj = input_path.expanduser().resolve()
@@ -337,12 +344,14 @@ def run_trj2fig(
             "mlip_model_label": None,
             "mlip_task": None,
             "mlip_precision": None,
+            "mlip_compiled": None,
         }
     else:
         _, provenance = _resolved_backend_config(
             backend,
             backend_model=backend_model,
             precision=precision,
+            compile_model=compile_model,
         )
         energies = recompute_energies(
             traj,
@@ -351,6 +360,7 @@ def run_trj2fig(
             backend=backend,
             backend_model=backend_model,
             precision=precision,
+            compile_model=compile_model,
         )
         energy_provenance = ["mlip-recomputed"] * len(energies)
     values, ylabel, is_delta = transform_series(energies, reference, unit, reverse_x)
@@ -454,6 +464,7 @@ def run_trj2fig(
     help="Model variant for the selected backend; defaults to its built-in model.",
 )
 @add_precision_option()
+@add_compile_option()
 @click.option(
     "--out-json/--no-out-json",
     default=False,
@@ -472,6 +483,7 @@ def cli(
     backend: str,
     backend_model: Optional[str],
     precision: Optional[str],
+    compile_model: Optional[bool],
     out_json: bool,
 ) -> None:
     time_start = time.perf_counter()
@@ -492,6 +504,7 @@ def cli(
             backend=backend,
             backend_model=backend_model,
             precision=precision,
+            compile_model=compile_model,
         )
     except (ValueError, RuntimeError) as exc:
         raise click.ClickException(str(exc)) from exc
@@ -515,6 +528,7 @@ def cli(
             "mlip_model_label": info["mlip_model_label"],
             "mlip_task": info["mlip_task"],
             "mlip_precision": info["mlip_precision"],
+            "mlip_compiled": info["mlip_compiled"],
             "charge": info["charge"],
             "multiplicity": info["multiplicity"],
             # Preserve order and duplicate basenames across output

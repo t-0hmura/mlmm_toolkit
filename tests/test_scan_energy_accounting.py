@@ -51,6 +51,7 @@ def test_calculator_provenance_resolves_backend_specific_model() -> None:
         "mlip_model_label": "ORB-test",
         "mlip_task": None,
         "mlip_precision": "fp64",
+        "mlip_compiled": False,
         "mm_backend": "openmm",
         "link_atom_method": "fixed",
         "use_cmap": True,

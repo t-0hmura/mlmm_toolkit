@@ -63,6 +63,7 @@ max_cycles: 100000
 | `-b` / `--backend` | `backend` | `calc` |
 | `--backend-model` | `uma_model`・`orb_model`・`mace_model`・`aimnet2_model`（選んだバックエンドのキー） | `calc` |
 | `--precision` | `uma_precision`・`orb_precision`・`mace_dtype`（選んだバックエンドのキー） | `calc` |
+| `--compile/--no-compile` | `compile_model` | `calc` |
 | `--workers` | `workers` | `calc` |
 | `--link-atom-method` | `link_atom_method` | `calc` |
 | `--mm-backend` | `mm_backend` | `calc` |
@@ -155,6 +156,7 @@ calc:
 
  # --- MLIP バックエンドの選択 ---
  backend: uma # 高レベルバックエンド: uma, orb, mace, aimnet2, dft
+ compile_model: null # UMA と ORB。true で torch.compile する（--compile と同じ。解析 Hessian ではしない）。null か false ではしない
 
  # --- UMA バックエンドの設定 ---
  uma_model: uma-s-1p2p1 # UMA モデル名: uma-s-1p2p1, uma-s-1p2p1-ft-d4rev, uma-s-1p2, uma-m-1p1

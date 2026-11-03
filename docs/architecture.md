@@ -108,6 +108,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │   ├── calc_eval.py per-stage calc evaluation
 │   ├── output.py / result_commit.py output/result commit helpers
 │   ├── prerequisites.py guidance for a missing compiler or Chrome library
+│   ├── compile_policy.py --compile resolution for UMA and ORB
 │   ├── pes_composition.py energy-component composition
 │   └── residue_data.py residue tables
 │
@@ -265,6 +266,7 @@ implementation changes currently touch `mlmm_calc.py` and the dispatcher.
 | Per-stage calc evaluation | `mlmm/core/calc_eval.py` |
 | Output/result commit helpers | `mlmm/core/output.py`, `mlmm/core/result_commit.py` |
 | Guidance for a missing compiler or Chrome library | `mlmm/core/prerequisites.py` |
+| `--compile` resolution for UMA and ORB | `mlmm/core/compile_policy.py` |
 | Energy-component composition | `mlmm/core/pes_composition.py` |
 | Residue tables | `mlmm/core/residue_data.py` |
 

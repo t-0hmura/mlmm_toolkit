@@ -166,7 +166,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 * **固定原子があるときの剛体運動**: `--flatten` は、剛体運動を [`freq`](freq.md#固定境界での剛体モード) と同じように扱い、`result.json` の `rigid_projection` に記録します。
 * **固定原子と拘束の全体**: 固定する原子や拘束の選び方は、{ref}`原子の固定と距離の拘束 <ja-freeze-atoms-and-restraints>` を参照してください。
 * **オプティマイザの状態の書き出し**: `--dump` を付け、YAML の `opt.dump_restart` に正の整数 N を指定すると、N サイクルごとに `restart_NNN.yaml` を書きます。mlmm-toolkit はこのファイルを読み戻さないので、止まった計算は final geometry から `opt` をやり直してください。
-* **モデルと精度**: `--backend-model` でバックエンドのモデルを、`--precision` で精度を選べます。詳しくは自動生成のオプションの一覧（英語のみ）を参照してください。
+* **モデルと精度**: `--backend-model` でバックエンドのモデルを、`--precision` で精度を選べます。`--compile` を付けると UMA・ORB のモデルを torch.compile します（デフォルトではしません）。詳しくは自動生成のオプションの一覧（英語のみ）を参照してください。
 
 ---
 

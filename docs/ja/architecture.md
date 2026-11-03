@@ -101,6 +101,7 @@ mlmm_toolkit/ [GH: t-0hmura/mlmm_toolkit]
 │   ├── calc_eval.py per-stage calc evaluation
 │   ├── output.py / result_commit.py output/result commit helpers
 │   ├── prerequisites.py コンパイラや Chrome のライブラリが無いときの案内
+│   ├── compile_policy.py UMA と ORB の --compile の解決
 │   ├── pes_composition.py energy-component composition
 │   └── residue_data.py residue tables
 │
@@ -258,6 +259,7 @@ mlmm myaction ─────────────────► mlmm/cli/ap
 | ステージごとの calc 評価 | `mlmm/core/calc_eval.py` |
 | 出力・結果確定ヘルパー | `mlmm/core/output.py`、`mlmm/core/result_commit.py` |
 | コンパイラや Chrome のライブラリが無いときの案内 | `mlmm/core/prerequisites.py` |
+| UMA と ORB の `--compile` の解決 | `mlmm/core/compile_policy.py` |
 | エネルギー成分の合成 | `mlmm/core/pes_composition.py` |
 | 残基テーブル | `mlmm/core/residue_data.py` |
 

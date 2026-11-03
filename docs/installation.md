@@ -45,7 +45,7 @@ ORB, AIMNet2, MACE, and DFT are installed in step 7 of {ref}`Step-by-step instal
 
 pip and conda do not install the libraries Chrome needs, and an environment built without `cxx-compiler` has no compiler. A workstation usually has them; a minimal container or a bare cluster node often does not.
 
-- **A compiler.** UMA and ORB compile code at run time for speed: a GPU run needs a C compiler (`gcc`), and a CPU run needs a C++ compiler (`g++`). `hessian_ff` needs a C++20 compiler. The conda command in Quick install installs them (`cxx-compiler`).
+- **A compiler.** On a GPU, UMA compiles code at run time for speed (PyTorch builds GPU kernels with Triton), so it needs a C compiler (`gcc`) even without `--compile`. With `--compile`, UMA and ORB also compile the model: a GPU run needs a C compiler, and a CPU run needs a C++ compiler (`g++`). `hessian_ff` needs a C++20 compiler. The conda command in Quick install installs them (`cxx-compiler`).
 - **Libraries for Chrome.** PNG, JPEG, SVG and PDF figures (`energy-diagram`, `trj2fig`, and the diagrams of `all`) are drawn by headless Chrome, which `plotly_get_chrome -y` downloads. Chrome loads the operating-system libraries below.
 
 Ubuntu/Debian (on Ubuntu 22.04 and Debian 12, write `libasound2` instead of `libasound2t64`; drop `sudo` if you are root):

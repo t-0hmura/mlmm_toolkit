@@ -156,22 +156,27 @@ UMA_PRECISIONS = ("tf32", "fp32", "fp64")
 _TF32_HINT = r"TensorFloat32 tensor cores for float32 matrix multiplication available but not enabled"
 
 
-def _uma_inference_settings(precision: str, *, analytical_hessian: bool, parallel: bool):
+def _uma_inference_settings(
+    precision: str, *, analytical_hessian: bool, parallel: bool, compile_model: bool = False
+):
     """Explicit FAIR-Chem InferenceSettings for a UMA precision token.
 
-    - ``fp64``: float64 base precision, not compiled.
-    - ``fp32``: IEEE FP32 (``tf32=False``): the merged-MOLE compiled fast path
-      that fairchem-core 2.22/2.23 used as its default (2.24 names it
-      "high-precision").
-    - ``tf32``: the same fast path with TF32 matmul, and UMA Nitro where the
+    Every route except the analytical Hessian uses the merged-MOLE fast path
+    that fairchem-core 2.22/2.23 used as its default (2.24 names it
+    "high-precision"), compiled only when ``compile_model`` is true:
+
+    - ``fp64``: the fast path with float64 base precision.
+    - ``fp32``: the fast path in IEEE FP32 (``tf32=False``).
+    - ``tf32``: the fast path with TF32 matmul, and UMA Nitro where the
       installed fairchem-core has it (2.24+, single worker; FAIR-Chem falls back
       to the TF32 fast path for checkpoints Nitro cannot serve).
 
     ML/MM analytical Hessians need a double backward that the compiled model
-    does not support, so that route is not compiled at any precision.
+    does not support, so that route keeps FAIR-Chem's other defaults and is
+    never compiled.
     """
     tf32 = precision == "tf32"
-    if precision == "fp64" or analytical_hessian:
+    if analytical_hessian:
         return _UMAInferenceSettings(
             tf32=tf32,
             compile=False,
@@ -181,10 +186,12 @@ def _uma_inference_settings(precision: str, *, analytical_hessian: bool, paralle
         tf32=tf32,
         activation_checkpointing=False,
         merge_mole=True,
-        compile=True,
+        compile=bool(compile_model),
         external_graph_gen=False,
         internal_graph_gen_version=2,
     )
+    if precision == "fp64":
+        kwargs["base_precision_dtype"] = "float64"
     if tf32 and not parallel and "nitro" in getattr(_UMAInferenceSettings, "__dataclass_fields__", {}):
         kwargs["nitro"] = True
     return _UMAInferenceSettings(**kwargs)
@@ -635,6 +642,7 @@ class _UMABackend(_MLBackend):
         workers: int = 1,
         workers_per_node: int = 1,
         analytical_hessian: bool = False,
+        compile_model: bool = False,
     ):
         if not _load_fairchem():
             raise ImportError(
@@ -667,6 +675,7 @@ class _UMABackend(_MLBackend):
             self.precision,
             analytical_hessian=analytical_hessian,
             parallel=self.parallel_predict,
+            compile_model=compile_model,
         )
         if self.parallel_predict:
             # ParallelMLIPPredictUnit spreads inference over `workers` processes but
@@ -961,6 +970,7 @@ class _OrbBackend(_ASEMLBackend):
         model_charge: int = 0,
         model_mult: int = 1,
         ml_device: torch.device,
+        compile_model: bool = False,
         **_kwargs,
     ):
         if not _load_backend_module("HAS_ORB", "orb_models"):
@@ -983,11 +993,12 @@ class _OrbBackend(_ASEMLBackend):
             warnings.filterwarnings(
                 "ignore", message=r"Consider passing 'precision=float32-high'", category=UserWarning
             )
+            # An explicit bool: None would let orb-models decide, and it compiles.
             loaded = _resolve_orb_loader(pretrained, orb_model)(
-                device=device_str, precision=precision
+                device=device_str, precision=precision, compile=bool(compile_model)
             )
         if precision == "float32-highest":
-            # orb-models compiles the model; IEEE FP32 leaves TF32 off on purpose.
+            # A compiled model hints at TF32; IEEE FP32 leaves TF32 off on purpose.
             warnings.filterwarnings("ignore", message=_TF32_HINT, category=UserWarning)
         if isinstance(loaded, tuple) and len(loaded) >= 2:
             self._model_obj, self._adapter = loaded[0], loaded[1]
@@ -1452,12 +1463,22 @@ def _create_ml_backend(
     model_mult: int = 1,
     ml_device: torch.device,
     analytical_hessian: bool = False,
+    compile_model: Optional[bool] = None,
 ) -> _MLBackend:
     """Factory function to create the appropriate ML backend."""
     model_mult = int(model_mult)
     if model_mult < 1:
         raise ValueError(f"Spin multiplicity must be >= 1, got {model_mult}.")
     backend = backend.strip().lower()
+    from mlmm.core.compile_policy import resolve_compile
+
+    # Before the model loads, so that a missing compiler stops the run first.
+    compiled = resolve_compile(
+        compile_model,
+        backend=backend,
+        device=ml_device,
+        analytical_hessian=analytical_hessian,
+    )
     # Env-var / direct-API entry point for strict determinism (the CLI uses the
     # --deterministic flag callback). Idempotent; no-op unless requested.
     from mlmm.backends._determinism import (
@@ -1490,6 +1511,7 @@ def _create_ml_backend(
                 workers=workers,
                 workers_per_node=workers_per_node,
                 analytical_hessian=analytical_hessian,
+                compile_model=compiled,
             )
     elif backend == "orb":
         with _announce_model_load(backend, orb_model):
@@ -1499,6 +1521,7 @@ def _create_ml_backend(
                 model_charge=model_charge,
                 model_mult=model_mult,
                 ml_device=ml_device,
+                compile_model=compiled,
             )
     elif backend == "mace":
         with _announce_model_load(backend, mace_model):
@@ -2261,6 +2284,7 @@ class MLMMCore:
         mace_model: str = "MACE-OMOL-0",
         mace_dtype: str = "float64",
         aimnet2_model: str = "aimnet2",
+        compile_model: Optional[bool] = None,
         # Custom ML backend from a user Python file (--calc-file)
         calc_file: Optional[str] = None,
         calc_factory: str = "get_calculator",
@@ -2553,6 +2577,7 @@ class MLMMCore:
                 model_mult=self.model_mult,
                 ml_device=self.ml_device,
                 analytical_hessian=(hessian_calc_mode == "Analytical"),
+                compile_model=compile_model,
             )
 
         # Point-charge embedding correction
@@ -4179,6 +4204,7 @@ class mlmm(PySiCalc):
         mace_model: str = "MACE-OMOL-0",
         mace_dtype: str = "float64",
         aimnet2_model: str = "aimnet2",
+        compile_model: Optional[bool] = None,
         # Custom ML backend from a user Python file (--calc-file)
         calc_file: Optional[str] = None,
         calc_factory: str = "get_calculator",
@@ -4247,6 +4273,7 @@ class mlmm(PySiCalc):
             mace_model=mace_model,
             mace_dtype=mace_dtype,
             aimnet2_model=aimnet2_model,
+            compile_model=compile_model,
             calc_file=calc_file,
             calc_factory=calc_factory,
             dft_settings=dft_settings,

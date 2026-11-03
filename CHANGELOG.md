@@ -18,12 +18,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 ### Added
 
 - `all --precision-post tf32|fp32|fp64` sets the MLIP precision of TS optimization, IRC, the endpoint optimizations and freq; unset, they use `--precision`. The root `summary.json` records it as `mlip_precision_post`.
+- `--compile/--no-compile` (or `calc.compile_model`) on every command that has `--precision` runs the UMA or ORB model of the ML region through torch.compile: the first call is slower and later calls slightly faster, so it pays off only in long runs. The analytical Hessian is never compiled, and without a compiler the run stops with the install guidance. The `[backend]` line shows `compiled`, and `result.json` and `summary.json` record `mlip_compiled`.
 - A run that stops because UMA or ORB finds no compiler (C on a GPU, C++ on a CPU) or Chrome cannot start prints `Missing system prerequisite: ...` with the install commands and the docs page, not a PyTorch or Kaleido traceback; the exit status is unchanged. The docs and skills list these prerequisites.
 - Colab notebook: the `install_xtb` check box of Installation installs xTB from conda-forge; until xTB is installed, the options that need it (`--embedcharge`) are disabled with a note.
 - Python 3.13 is supported (`>=3.12,<3.14`). The `[orb]` extra still needs Python 3.12, because orb-models pins `dm-tree==0.1.8`, which has no Python 3.13 wheel; the Colab notebooks keep the Python 3.12 runtime.
 
 ### Changed
 
+- UMA and ORB are no longer compiled by default; `--compile` turns it on. A C++ compiler is needed on a CPU only with `--compile`.
+- UMA fp64 runs on the fast-path settings (`merge_mole`, no activation checkpointing), about 1.8x faster on a 632-atom cluster.
 - `run.log` in the output directory is written while the command runs and also records output from C libraries (DMF's Ipopt), child processes and early logging handlers; rerunning into the same `-o` appends to it instead of replacing it. A helper process copies the output, so the lines printed just before a crash (an abort or a segfault in C code) also reach `run.log` and the terminal, and the command does not wait at exit for a process that outlives it.
 - Colab notebook: from 721 px wide the GUI fits the visible notebook pane with the header, steps and command dock on screen, Mol* clicks no longer move the camera, the Setup viewer height can be dragged, and the token cached in the runtime is read before the Colab secret.
 - Docs and skills: ORB is installed in its own environment, like MACE; the UMA model cache (`$FAIRCHEM_CACHE_DIR`, default `~/.cache/fairchem`) and offline use on compute nodes (`HF_HUB_OFFLINE=1`) are documented.

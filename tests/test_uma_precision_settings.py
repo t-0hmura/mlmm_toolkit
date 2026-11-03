@@ -3,6 +3,8 @@
 fairchem-core 2.24 turned its named default into a TF32 mode, so every UMA
 route builds its settings from fields: fp32 must stay IEEE FP32 whatever the
 installed fairchem release names its presets, and tf32 is the only TF32 route.
+Every route except the analytical Hessian runs the fast path (fp64 included),
+compiled only when --compile asks for it.
 """
 
 from __future__ import annotations
@@ -44,18 +46,36 @@ def settings_cls(monkeypatch):
     return _Settings
 
 
-def test_fp32_is_the_ieee_fast_path(settings_cls) -> None:
-    s = mlmm_calc._uma_inference_settings("fp32", analytical_hessian=False, parallel=False)
+@pytest.mark.parametrize("compiled", [False, True], ids=["uncompiled", "compiled"])
+@pytest.mark.parametrize(
+    ("precision", "dtype"), [("fp32", "float32"), ("fp64", "float64")],
+)
+def test_fp32_and_fp64_run_the_ieee_fast_path(settings_cls, precision, dtype, compiled) -> None:
+    s = mlmm_calc._uma_inference_settings(
+        precision, analytical_hessian=False, parallel=False, compile_model=compiled
+    )
     assert s == settings_cls(
-        tf32=False, activation_checkpointing=False, merge_mole=True, compile=True,
+        tf32=False, activation_checkpointing=False, merge_mole=True, compile=compiled,
         external_graph_gen=False, internal_graph_gen_version=2,
+        base_precision_dtype=dtype,
     )
 
 
-@pytest.mark.usefixtures("settings_cls")
-def test_tf32_enables_tf32_and_nitro_on_one_worker() -> None:
-    s = mlmm_calc._uma_inference_settings("tf32", analytical_hessian=False, parallel=False)
-    assert s.tf32 and s.nitro and s.merge_mole and s.compile
+def test_fast_path_is_uncompiled_by_default(settings_cls) -> None:
+    for precision in ("tf32", "fp32", "fp64"):
+        s = mlmm_calc._uma_inference_settings(precision, analytical_hessian=False, parallel=False)
+        assert s.compile is False and s.merge_mole and not s.activation_checkpointing
+
+
+@pytest.mark.parametrize("compiled", [False, True], ids=["uncompiled", "compiled"])
+def test_tf32_enables_tf32_and_nitro_on_one_worker(settings_cls, compiled) -> None:
+    s = mlmm_calc._uma_inference_settings(
+        "tf32", analytical_hessian=False, parallel=False, compile_model=compiled
+    )
+    assert s == settings_cls(
+        tf32=True, activation_checkpointing=False, merge_mole=True, compile=compiled,
+        external_graph_gen=False, internal_graph_gen_version=2, nitro=True,
+    )
 
 
 @pytest.mark.usefixtures("settings_cls")
@@ -70,13 +90,17 @@ def test_tf32_without_nitro_field(monkeypatch) -> None:
     assert s.tf32 and not hasattr(s, "nitro")
 
 
+@pytest.mark.parametrize("compiled", [False, True], ids=["uncompiled", "compile-requested"])
 @pytest.mark.parametrize(
     ("precision", "dtype", "tf32"),
     [("fp64", "float64", False), ("fp32", "float32", False), ("tf32", "float32", True)],
 )
-def test_analytical_and_fp64_routes_are_not_compiled(settings_cls, precision, dtype, tf32) -> None:
-    analytical = precision != "fp64"
-    s = mlmm_calc._uma_inference_settings(precision, analytical_hessian=analytical, parallel=False)
+def test_analytical_route_keeps_fairchem_defaults_uncompiled(
+    settings_cls, precision, dtype, tf32, compiled
+) -> None:
+    s = mlmm_calc._uma_inference_settings(
+        precision, analytical_hessian=True, parallel=False, compile_model=compiled
+    )
     assert s == settings_cls(tf32=tf32, compile=False, base_precision_dtype=dtype)
 
 

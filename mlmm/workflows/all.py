@@ -24,6 +24,7 @@ from mlmm.cli.common_options import (
     add_allow_charge_mult_mismatch_option,
     add_backend_model_option,
     add_calc_file_option,
+    add_compile_option,
     add_coord_type_option,
     add_deterministic_option,
     add_precision_option,
@@ -697,6 +698,7 @@ def _inject_coord_type_into_args_yaml(
     coord_type: Optional[str],
     backend: Optional[str] = None,
     precision: Optional[str] = None,
+    compile_model: Optional[bool] = None,
     workers: Optional[int] = None,
     workers_per_node: Optional[int] = None,
     backend_model: Optional[str] = None,
@@ -707,7 +709,7 @@ def _inject_coord_type_into_args_yaml(
 ) -> Optional[Path]:
     """Inject geometry and backend-native calculator overrides into args YAML.
 
-    Used by ``mlmm all --coord-type cart|dlc`` and the backend/model/precision
+    Used by ``mlmm all --coord-type cart|dlc`` and the backend/model/precision/compile
     options to propagate the choice through the all-pipeline args YAML. Only the opt/tsopt
     stages honour ``coord_type`` (DLC is meaningful there via microiteration);
     freq/scan/path stages are fixed to cartesian and ignore it. Returns the
@@ -726,6 +728,7 @@ def _inject_coord_type_into_args_yaml(
         coord_type is None
         and backend is None
         and precision is None
+        and compile_model is None
         and workers is None
         and workers_per_node is None
         and backend_model is None
@@ -751,6 +754,7 @@ def _inject_coord_type_into_args_yaml(
     if (
         backend is not None
         or precision is not None
+        or compile_model is not None
         or workers is not None
         or workers_per_node is not None
         or backend_model is not None
@@ -784,6 +788,10 @@ def _inject_coord_type_into_args_yaml(
         apply_backend_model_to_calc_cfg(calc_cfg, backend_model)
         apply_calc_file_to_calc_cfg(calc_cfg, calc_file, calc_factory)
         apply_precision_to_calc_cfg(calc_cfg, precision)
+        if compile_model is not None:
+            # As calc.compile_model; a different value in the given YAML is an error.
+            from mlmm.core.compile_policy import apply_compile_option
+            apply_compile_option(calc_cfg, compile_model)
         cfg["calc"] = calc_cfg
 
     with tempfile.NamedTemporaryFile(
@@ -4890,6 +4898,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @add_print_every_option()
 @add_precision_option(post_option=True)
 @add_precision_post_option()
+@add_compile_option()
 @add_workers_options()
 @add_backend_model_option()
 @add_calc_file_option()
@@ -4993,6 +5002,7 @@ def cli(
     cli_coord_type: Optional[str],
     precision: Optional[str],
     precision_post: Optional[str],
+    compile_model: Optional[bool],
     workers: Optional[int],
     workers_per_node: Optional[int],
     backend_model: Optional[str],
@@ -5151,6 +5161,7 @@ def cli(
         args_yaml is not None
         or _injected_coord is not None
         or precision is not None
+        or compile_model is not None
         or workers is not None
         or workers_per_node is not None
         or backend_model is not None
@@ -5161,7 +5172,8 @@ def cli(
         args_yaml = _inject_coord_type_into_args_yaml(
             args_yaml, _injected_coord,
             backend=backend,
-            precision=precision, workers=workers, workers_per_node=workers_per_node, backend_model=backend_model,
+            precision=precision, compile_model=compile_model,
+            workers=workers, workers_per_node=workers_per_node, backend_model=backend_model,
             calc_file=(str(Path(calc_file).resolve()) if calc_file else None), calc_factory=calc_factory,
             freeze_atoms=(effective_freeze_atoms if freeze_atoms_cli_explicit else None),
         )
@@ -5203,6 +5215,9 @@ def cli(
         use_cmap=use_cmap,
     )
     _resolved_dft_values = resolved_calc_template.materialize()
+    # A YAML-only calc.compile_model is checked here too (type and backend).
+    from mlmm.core.compile_policy import apply_compile_option
+    apply_compile_option(_resolved_dft_values, compile_model)
     from mlmm.core.dft_settings import (
         DFT_CLI_META_KEY,
         finalize_dft_calculator_config,

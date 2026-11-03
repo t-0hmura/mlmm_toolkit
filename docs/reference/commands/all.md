@@ -377,6 +377,9 @@ Options:
                                   endpoint optimizations and freq. Unset uses
                                   --precision.  [default: (inherits
                                   --precision)]
+  --compile / --no-compile        torch.compile the UMA or ORB model: slower
+                                  first call, slightly faster afterwards; worth
+                                  it only for long runs.  [default: (off)]
   --uma-workers, --workers INTEGER
                                   MLIP predictor workers (UMA). >1 uses a
                                   parallel predictor (needs fairchem-core[ray]);

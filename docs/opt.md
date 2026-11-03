@@ -166,7 +166,7 @@ The `--thresh` presets set these limits (forces in hartree/bohr, steps in bohr):
 * **Rigid motions with frozen atoms**: `--flatten` treats rigid motions as [`freq`](freq.md#rigid-modes-with-frozen-boundaries) does, and `result.json` records them under `rigid_projection`.
 * **Frozen atoms and restraints in general**: how to choose frozen atoms and restraints is described in {ref}`Frozen atoms and distance restraints <freeze-atoms-and-restraints>`.
 * **Optimizer state dumps**: with `--dump`, set YAML `opt.dump_restart` to a positive integer N to write `restart_NNN.yaml` every N cycles. mlmm-toolkit does not read this file back, so rerun `opt` from the final geometry to continue a stopped calculation.
-* **Model and precision**: `--backend-model` selects the model of the backend and `--precision` its precision; see the generated reference.
+* **Model and precision**: `--backend-model` selects the model of the backend, `--precision` its precision, and `--compile` compiles a UMA or ORB model with torch.compile (off by default); see the generated reference.
 
 ---
 

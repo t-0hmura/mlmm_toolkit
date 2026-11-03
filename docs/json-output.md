@@ -42,6 +42,7 @@ Commands that evaluate the ML/MM calculator also record:
 | `mlip_model_label` | string \| null | Publication-facing model label derived from the exact identifier |
 | `mlip_task` | string \| null | Backend task used by a multi-domain model (for UMA, `omol` unless `calc.uma_task_name` sets another); `mlip_model` remains the exact identifier |
 | `mlip_precision` | string \| null | Effective public precision token (`tf32`, `fp32` or `fp64`); null for a custom calculator whose dtype is controlled by user code |
+| `mlip_compiled` | bool \| null | Whether the UMA or ORB model ran through torch.compile (`--compile`); false for other backends and for the analytical Hessian; null when a plot-only command did not evaluate a calculator |
 | `mm_backend` | string \| null | MM Hessian/energy backend (`hessian_ff` or `openmm`); null when a plot-only command did not evaluate a calculator |
 | `link_atom_method` | string \| null | Link-atom placement (`scaled` or `fixed`); null for plot-only output |
 | `use_cmap` | bool \| null | Whether CMAP terms were enabled; null for plot-only output |
@@ -352,6 +353,7 @@ are listed in [`summary.json` (`path-search` / `all`)](#summary-json-path-search
 | `min_energy_hartree` / `max_energy_hartree` | float | Minimum and maximum frame energies |
 | `energy_source` | string | `"trajectory_comment"` or `"mlip_recomputed"` |
 | `mlip_backend` / `mlip_model` / `mlip_precision` | string \| null | Calculator used to recompute the energies; all are null in trajectory-comment mode |
+| `mlip_compiled` | bool \| null | Whether the recomputation compiled the model (`--compile`); null in trajectory-comment mode |
 | `charge` / `multiplicity` | int \| null | Charge and multiplicity used for the recomputation; null in comment mode. When only one is given, the other defaults to 0 or 1. |
 | `output_files` | string[] | Ordered paths of every output; keeps files with the same basename in different directories |
 | `files` | object | Basename-to-path map; when two outputs share a basename only one is kept, so prefer `output_files` |
@@ -418,6 +420,7 @@ The `all` and `path-search` commands write `summary.json` with a richer structur
 | `mlip_model_label` | string \| null | Publication-facing model label |
 | `mlip_task` | string \| null | Backend task for a multi-domain model |
 | `mlip_precision` | string \| null | Effective `tf32` / `fp32` / `fp64`; null for DFT and custom calculators (the DFT engine is recorded separately) |
+| `mlip_compiled` | bool | Whether the UMA or ORB model ran through torch.compile (`--compile`); stages with the analytical Hessian are not compiled |
 | `charge` | int | ML-region charge |
 | `spin` | int | ML-region multiplicity |
 | `environment` | object | Hardware info |

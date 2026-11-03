@@ -644,12 +644,15 @@ def calculator_provenance(calc_cfg: Mapping[str, Any]) -> Dict[str, Any]:
     )
     if backend == "uma" and task_name is None:
         task_name = MLMM_CALC_KW.get("uma_task_name")
+    from mlmm.core.compile_policy import runs_compiled
+
     provenance = {
         "mlip_backend": backend,
         "mlip_model": None if model is None else str(model),
         "mlip_model_label": mlip_model_label(backend, model, task_name),
         "mlip_task": None if task_name is None else str(task_name),
         "mlip_precision": None if precision is None else str(precision),
+        "mlip_compiled": runs_compiled({**calc_cfg, "backend": backend}),
         "mm_backend": str(calc_cfg.get("mm_backend") or MLMM_CALC_KW["mm_backend"]),
         "link_atom_method": str(
             calc_cfg.get("link_atom_method") or MLMM_CALC_KW["link_atom_method"]
@@ -671,7 +674,7 @@ def calculator_provenance(calc_cfg: Mapping[str, Any]) -> Dict[str, Any]:
 
 
 def calculator_run_label(calc_cfg: Mapping[str, Any]) -> str:
-    """Format backend, model, task, and precision for concise run headers."""
+    """Format backend, model, task, precision, and compilation for concise run headers."""
     provenance = calculator_provenance(calc_cfg)
     backend = str(provenance["mlip_backend"])
     backend_label = {
@@ -683,6 +686,8 @@ def calculator_run_label(calc_cfg: Mapping[str, Any]) -> str:
             provenance.get("mlip_model_label"), provenance.get("mlip_precision")
         ) if value not in (None, "")
     ]
+    if provenance.get("mlip_compiled"):
+        details.append("compiled")
     return f"{backend_label} ({', '.join(details)})" if details else backend_label
 
 

@@ -38,6 +38,7 @@ ML/MM 計算機を評価するコマンドは、さらに以下を記録しま�
 | `mlip_model_label` | string \| null | 正確な識別子から導出した論文表記用のモデル名 |
 | `mlip_task` | string \| null | 複数ドメインのモデルで使ったバックエンドのタスク（UMA では `calc.uma_task_name` で変えない限り `omol`）。正確な識別子は `mlip_model` に保持 |
 | `mlip_precision` | string \| null | 実効精度の共通表記（`tf32` / `fp32` / `fp64`）。dtype をユーザーのコードが管理する自作の計算機では null |
+| `mlip_compiled` | bool \| null | UMA・ORB のモデルを torch.compile したか（`--compile`）。ほかのバックエンドと解析 Hessian では false。描画だけのコマンドが calculator を評価しなかった場合は null |
 | `mm_backend` | string \| null | MM のエネルギー/Hessian のバックエンド（`hessian_ff` / `openmm`）。描画だけのコマンドが計算機を評価しなかった場合は null |
 | `link_atom_method` | string \| null | リンク原子の置き方（`scaled` / `fixed`）。描画だけの出力では null |
 | `use_cmap` | bool \| null | CMAP 項を有効にしたか。描画だけの出力では null |
@@ -326,6 +327,7 @@ IRC は `execution_status` と `scientific_status` を出し、方向ごとの�
 | `min_energy_hartree` / `max_energy_hartree` | float | フレームエネルギーの最小値と最大値 |
 | `energy_source` | string | `"trajectory_comment"` または `"mlip_recomputed"` |
 | `mlip_backend` / `mlip_model` / `mlip_precision` | string \| null | エネルギーの再計算に使った計算機。コメントモードではすべて null |
+| `mlip_compiled` | bool \| null | 計算し直しでモデルをコンパイルしたか（`--compile`）。コメントモードでは null |
 | `charge` / `multiplicity` | int \| null | 再計算に使った電荷とスピン多重度。コメントモードでは null。片方だけを指定した場合、もう片方は 0 または 1 |
 | `output_files` | string[] | すべての出力のパスを順序どおりに並べたもの。別ディレクトリに同名ファイルがあっても保持される |
 | `files` | object | ベース名からパスへの対応表。同じベース名の出力が 2 つあると一方だけが残るので、`output_files` を使ってください |
@@ -392,6 +394,7 @@ IRC は `execution_status` と `scientific_status` を出し、方向ごとの�
 | `mlip_model_label` | string \| null | 論文表記用のモデル名 |
 | `mlip_task` | string \| null | 複数ドメインのモデルで使ったバックエンドのタスク |
 | `mlip_precision` | string \| null | 実効の `tf32` / `fp32` / `fp64`。DFT と自作の計算機では null（DFT のエンジンは別の欄に記録） |
+| `mlip_compiled` | bool | UMA・ORB のモデルを torch.compile したか（`--compile`）。解析 Hessian を使う段はコンパイルしない |
 | `charge` | int | ML 領域の電荷 |
 | `spin` | int | ML 領域のスピン多重度 |
 | `environment` | object | ハードウェア情報 |

@@ -177,7 +177,7 @@ ML/MM の段では、選んだ ML バックエンドと Hessian の途中の配�
 
 - `--precision tf32` と、ORB・MACE の `--precision fp32` はスクリーニング専用です。結果を使う前に n_imag を確かめてください。
 - ORB では、`--precision tf32` が `float32-high`（TF32）、`--precision fp32` が IEEE の FP32 の `float32-highest` のモードになります。
-- UMA の `--precision tf32` は、インストールした fairchem-core に UMA Nitro があれば（`uma-s-1p2p1` 系の checkpoint、ワーカー 1 つ）それで計算します。ほかの checkpoint は TF32 でコンパイルした経路で計算します。GPU での tf32 の計算では、FAIR-Chem が毎回 `Running in a reduced-precision mode` と出力します。
+- UMA の `--precision tf32` は、インストールした fairchem-core に UMA Nitro があれば（`uma-s-1p2p1` 系の checkpoint、ワーカー 1 つ）それで計算します。ほかの checkpoint は TF32 の速い経路で計算します。GPU での tf32 の計算では、FAIR-Chem が毎回 `Running in a reduced-precision mode` と出力します。
 - AIMNet2 は `--precision fp64` にも `--deterministic` にも対応せず、どちらもエラーで止まります。AIMNet2 はモデルへの入力を float32 にし、力を PyTorch の決定論的モードの外にある独自の CUDA のコードで計算します。繰り返しの計算を一致させたいときは、UMA、ORB、MACE のいずれかで `--deterministic` を付け、同じ環境で 2 回実行して比べてください。
 - `--calc-file` は `--precision`（`tf32` も `fp32` も `fp64` も）と `--deterministic` のどちらも受け付けず、エラーで止まります。精度は自作の calculator の中で設定してください。
 - `--deterministic` は PyTorch の決定論的アルゴリズム（`torch.use_deterministic_algorithms`）を有効にし、GPU で決定論的に動く版の無い PyTorch の演算 1 つを置き換えます。

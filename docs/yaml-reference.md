@@ -63,6 +63,7 @@ A misspelled section name prints `[config] WARNING: YAML section(s) … are not 
 | `-b` / `--backend` | `backend` | `calc` |
 | `--backend-model` | `uma_model`, `orb_model`, `mace_model`, or `aimnet2_model` (the key of the selected backend) | `calc` |
 | `--precision` | `uma_precision`, `orb_precision`, or `mace_dtype` (the key of the selected backend) | `calc` |
+| `--compile/--no-compile` | `compile_model` | `calc` |
 | `--workers` | `workers` | `calc` |
 | `--link-atom-method` | `link_atom_method` | `calc` |
 | `--mm-backend` | `mm_backend` | `calc` |
@@ -156,6 +157,7 @@ calc:
 
  # --- MLIP backend selection ---
  backend: uma # High-level backend: uma, orb, mace, aimnet2, or dft
+ compile_model: null # UMA and ORB: true compiles the model with torch.compile, as --compile does (never for the analytical Hessian); null or false does not
 
  # --- UMA backend settings ---
  uma_model: uma-s-1p2p1 # uma-s-1p2p1 | uma-s-1p2p1-ft-d4rev | uma-s-1p2 | uma-m-1p1

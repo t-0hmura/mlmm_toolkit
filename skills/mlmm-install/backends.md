@@ -298,7 +298,7 @@ The conda-forge PyTorch brings its CUDA user-space libraries as conda
 packages. It needs a compatible NVIDIA driver and an allocated GPU; it does not
 require a site CUDA toolkit, `CUDA_HOME`, or a `cuda/<X.Y>` module.
 Start with a clean runtime and check the driver with `nvidia-smi`.
-UMA and ORB also compile code at run time for speed, using the env's compiler (`cxx-compiler`), which
+UMA on a GPU, and `--compile`, also compile code at run time for speed, using the env's compiler (`cxx-compiler`), which
 is separate from the toolkit ([System packages](SKILL.md#system-packages)).
 
 Load a CUDA toolkit and compiler only when building a C/CUDA extension from

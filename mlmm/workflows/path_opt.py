@@ -74,7 +74,7 @@ from mlmm.core.utils import (
     echo_resolved_device,
     optional_positive_int,
 )
-from mlmm.cli.common_options import add_ml_layer_detection_options, add_precision_option, add_workers_options, add_backend_model_option, add_calc_file_option, add_deterministic_option, add_allow_charge_mult_mismatch_option
+from mlmm.cli.common_options import add_ml_layer_detection_options, add_precision_option, add_compile_option, add_workers_options, add_backend_model_option, add_calc_file_option, add_deterministic_option, add_allow_charge_mult_mismatch_option
 from mlmm.cli.common_options import add_dft_calculator_options
 from mlmm.cli.decorators import load_merged_yaml_cfg, make_is_param_explicit, _write_error_json, render_cli_exception
 from mlmm.core.prerequisites import exit_if_missing_prerequisite
@@ -1185,6 +1185,7 @@ def _run_dmf_mep(
 )
 @add_ml_layer_detection_options()
 @add_precision_option()
+@add_compile_option()
 @add_workers_options()
 @add_backend_model_option()
 @add_calc_file_option()
@@ -1235,6 +1236,7 @@ def cli(
     use_cmap: Optional[bool],
     out_json: bool,
     precision: Optional[str],
+    compile_model: Optional[bool],
     workers: Optional[int],
     workers_per_node: Optional[int],
     backend_model: Optional[str],
@@ -1332,6 +1334,8 @@ def cli(
         # Unconditional: also dispatches a --config YAML calc.precision
         # after the final backend has been selected.
         apply_precision_to_calc_cfg(calc_cfg, precision)
+        from mlmm.core.compile_policy import apply_compile_option
+        apply_compile_option(calc_cfg, compile_model)
         if _is_param_explicit("embedcharge"):
             calc_cfg["embedcharge"] = bool(embedcharge)
         if _is_param_explicit("embedcharge_cutoff"):

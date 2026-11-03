@@ -90,8 +90,8 @@ def _install_fake_orb(monkeypatch, *, registry, attrs=None):
 
 
 def _recording_loader(name, result, calls):
-    def loader(*, device, precision):
-        calls.append((name, device, precision))
+    def loader(*, device, precision, compile):
+        calls.append((name, device, precision, compile))
         return result()
 
     return loader
@@ -121,7 +121,7 @@ def test_orb_names_resolve_through_the_pretrained_registry(monkeypatch, model, k
         registry={"orbmol-v2": with_adapter, "orb-v3-conservative-omol": with_adapter},
     )
     backend = _orb(model)
-    assert calls == [(key, "cpu", "float64")]
+    assert calls == [(key, "cpu", "float64", False)]
     assert isinstance(backend._model_obj, ConservativeForcefieldRegressor)
     assert backend._adapter == "adapter"
     assert backend._ase_calc.adapter == "adapter"
@@ -134,7 +134,7 @@ def test_orb_falls_back_to_the_loader_function(monkeypatch) -> None:
         attrs={"orb_v3_conservative_omol": ConservativeForcefieldRegressor},
     )
     backend = _orb("orb-v3-conservative-omol")
-    assert calls == [("orb_v3_conservative_omol", "cpu", "float64")]
+    assert calls == [("orb_v3_conservative_omol", "cpu", "float64", False)]
     assert backend._adapter is None
 
 

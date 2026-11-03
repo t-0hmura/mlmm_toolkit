@@ -1,11 +1,11 @@
 """Guidance for system prerequisites that pip and conda do not install.
 
-UMA and ORB compile code at run time for speed (a C compiler on a GPU, a C++ compiler
-on a CPU) and PNG export starts Chrome (which loads operating-system libraries). When
-one is missing, torch, Triton, or Kaleido stop with an error that does not say what to
-install. This module recognizes those errors and returns one fixed message: what is
-missing, how to install it, and the docs page. It only describes the failure; it never
-retries, falls back, or changes an exit status.
+UMA on a GPU, and UMA and ORB with ``--compile``, compile code at run time for speed (a C
+compiler on a GPU, a C++ compiler on a CPU) and PNG export starts Chrome (which loads
+operating-system libraries). When one is missing, torch, Triton, or Kaleido stop with an
+error that does not say what to install. This module recognizes those errors and returns
+one fixed message: what is missing, how to install it, and the docs page. It only
+describes the failure; it never retries, falls back, or changes an exit status.
 """
 
 from __future__ import annotations
@@ -60,7 +60,7 @@ def _command(words: str, indent: int) -> str:
 _MESSAGES = {
     KIND_C_COMPILER: (
         "Missing system prerequisite: C compiler (gcc).\n"
-        "  UMA and ORB compile GPU code at run time for speed through PyTorch (Triton), and no C compiler was found.\n"
+        "  UMA on a GPU, and ORB with --compile, compile code at run time for speed through PyTorch (Triton), and no C compiler was found.\n"
         "  Install one, then run the command again:\n"
         "    Ubuntu/Debian:  sudo apt-get update && sudo apt-get install -y gcc\n"
         "    Rocky/RHEL:     sudo dnf install -y gcc\n"
@@ -68,7 +68,7 @@ _MESSAGES = {
     ),
     KIND_CXX_COMPILER: (
         "Missing system prerequisite: C++ compiler (g++).\n"
-        "  UMA and ORB compile CPU kernels at run time for speed through PyTorch (Inductor), and no C++ compiler was found.\n"
+        "  With --compile, UMA and ORB compile CPU kernels at run time for speed through PyTorch (Inductor), and no C++ compiler was found.\n"
         "  Install one, then run the command again:\n"
         "    Ubuntu/Debian:  sudo apt-get update && sudo apt-get install -y g++\n"
         "    Rocky/RHEL:     sudo dnf install -y gcc-c++\n"

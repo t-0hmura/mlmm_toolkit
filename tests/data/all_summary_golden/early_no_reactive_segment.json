@@ -57,6 +57,7 @@
   },
   "link_atom_method": "scaled",
   "mlip_backend": "uma",
+  "mlip_compiled": false,
   "mlip_model": "uma-s-1p2p1",
   "mlip_model_label": "UMA-S-1.2.1 (OMol)",
   "mlip_precision": "fp32",

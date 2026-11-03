@@ -156,6 +156,9 @@ Options:
                                   speed (uma, orb only); avoid it for Hessians.
                                   aimnet2: fp32 only.  [default: (per backend:
                                   uma fp32; orb, mace fp64)]
+  --compile / --no-compile        torch.compile the UMA or ORB model: slower
+                                  first call, slightly faster afterwards; worth
+                                  it only for long runs.  [default: (off)]
   --uma-workers, --workers INTEGER
                                   MLIP predictor workers (UMA). >1 uses a
                                   parallel predictor (needs fairchem-core[ray]);

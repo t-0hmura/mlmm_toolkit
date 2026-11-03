@@ -77,6 +77,7 @@ def test_fresh_scan3d_calculator_schema_uses_resolved_values() -> None:
         "mlip_model_label": "ORB-v3-conservative-OMol",
         "mlip_task": None,
         "mlip_precision": "fp64",
+        "mlip_compiled": False,
         "mm_backend": "openmm",
         "link_atom_method": "fixed",
         "use_cmap": True,

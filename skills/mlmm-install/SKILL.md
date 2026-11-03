@@ -49,14 +49,15 @@ hf auth login                            # after accepting the license on facebo
 
 pip and conda do not install the libraries of Chrome, and an environment built
 without `cxx-compiler` has no compiler; a bare container or cluster node often
-lacks both. UMA and ORB compile code at run time for speed: a GPU run needs a C compiler
-(`gcc`), a CPU run a C++ compiler (`g++`), and `hessian_ff` a C++20 compiler.
+lacks both. On a GPU, UMA compiles code at run time for speed and needs a C compiler
+(`gcc`) even without `--compile`; with `--compile`, UMA and ORB need a C compiler on a
+GPU and a C++ compiler (`g++`) on a CPU; `hessian_ff` needs a C++20 compiler.
 PNG export needs the operating-system libraries of the Chrome that
 `plotly_get_chrome -y` downloads. The conda command above installs conda's
 compilers under prefixed names (`x86_64-conda-linux-gnu-gcc`, ...), and
 `conda activate` sets `$CC` and `$CXX` to them. Inside the env, check with
-`$CC --version` (`$CXX --version` on a CPU); outside it, with `gcc --version`
-(`g++ --version`). Then install what is missing:
+`$CC --version` (`$CXX --version` for `hessian_ff` and for `--compile` on a CPU); outside it,
+with `gcc --version` (`g++ --version`). Then install what is missing:
 
 ```bash
 sudo apt-get update && sudo apt-get install -y gcc g++    # Ubuntu/Debian
@@ -225,7 +226,7 @@ backend's section in [backends.md](backends.md); a CUDA error points to
 | `OSError: libcusolver.so.<N> not found` (N is 12 for `cuda130`, 11 for `cuda129`) | torch's bundled CUDA libraries missing or shadowed by `LD_LIBRARY_PATH` | [CUDA and PyTorch](backends.md#cuda-and-pytorch) |
 | `RuntimeError: CUDA out of memory` during `freq` | Active Hessian exceeds GPU memory | Reduce the active region, keep `return_partial_hessian: true`, and compare `Analytical` with `FiniteDifference` on a pilot ([freq](../mlmm-cli/freq.md)) |
 | `tleap: command not found` | AmberTools missing or not sourced | [ambertools.md](ambertools.md) |
-| `Missing system prerequisite: C compiler (gcc).` or `C++ compiler (g++).`; a PyTorch error `Failed to find C compiler` or `No working C++ compiler found` | No compiler on `PATH`; UMA and ORB compile code at run time for speed | Install `gcc` (`g++` on a CPU): [System packages](#system-packages); on a cluster, `module load gcc` in the job script |
+| `Missing system prerequisite: C compiler (gcc).` or `C++ compiler (g++).`; a PyTorch error `Failed to find C compiler` or `No working C++ compiler found` | No compiler on `PATH`; UMA on a GPU, and UMA and ORB with `--compile`, compile code at run time for speed | Install `gcc` (`g++` for `--compile` on a CPU): [System packages](#system-packages); on a cluster, `module load gcc` in the job script |
 | `Missing system prerequisite: Chrome for PNG export.`, or `path-search` / `all` finish without the diagram PNG | No headless Chrome for Plotly, or an operating-system library it needs is missing | `plotly_get_chrome -y`, then the libraries in [System packages](#system-packages) |
 
 ## Upgrade and clean rebuild

@@ -38,7 +38,7 @@ nvidia-smi -L >/dev/null     || { echo "no GPU visible"; exit 1; }
 
 # Prebuilt PyTorch/backend wheels need a compatible NVIDIA driver, not a local
 # CUDA toolkit module. hessian_ff still JIT-compiles C++ kernels on first use
-# (UMA and ORB also compile code at run time for speed, using the env's compiler);
+# (UMA on a GPU, and --compile, also compile code at run time for speed, using the env's compiler);
 # if the compiler checked below cannot compile in C++20 mode, load <COMPILER_MODULE> here.
 # Load <CUDA_MODULE> separately only for an extension that needs that toolkit.
 # The default workers=1 run needs no MPI launcher.

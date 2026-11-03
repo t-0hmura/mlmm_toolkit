@@ -88,7 +88,7 @@ from mlmm.core.utils import (
     yaml_section_has_key,
     echo_resolved_device,
 )
-from mlmm.cli.common_options import add_ml_charge_spin_options, add_ml_layer_detection_options, add_precision_option, add_workers_options, add_backend_model_option, add_calc_file_option, add_deterministic_option, add_allow_charge_mult_mismatch_option
+from mlmm.cli.common_options import add_ml_charge_spin_options, add_ml_layer_detection_options, add_precision_option, add_compile_option, add_workers_options, add_backend_model_option, add_calc_file_option, add_deterministic_option, add_allow_charge_mult_mismatch_option
 from mlmm.cli.common_options import add_dft_calculator_options
 from mlmm.cli.decorators import load_merged_yaml_cfg, make_is_param_explicit, render_cli_exception
 
@@ -924,6 +924,7 @@ def _prepare_frequency_output_paths(
 @add_ml_layer_detection_options()
 @add_ml_charge_spin_options()
 @add_precision_option()
+@add_compile_option()
 @add_workers_options()
 @add_backend_model_option()
 @add_calc_file_option()
@@ -971,6 +972,7 @@ def cli(
     dump_hess: Optional[str],
     out_json: bool,
     precision: Optional[str],
+    compile_model: Optional[bool],
     workers: Optional[int],
     workers_per_node: Optional[int],
     backend_model: Optional[str],
@@ -1071,6 +1073,8 @@ def cli(
     # Unconditional: also dispatches a --config YAML calc.precision
     # after the final backend has been selected.
     apply_precision_to_calc_cfg(calc_cfg, precision)
+    from mlmm.core.compile_policy import apply_compile_option
+    apply_compile_option(calc_cfg, compile_model)
     if _is_param_explicit("embedcharge"):
         calc_cfg["embedcharge"] = bool(embedcharge)
     if _is_param_explicit("embedcharge_cutoff"):

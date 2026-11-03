@@ -92,12 +92,12 @@ def test_message_links_to_a_docs_section_that_exists():
 def test_compiler_messages_give_the_install_commands():
     # An official image has no apt package lists: apt-get install alone stops with "Unable to locate package".
     gpu = pre.guidance(pre.KIND_C_COMPILER)
-    assert "UMA and ORB compile GPU code at run time for speed" in gpu
+    assert "UMA on a GPU, and ORB with --compile, compile code at run time for speed" in gpu
     assert "sudo apt-get update && sudo apt-get install -y gcc" in gpu
     assert "sudo dnf install -y gcc" in gpu
     assert "conda install -c conda-forge c-compiler" in gpu
     cpu = pre.guidance(pre.KIND_CXX_COMPILER)
-    assert "UMA and ORB compile CPU kernels at run time for speed" in cpu
+    assert "With --compile, UMA and ORB compile CPU kernels at run time for speed" in cpu
     assert "sudo apt-get update && sudo apt-get install -y g++" in cpu
     assert "sudo dnf install -y gcc-c++" in cpu
     assert "conda install -c conda-forge cxx-compiler" in cpu
