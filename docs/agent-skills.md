@@ -18,7 +18,7 @@ Each folder in `skills/` is one skill (`<name>/SKILL.md`).
 
 | Skill | What it covers |
 | --- | --- |
-| `mlmm-overview` (start here) | What mlmm-toolkit is, which of the three `all` modes fits your structures, TS strategy, and how to read the outputs |
+| `mlmm-overview` (start here) | What mlmm-toolkit is, which of the three `mlmm all` modes fits your structures, TS strategy, and how to read the outputs |
 | `mlmm-cli` | When to use each subcommand, how to judge success, and pitfalls and recovery |
 | `mlmm-model-setup` | Structure files and Amber parm7/rst7, the charge and multiplicity, the ML region and layers, and keeping the same atoms across states and variants |
 | `mlmm-install` | Installing mlmm-toolkit, the MLIP backends, DFT, xTB, and AmberTools, and probing an unknown environment |
@@ -32,7 +32,7 @@ Copy the skill folders into your agent's skill directory:
 * Claude Code: `.claude/skills/` in a project, or `~/.claude/skills/` for all projects.
 * Codex: `.agents/skills/` in a repository, or `~/.agents/skills/` for all repositories.
 
-For example, from the root of the repository:
+For example, from the root of the cloned repository:
 
 ```bash
 mkdir -p ~/.claude/skills

@@ -15,7 +15,7 @@ The `all` workflow chains `extract`, `mm-parm`, MEP search, TS optimization,
 IRC, frequency analysis, and single-point DFT; the TS, thermochemistry, and DFT
 stages are optional.
 
-Three bundled forks, `pysisyphus/`, `thermoanalysis/`, and `hessian_ff/`, live at the repo top (§5.3, §6).
+Three bundled forks, `pysisyphus/`, `thermoanalysis/`, and `hessian_ff/`, live at the repository root (§5.3, §6).
 
 ---
 
@@ -29,7 +29,7 @@ Three bundled forks, `pysisyphus/`, `thermoanalysis/`, and `hessian_ff/`, live a
 | **L2 Application** | `mlmm/workflows/` | per-subcommand orchestration plus shared workflow helpers (`_all_helpers.py`, `_opt_freq_common.py`, `_run_session.py`, …) | `domain/`, `backends/`, `io/`, `core/` |
 | **L3 Domain** | `mlmm/domain/` | chemistry-aware helper logic (bond change detection, bond summary, element-info propagation) | `core/` |
 | **L4a Infra (MLIP + ONIOM)** | `mlmm/backends/` | MLIP backend dispatch, inline backend integrations, and the ML/MM ONIOM calculator core | `core/` |
-| **L4b Infra (I/O)** | `mlmm/io/` | output layout, summary, trajectory, PDB fix, energy diagram, Hessian cache, analytical-Hessian glue | `core/` |
+| **L4b Infra (I/O)** | `mlmm/io/` | output layout, summary, trajectory, PDB fix, energy diagram, Hessian cache, numerical Hessian | `core/` |
 | **L5 Foundation** | `mlmm/core/` | shared defaults, PDB/XYZ/plot helpers, result commit/output support, and residue tables | `backends/`, `domain/`, `io/`, `cli/` (a few upward imports, see below) |
 | (bundle, not a layer) | `<repo>/pysisyphus/`, `<repo>/thermoanalysis/`, `<repo>/hessian_ff/` | repo-internal forks (optimizer / thermochemistry / analytical MM Hessian) | (sibling, layer-external) |
 
@@ -322,8 +322,8 @@ scheduled numerical validation (see `CONTRIBUTING.md` §1.1).
 |---|---|---|---|
 | 5-pass Hessian set | #1, #2, #8, #9 | subtractive ONIOM + link-atom B-matrix + 3-layer assembly + parm7 indexing | `mlmm/backends/mlmm_calc.py` (host of 3 of the 9 rules: #1/#2/#8; #9 in `mlmm/io/pdb_indexing.py`) |
 | TS optimization set | #3, #7 | macro / micro alternation + Bofill scatter | `mlmm/workflows/tsopt.py` |
-| Vibrational set | #6 | PHVA + MLIP active-block partial Hessian | `mlmm/workflows/freq.py` |
 | DFT set | #4, #5 | gpu4pyscf low-memory + def2 ECP injection | `mlmm/core/dft_settings.py` (#4), `mlmm/workflows/dft.py` (#5) |
+| Vibrational set | #6 | PHVA + MLIP active-block partial Hessian | `mlmm/workflows/freq.py` |
 
 For mlmm the practical curriculum is the 5-pass Hessian set first, then the TS set (#3, #7), then DFT (#4, #5), then vibrational (#6).
 
@@ -354,7 +354,7 @@ The bundled `pysisyphus/`, `thermoanalysis/`, and `hessian_ff/` packages are **f
 
 ## 6. Bundled forks (repo-internal)
 
-`mlmm_toolkit` ships **three** repo-internal modules at the repo top:
+`mlmm_toolkit` ships **three** repo-internal modules at the repository root:
 
 | dir | upstream PyPI? | purpose | scope of edits allowed |
 |---|---|---|---|
@@ -390,9 +390,9 @@ After the Fresh-eyes 5-step navigation (§3), follow this depth-first reading or
 
 - **ML region**: substrate + reaction-center residues, evaluated by one of the 4 MLIP backends (UMA / ORB / MACE / AIMNet2)
 - **Movable-MM region**: a shell around the ML region, free to move under the AMBER force field
-- **Frozen-MM region**: the rest of the protein, held rigid
+- **Frozen-MM region**: the rest of the protein, held fixed
 
-The split is encoded in B-factor channels of the input PDB and propagated through `extract → mm-parm → ONIOM model → MEP → tsopt → IRC → freq → dft`.
+The split is encoded in the B-factor column of the input PDB and propagated through `extract → mm-parm → ONIOM model → MEP → tsopt → IRC → freq → dft`.
 
 ## Notes
 

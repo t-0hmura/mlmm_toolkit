@@ -18,7 +18,7 @@ GitHub のリポジトリを clone 済みなら、URL の代わりに手元の `
 
 | スキル | 内容 |
 | --- | --- |
-| `mlmm-overview`（最初に参照） | mlmm-toolkit の概要、構造に応じた `all` の 3 つの入力モードの選択、TS 探索の方針、出力の解釈 |
+| `mlmm-overview`（最初に参照） | mlmm-toolkit の概要、構造に応じた `mlmm all` の 3 つの入力モードの選択、TS 探索の方針、出力の解釈 |
 | `mlmm-cli` | 各サブコマンドの用途、成否の判定、注意点と対処 |
 | `mlmm-model-setup` | 構造ファイルと Amber parm7・rst7 の取り扱い、電荷とスピン多重度の決定、ML 領域と層の設定、状態間・変異体間での原子の対応 |
 | `mlmm-install` | mlmm-toolkit 本体・MLIP バックエンド・DFT・xTB・AmberTools の導入、計算環境（スケジューラ・GPU・CUDA・conda）の確認 |
@@ -32,7 +32,7 @@ GitHub のリポジトリを clone 済みなら、URL の代わりに手元の `
 * Claude Code：プロジェクト単位では `.claude/skills/`、全プロジェクト共通では `~/.claude/skills/`
 * Codex：リポジトリ単位では `.agents/skills/`、全リポジトリ共通では `~/.agents/skills/`
 
-例として、リポジトリのルートで次のコマンドを実行します。
+例として、clone したリポジトリのルートで次のコマンドを実行します。
 
 ```bash
 mkdir -p ~/.claude/skills

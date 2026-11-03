@@ -1,6 +1,6 @@
 # `bond-summary` (bond changes between structures)
 
-`bond-summary` reports which **covalent bonds form and break** between consecutive structures, such as reactant (R) → product (P), or R → intermediates IM1 → IM2 → P. For *N* input files it prints *N* − 1 comparison blocks (A → B, B → C, …) with each changed bond and its distance before and after, in Å. It writes no file.
+`bond-summary` reports which **covalent bonds form and break** between consecutive structures, such as reactant (R) → product (P), or R → intermediates IM1 → IM2 → P. For *N* input files it prints *N* − 1 comparison blocks (A → B, B → C, …) with each changed bond and its distance before and after, in Å. It writes no files.
 
 ---
 
@@ -79,8 +79,8 @@ See the [generated CLI reference](reference/commands/bond_summary.md) for every 
 
 ## Notes
 
-* **Same atoms in the same order**: every structure must have the same atoms in the same order. A pair that differs prints `ERROR: Atom types and ordering must be identical.` to stderr; see {ref}`Input / extraction <input--extraction>`.
-* **Borderline bonds**: to count longer contacts, raise `--bond-factor` (for example `1.30`). A pair that contains a metal atom, such as metal coordination, needs a change of `--metal-delta-fraction` × *T* (default `0.40`); lower it to count a smaller change.
+* **Same atoms in the same order**: every structure must have the same atoms in the same order. Otherwise, `ERROR: Atom types and ordering must be identical.` is printed to stderr; see {ref}`Input / extraction <input--extraction>`.
+* **Borderline bonds**: to count longer contacts, raise `--bond-factor` (for example `1.30`). A pair that contains a metal atom, as in metal coordination, needs a change of `--metal-delta-fraction` × *T* (default `0.40`); lower it to count a smaller change.
 * **Failed pairs**: if any pair cannot be compared, the run exits with code 1 and the JSON `scientific_status` is `partial` or `failed`.
 * **Exit codes**: see {ref}`Exit codes <exit-codes>`.
 

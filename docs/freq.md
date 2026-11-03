@@ -60,9 +60,9 @@ Mode animations (trajectory files) are written starting from the imaginary or lo
 
 ### Rigid modes with frozen boundaries
 
-Without frozen atoms, `freq` removes the six rigid motions (three translations and three rotations), which are not vibrations, before reporting frequencies. With frozen atoms, it removes only the rigid motions that keep every frozen atom in place. With three or more frozen atoms that do not lie on one line, the normal case for an ML/MM model with a Frozen-MM layer, nothing is removed and every vibrational mode of the movable atoms is kept. With one frozen atom, three motions are removed (rotations about that atom); with two, one is removed (rotation about the axis through them).
+Without frozen atoms, `freq` removes the six rigid motions (three translations and three rotations), which are not vibrations, before reporting frequencies. With frozen atoms, it removes only the rigid motions that keep every frozen atom in place. With three or more frozen atoms that do not lie on one line (the normal case for an ML/MM model with a Frozen-MM layer), nothing is removed and every vibrational mode of the movable atoms is kept. With one frozen atom, three motions are removed (rotations about that atom); with two, one is removed (rotation about the axis through them).
 
-`irc`, the TS frequency check and the Dimer direction in `tsopt`, and `--flatten` (removing imaginary modes) in `opt` and `tsopt` treat rigid motions the same way. With `--out-json`, `result.json` records the number of removed motions and the Hessian used under `rigid_projection`; see [JSON Output Reference](json-output.md#rigid-projection-provenance).
+The same treatment applies to `irc`, the TS frequency check and the Dimer direction in `tsopt`, and `--flatten` (removing imaginary modes) in `opt` and `tsopt`. With `--out-json`, `result.json` records the number of removed motions and the Hessian used under `rigid_projection`; see [JSON Output Reference](json-output.md#rigid-projection-provenance).
 
 ---
 
@@ -93,7 +93,7 @@ result_freq/
 └─ result.json                   # Summary (with --out-json)
 ```
 
-* **Minimum or TS?** The thermochemistry summary on the console prints n_imag as `Number of Imaginary Freq = N`; `freq` does not judge it, so `scientific_status` in `result.json` is `success` whatever n_imag is. A minimum has n_imag = 0. A successful TS optimization gives one imaginary mode along the reaction coordinate: the top of `frequencies_cm-1.txt` should hold **exactly one** clear imaginary frequency (a negative value), and every value after it should be positive or within the tolerance. A TS then goes to [`irc`](irc.md). If a structure meant to be a minimum has imaginary modes, optimize it again with [`opt`](opt.md) `--flatten`; if a TS has none or several, see {ref}`When the TS search fails <ts-search-fails>`.
+* **Minimum or TS?** The thermochemistry summary on the console prints n_imag as `Number of Imaginary Freq = N`; `freq` does not judge it, so `scientific_status` in `result.json` is `success` whatever n_imag is. A minimum has n_imag = 0. A successful TS optimization gives one imaginary mode along the reaction coordinate: the top of `frequencies_cm-1.txt` should hold **exactly one** clear imaginary frequency (a negative value), and every value after it should be positive or within the tolerance. Then run [`irc`](irc.md) on the TS. If a structure meant to be a minimum has imaginary modes, optimize it again with [`opt`](opt.md) `--flatten`; if a TS has none or several, see {ref}`When the TS search fails <ts-search-fails>`.
 * **Watching the motion**: open `mode_*_trj.xyz` or `.pdb` in PyMOL, VMD, or another viewer to animate the vibration.
 
 ---

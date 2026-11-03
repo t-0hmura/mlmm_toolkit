@@ -36,7 +36,7 @@ A passing check ends with `[Dry run] --dry-run completed. Input command is valid
 
 ## Verbosity levels
 
-`-v/--verbose LEVEL` is an integer from 0 to 3 (**default 2**) that sets how much each command prints to the console. It is a per-command option, so write it with the subcommand, e.g. `mlmm opt -v 1 ...`. The same four levels apply to every command; command pages describe only what their own command adds.
+`-v/--verbose LEVEL` is an integer from 0 to 3 (**default 2**) that sets how much each command prints to the console. It is a per-command option, so write it after the subcommand, e.g. `mlmm opt -v 1 ...`. The same four levels apply to every command; command pages describe only what their own command adds.
 
 | Level | What you see |
 |---|---|
@@ -88,7 +88,7 @@ The choice of MLIP backend, precision, and `--uma-workers` is described in [MLIP
 | Number only | `-c '123,456'` / `-c '123A'` | The residue with that number in every chain. |
 | Structure file | `-c substrate.pdb` / `-c substrate.cif` | The residues whose coordinates match a separate PDB / mmCIF file. |
 
-Long mmCIF chain IDs and residue numbers above 9999 use the same forms. Chain IDs are case-sensitive; residue names are not. A PDB with an empty chain column, such as the bundled example PDBs, takes only the name or number forms (`-c 'SAM,GPP,MG'`, `--selected-resn '44,63,186'`).
+Long mmCIF chain IDs and residue numbers above 9999 use the same forms. Chain IDs are case-sensitive; residue names are not. For a PDB with an empty chain column, such as the bundled example PDBs, use only the name or number forms (`-c 'SAM,GPP,MG'`, `--selected-resn '44,63,186'`).
 
 ```bash
 mlmm extract -i complex.cif -c 'LONG_CHAIN:SAM' -o pocket.pdb        # every SAM in chain LONG_CHAIN
@@ -183,7 +183,7 @@ In a YAML spec, a `scan` stage may mix distance targets with distance, angle, or
 -s "[(\"SAM,320,CS1\",\"GPP,321,C7\",1.60)]"       # avoid: double-quoted outer literal requires escaping inner quotes
 ```
 
-For `scan`, one literal = one **stage**; multiple stages → multiple literals after a single `--scan-lists` flag. For `scan2d` / `scan3d`, only one literal is accepted (no multi-stage support). A two-stage `scan` that first forms one bond and then moves a proton:
+For `scan`, one literal is one **stage**; to run several stages, give several literals after a single `--scan-lists` flag. For `scan2d` / `scan3d`, only one literal is accepted (no multi-stage support). A two-stage `scan` that first forms one bond and then moves a proton:
 
 ```bash
 mlmm scan -i r.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
@@ -219,7 +219,7 @@ mlmm all -i reactant.cif product.cif -c 'enzyme_A:SAM:10001,enzyme_A:GPP:10002' 
 mlmm tsopt -i hei.xyz --ref-pdb full_system.mmcif --parm7 full_system.parm7 -q -2 -o result_tsopt
 ```
 
-The second command takes the coordinates from the XYZ file and the topology from the mmCIF file. Residue and atom selectors use the original chain IDs and residue numbers:
+The second command takes the coordinates from the XYZ file and the residue information from the mmCIF file. Residue and atom selectors use the original chain IDs and residue numbers:
 
 | Context | Form | Example |
 |---|---|---|
@@ -273,7 +273,7 @@ Exit codes do not depend on JSON output. Exit code `0` covers both `success` and
 
 When `--opt-mode-post` is omitted and `--opt-mode` is given explicitly, `all` uses that value for the TS and endpoint optimizations as well.
 
-The same `--opt-mode` value selects a **different algorithm** on each subcommand, and the defaults differ, so check the table before copying a recipe. Algorithm names are accepted on `opt` (`lbfgs` / `rfo`) and `tsopt` (`dimer` / `rsirfo` / `trim` / `rsprfo`); all other subcommands accept only `grad` / `hess`. On `tsopt`, `--opt-mode grad` is therefore a **Dimer** TS search, not an L-BFGS minimization, and this Dimer periodically computes the Hessian to update its direction. Write `--opt-mode dimer` or `rsirfo` on `tsopt` and `--opt-mode lbfgs` or `rfo` on `opt` to make a recipe unambiguous.
+The same `--opt-mode` value selects a **different algorithm** on each subcommand, and the defaults differ, so check the table before copying a recipe. Algorithm names are accepted on `opt` (`lbfgs` / `rfo`) and `tsopt` (`dimer` / `rsirfo` / `trim` / `rsprfo`); all other subcommands accept only `grad` / `hess`. On `tsopt`, `--opt-mode grad` is therefore a **Dimer** TS search, not an L-BFGS minimization, and this Dimer periodically computes the Hessian to update its direction. Write `--opt-mode dimer` or `rsprfo` on `tsopt` and `--opt-mode lbfgs` or `rfo` on `opt` to make a recipe unambiguous.
 
 `--microiter/--no-microiter` (on by default) alternates one Hessian-based step of the ML region with an L-BFGS relaxation of the MM atoms: in `opt` with RFO, and in `tsopt` with RS-P-RFO, RS-I-RFO, and TRIM. It is not used with Dimer, with electrostatic embedding (`--embedcharge`), or in `opt` with `--distance-restraint`.
 
@@ -320,7 +320,7 @@ built-in defaults  <  --config (YAML)  <  CLI options
 * **`--model-indices` and the derived charge**: the charge cannot be derived from `--ligand-charge` with `--model-indices`; give `-q`, or define the ML region with `--model-pdb` or the B-factor layers (`--detect-layer`).
 * **`--movable-cutoff` turns off `--detect-layer`**: with `--movable-cutoff`, the MM layers come from the distance cutoff, and the B-factor layers of the input are not read.
 * **B-factor layers need both ML and MM atoms**: the B-factors are read as layers only when at least one atom is ML (0), at least one is MM (10 or 20), and at least 80% of the atoms carry one of these values (±1.0); an all-zero PDB is not a layer assignment.
-* **Inline scan literals**: one inline literal, and all literals of one run, hold either distance targets or ranges. To combine them, list them under `stages:` in a YAML/JSON spec.
+* **Inline scan literals**: the inline literals of one run hold either distance targets or ranges, not both. To combine them, list them under `stages:` in a YAML/JSON spec.
 * **mmCIF and large structures**: up to 619,938 residues can be handled (62 one-character chain IDs × 9,999 residue numbers in the internal PDB used during the calculation). `fix-altloc` and `add-elem-info` read PDB only; for mmCIF, the altLoc is chosen and element symbols are taken from `_atom_site.type_symbol` when the file is read. A row without `_atom_site.type_symbol`, a non-finite coordinate, or a different atom count between the reaction states stops with an error. Coordinates must fit the fixed-width PDB columns; move a structure that lies far from the origin closer to it.
 
 ## See Also

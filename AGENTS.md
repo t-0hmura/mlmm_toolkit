@@ -35,9 +35,9 @@ The checkers require:
 
 - Frontmatter with `name` and `description`; `name` is lowercase hyphen-case, at most 64 characters, and equals the folder name.
 - A `description` of at most 1024 characters, without `<` or `>`.
-- Real flags in shell code blocks (no language, `bash`, `console`, or `sh`) and in inline `mlmm …` (`check_skill_commands.py`).
+- Real flags in shell code blocks (untagged, `bash`, `console`, or `sh`) and in inline `mlmm …` (`check_skill_commands.py`).
 - In a concrete `mlmm` example with `-i`: the required topology option (`--parm7`); a charge option (`-q` or `-l`) unless every input is `.gjf` or `--config` is given; and `--ref-pdb` for XYZ input (for `path-search`, one per XYZ position). Write placeholders as `<...>`.
-- Real flags in backticks in prose in the folders listed in `MLMM_CLI_DIRS` (`check_skill_drift.py`). Add a new skill folder that documents the CLI there.
+- Real flags in backticks in prose in the folders listed in `MLMM_CLI_DIRS` (`check_skill_drift.py`). Add a new skill folder that documents the CLI to that list.
 - The sentences that `check_docs_contract.py` pins in `docs/` and `skills/` (some in a fixed order), and none of the phrases it bans. `check_docs_contract.py` also checks the `## dispatcher.sh` section of `skills/mlmm-hpc/dynamic-dispatch.md` (its pinned fragments and `bash -n`). When you move or reword pinned text, update the checker or test in the same change.
 
 Also write only `name` and `description` in the frontmatter, state TRIGGER and SKIP in the `description`, and keep each `SKILL.md` within 500 lines.

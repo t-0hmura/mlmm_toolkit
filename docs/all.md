@@ -1,6 +1,6 @@
 # `all` (end-to-end workflow)
 
-`all` runs the whole ML/MM workflow in one command: it selects the ML region around the active site, builds the Amber topology and the three layers of the full system, and finds the minimum energy path (MEP). When asked, it optimizes the transition state (TS) of each reaction step and runs the intrinsic reaction coordinate (IRC), frequency, and DFT calculations on it.
+`all` runs the whole ML/MM workflow in one command: it selects the ML region around the active site, builds the Amber topology and the three layers of the full system, and finds the minimum energy path (MEP). When asked, it optimizes the transition state (TS) of each reaction step and runs the intrinsic reaction coordinate (IRC), frequency, and DFT calculations.
 
 Without `--tsopt`, the run ends with TS candidates: the highest-energy image (HEI) of each MEP segment. The ML region is computed by **UMA**, Meta's pretrained [machine-learning interatomic potential (MLIP)](backends.md), by default; `-b/--backend` also selects **ORB**, **MACE**, **AIMNet2**, or [DFT](dft-backend.md) (`dft`). The rest of the enzyme is computed with the Amber force field, and ONIOM combines the two.
 
@@ -57,7 +57,7 @@ The optimized R, TS, and P are written to `result_all/segments/seg_01/`.
 
 ### 4. Resume post-processing from a segment
 
-To redo the post-processing from segment N, repeat the original command with the same inputs, extraction, layer, path, and calculator options and the same `--out-dir`, and add `--resume-segment N`. Post-processing options such as `--tsopt-max-cycles` may change, but `--precision-post` may not: the segments before N keep their results, so the run stops when the post-processing precision differs. To change it, resume from segment 1.
+To redo the post-processing from segment N, repeat the original command with the same inputs, extraction, layer, path, and calculator options and the same `--out-dir`, and add `--resume-segment N`. You can change post-processing options such as `--tsopt-max-cycles`, but not `--precision-post`: the segments before N keep their results, so the run stops when the post-processing precision differs. To change it, resume from segment 1.
 
 ```bash
 mlmm all -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
@@ -163,7 +163,7 @@ result_all/
    └─ path_opt/                 # MEP search and hei_seg_NN.* (path_search/ with --refine-path)
 ```
 
-* **Structures to report**: cite `segments/seg_NN/reactant.*`, `ts.*`, and `product.*`. The subdirectories of `seg_NN/` hold the files of each stage.
+* **Structures to report**: use `segments/seg_NN/reactant.*`, `ts.*`, and `product.*`. The subdirectories of `seg_NN/` hold the files of each stage.
 * **`.cif` files**: for {ref}`mmCIF input <mmcif-input>` and for PDB input too large for the PDB columns, `all` also writes `.cif` files that keep the original identifiers.
 * **TS-only mode**: there is no MEP search, so the MEP files and `_work/path_opt/` are absent; R, TS, and P go to `segments/seg_01/`.
 

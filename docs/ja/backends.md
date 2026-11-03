@@ -76,7 +76,7 @@ calc:
 
 ## 決定論的実行と再現性
 
-`--deterministic` を付けると、同じソフトウェアと GPU で、同じ入力から同じ結果が得られます。付けないと、同じ入力の 2 回の GPU の計算でも最後の桁が違うことがあります。
+`--deterministic` を付けると、同じソフトウェアと GPU で、同じ入力から同じ結果が得られます。付けないと、同じ入力を GPU で 2 回計算しても、最後の桁が違うことがあります。
 
 ```bash
 mlmm opt -i complex.pdb --parm7 enzyme.parm7 --model-pdb ml_region.pdb -q 0 --deterministic
@@ -92,7 +92,7 @@ mlmm all -i r_complex.pdb p_complex.pdb -c PRE -q -1 --deterministic
 
 ## ワーカーと Hessian の計算方式
 
-`--uma-workers N`（デフォルト 1）は UMA の予測器を N 個並列に動かし（`pip install "fairchem-core[ray]"` が要ります）、`--uma-workers-per-node`（デフォルト 1）はそのうち 1 ノードで動かす数を決めます。どちらのフラグも `opt`、`tsopt`、`freq`、`irc`、`sp`、`all`、`path-opt`、`path-search`、`scan`、`scan2d`、`scan3d` にあります。ほかのバックエンドはこれらを警告を出して無視します。HPC のジョブのテンプレートは [デバイス設定 & HPC セットアップ](device-hpc.md) にあります。
+`--uma-workers N`（デフォルト 1）は UMA の予測器を N 個並列に動かし（`pip install "fairchem-core[ray]"` が要ります）、`--uma-workers-per-node`（デフォルト 1）はそのうち 1 ノードで動かす数を決めます。どちらのフラグも `opt`、`tsopt`、`freq`、`irc`、`sp`、`all`、`path-opt`、`path-search`、`scan`、`scan2d`、`scan3d` にあります。ほかのバックエンドは、警告を出してこれらを無視します。HPC のジョブのテンプレートは [デバイス設定 & HPC セットアップ](device-hpc.md) にあります。
 
 ### Hessian の計算方式
 
@@ -141,7 +141,7 @@ mlmm freq  -i complex.pdb --parm7 system.parm7 --model-pdb ml_region.pdb --calc-
 mlmm all   -i R.pdb P.pdb --parm7 system.parm7 --model-pdb ml_region.pdb --calc-file my_calc.py -q 0 -m 1
 ```
 
-- 関数が `charge`・`spin`（多重度。`mult`・`multiplicity` の名前でも渡します）・`device` を引数に持つか、`**kwargs` を持てば、これらが渡されるので、全電荷が要るエンジン（xTB など）も設定できます。関数の名前は `--calc-file-func-name NAME` で変えられ、その名前に Calculator のインスタンスを置いてもかまいません。
+- 関数が `charge`・`spin`（多重度。`mult`・`multiplicity` の名前でも渡します）・`device` を引数に持つか、`**kwargs` を持てば、これらが渡されるので、全電荷が要るエンジン（xTB など）も設定できます。関数の名前は `--calc-file-func-name NAME` で変えられ、その名前に Calculator のインスタンスを代入してもかまいません。
 - 自作の calculator が計算するのは **ML 領域だけ**です。MM 側は通常どおり `hessian_ff` か OpenMM で計算し、ONIOM の結合も変わりません。Hessian は有限差分で求めるので、`freq` と `tsopt --opt-mode hess` はどのエンジンでも動きます。固定原子の指定も通常どおり有効です。
 - `all` と、ML/MM の計算を行う各サブコマンドで使えます。`all` は、calculator を使うすべての段に同じ関数を渡します。独自の `--backend` 名を持つ、インストールできるバックエンドにするときは [開発者向け](#開発者向け) を見てください。
 

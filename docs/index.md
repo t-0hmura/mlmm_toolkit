@@ -202,7 +202,7 @@ ja/architecture
 | Goal | Page |
 |------|------|
 | **Choose the ML region and layers, or make a run lighter** | [Building the ML region and layers](model-setup.md) |
-| **Study a mechanism, or the TS search fails** | [Tips for studying reaction mechanisms](mechanism-tips.md) |
+| **Study a mechanism, or fix a failing TS search** | [Tips for studying reaction mechanisms](mechanism-tips.md) |
 | **Optimize the TS structure with DFT** | [Refine an MLIP TS with DFT](dft-backend.md) |
 | **A run failed** | [Troubleshooting](troubleshooting.md) |
 
@@ -264,7 +264,7 @@ ja/architecture
 ### Software
 
 - Python 3.12 (recommended) or 3.13.
-- CPU or CUDA-enabled PyTorch. Prebuilt wheels include their CUDA runtime; a local toolkit is normally needed only for source builds.
+- CPU or CUDA-enabled PyTorch. Prebuilt wheels include their CUDA runtime; a local CUDA toolkit is normally needed only for source builds.
 - AmberTools, which `mm-parm` uses to build the Amber topology.
 
 See [Installation](installation.md) for setup.

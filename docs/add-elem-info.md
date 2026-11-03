@@ -7,7 +7,7 @@
 ## What it is for
 
 * **PDB files without element columns**: structures from modeling tools or molecular dynamics (MD) that leave columns 77–78 blank.
-* **Wrong element symbols**: re-infer every column with `--overwrite-elem`.
+* **Wrong element symbols**: re-infer every element column with `--overwrite-elem`.
 * **Preparing input for other commands**: `all` repairs blank element fields by itself with the same rules. Run `add-elem-info` before a standalone command such as `extract`, or when a symbol is wrong rather than blank.
 
 ---
@@ -47,7 +47,7 @@ mlmm add-elem-info -i 1abc.pdb --overwrite
 2. **Keeping valid symbols**:
 An element field that already holds a valid symbol (or `EP` for a water virtual site) is kept. Blank or unrecognized fields are repaired; `--overwrite-elem` re-infers every field.
 3. **Inferring the element**:
-The element comes from the four-character atom name (columns 13–16) and the residue name. Ion residues give the element of the ion; amino acids, nucleic acids, and water follow the usual naming (H/D, C, N, O, P, S, Se); other ligands use the column alignment of the atom name (` NA ` is N, `NA  ` is Na), including LEaP halogens such as ` CL1` and hydrogen names such as `HG11`.
+The element comes from the four-character atom name (columns 13–16) and the residue name. Ion residues give the element of the ion; amino acids, nucleic acids, and water follow the usual naming (H/D, C, N, O, P, S, Se); other ligands use the column alignment of the atom name (`" NA "` is N, `"NA  "` is Na), including LEaP halogens such as ` CL1` and hydrogen names such as `HG11`.
 4. **Writing and the summary**:
 Only columns 77–78 of the repaired records change. The console reports the totals, the counts per element, and the atoms that could not be assigned.
 

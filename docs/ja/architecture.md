@@ -22,7 +22,7 @@ mlmm-toolkit の開発者向けに、パッケージの層、ファイルの置�
 | **L2 Application** | `mlmm/workflows/` | サブコマンドごとのオーケストレーションと共有ワークフローヘルパー (`_all_helpers.py`、`_opt_freq_common.py`、`_run_session.py`、…) | `domain/`、`backends/`、`io/`、`core/` |
 | **L3 Domain** | `mlmm/domain/` | 化学を意識したヘルパーロジック (結合変化検出、結合サマリー、元素情報伝播) | `core/` |
 | **L4a Infra (MLIP + ONIOM)** | `mlmm/backends/` | MLIP バックエンドのディスパッチ、インライン実装、および ML/MM ONIOM 計算コア | `core/` |
-| **L4b Infra (I/O)** | `mlmm/io/` | 出力レイアウト、サマリー、軌跡、PDB 修正、エネルギー図、Hessian キャッシュ、解析的 Hessian glue | `core/` |
+| **L4b Infra (I/O)** | `mlmm/io/` | 出力レイアウト、サマリー、軌跡、PDB 修正、エネルギー図、Hessian キャッシュ、数値 Hessian | `core/` |
 | **L5 Foundation** | `mlmm/core/` | 共有デフォルト、PDB/XYZ/プロットヘルパー、出力・結果確定処理、残基テーブル | `backends/`、`domain/`、`io/`、`cli/` (後述の一部の上向きの import) |
 | （レイヤー外の同梱物） | `<repo>/pysisyphus/`、`<repo>/thermoanalysis/`、`<repo>/hessian_ff/` | リポジトリ内フォーク（オプティマイザ / 熱化学 / 解析的 MM Hessian） | （同階層、レイヤー外） |
 
@@ -206,7 +206,7 @@ mlmm myaction ─────────────────► mlmm/cli/ap
 | TS 最適化 (RS-P-RFO / RS-I-RFO / TRIM + Bofill + マクロ/マイクロ) | `mlmm/workflows/tsopt.py` |
 | 振動解析 (PHVA + MLIP active block) | `mlmm/workflows/freq.py` |
 | IRC 積分 (マクロ / マイクロ) | `mlmm/workflows/irc.py` |
-| 単一点 DFT (ONIOM 埋め込み) | `mlmm/workflows/dft.py` |
+| DFT 一点計算 (ONIOM 埋め込み) | `mlmm/workflows/dft.py` |
 | ML/MM の一点エネルギーと力 | `mlmm/workflows/sp.py` |
 | 活性部位抽出 (クラスター切り出し + リンク原子キャップ) | `mlmm/workflows/extract.py` |
 | ML / 可動 MM / 固定 MM 領域割り当て | `mlmm/workflows/define_layer.py` |
@@ -311,8 +311,8 @@ grep -rn '# DOMAIN_PURE' mlmm/
 |---|---|---|---|
 | 5-pass Hessian セット | #1, #2, #8, #9 | subtractive ONIOM + link-atom B-matrix + 3-layer アセンブリ + parm7 インデックス | `mlmm/backends/mlmm_calc.py` (9 ルールのうち 3 つのホスト: #1/#2/#8; #9 は `mlmm/io/pdb_indexing.py`) |
 | TS 最適化セット | #3, #7 | マクロ / マイクロ交互 + Bofill scatter | `mlmm/workflows/tsopt.py` |
-| 振動セット | #6 | PHVA + MLIP active-block partial Hessian | `mlmm/workflows/freq.py` |
 | DFT セット | #4, #5 | gpu4pyscf 低メモリ + def2 ECP 注入 | `mlmm/core/dft_settings.py` (#4)、`mlmm/workflows/dft.py` (#5) |
+| 振動セット | #6 | PHVA + MLIP active-block partial Hessian | `mlmm/workflows/freq.py` |
 
 mlmm で実際に読む順序は、まず 5-pass Hessian セット、次に TS セット (#3, #7)、次に DFT (#4, #5)、最後に振動 (#6) です。
 
@@ -379,11 +379,11 @@ IRC / TSopt / Freq ステージは、CUDA メモリを解放するためにス�
 
 - **ML 領域**: 基質 + 反応中心残基。4 つの MLIP バックエンド (UMA / ORB / MACE / AIMNet2) のいずれかで評価されます
 - **可動 MM 領域**: ML 領域を取り囲むシェルで、Amber 力場のもとで自由に動けます
-- **固定 MM 領域**: タンパク質の残りの部分で、剛体として保持されます
+- **固定 MM 領域**: タンパク質の残りの部分で、動きません
 
 この分割は入力 PDB の B-factor の欄に書き込まれ、`extract → mm-parm → ONIOM model → MEP → tsopt → IRC → freq → dft` の各段に引き継がれます。
 
 ## 使用上の注意点
 
-- 今は依存の向きを破る `core/` の import がいくつかあります: `core.utils` → `domain.add_elem_info`・`domain.scan_coordinates`・`io.structure_formats`・`cli.completion`（状態の語彙）、`core.calc_eval` → `backends.mlmm_calc`。どれも循環は作りません。
+- 今は依存の向きを破る `core/` の import がいくつかあります: `core.utils` → `domain.add_elem_info`・`domain.scan_coordinates`・`io.structure_formats`・`cli.completion`（状態の値）、`core.calc_eval` → `backends.mlmm_calc`。どれも循環は作りません。
 - `_check_domain_pure` ゲートは、`backends/mlmm_calc.py`、`workflows/tsopt.py`、`workflows/freq.py` に `# DOMAIN_PURE` マーカーがあることだけを確かめます。`workflows/sp.py` にも付いていて、`domain/` のファイルには付いていません。

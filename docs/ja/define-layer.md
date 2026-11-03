@@ -1,6 +1,6 @@
 # `define-layer`（ML・MM の層の割り当て）
 
-`define-layer` は、全系を ML 領域の周りの 3 つの層に分け、各原子の層を PDB の B-factor の欄に書き込みます。計算コマンドは、この B-factor から層を読み戻します。
+`define-layer` は、全系を ML 領域の周りの 3 つの層に分け、各原子の層を PDB の B-factor の欄に書き込みます。計算コマンドは、この B-factor から層を読み取ります。
 
 | 層 | B-factor | 原子 | 計算での扱い |
 | --- | --- | --- | --- |
@@ -101,7 +101,7 @@ PDB は入力のレコードをすべて保ち、B-factor だけを変えます�
 
 * [ML 領域と層の組み方](model-setup.md) — ML 領域、可動 MM の殻、Hessian の範囲を決める
 * [extract](extract.md) — `--model-pdb` に渡す ML 領域を切り出す
-* [mm-parm](mm-parm.md) — トポロジーと、層を付ける対応した PDB を作る
+* [mm-parm](mm-parm.md) — トポロジーと、それに対応した PDB を作る
 * [all](all.md) — 一気通貫のワークフロー。`-c` で `define-layer` を実行する
 * [opt](opt.md) — 層付きの系を最適化する
 * [トラブルシューティング](troubleshooting.md) — 層と原子の順のエラー

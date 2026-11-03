@@ -11,7 +11,7 @@ ML/MM 計算機の ML と MM の部分をどのデバイス（GPU か CPU）で�
 | `ml_device` | `auto` | ML 推論のデバイス：`auto`、`cuda`、`cpu`。`auto` は CUDA が使えれば CUDA、なければ CPU を選びます。`--backend dft` では、代わりに `--dft-engine`（`calc.dft.engine`）がデバイスを決めます。 |
 | `ml_cuda_idx` | `0` | CUDA で ML 推論を行うときの CUDA デバイス番号。 |
 | `mm_backend` | `hessian_ff` | MM のエンジン：`hessian_ff`（CPU のみ）か `openmm`（CPU か CUDA）。 |
-| `mm_device` | `cpu` | MM のエンジンのデバイス。`hessian_ff` は `cpu` か `auto` を受け、CPU で動きます。`openmm` は `cuda` も受け、`auto` は OpenMM に CUDA プラットフォームがあれば CUDA を選びます。 |
+| `mm_device` | `cpu` | MM のエンジンのデバイス。`hessian_ff` は `cpu` か `auto` を受け付け、CPU で動きます。`openmm` は `cuda` も受け付け、`auto` は OpenMM に CUDA プラットフォームがあれば CUDA を選びます。 |
 | `mm_cuda_idx` | `0` | OpenMM を CUDA で動かすときの CUDA デバイス番号。 |
 | `mm_threads` | `16` | MM のエンジンの CPU スレッド数。 |
 
@@ -43,7 +43,7 @@ calc:
 
 ### Hessian のデバイス（`--hess-device`）
 
-`freq` と `irc` の `--hess-device` は `cuda`・`cpu`・`auto` を受け、デフォルトの `auto` は `ml_device` に従います。`freq` では、計算済みの Hessian を置いて対角化するデバイスを決めます。`irc` では、初期 Hessian を置くデバイスと IRC の演算を行うデバイスを決めます。
+`freq` と `irc` の `--hess-device` は `cuda`・`cpu`・`auto` を受け付け、デフォルトの `auto` は `ml_device` に従います。`freq` では、計算済みの Hessian を置いて対角化するデバイスを決めます。`irc` では、初期 Hessian を置くデバイスと IRC の演算を行うデバイスを決めます。
 
 ```bash
 # デフォルト: ML のデバイス
@@ -185,11 +185,11 @@ mlmm opt -i r_complex_layered.pdb --parm7 real.parm7 -q -1 --config config.yaml
 
 ## 使用上の注意点
 
-* **hessian_ff は CPU でだけ動く**: デフォルトの `mm_backend: hessian_ff` では、`mm_device` は `cpu` か `auto` だけを受け、`mm_device: cuda` はエラーで止まります。MM を CUDA で動かすには `mm_backend: openmm` を使ってください。
+* **hessian_ff は CPU でだけ動く**: デフォルトの `mm_backend: hessian_ff` では、`mm_device` は `cpu` か `auto` だけを受け付け、`mm_device: cuda` はエラーで止まります。MM を CUDA で動かすには `mm_backend: openmm` を使ってください。
 * **ML 推論は GPU 1 基**: デフォルトの `--uma-workers 1` では、ML 推論は `ml_cuda_idx` の GPU 1 基で動きます。`--uma-workers` を 2 以上にする場合は [MLIP バックエンド › ワーカーと Hessian の計算方式](backends.md#ワーカーと-hessian-の計算方式) を参照してください。
 * **ML と MM を同じ GPU に置くとメモリを共有する**: 両方を同じ CUDA デバイスで動かすときは、代表的な試験計算でピークメモリを測り、大きな系では `mm_device: cpu` を使ってください。
 * **`--hess-device cpu` でもすべての out-of-memory は防げない**: Hessian の計算中にバックエンドの中で起きる out-of-memory は、Hessian を移す前に起きます。モデルを小さくするか、メモリの少ない Hessian やバックエンドの設定を選んでください。
-* **各計算ノードに C++ コンパイラが要る**: デフォルトの `hessian_ff` MM バックエンドは、初回利用時に C++ カーネルを JIT ビルドします。これは CUDA とは関係なく行われます。各計算ノードに C++20 対応のコンパイラと Ninja が必要です（GCC 13.3 で検証済み）。hessian_ff は `$CXX`、なければ env の conda の `g++`（`cxx-compiler` が入れるもの）、それもなければ `c++` を使います。そのコンパイラがない、または古い場合はコンパイラモジュールを読み込んでください。上のジョブスクリプトは両方を確かめます。UMA も実行時にコードをビルドするため C コンパイラ（`gcc`。CPU では `g++`）が要り、conda のコンパイラがこれにも使われます。
+* **各計算ノードに C++ コンパイラが要る**: デフォルトの `hessian_ff` MM バックエンドは、初回利用時に C++ カーネルを JIT ビルドします。これは CUDA とは関係なく行われます。各計算ノードに C++20 対応のコンパイラと Ninja が必要です（GCC 13.3 で検証済み）。hessian_ff は `$CXX`、なければ conda 環境の `g++`（`cxx-compiler` が入れるもの）、それもなければ `c++` を使います。そのコンパイラがない、または古い場合はコンパイラモジュールを読み込んでください。上のジョブスクリプトは両方を確かめます。UMA も実行時にコードをビルドするため C コンパイラ（`gcc`。CPU では `g++`）が要り、conda のコンパイラがこれにも使われます。
 
 ---
 

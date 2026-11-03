@@ -156,7 +156,7 @@ Choose one of these two settings with UMA:
 Model precision and Hessian precision are separate settings. The Hessian is
 assembled in float64 by default (`calc.H_double: true`); `H_double: false`
 returns it in float32. With `--precision fp64`, the Hessian is always float64:
-a `H_double: false` in the config is overridden with a warning.
+`H_double: false` in the config is overridden with a warning.
 
 ## xTB electrostatic correction
 
@@ -206,7 +206,7 @@ def get_calculator(charge=0, spin=1, device="auto", **kwargs):
 
 Swap `EMT()` for the engine you want — e.g. `tblite.ase.TBLite(...)` for
 GFN-xTB, the DFTB+ ASE calculator, or `ase.calculators.orca.ORCA(...)`. Then
-pass the file to a stage or to `all`; it selects the `custom` ML backend and
+pass the file to a subcommand or to `all`; it selects the `custom` ML backend and
 overrides `--backend`:
 
 ```bash
@@ -242,7 +242,7 @@ example are in [ML/MM Calculator › Python API](mlmm-calc.md#python-api).
 ### Backend dispatcher pattern
 
 `MLMMCore` hands the ML region to the adapter of the selected backend and
-keeps the MM calculation and the ONIOM coupling to itself. An unknown backend name raises
+does the MM calculation and the ONIOM coupling itself. An unknown backend name raises
 `ValueError`; mlmm-toolkit has no `auto` backend, and the workflows pass the
 backend chosen on the command line.
 

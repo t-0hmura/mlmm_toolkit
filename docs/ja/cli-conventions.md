@@ -36,7 +36,7 @@ mlmm opt -i input.pdb --parm7 real.parm7 -q -1 --config my_settings.yaml --show-
 
 ## ログ詳細度 (verbosity)
 
-`-v/--verbose LEVEL` は 0〜3 の整数 (**デフォルト 2**) で、各コマンドのコンソール出力量を決めます。コマンドごとのオプションなので、サブコマンドと一緒に指定します (例: `mlmm opt -v 1 ...`)。4 段階は全コマンド共通で、各コマンドページはそのコマンド固有の出力だけを説明します。
+`-v/--verbose LEVEL` は 0〜3 の整数 (**デフォルト 2**) で、各コマンドのコンソール出力量を決めます。コマンドごとのオプションなので、サブコマンドの後に指定します (例: `mlmm opt -v 1 ...`)。4 段階は全コマンド共通で、各コマンドページはそのコマンド固有の出力だけを説明します。
 
 | レベル | 表示内容 |
 |---|---|
@@ -217,7 +217,7 @@ mlmm all -i reactant.cif product.cif -c 'enzyme_A:SAM:10001,enzyme_A:GPP:10002' 
 mlmm tsopt -i hei.xyz --ref-pdb full_system.mmcif --parm7 full_system.parm7 -q -2 -o result_tsopt
 ```
 
-2 つ目のコマンドは、座標を XYZ ファイルから、トポロジーを mmCIF ファイルから取ります。残基と原子のセレクタには、元の chain ID と残基番号を使います。
+2 つ目のコマンドは、座標を XYZ ファイルから、残基の情報を mmCIF ファイルから取ります。残基と原子のセレクタには、元の chain ID と残基番号を使います。
 
 | 場面 | 形 | 例 |
 |---|---|---|
@@ -270,7 +270,7 @@ JSON の有無で終了コードは変わりません。終了コード `0` に�
 
 `--opt-mode-post` を省いて `--opt-mode` を明示すると、`all` はその値を TS 最適化と端点の最適化にも使います。
 
-同じ `--opt-mode` の値でも、サブコマンドによって**選ばれる最適化法が異なり**、デフォルトも異なります。レシピをコピーする前に表を確認してください。アルゴリズム名を受け付けるのは `opt`（`lbfgs` / `rfo`）と `tsopt`（`dimer` / `rsirfo` / `trim` / `rsprfo`）だけで、ほかのサブコマンドは `grad` / `hess` だけを受け付けます。したがって `tsopt` の `--opt-mode grad` は L-BFGS 最小化ではなく **Dimer TS 探索**で、この Dimer は Hessian を周期的に計算して方向を更新します。曖昧さを避けるには、`tsopt` では `--opt-mode dimer` か `rsirfo`、`opt` では `--opt-mode lbfgs` か `rfo` と書いてください。
+同じ `--opt-mode` の値でも、サブコマンドによって**選ばれる最適化法が異なり**、デフォルトも異なります。レシピをコピーする前に表を確認してください。アルゴリズム名を受け付けるのは `opt`（`lbfgs` / `rfo`）と `tsopt`（`dimer` / `rsirfo` / `trim` / `rsprfo`）だけで、ほかのサブコマンドは `grad` / `hess` だけを受け付けます。したがって `tsopt` の `--opt-mode grad` は L-BFGS 最小化ではなく **Dimer TS 探索**で、この Dimer は Hessian を周期的に計算して方向を更新します。曖昧さを避けるには、`tsopt` では `--opt-mode dimer` か `rsprfo`、`opt` では `--opt-mode lbfgs` か `rfo` と書いてください。
 
 `--microiter/--no-microiter`（デフォルトで有効）は、ML 領域の Hessian を使う 1 ステップと、MM 原子の L-BFGS 緩和を交互に行います。`opt` では RFO、`tsopt` では RS-P-RFO・RS-I-RFO・TRIM のときに使います。Dimer、静電埋め込み（`--embedcharge`）、`opt` の `--distance-restraint` では使いません。
 
@@ -317,7 +317,7 @@ mlmm all -i r.pdb p.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --config my_settings.yaml
 * **`--model-indices` と電荷の導出**: `--model-indices` では `--ligand-charge` から電荷を導出できません。`-q` を指定するか、`--model-pdb` か B-factor の層（`--detect-layer`）で ML 領域を決めてください。
 * **`--movable-cutoff` は `--detect-layer` を無効にします**: `--movable-cutoff` を指定すると、MM の層は距離で決まり、入力の B-factor の層は読みません。
 * **B-factor の層には ML 原子と MM 原子の両方が要ります**: B-factor を層として読むのは、ML（0）の原子と MM（10 か 20）の原子がそれぞれ 1 個以上あり、原子の 80% 以上がこれらの値（±1.0）を持つときだけです。全原子が 0 の PDB は層の指定になりません。
-* **インラインのスキャンリテラル**: 1 つのインラインリテラルと、1 回の実行のすべてのリテラルは、距離の目標値か範囲のどちらか一方だけを持ちます。両方を使うときは、YAML/JSON スペックの `stages:` に並べてください。
+* **インラインのスキャンリテラル**: 1 回の実行のインラインリテラルには、距離の目標値か範囲のどちらか一方しか書けません。両方を使うときは、YAML/JSON スペックの `stages:` に並べてください。
 * **mmCIF と大きな構造の制限**: 扱える残基は 619,938 個までです（計算の間に使う内部の PDB の、1 文字の chain ID 62 種 × 残基番号 9,999）。`fix-altloc` と `add-elem-info` は PDB だけを読みます。mmCIF では、読み込みのときに altLoc を選び、元素記号を `_atom_site.type_symbol` から取ります。`_atom_site.type_symbol` の無い行、有限でない座標、反応の状態の間で原子数が違う入力はエラーで止まります。座標は PDB の固定幅の欄に収まる必要があるので、原点から遠い構造は原点の近くに移してください。
 
 ## 関連ドキュメント

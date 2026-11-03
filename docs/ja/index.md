@@ -68,13 +68,13 @@ orphan: true
 | [`mm-parm`](mm-parm.md) | Amber のトポロジー・座標（parm7/rst7）を構築 |
 | [`extract`](extract.md) | タンパク質–リガンド複合体から ML 領域を定義 |
 | [`define-layer`](define-layer.md) | ML・可動 MM・固定 MM の層を B-factor で指定 |
-| [`opt`](opt.md) | 単一構造の構造最適化（L-BFGS または RFO。任意の `--flatten` で残った虚振動を除く） |
+| [`opt`](opt.md) | 単一構造の構造最適化（L-BFGS または RFO。`--flatten` を付けると残った虚振動を除く） |
 | [`scan`](scan.md) | 距離・角度・二面角の拘束付きスキャン（協奏スキャン・多段階スキャンに対応） |
 | [`scan2d`](scan2d.md) | 2 次元のエネルギー地形の探索・PES マッピング |
 | [`scan3d`](scan3d.md) | 3 次元のエネルギー地形の探索・PES マッピング |
 | [`path-opt`](path-opt.md) | GSM または DMF による 1 段階の MEP 最適化（2 構造から） |
 | [`path-search`](path-search.md) | 自動精密化を伴う多段階の再帰的 MEP 探索（2 構造以上） |
-| [`tsopt`](tsopt.md) | 遷移状態最適化（Dimer または RS-P-RFO。任意の `--flatten` で余分な虚振動を除く） |
+| [`tsopt`](tsopt.md) | 遷移状態最適化（Dimer または RS-P-RFO。`--flatten` を付けると余分な虚振動を除く） |
 | [`irc`](irc.md) | 固有反応座標（IRC: Intrinsic Reaction Coordinate）計算 |
 | [`freq`](freq.md) | 振動解析と熱化学 |
 | [`dft`](dft.md) | DFT 一点計算（GPU4PySCF / PySCF） |

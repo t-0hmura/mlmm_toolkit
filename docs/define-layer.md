@@ -12,7 +12,7 @@
 
 ## What it is for
 
-* **Preparing the input of the calculation commands**: write the layered full-system PDB that `opt`, `tsopt`, `freq`, and the other commands take with `--parm7`.
+* **Preparing the input of the calculation commands**: write the layered full-system PDB that `opt`, `tsopt`, `freq`, and the other commands take alongside `--parm7`.
 * **Changing the movable shell**: widen or narrow the Movable-MM layer with `--movable-cutoff`.
 * **Checking the layer sizes**: read the atom count of each layer before a calculation.
 
@@ -53,10 +53,10 @@ mlmm define-layer -i system.pdb --model-pdb ml_region.pdb \
 
 ## How it works
 
-1. **ML region**: the atoms of `--model-pdb` are matched to the input by chain, residue number, insertion code, residue name, and atom name; a model atom with a blank chain matches by the other fields and stops with an error when they fit atoms in more than one chain. Without `--model-pdb`, the atoms listed in `--model-indices` form the ML region.
+1. **ML region**: the atoms of `--model-pdb` are matched to the input by chain, residue number, insertion code, residue name, and atom name; a model atom with a blank chain matches by the other fields, and a match in more than one chain is an error. Without `--model-pdb`, the atoms listed in `--model-indices` form the ML region.
 2. **Distances**: for every atom outside the ML region, the shortest distance to an ML atom is computed.
 3. **Assignment**: a residue without ML atoms goes into one layer as a whole, by the distance of its closest atom: Movable-MM within `--movable-cutoff`, Frozen-MM beyond. In a residue that contains ML atoms, each non-ML atom is assigned on its own by its distance.
-4. **Output**: the input is written again with only the B-factor column changed to 0, 10, or 20, and a Layer Summary is printed.
+4. **Output**: the input is copied with only the B-factor column changed to 0, 10, or 20, and a Layer Summary is printed.
 
 ---
 
@@ -100,7 +100,7 @@ See the [generated CLI reference](reference/commands/define_layer.md) for every 
 ## See also
 
 * [Building the ML region and layers](model-setup.md) — choose the ML region, the movable shell, and the Hessian range
-* [extract](extract.md) — cut the ML region that `--model-pdb` takes
+* [extract](extract.md) — cut out the ML region that `--model-pdb` takes
 * [mm-parm](mm-parm.md) — build the topology and the matching PDB to layer
 * [all](all.md) — the full workflow; runs `define-layer` with `-c`
 * [opt](opt.md) — optimize the layered system

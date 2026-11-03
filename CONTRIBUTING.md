@@ -8,7 +8,7 @@ This document is for **contributors and maintainers**. For end-user usage, see [
 
 ## 1. Before you start
 
-Run the validation relevant to the files and numerical paths changed.
+Run the checks that cover the files and numerical code you changed.
 
 ### 1.1 Required validation
 
@@ -40,7 +40,7 @@ pip install -e ".[dev]" ruff pyright
 ```
 
 (or install ruff + pyright from your package manager of choice; pin via
-`pip install ruff==0.6.* pyright==1.1.*` for reproducible optional local checks.)
+`pip install ruff==0.6.* pyright==1.1.*` for reproducible checks.)
 
 ### 1.4 Diagnostic dump examples
 
@@ -56,7 +56,7 @@ mlmm freq -i opt.pdb --parm real.parm7 --model-pdb ml_region.pdb -q 0 \
     --dump-hess /scratch/hess.npy
 ```
 
-Use `--dump` when reproducing a resource-intensive regression or attaching artefacts to a bug report. Use `-v 3` when diagnosing an import-time or stage-bridge issue (e.g. AmberTools preflight failure, parm7 mismatch); the additional log volume is acceptable for short runs.
+Use `--dump` when reproducing a resource-intensive regression or attaching artefacts to a bug report. Use `-v 3` when diagnosing an import-time or stage hand-off issue (e.g. AmberTools preflight failure, parm7 mismatch); the additional log volume is acceptable for short runs.
 
 ### 1.5 Downstream parser freeze rule
 
@@ -98,13 +98,13 @@ cover common contributor changes.
 | 2 | Register shared runtime defaults in `mlmm/core/defaults.py`; keep command-local Click defaults with the option definition | `mlmm/core/defaults.py` (L5), command module or `mlmm/cli/common_options.py` |
 | 3 | Wire the command into the lazy registry — add `"myaction": ("mlmm.workflows.myaction", "cli", "<short description>")` to `_LAZY_SUBCOMMANDS` | `mlmm/cli/app.py` (L1) |
 | 4 | Declare booleans as canonical Click toggle pairs (`--flag/--no-flag`). Runtime parameter introspection discovers ordinary decorators automatically; add a manual pre-import hint in `mlmm/cli/app.py` only when a lazy/parser-wrapper path requires it. | `mlmm/cli/default_group.py`, `mlmm/cli/app.py` |
-| 5 | Add a docs page `docs/myaction.md` (and `docs/ja/myaction.md` if you maintain the JP set); add a unit test in `tests/test_myaction.py` | new files |
+| 5 | Add docs pages `docs/myaction.md` and `docs/ja/myaction.md`; add a unit test in `tests/test_myaction.py` | new files |
 
 **Validation**: the unit test exercises the behavior, the reference check
 detects registry/help drift, and the smoke suite covers commands on the
 canonical smoke surface.
 
-**Note on absolute paths**: `_LAZY_SUBCOMMANDS` entries MUST use **absolute** module paths (`mlmm.workflows.myaction`). Relative dotted strings (`".myaction"`) silently break subcommand discovery if `default_group.py` ever moves; see `docs/architecture.md` §5.5.
+**Note on absolute paths**: `_LAZY_SUBCOMMANDS` entries must use **absolute** module paths (`mlmm.workflows.myaction`). Relative dotted strings (`".myaction"`) silently break subcommand discovery if `default_group.py` ever moves; see `docs/architecture.md` §5.5.
 
 ### 3.2 Add an MLIP backend
 
@@ -159,7 +159,7 @@ changes are governed by §1.5.
 |---|---|---|
 | 1 | Pick the right tier: pure-Python or chemistry-rule logic → `tests/test_<feature>.py`; multi-stage smoke → `tests/smoke/` | as appropriate |
 | 2 | Use `pytest` style: one assertion per logical thing; name the test for the symptom (`test_irc_initial_displacement_does_not_oom`) | new test |
-| 3 | If the test consumes a fixture, prefer the `tests/data/` directory; do **not** add large binary fixtures (> 100 KB) — use generators | `tests/data/`, `tests/conftest.py` |
+| 3 | If the test consumes a fixture, prefer the `tests/data/` directory; do **not** add large binary fixtures (> 100 KB) — generate them in code | `tests/data/`, `tests/conftest.py` |
 | 4 | Run `pytest tests/test_<feature>.py -q -x` until green, then `pytest -q` to confirm no cross-test breakage across all configured roots | local |
 | 5 | If the test depends on a new public Click command or symbol, land Recipe 3.1 / 3.3 first so the suite remains green | sequencing |
 
@@ -169,11 +169,11 @@ changes are governed by §1.5.
 
 ## 4. Scientific and compatibility constraints
 
-These are **hard constraints** enforced by the release process. Violating them either breaks correctness (chemistry rules), behaviour-level guarantees (`pyproject.toml` arrays, downstream-parser log lines), or upstream-fork compatibility.
+These are **hard constraints** enforced by the release process. Violating them breaks chemistry correctness, packaging, downstream parsers, or upstream-fork compatibility.
 
 ### 4.1 Nine chemistry rules
 
-The reaction-path correctness rules listed in [`docs/architecture.md`](docs/architecture.md) §5.1 must not be reordered, simplified, or factored out. They are marked with `# CHEMISTRY-RULE:N` inline comments and `# DOMAIN_PURE` module-docstring markers. The CI gate `.github/scripts/check_engineering_markers.py` enforces marker completeness and confines MLIP-only SDK imports (`fairchem`, `orb_models`, `mace`, `aimnet`) to the `backends/` layer. For **mlmm specifically** all 9 rules apply: #1 (subtractive ONIOM energy), #2 (link-atom Hessian B-matrix), #8 (3-layer 5-pass partial Hessian) in `backends/mlmm_calc.py`; #9 (parm7 atom indexing) in `io/pdb_indexing.py`; #3 (macro/micro alternation), #7 (`bofill_update` advanced-indexing) in `workflows/tsopt.py`; #6 (PHVA + MLIP active block) in `workflows/freq.py`; #4 (gpu4pyscf `rks_lowmem`) in `core/dft_settings.py`; #5 (def2 auto-ECP) in `workflows/dft.py`.
+The reaction-path correctness rules listed in [`docs/architecture.md`](docs/architecture.md) §5.1 must not be reordered, simplified, or factored out. They are marked with `# CHEMISTRY-RULE:N` inline comments and `# DOMAIN_PURE` module-docstring markers. The CI gate `.github/scripts/check_engineering_markers.py` enforces marker completeness and confines MLIP-only SDK imports (`fairchem`, `orb_models`, `mace`, `aimnet`) to the `backends/` layer. The 9 rules are #1 (subtractive ONIOM energy), #2 (link-atom Hessian B-matrix), #8 (3-layer 5-pass partial Hessian) in `backends/mlmm_calc.py`; #9 (parm7 atom indexing) in `io/pdb_indexing.py`; #3 (macro/micro alternation), #7 (`bofill_update` advanced-indexing) in `workflows/tsopt.py`; #6 (PHVA + MLIP active block) in `workflows/freq.py`; #4 (gpu4pyscf `rks_lowmem`) in `core/dft_settings.py`; #5 (def2 auto-ECP) in `workflows/dft.py`.
 
 To locate the markers:
 
@@ -192,7 +192,7 @@ The per-directory README tables are the live inventory of divergent files.
 A logic change requires focused regression tests and the relevant scheduled
 numerical tests.
 
-Do not `pip install pysisyphus` or `pip install thermoanalysis` from PyPI alongside this package — silent runtime breakage. `hessian_ff/` has no upstream package; only the bundled copy works.
+Do not `pip install pysisyphus` or `pip install thermoanalysis` from PyPI alongside this package — it silently breaks the package at runtime. `hessian_ff/` has no upstream package; only the bundled copy works.
 
 ### 4.4 Package discovery and runtime dependencies
 
@@ -203,7 +203,7 @@ imported runtime package in `dependencies`.
 
 ### 4.5 `_LAZY_SUBCOMMANDS` absolute-path rule
 
-Entries in `mlmm/cli/app.py:_LAZY_SUBCOMMANDS` MUST use absolute module paths (`"mlmm.workflows.all"`, never `".all"`). Relative dotted strings silently break the resolver when `default_group.py` moves; see [`docs/architecture.md`](docs/architecture.md) §5.5.
+Entries in `mlmm/cli/app.py:_LAZY_SUBCOMMANDS` must use absolute module paths (`"mlmm.workflows.all"`, never `".all"`). Relative dotted strings silently break the resolver when `default_group.py` moves; see [`docs/architecture.md`](docs/architecture.md) §5.5.
 
 ### 4.6 Chemistry default choices
 
