@@ -15,6 +15,7 @@ import click
 import pytest
 from click.testing import CliRunner
 
+from _repo_files import require_repo_files
 from mlmm.cli import cli as root_cli
 
 pytestmark = pytest.mark.skipif(
@@ -111,6 +112,7 @@ def test_path_opt_rejects_zero_cycles(
     tmp_path: Path,
     mep_mode: str,
 ) -> None:
+    require_repo_files("tests/smoke")
     smoke = Path(__file__).resolve().parent / "smoke"
     out_dir = tmp_path / mep_mode
     out_dir.mkdir()
@@ -155,6 +157,7 @@ def test_path_opt_applies_one_ref_pdb_to_both_xyz_endpoints(
     from mlmm.io.structure_formats import read_structure_atoms
     from mlmm.workflows import path_opt as path_opt_workflow
 
+    require_repo_files("tests/smoke")
     smoke = Path(__file__).resolve().parent / "smoke"
     endpoints = []
     for name in ("r_complex_layered", "p_complex_layered"):
@@ -200,6 +203,7 @@ def test_path_dry_run_validates_effective_gsm_nodes(
     tmp_path: Path, command: str, mode: str, nodes: int,
     source: str, cli_override: int | None, expected_exit: int,
 ) -> None:
+    require_repo_files("tests/smoke")
     smoke = Path(__file__).resolve().parent / "smoke"
     args = [
         command, "-i", str(smoke / "r_complex_layered.pdb"),
@@ -235,6 +239,7 @@ def test_gsm_ignores_a_dormant_dmf_tolerance(
     tmp_path: Path,
     command: str,
 ) -> None:
+    require_repo_files("tests/smoke")
     smoke = Path(__file__).resolve().parent / "smoke"
     config = tmp_path / "dormant-dmf.yaml"
     config.write_text("dmf:\n  tol: nan\n", encoding="utf-8")
@@ -273,6 +278,7 @@ def test_gsm_rejects_an_explicit_invalid_dmf_tolerance(
     tmp_path: Path,
     command: str,
 ) -> None:
+    require_repo_files("tests/smoke")
     smoke = Path(__file__).resolve().parent / "smoke"
     result = CliRunner().invoke(
         root_cli,
@@ -384,6 +390,7 @@ def test_path_search_help_shows_refine_mode() -> None:
 
 
 def test_path_search_dry_run_uses_prepared_layer_source(tmp_path: Path) -> None:
+    require_repo_files("tests/smoke")
     repo = Path(__file__).resolve().parents[1]
     smoke = repo / "tests" / "smoke"
     runner = CliRunner()
@@ -414,6 +421,7 @@ def test_path_search_dry_run_uses_prepared_layer_source(tmp_path: Path) -> None:
 
 
 def test_path_search_show_config_prints_settings_blocks(tmp_path: Path) -> None:
+    require_repo_files("tests/smoke")
     smoke = Path(__file__).resolve().parent / "smoke"
     base_args = [
         "path-search",
@@ -460,6 +468,7 @@ def test_path_search_routes_opt_lbfgs_to_the_lbfgs_target(
     monkeypatch.setattr(
         path_search_workflow, "apply_single_opt_yaml_layer", record_single
     )
+    require_repo_files("tests/smoke")
     smoke = Path(__file__).resolve().parent / "smoke"
     config = tmp_path / "config.yaml"
     config.write_text(
@@ -497,6 +506,7 @@ def test_path_search_error_record_follows_yaml_out_dir(
         raise path_search_workflow.OptimizationError("stopped")
 
     monkeypatch.setattr(path_search_workflow, "resolve_ml_layer_assignment", fail)
+    require_repo_files("tests/smoke")
     smoke = Path(__file__).resolve().parent / "smoke"
     yaml_dir = tmp_path / "from_yaml"
     config = tmp_path / "config.yaml"
@@ -521,6 +531,7 @@ def test_path_search_error_record_follows_yaml_out_dir(
 
 
 def test_freq_dry_run_resolves_active_dof_mode(tmp_path: Path) -> None:
+    require_repo_files("tests/smoke")
     repo = Path(__file__).resolve().parents[1]
     smoke = repo / "tests" / "smoke"
     result = CliRunner().invoke(
@@ -567,6 +578,7 @@ def test_freq_dry_run_resolves_active_dof_mode(tmp_path: Path) -> None:
 def test_explicit_model_pdb_precedes_default_bfactor_ml_membership(
     tmp_path: Path, command_name: str, input_style: str
 ) -> None:
+    require_repo_files("tests/smoke")
     repo = Path(__file__).resolve().parents[1]
     smoke = repo / "tests" / "smoke"
     reactant = str(smoke / "r_complex_layered.pdb")
@@ -630,6 +642,7 @@ def test_scan_accepts_grouped_and_repeated_stages(
     tmp_path: Path,
     repeated: bool,
 ) -> None:
+    require_repo_files("tests/smoke")
     repo = Path(__file__).resolve().parents[1]
     smoke = repo / "tests" / "smoke"
     first = "[(1,2,1.8)]"
@@ -661,6 +674,7 @@ def test_all_accepts_grouped_and_repeated_inputs(
     tmp_path: Path,
     repeated: bool,
 ) -> None:
+    require_repo_files("tests/smoke")
     repo = Path(__file__).resolve().parents[1]
     smoke = repo / "tests" / "smoke"
     reactant = str(smoke / "r_complex_layered.pdb")
@@ -684,6 +698,7 @@ def test_all_accepts_grouped_and_repeated_inputs(
 
 
 def test_all_rejects_trailing_orphan_equal_to_consumed_input(tmp_path: Path) -> None:
+    require_repo_files("tests/smoke")
     repo = Path(__file__).resolve().parents[1]
     smoke = repo / "tests" / "smoke"
     reactant = str(smoke / "r_complex_layered.pdb")
@@ -707,6 +722,7 @@ def test_all_accepts_grouped_and_repeated_scan_stages(
     tmp_path: Path,
     repeated: bool,
 ) -> None:
+    require_repo_files("tests/smoke")
     repo = Path(__file__).resolve().parents[1]
     smoke = repo / "tests" / "smoke"
     first = "[(1,2,1.8)]"
@@ -731,6 +747,7 @@ def test_all_accepts_grouped_and_repeated_scan_stages(
 
 
 def test_all_rejects_scan_lists_with_multiple_inputs(tmp_path: Path) -> None:
+    require_repo_files("tests/smoke")
     repo = Path(__file__).resolve().parents[1]
     smoke = repo / "tests" / "smoke"
     result = CliRunner().invoke(
@@ -876,6 +893,7 @@ def test_legacy_multi_value_commands_reject_unknown_options(
     unknown: str,
 ) -> None:
     """Compatibility parsing must not turn option typos into no-ops."""
+    require_repo_files("tests/smoke")
     smoke = Path(__file__).resolve().parent / "smoke"
     argv = [
         command_name,
@@ -917,6 +935,7 @@ def test_legacy_multi_value_commands_reject_unclaimed_bare_arguments(
     base_args: list[str],
     separator: list[str],
 ) -> None:
+    require_repo_files("tests/smoke")
     smoke = Path(__file__).resolve().parent / "smoke"
     argv = [
         command_name,
@@ -931,6 +950,7 @@ def test_legacy_multi_value_commands_reject_unclaimed_bare_arguments(
 
 
 def test_path_search_accepts_repeated_inputs_and_reference_templates() -> None:
+    require_repo_files("tests/smoke")
     smoke = Path(__file__).resolve().parent / "smoke"
     reactant = smoke / "r_complex_layered.pdb"
     product = smoke / "p_complex_layered.pdb"

@@ -108,7 +108,7 @@ A successful TS optimization gives one imaginary mode along the reaction coordin
 | Stopped at the cycle limit | Computes no final Hessian and stops before IRC. |
 | Stopped by `--stop-plateau` (stalled) | Computes the final Hessian, reports n_imag, and stops before IRC. |
 | `--skip-final-freq` | Stops before IRC. |
-| The final Hessian fails with an error | Stops the whole run (`failed`, exit 1); no later segment is processed. |
+| The final Hessian fails with an error | Stops the whole run (`execution_status` `failed`, exit 1); no later segment is processed. |
 
 The full table of how a TS optimization can end is in [`tsopt` → Reading the TS result](tsopt.md#reading-the-ts-result).
 

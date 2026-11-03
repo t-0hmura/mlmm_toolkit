@@ -173,8 +173,9 @@ Options:
   --resume-segment INTEGER RANGE  Reuse the verified MEP in --out-dir and rerun
                                   post-processing from segment N. Repeat the
                                   original path/extraction/calculator options;
-                                  post-processing options may be changed.
-                                  [default: (disabled); x>=1]
+                                  post-processing options other than
+                                  --precision-post may be changed.  [default:
+                                  (disabled); x>=1]
   --show-config / --no-show-config
                                   Print resolved configuration and continue
                                   execution.  [default: no-show-config]

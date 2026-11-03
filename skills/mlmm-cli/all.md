@@ -75,7 +75,7 @@ change only post-processing options (for example `--tsopt-max-cycles`, but not
 `--precision-post`; to change it, resume from segment 1). The
 saved artifacts are checked, earlier segments are kept, and segment N onward,
 the summary, and the diagrams are written again. `--resume-segment` needs
-`--tsopt`, `--thermo`, or `--dft`, cannot be combined with `--dry-run`, and
+`--tsopt`, cannot be combined with `--dry-run`, and
 stops with an error when the saved inputs, ML region, topology, layered
 structures, or MEP do not match the command.
 
@@ -85,7 +85,7 @@ structures, or MEP do not match the command.
 - **Cycle limits.** `--max-cycles-gsm` and `--dmf-max-iterations` bound only the selected MEP stage; scan, TS, IRC, freq, and DFT keep their own limits (for example `--tsopt-max-cycles`, `--irc-max-cycles`).
 - **Status is not `success`.** Read `scientific_status_reasons`, then the matching block of `summary.log`. The TS and IRC stages (and endpoint and path optimization) write `result.json`; `freq/` and `dft/` do not, so rerun those standalone with `--out-json` when you need one.
 - **A segment directory exists but the stage failed.** `segments/seg_NN/` can hold partial files from this run after a later stage failed; check `summary.json` and the stage `result.json`, not the directory. A failed segment can also leave MEP scratch in `_work/path_opt/` (`_work/path_search/` with `--refine-path`).
-- **TS stops before IRC.** IRC starts only when the TS optimization converged, its final Hessian was computed, and n_imag ≥ 1. With n_imag ≥ 2, IRC runs with a warning along the mode closest to the MEP direction; it is a diagnostic, not a first-order TS. With n_imag = 0, a cycle limit (no final Hessian), a plateau stop (`--stop-plateau`, the Hessian still gives n_imag), or `--skip-final-freq`, that segment stops before IRC and keeps its TS files in `segments/seg_NN/ts/`; the other segments are still post-processed. A failed Hessian ends the whole run (`failed`, exit 1). Next: [Wrong n_imag](../mlmm-overview/ts-strategy.md#3-wrong-n_imag-after-ts-optimization) and [When the TS does not come out](../mlmm-overview/ts-strategy.md#7-when-the-ts-does-not-come-out).
+- **TS stops before IRC.** IRC starts only when the TS optimization converged, its final Hessian was computed, and n_imag ≥ 1. With n_imag ≥ 2, IRC runs with a warning along the mode closest to the MEP direction; it is a diagnostic, not a first-order TS. With n_imag = 0, a cycle limit (no final Hessian), a plateau stop (`--stop-plateau`, the Hessian still gives n_imag), or `--skip-final-freq`, that segment stops before IRC and keeps its TS files in `segments/seg_NN/ts/`; the other segments are still post-processed. A failed Hessian ends the whole run (`execution_status` `failed`, exit 1). Next: [Wrong n_imag](../mlmm-overview/ts-strategy.md#3-wrong-n_imag-after-ts-optimization) and [When the TS does not come out](../mlmm-overview/ts-strategy.md#7-when-the-ts-does-not-come-out).
 - **Endpoint optimization trouble.** A non-converged endpoint gives `partial` and keeps `segments/seg_NN/endpoint_opt/`; an endpoint error is written to `endpoint_opt/failure.json`, and that segment skips freq and DFT.
 - **`--dft` with `-b dft`.** The run stops at startup. Run `mlmm sp -b dft` as a separate job.
 - **No AmberTools.** Without `--parm7`, the run stops when AmberTools is not found; pass a topology built elsewhere with `--parm7`.

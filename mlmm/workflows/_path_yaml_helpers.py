@@ -19,7 +19,7 @@ from typing import Any, Dict, Mapping, Tuple
 
 import click
 
-from mlmm.core.utils import _get_mapping_section as _mapping_section
+from mlmm.core.utils import _get_mapping_section as _mapping_section, deep_update
 
 _SINGLE_OPT_KINDS: Tuple[str, ...] = ("lbfgs", "rfo")
 # The path workflows set these per segment, so differing YAML values are not a conflict.
@@ -54,7 +54,6 @@ def apply_single_opt_yaml_layer(
     rfo_cfg: Dict[str, Any],
     stopt_cfg: Dict[str, Any],
     opt_base_kw: Mapping[str, Any],
-    deep_update,
 ) -> None:
     """Apply single-structure optimizer overrides from one YAML layer.
 

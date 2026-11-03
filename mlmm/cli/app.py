@@ -959,9 +959,9 @@ def cli() -> None:
     # `-v/--verbose` is a per-subcommand option (injected by
     # `_ensure_verbose_option`); the start header is emitted by that option's
     # eager callback once the level is known, not from this group body.
-    from mlmm.core.log_filters import install_dependency_log_filters
+    from mlmm.core.log_filters import install_fairchem_log_filter
     from mlmm.core.utils import set_base_dir
-    install_dependency_log_filters()
+    install_fairchem_log_filter()
     set_base_dir(Path.cwd())
 
 

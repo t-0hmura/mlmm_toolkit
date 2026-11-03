@@ -147,6 +147,7 @@ def test_unknown_path_mode_sign_is_not_reported_as_lost(monkeypatch, tmp_path, r
         ],
     )
 
+    assert payload["execution_status"] == "completed", result.output
     assert ("Path-correlated mode was lost" in result.output) is lost, result.output
 
 

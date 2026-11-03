@@ -197,6 +197,8 @@ def _check_release_workflow() -> list[str]:
             'gh release view "$RELEASE_TAG"',
             "--json isDraft --jq .isDraft",
             "--json isPrerelease --jq .isPrerelease",
+            "Verify release title matches tag",
+            "- name: Checkout",
             attach,
             publish,
         ),

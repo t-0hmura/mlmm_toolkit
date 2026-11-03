@@ -10,7 +10,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Mapping
 
-from mlmm.core.log_filters import cli_verbose_level, install_dependency_log_filters
+from mlmm.core.log_filters import cli_verbose_level, install_choreographer_log_filter
 from mlmm.core.prerequisites import (
     KIND_CHROME,
     MissingPrerequisiteError,
@@ -37,9 +37,9 @@ def _plotly_image_worker(
     """Render in a new process group so Chrome descendants can be terminated."""
 
     # A spawned worker does not run the CLI start, so it installs the
-    # dependency log filters itself when the parent runs below -v 3.
+    # choreographer log filter itself when the parent runs below -v 3.
     if hide_dependency_logs:
-        install_dependency_log_filters()
+        install_choreographer_log_filter()
 
     if os.name == "posix":
         try:

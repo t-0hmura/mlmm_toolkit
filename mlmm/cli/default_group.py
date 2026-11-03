@@ -153,6 +153,9 @@ class _FdTee:
     """
 
     def __init__(self, sink: _RunLogSink):
+        # stdout and stderr that go to one place share one pipe, so their lines
+        # keep the order they were written in.
+        joined = os.path.samestat(os.fstat(1), os.fstat(2))
         pipes = [os.pipe() for _ in range(4)]
         (out_read, out_write), (err_read, err_write), (control_read, control_write), \
             (ready_read, ready_write) = pipes
@@ -185,7 +188,7 @@ class _FdTee:
         sink.hand_over()
         self._saved = [os.dup(1), os.dup(2)]
         os.dup2(out_write, 1)
-        os.dup2(err_write, 2)
+        os.dup2(out_write if joined else err_write, 2)
         os.close(out_write)
         os.close(err_write)
         self._control = control_write

@@ -67,13 +67,13 @@ def test_fast_path_is_uncompiled_by_default(settings_cls) -> None:
         assert s.compile is False and s.merge_mole and not s.activation_checkpointing
 
 
-@pytest.mark.parametrize("compiled", [False, True], ids=["uncompiled", "compiled"])
+@pytest.mark.parametrize("compiled", [False, True], ids=["uncompiled", "compile-requested"])
 def test_tf32_enables_tf32_and_nitro_on_one_worker(settings_cls, compiled) -> None:
     s = mlmm_calc._uma_inference_settings(
         "tf32", analytical_hessian=False, parallel=False, compile_model=compiled
     )
     assert s == settings_cls(
-        tf32=True, activation_checkpointing=False, merge_mole=True, compile=compiled,
+        tf32=True, activation_checkpointing=False, merge_mole=True, compile=False,
         external_graph_gen=False, internal_graph_gen_version=2, nitro=True,
     )
 

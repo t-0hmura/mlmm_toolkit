@@ -48,7 +48,7 @@ Status:
 - `execution_status` is `completed` or `failed`: whether the requested stages ran. `scientific_status` is `success`, `partial`, or `failed`: whether they met their numerical criteria. `scientific_status_reasons` lists what is missing or unusable and is omitted on success.
 - In `all --tsopt`, a TS with n_imag ≥ 2 gives `partial`, and a TS with n_imag = 0 stops that segment before the IRC, so `success` means n_imag = 1 for every TS.
 - `expected_item_ids` and `observed_item_ids` list the expected and observed stages; compare them before accepting the run. `stage_outcomes` has one record per stage and `point_outcomes` one per scan point. IRC records say how the integration stopped, with no success or failure verdict per direction.
-- `pipeline_stop` appears only when the run stopped early and names the stage and the reason.
+- `pipeline_stop` appears only on an early stop and names the stage and the reason of the first stop; `stopped_segments` lists every segment that stopped before IRC.
 
 Run record:
 

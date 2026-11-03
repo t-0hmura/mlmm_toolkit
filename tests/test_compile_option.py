@@ -130,6 +130,26 @@ def test_analytical_hessian_is_not_compiled_and_says_so_once(monkeypatch, capsys
     assert err.count("[compile] --compile is ignored for the analytical Hessian.") == 1
 
 
+def test_uma_tf32_on_one_worker_is_not_compiled_and_says_so_once(monkeypatch, capsys):
+    captured = []
+    monkeypatch.setattr(compile_policy, "_nitro_noted", False)
+    monkeypatch.setattr(compile_policy.shutil, "which", _which_from(set()))
+    monkeypatch.setattr(mlmm_calc, "_UMABackend", lambda **kwargs: captured.append(kwargs))
+    for _ in range(2):
+        mlmm_calc._create_ml_backend(
+            "uma", uma_precision="tf32", ml_device=torch.device("cpu"), compile_model=True
+        )
+    assert [kwargs["compile_model"] for kwargs in captured] == [False, False]
+    err = capsys.readouterr().err
+    assert err.count(
+        "[compile] --compile is ignored with --precision tf32 on UMA "
+        "(UMA Nitro does not use torch.compile)."
+    ) == 1
+    calc_cfg = {"backend": "uma", "uma_precision": "tf32", "compile_model": True}
+    assert runs_compiled(calc_cfg) is False
+    assert runs_compiled({**calc_cfg, "workers": 2}) is True
+
+
 @pytest.mark.parametrize(("device", "name"), [("cpu", "g++"), (torch.device("cuda", 0), "gcc")])
 def test_compile_with_a_compiler_is_on(monkeypatch, device, name):
     monkeypatch.delenv("CC", raising=False)

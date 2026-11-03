@@ -54,11 +54,15 @@ _FAIRCHEM_FILTER = FairchemInferenceSettingsFilter()
 _CHOREOGRAPHER_FILTER = ChoreographerUncleanKillFilter()
 
 
-def install_dependency_log_filters() -> None:
-    """Attach both filters to their loggers. Idempotent."""
+def install_fairchem_log_filter() -> None:
+    """Attach the FAIR-Chem filter to the root logger. Idempotent."""
     root = logging.getLogger()
     if _FAIRCHEM_FILTER not in root.filters:
         root.addFilter(_FAIRCHEM_FILTER)
+
+
+def install_choreographer_log_filter() -> None:
+    """Attach the choreographer filter to its logger. Idempotent."""
     # logistro sets the logger class choreographer's loggers need, so the
     # logger is created through it; without logistro there is no choreographer.
     try:

@@ -169,7 +169,8 @@ def _uma_inference_settings(
     - ``fp32``: the fast path in IEEE FP32 (``tf32=False``).
     - ``tf32``: the fast path with TF32 matmul, and UMA Nitro where the
       installed fairchem-core has it (2.24+, single worker; FAIR-Chem falls back
-      to the TF32 fast path for checkpoints Nitro cannot serve).
+      to the TF32 fast path for checkpoints Nitro cannot serve). Nitro does not
+      use torch.compile, so ``--compile`` is ignored on that route.
 
     ML/MM analytical Hessians need a double backward that the compiled model
     does not support, so that route keeps FAIR-Chem's other defaults and is
@@ -193,7 +194,7 @@ def _uma_inference_settings(
     if precision == "fp64":
         kwargs["base_precision_dtype"] = "float64"
     if tf32 and not parallel and "nitro" in getattr(_UMAInferenceSettings, "__dataclass_fields__", {}):
-        kwargs["nitro"] = True
+        kwargs.update(nitro=True, compile=False)
     return _UMAInferenceSettings(**kwargs)
 
 
@@ -976,7 +977,7 @@ class _OrbBackend(_ASEMLBackend):
         if not _load_backend_module("HAS_ORB", "orb_models"):
             raise ImportError(
                 "orb-models is required for the ORB backend. "
-                "Install with `pip install orb-models`."
+                "Install it in a separate environment with `pip install 'mlmm-toolkit[orb]'`."
             )
         from orb_models.forcefield import pretrained
 
@@ -1478,6 +1479,11 @@ def _create_ml_backend(
         backend=backend,
         device=ml_device,
         analytical_hessian=analytical_hessian,
+        uma_tf32_single_worker=(
+            backend == "uma"
+            and str(uma_precision or "fp32").lower() == "tf32"
+            and max(int(workers or 1), 1) == 1
+        ),
     )
     # Env-var / direct-API entry point for strict determinism (the CLI uses the
     # --deterministic flag callback). Idempotent; no-op unless requested.

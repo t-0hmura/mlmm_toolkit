@@ -308,7 +308,7 @@ ML-region energy, forces, and Hessian in the correct units.
   parallel predictor has no autograd model. Use `--uma-workers 1` for an
   analytical Hessian, or `FiniteDifference` with several workers.
 - MACE cannot share an environment with UMA; install it in its own conda env. Install ORB in its own env as well.
-- A backend whose package is not installed stops with an error such as ``orb-models is required for the ORB backend. Install with `pip install orb-models`.``
+- A backend whose package is not installed stops with an error such as ``orb-models is required for the ORB backend. Install it in a separate environment with `pip install 'mlmm-toolkit[orb]'`.``
 - `--embedcharge` runs xTB with and without the MM point charges at every
   energy, force, and Hessian evaluation; keep the ML region to about 200–300
   atoms and benchmark the actual system first. The Hessian of the xTB

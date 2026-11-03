@@ -57,7 +57,6 @@ from mlmm.core.utils import (
     is_convert_file_enabled,
     load_yaml_dict,
     apply_yaml_overrides,
-    deep_update,
     pretty_block,
     strip_inherited_keys,
     filter_calc_for_echo,
@@ -1315,7 +1314,6 @@ def cli(
             rfo_cfg=rfo_cfg,
             stopt_cfg=stopt_cfg,
             opt_base_kw=OPT_BASE_KW,
-            deep_update=deep_update,
         )
 
         # CLI explicit overrides (after config YAML)

@@ -2419,11 +2419,11 @@ def test_xtb_options_are_off_until_xtb_is_installed(
 
 
 @pytest.mark.parametrize(
-    ("ready", "sub", "kept"),
-    [(False, "opt", False), (True, "opt", True), (False, "dft", True)],
+    ("ready", "sub", "refused"),
+    [(False, "opt", True), (True, "opt", False), (False, "dft", False)],
 )
-def test_a_restored_session_drops_xtb_options_until_xtb_is_installed(
-    tmp_path: Path, monkeypatch, ready, sub, kept,
+def test_a_restored_session_rejects_xtb_options_until_xtb_is_installed(
+    tmp_path: Path, monkeypatch, ready, sub, refused,
 ) -> None:
     app, _ = _execute_app(monkeypatch, tmp_path)
     if "dft" not in app["SUBS"]:
@@ -2432,9 +2432,15 @@ def test_a_restored_session_drops_xtb_options_until_xtb_is_installed(
     saved = app["_session_dict"]()
     saved["advanced_overrides"] = {sub: {"embedcharge": True, "verbose": 3}}
 
+    if refused:
+        before = json.loads(json.dumps(app["S"]["advanced_overrides"]))
+        with pytest.raises(ValueError, match="xTB is needed for --embedcharge"):
+            app["_apply_session"](saved)
+        assert app["S"]["advanced_overrides"] == before
+        return
     assert app["_apply_session"](saved) == []
     argv = app["_advanced_argv"](sub)
-    assert ("--embedcharge" in argv) is kept
+    assert "--embedcharge" in argv
     assert "--verbose" in argv
 
 

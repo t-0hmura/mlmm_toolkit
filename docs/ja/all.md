@@ -108,7 +108,7 @@ TS 最適化が成功すると、反応モードの虚振動が 1 つ出ます�
 | サイクル上限で停止 | 最後の Hessian を計算せず、IRC の前で止まります。 |
 | `--stop-plateau` で停止（stalled） | 最後の Hessian を計算して n_imag を出し、IRC の前で止まります。 |
 | `--skip-final-freq` | IRC の前で止まります。 |
-| 最後の Hessian がエラーで失敗 | 実行全体が止まり（`failed`、終了コード 1）、後のセグメントは処理しません。 |
+| 最後の Hessian がエラーで失敗 | 実行全体が止まり（`execution_status` が `failed`、終了コード 1）、後のセグメントは処理しません。 |
 
 TS 最適化の終わり方の一覧は [`tsopt` の「TS の判定」](tsopt.md#ts-の判定) にあります。
 

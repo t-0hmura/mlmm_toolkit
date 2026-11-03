@@ -100,9 +100,10 @@ multiplicity, layers, and calculator. Frozen atoms are treated as in
 ## Bond changes
 
 `bond_changes` records the directed difference from `finished_first.xyz` to
-`finished_last.xyz` according to a 1.20× covalent-radius cutoff. This is the
-same algorithm used by [bond-summary](utilities.md#bond-summary) and the
-`path-search` segmentation. The direction is not a chemical R→P assignment;
+`finished_last.xyz` according to a covalent-radius cutoff scaled by
+`bond.bond_factor` (default 1.20). This is the same algorithm used by
+[bond-summary](utilities.md#bond-summary) and the `path-search`
+segmentation. The direction is not a chemical R→P assignment;
 for the R/TS/P conventions of `all`, see
 [outputs.md](../mlmm-overview/outputs.md#oriented-rtsp-paths).
 

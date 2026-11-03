@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
+from _repo_files import require_repo_files
 from mlmm.cli import cli as root_cli
 
 pytestmark = pytest.mark.skipif(
@@ -19,6 +20,7 @@ SMOKE = Path(__file__).resolve().parent / "smoke"
 
 
 def _invoke(tmp_path: Path, command: str, yaml_text: str, *extra: str):
+    require_repo_files("tests/smoke")
     config = tmp_path / "config.yaml"
     config.write_text(yaml_text, encoding="utf-8")
     return CliRunner().invoke(
@@ -96,7 +98,6 @@ def test_non_mapping_opt_section_is_rejected(tmp_path: Path, command: str) -> No
 
 
 def test_apply_single_opt_yaml_layer_keeps_optimizer_keys_out_of_stopt() -> None:
-    from mlmm.core.utils import deep_update
     from mlmm.workflows._path_yaml_helpers import apply_single_opt_yaml_layer
 
     layer = {
@@ -113,7 +114,6 @@ def test_apply_single_opt_yaml_layer_keeps_optimizer_keys_out_of_stopt() -> None
         rfo_cfg=rfo_cfg,
         stopt_cfg=stopt_cfg,
         opt_base_kw={"thresh": "gau", "max_cycles": 100},
-        deep_update=deep_update,
     )
 
     assert stopt_cfg == {"max_cycles": 40}

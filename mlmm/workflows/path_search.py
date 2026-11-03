@@ -78,7 +78,6 @@ from mlmm.core.utils import (
     set_convert_file_enabled,
     load_yaml_dict,
     apply_yaml_overrides,
-    deep_update,
     pretty_block,
     filter_calc_for_echo,
     format_freeze_atoms_for_echo,
@@ -2152,7 +2151,6 @@ def cli(
             rfo_cfg=rfo_cfg,
             stopt_cfg=stopt_cfg,
             opt_base_kw=OPT_BASE_KW,
-            deep_update=deep_update,
         )
 
         # CLI explicit overrides (after config YAML)
@@ -2880,7 +2878,6 @@ def cli(
 
             # Build TS groups (each bond-change segment starts a group)
             ts_groups: List[Dict[str, Any]] = []
-            ts_count = 0
             current: Optional[Dict[str, Any]] = None
 
             for s in combined_all.segments:
@@ -2890,17 +2887,16 @@ def cli(
 
                 if s.kind == "seg" and s.summary and s.summary.strip() != "(no covalent changes detected)":
                     # New TS group
-                    ts_count += 1
                     imax = max(idxs, key=lambda j: combined_all.energies[j])
                     ts_e = float(combined_all.energies[imax])
                     first_im_e = float(combined_all.energies[idxs[-1]])
                     current = {
-                        "ts_label": f"TS{ts_count}",
+                        "ts_label": f"TS{s.seg_index}",
                         "ts_energy": ts_e,
                         "first_im_energy": first_im_e,
                         "tail_im_energy": first_im_e,
                         "has_extra": False,
-                        "index": ts_count,
+                        "index": int(s.seg_index),
                     }
                     ts_groups.append(current)
                 else:
@@ -2947,15 +2943,15 @@ def cli(
                     continue
 
                 # IM1 (always keep)
-                labels.append(f"IM{i}_1")
+                labels.append(f"IM{g['index']}_1")
                 energies_eh.append(g["first_im_energy"])
-                chain_tokens.extend(["-->", f"IM{i}_1"])
+                chain_tokens.extend(["-->", f"IM{g['index']}_1"])
 
                 # IM2 (represent all extra kink/bridge before next TS)
                 if g["has_extra"]:
-                    labels.append(f"IM{i}_2")
+                    labels.append(f"IM{g['index']}_2")
                     energies_eh.append(g["tail_im_energy"])
-                    chain_tokens.extend(["-|-->", f"IM{i}_2"])
+                    chain_tokens.extend(["-|-->", f"IM{g['index']}_2"])
 
             # Product
             labels.append("P")

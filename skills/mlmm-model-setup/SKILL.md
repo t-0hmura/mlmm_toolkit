@@ -59,8 +59,8 @@ first, with PDBFixer or a modeling program:
 
 - Fill in missing heavy atoms and residues.
 - Decide each His as HID, HIE, or HIP, or let `--add-h` choose at `--ph`. When you
-  decide by hand and use `--add-h`, place its HD1/HE2 too; a His named HID, HIE, or
-  HIP without them is renamed by PDBFixer's choice.
+  decide by hand and use `--add-h`, place its HD1/HE2 too and keep `--ph` above 6.5;
+  otherwise the His is renamed by PDBFixer's choice.
 - Decide which crystal waters and ions to keep.
 - From an MD snapshot, cut the solvent you do not need first and build the
   `parm7` from that same PDB, so that the atoms and their order match.

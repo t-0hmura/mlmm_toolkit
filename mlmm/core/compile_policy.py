@@ -27,6 +27,11 @@ COMPILE_BACKENDS = ("uma", "orb")
 _BACKEND_ERROR = "--compile applies to the uma and orb backends"
 _ANALYTICAL_NOTE = "[compile] --compile is ignored for the analytical Hessian."
 _analytical_noted = False
+_NITRO_NOTE = (
+    "[compile] --compile is ignored with --precision tf32 on UMA "
+    "(UMA Nitro does not use torch.compile)."
+)
+_nitro_noted = False
 
 
 def _on_cuda(device: Any) -> bool:
@@ -63,9 +68,10 @@ def resolve_compile(
     backend: str,
     device: Any,
     analytical_hessian: bool,
+    uma_tf32_single_worker: bool = False,
 ) -> bool:
     """Whether one calculator compiles its model, given the resolved request."""
-    global _analytical_noted
+    global _analytical_noted, _nitro_noted
     if not requested:
         return False
     if str(backend).strip().lower() not in COMPILE_BACKENDS:
@@ -74,6 +80,11 @@ def resolve_compile(
         if not _analytical_noted:
             _analytical_noted = True
             click.echo(_ANALYTICAL_NOTE, err=True)
+        return False
+    if uma_tf32_single_worker:
+        if not _nitro_noted:
+            _nitro_noted = True
+            click.echo(_NITRO_NOTE, err=True)
         return False
     cuda = _on_cuda(device)
     if find_compiler("cuda" if cuda else "cpu") is None:
@@ -107,10 +118,16 @@ def apply_compile_option(calc_cfg: MutableMapping[str, Any], cli_value: Optional
 
 def runs_compiled(calc_cfg: Mapping[str, Any]) -> bool:
     """Whether the calculator built from a resolved ``calc_cfg`` compiles its model."""
+    backend = str(calc_cfg.get("backend") or "uma").strip().lower()
     return (
         calc_cfg.get("compile_model") is True
-        and str(calc_cfg.get("backend") or "uma").strip().lower() in COMPILE_BACKENDS
+        and backend in COMPILE_BACKENDS
         and str(calc_cfg.get("hessian_calc_mode") or "").strip().lower() != "analytical"
+        and not (
+            backend == "uma"
+            and str(calc_cfg.get("uma_precision") or "").strip().lower() == "tf32"
+            and int(calc_cfg.get("workers") or 1) <= 1
+        )
     )
 
 

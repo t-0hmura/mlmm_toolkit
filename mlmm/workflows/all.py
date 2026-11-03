@@ -4644,7 +4644,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     help=(
         "Reuse the verified MEP in --out-dir and rerun post-processing from "
         "segment N. Repeat the original path/extraction/calculator options; "
-        "post-processing options may be changed."
+        "post-processing options other than --precision-post may be changed."
     ),
 )
 @click.option("--show-config/--no-show-config", "show_config", default=False, show_default=True,
@@ -6823,8 +6823,6 @@ def cli(
             **_tsopt_summary_metadata(tsopt_payload),
         }
         post.update(
-            ts_pdb=ts_pdb,
-            ts_xyz=ts_xyz,
             g_ts=g_ts,
             tsopt_payload=tsopt_payload,
             tsopt_decision=tsopt_decision,
@@ -8630,9 +8628,6 @@ def cli(
             energies_chain: List[float] = []
             for position, seg_info in enumerate(path_opt_segments):
                 Es = [float(x) for x in seg_info.get("energies", [])]
-                if not Es:
-                    labels = []
-                    break
                 start, ts_label, end = segment_labels[3 * position : 3 * position + 3]
                 if 1 <= _path_opt._select_hei_index(Es) <= len(Es) - 2:
                     labels.extend((start, ts_label, end))
@@ -8763,17 +8758,6 @@ def cli(
         _publish_root_summary(
             po_summary, warn_on_failure=True, echo=True, mirrors=summary_mirrors
         )
-
-        # Copy key outputs to out_dir root
-        try:
-            for name, src in current_path_images.items():
-                shutil.copy2(src, out_dir / name)
-            for ext in ("_trj.xyz", ".xyz"):
-                src = path_dir / f"mep{ext}"
-                if src.exists():
-                    shutil.copy2(src, out_dir / src.name)
-        except Exception as e:
-            _echo(f"[all] WARNING: Failed to relocate path-opt summary files: {e}", err=True)
 
     if not resuming:
         import re as _resume_re

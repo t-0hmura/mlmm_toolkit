@@ -125,7 +125,7 @@ See the [generated CLI reference](reference/commands/dft.md) for every option.
 
 * **Requirements**: `dft` needs the DFT extra: `pip install "mlmm-toolkit[dft]"` with the `cuda130` PyTorch build, or `pip install "mlmm-toolkit[dft-cuda12]"` with `cuda129`.
 * **Basis cost**: `def2-tzvpd` costs much more than `def2-svp`. There is no fixed limit on atoms or GPU memory; the cost depends on the number of basis functions, the elements, the functional, the grid (`--dft-grid-level`), and the GPU. Run one representative structure first and watch the peak memory; if it runs out, use a smaller basis or a GPU with more memory.
-* **GPU**: if GPU4PySCF cannot run, `dft` stops with an error that suggests the CPU engine; it does not switch to the CPU by itself. On a new GPU generation such as Blackwell (RTX 50xx), an out-of-memory or unsupported-kernel error can come from the GPU4PySCF and CuPy versions rather than from memory, so check the versions and the traceback first.
+* **GPU**: if GPU4PySCF cannot run, `dft` stops with an error that suggests the CPU engine; it does not switch to the CPU by itself. On a new GPU generation such as Blackwell, an out-of-memory or unsupported-kernel error can come from the GPU4PySCF and CuPy versions rather than from memory, so check the versions and the traceback first.
 * **CPU**: `--dft-engine cpu` needs no GPU. How large an ML region is practical depends on the method and the machine, so time one representative single point.
 * **Machines other than x86**: prebuilt GPU4PySCF wheels may not support them; build GPU4PySCF from source (https://github.com/pyscf/gpu4pyscf).
 * **ECP**: the def2 ECP is attached for any basis whose name begins with `def2`, whatever the elements; the console prints `[dft] Using ECP: …`.
