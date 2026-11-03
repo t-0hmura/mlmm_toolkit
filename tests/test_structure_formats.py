@@ -6,6 +6,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from _repo_files import require_repo_files
 
 
 def _write_minimal_cif(path: Path) -> None:
@@ -941,6 +942,7 @@ def test_dft_dry_run_rejects_malformed_amber_topology(tmp_path: Path) -> None:
 def test_dft_workspace_keeps_xyz_coordinates_with_pdb_topology(
     tmp_path: Path,
 ) -> None:
+    require_repo_files("hessian_ff/tests/data")
     from ase import Atoms
     from ase.io import write as ase_write
     from mlmm.io.pdb_indexing import parse_pdb_ordinal_atoms
@@ -1601,6 +1603,7 @@ def test_dft_workspace_validates_topology_before_coordinate_assignment(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    require_repo_files("hessian_ff/tests/data")
     from mlmm.backends import mlmm_calc
     from mlmm.workflows import dft
 

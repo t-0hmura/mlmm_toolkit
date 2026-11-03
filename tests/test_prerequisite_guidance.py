@@ -355,6 +355,8 @@ def test_energy_diagram_without_chrome_libraries_prints_the_guidance(monkeypatch
     out = tmp_path / "energy.png"
     result = CliRunner().invoke(root_cli, ["energy-diagram", "-i", "0", "-i", "5", "-o", str(out)])
     assert result.exit_code == 1
+    # CliRunner turns an escaping exception into exit 1 without a traceback.
+    assert isinstance(result.exception, SystemExit)
     _assert_guidance_only(result.output, pre.KIND_CHROME)
     assert "sudo apt-get install -y" in result.output and "Original error: Plotly image export failed" in result.output
     assert not out.exists()
@@ -376,6 +378,7 @@ def test_an_error_that_escapes_a_command_reaches_the_guidance(monkeypatch, tmp_p
         root_cli, ["energy-diagram", "-i", "0", "-i", "5", "-o", str(tmp_path / "e.png")],
     )
     assert result.exit_code == 1
+    assert isinstance(result.exception, SystemExit)
     _assert_guidance_only(result.output, pre.KIND_CXX_COMPILER)
     assert "\nError:" not in result.output
 

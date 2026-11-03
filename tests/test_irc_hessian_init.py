@@ -11,6 +11,7 @@ import torch
 from click.testing import CliRunner
 
 from pysisyphus.Geometry import Geometry
+from _repo_files import require_repo_files
 
 
 class _EulerPCReached(RuntimeError):
@@ -252,6 +253,7 @@ def test_other_hessian_init_is_left_to_eulerpc(
 def test_hess_device_cuda_without_cuda_is_rejected_before_dry_run(
     tmp_path, monkeypatch, command
 ) -> None:
+    require_repo_files("tests/smoke")
     import importlib
     from pathlib import Path
 

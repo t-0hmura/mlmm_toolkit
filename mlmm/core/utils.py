@@ -214,6 +214,23 @@ def optimizer_cycle_count(optimizer: Any) -> Optional[int]:
         return None
 
 
+def optimizer_final_forces(optimizer: Any) -> Optional[Tuple[float, float]]:
+    """Return ``(max, rms)`` forces of the optimizer's final geometry.
+
+    Uses the values the optimizer's final summary kept, and falls back to the
+    last convergence-check entry when the summary did not run (stopped runs).
+    """
+    final_max = getattr(optimizer, "final_max_force", None)
+    final_rms = getattr(optimizer, "final_rms_force", None)
+    if final_max is not None and final_rms is not None:
+        return float(final_max), float(final_rms)
+    max_forces = getattr(optimizer, "max_forces", None)
+    rms_forces = getattr(optimizer, "rms_forces", None)
+    if max_forces and rms_forces:
+        return float(max_forces[-1]), float(rms_forces[-1])
+    return None
+
+
 def optimizer_terminal_status(optimizer: Any) -> str:
     """Map a pysisyphus optimizer (or a product-local runner) terminal state to
     the public status vocabulary.
@@ -673,8 +690,16 @@ def calculator_provenance(calc_cfg: Mapping[str, Any]) -> Dict[str, Any]:
     return provenance
 
 
-def calculator_run_label(calc_cfg: Mapping[str, Any]) -> str:
-    """Format backend, model, task, precision, and compilation for concise run headers."""
+def calculator_run_label(calc_cfg: Mapping[str, Any], *, mm_only: bool = False) -> str:
+    """Format backend, model, task, precision, and compilation for concise run headers.
+
+    ``mm_only=True`` (``opt --mm-only``) names the MM backend alone, since such a
+    run never builds the MLIP.
+    """
+    if mm_only:
+        from mlmm.core.defaults import MLMM_CALC_KW
+
+        return f"MM only ({calc_cfg.get('mm_backend') or MLMM_CALC_KW['mm_backend']})"
     provenance = calculator_provenance(calc_cfg)
     backend = str(provenance["mlip_backend"])
     backend_label = {

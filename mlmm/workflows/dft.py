@@ -847,7 +847,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
     show_default="hessian_ff",
-    help="MM backend for the low-level ONIOM evaluation: 'hessian_ff' or 'openmm'.",
+    help="MM backend for the low-level ONIOM evaluation: 'hessian_ff' (the MM engine bundled with mlmm-toolkit; default) or 'openmm'.",
 )
 @click.option(
     "--cmap/--no-cmap",

@@ -85,7 +85,9 @@ Options:
                                   Link-atom positioning: scaled (g-factor) or
                                   fixed (1.09/1.01 Å).  [default: (scaled)]
   --mm-backend [hessian_ff|openmm]
-                                  MM backend.  [default: (hessian_ff)]
+                                  MM backend: 'hessian_ff' (the MM engine
+                                  bundled with mlmm-toolkit; default) or
+                                  'openmm'.  [default: (hessian_ff)]
   --cmap / --no-cmap              Preserve CMAP terms in both real and model MM
                                   layers when present in parm7.  [default:
                                   (cmap)]

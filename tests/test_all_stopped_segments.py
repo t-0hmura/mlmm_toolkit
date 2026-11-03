@@ -25,7 +25,7 @@ REAL_RUN_CLI_MAIN = all_workflow._run_cli_main
 
 
 def run_three_segments(tmp_path, monkeypatch, stopped, extra=("--tsopt",), parm=True):
-    def stop_selected_segments(_context):
+    def stop_selected_segments():
         child = all_workflow._run_cli_main
 
         def wrapped(name, cli, args, **kwargs):
@@ -116,7 +116,7 @@ def test_a_resume_from_segment_1_lists_only_the_segments_it_finished(tmp_path, m
 
     seen = []
 
-    def record_root_segments(_context):
+    def record_root_segments():
         child = all_workflow._run_cli_main
 
         def wrapped(name, cli, args, **kwargs):
@@ -175,7 +175,7 @@ def test_resume_keeps_the_stops_of_the_segments_before_it(
 def test_a_failed_final_hessian_stops_the_whole_run(tmp_path, monkeypatch, failing):
     """Unlike a TS that stops before IRC, a failed final TS Hessian ends all with exit 1."""
 
-    def fail_selected_hessians(_context):
+    def fail_selected_hessians():
         stub = all_workflow._run_cli_main
 
         def wrapped(name, cli, args, **kwargs):
@@ -222,7 +222,7 @@ def test_resume_after_a_stop_in_post_processing_keeps_the_finished_segments(tmp_
     """A run that stops while segment 2 is post-processed can resume from segment 2."""
     from test_all_resume_saved_parm7 import _stub_mm_parm
 
-    def stop_in_segment_2(_context):
+    def stop_in_segment_2():
         child = all_workflow._run_cli_main
 
         def wrapped(name, cli, args, **kwargs):

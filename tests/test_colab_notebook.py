@@ -900,9 +900,6 @@ def test_colab_setup_install_xtb_puts_xtb_from_conda_forge_on_path(
         if name == "xtb":
             return str(prefix / "bin" / "xtb") if "xtb" in installed else None
         return "/usr/bin/" + name
-    (prefix / "bin").mkdir(parents=True)
-    (prefix / "bin" / "mamba").write_text("", encoding="utf-8")
-    (prefix / "conda-meta").mkdir()
 
     real_import_module = importlib.import_module
     platform = types.SimpleNamespace(getName=lambda: "CUDA")
@@ -923,6 +920,10 @@ def test_colab_setup_install_xtb_puts_xtb_from_conda_forge_on_path(
     exec(compile(setup, str(NOTEBOOK), "exec"), namespace)
 
     assert namespace["INSTALL_XTB"] is install_xtb
+    # Miniforge first, then its bin on PATH.
+    assert ["bash", str(Path("/content/Miniforge3-25.3.1-0-Linux-x86_64.sh")), "-bfp",
+            str(prefix)] in calls
+    assert str(prefix / "bin") in os.environ["PATH"].split(os.pathsep)
     # xtb joins the one conda-forge install of AmberTools, and the stamp follows it.
     expected = ("ambertools=24.8", "xtb") if install_xtb else ("ambertools=24.8",)
     assert installed == set(expected)
@@ -7189,13 +7190,26 @@ def test_orb_pip_check_failure_stops_before_the_ready_message(monkeypatch, capsy
 
 def test_mace_install_keeps_torch_and_expects_fairchem_core_missing(monkeypatch, capsys) -> None:
     # torchvision==0.23.0 requires torch==2.8.0, so pinning it replaced the torch that the tool needs.
+    # torchvision 0.28 requires torch==2.13.0, the torch the tool installs, so it keeps that torch.
     calls = []
     _run_backend_install_branch(monkeypatch, "mace", calls=calls)
     assert [call[0] for call in calls] == ["run", "pip", "pip check", "run"]
     assert calls[0][1][-5:] == ["pip", "uninstall", "-y", "-q", "fairchem-core"]
-    assert calls[1] == ("pip", ("mace-torch>=0.3.16",), {})
+    assert calls[1] == ("pip", ("mace-torch>=0.3.16", "torchvision>=0.28,<0.29"), {})
     assert calls[2] == ("pip check", ("requires fairchem-core, which is not installed",))
     assert "MACE installed" in capsys.readouterr().out
+
+
+def test_mace_torchvision_range_follows_the_torch_the_tool_requires() -> None:
+    # The tool's torch replaces the runtime's torch, and a torchvision built for the old torch fails
+    # on import (RuntimeError: operator torchvision::nms does not exist), which breaks mace.calculators.
+    # torch 2.N pairs with torchvision 0.(N+15): change the notebook range together with the torch pin.
+    pyproject = (NOTEBOOK.parents[1] / "pyproject.toml").read_text(encoding="utf-8")
+    torch_pin = re.search(r'"torch>=2\.(\d+),<2\.(\d+)"', pyproject)
+    assert torch_pin is not None
+    lower, upper = int(torch_pin.group(1)), int(torch_pin.group(2))
+    assert upper == lower + 1
+    assert f"'torchvision>=0.{lower + 15},<0.{upper + 15}'" in _notebook()["cells"][1]["source"]
 
 
 def _pip_check_from_setup(monkeypatch, *, returncode, stdout):

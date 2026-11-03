@@ -382,6 +382,9 @@ class Optimizer(metaclass=abc.ABCMeta):
         # stopped decreasing while the configured force/step convergence
         # criteria are NOT met) is a *stalled* stop, never convergence.
         self.is_stalled = False
+        # Forces of the final geometry, set by final_summary().
+        self.final_max_force = None
+        self.final_rms_force = None
 
     def get_path_for_fn(self, fn, with_prefix=True):
         prefix = self.prefix if with_prefix else ""
@@ -853,6 +856,27 @@ class Optimizer(metaclass=abc.ABCMeta):
             raise ValueError("Convergence basis does not match the vector shape.")
         return flat[indices]
 
+    def convergence_marks(self, conv_info):
+        """Marks of the energy, force and step columns of a progress row."""
+        # desired_eigval_structure is also returned, but currently not reported.
+        # Unchecked criteria report True, so mark only the ones this preset checks.
+        checked = (
+            self.thresh == "baker",
+            *(
+                key in self.convergence
+                for key in (
+                    "max_force_thresh",
+                    "rms_force_thresh",
+                    "max_step_thresh",
+                    "rms_step_thresh",
+                )
+            ),
+        )
+        return [
+            bool(met) and is_checked
+            for met, is_checked in zip(conv_info.get_convergence()[:-1], checked)
+        ]
+
     def print_opt_progress(self, conv_info):
         try:
             energy_diff = self.energies[-1] - self.energies[-2]
@@ -870,28 +894,7 @@ class Optimizer(metaclass=abc.ABCMeta):
         if (self.cur_cycle > 1) and (self.cur_cycle % 10 == 0):
             self.table.print_sep()
 
-        # desired_eigval_structure is also returned, but currently not reported.
-        # Unchecked criteria report True, so mark only the ones this preset checks.
-        checked = (
-            self.thresh == "baker",
-            *(
-                key in self.convergence
-                for key in (
-                    "max_force_thresh",
-                    "rms_force_thresh",
-                    "max_step_thresh",
-                    "rms_step_thresh",
-                )
-            ),
-        )
-        marks = [
-            False,
-            *(
-                bool(met) and is_checked
-                for met, is_checked in zip(conv_info.get_convergence()[:-1], checked)
-            ),
-            False,
-        ]
+        marks = [False, *self.convergence_marks(conv_info), False]
         if not np.all(np.isfinite(np.asarray(energy_diff))):
             marks[1] = False
         try:
@@ -987,6 +990,20 @@ class Optimizer(metaclass=abc.ABCMeta):
         # If the optimization was stopped _forces may not be set, so
         # then we force a calculation if it was not already set.
         _ = self.geometry.forces
+        # Keep the forces of the final geometry in the convergence basis of
+        # max_forces/rms_forces. A max-cycles stop takes a step after the
+        # last evaluation, so the history then lags one geometry behind.
+        if (
+            self.max_forces
+            and self.cart_coords
+            and np.array_equal(self.geometry.cart_coords, self.cart_coords[-1])
+        ):
+            self.final_max_force = float(self.max_forces[-1])
+            self.final_rms_force = float(self.rms_forces[-1])
+        else:
+            active_forces = self._active_convergence_vector(self.geometry.forces)
+            self.final_max_force = float(np.abs(active_forces).max())
+            self.final_rms_force = float(np.sqrt(np.mean(np.square(active_forces))))
         cart_forces = self.geometry.cart_forces
         max_cart_forces = np.abs(cart_forces).max()
         rms_cart_forces = np.sqrt(np.mean(cart_forces**2))

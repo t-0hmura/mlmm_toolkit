@@ -6,10 +6,12 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
+from _repo_files import require_repo_files
 from mlmm.cli import cli as root_cli
 
 
 def test_all_accepts_multiplicity_option() -> None:
+    require_repo_files("hessian_ff/tests/data")
     fixture_dir = (
         Path(__file__).resolve().parents[1]
         / "hessian_ff"

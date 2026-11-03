@@ -8,6 +8,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+from _repo_files import require_repo_files
+
+require_repo_files(".github/scripts/docs_command_contract.py", "tests/smoke/run.sh")
+
 
 def _load_docs_contract():
     path = (

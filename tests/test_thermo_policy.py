@@ -22,6 +22,7 @@ import numpy as np
 import pytest
 from click.testing import CliRunner
 
+from _repo_files import require_repo_files
 from pysisyphus.constants import BOHR2ANG
 from thermoanalysis.QCData import QCData
 from thermoanalysis.thermo import thermochemistry
@@ -274,6 +275,7 @@ def test_freq_cli_cleans_prepared_input_and_preserves_reserved_config(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    require_repo_files("tests/smoke")
     from mlmm.workflows import freq as freq_module
 
     repo = Path(__file__).resolve().parents[1]

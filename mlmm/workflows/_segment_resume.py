@@ -105,6 +105,24 @@ def validate_resume_identity(recorded: Any, current: Mapping[str, Any], *,
             )
 
 
+def validate_resume_post_precision(recorded_summary: Mapping[str, Any], current: Any, *,
+                                   segment: int) -> None:
+    """Stop when the kept segments were post-processed at another precision."""
+    if int(segment) <= 1:
+        return  # every segment is recomputed
+    # A root written before --precision-post post-processed at --precision.
+    recorded = recorded_summary.get(
+        "mlip_precision_post", recorded_summary.get("mlip_precision")
+    )
+    if recorded != current:
+        raise click.UsageError(
+            f"--resume-segment {int(segment)} cannot keep the results of the earlier "
+            f"segments because the post-processing precision changed ({recorded} in the "
+            f"saved run, {current} now). Repeat --precision-post {recorded}, or use "
+            "--resume-segment 1 to recompute every segment."
+        )
+
+
 def load_previous_manifest(path: Path, *, out_dir: Path) -> dict[str, Any]:
     try:
         payload = json.loads(Path(path).read_text(encoding="utf-8"))

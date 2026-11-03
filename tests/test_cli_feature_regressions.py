@@ -1392,7 +1392,8 @@ def test_opt_accepts_the_constrained_projection_mode_from_yaml(tmp_path: Path) -
 
 def test_verbose_is_a_per_subcommand_option() -> None:
     """`-v/--verbose LEVEL` is injected into every subcommand (including the
-    compat-parsing `extract`)."""
+    compat-parsing `extract`); it is no longer a root-group option, so a
+    root-placed `-v` is rejected."""
     runner = CliRunner()
     for name in (
         "opt", "tsopt", "freq", "irc", "sp", "scan",
@@ -1401,6 +1402,16 @@ def test_verbose_is_a_per_subcommand_option() -> None:
         res = runner.invoke(root_cli, [name, "--help"])
         assert res.exit_code == 0, res.output
         assert "-v, --verbose" in res.output, f"{name} --help is missing -v"
+
+    # A root-placed -v in front of a command is not routed to the default `all`.
+    for argv in (
+        ["-v", "2", "opt", "--help"],
+        ["-v2", "opt", "--help"],
+        ["--verbose=2", "opt", "--help"],
+    ):
+        root = runner.invoke(root_cli, argv)
+        assert root.exit_code != 0, argv
+        assert "No such option" in root.output, argv
 
     # The level is an IntRange(0, 3); 0/1/2/3 are accepted (default 2) and
     # out-of-range values are rejected, for the injected commands, including the

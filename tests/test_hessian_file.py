@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 from click.testing import CliRunner
 
+from _repo_files import require_repo_files
 from mlmm.core import result_commit
 from mlmm.core.result_commit import ResultCommitError
 from mlmm.io.hessian_file import (
@@ -164,6 +165,7 @@ def test_publish_failure_preserves_the_old_file(tmp_path, monkeypatch) -> None:
 
 
 def _smoke_args(out: Path) -> list[str]:
+    require_repo_files("tests/smoke")
     return [
         "-i", str(SMOKE / "p_complex_layered.pdb"),
         "--parm", str(SMOKE / "p_complex.parm7"),

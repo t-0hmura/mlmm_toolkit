@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 import torch
 
+from _repo_files import require_repo_files
 from mlmm.workflows.freq import _reconcile_hessian_analysis_basis
 from mlmm.workflows import tsopt
 from mlmm.workflows.tsopt import HessianDimer
@@ -117,6 +118,7 @@ def test_tsopt_rejects_configured_basis_gap_before_optimization(
 def test_hess_tsopt_checks_the_analysis_basis_before_optimizing(
     tmp_path, monkeypatch
 ) -> None:
+    require_repo_files("tests/smoke")
     from pathlib import Path
 
     from click.testing import CliRunner

@@ -19,12 +19,16 @@ def copy_path_outputs_to_root(
     *,
     warn_fn: Optional[Callable[[str], None]] = None,
     image_names: Optional[Collection[str]] = None,
+    keep_source: bool = False,
 ) -> None:
     """Move MEP structures/images and copy summary.log to the output root.
 
     When supplied, ``image_names`` limits promotion to current-run plots.
+    With ``keep_source`` the MEP files are copied, not moved, and summary.log
+    is left alone (the copy before post-processing; the final call moves them).
     Report I/O errors through ``warn_fn`` when it is provided.
     """
+    transfer = shutil.copy2 if keep_source else shutil.move
     try:
         from mlmm.core.result_commit import commit_exact_bytes
 
@@ -43,12 +47,14 @@ def copy_path_outputs_to_root(
                 continue
             src = path_dir / name
             if src.exists():
-                shutil.move(str(src), str(out_dir / name))
+                transfer(str(src), str(out_dir / name))
         for stem in ("mep",):
             for ext in ("_trj.xyz", ".xyz"):
                 src = path_dir / f"{stem}{ext}"
                 if src.exists():
-                    shutil.move(str(src), str(out_dir / src.name))
+                    transfer(str(src), str(out_dir / src.name))
+        if keep_source:
+            return
         src = path_dir / "summary.log"
         if src.exists():
             commit_exact_bytes(out_dir / "summary.log", src.read_bytes())

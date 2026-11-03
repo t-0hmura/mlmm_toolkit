@@ -16,6 +16,7 @@ import yaml
 from ase import Atoms
 from click.testing import CliRunner
 
+from _repo_files import require_repo_files
 from mlmm.cli import cli as root_cli
 from mlmm.core import utils
 from mlmm.core.result_commit import MLMM_RUN_ID_ENV
@@ -182,6 +183,7 @@ def test_endpoint_opt_child_argv_carries_print_every(tmp_path, monkeypatch, prin
 
 
 def _path_invoke(tmp_path: Path, command: str, yaml_text: str, *extra: str):
+    require_repo_files("tests/smoke")
     config = _write(tmp_path / "config.yaml", yaml_text)
     return CliRunner().invoke(
         root_cli,
@@ -204,6 +206,7 @@ def _block(output: str, title: str) -> dict:
 
 def _resolved_blocks(tmp_path, monkeypatch, command, yaml_text, *extra):
     """Resolved ``stopt`` and ``opt.<kind>`` blocks as the command prints them."""
+    require_repo_files("tests/smoke")
     if command == "path-search":
         result = _path_invoke(tmp_path, command, yaml_text, "--dry-run", *extra)
         assert result.exit_code == 0, result.output

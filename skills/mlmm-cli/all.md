@@ -71,7 +71,8 @@ post-processing is in `post_segments`. Key details:
 
 Repeat the original command with the same inputs, extraction, layer, path, and
 calculator options and the same `--out-dir`, add `--resume-segment N`, and
-change only post-processing options (for example `--tsopt-max-cycles`). The
+change only post-processing options (for example `--tsopt-max-cycles`, but not
+`--precision-post`; to change it, resume from segment 1). The
 saved artifacts are checked, earlier segments are kept, and segment N onward,
 the summary, and the diagrams are written again. `--resume-segment` needs
 `--tsopt`, `--thermo`, or `--dft`, cannot be combined with `--dry-run`, and

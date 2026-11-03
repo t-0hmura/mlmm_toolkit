@@ -118,6 +118,7 @@
   "pipeline_mode": "path-opt",
   "post_segments": [
    {
+    "bond_changes": "(no covalent changes detected)",
     "endpoint_assignment": {
      "connectivity_validated": true,
      "match_matrix": {
@@ -171,6 +172,8 @@
     "irc_plot": "<tmp>/out/segments/seg_01/irc/irc_plot.png",
     "irc_traj": "<tmp>/out/segments/seg_01/irc/finished_irc_trj.xyz",
     "kind": "seg",
+    "mep_barrier_kcal": 15.68773685157245,
+    "mep_delta_kcal": 6.27509474062898,
     "pipeline_stop": {
      "diagnostic_dir": "<tmp>/out/segments/seg_01/endpoint_opt",
      "failures": {
@@ -188,14 +191,49 @@
      "ts_structure": "<tmp>/out/segments/seg_01/structures/ts.pdb"
     },
     "post_dir": "<tmp>/out/segments/seg_01",
+    "reference_mode": {
+     "cache_file": "<tmp>/out/_work/path_opt/hei_mode_seg_01.npz",
+     "candidate_count": 1,
+     "candidate_labels": [
+      "energy-upwind"
+     ],
+     "enabled": true,
+     "image_index": 1,
+     "reason": null,
+     "status": "created"
+    },
     "tag": "seg_01",
-    "tsopt": {
-     "continue_irc": true,
-     "flatten_enabled": false,
-     "hessian_error": null,
-     "hessian_status": "completed",
+    "ts_imag": {
+     "frequency_zero_cutoff_cm": 10.0,
+     "imag_freqs_cm": [
+      -512.5
+     ],
+     "min_abs_imag_cm": 512.5,
+     "n_imag": 1,
      "n_imaginary_modes": 1,
      "n_negative_modes": 1,
+     "nu_imag_max_cm": -512.5,
+     "optimization_status": "converged",
+     "saddle_validation": "first_order"
+    },
+    "tsopt": {
+     "continue_irc": true,
+     "energy_hartree": -0.975,
+     "energy_valid": true,
+     "final_structure": "<tmp>/out/segments/seg_01/ts/final_geometry.pdb",
+     "flatten_enabled": false,
+     "frequency_zero_cutoff_cm": 10.0,
+     "hessian_error": null,
+     "hessian_status": "completed",
+     "imaginary_frequencies_cm": [
+      -512.5
+     ],
+     "imaginary_frequency_threshold_cm": -20.0,
+     "imaginary_mode_criterion": "frequency",
+     "max_cycles": 100,
+     "n_imaginary_modes": 1,
+     "n_negative_modes": 1,
+     "n_opt_cycles": 7,
      "optimization_status": "converged",
      "reaction_mode_fallback": false,
      "reaction_mode_fallback_reason": null,
@@ -204,8 +242,11 @@
      "reaction_mode_overlap": null,
      "reaction_mode_source": null,
      "reason": "first_order_saddle",
+     "result_json": "<tmp>/out/segments/seg_01/ts/result.json",
      "saddle_validation": "first_order",
-     "skip_final_freq": false
+     "skip_final_freq": false,
+     "stop_reason": null,
+     "structure_valid": true
     }
    }
   ],

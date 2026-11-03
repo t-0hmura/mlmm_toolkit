@@ -63,7 +63,7 @@ Each command takes the ML region from the first of these that is given: `--model
 | `--detect-layer/--no-detect-layer` | Reads B-factors 0 / 10 / 20 as the ML, Movable-MM, and Frozen-MM {ref}`layers <mm-layers>`. With an explicit ML region, only the MM layers are read. | `--detect-layer` |
 | `--ref-pdb` | PDB that gives the atom order and residue information for an XYZ input. | None |
 | `--movable-cutoff` | Distance (Å) from the ML region: MM atoms within it move, and atoms beyond it are frozen. `irc`, `dft`, and `all` do not take it. | None (layers from the B-factors or `--freeze-atoms`) |
-| `--mm-backend` | MM engine: `hessian_ff` or `openmm`. MM Hessians use finite differences by default. | `hessian_ff` |
+| `--mm-backend` | MM engine: `hessian_ff` (bundled with mlmm-toolkit) or `openmm`. MM Hessians use finite differences by default. | `hessian_ff` |
 | `--link-atom-method` | Placement of link atoms: `scaled` (g-factor) or `fixed` (1.09 / 1.01 Å). | `scaled` |
 | `--cmap/--no-cmap` | Keeps the CMAP terms of the parm7, when present, in both the real-system and model-system MM calculations. | `--cmap` |
 

@@ -7,6 +7,7 @@ import click
 import pytest
 from click.testing import CliRunner
 
+from _repo_files import require_repo_files
 from mlmm.cli import cli as root_cli
 from mlmm.cli.decorators import make_is_param_explicit
 from mlmm.workflows import scan as scan_workflow
@@ -222,6 +223,7 @@ def test_grid_scan_default_cycle_budget_matches_help() -> None:
 
 
 def _scan_dry_run(tmp_path, monkeypatch, yaml_text, *extra):
+    require_repo_files("tests/smoke")
     smoke = Path(__file__).resolve().parent / "smoke"
     config = tmp_path / "scan.yaml"
     config.write_text(yaml_text, encoding="utf-8")

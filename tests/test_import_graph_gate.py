@@ -12,9 +12,11 @@ import importlib.util
 from pathlib import Path
 
 import pytest
+from _repo_files import require_repo_files
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / ".github" / "scripts" / "check_import_graph.py"
+require_repo_files(".github/scripts/check_import_graph.py")
 
 
 def _load_gate():

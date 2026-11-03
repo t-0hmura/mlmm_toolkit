@@ -23,8 +23,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || true)"
-if [[ -n "$REPO_ROOT" ]]; then
+# Refuse only the repository's own script; a copy inside another git work tree is fine.
+if git -C "$SCRIPT_DIR" ls-files --error-unmatch run.sh >/dev/null 2>&1; then
   echo "ERROR: copy tests/smoke to writable scratch and run that copy; do not run the repository script in place." >&2
   exit 2
 fi

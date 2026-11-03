@@ -18,6 +18,11 @@ for _p in (str(REPO_ROOT), str(SCRIPTS)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
+from _repo_files import require_repo_files  # noqa: E402
+
+require_repo_files(
+    ".github/scripts/check_example_scripts.py", ".github/scripts/docs_command_contract.py"
+)
 import check_example_scripts as ces  # noqa: E402
 import docs_command_contract as dc  # noqa: E402
 

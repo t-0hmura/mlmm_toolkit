@@ -141,9 +141,6 @@ def test_method_builder_prepares_cusolver_before_the_first_gpu4pyscf_import(
     from mlmm.core.dft_settings import resolve_dft_settings
 
     events = []
-    monkeypatch.setattr(
-        pyscf_dft, "ensure_gpu4pyscf_cusolver", lambda: events.append("prepare")
-    )
 
     class Lowmem:
         def __init__(self, mol, xc):
@@ -155,8 +152,16 @@ def test_method_builder_prepares_cusolver_before_the_first_gpu4pyscf_import(
     lowmem.RKS = Lowmem
     dft.rks_lowmem = lowmem
     package.dft = dft
+    # gpu4pyscf can be imported only after the preparation, so an earlier import fails.
     for module in (package, dft, lowmem):
-        monkeypatch.setitem(sys.modules, module.__name__, module)
+        monkeypatch.setitem(sys.modules, module.__name__, None)
+
+    def prepare():
+        events.append("prepare")
+        for module in (package, dft, lowmem):
+            sys.modules[module.__name__] = module
+
+    monkeypatch.setattr(pyscf_dft, "ensure_gpu4pyscf_cusolver", prepare)
 
     settings = resolve_dft_settings(
         {"backend": "dft", "dft": {"func_basis": "hf/sto-3g", "engine": engine}}

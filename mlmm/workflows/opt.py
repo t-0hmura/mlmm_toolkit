@@ -78,6 +78,7 @@ from mlmm.core.utils import (
     emit_optimizer_terminal_status,
     finalize_microiter_macro_convergence,
     optimizer_cycle_count,
+    optimizer_final_forces,
     pdb_keys_from_line as _pdb_keys_from_line,
     collect_ml_atom_keys as _collect_ml_atom_keys,
     format_pdb_with_bfactor as _format_with_bfactor,
@@ -998,7 +999,7 @@ def _run_microiter_opt(
             if macro_converged:
                 # Print final converged row (no micro steps)
                 energy_diff = macro_optimizer.energies[-1] - macro_optimizer.energies[-2] if len(macro_optimizer.energies) >= 2 else float("nan")
-                marks = [False, *conv_info.get_convergence()[:-1], False, False]
+                marks = [False, *macro_optimizer.convergence_marks(conv_info), False, False]
                 if not np.all(np.isfinite(np.asarray(energy_diff))):
                     marks[1] = False
                 cycle_time = time.time() - t_start
@@ -1090,7 +1091,7 @@ def _run_microiter_opt(
             # Print progress row with micro_steps
             cycle_time = time.time() - t_start
             energy_diff = macro_optimizer.energies[-1] - macro_optimizer.energies[-2] if len(macro_optimizer.energies) >= 2 else float("nan")
-            marks = [False, *conv_info.get_convergence()[:-1], False, False]
+            marks = [False, *macro_optimizer.convergence_marks(conv_info), False, False]
             if not np.all(np.isfinite(np.asarray(energy_diff))):
                 marks[1] = False
             macro_print_every = getattr(
@@ -1383,7 +1384,7 @@ def _run_microiter_opt(
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
     show_default="hessian_ff",
-    help="MM backend. MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
+    help="MM backend: 'hessian_ff' (the MM engine bundled with mlmm-toolkit; default) or 'openmm'. MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
 )
 @click.option(
     "--mm-only/--no-mm-only",
@@ -1787,7 +1788,7 @@ def cli(
             from mlmm.core.utils import calculator_run_label, echo_run_summary
             echo_run_summary({
                 "input": str(input_path),
-                "backend": calculator_run_label(calc_cfg),
+                "backend": calculator_run_label(calc_cfg, mm_only=mm_only),
                 "opt": f"{mode_str}, max_cycles={opt_cfg.get('max_cycles', '?')}",
                 "out": str(out_dir_path),
             })
@@ -1903,7 +1904,7 @@ def cli(
         from mlmm.core.utils import calculator_run_label, echo_run_summary
         echo_run_summary({
             "input": str(input_path),
-            "backend": calculator_run_label(calc_cfg),
+            "backend": calculator_run_label(calc_cfg, mm_only=mm_only),
             "opt": f"{mode_str}, max_cycles={opt_cfg.get('max_cycles', '?')}",
             "out": str(out_dir_path),
         })
@@ -2413,13 +2414,9 @@ def cli(
         if rigid_projection_info:
             result_data["rigid_projection"] = dict(rigid_projection_info)
         # Final force convergence values
-        if (
-            terminal_optimizer is not None
-            and hasattr(terminal_optimizer, "max_forces")
-            and terminal_optimizer.max_forces
-        ):
-            result_data["final_max_force"] = float(terminal_optimizer.max_forces[-1])
-            result_data["final_rms_force"] = float(terminal_optimizer.rms_forces[-1])
+        _final_forces = optimizer_final_forces(terminal_optimizer)
+        if _final_forces is not None:
+            result_data["final_max_force"], result_data["final_rms_force"] = _final_forces
         # Convergence thresholds (numeric values for the named preset)
         if (
             terminal_optimizer is not None

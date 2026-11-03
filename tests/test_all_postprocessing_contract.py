@@ -3,6 +3,7 @@ import pytest
 from click.testing import CliRunner
 from pathlib import Path
 
+from _repo_files import require_repo_files
 from mlmm.workflows.all import (
     _derive_pipeline_status,
     _pipeline_aggregate_truth,
@@ -23,6 +24,7 @@ def test_all_rejects_post_dft_when_primary_backend_is_dft() -> None:
 
 @pytest.mark.parametrize("via_yaml", [False, True])
 def test_all_cli_rejects_redundant_dft_before_pipeline(tmp_path, via_yaml) -> None:
+    require_repo_files("tests/smoke")
     from mlmm.workflows.all import cli as all_cli
 
     root = Path(__file__).resolve().parents[1]
@@ -49,6 +51,7 @@ def test_all_cli_rejects_redundant_dft_before_pipeline(tmp_path, via_yaml) -> No
 def test_all_post_dft_accepts_explicit_convert_files_forwarding(
     tmp_path, toggle
 ) -> None:
+    require_repo_files("tests/smoke")
     from mlmm.workflows.all import cli as all_cli
 
     root = Path(__file__).resolve().parents[1]
@@ -69,6 +72,7 @@ def test_all_post_dft_accepts_explicit_convert_files_forwarding(
 
 
 def test_all_show_config_separates_canonical_primary_and_post_dft(tmp_path) -> None:
+    require_repo_files("tests/smoke")
     from mlmm.workflows.all import cli as all_cli
 
     root = Path(__file__).resolve().parents[1]
@@ -98,6 +102,7 @@ def test_all_show_config_separates_canonical_primary_and_post_dft(tmp_path) -> N
 
 
 def test_all_show_config_primary_dft_uses_explicit_state(tmp_path) -> None:
+    require_repo_files("tests/smoke")
     from mlmm.workflows.all import cli as all_cli
 
     root = Path(__file__).resolve().parents[1]

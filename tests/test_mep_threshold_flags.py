@@ -9,6 +9,7 @@ import click
 import pytest
 from click.testing import CliRunner
 
+from _repo_files import require_repo_files
 from mlmm.cli import cli as root_cli
 from mlmm.workflows._all_helpers import build_path_child_argv
 from mlmm.workflows.path_opt import resolve_dmf_solve_tol
@@ -116,6 +117,7 @@ def test_a_nonfinite_or_non_positive_tolerance_is_rejected(raw: object) -> None:
 def test_all_dry_run_rejects_an_explicit_invalid_dmf_tolerance(
     tmp_path: Path,
 ) -> None:
+    require_repo_files("tests/smoke")
     smoke = Path(__file__).resolve().parent / "smoke"
     result = CliRunner().invoke(
         root_cli,
@@ -133,6 +135,7 @@ def test_all_dry_run_rejects_an_explicit_invalid_dmf_tolerance(
 
 
 def test_all_show_config_reports_each_threshold_owner(tmp_path: Path) -> None:
+    require_repo_files("tests/smoke")
     smoke = Path(__file__).resolve().parent / "smoke"
     result = CliRunner().invoke(
         root_cli,
@@ -168,6 +171,7 @@ def test_all_show_config_reports_effective_optimizer_modes(
     expected_path: str,
     expected_post: str,
 ) -> None:
+    require_repo_files("tests/smoke")
     smoke = Path(__file__).resolve().parent / "smoke"
     result = CliRunner().invoke(
         root_cli,
@@ -190,6 +194,7 @@ def test_all_show_config_reports_effective_optimizer_modes(
 
 @pytest.mark.parametrize("command", ["path-opt", "path-search"])
 def test_explicit_gsm_param_overrides_yaml(tmp_path: Path, command: str) -> None:
+    require_repo_files("tests/smoke")
     smoke = Path(__file__).resolve().parent / "smoke"
     config = tmp_path / "gsm.yaml"
     config.write_text("gs:\n  param: equi\n", encoding="utf-8")

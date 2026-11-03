@@ -8,6 +8,7 @@ import click
 import pytest
 from click.testing import CliRunner
 
+from _repo_files import require_repo_files
 from mlmm.core.result_commit import ResultCommitError
 from mlmm.backends.pyscf_dft import _subtract_packed_mm_hcore
 from mlmm.workflows.dft import (
@@ -20,6 +21,7 @@ from mlmm.workflows.dft import (
 def test_standalone_dft_accepts_pyscf_object_defaults_without_false_conflict(
     tmp_path: Path,
 ) -> None:
+    require_repo_files("tests/smoke")
     from mlmm.cli import cli
 
     config = tmp_path / "pyscf.yaml"
@@ -53,6 +55,7 @@ def test_standalone_dft_accepts_pyscf_object_defaults_without_false_conflict(
 
 
 def test_standalone_dft_honors_explicit_func_basis(tmp_path: Path) -> None:
+    require_repo_files("tests/smoke")
     from mlmm.cli import cli
 
     smoke = Path(__file__).resolve().parent / "smoke"

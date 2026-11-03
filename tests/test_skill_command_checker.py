@@ -3,11 +3,14 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
+from _repo_files import require_repo_files
+
 
 SCRIPT = Path(__file__).parents[1] / ".github" / "scripts" / "check_skill_commands.py"
 
 
 def _load_checker():
+    require_repo_files(".github/scripts/check_skill_commands.py")
     spec = importlib.util.spec_from_file_location("mlmm_check_skill_commands", SCRIPT)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)

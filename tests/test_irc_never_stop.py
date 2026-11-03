@@ -9,6 +9,7 @@ import pytest
 import torch
 from click.testing import CliRunner
 
+from _repo_files import require_repo_files
 from mlmm.core.defaults import IRC_KW
 from pysisyphus.Geometry import Geometry
 from pysisyphus.irc.IRC import IRC
@@ -193,6 +194,7 @@ def test_irc_cli_preserves_read_hessian_at_reserved_output(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    require_repo_files("tests/smoke")
     from mlmm.workflows import irc as irc_module
 
     repo = Path(__file__).resolve().parents[1]

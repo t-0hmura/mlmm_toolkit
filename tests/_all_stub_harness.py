@@ -138,8 +138,6 @@ class Behaviour:
 
     tsopt: Dict[str, Any] = field(default_factory=lambda: dict(TS_CONVERGED))
     opt: Dict[str, str] = field(default_factory=dict)
-    irc_frames: Sequence[float] = (0.0, 1.0, 2.0)
-    irc_energies: Optional[Sequence[float]] = None
     path_opt_converged: Sequence[bool] = ()
     path_search_segments: Optional[List[Dict[str, Any]]] = None
     opt_cycles: Mapping[str, int] = field(default_factory=lambda: {"R": 3, "P": 4})
@@ -147,9 +145,6 @@ class Behaviour:
 
 class EnergyCalculator:
     """Parent-side calculator stub: an energy from the C-atom position."""
-
-    def __init__(self, events: List[str]) -> None:
-        self.events = events
 
     def get_energy(self, _atoms, coords3):
         values = np.asarray(coords3, dtype=float).reshape(-1)
@@ -161,7 +156,7 @@ class EnergyCalculator:
         write(destination.with_suffix(destination.suffix + ".json"), "{}\n")
 
     def close(self) -> None:
-        self.events.append("calculator.close")
+        pass
 
 
 @dataclass
@@ -169,7 +164,6 @@ class AllRun:
     out: Path
     result: Any
     calls: List[tuple]
-    events: List[str]
 
     @property
     def summary(self) -> Dict[str, Any]:
@@ -209,7 +203,7 @@ def run_all(
     extra: Sequence[str] = (),
     behaviour: Optional[Behaviour] = None,
     xyz_inputs: bool = False,
-    wrap: Optional[Callable[[Any], None]] = None,
+    wrap: Optional[Callable[[], None]] = None,
     parm: bool = True,
     model_pdb: bool = True,
     bfactors: Sequence[float] = (0.0, 0.0),
@@ -243,7 +237,6 @@ def run_all(
     )
     monkeypatch.setattr(dft, "_prepare_ml_region_workspace", lambda **kwargs: workspace)
     calls: List[tuple] = []
-    events: List[str] = []
 
     def child(name, _cli, args, **_kwargs):
         args = [str(arg) for arg in args]
@@ -283,15 +276,12 @@ def run_all(
             payload["files"] = {"final_geometry": str(out / "final_geometry.xyz")}
             write_json(out / "result.json", payload)
         elif name == "irc":
-            energies = behaviour.irc_energies or [mlmm_energy(f) for f in behaviour.irc_frames]
+            irc_frames = (0.0, 1.0, 2.0)
             trajectory = write(
-                out / "finished_irc_trj.xyz",
-                "".join(xyz_text(f, e) for f, e in zip(behaviour.irc_frames, energies)),
+                out / "finished_irc_trj.xyz", "".join(xyz_text(f) for f in irc_frames),
             )
-            write(out / "forward_irc_trj.xyz", "".join(
-                xyz_text(f, e) for f, e in zip(behaviour.irc_frames[1:], energies[1:])))
-            write(out / "backward_irc_trj.xyz", "".join(
-                xyz_text(f, e) for f, e in zip(behaviour.irc_frames[:2], energies[:2])))
+            write(out / "forward_irc_trj.xyz", "".join(xyz_text(f) for f in irc_frames[1:]))
+            write(out / "backward_irc_trj.xyz", "".join(xyz_text(f) for f in irc_frames[:2]))
             write_json(out / "result.json", {
                 "files": {"finished_irc": str(trajectory)},
                 "forward_requested": True, "backward_requested": True,
@@ -356,12 +346,12 @@ def run_all(
 
     monkeypatch.setattr(all_workflow, "_run_cli_main", child)
     monkeypatch.setattr(subprocess, "run", dft_subprocess)
-    monkeypatch.setattr(all_workflow, "_mlmm_calc", lambda **_cfg: EnergyCalculator(events))
+    monkeypatch.setattr(all_workflow, "_mlmm_calc", lambda **_cfg: EnergyCalculator())
     monkeypatch.setattr(all_workflow, "run_trj2fig", plot)
     monkeypatch.setattr(all_workflow, "close_matplotlib_figures", lambda: None)
     monkeypatch.setattr(all_workflow, "write_plotly_image", image)
     if wrap is not None:
-        wrap(SimpleNamespace(calls=calls, events=events))
+        wrap()
 
     out = tmp_path / "out"
     args = ["all", *[a for path in inputs for a in ("-i", str(path))]]
@@ -371,7 +361,7 @@ def run_all(
              *(["--model-pdb", str(pdbs[0])] if model_pdb else []),
              "--out-dir", str(out), "--no-preopt", *extra]
     result = CliRunner().invoke(root_cli, args)
-    return AllRun(out=out, result=result, calls=calls, events=events)
+    return AllRun(out=out, result=result, calls=calls)
 
 
 def _path_search_child(out: Path, behaviour: Behaviour, args: Sequence[str]) -> None:
@@ -456,6 +446,6 @@ def _path_search_child(out: Path, behaviour: Behaviour, args: Sequence[str]) -> 
 
 __all__ = [
     "AllRun", "Behaviour", "TS_CONVERGED", "TS_NOT_CONVERGED", "coords",
-    "dft_energy", "mlmm_energy", "option", "pdb_text", "read_frame", "run_all",
+    "dft_energy", "mlmm_energy", "option", "pdb_text", "read_frame", "read_values", "run_all",
     "write", "write_json", "xyz_text",
 ]

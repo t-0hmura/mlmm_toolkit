@@ -4,8 +4,11 @@ import ast
 import importlib.util
 from pathlib import Path
 
+from _repo_files import require_repo_files
+
 
 def _load_checker():
+    require_repo_files(".github/scripts/check_all_scan_contract.py")
     path = (
         Path(__file__).parents[1]
         / ".github"

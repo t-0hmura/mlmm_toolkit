@@ -242,11 +242,21 @@ def _check_dispatcher_script() -> list[str]:
         if fragment not in script
     ]
     copyable = re.sub(r"<[A-Z][A-Z0-9_:]*>", "placeholder", script)
-    result = subprocess.run(
-        ["bash", "-n"], input=copyable, text=True, capture_output=True, check=False
+    sources = [("dispatcher.sh", copyable)]
+    worker = re.search(
+        r"<<'WORKER_EOF'\n(.*?)^WORKER_EOF$", copyable, re.DOTALL | re.MULTILINE
     )
-    if result.returncode != 0:
-        errors.append(f"{DISPATCH_SKILL}: dispatcher.sh is not valid bash: {result.stderr.strip()}")
+    if worker is None:
+        errors.append(f"{DISPATCH_SKILL}: dispatcher.sh has no <<'WORKER_EOF' worker heredoc")
+    else:
+        # bash -n does not parse a quoted heredoc, so the worker body is checked on its own.
+        sources.append(("the dispatcher's worker", worker.group(1)))
+    for name, source in sources:
+        result = subprocess.run(
+            ["bash", "-n"], input=source, text=True, capture_output=True, check=False
+        )
+        if result.returncode != 0:
+            errors.append(f"{DISPATCH_SKILL}: {name} is not valid bash: {result.stderr.strip()}")
     return errors
 
 

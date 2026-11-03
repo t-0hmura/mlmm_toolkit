@@ -3086,7 +3086,7 @@ def _run_microiter_tsopt(
             if macro_converged:
                 # Print final converged row (no micro steps)
                 energy_diff = macro_optimizer.energies[-1] - macro_optimizer.energies[-2] if len(macro_optimizer.energies) >= 2 else float("nan")
-                marks = [False, *conv_info.get_convergence()[:-1], False, False]
+                marks = [False, *macro_optimizer.convergence_marks(conv_info), False, False]
                 if not np.all(np.isfinite(np.asarray(energy_diff))):
                     marks[1] = False
                 cycle_time = time.time() - t_start
@@ -3172,7 +3172,7 @@ def _run_microiter_tsopt(
             # Print progress row with micro_steps
             cycle_time = time.time() - t_start
             energy_diff = macro_optimizer.energies[-1] - macro_optimizer.energies[-2] if len(macro_optimizer.energies) >= 2 else float("nan")
-            marks = [False, *conv_info.get_convergence()[:-1], False, False]
+            marks = [False, *macro_optimizer.convergence_marks(conv_info), False, False]
             if not np.all(np.isfinite(np.asarray(energy_diff))):
                 marks[1] = False
             macro_print_every = getattr(
@@ -3650,7 +3650,7 @@ def _prepare_tsopt_output_dir(
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
     show_default="hessian_ff",
-    help="MM backend. MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
+    help="MM backend: 'hessian_ff' (the MM engine bundled with mlmm-toolkit; default) or 'openmm'. MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
 )
 @click.option(
     "--cmap/--no-cmap",

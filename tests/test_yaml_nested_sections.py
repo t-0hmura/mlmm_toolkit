@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 from click.testing import CliRunner
 
+from _repo_files import require_repo_files
 from mlmm.core.utils import apply_yaml_overrides
 
 SMOKE = Path(__file__).resolve().parent / "smoke"
@@ -105,6 +106,7 @@ def test_scan_nested_value_counts_as_explicit():
 
 
 def _opt_dry_run(tmp_path: Path, monkeypatch, config: dict, *extra: str):
+    require_repo_files("tests/smoke")
     from mlmm.workflows import opt as opt_workflow
 
     path = tmp_path / "config.yaml"

@@ -63,7 +63,7 @@ mlmm opt -i input.pdb --parm7 real.parm7 -q -1 --config my_settings.yaml --show-
 | `--detect-layer/--no-detect-layer` | B-factor 0 / 10 / 20 を {ref}`ML・可動 MM・固定 MM の層 <ja-mm-layers>` として読みます。ML 領域を明示したときは MM の層だけを読みます。 | `--detect-layer` |
 | `--ref-pdb` | XYZ 入力のときに、原子の順序と残基の情報を与える PDB。 | なし |
 | `--movable-cutoff` | ML 領域からの距離（Å）。この内側の MM 原子は動き、外側は固定されます。`irc`・`dft`・`all` にはありません。 | なし（層は B-factor か `--freeze-atoms` から） |
-| `--mm-backend` | MM の計算エンジン：`hessian_ff` か `openmm`。MM の Hessian はデフォルトで有限差分です。 | `hessian_ff` |
+| `--mm-backend` | MM の計算エンジン：`hessian_ff`（mlmm-toolkit に同梱）か `openmm`。MM の Hessian はデフォルトで有限差分です。 | `hessian_ff` |
 | `--link-atom-method` | リンク原子の置き方：`scaled`（g-factor）か `fixed`（1.09 / 1.01 Å）。 | `scaled` |
 | `--cmap/--no-cmap` | parm7 に CMAP 項があれば、real system と model system の両方の MM 計算に残します。 | `--cmap` |
 

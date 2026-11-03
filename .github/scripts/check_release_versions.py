@@ -260,6 +260,7 @@ def _check_ci_torch_pin() -> list[str]:
 def _check_pyproject_metadata() -> list[str]:
     """Dependency floors, the ORB and DFT extras, the Python range and the torch,
     numpy and fairchem ranges that the runtime APIs require."""
+    from packaging.markers import default_environment
     from packaging.requirements import Requirement
     from packaging.specifiers import SpecifierSet
 
@@ -294,13 +295,20 @@ def _check_pyproject_metadata() -> list[str]:
         if (version in python) is not supported:
             errors.append(f"{name}: requires-python must {'allow' if supported else 'exclude'} {version}")
 
-    for extra, packages in (
-        ("dft", {"gpu4pyscf-cuda13x", "cupy-cuda13x"}),
-        ("dft-cuda12", {"gpu4pyscf-cuda12x", "cupy-cuda12x"}),
-    ):
-        listed = {requirement.name for requirement in map(Requirement, extras.get(extra, []))}
-        if not packages <= listed:
-            errors.append(f"{name}: the {extra} extra must list {', '.join(sorted(packages))}")
+    dft = {requirement.name: requirement for requirement in map(Requirement, extras.get("dft", []))}
+    for package in ("gpu4pyscf-cuda13x", "cupy-cuda13x"):
+        marker = dft[package].marker if package in dft else None
+        if marker is None:
+            errors.append(f"{name}: the dft extra needs a platform marker on {package}")
+            continue
+        for platform, expected in (("linux", True), ("darwin", False), ("win32", False)):
+            environment = default_environment()
+            environment.update({"sys_platform": platform, "platform_machine": "x86_64"})
+            if marker.evaluate(environment) is not expected:
+                errors.append(f"{name}: {package} must be {'installed' if expected else 'skipped'} on {platform}")
+    cuda12 = {requirement.name for requirement in map(Requirement, extras.get("dft-cuda12", []))}
+    if not {"gpu4pyscf-cuda12x", "cupy-cuda12x"} <= cuda12:
+        errors.append(f"{name}: the dft-cuda12 extra must list gpu4pyscf-cuda12x and cupy-cuda12x")
 
     if '"torch~=' in text:
         errors.append(f"{name}: torch must not use a compatible-release pin")

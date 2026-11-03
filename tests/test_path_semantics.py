@@ -76,3 +76,21 @@ def test_recursive_refinement_preserves_resolved_no_climb(monkeypatch, tmp_path)
     assert result is sentinel
     assert captured["gs_cfg"]["climb"] is False
     assert captured["gs_cfg"]["climb_lanczos"] is False
+
+
+@pytest.mark.parametrize("level", [0, 1, 2, 3])
+def test_mep_diagram_inputs_print_only_at_level_three(monkeypatch, capsys, level):
+    from mlmm.core import utils
+
+    monkeypatch.setattr(utils, "_VERBOSE_LEVEL", level)
+    path_search._echo_mep_diagram_inputs(["R", "TS1", "P"], [0.0, 12.5, -3.25])
+
+    out = capsys.readouterr().out
+    if level >= 3:
+        assert out == (
+            '[diagram] build_energy_diagram.labels = ["R", "TS1", "P"]\n'
+            "[diagram] build_energy_diagram.energies_kcal = "
+            "[0.000000, 12.500000, -3.250000]\n"
+        )
+    else:
+        assert out == ""

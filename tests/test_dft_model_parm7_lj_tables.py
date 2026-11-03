@@ -34,12 +34,15 @@ from mlmm.backends.mlmm_calc import (
 )
 from mlmm.core.utils import parse_layer_indices_from_bfactors
 from mlmm.workflows.dft import _prepare_ml_region_workspace
+from _repo_files import require_repo_files
 
 FIXTURE = Path(__file__).parent / "smoke" / "p_complex.parm7"
 LAYERED_PDB = Path(__file__).parent / "smoke" / "r_complex_layered.pdb"
 PDB_FIXTURE = Path(__file__).parent / "smoke" / "p_complex_layered.pdb"
-for _fixture in (FIXTURE, LAYERED_PDB, PDB_FIXTURE):
-    assert _fixture.exists(), f"committed smoke fixture is missing: {_fixture}"
+require_repo_files(
+    "tests/smoke/p_complex.parm7", "tests/smoke/r_complex_layered.pdb",
+    "tests/smoke/p_complex_layered.pdb",
+)
 
 # Residues 3-5 are a contiguous backbone stretch: it uses 10 of the fixture's 18 atom
 # types, and retains exactly one complete CMAP term.

@@ -6,6 +6,7 @@ import click
 import pytest
 from click.testing import CliRunner
 
+from _repo_files import require_repo_files
 from mlmm.workflows.tsopt import (
     _heavy_mode_label,
     _post_analysis_hessian_config,
@@ -73,6 +74,7 @@ def test_prepare_tsopt_output_rejects_input_collision(tmp_path: Path) -> None:
 def test_tsopt_cli_preserves_layer_source_at_generated_model_path(
     tmp_path: Path,
 ) -> None:
+    require_repo_files("tests/smoke")
     from mlmm.workflows import tsopt as tsopt_module
 
     repo = Path(__file__).resolve().parents[1]
@@ -105,6 +107,7 @@ def test_tsopt_cli_preserves_layer_source_at_generated_model_path(
 
 
 def _tsopt_smoke_args(out_dir: Path) -> list[str]:
+    require_repo_files("tests/smoke")
     smoke = Path(__file__).resolve().parents[1] / "tests" / "smoke"
     return [
         "-i",

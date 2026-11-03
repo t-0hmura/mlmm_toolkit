@@ -540,10 +540,19 @@ def test_undefined_initial_energy_change_has_no_convergence_mark(
     assert "nan*" not in row.lower()
 
 
-def test_progress_marks_only_checked_criteria(tmp_path, capsys) -> None:
+@pytest.mark.parametrize(
+    ("forces_only", "expected"),
+    [
+        # cycle, Δ(energy), max(|force|), rms(force), max(|step|), rms(step), s/cycle
+        (True, [False, False, True, True, False, False, False]),
+        (False, [False, False, True, True, True, True, False]),
+    ],
+)
+def test_progress_marks_only_checked_criteria(tmp_path, capsys, forces_only, expected) -> None:
     # Unchecked criteria report True; they must not get a convergence mark.
     _, opt = _ts_optimizer(tmp_path, 0.0, energy_plateau=False, thresh="gau")
-    opt.convergence = {k: v for k, v in opt.convergence.items() if "force" in k}
+    if forces_only:
+        opt.convergence = {k: v for k, v in opt.convergence.items() if "force" in k}
     opt.cur_cycle = 1
     opt.energies = [0.0, -1.0e-7]
     opt.max_forces = [2.0e-4]
@@ -560,7 +569,7 @@ def test_progress_marks_only_checked_criteria(tmp_path, capsys) -> None:
     opt.print_opt_progress(_ConvInfo())
 
     row = capsys.readouterr().out.splitlines()[0]
-    assert row.count(opt.table.mark) == 2
+    assert [cell.endswith(opt.table.mark) for cell in row.split()] == expected
 
 
 def test_ts_mode_loss_rejects_trial_and_restores_hessian(tmp_path) -> None:

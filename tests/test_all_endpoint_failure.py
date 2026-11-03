@@ -16,7 +16,7 @@ import click
 import numpy as np
 import pytest
 
-from _all_stub_harness import Behaviour, coords, run_all, write
+from _all_stub_harness import Behaviour, coords, read_values, run_all, write
 from mlmm.cli.completion import completion_guard, record_completion
 from mlmm.workflows import all as workflow
 from mlmm.io import hessian_cache
@@ -112,11 +112,6 @@ _MODE = {
 }
 
 
-def _xyz_values(path: Path):
-    rows = Path(path).read_text(encoding="utf-8").splitlines()[2:4]
-    return [tuple(float(v) for v in row.split()[1:4]) for row in rows]
-
-
 def _record_irc_leases(monkeypatch, leases):
     real = workflow._irc_and_match
 
@@ -125,13 +120,16 @@ def _record_irc_leases(monkeypatch, leases):
         leases.append(result["calculator_lease"])
         return result
 
-    return lambda _hooks: monkeypatch.setattr(workflow, "_irc_and_match", irc_and_match)
+    return lambda: monkeypatch.setattr(workflow, "_irc_and_match", irc_and_match)
 
 
 @pytest.mark.parametrize("branch", ["ts", "seg"])
-@pytest.mark.parametrize("failed_endpoint", [0, 1])
 @pytest.mark.parametrize("dump", [False, True])
-@pytest.mark.parametrize("outcome", ["hard_error", "nonfinite_error", "converged", "not_converged"])
+# A converged run does not depend on the endpoint; every other outcome is set on R and on P.
+@pytest.mark.parametrize(("failed_endpoint", "outcome"), [
+    (0, "hard_error"), (1, "hard_error"), (0, "nonfinite_error"), (1, "nonfinite_error"),
+    (0, "converged"), (0, "not_converged"), (1, "not_converged"),
+])
 def test_endpoint_boundary_retains_provenance_and_stops_consumers(
     monkeypatch, tmp_path, branch, failed_endpoint, dump, outcome,
 ):
@@ -140,7 +138,7 @@ def test_endpoint_boundary_retains_provenance_and_stops_consumers(
     run = run_all(
         tmp_path, monkeypatch,
         frames=(1.0,) if branch == "ts" else (0.0, 2.0),
-        extra=["--tsopt", "--thermo", *(["--dump"] if dump else [])],
+        extra=["--tsopt", "--thermo", "--dft", *(["--dump"] if dump else [])],
         behaviour=Behaviour(opt={role: _MODE[outcome]}),
         wrap=_record_irc_leases(monkeypatch, leases),
     )
@@ -157,7 +155,7 @@ def test_endpoint_boundary_retains_provenance_and_stops_consumers(
     # the MEP route keeps the MEP orientation (frame 0 is the reactant).
     irc_frames = {"reactant": 2.0, "product": 0.0} if branch == "ts" else {"reactant": 0.0, "product": 2.0}
     for state, frame in irc_frames.items():
-        np.testing.assert_allclose(_xyz_values(structures / f"{state}_irc.xyz"), coords(frame), atol=1e-6)
+        np.testing.assert_allclose(read_values(structures / f"{state}_irc.xyz"), coords(frame), atol=1e-6)
     (lease,) = leases
     assert lease.released
     summary = run.summary
@@ -178,10 +176,11 @@ def test_endpoint_boundary_retains_provenance_and_stops_consumers(
             assert "Nonfinite final coordinates" in info["error"]
         assert info["geometry_role"] == "parent_irc_input_not_child_iterate"
         # The retained structure is the parent IRC input, not the child iterate.
-        np.testing.assert_allclose(_xyz_values(info["irc_structure"]), coords(irc_frames[state]), atol=1e-6)
+        np.testing.assert_allclose(read_values(info["irc_structure"]), coords(irc_frames[state]), atol=1e-6)
         assert (endpoint_dir / role / "iterate.xyz").is_file()
         # No refined consumer runs after the stage gate.
         assert "freq" not in run.child_names()
+        assert "dft" not in run.child_names()
         assert not (segment / "energy_diagram_MLIP.png").exists()
         assert post["pipeline_stop"]["stage"] == "endpoint_opt"
         assert post["pipeline_stop"]["reason"] == "endpoint_execution_failed"
@@ -191,6 +190,7 @@ def test_endpoint_boundary_retains_provenance_and_stops_consumers(
         assert (structures / "product.xyz").is_file()
         assert endpoint_dir.exists() is (dump or outcome == "not_converged")
         assert run.child_names().count("freq") == 3
+        assert run.child_names().count("dft") == 3
         assert "pipeline_stop" not in post
         converged = {state: True for state in ("reactant", "product")}
         converged[_STATE[role]] = outcome == "converged"
@@ -206,7 +206,7 @@ def test_endpoint_opt_exit_code_goes_through_the_real_dispatch(monkeypatch, tmp_
     """Like the opt command, the endpoint child exits 1 when it does not converge
     (a completed run) and when it fails with an error; only the error stops the segment."""
 
-    def opt_with_its_exit_code(_hooks):
+    def opt_with_its_exit_code():
         stub = workflow._run_cli_main
 
         def dispatch(name, cli, args, **kwargs):
@@ -268,7 +268,7 @@ def test_ts_only_higher_energy_irc_endpoint_is_reactant(monkeypatch, tmp_path):
         checkpoints.append((key, Path(geometry_path).name))
         return real_checkpoint(calculator, geometry_path, destination, manifest=manifest, key=key)
 
-    def hooks(_hooks):
+    def hooks():
         monkeypatch.setattr(hessian_cache, "load", record_load)
         monkeypatch.setattr(workflow, "_irc_and_match", irc_with_checkpoint)
         monkeypatch.setattr(workflow, "_save_role_scf_checkpoint", record_checkpoint)
@@ -279,12 +279,12 @@ def test_ts_only_higher_energy_irc_endpoint_is_reactant(monkeypatch, tmp_path):
 
     assert run.result.exit_code == 1, run.result.output[-3000:]
     structures = run.out / "segments" / "seg_01" / "structures"
-    np.testing.assert_allclose(_xyz_values(structures / "reactant_irc.xyz"), coords(2.0), atol=1e-6)
-    np.testing.assert_allclose(_xyz_values(structures / "product_irc.xyz"), coords(0.0), atol=1e-6)
+    np.testing.assert_allclose(read_values(structures / "reactant_irc.xyz"), coords(2.0), atol=1e-6)
+    np.testing.assert_allclose(read_values(structures / "product_irc.xyz"), coords(0.0), atol=1e-6)
     assert [key for key in loads if key.startswith("irc_")] == ["irc_right", "irc_left"]
     opt_inputs = [Path(args[args.index("-i") + 1]) for args in run.child_args("opt")]
     assert [Path(args[args.index("--out-dir") + 1]).name for args in run.child_args("opt")] == ["R", "P"]
-    np.testing.assert_allclose(_xyz_values(opt_inputs[0]), coords(2.0), atol=1e-6)
+    np.testing.assert_allclose(read_values(opt_inputs[0]), coords(2.0), atol=1e-6)
     assert checkpoints == [
         ("post.01.scf_checkpoint.R", "reactant_irc.xyz"),
         ("post.01.scf_checkpoint.P", "product_irc.xyz"),

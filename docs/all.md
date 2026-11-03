@@ -57,7 +57,7 @@ The optimized R, TS, and P are written to `result_all/segments/seg_01/`.
 
 ### 4. Resume post-processing from a segment
 
-To redo the post-processing from segment N, repeat the original command with the same inputs, extraction, layer, path, and calculator options and the same `--out-dir`, and add `--resume-segment N`. Post-processing options such as `--tsopt-max-cycles` may change.
+To redo the post-processing from segment N, repeat the original command with the same inputs, extraction, layer, path, and calculator options and the same `--out-dir`, and add `--resume-segment N`. Post-processing options such as `--tsopt-max-cycles` may change, but `--precision-post` may not: the segments before N keep their results, so the run stops when the post-processing precision differs. To change it, resume from segment 1.
 
 ```bash
 mlmm all -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \

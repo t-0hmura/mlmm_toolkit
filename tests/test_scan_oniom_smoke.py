@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
+from _repo_files import require_repo_files
 from mlmm.cli import cli as root_cli
 
 
@@ -22,9 +23,8 @@ _FIXTURE_DIR = (
 
 
 def _fixture(name: str) -> Path:
-    path = _FIXTURE_DIR / name
-    assert path.exists(), f"missing fixture: {path}"
-    return path
+    require_repo_files(f"hessian_ff/tests/data/small/{name}")
+    return _FIXTURE_DIR / name
 
 
 @pytest.fixture

@@ -4,16 +4,13 @@ import shlex
 import sys
 from pathlib import Path
 
+from _repo_files import require_repo_files
 from mlmm.core.utils import load_pdb_atom_metadata
 from mlmm.workflows.all import _parse_scan_lists_literals
 
 
 BEZA = Path(__file__).parents[1] / "examples" / "beza"
 SCRIPTS = Path(__file__).parents[1] / ".github" / "scripts"
-if str(SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(SCRIPTS))
-
-import docs_command_contract as dc  # noqa: E402
 
 
 STATES = ("1.R.pdb", "2.IM.pdb", "3.P.pdb")
@@ -61,6 +58,11 @@ def test_beza_states_have_distinct_coordinates() -> None:
 
 
 def test_beza_runner_preserves_endpoint_and_scan_contract() -> None:
+    require_repo_files(".github/scripts/docs_command_contract.py")
+    if str(SCRIPTS) not in sys.path:
+        sys.path.insert(0, str(SCRIPTS))
+    import docs_command_contract as dc
+
     commands = dc.extract_shell_commands([BEZA / "run.sh"])
     assert len(commands) == 2
     endpoint, scan = (shlex.split(command.text) for command in commands)

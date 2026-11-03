@@ -6,6 +6,7 @@ import click
 import pytest
 from click.testing import CliRunner
 
+from _repo_files import require_repo_files
 from mlmm.cli.completion import completion_guard, record_completion
 from mlmm.core.utils import write_result_json
 
@@ -80,6 +81,7 @@ def test_usage_and_interrupt_codes_remain_distinct_from_execution_errors(code):
 
 
 def test_limited_smoke_checks_the_actual_exit_and_rejects_execution_failure():
+    require_repo_files("tests/smoke/run_limited.py")
     import importlib.util
     from pathlib import Path
 
@@ -102,6 +104,7 @@ def test_limited_smoke_checks_the_actual_exit_and_rejects_execution_failure():
 
 
 def test_skill_checker_rejects_removed_status_and_wrong_axis_values(tmp_path, monkeypatch):
+    require_repo_files(".github/scripts/check_skill_drift.py")
     import importlib.util
     from pathlib import Path
 

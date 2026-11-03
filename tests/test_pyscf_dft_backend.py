@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 import torch
 from ase import Atoms
+from _repo_files import require_repo_files
 
 
 pytest.importorskip("pyscf")
@@ -644,6 +645,7 @@ def test_stepwise_grid_is_on_by_default_and_skipped_for_hartree_fock() -> None:
 
 
 def test_calculator_dft_cli_flags_reach_the_dft_settings(tmp_path) -> None:
+    require_repo_files("tests/smoke")
     from pathlib import Path
 
     from click.testing import CliRunner

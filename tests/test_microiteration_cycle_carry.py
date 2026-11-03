@@ -186,6 +186,9 @@ class _FakeMacroOptimizer:
     def check_convergence(self):
         return False, _FakeConvInfo()
 
+    def convergence_marks(self, conv_info):
+        return [False] * 5
+
 
 class _FakeGeom:
     def __init__(self, n_atoms=2):
@@ -1219,3 +1222,57 @@ def test_late_micro_nonconvergence_retains_diagnostic_and_state(tmp_path, monkey
     assert geometry.freeze_atoms == list(partition.original_freeze)
     assert geometry._calc is base_calc
     assert "max|F|=1.000e-02" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("driver", ["opt", "tsopt"])
+def test_microiteration_rows_mark_only_the_criteria_the_preset_checks(
+    tmp_path, monkeypatch, driver
+):
+    """The macro rows take their marks from the optimizer's checked-criteria mask."""
+    import importlib
+
+    from pysisyphus.TablePrinter import TablePrinter
+
+    module = importlib.import_module(f"mlmm.workflows.{driver}")
+    rows: list = []
+
+    class RecordingTable(TablePrinter):
+        def print_row(self, args, marks=None, **kwargs):
+            rows.append(list(marks))
+            return super().print_row(args, marks=marks, **kwargs)
+
+    class CheckedMacro(_FakeMacroOptimizer):
+        def convergence_marks(self, conv_info):
+            # energy, max(|force|), rms(force), max(|step|), rms(step)
+            return [False, True, False, False, False]
+
+    micro = _micro_writing_only_with_dump(converged=True)
+    _install_common_fakes(monkeypatch, module, micro)
+    monkeypatch.setattr(module, "TablePrinter", RecordingTable)
+    if driver == "opt":
+        monkeypatch.setattr(module, "RFOptimizer", CheckedMacro)
+        module._run_microiter_opt(
+            _FakeGeom(n_atoms=2), _FakeCalc(), calc_cfg={}, rfo_cfg={}, lbfgs_cfg={},
+            opt_cfg={"max_cycles": 2}, microiter_cfg={"micro_max_cycles": 1},
+            out_dir_path=tmp_path, partition=_micro_active_partition(), dump=False,
+        )
+    else:
+        from mlmm.core.defaults import RSIRFO_KW
+
+        monkeypatch.setattr(
+            module, "_calc_full_hessian_torch",
+            lambda *a, **k: __import__("torch").zeros((3, 3), dtype=__import__("torch").float64),
+        )
+        monkeypatch.setattr(
+            module, "resolve_partition_from_core", lambda *a, **k: _micro_active_partition()
+        )
+        monkeypatch.setitem(module.TSOPT_CLASS_MAP, "rsirfo", CheckedMacro)
+        module._run_microiter_tsopt(
+            _FakeGeom(n_atoms=2), {}, dict(RSIRFO_KW), {}, {"max_cycles": 2},
+            {"micro_max_cycles": 1}, tmp_path, dump=False, thresh=None, mode="rsirfo",
+            reference_mode=None,
+        )
+
+    # cycle, Δ(energy), max(|force|), rms(force), max(|step|), rms(step), micro, s/cycle
+    assert rows
+    assert all(marks == [False, False, True, False, False, False, False, False] for marks in rows)

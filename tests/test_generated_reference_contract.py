@@ -22,6 +22,9 @@ for _p in (str(REPO_ROOT), str(SCRIPTS)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
+from _repo_files import require_repo_files  # noqa: E402
+
+require_repo_files(".github/scripts/generate_reference.py")
 import generate_reference as gr  # noqa: E402
 
 

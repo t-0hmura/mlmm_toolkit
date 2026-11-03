@@ -8,6 +8,7 @@ import pytest
 import yaml
 from click.testing import CliRunner
 
+from _repo_files import require_repo_files
 from mlmm.cli import cli as root_cli
 from mlmm.core.defaults import MLMM_CALC_KW
 
@@ -20,6 +21,7 @@ _TOPOLOGY = _FIXTURE_DIR / "p_complex.parm7"
 
 
 def _base_args(command: str) -> list[str]:
+    require_repo_files("hessian_ff/tests/data")
     args = [
         command,
         "-i",

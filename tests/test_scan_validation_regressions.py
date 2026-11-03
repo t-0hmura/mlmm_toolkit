@@ -617,7 +617,7 @@ def test_grid_scan_surface_records_measured_and_target_coordinates(
         ),
     ],
 )
-def test_scan_html_plots_are_responsive_and_scan2d_keeps_native_projection(
+def test_scan3d_html_is_responsive_and_scan2d_keeps_its_fixed_size_and_native_projection(
     tmp_path: Path, monkeypatch, command: str, scan_lists: str, html_name: str,
 ) -> None:
     from mlmm.workflows import scan2d, scan3d
@@ -629,12 +629,14 @@ def test_scan_html_plots_are_responsive_and_scan2d_keeps_native_projection(
 
     assert result.exit_code == 0, result.output
     html = (out_dir / html_name).read_text(encoding="utf-8")
-    assert re.search(r'"responsive":\s*true', html)
     assert re.search(r'"displaylogo":\s*false', html)
     if command == "scan3d":
         # The viewer fills its container instead of keeping a fixed pixel size.
-        assert 'class="plotly-graph-div" style="height:100%; width:100%;"' in html
+        assert re.search(r'"responsive":\s*true', html)
+        assert not re.search(r"height:\d+px; width:\d+px", html)
     else:
+        # The figure sets 800x700 px, so the plot keeps that size in a browser.
+        assert re.search(r'"width":\s*800,\s*"height":\s*700', html)
         assert "2D Contour Projection (Bottom)" in html
         assert not re.search(r'"project":\s*\{\s*"z":\s*true', html)
         assert "Computed grid points" not in html

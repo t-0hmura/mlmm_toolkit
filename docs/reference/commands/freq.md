@@ -105,7 +105,9 @@ Options:
                                   Link-atom position mode: scaled (g-factor) or
                                   fixed (1.09/1.01 Å).  [default: (scaled)]
   --mm-backend [hessian_ff|openmm]
-                                  MM backend. MM Hessians use finite differences
+                                  MM backend: 'hessian_ff' (the MM engine
+                                  bundled with mlmm-toolkit; default) or
+                                  'openmm'. MM Hessians use finite differences
                                   by default; set calc.mm_fd: false for the
                                   hessian_ff analytical path.  [default:
                                   (hessian_ff)]

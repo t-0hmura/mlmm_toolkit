@@ -7,6 +7,7 @@ from pathlib import Path
 import click
 import pytest
 from click.testing import CliRunner
+from _repo_files import require_repo_files
 
 
 def test_prepare_path_output_dir_invalidates_prior_envelopes(
@@ -56,6 +57,7 @@ def test_path_output_collision_preserves_reserved_input(
 def test_path_cli_preserves_config_before_early_validation(
     tmp_path: Path,
 ) -> None:
+    require_repo_files("tests/smoke")
     from mlmm.workflows import path_opt as path_module
 
     repo = Path(__file__).resolve().parents[1]
@@ -94,6 +96,7 @@ def test_yaml_redirect_ignores_unused_click_default_collision(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    require_repo_files("tests/smoke")
     from mlmm.workflows import path_opt as path_module
 
     repo = Path(__file__).resolve().parents[1]

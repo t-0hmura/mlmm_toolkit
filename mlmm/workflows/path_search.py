@@ -92,6 +92,7 @@ from mlmm.core.utils import (
     parse_indices_string,
     resolve_ml_layer_assignment,
     optional_positive_int,
+    verbose_level,
 )
 from mlmm.core.result_commit import commit_json_exact, with_current_run_id
 from mlmm.io.plotly_image import write_plotly_image
@@ -1088,6 +1089,18 @@ class CombinedPath:
     required_outcomes: List[Any] = field(default_factory=list)
 
 
+def _echo_mep_diagram_inputs(
+    labels: Sequence[str], energies_kcal: Sequence[float]
+) -> None:
+    """Print the labels and energies passed to the MEP diagram at -v 3 only."""
+    if verbose_level() < 3:
+        return
+    labels_repr = "[" + ", ".join(f'"{lab}"' for lab in labels) + "]"
+    energies_repr = "[" + ", ".join(f"{val:.6f}" for val in energies_kcal) + "]"
+    click.echo(f"[diagram] build_energy_diagram.labels = {labels_repr}")
+    click.echo(f"[diagram] build_energy_diagram.energies_kcal = {energies_repr}")
+
+
 def _raw_path_outcome(
     item_id: str,
     *,
@@ -1416,7 +1429,7 @@ def _build_multistep_path(
 
     hei = int(gsm0.hei_idx)
     if not (1 <= hei <= len(gsm0.images) - 2):
-        click.echo(f"[{tag0}] WARNING: HEI is at an endpoint (idx={hei}). Returning the raw GSM path.")
+        click.echo(f"[{tag0}] WARNING: HEI is at an endpoint (idx={hei}). Returning the raw MEP path.")
         _tag_images(gsm0.images, pair_index=pair_index)
         return CombinedPath(
             images=gsm0.images, energies=gsm0.energies, segments=[],
@@ -1965,7 +1978,7 @@ def _build_multistep_path(
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
     show_default="hessian_ff",
-    help="MM backend. MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
+    help="MM backend: 'hessian_ff' (the MM engine bundled with mlmm-toolkit; default) or 'openmm'. MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
 )
 @click.option(
     "--cmap/--no-cmap",
@@ -2963,10 +2976,7 @@ def cli(
             }
 
             # Log exact inputs to build_energy_diagram, and the human-readable chain
-            labels_repr = "[" + ", ".join(f'"{lab}"' for lab in labels) + "]"
-            energies_repr = "[" + ", ".join(f"{val:.6f}" for val in energies_kcal) + "]"
-            click.echo(f"[diagram] build_energy_diagram.labels = {labels_repr}")
-            click.echo(f"[diagram] build_energy_diagram.energies_kcal = {energies_repr}")
+            _echo_mep_diagram_inputs(labels, energies_kcal)
 
             fig = build_energy_diagram(
                 energies=energies_kcal,

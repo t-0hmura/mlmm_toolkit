@@ -193,6 +193,7 @@ from mlmm.workflows._segment_resume import (
     retained_post_segments,
     retained_public_artifact,
     validate_resume_identity,
+    validate_resume_post_precision,
 )
 from mlmm.cli.decorators import load_merged_yaml_cfg
 from mlmm.cli.preflight import validate_existing_files
@@ -4270,11 +4271,27 @@ def _run_dft_for_state(pdb_path: Path,
     import subprocess as _sp
     cmd = [sys.executable, "-m", "mlmm", "dft"] + list(args)
     _echo(f"\n[dft] subprocess: {' '.join(cmd)}")
+    run_log = ddir / "run.log"
+    log_offset = run_log.stat().st_size if run_log.is_file() else 0
     proc = _sp.run(cmd, capture_output=True, text=True)
+    # The DFT CLI writes its own run log, but a parser error is printed after
+    # that log closes. Append only the subprocess lines the child's log lacks,
+    # and make stderr visible in the parent at its default verbosity.
+    try:
+        with run_log.open("rb") as handle:
+            handle.seek(log_offset)
+            logged = set(handle.read().decode("utf-8", errors="replace").splitlines())
+    except OSError:
+        logged = set()
+    with run_log.open("a", encoding="utf-8") as handle:
+        for stream in (proc.stdout, proc.stderr):
+            missing = [line for line in (stream or "").rstrip().splitlines() if line not in logged]
+            if missing:
+                handle.write("\n".join(missing) + "\n")
     if proc.stdout:
         _echo(proc.stdout.rstrip())
     if proc.stderr:
-        _echo(proc.stderr.rstrip())
+        _echo(proc.stderr.rstrip(), err=True, narrative=True)
     if proc.returncode != 0:
         _echo(f"[dft] WARNING: dft exited with code {proc.returncode}", err=True)
     y = out_dir / "result.yaml"
@@ -4885,7 +4902,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
     show_default="hessian_ff",
-    help="MM backend. MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
+    help="MM backend: 'hessian_ff' (the MM engine bundled with mlmm-toolkit; default) or 'openmm'. MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
 )
 @click.option(
     "--cmap/--no-cmap",
@@ -6607,6 +6624,16 @@ def cli(
             segment=int(resume_segment),
             available_segments=available_indices,
         )
+        # The kept segments were post-processed at the saved run's precision.
+        validate_resume_post_precision(
+            previous_root_summary,
+            (
+                _resolved_provenance.get("mlip_precision")
+                if mlip_backend_resolved == "dft"
+                else mlip_precision_post_resolved
+            ),
+            segment=int(resume_segment),
+        )
 
         recorded_path_request = previous_root_summary["resume_identity"][
             "path_request"
@@ -7269,15 +7296,6 @@ def cli(
 
         # DFT single-point and (optionally) DFT//MLIP/MM Gibbs
         if do_dft:
-            # Clear the calculator retained by Geometry before forking the DFT
-            # subprocess so it does not inherit the GPU-pinned model.
-            for _g in (gL, gR, gT, g_react, g_prod):
-                if _g is not None and hasattr(_g, "calculator"):
-                    _g.calculator = None
-            gc.collect()
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-
             _echo_detail(f"[dft] {stage_label}: DFT on R/TS/P")
             dR = _run_dft_for_state(
                 p_react, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
@@ -8859,16 +8877,7 @@ def cli(
         root_summary["post_segments"] = _json_safe(list(post_segments))
         _publish_root_summary(root_summary)
 
-    if refine_path and not resuming:
-        # The raw path-search summary reads as success.
-        _publish_provisional_root_summary()
-    segments = _read_summary(summary_json_path)
-    energy_diagrams: List[Dict[str, Any]] = []
-    existing_diagrams = summary.get("energy_diagrams", [])
-    if isinstance(existing_diagrams, list):
-        energy_diagrams.extend(existing_diagrams)
-
-    def _copy_path_outputs_to_root() -> None:
+    def _copy_path_outputs_to_root(keep_source: bool = False) -> None:
         # Thin wrapper preserving the closure-captured helper signature.
         # Body extracted to mlmm.workflows._all_helpers so it is unit-
         # testable and the cli() body shrinks one slot.
@@ -8878,7 +8887,29 @@ def cli(
             out_dir,
             warn_fn=lambda msg: _echo(msg, err=True),
             image_names=None if refine_path else current_path_images.keys(),
+            keep_source=keep_source,
         )
+
+    post_segment_logs: List[Dict[str, Any]] = (
+        retained_post_segments(previous_root_summary or {}, int(resume_segment))
+        if resuming
+        else []
+    )
+    # The MEP outputs are at the root before post-processing, as in
+    # pdb2reaction, so the provisional root lists existing files; the copies
+    # under path_dir stay for summary.log and the final move. On resume only
+    # the outputs still under path_dir (a run that stopped) are copied.
+    _copy_path_outputs_to_root(keep_source=True)
+    if refine_path or resuming:
+        # The raw path-search summary reads as success, and a resumed run's old
+        # root keeps its final verdict; publish the provisional root, with the
+        # segments a resume keeps, before post-processing starts.
+        _publish_provisional_root_summary(post_segment_logs)
+    segments = _read_summary(summary_json_path)
+    energy_diagrams: List[Dict[str, Any]] = []
+    existing_diagrams = summary.get("energy_diagrams", [])
+    if isinstance(existing_diagrams, list):
+        energy_diagrams.extend(existing_diagrams)
 
     def _write_pipeline_summary_log(post_segment_logs: Sequence[Dict[str, Any]]) -> None:
         # Payload assembly extracted to mlmm.workflows._all_helpers; the
@@ -8991,11 +9022,6 @@ def cli(
         )
         return
 
-    post_segment_logs: List[Dict[str, Any]] = (
-        retained_post_segments(previous_root_summary or {}, int(resume_segment))
-        if resuming
-        else []
-    )
     tsopt_seg_energies: List[Tuple[float, float, float]] = []
     g_mlip_seg_energies: List[Tuple[float, float, float]] = []
     dft_seg_energies: List[Tuple[float, float, float]] = []
@@ -9186,9 +9212,10 @@ def cli(
             irc_res = post["irc_res"]
             irc_plot_path = post["irc_plot_path"]
             irc_trj_path = post["irc_trj_path"]
-            _stop_log = {
-                "index": seg_idx, "tag": seg_tag, "kind": s.get("kind", "seg"),
-                "post_dir": str(seg_dir), "pipeline_stop": post["endpoint_stop"],
+            # Keep the segment record (bond changes, MEP barrier, full TS
+            # record) and add the stop, as for a segment that finishes.
+            segment_log.update({
+                "pipeline_stop": post["endpoint_stop"],
                 "irc": irc_res.get("irc_outcome"),
                 "irc_plot": str(irc_plot_path) if irc_plot_path else None,
                 "irc_traj": str(irc_trj_path) if irc_trj_path else None,
@@ -9200,9 +9227,16 @@ def cli(
                     "product": dict(post["prod_outcome"]),
                     "failures": post["endpoint_failures"],
                 },
-                "tsopt": dict(post["tsopt_decision"]),
-            }
-            post_segment_logs.append(_stop_log)
+                "tsopt": post["tsopt_record"],
+            })
+            _tsopt_payload = post["tsopt_payload"]
+            if _tsopt_payload.get("n_imaginary_modes") is not None:
+                segment_log["ts_imag"] = _ts_imag_record(
+                    _tsopt_payload.get("n_imaginary_modes"),
+                    _tsopt_payload.get("imaginary_frequencies_cm"),
+                    _tsopt_payload.get("frequency_zero_cutoff_cm"),
+                )
+            post_segment_logs.append(segment_log)
             _echo(f"[all] Segment {seg_idx:02d}: endpoint optimization failed; dependent stages skipped. Diagnostics retained.", err=True)
             continue
 

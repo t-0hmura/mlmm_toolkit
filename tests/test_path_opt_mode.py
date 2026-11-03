@@ -11,6 +11,7 @@ import pytest
 from ase import Atoms
 from click.testing import CliRunner
 
+from _repo_files import require_repo_files
 from mlmm.cli import cli as root_cli
 from mlmm.workflows import path_opt as path_opt_workflow
 from mlmm.workflows import path_search as path_search_workflow
@@ -32,6 +33,7 @@ def _has_option_row(output: str, option: str) -> bool:
 
 
 def _dry_run(tmp_path: Path, monkeypatch, command: str, *extra: str, config: str | None = None):
+    require_repo_files("tests/smoke")
     blocks = {}
 
     def capture(title, content, **_kwargs):
@@ -84,6 +86,7 @@ def test_dry_run_records_the_selected_mode(tmp_path, monkeypatch, command, mode,
 
 
 def test_path_search_show_config_prints_the_rfo_block(tmp_path: Path) -> None:
+    require_repo_files("tests/smoke")
     result = CliRunner().invoke(
         root_cli,
         [

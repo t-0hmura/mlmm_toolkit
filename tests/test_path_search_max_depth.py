@@ -191,3 +191,33 @@ def test_terminal_path_keeps_solver_fact_and_diagnostics(
         assert "injected bond diagnostic failure" in text
     if route == "kink":
         assert "Consecutive kink segments" in text
+
+
+@pytest.mark.parametrize("mep_mode", ["gsm", "dmf"])
+@pytest.mark.parametrize("hei", [0, 2])
+def test_endpoint_hei_warning_names_the_mep_path(tmp_path, monkeypatch, capsys, mep_mode, hei):
+    from types import SimpleNamespace
+
+    energies = [0.0, 0.0, 0.0]
+    energies[hei] = 1.0
+    primary = SimpleNamespace(
+        images=[SimpleNamespace(energy=energy) for energy in energies],
+        energies=energies, hei_idx=hei, is_converged=True,
+    )
+    monkeypatch.setattr(path_search, "_run_mep_between", lambda *_a, **_k: primary)
+
+    result = path_search._build_multistep_path(
+        primary.images[0], primary.images[-1], None,
+        geom_cfg={}, gs_cfg={}, stopt_cfg={}, single_opt_cfg={}, bond_cfg={},
+        search_cfg={"max_depth": 1}, refine_mode_kind="peak", mep_mode_kind=mep_mode,
+        out_dir=tmp_path, ref_pdb_path=None, depth=0, seg_counter=[0],
+        branch_tag="pair_00", single_opt_kind="lbfgs", calc_cfg={}, dmf_cfg={},
+    )
+
+    assert result.segments == []
+    out = capsys.readouterr().out
+    assert (
+        f"[seg_000] WARNING: HEI is at an endpoint (idx={hei}). Returning the raw MEP path."
+        in out
+    )
+    assert "GSM" not in out
