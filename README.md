@@ -42,7 +42,7 @@ Starting from the reactant (R) and product (P) structures of the full system, th
 - **GPU:** an NVIDIA GPU.
 - **AmberTools (`tleap`):** builds the topology in `mm-parm` and `all`; not needed when you reuse a matching `--parm7`.
 - **C++20 compiler:** for the default `hessian_ff` MM backend; `cxx-compiler` in the conda command below installs it. UMA on a GPU also needs a C compiler (`gcc`), as does `--compile` (`g++` on a CPU).
-- **Chrome libraries:** PNG export needs operating-system libraries that pip and conda do not install: [System prerequisites](docs/installation.md#system-prerequisites).
+- **Chrome libraries:** image export (PNG, JPEG, SVG, PDF) needs operating-system libraries that pip and conda do not install: [System prerequisites](docs/installation.md#system-prerequisites).
 - **pdbfixer:** needed only for `mm-parm --add-h`.
 
 Full requirements and step-by-step setup: [docs/installation.md](docs/installation.md).
@@ -53,7 +53,7 @@ Full requirements and step-by-step setup: [docs/installation.md](docs/installati
 conda create -n mlmm-toolkit -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt xtb "pytorch=2.13.0=cuda130*" cuda-nvcc -y
 conda activate mlmm-toolkit
 
-# 2. Install mlmm-toolkit and headless Chrome (for PNG export of plots)
+# 2. Install mlmm-toolkit and headless Chrome for image export of plots (PNG, JPEG, SVG, PDF)
 pip install mlmm-toolkit
 plotly_get_chrome -y
 

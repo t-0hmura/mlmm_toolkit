@@ -135,6 +135,8 @@ An optimizer may also report `"optimization_status": "stalled"`: the energy stop
 | `files` | object | Output file map |
 | `rigid_projection` | object \| null | Optional; present when `--flatten` runs. See [projection provenance](#rigid-projection-provenance). |
 
+With microiteration, `final_max_force`, `final_rms_force`, `final_max_step`, and `final_rms_step` are those of the last macro step (the full ONIOM step).
+
 ### `tsopt`
 
 | Field | Type | Description |
@@ -160,6 +162,7 @@ An optimizer may also report `"optimization_status": "stalled"`: the energy stop
 | `n_opt_cycles` | int | Optimization cycles |
 | `charge` | int | ML-region charge |
 | `spin` | int | ML-region multiplicity |
+| `final_max_force` / `final_rms_force` / `final_max_step` / `final_rms_step` / `convergence_thresholds` | float / object | As in `opt`, with or without microiteration, in every `--opt-mode` |
 | `reference_mode_file` | string\|null | Path-derived mode file supplied with `--ref-mode`; Hessian-based optimizers only |
 | `safeguards` | object | Hessian-TS diagnostics: rejected steps and recovery, exact saddle checks, and target-mode identity |
 | `rigid_projection` | object | Rigid-mode and Hessian provenance for Dimer, flatten, and the final saddle analysis; see [projection provenance](#rigid-projection-provenance) |
@@ -406,14 +409,14 @@ The `all` and `path-search` commands write `summary.json` with a richer structur
 |-------|------|-------------|
 | `execution_status` / `scientific_status` | string / string | Execution completeness and completion of requested numerical/calculation stages. |
 | `scientific_status_reasons` | string[] | Reasons for missing or unusable requested results; omitted on success. |
-| `pipeline_stop` | object \| absent | Present only on an early stop. `stage` is `post` (`reason` `no_segments` / `no_reactive_segment`), `before_irc` (the first segment that stopped: a TSOPT reason, plus `segment` and `tsopt_result`), or `endpoint_opt` (`endpoint_execution_failed` and endpoint-specific `failures`). Rendered in `summary.log` as `Pipeline stop`, except that a `before_irc` stop of a segment of a path is shown as `Stopped before IRC` (see `stopped_segments`); a TS-only stop is not in `stopped_segments`. |
+| `pipeline_stop` | object \| absent | Present only on an early stop. `stage` is `post` (`reason` `no_segments` / `no_reactive_segment`), `before_irc` (the first segment that stopped: a TSOPT reason, plus `segment` and `tsopt_result`), or `endpoint_opt` (`endpoint_execution_failed` with endpoint-specific `failures`, or `endpoint_not_converged`). Rendered in `summary.log` as `Pipeline stop`, except that a `before_irc` stop of a segment of a path is shown as `Stopped before IRC` (see `stopped_segments`); a TS-only stop is not in `stopped_segments`. `endpoint_not_converged` is written only in `post_segments[].pipeline_stop`: an endpoint optimization of that segment did not converge, so its freq and DFT were skipped, and the other segments are still processed. |
 | `stopped_segments` | object[] \| absent | Every segment that stopped before IRC (`stage`, `segment`, `reason`); the other segments are still processed. Rendered in `summary.log` as `Stopped before IRC`. |
 | `expected_item_ids` / `observed_item_ids` | string[] | Expected and observed stage identifiers. |
 | `n_segments` | int | Segment count |
 | `search_max_depth` | int | Effective recursion cap; `0` means subdivision was disabled |
 | `path_optimizers` | string[] | Single-structure optimizers actually used during path preparation/refinement (`lbfgs`, `rfo`); includes scan and alignment work in `all`. Also present in `path-opt` `result.json` |
 | `preopt_requested` / `preopt_converged` | bool / bool \| null | Whether endpoint preoptimization ran, and whether every endpoint converged; `null` when any endpoint reported no readable signal. In `all`, `preopt_converged` counts toward `scientific_status` unless the requested final TS and both endpoint optimizations have converged for every reactive segment; the field itself is still reported |
-| `segments` | object[] | Per-segment `index` (1-based), `tag` (a label such as `seg_001`; a kink segment, which has no covalent bond change, has `kink` in its tag), `kind` (`"seg"` for a reactive segment, `"bridge"` for a [bridge segment](path-search.md#how-it-works), `"tsopt"` in TS-only mode), `converged` (whether every optimization that built the segment converged), `barrier_kcal`, `delta_kcal`, and `bond_changes` (bridge segments emit `""`). `barrier_kcal` is the barrier on the MEP before TS optimization; in TS-only mode it is TS − R, where R is the higher-energy IRC endpoint (a name for the direction, not the chemical direction of the reaction). |
+| `segments` | object[] | Per-segment `index` (1-based), `tag` (a label such as `seg_001`; a kink segment, which has no covalent bond change, has `kink` in its tag), `kind` (`"seg"` for a reactive segment, `"kink"` for a conformational interval without a covalent bond change, `"bridge"` for a [bridge segment](path-search.md#how-it-works), `"tsopt"` in TS-only mode), `converged` (whether every optimization that built the segment converged), `barrier_kcal`, `delta_kcal`, and `bond_changes` (bridge segments emit `""`). `barrier_kcal` is the barrier on the MEP before TS optimization (`null` for a kink); in TS-only mode it is TS − R, where R is the higher-energy IRC endpoint (a name for the direction, not the chemical direction of the reaction). `path-search` and `all --refine-path` also write the segment's frames in `mep_trj.xyz`, counted from 0: `frame_ranges` is a list of `[start, stop]` pairs with `stop` excluded, and `frame_start` and `frame_stop` give the pair when there is only one. When stitching omits a shared first frame, it belongs to the preceding segment: use `frame_start - 1` for that endpoint. The last frame is `frame_stop - 1`. |
 | `energy_diagrams` | object[] | Energy profiles with labels and kcal/mol values |
 | `mlip_backend` | string | Backend name (`uma`, `orb`, `mace`, `aimnet2`, `dft`, or `custom`) |
 | `mlip_model` | string \| null | Exact model/checkpoint name, or `FUNCTIONAL/BASIS` for `dft` |

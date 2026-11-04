@@ -181,6 +181,8 @@ result_all/
 
 図のエネルギーは、最初の状態（反応物）を基準にした kcal/mol です。
 
+図の TS ラベル（TS1、TS2、…）の番号は、そのセグメント `seg_NN` の番号です。TS 最適化を行わない区間も番号を取るので、TS の番号は飛ぶことがあります（たとえば TS1 の次が TS3）。`--refine-path` を付けたときは結合が変わらない[ブリッジと配座変化の区間（kink）](path-search.md#処理の仕組みと計算仕様)が、付けないときは MEP の最高エネルギーのイメージが端のイメージになった入力の組が、これに当たります。結合の変わらない区間にも虚振動 1 つの TS が要るときは、そのセグメントの最初と最後のフレーム（`summary.json` の `frame_start` と `frame_stop - 1`。0 始まりで、共有する始点が前のセグメントに属するときは `frame_start - 1`）を `mep_trj.xyz` から {ref}`取り出し <ja-trajectory-one-frame>`、`--refine-path` を付けずに `all --tsopt` にかけてください。
+
 ---
 
 ## 主な CLI オプション
@@ -205,7 +207,7 @@ result_all/
 | `-s, --scan-lists` | 文字列 | `None` | 1 構造の段階的スキャンの目標。1 つのリテラルが 1 段（例: `'[("A:SAM:320:CS1","A:GPP:321:C7",1.50)]'`。書き方は {ref}`スキャンリスト仕様 <ja-scan-list-spec>`） |
 | `--tsopt/--no-tsopt` | フラグ | `False` | 各セグメントの TS を最適化し、IRC を実行 |
 | `--thermo/--no-thermo` | フラグ | `False` | R・TS・P の振動数と ML/MM の熱化学（`--tsopt` が必要） |
-| `--dft/--no-dft` | フラグ | `False` | R・TS・P の ML 領域の DFT 一点計算（`--tsopt` と DFT 用の追加パッケージが必要） |
+| `--dft/--no-dft` | フラグ | `False` | R・TS・P の ML 領域の DFT 一点計算（`--tsopt` が必要） |
 | `--refine-path/--no-refine-path` | フラグ | `False` | 隣り合う組ごとの `path-opt` の代わりに、再帰的な `path-search` を実行 |
 | `--mep-mode` | `gsm` / `dmf` | `gsm` | MEP の手法: GSM または DMF |
 | `--opt-mode` | `grad` / `hess` | `grad` | 単一構造の最適化とスキャンのオプティマイザ: `grad` = L-BFGS、`hess` = RFO。明示し、`--opt-mode-post` を指定しないときは、TS と端点にも使う |
@@ -231,7 +233,7 @@ result_all/
 * **TS-only モードの R と P**: IRC のエネルギーの高いほうの端を反応物と呼びます。R・P の名前、ファイル名、障壁、反応エネルギーはこのエネルギーの順に従うもので、既知の化学的な反応の向きではありません。P からの障壁は `barrier_kcal − delta_kcal` です。`summary.json` の `endpoint_assignment` にこの規則が記録され、`chemical_direction_known: false` となります。
 * **TS-only モードの `summary.log`**: [1] は TS と IRC の概要で、[2] は最適化した TS と端点から求めます。
 * **セグメントが IRC の前で止まったとき**: そのセグメントは IRC とその後の段を行わず、TS のファイルは `segments/seg_NN/ts/` に残ります。ほかのセグメントは後処理を続けます。`summary.json` は最初の停止を `pipeline_stop` に残し、止まったセグメントすべてを `stopped_segments` に列挙します。`irc_plot_all.png` は全セグメントに IRC があるときだけ描きます。
-* **端点の最適化**: 片方の端点の最適化が収束しない場合、結果は `partial` になり、`segments/seg_NN/endpoint_opt/` を確認用に残します。端点の最適化がエラーで失敗した場合は、エラーを `segments/seg_NN/endpoint_opt/failure.json` に記録し、そのセグメントは振動数と DFT の段の前で止まります。TS と IRC の構造は残ります。
+* **端点の最適化**: 片方の端点の最適化が収束しない場合、そのセグメントは振動数と DFT の段を行わず、結果は `partial` になります。ほかのセグメントは後処理を続け、`segments/seg_NN/endpoint_opt/` を確認用に残します。端点の最適化がエラーで失敗した場合は、エラーを `segments/seg_NN/endpoint_opt/failure.json` に記録し、そのセグメントは振動数と DFT の段の前で止まります。TS と IRC の構造は残ります。
 * **熱化学のファイル**: `all` は熱化学量を `thermoanalysis.yaml` から読むので、`--thermo` では `--no-dump` を指定してもこのファイルを残します。
 * **抽出の半径**: `-r 0` では半径による拡張を無効にし、`-c` と `--selected-resn` で選んだ残基からモデルを組みます。構造上の安全策として、ジスルフィド結合の相手や隣の残基の主鎖が加わることはあります。半径 0 は内部で 0.001 Å として扱います。
 * **`-c` を省いたとき**: 抽出を行わず、入力構造の全体を使います。ML 領域は入力の B-factor（`--detect-layer`、デフォルト有効）か `--model-pdb` から決めます。`--no-detect-layer` で `--model-pdb` も無いときは、エラーで止まります。1 構造のときは、このときも `-s` か `--tsopt` が必要です。

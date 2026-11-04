@@ -181,6 +181,8 @@ The energy diagrams are named by method:
 
 Energies in the diagrams are in kcal/mol relative to the first state (the reactant).
 
+The number in a TS label of the diagrams (TS1, TS2, ...) is the number of its segment `seg_NN`. An interval that gets no TS optimization also takes a number, so the TS numbers can skip (for example TS1, TS3). With `--refine-path`, these are the [bridge and kink segments](path-search.md#how-it-works), which have no bond change; without it, they are the pairs of inputs whose MEP has an end image as its highest image. If an interval with no bond change also needs a TS with one imaginary mode, {ref}`extract <trajectory-one-frame>` the first and last frames of its segment (`frame_start` and `frame_stop - 1` in `summary.json`, counted from 0; use `frame_start - 1` if the shared start was kept with the preceding segment) from `mep_trj.xyz` and run `all --tsopt` on them without `--refine-path`.
+
 ---
 
 ## Main options
@@ -205,7 +207,7 @@ Energies in the diagrams are in kcal/mol relative to the first state (the reacta
 | `-s, --scan-lists` | text | `None` | Staged scan targets for one input, one literal per stage (e.g. `'[("A:SAM:320:CS1","A:GPP:321:C7",1.50)]'`; format in {ref}`Scan-list spec <scan-list-spec>`) |
 | `--tsopt/--no-tsopt` | flag | `False` | Optimize the TS of each segment and run IRC |
 | `--thermo/--no-thermo` | flag | `False` | Frequencies and ML/MM thermochemistry on R, TS, and P (needs `--tsopt`) |
-| `--dft/--no-dft` | flag | `False` | DFT single points of the ML region on R, TS, and P (needs `--tsopt` and the DFT extra) |
+| `--dft/--no-dft` | flag | `False` | DFT single points of the ML region on R, TS, and P (needs `--tsopt`) |
 | `--refine-path/--no-refine-path` | flag | `False` | Run the recursive `path-search` instead of one `path-opt` per pair |
 | `--mep-mode` | `gsm` / `dmf` | `gsm` | MEP method: GSM or DMF |
 | `--opt-mode` | `grad` / `hess` | `grad` | Optimizer for the single-structure optimizations and the scan: `grad` = L-BFGS, `hess` = RFO. When given and `--opt-mode-post` is not, it is also used for the TS and the endpoints |
@@ -231,7 +233,7 @@ For every option, run `mlmm all --help-advanced` or see the [generated CLI refer
 * **R and P in TS-only mode**: the higher-energy IRC end is named the reactant. The names, the file names, the barrier, and the reaction energy follow this energy order, not a known chemical direction; the barrier from P is `barrier_kcal − delta_kcal`. `summary.json` records the rule under `endpoint_assignment`, with `chemical_direction_known: false`.
 * **`summary.log` in TS-only mode**: [1] is the TS and IRC overview, and [2] comes from the optimized TS and endpoints.
 * **When a segment stops before IRC**: that segment gets no IRC or later stage and its TS files stay in `segments/seg_NN/ts/`. The other segments are still post-processed. `summary.json` keeps the first stop in `pipeline_stop` and lists every stopped segment in `stopped_segments`. `irc_plot_all.png` is drawn only when every segment has an IRC.
-* **Endpoint optimizations**: if one endpoint optimization does not converge, the result is `partial` and `segments/seg_NN/endpoint_opt/` is kept for inspection. If an endpoint optimization fails with an error, the error is written to `segments/seg_NN/endpoint_opt/failure.json`, and that segment stops before the frequency and DFT stages; the TS and IRC structures are kept.
+* **Endpoint optimizations**: if one endpoint optimization does not converge, that segment skips the frequency and DFT stages, the result is `partial`, and the other segments are still post-processed; `segments/seg_NN/endpoint_opt/` is kept for inspection. If an endpoint optimization fails with an error, the error is written to `segments/seg_NN/endpoint_opt/failure.json`, and that segment stops before the frequency and DFT stages; the TS and IRC structures are kept.
 * **Thermochemistry file**: with `--thermo`, `thermoanalysis.yaml` is kept even under `--no-dump`, because `all` reads the thermochemistry from it.
 * **Extraction radius**: `-r 0` disables radius-based expansion, so the model starts from the residues selected by `-c` and `--selected-resn`. Structural safeguards can still add a disulfide partner or the backbone of an adjacent residue. A zero radius is evaluated internally as 0.001 Å.
 * **Without `-c`**: extraction is skipped, and the full input structures are used. The ML region comes from the B-factors of the input (`--detect-layer`, on by default) or from `--model-pdb`; with `--no-detect-layer` and no `--model-pdb`, the run stops with an error. One structure still needs `-s` or `--tsopt`.

@@ -89,6 +89,7 @@ cd "${PBS_O_WORKDIR}"
 # hessian_ff JIT-compiles C++ kernels on first use. If the compiler checked below
 # is missing or cannot compile in C++20 mode, load the site's compiler module here:
 # module load <COMPILER_MODULE>
+# or install a compiler in the env: conda install -c conda-forge cxx-compiler
 
 # Activate conda environment (set +u: conda's activate scripts, for example cuda-nvcc, read unset variables)
 set +u
@@ -102,7 +103,7 @@ if [ -z "${CXX_CMD}" ]; then
   [ -x "${CXX_CMD}" ] || CXX_CMD=c++
 fi
 if ! ${CXX_CMD} -std=c++20 -x c++ -fsyntax-only /dev/null; then
-  echo "hessian_ff requires a compiler supporting PyTorch's C++20 JIT flag (checked: ${CXX_CMD})" >&2
+  echo "hessian_ff requires a compiler supporting PyTorch's C++20 JIT flag (checked: ${CXX_CMD}); load the site's compiler module or run: conda install -c conda-forge cxx-compiler" >&2
   exit 1
 fi
 command -v ninja >/dev/null || { echo "ninja is required for hessian_ff" >&2; exit 1; }
@@ -134,6 +135,7 @@ hostname
 
 # hessian_ff JIT-compiles C++ kernels on first use. If needed:
 # module load <COMPILER_MODULE>
+# or install a compiler in the env: conda install -c conda-forge cxx-compiler
 set +u    # conda's activate scripts read unset variables
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate <your-env>
@@ -145,7 +147,7 @@ if [ -z "${CXX_CMD}" ]; then
   [ -x "${CXX_CMD}" ] || CXX_CMD=c++
 fi
 if ! ${CXX_CMD} -std=c++20 -x c++ -fsyntax-only /dev/null; then
-  echo "hessian_ff requires a compiler supporting PyTorch's C++20 JIT flag (checked: ${CXX_CMD})" >&2
+  echo "hessian_ff requires a compiler supporting PyTorch's C++20 JIT flag (checked: ${CXX_CMD}); load the site's compiler module or run: conda install -c conda-forge cxx-compiler" >&2
   exit 1
 fi
 command -v ninja >/dev/null || { echo "ninja is required for hessian_ff" >&2; exit 1; }

@@ -89,6 +89,7 @@ cd "${PBS_O_WORKDIR}"
 # hessian_ff は初回利用時に C++ カーネルを JIT ビルドします。下で確かめる
 # コンパイラがない、または C++20 モードでコンパイルできない場合は、サイトのコンパイラモジュールを読み込みます:
 # module load <COMPILER_MODULE>
+# または env にコンパイラを入れます: conda install -c conda-forge cxx-compiler
 
 # conda 環境の有効化（set +u: conda の activate スクリプト、たとえば cuda-nvcc のものは未設定の変数を読む）
 set +u
@@ -102,7 +103,7 @@ if [ -z "${CXX_CMD}" ]; then
   [ -x "${CXX_CMD}" ] || CXX_CMD=c++
 fi
 if ! ${CXX_CMD} -std=c++20 -x c++ -fsyntax-only /dev/null; then
-  echo "hessian_ff には PyTorch の C++20 JIT フラグに対応するコンパイラが必要です（確認したもの: ${CXX_CMD}）" >&2
+  echo "hessian_ff には PyTorch の C++20 JIT フラグに対応するコンパイラが必要です（確認したもの: ${CXX_CMD}）。サイトのコンパイラモジュールを読み込むか、conda install -c conda-forge cxx-compiler を実行してください" >&2
   exit 1
 fi
 command -v ninja >/dev/null || { echo "hessian_ff には ninja が必要です" >&2; exit 1; }
@@ -134,6 +135,7 @@ hostname
 
 # hessian_ff は初回利用時に C++ カーネルを JIT ビルドします。必要な場合:
 # module load <COMPILER_MODULE>
+# または env にコンパイラを入れます: conda install -c conda-forge cxx-compiler
 set +u    # conda の activate スクリプトは未設定の変数を読む
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate <your-env>
@@ -145,7 +147,7 @@ if [ -z "${CXX_CMD}" ]; then
   [ -x "${CXX_CMD}" ] || CXX_CMD=c++
 fi
 if ! ${CXX_CMD} -std=c++20 -x c++ -fsyntax-only /dev/null; then
-  echo "hessian_ff には PyTorch の C++20 JIT フラグに対応するコンパイラが必要です（確認したもの: ${CXX_CMD}）" >&2
+  echo "hessian_ff には PyTorch の C++20 JIT フラグに対応するコンパイラが必要です（確認したもの: ${CXX_CMD}）。サイトのコンパイラモジュールを読み込むか、conda install -c conda-forge cxx-compiler を実行してください" >&2
   exit 1
 fi
 command -v ninja >/dev/null || { echo "hessian_ff には ninja が必要です" >&2; exit 1; }

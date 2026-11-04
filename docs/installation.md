@@ -11,7 +11,7 @@
 ```bash
 # 1) Create a conda environment with AmberTools, PDBFixer, a C++ compiler, cyipopt, xTB, and CUDA-enabled PyTorch
 # 2) Install mlmm-toolkit
-# 3) Install headless Chrome for Plotly static image export (PNG)
+# 3) Install headless Chrome for Plotly static image export (PNG, JPEG, SVG, PDF)
 #    Downloads a Chromium binary; requires internet access.
 
 conda create -n mlmm-toolkit -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt xtb "pytorch=2.13.0=cuda130*" cuda-nvcc -y

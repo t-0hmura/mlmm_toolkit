@@ -125,6 +125,8 @@ ML/MM 計算機を評価するコマンドは、さらに以下を記録しま�
 | `files` | object | 出力ファイルマップ |
 | `rigid_projection` | object \| null | 任意。`--flatten` を実行したときに出ます。[剛体モードの射影の記録](#剛体モードの射影の記録)を参照 |
 
+マイクロイテレーションでは、`final_max_force`、`final_rms_force`、`final_max_step`、`final_rms_step` は最後のマクロステップ（ONIOM 全体のステップ）の値です。
+
 ### `tsopt`
 
 | フィールド | 型 | 説明 |
@@ -150,6 +152,7 @@ ML/MM 計算機を評価するコマンドは、さらに以下を記録しま�
 | `n_opt_cycles` | int | 最適化サイクル数 |
 | `charge` | int | ML 領域の電荷 |
 | `spin` | int | ML 領域のスピン多重度 |
+| `final_max_force` / `final_rms_force` / `final_max_step` / `final_rms_step` / `convergence_thresholds` | float / object | `opt` と同じ。マイクロイテレーションの有無と `--opt-mode` を問わず書く |
 | `reference_mode_file` | string\|null | `--ref-mode` で渡した、経路から得たモードのファイル。Hessian を使うオプティマイザのみ |
 | `safeguards` | object | Hessian を使う TS 最適化の診断: 却下したステップと回復、厳密な鞍点の確認、目標モードの同一性 |
 | `rigid_projection` | object | Dimer、flatten、最後の鞍点解析の剛体モードと Hessian の記録。[剛体モードの射影の記録](#剛体モードの射影の記録)を参照 |
@@ -380,14 +383,14 @@ IRC は `execution_status` と `scientific_status` を出し、方向ごとの�
 |-----------|------|------|
 | `execution_status` / `scientific_status` | string / string | 実行の完了度と、指定した数値最適化・計算段階の完了度。 |
 | `scientific_status_reasons` | string[] | 要求した結果の欠損・未収束などの理由。正常終了時は省略されます。 |
-| `pipeline_stop` | object（無い場合あり） | 早期停止時のみ存在。`stage` は `post`（`reason` は `no_segments` / `no_reactive_segment`）、`before_irc`（最初に止まったセグメントの TSOPT の理由と `segment`・`tsopt_result`）、または `endpoint_opt`（`endpoint_execution_failed` と端点別 `failures`）。`summary.log` では `Pipeline stop`。ただし経路のセグメントの `before_irc` の停止は `Stopped before IRC`（`stopped_segments` を参照）と表示し、TS-only の停止は `stopped_segments` に入らない |
+| `pipeline_stop` | object（無い場合あり） | 早期停止時のみ存在。`stage` は `post`（`reason` は `no_segments` / `no_reactive_segment`）、`before_irc`（最初に止まったセグメントの TSOPT の理由と `segment`・`tsopt_result`）、または `endpoint_opt`（`endpoint_execution_failed` と端点別 `failures`、または `endpoint_not_converged`）。`summary.log` では `Pipeline stop`。ただし経路のセグメントの `before_irc` の停止は `Stopped before IRC`（`stopped_segments` を参照）と表示し、TS-only の停止は `stopped_segments` に入らない。`endpoint_not_converged` は `post_segments[].pipeline_stop` にだけ書く。そのセグメントの端点の最適化が収束しなかったので freq と DFT を行わず、ほかのセグメントは処理を続ける |
 | `stopped_segments` | object[]（無い場合あり） | IRC の前で止まったすべてのセグメント（`stage`・`segment`・`reason`）。ほかのセグメントは処理を続ける。`summary.log` では `Stopped before IRC` |
 | `expected_item_ids` / `observed_item_ids` | string[] | 期待された段と観測された段の ID。 |
 | `n_segments` | int | セグメント数 |
 | `search_max_depth` | int | 実効の再帰分割階層上限。`0` は分割無効 |
 | `path_optimizers` | string[] | 経路の準備・精密化で実際に使用した単一構造オプティマイザ（`lbfgs`, `rfo`）。`all` ではスキャン・アライメントの実行も含みます。`path-opt` の `result.json` にも記録します |
 | `preopt_requested` / `preopt_converged` | bool / bool \| null | 端点の事前最適化を実行したか、および全端点が収束したか。読み取れない端点があれば `null`。`all` では `preopt_converged` も `scientific_status` に数えます。ただし、指定した最終 TS 最適化と両端点の最適化がすべての反応セグメントで収束した場合は数えません。欄そのものは残します |
-| `segments` | object[] | セグメントごとの `index`（1 始まり）、`tag`（`seg_001` のような名前。共有結合が変わらない配座変化の区間（kink）のセグメントは名前に `kink` を含みます）、`kind`（反応セグメントは `"seg"`、[ブリッジセグメント](path-search.md#処理の仕組みと計算仕様)は `"bridge"`、TS-only モードは `"tsopt"`）、`converged`（そのセグメントを作った最適化がすべて収束したか）、`barrier_kcal`、`delta_kcal`、`bond_changes`（ブリッジセグメントは `""`）。`barrier_kcal` は TS 最適化の前の MEP 上の障壁です。TS-only モードでは TS − R で、R は IRC の両端のうちエネルギーが高いほうです（向きの名前で、化学的な反応の向きではありません）。 |
+| `segments` | object[] | セグメントごとの `index`（1 始まり）、`tag`（`seg_001` のような名前。共有結合が変わらない配座変化の区間（kink）のセグメントは名前に `kink` を含みます）、`kind`（反応セグメントは `"seg"`、共有結合が変わらない配座変化の区間は `"kink"`、[ブリッジセグメント](path-search.md#処理の仕組みと計算仕様)は `"bridge"`、TS-only モードは `"tsopt"`）、`converged`（そのセグメントを作った最適化がすべて収束したか）、`barrier_kcal`、`delta_kcal`、`bond_changes`（ブリッジセグメントは `""`）。`barrier_kcal` は TS 最適化の前の MEP 上の障壁です（配座変化の区間では `null`）。TS-only モードでは TS − R で、R は IRC の両端のうちエネルギーが高いほうです（向きの名前で、化学的な反応の向きではありません）。`path-search` と `all --refine-path` は、`mep_trj.xyz` でそのセグメントに属するフレームも 0 始まりで記録します。`frame_ranges` は `[start, stop]` の組のリストで、`stop` は含みません。組が 1 つのときは、その組を `frame_start` と `frame_stop` にも書きます。経路をつなぐ際に共有する始点を省いたとき、そのフレームは前のセグメントに属するため `frame_start - 1` を使います。最後のフレームは `frame_stop - 1` です。 |
 | `energy_diagrams` | object[] | ラベルと kcal/mol の値を持つエネルギーダイアグラム |
 | `mlip_backend` | string | バックエンド名（`uma`、`orb`、`mace`、`aimnet2`、`dft`、`custom`） |
 | `mlip_model` | string \| null | 正確なモデル/チェックポイント名。`dft` では `FUNCTIONAL/BASIS` |

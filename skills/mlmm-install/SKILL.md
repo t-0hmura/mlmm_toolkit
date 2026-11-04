@@ -26,7 +26,7 @@ and the checks in [Verify the install](#verify-the-install) pass.
    at its top right, the newest CUDA the driver supports; use `cuda130`, or
    `cuda129` when it is below 13.0. Do not add a pip `torch` to this env.
    Details are in [CUDA and PyTorch](backends.md#cuda-and-pytorch).
-4. Install mlmm-toolkit and headless Chrome for Plotly PNG export.
+4. Install mlmm-toolkit and headless Chrome for Plotly image export (PNG, JPEG, SVG, PDF).
 5. Accept the UMA license on Hugging Face and log in ([UMA](backends.md#uma)).
 6. Add other backends only when needed, after checking the model
    domain and a pilot on the target system. ORB and MACE need their own envs
@@ -52,7 +52,7 @@ without `cxx-compiler` has no compiler; a bare container or cluster node often
 lacks both. On a GPU, UMA compiles code at run time for speed and needs a C compiler
 (`gcc`) even without `--compile`; with `--compile`, UMA and ORB need a C compiler on a
 GPU and a C++ compiler (`g++`) on a CPU; `hessian_ff` needs a C++20 compiler.
-PNG export needs the operating-system libraries of the Chrome that
+Image export (PNG, JPEG, SVG, PDF) needs the operating-system libraries of the Chrome that
 `plotly_get_chrome -y` downloads. The conda command above installs conda's
 compilers under prefixed names (`x86_64-conda-linux-gnu-gcc`, ...), and
 `conda activate` sets `$CC` and `$CXX` to them. Inside the env, check with

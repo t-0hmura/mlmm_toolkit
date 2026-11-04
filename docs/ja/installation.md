@@ -11,7 +11,7 @@
 ```bash
 # 1) AmberTools・PDBFixer・C++ コンパイラー・cyipopt・xTB・CUDA 対応の PyTorch を入れた conda 環境を作成
 # 2) mlmm-toolkit をインストール
-# 3) Plotly 静的画像 (PNG) エクスポート用のヘッドレス Chrome をインストール
+# 3) Plotly の静的画像の書き出し（PNG・JPEG・SVG・PDF）用のヘッドレス Chrome をインストール
 #    Chromium のバイナリをダウンロード（インターネット接続が必要）
 
 conda create -n mlmm-toolkit -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt xtb "pytorch=2.13.0=cuda130*" cuda-nvcc -y

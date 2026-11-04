@@ -214,8 +214,6 @@ The individual ML/MM commands need the full-system topology (`--parm7`) and the 
 | `--dft/--no-dft` | (flag) | Runs DFT single points on the resulting structures (with `--tsopt`) |
 | `-b, --backend` | `uma` / `orb` / `mace` | Backend for the ML region (default `uma`; `dft` is also available) |
 
-`--dft` needs the DFT extra from step 7 of {ref}`Step-by-step installation <step-by-step-installation>`.
-
 For the syntax rules, see [Common options and selectors](cli-conventions.md); for every option, see the [`all` CLI reference](reference/commands/all.md).
 
 ---

@@ -229,7 +229,11 @@ When a ligand's formal charge is unknown:
    print(sum(a.GetFormalCharge() for a in mol.GetAtoms()))    # → -1
    ```
 
-4. Check the protonation state at pH 7. Typical contributions:
+4. Check the protonation state. For a substrate, cofactor, or non-standard
+   residue, count the H atoms the input has on each ionizable group and set the
+   charge from them (SAM with two H on its amine N is 0, with three H +1).
+   Standard amino acids take their charge from the residue name. The table
+   gives typical values at pH 7:
 
    | Group | At pH 7 | Charge |
    |---|---|---|
@@ -265,8 +269,11 @@ When a ligand's formal charge is unknown:
 
 Use sources in this order: the mechanism's primary paper or deposited structure
 documentation, then PubChem, ChEBI, or the RCSB CCD. Cite the source and state
-the modeled protonation and oxidation state. If the sources do not settle one
-state, ask rather than defaulting a metal or radical model to `-q 0 -m 1`.
+the modeled protonation and oxidation state. Unless the user gave the charge,
+confirm it with the user before running the calculation, listing the candidates
+if the sources do not settle one state. If the workflow names someone else to
+confirm, such as a reviewing agent, follow the workflow. Never default a metal
+or radical model to `-q 0 -m 1` without checking.
 
 ## Three layers and what they cost
 

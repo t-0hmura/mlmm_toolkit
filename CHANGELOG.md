@@ -29,16 +29,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - `run.log` is written while the command runs, also records C libraries and child processes, and a rerun into the same `-o` appends to it.
 - Without `-v 3`, FAIR-Chem's inference-settings line and choreographer's `Resorting to unclean kill browser.` are no longer shown.
 - MM Hessians keep their values and use less memory.
-- Colab notebook: the GUI fits the visible pane from 721 px wide, Mol* clicks keep the camera, and the ORB and MACE installs end with `pip check`.
+- Colab notebook: the GUI fits the visible pane from 721 px wide, and Mol* clicks keep the camera.
 - Docs, skills and CLI help: wrong statements are corrected, unclear passages reworded, ORB is installed in its own environment, and `--mm-backend` says that `hessian_ff` is the MM engine bundled with mlmm-toolkit.
 
 ### Fixed
 
 - `all --resume-segment` continues a run that stopped during post-processing, reuses the saved parm7, and stops with an error when the post-processing precision differs from the saved run.
-- `all`: an endpoint optimization that does not converge gives a `partial` result with exit 0 and freq and DFT still run, as documented; before, the run ended `failed`.
+- `all`: an unconverged endpoint, including an early optimizer stop, keeps its last structure and skips that segment's freq and DFT; later segments continue and the result is `partial` with exit 0.
 - `mm-parm --add-h` names each histidine from the hydrogens PDBFixer adds; before, tleap stopped on proteins with histidine.
-- Multi-segment `all` runs: the TS labels of the energy diagrams follow the segment numbers, and the `summary.log` overview table covers every segment.
-- `opt`: `final_max_force` and `final_rms_force` are the forces of the final geometry, and `--mm-only` names `[backend] MM only (hessian_ff)` instead of the UMA model.
+- Multi-segment `all` runs: the TS labels follow the segment numbers, the `summary.log` table covers every segment, and kink intervals are excluded from TS post-processing.
+- `opt` and `tsopt`: final forces, steps and `convergence_thresholds` are recorded for every optimizer; forces match the final geometry. `opt --mm-only` names the MM engine instead of UMA.
 - RS-P-RFO no longer stops when a step exceeds the trust radius only by rounding (at most 1e-9 relative), and GPU DFT loads the environment's libcusolver on nodes without a system CUDA toolkit.
 
 ## [0.5.0] — 2026-10-24

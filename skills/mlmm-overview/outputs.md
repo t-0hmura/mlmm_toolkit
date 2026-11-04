@@ -60,8 +60,8 @@ Run record:
 
 Segments:
 
-- `n_segments` counts the MEP segments and `n_segments_reactive` those that are not bridges. Check the chemistry before treating a segment as an elementary step.
-- Each `segments[]` record has `index`, `tag` (a kink segment, which has no covalent bond change, has `kink` in its tag), `kind` (`seg`, `bridge` for a short connecting path, or `tsopt` in TS-only mode), `converged`, `barrier_kcal`, `delta_kcal`, and `bond_changes`. It holds no structures and no stage records: the structures are files under `segments/seg_NN/`, and the stage results are in `post_segments[]`.
+- `n_segments` counts the MEP segments and `n_segments_reactive` those with kind `seg`. Check the chemistry before treating a segment as an elementary step.
+- Each `segments[]` record has `index`, `tag`, `kind` (`seg`, `kink` for a conformational interval without a covalent bond change, `bridge` for a short connecting path, or `tsopt` in TS-only mode), `converged`, `barrier_kcal` (`null` for a kink), `delta_kcal`, and `bond_changes`. It holds no structures and no stage records: the structures are files under `segments/seg_NN/`, and the stage results are in `post_segments[]`.
 - Each `post_segments[]` record covers one post-processed segment: `tag` and `post_dir`; `tsopt`, with `n_imaginary_modes`, `imaginary_frequencies_cm`, `optimization_status`, and `n_opt_cycles` against `max_cycles`; `irc`, the stop diagnostics of each direction, and `irc_plot` and `irc_traj`; `endpoint_assignment`, how the IRC ends were named R and P; `endpoint_opt`, with `optimization_status`, `n_opt_cycles`, `max_cycles`, and any `stop_reason` for `reactant` and `product`; `thermo_symmetry`, the point group and symmetry number of R, TS, and P when found; and `mep_barrier_kcal` and `mep_delta_kcal`, the MEP values of the segment.
 - In Endpoint and Scan-list modes, `endpoint_opt.connectivity_validated` (with `endpoint_opt.connectivity.match_matrix`) tells whether the optimized R and P kept the bond topology of the MEP ends. `scientific_status` `success` does not check this, and `bond_changes` ([Bond changes](#bond-changes)) cannot show what the TS connects. When `false`, run `bond-summary` between the MEP end and `segments/seg_NN/reactant.*` or `product.*`, and read which bonds differ. The MEP ends that the check compares are the first and last frames of `_work/path_opt/mep_seg_NN.pdb` (`_work/path_search/mep_seg_NN.pdb` with `--refine-path`). If only H atoms moved, report the TS as the same reaction seen from another protonation state, and name that state.
 - `mlip`, `gibbs_mlip`, `dft`, and `gibbs_dft_mlip` in `post_segments[]` give R, TS, and P at one level each, with `energies_kcal`, `barrier_kcal`, `delta_kcal`, and a `structures` map keyed R/TS/P: ML/MM energies (`--tsopt`), ML/MM Gibbs energies (`--thermo`), DFT energies of the ML region (`--dft`), and DFT//ML/MM Gibbs energies (`--dft` with `--thermo`).
@@ -110,9 +110,10 @@ print(d["execution_status"], d["scientific_status"], d.get("scientific_status_re
 
 # MEP barriers, before TS optimization
 for seg in d["segments"]:
-    print(f"seg_{seg['index']:02d} ({seg['kind']}): "
-          f"MEP barrier = {seg['barrier_kcal']:.1f} kcal/mol, "
-          f"ΔE = {seg['delta_kcal']:.1f} kcal/mol")
+    if seg["kind"] == "seg" and seg["barrier_kcal"] is not None:
+        print(f"seg_{seg['index']:02d}: "
+              f"MEP barrier = {seg['barrier_kcal']:.1f} kcal/mol, "
+              f"ΔE = {seg['delta_kcal']:.1f} kcal/mol")
 
 # n_imag and the barriers after TS optimization
 for ps in d.get("post_segments", []):
@@ -181,6 +182,8 @@ A barrier or reaction energy of hundreds to thousands of kcal/mol usually means 
 - `energy_diagram_G_DFT_plus_MLIP_all.png`: ML(DFT)/MM energies plus the ML/MM thermal correction (`--dft` and `--thermo`).
 
 Each `segments/seg_NN/` has the same diagrams for its own step, without `_all`, and `irc/irc_plot.png` shows its IRC. Energies are in kcal/mol relative to the first state. When the PNG cannot be written, the console prints a `NOTE`, and the values stay in `summary.json["energy_diagrams"]`.
+
+The number in a TS label (TS1, TS2, ...) is `segments[].index`, and an interval that gets no TS optimization also takes a number, so the TS numbers can skip (for example TS1, TS3). With `--refine-path`, these are the kink and bridge segments, which have no bond change; without it, they are the pairs of inputs whose MEP has an end image as its highest image (`endpoint_hei`). If an interval with no bond change also needs a TS with one imaginary mode, take the first and last frames of its segment (`frame_start` and `frame_stop - 1` in `summary.json`, counted from 0; use `frame_start - 1` if the shared start was kept with the preceding segment) from `mep_trj.xyz` and run `all --tsopt` on them without `--refine-path`.
 
 Read a barrier from `barrier_kcal` of its level ([summary.json](#summaryjson)). Do not compute `max(energies) − E(R)`: after thermal or DFT corrections, P or a later state can lie above the TS.
 
