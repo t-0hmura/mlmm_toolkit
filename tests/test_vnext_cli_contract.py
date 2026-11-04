@@ -77,6 +77,8 @@ def test_calc_and_mlmm_sections_merge_in_runtime_override_path() -> None:
 
 def test_canonical_names_keep_compatibility_aliases() -> None:
     assert _option("all", "workers").opts == ["--uma-workers", "--workers"]
+    assert _option("all", "resume").opts == ["--resume"]
+    assert _option("all", "resume").secondary_opts == ["--no-resume"]
     assert _option("all", "parm7_override").opts == ["--parm7", "--parm"]
     assert _option("all", "dft_func_basis").opts == ["--func-basis", "--dft-func-basis"]
     assert _option("tsopt", "hess_cutoff").opts == ["--hessian-cutoff", "--radius-hessian", "--hess-cutoff"]

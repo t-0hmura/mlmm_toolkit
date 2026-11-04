@@ -18,6 +18,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- `all --resume` continues after a process stop from the first unfinished segment, keeping the completed segments and their aggregate results.
 - `all --precision-post tf32|fp32|fp64` sets the MLIP precision of TS optimization, IRC, the endpoint optimizations and freq; unset, they use `--precision`.
 - `--compile/--no-compile` on every command that has `--precision` runs the UMA or ORB model of the ML region through torch.compile; it pays off only in long runs.
 - Python 3.13 is supported (`>=3.12,<3.14`); ORB still needs Python 3.12.

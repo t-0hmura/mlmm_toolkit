@@ -170,6 +170,9 @@ Options:
                                   endpoint optimizations.  [default: baker]
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
+  --resume / --no-resume          Resume from the first unfinished segment using
+                                  the verified MEP in --out-dir.  [default: no-
+                                  resume]
   --resume-segment INTEGER RANGE  Reuse the verified MEP in --out-dir and rerun
                                   post-processing from segment N. Repeat the
                                   original path/extraction/calculator options;

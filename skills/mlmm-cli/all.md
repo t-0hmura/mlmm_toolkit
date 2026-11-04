@@ -67,7 +67,10 @@ Each `segments` record has `index`, `tag`, `kind`, `barrier_kcal`,
 post-processing is in `post_segments`. Key details:
 [summary.json](../mlmm-overview/outputs.md#summaryjson).
 
-## Resume a failed segment
+## Resume
+
+After a process stops, repeat the original command with the same `--out-dir` and add
+`--resume`. Finished segments are kept; the first unfinished segment restarts from its saved HEI.
 
 Repeat the original command with the same inputs, extraction, layer, path, and
 calculator options and the same `--out-dir`, add `--resume-segment N`, and

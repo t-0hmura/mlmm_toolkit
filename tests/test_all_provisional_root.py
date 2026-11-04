@@ -87,8 +87,9 @@ def _completed_three_segments(tmp_path, monkeypatch, extra=()):
     return first
 
 
+@pytest.mark.parametrize("resume_args", [("--resume-segment", "2"), ("--resume",)])
 def test_resume_that_stops_before_its_first_segment_keeps_a_provisional_root(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, resume_args
 ):
     first = _completed_three_segments(tmp_path, monkeypatch)
     assert first.summary["scientific_status"] == "success"
@@ -114,7 +115,7 @@ def test_resume_that_stops_before_its_first_segment_keeps_a_provisional_root(
 
     resumed = run_all(
         tmp_path, monkeypatch, frames=FRAMES,
-        extra=("--tsopt", "--resume-segment", "2"), parm=False,
+        extra=("--tsopt", *resume_args), parm=False,
     )
     summary = resumed.summary
     assert resumed.child_names().count("tsopt") == 2
@@ -124,7 +125,8 @@ def test_resume_that_stops_before_its_first_segment_keeps_a_provisional_root(
 
 @pytest.mark.parametrize(
     "resume_segment,precision,refused",
-    [("2", "fp32", True), ("2", "fp64", False), ("1", "fp32", False)],
+    [("2", "fp32", True), ("2", "fp64", False), ("1", "fp32", False),
+     ("auto", "fp32", True), ("auto", "fp64", False)],
 )
 def test_resume_refuses_a_changed_post_processing_precision(
     tmp_path, monkeypatch, resume_segment, precision, refused
@@ -132,10 +134,11 @@ def test_resume_refuses_a_changed_post_processing_precision(
     first = _completed_three_segments(tmp_path, monkeypatch, ("--precision-post", "fp64"))
     assert first.summary["mlip_precision_post"] == "fp64"
     before = (first.out / "summary.json").read_bytes()
+    resume_args = ["--resume"] if resume_segment == "auto" else ["--resume-segment", resume_segment]
 
     resumed = run_all(
         tmp_path, monkeypatch, frames=FRAMES, parm=False,
-        extra=("--tsopt", "--resume-segment", resume_segment, "--precision-post", precision),
+        extra=("--tsopt", *resume_args, "--precision-post", precision),
     )
 
     if refused:
@@ -147,5 +150,20 @@ def test_resume_refuses_a_changed_post_processing_precision(
         assert (first.out / "summary.json").read_bytes() == before
     else:
         assert resumed.result.exit_code == 0, resumed.result.output[-3000:]
-        assert resumed.child_names().count("tsopt") == 4 - int(resume_segment)
+        assert resumed.child_names().count("tsopt") == (0 if resume_segment == "auto" else 4 - int(resume_segment))
         assert resumed.summary["mlip_precision_post"] == precision
+
+
+def test_auto_resume_keeps_completed_results_without_recalculating(tmp_path, monkeypatch):
+    first = _completed_three_segments(tmp_path, monkeypatch, ("--thermo", "--dft"))
+    resumed = run_all(
+        tmp_path, monkeypatch, frames=FRAMES, parm=False,
+        extra=("--resume", "--tsopt", "--thermo", "--dft"),
+    )
+    assert resumed.result.exit_code == 0, resumed.result.output[-3000:]
+    assert resumed.calls == []
+    assert resumed.summary["post_segments"] == first.summary["post_segments"]
+    assert resumed.summary["scientific_status"] == first.summary["scientific_status"]
+    assert (resumed.out / "irc_plot_all.png").is_file()
+    for name in ("MLIP", "G_MLIP", "DFT", "G_DFT_plus_MLIP"):
+        assert (resumed.out / f"energy_diagram_{name}_all.png").is_file()

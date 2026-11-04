@@ -214,7 +214,7 @@ def _select_executable_all_commands(commands: list[str]) -> list[str]:
     selected: set[str] = set()
     for cmd in commands:
         tokens = shlex.split(cmd)
-        if not tokens or tokens[0] != TOOL_NAME or "--resume-segment" in tokens:
+        if not tokens or tokens[0] != TOOL_NAME or "--resume" in tokens or "--resume-segment" in tokens:
             continue
         if len(tokens) >= 2 and tokens[1] == "all":
             selected.add(cmd)

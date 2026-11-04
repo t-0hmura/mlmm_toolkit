@@ -7,6 +7,7 @@ from mlmm.workflows._run_session import ArtifactClaimError, InvocationManifest
 from mlmm.workflows._segment_resume import (
     build_resume_identity,
     invalidate_from_segment,
+    next_resume_segment,
     preferred_endpoint_trajectories,
     parm7_content_sha256,
     retained_energy_diagrams,
@@ -28,9 +29,12 @@ def _identity(tmp_path: Path):
 def test_resume_identity_requires_exact_path_state(tmp_path: Path) -> None:
     identity = _identity(tmp_path)
     validate_resume_identity(identity, identity, segment=2, available_segments=[1, 2])
+    validate_resume_identity(identity, identity, segment=None, available_segments=[1, 2])
     changed = {**identity, "charge": 1}
     with pytest.raises(click.UsageError, match="charge changed"):
         validate_resume_identity(identity, changed, segment=2, available_segments=[1, 2])
+    with pytest.raises(click.UsageError, match="charge changed"):
+        validate_resume_identity(identity, changed, segment=None, available_segments=[1, 2])
     with pytest.raises(click.BadParameter, match="not present"):
         validate_resume_identity(identity, identity, segment=3, available_segments=[1, 2])
 
@@ -104,3 +108,13 @@ def test_parm7_content_digest_ignores_only_generated_version_line(
     assert parm7_content_sha256(first) == parm7_content_sha256(second)
     second.write_text(second.read_text(encoding="utf-8") + "%FLAG POINTERS\n")
     assert parm7_content_sha256(first) != parm7_content_sha256(second)
+
+
+@pytest.mark.parametrize(
+    "finished,available,expected",
+    [([], [1, 2, 3], 1), ([1], [1, 2, 3], 2),
+     ([1], [1, 3], 3), ([1, 2, 3], [1, 2, 3], 4), ([], [], 1)],
+)
+def test_auto_resume_selects_first_unfinished_segment(finished, available, expected):
+    summary = {"post_segments": [{"index": index} for index in finished]}
+    assert next_resume_segment(summary, available) == expected

@@ -192,6 +192,9 @@ filter can cancel an unrelated job in the same account.
 
 ## Failed jobs / restart
 
+After a process stops during post-processing, repeat the original command with
+`--resume` and the same persistent `--out-dir`.
+
 For a completed MEP with failed segment post-processing, repeat the original
 `all` command against the persistent `--out-dir` and add
 `--resume-segment N`. Keep the original inputs, topology, layers, extraction,

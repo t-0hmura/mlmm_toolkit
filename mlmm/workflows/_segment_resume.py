@@ -80,7 +80,7 @@ def build_resume_identity(*, inputs: Sequence[Path], ref_pdb: Path | None,
 
 
 def validate_resume_identity(recorded: Any, current: Mapping[str, Any], *,
-                             segment: int, available_segments: Iterable[int]) -> None:
+                             segment: int | None, available_segments: Iterable[int]) -> None:
     if not isinstance(recorded, Mapping):
         raise click.UsageError(
             "This output predates verified segment resume. Run the MEP once with "
@@ -89,7 +89,7 @@ def validate_resume_identity(recorded: Any, current: Mapping[str, Any], *,
     if recorded.get("schema_version") != SCHEMA_VERSION:
         raise click.UsageError("Unsupported segment-resume metadata version.")
     available = sorted({int(value) for value in available_segments if int(value) > 0})
-    if segment not in available:
+    if segment is not None and segment not in available:
         rendered = ", ".join(str(value) for value in available) or "none"
         raise click.BadParameter(
             f"segment {segment} is not present in the saved MEP; available: {rendered}",
@@ -103,6 +103,14 @@ def validate_resume_identity(recorded: Any, current: Mapping[str, Any], *,
                 "Repeat the original path/extraction/calculator settings and change only "
                 "post-processing options."
             )
+
+
+def next_resume_segment(summary: Mapping[str, Any], segments: Iterable[int]) -> int:
+    """Select the first segment without a finished post-processing record."""
+    available = sorted({int(index) for index in segments if int(index) > 0})
+    end = max(available, default=0) + 1
+    finished = {int(item["index"]) for item in retained_post_segments(summary, end)}
+    return next((index for index in available if index not in finished), end)
 
 
 def validate_resume_post_precision(recorded_summary: Mapping[str, Any], current: Any, *,
