@@ -647,6 +647,40 @@ def _opt_terminal_converged(
     return None
 
 
+# Tag of the endpoint that ``all`` optimizes through this command, else None.
+_ENDPOINT_TAG: Optional[str] = None
+
+
+@contextlib.contextmanager
+def keep_last_geometry_on_early_stop(tag: str):
+    """Treat an optimization that stops early as not converged, as ``all`` needs.
+
+    ``all`` runs its endpoint optimizations inside this block. An optimization
+    that stops early with ZeroStepLength or OptimizationError then keeps the
+    last geometry and the run reports ``not_converged``, as the endpoint
+    optimization of pdb2reaction ``all`` does. Outside the block the command
+    reports the error, as the ``opt`` command of pdb2reaction does.
+    """
+    global _ENDPOINT_TAG
+    previous, _ENDPOINT_TAG = _ENDPOINT_TAG, str(tag)
+    try:
+        yield
+    finally:
+        _ENDPOINT_TAG = previous
+
+
+def _keeps_last_geometry(exc: BaseException) -> bool:
+    """Report an early stop of an endpoint optimization; False outside ``all``."""
+    if _ENDPOINT_TAG is None:
+        return False
+    click.echo(
+        f"[endpoint-opt] WARNING: optimization for '{_ENDPOINT_TAG}' "
+        f"terminated early ({exc}); using last geometry.",
+        err=True,
+    )
+    return True
+
+
 def _run_microiter_opt(
     geometry,
     base_calc,
@@ -753,7 +787,12 @@ def _run_microiter_opt(
 
         _micro_opt = LBFGS(micro_geom, **micro_lbfgs_args)
         with contextlib.redirect_stdout(io.StringIO()):
-            _micro_opt.run()
+            try:
+                _micro_opt.run()
+            except (ZeroStepLength, OptimizationError) as exc:
+                # In ``all`` the stopped relaxation is not converged.
+                if not _keeps_last_geometry(exc):
+                    raise
         _micro_steps = max(int(_micro_opt.cur_cycle) + 1, 1)
         if macro_coord_type != "cart":
             geometry.coords3d = micro_geom.coords3d.flatten()
@@ -964,7 +1003,14 @@ def _run_microiter_opt(
             macro_optimizer.cur_cycle = macro_iter
 
             t_start = time.time()
-            step = macro_optimizer.optimize()  # housekeeping() triggers the Hessian update
+            try:
+                step = macro_optimizer.optimize()  # housekeeping() triggers the Hessian update
+            except (ZeroStepLength, OptimizationError) as exc:
+                # In ``all`` the macro optimization stops here, not converged.
+                if not _keeps_last_geometry(exc):
+                    raise
+                print()  # blank line closes the table
+                break
             macro_optimizer.steps.append(step)
 
             # Convergence check
@@ -2117,7 +2163,13 @@ def cli(
             main_label = "RFO" if use_rfo else "LBFGS"
             optimizer = _build_optimizer(main_kind)
             emit(f"\n====== Optimization ({main_label}) ======\n", narrative=True)
-            optimizer.run()
+            try:
+                optimizer.run()
+            except (ZeroStepLength, OptimizationError) as exc:
+                if not _keeps_last_geometry(exc):
+                    raise
+                # run() writes the final geometry only when it returns.
+                Path(optimizer.final_fn).write_text(geometry.as_xyz(), encoding="utf-8")
             emit_optimizer_terminal_status(
                 "opt",
                 converged=getattr(optimizer, "is_converged", None),

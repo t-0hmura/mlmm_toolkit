@@ -7,6 +7,7 @@ cleanup execute unchanged.
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import sys
 from pathlib import Path
@@ -15,10 +16,20 @@ from types import SimpleNamespace
 import click
 import numpy as np
 import pytest
+import torch
+from click.testing import CliRunner
 
-from _all_stub_harness import Behaviour, coords, read_values, run_all, write
+from pysisyphus.constants import ANG2BOHR
+from pysisyphus.optimizers.LBFGS import LBFGS
+from pysisyphus.optimizers.RFOptimizer import RFOptimizer
+from pysisyphus.optimizers.exceptions import OptimizationError
+from _all_stub_harness import Behaviour, coords, pdb_text, read_values, run_all, write, xyz_text
+from mlmm.cli import cli as root_cli
 from mlmm.cli.completion import completion_guard, record_completion
+from mlmm.core import calc_eval
 from mlmm.workflows import all as workflow
+from mlmm.workflows import freq
+from mlmm.workflows import opt as opt_workflow
 from mlmm.io import hessian_cache
 
 REAL_RUN_CLI_MAIN = workflow._run_cli_main
@@ -189,9 +200,17 @@ def test_endpoint_boundary_retains_provenance_and_stops_consumers(
         assert (structures / "reactant.xyz").is_file()
         assert (structures / "product.xyz").is_file()
         assert endpoint_dir.exists() is (dump or outcome == "not_converged")
-        assert run.child_names().count("freq") == 3
-        assert run.child_names().count("dft") == 3
-        assert "pipeline_stop" not in post
+        if outcome == "converged":
+            assert run.child_names().count("freq") == 3
+            assert run.child_names().count("dft") == 3
+            assert "pipeline_stop" not in post
+        else:
+            # An endpoint did not converge, so freq and DFT are skipped.
+            assert "freq" not in run.child_names()
+            assert "dft" not in run.child_names()
+            assert post["pipeline_stop"] == {
+                "stage": "endpoint_opt", "segment": 1, "reason": "endpoint_not_converged",
+            }
         converged = {state: True for state in ("reactant", "product")}
         converged[_STATE[role]] = outcome == "converged"
         assert post["endpoint_opt"]["reactant_converged"] is converged["reactant"]
@@ -204,7 +223,8 @@ def test_endpoint_boundary_retains_provenance_and_stops_consumers(
 @pytest.mark.parametrize("outcome", ["not_converged", "hard_error"])
 def test_endpoint_opt_exit_code_goes_through_the_real_dispatch(monkeypatch, tmp_path, outcome):
     """Like the opt command, the endpoint child exits 1 when it does not converge
-    (a completed run) and when it fails with an error; only the error stops the segment."""
+    (a completed run) and when it fails with an error; only the error fails the run,
+    and an endpoint that does not converge skips freq."""
 
     def opt_with_its_exit_code():
         stub = workflow._run_cli_main
@@ -239,13 +259,87 @@ def test_endpoint_opt_exit_code_goes_through_the_real_dispatch(monkeypatch, tmp_
         assert run.result.exit_code == 0, run.result.output[-3000:]
         assert (summary["execution_status"], summary["scientific_status"]) == ("completed", "partial")
         assert post["endpoint_opt"]["product_converged"] is False
-        assert "pipeline_stop" not in post
-        assert run.child_names().count("freq") == 3
+        assert post["pipeline_stop"]["reason"] == "endpoint_not_converged"
+        assert "freq" not in run.child_names()
     else:
         assert run.result.exit_code == 1
         assert summary["execution_status"] == "failed"
         assert post["pipeline_stop"]["reason"] == "endpoint_execution_failed"
         assert "freq" not in run.child_names()
+
+
+def _product_status_in_segment_1(monkeypatch, status):
+    """The product endpoint opt of segment 1 ends with ``status``; the others converge."""
+
+    def wrap():
+        stub = workflow._run_cli_main
+
+        def dispatch(name, cli, args, **kwargs):
+            code = stub(name, cli, args, **kwargs)
+            out = Path(args[args.index("--out-dir") + 1])
+            # The endpoint child writes to segments/seg_NN/endpoint_opt/<R|P>.
+            if name == "opt" and out.name == "P" and out.parent.parent.name == "seg_01":
+                result = out / "result.json"
+                payload = json.loads(result.read_text(encoding="utf-8"))
+                payload.update(optimization_status=status, converged=False)
+                result.write_text(json.dumps(payload), encoding="utf-8")
+            return code
+
+        monkeypatch.setattr(workflow, "_run_cli_main", dispatch)
+
+    return wrap
+
+
+@pytest.mark.parametrize("status", ["not_converged", "stalled"])
+@pytest.mark.parametrize("branch", ["ts", "seg"])
+def test_unconverged_endpoint_skips_freq_and_dft_of_its_segment(monkeypatch, tmp_path, branch, status):
+    """freq and DFT are not run for a segment whose endpoint did not converge; the
+    next segment is still processed and the result is partial with exit 0."""
+    run = run_all(
+        tmp_path, monkeypatch,
+        frames=(1.0,) if branch == "ts" else (0.0, 2.0, 0.0),
+        extra=["--tsopt", "--thermo", "--dft"],
+        wrap=_product_status_in_segment_1(monkeypatch, status),
+    )
+    summary = run.summary
+    first = summary["post_segments"][0]
+    segment_dir = run.out / "segments" / "seg_01"
+
+    def segments_of(child):
+        return [
+            Path(args[args.index("--out-dir") + 1]).parent.parent.name
+            for args in run.child_args(child)
+        ]
+
+    assert run.result.exit_code == 0, run.result.output[-3000:]
+    assert (summary["execution_status"], summary["scientific_status"]) == ("completed", "partial")
+    assert summary["scientific_status_reasons"] == ["all:segment_1:endpoint_opt:product_not_converged"]
+    for stage in ("thermo", "dft"):
+        assert (
+            f"[{stage}] seg_01: skipped because the product endpoint optimization did not converge"
+            in run.result.output
+        )
+    assert first["pipeline_stop"] == {
+        "stage": "endpoint_opt", "segment": 1, "reason": "endpoint_not_converged",
+    }
+    assert first["endpoint_opt"]["product"]["optimization_status"] == status
+    assert isinstance(first["mlip"], dict)
+    assert not {"gibbs_mlip", "dft", "gibbs_dft_mlip", "thermo_symmetry"} & set(first)
+    assert (segment_dir / "energy_diagram_MLIP.png").is_file()
+    assert not (segment_dir / "freq").exists() and not (segment_dir / "dft").exists()
+    # A G or DFT diagram over all segments needs every segment.
+    assert (run.out / "energy_diagram_MLIP_all.png").is_file()
+    for stem in ("G_MLIP", "DFT", "G_DFT_plus_MLIP"):
+        assert not (run.out / f"energy_diagram_{stem}_all.png").exists()
+    assert summary["rate_limiting_step"]["method"] == "MLIP"
+    if branch == "ts":
+        assert segments_of("freq") == [] and segments_of("dft") == []
+        assert "dft_status" not in summary["config"]
+    else:
+        assert segments_of("freq") == ["seg_02"] * 3 and segments_of("dft") == ["seg_02"] * 3
+        second = summary["post_segments"][1]
+        assert "pipeline_stop" not in second
+        assert {"gibbs_mlip", "dft", "gibbs_dft_mlip"} <= set(second)
 
 
 def test_ts_only_higher_energy_irc_endpoint_is_reactant(monkeypatch, tmp_path):
@@ -372,3 +466,215 @@ def test_endpoint_child_requires_current_finite_output(monkeypatch, tmp_path, ou
     else:
         with pytest.raises((click.ClickException, ArtifactClaimError)):
             run()
+
+
+# An endpoint optimization that stops early: the real opt command runs on the
+# two-atom fixture with an ML/MM stand-in (atom 0 is ML, atom 1 movable MM).
+_K = 0.01  # Hartree/Bohr^2
+
+
+class _Well:
+    """E = 1/2 K |x - minimum|^2 (Hartree, Bohr); ``minimum`` is set per test."""
+
+    minimum = np.zeros(6)
+
+    def __init__(self, **kwargs):
+        self.freeze_atoms = list(kwargs.get("freeze_atoms", []))
+        self.core = SimpleNamespace(
+            ml_indices=[0], hess_mm_indices=[1], movable_mm_indices=[1],
+            frozen_layer_indices=[], hess_active_atoms=[0, 1], mlmm_links=[],
+            _ml_backend=None,
+        )
+
+    def get_energy(self, atoms, coords):
+        d = np.asarray(coords, dtype=float).reshape(-1) - self.minimum
+        return {"energy": float(0.5 * _K * d @ d)}
+
+    def get_forces(self, atoms, coords):
+        d = np.asarray(coords, dtype=float).reshape(-1) - self.minimum
+        return {**self.get_energy(atoms, coords), "forces": -_K * d}
+
+    def get_hessian(self, atoms, coords):
+        return {**self.get_forces(atoms, coords), "hessian": _K * torch.eye(6, dtype=torch.float64)}
+
+
+class _ZeroStepLBFGS(LBFGS):
+    """LBFGS whose second step has zero length, so pysisyphus raises ZeroStepLength."""
+
+    def optimize(self):
+        step = super().optimize()
+        return 0.0 * step if self.cur_cycle >= 1 else step
+
+
+class _RejectedRFO(RFOptimizer):
+    """RFO whose second cycle fails, as on a rejected trust-radius update."""
+
+    def optimize(self):
+        if self.cur_cycle >= 1:
+            raise OptimizationError("Actual energy change too high!")
+        return super().optimize()
+
+
+# path: (opt arguments, patched optimizer, its exception text, the standalone error line)
+_EARLY_STOPS = {
+    "lbfgs": (["--opt-mode", "grad"], "LBFGS", _ZeroStepLBFGS, "",
+              "ERROR: Step length fell below the minimum allowed (ZeroStepLength)."),
+    "rfo": (["--opt-mode", "hess", "--no-microiter"], "RFOptimizer", _RejectedRFO,
+            "Actual energy change too high!",
+            "ERROR: Optimization failed - Actual energy change too high!"),
+    # The macro (ONIOM) step and the MM relaxation of the microiteration.
+    "macro": (["--opt-mode", "hess", "--microiter"], "RFOptimizer", _RejectedRFO,
+              "Actual energy change too high!",
+              "ERROR: Optimization failed - Actual energy change too high!"),
+    "micro": (["--opt-mode", "hess", "--microiter"], "LBFGS", _ZeroStepLBFGS, "",
+              "ERROR: Step length fell below the minimum allowed (ZeroStepLength)."),
+}
+
+
+def _bohr(values):
+    return np.ravel(values) * ANG2BOHR
+
+
+def _install_endpoint_opt(monkeypatch, path, minimum):
+    """Let the real opt command run on the fixture; its optimizer stops early on ``path``."""
+    _args, name, optimizer, _text, _error = _EARLY_STOPS[path]
+    monkeypatch.setattr(opt_workflow, name, optimizer)
+    monkeypatch.setattr(_Well, "minimum", np.asarray(minimum, dtype=float))
+    monkeypatch.setattr(hessian_cache, "_cache", {})
+    for module in (opt_workflow, freq, calc_eval):
+        monkeypatch.setattr(module, "mlmm", _Well)
+    monkeypatch.setattr(opt_workflow, "mlmm_mm_only", lambda _core, **kw: _Well(**kw))
+    monkeypatch.setattr(opt_workflow, "resolve_charge_spin_or_raise", lambda *_a, **_k: (0, 1))
+    monkeypatch.setattr(opt_workflow, "load_pdb_atom_metadata", lambda *_a: [])
+
+    def layers(*, source_path, calc_cfg, **_kwargs):
+        calc_cfg["model_pdb"] = str(source_path)
+        return source_path, None
+
+    monkeypatch.setattr(opt_workflow, "resolve_ml_layer_assignment", layers)
+
+
+def _well_minimum(frame, path):
+    """The C atom is pulled away from the start; O only on the MM-relaxation path."""
+    offset = np.zeros((2, 3))
+    offset[0] = (-1.0, 0.0, -1.0)
+    if path == "micro":
+        offset[1] = (1.0, 0.0, 1.0)
+    return _bohr(coords(frame)) + offset.ravel()
+
+
+@pytest.mark.parametrize("endpoint", [True, False])
+@pytest.mark.parametrize("path", sorted(_EARLY_STOPS))
+def test_opt_that_stops_early_is_not_converged_only_for_an_endpoint(
+    monkeypatch, tmp_path, path, endpoint,
+):
+    """For an endpoint of ``all``, an opt that stops early keeps its last geometry
+    and is not converged, as in pdb2reaction ``all``; the standalone opt command
+    reports the error, as pdb2reaction ``opt`` does."""
+    args, _name, _optimizer, text, error_line = _EARLY_STOPS[path]
+    _install_endpoint_opt(monkeypatch, path, _well_minimum(2.0, path))
+    pdb = write(tmp_path / "product.pdb", pdb_text(2.0))
+    xyz = write(tmp_path / "product.xyz", xyz_text(2.0))
+    parm = write(tmp_path / "fixture.parm7", "Not read: the calculator is replaced.\n")
+    config = write(tmp_path / "cpu.yaml", "calc:\n  ml_device: cpu\n")
+    out = tmp_path / "opt"
+    block = (
+        opt_workflow.keep_last_geometry_on_early_stop("seg_01_product")
+        if endpoint else contextlib.nullcontext()
+    )
+    with block:
+        result = CliRunner().invoke(root_cli, [
+            "opt", "-i", str(xyz), "--ref-pdb", str(pdb), "--parm", str(parm),
+            "--model-pdb", str(pdb), "-q", "0", "-m", "1", "--config", str(config),
+            "--out-dir", str(out), "--out-json", "--no-convert-files", *args,
+        ])
+    report = json.loads((out / "result.json").read_text(encoding="utf-8"))
+
+    assert result.exit_code == 1, result.output[-3000:]
+    if endpoint:
+        assert (
+            f"[endpoint-opt] WARNING: optimization for 'seg_01_product' terminated early "
+            f"({text}); using last geometry."
+        ) in result.output
+        assert error_line not in result.output
+        assert (
+            report["execution_status"], report["scientific_status"], report["optimization_status"],
+        ) == ("completed", "failed", "not_converged")
+        assert "error_type" not in report
+        assert report["n_opt_cycles"] == {"lbfgs": 2, "rfo": 2, "macro": 1, "micro": 0}[path]
+        # The result is the last geometry, not the input.
+        final = _bohr(read_values(out / "final_geometry.xyz"))
+        assert not np.allclose(final, _bohr(coords(2.0)), atol=1e-6)
+        expected = 0.5 * _K * np.sum((final - _Well.minimum) ** 2)
+        assert report["energy_hartree"] == pytest.approx(expected, rel=1e-6)
+    else:
+        assert error_line in result.output
+        assert (report["execution_status"], report["scientific_status"]) == ("failed", "failed")
+        assert report["error_type"] == ("OptimizationError" if text else "ZeroStepLength")
+
+
+@pytest.mark.parametrize("path", ["macro", "lbfgs"])
+@pytest.mark.parametrize("branch", ["ts", "seg"])
+def test_endpoint_that_stops_early_skips_freq_and_dft_of_its_segment(
+    monkeypatch, tmp_path, branch, path,
+):
+    """An endpoint opt that stops early (OptimizationError on the default
+    microiteration path, ZeroStepLength with LBFGS) is not converged, as in
+    pdb2reaction: the segment keeps the last geometry, freq and DFT of the
+    segment are skipped, and the run is partial with exit 0."""
+    _args, _name, _optimizer, text, _error = _EARLY_STOPS[path]
+    # The product IRC endpoint: frame 0 on the TS-only route, frame 2 on the MEP route.
+    frame = 0.0 if branch == "ts" else 2.0
+
+    def wrap():
+        _install_endpoint_opt(monkeypatch, path, _well_minimum(frame, path))
+        stub = workflow._run_cli_main
+
+        def dispatch(name, cli, args, **kwargs):
+            # The product endpoint runs the real opt command.
+            if name == "opt" and Path(args[args.index("--out-dir") + 1]).name == "P":
+                return REAL_RUN_CLI_MAIN(name, cli, args, **kwargs)
+            return stub(name, cli, args, **kwargs)
+
+        monkeypatch.setattr(workflow, "_run_cli_main", dispatch)
+
+    run = run_all(
+        tmp_path, monkeypatch,
+        frames=(1.0,) if branch == "ts" else (0.0, 2.0),
+        extra=["--tsopt", "--thermo", "--dft",
+               *(["--opt-mode-post", "grad"] if path == "lbfgs" else [])],
+        wrap=wrap,
+    )
+    summary = run.summary
+    (post,) = summary["post_segments"]
+    tag = "product" if branch == "ts" else "seg_01_product"
+    segment = run.out / "segments" / "seg_01"
+    child = segment / "endpoint_opt" / "P"
+
+    assert run.result.exit_code == 0, run.result.output[-3000:]
+    assert (summary["execution_status"], summary["scientific_status"]) == ("completed", "partial")
+    assert summary["scientific_status_reasons"] == ["all:segment_1:endpoint_opt:product_not_converged"]
+    assert (
+        f"[endpoint-opt] WARNING: optimization for '{tag}' terminated early ({text}); "
+        "using last geometry."
+    ) in run.result.output
+    for stage in ("thermo", "dft"):
+        assert (
+            f"[{stage}] seg_01: skipped because the product endpoint optimization did not converge"
+            in run.result.output
+        )
+    assert post["pipeline_stop"] == {
+        "stage": "endpoint_opt", "segment": 1, "reason": "endpoint_not_converged",
+    }
+    assert post["endpoint_opt"]["product_converged"] is False
+    assert post["endpoint_opt"]["product"]["optimization_status"] == "not_converged"
+    assert "failures" not in post["endpoint_opt"]
+    assert "freq" not in run.child_names() and "dft" not in run.child_names()
+    child_result = json.loads((child / "result.json").read_text(encoding="utf-8"))
+    assert (child_result["execution_status"], child_result["optimization_status"]) == (
+        "completed", "not_converged",
+    )
+    # The segment keeps the last geometry of the stopped optimization.
+    product = read_values(segment / "structures" / "product.xyz")
+    np.testing.assert_allclose(product, read_values(child / "final_geometry.xyz"), atol=1e-5)
+    assert not np.allclose(product, coords(frame), atol=1e-5)

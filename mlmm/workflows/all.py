@@ -1957,6 +1957,41 @@ def _apply_pipeline_truth(
     summary.update(record_completion(summary, command="all"))
 
 
+def _endpoint_not_converged_stop(
+    seg_idx: int,
+    react_conv: Optional[bool],
+    prod_conv: Optional[bool],
+    *,
+    do_thermo: bool,
+    do_dft: bool,
+) -> Optional[Dict[str, Any]]:
+    """Return the stop of a segment whose freq and DFT are skipped, or None.
+
+    An endpoint whose optimization did not converge (``not_converged`` or
+    ``stalled``) is not a confirmed minimum, so freq and DFT are not run for
+    the TS, R and P of that segment, as for a TS that stops before IRC. One
+    line is printed per skipped stage. The TS, IRC, endpoint and ML/MM results
+    stay, the later segments are still processed, and the endpoint reason of
+    the segment explains the partial result.
+    """
+    states = [
+        state
+        for state, converged in (("reactant", react_conv), ("product", prod_conv))
+        if converged is False
+    ]
+    stages = [name for name, requested in (("thermo", do_thermo), ("dft", do_dft)) if requested]
+    if not states or not stages:
+        return None
+    cause = (
+        f"the {states[0]} endpoint optimization did not converge"
+        if len(states) == 1
+        else "the reactant and product endpoint optimizations did not converge"
+    )
+    for name in stages:
+        _echo(f"[{name}] seg_{seg_idx:02d}: skipped because {cause}", err=True)
+    return {"stage": "endpoint_opt", "segment": seg_idx, "reason": "endpoint_not_converged"}
+
+
 def _derive_pipeline_status(
     summary: dict,
     *,
@@ -2025,6 +2060,15 @@ def _derive_pipeline_status(
                     )
                 if not item.get("irc_traj"):
                     reasons.append(f"{prefix}: IRC trajectory is missing")
+            stop = item.get("pipeline_stop")
+            if (
+                isinstance(stop, dict)
+                and stop.get("stage") == "endpoint_opt"
+                and stop.get("reason") == "endpoint_not_converged"
+            ):
+                # freq and DFT were skipped because an endpoint optimization
+                # did not converge; the endpoint reason explains the result.
+                continue
             if cfg.get("thermo"):
                 if not isinstance(item.get("gibbs_mlip"), dict):
                     reasons.append(
@@ -3957,6 +4001,7 @@ def _run_opt_for_state(
     outcome: Optional[Dict[str, Any]] = None,
     topology_pdb: Optional[Path] = None,
     precision: Optional[str] = None,
+    tag: Optional[str] = None,
 ) -> Tuple[Any, Path, Optional[bool]]:
     """
     Run opt CLI for a single endpoint and return
@@ -3967,6 +4012,9 @@ def _run_opt_for_state(
     optimization did not explicitly converge is still retained as a geometry /
     artifact but must not promote its segment to a usable success. ``--out-json``
     is forced on so that the convergence bit is always emitted.
+    An optimization that stops early with ZeroStepLength or OptimizationError
+    keeps its last geometry and is not converged; the warning names ``tag``
+    (default: the input file name).
     Both the result and finite terminal geometry must belong to this invocation;
     missing, unreadable or stale output raises before any refined consumer runs.
     When ``outcome`` is supplied, it is populated from the child result with
@@ -4043,7 +4091,8 @@ def _run_opt_for_state(
         endpoint_manifest = InvocationManifest()
         endpoint_manifest.declare("result", [opt_dir / "result.json"])
         endpoint_manifest.declare("final", [opt_dir / "final_geometry.xyz", opt_dir / "final_geometry.pdb"])
-        _run_cli_main("opt", _opt_cli.cli, args, on_nonzero="result", on_exception="raise", prefix="endpoint-opt")
+        with _opt_cli.keep_last_geometry_on_early_stop(tag or input_label):
+            _run_cli_main("opt", _opt_cli.cli, args, on_nonzero="result", on_exception="raise", prefix="endpoint-opt")
 
         # Read the endpoint opt child's explicit convergence bit from its
         # result.json (fail-closed tri-state) so a nonconverged endpoint cannot
@@ -6771,7 +6820,9 @@ def cli(
         Returns the stage values with ``status``: ``"stopped_before_irc"``
         (the TS optimization does not allow IRC), ``"endpoint_failed"`` (an
         endpoint optimization raised; the calculator is already released) or
-        ``"done"``.
+        ``"done"``. With ``"done"``, ``endpoint_stop`` is the stop record when
+        an endpoint optimization did not converge and freq and DFT were
+        skipped, otherwise None.
         """
         ts_only = seg_tag is None
         ts_label = "TS" if ts_only else f"TS{seg_idx}"
@@ -6979,6 +7030,7 @@ def cli(
         react_hk, prod_hk = (
             ("irc_right", "irc_left") if flipped else ("irc_left", "irc_right")
         )
+        endpoint_prefix = "" if ts_only else f"seg_{seg_idx:02d}_"
         optimized: Dict[str, Tuple[Any, Optional[bool], Dict[str, Any]]] = {}
         for state, role, g_irc, p_irc, x_irc, hess_key in (
             ("reactant", "R", g_react_irc, p_react_irc, x_react_irc, react_hk),
@@ -7017,6 +7069,7 @@ def cli(
                     scf_checkpoint=scf_checkpoints.get(role),
                     outcome=opt_outcome,
                     topology_pdb=getattr(gT, "_tsopt_topology_pdb", None),
+                    tag=f"{endpoint_prefix}{state}",
                 )
             except Exception as e:
                 _echo(
@@ -7185,7 +7238,11 @@ def cli(
         dft_all_ok = not do_dft
         GR_dftMLIP = GT_dftMLIP = GP_dftMLIP = None
 
-        if do_thermo:
+        endpoint_stop = _endpoint_not_converged_stop(
+            seg_idx, react_conv, prod_conv, do_thermo=do_thermo, do_dft=do_dft
+        )
+
+        if do_thermo and endpoint_stop is None:
             _echo_detail(f"[thermo] {stage_label}: freq on TS/R/P")
             tT = _run_freq_for_state(
                 pT, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
@@ -7293,7 +7350,7 @@ def cli(
                 )
 
         # DFT single-point and (optionally) DFT//MLIP/MM Gibbs
-        if do_dft:
+        if do_dft and endpoint_stop is None:
             _echo_detail(f"[dft] {stage_label}: DFT on R/TS/P")
             dR = _run_dft_for_state(
                 p_react, q_int, spin, real_parm7_path, ml_region_pdb, detect_layer,
@@ -7481,6 +7538,8 @@ def cli(
                 diagram_path=str((seg_dir / "energy_diagram_MLIP").with_suffix(".png")),
                 structures=_structs_seg,
             )
+            if endpoint_stop is not None:
+                record["pipeline_stop"] = dict(endpoint_stop)
             if GR is not None and GT is not None and GP is not None:
                 record["gibbs_mlip"] = build_energy_level_dict(
                     labels=["R", "TS", "P"],
@@ -7527,6 +7586,7 @@ def cli(
             dft_energies=(eR_dft, eT_dft, eP_dft),
             dft_all_ok=dft_all_ok,
             G_dft_mlip=(GR_dftMLIP, GT_dftMLIP, GP_dftMLIP),
+            endpoint_stop=endpoint_stop,
         )
         return post
 
@@ -7798,6 +7858,16 @@ def cli(
         eR_dft, eT_dft, eP_dft = post["dft_energies"]
         _dft_all_ok = post["dft_all_ok"]
         GR_dftMLIP, GT_dftMLIP, GP_dftMLIP = post["G_dft_mlip"]
+        # Set when an endpoint did not converge and freq and DFT were skipped.
+        _endpoint_stop = post["endpoint_stop"]
+        _ts_only_dft_status = (
+            "failed"
+            if do_dft and not _dft_all_ok
+            else ("converged" if do_dft else None)
+        )
+        if _endpoint_stop is not None:
+            # The DFT stage was not reached, as on the other TS-only stops.
+            _ts_only_dft_status = None
 
         # Summary.yaml / summary.log for TSOPT-only mode
         barrier = (eT - e_react) * AU2KCALPERMOL
@@ -7933,6 +8003,8 @@ def cli(
             diagram_path=str((tsroot / "energy_diagram_MLIP").with_suffix(".png")),
             structures=_structs,
         )
+        if _endpoint_stop is not None:
+            segment_log["pipeline_stop"] = dict(_endpoint_stop)
         if GR is not None and GT is not None and GP is not None:
             segment_log["gibbs_mlip"] = build_energy_level_dict(
                 labels=["R", "TS", "P"],
@@ -7976,11 +8048,7 @@ def cli(
             "tsopt": do_tsopt,
             "thermo": do_thermo,
             "dft": do_dft,
-            "dft_status": (
-                "failed"
-                if do_dft and not _dft_all_ok
-                else ("converged" if do_dft else None)
-            ),
+            "dft_status": _ts_only_dft_status,
             "opt_mode": opt_mode_norm,
             "opt_mode_post": tsopt_opt_mode_default,
             "path_opt_mode": None,
@@ -8027,7 +8095,8 @@ def cli(
                 command=command_str,
                 post_segments=[segment_log],
                 config=_summary_config(
-                    dft_status=summary_payload["dft_status"], dft_stage_done=True
+                    dft_status=summary_payload["dft_status"],
+                    dft_stage_done=_endpoint_stop is None,
                 ),
             )
             for key in (
