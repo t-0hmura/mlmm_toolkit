@@ -222,6 +222,53 @@ def test_bond_diagnostics_do_not_suppress_requested_postprocessing(bond_changes)
     assert truth.expected_item_ids == ("segment_1",)
 
 
+def test_kink_segment_is_not_a_requested_ts_segment():
+    from mlmm.workflows.all import _is_reactive_segment
+
+    kink = {"index": 2, "tag": "seg_000_kink", "kind": "kink", "converged": True,
+            "barrier_kcal": None, "bond_changes": "(no covalent changes detected)"}
+    assert not _is_reactive_segment(kink)
+    summary = {
+        "segments": [
+            {"index": 1, "tag": "seg_001_refine", "kind": "seg",
+             "converged": True, "bond_changes": "forming 1-2"},
+            kink,
+        ],
+        "energy_diagrams": [{"name": "MEP"}],
+    }
+    # Only the reactive segment gets a post-processing record, as in `all`.
+    post_segments = [
+        {
+            "index": 1,
+            "tsopt": {"optimization_status": "converged", "continue_irc": True},
+            "mlip": {},
+            "irc_traj": "seg_01/irc.trj",
+            "irc": {"usable": True, "traj": "seg_01/irc.trj"},
+            "endpoint_assignment": {"connectivity_validated": True},
+            "endpoint_opt": {
+                "reactant_converged": True,
+                "product_converged": True,
+                "connectivity_validated": True,
+            },
+            "ts_imag": {"n_imag": 1},
+        }
+    ]
+    config = {"tsopt": True, "thermo": False, "dft": False}
+
+    status, reasons = _derive_pipeline_status(
+        summary, post_segments=post_segments, config=config,
+    )
+    truth = _pipeline_aggregate_truth(
+        summary, post_segments=post_segments, config=config,
+        legacy_status=status, legacy_reasons=reasons,
+    )
+
+    assert not any("segment 2" in reason for reason in reasons)
+    assert status == "success"
+    assert truth.scientific_status == "success"
+    assert truth.expected_item_ids == ("segment_1",)
+
+
 def test_failed_segment_dft_is_partial() -> None:
     summary = {
         "segments": [{"index": 1, "kind": "seg", "converged": True}],

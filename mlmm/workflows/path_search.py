@@ -440,10 +440,10 @@ class GSMResult:
 @dataclass
 class SegmentReport:
     tag: str
-    barrier_kcal: float
+    barrier_kcal: Optional[float]
     delta_kcal: float
     summary: str  # summarize_changes string (empty for bridges)
-    kind: str = "seg"          # "seg" or "bridge"
+    kind: str = "seg"          # "seg", "kink", or "bridge"
     seg_index: int = 0         # 1-based index along final MEP (assigned later)
     # the segment's optimizer convergence, threaded from GSMResult. A
     # reactive segment whose optimizer did not explicitly converge is unusable
@@ -1524,7 +1524,8 @@ def _build_multistep_path(
         )
 
     _changed, step_summary = _has_bond_change(step_imgs[0], step_imgs[-1], bond_cfg)
-    _tag_images(step_imgs, mep_seg_tag=step_tag_for_report, mep_seg_kind="seg",
+    step_kind = "kink" if use_kink else "seg"
+    _tag_images(step_imgs, mep_seg_tag=step_tag_for_report, mep_seg_kind=step_kind,
                 mep_has_bond_changes=bool(_changed), pair_index=pair_index)
 
     left_changed, left_summary = _has_bond_change(gA, left_end, bond_cfg)
@@ -1546,10 +1547,10 @@ def _build_multistep_path(
 
     seg_report = SegmentReport(
         tag=step_tag_for_report,
-        barrier_kcal=float(barrier_kcal),
+        barrier_kcal=None if use_kink else float(barrier_kcal),
         delta_kcal=float(delta_kcal),
         summary=step_summary if _changed else "(no covalent changes detected)",
-        kind="seg",
+        kind=step_kind,
         converged=getattr(ref1, "is_converged", None),
     )
 
@@ -2809,7 +2810,11 @@ def cli(
                     "index": int(s.seg_index),
                     "tag": s.tag,
                     "kind": s.kind,
-                    "barrier_kcal": float(s.barrier_kcal),
+                    "barrier_kcal": (
+                        float(s.barrier_kcal)
+                        if s.barrier_kcal is not None
+                        else None
+                    ),
                     "delta_kcal": float(s.delta_kcal),
                     "bond_changes": (s.summary if (s.kind != "bridge") else ""),
                     # the segment's reported optimizer convergence, so the
@@ -2849,13 +2854,20 @@ def cli(
         if combined_all.segments:
             emit("\n[segments] Along the final MEP order (ΔE‡, ΔE). Bridges are shown between connected segments:", narrative=True)
             for i, seg in enumerate(combined_all.segments, 1):
-                kind_label = "BRIDGE" if seg.kind == "bridge" else "SEG"
-                emit(
-                    f"  [{i:02d}] ({kind_label}) {seg.tag}  |  "
-                    f"ΔE‡ = {seg.barrier_kcal:.2f} kcal/mol,  "
-                    f"ΔE = {seg.delta_kcal:.2f} kcal/mol",
-                    narrative=True,
-                )
+                kind_label = seg.kind.upper()
+                if seg.kind == "kink":
+                    emit(
+                        f"  [{i:02d}] ({kind_label}) {seg.tag}  |  "
+                        f"non-MEP connector, ΔE = {seg.delta_kcal:.2f} kcal/mol",
+                        narrative=True,
+                    )
+                else:
+                    emit(
+                        f"  [{i:02d}] ({kind_label}) {seg.tag}  |  "
+                        f"ΔE‡ = {seg.barrier_kcal:.2f} kcal/mol,  "
+                        f"ΔE = {seg.delta_kcal:.2f} kcal/mol",
+                        narrative=True,
+                    )
                 if seg.kind != "bridge" and seg.summary.strip():
                     emit(
                         textwrap.indent(seg.summary.strip(), prefix="      "),
