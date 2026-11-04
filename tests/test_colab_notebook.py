@@ -7137,7 +7137,7 @@ def test_pip_passes_child_environment_without_mutating_parent(monkeypatch) -> No
     assert dict(os.environ) == original
 
 
-def _run_backend_install_branch(monkeypatch, backend, *, calls, failure_at=None, check_failure=False):
+def _run_backend_install_branch(monkeypatch, backend, *, calls, failure_at=None):
     """Run one `if backend == ...` branch of the install cell with recording stand-ins."""
     setup = ast.parse(_notebook()["cells"][1]["source"])
     branch = next(
@@ -7156,25 +7156,17 @@ def _run_backend_install_branch(monkeypatch, backend, *, calls, failure_at=None,
         if args[0] == failure_at:
             raise subprocess.CalledProcessError(1, ["pip", *args], output="build diagnostic")
 
-    def fake_pip_check(ignore=()):
-        calls.append(("pip check", tuple(ignore)))
-        if check_failure:
-            raise RuntimeError("pip check found broken requirements")
-
     monkeypatch.setattr(subprocess, "run", lambda argv, **kwargs: calls.append(("run", list(argv))))
-    namespace = {"pip": fake_pip, "_pip_check": fake_pip_check, "subprocess": subprocess, "sys": sys}
+    namespace = {"pip": fake_pip, "subprocess": subprocess, "sys": sys}
     exec(compile(ast.Module(body=branch.body, type_ignores=[]), str(NOTEBOOK), "exec"), namespace)
 
 
-def test_orb_installs_with_fairchem_core_and_ends_with_pip_check(monkeypatch, capsys) -> None:
+def test_orb_installs_with_fairchem_core(monkeypatch, capsys) -> None:
     # orb-models 0.7 pins nvalchemi-toolkit-ops<0.4 (fairchem-core 2.24 needs >=0.4.1); naming both
     # in one install lets pip choose a consistent pair instead of a --no-deps install over the base.
     calls = []
     _run_backend_install_branch(monkeypatch, "orb", calls=calls)
-    assert calls == [
-        ("pip", ("orb-models==0.7.0", "fairchem-core>=2.22,<3"), {}),
-        ("pip check", ()),
-    ]
+    assert calls == [("pip", ("orb-models==0.7.0", "fairchem-core>=2.22,<3"), {})]
     assert "ORB installed" in capsys.readouterr().out
 
 
@@ -7188,21 +7180,14 @@ def test_orb_installer_failure_retains_original_error(monkeypatch, capsys) -> No
     assert "ORB installed" not in capsys.readouterr().out
 
 
-def test_orb_pip_check_failure_stops_before_the_ready_message(monkeypatch, capsys) -> None:
-    with pytest.raises(RuntimeError, match="pip check found broken requirements"):
-        _run_backend_install_branch(monkeypatch, "orb", calls=[], check_failure=True)
-    assert "ORB installed" not in capsys.readouterr().out
-
-
-def test_mace_install_keeps_torch_and_expects_fairchem_core_missing(monkeypatch, capsys) -> None:
+def test_mace_install_removes_fairchem_core_and_keeps_torch(monkeypatch, capsys) -> None:
     # torchvision==0.23.0 requires torch==2.8.0, so pinning it replaced the torch that the tool needs.
     # torchvision 0.28 requires torch==2.13.0, the torch the tool installs, so it keeps that torch.
     calls = []
     _run_backend_install_branch(monkeypatch, "mace", calls=calls)
-    assert [call[0] for call in calls] == ["run", "pip", "pip check", "run"]
+    assert [call[0] for call in calls] == ["run", "pip", "run"]
     assert calls[0][1][-5:] == ["pip", "uninstall", "-y", "-q", "fairchem-core"]
     assert calls[1] == ("pip", ("mace-torch>=0.3.16", "torchvision>=0.28,<0.29"), {})
-    assert calls[2] == ("pip check", ("requires fairchem-core, which is not installed",))
     assert "MACE installed" in capsys.readouterr().out
 
 
@@ -7216,63 +7201,6 @@ def test_mace_torchvision_range_follows_the_torch_the_tool_requires() -> None:
     lower, upper = int(torch_pin.group(1)), int(torch_pin.group(2))
     assert upper == lower + 1
     assert f"'torchvision>=0.{lower + 15},<0.{upper + 15}'" in _notebook()["cells"][1]["source"]
-
-
-def _pip_check_from_setup(monkeypatch, *, returncode, stdout):
-    setup = ast.parse(_notebook()["cells"][1]["source"])
-    definition = next(node for node in setup.body
-                      if isinstance(node, ast.FunctionDef) and node.name == "_pip_check")
-    namespace = {"subprocess": subprocess, "sys": sys}
-    exec(compile(ast.Module(body=[definition], type_ignores=[]), str(NOTEBOOK), "exec"), namespace)
-    calls = []
-    monkeypatch.setattr(subprocess, "run", lambda argv, **kwargs: calls.append(argv) or
-                        types.SimpleNamespace(returncode=returncode, stdout=stdout))
-    return namespace["_pip_check"], calls
-
-
-_COLAB_ONLY_CONFLICTS = (
-    "google-colab 1.0.0 has requirement pandas==2.2.2, but you have pandas 2.3.3.\n"
-    "torchvision 0.23.0 has requirement torch==2.8.0, but you have torch 2.13.0.\n"
-)
-
-
-def test_pip_check_passes_when_pip_reports_nothing(monkeypatch) -> None:
-    check, calls = _pip_check_from_setup(monkeypatch, returncode=0, stdout="No broken requirements found.\n")
-    check()
-    assert calls == [[sys.executable, "-m", "pip", "check"]]
-
-
-def test_pip_check_ignores_conflicts_among_colab_preinstalled_packages(monkeypatch) -> None:
-    check, _ = _pip_check_from_setup(monkeypatch, returncode=1, stdout=_COLAB_ONLY_CONFLICTS)
-    check()
-
-
-def test_pip_check_reports_broken_requirements_of_the_tool_and_backend(monkeypatch) -> None:
-    ours = (
-        "orb-models 0.7.0 has requirement dm-tree==0.1.8, but you have dm-tree 0.1.9.\n"
-        "fairchem-core 2.24.0 has requirement nvalchemi-toolkit-ops>=0.4.1, but you have "
-        "nvalchemi-toolkit-ops 0.3.1.\n"
-        "mlmm-toolkit 0.6.0 has requirement torch<2.14,>=2.13, but you have torch 2.8.0.\n"
-    )
-    check, _ = _pip_check_from_setup(monkeypatch, returncode=1, stdout=_COLAB_ONLY_CONFLICTS + ours)
-    with pytest.raises(RuntimeError) as raised:
-        check()
-    message = str(raised.value)
-    assert all(line in message for line in ours.splitlines())
-    assert "google-colab" not in message and "torchvision" not in message
-
-
-def test_pip_check_skips_only_the_listed_expected_line(monkeypatch) -> None:
-    missing = "mlmm-toolkit 0.6.0 requires fairchem-core, which is not installed.\n"
-    expected = ("requires fairchem-core, which is not installed",)
-    check, _ = _pip_check_from_setup(monkeypatch, returncode=1, stdout=missing)
-    check(ignore=expected)
-    with pytest.raises(RuntimeError, match="fairchem-core, which is not installed"):
-        check()
-    other = "mlmm-toolkit 0.6.0 requires pyscf, which is not installed.\n"
-    check, _ = _pip_check_from_setup(monkeypatch, returncode=1, stdout=missing + other)
-    with pytest.raises(RuntimeError, match="requires pyscf"):
-        check(ignore=expected)
 
 
 def test_installation_hides_only_the_duplicate_cupy_warning() -> None:
