@@ -103,6 +103,7 @@ from mlmm.core.utils import (
     emit_optimizer_terminal_status,
     finalize_microiter_macro_convergence,
     optimizer_cycle_count,
+    optimizer_final_forces,
     optional_positive_int,
 )
 from mlmm.workflows._microiteration import (
@@ -1768,6 +1769,11 @@ class HessianDimer:
         self.imaginary_frequencies_cm: List[float] = []
         self.hessian_status = "not_run"
         self.hessian_error: Optional[str] = None
+        # (max, rms) force and step, and the convergence thresholds, of the
+        # last LBFGS segment (result.json).
+        self.final_forces: Optional[Tuple[float, float]] = None
+        self.final_steps: Optional[Tuple[float, float]] = None
+        self.convergence_thresholds: Optional[Dict[str, float]] = None
 
         # ``--read-hess`` Hessian for the initial direction (set by the CLI).
         self.initial_hessian: Optional[Dict[str, Any]] = None
@@ -1920,6 +1926,17 @@ class HessianDimer:
         # to the requested segment step count.
         steps = min(max(int(opt.cur_cycle) + 1, 1), int(n_steps))
         converged = opt.is_converged
+        self.final_forces = optimizer_final_forces(opt)
+        self.final_steps = (
+            (float(opt.max_steps[-1]), float(opt.rms_steps[-1]))
+            if getattr(opt, "max_steps", None)
+            else None
+        )
+        self.convergence_thresholds = (
+            {k: float(v) for k, v in opt.convergence.items()}
+            if getattr(opt, "convergence", None)
+            else None
+        )
         # Propagate an energy-plateau stall from the child LBFGS . A
         # stalled child is not converged; the caller stops all later segments.
         if getattr(opt, "is_stalled", False):
@@ -5581,6 +5598,27 @@ def cli(
             )
         if _tsopt_stop_reason:
             result_data["stop_reason"] = _tsopt_stop_reason
+        # On the microiteration path, last_optimizer is the macro (outer ONIOM) optimizer.
+        if use_heavy:
+            _final_forces = optimizer_final_forces(last_optimizer)
+            _final_steps = (
+                (float(last_optimizer.max_steps[-1]), float(last_optimizer.rms_steps[-1]))
+                if getattr(last_optimizer, "max_steps", None)
+                else None
+            )
+            _convergence_thresholds = getattr(last_optimizer, "convergence", None)
+        else:
+            _final_forces = getattr(runner, "final_forces", None)
+            _final_steps = getattr(runner, "final_steps", None)
+            _convergence_thresholds = getattr(runner, "convergence_thresholds", None)
+        if _final_forces is not None:
+            result_data["final_max_force"], result_data["final_rms_force"] = _final_forces
+        if _convergence_thresholds:
+            result_data["convergence_thresholds"] = {
+                k: float(v) for k, v in _convergence_thresholds.items()
+            }
+        if _final_steps is not None:
+            result_data["final_max_step"], result_data["final_rms_step"] = _final_steps
         for ext in (".pdb", ".gjf"):
             f = out_dir_path / f"final_geometry{ext}"
             if f.exists():

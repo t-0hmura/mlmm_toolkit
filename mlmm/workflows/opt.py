@@ -2465,28 +2465,34 @@ def cli(
             }
         if rigid_projection_info:
             result_data["rigid_projection"] = dict(rigid_projection_info)
-        # Final force convergence values
-        _final_forces = optimizer_final_forces(terminal_optimizer)
+        # Final force convergence values; the microiteration path keeps its
+        # macro (outer ONIOM) optimizer in its result.
+        _final_optimizer = (
+            (terminal_microiter_result or {}).get("optimizer")
+            if terminal_use_microiter
+            else terminal_optimizer
+        )
+        _final_forces = optimizer_final_forces(_final_optimizer)
         if _final_forces is not None:
             result_data["final_max_force"], result_data["final_rms_force"] = _final_forces
         # Convergence thresholds (numeric values for the named preset)
         if (
-            terminal_optimizer is not None
-            and hasattr(terminal_optimizer, "convergence")
-            and terminal_optimizer.convergence
+            _final_optimizer is not None
+            and hasattr(_final_optimizer, "convergence")
+            and _final_optimizer.convergence
         ):
             result_data["convergence_thresholds"] = {
                 k: float(v)
-                for k, v in terminal_optimizer.convergence.items()
+                for k, v in _final_optimizer.convergence.items()
             }
         # Final step convergence values
         if (
-            terminal_optimizer is not None
-            and hasattr(terminal_optimizer, "max_steps")
-            and terminal_optimizer.max_steps
+            _final_optimizer is not None
+            and hasattr(_final_optimizer, "max_steps")
+            and _final_optimizer.max_steps
         ):
-            result_data["final_max_step"] = float(terminal_optimizer.max_steps[-1])
-            result_data["final_rms_step"] = float(terminal_optimizer.rms_steps[-1])
+            result_data["final_max_step"] = float(_final_optimizer.max_steps[-1])
+            result_data["final_rms_step"] = float(_final_optimizer.rms_steps[-1])
         # Add PDB/GJF if generated
         for ext in (".pdb", ".gjf"):
             f = out_dir_path / f"final_geometry{ext}"
