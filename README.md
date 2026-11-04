@@ -41,7 +41,7 @@ Starting from the reactant (R) and product (P) structures of the full system, th
 - **Python:** 3.12 (recommended) or 3.13.
 - **GPU:** an NVIDIA GPU.
 - **AmberTools (`tleap`):** builds the topology in `mm-parm` and `all`; not needed when you reuse a matching `--parm7`.
-- **C++20 compiler:** for the default `hessian_ff` MM backend; `cxx-compiler` in the conda command below installs it. UMA on a GPU also needs a C compiler (`gcc`), as does `--compile` (`g++` on a CPU).
+- **C++20 compiler:** for the default `hessian_ff` MM backend. UMA on a GPU also needs a C compiler (`gcc`), as does `--compile` (`g++` on a CPU).
 - **Chrome libraries:** image export (PNG, JPEG, SVG, PDF) needs operating-system libraries that pip and conda do not install: [System prerequisites](docs/installation.md#system-prerequisites).
 - **pdbfixer:** needed only for `mm-parm --add-h`.
 
@@ -50,8 +50,10 @@ Full requirements and step-by-step setup: [docs/installation.md](docs/installati
 ```bash
 # 1. New env + AmberTools + xTB + CUDA-enabled PyTorch, all from conda-forge
 #    (cuda129 instead of cuda130 when nvidia-smi shows CUDA below 13.0)
-conda create -n mlmm-toolkit -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt xtb "pytorch=2.13.0=cuda130*" cuda-nvcc -y
-conda activate mlmm-toolkit
+conda create -n mlmm -c conda-forge python=3.12 \
+  ambertools=24.8 "numpy>=2,<2.5" pdbfixer \
+  cyipopt xtb "pytorch=2.13.0=cuda130*"
+conda activate mlmm
 
 # 2. Install mlmm-toolkit and headless Chrome for image export of plots (PNG, JPEG, SVG, PDF)
 pip install mlmm-toolkit
@@ -69,7 +71,7 @@ hf auth login                               # interactive
 
 | Extra | Adds |
 |---|---|
-| `[orb]` / `[aimnet]` | Orb / AIMNet2 MLIP backend (`-b orb` / `-b aimnet2`) — *not* HF-gated; install `[orb]` in a separate Python 3.12 env |
+| `[aimnet]` | AIMNet2 MLIP backend (`-b aimnet2`) — *not* HF-gated |
 | `[dft]` / `[dft-cuda12]` | DFT calculator and standalone command with native CUDA 13 / CUDA 12 GPU4PySCF |
 | `[pdbfixer]` | PDBFixer extra (alternative to the conda install above) |
 | `[openmm]` | OpenMM low-level backend, including virtual-site water models |

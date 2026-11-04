@@ -194,7 +194,7 @@ ORDERED_SNIPPETS: dict[Path, tuple[str, ...]] = {
     Path("skills/mlmm-install/backends.md"): (
         "Install mlmm first, then replace its incompatible UMA dependency with MACE.",
         "pip uninstall -y fairchem-core",
-        "pip install 'mace-torch>=0.3.16'",
+        "pip install mace-torch",
     ),
 }
 
@@ -360,7 +360,8 @@ def main() -> int:
 
     for rel, snippets in ORDERED_SNIPPETS.items():
         text = (REPO_ROOT / rel).read_text(encoding="utf-8")
-        positions = [text.find(snippet) for snippet in snippets]
+        start = max(0, text.find(snippets[0]))
+        positions = [text.find(snippet, start) for snippet in snippets]
         if any(position < 0 for position in positions) or positions != sorted(positions):
             errors.append(
                 f"{rel}: MACE environment order must be mlmm install, "

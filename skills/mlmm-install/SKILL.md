@@ -38,7 +38,7 @@ and the checks in [Verify the install](#verify-the-install) pass.
    ([xTB](backends.md#xtb-point-charge-correction)).
 
 ```bash
-conda create -n <YOUR_ENV> -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt xtb "pytorch=2.13.0=cuda130*" cuda-nvcc -y
+conda create -n <YOUR_ENV> -c conda-forge python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cyipopt xtb "pytorch=2.13.0=cuda130*" -y
 conda activate <YOUR_ENV>
 pip install mlmm-toolkit                 # UMA via fairchem-core
 plotly_get_chrome -y                     # headless Chrome; needs network
@@ -47,26 +47,22 @@ hf auth login                            # after accepting the license on facebo
 
 ## System packages
 
-pip and conda do not install the libraries of Chrome, and an environment built
-without `cxx-compiler` has no compiler; a bare container or cluster node often
-lacks both. On a GPU, UMA compiles code at run time for speed and needs a C compiler
+`pip install mlmm-toolkit` does not install a compiler or the libraries of Chrome;
+a bare container or cluster node often lacks both. On a GPU, UMA compiles code at run time for speed and needs a C compiler
 (`gcc`) even without `--compile`; with `--compile`, UMA and ORB need a C compiler on a
 GPU and a C++ compiler (`g++`) on a CPU; `hessian_ff` needs a C++20 compiler.
 Image export (PNG, JPEG, SVG, PDF) needs the operating-system libraries of the Chrome that
-`plotly_get_chrome -y` downloads. The conda command above installs conda's
-compilers under prefixed names (`x86_64-conda-linux-gnu-gcc`, ...), and
-`conda activate` sets `$CC` and `$CXX` to them. Inside the env, check with
-`$CC --version` (`$CXX --version` for `hessian_ff` and for `--compile` on a CPU); outside it,
-with `gcc --version` (`g++ --version`). Then install what is missing:
+`plotly_get_chrome -y` downloads. Use the existing compiler; check with
+`${CC:-gcc} --version` (`${CXX:-g++} --version` for C++).
+If a compiler or CUDA build component is missing or unsupported, run:
 
 ```bash
-sudo apt-get update && sudo apt-get install -y gcc g++    # Ubuntu/Debian
-sudo dnf install -y gcc gcc-c++                            # Rocky/RHEL
+conda install -c conda-forge -y cuda-nvcc
+conda activate <YOUR_ENV>
 ```
 
-Without sudo, use `module load gcc` or `conda install -c conda-forge c-compiler cxx-compiler`;
-ask the administrator for Chrome's libraries (`all` and `path-search` then skip
-only the PNG files). The Chrome libraries are, for Ubuntu/Debian (Ubuntu 22.04 and
+Then rerun the command. On HPC, ask the administrator for missing Chrome libraries.
+The Chrome libraries are, for Ubuntu/Debian (Ubuntu 22.04 and
 Debian 12: `libasound2` instead of `libasound2t64`):
 
 ```bash
@@ -105,7 +101,6 @@ pip install 'mlmm-toolkit[aimnet,dft]'       # extras as needed
 | Extra | Pulls in | When you need it |
 |---|---|---|
 | (none) | UMA via `fairchem-core`, base deps | Default; `-b uma` works |
-| `[orb]` | `orb-models>=0.7.0` | `-b orb`, in a separate env |
 | `[aimnet]` | `aimnet>=0.2.0` | `-b aimnet2` |
 | `[dft]` | PySCF, CUDA 13 GPU4PySCF and CuPy on Linux x86_64 | DFT with the `cuda130` PyTorch build |
 | `[dft-cuda12]` | PySCF, CUDA 12 GPU4PySCF and CuPy on Linux x86_64 | DFT with the `cuda129` PyTorch build |
@@ -136,10 +131,8 @@ dependencies:
   - ambertools=24.8
   - "numpy>=2,<2.5"
   - pdbfixer
-  - cxx-compiler
   - cyipopt                            # only for DMF
   - pytorch=2.13.0=cuda130*            # cuda129* below CUDA 13.0
-  - cuda-nvcc
   - xtb                                # only for the MLIP/MM correction
   - pip
   - pip:
@@ -155,7 +148,7 @@ separately ([MACE](backends.md#mace-separate-environment)).
 | `-b` | Default model | Install | Notes |
 |---|---|---|---|
 | `uma` (default) | `uma-s-1p2p1`; `uma-s-1p2p1-ft-d4rev`, `uma-s-1p2`, `uma-m-1p1` via `--backend-model` | Core dependency; gated weights need a Hugging Face login | fp32 by default |
-| `orb` | `orbmol-v2`; `orb_v3_conservative_omol` via `--backend-model` | `[orb]` extra in a separate env | fp64 by default; `--precision fp32` is for screening |
+| `orb` | `orbmol-v2`; `orb_v3_conservative_omol` via `--backend-model` | `orb-models` in a separate env | fp64 by default; `--precision fp32` is for screening |
 | `mace` | `MACE-OMOL-0`; `MACE-POLAR-1-S`/`-M`/`-L` (`mace-torch[polar]>=0.3.17`) via `--backend-model` | Separate env (`e3nn` conflict) | fp64 by default |
 | `aimnet2` | `aimnet2`; `aimnet2-2025`, `aimnet2-nse` (open-shell), `aimnet2-pd` via `--backend-model` | `[aimnet]` extra | fp32 only; `--precision fp64` stops with an error |
 
@@ -226,7 +219,7 @@ backend's section in [backends.md](backends.md); a CUDA error points to
 | `OSError: libcusolver.so.<N> not found` (N is 12 for `cuda130`, 11 for `cuda129`) | torch's bundled CUDA libraries missing or shadowed by `LD_LIBRARY_PATH` | [CUDA and PyTorch](backends.md#cuda-and-pytorch) |
 | `RuntimeError: CUDA out of memory` during `freq` | Active Hessian exceeds GPU memory | Reduce the active region, keep `return_partial_hessian: true`, and compare `Analytical` with `FiniteDifference` on a pilot ([freq](../mlmm-cli/freq.md)) |
 | `tleap: command not found` | AmberTools missing or not sourced | [ambertools.md](ambertools.md) |
-| `Missing system prerequisite: C compiler (gcc).` or `C++ compiler (g++).`; a PyTorch error `Failed to find C compiler` or `No working C++ compiler found` | No compiler on `PATH`; UMA on a GPU, and UMA and ORB with `--compile`, compile code at run time for speed | Install `gcc` (`g++` for `--compile` on a CPU): [System packages](#system-packages); on a cluster, `module load gcc` in the job script |
+| `Missing system prerequisite: C compiler (gcc).` or `C++ compiler (g++).`; a PyTorch error `Failed to find C compiler` or `No working C++ compiler found` | No compiler on `PATH`; UMA on a GPU, and UMA and ORB with `--compile`, compile code at run time for speed | Install `cuda-nvcc` and reactivate the environment: [System packages](#system-packages) |
 | `Missing system prerequisite: Chrome for PNG export.`, or `path-search` / `all` finish without the diagram PNG | No headless Chrome for Plotly, or an operating-system library it needs is missing | `plotly_get_chrome -y`, then the libraries in [System packages](#system-packages) |
 
 ## Upgrade and clean rebuild

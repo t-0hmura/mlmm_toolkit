@@ -18,6 +18,7 @@ import click
 
 KIND_C_COMPILER = "c-compiler"
 KIND_CXX_COMPILER = "cxx-compiler"
+KIND_CUDA = "cuda-toolkit"
 KIND_CHROME = "chrome"
 
 DOCS_URL = "https://t-0hmura.github.io/mlmm_toolkit/installation.html#system-prerequisites"
@@ -29,6 +30,7 @@ _CHROME_ERROR = re.compile(
 _PATTERNS = (
     (KIND_C_COMPILER, re.compile(r"Failed to find C compiler")),
     (KIND_CXX_COMPILER, re.compile(r"No working C\+\+ compiler found|InvalidCxxCompiler")),
+    (KIND_CUDA, re.compile(r"cuda\.h: No such file or directory|Cannot find ptxas|ptxas.*(?:not found|No such file or directory)", re.IGNORECASE)),
     (KIND_CHROME, _CHROME_ERROR),
 )
 
@@ -61,18 +63,20 @@ _MESSAGES = {
     KIND_C_COMPILER: (
         "Missing system prerequisite: C compiler (gcc).\n"
         "  UMA on a GPU, and ORB with --compile, compile code at run time for speed through PyTorch (Triton), and no C compiler was found.\n"
-        "  Install one, then run the command again:\n"
-        "    Ubuntu/Debian:  sudo apt-get update && sudo apt-get install -y gcc\n"
-        "    Rocky/RHEL:     sudo dnf install -y gcc\n"
-        "    No sudo (HPC):  module load gcc   or   conda install -c conda-forge c-compiler"
+        "  Install the build tools, reactivate the environment, and run the command again:\n"
+        "    conda install -c conda-forge cuda-nvcc"
     ),
     KIND_CXX_COMPILER: (
         "Missing system prerequisite: C++ compiler (g++).\n"
         "  With --compile, UMA and ORB compile CPU kernels at run time for speed through PyTorch (Inductor), and no C++ compiler was found.\n"
-        "  Install one, then run the command again:\n"
-        "    Ubuntu/Debian:  sudo apt-get update && sudo apt-get install -y g++\n"
-        "    Rocky/RHEL:     sudo dnf install -y gcc-c++\n"
-        "    No sudo (HPC):  module load gcc   or   conda install -c conda-forge cxx-compiler"
+        "  Install the build tools, reactivate the environment, and run the command again:\n"
+        "    conda install -c conda-forge cuda-nvcc"
+    ),
+    KIND_CUDA: (
+        "Missing system prerequisite: CUDA build tools.\n"
+        "  CUDA kernel compilation needs CUDA headers and ptxas.\n"
+        "  Install the build tools, reactivate the environment, and run the command again:\n"
+        "    conda install -c conda-forge cuda-nvcc"
     ),
     KIND_CHROME: "\n".join((
         "Missing system prerequisite: Chrome for PNG export.",
@@ -91,8 +95,9 @@ _MESSAGES = {
 
 
 _BRIEF = {
-    KIND_C_COMPILER: "Install gcc",
-    KIND_CXX_COMPILER: "Install g++",
+    KIND_C_COMPILER: "Install cuda-nvcc and reactivate the environment",
+    KIND_CXX_COMPILER: "Install cuda-nvcc and reactivate the environment",
+    KIND_CUDA: "Install cuda-nvcc and reactivate the environment",
     KIND_CHROME: "Run plotly_get_chrome -y, then install the operating-system libraries of Chrome",
 }
 

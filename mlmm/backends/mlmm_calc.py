@@ -977,7 +977,7 @@ class _OrbBackend(_ASEMLBackend):
         if not _load_backend_module("HAS_ORB", "orb_models"):
             raise ImportError(
                 "orb-models is required for the ORB backend. "
-                "Install it in a separate environment with `pip install 'mlmm-toolkit[orb]'`."
+                "Install it in a separate environment with `pip uninstall fairchem-core && pip install orb-models`."
             )
         from orb_models.forcefield import pretrained
 

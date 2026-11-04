@@ -78,10 +78,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-orb = [
-    # orb-models 0.7 provides orbmol-v2, the default ORB model.
-    "orb-models>=0.7.0",
-]
 aimnet = ["aimnet>=0.2.0"]
 pdbfixer = ["pdbfixer"]
 openmm = ["openmm"]

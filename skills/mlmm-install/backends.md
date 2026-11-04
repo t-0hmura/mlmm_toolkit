@@ -72,15 +72,13 @@ Pitfalls:
 
 ## ORB (separate environment)
 
-ORB (`-b orb`) is an energy-conserving MLIP from `orb-models`. The `[orb]`
-extra installs orb-models 0.7 or newer. orb-models pins
-`nvalchemi-toolkit-ops<0.4`, so in the same env pip lowers `fairchem-core` to
-2.22, and UMA models that need a newer fairchem (such as `uma-s-1p2p1-ft-d4rev`)
-no longer load. Build a second env as for MACE below and keep UMA in the
-default env. ORB needs Python 3.12: `orb-models` pins `dm-tree==0.1.8`, which has no Python 3.13 wheel.
+ORB (`-b orb`) uses `orb-models`; weights download on first use with no login.
+Its `nvalchemi-toolkit-ops` requirement conflicts with UMA's `fairchem-core`.
+Give ORB its own environment, remove `fairchem-core`, and install `orb-models`.
+ORB needs Python 3.12: `orb-models` pins `dm-tree==0.1.8`, which has no Python 3.13 wheel.
 
 ```bash
-pip install 'mlmm-toolkit[orb]'   # in the ORB env; pulls orb-models
+pip uninstall -y fairchem-core && pip install orb-models   # in the ORB env; pulls orb-models
 python -c "import orb_models; print('orb backend OK:', orb_models.__version__)"
 ```
 
@@ -125,13 +123,12 @@ the backend set differs.
 
 ```bash
 # PyTorch from conda-forge for your CUDA driver (see CUDA and PyTorch)
-conda create -n <YOUR_MACE_ENV> -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt xtb "pytorch=2.13.0=cuda130*" cuda-nvcc -y
+conda create -n <YOUR_MACE_ENV> -c conda-forge python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cyipopt xtb "pytorch=2.13.0=cuda130*" -y
 conda activate <YOUR_MACE_ENV>
 
 # Install mlmm first, then replace its incompatible UMA dependency with MACE.
 pip install mlmm-toolkit
-pip uninstall -y fairchem-core
-pip install 'mace-torch>=0.3.16' # resolves MACE's required e3nn==0.4.4 last
+pip uninstall -y fairchem-core && pip install mace-torch
 
 python -c "import mace; print('mace:', mace.__version__)" && echo "mlmm + mace backend OK"
 ```
@@ -277,15 +274,14 @@ the corresponding CLI options.
 ## CUDA and PyTorch
 
 FAIR-Chem selects PyTorch 2.13. The mlmm env takes PyTorch 2.13.0 from
-conda-forge in the same command as AmberTools, the C++ compiler, and cyipopt,
+conda-forge in the same command as AmberTools and cyipopt,
 so that all compiled packages share one C++ runtime.
 
 ### Pick a build
 
 `nvidia-smi` shows `CUDA Version` at its top right, the newest CUDA the driver
 supports; use `"pytorch=2.13.0=cuda130*"`, or `cuda129*` when it is below
-13.0. `cuda-nvcc` in the same command supplies the CUDA headers (`cuda.h`)
-that Triton needs to compile kernels.
+13.0.
 Do not install a pip `torch` into this env: on hosts with an older libstdc++
 (RHEL 8, for example), the pip wheel loads the host library first, and
 conda-forge extensions such as numpy, cyipopt, and OpenMM then fail with
@@ -298,8 +294,7 @@ The conda-forge PyTorch brings its CUDA user-space libraries as conda
 packages. It needs a compatible NVIDIA driver and an allocated GPU; it does not
 require a site CUDA toolkit, `CUDA_HOME`, or a `cuda/<X.Y>` module.
 Start with a clean runtime and check the driver with `nvidia-smi`.
-UMA on a GPU, and `--compile`, also compile code at run time for speed, using the env's compiler (`cxx-compiler`), which
-is separate from the toolkit ([System packages](SKILL.md#system-packages)).
+UMA on a GPU, and `--compile`, also compile code at run time for speed, using the existing compiler ([System packages](SKILL.md#system-packages)).
 
 Load a CUDA toolkit and compiler only when building a C/CUDA extension from
 source, for example a source-built GPU4PySCF or an architecture not covered by
@@ -355,11 +350,10 @@ control variable.
 
 ### CPU only
 
-Write `"pytorch=2.13.0=cpu*"` in place of the CUDA build and leave out
-`cuda-nvcc`:
+Write `"pytorch=2.13.0=cpu*"` in place of the CUDA build:
 
 ```bash
-conda create -n <YOUR_ENV> -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt xtb "pytorch=2.13.0=cpu*" -y
+conda create -n <YOUR_ENV> -c conda-forge python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cyipopt xtb "pytorch=2.13.0=cpu*" -y
 ```
 
 MLIP backends run on the CPU but usually much slower; benchmark a

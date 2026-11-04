@@ -1,6 +1,6 @@
 # Installation
 
-`mlmm-toolkit` is intended for Linux environments (local workstations or HPC clusters), and production runs normally use a CUDA-capable GPU. The MM part needs **AmberTools** (`tleap`) to build the topology and a **C++20 compiler** for the `hessian_ff` kernels. The conda command below installs both.
+`mlmm-toolkit` is intended for Linux environments (local workstations or HPC clusters), and production runs normally use a CUDA-capable GPU. The MM part needs **AmberTools** (`tleap`) to build the topology and a **C++20 compiler** for the `hessian_ff` kernels. The conda command below installs AmberTools.
 
 ## Quick install
 
@@ -9,13 +9,15 @@
 ### Required
 
 ```bash
-# 1) Create a conda environment with AmberTools, PDBFixer, a C++ compiler, cyipopt, xTB, and CUDA-enabled PyTorch
+# 1) Create a conda environment with AmberTools, PDBFixer, cyipopt, xTB, and CUDA-enabled PyTorch
 # 2) Install mlmm-toolkit
 # 3) Install headless Chrome for Plotly static image export (PNG, JPEG, SVG, PDF)
 #    Downloads a Chromium binary; requires internet access.
 
-conda create -n mlmm-toolkit -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt xtb "pytorch=2.13.0=cuda130*" cuda-nvcc -y
-conda activate mlmm-toolkit
+conda create -n mlmm -c conda-forge python=3.12 \
+  ambertools=24.8 "numpy>=2,<2.5" pdbfixer \
+  cyipopt xtb "pytorch=2.13.0=cuda130*"
+conda activate mlmm
 
 pip install mlmm-toolkit
 
@@ -43,16 +45,15 @@ ORB, AIMNet2, MACE, and DFT are installed in step 7 of {ref}`Step-by-step instal
 (system-prerequisites)=
 ## System prerequisites
 
-pip and conda do not install the libraries Chrome needs, and an environment built without `cxx-compiler` has no compiler. A workstation usually has them; a minimal container or a bare cluster node often does not.
+`pip install mlmm-toolkit` does not install a compiler or the libraries Chrome needs. A workstation usually has them; a minimal container or a bare cluster node often does not.
 
-- **A compiler.** On a GPU, UMA compiles code at run time for speed (PyTorch builds GPU kernels with Triton), so it needs a C compiler (`gcc`) even without `--compile`. With `--compile`, UMA and ORB also compile the model: a GPU run needs a C compiler, and a CPU run needs a C++ compiler (`g++`). `hessian_ff` needs a C++20 compiler. The conda command in Quick install installs them (`cxx-compiler`).
+- **A compiler.** On a GPU, UMA compiles code at run time for speed (PyTorch builds GPU kernels with Triton), so it needs a C compiler (`gcc`) even without `--compile`. With `--compile`, UMA and ORB also compile the model: a GPU run needs a C compiler, and a CPU run needs a C++ compiler (`g++`). `hessian_ff` needs a C++20 compiler.
 - **Libraries for Chrome.** PNG, JPEG, SVG and PDF figures (`energy-diagram`, `trj2fig`, and the diagrams of `all`) are drawn by headless Chrome, which `plotly_get_chrome -y` downloads. Chrome loads the operating-system libraries below.
 
 Ubuntu/Debian (on Ubuntu 22.04 and Debian 12, write `libasound2` instead of `libasound2t64`; drop `sudo` if you are root):
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y gcc g++
 sudo apt-get install -y ca-certificates fonts-liberation libasound2t64 libatk-bridge2.0-0 \
   libatk1.0-0 libatspi2.0-0 libcairo2 libcups2 libcurl4 libdbus-1-3 libexpat1 libgbm1 \
   libglib2.0-0 libgtk-3-0 libnspr4 libnss3 libpango-1.0-0 libudev1 libvulkan1 libx11-6 libxcb1 \
@@ -62,14 +63,13 @@ sudo apt-get install -y ca-certificates fonts-liberation libasound2t64 libatk-br
 Rocky/RHEL:
 
 ```bash
-sudo dnf install -y gcc gcc-c++
 sudo dnf install -y alsa-lib at-spi2-atk at-spi2-core atk ca-certificates cairo cups-libs \
   dbus-libs expat glib2 gtk3 libX11 libXcomposite libXdamage libXext libXfixes libXrandr \
   libgcc liberation-fonts libxcb libxkbcommon mesa-libgbm nspr nss nss-util pango systemd-libs \
   vulkan-loader wget xdg-utils
 ```
 
-Without sudo (HPC), run `module load gcc`, or add the compilers to your environment with `conda install -c conda-forge c-compiler cxx-compiler`. Ask the administrator for Chrome's libraries.
+Use the existing compiler. If a compiler or CUDA build component is missing or unsupported, run `conda install -c conda-forge cuda-nvcc`, reactivate the environment, and rerun the command. On HPC, ask the administrator for any missing Chrome libraries.
 
 If a compiler is missing, the command stops and prints `Missing system prerequisite:` followed by these commands. If a Chrome library is missing, `energy-diagram` and `trj2fig` stop the same way, while `all`, `path-search` and `scan2d` print a warning and skip only their PNG files.
 
@@ -93,7 +93,7 @@ If you prefer to build the environment piece by piece:
     On a cluster with a system AmberTools module, run `module unload amber` first so that it does not conflict with the conda AmberTools. PyTorch comes from conda-forge in the same command (choose its CUDA build as in step 4); do not install a pip PyTorch into this environment. xTB is used only by the `--embedcharge` correction of the MLIP backends.
 
     ```bash
-    conda create -n <your-env> -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt xtb "pytorch=2.13.0=cuda130*" cuda-nvcc -y
+    conda create -n <your-env> -c conda-forge python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cyipopt xtb "pytorch=2.13.0=cuda130*"
     conda activate <your-env>
     ```
 
@@ -132,12 +132,12 @@ If you prefer to build the environment piece by piece:
 
 7. **(Optional) Install additional MLIP backends and extras**
 
-    mlmm-toolkit uses UMA by default. For another backend, install its extra and select it with `-b/--backend` (for example, `-b orb`):
+    mlmm-toolkit uses UMA by default. For another backend, install its package and select it with `-b/--backend` (for example, `-b orb`):
 
-    **ORB**: `orb-models` pins `nvalchemi-toolkit-ops<0.4`, so pip would lower UMA's `fairchem-core` to an older release. Install ORB in a separate environment built with steps 2-6, as for MACE below, and keep UMA in the main one. ORB needs Python 3.12: `orb-models` pins `dm-tree==0.1.8`, which has no Python 3.13 wheel.
+    **ORB**: `orb-models` pins `nvalchemi-toolkit-ops<0.4`, which conflicts with UMA's `fairchem-core`. Install ORB in a separate environment built with steps 2-6, as for MACE below, and keep UMA in the main one. ORB needs Python 3.12: `orb-models` pins `dm-tree==0.1.8`, which has no Python 3.13 wheel.
 
     ```bash
-    pip install "mlmm-toolkit[orb]"
+    pip uninstall fairchem-core && pip install orb-models
     ```
 
     **AIMNet2**:
@@ -149,8 +149,7 @@ If you prefer to build the environment piece by piece:
     **MACE**: `mace-torch` pins `e3nn==0.4.4`, which conflicts with UMA's `fairchem-core`, so install it in a separate environment built with steps 2-6.
 
     ```bash
-    pip uninstall -y fairchem-core
-    pip install 'mace-torch>=0.3.16'
+    pip uninstall fairchem-core && pip install mace-torch
     ```
 
     **DFT** (`-b dft`, `--dft`, `mlmm dft`): `[dft]` installs the CUDA 13 GPU4PySCF build on Linux x86_64; with the `cuda129` PyTorch build (step 4), install `[dft-cuda12]` instead. On aarch64, build [GPU4PySCF](https://github.com/pyscf/gpu4pyscf) from source. Without a GPU, `[dft]` still installs PySCF; run DFT with `--dft-engine cpu`.

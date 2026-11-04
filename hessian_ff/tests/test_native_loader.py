@@ -426,4 +426,5 @@ def test_rebuild_hint_checks_the_compiler_the_build_uses(monkeypatch):
     hint = loader._rebuild_hint()
 
     assert "check C++20 support:  g++-13 -fPIC -std=c++20 -x c++ -fsyntax-only /dev/null" in hint
-    assert "conda install -c conda-forge cxx-compiler" in hint
+    assert "conda install -c conda-forge cuda-nvcc" in hint
+    assert "reactivate the environment" in hint

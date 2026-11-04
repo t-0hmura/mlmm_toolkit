@@ -1,6 +1,6 @@
 # インストール
 
-`mlmm-toolkit` は Linux 環境（ワークステーションや HPC）向けで、本番計算では通常 CUDA 対応 GPU を使用します。MM の計算には、トポロジーを作る **AmberTools**（`tleap`）と、`hessian_ff` のカーネルをビルドする **C++20 対応コンパイラー** が必要です。どちらも下の conda のコマンドで入ります。
+`mlmm-toolkit` は Linux 環境（ワークステーションや HPC）向けで、本番計算では通常 CUDA 対応 GPU を使用します。MM の計算には、トポロジーを作る **AmberTools**（`tleap`）と、`hessian_ff` のカーネルをビルドする **C++20 対応コンパイラー** が必要です。下の conda のコマンドで AmberTools を入れます。
 
 ## 最短のインストール
 
@@ -9,13 +9,15 @@
 ### 必須
 
 ```bash
-# 1) AmberTools・PDBFixer・C++ コンパイラー・cyipopt・xTB・CUDA 対応の PyTorch を入れた conda 環境を作成
+# 1) AmberTools・PDBFixer・cyipopt・xTB・CUDA 対応の PyTorch を入れた conda 環境を作成
 # 2) mlmm-toolkit をインストール
 # 3) Plotly の静的画像の書き出し（PNG・JPEG・SVG・PDF）用のヘッドレス Chrome をインストール
 #    Chromium のバイナリをダウンロード（インターネット接続が必要）
 
-conda create -n mlmm-toolkit -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt xtb "pytorch=2.13.0=cuda130*" cuda-nvcc -y
-conda activate mlmm-toolkit
+conda create -n mlmm -c conda-forge python=3.12 \
+  ambertools=24.8 "numpy>=2,<2.5" pdbfixer \
+  cyipopt xtb "pytorch=2.13.0=cuda130*"
+conda activate mlmm
 
 pip install mlmm-toolkit
 
@@ -43,16 +45,15 @@ ORB・AIMNet2・MACE・DFT の導入は {ref}`詳細なインストール手順 
 (ja-system-prerequisites)=
 ## システムの前提パッケージ
 
-pip と conda は Chrome が使うライブラリを入れません。また `cxx-compiler` を入れずに作った環境にはコンパイラがありません。ワークステーションには通常ありますが、最小構成のコンテナや素のクラスターノードにはないことが多いです。
+`pip install mlmm-toolkit` では、コンパイラと Chrome が使うライブラリは入りません。ワークステーションには通常ありますが、最小構成のコンテナや素のクラスターノードにはないことが多いです。
 
-- **コンパイラ:** GPU では、UMA は実行時に高速化のためコンパイルをします（PyTorch が Triton で GPU のカーネルを作ります）。そのため `--compile` を付けなくても C コンパイラ（`gcc`）が要ります。`--compile` を付けると UMA と ORB はモデルもコンパイルするので、GPU では C コンパイラ、CPU では C++ コンパイラ（`g++`）が要ります。`hessian_ff` には C++20 対応コンパイラが要ります。最短のインストールの conda のコマンドは、これらを入れます（`cxx-compiler`）。
+- **コンパイラ:** GPU では、UMA は実行時に高速化のためコンパイルをします（PyTorch が Triton で GPU のカーネルを作ります）。そのため `--compile` を付けなくても C コンパイラ（`gcc`）が要ります。`--compile` を付けると UMA と ORB はモデルもコンパイルするので、GPU では C コンパイラ、CPU では C++ コンパイラ（`g++`）が要ります。`hessian_ff` には C++20 対応コンパイラが要ります。
 - **Chrome 用のライブラリ:** PNG・JPEG・SVG・PDF の図（`energy-diagram`、`trj2fig`、`all` の図）はヘッドレス Chrome で描きます。Chrome は `plotly_get_chrome -y` でダウンロードし、下の OS のライブラリを読み込みます。
 
 Ubuntu/Debian（Ubuntu 22.04 と Debian 12 では `libasound2t64` の代わりに `libasound2` と書きます。root なら `sudo` は不要）:
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y gcc g++
 sudo apt-get install -y ca-certificates fonts-liberation libasound2t64 libatk-bridge2.0-0 \
   libatk1.0-0 libatspi2.0-0 libcairo2 libcups2 libcurl4 libdbus-1-3 libexpat1 libgbm1 \
   libglib2.0-0 libgtk-3-0 libnspr4 libnss3 libpango-1.0-0 libudev1 libvulkan1 libx11-6 libxcb1 \
@@ -62,14 +63,13 @@ sudo apt-get install -y ca-certificates fonts-liberation libasound2t64 libatk-br
 Rocky/RHEL:
 
 ```bash
-sudo dnf install -y gcc gcc-c++
 sudo dnf install -y alsa-lib at-spi2-atk at-spi2-core atk ca-certificates cairo cups-libs \
   dbus-libs expat glib2 gtk3 libX11 libXcomposite libXdamage libXext libXfixes libXrandr \
   libgcc liberation-fonts libxcb libxkbcommon mesa-libgbm nspr nss nss-util pango systemd-libs \
   vulkan-loader wget xdg-utils
 ```
 
-sudo が使えない HPC では、`module load gcc` か、環境へのコンパイラの追加（`conda install -c conda-forge c-compiler cxx-compiler`）を使います。Chrome のライブラリは管理者に依頼してください。
+既存のコンパイラを使います。コンパイラや CUDA のビルド部品の不足・非対応のエラーが出たときは `conda install -c conda-forge cuda-nvcc` を実行し、環境を再度 activate してから再実行してください。HPC で Chrome のライブラリが足りない場合は管理者に依頼してください。
 
 コンパイラが足りないときは、コマンドが止まり、`Missing system prerequisite:` に続けて同じコマンドを表示します。Chrome のライブラリが足りないときは、`energy-diagram` と `trj2fig` は同じように止まり、`all`・`path-search`・`scan2d` は警告を出し、PNG の作成だけを省いて続けます。
 
@@ -91,7 +91,7 @@ sudo が使えない HPC では、`module load gcc` か、環境へのコンパ�
     システムの AmberTools のモジュールがあるクラスターでは、conda の AmberTools と衝突しないように、先に `module unload amber` を実行してください。PyTorch も同じコマンドで conda-forge から入ります（CUDA のビルドは手順 4 のとおりに選びます）。この環境に pip の PyTorch は入れないでください。xTB は、MLIP のバックエンドの `--embedcharge` の補正にだけ使います。
 
     ```bash
-    conda create -n <your-env> -c conda-forge --override-channels python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cxx-compiler cyipopt xtb "pytorch=2.13.0=cuda130*" cuda-nvcc -y
+    conda create -n <your-env> -c conda-forge python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cyipopt xtb "pytorch=2.13.0=cuda130*"
     conda activate <your-env>
     ```
 
@@ -132,10 +132,10 @@ sudo が使えない HPC では、`module load gcc` か、環境へのコンパ�
 
     mlmm-toolkit はデフォルトで UMA を使用します。他のバックエンドは対応する追加パッケージを導入し、`-b/--backend`（例: `-b orb`）で選択します:
 
-    **ORB**: `orb-models` は `nvalchemi-toolkit-ops<0.4` に固定しているので、同じ環境に入れると UMA の `fairchem-core` が古い版に下がります。下の MACE と同じく、手順 2〜6 で作った別の環境に入れ、UMA は元の環境で使います。ORB は Python 3.12 でだけ使えます（`orb-models` が固定する `dm-tree==0.1.8` に Python 3.13 用の wheel がないためです）。
+    **ORB**: `orb-models` は `nvalchemi-toolkit-ops<0.4` に固定しているので、UMA の `fairchem-core` と競合します。下の MACE と同じく、手順 2〜6 で作った別の環境に入れ、UMA は元の環境で使います。ORB は Python 3.12 でだけ使えます（`orb-models` が固定する `dm-tree==0.1.8` に Python 3.13 用の wheel がないためです）。
 
     ```bash
-    pip install "mlmm-toolkit[orb]"
+    pip uninstall fairchem-core && pip install orb-models
     ```
 
     **AIMNet2**:
@@ -147,8 +147,7 @@ sudo が使えない HPC では、`module load gcc` か、環境へのコンパ�
     **MACE**: `mace-torch` が要求する `e3nn==0.4.4` が UMA の `fairchem-core` と衝突するので、手順 2〜6 で作った別の環境に入れます。
 
     ```bash
-    pip uninstall -y fairchem-core
-    pip install 'mace-torch>=0.3.16'
+    pip uninstall fairchem-core && pip install mace-torch
     ```
 
     **DFT**（`-b dft`、`--dft`、`mlmm dft`）: `[dft]` は Linux x86_64 で CUDA 13 用の GPU4PySCF を導入します。`cuda129` の PyTorch（手順 4）を使うときは、代わりに `[dft-cuda12]` を導入します。aarch64 では [GPU4PySCF](https://github.com/pyscf/gpu4pyscf) をソースからビルドしてください。GPU のない環境でも `[dft]` で PySCF が入り、`--dft-engine cpu` で DFT を実行できます。

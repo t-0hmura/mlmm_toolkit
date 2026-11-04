@@ -10,6 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Breaking changes
 
+- Remove the `[orb]` extra; install `orb-models` directly in a separate environment after uninstalling `fairchem-core`.
 - A pair that contains a metal atom counts as a bond formed or broken only when its distance changes by at least `bond.metal_delta_fraction` × T (default `0.40`, about 1.0 Å for Mg–O). Every bond judgment, including the IRC endpoint matching of `all` and `irc`, reads the YAML `bond` section.
 - Input alignment relaxations use the package L-BFGS defaults with the `gau` preset; the `--thresh` of `path-opt`, `path-search` and `all` no longer applies to them.
 - `all`: a segment that stops before IRC no longer stops the later segments. A run with an MEP then ends `completed` / `partial` with exit 0; `pipeline_stop` keeps the first stop and `stopped_segments` lists every stop.
@@ -19,8 +20,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 - `all --precision-post tf32|fp32|fp64` sets the MLIP precision of TS optimization, IRC, the endpoint optimizations and freq; unset, they use `--precision`.
 - `--compile/--no-compile` on every command that has `--precision` runs the UMA or ORB model of the ML region through torch.compile; it pays off only in long runs.
-- Python 3.13 is supported (`>=3.12,<3.14`); the `[orb]` extra still needs Python 3.12.
-- A run that finds no compiler or cannot start Chrome prints `Missing system prerequisite: ...` with the install commands instead of a traceback.
+- Python 3.13 is supported (`>=3.12,<3.14`); ORB still needs Python 3.12.
+- A run that finds no compiler or CUDA build tools, or cannot start Chrome prints `Missing system prerequisite: ...` with the install commands instead of a traceback.
 - Colab notebook: an `install_xtb` check box in Installation installs xTB.
 
 ### Changed
@@ -30,7 +31,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Without `-v 3`, FAIR-Chem's inference-settings line and choreographer's `Resorting to unclean kill browser.` are no longer shown.
 - MM Hessians keep their values and use less memory.
 - Colab notebook: the GUI fits the visible pane from 721 px wide, and Mol* clicks keep the camera.
-- Docs, skills and CLI help: wrong statements are corrected, unclear passages reworded, ORB is installed in its own environment, and `--mm-backend` says that `hessian_ff` is the MM engine bundled with mlmm-toolkit.
+- Docs and skills use existing compilers and recommend `conda install -c conda-forge cuda-nvcc` only for missing or unsupported build tools.
+- Docs, skills and CLI help: wrong statements are corrected, unclear passages reworded, ORB is installed in its own environment after removing `fairchem-core`, and `--mm-backend` says that `hessian_ff` is the MM engine bundled with mlmm-toolkit.
 
 ### Fixed
 

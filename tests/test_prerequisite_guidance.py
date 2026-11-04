@@ -16,6 +16,7 @@ from mlmm.io import plotly_image
 HEADERS = {
     pre.KIND_C_COMPILER: r"Missing system prerequisite: C compiler \(gcc\)\.",
     pre.KIND_CXX_COMPILER: r"Missing system prerequisite: C\+\+ compiler \(g\+\+\)\.",
+    pre.KIND_CUDA: r"Missing system prerequisite: CUDA build tools\.",
     pre.KIND_CHROME: r"Missing system prerequisite: Chrome for PNG export\.",
 }
 
@@ -90,17 +91,14 @@ def test_message_links_to_a_docs_section_that_exists():
 
 
 def test_compiler_messages_give_the_install_commands():
-    # An official image has no apt package lists: apt-get install alone stops with "Unable to locate package".
     gpu = pre.guidance(pre.KIND_C_COMPILER)
     assert "UMA on a GPU, and ORB with --compile, compile code at run time for speed" in gpu
-    assert "sudo apt-get update && sudo apt-get install -y gcc" in gpu
-    assert "sudo dnf install -y gcc" in gpu
-    assert "conda install -c conda-forge c-compiler" in gpu
     cpu = pre.guidance(pre.KIND_CXX_COMPILER)
     assert "With --compile, UMA and ORB compile CPU kernels at run time for speed" in cpu
-    assert "sudo apt-get update && sudo apt-get install -y g++" in cpu
-    assert "sudo dnf install -y gcc-c++" in cpu
-    assert "conda install -c conda-forge cxx-compiler" in cpu
+    for kind in (pre.KIND_C_COMPILER, pre.KIND_CXX_COMPILER, pre.KIND_CUDA):
+        text = pre.guidance(kind)
+        assert "conda install -c conda-forge cuda-nvcc" in text
+        assert "reactivate the environment" in text
 
 
 def test_chrome_message_gives_both_steps_and_both_package_lists():
@@ -132,6 +130,9 @@ def test_original_error_is_one_bounded_line():
         (RuntimeError(TRITON_C), pre.KIND_C_COMPILER),
         (_wrapped(INDUCTOR_C), pre.KIND_C_COMPILER),
         (_wrapped(INDUCTOR_CXX), pre.KIND_CXX_COMPILER),
+        (_wrapped("fatal error: cuda.h: No such file or directory"), pre.KIND_CUDA),
+        (_wrapped("Cannot find ptxas"), pre.KIND_CUDA),
+        (RuntimeError("ptxas: command not found"), pre.KIND_CUDA),
         (RuntimeError(BROWSER), pre.KIND_CHROME),
         (pre.MissingPrerequisiteError(pre.KIND_CHROME, "Plotly image export failed"), pre.KIND_CHROME),
     ],
@@ -157,6 +158,8 @@ def test_chrome_error_class_names_are_recognized():
         ValueError("bad value"),
         RuntimeError("Plotly image export failed: TimeoutError: browser configuration lock is held"),
         RuntimeError("compiler flags are invalid"),
+        RuntimeError("CUDA out of memory"),
+        RuntimeError("ptxas fatal: invalid value for --gpu-name"),
         click.UsageError("missing option"),
         click.ClickException("Path pre-alignment failed: shapes differ"),
         plotly_image.PlotlyImageTimeoutError("Plotly image export timed out after 600 s"),
