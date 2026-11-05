@@ -10,11 +10,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Breaking changes
 
-- Remove the `[orb]` extra; install `orb-models` directly in a separate environment after uninstalling `fairchem-core`.
-- A pair that contains a metal atom counts as a bond formed or broken only when its distance changes by at least `bond.metal_delta_fraction` × T (default `0.40`, about 1.0 Å for Mg–O). Every bond judgment, including the IRC endpoint matching of `all` and `irc`, reads the YAML `bond` section.
+- Remove the `[orb]` extra. Install `orb-models` directly in a separate environment. If `fairchem-core` is already installed in that environment, uninstall it first.
+- For atom pairs that include a metal, bond formation or cleavage now requires a larger change in interatomic distance. With the default `bond.metal_delta_fraction` of 0.40, the required change is about 1.0 Å for Mg–O. Every bond judgment, including the IRC endpoint matching of `all` and `irc`, reads the YAML `bond` section.
 - Input alignment relaxations use the package L-BFGS defaults with the `gau` preset; the `--thresh` of `path-opt`, `path-search` and `all` no longer applies to them.
-- `all`: a segment that stops before IRC no longer stops the later segments. A run with an MEP then ends `completed` / `partial` with exit 0; `pipeline_stop` keeps the first stop and `stopped_segments` lists every stop.
-- `all` without `--refine-path`: an interval whose highest MEP image is an end image gets no segment and no TS optimization (`endpoint_hei`), as in `path-search`.
+- If a segment stops before IRC, `all` continues with the remaining segments. If an MEP is available, the command exits with code 0, and `summary.json` reports `"execution_status": "completed"` and `"scientific_status": "partial"`; `pipeline_stop` keeps the first stop and `stopped_segments` lists every stop.
+- When `all` runs without `--refine-path`, it skips segment creation and TS optimization for any interval whose highest-energy image is an endpoint, matching the behavior of `path-search` (`endpoint_hei`).
 
 ### Added
 
@@ -30,8 +30,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - UMA and ORB are no longer compiled by default, and UMA fp64 uses the fast-path settings (about 1.8x faster on a 632-atom cluster).
 - `run.log` is written while the command runs, also records C libraries and child processes, and a rerun into the same `-o` appends to it.
 - Without `-v 3`, FAIR-Chem's inference-settings line and choreographer's `Resorting to unclean kill browser.` are no longer shown.
-- MM Hessians keep their values and use less memory.
-- Colab notebook: the GUI fits the visible pane from 721 px wide, and Mol* clicks keep the camera.
+- MM Hessian calculations now use less memory and produce the same numerical results.
+- Colab notebook: the GUI fits the visible pane from 721 px wide. Clicking in the Mol* viewer now preserves the current view.
 - Docs, skills and error messages use existing compilers; for a missing compiler or CUDA, they suggest loading gcc and CUDA with `module load` or installing `cuda-nvcc` with conda.
 - Docs, skills and CLI help: wrong statements are corrected, unclear passages reworded, ORB is installed in its own environment after removing `fairchem-core`, and `--mm-backend` says that `hessian_ff` is the MM engine bundled with mlmm-toolkit.
 - For a TS with more than one imaginary mode, the hint suggests `--flatten` or a rerun in fp64 (`--precision-post fp64` for `all`, `--precision fp64` for `tsopt`, when the backend runs below fp64); `--refine-path` is suggested only when no imaginary mode is found.
