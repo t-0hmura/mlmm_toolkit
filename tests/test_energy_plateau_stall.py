@@ -455,7 +455,11 @@ def test_dimer_final_message_separates_no_mode_from_write_failure():
 
     assert _unexpected_saddle_order_message(2) == (
         "[tsopt] WARNING: Higher-order stationary point (n_imag=2). "
-        "Try --flatten or all --refine-path."
+        "Try --flatten."
+    )
+    assert _unexpected_saddle_order_message(2, suggest_fp64=True) == (
+        "[tsopt] WARNING: Higher-order stationary point (n_imag=2). "
+        "Try --flatten or --precision fp64."
     )
 
 

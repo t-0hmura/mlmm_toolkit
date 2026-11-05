@@ -34,10 +34,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Colab notebook: the GUI fits the visible pane from 721 px wide, and Mol* clicks keep the camera.
 - Docs, skills and error messages use existing compilers; for a missing compiler or CUDA, they suggest loading gcc and CUDA with `module load` or installing `cuda-nvcc` with conda.
 - Docs, skills and CLI help: wrong statements are corrected, unclear passages reworded, ORB is installed in its own environment after removing `fairchem-core`, and `--mm-backend` says that `hessian_ff` is the MM engine bundled with mlmm-toolkit.
+- For a TS with more than one imaginary mode, the hint suggests `--flatten` or a rerun in fp64 (`--precision-post fp64` for `all`, `--precision fp64` for `tsopt`, when the backend runs below fp64); `--refine-path` is suggested only when no imaginary mode is found.
 
 ### Fixed
 
 - `all --resume-segment` continues a run that stopped during post-processing, reuses the saved parm7, and stops with an error when the post-processing precision differs from the saved run.
+- `all --resume` and `--resume-segment` show the saved ML-region files in the output directory instead of temporary copies that are deleted at the end.
 - `all`: an unconverged endpoint, including an early optimizer stop, keeps its last structure and skips that segment's freq and DFT; later segments continue and the result is `partial` with exit 0.
 - `mm-parm --add-h` names each histidine from the hydrogens PDBFixer adds; before, tleap stopped on proteins with histidine.
 - Multi-segment `all` runs: the TS labels follow the segment numbers, the `summary.log` table covers every segment, and kink intervals are excluded from TS post-processing.

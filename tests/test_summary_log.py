@@ -279,7 +279,7 @@ def test_write_summary_log_marks_non_successful_results_and_precision(
         ),
         (
             "segment 2: TS imaginary-mode validation found n_imag=2, expected 1",
-            "Segment 2: TS imaginary-mode validation found n_imag=2. Consider --flatten --refine-path.",
+            "Segment 2: TS imaginary-mode validation found n_imag=2. Consider --flatten.",
         ),
     ],
 )
@@ -321,6 +321,20 @@ def test_format_result_warning_omits_already_active_recovery_flags():
     assert format_result_warning(reason, refine_path=True, flatten=True) == (
         "Segment 2: TS imaginary-mode validation found n_imag=2."
     )
+    assert format_result_warning(reason, suggest_fp64=True) == (
+        "Segment 2: TS imaginary-mode validation found n_imag=2. "
+        "Consider --flatten or --precision-post fp64."
+    )
+
+
+def test_fp64_rerun_is_suggested_only_below_fp64_on_fp64_backends():
+    from mlmm.backends import fp64_rerun_available
+
+    assert fp64_rerun_available("uma", "fp32")
+    assert fp64_rerun_available("orb", "tf32")
+    assert not fp64_rerun_available("uma", "fp64")
+    assert not fp64_rerun_available("aimnet2", "fp32")
+    assert not fp64_rerun_available("dft", None)
 
 
 def test_summary_log_tree_lists_only_current_run_paths(tmp_path):

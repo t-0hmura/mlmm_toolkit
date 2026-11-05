@@ -31,6 +31,7 @@ def format_result_warning(
     *,
     refine_path: bool = False,
     flatten: bool = False,
+    suggest_fp64: bool = False,
 ) -> str:
     """Translate an internal scientific-status reason into user-facing English."""
     raw = str(reason or "").strip()
@@ -171,11 +172,13 @@ def format_result_warning(
         recovery: List[str] = []
         if n_imag > 1 and not flatten:
             recovery.append("--flatten")
-        if not refine_path:
+        if n_imag > 1 and suggest_fp64:
+            recovery.append("--precision-post fp64")
+        if n_imag < 1 and not refine_path:
             recovery.append("--refine-path")
         message = f"TS imaginary-mode validation found n_imag={n_imag}."
         if recovery:
-            message += f" Consider {' '.join(recovery)}."
+            message += f" Consider {' or '.join(recovery)}."
         return scoped(message)
     if code in {
         "irc_endpoint_connectivity_unvalidated",
@@ -1053,6 +1056,8 @@ def _format_diag_row(
 
 def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
     """Write a user-friendly summary.log at ``dest`` from a pre-collected payload."""
+    from mlmm.backends import fp64_rerun_available
+
     missing_required = [
         key for key in REQUIRED_SUMMARY_PAYLOAD_KEYS if not isinstance(payload, dict) or key not in payload
     ]
@@ -1210,6 +1215,9 @@ def write_summary_log(dest: Path, payload: Dict[str, Any]) -> None:
                     reason,
                     refine_path=bool(payload.get("refine_path")),
                     flatten=bool(payload.get("flatten")),
+                    suggest_fp64=fp64_rerun_available(
+                        payload.get("mlip_backend"), payload.get("mlip_precision_post")
+                    ),
                 )
             )
     lines.append(f"Total charge (ML)  : {charge if charge is not None else '-'}")

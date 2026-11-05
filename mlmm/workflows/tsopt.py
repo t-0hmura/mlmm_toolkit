@@ -1615,14 +1615,27 @@ def _finalize_dimer_saddle_status(
     runner.saddle_order_verified = len(certified) == 1
     if not runner.saddle_order_verified:
         click.echo(
-            _unexpected_saddle_order_message(len(certified), runner.n_negative_modes),
+            _unexpected_saddle_order_message(
+                len(certified),
+                runner.n_negative_modes,
+                suggest_fp64=_fp64_rerun_suggested(getattr(runner, "calc_kwargs", None) or {}),
+            ),
             err=True,
         )
     return neg_idx
 
 
+def _fp64_rerun_suggested(calc_cfg: Dict[str, Any]) -> bool:
+    """Whether the higher-order-saddle hint should offer a rerun in fp64."""
+    from mlmm.backends import fp64_rerun_available
+    from mlmm.core.utils import calculator_provenance
+
+    provenance = calculator_provenance(calc_cfg)
+    return fp64_rerun_available(provenance.get("mlip_backend"), provenance.get("mlip_precision"))
+
+
 def _unexpected_saddle_order_message(
-    n_imag: int, n_negative: Optional[int] = None,
+    n_imag: int, n_negative: Optional[int] = None, *, suggest_fp64: bool = False,
 ) -> str:
     """Describe topology under the selected criterion, independent of raw signs."""
     del n_negative
@@ -1631,7 +1644,11 @@ def _unexpected_saddle_order_message(
     if n_imag > 1:
         return (
             f"[tsopt] WARNING: Higher-order stationary point (n_imag={n_imag}). "
-            "Try --flatten or all --refine-path."
+            + (
+                "Try --flatten or --precision fp64."
+                if suggest_fp64
+                else "Try --flatten."
+            )
         )
     raise ValueError("n_imag must differ from 1")
 
@@ -5208,7 +5225,11 @@ def cli(
                 _heavy_n_negative = _strict_negative_count(freqs_cm, rigid_projection_info)
                 if _heavy_n_imag != 1:
                     click.echo(
-                        _unexpected_saddle_order_message(_heavy_n_imag, _heavy_n_negative),
+                        _unexpected_saddle_order_message(
+                            _heavy_n_imag,
+                            _heavy_n_negative,
+                            suggest_fp64=_fp64_rerun_suggested(calc_cfg),
+                        ),
                         err=True,
                     )
             # a stall (energy-plateau outcome of the selected optimizer)

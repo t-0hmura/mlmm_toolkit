@@ -201,6 +201,7 @@ from mlmm.cli.preflight import validate_existing_files
 from mlmm.workflows import scan as _scan_cli
 from mlmm.domain.add_elem_info import assign_elements as _assign_elem_info
 from mlmm.workflows.define_layer import define_layers as _define_layers
+from mlmm.backends import fp64_rerun_available
 from mlmm.backends.mlmm_calc import mlmm as _mlmm_calc
 from mlmm.workflows.mm_parm import (
     Args as _AutoMMArgs,
@@ -558,6 +559,10 @@ def _emit_final_summary(
                         ),
                         flatten=bool(
                             summary.get("flatten", summary_config.get("flatten"))
+                        ),
+                        suggest_fp64=fp64_rerun_available(
+                            summary.get("mlip_backend"),
+                            summary.get("mlip_precision_post"),
                         ),
                     ),
                     narrative=True,
@@ -6166,6 +6171,14 @@ def cli(
             lambda path=preparation_out_dir: shutil.rmtree(path, ignore_errors=True)
         )
 
+    def _shown_path(path: Path) -> Path:
+        # A resumed run rebuilds the preparation in a temporary folder only to
+        # check it; show the saved file in out_dir, which the run keeps.
+        resolved = Path(path).resolve()
+        if resuming and resolved.is_relative_to(preparation_out_dir):
+            return out_dir / resolved.relative_to(preparation_out_dir)
+        return Path(path)
+
     # Preflight: add_elem_info only for inputs lacking element fields
     # → Create fixed copies under a temporary folder inside out_dir (used ONLY for extraction)
     elem_tmp_dir = work_dir / "add_elem_info"
@@ -6378,7 +6391,7 @@ def cli(
         )
         _echo_detail(
             f"[all] ML region selection (--model-pdb {model_pdb_source}) → "
-            f"{ml_region_pdb}{_ml_region_summary_suffix(ml_region_pdb)}"
+            f"{_shown_path(ml_region_pdb)}{_ml_region_summary_suffix(ml_region_pdb)}"
         )
     else:
         ml_region_pdb = None
@@ -6387,12 +6400,12 @@ def cli(
                 pocket_for_ml_region, preparation_out_dir / "ml_region.pdb"
             )
             if ml_region_pdb is not None:
-                _echo_detail(f"[all] ML region definition (B≈0 subset from layered input) → {ml_region_pdb}{_ml_region_summary_suffix(ml_region_pdb)}")
+                _echo_detail(f"[all] ML region definition (B≈0 subset from layered input) → {_shown_path(ml_region_pdb)}{_ml_region_summary_suffix(ml_region_pdb)}")
         if ml_region_pdb is None:
             ml_region_pdb = _write_ml_region_definition(
                 pocket_for_ml_region, preparation_out_dir / "ml_region.pdb"
             )  # reusable deliverable (--model-pdb input for follow-up runs)
-            _echo_detail(f"[all] ML region definition → {ml_region_pdb}{_ml_region_summary_suffix(ml_region_pdb)}")
+            _echo_detail(f"[all] ML region definition → {_shown_path(ml_region_pdb)}{_ml_region_summary_suffix(ml_region_pdb)}")
 
     # mm_parm: use --parm if provided, otherwise run tleap
     if parm7_override is not None:
@@ -6498,11 +6511,11 @@ def cli(
         )
         _echo_detail(
             f"[all] ML structure without link H ({n_model_atoms} atoms) → "
-            f"{ml_without_link}"
+            f"{_shown_path(ml_without_link)}"
         )
         _echo_detail(
             f"[all] ML structure with link H ({n_model_atoms} + {n_link_atoms}; "
-            f"links from {link_source}) → {ml_with_link}"
+            f"links from {link_source}) → {_shown_path(ml_with_link)}"
         )
         if _original_input_paths[0].suffix.lower() == ".pdb":
             ml_without_link_pdb, ml_with_link_pdb = write_ml_region_pdb_pair(
@@ -6512,7 +6525,7 @@ def cli(
             )
             _echo_detail(
                 "[all] PDB companions for the two ML structures → "
-                f"{ml_without_link_pdb}, {ml_with_link_pdb}"
+                f"{_shown_path(ml_without_link_pdb)}, {_shown_path(ml_with_link_pdb)}"
             )
         if region_workspace.link_pairs:
             _echo_detail(

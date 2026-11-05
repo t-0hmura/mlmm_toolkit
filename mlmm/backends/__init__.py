@@ -53,6 +53,14 @@ _BACKEND_MODEL_KEY: Dict[str, str] = {
 }
 
 
+def fp64_rerun_available(backend: Any, precision: Any) -> bool:
+    """Whether a run below fp64 can be repeated in fp64 (UMA, ORB and MACE)."""
+    return (
+        str(backend or "").lower() in _PRECISION_DISPATCH["fp64"]
+        and str(precision or "").lower() in ("tf32", "fp32")
+    )
+
+
 def normalize_calculator_methods(calc_cfg: Dict[str, Any]) -> None:
     """Canonicalize strict calculator method enums in a resolved config.
 
