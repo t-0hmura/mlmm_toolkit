@@ -257,7 +257,7 @@ ja/architecture
 
 ### Hardware
 
-- **OS:** Linux (on Windows, install it in Linux under WSL2).
+- **OS:** Linux (on Windows, use WSL2).
 - **GPU:** an NVIDIA driver compatible with the backend and PyTorch wheel. CPU execution is also supported but slower.
 - **VRAM / RAM:** depends on the model, the system size, and the Hessian mode; measure the peak on a representative run.
 

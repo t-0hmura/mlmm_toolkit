@@ -154,7 +154,7 @@ result_scan/
 └─ result.json                      # Summary (--out-json); summary.json has the same content
 ```
 
-The structures and trajectories are also written as PDB under the same names (`result.pdb`, `scan.pdb`); `--no-convert-files` turns this off. {ref}`mmCIF input <mmcif-input>`, and PDB input too large for the PDB columns, also get `.cif` files that keep the original identifiers.
+The structures and trajectories are also written as PDB (`result.pdb`, `scan.pdb`); `--no-convert-files` turns this off. {ref}`mmCIF input <mmcif-input>`, and PDB input too large for the PDB columns, also get `.cif` files that keep the original identifiers.
 
 * **Stage results**: `stage_NN/result.*` is the structure at the end of stage NN. For [`path-search`](path-search.md), give the starting structure followed by the `stage_NN/result.*` files in stage order.
 * **Energy profile**: the comment line of each frame in `scan_trj.xyz` holds the energy without restraints (Hartree); plot it with [`trj2fig`](trj2fig.md).

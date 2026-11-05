@@ -166,7 +166,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 * **`--root` は 0 から数える**: TS 最適化が成功すると、反応モードの虚振動が 1 つ出るので、n_imag = 1 の TS では `--root 0`（ただ 1 つの負の固有値）のままにしてください。`1`、`2` などは、反応モードより固有値の小さい（より負の）疑似モードがあると分かっているときだけ使います。
 * **Cartesian 座標**: YAML の `geom.coord_type` にかかわらず、`irc` は Cartesian 座標を使います。
 * **`--read-hess` のファイル**: [`freq`](freq.md) と同じ `.npy` ファイルで、単位は Hartree/bohr²、全原子か Hessian の計算に入る原子だけの分を持ちます。同じ構造・電荷・多重度・計算設定で求めた Hessian を渡してください。`irc.hessian_init: calc`（デフォルト）が必要です。ファイルを使ったときは、`result.json["rigid_projection"]["hessian_source"]` が `"file"` になります。
-* **解析 Hessian と `--uma-workers`**: UMA では、`--hessian-calc-mode Analytical` は 1 より大きい `--uma-workers` と併用できず、エラーで止まります。[解析 Hessian](backends.md) には `--uma-workers 1` を使ってください。速度とメモリ量はバックエンドと系によって変わるので、先に対象の系で両方を比べてください。
+* **解析 Hessian と `--uma-workers`**: UMA では、`--hessian-calc-mode Analytical` は 1 より大きい `--uma-workers` と併用できず、エラーで止まります。[解析 Hessian](backends.md) には `--uma-workers 1` を使ってください。速度とメモリ量はバックエンドと系によって変わるので、先に対象の系で両方の方式を比べてください。
 * **固定原子**: 固定 MM 層のほかに、`--freeze-atoms` でほかの原子（1 始まり）も固定できます。選び方は {ref}`原子の固定と距離の拘束 <ja-freeze-atoms-and-restraints>` を参照してください。
 * **大きな系**: `--hess-device cpu` を付けると、最初の Hessian を CPU に置き、IRC の Hessian の演算も CPU で行って、GPU のメモリ不足を避けます。
 * **分岐は少なくとも 1 つ**: `--no-forward` と `--no-backward` を両方付けると、エラーで止まります。

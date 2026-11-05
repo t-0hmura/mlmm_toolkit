@@ -20,7 +20,7 @@ and the checks in [Verify the install](#verify-the-install) pass.
 1. On a new or unknown host, run the probes in
    [backends.md](backends.md#probe-the-compute-environment) first.
 2. Create a conda env from conda-forge with Python 3.12, AmberTools,
-   PDBFixer, a C++ compiler, cyipopt (for DMF; `pydmf` comes with
+   PDBFixer, cyipopt (for DMF; `pydmf` comes with
    mlmm-toolkit), and PyTorch in one command.
 3. Choose the PyTorch build in that command. `nvidia-smi` shows `CUDA Version`
    at its top right, the newest CUDA the driver supports; use `cuda130`, or

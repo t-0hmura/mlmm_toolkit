@@ -45,7 +45,7 @@ Each abbreviation, method name, and unit used in the docs is defined here in one
 | **HEI** | Highest-Energy Image | The image along an MEP with maximum energy; often used as a TS guess. |
 | **Image** | — | A single geometry (one "node") along a chain-of-states path. |
 | **Segment** | — | An MEP between two adjacent endpoints (e.g., R → I1, I1 → I2, …). |
-| **Kink** | — | A segment where only the conformation changes: the two structures that `path-search` optimizes on either side of the HEI (End1 and End2; [path-search → How it works](path-search.md#how-it-works), step 2) differ by no covalent bond change. `path-search` fills it with a few linearly interpolated nodes (`search.kink_max_nodes`, default 3) and optimizes each one instead of running a new GSM or DMF path. |
+| **Kink** | — | A segment where only the conformation changes: the two structures that `path-search` optimizes on either side of the HEI (End1 and End2; [path-search → How it works](path-search.md#how-it-works), step 2) have the same covalent bonds. `path-search` fills it with a few linearly interpolated nodes (`search.kink_max_nodes`, default 3) and optimizes each one instead of running a new GSM or DMF path. |
 
 ## Optimization Algorithms
 
@@ -54,7 +54,7 @@ Each abbreviation, method name, and unit used in the docs is defined here in one
 | **L-BFGS** | Limited-memory BFGS | A quasi-Newton optimization algorithm that approximates the Hessian using a limited history of gradients. Used in `opt --opt-mode grad`. |
 | **RFO** | Rational Function Optimization | A trust-region optimization method that uses explicit Hessian information. Used in `--opt-mode hess`. |
 | **RS-I-RFO** | Restricted-Step Image-RFO | A variant of RFO for saddle point (TS) optimization that follows one negative eigenvalue. |
-| **Dimer** | Dimer Method | A TS optimization method that follows a low-curvature direction. mlmm-toolkit's Hessian-guided variant uses initial and periodic active-subspace Hessians, which is more robust than a random initial orientation for systems with many active degrees of freedom. Used in `--opt-mode grad` for TSOPT. |
+| **Dimer** | Dimer Method | A TS optimization method that follows a low-curvature direction. mlmm-toolkit's Hessian-guided variant uses initial and periodic active-subspace Hessians, which is more robust than a random initial orientation for systems with many active degrees of freedom. Used in `tsopt --opt-mode grad`. |
 | **PHVA** | Partial Hessian Vibrational Analysis | Computing vibrational frequencies using only the Hessian block for active (non-frozen) atoms. Default in `freq`. |
 
 ## Machine Learning & Calculators

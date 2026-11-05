@@ -77,7 +77,7 @@ Files and diagrams:
 
 - `key_output_files` maps each root file to a description, and each `seg_NN` to `{description, files}` with paths relative to that segment directory. `current_output_paths` lists the paths, relative to `--out-dir`, written by this run. Both cover only the current run, so trust them over the existence of a directory.
 - `energy_diagrams` lists each diagram with its name, labels, `energies_kcal`, and `image` path.
-- `all` passes `--out-json` to `tsopt`, `irc`, and the endpoint optimizations, so `ts/` and `irc/` have a `result.json`; `endpoint_opt/` stays only with `--dump` or when an endpoint did not converge, otherwise read `post_segments[].endpoint_opt` in `summary.json`. It does not pass it to `freq` or `dft`; rerun those alone with `--out-json` when you need one.
+- `all` passes `--out-json` to `tsopt`, `irc`, and the endpoint optimizations, so `ts/` and `irc/` have a `result.json`; `endpoint_opt/` stays only with `--dump` or when an endpoint did not converge, otherwise read `post_segments[].endpoint_opt` in `summary.json`. `all` does not pass it to `freq` or `dft`; rerun those alone with `--out-json` when you need one.
 
 ## Oriented R/TS/P paths
 

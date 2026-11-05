@@ -8,7 +8,7 @@
 
 * **Building the MM topology**: write `parm7`, `rst7`, and a PDB for the whole system.
 * **Parameterizing ligands**: give unknown residues GAFF2 parameters with the formal charge and multiplicity from `-l` and `--ligand-mult`.
-* **Preparing a model by hand**: pass the PDB that `mm-parm` writes to `extract` and `define-layer`; its atoms are in the same order as the `parm7`.
+* **Preparing a model by hand**: pass the PDB written by `mm-parm` to `extract` and `define-layer`; its atoms are in the same order as the `parm7`.
 
 ---
 
@@ -136,7 +136,7 @@ python -c "import parmed as pmd; p=pmd.load_file('system.parm7'); assert not p.c
   mlmm opt -i snapshot_layered.pdb --parm7 md_system.parm7 -q -1 -m 1 \
     --opt-mode grad --out-dir result
   ```
-* **The `parm7` follows atom order**: every coordinate input must contain the atoms of the whole system in the same order as the `parm7`. Before a calculation, the ML/MM calculator compares the atom count and, atom by atom, the element, the atom name (`1HB` matches `HB1`), the residue name, and the residue order, and stops at the first mismatch. Keep atom names, residue names, and the atom order when you prepare reactant, intermediate, and product structures. A `--model-pdb` file is only an unchanged subset of the full system that selects the ML atoms.
+* **The `parm7` is matched by atom order**: every coordinate input must contain the atoms of the whole system in the same order as the `parm7`. Before a calculation, the ML/MM calculator compares the atom count and, atom by atom, the element, the atom name (`1HB` matches `HB1`), the residue name, and the residue order, and stops at the first mismatch. Keep atom names, residue names, and the atom order when you prepare reactant, intermediate, and product structures. A `--model-pdb` file is only an unchanged subset of the full system that selects the ML atoms.
 * **Residue numbers in the output PDB**: tleap numbers residues 1, 2, … in the order they appear, so the residue numbers of the PDB that `mm-parm` writes can differ from the input. In `examples/beza/1.R.pdb`, ARG 38 is the first residue and SAM 320 the 283rd. When you cut that PDB by hand, select residues by name or read their numbers from the file. `all` cuts the original input, so its selectors use the original numbers.
 * **Amino acids that the force field does not know**: a residue that `extract` lists as an amino acid (see its appendix) but tleap does not know stops the build. The message offers three ways out: list the residue in `-l` to give it GAFF2 parameters, change the residue in the input, or build the topology yourself with tleap.
 * **Ligand charge and hydrogens**: the electron-count check stops the build when the hydrogens of a residue do not match its charge and multiplicity (SAM: 22 H for charge 0, 23 H for +1). A `-l` or `--ligand-mult` entry for a residue that tleap already knows is not used, and a warning says so.

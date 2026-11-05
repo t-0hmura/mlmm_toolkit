@@ -38,7 +38,7 @@ mlmm all --parm7 enzyme.parm7 -i ts_candidate.pdb \
 
 Add `--dft` (and `--func-basis 'wb97m-v/def2-svp'`) for DFT single points of
 the ML region on R, TS, and P. With `-c`, the ML region is cut out around the
-given residues; without it, it comes from the B-factor layers or `--model-pdb`.
+given residues; otherwise it comes from the B-factor layers or `--model-pdb`.
 
 ## How the mode is chosen
 

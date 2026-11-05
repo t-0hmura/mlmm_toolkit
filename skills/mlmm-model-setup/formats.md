@@ -1,7 +1,7 @@
 # Structure formats
 
-Per-format layouts, edits, and checks for mlmm-toolkit inputs. Choosing a
-format, selectors, layers, and the charge rules are in [SKILL.md](SKILL.md).
+Per-format layouts, edits, and checks for mlmm-toolkit inputs. Format
+choice, selectors, layers, and the charge rules are in [SKILL.md](SKILL.md).
 
 - [Fields at a glance](#fields-at-a-glance)
 - [PDB](#pdb)

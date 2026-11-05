@@ -25,7 +25,7 @@ Give the substrate as chain:name:number and its total charge as one number.
 mlmm extract -i complex.pdb -c 'A:GPP:301' -o pocket.pdb -l -3 --out-json
 ```
 
-The console prints `[extract] Atoms after truncation: N`; the region has N atoms. The charge is on the line `[extract] Total active site model charge`. `result.json` has the same numbers in `n_atoms_extracted` and `total_charge`. Open `pocket.pdb` in a viewer and check that the residues of the reaction are in the region.
+The console prints `[extract] Atoms after truncation: N`; the region has N atoms. The charge is on the line `[extract] Total active site model charge`. `result.json` has the same numbers in `n_atoms_extracted` and `total_charge`. Open `pocket.pdb` in a viewer and check that the residues involved in the reaction are in the region.
 
 ### 2. Substrate given as a PDB file
 

@@ -1,10 +1,10 @@
 # インストール
 
-`mlmm-toolkit` は Linux 環境（ワークステーションや HPC）向けで、本番計算では通常 CUDA 対応 GPU を使用します。MM の計算には、トポロジーを作る **AmberTools**（`tleap`）と、`hessian_ff` のカーネルをビルドする **C++20 対応コンパイラー** が必要です。下の conda のコマンドで AmberTools を入れます。
+`mlmm-toolkit` は Linux 環境（ワークステーションや HPC）向けで、本番計算では通常 CUDA 対応 GPU を使用します。MM の計算には、トポロジーを作る **AmberTools**（`tleap`）と、`hessian_ff` のカーネルをビルドする **C++20 対応コンパイラ** が必要です。下の conda のコマンドで AmberTools を入れます。
 
 ## 最短のインストール
 
-`nvidia-smi` の右上に出る `CUDA Version` は、ドライバーが扱える最も新しい CUDA です。以下のコマンドは CUDA 13.0 用の conda-forge の PyTorch（`cuda130`）を入れます。この値が 13.0 より小さいときは、`cuda130` を `cuda129` に置き換えてください。
+`nvidia-smi` の右上に出る `CUDA Version` は、ドライバーが扱える最も新しい CUDA です。以下のコマンドは CUDA 13.0 用の conda-forge の PyTorch（`cuda130`）を入れます。`CUDA Version` が 13.0 より小さいときは、`cuda130` を `cuda129` に置き換えてください。
 
 ### 必須
 
@@ -45,7 +45,7 @@ ORB・AIMNet2・MACE・DFT の導入は {ref}`詳細なインストール手順 
 (ja-system-prerequisites)=
 ## システムの前提パッケージ
 
-`pip install mlmm-toolkit` では、コンパイラと Chrome が使うライブラリは入りません。ワークステーションには通常ありますが、最小構成のコンテナや素のクラスターノードにはないことが多いです。
+`pip install mlmm-toolkit` では、コンパイラも、Chrome が使うライブラリも入りません。ワークステーションには通常ありますが、最小構成のコンテナや素のクラスターノードにはないことが多いです。
 
 - **コンパイラ:** `hessian_ff` には C++20 対応のコンパイラ（`g++`）が要ります。GPU で UMA を使うときと、GPU で `--compile` を付けるときは、`gcc` も要ります。
 - **Chrome 用のライブラリ:** PNG・JPEG・SVG・PDF の図（`energy-diagram`、`trj2fig`、`all` の図）はヘッドレス Chrome で描きます。Chrome は `plotly_get_chrome -y` でダウンロードし、下の OS のライブラリを読み込みます。
@@ -71,7 +71,7 @@ sudo dnf install -y alsa-lib at-spi2-atk at-spi2-core atk ca-certificates cairo 
 
 既存のコンパイラを使います。gcc や CUDA が無い場合は、システムのものを読み込んでください（HPC では `module load` など）。システムに C コンパイラや CUDA が無い場合や使わない場合は、`conda install -c conda-forge cuda-nvcc` で両方を環境に入れられます（入れた後に環境を再度 activate してください）。HPC で Chrome のライブラリが足りない場合は管理者に依頼してください。
 
-コンパイラや CUDA が足りないときは、コマンドが止まり、この 2 つの方法を表示します。
+コンパイラや CUDA が足りないときは、`mlmm` が止まり、この 2 つの方法を表示します。
 
 (ja-step-by-step-installation)=
 ## 詳細なインストール手順
@@ -134,7 +134,7 @@ sudo dnf install -y alsa-lib at-spi2-atk at-spi2-core atk ca-certificates cairo 
 
     mlmm-toolkit はデフォルトで UMA を使用します。他のバックエンドは対応する追加パッケージを導入し、`-b/--backend`（例: `-b orb`）で選択します:
 
-    **ORB**: `orb-models` は UMA の `fairchem-core` と競合するので、手順 2〜6 で作った Python 3.12 の別の環境に入れてください。
+    **ORB**: `orb-models` は UMA の `fairchem-core` と競合するので、手順 2〜6 で別に作った Python 3.12 の環境に入れてください。
 
     ```bash
     pip uninstall fairchem-core && pip install orb-models
@@ -146,7 +146,7 @@ sudo dnf install -y alsa-lib at-spi2-atk at-spi2-core atk ca-certificates cairo 
     pip install "mlmm-toolkit[aimnet]"
     ```
 
-    **MACE**: `mace-torch` が要求する `e3nn==0.4.4` が UMA の `fairchem-core` と衝突するので、手順 2〜6 で作った別の環境に入れます。
+    **MACE**: `mace-torch` が要求する `e3nn==0.4.4` が UMA の `fairchem-core` と衝突するので、手順 2〜6 で別に作った環境に入れます。
 
     ```bash
     pip uninstall fairchem-core && pip install mace-torch
@@ -189,9 +189,9 @@ sudo dnf install -y alsa-lib at-spi2-atk at-spi2-core atk ca-certificates cairo 
 
 **GPU / CUDA:** 選んだ PyTorch のビルドに対応するドライバーの NVIDIA GPU（最短のインストールを参照）。新しい GPU アーキテクチャでは新しいビルドが必要なことがあります。CPU のみでも実行できますが、通常は大幅に遅くなります。
 
-**AmberTools とコンパイラー:** `mm-parm` と `all` のトポロジー作成に AmberTools（`tleap`）が必要です。前の計算の対応する `--parm7` を渡すと、この段を省けます。デフォルトの MM バックエンド `hessian_ff` には C++20 対応コンパイラー（GCC 13.3 で検証）が必要です。PDBFixer が要るのは `mm-parm --add-h` のときだけです。
+**AmberTools とコンパイラ:** `mm-parm` と `all` のトポロジー作成に AmberTools（`tleap`）が必要です。前の計算の対応する `--parm7` を渡すと、この段を省けます。デフォルトの MM バックエンド `hessian_ff` には C++20 対応コンパイラ（GCC 13.3 で検証）が必要です。PDBFixer が要るのは `mm-parm --add-h` のときだけです。
 
-**VRAM・RAM・ディスク:** メモリはバックエンド、原子数、Hessian の計算方式とともに増え、ディスクには環境、モデルの重み、トポロジー、軌跡と Hessian が入ります。巨大な系を扱う場合は、代表的な計算を 1 つ対象の計算ノードで実行し、最大使用量を見てください。
+**VRAM・RAM・ディスク:** メモリはバックエンド、原子数、Hessian の計算方式によって変わり、ディスクには環境、モデルの重み、トポロジー、軌跡と Hessian が入ります。巨大な系を扱う場合は、代表的な計算を 1 つ対象の計算ノードで実行し、最大使用量を見てください。
 
 ## 次のステップ
 

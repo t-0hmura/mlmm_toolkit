@@ -1,7 +1,7 @@
 # `mlmm all`
 
 `all` builds the ML region, the Amber topology, and the layers of the full
-system, runs the MEP search or a staged scan, and, when asked, TS optimization,
+system, then runs the MEP search or a staged scan and, when asked, TS optimization,
 IRC, frequencies, and DFT in one command. It succeeded when the console prints
 `[Imaginary modes] n=1 (...)` for each TS and `Scientific status: success`
 under the last `====== Pipeline summary ======`.

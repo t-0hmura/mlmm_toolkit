@@ -4,7 +4,7 @@
 
 ## Quick install
 
-`nvidia-smi` shows `CUDA Version` at the top right of its output: the newest CUDA the driver supports. The commands below install the conda-forge PyTorch for CUDA 13.0 (`cuda130`); if this number is below 13.0, replace `cuda130` with `cuda129`.
+`nvidia-smi` shows `CUDA Version` at the top right of its output: the newest CUDA the driver supports. The commands below install the conda-forge PyTorch for CUDA 13.0 (`cuda130`); if the `CUDA Version` is below 13.0, replace `cuda130` with `cuda129`.
 
 ### Required
 
@@ -71,7 +71,7 @@ sudo dnf install -y alsa-lib at-spi2-atk at-spi2-core atk ca-certificates cairo 
 
 Use the existing compiler. If gcc or CUDA is missing, load them from the system (on HPC, for example with `module load`). If the system has no C compiler or CUDA, or you do not want to use them, `conda install -c conda-forge cuda-nvcc` installs both into the environment; reactivate the environment afterwards. On HPC, ask the administrator for any missing Chrome libraries.
 
-If a compiler or CUDA is missing, the command stops and prints these two options.
+If a compiler or CUDA is missing, `mlmm` stops and prints these two options.
 
 (step-by-step-installation)=
 ## Step-by-step installation
@@ -194,7 +194,7 @@ If you prefer to build the environment piece by piece:
 
 **AmberTools and compiler.** AmberTools (`tleap`) builds the topology in `mm-parm` and `all`; a matching `--parm7` from an earlier run skips that step. The default `hessian_ff` MM backend needs a C++20 compiler (validated with GCC 13.3). PDBFixer is needed only for `mm-parm --add-h`.
 
-**VRAM, RAM, and disk.** Memory grows with the backend, the atom count, and the Hessian mode, and the disk holds the environment, the model weights, the topology, and the trajectories and Hessians; for a very large system, run one representative calculation on the target node and watch the peak use.
+**VRAM, RAM, and disk.** Memory depends on the backend, the atom count, and the Hessian mode, and the disk holds the environment, the model weights, the topology, and the trajectories and Hessians; for a very large system, run one representative calculation on the target node and watch the peak use.
 
 ## Next steps
 
@@ -203,6 +203,6 @@ If you prefer to build the environment piece by piece:
 - [Quickstart: `mlmm all --scan-lists`](quickstart-scan.md) — build a path from one structure
 - [Quickstart: TS-only mode](quickstart-tsopt.md) — optimize and check a TS candidate
 - [Refine an MLIP TS with DFT](dft-backend.md) — refine and check the TS with DFT/MM
-- [Common options and selectors](cli-conventions.md) — shared options, and how to give residues and atoms
+- [Common options and selectors](cli-conventions.md) — shared options, and how to specify residues and atoms
 - [Device Configuration & HPC Setup](device-hpc.md) — GPU settings and job scripts for clusters
 - [Troubleshooting](troubleshooting.md) — common errors and what to try

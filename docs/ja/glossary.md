@@ -54,7 +54,7 @@
 | **L-BFGS** | Limited-memory BFGS | 勾配履歴から Hessian を近似する準ニュートン法。`opt` の `--opt-mode grad` で使用。 |
 | **RFO** | Rational Function Optimization | 明示的な Hessian 情報を使用する信頼領域最適化法。`--opt-mode hess` で使用。 |
 | **RS-I-RFO** | Restricted-Step Image-RFO | 1 つの負固有値方向に沿う、鞍点（TS）最適化用の RFO 変種。 |
-| **Dimer** | Dimer Method | 低曲率方向を追跡する TS 最適化法。mlmm-toolkit の Hessian-guided Dimer は初期および定期的な活性部分空間 Hessian を使うため、活性自由度が多い系ではランダムな初期方向より頑健です。`--opt-mode grad` の TSOPT で使用。 |
+| **Dimer** | Dimer Method | 低曲率方向を追跡する TS 最適化法。mlmm-toolkit の Hessian-guided Dimer は初期および定期的な活性部分空間 Hessian を使うため、活性自由度が多い系ではランダムな初期方向より頑健です。`tsopt` の `--opt-mode grad` で使用。 |
 | **PHVA** | Partial Hessian Vibrational Analysis | アクティブ（非固定）原子の Hessian ブロックのみを使用した振動解析。`freq` のデフォルト。 |
 
 ## 機械学習・計算機
@@ -66,7 +66,7 @@
 | **ORB** | ORB Models | Orbital Materials が提供する MLIP バックエンド。`--backend orb` で選択。別の環境に `pip uninstall fairchem-core && pip install orb-models` で追加インストール。 |
 | **MACE** | MACE (Message-passing Atomic Cluster Expansion) | 等変メッセージパッシングに基づく MLIP バックエンド。`--backend mace` で選択。専用の conda 環境で `pip uninstall fairchem-core && pip install mace-torch` を実行してインストールします。 |
 | **AIMNet2** | Atoms In Molecules Network 2 | ニューラルネットワークベースの MLIP バックエンド。`--backend aimnet2` で選択。`pip install "mlmm-toolkit[aimnet]"` で追加インストール。 |
-| **解析 Hessian** | Analytical Hessian | バックエンドの微分可能な、またはネイティブの Hessian 計算で二階微分を求める方法。計算時間とメモリはバックエンドと系によって変わる。UMA、ORB、MACE、AIMNet2 で使用可能。 |
+| **解析 Hessian** | Analytical Hessian | 自動微分かバックエンドのネイティブ実装で二階微分を求める方法。計算時間とメモリはバックエンドと系によって変わる。UMA、ORB、MACE、AIMNet2 で使用可能。 |
 | **有限差分** | Finite Difference | 変位させた構造の力から二階微分を近似する方法。計算時間とメモリはバックエンドと系によって変わり、すべての MLIP バックエンドで使用可能。 |
 
 ## 量子化学

@@ -1,6 +1,6 @@
 # デバイス設定 & HPC セットアップ
 
-ML/MM 計算機の ML と MM の部分をどのデバイス（GPU か CPU）で動かすかの設定と、PBS・Slurm のジョブスクリプトをまとめたページです。デフォルトでは、ML の推論は CUDA が使えれば GPU で、MM の力場（`hessian_ff`）は CPU で動きます。
+ML/MM 計算機の ML と MM の部分をどのデバイス（GPU か CPU）で動かすかの設定と、PBS・Slurm のジョブスクリプトをまとめたページです。デフォルトでは、ML の推論は CUDA が使えれば GPU で、MM のエンジン（`hessian_ff`）は CPU で動きます。
 
 ## デバイスパラメータ
 

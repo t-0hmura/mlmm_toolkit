@@ -92,7 +92,7 @@ result_path_search/
 ├─ summary.log               # The same summary as text
 ├─ mep_seg_NN_trj.xyz        # Path of reactive segment NN (PDB: mep_seg_NN.pdb)
 ├─ hei_seg_NN.xyz            # HEI of reactive segment NN, the TS candidate (PDB: hei_seg_NN.pdb)
-├─ hei_mode_seg_NN.*         # Reaction-direction guess at that HEI; all passes it to tsopt
+├─ hei_mode_seg_NN.*         # Reaction-direction guess at that HEI; mlmm all passes it to tsopt
 ├─ align_refine/             # Alignment and relaxation files of the inputs (--align)
 ├─ initNN_*_opt/             # Pre-optimization of each input (--preopt)
 └─ seg_NNN_*/                # Working files of each GSM/DMF run and HEI-side optimization

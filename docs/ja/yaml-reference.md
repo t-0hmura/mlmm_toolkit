@@ -298,7 +298,7 @@ opt:
 | `gau_vtight` | 2.0e-6 | 1.0e-6 | 6.0e-6 | 4.0e-6 |
 | `baker` | 3.0e-4 | 2.0e-4 | 3.0e-4 | 2.0e-4 |
 
-`baker` は表の 4 列すべてに加えて、直前のサイクルとの `|delta E| < 1e-6` Hartree を要求します。これは Bakken と Helgaker（*J. Chem. Phys.* **117**, 9160 (2002)）が示した Baker 基準（`max(|force|) <= 3e-4` **かつ**（`|delta E| < 1e-6` **または** `max(|step|) <= 3e-4`））より厳しい条件です。文献の形では RMS の力が残った構造も収束とみなされ、機械学習ポテンシャルの面では高次の鞍点で止まることがあるため、厳しい形を使います。`min_step_norm` 以下のステップは、エネルギーの条件を満たすとみなします。
+`baker` は表の 4 列すべてに加えて、直前のサイクルとの `|delta E| < 1e-6` Hartree を要求します。これは Bakken と Helgaker（*J. Chem. Phys.* **117**, 9160 (2002)）が示した Baker 基準（`max(|force|) <= 3e-4` **かつ**（`|delta E| < 1e-6` **または** `max(|step|) <= 3e-4`））より厳しい条件です。文献の形では RMS の力が残った構造も収束とみなされ、機械学習ポテンシャルでは高次の鞍点で止まることがあるため、厳しい形を使います。`min_step_norm` 以下のステップは、エネルギーの条件を満たすとみなします。
 
 ほかのプリセットでは、`overachieve_factor` を 0 より大きくすると、`max(force)` と `rms(force)` がともに `閾値 / overachieve_factor` を下回った時点で、ステップの条件を満たしていなくても収束とします。デフォルトは `0.0`（無効）で、`baker` では使いません。
 
@@ -568,7 +568,7 @@ rsirfo:
  max_cycles: 100000 # opt.max_cycles と共有するサイクル上限
  print_every: 100 # ログ出力間隔
  min_step_norm: 1.0e-08 # 最小ステップノルム
- assert_min_step: true # ステップ停滞時にアサート
+ assert_min_step: true # ステップが閾値以下で停止
  roots: [0] # 追跡する root は 1 個のみ（空のリスト・複数の root は拒否）
  hessian_ref: null # 参照Hessian
  rx_modes: null # 反応モード定義

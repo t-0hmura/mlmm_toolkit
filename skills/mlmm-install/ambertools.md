@@ -2,8 +2,8 @@
 
 `mlmm-toolkit` uses **AmberTools** (specifically `tleap` and
 `antechamber`) for the MM region parameterization step
-(`mlmm mm-parm`). AmberTools is required if you want to drive the
-parameter file (`parm7`) generation through the toolkit; if you have
+(`mlmm mm-parm`). AmberTools is required if you want the toolkit to
+generate the parameter file (`parm7`); if you have
 a hand-built `parm7` file, you can skip the install and pass
 it to the compute subcommands (`opt` / `sp` / `freq` / `tsopt` / `irc` /
 `dft` / `path-opt` / `path-search` / `all`) via `--parm7`, with the matching

@@ -182,10 +182,9 @@ mlmm all -i R.pdb P.pdb -c 'A:LIG:301' -l 'LIG:-1' --tsopt --thermo -b aimnet2
 
 The default model is `aimnet2`, fp32 only. `aimnet2`, `aimnet2-2025`, and
 `aimnet2-pd` are closed-shell only; `aimnet2-nse` handles open-shell systems
-with the multiplicity from `-m`. Use a model when the installed
+with the multiplicity from `-m`. Use a model only when the installed
 checkpoint covers the target elements, charge, and multiplicity and the
-target-system comparison meets the required error tolerance; do not use it
-when the checkpoint excludes any target state or the comparison fails.
+target-system comparison meets the required error tolerance.
 
 Pitfalls:
 

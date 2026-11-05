@@ -18,7 +18,7 @@ Success is the console line `[opt] Converged!` and `optimization_status`
 mlmm opt -i my.pdb --parm7 real.parm7 -l 'SAM:1' -b uma --out-json -o result_opt
 ```
 
-RFO for stiffer convergence:
+RFO for steadier convergence:
 
 ```bash
 mlmm opt -i my.xyz --parm7 real.parm7 --ref-pdb topology.pdb -q -1 -m 1 --opt-mode rfo -b mace -o result_opt_rfo
@@ -56,7 +56,7 @@ criterion.
 
 - `grad` / `lbfgs` (default): L-BFGS. Fast and robust for most
   well-conditioned minima.
-- `hess` / `rfo`: RFO with Hessian updates. Stiffer convergence; useful when
+- `hess` / `rfo`: RFO with Hessian updates. Steadier convergence; useful when
   L-BFGS oscillates.
 
 ## Pitfalls and recovery
@@ -66,9 +66,9 @@ criterion.
   geometry and shrinking the trust radius. At the smallest trust radius, `opt`
   runs one final convergence check on the retained geometry. It is ignored in
   L-BFGS mode.
-- L-BFGS occasionally walks past a saddle on shallow surfaces. If `freq` shows
+- L-BFGS occasionally stops at a saddle on shallow surfaces. If `freq` shows
   imaginary frequencies, re-run with `--opt-mode rfo`, or add `--flatten`,
-  which removes extra imaginary modes after the optimization. With
+  which removes imaginary modes after the optimization. With
   `--flatten`, frozen atoms are treated as in [freq.md](freq.md#phva).
 - `--mm-only` skips the MLIP component and minimizes on the MM force field
   only, as a cheap pre-relaxation before the ML/MM optimization. It supports

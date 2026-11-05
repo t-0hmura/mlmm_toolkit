@@ -1,6 +1,6 @@
 # `scan3d` (3D restrained grid scan)
 
-`scan3d` relaxes every point of a grid over three coordinates of a layered enzyme structure with harmonic restraints and the ML/MM calculator, records the energy without the restraints, and draws the energy volume as isosurfaces in an HTML page. Each axis is a range: a distance `(i,j,low,high)` in Å, an angle `(i,j,k,low,high)`, or a dihedral `(i,j,k,l,low,high)` in degrees.
+`scan3d` builds a grid over three coordinates of a layered enzyme structure, relaxes each point under harmonic restraints with the ML/MM calculator, records the energy without the restraints, and draws the energy volume as isosurfaces in an HTML page. Each axis is a range: a distance `(i,j,low,high)` in Å, an angle `(i,j,k,low,high)`, or a dihedral `(i,j,k,l,low,high)` in degrees.
 
 ---
 
@@ -163,7 +163,7 @@ See the [generated CLI reference](reference/commands/scan3d.md) for every option
 
 * **Three ranges in one literal**: `-s` takes exactly three ranges, in one inline literal or under `pairs:` in a YAML/JSON file. For staged scans, use [`scan`](scan.md).
 * **For a PDB with chains**, the {ref}`positional form <scan-list-spec>` `A:SAM:320:CS1` picks one atom without ambiguity.
-* **Grid size**: the number of relaxations is the product of the three axis lengths and grows quickly (567 for example 1). Start with a larger `--max-step-size` or narrower ranges.
+* **Grid size**: the number of grid points is the product of the three axis lengths and grows quickly (567 for example 1). Start with a larger `--max-step-size` or narrower ranges.
 * **`--baseline first`**: zero is put at point `(i, j, k) = (0, 0, 0)` when it is usable; otherwise the run prints `[baseline] 'first' requested but usable (i=0,j=0,k=0) is missing; using the usable minimum instead.` and uses the lowest usable point.
 * **Frozen atoms**: the atoms given by `--freeze-atoms` or YAML `geom.freeze_atoms`, and the atoms of the Frozen-MM layer, stay fixed in every relaxation. A scanned coordinate whose atoms are all {ref}`frozen <freeze-atoms-and-restraints>` is an error.
 * **Check the spec without computing**: `--dry-run` reads the input, the charge and spin, and `-s`, prints the plan, and exits without any optimization. With `--csv`, it checks only the options.

@@ -56,7 +56,7 @@ mlmm trj2fig -i traj.xyz -q 0 -m 1 -b uma --backend-model uma-s-1p2p1 \
 1. **エネルギーの読み込み**:
 各フレームのコメント行からエネルギーを読みます。`optimization_trj.xyz`（`opt --dump`）・`scan_trj.xyz`・`mep_trj.xyz`・`finished_irc_trj.xyz` など、mlmm が書き出す軌跡はそのまま読めます。ほかのファイルでは `E=<値>` の形で書き、単位（`Ha`・`Eh`・`hartree`・`eV`・`kcal/mol`）を付けられます。単位が無ければ Hartree ですが、拡張 XYZ（コメントに `Properties=` か `Lattice=` がある）の `energy=` だけは eV とします。`-q` か `-m` を指定したときは、代わりに MLIP（機械学習原子間ポテンシャル）バックエンドで全フレームを計算し直します。
 2. **基準の選択**:
-`-r init`（デフォルト）は左端のフレームで、最初のフレーム、`--reverse-x` では最後のフレームです。整数は 0 始まりのフレーム番号、`none` は絶対エネルギーです。
+`-r init`（デフォルト）は左端のフレーム（最初のフレーム、`--reverse-x` では最後のフレーム）です。整数は 0 始まりのフレーム番号、`none` は絶対エネルギーです。
 3. **単位の変換**:
 エネルギーを kcal/mol（デフォルト）か Hartree に変換し、基準の値を引いて ΔE にします。y 軸は `ΔE (kcal/mol)`、絶対エネルギーでは `E (…)` になります。
 4. **書き出し**:

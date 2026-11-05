@@ -218,7 +218,7 @@ calc:
  workers: 1 # Local ML worker processes (supported backends only)
  workers_per_node: 1 # Workers per node when workers > 1 (UMA parallel predictor)
  mm_fd: true # Use finite-difference for MM Hessian
- mm_hessian_mode: null # Explicit finite_difference/analytical mode; null maps mm_fd
+ mm_hessian_mode: null # Explicit finite_difference/analytical mode; null follows mm_fd
  mm_fd_dir: null # Directory for the MM finite-difference logs (real.log / model.log)
  mm_fd_delta: 0.001 # Finite-difference displacement for the MM Hessian (Å)
 
@@ -605,7 +605,7 @@ rsirfo:
  max_cycles: 100000 # Cycle cap shared with opt.max_cycles
  print_every: 100 # Logging stride
  min_step_norm: 1.0e-08 # Minimum accepted step norm
- assert_min_step: true # Assert when steps stagnate
+ assert_min_step: true # Stop if steps fall below threshold
  roots: [0] # One target root; empty or multi-root lists are rejected
  hessian_ref: null # Reference Hessian
  rx_modes: null # Reaction-mode definitions

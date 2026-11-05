@@ -11,7 +11,7 @@ Success is the n_imag you expect: 0 for a minimum, 1 for a TS candidate.
   candidate (n_imag = 1).
 - Free energies at 298.15 K and 1 atm by default, or at your own temperature
   and pressure.
-- With frozen atoms, the partial-Hessian analysis (PHVA) is used
+- With frozen atoms, the partial-Hessian vibrational analysis (PHVA) is used
   automatically.
 
 ## Minimal run
@@ -96,8 +96,7 @@ frozen atoms not on one line, the usual ML/MM case, no rigid motion is removed
 and every vibration of the mobile atoms is kept.
 
 What you choose: the frozen atoms, assigned by `define-layer` or explicitly
-through `geom.freeze_atoms`. `extract` only writes the capped pocket
-structure.
+through `geom.freeze_atoms`. `extract` does not freeze atoms.
 
 ## Pitfalls and recovery
 

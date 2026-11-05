@@ -16,7 +16,7 @@ Find your symptom in the quick table, then read the fix in the section it points
 | **Calculation & convergence** | | |
 | CUDA out of memory (`torch.cuda.OutOfMemoryError`) | Check the Frozen-MM layer, shrink the ML region (`--radius`), narrow the Hessian (`--hessian-cutoff`), return to the default `FiniteDifference` if you selected `Analytical`, or move to a larger GPU | {ref}`CUDA OOM <cuda-oom-torchcudaoutofmemoryerror>` |
 | TS optimization does not converge (`TS optimization did not converge`), or n_imag is not 1 after it | Check the TS candidate first, then switch the optimizer (`tsopt --opt-mode` / `all --opt-mode-post`); for n_imag ≥ 2, add `--flatten` | {ref}`TS optimization <troubleshooting-ts>`, {ref}`When the TS search fails <ts-search-fails>` |
-| IRC does not terminate | Check the optimized endpoints first, then reduce the step: `irc --step-size` or `all --irc-step-size` | {ref}`IRC <troubleshooting-irc>` |
+| IRC does not terminate properly | Check the optimized endpoints first, then reduce the step: `irc --step-size` or `all --irc-step-size` | {ref}`IRC <troubleshooting-irc>` |
 | Optimizer stalls at a flat energy (possible MLIP noise floor) | Let `--max-cycles` bound the run, or opt in to `--stop-plateau`; tune `--stop-plateau-thresh` / `--stop-plateau-window` if it stops too early or too late | {ref}`Plateau stop <optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor>` |
 | **Installation & environment** | | |
 | UMA model 401 / 403 or gated-repo error (`huggingface_hub.errors.GatedRepoError`) | Run `hf auth login` and accept the UMA model license | {ref}`Installation / environment <installation-environment-problems>` |

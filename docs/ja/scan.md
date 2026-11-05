@@ -91,9 +91,9 @@ mlmm scan -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
 1. **構造の読み込み**:
 ML 領域の {ref}`電荷 <ja-charge-specification>` は `-q` または `-l` から決まります。`--preopt` を付けると、まず拘束なしで構造を最適化します。収束しなかった場合は入力構造を使います。
 2. **ステージのステップ分割**:
-座標ごとに変化量 Δ = 目標値 − 現在値（二面角では −180°〜180° に折り返した最短の変化量）を求め、ステージを N = ceil(max(|Δ| / h)) ステップに分けます。h は距離では `--max-step-size`（Å）、角度では `--max-angle-step-size`、二面角では `--max-dihedral-step-size`（度）です。各座標は 1 ステップに Δ / N ずつ動くので、ステージ内のすべての座標が同時に目標値に着きます。
+座標ごとに変化量 Δ = 目標値 − 現在値（二面角では −180°〜180° に折り返した最短の変化量）を求め、ステージを N = ceil(max(|Δ| / h)) ステップに分けます。h は距離では `--max-step-size`（Å）、角度では `--max-angle-step-size`、二面角では `--max-dihedral-step-size`（度）です。各座標は 1 ステップに Δ / N ずつ動くので、ステージ内のすべての座標が同時に目標値に達します。
 3. **拘束付きの緩和**:
-各ステップで、調和拘束 E = ½ k (q − q_target)² がスキャンする座標 q をそのステップの目標値に保ち（k は `--restraint-k`）、残りの構造を ML/MM 計算機で L-BFGS（`--opt-mode grad`、デフォルト）または RFO（有理関数最適化、`--opt-mode hess`）により緩和します。固定 MM 層の原子は動きません。各ステップには、拘束を外して計算した ML/MM のエネルギーを記録します。ML/MM のスキャンでは Cartesian 座標（`geom.coord_type: cart`）がデフォルトで、推奨です。YAML で `dlc` を選ぶこともできますが、収束までにはるかに長くかかることがあります。
+各ステップで、スキャンする座標 q を調和拘束 E = ½ k (q − q_target)² でそのステップの目標値に保ち（k は `--restraint-k`）、残りの構造を ML/MM 計算機で L-BFGS（`--opt-mode grad`、デフォルト）または RFO（有理関数最適化、`--opt-mode hess`）により緩和します。固定 MM 層の原子は動きません。各ステップには、拘束を外して計算した ML/MM のエネルギーを記録します。ML/MM のスキャンでは Cartesian 座標（`geom.coord_type: cart`）がデフォルトで、推奨です。YAML で `dlc` を選ぶこともできますが、収束までにはるかに長くかかることがあります。
 4. **ステージの終わり**:
 `--endopt` を付けると、ステージの最後の構造を拘束なしでもう一度最適化します。そのあと、ステージの最初と最後の構造を比べて共有結合の変化を調べ、ステージの結果を書き出します。
 5. **次のステージ**:
@@ -159,7 +159,7 @@ result_scan/
 └─ result.json                      # 結果の要約（--out-json 指定時）。summary.json も同じ内容
 ```
 
-構造と軌跡は同じ名前の PDB（`result.pdb`、`scan.pdb`）でも書きます。`--no-convert-files` で止められます。{ref}`mmCIF の入力 <ja-mmcif-input>` と、PDB の欄に入りきらない大きな PDB の入力では、元の識別子を保った `.cif` も書きます。
+構造と軌跡は PDB（`result.pdb`、`scan.pdb`）でも書きます。`--no-convert-files` で止められます。{ref}`mmCIF の入力 <ja-mmcif-input>` と、PDB の欄に入りきらない大きな PDB の入力では、元の識別子を保った `.cif` も書きます。
 
 * **ステージの結果**: `stage_NN/result.*` はステージ NN の終わりの構造です。[`path-search`](path-search.md) には、開始構造に続けて `stage_NN/result.*` をステージの順に渡します。
 * **エネルギーの変化**: `scan_trj.xyz` の各フレームのコメント行には、拘束を外したエネルギー（Hartree）が入っています。[`trj2fig`](trj2fig.md) で図にできます。

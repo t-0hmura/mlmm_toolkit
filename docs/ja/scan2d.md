@@ -16,7 +16,7 @@ ML 領域の計算バックエンドにはデフォルトの **UMA**（Meta）�
 
 ## 基本的な実行例
 
-例の `complex.pdb` は `real.parm7` に対応する全系の構造で、`ml_region.pdb` はそのうちの ML 領域（リンク水素なし）を選びます。
+例の `complex.pdb` は `real.parm7` に対応する全系の構造で、`ml_region.pdb` はそのうちの ML 領域（リンク水素なし）です。
 
 原子は同梱の酵素の例（`examples/beza/1.R.pdb`）のもので、この PDB は chain の欄が空です。そのため、原子は chain を省いた 3 項目（残基名・残基番号・原子名）を任意の順序で、カンマか空白で区切って書きます（`"SAM,320,CS1"`）。
 
@@ -51,7 +51,7 @@ mlmm scan2d -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
 
 ### 3. 事前最適化・軌跡の保存・基準の指定
 
-スキャンの前に入力構造を最適化し、内側ループの軌跡を保存して、相対エネルギーを使える点の最小値から測ります。`--max-step-size 0.20`・`--opt-mode grad`・`--baseline min` はデフォルトで、ここでは明示しています。
+スキャンの前に入力構造を最適化し、内側ループの軌跡を保存して、使える点の最小値から相対エネルギーを測ります。`--max-step-size 0.20`・`--opt-mode grad`・`--baseline min` はデフォルトで、ここでは明示しています。
 
 ```bash
 mlmm scan2d -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 \
@@ -69,7 +69,7 @@ ML 領域の {ref}`電荷 <ja-charge-specification>` は `-q` または `-l` か
 2. **外側と内側のループ**:
 d₁ の各値で、d₁ の拘束だけをかけて構造を緩和します。続く内側ループで、両方の拘束をかけて d₂ を走査します。各点は、すでに収束した点のうち最も近いものから始めます。
 3. **各点の緩和**:
-調和拘束 E = ½ k (q − q_target)² が各座標 q を目標値に保ち（k は `--restraint-k`）、残りの構造を ML/MM 計算機で L-BFGS（`--opt-mode grad`、デフォルト）または RFO（有理関数最適化、`--opt-mode hess`）により緩和します。固定 MM 層の原子は動きません。そのあと拘束を外してエネルギーを計算し、構造を `grid/` に書き出します。
+調和拘束 E = ½ k (q − q_target)² で各座標 q を目標値に保ち（k は `--restraint-k`）、残りの構造を ML/MM 計算機で L-BFGS（`--opt-mode grad`、デフォルト）または RFO（有理関数最適化、`--opt-mode hess`）により緩和します。固定 MM 層の原子は動きません。そのあと拘束を外してエネルギーを計算し、構造を `grid/` に書き出します。
 4. **表と図**:
 最後の点のあと、全点を `surface.csv` にまとめます。使える点を 50 × 50 の格子上で動径基底関数（RBF）で補間し、等高線図（`scan2d_map.png`）と 3D 曲面（`scan2d_landscape.html`）を描きます。
 
@@ -77,7 +77,7 @@ d₁ の各値で、d₁ の拘束だけをかけて構造を緩和します。�
 
 ## surface.csv の読み方と判定
 
-`surface.csv` には格子点ごとの行と、基準の行が 1 つ入ります。
+`surface.csv` には格子点ごとの行と、開始構造の行が 1 つ入ります。
 
 | 列 | 内容 |
 | --- | --- |
@@ -87,10 +87,10 @@ d₁ の各値で、d₁ の拘束だけをかけて構造を緩和します。�
 | `energy_hartree` | 拘束を外したエネルギー（Hartree） |
 | `energy_kcal` | 基準からの相対エネルギー（kcal/mol） |
 | `bias_converged` | 拘束付きの緩和が収束したか |
-| `is_preopt` | 基準の行だけ `true` |
+| `is_preopt` | 開始構造の行だけ `true` |
 | `d1_label`, `d2_label` | 図に使う軸の名前 |
 
-* **基準の行**: `i = j = -1`、`is_preopt = true` の行は開始構造です。表には残りますが、格子点・エネルギーの基準・図の点には使いません。
+* **開始構造の行**: `i = j = -1`、`is_preopt = true` の行です。表には残りますが、格子点・エネルギーの基準・図の点には使いません。
 * **使える点**: 緩和が収束し、エネルギーが有限で、構造ファイルが書けた点を「使える点」とします。エネルギーの基準と図には、使える点だけを使います。
 * **判定**: `result.json`（`--out-json`）の `scientific_status` は、すべての格子点が使える点なら `success`、一部だけなら `partial`（{ref}`終了コード <ja-exit-codes>` 0）、1 つも無ければ `failed`（終了コード 1）です。点の数は `n_points_attempted` と `n_points_usable` に入ります。
 * **次の段階**: 図は補間なので、鞍点に近い計算点の構造 `grid/point_*.pdb` を [`tsopt`](tsopt.md) に渡します。2 つの谷の点は [`path-search`](path-search.md) の入力にできます。
@@ -103,12 +103,12 @@ d₁ の各値で、d₁ の拘束だけをかけて構造を緩和します。�
 
 ```text
 result_scan2d/
-├─ surface.csv                   # 基準の行を含む格子の表
+├─ surface.csv                   # 開始構造の行を含む格子の表
 ├─ scan2d_map.png                # 2D 等高線図
 ├─ scan2d_landscape.html         # 3D 曲面（ブラウザで開く）
 ├─ grid/
 │  ├─ point_i150_j090.xyz        # 各格子点の緩和後の構造
-│  ├─ preopt_iDDD_jDDD.xyz       # 開始構造（基準の行）
+│  ├─ preopt_iDDD_jDDD.xyz       # 開始構造
 │  └─ inner_path_d1_000_trj.xyz  # d₁ の値ごとの内側ループの軌跡（--dump 指定時）
 └─ result.json                   # 結果の要約（--out-json 指定時）。summary.json も同じ内容
 ```

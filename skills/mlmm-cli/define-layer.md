@@ -15,7 +15,7 @@ Success is a `Layer Summary` with the atom count you expect in each layer.
 
 ## Minimal run
 
-Around an ML model PDB:
+From an ML model PDB:
 
 ```bash
 mlmm define-layer -i complex.pdb --model-pdb ml_region.pdb \

@@ -18,7 +18,7 @@ is `energy.converged: true` in `result.yaml` and the console line
   last converged density. Keep the ML region to roughly 300 atoms, counting
   the link H. To refine an MLIP/MM TS, run [TS-only mode](all-ts-only.md)
   with `-b dft` on `segments/seg_NN/ts.pdb`, reusing the `--parm7` and
-  `--model-pdb` of the first run; its frequencies and thermochemistry stay a
+  `--model-pdb` of the first run; its frequencies and thermochemistry come from a
   PHVA of the ML and movable MM atoms, as in the MLIP/MM run. If you take the
   structure to another QM code instead (for example with
   [oniom-export](oniom.md)), first check that its frequency analysis also

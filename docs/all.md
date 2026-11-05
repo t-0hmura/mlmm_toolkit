@@ -59,7 +59,7 @@ The optimized R, TS, and P are written to `result_all/segments/seg_01/`.
 
 After a process stops, repeat the original command with the same `--out-dir` and add `--resume`. It keeps finished segments and restarts the first unfinished segment from its saved HEI.
 
-To redo the post-processing from segment N, repeat the original command with the same inputs, extraction, layer, path, and calculator options and the same `--out-dir`, and add `--resume-segment N`. Post-processing options other than `--precision-post`, such as `--tsopt-max-cycles`, may change.
+To redo the post-processing from segment N, repeat the original command with the same inputs, extraction, layer, path, and calculator options and the same `--out-dir`, and add `--resume-segment N`. Post-processing options other than `--precision-post`, such as `--tsopt-max-cycles`, can be changed.
 
 ```bash
 mlmm all -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
@@ -210,7 +210,7 @@ The number in a TS label of the diagrams (TS1, TS2, ...) is the number of its se
 | `--dft/--no-dft` | flag | `False` | DFT single points of the ML region on R, TS, and P (needs `--tsopt`) |
 | `--refine-path/--no-refine-path` | flag | `False` | Run the recursive `path-search` instead of one `path-opt` per pair |
 | `--mep-mode` | `gsm` / `dmf` | `gsm` | MEP method: GSM or DMF |
-| `--opt-mode` | `grad` / `hess` | `grad` | Optimizer for the single-structure optimizations and the scan: `grad` = L-BFGS, `hess` = RFO. When given and `--opt-mode-post` is not, it is also used for the TS and the endpoints |
+| `--opt-mode` | `grad` / `hess` | `grad` | Optimizer for the single-structure optimizations and the scan: `grad` = L-BFGS, `hess` = RFO. When given without `--opt-mode-post`, it also sets `--opt-mode-post` |
 | `--opt-mode-post` | `grad` / `hess` | `hess` (or `--opt-mode` when that is given) | Optimizer for the TS and the endpoints after IRC: `grad` = Dimer for the TS and L-BFGS for the endpoints, `hess` = RS-P-RFO for the TS and RFO for the endpoints |
 | `--preopt/--no-preopt` | flag | `True` | Optimize the input structures before the scan and the MEP search |
 | `--flatten/--no-flatten` | flag | `False` | Remove extra imaginary modes left after the TS optimization |

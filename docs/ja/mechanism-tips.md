@@ -13,7 +13,7 @@ mlmm-toolkit で得られる TS と経路は、仮説として立てた機構の
 | n_imag が 2 以上で、2 つのモードがどちらも反応の結合を動かす | 段に分けて試す | {ref}`TS が得られないとき <ja-ts-search-fails>`、{ref}`反応の分け方を決める <ja-mechanism-split>` |
 | n_imag が 0、または候補が R・P の側へ滑り落ちた | `--refine-path` を付ける、別の初期構造から始める | {ref}`TS が得られないとき <ja-ts-search-fails>` |
 | 候補の機構を比べる、または IRC の端点が狙った R・P と違う | 段の順を入れ替える、段階と協奏を比べる、ML 領域の範囲を見直す | {ref}`候補の機構を比べる <ja-mechanism-compare>` |
-| 障壁を読む | その段の直前の極小から数える | {ref}`障壁を読む <ja-mechanism-barrier>` |
+| 障壁を読む | その段の直前の極小を基準にする | {ref}`障壁を読む <ja-mechanism-barrier>` |
 | 最適化が max cycles で止まる | オプティマイザを切り替える（`tsopt --opt-mode` / `all --opt-mode-post`）、ステップを小さくする、別の初期構造から始める | {ref}`トラブルシューティング：TS 最適化 <ja-troubleshooting-ts>` |
 
 (ja-mechanism-hypothesis)=
@@ -42,7 +42,7 @@ mlmm all -i 1.R.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
     --tsopt --thermo -o ./result_concerted
 ```
 
-C–C 結合の形成と C–S 結合の切断を先に動かし、H の移動を 2 つ目の段にします。
+C–C 結合の形成と C–S 結合の切断を先に行い、H の移動を 2 つ目の段にします。
 
 ```bash
 mlmm all -i 1.R.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
@@ -64,7 +64,7 @@ TS 最適化が成功すると、反応モードの虚振動が 1 つ出ます�
 
 - **終わり方**：収束した `tsopt` は `[microiter] Converged!`（マイクロイテレーションを使わないときは `[tsopt] Numerical optimization converged.`）を出し、続けて `[Imaginary modes] n=1 (...)` のように虚振動を出します。n_imag が 1 でないときは、`[tsopt] WARNING: Higher-order stationary point (n_imag=N). Try --flatten or all --refine-path.` か `[tsopt] No imaginary mode detected. Try all --refine-path.` も出ます。`--out-json` を付けると `result.json` も書きます。`all --tsopt` は TS ごとに同じ行を出し、指定した段がすべて収束すると、最後の `====== Pipeline summary ======` の下に `Scientific status: success` と出ます。`summary.log` の [3] には、セグメントごとの n_imag と IRC の出力がまとまります。判定の読み方は [tsopt の TS の判定](tsopt.md#ts-の判定) と [all の実行結果の判定](all.md#実行結果の判定) にあります。
 - **max cycles とプラトー停止**：TS 最適化が max cycles に達して未収束のときは Hessian を計算しないので、n_imag は出ません。エネルギーが変わらなくなって止まったとき（`--stop-plateau`。{ref}`プラトー停止 <ja-optimizer-stalls-with-flat-energy--forces-just-above-threshold-mlip-force-noise-floor>`）は、必ず Hessian を計算して n_imag を出します。
-- **端点**：終了コードが 0 であるだけでは、狙った TS が得られた証拠になりません。端点の最適化の後、IRC の両端で共有結合と移る H の付き先が狙った R と P と同じかを確かめてください。
+- **端点**：終了コードが 0 であるだけでは、狙った TS が得られた証拠になりません。端点の最適化の後、IRC の両端で共有結合と移る H の結合先が狙った R と P と同じかを確かめてください。
 - **診断用の IRC**：n_imag が 2 以上でも、最適化が数値的に収束し（プラトー停止は除く）、最後の PHVA（部分 Hessian 振動解析）が終わっていれば、`all` は IRC を続けます。反応の方向に合う虚振動のモードを使い、選べないときは最も低い虚振動のモードを使います。ログには `[all] WARNING: continuing diagnostic IRC from a numerically converged higher-order saddle …` と出ます。
 - **モード**：`vib/imag_*_trj.xyz` をビューアで開き、各モードでどの原子が動くかを見てください。
 
@@ -78,7 +78,7 @@ TS 最適化が成功すると、反応モードの虚振動が 1 つ出ます�
 - **余分なモードが反応部位の外にある**（側鎖や水の回転など）：`--flatten` を付けてやり直してください。`tsopt`・`all` で使えます。最適化の後に n_imag が 2 以上なら、余分なモードに沿って構造を少しずらして最適化をやり直し、デフォルトでは最大 {ref}`50 回 <ja-flatten-precedence-caveat>` まで繰り返します。
 - **高次の鞍点で止まった**（n_imag が 2 以上のまま収束した）：その TS 最適化の最後の構造（`tsopt` の `final_geometry.*`、`all` では `segments/seg_NN/ts/` の中）から、同じ `--parm7` と `--model-pdb` で `--flatten` を付けた `tsopt` を始める方法もあります。
 - **`--flatten` の後**：IRC の両端をもう一度確かめてください。n_imag が 1 になっても、別の反応の TS 候補に移ることがあります。
-- **余分なモードが ML 領域と可動 MM 原子にまたがる**（基質と一緒に動く水など）：`tsopt` はデフォルトで {ref}`マイクロイテレーション <ja-microiteration>` を使うので、TS のステップで動くのは ML 原子とそれに結合した MM 原子だけです。`tsopt` に `--no-microiter --flatten` を付けてやり直し、TS のオプティマイザが動く原子のすべてを動かすようにしてください。`all` には `--microiter` が無いので、`all` の実行の `--parm7` と `--model-pdb` を `tsopt` に渡します。
+- **余分なモードが ML 領域と可動 MM 原子にまたがる**（基質と一緒に動く水など）：`tsopt` はデフォルトで {ref}`マイクロイテレーション <ja-microiteration>` を使うので、TS のステップで動くのは ML 原子とそれに結合した MM 原子だけです。`tsopt` に `--no-microiter --flatten` を付けてやり直し、TS のオプティマイザが可動原子のすべてを動かすようにしてください。`all` には `--microiter` が無いので、`all` の実行の `--parm7` と `--model-pdb` を `tsopt` に渡します。
 - **Hessian の範囲を絞っていた**：`tsopt` に小さい [`--hessian-cutoff`](model-setup.md#hessian-の範囲を絞る) を付けていたら、広げるか外して、デフォルト（可動 MM 原子のすべて）に戻してください。
 - **`--flatten` を使わない方法**：余分なモードのファイル `vib/imag_*_trj.xyz` と、B-factor に層を保った `vib/imag_*.pdb` には 20 のフレームがあり、6 番目と 16 番目が両方向に最も大きくずらした構造です。ビューアでこの 2 つをそれぞれ別の PDB に保存し、同じ電荷とスピンで、それぞれを TS-only モードか `tsopt` の初期構造にします。
   ```bash
@@ -107,7 +107,7 @@ TS 最適化が成功すると、反応モードの虚振動が 1 つ出ます�
 ## 障壁を読む
 
 - scan の最高点は TS の候補です。障壁は TS 最適化の後の値で読んでください。
-- 障壁は、その段の直前の極小から数えます。`all` は各セグメントの障壁を、そのセグメントの E(TS) − E(R) として出します。TS-only モードでは、IRC の両端のうちエネルギーの高いほうが R です。候補の機構を比べるときは、どの候補でも基準の R をそろえてください。
+- 障壁は、その段の直前の極小を基準にします。`all` は各セグメントの障壁を、そのセグメントの E(TS) − E(R) として出します。TS-only モードでは、IRC の両端のうちエネルギーの高いほうが R です。候補の機構を比べるときは、どの候補でも基準の R をそろえてください。
 - `--tsopt` の後、最適化した TS からの各セグメントの障壁は、`summary.log` の [3]（`Per-segment post-processing (TSOPT / Thermo / DFT)`）と `summary.json` の `post_segments[].mlip.barrier_kcal`（ML/MM のエネルギー）にあります。MEP 探索では、`summary.log` の [2]（`Segment-level MEP summary (ML/MM path)`）が TS 最適化の前の MEP の障壁です。[4]（`Energy diagrams (overview)`）はエネルギー図の表です。
 
 ## 使用上の注意点

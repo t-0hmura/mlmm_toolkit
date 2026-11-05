@@ -41,7 +41,7 @@ Commands that evaluate the ML/MM calculator also record:
 | `mlip_model` | string \| null | Exact model/checkpoint; `filename:factory` for `--calc-file` |
 | `mlip_model_label` | string \| null | Publication-facing model label derived from the exact identifier |
 | `mlip_task` | string \| null | Backend task used by a multi-domain model (for UMA, `omol` unless `calc.uma_task_name` sets another); `mlip_model` remains the exact identifier |
-| `mlip_precision` | string \| null | Effective public precision token (`tf32`, `fp32` or `fp64`); null for a custom calculator whose dtype is controlled by user code |
+| `mlip_precision` | string \| null | Effective precision (`tf32`, `fp32` or `fp64`); null for a custom calculator whose dtype is controlled by user code |
 | `mlip_compiled` | bool \| null | Whether the UMA or ORB model ran through torch.compile (`--compile`); false for other backends and for the analytical Hessian; null when a plot-only command did not evaluate a calculator |
 | `mm_backend` | string \| null | MM Hessian/energy backend (`hessian_ff` or `openmm`); null when a plot-only command did not evaluate a calculator |
 | `link_atom_method` | string \| null | Link-atom placement (`scaled` or `fixed`); null for plot-only output |
@@ -144,7 +144,7 @@ With microiteration, `final_max_force`, `final_rms_force`, `final_max_step`, and
 | `flatten_requested` / `flatten_enabled` | bool | Whether flatten iterations were configured |
 | `flatten_skip_reason` | string \| null | Reason no further flatten step was taken, when applicable |
 | `optimization_status` | string | Numerical optimizer outcome: `"converged"`, `"not_converged"`, or `"stalled"`; independent of saddle order |
-| `saddle_validation` | string | `"first_order"`, `"higher_order"`, `"no_imaginary"`, or `"unavailable"` from terminal exact PHVA (partial Hessian vibrational analysis) |
+| `saddle_validation` | string | `"first_order"`, `"higher_order"`, `"no_imaginary"`, or `"unavailable"` from the final exact PHVA (partial Hessian vibrational analysis) |
 | `saddle_order_verified` | bool | `true` only for `saddle_validation: "first_order"` |
 | `hessian_status` | string | `"completed"`, `"failed"`, `"skipped"`, or `"unavailable"`; `hessian_error` gives the failure reason |
 | `reaction_mode_index` | int\|null | 0-based index of the imaginary mode that `all` follows in IRC: the mode the optimizer followed when it is imaginary, otherwise the lowest imaginary mode; `null` when there is none |
@@ -219,7 +219,7 @@ TS. For when `all` goes on to IRC, see
 
 ### `irc`
 
-IRC reports `execution_status` and `scientific_status` and keeps the stop reason and trajectory of each direction; `all` reports the endpoint optimizations that follow under `endpoint_opt`. The stitched path runs from its first frame through the TS to its last frame; a standalone `irc` does not decide which end is the reactant and which is the product. How the IRC stopped does not enter `scientific_status`: a standalone `irc` reports `completed` / `success` when the integration returns normally, and `all` judges the TS and endpoint optimizations.
+IRC reports `execution_status` and `scientific_status` and keeps the stop reason and trajectory of each direction; `all` reports the endpoint optimizations that follow under `endpoint_opt`. The stitched path runs from its first frame through the TS to its last frame; a standalone `irc` does not decide which end is the reactant and which is the product. How the IRC stopped does not affect `scientific_status`: a standalone `irc` reports `completed` / `success` when the integration returns normally, and `all` judges the TS and endpoint optimizations.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -230,7 +230,7 @@ IRC reports `execution_status` and `scientific_status` and keeps the stop reason
 | `energy_last_hartree` | float | Energy of the last frame of the stitched path |
 | `endpoint_energy_orientation` | string | `"finished_first_to_finished_last"` |
 | `forward_requested` / `backward_requested` | bool | Whether each direction was requested |
-| `forward_integration_converged` / `backward_integration_converged` | bool\|null | Whether the direction stopped because the RMS-gradient stationarity criterion fired; diagnostic only, and always `false` under `--never-stop`, which bypasses that criterion. Combine it with `*_downhill_departure_valid` to check that the branch both left the TS downhill and met that criterion. |
+| `forward_integration_converged` / `backward_integration_converged` | bool\|null | Whether the direction stopped because the RMS-gradient stationarity criterion was met; diagnostic only, and always `false` under `--never-stop`, which bypasses that criterion. Combine it with `*_downhill_departure_valid` to check that the branch both left the TS downhill and met that criterion. |
 | `forward_downhill_departure_valid` / `backward_downhill_departure_valid` | bool\|null | Whether the branch established a downhill departure from the TS |
 | `forward_integration_stop_reason` / `backward_integration_stop_reason` | string\|null | Non-empty only for a numerical propagation failure |
 | `never_stop` | bool | Whether `--never-stop` (bypass of the physical endpoint stops) was enabled |
@@ -444,7 +444,7 @@ The `all` command additionally includes:
 | `post_segments[].mlip` / `.gibbs_mlip` / `.dft` / `.gibbs_dft_mlip` | object | R, TS, and P energies at one level, with `barrier_kcal`, `delta_kcal`, and `energies_kcal`: ML/MM electronic energies (`--tsopt`), ML/MM Gibbs energies (`--thermo`), DFT energies (`--dft`), and DFT//ML/MM Gibbs energies (`--thermo` with `--dft`) |
 | `post_segments[].tsopt.energy_valid` / `.structure_valid` | bool | `energy_valid`: the final TS energy is a finite number. `structure_valid`: the final TS structure file exists and its coordinates are finite. These checks run no extra Hessian or optimization. |
 | `post_segments[].tsopt.n_opt_cycles` / `.max_cycles` | int / int\|null | TS optimization cycles executed and configured limit. These are reported for both converged and normally non-converged runs. |
-| `post_segments[].irc` / `.endpoint_assignment` / `.endpoint_opt` | object | IRC stop diagnostics, endpoint orientation, and endpoint-OPT convergence, respectively. In TS-only mode, `endpoint_assignment.policy` is `higher_energy_endpoint_as_reactant` and `chemical_direction_known` is false. `endpoint_opt.reactant` and `.product` report `optimization_status`, `n_opt_cycles`, `max_cycles`, and any `stop_reason`. How the IRC stopped and whether the bond changes match do not enter `scientific_status`; whether the optimized endpoints are the intended R and P is for you to check. |
+| `post_segments[].irc` / `.endpoint_assignment` / `.endpoint_opt` | object | IRC stop diagnostics, endpoint orientation, and endpoint-OPT convergence, respectively. In TS-only mode, `endpoint_assignment.policy` is `higher_energy_endpoint_as_reactant` and `chemical_direction_known` is false. `endpoint_opt.reactant` and `.product` report `optimization_status`, `n_opt_cycles`, `max_cycles`, and any `stop_reason`. How the IRC stopped and whether the bond changes match do not affect `scientific_status`; whether the optimized endpoints are the intended R and P is for you to check. |
 | `post_segments[].thermo_symmetry` | object | Point-group and rotational-symmetry provenance reported by `freq` for each of R, TS, and P, including TS-only runs. States with valid symmetry-number provenance are included; missing states are omitted, and the field is absent only when no state has valid provenance. |
 | `key_output_files` | object | Current-run output index: root filename → description; each `seg_NN` entry is `{description, files}` with paths relative to that segment directory. |
 | `current_output_paths` | string[] | Sorted paths relative to `--out-dir`, limited to files written by the current run. |

@@ -94,7 +94,7 @@ Files: `stage_NN/result.{xyz,pdb}` (end of each
 stage), `stage_NN/scan_trj.xyz`, and `scan_trj.xyz` and `scan.pdb` joining
 all stages; `preopt/` with `--preopt`. Each frame's comment line holds the
 energy without restraints; plot it with [trj2fig](utilities.md#trj2fig).
-The highest step is a TS candidate, and for `path-search` give the start
+The highest-energy step is a TS candidate, and for `path-search` give the start
 followed by the `stage_NN/result.*` files in order.
 
 **scan2d and scan3d.** `surface.csv` has one row per grid point and one
@@ -152,7 +152,7 @@ interpolated, so take a computed `grid/point_*.pdb` near the saddle for
 ## Next step
 
 - [path.md](path.md): MEP search from the scan results.
-- [tsopt.md](tsopt.md): optimize the highest step or a grid point near the
+- [tsopt.md](tsopt.md): optimize the highest-energy step or a grid point near the
   saddle.
 - [all-scan-list.md](all-scan-list.md): staged scans inside the full
   workflow.

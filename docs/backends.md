@@ -71,7 +71,7 @@ The run prints the backend and model it loads, for example
 `tf32` keeps tensors in float32 but runs matrix multiplications in TF32 on NVIDIA
 GPUs (Ampere or newer): faster, and less precise. In `all`, `--precision-post`
 sets the precision of TS optimization, IRC, the endpoint optimizations and freq;
-unset, they use `--precision`. When `--precision` is not
+without it, they use `--precision`. When `--precision` is not
 given, each backend takes its own default:
 
 | backend | without `--precision` | `--precision fp64` | `--precision tf32` |

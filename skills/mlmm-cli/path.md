@@ -10,7 +10,7 @@ in `summary.json` (path-search), each confirmed later by `tsopt` and `irc`.
 ## When to use
 
 - `path-opt`: exactly two endpoints, one MEP in one pass, no segmentation.
-  Use it when the step is known to be single, to redo one segment without
+  Use it for a known single-step reaction, to redo one segment without
   rerunning the whole search, or to compare `--mep-mode gsm` and `dmf` on
   the same pair.
 - `path-search`: two or more structures in reaction order. It finds where
@@ -40,8 +40,8 @@ mlmm path-search -i 1.R.pdb 3.P.pdb --parm7 real.parm7 \
 Give all structures after one `-i`. `--max-nodes` (default 20) sets the
 number of movable images of each string, so a string has at most `max-nodes + 2`
 images. `-b` selects `uma`, `orb`, `mace`, `aimnet2`, or `dft`.
-`--refine-mode` is `peak` (HEI ± 1) for GSM and `minima` (nearest local
-minima) for DMF unless given; `--max-depth` (default 10) limits the
+`--refine-mode` defaults to `peak` (HEI ± 1) for GSM and `minima` (nearest
+local minima) for DMF; `--max-depth` (default 10) limits the
 recursion, and `0` turns it off.
 
 ## Judge success
@@ -84,7 +84,7 @@ Files: `mep_trj.xyz` and `mep_trj.pdb` (the stitched MEP), `mep_plot.png`,
   `path-search` returns the interval as a raw path with no `segments` entry
   or `hei_seg_NN.xyz`, adds `endpoint_hei` to `scientific_status_reasons`,
   and `all` (with or without `--refine-path`) runs no TS optimization on it.
-  It is not a zero barrier and does not show that no bond changes. Read the
+  The warning does not mean a zero barrier or no bond change. Read the
   energies on the comment lines of that run's
   `seg_NNN_*/final_geometries_trj.xyz` and its bond changes
   ([bond-summary](utilities.md#bond-summary)); a frame at an interior local

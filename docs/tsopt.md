@@ -38,7 +38,7 @@ mlmm tsopt -i ts_guess.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 
 ### 2. Dimer method
 
-Use this when computing the full Hessian again and again is too expensive, or to try a second method on a difficult candidate.
+Use this when repeatedly computing the full Hessian is too expensive, or to try a second method on a difficult candidate.
 
 ```bash
 mlmm tsopt -i ts_guess.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \

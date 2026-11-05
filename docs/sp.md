@@ -1,6 +1,6 @@
 # `sp` (single point)
 
-`sp` computes the **ML/MM ONIOM energy and atomic forces** of one structure, and with `--hess` also the **Hessian** of the atoms that move. The ML region is computed with the selected backend and the rest of the enzyme with the Amber force field of `--parm7`. It runs no optimization: the geometry stays as given.
+`sp` computes the **ML/MM ONIOM energy and atomic forces** of one structure, and with `--hess` also the **Hessian** of the movable atoms. The ML region is computed with the selected backend and the rest of the enzyme with the Amber force field of `--parm7`. It runs no optimization: the geometry stays as given.
 
 ---
 
@@ -26,7 +26,7 @@ The console prints `[sp] energy = … a.u.  |force|_max = … a.u./bohr`, and `r
 
 ### 2. Add the Hessian
 
-`--hess` also computes the Hessian of the moving atoms.
+`--hess` also computes the Hessian of the movable atoms.
 
 ```bash
 mlmm sp -i enzyme.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -m 1 --hess

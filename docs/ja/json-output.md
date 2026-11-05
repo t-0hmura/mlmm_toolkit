@@ -29,17 +29,17 @@ cat result_opt/result.json | python -m json.tool
 | `elapsed_seconds` | float | 任意。実行時間（秒）。時間を記録しないコマンドでは省きます |
 | `environment` | object | ハードウェア情報（下表参照） |
 
-ML/MM 計算機を評価するコマンドは、さらに以下を記録します。
+ML/MM 計算機を使うコマンドは、さらに以下を記録します。
 
 | フィールド | 型 | 説明 |
 |-----------|------|------|
-| `mlip_backend` | string \| null | バックエンドの識別子（`uma`、`orb`、`mace`、`aimnet2`、`dft`、`custom`）。`dft` の結果は `dft`、描画だけのコマンドが計算機を評価しなかった場合は null |
+| `mlip_backend` | string \| null | バックエンドの識別子（`uma`、`orb`、`mace`、`aimnet2`、`dft`、`custom`）。`dft` の結果は `dft`、描画だけのコマンドが計算機を使わなかった場合は null |
 | `mlip_model` | string \| null | 正確なモデル/チェックポイント名。`--calc-file` では `filename:factory` |
 | `mlip_model_label` | string \| null | 正確な識別子から導出した論文表記用のモデル名 |
 | `mlip_task` | string \| null | 複数ドメインのモデルで使ったバックエンドのタスク（UMA では `calc.uma_task_name` で変えない限り `omol`）。正確な識別子は `mlip_model` に保持 |
 | `mlip_precision` | string \| null | 実効精度の共通表記（`tf32` / `fp32` / `fp64`）。dtype をユーザーのコードが管理する自作の計算機では null |
-| `mlip_compiled` | bool \| null | UMA・ORB のモデルを torch.compile したか（`--compile`）。ほかのバックエンドと解析 Hessian では false。描画だけのコマンドが calculator を評価しなかった場合は null |
-| `mm_backend` | string \| null | MM のエネルギー/Hessian のバックエンド（`hessian_ff` / `openmm`）。描画だけのコマンドが計算機を評価しなかった場合は null |
+| `mlip_compiled` | bool \| null | UMA・ORB のモデルを torch.compile したか（`--compile`）。ほかのバックエンドと解析 Hessian では false。描画だけのコマンドが計算機を使わなかった場合は null |
+| `mm_backend` | string \| null | MM のエネルギー/Hessian のバックエンド（`hessian_ff` / `openmm`）。描画だけのコマンドが計算機を使わなかった場合は null |
 | `link_atom_method` | string \| null | リンク原子の置き方（`scaled` / `fixed`）。描画だけの出力では null |
 | `use_cmap` | bool \| null | CMAP 項を有効にしたか。描画だけの出力では null |
 
@@ -214,7 +214,7 @@ IRC は `execution_status` と `scientific_status` を出し、方向ごとの�
 | `forward_requested` / `backward_requested` | bool | 各方向を要求したか |
 | `forward_integration_converged` / `backward_integration_converged` | bool\|null | RMS 勾配の停留判定が働いて止まったか。診断専用で、`--never-stop` はこの判定を迂回するため常に `false`。分岐が TS から下り方向に離れ、かつこの判定を満たしたかは、`*_downhill_departure_valid` と合わせて確かめます |
 | `forward_downhill_departure_valid` / `backward_downhill_departure_valid` | bool\|null | TS から下り方向に離れたことを確認できたか |
-| `forward_integration_stop_reason` / `backward_integration_stop_reason` | string\|null | 数値的な積分が失敗した場合だけ空でない理由 |
+| `forward_integration_stop_reason` / `backward_integration_stop_reason` | string\|null | 数値的な積分が失敗した場合だけ入る理由 |
 | `never_stop` | bool | `--never-stop`（物理的な端点での停止を迂回する）を有効にしたか |
 | `never_stop_energy_bypasses` | int | 実際に迂回した、エネルギー上昇または 1 ステップのエネルギー変化による停止の回数 |
 | `rigid_projection` | object | 初期/更新 Hessian の剛体モードと Hessian の記録。[剛体モードの射影の記録](#剛体モードの射影の記録)を参照 |
@@ -259,7 +259,7 @@ IRC は `execution_status` と `scientific_status` を出し、方向ごとの�
 | フィールド | 型 | 説明 |
 |-----------|------|------|
 | `optimization_status` | string | `"converged"` / `"not_converged"` / `"completed"`（収束シグナルを読み取れない場合） |
-| `converged` | bool \| null | 収束判定: エンジン自身の収束シグナルによる `true` / `false`。読み取れない場合は `null`（`optimization_status` は `"completed"` となり、収束を主張しない） |
+| `converged` | bool \| null | 収束判定: エンジン自身の収束シグナルによる `true` / `false`。読み取れない場合は `null`（`optimization_status` は `"completed"` となり、収束したとはみなさない） |
 | `mep_mode` | string | `"dmf"` / `"gsm"` |
 | `image_energies_hartree` | float[] | 全イメージのエネルギー |
 | `n_images` | int | イメージ数 |
@@ -412,7 +412,7 @@ IRC は `execution_status` と `scientific_status` を出し、方向ごとの�
 | `n_segments_reactive` | int | kink・bridge 以外の反応セグメント数 |
 | `rate_limiting_step` | object | 反応セグメントのうち局所障壁が最大のもの。`{segment, barrier_kcal, method}` と、`mep_barrier_kcal`（MEP 上の障壁。TS-only モードでは無し）を持ちます。障壁は、すべてのセグメントで得られる最も高い水準の手法（`DFT//MLIP/MM_Gibbs` > `DFT` > `MLIP_Gibbs` > `MLIP` > `MEP`。`--backend dft` では `MLIP_Gibbs` と `MLIP` の代わりに `DFT/MM_Gibbs` と `DFT/MM`）で取ります。microkinetics に基づく律速段階の判定ではありません。 |
 | `overall_reaction_energy_kcal` | float | 全体反応エネルギー。すべての反応セグメントを含む最も高い水準の手法のエネルギー図で、最初の状態を基準にした最後の状態のエネルギーです。MEP のエネルギー図は、セグメントを作らなかった区間も含みます |
-| `overall_reaction_energy_method` | string | 全体の反応エネルギーの手法。`rate_limiting_step.method` と同じ一覧から、それより高くない水準を使います |
+| `overall_reaction_energy_method` | string | 全体の反応エネルギーの手法。`rate_limiting_step.method` と同じ一覧から、それ以下の水準を使います |
 | `post_segments` | list | セグメントごとの TS/IRC/freq/DFT 結果 |
 | `post_segments[].tsopt.n_imaginary_modes` / `.imaginary_frequencies_cm` | int / float[] | 最適化した TS の n_imag と虚振動数 (cm⁻¹, 負の値) |
 | `post_segments[].mlip` / `.gibbs_mlip` / `.dft` / `.gibbs_dft_mlip` | object | 1 つのレベルでの R・TS・P のエネルギーと、`barrier_kcal`・`delta_kcal`・`energies_kcal`。順に ML/MM の電子エネルギー（`--tsopt`）、ML/MM の Gibbs エネルギー（`--thermo`）、DFT のエネルギー（`--dft`）、DFT//ML/MM の Gibbs エネルギー（`--thermo` と `--dft`）です |

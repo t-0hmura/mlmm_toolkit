@@ -41,8 +41,8 @@ not know which end is the reactant or the product. Judge it in three steps:
    `n_frames_backward`) and `*_integration_stop_reason`.
    `*_integration_converged` describes whether the RMS-gradient stationarity
    criterion fired, so `--never-stop` leaves it false. This field and
-   `*_downhill_departure_valid` are diagnostics, not endpoint-optimization
-   gates. After a max-cycle or predictor-step stop, optimize the endpoints
+   `*_downhill_departure_valid` are diagnostics only. After a max-cycle or
+   predictor-step stop, optimize the endpoints
    anyway if their coordinates are finite; report missing or non-finite
    coordinates and execution errors as failures.
 3. Optimize both endpoint candidates and compare them with the intended R and
@@ -77,8 +77,8 @@ names from `files` in `result.json`.
 
 Read `energy_first_hartree` / `energy_last_hartree` and assign R and P after
 inspecting or matching the endpoint structures. `never_stop` records whether
-the opt-in mode was enabled; `never_stop_energy_bypasses` is the observed
-bypass count.
+`--never-stop` was on; `never_stop_energy_bypasses` counts the energy-based
+stops it skipped.
 
 ```python
 import json
@@ -99,7 +99,7 @@ multiplicity, layers, and calculator. Frozen atoms are treated as in
 
 ## Bond changes
 
-`bond_changes` records the directed difference from `finished_first.xyz` to
+`bond_changes` records the change from `finished_first.xyz` to
 `finished_last.xyz` according to a covalent-radius cutoff scaled by
 `bond.bond_factor` (default 1.20). This is the same algorithm used by
 [bond-summary](utilities.md#bond-summary) and the `path-search`
@@ -128,7 +128,7 @@ for b in bc["broken"]: print("BROKEN ", b)
   branch. It is off by default. Always inspect both branches and the bond
   connectivity.
 - The default `--max-cycles` (125) is enough for most systems. A branch that hits the cap
-  still leaves a finite endpoint that goes on to endpoint `opt`; raise
+  still leaves a finite endpoint for `opt`; raise
   `--max-cycles` only when the branch must be followed further.
 - The bond-change detector is geometry-based (covalent-radius cutoff), not
   physics-based. A pair with a metal atom counts only when its distance changes by at least `bond.metal_delta_fraction` × the cutoff (YAML `bond` section, default 0.40).

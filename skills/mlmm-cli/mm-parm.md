@@ -20,8 +20,8 @@ Standard residues only:
 mlmm mm-parm -i complex.pdb --out-prefix system
 ```
 
-A non-standard ligand that already has its hydrogens in the PDB, with the standard
-residues' hydrogens added at pH 7 and ff14SB (PDBFixer also adds hydrogens to a
+A non-standard ligand that already has its hydrogens in the PDB, with ff14SB and
+the standard residues' hydrogens added at pH 7 (PDBFixer also adds hydrogens to a
 ligand whose definition it can download from the PDB, e.g. 22 H to SAM):
 
 ```bash
@@ -77,7 +77,7 @@ and the tleap logs.
   (NH3⁺/COO⁻/S⁺, the usual biological form). A −3 diphosphate such as DMAPP
   has 9 H. ATP⁴⁻ and ADP³⁻ have 12 H; 13 H fits ATP³⁻ or ADP²⁻, so
   count the H in your file. Do not add or remove
-  protons to fix the parity; keep the dataset's protonation and change `-l`:
+  protons to fix the parity; keep the file's protonation and change `-l`:
 
   ```bash
   mlmm mm-parm -i in.pdb -l 'SAM:0,...' --out-prefix system   # 22 H

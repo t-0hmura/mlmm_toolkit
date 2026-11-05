@@ -10,7 +10,7 @@
 
 <img src="https://raw.githubusercontent.com/t-0hmura/mlmm_toolkit/main/docs/overview.jpg" alt="Overview of ML/MM toolkit" width="90%">
 
-`mlmm-toolkit` is a Python CLI toolkit for analyzing reaction mechanisms in enzyme complexes with ML/MM, an ONIOM combination of machine-learning interatomic potentials (MLIPs) and molecular mechanics (MM), starting from **PDB/mmCIF** structures. It replaces the QM region of conventional QM/MM with a machine-learning interatomic potential (MLIP, default: UMA) while keeping the surrounding protein under an analytical Amber force field (`hessian_ff`).
+`mlmm-toolkit` is a Python CLI toolkit for analyzing reaction mechanisms in enzyme complexes with ML/MM, an ONIOM combination of machine-learning interatomic potentials (MLIPs) and molecular mechanics (MM), starting from **PDB/mmCIF** structures. It replaces the QM region of conventional QM/MM with an MLIP (default: UMA) while keeping the surrounding protein under an analytical Amber force field (`hessian_ff`).
 
 You can test a reaction mechanism in a **single command** like:
 
@@ -101,7 +101,7 @@ For most systems the only hard requirement is a **PDB with explicit hydrogens** 
 
 ## Quick Examples
 
-The source repository includes full-system [COMT](examples/comt/README.md) and [BezA](examples/beza/README.md) endpoint mechanisms, a methyltransferase scan, and a 122-atom ML/MM fixture; see [`examples/`](https://github.com/t-0hmura/mlmm_toolkit/tree/main/examples). The commands below use the BezA structures and run from the repository root.
+The source repository includes full-system [COMT](examples/comt/README.md) and [BezA](examples/beza/README.md) endpoint mechanisms, a methyltransferase scan, and a 122-atom ML/MM toy system; see [`examples/`](https://github.com/t-0hmura/mlmm_toolkit/tree/main/examples). The commands below use the BezA structures and run from the repository root.
 
 ```bash
 # Endpoint mode (R + P → MEP, with TS + thermochemistry)
@@ -124,7 +124,7 @@ Each stage (`mm-parm` → `extract` → `define-layer` → `opt` → `path-opt` 
 
 Each calculation command writes to its own directory, `./result_<command>/` by default (for example `./result_opt/`, `./result_tsopt/`, or `./result_path_opt/`); `-o/--out-dir` sets another. The preparation commands `extract` and `mm-parm` write their files to the current directory; `define-layer` writes next to its input by default.
 
-A non-dry `all` run writes the deliverables reached by its enabled stages to `./result_all/`:
+An `all` run writes the main outputs of the stages it runs to `./result_all/`:
 
 - `segments/seg_NN/{reactant,ts,product}.*` — the canonical R / TS / P structures to cite
 - `mep_trj.pdb` / `mep_trj.xyz` — the merged reaction path; `energy_diagram_MEP.png` — barrier diagram
@@ -134,7 +134,7 @@ A non-dry `all` run writes the deliverables reached by its enabled stages to `./
   `ml_region_without_linkH.xyz` and `ml_region_with_linkH.xyz`,
   plus matching .pdb files for PDB input
 
-Pipeline scratch lives under `_work/`; keep it if you might redo the post-processing with `--resume` or `--resume-segment`. Full layout and filename conventions: [docs/output-layout.md](docs/output-layout.md).
+Intermediate files go to `_work/`; keep it if you might redo the post-processing with `--resume` or `--resume-segment`. Full layout and filename conventions: [docs/output-layout.md](docs/output-layout.md).
 
 ## Colab GUI workspace
 

@@ -1,6 +1,6 @@
 # Device Configuration & HPC Setup
 
-This page shows how to set where the ML and MM parts of the ML/MM calculator run (GPU or CPU) and gives job scripts for PBS and Slurm. By default, ML inference runs on the GPU when CUDA is available, and the MM force field (`hessian_ff`) runs on the CPU.
+This page shows how to set where the ML and MM parts of the ML/MM calculator run (GPU or CPU) and gives job scripts for PBS and Slurm. By default, ML inference runs on the GPU when CUDA is available, and the MM engine (`hessian_ff`) runs on the CPU.
 
 ## Device Parameters
 

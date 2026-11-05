@@ -132,8 +132,8 @@ engine. Add margin for retries and first-use compilation.
 
 The cost of GPU DFT (`-b dft` and `mlmm dft`) grows steeply with the ML-region size: for
 `wb97m-v/def2-svp` on a 16 GB consumer GPU, a 63-atom single point took about
-8 min and an 87-atom one about 18 min, roughly the 2.4–2.6 power of the atom
-count. ML regions of several hundred atoms need a GPU with strong FP64
+8 min and an 87-atom one about 18 min, scaling roughly as the 2.4–2.6 power of
+the atom count. ML regions of several hundred atoms need a GPU with strong FP64
 throughput and 24 GB or more; time one structure on the production GPU and
 extrapolate before a batch. The first SCF of each run converges on a coarse
 grid first (`--scf-stepwise-grid`, on by default), which made it 1.4–1.9

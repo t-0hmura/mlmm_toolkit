@@ -18,7 +18,7 @@
 | `finished_irc_trj.xyz` / `forward_irc_trj.xyz` / `backward_irc_trj.xyz` | `irc` | IRC（固有反応座標）の軌跡（経路全体と各方向）。参照トポロジーがあれば `.pdb` の写し、mmCIF・大きな PDB の入力では `.cif` の写しも書き出します。 |
 | `forward_first.xyz` / `backward_last.xyz` | `irc` | 2 つの分岐の端で、[`opt`](opt.md) で最適化する端点の候補です。 |
 | `frequencies_cm-1.txt` | `freq` | 振動モードの一覧。 |
-| `ml_region_without_linkH.xyz` / `ml_region_with_linkH.xyz` | `dft` | DFT 計算が見る ML 領域の、リンク水素を付ける前と後の構造。PDB 入力では `.pdb` の写しも書きます。`all` の中では各 `segments/seg_NN/dft/{R,TS,P}/` にあります。 |
+| `ml_region_without_linkH.xyz` / `ml_region_with_linkH.xyz` | `dft` | DFT で計算する ML 領域の、リンク水素を付ける前と後の構造。PDB 入力では `.pdb` の写しも書きます。`all` の中では各 `segments/seg_NN/dft/{R,TS,P}/` にあります。 |
 | `*.pdb` / `*.cif` | `--convert-files`（デフォルト。`--no-convert-files` で無効）を持つコマンドと `extract` | 入力の形式に応じた出力の写しで、元の出力の横に書き出します。PDB/mmCIF 入力では PDB、mmCIF・大きな PDB の入力ではさらに元の chain ID・残基番号・挿入コードを保つ `.cif` です。複数フレームの軌跡は複数モデルの CIF になります。`extract` には変換の切り替えがなく、mmCIF・大きな PDB の入力では常に `.cif` を書き出します。 |
 
 ## デフォルトの `--out-dir`

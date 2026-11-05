@@ -26,7 +26,7 @@ mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
     -q 0 -m 1 --out-json --out-dir ./result_opt
 ```
 
-The run converged when the console prints `[opt] Converged!` and `result_opt/result.json` has `"optimization_status": "converged"`.
+The run has converged when the console prints `[opt] Converged!` and `result_opt/result.json` has `"optimization_status": "converged"`.
 
 ### 2. Tighter threshold with trajectory
 

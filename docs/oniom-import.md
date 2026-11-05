@@ -93,7 +93,7 @@ See the [generated CLI reference](reference/commands/oniom_import.md) for every 
 * **Input files, not output logs**: `oniom-import` reads input files; it does not take optimized geometries from Gaussian or ORCA output. To continue in mlmm, write the final geometry from the external program in the topology atom order and use it with the original parm7 and ML region.
 * **Accepted layouts**: Gaussian inputs need two-layer ONIOM coordinate rows with the movable-flag column, as `oniom-export` writes them. ORCA inputs need `QMAtoms {…} end` and `ActiveAtoms {…} end`, each on one line inside `%qmmm`, and a `* xyz <charge> <multiplicity>` block. Other layouts stop with an error.
 * **Marker checks**: the marker written by `oniom-export` is checked strictly. A malformed or repeated marker, or a hash that does not match the reference, stops the run even with `--allow-unverified-ref-order`.
-* **`--allow-unverified-ref-order`**: use it only for an input without the marker whose repeated elements keep the order from being checked, after you have checked the order yourself. It requires `--ref-pdb`.
+* **`--allow-unverified-ref-order`**: use it only when the input has no marker and an element appears more than once, after you have checked the order yourself. It requires `--ref-pdb`.
 * **Exit codes**: see {ref}`Exit codes <exit-codes>`.
 
 ---

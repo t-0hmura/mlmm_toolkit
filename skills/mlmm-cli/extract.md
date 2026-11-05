@@ -41,13 +41,13 @@ mlmm extract -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
 ## Judge success
 
 - The console prints `[extract] Atoms after truncation: N` and
-  `Total active site model charge: …`. N excludes the cap H. With several
+  `Total active site model charge: …`. N excludes the link H. With several
   inputs, the line is `[extract:multi] Atoms after truncation (model k): N`
   for each model.
 - `pocket.pdb` exists (default name; `pocket_<filename>.pdb` for several
   inputs without `-o`).
 - With `--out-json`, `result.json` has `total_charge`, `n_atoms_extracted`
-  (N, without cap H), and `n_link_hydrogens` (M). The extracted pocket
+  (N, without link H), and `n_link_hydrogens` (M). The extracted pocket
   contains N + M atoms.
 
 ```python
@@ -63,8 +63,8 @@ print(d["total_charge"], d["n_atoms_extracted"], d["n_link_hydrogens"])
   backbones).
 - For a reusable standalone ML/MM workflow, follow `mm-parm → extract →
   define-layer → opt/tsopt/...`. Have `mm-parm` write its PDB under a distinct
-  prefix, for example `mlmm mm-parm -i input.pdb --out-prefix system`, then run the latter
-  two commands on `system.pdb`. LEaP may change hydrogens; the exported PDB has
+  prefix, for example `mlmm mm-parm -i input.pdb --out-prefix system`, then run `extract`
+  and `define-layer` on `system.pdb`. LEaP may change hydrogens; the exported PDB has
   the same atom identity/order as `system.parm7`, and `mm-parm` fills missing
   element columns.
 - When `-c` is a PDB path, its atom names must match the complex exactly

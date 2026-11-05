@@ -44,7 +44,7 @@ mlmm tsopt -i hei.xyz --parm7 real.parm7 --ref-pdb enzyme_layered.pdb \
 
 ## Judge success
 
-How the run ended decides whether n_imag exists:
+How the run ended decides whether n_imag is reported:
 
 - `converged`: the console prints `[microiter] Converged!` or
   `[tsopt] Numerical optimization converged.`, then
@@ -143,7 +143,7 @@ cycle threshold.
 - A run stopped by the scheduler (walltime, a node failure, or cancellation)
   is unfinished, not a convergence failure: it prints none of the end lines in
   [Judge success](#judge-success) and reports no n_imag. Do not count the
-  candidate as one that does not converge or change the method for it; rerun
+  candidate as non-converged or change the method for it; rerun
   with more walltime, or resume `all`
   ([all.md](all.md#resume)).
 - `RS-P-RFO exhausted its micro cycles outside the trust radius.`,
@@ -154,7 +154,7 @@ cycle threshold.
   They do not show that the candidate is bad. Rerun once; if the stop
   repeats, switch `--opt-mode` to `rsirfo` or `dimer`, or start from another
   candidate.
-- The backend and model change the curvature surface. Validate every candidate
+- The backend and model change the energy surface. Validate every candidate
   by exactly one imaginary mode, its displacement, and the intended IRC
   connectivity.
 

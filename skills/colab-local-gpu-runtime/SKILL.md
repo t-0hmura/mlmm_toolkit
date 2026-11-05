@@ -5,7 +5,7 @@ description: Set up, start, verify, and troubleshoot Google Colab local runtimes
 
 # Colab Local GPU Runtime
 
-Run the Colab page in the browser while Python and the GPU run locally in Google's official Colab image (Windows with WSL2 and Docker Desktop). `C:\colab-work` is mounted as `/content`, so notebooks and results stay on the Windows disk.
+Use Colab in the browser while the code runs locally on your GPU in Google's official Colab image (Windows with WSL2 and Docker Desktop). `C:\colab-work` is mounted as `/content`, so notebooks and results stay on the Windows disk.
 
 ## Steps
 
@@ -15,7 +15,7 @@ Run the Colab page in the browser while Python and the GPU run locally in Google
 4. In Colab, choose **Connect ▸ Connect to a local runtime**, paste the whole URL including `?token=...`, then run **Installation** and **Launch GUI**.
 5. `scripts/stop.ps1` stops the container; `C:\colab-work` is kept.
 
-Run each script with `powershell -ExecutionPolicy Bypass -File`. `setup.ps1` and `start.ps1` copy the notebooks (`pdb2reaction_colab.ipynb`, `mlmm_colab.ipynb`), source ZIPs (`pdb2reaction-src.zip`, `mlmm-toolkit-src.zip`), and input folders (`pdb2reaction_inputs`, `mlmm_inputs`) found in the bundle root (two levels above `scripts/`; pass `-BundleRoot` for another layout, such as `<repo>/examples` in a repository checkout) into `C:\colab-work`. Keep the notebook's version field at the release tag so Installation installs that release. For an unpublished build, set it to `debug`: Installation then installs from the matching source ZIP next to the notebook, without a file picker.
+Run each script with `powershell -ExecutionPolicy Bypass -File`. `setup.ps1` and `start.ps1` copy the notebooks (`pdb2reaction_colab.ipynb`, `mlmm_colab.ipynb`), source ZIPs (`pdb2reaction-src.zip`, `mlmm-toolkit-src.zip`), and input folders (`pdb2reaction_inputs`, `mlmm_inputs`) found in the bundle root into `C:\colab-work`. The bundle root is two levels above `scripts/`; pass `-BundleRoot` for another layout, such as `<repo>/examples` in a repository checkout. Keep the notebook's version field at the release tag so Installation installs that release. For an unpublished build, set it to `debug`: Installation then installs from the matching source ZIP next to the notebook, without a file picker.
 
 ## Done when
 

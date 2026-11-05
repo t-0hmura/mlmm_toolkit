@@ -51,8 +51,8 @@ directory). The suffix of `-i` picks the mode unless `--mode` is given.
 
 ## Judge success
 
-**oniom-export.** Gaussian prints `[oniom-gaussian] Wrote '<file>'`,
-`QM atoms: N, Movable atoms: M`, and `Link boundaries: K`. ORCA prints
+**oniom-export.** The Gaussian export prints `[oniom-gaussian] Wrote '<file>'`,
+`QM atoms: N, Movable atoms: M`, and `Link boundaries: K`. The ORCA export prints
 `[oniom-orca] Wrote '<file>'`, `QM atoms: N, Active atoms: M`, and
 `Link boundaries (auto-capped by ORCA): K`, then
 `[oniom-orca] ORCAFF.prms: <path>` when the force-field file is ready. Check
@@ -60,7 +60,7 @@ N against your ML region. The Gaussian route is
 `#p oniom(<method>:amber=softonly)`, each coordinate row has the movable flag
 (`0` movable, `-1` frozen) and the layer (`H` or `L`), and the charge line
 holds the whole system (topology total charge and `-m`) and then the QM
-region twice. A PDB input also writes the atom-order marker
+region twice. The export also writes the atom-order marker
 `MLMM_REF_PDB_ORDER_V1_SHA256=<digest>` (a comment in ORCA).
 
 **oniom-import.** The log prints `[oniom-import] mode=…`, the counts

@@ -22,7 +22,7 @@ E_ONIOM = E(REAL-low) - E(MODEL-low) + E(MODEL-high)
 
 The full system is evaluated with MM, the ML region is evaluated at both the high level and the MM level, and the MM energy of the ML region is subtracted so that it is not counted twice. Forces and Hessians follow the same subtraction.
 
-With `--embedcharge`, the calculator uses electrostatic embedding in the ONIOM-EE form ([Vreven et al., *J. Chem. Theory Comput.* 2006, 2, 815](https://doi.org/10.1021/ct050289g)). The MM point charges enter MODEL-high, and MODEL-low adds the Coulomb energy between the force-field charges of the ML atoms and the same point charges. That term cancels the ML–MM Coulomb energy that REAL-low holds for those charges, so the interaction is counted once, at the high level. MM atoms one or two bonds from the ML region are not point charges; their interaction with the ML region stays in REAL-low at the force-field level. All other MM atoms are point charges, with no distance cutoff, as in Gaussian; `--embedcharge-cutoff` keeps only those within that distance (Å) of the ML region, chosen once on the `--ref-pdb` structure (else the `-i` PDB) and then kept fixed; the same `--ref-pdb` for R, TS and P gives them the same point charges, and `all` uses one structure for all its stages.
+With `--embedcharge`, the calculator uses electrostatic embedding in the ONIOM-EE form ([Vreven et al., *J. Chem. Theory Comput.* 2006, 2, 815](https://doi.org/10.1021/ct050289g)). The MM point charges enter MODEL-high, and MODEL-low adds the Coulomb energy between the force-field charges of the ML atoms and the same point charges. That term cancels the ML–MM Coulomb energy that REAL-low holds for those charges, so the interaction is counted once, at the high level. MM atoms one or two bonds from the ML region are not point charges; their interaction with the ML region stays in REAL-low at the force-field level. All other MM atoms are point charges, with no distance cutoff, as in Gaussian. `--embedcharge-cutoff` keeps only those within that distance (Å) of the ML region, chosen once on the `--ref-pdb` structure (else the `-i` PDB) and then kept fixed. The same `--ref-pdb` for R, TS and P gives them the same point charges, and `all` uses one structure for all its stages.
 
 ### Comparison with conventional QM/MM
 
@@ -112,7 +112,7 @@ CMAP (Cross-Map backbone dihedral correction) is a 5-atom torsion correction ter
 
 | Setting | E_MM(real) | E_MM(model) | ONIOM net effect |
 |--------|-----------|------------|-----------------|
-| `use_cmap: true` (default) | CMAP included when present | CMAP included when present | Complete model-internal CMAP cancels; boundary terms remain at the MM (low) level |
+| `use_cmap: true` (default) | CMAP included when present | CMAP included when present | CMAP terms inside the ML region cancel; boundary terms remain at the MM (low) level |
 | `use_cmap: false` | CMAP excluded | CMAP excluded | Explicit modified-force-field calculation without CMAP |
 
 In the ff19SB force field of [Tian et al. (2020)](https://doi.org/10.1021/acs.jctc.9b00591), CMAP replaces the corresponding zeroed backbone cosine terms, so preserving it is the force-field-faithful default. `use_cmap: false` (CLI `--no-cmap`) removes CMAP from both MM layers.

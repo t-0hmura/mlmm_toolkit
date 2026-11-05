@@ -35,7 +35,7 @@ The check has passed when the console shows `[all] Dry-run validation passed: ..
 
 ### 2. One stage
 
-Drive the distance between SAM CS1 (atom 4360) and GPP C7 (atom 4419, C6 in IUPAC numbering) to 1.50 Å. Give the atoms by number or by name; the two commands are the same scan.
+Drive the distance between SAM CS1 (atom 4360) and GPP C7 (atom 4419, C6 in IUPAC numbering) to 1.50 Å. Give the atoms by number or by name; the two commands run the same scan.
 
 ```bash
 # Atom numbers (1-based by default)
@@ -51,7 +51,7 @@ The run succeeded when the `====== Pipeline summary ======` block near the end o
 
 ### 3. Two stages
 
-Each bracketed list after `-s` is one stage, called a literal (a list written out as text), and the stages run in order. Stage 1 brings the methyl carbon of SAM (CS1) to C7 of GPP (1.50 Å) and away from SD of SAM (3.30 Å); stage 2 moves H11 of GPP away from C7 (2.90 Å) onto OE2 of Glu186 (1.00 Å).
+Each bracketed list after `-s` is one stage, called a literal (a list written out as text), and the stages run in order. Stage 1 moves the methyl carbon of SAM (CS1) to C7 of GPP (1.50 Å) and away from SD of SAM (3.30 Å); stage 2 moves H11 of GPP away from C7 (2.90 Å) onto OE2 of Glu186 (1.00 Å).
 
 ```bash
 mlmm all -i 1.R.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' -s \

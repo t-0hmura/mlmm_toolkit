@@ -59,7 +59,7 @@ mlmm all -i TS_candidate.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
 
 プロセス停止後は、元のコマンドに `--resume` を付け、同じ `--out-dir` で再開します。完了したセグメントは保持し、最初の未完了セグメントを保存済みの HEI からやり直します。
 
-セグメント N から後処理をやり直すときは、元のコマンドと同じ入力・抽出・層・経路・計算バックエンドのオプションと同じ `--out-dir` を指定し、`--resume-segment N` を足してください。`--precision-post` 以外の後処理のオプション（`--tsopt-max-cycles` など）は変えられます。
+セグメント N から後処理をやり直すときは、元のコマンドと同じ入力・抽出・層・経路・計算バックエンドのオプションと、同じ `--out-dir` を指定し、`--resume-segment N` を足してください。`--precision-post` 以外の後処理のオプション（`--tsopt-max-cycles` など）は変えられます。
 
 ```bash
 mlmm all -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
@@ -210,7 +210,7 @@ result_all/
 | `--dft/--no-dft` | フラグ | `False` | R・TS・P の ML 領域の DFT 一点計算（`--tsopt` が必要） |
 | `--refine-path/--no-refine-path` | フラグ | `False` | 隣り合う組ごとの `path-opt` の代わりに、再帰的な `path-search` を実行 |
 | `--mep-mode` | `gsm` / `dmf` | `gsm` | MEP の手法: GSM または DMF |
-| `--opt-mode` | `grad` / `hess` | `grad` | 単一構造の最適化とスキャンのオプティマイザ: `grad` = L-BFGS、`hess` = RFO。明示し、`--opt-mode-post` を指定しないときは、TS と端点にも使う |
+| `--opt-mode` | `grad` / `hess` | `grad` | 単一構造の最適化とスキャンのオプティマイザ: `grad` = L-BFGS、`hess` = RFO。明示し、`--opt-mode-post` を指定しないときは、`--opt-mode-post` も同じ値になる |
 | `--opt-mode-post` | `grad` / `hess` | `hess`（`--opt-mode` を明示したときはその値） | TS と IRC 後の端点のオプティマイザ: `grad` = TS は Dimer・端点は L-BFGS、`hess` = TS は RS-P-RFO・端点は RFO |
 | `--preopt/--no-preopt` | フラグ | `True` | スキャンと MEP 探索の前に入力構造を最適化 |
 | `--flatten/--no-flatten` | フラグ | `False` | TS 最適化の後に残った余分な虚振動を消す |

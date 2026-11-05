@@ -35,7 +35,7 @@ or the B-factors (`--detect-layer`, on by default). `-b` selects `uma`
 **Judge success.** The console prints
 `[sp] energy = … a.u.  |force|_max = … a.u./bohr`, and `forces.npy` holds
 the ONIOM forces as an `(N, 3)` array over all atoms (Hartree/bohr; zero on
-frozen atoms). With `--hess`, `hessian.npy` holds the Hessian of the moving
+frozen atoms). With `--hess`, `hessian.npy` holds the Hessian of the movable
 atoms, without mass weighting. With `--out-json`, `result.json` reports
 `stage`, `execution_status`, `scientific_status`, `mlip_backend`,
 `mlip_model`, `mlip_precision`, `mm_backend`, `link_atom_method`,
@@ -65,8 +65,8 @@ atoms, without mass weighting. With `--out-json`, `result.json` reports
 ## fix-altloc
 
 **When to use.** Blank the altLoc column (17) of a PDB and keep one label
-per residue, when you need the cleaned file itself: input for `mm-parm`,
-which does not resolve altLoc, a file for other programs, or a look at the
+per residue, when you need the cleaned file itself: input for `mm-parm`
+(which does not resolve altLoc), a file for other programs, or a look at the
 choice. `extract`, `define-layer`, and the ML/MM calculation commands apply
 the same rule on their own when they read a PDB.
 
@@ -207,7 +207,7 @@ instead, with `scientific_status`, `execution_status`, and `comparisons`
   counts longer contacts but can add false bonds; report the value and
   inspect the pairs. A pair that contains a metal atom counts only when its
   distance changes by at least `--metal-delta-fraction` × T (default 0.40, about
-  1.0 Å for Mg–O), whatever `--bond-factor` is.
+  1.0 Å for Mg–O).
 - In the `summary.json` of `all` and `path-search`,
   `segments[i]["bond_changes"]` holds the same report as a multi-line
   string.
@@ -246,7 +246,7 @@ backend, model, and precision are filled only when energies were recomputed.
 
 **Pitfalls.**
 
-- Each comment line needs a lone decimal or scientific value (`-1234.56`,
+- Each comment line needs a lone decimal or scientific-notation value (`-1234.56`,
   `-1.23e3`), an `E=<value>` or `Energy=<value>` field (optional unit `Ha`,
   `Eh`, `hartree`, `eV`, or `kcal/mol`; hartree without one, except
   `energy=` in extended XYZ, which is eV), or the pysisyphus

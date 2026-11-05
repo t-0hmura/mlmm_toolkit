@@ -36,7 +36,7 @@ One line per subcommand: what goes in, what comes out, and which file to read.
 
 ## Pipeline at a glance
 
-`all` prepares the system (extract → mm-parm → define-layer), runs single-pass `path-opt` by default, and runs recursive `path-search` with `--refine-path`. `--tsopt` adds TS optimization, IRC, and endpoint optimization; `--thermo` and `--dft` add frequencies with thermochemistry and DFT single points. Each stage is also its own subcommand. The stage diagram is in [Pipeline at a glance](../mlmm-overview/SKILL.md#pipeline-at-a-glance).
+`all` prepares the system (extract → mm-parm → define-layer), runs single-pass `path-opt` by default, or recursive `path-search` with `--refine-path`. `--tsopt` adds TS optimization, IRC, and endpoint optimization; `--thermo` and `--dft` add frequencies with thermochemistry and DFT single points. Each stage is also its own subcommand. The stage diagram is in [Pipeline at a glance](../mlmm-overview/SKILL.md#pipeline-at-a-glance).
 
 ## Shared ML/MM conventions
 
@@ -44,7 +44,7 @@ One line per subcommand: what goes in, what comes out, and which file to read.
 
 The calculation commands other than `all` need the full-system Amber topology (`--parm7`) and an ML region; `all` builds both. The ML region comes from `--model-pdb`, `--model-indices`, or the B-factor layers read by `--detect-layer` (on by default); which one wins, and the 0/10/20 encoding, are in [ML region and layers](../mlmm-model-setup/SKILL.md#ml-region-and-layers). `--link-atom-method` places the link atoms: `scaled` (g-factor, the default) or `fixed` (1.09/1.01 Å).
 
-`-q` is the charge of the ML region, not of the whole system. `-l 'SAM:1,GPP:-3'` gives the charges of non-standard residues, and the ML-region charge is derived from them. The charge comes from explicit `-q`, then the `-l` derivation, then `calc.model_charge` in the `--config` YAML; otherwise the run stops with an error. `-m` is the ML-region multiplicity, otherwise `calc.model_mult`, otherwise 1.
+`-q` is the charge of the ML region, not of the whole system. `-l 'SAM:1,GPP:-3'` gives the charges of non-standard residues, and the ML-region charge is derived from them. The charge comes from explicit `-q`, then the `-l` derivation, then `calc.model_charge` in the `--config` YAML; otherwise the run stops with an error. The ML-region multiplicity comes from `-m`, then `calc.model_mult`, otherwise 1.
 
 `-b` selects the ML-region backend: `uma` (default), `orb`, `mace`, `aimnet2`, or `dft`. Without `--precision`, UMA and AIMNet2 run in fp32 and ORB and MACE in fp64; AIMNet2 rejects fp64.
 

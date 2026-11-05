@@ -13,7 +13,7 @@ The TS and the path that mlmm-toolkit finds are candidates for the mechanism you
 | n_imag ≥ 2, and two modes both move the reacting bonds | Try the reaction as separate stages | {ref}`When the TS search fails <ts-search-fails>`, {ref}`Decide how to split the reaction <mechanism-split>` |
 | n_imag = 0, or the candidate slid toward R or P | Add `--refine-path`, or start from another structure | {ref}`When the TS search fails <ts-search-fails>` |
 | Compare candidate mechanisms, or the IRC endpoints are not the intended R and P | Swap the stage order, compare stepwise and concerted runs, revisit the ML region | {ref}`Compare candidate mechanisms <mechanism-compare>` |
-| Read the barrier | Count it from the minimum just before that stage | {ref}`Read the barrier <mechanism-barrier>` |
+| Read the barrier | Measure it from the minimum just before that stage | {ref}`Read the barrier <mechanism-barrier>` |
 | The optimization stops at max cycles | Switch the optimizer (`tsopt --opt-mode` / `all --opt-mode-post`), reduce the step size, or start from another structure | {ref}`Troubleshooting: TS optimization <troubleshooting-ts>` |
 
 (mechanism-hypothesis)=
@@ -55,7 +55,7 @@ The bundled `1.R.pdb` has an empty chain column, so its selectors use the residu
 
 - **Write `-s` once**: list every literal after a single `-s`. This form works in both `all` and `scan`.
 - **Put every moving coordinate in its stage**: include the bond that breaks and each H that moves, not only the bond that forms. Do not drive two coordinates and expect the rest to follow.
-- **Without a scan**: when you can prepare R and P (and intermediates, if any), list them in `-i` for an MEP search. Each neighboring pair gives at most one segment (none when the highest image of its MEP is an end image; reason `endpoint_hei`). With `--refine-path`, the path is split into segments where bonds change.
+- **Without a scan**: when you can prepare R and P (and intermediates, if any), list them in `-i` for an MEP search. Each neighboring pair gives at most one segment (none when the highest-energy image of its MEP is an end image; reason `endpoint_hei`). With `--refine-path`, the path is split into segments where bonds change.
 
 (mechanism-check-ts)=
 ## Check the TS
@@ -79,7 +79,7 @@ When `all` runs into a problem, do not rerun the whole workflow; rerun only the 
 - **Stopped at a higher-order saddle** (converged with n_imag ≥ 2): one option is to start `tsopt` with `--flatten` from the final geometry of that TS optimization (`final_geometry.*` of `tsopt`, or in `segments/seg_NN/ts/` of `all`), with the same `--parm7` and `--model-pdb`.
 - **After `--flatten`**: check both IRC ends again. n_imag can reach 1 on a TS candidate of a different reaction.
 - **Extra modes that span the ML region and movable MM atoms** (e.g. a water moving with the substrate): `tsopt` uses {ref}`microiteration <microiteration>` by default, so its TS steps move only the ML atoms and the MM atoms bonded to them. Rerun `tsopt` with `--no-microiter --flatten` so that the TS optimizer steps over every movable atom. `all` has no `--microiter` option, so pass the `--parm7` and `--model-pdb` of the `all` run to `tsopt`.
-- **A narrowed Hessian**: if you ran `tsopt` with a small [`--hessian-cutoff`](model-setup.md#narrow-the-hessian), widen it or leave it out to return to the default, every movable MM atom.
+- **A narrowed Hessian**: if you ran `tsopt` with a small [`--hessian-cutoff`](model-setup.md#narrow-the-hessian), widen it or leave it out to return to the default (every movable MM atom).
 - **Without `--flatten`**: the mode files of an extra mode, `vib/imag_*_trj.xyz` and `vib/imag_*.pdb` (with the layers in the B-factors), hold 20 frames, and frames 6 and 16 are the largest displacements in the two directions. Save each of the two as its own PDB in a viewer and start TS-only mode or `tsopt` from each, with the same charge and spin:
   ```bash
   mlmm all -i <frame>.pdb --parm7 <run>/mm_parm/<name>.parm7 --model-pdb <run>/ml_region.pdb -l ... --tsopt
@@ -107,7 +107,7 @@ The other remedy, changing the precision (`--precision`), is in [`tsopt` → Wro
 ## Read the barrier
 
 - The top of a scan is a TS candidate. Read the barrier from the energy after the TS optimization.
-- Count the barrier from the minimum just before that stage: `all` reports each segment's barrier as E(TS) − E(R) of that segment. In TS-only mode, R is the higher-energy end of the IRC. When you compare candidate mechanisms, use the same reference R for all of them.
+- Measure the barrier from the minimum just before that stage: `all` reports each segment's barrier as E(TS) − E(R) of that segment. In TS-only mode, R is the higher-energy end of the IRC. When you compare candidate mechanisms, use the same reference R for all of them.
 - After `--tsopt`, each segment's barrier from the optimized TS is in section [3] (`Per-segment post-processing (TSOPT / Thermo / DFT)`) of `summary.log` and in `post_segments[].mlip.barrier_kcal` of `summary.json` (ML/MM energies). In an MEP search, section [2] (`Segment-level MEP summary (ML/MM path)`) gives the MEP barrier before the TS optimization. Section [4] (`Energy diagrams (overview)`) tabulates the energy diagrams.
 
 ## Notes

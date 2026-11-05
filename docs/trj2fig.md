@@ -54,7 +54,7 @@ mlmm trj2fig -i traj.xyz -q 0 -m 1 -b uma --backend-model uma-s-1p2p1 \
 ## How it works
 
 1. **Reading the energies**:
-Each frame's comment line gives its energy. Trajectories written by mlmm, such as `optimization_trj.xyz` (`opt --dump`), `scan_trj.xyz`, `mep_trj.xyz`, and `finished_irc_trj.xyz`, are read as they are. In other files, write `E=<value>` with an optional unit (`Ha`, `Eh`, `hartree`, `eV`, `kcal/mol`); without a unit it is hartree, except `energy=` in extended XYZ (a comment with `Properties=` or `Lattice=`), which is eV. With `-q` or `-m`, the MLIP (machine-learning interatomic potential) backend recomputes every frame instead.
+Each frame's comment line gives its energy. Trajectories written by mlmm, such as `optimization_trj.xyz` (`opt --dump`), `scan_trj.xyz`, `mep_trj.xyz`, and `finished_irc_trj.xyz`, are read directly. In other files, write `E=<value>` with an optional unit (`Ha`, `Eh`, `hartree`, `eV`, `kcal/mol`); without a unit it is hartree, except `energy=` in extended XYZ (a comment with `Properties=` or `Lattice=`), which is eV. With `-q` or `-m`, the MLIP (machine-learning interatomic potential) backend recomputes every frame instead.
 2. **Choosing the reference**:
 `-r init` (the default) is the frame at the left end: the first frame, or the last with `--reverse-x`; an integer is a 0-based frame index; `none` plots absolute energies.
 3. **Converting the unit**:
