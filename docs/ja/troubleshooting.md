@@ -134,7 +134,7 @@
 - **症状**：`hessian_ff build attempts failed: ...` が出る、または計算が `native bonded extension is unavailable.`、`native nonbonded extension is unavailable; torch fallback is disabled.`、`analytical Hessian native extension is unavailable.` で止まる。
 - **原因**：C++ 拡張は初回の使用時に `torch.utils.cpp_extension` でコンパイルされます。C++20 対応のコンパイラ（GCC 13.3 で検証済み）と `ninja` が必要です。`ninja` は `mlmm-toolkit` と一緒に入ります。
 - **対処**：
-  - `hessian_ff` が使うコンパイラ（`$CXX` があればそれ、なければ環境の `<arch>-conda-linux-gnu-g++`、それもなければ `c++`）が C++20 に対応しているかを `<コンパイラ> -std=c++20 -x c++ -fsyntax-only /dev/null` で確かめてください。不足・非対応の場合は `conda install -c conda-forge cuda-nvcc` を実行し、環境を再度 activate してから再実行してください。
+  - `hessian_ff` が使うコンパイラ（`$CXX` があればそれ、なければ環境の `<arch>-conda-linux-gnu-g++`、それもなければ `c++`）が C++20 に対応しているかを `<コンパイラ> -std=c++20 -x c++ -fsyntax-only /dev/null` で確かめてください。不足・非対応の場合は、`module load` などで新しい gcc を読み込むか、`conda install -c conda-forge cuda-nvcc` を実行して環境を再度 activate してから、再実行してください。
   - PyTorch のヘッダが見つかるかを `python -c "import torch; print(torch.utils.cmake_prefix_path)"` で確かめてください。
   - ビルドはデフォルトでローカルの一時ディレクトリを使います。ネットワーク上のディレクトリ（NFS/Lustre）では PyTorch のビルドロックで止まることがあるためです。別のローカルのパスを使うときは `TORCH_EXTENSIONS_DIR` を指定してください。
   - `mlmm` を実行する Python 環境から `hessian_ff` を import できるかを確かめてください。
@@ -183,7 +183,7 @@
 | UMA のダウンロードに失敗する（`huggingface_hub.errors.GatedRepoError`、`401`、`403`） | Hugging Face にログインしていない、または UMA モデルのライセンスに同意していない | マシンごとに一度 `hf auth login` を実行し、Hugging Face の UMA モデルのページでライセンスに同意してください。HPC では、計算ノードからモデルのキャッシュ（`$FAIRCHEM_CACHE_DIR`、デフォルトは `~/.cache/fairchem`）に書き込めるかを確かめます。インターネットに接続できない計算ノードでは、同じ環境と、共有ファイルシステム上の同じ `$FAIRCHEM_CACHE_DIR` を使い、ログインノードで各モデルを 1 回取得してから（例: `python -c "from fairchem.core import pretrained_mlip; pretrained_mlip.get_predict_unit('uma-s-1p2p1', device='cpu')"`）、ジョブスクリプトで `export HF_HUB_OFFLINE=1` を設定します |
 | `torch.cuda.is_available()` が `False`、またはインポート時に CUDA の実行時エラー | PyTorch のビルドが計算ノードの GPU・ドライバに合っていない | `nvidia-smi`、`python -m torch.utils.collect_env`、`python -m pip check` で、割り当てられた GPU、入っている PyTorch のビルド、ドライバを確認してください。`nvidia-smi` が示す `CUDA Version` はドライバが扱える最も新しい CUDA です。13.0 より小さいときは、`cuda130` の代わりに `"pytorch=2.13.0=cuda129*"` で環境を作ってください |
 | `--mep-mode dmf` が `DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2` で止まる | `cyipopt` が無い、または `pydmf` の GPU 用の部分が無い | {ref}`インストールの手順 2 <ja-step-by-step-installation>` のとおり、cyipopt を conda-forge から入れて環境を作ってください。`pydmf` は `mlmm-toolkit` と一緒に入ります。デフォルトの GPU 版 DMF でそれでもインポートに失敗するときは、エラーの文が勧めるとおり `pip install 'pydmf[torch]'` を実行してください |
-| `Missing system prerequisite: C compiler (gcc).`、`C++ compiler (g++).` または `CUDA build tools.`（PyTorch のエラー `Failed to find C compiler`、`No working C++ compiler found`） | `PATH` 上にコンパイラが無い、または CUDA のヘッダーや `ptxas` が無い。GPU での UMA と、`--compile` を付けた UMA と ORB は実行時に高速化のためコンパイルをします | `conda install -c conda-forge cuda-nvcc` を実行し、環境を再度 activate してから再実行してください |
+| `Missing system prerequisite: C compiler (gcc).`、`C++ compiler (g++).` または `CUDA build tools.`（PyTorch のエラー `Failed to find C compiler`、`No working C++ compiler found`） | `PATH` 上にコンパイラが無い、または CUDA のヘッダーや `ptxas` が無い。GPU での UMA と、`--compile` を付けた UMA と ORB は実行時に高速化のためコンパイルをします | `module load` などでシステムの gcc と CUDA を読み込むか、`conda install -c conda-forge cuda-nvcc` を実行して環境を再度 activate してから、再実行してください |
 | 図の出力に失敗する（`Missing system prerequisite: Chrome for PNG export.`） | ヘッドレス Chrome が入っていない、または Chrome が使う OS のライブラリが無い | `plotly_get_chrome -y` を一度実行し（Chromium のバイナリをダウンロードするので、インターネット接続が必要です）、続けて {ref}`システムの前提パッケージ <ja-system-prerequisites>` のライブラリを入れてください |
 
 ### DMF が IPOPT 内で極端に遅い

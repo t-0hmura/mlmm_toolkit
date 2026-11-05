@@ -264,7 +264,7 @@ ja/architecture
 ### Software
 
 - Python 3.12 (recommended) or 3.13.
-- CPU or CUDA-enabled PyTorch. Prebuilt wheels include their CUDA runtime; a local CUDA toolkit is normally needed only for source builds.
+- CPU or CUDA-enabled PyTorch. UMA on a GPU also needs gcc and CUDA at run time.
 - AmberTools, which `mm-parm` uses to build the Amber topology.
 
 See [Installation](installation.md) for setup.

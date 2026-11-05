@@ -151,7 +151,7 @@ REQUIRED_SNIPPETS: dict[Path, tuple[str, ...]] = {
     Path("skills/mlmm-install/backends.md"): (
         '"pytorch=2.13.0=cuda130*"',
         "Do not install a pip `torch` into this env",
-        "it does not\nrequire a site CUDA toolkit",
+        "load the site's\ngcc and CUDA modules, or install `cuda-nvcc` in the env",
     ),
     Path("docs/device-hpc.md"): (
         "${CXX_CMD} -std=c++20 -x c++ -fsyntax-only /dev/null",

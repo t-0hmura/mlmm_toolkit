@@ -290,15 +290,16 @@ no NVIDIA GPU is assigned. The decisive check is the smoke test below.
 ### Driver, not toolkit
 
 The conda-forge PyTorch brings its CUDA user-space libraries as conda
-packages. It needs a compatible NVIDIA driver and an allocated GPU; it does not
-require a site CUDA toolkit, `CUDA_HOME`, or a `cuda/<X.Y>` module.
-Start with a clean runtime and check the driver with `nvidia-smi`.
-UMA on a GPU, and `--compile`, also compile code at run time for speed, using the existing compiler ([System packages](SKILL.md#system-packages)).
+packages. It needs a compatible NVIDIA driver and an allocated GPU, not
+`CUDA_HOME`. Start with a clean runtime and check the driver with `nvidia-smi`.
+UMA on a GPU, and `--compile`, also compile code at run time for speed and need
+gcc and the CUDA headers, which this PyTorch does not include: load the site's
+gcc and CUDA modules, or install `cuda-nvcc` in the env
+([System packages](SKILL.md#system-packages)).
 
-Load a CUDA toolkit and compiler only when building a C/CUDA extension from
-source, for example a source-built GPU4PySCF or an architecture not covered by
-the builds. Then use the administrator's compatible module pair and keep it in
-both the build and the job environment:
+To build a C/CUDA extension from source, for example a source-built GPU4PySCF
+or an architecture not covered by the builds, use the administrator's
+compatible module pair and keep it in both the build and the job environment:
 
 ```bash
 module load <CUDA_MODULE>           # exact site-provided name
@@ -449,9 +450,8 @@ Reading the report:
   preamble.
 - With a GPU, note the driver version and VRAM; they bound the torch wheel and
   the model size.
-- A missing CUDA toolkit does not block a prebuilt CUDA wheel, which carries its
-  runtime libraries and needs only the driver. Load a toolkit only to compile a
-  CUDA extension from source ([CUDA and PyTorch](#cuda-and-pytorch)).
+- Without a CUDA module, UMA on a GPU needs `cuda-nvcc` in the env for the CUDA
+  headers ([CUDA and PyTorch](#cuda-and-pytorch)).
 - `pbsnodes -a` gives each node's `np` (CPU count) and `gpus` (GPU count).
 - The env where `import mlmm` succeeds is `<YOUR_ENV>`. If none does, follow
   [Install order](SKILL.md#install-order).
@@ -463,7 +463,7 @@ Reading the report:
 | `<NCPU>` | `np` from `pbsnodes -a` (PBS) or the `--cpus-per-task` budget (SLURM) |
 | `<NGPU>` | `gpus = N` from `pbsnodes -a` (PBS) or `--gres=gpu:N` (SLURM) |
 | `<MEM>` | A safe fraction of the node memory: `pbsnodes -a \| grep totalmem` (PBS) or `sinfo -o "%m"` (SLURM) |
-| `<CUDA_MODULE>` | A line from `module avail 2>&1 \| grep -i cuda` (names vary: `cuda`, `cudatoolkit`, `nvhpc`); only for source builds |
+| `<CUDA_MODULE>` | A line from `module avail 2>&1 \| grep -i cuda` (names vary: `cuda`, `cudatoolkit`, `nvhpc`); not needed when the env has `cuda-nvcc` |
 | `<YOUR_ENV>` | The conda env that imported mlmm-toolkit |
 | `<HH:MM:SS>` | The estimated walltime, capped by the queue's `resources_max.walltime` |
 

@@ -54,7 +54,9 @@ GPU and a C++ compiler (`g++`) on a CPU; `hessian_ff` needs a C++20 compiler.
 Image export (PNG, JPEG, SVG, PDF) needs the operating-system libraries of the Chrome that
 `plotly_get_chrome -y` downloads. Use the existing compiler; check with
 `${CC:-gcc} --version` (`${CXX:-g++} --version` for C++).
-If a compiler or CUDA build component is missing or unsupported, run:
+If gcc or CUDA is missing, load them from the system (on HPC,
+`module load gcc <CUDA_MODULE>`). If the system has no C compiler or CUDA, or
+you do not want to use them, install both into the env instead:
 
 ```bash
 conda install -c conda-forge -y cuda-nvcc
@@ -219,7 +221,7 @@ backend's section in [backends.md](backends.md); a CUDA error points to
 | `OSError: libcusolver.so.<N> not found` (N is 12 for `cuda130`, 11 for `cuda129`) | torch's bundled CUDA libraries missing or shadowed by `LD_LIBRARY_PATH` | [CUDA and PyTorch](backends.md#cuda-and-pytorch) |
 | `RuntimeError: CUDA out of memory` during `freq` | Active Hessian exceeds GPU memory | Reduce the active region, keep `return_partial_hessian: true`, and compare `Analytical` with `FiniteDifference` on a pilot ([freq](../mlmm-cli/freq.md)) |
 | `tleap: command not found` | AmberTools missing or not sourced | [ambertools.md](ambertools.md) |
-| `Missing system prerequisite: C compiler (gcc).` or `C++ compiler (g++).`; a PyTorch error `Failed to find C compiler` or `No working C++ compiler found` | No compiler on `PATH`; UMA on a GPU, and UMA and ORB with `--compile`, compile code at run time for speed | Install `cuda-nvcc` and reactivate the environment: [System packages](#system-packages) |
+| `Missing system prerequisite: C compiler (gcc).` or `C++ compiler (g++).`; a PyTorch error `Failed to find C compiler` or `No working C++ compiler found` | No compiler on `PATH`; UMA on a GPU, and UMA and ORB with `--compile`, compile code at run time for speed | Load gcc and CUDA (`module load`) or install `cuda-nvcc`: [System packages](#system-packages) |
 | `Missing system prerequisite: Chrome for PNG export.`, or `path-search` / `all` finish without the diagram PNG | No headless Chrome for Plotly, or an operating-system library it needs is missing | `plotly_get_chrome -y`, then the libraries in [System packages](#system-packages) |
 
 ## Upgrade and clean rebuild

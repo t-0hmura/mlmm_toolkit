@@ -12,7 +12,7 @@ uses PBS Pro resource syntax; on Torque, replace the `-l` line with the
 site's verified syntax.
 The recipe below is **placeholder-driven** — fill in
 `<N_NODES>`, `<NCPU>`, `<NGPU>`, `<MEM>`, `<HH:MM:SS>`, `<YOUR_QUEUE>`,
-`<YOUR_ENV>`, `<TASK_LIST_FILE>` from [`mlmm-install/backends.md`](../mlmm-install/backends.md#probe-the-compute-environment).
+`<YOUR_ENV>`, `<CUDA_MODULE>`, `<TASK_LIST_FILE>` from [`mlmm-install/backends.md`](../mlmm-install/backends.md#probe-the-compute-environment).
 
 ## Files involved
 
@@ -70,8 +70,10 @@ TASK_LIST="$5"
 COMPLETED_FILE="$6"
 FAILED_FILE="$7"
 
-# Prebuilt wheels need no CUDA toolkit module. hessian_ff needs a C++20-capable compiler;
-# if the compiler below is missing or too old, run: conda install -c conda-forge -y cuda-nvcc
+# UMA on a GPU and hessian_ff compile code at run time, so they need gcc (C++20 for
+# hessian_ff) and CUDA. Load the site's modules, or install both in the env with:
+# conda install -c conda-forge -y cuda-nvcc
+command -v module >/dev/null && module load gcc <CUDA_MODULE>
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate <YOUR_ENV>
 # hessian_ff builds with $CXX, else the env's conda g++, else c++
@@ -81,7 +83,7 @@ if [ -z "${CXX_CMD}" ]; then
     [ -x "${CXX_CMD}" ] || CXX_CMD=c++
 fi
 if ! ${CXX_CMD} -std=c++20 -x c++ -fsyntax-only /dev/null; then
-    echo "hessian_ff requires a compiler supporting PyTorch's C++20 JIT flag (checked: ${CXX_CMD}); run: conda install -c conda-forge -y cuda-nvcc; reactivate the environment and rerun" >&2
+    echo "hessian_ff requires a compiler supporting PyTorch's C++20 JIT flag (checked: ${CXX_CMD}); load a newer gcc (module load) or run: conda install -c conda-forge -y cuda-nvcc; reactivate the environment and rerun" >&2
     exit 1
 fi
 command -v ninja >/dev/null || { echo "ninja is required for hessian_ff" >&2; exit 1; }

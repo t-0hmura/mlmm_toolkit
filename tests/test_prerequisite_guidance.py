@@ -97,6 +97,7 @@ def test_compiler_messages_give_the_install_commands():
     assert "With --compile, UMA and ORB compile CPU kernels at run time for speed" in cpu
     for kind in (pre.KIND_C_COMPILER, pre.KIND_CXX_COMPILER, pre.KIND_CUDA):
         text = pre.guidance(kind)
+        assert "module load" in text
         assert "conda install -c conda-forge cuda-nvcc" in text
         assert "reactivate the environment" in text
 

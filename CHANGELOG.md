@@ -32,7 +32,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 - Without `-v 3`, FAIR-Chem's inference-settings line and choreographer's `Resorting to unclean kill browser.` are no longer shown.
 - MM Hessians keep their values and use less memory.
 - Colab notebook: the GUI fits the visible pane from 721 px wide, and Mol* clicks keep the camera.
-- Docs and skills use existing compilers and recommend `conda install -c conda-forge cuda-nvcc` only for missing or unsupported build tools.
+- Docs, skills and error messages use existing compilers; for a missing compiler or CUDA, they suggest loading gcc and CUDA with `module load` or installing `cuda-nvcc` with conda.
 - Docs, skills and CLI help: wrong statements are corrected, unclear passages reworded, ORB is installed in its own environment after removing `fairchem-core`, and `--mm-backend` says that `hessian_ff` is the MM engine bundled with mlmm-toolkit.
 
 ### Fixed

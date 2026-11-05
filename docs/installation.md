@@ -69,24 +69,26 @@ sudo dnf install -y alsa-lib at-spi2-atk at-spi2-core atk ca-certificates cairo 
   vulkan-loader wget xdg-utils
 ```
 
-Use the existing compiler. If a compiler or CUDA build component is missing or unsupported, run `conda install -c conda-forge cuda-nvcc`, reactivate the environment, and rerun the command. On HPC, ask the administrator for any missing Chrome libraries.
+Use the existing compiler. If gcc or CUDA is missing, load them from the system (on HPC, for example with `module load`). If the system has no C compiler or CUDA, or you do not want to use them, `conda install -c conda-forge cuda-nvcc` installs both into the environment; reactivate the environment afterwards. On HPC, ask the administrator for any missing Chrome libraries.
 
-If a compiler is missing, the command stops and prints `Missing system prerequisite:` followed by this command. If a Chrome library is missing, `energy-diagram` and `trj2fig` stop the same way, while `all`, `path-search` and `scan2d` print a warning and skip only their PNG files.
+If a compiler or CUDA is missing, the command stops and prints `Missing system prerequisite:` followed by these two options. If a Chrome library is missing, `energy-diagram` and `trj2fig` stop the same way, while `all`, `path-search` and `scan2d` print a warning and skip only their PNG files.
 
 (step-by-step-installation)=
 ## Step-by-step installation
 
 If you prefer to build the environment piece by piece:
 
-1. **Load a CUDA toolkit only when the site/build requires one**
+1. **Load gcc and CUDA on HPC**
 
-    The conda-forge PyTorch of step 2 does not need a CUDA module. If a dependency must be
-    built from source, use `module avail cuda` and load the compiler/toolkit
-    combination documented by the cluster:
+    UMA on a GPU and `hessian_ff` compile code at run time and need gcc (C++20 for `hessian_ff`)
+    and CUDA. On HPC, check `module avail` and load the compiler and CUDA modules of the cluster:
 
     ```bash
-    module load cuda/<your-version>   # e.g. cuda/12.6 or cuda/12.9
+    module load gcc cuda/<your-version>   # e.g. cuda/12.6 or cuda/12.9
     ```
+
+    If the system has no C compiler or CUDA, or you do not want to use them, run
+    `conda install -c conda-forge cuda-nvcc` after step 2 and reactivate the environment.
 
 2. **Create a conda environment with AmberTools and PyTorch**
 

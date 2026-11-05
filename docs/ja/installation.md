@@ -69,22 +69,24 @@ sudo dnf install -y alsa-lib at-spi2-atk at-spi2-core atk ca-certificates cairo 
   vulkan-loader wget xdg-utils
 ```
 
-既存のコンパイラを使います。コンパイラや CUDA のビルド部品の不足・非対応のエラーが出たときは `conda install -c conda-forge cuda-nvcc` を実行し、環境を再度 activate してから再実行してください。HPC で Chrome のライブラリが足りない場合は管理者に依頼してください。
+既存のコンパイラを使います。gcc や CUDA が無い場合は、システムのものを読み込んでください（HPC では `module load` など）。システムに C コンパイラや CUDA が無い場合や使わない場合は、`conda install -c conda-forge cuda-nvcc` で両方を環境に入れられます（入れた後に環境を再度 activate してください）。HPC で Chrome のライブラリが足りない場合は管理者に依頼してください。
 
-コンパイラが足りないときは、コマンドが止まり、`Missing system prerequisite:` に続けて同じコマンドを表示します。Chrome のライブラリが足りないときは、`energy-diagram` と `trj2fig` は同じように止まり、`all`・`path-search`・`scan2d` は警告を出し、PNG の作成だけを省いて続けます。
+コンパイラや CUDA が足りないときは、コマンドが止まり、`Missing system prerequisite:` に続けてこの 2 つの方法を表示します。Chrome のライブラリが足りないときは、`energy-diagram` と `trj2fig` は同じように止まり、`all`・`path-search`・`scan2d` は警告を出し、PNG の作成だけを省いて続けます。
 
 (ja-step-by-step-installation)=
 ## 詳細なインストール手順
 
 環境を段階的に構築する場合:
 
-1. **クラスターやビルドが必要とする場合のみ CUDA toolkit をロード**
+1. **HPC では gcc と CUDA をロード**
 
-    手順 2 の conda-forge の PyTorch に CUDA のモジュールは不要です。依存パッケージをソースからビルドする場合は `module avail cuda` を確認し、クラスターが指定するコンパイラと CUDA toolkit の組み合わせをロードしてください:
+    GPU での UMA と `hessian_ff` は実行時にコードをコンパイルするので、gcc（`hessian_ff` には C++20 対応のもの）と CUDA が要ります。HPC では `module avail` を確認し、クラスターのコンパイラと CUDA のモジュールをロードしてください:
 
     ```bash
-    module load cuda/<your-version>   # 例: cuda/12.6 または cuda/12.9
+    module load gcc cuda/<your-version>   # 例: cuda/12.6 または cuda/12.9
     ```
+
+    システムに C コンパイラや CUDA が無い場合や使わない場合は、手順 2 の後に `conda install -c conda-forge cuda-nvcc` を実行し、環境を再度 activate してください。
 
 2. **AmberTools と PyTorch を入れた conda 環境を作成**
 

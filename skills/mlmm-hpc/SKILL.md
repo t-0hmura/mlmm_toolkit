@@ -36,11 +36,10 @@ cd "${PBS_O_WORKDIR}"
 command -v conda >/dev/null || { echo "conda not on PATH"; exit 1; }
 nvidia-smi -L >/dev/null     || { echo "no GPU visible"; exit 1; }
 
-# Prebuilt PyTorch/backend wheels need a compatible NVIDIA driver, not a local
-# CUDA toolkit module. hessian_ff still JIT-compiles C++ kernels on first use
-# (UMA on a GPU, and --compile, also compile code at run time for speed, using the env's compiler);
-# if the compiler checked below cannot compile in C++20 mode, run: conda install -c conda-forge -y cuda-nvcc
-# Load <CUDA_MODULE> separately only for an extension that needs that toolkit.
+# UMA on a GPU and hessian_ff compile code at run time, so they need gcc (C++20 for
+# hessian_ff) and CUDA. Load the site's modules, or install both in the env with:
+# conda install -c conda-forge -y cuda-nvcc
+module load gcc <CUDA_MODULE>
 # The default workers=1 run needs no MPI launcher.
 
 # Conda env (<YOUR_ENV> from backends.md, Probe the compute environment).
@@ -57,7 +56,7 @@ if [ -z "${CXX_CMD}" ]; then
     [ -x "${CXX_CMD}" ] || CXX_CMD=c++
 fi
 if ! ${CXX_CMD} -std=c++20 -x c++ -fsyntax-only /dev/null; then
-    echo "hessian_ff requires a compiler supporting PyTorch's C++20 JIT flag (checked: ${CXX_CMD}); run: conda install -c conda-forge -y cuda-nvcc; reactivate the environment and rerun" >&2
+    echo "hessian_ff requires a compiler supporting PyTorch's C++20 JIT flag (checked: ${CXX_CMD}); load a newer gcc (module load) or run: conda install -c conda-forge -y cuda-nvcc; reactivate the environment and rerun" >&2
     exit 1
 fi
 command -v ninja >/dev/null || { echo "ninja is required for hessian_ff" >&2; exit 1; }
@@ -95,8 +94,10 @@ cd "${SLURM_SUBMIT_DIR}"
 # Preflight: confirm conda + GPU before launching
 command -v conda >/dev/null || { echo "ERROR: conda not on PATH"; exit 1; }
 nvidia-smi -L >/dev/null || { echo "ERROR: no GPU visible"; exit 1; }
-# Prebuilt wheels need no CUDA toolkit module. hessian_ff needs a C++20-capable compiler;
-# if the compiler checked below is missing or too old, run: conda install -c conda-forge -y cuda-nvcc
+# UMA on a GPU and hessian_ff compile code at run time, so they need gcc (C++20 for
+# hessian_ff) and CUDA. Load the site's modules, or install both in the env with:
+# conda install -c conda-forge -y cuda-nvcc
+module load gcc <CUDA_MODULE>
 set +u    # conda's activate scripts read unset variables
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate <YOUR_ENV>
@@ -109,7 +110,7 @@ if [ -z "${CXX_CMD}" ]; then
     [ -x "${CXX_CMD}" ] || CXX_CMD=c++
 fi
 if ! ${CXX_CMD} -std=c++20 -x c++ -fsyntax-only /dev/null; then
-    echo "hessian_ff requires a compiler supporting PyTorch's C++20 JIT flag (checked: ${CXX_CMD}); run: conda install -c conda-forge -y cuda-nvcc; reactivate the environment and rerun" >&2
+    echo "hessian_ff requires a compiler supporting PyTorch's C++20 JIT flag (checked: ${CXX_CMD}); load a newer gcc (module load) or run: conda install -c conda-forge -y cuda-nvcc; reactivate the environment and rerun" >&2
     exit 1
 fi
 command -v ninja >/dev/null || { echo "ninja is required for hessian_ff" >&2; exit 1; }

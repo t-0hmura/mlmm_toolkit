@@ -86,8 +86,9 @@ set -euo pipefail
 hostname
 cd "${PBS_O_WORKDIR}"
 
-# hessian_ff は初回利用時に C++ カーネルを JIT ビルドします。下で確かめる
-# コンパイラがない、または C++20 モードでコンパイルできない場合: conda install -c conda-forge cuda-nvcc
+# GPU での UMA と hessian_ff は実行時にコードをコンパイルするので、gcc（hessian_ff には C++20 対応）と CUDA が要る。
+# 計算機のモジュール（名前は `module avail` で確認）を読み込むか、両方を入れる: conda install -c conda-forge cuda-nvcc
+module load gcc <CUDA_MODULE>
 
 # conda 環境の有効化（set +u: conda の activate スクリプト、たとえば cuda-nvcc のものは未設定の変数を読む）
 set +u
@@ -101,7 +102,7 @@ if [ -z "${CXX_CMD}" ]; then
   [ -x "${CXX_CMD}" ] || CXX_CMD=c++
 fi
 if ! ${CXX_CMD} -std=c++20 -x c++ -fsyntax-only /dev/null; then
-  echo "hessian_ff には PyTorch の C++20 JIT フラグに対応するコンパイラが必要です（確認したもの: ${CXX_CMD}）。conda install -c conda-forge cuda-nvcc を実行し、環境を再度 activate してから再実行してください" >&2
+  echo "hessian_ff には PyTorch の C++20 JIT フラグに対応するコンパイラが必要です（確認したもの: ${CXX_CMD}）。module load で新しい gcc を読み込むか、conda install -c conda-forge cuda-nvcc を実行して環境を再度 activate してから、再実行してください" >&2
   exit 1
 fi
 command -v ninja >/dev/null || { echo "hessian_ff には ninja が必要です" >&2; exit 1; }
@@ -131,7 +132,9 @@ mlmm opt \
 set -euo pipefail
 hostname
 
-# hessian_ff は初回利用時に C++ カーネルを JIT ビルドします。必要な場合: conda install -c conda-forge cuda-nvcc
+# GPU での UMA と hessian_ff は実行時にコードをコンパイルするので、gcc（hessian_ff には C++20 対応）と CUDA が要る。
+# 計算機のモジュール（名前は `module avail` で確認）を読み込むか、両方を入れる: conda install -c conda-forge cuda-nvcc
+module load gcc <CUDA_MODULE>
 set +u    # conda の activate スクリプトは未設定の変数を読む
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate <your-env>
@@ -143,7 +146,7 @@ if [ -z "${CXX_CMD}" ]; then
   [ -x "${CXX_CMD}" ] || CXX_CMD=c++
 fi
 if ! ${CXX_CMD} -std=c++20 -x c++ -fsyntax-only /dev/null; then
-  echo "hessian_ff には PyTorch の C++20 JIT フラグに対応するコンパイラが必要です（確認したもの: ${CXX_CMD}）。conda install -c conda-forge cuda-nvcc を実行し、環境を再度 activate してから再実行してください" >&2
+  echo "hessian_ff には PyTorch の C++20 JIT フラグに対応するコンパイラが必要です（確認したもの: ${CXX_CMD}）。module load で新しい gcc を読み込むか、conda install -c conda-forge cuda-nvcc を実行して環境を再度 activate してから、再実行してください" >&2
   exit 1
 fi
 command -v ninja >/dev/null || { echo "hessian_ff には ninja が必要です" >&2; exit 1; }
@@ -161,7 +164,7 @@ mlmm opt \
 - **GPU:** ML 推論用に GPU を 1 基要求します（PBS は `gpus=1`、Slurm は `--gres=gpu:1`）。`--uma-workers` を 2 以上にする場合はワーカーごとに 1 基、OpenMM の MM バックエンドを別の CUDA デバイス（`mm_device: cuda`、`mm_cuda_idx: 1`）に置く場合はさらに 1 基を要求します。
 - **CPU スレッド:** MM バックエンドのスレッド数（`mm_threads`、デフォルト 16）に足りる CPU を要求します。上の例は余裕を見て 32（`ppn=32`、`--cpus-per-task=32`）を要求しています。
 - **メモリ:** 代表的な試験計算と scheduler のピークメモリの記録から RAM を決めます。
-- **CUDA ランタイム:** conda-forge の PyTorch は CUDA のユーザー空間ライブラリも一緒に入れるため、通常は対応する NVIDIA ドライバーだけで足ります。CUDA toolkit のモジュールを読み込むのは、それを必要とする拡張を使う場合だけです。
+- **CUDA ランタイム:** conda-forge の PyTorch は CUDA のユーザー空間ライブラリも一緒に入れますが、GPU での UMA がコンパイルに使う CUDA のヘッダーは含みません。上のジョブスクリプトのように計算機の CUDA のモジュールを読み込むか、`cuda-nvcc` を入れてください。
 
 ### GPU インデックスの指定
 
@@ -187,7 +190,7 @@ mlmm opt -i r_complex_layered.pdb --parm7 real.parm7 -q -1 --config config.yaml
 * **ML 推論は GPU 1 基**: デフォルトの `--uma-workers 1` では、ML 推論は `ml_cuda_idx` の GPU 1 基で動きます。`--uma-workers` を 2 以上にする場合は [MLIP バックエンド › ワーカーと Hessian の計算方式](backends.md#ワーカーと-hessian-の計算方式) を参照してください。
 * **ML と MM を同じ GPU に置くとメモリを共有する**: 両方を同じ CUDA デバイスで動かすときは、代表的な試験計算でピークメモリを測り、大きな系では `mm_device: cpu` を使ってください。
 * **`--hess-device cpu` でもすべての out-of-memory は防げない**: Hessian の計算中にバックエンドの中で起きる out-of-memory は、Hessian を移す前に起きます。モデルを小さくするか、メモリの少ない Hessian やバックエンドの設定を選んでください。
-* **各計算ノードに C++ コンパイラが要る**: デフォルトの `hessian_ff` MM バックエンドは、初回利用時に C++ カーネルを JIT ビルドします。これは CUDA とは関係なく行われます。各計算ノードに C++20 対応のコンパイラと Ninja が必要です（GCC 13.3 で検証済み）。hessian_ff は `$CXX`、なければ conda 環境の `g++`、それもなければ `c++` を使います。そのコンパイラがない、または古い場合は `cuda-nvcc` を入れ、環境を再度 activate してください。上のジョブスクリプトは両方を確かめます。UMA も実行時にコードをビルドするため C コンパイラ（`gcc`。CPU では `g++`）が要ります。
+* **各計算ノードに C++ コンパイラが要る**: デフォルトの `hessian_ff` MM バックエンドは、初回利用時に C++ カーネルを JIT ビルドします。これは CUDA とは関係なく行われます。各計算ノードに C++20 対応のコンパイラと Ninja が必要です（GCC 13.3 で検証済み）。hessian_ff は `$CXX`、なければ conda 環境の `g++`、それもなければ `c++` を使います。そのコンパイラがない、または古い場合は、`module load` で新しい gcc を読み込むか、`cuda-nvcc` を入れて環境を再度 activate してください。上のジョブスクリプトは両方を確かめます。UMA も実行時にコードをビルドするため C コンパイラ（`gcc`。CPU では `g++`）が要ります。
 
 ---
 

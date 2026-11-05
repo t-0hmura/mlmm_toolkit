@@ -86,8 +86,9 @@ set -euo pipefail
 hostname
 cd "${PBS_O_WORKDIR}"
 
-# hessian_ff JIT-compiles C++ kernels on first use. If the compiler checked below
-# is missing or cannot compile in C++20 mode, install build tools in the env: conda install -c conda-forge cuda-nvcc
+# UMA on a GPU and hessian_ff compile code at run time, so they need gcc (C++20 for hessian_ff) and CUDA.
+# Load the cluster's modules (names from `module avail`), or install both with: conda install -c conda-forge cuda-nvcc
+module load gcc <CUDA_MODULE>
 
 # Activate conda environment (set +u: conda's activate scripts, for example cuda-nvcc, read unset variables)
 set +u
@@ -101,7 +102,7 @@ if [ -z "${CXX_CMD}" ]; then
   [ -x "${CXX_CMD}" ] || CXX_CMD=c++
 fi
 if ! ${CXX_CMD} -std=c++20 -x c++ -fsyntax-only /dev/null; then
-  echo "hessian_ff requires a compiler supporting PyTorch's C++20 JIT flag (checked: ${CXX_CMD}); run: conda install -c conda-forge cuda-nvcc; reactivate the environment and rerun" >&2
+  echo "hessian_ff requires a compiler supporting PyTorch's C++20 JIT flag (checked: ${CXX_CMD}); load a newer gcc (module load) or run: conda install -c conda-forge cuda-nvcc; reactivate the environment and rerun" >&2
   exit 1
 fi
 command -v ninja >/dev/null || { echo "ninja is required for hessian_ff" >&2; exit 1; }
@@ -131,7 +132,9 @@ mlmm opt \
 set -euo pipefail
 hostname
 
-# hessian_ff JIT-compiles C++ kernels on first use. If needed: conda install -c conda-forge cuda-nvcc
+# UMA on a GPU and hessian_ff compile code at run time, so they need gcc (C++20 for hessian_ff) and CUDA.
+# Load the cluster's modules (names from `module avail`), or install both with: conda install -c conda-forge cuda-nvcc
+module load gcc <CUDA_MODULE>
 set +u    # conda's activate scripts read unset variables
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate <your-env>
@@ -143,7 +146,7 @@ if [ -z "${CXX_CMD}" ]; then
   [ -x "${CXX_CMD}" ] || CXX_CMD=c++
 fi
 if ! ${CXX_CMD} -std=c++20 -x c++ -fsyntax-only /dev/null; then
-  echo "hessian_ff requires a compiler supporting PyTorch's C++20 JIT flag (checked: ${CXX_CMD}); run: conda install -c conda-forge cuda-nvcc; reactivate the environment and rerun" >&2
+  echo "hessian_ff requires a compiler supporting PyTorch's C++20 JIT flag (checked: ${CXX_CMD}); load a newer gcc (module load) or run: conda install -c conda-forge cuda-nvcc; reactivate the environment and rerun" >&2
   exit 1
 fi
 command -v ninja >/dev/null || { echo "ninja is required for hessian_ff" >&2; exit 1; }
@@ -161,7 +164,7 @@ mlmm opt \
 - **GPUs:** Request one GPU for ML inference (`gpus=1` for PBS, `--gres=gpu:1` for Slurm); request one GPU per worker with `--uma-workers` above 1, and one more if you place the OpenMM MM backend on a separate CUDA device (`mm_device: cuda`, `mm_cuda_idx: 1`).
 - **CPU threads:** Request enough CPUs for the MM backend (`mm_threads`, default 16). The examples request 32 (`ppn=32`, `--cpus-per-task=32`) to leave headroom.
 - **Memory:** Size RAM from a representative test run and the scheduler's peak-memory log.
-- **CUDA runtime:** The conda-forge PyTorch brings its CUDA user-space libraries; a matching NVIDIA driver is normally sufficient. Load a site CUDA toolkit only for an extension that needs it.
+- **CUDA runtime:** The conda-forge PyTorch brings its CUDA user-space libraries but not the CUDA headers that UMA on a GPU compiles against; load the site's CUDA module, or install `cuda-nvcc`, as in the job scripts above.
 
 ### Specifying a GPU index
 
@@ -187,7 +190,7 @@ mlmm opt -i r_complex_layered.pdb --parm7 real.parm7 -q -1 --config config.yaml
 * **One GPU for ML inference**: with the default `--uma-workers 1`, ML inference runs on the one GPU set by `ml_cuda_idx`. For `--uma-workers` above 1, see [MLIP Backends › Workers and Hessian mode](backends.md#workers-and-hessian-mode).
 * **ML and MM on one GPU share its memory**: when both use CUDA on the same device, measure the peak memory on a representative test run, and use `mm_device: cpu` for a large system.
 * **`--hess-device cpu` does not prevent every out-of-memory error**: an out-of-memory error inside the backend while the Hessian is being evaluated happens before the Hessian is moved. Make the model smaller, or choose a Hessian or backend setting that uses less memory.
-* **C++ compiler on every compute node**: the default `hessian_ff` MM backend JIT-compiles C++ kernels on first use, independently of CUDA. Every compute node needs a C++20-capable compiler and Ninja (GCC 13.3 was validated); hessian_ff uses `$CXX` if set, else the env's conda `g++`, else `c++`; install `cuda-nvcc` and reactivate the environment when that compiler is absent or too old. The job scripts above check both. UMA also builds code at run time and needs a C compiler (`gcc`, or `g++` on a CPU).
+* **C++ compiler on every compute node**: the default `hessian_ff` MM backend JIT-compiles C++ kernels on first use, independently of CUDA. Every compute node needs a C++20-capable compiler and Ninja (GCC 13.3 was validated); hessian_ff uses `$CXX` if set, else the env's conda `g++`, else `c++`; when that compiler is absent or too old, load a newer gcc (`module load`) or install `cuda-nvcc` and reactivate the environment. The job scripts above check both. UMA also builds code at run time and needs a C compiler (`gcc`, or `g++` on a CPU).
 
 ---
 

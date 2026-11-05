@@ -66,20 +66,23 @@ _MESSAGES = {
     KIND_C_COMPILER: (
         "Missing system prerequisite: C compiler (gcc).\n"
         "  UMA on a GPU, and ORB with --compile, compile code at run time for speed through PyTorch (Triton), and no C compiler was found.\n"
-        "  Install the build tools, reactivate the environment, and run the command again:\n"
-        "    conda install -c conda-forge cuda-nvcc"
+        "  Load gcc and CUDA from the system (for example, with module load), or install both with conda and reactivate the environment:\n"
+        "    conda install -c conda-forge cuda-nvcc\n"
+        "  Then run the command again."
     ),
     KIND_CXX_COMPILER: (
         "Missing system prerequisite: C++ compiler (g++).\n"
         "  With --compile, UMA and ORB compile CPU kernels at run time for speed through PyTorch (Inductor), and no C++ compiler was found.\n"
-        "  Install the build tools, reactivate the environment, and run the command again:\n"
-        "    conda install -c conda-forge cuda-nvcc"
+        "  Load g++ from the system (for example, with module load), or install it with conda and reactivate the environment:\n"
+        "    conda install -c conda-forge cuda-nvcc\n"
+        "  Then run the command again."
     ),
     KIND_CUDA: (
         "Missing system prerequisite: CUDA build tools.\n"
         "  CUDA kernel compilation needs CUDA headers and ptxas.\n"
-        "  Install the build tools, reactivate the environment, and run the command again:\n"
-        "    conda install -c conda-forge cuda-nvcc"
+        "  Load gcc and CUDA from the system (for example, with module load), or install both with conda and reactivate the environment:\n"
+        "    conda install -c conda-forge cuda-nvcc\n"
+        "  Then run the command again."
     ),
     KIND_CHROME: "\n".join((
         "Missing system prerequisite: Chrome for PNG export.",
@@ -98,9 +101,9 @@ _MESSAGES = {
 
 
 _BRIEF = {
-    KIND_C_COMPILER: "Install cuda-nvcc and reactivate the environment",
-    KIND_CXX_COMPILER: "Install cuda-nvcc and reactivate the environment",
-    KIND_CUDA: "Install cuda-nvcc and reactivate the environment",
+    KIND_C_COMPILER: "Load gcc and CUDA (for example, with module load) or install cuda-nvcc with conda",
+    KIND_CXX_COMPILER: "Load g++ (for example, with module load) or install cuda-nvcc with conda",
+    KIND_CUDA: "Load gcc and CUDA (for example, with module load) or install cuda-nvcc with conda",
     KIND_CHROME: "Run plotly_get_chrome -y, then install the operating-system libraries of Chrome",
 }
 
