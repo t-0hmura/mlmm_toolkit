@@ -133,6 +133,9 @@ def test_original_error_is_one_bounded_line():
         (_wrapped("fatal error: cuda.h: No such file or directory"), pre.KIND_CUDA),
         (_wrapped("Cannot find ptxas"), pre.KIND_CUDA),
         (RuntimeError("ptxas: command not found"), pre.KIND_CUDA),
+        # Triton's launcher build without cuda.h (the conda env of 2026-10-25 without cuda-nvcc).
+        (_wrapped("CalledProcessError: Command '['/env/bin/gcc', '/tmp/tmp9c2eap4f/cuda_utils.c', '-O3', "
+                  "'-shared']' returned non-zero exit status 1."), pre.KIND_CUDA),
         (RuntimeError(BROWSER), pre.KIND_CHROME),
         (pre.MissingPrerequisiteError(pre.KIND_CHROME, "Plotly image export failed"), pre.KIND_CHROME),
     ],

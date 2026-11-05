@@ -30,7 +30,10 @@ _CHROME_ERROR = re.compile(
 _PATTERNS = (
     (KIND_C_COMPILER, re.compile(r"Failed to find C compiler")),
     (KIND_CXX_COMPILER, re.compile(r"No working C\+\+ compiler found|InvalidCxxCompiler")),
-    (KIND_CUDA, re.compile(r"cuda\.h: No such file or directory|Cannot find ptxas|ptxas.*(?:not found|No such file or directory)", re.IGNORECASE)),
+    # Triton builds its launcher with gcc and sends gcc's stderr (for example a missing cuda.h) to the
+    # terminal, so the exception names only the failed command and its source file.
+    (KIND_CUDA, re.compile(r"cuda\.h: No such file or directory|Cannot find ptxas|ptxas.*(?:not found|No such file or directory)"
+                           r"|CalledProcessError: Command '\[.*?(?:cuda_utils|__triton_launcher)\.c'", re.IGNORECASE)),
     (KIND_CHROME, _CHROME_ERROR),
 )
 

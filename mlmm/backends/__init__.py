@@ -241,7 +241,8 @@ def apply_precision_to_calc_cfg(calc_cfg: Dict[str, Any], precision: Optional[st
         if val == "tf32":
             raise ValueError(
                 f"--precision tf32 is not supported by backend {backend!r}: "
-                f"it has no TF32 mode. Use --precision fp32 or fp64."
+                f"it has no TF32 mode. Use --precision "
+                f"{'fp32 or fp64' if backend in _PRECISION_DISPATCH['fp64'] else 'fp32'}."
             )
         return
     kw_name, kw_val = mapping[backend]
