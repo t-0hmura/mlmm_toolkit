@@ -10,8 +10,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Breaking changes
 
-- Remove the `[orb]` extra. Install `orb-models` directly in a separate environment. If `fairchem-core` is already installed in that environment, uninstall it first.
-- For atom pairs that include a metal, bond formation or cleavage now requires a larger change in interatomic distance. With the default `bond.metal_delta_fraction` of 0.40, the required change is about 1.0 Å for Mg–O. Every bond judgment, including the IRC endpoint matching of `all` and `irc`, reads the YAML `bond` section.
+- Remove the `[orb]` extras due to conflict with `fairchem-core`. **The ORB backend itself is still available.** Install `orb-models` directly in a separate environment. If `fairchem-core` is already installed in that environment, uninstall it first.
+- For atom pairs that include a metal, bond formation or cleavage now requires a larger change in interatomic distance. With the default `bond.metal_delta_fraction` of 0.40, the required change is about 1.0 Å for Mg–O. All bond detection, including the IRC endpoint matching of `all` and `irc`, reads the YAML `bond` section.
 - Input alignment relaxations use the package L-BFGS defaults with the `gau` preset; the `--thresh` of `path-opt`, `path-search` and `all` no longer applies to them.
 - If a segment stops before IRC, `all` continues with the remaining segments. If an MEP is available, the command exits with code 0, and `summary.json` reports `"execution_status": "completed"` and `"scientific_status": "partial"`; `pipeline_stop` keeps the first stop and `stopped_segments` lists every stop.
 - When `all` runs without `--refine-path`, it skips segment creation and TS optimization for any interval whose highest-energy image is an endpoint, matching the behavior of `path-search` (`endpoint_hei`).
